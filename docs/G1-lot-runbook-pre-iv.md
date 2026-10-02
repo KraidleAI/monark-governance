@@ -354,3 +354,187 @@ RUNBOOK, les cinq portes, `red-proof` (tirage couvrant les deux tueurs neufs), R
   final, qui porte ce journal : il est cité dans `REPONSE.md`, par chemin et sha256 de son enregistrement.
 - Aucune dette nue : Q-1 (décision de l'orchestrateur avant le 3 octobre 00:00 UTC, remède mesuré joint), Q-R1 à Q-R5 et les Q-2 à
   Q-5 de la section 4 portent chacune son propriétaire et son déclencheur.
+
+## 8. Corrections Q-1 (2026-10-02 ; correcteur, instance fraîche, palier `claude-opus-5-5`, effort `max` ; R-1 : modèle résolu `claude-opus-5-5`)
+
+### 8.1 État trouvé (04:36:33Z à 04:45:40Z, heures lues à `date -u`)
+
+- Mission `F:/tmp/dojo/mission-corr-runbook-q1.md` recalculée AVANT lecture : sha256
+  `e7b89de7a3dae058d45572273e67c35e95c43972bf4741c7528192577da4d33c`, égal ; reçu `F:/tmp/dojo/mission-corr-runbook-q1.recu.json`,
+  verdict vert, `2026-10-02T04:36:06Z`, `head` = `bcc5a87a4501d427d45404a1d29d344d9d70caa0`.
+- Worktree : HEAD `bcc5a87a` (gel 1), branche `lot/runbook-pre-iv`, arbre propre (`git status`, lancé SANS `GIT_OPTIONAL_LOCKS=0` :
+  écart 8.4 (iii), sans écriture : index du worktree à mtime 04:34:13Z, antérieur à la mission) ; trois chemins
+  changés contre la base `d1120612`, octets égaux à la mission : RUNBOOK `05d06c13…4104`, test `7184331c…d391`, ce journal
+  `7524ff3f…ef0c`. Copies hors dépôt : `F:/tmp/dojo/runbook-q1/base/` (base : `11e1c3c5…e3d3`, `252fbcbb…5cc74`, égales à la section 1)
+  et `F:/tmp/dojo/runbook-q1/gel1/` (gel 1, égales au worktree).
+- Verrou d'hôte libre à 04:45:40Z (`held("F:/tmp")` de `F:/Monark/scripts/oracle/lock.mjs` : `null`) ; 12 node.exe, 14 887 Mo de mémoire
+  libre, 32 624 Mo de mémoire virtuelle libre.
+- Entrées lues en entier, dans l'ordre de la mission : `F:/tmp/dojo/runbook-deliver/REPONSE.md` ; ce journal (sections 1 à 7) ; le
+  RUNBOOK (§9, §14, §16 (2), §17 à Never) ; le test (`dojo_runbook_removes_the_packet_only_without_a_writer`, constante `IDLE` l.489) ;
+  `F:/tmp/dojo/runbook/q1-remedy.mjs` (`41785fa0…e7f6`) et `F:/tmp/dojo/runbook/q1-remedy-tests.tap` (`bb1d021f…0d55`, 23 verts).
+- Pièces de la décision : `docs/HANDOFF-2026-10-02-publication.md` du tronc (`603a5eeb…6510`) l.161 (créneau de 03:30 : unité `failed`
+  = sortie 1 attendue) et l.174-177 (04:34Z : `systemctl is-active` = `failed` ; décision : gardes `inactive` ou `failed`) ;
+  `apps/dojo/scripts/dojo-publish.mjs` (`516ce365…a914f`) l.196 (`history_missing`, un refus : sortie 1 par `runCli`, l.467) et l.203
+  (`nothing_to_publish`, un statut : sortie 0) ; systemd.service(5), copie locale de la section 7.1 [lu] l.132-135 : un `oneshot` sans
+  `RemainAfterExit=` n'entre jamais dans `active`, il passe de `activating` à `deactivating` ou `dead`.
+- Les cinq sites qui lisent l'état de l'unité (recherche de `is-active monark-dojo-publish` dans le RUNBOOK du gel 1) : l.571 (A-8 (2),
+  job), l.856 (retrait de (iii)), l.891 (job (iv)), l.928 (retrait de fin de (iv)), l.993 (`--unlock`, §19), tous à la lettre
+  `test "$(systemctl is-active monark-dojo-publish.service)" = inactive`. Les gardes de la collecte (l.247, l.257, unité
+  `monark-dojo-collect.service`) ne relèvent pas de la décision : inchangées. Les l.571, 891 et 993 portent l'adresse de l'hôte des
+  blocs existants : réécrites à l'identique sur ce point (aucune adresse neuve).
+
+### 8.2 Plan (écrit à 04:48:44Z, avant toute modification du RUNBOOK et du test)
+
+- **RUNBOOK, cinq gardes** : aux l.571, 856, 891, 928 et 993, `test "$(systemctl is-active monark-dojo-publish.service)" = inactive`
+  devient `systemctl is-active monark-dojo-publish.service | grep -qx -e inactive -e failed` (remède du G1 à la lettre ; précédent du
+  RUNBOOK, §9 l.335) : `inactive` ou `failed` admis ; `active`, `activating`, `deactivating`, toute autre sortie et la sortie vide
+  refusés (`-x` : ligne entière). Le reste de chaque ligne est inchangé. Aux deux retraits, `test ! -e /var/lib/monark-dojo/publish.lock`
+  reste la première commande du `if` (court-circuit de `&&` : l'état n'est lu que verrou absent). Les trois jobs `systemd-run` ne
+  reçoivent aucune garde de verrou en shell : l'éditeur prend `publish.lock` lui-même avant toute écriture (`takeLock`, `locked`,
+  `dojo-publish.mjs` l.400-409, refus `lock_held`), et `--unlock` court par définition verrou tenu (l.415).
+- **§17, une phrase** : un paragraphe d'une phrase après « Expected: `history_missing` at every start… » (l.691-695) : jusqu'à la ligne
+  `history`, chaque lancement sort 1 (`history_missing`) et l'unité, `Type=oneshot`, reste `failed` entre deux créneaux, son état normal
+  alors, jamais un arrêt (lu sur l'hôte le 2026-10-02 à 04:34 UTC) ; les gardes des sections 16, 18 et 19 admettent `inactive` ou
+  `failed` et refusent `active`, `activating`, `deactivating` ou toute autre sortie. Aucune autre ligne du RUNBOOK ne change.
+- **Prose voisine, NON touchée** (« Rien d autre ne change dans le RUNBOOK ») : l.552, l.861, l.887, l.932, l.990 et l.1006 (gel 1)
+  disent encore `inactive` ; question formée (Q-C1, 8.4), texte de remplacement exact par ligne, propriétaire l'orchestrateur.
+- **Test de Q-14, étendu (aucun test neuf)** : `IDLE` = `systemctl is-active <unité> | grep -qx -e inactive -e failed`. La première
+  assertion reste la première (deux retraits : rouge à la base par `ERR_ASSERTION`) ; le code neuf est fait d'assertions seules. (a) Modèle
+  du prédicat : les motifs `-e` de `IDLE` sont des mots `[a-z]+` (alors `grep -x` en BRE = égalité de ligne) ; `inactive` et `failed`
+  admis, `active`, `activating`, `deactivating`, `reloading` et la sortie vide refusés, chacun un cas nommé. (b) Balayage du RUNBOOK
+  ENTIER, aplati : chaque `systemctl is-active <unité>` est suivi de la queue exacte de `IDLE` puis de ` &&` ou de `; then ` ; cinq sites,
+  1, 3 et 1 dans les sections 16, 18 et 19. (c) Le contrôle rougit sur les trois classes du Review Focus : une garde qui admet `active`,
+  une garde restée à `= inactive`, un retrait dont l'état de l'unité précède le verrou ou va sans lui (forme « the checker reddens on »
+  de `dojo_runbook_never_prints_private_key`).
+- **Tueurs** : la phrase du §17 (4 lignes et une ligne vide) décale de 5 lignes tout ce qui suit l.696 : `:855` → `:860`, `:874` →
+  `:879`, `:893` → `:898`, `:949` → `:954` (même texte), vérifiés par `parseKiller` du tronc (occurrence unique sur la ligne visée) ;
+  `:460`, `:617` inchangés.
+- **Mesures** (verrou d'hôte libre et C-V-4 relus avant chaque course, une course à la fois ; TEMP `F:/tmp/dojo/runbook-q1/tmp`) : garde
+  d'octets et longueurs ; clone `--no-local` neuf sous `F:/tmp/dojo/runbook-q1/`, jonctions `mk-nm.ps1` ; les deux fichiers de test du
+  RUNBOOK ; `typecheck`, `lint`, `lint:ratchet`, `lang:gate`, `gate:vocab` ; R-25 par `r25.mjs` sur un commit de gel du clone ;
+  `red-proof.mjs --draw 2 --seed 20261002` (forme du G1) ; campagne `mutants/run.mjs --killers` plus une table des trois classes du
+  Review Focus (champ `test` = le test de Q-14) sur un clone neuf AVEC ses jonctions ; rejeu shell hors dépôt des deux retraits, `systemctl`
+  simulé (verrou absent ou tenu, puis `inactive`, `failed`, `active`, `activating`, `deactivating`) ; oracle du tronc `--role corr --key
+  runbook-pre-iv`, en arrière-plan, `GIT_OPTIONAL_LOCKS=0`.
+
+### 8.3 Réalisation (décision → fichier → test ; lignes de l'arbre corrigé)
+
+| Décision | `docs/RUNBOOK-dojo.md` (1 032 lignes) | `test/dojo-publish-deploy.test.ts` (538 lignes) |
+|---|---|---|
+| Q-1, cinq gardes | l.571 (A-8 (2)), l.861 (retrait de (iii)), l.896 (job (iv)), l.933 (fin de (iv)), l.998 (`--unlock`) | test de Q-14 l.481, `IDLE` l.489 |
+| Q-1, cas `active` refusé | (prédicat des cinq gardes) | l.500-507 : modèle du prédicat, sept sorties nommées |
+| Review Focus, trois classes | (les cinq gardes ; verrou en tête aux l.860 et l.932) | l.508-519 : balayage du RUNBOOK entier, contrôles |
+| Q-1, phrase du §17 | l.697-700 (paragraphe d'une phrase, après « Expected: `history_missing`… ») | aucun (la décision n'en demande pas) |
+| Q-2, Q-R1, Q-R2 | rien (la phrase de Q-13, l.939-942, garde l'exception du retrait du paquet) | aucun |
+
+- Gardes : à chacun des cinq sites, `test "$(systemctl is-active monark-dojo-publish.service)" = inactive` est devenu
+  `systemctl is-active monark-dojo-publish.service | grep -qx -e inactive -e failed`, le reste de la ligne inchangé (diff du gel 1 :
+  5 lignes remplacées, 5 lignes ajoutées au §17). Ligne la plus longue : 152 caractères (l.861, l.933).
+- Phrase du §17, première version reformulée avant toute mesure (entre 04:49:42Z, l'application, et 04:53:09Z) : elle citait en prose
+  `systemctl is-active monark-dojo-publish.service`, que le balayage du test compte comme une garde ; la version livrée dit
+  « `systemctl is-active` prints `failed` for it » (même sens, même nombre de lignes, le décalage des tueurs reste de 5).
+- Test de Q-14 : la première assertion (deux retraits) reste la première ; `IDLE` = `${READ} | grep -qx -e inactive -e failed`, `READ`
+  tiré de `D.DOJO_PUBLISH_UNIT` ; `REMOTE` inchangé dans sa forme (verrou d'abord, puis `IDLE`). Modèle : motifs `-e` en mots `[a-z]+`,
+  `inactive` et `failed` admis, `active`, `activating`, `deactivating`, `reloading` et la sortie vide refusés. Balayage : chaque
+  `systemctl is-active <unité>` du RUNBOOK aplati est suivi de la queue de `IDLE` puis de ` &&` ou de `; then ` ; [5, 1, 3, 1] pour le
+  texte entier et les sections 16, 18, 19. Contrôles : le balayage rougit sur `IDLE -e active` et sur `test "$(READ)" = inactive` mis à la
+  place du premier site ; `REMOTE` rougit sur un `if` dont l'état précède le verrou et sur un `if` sans verrou. Aucun shell lancé par le
+  test (CI ubuntu, oracle Windows ; aucun test du dépôt ne lance `sh`) : le rejeu shell réel est une mesure hors dépôt (8.5).
+- Réancrages des tueurs (même texte) : `:855` → `:860`, `:874` → `:879`, `:893` → `:898`, `:949` → `:954` ; `:460`, `:617` inchangés.
+- Tuyaux (règle Branchement) : entrée des gardes = l'état de l'unité (`systemctl is-active`) et, aux retraits, `publish.lock` de
+  `takeLock` ; sortie = le job ou le retrait, sinon arrêt (`PACKET-KEPT`, ou aucune sortie et code 1) ; composition rejouée par le test
+  de Q-14 (statique, non-LLM) et par le rejeu shell hors dépôt (8.5). Les trois jobs gardent le verrou dans l'éditeur (`lock_held`).
+
+### 8.4 Questions des corrections (Q-C*, propriétaire : orchestrateur)
+
+- **Q-C1 (prose voisine des gardes, URGENTE : avant 18 (iv) le 2026-10-03, et avant la G2 de la partie 3).** « Rien d autre ne change
+  dans le RUNBOOK » : la prose qui dit encore `inactive` n'est PAS touchée ; elle contredit désormais les gardes en quatre endroits.
+  Remplacements exacts proposés (lignes de l'arbre corrigé) :
+  (a) l.865-866 (18 (iii)) et (b) l.937 (fin de (iv)) : « or the unit is not `inactive`: nothing removed » → « or the unit runs (neither
+  `inactive` nor `failed`): nothing removed » : écrite, la prose donne `not inactive` pour cause de `PACKET-KEPT`, faux depuis Q-1 (une
+  unité `failed` sans verrou donne `PACKET-REMOVED`, rejeu 8.5) ;
+  (c) l.892 (18 (iv)) : « the unit `inactive` at that instant » → « the unit not running at that instant (`inactive`, or `failed` until
+  the `history` line: section 17) » (ligne à replier) : lue à la lettre, elle ferait arrêter l'opérateur sur `failed`, soit Q-1 réintroduit
+  par le texte au moment de l'acte irréversible ;
+  (d) l.995 (§19, `--unlock`) : « the unit `inactive`: » → « the unit not running (`inactive` or `failed`): » ;
+  (e) l.551-552 (§16, A-8) et l.1011 (§20, rotation) : justes en l'état (avant A-10 l'unité est `inactive` après le `reset-failed` de
+  A-5p, l.522 ; après la ligne `history` chaque lancement sort 0) ; alignement « not running » facultatif.
+  Prix : 0 ligne R-25 (`docs/**/*.md` hors assiette) ; aucun test n'épingle ces mots (recherche de `inactive` dans les deux fichiers de
+  test du RUNBOOK : les seules lignes sont celles du test de Q-14, l.488-515) ; ni test, ni tueur à changer ; lignes ≤ 160 à vérifier.
+- **Q-C2 (lecture déclarée de « le verrou reste vérifié en premier »).** Lu pour les deux retraits, seules gardes qui portent le verrou :
+  `test ! -e …/publish.lock` y reste la première commande du `if` (le test de Q-14 l'épingle, le mutant T6 le prouve). Les trois jobs
+  n'ont pas de garde de verrou en shell, avant comme après : l'éditeur prend `publish.lock` avant toute écriture et refuse `lock_held`
+  sans rien écrire (`dojo-publish.mjs` l.392-409), et `--unlock` court par définition verrou tenu (l.415). Une garde de verrou en shell
+  sur le job (iv) serait une décision neuve (impossible pour `--unlock`). Déclencheur : la G2 de la partie 3.
+- **Q-C3 (constat de méthode).** `docs/methode/REGLES-MISSION.md` du tronc a changé après la génération de la mission (commit `c7bde8bc`,
+  04:42:26Z : décision 300 précisée, plus aucune G2 ni G7 par lot) : sha256 `d86bb19d…01a5d6` contre `6470002…` insérée dans la mission.
+  La mission a couru sous sa version insérée (son cadre) ; les outils de la mission sont inchangés (sha256 relus après 04:59:44Z :
+  `run.mjs` `f22b9045…`, `r25.mjs` `4d0544df…`, `red-proof.mjs` `6579b550…`, `lint.mjs` `4d1383c8…`, `launch.mjs` `fb6c277f…`).
+- **Niveaux de source.** systemd.service(5) [lu] (copie locale, 8.1). systemctl(1) (`is-active` imprime l'état, une ligne) : non lu dans
+  ce lot (aucun réseau) ; appui de première main : la lecture de l'orchestrateur sur l'hôte (`failed`, HANDOFF l.175) et les gardes de la
+  collecte du même RUNBOOK (l.247, l.257) qui lisent la même sortie. Le modèle du test (`grep -x` sur des mots = égalité de ligne) est
+  contrôlé par le rejeu shell réel (8.5), douze cas concordants.
+- **Écarts de forme, déclarés.** (i) Deux séquences barre inverse tapées dans des lignes de commande Bash, hors heredoc et hors fichier :
+  `tr` avec un octal pour un contrôle `grep` (entre 04:48:44Z et 04:49:42Z, échoué sans effet : « Trailing backslash », refait par Node)
+  et `tr` avec un saut de ligne échappé dans un affichage (04:59:44Z) ; aucun fichier produit ne porte de barre inverse (comptées par
+  Node : 0). (ii) Le titre de 8.2 portait 04:49Z, corrigé à l'heure lue (04:48:44Z). (iii) Ma première commande git (après 04:36:33Z) a
+  lancé `git status` et `git diff --stat` dans le worktree SANS `GIT_OPTIONAL_LOCKS=0` (l'écart Q-6 du premier G1) : relevé à 05:15:23Z,
+  `F:/Monark/.git/worktrees/Monark-wt-runbook/index` porte mtime 04:34:13Z, antérieur : aucune écriture ; toutes les commandes git
+  suivantes portent `GIT_OPTIONAL_LOCKS=0` et `--no-optional-locks`. Relevé à la relecture, après le premier oracle : l'oracle est rejoué
+  sur l'arbre corrigé de ce journal (le premier enregistrement est gardé, cité comme intermédiaire dans `REPONSE.md`).
+
+### 8.5 Mesures sur l'arbre corrigé (heures `date -u` ; TEMP `F:/tmp/dojo/runbook-q1/tmp` ; `gate.sh` bloquant avant chaque course)
+
+- Empreintes livrées : `docs/RUNBOOK-dojo.md` `c10482a3ea177aebdd4a5e89ebfda530f06aba65391e4dcf87a63eee1cb7e964`,
+  `test/dojo-publish-deploy.test.ts` `ec9d3b859f6db5da2951707ff9196ade9858a86b288bf654aa3d423d303c7881` ; ce journal : `DELIVERED.sha256`.
+- Contrôle d'avant-course `F:/tmp/dojo/runbook-q1/gate.sh` (`8b6d2c11…ce47`, logique du `gate.sh` du G1) : sort 1 si le verrou d'hôte
+  est tenu, si node.exe > 40, si la mémoire libre < 4 096 Mo ou la virtuelle < 8 192 Mo ; ouvert avant chaque course ci-dessous.
+- Garde d'octets (`F:/tmp/dojo/runbook/bytecheck.mjs` du G1, `1fe17894…bb39`, lu seulement ; référence : copies du gel 1) : RUNBOOK
+  et test sans TAB ni octet de contrôle, fin LF, aucune ligne neuve de plus de 160 caractères (les 25 lignes longues du RUNBOOK sont
+  celles de la base), aucune barre inverse neuve ; test sans adresse IPv4 ; RUNBOOK : 63 lignes à adresse (gel 1 : 63, base : 62), une
+  seule adresse, la même que la base (ensembles comparés par sha256, adresse jamais affichée).
+- Tueurs (`F:/tmp/dojo/runbook/killers.mjs` du G1, `6cb787a4…353b`, `parseKiller` du tronc) : 14 lignes, 14 valides.
+- Clone `F:/tmp/dojo/runbook-q1/c1` (`--no-local`, HEAD `bcc5a87a`, les trois fichiers copiés, sha256 égaux ; jonctions `mk-nm.ps1`
+  à 04:53:31Z : 220 entrées, 11 `@monark`, 0 échec). Tests du RUNBOOK (04:53:42-45Z) : `dojo-publish-deploy` et `dojo-collect-deploy`,
+  23 tests, 23 verts ; `tests-1.tap` `82557d0499eb9b7ad699591259234ae44496d2357456ec0eb14fa006b4b59dde`.
+- Portes (04:53:56-04:55:09Z) : `typecheck` 0 (`--listFiles` : 770 fichiers, le test compris), `gate:vocab` OK (330 fichiers),
+  `lang:gate` 0 occurrence, `lint:ratchet` 69/69, `lint` 0 ; sorties `F:/tmp/dojo/runbook-q1/gate-*-1.txt`.
+- R-25 (`r25.mjs` du tronc par `r25-run.mjs` `c012d85b…417a`, commit de gel `0c7e7606` de `c1`, 04:55:36Z) : `STAT` 71 + 7 = 78 (borne CI
+  1 205 ; borne du lot 547), `CONTENT_STAT` 0, vert ; le test seul dans l'assiette (71/7 contre la base ; gel 1 : 50/7) ;
+  `r25-1.txt` `f964d4e022acbe59e906f3555847e2f8bd46a7a4bc5eb09be535f11922cb47e7`.
+- `red-proof` du tronc (04:55:50-04:56:22Z ; `--base d1120612 --gel F:/Monark-wt-runbook --repo F:/Monark --draw 2 --seed 20261002`) :
+  OK ; 2 jugés F2P (base : `ERR_ASSERTION`, la première assertion, `[2, [1]]` contre `[2, [1, 1]]` ; gel : verts), 12 inchangés ;
+  2 tueurs tirés (population 2), `:860` et `:879`, tués, fichiers restaurés au même sha256 ;
+  `F:/tmp/dojo/runbook-q1/red-proof-1/RED-PROOF.json` `5043ab9ebc243fd7996dbded33a34abe29cf413377378354b70054da6aaf26b3`.
+- Test corrigé sur le RUNBOOK du gel 1 (04:56:48Z, dans `c1`, RUNBOOK restauré ensuite à `c10482a3…`) : rouge par `ERR_ASSERTION`
+  (« the guard first… », la commande distante citée sans l'hôte) ; `gel1-runbook-q14.tap` `a8b0060c…a58f`.
+- Rejeu shell hors dépôt (04:57:34Z ; `guard-replay.mjs` `c90d0642…db96` : commandes extraites du RUNBOOK à la lettre, état porté sur
+  des répertoires neufs, `systemctl` simulé, Git Bash) : retrait = `PACKET-REMOVED` (paquet retiré) seulement verrou absent et état
+  `inactive` ou `failed` ; `active`, `activating`, `deactivating`, sortie vide, ou verrou tenu : `PACKET-KEPT`, sortie 1, paquet gardé ;
+  garde des trois jobs (égales) : départ seulement sur `inactive` ou `failed`, verrou tenu ou non (le verrou n'y est pas lu en shell :
+  l'éditeur refuse `lock_held`, Q-C2) ; `guard-replay-1.txt` `4c305ee7…a367` (douze cas).
+- Campagne de l'outil du tronc (04:58:50-04:59:20Z ; `mutants/run.mjs --killers --table mutants-table.mjs`, `mutants-table.mjs`
+  `a1c2efae…f086`, `--file docs/RUNBOOK-dojo.md`, cibles les deux fichiers de test du RUNBOOK, sur le clone neuf `c2` au gel `aad1ca04`
+  avec ses jonctions) : base 23/23 verte ; **21 / 21 tués**, chacun strict (`ERR_ASSERTION`), fichier restauré : T1 à T7 (une garde
+  qui admet `active`, `activating` ou `deactivating` ; une garde remise à `= inactive` au job (iv) et à `--unlock` ; un retrait sans
+  verrou ; un retrait qui lit l'état avant le verrou) par le test de Q-14 seul, K1 à K14 chacun par son test ;
+  `F:/tmp/dojo/runbook-q1/mutants-1/RESULTS.json` `a732edeb918ef9f07b2bdaeec5742ce14ae6ce866211ea4843827e9c94486266`.
+- Jonctions retirées par `rm-nm.ps1` (05:00:53-05:01:06Z) : `c1`, `c2`, `mutants-1/clone` ; `F:/Monark/node_modules` intact (220 entrées,
+  11 `@monark`, avant et après).
+- Scripts de travail (hors dépôt, sans barre inverse ni TAB) : `apply-q1.mjs` `09358f31…8dbe` (appliqué une fois, 04:49:42Z),
+  `gate.sh`, `r25-run.mjs`, `guard-replay.mjs`, `mutants-table.mjs` (empreintes ci-dessus), tous sous `F:/tmp/dojo/runbook-q1/`.
+
+### 8.6 Fin des corrections
+
+- Livrables : `docs/RUNBOOK-dojo.md`, `test/dojo-publish-deploy.test.ts` et ce journal (worktree, modifiés en place, non commis) ;
+  `F:/tmp/dojo/runbook-q1-deliver/REPONSE.md` et `DELIVERED.sha256`. L'oracle du tronc (rôle `corr`, clé `runbook-pre-iv`, base
+  `d1120612`) court sur l'arbre corrigé, qui porte ce journal : il est cité dans `REPONSE.md`, par chemin et sha256 de son enregistrement.
+- Déclarations : aucun `GIT_DIR`, aucun `GIT_WORK_TREE`, aucun `--write-tree` ni `git write-tree` ; dans le worktree et dans `F:/Monark`,
+  git en lecture seule (`--no-optional-locks`, `GIT_OPTIONAL_LOCKS=0`, sauf la première commande : 8.4 (iii), sans écriture) ;
+  écritures git seulement dans mes clones `c1` et `c2` (commits de gel) et dans les clones des outils du tronc ; rien commis, aucun
+  workflow (R-20). Aucun réseau, aucune clé, aucun accès à l'hôte ; aucun
+  fichier écrit par moi sur C: (TEMP et TMP sur F:, cache npm `F:/cache/npm` et ses journaux) ; aucun oracle arrêté ; aucune course
+  pendant le verrou d'un autre ; aucune adresse IP écrite dans le test, ce journal ni la réponse.
+- Aucune dette nue : Q-C1 (texte exact par ligne, prix, propriétaire, déclencheur avant 18 (iv)), Q-C2 (lecture déclarée, déclencheur
+  la G2 de la partie 3), Q-C3 (constat, sans acte) ; Q-1 de la section 7.4 : appliquée dans le périmètre décidé (8.3), la prose
+  qu'elle annonçait (« suivrait ») est Q-C1.

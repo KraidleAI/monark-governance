@@ -568,7 +568,7 @@ transient job with the unit's user, sandbox and credential (each property the un
 the unit's `UnsetEnvironment=` (F-2), as ONE argument, `"$U"`: `$S` is split on blanks, a list of names in it would split):
 
 ```bash
-ssh -i ~/.ssh/monark_vps root@178.16.131.29 'test "$(systemctl is-active monark-dojo-publish.service)" = inactive &&
+ssh -i ~/.ssh/monark_vps root@178.16.131.29 'systemctl is-active monark-dojo-publish.service | grep -qx -e inactive -e failed &&
 S="-p PrivateNetwork=yes -p NoNewPrivileges=true -p ProtectSystem=strict -p ProtectHome=true -p PrivateTmp=true
 -p ReadWritePaths=/var/lib/monark-dojo -p UMask=0022" && K="-p LoadCredential=dojo-signing-key:/etc/monark/dojo/signing-key.pem" &&
 U="--property=UnsetEnvironment=NODE_OPTIONS NODE_TLS_REJECT_UNAUTHORIZED NODE_EXTRA_CA_CERTS SSL_CERT_FILE SSL_CERT_DIR" &&
@@ -693,6 +693,11 @@ publishes d (`"day":"<d>"`: the day after the history's last day, closed before 
 or `nothing_to_publish` (the next day open, or published already). **STOP** on every other refusal (section 19), `day_missing` first
 (the day expected is not closed while a later day is: never waited out, B-1). Never a manual `--inbox` beside the timer (a second writer,
 TB-23). Rollback (a stop): `ssh -i ~/.ssh/monark_vps root@178.16.131.29 'systemctl disable --now monark-dojo-publish.timer'`.
+
+Until the `history` line, each start exits 1 (`history_missing`, above), so the unit (`Type=oneshot`) stays `failed` between two
+slots: `systemctl is-active` prints `failed` for it (read on the host on 2026-10-02 at 04:34 UTC), its normal state then and never a
+stop; each guard of sections 16, 18 and 19 on the unit admits `inactive` or `failed` (the unit not running) and refuses `active`,
+`activating`, `deactivating` or any other output (Q-1 of the G1 journal of RUNBOOK-PRE-IV).
 
 Each day also, read-only, the lock files of the state (DOJO-PUBLISH-SINGLE-WRITER-1; Q-10 and D3-1 below):
 
@@ -853,12 +858,12 @@ state by hand, this packet only (Never):
 
 ```bash
 ssh -i ~/.ssh/monark_vps root@178.16.131.29 'if test ! -e /var/lib/monark-dojo/publish.lock &&
-test "$(systemctl is-active monark-dojo-publish.service)" = inactive; then rm -r /var/lib/monark-dojo/history-packet && echo PACKET-REMOVED;
+systemctl is-active monark-dojo-publish.service | grep -qx -e inactive -e failed; then rm -r /var/lib/monark-dojo/history-packet && echo PACKET-REMOVED;
 else echo PACKET-KEPT; exit 1; fi'
 ```
 
-Expected: `PACKET-REMOVED`. `PACKET-KEPT` (Q-14 of the G2 inspection of part 2): a launch holds `publish.lock`, or the unit is not
-`inactive`: nothing removed, **STOP**: read the lock files (section 17) and the unit's journal; never a removal beside a writer.
+Expected: `PACKET-REMOVED`. `PACKET-KEPT` (Q-14 of the G2 inspection of part 2): a launch holds `publish.lock`, or the unit runs
+(neither `inactive` nor `failed`): nothing removed, **STOP**: read the lock files (section 17) and the unit's journal; never a removal beside a writer.
 Blockers: the acts of PR-2b and theirs (RG-SNAPSHOT-NONNEG-INT-1, DOJO-HISTORY-CROSS-INDEX-1, items Q-G2-4 of PR-2b-4).
 
 **The size of (iv)** (Q-12 of the G2 inspection of part 2), before each (iv), read-only, on the local copy of the packet that (iii)
@@ -884,11 +889,12 @@ orchestrator; any other output (a packet off its format): **STOP**.
 (iv) The `history` line (PR-3a-2), after (iii), before the first `snapshot`: ONE transient job with the unit's user, sandbox, credential,
 `UnsetEnvironment=` (as A-8 (2)), read-only inbox (the unit's `SupplementaryGroups=` and `ReadOnlyPaths=`: `--history` reads d in `bundles/`)
 and `InaccessiblePaths=` (the collect side's credentials, EnvironmentFile and ledger, as ONE argument `"$I"`, a list as `"$U"`), each property
-the unit's own (`dojo_runbook_jobs_carry_the_unit_properties`), the unit `inactive` at that instant and away from its four slots (one writer
-at a time: a timer start beside the job refuses `lock_held`, or the job does; nothing written either way):
+the unit's own (`dojo_runbook_jobs_carry_the_unit_properties`), the unit not running at that instant (`inactive`, or `failed` until
+the `history` line: section 17) and away from its four slots (one writer at a time: a timer start beside the job refuses `lock_held`, or
+the job does; nothing written either way):
 
 ```bash
-ssh -i ~/.ssh/monark_vps root@178.16.131.29 'test "$(systemctl is-active monark-dojo-publish.service)" = inactive &&
+ssh -i ~/.ssh/monark_vps root@178.16.131.29 'systemctl is-active monark-dojo-publish.service | grep -qx -e inactive -e failed &&
 S="-p PrivateNetwork=yes -p NoNewPrivileges=true -p ProtectSystem=strict -p ProtectHome=true -p PrivateTmp=true
 -p ReadWritePaths=/var/lib/monark-dojo -p UMask=0022 -p SupplementaryGroups=dojo-handoff -p ReadOnlyPaths=/var/lib/monark-dojo-collect/bundles" &&
 K="-p LoadCredential=dojo-signing-key:/etc/monark/dojo/signing-key.pem" &&
@@ -925,11 +931,11 @@ else escalation). Then the packet goes, under the guard of the act of (iii) (Q-1
 
 ```bash
 ssh -i ~/.ssh/monark_vps root@178.16.131.29 'if test ! -e /var/lib/monark-dojo/publish.lock &&
-test "$(systemctl is-active monark-dojo-publish.service)" = inactive; then rm -r /var/lib/monark-dojo/history-packet && echo PACKET-REMOVED;
+systemctl is-active monark-dojo-publish.service | grep -qx -e inactive -e failed; then rm -r /var/lib/monark-dojo/history-packet && echo PACKET-REMOVED;
 else echo PACKET-KEPT; exit 1; fi'
 ```
 
-Expected: `PACKET-REMOVED`; `PACKET-KEPT`: a launch holds `publish.lock`, or the unit is not `inactive`: nothing removed, **STOP**:
+Expected: `PACKET-REMOVED`; `PACKET-KEPT`: a launch holds `publish.lock`, or the unit runs (neither `inactive` nor `failed`): nothing removed, **STOP**:
 read the lock files (section 17) and the unit's journal; never a removal beside a writer. Then the offline check of A-8 (3) and (4)
 runs on a new mirror `public-seq<n>`: `verify_exit=0`. The next slot of the timer publishes d (section 17). Between the `history`
 line and that first `snapshot`, no act on the publisher (its state, its units) nor on `bundles/<d>`, the removal of the packet above
@@ -987,10 +993,10 @@ Escalation to the orchestrator before anything else; never an edit of the timeli
 written by a refused launch. Its detail names the owner: `running` (another launch writes: wait for its end, read the journal, never
 a second launch beside it); `not running: --unlock releases it` (a launch stopped mid-way: the act below, then the next start repairs
 the state from the committed timeline); `owner unreadable` (escalation; never removed by hand). The act, ONE transient job with the
-unit's user and sandbox, without the credential (`--unlock` reads no key), the unit `inactive`:
+unit's user and sandbox, without the credential (`--unlock` reads no key), the unit not running (`inactive` or `failed`):
 
 ```bash
-ssh -i ~/.ssh/monark_vps root@178.16.131.29 'test "$(systemctl is-active monark-dojo-publish.service)" = inactive &&
+ssh -i ~/.ssh/monark_vps root@178.16.131.29 'systemctl is-active monark-dojo-publish.service | grep -qx -e inactive -e failed &&
 S="-p PrivateNetwork=yes -p NoNewPrivileges=true -p ProtectSystem=strict -p ProtectHome=true -p PrivateTmp=true
 -p ReadWritePaths=/var/lib/monark-dojo -p UMask=0022" && C="/usr/bin/env node /opt/monark-dojo/apps/dojo/scripts/dojo-publish.mjs
 --unlock /var/lib/monark-dojo" && systemd-run --wait --pipe --collect --uid=dojo --gid=dojo $S $C'
