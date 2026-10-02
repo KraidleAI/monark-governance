@@ -21,10 +21,14 @@ const TOKEN_2022 = "TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb"; // ADR-DOJO-PR
 /** Creation (SIG0), ADR-DOJO-PR-2B section 1.2 l.74 (derived.json R2), D-8 (iv) l.368: 6 decimals, one mintTo of 10^15 base units. */
 export const DOJO_HISTORY_CREATION = Object.freeze({ signature: "2rgTPbFoaXnx4w9J1SxqFLSZoFu7yBNcQBR3hkHqZkyR4EpnUo2TuWAYUuCgr3G6LMpB3Yw4fya3iCkSZqH86uoU",
   slot: 445903343, blockTime: 1789049406, decimals: 6, supply: "1000000000000000" });
-/** Closed list of D-8 (vi) l.370: the types seen in the probe bodies (R-c, R-d) and those named by H-3 or the mere ADR. */
+/** Closed list of D-8 (vi) l.370: the types seen in the probe bodies (R-c, R-d) and those named by H-3 or the mere ADR; then the five of HISTORY-INS
+ *  (2026-10-01): initializeAccount and approve, seen near the mint in phase B of the provisional run, and their neighbours initializeAccount2,
+ *  approveChecked and revoke; LAST, the three of HISTORY-INS-2: withdrawExcessLamports, seen near it in phase C, amountToUiAmount, uiAmountToAmount.
+ *  None enters the supply (SUPPLY_TYPES) or gives a balance (pre/postTokenBalances only); the owner fallback of chainAccounts reads initializeAccount* only. */
 export const DOJO_HISTORY_INSTRUCTIONS = Object.freeze(["initializeMetadataPointer", "initializeMint2", "getAccountDataSize",
   "initializeImmutableOwner", "initializeAccount3", "initializeTokenMetadata", "updateTokenMetadataAuthority", "mintTo", "setAuthority",
-  "transferChecked", "transfer", "closeAccount", "burn", "burnChecked", "mintToChecked"] as const);
+  "transferChecked", "transfer", "closeAccount", "burn", "burnChecked", "mintToChecked",
+  "initializeAccount", "initializeAccount2", "approve", "approveChecked", "revoke", "withdrawExcessLamports", "amountToUiAmount", "uiAmountToAmount"] as const);
 const SUPPLY_TYPES: readonly unknown[] = ["mintTo", "mintToChecked", "burn", "burnChecked"]; // D-5 l.319-320
 const DAY = 86400; // D-3 l.229: day(t) = floor(blockTime(t) / 86 400)
 const UNPARSED = "unparsed"; // an unparsed Token-2022 instruction on the mint: its type is unknown, (vi) refuses it (D-8 l.370)

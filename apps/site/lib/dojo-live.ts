@@ -20,9 +20,9 @@ export interface DojoLiveReader { read(): Promise<{ done: boolean; value?: Uint8
 export interface DojoLiveResponse { readonly status: number; readonly body: { getReader(): DojoLiveReader } | null }
 export type DojoLiveGet = (rel: string, signal: AbortSignal) => Promise<DojoLiveResponse>;
 export interface DojoLiveDeps { sha256: Sha256; verifyEd25519: VerifyEd25519; get: DojoLiveGet; bounds?: DojoLiveBounds }
-/** reread: the new head, rendered through the same figures as the committed one, and its lines as served; key_change: the new lines
+/** reread: the new head, rendered through the same figures as the committed one, its lines as served and the anchor in force at it; key_change: the new lines
  *  carry a key change, not followed here; fallback: anything else. In the last two cases the page shows the committed figures and says so. */
-export type DojoLiveOutcome = { kind: "reread"; head: DojoServedHead; rows: readonly string[] } | { kind: "key_change"; seq: number }
+export type DojoLiveOutcome = { kind: "reread"; head: DojoServedHead; rows: readonly string[]; anchor: Line } | { kind: "key_change"; seq: number }
   | { kind: "fallback"; seq: number | null; why: string };
 
 /** The bounds of the reader's tool (VERIFY_BOUNDS, apps/dojo/scripts/dojo-verify.mjs), restated and never imported; the root test pins
@@ -286,7 +286,7 @@ async function project(head: { l: Line; hash: string; anchor: Line }, versions: 
     holders_count: h.holders_count as number | null, price_version: pv, threshold_unit: version === null ? null : (version.threshold_unit as string),
     dust_threshold: version === null ? null : (version.dust_threshold as string), decimals: h.decimals as number, k_reads: head.anchor.k_reads as number,
     reads_done: m.length, slot_min: m.length === 0 ? null : Math.min(...m), slot_max: M.length === 0 ? null : Math.max(...M), line_hash: head.hash,
-    key_id: h.key_id as string, published_at: h.published_at as string }, rows };
+    key_id: h.key_id as string, published_at: h.published_at as string }, rows, anchor: head.anchor };
 }
 
 /** The lines of a lines file AS SERVED (each without its LF), bound to the signed line that names it (the reread's new head, or the

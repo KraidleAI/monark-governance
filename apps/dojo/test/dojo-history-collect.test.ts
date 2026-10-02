@@ -147,6 +147,7 @@ test("dojo_history_x10_guard_refuses_before_any_lock", async () => {
     ["refused inputs_mismatch", null], "two enumeration slots in the first day read: --cut at min E_e refused, at max E_e accepted");
 });
 
+// killer: apps/dojo/src/history-read.ts:206 CONST "string[])" -> "string[]).slice(0, 15)"
 test("dojo_history_budget_stops_fail_closed", async () => {
   const f = fresh(1060, 10), R = sim.txs.filter(ok).length, evid = join(f.state, "evidence");
   assert.equal(await run(f, "A"), null);
@@ -194,9 +195,13 @@ test("dojo_history_budget_stops_fail_closed", async () => {
   Object.assign(sim, { reqs: [], override: (r: Req) => (r.method === "getTransactionsForAddress" ? new Response("busy", { status: 500 }) : undefined) });
   assert.deepEqual([await run(t5, "B"), sim.reqs.length], ["transport_fault", 4]);
   // Composition (DOJO-HISTORY-CHECKS-COMPOSITION-1): each check stops phase B fail-closed, partial, no publish/.
+  const retype = (w: Tx[], type: string): void => { // HISTORY-INS: the type of the first instruction of the third transaction that succeeds
+    const m = (w.filter(ok)[2]?.body.transaction as { message: { instructions: { parsed: { type: string } }[] } }).message;
+    (m.instructions[0] as { parsed: { type: string } }).parsed.type = type;
+  };
   const probes: [string, (w: Tx[]) => void][] = [
     ["supply_mismatch", (w) => { ((w.filter(ok)[1]?.body.transaction as { message: { instructions: unknown[] } }).message.instructions).push({ programId: T22, parsed: { type: "mintTo", info: { mint: MINT, account: key("x"), amount: "5" } } }); }],
-    ["instruction_not_allowed", (w) => { (((w.filter(ok)[2]?.body.transaction as { message: { instructions: { parsed: { type: string } }[] } }).message.instructions[0] as { parsed: { type: string } }).parsed.type = "approve"); }],
+    ["instruction_not_allowed", (w) => { retype(w, "freezeAccount"); }], // outside the closed list (approve was, until HISTORY-INS)
     ["creation_mismatch", (w) => { const s = structuredClone(w[0]?.body) as { meta: { innerInstructions: { instructions: { parsed?: { type: string; info: { decimals?: number } } }[] }[] } };
       for (const g2 of s.meta.innerInstructions) for (const i of g2.instructions) if (i.parsed?.type === "initializeMint2") i.parsed.info.decimals = 9;
       (w[0] as Tx).body = s; }],
@@ -210,6 +215,9 @@ test("dojo_history_budget_stops_fail_closed", async () => {
     assert.deepEqual([await run(h, "A"), await run(h, "B")], [null, want], `composed check: ${want}`);
     assert.deepEqual([json(join(h.state, "evidence", "status.json")).stop_reason, existsSync(join(h.state, "publish")), lastRun(h, "checks.json").composed], [want, false, null]);
   }
+  const hins = fresh(); // HISTORY-INS: approve on the mint, at the place of the refused probe above, passes the composed checks of phase B
+  retype(sim.txs, "approve");
+  assert.deepEqual([await run(hins, "A"), await run(hins, "B")], [null, null], "an added type (HISTORY-INS) passes the composed checks");
   // The close of PR-2b-4 composes the same checks before historyBundle: SIG0 (fixtures), the first day read written by PR-2's writer.
   const fx = (n: string): unknown => JSON.parse(Buffer.from(JSON.parse(readFileSync(new URL(`./fixtures/history/${n}`, import.meta.url), "utf8")) as string, "hex").toString("utf8"));
   const x = admit(sim.txs[0]?.sig ?? "", fx("sig0.a.json"), fx("sig0.b.json"), MINT), txs = x.kind === "admitted" ? [x.tx] : ([] as Body[]), s0 = sim.txs[0] as Tx;

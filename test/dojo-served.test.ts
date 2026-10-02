@@ -63,17 +63,21 @@ const tokens = (raw: string, d: number): string => {
 /** The figures a reader recomputes by hand from the served tree: the last snapshot line, its lines file, the anchor, the version. */
 function expected(tree: Tree): Rec {
   const lines = (tree.get("timeline.jsonl") ?? Buffer.alloc(0)).toString().trimEnd().split("\n").map((s) => JSON.parse(s) as Rec);
-  const head = lines.filter((l) => l.kind === "snapshot").pop() ?? {}, anchor = lines.find((l) => l.kind === "anchor") ?? {};
+  const head = lines.filter((l) => l.kind === "snapshot").pop() ?? {};
+  const anchor = lines.filter((l) => l.kind === "anchor" && Number(l.seq) < Number(head.seq)).pop() ?? {}; // the anchor in force at the head
   const v = lines.find((l) => l.kind === "price_version" && l.price_version === head.price_version) ?? {}, d = head.decimals as number;
-  if (head.status === "abstained") return { state: "EA", day: head.day, ...(head.price_version === null ? {} : { threshold_unit_token_days: tokens(String(v.threshold_unit), d) }) };
+  const w = { validation_days: String(anchor.validation_days) }; // the window of the anchor in days, the method sentence's figure in every state
+  if (head.status === "abstained") return { state: "EA", day: head.day, ...w,
+    ...(head.price_version === null ? {} : { threshold_unit_token_days: tokens(String(v.threshold_unit), d) }) };
   const raw = (tree.get(`lines/${String(head.lines_sha256)}.jsonl`) ?? Buffer.alloc(0)).toString().split("\n").filter((s) => s !== "");
   const objs = raw.map((s) => JSON.parse(s) as Rec), sum = (k: string): string => String(objs.reduce((t, o) => t + BigInt(String(o[k])), 0n));
   const reads = head.reads as Rec[], slots = (k: string): number[] => reads.map((r) => r[k]).filter((x): x is number => typeof x === "number");
   const out: Rec = { state: head.price_version === null ? "E1" : "E2", day: head.day, reads_done: String(slots("slot_min").length), k_reads: String(anchor.k_reads), slot_min: String(Math.min(...slots("slot_min"))),
     slot_max: String(Math.max(...slots("slot_max"))), lines_count: String(raw.length), root: merkle(raw).toString("hex"), score_total: tokens(sum("score"), d), validated_total: tokens(sum("validated"), d) };
+  Object.assign(out, w);
   if (head.price_version === null) return out;
   return { ...out, threshold_unit_token_days: tokens(String(v.threshold_unit), d), holders_count: String(objs.filter((o) => o.holder_counted === true).length),
-    dust_threshold_tokens: tokens(String(v.dust_threshold), d) };
+    dust_threshold_tokens: tokens(String(v.dust_threshold), d), migration_days: String((anchor.tier_windows as number[])[4]) };
 }
 /** The committed facts a reader recomputes from the served bytes: the last snapshot line's hash (SHA-256 of its canonical bytes as
  *  served), its key and instant, the counts of lines and snapshots, the SHA-256 of the timeline and of the served key set. */
@@ -387,4 +391,30 @@ test("dojo_sync_get_holds_its_contract", async () => {
   assert.equal((await get(whole).catch(String)).length, bound, "a body of exactly the bound, so declared, is read whole (the reader's bound)");
   await assert.rejects(get(new Response(streamed.s, { status: 200 })), /exceeds the reader's bound/, "no content-length: the stream is cut");
   assert.ok(streamed.st.pulled <= bound + block.length && streamed.st.cancelled, "the read stopped at the bound and the body was cancelled");
+});
+
+// killer: scripts/sync-dojo-served.mjs:125 CONST "jsonDepth(s) > DOJO_SERVED_MAX_DEPTH ? null : JSON.parse(s)" -> "JSON.parse(s)"
+test("dojo_sync_measures_a_line_before_parsing_it", async () => {
+  // A served timeline line nested past the depth bound never reaches JSON.parse in the sync (a cost, not a recursion: JSON.parse is
+  // iterative): it names no file, and the build refuses it by name, as the walk refuses it at its seq; nothing is written.
+  const { committed, e2 } = trees(), NL = String.fromCharCode(10), tl = e2.get("timeline.jsonl") ?? assert.fail("a timeline");
+  const seq = tl.toString().split(NL).length, parse = JSON.parse, parsed: string[] = [];
+  const cases: Array<[string, string]> = [["a JSON line nested past the bound", `{"kind":"note","x":${"[".repeat(40)}${"]".repeat(40)}}`],
+    ["a text past the bound that is not JSON", "{".repeat(17)]];
+  JSON.parse = ((text: string, reviver?: Parameters<typeof parse>[1]): unknown => {
+    if (typeof text === "string" && (text.includes("[".repeat(17)) || text.includes("{".repeat(17)))) parsed.push(text.slice(0, 24));
+    return parse(text, reviver);
+  }) as typeof JSON.parse;
+  try {
+    for (const [name, line] of cases) {
+      const tree = new Map(e2).set("timeline.jsonl", Buffer.concat([tl, Buffer.from(line + NL)])), d = syncRoot(committed, caOf(e2));
+      const before = readFileSync(join(d, MANIFEST_REL));
+      try {
+        const named = new RegExp(`the timeline does not walk under the committed keyring [(]seq ${String(seq)}: timeline_malformed[)]`);
+        await assert.rejects(syncIn(d, tree), named, `${name}: refused by name`);
+        assert.ok(!existsSync(join(d, OUT_REL)) && readFileSync(join(d, MANIFEST_REL)).equals(before), `${name}: nothing written`);
+      } finally { drop(d); }
+    }
+  } finally { JSON.parse = parse; }
+  assert.deepEqual(parsed, [], "no text past the bound reached JSON.parse");
 });

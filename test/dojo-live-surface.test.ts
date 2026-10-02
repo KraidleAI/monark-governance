@@ -20,10 +20,11 @@ import { buildDojoServed, loadDojoServed, DOJO_HOST, DOJO_PUBKEY_PATH, DOJO_SERV
   type DojoServedHead } from "../apps/site/lib/dojo-served-load.ts";
 import * as copy from "../apps/site/lib/dojo-copy.ts";
 import { dojoExpected } from "../scripts/assert-fleet-html.mjs";
-import { FIRST, at, dojoFixture, dojoKeyringOf, dojoSpreadFixture, newKey, render, type Step } from "../apps/dojo/test/helpers/dojo-fixture.ts";
+import { ANCHOR_DAY, FIRST, anchorBody, at, betaOf, linesOf, readsOf, dojoFixture, dojoKeyringOf, dojoSpreadFixture, newKey, render, seedChain, snapshotBody,
+  type Step } from "../apps/dojo/test/helpers/dojo-fixture.ts";
 import { walkDojoTimeline } from "../apps/dojo/scripts/dojo-chain.mjs";
 import { dojoTrustOf, verifyDojoServed } from "../apps/dojo/scripts/dojo-verify.mjs";
-import { rootOf } from "../apps/dojo/scripts/dojo-core.mjs";
+import { readInstants, rootOf } from "../apps/dojo/scripts/dojo-core.mjs";
 import { canonical, keyIdOf, lineHash, type Trust } from "../apps/bell/scripts/bell-chain.mjs";
 
 type Tree = Map<string, Buffer>;
@@ -85,18 +86,25 @@ async function e1(): Promise<{ f: ReturnType<typeof dojoFixture>; k: Rec; r1: Re
 }
 
 // killer: apps/site/lib/dojo-served.ts:143 CONST "head: o.head" -> "head: committed.head"
+// killer: apps/site/lib/dojo-served.ts:232 CONST "w[4]" -> "w[3]"
 test("dojo_live_renders_through_the_same_figures", async () => {
   const viewOf = added("dojoLiveViewOf"), firstOf = added("dojoFirstViewOf"), bodyOf = added("dojoBodyOf");
   const { k, r1, c, e2 } = await e1(), r2 = await recordOf(e2, k), after = await loaded(r2);
   const fixed = [copy.DOJO_TITLE, T.lead, T.method, T.exclusion, T.bounds, T.check, T.tree, T.beacon, T.rereadFirst, T.table];
   /** The sentences the build check composes apart for a record (dojoExpected), those that carry figures. */
   const built = async (r: Rec): Promise<string[]> => {
-    const e = await atRoot(r, (dir) => dojoExpected(dir));
+    const e = await atRoot(r, (dir) => dojoExpected(dir)), method = T.method.split("{")[0] ?? T.method;
     assert.ok(e.state !== "E0" && e.sentences.includes(T.rereadFirst), "every built page carries the reread's first sentence (TXT-14r)");
     assert.ok(e.sentences.includes(T.table), "and, its head counted, the first sentence of the table of every line (TXT-17)");
-    return e.sentences.filter((s) => !fixed.includes(s)).sort();
+    return e.sentences.filter((s) => !fixed.includes(s) && !s.startsWith(method)).sort(); // the method sentence: the page's, below
   };
   const first = firstOf(c, T), v = await viewOf(c, wired(c, e2).deps);
+  // Every state carries the validation window of the committed anchor in days, the one figure of the method sentence the page renders.
+  assert.deepEqual([first.figures.validation_days, v.figures.validation_days], [String(c.timeline.anchor.validation_days),
+    String(c.timeline.anchor.validation_days)], "the anchor's window, before and after the reread");
+  // Under a version, the Migration window of the committed anchor in days, tier_windows[4], the tier sentence's figure (DURATIONS-DERIVED-1).
+  const window4 = String((c.timeline.anchor.tier_windows as number[])[4]), mig = v.figures.state === "E2" ? v.figures.migration_days : null;
+  assert.deepEqual([v.figures.state, mig], ["E2", window4], "the anchor's Migration window, after the reread under a version");
   assert.deepEqual([first.note, v.note], [T.rereadFirst, T.rereadDone], "the first paint says TXT-14r; a reread where every check holds, TXT-14a");
   assert.deepStrictEqual(first.figures, served.dojoPageFiguresOf(c), "the first paint: the committed figures");
   assert.deepStrictEqual(v.figures, served.dojoPageFiguresOf(after), "the reread head's figures: those of the build of the same served tree");
@@ -105,8 +113,9 @@ test("dojo_live_renders_through_the_same_figures", async () => {
   // One order, the page's: the head's sentence, the view's own sentence, the totals (never on an abstained day), the holders (E2), the
   // unit or the absence of a version, the tier (E2).
   assert.equal(shown(v)[1], T.rereadDone, "the view's sentence right after the head's sentence: the age of the figures is never hidden");
-  const day = { day: "d" }, counted = { ...day, reads_done: "r", k_reads: "k", slot_min: "a", slot_max: "b", lines_count: "n", root: "h", score_total: "s",
-    validated_total: "v" }, unit = { threshold_unit_token_days: "u", dust_threshold_tokens: "t" };
+  const day = { day: "d", validation_days: "w" };
+  const counted = { ...day, reads_done: "r", k_reads: "k", slot_min: "a", slot_max: "b", lines_count: "n", root: "h", score_total: "s",
+    validated_total: "v" }, unit = { threshold_unit_token_days: "u", dust_threshold_tokens: "t", migration_days: "m" };
   const orders: Array<[served.DojoShownFigures, served.DojoBodyKey[]]> = [[{ state: "E1", ...counted }, ["counted", "totals", "noVersion"]],
     [{ state: "E2", ...counted, ...unit, holders_count: "1" }, ["counted", "totals", "holder", "tiers", "tier"]],
     [{ state: "E2", ...counted, ...unit, holders_count: "2" }, ["counted", "totals", "holders", "tiers", "tier"]],
@@ -118,6 +127,22 @@ test("dojo_live_renders_through_the_same_figures", async () => {
   assert.deepEqual([text(v).includes(after.head.day), text(v).includes(c.head.day)], [true, false], "a reread: its own day only");
   assert.deepEqual([fb.note, text(fb).includes(c.head.day), text(fb).includes(after.head.day)], [T.rereadFallback, true, false],
     "a fallback: the committed day only");
+});
+
+// killer: apps/site/lib/dojo-served.ts:143 CONST "anchor: o.anchor" -> "anchor: committed.timeline.anchor"
+test("dojo_live_reread_takes_the_anchor_in_force", async () => {
+  // C-1 of the targeted G2 of SITE-CORR (its probe P2): a served chronology where a new anchor line (Migration at 90 days, its own seed
+  // chain, the day after the last read day) follows the committed head, then one snapshot under the version in force. The reread view
+  // composes its figures with the anchor in force at the head it shows, as the build of the same served tree does (the lot's invariant).
+  const viewOf = added("dojoLiveViewOf"), f = dojoFixture(), k = dojoKeyringOf([[f.key, 1]]), c = await loaded(await recordOf(render(f.steps), k));
+  const seed2 = seedChain("dojo-live-anchor-in-force", 40), day = ANCHOR_DAY + 10;
+  const a2: Step = { key: f.key, body: { ...anchorBody(seed2(0), 40, day), tier_windows: [30, 30, 30, 30, 90] } };
+  const tree = render([...f.steps, a2, { key: f.key, body: snapshotBody(day + 1, seed2(1), 1) }]), after = await loaded(await recordOf(tree, k));
+  const v = await viewOf(c, wired(c, tree).deps), mig = (x: served.DojoPageFigures): string | null => (x.state === "E2" ? x.migration_days : null);
+  assert.deepEqual([c.timeline.anchor.seq, after.timeline.anchor.seq, v.note, v.head?.seq], [1, 13, T.rereadDone, 14], "a reread past a new anchor");
+  assert.deepEqual([mig(served.dojoPageFiguresOf(c)), mig(v.figures), v.figures.validation_days], ["180", "90", "30"],
+    "the committed anchor's Migration window, then, after the reread, that of the anchor in force");
+  assert.deepStrictEqual(v.figures, served.dojoPageFiguresOf(after), "the reread head's figures: those of the build of the same served tree");
 });
 
 // killer: apps/site/lib/dojo-served.ts:124 CONST "!(await deps.verifyEd25519(key.public_key.x, bent, sig))" -> "true"
@@ -175,11 +200,14 @@ test("dojo_site_proxy_snippet_is_outside_the_page_route", async () => {
 test("dojo_sentence_refuses_a_figure_the_state_lacks", async () => {
   const parts = added("sentenceParts"), viewOf = added("dojoLiveViewOf");
   const e1f: served.DojoShownFigures = { state: "E1", day: "d", reads_done: "r", k_reads: "k", slot_min: "a", slot_max: "b", lines_count: "n", root: "h",
-    score_total: "s", validated_total: "v" };
+    score_total: "s", validated_total: "v", validation_days: "w" };
   const totals = ["Total hold score: ", { name: "score_total", value: "s" }, " · validated: ", { name: "validated_total", value: "v" }, ""];
   assert.deepEqual(parts(T.totals, e1f), totals, "the fixed parts and the figures, in order, read by name");
-  const lacking: Array<[string, served.DojoShownFigures, string]> = [[T.totals, { state: "EA", day: "d" }, "score_total"],
-    [T.tiers, e1f, "threshold_unit_token_days"], ["{state}", e1f, "state"]];
+  // The method sentence names one figure, the anchor's validation window in days; figures without it are refused like any lacking one.
+  assert.deepEqual(parts(T.method, e1f).filter((p) => typeof p !== "string"), [{ name: "validation_days", value: "w" }], "the method sentence's figure");
+  const windowless = Object.fromEntries(Object.entries(e1f).filter(([k]) => k !== "validation_days")) as unknown as served.DojoShownFigures;
+  const lacking: Array<[string, served.DojoShownFigures, string]> = [[T.totals, { state: "EA", day: "d", validation_days: "w" }, "score_total"],
+    [T.tiers, e1f, "threshold_unit_token_days"], ["{state}", e1f, "state"], [T.method, windowless, "validation_days"]];
   for (const [text, figures, name] of lacking) {
     assert.throws(() => parts(text, figures), new RegExp(`the sentence names ${name}, a figure this state does not carry`), `${name} (C-17)`);
   }
@@ -256,8 +284,9 @@ test("dojo_live_calls_the_reread_without_bounds", () => {
     "the head's sentence (its day), the view's own right after it (QF-3), then the others: each once, in this order (C-G2-1)");
   assert.equal(count('import type { DojoServedData } from "@/lib/dojo-served-load";'), 1, "the loader, which reads files, as a type only");
   const page = readFileSync(join(ROOT, "apps", "site", "app", "dojo", "page.tsx"), "utf8"), inPage = (s: string): number => page.split(s).length - 1;
-  assert.deepEqual([inPage("<DojoLive committed={data} />"), inPage("DojoSentence"), inPage("T.reread")], [1, 0, 0],
-    "the page renders its figures section through the reread component, and no sentence of the reread of its own (M-L11)");
+  assert.deepEqual([inPage("<DojoLive committed={data} />"), inPage("DojoSentence"), inPage("<DojoSentence text={T.method} figures={figures} />"),
+    inPage("T.reread")], [1, 2, 1, 0], "the page renders its figures section through the reread component, the method sentence's one figure "
+    + "(the anchor's window) through DojoSentence, and no sentence of the reread of its own (M-L11)");
 });
 
 // killer: apps/site/lib/dojo-served.ts:91 CONST "h.slot_min > h.slot_max" -> "false"
@@ -322,4 +351,27 @@ test("dojo_live_says_a_key_change", async () => {
   assert.deepEqual([w.ok, w.ok ? null : w.reason], [false, "key_not_active"], "the walker refuses that line");
   const v = await viewOf(c, wired(c, tree).deps);
   assert.deepStrictEqual([v.note, v.figures], [T.rereadKeyChange, served.dojoPageFiguresOf(c)], "TXT-14d, the committed figures");
+});
+
+// killer: apps/site/lib/dojo-served.ts:143 CONST "anchor: o.anchor" -> "anchor: { ...o.anchor, validation_days: committed.timeline.anchor.validation_days }"
+// killer: apps/site/lib/dojo-live.ts:264 CONST "project(head, st.versions" -> "project({ ...head, anchor: st.anchor as Line }, st.versions"
+// killer: apps/site/lib/dojo-live.ts:287 CONST "k_reads: head.anchor.k_reads as number" -> "k_reads: c.k_reads"
+test("dojo_live_reread_takes_every_figure_of_the_anchor_in_force", async () => {
+  // G2 SITE-CORR-3, price of its C-1 (probe P4, S5 and S9): a new anchor that moves the three figures it carries (k_reads 3, validation 25,
+  // Migration 90), then a snapshot of three readings under it; then the same anchor after the last snapshot, none under it.
+  const viewOf = added("dojoLiveViewOf"), f = dojoFixture(), k = dojoKeyringOf([[f.key, 1]]), c = await loaded(await recordOf(render(f.steps), k));
+  const seed2 = seedChain("dojo-live-every-figure", 40), day = ANCHOR_DAY + 10, s = seed2(1), beta = betaOf(day + 1), r4 = readsOf(day + 1, s, beta);
+  const iso = (x: number): string => new Date(x * 1000).toISOString();
+  const reads = readInstants(s, beta, 3, (day + 1) * 86_400, 900).map((t: number, j: number) => ({ ...r4[j], instant: iso(t), read_at: iso(t + 60),
+    usd_per_sol_publish_time: r4[j]?.usd_per_sol === null ? null : t - 41 }));
+  const a2: Step = { key: f.key, body: { ...anchorBody(seed2(0), 40, day), k_reads: 3, validation_days: 25, tier_windows: [30, 30, 30, 30, 90] } };
+  const steps = [...f.steps, a2, { key: f.key, body: { ...snapshotBody(day + 1, s, 1), reads } }], i = steps.length - 1;
+  const tree = render(steps, new Map([[i, linesOf(steps, i).map((l) => ({ ...l, reads: l.reads.slice(0, 3) }))]]));
+  const after = await loaded(await recordOf(tree, k)), v = await viewOf(c, wired(c, tree).deps);
+  const three = (x: served.DojoPageFigures): string[] => (x.state === "E2" ? [x.k_reads, x.validation_days, x.migration_days] : []);
+  assert.deepEqual([three(served.dojoPageFiguresOf(c)), three(v.figures)], [["4", "30", "180"], ["3", "25", "90"]], "the three figures move");
+  assert.deepStrictEqual(v.figures, served.dojoPageFiguresOf(after), "the reread head's figures: those of the build of the same served tree");
+  const trailing = render([...f.steps, a2]), t = await viewOf(c, wired(c, trailing).deps);
+  assert.deepStrictEqual([t.head?.seq, t.figures], [12, served.dojoPageFiguresOf(await loaded(await recordOf(trailing, k)))],
+    "an anchor after the last snapshot: the figures of the anchor in force at the head shown, as the build of that tree");
 });

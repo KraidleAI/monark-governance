@@ -1001,3 +1001,43 @@ Arithmétique sur `derived.json` R4 (pic 6 467, N = 23 628, 5 714 échecs, 17 jo
   - **2b4/Q-G2-4** : le journal épingle les sha de `history-collect.ts`, `history-read.ts`, `history-build.ts` : tout item qui les touche passe AVANT le go de l acte 1 (sinon `inputs_mismatch` à la reprise). Items concernés : REASONS-FOLD-1, METHODS-HOME-1 (mini-lot), JOURNAL-TAIL-1, B1R-MINT-CHECK-1, DOJO-HISTORY-FIRSTREAD-TWO-SLOTS-1 (Q-C-1), RG-SNAPSHOT-NONNEG-INT-1 (toujours ouvert, bloque l acte 1).
   - **2b4/Q-C-2** : X peut compter des signatures hors de R ; `checkBounds` rapporte X à |R| : plus strict, gardé et déclaré.
   - **CA-11** : « à brancher » (e2e composé en test ; DOJO-HISTORY-ACTE-1 reste un acte) ; registre `upcoming`.
+
+- **Ligne datée (orchestrateur, 2026-10-01 18:0x UTC ; lot HISTORY-INS ; D-8 (vi) l.370 ; ajout seul)** : la liste fermée de (vi) est étendue de cinq types et
+  de rien d autre : `initializeAccount` et `approve`, vus « proches » du mint en phase B de la course provisoire (3 et 1 fois sur 25 409
+  transactions des pages brutes `F:/PRODUITS/dojo-history/provisional-2026-10-01/evidence/raw/B/helius/` ; sondes `scan-ins2.mjs`
+  `d2587478…`, `probe-shapes.mjs` `60bf0811…`, `probe-owner.mjs` `2c9a10e6…`), et leurs voisins de même classe `initializeAccount2`,
+  `approveChecked` et `revoke`. Aucun n entre dans l offre (`SUPPLY_TYPES` inchangé : `mintTo`, `mintToChecked`, `burn`, `burnChecked`) ;
+  aucun ne fournit un solde (les soldes viennent de `pre/postTokenBalances`) ; le repli de propriétaire de D-5 l.329 lit `info.owner` des
+  seuls `initializeAccount*` (formes `jsonParsed` de `parse_token.rs` l.92-127, l.180-219, l.388-410, copie `50370cf4…`, FAITS L-10).
+  Une instruction non analysée et tout autre type restent refusés (`instruction_not_allowed`). Dans les quatre transactions observées,
+  chaque entrée du mint porte son propriétaire : le repli n y est pas atteint. Tests : `dojo_history_ins_added_types_pass_near_the_mint`,
+  `dojo_history_ins_unknown_and_unparsed_still_stop`, sonde positive de `dojo_history_budget_stops_fail_closed` ; F2P et trois tueurs
+  tués (`RED-PROOF.json` `aee325f2…`).
+- **Ligne datée (orchestrateur, 2026-10-01 18:2x UTC ; G2 ciblée de HISTORY-INS, rapport `a517346e…`, APPROUVE-AVEC-CORRECTIONS, C-1)** :
+  FAITS-TOKEN2022-PROCESSOR-1 est CLOS par la mesure : la sûreté ne repose pas sur la sémantique du programme Token-2022 (sonde P1 de
+  la G2 : un solde glissé sous un type ajouté arrête la course en `supply_mismatch` ; sonde positive de la collecte). Tout texte public qui
+  affirmerait cette sémantique rouvre l'item. Items formés : DOJO-HISTORY-OWNER-FALLBACK-SETAUTH-1 (O-1, défaut antérieur au lot : le repli
+  lit le premier `initializeAccount*` et ignore un `setAuthority` plus loin dans la même transaction ; arrêt `owner_unknown` dans ce cas ;
+  avant le go de l'acte 1 ou dès qu'une entrée du mint sans propriétaire est observée) ; HISTORY-INS ajouté à la liste « avant le go de
+  l'acte 1 » (O-3 : le journal épingle le sha de `history-read.ts`).
+- **Ligne datée (orchestrateur, 2026-10-01 20:4x UTC ; lot HISTORY-INS-2 ; D-8 (vi) l.370 ; ajout seul)** : la liste fermée de (vi) est
+  étendue de trois types et de rien d autre : `withdrawExcessLamports`, vu « proche » du mint en phase C de la course provisoire
+  `provisional-2026-10-01-r2` (5 transactions sur les 1 464 des bruts de la phase C, les mêmes chez les deux opérateurs, chaque fois par
+  `source` = un compte de jetons du mint, dont le solde ne bouge pas ; phase B : aucun type hors liste ; sonde `probe-ins2.mjs`
+  `9bde20e5…`, sorties `probe-c.out` `d3cf03b8…` et `probe-b.out` `81dbd632…`), et ses voisins de même classe `amountToUiAmount` et
+  `uiAmountToAmount` (formes `jsonParsed` de `parse_token.rs` l.495-514 et l.636-655, signataires par `parse_signers` l.937-961, copie
+  `50370cf4…`, FAITS L-10). Aucun n entre dans l offre (`SUPPLY_TYPES` inchangé : `mintTo`, `mintToChecked`, `burn`, `burnChecked`) ;
+  aucun ne fournit un solde (les soldes viennent de `pre/postTokenBalances`) ; aucun n alimente le repli de propriétaire de D-5 l.329
+  (seuls les `initializeAccount*`). `reallocate` n est pas ajouté : sa forme (`parse_reallocate_instruction`, module `extension`) ne se
+  lit pas dans la copie. Une instruction non analysée, `freezeAccount` et tout autre type restent refusés (`instruction_not_allowed`).
+  Tests : `dojo_history_ins2_added_types_pass_near_the_mint`, `dojo_history_ins2_unknown_freeze_and_unparsed_still_stop`, épingle de
+  `dojo_history_ins_unknown_and_unparsed_still_stop` étendue à 23 types ; F2P et trois tueurs tués (`RED-PROOF.json` `c5484a15…`).
+- **Ligne datée (orchestrateur, 2026-10-01 21:0x UTC ; G2 ciblée de HISTORY-INS-2, rapport `d124375c…`, APPROUVE-AVEC-CORRECTIONS, C-1)** :
+  code approuvé tel quel (`history-read.ts` `91eda471…`). Items formés : FAITS-TOKEN2022-PARSER-REALLOCATE-1 (lire, dans la source de
+  FAITS L-10 épinglée à un commit d agave, la définition de `parse_reallocate_instruction` et relever si sa forme porte `account` ou
+  `owner` ; déclencheur : le premier arrêt qui nomme `reallocate`) ; DOJO-HISTORY-BATCH-NEAR-1 (Q-4 du G1, défaut antérieur au lot,
+  mesuré : l.116 ne retient une instruction que si une valeur directe de son `info` est proche du mint, si bien qu un `batch` analysé
+  n est jamais jugé par (vi) ; seul le contrôle (i) arrête alors un brûlage caché ; construction : la proximité testée à toute profondeur,
+  deux ou trois lignes et un test ; aucun `batch` observé dans les bruts des phases B et C). HISTORY-INS-2 et DOJO-HISTORY-BATCH-NEAR-1
+  ajoutés à la liste « avant le go de l acte 1 » de 2b4/Q-G2-4 : BATCH-NEAR-1 passe avant la course finale (`--first-read`), dont le
+  journal épinglera le sha de `history-read.ts`.

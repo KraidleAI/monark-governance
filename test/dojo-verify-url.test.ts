@@ -7,12 +7,14 @@ import { after, test } from "node:test";
 import assert from "node:assert/strict";
 import { execFile } from "node:child_process";
 import { createHash } from "node:crypto";
-import { createServer } from "node:http";
+import { createServer, type IncomingMessage, type ServerResponse } from "node:http";
+import type { Socket } from "node:net";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { canonical } from "../apps/bell/scripts/bell-chain.mjs";
 import { proofOf, rootOf } from "../apps/dojo/scripts/dojo-core.mjs";
 import * as dv from "../apps/dojo/scripts/dojo-verify.mjs"; // C-V-1: the new exports through the namespace, checked first
+import { urlSource } from "../apps/dojo/scripts/dojo-verify-cli.mjs";
 import { ADDR, ANCHOR_DAY, dateOf, dojoFixture, dojoKeyringOf, removeTrees, render, writeTree } from "../apps/dojo/test/helpers/dojo-fixture.ts";
 
 type Ok = Extract<dv.DojoVerifyReport, { ok: true }>;
@@ -32,10 +34,13 @@ async function success(env: NodeJS.ProcessEnv, ...args: string[]): Promise<Ok> {
   return JSON.parse(out) as Ok;
 }
 /** A loopback server (127.0.0.1, port 0) of the tree that `get` names at each request; each path asked, in order. */
-async function serve(get: () => ReadonlyMap<string, Buffer>): Promise<{ url: string; seen: string[]; close: () => Promise<void> }> {
+// A `hook` that returns true has answered the request (or ended its connection) itself.
+async function serve(get: () => ReadonlyMap<string, Buffer>, hook: (req: IncomingMessage, res: ServerResponse) => boolean = () => false):
+  Promise<{ url: string; seen: string[]; close: () => Promise<void> }> {
   const seen: string[] = [], server = createServer((req, res) => {
     const p = req.url ?? "/", b = get().get(p.slice(1));
     seen.push(p);
+    if (hook(req, res)) return;
     res.writeHead(b === undefined ? 404 : 200).end(b);
   });
   await new Promise<void>((r) => { server.listen(0, "127.0.0.1", () => { r(); }); });
@@ -91,4 +96,59 @@ test("dojo_verify_url_cli_is_the_ca_contract", async () => {
     assert.deepEqual(await cli(env, "--url", srv.url, "--keyring", kr), [1, `${canonical({ ok: false, reason: "http_status", seq: null, day: null,
       detail: "dojo/pubkey.json" })}\n`], "V-2: a refusal keeps its own detail (the path), never the TLS note");
   } finally { await srv.close(); }
+});
+
+// killer: apps/dojo/scripts/dojo-verify-cli.mjs:103 CONST "tries > 1 ||" -> "tries > 0 ||"
+test("dojo_verify_url_replays_a_get_once_on_a_closed_socket", async () => {
+  // A kept-alive connection the host closed while the check computed fails the next GET before any answer (measured: "other side closed",
+  // UND_ERR_SOCKET; a reset socket: ECONNRESET). The server below ends the connection of the first GETs of the served key set the same way.
+  const f = dojoFixture(), tree = render(f.steps), NL = String.fromCharCode(10), KEY = "/dojo/pubkey.json", servers: Array<{ close: () => Promise<void> }> = [];
+  const kr = join(writeTree(new Map([["kr.json", Buffer.from(canonical(dojoKeyringOf([[f.key, 1]])))]])), "kr.json");
+  const clean: NodeJS.ProcessEnv = { ...process.env, NODE_TLS_REJECT_UNAUTHORIZED: undefined, NODE_EXTRA_CA_CERTS: undefined, NODE_USE_SYSTEM_CA: undefined,
+    NODE_USE_ENV_PROXY: undefined, HTTP_PROXY: undefined, HTTPS_PROXY: undefined, http_proxy: undefined, https_proxy: undefined, no_proxy: undefined };
+  /** A server of the tree whose first `n` GETs of the key set end their connection by `end` before any answer; the sockets those GETs came on. */
+  const closing = async (n: number, end: (s: Socket) => void): Promise<{ url: string; tries: () => number; sockets: Socket[] }> => {
+    let left = n;
+    const sockets: Socket[] = [], srv = await serve(() => tree, (req) => {
+      if (req.url !== KEY) return false;
+      sockets.push(req.socket);
+      if (left === 0) return false;
+      left -= 1;
+      end(req.socket);
+      return true;
+    });
+    servers.push(srv);
+    return { url: srv.url, tries: () => srv.seen.filter((p) => p === KEY).length, sockets };
+  };
+  const refusal = (reason: string): string => `${canonical({ ok: false, reason, seq: null, day: null, detail: "dojo/pubkey.json" })}${NL}`;
+  try {
+    const plain = await serve(() => tree);
+    servers.push(plain);
+    const want = await success(clean, "--url", plain.url, "--keyring", kr);
+    // Closed (FIN) or reset (RST) before any answer: the same GET once more, on a new connection, and the report of a clean run.
+    for (const [name, end] of [["closed", (s: Socket) => { s.destroy(); }], ["reset", (s: Socket) => { s.resetAndDestroy(); }]] as const) {
+      const one = await closing(1, end), got = await success(clean, "--url", one.url, "--keyring", kr);
+      assert.deepEqual([got, one.tries(), new Set(one.sockets).size], [want, 2, 2], `${name}: replayed once, on a new connection`);
+    }
+    // Closed twice: never a third try, the refusal of a host out of reach.
+    const twice = await closing(2, (s) => { s.destroy(); });
+    assert.deepEqual([await cli(clean, "--url", twice.url, "--keyring", kr), twice.tries()], [[1, refusal("unreachable")], 2], "one replay at most");
+    // An answer came, then a status or a body cut short: no replay, one try each (the caller's refusals).
+    const status = await serve(() => tree, (req, res) => { if (req.url !== KEY) return false; res.writeHead(503).end(); return true; });
+    const cut = await serve(() => tree, (req, res) => {
+      if (req.url !== KEY) return false;
+      res.writeHead(200, { "content-length": "100" }).write("{");
+      setTimeout(() => { req.socket.destroy(); }, 50);
+      return true;
+    });
+    servers.push(status, cut);
+    for (const [name, srv, reason] of [["a status", status, "http_status"], ["a body cut short", cut, "unreachable"]] as const) {
+      const out = await cli(clean, "--url", srv.url, "--keyring", kr);
+      assert.deepEqual([out, srv.seen.filter((p) => p === KEY).length], [[1, refusal(reason)], 1], `${name}: no replay`);
+    }
+    // The GET's own timer: a host that never answers is out of reach after one try (its signal aborted), never replayed.
+    const mute = await closing(1, () => undefined), src = urlSource(mute.url, { ...dv.VERIFY_BOUNDS, TIMEOUT_MS: 300 });
+    await assert.rejects(src.get("dojo/pubkey.json"), (e: unknown) => (e as { code?: unknown }).code === "unreachable", "the timer: refused");
+    assert.equal(mute.tries(), 1, "the timer: one try");
+  } finally { for (const s of servers) await s.close(); }
 });

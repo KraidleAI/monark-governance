@@ -169,7 +169,7 @@ export function walkDojoTimeline(lines, trust) {
 }
 
 // ---- The depth bound of a served JSON text (G1 journal of lot DEPTH-BOUND, section 1.4): the verifier, its CLI, the browser's reread and the page
-// build measure a text before any JSON.parse (the sync does not: item SYNC-SERVED-DEPTH-SCAN-1), the walker a value before any canonical; none recurses ----
+// build measure a text before any JSON.parse (the sync too, before it names a file), the walker a value before any canonical; none recurses ----
 /** The deepest nesting of objects and arrays a served JSON text may carry: 16, four times the deepest served form (4: a snapshot line's
  *  readings, line > reads > reading > fraction; a key file, file > keys > key > public_key), and about 1/197 of the 3 148 levels canonical
  *  writes before its RangeError on Node 24.15.0 (win32). */
