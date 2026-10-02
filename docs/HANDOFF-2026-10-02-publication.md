@@ -238,6 +238,9 @@ DJ-L06 table sans script (code, rendu serveur des lignes committées).
   sur la partie (décision 300).
   08:28 UTC : checkpoint du validateur lancé (`validateur-humain`, `claude-fable-5-1`), mission `eaf63af3…`
   (`F:/tmp/dojo/mission-cp-partie3b.md`, reçu vert, HEAD `58450ac3`) ; sorties sous `F:/tmp/dojo/cp-partie3b/`.
+  08:28 UTC, relevé : quatre items proposés dans la partie ne sont formés ni à ETAT ni au registre PAROXYSME :
+  DOJO-SITE-PROXY-XFF-MEASURE-1, FUSION-KILLER-ANCHORS-1, BELL-CADDY-IMPORT-REPLAY-1, BELL-RUNBOOK-ROLLBACK-CANDIDATE-1. À former
+  après le verdict du validateur (il lit ETAT et le registre en ce moment), avec ses corrections.
 - 2026-10-02 08:26 UTC, ÉCART DE ROSTER relevé par l orchestrateur : depuis 02:51:22 UTC, les tours de l orchestrateur tournent sous
   `claude-opus-5-5` (519 tours dans la transcription de la session), pas sous `claude-fable-5-1` (règle : orchestrateur = Fable 5.1).
   Actes faits sous ce modèle : contrôle et accord P2a complet (recherches#38), consolidation du CLAUDE.md global, adjudications et
