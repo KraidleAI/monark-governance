@@ -7,6 +7,10 @@ Journal privé des actes : `F:/PRODUITS/dojo-mirror/JOURNAL-mise-en-service-2026
 « ne lance rien d'autre. on va toucher la limite hebdo si non, prépare un fichier passation pour un autre claude en attendnat et mets le
 a jour a chaque retour. » : AUCUN nouveau lancement d agent ni de workflow sans un go explicite ; on consomme seulement les retours.
 
+**Consigne de l investisseur (2026-10-02 03:09 UTC, verbatim)** : « SACHE QUE LES DEUX PRIORITES sont la reponse a recherches et la page
+snapshot. uniquement, les autres points, tu me les expliques avant de décider quoi que ce soit, jete dirai pourquoi ». Conséquence : rien
+hors de ces deux priorités n est décidé ni lancé sans explication préalable et accord ; l ADR du chantier moteur n est pas rédigée.
+
 ## 1. Où on en est, en une phrase
 Le premier jour compté (d = 2026-10-02) est en collecte sur l hôte Bell ; la minuterie de publication est active (A-10) ; la première
 publication suit, le 3 octobre, la course finale de l historique et la ligne `history` ; le site part après ses lots, la validation
@@ -150,6 +154,9 @@ DJ-L06 table sans script (code, rendu serveur des lignes committées).
   déclencheurs passés : vérification sur pièce confiée à quatre lecteurs (`wf_25285f45-110`, lecture seule), adjudication par l orchestrateur.
   Écart de l orchestrateur : un premier lancement (`wf_5c458345-2f6`) est parti avec un paramètre factice au lieu des entrées ; arrêté dans la
   minute, sans écriture possible (lecture seule) ; relancé avec des identifiants validés par le script.
+
+- 2026-10-02 03:09 UTC : consigne « deux priorités » (§0) ; ADR du chantier moteur arrêtée avant écriture ; FAITS DEM-1 versé (`a42b19bb`,
+  lecture seule, le harnais sert `af9b889`) avant la consigne : aucune décision prise dessus.
 
 ## 12. Compléments (ajoutés le 2026-10-02 à 02:3x UTC)
 - **Accès aux hôtes** : clé `~/.ssh/monark_vps`. Hôte Bell : cible ssh lue dans `F:/tmp/dojo/s7-1.sh` (extraire par `grep -oE 'root@[0-9.]+'`,
