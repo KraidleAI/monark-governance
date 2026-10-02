@@ -348,6 +348,10 @@ DJ-L06 table sans script (code, rendu serveur des lignes committées).
   (portée aux 40, ENGINE-ROW-RETIRE-PATH-1 livré avant tout service, texte servi) (#52). Q-W2-23 (W2-E en tête de file ?) : DÉCISION
   INVESTISSEUR attendue ; Q-W2-24 : prérequis P3 non tenus, à mesurer au début du chantier 2. FAITS élargis : USDT/USD 2022-09 → 2024-10,
   identités 2020-09 → 2024-10, événements 2022-09 → 2024-10 (FTX).
+- 2026-10-02 19:08 UTC : ordre gardé par l investisseur (#53). ADR v8/v8.1 : pli C-1 à C-10 et conditions Q-W2-26 relus, conformes,
+  recalculs égaux ; Q-W2-28 : oui (tail_frac 0,95 à 1h, gels 2b sur SELECT-1). Tests d abord de W2-E reçus (`kata/w2e/`, 12 tests, oracle
+  vert chez nous ; il réécrit vectors.json en CRLF sous Windows, signalé). Reste à RECHERCHES : validation du fondateur ; à MONARK : C-3
+  (diff A-1) au début de W2-E, C-6 avec les FAITS ; empreintes de SERIES-FULL-HISTORY-1 à poster à la fin de l enregistrement.
 - 2026-10-02 15:30 UTC : go de minuit reçu ; lanceur `F:/tmp/dojo/final/wait-and-run.sh` armé ; annonce X publiée depuis le 1er octobre
   (investisseur) ; validation visuelle : page reconstruite à l ancre 30/30/30/30/90, captures envoyées, six questions C-V-4 encore ouvertes.
 - 2026-10-02 08:26 UTC, ÉCART DE ROSTER relevé par l orchestrateur : depuis 02:51:22 UTC, les tours de l orchestrateur tournent sous
