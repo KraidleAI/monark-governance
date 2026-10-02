@@ -291,6 +291,11 @@ Tronc `lot/etude-suite`. Dernier oracle complet : 1 779 tests, dont 1 776 verts,
   RECORDER-SCALE-BREAK-1 (arrêt nommé sur un saut de prix, facteur 5 proposé), RECORDER-SCHEMA-FIELDS-1, RECORDER-EXCHANGEINFO-1 (sur go,
   section lue avant appel), USDT-USD-REFERENCE-1 (flux Pyth USDT/USD lu comme SOL/USD), ENGINE-ROW-RETIRE-PATH-1 (lot d une ligne, latence
   mesurée), RECALC-FIELDS-2 (les sept champs sortent de la liste ignorée à la prochaine recomputation).
+- Items vague 2 (relecture de l ADR v3, 2026-10-02 18:1x UTC, recherches#48) : SERIES-MONTHLY-2027-1 (enregistrement mensuel des quatre
+  symboles dès 2027-01-01, empreintes postées le jour même, conditions relues ; déclencheur 2027-01-01), W2-E (lot moteur `tail.ts`,
+  `class-policy-v2`, tests écrits par RECHERCHES d abord ; après le moteur MONARK, avant novembre 2026), FAITS-US-DST-1, FAITS-FUNDING-HOURS-1,
+  FAITS-PYTH-USDT-USD-1 (avant P0-2) ; USDT-USD-REFERENCE-1 étendu aux rondes BTC/USD, ETH/USD, SOL/USD. Checkpoint-1 formel du
+  validateur-humain sur l ADR vague 2 : à lancer sur go de l investisseur.
 - Page servie dès la première publication, pas avant, et sous le bloquant de TU-7 (ligne datée d ADR-DOJO-PR-3, 2026-10-02 08:56 UTC :
   premier `snapshot` servi, CA-1 verte, annonce de l investisseur, second cp-1 bref ; le lever est une décision de l investisseur).
 - **Poussière** (investisseur, 2026-10-01 17:3x UTC, mot pour mot : « il faut exclure les comptes de moins de 1$ » ; option « Masquer
