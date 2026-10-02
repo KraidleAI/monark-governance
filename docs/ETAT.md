@@ -288,16 +288,20 @@ Tronc `lot/etude-suite`. Dernier oracle complet : 1 779 tests, dont 1 776 verts,
   défilement horizontal de la table, sans changer un mot ; déclencheur : avant 3 000 lignes au snapshot, ou une mesure réelle au-delà de 2,5 s.
 - Tronc = `lot/page-v1` fusionnée en neuf pas verts le 2026-10-02 (17:04 UTC, `d10d757f`) ; le site part du tronc.
 - Items katas (relecture EPOCH-EVENTS-1, 2026-10-02 16:25 UTC ; porteur orchestrateur ; déclencheur : ADR de préparation P3, sauf mention) :
-  RECORDER-SCALE-BREAK-1 (arrêt nommé sur un saut de prix, facteur 5 proposé), RECORDER-SCHEMA-FIELDS-1, RECORDER-EXCHANGEINFO-1 (sur go,
+  RECORDER-SCALE-BREAK-1 (arrêt nommé sur un saut de prix, facteur 5 proposé ; déclencheur AVANCÉ par le checkpoint-1 v6 : avant le
+  descellement des blocs de la vague 2, D5 exige EE-5 sur les octets passés), RECORDER-SCHEMA-FIELDS-1, RECORDER-EXCHANGEINFO-1 (sur go,
   section lue avant appel), USDT-USD-REFERENCE-1 (flux Pyth USDT/USD lu comme SOL/USD), ENGINE-ROW-RETIRE-PATH-1 (lot d une ligne, latence
   mesurée), RECALC-FIELDS-2 (les sept champs sortent de la liste ignorée à la prochaine recomputation).
-- Items vague 2 (relecture de l ADR v3, 2026-10-02 18:1x UTC, recherches#48) : SERIES-MONTHLY-2027-1 (enregistrement mensuel des quatre
-  symboles dès 2027-01-01, empreintes postées le jour même, conditions relues ; déclencheur 2027-01-01), W2-E (lot moteur `tail.ts`,
+- Items vague 2 (relecture de l ADR v3, 2026-10-02 18:1x UTC, recherches#48) : SERIES-MONTHLY-2027-1 RETIRÉ le 2026-10-02 (v5 : les blocs
+  sont pris dans le passé ; remplacé par SERIES-FULL-HISTORY-1 ci-dessous, C-5 du checkpoint-1 v6), W2-E (lot moteur `tail.ts`,
   `class-policy-v2`, tests écrits par RECHERCHES d abord ; après le moteur MONARK, avant novembre 2026), FAITS-US-DST-1, FAITS-FUNDING-HOURS-1,
   FAITS-PYTH-USDT-USD-1 (avant P0-2) ; USDT-USD-REFERENCE-1 étendu aux rondes BTC/USD, ETH/USD, SOL/USD. Checkpoint-1 formel du
   validateur-humain sur l ADR vague 2 : lancé sur la v6 le 2026-10-02 à 18:4x UTC. SERIES-MONTHLY-2027-1 retiré (v5 : données passées).
 - Items vague 2 v6 (2026-10-02, recherches#50) : FAITS-USDT-USD-HISTORY-1, FAITS-IDENTITY-2021-2024-1, FAITS-EVENTS-2023-2024-1 (avant P0-2) ;
   SERIES-FULL-HISTORY-1 (tout enregistrer de la première bougie au 2024-10-01, scellé par symbole et par mois ; sur go) ; W2-S-SIM-1.
+  LIVE-2-RECORD-1 (conditionnel : si P0-2 vient après la première lecture de LIVE-1 par RECHERCHES, MONARK enregistre LIVE-2, premier
+  trimestre civil complet après P0-2, scellé ; C-5 du checkpoint-1 v6). Checkpoint-1 v6 rendu le 2026-10-02 à 18:49 UTC :
+  ACCEPTE-AVEC-CORRECTIONS (C-1 à C-10 ; rapport `F:/tmp/kata-w2v6/cp1/CP1-W2-RAPPORT.md` sha256 `c01df603…`, 17 recalculs égaux).
 - Page servie dès la première publication, pas avant, et sous le bloquant de TU-7 (ligne datée d ADR-DOJO-PR-3, 2026-10-02 08:56 UTC :
   premier `snapshot` servi, CA-1 verte, annonce de l investisseur, second cp-1 bref ; le lever est une décision de l investisseur).
 - **Poussière** (investisseur, 2026-10-01 17:3x UTC, mot pour mot : « il faut exclure les comptes de moins de 1$ » ; option « Masquer
