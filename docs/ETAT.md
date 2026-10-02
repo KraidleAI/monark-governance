@@ -1,6 +1,6 @@
 # ÉTAT — page snapshot du Dōjō (repartir du code)
 
-Écrit le 2026-09-30 à 23:5x UTC, après vérification du code, des branches et des tests ; mis à jour le 2026-10-02 à 00:0x UTC.
+Écrit le 2026-09-30 à 23:5x UTC, après vérification du code, des branches et des tests ; mis à jour le 2026-10-02 à 00:3x UTC.
 
 ## Règle
 
@@ -276,3 +276,5 @@ Tronc `lot/etude-suite`. Dernier oracle complet : 1 779 tests, dont 1 776 verts,
   déposée (284 adresses, `cb3d23b1…`), départ sur J et minuterie à 23:07 UTC, plan du 2 octobre fait avec sa balise à 00:00 UTC.
   **Premier jour compté : 2 octobre ; première publication : 3 octobre.** Avant la course finale : DOJO-HISTORY-BATCH-NEAR-1 ;
   pendant une lecture du 2 octobre : DOJO-TASKSMAX-SAMPLE-D-1 (échantillon de `TasksMax`, ligne datée).
+  A-1 fait le 2 octobre (00:3x UTC) par l'investisseur : `dojo.monarkgate.tech` (A, TTL 300) vers l'hôte Bell, vérifié aux deux serveurs
+  faisant autorité ; rien n'est servi sous ce nom avant le site Caddy de l'hôte (A-6).
