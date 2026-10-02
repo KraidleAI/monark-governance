@@ -28,7 +28,11 @@ visuelle de l investisseur et la première synchro.
   définitive sans accord ; séries de marché hors de tout dépôt public, jamais lues par un validateur ; DNS, domaine et certificat :
   actes de l investisseur (refusés à l orchestrateur par le classifieur, ne pas contourner).
 
-## 3. Agents en vol (lancés avant la consigne ; à consommer, rien à relancer)
+## 3. Agents (ARRÊTÉS le 2026-10-02 vers 02:3x UTC : limite hebdomadaire à 3 %, consigne de l investisseur)
+Quatre agents arrêtés en cours de route ; leurs sorties partielles restent sur le disque, rien n est commis pour eux. Les relancer
+AVEC LA MÊME MISSION (sha256 recalculé, reçu de `launch.mjs` refait) seulement sur go de l investisseur ; un oracle ou une campagne
+de mutants lancés par eux en arrière-plan peut finir seul (verrou `held(root)` de `F:/Monark/scripts/oracle/lock.mjs`, racine `F:/tmp`).
+- ARRÊTÉS : G2 SITE-SEND-PREP, G1 SITE-BROWSER, G1 RUNBOOK-PRE-IV, contrôle du diff P2a-2 (détail ci-dessous).
 - **G2 ciblée BATCH-NEAR** : RENDUE à 02:04 UTC, APPROUVE-AVEC-CORRECTIONS (`eda667be…`, code tel quel) ; fusion `6c464bbc`, lignes
   d ADR `2fab0d81`. G7 de la fusion PRONONCÉ (oracle `02104bde…` sortie 0, 1 872 tests, 0 rouge, R-25 168) ; ligne à ETAT faite.
 - **G2 ciblée SITE-SEND-PREP** : mission `F:/tmp/dojo/mission-g2-sendprep.md` (`81949561…`) ; rapport `F:/tmp/dojo/g2-sendprep/RAPPORT.md`.
@@ -117,3 +121,6 @@ DJ-L06 table sans script (code, rendu serveur des lignes committées).
 - 2026-10-02 02:0x UTC : retour de la G2 de BATCH-NEAR ; fusion dans page-v1 ; G7 de la fusion en cours.
 - 2026-10-02 02:1x UTC : G7 de la fusion de BATCH-NEAR prononcé (`02104bde…`) ; la course finale a son code.
 - 2026-10-02 02:2x UTC : registre PAROXYSME du Dōjō rendu et versé (`25dd9dd3`) ; 34 items à former avant la synchro.
+- 2026-10-02 02:3x UTC : quatre agents arrêtés (limite hebdomadaire) ; aucun agent en vol. Pour le 3 octobre sans RUNBOOK-PRE-IV :
+  appliquer à la main, dans les commandes de 18 (iii) et (iv), la garde `test ! -e /var/lib/monark-dojo/publish.lock` et l unité
+  `inactive` avant tout retrait du paquet (Q-14), et ne rien faire sur l éditeur ni sur `bundles/<d>` entre (iv) et le snapshot (Q-13).
