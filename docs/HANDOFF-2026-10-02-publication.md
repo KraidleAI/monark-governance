@@ -404,6 +404,11 @@ DJ-L06 table sans script (code, rendu serveur des lignes committées).
   recommandée. Q-H2 : source proposée (paire USDT/USD à banque USD, Pyth en contrôle), fixée par addendum AVANT lecture. INTERDIT jusque-là :
   lire toute série USDT/USD (FAITS-USDT-USD-HISTORY-1 non commencé). Règle 8 : zero_trade inclut la tronquée ; R sans manquante = suivante.
   Q-H3 à Q-H7 et TO FILL de P0-2 : après la publication, avec RECORDER-CLOSE-TIME-1.
+- 2026-10-02 23:3x UTC : addendum 4 ADR 0006 (191953f, sha256 098fad6d… recalculé égal) relu par diff : CONFORME, aucun écart ; S à la
+  PREMIÈRE des quatre lectures accepté ; F = 24 h sous 0,005 avec ≥ 48 lectures présentes ; fenêtre 2022-09-01 → 2026-10-01 pont compris ;
+  source : place à banque USD nommée dans FAITS-USDT-USD-HISTORY-1 après lecture des conditions (candidate Kraken, repli Bitfinex), Pyth en
+  contrôle, primaire décide. Réponse PR recherches#62. Ordre : publication, puis FAITS-USDT-USD-HISTORY-1 sous l addendum 4 (conditions et
+  couverture SANS lire la série, puis enregistrement scellé, S et F postés), puis RECORDER-CLOSE-TIME-1, Q-H3 à Q-H7, TO FILL P0-2.
 - 2026-10-02 15:30 UTC : go de minuit reçu ; lanceur `F:/tmp/dojo/final/wait-and-run.sh` armé ; annonce X publiée depuis le 1er octobre
   (investisseur) ; validation visuelle : page reconstruite à l ancre 30/30/30/30/90, captures envoyées, six questions C-V-4 encore ouvertes.
 - 2026-10-02 08:26 UTC, ÉCART DE ROSTER relevé par l orchestrateur : depuis 02:51:22 UTC, les tours de l orchestrateur tournent sous
