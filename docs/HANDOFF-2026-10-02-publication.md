@@ -44,7 +44,9 @@ de mutants lancés par eux en arrière-plan peut finir seul (verrou `held(root)`
   Au retour : vérifier, committer ; lignes d ADR (§9).
 - **G1 PAROXYSME-DOJO-FILE-1** : RENDU à 02:2x UTC ; versé tel quel en `docs/PAROXYSME-Dojo.md` (`25dd9dd3`, sha256 `45b029fc…`) :
   151 limites, 34 dettes sans item (6 publiques DJ-L01 à L06), 20 déclencheurs passés sans clôture écrite. Reste (§10).
-- **Contrôle du diff P2a-2 (RECHERCHES)** : mission `F:/tmp/kata-p2a/mission-p2a2-diff.md` (`563b07ec…`) ; rapport
+- **Contrôle du diff P2a-2 (RECHERCHES)** : RELANCÉ 02/10 02:53Z sur go de l investisseur (« tâche urgente ») : même mission `563b07ec…`,
+  reçu vert 02:52:34Z, workflow `wf_f34264e7-5c9` (G2 neuve, puis deux contre-vérificateurs : A statique, B rejeu ciblé) ; sorties du
+  lancement arrêté renommées `run4-arrete-20261002/`, `tmp-arrete-20261002/` (rien effacé) ; RECHERCHES : tête `1c77ba1`, rien de neuf ; rapport
   `F:/tmp/kata-p2a/P2A2-DIFF-RAPPORT.md`. Au retour : réponse détaillée à la boîte (§7), puis message séparé à l investisseur.
 
 Les G2 de SITE-BROWSER et de RUNBOOK-PRE-IV seraient deux NOUVEAUX lancements : demander le go de l investisseur (consigne §0).
@@ -135,6 +137,8 @@ DJ-L06 table sans script (code, rendu serveur des lignes committées).
   47 484 RU, 28 167 appels pour 22 jours). Lignes datées §9 écrites (`224a6bd1`). G2 SITE-SEND-PREP : rapport incomplet (§3).
 
 - 2026-10-02 02:49 UTC : PAROXYSME-Dojo mis à jour (`32bcf4b0`) : six publiques pourvues d items, cinq items du §9 ajoutés ; 28 + 20 restent.
+
+- 2026-10-02 02:53 UTC : go de l investisseur pour le contrôle du diff P2a-2 (urgent) : workflow `wf_f34264e7-5c9` lancé (3 agents).
 
 ## 12. Compléments (ajoutés le 2026-10-02 à 02:3x UTC)
 - **Accès aux hôtes** : clé `~/.ssh/monark_vps`. Hôte Bell : cible ssh lue dans `F:/tmp/dojo/s7-1.sh` (extraire par `grep -oE 'root@[0-9.]+'`,
