@@ -367,6 +367,11 @@ DJ-L06 table sans script (code, rendu serveur des lignes committées).
   proposition 8 bis (`zero_trade` au manifeste, E = début de la suite à 0 trade) et instance de lieu ; comptes W + 2 à 1h, W + 1 à 4h.
   Entrée [lu] pour FAITS-EVENTS-2022-2024-1 et pour RECORDER-CLOSE-TIME-1 (champ `zero_trade`). Erreur MONARK reconnue : 2023-03 est
   dans CALIB-2 (v8.1), notre message d empreintes disait WARM-2 (découpe v6).
+- 2026-10-02 19:49 UTC : RECHERCHES a plié la relecture (512b178 : graine D3 explicite, barres construites sur 15m, R 14:00Z, 8 bis adopté,
+  instance de lieu H-EE-8-1). Écart admis : 8 bis coûte une décision de plus par horizon (étiquettes 1h 11:00Z, 4h 08:00Z) ; n 8656/2087,
+  8708/2139, 8709/2140, k* 68,71 / 11-12,13 retrouvés (c). Accord envoyé (PR recherches#58). W2-S-SIM-1 (table de puissance MONARK, mission
+  worker) : RECHERCHES demande son lancement ; AUCUN agent sans go explicite de l investisseur ; ordre fixé : chantier 2 puis partie A.
+  Question posée à l investisseur : go maintenant (demain après la publication) ou dans la partie A.
 - 2026-10-02 15:30 UTC : go de minuit reçu ; lanceur `F:/tmp/dojo/final/wait-and-run.sh` armé ; annonce X publiée depuis le 1er octobre
   (investisseur) ; validation visuelle : page reconstruite à l ancre 30/30/30/30/90, captures envoyées, six questions C-V-4 encore ouvertes.
 - 2026-10-02 08:26 UTC, ÉCART DE ROSTER relevé par l orchestrateur : depuis 02:51:22 UTC, les tours de l orchestrateur tournent sous
