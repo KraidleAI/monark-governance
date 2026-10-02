@@ -323,6 +323,9 @@ DJ-L06 table sans script (code, rendu serveur des lignes committées).
   vérifiés) ; Q-P2b-2/3 clos ; accord SPEC-EWMA-ASSOC-1 avec S-5 (#44) ; relecture EPOCH-EVENTS-1 et vague 2 rendue (#45), pliée en v2
   (`f7378e9`). Items MONARK formés : RECORDER-SCALE-BREAK-1, RECORDER-SCHEMA-FIELDS-1, RECORDER-EXCHANGEINFO-1 (sur go),
   USDT-USD-REFERENCE-1, ENGINE-ROW-RETIRE-PATH-1, RECALC-FIELDS-2 (ETAT). Décision investisseur attendue : calendrier de SPEC-EWMA-ASSOC-1.
+- 2026-10-02 17:2x UTC : SPEC-EWMA-ASSOC-1 (`4ad765d`, seule, décision du fondateur) contrôlé par l orchestrateur : diff conforme, src et
+  bench intacts, 65/65 tests et 333/333 contrôles rejoués, bloc discriminant prouvé par notre outil aveugle (= `other_association` au
+  bit) ; accord de publication (#46). Relevé des empreintes publiées à faire après leur push dans `monark-kata-spec`.
 - 2026-10-02 15:30 UTC : go de minuit reçu ; lanceur `F:/tmp/dojo/final/wait-and-run.sh` armé ; annonce X publiée depuis le 1er octobre
   (investisseur) ; validation visuelle : page reconstruite à l ancre 30/30/30/30/90, captures envoyées, six questions C-V-4 encore ouvertes.
 - 2026-10-02 08:26 UTC, ÉCART DE ROSTER relevé par l orchestrateur : depuis 02:51:22 UTC, les tours de l orchestrateur tournent sous
