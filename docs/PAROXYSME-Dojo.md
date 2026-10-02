@@ -16,7 +16,8 @@ claude-opus-5-5
 ## 0. Comment lire ce registre
 
 - Mise à jour 2026-10-02 02:49 UTC (orchestrateur) : DJ-L01 à L06 pourvus d'un item et déplacés au §2 ; DJ-L187 à L191 ajoutés au §3.8
-  (items du HANDOFF §9). Restent à former : 28 dettes du §1.2 ; 20 déclencheurs passés sans clôture écrite (§4).
+  (items du HANDOFF §9). Restent à former : 20 déclencheurs passés sans clôture écrite (§4).
+- Mise à jour 2026-10-02 03:06 UTC (orchestrateur) : DJ-L07 à L34 pourvus d'un item (§3.9) ; plus aucune dette sans item au §1.
 
 - **Une entrée par limite** : la mission demande une ligne par limite et borne toute ligne à 160 caractères ; chaque entrée tient donc
   sur quatre lignes au plus, ouvertes par le préfixe `- **DJ-L`, que l'on compte par `grep`.
@@ -44,118 +45,7 @@ claude-opus-5-5
 
 ### 1.2 Des seuls documents internes
 
-- **DJ-L07** · « Un portefeuille de plateforme d'échange ou de garde est sur la courbe et compte pour un détenteur. »
-  source : MÈRE l.222, l.333 (T-4), l.569 (P-5 : résiduel accepté) · touche : `exclusion`, `holders`
-  nature : recherche · item : aucun · déclencheur : aucun
-  état : décision (P-5, MÈRE l.569) · suite : item à former
-- **DJ-L08** · « Lien entre emplacement et heure non vérifiable hors ligne : l'heure d'une lecture est celle de la machine qui lit. »
-  source : MÈRE l.199, l.751 (§12 point 15) · touche : `counted`
-  nature : Tiers · item : aucun · déclencheur : aucun
-  état : ouvert · suite : item à former
-- **DJ-L09** · « Deux absences concordantes truquées exigent la connivence des deux opérateurs : hors modèle, aucune preuve d'état servie établie. »
-  source : MÈRE l.1111 ; PR2 l.173, l.265, l.389 (§9 point 15) · touche : `bounds`
-  nature : Tiers · item : aucun · déclencheur : aucun
-  état : ouvert · suite : item à former
-- **DJ-L10** · « Vue scindée : l'hôte peut servir des vues différentes à des lecteurs différents, chacune vérifiable. »
-  source : PR1B4 l.172 (TY-8 : résiduel) ; DOJO-CA-TIMELINE-SHA-1 (PR1B4 l.229) ne couvre que le contrôle c11
-  nature : Tiers · item : aucun · déclencheur : aucun
-  état : ouvert · suite : item à former
-- **DJ-L11** · « Décodage de `Content-Encoding` par `fetch` non établi : la borne compte les octets rendus par le flux. »
-  source : PR1B4 l.207 (§9 point 3), l.236 (F-7 ; FAITS-NODE-FETCH-TLS-1 clos pour le lot, voir DJ-L175)
-  nature : recherche · item : aucun · déclencheur : aucun
-  état : ouvert · suite : item à former
-- **DJ-L12** · « Prix d'une lecture pris à plusieurs emplacements voisins ; la lecture à un seul emplacement n'est pas mesurée. »
-  source : PR2 l.303 (TY-9 : résiduel déclaré), l.384 (§9 point 10)
-  nature : test · item : aucun · déclencheur : aucun
-  état : ouvert · suite : item à former
-- **DJ-L13** · « Borne des écarts d'index, 3 sur 2 000, fondée sur un seuil de 5 % déclaré convention, non source. »
-  source : PR2B l.371, l.921, l.953 ; MÈRE l.316, l.931
-  nature : recherche · item : aucun · déclencheur : aucun
-  état : ouvert · suite : item à former
-- **DJ-L14** · « Emplacement sans rang concordant : la borne basse retire jusqu'à la somme des baisses ; escalade écrite, borne d'arrêt à 0. »
-  source : PR2B l.359, l.816, l.910, l.921
-  nature : recherche · item : aucun · déclencheur : aucun
-  état : ouvert · suite : item à former
-- **DJ-L15** · « La recherche du tableau contrôle l'alphabet base58, pas le décodage en 32 octets ; accepté à l'inspection. »
-  source : ETAT l.68 ; PR4 l.71 · touche : `lookup`
-  nature : code · item : aucun · déclencheur : aucun
-  état : décision (inspection, ETAT l.68) · suite : item à former
-- **DJ-L16** · « Une adresse qui acquiert puis ferme son compte avant le premier instant lu de d fait sauter d : un jour perdu. »
-  source : ETAT l.83-86, l.161-162
-  nature : recherche · item : aucun · déclencheur : aucun
-  état : décision (accord de l'investisseur, ETAT l.83-86) · suite : item à former
-- **DJ-L17** · « Aucune constante tirée des lectures : seuil, nombre de lectures et durée minimale sont des choix, pas des chiffres sourcés. »
-  source : MÈRE l.119 ; valeurs de l'ancre en vigueur : ETAT l.169-178
-  nature : recherche · item : aucun · déclencheur : aucun
-  état : décision (valeurs de l'ancre, ETAT l.169-178) · suite : item à former
-- **DJ-L18** · « Jours manquants propres à une adresse (désaccord d'opérateurs) : hors de la preuve d'invariance au fractionnement. »
-  source : MÈRE l.294, l.650 (P-21)
-  nature : recherche · item : aucun · déclencheur : aucun
-  état : ouvert · suite : item à former
-- **DJ-L19** · « Sécurité formelle du mélange de la graine et de la balise : analyse en oracle aléatoire, sans preuve. »
-  source : PR2 l.386 (§9 point 12) ; MÈRE l.749 (§12 point 13)
-  nature : recherche · item : aucun · déclencheur : aucun
-  état : ouvert · suite : item à former
-- **DJ-L20** · « Résiduel initié : l'opérateur connaît les instants dès le début du jour et garde l'abstention ; connivence avec t nœuds drand. »
-  source : MÈRE l.202, l.339 (T-10) ; PR2 l.161, l.301 (TY-7), l.304 (TY-10) · touche : `method`
-  nature : recherche · item : aucun · déclencheur : aucun
-  état : ouvert · suite : item à former
-- **DJ-L21** · « Une poussée du prix tenue une semaine déplace le seuil d'une unité pour une version : coût chiffré, pas d'interdiction. »
-  source : MÈRE l.346 (T-17 : résiduel) · touche : `tiers`
-  nature : recherche · item : aucun · déclencheur : aucun
-  état : ouvert · suite : item à former
-- **DJ-L22** · « Migration ou retrait de la liquidité du pool : prix indéfini ; changement de pool seulement par décision signée. »
-  source : MÈRE l.347 (T-18 : résiduel)
-  nature : recherche · item : aucun · déclencheur : aucun
-  état : ouvert · suite : item à former
-- **DJ-L23** · « Un déplacement légitime entre ses propres portefeuilles remet aussi la part déplacée à zéro (coût déclaré). »
-  source : MÈRE l.334 (T-5) · touche : `method`
-  nature : recherche · item : aucun · déclencheur : aucun
-  état : décision (règle du G0, MÈRE l.334) · suite : item à former
-- **DJ-L24** · « Toutes les lignes sont publiques : la fuite des soldes par adresse est acceptée par conception. »
-  source : MÈRE l.232, l.336 (T-7)
-  nature : recherche · item : aucun · déclencheur : aucun
-  état : décision (MÈRE l.232) · suite : item à former
-- **DJ-L25** · « Aucune décroissance du stock ancien dans la pièce 1 : l'enracinement est renvoyé au G0 de la pièce 2. »
-  source : MÈRE l.343 (T-14), l.565 (P-1)
-  nature : recherche · item : aucun · déclencheur : aucun
-  état : ouvert · suite : item à former
-- **DJ-L26** · « Coût d'une attaque par comptes-poussière non chiffré : le loyer d'un compte de jetons n'est pas lu. »
-  source : MÈRE l.345 (T-16), l.755 (§12 point 19)
-  nature : recherche · item : aucun · déclencheur : aucun
-  état : ouvert · suite : item à former
-- **DJ-L27** · « Jour d'une transaction historique = jour de `blockTime`, estimé et pondéré par le stake ; précision aux bornes non levée. »
-  source : MÈRE l.916 ; PR2B l.93 (H-7), l.694 (TY-10)
-  nature : recherche · item : aucun · déclencheur : aucun
-  état : ouvert · suite : item à former
-- **DJ-L28** · « La profondeur d'historique servie demain n'est pas prouvée ; la sonde 3 ne la mesure qu'au jour de la mesure. »
-  source : MÈRE l.916
-  nature : recherche · item : aucun · déclencheur : aucun
-  état : ouvert · suite : item à former
-- **DJ-L29** · « Battement du flux SOL/USD observé sur un seul échantillon ; la marge de fraîcheur de 165 s en dépend. »
-  source : PR2 l.138, l.387 (§9 point 13)
-  nature : test · item : aucun · déclencheur : aucun
-  état : ouvert · suite : item à former
-- **DJ-L30** · « Collecte compromise : graine connue, donc instants connus ; paquets faux publiés, la signature n'atteste que l'origine. »
-  source : PR3 l.171 (TB-1 : résiduel déclaré) ; MÈRE l.261
-  nature : recherche · item : aucun · déclencheur : aucun
-  état : ouvert · suite : item à former
-- **DJ-L31** · « Une compromission root de l'hôte expose les deux clés de signature, Bell et Dōjō. »
-  source : PR3 l.172 (TB-2 : résiduel root déclaré) ; MÈRE l.249
-  nature : recherche · item : aucun · déclencheur : aucun
-  état : ouvert · suite : item à former
-- **DJ-L32** · « Quatre secrets dans les mêmes sauvegardes du fournisseur : toute restauration vaut exposition. »
-  source : PR3 l.89, l.173 (TB-3 : accepté et borné)
-  nature : procurement · item : aucun · déclencheur : aucun
-  état : décision (TB-3, PR3 l.173) · suite : item à former
-- **DJ-L33** · « Pas de minuterie manqué : jour abstenu ou lecture `missed`, résiduel rendu public. »
-  source : PR3 l.177 (TB-7)
-  nature : code · item : aucun · déclencheur : aucun
-  état : ouvert · suite : item à former
-- **DJ-L34** · « Une ancre ajoutée hors de `--anchor` sur une version due arrête durablement l'éditeur ; seul remède, une chronologie neuve. »
-  source : PR3 l.413 (C-G2-1, TB-16)
-  nature : code · item : aucun · déclencheur : aucun
-  état : ouvert · suite : item à former
+- Aucune depuis le 2026-10-02 03:06 UTC : DJ-L07 à DJ-L34 portent un item (§3.9).
 
 ## 2. Limites dites dans les textes publics de la page, avec item
 
@@ -556,6 +446,148 @@ claude-opus-5-5
   source : HANDOFF-2026-10-02 §8, §12 ; JOURNAL privé 02/10 01:44Z ; code lu à `d1120612`
   nature : code · item : DOJO-PUBLISH-TMP-UNLINK-1 (D3-1) · déclencheur : le même que DJ-L190
   état : décision (orchestrateur, 02/10 01:44Z) · suite : un résidu `.<pid>` va au journal, rien n'est retiré à la main
+
+### 3.9 Formées le 2026-10-02 03:06 UTC (anciennes dettes du §1.2)
+
+- **DJ-L07** · « Un portefeuille de plateforme d'échange ou de garde est sur la courbe et compte pour un détenteur. »
+  source : MÈRE l.222, l.333 (T-4), l.569 (P-5 : résiduel accepté) · touche : `exclusion`, `holders`
+  nature : recherche · item : DOJO-CUSTODY-WALLET-LABEL-1 (reconnaître un portefeuille de garde ou de plateforme : étiquettes publiques, heuristiques de
+    regroupement, taux d'erreur) · déclencheur : G0 de la pièce 2 (MÈRE l.677)
+  état : décision (P-5, MÈRE l.569) · suite : littérature d'analyse de chaîne et sources des étiquettes, coût d'une liste signée ; P-5 reste la règle d'ici là
+- **DJ-L08** · « Lien entre emplacement et heure non vérifiable hors ligne : l'heure d'une lecture est celle de la machine qui lit. »
+  source : MÈRE l.199, l.751 (§12 point 15) · touche : `counted`
+  nature : recherche · item : DOJO-SLOT-TIME-ATTEST-1 (lier un emplacement à une heure vérifiable hors ligne : `blockTime` de consensus, tour drand, preuve
+    horodatée) · déclencheur : G0 de DOJO-CA0-SCRIPT-1 (après la première publication)
+  état : ouvert · suite : état de l'art des horodatages vérifiables, prix par lecture ; procurement formé si un papier manque
+- **DJ-L09** · « Deux absences concordantes truquées exigent la connivence des deux opérateurs : hors modèle, aucune preuve d'état servie établie. »
+  source : MÈRE l.1111 ; PR2 l.173, l.265, l.389 (§9 point 15) · touche : `bounds`
+  nature : recherche · item : DOJO-STATE-PROOF-1 (même construction que DJ-L03 : preuve d'état par compte, la connivence des deux opérateurs ne suffit plus) ·
+    déclencheur : celui de DJ-L03
+  état : ouvert · suite : un seul item pour DJ-L03 et DJ-L09
+- **DJ-L10** · « Vue scindée : l'hôte peut servir des vues différentes à des lecteurs différents, chacune vérifiable. »
+  source : PR1B4 l.172 (TY-8 : résiduel) ; DOJO-CA-TIMELINE-SHA-1 (PR1B4 l.229) ne couvre que le contrôle c11
+  nature : recherche · item : DOJO-SPLIT-VIEW-WITNESS-1 (témoins qui cosignent la tête servie, transparence par commérage : coût et protocole) · déclencheur :
+    avant l'annonce (QI-4 (c))
+  état : ouvert · suite : état de l'art des témoins de journaux transparents, prix d'un témoin tiers ; d'ici là c11 seul
+- **DJ-L11** · « Décodage de `Content-Encoding` par `fetch` non établi : la borne compte les octets rendus par le flux. »
+  source : PR1B4 l.207 (§9 point 3), l.236 (F-7 ; FAITS-NODE-FETCH-TLS-1 clos pour le lot, voir DJ-L175)
+  nature : procurement · item : FAITS-NODE-FETCH-CONTENT-ENCODING-1 (lecture sur place : `fetch` de Node décode-t-il `Content-Encoding`, et ce que compte la
+    borne) · déclencheur : G0 de DOJO-CA0-SCRIPT-1
+  état : ouvert · suite : FAITS daté avant tout code du vérificateur réseau
+- **DJ-L12** · « Prix d'une lecture pris à plusieurs emplacements voisins ; la lecture à un seul emplacement n'est pas mesurée. »
+  source : PR2 l.303 (TY-9 : résiduel déclaré), l.384 (§9 point 10)
+  nature : test · item : DOJO-PRICE-SINGLE-SLOT-MEASURE-1 (mesurer l'écart entre le prix à un emplacement et le prix sur emplacements voisins) · déclencheur :
+    première version de prix (septième jour compté valide, TU-11)
+  état : ouvert · suite : mesure sur les lectures réelles de d à d + 6, avant la première `price_version`
+- **DJ-L13** · « Borne des écarts d'index, 3 sur 2 000, fondée sur un seuil de 5 % déclaré convention, non source. »
+  source : PR2B l.371, l.921, l.953 ; MÈRE l.316, l.931
+  nature : recherche · item : DOJO-INDEX-GAP-THRESHOLD-1 (fonder le seuil de 5 % : loi des écarts d'index entre opérateurs, borne de détection) · déclencheur
+    : prochaine course d'historique, ou 2026-10-31 au plus tard
+  état : ouvert · suite : mesure des écarts sur les courses r2, r3 et finale, puis seuil sourcé ou recherche formée
+- **DJ-L14** · « Emplacement sans rang concordant : la borne basse retire jusqu'à la somme des baisses ; escalade écrite, borne d'arrêt à 0. »
+  source : PR2B l.359, l.816, l.910, l.921
+  nature : recherche · item : DOJO-RANK-FALLBACK-BOUND-1 (emplacement sans rang concordant : borne plus fine que la somme des baisses) · déclencheur : le lot
+    de DOJO-HISTORY-INFO-DEPTH-1
+  état : ouvert · suite : compter les emplacements sans rang des courses réelles ; si zéro, l'item se clôt par la mesure
+- **DJ-L15** · « La recherche du tableau contrôle l'alphabet base58, pas le décodage en 32 octets ; accepté à l'inspection. »
+  source : ETAT l.68 ; PR4 l.71 · touche : `lookup`
+  nature : code · item : DOJO-LOOKUP-BASE58-DECODE-1 (la recherche décode l'adresse en 32 octets avant de chercher) · déclencheur : lot du site après la
+    première synchro (avec DOJO-TABLE-SSR-1)
+  état : décision (inspection, ETAT l.68) · suite : deux lignes et un test ; la décision d'inspection (ETAT l.68) tient jusque-là
+- **DJ-L16** · « Une adresse qui acquiert puis ferme son compte avant le premier instant lu de d fait sauter d : un jour perdu. »
+  source : ETAT l.83-86, l.161-162
+  nature : recherche · item : DOJO-FIRST-DAY-CLOSED-ACCOUNT-1 (lire d sans perdre un jour quand une adresse ferme son compte avant le premier instant lu) ·
+    déclencheur : premier refus `eve_mismatch` à 18 (iv) ; clos sans objet à la publication du premier snapshot s'il n'y en a pas
+  état : décision (accord de l'investisseur, ETAT l.83-86) · suite : le résiduel de B-1 ne vaut qu'au premier jour ; mesure à 18 (iv)
+- **DJ-L17** · « Aucune constante tirée des lectures : seuil, nombre de lectures et durée minimale sont des choix, pas des chiffres sourcés. »
+  source : MÈRE l.119 ; valeurs de l'ancre en vigueur : ETAT l.169-178
+  nature : recherche · item : DOJO-CONSTANTS-CALIBRATION-1 (seuil, nombre de lectures, durée minimale : calibrer sur les lectures servies, littérature du vote
+    pondéré par le temps) · déclencheur : 30 jours comptés (2026-11-01), puis G0 de la pièce 2 (MÈRE l.677)
+  état : décision (valeurs de l'ancre, ETAT l.169-178) · suite : chaque constante sourcée ou mesurée, changement seulement par ancre signée
+- **DJ-L18** · « Jours manquants propres à une adresse (désaccord d'opérateurs) : hors de la preuve d'invariance au fractionnement. »
+  source : MÈRE l.294, l.650 (P-21)
+  nature : recherche · item : DOJO-SPLIT-INVARIANCE-MISSING-DAYS-1 (étendre la preuve d'invariance au fractionnement aux jours manquants d'une adresse) ·
+    déclencheur : G0 de la pièce 2 (MÈRE l.677)
+  état : ouvert · suite : preuve écrite ou contre-exemple mesuré sur les lectures servies
+- **DJ-L19** · « Sécurité formelle du mélange de la graine et de la balise : analyse en oracle aléatoire, sans preuve. »
+  source : PR2 l.386 (§9 point 12) ; MÈRE l.749 (§12 point 13)
+  nature : recherche · item : DOJO-SEED-BEACON-PROOF-1 (sécurité du mélange graine et balise dans le modèle standard : VRF, engagement et révélation) ·
+    déclencheur : G0 de la prochaine ancre (rotation de graine ou de clé)
+  état : ouvert · suite : état de l'art, procurements formés, construction choisie et son prix
+- **DJ-L20** · « Résiduel initié : l'opérateur connaît les instants dès le début du jour et garde l'abstention ; connivence avec t nœuds drand. »
+  source : MÈRE l.202, l.339 (T-10) ; PR2 l.161, l.301 (TY-7), l.304 (TY-10) · touche : `method`
+  nature : recherche · item : DOJO-INSIDER-INSTANTS-1 (instants tirés d'un tour drand futur pour que l'opérateur ne les connaisse pas d'avance) · déclencheur
+    : G0 de la prochaine ancre (rotation de graine ou de clé)
+  état : ouvert · suite : construction à délai et son coût ; connivence avec t nœuds drand chiffrée
+- **DJ-L21** · « Une poussée du prix tenue une semaine déplace le seuil d'une unité pour une version : coût chiffré, pas d'interdiction. »
+  source : MÈRE l.346 (T-17 : résiduel) · touche : `tiers`
+  nature : recherche · item : DOJO-PRICE-MANIPULATION-COST-1 (prix robuste à une poussée d'une semaine : médiane, TWAP, coût d'attaque chiffré) · déclencheur
+    : première version de prix (septième jour compté valide, TU-11)
+  état : ouvert · suite : coût chiffré sur les réserves réelles du pool ; changement de règle par ancre signée
+- **DJ-L22** · « Migration ou retrait de la liquidité du pool : prix indéfini ; changement de pool seulement par décision signée. »
+  source : MÈRE l.347 (T-18 : résiduel)
+  nature : code · item : DOJO-POOL-MIGRATION-1 (détecter le retrait de la liquidité du pool et s'abstenir de prix, règle signée de changement de pool) ·
+    déclencheur : première version de prix (septième jour compté valide, TU-11)
+  état : ouvert · suite : lecture des réserves à chaque version ; abstention nommée si elles tombent
+- **DJ-L23** · « Un déplacement légitime entre ses propres portefeuilles remet aussi la part déplacée à zéro (coût déclaré). »
+  source : MÈRE l.334 (T-5) · touche : `method`
+  nature : recherche · item : DOJO-SELF-TRANSFER-LINK-1 (lier deux adresses par une preuve de contrôle commun pour qu'un déplacement ne remette pas à zéro) ·
+    déclencheur : G0 de la pièce 2 (MÈRE l.677)
+  état : décision (règle du G0, MÈRE l.334) · suite : état de l'art des preuves de contrôle commun, coût, effet sur la règle du G0
+- **DJ-L24** · « Toutes les lignes sont publiques : la fuite des soldes par adresse est acceptée par conception. »
+  source : MÈRE l.232, l.336 (T-7)
+  nature : recherche · item : DOJO-PRIVACY-THRESHOLD-PROOF-1 (prouver qu'une adresse passe un seuil sans publier son solde : preuves à divulgation nulle) ·
+    déclencheur : G0 de la pièce 2 (MÈRE l.677)
+  état : décision (MÈRE l.232) · suite : construction et prix ; la publication des lignes reste la règle d'ici là
+- **DJ-L25** · « Aucune décroissance du stock ancien dans la pièce 1 : l'enracinement est renvoyé au G0 de la pièce 2. »
+  source : MÈRE l.343 (T-14), l.565 (P-1)
+  nature : recherche · item : DOJO-STOCK-DECAY-1 (décroissance du stock ancien et enracinement) · déclencheur : G0 de la pièce 2 (MÈRE l.677)
+  état : ouvert · suite : renvoi daté au G0 de la pièce 2, littérature du vote pondéré par le temps
+- **DJ-L26** · « Coût d'une attaque par comptes-poussière non chiffré : le loyer d'un compte de jetons n'est pas lu. »
+  source : MÈRE l.345 (T-16), l.755 (§12 point 19)
+  nature : test · item : DOJO-DUST-RENT-COST-1 (lire le loyer d'un compte de jetons et chiffrer l'attaque par comptes-poussière) · déclencheur : lot
+    d'outillage après la première publication
+  état : ouvert · suite : une lecture sous le garde et un calcul ; coût publié en interne
+- **DJ-L27** · « Jour d'une transaction historique = jour de `blockTime`, estimé et pondéré par le stake ; précision aux bornes non levée. »
+  source : MÈRE l.916 ; PR2B l.93 (H-7), l.694 (TY-10)
+  nature : recherche · item : DOJO-BLOCKTIME-PRECISION-1 (précision de `blockTime` aux bornes de jour : mesure et littérature du consensus) · déclencheur :
+    prochaine course d'historique
+  état : ouvert · suite : mesure des transactions à moins de 60 s d'une borne, effet sur les jours
+- **DJ-L28** · « La profondeur d'historique servie demain n'est pas prouvée ; la sonde 3 ne la mesure qu'au jour de la mesure. »
+  source : MÈRE l.916
+  nature : test · item : DOJO-HISTORY-DEPTH-WATCH-1 (sonde de la profondeur servie par les deux opérateurs, rejouée chaque mois) · déclencheur : 2026-11-01,
+    puis chaque mois
+  état : ouvert · suite : une sonde sous le garde ; écart = arrêt de toute nouvelle course d'historique
+- **DJ-L29** · « Battement du flux SOL/USD observé sur un seul échantillon ; la marge de fraîcheur de 165 s en dépend. »
+  source : PR2 l.138, l.387 (§9 point 13)
+  nature : test · item : DOJO-SOLUSD-HEARTBEAT-SAMPLE-1 (battement du flux SOL/USD sur un échantillon d'au moins sept jours) · déclencheur : première version
+    de prix (septième jour compté valide, TU-11)
+  état : ouvert · suite : la marge de 165 s revue sur l'échantillon mesuré
+- **DJ-L30** · « Collecte compromise : graine connue, donc instants connus ; paquets faux publiés, la signature n'atteste que l'origine. »
+  source : PR3 l.171 (TB-1 : résiduel déclaré) ; MÈRE l.261
+  nature : recherche · item : DOJO-COLLECT-ATTESTATION-1 (collecte attestée : seconde collecte indépendante ou exécution attestée, coût) · déclencheur : G0 de
+    la pièce 2 (MÈRE l.677)
+  état : ouvert · suite : état de l'art, prix d'une seconde collecte ; résiduel TB-1 tenu jusque-là
+- **DJ-L31** · « Une compromission root de l'hôte expose les deux clés de signature, Bell et Dōjō. »
+  source : PR3 l.172 (TB-2 : résiduel root déclaré) ; MÈRE l.249
+  nature : recherche · item : DOJO-KEY-SEPARATION-1 (séparer les clés Bell et Dōjō : hôtes distincts ou clé matérielle, coût) · déclencheur : première
+    rotation de l'une des deux clés (celle de Bell avant le 2026-12-22)
+  état : ouvert · suite : prix chiffré des deux voies, décision de l'investisseur
+- **DJ-L32** · « Quatre secrets dans les mêmes sauvegardes du fournisseur : toute restauration vaut exposition. »
+  source : PR3 l.89, l.173 (TB-3 : accepté et borné)
+  nature : procurement · item : DOJO-BACKUP-SECRET-EXCLUSION-1 (lecture sur place des options de sauvegarde du fournisseur : exclusion ou chiffrement des
+    secrets) · déclencheur : 2026-10-31, ou avant la première rotation de clé
+  état : décision (TB-3, PR3 l.173) · suite : FAITS daté ; l'acte sur le compte reste celui de l'investisseur
+- **DJ-L33** · « Pas de minuterie manqué : jour abstenu ou lecture `missed`, résiduel rendu public. »
+  source : PR3 l.177 (TB-7)
+  nature : code · item : DOJO-MISSED-READ-RECOVERY-1 (rattraper une lecture manquée dans le jour, sans révéler les instants) · déclencheur : premier `missed`
+    dans un jour publié
+  état : ouvert · suite : mesure du taux de `missed` sur les jours servis, puis lot
+- **DJ-L34** · « Une ancre ajoutée hors de `--anchor` sur une version due arrête durablement l'éditeur ; seul remède, une chronologie neuve. »
+  source : PR3 l.413 (C-G2-1, TB-16)
+  nature : code · item : DOJO-ANCHOR-OUT-OF-BAND-GUARD-1 (le signataire refuse une ligne d'ancre hors de `--anchor`, avant l'écriture) · déclencheur :
+    prochain lot de l'éditeur (avec Q-10 et D3-1, au plus tard 2026-10-09)
+  état : ouvert · suite : garde et test rouge à la base ; d'ici là, aucune signature à la main (RUNBOOK §19)
 
 ## 4. Limites déclarées puis closes, ou tranchées par décision
 
