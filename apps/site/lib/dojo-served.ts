@@ -234,3 +234,12 @@ function migrationOf(data: DojoServedData): string {
 }
 /** The figures E2 adds to E1: the unit in token-days, the count of holders, the dust threshold in tokens, the Migration window in days. */
 interface DojoVersionedFigures { threshold_unit_token_days: string; holders_count: string; dust_threshold_tokens: string; migration_days: string }
+
+// -- DOJO-PAGE-FOLD-1, declared last for the same reason: the page shows the figures of the day and folds its explanations --
+/** The keys of dojoBodyOf after the head's sentence, split as the page shows them: at the opening, the figures of the day (the totals,
+ *  the holders); in the fold "How it is counted", below the table, the tier sentences (the unit under a version in force, or its absence,
+ *  then the tier of an address). Each part keeps the order of dojoBodyOf; the head's sentence is never folded. */
+export function dojoFoldOf(keys: readonly DojoBodyKey[]): [open: DojoBodyKey[], counted: DojoBodyKey[]] {
+  const folded = (k: DojoBodyKey): boolean => k === "tiers" || k === "noVersion" || k === "tier";
+  return [keys.filter((k) => !folded(k)), keys.filter(folded)];
+}

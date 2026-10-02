@@ -125,7 +125,7 @@ async function expectedAt(dir: string): Promise<Exclude<Awaited<ReturnType<typeo
 }
 
 // killer: apps/site/app/dojo/page.tsx:19 CONST "[T.exclusion," -> "[T.method, T.exclusion,"
-// killer: apps/site/app/dojo/page.tsx:39 CONST "<DojoSentence text={T.method} figures={figures} />" -> "{T.method}"
+// killer: apps/site/app/dojo/page.tsx:41 CONST "<DojoSentence text={T.method} figures={figures} />" -> "{T.method}"
 // killer: scripts/assert-fleet-html.mjs:678 CONST "String(A.tier_windows[4])" -> "String(A.tier_windows[3])"
 // killer: apps/site/lib/dojo-served.ts:49 CONST "migration_days: migrationOf(data)" -> "migration_days: validation_days"
 // killer: apps/site/lib/dojo-copy.ts:41 CONST "{migration_days} days" -> "one hundred and eighty days"
@@ -160,6 +160,37 @@ test("dojo_render_page_passes_the_build_check", async () => {
     "the anchor in force is line 2, and the page names its Migration window, 90 days");
   assert.doesNotThrow(() => assertDojoBody({ html: html2, expected: expected2 }), "the page of the anchor in force passes the build check");
   assert.throws(() => assertDojoBody({ html: pages.get("E2") ?? "", expected: expected2 }), /is absent|occurs 0 time/, "the first anchor's page is refused");
+});
+
+// killer: apps/site/components/dojo/dojo-live.tsx:52 CONST "<details className=" -> "<details open className="
+// killer: apps/site/app/dojo/page.tsx:49 CONST "<details className=" -> "<details open className="
+test("dojo_render_page_folds_the_explanations", async () => {
+  // DOJO-PAGE-FOLD-1 (D-1, D-2): the essentials open; below the table, two native folds, closed by default, each opened by its own label
+  // with no script: "How it is counted" (the tier sentences, the method, the exclusion, the bounds), then "Check it yourself" (the check,
+  // the tree, the beacon). The page the server renders, in each state; each sentence as the closed list writes it, its figures filled in.
+  assert.ok("dojoFoldOf" in served, "lib/dojo-served.ts exports dojoFoldOf");
+  const { recs } = await records();
+  for (const state of ["E1", "E2", "EA"] as const) {
+    const dir = rootWith(recs[state]), html = await pageAt(dir), main = (html.split("<main")[1] ?? "").replace(/^[^>]*>/, "").split("</main>")[0] ?? "";
+    const f = served.dojoPageFiguresOf(loadDojoServed(dir)), shown = f.state === "E0" ? assert.fail(`${state}: a record`) : f;
+    const said = (s: string): string => served.sentenceParts(s, shown).map((p) => (typeof p === "string" ? p : p.value)).join("");
+    const [head, ...rest] = served.dojoBodyOf(shown), [open, folded] = served.dojoFoldOf(rest);
+    assert.deepEqual([...main.matchAll(/<details[^>]*>/g)].map((m) => m[0]),
+      ['<details class="text-muted-foreground">', '<details class="pt-3 text-sm text-muted-foreground">'], `${state}: two folds, neither open`);
+    assert.deepEqual([...main.matchAll(/<details[^>]*><summary class="cursor-pointer">([^<]*)<[/]summary>/g)].map((m) => m[1]),
+      [T.foldCounted, T.foldCheck], `${state}: each fold opened by its own label, its first child`);
+    const [atOpening = "", counted = "", check = ""] = main.split("<details").map((p, i) => textOf(i === 0 ? p : `<details${p}`));
+    const inOrder = (text: string, list: string[]): boolean =>
+      list.every((s, i) => text.includes(s) && (i === 0 || text.indexOf(list[i - 1] ?? "") < text.indexOf(s)));
+    const essentials = [copy.DOJO_TITLE, T.lead, said(T[head ?? assert.fail("no sentence")]), T.rereadFirst, ...open.map((k) => said(T[k])),
+      ...(state === "EA" ? [] : [T.table])];
+    const how = [...folded.map((k) => said(T[k])), said(T.method), T.exclusion, T.bounds], yours = [T.check, T.tree, T.beacon];
+    assert.ok(inOrder(atOpening, essentials), `${state}: the essentials at the opening, in order, the table last`);
+    assert.ok(inOrder(counted, [T.foldCounted, ...how]) && inOrder(check, [T.foldCheck, ...yours]), `${state}: each fold, its sentences in order`);
+    assert.deepEqual([...how, ...yours].filter((s) => atOpening.includes(s) || (yours.includes(s) && counted.includes(s))), [],
+      `${state}: nothing folded at the opening, nothing of the second fold in the first`);
+    assert.equal(folded.length, state === "E2" ? 2 : 1, `${state}: the tier sentences folded (the unit or its absence, the tier under a version)`);
+  }
 });
 
 // killer: apps/site/components/dojo/dojo-table.tsx:67 CONST "slice(0, count)" -> "slice(0, count + 1)"
@@ -264,11 +295,11 @@ test("dojo_render_table_starts_over_for_another_head", async () => {
   assert.deepEqual([textOf(shell(at(c9))), shell(at(ea))], [T.table, ""], "a counted head: the sentence of a table to come; an abstained one: nothing");
 });
 
-// killer: apps/site/app/dojo/page.tsx:56 CONST "!isAbsolute(local)" -> "false"
+// killer: apps/site/app/dojo/page.tsx:68 CONST "!isAbsolute(local)" -> "false"
 // killer: apps/site/app/dojo/page.tsx:27 CONST "style={{ paddingTop: 32 }}" -> "data-root={recordRootOf()} style={{ paddingTop: 32 }}"
 // killer: apps/site/components/dojo/dojo-live.tsx:23 CONST "${DOJO_LIVE_PREFIX}${rel}" -> "${process.env.MONARK_DOJO_LOCAL_BUILD_ROOT}${rel}"
 // killer: .github/workflows/ci.yml:204 CONST "run: npm run build" -> "run: MONARK_DOJO_LOCAL_BUILD_ROOT=/tmp npm run build"
-// killer: apps/site/app/dojo/page.tsx:54 CONST "process.env.MONARK_DOJO_LOCAL_BUILD_ROOT" -> "undefined"
+// killer: apps/site/app/dojo/page.tsx:66 CONST "process.env.MONARK_DOJO_LOCAL_BUILD_ROOT" -> "undefined"
 test("dojo_page_reads_a_local_root_on_the_server_at_build_only", async () => {
   // The record of a local build on a fixture (the measures of the page in a browser): MONARK_DOJO_LOCAL_BUILD_ROOT, absent by default,
   // and then the committed record is read as before; set, the absolute directory it names; relative or empty, the build reds.

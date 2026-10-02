@@ -101,6 +101,10 @@ export const DOJO_TEXT = {
   lookupInvalid: "This is not a valid address.",
   lookupAbsent: "No line for this address in the snapshot shown above.",
   lookupDust: "This line is under the dust threshold of the version in force, so it is not listed among the others.",
+  // The labels of the two folds of the page, below the table, each a native fold that any browser opens without a script: how the
+  // figures above are counted, then how anyone checks them.
+  foldCounted: "How it is counted",
+  foldCheck: "Check it yourself",
 } as const;
 
 /** The words of the table of the lines of the snapshot shown (components/dojo/dojo-table.tsx), where the lines under the dust threshold
