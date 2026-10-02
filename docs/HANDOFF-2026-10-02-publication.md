@@ -273,6 +273,15 @@ DJ-L06 table sans script (code, rendu serveur des lignes committées).
   (2) P2-RECALC-TOOL-1 : mission G1 `73fabed9…` (`F:/tmp/kata-p2b/mission-recalc.md`, reçu vert, worker `claude-opus-5-5`, max,
   copie `F:/tmp/kata-p2b/wt` à `1ea4f64`, sources hikae `207f021f` extraites sous `F:/tmp/kata-p2b/hikae-207f021f/`) lancée ;
   aveugle par construction (aucun registre de RECHERCHES chez MONARK), sceau `out/SEAL.sha256` premier acte après la course.
+- 2026-10-02 14:28 UTC : ÉCART DE ROSTER de nouveau : depuis 14:27:29 UTC, la session tourne sous `claude-opus-5-5` (transcription) ;
+  aucun verdict d orchestrateur rendu sous ce modèle (G7 de la partie 3 compris) ; rendu à l investisseur.
+- 2026-10-02 14:28 UTC : push P2b de RECHERCHES (`a43ad70`, reçu 14:19:36Z) contrôlé sur pièce, SANS lire un champ du registre ni du
+  rapport (symétrie) : octets = `811fcd57…` et `e91edb41…` (LF, `kata/** text eol=lf`) ; exclusion `:(exclude,glob)kata/registry/*.json`
+  dans `r25.sh`, deux fichiers couverts (`census.json`, `wave1.json`), tous deux déclarés ; test de provenance vert, deux mutants
+  (empreinte altérée, fichier non déclaré) rouges ; R-25 1 113 depuis `d8ca0bc` (1 041 depuis notre merge) ; banc et bibliothèque
+  inchangés. Écart déclaré par eux : la règle est dans un additif daté (`decisions/0005-ADR-addendum-1-registry-artifacts.md`), pas
+  dans l ADR 0005 figé (empreinte P0 `b011e4de…` publiée). Recommandation de l orchestrateur : accepter l additif (l ADR garde son
+  empreinte publiée ; l additif ne change aucune définition) ; décision à l investisseur. Réponse à RECHERCHES après elle.
 - 2026-10-02 08:26 UTC, ÉCART DE ROSTER relevé par l orchestrateur : depuis 02:51:22 UTC, les tours de l orchestrateur tournent sous
   `claude-opus-5-5` (519 tours dans la transcription de la session), pas sous `claude-fable-5-1` (règle : orchestrateur = Fable 5.1).
   Actes faits sous ce modèle : contrôle et accord P2a complet (recherches#38), consolidation du CLAUDE.md global, adjudications et
