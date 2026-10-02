@@ -161,27 +161,33 @@ claude-opus-5-5
 
 - **DJ-L01** · « La page ne montre pas qu'une adresse appartient à une seule personne. »
   source : COPY l.50-53 (`bounds`) ; MÈRE l.157 (D-1 : identité hors frontière), l.567 (P-3)
-  nature : recherche · item : DOJO-IDENTITY-CLUSTER-1 (preuve de personne ou regroupement d'adresses : état de l'art, coût, ce qui reste indécidable) · déclencheur : G0 de la pièce 2 (MÈRE l.677) ; procurements formés au mainteneur avant
+  nature : recherche · item : DOJO-IDENTITY-CLUSTER-1 (preuve de personne ou regroupement d'adresses : état de l'art, coût, ce qui reste indécidable) ·
+    déclencheur : G0 de la pièce 2 (MÈRE l.677) ; procurements formés au mainteneur avant
   état : ouvert · suite : recherche de solutions académiques, sources à l'appui ; la page garde la phrase tant qu'aucune construction n'est servie
 - **DJ-L02** · « La page ne montre rien de ce qui viendra. »
   source : COPY l.50-53 (`bounds`) ; MÈRE l.30 (D-12 : aucune promesse), l.532 (lexique : soon, coming)
-  nature : Tiers · item : DOJO-NO-PROMISE-LEGAL-1 (lecture juridique de D-12 et des Tiers : ce qu'une page « sans promesse » doit dire et taire) · déclencheur : acte du juriste (JURISTE-ACTE-NOV-1) ; avant tout texte qui annoncerait la pièce 2
+  nature : Tiers · item : DOJO-NO-PROMISE-LEGAL-1 (lecture juridique de D-12 et des Tiers : ce qu'une page « sans promesse » doit dire et taire) · déclencheur :
+    acte du juriste (JURISTE-ACTE-NOV-1) ; avant tout texte qui annoncerait la pièce 2
   état : ouvert · suite : avis écrit versé au dossier, phrase de COPY relue mot pour mot ensuite
 - **DJ-L03** · « La vérification ne lit pas la chaîne : les soldes restent ce que deux opérateurs ont rapporté. »
   source : COPY l.50-58 (`bounds`, `check`) ; MÈRE l.261 (D-10), l.337 (T-8), l.338 (T-9) ; PR1B4 l.171 (TY-7) ; PR2 l.389
-  nature : recherche · item : DOJO-STATE-PROOF-1 (preuve d'état par compte : solutions académiques et clients légers, ce qui est servi par la chaîne, coût) · déclencheur : après la première publication, avant le G0 de toute lecture à plus de deux opérateurs (DOJO-OPERATOR-INDEPENDENCE-1)
+  nature : recherche · item : DOJO-STATE-PROOF-1 (preuve d'état par compte : solutions académiques et clients légers, ce qui est servi par la chaîne, coût) ·
+    déclencheur : après la première publication, avant le G0 de toute lecture à plus de deux opérateurs (DOJO-OPERATOR-INDEPENDENCE-1)
   état : ouvert · suite : d'ici là, deux opérateurs distincts et le texte de COPY inchangé ; procurement formé si un papier manque
 - **DJ-L04** · « Sans script ou sans Ed25519 dans le navigateur, aucune relecture : les chiffres montrés sont ceux committés avec la page. »
   source : COPY l.65-67 (`rereadFirst`), l.71-73 (`rereadNoCheck`) ; PR4 l.303 (Q-P1 (a)), l.343 (TY-3), l.318
-  nature : code · item : DOJO-VERIFY-PURE-JS-1 (relecture sans WebCrypto : Ed25519 en JavaScript pur, vendu avec la page, sans CDN) · déclencheur : premier lot du site après la première synchro (C-V-5)
+  nature : code · item : DOJO-VERIFY-PURE-JS-1 (relecture sans WebCrypto : Ed25519 en JavaScript pur, vendu avec la page, sans CDN) · déclencheur : premier lot
+    du site après la première synchro (C-V-5)
   état : ouvert · suite : G0 du lot : taille du paquet mesurée contre le budget des FAITS ; `rereadNoCheck` retiré quand c'est servi
 - **DJ-L05** · « Une rotation de clé n'est pas suivie par la page : retour aux chiffres committés jusqu'à la synchro suivante. »
   source : COPY l.77-79 (`rereadKeyChange`) ; PR4 l.73 (point 4), l.266
-  nature : code · item : DOJO-REREAD-KEY-ROTATION-1 (la relecture suit les lignes `key_rotation` de la chronologie servie, jamais le trousseau committé seul) · déclencheur : avant la première rotation de clé (RUNBOOK-dojo §20) ou le lot de DOJO-VERIFY-PURE-JS-1, le premier des deux
+  nature : code · item : DOJO-REREAD-KEY-ROTATION-1 (la relecture suit les lignes `key_rotation` de la chronologie servie, jamais le trousseau committé seul) ·
+    déclencheur : avant la première rotation de clé (RUNBOOK-dojo §20) ou le lot de DOJO-VERIFY-PURE-JS-1, le premier des deux
   état : ouvert · suite : phrase `rereadKeyChange` retirée quand c'est servi ; test non-LLM qui rejoue une rotation
 - **DJ-L06** · « Sans script, aucune ligne n'est listée ni recherchée sur la page. »
   source : COPY l.82-84 (`table`), l.98-100 (`lookup`) ; ETAT l.49 ; MÈRE l.678 (lignes réelles non committées)
-  nature : code · item : DOJO-TABLE-SSR-1 (lignes committées rendues par le serveur : liste et recherche lisibles sans script) · déclencheur : lot du site après la première synchro, avec DOJO-VERIFY-PURE-JS-1
+  nature : code · item : DOJO-TABLE-SSR-1 (lignes committées rendues par le serveur : liste et recherche lisibles sans script) · déclencheur : lot du site après
+    la première synchro, avec DOJO-VERIFY-PURE-JS-1
   état : ouvert · suite : phrases `table` et `lookup` relues ; la table servie reste celle des lignes committées (MÈRE l.678)
 - **DJ-L40** · « La page ne montre pas le solde entre deux lectures. »
   source : COPY l.50-53 (`bounds`) ; MÈRE l.331 (T-2 : réduit et chiffré), l.203

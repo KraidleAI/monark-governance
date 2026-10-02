@@ -106,8 +106,8 @@ Dans `F:/Monark-wt-page-v1` : `git merge --no-ff <lot>` (aucun conflit attendu :
 
 ## 9. Lignes datées à écrire par l orchestrateur
 - FAITES (02/10 02:47Z, `224a6bd1` sur `lot/page-v1`) : ADR-DOJO-PR-3 TU-1h et `TasksMax=64` ; ADR-DOJO-PR-2B BATCH-NEAR (`2fab0d81`).
-- Registre PAROXYSME : ajouter DOJO-SITE-PROXY-HEADERS-ALLOWLIST-1, DOJO-HISTORY-INFO-DEPTH-1, FAITS-TOKEN2022-PARSER-BATCH-SHAPE-1,
-  Q-10 et D3-1 (déplacés).
+- FAIT (02/10 02:49Z, `32bcf4b0`) : registre PAROXYSME : DJ-L187 à L191 (HEADERS-ALLOWLIST, INFO-DEPTH, BATCH-SHAPE, Q-10, D3-1) ; les six
+  dettes publiques DJ-L01 à L06 portent un item (§2 du registre). Restent : 28 dettes internes du §1.2 et 20 déclencheurs passés (§4).
 
 ## 10. PAROXYSME (rappel obligatoire)
 Campagnes en cours : aucune. Différés après la publication, avec items : horodatage Bitcoin (DOJO-ANCHOR-OTS-AFTER-PUBLICATION-1),
@@ -133,6 +133,8 @@ DJ-L06 table sans script (code, rendu serveur des lignes committées).
   `dojo/collect:`, jour d ouvert (`eve.json`, `evidence`, `readings`, pas de `publish/`). Verrou de l oracle libre. Lanceur
   `run-final.sh` relu ligne à ligne : conforme au §18 ; plafonds tenus (dépense réelle de la course provisoire r3 : 6 654 crédits,
   47 484 RU, 28 167 appels pour 22 jours). Lignes datées §9 écrites (`224a6bd1`). G2 SITE-SEND-PREP : rapport incomplet (§3).
+
+- 2026-10-02 02:49 UTC : PAROXYSME-Dojo mis à jour (`32bcf4b0`) : six publiques pourvues d items, cinq items du §9 ajoutés ; 28 + 20 restent.
 
 ## 12. Compléments (ajoutés le 2026-10-02 à 02:3x UTC)
 - **Accès aux hôtes** : clé `~/.ssh/monark_vps`. Hôte Bell : cible ssh lue dans `F:/tmp/dojo/s7-1.sh` (extraire par `grep -oE 'root@[0-9.]+'`,
