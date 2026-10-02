@@ -17,7 +17,7 @@ import { appendFileSync, cpSync, existsSync, mkdirSync, mkdtempSync, readFileSyn
 import { tmpdir } from "node:os";
 import { dirname, join, posix } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
-import { ENV as SIM_ENV, MINT, POOL, PYTH, QUOTE_VAULT, ROWS, relays, sim } from "../apps/dojo/test/helpers/collect-chain.ts";
+import { ENV as SIM_ENV, MINT, POOL, PYTH, QUOTE_VAULT, ROWS, sim } from "../apps/dojo/test/helpers/collect-chain.ts";
 import { ANCHOR_DAY, DAY1, anchorBody, betaOf, dateOf } from "../apps/dojo/test/helpers/dojo-fixture.ts";
 import { canonical, keyIdOf, lineHash, signLine } from "../apps/bell/scripts/bell-chain.mjs";
 import { rootOf } from "../apps/dojo/scripts/dojo-core.mjs";
@@ -311,7 +311,7 @@ test("dojo_units_compose_collect_to_publish_to_verify", async () => {
   Object.assign(sim, { reqs: [], rows: ROWS, mint: MINT, beta: betaOf(D1), override: null });
   const tick = (sec: number): Promise<void> => {
     sim.nowMs = sec * 1000;
-    return collect.runCollect(cargv, { env, nowMs: () => sim.nowMs, sleep: () => Promise.resolve(), relays });
+    return collect.runCollect(cargv, { env, nowMs: () => sim.nowMs, sleep: () => Promise.resolve() }); // the relays: the guard labels, by host (DRAND-1b)
   };
   await tick(D1 * 86_400 + 60);
   const plan = JSON.parse(readFileSync(join(day, "evidence", "plan.json"), "utf8")) as { instants: number[] };
@@ -347,7 +347,7 @@ function keyUses(text: string): string[] {
   return out;
 }
 
-// killer: docs/RUNBOOK-dojo.md:405 CONST "grep -c PRIVATE /root/dojo-pubkey.out; " -> "cat /etc/monark/dojo/signing-key.pem; "
+// killer: docs/RUNBOOK-dojo.md:418 CONST "grep -c PRIVATE /root/dojo-pubkey.out; " -> "cat /etc/monark/dojo/signing-key.pem; "
 test("dojo_runbook_never_prints_private_key", () => {
   exists();
   const K = D.DOJO_SIGNING_KEY_SOURCE, text = read(RUNBOOK), a4 = sectionOf(13);
@@ -370,7 +370,7 @@ test("dojo_runbook_never_prints_private_key", () => {
   }
 });
 
-// killer: docs/RUNBOOK-dojo.md:593 CONST "upgrade docs/dojo-publications" -> "stamp docs/dojo-publications"
+// killer: docs/RUNBOOK-dojo.md:606 CONST "upgrade docs/dojo-publications" -> "stamp docs/dojo-publications"
 test("dojo_runbook_counts_only_after_the_block", () => {
   exists();
   const a8 = sectionOf(16, true), at = (x: string): number => { const i = a8.indexOf(x); assert.ok(i >= 0, `A-8: ${x}`); return i; };
@@ -397,7 +397,7 @@ test("dojo_keyring_shares_no_key_with_bell", { skip: existsSync(REPO + TU_K) ? f
   assert.deepEqual(bk.keys.filter((x) => ids.has(x.key_id) || ids.has(x.jwk.x)), [], "no key of Bell's keyring in Dojo's (key_id or x)");
 });
 
-// killer: docs/RUNBOOK-dojo.md:675 SDL "price_version_pending" -> ""
+// killer: docs/RUNBOOK-dojo.md:721 SDL "price_version_pending" -> ""
 test("dojo_runbook_stops_before_the_stamp_and_on_refusals", () => {
   exists();
   const a8 = sectionOf(16, true), check = a8.indexOf("dojo-verify-cli.mjs /f/PRODUITS/dojo-mirror/public-seq1 --self-consistent-only");

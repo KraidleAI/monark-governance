@@ -1,6 +1,7 @@
 // MONARK Dojo -- PR-2-2 (ADR-DOJO-PR-2 D-1 l.110; mere D-5 l.203-206): the closed table of the Solana methods the collector SENDS,
 // their per-course caps, the chain operator labels of the guard (labels only: the guard resolves each to its host, and none is ever
-// written under publish/; the beacon relays are injected until item DRAND-RELAY-GET-1), and the constants the collector pins instead of reading them (the beacon's /info is never read by the
+// written under publish/; the beacon relays are the guard's own labels, with their attempt cap below, DRAND-RELAY-GET-1b), and
+// the constants the collector pins instead of reading them (the beacon's /info is never read by the
 // collector: orchestrator's verdict, ADR dated line 08:28Z, point (4)). PR-2b-3 completes the method table with its own list.
 /** The two methods a collector course sends (mere D-5 l.205; ADR D-1 l.110). */
 export const DOJO_SOLANA_METHODS: readonly string[] = ["getAccountInfo", "getProgramAccounts"];
@@ -10,6 +11,10 @@ export const DOJO_METHOD_CAPS: Readonly<Record<string, number>> = { getProgramAc
 /** Tries per call (ADR D-6 l.173: two tries per call); backoff without Retry-After, the 400 ms step of apps/bell/src/quorum.ts:159. */
 export const TRIES = 2;
 export const BACKOFF_MS = 400;
+/** Attempts per beacon relay and per day, held by the guard over the cycle drand-<AAAA-MM-JJ> (ADR-RPC-GUARD-DRAND-1 D-1 (b), fold
+ *  cp-1 C-V-1): 2 requests x TRIES. A literal of the consumer keyed by the labels of the guard's transport, written here, never read
+ *  from the guard: this module belongs to the closure of the publisher, which admits node: modules only (apps/dojo/test/dojo-publish.test.ts). */
+export const DRAND_CYCLE_ATTEMPTS: Readonly<Record<string, number>> = { "drand-pl": 4, "drand-cf": 4 };
 /** At most one call per second to the public host (ADR D-2 l.130; probe-12.mjs:48). */
 export const PUBLIC_HOST_GAP_MS = 1000;
 /** The chain operators of a reading, in the order a and b (ADR D-1 dated line C-V-2: constants, outside argv). */

@@ -5,15 +5,16 @@
 // tree read back green by the REAL verifier under a SUPPLIED dojo-keyring-v1. Key and seed are made at run time under the OS temp dir;
 // betas and instants SYNTHETIC; the history: a packet of the REAL writer of PR-2b through the REAL --history. The helpers are minimal copies of those
 // of apps/dojo/test/dojo-publish.test.ts (declared duplicate, G1 journal of PR-3a-1b).
+// T-SW1 and T-SW2 (DOJO-PUBLISH-SINGLE-WRITER-1, plan docs/G0-lot-single-writer.md): one writer under --state, its lock and --unlock.
 import { after, test } from "node:test";
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
 import { createHash, generateKeyPairSync, type KeyObject } from "node:crypto";
-import { mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join, sep } from "node:path";
 import { fileURLToPath } from "node:url";
-import { canonical } from "../apps/bell/scripts/bell-chain.mjs";
+import { canonical, keyIdOf } from "../apps/bell/scripts/bell-chain.mjs";
 import { daySeed, ownerClass, readInstants, rootOf } from "../apps/dojo/scripts/dojo-core.mjs";
 import * as publisher from "../apps/dojo/scripts/dojo-publish.mjs"; // publishDay bound late: the base of the lot, which lacks it, loads this file
 import { initSeed } from "../apps/dojo/scripts/dojo-seed.mjs";
@@ -105,14 +106,23 @@ function writeDay(w: World, d: number, eve: Eve): Eve {
   return nextEve(L.bundle, L.records, L.eve);
 }
 /** The CLI under an injected clock: a preloaded module sets Date.now, the CLI's only clock (Q-G1-7); the key comes from its credential. */
-function cliAt(t: number, args: string[], key: KeyObject): { status: number | null; stdout: string; stderr: string } {
+function cliAt(t: number, args: string[], key: KeyObject, pre: string[] = []): { pid: number; status: number | null; stdout: string; stderr: string } {
   const creds = tmp("dojo-e2e-cred-");
   writeFileSync(join(creds, "dojo-signing-key"), key.export({ type: "pkcs8", format: "pem" }));
-  return spawnSync(process.execPath, ["--import", `data:text/javascript,Date.now=()=>${t}`, SCRIPT, ...args],
+  return spawnSync(process.execPath, [...pre, "--import", `data:text/javascript,Date.now=()=>${t}`, SCRIPT, ...args],
     { env: { ...process.env, CREDENTIALS_DIRECTORY: creds }, encoding: "utf8" });
 }
+const LF = String.fromCharCode(10);
+/** Every file under dir with its sha256, relative and sorted: the witness that nothing was written. */
+const files = (dir: string): string[] => readdirSync(dir, { recursive: true, withFileTypes: true }).filter((e) => e.isFile())
+  .map((e) => `${join(e.parentPath, e.name).slice(dir.length + 1).split(sep).join("/")} ${sha(readFileSync(join(e.parentPath, e.name)))}`).sort();
+/** cliAt's pre: a preload that kills its launch (SIGKILL) at the first fs.<f> call whose arguments, joined with "/" for sep, hold needle;
+ *  fs patched, then syncBuiltinESMExports() BEFORE the publisher loads, else its node:fs bindings stay unpatched (measured at the G1). */
+const killAt = (f: string, needle: string): string[] => ["--import", `data:text/javascript,import fs from "node:fs"; import { sep } from "node:path";`
+  + ` import { syncBuiltinESMExports } from "node:module"; const o = fs.${f}; fs.${f} = (...a) => { if (a.join(" ").split(sep).join("/")`
+  + `.includes(${JSON.stringify(needle)})) process.kill(process.pid, "SIGKILL"); return o(...a); }; syncBuiltinESMExports();`];
 
-// killer: apps/dojo/scripts/dojo-publish.mjs:228 CONST "lots: lotsOf(s)" -> "lots: lotsOf(s.slice(0, -1))"
+// killer: apps/dojo/scripts/dojo-publish.mjs:229 CONST "lots: lotsOf(s)" -> "lots: lotsOf(s.slice(0, -1))"
 test("dojo_publish_to_verify_end_to_end", async () => {
   const w = world(), got: (number | null)[] = [], pub = join(w.s, "public");
   let eve = w.eve;
@@ -143,7 +153,7 @@ test("dojo_publish_to_verify_end_to_end", async () => {
   }
 });
 
-// killer: apps/dojo/scripts/dojo-publish.mjs:391 CONST "--history" -> "--histories"
+// killer: apps/dojo/scripts/dojo-publish.mjs:428 CONST "--history" -> "--histories"
 test("dojo_history_publish_to_verify_end_to_end", async () => {
   const w = world(), pub = join(w.s, "public"), kr = dojoKeyringOf([[w.key, 1]]), m = json(readFileSync(join(w.pkt, "publish", "manifest.json"), "utf8"));
   const [a, h] = linesOf(join(pub, "timeline.jsonl")), name = `${String(m.history_sha256)}.jsonl`, own = (l: Obj | undefined): unknown[] =>
@@ -162,4 +172,80 @@ test("dojo_history_publish_to_verify_end_to_end", async () => {
   const v1 = await verifyDojoServed({ source: dirSource(pub), keyring: kr });
   assert.deepEqual([v1.ok, v1.ok && v1.snapshots, v1.ok && v1.history?.recomputed_root], [true, 1, m.history_root],
     "the first snapshot's lots follow the history's last day (history_transition_mismatch otherwise)");
+});
+
+// killer: apps/dojo/scripts/dojo-publish.mjs:403 CONST "wx" -> "w"
+test("dojo_publish_one_writer_every_other_launch_refuses", async () => {
+  assert.equal(publisher.STATE_LOCK, "publish.lock", "the lock at the root of --state (D-SW2)");
+  const w = world(), d = A + 1, lock = join(w.s, "publish.lock"), priv = join(w.s, "timeline.jsonl"), D = publisher.DURABLE_FS, saved = { ...D };
+  writeDay(w, d, w.eve);
+  const req = join(tmp("dojo-e2e-req-"), "anchor.json"), a1 = linesOf(priv)[0] ?? {}, creds = tmp("dojo-e2e-cred-"), out: string[] = [];
+  writeFileSync(req, canonical(Object.fromEntries(publisher.ANCHOR_KEYS.map((k) => [k, a1[k]])))); // the request of the anchor itself
+  writeFileSync(join(creds, "dojo-signing-key"), w.key.export({ type: "pkcs8", format: "pem" }));
+  const kids = [["--inbox", w.inbox, "--state", w.s], ["--anchor", req, "--state", w.s], ["--rotate", "--state", w.s], ["--rotate", "--broken", "--state", w.s],
+    ["--revoke", keyIdOf(w.key), "--from-seq", "1", "--state", w.s], ["--unlock", w.s], ["--history", w.pkt, "--state", w.s]];
+  const FOREIGN = JSON.stringify({ pid: process.pid, mode: "--anchor", taken_at: 0 }), seen: unknown[][] = []; // SYNTHETIC: a record not A's
+  let snap: string[] = [], record = "", made: unknown[] = [];
+  D.openSync = (p, f) => { // A paused at the open of its append, after its walk and its VAE (form p5 of the G2 of PR-3a-1a): observations only
+    if (f === "a" && p.endsWith("timeline.jsonl") && snap.length === 0) {
+      [snap, record] = [files(w.s), readFileSync(lock, "utf8")];
+      for (const a of kids) { const c = cliAt(slot(d), a, w.key); seen.push([a[0], c.status, c.stdout, c.stderr, files(w.s).join() === snap.join()]); }
+      made = [cliAt(slot(d), ["--generate-key", join(tmp("dojo-e2e-key-"), "k.pem")], w.key).status, files(w.s).join() === snap.join()];
+      writeFileSync(lock, FOREIGN); // a lock taken over by hand while A runs: A's release must leave it
+    }
+    return saved.openSync(p, f);
+  };
+  const env = process.env.CREDENTIALS_DIRECTORY, now = Date.now.bind(Date), write = process.stdout.write.bind(process.stdout);
+  process.env.CREDENTIALS_DIRECTORY = creds;
+  Date.now = () => slot(d); // the CLI's only clock (Q-G1-7), as cliAt's preload sets it
+  process.stdout.write = (c: string | Uint8Array, ...r: unknown[]): boolean => (typeof c === "string" && c.startsWith("{") ? out.push(c) > 0
+    : (write as (...x: unknown[]) => boolean)(c, ...r)); // A's JSON line only; the runner's own output passes through
+  let code = -1;
+  try { code = await publisher.runCli(["--inbox", w.inbox, "--state", w.s]); } finally {
+    Object.assign(D, saved);
+    Date.now = now; process.stdout.write = write;
+    if (env === undefined) delete process.env.CREDENTIALS_DIRECTORY; else process.env.CREDENTIALS_DIRECTORY = env;
+  }
+  const a = json(out.join("")), refused = `dojo/publish: lock_held: publish.lock: running${LF}`;
+  assert.deepEqual([code, a.status, a.day], [0, "published", dateOf(d)], "A, the one writer, publishes its day");
+  assert.deepEqual([json(record), snap.filter((f) => f.includes("publish.lock")).map((f) => f.split(" ")[0])], [{ pid: process.pid, mode: "--inbox",
+    taken_at: slot(d) }, ["publish.lock"]], "A's record, at the root of --state, never under public/ (M-E9)");
+  assert.deepEqual(seen, kids.map((k) => [k[0], 1, "", refused, true]), "each other launch, every mode that writes and --unlock: lock_held, nothing written");
+  assert.deepEqual(made, [0, true], "--generate-key writes no --state and takes no lock");
+  assert.equal(readFileSync(lock, "utf8"), FOREIGN, "A releases its own record only");
+  rmSync(lock);
+  assert.deepEqual(linesOf(priv).map((l) => l.seq), [1, 2, 3], "one line per seq: no second writer");
+  assert.equal(readFileSync(join(w.s, "public", "timeline.jsonl"), "utf8"), readFileSync(priv, "utf8"), "public/ = the private timeline");
+  const v = await verifyDojoServed({ source: dirSource(join(w.s, "public")), keyring: dojoKeyringOf([[w.key, 1]]) });
+  assert.equal(v.ok, true, JSON.stringify(v));
+});
+
+// killer: apps/dojo/scripts/dojo-publish.mjs:420 SDL "unlinkSync(p)" -> ""
+test("dojo_publish_lock_of_a_killed_launch_resumes_without_loss", async () => {
+  assert.equal(publisher.STATE_LOCK, "publish.lock", "the lock at the root of --state (D-SW2)");
+  for (const [f, needle, n] of [["openSync", "/timeline.jsonl a", 2], ["renameSync", "/public/lines/", 3]] as const) { // before, then past the commit
+    const w = world(), d = A + 1, lock = join(w.s, "publish.lock"), priv = join(w.s, "timeline.jsonl"), inbox = ["--inbox", w.inbox, "--state", w.s];
+    writeDay(w, d, w.eve);
+    const dead = cliAt(slot(d), inbox, w.key, killAt(f, needle)); // win32: status 1, signal null (measured at the G1): witness status !== 0, never signal
+    assert.deepEqual([dead.status !== 0, existsSync(lock), linesOf(priv).length], [true, true, n], `${f}: killed, its lock held; ${dead.stderr}`);
+    assert.throws(() => process.kill(dead.pid, 0), /ESRCH/, "precondition: the killed launch is dead");
+    const kept = files(w.s), again = cliAt(slot(d), inbox, w.key), still = files(w.s), u = cliAt(slot(d), ["--unlock", w.s], w.key);
+    assert.deepEqual([again.status, again.stdout, again.stderr, still], [1, "", `dojo/publish: lock_held: publish.lock: not running: --unlock releases it${LF}`,
+      kept], "each launch refuses the lock of a dead launch, nothing written");
+    assert.deepEqual([u.status, json(u.stdout), u.stderr, existsSync(lock)], [0, { status: "unlocked", pid: dead.pid, mode: "--inbox", taken_at: slot(d) },
+      `dojo/publish: unlocked${LF}`, false], "--unlock: the dead owner's lock removed, its record returned");
+    const next = cliAt(slot(d), inbox, w.key), snaps = linesOf(priv).filter((l) => l.kind === "snapshot");
+    assert.deepEqual([next.status, json(next.stdout).status, next.stderr], n === 2 ? [0, "published", ""] : [0, "nothing_to_publish",
+      `dojo/publish: rederived_public${LF}`], `${f}: the next launch resumes from the committed state`);
+    assert.deepEqual([snaps.map((l) => l.day), readFileSync(join(w.s, "public", "timeline.jsonl"), "utf8") === readFileSync(priv, "utf8"),
+      existsSync(join(w.s, "public", "lines", `${String(snaps[0]?.lines_sha256)}.jsonl`))], [[dateOf(d)], true, true], "one snapshot of the day, served");
+    const v = await verifyDojoServed({ source: dirSource(join(w.s, "public")), keyring: dojoKeyringOf([[w.key, 1]]) });
+    assert.deepEqual([v.ok, json(cliAt(slot(d), ["--unlock", w.s], w.key).stdout)], [true, { status: "not_locked" }], JSON.stringify(v));
+    writeFileSync(lock, ""); // SYNTHETIC torn record (TB-SW4): an owner that cannot be judged, never released
+    const torn = files(w.s);
+    for (const a of [["--unlock", w.s], inbox]) {
+      const c = cliAt(slot(d), a, w.key);
+      assert.deepEqual([c.status, c.stdout, c.stderr, files(w.s)], [1, "", `dojo/publish: lock_held: publish.lock: owner unreadable${LF}`, torn], a[0]);
+    }
+  }
 });

@@ -36,8 +36,12 @@ function admittedHeliusUrl(base: string): URL | undefined {
 }
 
 /** Default per-attempt transport timeout (C-5): an AbortController fires at this deadline so a hung endpoint cannot
- *  wedge a course. Tests inject a tiny value; the live default matches the recorder's record.ts:83 (30 s). */
+ *  wedge a course. Tests inject a tiny value; the live default matches the recorder's record.ts:83 (30 s). It bounds the
+ *  response head; for a bounded-body client (TransportOpts below) the SAME deadline bounds the head AND the body. */
 export const DEFAULT_TIMEOUT_MS = 30_000;
+/** RPC-GUARD-BODY-TIMEOUT-1 (D-3): the byte cap of a bounded body, 8 MiB (precedent scripts/probe-narabi.mjs l.62-63; the Dojo
+ *  getProgramAccounts answer measured 674 641 bytes for 1 144 accounts, docs/dojo/FAITS-probe-12-2026-09-27.md). NOT in index.ts. */
+export const DEFAULT_MAX_BODY_BYTES = 8 * 1024 * 1024;
 
 /** D6 C-1(c-bis): the DECLARED upper bound on a reprised revert `.data` (in hex characters). Revert data is bounded by
  *  its form (an ABI-encoded reason / custom-error selector), never a free-text channel; anything longer is dropped. */
@@ -71,7 +75,17 @@ export type NetworkLabel = "ethereum-mainnet" | "solana-mainnet";
 /** Transport options threaded from openGuardedClient (C-5). `onTransportError` is the injected error hook: it is
  *  called with the operator LABEL + the error NAME + the CODE (HTTP status or JSON-RPC code, undefined for a bare
  *  network fault), NEVER the URL (the 5%-rule monitor of the recorder re-binds ITS OWN sink onto this in 2b). */
-export interface TransportOpts { readonly timeoutMs?: number; readonly network?: NetworkLabel; readonly onTransportError?: (op: string, errorName: string, code: number | undefined) => void; }
+export interface TransportOpts {
+  readonly timeoutMs?: number;
+  readonly network?: NetworkLabel;
+  readonly onTransportError?: (op: string, errorName: string, code: number | undefined) => void;
+  /** RPC-GUARD-BODY-TIMEOUT-1 (D-3, Q-1 opt-in): the body is BOUNDED iff boundBody === true or maxBodyBytes is set. A bounded
+   *  attempt holds ONE deadline (timeoutMs, head AND body) and a byte cap (maxBodyBytes, default DEFAULT_MAX_BODY_BYTES): 2xx =>
+   *  AbortError (code = the status received) or BodyTooLarge, its reservation kept; non-2xx => HttpError, empty detail. Unset:
+   *  the legacy read, unchanged (the deadline bounds the head only, no cap). maxBodyBytes: a safe integer >= 1, before any lock. */
+  readonly boundBody?: true;
+  readonly maxBodyBytes?: number;
+}
 
 /** GARDE-HELIUS-1b-0 (C-7 beta): the xStocks issuer public API host (a KEYLESS HTTP GET witness). The label
  *  `xstocks-issuer` resolves ONLY this host; assertHostAllowed is STRUCTURAL (label -> one host, a pathAndQuery can
@@ -98,6 +112,36 @@ export function parseRetryAfterMs(header: string | null | undefined, nowMs: numb
   const d = Date.parse(s);
   if (!Number.isNaN(d)) return Math.min(Math.max(0, d - nowMs), capMs);
   return undefined;
+}
+
+/** RPC-GUARD-BODY-TIMEOUT-1 (D-3 (b)): a bounded read gives the decoded body, or the NAME of the stop that ended it. */
+export type BodyRead = { readonly text: string } | { readonly stop: string };
+/** Read `res.body` under the attempt's deadline `due` (epoch ms) and a byte cap. Each read() races the abort event of the attempt's
+ *  signal (never trusting fetch to end the stream); bytes are counted per chunk; a stop cancels the reader and aborts the attempt,
+ *  neither awaited, their rejections caught. The stop is NAMED before the abort: AbortError (the deadline), BodyTooLarge (over the
+ *  cap), else the read error's name, never its message. TextDecoder (utf-8, BOM removed, U+FFFD): held equal to Response.text()
+ *  by a differential test, never assumed. Internal: NOT exported by index.ts. */
+export async function readBoundedBody(res: Response, ctl: AbortController, maxBytes: number, due: number): Promise<BodyRead> {
+  if (res.body === null) return { text: "" };
+  const reader = (res.body as ReadableStream<Uint8Array>).getReader(), dec = new TextDecoder(); // Response types its body untyped
+  let onAbort = (): void => undefined;
+  const aborted = new Promise<"abort">((resolve) => { onAbort = () => { resolve("abort"); }; });
+  ctl.signal.addEventListener("abort", onAbort);
+  const timer = setTimeout(() => { ctl.abort(); }, Math.max(0, due - Date.now())); // the body part of the attempt's ONE deadline
+  const stop = (name: string): BodyRead => { reader.cancel().catch(() => undefined); ctl.abort(); return { stop: name }; };
+  let bytes = 0, text = "";
+  try {
+    for (;;) {
+      if (ctl.signal.aborted) return stop("AbortError");
+      const r = await Promise.race([reader.read(), aborted]).catch((e: unknown) => ({ failed: e }));
+      if (r === "abort") return stop("AbortError");
+      if ("failed" in r) return stop(ctl.signal.aborted ? "AbortError" : r.failed instanceof Error ? r.failed.name : "NetworkError");
+      if (r.done) return { text: text + dec.decode() };
+      bytes += r.value.byteLength;
+      if (bytes > maxBytes) return stop("BodyTooLarge");
+      text += dec.decode(r.value, { stream: true });
+    }
+  } finally { clearTimeout(timer); ctl.signal.removeEventListener("abort", onAbort); }
 }
 
 export interface Resolved {
@@ -159,6 +203,10 @@ export function resolveOperators(env: Record<string, string | undefined>, opts: 
   for (const [label, host] of DRAND_RELAY_HOSTS) { urls.set(label, `https://${host}`); classes[label] = { unit: "keyless" }; getOps.add(label); }
 
   const timeoutMs = opts.timeoutMs ?? DEFAULT_TIMEOUT_MS;
+  // RPC-GUARD-BODY-TIMEOUT-1 (Q-1): the cap of a BOUNDED body, undefined for the legacy read; checked here, before any lock (guarded.ts)
+  const maxBody = opts.boundBody === true || opts.maxBodyBytes !== undefined ? opts.maxBodyBytes ?? DEFAULT_MAX_BODY_BYTES : undefined;
+  if (maxBody !== undefined && !(Number.isSafeInteger(maxBody) && maxBody >= 1))
+    throw new Error("rpc-guard: maxBodyBytes must be a safe integer >= 1 (fail-closed)");
   const onErr = opts.onTransportError;
   // D6 (GARDE-HELIUS-2b): for a PAID operator, the raised message reprises ONLY a CLOSED-vocabulary hint of the body
   // (closedHint, classify.ts) - never a raw body byte - so a server-transformed key (C-GD-2, base64/hex) or a key
@@ -249,7 +297,7 @@ export function resolveOperators(env: Record<string, string | undefined>, opts: 
     if (url === undefined) throw new Error(`rpc-guard: no endpoint for operator '${op}' (fail-closed)`);
     const isGet = getOps.has(op);
     const target = isGet ? resolveGetUrl(op, url, params) : url;
-    const ctl = new AbortController();
+    const ctl = new AbortController(), due = Date.now() + timeoutMs; // a bounded body reads under the SAME deadline (D-3 (a))
     const to = setTimeout(() => { ctl.abort(); }, timeoutMs); // C-5: bound a hung endpoint; cleared on every exit path
     let res: Response;
     try {
@@ -271,10 +319,13 @@ export function resolveOperators(env: Record<string, string | undefined>, opts: 
       //     range on an HTTP 400; the hook gets the status. C-3b: parse Retry-After (ms) so the CALLER can honour a
       //     429/503 backoff. C-2 (1b-0 fold): a FATAL 403 is NEVER retried, so it STRUCTURALLY carries no retryAfterMs
       //     (the explicit `res.status === 403` guard, never the incidence of a header-less test 403). Raw body never leaves.
-      const body = await res.text().catch(() => "");
+      const errRead = maxBody === undefined ? { text: await res.text().catch(() => "") } : await readBoundedBody(res, ctl, maxBody, due);
+      const body = "text" in errRead ? errRead.text : ""; // D-3 (c): a stopped error body gives an EMPTY detail, never a partial one
       return raise(op, "HttpError", res.status, body, undefined, res.status === 403 ? undefined : parseRetryAfterMs(res.headers.get("retry-after")));
     }
-    const text = await res.text();
+    const read = maxBody === undefined ? { text: await res.text() } : await readBoundedBody(res, ctl, maxBody, due);
+    if (!("text" in read)) return raise(op, read.stop, res.status, ""); // D-3 (c): AbortError or BodyTooLarge, code = the status received
+    const text = read.text;
     // (3) non-JSON body (a mis-routed HTML error page): a typed fault, not a silent value; NO hint at all (C-2). Both a
     //     GET operator and a JSON-RPC POST parse here; only the SHAPE past this point differs (a GET body IS the payload).
     let parsed: unknown;

@@ -26,11 +26,11 @@ function imported(rel: string): void {
   }
 }
 
-// killer: apps/dojo/scripts/dojo-publish.mjs:381 CONST "realpathSync(process.argv[1])" -> "process.argv[1]"
+// killer: apps/dojo/scripts/dojo-publish.mjs:472 CONST "realpathSync(process.argv[1])" -> "process.argv[1]"
 test("dojo_publish_through_a_directory_link_runs_its_main", () => {
   assert.deepEqual(out(viaLink("scripts/dojo-publish.mjs"), "dojo/publish: usage: --inbox"), [1, "", true], "exit 1 and the usage, never 0");
 });
-// killer: apps/dojo/scripts/dojo-publish.mjs:381 CONST "catch { return false; }" -> "catch { return true; }"
+// killer: apps/dojo/scripts/dojo-publish.mjs:472 CONST "catch { return false; }" -> "catch { return true; }"
 test("dojo_publish_imported_runs_no_main", () => imported("scripts/dojo-publish.mjs"));
 
 // killer: apps/dojo/scripts/dojo-eve.mjs:26 CONST "realpathSync(process.argv[1])" -> "process.argv[1]"
@@ -47,11 +47,11 @@ test("dojo_seed_through_a_directory_link_runs_its_main", () => {
 // killer: apps/dojo/scripts/dojo-seed.mjs:51 CONST "catch { return false; }" -> "catch { return true; }"
 test("dojo_seed_imported_runs_no_main", () => imported("scripts/dojo-seed.mjs"));
 
-// killer: apps/dojo/src/collect.ts:275 CONST "realpathSync(process.argv[1] as string)" -> "process.argv[1] as string"
+// killer: apps/dojo/src/collect.ts:305 CONST "realpathSync(process.argv[1] as string)" -> "process.argv[1] as string"
 test("dojo_collect_through_a_directory_link_runs_its_main", () => {
   assert.deepEqual(out(viaLink("src/collect.ts"), "dojo/collect: usage"), [64, "", true], "exit 64 and the usage, never 0");
 });
-// killer: apps/dojo/src/collect.ts:275 CONST "catch { return false; }" -> "catch { return true; }"
+// killer: apps/dojo/src/collect.ts:305 CONST "catch { return false; }" -> "catch { return true; }"
 test("dojo_collect_imported_runs_no_main", () => imported("src/collect.ts"));
 
 // killer: apps/dojo/src/history-collect.ts:452 CONST "realpathSync(process.argv[1] as string)" -> "process.argv[1] as string"

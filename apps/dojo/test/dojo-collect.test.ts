@@ -6,13 +6,14 @@
 import { after, test } from "node:test";
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
-import { cpSync, existsSync, mkdirSync, readFileSync, rmSync, statSync, writeFileSync } from "node:fs";
+import { cpSync, existsSync, mkdirSync, readdirSync, readFileSync, rmSync, statSync, writeFileSync } from "node:fs";
 import { createRequire, syncBuiltinESMExports } from "node:module";
 import { dirname, join, relative, sep } from "node:path";
 import { fileURLToPath } from "node:url";
 import { gunzipSync } from "node:zlib";
-import { ENV, MINT, POOL, PYTH, QUOTE_VAULT, ROWS, relays, roots, sim, stampOf, stateOf, type Req, type Row } from "./helpers/collect-chain.ts";
-import { assertMethodCapsCover, BudgetExceededError } from "@monark/rpc-guard";
+import { ENV, MINT, POOL, PYTH, QUOTE_VAULT, ROWS, roots, sim, stampOf, stateOf, type Req, type Row } from "./helpers/collect-chain.ts";
+import { assertMethodCapsCover, BudgetExceededError, DRAND_RELAY_LABELS, runCli } from "@monark/rpc-guard";
+import { DRAND_QUICKNET_HASH } from "../../../packages/rpc-guard/src/transport.ts"; // not exported by the guard (ADR-RPC-GUARD-DRAND-1 D-1)
 import { canonical } from "../../bell/scripts/bell-chain.mjs";
 import { operatorOf } from "../../bell/src/operators.ts";
 import { dayValue, lotsOf, provisionalOf, scoreOf, validatedOf } from "../scripts/dojo-core.mjs";
@@ -20,9 +21,10 @@ import { DOJO_VERIFY_REFUSALS, dirSource, verifyDojoServed } from "../scripts/do
 import { DOJO_BUNDLE_REFUSALS, readRecord } from "../src/bundle.ts";
 import { DOJO_COLLECT_REFUSALS, runCollect } from "../src/collect.ts";
 import { DOJO_METHOD_CAPS, DOJO_SOLANA_METHODS, READ_RULE as PINNED } from "../src/dojo-methods.ts";
+import * as methods from "../src/dojo-methods.ts"; // DRAND_CYCLE_ATTEMPTS by namespace: a new export of a file present at the base
 import { DOJO_LAYOUT_REFUSALS, readDayLayout, readEve } from "../src/layout.ts";
 import { ADDR, ANCHOR_DAY, DAY1, READ_RULE, anchorBody, at, betaOf, dateOf, dojoKeyringOf, historyBody, instantsOf, newKey, removeTrees, render, seedChain,
-  writeTree, type Line } from "./helpers/dojo-fixture.ts";
+  roundOf, writeTree, type Line } from "./helpers/dojo-fixture.ts";
 
 const H = 40, LABEL = "dojo-collect-seed", SECRET = createHash("sha256").update(LABEL).digest("hex"), SEED = seedChain(LABEL, H); // SYNTHETIC secret
 const ANCHOR = { ...anchorBody(SEED(0), H, ANCHOR_DAY), pool: POOL, pool_quote_vault: QUOTE_VAULT, sol_usd_source: PYTH };
@@ -32,7 +34,7 @@ const sha = (b: string | Buffer): string => createHash("sha256").update(b).diges
 const byBytes = (x: string, y: string): number => Buffer.compare(Buffer.from(x), Buffer.from(y));
 const sleeps: number[] = [];
 after(() => { for (const r of roots.splice(0)) rmSync(r, { recursive: true, force: true }); });
-const deps = { env: ENV, nowMs: (): number => sim.nowMs, sleep: (ms: number): Promise<void> => { sleeps.push(ms); return Promise.resolve(); }, relays };
+const deps = { env: ENV, nowMs: (): number => sim.nowMs, sleep: (ms: number): Promise<void> => { sleeps.push(ms); return Promise.resolve(); } };
 type F = ReturnType<typeof stateOf>;
 const args = (f: F, mode: string[], budget = ["--max-calls", "24", "--max-credits", "40"]): string[] =>
   ["--state", f.state, "--mint-file", f.mint, ...budget, "--seed-file", f.seed, "--anchor-file", f.anchor, ...mode];
@@ -50,7 +52,7 @@ function fresh(anchor: unknown = ANCHOR, mint = MINT): F {
 async function planned(f: F, d: number, eve = eveText()): Promise<void> {
   sim.beta = betaOf(d);
   clock(T(d) + 60);
-  await run(f, "--plan");
+  assert.equal(await codeOf(run(f, "--plan")), "none", "the plan of the day, both relays through the guard");
   writeFileSync(dirOf(f, d, "eve.json"), eve);
   sim.reqs = [];
 }
@@ -65,6 +67,12 @@ async function spy(wrap: Record<string, (orig: Fn, ...a: unknown[]) => unknown>,
 }
 const [H1, , , , S165, TARGET] = ROWS.map((r) => r[0]); // provenance.json "reduction": two holders, pool base, lock vault, 165-byte holder, target
 const bump = (rows: Row[], acc: string, side: 2 | 3): Row[] => rows.map((r) => (r[0] === acc ? Object.assign([...r] as Row, { [side]: String(BigInt(r[side] ?? "0") + 1n) }) : r));
+const drandDir = (f: F, d: number): string => join(f.state, "ledger", `drand-${dateOf(d)}`); // the guard's cycle of the relays on day d
+/** The outcomes of one relay's ledger on day d (a refusal with its reason), [] when absent; and whether its lock is still there. */
+const relayLedger = (f: F, d: number, op: string): string[] => { const p = join(drandDir(f, d), `${op}.jsonl`);
+  return existsSync(p) ? readFileSync(p, "utf8").trim().split("\n").map((l) => { const e = JSON.parse(l) as { outcome: string; reason?: string };
+    return e.outcome === "refused" ? `refused:${String(e.reason)}` : e.outcome; }) : []; };
+const relayHeld = (f: F, d: number, op: string): boolean => existsSync(join(drandDir(f, d), `${op}.lock`));
 
 test("dojo_tick_refuses_unknown_argv", async () => {
   const f = fresh(), ok = args(f, ["--tick"]);
@@ -118,13 +126,15 @@ test("dojo_collect_budget_stops_fail_closed", async () => {
   assert.deepEqual([await codeOf(run(g, "--tick")), sim.reqs.length], ["state_missing", 0], "the ledger of the state must exist");
 });
 
+// killer: apps/dojo/src/collect.ts:195 CONST "of DRAND_RELAY_LABELS)" -> "of DRAND_RELAY_LABELS.slice(0, 1))"
 test("dojo_collect_calls_have_the_closed_forms", async () => {
   const f = fresh();
   sim.beta = betaOf(D1);
   clock(T(D1) + 60);
-  await run(f, "--plan");
+  assert.equal(await codeOf(run(f, "--plan")), "none", "the plan, both relays through the guard");
   const round = Math.ceil((T(D1) - READ_RULE.beacon_genesis_time) / READ_RULE.beacon_period) + 1;
-  assert.deepEqual(sim.reqs, ["relay-1", "relay-2"].map((op) => ({ op, method: "GET", params: [`/${READ_RULE.beacon_chain_hash}/public/${String(round)}`] })), "one v1 GET per relay");
+  assert.deepEqual(sim.reqs, ["drand-pl", "drand-cf"].map((op) => ({ op, method: "GET", params: [`/${READ_RULE.beacon_chain_hash}/public/${String(round)}`] })),
+    "one v1 GET per relay, by its label, in order");
   writeFileSync(dirOf(f, D1, "eve.json"), eveText());
   const inst = INST(D1), fin = (encoding: string) => ({ commitment: "finalized", encoding });
   const gpa = ["TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb", { commitment: "finalized", encoding: "jsonParsed", withContext: true, filters: [{ memcmp: { offset: 0, bytes: MINT } }] }];
@@ -177,26 +187,43 @@ test("dojo_collect_never_publishes_one_operator", async () => {
   assert.deepEqual(r.faults, { enumeration: 1, mint: 0, pool: 1, wsol: 1, pyth: 1 });
 });
 
+// killer: apps/dojo/src/collect.ts:189 CONST "return null" -> "throw e"
 test("dojo_collect_beacon_is_all_day_or_nothing", async () => {
+  assert.deepEqual(methods.DRAND_CYCLE_ATTEMPTS, { "drand-pl": 4, "drand-cf": 4 }, "per relay and per day: 2 requests x 2 tries, held by the guard");
+  assert.deepEqual([DRAND_QUICKNET_HASH, [...DRAND_RELAY_LABELS]], [PINNED.beacon_chain_hash, ["drand-pl", "drand-cf"]], "the guard's chain, the read_rule's");
   const beta = betaOf(D1), other = betaOf(D2), round = Math.ceil((T(D1) - READ_RULE.beacon_genesis_time) / READ_RULE.beacon_period) + 1;
-  const lie = (body: (r: number) => unknown, op = "relay-2") => (q: { op: string }): Response | undefined =>
+  const lie = (body: (r: number) => unknown, op = "drand-cf") => (q: { op: string }): Response | undefined =>
     (q.op === op ? new Response(JSON.stringify(body(round)), { status: 200, headers: { "content-type": "application/json" } }) : undefined);
   const rnd = (s: string): string => sha(Buffer.from(s, "hex"));
-  const f = fresh();
-  sim.beta = beta;
   for (const over of [lie((r) => ({ round: r, randomness: rnd(other), signature: other })), lie((r) => ({ round: r, randomness: rnd(other), signature: beta })),
-    lie((r) => ({ round: r + 1, randomness: rnd(beta), signature: beta })), lie(() => ({ error: 1 })), (q: { op: string }) => (q.op === "relay-1" ? new Response("x", { status: 404 }) : undefined),
-    ...["c0", "00"].map((x) => { const bad = x + beta.slice(2), b = (r: number) => ({ round: r, randomness: rnd(bad), signature: bad }); return (q: { op: string }) => lie(b)(q) ?? lie(b, "relay-1")(q); })]) {
-    sim.override = over;
+    lie((r) => ({ round: r + 1, randomness: rnd(beta), signature: beta })), lie(() => ({ error: 1 })),
+    (q: { op: string }) => (q.op === "drand-pl" ? new Response("x", { status: 404 }) : undefined),
+    ...["c0", "00"].map((x) => {
+      const bad = x + beta.slice(2), b = (r: number) => ({ round: r, randomness: rnd(bad), signature: bad });
+      return (q: { op: string }) => lie(b)(q) ?? lie(b, "drand-pl")(q);
+    })]) {
+    const s = fresh(); // one state per case: each case spends attempts of its own cycle drand-<d>
+    Object.assign(sim, { beta, override: over });
     clock(T(D1) + 30);
-    await run(f, "--plan");
-    assert.equal(existsSync(dirOf(f, D1, "evidence", "plan.json")), false, "a lying, wrong or missing relay: no plan (M-B4)");
+    assert.deepEqual([await codeOf(run(s, "--plan")), existsSync(dirOf(s, D1, "evidence", "plan.json"))], ["none", false],
+      "a lying, wrong or missing relay: no plan (M-B4)");
   }
+  // Unavailable, slow, capped on one cycle drand-<d>: a 404 (one try); drand-pl slow (AbortError) and drand-cf 503, two tries each; 503 again:
+  // the fourth attempt admitted, the second try refused cycle_attempts (case (3)); a fifth attempt refused before any GET. Never fatal.
+  const f = fresh(), busy = (): Response => new Response("busy", { status: 503 }), slow = Object.assign(new Error("slow relay"), { name: "AbortError" });
+  for (const [s, over] of [[0, null], [300, (q: Req) => (q.op === "drand-pl" ? slow : q.op === "drand-cf" ? busy() : undefined)],
+    [600, (q: Req) => (q.op.startsWith("drand-") ? busy() : undefined)], [600, null]] as const) {
+    sim.override = over;
+    clock(T(D1) + s);
+    assert.deepEqual([await codeOf(run(f, "--plan")), existsSync(dirOf(f, D1, "evidence", "plan.json"))], ["none", false], `T_d + ${String(s)} s: no plan`);
+  }
+  assert.deepEqual(sim.reqs.map((q) => q.op), ["drand-pl", "drand-cf", "drand-pl", "drand-pl", "drand-cf", "drand-cf", "drand-pl", "drand-cf"], "every GET");
+  const capped = ["attempted", "unlocked", "attempted", "attempted", "unlocked", "attempted", "refused:cycle_attempts", "unlocked",
+    "refused:cycle_attempts", "unlocked"];
+  assert.deepEqual(DRAND_RELAY_LABELS.map((op) => [relayLedger(f, D1, op), relayHeld(f, D1, op)]), DRAND_RELAY_LABELS.map(() => [capped, false]),
+    "a write-ahead line per attempt, the refusals ledgered, the locks released after each course");
   sim.override = null;
   sim.reqs = [];
-  clock(T(D1) + 30);
-  assert.equal(await codeOf(runCollect(args(f, ["--plan"]), { ...deps, relays: relays.slice(0, 1) })), "relay_missing", "two relays or no plan (item DRAND-RELAY-GET-1)");
-  assert.deepEqual(sim.reqs, []);
   clock(T(D1) + 900);
   await run(f, "--plan");
   assert.deepEqual(sim.reqs, [], "from T_d + 900 s: no call at all (M-B3, M-B5)");
@@ -217,6 +244,49 @@ test("dojo_collect_beacon_is_all_day_or_nothing", async () => {
   const g = fresh();
   await planned(g, D1);
   assert.deepEqual((JSON.parse(readFileSync(dirOf(g, D1, "evidence", "plan.json"), "utf8")) as { instants: number[] }).instants, INST(D1), "instants recoded (D-5 l.153)");
+  assert.deepEqual(DRAND_RELAY_LABELS.map((op) => [relayLedger(g, D1, op), relayHeld(g, D1, op)]),
+    DRAND_RELAY_LABELS.map(() => [["attempted", "unlocked"], false]), "under the guard: an attempted line per GET on the day's cycle, then the unlock");
+  // A stale drand lock ([DR] l.72, TY-8): the pass is refused before any GET; the reading of d-1 due meanwhile is missed; from T_d + 900 the
+  // null plan, without a GET; d+1 is not affected. SYNTHETIC beta whose last instant of D1 is due at T(D2): its window crosses midnight.
+  let n = 0, late = beta;
+  while (Math.max(...instantsOf(D1, SEED(1), late)) <= T(D2) - 600) {
+    const b = Buffer.from(sha(`dojo-collect-late-${String(++n)}`) + sha(`+${String(n)}`), "hex").subarray(0, 48);
+    b[0] = ((b[0] ?? 0) & 0x3f) | 0x80;
+    late = b.toString("hex");
+  }
+  const k = fresh(), lateInst = instantsOf(D1, SEED(1), late);
+  sim.beta = late;
+  clock(T(D1) + 60);
+  assert.equal(await codeOf(run(k, "--plan")), "none");
+  writeFileSync(dirOf(k, D1, "eve.json"), eveText());
+  for (const t of lateInst.slice(0, 3)) { clock(t + 1); assert.equal(await codeOf(run(k, "--tick")), "none"); }
+  mkdirSync(drandDir(k, D2), { recursive: true });
+  writeFileSync(join(drandDir(k, D2), "drand-pl.lock"), "{}"); // left by a hard stop of a course of the relays (SIGKILL: no handler runs)
+  sim.reqs = [];
+  clock(T(D2));
+  assert.equal(await codeOf(run(k, "--tick")), "lock_held", "a stale drand lock: the pass stops before any GET and before the readings");
+  clock(T(D2) + 900);
+  assert.equal(await codeOf(run(k, "--tick")), "none");
+  const nullPlan = `${canonical({ beacon: null, day: dateOf(D2), instants: [], reason: "beacon_unavailable" })}\n`;
+  assert.deepEqual([sim.reqs.length, readDayLayout(dirOf(k, D1)).records.map((r) => r.read.read_at === null),
+    readFileSync(dirOf(k, D2, "evidence", "plan.json"), "utf8")], [0, [false, false, false, true], nullPlan], "missed under the lock; then the null plan");
+  sim.beta = betaOf(D2 + 1);
+  clock(T(D2 + 1) + 60);
+  assert.equal(await codeOf(run(k, "--tick")), "none");
+  const next = JSON.parse(readFileSync(dirOf(k, D2 + 1, "evidence", "plan.json"), "utf8")) as { beacon: unknown };
+  assert.deepEqual([relayHeld(k, D2, "drand-pl"), next.beacon !== null], [true, true], "d+1 is not affected: its own cycle");
+  // The served unlock of RUNBOOK section 9 before T_d + 900 s: the next pass plans the day.
+  const u = fresh();
+  mkdirSync(drandDir(u, D1), { recursive: true });
+  writeFileSync(join(drandDir(u, D1), "drand-pl.lock"), "{}");
+  sim.beta = beta;
+  clock(T(D1) + 60);
+  assert.equal(await codeOf(run(u, "--tick")), "lock_held");
+  const unlocked = runCli(["unlock", "--cycle", `drand-${dateOf(D1)}`, "--op", "drand-pl", "--reason", "runbook-lock-held-unlock"],
+    { ledgerDir: join(u.state, "ledger"), floor: 0, readSnapshot: () => { throw new Error("dojo-collect test: no snapshot for unlock"); } });
+  clock(T(D1) + 300);
+  assert.deepEqual([unlocked.exitCode, relayHeld(u, D1, "drand-pl"), await codeOf(run(u, "--tick")), existsSync(dirOf(u, D1, "evidence", "plan.json"))],
+    [0, false, "none", true], "unlocked by the served unlock, the next pass plans the day");
 });
 
 test("dojo_collect_refuses_the_anchor_day", async () => {
@@ -237,6 +307,7 @@ test("dojo_collect_refuses_the_anchor_day", async () => {
   assert.deepEqual([await codeOf(run(f, "--reading", "1")), await codeOf(run(f, "--tick")), sim.reqs.length], ["anchor_day_not_read", "none", 0]);
 });
 
+// killer: apps/dojo/src/collect.ts:191 CONST "`drand-${dayName(T)}`" -> "c.cycle"
 test("dojo_collect_reads_only_inside_the_window", async () => {
   const f = fresh();
   await planned(f, D1);
@@ -256,8 +327,10 @@ test("dojo_collect_reads_only_inside_the_window", async () => {
   assert.deepEqual([sim.reqs.length, existsSync(join(f.state, "ledger", "cyc", "solana-foundation.lock")), existsSync(dirOf(f, D1, "readings", "1.json"))], [0, false, false], "no reading, no lock left");
   sim.beta = betaOf(D2);
   clock(T(D2) + 60);
-  await run(f, "--plan");
-  assert.equal(existsSync(dirOf(f, D2, "evidence", "plan.json")), true, "the plan of d+1 takes no chain lock: disjoint from a reading's locks (C-V-4; relays injected, item DRAND-RELAY-GET-1)");
+  assert.equal(await codeOf(run(f, "--plan")), "none");
+  assert.deepEqual([existsSync(dirOf(f, D2, "evidence", "plan.json")), DRAND_RELAY_LABELS.map((op) => [relayLedger(f, D2, op), relayHeld(f, D2, op)]),
+    existsSync(join(f.state, "ledger", "cyc", "helius.lock"))], [true, DRAND_RELAY_LABELS.map(() => [["attempted", "unlocked"], false]), true],
+  "the plan of d+1 takes then releases the drand locks of its own cycle while a reading of d holds helius (C-V-4)");
   rmSync(join(f.state, "ledger", "cyc", "helius.lock"));
   clock(Math.max(...inst) + 599);
   assert.equal(await codeOf(run(f, "--close-day", dateOf(D1))), "day_not_ended", "before max_i t_i + 600 (M-Q21)");
@@ -311,13 +384,14 @@ test("dojo_tick_is_idempotent", async () => {
   assert.deepEqual([first, sim.reqs.length, readFileSync(dirOf(f, D1, "readings", "1.json"), "utf8")], [10, 10, rec], "a written reading is never read again (M-T2)");
 });
 
+// killer: apps/dojo/src/collect.ts:195 CONST "out.push(await ask(call, op));" -> "{ const b = await ask(call, op); out.push(b); if (b === null) break; }"
 test("dojo_tick_before_0015_fetches_beacon_once", async () => {
   const f = fresh();
   sim.beta = betaOf(D1);
-  for (const s of [0, 300, 600]) { clock(T(D1) + s); await run(f, "--tick"); }
-  assert.deepEqual(sim.reqs.map((r) => r.op), ["relay-1", "relay-2"], "passes of 00:00, 00:05 and 00:10: one GET per relay for the whole day");
+  for (const s of [0, 300, 600]) { clock(T(D1) + s); assert.equal(await codeOf(run(f, "--tick")), "none"); }
+  assert.deepEqual(sim.reqs.map((r) => r.op), ["drand-pl", "drand-cf"], "passes of 00:00, 00:05 and 00:10: one GET per relay for the whole day");
   const g = fresh();
-  for (const s of [0, 300, 600]) { clock(T(D1) + s); await run(g, "--tick"); }
+  for (const s of [0, 300, 600]) { clock(T(D1) + s); assert.equal(await codeOf(run(g, "--tick")), "none"); }
   assert.equal(sim.reqs.length, 3 * 2, "no beta: each pass asks both relays once (a 404 is not retried), no plan");
   const before = sim.reqs.length;
   sim.beta = betaOf(D1);
@@ -421,6 +495,7 @@ function oracle(readings: (Row[] | null)[], eve: { addresses: string[]; accounts
 const gcd = (a: bigint, b: bigint): bigint => (b === 0n ? a : gcd(b, a % b));
 const red = (n: bigint, d: bigint): [string, string] => [String(n / gcd(n, d)), String(d / gcd(n, d))];
 
+// killer: apps/dojo/src/layout.ts:91 COR "!allowed.includes(n)" -> "!allowed.includes(n) && !n.endsWith(`.tmp`)"
 test("dojo_collect_to_verify_end_to_end", async () => {
   const f = fresh(), eve1 = { addresses: [ADDR.D], accounts: [] as [string, string][] }; // first day: the history's addresses only (Q-2)
   const pyth = Buffer.from((JSON.parse(readFileSync(new URL("./fixtures/collect/accounts.json", import.meta.url), "utf8")) as { pyth: { a: { value: { data: [string] } } } }).pyth.a.value.data[0], "base64");
@@ -429,7 +504,7 @@ test("dojo_collect_to_verify_end_to_end", async () => {
   for (const [n, d] of [D1, D2].entries()) {
     sim.beta = betaOf(d);
     clock(T(d) + 60);
-    await run(f, "--tick");
+    assert.equal(await codeOf(run(f, "--tick")), "none", "the plan of the day under the guard, no relay injected");
     if (n === 0) writeFileSync(dirOf(f, d, "eve.json"), eveText(eve1.addresses));
     for (const [k, t] of INST(d).entries()) {
       const rows = DAYS[n]?.[k];
@@ -465,6 +540,7 @@ test("dojo_collect_to_verify_end_to_end", async () => {
   }
   for (const [edit, want] of [[(d: string) => writeFileSync(join(d, "publish", "extra.json"), "{}"), "layout_stray_file"], [(d: string) => rmSync(join(d, "readings", "2.json")), "layout_malformed"],
     [(d: string) => writeFileSync(join(d, "readings", "1.json"), readFileSync(join(d, "readings", "1.json"), "utf8").replace("dojo-reading-v1", "dojo-reading-v2")), "layout_sha_mismatch"],
+    [(d: string) => writeFileSync(join(d, "readings", "1.json.tmp"), "{}"), "layout_stray_file"], // a .tmp outliving its closed day (Q-2 (a))
     [(d: string) => writeFileSync(join(d, "publish", "day.json"), " "), "layout_sha_mismatch"], [(d: string) => writeFileSync(join(d, "readings", "9.json"), "{}"), "layout_stray_file"]] as const) {
     const copy = `${dirOf(f, D1)}-copy`;
     rmSync(copy, { recursive: true, force: true });
@@ -506,4 +582,33 @@ test("dojo_collect_to_verify_end_to_end", async () => {
   const all = [...DOJO_COLLECT_REFUSALS, ...DOJO_LAYOUT_REFUSALS, ...DOJO_BUNDLE_REFUSALS];
   assert.deepEqual(all.filter((c) => DOJO_VERIFY_REFUSALS.includes(c)), [], "the collector's refusals are outside the verifier's 45 codes");
   assert.equal(canonical(PINNED), canonical(READ_RULE), "pinned read_rule = the fixture's = /info of two relays (FAITS drand, trunk l.26)");
+});
+
+// DOJO-TMP-STRAY-1, one process (MEASURE, G0 section 4.3): a stop between a .tmp and its rename (a reading, a missed reading at the close,
+// readings/SHA256SUMS) leaves <target>.tmp; the next write of the same target truncates and renames it. No relay: the plan is written by hand.
+// killer: apps/dojo/src/layout.ts:29 CONST "${path}.tmp" -> "${path}.${String(process.pid)}.tmp"
+test("dojo_close_absorbs_an_orphan_tmp", async () => {
+  const f = fresh(), dir = dirOf(f, D1), inst = INST(D1);
+  mkdirSync(join(dir, "evidence"), { recursive: true }); // the bytes --plan writes (instants recoded), so that the close accepts the day
+  const beacon = { round: roundOf(D1), signature: betaOf(D1) };
+  writeFileSync(join(dir, "evidence", "plan.json"), `${canonical({ beacon, day: dateOf(D1), instants: inst, reason: null })}\n`);
+  writeFileSync(join(dir, "eve.json"), eveText());
+  const stop = (target: string) => ({ renameSync: (o: Fn, x: unknown, y: unknown): unknown => {
+    if (String(y).endsWith(join("readings", target))) throw new Error("dojo-collect test: stop between the .tmp and its rename");
+    return o(x, y);
+  } });
+  const tmps = (): string[] => ["readings", "publish"].flatMap((s) => (existsSync(join(dir, s)) ? readdirSync(join(dir, s)).filter((x) => x.endsWith(".tmp"))
+    .map((x) => `${s}/${x}`) : []));
+  clock((inst[0] as number) + 1);
+  await spy(stop("1.json"), async () => { assert.equal(await codeOf(run(f, "--reading", "1")), "Error"); });
+  assert.deepEqual(tmps(), ["readings/1.json.tmp"], "a reading: the stop left <target>.tmp");
+  assert.deepEqual([await codeOf(run(f, "--reading", "1")), tmps(), existsSync(join(dir, "readings", "1.json"))], ["none", [], true],
+    "absorbed by the next write of the same target");
+  clock(Math.max(...inst) + 600);
+  for (const target of ["2.json", "SHA256SUMS"]) {
+    await spy(stop(target), async () => { assert.equal(await codeOf(run(f, "--close-day", dateOf(D1))), "Error"); });
+    assert.deepEqual(tmps(), [`readings/${target}.tmp`], `the close: the stop left readings/${target}.tmp, an earlier one absorbed`);
+  }
+  assert.deepEqual([await codeOf(run(f, "--close-day", dateOf(D1))), tmps(), readDayLayout(dir).records.length], ["none", [], 4],
+    "absorbed: no .tmp left under readings/ nor publish/, the closed day reads");
 });
