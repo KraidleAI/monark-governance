@@ -48,7 +48,7 @@ de mutants lancés par eux en arrière-plan peut finir seul (verrou `held(root)`
   Au retour : vérifier, committer ; lignes d ADR (§9).
 - **G1 PAROXYSME-DOJO-FILE-1** : RENDU à 02:2x UTC ; versé tel quel en `docs/PAROXYSME-Dojo.md` (`25dd9dd3`, sha256 `45b029fc…`) :
   151 limites, 34 dettes sans item (6 publiques DJ-L01 à L06), 20 déclencheurs passés sans clôture écrite. Reste (§10).
-- **Contrôle du diff P2a-2 (RECHERCHES)** : RELANCÉ 02/10 02:53Z sur go de l investisseur (« tâche urgente ») : même mission `563b07ec…`,
+- **Contrôle du diff P2a-2 (RECHERCHES)** : RENDU et RÉPONDU (§11, 04:2x UTC) ; avant : RELANCÉ 02/10 02:53Z sur go de l investisseur (« tâche urgente ») : même mission `563b07ec…`,
   reçu vert 02:52:34Z, workflow `wf_f34264e7-5c9` (G2 neuve, puis deux contre-vérificateurs : A statique, B rejeu ciblé) ; sorties du
   lancement arrêté renommées `run4-arrete-20261002/`, `tmp-arrete-20261002/` (rien effacé) ; RECHERCHES : tête `1c77ba1`, rien de neuf ; rapport
   `F:/tmp/kata-p2a/P2A2-DIFF-RAPPORT.md`. Au retour : réponse détaillée à la boîte (§7), puis message séparé à l investisseur.
@@ -163,6 +163,11 @@ DJ-L06 table sans script (code, rendu serveur des lignes committées).
   pour les octets signés (garde de libellés : 0 sur trousseau et ancres 1-2). Trois décisions sur la course finale, portées au lanceur
   `run-final.sh` (sha256 `f28dce4e…`, `bash -n` vert) : DJ-L86 aucun verrou canonique au départ, aucune autre course gardée pendant ;
   DJ-L87 `mint_check` de d = `ok` sinon arrêt avant tout appel ; DJ-L84 une queue de journal déchirée arrête, reprise sur état NEUF.
+
+- 2026-10-02 04:28 UTC : RECHERCHES : contrôle du diff P2a-2 rendu (G2 `claude-opus-5-5` CONFORME-AVEC-RESERVES, rapport `d12710e9…`,
+  deux contre-vérifications confirment) ; réponse publiée et fusionnée dans leur boîte (PR recherches#37, `2a4220e`) : trois plis demandés
+  (P-1 R02 ordre des colonnes du PBO, P-2 X01, P-3 FORMAT.md l.3), puis rejeu du delta par MONARK, puis accord « P2a complet ». Aucune
+  calibration réelle avant. Message séparé à l investisseur fait. CLAUDE.md global consolidé (sauvegarde `F:/MONARK SUITE/backup-2026-10-02/`).
 
 ## 12. Compléments (ajoutés le 2026-10-02 à 02:3x UTC)
 - **Accès aux hôtes** : clé `~/.ssh/monark_vps`. Hôte Bell : cible ssh lue dans `F:/tmp/dojo/s7-1.sh` (extraire par `grep -oE 'root@[0-9.]+'`,
