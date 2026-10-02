@@ -314,5 +314,9 @@ Tronc `lot/etude-suite`. Dernier oracle complet : 1 779 tests, dont 1 776 verts,
   - reportés après la première publication, par l'orchestrateur : DOJO-LIVE-HEALTH-1 (sonde quotidienne ; en attendant, l'orchestrateur
     rejoue `dojo-verify-cli --url` sur l'hôte servi après chaque publication ; déclencheur : avant le jour de l'annonce ou sous 7
     jours), DOJO-HEAD-RULES-ONE-SOURCE-1 et DOJO-LOADER-RULES-AST-1 (au registre PAROXYSME), DOJO-VERIFY-URL-IDLE-MEASURE-1 (avant CA-1).
+  - à l'envoi, orchestrateur (N-8 de la G2 de la partie 3, 2026-10-02) : SITE-BUILD-LOCAL-ROOT-UNSET-1, la construction de production
+    est faite sans `MONARK_DOJO_LOCAL_BUILD_ROOT` (variable absente de l'environnement de la construction, relevé au JOURNAL) ; acte du
+    mandataire DOJO-SITE-PROXY-1 au mode d'emploi (tour de corrections de la partie 3) ; validation visuelle C-V-4 et Q-4 du navigateur
+    (budget mobile de laboratoire rouge) tranchées par l'investisseur.
   - C-V-2, Q-3 décidée : la cohérence entre `holder_counted` et `day_value` est le rôle du vérificateur (lignes signées et relues),
     pas de la table (avis (a) de la G2). C-V-3 : commentaire de `DOJO_TABLE` corrigé dans SITE-SEND-PREP.
