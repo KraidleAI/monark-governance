@@ -9,10 +9,10 @@
 // (dojo-signing-key, dojo-signing-key-new: systemd LoadCredential, PKCS#8 PEM). Layout of --state: timeline.jsonl (private, source of
 // truth, commit point), keyring.json (the genesis key; the rest derives from the key lines), staging/, public/ (timeline.jsonl,
 // dojo/pubkey.json in dojo-keyring-v1, lines/<sha256>.jsonl, history/<sha256>.jsonl). Node built-ins and modules of the repo only.
-import { closeSync, existsSync, fsyncSync, mkdirSync, openSync, readFileSync, renameSync, statSync, writeSync } from "node:fs";
+import { closeSync, existsSync, fsyncSync, mkdirSync, openSync, readFileSync, realpathSync, renameSync, statSync, writeSync } from "node:fs";
 import { basename, dirname, isAbsolute, join } from "node:path";
 import { createPrivateKey, generateKeyPairSync } from "node:crypto";
-import { pathToFileURL } from "node:url";
+import { fileURLToPath } from "node:url";
 import { GENESIS, canonical, deriveKeyring, keyIdOf, keyringOf, lineHash, sha256Hex, signLine, trustOf } from "../../bell/scripts/bell-chain.mjs";
 import { DOJO_TIMELINE_SCHEMA, walkDojoTimeline } from "./dojo-chain.mjs";
 import { dirSource, verifyDojoServed } from "./dojo-verify.mjs";
@@ -377,4 +377,6 @@ export async function runCli(argv) {
   }
 }
 
-if (process.argv[1] !== undefined && import.meta.url === pathToFileURL(process.argv[1]).href) process.exitCode = await runCli(process.argv.slice(2));
+// ENTRY-MAIN-LINK-1 (C-G2-1 of PR-1b-5b): REAL paths compared, so a launch through a directory link runs it; argv[1] absent or unreadable: an import.
+const isEntry = () => { try { return realpathSync(fileURLToPath(import.meta.url)) === realpathSync(process.argv[1]); } catch { return false; } };
+if (isEntry()) process.exitCode = await runCli(process.argv.slice(2));

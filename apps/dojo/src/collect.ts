@@ -6,10 +6,10 @@
 // no key and no fetch live here. The clock is injected (RunDeps.nowMs, a function: read_at is taken after the last call); argv is
 // CLOSED (DOJO-TICK-ARGV-1: an unknown, repeated or missing flag is refused as usage before any lock and any call).
 import { createHash } from "node:crypto";
-import { appendFileSync, existsSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
+import { appendFileSync, existsSync, readdirSync, readFileSync, realpathSync, writeFileSync } from "node:fs";
 import { gzipSync } from "node:zlib";
 import { dirname, isAbsolute, join, relative, resolve } from "node:path";
-import { fileURLToPath, pathToFileURL } from "node:url";
+import { fileURLToPath } from "node:url";
 import { BudgetExceededError, HELIUS_CYCLE_CAP_CREDITS, TransportError, assertMethodCapsCover, openGuardedClient, runCli, type BudgetedClient,
   type OperatorLabel } from "@monark/rpc-guard";
 import { canonical } from "../../bell/scripts/bell-chain.mjs";
@@ -271,4 +271,6 @@ export async function main(argv: readonly string[], deps: RunDeps): Promise<numb
     return code === "usage" ? 64 : 1;
   }
 }
-if (process.argv[1] !== undefined && import.meta.url === pathToFileURL(process.argv[1]).href) process.exitCode = await main(process.argv.slice(2), { env: process.env, nowMs: () => Date.now() });
+// ENTRY-MAIN-LINK-1 (C-G2-1 of PR-1b-5b): REAL paths compared, so a launch through a directory link runs it; argv[1] absent or unreadable: an import.
+const isEntry = () => { try { return realpathSync(fileURLToPath(import.meta.url)) === realpathSync(process.argv[1] as string); } catch { return false; } };
+if (isEntry()) process.exitCode = await main(process.argv.slice(2), { env: process.env, nowMs: () => Date.now() });

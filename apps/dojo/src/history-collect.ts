@@ -18,7 +18,7 @@ import { createHash } from "node:crypto";
 import { closeSync, existsSync, fsyncSync, mkdirSync, openSync, readdirSync, readFileSync, realpathSync, renameSync, statfsSync, writeSync } from "node:fs";
 import { gunzipSync, gzipSync } from "node:zlib";
 import { dirname, isAbsolute, join, resolve } from "node:path";
-import { pathToFileURL } from "node:url";
+import { fileURLToPath } from "node:url";
 import { BudgetExceededError, CHAINSTACK_CYCLE_CAP_RU, HELIUS_CYCLE_CAP_CREDITS, RpcError, TransportError, assertMethodCapsCover, openGuardedClient,
   runCli, type BudgetedClient, type OperatorLabel } from "@monark/rpc-guard";
 import { withRetry } from "../../bell/src/quorum.ts";
@@ -448,4 +448,6 @@ export async function main(argv: readonly string[], deps: RunDeps): Promise<numb
     return code === "usage" ? 64 : 1;
   }
 }
-if (process.argv[1] !== undefined && import.meta.url === pathToFileURL(process.argv[1]).href) process.exitCode = await main(process.argv.slice(2), { env: process.env, nowMs: () => Date.now() });
+// ENTRY-MAIN-LINK-1 (C-G2-1 of PR-1b-5b): REAL paths compared, so a launch through a directory link runs it; argv[1] absent or unreadable: an import.
+const isEntry = () => { try { return realpathSync(fileURLToPath(import.meta.url)) === realpathSync(process.argv[1] as string); } catch { return false; } };
+if (isEntry()) process.exitCode = await main(process.argv.slice(2), { env: process.env, nowMs: () => Date.now() });
