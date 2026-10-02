@@ -354,6 +354,9 @@ DJ-L06 table sans script (code, rendu serveur des lignes committées).
   (diff A-1) au début de W2-E, C-6 avec les FAITS ; empreintes de SERIES-FULL-HISTORY-1 à poster à la fin de l enregistrement.
 - 2026-10-02 19:13 UTC : ADR vague 2 v8.1 ACCEPTÉ par le fondateur (`7658b9b`) ; empreinte `fe48c03a…` recalculée sur place, égale ; CRLF de
   l oracle W2-E corrigé (`4f5f177`). Rien d attendu ce soir côté RECHERCHES.
+- 2026-10-02 19:19 UTC : SERIES-FULL-HISTORY-1 terminé (19:16 UTC) : 762 dossiers scellés, 153 arrêts `close_time` (bougies tronquées ;
+  panne du 2023-03-24 visible dans les octets, 15m et 1h de 2023-03 non scellés = WARM-2) ; empreintes postées à RECHERCHES ; item
+  RECORDER-CLOSE-TIME-1 à lancer sur go (successeur + rejeu au bit + ré-enregistrement). Tables : `F:/PRODUITS/marche/history/HASHES-2026-10-02/`.
 - 2026-10-02 15:30 UTC : go de minuit reçu ; lanceur `F:/tmp/dojo/final/wait-and-run.sh` armé ; annonce X publiée depuis le 1er octobre
   (investisseur) ; validation visuelle : page reconstruite à l ancre 30/30/30/30/90, captures envoyées, six questions C-V-4 encore ouvertes.
 - 2026-10-02 08:26 UTC, ÉCART DE ROSTER relevé par l orchestrateur : depuis 02:51:22 UTC, les tours de l orchestrateur tournent sous
