@@ -296,6 +296,12 @@ DJ-L06 table sans script (code, rendu serveur des lignes committées).
   l investisseur sur la partie (décision 300), fusion par pas au tronc, puis les actes. Additif ADR 0005 accepté par l investisseur.
 - 2026-10-02 14:32 UTC : réponse à RECHERCHES recherches#40 (`e7471ac`) : contrôle de `a43ad70` conforme, additif accepté, outil en
   cours ; prochain message = l empreinte MONARK, avant toute comparaison.
+- 2026-10-02 14:50 UTC, ACCORD de l investisseur sur la partie 3 (« accord sur la partie 3, fusionne au tronc ») : fusion au tronc par
+  pas. Mesuré : `lot/etude-suite` et `lot/page-v1` divergent depuis `8950ab15` (97 et 89 commits), 6 404 lignes comptées, aucun conflit,
+  aucun fichier de code commun. Coupes candidates (premier parent, vertes au magasin) : `89403796`, `c0c60617`, `d1120612`, `2fab0d81`,
+  `229e9aca`, `f39e679c` ; à prouver par oracle neuf : `c7e26216` (659), `8aaba460` (+861), `1b57566c` (+1 105) : trois oracles G7
+  lancés en série (`F:/tmp/trunk-map/`, sorties `oracles.out`). Puis, par pas : `merge --no-ff` dans le tronc, oracle G7 du tronc
+  (`--base` = tête avant le pas), red-proof, tueurs du pas ; ligne HANDOFF après chaque oracle. `G7.txt` inchangé cette nuit.
 - 2026-10-02 08:26 UTC, ÉCART DE ROSTER relevé par l orchestrateur : depuis 02:51:22 UTC, les tours de l orchestrateur tournent sous
   `claude-opus-5-5` (519 tours dans la transcription de la session), pas sous `claude-fable-5-1` (règle : orchestrateur = Fable 5.1).
   Actes faits sous ce modèle : contrôle et accord P2a complet (recherches#38), consolidation du CLAUDE.md global, adjudications et

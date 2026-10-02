@@ -273,6 +273,10 @@ Tronc `lot/etude-suite`. Dernier oracle complet : 1 779 tests, dont 1 776 verts,
   la première fusion par pas au tronc (`8950ab15...d07ad193`) est rouge sur 2 tests réels (`dojo_two_units_share_no_writable_path`,
   `dojo_runbook_stops_before_the_stamp_and_on_refusals`, record `d3d2855f…`) : les états intermédiaires de `lot/page-v1` ne sont pas
   tous verts. Item TRUNK-MERGE-STEPS-1 : un découpage dont chaque pas est vert, déclencheur après la première publication.
+  Déclencheur AVANCÉ par l investisseur le 2026-10-02 à 14:4x UTC (verbatim : « accord sur la partie 3, fusionne au tronc ») : fusion
+  de `lot/page-v1` (`f39e679c`, G7 accepté) au tronc en pas consécutifs, chaque pas sous R-25 (1 150) et prouvé vert par un oracle du
+  tronc avant d être pris ; coupes = commits de la branche dont l arbre est vert (magasin d oracles, ou course neuve) ; aucun conflit
+  et aucun fichier de code touché des deux côtés (mesuré).
   Le tronc a reçu T42-BOUND (`ccfc5820`, oracle G7 `46aced61…` sortie 0, premier passage non conclu au test 42).
   Ancien choix : `main` (844 commits de retard sur le tronc, qui a lui-même 47 commits de retard sur `main`, dont le moteur [W2]
   de RECHERCHES) est intégré après la page.
