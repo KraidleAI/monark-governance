@@ -201,7 +201,11 @@ export async function runCa(argv, deps = {}) {
     const main = readOr(join(a.loaded, "caddyfile-main")), ded = readOr(join(a.loaded, "caddyfile-dedicated"));
     const imports = main === null ? [] : main.toString("utf8").split("\n").map((l) => l.replace(/(^|\s)#.*$/, "").trim()).filter((l) => /^import\s/.test(l));
     const mode = main !== null && main.equals(caddyBlob) ? "replace" : "import";
-    const caddyOk = mode === "replace" || (ded !== null && ded.equals(caddyBlob) && imports.length === 1 && imports[0] === `import ${CADDY_DEDICATED}`);
+    // Check 11 (b), lot BELL-CA-DOJO-1: in import mode the main file's import lines form a set drawn from these two, Bell's own line always
+    // among them, each line at most once, no other line. The Dojo file is never read here: the Dojo CA judges its bytes.
+    const closed = [`import ${CADDY_DEDICATED}`, "import /etc/caddy/monark-dojo.caddyfile"];
+    const importsOk = imports.includes(closed[0]) && new Set(imports).size === imports.length && imports.every((l) => closed.includes(l));
+    const caddyOk = mode === "replace" || (ded !== null && ded.equals(caddyBlob) && importsOk);
     c11.push(`caddy_${mode}=${String(caddyOk)}`);
     const cat = readOr(join(a.loaded, "systemctl-cat.txt")), ndr = readOr(join(a.loaded, "need-daemon-reload.txt"));
     const pc = cat === null ? null : parseSystemctlCat(cat.toString("utf8"));

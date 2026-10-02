@@ -954,6 +954,86 @@ the unit `inactive`. Until the next synchro (TU-7, PR-3b-2b), the page's live re
 and their day (TXT-14c, TXT-14d): the day shown is the committed one, never hidden. Then a new CA and a new synchro, as after any
 redeployment (DOJO-SYNC-G7-REF-1).
 
+## 21. A-6 — Caddy serves `dojo.monarkgate.tech`: the extract installed WHOLE, then a main file of the two `import` lines alone
+
+**When, and after what** (ADR-DOJO-PR-3 PB-5, act A-6; section 10, order): on the announcement day, after A-1 (the A record of
+`dojo.monarkgate.tech`, read back: ACME needs it) and after the first `snapshot` is published; AFTER the REPLACE → IMPORT procedure of
+`docs/RUNBOOK-bell.md` step 7 (lot BELL-CA-DOJO-1: Bell's site in `/etc/caddy/monark-bell.caddyfile`, the main file its one `import`
+line, Bell's CA 12/12 right after it). Bell's CA runs here from a checkout `/f/Monark` that carries the lot BELL-CA-DOJO-1: its check
+11 (b) accepts the two `import` lines (any other checkout turns Bell's CA red at this act). The extract is the blob of the Dojo G7
+(`/f/tmp/dojo-dn/G7.txt`), installed WHOLE at `/etc/caddy/monark-dojo.caddyfile`, never edited on the host; its first line that is
+neither blank nor a comment is the site address `dojo.monarkgate.tech {` (no global options block; measured on the blob at `224a6bd1`,
+line 13; re-read by (1)). Conventions of section 10 and of the procedure of RUNBOOK-bell step 7: `'root@<bell>'` is the SSH target of
+section 1, `<bell>` replaced by the host address written there before a command runs (left as is, `ssh` resolves no host, nothing runs).
+
+(1) Read-only, the state before the act (Bell's one-line main file, no name of this act yet), recorded locally:
+
+```bash
+G7=$(cat /f/tmp/dojo-dn/G7.txt) && git -C /f/Monark cat-file blob "$G7:deploy/Caddyfile.monark-dojo" |
+grep -v -E '^[[:space:]]*(#|$)' | head -1; A=/f/tmp/dojo-dn/a6-before.txt;
+ssh -i ~/.ssh/monark_vps 'root@<bell>' 'cd /etc/caddy && sha256sum Caddyfile monark-bell.caddyfile && ls -1 /etc/caddy' > "$A"; echo exit=$?; cat "$A"
+```
+
+Expected: `dojo.monarkgate.tech {`; `exit=0`; `d51755c50a15dac943dafdf7ff1bffe4ceb110923660d46723cdcba774faf51f  Caddyfile` (Bell's one
+`import` line, RUNBOOK-bell step 7 (2)), the digest of Bell's blob at Bell's G7 for `monark-bell.caddyfile`, and a listing with NONE of
+`monark-dojo.caddyfile`, `Caddyfile.new`, `Caddyfile.bak-dojo`. **STOP** otherwise: another first line, Bell not migrated (RUNBOOK-bell
+step 7 first), or this act already started (rollback (a) or (b) below, or read the host). Rollback: none (read-only).
+
+(2) The act: the backup first, the extract (inert: the main file in place does not import it), the candidate main file of the two
+`import` lines alone, `caddy validate` on the candidate BEFORE it is live, the atomic rename, `systemctl reload caddy` (never `restart`):
+
+```bash
+G7=$(cat /f/tmp/dojo-dn/G7.txt) && git -C /f/Monark cat-file blob "$G7:deploy/Caddyfile.monark-dojo" |
+ssh -i ~/.ssh/monark_vps 'root@<bell>' 'cd /etc/caddy && test ! -e Caddyfile.bak-dojo && cp -p Caddyfile Caddyfile.bak-dojo && umask 022 &&
+cat > monark-dojo.caddyfile && echo "import /etc/caddy/monark-bell.caddyfile" > Caddyfile.new &&
+echo "import /etc/caddy/monark-dojo.caddyfile" >> Caddyfile.new && caddy validate --config /etc/caddy/Caddyfile.new --adapter caddyfile &&
+mv Caddyfile.new Caddyfile && systemctl reload caddy && systemctl is-active caddy && sha256sum Caddyfile monark-dojo.caddyfile'
+```
+
+Expected: `Valid configuration`; `active`; `aa06619ff02fcd588f805b70f9cb7624577f097642feba9f6c7256205674321d  Caddyfile` (the two lines,
+Bell's then the Dojo's, each with its LF) and, for `monark-dojo.caddyfile`, the local digest
+`git -C /f/Monark cat-file blob "$(cat /f/tmp/dojo-dn/G7.txt):deploy/Caddyfile.monark-dojo" | sha256sum`. Until `caddy validate` passes,
+`/etc/caddy/Caddyfile` is untouched; the candidate goes live by `mv` only. **STOP** on any other output: without `Valid configuration`,
+rollback (a); with it, rollback (b).
+
+(3) The expected controls, then Bell's CA:
+
+```bash
+curl -sS -o /dev/null -w "%{http_code} %{ssl_verify_result}" https://dojo.monarkgate.tech/; echo;
+curl -sS -o /dev/null -w "%{http_code}" https://dojo.monarkgate.tech/timeline.jsonl; echo;
+curl -sS -o /dev/null -w "%{http_code} %{ssl_verify_result} %{redirect_url}" https://bell.monarkgate.tech/; echo
+```
+
+Expected: `404 0` (the host root answers 404 until DOJO-HOST-ROOT-1; the certificate, issued by automatic HTTPS, is valid: retry after
+30 s while ACME completes, at most 5 tries, as RUNBOOK-bell step 8); `200` (the first `snapshot` is published); `302 0
+https://monarkgate.tech/bell` (Bell still served). Then RUNBOOK-bell step 11, a fresh capture and Bell's CA: `VERIFY OK - 12/12` with the
+two `import` lines (check 11 (b)); then CA-1. **A certificate refused** (a TLS result other than `0` after the retries), or a check that
+the policy of the orchestrator's tool refuses: never bypassed (no `-k`, no `--insecure`, no `NODE_TLS_REJECT_UNAUTHORIZED`, no other
+client): **STOP**; `journalctl -u caddy -n 50 --no-pager` read first (no secret there); the check becomes an act of the investor, from
+the investor's own machine, written to the JOURNAL as such; no CA-1 before it. Bell red, or any other result: **STOP**, rollback (b).
+
+Rollback (a), before the `mv` (the output of (2) has no `Valid configuration`: the live file never changed):
+
+```bash
+ssh -i ~/.ssh/monark_vps 'root@<bell>' 'cd /etc/caddy && cmp Caddyfile Caddyfile.bak-dojo &&
+rm -f Caddyfile.new monark-dojo.caddyfile Caddyfile.bak-dojo; ls -1 /etc/caddy'
+```
+
+Expected: no `cmp` output and none of the three names in the listing; then (1) again before any retry. No `Caddyfile.bak-dojo` at all:
+(2) stopped before its backup, nothing to remove. A `cmp` difference: **STOP**, rollback (b).
+
+Rollback (b), after the `mv`, complete (BEFORE any rollback of RUNBOOK-bell step 7): Bell's one-line main file back, then the extract
+removed:
+
+```bash
+ssh -i ~/.ssh/monark_vps 'root@<bell>' 'cd /etc/caddy && cp -p Caddyfile.bak-dojo Caddyfile.new &&
+caddy validate --config /etc/caddy/Caddyfile.new --adapter caddyfile && mv Caddyfile.new Caddyfile && systemctl reload caddy &&
+systemctl is-active caddy && rm monark-dojo.caddyfile Caddyfile.bak-dojo && sha256sum Caddyfile'
+```
+
+Expected: `Valid configuration`; `active`; `d51755c50a15dac943dafdf7ff1bffe4ceb110923660d46723cdcba774faf51f  Caddyfile`; then
+RUNBOOK-bell step 8 and step 11 (Bell 12/12, one `import` line); `dojo.monarkgate.tech` no longer served (the A record: A-1's rollback).
+
 ## Never
 
 `cat`/`head`/`tail`/`less`/`xxd`/`od`/`base64` on a seed file or on `/etc/monark/dojo-collect.env`, or a digest of them displayed;
