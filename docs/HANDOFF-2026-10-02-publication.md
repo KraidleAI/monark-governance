@@ -108,4 +108,4 @@ vérification BLS de drand (DOJO-BLS-VERIFY-1), DOJO-LIVE-HEALTH-1, DOJO-CA0-SCR
 
 ## 11. Journal des mises à jour de ce fichier
 - 2026-10-02 02:0x UTC : création (six agents en vol, aucun retour depuis la consigne).
-- 2026-10-02 02:1x UTC : retour de la G2 de BATCH-NEAR ; fusion dans page-v1 ; G7 de la fusion en cours.
+- 2026-10-02 02:0x UTC : retour de la G2 de BATCH-NEAR ; fusion dans page-v1 ; G7 de la fusion en cours.
