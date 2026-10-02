@@ -249,6 +249,13 @@ DJ-L06 table sans script (code, rendu serveur des lignes committées).
   (une ligne de commentaire) sépare l arbre de publication de `c0c60617` ; avant CA-1 : fusion au tronc, `G7.txt`, A-3p rejoué, et le
   lot de l éditeur (DJ-L190, L191, L34) fusionné avant. Oracle G7 lancé sur `b570e2b4` (script, sans modèle) ; le VERDICT G7 attend
   la décision de l investisseur sur le roster. Course de cette nuit : `run-final.sh` dès 00:00 UTC, (iii) et (iv) avant 06:30 UTC.
+- 2026-10-02 09:00 UTC : la correction 3 écrite à l ADR (`b570e2b4`) est la voie (a) ; elle n est PAS décidée. Voie (b), mesurée :
+  rétablir sur `lot/page-v1` le texte de `c0c60617` de la seule ligne de commentaire de `dojo-chain.mjs` ; l arbre de publication du
+  nouveau G7 redevient égal à celui de l hôte (unités et `Caddyfile.monark-dojo` inchangés depuis `c0c60617`, mesuré), `c09` vert
+  sans ré-archivage ; DJ-L190, L191, L34 gardent leur déclencheur du 2026-10-09 ; prix : un commentaire périmé porté par un item.
+  Rendu à l investisseur avec : roster du G7, accord de la partie 3 (décision 300), départ de la course de cette nuit (attente en
+  arrière-plan depuis cette session, ou go de l investisseur à minuit), et l annonce du « jour 1 » sur X (faite ou non : TU-7 l attend).
+  L oracle G7 de `b570e2b4` ne vaut pas G7 si la voie (b) change l arbre : il sera rejoué.
 - 2026-10-02 08:26 UTC, ÉCART DE ROSTER relevé par l orchestrateur : depuis 02:51:22 UTC, les tours de l orchestrateur tournent sous
   `claude-opus-5-5` (519 tours dans la transcription de la session), pas sous `claude-fable-5-1` (règle : orchestrateur = Fable 5.1).
   Actes faits sous ce modèle : contrôle et accord P2a complet (recherches#38), consolidation du CLAUDE.md global, adjudications et
