@@ -647,3 +647,21 @@ Mutants appliqués sur copie, restaurés au sha256, hors de l'index ; aucun test
   ne change pas (décision de l'orchestrateur, `docs/ETAT.md`).
   « Chaque site rend le refus nommé qu'il avait déjà » se lit donc « un refus nommé » ; la marche ne balaie pas un texte : elle
   mesure la profondeur d'une valeur (`depthOf`, `apps/dojo/scripts/dojo-chain.mjs`).
+- **Ligne datée (orchestrateur, 2026-10-02 02:47 UTC) — TU-1h, épingle de l'acte A-11 (ii) : le premier jour lu est le jour clos ENTIER**
+  (`eve.json`, `publish/` et `readings/`, jamais `readings/` seul ; RUNBOOK-dojo §18 (ii), copie `scp` avec empreintes des deux côtés,
+  COPY-EQUAL au JOURNAL privé) : la course finale lit d par `readDayLayout` (`apps/dojo/src/layout.ts`), dont l'entrée unique est
+  `publish/SHA256SUMS` et qui refuse tout fichier hors liste ; `--first-read` = `F:/PRODUITS/dojo-mirror/days/<d>` ; S_CUT = le plus grand
+  `context_slot` des énumérations de la première lecture de d, lu par le lecteur de la course (`firstRead`, `history-build.ts`), jamais par
+  la phase A jetable de (i). Premier jour compté d = 2026-10-02 (plan du 2 octobre avec sa balise, JOURNAL privé 00:05 UTC) ; course
+  finale après sa clôture, le 3 octobre (lanceur `F:/tmp/dojo/run-final.sh`, vérifié en syntaxe seulement, plafonds de l'acte 1 :
+  150 000 appels, 15 000 crédits, 290 000 RU ; dépense réelle de la course provisoire r3 sur 22 jours lue dans ses grands livres :
+  6 654 crédits et 47 484 RU, 28 167 appels ; un jour de plus tient sous ces plafonds).
+- **Ligne datée (orchestrateur, 2026-10-02 02:47 UTC) — `TasksMax=64` ÉPINGLÉ pour `deploy/monark-dojo-collect.service` l.40 (jadis
+  PROVISOIRE, ligne datée 15:00Z ; RUNBOOK-dojo §5 « Tasks », deux relevés dus)** : relevé 1 à A-5 (départ de contrôle du 2026-10-01
+  12:05 UTC) : pic 7, `EffectiveTasksMax` 64 ; relevé 2 pendant une étape de lecture de d = 2026-10-02 (DOJO-TASKSMAX-SAMPLE-D-1,
+  unité transitoire armée sur l'hôte, 200 relevés de `TasksCurrent`, résultat `/root/dojo-tasksmax-d.txt`, heure gardée hors journal
+  car elle situe un instant de lecture) : pic 11, `EffectiveTasksMax` 64. Marge 64/11 ≈ 5,8. Révision : à un pic ≥ 32 relevé, ou à un
+  départ refusé faute de tâche (journal de l'unité) ; sinon la valeur reste. Écart consigné : une lecture de contrôle
+  (`systemctl list-timers`) a affiché localement l'heure du déclenchement de l'échantillon (rien publié) ; règle : ne lire que
+  l'existence du fichier de résultat, jamais la liste des minuteurs (JOURNAL privé, 01:3x UTC).
+
