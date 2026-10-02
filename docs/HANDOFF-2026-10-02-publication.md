@@ -380,6 +380,10 @@ DJ-L06 table sans script (code, rendu serveur des lignes committées).
   courses A (graines de la table) et B (addendum 2) ; sorties F:/tmp/w2s-sim/out/{A,B}/ scellées ; comparaison par l orchestrateur après.
   Avis envoyé (PR recherches#59) : voie A conforme à D7 ; borne de confirmation à 10 000 réplicats = 0,0337 lue d avance (se déclenche si
   la part vraie est 0,0434). R-25 : exclusion kata/w2s/out/*.json acceptée par addendum avec provenance et test. PR #56 fermée (redondante).
+- 2026-10-02 21:1x UTC : RECHERCHES, course de confirmation de l addendum 2 faite (47c97e1, graines + 500 000) : K-1 muet ; K-2 sur AUCUNE
+  ligne jugée (C1 phi 0,10, 1h, td 0,025, 10 000 réplicats : 0,0280 contre 0,0337) ; même ligne à 0,05 : 0,0534 (la lecture 0,0829 était
+  haute d environ 2,5 erreurs types). Selon l addendum 2 §4 la révision tient ; W2-S-SIM-1 reste le juge (comptes entiers A et B égaux),
+  rien n entre dans P0-2 avant. Worker W2-S-SIM-1 en cours depuis 21:04 UTC ; réponse à RECHERCHES avec les comptes à la fin.
 - 2026-10-02 15:30 UTC : go de minuit reçu ; lanceur `F:/tmp/dojo/final/wait-and-run.sh` armé ; annonce X publiée depuis le 1er octobre
   (investisseur) ; validation visuelle : page reconstruite à l ancre 30/30/30/30/90, captures envoyées, six questions C-V-4 encore ouvertes.
 - 2026-10-02 08:26 UTC, ÉCART DE ROSTER relevé par l orchestrateur : depuis 02:51:22 UTC, les tours de l orchestrateur tournent sous
