@@ -360,6 +360,13 @@ DJ-L06 table sans script (code, rendu serveur des lignes committées).
 - 2026-10-02 19:21 UTC : GO investisseur RECORDER-CLOSE-TIME-1, « demain après la publication » : lot à lancer le 3 octobre après le premier
   snapshot (mission G1 worker : successeur `record-binance-klines.mjs` sur `lot/series-intervals`, garde et liste les clôtures irrégulières,
   rejeu au bit sur 2024-09, ré-enregistrement des 153 mois, empreintes postées).
+- 2026-10-02 19:34 UTC : message #56 (go) abandonné, le go était déjà au JOURNAL de RECHERCHES (927b86a). Relecture de l addendum 1 de
+  l ADR 0006 (règles 1 à 8, 03c65bb) envoyée : PR KraidleAI/recherches#57 fusionnée 19:34 UTC. Règles 1 à 7 CONFORMES, c_L, k*, U et seuils
+  de veto recomptés égaux. Règle 8 : octets du 2023-03-24 lus [lu] sur les quatre symboles (15m : 0 trade 11:30 à 12:29, troncature 12:30
+  close 12:39:41 à 12:39:46 selon le symbole, cinq absentes 12:45 à 13:45, reprise 14:00Z ; 1h : 13:00 absente) : R = 14:00Z, pas 14:30 ;
+  proposition 8 bis (`zero_trade` au manifeste, E = début de la suite à 0 trade) et instance de lieu ; comptes W + 2 à 1h, W + 1 à 4h.
+  Entrée [lu] pour FAITS-EVENTS-2022-2024-1 et pour RECORDER-CLOSE-TIME-1 (champ `zero_trade`). Erreur MONARK reconnue : 2023-03 est
+  dans CALIB-2 (v8.1), notre message d empreintes disait WARM-2 (découpe v6).
 - 2026-10-02 15:30 UTC : go de minuit reçu ; lanceur `F:/tmp/dojo/final/wait-and-run.sh` armé ; annonce X publiée depuis le 1er octobre
   (investisseur) ; validation visuelle : page reconstruite à l ancre 30/30/30/30/90, captures envoyées, six questions C-V-4 encore ouvertes.
 - 2026-10-02 08:26 UTC, ÉCART DE ROSTER relevé par l orchestrateur : depuis 02:51:22 UTC, les tours de l orchestrateur tournent sous
