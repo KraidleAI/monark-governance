@@ -81,8 +81,8 @@ export function mergeIndexes(a: unknown, b: unknown, sCut: number): Merged {
 export interface MintEntry { readonly account: string; readonly side: "pre" | "post"; readonly owner: string | null; readonly amount: string; readonly program: string | null }
 export interface Ins { readonly type: string; readonly info: Json }
 export interface Supply { readonly type: string; readonly amount: string }
-/** The fields of one getTransaction (or full-page) body that the history reads. `ins` = the Token-2022 instructions, outer and
- *  inner, in position order, that name the mint or one of its accounts of this body; `supply` = their mint/burn moves on the mint. */
+/** The fields of one getTransaction (or full-page) body that the history reads. `ins` = the Token-2022 instructions, outer and inner, in
+ *  position order, that name the mint or one of its accounts of this body at any depth of their info; `supply` = their mint/burn moves on the mint. */
 export interface Body {
   readonly signature: string; readonly slot: number; readonly blockTime: number | null; readonly rank: number | null; readonly err: unknown;
   readonly mint: readonly MintEntry[]; readonly ins: readonly Ins[]; readonly supply: readonly Supply[];
@@ -109,11 +109,11 @@ export function readBody(raw: unknown, mint: string): Body {
   }
   entries.sort((p, q) => byStr(p.side, q.side) || byStr(p.account, q.account));
   const near = new Set<unknown>([mint, ...entries.map((e) => e.account)]);
-  const ins: Ins[] = [];
+  const ins: Ins[] = [], nearIn = (v: unknown): boolean => near.has(v) || (list(v) ?? Object.values(obj(v) ?? {})).some(nearIn);
   const visit = (x: unknown): void => {
     const o = obj(x), p = obj(o?.parsed), info = obj(p?.info);
     if (o?.programId !== TOKEN_2022) return;
-    if (p !== null && typeof p.type === "string" && info !== null) { if (Object.values(info).some((v) => near.has(v))) ins.push({ type: p.type, info }); }
+    if (p !== null && typeof p.type === "string" && info !== null) { if (Object.values(info).some(nearIn)) ins.push({ type: p.type, info }); }
     else if ((list(o.accounts) ?? [mint]).some((v) => near.has(v))) ins.push({ type: UNPARSED, info: {} }); // accounts unknown => on the mint
   };
   outer.forEach((x, i) => { visit(x); for (const g of groups) if (obj(g)?.index === i) for (const y of list(obj(g)?.instructions) ?? []) visit(y); });
