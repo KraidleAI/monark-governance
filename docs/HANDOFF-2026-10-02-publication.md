@@ -329,6 +329,8 @@ DJ-L06 table sans script (code, rendu serveur des lignes committées).
   sur place égales à `4ad765d` (#47) ; SPEC-EWMA-ASSOC-1 clos.
 - 2026-10-02 18:1x UTC : ADR vague 2 v3 (`ca2cd3c`) relu par l orchestrateur, treize réponses (#48) ; six items à ETAT ; le checkpoint-1
   formel (validateur-humain + avis advisor-defi sur D2/D3) attend le go de l investisseur ; Q-W2-6 posée au fondateur par RECHERCHES.
+  18:1x UTC, go de l investisseur (« go pour le checkpoint-1 du validateur ») : checkpoint-1 lancé (`validateur-humain`, mission `0bda8e07…`,
+  `F:/tmp/kata-w2/`, copie `ca2cd3c`) et consultation formée de `advisor-defi` sur D2/D3 (`F:/tmp/kata-w2/advisor/`), en parallèle.
 - 2026-10-02 15:30 UTC : go de minuit reçu ; lanceur `F:/tmp/dojo/final/wait-and-run.sh` armé ; annonce X publiée depuis le 1er octobre
   (investisseur) ; validation visuelle : page reconstruite à l ancre 30/30/30/30/90, captures envoyées, six questions C-V-4 encore ouvertes.
 - 2026-10-02 08:26 UTC, ÉCART DE ROSTER relevé par l orchestrateur : depuis 02:51:22 UTC, les tours de l orchestrateur tournent sous
