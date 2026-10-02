@@ -204,6 +204,12 @@ DJ-L06 table sans script (code, rendu serveur des lignes committées).
   (send-prep), sans conflit ; oracle du tronc sur l arbre fusionné lancé (`--role corr --key partie3-fusions`). Note : le correcteur
   SITE-SEND-PREP a trouvé ses oracles `corr` sous charge croisée (voir plus haut).
 
+- 2026-10-02 05:40 UTC : G1 SITE-BROWSER rendu LIVRE-AVEC-RESERVES (oracle G1 sortie 0, 15/15 tueurs, 227/227 tests du site) ; gel 1 `ccd48aac` ;
+  fusionné dans `lot/page-v1` (`5d113895`). Mesures (`F:/tmp/dojo/browser/MESURES.md`) : budget mobile de laboratoire ROUGE à chaque N
+  (la liaison de la table tient en une seule tâche) ; à N = 10^3 (réel ≈ 1 144) la variante A est verte à la limite. Q-4 posée à
+  l investisseur : envoyer avec le verdict rouge déclaré, ou construire d abord DOJO-BIND-OFF-MAIN-1. 24 captures (`shots/`, SHA256SUMS
+  vert), huit envoyées à l investisseur pour C-V-4 ; la fixture porte 180 jours pour Migration (DJ-L145), le texte lit l ancre.
+
 ## 12. Compléments (ajoutés le 2026-10-02 à 02:3x UTC)
 - **Accès aux hôtes** : clé `~/.ssh/monark_vps`. Hôte Bell : cible ssh lue dans `F:/tmp/dojo/s7-1.sh` (extraire par `grep -oE 'root@[0-9.]+'`,
   jamais afficher). Serveur du site : cible dans `docs/RUNBOOK-harness.md`. Toute sortie passe par un masque des adresses.
