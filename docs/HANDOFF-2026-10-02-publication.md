@@ -267,6 +267,12 @@ DJ-L06 table sans script (code, rendu serveur des lignes committées).
   `1ea4f64` ; refus de la voie (a) (ligne exécutable du banc changée après la course). Réponse recherches#39 (`b4cdf64`, 14:15:32Z).
   Dû par MONARK : P2-RECALC-TOOL-1 (recalcul des 280 lignes depuis les séries scellées, sans réseau, oracle binomial exact, comparaison
   champ par champ) avec symétrie : notre empreinte déposée AVANT toute lecture de leur registre. Lancement sur go de l investisseur.
+- 2026-10-02 14:25 UTC, go de l investisseur (verbatim : « go pour l outil de recalcul, voie (b) pour la page ») :
+  (1) page : commentaire de `dojo-chain.mjs` ramené au texte de `c0c60617` (arbre de publication égal à l hôte, `cmp` et diff vides),
+  ligne datée d ADR (`f39e679c`), item DOJO-CHAIN-COMMENT-STALE-1 à ETAT (`bad8a650`) ; oracle G7 relancé sur `lot/page-v1` ;
+  (2) P2-RECALC-TOOL-1 : mission G1 `73fabed9…` (`F:/tmp/kata-p2b/mission-recalc.md`, reçu vert, worker `claude-opus-5-5`, max,
+  copie `F:/tmp/kata-p2b/wt` à `1ea4f64`, sources hikae `207f021f` extraites sous `F:/tmp/kata-p2b/hikae-207f021f/`) lancée ;
+  aveugle par construction (aucun registre de RECHERCHES chez MONARK), sceau `out/SEAL.sha256` premier acte après la course.
 - 2026-10-02 08:26 UTC, ÉCART DE ROSTER relevé par l orchestrateur : depuis 02:51:22 UTC, les tours de l orchestrateur tournent sous
   `claude-opus-5-5` (519 tours dans la transcription de la session), pas sous `claude-fable-5-1` (règle : orchestrateur = Fable 5.1).
   Actes faits sous ce modèle : contrôle et accord P2a complet (recherches#38), consolidation du CLAUDE.md global, adjudications et
