@@ -302,6 +302,22 @@ DJ-L06 table sans script (code, rendu serveur des lignes committées).
   `229e9aca`, `f39e679c` ; à prouver par oracle neuf : `c7e26216` (659), `8aaba460` (+861), `1b57566c` (+1 105) : trois oracles G7
   lancés en série (`F:/tmp/trunk-map/`, sorties `oracles.out`). Puis, par pas : `merge --no-ff` dans le tronc, oracle G7 du tronc
   (`--base` = tête avant le pas), red-proof, tueurs du pas ; ligne HANDOFF après chaque oracle. `G7.txt` inchangé cette nuit.
+- 2026-10-02 17:04 UTC : FUSION AU TRONC FAITE, neuf pas, 15:15 → 17:03 UTC (`F:/tmp/trunk-map/steps/chain.log`) : `f35235fe`, `195df42b`,
+  `1b66251c`, `a97013b9`, `e4837377`, `b122ea17`, `bf3451c0`, `bc247f3c`, `d10d757f` (tête du tronc = `lot/page-v1` `f39e679c` fusionnée).
+  Oracle G7 du tronc VERT à chaque pas (neuf enregistrements, sortie 0). Tueurs : 0 survivant sur les neuf pas ; non conclus = le seul
+  tueur du test du trousseau, sauté jusqu à A-4p (`c0c60617`), DOJO-KEYRING-KILLER-REMEASURE-1 ; ancres perdues à deux pas (lignes
+  déplacées par la fusion), remesurées aux pas suivants (34/34 au dernier). red-proof : F2P sur tous les tests jugés ; refus = classes
+  déclarées par les lots (gardes « green at base » de ENTRY-MAIN-LINK, saut TU-K). Instruit pas par pas, aucun écart hors de ces classes.
+  Correction 3 (b) : `G7.txt` passera à `d10d757f` avant CA-1 ; `/f/Monark` en extraction propre de ce commit.
+- 2026-10-02 17:04 UTC : lot DOJO-PAGE-FOLD-1 (go investisseur 15:5x, « pas de gates ») livré et gelé `f4c3e28f` (`lot/page-fold`) : deux
+  volets natifs sous la table, aucun mot changé, 64 tests de page verts, portes statiques 0, R-25 156 ; réserve acceptée : deux phrases
+  de la table restent visibles (état interne de `DojoTable`). Captures envoyées à l investisseur. Fusion au tronc après un oracle G7.
+- 2026-10-02 (16:1x à 16:2x UTC) : RECHERCHES : P2 clos, rapport de la vague 1 publié (`monark-kata-spec` `4b92f09`, octets `e91edb41…`
+  vérifiés) ; Q-P2b-2/3 clos ; accord SPEC-EWMA-ASSOC-1 avec S-5 (#44) ; relecture EPOCH-EVENTS-1 et vague 2 rendue (#45), pliée en v2
+  (`f7378e9`). Items MONARK formés : RECORDER-SCALE-BREAK-1, RECORDER-SCHEMA-FIELDS-1, RECORDER-EXCHANGEINFO-1 (sur go),
+  USDT-USD-REFERENCE-1, ENGINE-ROW-RETIRE-PATH-1, RECALC-FIELDS-2 (ETAT). Décision investisseur attendue : calendrier de SPEC-EWMA-ASSOC-1.
+- 2026-10-02 15:30 UTC : go de minuit reçu ; lanceur `F:/tmp/dojo/final/wait-and-run.sh` armé ; annonce X publiée depuis le 1er octobre
+  (investisseur) ; validation visuelle : page reconstruite à l ancre 30/30/30/30/90, captures envoyées, six questions C-V-4 encore ouvertes.
 - 2026-10-02 08:26 UTC, ÉCART DE ROSTER relevé par l orchestrateur : depuis 02:51:22 UTC, les tours de l orchestrateur tournent sous
   `claude-opus-5-5` (519 tours dans la transcription de la session), pas sous `claude-fable-5-1` (règle : orchestrateur = Fable 5.1).
   Actes faits sous ce modèle : contrôle et accord P2a complet (recherches#38), consolidation du CLAUDE.md global, adjudications et

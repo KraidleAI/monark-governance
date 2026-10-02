@@ -280,6 +280,11 @@ Tronc `lot/etude-suite`. Dernier oracle complet : 1 779 tests, dont 1 776 verts,
   Le tronc a reçu T42-BOUND (`ccfc5820`, oracle G7 `46aced61…` sortie 0, premier passage non conclu au test 42).
   Ancien choix : `main` (844 commits de retard sur le tronc, qui a lui-même 47 commits de retard sur `main`, dont le moteur [W2]
   de RECHERCHES) est intégré après la page.
+- Tronc = `lot/page-v1` fusionnée en neuf pas verts le 2026-10-02 (17:04 UTC, `d10d757f`) ; le site part du tronc.
+- Items katas (relecture EPOCH-EVENTS-1, 2026-10-02 16:25 UTC ; porteur orchestrateur ; déclencheur : ADR de préparation P3, sauf mention) :
+  RECORDER-SCALE-BREAK-1 (arrêt nommé sur un saut de prix, facteur 5 proposé), RECORDER-SCHEMA-FIELDS-1, RECORDER-EXCHANGEINFO-1 (sur go,
+  section lue avant appel), USDT-USD-REFERENCE-1 (flux Pyth USDT/USD lu comme SOL/USD), ENGINE-ROW-RETIRE-PATH-1 (lot d une ligne, latence
+  mesurée), RECALC-FIELDS-2 (les sept champs sortent de la liste ignorée à la prochaine recomputation).
 - Page servie dès la première publication, pas avant, et sous le bloquant de TU-7 (ligne datée d ADR-DOJO-PR-3, 2026-10-02 08:56 UTC :
   premier `snapshot` servi, CA-1 verte, annonce de l investisseur, second cp-1 bref ; le lever est une décision de l investisseur).
 - **Poussière** (investisseur, 2026-10-01 17:3x UTC, mot pour mot : « il faut exclure les comptes de moins de 1$ » ; option « Masquer
