@@ -263,3 +263,51 @@ test("dojo_render_table_starts_over_for_another_head", async () => {
     sha256: () => assert.fail("no hash") }));
   assert.deepEqual([textOf(shell(at(c9))), shell(at(ea))], [T.table, ""], "a counted head: the sentence of a table to come; an abstained one: nothing");
 });
+
+// killer: apps/site/app/dojo/page.tsx:56 CONST "!isAbsolute(local)" -> "false"
+// killer: apps/site/app/dojo/page.tsx:27 CONST "style={{ paddingTop: 32 }}" -> "data-root={recordRootOf()} style={{ paddingTop: 32 }}"
+// killer: apps/site/components/dojo/dojo-live.tsx:23 CONST "${DOJO_LIVE_PREFIX}${rel}" -> "${process.env.MONARK_DOJO_LOCAL_BUILD_ROOT}${rel}"
+// killer: .github/workflows/ci.yml:204 CONST "run: npm run build" -> "run: MONARK_DOJO_LOCAL_BUILD_ROOT=/tmp npm run build"
+// killer: apps/site/app/dojo/page.tsx:54 CONST "process.env.MONARK_DOJO_LOCAL_BUILD_ROOT" -> "undefined"
+test("dojo_page_reads_a_local_root_on_the_server_at_build_only", async () => {
+  // The record of a local build on a fixture (the measures of the page in a browser): MONARK_DOJO_LOCAL_BUILD_ROOT, absent by default,
+  // and then the committed record is read as before; set, the absolute directory it names; relative or empty, the build reds.
+  const NAME = "MONARK_DOJO_LOCAL_BUILD_ROOT", { recs } = await records(), here = rootWith(recs.E1), there = rootWith(recs.E2);
+  const saved = process.env[NAME], seen: string[] = [];
+  const pageWith = async (value: string | undefined): Promise<string> => {
+    if (value === undefined) delete process.env[NAME];
+    else process.env[NAME] = value;
+    try { return await pageAt(here); } catch (e) { return `throws: ${e instanceof Error ? e.message : String(e)}`; }
+  };
+  try {
+    for (const value of [undefined, there, join("relative", "root"), ""]) seen.push(await pageWith(value));
+  } finally {
+    if (saved === undefined) delete process.env[NAME];
+    else process.env[NAME] = saved;
+  }
+  const [absent = "", local = "", relative = "", empty = ""] = seen, atHere = await expectedAt(here), atThere = await expectedAt(there);
+  assert.deepEqual([atHere.state, atThere.state], ["E1", "E2"], "two records of two states");
+  assert.doesNotThrow(() => assertDojoBody({ html: absent, expected: atHere }), "absent: the record under the working directory's repository root");
+  assert.doesNotThrow(() => assertDojoBody({ html: local, expected: atThere }), "set: the record under the directory it names");
+  assert.throws(() => assertDojoBody({ html: local, expected: atHere }), /is absent/, "set: never the record under the working directory");
+  assert.deepEqual([relative, empty].map((p) => p.startsWith("throws: ") && p.includes(`${NAME} must name an absolute directory`)), [true, true],
+    "a relative or an empty value: the build reds");
+  // Read on the server when the build renders the page, and only there: a server page (no "use client"), static (no request-time API,
+  // no dynamic or revalidate export), that reads the name once, without the prefix Next inlines in client bundles (NEXT_PUBLIC_), and
+  // whose value goes to the loader alone, never into the markup or the props of a component.
+  const page = readFileSync(join(SITE, "app", "dojo", "page.tsx"), "utf8"), count = (s: string): number => page.split(s).length - 1;
+  assert.deepEqual([page.startsWith('"use client"'), count(`process.env.${NAME}`), NAME.startsWith("NEXT_PUBLIC_")], [false, 1, false],
+    "a server page that reads the name once");
+  assert.deepEqual([count("recordRootOf()"), count("loadDojoServed(recordRootOf())")], [2, 1], "declared once, called once: the loader's argument");
+  assert.deepEqual(["export const dynamic", "export const revalidate", "cookies(", "headers(", "connection(", "searchParams"].filter((s) => count(s) > 0), [],
+    "a static page: rendered by the build alone");
+  // Among the tracked files out of test/ and docs/ (no Markdown), the name is in that page alone: no client component, no next.config.mjs,
+  // no package.json script, no workflow, no deploy file, no script sets or reads it. The list is this checkout's: git runs without the
+  // caller's GIT_* variables (a hook sets GIT_DIR or GIT_INDEX_FILE), as the fixture of test/byte-guard.test.ts runs it.
+  const [{ execFileSync }, { existsSync }] = await Promise.all([import("node:child_process"), import("node:fs")]);
+  const env = Object.fromEntries(Object.entries(process.env).filter(([k]) => !k.toUpperCase().startsWith("GIT_")));
+  const tracked = execFileSync("git", ["ls-files", "-z"], { cwd: ROOT, env, maxBuffer: 1 << 26 }).toString("utf8").split(String.fromCharCode(0));
+  const naming = tracked.filter((f) => f !== "" && !/^(test|docs)[/]/.test(f) && !f.endsWith(".md") && existsSync(join(ROOT, f))
+    && readFileSync(join(ROOT, f), "latin1").includes(NAME));
+  assert.deepEqual(naming, ["apps/site/app/dojo/page.tsx"], "the name in the server page alone");
+});

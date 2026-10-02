@@ -167,15 +167,20 @@ test("dojo_live_needs_ed25519_to_show_a_reread", async () => {
   assert.equal(await usable(swapped, control.deps), false, "the anchor's signature under another key");
 });
 
-// killer: deploy/Caddyfile.monark-dojo-site.snippet:20 SDL "header_down Cache-Control" -> ""
+/** The client-address headers the site's proxy deletes upstream, in the snippet's order (DOJO-SITE-PROXY-XFF-1; FAITS-CADDY-PROXY-HEADERS-1
+ *  K-1: Caddy sets or augments the first and passes every other incoming header through as sent, these two included). */
+const CLIENT_ADDRESS_HEADERS = ["X-Forwarded-For", "X-Real-IP", "Forwarded"] as const;
+
+// killer: deploy/Caddyfile.monark-dojo-site.snippet:30 SDL "header_down Cache-Control" -> ""
 test("dojo_site_proxy_snippet_is_outside_the_page_route", async () => {
   const prefix = added("DOJO_LIVE_PREFIX"), rel = join(ROOT, "deploy", "Caddyfile.monark-dojo-site.snippet");
   assert.ok(existsSync(rel), "the site's proxy snippet exists");
   const code = readFileSync(rel, "utf8").split(NL).map((l) => l.trim()).filter((l) => l !== "" && !l.startsWith("#"));
   assert.deepEqual(code, [`handle_path ${prefix}* {`, "@read {", "method GET", `path /${DOJO_TIMELINE_PATH} /lines/* /${DOJO_PUBKEY_PATH}`, "}",
-    "handle @read {", `reverse_proxy ${DOJO_HOST} {`, "header_up Host {upstream_hostport}", 'header_down Cache-Control "no-store"', "}", "}",
-    "handle {", "respond 404", "}", "}"],
-  "one block: GET of the three closed paths relayed to the Dojo host, Host set to it, no-store on every answer (M-L15), 404 for anything else");
+    "handle @read {", `reverse_proxy ${DOJO_HOST} {`, "header_up Host {upstream_hostport}", ...CLIENT_ADDRESS_HEADERS.map((h) => `header_up -${h}`),
+    'header_down Cache-Control "no-store"', "}", "}", "handle {", "respond 404", "}", "}"],
+  "one block: GET of the three closed paths relayed to the Dojo host, Host set to it and no client address sent (DOJO-SITE-PROXY-XFF-1), "
+    + "no-store on every answer (M-L15), 404 for anything else");
   // Caddy path matchers, as the Narabi snippet's test reads them: "/x/*" matches every path under /x/, never /x itself (M-L9).
   const relayed = (route: string): boolean => route.startsWith(prefix);
   assert.deepEqual(["/dojo", "/dojo/", "/dojo/pubkey.json", "/dojo-served"].map(relayed), [false, false, false, false], "the page and /dojo/* stay with Next");
@@ -193,6 +198,38 @@ test("dojo_site_proxy_snippet_is_outside_the_page_route", async () => {
   } finally {
     if (env === undefined) delete process.env.NODE_ENV;
     else process.env.NODE_ENV = env;
+  }
+});
+
+// killer: deploy/Caddyfile.monark-dojo-site.snippet:15 SDL "%2e%2e" -> ""
+// killer: deploy/Caddyfile.monark-dojo-site.snippet:22 CONST "/lines/* " -> "/lines/* /history/* "
+// killer: deploy/Caddyfile.monark-dojo-site.snippet:21 CONST "method GET" -> "method GET HEAD"
+// killer: deploy/Caddyfile.monark-dojo-site.snippet:29 SDL "header_up -Forwarded" -> ""
+// killer: deploy/Caddyfile.monark-dojo-site.snippet:28 SDL "header_up -X-Real-IP" -> ""
+// killer: deploy/Caddyfile.monark-dojo-site.snippet:27 SDL "header_up -X-Forwarded-For" -> ""
+test("dojo_site_proxy_sends_no_client_address_to_the_dojo_host", () => {
+  // DOJO-SITE-PROXY-XFF-1 (ADR-DOJO-PR-4, G7 fold of PR-4c-1b, Q-G2-2): the host that holds the signing key reads no address that Caddy writes;
+  // X-Real-IP and Forwarded are deleted as sent; any other header passes as is (DOJO-SITE-PROXY-HEADERS-ALLOWLIST-1). Text only here: the deletion after
+  // Caddy sets X-Forwarded-For is established for Caddy v2.11.4 by its source (FAITS-CADDY-HEADER-UP-DELETE-1), reread at any other installed version.
+  const prefix = added("DOJO_LIVE_PREFIX"), lines = readFileSync(join(ROOT, "deploy", "Caddyfile.monark-dojo-site.snippet"), "utf8").split(NL);
+  const code = lines.map((l) => l.trim()).filter((l) => l !== "" && !l.startsWith("#"));
+  /** The lines of the one block that `head` opens, up to its first closing brace (neither block read here nests another). */
+  const inside = (head: string): string[] => {
+    const i = code.indexOf(head), j = code.indexOf("}", i);
+    assert.ok(i >= 0 && j > i && code.lastIndexOf(head) === i, `one block ${head}`);
+    return code.slice(i + 1, j);
+  };
+  assert.deepEqual(code.filter((l) => l.startsWith("reverse_proxy ")), [`reverse_proxy ${DOJO_HOST} {`], "one upstream: the Dojo host");
+  assert.deepEqual(inside(`reverse_proxy ${DOJO_HOST} {`).filter((l) => l.startsWith("header_up ")),
+    ["header_up Host {upstream_hostport}", ...CLIENT_ADDRESS_HEADERS.map((h) => `header_up -${h}`)],
+    "upstream: Host set to the Dojo host, then each client-address header deleted, in the closed list's order; no other header written");
+  // Relayed: GET of the closed list of three paths; any other method or path answers the snippet's own 404.
+  assert.deepEqual(inside("@read {"), ["method GET", `path /${DOJO_TIMELINE_PATH} /lines/* /${DOJO_PUBKEY_PATH}`], "GET of the three paths, only");
+  assert.deepEqual(code.slice(code.indexOf("handle {")), ["handle {", "respond 404", "}", "}"], "anything else: 404");
+  // The deploy act sends three traversal requests, each expected 404 (measured there, never modelled here): the comment names each.
+  const said = lines.filter((l) => l.startsWith("#")).map((l) => l.slice(1).trim()).join(" ");
+  for (const r of [`GET ${prefix}history/<h>.jsonl`, `GET ${prefix}lines/%2e%2e/history/<h>.jsonl`, `HEAD ${prefix}${DOJO_TIMELINE_PATH}`]) {
+    assert.ok(said.includes(r), `the act's traversal request: ${r}`);
   }
 });
 

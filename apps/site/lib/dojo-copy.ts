@@ -103,8 +103,9 @@ export const DOJO_TEXT = {
   lookupDust: "This line is under the dust threshold of the version in force, so it is not listed among the others.",
 } as const;
 
-/** The words of the table of every line (components/dojo/dojo-table.tsx): its columns, the two classes, the tier of an address that
- *  holds none, and its buttons. The tier names are those of DOJO_TIER_NAMES, never written twice. */
+/** The words of the table of the lines of the snapshot shown (components/dojo/dojo-table.tsx), where the lines under the dust threshold
+ *  of the version in force are published and not listed: its columns, the two classes, the tier of an address that holds none, and its
+ *  buttons. The tier names are those of DOJO_TIER_NAMES, never written twice. */
 export const DOJO_TABLE = {
   address: "Address", class: "Class", holdScore: "Hold score", validated: "Validated", provisional: "Provisional", units: "Units",
   tier: "Tier", holder: "holder", program: "program", none: "none", showMore: "Show more lines", lookUp: "Look up",
