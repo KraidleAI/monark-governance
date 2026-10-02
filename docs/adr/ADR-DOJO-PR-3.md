@@ -670,3 +670,20 @@ Mutants appliqués sur copie, restaurés au sha256, hors de l'index ; aucun test
   l'unité de publication (tas 448 Mo, `MemoryMax=512M`, `TimeoutStartSec=2900`), mesurée sur 1 144 adresses et 30 jours en 80 s ; révision :
   à un dépassement relevé à l'acte CA-1, ou à un historique hors de la grille de Q-12. Le double saut de ligne final de ce fichier (N-11)
   est retiré par la même écriture.
+- **Ligne datée (orchestrateur, 2026-10-02 08:56 UTC) — Q-10 du tour de corrections de la partie 3, conséquence écrite (correction 3 du
+  checkpoint de la partie, rapport `F:/tmp/dojo/cp-partie3b/CP-PARTIE3B-RAPPORT.md` sha256 `aca2af79…`)** : un seul G7 pour les arbres de
+  l hôte et la CA (dessein du §22 gardé). Mesuré par l orchestrateur : entre `c0c60617` (valeur de `G7.txt`) et `58450ac3`, l arbre de
+  collecte (`DOJO_COLLECT_TREE_PATHS`) est identique ; l arbre de publication (`DOJO_PUBLISH_TREE_PATHS`) ne diffère que par
+  `apps/dojo/scripts/dojo-chain.mjs`, une ligne de commentaire (`494eaffd`). Comme `c09` compare chaque empreinte de l hôte au blob du
+  `--g7`, `c09` est rouge à tout G7 portant la CA tant que `/opt/monark-dojo` n est pas ré-archivé à ce G7. Ordre, tout AVANT CA-1 :
+  (1) G7 de la partie 3, puis fusion de `lot/page-v1` au tronc (TRUNK-MERGE-STEPS-1) ; (2) `G7.txt` porte ce commit de fusion ;
+  (3) `/f/Monark` en extraction PROPRE de ce commit (`same_tools=0`) ; (4) A-3p rejoué à ce G7, entre deux créneaux, verrou absent, unité
+  `inactive` ou `failed` ; arbre de collecte non redéployé. Ce ré-archivage est le premier redéploiement de l éditeur : déclencheur de
+  DJ-L190 (DOJO-PUBLISH-UNLOCK-DEAD-PID-1), DJ-L191 (DOJO-PUBLISH-TMP-UNLINK-1) et DJ-L34 (DOJO-ANCHOR-OUT-OF-BAND-GUARD-1) : ils sont
+  faits dans un lot de l éditeur fusionné AVANT ce ré-archivage, pour que l arbre redéployé les porte ; aucun n est re-décidé.
+- **Ligne datée (orchestrateur, 2026-10-02 08:56 UTC) — bloquant de TU-7 contre « page servie dès la première publication » (ETAT, choix
+  de travail ; correction 5 du même checkpoint)** : le bloquant tient. La première synchro (TU-7) attend, dans cet ordre : le premier
+  `snapshot` servi, CA-1 verte, l annonce du « jour 1 » par l investisseur (DOJO-DAY1-ANNOUNCE-1, acte de l investisseur, non vérifié
+  par l orchestrateur), puis le second cp-1 bref du validateur sur les textes (DOJO-RETRO-TEXT-1, PR4B-CP1-POST-ANNOUNCE-1), demandé par
+  l orchestrateur le jour de l annonce, après elle. « Dès la première publication » se lit : pas avant elle, et sous ces conditions.
+  Lever ce bloquant est une décision de l investisseur, jamais de l orchestrateur.
