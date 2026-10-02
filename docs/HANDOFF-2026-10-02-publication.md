@@ -214,6 +214,15 @@ DJ-L06 table sans script (code, rendu serveur des lignes committées).
   `F:/tmp/oracle-results/09662ecc…-corr-20261002T053231Z-140576.json` (sha256 `c0880648…`). La fusion SITE-BROWSER (`5d113895`) sera couverte
   par l oracle de la G2 de partie, sur l arbre final (après PR-3b-2b-1 et BELL-CA-DOJO-1).
 
+- 2026-10-02 06:25 UTC : lots manquants livrés. PR-3b-2b-1 (LIVRE-AVEC-RESERVES ; oracle G1 `740272bc…`, 12/12 tueurs, R-25 713 ; CA lue par
+  la vraie synchro) gel `53cd3db9` ; BELL-CA-DOJO-1 (LIVRE-AVEC-RESERVES ; oracle G1 `b4322876…`, 8/8 tueurs, R-25 42) gel `52487769`.
+  Fusions : `96350f6e` (bell-ca-dojo), `229e9aca` (pr3b2b-1, conflit de position du RUNBOOK résolu : A-6 §21, CA-1 §22). Partie 3
+  complète hors PR-3b-2b-2 (clé Q-B1 (a), jambe « version due » : avant la première version de prix due, vers le 8 octobre).
+  G2 UNIQUE de la partie 3 lancée (mission `578c7cac…`, workflow `wf_00b3412e-11d`, base `d1120612`, tête `229e9aca`). Décisions déjà
+  prises soumises à la G2 : attendu de CA-0 amendé (c09, c10 verts après IMPORT et A-6) ; TU-7 au tour de corrections ; hôte par son
+  nom et clé d hôte comparée à l acte ; délai 740 000 ms ; import de Bell exigé ; migration de Bell avant A-6. Ensuite : corrections, revue,
+  G7 unique de la partie.
+
 ## 12. Compléments (ajoutés le 2026-10-02 à 02:3x UTC)
 - **Accès aux hôtes** : clé `~/.ssh/monark_vps`. Hôte Bell : cible ssh lue dans `F:/tmp/dojo/s7-1.sh` (extraire par `grep -oE 'root@[0-9.]+'`,
   jamais afficher). Serveur du site : cible dans `docs/RUNBOOK-harness.md`. Toute sortie passe par un masque des adresses.
