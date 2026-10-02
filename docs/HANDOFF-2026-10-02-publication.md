@@ -233,8 +233,9 @@ DJ-L06 table sans script (code, rendu serveur des lignes committées).
 
 - 2026-10-02 08:26 UTC : tour de corrections de la partie 3 rendu LIVRE-AVEC-RESERVES (`F:/tmp/dojo/p3corr-deliver/`, 41 fichiers,
   0 non conforme ; oracle corr `471f3a83…` sortie 0 ; red-proof `ada6154f…` ; 34/34 tueurs ; R-25 de la partie 1 128). Gel `133b6287`
-  (`lot/partie3-corr`), fusion `58450ac3` dans `lot/page-v1` : arbre propre ; commandes des §17 et §18 inchangées, une phrase N-2 ajoutée au §17 (relu par diff). Ensuite : checkpoint du
-  validateur sur la partie 3, puis G7 unique, puis accord de l investisseur sur la partie (décision 300).
+  (`lot/partie3-corr`), fusion `58450ac3` dans `lot/page-v1` : arbre propre ; commandes des §17 et §18 inchangées, une phrase N-2
+  ajoutée au §17 (relu par diff). Ensuite : checkpoint du validateur sur la partie 3, puis G7 unique, puis accord de l investisseur
+  sur la partie (décision 300).
 - 2026-10-02 08:26 UTC, ÉCART DE ROSTER relevé par l orchestrateur : depuis 02:51:22 UTC, les tours de l orchestrateur tournent sous
   `claude-opus-5-5` (519 tours dans la transcription de la session), pas sous `claude-fable-5-1` (règle : orchestrateur = Fable 5.1).
   Actes faits sous ce modèle : contrôle et accord P2a complet (recherches#38), consolidation du CLAUDE.md global, adjudications et
