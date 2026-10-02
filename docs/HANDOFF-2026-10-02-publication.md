@@ -260,6 +260,13 @@ DJ-L06 table sans script (code, rendu serveur des lignes committées).
   1 128 sur 1 205). Ce n est pas le verdict G7 : il attend la décision roster, et la voie (b) changerait l arbre.
 - 2026-10-02 14:04 UTC : session remise sous `claude-fable-5-1` par l investisseur (commande de modèle de l app, modèle résolu lu dans
   le contexte de session) : l écart de roster de 02:51 UTC est clos ; le G7 de la partie 3 ne tient plus qu aux voies (a)/(b) et à l accord.
+- 2026-10-02 14:15 UTC, RECHERCHES : run P2b fait localement (280 lignes, C-9 passée, registre `811fcd57…` 26 202 lignes, rapport
+  `e91edb41…`, message `d8ca0bc` reçu par GitHub à 05:09:30Z ; leur `main` est le commit initial, la boîte vit sur la branche
+  `claude/monark-repository-access-brln3a`). Q-P2b-1 décidée par l orchestrateur : voie (b), exclusion R-25 fermée de
+  `kata/registry/*.json` (glob, ligne datée ADR 0005, `PROVENANCE-wave1.md` + test, octets = empreintes annoncées), le banc restant à
+  `1ea4f64` ; refus de la voie (a) (ligne exécutable du banc changée après la course). Réponse recherches#39 (`b4cdf64`, 14:15:32Z).
+  Dû par MONARK : P2-RECALC-TOOL-1 (recalcul des 280 lignes depuis les séries scellées, sans réseau, oracle binomial exact, comparaison
+  champ par champ) avec symétrie : notre empreinte déposée AVANT toute lecture de leur registre. Lancement sur go de l investisseur.
 - 2026-10-02 08:26 UTC, ÉCART DE ROSTER relevé par l orchestrateur : depuis 02:51:22 UTC, les tours de l orchestrateur tournent sous
   `claude-opus-5-5` (519 tours dans la transcription de la session), pas sous `claude-fable-5-1` (règle : orchestrateur = Fable 5.1).
   Actes faits sous ce modèle : contrôle et accord P2a complet (recherches#38), consolidation du CLAUDE.md global, adjudications et
