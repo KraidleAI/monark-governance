@@ -357,6 +357,9 @@ DJ-L06 table sans script (code, rendu serveur des lignes committées).
 - 2026-10-02 19:19 UTC : SERIES-FULL-HISTORY-1 terminé (19:16 UTC) : 762 dossiers scellés, 153 arrêts `close_time` (bougies tronquées ;
   panne du 2023-03-24 visible dans les octets, 15m et 1h de 2023-03 non scellés = WARM-2) ; empreintes postées à RECHERCHES ; item
   RECORDER-CLOSE-TIME-1 à lancer sur go (successeur + rejeu au bit + ré-enregistrement). Tables : `F:/PRODUITS/marche/history/HASHES-2026-10-02/`.
+- 2026-10-02 19:21 UTC : GO investisseur RECORDER-CLOSE-TIME-1, « demain après la publication » : lot à lancer le 3 octobre après le premier
+  snapshot (mission G1 worker : successeur `record-binance-klines.mjs` sur `lot/series-intervals`, garde et liste les clôtures irrégulières,
+  rejeu au bit sur 2024-09, ré-enregistrement des 153 mois, empreintes postées).
 - 2026-10-02 15:30 UTC : go de minuit reçu ; lanceur `F:/tmp/dojo/final/wait-and-run.sh` armé ; annonce X publiée depuis le 1er octobre
   (investisseur) ; validation visuelle : page reconstruite à l ancre 30/30/30/30/90, captures envoyées, six questions C-V-4 encore ouvertes.
 - 2026-10-02 08:26 UTC, ÉCART DE ROSTER relevé par l orchestrateur : depuis 02:51:22 UTC, les tours de l orchestrateur tournent sous

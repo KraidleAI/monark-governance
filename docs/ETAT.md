@@ -318,7 +318,8 @@ Tronc `lot/etude-suite`. Dernier oracle complet : 1 779 tests, dont 1 776 verts,
   intervalle), empreintes postées (recherches, pièces `2026-10-02-series-full-history`), rien transféré ; 153 arrêts `close_time` (bougies
   tronquées 2017-2021, et la panne du 2023-03-24 12:39Z sur les 15m et 1h de 2023-03, WARM-2) ; blocs 2022-09 → 2024-09 : 292/300, 0 manquante.
   Item RECORDER-CLOSE-TIME-1 (successeur de l enregistreur : garde et liste les clôtures irrégulières, ne s arrête que sur la grille ; rejeu
-  EE-3 au bit sur un mois scellé ; ré-enregistrement des 153 mois) : sur go de l investisseur, avant P0-2. W2-S-SIM-1.
+  EE-3 au bit sur un mois scellé ; ré-enregistrement des 153 mois) : GO de l investisseur le 2026-10-02 à 19:21 UTC (verbatim : « go pour
+  l enregistreur successeur, demain après la publication ») ; déclencheur : après la première publication du Dōjō, avant P0-2. W2-S-SIM-1.
 - **ADR de la vague 2 ACCEPTÉ par le fondateur** (v8.1, 2026-10-02 ; empreinte du texte accepté `fe48c03a33da7ab0090b97a41b911f74102de61fa6059188e1c01d23a8fb4be6`,
   relevée sur place à 19:13 UTC, pour P0-2 ; checkpoint-1 MONARK ACCEPTE-AVEC-CORRECTIONS plié). Parties : A W2-E + W2-S (MONARK après le
   chantier 2), B W2-H + W2-L, acte P0-2, C W2-C + W2-F, D course 2b. Dû par MONARK : C-3 (diff A-1) au début de W2-E ; C-6 (FAITS) avant P0-2.
