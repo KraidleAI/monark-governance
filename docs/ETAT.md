@@ -301,8 +301,10 @@ Tronc `lot/etude-suite`. Dernier oracle complet : 1 779 tests, dont 1 776 verts,
   (`d1120612` ; G7 : oracle `f553542d…` sortie 0, 1 869 tests, 0 rouge, R-25 873).
   Conditions d'envoi du site (C-V-1, décidées par l'orchestrateur le 2026-10-02, 01:0x UTC) :
   - faits : A-1 (DNS) ;
-  - le 2 octobre, orchestrateur : DOJO-SITE-PROXY-XFF-1 GARDÉ comme condition (lot SITE-SEND-PREP : aucun en-tête d'adresse cliente
-    transmis à l'hôte de la clé ; trois traversées attendues 404 à l'acte) ; volet navigateur et jambe 2 (lot SITE-BROWSER, mesure
+  - le 2 octobre, orchestrateur : DOJO-SITE-PROXY-XFF-1 GARDÉ comme condition (lot SITE-SEND-PREP : aucune adresse que Caddy écrit
+    n'atteint l'hôte de la clé, `X-Real-IP` et `Forwarded` retirés tels qu'envoyés, tout autre en-tête passe : DOJO-SITE-PROXY-HEADERS-
+    ALLOWLIST-1 ; trois traversées attendues 404 à l'acte, preuves de la liste fermée ; deux variantes observées, non probantes) ; volet navigateur et jambe 2
+    (lot SITE-BROWSER, mesure
     mobile contre le budget des FAITS) ; validation visuelle de l'investisseur (C-V-4, liste fermée du rapport, réponses mot pour mot) ;
   - à l'acte, orchestrateur : A-6 (site Caddy de l'hôte), DOJO-EDGE-CACHE-1 (le DNS de `monarkgate.tech` pointe droit sur le VPS,
     sans bord ; en-têtes mesurés), puis DOJO-SITE-PROXY-1 ;

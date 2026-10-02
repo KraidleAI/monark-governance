@@ -463,7 +463,8 @@ claude-opus-5-5
 - **DJ-L187** · « La liste fermée du proxy du site ne porte pas d'allowlist d'en-têtes vers l'hôte de la clé (I-2 de SITE-SEND-PREP). »
   source : HANDOFF-2026-10-02 §8 ; JOURNAL privé 02/10 01:57Z (I-2 au registre) ; `docs/dojo/FAITS-caddy-header-up-delete-2026-10-02.md`
   nature : code · item : DOJO-SITE-PROXY-HEADERS-ALLOWLIST-1 · déclencheur : lot du site après DOJO-SITE-PROXY-1 (acte), avant l'annonce
-  état : ouvert · suite : `caddy adapt` de la configuration installée relu à l'acte ; cinq traversées 404 attendues
+  état : ouvert · suite : `caddy adapt` de la configuration installée relu à l'acte ; trois traversées 404 attendues (preuves), deux variantes observées (non
+  probantes)
 - **DJ-L188** · « La faute d'imbrication profonde d'un `batch` vient de `canonical` ou de la proximité selon le moteur : non borné. »
   source : PR2B l.1060-1063 (ligne datée BATCH-NEAR, C-1) ; `docs/G1-lot-batch-near.md` l.300 (branche `lot/batch-near`)
   nature : test · item : DOJO-HISTORY-INFO-DEPTH-1 · déclencheur : prochain lot d'outillage de l'historique après la première publication

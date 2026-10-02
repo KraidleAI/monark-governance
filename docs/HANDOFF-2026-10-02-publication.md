@@ -86,7 +86,7 @@ Dans `F:/Monark-wt-page-v1` : `git merge --no-ff <lot>` (aucun conflit attendu :
    seulement après A-6.
 5. Ensuite : A-8 (5) à (9) (horodatage OTS, après publication) ; A-6 (site Caddy de l hôte Bell : le certificat peut être refusé
    par le classifieur, alors acte de l investisseur) ; DOJO-EDGE-CACHE-1 ; DOJO-SITE-PROXY-1 (extrait du site avec XFF-1, `caddy
-   adapt` de la configuration installée, cinq traversées attendues 404) ; `docs/PAROXYSME-Dojo.md` versé ; première synchro de
+   adapt` de la configuration installée, trois traversées attendues 404 et deux variantes observées) ; `docs/PAROXYSME-Dojo.md` versé ; première synchro de
    `dojo-served.json` et son G7 ; déploiement du site (RUNBOOK-vitrine) ; registre `hold-snapshot` « built » (C-V-5).
 6. Avant l envoi du site : validation visuelle de l investisseur (C-V-4, six points : durées en chiffres ; textes tableDust,
    tableNoVersion, lookupDust, tableOrder ; lignes `program` sous le seuil masquées ; phrase des détenteurs ; « committed in advance » ;
