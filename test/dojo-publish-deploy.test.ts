@@ -393,7 +393,7 @@ test("dojo_runbook_never_prints_private_key", () => {
   }
 });
 
-// killer: docs/RUNBOOK-dojo.md:617 CONST "run only AFTER the first" -> "run only BEFORE the first"
+// killer: docs/RUNBOOK-dojo.md:723 CONST "run only AFTER the first" -> "run only BEFORE the first"
 test("dojo_runbook_counts_without_rehearsal_and_stamps_after_the_first_publication", () => {
   exists(); // FAST-START (decisions of 2026-10-01, G1 journal docs/G1-lot-fast-start.md): no rehearsal day, no Bitcoin block before d
   const a8 = sectionOf(16, true), at = (x: string): number => { const i = a8.indexOf(x); assert.ok(i >= 0, `A-8: ${x}`); return i; };
@@ -432,7 +432,7 @@ test("dojo_keyring_shares_no_key_with_bell", { skip: existsSync(REPO + TU_K) ? f
   assert.deepEqual(bk.keys.filter((x) => ids.has(x.key_id) || ids.has(x.jwk.x)), [], "no key of Bell's keyring in Dojo's (key_id or x)");
 });
 
-// killer: docs/RUNBOOK-dojo.md:954 SDL "price_version_pending" -> ""
+// killer: docs/RUNBOOK-dojo.md:1065 SDL "price_version_pending" -> ""
 test("dojo_runbook_stops_before_the_stamp_and_on_refusals", () => {
   exists();
   const a8 = sectionOf(16, true), check = a8.indexOf("dojo-verify-cli.mjs /f/PRODUITS/dojo-mirror/public-seq1 --self-consistent-only");
@@ -453,7 +453,7 @@ test("dojo_runbook_stops_before_the_stamp_and_on_refusals", () => {
   assert.ok(sectionOf(17, true).includes("**STOP** on every other refusal (section 19)"), "A-10: a STOP on every refusal of section 19");
 });
 
-// killer: docs/RUNBOOK-dojo.md:898 CONST "-p SupplementaryGroups=dojo-handoff" -> "-p SupplementaryGroups=dojo-collect"
+// killer: docs/RUNBOOK-dojo.md:1009 CONST "-p SupplementaryGroups=dojo-handoff" -> "-p SupplementaryGroups=dojo-collect"
 test("dojo_runbook_jobs_carry_the_unit_properties", () => {
   exists(); // C-3 and Q-3 of the G2 inspection of part 1: the three systemd-run jobs of the RUNBOOK, each property the unit's own
   const svc = service(D.DOJO_PUBLISH_UNIT), SANDBOX = ["PrivateNetwork", "NoNewPrivileges", "ProtectSystem", "ProtectHome", "PrivateTmp",
@@ -477,7 +477,7 @@ test("dojo_runbook_jobs_carry_the_unit_properties", () => {
   assert.ok((jobs[1]?.[0] ?? "").includes(`--inbox ${one(svc, "ReadOnlyPaths")} --state ${D.DOJO_PUBLISH_STATE}`), "18 (iv): --inbox, read-only");
 });
 
-// killer: docs/RUNBOOK-dojo.md:860 CONST "if test ! -e " -> "if test -e "
+// killer: docs/RUNBOOK-dojo.md:970 CONST "if test ! -e " -> "if test -e "
 test("dojo_runbook_removes_the_packet_only_without_a_writer", () => {
   exists(); // Q-14 of the G2 inspection of part 2 (docs/ETAT.md): never a removal of the history packet beside a launch holding the lock
   const RM = /(^|[^a-z])rm( +-[-a-zA-Z]*)* +[^ ;&|']*history-packet/g, count = (t: string): number => [...t.matchAll(RM)].length;
@@ -519,7 +519,7 @@ test("dojo_runbook_removes_the_packet_only_without_a_writer", () => {
   for (const bad of [`${IDLE} && test ! -e ${LOCK}`, IDLE]) assert.ok(!block.replace(order, bad).endsWith(REMOTE), `the checker reddens on: if ${bad};`);
 });
 
-// killer: docs/RUNBOOK-dojo.md:879 CONST "n <= 1144 && d <= 365" -> "n <= 1145 && d <= 365"
+// killer: docs/RUNBOOK-dojo.md:989 CONST "n <= 1144 && d <= 365" -> "n <= 1145 && d <= 365"
 test("dojo_runbook_counts_the_history_against_the_measured_grid", () => {
   exists(); // Q-12 of the G2 inspection of part 2: the read-only count before 18 (iv), run on packets of the REAL writer of PR-2b
   const s18 = sectionOf(18), js = /node --input-type=module -e '([^']+)' '<local packet>[/]publish'/.exec(s18)?.[1] ?? "";
