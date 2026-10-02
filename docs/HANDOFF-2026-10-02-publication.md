@@ -372,6 +372,14 @@ DJ-L06 table sans script (code, rendu serveur des lignes committées).
   8708/2139, 8709/2140, k* 68,71 / 11-12,13 retrouvés (c). Accord envoyé (PR recherches#58). W2-S-SIM-1 (table de puissance MONARK, mission
   worker) : RECHERCHES demande son lancement ; AUCUN agent sans go explicite de l investisseur ; ordre fixé : chantier 2 puis partie A.
   Question posée à l investisseur : go maintenant (demain après la publication) ou dans la partie A.
+- 2026-10-02 21:04 UTC : K-2 DÉCLENCHÉ chez RECHERCHES (table 89fdcf9 : C1 phi 0,10, n 8760, td 0,05 : 0,0829 > 0,0775 ; K-1 muet) ; pas
+  de P0-2 sur cet état (D7). Fondateur : voie A, option (c) (cellules 1h admises à td ≤ 0,025 seulement ; les 40 cellules du mois y sont),
+  addendum 2 (6a8808e) pré-enregistré, confirmation sur graines + 500 000 et C1 à 10 000 réplicats ; retrait du design 1 si K-2 refire.
+  GO INVESTISSEUR W2-S-SIM-1 « maintenant, en parallèle de la page » : mission G1 worker Opus 5.5 max lancée 21:04 UTC (mission
+  F:/tmp/w2s-sim/mission-sim.md sha256 bc155f0f…, reçu vert, clone F:/tmp/w2s-sim/wt à f81023c6, aveugle : ni code ni table RECHERCHES) ;
+  courses A (graines de la table) et B (addendum 2) ; sorties F:/tmp/w2s-sim/out/{A,B}/ scellées ; comparaison par l orchestrateur après.
+  Avis envoyé (PR recherches#59) : voie A conforme à D7 ; borne de confirmation à 10 000 réplicats = 0,0337 lue d avance (se déclenche si
+  la part vraie est 0,0434). R-25 : exclusion kata/w2s/out/*.json acceptée par addendum avec provenance et test. PR #56 fermée (redondante).
 - 2026-10-02 15:30 UTC : go de minuit reçu ; lanceur `F:/tmp/dojo/final/wait-and-run.sh` armé ; annonce X publiée depuis le 1er octobre
   (investisseur) ; validation visuelle : page reconstruite à l ancre 30/30/30/30/90, captures envoyées, six questions C-V-4 encore ouvertes.
 - 2026-10-02 08:26 UTC, ÉCART DE ROSTER relevé par l orchestrateur : depuis 02:51:22 UTC, les tours de l orchestrateur tournent sous
