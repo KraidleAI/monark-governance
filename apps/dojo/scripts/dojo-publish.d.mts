@@ -27,6 +27,10 @@ export interface LineResult { status: string; seq: number; published_at: string;
 export type DayResult = { status: "nothing_to_publish"; day: string } | (LineResult & { status: "completed"; price_version: number })
   | (LineResult & { status: "published"; day: string; lines_sha256: string; lines_count: number; price_version: number | null });
 export function publishDay(o: { inboxDir: string; stateDir: string; key: KeyObject; clock: () => number; fs?: DurableFs }): Promise<DayResult>;
+/** --history (PR-3a-2): the history packet of PR-2b read with its check, under the anchor in force; its line and its file verified together
+ *  before the commit, the file durable before the line; one history line per timeline, before every snapshot. */
+export function publishHistory(o: { historyDir: string; stateDir: string; key: KeyObject; clock: () => number; fs?: DurableFs }): Promise<LineResult
+  & { status: "published"; history_last_day: string; history_sha256: string; history_lines_count: number }>;
 export function publishAnchor(o: { stateDir: string; key: KeyObject; request: unknown; clock: () => number; fs?: DurableFs }): LineResult;
 export function rotateKey(o: { stateDir: string; oldKey?: KeyObject | null; newKey: KeyObject; clock: () => number; fs?: DurableFs }): LineResult;
 export function revokeKey(o: { stateDir: string; key: KeyObject; revokedKeyId: string; revokedFromSeq: number; clock: () => number;

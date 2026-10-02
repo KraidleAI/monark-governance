@@ -657,10 +657,43 @@ B=$(ssh -i ~/.ssh/monark_vps root@178.16.131.29 'cd /var/lib/monark-dojo-collect
 find . -type f -print0 | LC_ALL=C sort -z | xargs -0 sha256sum -t') && [ "$A" = "$B" ] && echo COPY-EQUAL || echo COPY-DIFFERENT
 ```
 
-Expected: `COPY-EQUAL`. (iii) The history bundle of PR-2b → the box of PR-3a-2 (its path is PR-3a-2's), BEFORE the close of d,
-hence before the `history` line and the first `snapshot`; the same two-sided digests, `COPY-EQUAL`. Blockers: the acts of PR-2b
-and theirs (RG-SNAPSHOT-NONNEG-INT-1, DOJO-HISTORY-CROSS-INDEX-1, items Q-G2-4 of PR-2b-4); the G7 of PR-3a-2; (ii) after the close
-of d. Rollback: none that erases (copies).
+Expected: `COPY-EQUAL`. (iii) The history packet of PR-2b (the directory holding its `publish/`: `SHA256SUMS`, `eve.json`,
+`history/<sha256>.jsonl`, `manifest.json`) → `/var/lib/monark-dojo/history-packet/publish/` (`dojo:dojo`, 0750 and 0640; never
+under `public/`, which is served), BEFORE the close of d, hence before the `history` line and the first `snapshot`:
+
+```bash
+ssh -i ~/.ssh/monark_vps root@178.16.131.29 'test ! -e /var/lib/monark-dojo/history-packet &&
+install -d -o dojo -g dojo -m 0750 /var/lib/monark-dojo/history-packet' &&
+scp -r -i ~/.ssh/monark_vps '<local packet>/publish' root@178.16.131.29:/var/lib/monark-dojo/history-packet/ &&
+ssh -i ~/.ssh/monark_vps root@178.16.131.29 'cd /var/lib/monark-dojo/history-packet && chown -R dojo:dojo publish &&
+find publish -type d -exec chmod 0750 {} + && find publish -type f -exec chmod 0640 {} + && cd publish && sha256sum -c --strict SHA256SUMS' &&
+cd '<local packet>/publish' && A=$(find . -type f -print0 | LC_ALL=C sort -z | xargs -0 sha256sum -t) &&
+B=$(ssh -i ~/.ssh/monark_vps root@178.16.131.29 'cd /var/lib/monark-dojo/history-packet/publish &&
+find . -type f -print0 | LC_ALL=C sort -z | xargs -0 sha256sum -t') && [ "$A" = "$B" ] && echo COPY-EQUAL || echo COPY-DIFFERENT
+```
+
+Expected: three `OK` lines, then `COPY-EQUAL`. Blockers: the acts of PR-2b and theirs (RG-SNAPSHOT-NONNEG-INT-1,
+DOJO-HISTORY-CROSS-INDEX-1, items Q-G2-4 of PR-2b-4); (ii) after the close of d. Rollback: none that erases (copies).
+
+(iv) The `history` line (PR-3a-2), after (ii) and (iii), before the first `snapshot`: ONE transient job with the unit's user,
+sandbox and credential (as A-8 (2)), the unit `inactive` at that instant and away from its four slots (a timer start beside the
+job would be a second writer):
+
+```bash
+ssh -i ~/.ssh/monark_vps root@178.16.131.29 'test "$(systemctl is-active monark-dojo-publish.service)" = inactive &&
+S="-p PrivateNetwork=yes -p NoNewPrivileges=true -p ProtectSystem=strict -p ProtectHome=true -p PrivateTmp=true
+-p ReadWritePaths=/var/lib/monark-dojo -p UMask=0022" && K="-p LoadCredential=dojo-signing-key:/etc/monark/dojo/signing-key.pem" &&
+C="/usr/bin/env node /opt/monark-dojo/apps/dojo/scripts/dojo-publish.mjs
+--history /var/lib/monark-dojo/history-packet --state /var/lib/monark-dojo" &&
+systemd-run --wait --pipe --collect --uid=dojo --gid=dojo $S $K $C'
+```
+
+Expected: one JSON line `{"status":"published","seq":<n>,"published_at":"<ISO>","key_id":"<key_id>","line_hash":"<64 hex>",
+"history_last_day":"<day>","history_sha256":"<64 hex>","history_lines_count":<n>}` (JOURNAL; `history_sha256` equal to that of the
+packet's `manifest.json`). **STOP** on any other output (section 19); nothing is written on a refusal. A replay gives
+`history_exists`: read the served timeline first (its `history` line carries this `history_sha256`: the act was done; else
+escalation). Then the packet goes: `ssh -i ~/.ssh/monark_vps root@178.16.131.29 'rm -r /var/lib/monark-dojo/history-packet'`; and
+the offline check of A-8 (3) and (4) runs on a new mirror `public-seq<n>`: `verify_exit=0`.
 
 ## 19. The publisher's refusals — every one a STOP (consignes of PR-3a-1c; pinned by T-A11)
 
@@ -675,15 +708,19 @@ timeline's durable append, after the checks). The detail names a file, a key or 
 | `price_version_pending` | `--anchor` while a `price_version` is due | **STOP**: run `--inbox` first (the next start completes it, D-C3) |
 | `anchor_malformed` | `--anchor`: the fifteen keys, the accounts, `read_rule` | **STOP**; fix the request (A-8 (1)) |
 | `line_refused` | the walker or the verification before the append | **STOP**, escalation (below) |
-| `no_timeline` | `--rotate`, `--revoke` on an empty state | **STOP** |
+| `no_timeline` | `--rotate`, `--revoke`, `--history` on an empty state | **STOP** |
 | `key_already_in_keyring` | `--rotate` with a key already in the keyring | **STOP** |
 | `revocation_invalid` | `--revoke`: the key or the seq | **STOP** |
 | `key_file_exists` | `--generate-key` over a file | **STOP**; never remove a key to make room |
 | `anchor_on_published_day` | `--anchor` on or before the last published day | **STOP**; a new anchor comes on a later day |
 | `history_missing` | `--inbox` before the `history` line | expected until that line (decision 231); **STOP** after it |
+| `history_exists` | `--history`: the timeline holds its `history` line already | **STOP**; a replay: read the served timeline first (section 18 (iv)) |
+| `history_after_snapshot` | `--history` after a `snapshot` line | **STOP**; the `history` line precedes the first snapshot: escalation |
+| `history_bundle_malformed` | `--history`: `publish/SHA256SUMS`, a file missing, or `manifest.json` | **STOP**; read the detail; never edit the packet |
+| `history_bundle_mismatch` | `--history`: a file off its digest, or `eve.json` off the last history day | **STOP**; read the detail; the copy (18 (iii)) |
 | `day_not_after_anchor` | a day at or before the anchor's day (M-E8) | **STOP** |
 | `bundle_day_mismatch` | the day's directory and its `day.json` | **STOP** |
-| `bundle_anchor_mismatch` | mint, program or `k_reads` of the day | **STOP** (the anchor in force at the collect side: section 7 (4)) |
+| `bundle_anchor_mismatch` | mint, program or `k_reads` of the day; `--history`: the packet's mint or program | **STOP** (the anchor in force: section 7 (4)) |
 | `seed_outside_anchor_chain` | the day's seed off the anchor's chain (M-E6) | **STOP** (the seed in force: section 7 (3)) |
 | `eve_mismatch` | an address holding lots missing from the day | **STOP** (the `Eve` of the first day: A-11 (i)) |
 | `layout_malformed` | the layout reader of PR-2-2 | **STOP** |

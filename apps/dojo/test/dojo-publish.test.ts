@@ -16,13 +16,15 @@ import { basename, dirname, join, relative, sep } from "node:path";
 import { fileURLToPath } from "node:url";
 import { canonical, keyIdOf, lineHash, signLine } from "../../bell/scripts/bell-chain.mjs";
 import { daySeed, ownerClass, readInstants, rootOf } from "../scripts/dojo-core.mjs";
-import { dirSource, verifyDojoServed } from "../scripts/dojo-verify.mjs";
+import { DOJO_VERIFY_REFUSALS, dirSource, verifyDojoServed } from "../scripts/dojo-verify.mjs";
 import { initSeed } from "../scripts/dojo-seed.mjs";
-import { ANCHOR_KEYS, DURABLE_FS, DojoPublishError, publishAnchor, revokeKey, rotateKey } from "../scripts/dojo-publish.mjs";
+import { ANCHOR_KEYS, DOJO_PUBLISH_REFUSALS, DURABLE_FS, DojoPublishError, publishAnchor, revokeKey, rotateKey } from "../scripts/dojo-publish.mjs";
 import * as publisher from "../scripts/dojo-publish.mjs"; // publishDay, bound late below: the base of the lot, which lacks it, loads this file
-import { readRecord, readingRecord, recordBytes, writeDayBundle } from "../src/bundle.ts";
+import { DOJO_BUNDLE_REFUSALS, readRecord, readingRecord, recordBytes, writeDayBundle } from "../src/bundle.ts";
 import { READ_RULE } from "../src/dojo-methods.ts";
-import { closeLayout, nextEve, readDayLayout } from "../src/layout.ts";
+import { historyBundle } from "../src/history-build.ts";
+import { DOJO_HISTORY_CREATION as SIG0 } from "../src/history-read.ts";
+import { DOJO_LAYOUT_REFUSALS, closeLayout, nextEve, readDayLayout } from "../src/layout.ts";
 import type { Eve } from "../src/reading.ts";
 import { ADDR, MINT, betaOf, dateOf, dojoKeyringOf, roundOf } from "./helpers/dojo-fixture.ts";
 
@@ -289,6 +291,7 @@ test("dojo_publish_revoke_reads_a_plain_decimal_from_seq", async () => {
 // betas and instants SYNTHETIC (betaOf of the signed fixture); the history line and its file stand in for PR-3a-2, their writer.
 type Resp = { context: { slot: number }; value: unknown };
 const { publishDay } = publisher; // undefined at the base of the lot: every call below is wrapped (ok, refuses, assert.throws), an assertion there
+const { publishHistory } = publisher; // PR-3a-2, bound late as publishDay: absent at the base of the lot, every call below is wrapped
 const fx = (f: string): Obj => json(readFileSync(new URL(`./fixtures/collect/${f}`, import.meta.url), "utf8"));
 const E = fx("enumeration.json") as { a: Resp; b: Resp }, ACC = fx("accounts.json") as Record<"mint" | "pool" | "wsol" | "pyth", { a: Resp; b: Resp }>;
 const DAY = 86_400_000, K = 4, X = "Dw76Ydu2svQ9rMWRevhumwjnRdF1dpzSyD1bY7wF3WbW"; // X: the holder of the fixture's account 3tdL
@@ -305,7 +308,7 @@ function mintChanged(): Resp {
   r.value.data.parsed.info.decimals = 9;
   return r;
 }
-interface World { s: string; inbox: string; key: KeyObject; secret: string; chain: number; A: number; eve: Eve }
+interface World { s: string; inbox: string; key: KeyObject; secret: string; chain: number; A: number; eve: Eve; hl: Obj[] }
 /** Stand-in for PR-3a-2 (the history line's writer): a history line signed after the committed timeline (mere D-18; the walker's day 1,
  *  2026-09-10) and its immutable file in public/history/. */
 function withHistory(s: string, key: KeyObject, lastDay: number, hl: readonly Obj[]): void {
@@ -328,7 +331,7 @@ function world(o: { horizon?: number; chain?: number; history?: boolean } = {}):
   const hl = [{ address: X, day_value: "40000000000000" }, { address: ADDR.A, day_value: "5000000" }]
     .map((x) => ({ ...x, class: ownerClass(x.address), day: dateOf(A) })).sort((x, y) => Buffer.compare(Buffer.from(x.address), Buffer.from(y.address)));
   if (o.history !== false) withHistory(s, key, A, hl);
-  return { s, inbox, key, secret, chain, A, eve: { addresses: hl.map((x) => x.address), accounts: [] } };
+  return { s, inbox, key, secret, chain, A, hl, eve: { addresses: hl.map((x) => x.address), accounts: [] } };
 }
 interface Opt { day?: number; seed?: string; program?: string; token?: string; k?: number; sol?: boolean; mint?: boolean; beacon?: boolean; inbox?: string;
   offset?: number } // offset: the read_offset_s of the day's instants (T-1: another one than the anchor's, a collector misconfigured)
@@ -592,4 +595,102 @@ test("dojo_publish_completes_a_price_version_due_after_a_re_anchor", async () =>
     ["completed", 12, "price_version", dateOf(A + 3), dateOf(A + 10), true], "the version due after a re-anchor: its window opens the segment");
   assert.deepEqual([(await publish(w, A + 10)).status, linesOf(priv).at(-1)?.price_version, (await verify(w.s, kr)).ok], ["published", 1, true],
     "the next day is published and names the version completed; the tree verifies");
+});
+
+// ---- PR-3a-2: the history packet of PR-2b, written by its REAL writer (historyBundle, ADR-DOJO-PR-2B D-12), published by --history
+// (ADR-DOJO-PR-3 D-1 row PR-3a-2, section 4; mere T-9, D-18, decision 231); the counts, links and slots of the manifest are SYNTHETIC.
+/** A history packet under <dir>/publish/, as the collector writes it (SHA256SUMS last): the lines `hl` of days 1 to `last`, the Eve of the
+ *  first day read = the addresses of the last day (history-build.ts), SIG0 the pinned creation. */
+function packet(hl: readonly Obj[], last: number): string {
+  const lines = hl.map((l) => canonical(l)), bytes = lines.map((l) => `${l}\n`).join(""), dir = tmp("dojo-p-hist-");
+  const eve = { addresses: hl.filter((l) => l.day === dateOf(last)).map((l) => String(l.address)), accounts: [] };
+  const out = historyBundle({ status: "complete", stop_reason: null, mint: MINT, program: TOKEN_2022, decimals: 6, sig0: SIG0.signature, sig0_slot: SIG0.slot,
+    transactions_failed_excluded: 0, collector_sha256: sha("SYNTHETIC collector"), evidence_sha256sums_sha256: sha("SYNTHETIC run"),
+    build: { history_first_day: "2026-09-10", history_last_day: dateOf(last), first_read_day: dateOf(last + 1), window_slot_max: 1, enumeration_slots: [1],
+      lines, bytes, sha256: sha(bytes), root: rootOf(lines), eve, transactions_admitted: hl.length, transactions_without_quorum: 0,
+      token_accounts: hl.length, addresses: eve.addresses.length, missing_address_days: 0 } });
+  for (const [p, t] of Object.entries(out.publish ?? {})) {
+    const f = join(dir, "publish", ...p.split("/"));
+    mkdirSync(dirname(f), { recursive: true });
+    writeFileSync(f, t);
+  }
+  return dir;
+}
+/** Rewrites one file of a packet and its sha256 in publish/SHA256SUMS, so that the check agrees and the deeper reader judges. */
+function repack(dir: string, rel: string, f: (text: string) => string): void {
+  const p = join(dir, "publish", ...rel.split("/")), s = join(dir, "publish", "SHA256SUMS"), old = readFileSync(p, "utf8"), text = f(old);
+  writeFileSync(p, text);
+  writeFileSync(s, readFileSync(s, "utf8").replace(`${sha(old)}  ${rel}`, `${sha(text)}  ${rel}`));
+}
+const hclock = (w: World) => (): number => (w.A + 1) * DAY + 600_000; // 00:10 UTC of A + 1: the history's last day, A, is over
+
+// killer: apps/dojo/scripts/dojo-publish.mjs:375 SDL "history_after_snapshot" -> ""
+test("dojo_publish_history_before_the_first_snapshot", async () => {
+  const w = world({ history: false }), d = w.A + 1, pkt = packet(w.hl, w.A), none = tmp("dojo-p-hnone-"), log: string[] = [];
+  const rel = (p: string): string => relative(w.s, p).split(sep).join("/");
+  const go = (s: string, fs = DURABLE_FS) => publishHistory({ historyDir: pkt, stateDir: s, key: w.key, clock: hclock(w), fs });
+  await refusesA(() => go(none), "no_timeline");
+  assert.deepEqual(readdirSync(none), [], "no anchor: refused, nothing written");
+  writeDay(w, d, w.eve);
+  await refusesA(() => publishDay({ inboxDir: w.inbox, stateDir: w.s, key: w.key, clock: slot(d) }), "history_missing"); // decision 231
+  const spy: typeof DURABLE_FS = { ...DURABLE_FS, openSync: (p, f) => { log.push(`open ${rel(p)} ${f}`); return DURABLE_FS.openSync(p, f); },
+    renameSync: (a, b) => { log.push(`rename ${rel(b)}`); DURABLE_FS.renameSync(a, b); },
+    fsyncDir: (x) => { log.push(`fsyncdir ${rel(x)}`); DURABLE_FS.fsyncDir(x); } };
+  const r = await okA(() => go(w.s, spy)), h = r.history_sha256, i = log.indexOf(`rename staging/history/${h}.jsonl`), j = log.indexOf("open timeline.jsonl a");
+  assert.ok(i >= 0 && log[i + 1] === "fsyncdir staging/history" && i < j && log.indexOf(`rename public/history/${h}.jsonl`) > j,
+    `the history file is durable before its line, served after it (M-E4): ${log.join(" | ")}`);
+  const copy = readFileSync(join(w.s, "public", "history", `${h}.jsonl`), "utf8"), k1 = files(w.s), own = join(pkt, "publish", "history", `${h}.jsonl`);
+  assert.deepEqual([r.status, r.seq, r.history_last_day, copy], ["published", 2, dateOf(w.A), readFileSync(own, "utf8")], "served: the writer's file");
+  await refusesA(() => go(w.s), "history_exists"); // one history line per timeline
+  assert.deepEqual(files(w.s), k1, "a second history line: refused, nothing written");
+  assert.equal((await publish(w, d)).status, "published", "the first snapshot comes after the history line");
+  const k2 = files(w.s);
+  await refusesA(() => go(w.s), "history_after_snapshot"); // M-E4: never after a snapshot
+  assert.deepEqual(files(w.s), k2, "a history line after a snapshot: refused, nothing written");
+  const v = await verify(w.s, dojoKeyringOf([[w.key, 1]]));
+  assert.deepEqual([v.ok, v.ok && v.snapshots, v.ok && v.history?.history_sha256], [true, 1, h], JSON.stringify(v));
+});
+
+// killer: apps/dojo/scripts/dojo-publish.mjs:359 SDL "for (const [, hex, p] of rows)" -> ""
+test("dojo_publish_history_reads_the_packet_with_its_check", async () => {
+  const w = world({ history: false }), src = packet(w.hl, w.A), before = files(w.s);
+  const go = (dir: string) => publishHistory({ historyDir: dir, stateDir: w.s, key: w.key, clock: hclock(w) });
+  const man = (f: (m: Obj) => Obj) => (t: string): string => `${canonical(f(json(t)))}\n`, mf = (p: string): string => join(p, "publish", "manifest.json");
+  const sums = (p: string): string => join(p, "publish", "SHA256SUMS");
+  const M = (f: (m: Obj) => Obj) => (p: string): void => { repack(p, "manifest.json", man(f)); }; // the manifest rewritten, its sum agreeing
+  const bad = "history_bundle_malformed", cases: [(p: string) => void, string][] = [[(p) => { rmSync(sums(p)); }, bad], // a packet without its check
+    [(p) => { appendFileSync(sums(p), "x"); }, bad], [(p) => { writeFileSync(sums(p), readFileSync(sums(p), "utf8").replace("  ", " ")); }, bad],
+    [(p) => { appendFileSync(sums(p), `${readFileSync(sums(p), "utf8").split("\n")[2] ?? ""}\n`); }, bad], // a fourth line
+    [(p) => { rmSync(join(p, "publish", "history"), { recursive: true }); }, bad], // a file it names is missing
+    [(p) => { writeFileSync(mf(p), man((m) => ({ ...m, evidence_sha256sums_sha256: sha("SYNTHETIC") }))(readFileSync(mf(p), "utf8"))); },
+      "history_bundle_mismatch"], // a wrong check: the manifest no longer links its evidence, SHA256SUMS unchanged (M-E12)
+    [(p) => { repack(p, "manifest.json", () => "{\n"); }, bad], [(p) => { repack(p, "manifest.json", (t) => ` ${t}`); }, bad], // not JSON; not canonical
+    [M((m) => ({ ...m, schema: "dojo-history-bundle-v2" })), bad], [M((m) => ({ ...m, status: "partial" })), bad], [M((m) => ({ ...m, extra: 1 })), bad],
+    [M(({ addresses, ...m }) => ({ ...m, address_count: addresses })), bad], [M((m) => ({ ...m, chain_check: "fail" })), bad], // closed keys; a check
+    [M((m) => ({ ...m, history_sha256: sha("SYNTHETIC") })), bad], // the manifest names another file
+    [M((m) => ({ ...m, mint: TOKEN_2022 })), "bundle_anchor_mismatch"], [M((m) => ({ ...m, program: MINT })), "bundle_anchor_mismatch"],
+    [M((m) => ({ ...m, history_root: sha("SYNTHETIC") })), "line_refused"], // the verifier's (history_root_mismatch), before any append
+    [(p) => { repack(p, "eve.json", () => `${canonical({ addresses: [X], accounts: [] })}\n`); }, "history_bundle_mismatch"]]; // short of ADDR.A
+  for (const [edit, code] of cases) {
+    const p = tmp("dojo-p-hbad-");
+    cpSync(src, p, { recursive: true });
+    edit(p);
+    await refusesA(() => go(p), code);
+  }
+  const early = packet(w.hl.map((l) => ({ ...l, day: dateOf(w.A - 1) })), w.A - 1); // a history ending before the anchor's day
+  await assert.rejects(async () => go(early), (e: unknown) => e instanceof DojoPublishError && e.code === "line_refused"
+    && e.detail === "seq 2: timeline_malformed (a history ending before the anchor's day (DOJO-WALK-GAPS-1 (b)))", "the walker admits it, the VAE refuses it");
+  assert.deepEqual(files(w.s), before, "every packet refused with nothing written: the state intact to the byte");
+  assert.equal((await okA(() => go(src))).status, "published", "the pristine packet publishes");
+});
+
+// killer: apps/dojo/scripts/dojo-publish.mjs:25 CONST "history_exists" -> "history_exist"
+test("dojo_publish_refusals_list_is_every_code_raised", () => {
+  const text = readFileSync(SCRIPT, "utf8"), raised = [...text.matchAll(/refuse[(]"([a-z_]+)"/g)].map((m) => m[1] ?? ""), listed = [...DOJO_PUBLISH_REFUSALS];
+  assert.equal(text.split("refuse(").length - 1, raised.length + 1, "every refusal names its code, but the one pass-through of the readers (e.code)");
+  assert.deepEqual([...new Set(listed)].sort(), [...new Set([...raised, ...DOJO_LAYOUT_REFUSALS, ...DOJO_BUNDLE_REFUSALS])].sort(),
+    "DOJO-PUBLISH-REFUSALS-LIST-1: the closed list is the codes the publisher raises and those of its readers it passes through");
+  assert.deepEqual([listed.length, listed.filter((c) => DOJO_VERIFY_REFUSALS.includes(c))], [new Set(listed).size, []], "each once, none of the verifier's");
+  assert.deepEqual(["history_exists", "history_after_snapshot", "history_bundle_malformed", "history_bundle_mismatch"].filter((c) => !listed.includes(c)), [],
+    "the refusals of --history are listed (PR-3a-2)");
 });

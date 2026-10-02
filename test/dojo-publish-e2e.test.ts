@@ -3,24 +3,26 @@
 // writeDayBundle; closeLayout, nextEve) in the handoff layout DOJO-HANDOFF-LAYOUT-1, from the verbatim responses of
 // apps/dojo/test/fixtures/collect/, published by the REAL publisher (seven days by publishDay, the eighth by its CLI --inbox), the served
 // tree read back green by the REAL verifier under a SUPPLIED dojo-keyring-v1. Key and seed are made at run time under the OS temp dir;
-// betas and instants SYNTHETIC; the history line and its file stand in for PR-3a-2, their writer. The helpers are minimal copies of those
+// betas and instants SYNTHETIC; the history: a packet of the REAL writer of PR-2b through the REAL --history. The helpers are minimal copies of those
 // of apps/dojo/test/dojo-publish.test.ts (declared duplicate, G1 journal of PR-3a-1b).
 import { after, test } from "node:test";
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
 import { createHash, generateKeyPairSync, type KeyObject } from "node:crypto";
-import { appendFileSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { join, sep } from "node:path";
+import { dirname, join, sep } from "node:path";
 import { fileURLToPath } from "node:url";
-import { canonical, keyIdOf, lineHash, signLine } from "../apps/bell/scripts/bell-chain.mjs";
+import { canonical } from "../apps/bell/scripts/bell-chain.mjs";
 import { daySeed, ownerClass, readInstants, rootOf } from "../apps/dojo/scripts/dojo-core.mjs";
 import * as publisher from "../apps/dojo/scripts/dojo-publish.mjs"; // publishDay bound late: the base of the lot, which lacks it, loads this file
 import { initSeed } from "../apps/dojo/scripts/dojo-seed.mjs";
 import { dirSource, verifyDojoServed } from "../apps/dojo/scripts/dojo-verify.mjs";
 import { readingRecord, recordBytes, writeDayBundle } from "../apps/dojo/src/bundle.ts";
 import { READ_RULE } from "../apps/dojo/src/dojo-methods.ts";
-import { closeLayout, nextEve, readDayLayout } from "../apps/dojo/src/layout.ts";
+import { historyBundle } from "../apps/dojo/src/history-build.ts";
+import { DOJO_HISTORY_CREATION as SIG0 } from "../apps/dojo/src/history-read.ts";
+import { closeLayout, nextEve, readDayLayout, readEve } from "../apps/dojo/src/layout.ts";
 import type { Eve } from "../apps/dojo/src/reading.ts";
 import { ADDR, MINT, betaOf, dateOf, dojoKeyringOf, roundOf } from "../apps/dojo/test/helpers/dojo-fixture.ts";
 
@@ -51,10 +53,10 @@ function pythAt(sec: number): Resp {
   r.value.data = [b.toString("base64"), "base64"];
   return r;
 }
-interface World { s: string; inbox: string; key: KeyObject; secret: string; eve: Eve }
+interface World { s: string; inbox: string; key: KeyObject; secret: string; eve: Eve; pkt: string }
 /** An anchored state (day A; K = 4, W = 60, u = 1..5, O_1, one dollar of dust: decisions 234, 236, 225 (7), 248), its seed chain from
- *  dojo-seed.mjs (horizon 365), then the history line of days 1 to A, signed after the committed timeline, its file in public/history/,
- *  served as its writer would (mere D-18): X holds 40 000 000 000 000 (sold down to its enumerated amount on A + 1), ADDR.A 5 000 000
+ *  dojo-seed.mjs (horizon 365), then the history of days 1 to A, a packet of the REAL writer published by the REAL CLI --history (TU-12c;
+ *  3a1b/Q-V-2): X holds 40 000 000 000 000 (sold down to its enumerated amount on A + 1), ADDR.A 5 000 000
  *  (no account on the read days: a concordant 0, C-1); the Eve of A + 1 = those two addresses. SYNTHETIC values. */
 function world(): World {
   const s = tmp("dojo-e2e-state-"), inbox = tmp("dojo-e2e-inbox-"), key = generateKeyPairSync("ed25519").privateKey, file = join(tmp("dojo-e2e-seed-"), "seed");
@@ -64,15 +66,27 @@ function world(): World {
   ok(() => publishAnchor({ stateDir: s, key, request, clock: () => T0 }));
   const hl = [{ address: X, day_value: "40000000000000" }, { address: ADDR.A, day_value: "5000000" }]
     .map((x) => ({ ...x, class: ownerClass(x.address), day: dateOf(A) })).sort((x, y) => Buffer.compare(Buffer.from(x.address), Buffer.from(y.address)));
-  const priv = join(s, "timeline.jsonl"), prior = linesOf(priv), text = hl.map((l) => `${canonical(l)}\n`).join(""), h = sha(text);
-  mkdirSync(join(s, "public", "history"), { recursive: true });
-  writeFileSync(join(s, "public", "history", `${h}.jsonl`), text);
-  const line: Obj = { schema: "dojo-timeline-v1", seq: prior.length + 1, kind: "history", prev_line_hash: lineHash(prior.at(-1)), key_id: keyIdOf(key),
-    published_at: new Date((A + 1) * DAY + 600_000).toISOString(), history_first_day: "2026-09-10", history_last_day: dateOf(A),
-    history_sha256: h, history_lines_count: hl.length, history_root: rootOf(hl.map((l) => canonical(l))) };
-  appendFileSync(priv, `${canonical({ ...line, sig: signLine(line, key) })}\n`);
-  writeFileSync(join(s, "public", "timeline.jsonl"), readFileSync(priv));
-  return { s, inbox, key, secret: readFileSync(file, "utf8").trim(), eve: { addresses: hl.map((x) => x.address), accounts: [] } };
+  const pkt = packet(hl, A), c = cliAt((A + 1) * DAY + 600_000, ["--history", pkt, "--state", s], key); // 00:10 UTC of A + 1
+  assert.equal(c.status, 0, c.stderr);
+  return { s, inbox, key, pkt, secret: readFileSync(file, "utf8").trim(), eve: { addresses: hl.map((x) => x.address), accounts: [] } };
+}
+/** A history packet under <dir>/publish/ as the collector writes it, by the REAL writer of PR-2b (historyBundle, ADR-DOJO-PR-2B D-12): the
+ *  lines `hl` of days 1 to `last`, the Eve of the first day read = the addresses of the last day; SIG0 the pinned creation; counts, links
+ *  and slots SYNTHETIC. A declared duplicate of packet() of apps/dojo/test/dojo-publish.test.ts. */
+function packet(hl: readonly Obj[], last: number): string {
+  const lines = hl.map((l) => canonical(l)), bytes = lines.map((l) => `${l}\n`).join(""), dir = tmp("dojo-e2e-hist-");
+  const eve = { addresses: hl.filter((l) => l.day === dateOf(last)).map((l) => String(l.address)), accounts: [] };
+  const out = historyBundle({ status: "complete", stop_reason: null, mint: MINT, program: TOKEN_2022, decimals: 6, sig0: SIG0.signature, sig0_slot: SIG0.slot,
+    transactions_failed_excluded: 0, collector_sha256: sha("SYNTHETIC collector"), evidence_sha256sums_sha256: sha("SYNTHETIC run"),
+    build: { history_first_day: "2026-09-10", history_last_day: dateOf(last), first_read_day: dateOf(last + 1), window_slot_max: 1, enumeration_slots: [1],
+      lines, bytes, sha256: sha(bytes), root: rootOf(lines), eve, transactions_admitted: hl.length, transactions_without_quorum: 0,
+      token_accounts: hl.length, addresses: eve.addresses.length, missing_address_days: 0 } });
+  for (const [p, t] of Object.entries(out.publish ?? {})) {
+    const f = join(dir, "publish", ...p.split("/"));
+    mkdirSync(dirname(f), { recursive: true });
+    writeFileSync(f, t);
+  }
+  return dir;
 }
 /** Writes bundles/<d>/ with the real writers, in the order of --close-day, and returns the Eve of d + 1 (nextEve of the layout's day). */
 function writeDay(w: World, d: number, eve: Eve): Eve {
@@ -127,4 +141,25 @@ test("dojo_publish_to_verify_end_to_end", async () => {
     assert.match(rel, /^(timeline\.jsonl|dojo\/pubkey\.json|(lines|history)\/[0-9a-f]{64}\.jsonl)$/, "only the served files (M-E9)");
     assert.doesNotMatch(readFileSync(join(pub, ...rel.split("/")), "utf8"), /helius|solana-foundation|drand|cloudflare/i, `${rel}: no operator label (M-E3)`);
   }
+});
+
+// killer: apps/dojo/scripts/dojo-publish.mjs:391 CONST "--history" -> "--histories"
+test("dojo_history_publish_to_verify_end_to_end", async () => {
+  const w = world(), pub = join(w.s, "public"), kr = dojoKeyringOf([[w.key, 1]]), m = json(readFileSync(join(w.pkt, "publish", "manifest.json"), "utf8"));
+  const [a, h] = linesOf(join(pub, "timeline.jsonl")), name = `${String(m.history_sha256)}.jsonl`, own = (l: Obj | undefined): unknown[] =>
+    ["history_first_day", "history_last_day", "history_sha256", "history_lines_count", "history_root"].map((k) => l?.[k]);
+  assert.deepEqual([a?.kind, h?.kind, own(h)], ["anchor", "history", own(m)], "TU-12c: the packet's history line, its five fields the manifest's");
+  assert.equal(readFileSync(join(pub, "history", name), "utf8"), readFileSync(join(w.pkt, "publish", "history", name), "utf8"), "served: the writer's file");
+  const v = await verifyDojoServed({ source: dirSource(pub), keyring: kr });
+  assert.deepEqual([v.ok, v.ok && v.status, v.ok && v.history], [true, "consistent_with_supplied_keyring", { history_sha256: m.history_sha256,
+    history_lines_count: m.history_lines_count, recomputed_root: m.history_root }], JSON.stringify(v));
+  writeDay(w, A + 1, readEve(readFileSync(join(w.pkt, "publish", "eve.json"), "utf8"))); // the first day read, its Eve the packet's (TU-1p, A-11)
+  const c1 = cliAt(slot(A + 1), ["--inbox", w.inbox, "--state", w.s], w.key), tl = readFileSync(join(w.s, "timeline.jsonl"), "utf8");
+  assert.deepEqual([c1.status, json(c1.stdout).status], [0, "published"], c1.stderr);
+  const again = cliAt(slot(A + 1) + 60_000, ["--history", w.pkt, "--state", w.s], w.key), tl2 = readFileSync(join(w.s, "timeline.jsonl"), "utf8");
+  assert.deepEqual([again.status, again.stdout, again.stderr.startsWith("dojo/publish: history_after_snapshot: "), tl2], [1, "", true, tl],
+    "--history after the first snapshot: refused, nothing written");
+  const v1 = await verifyDojoServed({ source: dirSource(pub), keyring: kr });
+  assert.deepEqual([v1.ok, v1.ok && v1.snapshots, v1.ok && v1.history?.recomputed_root], [true, 1, m.history_root],
+    "the first snapshot's lots follow the history's last day (history_transition_mismatch otherwise)");
 });

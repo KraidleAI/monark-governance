@@ -13,7 +13,7 @@
 // and the sentence of the outcome, never its reason.
 import type { DojoServedData, DojoServedHead } from "./dojo-served-load.ts";
 import type { DojoLiveOutcome, VerifyEd25519 } from "./dojo-live.ts";
-import type { DOJO_TEXT } from "./dojo-copy.ts";
+import type { DOJO_TABLE, DOJO_TEXT } from "./dojo-copy.ts";
 
 interface DojoCountedFigures { day: string; reads_done: string; k_reads: string; slot_min: string; slot_max: string; lines_count: string; root: string; score_total: string; validated_total: string }
 export type DojoPageFigures =
@@ -100,8 +100,8 @@ export function dojoHeadRefusal(h: DojoServedHead): string | null {
 export const DOJO_LIVE_PREFIX = "/dojo-served/";
 export const DOJO_LIVE_FETCH_INIT = Object.freeze({ cache: "no-store", redirect: "error", credentials: "omit" } as const);
 export type DojoText = { readonly [K in keyof typeof DOJO_TEXT]: string };
-/** What the figures section shows: the figures of one head, and the one sentence that says where they come from. */
-export interface DojoLiveView { figures: DojoShownFigures; note: string }
+/** The figures of one head and the sentence of their source; once the reread has an outcome, that head, and its lines if it is reread. */
+export interface DojoLiveView { figures: DojoShownFigures; note: string; head?: DojoServedHead; rows?: readonly string[] | null }
 export interface DojoLiveViewDeps {
   /** The browser's Ed25519 (Web Crypto: the committed JWK imported, then verify); it rejects where the browser has none. */
   verifyEd25519: VerifyEd25519;
@@ -133,7 +133,7 @@ export const dojoFirstViewOf = (committed: DojoServedData, text: DojoText): Dojo
  *  ones either way). Any other refusal, a reread head that breaks the loader's rules of a head, or a sentence that cannot be filled:
  *  the committed figures (TXT-14c). The reread head's figures (TXT-14a) only when every check holds; never the reason of a refusal. */
 export async function dojoLiveViewOf(committed: DojoServedData, deps: DojoLiveViewDeps): Promise<DojoLiveView> {
-  const T = deps.text, first = dojoFirstViewOf(committed, T), keep = (note: string): DojoLiveView => ({ figures: first.figures, note });
+  const T = deps.text, first = dojoFirstViewOf(committed, T), keep = (note: string): DojoLiveView => ({ ...first, note, head: committed.head, rows: null });
   try {
     if (!(await dojoEd25519Usable(committed, deps))) return keep(T.rereadNoCheck);
     const o = await deps.reread();
@@ -142,8 +142,60 @@ export async function dojoLiveViewOf(committed: DojoServedData, deps: DojoLiveVi
     if (dojoHeadRefusal(o.head) !== null) return keep(T.rereadFallback);
     const figures = shownOf({ ...committed, head: o.head });
     for (const k of dojoBodyOf(figures)) sentenceParts(T[k], figures);
-    return { figures, note: T.rereadDone };
+    return { figures, note: T.rereadDone, head: o.head, rows: o.rows };
   } catch {
     return keep(T.rereadFallback);
+  }
+}
+
+// -- The table of every line (components/dojo/dojo-table.tsx wires the same GET and SHA-256 in; the root tests wire served trees) --
+/** The words of the table (DOJO_TABLE of lib/dojo-copy.ts), injected as the sentences are. */
+export type DojoTableWords = { readonly [K in keyof typeof DOJO_TABLE]: string };
+/** One line of the head's lines file: the line AS SERVED, its address, its hold score (a decimal) and its cells, in the columns' order. */
+export interface DojoTableRow { line: string; address: string; score: string; cells: string[] }
+/** wait: no table yet (the build, or a file still read): the sentence of a table to come; none: the head shown is abstained; refused: no
+ *  line is listed, and a sentence says so; rows: every line, bound and searched in the order of the signed file (strict byte order of
+ *  addresses), and shown by hold score, highest first, equal hold scores by address. */
+export type DojoTable = { kind: "wait" | "none" | "refused" } | { kind: "rows"; columns: string[]; bound: DojoTableRow[]; shown: DojoTableRow[] };
+export interface DojoTableDeps {
+  /** boundedSource of lib/dojo-live.ts over the same-origin GET: one read of a published file, under the reader's tool's limits. */
+  read: (rel: string) => Promise<Uint8Array>;
+  /** bindDojoLines of lib/dojo-live.ts: the lines of a lines file bound to the head that names it, or its refusal. */
+  bind: (bytes: Uint8Array, head: DojoServedHead) => Promise<readonly string[] | string>;
+  words: DojoTableWords;
+  tiers: readonly string[];
+}
+/** The table before its lines are bound: nothing under an abstained head, else the sentence of a table to come (the build renders it). */
+export const dojoTableFirstOf = (view: DojoLiveView): DojoTable => ({ kind: view.figures.state === "EA" ? "none" : "wait" });
+const BASE58 = /^[1-9A-HJ-NP-Za-km-z]+$/, DECIMAL = /^(0|[1-9][0-9]*)$/;
+const decimal = (x: unknown): x is string => typeof x === "string" && DECIMAL.test(x);
+/** Hold score first (decimals compared by length, then by digits), then address (base58 is ASCII: its code units are its bytes). */
+const byScore = (x: DojoTableRow, y: DojoTableRow): number =>
+  y.score.length - x.score.length || (x.score === y.score ? (x.address < y.address ? -1 : 1) : x.score < y.score ? 1 : -1);
+/** The table of the head the view shows, once the reread has an outcome and never before (one read of a file): the reread's lines when
+ *  that head is the reread one (no second GET), else one GET of the committed head's lines file, bound to its signed values. Every line
+ *  in form (an address of the base58 alphabet, in strict byte order; a class; three decimals; a unit count and a tier index from zero
+ *  to five under a version, both null without one), or no line at all; each cell a declared function of one field of its line. */
+export async function dojoTableOf(view: DojoLiveView, deps: DojoTableDeps): Promise<DojoTable> {
+  const h = view.head, W = deps.words;
+  if (h === undefined || view.figures.state === "EA") return dojoTableFirstOf(view);
+  try {
+    const rows = view.rows ?? (await deps.bind(await deps.read(`lines/${h.lines_sha256}.jsonl`), h));
+    if (typeof rows === "string") return { kind: "refused" };
+    const versioned = h.price_version !== null, shift = (x: string): string => shiftUnits(x, h.decimals);
+    const bound = rows.map((line): DojoTableRow => {
+      const o = JSON.parse(line) as Record<string, unknown>, a = o.address, c = o.class, t = o.tier, u = o.units;
+      const tiered = versioned ? decimal(u) && Number.isSafeInteger(t) && (t as number) >= 0 && (t as number) <= 5 : u === null && t === null;
+      if (typeof a !== "string" || !BASE58.test(a) || (c !== "holder" && c !== "program") || !tiered) return fail("a line out of form");
+      const [s, v, p] = [o.score, o.validated, o.provisional];
+      if (!decimal(s) || !decimal(v) || !decimal(p)) return fail("a line out of form");
+      const tier = versioned ? [u as string, t === 0 ? W.none : (deps.tiers[(t as number) - 1] ?? fail("a tier out of the list"))] : [];
+      return { line, address: a, score: s, cells: [a, W[c], shift(s), shift(v), shift(p), ...tier] };
+    });
+    if (bound.some((r, i) => i > 0 && (bound[i - 1] as DojoTableRow).address >= r.address)) return { kind: "refused" };
+    const columns = [W.address, W.class, W.holdScore, W.validated, W.provisional, ...(versioned ? [W.units, W.tier] : [])];
+    return { kind: "rows", columns, bound, shown: [...bound].sort(byScore) };
+  } catch {
+    return { kind: "refused" };
   }
 }
