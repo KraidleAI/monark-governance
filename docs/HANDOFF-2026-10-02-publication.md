@@ -169,6 +169,13 @@ DJ-L06 table sans script (code, rendu serveur des lignes committées).
   (P-1 R02 ordre des colonnes du PBO, P-2 X01, P-3 FORMAT.md l.3), puis rejeu du delta par MONARK, puis accord « P2a complet ». Aucune
   calibration réelle avant. Message séparé à l investisseur fait. CLAUDE.md global consolidé (sauvegarde `F:/MONARK SUITE/backup-2026-10-02/`).
 
+- 2026-10-02 04:36 UTC : G2 SITE-SEND-PREP rendue APPROUVE-AVEC-CORRECTIONS (rapport `3c4864a8…`, oracle G2 `a63a1c21…` sortie 0 ;
+  C-1, C-2 commentaires seuls ; C-3 décidée : trois traversées = preuves de la liste fermée, deux variantes = observations ; C-4 à l acte :
+  ligne de requête verbeuse et témoin positif 200 avant chaque 404). G1 RUNBOOK-PRE-IV rendu LIVRE-AVEC-RESERVES, gelé `bcc5a87a` ;
+  Q-1 URGENTE confirmée sur l hôte (04:34Z : `systemctl is-active` = `failed`, unité oneshot sortie 1 à chaque créneau) : les gardes
+  `= inactive` bloqueraient (iii), (iv) et `--unlock`. Décision : gardes `inactive` ou `failed` (remède mesuré par le G1). Corrections
+  lancées (`wf_f6d60e4c-c0d`, missions `e7b89de7…` et `18bf81cd…`, reçus verts) ; ensuite G2 neuve de RUNBOOK-PRE-IV, fusions, G7.
+
 ## 12. Compléments (ajoutés le 2026-10-02 à 02:3x UTC)
 - **Accès aux hôtes** : clé `~/.ssh/monark_vps`. Hôte Bell : cible ssh lue dans `F:/tmp/dojo/s7-1.sh` (extraire par `grep -oE 'root@[0-9.]+'`,
   jamais afficher). Serveur du site : cible dans `docs/RUNBOOK-harness.md`. Toute sortie passe par un masque des adresses.
