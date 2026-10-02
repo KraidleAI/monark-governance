@@ -16,8 +16,8 @@ import { readFileSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { createHash } from "node:crypto";
 import { fileURLToPath, pathToFileURL } from "node:url";
-import { buildDojoServed, dojoHistoryPathOf, dojoLinesPathOf, DOJO_HOST, DOJO_PUBKEY_PATH, DOJO_SERVED_REL, DOJO_TIMELINE_PATH }
-  from "../apps/site/lib/dojo-served-load.ts";
+import { buildDojoServed, dojoHistoryPathOf, dojoLinesPathOf, jsonDepth, DOJO_HOST, DOJO_PUBKEY_PATH, DOJO_SERVED_REL,
+  DOJO_SERVED_MAX_DEPTH, DOJO_TIMELINE_PATH } from "../apps/site/lib/dojo-served-load.ts";
 import { dojoTrustOf, verifyDojoServed, VERIFY_BOUNDS } from "../apps/dojo/scripts/dojo-verify.mjs";
 import { walkDojoTimeline } from "../apps/dojo/scripts/dojo-chain.mjs";
 import { rootOf } from "../apps/dojo/scripts/dojo-core.mjs";
@@ -120,11 +120,11 @@ export function committedRefusals({ record, present, listed, status, ca }) {
   return out;
 }
 
-/** The files the timeline names, by their sha256 paths: every snapshot's lines file and the history file (a malformed name fails). */
+/** The lines and history files the timeline names (a malformed name fails); a line past the depth bound is measured, never parsed: none. */
 function immutablesOf(timeline) {
-  const rels = new Set();
+  const rels = new Set(), parsed = (s) => (jsonDepth(s) > DOJO_SERVED_MAX_DEPTH ? null : JSON.parse(s)); // the build refuses it by name
   for (const s of new TextDecoder().decode(timeline).split("\n").filter((x) => x !== "")) {
-    const l = JSON.parse(s), sha = !isObj(l) ? null : l.kind === "snapshot" ? l.lines_sha256 : l.kind === "history" ? l.history_sha256 : null;
+    const l = parsed(s), sha = !isObj(l) ? null : l.kind === "snapshot" ? l.lines_sha256 : l.kind === "history" ? l.history_sha256 : null;
     if (sha === null) continue;
     if (!HEX64.test(String(sha))) fail("the timeline names a file by a malformed sha256");
     rels.add(l.kind === "snapshot" ? dojoLinesPathOf(sha) : dojoHistoryPathOf(sha));

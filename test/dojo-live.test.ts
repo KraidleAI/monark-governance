@@ -266,8 +266,9 @@ test("dojo_served_accepts_an_abstained_head_with_readings", async () => {
     const h = (await built(tree, k)).head as Rec;
     assert.deepEqual([h.status, h.reads_done, h.slot_min, h.slot_max], ["abstained", 3, Math.min(...slots("slot_min")), Math.max(...slots("slot_max"))],
       `${name}: reads_done and the slots of the readings made`);
-    const fig = dojoPageFiguresOf(await committedOf(tree, k)), keys = n === 12 ? ["day", "state", "threshold_unit_token_days"] : ["day", "state"];
-    assert.deepEqual([fig.state, Object.keys(fig).sort()], ["EA", keys], `${name}: EA renders the day`);
+    const fig = dojoPageFiguresOf(await committedOf(tree, k)), window = ["validation_days"]; // the anchor's window, in every state
+    const keys = n === 12 ? ["day", "state", "threshold_unit_token_days", ...window] : ["day", "state", ...window];
+    assert.deepEqual([fig.state, Object.keys(fig).sort()], ["EA", keys], `${name}: EA renders the day, and the method sentence the anchor's window`);
     assert.deepStrictEqual(headOf(await reread(await committedOf(render(f.steps.slice(0, n - 1)), k), tree)), h, `${name}: the browser projects it too`);
   }
 });

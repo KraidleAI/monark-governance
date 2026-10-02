@@ -16,11 +16,11 @@ export const urlAllowed = (u) => typeof u === "string" && !/[?#]/.test(u)
   && (/^https:\/\/[^/?#@\s\\]+(?:[/?#]|$)/i.test(u) || /^http:\/\/(?:127\.0\.0\.1|\[::1\])(?::\d{1,5})?(?:\/|$)/.test(u));
 const SERVED = /^(?:timeline\.jsonl|dojo\/pubkey\.json|(?:lines|history)\/[0-9a-f]{64}\.jsonl)$/; // T-8: the closed list (mere D-9 l.254)
 const TLS_ENV = ["NODE_EXTRA_CA_CERTS", "NODE_USE_SYSTEM_CA", "NODE_USE_ENV_PROXY"]; // extend the trust or route the GETs (FAITS F-2, F-4, F-5)
-/** A served base URL (PR-1b-4 D-1, T-3 to T-10; bell-verify.mjs:47-68): one GET per file of the closed list, redirect "manual" and any 3xx refused (never
- *  followed), 200 only, the body counted as it streams (content-length never read) and cancelled on any refusal (FAITS F-6), one timer per GET over headers
- *  and body; the totals of the whole check are counted here (Q-V-1). Every refusal comes at a get, before its request, so that verifyDojoServed reports it;
- *  NODE_TLS_REJECT_UNAUTHORIZED at 0 disables the certificate check (FAITS F-1): refused (T-9 amended). `note` names the TLS variables present, never a value
- *  (for the CLI). FAITS F-7, measured on Node 24.15.0 (G2 of PR-1b-4): fetch yields the body DECODED, so T-6 bounds the decoded bytes (gzip bombs too). */
+/** A served base URL (PR-1b-4 D-1, T-3 to T-10; bell-verify.mjs:47-68): one GET per file of the closed list, resent only by replayOf, redirect "manual", any
+ *  3xx refused (never followed), 200 only, the body counted as it streams (content-length never read) and cancelled on any refusal (FAITS F-6), one timer per
+ *  file over its tries, headers and body; the check's totals counted here (Q-V-1). Every refusal comes at a get, before its request, so verifyDojoServed
+ *  reports it; NODE_TLS_REJECT_UNAUTHORIZED at 0 disables the certificate check (FAITS F-1): refused (T-9 amended). `note` names the TLS variables present,
+ *  never a value (the CLI's detail). FAITS F-7, measured on Node 24.15.0 (G2 of PR-1b-4): fetch yields the body DECODED, which T-6 bounds (gzip bombs too). */
 export function urlSource(base, bounds = VERIFY_BOUNDS) {
   const env = process.env, root = String(base).replace(/\/+$/, ""), set = TLS_ENV.filter((k) => env[k] !== undefined);
   let files = 0, bytes = 0;
@@ -32,9 +32,9 @@ export function urlSource(base, bounds = VERIFY_BOUNDS) {
       if (!SERVED.test(rel)) refuse("insecure_url", null, null, rel);
       if (++files > bounds.MAX_FILES) refuse("too_large", null, null, "total files");
       const ctl = new AbortController(), timer = setTimeout(() => { ctl.abort(); }, bounds.TIMEOUT_MS);
-      let res = null;
+      let res = null, tries = 0; // replayOf: the same GET once more, only if the connection failed before any answer
       try {
-        res = await fetch(`${root}/${rel}`, { redirect: "manual", signal: ctl.signal });
+        while (res === null) res = await fetch(`${root}/${rel}`, { redirect: "manual", signal: ctl.signal }).catch((e) => replayOf(e, ++tries, ctl.signal));
         if (res.type === "opaqueredirect" || (res.status >= 300 && res.status < 400)) refuse("redirect_refused", null, null, rel);
         if (res.status !== 200 || res.body === null) refuse("http_status", null, null, rel);
         const chunks = [];
@@ -93,3 +93,13 @@ export async function runVerifyCli(argv) {
 // C-G2-1 (G2 of PR-1b-5b): REAL paths compared, so a launch through a directory link runs it; argv[1] absent or unreadable: an import, no throw.
 const isEntry = () => { try { return realpathSync(fileURLToPath(import.meta.url)) === realpathSync(process.argv[1]); } catch { return false; } };
 if (isEntry()) process.exitCode = await runVerifyCli(process.argv.slice(2));
+
+/** The replay rule of one GET of urlSource: null (the same GET is sent once more) when its FIRST try failed before any answer on a
+ *  closed connection (a kept-alive connection the host closed while the check computed; the runtime drops that socket, so the replay
+ *  opens a new one); else the error, rethrown. Never on the GET's timer (its signal aborted), never once an answer came (a refusal, a
+ *  status or a body cut short are read after this), never for another error (a refused or unresolved host); the replayed bytes are
+ *  hashed against the signed lines like any others. Hoisted, declared last so that no line above it moves (killers name its lines). */
+function replayOf(e, tries, signal) {
+  if (tries > 1 || signal.aborted || !["UND_ERR_SOCKET", "ECONNRESET"].includes(e?.cause?.code)) throw e; // the codes of a closed or reset socket
+  return null;
+}

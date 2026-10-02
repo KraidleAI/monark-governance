@@ -49,16 +49,20 @@ const expectedOf = (state: "E1" | "E2" | "EA"): Promise<Shown> => withState(stat
 const pageOf = (e: Shown): string =>
   `<html><body><header><a href="/token">Token</a> 2026</header><main><div>Dōjō</div><span>${e.status}</span>${e.sentences.map((s) => `<p>${s}</p>`).join("")}</main></body></html>`;
 const add = (html: string, s: string): string => html.replace("</main>", () => `<p>${s}</p></main>`);
-const valuesOf = (f: DojoPageFigures): string[] => (f.state === "E0" ? [] : f.state === "EA" ? [f.day, ...(f.threshold_unit_token_days === undefined ? [] : [f.threshold_unit_token_days])] : [f.day, f.reads_done, f.k_reads, f.slot_min, f.slot_max,
-  f.lines_count, f.root, f.score_total, f.validated_total, ...(f.state === "E2" ? [f.threshold_unit_token_days, f.holders_count, f.dust_threshold_tokens] : [])]);
+const valuesOf = (f: DojoPageFigures): string[] => (f.state === "E0" ? [] : [f.validation_days, ...(f.state === "EA"
+  ? [f.day, ...(f.threshold_unit_token_days === undefined ? [] : [f.threshold_unit_token_days])] : [f.day, f.reads_done, f.k_reads, f.slot_min, f.slot_max,
+    f.lines_count, f.root, f.score_total, f.validated_total,
+    ...(f.state === "E2" ? [f.threshold_unit_token_days, f.holders_count, f.dust_threshold_tokens, f.migration_days] : [])])]);
 
-// killer: scripts/assert-fleet-html.mjs:675 CONST "T.rereadFirst, ...(counted" -> "...(counted"
+// killer: scripts/assert-fleet-html.mjs:681 CONST "T.rereadFirst, ...(counted" -> "...(counted"
+// killer: scripts/assert-fleet-html.mjs:640 SDL "unfilled" -> ""
 test("dojo_page_renders_served_figures_only — per state, each listed figure once, no other number; the state's sentences, the reread's first", async () => {
   const byState: Record<string, Shown> = {};
   for (const state of ["E1", "E2", "EA", "EAV"] as const) {
-    const [e, figures, historyDay] = await withState(state, async (dir) => {
+    const [e, figures, historyDay, anchorDays] = await withState(state, async (dir) => {
       const data = loadDojoServed(dir);
-      return [shown(await dojoExpected(dir)), dojoPageFiguresOf(data), data?.history.history_last_day ?? assert.fail("no record")] as const;
+      return [shown(await dojoExpected(dir)), dojoPageFiguresOf(data), data?.history.history_last_day ?? assert.fail("no record"),
+        String(data?.timeline.anchor.validation_days)] as const;
     });
     byState[state] = e;
     assert.equal(e.state, state.slice(0, 2));
@@ -66,6 +70,13 @@ test("dojo_page_renders_served_figures_only — per state, each listed figure on
     const firsts = state.startsWith("EA") ? [copy.DOJO_TEXT.rereadFirst] : [copy.DOJO_TEXT.rereadFirst, copy.DOJO_TEXT.table];
     assert.deepEqual(e.sentences.filter((s) => /browser|reread/i.test(s)), firsts, `${state}: TXT-14r, and the table's first sentence but abstained (TXT-17)`);
     const page = pageOf(e), first = e.figures[0] ?? assert.fail("no figure");
+    // The method sentence's one figure, the validation window of the record's anchor in days: another window, or a word, is refused.
+    const days = e.figures.find((x) => x.source.endsWith("timeline.anchor, figure validation_days"))?.value ?? assert.fail(`${state}: no window`);
+    assert.equal(days, anchorDays, `${state}: the window of the record's anchor, in days`);
+    for (const typed of ["60", "sixty", "thirty"]) {
+      const said = page.replace(`held for ${days} days`, `held for ${typed} days`);
+      assert.throws(() => assertDojoBody({ html: said, expected: e }), /is absent|numeric token|forbidden word/, `${state}: ${typed} days`);
+    }
     assert.doesNotThrow(() => assertDojoBody({ html: page, expected: e }), `${state}: a faithful page passes`);
     const red = (html: string, re: RegExp, why: string): void => assert.throws(() => assertDojoBody({ html, expected: e }), re, `${state}: ${why}`);
     red(add(page, "7 lines"), /numeric token/, "a typed number (M-P1)");
@@ -81,6 +92,7 @@ test("dojo_page_renders_served_figures_only — per state, each listed figure on
     red(page.replace("<main>", '<main><p title="7"></p>'), /numeric token/, "a number in a visible attribute (G2-M1)");
     red(page.replace("<main>", `<main title="${historyDay}">`), /numeric token/, "a day of the history in the <main> tag's own attribute (G2-M16)");
     red(add(page, "\u0663"), /non-ASCII digits/, "a number in non-ASCII digits (G2-M2)");
+    red(add(page, copy.DOJO_TEXT.method), /unfilled/, "a sentence of the closed list with its {name} unfilled (N-1 and G2-M6 of the G2 of SITE-PREP)");
     assert.doesNotThrow(() => assertDojoBody({ html: add(page, first.value), expected: { ...e, figures: [...e.figures, { value: first.value, source: "an equal figure" }] } }), `${state}: two figures of equal value, both rendered (G2-M3)`);
   }
   const pick = (s: string): Shown => byState[s] ?? assert.fail(`the state ${s} is missing`), e1 = pick("E1"), e2 = pick("E2"), ea = pick("EA"), eav = pick("EAV");
@@ -93,8 +105,9 @@ test("dojo_page_renders_served_figures_only — per state, each listed figure on
   assert.throws(() => assertDojoBody({ html: add(pageOf(e2), copy.DOJO_TEXT.noVersion), expected: e2 }), /another state/, "the no-version sentence under a version");
   assert.throws(() => assertDojoBody({ html: add(pageOf(ea), "Total hold score:"), expected: ea }), /another state/, "a total on an abstained day");
   assert.throws(() => assertDojoBody({ html: add(pageOf(ea), copy.DOJO_TEXT.table), expected: ea }), /another state/, "a table on an abstained day");
-  assert.equal(ea.figures.length, 1, "EA renders its day only");
-  assert.deepEqual(eav.figures.map((x) => x.source.split(" ").pop()), ["day", "threshold_unit_token_days"], "EA under a version: its day and the unit in token-days (TXT-3A, TXT-4)");
+  assert.deepEqual(ea.figures.map((x) => x.source.split(" ").pop()), ["day", "validation_days"], "EA renders its day, and the anchor's window");
+  assert.deepEqual(eav.figures.map((x) => x.source.split(" ").pop()), ["day", "threshold_unit_token_days", "validation_days"],
+    "EA under a version: its day, the unit in token-days (TXT-3A, TXT-4) and the anchor's window");
   for (const s of [copy.DOJO_TEXT.tier, copy.DOJO_TEXT.noVersion, copy.DOJO_TEXT.totals, copy.DOJO_TEXT.holder, copy.DOJO_TEXT.holders]) assert.throws(() => assertDojoBody({ html: add(pageOf(eav), s), expected: eav }), /another state/, `EA under a version: ${s.slice(0, 32)}`);
 });
 
@@ -102,9 +115,13 @@ test("dojo_page_renders_served_figures_only — per state, each listed figure on
 test("dojo_page_lexicon_is_closed — the closed list of texts is the approved one (its sha256, its three denials); no text of /dojo carries a forbidden word, 'thirty', 'independent', a name the site vocabulary bans or an operator's or the partner's name; the check refuses each on the page", async () => {
   assert.ok("DOJO_TABLE" in copy, "lib/dojo-copy.ts exports the words of the table (DOJO_TABLE)");
   const texts = [copy.DOJO_NAME, copy.DOJO_TITLE, ...Object.values(copy.DOJO_TEXT)], words = Object.values(copy.DOJO_TABLE);
-  assert.deepEqual([texts.length, words.length], [29, 13], "the name, the title and the twenty-seven sentences; the thirteen words of the table");
-  // ADR-DOJO-PR-4, G0 fold of PR-4c-2 (TXT-14b-r2, 15r, 15a, 15b-r, 17, 17a, 17c, DOJO_TABLE) and decision 301 (TXT-17o), pinned at the G1 of PR-4c-2a.
-  const TEXTS_SHA256 = "711e929d69f43d9b4eacbe6eaf4afe9649bb513f49e7a69f5746faf7cbe45947";
+  assert.deepEqual([texts.length, words.length], [32, 13], "the name, the title and the thirty sentences; the thirteen words of the table");
+  // ADR-DOJO-PR-4, G0 fold of PR-4c-2 (TXT-14b-r2, 15r, 15a, 15b-r, 17, 17a, 17c, DOJO_TABLE) and decision 301 (TXT-17o), pinned at the G1 of PR-4c-2a;
+  // part 3 of the page: TXT-5 names the anchor's window, TXT-17c its third case, the dust rule (17, 17a, 15r, 15b-r, three sentences added).
+  // SITE-CORR (C-1 and N-3 of the G2 of SITE-PREP): tableDust and tableNoVersion say "lines", every line under the threshold; and the
+  // tier sentence names the Migration window of the anchor in force, {migration_days}, never typed (DOJO-COPY-DURATIONS-DERIVED-1).
+  const TEXTS_SHA256 = "e52373eef751a9b84ed4bb0eb9e9b7724dc28f0eaf43c7c3b284c628bb978a29";
+  assert.deepEqual(texts.filter((t) => t.includes("one hundred and eighty")), [], "no duration of the closed list is typed in words");
   const closed = { DOJO_TEXT: copy.DOJO_TEXT, DOJO_TITLE: copy.DOJO_TITLE, DOJO_TIER_NAMES: copy.DOJO_TIER_NAMES, DOJO_TABLE: copy.DOJO_TABLE };
   assert.equal(createHash("sha256").update(canonical(closed)).digest("hex"), TEXTS_SHA256, "the closed list of texts is the approved one, byte for byte");
   for (const [s, re] of [[copy.DOJO_TEXT.bounds, /What it does not show:/], [copy.DOJO_TEXT.check, /The check does not read the chain\./], [copy.DOJO_TEXT.beacon, /this page does not check that signature/]] as const) assert.match(s, re, "a denial of the approved wording");
@@ -119,7 +136,8 @@ test("dojo_page_lexicon_is_closed — the closed list of texts is the approved o
   assert.ok([partner.sample, partner.sample.toLowerCase(), partner.sample.toUpperCase()].every((s) => partner.re.test(`via ${s} today`)), "the partner's form refuses its name");
   const e = await expectedOf("E2"), page = pageOf(e);
   for (const w of ["an agent", "agents", "reward", "airdrop", "yield", "eligible", "soon", "live", "guarantee", "verified", "real-time", "ranking",
-    "leaderboard", "top holders", "the score", "inference", "budget", "NFT", "dollar", "USD", "$", "buy", "sell", "thirty days", "independent"]) {
+    "leaderboard", "top holders", "the score", "inference", "budget", "NFT", "dollar", "USD", "$", "buy", "sell", "thirty days", "independent",
+    "Bitcoin", "timestamped", "time-stamp", "BLS"]) { // the last four: claims put after the first publication, refused until they are done
     assert.throws(() => assertDojoBody({ html: add(page, w), expected: e }), /forbidden word/, `"${w}" on /dojo (M-P3, M-P19)`);
   }
 });
