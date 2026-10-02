@@ -210,6 +210,10 @@ DJ-L06 table sans script (code, rendu serveur des lignes committées).
   l investisseur : envoyer avec le verdict rouge déclaré, ou construire d abord DOJO-BIND-OFF-MAIN-1. 24 captures (`shots/`, SHA256SUMS
   vert), huit envoyées à l investisseur pour C-V-4 ; la fixture porte 180 jours pour Migration (DJ-L145), le texte lit l ancre.
 
+- 2026-10-02 05:41 UTC : oracle du tronc sur `09662ecc` (fusions runbook et send-prep) : sortie 0, 9 portes à 0 ; enregistrement
+  `F:/tmp/oracle-results/09662ecc…-corr-20261002T053231Z-140576.json` (sha256 `c0880648…`). La fusion SITE-BROWSER (`5d113895`) sera couverte
+  par l oracle de la G2 de partie, sur l arbre final (après PR-3b-2b-1 et BELL-CA-DOJO-1).
+
 ## 12. Compléments (ajoutés le 2026-10-02 à 02:3x UTC)
 - **Accès aux hôtes** : clé `~/.ssh/monark_vps`. Hôte Bell : cible ssh lue dans `F:/tmp/dojo/s7-1.sh` (extraire par `grep -oE 'root@[0-9.]+'`,
   jamais afficher). Serveur du site : cible dans `docs/RUNBOOK-harness.md`. Toute sortie passe par un masque des adresses.
