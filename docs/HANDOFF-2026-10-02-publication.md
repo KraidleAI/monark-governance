@@ -343,6 +343,11 @@ DJ-L06 table sans script (code, rendu serveur des lignes committées).
   avec pièces (#51). Plan du mois du fondateur reçu (ETAT, consignes) ; GO SERIES-FULL-HISTORY-1 : enregistrement lancé en arrière-plan
   (`F:/PRODUITS/marche/history/run-history.sh`, journal `run-history.log`, ~1 000 dossiers scellés symbole × mois × intervalle) ; empreintes à
   poster à la fin ; FAITS historiques (trois items) à lire sur place ensuite. Chantier 2 (audit P3) après la page, puis W2-E.
+- 2026-10-02 19:02 UTC : ADR vague 2 v7 (`3664349`) : porte de service = FWD-2 (bloc passé 2024-04 → 2024-10) + veto pont (2025-10 → 2026-10) +
+  retrait en direct ; ma réserve « rien avant 2027 » tombe pour les 40 cellules de la vague 1. Q-W2-26 ACCEPTÉE sous trois conditions
+  (portée aux 40, ENGINE-ROW-RETIRE-PATH-1 livré avant tout service, texte servi) (#52). Q-W2-23 (W2-E en tête de file ?) : DÉCISION
+  INVESTISSEUR attendue ; Q-W2-24 : prérequis P3 non tenus, à mesurer au début du chantier 2. FAITS élargis : USDT/USD 2022-09 → 2024-10,
+  identités 2020-09 → 2024-10, événements 2022-09 → 2024-10 (FTX).
 - 2026-10-02 15:30 UTC : go de minuit reçu ; lanceur `F:/tmp/dojo/final/wait-and-run.sh` armé ; annonce X publiée depuis le 1er octobre
   (investisseur) ; validation visuelle : page reconstruite à l ancre 30/30/30/30/90, captures envoyées, six questions C-V-4 encore ouvertes.
 - 2026-10-02 08:26 UTC, ÉCART DE ROSTER relevé par l orchestrateur : depuis 02:51:22 UTC, les tours de l orchestrateur tournent sous

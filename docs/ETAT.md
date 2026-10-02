@@ -309,7 +309,9 @@ Tronc `lot/etude-suite`. Dernier oracle complet : 1 779 tests, dont 1 776 verts,
   `class-policy-v2`, tests écrits par RECHERCHES d abord ; après le moteur MONARK, avant novembre 2026), FAITS-US-DST-1, FAITS-FUNDING-HOURS-1,
   FAITS-PYTH-USDT-USD-1 (avant P0-2) ; USDT-USD-REFERENCE-1 étendu aux rondes BTC/USD, ETH/USD, SOL/USD. Checkpoint-1 formel du
   validateur-humain sur l ADR vague 2 : lancé sur la v6 le 2026-10-02 à 18:4x UTC. SERIES-MONTHLY-2027-1 retiré (v5 : données passées).
-- Items vague 2 v6 (2026-10-02, recherches#50) : FAITS-USDT-USD-HISTORY-1, FAITS-IDENTITY-2021-2024-1, FAITS-EVENTS-2023-2024-1 (avant P0-2) ;
+- Items vague 2 v6 et v7 (2026-10-02, recherches#50, #52) : FAITS-USDT-USD-HISTORY-1 (2022-09 → 2024-10), FAITS-IDENTITY-2020-2024-1
+  (2020-09 → 2024-10), FAITS-EVENTS-2022-2024-1 (2022-09 → 2024-10, FTX compris), avant P0-2 ; ENGINE-ROW-RETIRE-PATH-1 devient BLOQUANT
+  avant tout service d une ligne de la vague 2 (condition 2 de Q-W2-26) ;
   SERIES-FULL-HISTORY-1 (tout enregistrer de la première bougie au 2024-10-01, scellé par symbole et par mois ; sur go) ; W2-S-SIM-1.
   LIVE-2-RECORD-1 (conditionnel : si P0-2 vient après la première lecture de LIVE-1 par RECHERCHES, MONARK enregistre LIVE-2, premier
   trimestre civil complet après P0-2, scellé ; C-5 du checkpoint-1 v6). Checkpoint-1 v6 rendu le 2026-10-02 à 18:49 UTC :
