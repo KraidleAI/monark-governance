@@ -256,6 +256,8 @@ DJ-L06 table sans script (code, rendu serveur des lignes committées).
   Rendu à l investisseur avec : roster du G7, accord de la partie 3 (décision 300), départ de la course de cette nuit (attente en
   arrière-plan depuis cette session, ou go de l investisseur à minuit), et l annonce du « jour 1 » sur X (faite ou non : TU-7 l attend).
   L oracle G7 de `b570e2b4` ne vaut pas G7 si la voie (b) change l arbre : il sera rejoué.
+- 2026-10-02 09:05 UTC : oracle G7 de `b570e2b4` rendu, sortie 0 (`5e0babc0…`, 1 882 tests, 1 878 verts, 0 rouge, 4 sautés ; R-25
+  1 128 sur 1 205). Ce n est pas le verdict G7 : il attend la décision roster, et la voie (b) changerait l arbre.
 - 2026-10-02 08:26 UTC, ÉCART DE ROSTER relevé par l orchestrateur : depuis 02:51:22 UTC, les tours de l orchestrateur tournent sous
   `claude-opus-5-5` (519 tours dans la transcription de la session), pas sous `claude-fable-5-1` (règle : orchestrateur = Fable 5.1).
   Actes faits sous ce modèle : contrôle et accord P2a complet (recherches#38), consolidation du CLAUDE.md global, adjudications et
