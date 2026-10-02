@@ -35,8 +35,9 @@ de mutants lancés par eux en arrière-plan peut finir seul (verrou `held(root)`
 - ARRÊTÉS : G2 SITE-SEND-PREP, G1 SITE-BROWSER, G1 RUNBOOK-PRE-IV, contrôle du diff P2a-2 (détail ci-dessous).
 - **G2 ciblée BATCH-NEAR** : RENDUE à 02:04 UTC, APPROUVE-AVEC-CORRECTIONS (`eda667be…`, code tel quel) ; fusion `6c464bbc`, lignes
   d ADR `2fab0d81`. G7 de la fusion PRONONCÉ (oracle `02104bde…` sortie 0, 1 872 tests, 0 rouge, R-25 168) ; ligne à ETAT faite.
-- **G2 ciblée SITE-SEND-PREP** : mission `F:/tmp/dojo/mission-g2-sendprep.md` (`81949561…`) ; rapport `F:/tmp/dojo/g2-sendprep/RAPPORT.md`.
-  Au retour : si APPROUVE, fusion de `lot/site-send-prep` dans `lot/page-v1` et G7.
+- **G2 ciblée SITE-SEND-PREP** : mission `F:/tmp/dojo/mission-g2-sendprep.md` (`81949561…`) ; rapport `F:/tmp/dojo/g2-sendprep/RAPPORT.md`
+  trouvé sur disque (02/10 02:4x, sha `a8bc3181…`, 25 Ko, §0 à §9 écrits) mais verdict `[A-REMPLIR-VERDICT]` : INCOMPLET, non consommé ;
+  G2 à refaire sur go (même mission). Au retour : si APPROUVE, fusion de `lot/site-send-prep` dans `lot/page-v1` et G7.
 - **G1 SITE-BROWSER** (lancée avant la compaction) : `F:/tmp/dojo/browser/MESURES.md`, captures `F:/tmp/dojo/browser/shots/`.
   Au retour : vérifier, committer sur `lot/site-browser` ; captures pour la validation C-V-4 (§6.6).
 - **G1 RUNBOOK-PRE-IV** : mission `F:/tmp/dojo/mission-runbook-pre-iv.md` (`6a5e5dd4…`) ; livrables `F:/tmp/dojo/runbook-deliver/`.
@@ -51,7 +52,7 @@ Les G2 de SITE-BROWSER et de RUNBOOK-PRE-IV seraient deux NOUVEAUX lancements : 
 ## 4. Branches
 - `lot/etude-suite` : `31e4359a` (FAITS Caddy) ← `9e979a36` (ETAT) ← `eb3ee3ec`. ETAT : `docs/ETAT.md`, édité par scripts à un coup
   (remplacement exact, lignes ≤ 160 caractères ; modèle `F:/tmp/dojo/etat-edit-17.mjs`).
-- `lot/page-v1` = `2fab0d81` (fusion de BATCH-NEAR sur `d1120612` ; G7 `02104bde…` vert) ; worktree `F:/Monark-wt-page-v1` (les courses
+- `lot/page-v1` = `224a6bd1` (= `2fab0d81`, G7 `02104bde…` vert, + lignes datées d ADR-DOJO-PR-3 du 02/10 02:47Z, documentation seule) ; worktree `F:/Monark-wt-page-v1` (les courses
   d historique y tournent ; aucun agent n y touche).
 - `lot/batch-near` = `40f11dc7` (worktree `F:/Monark-wt-batch`) ; `lot/site-send-prep` = `9e016897` (`F:/Monark-wt-sendprep`) ;
   `lot/site-browser` et `lot/runbook-pre-iv` = `d1120612` + travail non commis (`F:/Monark-wt-browser`, `F:/Monark-wt-runbook`).
@@ -104,9 +105,7 @@ Dans `F:/Monark-wt-page-v1` : `git merge --no-ff <lot>` (aucun conflit attendu :
   journal datées avant lecture de l horloge (corrigées). Règle : `date -u` dans un appel séparé avant toute ligne datée.
 
 ## 9. Lignes datées à écrire par l orchestrateur
-- ADR-DOJO-PR-3 : TU-1h (le premier jour lu est le jour clos entier : `eve.json`, `publish/`, `readings/`) ; `TasksMax=64` épinglé
-  (relevés 7 et 11, marge ×5,8 ; révision à un pic ≥ 32 ou à un départ refusé faute de tâche).
-- ADR-DOJO-PR-2B : BATCH-NEAR (brouillon au §11 de `docs/G1-lot-batch-near.md`, branche `lot/batch-near`).
+- FAITES (02/10 02:47Z, `224a6bd1` sur `lot/page-v1`) : ADR-DOJO-PR-3 TU-1h et `TasksMax=64` ; ADR-DOJO-PR-2B BATCH-NEAR (`2fab0d81`).
 - Registre PAROXYSME : ajouter DOJO-SITE-PROXY-HEADERS-ALLOWLIST-1, DOJO-HISTORY-INFO-DEPTH-1, FAITS-TOKEN2022-PARSER-BATCH-SHAPE-1,
   Q-10 et D3-1 (déplacés).
 
@@ -128,6 +127,12 @@ DJ-L06 table sans script (code, rendu serveur des lignes committées).
 - 2026-10-02 02:3x UTC : quatre agents arrêtés (limite hebdomadaire) ; aucun agent en vol. Pour le 3 octobre sans RUNBOOK-PRE-IV :
   appliquer à la main, dans les commandes de 18 (iii) et (iv), la garde `test ! -e /var/lib/monark-dojo/publish.lock` et l unité
   `inactive` avant tout retrait du paquet (Q-14), et ne rien faire sur l éditeur ni sur `bundles/<d>` entre (iv) et le snapshot (Q-13).
+
+- 2026-10-02 02:47 UTC : reprise par une nouvelle session (modèle `claude-opus-5-5`). Contrôles §17 à 02:45Z : aucun `publish.lock*`,
+  minuterie de publication `enabled`/`active`, service `inactive`, aucun passage encore (premier à 03:30Z), collecte `active`, 0 ligne
+  `dojo/collect:`, jour d ouvert (`eve.json`, `evidence`, `readings`, pas de `publish/`). Verrou de l oracle libre. Lanceur
+  `run-final.sh` relu ligne à ligne : conforme au §18 ; plafonds tenus (dépense réelle de la course provisoire r3 : 6 654 crédits,
+  47 484 RU, 28 167 appels pour 22 jours). Lignes datées §9 écrites (`224a6bd1`). G2 SITE-SEND-PREP : rapport incomplet (§3).
 
 ## 12. Compléments (ajoutés le 2026-10-02 à 02:3x UTC)
 - **Accès aux hôtes** : clé `~/.ssh/monark_vps`. Hôte Bell : cible ssh lue dans `F:/tmp/dojo/s7-1.sh` (extraire par `grep -oE 'root@[0-9.]+'`,
