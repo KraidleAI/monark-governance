@@ -391,6 +391,12 @@ DJ-L06 table sans script (code, rendu serveur des lignes committées).
   0,025 ; 0,0534 à 0,05 sur 10 000). Sceaux table.json A 4c6969d7…, B 52cfb592…. Envoyé (PR recherches#60) avec tables et comparateur.
   Réserves du worker : contrôle équilibré non calculé (définition dans runs.ts, interdit de lecture) ; qhat et U lus d après D2, à écrire ;
   node v22.23.2 (hermes) même V8 ; erfc port fdlibm 2,07 ulp sans effet ; veto 124 course B +3,21 ET = fluctuation (200 000 réplicats).
+- 2026-10-02 22:42 UTC : RECHERCHES 7a44d27 : addendum 3 ADR 0006 (qhat = (n − k*)-ième plus petit score ; U = plus petit j avec
+  P(Bin(n, j/10^7) ≤ k*) ≤ td ; contrôle équilibré écrit depuis runs.ts) : conforme aux lectures Q-1/Q-2 du worker, comptes inchangés ;
+  addendum 2 ADR 0005 : exclusion R-25 kata/w2s/out/**/*.json avec PROVENANCE.md et deux tests (recomptage depuis les éclats), 89fdcf9 = 855
+  lignes sous la règle ; correction RECHERCHES : les éclats de la première course avaient été poussés. Rien ne bloque P0-2 côté table ;
+  restent FAITS historiques (C-6) et RECORDER-CLOSE-TIME-1 ; P0-2 publiera les sha256 de l ADR, addenda 1 à 3, A-1 (après C-3), tables,
+  générateur. Item W2S-BALANCED-COL-1 : colonne du contrôle équilibré à ajouter au simulateur MONARK (rapport seul) en partie A.
 - 2026-10-02 15:30 UTC : go de minuit reçu ; lanceur `F:/tmp/dojo/final/wait-and-run.sh` armé ; annonce X publiée depuis le 1er octobre
   (investisseur) ; validation visuelle : page reconstruite à l ancre 30/30/30/30/90, captures envoyées, six questions C-V-4 encore ouvertes.
 - 2026-10-02 08:26 UTC, ÉCART DE ROSTER relevé par l orchestrateur : depuis 02:51:22 UTC, les tours de l orchestrateur tournent sous
