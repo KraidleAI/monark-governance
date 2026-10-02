@@ -694,6 +694,25 @@ or `nothing_to_publish` (the next day open, or published already). **STOP** on e
 (the day expected is not closed while a later day is: never waited out, B-1). Never a manual `--inbox` beside the timer (a second writer,
 TB-23). Rollback (a stop): `ssh -i ~/.ssh/monark_vps root@178.16.131.29 'systemctl disable --now monark-dojo-publish.timer'`.
 
+Each day also, read-only, the lock files of the state (DOJO-PUBLISH-SINGLE-WRITER-1; Q-10 and D3-1 below):
+
+```bash
+ssh -i ~/.ssh/monark_vps root@178.16.131.29 'ls -l /var/lib/monark-dojo/publish.lock*; test ! -e /var/lib/monark-dojo/publish.lock ||
+{ cat /var/lib/monark-dojo/publish.lock; echo; ps -o pid=,comm= -p "$(cut -d, -f1 /var/lib/monark-dojo/publish.lock | cut -d: -f2)" ||
+echo OWNER-NOT-RUNNING; }'
+```
+
+Expected: `ls: cannot access '/var/lib/monark-dojo/publish.lock*': No such file or directory` (no lock and no residue: the usual case
+outside a start). A `publish.lock` prints its record (`{"pid":<n>,"mode":"<mode>","taken_at":<ms>}`, not a secret), then its owner as
+`<pid> <command>`: `<pid> node` (a launch writes: read again after its end, never a second launch beside it) or `OWNER-NOT-RUNNING` (a
+launch stopped mid-way: the act `--unlock` of section 19, then the next start repairs the state); any other output (another command at
+that pid, a record off its form): escalation, never removed by hand. A `publish.lock.<pid>` (a launch killed between the create and
+the link of its lock, or the D3-1 case) never blocks a launch: JOURNAL only, nothing removed by hand. Q-10 and D3-1 (the publisher's
+own code: `--unlock` also removing a `publish.lock.<pid>` whose process is dead; a failed removal of the temporary name after a
+successful link ignored) wait for the first redeployment of the publication tree, the first key rotation, or 2026-10-09 at the latest
+(dated decision of the orchestrator, 2026-10-02, `docs/ETAT.md`): both cases stop the publication or leave a file, never write a false
+line; until then this listing is their parade.
+
 ## 18. A-11 — the first counted day and the history (TU-1p, TU-1h; B-1 of the G2 inspection of part 1)
 
 J is the anchor day (A-8); o the first day the restarted collector opens (J + 1: the start (6) and the timer (7) are made on J,
@@ -833,11 +852,34 @@ the end of (iv)); else the act below removes the copy (never while (iv) runs), t
 state by hand, this packet only (Never):
 
 ```bash
-ssh -i ~/.ssh/monark_vps root@178.16.131.29 'rm -r /var/lib/monark-dojo/history-packet && echo PACKET-REMOVED'
+ssh -i ~/.ssh/monark_vps root@178.16.131.29 'if test ! -e /var/lib/monark-dojo/publish.lock &&
+test "$(systemctl is-active monark-dojo-publish.service)" = inactive; then rm -r /var/lib/monark-dojo/history-packet && echo PACKET-REMOVED;
+else echo PACKET-KEPT; exit 1; fi'
 ```
 
-Expected: `PACKET-REMOVED`. Blockers: the acts of PR-2b and theirs (RG-SNAPSHOT-NONNEG-INT-1, DOJO-HISTORY-CROSS-INDEX-1, items Q-G2-4 of
-PR-2b-4).
+Expected: `PACKET-REMOVED`. `PACKET-KEPT` (Q-14 of the G2 inspection of part 2): a launch holds `publish.lock`, or the unit is not
+`inactive`: nothing removed, **STOP**: read the lock files (section 17) and the unit's journal; never a removal beside a writer.
+Blockers: the acts of PR-2b and theirs (RG-SNAPSHOT-NONNEG-INT-1, DOJO-HISTORY-CROSS-INDEX-1, items Q-G2-4 of PR-2b-4).
+
+**The size of (iv)** (Q-12 of the G2 inspection of part 2), before each (iv), read-only, on the local copy of the packet that (iii)
+copied (`<local packet>`): its history lines, its addresses and its days (`history_first_day` to `history_last_day`, both counted),
+against the grid that DOJO-VERIFY-SCALE-1 measured (the publish unit's comment; G1 journal of PR-3b-2a): N ≤ 10 000 addresses at
+30 days at most, N ≤ 1 144 at 365 days at most:
+
+```bash
+node --input-type=module -e '
+import { readFileSync, statSync } from "node:fs"; const p = process.argv[1], m = JSON.parse(readFileSync(p + "/manifest.json", "utf8"));
+const f = p + "/history/" + m.history_sha256 + ".jsonl", o = readFileSync(f, "utf8").split(String.fromCharCode(10)).filter((l) => l !== "");
+const n = new Set(o.map((l) => JSON.parse(l).address)).size, d = (Date.parse(m.history_last_day) - Date.parse(m.history_first_day)) / 864e5 + 1;
+const ok = (n <= 10000 && d <= 30) || (n <= 1144 && d <= 365); process.exitCode = ok ? 0 : 1;
+console.log("lines=" + o.length, "addresses=" + n, "days=" + d, "bytes=" + statSync(f).size, ok ? "IN-GRID" : "BEYOND-GRID");' '<local packet>/publish'
+```
+
+Expected: one line `lines=<n> addresses=<n> days=<n> bytes=<n> IN-GRID` (JOURNAL; `bytes`, the history file's size, for the item
+DOJO-PUBLISH-SCALE-1: the verifier refuses a file over 64 MiB; `days=22` when d − 1 is 2026-10-01: the history's first day is fixed,
+2026-09-10, so a last day after 2026-10-09 leaves only N ≤ 1 144 in the grid). **STOP** on `BEYOND-GRID` (exit 1): no (iv) before a
+load measurement of the act at these values (the protocol of DOJO-VERIFY-SCALE-1; item DOJO-PUBLISH-SCALE-1), escalation to the
+orchestrator; any other output (a packet off its format): **STOP**.
 
 (iv) The `history` line (PR-3a-2), after (iii), before the first `snapshot`: ONE transient job with the unit's user, sandbox, credential,
 `UnsetEnvironment=` (as A-8 (2)), read-only inbox (the unit's `SupplementaryGroups=` and `ReadOnlyPaths=`: `--history` reads d in `bundles/`)
@@ -879,9 +921,20 @@ publication of d would meet comes here, before the irreversible line, and writes
 - any other refusal: **STOP** (section 19).
 
 A replay gives `history_exists`: read the served timeline first (its `history` line carries this `history_sha256`: the act was done;
-else escalation). Then the packet goes: `ssh -i ~/.ssh/monark_vps root@178.16.131.29 'rm -r /var/lib/monark-dojo/history-packet'`; and
-the offline check of A-8 (3) and (4) runs on a new mirror `public-seq<n>`: `verify_exit=0`. The next slot of the timer publishes d
-(section 17).
+else escalation). Then the packet goes, under the guard of the act of (iii) (Q-14):
+
+```bash
+ssh -i ~/.ssh/monark_vps root@178.16.131.29 'if test ! -e /var/lib/monark-dojo/publish.lock &&
+test "$(systemctl is-active monark-dojo-publish.service)" = inactive; then rm -r /var/lib/monark-dojo/history-packet && echo PACKET-REMOVED;
+else echo PACKET-KEPT; exit 1; fi'
+```
+
+Expected: `PACKET-REMOVED`; `PACKET-KEPT`: a launch holds `publish.lock`, or the unit is not `inactive`: nothing removed, **STOP**:
+read the lock files (section 17) and the unit's journal; never a removal beside a writer. Then the offline check of A-8 (3) and (4)
+runs on a new mirror `public-seq<n>`: `verify_exit=0`. The next slot of the timer publishes d (section 17). Between the `history`
+line and that first `snapshot`, no act on the publisher (its state, its units) nor on `bundles/<d>`, the removal of the packet above
+excepted (Q-13: the `snapshot` checked by (iv) is built at the act's clock; a rotation, an anchor or an edit of `bundles/<d>` in
+between could make its publication refuse, by a named stop).
 
 ## 19. The publisher's refusals — every one a STOP (consignes of PR-3a-1c; pinned by T-A11)
 

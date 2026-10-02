@@ -23,7 +23,7 @@ import { ANCHOR_DAY, DAY1, anchorBody, betaOf, dateOf } from "../apps/dojo/test/
 import { rootOf } from "../apps/dojo/scripts/dojo-core.mjs";
 import { historyBundle } from "../apps/dojo/src/history-build.ts";
 import { DOJO_HISTORY_CREATION as SIG0 } from "../apps/dojo/src/history-read.ts";
-import { ANCHOR_KEYS, DOJO_PUBLISH_REFUSALS } from "../apps/dojo/scripts/dojo-publish.mjs";
+import { ANCHOR_KEYS, DOJO_PUBLISH_REFUSALS, STATE_LOCK } from "../apps/dojo/scripts/dojo-publish.mjs";
 import { READ_RULE } from "../apps/dojo/src/dojo-methods.ts";
 import { headersFor, parseCaddyfile, type CaddySite } from "./bell-caddy.ts";
 import * as D from "../scripts/dojo-deploy.mjs";
@@ -237,13 +237,17 @@ test("dojo_publish_unit_environment_is_closed", () => {
 });
 
 /** Act A-11 (iii) (model): the FINAL history packet by the REAL writer of PR-2b (historyBundle; a declared duplicate of packet() of
- *  test/dojo-publish-e2e.test.ts): an EMPTY history of day 1 to `last`, its first day read `last` + 1, under `dir`/publish/, as copied there. */
-function packetAt(dir: string, anchor: Readonly<Record<string, unknown>>, last: number): void {
+ *  test/dojo-publish-e2e.test.ts): a history of day 1 to `last`, EMPTY unless `n` > 0 (then n SYNTHETIC holders, one line each on `last`,
+ *  in byte order: the count of Q-12 reads them), its first day read `last` + 1, under `dir`/publish/, as copied there. */
+function packetAt(dir: string, anchor: Readonly<Record<string, unknown>>, last: number, n = 0): void {
+  const who = Array.from({ length: n }, (_, i) => `holder-${String(i).padStart(6, "0")}`);
+  const lines = who.map((a) => JSON.stringify({ address: a, class: "holder", day: dateOf(last), day_value: "1" }));
+  const bytes = lines.map((l) => `${l}${LF}`).join("");
   const out = historyBundle({ status: "complete", stop_reason: null, mint: anchor.mint as string, program: anchor.program as string, decimals: 6,
     sig0: SIG0.signature, sig0_slot: SIG0.slot, transactions_failed_excluded: 0, collector_sha256: sha("SYNTHETIC collector"),
     evidence_sha256sums_sha256: sha("SYNTHETIC run"), build: { history_first_day: dateOf(DAY1), history_last_day: dateOf(last),
-      first_read_day: dateOf(last + 1), window_slot_max: 1, enumeration_slots: [1], lines: [], bytes: "", sha256: sha(""), root: rootOf([]),
-      eve: { addresses: [], accounts: [] }, transactions_admitted: 0, transactions_without_quorum: 0, token_accounts: 0, addresses: 0,
+      first_read_day: dateOf(last + 1), window_slot_max: 1, enumeration_slots: [1], lines, bytes, sha256: sha(bytes), root: rootOf(lines),
+      eve: { addresses: who, accounts: [] }, transactions_admitted: 0, transactions_without_quorum: 0, token_accounts: n, addresses: n,
       missing_address_days: 0 } });
   for (const [p, t] of Object.entries(out.publish ?? {})) {
     mkdirSync(dirname(join(dir, "publish", p)), { recursive: true });
@@ -428,7 +432,7 @@ test("dojo_keyring_shares_no_key_with_bell", { skip: existsSync(REPO + TU_K) ? f
   assert.deepEqual(bk.keys.filter((x) => ids.has(x.key_id) || ids.has(x.jwk.x)), [], "no key of Bell's keyring in Dojo's (key_id or x)");
 });
 
-// killer: docs/RUNBOOK-dojo.md:896 SDL "price_version_pending" -> ""
+// killer: docs/RUNBOOK-dojo.md:949 SDL "price_version_pending" -> ""
 test("dojo_runbook_stops_before_the_stamp_and_on_refusals", () => {
   exists();
   const a8 = sectionOf(16, true), check = a8.indexOf("dojo-verify-cli.mjs /f/PRODUITS/dojo-mirror/public-seq1 --self-consistent-only");
@@ -449,7 +453,7 @@ test("dojo_runbook_stops_before_the_stamp_and_on_refusals", () => {
   assert.ok(sectionOf(17, true).includes("**STOP** on every other refusal (section 19)"), "A-10: a STOP on every refusal of section 19");
 });
 
-// killer: docs/RUNBOOK-dojo.md:851 CONST "-p SupplementaryGroups=dojo-handoff" -> "-p SupplementaryGroups=dojo-collect"
+// killer: docs/RUNBOOK-dojo.md:893 CONST "-p SupplementaryGroups=dojo-handoff" -> "-p SupplementaryGroups=dojo-collect"
 test("dojo_runbook_jobs_carry_the_unit_properties", () => {
   exists(); // C-3 and Q-3 of the G2 inspection of part 1: the three systemd-run jobs of the RUNBOOK, each property the unit's own
   const svc = service(D.DOJO_PUBLISH_UNIT), SANDBOX = ["PrivateNetwork", "NoNewPrivileges", "ProtectSystem", "ProtectHome", "PrivateTmp",
@@ -471,4 +475,43 @@ test("dojo_runbook_jobs_carry_the_unit_properties", () => {
   });
   // 18 (iv) reads d in the inbox (B-1): the very bundles/ the unit reads, read-only, through its group.
   assert.ok((jobs[1]?.[0] ?? "").includes(`--inbox ${one(svc, "ReadOnlyPaths")} --state ${D.DOJO_PUBLISH_STATE}`), "18 (iv): --inbox, read-only");
+});
+
+// killer: docs/RUNBOOK-dojo.md:855 CONST "if test ! -e " -> "if test -e "
+test("dojo_runbook_removes_the_packet_only_without_a_writer", () => {
+  exists(); // Q-14 of the G2 inspection of part 2 (docs/ETAT.md): never a removal of the history packet beside a launch holding the lock
+  const RM = /(^|[^a-z])rm( +-[-a-zA-Z]*)* +[^ ;&|']*history-packet/g, count = (t: string): number => [...t.matchAll(RM)].length;
+  const s18 = sectionOf(18), cmds = fenced(s18).filter((c) => count(c) > 0), packet = `${D.DOJO_PUBLISH_STATE}/history-packet`;
+  // The WHOLE text is scanned: a removal left in prose (an inline command) counts there, and reddens as a removal outside a fenced block.
+  assert.deepEqual([count(read(RUNBOOK)), cmds.map(count)], [2, [1, 1]], "two removals, the act of 18 (iii) and the end of 18 (iv), each a block");
+  // The WHOLE remote command, from its opening quote: the lock absent, then the unit idle, the removal in the then branch only, else
+  // nothing removed and exit 1. IDLE is the one place of the unit's predicate (the decision: inactive; Q-1 of the G1 journal).
+  const IDLE = `test "$(systemctl is-active ${posix.basename(D.DOJO_PUBLISH_UNIT)})" = inactive`, LOCK = `${D.DOJO_PUBLISH_STATE}/${STATE_LOCK}`;
+  const REMOTE = ` 'if test ! -e ${LOCK} && ${IDLE}; then rm -r ${packet} && echo PACKET-REMOVED; else echo PACKET-KEPT; exit 1; fi'`;
+  let from = 0;
+  for (const c of cmds) {
+    const flat = c.split(LF).join(" ").trimEnd(); // the message quotes the remote command only, never the host
+    assert.ok(flat.endsWith(REMOTE), `the guard first, the removal in its then branch only: ${flat.slice(flat.indexOf(" '"))}`);
+    from = s18.indexOf(c, from) + c.length + 3;
+    const prose = s18.slice(from, s18.indexOf(`${LF}${LF}`, from + 2)).split(LF).join(" ");
+    assert.ok(prose.includes("`PACKET-KEPT`") && prose.includes("nothing removed, **STOP**"), `PACKET-KEPT: nothing removed, a STOP: ${prose}`);
+  }
+});
+
+// killer: docs/RUNBOOK-dojo.md:874 CONST "n <= 1144 && d <= 365" -> "n <= 1145 && d <= 365"
+test("dojo_runbook_counts_the_history_against_the_measured_grid", () => {
+  exists(); // Q-12 of the G2 inspection of part 2: the read-only count before 18 (iv), run on packets of the REAL writer of PR-2b
+  const s18 = sectionOf(18), js = /node --input-type=module -e '([^']+)' '<local packet>[/]publish'/.exec(s18)?.[1] ?? "";
+  assert.ok(js !== "" && s18.indexOf(js) < s18.indexOf("(iv) The `history` line"), "the count of Q-12, before (iv)");
+  const R = mkdtempSync(join(tmpdir(), "dojo-grid-")), body = anchorBody("0".repeat(64), 365, ANCHOR_DAY);
+  roots.push(R);
+  // The edges of the grid DOJO-VERIFY-SCALE-1 measured (the publish unit's comment): N <= 10 000 at D <= 30 days, N <= 1 144 at D <= 365.
+  const EDGES = [[10000, 30, true], [1144, 365, true], [10001, 1, false], [10000, 31, false], [1145, 31, false], [1144, 366, false]] as const;
+  for (const [n, days, inside] of EDGES) {
+    const dir = join(R, `n${String(n)}-d${String(days)}`);
+    packetAt(dir, body, DAY1 + days - 1, n);
+    const r = spawnSync(process.execPath, ["--input-type=module", "-e", js, join(dir, "publish")], { encoding: "utf8" }), w = r.stdout.trim().split(" ");
+    assert.deepEqual([r.status, w.slice(0, 3), w[3]?.startsWith("bytes="), w.slice(4)], [inside ? 0 : 1, [`lines=${String(n)}`,
+      `addresses=${String(n)}`, `days=${String(days)}`], true, [inside ? "IN-GRID" : "BEYOND-GRID"]], `${String(n)} x ${String(days)}: ${r.stderr}`);
+  }
 });
