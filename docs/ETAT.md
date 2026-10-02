@@ -138,6 +138,9 @@ Tronc `lot/etude-suite`. Dernier oracle complet : 1 779 tests, dont 1 776 verts,
   - après l'envoi du site, avant le jour de l'annonce : DOJO-SITE-PROXY-XFF-MEASURE-1 (Q-6 : un amont temporaire en boucle locale du
     serveur du site renvoie les en-têtes reçus, derrière une copie du bloc `reverse_proxy` de l'extrait ; une requête porte
     `X-Forwarded-For`, `X-Real-IP` et `Forwarded` ; attendu : aucun des trois, aucune adresse du client ; un acte sous go, une FAITS).
+  - au premier lot de l éditeur qui redéploie l arbre de publication (DJ-L190, L191, L34, au plus tard 2026-10-09) :
+    DOJO-CHAIN-COMMENT-STALE-1 (voie (b) de l investisseur, 2026-10-02 14:20 UTC : la ligne de commentaire de `dojo-chain.mjs` est revenue
+    au texte de `c0c60617`, faux depuis SITE-PREP ; à corriger dans ce lot, jamais seule).
 - **Textes du tableau** : TXT-17 et TXT-17a corrigés et TXT-17o ajouté (« Listed by hold score, highest first; equal hold scores by address. »), à valider par l'investisseur avec la page.
 - **Adresse du serveur Bell** : déjà dans le dépôt public (19 fichiers de `main` depuis le 23/09, et le mode d'emploi du Dōjō). Ce n'est pas un secret : `bell.monarkgate.tech` y renvoie. Aucune clé n'est publiée.
 - **Collecteur d'historique** (report décidé par l'orchestrateur le 2026-10-01, cp-2 de la partie 2, correction 1) :
