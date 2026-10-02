@@ -1041,3 +1041,25 @@ Arithmétique sur `derived.json` R4 (pic 6 467, N = 23 628, 5 714 échecs, 17 jo
   deux ou trois lignes et un test ; aucun `batch` observé dans les bruts des phases B et C). HISTORY-INS-2 et DOJO-HISTORY-BATCH-NEAR-1
   ajoutés à la liste « avant le go de l acte 1 » de 2b4/Q-G2-4 : BATCH-NEAR-1 passe avant la course finale (`--first-read`), dont le
   journal épinglera le sha de `history-read.ts`.
+- **Ligne datée (orchestrateur, 2026-10-02 02:0x UTC ; lot BATCH-NEAR ; item DOJO-HISTORY-BATCH-NEAR-1 ; D-5, D-8 (vi) l.370)** : dans
+  `readBody`, une instruction Token-2022 analysée entre dans `ins` quand le mint ou un compte de ses entrées figure à TOUTE profondeur
+  de son `info` (tableaux et objets parcourus, clés jamais lues), et non plus seulement parmi ses valeurs directes ; rien d autre ne
+  change (instruction non analysée : `accounts`, inchangée ; l offre, le repli de propriétaire de D-5 l.329 et (iv) exigent toujours
+  une valeur directe ; les soldes viennent de `pre/postTokenBalances`). Un `batch` analysé (`parse_token.rs` l.769-809, `info =
+  {instructions: [...]}`) qui enveloppe une instruction proche est donc retenu une fois, sous le type `batch`, absent de la liste
+  fermée : (vi) arrête en `instruction_not_allowed` (fermé par défaut ; aucun type ajouté). Bruts des courses
+  `provisional-2026-10-01-r2` et `-r3` : 0 instruction proche par la seule règle profonde sur 85 757 et 86 015 instructions
+  Token-2022 (`count-deep.out` `90975386…`) ; `readBody` et `readKey` de la base et du gel identiques sur 47 983 et 48 066
+  transactions (`cmp-readbody.out` `ed6059df…`), remesuré par la G2 avec sa propre sonde (mêmes nombres, profondeur maximale 2).
+  Tests : `dojo_history_batch_near_the_mint_stops_instruction_not_allowed`,
+  `dojo_history_instruction_near_at_depth_two_is_kept_with_its_type`, `dojo_history_instruction_with_no_near_value_stays_ignored` ;
+  F2P et trois tueurs tués (`RED-PROOF.json` `cfd4d12e…`) ; mutants 11 / 11 (`RESULTS.json` `437bbd4b…`). Au-delà de quelques
+  milliers de niveaux d imbrication d une réponse, la course s arrête en faute non nommée, levée par `canonical` (`history-collect.ts`
+  l.255, antérieur au lot) ou par la proximité (`history-read.ts` l.112) selon l état du moteur ; mesuré par la G2 : `canonical` à
+  chaque profondeur essayée, entre 3 400 et 3 600 niveaux ; même gestionnaire (l.435-438) ; fail-closed mesuré par exécution
+  (`q3.json` `a06e910c…`) ; item DOJO-HISTORY-INFO-DEPTH-1, dont la construction couvre l.255, l.112 et `readBody` sur le chemin servi.
+- **Ligne datée (orchestrateur, 2026-10-02 02:0x UTC ; G2 ciblée de BATCH-NEAR, rapport `eda667be…`, APPROUVE-AVEC-CORRECTIONS)** :
+  code approuvé tel quel (`history-read.ts` `e038d7bf…`) ; C-1 (texte de la ligne ci-dessus) plié ; O-2 (`see` l.309 de
+  `history-collect.ts` avale toute exception, mais tourne toujours après `admit` sur les mêmes corps) versé à DOJO-HISTORY-INFO-DEPTH-1 ;
+  oracle G2 sortie 0 (1 860 tests, 0 échec ; enregistrement `9e510108…`). Fusion dans `lot/page-v1` : `6c464bbc`. La course finale
+  épingle le sha de `history-read.ts` à son journal.
