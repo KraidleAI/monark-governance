@@ -37,8 +37,8 @@ visuelle de l investisseur et la première synchro.
   Au retour : vérifier, committer sur `lot/site-browser` ; captures pour la validation C-V-4 (§6.6).
 - **G1 RUNBOOK-PRE-IV** : mission `F:/tmp/dojo/mission-runbook-pre-iv.md` (`6a5e5dd4…`) ; livrables `F:/tmp/dojo/runbook-deliver/`.
   Au retour : vérifier, committer ; lignes d ADR (§9).
-- **G1 PAROXYSME-DOJO-FILE-1** : mission `F:/tmp/dojo/mission-paroxysme-dojo.md` (`839e6c29…`) ; livrables `F:/tmp/dojo/paroxysme/`.
-  Au retour : relire, verser `docs/PAROXYSME-Dojo.md` avec les ajouts du §9, committer.
+- **G1 PAROXYSME-DOJO-FILE-1** : RENDU à 02:2x UTC ; versé tel quel en `docs/PAROXYSME-Dojo.md` (`25dd9dd3`, sha256 `45b029fc…`) :
+  151 limites, 34 dettes sans item (6 publiques DJ-L01 à L06), 20 déclencheurs passés sans clôture écrite. Reste (§10).
 - **Contrôle du diff P2a-2 (RECHERCHES)** : mission `F:/tmp/kata-p2a/mission-p2a2-diff.md` (`563b07ec…`) ; rapport
   `F:/tmp/kata-p2a/P2A2-DIFF-RAPPORT.md`. Au retour : réponse détaillée à la boîte (§7), puis message séparé à l investisseur.
 
@@ -104,9 +104,16 @@ Dans `F:/Monark-wt-page-v1` : `git merge --no-ff <lot>` (aucun conflit attendu :
 
 ## 10. PAROXYSME (rappel obligatoire)
 Campagnes en cours : aucune. Différés après la publication, avec items : horodatage Bitcoin (DOJO-ANCHOR-OTS-AFTER-PUBLICATION-1),
-vérification BLS de drand (DOJO-BLS-VERIFY-1), DOJO-LIVE-HEALTH-1, DOJO-CA0-SCRIPT-1. Registre `PAROXYSME-Dojo.md` en rédaction (§3).
+vérification BLS de drand (DOJO-BLS-VERIFY-1), DOJO-LIVE-HEALTH-1, DOJO-CA0-SCRIPT-1. Registre `docs/PAROXYSME-Dojo.md` versé
+(`25dd9dd3`) : AVANT la première synchro (C-V-5), former les 34 items manquants (§1 du registre, les 6 publiques d abord), relire
+DJ-L67, L76, L81, L109, L114 (le tronc a bougé), écrire les clôtures des 20 déclencheurs passés et ajouter les items du §9.
+Pistes pour les 6 publiques (à confirmer) : DJ-L01 identité (recherche, preuve de personne ou regroupement d adresses) ; DJ-L02
+aucune promesse (Tiers, lecture juridique, D-12) ; DJ-L03 soldes rapportés par deux opérateurs (recherche, preuve d état) ; DJ-L04
+relecture sans Ed25519 du navigateur (code, vérification en JavaScript pur) ; DJ-L05 rotation de clé suivie par la relecture (code) ;
+DJ-L06 table sans script (code, rendu serveur des lignes committées).
 
 ## 11. Journal des mises à jour de ce fichier
 - 2026-10-02 02:0x UTC : création (six agents en vol, aucun retour depuis la consigne).
 - 2026-10-02 02:0x UTC : retour de la G2 de BATCH-NEAR ; fusion dans page-v1 ; G7 de la fusion en cours.
 - 2026-10-02 02:1x UTC : G7 de la fusion de BATCH-NEAR prononcé (`02104bde…`) ; la course finale a son code.
+- 2026-10-02 02:2x UTC : registre PAROXYSME du Dōjō rendu et versé (`25dd9dd3`) ; 34 items à former avant la synchro.
