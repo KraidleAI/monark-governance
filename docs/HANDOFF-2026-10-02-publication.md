@@ -306,8 +306,12 @@ DJ-L06 table sans script (code, rendu serveur des lignes committées).
   `1b66251c`, `a97013b9`, `e4837377`, `b122ea17`, `bf3451c0`, `bc247f3c`, `d10d757f` (tête du tronc = `lot/page-v1` `f39e679c` fusionnée).
   Oracle G7 du tronc VERT à chaque pas (neuf enregistrements, sortie 0). Tueurs : 0 survivant sur les neuf pas ; non conclus = le seul
   tueur du test du trousseau, sauté jusqu à A-4p (`c0c60617`), DOJO-KEYRING-KILLER-REMEASURE-1 ; ancres perdues à deux pas (lignes
-  déplacées par la fusion), remesurées aux pas suivants (34/34 au dernier). red-proof : F2P sur tous les tests jugés ; refus = classes
-  déclarées par les lots (gardes « green at base » de ENTRY-MAIN-LINK, saut TU-K). Instruit pas par pas, aucun écart hors de ces classes.
+  déplacées par la fusion), remesurées aux pas suivants (34/34 au dernier). red-proof, instruit pas par pas : 125 F2P ; 27 refus en
+  quatre classes, aucun hors d elles : 18 « green at base » (gardes de non-régression, G0-lot-entry-main-link-1 l.55), 1 « not green at
+  gel » (TU-K sauté jusqu à A-4p), 2 « red at base without an assertion failure » (`dojo_table_units_only_with_a_version`,
+  `dojo_units_compose_collect_to_publish_to_verify` : rouges à la base par une erreur, pas une assertion), 4 « import red » sur
+  `history-build.ts` (export neuf, HISTORY-PROVISIONAL), 2 ancres périmées du RUNBOOK au pas 8, corrigées au pas 9 (C-1). Les 27 ont
+  leur tueur tué dans la campagne du pas. Aucune dette.
   Correction 3 (b) : `G7.txt` passera à `d10d757f` avant CA-1 ; `/f/Monark` en extraction propre de ce commit.
 - 2026-10-02 17:04 UTC : lot DOJO-PAGE-FOLD-1 (go investisseur 15:5x, « pas de gates ») livré et gelé `f4c3e28f` (`lot/page-fold`) : deux
   volets natifs sous la table, aucun mot changé, 64 tests de page verts, portes statiques 0, R-25 156 ; réserve acceptée : deux phrases
