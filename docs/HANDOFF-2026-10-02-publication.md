@@ -397,6 +397,13 @@ DJ-L06 table sans script (code, rendu serveur des lignes committées).
   lignes sous la règle ; correction RECHERCHES : les éclats de la première course avaient été poussés. Rien ne bloque P0-2 côté table ;
   restent FAITS historiques (C-6) et RECORDER-CLOSE-TIME-1 ; P0-2 publiera les sha256 de l ADR, addenda 1 à 3, A-1 (après C-3), tables,
   générateur. Item W2S-BALANCED-COL-1 : colonne du contrôle équilibré à ajouter au simulateur MONARK (rapport seul) en partie A.
+- 2026-10-02 23:2x UTC : RECHERCHES b7390c5 : W2-H brouillon (H-EE-8-1 reprise 14:00 confirmée sur avis de place ; EE-10, EE-9 SOL lot
+  2024-04-29 ; EE-13 ETHW o2 sur ETHUSDT, Q-H3), P0-2 brouillon (20 empreintes, cases TO FILL MONARK), W2-C partie 1 (668 lignes).
+  Q-H1 répondu (PR recherches#61) : exclusion historique EE-7 bornée [début, fin + 24 h) acceptée à quatre conditions (détecteur mécanique,
+  tous blocs, pertes comptées, contrôle de queue par sous-bloc en rapport seul, item W2-EE7-SUBBLOCK-1) ; alternative stricte écrite, non
+  recommandée. Q-H2 : source proposée (paire USDT/USD à banque USD, Pyth en contrôle), fixée par addendum AVANT lecture. INTERDIT jusque-là :
+  lire toute série USDT/USD (FAITS-USDT-USD-HISTORY-1 non commencé). Règle 8 : zero_trade inclut la tronquée ; R sans manquante = suivante.
+  Q-H3 à Q-H7 et TO FILL de P0-2 : après la publication, avec RECORDER-CLOSE-TIME-1.
 - 2026-10-02 15:30 UTC : go de minuit reçu ; lanceur `F:/tmp/dojo/final/wait-and-run.sh` armé ; annonce X publiée depuis le 1er octobre
   (investisseur) ; validation visuelle : page reconstruite à l ancre 30/30/30/30/90, captures envoyées, six questions C-V-4 encore ouvertes.
 - 2026-10-02 08:26 UTC, ÉCART DE ROSTER relevé par l orchestrateur : depuis 02:51:22 UTC, les tours de l orchestrateur tournent sous
