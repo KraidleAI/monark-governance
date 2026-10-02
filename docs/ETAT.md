@@ -257,8 +257,11 @@ Tronc `lot/etude-suite`. Dernier oracle complet : 1 779 tests, dont 1 776 verts,
   Suite de P2 (messagerie #32 à #36) : séries descellées, recensement et parité exacts ; P2a-1 relu (#33), plié et contrôlé (#35) ;
   audit P3 de notre moteur : 24 points confirmés, 3 partiels, S-5 tranché en 400 nommé (#34) ; P2a-2 relu (#36) : quatre corrections,
   Q-P2a-4 voie (c) (seul le motif de la venue exempté dans le registre privé). Accord « P2a complet » après le pli et notre contrôle.
+  P2a complet (#38) ; P2b couru localement par RECHERCHES le 2026-10-02 (280 lignes, registre `811fcd57…`, rapport `e91edb41…`, non
+  commis) ; Q-P2b-1 décidée par l orchestrateur (#39, 14:15 UTC) : voie (b), exclusion R-25 fermée de `kata/registry/*.json` sourcée,
+  déclarée et testée, octets = empreintes annoncées, banc inchangé à `1ea4f64`.
   Item MONARK P2-RECALC-TOOL-1 : outil de recalcul indépendant des 280 lignes et oracle des métriques sans réseau, avant la comparaison
-  des résultats de P2b ; lots BYO-NEAR-NAME-1 (S-11, servi aujourd'hui) puis SERVED-HARDENING-1 après la première publication de la
+  des résultats de P2b, notre empreinte déposée avant toute lecture de leur registre (symétrie, #39) ; lancement sur go de l investisseur ; lots BYO-NEAR-NAME-1 (S-11, servi aujourd'hui) puis SERVED-HARDENING-1 après la première publication de la
   page ; version datée de la spécification publique (S-5) avant P3.
 - **Au-delà de la borne de profondeur** (orchestrateur, 2026-10-01, G7 sur C-1 du G2 DEPTH-BOUND) : un texte servi plus profond que 16
   n'est pas analysé ; chaque lecteur le refuse sous le code de sa forme (`keyring_invalid`, `timeline_malformed`, phrases du chargeur),
