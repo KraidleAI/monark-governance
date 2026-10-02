@@ -241,6 +241,14 @@ DJ-L06 table sans script (code, rendu serveur des lignes committées).
   08:28 UTC, relevé : quatre items proposés dans la partie ne sont formés ni à ETAT ni au registre PAROXYSME :
   DOJO-SITE-PROXY-XFF-MEASURE-1, FUSION-KILLER-ANCHORS-1, BELL-CADDY-IMPORT-REPLAY-1, BELL-RUNBOOK-ROLLBACK-CANDIDATE-1. À former
   après le verdict du validateur (il lit ETAT et le registre en ce moment), avec ses corrections.
+
+- 2026-10-02 08:57 UTC : checkpoint de la partie 3 rendu ACCEPTE-AVEC-CORRECTIONS (`claude-fable-5-1`, rapport `aca2af79…`, sceau vert ;
+  oracle cp-2 `40203116…` sortie 0, 1 882 tests, 0 rouge ; vérifié par l orchestrateur avant consommation). Corrections faites :
+  1 et 2 (huit items formés à ETAT, `d9973bce`) ; 4 (registre : DJ-L81, L106, L121 clos sur pièce ; L103 et L118 constatés) ;
+  3 et 5 (lignes datées d ADR-DOJO-PR-3, `b570e2b4` sur `lot/page-v1` ; ETAT aligné `a1b1c1ca`). Mesuré : seul `dojo-chain.mjs`
+  (une ligne de commentaire) sépare l arbre de publication de `c0c60617` ; avant CA-1 : fusion au tronc, `G7.txt`, A-3p rejoué, et le
+  lot de l éditeur (DJ-L190, L191, L34) fusionné avant. Oracle G7 lancé sur `b570e2b4` (script, sans modèle) ; le VERDICT G7 attend
+  la décision de l investisseur sur le roster. Course de cette nuit : `run-final.sh` dès 00:00 UTC, (iii) et (iv) avant 06:30 UTC.
 - 2026-10-02 08:26 UTC, ÉCART DE ROSTER relevé par l orchestrateur : depuis 02:51:22 UTC, les tours de l orchestrateur tournent sous
   `claude-opus-5-5` (519 tours dans la transcription de la session), pas sous `claude-fable-5-1` (règle : orchestrateur = Fable 5.1).
   Actes faits sous ce modèle : contrôle et accord P2a complet (recherches#38), consolidation du CLAUDE.md global, adjudications et
