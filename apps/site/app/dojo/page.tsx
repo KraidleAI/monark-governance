@@ -12,11 +12,11 @@ import { DojoSentence } from "@/components/dojo/dojo-figures";
 // Static server component, static metadata only. Before any served snapshot there is no record, and no page: notFound(). The
 // texts are the closed list of lib/dojo-copy.ts. The figures section is the reread component (components/dojo/dojo-live.tsx): its
 // first paint is the record's figures, by state (counted without a unit version, counted under one, or abstained), each through
-// components/dojo/dojo-figures.tsx, and the sentence of a conditional reread. The pill carries the register's status. The method
-// sentence names one figure, the validation window of the record's anchor in days, rendered through the same component.
+// components/dojo/dojo-figures.tsx, and the sentence of a conditional reread. The pill carries the register's status. Below the table,
+// two native folds: how it is counted (the method sentence names the anchor's validation window in days, same component), how to check it.
 export const metadata: Metadata = { title: DOJO_TITLE, description: T.lead };
 
-const PROSE = [T.exclusion, T.bounds, T.check, T.tree, T.beacon];
+const COUNTED = [T.exclusion, T.bounds], CHECK = [T.check, T.tree, T.beacon];
 
 export default function DojoPage() {
   const data = loadDojoServed(recordRootOf());
@@ -33,15 +33,27 @@ export default function DojoPage() {
         <h1 className="c-h1">{DOJO_TITLE}</h1>
         <p className="c-lede">{T.lead}</p>
       </section>
-      <DojoLive committed={data} />
-      <section className="c-section flex flex-col gap-3 text-sm text-muted-foreground">
-        <p>
-          <DojoSentence text={T.method} figures={figures} />
-        </p>
-        {PROSE.map((s) => (
-          <p key={s}>{s}</p>
-        ))}
-      </section>
+      <DojoLive
+        committed={data}
+        counted={
+          <>
+            <p>
+              <DojoSentence text={T.method} figures={figures} />
+            </p>
+            {COUNTED.map((s) => (
+              <p key={s}>{s}</p>
+            ))}
+          </>
+        }
+      />
+      <details className="pt-3 text-sm text-muted-foreground">
+        <summary className="cursor-pointer">{T.foldCheck}</summary>
+        <div className="mt-3 flex flex-col gap-3">
+          {CHECK.map((s) => (
+            <p key={s}>{s}</p>
+          ))}
+        </div>
+      </details>
     </main>
   );
 }

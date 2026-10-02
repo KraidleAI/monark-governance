@@ -115,12 +115,13 @@ test("dojo_page_renders_served_figures_only — per state, each listed figure on
 test("dojo_page_lexicon_is_closed — the closed list of texts is the approved one (its sha256, its three denials); no text of /dojo carries a forbidden word, 'thirty', 'independent', a name the site vocabulary bans or an operator's or the partner's name; the check refuses each on the page", async () => {
   assert.ok("DOJO_TABLE" in copy, "lib/dojo-copy.ts exports the words of the table (DOJO_TABLE)");
   const texts = [copy.DOJO_NAME, copy.DOJO_TITLE, ...Object.values(copy.DOJO_TEXT)], words = Object.values(copy.DOJO_TABLE);
-  assert.deepEqual([texts.length, words.length], [32, 13], "the name, the title and the thirty sentences; the thirteen words of the table");
+  assert.deepEqual([texts.length, words.length], [34, 13], "the name, the title and the thirty-two sentences; the thirteen words of the table");
   // ADR-DOJO-PR-4, G0 fold of PR-4c-2 (TXT-14b-r2, 15r, 15a, 15b-r, 17, 17a, 17c, DOJO_TABLE) and decision 301 (TXT-17o), pinned at the G1 of PR-4c-2a;
   // part 3 of the page: TXT-5 names the anchor's window, TXT-17c its third case, the dust rule (17, 17a, 15r, 15b-r, three sentences added).
   // SITE-CORR (C-1 and N-3 of the G2 of SITE-PREP): tableDust and tableNoVersion say "lines", every line under the threshold; and the
   // tier sentence names the Migration window of the anchor in force, {migration_days}, never typed (DOJO-COPY-DURATIONS-DERIVED-1).
-  const TEXTS_SHA256 = "e52373eef751a9b84ed4bb0eb9e9b7724dc28f0eaf43c7c3b284c628bb978a29";
+  // DOJO-PAGE-FOLD-1: the labels of the two folds of the page, foldCounted and foldCheck, two sentences added, no word of another changed.
+  const TEXTS_SHA256 = "5d69f18b3d6636cf4db8859de54fee0040e929918e07c53057587a605a894202";
   assert.deepEqual(texts.filter((t) => t.includes("one hundred and eighty")), [], "no duration of the closed list is typed in words");
   const closed = { DOJO_TEXT: copy.DOJO_TEXT, DOJO_TITLE: copy.DOJO_TITLE, DOJO_TIER_NAMES: copy.DOJO_TIER_NAMES, DOJO_TABLE: copy.DOJO_TABLE };
   assert.equal(createHash("sha256").update(canonical(closed)).digest("hex"), TEXTS_SHA256, "the closed list of texts is the approved one, byte for byte");
@@ -180,7 +181,7 @@ test("dojo_page_absent_before_data — no record: no /dojo page (none, or the no
   assert.equal(tokenSrc.split("DOJO_ROUTE").length - 1, 2, "one import and one link");
 });
 
-// killer: apps/site/components/dojo/dojo-live.tsx:44 CONST "<p>{view.note}</p>" -> "<p>{view.note} again</p>"
+// killer: apps/site/components/dojo/dojo-live.tsx:45 CONST "<p>{view.note}</p>" -> "<p>{view.note} again</p>"
 test("dojo_copy_is_digit_free — the texts of /dojo and their module type no digit (the names SHA-256 and Ed25519 aside); the page and its figures component render no literal text", () => {
   const unnamed = (s: string): string => DOJO_NAMED_IDS.reduce((t, id) => t.split(id).join(" "), s);
   const exported = ["DOJO_NAME", "DOJO_ROUTE", "DOJO_TABLE", "DOJO_TEXT", "DOJO_TIER_NAMES", "DOJO_TITLE"];

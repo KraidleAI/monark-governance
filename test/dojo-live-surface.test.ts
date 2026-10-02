@@ -87,10 +87,12 @@ async function e1(): Promise<{ f: ReturnType<typeof dojoFixture>; k: Rec; r1: Re
 
 // killer: apps/site/lib/dojo-served.ts:143 CONST "head: o.head" -> "head: committed.head"
 // killer: apps/site/lib/dojo-served.ts:232 CONST "w[4]" -> "w[3]"
+// killer: apps/site/lib/dojo-served.ts:244 CONST "!folded(k)" -> "folded(k)"
 test("dojo_live_renders_through_the_same_figures", async () => {
-  const viewOf = added("dojoLiveViewOf"), firstOf = added("dojoFirstViewOf"), bodyOf = added("dojoBodyOf");
+  const viewOf = added("dojoLiveViewOf"), firstOf = added("dojoFirstViewOf"), bodyOf = added("dojoBodyOf"), foldOf = added("dojoFoldOf");
   const { k, r1, c, e2 } = await e1(), r2 = await recordOf(e2, k), after = await loaded(r2);
-  const fixed = [copy.DOJO_TITLE, T.lead, T.method, T.exclusion, T.bounds, T.check, T.tree, T.beacon, T.rereadFirst, T.table];
+  const fixed = [copy.DOJO_TITLE, T.lead, T.method, T.exclusion, T.bounds, T.check, T.tree, T.beacon, T.rereadFirst, T.table, T.foldCounted,
+    T.foldCheck];
   /** The sentences the build check composes apart for a record (dojoExpected), those that carry figures. */
   const built = async (r: Rec): Promise<string[]> => {
     const e = await atRoot(r, (dir) => dojoExpected(dir)), method = T.method.split("{")[0] ?? T.method;
@@ -121,6 +123,11 @@ test("dojo_live_renders_through_the_same_figures", async () => {
     [{ state: "E2", ...counted, ...unit, holders_count: "2" }, ["counted", "totals", "holders", "tiers", "tier"]],
     [{ state: "EA", ...day }, ["abstained", "noVersion"]], [{ state: "EA", ...day, threshold_unit_token_days: "u" }, ["abstained", "tiers"]]];
   for (const [figures, keys] of orders) assert.deepEqual(bodyOf(figures), keys, `order of ${figures.state}`);
+  // The page folds the tier sentences under "How it is counted", below the table (DOJO-PAGE-FOLD-1, D-2): the unit or the absence of a
+  // version, then the tier; the totals and the holders stay open (D-1). Each part keeps the order above; the head's sentence is never folded.
+  const folds: Array<[served.DojoBodyKey[], served.DojoBodyKey[]]> = [[["totals"], ["noVersion"]], [["totals", "holder"], ["tiers", "tier"]],
+    [["totals", "holders"], ["tiers", "tier"]], [[], ["noVersion"]], [[], ["tiers"]]];
+  for (const [i, [figures, keys]] of orders.entries()) assert.deepEqual(foldOf(keys.slice(1)), folds[i], `fold of ${figures.state}`);
   // The day shown is the day of the head whose figures are shown, and no other (M-L12).
   const fb = await viewOf(c, wired(c, new Map(e2).set(DOJO_TIMELINE_PATH, Buffer.alloc(0))).deps);
   const text = (x: served.DojoLiveView): string => shown(x).join(" ");
@@ -314,16 +321,26 @@ test("dojo_live_calls_the_reread_without_bounds", () => {
   assert.equal(count("useState<DojoLiveView>(() => dojoFirstViewOf(committed, T))"), 1, "the first paint");
   assert.equal(count("void dojoLiveViewOf(committed, { verifyEd25519, signingBytes, signatureOf, reread, text: T })"), 1, "the reread, once mounted");
   assert.deepEqual([count("useEffect("), count("<DojoSentence "), count("{view.note}"), count("view.figures."), count("dangerouslySetInnerHTML")],
-    [1, 2, 1, 0, 0], "the figures only through DojoSentence, the view's sentence as text");
-  const body = ["const [head, ...rest] = dojoBodyOf(view.figures);", "<DojoSentence text={T[head]} figures={view.figures} />", "<p>{view.note}</p>",
-    "{rest.map((k) => (", "<DojoSentence text={T[k]} figures={view.figures} />"];
+    [1, 3, 1, 0, 0], "the figures only through DojoSentence, the view's sentence as text");
+  // The open sentences, the table, then the native fold of the tier sentences and the page's own (DOJO-PAGE-FOLD-1): no state, no handler.
+  const body = ["const [head, ...rest] = dojoBodyOf(view.figures);", "const [open, folded] = dojoFoldOf(rest);",
+    "<DojoSentence text={T[head]} figures={view.figures} />", "<p>{view.note}</p>", "{open.map((k) => (",
+    "<DojoTable key={dojoTableKeyOf(view)} view={view} get={get} sha256={sha256} />", '<details className="text-muted-foreground">',
+    '<summary className="cursor-pointer">{T.foldCounted}</summary>', "{folded.map((k) => (", "{counted}", "</details>"];
   assert.ok(body.every((s, i) => count(s) === 1 && (i === 0 || src.indexOf(body[i - 1] ?? "") < src.indexOf(s))),
-    "the head's sentence (its day), the view's own right after it (QF-3), then the others: each once, in this order (C-G2-1)");
+    "the head's sentence (its day), the view's own right after it (QF-3), the others open, the table, then the fold: each once, in order (C-G2-1)");
+  assert.deepEqual([count("<DojoSentence text={T[k]} figures={view.figures} />"), count("onToggle"), count("onClick")], [2, 0, 0],
+    "each body sentence through DojoSentence, open or folded; the fold opens without a script");
   assert.equal(count('import type { DojoServedData } from "@/lib/dojo-served-load";'), 1, "the loader, which reads files, as a type only");
   const page = readFileSync(join(ROOT, "apps", "site", "app", "dojo", "page.tsx"), "utf8"), inPage = (s: string): number => page.split(s).length - 1;
-  assert.deepEqual([inPage("<DojoLive committed={data} />"), inPage("DojoSentence"), inPage("<DojoSentence text={T.method} figures={figures} />"),
-    inPage("T.reread")], [1, 2, 1, 0], "the page renders its figures section through the reread component, the method sentence's one figure "
-    + "(the anchor's window) through DojoSentence, and no sentence of the reread of its own (M-L11)");
+  assert.deepEqual([inPage("<DojoLive"), inPage("committed={data}"), inPage("DojoSentence"), inPage("<DojoSentence text={T.method} figures={figures} />"),
+    inPage("T.reread"), inPage("onToggle"), inPage("onClick")], [1, 1, 2, 1, 0, 0, 0], "the page renders its figures section through the reread "
+    + "component, the method sentence's one figure (the anchor's window) through DojoSentence, and no sentence of the reread of its own (M-L11)");
+  const tail = ["<DojoLive", "counted={", "<DojoSentence text={T.method} figures={figures} />", "{COUNTED.map((s) => (",
+    '<details className="pt-3 text-sm text-muted-foreground">', '<summary className="cursor-pointer">{T.foldCheck}</summary>', "{CHECK.map((s) => ("];
+  assert.ok(tail.every((s, i) => inPage(s) === 1 && (i === 0 || page.indexOf(tail[i - 1] ?? "") < page.indexOf(s)))
+    && inPage("const COUNTED = [T.exclusion, T.bounds], CHECK = [T.check, T.tree, T.beacon];") === 1,
+    "the method, the exclusion and the bounds passed to the first fold, then the second fold: the check, the tree, the beacon (D-2)");
 });
 
 // killer: apps/site/lib/dojo-served.ts:91 CONST "h.slot_min > h.slot_max" -> "false"
