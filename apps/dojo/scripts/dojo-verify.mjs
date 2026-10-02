@@ -12,7 +12,7 @@ import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { createHash } from "node:crypto";
 import { canonical, trustOf } from "../../bell/scripts/bell-chain.mjs";
-import { walkDojoTimeline } from "./dojo-chain.mjs";
+import { readJson, walkDojoTimeline } from "./dojo-chain.mjs";
 import { beaconRound, dayMinimum, dayValue, holderCounted, ownerClass, proofOf, provisionalOf, readInstants, rootOf, scoreOf, stepLots, tierOf,
   unitPrice, unitThreshold, unitsOf, validatedOf, verifyProof } from "./dojo-core.mjs";
 
@@ -149,8 +149,8 @@ async function readImmutable(source, rel, sig, keys, form, before, codes) {
   if (sha256(buf) !== sig.sha) at(codes[1], rel);
   const objs = raw.map((s, i) => {
     let o = null;
-    try { o = JSON.parse(s); } catch { o = null; }
-    if (o === null || typeof o !== "object" || Array.isArray(o) || canonical(o) !== s || !same(Object.keys(o), keys) || !form(o)) {
+    try { o = readJson(s); if (canonical(o) !== s) o = null; } catch { o = null; } // null past the depth bound; canonical throws on 1e400
+    if (o === null || typeof o !== "object" || Array.isArray(o) || !same(Object.keys(o), keys) || !form(o)) {
       at("line_malformed", `${rel} line ${i + 1}`);
     }
     return o;
@@ -167,13 +167,13 @@ export function checkInclusion(line, index, count, path, root) {
 }
 
 async function verify({ source, keyring, address, day, bounds }) {
-  const parse = (buf, code, seq, what) => { try { return JSON.parse(buf.toString("utf8")); } catch { return refuse(code, seq, null, what); } };
+  const parse = (buf, code, seq, what) => { try { return readJson(buf.toString("utf8")); } catch { return refuse(code, seq, null, what); } };
   const tl = await source.get("timeline.jsonl"), text = tl.toString("utf8"); // tl: the verified bytes, hashed into timeline_sha256 (D-3)
   if (text !== "" && !text.endsWith("\n")) refuse("timeline_malformed", null, null, "timeline.jsonl: no final newline");
   const lines = text === "" ? [] : text.slice(0, -1).split("\n").map((s, i) => {
     if (Buffer.byteLength(s) + 1 > bounds.MAX_LINE_BYTES) refuse("too_large", i + 1, null, "timeline.jsonl");
-    return parse(Buffer.from(s), "timeline_malformed", i + 1, "timeline.jsonl");
-  });
+    try { const l = readJson(s); canonical(l); return l; } catch { return refuse("timeline_malformed", i + 1, null, "timeline.jsonl"); }
+  }); // readJson: null past the depth bound, which the walk refuses; canonical(l): a number it cannot write (1e400) is malformed here, by name
   const served = dojoTrustOf(parse(await source.get("dojo/pubkey.json"), "not_json", null, "dojo/pubkey.json"));
   if (served === null) refuse("keyring_invalid", null, null, "dojo/pubkey.json");
   const root = keyring === null ? served : dojoTrustOf(keyring);
@@ -370,3 +370,6 @@ if (isEntry()) {
     + " (--keyring <file> | --self-consistent-only) [--address <address>] [--day <YYYY-MM-DD>]\n");
   process.exitCode = 1;
 }
+
+// Lot DEPTH-BOUND: the CLI reads its --keyring file through this readJson (dojo-chain.mjs), never a copy: the checks are the core's.
+export { readJson };

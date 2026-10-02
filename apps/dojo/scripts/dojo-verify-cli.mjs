@@ -6,7 +6,7 @@
 import { readFileSync, realpathSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { canonical } from "../../bell/scripts/bell-chain.mjs";
-import { DojoVerifyError, VERIFY_BOUNDS, dayOk, dirSource, verifyDojoServed } from "./dojo-verify.mjs";
+import { DojoVerifyError, VERIFY_BOUNDS, dayOk, dirSource, readJson, verifyDojoServed } from "./dojo-verify.mjs";
 
 const refuse = (code, seq, day, detail) => { throw new DojoVerifyError(code, seq, day, detail); };
 
@@ -77,7 +77,7 @@ export async function runVerifyCli(argv) {
     || (opt.has("--day") && !dayOk(opt.get("--day")))) { process.stderr.write(USAGE); return 1; }
   try {
     let keyring = null;
-    if (opt.has("--keyring")) { try { keyring = JSON.parse(readFileSync(opt.get("--keyring"), "utf8")); } catch { keyring = undefined; } }
+    if (opt.has("--keyring")) { try { keyring = readJson(readFileSync(opt.get("--keyring"), "utf8")); } catch { keyring = undefined; } }
     const source = opt.has("--url") ? urlSource(opt.get("--url")) : dirSource(trees[0]);
     const r = opt.has("--keyring") && (keyring === null || typeof keyring !== "object")
       ? { ok: false, reason: "keyring_invalid", seq: null, day: null, detail: "--keyring" }

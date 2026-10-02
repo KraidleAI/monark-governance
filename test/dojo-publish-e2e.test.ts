@@ -57,8 +57,8 @@ function pythAt(sec: number): Resp {
 interface World { s: string; inbox: string; key: KeyObject; secret: string; eve: Eve; pkt: string }
 /** An anchored state (day A; K = 4, W = 60, u = 1..5, O_1, one dollar of dust: decisions 234, 236, 225 (7), 248), its seed chain from
  *  dojo-seed.mjs (horizon 365), then the history of days 1 to A, a packet of the REAL writer published by the REAL CLI --history (TU-12c;
- *  3a1b/Q-V-2): X holds 40 000 000 000 000 (sold down to its enumerated amount on A + 1), ADDR.A 5 000 000
- *  (no account on the read days: a concordant 0, C-1); the Eve of A + 1 = those two addresses. SYNTHETIC values. */
+ *  3a1b/Q-V-2) once A + 1, the first day read, is closed in the inbox with the packet's Eve (B-1; TU-1p): X holds 40 000 000 000 000 (sold
+ *  down to its enumerated amount on A + 1), ADDR.A 5 000 000 (no account on the read days: a concordant 0, C-1); eve = the Eve of A + 2. */
 function world(): World {
   const s = tmp("dojo-e2e-state-"), inbox = tmp("dojo-e2e-inbox-"), key = generateKeyPairSync("ed25519").privateKey, file = join(tmp("dojo-e2e-seed-"), "seed");
   const request = { ...initSeed(file, 365), mint: MINT, program: TOKEN_2022, k_reads: K, validation_days: 60, tier_units: ["1", "2", "3", "4", "5"],
@@ -67,9 +67,11 @@ function world(): World {
   ok(() => publishAnchor({ stateDir: s, key, request, clock: () => T0 }));
   const hl = [{ address: X, day_value: "40000000000000" }, { address: ADDR.A, day_value: "5000000" }]
     .map((x) => ({ ...x, class: ownerClass(x.address), day: dateOf(A) })).sort((x, y) => Buffer.compare(Buffer.from(x.address), Buffer.from(y.address)));
-  const pkt = packet(hl, A), c = cliAt((A + 1) * DAY + 600_000, ["--history", pkt, "--state", s], key); // 00:10 UTC of A + 1
+  const w: World = { s, inbox, key, pkt: packet(hl, A), secret: readFileSync(file, "utf8").trim(), eve: { addresses: [], accounts: [] } };
+  w.eve = writeDay(w, A + 1, readEve(readFileSync(join(w.pkt, "publish", "eve.json"), "utf8"))); // A + 1 closed, its Eve the packet's (A-11)
+  const c = cliAt((A + 2) * DAY + 1_200_000, ["--history", w.pkt, "--inbox", inbox, "--state", s], key); // 00:20 UTC of A + 2: A + 1 is over
   assert.equal(c.status, 0, c.stderr);
-  return { s, inbox, key, pkt, secret: readFileSync(file, "utf8").trim(), eve: { addresses: hl.map((x) => x.address), accounts: [] } };
+  return w;
 }
 /** A history packet under <dir>/publish/ as the collector writes it, by the REAL writer of PR-2b (historyBundle, ADR-DOJO-PR-2B D-12): the
  *  lines `hl` of days 1 to `last`, the Eve of the first day read = the addresses of the last day; SIG0 the pinned creation; counts, links
@@ -125,13 +127,12 @@ const killAt = (f: string, needle: string): string[] => ["--import", `data:text/
 // killer: apps/dojo/scripts/dojo-publish.mjs:229 CONST "lots: lotsOf(s)" -> "lots: lotsOf(s.slice(0, -1))"
 test("dojo_publish_to_verify_end_to_end", async () => {
   const w = world(), got: (number | null)[] = [], pub = join(w.s, "public");
-  let eve = w.eve;
+  let eve = w.eve; // the Eve of A + 2: world() closed A + 1, the first day read, before the history line (B-1)
   for (let d = A + 1; d <= A + 7; d++) {
-    eve = writeDay(w, d, eve);
     const r = await okA(() => publishDay({ inboxDir: w.inbox, stateDir: w.s, key: w.key, clock: () => slot(d) }));
     got.push(r.status === "published" ? r.price_version : -1);
+    eve = writeDay(w, d + 1, eve); // the next day, closed once this one is published (A + 8 last)
   }
-  writeDay(w, A + 8, eve);
   const c8 = cliAt(slot(A + 8), ["--inbox", w.inbox, "--state", w.s], w.key), r8 = json(c8.stdout);
   assert.deepEqual([c8.status, r8.status, r8.day, r8.price_version], [0, "published", dateOf(A + 8), null], c8.stderr);
   assert.deepEqual(got, [null, null, null, null, null, null, 1], "one price_version at the seventh valid day (TU-11), none at the eighth (one per window)");
@@ -163,10 +164,10 @@ test("dojo_history_publish_to_verify_end_to_end", async () => {
   const v = await verifyDojoServed({ source: dirSource(pub), keyring: kr });
   assert.deepEqual([v.ok, v.ok && v.status, v.ok && v.history], [true, "consistent_with_supplied_keyring", { history_sha256: m.history_sha256,
     history_lines_count: m.history_lines_count, recomputed_root: m.history_root }], JSON.stringify(v));
-  writeDay(w, A + 1, readEve(readFileSync(join(w.pkt, "publish", "eve.json"), "utf8"))); // the first day read, its Eve the packet's (TU-1p, A-11)
   const c1 = cliAt(slot(A + 1), ["--inbox", w.inbox, "--state", w.s], w.key), tl = readFileSync(join(w.s, "timeline.jsonl"), "utf8");
-  assert.deepEqual([c1.status, json(c1.stdout).status], [0, "published"], c1.stderr);
-  const again = cliAt(slot(A + 1) + 60_000, ["--history", w.pkt, "--state", w.s], w.key), tl2 = readFileSync(join(w.s, "timeline.jsonl"), "utf8");
+  assert.deepEqual([c1.status, json(c1.stdout).status], [0, "published"], c1.stderr); // A + 1, the first day read, closed by world() (B-1)
+  const again = cliAt(slot(A + 1) + 60_000, ["--history", w.pkt, "--inbox", w.inbox, "--state", w.s], w.key);
+  const tl2 = readFileSync(join(w.s, "timeline.jsonl"), "utf8");
   assert.deepEqual([again.status, again.stdout, again.stderr.startsWith("dojo/publish: history_after_snapshot: "), tl2], [1, "", true, tl],
     "--history after the first snapshot: refused, nothing written");
   const v1 = await verifyDojoServed({ source: dirSource(pub), keyring: kr });
@@ -174,16 +175,15 @@ test("dojo_history_publish_to_verify_end_to_end", async () => {
     "the first snapshot's lots follow the history's last day (history_transition_mismatch otherwise)");
 });
 
-// killer: apps/dojo/scripts/dojo-publish.mjs:403 CONST "wx" -> "w"
+// killer: apps/dojo/scripts/dojo-publish.mjs:541 CONST "linkSync(tmp, p)" -> "renameSync(tmp, p)"
 test("dojo_publish_one_writer_every_other_launch_refuses", async () => {
   assert.equal(publisher.STATE_LOCK, "publish.lock", "the lock at the root of --state (D-SW2)");
   const w = world(), d = A + 1, lock = join(w.s, "publish.lock"), priv = join(w.s, "timeline.jsonl"), D = publisher.DURABLE_FS, saved = { ...D };
-  writeDay(w, d, w.eve);
   const req = join(tmp("dojo-e2e-req-"), "anchor.json"), a1 = linesOf(priv)[0] ?? {}, creds = tmp("dojo-e2e-cred-"), out: string[] = [];
   writeFileSync(req, canonical(Object.fromEntries(publisher.ANCHOR_KEYS.map((k) => [k, a1[k]])))); // the request of the anchor itself
   writeFileSync(join(creds, "dojo-signing-key"), w.key.export({ type: "pkcs8", format: "pem" }));
   const kids = [["--inbox", w.inbox, "--state", w.s], ["--anchor", req, "--state", w.s], ["--rotate", "--state", w.s], ["--rotate", "--broken", "--state", w.s],
-    ["--revoke", keyIdOf(w.key), "--from-seq", "1", "--state", w.s], ["--unlock", w.s], ["--history", w.pkt, "--state", w.s]];
+    ["--revoke", keyIdOf(w.key), "--from-seq", "1", "--state", w.s], ["--unlock", w.s], ["--history", w.pkt, "--inbox", w.inbox, "--state", w.s]];
   const FOREIGN = JSON.stringify({ pid: process.pid, mode: "--anchor", taken_at: 0 }), seen: unknown[][] = []; // SYNTHETIC: a record not A's
   let snap: string[] = [], record = "", made: unknown[] = [];
   D.openSync = (p, f) => { // A paused at the open of its append, after its walk and its VAE (form p5 of the G2 of PR-3a-1a): observations only
@@ -225,7 +225,6 @@ test("dojo_publish_lock_of_a_killed_launch_resumes_without_loss", async () => {
   assert.equal(publisher.STATE_LOCK, "publish.lock", "the lock at the root of --state (D-SW2)");
   for (const [f, needle, n] of [["openSync", "/timeline.jsonl a", 2], ["renameSync", "/public/lines/", 3]] as const) { // before, then past the commit
     const w = world(), d = A + 1, lock = join(w.s, "publish.lock"), priv = join(w.s, "timeline.jsonl"), inbox = ["--inbox", w.inbox, "--state", w.s];
-    writeDay(w, d, w.eve);
     const dead = cliAt(slot(d), inbox, w.key, killAt(f, needle)); // win32: status 1, signal null (measured at the G1): witness status !== 0, never signal
     assert.deepEqual([dead.status !== 0, existsSync(lock), linesOf(priv).length], [true, true, n], `${f}: killed, its lock held; ${dead.stderr}`);
     assert.throws(() => process.kill(dead.pid, 0), /ESRCH/, "precondition: the killed launch is dead");
@@ -248,4 +247,41 @@ test("dojo_publish_lock_of_a_killed_launch_resumes_without_loss", async () => {
       assert.deepEqual([c.status, c.stdout, c.stderr, files(w.s)], [1, "", `dojo/publish: lock_held: publish.lock: owner unreadable${LF}`, torn], a[0]);
     }
   }
+});
+
+// killer: apps/dojo/scripts/dojo-publish.mjs:539 CONST "D.closeSync(fd); unlinkSync(tmp); throw e;" -> "D.closeSync(fd); throw e;"
+test("dojo_publish_lock_record_not_written_leaves_no_lock", async () => {
+  const D = publisher.DURABLE_FS, saved = { ...D }, ENOSPC = (): never => { throw Object.assign(new Error("SYNTHETIC ENOSPC"), { code: "ENOSPC" }); };
+  for (const f of ["writeSync", "fsyncDir"] as const) { // C-1: the lock's record, then its directory, not made durable (a disk full, an EIO)
+    const s = tmp("dojo-e2e-c1-"), inbox = tmp("dojo-e2e-c1-inbox-"), key = generateKeyPairSync("ed25519").privateKey, creds = tmp("dojo-e2e-cred-");
+    const lock = join(s, "publish.lock"), err: string[] = [], env = process.env.CREDENTIALS_DIRECTORY, write = process.stderr.write.bind(process.stderr);
+    writeFileSync(join(creds, "dojo-signing-key"), key.export({ type: "pkcs8", format: "pem" }));
+    let n = 0, code = -1;
+    if (f === "writeSync") D.writeSync = (fd, data) => (++n === 1 ? ENOSPC() : saved.writeSync(fd, data));
+    else D.fsyncDir = (dir) => (++n === 1 ? ENOSPC() : saved.fsyncDir(dir));
+    process.env.CREDENTIALS_DIRECTORY = creds;
+    process.stderr.write = (c: string | Uint8Array, ...r: unknown[]): boolean => (typeof c === "string" && c.startsWith("dojo/publish:") ? err.push(c) > 0
+      : (write as (...x: unknown[]) => boolean)(c, ...r)); // the launch's line only; the runner's own output passes through
+    try { code = await publisher.runCli(["--inbox", inbox, "--state", s]); } finally {
+      Object.assign(D, saved);
+      process.stderr.write = write;
+      if (env === undefined) delete process.env.CREDENTIALS_DIRECTORY; else process.env.CREDENTIALS_DIRECTORY = env;
+    }
+    assert.deepEqual([code, err, existsSync(lock), files(s)], [1, [`dojo/publish: fatal: ENOSPC${LF}`], false, []], `${f}: no lock left, nothing written`);
+    const u = cliAt(slot(A + 1), ["--unlock", s], key), next = cliAt(slot(A + 1), ["--inbox", inbox, "--state", s], key);
+    assert.deepEqual([json(u.stdout), next.status, next.stderr.startsWith("dojo/publish: history_missing: "), files(s)],
+      [{ status: "not_locked" }, 1, true, []],
+      `${f}: the next launch takes the lock and reaches the publisher (an empty state: history_missing, named); ${next.stderr}`);
+  }
+});
+
+// killer: apps/dojo/scripts/dojo-publish.mjs:538 CONST "`${p}.${process.pid}`" -> "p"
+test("dojo_publish_lock_never_exists_without_its_record", () => {
+  const w = world(), d = A + 1, lock = join(w.s, "publish.lock"), inbox = ["--inbox", w.inbox, "--state", w.s];
+  const dead = cliAt(slot(d), inbox, w.key, killAt("writeSync", "taken_at")); // Q-6: killed at the write of its record, after the create
+  const left = files(w.s).filter((f) => f.startsWith("publish.lock")).map((f) => f.split(" ")[0]);
+  assert.deepEqual([dead.status !== 0, existsSync(lock), left], [true, false, [`publish.lock.${String(dead.pid)}`]],
+    `no publish.lock without its whole record: only this launch's own name is left, which blocks nothing; ${dead.stderr}`);
+  const next = cliAt(slot(d), inbox, w.key);
+  assert.deepEqual([next.status, json(next.stdout).status, existsSync(lock)], [0, "published", false], `the next launch takes the lock: ${next.stderr}`);
 });

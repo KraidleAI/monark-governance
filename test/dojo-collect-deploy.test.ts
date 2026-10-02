@@ -17,8 +17,8 @@ import { basename, dirname, join, posix } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { DRAND_RELAY_LABELS, heliusCredits } from "@monark/rpc-guard";
 import { DEFAULT_TIMEOUT_MS, parseRetryAfterMs } from "../packages/rpc-guard/src/transport.ts";
-import { ENV as SIM_ENV, MINT, POOL, PYTH, QUOTE_VAULT, ROWS, sim } from "../apps/dojo/test/helpers/collect-chain.ts";
-import { ANCHOR_DAY, anchorBody, betaOf, dateOf } from "../apps/dojo/test/helpers/dojo-fixture.ts";
+import { ENV as SIM_ENV, MINT, POOL, PYTH, QUOTE_VAULT, ROWS, sim, stampOf } from "../apps/dojo/test/helpers/collect-chain.ts";
+import { ANCHOR_DAY, anchorBody, betaOf, dateOf, roundOf } from "../apps/dojo/test/helpers/dojo-fixture.ts";
 import { canonical } from "../apps/bell/scripts/bell-chain.mjs";
 import { daySeed, readInstants, seedAnchor } from "../apps/dojo/scripts/dojo-core.mjs";
 import { DOJO_SEED_REFUSALS } from "../apps/dojo/scripts/dojo-seed.mjs";
@@ -47,7 +47,7 @@ const SERVICE: Readonly<Record<string, string>> = { Type: "oneshot", WorkingDire
 const TIMER: Readonly<Record<string, string>> = { OnCalendar: "*-*-* *:00/5:00 UTC", AccuracySec: "1s", RandomizedDelaySec: "0", Persistent: PERSISTENT,
   Unit: basename(D.DOJO_COLLECT_UNIT) };
 /** The worst course of one reading, from the code (dated line 15:00Z, C-G2-2): CALLS calls of TRIES attempts of at most DEFAULT_TIMEOUT_MS
- *  to the response head, TRIES - 1 waits of at most the Retry-After cap, and PUBLIC_HOST_GAP_MS before each public attempt (half). */
+ *  to the response head and body, TRIES - 1 waits of at most the Retry-After cap, and PUBLIC_HOST_GAP_MS before each public attempt (half). */
 const CALLS = (2 * Object.values(DOJO_METHOD_CAPS).reduce((s, n) => s + n, 0)) / TRIES;
 const WORST_S = (CALLS * TRIES * DEFAULT_TIMEOUT_MS + CALLS * (TRIES - 1) * Math.max(parseRetryAfterMs("86400", 0) ?? NaN, BACKOFF_MS)
   + (CALLS / 2) * TRIES * PUBLIC_HOST_GAP_MS) / 1000;
@@ -323,12 +323,23 @@ test("dojo_collect_unit_runs_the_real_tick", async () => {
   const last = JSON.parse(readFileSync(join(cyc, "helius.jsonl"), "utf8").trim().split("\n").at(-1) ?? "{}") as { outcome?: string; reason?: string };
   assert.deepEqual([served.status, existsSync(lock), last.outcome, last.reason], [0, false, "unlocked", "runbook-lock-held-unlock"], served.stderr);
   for (const t of inst) assert.equal(await codeOf(tick(step(t))), "none", "each step reads its instant");
-  await tick(T(D1 + 1) + 900); // the first step after the end of the reading day closes it (and plans the next day without a call)
-  const got = readDayLayout(day), ops = sim.reqs.map((r) => r.op);
+  await tick(T(D1 + 1) + 900); // the first step after the end of the reading day closes it (and plans the next day without a call, unless 00:00 did)
+  // DOJO-COLLECT-UNIT-TICK-MIDNIGHT-1: an instant drawn in the last 300 s of the day is read at the step of 00:00, which also plans the next day
+  // (wanted: a plan made before 00:15 asks each relay); a request is the next day's if it GETs the next round or is made after 00:00.
+  const nextGet = `/${READ_RULE.beacon_chain_hash}/public/${String(roundOf(D1 + 1))}`;
+  const nextDay = new Set(sim.reqs.filter((r) => (r.method === "GET" ? r.params[0] === nextGet : (stampOf.get(r) ?? 0) > T(D1 + 1) * 1000)));
+  const got = readDayLayout(day), ops = sim.reqs.filter((r) => !nextDay.has(r)).map((r) => r.op); // the requests of the planned day only
   assert.deepEqual([got.bundle.status, got.bundle.day, got.bundle.seed, got.bundle.k_reads], ["counted", dateOf(D1), daySeed(secret, 365, 1), 4], "a counted day");
   assert.ok(got.records.every((r) => r.read.read_at !== null), "the four readings were made at their steps");
   assert.deepEqual([...DRAND_RELAY_LABELS, "helius", "solana-foundation"].map((op) => ops.filter((o) => o === op).length), [1, 1, 17, 17],
     "one beacon GET per relay through the guard; 5 + 3 x 4 pieces per operator (the mint read once)");
+  // The next day's, from first principles (as the instants of D1 above): one GET per relay iff a step fell at 00:00 (m); then the final step
+  // reads each next-day instant in its window, drawn from the seed of day 2 and the world's beta (collect-chain.ts l.67-68): 5 pieces, then 4.
+  const m = inst.some((t) => step(t) === T(D1 + 1)) ? 1 : 0, end = T(D1 + 1) + 900, tol = READ_RULE.read_tolerance_s;
+  const n = m * readInstants(daySeed(secret, 365, 2), betaOf(D1), 4, T(D1 + 1), READ_RULE.read_offset_s).filter((t) => t <= end && end <= t + tol).length;
+  const reads = n === 0 ? 0 : 4 * n + 1; // n readings of one day: the mint once (5 pieces), then 4 pieces each, per operator
+  assert.deepEqual([...DRAND_RELAY_LABELS, "helius", "solana-foundation"].map((op) => sim.reqs.filter((r) => nextDay.has(r) && r.op === op).length),
+    [m, m, reads, reads], "the next day: its round once per relay iff a step fell at 00:00, then its readings due at the final step");
   assert.ok(readdirSync(join(state, "ledger")).length > 0, "the guard's ledger lives in the unit's only writable path");
   assert.equal(digest(), before, "the tree is left byte-identical (read-only to the unit)");
 });

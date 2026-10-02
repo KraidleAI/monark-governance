@@ -98,6 +98,7 @@ test("dojo_lookup_address_rule_equals_the_core", async () => {
   for (const s of corpus) assert.equal(isDojoAddress(`  ${s} `), core(s.trim()), `trimmed: ${JSON.stringify(s)}`);
 });
 
+// killer: apps/site/lib/dojo-served.ts:193 CONST "W[c]" -> "c"
 // killer: apps/site/lib/dojo-served.ts:193 CONST "shift(s), shift(v)" -> "s, shift(v)"
 test("dojo_table_rows_are_the_verifier_lines", async () => {
   const { k, e1, e2, c8, c9, c12 } = await records();
@@ -138,6 +139,11 @@ test("dojo_table_rows_are_the_verifier_lines", async () => {
   const lines = base.map((row, i) => canonical({ ...(JSON.parse(row.line) as Rec), score: scores[i] }));
   const t = rowsOf(await served.dojoTableOf({ ...r.view, rows: lines }, r.deps));
   assert.deepEqual(t.shown.map((x) => x.address), [1, 0, 2].map((i) => base[i]?.address), "ten first, then the two nines by address");
+  // The class cell is the word given for the line's class, never its raw key (M-K17): other words injected, both classes present.
+  const words = { ...copy.DOJO_TABLE, holder: "H-word", program: "P-word" }, named = rowsOf(await served.dojoTableOf(r.view, { ...r.deps, words }));
+  const classOf = (row: served.DojoTableRow): string => String((JSON.parse(row.line) as Rec).class);
+  assert.deepEqual([[...new Set(base.map(classOf))].sort(), named.bound.map((x) => x.cells[1])],
+    [["holder", "program"], base.map((x) => (classOf(x) === "holder" ? "H-word" : "P-word"))], "each class cell is its injected word (M-K17)");
 });
 
 // killer: apps/site/lib/dojo-served.ts:183 CONST "view.rows ??" -> "null ??"
@@ -210,7 +216,7 @@ test("dojo_table_refuses_a_file_it_cannot_bind", async () => {
 
 // killer: apps/site/lib/dojo-served.ts:196 CONST "...(versioned ? [W.units, W.tier] : [])" -> "W.units, W.tier"
 test("dojo_table_units_only_with_a_version", async () => {
-  const { f, e1, e2, c8, c9 } = await records(), W = copy.DOJO_TABLE, five = [W.address, W.class, W.holdScore, W.validated, W.provisional];
+  const { f, e1, e2, c8, c9 } = await records(), W = added(copy, "DOJO_TABLE"), five = [W.address, W.class, W.holdScore, W.validated, W.provisional];
   const cases: Array<[string, DojoServedData, Tree, live.VerifyEd25519, string[]]> = [["E1 reread", c8, e1, ed25519, five],
     ["E1 committed", c9, e2, noEd25519, five], ["E2 reread", c9, e2, ed25519, [...five, W.units, W.tier]]];
   for (const [name, c, tree, ed, columns] of cases) {

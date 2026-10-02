@@ -180,7 +180,7 @@ export interface DojoServedBuildInput {
 }
 const sha256Hex = (b: Uint8Array): string => createHash("sha256").update(b).digest("hex");
 const utf8 = (b: Uint8Array, where: string): string => { try { return new TextDecoder("utf-8", { fatal: true }).decode(b); } catch { return fail(`${where} is not UTF-8`); } };
-const parseJson = (s: string, where: string): unknown => { try { return JSON.parse(s) as unknown; } catch { return fail(`${where} is not JSON`); } };
+const parseJson = (s: string, where: string): unknown => { try { return readJson(s); } catch { return fail(`${where} is not JSON`); } };
 /** LF-terminated lines of a body, without their LF (an empty body has none). */
 function linesOfBody(b: Uint8Array, where: string): string[] {
   const t = utf8(b, where);
@@ -195,7 +195,7 @@ export async function buildDojoServed<T extends ReadonlyMap<string, { x: string 
   const root = deps.trustOf(keyring) ?? fail("the committed keyring is malformed");
   const served = deps.trustOf(parseJson(utf8(body(DOJO_PUBKEY_PATH), DOJO_PUBKEY_PATH), DOJO_PUBKEY_PATH)) ?? fail(`${DOJO_PUBKEY_PATH} is malformed`);
   for (const [id, k] of served.trust) if (root.trust.get(id)?.x !== k.x) fail(`${DOJO_PUBKEY_PATH} serves a key outside the committed keyring`);
-  const lines = linesOfBody(body(DOJO_TIMELINE_PATH), DOJO_TIMELINE_PATH).map((s, i) => parseJson(s, `timeline line ${String(i + 1)}`));
+  const lines = linesOfBody(body(DOJO_TIMELINE_PATH), DOJO_TIMELINE_PATH).map((s, i) => walkable(s, i + 1, deps.lineHash));
   const walk = deps.walk(lines, root.trust) as { ok?: unknown; seq?: unknown; reason?: unknown; head?: unknown; voided?: unknown; breaks?: unknown };
   if (walk.ok !== true) fail(`the timeline does not walk under the committed keyring (seq ${String(walk.seq)}: ${String(walk.reason)})`);
   if (!Array.isArray(walk.voided) || walk.voided.length > 0) fail("a line is voided by a revocation; the page renders no voided line (fail-closed)");
@@ -245,4 +245,34 @@ export async function buildDojoServed<T extends ReadonlyMap<string, { x: string 
     keyring,
     bodies_sha256: { timeline: sha256Hex(body(DOJO_TIMELINE_PATH)), pubkey: sha256Hex(body(DOJO_PUBKEY_PATH)) },
   };
+}
+
+/** A served timeline line as the walker takes it: read by parseJson (nested past the depth bound, it is null, never parsed, and the walk refuses
+ *  it), then hashed through the injected lineHash, whose canonical throws on a number it cannot write (JSON.parse reads 1e400 as Infinity): such
+ *  a line is refused as the walk refuses it, timeline_malformed at its seq (the reader's tool says the same), never by that exception. Declared
+ *  last, so that no line above it moves (the killers of the tests name lines of this file). */
+function walkable(s: string, seq: number, lineHash: (line: unknown) => string): unknown {
+  const l = parseJson(s, `timeline line ${String(seq)}`);
+  try { lineHash(l); } catch { fail(`the timeline does not walk under the committed keyring (seq ${String(seq)}: timeline_malformed)`); }
+  return l;
+}
+
+/** The deepest nesting of objects and arrays a served JSON text may carry: DOJO_MAX_DEPTH of the timeline walker (dojo-chain.mjs), restated,
+ *  since this module imports nothing of the chain; pinned equal by test. */
+export const DOJO_SERVED_MAX_DEPTH = 16;
+/** jsonDepth of dojo-chain.mjs, restated and pinned equal by test: the deepest nesting of objects and arrays in a JSON text, in one pass over its
+ *  characters, a string skipped with its escapes (code 92 skips the character after it); nothing is parsed and nothing recurses. */
+export function jsonDepth(text: string): number {
+  let depth = 0, max = 0, str = false;
+  for (let i = 0; i < text.length; i++) {
+    const c = text.charCodeAt(i);
+    if (str) { if (c === 92) i++; else if (c === 34) str = false; } else if (c === 34) str = true;
+    else if (c === 123 || c === 91) { depth++; if (depth > max) max = depth; } else if (c === 125 || c === 93) depth--;
+  }
+  return max;
+}
+/** A served JSON text parsed only within the bound, else null, which every reader of this module refuses by its own sentence (a timeline line
+ *  as the walk refuses it, the key file as malformed, a head line as not an object); one that is not JSON still throws. */
+function readJson(text: string): unknown {
+  return jsonDepth(text) > DOJO_SERVED_MAX_DEPTH ? null : (JSON.parse(text) as unknown);
 }
