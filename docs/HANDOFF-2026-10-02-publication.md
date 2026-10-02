@@ -335,6 +335,10 @@ DJ-L06 table sans script (code, rendu serveur des lignes committées).
   2024-10-01, pas 2027-2028 ; v4 suspendue sur le calendrier, v5 à venir ; checkpoint-1 et avis advisor-defi ARRÊTÉS avant tout rendu
   (à relancer sur la v5). Q-W2-15 répondue : profondeur lue sur place (FAITS `docs/marche/FAITS-binance-profondeur-2026-10-02.md`),
   enregistreur sans borne basse ; SERIES-MONTHLY-2027-1 suspendu avec la v4.
+- 2026-10-02 18:37 UTC : ADR vague 2 v6 (`86eda76`, blocs dans le passé non vu : WARM-2 2023-03, CALIB-2 2023-04 → 2024-04, TEST-2 → 2024-10 ;
+  veto pont, veto vers l avant). Checkpoint-1 formel (validateur, mission `caff8777…`, `F:/tmp/kata-w2v6/`) et avis advisor-defi lancés.
+  Réponses Q-W2-14, 16 à 20 envoyées (#50) : Q-W2-20 (tout enregistrer depuis 2017, scellé par symbole et par mois, un bloc par vague)
+  faisable, SERIES-FULL-HISTORY-1 sur go de l investisseur ; trois FAITS historiques avant P0-2.
 - 2026-10-02 15:30 UTC : go de minuit reçu ; lanceur `F:/tmp/dojo/final/wait-and-run.sh` armé ; annonce X publiée depuis le 1er octobre
   (investisseur) ; validation visuelle : page reconstruite à l ancre 30/30/30/30/90, captures envoyées, six questions C-V-4 encore ouvertes.
 - 2026-10-02 08:26 UTC, ÉCART DE ROSTER relevé par l orchestrateur : depuis 02:51:22 UTC, les tours de l orchestrateur tournent sous
