@@ -7,7 +7,14 @@
 # header is set to the upstream (HTTPS upstream: Caddy does it by itself since v2.11.0; set here because the installed version is
 # read at the deploy act). Cache-Control of every relayed answer is replaced by no-store, so no edge in front of the site keeps a
 # served timeline (the edge's cache status is measured at the deploy act). TLS to the upstream is checked: no tls_insecure_* option.
-# Back up, validate, reload, then curl the three paths; rollback = delete these lines and reload (motif of the Narabi snippet).
+# No address of the reader reaches the Dojo host, which holds the signing key (DOJO-SITE-PROXY-XFF-1): X-Forwarded-For, which Caddy
+# sets or augments with the client's address, and X-Real-IP and Forwarded, which Caddy passes through as sent, are deleted upstream;
+# X-Forwarded-Proto and X-Forwarded-Host (the scheme, the site's name) stay. Whether the deletion also removes the X-Forwarded-For
+# that Caddy sets itself is not read here: it is established at the deploy act, for the installed version.
+# Back up, validate, reload, then curl the three paths; then three traversal requests, each expected 404 (anything else: roll back):
+# a path outside the closed list, GET /dojo-served/history/<h>.jsonl; an encoded .., GET /dojo-served/lines/%2e%2e/history/<h>.jsonl;
+# a method other than GET, HEAD /dojo-served/timeline.jsonl; <h> is the history_sha256 of the timeline's history line, once published.
+# Rollback = delete these lines and reload (motif of the Narabi snippet).
 
     handle_path /dojo-served/* {
         @read {
@@ -17,6 +24,9 @@
         handle @read {
             reverse_proxy https://dojo.monarkgate.tech {
                 header_up Host {upstream_hostport}
+                header_up -X-Forwarded-For
+                header_up -X-Real-IP
+                header_up -Forwarded
                 header_down Cache-Control "no-store"
             }
         }
