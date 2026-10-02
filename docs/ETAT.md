@@ -1,6 +1,6 @@
 # ÉTAT — page snapshot du Dōjō (repartir du code)
 
-Écrit le 2026-09-30 à 23:5x UTC, après vérification du code, des branches et des tests ; mis à jour le 2026-10-02 à 00:4x UTC.
+Écrit le 2026-09-30 à 23:5x UTC, après vérification du code, des branches et des tests ; mis à jour le 2026-10-02 à 01:0x UTC.
 
 ## Règle
 
@@ -284,3 +284,18 @@ Tronc `lot/etude-suite`. Dernier oracle complet : 1 779 tests, dont 1 776 verts,
   pendant une lecture du 2 octobre : DOJO-TASKSMAX-SAMPLE-D-1 (échantillon de `TasksMax`, ligne datée).
   A-1 fait le 2 octobre (00:3x UTC) par l'investisseur : `dojo.monarkgate.tech` (A, TTL 300) vers l'hôte Bell, vérifié aux deux serveurs
   faisant autorité ; rien n'est servi sous ce nom avant le site Caddy de l'hôte (A-6).
+- **Partie 3, checkpoint** (rapport `ad2b8674…`, ACCEPTE-AVEC-CORRECTIONS) : `lot/site-prep` (`9abecbf8`) réuni à `lot/page-v1`
+  (`d1120612`, oracle G7 en cours). Conditions d'envoi du site (C-V-1, décidées par l'orchestrateur le 2026-10-02, 01:0x UTC) :
+  - faits : A-1 (DNS) ;
+  - le 2 octobre, orchestrateur : DOJO-SITE-PROXY-XFF-1 GARDÉ comme condition (lot SITE-SEND-PREP : aucun en-tête d'adresse cliente
+    transmis à l'hôte de la clé ; trois traversées attendues 404 à l'acte) ; volet navigateur et jambe 2 (lot SITE-BROWSER, mesure
+    mobile contre le budget des FAITS) ; validation visuelle de l'investisseur (C-V-4, liste fermée du rapport, réponses mot pour mot) ;
+  - à l'acte, orchestrateur : A-6 (site Caddy de l'hôte), DOJO-EDGE-CACHE-1 (le DNS de `monarkgate.tech` pointe droit sur le VPS,
+    sans bord ; en-têtes mesurés), puis DOJO-SITE-PROXY-1 ;
+  - le 3 octobre, orchestrateur : première synchro, `dojo-served.json` committé, oracle G7 ; le registre `hold-snapshot` ne passe à
+    « built » qu'alors (C-V-5) ; PAROXYSME-DOJO-FILE-1 (le fichier `docs/PAROXYSME-Dojo.md`) avant cette synchro ;
+  - reportés après la première publication, par l'orchestrateur : DOJO-LIVE-HEALTH-1 (sonde quotidienne ; en attendant, l'orchestrateur
+    rejoue `dojo-verify-cli --url` sur l'hôte servi après chaque publication ; déclencheur : avant le jour de l'annonce ou sous 7
+    jours), DOJO-HEAD-RULES-ONE-SOURCE-1 et DOJO-LOADER-RULES-AST-1 (au registre PAROXYSME), DOJO-VERIFY-URL-IDLE-MEASURE-1 (avant CA-1).
+  - C-V-2, Q-3 décidée : la cohérence entre `holder_counted` et `day_value` est le rôle du vérificateur (lignes signées et relues),
+    pas de la table (avis (a) de la G2). C-V-3 : commentaire de `DOJO_TABLE` corrigé dans SITE-SEND-PREP.
