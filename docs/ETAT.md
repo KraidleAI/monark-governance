@@ -281,7 +281,11 @@ Tronc `lot/etude-suite`. Dernier oracle complet : 1 779 tests, dont 1 776 verts,
   Ancien choix : `main` (844 commits de retard sur le tronc, qui a lui-même 47 commits de retard sur `main`, dont le moteur [W2]
   de RECHERCHES) est intégré après la page.
 - Validation visuelle C-V-4 (investisseur, 2026-10-02 17:0x UTC, verbatim : « ok pour les six questions, garde tout comme c est ») :
-  les six points gardés tels quels ; volets DOJO-PAGE-FOLD-1 fusionnés au tronc (`4ce547b0`, oracle vert). Reste : Q-4 budget mobile.
+  les six points gardés tels quels ; volets DOJO-PAGE-FOLD-1 fusionnés au tronc (`4ce547b0`, oracle vert).
+- Q-4 budget mobile tranchée par l investisseur (2026-10-02 17:17 UTC, verbatim : « on envoie comme ça, on corrige après ») : la page est
+  envoyée avec le relevé rouge de laboratoire (TBT 191 à 324 ms à 10^3 lignes ; table débordante à 375 px). Item DOJO-MOBILE-AFTER-SEND-1 :
+  premier lot de la page après la première publication = DOJO-TABLE-DIGEST-LEVELS-1 (constructions chiffrées, ADR-DOJO-PR-4 PK-5) et un
+  défilement horizontal de la table, sans changer un mot ; déclencheur : avant 3 000 lignes au snapshot, ou une mesure réelle au-delà de 2,5 s.
 - Tronc = `lot/page-v1` fusionnée en neuf pas verts le 2026-10-02 (17:04 UTC, `d10d757f`) ; le site part du tronc.
 - Items katas (relecture EPOCH-EVENTS-1, 2026-10-02 16:25 UTC ; porteur orchestrateur ; déclencheur : ADR de préparation P3, sauf mention) :
   RECORDER-SCALE-BREAK-1 (arrêt nommé sur un saut de prix, facteur 5 proposé), RECORDER-SCHEMA-FIELDS-1, RECORDER-EXCHANGEINFO-1 (sur go,
