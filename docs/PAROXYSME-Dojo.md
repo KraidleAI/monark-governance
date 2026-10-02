@@ -16,7 +16,7 @@ claude-opus-5-5
 ## 0. Comment lire ce registre
 
 - Mise à jour 2026-10-02 02:49 UTC (orchestrateur) : DJ-L01 à L06 pourvus d'un item et déplacés au §2 ; DJ-L187 à L191 ajoutés au §3.8
-  (items du HANDOFF §9). Restent à former : 20 déclencheurs passés sans clôture écrite (§4).
+  (items du HANDOFF §9). Les 20 déclencheurs passés ont une clôture écrite le 2026-10-02 03:32 UTC (vérification sur pièce, quatre lecteurs `wf_25285f45-110`).
 - Mise à jour 2026-10-02 03:06 UTC (orchestrateur) : DJ-L07 à L34 pourvus d'un item (§3.9) ; plus aucune dette sans item au §1.
 
 - **Une entrée par limite** : la mission demande une ligne par limite et borne toute ligne à 160 caractères ; chaque entrée tient donc
@@ -123,7 +123,9 @@ claude-opus-5-5
 - **DJ-L55** · « La garde de libellés de la synchro peut refuser à tort une signature ou une clé (environ 9e-6), refus définitif pour une ancre. »
   source : PR4 l.252-253
   nature : code · item : DOJO-SYNC-LABEL-FALSE-REFUSAL-1, DOJO-SYNC-LABEL-SUBSTRING-1 · déclencheur : avant DOJO-KEY-1
-  état : ouvert (déclencheur passé : clé née à A-4p, ETAT l.206 ; clôture non écrite dans les entrées) · suite : aucune trace à `d1120612`
+  état : clos pour les octets signés (orchestrateur, 2026-10-02 03:32 UTC : `operatorLabelsIn` de `scripts/sync-dojo-served.mjs` `d7dbe6e0…`, 47 motifs, 0
+    trouvé sur le trousseau `8cc6c3dd…` et les lignes 1 et 2 de la chronologie servie `b77f0131…`) · suite : DOJO-SYNC-LABEL-SUBSTRING-1 ouvert ; toute
+    signature neuve (snapshot, rotation) repasse la garde à chaque synchro, refus = option (a)
 
 ### 3.2 Collecte et opérateurs
 
@@ -142,19 +144,27 @@ claude-opus-5-5
 - **DJ-L63** · « Comptes concordants et sans quorum des lectures : assertion de l'opérateur, non recalculable depuis l'arbre servi. »
   source : PR2 l.195, l.503 (C-V-3)
   nature : Tiers · item : DOJO-READS-COUNTS-ASSERTED-1 · déclencheur : G1 de PR-2-2
-  état : ouvert (déclencheur passé, clôture non écrite dans les entrées) · suite : ligne dans `scope` (PR2 l.503)
+  état : ouvert (déclencheur passé : G1 de PR-2-2, b2b0c32e ; `scope` de dojo-verify.mjs l.350 inchangé depuis 75d2c981, antérieur à l'item) [vérifié
+    2026-10-02 03:32 UTC, NON-FAIT] · suite : phrase « comptes concordants et sans quorum : assertion de l'opérateur » dans `scope`, au premier redéploiement de
+    l'éditeur (ETAT l.66-70)
 - **DJ-L64** · « L'évidence garde le résultat analysé de chaque appel, pas les octets bruts de la réponse. »
   source : PR2 l.189 (d), l.339, l.515 ; PR2B l.969 ; code : `apps/dojo/src/collect.ts` l.123 à `d1120612`
   nature : code · item : DOJO-EVIDENCE-RAW-BYTES-1 · déclencheur : G1 de DRAND-RELAY-GET-1b (PR2 l.515)
-  état : ouvert (déclencheur passé, clôture non écrite dans les entrées) · suite : transport du garde exposant les octets bruts
+  état : ouvert (déclencheur passé ; routé « après mise en ligne » par le seul G0 DRAND-1b l.101 ; ligne datée [P2] jamais écrite ; collect.ts l.148 inchangé)
+    [vérifié 2026-10-02 03:32 UTC, NON-FAIT] · suite : transport du garde exposant les octets bruts, écrits sous evidence/raw/ à côté de evidence/parsed/
+    (collect.ts l.148) ; après la mise en ligne
 - **DJ-L65** · « Attente `Retry-After` sans plafond, verrous d'opérateur tenus pendant l'attente. »
   source : PR2 l.340, l.382 (§9 point 8), l.515
   nature : code · item : DOJO-RETRY-AFTER-CAP-1 · déclencheur : G1 de DRAND-RELAY-GET-1b (PR2 l.515)
-  état : ouvert (déclencheur passé, clôture non écrite dans les entrées) · suite : aucune trace à `d1120612`
+  état : ouvert (déclencheur passé ; routé « après mise en ligne » par le seul G0 DRAND-1b l.100 ; ligne [P2] jamais écrite ; collect.ts l.156 inchangé)
+    [vérifié 2026-10-02 03:32 UTC, NON-FAIT] · suite : limite à corriger : 60 s par attente (transport.ts l.108), pas le reste de la fenêtre ; plafond au reste
+    à collect.ts l.156, +1 assertion, 1 mutant
 - **DJ-L66** · « Deux instants lus par un même pas font deux courses ; au pire, dépassement de `TimeoutStartSec`. »
   source : PR3 l.221 (2,09 % des jours, calculé, non mesuré) ; code : `deploy/monark-dojo-collect.service` l.35 à `d1120612`
   nature : code · item : DOJO-COLLECT-STEP-COURSES-1 (PAROXYSME) · déclencheur : G1 de DRAND-1b (PR3 l.221)
-  état : ouvert (déclencheur passé, clôture non écrite dans les entrées) · suite : une course par pas, ou borne par pas
+  état : ouvert (déclencheur passé ; routé « après mise en ligne » par le seul G0 DRAND-1b l.98 ; ligne [P3] jamais écrite ; en service depuis A-9 (7))
+    [vérifié 2026-10-02 03:32 UTC, NON-FAIT] · suite : une course par pas, ou borne par pas, dans tick (collect.ts l.272-276) ; filet en attendant : verrous
+    rendus sur SIGTERM, prouvé sur l'hôte
 - **DJ-L67** · « `TasksMax=64` reste provisoire, à mesurer sur l'hôte. »
   source : PR3 l.228, l.276, l.278 ; ETAT l.284
   nature : test · item : DOJO-COLLECT-TIMEOUT-1 (PAROXYSME), DOJO-TASKSMAX-SAMPLE-D-1 · déclencheur : une lecture du 2 octobre (ETAT l.284)
@@ -166,7 +176,9 @@ claude-opus-5-5
 - **DJ-L69** · « L'arrêt par un vrai SIGTERM n'est pas prouvé sous Linux ; la variante est sautée sous Windows. »
   source : ETAT l.54, l.98, l.121 ; code : `apps/dojo/test/dojo-collect-sigterm.test.ts` l.6 à `d1120612`
   nature : test · item : DOJO-SIGTERM-LINUX-PROOF-1 · déclencheur : avant A-9 (7) (ETAT l.98)
-  état : ouvert (déclencheur passé : minuterie activée, ETAT l.282 ; clôture non écrite) · suite : première fenêtre de CI Linux
+  état : clos, preuve à citer (journal privé l.46-48 : vrai SIGTERM vert sur l'hôte Linux, test à `e6b52de6`, 01/10 13:4x UTC ; sortie non gardée) [vérifié
+    2026-10-02 03:32 UTC, FAIT-PROUVE] · suite : garder une sortie durable ou rejouer en CI Linux (DE-03, avec DJ-L68) ; ETAT l.106 et l.129 (`1b0ebf9e`) disent
+    encore « à prouver »
 - **DJ-L70** · « Collecte : `release` s'arrête au premier `unlock` en échec ; erreur anonyme au journal ; flux rompu en cours de corps. »
   source : ETAT l.94-96, l.180
   nature : code · item : collecte N-2 à N-5 (inspection de la partie 1) · déclencheur : après la première publication (ETAT l.180)
@@ -178,11 +190,14 @@ claude-opus-5-5
 - **DJ-L72** · « La liaison entre l'ancre et son credential n'est tenue que par l'argv épinglée. »
   source : PR3 l.222
   nature : code · item : DOJO-ANCHOR-CRED-PATH-1 · déclencheur : G1 de DRAND-1b
-  état : ouvert (déclencheur passé, clôture non écrite dans les entrées) · suite : aucune trace à `d1120612`
+  état : décision (298 : routée au G0 de DRAND-1b l.99, mission du G1 l.39 ; code non fait, liaison tenue par l'argv, test l.158) [vérifié 2026-10-02 03:32
+    UTC, NON-FAIT] · suite : écrire la ligne datée promise (G0 §10 l.253) dans ADR-DOJO-PR-3 ; reprise à la discussion d'après mise en ligne (298)
 - **DJ-L73** · « `outside()` prend `<racine>/..x` pour l'extérieur, et ne compare que la racine de ce dépôt. »
   source : PR2B l.739
   nature : code · item : OUTSIDE-REPO-SEGMENT-1 · déclencheur : DRAND-1b, au plus tard avant le prochain acte réseau
-  état : ouvert (déclencheur passé, clôture non écrite dans les entrées) · suite : aucune trace à `d1120612`
+  état : décision (298, Q-3 (a) : partie Dōjō routée malgré sa borne, G0 l.103, G1 l.80 ; `outside()` inchangé, collect.ts l.81) [vérifié 2026-10-02 03:32
+    UTC, NON-FAIT] · suite : écrire la ligne datée promise (G0 l.257) dans ADR-DOJO-PR-2B ; partie Bell (`apps/bell/src/collect.ts` l.538) : déclencheur Bell à
+    relire
 - **DJ-L74** · « Conditions d'usage des relais drand non publiées ; les lettres de demande ne sont pas envoyées. »
   source : PR2 l.76, l.162, l.315-316, l.344, l.376 ; PR3 l.442 ; ETAT l.185
   nature : procurement · item : P-3, P-4, P-5 (rapport DOJO-RANDOMNESS-1) · déclencheur : avant le premier jour lu (PR2 l.316)
@@ -190,7 +205,9 @@ claude-opus-5-5
 - **DJ-L75** · « Tueur K131 non conclu : il ne se mesure qu'une fois la clé née. »
   source : ETAT l.76, l.99
   nature : test · item : DOJO-KEYRING-KILLER-REMEASURE-1 · déclencheur : A-4p (ETAT l.99)
-  état : ouvert (déclencheur passé : A-4p fait, ETAT l.206 ; clôture non écrite) · suite : mesure du tueur
+  état : ouvert (déclencheur passé : A-4p à 12:52 UTC, trousseau `764f2302` ; le tueur n'a jamais tourné sur un arbre qui porte le trousseau) [vérifié
+    2026-10-02 03:32 UTC, NON-FAIT] · suite : relancer le tueur de `dojo_keyring_shares_no_key_with_bell` (`dojo-deploy.mjs:57`) sur un clone de `lot/page-v1`,
+    RESULTS cité
 - **DJ-L76** · « Retrait du paquet sans garde sur `publish.lock` ; aucune phrase n'interdit un acte sur l'éditeur avant le premier `snapshot`. »
   source : ETAT l.66
   nature : code · item : Q-14, Q-13 (inspection de la partie 2) · déclencheur : avant 18 (iv) (ETAT l.66)
@@ -217,7 +234,9 @@ claude-opus-5-5
 - **DJ-L84** · « Une queue déchirée du journal d'historique arrête chaque reprise, sans réparation servie. »
   source : PR2B l.742, l.1000 ; mention dans `apps/dojo/test/dojo-history-collect.test.ts` l.378 à `d1120612`
   nature : code · item : DOJO-HISTORY-JOURNAL-TAIL-1 · déclencheur : avant le go de l'acte 1 (PR2B l.1000)
-  état : ouvert (déclencheur passé, clôture non écrite dans les entrées) · suite : réparation calquée sur `repair-tail`
+  état : décision (orchestrateur, 2026-10-02 03:32 UTC) : aucune réparation servie ; une queue déchirée arrête la course, qui repart sur un état neuf (lanceur
+    `F:/tmp/dojo/run-final.sh` sha256 `f28dce4e…`) [vérifié 2026-10-02 03:32 UTC, NON-FAIT] · suite : code JOURNAL-TAIL-1 (Q-G1-4 (a)) au prochain lot du
+    collecteur d'historique, jamais pendant une course
 - **DJ-L85** · « Trou dans un groupe ordonné, circuit dans un emplacement non ordonné, `NoQuorum` sans `blockTime` : arrêts fail-closed. »
   source : PR2B l.735-737, l.955, l.959
   nature : code · item : DOJO-HISTORY-ORDERED-HOLE-1, DOJO-HISTORY-UNORDERED-CIRCUIT-1, DOJO-HISTORY-NOQUORUM-BLOCKTIME-1, DOJO-HISTORY-INDEX-DAY-1
@@ -225,15 +244,20 @@ claude-opus-5-5
 - **DJ-L86** · « Le verrou canonique chainstack n'est pas contrôlé avant un acte : seul l'ordonnancement protège. »
   source : PR2B l.741
   nature : code · item : DOJO-HISTORY-CANON-LOCK-1 · déclencheur : avant tout acte réseau de ce collecteur
-  état : ouvert (déclencheur passé, clôture non écrite dans les entrées) · suite : refus `lock_held` (PR2B l.741)
+  état : décision (orchestrateur, 2026-10-02 03:32 UTC) : précondition écrite de l'acte : aucun `<cycle>/<op>.lock` canonique au départ, aucune autre course
+    gardée sur ces cycles jusqu'à la fin (lanceur `F:/tmp/dojo/run-final.sh` sha256 `f28dce4e…`) [vérifié 2026-10-02 03:32 UTC, NON-FAIT] · suite : refus
+    `lock_held` codé au prochain lot du collecteur d'historique
 - **DJ-L87** · « Premier jour lu à contrôle du mint non `ok` non refusé ; le vérificateur n'a aucune vue du mint. »
   source : PR2B l.998, l.1001
   nature : code · item : B1R-MINT-CHECK-1, DOJO-HISTORY-FIRSTREAD-TWO-SLOTS-1 · déclencheur : avant le go de l'acte 1 (PR2B l.1001)
-  état : ouvert (déclencheur passé, clôture non écrite dans les entrées) · suite : aucune trace à `d1120612`
+  état : décision (orchestrateur, 2026-10-02 03:32 UTC) : forme (b) de Q-G1-7 : `mint_check` de d lu dans `publish/day.json`, autre que `ok` = arrêt avant
+    tout appel (lanceur `F:/tmp/dojo/run-final.sh` sha256 `f28dce4e…`) [vérifié 2026-10-02 03:32 UTC, NON-FAIT] · suite : forme (a), refus structurel, au
+    prochain lot du collecteur ; TWO-SLOTS-1 à son propre déclencheur
 - **DJ-L88** · « La borne `--cut` n'est pas vérifiée contre la première énumération dans le journal de la course. »
   source : PR2B l.970, l.975 (Q-4)
   nature : code · item : DOJO-HISTORY-CUT-CHECK-1 · déclencheur : G1 de PR-2b-4
-  état : ouvert (déclencheur passé, clôture non écrite dans les entrées) · suite : sha256 du paquet B1R et D_LAST au journal
+  état : clos (preuve : 30ef4ac4, fusion 59adcfb5, G7 944ecda6 oracle 0829a44e ; history-collect.ts l.165-167, l.212-214 à 224a6bd1) [vérifié 2026-10-02 03:32
+    UTC, FAIT-PROUVE] · suite : aucune ; examiner si --cut non vérifié en mode --provisional-day (l.161, l.167) mérite une entrée
 - **DJ-L89** · « La reprise est égale à l'octet, sauf le lien d'évidence de l'exécution finale. »
   source : PR2B l.997
   nature : code · item : EVIDENCE-LINK-1 · déclencheur : acte 0 ou reformulation (PR2B l.997)
@@ -252,7 +276,8 @@ claude-opus-5-5
 - **DJ-L96** · « Une version de prix due reste en attente à la tête sans que le rapport `ok` le dise. »
   source : PR1B5 l.166 (TY-4), l.187, l.243 ; code : `apps/dojo/scripts/dojo-verify.mjs` l.250 à `d1120612`
   nature : code · item : DOJO-VERIFY-PV-PENDING-REPORT-1 (PAROXYSME) · déclencheur : premier de G1 de PR-3b-2, G0 de PR-4c-2
-  état : ouvert (déclencheur passé, clôture non écrite ; le code dit « does not say it yet ») · suite : clé ou `detail` au rapport
+  état : ouvert (non fait : dojo-verify.mjs l.250, 18 clés l.37-38 à 224a6bd1 ; G0 PR-4c-2 fait le 30/09 22:46Z ; Q-B1 (a) → PR-3b-2b) [vérifié 2026-10-02
+    03:32 UTC, NON-FAIT] · suite : 19e clé price_version_pending au G1 de PR-3b-2b ; déclencheur à réécrire : avant la 1re price_version due
 - **DJ-L97** · « `--day` refuse les jours d'historique : aucune preuve d'un jour d'historique contre sa racine. »
   source : PR1B4 l.91, l.190, l.235
   nature : code · item : DOJO-VERIFY-HISTORY-DAY-1 (PAROXYSME) · déclencheur : première ligne `history` servie, ou G0 de PR-4c-2
@@ -300,7 +325,8 @@ claude-opus-5-5
 - **DJ-L108** · « Une ligne en excès (pile vide, points nuls) est acceptée par le vérificateur. »
   source : MÈRE l.708, l.1055, l.1067
   nature : code · item : PLI-PR2B-NEXT-1 (F-2, Q-6, Q-8) · déclencheur : avant le G1 de PR-2b-3 (MÈRE l.708)
-  état : ouvert (déclencheur passé, clôture non écrite dans les entrées) · suite : code d'existence d'une ligne à nommer
+  état : ouvert (non fait : aucun code de ligne en excès, dojo-verify.mjs l.19-28 et l.282-306 à 224a6bd1 ; G1 de PR-2b-3 passé) [vérifié 2026-10-02 03:32
+    UTC, NON-FAIT] · suite : nommer le code d'existence (F-2), l'ajouter à D-10, vérificateur et tests ; trancher Q-6 et Q-8 côté vérificateur
 - **DJ-L109** · « `--unlock` ne retire pas les `publish.lock.<pid>` de processus morts ; l'échec du seul retrait du nom temporaire arrête. »
   source : ETAT l.65
   nature : code · item : Q-10, D3-1 (inspection de la partie 2) · déclencheur : avant A-10 (ETAT l.65)
@@ -331,7 +357,9 @@ claude-opus-5-5
 - **DJ-L115** · « Une tête comptée à K lectures toutes manquées est acceptée par le vérificateur et refusée par le site. »
   source : PR4 l.214 ; code : `test/dojo-served.test.ts` l.168 à `d1120612`
   nature : code · item : DOJO-SERVED-ALL-MISSED-1 · déclencheur : G0 de PR-3a (PR4 l.214)
-  état : ouvert (déclencheur passé ; le site refuse, règle de l'éditeur ou du vérificateur non écrite) · suite : décision de format
+  état : ouvert ((a) tenue par construction : jour sans lecture faite `abstained`, bundle.ts l.95-99 ; décision non écrite, non testée) [vérifié 2026-10-02
+    03:32 UTC, PARTIEL] · suite : écrire la décision (a) ; test non-LLM : K lectures manquées ⇒ ligne `abstained` publiée ; option (b) : dojo-verify refuse ce
+    `counted`
 - **DJ-L116** · « Une tête abstenue qui porte des lectures est refusée par le site : indisponibilité, jamais un chiffre faux. »
   source : PR4 l.323, l.349 (TY-14), l.358, l.364, l.370
   nature : code · item : DOJO-PAGE-ABSTAINED-1 · déclencheur : avant le premier `snapshot` abstenu servi (PR4 l.323)
@@ -339,7 +367,8 @@ claude-opus-5-5
 - **DJ-L117** · « Le comportement de `next build` pour `notFound()` n'est pas établi. »
   source : PR4 l.118, l.204, l.231 ; PAGE l.24
   nature : test · item : DOJO-NEXT-NOTFOUND-1 · déclencheur : G1 de PR-4b (PR4 l.204)
-  état : ouvert (déclencheur passé, clôture non écrite dans les entrées) · suite : artefact `.next/server/app/dojo.html`
+  état : clos (preuve : G1 PR-4b `docs/G1-lot-dojo-pr4b.md` l.137, l.193, `0a23979a` ; branché : assert-fleet-html.mjs l.645-656) [vérifié 2026-10-02 03:32
+    UTC, FAIT-PROUVE] · suite : aucune ; rejouer build et assert-fleet-html en E0 à toute montée de Next (mesuré en 16.3.4, tête en 16.3.8) ; PR4 l.231 à dater
 - **DJ-L118** · « Synchro : corps ni lu ni annulé sur refus ; fenêtre entre fichier et manifeste ; champs de la CA sans tests négatifs. »
   source : PR4 l.254, l.258, l.259 ; PR1B4 l.234
   nature : code · item : DOJO-SYNC-FETCH-CONVERGE-1, DOJO-SYNC-WRITE-WINDOW-1, DOJO-SYNC-CA-FIELD-NEGATIVES-1
@@ -394,7 +423,9 @@ claude-opus-5-5
 - **DJ-L134** · « Le sens de l'excédent converti en inférence n'est pas tranché. »
   source : MÈRE l.632, l.943 (3)
   nature : recherche · item : P-39 (question ouverte) · déclencheur : avant la ligne `anchor` (MÈRE l.943)
-  état : ouvert (déclencheur passé : ancre signée, ETAT l.173-176 ; clôture non écrite) · suite : décision de l'investisseur
+  état : ouvert (déclencheur « avant l'ancre » passé le 01/10, seq 1 et 2, sans décision écrite ; l'ancre ne porte aucun champ d'excédent) [vérifié 2026-10-02
+    03:32 UTC, NON-FAIT] · suite : question fermée à l'investisseur : (a), (b) ou 3e lecture (MÈRE l.632) ; déclencheur ramené au G0 de la pièce 2 par décision
+    datée
 - **DJ-L135** · « L'inférence est servie selon les quotas, sans droit acquis ; son unité de mesure n'est pas fixée. »
   source : MÈRE l.176, l.694-695, l.697
   nature : recherche · item : DOJO-INFERENCE-UNIT-1, DOJO-INFERENCE-QUOTA-1, DOJO-P2-ALLOCATION-1 · déclencheur : G0 de la pièce 2
@@ -416,7 +447,9 @@ claude-opus-5-5
 - **DJ-L145** · « Fixtures et exemple chiffré gardent une fenêtre Migration de 180 jours, alors que l'ancre en vigueur porte 90. »
   source : MÈRE l.586 (décision 276) ; ETAT l.169-176
   nature : test · item : DOJO-TIER-WINDOWS-90-1 · déclencheur : prochain lot touchant ces tests, avant toute ligne portant `tier_windows`
-  état : ouvert (déclencheur passé : ancre signée, ETAT l.173-176 ; clôture non écrite) · suite : aucune trace à `d1120612`
+  état : ouvert (déclencheur passé : 3 lots ont touché ces tests, ancre signée ; 180 à dojo-fixture.ts l.89, dojo-core-hold.test.ts l.280) [vérifié 2026-10-02
+    03:32 UTC, NON-FAIT] · suite : au prochain lot Dōjō : 180 → 90 dans dojo-fixture.ts l.89 et dojo-core-hold.test.ts l.279-283 ; exemple (F) de MÈRE l.139
+    recalculé
 - **DJ-L146** · « L'historique servi n'est pas rendu sur la page tant que son texte de méthode n'est pas approuvé. »
   source : PR4 l.70, l.95 ; MÈRE l.322, l.662 ; PR4 l.5
   nature : code · item : DOJO-RETRO-TEXT-1, PR4B-CP1-POST-ANNOUNCE-1 · déclencheur : annonce du « jour 1 » (MÈRE l.733)
@@ -424,7 +457,8 @@ claude-opus-5-5
 - **DJ-L147** · « Aucun test ne compare la liste des refus de l'éditeur aux codes qu'il lève. »
   source : PR3 l.419 (Q-G2-5)
   nature : test · item : DOJO-PUBLISH-REFUSALS-LIST-1 · déclencheur : G1 de PR-3a-2 (PR3 l.419)
-  état : ouvert (déclencheur passé, clôture non écrite dans les entrées) · suite : test de la liste
+  état : clos (preuve : test `dojo_publish_refusals_list_is_every_code_raised`, dojo-publish.test.ts l.698, `39aa3dba` ; oracle G7 `02104bde…`) [vérifié
+    2026-10-02 03:32 UTC, FAIT-PROUVE] · suite : aucune
 
 - **DJ-L187** · « La liste fermée du proxy du site ne porte pas d'allowlist d'en-têtes vers l'hôte de la clé (I-2 de SITE-SEND-PREP). »
   source : HANDOFF-2026-10-02 §8 ; JOURNAL privé 02/10 01:57Z (I-2 au registre) ; `docs/dojo/FAITS-caddy-header-up-delete-2026-10-02.md`

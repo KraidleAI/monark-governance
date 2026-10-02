@@ -158,6 +158,12 @@ DJ-L06 table sans script (code, rendu serveur des lignes committées).
 - 2026-10-02 03:09 UTC : consigne « deux priorités » (§0) ; ADR du chantier moteur arrêtée avant écriture ; FAITS DEM-1 versé (`a42b19bb`,
   lecture seule, le harnais sert `af9b889`) avant la consigne : aucune décision prise dessus.
 
+- 2026-10-02 03:32 UTC : créneau de 03:30 conforme (`history_missing`, chronologie à 2 lignes, aucun verrou ; unité `failed` = sortie 1 attendue).
+  PAROXYSME : les 20 déclencheurs passés ont une clôture écrite (quatre lecteurs `wf_25285f45-110`, adjugé par l orchestrateur) ; DJ-L55 clos
+  pour les octets signés (garde de libellés : 0 sur trousseau et ancres 1-2). Trois décisions sur la course finale, portées au lanceur
+  `run-final.sh` (sha256 `f28dce4e…`, `bash -n` vert) : DJ-L86 aucun verrou canonique au départ, aucune autre course gardée pendant ;
+  DJ-L87 `mint_check` de d = `ok` sinon arrêt avant tout appel ; DJ-L84 une queue de journal déchirée arrête, reprise sur état NEUF.
+
 ## 12. Compléments (ajoutés le 2026-10-02 à 02:3x UTC)
 - **Accès aux hôtes** : clé `~/.ssh/monark_vps`. Hôte Bell : cible ssh lue dans `F:/tmp/dojo/s7-1.sh` (extraire par `grep -oE 'root@[0-9.]+'`,
   jamais afficher). Serveur du site : cible dans `docs/RUNBOOK-harness.md`. Toute sortie passe par un masque des adresses.
