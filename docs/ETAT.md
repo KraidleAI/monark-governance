@@ -119,6 +119,25 @@ Tronc `lot/etude-suite`. Dernier oracle complet : 1 779 tests, dont 1 776 verts,
     d'un validateur sur un clone à jonctions : RED-PROOF-REPO-JUNCTIONS-1 ; avec VERIFY-TEST-DEAD-CHILD-2 : ORACLE-DEAD-CHILD-EXITCODE-1 ;
   - CV4-POWERSHELL-C-WRITE-1 : décidé, admis et déclaré (PowerShell réécrit son propre fichier de profil sur C: ; aucun fichier du projet) ;
   - MUTANTS-NM-WORKSPACES-1 : branché (outil réparé fusionné au tronc `eda6ff85`, première campagne d'un autre lot faite au checkpoint-2).
+- **Items de la partie 3, formés le 2026-10-02 à 08:5x UTC** (checkpoint de la partie, rapport `aca2af79…`, corrections 1 et 2 ;
+  propriétaire : orchestrateur) :
+  - avant CA-1 : FAITS-CADDY-LEXER-COMMENT-1 (N-3 de la G2 : lecture sur place du lexeur de Caddy v2.11.4, un `#` hors début de jeton
+    ouvre-t-il un commentaire ; puis une seule fonction de lecture des `import` pour les deux CA) ; DOJO-CA-CLI-ONE-RED-1 (N-5 : la CLI
+    de la CA n'imprime jamais `VERIFY OK` sous un seul contrôle rouge ; un cas de test à un seul rouge, qui tue le mutant M2) ;
+  - avant le prochain lot qui touche les gardes du mode d'emploi : FAITS-SYSTEMCTL-IS-ACTIVE-1 (code de sortie de `systemctl is-active`
+    pour une unité arrêtée, lu à la source ; d'ici là, `pipefail` lu à l'acte, N-2, §17) ;
+  - au prochain lot RUNBOOK, avant la première commande par le nom (§15 (0), migration de Bell) : RUNBOOK-BY-NAME-2 (Q-1 et Q-11 (b) :
+    §16 et §19 par le nom, `-o StrictHostKeyChecking=yes` sur toute commande par le nom ; Q-3 (b) : `git status --porcelain
+    --untracked-files=all` vide sur les chemins des outils, dans le bloc de §15 (4) et de §22 (1)) ;
+  - avant la prochaine fusion d'un lot : FUSION-KILLER-ANCHORS-1 (Q-7 (b) : à chaque fusion, contrôle de TOUT tueur qui vise un fichier
+    du diff, pas seulement ceux des fichiers de test changés ; `red-proof` sur la base de la partie) ;
+  - avant le go de la migration de Bell, le même jour que l'acte : BELL-RUNBOOK-ROLLBACK-CANDIDATE-1 (retours arrière REPLACE de
+    RUNBOOK-bell : forme candidat, `caddy validate`, `mv`, `reload`, au lieu de copier la sauvegarde sur le fichier actif) ;
+  - au G1 du prochain lot qui change `deploy/Caddyfile.monark-bell` : BELL-CADDY-IMPORT-REPLAY-1 (après la migration, rejouer le
+    fichier dédié par candidat importé, `validate`, `mv`, `reload`, étapes 8 et 11 au nouveau G7 ; retour par le dédié sauvegardé) ;
+  - après l'envoi du site, avant le jour de l'annonce : DOJO-SITE-PROXY-XFF-MEASURE-1 (Q-6 : un amont temporaire en boucle locale du
+    serveur du site renvoie les en-têtes reçus, derrière une copie du bloc `reverse_proxy` de l'extrait ; une requête porte
+    `X-Forwarded-For`, `X-Real-IP` et `Forwarded` ; attendu : aucun des trois, aucune adresse du client ; un acte sous go, une FAITS).
 - **Textes du tableau** : TXT-17 et TXT-17a corrigés et TXT-17o ajouté (« Listed by hold score, highest first; equal hold scores by address. »), à valider par l'investisseur avec la page.
 - **Adresse du serveur Bell** : déjà dans le dépôt public (19 fichiers de `main` depuis le 23/09, et le mode d'emploi du Dōjō). Ce n'est pas un secret : `bell.monarkgate.tech` y renvoie. Aucune clé n'est publiée.
 - **Collecteur d'historique** (report décidé par l'orchestrateur le 2026-10-01, cp-2 de la partie 2, correction 1) :

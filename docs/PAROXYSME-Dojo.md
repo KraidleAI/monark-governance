@@ -18,6 +18,8 @@ claude-opus-5-5
 - Mise à jour 2026-10-02 02:49 UTC (orchestrateur) : DJ-L01 à L06 pourvus d'un item et déplacés au §2 ; DJ-L187 à L191 ajoutés au §3.8
   (items du HANDOFF §9). Les 20 déclencheurs passés ont une clôture écrite le 2026-10-02 03:32 UTC (vérification sur pièce, quatre lecteurs `wf_25285f45-110`).
 - Mise à jour 2026-10-02 03:06 UTC (orchestrateur) : DJ-L07 à L34 pourvus d'un item (§3.9) ; plus aucune dette sans item au §1.
+- Mise à jour 2026-10-02 08:54 UTC (orchestrateur ; correction 4 du checkpoint de la partie 3, rapport `aca2af79…`) : DJ-L81, DJ-L106,
+  DJ-L121 clos sur pièce ; DJ-L103 (IDLE-1 fait, MEASURE-1 reste) et DJ-L118 (constaté, ouvert) mis à jour. Items neufs de la partie 3 : ETAT.
 
 - **Une entrée par limite** : la mission demande une ligne par limite et borne toute ligne à 160 caractères ; chaque entrée tient donc
   sur quatre lignes au plus, ouvertes par le préfixe `- **DJ-L`, que l'on compte par `grep`.
@@ -222,7 +224,7 @@ claude-opus-5-5
 - **DJ-L81** · « Un `batch` analysé n'est pas jugé par la liste fermée des instructions. »
   source : ETAT l.275-276, l.283
   nature : code · item : DOJO-HISTORY-BATCH-NEAR-1 · déclencheur : avant la course finale du 3 octobre (ETAT l.283)
-  état : ouvert · suite : proximité testée à toute profondeur (ETAT l.276)
+  état : clos (preuve : fusion `6c464bbc` dans `lot/page-v1`, oracle G7 `02104bde…` sortie 0) · suite : constaté 2026-10-02 08:54 UTC
 - **DJ-L82** · « L'instruction `reallocate` du parseur Token-2022 n'est pas lue. »
   source : ETAT l.273, l.276-277
   nature : recherche · item : FAITS-TOKEN2022-PARSER-REALLOCATE-1 · déclencheur : premier arrêt qui la nomme (ETAT l.277)
@@ -305,7 +307,7 @@ claude-opus-5-5
 - **DJ-L103** · « La CLI en `--url` rend `unreachable` si le serveur ferme une connexion inactive pendant un long calcul. »
   source : ETAT l.59, l.106, l.262, l.300
   nature : code · item : DOJO-VERIFY-URL-IDLE-1, DOJO-VERIFY-URL-IDLE-MEASURE-1 · déclencheur : avant l'envoi du site ; avant CA-1
-  état : ouvert · suite : mesure, puis code
+  état : ouvert · suite : IDLE-1 fait par SITE-PREP (un second essai, un seul, `G1-lot-site-prep.md` point 3) ; MEASURE-1 reste, avant CA-1
 - **DJ-L104** · « Le coût de la vérification complète croît ; au-delà d'environ 10 000 adresses sur un an, il faudra la revoir. »
   source : ETAT l.58, l.66, l.100 ; PR3 l.351 (TB-15) ; PR1B4 l.82, l.173 (TY-9 : bornes provisoires)
   nature : test · item : DOJO-PUBLISH-SCALE-1 (PAROXYSME), DOJO-VERIFY-SCALE-1 · déclencheur : avant 18 (iv) (ETAT l.100)
@@ -317,7 +319,7 @@ claude-opus-5-5
 - **DJ-L106** · « La synchro lit chaque ligne servie par `JSON.parse` sans mesure de profondeur. »
   source : ETAT l.104-105
   nature : code · item : SYNC-SERVED-DEPTH-SCAN-1 · déclencheur : avant la première synchro (ETAT l.104)
-  état : ouvert · suite : mesure par `jsonDepth` (ETAT l.105)
+  état : clos (preuve : SITE-PREP point 2, test `dojo_sync_measures_a_line_before_parsing_it`) · suite : constaté 2026-10-02 08:54 UTC
 - **DJ-L107** · « Le contrôle de déploiement à douze points n'est pas écrit ; chaque acte d'hôte est contrôlé par empreintes. »
   source : ETAT l.212-213 ; PR3 l.442 ; MÈRE l.513 (condition de G7 : CA verte) ; PR1B4 l.229
   nature : code · item : DOJO-CA0-SCRIPT-1, DOJO-CA-TIMELINE-SHA-1 · déclencheur : après la première publication (ETAT l.212)
@@ -373,6 +375,9 @@ claude-opus-5-5
   source : PR4 l.254, l.258, l.259 ; PR1B4 l.234
   nature : code · item : DOJO-SYNC-FETCH-CONVERGE-1, DOJO-SYNC-WRITE-WINDOW-1, DOJO-SYNC-CA-FIELD-NEGATIVES-1
   déclencheur : avant l'acte TU-7, première synchro (PR4 l.254, l.258) · état : ouvert · suite : convergence sur `urlSource`
+  constaté sur pièce à `58450ac3` (2026-10-02 08:54 UTC) : FETCH-CONVERGE ouvert, `httpsGet` refuse un statut ou une longueur annoncée
+  sans lire ni annuler le corps (`sync-dojo-served.mjs` l.157-158) ; WRITE-WINDOW ouvert, fichier puis manifeste (l.148-149) ;
+  CA-FIELD-NEGATIVES : quinze cas négatifs à un refus chacun (`test/dojo-served.test.ts` l.292-312), couverture champ par champ non mesurée
 - **DJ-L119** · « Chaque synchro relit tous les fichiers de lignes servis. »
   source : PR4 l.255
   nature : code · item : DOJO-SYNC-COST-1 · déclencheur : 30e `snapshot` servi (PR4 l.255)
@@ -384,7 +389,7 @@ claude-opus-5-5
 - **DJ-L121** · « Page : texte TXT-17c, tests vides si la fixture change, état transitoire, fichier de lignes vide. »
   source : ETAT l.106-108
   nature : test · item : page N-1 à N-4 (inspection) · déclencheur : avant l'envoi du site (ETAT l.106)
-  état : ouvert · suite : corrections avant l'envoi
+  état : clos (preuve : SITE-PREP, `G1-lot-site-prep.md` points 4 à 8, N-8 compris) · suite : constaté 2026-10-02 08:54 UTC
 - **DJ-L122** · « Le balayage des attributs visibles ne lit que les guillemets doubles. »
   source : PR4 l.217
   nature : test · item : DOJO-ATTR-QUOTES-1 · déclencheur : tout rendu hors React sous `/dojo` (PR4 l.217)
