@@ -280,6 +280,8 @@ Tronc `lot/etude-suite`. Dernier oracle complet : 1 779 tests, dont 1 776 verts,
   Le tronc a reçu T42-BOUND (`ccfc5820`, oracle G7 `46aced61…` sortie 0, premier passage non conclu au test 42).
   Ancien choix : `main` (844 commits de retard sur le tronc, qui a lui-même 47 commits de retard sur `main`, dont le moteur [W2]
   de RECHERCHES) est intégré après la page.
+- Validation visuelle C-V-4 (investisseur, 2026-10-02 17:0x UTC, verbatim : « ok pour les six questions, garde tout comme c est ») :
+  les six points gardés tels quels ; volets DOJO-PAGE-FOLD-1 fusionnés au tronc (`4ce547b0`, oracle vert). Reste : Q-4 budget mobile.
 - Tronc = `lot/page-v1` fusionnée en neuf pas verts le 2026-10-02 (17:04 UTC, `d10d757f`) ; le site part du tronc.
 - Items katas (relecture EPOCH-EVENTS-1, 2026-10-02 16:25 UTC ; porteur orchestrateur ; déclencheur : ADR de préparation P3, sauf mention) :
   RECORDER-SCALE-BREAK-1 (arrêt nommé sur un saut de prix, facteur 5 proposé), RECORDER-SCHEMA-FIELDS-1, RECORDER-EXCHANGEINFO-1 (sur go,
