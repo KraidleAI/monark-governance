@@ -270,7 +270,8 @@ Tronc `lot/etude-suite`. Dernier oracle complet : 1 779 tests, dont 1 776 verts,
   Le tronc a reçu T42-BOUND (`ccfc5820`, oracle G7 `46aced61…` sortie 0, premier passage non conclu au test 42).
   Ancien choix : `main` (844 commits de retard sur le tronc, qui a lui-même 47 commits de retard sur `main`, dont le moteur [W2]
   de RECHERCHES) est intégré après la page.
-- Page servie dès la première publication.
+- Page servie dès la première publication, pas avant, et sous le bloquant de TU-7 (ligne datée d ADR-DOJO-PR-3, 2026-10-02 08:56 UTC :
+  premier `snapshot` servi, CA-1 verte, annonce de l investisseur, second cp-1 bref ; le lever est une décision de l investisseur).
 - **Poussière** (investisseur, 2026-10-01 17:3x UTC, mot pour mot : « il faut exclure les comptes de moins de 1$ » ; option « Masquer
   dès le 1er prix », DOJO-TABLE-DUST-HIDE-1) : sous une version de prix, la table ne liste pas une ligne sous le seuil de poussière ;
   la ligne reste publiée et la recherche la trouve ; avant la première version, tout est listé, avec une phrase. Jamais le mot
