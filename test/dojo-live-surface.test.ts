@@ -208,8 +208,9 @@ test("dojo_site_proxy_snippet_is_outside_the_page_route", async () => {
 // killer: deploy/Caddyfile.monark-dojo-site.snippet:28 SDL "header_up -X-Real-IP" -> ""
 // killer: deploy/Caddyfile.monark-dojo-site.snippet:27 SDL "header_up -X-Forwarded-For" -> ""
 test("dojo_site_proxy_sends_no_client_address_to_the_dojo_host", () => {
-  // DOJO-SITE-PROXY-XFF-1 (ADR-DOJO-PR-4, G7 fold of PR-4c-1b, Q-G2-2): the host that holds the signing key reads no address of the reader.
-  // The snippet's text only: whether Caddy applies a deletion after it sets X-Forwarded-For is established at the deploy act, never here.
+  // DOJO-SITE-PROXY-XFF-1 (ADR-DOJO-PR-4, G7 fold of PR-4c-1b, Q-G2-2): the host that holds the signing key reads no address that Caddy writes;
+  // X-Real-IP and Forwarded are deleted as sent; any other header passes as is (DOJO-SITE-PROXY-HEADERS-ALLOWLIST-1). Text only here: the deletion after
+  // Caddy sets X-Forwarded-For is established for Caddy v2.11.4 by its source (FAITS-CADDY-HEADER-UP-DELETE-1), reread at any other installed version.
   const prefix = added("DOJO_LIVE_PREFIX"), lines = readFileSync(join(ROOT, "deploy", "Caddyfile.monark-dojo-site.snippet"), "utf8").split(NL);
   const code = lines.map((l) => l.trim()).filter((l) => l !== "" && !l.startsWith("#"));
   /** The lines of the one block that `head` opens, up to its first closing brace (neither block read here nests another). */

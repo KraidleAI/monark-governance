@@ -273,3 +273,146 @@ l'outil dans son clone : `35ecfd94`, journal et test aux sha256 figés (relus à
 - Verdict proposé à l'orchestrateur : **LIVRE-AVEC-RESERVES**. Réserve unique : l'effet, à l'exécution, de `header_up -X-Forwarded-For` sur
   l'en-tête que Caddy pose lui-même n'est pas lu (section 2.1) : le lot garantit le texte de l'extrait, pas encore ce que l'hôte Dōjō reçoit ;
   item I-1, bloquant avant l'acte DOJO-SITE-PROXY-1, et mesure de Q-2.
+
+## 12. Corrections C-1 et C-2 (correcteur, 2026-10-02 ; plan écrit AVANT toute modification, 04:5xZ)
+
+- Modèle résolu (R-1) : `claude-opus-5-5`, effort max, rôle corr (correcteur), instance fraîche, contexte neuf ; heures par `date -u`.
+- Mission `F:/tmp/dojo/mission-corr-sendprep.md` : sha256 recalculé AVANT lecture (04:36:30Z) :
+  `18bf81cd908bcb4483042740f1df805bb01ff58ba609b5ab69d5c96ffd37e23d`, égal ; reçu `mission-corr-sendprep.recu.json` vert
+  (2026-10-02T04:36:07Z), même sha, base `d1120612`, tête `9e016897`. Règles insérées `64700025…d2ba`, égal ; outils de la mission aux
+  sha256 de la mission (04:38:52Z) ; hors mission : `mutants/run.mjs` `41cdf83f…1ac8`, `oracle/lock.mjs` `501a76b5…33bb`,
+  `mk-nm.ps1` `d70d8aea…fbe4`, `rm-nm.ps1` `b51b5d22…8749`.
+- Worktree : HEAD `9e0168978448fc1bdf09b53985436adf5c2f4d9b`, `status` vide, les quatre fichiers du lot aux sha256 de la mission
+  (04:36:40Z). Tronc `F:/Monark` : HEAD `5082a696`, `status` vide (04:38:52Z).
+- Entrées lues en entier, dans l'ordre : rapport G2 `F:/tmp/dojo/g2-sendprep/RAPPORT.md` (`3c4864a8…88aa`, 271 l. ; C-1 à C-4) ; extrait
+  (`dc402f3f…80c8`, 36 l.) ; test l.160-245 et ses 20 lignes `// killer:` ; ce journal (`b26548dd…f204`, 275 l.) ; FAITS
+  `F:/Monark/docs/dojo/FAITS-caddy-header-up-delete-2026-10-02.md` (`28ee2920…625d`, 51 l.).
+- Advisor intégré (canal 1), après l'orientation, avant toute écriture (04:4xZ) : plan confirmé ; avis suivis : trois lignes au commentaire
+  du test, glissement déclaré ici avant l'édition ; messages d'assertion l.182 et l.224 formés en Q-C1, non touchés. Conseil, jamais verdict.
+
+### 12.1 Plan (décisions de l'orchestrateur, à la lettre)
+
+- C-1 : l'extrait (l.12-13) et le test citent FAITS-CADDY-HEADER-UP-DELETE-1 : établi pour Caddy v2.11.4 par la source (FAITS l.20-28,
+  l.47-48), à relire à toute autre version installée (FAITS l.51). Les phrases « is not read here: it is established at the deploy act »
+  (extrait l.12-13) et « is established at the deploy act, never here » (test l.212) disparaissent.
+- C-2 : la phrase absolue est bornée, dans l'extrait (l.10) et dans le test (l.211) : aucune adresse que Caddy écrit n'atteint l'hôte ;
+  `X-Real-IP` et `Forwarded` retirés tels qu'envoyés ; tout autre en-tête passe tel quel (DOJO-SITE-PROXY-HEADERS-ALLOWLIST-1). Le nom
+  du test ne change pas.
+- C-3 : l.14-17 de l'extrait inchangées (la l.15 garde `%2e%2e` une seule fois, ancre de K6).
+- Extrait : l.10-13 réécrites en exactement quatre lignes (152 caractères au plus, mesuré par `F:/tmp/dojo/sendprep-corr/tmp/wrap.mjs`) ;
+  36 lignes avant et après ; aucun numéro de ligne cible d'un tueur ne bouge (K5 à K11 : `:15`, `:21`, `:22`, `:27` à `:30`).
+- Test : l.211-212 (deux lignes) deviennent l.211-213 (trois lignes, 153 caractères au plus) : le contenu décidé (provenance de XFF-1,
+  C-2, C-1) fait 435 caractères sans préfixe, trois lignes au minimum à 160 (mesuré). Glissement DÉCLARÉ : le fichier passe de 413 à
+  414 lignes ; les anciennes l.213-413 deviennent l.214-414, dont les neuf `// killer:` de K12 à K20 (anciennes l.235 à l.394) ; leurs
+  cibles (`dojo-served.ts`, `dojo-live.tsx`, `dojo-live.ts`) et la numérotation K (ordinale) ne changent pas ; aucun tueur ne vise le
+  fichier de test ; K5 à K11 (l.174, l.204-209) et les deux tests jugés par `red-proof` (l.175, l.210) restent en place.
+- Aucune ligne exécutable ne change. Les messages d'assertion l.182 et l.224 portent encore la phrase que C-2 borne : chaînes
+  exécutables, hors du périmètre « commentaires seuls », non touchées (Q-C1).
+- Compte (estimé AVANT) : tour de corrections contre `9e016897` : extrait 4 + et 4 -, test 3 + et 2 -, soit 13 lignes ; lot contre
+  `d1120612` : 55 insertions, 7 suppressions, 62 (porte CI 1 205) ; ce journal hors périmètre (`ci.yml` l.82).
+
+### 12.2 Preuves et courses prévues (dans cet ordre)
+
+1. Commentaires seuls : `git diff -U0` (lecture seule, `GIT_OPTIONAL_LOCKS=0`) : deux zones attendues, `@@ -10,4 +10,4 @@` (extrait) et
+   `@@ -211,2 +211,3 @@` (test) ; lignes de code de l'extrait (filtre du test l.214) égales ; l.14-36 égales à l'octet ; transpilation
+   TypeScript (`removeComments`) du test à `9e016897` et corrigé : sorties égales à l'octet ; 20 tueurs : `before` exactement une fois sur
+   sa ligne cible ; aucune des trois requêtes que lit `said` dans les l.10-13 neuves.
+2. Clone `--no-local` `F:/tmp/dojo/sendprep-corr/c1` (fichiers corrigés copiés, jonctions `mk-nm.ps1`) : tests ciblés ; portes
+   `typecheck`, `lint`, `lint:ratchet`, `lang:gate`, `gate:vocab` (commandes des scripts de `package.json`, jamais `npm run`).
+3. `red-proof` du tronc : `--base d1120612… --gel F:/Monark-wt-sendprep --repo F:/Monark --out F:/tmp/dojo/sendprep-corr/rp1 --draw 2
+   --seed 415203789` (graine : 32 premiers bits du sha256 de la mission, `0x18bf81cd`).
+4. Tueurs K5 à K11 sur un clone neuf `c2` : `node F:/Monark/scripts/mutants/run.mjs --repo F:/tmp/dojo/sendprep-corr/c2 --base
+   d1120612… --out F:/tmp/dojo/sendprep-corr/mut1 --killers --only K5,K6,K7,K8,K9,K10,K11 --file deploy/Caddyfile.monark-dojo-site.snippet
+   --targets test/dojo-live-surface.test.ts --lock-root F:/tmp --min-free-mb 4096`.
+5. Oracle du tronc, en dernier, seul : `--role corr --tree F:/Monark-wt-sendprep --base d1120612… --key site-send-prep` (arbre modifié :
+   rejeu, aucun enregistrement servi).
+
+Avant chaque course : sonde `held('F:/tmp')`, `Get-CimInstance Win32_OperatingSystem`, `node.exe` (`F:/tmp/dojo/sendprep-corr/logs/probes.log`).
+
+### 12.3 Questions formées d'avance (Q-C)
+
+- Q-C1 (à l'orchestrateur ; lignes exécutables, hors mission) : les messages d'assertion du test l.182 (« no client address sent ») et
+  l.224 (« each client-address header deleted … no other header written ») disent encore la phrase absolue ; les borner touche des lignes
+  exécutables (revue G2 ciblée, ligne datée 2026-09-30 03:1x) : décision à prendre ; rien n'est changé ici.
+- Q-C2 (lecture) : « any other incoming header passes as is » (extrait) et « any other header passes as is » (test) se lisent après les
+  en-têtes posés : Host (extrait l.6-7, `header_up Host`) et `X-Forwarded-Proto`, `X-Forwarded-Host` (posés par Caddy, FAITS K-1) ;
+  c'est la formulation décidée (C-2), appliquée telle quelle ; un relecteur peut la vouloir plus étroite.
+
+### 12.4 Résultats (mesurés ; preuves sous `F:/tmp/dojo/sendprep-corr/`)
+
+- Ordre : plan écrit à 04:52:00Z (journal `a2d66939…3e1f`, extrait et test encore à `dc402f3f…` et `afc935ee…` :
+  `logs/plan-written.txt`) ; corrections à 04:53Z. Extrait l.10-13 : quatre lignes remplacées, 152 caractères au plus, 36 lignes,
+  `c744cb0129973870b78cf8f372dcb7ab5b0b10ee723422e6d3314bd7695a5407`. Test l.211-212 devenues l.211-213, 153 caractères au plus, 414 lignes,
+  `213e33f4681bca284fd53857f7f2e6355659e2f1c5b2dde94670cc7ad4239667`. `dojo-copy.ts` inchangé (`e225b49e…c231`).
+- Compte mesuré (`git diff --numstat`) : tour contre `9e016897` : extrait 4 + et 4 -, test 3 + et 2 -, 13 lignes ; lot contre `d1120612` :
+  55 insertions, 7 suppressions, 62, égal à l'estimation de 12.1 et à la porte `r25` de l'oracle.
+- Commentaires seuls (`tmp/comment-only.mjs` `3a84ea3d…c01c1`, sortie `logs/comment-only.out` `9025c903…024e`, 04:54:49Z) : 17 contrôles
+  sur 17 : zones `@@ -10,4 +10,4 @@` et `@@ -211,2 +211,3 @@` seules ; 8 lignes changées de l'extrait, toutes `#` ; 5 du test, toutes `//` ;
+  lignes de code de l'extrait égales ; l.1-9 et l.14-36 égales à l'octet ; la l.15 garde un `%2e%2e` ; aucune des trois requêtes de
+  `said` dans les l.10-13 neuves, chacune une fois dans `said` ; transpilation TypeScript 6.0.3 (`removeComments`) égale à l'octet,
+  sha256 `c5b511ffe13fa670383c4d69dc82cb332c619c63f7ca7083357530f772e5aa48` des deux côtés ; 1 987 jetons (scanner, trivia sautées) égaux ;
+  nom du test inchangé ; 20 tueurs : mêmes spécifications dans le même ordre, chaque ancre une seule fois sur sa ligne cible, chaque
+  pile juste au-dessus d'un `test(`. K12 à K20 descendent d'une ligne dans le fichier de test (l.235 vers 236 … l.394 vers 395), cibles
+  inchangées. Diff du tour : `logs/diff-round.patch` `9cf32ba7…1d1f`.
+- Tests ciblés (clone `--no-local` `c1`, HEAD `9e016897`, les trois fichiers copiés, sha256 égaux ; jonctions 220 entrées, 11 `@monark`,
+  0 échec), 04:56:04Z-04:56:18Z : 17 fichiers, aucun marqueur du test 42, 13 noms DENY retirés (noms seuls) : **196 tests, 196 verts**,
+  0 rouge, 0 annulé, 0 ignoré ; tests de l'extrait verts (TAP l.162, l.168), `dojo_page_lexicon_is_closed` (l.354),
+  `dojo_caddyfile_serves_public_only_immutables_no_browse` (l.390). `logs/targeted.tap` `7863a6da…9c8d`.
+- Portes (`c1`, commandes des scripts), 04:56:52Z-04:57:45Z, toutes à 0 : `typecheck`, `lint`, `lint:ratchet` (69/69), `lang:gate`,
+  `gate:vocab` (330 fichiers) ; `logs/gates.out`, `logs/gate-*.log` ; `c1` sans artefact ensuite.
+- `red-proof` (04:57:59Z-04:58:21Z), sortie 0, `ok: true` : 2 jugés, **2 F2P** (l.175 et l.210 : rouges à la base par assertion, verts au
+  gel), 9 inchangés ; tirage 2 sur une population de 2, graine 415203789 : **2 tués** (`snippet:27` SDL, `snippet:30` SDL), fichier
+  restauré (`c744cb01…` avant et après). Digest du gel `1d70373fefea62043d3d733d189a2039eeb4d761481f21321f6868c76f216437`.
+  `rp1/RED-PROOF.json` `cfa9e92d46347fff25c71f9b65a68e143f8e1098c9f3dd8896828266052074e1`.
+- Tueurs K5 à K11 (clone neuf `c2`, mêmes copies ; outil `41cdf83f…1ac8`), 04:59:01Z-04:59:27Z, sortie 0 : ligne de base verte (11 tests),
+  **7 tués sur 7**, 0 survivant, 0 non conclu, 0 ancre perdue, restauration contrôlée à chaque mutant ; K7 à K10 rougissent les deux tests.
+  `dirty` de `c2` `99298821…b213`, égal à celui de l'oracle (même arbre). `mut1/RESULTS.json`
+  `d4a73a70bdee5e4f21f17ac0f1a5de5ab82ee1affd0389d777c4cd71e56da185` ; `RESULTS.txt` `6181b998…ba70`.
+- Oracle du tronc : `node F:/Monark/scripts/oracle/run.mjs --role corr --tree F:/Monark-wt-sendprep --base d1120612… --key site-send-prep`,
+  05:00:01Z-05:08:53Z, sortie **0**, seul sur l'hôte (verrou pris à 05:01:12Z, attente 0 s ; C-V-4 : 15 281 Mo libres, 17 `node.exe`).
+  Enregistrement `F:/tmp/oracle-results/9e0168978448fc1bdf09b53985436adf5c2f4d9b-99298821e13ee978-corr-20261002T050001Z-118624.json`,
+  sha256 `71f18f5a57498f93c11b35df67c0d7efe6340540136e9b3f9efda2a472eb3236` (copie à l'octet `oracle-corr-record.json`) ; arbre : tête
+  `9e016897`, `dirty` `99298821…b213`, objet `8767caa04af69568f189ee07a542e3b644f748e4` ; `label` `site-send-prep` ; `served_from` null
+  (arbre modifié : rejeu). Portes toutes à 0 : épinglage, `r25` (**55 + 7 = 62**, borne 1 205 ; contenu 0), `lang:gate`, `export:check`,
+  `gate:vocab`, `typecheck`, `lint`, `lint:ratchet`, `test` (446,8 s). Tests : **1 870, 1 865 verts, 0 rouge, 5 ignorés** ; tests de
+  l'extrait verts (`09-test.log` l.1964-1965), lexique (l.1996), test 42 vert une fois dans la suite (l.2048). Journaux copiés à
+  l'octet : `oracle-logs/02-r25.log` `d4949846…d7fd5`, `oracle-logs/09-test.log` `ec1337b4…aa8c51`.
+- Ignorés : 5 contre 4 aux oracles G1 et G2 ; l'écart est un seul test, `lot_retire_file_identity_keeps_every_bit_of_a_64_bit_ino`
+  (`09-test.log` l.2120), qui a pris sa branche de saut déclarée : « no ino beyond the precision of a double here » (au plus 256 essais
+  sur NTFS, `test/lot-retire-identity.test.ts`). Il n'importe que `node:*` et `scripts/lot/retire.mjs`, hors du diff du lot (4 fichiers) :
+  dépendance au volume, sans lien avec un commentaire. Les quatre autres sauts sont ceux de la G2 (l.424, l.712, l.720, l.2771).
+- Après l'oracle (05:10:27Z) : extrait, test et `dojo-copy.ts` égaux à leurs sha256 (`sha256sum -c logs/corrected.sha256`) ; seul ce
+  journal a changé depuis (sections 12.4 à 12.6), hors du périmètre R-25 et sans test.
+
+### 12.5 Écarts de conduite (`error_origin` : ce correcteur)
+
+(1) Mon premier contrôle des tueurs exigeait chaque ligne `// killer:` juste au-dessus d'un `test(` : faux pour les tueurs empilés du
+    fichier (K1-K2, K6-K11, K14-K15, K18-K20) : `red-proof.mjs` (l.18, l.63) lie au test la seule ligne juste au-dessus, l'outil de
+    mutants (l.147) lit chaque ligne de la pile ; règle du contrôle corrigée (la pile se termine au-dessus d'un `test(`), rejoué : 17 sur
+    17 ; sortie fautive gardée (`logs/comment-only.run1-strict-check.out`). Aucun fichier du lot touché par cette correction.
+(2) Ma sonde et ma garde, à leur première écriture, portaient des barres inverses (expressions régulières) et des lignes de plus de
+    160 caractères ; réécrites avant tout usage probant, contrôlées par la garde elle-même. Mon script d'attente a d'abord lu « exit= »
+    dans les lignes de portes de l'oracle (fin annoncée à tort, rien n'a été lancé dessus) ; corrigé.
+(3) Un `grep` avec une barre inverse dans le motif (04:39Z), refusé par `grep` (« Trailing backslash »), sans effet ; comptes ensuite par
+    `node` (code 92).
+(4) Sorties brutes d'outils gardées telles quelles, qui portent des barres inverses écrites par les outils (chemins Windows) :
+    `logs/mk-nm-c1.out`, `logs/mk-nm-c2.out`, `logs/rm-nm.out`, `logs/rp1.out`, `logs/oracle.out`, `rp1/RED-PROOF.json` (champ `repo`),
+    l'enregistrement de l'oracle ; aucun fichier écrit par moi n'en porte (garde).
+(5) Aucun autre écart : aucun `GIT_DIR`, aucun `GIT_WORK_TREE`, aucun `--write-tree` (ni `git write-tree`) ; git écrivant seulement par
+    `git clone` de `c1` et `c2` et dans les clones jetables des outils ; aucune course pendant un verrou tenu par autrui ni pendant mon
+    oracle ; aucun oracle arrêté ; aucun réseau ; aucune adresse IP écrite ; rien sur C: ; test 42 joué seulement dans la suite de
+    l'oracle ; harnais de mutants lancé une seule fois, `RESULTS.txt` lu.
+
+### 12.6 État à la remise et verdict
+
+- Worktree `F:/Monark-wt-sendprep` : HEAD `9e016897` ; `status` : extrait, test et ce journal modifiés, rien d'autre ; le gel est un
+  acte de l'orchestrateur. Tronc `F:/Monark` : HEAD `5082a696` à 04:38:52Z, `c7bde8bc` à 04:59:53Z, `ae655ffb` à 05:15:29Z (avancé par
+  un autre que moi), `status` vide ; outils aux sha256 de la mission ; `node_modules` 220 entrées et 11 `@monark` avant et après
+  (`logs/nm-trunk.log`).
+- Clones `c1`, `c2`, `mut1/clone` : jonctions retirées par `rm-nm.ps1` (« removed », 05:10:5xZ) ; aucun `node_modules` sous
+  `F:/tmp/dojo/sendprep-corr`. Dossiers de travail de `red-proof` et de l'oracle retirés par les outils. À 05:10:12Z, un autre oracle
+  (`corr`, tête `bcc5a87a`, pid 415208, dossier `F:/tmp/oracle-runs/run-PlRfxa`) tient le verrou : pas le mien, non touché.
+- Verdict proposé : **LIVRE**. C-1 et C-2 appliquées à la lettre, commentaires seuls (prouvé), portes, `red-proof`, tueurs K5 à K11 et
+  oracle verts. Questions : Q-C1 (messages d'assertion l.182 et l.225, l.224 à `9e016897`), Q-C2 (lecture de « as is »), Q-C3 (le
+  glissement d'une ligne du test, déclaré en 12.1 : cibles et numérotation des tueurs inchangées ; si la contrainte visait aussi les
+  positions dans le fichier de test, deux lignes ne tiennent pas le contenu décidé : arbitrage de l'orchestrateur).
