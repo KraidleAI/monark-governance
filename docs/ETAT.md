@@ -1,6 +1,6 @@
 # ÉTAT — page snapshot du Dōjō (repartir du code)
 
-Écrit le 2026-09-30 à 23:5x UTC, après vérification du code, des branches et des tests ; mis à jour le 2026-10-02 à 00:3x UTC.
+Écrit le 2026-09-30 à 23:5x UTC, après vérification du code, des branches et des tests ; mis à jour le 2026-10-02 à 00:4x UTC.
 
 ## Règle
 
@@ -227,6 +227,12 @@ Tronc `lot/etude-suite`. Dernier oracle complet : 1 779 tests, dont 1 776 verts,
   première publication ; d'ici là, toute mort d'enfant est rejouée une fois en `--test-isolation=none`, déclarée) ;
   LOOPBACK-SEQUENTIAL-PORTS-1 (port 0 attribué en séquence sur cet hôte) ; REPLAY-INTERVAL-BIND-1 (le brut ne nomme pas son
   intervalle).
+  Suite de P2 (messagerie #32 à #36) : séries descellées, recensement et parité exacts ; P2a-1 relu (#33), plié et contrôlé (#35) ;
+  audit P3 de notre moteur : 24 points confirmés, 3 partiels, S-5 tranché en 400 nommé (#34) ; P2a-2 relu (#36) : quatre corrections,
+  Q-P2a-4 voie (c) (seul le motif de la venue exempté dans le registre privé). Accord « P2a complet » après le pli et notre contrôle.
+  Item MONARK P2-RECALC-TOOL-1 : outil de recalcul indépendant des 280 lignes et oracle des métriques sans réseau, avant la comparaison
+  des résultats de P2b ; lots BYO-NEAR-NAME-1 (S-11, servi aujourd'hui) puis SERVED-HARDENING-1 après la première publication de la
+  page ; version datée de la spécification publique (S-5) avant P3.
 - **Au-delà de la borne de profondeur** (orchestrateur, 2026-10-01, G7 sur C-1 du G2 DEPTH-BOUND) : un texte servi plus profond que 16
   n'est pas analysé ; chaque lecteur le refuse sous le code de sa forme (`keyring_invalid`, `timeline_malformed`, phrases du chargeur),
   JSON ou non. `not_json` ne nomme qu'un texte hors JSON en deçà de la borne. Le code ne change pas ; ligne datée d'ADR avec DEPTH-CORR.
