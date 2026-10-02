@@ -687,3 +687,11 @@ Mutants appliqués sur copie, restaurés au sha256, hors de l'index ; aucun test
   par l orchestrateur), puis le second cp-1 bref du validateur sur les textes (DOJO-RETRO-TEXT-1, PR4B-CP1-POST-ANNOUNCE-1), demandé par
   l orchestrateur le jour de l annonce, après elle. « Dès la première publication » se lit : pas avant elle, et sous ces conditions.
   Lever ce bloquant est une décision de l investisseur, jamais de l orchestrateur.
+- **Ligne datée (orchestrateur, 2026-10-02 14:20 UTC) — correction 3 : VOIE (b) décidée par l investisseur (verbatim : « voie (b) pour la
+  page »), la ligne du 08:56 UTC ci-dessus reste la voie (a), non retenue** : la seule ligne de commentaire de `apps/dojo/scripts/dojo-chain.mjs`
+  qui séparait l arbre de publication de `c0c60617` est ramenée à son texte de `c0c60617` (fichier égal à l octet, `cmp`) ; mesuré après
+  l acte : `git diff c0c60617 -- <les dix chemins de DOJO_PUBLISH_TREE_PATHS>` vide. Conséquences : `c09 tree_publication` sera vert à tout
+  G7 portant la CA sans ré-archivage de `/opt/monark-dojo` ; DJ-L190, DJ-L191 et DJ-L34 gardent leur déclencheur (2026-10-09 au plus tard) ;
+  `G7.txt` passe au commit de fusion de la partie 3 au tronc avant CA-1, `/f/Monark` en extraction propre de ce commit. Prix : le commentaire
+  redit « the sync does not: item SYNC-SERVED-DEPTH-SCAN-1 », faux depuis SITE-PREP (la synchro mesure la profondeur) : item
+  DOJO-CHAIN-COMMENT-STALE-1 (ETAT), déclencheur : le premier lot de l éditeur qui redéploie l arbre de publication, qui le corrige.
