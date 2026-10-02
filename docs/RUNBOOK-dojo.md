@@ -369,7 +369,7 @@ checked offline; no `ots` act) → A-9 (1) to (4) → A-11 (i) (the PROVISIONAL 
 of d → A-11 (ii) to (iv) (the FINAL packet, `--first-read` = d; the `history` line, checked against d BEFORE it is committed)
 → the first `snapshot` (d) published → A-8 (5) to (9) (the timestamp, item DOJO-ANCHOR-OTS-AFTER-PUBLICATION-1) → CA-0 (section 15,
 after the first publication: decision of 2026-10-01, item DOJO-CA0-SCRIPT-1 of `docs/ETAT.md`; until then each act on the host is
-checked by its digests) → the announcement day (QI-4 (c)): A-1 → A-6 → CA-1 → TU-7. A-9 is the collect act of section 7; A-7 (the
+checked by its digests) → the announcement day (QI-4 (c)): A-1 → A-6 → CA-1 (section 21) → TU-7. A-9 is the collect act of section 7; A-7 (the
 rehearsal, section 6) is off the real path: no
 rehearsal day. Two courses of the history collector (B-1 of the G2 inspection of part 1; decision of the orchestrator, `docs/ETAT.md`,
 2026-10-01): the provisional one (a day read nowhere, never `publish/`) gives the `Eve` of the first day the restarted collector opens,
@@ -534,15 +534,78 @@ ssh -i ~/.ssh/monark_vps root@178.16.131.29 'rm /etc/systemd/system/monark-dojo-
 systemctl daemon-reload'
 ```
 
-## 15. CA-0 — the offline conformity check (its place; the script and the host captures are PR-3b-2b's)
+## 15. CA-0 — the offline conformity check (`scripts/verify-dojo.mjs`, PR-3b-2b-1) and the host captures
 
 When: after the first publication (section 10; decision of 2026-10-01, item DOJO-CA0-SCRIPT-1 of `docs/ETAT.md`; N-7 of the G2 of
-FAST-START): its script is PR-3b-2b's and not written yet, so until then each act on the host is checked by its digests; never committed.
-Form (pli G0 of PR-3b-2, PB-2, written in full and pinned by
-PR-3b-2b): `node scripts/verify-dojo.mjs --offline <mirror> --keyring apps/dojo/keys/dojo-keyring.json`, with `--g7`,
-`--tree-digests <publication> <collect>`, `--loaded-config <captures>` and `--bell-digests <before> <after>`. Expected (the closed
-table of PB-2): `c09`, `c10` and `c12` green; `c01`, `c02`, `c03` and `c08` evaluated on the mirror; `c11` red without a `snapshot`;
-`c04` to `c07` never passed, so never `VERIFY OK` (M-H28). Rollback: none (read-only). Blockers: the G7 of PR-3b-2b; the first publication.
+FAST-START), replayed after each act it covers; never committed (its `--out` stays under `/f/tmp`). The script is PR-3b-2b-1's
+(pinned by `test/verify-dojo.test.ts`); until its G7, each act on the host is checked by its digests. Blockers: the G7 of PR-3b-2b-1;
+the first publication. Rollback: none (read-only; the capture directory on the host holds names and digests, no secret, no value).
+The host is named `bell.monarkgate.tech` here (its A record, RUNBOOK-bell step 7), never by its address (open question Q-5 of the G1
+journal of PR-3b-2b-1: the SSH host key known under that name).
+
+(1) Bell and the probe (`c10`), digests only: `bell-before.sha` BEFORE the acts the check covers (for CA-0: before the next act of the
+publication side on the host; for CA-1: right before A-6, section 21), then the same command into `bell-after.sha` at the check:
+
+```bash
+mkdir -p /f/tmp/dojo-dn/ca0 && ssh -i ~/.ssh/monark_vps root@bell.monarkgate.tech '
+sha256sum -t /etc/systemd/system/monark-bell-publish.service /etc/caddy/monark-bell.caddyfile /etc/monark/probe.env;
+find /opt/monark-bell /opt/monark-probe -type f -print0 | LC_ALL=C sort -z | xargs -0 sha256sum -t' > /f/tmp/dojo-dn/ca0/bell-before.sha;
+echo exit=$?; wc -l < /f/tmp/dojo-dn/ca0/bell-before.sha
+```
+
+Expected: `exit=0`; the three named files, then every file of `/opt/monark-bell` and of `/opt/monark-probe`, one line each. **STOP** if
+`/etc/caddy/monark-bell.caddyfile` is missing (Bell is not yet in IMPORT mode: BELL-CA-DOJO-1 first; `c10` requires the Bell extract).
+
+(2) The host captures of `c09` (Caddy, the four units, `NeedDaemonReload`, the NAMES of the manager's environment block and of an
+invocation with the publication unit's properties, never a value; both trees), copied to the operator machine:
+
+```bash
+ssh -i ~/.ssh/monark_vps root@bell.monarkgate.tech 'rm -rf /root/dojo-capture && install -d -m 0700 /root/dojo-capture && cd /root/dojo-capture &&
+cp /etc/caddy/Caddyfile caddyfile-main; { if [ -f /etc/caddy/monark-dojo.caddyfile ]; then cp /etc/caddy/monark-dojo.caddyfile caddyfile-dojo; fi; };
+U4="monark-dojo-collect.service monark-dojo-collect.timer monark-dojo-publish.service monark-dojo-publish.timer";
+for u in $U4; do systemctl cat $u > $u.cat; done; systemctl show -p NeedDaemonReload --value $U4 > need-daemon-reload.txt;
+systemctl show-environment | cut -d= -f1 > manager-env.txt;
+S="-p PrivateNetwork=yes -p NoNewPrivileges=true -p ProtectSystem=strict -p ProtectHome=true -p PrivateTmp=true
+-p ReadWritePaths=/var/lib/monark-dojo -p UMask=0022" && U="--property=UnsetEnvironment=NODE_OPTIONS NODE_TLS_REJECT_UNAUTHORIZED" &&
+U="$U NODE_EXTRA_CA_CERTS SSL_CERT_FILE SSL_CERT_DIR HTTP_PROXY HTTPS_PROXY ALL_PROXY NO_PROXY http_proxy https_proxy all_proxy no_proxy" &&
+systemd-run --wait --pipe --collect --uid=dojo --gid=dojo $S "$U" /usr/bin/env -0 | sed -z "s/=.*//" | tr "[:cntrl:]" " " > unit-env.txt;
+(cd /opt/monark-dojo && find . -type f -print0 | LC_ALL=C sort -z | xargs -0 sha256sum -t) > publish-tree.sha;
+(cd /opt/monark-dojo-collect && find . -type f -print0 | LC_ALL=C sort -z | xargs -0 sha256sum -t) > collect-tree.sha; ls; wc -w unit-env.txt' &&
+scp -r -i ~/.ssh/monark_vps root@bell.monarkgate.tech:/root/dojo-capture /f/tmp/dojo-dn/ca0/
+```
+
+Expected: `ls` lists `caddyfile-main`, `caddyfile-dojo` (after A-6 only), the four `<unit>.cat`, `need-daemon-reload.txt`,
+`manager-env.txt`, `unit-env.txt`, `publish-tree.sha`, `collect-tree.sha`; `unit-env.txt` holds some names (`wc -w` above 0) and no `=`.
+The job writes nothing (it runs `env` as `dojo`, the unit's sandbox, no credential). (3) The mirror of the served tree, digests on both
+sides (form of A-8 (3)); `<n>` numbers this CA-0:
+
+```bash
+mkdir -p /f/PRODUITS/dojo-mirror/public-ca0-<n> &&
+scp -r -i ~/.ssh/monark_vps 'root@bell.monarkgate.tech:/var/lib/monark-dojo/public/*' /f/PRODUITS/dojo-mirror/public-ca0-<n>/ &&
+cd /f/PRODUITS/dojo-mirror/public-ca0-<n> && find . -type f -print0 | LC_ALL=C sort -z | xargs -0 sha256sum -t > /f/tmp/dojo-dn/ca0/mirror.local.sha &&
+ssh -i ~/.ssh/monark_vps root@bell.monarkgate.tech 'cd /var/lib/monark-dojo/public &&
+find . -type f -print0 | LC_ALL=C sort -z | xargs -0 sha256sum -t' > /f/tmp/dojo-dn/ca0/mirror.host.sha &&
+cmp -s /f/tmp/dojo-dn/ca0/mirror.local.sha /f/tmp/dojo-dn/ca0/mirror.host.sha && echo MIRROR-EQUAL || echo MIRROR-DIFFERENT
+```
+
+Expected: `MIRROR-EQUAL`. Then (1) again, into `/f/tmp/dojo-dn/ca0/bell-after.sha`. (4) The check, under `env -i` with `PATH` alone
+(the agents' shell carries `NODE_USE_SYSTEM_CA`, PB-8 É-B6; under Git Bash, `env -i` leaves `node` the names `MSYSTEM`, `PATH`,
+`SYSTEMROOT` and `WINDIR`, measured at the G1 of PR-3b-2b-1), its CA under `/f/tmp`:
+
+```bash
+cd /f/Monark && G7=$(cat /f/tmp/dojo-dn/G7.txt) && C=/f/tmp/dojo-dn/ca0/dojo-capture && B=/f/tmp/dojo-dn/ca0 &&
+A="--offline /f/PRODUITS/dojo-mirror/public-ca0-<n> --keyring apps/dojo/keys/dojo-keyring.json --g7 $G7 --loaded-config $C" &&
+A="$A --tree-digests $C/publish-tree.sha $C/collect-tree.sha --bell-digests $B/bell-before.sha $B/bell-after.sha --out $B/CA-0-<n>.json" &&
+env -i PATH="$PATH" node scripts/verify-dojo.mjs $A > $B/ca0.stdout 2> $B/ca0.stderr; echo ca0_exit=$?; cat $B/ca0.stderr
+```
+
+Expected (the closed table of PB-2): `ca0_exit=1`; `VERIFY FAILED:` names `c04_acao_star`, `c05_no_directory_listing`,
+`c06_cache_immutable_lines_history_no_cache_timeline` and `c07_tls_authorized`, never passed offline, so never `VERIFY OK` (M-H28);
+`c01`, `c02`, `c03`, `c08`, `c11` and `c12` evaluated on the mirror; `c09` and `c10` on the captures. Before A-6, `c09` is red on
+`imports_bell_dojo=false dojo_extract=false` (the Dōjō extract is installed at A-6; open question Q-3 of the G1 journal of PR-3b-2b-1),
+and `c11` is red, `no snapshot served`, on a mirror without a `snapshot`. **STOP** on any other red check: its detail names the
+sub-check (`c09`: `tree_publication`, `tree_collect`, `units_one_fragment_equal`, `need_daemon_reload_no`, `imports_bell_dojo`,
+`dojo_extract`, `environment_closed`; `c10`: the two digests and `required`); the JOURNAL keeps the digest of `CA-0-<n>.json`.
 
 ## 16. A-8 — the anchor: signed by a transient job, checked OFFLINE, timestamped after the first publication (ADR D-4)
 
@@ -953,6 +1016,48 @@ and pushed BEFORE the `key_rotation` line, in the order of item KEYRING-COMMIT-A
 the unit `inactive`. Until the next synchro (TU-7, PR-3b-2b), the page's live reread (PR-4c-1) falls back to the committed figures
 and their day (TXT-14c, TXT-14d): the day shown is the committed one, never hidden. Then a new CA and a new synchro, as after any
 redeployment (DOJO-SYNC-G7-REF-1).
+
+## 21. CA-1 — the deployment conformity check, online (`scripts/verify-dojo.mjs`, PR-3b-2b-1), committed when green
+
+When: the announcement day, after A-6 (QI-4 (c); section 10). Blockers: A-6 done (the extract imported, the certificate issued);
+the first `snapshot` served; the G7 of PR-3b-2b (DOJO-VERIFY-TLS-FLAGS-1, DOJO-CA-TIMELINE-SHA-1); the delay of the verifier child
+(740 000 ms, DOJO-VERIFY-SCALE-1: open question Q-2 of the G1 journal of PR-3b-2b-1); DOJO-CA-CERT-TRANSPARENCY-1; BELL-CA-DOJO-1
+(`c09` reads exactly two `import` lines, `c10` the Bell extract). (1) The CA and its verifier at HEAD are those of the G7 (one SHA for
+the trees, the units, the extract and the check, DOJO-SYNC-G7-REF-1):
+
+```bash
+cd /f/Monark && G7=$(cat /f/tmp/dojo-dn/G7.txt) &&
+git diff --quiet "$G7" HEAD -- scripts apps/dojo apps/bell/scripts apps/site/lib vocab-banned.json; echo same_tools=$?
+```
+
+Expected: `same_tools=0`; else **STOP** (the check runs from a checkout of the G7). (2) The closed environment of the verifier
+child suffices on this machine (PB-3 (1)): its public command under `env -i`, against Bell's host (ours, served already), must answer
+a named refusal OTHER than `unreachable` (the GET of `timeline.jsonl` crossed DNS and TLS; Bell serves no `dojo/pubkey.json`):
+
+```bash
+cd /f/Monark && env -i PATH="$PATH" node apps/dojo/scripts/dojo-verify-cli.mjs --url https://bell.monarkgate.tech --self-consistent-only;
+echo e_exit=$?
+```
+
+Expected: `e_exit=1` and one line whose `reason` is a named refusal other than `unreachable` (read from the code, never measured: the
+G1 of PR-3b-2b-1 had no network; `http_status` with `"detail":"dojo/pubkey.json"`). **STOP** on `unreachable` (E does not suffice
+here): a dated line, never a return to the inherited environment. (3) The captures of section 15
+(1) and (2) into `/f/tmp/dojo-dn/ca1/` (`bell-before.sha` right BEFORE A-6, `bell-after.sha` now). (4) The check, under `env -i`:
+
+```bash
+cd /f/Monark && G7=$(cat /f/tmp/dojo-dn/G7.txt) && C=/f/tmp/dojo-dn/ca1/dojo-capture && B=/f/tmp/dojo-dn/ca1 &&
+A="--url https://dojo.monarkgate.tech --keyring apps/dojo/keys/dojo-keyring.json --g7 $G7 --loaded-config $C" &&
+A="$A --tree-digests $C/publish-tree.sha $C/collect-tree.sha --bell-digests $B/bell-before.sha $B/bell-after.sha" &&
+env -i PATH="$PATH" node scripts/verify-dojo.mjs $A --out docs/deploy-CA-dojo.json > $B/ca1.stdout 2> $B/ca1.stderr; echo ca1_exit=$?;
+cat $B/ca1.stderr
+```
+
+Expected: `ca1_exit=0` and `VERIFY OK - 12/12 checks passed (tls.authorized=true)`; `docs/deploy-CA-dojo.json` holds the nine keys
+of DOJO-CA-FORMAT-1, `url` `https://dojo.monarkgate.tech` (no trailing slash), `g7` = `G7.txt`, twelve checks `{name, pass, detail}`,
+`checked_at` at the head of the detail of `c01`, and `c07` names the default certificate store of this Node binary. Then the commit
+(orchestrator, R-20) and TU-7 (`node scripts/sync-dojo-served.mjs --g7 "$G7"`; its section: open question Q-4). Any red check:
+**STOP**, no announcement; a red CA is never committed (`rm docs/deploy-CA-dojo.json`, the fault fixed, the check rerun); a check run
+without `env -i` is red at `c07` (`env_families=NODE_USE_SYSTEM_CA`): expected, rerun under `env -i`. Rollback: none (read-only).
 
 ## Never
 
