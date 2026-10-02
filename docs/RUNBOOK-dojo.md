@@ -540,8 +540,36 @@ When: after the first publication (section 10; decision of 2026-10-01, item DOJO
 FAST-START), replayed after each act it covers; never committed (its `--out` stays under `/f/tmp`). The script is PR-3b-2b-1's
 (pinned by `test/verify-dojo.test.ts`); until its G7, each act on the host is checked by its digests. Blockers: the G7 of PR-3b-2b-1;
 the first publication. Rollback: none (read-only; the capture directory on the host holds names and digests, no secret, no value).
-The host is named `bell.monarkgate.tech` here (its A record, RUNBOOK-bell step 7), never by its address (open question Q-5 of the G1
-journal of PR-3b-2b-1: the SSH host key known under that name).
+The host is named `bell.monarkgate.tech` here (its A record, RUNBOOK-bell step 7), never by its address, and only once (0) has put its
+SSH host key under that name (C-2 of the G2 of part 3; open question Q-5 of the G1 journal of PR-3b-2b-1).
+
+(0) The SSH host key under the name, ONCE, before the first command that names the host (this section, section 21, section 22 (3), the
+REPLACE → IMPORT procedure of RUNBOOK-bell step 7): the ED25519 key the name answers with, read by `ssh-keyscan`, is compared to the key
+already known for the address of section 1, and that KNOWN entry is copied under the name only if the two fingerprints are equal; never
+`StrictHostKeyChecking=no` nor `accept-new`, never a key taken from the scan. `<address>` is the host address of the target of section 1,
+written in its place before the command runs (left as is, no entry is found and the command prints `STOP`):
+
+```bash
+K=~/.ssh/known_hosts && N=bell.monarkgate.tech && ! ssh-keygen -F "$N" -f "$K" > /dev/null &&
+A=$(ssh-keygen -F '<address>' -f "$K" -l | grep ' ED25519 SHA256:' | cut -d' ' -f3) && [ -n "$A" ] &&
+S=$(ssh-keyscan -t ed25519 "$N" 2> /dev/null | ssh-keygen -lf - | cut -d' ' -f2) && echo "known=$A scanned=$S" && [ "$A" = "$S" ] &&
+[ -z "$(tail -c 1 "$K")" ] && ssh-keygen -F '<address>' -f "$K" | grep -v '^#' |
+awk -v n="$N" '$2 == "ssh-ed25519" { print n, $2, $3 }' >> "$K" && ssh-keygen -F "$N" -f "$K" -l | grep -v '^#' && echo KEY-COPIED || echo STOP
+```
+
+Expected: `known=SHA256:<fingerprint> scanned=SHA256:<the same>`, then `bell.monarkgate.tech ED25519 SHA256:<the same>` and `KEY-COPIED`
+(forms of `ssh-keygen` read with OpenSSH 10.5p1 on the operator machine, offline, 2026-10-02); the fingerprint to the JOURNAL. **STOP** on
+`STOP`, nothing copied: an entry under the name already (a replay: `ssh-keygen -F bell.monarkgate.tech -l` and `ssh-keygen -F '<address>'
+-l` read; the same ED25519 fingerprint: done; another one: escalation, never an entry removed to make room), no single ED25519 entry known
+for the address, a scanned key that differs (another host answers the name: the A record of RUNBOOK-bell step 7 read again), no answer,
+or a `known_hosts` that does not end with a newline. Then the first command by the name, which `BatchMode` makes fail rather than ask:
+
+```bash
+ssh -o BatchMode=yes -i ~/.ssh/monark_vps root@bell.monarkgate.tech 'hostname'; echo exit=$?
+```
+
+Expected: `bell`, then `exit=0`. **STOP** on `Host key verification failed.` or any other output. Rollback (the entries under the name
+only; the file before is kept as `known_hosts.old`): `ssh-keygen -R bell.monarkgate.tech -f ~/.ssh/known_hosts`.
 
 (1) Bell and the probe (`c10`), digests only: `bell-before.sha` BEFORE the acts the check covers (for CA-0: before the next act of the
 publication side on the host; for CA-1: right before A-6, section 21), then the same command into `bell-after.sha` at the check:
@@ -553,8 +581,10 @@ find /opt/monark-bell /opt/monark-probe -type f -print0 | LC_ALL=C sort -z | xar
 echo exit=$?; wc -l < /f/tmp/dojo-dn/ca0/bell-before.sha
 ```
 
-Expected: `exit=0`; the three named files, then every file of `/opt/monark-bell` and of `/opt/monark-probe`, one line each. **STOP** if
-`/etc/caddy/monark-bell.caddyfile` is missing (Bell is not yet in IMPORT mode: BELL-CA-DOJO-1 first; `c10` requires the Bell extract).
+Expected: `exit=0`; the named files, then every file of `/opt/monark-bell` and of `/opt/monark-probe`, one line each. Before the
+REPLACE → IMPORT procedure of RUNBOOK-bell step 7, `/etc/caddy/monark-bell.caddyfile` does not exist yet: `sha256sum` names it on stderr
+(`No such file or directory`) and the capture holds the two other named files, as expected (`c10` is then red for `required=false` alone,
+(4); C-4 of the G2 of part 3). After that procedure, **STOP** if it is missing (Bell's site is no longer where the procedure put it).
 
 (2) The host captures of `c09` (Caddy, the four units, `NeedDaemonReload`, the NAMES of the manager's environment block and of an
 invocation with the publication unit's properties, never a value; both trees), copied to the operator machine:
@@ -580,17 +610,26 @@ The job writes nothing (it runs `env` as `dojo`, the unit's sandbox, no credenti
 sides (form of A-8 (3)); `<n>` numbers this CA-0:
 
 ```bash
-mkdir -p /f/PRODUITS/dojo-mirror/public-ca0-<n> &&
-scp -r -i ~/.ssh/monark_vps 'root@bell.monarkgate.tech:/var/lib/monark-dojo/public/*' /f/PRODUITS/dojo-mirror/public-ca0-<n>/ &&
-cd /f/PRODUITS/dojo-mirror/public-ca0-<n> && find . -type f -print0 | LC_ALL=C sort -z | xargs -0 sha256sum -t > /f/tmp/dojo-dn/ca0/mirror.local.sha &&
+mkdir -p '/f/PRODUITS/dojo-mirror/public-ca0-<n>' &&
+scp -r -i ~/.ssh/monark_vps 'root@bell.monarkgate.tech:/var/lib/monark-dojo/public/*' '/f/PRODUITS/dojo-mirror/public-ca0-<n>/' &&
+cd '/f/PRODUITS/dojo-mirror/public-ca0-<n>' && find . -type f -print0 | LC_ALL=C sort -z | xargs -0 sha256sum -t > /f/tmp/dojo-dn/ca0/mirror.local.sha &&
 ssh -i ~/.ssh/monark_vps root@bell.monarkgate.tech 'cd /var/lib/monark-dojo/public &&
 find . -type f -print0 | LC_ALL=C sort -z | xargs -0 sha256sum -t' > /f/tmp/dojo-dn/ca0/mirror.host.sha &&
 cmp -s /f/tmp/dojo-dn/ca0/mirror.local.sha /f/tmp/dojo-dn/ca0/mirror.host.sha && echo MIRROR-EQUAL || echo MIRROR-DIFFERENT
 ```
 
-Expected: `MIRROR-EQUAL`. Then (1) again, into `/f/tmp/dojo-dn/ca0/bell-after.sha`. (4) The check, under `env -i` with `PATH` alone
-(the agents' shell carries `NODE_USE_SYSTEM_CA`, PB-8 É-B6; under Git Bash, `env -i` leaves `node` the names `MSYSTEM`, `PATH`,
-`SYSTEMROOT` and `WINDIR`, measured at the G1 of PR-3b-2b-1), its CA under `/f/tmp`:
+Expected: `MIRROR-EQUAL`. Then (1) again, into `/f/tmp/dojo-dn/ca0/bell-after.sha`. (4) First the tools: the CA and its verifier, as
+the working tree that runs them holds them, are those of the G7 (the line of section 22 (1); C-3 of the G2 of part 3: the working tree,
+never two commits):
+
+```bash
+cd /f/Monark && G7=$(cat /f/tmp/dojo-dn/G7.txt) &&
+git diff --quiet "$G7" -- scripts apps/dojo apps/bell/scripts apps/site/lib vocab-banned.json; echo same_tools=$?
+```
+
+Expected: `same_tools=0`; else **STOP** (the check runs from a checkout of the G7, with no change on these paths in its working tree).
+Then the check, under `env -i` with `PATH` alone (the agents' shell carries `NODE_USE_SYSTEM_CA`, PB-8 É-B6; under Git Bash, `env -i`
+leaves `node` the names `MSYSTEM`, `PATH`, `SYSTEMROOT` and `WINDIR`, measured at the G1 of PR-3b-2b-1), its CA under `/f/tmp`:
 
 ```bash
 cd /f/Monark && G7=$(cat /f/tmp/dojo-dn/G7.txt) && C=/f/tmp/dojo-dn/ca0/dojo-capture && B=/f/tmp/dojo-dn/ca0 &&
@@ -601,10 +640,14 @@ env -i PATH="$PATH" node scripts/verify-dojo.mjs $A > $B/ca0.stdout 2> $B/ca0.st
 
 Expected (the closed table of PB-2): `ca0_exit=1`; `VERIFY FAILED:` names `c04_acao_star`, `c05_no_directory_listing`,
 `c06_cache_immutable_lines_history_no_cache_timeline` and `c07_tls_authorized`, never passed offline, so never `VERIFY OK` (M-H28);
-`c01`, `c02`, `c03`, `c08`, `c11` and `c12` evaluated on the mirror; `c09` and `c10` on the captures. Before A-6, `c09` is red on
-`imports_bell_dojo=false dojo_extract=false` (the Dōjō extract is installed at A-6; open question Q-3 of the G1 journal of PR-3b-2b-1),
-and `c11` is red, `no snapshot served`, on a mirror without a `snapshot`. **STOP** on any other red check: its detail names the
-sub-check (`c09`: `tree_publication`, `tree_collect`, `units_one_fragment_equal`, `need_daemon_reload_no`, `imports_bell_dojo`,
+`c01`, `c02`, `c03`, `c08`, `c11` and `c12` evaluated on the mirror; `c09` and `c10` on the captures, by the state of Caddy on the
+host (C-4 of the G2 of part 3, measured offline on the signed fixture; open question Q-3 of the G1 journal of PR-3b-2b-1): (a) before the
+REPLACE → IMPORT procedure of RUNBOOK-bell step 7, `c10` is red for `required=false` ALONE, its detail carrying `before_sha256` equal to
+`after_sha256`, and `c09` is red on `imports_bell_dojo=false dojo_extract=false` alone; (b) after that procedure and before A-6, `c10` is
+green and `c09` red on those two sub-checks alone (the Dōjō's `import` line and extract come at A-6); (c) after A-6, both green. `c11` is
+red, `no snapshot served`, on a mirror without a `snapshot`. **STOP** on any other red check or sub-check, and on a `before_sha256`
+other than the `after_sha256` (Bell or the probe changed between the two captures: `required=false` never hides it): its detail names
+the sub-check (`c09`: `tree_publication`, `tree_collect`, `units_one_fragment_equal`, `need_daemon_reload_no`, `imports_bell_dojo`,
 `dojo_extract`, `environment_closed`; `c10`: the two digests and `required`); the JOURNAL keeps the digest of `CA-0-<n>.json`.
 
 ## 16. A-8 — the anchor: signed by a transient job, checked OFFLINE, timestamped after the first publication (ADR D-4)
@@ -760,7 +803,11 @@ TB-23). Rollback (a stop): `ssh -i ~/.ssh/monark_vps root@178.16.131.29 'systemc
 Until the `history` line, each start exits 1 (`history_missing`, above), so the unit (`Type=oneshot`) stays `failed` between two
 slots: `systemctl is-active` prints `failed` for it (read on the host on 2026-10-02 at 04:34 UTC), its normal state then and never a
 stop; each guard of sections 16, 18 and 19 on the unit admits `inactive` or `failed` (the unit not running) and refuses `active`,
-`activating`, `deactivating` or any other output (Q-1 of the G1 journal of RUNBOOK-PRE-IV).
+`activating`, `deactivating` or any other output (Q-1 of the G1 journal of RUNBOOK-PRE-IV). These guards pipe `systemctl is-active` into
+`grep -qx`, so they assume `pipefail` off in the remote shell (under `pipefail`, the exit code of `is-active` for a unit not running,
+not read here, FAITS-SYSTEMCTL-IS-ACTIVE-1, could turn each guard red: a block, never a removal; N-2 of the G2 of part 3): read it once
+at the act, before 18 (iii), with the target of these commands and `shopt -o pipefail` as the remote command; expected one line,
+`pipefail` then `off`; anything else: **STOP**, escalation.
 
 Each day also, read-only, the lock files of the state (DOJO-PUBLISH-SINGLE-WRITER-1; Q-10 and D3-1 below):
 
@@ -1085,15 +1132,16 @@ line, Bell's CA 12/12 right after it). Bell's CA runs here from a checkout `/f/M
 11 (b) accepts the two `import` lines (any other checkout turns Bell's CA red at this act). The extract is the blob of the Dojo G7
 (`/f/tmp/dojo-dn/G7.txt`), installed WHOLE at `/etc/caddy/monark-dojo.caddyfile`, never edited on the host; its first line that is
 neither blank nor a comment is the site address `dojo.monarkgate.tech {` (no global options block; measured on the blob at `224a6bd1`,
-line 13; re-read by (1)). Conventions of section 10 and of the procedure of RUNBOOK-bell step 7: `'root@<bell>'` is the SSH target of
-section 1, `<bell>` replaced by the host address written there before a command runs (left as is, `ssh` resolves no host, nothing runs).
+line 13; re-read by (1)). Conventions of section 10 and of the procedure of RUNBOOK-bell step 7; the commands name the host
+`bell.monarkgate.tech`, only after the host key step of section 15 (0) (its SSH host key under that name: C-2 of the G2 of part 3).
 
 (1) Read-only, the state before the act (Bell's one-line main file, no name of this act yet), recorded locally:
 
 ```bash
 G7=$(cat /f/tmp/dojo-dn/G7.txt) && git -C /f/Monark cat-file blob "$G7:deploy/Caddyfile.monark-dojo" |
 grep -v -E '^[[:space:]]*(#|$)' | head -1; A=/f/tmp/dojo-dn/a6-before.txt;
-ssh -i ~/.ssh/monark_vps 'root@<bell>' 'cd /etc/caddy && sha256sum Caddyfile monark-bell.caddyfile && ls -1 /etc/caddy' > "$A"; echo exit=$?; cat "$A"
+ssh -i ~/.ssh/monark_vps root@bell.monarkgate.tech 'cd /etc/caddy && sha256sum Caddyfile monark-bell.caddyfile && ls -1 /etc/caddy' > "$A";
+echo exit=$?; cat "$A"
 ```
 
 Expected: `dojo.monarkgate.tech {`; `exit=0`; `d51755c50a15dac943dafdf7ff1bffe4ceb110923660d46723cdcba774faf51f  Caddyfile` (Bell's one
@@ -1106,7 +1154,7 @@ step 7 first), or this act already started (rollback (a) or (b) below, or read t
 
 ```bash
 G7=$(cat /f/tmp/dojo-dn/G7.txt) && git -C /f/Monark cat-file blob "$G7:deploy/Caddyfile.monark-dojo" |
-ssh -i ~/.ssh/monark_vps 'root@<bell>' 'cd /etc/caddy && test ! -e Caddyfile.bak-dojo && cp -p Caddyfile Caddyfile.bak-dojo && umask 022 &&
+ssh -i ~/.ssh/monark_vps root@bell.monarkgate.tech 'cd /etc/caddy && test ! -e Caddyfile.bak-dojo && cp -p Caddyfile Caddyfile.bak-dojo && umask 022 &&
 cat > monark-dojo.caddyfile && echo "import /etc/caddy/monark-bell.caddyfile" > Caddyfile.new &&
 echo "import /etc/caddy/monark-dojo.caddyfile" >> Caddyfile.new && caddy validate --config /etc/caddy/Caddyfile.new --adapter caddyfile &&
 mv Caddyfile.new Caddyfile && systemctl reload caddy && systemctl is-active caddy && sha256sum Caddyfile monark-dojo.caddyfile'
@@ -1137,7 +1185,7 @@ the investor's own machine, written to the JOURNAL as such; no CA-1 before it. B
 Rollback (a), before the `mv` (the output of (2) has no `Valid configuration`: the live file never changed):
 
 ```bash
-ssh -i ~/.ssh/monark_vps 'root@<bell>' 'cd /etc/caddy && cmp Caddyfile Caddyfile.bak-dojo &&
+ssh -i ~/.ssh/monark_vps root@bell.monarkgate.tech 'cd /etc/caddy && cmp Caddyfile Caddyfile.bak-dojo &&
 rm -f Caddyfile.new monark-dojo.caddyfile Caddyfile.bak-dojo; ls -1 /etc/caddy'
 ```
 
@@ -1148,7 +1196,7 @@ Rollback (b), after the `mv`, complete (BEFORE any rollback of RUNBOOK-bell step
 removed:
 
 ```bash
-ssh -i ~/.ssh/monark_vps 'root@<bell>' 'cd /etc/caddy && cp -p Caddyfile.bak-dojo Caddyfile.new &&
+ssh -i ~/.ssh/monark_vps root@bell.monarkgate.tech 'cd /etc/caddy && cp -p Caddyfile.bak-dojo Caddyfile.new &&
 caddy validate --config /etc/caddy/Caddyfile.new --adapter caddyfile && mv Caddyfile.new Caddyfile && systemctl reload caddy &&
 systemctl is-active caddy && rm monark-dojo.caddyfile Caddyfile.bak-dojo && sha256sum Caddyfile'
 ```
@@ -1161,15 +1209,17 @@ RUNBOOK-bell step 8 and step 11 (Bell 12/12, one `import` line); `dojo.monarkgat
 When: the announcement day, after A-6 (QI-4 (c); section 10). Blockers: A-6 done (the extract imported, the certificate issued);
 the first `snapshot` served; the G7 of PR-3b-2b (DOJO-VERIFY-TLS-FLAGS-1, DOJO-CA-TIMELINE-SHA-1); the delay of the verifier child
 (740 000 ms, DOJO-VERIFY-SCALE-1: open question Q-2 of the G1 journal of PR-3b-2b-1); DOJO-CA-CERT-TRANSPARENCY-1; BELL-CA-DOJO-1
-(`c09` reads exactly two `import` lines, `c10` the Bell extract). (1) The CA and its verifier at HEAD are those of the G7 (one SHA for
-the trees, the units, the extract and the check, DOJO-SYNC-G7-REF-1):
+(`c09` reads exactly two `import` lines, `c10` the Bell extract). (1) The CA and its verifier, as the working tree that runs them
+holds them, are those of the G7 (one SHA for the trees, the units, the extract and the check, DOJO-SYNC-G7-REF-1; C-3 of the G2 of
+part 3: the working tree against the G7, never two commits):
 
 ```bash
 cd /f/Monark && G7=$(cat /f/tmp/dojo-dn/G7.txt) &&
-git diff --quiet "$G7" HEAD -- scripts apps/dojo apps/bell/scripts apps/site/lib vocab-banned.json; echo same_tools=$?
+git diff --quiet "$G7" -- scripts apps/dojo apps/bell/scripts apps/site/lib vocab-banned.json; echo same_tools=$?
 ```
 
-Expected: `same_tools=0`; else **STOP** (the check runs from a checkout of the G7). (2) The closed environment of the verifier
+Expected: `same_tools=0`; else **STOP** (the check runs from a checkout of the G7, with no change on these paths in its working
+tree). (2) The closed environment of the verifier
 child suffices on this machine (PB-3 (1)): its public command under `env -i`, against Bell's host (ours, served already), must answer
 a named refusal OTHER than `unreachable` (the GET of `timeline.jsonl` crossed DNS and TLS; Bell serves no `dojo/pubkey.json`):
 
@@ -1194,9 +1244,152 @@ cat $B/ca1.stderr
 Expected: `ca1_exit=0` and `VERIFY OK - 12/12 checks passed (tls.authorized=true)`; `docs/deploy-CA-dojo.json` holds the nine keys
 of DOJO-CA-FORMAT-1, `url` `https://dojo.monarkgate.tech` (no trailing slash), `g7` = `G7.txt`, twelve checks `{name, pass, detail}`,
 `checked_at` at the head of the detail of `c01`, and `c07` names the default certificate store of this Node binary. Then the commit
-(orchestrator, R-20) and TU-7 (`node scripts/sync-dojo-served.mjs --g7 "$G7"`; its section: open question Q-4). Any red check:
+(orchestrator, R-20), then TU-7 at once (section 23: the synchro binds to the bodies this CA read). Any red check:
 **STOP**, no announcement; a red CA is never committed (`rm docs/deploy-CA-dojo.json`, the fault fixed, the check rerun); a check run
 without `env -i` is red at `c07` (`env_families=NODE_USE_SYSTEM_CA`): expected, rerun under `env -i`. Rollback: none (read-only).
+
+## 23. TU-7 — the first synchro of the site (`scripts/sync-dojo-served.mjs`), bound to the committed CA-1
+
+When: right after CA-1 is committed (section 22), between two slots of the publication timer (section 17): the synchro reads the
+served files again and binds them to the committed check (`bindDojoCa`, `scripts/sync-dojo-served.mjs` l.64-80): its twelve controls
+green, `tls.authorized`, its head and history those it rebuilds, the digests of `/timeline.jsonl` and `/dojo/pubkey.json` those it
+reads, its `g7` the one given. A publication between CA-1 and TU-7 makes it refuse (`the deploy check was captured on other served
+bodies`): CA-1 again, then TU-7. Blockers (ADR-DOJO-PR-3 PB-5, row TU-7): DOJO-SYNC-AFTER-ANNOUNCE-1 (the first `snapshot` served,
+CA-1 green and committed, the announcement, the second brief checkpoint-1); DOJO-SYNC-FETCH-CONVERGE-1 (it absorbs
+DOJO-SYNC-GET-BODY-CANCEL-1); DOJO-SYNC-CA-FIELD-NEGATIVES-1; PAROXYSME-DOJO-FILE-1 (`docs/ETAT.md`, 2026-10-02: the items of
+`docs/PAROXYSME-Dojo.md` formed before this synchro). Its `--g7` is the `g7` of the committed CA, which is `G7.txt`
+(DOJO-SYNC-G7-REF-1):
+
+```bash
+cd /f/Monark && git ls-files --error-unmatch docs/deploy-CA-dojo.json > /dev/null && git diff --quiet HEAD -- docs/deploy-CA-dojo.json &&
+C=$(node -p "JSON.parse(require('fs').readFileSync('docs/deploy-CA-dojo.json', 'utf8')).g7") && [ "$C" = "$(cat /f/tmp/dojo-dn/G7.txt)" ] &&
+node scripts/sync-dojo-served.mjs --g7 "$C"; echo sync_exit=$?; git status --porcelain -- apps/site/data
+```
+
+Expected: `sync-dojo-served OK: apps/site/data/dojo-served.json written (head seq <n>); its apps/site/data/manifest.sha256.json entry
+set to <64 hex>` (the line of `main`, l.171), `sync_exit=0`, then the two paths ` M apps/site/data/manifest.sha256.json` (its entry and,
+once, the clause of its `$comment`: `setManifestEntry`) and `?? apps/site/data/dojo-served.json` (the record is new at the first
+synchro); `<n>` is the seq of the head of CA-1 (JOURNAL: the seq and the digest). **STOP** on
+`sync-dojo-served: FAIL-CLOSED: dojo sync: <reason> (fail-closed)`: nothing written (nothing listed under `apps/site/data`); and on
+`sync_exit=1` without a `sync-dojo-served` line: the CA is not committed as it stands, or its `g7` is not `G7.txt` (CA-1 first). Then
+the commit of the two files (orchestrator, R-20), the full oracle (`dojo_served_data_matches_deploy_ca`, committed leg: the record bound
+to the committed CA), the push; the site is sent by `docs/RUNBOOK-vitrine.md`; the register `hold-snapshot` turns `built` only by the
+orchestrator's act after this commit (`docs/ETAT.md`, C-V-5); the investor's visual check is made at this act (ADR-DOJO-PR-4, Q-V-4,
+decision 291). Rollback: before the commit, the two files back as they were (`git checkout -- apps/site/data/manifest.sha256.json`,
+`rm apps/site/data/dojo-served.json`); after it, the revert of the synchro commit (`git revert --no-edit <the synchro commit>`, then the
+oracle and the push: no record, no entry, the register `upcoming`, the coherent absence the committed leg reads).
+
+## 24. DOJO-SITE-PROXY-1 — the site's proxy of `/dojo-served/*`, on the site's server (N-9 of the G2 of part 3)
+
+What: the block of `deploy/Caddyfile.monark-dojo-site.snippet` (its 18 lines that are neither blank nor a comment) inserted INSIDE the
+vitrine's site block of `/etc/caddy/Caddyfile` on the SITE's server, just before its one `reverse_proxy localhost:3000` (the snippet's
+comment; the precedent of `docs/RUNBOOK-sentinel.md` section 5), under the discipline of section 21: a backup, a CANDIDATE, `caddy
+validate` on it, the atomic rename, `systemctl reload caddy` (never `restart`). When (`docs/ETAT.md`, 2026-10-02): at the sending of the
+site, after A-6 and DOJO-EDGE-CACHE-1, and once the `history` line is served (its `history_sha256`, `<h>` below, names a file the Dōjō
+host serves, so that the traversals discriminate: Q-3 of `docs/G1-lot-site-send-prep.md`). Blockers: FAITS-CADDY-HEADER-UP-DELETE-1
+(`docs/dojo/FAITS-caddy-header-up-delete-2026-10-02.md` of the trunk, read for Caddy v2.11.4); DOJO-SITE-PROXY-XFF-1. The block is
+read from the commit the site is sent from (`<sha of the sending>`: the `<sha>` of `docs/RUNBOOK-vitrine.md` step 1), never from
+`G7.txt`, the G7 of the Dōjō's trees, which may predate DOJO-SITE-PROXY-XFF-1 (the `G7.txt` in force on 2026-10-02 carries the snippet
+without its three deletions: 15 lines of code); (2) refuses a block other than the 18 lines with the three deletions. Conventions of
+section 10; `'root@<site>'` is the SSH target of the site's server (the deploy key; the target of `docs/RUNBOOK-sentinel.md`), `<site>`
+replaced by its address before a command runs (left as is, `ssh` resolves no host, nothing runs).
+
+(1) Read-only, the state before the act:
+
+```bash
+ssh -i ~/.ssh/monark_vps 'root@<site>' 'caddy version; systemctl is-active caddy; systemctl show -p ExecStart --value caddy; cd /etc/caddy &&
+sha256sum Caddyfile; grep -c "reverse_proxy localhost:3000" Caddyfile; grep -c "/dojo-served/" Caddyfile; ls -1 /etc/caddy'
+```
+
+Expected: `v2.11.4` and its build hash (the version the FAITS read; another version: **STOP**, the FAITS read again at that version
+first: its revision rule); `active`; an `ExecStart` carrying `--config /etc/caddy/Caddyfile`; the digest of the file in place (JOURNAL);
+`1` (one `reverse_proxy localhost:3000`); `0` (no `/dojo-served/` yet); a listing with none of `Caddyfile.new`, `Caddyfile.bak-dojo-site`,
+`dojo-site.block`. **STOP** otherwise (this act already started: rollback (a) or (b) below, or read the host). Rollback: none (read-only).
+
+(2) The candidate, validated, the live file untouched; then its difference with the live file:
+
+```bash
+S=$(git -C /f/Monark rev-parse --verify '<sha of the sending>^{commit}') && git -C /f/Monark cat-file blob "$S:deploy/Caddyfile.monark-dojo-site.snippet" |
+grep -v -E '^[[:space:]]*(#|$)' | ssh -i ~/.ssh/monark_vps 'root@<site>' 'cd /etc/caddy && test ! -e Caddyfile.bak-dojo-site &&
+test "$(grep -c "reverse_proxy localhost:3000" Caddyfile)" = 1 && ! grep -q "/dojo-served/" Caddyfile && cp -p Caddyfile Caddyfile.bak-dojo-site &&
+umask 022 && cat > dojo-site.block && test "$(wc -l < dojo-site.block)" = 18 && test "$(grep -c "header_up -" dojo-site.block)" = 3 &&
+awk -v b=dojo-site.block "/reverse_proxy localhost:3000/ { while ((getline l < b) > 0) print l } { print }" Caddyfile > Caddyfile.new &&
+rm dojo-site.block && caddy validate --config /etc/caddy/Caddyfile.new --adapter caddyfile && echo CANDIDATE-VALID; diff Caddyfile Caddyfile.new'
+```
+
+Expected: `Valid configuration`, `CANDIDATE-VALID`, then a `diff` of ONE insertion of the 18 lines of the block (`> `), just before the
+line `reverse_proxy localhost:3000`, nothing removed (no `<` line): JOURNAL; the live `/etc/caddy/Caddyfile` never changed. **STOP** on
+any other output (a `<sha of the sending>` left as is, or a block that is not the 18 lines with three `header_up -`: no candidate):
+without `CANDIDATE-VALID`, rollback (a).
+
+(3) Only then, the candidate live:
+
+```bash
+ssh -i ~/.ssh/monark_vps 'root@<site>' 'cd /etc/caddy && test -e Caddyfile.bak-dojo-site &&
+caddy validate --config /etc/caddy/Caddyfile.new --adapter caddyfile && mv Caddyfile.new Caddyfile && systemctl reload caddy &&
+systemctl is-active caddy && sha256sum Caddyfile'
+```
+
+Expected: `Valid configuration`; `active`; the digest of the new file (JOURNAL). **STOP** on any other output: without `Valid
+configuration`, rollback (a); with it, rollback (b).
+
+(4) The configuration installed, as Caddy adapts it (Q-2 (b) of the G1 journal of SITE-SEND-PREP): the request header operations of the
+proxy carry the three deletions, in the extract's order:
+
+```bash
+ssh -i ~/.ssh/monark_vps 'root@<site>' 'caddy adapt --config /etc/caddy/Caddyfile --adapter caddyfile' | grep -o '"delete":[[][^]]*[]]' |
+grep -c -x -F '"delete":["X-Forwarded-For","X-Real-IP","Forwarded"]'
+```
+
+Expected: `1`. The JSON form is read from the extract, not measured here (open question Q-5 of `docs/G1-lot-partie3-corr.md`): anything
+else, **STOP**, and the adapted JSON read whole (`caddy adapt` with `--pretty`); the three names absent from the proxy's request
+operations: rollback (b). This reads the configuration, never the headers the Dōjō host receives: the measure at run time (Q-2 (c) of
+the G1 journal of SITE-SEND-PREP) is not this act (its item: open question Q-6 of `docs/G1-lot-partie3-corr.md`).
+
+(5) The vitrine and the three relayed paths (`<l>`: the `lines_sha256` of the served head), each `200` with `cache-control: no-store`:
+
+```bash
+S=https://monarkgate.tech && curl -sS -o /dev/null -w "%{http_code}" "$S/"; echo; for p in timeline.jsonl dojo/pubkey.json 'lines/<l>.jsonl'; do
+curl -sS -D - -o /dev/null "$S/dojo-served/$p" | grep -i -E '^(HTTP/|cache-control:)'; done
+```
+
+Expected: `200` (the vitrine), then for each path an `HTTP/<version> 200` line and `cache-control: no-store`. Then the three traversals,
+each preceded by its witness at the Dōjō host (`200` there: the file exists, so the `404` that follows is the proxy's refusal), with the
+request line of each read in `curl -v` (the path and the method as sent; `--path-as-is` keeps the encoded dots as written):
+
+```bash
+D=https://dojo.monarkgate.tech && S=https://monarkgate.tech/dojo-served && P='history/<h>.jsonl' && V='-sS -v --path-as-is -o /dev/null' &&
+curl $V "$D/$P" 2>&1 | grep -E '^(> GET |< HTTP/)'; curl $V "$S/$P" 2>&1 | grep -E '^(> GET |< HTTP/)';
+curl $V "$D/$P" 2>&1 | grep -E '^(> GET |< HTTP/)'; curl $V "$S/lines/%2e%2e/$P" 2>&1 | grep -E '^(> GET |< HTTP/)';
+curl $V -I "$D/timeline.jsonl" 2>&1 | grep -E '^(> HEAD |< HTTP/)'; curl $V -I "$S/timeline.jsonl" 2>&1 | grep -E '^(> HEAD |< HTTP/)'
+```
+
+Expected, six pairs (the request line, then the status line), in this order: `> GET /history/<h>.jsonl` and `200`;
+`> GET /dojo-served/history/<h>.jsonl` and `404`; `> GET /history/<h>.jsonl` and `200`; `> GET /dojo-served/lines/%2e%2e/history/<h>.jsonl`
+and `404`; `> HEAD /timeline.jsonl` and `200`; `> HEAD /dojo-served/timeline.jsonl` and `404` (the forms of `curl -v` are read at the act;
+JOURNAL: the twelve lines). **STOP**: a witness other than `200` (the act does not discriminate: `<h>` wrong, or the `history` line not
+served yet); a traversal other than `404`: rollback (b) at once, then escalation (DOJO-SITE-PROXY-PATH-NORMALIZE-1).
+
+Rollback (a), before the `mv` (the live file never changed):
+
+```bash
+ssh -i ~/.ssh/monark_vps 'root@<site>' 'cd /etc/caddy && cmp Caddyfile Caddyfile.bak-dojo-site &&
+rm -f Caddyfile.new dojo-site.block Caddyfile.bak-dojo-site; ls -1 /etc/caddy'
+```
+
+Expected: no `cmp` output and none of the three names in the listing; then (1) again before any retry. A `cmp` difference: **STOP**,
+rollback (b).
+
+Rollback (b), after the `mv`: the file before the act back, through a candidate, validated, renamed, reloaded:
+
+```bash
+ssh -i ~/.ssh/monark_vps 'root@<site>' 'cd /etc/caddy && cp -p Caddyfile.bak-dojo-site Caddyfile.new &&
+caddy validate --config /etc/caddy/Caddyfile.new --adapter caddyfile && mv Caddyfile.new Caddyfile && systemctl reload caddy &&
+systemctl is-active caddy && rm Caddyfile.bak-dojo-site && sha256sum Caddyfile'
+```
+
+Expected: `Valid configuration`; `active`; the digest of (1) (the file before the act); `/dojo-served/*` no longer relayed (the
+vitrine's catch-all answers it).
 
 ## Never
 

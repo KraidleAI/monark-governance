@@ -244,8 +244,8 @@ A-6 (`docs/RUNBOOK-dojo.md` section 21). Bell's served behaviour does not change
 moves. The main file can hold nothing but `import` lines because Bell's blob carries no global options block: in the blob at `224a6bd1`,
 its first line that is neither blank nor a comment (line 11) is the site address `bell.monarkgate.tech {`, the only top-level line that
 opens a block (the same holds for the Dojo blob, line 13); command (1) re-reads it at the G7. `G7.txt` is NOT moved: the tree, the unit
-and the blob are not re-shipped, the blob only changes path. Conventions of this procedure: `'root@<bell>'` is the SSH target of step 1,
-`<bell>` replaced by the host address written there before a command runs (left as is, `ssh` resolves no host and nothing runs); a
+and the blob are not re-shipped, the blob only changes path. Conventions of this procedure: the commands name the host
+`bell.monarkgate.tech`, only after the host key step of `docs/RUNBOOK-dojo.md` section 15 (0) (C-2 of the G2 of part 3); a
 command longer than 160 characters is broken after `&&`, `||` or `|` (as in `docs/RUNBOOK-dojo.md` section 10), one fenced block
 staying ONE command.
 
@@ -253,8 +253,8 @@ staying ONE command.
 
 ```bash
 G7=$(cat /f/tmp/bell-dn/G7.txt) && L=$(git -C /f/Monark cat-file blob "$G7:deploy/Caddyfile.monark-bell" | sha256sum | cut -c1-64) &&
-R=$(ssh -i ~/.ssh/monark_vps 'root@<bell>' 'sha256sum /etc/caddy/Caddyfile' | cut -c1-64) && [ "$L" = "$R" ] && echo "replace-at-g7 $L" ||
-echo STOP; ssh -i ~/.ssh/monark_vps 'root@<bell>' 'ls -1 /etc/caddy'; git -C /f/Monark cat-file blob "$G7:deploy/Caddyfile.monark-bell" |
+R=$(ssh -i ~/.ssh/monark_vps root@bell.monarkgate.tech 'sha256sum /etc/caddy/Caddyfile' | cut -c1-64) && [ "$L" = "$R" ] && echo "replace-at-g7 $L" ||
+echo STOP; ssh -i ~/.ssh/monark_vps root@bell.monarkgate.tech 'ls -1 /etc/caddy'; git -C /f/Monark cat-file blob "$G7:deploy/Caddyfile.monark-bell" |
 grep -v -E '^[[:space:]]*(#|$)' | head -1
 ```
 
@@ -269,7 +269,7 @@ stay in the main file: this procedure does not apply). Rollback: none (read-only
 
 ```bash
 G7=$(cat /f/tmp/bell-dn/G7.txt) && git -C /f/Monark cat-file blob "$G7:deploy/Caddyfile.monark-bell" |
-ssh -i ~/.ssh/monark_vps 'root@<bell>' 'cd /etc/caddy && test ! -e Caddyfile.bak-import && cp -p Caddyfile Caddyfile.bak-import && umask 022 &&
+ssh -i ~/.ssh/monark_vps root@bell.monarkgate.tech 'cd /etc/caddy && test ! -e Caddyfile.bak-import && cp -p Caddyfile Caddyfile.bak-import && umask 022 &&
 cat > monark-bell.caddyfile && cmp Caddyfile monark-bell.caddyfile && echo "import /etc/caddy/monark-bell.caddyfile" > Caddyfile.new &&
 caddy validate --config /etc/caddy/Caddyfile.new --adapter caddyfile && mv Caddyfile.new Caddyfile && systemctl reload caddy &&
 systemctl is-active caddy && sha256sum Caddyfile monark-bell.caddyfile'
@@ -288,7 +288,7 @@ the outputs of (1) to (3) to the JOURNAL. Any other result: **STOP**, rollback (
 Rollback (a), before the `mv` (the output of (2) has no `Valid configuration`: the live file never changed):
 
 ```bash
-ssh -i ~/.ssh/monark_vps 'root@<bell>' 'cd /etc/caddy && cmp Caddyfile Caddyfile.bak-import &&
+ssh -i ~/.ssh/monark_vps root@bell.monarkgate.tech 'cd /etc/caddy && cmp Caddyfile Caddyfile.bak-import &&
 rm -f Caddyfile.new monark-bell.caddyfile Caddyfile.bak-import; ls -1 /etc/caddy'
 ```
 
@@ -298,7 +298,7 @@ retry. No `Caddyfile.bak-import` at all: (2) stopped before its backup, nothing 
 Rollback (b), after the `mv`, complete: REPLACE again (after the rollback of A-6, if A-6 ran; the first test enforces that order):
 
 ```bash
-ssh -i ~/.ssh/monark_vps 'root@<bell>' 'cd /etc/caddy && test ! -e monark-dojo.caddyfile && cp -p Caddyfile.bak-import Caddyfile.new &&
+ssh -i ~/.ssh/monark_vps root@bell.monarkgate.tech 'cd /etc/caddy && test ! -e monark-dojo.caddyfile && cp -p Caddyfile.bak-import Caddyfile.new &&
 caddy validate --config /etc/caddy/Caddyfile.new --adapter caddyfile && mv Caddyfile.new Caddyfile && systemctl reload caddy &&
 systemctl is-active caddy && rm monark-bell.caddyfile Caddyfile.bak-import && sha256sum Caddyfile'
 ```
