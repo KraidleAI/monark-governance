@@ -282,6 +282,8 @@ DJ-L06 table sans script (code, rendu serveur des lignes committées).
   inchangés. Écart déclaré par eux : la règle est dans un additif daté (`decisions/0005-ADR-addendum-1-registry-artifacts.md`), pas
   dans l ADR 0005 figé (empreinte P0 `b011e4de…` publiée). Recommandation de l orchestrateur : accepter l additif (l ADR garde son
   empreinte publiée ; l additif ne change aucune définition) ; décision à l investisseur. Réponse à RECHERCHES après elle.
+- 2026-10-02 14:30 UTC : oracle G7 de `f39e679c` (page après la voie (b), tête actuelle de `lot/page-v1`) sortie 0, `581c62c5…`, 1 882 tests,
+  0 rouge, R-25 1 130 ; c est l oracle du G7 de la partie 3 ; le VERDICT attend une session sous `claude-fable-5-1`.
 - 2026-10-02 08:26 UTC, ÉCART DE ROSTER relevé par l orchestrateur : depuis 02:51:22 UTC, les tours de l orchestrateur tournent sous
   `claude-opus-5-5` (519 tours dans la transcription de la session), pas sous `claude-fable-5-1` (règle : orchestrateur = Fable 5.1).
   Actes faits sous ce modèle : contrôle et accord P2a complet (recherches#38), consolidation du CLAUDE.md global, adjudications et
