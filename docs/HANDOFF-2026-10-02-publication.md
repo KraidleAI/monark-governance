@@ -68,11 +68,15 @@ Dans `F:/Monark-wt-page-v1` : `git merge --no-ff <lot>` (aucun conflit attendu :
 1. Après 00:00 UTC et la clôture de d sur l hôte (`bundles/2026-10-02/publish/SHA256SUMS` existe) : `bash F:/tmp/dojo/run-final.sh`
    en arrière-plan avec journal (copie de d vers `F:/PRODUITS/dojo-mirror/days/2026-10-02`, S_CUT, course finale A, B, C sur
    `F:/PRODUITS/dojo-history/final-2026-10-02`, reprise de C sur `method_cap`). Il refuse avant minuit, sans BATCH-NEAR, arbre sale.
+   Le lanceur n a été vérifié qu en syntaxe (`bash -n`), jamais exécuté : relire ses sorties pas à pas. Clés de l opérateur prises de
+   son environnement, jamais affichées ; `--deadline` 2026-10-03T20:00:00Z, prolongeable à la reprise (D-11).
    Attendu : `complete` et l empreinte de `publish/SHA256SUMS`. La course r3 a pris plusieurs heures.
 2. 18 (iii) : le paquet vers l hôte (garde Q-14 du lot RUNBOOK-PRE-IV) ; Q-12 : taille de l historique contre la grille mesurée.
 3. 18 (iv) : la ligne `history` (job transitoire, unité `inactive`, hors des créneaux 00:30, 01:30, 03:30, 06:30 UTC) ; puis retrait
    gardé du paquet ; contrôle hors ligne de A-8 (3) et (4) sur un miroir neuf `public-seq<n>`.
-4. Le créneau suivant publie d (premier `snapshot`) ; lire le journal de l unité (§17) ; `dojo-verify-cli --url` après la publication.
+4. Le créneau suivant publie d (premier `snapshot`) ; lire le journal de l unité (§17). Avant A-6, rien n est servi sous
+   `dojo.monarkgate.tech` : contrôle hors ligne sur un miroir neuf (`public-seq<n>`, comme A-8 (3)-(4)) ; `dojo-verify-cli --url`
+   seulement après A-6.
 5. Ensuite : A-8 (5) à (9) (horodatage OTS, après publication) ; A-6 (site Caddy de l hôte Bell : le certificat peut être refusé
    par le classifieur, alors acte de l investisseur) ; DOJO-EDGE-CACHE-1 ; DOJO-SITE-PROXY-1 (extrait du site avec XFF-1, `caddy
    adapt` de la configuration installée, cinq traversées attendues 404) ; `docs/PAROXYSME-Dojo.md` versé ; première synchro de
@@ -127,15 +131,15 @@ DJ-L06 table sans script (code, rendu serveur des lignes committées).
 
 ## 12. Compléments (ajoutés le 2026-10-02 à 02:3x UTC)
 - **Accès aux hôtes** : clé `~/.ssh/monark_vps`. Hôte Bell : cible ssh lue dans `F:/tmp/dojo/s7-1.sh` (extraire par `grep -oE 'root@[0-9.]+'`,
-  jamais afficher). Serveur du site : cible dans `docs/RUNBOOK-vitrine.md`. Toute sortie passe par un masque des adresses.
+  jamais afficher). Serveur du site : cible dans `docs/RUNBOOK-harness.md`. Toute sortie passe par un masque des adresses.
 - **Lots non fusionnés** : `lot/site-send-prep` (`9e016897`, committé, sa G2 arrêtée : à refaire avant fusion) ; `lot/site-browser` et
   `lot/runbook-pre-iv` (travail partiel NON commis dans `F:/Monark-wt-browser` et `F:/Monark-wt-runbook` : lire avant de reprendre).
 - **Oracle** : un oracle ou des mutants lancés par les agents arrêtés peuvent encore tenir le verrou ; vérifier `held(root)` avant
   tout oracle, ne jamais l arrêter.
 - **Lecture quotidienne du §17** (parade de la décision Q-10/D3-1, déclencheur au plus tard le 2026-10-09) : lister
   `/var/lib/monark-dojo/publish.lock*` ; un verrou d un lancement mort → §19 `--unlock` ; un résidu `.<pid>` → journal seulement.
-- **Engagement public** : le message de l investisseur sur X annonce le premier snapshot pour le 3 octobre (UTC) et « Migration needs
-  90 days held » (ancre seq 2 en vigueur).
+- **Engagement public** : le texte rédigé pour X annonce le premier snapshot pour le 3 octobre (UTC) et « Migration needs 90 days
+  held » (ancre seq 2 en vigueur) ; sa publication par l investisseur n est pas vérifiée par l orchestrateur.
 - **Faille servie aujourd hui** : S-11 de l audit P3 (noms imitant les classes commises acceptés en BYO sur le harnais) ; lot
   BYO-NEAR-NAME-1 = premier lot après la première publication, puis SERVED-HARDENING-1.
 - **Dû par MONARK à RECHERCHES** : contrôle du diff P2a-2 ; version datée de la spécification publique (S-5, 400 nommé), soumise à
