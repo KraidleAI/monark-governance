@@ -9,5 +9,6 @@
   - `apps/sentinel/src/run.ts` `45557d6e12739449fdf679226b606aecb57d1abb1515ca7be672f0ee741df5db`.
 - Conséquence : le statut de l audit passe de « trace du dépôt » à « lu sur l hôte » pour le commit servi ; S-11 (sosies acceptés en BYO)
   est atteint sur le serveur public aujourd hui ; lot BYO-NEAR-NAME-1 premier après la publication de la page (HANDOFF §13).
-- Observé au même instant : unité `monark-harness` `active` ; unité `monark-sentinel` `inactive` (non interprété ici : vérifier si elle est
-  lancée par une minuterie avant toute conclusion ; item MOTEUR-SENTINEL-STATE-1, déclencheur : G0 du chantier moteur).
+- Observé au même instant : unité `monark-harness` `active` ; unité `monark-sentinel` `inactive`, vérifié aussitôt : `Type=oneshot`,
+  minuterie `monark-sentinel.timer` `enabled` et `active`, dernier passage `Result=success`, `ExecMainStatus=0` (fin 2026-10-02 00:51:39 UTC) :
+  état normal d une unité oneshot entre deux passages.
