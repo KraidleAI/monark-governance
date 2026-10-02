@@ -15,6 +15,9 @@ claude-opus-5-5
 
 ## 0. Comment lire ce registre
 
+- Mise à jour 2026-10-02 02:49 UTC (orchestrateur) : DJ-L01 à L06 pourvus d'un item et déplacés au §2 ; DJ-L187 à L191 ajoutés au §3.8
+  (items du HANDOFF §9). Restent à former : 28 dettes du §1.2 ; 20 déclencheurs passés sans clôture écrite (§4).
+
 - **Une entrée par limite** : la mission demande une ligne par limite et borne toute ligne à 160 caractères ; chaque entrée tient donc
   sur quatre lignes au plus, ouvertes par le préfixe `- **DJ-L`, que l'on compte par `grep`.
 - **Étiquettes** : `DJ-Lnn` numérote les lignes de ce registre, comme `N-L4` et `U-L7` des registres Narabi et Ukemi (DOCTRINE l.21) ;
@@ -36,30 +39,8 @@ claude-opus-5-5
 
 ### 1.1 Dites dans les textes publics de la page (en tête des dettes)
 
-- **DJ-L01** · « La page ne montre pas qu'une adresse appartient à une seule personne. »
-  source : COPY l.50-53 (`bounds`) ; MÈRE l.157 (D-1 : identité hors frontière), l.567 (P-3)
-  nature : recherche · item : aucun · déclencheur : aucun
-  état : ouvert · suite : item à former
-- **DJ-L02** · « La page ne montre rien de ce qui viendra. »
-  source : COPY l.50-53 (`bounds`) ; MÈRE l.30 (D-12 : aucune promesse), l.532 (lexique : soon, coming)
-  nature : recherche · item : aucun · déclencheur : aucun
-  état : ouvert · suite : item à former
-- **DJ-L03** · « La vérification ne lit pas la chaîne : les soldes restent ce que deux opérateurs ont rapporté. »
-  source : COPY l.50-58 (`bounds`, `check`) ; MÈRE l.261 (D-10), l.337 (T-8), l.338 (T-9) ; PR1B4 l.171 (TY-7) ; PR2 l.389
-  nature : Tiers · item : aucun · déclencheur : aucun
-  état : ouvert · suite : item à former
-- **DJ-L04** · « Sans script ou sans Ed25519 dans le navigateur, aucune relecture : les chiffres montrés sont ceux committés avec la page. »
-  source : COPY l.65-67 (`rereadFirst`), l.71-73 (`rereadNoCheck`) ; PR4 l.303 (Q-P1 (a)), l.343 (TY-3), l.318
-  nature : code · item : aucun · déclencheur : aucun
-  état : ouvert · suite : item à former
-- **DJ-L05** · « Une rotation de clé n'est pas suivie par la page : retour aux chiffres committés jusqu'à la synchro suivante. »
-  source : COPY l.77-79 (`rereadKeyChange`) ; PR4 l.73 (point 4), l.266
-  nature : code · item : aucun · déclencheur : aucun
-  état : ouvert · suite : item à former
-- **DJ-L06** · « Sans script, aucune ligne n'est listée ni recherchée sur la page. »
-  source : COPY l.82-84 (`table`), l.98-100 (`lookup`) ; ETAT l.49 ; MÈRE l.678 (lignes réelles non committées)
-  nature : code · item : aucun · déclencheur : aucun
-  état : ouvert · suite : item à former
+- Aucune depuis le 2026-10-02 02:49 UTC : DJ-L01 à DJ-L06 portent un item (§2).
+
 
 ### 1.2 Des seuls documents internes
 
@@ -178,6 +159,30 @@ claude-opus-5-5
 
 ## 2. Limites dites dans les textes publics de la page, avec item
 
+- **DJ-L01** · « La page ne montre pas qu'une adresse appartient à une seule personne. »
+  source : COPY l.50-53 (`bounds`) ; MÈRE l.157 (D-1 : identité hors frontière), l.567 (P-3)
+  nature : recherche · item : DOJO-IDENTITY-CLUSTER-1 (preuve de personne ou regroupement d'adresses : état de l'art, coût, ce qui reste indécidable) · déclencheur : G0 de la pièce 2 (MÈRE l.677) ; procurements formés au mainteneur avant
+  état : ouvert · suite : recherche de solutions académiques, sources à l'appui ; la page garde la phrase tant qu'aucune construction n'est servie
+- **DJ-L02** · « La page ne montre rien de ce qui viendra. »
+  source : COPY l.50-53 (`bounds`) ; MÈRE l.30 (D-12 : aucune promesse), l.532 (lexique : soon, coming)
+  nature : Tiers · item : DOJO-NO-PROMISE-LEGAL-1 (lecture juridique de D-12 et des Tiers : ce qu'une page « sans promesse » doit dire et taire) · déclencheur : acte du juriste (JURISTE-ACTE-NOV-1) ; avant tout texte qui annoncerait la pièce 2
+  état : ouvert · suite : avis écrit versé au dossier, phrase de COPY relue mot pour mot ensuite
+- **DJ-L03** · « La vérification ne lit pas la chaîne : les soldes restent ce que deux opérateurs ont rapporté. »
+  source : COPY l.50-58 (`bounds`, `check`) ; MÈRE l.261 (D-10), l.337 (T-8), l.338 (T-9) ; PR1B4 l.171 (TY-7) ; PR2 l.389
+  nature : recherche · item : DOJO-STATE-PROOF-1 (preuve d'état par compte : solutions académiques et clients légers, ce qui est servi par la chaîne, coût) · déclencheur : après la première publication, avant le G0 de toute lecture à plus de deux opérateurs (DOJO-OPERATOR-INDEPENDENCE-1)
+  état : ouvert · suite : d'ici là, deux opérateurs distincts et le texte de COPY inchangé ; procurement formé si un papier manque
+- **DJ-L04** · « Sans script ou sans Ed25519 dans le navigateur, aucune relecture : les chiffres montrés sont ceux committés avec la page. »
+  source : COPY l.65-67 (`rereadFirst`), l.71-73 (`rereadNoCheck`) ; PR4 l.303 (Q-P1 (a)), l.343 (TY-3), l.318
+  nature : code · item : DOJO-VERIFY-PURE-JS-1 (relecture sans WebCrypto : Ed25519 en JavaScript pur, vendu avec la page, sans CDN) · déclencheur : premier lot du site après la première synchro (C-V-5)
+  état : ouvert · suite : G0 du lot : taille du paquet mesurée contre le budget des FAITS ; `rereadNoCheck` retiré quand c'est servi
+- **DJ-L05** · « Une rotation de clé n'est pas suivie par la page : retour aux chiffres committés jusqu'à la synchro suivante. »
+  source : COPY l.77-79 (`rereadKeyChange`) ; PR4 l.73 (point 4), l.266
+  nature : code · item : DOJO-REREAD-KEY-ROTATION-1 (la relecture suit les lignes `key_rotation` de la chronologie servie, jamais le trousseau committé seul) · déclencheur : avant la première rotation de clé (RUNBOOK-dojo §20) ou le lot de DOJO-VERIFY-PURE-JS-1, le premier des deux
+  état : ouvert · suite : phrase `rereadKeyChange` retirée quand c'est servi ; test non-LLM qui rejoue une rotation
+- **DJ-L06** · « Sans script, aucune ligne n'est listée ni recherchée sur la page. »
+  source : COPY l.82-84 (`table`), l.98-100 (`lookup`) ; ETAT l.49 ; MÈRE l.678 (lignes réelles non committées)
+  nature : code · item : DOJO-TABLE-SSR-1 (lignes committées rendues par le serveur : liste et recherche lisibles sans script) · déclencheur : lot du site après la première synchro, avec DOJO-VERIFY-PURE-JS-1
+  état : ouvert · suite : phrases `table` et `lookup` relues ; la table servie reste celle des lignes committées (MÈRE l.678)
 - **DJ-L40** · « La page ne montre pas le solde entre deux lectures. »
   source : COPY l.50-53 (`bounds`) ; MÈRE l.331 (T-2 : réduit et chiffré), l.203
   nature : recherche · item : DOJO-CONTINUOUS-1 (score continu par blocs) · déclencheur : G0 d'une pièce ultérieure (MÈRE l.677)
@@ -524,6 +529,27 @@ claude-opus-5-5
   source : PR3 l.419 (Q-G2-5)
   nature : test · item : DOJO-PUBLISH-REFUSALS-LIST-1 · déclencheur : G1 de PR-3a-2 (PR3 l.419)
   état : ouvert (déclencheur passé, clôture non écrite dans les entrées) · suite : test de la liste
+
+- **DJ-L187** · « La liste fermée du proxy du site ne porte pas d'allowlist d'en-têtes vers l'hôte de la clé (I-2 de SITE-SEND-PREP). »
+  source : HANDOFF-2026-10-02 §8 ; JOURNAL privé 02/10 01:57Z (I-2 au registre) ; `docs/dojo/FAITS-caddy-header-up-delete-2026-10-02.md`
+  nature : code · item : DOJO-SITE-PROXY-HEADERS-ALLOWLIST-1 · déclencheur : lot du site après DOJO-SITE-PROXY-1 (acte), avant l'annonce
+  état : ouvert · suite : `caddy adapt` de la configuration installée relu à l'acte ; cinq traversées 404 attendues
+- **DJ-L188** · « La faute d'imbrication profonde d'un `batch` vient de `canonical` ou de la proximité selon le moteur : non borné. »
+  source : PR2B l.1060-1063 (ligne datée BATCH-NEAR, C-1) ; `docs/G1-lot-batch-near.md` l.300 (branche `lot/batch-near`)
+  nature : test · item : DOJO-HISTORY-INFO-DEPTH-1 · déclencheur : prochain lot d'outillage de l'historique après la première publication
+  état : ouvert · suite : construction qui couvre l.255, l.112 et `readBody` sur le chemin servi (PR2B l.1060)
+- **DJ-L189** · « La forme interne d'un `batch` Token-2022 (clé `type` des éléments) n'a pas été lue sur place. »
+  source : `docs/G1-lot-batch-near.md` l.276 (Q-4, demande de lecture formée), l.300
+  nature : procurement · item : FAITS-TOKEN2022-PARSER-BATCH-SHAPE-1 · déclencheur : premier arrêt nommant un `batch`, ou le lot de DJ-L188
+  état : ouvert · suite : lecture sur place de l'analyseur (règle 2026-09-20), FAITS daté avant tout code
+- **DJ-L190** · « `--unlock` et les `publish.lock.<pid>` d'un lancement mort : reportés après A-10 (Q-10). »
+  source : HANDOFF-2026-10-02 §8, §12 ; JOURNAL privé 02/10 01:44Z (décision de l'orchestrateur, avis advisor)
+  nature : code · item : DOJO-PUBLISH-UNLOCK-DEAD-PID-1 (Q-10) · déclencheur : premier redéploiement de l'éditeur, première rotation, ou 2026-10-09
+  état : décision (orchestrateur, 02/10 01:44Z) · suite : parade quotidienne : chaque lecture du §17 liste `publish.lock*`
+- **DJ-L191** · « Échec du retrait du nom temporaire après un lien réussi : laissé tel quel (D3-1). »
+  source : HANDOFF-2026-10-02 §8, §12 ; JOURNAL privé 02/10 01:44Z ; code lu à `d1120612`
+  nature : code · item : DOJO-PUBLISH-TMP-UNLINK-1 (D3-1) · déclencheur : le même que DJ-L190
+  état : décision (orchestrateur, 02/10 01:44Z) · suite : un résidu `.<pid>` va au journal, rien n'est retiré à la main
 
 ## 4. Limites déclarées puis closes, ou tranchées par décision
 
