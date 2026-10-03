@@ -45,3 +45,7 @@ Modifié : `error-code.test.ts` E-1, la liste épinglée des codes gagne `byo_lo
 ## Taille et sortie
 
 Code : `gate.ts`, `calibration.ts` (`matchesCommittedKeyWith`). R-25 sous 1 150. Oracle : `tsc`, eslint, `gate:vocab`, `lint:ratchet`, tests du harnais, `red-proof --base 2abe801 --gel <sha> --repo /home/user/monark-governance --draw 6 --seed 5`.
+
+## Mesures (gel `73802b8`)
+
+R-25 : 12 fichiers, +166/−28, soit 194 lignes comptées contre `2abe801` (borne locale de MONARK : 547). Tests du harnais : 126 → 129. `red-proof --base 2abe801 --gel 73802b8 --repo /home/user/monark-governance --draw 6 --seed 5` : OK, 3 jugés F2P, 3 tueurs tirés, 3 tués. Le changement d'E-1 (`error-code.test.ts`) est dans la constante de tête : non jugé, rouge à la base. Autocontrôle : `lang-gate` lisait le mot « il » dans la classe `[il1]` de l'expression ; écrite `[l1i]`, même sens.
