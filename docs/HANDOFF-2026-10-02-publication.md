@@ -459,6 +459,13 @@ DJ-L06 table sans script (code, rendu serveur des lignes committées).
   son node_modules ; réparé par npm ci --offline (cache F:cache
 pm) ; item MK-NM-GUARD-1 (refuser Tree = F:/Monark dans mk-nm.ps1).
   Reste : OTS (9) upgrade plus tard ; DOJO-MOBILE-AFTER-SEND-1 ; nettoyage .claude/launch.json de Shogen (entrée monark-site-prod-local).
+- 2026-10-03 07:0x UTC : VALIDATION VISUELLE de l investisseur sur la page en ligne (verbatim : « c est validé ») : PR4B-CP1-POST-ANNOUNCE-1
+  clos (texte au cp-1 bref, page sur données réelles validée). Demande : « ajouter SNAPSHOT DOJO a coté de docs » : lot DOJO-NAV-LINK-1
+  (worktree F:/Monark-wt-navdojo, branche lot/nav-dojo, base 6a98beab ; libellé « Dōjō snapshot » après Docs, importé de dojo-copy.ts) ;
+  mission G1 a5f9f596… (reçu vert), G1 lancé (workflow wf_e8a2b2da-05c) ; puis fusion, oracle, renvoi du site.
+  Question « rien à pousser vers le GitHub public ? » : KraidleAI/Monark (public) date du 2026-09-24 (« Public sync: README »), son export
+  ne porte ni apps/dojo (vérificateur, trousseau) ni RUNBOOK-dojo (aucune entrée dojo dans scripts/export-public.mjs) ; réponse à
+  l investisseur : synchro possible sur son go (acte sortant), et ajout du vérificateur à l export = un lot à part (item DOJO-EXPORT-VERIFIER-1).
 - 2026-10-02 15:30 UTC : go de minuit reçu ; lanceur `F:/tmp/dojo/final/wait-and-run.sh` armé ; annonce X publiée depuis le 1er octobre
   (investisseur) ; validation visuelle : page reconstruite à l ancre 30/30/30/30/90, captures envoyées, six questions C-V-4 encore ouvertes.
 - 2026-10-02 08:26 UTC, ÉCART DE ROSTER relevé par l orchestrateur : depuis 02:51:22 UTC, les tours de l orchestrateur tournent sous
