@@ -42,6 +42,8 @@ import {
   lookupCommittedCalibration,
   UKEMI_LIQ_PREDICTOR_BASE,
   hasCommittedCalibrationForClass,
+  asciiLower,
+  matchesCommittedKeyFolded,
 } from "../calibration.ts";
 // (ADR-U4b D1/D3/D4, decisions 108/126): the served Mondrian strata + the upper-bound region helper. A PURE
 // sibling at src/ (no I/O; imports only @monark/hikae), so importing it keeps the K-8 tools scan meaningful
@@ -713,6 +715,35 @@ export function gateVerdictSummary(d: GateDecision): string {
   return `verdict action=${d.action} reason=${d.reason} region=${region} qhat=${qhat} n_calib=${String(v.n_calib)} calib_digest=${digest}`;
 }
 
+/** A leading or trailing blank (Unicode `\s`, which covers space, tab and no-break space). */
+const EDGE_BLANK = /^\s|\s$/u;
+/** The reserved kata class names (ADR 0005 D3; widened for wave 2 by its own ADR). */
+const KATA_CLASS_RE = /^(btc|eth|bnb|sol)-(dir|range|mae-down|mae-up)-(1h|4h)$/;
+/** The reserved kata key prefix. */
+const KATA_KEY_PREFIX = "kata:";
+/** The classes committed on the CLASS (any key), as in the exact guard of `runGate`. */
+const CLASS_LOCKED = [TASK_BTC_DIR, TASK_CASCADE, TASK_LIQ_ELIGIBLE] as const;
+
+/**
+ * BYO look-alike rule (ADR-CM §5 B-1, audit P3 S-11; plan docs/G0-lot-cm-1-byo-near-name.md). Returns the 400
+ * message when a BYO (task_class, predictor_id) imitates a committed name or takes a reserved kata name, else
+ * undefined. Fold = `asciiLower` (A to Z only); non-ASCII homoglyphs are a declared residual (BYO-HOMOGLYPH-1).
+ */
+function byoLookAlike(taskClass: string, predictorId: string): string | undefined {
+  if (EDGE_BLANK.test(taskClass) || EDGE_BLANK.test(predictorId)) {
+    return `byo task_class and predictor_id must not start or end with a blank: ${JSON.stringify(taskClass)} / ${JSON.stringify(predictorId)} (ADR-CM B-1)`;
+  }
+  const cls = asciiLower(taskClass);
+  const key = asciiLower(predictorId);
+  if ((CLASS_LOCKED as readonly string[]).includes(cls) || matchesCommittedKeyFolded(taskClass, predictorId)) {
+    return `calibration must not override the committed (task_class, predictor_id) '${taskClass}' / '${predictorId}', compared without ASCII case: use a caller-owned key for BYO (ADR-CM B-1, ADR-M008 A6)`;
+  }
+  if (KATA_CLASS_RE.test(cls) || key.startsWith(KATA_KEY_PREFIX)) {
+    return `task_class '${taskClass}' / predictor_id '${predictorId}' takes a name reserved for MONARK kata classes (pattern ${KATA_CLASS_RE.source}, key prefix '${KATA_KEY_PREFIX}'): use a caller-owned name for BYO (ADR-CM B-1)`;
+  }
+  return undefined;
+}
+
 /**
  * Compose the real primitives into a closed `GateDecision`. Throws `HarnessToolError` on an unknown
  * `task_class`, a wrong-typed `yhat`, or invalid params (K-4a). The gate NEVER calls `params.tool`.
@@ -746,6 +777,13 @@ export function runGate(prediction: Prediction, params: HarnessParams, attested?
       throw new HarnessToolError(
         `calibration must not override the committed (task_class, predictor_id) '${taskClass}' / '${prediction.predictor_id}': use a caller-owned key for BYO (ADR-M007 D7, ADR-M008 A6)`,
       );
+    }
+    // Look-alike guard (ADR-CM B-1, audit P3 S-11): AFTER the exact guard, so an exact committed name keeps its
+    // message byte for byte; a name that only imitates one (ASCII case, edge blank, checksum-case address) or
+    // takes a reserved kata name is refused too.
+    const lookAlike = byoLookAlike(taskClass, prediction.predictor_id);
+    if (lookAlike !== undefined) {
+      throw new HarnessToolError(lookAlike);
     }
   }
 
