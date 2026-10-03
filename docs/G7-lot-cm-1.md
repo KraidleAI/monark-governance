@@ -5,20 +5,35 @@
 
 ## Oracle
 
-- Tests d'abord : T-1, T-2, T-3 rouges à la base, T-4 vert (mesuré par l'auteur et par la G2).
+- Preuve F2P mécanique : `node scripts/red-proof.mjs --base 404480e8 --gel . --draw 5 --seed 20261003` (outil sha256 `6579b550…`) : **OK**, 5 tests jugés, tous F2P, 5 tueurs tirés, 5 tués. Mutants supplémentaires de l'auteur, tous tués : ancre `^` retirée, ancre `$` retirée, `startsWith("kata:")` remplacé par `includes("kata")` puis par `startsWith("kata")`, `return undefined` remplacé par une chaîne, contrôle des blancs de la classe retiré.
 - `npx tsc --noEmit` vert ; eslint vert sur les fichiers changés ; `gate:vocab` vert ; `lint:ratchet` 69/69.
-- `npm test` (Node 24.21.0) : 1 seul échec, `bell-served.test.ts:153`, l'échec d'environnement du clone superficiel déjà présent à la base. Des tests de `test/lot-retire.test.ts` manquent au décompte de la suite complète (sorties concurrentes) ; lancés seuls, ils passent (38 tests, 0 échec).
-- R-25 : 167 lignes de code et de tests au premier commit (docs exclus), sous 1 150.
+- `npm test` (Node 24.21.0) : 1 seul échec, `bell-served.test.ts:153`, l'échec d'environnement du clone superficiel déjà présent à la base. Oracle du tronc MONARK sur la tête `866f1705` : 1 942 tests, 0 échec.
+- R-25 : 170 lignes comptées (docs exclus) à `866f1705` ; la tête finale est mesurée dans la PR.
+- Rejeu de MONARK sur trois arbres (servi `af9b889`, base, tête ; 84 cas) : décisions et corps HTTP ne diffèrent qu'aux lignes B-0 et B-1 ; description, `tools/list`, `/openapi.json` et `/health` identiques (`recherches:coordination/pieces/2026-10-03-cm1-dem4/cm1-compare.md`).
 
-## G2 (instance neuve) : APPROUVE-AVEC-CORRECTIONS, pliée
+## G2 (instance neuve de RECHERCHES) : APPROUVE-AVEC-CORRECTIONS, pliée
 
-- Les neuf noms imitants de la sonde de MONARK sont refusés ; le message de la garde exacte est inchangé octet pour octet ; aucun contrôle hors du chemin BYO ; aucun faux refus trouvé ; aucun chemin vers une 500 au servi.
-- 15 mutants : 13 tués ; M10 (liq retirée de `CLASS_LOCKED`) et M12 (ancre `^` retirée du motif kata) survivaient. Corrections 1 et 2 pliées (deux cas de test ajoutés) ; les deux mutants sont maintenant tués (rejoué par l'auteur). Correction 3 pliée au G0 : au servi, le schéma gelé `^[ -~]+$` refuse déjà les non-ASCII ; BYO-HOMOGLYPH-1 se réduit à l'appel direct.
+- Les huit noms imitants de la sonde sont refusés ; le message de la garde exacte est inchangé ; aucun contrôle hors du chemin BYO ; aucun faux refus trouvé ; aucun chemin vers une 500 au servi.
+- M10 (liq retirée de `CLASS_LOCKED`) et M12 (ancre `^`) survivaient : tués par T-1b et par les épingles de T-3.
 
-## Changements servis livrés
+## Contrôle par diff de MONARK : APPROUVE AVEC CORRECTIONS, pliée
 
-B-1 (ce lot) et B-0 (hérité de la base, chantier 2 : plafond de tau en BYO set, ensemble vide en `intent_not_in_region`), seuls, conformément au §5 de l'ADR. La sentinelle de la base (NARABI-L-1) est un changement de MONARK, déployé par lui.
+- C-1 : imitations en ASCII déclarées au G0, item BYO-ASCII-LOOKALIKE-1 formé.
+- C-2 : tueurs réécrits en forme fermée ; `red-proof.mjs` OK (ci-dessus).
+- C-3 : tueurs B-0 ré-ancrés (+2 lignes).
+- C-6 : changement de message d'une requête déjà refusée, écrit à la règle 3 du G0.
+- C-7 : excès de refus épinglés (`btc-dir-1h-v2`, `katax`, `kata-model`, `caller:kata:x`) ; appels honnêtes sous `try` et `assert.fail`.
+- C-8 : chiffres corrigés (`gate.ts` +23/−3, huit noms) ; U+00A0 écrit `"\u00a0"`.
+- C-5 : liste complète du déploiement, ci-dessous.
+
+## Changements servis livrés et déploiement (C-5)
+
+Mettre `/opt/monark-harness` au sha de fusion de cette PR emporte tout ce que l'arbre porte depuis `af9b889`, et non le seul CM-1 :
+- B-1 (ce lot) et B-0 (chantier 2 : plafond de tau en BYO set, ensemble vide en `intent_not_in_region`) au harnais ;
+- lots de MONARK déjà clos : NARABI-L-1 (sentinelle), RG-RECONCILE-1a à 1c (dont le grand livre v2), RPC-GUARD-FIRST, DRAND-RELAY-GET-1a.
+
+Ordre retenu, celui que MONARK propose, chaque acte sous le go de l'investisseur : (1) relecture d'hôte en lecture seule par MONARK ; (2) NARABI-L-1 seule, depuis sa fusion `5c5f636` (seul change le champ non haché `sentinel_sha`) ; (3) l'arbre au sha de fusion de cette PR.
 
 ## Sortie
 
-APPROUVÉ pour fusion dans `base/chantier-moteur-2026-10-03`. Déploiement : par MONARK, sur le sha de fusion, après le go de l'investisseur.
+APPROUVÉ pour fusion dans `base/chantier-moteur-2026-10-03`, puis dans le tronc de MONARK. Déploiement par MONARK, dans l'ordre ci-dessus.

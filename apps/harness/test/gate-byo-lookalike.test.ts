@@ -35,6 +35,14 @@ function pred(taskClass: string, predictorId: string, yhat: string | number): Pr
   return { schema_version: "1.0.0", task_class: taskClass, yhat, predictor_id: predictorId, produced_at: "2026-09-04T00:00:00Z" };
 }
 
+function decided(p: Prediction, cal: NonNullable<HarnessParams["calibration"]>, at: string): ReturnType<typeof runGate> {
+  try {
+    return runGate(p, { ...PARAMS, calibration: cal });
+  } catch (e) {
+    assert.fail(`${at}: an honest BYO name must decide, got ${String(e)}`);
+  }
+}
+
 function refused(p: Prediction, cal: NonNullable<HarnessParams["calibration"]>, at: string): void {
   assert.throws(
     () => runGate(p, { ...PARAMS, calibration: cal }),
@@ -43,9 +51,9 @@ function refused(p: Prediction, cal: NonNullable<HarnessParams["calibration"]>, 
   );
 }
 
-// Test T-1 (F2P): the nine look-alike names of MONARK's probe (status of audit P3, priority 1) are refused.
-// killer: apps/harness/src/tools/gate.ts byoLookAlike CONST "asciiLower(taskClass)" -> "taskClass"
-// killer: apps/harness/src/tools/gate.ts CLASS_LOCKED drop TASK_LIQ_ELIGIBLE
+// Test T-1 (F2P): the eight look-alike names of MONARK's probe (status of audit P3, priority 1), plus a case variant
+// of the stable-run class with the committed key, are refused.
+// killer: apps/harness/src/tools/gate.ts:736 CONST "asciiLower(taskClass)" -> "taskClass"
 test("byo_lookalike_probe_names_refused", () => {
   const set: [string, string][] = [
     ["BTC-DIR-15M", "caller:model"],
@@ -53,7 +61,6 @@ test("byo_lookalike_probe_names_refused", () => {
     [" btc-dir-15m", "caller:model"],
     ["Cascade-Liquidable-24h", "caller:model"],
     ["liquidation-eligible-coverage ", "caller:model"],
-    ["Liquidation-Eligible-Coverage", "caller:model"],
   ];
   for (const [cls, key] of set) refused(pred(cls, key, "A"), SET_CAL, `set ${JSON.stringify(cls)}`);
   const usde: [string, string][] = [
@@ -63,46 +70,15 @@ test("byo_lookalike_probe_names_refused", () => {
   ];
   for (const [cls, key] of usde) refused(pred(cls, key, 1), INTERVAL_CAL, `usde ${JSON.stringify(cls)} / ${JSON.stringify(key)}`);
   refused(pred("btc-dir-1h", "kata:vote4-v1@binance/BTCUSDT/1h/up-b3", "A"), SET_CAL, "kata class with kata key");
-});
-
-// Test T-2 (F2P): a leading or trailing blank (space, tab, no-break space) on the class or on the key is refused
-// on the BYO path, for any name.
-// killer: apps/harness/src/tools/gate.ts byoLookAlike ROR "EDGE_BLANK.test(predictorId)" -> "false"
-test("byo_edge_blank_refused", () => {
-  for (const blank of [" ", "\t", " "]) {
-    refused(pred(`acme-model-x${blank}`, "caller:model", "A"), SET_CAL, `class trailing ${JSON.stringify(blank)}`);
-    refused(pred(`${blank}acme-model-x`, "caller:model", "A"), SET_CAL, `class leading ${JSON.stringify(blank)}`);
-    refused(pred("acme-model-x", `caller:model${blank}`, "A"), SET_CAL, `key trailing ${JSON.stringify(blank)}`);
-    refused(pred("acme-model-x", `${blank}caller:model`, "A"), SET_CAL, `key leading ${JSON.stringify(blank)}`);
-  }
-});
-
-// Test T-3 (F2P): the kata class pattern (any ASCII case) and the `kata:` key prefix (any ASCII case) are
-// reserved against BYO.
-// killer: apps/harness/src/tools/gate.ts byoLookAlike CONST "KATA_CLASS_RE.test(cls)" -> "false"
-test("byo_kata_names_reserved", () => {
-  for (const cls of ["btc-dir-1h", "ETH-RANGE-4H", "sol-mae-down-1h", "Bnb-Mae-Up-4h"]) {
-    refused(pred(cls, "caller:model", "A"), SET_CAL, `kata class ${cls}`);
-  }
-  for (const key of ["kata:vote4-v1@binance/BTCUSDT/1h/up-b3", "KATA:anything"]) {
-    refused(pred("acme-model-x", key, "A"), SET_CAL, `kata key ${key}`);
-  }
-});
-
-// Test T-4 (pin): an honest BYO keeps its behaviour: a fresh class, a class NAME that merely contains a kata
-// fragment, and another population on the stable-run class (committed by KEY only) still decide; the
-// already-refused exact names keep their message byte for byte.
-// killer: apps/harness/src/tools/gate.ts byoLookAlike CONST "return undefined" (end) -> "return 'x'"
-// killer: apps/harness/src/tools/gate.ts KATA_CLASS_RE drop the "^" anchor
-test("byo_honest_names_unchanged", () => {
-  const honest: [string, string][] = [["acme-model-x", "caller:model"], ["my-btc-dir-1h-clone", "caller:model"], ["btc-dir-1d", "caller:kata"], ["acme-btc-dir-1h", "caller:model"]];
-  for (const [cls, key] of honest) {
-    const d = runGate(pred(cls, key, "A"), { ...PARAMS, calibration: SET_CAL });
+  // Pinned in the same test (red at the base by the refusals above): honest names keep deciding, and an exact
+  // committed name keeps the message of the exact guard byte for byte (the look-alike guard runs after it).
+  for (const [cls, key] of [["acme-model-x", "caller:model"], ["acme model x", "caller: model"]] as [string, string][]) {
+    const d = decided(pred(cls, key, "A"), SET_CAL, `${cls} / ${key}`);
     assertClosedGateDecision(d);
     assert.equal(d.action, "commit", `${cls}: an honest BYO set {A} with tau 1 commits`);
     assert.equal(d.verdict.task_class, cls);
   }
-  const other = runGate(pred("stable-run-velocity-24h", "caller:other-population", 1), { ...PARAMS, calibration: INTERVAL_CAL });
+  const other = decided(pred("stable-run-velocity-24h", "caller:other-population", 1), INTERVAL_CAL, "stable-run, other population");
   assertClosedGateDecision(other);
   assert.equal(other.verdict.task_class, "stable-run-velocity-24h");
   assert.throws(
@@ -113,4 +89,50 @@ test("byo_honest_names_unchanged", () => {
         "calibration must not override the committed (task_class, predictor_id) 'btc-dir-15m' / 'caller:model': use a caller-owned key for BYO (ADR-M007 D7, ADR-M008 A6)",
     "the exact committed name keeps its message byte for byte",
   );
+});
+
+// Test T-1b (F2P): a case variant of the liq class, committed on the CLASS, is refused for any key.
+// killer: apps/harness/src/tools/gate.ts:725 CONST "TASK_CASCADE, TASK_LIQ_ELIGIBLE" -> "TASK_CASCADE"
+test("byo_lookalike_liq_class_case_refused", () => {
+  refused(pred("Liquidation-Eligible-Coverage", "caller:model", "A"), SET_CAL, "liq class, other case");
+  refused(pred("LIQUIDATION-ELIGIBLE-COVERAGE", "caller:other", 1), INTERVAL_CAL, "liq class, upper case");
+});
+
+// Test T-2 (F2P): a leading or trailing blank (space, tab, no-break space) on the class or on the key is refused
+// on the BYO path, for any name (tab and no-break space reach the guard on a direct runGate call only: the
+// frozen schema refuses them at the served boundary).
+// killer: apps/harness/src/tools/gate.ts:733 CONST "EDGE_BLANK.test(predictorId)" -> "false"
+test("byo_edge_blank_refused", () => {
+  for (const blank of [" ", "\t", "\u00a0"]) {
+    refused(pred(`acme-model-x${blank}`, "caller:model", "A"), SET_CAL, `class trailing ${JSON.stringify(blank)}`);
+    refused(pred(`${blank}acme-model-x`, "caller:model", "A"), SET_CAL, `class leading ${JSON.stringify(blank)}`);
+    refused(pred("acme-model-x", `caller:model${blank}`, "A"), SET_CAL, `key trailing ${JSON.stringify(blank)}`);
+    refused(pred("acme-model-x", `${blank}caller:model`, "A"), SET_CAL, `key leading ${JSON.stringify(blank)}`);
+  }
+});
+
+// Test T-3 (F2P): the kata class pattern is reserved against BYO, in any ASCII case; near names are not.
+// killer: apps/harness/src/tools/gate.ts:741 CONST "KATA_CLASS_RE.test(cls)" -> "false"
+test("byo_kata_class_names_reserved", () => {
+  for (const cls of ["btc-dir-1h", "ETH-RANGE-4H", "sol-mae-down-1h", "Bnb-Mae-Up-4h"]) {
+    refused(pred(cls, "caller:model", "A"), SET_CAL, `kata class ${cls}`);
+  }
+  // Pinned: class names that merely contain a kata fragment keep deciding (anchors of the pattern).
+  for (const cls of ["my-btc-dir-1h-clone", "acme-btc-dir-1h", "btc-dir-1h-v2", "btc-dir-1d"]) {
+    const d = decided(pred(cls, "caller:model", "A"), SET_CAL, cls);
+    assert.equal(d.action, "commit", `${cls}: not a kata class name`);
+  }
+});
+
+// Test T-3b (F2P): the `kata:` key prefix is reserved against BYO, in any ASCII case; near keys are not.
+// killer: apps/harness/src/tools/gate.ts:741 CONST "key.startsWith(KATA_KEY_PREFIX)" -> "false"
+test("byo_kata_key_prefix_reserved", () => {
+  for (const key of ["kata:vote4-v1@binance/BTCUSDT/1h/up-b3", "KATA:anything", "KaTa:x"]) {
+    refused(pred("acme-model-x", key, "A"), SET_CAL, `kata key ${key}`);
+  }
+  // Pinned: keys that contain "kata" without starting with "kata:" keep deciding.
+  for (const key of ["caller:kata", "kata-model", "katax", "caller:kata:x"]) {
+    const d = decided(pred("acme-model-x", key, "A"), SET_CAL, key);
+    assert.equal(d.action, "commit", `${key}: not the kata key prefix`);
+  }
 });
