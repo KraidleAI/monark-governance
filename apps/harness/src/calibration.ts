@@ -288,6 +288,22 @@ export function lookupCommittedCalibration(taskClass: string, predictorId: strin
   return COMMITTED_CALIBRATIONS.find((c) => c.taskClass === taskClass && c.predictorId === predictorId);
 }
 
+/** Lower-case ASCII letters A to Z only (no locale, no Unicode folding): the BYO look-alike fold (ADR-CM B-1). */
+export function asciiLower(s: string): string {
+  return s.replace(/[A-Z]/g, (c) => String.fromCharCode(c.charCodeAt(0) + 32));
+}
+
+/**
+ * True iff (taskClass, predictorId) equals a committed key after `asciiLower` on both sides (ADR-CM B-1,
+ * audit P3 S-11): a checksum-case address or a case variant of a committed key is the committed key for the
+ * BYO guard. Never used to SERVE a calibration: serving stays on the exact `lookupCommittedCalibration`.
+ */
+export function matchesCommittedKeyFolded(taskClass: string, predictorId: string): boolean {
+  const cls = asciiLower(taskClass);
+  const key = asciiLower(predictorId);
+  return COMMITTED_CALIBRATIONS.some((c) => asciiLower(c.taskClass) === cls && asciiLower(c.predictorId) === key);
+}
+
 /**
  * True iff at least one committed calibration exists for `taskClass` (REGISTRY level, delta D-3). The served
  * honesty text of the liq class is keyed on THIS, never on a per-(task_class, predictor_id) lookup with the
