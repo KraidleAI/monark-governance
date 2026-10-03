@@ -49,3 +49,10 @@ navigateur, `49ea6809243fc7fb426e07f2fe662097736c7bb405bd2da5eef637d715427999` (
 - **H-6 : confirmée en partie.** Lu : 1h et 4h admis, intervalles lus en UTC par défaut, clôture de l'exemple = ouverture + durée − 1 ms.
   Non écrit mot pour mot : que les bougies 4h s'ouvrent à 00:00, 04:00, …, 20:00 UTC. La garde stricte de l'enregistreur
   (`off_grid`, `close_time`) arrête la première page qui en dévierait ; aucune lecture fausse en silence.
+
+## Ajout daté du 2026-10-03 à 15:36 UTC : H-6 après le lot RECORDER-CLOSE-TIME-1 (fusion `f7a55512`)
+
+- La garde `close_time` des l.49-51 n'existe plus. Une clôture après son créneau ou avant son ouverture arrête la page
+  (`close_out_of_slot`, `scripts/record-binance-klines.mjs` l.204) ; une clôture dans le créneau mais différente de ouverture + durée
+  − 1 ms est gardée et listée sous `irregular_close` dans le manifeste (l.244-249). `off_grid` est inchangé (l.202).
+- Les l.37-51 restent la lecture du 2026-10-01 ; aucune page n'a été relue pour cet ajout.

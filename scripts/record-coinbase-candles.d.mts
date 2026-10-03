@@ -33,10 +33,13 @@ export interface RecorderArgs {
   end: number;
   out: string;
   fromRaw: string | null;
+  /** 1, or 2 for the second reading of a window: its cores shifted by half a core (ADR 0006 addendum 7 R1). */
+  pass: number;
 }
 
 /** manifest.json of one recording or replay. */
 export interface SeriesManifest {
+  /** "monark.series.coinbase.v2" since addendum 7: pass and empty_pages added, a new identifier for a new meaning (RECHERCHES Q-U5). */
   schema: string;
   mode: "record" | "replay";
   platform: string;
@@ -46,9 +49,12 @@ export interface SeriesManifest {
   granularity_s: number;
   start: string;
   end_exclusive: string;
+  pass: number;
   expected: number;
   rows: number;
   missing: number;
+  /** Always 0 in a written manifest: an empty page stops the run (empty_page). */
+  empty_pages: number;
   duplicates_removed: number;
   discarded_before_start: number;
   margin_at_start: number;
@@ -79,7 +85,7 @@ export function isoOf(ms: number): string;
 export function parseTime(text: string, granularity?: string): number;
 export function parseArgs(argv: readonly string[]): RecorderArgs;
 export function expectedCount(start: number, end: number, granularity?: string): number;
-export function windowCount(start: number, end: number, granularity?: string): number;
+export function windowCount(start: number, end: number, granularity?: string, pass?: number): number;
 export function guardEnv(env: Record<string, string | undefined>, execArgv: readonly string[]): void;
 export function guardOut(out: string): void;
 export function checkHost(url: string): void;

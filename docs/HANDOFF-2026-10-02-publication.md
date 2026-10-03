@@ -476,6 +476,20 @@ pm) ; item MK-NM-GUARD-1 (refuser Tree = F:/Monark dans mk-nm.ps1).
   Release) ; ensuite, file RECHERCHES : FAITS-USDT-USD-HISTORY-1 sous l addendum 4, RECORDER-CLOSE-TIME-1 (zero_trade), Q-H3 à Q-H7,
   TO FILL de P0-2, chantier L2 (FAITS-L2-ACCESS-1, mesure du serveur du site, mission). Investisseur absent : rien d irréversible hors
   de ces go ; toute dépense (second hôte L2, historique acheté) attend son retour.
+- 2026-10-03 15:37 UTC : actes de fusion des lots RECHERCHES rendus (workflow wf_796e9548-470, deux G1 Opus 5.5 max, LIVRE-AVEC-RESERVES).
+  ITEMS-RECH-1 fusionné (b45557e3, fusion 50cca389 ; lang-gate et export --check verts, docs hors export) : 43 items recensés, 25
+  ouverts écrits à leur place dans ETAT, 11 clos, 7 absorbés. Campagne de mutants de fusion par l outil du tronc : 215 mutants, 204
+  tués, 11 survivants, 4 équivalents prouvés (ct M3, ee7 P4 et N12, cb M55), 7 non équivalents à tueurs mesurés, items à ETAT. Acte
+  H-6 fait (FAITS Binance, ligne datée). Décisions de l orchestrateur : alias et absorptions Q-1, Q-2, Q-7 et Q-10 confirmés ; Q-3
+  et Q-MF-4 : les 7 survivants se tuent aux tours de corrections des lots en cours qui touchent leur fichier (COINBASE-ADD7-1,
+  EE7-ADD7-1, BINANCE-V2-1), aucun accepté ; Q-5 : le déclencheur d I-2 est le G7 de la partie USDT/USD, pas encore atteint ; Q-6 :
+  mesurer avant de lier ; Q-9 : les Q-n restent aux journaux, ETAT y renvoie ; Q-11 : prix chiffrés à leur déclencheur, déclaré ;
+  O-1 : la seconde lecture décalée est R1 de l addendum 7, dans COINBASE-ADD7-1 ; Q-MF-1 : --repo <worktree> admis, l outil
+  clone lui-même et les arbres sont mesurés inchangés ; Q-MF-2 : les mutants hors tables entrent dans les campagnes de fusion des
+  lots en cours ; Q-MF-3 : MUTANTS-MULTI-LINE-1 ; Q-MF-5 : lecture sans PowerShell admise ; Q-MF-6 : l oracle G1 ctv2 vert est
+  gardé, la G2 du lot le rejoue. Q-8 (copies de pages de séries sous F:/tmp, non redistribuables) : suppression = accord de
+  l investisseur, demandé. PAROXYSME : registre du Dōjō inchangé ; enregistreur Coinbase et détecteur « à brancher »
+  (TUYAU-EE7-IN-1) ; limites des campagnes toutes portées par un item ; aucun procurement attendu.
 - 2026-10-03 14:1x UTC : lots RECHERCHES fusionnés au tronc après trois tours de corrections (re-revues ciblées APPROUVE) :
   RECORDER-CLOSE-TIME-1 (a05fbbe9, R-25 481), COINBASE-USDT-RECORDER-1 (703f75ae, b015ead9, R-25 1134), EE7-HISTORY-DETECTOR-1
   (daafa4da, R-25 885) ; fusion c26ec2af ; oracle G7 : 2004 tests, 0 échec, portes vertes sauf R-25 (2500 = somme des trois lots,
