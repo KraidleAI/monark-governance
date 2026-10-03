@@ -476,6 +476,14 @@ pm) ; item MK-NM-GUARD-1 (refuser Tree = F:/Monark dans mk-nm.ps1).
   Release) ; ensuite, file RECHERCHES : FAITS-USDT-USD-HISTORY-1 sous l addendum 4, RECORDER-CLOSE-TIME-1 (zero_trade), Q-H3 à Q-H7,
   TO FILL de P0-2, chantier L2 (FAITS-L2-ACCESS-1, mesure du serveur du site, mission). Investisseur absent : rien d irréversible hors
   de ces go ; toute dépense (second hôte L2, historique acheté) attend son retour.
+- 2026-10-03 09:16 UTC : partie du site close. DOJO-EXPORT-VERIFIER-1 fusionné (b2619c0c ; Q-1 bouclage confirmée, D7 nonies ligne datée) ; G2
+  neuve de la partie APPROUVE-AVEC-CORRECTIONS sans bloquant (G2P-1 à G2P-6) ; DOJO-README-1 (surface du Dōjō et commande du vérificateur
+  au README, 4f049af2) ; DOJO-SITE-PART-CORR-1 (chargeurs refusés dans la fermeture, items DJ-L192 à L199 et quatre items de méthode à ETAT,
+  914b0f70) ; oracle G7 final vert à 914b0f70 (39b2fa5e, 1888 tests, 0 échec). RUNBOOK-vitrine : ordre de tar corrigé (e5847310, GNU tar
+  1.35, item clos). Site envoyé depuis 914b0f70 (export c57d0bef, sauvegarde bak-20261003-0913, .prev ancien renommé prev-20261003-0915,
+  rien supprimé) : routes 200, barre en ligne « … Docs, Dōjō snapshot ». Pyth : FAITS partie 3 ; Coinbase : FAITS partie 4 (bornes non dites).
+  Lots RECHERCHES rentrés : corrections lancées (wf_12c7d7c9-85b : Coinbase F-1 marge et garde d environnement, EE-7 Q-8 et C2/C4, Binance
+  successeur M1 et interval_mismatch), chacune suivie d une G2 neuve. Suite : synchro publique v0.7.0 depuis F:/Monark-wt-main.
 - 2026-10-03 07:39 UTC : DOJO-NAV-LINK-1 rendu (G1 LIVRE-AVEC-RESERVES : oracle G1 0, 1a057d16 ; red-proof F2P ; mutants 32/32 ; R-25 73/547),
   relu, commis (d82f8591) et fusionné au tronc (7b0fa421). Q-1 ratifiée (pied de page non répété). Build du tronc vert, assert-fleet-html
   vert. Q-3, mesure DOM de la barre (captures impossibles, fenêtre non affichée) : une ligne de 1060 à 1440 px ; deux lignes de 960 à
