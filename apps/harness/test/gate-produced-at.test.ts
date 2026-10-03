@@ -20,6 +20,16 @@ function btcDir(producedAt: string): Prediction {
   return { schema_version: "1.0.0", task_class: "btc-dir-15m", yhat: "up", predictor_id: "internal:momentum-4c", produced_at: producedAt };
 }
 
+/** The committed USDe key (PARAMS carries its F-7 alpha 0.1 and nMin 50): the served vehicle since btc-dir is retired. */
+function usde(producedAt: string): Prediction {
+  return { schema_version: "1.0.0", task_class: "stable-run-velocity-24h", yhat: 0.0001, predictor_id: USDE_STABLE_RUN_PREDICTOR_ID, produced_at: producedAt };
+}
+
+/** btc-dir-15m (a valid produced_at) is retired: 400 task_class_retired (ADR-CM B-5). */
+function assertBtcDirRetired(): void {
+  refusedWith(() => runGate(btcDir("2026-09-04T00:00:00Z"), PARAMS), "task_class_retired", "btc-dir-15m");
+}
+
 /** One prediction and params per served path other than btc-dir (retired in CM-2b): BYO interval, USDe, liq. */
 const OTHER_PATHS: { label: string; prediction: (producedAt: string) => Prediction; params: HarnessParams }[] = [
   {
@@ -52,7 +62,7 @@ function refusedWith(fn: () => unknown, code: string, at: string): string {
 
 // Test P-1 (F2P): a direct runGate refuses every non RFC 3339 produced_at (P5(b)), and accepts the RFC 3339 edge
 // forms (leap years, leap second, offset 23:59 and -00:00, lower-case t and z, a long fraction).
-// killer: apps/harness/src/tools/gate.ts:800 CONST "sec > 60" -> "sec > 61"
+// killer: apps/harness/src/tools/gate.ts:783 CONST "sec > 60" -> "sec > 61"
 test("run_gate_refuses_a_non_rfc3339_produced_at", () => {
   const refused = [
     "yesterday", "", "2026-09-04", "2026-09-04T00:00:00", "2026-09-04T00:00Z", "2026-09-04 00:00:00Z",
@@ -64,7 +74,7 @@ test("run_gate_refuses_a_non_rfc3339_produced_at", () => {
     "2026-09-04T00:00:60Z", "2026-09-04T23:59:60+01:00", "2026-09-04T23:59:60-01:00", "2026-09-04T22:59:60Z",
   ];
   for (const s of refused) {
-    const message = refusedWith(() => runGate(btcDir(s), PARAMS), "produced_at_invalid", JSON.stringify(s));
+    const message = refusedWith(() => runGate(usde(s), PARAMS), "produced_at_invalid", JSON.stringify(s));
     assert.ok(message.includes(JSON.stringify(s)), `${JSON.stringify(s)}: the message names the value`);
   }
   const accepted = [
@@ -74,11 +84,14 @@ test("run_gate_refuses_a_non_rfc3339_produced_at", () => {
   ];
   for (const s of accepted) {
     try {
-      assert.equal(runGate(btcDir(s), PARAMS).verdict.produced_at, s, `${s}: decided, produced_at echoed`);
+      assert.equal(runGate(usde(s), PARAMS).verdict.produced_at, s, `${s}: decided, produced_at echoed`);
     } catch (e) {
       assert.fail(`${s}: an RFC 3339 date-time must decide, got ${String(e)}`);
     }
   }
+  // btc-dir, the former vehicle of this test, is retired (CM-2b); the strict check runs before the dispatch.
+  assertBtcDirRetired();
+  refusedWith(() => runGate(btcDir("2026-09-04 00:00:00Z"), PARAMS), "produced_at_invalid", "btc-dir with a bad produced_at");
   // The other served paths run the same check (a BYO, USDe or liq path that skipped it would decide here).
   for (const p of OTHER_PATHS) {
     for (const s of ["2026-09-04 00:00:00Z", "2026-02-29T00:00:00Z", "2026-09-04T00:00:60Z"]) {
@@ -94,7 +107,7 @@ async function mcpGate(producedAt: string, nowMs: number): Promise<Obj> {
     new Request("http://mcp.monarkgate.tech/", {
       method: "POST",
       headers: { "content-type": "application/json", accept: "application/json, text/event-stream" },
-      body: JSON.stringify({ jsonrpc: "2.0", id: 1, method: "tools/call", params: { name: "gate", arguments: { prediction: btcDir(producedAt), params: PARAMS } } }),
+      body: JSON.stringify({ jsonrpc: "2.0", id: 1, method: "tools/call", params: { name: "gate", arguments: { prediction: usde(producedAt), params: PARAMS } } }),
     }),
   );
   const raw = await res.text();
@@ -106,12 +119,12 @@ async function mcpGate(producedAt: string, nowMs: number): Promise<Obj> {
 
 // Test P-2 (F2P): at the HTTP and MCP entry points a produced_at more than 300 s after the injected clock is a 400
 // produced_at_future (offsets honoured); 300 s exactly is accepted; a direct runGate without nowMs only checks RFC 3339.
-// killer: apps/harness/src/tools/gate.ts:781 CONST "300_000" -> "301_000"
+// killer: apps/harness/src/tools/gate.ts:764 CONST "300_000" -> "301_000"
 test("produced_at_in_the_future_is_refused_at_http_and_mcp", async () => {
   const NOW = Date.parse("2026-10-03T12:00:00Z");
   const http = async (producedAt: string): Promise<{ status: number; body: Obj }> => {
     const res = await handleJsonMirror(
-      new Request("http://api.monarkgate.tech/gate", { method: "POST", body: JSON.stringify({ prediction: btcDir(producedAt), params: PARAMS }) }),
+      new Request("http://api.monarkgate.tech/gate", { method: "POST", body: JSON.stringify({ prediction: usde(producedAt), params: PARAMS }) }),
       () => NOW,
     );
     return { status: res.status, body: (await res.json()) as Obj };
@@ -149,11 +162,12 @@ test("produced_at_in_the_future_is_refused_at_http_and_mcp", async () => {
     new Request("http://mcp.monarkgate.tech/", {
       method: "POST",
       headers: { "content-type": "application/json", accept: "application/json, text/event-stream" },
-      body: JSON.stringify({ jsonrpc: "2.0", id: 1, method: "tools/call", params: { name: "gate", arguments: { prediction: btcDir("2099-01-01T00:00:00Z"), params: PARAMS } } }),
+      body: JSON.stringify({ jsonrpc: "2.0", id: 1, method: "tools/call", params: { name: "gate", arguments: { prediction: usde("2099-01-01T00:00:00Z"), params: PARAMS } } }),
     }),
   );
   assert.match(await res.text(), /"monarkgate\.tech\/error_code":"produced_at_future"/, "MCP default clock: 2099 refused");
   // Direct call without nowMs: RFC 3339 only (declared in the G0); with nowMs: refused.
-  assert.equal(runGate(btcDir("2099-01-01T00:00:00Z"), PARAMS).verdict.produced_at, "2099-01-01T00:00:00Z", "direct call without nowMs decides");
-  refusedWith(() => runGate(btcDir("2099-01-01T00:00:00Z"), PARAMS, undefined, { nowMs: NOW }), "produced_at_future", "direct call with nowMs");
+  assert.equal(runGate(usde("2099-01-01T00:00:00Z"), PARAMS).verdict.produced_at, "2099-01-01T00:00:00Z", "direct call without nowMs decides");
+  refusedWith(() => runGate(usde("2099-01-01T00:00:00Z"), PARAMS, undefined, { nowMs: NOW }), "produced_at_future", "direct call with nowMs");
+  assertBtcDirRetired();
 });

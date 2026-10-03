@@ -21,8 +21,6 @@ import {
   type HarnessParams,
 } from "../src/tools/gate.ts";
 import { HARNESS_TOOLS, type GateEnvelope } from "../src/tools/registry.ts";
-import { runAttest } from "../src/tools/attest.ts"; // ADR-M017 D4(3) / M018 D1(b): the REAL served attest -> gate tuyau
-import { BINANCE_BTCUSDT_TICKER_URL } from "../src/attestation-binding.ts";
 import { runCalibrate, CALIBRATE_LABEL } from "../src/tools/calibrate.ts";
 import {
   BTC_DIR_CALIB_PROVENANCE,
@@ -33,7 +31,7 @@ import {
   USDE_STABLE_RUN_TASK_CLASS,
   USDE_STABLE_RUN_CALIB_DIGEST_PINNED,
 } from "../src/calibration.ts";
-import { splitQuantile, buildIntervalRegion, NUMERIC_LABEL_SCHEMA, BTC_DIR_LABEL_SCHEMA } from "@monark/hikae"; // ADR-M011: anti-circularity — L1 q̂ + NDG-1 region before runGate; E9: label_schema constants
+import { splitQuantile, buildIntervalRegion, underCalibVerdict, NUMERIC_LABEL_SCHEMA, BTC_DIR_LABEL_SCHEMA } from "@monark/hikae"; // ADR-M011: anti-circularity — L1 q̂ + NDG-1 region before runGate; E9: label_schema constants
 import { fromAttestedFlow, isNarabiError } from "@monark/monark"; // A7: real flows via the adapter
 
 const GOOD_PARAMS: HarnessParams = {
@@ -73,10 +71,34 @@ const STABLE_RUN_PRED: Prediction = {
   produced_at: "2026-09-04T00:00:00Z",
 };
 
+/** The committed USDe key: the served committed path after the btc-dir retirement (ADR-CM B-5); GOOD_PARAMS
+ *  carries its F-7 alpha 0.1 and nMin 50 (ADR-CM B-2). */
+const USDE_PRED: Prediction = {
+  schema_version: "1.0.0",
+  task_class: "stable-run-velocity-24h",
+  yhat: 0.0001,
+  predictor_id: USDE_STABLE_RUN_PREDICTOR_ID,
+  produced_at: "2026-09-04T00:00:00Z",
+};
+
+/** btc-dir-15m is retired (ADR-CM B-5, plan docs/G0-lot-cm-2b.md): its former served calls answer a named 400. */
+function assertBtcDirRetired(params: HarnessParams = GOOD_PARAMS): void {
+  assert.throws(
+    () => runGate(BTC_PRED, params),
+    (e: unknown) =>
+      e instanceof HarnessToolError &&
+      (e as { code?: unknown }).code === "task_class_retired" &&
+      e.message === "task_class 'btc-dir-15m' is retired (ADR 0005, decided 2026-09-30): it is no longer served; the name stays reserved against BYO",
+    "btc-dir-15m is retired: 400 task_class_retired",
+  );
+}
+
 // Test — the tool EMITS the frozen, closed GateDecision; a key outside the contract throws.
-// Mutant: `return { ...decision, p_correct: 0 }` in gate.ts runGate ⇒ red.
+// Mutant: `return { ...decision, p_correct: 0 }` in gate.ts runGate ⇒ red. (CM-2b: on the USDe key; btc-dir retired.)
+// killer: apps/harness/src/tools/gate.ts:883 CONST "\"task_class_retired\"" -> "\"task_class_unknown\""
 test("gate_tool_emits_frozen_gate_decision", () => {
-  const d = runGate(BTC_PRED, GOOD_PARAMS);
+  assertBtcDirRetired();
+  const d = runGate(USDE_PRED, { ...GOOD_PARAMS, intent: 0 });
   assertClosedGateDecision(d);
   assertNoForbiddenKey(d);
   assert.equal(d.schema_version, "1.0.0");
@@ -86,13 +108,15 @@ test("gate_tool_emits_frozen_gate_decision", () => {
 });
 
 // Test — the gate NEVER calls `params.tool` (invariant D0): it only echoes it.
-// Mutant: invoke `globalThis[input.tool]()` in gate.ts ⇒ red.
+// Mutant: invoke `globalThis[input.tool]()` in gate.ts ⇒ red. (CM-2b: on the USDe key; btc-dir retired.)
+// killer: apps/harness/src/tools/gate.ts:883 CONST "\"task_class_retired\"" -> "\"task_class_unknown\""
 test("gate_tool_never_calls_tool", () => {
   const g = globalThis as Record<string, unknown>;
   let called = false;
   g["__monark_sentinel_h1"] = () => { called = true; };
   try {
-    const d = runGate(BTC_PRED, { ...GOOD_PARAMS, tool: "__monark_sentinel_h1" });
+    assertBtcDirRetired({ ...GOOD_PARAMS, tool: "__monark_sentinel_h1" });
+    const d = runGate(USDE_PRED, { ...GOOD_PARAMS, intent: 0, tool: "__monark_sentinel_h1" });
     assert.equal(called, false, "the gate must NEVER invoke the named tool (D0)");
     assert.equal(d.tool, "__monark_sentinel_h1", "the tool is echoed into the decision");
   } finally {
@@ -101,15 +125,17 @@ test("gate_tool_never_calls_tool", () => {
 });
 
 // Test — dispatch is on task_class; cascade has no committed calibration ⇒ abstain/under_calib (K-4b).
-// Mutant: hard-code the `set` (btc-dir) path for every class ⇒ red.
+// Mutant: hard-code one path for every class ⇒ red. (CM-2b: the committed USDe key is the diverging class.)
+// killer: apps/harness/src/tools/gate.ts:883 CONST "\"task_class_retired\"" -> "\"task_class_unknown\""
 test("gate_dispatches_on_task_class", () => {
   const d = runGate(CASCADE_PRED, { ...GOOD_PARAMS, intent: 12345 });
   assert.equal(d.action, "abstain");
   assert.equal(d.reason, "under_calib");
   assert.equal(d.verdict.reason, "under_calib");
-  // btc-dir stays a real, non-abstain-by-calibration decision (the classes truly diverge).
-  const b = runGate(BTC_PRED, GOOD_PARAMS);
+  // the committed USDe key is a real, non-abstain-by-calibration decision (the classes truly diverge); btc-dir is retired.
+  const b = runGate(USDE_PRED, { ...GOOD_PARAMS, intent: 0 });
   assert.notEqual(b.verdict.reason, "under_calib");
+  assertBtcDirRetired();
 });
 
 // Test — the description carries the cascade honesty sentence (K-4e).
@@ -135,9 +161,13 @@ test("gate_rejects_invalid_params", () => {
 
 // Test — the committed calibration is DECLARED synthetic and digest-pinned (C-8).
 // Mutant: remove the word `synthetic` from BTC_DIR_CALIB_PROVENANCE ⇒ red.
+// CM-2b (ADR-CM B-5): the synthetic btc-dir calibration stays committed (fixtures, oracle) but is no longer served, so
+// the description drops its synthetic plumbing-fixture sentence and names the retirement instead.
+// killer: apps/harness/src/tools/gate.ts:211 CONST "is retired and answers a named" -> "is a plumbing fixture and answers a named"
 test("calibration_declared_synthetic", () => {
   assert.ok(BTC_DIR_CALIB_PROVENANCE.includes("synthetic"), "provenance must declare synthetic");
-  assert.ok(GATE_TOOL_DESCRIPTION.includes("synthetic"), "the tool description declares synthetic");
+  assert.ok(!GATE_TOOL_DESCRIPTION.includes("plumbing fixture"), "the served description no longer serves the synthetic btc-dir fixture");
+  assert.ok(GATE_TOOL_DESCRIPTION.includes("The class 'btc-dir-15m' is retired"), "the served description names the retirement");
   assert.equal(BTC_DIR_CALIB_DIGEST, CALIB_DIGEST_PINNED, "calibration digest is pinned (committed)");
 });
 
@@ -344,12 +374,14 @@ test("gate_byo_fail_closed", () => {
 // Test — NON-REGRESSION (M-1): with NO calibration, the committed btc-dir and cascade decisions are
 // byte-identical to their pre-C2 behaviour (verdicts + digests). These digests are the SAME anchors the
 // H5 trace pins, so a drift here would also move the trace. Mutant: any change to the committed paths ⇒ red.
+// CM-2b: btc-dir is retired (ADR-CM B-5); the committed USDe key takes its place as the covered committed path.
+// killer: apps/harness/src/tools/gate.ts:883 CONST "\"task_class_retired\"" -> "\"task_class_unknown\""
 test("gate_committed_classes_unchanged_without_calibration", () => {
-  const btc = runGate(BTC_PRED, GOOD_PARAMS);
-  assert.equal(btc.action, "commit", "btc-dir stays a covered commit");
-  assert.equal(btc.reason, "covered");
-  assert.equal(btc.verdict.calib_digest, CALIB_DIGEST_PINNED, "btc-dir calib_digest is the pinned synthetic digest");
-  assert.equal(btc.verdict.reason, "covered");
+  assertBtcDirRetired();
+  const usde = runGate(USDE_PRED, { ...GOOD_PARAMS, intent: 0 });
+  assert.equal(usde.verdict.reason, "covered", "the committed USDe key stays covered");
+  assert.equal(usde.verdict.calib_digest, USDE_STABLE_RUN_CALIB_DIGEST_PINNED, "USDe calib_digest is the pinned committed digest");
+  assert.equal(usde.verdict.n_calib, 613);
 
   const cascade = runGate(CASCADE_PRED, { ...GOOD_PARAMS, intent: 12345 });
   assert.equal(cascade.action, "abstain", "cascade stays an under_calib abstain");
@@ -368,17 +400,16 @@ test("gate_committed_classes_unchanged_without_calibration", () => {
 // numeric callers, not underCalibVerdict's default). Mutant: delete `labelSchema: NUMERIC_LABEL_SCHEMA`
 // in interval-conformer.ts `underCalib` (the `labelSchema: NUMERIC_LABEL_SCHEMA` line) — `npm run typecheck` stays GREEN (the default masks it,
 // exactly as workspace hoisting masked m1), and the cascade case below reds.
+// CM-2b (ADR-CM B-2): the USDe key's nMin is now imposed (50 <= 613), so its "nMin > n_committed" under_calib path is
+// no longer served: nMin 10000 is a 400 policy_nmin_mismatch. The positive control reads the hikae default directly
+// (btc-dir is retired, ADR-CM B-5).
+// killer: apps/harness/src/tools/gate.ts:594 SDL "assertPolicy(USDE_POLICY, params);" -> ""
 test("numeric_under_calib_region_is_not_directional", () => {
   const numericUnderCalib: { name: string; d: GateDecision }[] = [
     // committed cascade: cascadeVerdict -> conformInterval({calib:[]}) -> interval-conformer underCalib helper
     { name: "cascade committed (no calibration)", d: runGate(CASCADE_PRED, { ...GOOD_PARAMS, intent: 12345 }) },
     // stable-run, NON-committed key: stableRunVerdict committed===undefined -> conformInterval -> underCalib helper
     { name: "stable-run non-committed key", d: runGate(STABLE_RUN_PRED, { ...GOOD_PARAMS, intent: 0 }) },
-    // stable-run, USDe committed key but nMin > committed score count: split fails -> stableRunVerdict direct under_calib
-    {
-      name: "stable-run USDe key, nMin > n_committed",
-      d: runGate({ ...STABLE_RUN_PRED, predictor_id: USDE_STABLE_RUN_PREDICTOR_ID }, { ...GOOD_PARAMS, intent: 0, nMin: 10000 }),
-    },
     // BYO interval, p>n split failure: byoVerdict split under_calib, labelSchema=NUMERIC from the interval-mode ternary
     {
       name: "byo interval p>n",
@@ -406,16 +437,15 @@ test("numeric_under_calib_region_is_not_directional", () => {
     );
   }
 
-  // Positive control — the directional default is INTACT: btc-dir under_calib (nMin above the committed
-  // synthetic n) still carries `up|down` (btcDirVerdict :390, underCalibVerdict default, unchanged by E9).
-  // If this reds, the fix wrongly retargeted the shared default instead of only the numeric callers.
-  const btc = runGate(BTC_PRED, { ...GOOD_PARAMS, nMin: 100000 });
-  assert.equal(btc.verdict.reason, "under_calib", "btc-dir with nMin above n ⇒ under_calib");
-  assert.deepEqual(
-    btc.verdict.region,
-    { kind: "set", labels: [], label_schema: BTC_DIR_LABEL_SCHEMA },
-    "btc-dir under_calib stays directional up|down (default intact)",
+  // The USDe "nMin > n_committed" path is no longer reachable: nMin is imposed (ADR-CM B-2).
+  assert.throws(
+    () => runGate({ ...STABLE_RUN_PRED, predictor_id: USDE_STABLE_RUN_PREDICTOR_ID }, { ...GOOD_PARAMS, intent: 0, nMin: 10000 }),
+    (e: unknown) => e instanceof HarnessToolError && (e as { code?: unknown }).code === "policy_nmin_mismatch",
+    "USDe key with nMin 10000 is a 400 policy_nmin_mismatch",
   );
+  // Positive control — the directional default of underCalibVerdict is INTACT (E9 changed only the numeric callers).
+  const dflt = underCalibVerdict({ taskClass: "x", method: "split", alpha: 0.1, scores: [], residual: [], producedAt: "2026-09-04T00:00:00Z", schemaVersion: "1.0.0" });
+  assert.deepEqual(dflt.region, { kind: "set", labels: [], label_schema: BTC_DIR_LABEL_SCHEMA }, "the default stays directional up|down");
 });
 
 // ── Narabi / stable-run-velocity-24h — isolation of POPULATION on the wire (ADR-M008 D4/D5 + Amend. bis, C-10) ──
@@ -756,43 +786,6 @@ test("gate_description_declares_non_reverification", () => {
 });
 
 // ─────────────────────────────────────────────────────── ADR-M017 P1-b2 (residual seam + guard order + K2-1)
-
-// Test (ADR-M017 D2(iii) / D4(3)) — the SERVED attest -> gate tuyau (ADR-M018 D1(b)). A caller-carried
-// `attested` whose subject IS the committed btc-dir-15m URL is DECLARED-consistent, so the gate does NOT
-// error and FILES `attested.residual` into `verdict.residual` (the traceability field the contract inherits
-// from AttestedPrice.residual). Driven THROUGH THE REGISTRY `run()` (not runGate directly) so a mutant
-// "registry calls runGate WITHOUT env.attested" reds (that would leave the tuyau unwired). The producer is
-// the REAL `runAttest()` witness — the SAME AttestedPrice the h5 trace's attest step carries (the probe
-// `probe_harness_records_real_decision` proves live == committed byte-for-byte).
-test("gate_attested_concordant_files_residual", () => {
-  const gateTool = HARNESS_TOOLS.find((t) => t.name === "gate");
-  assert.ok(gateTool, "the gate tool is registered");
-
-  const price = runAttest().price; // the committed Binance BTCUSDT witness (the real attest output)
-  assert.equal(price.subject, BINANCE_BTCUSDT_TICKER_URL, "the committed witness subject IS the Binance BTCUSDT URL (concordant with btc-dir-15m)");
-  // Pinned to the fixture's attest step (fixtures/h5-e2e-trace.json) — non-empty ⇒ the seam is non-vacuous.
-  assert.deepEqual(
-    price.residual,
-    ["A(notary-neutrality)", "A(self-attestation)", "A(transport-check-delegated)"],
-    "the committed witness residual == the fixture's attest step (non-empty ⇒ non-vacuous seam)",
-  );
-
-  const withAttested = gateTool.run({ prediction: BTC_PRED, params: GOOD_PARAMS, attested: price }).structured as unknown as GateDecision;
-  const without = gateTool.run({ prediction: BTC_PRED, params: GOOD_PARAMS }).structured as unknown as GateDecision;
-
-  // (a) D2(iii)/D4(3): attested.residual is FILED into verdict.residual (kills "residual:[] reintroduced"
-  //     and "attestation-binding table emptied", and "registry drops env.attested").
-  assert.deepEqual(withAttested.verdict.residual, price.residual, "attested.residual is filed into verdict.residual");
-  // (b) absent attested ⇒ verdict.residual stays [] (byte-identical at the function level, D4(5)).
-  assert.deepEqual(without.verdict.residual, [], "absent attested ⇒ verdict.residual stays []");
-  // (c) the seam is SURGICAL (residual is NOT an honesty carrier, M-2): masking residual, the two decisions
-  //     are byte-identical — action/reason/allow/region/qhat/... unchanged by the seam.
-  assert.deepEqual(
-    { ...withAttested, verdict: { ...withAttested.verdict, residual: [] } },
-    without,
-    "the seam touches ONLY verdict.residual — the decision is otherwise identical",
-  );
-});
 
 // Test — G2 F1: the GUARD ORDER (ADR-M017 D2(ii)): validateHarnessParams -> anti-override BYO -> attested
 // consistency -> dispatch. A prediction on a COMMITTED class (btc-dir-15m) carrying BOTH a BYO `calibration`
