@@ -471,6 +471,11 @@ pm) ; item MK-NM-GUARD-1 (refuser Tree = F:/Monark dans mk-nm.ps1).
   wf_83b6c840-e4f ; modèle : ADR-M004 D7 octies de Bell, fichier par fichier). Plan de la synchro publique : après fusion des deux lots
   (lien et vérificateur) et oracle vert, avance rapide locale de main sur le tronc (main ancêtre, 0 commit propre ; rien poussé du dépôt
   de gouvernance), scripts/release-public.mjs --message (porte de texte public), push vers KraidleAI/Monark, tag v0.7.0 et Release.
+- 2026-10-03 06:5x UTC : DÉCISION de l investisseur (verbatim : « tu as tous les GO pour pousser vers le dépot publique et tou, moi je vais
+  me reposer, puis attaque le chantier recherches par la suite. ») : go pour fusion, renvoi du site, synchro publique v0.7.0 (push, tag,
+  Release) ; ensuite, file RECHERCHES : FAITS-USDT-USD-HISTORY-1 sous l addendum 4, RECORDER-CLOSE-TIME-1 (zero_trade), Q-H3 à Q-H7,
+  TO FILL de P0-2, chantier L2 (FAITS-L2-ACCESS-1, mesure du serveur du site, mission). Investisseur absent : rien d irréversible hors
+  de ces go ; toute dépense (second hôte L2, historique acheté) attend son retour.
 - 2026-10-02 15:30 UTC : go de minuit reçu ; lanceur `F:/tmp/dojo/final/wait-and-run.sh` armé ; annonce X publiée depuis le 1er octobre
   (investisseur) ; validation visuelle : page reconstruite à l ancre 30/30/30/30/90, captures envoyées, six questions C-V-4 encore ouvertes.
 - 2026-10-02 08:26 UTC, ÉCART DE ROSTER relevé par l orchestrateur : depuis 02:51:22 UTC, les tours de l orchestrateur tournent sous
