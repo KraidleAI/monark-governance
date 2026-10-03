@@ -70,3 +70,16 @@ Orchestrateur `claude-opus-5-5` (décision de l investisseur du 2026-10-03). Lu 
   par MONARK (message addendum-4-diff du 2026-10-02) ne l a pas signalé : omission de MONARK.
 - Le Dōjō n est pas touché : il lit le compte Pyth SOL/USD sur la chaîne Solana par ses nœuds RPC, sans API Pyth ni clé ; au snapshot
   seq 4, trois des quatre lectures portent le cours SOL/USD (présence comptée, aucune valeur lue).
+
+## Partie 4 (2026-10-03, 08:55 à 08:57 UTC) : bornes des fenêtres de bougies Coinbase (FAITS-COINBASE-CANDLES-1)
+
+- Demande : constat bloquant F-1 de la G2 de COINBASE-USDT-RECORDER-1 (sens des bornes `start` et `end` non lu à la source).
+- [lu] docs.cdp.coinbase.com, « Get product candles » (référence de l API Exchange) : `start` et `end` sont des chaînes décrites
+  « Timestamp for starting range of aggregations » et « Timestamp for ending range of aggregations » ; la page ne dit ni si les bornes
+  sont incluses ou exclues, ni le format exact de l horodatage.
+- [lu] même page : « some of those candles may precede your declared start value » ; « more than 300 data points, your request is
+  rejected » ; « If the start or end fields are not provided, both fields are ignored » ; « No data is published for intervals where
+  there are no ticks » ; « Historical rate data may be incomplete ».
+- Conséquence pour l enregistreur : le sens des bornes reste non lu ; la correction le rend indifférent (fenêtres qui se recouvrent
+  d au moins un pas, au plus 300 points sous toute lecture des bornes, doublon identique retiré, doublon différent arrêté), et le
+  corps de la première réponse d erreur est gardé (il ne porte aucune valeur de série). Aucune requête faite.
