@@ -95,7 +95,7 @@ test("btc_dir_is_retired_with_a_named_400", async () => {
 
 // Test R-2 (F2P, B-2): the committed USDe key imposes alpha 0.1 and nMin 50 (named 400s, strict equality); its other
 // keys, tau and tauInterval stay the caller's; liq's messages are unchanged; the F-7 rows are data.
-// killer: apps/harness/src/class-policy.ts:26 CONST "alpha: 0.1, nMin: 50" -> "alpha: 0.1, nMin: 51"
+// killer: apps/harness/src/class-policy.ts:27 CONST "alpha: 0.1, nMin: 50" -> "alpha: 0.1, nMin: 51"
 test("usde_committed_key_imposes_alpha_and_nmin", async () => {
   const usde = pred(USDE, 0.0001, USDE_STABLE_RUN_PREDICTOR_ID);
   const a = refused(() => runGate(usde, { ...PARAMS, alpha: 0.5 }), "USDe alpha 0.5");

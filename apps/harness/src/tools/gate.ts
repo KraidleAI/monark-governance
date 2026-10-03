@@ -266,7 +266,7 @@ export interface HarnessParams {
  * Stable error codes (ADR-CM section 5 B-3, audit P3 S-6; plan docs/G0-lot-cm-2a.md): a closed list, outside the frozen
  * contracts. The HTTP mirror carries the code in its error body, MCP in `_meta[ERROR_CODE_META_KEY]`. The four
  * class defaults (attest, calibrate, cascade, ukemi-predict) follow the gate codes; `task_class_retired` is
- * reserved for CM-2b and not thrown yet. A code is never renamed nor reused for another refusal.
+ * thrown for `btc-dir-15m` since CM-2b (ADR-CM B-5). A code is never renamed nor reused for another refusal.
  */
 export const HARNESS_ERROR_CODES = [
   "param_invalid", "schema_version_unsupported", "byo_calibration_invalid", "byo_yhat_type", "byo_set_tau_cap",
@@ -912,6 +912,8 @@ export function runGate(prediction: Prediction, params: HarnessParams, attested?
   // is NOT an honesty carrier (M-2): the L3 gate never reads it (l3-gate.ts `decide()` reads only region/reason),
   // so action/reason/allow are UNCHANGED — only this field is filed, UNCONDITIONALLY on the reason (covered /
   // under_calib / set_too_large). `params` files nothing (D2(iii)). Absent `attested` ⇒ no-op (byte-identical, D4(5)).
+  // Dormant on the served surface since CM-2b (ADR-CM amendment "nuit, 3"): no served class has a committed subject;
+  // kept for ATTEST-KATA-SUBJECT-1.
   if (attested !== undefined) {
     verdict = { ...verdict, residual: [...attested.residual] };
   }

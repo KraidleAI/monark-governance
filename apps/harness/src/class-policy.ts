@@ -7,7 +7,8 @@
  * Pure data: no I/O, no clock, imports only the committed USDe key (calibration.ts, pure). It sits at src/ (not
  * src/tools/), so the K-8 scan of the tools stays meaningful. A row with `predictorId: null` binds the whole class
  * (liq: the server derives the stratum key and ignores the client key); a row with a key binds that key only (USDe:
- * every other key of the class abstains under_calib and keeps the caller's values). Base of CM-4 (F-7).
+ * every other key of the class abstains under_calib and keeps the caller's values). Base of CM-4 (F-7), which adds
+ * the lookup by (task_class, predictor_id).
  */
 import { USDE_STABLE_RUN_PREDICTOR_ID, USDE_STABLE_RUN_TASK_CLASS } from "./calibration.ts";
 
@@ -28,7 +29,3 @@ export const USDE_POLICY: ClassPolicyRow = { taskClass: USDE_STABLE_RUN_TASK_CLA
 /** The F-7 rows served today. */
 export const CLASS_POLICY: readonly ClassPolicyRow[] = [LIQ_POLICY, USDE_POLICY];
 
-/** The row binding (task_class, predictor_id), or undefined: exact match, a whole-class row first. */
-export function policyFor(taskClass: string, predictorId: string): ClassPolicyRow | undefined {
-  return CLASS_POLICY.find((r) => r.taskClass === taskClass && (r.predictorId === null || r.predictorId === predictorId));
-}
