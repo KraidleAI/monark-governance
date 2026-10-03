@@ -1,10 +1,12 @@
 /**
  * HIKAE scaled band [0, h*] for the kata path (ADR-CM chantier moteur, lot CM-3b; audit P3 S-4 / E-1, engine side).
- * Scores are one binary64 division s = fl(|r| / sigmaHat) (path cells: fl(D / sigmaHat)); a decision is covered iff
- * s <= qhat. The served band is the closed [0, h*], h* the largest double with fl(h* / sigmaHat) <= qhat (conformal
- * advisor opinion, RECHERCHES decisions/0005-AVIS-advisor-conformal-P2a-band-edge.md): since correctly rounded division
- * is monotone in the numerator for a fixed sigmaHat > 0, x <= h* holds iff fl(x / sigmaHat) <= qhat, double for double,
- * for every x >= 0. qhat comes from riskControlRow (lot CM-3a) on the "band" domain. The served additive bands
+ * Scores are one binary64 division s = fl(|r| / sigmaHat) (path cells: fl(label / sigmaHat), the label positive, RECHERCHES
+ * kata/registry/FORMAT.md); a decision is covered iff s <= qhat. The served band is the closed [0, h*], in units of |r|
+ * (or of the positive label): the transposition of the [-h*, h*] of the conformal advisor opinion (RECHERCHES
+ * decisions/0005-AVIS-advisor-conformal-P2a-band-edge.md; ADR-CM R-4), h* the largest double with fl(h* / sigmaHat) <=
+ * qhat. Correctly rounded division is monotone in the numerator for a fixed sigmaHat > 0, so x <= h* holds iff
+ * fl(x / sigmaHat) <= qhat, double for double, for every x >= 0. The caller (CM-4) tests membership on |r| or on the
+ * label, and computes the scores by that single division. qhat comes from riskControlRow (lot CM-3a) on the "band" domain. The served additive bands
  * (conformInterval, USDe, liq) are unchanged.
  */
 import { riskControlRow } from "./l1-split.ts";
@@ -13,38 +15,33 @@ import type { IntervalRegion } from "./region.ts";
 
 const view = new DataView(new ArrayBuffer(8));
 
-/** The next double above x >= 0 (x finite). */
-function nextUp(x: number): number {
-  if (x === 0) return Number.MIN_VALUE;
-  view.setFloat64(0, x);
-  view.setBigUint64(0, view.getBigUint64(0) + 1n);
+/** The double whose IEEE-754 bit pattern is b (0 <= b <= bits of MAX_VALUE: the non-negative finite doubles, in order). */
+function ofBits(b: bigint): number {
+  view.setBigUint64(0, b);
   return view.getFloat64(0);
 }
 
-/** The next double below x > 0. */
-function nextDown(x: number): number {
-  view.setFloat64(0, x);
-  view.setBigUint64(0, view.getBigUint64(0) - 1n);
-  return view.getFloat64(0);
-}
-
-const MAX_STEPS = 64; // the product is within a few ulps of h*; more steps would mean a broken arithmetic
+const MAX_BITS = 0x7fefffffffffffffn; // Number.MAX_VALUE
 
 /**
- * h*: the largest double h >= 0 with fl(h / sigmaHat) <= qhat, for finite qhat >= 0 and finite sigmaHat > 0. Starts from
- * fl(qhat x sigmaHat) and moves by one ulp. Returns null when the product is not finite (no band); throws a RangeError
- * on a refused input.
+ * h*: the largest double h >= 0 with fl(h / sigmaHat) <= qhat, for finite qhat >= 0 and finite sigmaHat > 0. The
+ * non-negative doubles are ordered as their bit patterns and the predicate fl(h / sigmaHat) <= qhat is monotone in h, so
+ * a bisection on the bit patterns between 0 (true: 0 / sigmaHat = 0) and MAX_VALUE is exact, in 63 steps, for subnormal
+ * and zero qhat too (G2 of CM-3b: a walk by ulps from fl(qhat x sigmaHat) may not end). Returns null when MAX_VALUE
+ * itself passes (no finite edge: no band); throws a RangeError on a refused input.
  */
 export function bandEdge(qhat: number, sigmaHat: number): number | null {
   if (!Number.isFinite(qhat) || qhat < 0 || !Number.isFinite(sigmaHat) || sigmaHat <= 0) throw new RangeError(`bandEdge: qhat ${String(qhat)}, sigmaHat ${String(sigmaHat)}`);
-  let h = qhat * sigmaHat;
-  if (!Number.isFinite(h)) return null;
-  for (let i = 0; i < MAX_STEPS; i++) {
-    if (h / sigmaHat > qhat) h = nextDown(h);
-    else if (Number.isFinite(nextUp(h)) && nextUp(h) / sigmaHat <= qhat) h = nextUp(h);
-    else return h;
+  const ok = (b: bigint): boolean => ofBits(b) / sigmaHat <= qhat;
+  if (ok(MAX_BITS)) return null;
+  let lo = 0n; // ok
+  let hi = MAX_BITS; // not ok
+  while (hi - lo > 1n) {
+    const mid = (lo + hi) / 2n;
+    if (ok(mid)) lo = mid;
+    else hi = mid;
   }
-  throw new RangeError(`bandEdge: no edge within ${String(MAX_STEPS)} ulps of qhat x sigmaHat`);
+  return ofBits(lo);
 }
 
 /** Options of conformScaledBand: the calib_attempt and spendIndex of riskControlRow (E-12, amendment A-1). */

@@ -19,17 +19,40 @@ export type RowValue = null | boolean | number | string | readonly RowValue[] | 
 
 const byUtf8 = (a: string, b: string): number => Buffer.from(a, "utf8").compare(Buffer.from(b, "utf8"));
 
-/** S-13: the canonical JSON writing of an F-7 row value (see the module header). */
+/** A JSON string of a well-formed string (a lone surrogate would make the key order and the bytes ill-defined). */
+function str(t: string): string {
+  if (!t.isWellFormed()) throw new RangeError("canonicalRow: a string or key with a lone surrogate");
+  return JSON.stringify(t);
+}
+
+/**
+ * S-13: the canonical JSON writing of an F-7 row value (see the module header). Refused (RangeError): a non-finite
+ * number, a sparse array, an object that is not plain (prototype Object.prototype or null: no Date, Map, boxed number),
+ * a string or key that is not well formed, a cycle, and any other type.
+ */
 export function canonicalRow(v: RowValue): string {
-  if (v === null || typeof v === "boolean" || typeof v === "string") return JSON.stringify(v);
+  return write(v, []);
+}
+
+function write(v: RowValue, seen: readonly object[]): string {
+  if (v === null || typeof v === "boolean") return JSON.stringify(v);
+  if (typeof v === "string") return str(v);
   if (typeof v === "number") {
     if (!Number.isFinite(v)) throw new RangeError(`canonicalRow: non-finite number ${String(v)}`);
     return JSON.stringify(v);
   }
-  if (Array.isArray(v)) return `[${(v as readonly RowValue[]).map(canonicalRow).join(",")}]`;
   if (typeof v !== "object") throw new RangeError(`canonicalRow: not a row value (${typeof v})`);
+  if (seen.includes(v)) throw new RangeError("canonicalRow: a cycle");
+  const inner = [...seen, v];
+  if (Array.isArray(v)) {
+    const a = v as readonly RowValue[];
+    for (let i = 0; i < a.length; i++) if (!(i in a)) throw new RangeError(`canonicalRow: a sparse array (hole at ${String(i)})`);
+    return `[${a.map((x) => write(x, inner)).join(",")}]`;
+  }
+  const proto: unknown = Object.getPrototypeOf(v);
+  if (proto !== Object.prototype && proto !== null) throw new RangeError("canonicalRow: not a plain object");
   const o = v as { readonly [key: string]: RowValue };
-  return `{${Object.keys(o).sort(byUtf8).map((k) => `${JSON.stringify(k)}:${canonicalRow(o[k] as RowValue)}`).join(",")}}`;
+  return `{${Object.keys(o).sort(byUtf8).map((k) => `${str(k)}:${write(o[k] as RowValue, inner)}`).join(",")}}`;
 }
 
 /** E-2: the sha256 of the scores and of the auxiliary sequence, each in time order (P2 bench scoresSha256, auxSha256). */
