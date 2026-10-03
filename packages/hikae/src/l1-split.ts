@@ -14,7 +14,7 @@
  * on a binary — it is calibrated silence, not a defect (GROK-DECORTICATION §2).
  */
 
-import { missUpperBound, parseAlpha, parseTestDelta, riskControlMaxExceedances, zeroErrorFloor } from "./binomial.ts";
+import { missUpperBound, parseAlpha, parseTestDelta, riskControlMaxExceedances, spendDelta, zeroErrorFloor } from "./binomial.ts";
 
 /** Indicator score k=1 (D3): 0 if `y === yhat`, 1 otherwise. */
 export function indicatorScore(yhat: string, y: string): 0 | 1 {
@@ -106,4 +106,99 @@ export function indicatorScores(
   const m = new Map<string, number>();
   for (const y of labels) m.set(y, indicatorScore(yhat, y));
   return m;
+}
+
+/*
+ * CM-3a (ADR-CM chantier moteur, audit P3 E-4, E-5, E-6, E-12): additions for the kata path only. splitQuantile and
+ * riskControlQuantile above are unchanged, byte for byte (rule R-2: the served BYO, USDe, liq and cascade paths call
+ * splitQuantile; no served path calls riskControlQuantile).
+ */
+
+/** Score domain of a calibration row (E-4): "finite" refuses NaN and the infinities; "band" also refuses negative scores. */
+export type ScoreDomain = "finite" | "band";
+
+/** E-4: true iff every score is a finite number and, for "band", not below 0 (-0 passes). An empty row passes. */
+export function scoresInDomain(scores: readonly number[], domain: ScoreDomain): boolean {
+  return scores.every((s) => Number.isFinite(s) && (domain === "finite" || s >= 0));
+}
+
+/** Three-way comparator (E-5): -1, 0 or 1, never NaN, unlike `a - b` (Infinity - Infinity). */
+const ascending = (x: number, y: number): number => (x < y ? -1 : x > y ? 1 : 0);
+
+/** E-5: the split rank ceil((n + 1)(1 - alpha)) in integer arithmetic, alpha a decimal string (parseAlpha refusals throw). */
+export function splitRankExact(n: number, alphaDec: string): number {
+  if (!Number.isSafeInteger(n) || n < 0) throw new RangeError(`n must be a non-negative integer, got ${String(n)}`);
+  const a = parseAlpha(alphaDec);
+  return Number((BigInt(n + 1) * (a.den - a.num) + a.den - 1n) / a.den);
+}
+
+/**
+ * E-5: split conformal quantile at the exact integer rank p = ceil((n + 1)(1 - alpha)) (splitRankExact), the scores
+ * sorted by a three-way comparator. FAIL-CLOSED `under_calib`: n < nMin, a nMin that is not an integer, a refused alpha,
+ * a score outside `domain` (default "finite": NaN and the infinities), p > n. splitQuantile (float rank) is unchanged.
+ */
+export function splitQuantileExact(scores: readonly number[], alphaDec: string, nMin: number, domain: ScoreDomain = "finite"): SplitResult {
+  const under: SplitResult = { reason: "under_calib" };
+  const n = scores.length;
+  if (!Number.isSafeInteger(nMin) || n < nMin || !scoresInDomain(scores, domain)) return under;
+  let p: number;
+  try {
+    p = splitRankExact(n, alphaDec);
+  } catch {
+    return under;
+  }
+  const q = [...scores].sort(ascending)[p - 1];
+  return q === undefined ? under : { qhat: q };
+}
+
+/** Options of riskControlRow (E-4, E-6, E-12); every field is optional. */
+export interface RiskControlRowOptions {
+  /** Score domain (E-4), default "finite"; "band" for the scaled bands of the kata path. */
+  readonly domain?: ScoreDomain;
+  /** calib_attempt (E-12), 1 to 4, default 1: the test delta is spendDelta(base, attempt). */
+  readonly attempt?: number;
+  /** E-6: the score at which the region is the whole label space (1 for the indicator score of a direction cell). */
+  readonly silenceAt?: number;
+}
+
+/** Fields shared by the served and the silent rows (E-6, E-12). */
+interface RowCore {
+  readonly qhat: number;
+  readonly rank: number;
+  readonly kStar: number;
+  readonly kObs: number;
+  /** CALIB misses: the scores at or above silenceAt when given (a direction cell: its errors), else kObs. */
+  readonly calibMisses: number;
+  readonly attempt: number;
+  readonly testDelta: string;
+}
+
+/** riskControlRow result: a row with its bound, a silent row (no missBound, E-6), or fail-closed under-calibration. */
+export type RiskControlRow =
+  | (RowCore & { readonly silence: false; readonly missBound: string })
+  | (RowCore & { readonly silence: true })
+  | { readonly reason: "under_calib" };
+
+/**
+ * Risk-controlling quantile of one calibration row for the kata path: riskControlQuantile at the test delta
+ * spendDelta(baseDelta, attempt) (E-12, returned with the attempt), after the score domain check (E-4), with the CALIB
+ * misses counted apart and a silence flag (E-6): silence iff qhat >= silenceAt; a silent row carries no missBound (its
+ * kObs is 0 by construction, the bound would describe a region that is not served). FAIL-CLOSED `under_calib`: every
+ * refusal of riskControlQuantile, a score outside the domain, a refused attempt or base delta, a non-finite silenceAt.
+ */
+export function riskControlRow(scores: readonly number[], alphaDec: string, baseDeltaDec: string, nMin: number, options: RiskControlRowOptions = {}): RiskControlRow {
+  const under: RiskControlRow = { reason: "under_calib" };
+  const { domain = "finite", attempt = 1, silenceAt } = options;
+  if (!scoresInDomain(scores, domain) || (silenceAt !== undefined && !Number.isFinite(silenceAt))) return under;
+  let testDelta: string;
+  try {
+    testDelta = spendDelta(baseDeltaDec, attempt);
+  } catch {
+    return under;
+  }
+  const r = riskControlQuantile(scores, alphaDec, testDelta, nMin);
+  if ("reason" in r) return under;
+  const calibMisses = silenceAt === undefined ? r.kObs : scores.filter((s) => s >= silenceAt).length;
+  const core = { qhat: r.qhat, rank: r.rank, kStar: r.kStar, kObs: r.kObs, calibMisses, attempt, testDelta };
+  return silenceAt !== undefined && r.qhat >= silenceAt ? { ...core, silence: true } : { ...core, silence: false, missBound: r.missBound };
 }
