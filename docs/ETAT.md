@@ -192,7 +192,9 @@ Tronc `lot/etude-suite`. Dernier oracle complet : 1 779 tests, dont 1 776 verts,
     garde de chemin. État : ouvert ; d'ici là, enveloppe gardée (modèle : `prep-nm.ps1` de la G2 de la partie, `5f5c7952…`).
   - RUNBOOK-VITRINE-TAR-ORDER-1 (mode d'emploi) : la commande `tar` de sauvegarde de `docs/RUNBOOK-vitrine.md` l.12 place ses deux
     `--exclude` après le membre `monark-app` ; jugée fautive à l'envoi du 2026-10-03, sauvegarde refaite (HANDOFF-2026-10-02 l.455-456).
-    Déclencheur : avant le prochain envoi du site. État : ouvert ; suite : manuel de GNU tar lu sur place (ordre des options), puis la ligne.
+    Déclencheur : avant le prochain envoi du site. État : clos le 2026-10-03 09:1x UTC (preuve : `docs/RUNBOOK-vitrine.md`, ligne datée ;
+    GNU tar 1.35 lu sur le serveur, ordre fixé sur la mesure). Manuel en ligne non lu : 403 au navigateur interne, extension refusée
+    dans Chrome, non contourné ; procurement : aucune autre source requise, la mesure suffit à la ligne.
   - PS-C-WRITE-1 (recherche ; proposé par `docs/G1-lot-page-fold.md` l.180 ; le fait est admis plus haut, CV4-POWERSHELL-C-WRITE-1) : tout
     `powershell.exe` imposé (C-V-4 par `Get-CimInstance`, `mk-nm.ps1`, `rm-nm.ps1`) réécrit un fichier de profil de PowerShell sous C: ;
     G2P-6 : `-NoProfile` ne l'évite pas, d'autres processus de l'hôte le réécrivent aussi. Piste : jonctions par `fs.symlinkSync` en node,
