@@ -49,3 +49,11 @@ Code : `gate.ts`, `calibration.ts` (`matchesCommittedKeyWith`). R-25 sous 1 150.
 ## Mesures (gel `73802b8`)
 
 R-25 : 12 fichiers, +166/−28, soit 194 lignes comptées contre `2abe801` (borne locale de MONARK : 547). Tests du harnais : 126 → 129. `red-proof --base 2abe801 --gel 73802b8 --repo /home/user/monark-governance --draw 6 --seed 5` : OK, 3 jugés F2P, 3 tueurs tirés, 3 tués. Le changement d'E-1 (`error-code.test.ts`) est dans la constante de tête : non jugé, rouge à la base. Autocontrôle : `lang-gate` lisait le mot « il » dans la classe `[il1]` de l'expression ; écrite `[l1i]`, même sens.
+
+## G2 (instance neuve) : APPROUVE-AVEC-CORRECTIONS, pliée
+
+- Corpus : 381 noms honnêtes testés, 10 refus, tous impliqués par la règle, aucun accidentel ; 0 collision sur 200 000 adresses aléatoires.
+- C-3 gagne `stable_run_velocity_24h` avec la clé USDe commise (classe confusable, clé commise) : refusé. Il tue M15 (la classe non réduite dans `matchesCommittedKeyWith`), vérifié à la main : le test rougit par assertion (« class confusable + committed key: refused »). M13 : équivalent.
+- Après la G2 : `red-proof --base 2abe801 --gel f29f153 --repo /home/user/monark-governance --draw 6 --seed 13` OK (3 jugés F2P, 3 tueurs tués) ; harnais 129/129 ; R-25 195 lignes comptées (+167/−28).
+- Les trois précisions de B-10 et le résidu déclaré sont actés par l'amendement daté « (nuit, 4) » de l'ADR-CM.
+- Le test 42 d'export n'échoue que sous la charge de la suite complète ; seul, il passe à `36c1feb` (vérifié par RECHERCHES).

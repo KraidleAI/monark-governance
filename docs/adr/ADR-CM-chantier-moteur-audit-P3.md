@@ -190,3 +190,8 @@ C-1 écart base et servi (en tête, B-0) ; C-2 btc-dir déjà retirée (Q-F1, B-
 - **Statut de Shōgen inchangé** : `built` reste sur la page. La liste BTC-DIR-RETIRE-SURFACES-1 ne propose à MONARK que de ré-adresser la preuve du registre aux tests unitaires de la jointure qui restent (`gate_attested_is_frozen_attested_price`, `gate_attested_discordant_is_tool_error`) et, pour l'étape 7 de la trace h5, retrait ou ré-épinglage avec note de provenance (MONARK décide).
 - **Item formé** : ATTEST-KATA-SUBJECT-1 (sujet attesté pour les futures classes kata Binance) ; propriétaire RECHERCHES ; déclencheur : après CM-4 ; aucun travail maintenant ; toute ligne neuve de la table d'attestation passe par une ligne B neuve au §5.
 - **BTC-DIR-RETIRE-SURFACES-1** est livré par MONARK avec CM-2b ; jusque-là, les tests de `test/` qui comparent le harnais aux surfaces de MONARK (liste dans `docs/G0-lot-cm-2b.md`) sont rouges par construction.
+
+## Amendement daté 2026-10-03 (nuit, 4) : précisions de B-10 (CM-2c)
+
+- **Intention du go 3 du fondateur** (« oui aux 1, 2 et 3 ») : B-10 refuse les imitations ASCII mesurées par MONARK (E1 à E17). Trois précisions, déclarées au G0 (`docs/G0-lot-cm-2c.md`, §Écarts), en font partie : (1) `.` lu `-`, suites de `-` réduites, `-` de bord retirés ; (2) `4` lu `a` pour le seul préfixe de clé `kata:` ; (3) E16 (clé USDe avec `O` pour `0`) refusée comme imitation de la clé commise, non comme une autre population au sens d'A6.
+- **Résidu déclaré** (passe encore, aucun item maintenant) : `|` pour l, S/5, 7/t, 8/b, nn/m, cl/d, z/2 ; séparateurs `+` et `~` ; blancs internes retirés, non lus `-` ; clés `kata-:x`, `kata.:x`, `kata_:x`, `kata;x`, `k@ta:x`.
