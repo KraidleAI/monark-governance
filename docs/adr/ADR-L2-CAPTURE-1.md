@@ -23,6 +23,12 @@
   Q-13 et Q-14, copie à chaque scellé tirée depuis le poste et vérifiée par sha256, rien supprimé sur l'hôte sans son accord ;
   Q-15, second hôte décidé après P3, sur chiffres, rien acheté sans son accord. Restent ouvertes : Q-5 (après FAITS-L2-ACCESS-2)
   et Q-8 (après M-1).
+- **Q-5 close (2026-10-03, 20:53 UTC)** : microsecondes, choix du fondateur (vers 20:38 UTC) et accord de RECHERCHES
+  (`coordination/messages/2026-10-03-RECHERCHES-vers-MONARK-Q-5-temoins-et-CM-2.md`), à quatre conditions reprises par le plan de P1 :
+  (1) l unité écrite dans chaque manifeste (`time_unit: "us"`), jamais déduite d une grandeur ; (2) horodatages gardés en entiers
+  tels que reçus, jamais en flottant ; (3) heure de réception locale dans la même unité, nommée à part de l heure de la place ;
+  (4) pour les fichiers publics (recherche seulement), la frontière d unité (spot en microsecondes depuis le 2025-01-01) écrite fichier
+  par fichier au manifeste d import, avec un contrôle croisé de grandeur qui arrête l import en cas de contradiction.
 - **Pli de l'avis [Ad], 2026-10-03, de 19:01 à 19:21 UTC** (`date -u`) : avis de l'advisor `claude-fable-5-1` (effort medium, contexte
   frais, lecture seule ; un conseil, jamais un verdict) sur la version sha256 `969a730d…` de cette ADR, points 1 à 13 (bloquants 1 et 2,
   importants 3 à 9, mineurs 10 à 13), tous pliés par un worker `claude-opus-5-5` (effort max, instance fraîche) ; point par point :
