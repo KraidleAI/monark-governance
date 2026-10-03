@@ -476,6 +476,12 @@ pm) ; item MK-NM-GUARD-1 (refuser Tree = F:/Monark dans mk-nm.ps1).
   Release) ; ensuite, file RECHERCHES : FAITS-USDT-USD-HISTORY-1 sous l addendum 4, RECORDER-CLOSE-TIME-1 (zero_trade), Q-H3 à Q-H7,
   TO FILL de P0-2, chantier L2 (FAITS-L2-ACCESS-1, mesure du serveur du site, mission). Investisseur absent : rien d irréversible hors
   de ces go ; toute dépense (second hôte L2, historique acheté) attend son retour.
+- 2026-10-03 07:39 UTC : DOJO-NAV-LINK-1 rendu (G1 LIVRE-AVEC-RESERVES : oracle G1 0, 1a057d16 ; red-proof F2P ; mutants 32/32 ; R-25 73/547),
+  relu, commis (d82f8591) et fusionné au tronc (7b0fa421). Q-1 ratifiée (pied de page non répété). Build du tronc vert, assert-fleet-html
+  vert. Q-3, mesure DOM de la barre (captures impossibles, fenêtre non affichée) : une ligne de 1060 à 1440 px ; deux lignes de 960 à
+  1024 px là où sept entrées tenaient sur une ; sous 720 px, défilement dans la barre, sans débordement de page. Comportement voulu
+  par globals.css. Q-2 (lien inconditionnel si le record était retiré) : item DOJO-NAV-E0-1. G7 et G2 de la partie après la fusion
+  de DOJO-EXPORT-VERIFIER-1, puis envoi du site et synchro publique.
 - 2026-10-03 07:24 UTC : addendum 6 de RECHERCHES (fed645c, sha256 2ebbc5f1… recalculé, égal) accusé (PR recherches#67, 0178ce9c) :
   contrôle croisé = Kraken seul, fenêtres [S − 2 h, S + 2 h] et [F − 25 h, F + 1 h], sens unique, aucune valeur Kraken publiée ;
   lot KRAKEN-XCHECK-1 à former après S et F. Pyth seulement sur dépense décidée par l investisseur.
