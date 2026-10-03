@@ -466,7 +466,18 @@ Tronc `lot/etude-suite`. Dernier oracle complet : 1 779 tests, dont 1 776 verts,
   strate liq nouvelle) ; au G0 de CM-1 seulement : BYO-HOMOGLYPH-1 (résidu non ASCII, appel direct seul, hors contrat ; sans
   déclencheur ni prix : Q-7 du recensement). Côté MONARK :
   MUTANTS-REPLAY-NONCONCLU-1 et HARNESS-BYO-400-RATE-1 (ci-dessus) ; le §10 porte aussi BTC-DIR-RETIRE-SURFACES-1 et W2E-TAIL-1
-  (MONARK). Suite : plan de CM-2.
+  (MONARK). CM-2a : PR #105 (`f3b330cf`), contrôle par diff de MONARK en cours (2026-10-03, 22:2x UTC). CM-2b : PR #106 (`2abe8013`),
+  posée sur #105 ; CI `r25-taille-de-lot` rouge (702 lignes) ; ordre forcé : verdict et fusion de #105, contrôle par diff de #106
+  par une instance neuve, puis les surfaces.
+  - BTC-DIR-RETIRE-SURFACES-1 (MONARK ; déclencheur « PR CM-2b » atteint le 2026-10-03) : liste du G0 de CM-2b (§ du même nom).
+    Décision de l investisseur (2026-10-03, 22:4x UTC, choix verbatim « Built, preuve attest servi (Recommandé) ») : Shōgen garde
+    `built` ; `integration_test` de `apps/site/lib/fleet.ts` pointe vers un test d intégration non-LLM de l outil `attest` servi, plus
+    `gate_attested_is_frozen_attested_price` et `gate_attested_discordant_is_tool_error` ; la note dit la jointure dormante ; ligne
+    datée à ADR-0028 §4.11 de Shōgen (`d383a51`). Décision de l orchestrateur : étape 7 de la trace h5 gardée, ré-épinglée sur le
+    refus `task_class_retired`, avec une note de provenance. Deux temps, car `scripts/sync-harness-served.mjs` ne lit que le service
+    en ligne : (i) avec #106, ce qui est vert à l arbre fusionné et contre le service d aujourd hui ; (ii) après le déploiement de cet
+    arbre (go séparé), `apps/site/data/harness-served.json` régénéré, la CA, et les tests qui lisent ces données, rouges entre les
+    deux par construction. État : en attente du verdict de #105.
 
 ## Ce qui reste pour la page
 
