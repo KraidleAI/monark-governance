@@ -34,8 +34,10 @@ export interface RecorderArgs {
   fromRaw: string | null;
 }
 
-/** manifest.json of one recording or replay. */
-export interface SeriesManifest {
+/** A monark.series.binance.v1 manifest as a reader finds it in a sealed folder (D-4 of the second round, G2C-5): the manifests of the
+ *  recorder 48aa58b3 (sealed before lot RECORDER-CLOSE-TIME-1) have neither irregular_close nor zero_trade, which there means never
+ *  computed; present and empty means none. */
+export interface SeriesManifestV1 {
   schema: string;
   mode: "record" | "replay";
   platform: string;
@@ -60,6 +62,19 @@ export interface SeriesManifest {
   finished_at: string;
   redistributable: boolean;
   terms: string;
+  /** Absent: never computed; present: as SeriesManifest says. */
+  irregular_close?: { open_time_ms: number; close_time_ms: number }[];
+  /** Absent: never computed; present: as SeriesManifest says. */
+  zero_trade?: number[];
+}
+
+/** manifest.json as this recorder writes it, recording or replay: the same schema, both lists always present. */
+export interface SeriesManifest extends SeriesManifestV1 {
+  /** Kept candles whose close is not open + interval - 1 ms, the close as received (rule 8 of RECHERCHES ADR 0006): ascending. A close
+   *  out of its slot is a stop (close_out_of_slot), so each listed close lies in [open, open + interval - 1 ms): a truncation. */
+  irregular_close: { open_time_ms: number; close_time_ms: number }[];
+  /** Open times of the kept candles with 0 trades, a truncated one included (rule 8 bis): ascending. */
+  zero_trade: number[];
 }
 
 /** A named stop: `code` is one of STOPS. */
