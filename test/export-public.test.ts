@@ -59,7 +59,7 @@ import { mkdtempSync, rmSync, readFileSync, readdirSync, statSync, existsSync, c
 import { tmpdir } from "node:os";
 import { join, relative, dirname } from "node:path";
 import { createHash } from "node:crypto";
-import { derivePublicWorkflow } from "../scripts/export-public.mjs";
+import { collectFiles, derivePublicWorkflow } from "../scripts/export-public.mjs";
 
 const ROOT = join(import.meta.dirname, "..");
 
@@ -455,4 +455,35 @@ test("export_public_derived_jobs_are_byte_identical — every retained job body 
   const corrupted = derived.replace("npm run lint && npm run lint:ratchet", "npm run lint &&  npm run lint:ratchet");
   assert.notEqual(corrupted, derived, "byte-corruption must change the derived text");
   assert.ok(mismatches(governance, corrupted).length > 0, "M-42f' (byte): a single-byte change in a retained job body must red 42(f')");
+});
+
+// -- ADR-M004 D7 nonies (item DOJO-EXPORT-VERIFIER-1): the Dojo ships its reader's verifier FILE BY FILE and nothing else of apps/dojo.
+// The closure is WALKED here from the public command (every relative `from`/`import` specifier, plus the .d.mts type surface of each
+// .mjs), never typed: a new import of the verifier reds until the whitelist names it, and any other apps/dojo file in the export reds.
+// killer: scripts/export-public.mjs:118 CONST "apps/dojo/keys/dojo-keyring.json" -> "apps/dojo/scripts/dojo-seed.mjs"
+test("export_dojo_ships_the_verifier_closure_only — the export carries the import closure of apps/dojo/scripts/dojo-verify-cli.mjs, its public keyring and its manifest, nothing else of apps/dojo (ADR-M004 D7 nonies)", () => {
+  const kept = new Set(collectFiles(ROOT).kept.map((f) => f.rel));
+  const closure = new Set<string>();
+  const stack = ["apps/dojo/scripts/dojo-verify-cli.mjs"];
+  for (let f = stack.pop(); f !== undefined; f = stack.pop()) {
+    if (closure.has(f)) continue;
+    closure.add(f);
+    for (const m of readFileSync(join(ROOT, f), "utf8").matchAll(/\b(?:from|import)\s*["'`]([^"'`]+)["'`]/g)) {
+      const spec = m[1] ?? "";
+      if (spec.startsWith(".")) stack.push(toPosix(join(dirname(f), spec)));
+    }
+    const side = f.replace(/\.mjs$/, ".d.mts");
+    if (side !== f && existsSync(join(ROOT, side))) stack.push(side);
+  }
+  // Non-vacuity: the walk reaches the verifier's core, the walker, a type surface and Bell's chain (measured closure: 10 files).
+  for (const f of ["apps/dojo/scripts/dojo-verify.mjs", "apps/dojo/scripts/dojo-chain.mjs", "apps/dojo/scripts/dojo-core.d.mts", "apps/bell/scripts/bell-chain.mjs"]) {
+    assert.ok(closure.has(f), `the walk must reach ${f}`);
+  }
+  // (1) every file of the closure ships, Bell's bell-chain included: the exported command loads.
+  assert.deepEqual([...closure].filter((f) => !kept.has(f)).sort(), [], "a file of the verifier's import closure is missing from the export");
+  // (2) apps/dojo ships exactly the closure, the public keyring (--keyring) and the manifest: no collector, publisher, seed tool or test.
+  const expected = [...[...closure].filter((f) => f.startsWith("apps/dojo/")), "apps/dojo/keys/dojo-keyring.json", "apps/dojo/package.json"].sort();
+  assert.deepEqual([...kept].filter((f) => f.startsWith("apps/dojo/")).sort(), expected, "apps/dojo exports exactly the verifier's closure, its keyring and its manifest");
+  // (3) the deployment conformity check and the other governance Dojo scripts stay out (their imports reach unexported files).
+  assert.deepEqual([...kept].filter((f) => /^scripts\/[^/]*dojo/.test(f)), [], "no scripts/*dojo* file is exported");
 });
