@@ -23,9 +23,9 @@
 // listed under zero_trade; completeness reads missing.json alone. Only the grid stops. A replay runs under the interval of its recording:
 // the source manifest, when there is one, names --interval and every open read lies on its grid (else interval_mismatch); each page read
 // has the sha256 that the source's requests.jsonl logged for its cursor and that its raw/ line of SHA256SUMS holds, each file when present
-// (else raw_page_altered); a replay writes nothing before every check has passed. The schema stays monark.series.binance.v1:
-// irregular_close and zero_trade absent (the manifests of the recorder 48aa58b3, sealed before this lot) = never computed; present and
-// empty = none.
+// (else raw_page_altered); a replay writes nothing before every check has passed. Schema (lot BINANCE-V2-1, Q-U5 of RECHERCHES): every
+// manifest written here, recording or replay, is monark.series.binance.v2 with both lists (empty = none); a replay reads its source
+// manifest for the interval alone, its schema unread: a sealed v1 (recorders 48aa58b3 and 0a1ae564) has neither list = never computed, and stays v1.
 // Test seam: run(argv, io) and main(argv, io) take fetch, sleep, clock, env, execArgv and print from their caller; neither the command
 // line nor the environment can set them; the default fetch is read at each request. The agent never commits (R-20).
 import { createHash } from "node:crypto";
@@ -256,7 +256,7 @@ function writeOutputs(ctx, got, norm, startedAt) {
   const lists = listed(ctx, got.rows, norm.times);
   const missingDoc = { symbol: ctx.symbol, interval: ctx.interval, start: isoOf(ctx.start), end_exclusive: isoOf(ctx.end),
     count: norm.missing.length, missing: norm.missing };
-  const manifest = { schema: "monark.series.binance.v1", mode: ctx.live ? "record" : "replay", platform: "binance", endpoint: ENDPOINT,
+  const manifest = { schema: "monark.series.binance.v2", mode: ctx.live ? "record" : "replay", platform: "binance", endpoint: ENDPOINT,
     symbol: ctx.symbol, interval: ctx.interval, start: isoOf(ctx.start), end_exclusive: isoOf(ctx.end),
     expected: expectedCount(ctx.start, ctx.end, ctx.interval),
     rows: norm.times.length, missing: norm.missing.length, duplicates_removed: got.duplicates, pages: got.pages,
