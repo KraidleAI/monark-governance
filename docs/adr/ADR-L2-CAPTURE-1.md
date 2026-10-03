@@ -29,6 +29,8 @@
   tels que reçus, jamais en flottant ; (3) heure de réception locale dans la même unité, nommée à part de l heure de la place ;
   (4) pour les fichiers publics (recherche seulement), la frontière d unité (spot en microsecondes depuis le 2025-01-01) écrite fichier
   par fichier au manifeste d import, avec un contrôle croisé de grandeur qui arrête l import en cas de contradiction.
+- **Cinq parties (2026-10-03, 21:33 UTC)** : sur le plan de P1 (`docs/G0-partie-l2-p1.md`, 12 lots, Q-P1-11), le fondateur et investisseur
+  a choisi « Couper après b2 (Recommandé) » : P1 (capture brute et chaîne), P1-bis (scellé, rejeu, instantanés, commande), P2, P3, P4.
 - **Pli de l'avis [Ad], 2026-10-03, de 19:01 à 19:21 UTC** (`date -u`) : avis de l'advisor `claude-fable-5-1` (effort medium, contexte
   frais, lecture seule ; un conseil, jamais un verdict) sur la version sha256 `969a730d…` de cette ADR, points 1 à 13 (bloquants 1 et 2,
   importants 3 à 9, mineurs 10 à 13), tous pliés par un worker `claude-opus-5-5` (effort max, instance fraîche) ; point par point :
