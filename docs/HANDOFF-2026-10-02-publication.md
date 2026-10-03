@@ -476,6 +476,19 @@ pm) ; item MK-NM-GUARD-1 (refuser Tree = F:/Monark dans mk-nm.ps1).
   Release) ; ensuite, file RECHERCHES : FAITS-USDT-USD-HISTORY-1 sous l addendum 4, RECORDER-CLOSE-TIME-1 (zero_trade), Q-H3 à Q-H7,
   TO FILL de P0-2, chantier L2 (FAITS-L2-ACCESS-1, mesure du serveur du site, mission). Investisseur absent : rien d irréversible hors
   de ces go ; toute dépense (second hôte L2, historique acheté) attend son retour.
+- 2026-10-03 21:31 UTC : actes de fusion de la partie addendum 7 rendus (wf_7e678397-c5e). ITEMS-ADD7-1 fusionné (5f4a8928, fusion
+  0ecccfe0) : 47 entrées, 15 neuves à ETAT, 8 closes avec preuve. MUT-FUSION-ADD7-1 : 612 mutants, 601 tués, 7 équivalents prouvés,
+  4 non équivalents (gardes de la comparaison et de la sonde Coinbase) tués au tour de corrections de COINBASE-PASS-EDGES-1 (Q-MA-7).
+  Décisions : Q-MA-1 --repo F:/Monark admis (tronc mesuré inchangé) ; Q-MA-2 une base par fusion à l avenir ; Q-MA-3 et Q-MA-4
+  admis ; Q-MA-5 confirmé ; Q-MA-8 report de MUTANTS-TYPECHECK-1 au prochain lot de l outil ; Q-MA-9 MUTANTS-MEMORY-WAIT-1 confirmé,
+  distinct de MUTANTS-LOCK-MIDRUN-1 ; Q-MA-10 un worker peut prendre le verrou de l hôte par acquire() pour une sonde courte, déclarée.
+  Items : Q-1 résidu pass = 1 rattaché à EE7-RECORDER-IDENTITY-1 ; Q-2 ouvert jusqu au premier mois lu en deux passes ; Q-3, Q-5,
+  Q-6, Q-8, Q-11, Q-13 confirmés ; Q-4 E2 gardé dans les tables ; Q-7 BYO-HOMOGLYPH-1 à inscrire par RECHERCHES au §10 de l ADR-CM ;
+  Q-9 lot PROBE-NARABI-LOAD-1 en cours ; Q-10 G2-CTV2-6 au G7 de la partie, commentaires EE-7 gardés ; Q-12 la sonde attend le lot
+  COINBASE-PASS-EDGES-1. L2 : ADR-L2-CAPTURE-1 acceptée (386a6fb4, page privée publiée), FAITS-L2-ACCESS-2 lu sur place (622a8ccc),
+  Q-5 close (microsecondes, quatre conditions de RECHERCHES, 19552acf), plan de P1 en rédaction. RECHERCHES : CM-2 a le go du
+  fondateur ; BTC-DIR-RETIRE-SURFACES-1 côté MONARK, déclencheur PR CM-2b. Narabi : premier jour de stress (2026-09-28), fil de
+  tweets et captures préparés pour l investisseur, rien publié par MONARK. PAROXYSME : registre du Dōjō inchangé ; items neufs portés.
 - 2026-10-03 19:00 UTC : addendum 7, Binance v2 et CM-1 fusionnés ; chantier L2 lancé. Go de l investisseur : « oui, supprime les
   copies sous F:/tmp », « ok go, enchaîne tout », « ok go, enchaîne ». Fait : huit dossiers de copies de pages Binance supprimés
   (4 563 fichiers, aucune jonction, Q-8 clos). Fusions au tronc, chacune G1, G2 neuve, corrections et re-revue ciblée, oracle du
