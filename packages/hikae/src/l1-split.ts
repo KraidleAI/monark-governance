@@ -155,8 +155,13 @@ export function splitQuantileExact(scores: readonly number[], alphaDec: string, 
 export interface RiskControlRowOptions {
   /** Score domain (E-4), default "finite"; "band" for the scaled bands of the kata path. */
   readonly domain?: ScoreDomain;
-  /** calib_attempt (E-12), 1 to 4, default 1: the test delta is spendDelta(base, attempt). */
+  /** calib_attempt (E-12), 1 to 4, default 1; returned with the row. */
   readonly attempt?: number;
+  /**
+   * E-12 under amendment A-1: h + 1, h the count of NON-exempt recalibrations, an integer in 1..attempt, default attempt;
+   * the test delta is spendDelta(base, spendIndex).
+   */
+  readonly spendIndex?: number;
   /** E-6: the score at which the region is the whole label space (1 for the indicator score of a direction cell). */
   readonly silenceAt?: number;
 }
@@ -167,9 +172,10 @@ interface RowCore {
   readonly rank: number;
   readonly kStar: number;
   readonly kObs: number;
-  /** CALIB misses: the scores at or above silenceAt when given (a direction cell: its errors), else kObs. */
+  /** CALIB misses: in silence, the scores at silenceAt (a direction cell: its errors); otherwise kObs. */
   readonly calibMisses: number;
   readonly attempt: number;
+  readonly spendIndex: number;
   readonly testDelta: string;
 }
 
@@ -181,24 +187,30 @@ export type RiskControlRow =
 
 /**
  * Risk-controlling quantile of one calibration row for the kata path: riskControlQuantile at the test delta
- * spendDelta(baseDelta, attempt) (E-12, returned with the attempt), after the score domain check (E-4), with the CALIB
- * misses counted apart and a silence flag (E-6): silence iff qhat >= silenceAt; a silent row carries no missBound (its
- * kObs is 0 by construction, the bound would describe a region that is not served). FAIL-CLOSED `under_calib`: every
- * refusal of riskControlQuantile, a score outside the domain, a refused attempt or base delta, a non-finite silenceAt.
+ * spendDelta(baseDelta, spendIndex) (E-12, amendment A-1; returned with spendIndex and the attempt), after the score
+ * domain check (E-4), with the CALIB misses counted apart and a silence flag (E-6): silenceAt is the largest score of the
+ * label space, so no score may exceed it; silence iff qhat >= silenceAt (then qhat = silenceAt and kObs is 0, while
+ * calibMisses counts the scores at silenceAt). A silent row carries no missBound (it would describe a region that is not
+ * served). FAIL-CLOSED `under_calib`: every refusal of riskControlQuantile, a score outside the domain, a refused attempt,
+ * spendIndex or base delta, a non-finite silenceAt, a score above silenceAt.
  */
 export function riskControlRow(scores: readonly number[], alphaDec: string, baseDeltaDec: string, nMin: number, options: RiskControlRowOptions = {}): RiskControlRow {
   const under: RiskControlRow = { reason: "under_calib" };
   const { domain = "finite", attempt = 1, silenceAt } = options;
-  if (!scoresInDomain(scores, domain) || (silenceAt !== undefined && !Number.isFinite(silenceAt))) return under;
+  const spendIndex = options.spendIndex ?? attempt;
+  if (!scoresInDomain(scores, domain)) return under;
+  if (silenceAt !== undefined && (!Number.isFinite(silenceAt) || scores.some((s) => s > silenceAt))) return under;
   let testDelta: string;
   try {
-    testDelta = spendDelta(baseDeltaDec, attempt);
+    spendDelta(baseDeltaDec, attempt);
+    if (!Number.isSafeInteger(spendIndex) || spendIndex < 1 || spendIndex > attempt) return under;
+    testDelta = spendDelta(baseDeltaDec, spendIndex);
   } catch {
     return under;
   }
   const r = riskControlQuantile(scores, alphaDec, testDelta, nMin);
   if ("reason" in r) return under;
-  const calibMisses = silenceAt === undefined ? r.kObs : scores.filter((s) => s >= silenceAt).length;
-  const core = { qhat: r.qhat, rank: r.rank, kStar: r.kStar, kObs: r.kObs, calibMisses, attempt, testDelta };
+  const calibMisses = silenceAt !== undefined && r.qhat >= silenceAt ? scores.filter((s) => s >= silenceAt).length : r.kObs;
+  const core = { qhat: r.qhat, rank: r.rank, kStar: r.kStar, kObs: r.kObs, calibMisses, attempt, spendIndex, testDelta };
   return silenceAt !== undefined && r.qhat >= silenceAt ? { ...core, silence: true } : { ...core, silence: false, missBound: r.missBound };
 }
