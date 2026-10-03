@@ -1,0 +1,145 @@
+# ADR-CM : chantier moteur (points de l'audit P3), découpage en cinq parties, exception de zone W2-E, règles des contrats gelés
+
+- **Statut** : PROPOSÉ (brouillon de RECHERCHES, 2026-10-03 ; checkpoint-1 d'un validateur neuf : ACCEPTE-AVEC-CORRECTIONS C-1 à C-9, toutes pliées dans ce texte, §11). Aucun code avant : avis des advisors (fait, §8), checkpoint-1 du validateur, validation du fondateur (décision 300). Les questions du §7 sont au fondateur.
+- **Mission** : investisseur, 2026-10-03, verbatim « donne cette mission a recherches, il va la faire lui méme » ; confirmé au fondateur par RECHERCHES : « oui, RECHERCHES fait le chantier moteur, code compris ». Message `recherches:coordination/messages/2026-10-03-MONARK-vers-RECHERCHES-chantier-moteur-audit-P3.md` ([MC]) et sa suite `…-chantier-moteur-branche.md`.
+- **Rattachement** : audit `recherches:monark/AUDIT-P3-2026-10-01.md` ([A]) ; statut MONARK `recherches:coordination/messages/2026-10-01-MONARK-vers-RECHERCHES-statut-audit-P3.md` ([S]) ; ADR 0005 et ADR 0006 v8.1 avec addenda 1 à 6 (`recherches:decisions/`).
+- **Base mesurée** : `base/chantier-moteur-2026-10-03` = `404480e887a15b647d00110c3a4762a8aa8cf551` (union du tronc MONARK, servi `af9b889`, et de `main` `207f021f`). `apps/harness/src/tools/gate.ts`, `packages/hikae/**` et `packages/contracts/**` sont identiques octet pour octet à `207f021f` (`git diff --stat 207f021f..404480e8` vide sur ces chemins) : les lignes de [A] dans ces fichiers tiennent, sauf les lignes du moteur que [S] a déjà dites fausses (lignes réelles au §2).
+- **Écart entre la base et le servi (checkpoint-1, C-1)** : le `gate.ts` de la base (sha256 `0bfc18ba…`) n'est PAS le servi (`4cc340e2…`, lu sur l'hôte par MONARK, égal à `62e0cae:apps/harness/src/tools/gate.ts`). `git diff 62e0cae 404480e8` sur les sources servies : `gate.ts` (+26/−3 : plafond de tau en BYO set rendu 400 nommé ; ensemble vide BYO set rendu `intent_not_in_region` au lieu de `covered`, chantier 2, P3/D8), `verdict.ts` (commentaire), et des ajouts du moteur (`binomial.ts`, `l1-split.ts`, `runs.ts`, `index.ts`) qu'aucun chemin servi n'appelle. La sentinelle de la base (`apps/sentinel/src/run.ts` `a02a9542…`) diffère aussi de la servie (`45557d6e…`) : c'est NARABI-L-1, changement de MONARK, déployé par lui. `l3-gate.ts` (`c23a4030…`) et `calibration.ts` (`6aef88d2…`) sont égaux au servi. Le premier déploiement du chantier livre donc B-0 (§5).
+- **Oracle de base** : `npm ci`, `npm run typecheck` vert, `npm test` : voir §2.3 (Node 24.21.0).
+- **Provenance** : RECHERCHES, avec trois advisors (relevé du service, relevé du moteur, méthode et découpage), avis et jamais verdicts. Lecture seule ; seule écriture : ce fichier.
+
+## 1. Décision en une phrase
+
+Le chantier corrige les 26 points encore ouverts de [A] (S-16 est fermé) en **cinq parties ordonnées, regroupées par couche de code**, chacune avec plan, tests rouges à la base, G2 par une instance neuve, revue, G7 et go de l'investisseur ; le service ne change que par une **liste fermée de différences servies** par partie ; le code W2-E (`tail.ts`) reste écrit par MONARK, par une **exception de zone** limitée à ce fichier neuf.
+
+## 2. Contexte mesuré à 404480e8
+
+### 2.1 Chemin servi (`apps/harness`, `apps/sentinel`)
+
+| Point | État | Lieu réel |
+|---|---|---|
+| S-1 | ouvert ; sur liq, `tau` et `tauInterval` restent aussi de l'appelant | `gate.ts:493,508,569,578` ; `l3-gate.ts:103,130` |
+| S-2 | ouvert ; `riskControlQuantile` (`l1-split.ts:61`) n'est appelé par aucun chemin servi | `gate.ts:416,493,569,638` |
+| S-3 | ouvert | `gate.ts:297-307,766-798` |
+| S-4 (harnais) | ouvert | `gate.ts:434,578` ; `ukemi-strata.ts:58` |
+| S-5 | ouvert ; voie (a) décidée par MONARK ([S]) | `gate.ts:299,306` |
+| S-6 | ouvert | `http.ts:101-102` ; `gate.ts:255-260` |
+| S-7 | partiel : liq est généré par `scripts/emit-u4b-calibration.mjs` avec garde d'empreinte, USDe collé à la main, ni statut ni unicité | `calibration.ts:77,206-256,274-288` |
+| S-8 | ouvert, **concret** : `LIQ_COMMITTED_SENTENCE` s'affiche aussi pour un yhat de strates s1 à s3 qui rendent `under_calib` | `gate.ts:220,673-692` ; `registry.ts:72` |
+| S-9 / E-13 | ouvert ; contrat gelé | `contracts/src/enums.ts:27` ; `schemas/coverage-verdict.schema.json:25` |
+| S-10 | ouvert ; P5(b) ouvert sur appel direct de `runGate` | `gate.ts:720-831` |
+| S-11 | ouvert, **servi** ; la garde compare `===` à trois noms et à deux couples (classe, clé) | `gate.ts:737-750` ; `calibration.ts:274-288` |
+| S-12 | branche btc-dir ouverte ; btc-dir **toujours servie** (`gate.ts:62,200,769-774`) bien que l'ADR 0005 la dise retirée | `gate.ts:507-508,517` |
+| S-13 | ouvert | `contracts/src/calib-digest.ts:14-23` ; `serialize.ts:41-52` |
+| S-14 / E-11 | partiel (`budgetAt` appelé, `timeline.ts:146`) ; sentinelle figée sur USDe (α 0,1, nMin 50) ; `binomUpperTailLeq` absent | `apps/sentinel/src/timeline.ts:20,29` |
+| S-15 | ouvert | `http.ts:97-98` |
+| S-16 | **fermé** : registre liq non vide (s0, n = 170) ; commentaires « empty -2a registry » périmés (`gate.ts:75,600,629,741,792`) | `calibration.ts:247-255` |
+| E-7 (harnais) | partiel | `gate.ts:434,578` ; `ukemi-strata.ts:58` |
+
+### 2.2 Moteur (`packages/hikae`, `packages/contracts`)
+
+| Point | État | Lieu réel |
+|---|---|---|
+| E-1 | ouvert : seule la bande additive ŷ ± q̂ existe | `interval-conformer.ts:84,88` ; `region.ts:62` |
+| E-2 | ouvert | `contracts/src/calib-digest.ts:20` |
+| E-4 | ouvert : ±Infinity et scores négatifs acceptés | `l1-split.ts:65` |
+| E-5 | ouvert : rang flottant, comparateur `a - b` | `l1-split.ts:39,41` |
+| E-6 | ouvert | `l1-split.ts:78,87-96` |
+| E-7 (moteur) | ouvert | `interval-conformer.ts:88` |
+| E-8 | ouvert dans le moteur, non atteint au servi (`gate.ts:273`) | `l3-gate.ts:88,100,103,123,126,130` |
+| E-9 | ouvert : CDF recalculée pour chaque k | `binomial.ts:69-87,96` |
+| E-10 | ouvert, hors du chemin kata | `predictor.ts:28-44` |
+| E-12 | ouvert | `l1-split.ts:61` ; `binomial.ts:148` |
+| E-14 | présent par construction (NDG-1) | `region.ts:71-76` |
+
+### 2.3 Oracle de base
+
+Oracle de MONARK sur la base : 1 938 tests, 0 échec (message de branche). Rejeu de RECHERCHES, Node 24.21.0, `npm ci` puis `npm run typecheck` : vert. `npm test` : 1 936 tests, 1 913 verts, 22 ignorés, 1 échec, 170 s. L'échec est `test/bell-served.test.ts:153` (`bell_served_collector_revision_is_a_collector_commit`) : `git cat-file -t 3bda2cad…` ne trouve pas l'objet dans le clone superficiel de RECHERCHES. C'est le même échec d'environnement que l'audit avait relevé, pas un défaut du code (MONARK rapporte 1 938 tests et 0 échec sur son tronc complet). Chaque partie compare ses tests à cette base : seul cet échec est toléré, et seulement dans un clone superficiel.
+
+## 3. Découpage (cinq parties, dans l'ordre)
+
+| # | Partie | Points | Différences servies | Déploiement |
+|---|---|---|---|---|
+| CM-1 | BYO-NEAR-NAME-1 | S-11 | noms et clés imitant une classe commise, ou portant une espace en tête ou en fin, refusés en 400 nommé ; motif des classes kata `^(btc\|eth\|bnb\|sol)-(dir\|range\|mae-down\|mae-up)-(1h\|4h)$` (à élargir pour la vague 2) et préfixe `kata:` réservés ; un BYO honnête reste en 200 | oui, seul |
+| CM-2 | SERVED-HARDENING-1 | S-6, S-15, S-12, S-1, S-10 (grille de `produced_at`, P5(b)), E-7 (texte) | voir §5 ; S-1 crée la table de politique par classe (F-7), socle de CM-4 | oui |
+| CM-3 | Moteur et contrats | E-8, E-4, E-5, E-2, E-6, E-12, E-9, E-1 (avec S-4), E-13/S-9, S-13 ; raisons écrites E-10, E-14 | **aucune** : E-5, E-4 et la garde NaN vont dans des fonctions neuves ou des options ; `splitQuantile` servi (BYO, USDe, liq, btc-dir) est inchangé ; E-13/S-9 ne change ni `schema_version` (1.0.0) ni les empreintes `openapi.json` ; l'oracle prouve des verdicts rejoués identiques octet pour octet à la base | non |
+| CM-4 | Chemin kata servi | S-7, S-2, S-3, S-5, S-8, S-4 (harnais), S-10 (partie kata), branchement `class-policy-v2` et colonnes `tail_*` (ADR 0006) | nouvelles classes kata, **registre kata vide** au déploiement ; le texte d'honnêteté vient de la ligne de politique résolue | oui, registre vide |
+| CM-5 | Surveillance | E-11/S-14 | sentinelle par clé kata, pilotée par F-7, test binomial exact des ratés (`binomUpperTailLeq`) ; tracker ABB hors des clés kata | oui (sentinelle) |
+
+Règles :
+- **R-25** : chaque PR ≤ 1 150 lignes changées. CM-2 et CM-3 en deux PR, CM-4 en deux ou trois ; la coupe de chaque partie est fixée dans son plan, avant le code.
+- **Parallélisme** : CM-3 ne partage aucun fichier avec CM-2 ; il peut être préparé pendant que CM-2 attend son déploiement. Les G7 restent dans l'ordre.
+- **Service effectif de la vague 1** : décision distincte du déploiement de CM-4 (registre kata vide). Ce n'est pas un go de ce chantier.
+
+## 4. W2-E : exception de zone
+
+- L'ADR 0006 (`recherches:decisions/0006-ADR-draft-wave2.md` l.8, l.215, §9 l.315-316) : RECHERCHES écrit les tests de W2-E (`recherches:kata/w2e/`) ; MONARK écrit `tail.ts` **après ses corrections du moteur**, et la garde `class-policy-v2` est une ligne MONARK. Les corrections du moteur sont désormais CM-3. Ce chantier garde les deux règles telles quelles.
+- **Ordre** : `tail.ts` est écrit par MONARK après le G7 de CM-3 (corrections du moteur), soit dès que CM-3 est fusionné, en parallèle de CM-4. Sa garde des scores non finis s'aligne sur celle d'E-4 (CM-3). Il garde son propre C(n, k), sans partage avec `binomial.ts`.
+- **Exception de zone** (la seule) : pendant le chantier, MONARK peut créer, par PR contre la base du chantier :
+  - `packages/hikae/src/tail.ts` (fichier neuf) et sa ligne d'export dans `packages/hikae/src/index.ts` ;
+  - la garde `class-policy-v2` comme **fonction pure dans un fichier neuf** du harnais (`apps/harness/src/class-policy-v2-guard.ts`), qui recalcule les colonnes `tail_*` d'une ligne et rend la ligne épinglée ou un refus.
+- **CM-4** (RECHERCHES) fournit la table F-7 et **appelle** cette garde à l'import ; il ne l'écrit pas. La séparation générateur et vérificateur de l'ADR 0006 tient donc sans amendement.
+- Conflit possible : le seul bloc d'export de `index.ts` ; la PR fusionnée en second se rebase.
+
+## 5. Changements de comportement servi (liste fermée, à accepter par le fondateur)
+
+Liste de toutes les parties. Partout ailleurs, verdicts et corps de réponse identiques octet pour octet au servi `af9b889`, sauf B-0, prouvés par rejeu.
+
+| # | Partie | Aujourd'hui | Après |
+|---|---|---|---|
+| B-0 | CM-1 (hérité de la base, chantier 2) | BYO set : tau > nombre de candidats − 1 accepté ; ensemble vide rendu `covered` | 400 nommé ; ensemble vide rendu abstain `intent_not_in_region` |
+| B-1 | CM-1 | `BTC-DIR-15M`, clé USDe suivie d'une espace, adresse en casse de somme de contrôle, etc. rendent 200 `commit` | 400 nommé. Règle : toute `task_class` ou clé contenant un caractère `\s` (Unicode) en tête ou en fin est refusée ; la comparaison aux classes et clés commises se fait après minuscules ASCII ; une clé contenant une adresse `0x…` est comparée après minuscules de l'adresse ; le motif kata et le préfixe `kata:` (insensibles à la casse) sont réservés. Le 400 n'a pas encore de `code` (S-6 arrive en CM-2) |
+| B-2 | CM-2 | alpha, nMin, tau et `tauInterval` choisis par l'appelant (USDe à α 0,5 rend `commit`) | valeurs de la table F-7, fixées dans le plan de CM-2 depuis les calibrations commises (USDe : α 0,10 et nMin 50 de sa calibration ; liq : valeurs déjà imposées ; tau plafonné à 1) ; une valeur différente envoyée rend 400 nommé |
+| B-3 | CM-2 | corps d'erreur `tool_error` sans code | champ `code` stable ajouté (hors contrat gelé) |
+| B-4 | CM-2 | `produced_at` en 2099, non RFC 3339 sur appel direct (P5(b)) accepté | 400 nommé ; la grille par classe servie (horizon, pas de barre) est fixée dans le plan de CM-2 ; les classes sans grille gardent le seul contrôle RFC 3339 et « pas dans le futur » |
+| B-5 | CM-2 | btc-dir servie (ensemble vide rendu `covered`) | btc-dir retirée, comme décidé le 2026-09-30 (ADR 0005 l.5, l.13) : `btc-dir-15m` rend 400 nommé (« retired »), le nom reste réservé contre le BYO |
+| B-6 | CM-2 | sortie HTTP non validée | validée ; une sortie invalide rend 500 |
+| B-7 | CM-2 | bord de la bande USDe à un ulp près, non dit | écart d'un ulp écrit dans le texte servi d'USDe (la bande ne change pas). Liq : rien tant que DEM-4 n'a pas tranché la mesure ([S] : aucun écart sur liq) |
+| B-8 | CM-4 | texte d'honnêteté liq « calibré » affiché aussi pour les strates s1 à s3 en `under_calib` | texte tiré de la ligne de politique résolue : la phrase calibrée seulement pour s0 |
+| B-9 | CM-4 | aucune classe kata | classes kata présentes, registre vide : toute requête kata rend `under_calib` (ou 400 nommé hors domaine, S-5) |
+
+S-4 côté harnais ne touche que le nouveau chemin kata : les bandes de `gate.ts:434,578` et `ukemi-strata.ts:58` ne changent pas.
+
+## 6. Risques et parades
+
+- **R-1 Changement servi non voulu.** Parade : §5 fermé ; test de rejeu octet pour octet par partie ; empreintes épinglées (`openapi.json`, description) déplacées seulement par les lignes de §5.
+- **R-2 E-5 et E-4 déplacent un verdict servi** (rang split entier différent d'une unité, scores négatifs refusés en BYO). Parade : `splitQuantile` servi reste inchangé ; le rang exact, le refus des non finis et des négatifs vont dans une fonction neuve utilisée par le chemin kata ; le BYO garde son comportement, avec une raison écrite.
+- **R-3 Contrats gelés** (`packages/contracts`, `schemas/**`), qui alimentent le miroir public et la spécification publique. Parade : changements **additifs seulement** (aucun renommage, aucun retrait), version de contrat incrémentée, chaque changement posé par un amendement daté de cet ADR, contrôle par diff de MONARK avant fusion. E-2 va dans `hikae`, pas dans `contracts`.
+- **R-4 Ré-interprétation du pré-enregistrement** (bande [0, h*], silence, flat). Parade : toute ambiguïté remonte à un ADR, jamais au code ; tests écrits depuis le texte des ADR 0005 et 0006 ; registre comparé octet pour octet ; G2 par une instance neuve et recalcul de MONARK, puisque RECHERCHES est auteur de l'audit, des ADR et du code.
+- **R-5 Calendrier.** Cinq parties avec G2, G7 et déploiements par MONARK : c'est le chemin critique vers la vague 1. Parade : CM-3 en parallèle de CM-2 ; plan de coupe R-25 avant chaque partie.
+- **R-6 Surfaces de MONARK.** Le retrait de btc-dir touche `apps/site` (`fleet.ts`, `harness-served.json`, `sim.ts`), `scripts/verify-harness.mjs` et `skills/monark/SKILL.md`. Parade : ces fichiers restent à MONARK ; RECHERCHES lui envoie la liste et le diff proposé, MONARK les applique.
+
+## 7. À décider par le fondateur avant tout code
+
+- **Q-F1 btc-dir** : information, pas de nouvelle décision : son retrait est déjà décidé (2026-09-30, ADR 0005 l.5, l.13) et s'exécute dans CM-2 (B-5). Il touche des surfaces publiques de MONARK (R-6).
+- **Q-F2** : accepter la liste fermée des changements servis du §5 (B-0 à B-9).
+- **Q-F3** : l'exception de zone du §4 (MONARK écrit `tail.ts` et la garde `class-policy-v2` après CM-3, dans des fichiers neufs), qui garde l'ADR 0006 sans amendement.
+- **Q-F4** (information, décision technique des advisors et de MONARK) : contrats gelés modifiés par addition seulement, avec contrôle par diff de MONARK (R-3).
+- **Q-F5** : le déploiement de CM-4 (registre kata vide) et le service effectif de la vague 1 sont deux go distincts.
+
+## 8. Remède ou raison écrite
+
+- **Remède** : tout point de CM-1, CM-2, CM-4, CM-5, et E-8, E-4, E-5, E-2, E-6, E-12, E-9, E-1, E-13/S-9.
+- **Raison écrite** :
+  - **E-10** : hors du chemin kata ; CM-4 apporte sa propre fonction de label avec `flat` explicite (`kataLabel`). La raison tombe si la surveillance réutilise `labelOf`.
+  - **E-14** : q̂ = 0 calibré rendu `under_calib` ; effet nul en pratique à α 0,01 ; figé par un test, et les cases de chemin le disent dans leur texte. Une raison distincte demanderait d'amender `COVERAGE_REASONS` (gelé).
+- **Mixtes** : S-4 et S-10 (harnais et kata, répartis entre CM-2 et CM-4) ; E-7 (texte pour USDe et liq ; bord défini par le test du score pour la nouvelle bande d'E-1) ; S-13 (un seul canonicaliseur pour les lignes F-7, les deux autres restent avec une raison écrite).
+- **Hors chantier** : E-3 (note au registre de P2, RECHERCHES) ; S-5 côté spécification publique (version datée, MONARK).
+
+## 9. Ce qui reste à MONARK
+
+Déploiement du harnais servi après G7 et go de l'investisseur (RECHERCHES donne le sha) ; contrôle par diff sur demande ; fusion des PR dans son tronc ; `apps/site`, `apps/dojo`, `apps/bell`, `scripts/export-public.mjs`, la spécification publique et le miroir `KraidleAI/Monark` ; `tail.ts` (§4).
+
+## 10. Items formés
+
+| Item | Propriétaire | Déclencheur |
+|---|---|---|
+| CM-1 plan et tests rouges | RECHERCHES | validation de cet ADR |
+| CM-2 à CM-5 plans | RECHERCHES | G7 de la partie précédente (CM-3 : en parallèle de CM-2) |
+| BTC-DIR-RETIRE-SURFACES-1 | MONARK, sur diff de RECHERCHES | plan de CM-2 |
+| W2E-TAIL-1 (`tail.ts`, garde `class-policy-v2`) | MONARK | G7 de CM-3 |
+| STALE-COMMENTS-1 (commentaires « empty -2a registry ») | RECHERCHES, dans CM-2 | — |
+
+## 11. Pli du checkpoint-1 (2026-10-03)
+
+C-1 écart base et servi (en tête, B-0) ; C-2 btc-dir déjà retirée (Q-F1, B-5) ; C-3 ordre et rôles de W2-E selon l'ADR 0006 (§4) ; C-4 CM-3 sans changement servi (§3) ; C-5 B-8, B-9 et S-4 harnais (§5) ; C-6 B-2, B-4, B-7 précisés ; C-7 règle de normalisation de B-1 ; C-8 oracle et `timeline.ts:146` ; C-9 Q-F4 en information.
