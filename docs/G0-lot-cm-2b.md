@@ -94,3 +94,13 @@ Code : `gate.ts`, `class-policy.ts` (neuf) ; documentation : `apps/harness/READM
 ## Mesures (gel `77e825c`)
 
 R-25 : 13 fichiers, +453/−225, soit 678 lignes (docs exclus). Tests du harnais : 123 → 126. `npm test` : 1 954 tests, 1 921 verts, 22 ignorés, 11 échecs : `bell-served.test.ts:153` (clone superficiel) et les dix rouges liés aux surfaces de MONARK listés plus haut. `red-proof --base f3b330c --gel 77e825c --draw 8 --seed 11` : OK, 18 jugés F2P, 8 tueurs tirés, 8 tués.
+
+## G2 (instance neuve) : APPROUVE-AVEC-CORRECTIONS, pliée
+
+- Commentaires de `gate.ts` : `task_class_retired` est levé depuis CM-2b ; la couture du résidu est dite dormante au servi (amendement « nuit, 3 »), gardée pour ATTEST-KATA-SUBJECT-1.
+- R-4 : un `attested` discordant passé par `run()` du registre sur la clé USDe rend `attested_inconsistent` (tue M14, registre qui ne transmet pas `env.attested`).
+- R-2 : α et nMin faux ensemble rendent `policy_alpha_mismatch`, pour liq et pour USDe (ordre verrouillé, tue M9).
+- `policyFor` retiré de `class-policy.ts` jusqu'à CM-4 (exporté, jamais appelé).
+- **Perte acceptée** : l'assertion de la copie du résidu dans `verdict.residual` (M13 survit) n'a plus de chemin servi ; la chaîne est dormante par décision du fondateur (amendement « nuit, 3 »).
+- `red-proof` avec `--gel <sha>` demande `--repo /home/user/monark-governance`.
+- Mesures après la G2 : `red-proof --base f3b330c --gel bb94c88 --repo /home/user/monark-governance --draw 10 --seed 3` : OK, 18 jugés F2P, 10 tueurs tirés, 10 tués ; harnais 126/126 ; R-25 : 14 fichiers, +470/−232, soit 702 lignes.
