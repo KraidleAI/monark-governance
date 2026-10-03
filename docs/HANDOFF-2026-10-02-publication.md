@@ -466,6 +466,11 @@ pm) ; item MK-NM-GUARD-1 (refuser Tree = F:/Monark dans mk-nm.ps1).
   Question « rien à pousser vers le GitHub public ? » : KraidleAI/Monark (public) date du 2026-09-24 (« Public sync: README »), son export
   ne porte ni apps/dojo (vérificateur, trousseau) ni RUNBOOK-dojo (aucune entrée dojo dans scripts/export-public.mjs) ; réponse à
   l investisseur : synchro possible sur son go (acte sortant), et ajout du vérificateur à l export = un lot à part (item DOJO-EXPORT-VERIFIER-1).
+- 2026-10-03 06:5x UTC : GO de l investisseur (verbatim : « go public et go vérificateur »). Lot DOJO-EXPORT-VERIFIER-1 lancé (worktree
+  F:/Monark-wt-exportdojo, branche lot/export-dojo, base a78f8988 ; mission f767487d… reçu vert ; G1 puis G2 neuve, workflow
+  wf_83b6c840-e4f ; modèle : ADR-M004 D7 octies de Bell, fichier par fichier). Plan de la synchro publique : après fusion des deux lots
+  (lien et vérificateur) et oracle vert, avance rapide locale de main sur le tronc (main ancêtre, 0 commit propre ; rien poussé du dépôt
+  de gouvernance), scripts/release-public.mjs --message (porte de texte public), push vers KraidleAI/Monark, tag v0.7.0 et Release.
 - 2026-10-02 15:30 UTC : go de minuit reçu ; lanceur `F:/tmp/dojo/final/wait-and-run.sh` armé ; annonce X publiée depuis le 1er octobre
   (investisseur) ; validation visuelle : page reconstruite à l ancre 30/30/30/30/90, captures envoyées, six questions C-V-4 encore ouvertes.
 - 2026-10-02 08:26 UTC, ÉCART DE ROSTER relevé par l orchestrateur : depuis 02:51:22 UTC, les tours de l orchestrateur tournent sous
