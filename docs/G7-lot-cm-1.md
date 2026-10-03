@@ -8,7 +8,7 @@
 - Preuve F2P mécanique : `node scripts/red-proof.mjs --base 404480e8 --gel . --draw 5 --seed 20261003` (outil sha256 `6579b550…`) : **OK**, 5 tests jugés, tous F2P, 5 tueurs tirés, 5 tués. Mutants supplémentaires de l'auteur, tous tués : ancre `^` retirée, ancre `$` retirée, `startsWith("kata:")` remplacé par `includes("kata")` puis par `startsWith("kata")`, `return undefined` remplacé par une chaîne, contrôle des blancs de la classe retiré.
 - `npx tsc --noEmit` vert ; eslint vert sur les fichiers changés ; `gate:vocab` vert ; `lint:ratchet` 69/69.
 - `npm test` (Node 24.21.0) : 1 seul échec, `bell-served.test.ts:153`, l'échec d'environnement du clone superficiel déjà présent à la base. Oracle du tronc MONARK sur la tête `866f1705` : 1 942 tests, 0 échec.
-- R-25 : 170 lignes comptées (docs exclus) à `866f1705` ; la tête finale est mesurée dans la PR.
+- R-25 : 170 lignes comptées (docs exclus) à `866f1705` ; **202** à la tête finale `8050fdd` (197 + 5), mesuré par MONARK.
 - Rejeu de MONARK sur trois arbres (servi `af9b889`, base, tête ; 84 cas) : décisions et corps HTTP ne diffèrent qu'aux lignes B-0 et B-1 ; description, `tools/list`, `/openapi.json` et `/health` identiques (`recherches:coordination/pieces/2026-10-03-cm1-dem4/cm1-compare.md`).
 
 ## G2 (instance neuve de RECHERCHES) : APPROUVE-AVEC-CORRECTIONS, pliée
@@ -18,12 +18,12 @@
 
 ## Contrôle par diff de MONARK : APPROUVE AVEC CORRECTIONS, pliée
 
-- C-1 : imitations en ASCII déclarées au G0, item BYO-ASCII-LOOKALIKE-1 formé.
+- C-1 : imitations en ASCII déclarées au G0 (§ « Résidu déclaré », paragraphe « Imitations en ASCII ») : `cascade-liquidabIe-24h`, `cascade-liquidab1e-24h`, `liquidation-eIigible-coverage`, `btc-dir-l5m`, `btc-dir-15rn`, `btc_dir_15m`, `so1-dir-1h`, clés `k4ta:…` et `kata :…` (cas E1 à E15 du rapport `recherches:coordination/pieces/2026-10-03-cm1-dem4/cm1-RAPPORT.md`, sha256 `d6ef7ec9cc2d5ea21039ab5b3e90d1cbcba7ff7752b0b79607d41f3b78a36b99`) ; item BYO-ASCII-LOOKALIKE-1 formé (prix à l'amendement daté de l'ADR).
 - C-2 : tueurs réécrits en forme fermée ; `red-proof.mjs` OK (ci-dessus).
 - C-3 : tueurs B-0 ré-ancrés (+2 lignes).
 - C-6 : changement de message d'une requête déjà refusée, écrit à la règle 3 du G0.
 - C-7 : excès de refus épinglés (`btc-dir-1h-v2`, `katax`, `kata-model`, `caller:kata:x`) ; appels honnêtes sous `try` et `assert.fail`.
-- C-8 : chiffres corrigés (`gate.ts` +23/−3, huit noms) ; U+00A0 écrit `"\u00a0"`.
+- C-8 : chiffres corrigés (CM-1 : `gate.ts` +38/−0, `calibration.ts` +16/−0 ; huit noms) ; U+00A0 écrit `"\u00a0"`.
 - C-5 : liste complète du déploiement, ci-dessous.
 
 ## Changements servis livrés et déploiement (C-5)
