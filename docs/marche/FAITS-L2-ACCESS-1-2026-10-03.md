@@ -128,3 +128,9 @@ Binance, est la source lue ici. Une relecture sur la nouvelle documentation est 
 - Réponse de l investisseur, choix « France » à la question posée le 2026-10-03 vers 18:50 UTC (pays d hébergement du serveur du site).
 - La France n est pas sur la liste des pays interdits du 5 janvier 2026 (section 5) : l hôte est admis pour l enregistreur L2.
   L2-REGION-HOST-1 est clos pour cet hôte ; le second hôte (RECORDER-L2-REGION-2) passera le même contrôle avant tout appel.
+
+## Ajout daté du 2026-10-03 à 19:32 UTC : provenance (correction C-6 du checkpoint-1 de l ADR-L2-CAPTURE-1)
+
+- Le lecteur de ces pages est le siège d orchestrateur de MONARK, tenu par `claude-opus-5-5` sur décision de l investisseur du
+  2026-10-03 vers 04:2x UTC, verbatim : « fais avec OPUS 5.5 comme orchestrateur pour la suite. » (HANDOFF du tronc,
+  `docs/HANDOFF-2026-10-02-publication.md` l.437). Ce n est pas un écart de roster : c est une décision datée de l investisseur.
