@@ -143,3 +143,14 @@ Déploiement du harnais servi après G7 et go de l'investisseur (RECHERCHES donn
 ## 11. Pli du checkpoint-1 (2026-10-03)
 
 C-1 écart base et servi (en tête, B-0) ; C-2 btc-dir déjà retirée (Q-F1, B-5) ; C-3 ordre et rôles de W2-E selon l'ADR 0006 (§4) ; C-4 CM-3 sans changement servi (§3) ; C-5 B-8, B-9 et S-4 harnais (§5) ; C-6 B-2, B-4, B-7 précisés ; C-7 règle de normalisation de B-1 ; C-8 oracle et `timeline.ts:146` ; C-9 Q-F4 en information.
+
+## Amendement daté 2026-10-03 (soir) : contrôle par diff de MONARK sur CM-1, DEM-4
+
+- **Version qui fait foi** : le texte accepté est `87ca96a1…` (commit `955f545`) ; il ne change que par des amendements datés en fin de fichier, comme celui-ci.
+- **B-7, liq confirmé** : DEM-4 mesure 0 ulp sur liq, sur tout le domaine servi de s0 (max(ŷ + q̂) = 326 184 298 995 < 2^53, donc fl(ŷ + q̂) exact ; 4 400 009 centres, 0 écart). B-7 reste sur USDe seul (écarts mesurés jusqu'à 4 ulp de q̂).
+- **Items ajoutés au §10** :
+
+| Item | Propriétaire | Déclencheur |
+|---|---|---|
+| LIQ-BAND-EXACT-GUARD-1 : garde « max ŷ de la strate + q̂ ≤ 2^53 » au chargement d'une calibration liq, avec son test (s3 la romprait, mesuré par MONARK) | RECHERCHES, dans CM-4 (import gardé) | avant toute strate liq nouvelle |
+| BYO-ASCII-LOOKALIKE-1 : imitations ASCII (l, I, 1 ; rn, m ; `_`, `-` ; `k4ta:`) qui passent B-1 ; remède par liste fermée et réduction des confusables | RECHERCHES | plan de CM-2 ; tout remède est une ligne B neuve au §5 et passe par le go du fondateur |
