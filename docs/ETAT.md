@@ -435,7 +435,15 @@ Tronc `lot/etude-suite`. Dernier oracle complet : 1 779 tests, dont 1 776 verts,
   - HARNESS-BYO-400-RATE-1 (nom proposé ; mesure) : le nombre de clients touchés par B-0 et B-1 de CM-1 n'est pas mesuré ; borne : le
     taux de réponses 400 sur `POST /gate` dans `harness-access.log` (route et statut, aucun corps), sur une fenêtre avant et une après
     le déploiement de l'arbre qui les porte. Source : `cm1rev/RAPPORT.md` l.164 et l.181 (Q-6). Déclencheur : l'acte (3) de l'ordre de
-    déploiement retenu ; prix : deux lectures du journal d'accès ; état : ouvert.
+    déploiement retenu, atteint le 2026-10-03 à 22:33:46 UTC. Fenêtre avant (7 jours jusqu'à 22:31 UTC) : 4 `POST /gate`, tous 200,
+    2 clients distincts (comptes agrégés, sondes de MONARK exclues). Fenêtre après : 7 jours depuis 22:33:46 UTC, lue le 2026-10-10
+    après 22:34 UTC par le même outil (`/root/d3-rate.mjs` sur l'hôte, copie `F:/tmp/deploy3/rate.mjs`) ; état : ouvert.
+  - HOST-HARNESS-PREV-1 (hôte du site) : l'arbre servi avant l'étape 3 est gardé avec ses modules sous
+    `/opt/monark-harness.prev-20261003-2231` (retour arrière : deux renommages et un redémarrage), avec la sauvegarde
+    `/opt/monark-harness.bak-20261003-2231.tgz` ; l'arbre servi porte encore 4 fichiers absents de `6da4504d`
+    (`apps/sentinel/src/rpc.ts.prev`, `apps/site/app/products/page.tsx`, `apps/site/lib/narabi-snapshot.ts`,
+    `packages/monark/test/cross-agent-gate.test.ts`), hors du chemin du harnais et de la sentinelle. Construction : les retirer, et
+    l'arbre précédent, sur accord de l'investisseur (suppression) ; déclencheur : le prochain déploiement du harnais ; état : ouvert.
   - Clos ou absorbés dans ces lots, preuves au recensement : EE7-SCHEMA-V2-1 (le détecteur lit `monark.series.coinbase.v2`), Q-CTV2-3
     (dans I-2), et à leur place plus haut : COINBASE-MUTANTS-CORR-1, COINBASE-PLAN-ENVOK-OPENSSL-1, TUYAU-EE7-IN-1,
     BINANCE-REPLAY-NON200-ATTEST-1, BINANCE-OPENSSL-PREFIX-PIN-1, partie EE-7 de MAIN-GUARD-REALPATH-1 ; Q-8 (copies sous `F:/tmp`) :
@@ -446,9 +454,11 @@ Tronc `lot/etude-suite`. Dernier oracle complet : 1 779 tests, dont 1 776 verts,
     ouvertes des journaux et de ce lot : au recensement (HANDOFF, Q-9).
 - **Chantier moteur (RECHERCHES)** : CM-1 (BYO-NEAR-NAME-1, S-11 ; ligne B-1 de `docs/adr/ADR-CM-chantier-moteur-audit-P3.md`) est
   fusionnée dans la branche de base `base/chantier-moteur-2026-10-03` (PR #103 `c53f0a72`, points de forme PR #104 `6da4504d`) et dans
-  le tronc (`59b95f29`, `2cf89fce`) ; rien n'est déployé : la faille S-11 reste servie jusqu'au déploiement. Ordre des déploiements
-  retenu (`docs/G7-lot-cm-1.md` l.35), chaque acte sous le go de l'investisseur : (1) relecture d'hôte en lecture seule par MONARK ;
-  (2) NARABI-L-1 seule, depuis sa fusion `5c5f636` ; (3) l'arbre au sha de fusion. Contrôle par diff de MONARK : C-1 à C-8 puis F-1 à
+  le tronc (`59b95f29`, `2cf89fce`). Ordre des déploiements retenu (`docs/G7-lot-cm-1.md` l.35), chaque acte sous le go de
+  l'investisseur : (1) relecture d'hôte en lecture seule par MONARK ; (2) NARABI-L-1 seule, depuis sa fusion `5c5f636`, faite à
+  22:09 UTC ; (3) l'arbre au sha `6da4504d`, **déployé le 2026-10-03 à 22:33:46 UTC** (go relayé par RECHERCHES, confirmé par
+  l'investisseur ; journal de provenance, entrée de 22:35 UTC) : B-0 et B-1 servis, S-11 close au servi. Contrôle par diff de
+  MONARK : C-1 à C-8 puis F-1 à
   F-5 pliés (PR #104), rien de bloquant au dernier tour (`F:/tmp/rech/cm1rev/RAPPORT.md`, `F:/tmp/rech/cm1rr/RAPPORT.md`). Items portés
   par RECHERCHES, au §10 et aux amendements datés de l'ADR-CM : BYO-ASCII-LOOKALIKE-1 (imitations ASCII qui passent B-1 ; déclencheur :
   plan de CM-2 ; prix : environ 40 lignes de code et 80 de tests, une ligne B neuve, go du fondateur) ; LIQ-BAND-EXACT-GUARD-1 (garde

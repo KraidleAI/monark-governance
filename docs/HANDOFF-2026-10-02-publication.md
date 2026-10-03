@@ -476,6 +476,11 @@ pm) ; item MK-NM-GUARD-1 (refuser Tree = F:/Monark dans mk-nm.ps1).
   Release) ; ensuite, file RECHERCHES : FAITS-USDT-USD-HISTORY-1 sous l addendum 4, RECORDER-CLOSE-TIME-1 (zero_trade), Q-H3 à Q-H7,
   TO FILL de P0-2, chantier L2 (FAITS-L2-ACCESS-1, mesure du serveur du site, mission). Investisseur absent : rien d irréversible hors
   de ces go ; toute dépense (second hôte L2, historique acheté) attend son retour.
+- 2026-10-03 22:35 UTC : étape 3 du déploiement de CM-1 faite (go relayé par RECHERCHES, confirmé par l investisseur). Le harnais
+  sert `6da4504d` depuis 22:33:46 UTC : CA 13/13 et TLS, 84 cas identiques à l octet à la cible, les 27 changements tous de B-0
+  ou B-1. npm ci dans une copie à part, échangée par renommage (écart au RUNBOOK déclaré au journal) ; arbre précédent et sauvegarde
+  gardés (HOST-HARNESS-PREV-1). RECHERCHES : sentinelle reçue, HARNESS-LOOPBACK-PORTS-1 de son côté, CM-2a (#105) au contrôle par
+  diff, CM-2b en G2 neuve. PAROXYSME : registre du Dōjō inchangé ; items neufs portés (HOST-HARNESS-PREV-1, mesure de B-0 et B-1).
 - 2026-10-03 21:31 UTC : actes de fusion de la partie addendum 7 rendus (wf_7e678397-c5e). ITEMS-ADD7-1 fusionné (5f4a8928, fusion
   0ecccfe0) : 47 entrées, 15 neuves à ETAT, 8 closes avec preuve. MUT-FUSION-ADD7-1 : 612 mutants, 601 tués, 7 équivalents prouvés,
   4 non équivalents (gardes de la comparaison et de la sonde Coinbase) tués au tour de corrections de COINBASE-PASS-EDGES-1 (Q-MA-7).
