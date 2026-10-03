@@ -40,14 +40,14 @@ export type EpisodeKind = "episode" | "lead-in" | "open-at-end";
 
 /** One episode: its kind; S and F as ISO 8601 UTC instants, F = --to for an episode still open at the end of the window (W4); its
  *  exclusion interval [exclude_from, F), exclude_from = S when calm_certified_from certifies S, --from otherwise (W3); the present reads
- *  of [S, F) and, C4 of addendum 5, of [F - 24 h, F), null for an episode open at --to. */
+ *  of [S, F) and, C4 of addendum 5, the window's present reads of [F - 24 h, F), F = --to for an episode open at --to (D-5). */
 export interface Episode {
   kind: EpisodeKind;
   S: string;
   F: string;
   exclude_from: string;
   present_reads_in_episode: number;
-  present_reads_last_24h: number | null;
+  present_reads_last_24h: number;
 }
 
 /** The closed report: instants, counts and sha256 digests, never a value. `edge` (information only): the present reads that depart

@@ -23,8 +23,8 @@
 // Output, and nothing else (stdout, exit 0): one closed JSON {source, window, reads, edge, calm_certified_from, episodes,
 // open_episode_at_end} of instants, counts and sha256 digests; no price and no volume, anywhere. C4, counts that inform and never move
 // S nor F: reads.absent, the absent reads of the window, i.e. the missing candles of [--from - 15 min, --to - 15 min), one slot before
-// the candles [B0, B1) of a block run with --from B0 --to B1 (at most one candle differs at each end; --from B0 + 15 min and --to
-// B1 + 15 min read exactly them); and per episode present_reads_last_24h, the present reads of [F - 24 h, F) (null if open at --to).
+// the candles [B0, B1) of a block run with --from B0 --to B1 (at most one candle differs at each end; --from B0 + 15 min and --to B1 +
+// 15 min read exactly them); per episode present_reads_last_24h, the window's present reads of [F - 24 h, F), F = --to if open (D-5).
 // edge, information only: the present reads that depart (|x - 1| > 0.01) in a row at the start and at the end of the window, absent
 // reads skipped as in the rule: a run that --from cuts (its S may be earlier) or that --to cuts.
 // calm_certified_from (F-1): the first instant f of the window whose day [f - 24 h, f) lies in the window (f >= --from + 24 h) and
@@ -33,8 +33,8 @@
 // recording; before f, an episode in progress at --from may be invisible or show a late S.
 // Episodes (addendum 7; D-2 of lot EE7-ADD7-1): each carries its kind (closed list KINDS) and its exclusion interval [exclude_from, F).
 // W4 first: open-at-end, still open at --to, F = --to. Then W3: lead-in, an S that calm_certified_from does not certify (S before it,
-// or no such instant: Q-1 of that lot), listed and never dropped; else episode. exclude_from is S when calm_certified_from certifies
-// it, --from otherwise: a late S never under-excludes. While calm_certified_from is set, an open episode begins at or after it.
+// or none: Q-1), listed, never dropped; else episode. exclude_from: S if certified, else --from (a late S never under-excludes). P1 (G2
+// of that lot): at most one lead-in per run, closed exactly at calm_certified_from when set; an open episode then begins at or after it.
 // A named refusal (STOPS, closed list) prints {ok: false, stop, detail} on stderr and exits 1 (usage: 2); a detail names a file, a
 // line, a column, a key or an instant, never the content of a field. Writes no file.
 import { createHash } from "node:crypto";
@@ -43,7 +43,7 @@ import { join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
 export const PRODUCT = "USDT-USD";
-export const SCHEMA = "monark.series.coinbase.v1"; // the schema of the recorder's manifest.json (D-1 of lot EE7-ADD7-1)
+export const SCHEMA = "monark.series.coinbase.v2"; // the schema of the recorder's manifest.json (D-1, D-4 of lot EE7-ADD7-1)
 export const CSV_NAME = `${PRODUCT}-15m.csv`;
 export const CSV_HEADER = "open_time_utc,open_time_ms,low,high,open,close,volume";
 export const SEALED = [CSV_NAME, "manifest.json", "missing.json"]; // the files that SHA256SUMS must list
@@ -218,8 +218,8 @@ function readWindow(root, from, to) {
 }
 
 /** The episodes over the reads (index i = instant from + i * STEP_MS): s and f as indices, f null while open, the present reads of
- *  [S, F) (of [S, --to) while open) and, C4 of addendum 5, the present reads of [F - 24 h, F) (null while open); and `certified` (F-1),
- *  the first index f >= 96 of the window whose day [f - 24 h, f) closes as F would (48 present reads or more, all calm), else null. */
+ *  [S, F) (of [S, --to) while open) and, C4 of addendum 5, the window's present reads of [F - 24 h, F) (F = --to while open, D-5); and
+ *  `certified` (F-1), the first index f >= 96 of the window whose day [f - 24 h, f) holds 48 present reads or more, all calm; else null. */
 function detect(reads) {
   const n = reads.length, span = CALM_SPAN_MS / STEP_MS, present = [0], loud = [0], episodes = [];
   for (const x of reads) {
@@ -237,7 +237,7 @@ function detect(reads) {
     if (run.length < OPEN_RUN) continue;
     let f = i; // F is searched from the instant after the 4th read: an earlier F always holds a read of the run or too few reads
     while (f <= n && !closesAt(f)) f += 1;
-    const day = f <= n ? present[f] - present[f - span] : null; // C4; f - span > run[3] >= 3: [F - 24 h, F) never holds the 4th read
+    const day = f <= n ? present[f] - present[f - span] : present[n] - present[Math.max(0, n - span)]; // C4; f - span > run[3] >= 3
     episodes.push({ s: run[0], f: f <= n ? f : null, inside: present[Math.min(f, n)] - present[run[0]], day });
     [run, i] = [[], f]; // the next search for S starts at F
   }

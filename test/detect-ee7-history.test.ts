@@ -16,7 +16,7 @@ import { createHash } from "node:crypto";
 import { appendFileSync, copyFileSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, symlinkSync, unlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
-import { fileURLToPath } from "node:url";
+import { fileURLToPath, pathToFileURL } from "node:url";
 import { DetectorStop, deviationVersus, main, parseDecimal, run, STOPS } from "../scripts/detect-ee7-history.mjs";
 import type { Decimal, Ee7Report } from "../scripts/detect-ee7-history.mjs";
 import { run as record } from "../scripts/record-coinbase-candles.mjs";
@@ -31,7 +31,7 @@ const SCRIPT = fileURLToPath(new URL("../scripts/detect-ee7-history.mjs", import
 const RECORDER = fileURLToPath(new URL("../scripts/record-coinbase-candles.mjs", import.meta.url));
 globalThis.fetch = (): Promise<Response> => Promise.reject(new Error("tripwire: these tests never call the global fetch"));
 const STEP = 900_000, DAY = 96, LF = String.fromCharCode(10); // 15 min; 24 h = 96 instants
-const SCHEMA = "monark.series.coinbase.v1"; // the schema that the recorder writes in manifest.json (record-coinbase-candles.mjs l.257)
+const SCHEMA = "monark.series.coinbase.v2"; // the schema that the recorder writes in manifest.json (record-coinbase-candles.mjs l.273)
 const HEADER = "open_time_utc,open_time_ms,low,high,open,close,volume", CSV = "USDT-USD-15m.csv";
 const T0 = Date.UTC(2025, 0, 31, 12); // 2025-01-31T12:00Z: a window from T0 longer than 12 h reads two months
 const D = "1.0150", C = "0.9990", M = "1.0070", A = null; // |x - 1| = 0.015 departs, 0.001 is calm, 0.007 is neither; A is absent
@@ -74,7 +74,7 @@ function candlesAt(first: number, candles: readonly Read[], cells: Cells = ["0.9
     writeFileSync(join(dir, "missing.json"), JSON.stringify(doc, null, 2) + LF);
     const manifest = { schema: SCHEMA, mode: "record", platform: "coinbase", product: "USDT-USD", granularity: "15m", granularity_s: 900,
       start: iso(m), end_exclusive: iso(nextMonth(m)), expected: rows.length + missing.length, rows: rows.length, missing: missing.length,
-      csv: CSV, recorder_sha256: sha(readFileSync(RECORDER)) }; // keys of the recorder's manifest.json (l.257-265), among them D-1's five
+      csv: CSV, recorder_sha256: sha(readFileSync(RECORDER)) }; // keys of the recorder's manifest.json (l.273-281), among them D-1's five
     writeFileSync(join(dir, "manifest.json"), JSON.stringify(manifest, null, 2) + LF);
     seal(dir);
   }
@@ -148,7 +148,7 @@ test("ee7_closes_with_48_present_reads_in_the_last_day_and_not_with_47", () => {
   const closed = detectOn(day48), open = detectOn(day47);
   assert.deepEqual([shape(closed), closed.episodes[0]?.present_reads_last_24h], [[[4, 104, 52]], 48], "48 present calm reads in [F - 24 h, F)");
   assert.deepEqual([shape(open), open.open_episode_at_end, open.episodes[0]?.present_reads_last_24h], [[[4, null, 51]], "2025-01-31T13:00:00Z",
-    null], "47: no F, still open at the end");
+    37], "47: still open at the end (shape: F null, kind open-at-end); C4 counts the present reads of [--to - 24 h, --to) (D-5)");
 });
 
 // killer: scripts/detect-ee7-history.mjs:122 ROR "deviationVersus(x, CALM) < 0" -> "deviationVersus(x, CALM) <= 0"
@@ -200,7 +200,7 @@ test("ee7_finds_two_episodes_and_no_second_one_inside_an_open_episode", () => {
 // killer: scripts/detect-ee7-history.mjs:241 CONST "f: f <= n ? f : null" -> "f: f < n ? f : null"
 test("ee7_names_an_episode_still_open_at_the_end_and_closes_one_at_exactly_to", () => {
   const open = detectOn([...rep(C, 4), ...rep(D, 4), ...rep(C, 50)]);
-  assert.deepEqual([shape(open), open.open_episode_at_end], [[[4, null, 54]], "2025-01-31T13:00:00Z"], "F null, the episode named by its S");
+  assert.deepEqual([shape(open), open.open_episode_at_end], [[[4, null, 54]], "2025-01-31T13:00:00Z"], "shape: F null for the open-at-end episode (F = --to), named by its S");
   const edge = detectOn([...rep(C, 4), ...rep(D, 4), ...rep(C, DAY)]); // the last day before --to is calm: F = --to
   assert.deepEqual([shape(edge), edge.open_episode_at_end, edge.window.to_exclusive], [[[4, 104, 100]], null, iso(T0 + 104 * STEP)]);
 });
@@ -421,8 +421,13 @@ test("ee7_agrees_with_a_naive_reading_of_the_rule_on_seeded_series", () => {
   for (let seed = 1; seed <= 8; seed++) {
     const { reads, cls } = seeded(seed, 1500), r = detectOn(reads, from), expected = naive(cls);
     assert.deepEqual(shape(r, from), expected, `seed ${String(seed)}`);
+    const leadIns = r.episodes.filter((e) => e.kind === "lead-in").map((e) => e.F); // P1 (G2 of lot EE7-ADD7-1, D-6), before the naive reading
+    assert.ok(leadIns.length <= 1 && leadIns.every((F) => r.calm_certified_from === null || F === r.calm_certified_from), `seed ${String(seed)}: P1`);
     assert.deepEqual(r.reads, { present: cls.filter((c) => c !== "absent").length, absent: cls.filter((c) => c === "absent").length });
-    const lastDay = (f: number | null): number | null => (f === null ? null : cls.slice(f - DAY, f).filter((c) => c !== "absent").length);
+    const lastDay = (f: number | null): number => { // C4; an open episode counts [--to - 24 h, --to) (D-5)
+      const g = f ?? cls.length;
+      return cls.slice(Math.max(0, g - DAY), g).filter((c) => c !== "absent").length;
+    };
     const head = (cs: readonly Cls[]): number => { // the departing reads before the first present read inside the band
       const inside = cs.findIndex((c) => c === "calm" || c === "mid");
       return cs.slice(0, inside < 0 ? cs.length : inside).filter((c) => c === "depart").length;
@@ -465,7 +470,7 @@ test("ee7_reads_at_tau_the_close_of_the_candle_that_starts_at_tau_minus_15_min",
     { kind: "lead-in", S: "2025-03-10T12:15:00Z", F: "2025-03-11T13:30:00Z", exclude_from: "2025-03-10T00:00:00Z", present_reads_in_episode: 100,
       present_reads_last_24h: 96 },
     { kind: "open-at-end", S: "2025-03-11T13:45:00Z", F: "2025-03-12T00:00:00Z", exclude_from: "2025-03-11T13:45:00Z",
-      present_reads_in_episode: 41, present_reads_last_24h: null },
+      present_reads_in_episode: 41, present_reads_last_24h: 96 },
   ], "S = 12:15, the close of the 12:00 candle; F = 24 h after 13:15, the read of the 13:00 candle, plus 15 min; then S = 13:45");
   assert.deepEqual([r.window, r.reads, r.edge, r.open_episode_at_end], [
     { from: "2025-03-10T00:00:00Z", to_exclusive: "2025-03-12T00:00:00Z" }, { present: 190, absent: 2 }, { start: 0, end: 0 },
@@ -473,15 +478,15 @@ test("ee7_reads_at_tau_the_close_of_the_candle_that_starts_at_tau_minus_15_min",
 });
 
 // killer: scripts/detect-ee7-history.mjs:240 CONST "present[f - span]" -> "present[f - span + 1]"
-test("ee7_prints_the_present_reads_of_the_day_before_F_and_null_while_open", () => {
+test("ee7_prints_the_present_reads_of_the_day_before_F_and_before_to_while_open", () => {
   const gappy = Array.from({ length: DAY }, (_, i): Read => (i % 4 === 3 ? A : C)); // 72 present calm reads, 24 absent
   const r = detectOn([...rep(C, 4), ...rep(D, 4), ...gappy, ...rep(C, 20), ...rep(D, 4), ...rep(C, 30)]);
   assert.deepEqual([r.episodes, r.reads], [[
     { kind: "lead-in", S: iso(T0 + 4 * STEP), F: iso(T0 + 104 * STEP), exclude_from: iso(T0), present_reads_in_episode: 76,
       present_reads_last_24h: 72 },
     { kind: "open-at-end", S: iso(T0 + 124 * STEP), F: iso(T0 + 158 * STEP), exclude_from: iso(T0 + 124 * STEP), present_reads_in_episode: 34,
-      present_reads_last_24h: null },
-  ], { present: 134, absent: 24 }], "C4: 72 present reads in [F - 24 h, F) and 24 absent reads in the window; S and F do not move");
+      present_reads_last_24h: 85 },
+  ], { present: 134, absent: 24 }], "C4: 72 present reads in [F - 24 h, F), 85 in [--to - 24 h, --to) (D-5), 24 absent reads; S and F do not move");
 });
 
 // killer: scripts/detect-ee7-history.mjs:252 CONST "continue;" -> "break;"
@@ -553,7 +558,21 @@ test("ee7_command_line_runs_when_called_through_a_directory_junction", () => {
     const r = spawnSync(process.execPath, [join(jx, "detect-ee7-history.mjs"), ...argv], { encoding: "utf8", timeout: 60_000 });
     assert.deepEqual([r.status, r.stderr, r.stdout.split(LF).length], [0, "", 2], "one report line, as when called by its real path");
     assert.deepEqual(JSON.parse(r.stdout) as unknown, run(argv));
+    // N11 of the campaign of the fusion (MAIN-GUARD-REALPATH-1): under --preserve-symlinks-main, import.meta.url names the junction; the
+    // guard compares two real paths and prints the same line (a guard that compared a real path with SCRIPT printed nothing, exit 0)
+    const kept = spawnSync(process.execPath, ["--preserve-symlinks-main", join(jx, "detect-ee7-history.mjs"), ...argv], { encoding: "utf8", timeout: 60_000 });
+    assert.deepEqual([kept.status, kept.stderr, kept.stdout], [0, "", r.stdout], "--preserve-symlinks-main: the same report line");
   } finally { rmSync(jx, { force: true }); }
+});
+
+// killer: scripts/detect-ee7-history.mjs:292 CONST "existsSync(invoked) && " -> ""
+test("ee7_imported_by_a_process_whose_argv_names_an_absent_path_runs_nothing", () => {
+  // N8 of the campaign of the fusion (MAIN-GUARD-REALPATH-1), its measured form: node -e imports the detector, argv[1] an absent path:
+  // the guard runs nothing and throws nothing (exit 0, nothing printed)
+  const imported = `await import(${JSON.stringify(pathToFileURL(SCRIPT).href)});`;
+  const r = spawnSync(process.execPath, ["--input-type=module", "-e", imported, join(ROOT, "absent")], { encoding: "utf8", timeout: 60_000,
+    env: { SYSTEMROOT: process.env.SYSTEMROOT } });
+  assert.deepEqual([r.status, r.stdout, r.stderr], [0, "", ""]);
 });
 
 // killer: scripts/detect-ee7-history.mjs:269 CONST "certified === null ? null : at(certified)" -> "at(certified)"
@@ -573,6 +592,8 @@ test("ee7_refuses_a_month_whose_manifest_is_not_the_recorders_for_usdt_usd_at_90
   const drop = (k: string): ((dir: string) => void) => manifestDoc((d) => Object.fromEntries(Object.entries(d).filter(([n]) => n !== k)));
   const cases: [string, string, (dir: string) => void, string, string | undefined][] = [
     ["2025-02", "the schema of a Binance series", set("schema", "monark.series.binance.v1"), "manifest_mismatch", "schema"],
+    ["2025-02", "the schema of the recorder before lot COINBASE-ADD7-1 (D-4)", set("schema", "monark.series.coinbase.v1"), "manifest_mismatch",
+      "schema"],
     ["2025-02", "no schema", drop("schema"), "manifest_mismatch", "schema"],
     ["2025-02", "BTC-USD", set("product", "BTC-USD"), "manifest_mismatch", "product"],
     ["2025-01", "BTC-USD in the first month read", set("product", "BTC-USD"), "manifest_mismatch", "product"],
@@ -583,16 +604,20 @@ test("ee7_refuses_a_month_whose_manifest_is_not_the_recorders_for_usdt_usd_at_90
     ["2025-02", "an end without its seconds", set("end_exclusive", "2025-03-01T00:00Z"), "manifest_mismatch", "end_exclusive"],
     ["2025-02", "no recorder_sha256", drop("recorder_sha256"), "manifest_mismatch", "recorder_sha256"],
     ["2025-02", "a recorder_sha256 in capitals", set("recorder_sha256", "AB".repeat(32)), "manifest_mismatch", "recorder_sha256"],
+    ["2025-02", "a recorder_sha256 in an array", set("recorder_sha256", ["ab".repeat(32)]), "manifest_mismatch", "recorder_sha256"],
+    ["2025-02", "a recorder_sha256 of 65 hexadecimal digits", set("recorder_sha256", "a".repeat(65)), "manifest_mismatch", "recorder_sha256"],
     ["2025-02", "not JSON", edit("manifest.json", () => "{"), "manifest_malformed", undefined],
     ["2025-02", "an array", edit("manifest.json", () => `[]${LF}`), "manifest_malformed", undefined],
     ["2025-02", "null", edit("manifest.json", () => `null${LF}`), "manifest_malformed", undefined],
+    ["2025-02", "a number", edit("manifest.json", () => `5${LF}`), "manifest_malformed", undefined],
   ];
   const lines: string[] = [], print = (l: string): void => { lines.push(l); };
   for (const [month, what, alter, code, key] of cases) {
     const root = sealed(T0, reads), dir = join(root, month, "15m");
     alter(dir);
     seal(dir);
-    const exit = main(argvOf(root, T0, reads.length), { print });
+    let exit = -1; // main inside outcome(): an error that is not a stop reddens by assertion (D-3)
+    assert.equal(outcome(() => { exit = main(argvOf(root, T0, reads.length), { print }); }), "ok", what);
     const out = JSON.parse(lines.at(-1) ?? "{}") as { stop?: string; detail?: { file?: string; key?: string } };
     assert.deepEqual([exit, out.stop, out.detail?.file, out.detail?.key, STOPS.includes(code)], [1, code, `${month}/15m/manifest.json`, key, true],
       what);
@@ -614,7 +639,9 @@ test("ee7_reads_a_month_that_the_coinbase_recorder_wrote_and_refuses_it_once_its
   };
   const io = { fetch: page, sleep: (): Promise<void> => Promise.resolve(), now: (): number => Date.UTC(2026, 9, 3), env: {}, execArgv: [] };
   await record(["--product", "USDT-USD", "--granularity", "15m", "--start", iso(m), "--end", iso(end), "--out", out], io);
-  const argv = ["--root", dirname(dirname(out)), "--from", i(1), "--to", iso(end + STEP)], r = run(argv);
+  const argv = ["--root", dirname(dirname(out)), "--from", i(1), "--to", iso(end + STEP)];
+  assert.equal(outcome(() => run(argv)), "ok", "the month that the recorder wrote is read (D-3: a stop reddens by assertion)");
+  const r = run(argv);
   assert.deepEqual([r.source.months.map((x) => x.month), r.reads, r.calm_certified_from, r.episodes], [["2025-03"], { present: 2976, absent: 0 },
     i(97), [{ kind: "episode", S: i(101), F: i(201), exclude_from: i(101), present_reads_in_episode: 100, present_reads_last_24h: 96 }]],
     "read k is the close of candle k of March; S at the burst's first candle plus 15 min, after the calm certified at 97: an episode");
@@ -643,19 +670,20 @@ test("ee7_counts_an_S_at_exactly_calm_certified_from_as_certified", () => {
 
 // killer: scripts/detect-ee7-history.mjs:271 CONST "e.f ?? reads.length" -> "e.f"
 test("ee7_gives_an_episode_still_open_at_to_F_equal_to_to_and_lists_it_open_at_end", () => {
-  // W4: never an F null. Its S (104) follows the calm certified at 96: excluded from S; no C4 count before an F never reached.
+  // W4: never an F null. Its S (104) follows the calm certified at 96: excluded from S; C4 counts [--to - 24 h, --to) (D-5): 96.
   const r = detectOn([...rep(C, DAY + 8), ...rep(D, 4), ...rep(C, 30)]), i = (k: number): string => iso(T0 + k * STEP);
   assert.deepEqual([r.calm_certified_from, r.episodes, r.open_episode_at_end, r.window.to_exclusive], [i(96), [{ kind: "open-at-end", S: i(104),
-    F: i(138), exclude_from: i(104), present_reads_in_episode: 34, present_reads_last_24h: null }], i(104), i(138)]);
+    F: i(138), exclude_from: i(104), present_reads_in_episode: 34, present_reads_last_24h: 96 }], i(104), i(138)]);
 });
 
 // killer: scripts/detect-ee7-history.mjs:263 CONST "certified !== null && " -> ""
 test("ee7_certifies_no_S_while_calm_certified_from_is_null_provisionally", () => {
   // Q-1 of lot EE7-ADD7-1, provisional: no certified calm in the window, so no S is certified and every episode is excluded from
   // --from (W3: never under-exclude); W4 still lists an open one open-at-end. A calm day that ends at --to certifies nothing (F-1).
+  // The open one's C4 (D-5): [--to - 24 h, --to) begins before --from, so it counts the window's 58 present reads, never a read before.
   const closed = detectOn([...rep(C, 4), ...rep(D, 4), ...rep(C, DAY)]), open = detectOn([...rep(C, 4), ...rep(D, 4), ...rep(C, 50)]);
   const i = (k: number): string => iso(T0 + k * STEP);
   assert.deepEqual([closed.calm_certified_from, closed.episodes, open.calm_certified_from, open.episodes], [null, [{ kind: "lead-in", S: i(4),
     F: i(104), exclude_from: i(0), present_reads_in_episode: 100, present_reads_last_24h: 96 }], null, [{ kind: "open-at-end", S: i(4), F: i(58),
-    exclude_from: i(0), present_reads_in_episode: 54, present_reads_last_24h: null }]]);
+    exclude_from: i(0), present_reads_in_episode: 54, present_reads_last_24h: 58 }]]);
 });
