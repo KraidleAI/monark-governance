@@ -371,11 +371,27 @@ function validateCalibration(cal: ByoCalibration): void {
 }
 
 /**
+ * BYO set-mode tau cap (ADR-M005 D5 K-4(d) amendment 2026-09-30, class policy v1, D3 and D5): tau above the
+ * number of candidates minus 1 would let a COMMIT stand on the whole candidate list, so it is a named tool error
+ * (400) that names the required value. Runs after `validateCalibration` (B-3 label checks) and the yhat type
+ * check; interval mode is not capped.
+ */
+function assertByoSetTauCap(params: HarnessParams, cal: ByoCalibration): void {
+  if (cal.mode !== "set") return;
+  const candidates = cal.candidates ?? [];
+  if (params.tau > candidates.length - 1) {
+    throw new HarnessToolError(
+      `byo 'set' mode requires params.tau = ${String(candidates.length - 1)} or smaller (the number of candidates minus 1, so a COMMIT is never on the whole candidate list), got ${String(params.tau)}`,
+    );
+  }
+}
+
+/**
  * BYO conformal path (C2, ADR-M007 D7): compose the SAME real HIKAE primitives on the CALLER's scores.
  * Order mirrors `validateCalibration` then the committed dispatch — validate, then check `yhat` TYPE for the
  * mode (wrong type ⇒ tool error BEFORE any computation), then `splitQuantile` (under-calibration ⇒ fail-closed
  * `underCalibVerdict`), then the region. `abstain`/`reason` conventions mirror the committed paths (set:
- * |C|>tau ⇒ set_too_large else covered, as in `btcDirVerdict`; interval: abstain:false/covered, as in
+ * |C|>tau => set_too_large else covered, as in `btcDirVerdict`, but |C|=0 => intent_not_in_region (P3, D8); interval: abstain:false/covered, as in
  * `conformInterval`; the L3 gate decides DEFER/ABSTAIN on the width). Every error is `HarnessToolError`
  * (⇒ 400), never a 500. (Line-number cross-refs refreshed for F2-B — the "next touch" M011 promised.)
  */
@@ -391,6 +407,7 @@ function byoVerdict(prediction: Prediction, params: HarnessParams, cal: ByoCalib
   if (cal.mode === "set" && typeof yhat !== "string") {
     throw new HarnessToolError(`byo 'set' mode expects a string yhat (label), got ${typeof yhat}`);
   }
+  assertByoSetTauCap(params, cal); // D3 order: after the B-3 label checks and the yhat type check
 
   // label_schema for set mode is DERIVED from the caller's candidates (B-3), joined by `|`; interval mode
   // is a NUMERIC class, so its empty under_calib region carries NUMERIC_LABEL_SCHEMA, never `up|down` (E9).
@@ -452,7 +469,10 @@ function byoVerdict(prediction: Prediction, params: HarnessParams, cal: ByoCalib
   }
   const derivedSchema = labelSchema ?? candidates.map((c) => c.label).join("|");
   const labels = conformalSet(new Map(candidates.map((c) => [c.label, c.score] as const)), qhat);
-  const abstain = labels.length > params.tau;
+  // P3 (ADR-M005 D5 K-4(d) amendment 2026-09-30, D8): an EMPTY set holds no intent, so the verdict abstains with
+  // intent_not_in_region (qhat stays the number, unlike under_calib); never covered. abstain = 1{|C| > tau or |C| = 0}.
+  const empty = labels.length === 0;
+  const abstain = empty || labels.length > params.tau;
   return buildVerdict({
     taskClass,
     method: "split",
@@ -461,7 +481,7 @@ function byoVerdict(prediction: Prediction, params: HarnessParams, cal: ByoCalib
     region: buildSetRegion(labels, derivedSchema),
     qhat,
     abstain,
-    reason: abstain ? "set_too_large" : "covered",
+    reason: empty ? "intent_not_in_region" : abstain ? "set_too_large" : "covered",
     residual: [],
     producedAt: prediction.produced_at,
     schemaVersion: SCHEMA_VERSION,

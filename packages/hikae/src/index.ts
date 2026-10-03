@@ -14,8 +14,12 @@
  */
 
 // L1 — split conformal.
-export { indicatorScore, indicatorScores, splitQuantile, conformalSet } from "./l1-split.ts";
-export type { SplitResult } from "./l1-split.ts";
+export { indicatorScore, indicatorScores, splitQuantile, conformalSet, riskControlQuantile } from "./l1-split.ts";
+export type { SplitResult, RiskControlResult } from "./l1-split.ts";
+
+// Binomial core (worksite 2, lot L2-1): exact comparator, k*, n0, the upper bound U, four-decimal rounding, spend.
+export { parseUnitDecimal, parseAlpha, parseTestDelta, binomCdfLeq, riskControlMaxExceedances, zeroErrorFloor, missUpperBound, ceilDecimal4, spendDelta } from "./binomial.ts";
+export type { Ratio } from "./binomial.ts";
 
 // L2 — monitor (no guarantee claimed).
 export { imocpStep, arrivedErrors, remainingBudget, budgetAt } from "./l2-monitor.ts";
@@ -96,3 +100,7 @@ export type { S2Params, S2Output } from "./s2/run.ts";
 // Quantile tracker (ADR-M009) — consumed out-of-tool by the sentinel (apps/sentinel/src/timeline.ts); no guarantee claimed here.
 export { trackerInit, trackerStepSize, trackerStep, clipScore, trackerReplay, trackerDigest } from "./tracker.ts";
 export type { TrackerParams, TrackerState } from "./tracker.ts";
+
+// Runs diagnostic (worksite 2, lots L2-1r and L2-1r2): exact one-sided runs test on a time-ordered 0/1 sequence, balanced exceedance; import-guard input.
+export { runsCount, runsLowerTailLeq, balancedExceedance } from "./runs.ts";
+export type { Balanced, Bits, RunsTail } from "./runs.ts";
