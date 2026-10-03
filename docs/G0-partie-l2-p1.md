@@ -1,5 +1,14 @@
 # G0 de la partie P1 du chantier L2 : capture spot et liquidations brutes (plan de P1 d'ADR-L2-CAPTURE-1, sans code)
 
+- **Pli du cp-1 bref, 2026-10-03, à partir de 21:57 UTC** (`date -u`) : checkpoint-1 bref du validateur-humain `claude-fable-5-1` sur ce
+  plan au HEAD `abc26a87` (sha256 `3681476b4ab5280d52d9b5e60631d2bb0d063c95424e61a504fae433029c1344`), ACCEPTE-AVEC-CORRECTIONS, C-1
+  à C-6 ; rapport `F:/tmp/cp1-l2-p1/RAPPORT-cp1-bref-L2-P1-2026-10-03.md`, sha256
+  `68a95082ab40bfbfad06bc38bc21dd87eb74931b52d04d78a4f6d81e8b0d2a6f`. Plié par un worker `claude-opus-5-5` (effort max, instance
+  fraîche) : C-1 et C-2 dans [A] (35 lignes insérées après sa l.33) ; ici, C-2 au bloc de décisions datées (fin), C-3 en §12.2, C-4 en
+  §4.1 et §8.2 (b2), C-5 en §8.2 (a2, c1), C-6 en §9 ; deux questions relevées au pli, hors de sa liste : Q-P1-12 et Q-P1-13 (§11 ;
+  prérequis en §8.3) ; correction par correction : `F:/tmp/rech/l2/p1plan/PLI-CP1.md`. Le corps, écrit avant la coupe de Q-P1-11,
+  nomme « P1 » les douze lots ; ce qui revient à P1 (a1 à b2) et à P1-bis (c1 à c6), chacune avec sa G2 et son G7, est dit par la
+  carte du bloc de décisions.
 - **Provenance** : planificateur `claude-opus-5-5` (modèle déclaré à l'ouverture, R-1), effort max, instance fraîche ; mission
   `F:/tmp/rech/l2/p1plan/mission.md`, sha256 `b757d03e713dd7d1dda0b885de9c128a94dd7f076dd9b00fdbfa64ca6c0d13a0` (porte de lancement
   verte, `mission.recu.json`, 2026-10-03T20:41:59Z) ; ouverture le 2026-10-03 à 20:42:12 UTC, mesures entre 20:42 et 21:15 UTC, texte
@@ -27,7 +36,7 @@
 - **P-4** : (h) transcrite en dix étapes ; chaque étape et chaque borne a son cas de test contre la place factice (§4).
 - **P-5** : place factice mesurée par un prototype exécuté : 194 lignes, prise de contact par l'événement `upgrade` de `node:http` (§5).
 - **P-6** : trois limites neuves de [F2] avec leur contre-mesure et leur lot (§9) ; deux items neufs (§10) ; onze questions, dont
-  Q-P1-4 close pendant la rédaction par [A] l.26-31 (§11).
+  Q-P1-4 close pendant la rédaction par [A] l.26-31 (§11) ; deux de plus au pli du cp-1 bref, Q-P1-12 et Q-P1-13 (§11).
 
 ## 1. Sources et mesures locales (provenance des paramètres)
 
@@ -166,7 +175,10 @@ A3 reprennent les numéros (1) à (7) et (1) à (3) de [F2] (h).
   est demandé après le premier événement ; aucun n'est appliqué avant S6.
 - **S3** : lire un instantané `limit=5000`. Cas `S3` : appel relevé avec `limit=5000` et le symbole ; sa ligne dans `requests.jsonl`.
 - **S4** : si `lastUpdateId` est strictement inférieur au `U` de S2, retour à S3. Borne STRICTE. Cas `S4-sous` (`lastUpdateId` = U − 1 :
-  second instantané, essai nommé) ; `S4-egal` (`lastUpdateId` = U : aucun second instantané).
+  second instantané, essai nommé) ; `S4-egal` (`lastUpdateId` = U : aucun second instantané). Pli du cp-1 (C-4) : `S4-egal` et
+  `S5-U-egal` tamponnent au moins deux événements avant la réponse de l'instantané, de `U` strictement croissants, le `U` du dernier
+  strictement supérieur à `lastUpdateId`, et vérifient qu'un seul instantané est demandé : le mutant « `U` du dernier tamponné au lieu
+  du premier » (S2) y demande un second instantané et rougit.
 - **S5** : écarter les événements tamponnés dont `u` ≤ `lastUpdateId` ; le premier restant contient `lastUpdateId` dans [U;u]. Bornes :
   écart LARGE, intervalle FERMÉ. Cas `S5-u-egal` (u = lastUpdateId : écarté) ; `S5-u-plus-1` (u = lastUpdateId + 1 : gardé) ;
   `S5-U-egal` (U = lastUpdateId : accepté) ; `S5-U-dedans` (U < lastUpdateId < u : accepté) ; `S5-U-plus-1` (U = lastUpdateId + 1 :
@@ -289,8 +301,11 @@ entrées de `rateLimits` et du filtre `PRICE_FILTER`. Déclencheurs : (a) avant 
 - **P1-a2, segments** : `scripts/l2/segments.mjs`, `scripts/l2/segments.d.mts`, `test/l2-segments.test.ts`. Contenu : trame puis LF,
   ligne d'index écrite après la trame, coupe à l'heure (D24-3), file bornée par connexion (D24-4) avec signal de débordement, contrôle de
   queue à la reprise dans les deux sens et marquage, lecteur de segment partagé avec le rejeu. Tests : `l2_segment_index_after_frame`,
-  `l2_segment_cut_on_clock`, `l2_segment_queue_bound`, **`l2_write_tail_marked`** (TL-1, au lecteur partagé ; repris en c6). Tueurs :
-  ordre trame puis index, borne de coupe (< ou ≤), test de la file (> ou ≥), période. Taille : c 130, d 40, t 186 à 295, soit 356 à 465.
+  `l2_segment_cut_on_clock`, `l2_segment_queue_bound`, **`l2_write_tail_marked`** (TL-1, au lecteur partagé ; repris en c6),
+  `l2_index_recv_us_integer_named_apart` (condition (3) de RECHERCHES, §3 points 3 et 18 ; pli du cp-1, C-5 : horloge murale
+  injectée ; `recv_us` entier sûr, égal à sa valeur en µs ; clés de la ligne exactement `rank`, `offset`, `length`, `recv_us`,
+  `mono_ns`, aucune au nom d'une heure de la place). Tueurs : ordre trame puis index, borne de coupe (< ou ≤), test de la file
+  (> ou ≥), période, `recv_us` en ms ou en flottant. Taille : c 130, d 40, t 186 à 295, soit 356 à 465.
   Scission pré-déclarée : écrivain, coupe et file | queue et lecteur. MAST : FM-2.6 ; preuve : `l2_write_tail_marked`,
   `l2_segment_index_after_frame`.
 - **P1-a3, liaisons spot** : `scripts/l2/links.mjs`, `scripts/l2/links.d.mts`, `test/l2-links.test.ts`. Contenu : URL combinée et
@@ -321,14 +336,21 @@ entrées de `rateLimits` et du filtre `PRICE_FILTER`. Déclencheurs : (a) avant 
 - **P1-b2, chaîne (h)** : `scripts/l2/book.mjs`, `scripts/l2/book.d.mts`, `test/l2-book.test.ts`. Contenu : §4 (S1 à S7, A1 à A3),
   reprises bornées (D24-2), ruptures et essais nommés, bascule entre connexions. Tests : `l2_h_steps_table` (§4, un cas par étape et
   par borne), **`l2_chain_gap_named_then_resync`** (TL-2), **`l2_overlap_switch_no_gap`** (TL-6). Tueurs : S4 (< ou ≤), S5 (≤ ou <),
-  A1 (< ou ≤ ; > ou ≥), n, délai, pause, retrait à zéro. Taille : c 105, d 33, t 150 à 238, soit 288 à 376. MAST : FM-2.2 ; preuve : un
+  A1 (< ou ≤ ; > ou ≥), n, délai, pause, retrait à zéro, `U` noté à S2 (le dernier tamponné au lieu du premier : `S4-egal` et
+  `S5-U-egal` rougissent, §4.1 ; pli du cp-1, C-4). Taille : c 105, d 33, t 150 à 238, soit 288 à 376. MAST : FM-2.2 ; preuve : un
   cas par borne, Q-P1-7 répondue avant le G1, campagne de mutants de la règle de chaîne, `RESULTS.json` cité ([A] l.539-540 ; [R] l.13).
 - **P1-c1, jour et scellé** : `scripts/l2/day.mjs`, `scripts/l2/day.d.mts`, `test/l2-day.test.ts`. Contenu : jour d'une trame par son
   heure de place ; règle de `@bookTicker` (Q-9) ; trames tardives (D24-5) ; index du jour ; trous du journal et ruptures de la chaîne au
   `missing.json` ; scellé et `SHA256SUMS` (§7) ; manifeste (§3, point 19). Tests : `l2_day_index_by_event_time`,
   **`l2_bookticker_day_rule`** (TL-4), `l2_day_late_frame_marked` (reçue à la fin du jour plus la grâce : dans son jour ; une
-  milliseconde après : tardive), `l2_day_seal_waits_grace_and_segments`, `l2_day_missing_from_journal_and_chain`. Tueurs : borne de la
-  grâce, segment clos, règle de `@bookTicker`. Taille : c 105, d 33, t 150 à 238, soit 288 à 376. MAST : FM-1.5 (jour scellé trop tôt) ;
+  milliseconde après : tardive), `l2_day_seal_waits_grace_and_segments`, `l2_day_missing_from_journal_and_chain` ; pli du cp-1, C-5 :
+  `l2_manifest_time_unit_per_source` (condition (1) de RECHERCHES : `time_unit` écrit par source au manifeste du jour, `"us"` pour
+  les flux spot, pour `@forceOrder` celle de FAITS-L2-ACCESS-3 (e) ; des heures de fixture d'une grandeur de millisecondes n'y
+  changent rien : jamais déduite d'une grandeur), `l2_place_time_unsafe_integer_named_stop` (condition (2) : une heure de la place
+  qui n'est pas un entier sûr, `Number.isSafeInteger` faux, arrête le dérivé de son symbole, arrêt nommé, le brut continue ; aucune
+  heure gardée en flottant ; ici, car c1 est le premier lot qui dérive un fichier d'une heure de la place, le jour d'une trame,
+  [A] D-17). Tueurs : borne de la grâce, segment clos, règle de `@bookTicker`, unité tirée d'une grandeur, garde
+  `Number.isSafeInteger` retirée. Taille : c 105, d 33, t 150 à 238, soit 288 à 376. MAST : FM-1.5 (jour scellé trop tôt) ;
   preuve : `l2_day_seal_waits_grace_and_segments`.
 - **P1-c2, rejeu du carnet, minutes et parité** : `scripts/l2/derive.mjs`, `scripts/l2/derive.d.mts`, `test/l2-derive.test.ts`.
   Contenu : carnet d'un jour rejoué depuis son ancre d'ouverture et son amorce, avec le code de chaîne de b2 ; instantané de chaque
@@ -367,6 +389,9 @@ entrées de `rateLimits` et du filtre `PRICE_FILTER`. Déclencheurs : (a) avant 
   « non exécuté » jusqu'au jour réel de M-1 (D-25, L2-REAL-REPLAY-1).
 
 Totaux : c 1 020, d 318 ; 3 271 lignes à l'estimation basse, 4 047 à la haute, contre 1 241 pour l'analogue mesuré (L-5).
+Pli du cp-1 (C-4, C-5) : trois tests et un tueur ajoutés sans réestimer (§8.1 : t suit c, et le code visé est déjà au contenu de a2
+et de c1, §3 points 18 et 19) ; au jugement de 30 lignes par test (le plus grand des deux analogues, §8.1), a2 irait à 495 et c1 à
+436 à l'estimation haute, sous 547 ; le gel par `r25` tranche (D-27), la scission pré-déclarée de a2 restant disponible.
 
 ### 8.3 Ordre de fusion, dépendances, prérequis
 - Ordre : a1, a2, a3, a4, b1, b2, c1, c2, c3, c4, c5, c6 ; chaque lot part du tronc après la fusion du précédent ; une pièce n'a jamais
@@ -374,8 +399,8 @@ Totaux : c 1 020, d 318 ; 3 271 lignes à l'estimation basse, 4 047 à la haute,
 - Dépendances : a3 sur a1 et a2 ; a4 sur a3 ; b1 sur a1 ; b2 sur a3 et b1 ; c1 sur a2 et b2 ; c2 sur b2 et c1 ; c3 sur c1 et c2 ; c4 sur
   a2 ; c5 sur a4, b1, c1, c2, c3 et c4 ; c6 sur c5.
 - Prérequis du G1 : a1 : cp-1 bref de ce plan, FAITS-L2-NEWDOCS-1 ([A] l.600-601), Q-P1-1, Q-P1-2 ; a3 : FAITS-L2-ACCESS-3 (a), Q-P1-3,
-  Q-P1-5 ; a4 : FAITS-L2-ACCESS-3 (b), (c), (e) ; b1 : FAITS-L2-ACCESS-3 (d), (f), Q-P1-6 ; b2 : Q-P1-7 ; c1 : Q-P1-8 ; c3 : Q-P1-9 ;
-  c4 : Q-P1-10. Avant la G2 de P1 : Q-P1-11. Q-P1-4 est close ([A] l.26-31).
+  Q-P1-5 ; a4 : FAITS-L2-ACCESS-3 (b), (c), (e) ; b1 : FAITS-L2-ACCESS-3 (d), (f), Q-P1-6, Q-P1-13 ; b2 : Q-P1-7 ; c1 : Q-P1-8 ;
+  c3 : Q-P1-9 ; c4 : Q-P1-10. Avant la G2 de P1 : Q-P1-11 ; avant le G7 de P1 : Q-P1-12 (pli du cp-1). Q-P1-4 est close ([A] l.26-31).
 - À chaque fusion : tests, tueurs et mutations ([R] l.20) ; campagne de mutants par l'outil du tronc, `RESULTS.json` cité ([R] l.13) ;
   oracle par l'outil du tronc ([R] l.3).
 - Sortie de P1 : G2 de la partie (instance neuve), revue ou checkpoint, G7, §6.1 de l'ADR relue aux deux ([A] l.728-729) ; puis
@@ -395,10 +420,14 @@ Totaux : c 1 020, d 318 ; 3 271 lignes à l'estimation basse, 4 047 à la haute,
   manifeste, jamais fondues ; le contrôle de trous de ce flux repose sur l'intervalle des différences, pas sur `u` ([F2] l.55) ; test
   `l2_canonical_same_key_named`. Clé de remplacement : Q-P1-9 (elle change une décision de l'ADR). Item : `u` répétés comptés en M-1 et
   en M-5. Déclencheur : rapport de M-1.
-- **L2-LIQ-DEDUP-1** ([F2] l.63-65) : aucune clé de dédoublonnage documentée pour `@forceOrder`. Contre-mesure en P1-c3 : clé = la charge
-  complète re-sérialisée canoniquement (champs triés, chaînes décimales intactes), déclarée au manifeste ; deux connexions qui livrent la
-  même liquidation donnent une entrée, deux liquidations distinctes en donnent deux ; test `l2_forceorder_dedup_full_payload`. Item :
-  identifiant documenté cherché par FAITS-L2-NEWDOCS-1 ; identité des charges entre connexions mesurée en M-1 (M-5). Déclencheurs :
+- **L2-LIQ-DEDUP-1** ([F2] l.63-65) : aucune clé de dédoublonnage documentée pour `@forceOrder`. Contre-mesure en P1-c3, réécrite au
+  pli du cp-1 (C-6) sur Q-P1-9 décidée (octets exacts, ordre (clé, octets) ; amendement daté de D-20 en tête de [A]) : clé = les
+  octets exacts de la charge, déclarée au manifeste ; la suite canonique de ce flux s'ordonne par ces octets.
+  `l2_forceorder_dedup_full_payload` vérifie cette clé, et non la charge re-sérialisée : deux connexions qui livrent les mêmes octets
+  donnent une entrée ; deux liquidations distinctes en donnent deux ; deux charges de même sens (égales une fois re-sérialisées,
+  champs triés, chaînes décimales intactes) mais d'octets différents (ordre des champs, espaces : ce que M-5 mesure) donnent deux
+  entrées, nommées au manifeste, jamais fondues. La re-sérialisation sert à nommer ce cas, jamais à fondre. Item : identifiant
+  documenté cherché par FAITS-L2-NEWDOCS-1 ; identité des charges entre connexions mesurée en M-1 (M-5). Déclencheurs :
   FAITS-L2-NEWDOCS-1, puis rapport de M-1.
 - **Items de [A] §7 à déclencheur « plan de P1 »** : L2-BOOKTICKER-GAP-1 (P1-c3 : recoupements (i) et (ii) comptés par jour ; la
   sémantique lue, toute variation du prix ou de la quantité du meilleur niveau ([F2] l.53-54), fonde (ii) ; les quatre symboles gardent
@@ -460,11 +489,24 @@ Totaux : c 1 020, d 318 ; 3 271 lignes à l'estimation basse, 4 047 à la haute,
   ([R] l.20), soit 2,7 à 3,4 fois la borne d'une PR (1 205). Garder quatre parties, ou couper P1 en deux après b2 (capture et chaîne ;
   jour, dérivés et rejeu), cinq parties au total, le maximum admis pour un gros chantier ? (couper : chaque G2 relit alors moins de la
   moitié ; les quatre parties ont été choisies sur une taille non mesurée, [A] l.366-367)
+- **Q-P1-12** (orchestrateur, avant le G7 de P1 ; relevée au pli du cp-1 bref, hors de sa liste) : la commande (c4) et la boucle (c5)
+  n'existent qu'en P1-bis ; la sortie de P1 de [A] §4 (relecture de RECHERCHES, D-6, puis M-1 : [A] l.368-369) et les prérequis
+  « après le G7 de P1 » de M-1 ([A] l.205, l.389, l.671 ; D-23, D-25, Q-22) et de P3 ([A] l.376) se lisent-ils « de P1-bis », et
+  « la partie 1 » que P3 déploie ([A] l.380), « P1 et P1-bis » ? (oui : M-1 doit sceller un jour réel rejoué à l'octet, D-25, ce que
+  seul P1-bis construit, et rien ne s'enregistre avant la commande ; le G7 de P1 le déclare par « scellé et rejeu non exécutés » ;
+  lecture écrite au pli dans la carte, FM-2.2)
+- **Q-P1-13** (orchestrateur, avant le G1 de P1-b1 ; relevée au pli du cp-1 bref, hors de sa liste) : b1 lit `serverTime`, heure de la
+  place en ms ([F2] l.24), pour l'écart d'horloge (§3, point 13) ; or §3, point 3, ne range pas b1 parmi ses lots, et le point 13 n'y
+  applique que la condition (3). `l2_time_offset_logged` vérifie-t-il aussi la condition (2) : `serverTime` entier sûr, sinon écart non
+  calculé, nommé au journal ; écart entier, alors que le milieu de deux heures entières peut tomber sur une demi-microseconde ? (oui :
+  la condition vaut pour toute heure de la place gardée, l'écart est gardé au journal ; milieu arrondi vers le bas, au µs, sans perte
+  utile, `serverTime` n'ayant que la milliseconde)
 
 ## 12. Contrôles et sources
 
 ### 12.1 Contrôles de ce texte
-Commandes, heures et empreinte finale : `F:/tmp/rech/l2/p1plan/REPONSE.md`. Vérificateur du pli relu avant usage
+Commandes, heures et empreinte finale : `F:/tmp/rech/l2/p1plan/REPONSE.md` ; au pli du cp-1 bref, mêmes contrôles rejoués sur ce
+texte et sur [A] : `F:/tmp/rech/l2/p1plan/PLI-CP1.md`. Vérificateur du pli relu avant usage
 (`F:/tmp/rech/l2/adr/tmp/check.mjs`, sha256 `03e5ee95…`) : lignes de 160 points de code au plus, aucun TAB ni octet de contrôle, aucune
 adresse, aucun schéma d'URL, aucun domaine ni nom d'hôte, aucun montant. Porte de langue `node scripts/lang-gate.mjs` : sans portée sur
 `docs/` (PLI-2 l.133-135), elle ne valide pas ce texte.
@@ -477,6 +519,13 @@ adresse, aucun schéma d'URL, aucun domaine ni nom d'hôte, aucun montant. Porte
   l.32-802 neuves est vérifiée ligne à ligne (772 comparaisons égales sur 772, fin de fichier comprise, `tmp/shift-refs.mjs`), et
   chaque renvoi de ce plan a été décalé de six. Les quatre conditions de RECHERCHES sont lues dans [A] l.26-31 ; le message de
   RECHERCHES qu'elles résument n'est pas lu ici (hors des entrées de la mission) : [2nd] via [A].
+- **Ligne datée (2026-10-03, à partir de 21:57 UTC ; pli du cp-1 bref, C-3)** : les renvois `[A] l.N` de ce plan, et « l ADR
+  l.362-364 » du bloc de décisions datées, suivent la version `19552acf` ci-dessus. À `abc26a87` (deux lignes insérées après la l.31 :
+  « Cinq parties »), tout renvoi N > 31 vaut N + 2. Au pli de ce cp-1 ([A] de 839 lignes, sha256
+  `d74671c24e50190fccf12e5dfe4539b791f2b2ba4433176073bef199a7c6a80f` : 35 lignes de plus insérées après la l.33, carte de la coupe et
+  lignes datées de C-1), tout renvoi N > 31 vaut N + 37 ; les l.1-31 sont inchangées. Contrôle : insertion pure, l.32-802 de
+  `19552acf` égales aux l.69-839 pliées (771 sur 771) comme les l.34-804 d'`abc26a87` (771 sur 771), outil
+  `F:/tmp/rech/l2/p1plan/tmp/cp1pli/shift-check.mjs`.
 - [F1] `docs/marche/FAITS-L2-ACCESS-1-2026-10-03.md`, 136 lignes, sha256 `4f0cbb34000cea12e70a31af27333b355206bf714d8e96bf19ab47bb3e132791`.
 - [F2] `docs/marche/FAITS-L2-ACCESS-2-2026-10-03.md`, 74 lignes, sha256 `89ea61be941afcfd5ea8f7ec7c861b784bfe096cb9d5a623c4ba2495015c4db1`.
 - [Q] `F:/tmp/rech/l2/adr/REPONSES-INVESTISSEUR.md`, 38 lignes, sha256 `8f20bf35a8b08af7897cb93d2ee9903d6dfc3456f6f3df40e3aa99a647bf2be6`.
@@ -515,3 +564,35 @@ adresse, aucun schéma d'URL, aucun domaine ni nom d'hôte, aucun montant. Porte
   plafond de poids du jour passe sous 4 000 par minute ; Q-P1-7, lecture de chaîne (U = lastUpdateId + 1 accepté, comme A1) ;
   Q-P1-8, index, dérivés et parité calculés au scellé par le code du rejeu, depuis le brut seul ; Q-P1-9, dédoublonnage sur les
   octets exacts de la charge, ordonné par (clé, octets), par amendement daté de D-20 ; Q-P1-10, liste admise telle que proposée.
+- **Carte des tuyaux et des items après la coupe** (pli du cp-1 bref, C-2, inscrite le 2026-10-03 à partir de 21:57 UTC ; conséquence
+  de Q-P1-11, aucune décision neuve ; même carte, abrégée, dans [A], ligne datée « Cinq parties ») : trois puces qui suivent.
+- **P1 (a1 à b2), 1 642 à 2 074 lignes** (sommes de §8.2 : 230 + 356 + 343 + 151 + 274 + 288 et 230 + 465 + 448 + 197 + 358 + 376) :
+  TL-2 complet (`l2_chain_gap_named_then_resync`, b2) ; TL-6 complet (`l2_half_open_watchdog_named`, a3 ; `l2_overlap_switch_no_gap`,
+  b2 ; part brute `l2_overlap_planned_raw`, a4) ; de TL-1, les trois assertions FM-2.6 (`l2_capture_raw_as_served`, a3),
+  `l2_write_tail_marked` (a2) et `l2_backpressure_named_stop` (a3) ; capture brute de `/market` (`l2_market_link_futures_watchdog`,
+  a4) ; condition (3) de RECHERCHES (`l2_index_recv_us_integer_named_apart`, a2). Items dont le test est en P1 : L2-HALF-OPEN-1 et
+  L2-WRITE-TAIL-1 (clôture au G7 de P1, [A] l.584-587), L2-BACKPRESSURE-1 (longueur mesurée en M-1, [A] l.588-590) ; construits en
+  P1 : SERIES-BODY-BOUND-1 (b1, a3), SERIES-ERROR-BODY-1 (b1), SERIES-TLS-PEER-LOG-1 (b1, prouvé en M-1 seulement, §9).
+- **P1-bis (c1 à c6), 1 629 à 1 973 lignes** (288 + 288 + 247 + 301 + 186 + 319 et 376 + 376 + 322 + 394 + 186 + 319) : TL-1 complet
+  (`l2_capture_record_seal_replay`, c6) ; TL-3 (`l2_minute_window_exact`, c2) ; TL-4 (`l2_bookticker_day_rule`, c1 ;
+  `l2_replay_byte_identical`, c6) ; TL-5 (`l2_daily_parity_counts`, c2) ; TL-7a (`l2_forceorder_record_replay`, c6) ; tests des
+  trois limites de [F2] (c3 : `l2_trade_id_jump_counted_not_a_hole`, `l2_canonical_same_key_named`,
+  `l2_forceorder_dedup_full_payload`) et de la grâce D24-5 (c1 : `l2_day_late_frame_marked`, `l2_day_seal_waits_grace_and_segments`) ;
+  conditions (1) et (2) de RECHERCHES (c1 : `l2_manifest_time_unit_per_source`, `l2_place_time_unsafe_integer_named_stop`). Re-datés
+  « G7 de P1-bis » : le test de L2-BOOKTICKER-GAP-1 (`l2_bookticker_crosscheck_counts`, c3 ; [A] l.579-583), le « au plus tard » de
+  L2-TRADES-BACKFILL-1 ([A] l.571-572) et la grâce (D24-5). Construits en P1-bis : SERIES-ENV-ALLOWLIST-1, SERIES-PROXY-GUARD-1,
+  SERIES-ABSENT-ROOT-TEST-1, MAIN-GUARD-REALPATH-1 (c4).
+- **G7 de P1** : il déclare « scellé et rejeu non exécutés, pièce upcoming » (D-14, D-25) : le scellé (c1) et le rejeu (c6) sont en
+  P1-bis. Se lit au pli, posé en Q-P1-12 : la relecture de RECHERCHES (D-6) et M-1 (D-23, D-25) suivent le G7 de P1-bis.
+
+## Checkpoint-1 bref et décisions de l orchestrateur sur le pli (2026-10-03, 22:13 UTC)
+
+- **Checkpoint-1 bref** du validateur-humain (`claude-fable-5-1`), 2026-10-03 de 21:33 à 21:43 UTC : ACCEPTE-AVEC-CORRECTIONS, liste
+  fermée C-1 à C-6, rapport `F:/tmp/cp1-l2-p1/RAPPORT-cp1-bref-L2-P1-2026-10-03.md` (sha256 `68a95082…`) ; corrections pliées par un
+  worker `claude-opus-5-5` (relevé `F:/tmp/rech/l2/p1plan/PLI-CP1.md`, sha256 `66aa7920…`). Cette ligne est commise avant le premier
+  commit de P1-a1 (consigne CA-8 du checkpoint, preuve FM-1.1 de l ADR §6.1).
+- **Q-P1-12** : oui, les prérequis « après le G7 de P1 » de M-1 et de P3 se lisent « après le G7 de P1-bis », et « la partie 1 » que
+  P3 déploie se lit « P1 et P1-bis ».
+- **Q-P1-13** : oui, `l2_time_offset_logged` vérifie aussi la condition (2) de RECHERCHES (`serverTime` entier sûr, sinon écart non
+  calculé et nommé) ; milieu arrondi vers le bas au microseconde.
+- **O-1** : retenue ; le cas tardif de `l2_day_late_frame_marked` est « une microseconde après » la borne.

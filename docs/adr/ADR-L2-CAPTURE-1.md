@@ -31,6 +31,41 @@
   par fichier au manifeste d import, avec un contrôle croisé de grandeur qui arrête l import en cas de contradiction.
 - **Cinq parties (2026-10-03, 21:33 UTC)** : sur le plan de P1 (`docs/G0-partie-l2-p1.md`, 12 lots, Q-P1-11), le fondateur et investisseur
   a choisi « Couper après b2 (Recommandé) » : P1 (capture brute et chaîne), P1-bis (scellé, rejeu, instantanés, commande), P2, P3, P4.
+  Carte des tuyaux après la coupe (correction C-2 du cp-1 bref du plan de P1, inscrite le 2026-10-03 à partir de 21:57 UTC ; même
+  carte, détaillée, au bloc de décisions datées du plan) : P1 (lots a1 à b2, 1 642 à 2 074 lignes estimées) porte TL-2 et TL-6
+  complets, les trois assertions FM-2.6 de TL-1 (`l2_capture_raw_as_served`), `l2_write_tail_marked`, `l2_backpressure_named_stop`,
+  la capture brute de `/market` (`l2_market_link_futures_watchdog`) et le test de la condition (3) de Q-5 ; P1-bis (lots c1 à c6,
+  1 629 à 1 973 lignes estimées) porte TL-1 complet (`l2_capture_record_seal_replay`), TL-3, TL-4, TL-5, TL-7a, les tests des trois
+  limites de FAITS-L2-ACCESS-2 (L2-TRADE-ID-CONSEC-1, L2-BOOKTICKER-U-1, L2-LIQ-DEDUP-1), ceux du délai de grâce (Q-10) et ceux
+  des conditions (1) et (2) de Q-5. Re-datés « G7 de P1-bis » : le test de L2-BOOKTICKER-GAP-1, le « au plus tard » de
+  L2-TRADES-BACKFILL-1 (§7) et le délai de grâce (§2.3, « Jour et scellé »). Le G7 de P1 déclare « scellé et rejeu non exécutés,
+  pièce upcoming » (D-14, D-25). Se lit au pli, posé en Q-P1-12 du plan : la commande et la boucle d'enregistrement (lots c4, c5)
+  n'existant qu'en P1-bis, la sortie de P1 de §4 (relecture de RECHERCHES, puis M-1) et les prérequis « G7 de P1 » de M-1 (§2.1,
+  §5, Q-22) et de P3 (§4) se lisent « de P1-bis ».
+- **Pli du cp-1 bref du plan de P1 (2026-10-03, à partir de 21:57 UTC, `date -u`)** : checkpoint-1 bref du validateur-humain
+  `claude-fable-5-1`, ACCEPTE-AVEC-CORRECTIONS, C-1 à C-6 (`F:/tmp/cp1-l2-p1/RAPPORT-cp1-bref-L2-P1-2026-10-03.md`, sha256
+  `68a95082ab40bfbfad06bc38bc21dd87eb74931b52d04d78a4f6d81e8b0d2a6f`) ; C-1 et C-2 pliés ici par un worker `claude-opus-5-5`
+  (effort max, instance fraîche) : carte ci-dessus (C-2), trois lignes datées ci-dessous (C-1) ; C-3 à C-6 dans le plan ;
+  correction par correction : `F:/tmp/rech/l2/p1plan/PLI-CP1.md`.
+- **Lecture de §3 et §4 (Q-P1-2 ; orchestrateur, 2026-10-03, 21:33 UTC ; inscrite au pli, C-1)** : chaque test de composition est
+  écrit dans le lot où sa composition est complète ; les parties que §3 donne aux tests TL (« P1-a », « P1-b », « P1-c ») et les
+  lots P1-a à P1-c de §4 se lisent par la répartition du plan de P1 (§8.2) : TL-1, ses trois assertions FM-2.6 en a3
+  (`l2_capture_raw_as_served`), `l2_write_tail_marked` en a2, `l2_backpressure_named_stop` en a3, `l2_capture_record_seal_replay`
+  en c6 ; TL-2 en b2 ; TL-3 en c2 ; TL-4, `l2_bookticker_day_rule` en c1 et `l2_replay_byte_identical` en c6 ; TL-5 en c2 ; TL-6,
+  `l2_half_open_watchdog_named` en a3 et `l2_overlap_switch_no_gap` en b2 (part brute `l2_overlap_planned_raw` en a4) ; TL-7a,
+  `l2_forceorder_record_replay` en c6 (liaison `/market` en a4).
+- **Lecture de D-7 (Q-P1-5 ; orchestrateur, 2026-10-03, 21:33 UTC ; inscrite au pli, C-1)** : « trames texte telles que reçues » se
+  lit « messages texte tels que le client WebSocket embarqué (D-15) les délivre » : fragments réassemblés, UTF-8 décodé (invalide :
+  liaison coupée en 1007), BOM de tête retiré, décompressés si `permessage-deflate` est négocié ; pas les octets du fil ; extensions
+  négociées journalisées ; un message non compressé est tenu par le client jusqu'à 2^31 octets avant toute borne de l'enregistreur.
+  Limite et construction visée (client propre sur `node:tls`) : item L2-OWN-WS-CLIENT-1 (plan de P1, §10 ; mesures L-1 et L-3) ;
+  déclencheur : rapport de M-1.
+- **Amendement daté de D-20 (Q-P1-9 ; orchestrateur, 2026-10-03, 21:33 UTC ; inscrit au pli, C-1)** : la suite canonique d'un flux
+  et d'un jour (§2.3, « Empreintes canoniques ») garde chaque charge une fois par ses octets exacts, ordonnée par (clé, octets), au
+  lieu de « une fois par clé », « ordonnées par clé » ; deux charges de même clé aux octets différents y restent deux entrées,
+  nommées au manifeste, jamais fondues ; `@forceOrder`, sans clé documentée (FAITS-L2-FUTURES-2 (c)), s'y ordonne par ses octets.
+  Motif : aucune unicité non documentée n'est supposée (L2-TRADE-ID-CONSEC-1, L2-BOOKTICKER-U-1 ; FAITS-L2-ACCESS-2 (f), (j)).
+  Tests et contre-mesures : plan de P1, §9. À signaler à RECHERCHES à sa relecture (D-6).
 - **Pli de l'avis [Ad], 2026-10-03, de 19:01 à 19:21 UTC** (`date -u`) : avis de l'advisor `claude-fable-5-1` (effort medium, contexte
   frais, lecture seule ; un conseil, jamais un verdict) sur la version sha256 `969a730d…` de cette ADR, points 1 à 13 (bloquants 1 et 2,
   importants 3 à 9, mineurs 10 à 13), tous pliés par un worker `claude-opus-5-5` (effort max, instance fraîche) ; point par point :
