@@ -6,6 +6,7 @@ import { usePathname } from "next/navigation";
 import { useTheme } from "@/components/theme-provider";
 import { MonarkLockup, NarabiLockup, UkemiLockup, BellLockup } from "@/components/lockups";
 import { NARABI_ROUTE } from "@/lib/narabi-live";
+import { DOJO_NAME, DOJO_ROUTE } from "@/lib/dojo-copy";
 
 // Charter C site chrome: a thin SITE BAR (MONARK · Fleet · Narabi · Ukemi · Bell + baseline) above the HEADER
 // (lock-up + primary nav + theme button). The lock-up follows the route: the MONARK horizontal lock-up (32 px, 24 px
@@ -22,7 +23,9 @@ const SITE_BAR: readonly { href: string; label: string }[] = [
 
 // Primary nav — the company pages (MONARK.dc.html navDef). The /applications route is labelled
 // "Applications" (the on-chain applications the engine powers); the /roadmap route is labelled "Building" (the page is
-// MONARK Building, what is being built now, next and later), and /docs is the documentation section.
+// MONARK Building, what is being built now, next and later), and /docs is the documentation section. Right after it, the hold
+// snapshot page, its route and name read from lib/dojo-copy.ts (never typed here); always linked, the page being built from the
+// committed record, which this client component does not read (the link on /token does).
 const NAV_ITEMS: readonly { href: string; label: string }[] = [
   { href: "/applications", label: "Applications" },
   { href: "/fleet", label: "Fleet" },
@@ -31,6 +34,7 @@ const NAV_ITEMS: readonly { href: string; label: string }[] = [
   { href: "/token", label: "Token" },
   { href: "/integrators", label: "Integrators" },
   { href: "/docs", label: "Docs" },
+  { href: DOJO_ROUTE, label: `${DOJO_NAME} snapshot` },
 ];
 
 interface Brand {
