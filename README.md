@@ -66,6 +66,7 @@ Everything below is live, machine-readable, and replayable by a third party with
 | `https://monarkgate.tech/narabi/state.json` · `timeline.jsonl` | Narabi's tracker state and its append-only, per-line hash-chained daily timeline (one line per window, with the blocks it was read from) | Anyone replaying the tracker; the site's `/narabi` page |
 | `https://monarkgate.tech/narabi/instrument.json` | A diagnostic file beside the tracker, written once from a closed block of days (never by the daily job): tracker replays at alternative parameters and a permutation-assessed CUSUM; it claims no bound | Anyone auditing the tracker; no page reads it |
 | `https://bell.monarkgate.tech/state.json` · `timeline.jsonl` · `provenance.json` · `bell/pubkey.json` | MONARK Bell's signed publications: per-session fills, VWAP and volume for the listed tokenized equities, halt census, supply and proof-of-reserve residuals, the provenance of each run, the active Ed25519 key | Anyone verifying a publication; the site's `/bell` page |
+| `https://dojo.monarkgate.tech/` · `timeline.jsonl` · `dojo/pubkey.json` · `lines/<sha256>.jsonl` · `history/<sha256>.jsonl` | MONARK Dōjō's hold snapshot: a dated, public record of the MONARK token balances held by each address, read from the chain through two distinct operators, with a hold score per address; the signed timeline, the published key, a day's lines file and the history file that a signed line of the timeline names by its SHA-256 | Anyone recomputing it; the site's `/dojo` page |
 | `https://monarkgate.tech` | The vitrine: every number on it is read from a committed, hashed copy of the served files above — never typed | Readers |
 
 A surface that is not in this table is not served. A component that has no served surface is labelled
@@ -219,6 +220,14 @@ change to the engine meets the same maturity criteria.
   against the active key, recompute `state_sha256` from the served state and `provenance_sha256` from the
   served provenance, and follow `prev_line_hash` back to the genesis line. `scripts/verify-bell.mjs` does
   exactly this with Node alone; the deploy check it produces is committed in this repo.
+- **Dōjō.** `node apps/dojo/scripts/dojo-verify-cli.mjs --url https://dojo.monarkgate.tech --keyring apps/dojo/keys/dojo-keyring.json`
+  reads the served files alone, with the public keyring in this repo as its trust root (the served `dojo/pubkey.json`
+  is cross-checked against it): it walks the signed timeline (Ed25519 signatures, chaining, the validity window of
+  each key), then recomputes every `price_version`, the history file and the lines of every snapshot with their
+  Merkle roots; `--address <address>` adds the inclusion proof of one address, `--day <YYYY-MM-DD>` checks a past
+  day. It prints one JSON line, whose `ok` is true only when every check holds, with Node alone. It does not replay
+  the collection (a signature attests origin, never truth: the readings are what two operators reported), does not
+  read the chain, and does not check the BLS signature of the public randomness beacon.
 - **Narabi.** Recompute every window from its `[from_block, to_block]` via `eth_getLogs` + `totalSupply`,
   then re-derive `q` with the committed `trackerReplay` over the `s` column of `timeline.jsonl`.
 - **The site.** Every figure on `monarkgate.tech` is read from a file under `apps/site/data/` whose hash is
