@@ -476,6 +476,13 @@ pm) ; item MK-NM-GUARD-1 (refuser Tree = F:/Monark dans mk-nm.ps1).
   Release) ; ensuite, file RECHERCHES : FAITS-USDT-USD-HISTORY-1 sous l addendum 4, RECORDER-CLOSE-TIME-1 (zero_trade), Q-H3 à Q-H7,
   TO FILL de P0-2, chantier L2 (FAITS-L2-ACCESS-1, mesure du serveur du site, mission). Investisseur absent : rien d irréversible hors
   de ces go ; toute dépense (second hôte L2, historique acheté) attend son retour.
+- 2026-10-03 14:1x UTC : lots RECHERCHES fusionnés au tronc après trois tours de corrections (re-revues ciblées APPROUVE) :
+  RECORDER-CLOSE-TIME-1 (a05fbbe9, R-25 481), COINBASE-USDT-RECORDER-1 (703f75ae, b015ead9, R-25 1134), EE7-HISTORY-DETECTOR-1
+  (daafa4da, R-25 885) ; fusion c26ec2af ; oracle G7 : 2004 tests, 0 échec, portes vertes sauf R-25 (2500 = somme des trois lots,
+  chacun vert sous 1150 : écart déclaré). Relecture de l enregistreur Coinbase demandée à RECHERCHES avec pièces (recherches#71) ;
+  Q-U3 (fenêtre officielle du détecteur), Q-U4 (sonde de bornes), Q-U5 (identifiant de schéma). Aucune requête, aucune série lue.
+  Restent à former à leur place : items des journaux (COINBASE-TRUNCATION-RESIDUAL-1, COINBASE-MUTANTS-CORR-1, SERIES-ENV-ALLOWLIST-1,
+  TUYAU-EE7-IN-1, EE7-WINDOW-LEADIN-1, EE7-C3-TRADES-1, MAIN-GUARD-REALPATH-1, I-1 à I-8 Binance) et campagne de mutants de fusion.
 - 2026-10-03 13:38 UTC : CHANTIER MOTEUR (27 points de l audit P3) CONFIÉ À RECHERCHES (investisseur, verbatim : « donne cette mission a
   recherches, il va la faire lui méme. »), message recherches#69. Préalable fait : origin/main de monark-governance (207f021f, PR #93 à
   #102) fusionné dans le tronc (404480e8, sans conflit) ; oracle G7 : 1938 tests, 0 échec, portes vertes sauf R-25 (1971 = somme des
