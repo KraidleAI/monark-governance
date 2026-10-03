@@ -106,6 +106,20 @@ export const WHITELIST_FILES = [
   "apps/bell/scripts/bell-publish.mjs", "apps/bell/scripts/bell-publish.d.mts",
   "apps/bell/scripts/bell-verify.mjs", "apps/bell/scripts/bell-verify.d.mts",
   "scripts/verify-bell.mjs", "scripts/verify-bell.d.mts",
+  // MONARK Dojo, the reader's verifier (ADR-M004 D7 nonies, 2026-10-03; investor go of 2026-10-03; item DOJO-EXPORT-VERIFIER-1): the
+  // public command `node apps/dojo/scripts/dojo-verify-cli.mjs (<served tree> | --url <base>) (--keyring <file> | --self-consistent-only)`
+  // and the TRANSITIVE CLOSURE of its imports (dojo-verify-cli.mjs -> dojo-verify.mjs -> dojo-chain.mjs and dojo-core.mjs, plus Bell's
+  // bell-chain.mjs, already listed above), each with its type surface, listed FILE BY FILE (never a whole-dir or package-style walk: a
+  // new apps/dojo file is NOT exported until an ADR line names it); the committed PUBLIC keyring (the verifier's trust root, --keyring)
+  // and the package manifest (the exported package-lock.json already declares the apps/dojo workspace). All English, node built-ins
+  // only, no secret, no seed. NOT exported, by name, in ADR-M004 D7 nonies: the collector (apps/dojo/src/**), the publisher, seed and
+  // eve tools (dojo-publish.mjs, dojo-seed.mjs, dojo-eve.mjs), apps/dojo/test/**, and the deployment conformity check
+  // scripts/verify-dojo.mjs (its imports reach governance-only scripts). Pinned by the root test export_dojo_ships_the_verifier_closure_only.
+  "apps/dojo/package.json", "apps/dojo/keys/dojo-keyring.json",
+  "apps/dojo/scripts/dojo-verify-cli.mjs", "apps/dojo/scripts/dojo-verify-cli.d.mts",
+  "apps/dojo/scripts/dojo-verify.mjs", "apps/dojo/scripts/dojo-verify.d.mts",
+  "apps/dojo/scripts/dojo-chain.mjs", "apps/dojo/scripts/dojo-chain.d.mts",
+  "apps/dojo/scripts/dojo-core.mjs", "apps/dojo/scripts/dojo-core.d.mts",
 ];
 
 // ADR-M004 D7 bis R2(a): every fixed whitelist entry (dir or file) MUST exist under the export root or

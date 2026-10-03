@@ -58,6 +58,16 @@ Responsible = the maintainer for every row (one maintainer today).
 | `apps/bell/scripts/bell-verify.d.mts` | yes | git mirror | maintainer |
 | `scripts/verify-bell.mjs` | yes | git mirror (deployment conformity check of the Bell host) | maintainer |
 | `scripts/verify-bell.d.mts` | yes | git mirror | maintainer |
+| `apps/dojo/package.json` | yes | git mirror | maintainer |
+| `apps/dojo/keys/dojo-keyring.json` | yes | git mirror (trust root of the Dojo verifier, `--keyring`) | maintainer |
+| `apps/dojo/scripts/dojo-verify-cli.mjs` | yes | git mirror (the reader's verifier of the Dojo, public command) | maintainer |
+| `apps/dojo/scripts/dojo-verify-cli.d.mts` | yes | git mirror | maintainer |
+| `apps/dojo/scripts/dojo-verify.mjs` | yes | git mirror, Dojo host (publication tree) | maintainer |
+| `apps/dojo/scripts/dojo-verify.d.mts` | yes | git mirror | maintainer |
+| `apps/dojo/scripts/dojo-chain.mjs` | yes | git mirror, Dojo host (publication tree) | maintainer |
+| `apps/dojo/scripts/dojo-chain.d.mts` | yes | git mirror | maintainer |
+| `apps/dojo/scripts/dojo-core.mjs` | yes | git mirror, Dojo host (publication and collect trees) | maintainer |
+| `apps/dojo/scripts/dojo-core.d.mts` | yes | git mirror | maintainer |
 
 ### Directories (whole-tree or package-style export)
 
@@ -88,6 +98,13 @@ Responsible = the maintainer for every row (one maintainer today).
   ADR-NARABI-OPS-1c C3): not in the whitelist (ADR-M004 D7 octies, 2026-09-24).
   Only the Bell signed publication chain is distributed (rows above, file by file); the collector's language
   gate runs on the source tree.
+- The Dojo collector and publication side — `apps/dojo/src/**`, `apps/dojo/test/**`,
+  `apps/dojo/scripts/dojo-publish.mjs`, `dojo-seed.mjs` and `dojo-eve.mjs` (+ their `.d.mts`) — and the Dojo
+  deployment conformity check `scripts/verify-dojo.mjs` (+ `.d.mts`), whose imports reach governance-only scripts
+  (`scripts/dojo-deploy.mjs`, `scripts/sync-dojo-served.mjs`): not in the whitelist (ADR-M004 D7 nonies, 2026-10-03).
+  Only the reader's verifier is distributed (the import closure of `apps/dojo/scripts/dojo-verify-cli.mjs`, its
+  public keyring and the package manifest, rows above, file by file); the rest of `apps/dojo` stays under the
+  language gate of the source tree (`root` scope).
 - Root `test/**` and per-package `packages/*/docs/**` — not whitelisted.
 
 ## SBOM origin (why the tree matters)
