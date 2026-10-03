@@ -32,3 +32,27 @@ Orchestrateur `claude-opus-5-5` (décision de l investisseur du 2026-10-03). Lu 
   (b) une demande écrite à marketdata@kraken (message sortant : acte de l investisseur) ; (c) la référence du direct, Pyth USDT/USD,
   en primaire sur la part de la fenêtre où son historique existe (conditions Pyth à lire), Kraken en contrôle.
 - En attendant la décision : aucune lecture de la série (règle §10 des préférences et addendum 4 : la source est fixée avant lecture).
+
+## Partie 2 (2026-10-03, 06:57 à 07:12 UTC) : mesure de profondeur Kraken, décision de l investisseur, place retenue : Coinbase
+
+- Décisions de l investisseur, verbatim : « utilise celui qui te parait le plus optimale, ona toutes les autorisations » ; puis « kraken n a
+  pas assez d hitorique » ; puis « ok go coinbase ».
+- [mesuré] Kraken, trois requêtes `Trades` à `count=1`, horodatage et identifiant seuls (aucun prix lu) : première transaction USDT/USD après
+  le 2022-09-01 à 00:00:07.761Z (id 36427824), après le 2025-10-01 à 00:00:07.183Z (id 73314193), après le 2026-10-01 à 00:00:12.435Z
+  (id 84055953). L historique des transactions couvre donc la fenêtre ; celui des bougies non : [lu] docs.kraken.com « Historical data » :
+  OHLC « Maximum 720 candles per call », « Kraken does not provide a bulk historical data dump ». Coût d un parcours complet des
+  transactions : environ 47,6 millions de transactions, environ 48 000 requêtes, rythme sûr « Trades 1–2 seconds » : 13 à 26 heures.
+- [lu] Coinbase Exchange, `GET /products/{product_id}/candles` (docs.cdp.coinbase.com, « Get product candles ») : granularité 900 s
+  admise ; « The maximum number of data points for a single request is 300 candles » ; bougie = [time, low, high, open, close, volume],
+  close = « closing price (last trade) in the bucket interval » ; « No data is published for intervals where there are no ticks » ;
+  « Historical rate data may be incomplete » ; des bougies « may precede your declared start value ». Limites [lu] : 10 requêtes par
+  seconde par IP, 15 en rafale.
+- [lu] Conditions Coinbase : coinbase.com/legal/market_data, « Last updated: August 7, 2026 », inchangées depuis la lecture du
+  2026-10-01 (`docs/marche/FAITS-conditions-series-2026-10-01.md` §1) ; l interdit sans accord écrit y est levé par l accord dont le
+  fondateur fait état le 2026-10-01 (« on a les accords ») et par la décision de l investisseur ci-dessus ; texte de l accord non vu par MONARK.
+- **Place retenue : Coinbase, USDT-USD, bougies de 900 s**, place réglée en dollars bancaires ; environ 470 requêtes pour 2022-09-01 →
+  2026-10-01. **Lecture** : à l instant tau de la grille, la lecture est la clôture de la bougie [tau − 15 min, tau) si elle existe, absente
+  sinon. **Écart déclaré à l addendum 4 §3** (fenêtre ouverte (tau − 15 min, tau)) : un échange à l instant exact tau − 15 min entre dans la
+  bougie ; à soumettre à RECHERCHES avant toute lecture. **Contrôle croisé** : Kraken, transactions, sur les seules heures autour de S et F.
+- Ordre : enregistreur Coinbase (G1, patron de l enregistreur Binance), relecture RECHERCHES avant la première requête, course scellée
+  par mois, détecteur EE-7 (S, F) ; seuls S et F sortent. Aucune série lue à ce jour.
