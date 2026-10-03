@@ -431,6 +431,9 @@ DJ-L06 table sans script (code, rendu serveur des lignes committées).
   line_hash a27bf355… ; unité inactive, aucun verrou ; miroir public-seq4 MIRROR-EQUAL, vérificateur hors ligne vert (snapshots 1,
   verify_exit=0). PRIORITÉ 1 TENUE : la page a sa première publication. Reste du chemin site : A-8 (5)-(9) OTS après publication,
   A-6 (Caddy), CA-1 (G7.txt → commit de fusion du tronc), §24 proxy, TU-7 synchro du site, envoi ; puis DOJO-MOBILE-AFTER-SEND-1.
+- 2026-10-03 04:1x UTC : GO SITE de l investisseur (verbatim : « go alors »). Écart de roster relevé avant tout acte : la session est passée
+  sous claude-opus-5-5 (règle : orchestrateur claude-fable-5-1) ; rendu à l investisseur, aucun acte du chemin du site exécuté avant sa
+  réponse. Lu : G7.txt local = c0c60617 (à porter sur la fusion du tronc d10d757f, qui contient f39e679c) ; dojo.monarkgate.tech résout.
 - 2026-10-02 15:30 UTC : go de minuit reçu ; lanceur `F:/tmp/dojo/final/wait-and-run.sh` armé ; annonce X publiée depuis le 1er octobre
   (investisseur) ; validation visuelle : page reconstruite à l ancre 30/30/30/30/90, captures envoyées, six questions C-V-4 encore ouvertes.
 - 2026-10-02 08:26 UTC, ÉCART DE ROSTER relevé par l orchestrateur : depuis 02:51:22 UTC, les tours de l orchestrateur tournent sous
