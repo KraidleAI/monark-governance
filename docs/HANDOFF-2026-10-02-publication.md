@@ -450,6 +450,15 @@ DJ-L06 table sans script (code, rendu serveur des lignes committées).
   sur 6 tiennent, la 3e corrigée par C-1. Texte accepté 57f95f75… (456 car.). Ligne datée ADR-DOJO-PR-4 dans le lot (36453a59, C-4).
   Lot DOJO-RETRO-TEXT-1 : worktree F:/Monark-wt-retro, branche lot/retro-text ; mission G1 633cb20b… (reçu vert) ; G1 puis G2 neuve
   lancés 05:0x UTC (workflow wf_df4e37c8-808). Suite : fusion au tronc + oracle, TU-7, oracle, contrôle visuel, envoi, registre built.
+- 2026-10-03 06:36 UTC : SITE ENVOYÉ, PAGE /dojo EN LIGNE SUR DONNÉES RÉELLES. G1 LIVRE-AVEC-RÉSERVES, G2 APPROUVE-AVEC-CORRECTIONS (F-1
+  hors lot réparé : base Bell aabd7658) ; fusion a39c5048 ; TU-7 1cd12215 (dojo-served.json 4c3a2da5…) ; oracle G7 vert 50475fbd…
+  (1 885 tests, 0 échec) ; build local + assert-fleet-html verts ; envoi depuis 1cd12215 (sauvegarde refaite : la commande tar du
+  RUNBOOK-vitrine est fautive, item RUNBOOK-VITRINE-TAR-ORDER-1) ; en ligne : relecture navigateur verte, 288 lignes listées, phrase
+  retro dans le volet. Captures envoyées ; validation visuelle de l investisseur attendue (dernier point de PR4B-CP1-POST-ANNOUNCE-1).
+  Registre hold-snapshot reste upcoming (M-P21 : version d unités requise). ÉCART orchestrateur : mk-nm.ps1 lancé sur F:/Monark a vidé
+  son node_modules ; réparé par npm ci --offline (cache F:cache
+pm) ; item MK-NM-GUARD-1 (refuser Tree = F:/Monark dans mk-nm.ps1).
+  Reste : OTS (9) upgrade plus tard ; DOJO-MOBILE-AFTER-SEND-1 ; nettoyage .claude/launch.json de Shogen (entrée monark-site-prod-local).
 - 2026-10-02 15:30 UTC : go de minuit reçu ; lanceur `F:/tmp/dojo/final/wait-and-run.sh` armé ; annonce X publiée depuis le 1er octobre
   (investisseur) ; validation visuelle : page reconstruite à l ancre 30/30/30/30/90, captures envoyées, six questions C-V-4 encore ouvertes.
 - 2026-10-02 08:26 UTC, ÉCART DE ROSTER relevé par l orchestrateur : depuis 02:51:22 UTC, les tours de l orchestrateur tournent sous
