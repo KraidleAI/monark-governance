@@ -596,3 +596,18 @@ adresse, aucun schéma d'URL, aucun domaine ni nom d'hôte, aucun montant. Porte
 - **Q-P1-13** : oui, `l2_time_offset_logged` vérifie aussi la condition (2) de RECHERCHES (`serverTime` entier sûr, sinon écart non
   calculé et nommé) ; milieu arrondi vers le bas au microseconde.
 - **O-1** : retenue ; le cas tardif de `l2_day_late_frame_marked` est « une microseconde après » la borne.
+
+## Décisions de l orchestrateur sur les questions du G1 de P1-a1 (2026-10-03, 23:19 UTC)
+
+- **G1 de P1-a1** (`claude-opus-5-5`, journal `F:/tmp/rech/l2/a1/G1.md`, sha256 `9bdb6ba0…`) : LIVRE-AVEC-RESERVES ; oracle G1 vert
+  (2 042 tests, 0 échec, enregistrement `550d9e1f…`) ; R-25 275 ; commis sur `lot/l2-p1-a1` (`f5596bf3`), pas au tronc.
+- **Q-1** (les tueurs d un fichier sous `test/`) : option (A). L outil du tronc refuse par construction un tueur sous `test/`
+  (`scripts/mutants/run.mjs` l.37 et l.106-110 ; `scripts/red-proof.mjs` l.51-54) : campagne 0 tué sur 8, vérification du G1 hors
+  preuve 8 sur 8. Lot d outil MUTANTS-TEST-SUPPORT-1 (un module d appui déclaré sous `test/`, jamais un `*.test.ts`, admis comme code
+  mutable ; amendement daté de la convention ; cas neufs aux tests de l outil), après la fusion de MUTANTS-TOOL-2 (même fichier) ;
+  puis campagne de P1-a1 rejouée par l outil. P1-a1 n est pas fusionné avant ; (B) écarté (contraire à D-22 et Q-23) ; (C) non
+  retenu comme preuve. Les lots suivants avancent en parallèle sur le tronc et fusionnent dans l ordre de P-1.
+- **Q-2** : oui, sous un Cadre sans PowerShell, le pré-contrôle C-V-4 se fait par `systeminfo` (mémoires physique et virtuelle
+  disponibles), `tasklist` (compte de `node.exe`) et `os.freemem()` ; ligne datée de `docs/methode/REGLES-MISSION.md`.
+- **Q-3** : oui, lecture confirmée : les fabriques prennent la liste des origines admises en paramètre ; la liste fermée des hôtes
+  est fixée par a3, a4 et b1 depuis leurs lignes de FAITS ; l auto-test de P1-a1 emploie des origines synthétiques en `.example`.

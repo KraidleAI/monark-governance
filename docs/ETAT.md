@@ -330,6 +330,11 @@ Tronc `lot/etude-suite`. Dernier oracle complet : 1 779 tests, dont 1 776 verts,
     ici. Déclencheur : le prochain tel rouge ; état : ouvert.
   - CURSOR-SUITE-RATE-1 (mesure) : vitesse de la séquence de ports pendant une suite complète, environ 10 lignes et 10 minutes de
     verrou. Déclencheur : la construction de LOOPBACK-SEQUENTIAL-PORTS-1 ; état : ouvert.
+  - MUTANTS-TEST-SUPPORT-1 (outil ; mesuré le 2026-10-03 au G1 de L2-P1-a1) : `scripts/mutants/run.mjs` et `scripts/red-proof.mjs`
+    refusent tout tueur sous `test/` ; un module d appui de test déclaré (la place factice du chantier L2) ne peut donc pas prouver
+    ses tueurs. Construction : admettre un module d appui déclaré sous `test/` (jamais un `*.test.ts`), amendement daté de la
+    convention, cas neufs aux tests de l outil ; environ 30 lignes et 4 cas. Déclencheur : la fusion de MUTANTS-TOOL-2 ; puis
+    campagne de L2-P1-a1 rejouée ; état : ouvert.
   - I-2 de RECORDER-CLOSE-TIME-1, tuyau des listes `irregular_close` et `zero_trade` (branchement) : déclarer entrée, sortie, état et test
     de composition ; la pièce reste « upcoming » tant qu'aucun chemin servi ne les lit. Source : `ct/corr/CORR.md` l.123. Déclencheur :
     G7 de la partie USDT/USD, non atteint (HANDOFF, Q-5) ; état : ouvert. Absorbe Q-CTV2-3 de BINANCE-V2-1 (G2-CTV2-5) : `v2` est le
