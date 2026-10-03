@@ -2,7 +2,7 @@
   "schema": "bell-deploy-ca-v1",
   "url": "https://bell.monarkgate.tech",
   "g7": "1eaeef982166068ac7a4a4deeb74c9a6b07d0b0c",
-  "checked_at": "2026-10-03T04:14:44.730Z",
+  "checked_at": "2026-10-03T04:15:56.315Z",
   "keyring_sha256": "beec868a9e7d8e396de0f0541ab20572a2159068e8102bb303cb9af368b6ef81",
   "bell_verify_sha256": "14a7e07c116ef3be70a8168f6113f46a214e04ccaa40bcba85b179f755324e8b",
   "inputs_sha256": {
