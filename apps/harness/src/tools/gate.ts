@@ -781,28 +781,33 @@ function byoLookAlike(taskClass: string, predictorId: string): { readonly messag
 export const PRODUCED_AT_FUTURE_TOLERANCE_MS = 300_000;
 
 /** RFC 3339 section 5.6 date-time: full-date "T" full-time, fraction optional, offset Z or +-hh:mm (T and Z in either case). */
-const RFC3339_DATE_TIME = /^(\d{4})-(\d{2})-(\d{2})[Tt](\d{2}):(\d{2}):(\d{2})(?:\.\d+)?(?:[Zz]|([+-])(\d{2}):(\d{2}))$/;
+const RFC3339_DATE_TIME = /^(\d{4})-(\d{2})-(\d{2})[Tt](\d{2}):(\d{2}):(\d{2})(?:\.(\d+))?(?:[Zz]|([+-])(\d{2}):(\d{2}))$/;
 
 /**
  * The instant (epoch ms) of a STRICT RFC 3339 date-time, or undefined (ADR-CM B-4, audit P3 S-10 and P5(b)). The
  * calendar date (leap years included), hour 00-23 and minute 00-59 are checked by a round trip through a UTC date
- * (a field out of range rolls over and fails the round trip); second 00-60 (a leap second counts as the next
- * second); offset at most 23:59. The fraction is ignored: the 300 s tolerance dwarfs it. Pure: no clock is read.
+ * (a field out of range rolls over and fails the round trip); offset at most 23:59; second 00-59, or 60 only when
+ * the UTC time is 23:59 (a leap second, as the served ajv `date-time` format; it counts as the next second). The
+ * fraction counts in milliseconds (its first 3 digits, truncated), so the 300 s tolerance is exact. Pure: no clock.
  */
 export function rfc3339Instant(text: string): number | undefined {
   const m = RFC3339_DATE_TIME.exec(text);
   if (m === null) return undefined;
   const [y, mo, d, h, mi, sec] = [m[1], m[2], m[3], m[4], m[5], m[6]].map(Number) as [number, number, number, number, number, number];
-  const offH = Number(m[8] ?? "0");
-  const offM = Number(m[9] ?? "0");
+  const ms = Number((m[7] ?? "").slice(0, 3).padEnd(3, "0"));
+  const offH = Number(m[9] ?? "0");
+  const offM = Number(m[10] ?? "0");
   if (sec > 60 || offH > 23 || offM > 59) return undefined;
   const t = new Date(0);
   t.setUTCFullYear(y, mo - 1, d);
   t.setUTCHours(h, mi, 0, 0);
   const roundTrip = t.getUTCFullYear() === y && t.getUTCMonth() === mo - 1 && t.getUTCDate() === d && t.getUTCHours() === h && t.getUTCMinutes() === mi;
   if (!roundTrip) return undefined;
-  const sign = m[7] === "-" ? -1 : 1;
-  return t.getTime() + sec * 1000 - sign * (offH * 60 + offM) * 60_000;
+  const sign = m[8] === "-" ? -1 : 1;
+  const minuteUtc = new Date(t.getTime() - sign * (offH * 60 + offM) * 60_000);
+  const leapMinute = minuteUtc.getUTCHours() === 23 && minuteUtc.getUTCMinutes() === 59;
+  if (sec === 60 && !leapMinute) return undefined;
+  return minuteUtc.getTime() + sec * 1000 + ms;
 }
 
 /** Options of `runGate`. `nowMs` is the current instant, read in src/ by the HTTP and MCP entry points and injected
