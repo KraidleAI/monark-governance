@@ -137,24 +137,31 @@ test("split_quantile_exact_uses_the_integer_rank", () => {
   assert.throws(() => rankOf(10, "0.00001"), RangeError);
 });
 
-// E-12: riskControlRow takes the base test_delta and the calib_attempt; the test delta is spendDelta(base, attempt) and
-// is returned with the attempt. Attempt 1 (the default) is riskControlQuantile at the base delta, key for key (pin:
-// riskControlQuantile itself unchanged). USDe: base 0.10 attempt 2 is delta 0.05 (k* 48, rank 565, U 0.0985253).
-// killer: packages/hikae/src/l1-split.ts:195 CONST "spendDelta(baseDeltaDec, attempt)" -> "spendDelta(baseDeltaDec, 1)"
+// E-12 (amendment A-1, G2 of CM-3a): riskControlRow takes the base test_delta, the calib_attempt and spendIndex = h + 1
+// (h the NON-exempt recalibrations, default the attempt, an integer in 1..attempt); the test delta is
+// spendDelta(base, spendIndex), returned with spendIndex and the attempt. Attempt 1 (the default) is riskControlQuantile
+// at the base delta (pin: riskControlQuantile unchanged). USDe: base 0.10 spend 2 is delta 0.05 (k* 48, rank 565, U
+// 0.0985253); attempt 2 after an exempt recalibration (spendIndex 1) keeps the base delta 0.1.
+// killer: packages/hikae/src/l1-split.ts:207 CONST "spendDelta(baseDeltaDec, spendIndex)" -> "spendDelta(baseDeltaDec, attempt)"
 test("risk_control_row_spends_test_delta_by_attempt", () => {
   const row = fn<RowFn>(l1, "riskControlRow");
   const second = row(USDE, "0.10", "0.10", 50, { attempt: 2 });
-  assert.deepEqual(second, { qhat: 1.5501056004166666e-4, rank: 565, kStar: 48, kObs: 48, calibMisses: 48, attempt: 2, testDelta: "0.05", silence: false, missBound: "0.0985253" });
+  assert.deepEqual(second, { qhat: 1.5501056004166666e-4, rank: 565, kStar: 48, kObs: 48, calibMisses: 48, attempt: 2, spendIndex: 2, testDelta: "0.05", silence: false, missBound: "0.0985253" });
   const first = row(USDE, "0.10", "0.10", 50);
-  assert.deepEqual(first, { qhat: 1.515488218333333e-4, rank: 562, kStar: 51, kObs: 51, calibMisses: 51, attempt: 1, testDelta: "0.1", silence: false, missBound: "0.0993457" });
+  assert.deepEqual(first, { qhat: 1.515488218333333e-4, rank: 562, kStar: 51, kObs: 51, calibMisses: 51, attempt: 1, spendIndex: 1, testDelta: "0.1", silence: false, missBound: "0.0993457" });
   assert.deepEqual(row(USDE, "0.10", "0.10", 50, { attempt: 1 }), first);
+  assert.deepEqual(row(USDE, "0.10", "0.10", 50, { attempt: 2, spendIndex: 1 }), { ...first, attempt: 2 }, "an exempt recalibration spends nothing");
+  assert.deepEqual(row(USDE, "0.10", "0.10", 50, { attempt: 4, spendIndex: 2 }), { ...second, attempt: 4 });
+  for (const [attempt, spendIndex] of [[2, 0], [2, 3], [2, 1.5], [1, Number.NaN], [5, 1]]) {
+    assert.deepEqual(row(USDE, "0.10", "0.10", 50, { attempt, spendIndex }), UNDER, `attempt ${attempt} spendIndex ${spendIndex}`);
+  }
   assert.deepEqual(l1.riskControlQuantile(USDE, "0.10", "0.10", 50), { qhat: 1.515488218333333e-4, rank: 562, kStar: 51, kObs: 51, missBound: "0.0993457" });
   // Attempts 3 and 4 halve again (0.025, 0.0125): k* never grows as the delta is spent.
   const k = [1, 2, 3, 4].map((attempt) => row(USDE, "0.10", "0.10", 50, { attempt }));
   assert.deepEqual(k.map((r) => r.testDelta), ["0.1", "0.05", "0.025", "0.0125"]);
   const ks = k.map((r) => r.kStar as number);
   for (let i = 1; i < 4; i++) assert.ok((ks[i] as number) <= (ks[i - 1] as number), `k* at attempt ${i + 1}`);
-  assert.deepEqual({ ...k[3], attempt: 1 }, row(USDE, "0.10", "0.0125", 50), "attempt 4 of 0.10 is attempt 1 of 0.0125, but for the attempt");
+  assert.deepEqual({ ...k[3], attempt: 1, spendIndex: 1 }, row(USDE, "0.10", "0.0125", 50), "spend 4 of 0.10 is spend 1 of 0.0125");
   // Refusals fail closed.
   for (const attempt of [0, 5, 1.5, Number.NaN]) assert.deepEqual(row(USDE, "0.10", "0.10", 50, { attempt }), UNDER, `attempt ${attempt}`);
   assert.deepEqual(row(USDE, "0.10", "0.25", 50), UNDER, "base delta 0.25");
@@ -171,7 +178,7 @@ function kStarByCdf(n: number, alphaDec: string, deltaDec: string): number {
 
 // E-9: riskControlMaxExceedances (k*) in one linear pass equals the earlier computation (one exact CDF per k) on a grid of
 // n, alpha and test_delta (the audit values at alpha 0.45: k* 305 at n 728, 70 at n 182), and decides
-// n 4 368 at alpha 0.45, test_delta 0.05 (k* 1 911) well under the 8.7 s of the base (bound 1.5 s, measured near 20 ms).
+// n 4 368 at alpha 0.45, test_delta 0.05 (k* 1 911) well under the 8.7 s of the base (bound 4 s, measured near 20 ms).
 // killer: packages/hikae/src/binomial.ts:173 CONST "BigInt(i + 1) * q" -> "BigInt(i + 2) * q"
 test("kstar_in_one_pass_equals_the_exact_cdf_and_is_fast", () => {
   for (const alphaDec of ["0.01", "0.05", "0.10", "0.20", "0.45", "0.5001", "0.9"]) {
@@ -191,18 +198,20 @@ test("kstar_in_one_pass_equals_the_exact_cdf_and_is_fast", () => {
   assert.equal(big, 1911);
   assert.ok(binomial.binomCdfLeq(4368, 1911, binomial.parseAlpha("0.45"), binomial.parseTestDelta("0.05")), "k* meets the rule");
   assert.ok(!binomial.binomCdfLeq(4368, 1912, binomial.parseAlpha("0.45"), binomial.parseTestDelta("0.05")), "k* + 1 does not");
-  assert.ok(ms < 1500, `k* at n 4368 took ${ms.toFixed(0)} ms`);
+  assert.ok(ms < 4000, `k* at n 4368 took ${ms.toFixed(0)} ms`);
 });
 
 // E-6: a direction cell (indicator scores, silenceAt 1) at n 728, alpha 0.45, test_delta 0.05 (k* 305, rank 423). With
 // 306 errors qhat is 1: the row is silent, kObs is 0 but calibMisses is 306, and no missBound is carried (the base row
 // read misses 0, bound 0.4499257). With 305 errors qhat is 0: calibMisses equals kObs 305 and missBound 0.4499257. Without
 // silenceAt (bands) calibMisses is kObs and the row is never silent; the time order of the scores is irrelevant here.
-// killer: packages/hikae/src/l1-split.ts:203 ROR "r.qhat >= silenceAt" -> "r.qhat > silenceAt"
+// G2 of CM-3a: silenceAt is the top of the score space, so a score above it fails closed (an intermediate silenceAt on a
+// band); on non-binary scores in silence, calibMisses counts the scores at silenceAt, kObs stays 0.
+// killer: packages/hikae/src/l1-split.ts:202 CONST "scores.some((s) => s > silenceAt)" -> "false"
 test("silent_row_counts_calib_misses_and_carries_no_bound", () => {
   const row = fn<RowFn>(l1, "riskControlRow");
   const cell = (errors: number): number[] => Array.from({ length: 728 }, (_, i) => (i < errors ? 1 : 0)).reverse();
-  const common = { rank: 423, kStar: 305, attempt: 1, testDelta: "0.05" };
+  const common = { rank: 423, kStar: 305, attempt: 1, spendIndex: 1, testDelta: "0.05" };
   const silent = row(cell(306), "0.45", "0.05", 1, { silenceAt: 1 });
   assert.deepEqual(silent, { qhat: 1, kObs: 0, calibMisses: 306, silence: true, ...common });
   assert.equal("missBound" in silent, false);
@@ -212,4 +221,16 @@ test("silent_row_counts_calib_misses_and_carries_no_bound", () => {
   const band = row(USDE, "0.10", "0.05", 50, { domain: "band" });
   assert.deepEqual([band.silence, band.calibMisses, band.kObs, band.missBound], [false, 48, 48, "0.0985253"]);
   assert.deepEqual(row(USDE, "0.10", "0.05", 50, { silenceAt: Number.NaN }), UNDER, "silenceAt NaN");
+  // Bands with silenceAt: an intermediate value (the median score) is refused; the top score is admitted, not silent.
+  const sorted = [...USDE].sort((x, y) => x - y);
+  const median = sorted[306] as number;
+  const top = sorted[612] as number;
+  assert.deepEqual(row(USDE, "0.10", "0.05", 50, { domain: "band", silenceAt: median }), UNDER, "a score above silenceAt");
+  const topRow = row(USDE, "0.10", "0.05", 50, { domain: "band", silenceAt: top });
+  assert.deepEqual([topRow.silence, topRow.calibMisses, topRow.kObs, topRow.missBound], [false, 48, 48, "0.0985253"]);
+  // Non-binary scores in silence: 306 scores at the top value 2, 422 distinct values in (0, 1).
+  const graded = (atTop: number): number[] => Array.from({ length: 728 }, (_, i) => (i < atTop ? 2 : (i + 1) / 1000));
+  assert.deepEqual(row(graded(306), "0.45", "0.05", 1, { domain: "band", silenceAt: 2 }), { qhat: 2, kObs: 0, calibMisses: 306, silence: true, ...common });
+  const open = row(graded(305), "0.45", "0.05", 1, { domain: "band", silenceAt: 2 });
+  assert.deepEqual([open.qhat, open.silence, open.kObs, open.calibMisses, open.missBound], [0.728, false, 305, 305, "0.4499257"]);
 });

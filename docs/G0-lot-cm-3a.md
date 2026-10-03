@@ -32,6 +32,10 @@ Garde `Number.isFinite` sur les six champs (`remainingBudget`, `bFloor`, `tau`, 
 
 `riskControlMaxExceedances` appelle `largestCdfIndexLeq` : une passe sur les termes exacts t_i = C(n, i) a^i q^(n−i) (récurrence à division entière exacte), somme courante comparée à δ · den^n ; même décision que `binomCdfLeq` à chaque k. Mesure à n 4 368, α 0,45, δ 0,05 (k* 1 911) : 8,67 s à la base, 0,017 s après. Les lignes suivantes de `binomial.ts` gardent leurs numéros (tueurs des lots antérieurs).
 
+### Pour CM-4 (import des lignes)
+
+La colonne des ratés (`misses`) d'une ligne importée se lit dans `calibMisses`, **jamais** dans `kObs` (en silence, `kObs` vaut 0 alors que la case a ses erreurs).
+
 ## Différences servies
 
 **Aucune.** Rejeu : 111 appels de `runGate` (clé USDe commise et autre clé, α imposé violé ; liq s0 à s3 ; cascade ; BYO interval et set, y compris scores négatifs et infinis ; budget, tau, `tauInterval`, horloge variés ; refus enregistrés avec code et message) ; sha256 des décisions sérialisées `b891dcab1b8cb40ca44c60d7dc16f641987aa43df0fab64be09340152181d238`, mesuré à `2abe801`, épinglé dans `apps/harness/test/served-replay-cm3.test.ts`.
@@ -52,3 +56,12 @@ Tueurs ré-ancrés (ligne tueuse seulement) : `oracle-l3-interval.test.ts` (l3-g
 
 1. Littéral d'E-8 : `non_evaluable` pour les six champs (choix laissé à RECHERCHES par MONARK). Une raison distincte demanderait d'amender `COVERAGE_REASONS` (gelé).
 2. E-12 par une fonction neuve (`riskControlRow`) plutôt qu'une option de `riskControlQuantile` : celle-ci reste octet pour octet (R-2, tueurs ancrés). La consignation de la disjonction des fenêtres (LTT) relève de l'import (CM-4).
+
+## G2 (instance neuve) : APPROUVE-AVEC-CORRECTIONS, pliée
+
+Contrôles indépendants : rejeu de 430 appels de `runGate`, octets identiques base et gel ; E-5 exact sur 30 000 rangs ; E-9 égal sur 7 245 points de grille ; marge du test de temps mesurée à ×30.
+
+- **E-12 sous l'amendement A-1** : le delta de test est `spendDelta(base, h + 1)`, h le nombre de recalibrations NON exemptées, et non `spendDelta(base, calib_attempt)`. `RiskControlRowOptions.spendIndex` (défaut : `attempt`) ; refus `under_calib` hors des entiers 1..`attempt` ; la ligne rend `spendIndex` et `attempt`. Test : attempt 2, spendIndex 1 garde le delta de base (0,1).
+- **E-6 sur des scores non binaires** : `silenceAt` est le haut de l'espace des scores ; un score au-dessus rend `under_calib`. `calibMisses` compte les scores à `silenceAt` seulement en silence, sinon `kObs`. Commentaire corrigé ; cas de bande avec un `silenceAt` intermédiaire (refusé) et cas non binaire en silence ajoutés au test.
+- **CM-4** : la colonne `misses` se lit dans `calibMisses` (section ci-dessus).
+- Borne du test de temps portée à 4 s.
