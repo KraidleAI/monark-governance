@@ -69,6 +69,7 @@ test("byo_confusable_committed_pair_refused", async () => {
   const usdeO = USDE_STABLE_RUN_PREDICTOR_ID.replace("0x4c9", "Ox4c9");
   assert.notEqual(usdeO, USDE_STABLE_RUN_PREDICTOR_ID, "the probe key differs");
   assert.equal(outcome("stable-run-velocity-24h", usdeO), "byo_lookalike_confusable", "USDe key with O for 0: refused");
+  assert.equal(outcome("stable_run_velocity_24h", USDE_STABLE_RUN_PREDICTOR_ID), "byo_lookalike_confusable", "class confusable + committed key: refused");
   assert.equal(outcome("stable-run-velocity-24h", "caller:other-population"), "decided", "another population decides");
   // B-1 first: codes unchanged.
   assert.equal(outcome("BTC-DIR-15M", "caller:model"), "byo_lookalike_committed", "B-1 case variant keeps its code");
