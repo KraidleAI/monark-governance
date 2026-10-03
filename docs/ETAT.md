@@ -471,7 +471,11 @@ Tronc `lot/etude-suite`. Dernier oracle complet : 1 779 tests, dont 1 776 verts,
   strate liq nouvelle) ; au G0 de CM-1 seulement : BYO-HOMOGLYPH-1 (résidu non ASCII, appel direct seul, hors contrat ; sans
   déclencheur ni prix : Q-7 du recensement). Côté MONARK :
   MUTANTS-REPLAY-NONCONCLU-1 et HARNESS-BYO-400-RATE-1 (ci-dessus) ; le §10 porte aussi BTC-DIR-RETIRE-SURFACES-1 et W2E-TAIL-1
-  (MONARK). CM-2a : PR #105 (`f3b330cf`), contrôle par diff de MONARK en cours (2026-10-03, 22:2x UTC). CM-2b : PR #106 (`2abe8013`),
+  (MONARK). CM-2a : PR #105 (`f3b330cf`), contrôle par diff de MONARK rendu le 2026-10-03 (23:4x UTC) : APPROUVE-AVEC-CORRECTIONS
+  (`F:/tmp/rech/cm2arev/RAPPORT.md`, sha256 `ed09b168…`), rien de bloquant pour la fusion ; avant déploiement : C-1 (14 sites de
+  refus sans code épinglé), C-2 (liste des formes de `produced_at` refusées incomplète), C-8 (côté MONARK : la CA ne voit pas
+  CM-2a) ; aucun appelant connu touché par B-4. CM-2a fait 700 lignes, au-delà de la borne de lot de 547 (CHECKLIST-G7 point 4) :
+  scission en deux PR demandée à RECHERCHES avant fusion. CM-2b : PR #106 (`2abe8013`),
   posée sur #105 ; CI `r25-taille-de-lot` rouge (702 lignes) ; ordre forcé : verdict et fusion de #105, contrôle par diff de #106
   par une instance neuve, puis les surfaces.
   - BTC-DIR-RETIRE-SURFACES-1 (MONARK ; déclencheur « PR CM-2b » atteint le 2026-10-03) : liste du G0 de CM-2b (§ du même nom).
@@ -482,7 +486,13 @@ Tronc `lot/etude-suite`. Dernier oracle complet : 1 779 tests, dont 1 776 verts,
     refus `task_class_retired`, avec une note de provenance. Deux temps, car `scripts/sync-harness-served.mjs` ne lit que le service
     en ligne : (i) avec #106, ce qui est vert à l arbre fusionné et contre le service d aujourd hui ; (ii) après le déploiement de cet
     arbre (go séparé), `apps/site/data/harness-served.json` régénéré, la CA, et les tests qui lisent ces données, rouges entre les
-    deux par construction. État : en attente du verdict de #105.
+    deux par construction. Le temps (i) porte aussi C-8 du contrôle de CM-2a : deux contrôles de plus à `scripts/verify-harness.mjs`
+    (un 400 avec son code ; un `produced_at` en 2099 rendu 400 `produced_at_future`). État : en attente de la scission de #105.
+  - RED-PROOF-JUNCTION-1 (outil ; C-4 du contrôle de CM-2a, mesuré le 2026-10-03) : `scripts/red-proof.mjs` (`linkModules`,
+    l.135-149) ne lie une jonction de `node_modules` que si c est un espace de travail ; sur un clone dont chaque entrée est une
+    jonction (`mk-nm.ps1`), un test qui importe un paquet hors espace de travail rend `ERR_MODULE_NOT_FOUND` et la preuve REFUSED.
+    Contournement mesuré : `--repo F:/Monark`. Construction : lier la cible réelle d une jonction hors espace de travail, et un cas
+    au test de l outil ; environ 10 lignes. Déclencheur : le prochain lot de l outil (avec MUTANTS-TEST-SUPPORT-1) ; état : ouvert.
 
 ## Ce qui reste pour la page
 
