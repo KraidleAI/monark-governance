@@ -10,8 +10,10 @@
 `conformScaledBand(scores, sigmaHat, alphaDec, baseDeltaDec, nMin, { attempt, spendIndex })` :
 1. `riskControlRow` de CM-3a, domaine `band` (aucun score négatif, aucun non fini), sans `silenceAt` (une bande n'est jamais en silence par q̂) ;
 2. `sigmaHat` fini et > 0, sinon `under_calib` ; q̂ = 0 rend `under_calib` (NDG-1, voir E-14) ;
-3. h* = le plus grand double h ≥ 0 tel que fl(h / σ̂) ≤ q̂ (avis du conformal advisor) : départ de fl(q̂ · σ̂), puis pas d'un ulp (`nextUp` / `nextDown`) ; produit non fini rend `under_calib` ; par la monotonie de la division correctement arrondie, |r| ≤ h* équivaut double pour double à fl(|r| / σ̂) ≤ q̂ ;
-4. région `buildIntervalRegion(0, h*)` (bande [0, h*], fermée) ; le résultat porte la ligne (`qhat`, `rank`, `kStar`, `kObs`, `calibMisses`, `attempt`, `spendIndex`, `testDelta`, `missBound`), `hStar` et la région.
+3. h* = le plus grand double h ≥ 0 tel que fl(h / σ̂) ≤ q̂ (avis du conformal advisor), par bissection sur les motifs de bits entre 0 et `MAX_VALUE` (63 pas, exacte, prédicat monotone) ; si `MAX_VALUE` passe, pas de bord fini : `under_calib` ; par la monotonie de la division correctement arrondie, |r| ≤ h* équivaut double pour double à fl(|r| / σ̂) ≤ q̂ ;
+4. région `buildIntervalRegion(0, h*)` (bande [0, h*], fermée ; h* = 0 rend `under_calib`) ; le résultat porte la ligne (`qhat`, `rank`, `kStar`, `kObs`, `calibMisses`, `attempt`, `spendIndex`, `testDelta`, `missBound`), `hStar` et la région.
+
+Unités : la région [0, h*] est en unités de |r| (ou du label positif des cases de chemin, `label / sigma_hat` de FORMAT.md ; ADR-CM R-4) ; c'est la transposition du [−h*, h*] de l'avis 0005. L'appartenance se teste sur |r| ou sur le label, par l'appelant (CM-4), qui calcule les scores par la seule division fl(|r| / σ̂).
 
 Les scores sont ceux de l'appelant, dans l'ordre du temps (le calcul du rang n'en dépend pas ; l'ordre sert à l'empreinte E-2 et aux contrôles de runs de l'import, CM-4). Le chemin servi (`conformInterval`, bandes additives USDe et liq, `gate.ts:434,578`, `ukemi-strata.ts:58`) ne change pas (§5 de l'ADR-CM : S-4 côté harnais seulement au chemin kata, CM-4).
 
@@ -35,16 +37,18 @@ Raison écrite pour les deux autres canonicaliseurs, qui restent :
 
 NDG-1 rend `under_calib` un q̂ = 0 calibré ; l'effet est nul en pratique à α 0,01 (q̂ = 0 demande au moins n − k* scores nuls). Une raison distincte demanderait d'amender `COVERAGE_REASONS` (gelé) : c'est la ligne « hors support » de l'amendement proposé ci-dessous. Épinglé par un test : q̂ = 0 donne `under_calib` dans la bande additive (`buildIntervalRegion(y, y)`) et dans la bande à l'échelle (`conformScaledBand` sur des scores nuls). Les cases de chemin le disent dans leur texte (CM-4).
 
-## E-13 / S-9 : amendement daté proposé (non codé, contrat gelé)
+## E-13 / S-9 : décidé par le fondateur, non codé ici (lot CM-3c)
 
-Texte proposé pour l'ADR-CM, à valider par le fondateur et à contrôler par diff par MONARK avant tout code (R-3 : additif seulement, version de contrat incrémentée) :
+Décision du fondateur, verbatim (2026-10-03) : « Tout passer en 1.1.0. Toutes les empreintes changent, et il faut prévenir les appelants et republier la spécification. » C'est l'option (i) (passage global). CM-3b reste sans différence servie ; le changement est l'item **CONTRACT-1-1-0**, lot **CM-3c**, ligne **B-11** de l'ADR-CM (amendement daté du 2026-10-03, « nuit, 4 ») :
 
-> **Amendement daté 2026-10-0x : contrat `CoverageVerdict` pour les lignes de contrôle du risque (E-13/S-9).**
-> 1. `METHODS` (`contracts/src/enums.ts:27`, `schemas/coverage-verdict.schema.json:25`) gagne la valeur `risk-control` (rang n − k*, delta de test dépensé, ADR 0004 D2-D3) ; `split` et `hac-cp` restent. Une ligne F-7 servie porte `method: "risk-control"`.
-> 2. `COVERAGE_REASONS` gagne trois valeurs : `calib_silence` (case en silence : contrôle de runs ou erreurs au-dessus de k*), `calib_vetoed` (veto du TEST), `out_of_support` (σ̂ ou ŷ hors du support CALIB). Aucune valeur n'est retirée ni renommée ; `under_calib` garde son sens (n, n0, q̂ = 0 de NDG-1).
-> 3. Unité de q̂ : champ optionnel neuf `qhat_unit` (`"score"` pour un multiplicateur sans unité, `"label"` quand la région porte q̂ lui-même) et champ optionnel `h_star` (demi-largeur servie [0, h*] d'une bande à l'échelle) ; un q̂ non fini n'est jamais écrit (`null` réservé à `under_calib`).
-> 4. `schema_version` 1.0.0 → 1.1.0 ; les verdicts des classes servies aujourd'hui (USDe, liq, cascade, BYO) restent octet pour octet ceux de 1.0.0 hors `schema_version` (aucun champ neuf émis) ; empreintes `openapi.json` et description déplacées, liste B neuve au §5 de l'ADR-CM, go du fondateur.
-> 5. Miroir public et spécification publique : MONARK.
+1. `schema_version` 1.0.0 → 1.1.0 pour **tout** verdict et toute décision (adaptateurs `adapter-shogen.ts:38`, `adapter-narabi.ts:26`, `adapter-book.ts:26`, `s2/instrument.ts:33`, harnais) ;
+2. valeurs d'énumération ajoutées : `METHODS` gagne `risk-control` ; `COVERAGE_REASONS` gagne `calib_silence`, `calib_vetoed`, `out_of_support` ; aucune valeur retirée ni renommée ;
+3. champs optionnels neufs `qhat_unit` (`"score"` ou `"label"`) et `h_star` (demi-largeur servie [0, h*]) ; un q̂ non fini n'est jamais écrit ;
+4. conséquences assumées : `schema_version` est dans les octets de chaque verdict, donc **toutes** les empreintes de verdicts bougent, et l'épingle du rejeu (`b891dcab…`) aussi ; le schéma est fermé (`additionalProperties: false`, `method` en énumération fermée), donc un consommateur 1.0.0 refuse une ligne 1.1.0 : les appelants sont prévenus ;
+5. répartition : RECHERCHES pour `packages/contracts`, `schemas/**`, les adaptateurs, les épingles et les tests ; MONARK pour la spécification publique (`KraidleAI/monark-kata-spec`), l'export du miroir public, le site, `apps/bell` et `apps/dojo` s'ils portent `schema_version`, et l'avis aux appelants ;
+6. calendrier : CM-3c est programmé avec le chemin kata (CM-4), pour que les appelants servis voient un seul changement de format.
+
+L'option (ii) (1.1.0 seulement sur les lignes kata) n'est pas retenue.
 
 ## Différences servies
 
@@ -63,3 +67,11 @@ Tests neufs, F2P contre `ad40dd5` (noms lus par l'espace de noms de `index.ts`, 
 
 1. L'amendement E-13/S-9 ci-dessus (fondateur, contrôle par diff de MONARK).
 2. h* au servi (MONARK, avis §« MONARK's decision ») : CM-4 sert [0, h*] des classes kata ; `conformInterval` (USDe, liq) garde la bande additive et l'écart d'un demi-ulp écrit (B-7).
+
+## G2 (instance neuve) : APPROUVE-AVEC-CORRECTIONS, pliée
+
+- **Bord h*** : la marche d'un ulp depuis fl(q̂ · σ̂) ne finissait pas pour un q̂ nul ou sous-normal avec un σ̂ grand, et la `RangeError` sortait de `conformScaledBand` (pas fermé). Remplacée par une bissection sur les motifs de bits (63 pas). Couples du relecteur vérifiés par la règle exacte du test : (6.752248630174e-311, 1.0124145746231078e28) → 6.836074924667226e-283, (5e-324, 1e300) → 7.410984687618697e-24, (0, 1e300) → 2.470328229206233e-24.
+- **Canonicaliseur** : refuse les tableaux creux, les objets non simples (`Date`, `Map`, nombre emballé ; prototype nul admis), les chaînes et clés mal formées (surrogate isolée), les cycles (un objet partagé sans cycle passe).
+- **Unités de [0, h*]** écrites (en-tête de `scaled-band.ts`, §E-1 ci-dessus).
+- **E-13/S-9 point 4** : remplacé par la décision du fondateur (section ci-dessus).
+- **Tests** : refus nommé de q̂ négatif (`/qhat -1/`) ; q̂ > 0 avec h* = 0 (q̂ 5e-324, σ̂ 0,3) rend `under_calib` ; q̂ sous-normal à σ̂ 1000 ne lève plus. Écart : le relecteur attendait `under_calib` à σ̂ 1000 ; la règle donne un bord h* > 0 vérifié exactement (fl(h*/1000) ≤ 5e-324, pas son successeur), donc une bande [0, h*] servie par le moteur ; le test l'épingle. Refuser les q̂ sous-normaux serait une règle neuve (à décider, CM-4).
