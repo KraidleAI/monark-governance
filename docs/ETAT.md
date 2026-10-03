@@ -311,7 +311,25 @@ Tronc `lot/etude-suite`. Dernier oracle complet : 1 779 tests, dont 1 776 verts,
     Déclencheur : prochain rouge de ces tests ; état : ouvert. Déclencheur atteint le 2026-10-03 : l'oracle G7 du tronc à `e970c488`
     (enregistrement `efbf12f0...`, 19:00:04Z à 19:12:28Z) sort 1 sur `probe_state_digest_cross_check` (l.93 : `unreachable` au lieu
     de `state_mismatch`) ; rejeu à `31e119ec` vert (`6052f3e7...`). Mesurer avant de lier (HANDOFF, Q-6) ; départ : Q-9 de
-    `F:/tmp/rech/itemsadd7/JOURNAL.md`.
+    `F:/tmp/rech/itemsadd7/JOURNAL.md`. **Clos le 2026-10-03 (21:58 UTC)** par le lot PROBE-NARABI-LOAD-1 (G1 LIVRE, G2 neuve APPROUVE,
+    journal archivé `docs/G1-lot-probe-narabi-load.md`) : cause MESURÉE, le port 0 de cet hôte suit une séquence globale ; le `fetch`
+    de Node 24.15.0 refuse 19 ports entre 1024 et 10080 avant tout appel, et la sonde rend alors `unreachable` ; correctif dans le
+    test seul (port au-dessus de 10080, aide déjà éprouvée du dépôt), sonde servie inchangée ; banc : 13 rouges sur 60 avant, 0 sur 200
+    après ; le rouge de `e970c488` reproduit à la lettre.
+  - LOOPBACK-SEQUENTIAL-PORTS-1 (mis à jour) : la cause ci-dessus vaut pour tout test qui lie le port 0 et joint son serveur par
+    `fetch` ; une dizaine de fichiers le font encore (liste du G1, complétée par la G2 : `apps/harness/test/server.test.ts`,
+    `apps/harness/test/http.test.ts`, `test/byo-demo-probe.test.ts`, `test/byo-demo-builder.ts`). Construction : une aide partagée
+    (port au-dessus de 10080) ; prix environ 15 lignes et un passage par fichier. Déclencheur : atteint ; prochain lot d outillage.
+  - BADPORT-NODE-UPGRADE-1 (PAROXYSME) : la garantie tient pour la liste de ports refusés de Node 24.15.0 et undici 7.24.4 ; à chaque
+    changement de version de Node relevé par l oracle, relire la liste embarquée. Déclencheur : premier changement de version de Node.
+  - PROBE-BADPORT-REASON-1 (sonde servie) : une adresse de sonde sur un port refusé est lue `unreachable` à jamais ; la refuser avant
+    tout appel avec une raison nommée (environ 3 lignes et 1 test) change le comportement servi. Déclencheur : décision de
+    l investisseur avec le prochain changement de la sonde ; état : ouvert.
+  - PROBE-UNREACHABLE-WATCH-1 : tout rouge `unreachable` d un test de sonde après ce correctif rouvre la cause ; un rouge naturel
+    antérieur du fichier frère `test/probe-narabi.test.ts` (enregistrement `21e79bd7…-cp-2-20260929…`, l.2626-2637) est consigné
+    ici. Déclencheur : le prochain tel rouge ; état : ouvert.
+  - CURSOR-SUITE-RATE-1 (mesure) : vitesse de la séquence de ports pendant une suite complète, environ 10 lignes et 10 minutes de
+    verrou. Déclencheur : la construction de LOOPBACK-SEQUENTIAL-PORTS-1 ; état : ouvert.
   - I-2 de RECORDER-CLOSE-TIME-1, tuyau des listes `irregular_close` et `zero_trade` (branchement) : déclarer entrée, sortie, état et test
     de composition ; la pièce reste « upcoming » tant qu'aucun chemin servi ne les lit. Source : `ct/corr/CORR.md` l.123. Déclencheur :
     G7 de la partie USDT/USD, non atteint (HANDOFF, Q-5) ; état : ouvert. Absorbe Q-CTV2-3 de BINANCE-V2-1 (G2-CTV2-5) : `v2` est le
