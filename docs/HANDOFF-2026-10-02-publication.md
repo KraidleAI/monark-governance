@@ -476,6 +476,13 @@ pm) ; item MK-NM-GUARD-1 (refuser Tree = F:/Monark dans mk-nm.ps1).
   Release) ; ensuite, file RECHERCHES : FAITS-USDT-USD-HISTORY-1 sous l addendum 4, RECORDER-CLOSE-TIME-1 (zero_trade), Q-H3 à Q-H7,
   TO FILL de P0-2, chantier L2 (FAITS-L2-ACCESS-1, mesure du serveur du site, mission). Investisseur absent : rien d irréversible hors
   de ces go ; toute dépense (second hôte L2, historique acheté) attend son retour.
+- 2026-10-03 13:38 UTC : CHANTIER MOTEUR (27 points de l audit P3) CONFIÉ À RECHERCHES (investisseur, verbatim : « donne cette mission a
+  recherches, il va la faire lui méme. »), message recherches#69. Préalable fait : origin/main de monark-governance (207f021f, PR #93 à
+  #102) fusionné dans le tronc (404480e8, sans conflit) ; oracle G7 : 1938 tests, 0 échec, portes vertes sauf R-25 (1971 = somme des
+  neuf PR, chacune verte sur sa porte r25 : écart déclaré). Investisseur : branche de base, pas main ; poussée
+  base/chantier-moteur-2026-10-03 = 404480e8 (privé, aucune CI), empreinte à RECHERCHES (recherches#70). PR #95 (tout le tronc vers
+  main, R-25 rouge par construction) fermée sans fusion sur décision de l investisseur. Lots séries Binance fusionnés (62e0caeb, oracle
+  vert). L2 : reco suivie (FAITS d accès, mesure d une journée, premier enregistreur, puis décision du second hôte).
 - 2026-10-03 11:00 UTC : CI du miroir public verte sur 331a9bad (gates, Push on main). RECHERCHES, premier tour de corrections rendu
   (wf_12c7d7c9-85b) : Coinbase (marge, garde d environnement, intégrité du rejeu), EE-7 (Q-8, C2, C4, edge), Binance successeur (M1,
   interval_mismatch, close_out_of_slot) ; G2 neuves : APPROUVE-AVEC-CORRECTIONS pour les trois. Bloquants restants : confiance TLS

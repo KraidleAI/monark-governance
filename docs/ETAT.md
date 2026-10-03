@@ -198,7 +198,8 @@ Tronc `lot/etude-suite`. Dernier oracle complet : 1 779 tests, dont 1 776 verts,
   - GOV-MAIN-DIVERGENCE-1 (dépôt) : `origin/main` de `monark-governance` (207f021f, 2026-10-01) porte 47 commits absents du tronc
     `lot/etude-suite` (chantier 2, moteur w2 : `packages/hikae`, PR #101 et #102) ; le `main` local avancé le 2026-10-03 sur le tronc
     en diverge. Déclencheur : avant tout travail du chantier 2 ou de W2-E, et avant toute poussée du dépôt de gouvernance. Suite : fusion
-    de `origin/main` dans le tronc, oracle G7, puis décision de l investisseur sur la poussée. État : ouvert.
+    de `origin/main` dans le tronc, oracle G7, puis décision de l investisseur sur la poussée. État : clos le 2026-10-03 (fusion
+    404480e8 ; poussée en branche base/chantier-moteur-2026-10-03 sur décision de l investisseur ; main de gouvernance inchangée).
   - PS-C-WRITE-1 (recherche ; proposé par `docs/G1-lot-page-fold.md` l.180 ; le fait est admis plus haut, CV4-POWERSHELL-C-WRITE-1) : tout
     `powershell.exe` imposé (C-V-4 par `Get-CimInstance`, `mk-nm.ps1`, `rm-nm.ps1`) réécrit un fichier de profil de PowerShell sous C: ;
     G2P-6 : `-NoProfile` ne l'évite pas, d'autres processus de l'hôte le réécrivent aussi. Piste : jonctions par `fs.symlinkSync` en node,
