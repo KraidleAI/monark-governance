@@ -28,7 +28,7 @@
 - **B-5** : `btc-dir-15m` sans BYO rend 400 `task_class_retired` (rendait `commit` ou `defer`). Le message de classe inconnue perd `btc-dir-15m` de `known:`.
 - **B-2** : la clé USDe commise avec α ≠ 0,1 ou nMin ≠ 50 rend 400 nommé (rendait une décision ; α 0,5 rendait `commit`).
 - **B-5, B-2, B-7** : la description du service change : empreinte sha256 `5574450432b7252bb82a31e51eb01b707d286fc9bf4af425a2bf5bce787aed77` → `cb4029d2e1bf183c69e4db97d9d9f112bdd030b44edcc4e1afc4f513d9e6d532` ; `JSON.stringify(buildOpenApi())` `9e3176eae8893f05e7168f3c1e1b9e4dd4a1170a8a8a8f3cd933c94ff657a2ff` → `fc746a604dc181e2e9b6dbbdbd728be5c16306a8487895829e474f753e1e33fb`. Le texte d'honnêteté de la clé USDe commise gagne la phrase de B-7.
-- **Conséquence de B-5, à signaler** : la seule classe dont la table d'attestation a un sujet est btc-dir. Un `attested` concordant n'atteint donc plus aucune décision servie : la jointure `attest` → `gate` (ADR-M017, étape 7 de la trace h5) n'est plus atteignable au servi ; elle rend `task_class_retired`. Un `attested` discordant sur btc-dir rend toujours `attested_inconsistent` (garde avant la répartition).
+- **Conséquence de B-5, acceptée par le fondateur le 2026-10-03** : la seule classe dont la table d'attestation a un sujet est btc-dir. Un `attested` concordant n'atteint donc plus aucune décision servie : la jointure `attest` → `gate` (ADR-M017, étape 7 de la trace h5) n'est plus atteignable au servi ; elle rend `task_class_retired`. Un `attested` discordant sur btc-dir rend toujours `attested_inconsistent` (garde avant la répartition).
 - Rejeu : 12 décisions USDe (clé commise, α 0,1, nMin 50) identiques octet pour octet à la base (sha256 `06caef6b…`, mesuré à `f3b330c` et au gel).
 
 ## Tests
@@ -53,7 +53,7 @@ Attentes modifiées (corps changés, chacun rendu F2P par l'assertion du retrait
 
 ## Rouges liés aux surfaces de MONARK (attendus jusqu'à BTC-DIR-RETIRE-SURFACES-1)
 
-Ces tests de `test/` comparent le harnais en processus à des données commises par MONARK ; ils rougissent par construction tant que MONARK n'a pas appliqué la liste ci-dessous (R-6) : `h5-e2e-probe.test.ts` (`probe_harness_records_real_decision`, `h5_carries_attested`), `harness-served.test.ts` (`harness_served_data_matches_in_process_harness`, `harness_served_sync_liq_row_follows_the_served_state`), `narabi-live.test.ts` (`narabi_gate_facts_read_from_committed_sources`), `site-build-fleet.test.ts` (`registry_notes_track_served_descriptions`), `site-ukemi.test.ts` (`site_ukemi_course_served_stratum_status_bound_to_served_verdict`), `ci-gates.test.ts` (`fleet_register_built_set_is_frozen` : le registre de la flotte nomme `gate_attested_concordant_files_residual` comme test d'intégration de Shōgen, voir question 1), `verify-harness-liq.test.ts` (`verify_harness_ca_passes_on_the_in_process_harness`, `verify_harness_ca_liq_checks_red_on_overclaiming_surfaces`).
+Ces tests de `test/` comparent le harnais en processus à des données commises par MONARK ; ils rougissent par construction tant que MONARK n'a pas appliqué la liste ci-dessous (R-6) : `h5-e2e-probe.test.ts` (`probe_harness_records_real_decision`, `h5_carries_attested`), `harness-served.test.ts` (`harness_served_data_matches_in_process_harness`, `harness_served_sync_liq_row_follows_the_served_state`), `narabi-live.test.ts` (`narabi_gate_facts_read_from_committed_sources`), `site-build-fleet.test.ts` (`registry_notes_track_served_descriptions`), `site-ukemi.test.ts` (`site_ukemi_course_served_stratum_status_bound_to_served_verdict`), `ci-gates.test.ts` (`fleet_register_built_set_is_frozen` : le registre de la flotte nomme `gate_attested_concordant_files_residual` comme test d'intégration de Shōgen ; correction proposée plus bas, statut `built` inchangé), `verify-harness-liq.test.ts` (`verify_harness_ca_passes_on_the_in_process_harness`, `verify_harness_ca_liq_checks_red_on_overclaiming_surfaces`).
 
 ## BTC-DIR-RETIRE-SURFACES-1 (pour MONARK, diff minimal proposé)
 
@@ -63,14 +63,14 @@ Ces tests de `test/` comparent le harnais en processus à des données commises 
 | `scripts/sync-harness-served.mjs:30, 51-52, 63, 70` | même `GATE_BODY` ; retirer `BTC_SYNTHETIC` et la ligne `TASK_BTC_DIR` de `BASE_CLASSES` (ou la passer à l'état `retired` avec la phrase servie) ; ajouter les clauses USDe servies neuves (exigences α/nMin, phrase de B-7) si la liste fermée doit les porter |
 | `apps/site/data/harness-served.json:91-93` | régénérer par `sync-harness-served` (empreintes `/openapi.json` et description ci-dessus) ; ligne btc-dir retirée ou `retired` |
 | `apps/site/components/hikae-panel.tsx:29, 79` | retirer « declared synthetic, a plumbing fixture… » ; dire que la classe de démonstration est retirée |
-| `apps/site/lib/fleet.ts:133-140` | Shōgen : `integration_test` nomme `gate_attested_concordant_files_residual`, qui n'existe plus ; la jointure `attest` → `gate` n'est plus servie (question 1) : décision sur le statut `built` de Shōgen et son test d'intégration |
+| `apps/site/lib/fleet.ts:133-140` | Shōgen garde `built` (décision du fondateur, 2026-10-03). `integration_test` : remplacer `gate_attested_concordant_files_residual` (qui n'existe plus) par les tests de la jointure au niveau unitaire qui restent : `gate_attested_is_frozen_attested_price` (`apps/harness/test/schema.test.ts:111`) et `gate_attested_discordant_is_tool_error` (`apps/harness/test/gate.test.ts:731`) ; le commentaire de preuve dit que la jointure est dormante au servi depuis le retrait de btc-dir. Rend vert `fleet_register_built_set_is_frozen` (`test/ci-gates.test.ts`) sans changer le statut |
 | `apps/site/lib/fleet.ts:38, 150-165` | `served_by` et la note : retirer `btc-dir-15m committed decision` et la clause de fixture ; le chemin commis servi est USDe |
 | `apps/site/lib/harness-served-load.ts:277-298` | l'étape `btc-dir-gate` de la trace n'est plus une décision : lire une étape USDe (ou l'erreur `task_class_retired`) |
 | `apps/site/lib/sim.ts:218` | remplacer `btc-dir-15m` par la clé USDe ou une classe BYO |
-| `fixtures/h5-e2e-trace.json` et `fixtures/PROVENANCE-h5-e2e-trace.md:62-63, 125` | régénérer la trace : étape 5 sur la clé USDe ; étape 7 (`attested-gate`) : la jointure n'a plus de classe servie, soit l'étape montre le refus `task_class_retired`, soit elle est retirée (décision MONARK, voir question 1) ; nouvelle empreinte dans `test/h5-e2e-probe.test.ts` et la provenance |
+| `fixtures/h5-e2e-trace.json` et `fixtures/PROVENANCE-h5-e2e-trace.md:62-63, 125` | régénérer la trace : étape 5 sur la clé USDe ; étape 7 (`attested-gate`) : soit retirée, soit gardée et ré-épinglée (elle montre alors le refus `task_class_retired`), avec une note de provenance disant la jointure dormante ; MONARK décide ; nouvelle empreinte dans `test/h5-e2e-probe.test.ts` et la provenance |
 | `test/h5-trace-builder.ts:47-53, 222-234, 252, 278` | `BTC_DIR_PREDICTION` → la prédiction USDe ; notes et `honesty` sans « synthetic » |
 | `skills/monark/SKILL.md:58-59` | « `btc-dir-15m` est retirée (400 nommé) » au lieu de la classe de démonstration synthétique |
-| `apps/harness/README.md:30, 41, 79, 88-91` | ligne btc-dir du tableau : retirée (400 `task_class_retired`) ; `nCalib` sans btc-dir ; paragraphe de la calibration synthétique : gardée pour les fixtures, non servie |
+| `apps/harness/README.md` | fait dans ce lot (zone RECHERCHES, décision du 2026-10-03) : ligne btc-dir retirée (400 `task_class_retired`), exigences α 0,1 et nMin 50 de la clé USDe et demi-ulp, `nCalib` sans btc-dir, calibration synthétique gardée et non servie |
 
 ## Écarts au dessin
 
@@ -80,12 +80,16 @@ Ces tests de `test/` comparent le harnais en processus à des données commises 
 
 ## Questions ouvertes
 
-1. **Majeure** : la jointure `attest` → `gate` (ADR-M017) n'a plus de classe servie. Elle porte le statut `built` de Shōgen dans le registre de la flotte (ADR-W1, `apps/site/lib/fleet.ts:133-140`) et l'étape 7 de la trace h5. Faut-il un sujet attesté pour une autre classe servie (nouvelle ligne B), ou acter une jointure dormante et revoir le statut de Shōgen ? Décision du fondateur et de MONARK ; hors de B-5 tel qu'écrit.
-2. MONARK accepte-t-il de porter BTC-DIR-RETIRE-SURFACES-1 dans le même déploiement (les rouges de `test/` ci-dessus en dépendent) ?
+1. Tranchée par le fondateur le 2026-10-03 (amendement daté de l'ADR-CM) : la jointure `attest` → `gate` devient dormante, c'est accepté ; le statut public de Shōgen (`built`) ne change pas ; item ATTEST-KATA-SUBJECT-1 ouvert (ci-dessous).
+2. Tranchée : MONARK livre BTC-DIR-RETIRE-SURFACES-1 avec CM-2b. Les dix rouges de `test/` listés plus haut sont attendus jusque-là (surfaces de la zone MONARK).
+
+## Item ouvert
+
+**ATTEST-KATA-SUBJECT-1** : un sujet attesté (Binance) pour les futures classes kata servies, qui rendrait la jointure `attest` → `gate` de nouveau atteignable. Propriétaire : RECHERCHES ; déclencheur : après CM-4 ; aucun travail maintenant. Toute ligne neuve de la table d'attestation est une ligne B neuve au §5 de l'ADR-CM.
 
 ## Taille et sortie
 
-Code : `gate.ts`, `class-policy.ts` (neuf). Tests : un fichier neuf, huit modifiés. Une PR, R-25 sous 1 150. Oracle : `tsc`, eslint, `gate:vocab`, `lint:ratchet`, tests du harnais, `npm test` (échecs tolérés : `bell-served.test.ts:153` et les rouges liés aux surfaces de MONARK listés), `red-proof --base f3b330c --gel <sha> --draw 8 --seed 11`.
+Code : `gate.ts`, `class-policy.ts` (neuf) ; documentation : `apps/harness/README.md`. Tests : un fichier neuf, huit modifiés. Une PR, R-25 sous 1 150. Oracle : `tsc`, eslint, `gate:vocab`, `lint:ratchet`, tests du harnais, `npm test` (échecs tolérés : `bell-served.test.ts:153` et les rouges liés aux surfaces de MONARK listés), `red-proof --base f3b330c --gel <sha> --draw 8 --seed 11`.
 
 ## Mesures (gel `77e825c`)
 
