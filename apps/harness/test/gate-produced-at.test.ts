@@ -10,6 +10,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import type { Prediction } from "@monark/contracts";
 import { runGate, HarnessToolError, type HarnessParams } from "../src/tools/gate.ts";
+import { USDE_STABLE_RUN_PREDICTOR_ID } from "../src/calibration.ts";
 import { handleJsonMirror } from "../src/http.ts";
 import { createHarnessHandler } from "../src/server.ts";
 
@@ -18,6 +19,25 @@ const PARAMS: HarnessParams = { remainingBudget: 0.1, bFloor: 0, tau: 1, tauInte
 function btcDir(producedAt: string): Prediction {
   return { schema_version: "1.0.0", task_class: "btc-dir-15m", yhat: "up", predictor_id: "internal:momentum-4c", produced_at: producedAt };
 }
+
+/** One prediction and params per served path other than btc-dir (retired in CM-2b): BYO interval, USDe, liq. */
+const OTHER_PATHS: { label: string; prediction: (producedAt: string) => Prediction; params: HarnessParams }[] = [
+  {
+    label: "byo interval",
+    prediction: (at) => ({ schema_version: "1.0.0", task_class: "byo-demo", yhat: 0, predictor_id: "caller:model", produced_at: at }),
+    params: { ...PARAMS, nMin: 5, intent: 0, calibration: { scores: [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0], mode: "interval" } },
+  },
+  {
+    label: "usde",
+    prediction: (at) => ({ schema_version: "1.0.0", task_class: "stable-run-velocity-24h", yhat: 0.0001, predictor_id: USDE_STABLE_RUN_PREDICTOR_ID, produced_at: at }),
+    params: { ...PARAMS, intent: 0 },
+  },
+  {
+    label: "liq",
+    prediction: (at) => ({ schema_version: "1.0.0", task_class: "liquidation-eligible-coverage", yhat: 5000, predictor_id: "ukemi:any", produced_at: at }),
+    params: { ...PARAMS, alpha: 0.01, nMin: 100, intent: 1 },
+  },
+];
 
 function refusedWith(fn: () => unknown, code: string, at: string): string {
   try {
@@ -32,7 +52,7 @@ function refusedWith(fn: () => unknown, code: string, at: string): string {
 
 // Test P-1 (F2P): a direct runGate refuses every non RFC 3339 produced_at (P5(b)), and accepts the RFC 3339 edge
 // forms (leap years, leap second, offset 23:59 and -00:00, lower-case t and z, a long fraction).
-// killer: apps/harness/src/tools/gate.ts:798 CONST "sec > 60" -> "sec > 61"
+// killer: apps/harness/src/tools/gate.ts:800 CONST "sec > 60" -> "sec > 61"
 test("run_gate_refuses_a_non_rfc3339_produced_at", () => {
   const refused = [
     "yesterday", "", "2026-09-04", "2026-09-04T00:00:00", "2026-09-04T00:00Z", "2026-09-04 00:00:00Z",
@@ -41,6 +61,7 @@ test("run_gate_refuses_a_non_rfc3339_produced_at", () => {
     "2026-02-29T00:00:00Z", "1900-02-29T00:00:00Z", "2026-04-31T00:00:00Z", "2026-13-01T00:00:00Z",
     "2026-00-10T00:00:00Z", "2026-09-00T00:00:00Z", "2026-09-04T24:00:00Z", "2026-09-04T23:60:00Z",
     "2026-09-04T00:00:61Z", "2026-09-04T00:00:00+24:00", "2026-09-04T00:00:00+23:60",
+    "2026-09-04T00:00:60Z", "2026-09-04T23:59:60+01:00", "2026-09-04T23:59:60-01:00", "2026-09-04T22:59:60Z",
   ];
   for (const s of refused) {
     const message = refusedWith(() => runGate(btcDir(s), PARAMS), "produced_at_invalid", JSON.stringify(s));
@@ -49,7 +70,7 @@ test("run_gate_refuses_a_non_rfc3339_produced_at", () => {
   const accepted = [
     "2026-09-04T00:00:00Z", "2024-02-29T00:00:00Z", "2000-02-29T12:30:45Z", "2026-09-04t00:00:00z",
     "2026-09-04T23:59:60Z", "2026-09-04T00:00:00.123456789Z", "2026-09-04T00:00:00+23:59", "2026-09-04T00:00:00-00:00",
-    "2026-12-31T23:59:59-05:00", "0001-01-01T00:00:00Z",
+    "2026-12-31T23:59:59-05:00", "0001-01-01T00:00:00Z", "2026-09-05T01:59:60+02:00", "2026-09-04T18:59:60-05:00",
   ];
   for (const s of accepted) {
     try {
@@ -57,6 +78,13 @@ test("run_gate_refuses_a_non_rfc3339_produced_at", () => {
     } catch (e) {
       assert.fail(`${s}: an RFC 3339 date-time must decide, got ${String(e)}`);
     }
+  }
+  // The other served paths run the same check (a BYO, USDe or liq path that skipped it would decide here).
+  for (const p of OTHER_PATHS) {
+    for (const s of ["2026-09-04 00:00:00Z", "2026-02-29T00:00:00Z", "2026-09-04T00:00:60Z"]) {
+      refusedWith(() => runGate(p.prediction(s), p.params), "produced_at_invalid", `${p.label} ${s}`);
+    }
+    assert.equal(runGate(p.prediction("2026-09-04T23:59:60Z"), p.params).verdict.produced_at, "2026-09-04T23:59:60Z", `${p.label}: decides`);
   }
 });
 
@@ -88,14 +116,28 @@ test("produced_at_in_the_future_is_refused_at_http_and_mcp", async () => {
     );
     return { status: res.status, body: (await res.json()) as Obj };
   };
-  for (const s of ["2026-10-03T12:05:00Z", "2026-10-03T14:05:00+02:00", "2026-10-03T07:05:00-05:00", "2026-10-03T11:00:00Z"]) {
+  for (const s of ["2026-10-03T12:05:00Z", "2026-10-03T14:05:00+02:00", "2026-10-03T07:05:00-05:00", "2026-10-03T11:00:00Z", "2026-10-03T12:05:00.000Z", "2026-10-03T12:05:00.0009Z"]) {
     assert.equal((await http(s)).status, 200, `${s}: at most 300 s ahead, served`);
   }
-  for (const s of ["2026-10-03T12:05:01Z", "2026-10-03T14:05:01+02:00", "2026-10-03T07:05:01-05:00", "2099-01-01T00:00:00Z"]) {
+  for (const s of ["2026-10-03T12:05:01Z", "2026-10-03T14:05:01+02:00", "2026-10-03T07:05:01-05:00", "2099-01-01T00:00:00Z", "2026-10-03T12:05:00.001Z"]) {
     const r = await http(s);
     assert.equal(r.status, 400, `${s}: in the future, 400`);
     assert.equal(r.body["code"], "produced_at_future", `${s}: code produced_at_future`);
     assert.equal(r.body["message"], `prediction.produced_at '${s}' is in the future: more than 300 s after the server clock (ADR-CM B-4)`, `${s}: message`);
+  }
+  // The other served paths over HTTP: 2099 refused, +300 s served.
+  for (const p of OTHER_PATHS) {
+    const send = async (at: string): Promise<{ status: number; body: Obj }> => {
+      const res = await handleJsonMirror(
+        new Request("http://api.monarkgate.tech/gate", { method: "POST", body: JSON.stringify({ prediction: p.prediction(at), params: p.params }) }),
+        () => NOW,
+      );
+      return { status: res.status, body: (await res.json()) as Obj };
+    };
+    const far = await send("2099-01-01T00:00:00Z");
+    assert.equal(far.status, 400, `${p.label}: 2099 is a 400`);
+    assert.equal(far.body["code"], "produced_at_future", `${p.label}: code produced_at_future`);
+    assert.equal((await send("2026-10-03T12:05:00Z")).status, 200, `${p.label}: +300 s served`);
   }
   // MCP: the same refusal through the served handler, with the code in _meta.
   const late = await mcpGate("2026-10-03T12:05:01Z", NOW);

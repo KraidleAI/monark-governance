@@ -17,6 +17,9 @@ import { runGate, HarnessToolError, type HarnessParams } from "../src/tools/gate
 import { handleJsonMirror } from "../src/http.ts";
 import { createHarnessHandler } from "../src/server.ts";
 import { HARNESS_TOOLS } from "../src/tools/registry.ts";
+import { projectShogen } from "../src/tools/attest.ts";
+import { SHOGEN_LOT_BYTES, SHOGEN_VERDICT_TEXT, SHOGEN_CONSTAT } from "../src/shogen-fixture.ts";
+import { USDE_STABLE_RUN_PREDICTOR_ID } from "../src/calibration.ts";
 
 /** The closed list of codes, pinned in order (G0 CM-2a, rules S-6 2 to 4). */
 const CODES = [
@@ -126,7 +129,7 @@ function callArgs(src: string, open: number): string[] {
 }
 
 // Test E-2 (F2P): every `new HarnessToolError(` in apps/harness/src names a code; a literal code is in the list.
-// killer: apps/harness/src/tools/gate.ts:306 SDL ", \"param_invalid\"" -> ""
+// killer: apps/harness/src/tools/gate.ts:306 CONST "\"param_invalid\");" -> ");"
 test("every_harness_tool_error_names_a_code", () => {
   const SRC = fileURLToPath(new URL("../src", import.meta.url));
   const walk = (dir: string): string[] =>
@@ -165,8 +168,22 @@ test("gate_refusals_carry_their_code", () => {
     ["edge blank", () => runGate(pred(" byo-x", 1), { ...PARAMS, calibration: INTERVAL }), "byo_edge_blank"],
     ["case look-alike", () => runGate(pred("BTC-DIR-15M", 1), { ...PARAMS, calibration: INTERVAL }), "byo_lookalike_committed"],
     ["kata name", () => runGate(pred("eth-dir-1h", 1), { ...PARAMS, calibration: INTERVAL }), "byo_reserved_kata"],
+    ["set number yhat", () => runGate(pred("byo-x", 1), { ...PARAMS, nMin: 5, calibration: SET }), "byo_yhat_type"],
+    ["set without candidates", () => runGate(pred("byo-x", "A"), { ...PARAMS, nMin: 5, calibration: { scores: SCORES, mode: "set" } }), "byo_calibration_invalid"],
+    ["USDe string yhat", () => runGate(pred("stable-run-velocity-24h", "0.1", USDE_STABLE_RUN_PREDICTOR_ID), PARAMS), "yhat_type_mismatch"],
+    ["attest refusal", () => projectShogen(SHOGEN_LOT_BYTES, SHOGEN_VERDICT_TEXT.replace("VERDICT : valide", "VERDICT : invalide"), SHOGEN_CONSTAT), "attest_refused"],
   ];
-  for (const [at, fn, code] of cases) assert.equal(codeOf(fn, at).code, code, `${at}: code ${code}`);
+  for (const [at, fn, code] of cases) {
+    if (code === "attest_refused") {
+      // AttestToolError, not a HarnessToolError: read its code directly.
+      let caught: unknown;
+      try { fn(); } catch (e) { caught = e; }
+      assert.ok(caught instanceof Error && caught.name === "AttestToolError", `${at}: an AttestToolError`);
+      assert.equal((caught as { code?: unknown }).code, code, `${at}: code ${code}`);
+      continue;
+    }
+    assert.equal(codeOf(fn, at).code, code, `${at}: code ${code}`);
+  }
 
   // liq: codes, and the messages byte-identical to the base (B-3 adds a code, never rewrites a message).
   const liq: [string, () => unknown, string, string][] = [
@@ -196,6 +213,11 @@ test("http_tool_error_body_carries_the_code", async () => {
     ["/gate", gateBody(pred("nope-class", 1), PARAMS), "gate", UNKNOWN_MESSAGE, "task_class_unknown"],
     ["/gate", gateBody(pred(LIQ, 5000), { ...LIQ_PARAMS, alpha: 0.1 }), "gate",
       "task_class 'liquidation-eligible-coverage' requires params.alpha = 0.01 (server-imposed for the committed class), got 0.1", "policy_alpha_mismatch"],
+    ["/gate", gateBody(pred("stable-run-velocity-24h", "0.1", USDE_STABLE_RUN_PREDICTOR_ID), PARAMS), "gate",
+      "task_class 'stable-run-velocity-24h' expects a number yhat (velocity forecast), got string", "yhat_type_mismatch"],
+    ["/gate", gateBody(pred("byo-x", "A"), { ...PARAMS, nMin: 5, calibration: { scores: SCORES, mode: "set" } }), "gate",
+      "invalid calibration.candidates: set mode requires a non-empty candidate list", "byo_calibration_invalid"],
+    ["/gate", gateBody(pred("byo-x", 1), { ...PARAMS, nMin: 5, calibration: SET }), "gate", "byo 'set' mode expects a string yhat (label), got number", "byo_yhat_type"],
     ["/calibrate", { scores: [0.1, 0.2, 0.3], alpha: 1.5, nMin: 3 }, "calibrate", "invalid 'alpha': expected a finite number in the open interval (0,1)", "calibrate_input_invalid"],
     ["/cascade", { L: [[0, 100], [50, 0]], e: [40, 20], shock: 2, producedAt: AT }, "cascade", "invalid 'shock': expected a finite number in [0,1]", "cascade_input_invalid"],
   ];
