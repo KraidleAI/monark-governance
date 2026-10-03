@@ -8,7 +8,8 @@
  * clock (`produced_at` is the caller-carried instant from the `Prediction`).
  *
  * Dispatch (D5):
- *   - `btc-dir-15m`         → `conformalSet` over the committed SYNTHETIC calibration (region `set`).
+ *   - `btc-dir-15m`         -> retired (ADR 0005, 2026-09-30; ADR-CM B-5): a named 400 `task_class_retired`; the
+ *                             name stays reserved against BYO.
  *   - `cascade-liquidable-24h` → `conformInterval` with NO committed calibration ⇒ empty region ⇒
  *                             `abstain`/`under_calib`. That is the honest expected result, not a defect.
  *   - `stable-run-velocity-24h` → committed calibration looked up PER KEY (task_class, predictor_id)
@@ -23,22 +24,18 @@
 import {
   splitQuantile,
   conformalSet,
-  indicatorScores,
   buildSetRegion,
   buildIntervalRegion,
   buildVerdict,
   underCalibVerdict,
   conformInterval,
   gate,
-  BTC_DIR_LABELS,
   NUMERIC_LABEL_SCHEMA,
 } from "@monark/hikae";
 import type { GateInput } from "@monark/hikae";
 import { assertClosedGateDecision, assertNoForbiddenKey } from "@monark/contracts";
 import type { GateDecision, Prediction, CoverageVerdict, AttestedPrice } from "@monark/contracts";
 import {
-  BTC_DIR_CALIB,
-  BTC_DIR_CALIB_PROVENANCE,
   lookupCommittedCalibration,
   UKEMI_LIQ_PREDICTOR_BASE,
   hasCommittedCalibrationForClass,
@@ -53,6 +50,8 @@ import { strateOf, liqUpperBoundRegion } from "../ukemi-strata.ts";
 // the K-1 honesty label (B-2: one constant, no paraphrase, no banned overclaim verb). Errors on the
 // gate BYO path are `HarnessToolError` (already ∈ http.ts TOOL_ERROR_NAMES ⇒ 400), NOT CalibrateToolError.
 import { CALIBRATE_MAX_N, CALIBRATE_LABEL } from "./calibrate.ts";
+// (ADR-CM B-2, F-7): the class policy rows (alpha, nMin imposed for a committed calibration). Pure sibling at src/.
+import { LIQ_POLICY, USDE_POLICY, type ClassPolicyRow } from "../class-policy.ts";
 // (ADR-M017 D2): the committed subject<->class binding table + the pure consistency predicate. A pure
 // sibling module at src/ (no I/O, imports nothing from the tools), so the K-8 tools scan stays meaningful
 // and there is no import cycle (attestation-binding.ts never imports gate.ts).
@@ -61,6 +60,7 @@ import { checkAttestedConsistency } from "../attestation-binding.ts";
 /** Server-fixed contract version (K-4c) — NOT carried by the caller. */
 export const SCHEMA_VERSION = "1.0.0";
 
+/** Retired (ADR 0005, decided 2026-09-30; ADR-CM B-5): answered by a named 400, the name reserved against BYO. */
 export const TASK_BTC_DIR = "btc-dir-15m";
 export const TASK_CASCADE = "cascade-liquidable-24h";
 /**
@@ -81,8 +81,12 @@ export const TASK_LIQ_ELIGIBLE = "liquidation-eligible-coverage";
 /** Server-imposed calibration params for the committed liq class (ADR-U4b D3; == the frozen generator
  *  ALPHA/NMIN). A divergent `params.alpha`/`params.nMin` is a NAMED 400, never a silent override: the L3
  *  gate reads `params.nMin`, so a divergent nMin would diverge the action (delta D-6, C-10). */
-export const LIQ_ALPHA = 0.01;
-export const LIQ_NMIN = 100;
+export const LIQ_ALPHA = LIQ_POLICY.alpha;
+export const LIQ_NMIN = LIQ_POLICY.nMin;
+
+/** The retirement message of `btc-dir-15m` (ADR-CM B-5). */
+export const BTC_DIR_RETIRED_MESSAGE =
+  `task_class '${TASK_BTC_DIR}' is retired (ADR 0005, decided 2026-09-30): it is no longer served; the name stays reserved against BYO`;
 
 /** The one honesty sentence the `cascade` path MUST carry (K-4e). */
 export const CASCADE_UNCALIBRATED_SENTENCE =
@@ -120,7 +124,12 @@ export const STABLE_RUN_COMMITTED_CORE =
   "Tibshirani 2023 (Thm 2, unit weights): at least 1 − α minus the average total-variation gap between " +
   "calibration windows and the next one; that gap is not estimated here and the calibration is measured " +
   "non-stationary across half-years, so 1 − α is the coverage only if that gap is zero (exchangeability), " +
-  "which is not assumed here; no coverage is measured";
+  "which is not assumed here; no coverage is measured; each band edge is yhat - qhat or yhat + qhat rounded to the " +
+  "nearest double, so it can differ from the exact edge by up to half a unit in the last place of that edge; the " +
+  "band is not widened for it";
+
+/** The SERVER-imposed params of the committed USDe key, declared in the class description (ADR-CM B-2). */
+export const STABLE_RUN_REQUIREMENTS_SENTENCE = `on that key it requires alpha = ${String(USDE_POLICY.alpha)}, nMin = ${String(USDE_POLICY.nMin)}`;
 
 /**
  * The FULL committed sentence = CORE + the "every other population abstains" queue. `honestyText()`
@@ -182,7 +191,7 @@ export const GATE_NON_REVERIFICATION_SENTENCE =
   "`attest` only projects the committed witness — verify a caller-carried attestation offline with the Shōgen verifier";
 
 /**
- * Tool description (K-4e / C-2): declares `synthetic` (btc-dir), the cascade sentence, AND the BYO path.
+ * Tool description (K-4e / C-2): declares the retired btc-dir class (ADR-CM B-5), the cascade sentence, AND the BYO path.
  * The BYO carrier REUSES `CALIBRATE_LABEL` (B-2: one honesty constant, no paraphrase, no banned vocab).
  * (HARNESS-DESC-1, CARTO-T1C-2; checkpoint-1 HARNESS-DESC-1 C-1/C-2) A PURE function of the REGISTRY state of the
  * liq class: `registryHasLiq` is hasCommittedCalibrationForClass(TASK_LIQ_ELIGIBLE), the SAME registry-level key
@@ -199,10 +208,10 @@ export function describeGate(registryHasLiq: boolean): string {
     : `${LIQ_EMPTY_REGISTRY_SENTENCE}; ${LIQ_REQUIREMENTS_SENTENCE}; ${LIQ_CONDITIONAL_SENTENCE}`;
   return (
     "Coverage-gated decision from the real HIKAE L3 policy (commit/defer/abstain) over a caller-carried " +
-    "authorization budget B_t. Dispatches on task_class. For 'btc-dir-15m' it conformalizes against a " +
-    "committed synthetic calibration derived from the HIKAE S2a instrument (seed 101, n=300 draw), declared " +
-    `synthetic — a plumbing fixture, not a measured predictor. For 'cascade-liquidable-24h' ${CASCADE_UNCALIBRATED_SENTENCE}. ` +
+    "authorization budget B_t. Dispatches on task_class. The class 'btc-dir-15m' is retired and answers a named " +
+    `refusal. For 'cascade-liquidable-24h' ${CASCADE_UNCALIBRATED_SENTENCE}. ` +
     `For 'stable-run-velocity-24h' (Narabi: a redemption-flow velocity forecast) the gate holds ${STABLE_RUN_COMMITTED_CORE}; ` +
+    `${STABLE_RUN_REQUIREMENTS_SENTENCE}; ` +
     `for any other population, ${STABLE_RUN_UNCALIBRATED_SENTENCE}. ` +
     `For '${TASK_LIQ_ELIGIBLE}' (Ukemi: a per-account liquidable-amount class, class A only) ${liqClause}. ` +
     "When the caller instead supplies a `calibration` (its own nonconformity scores plus a `mode`: `interval` " +
@@ -330,9 +339,6 @@ function deriveEvaluable(taskClass: string, yhat: string | number, calibration?:
     const labels = calibration.candidates ?? [];
     return typeof yhat === "string" && labels.some((c) => c.label === yhat);
   }
-  if (taskClass === TASK_BTC_DIR) {
-    return typeof yhat === "string" && (BTC_DIR_LABELS as readonly string[]).includes(yhat);
-  }
   return typeof yhat === "number" && Number.isFinite(yhat);
 }
 
@@ -423,7 +429,7 @@ function assertByoSetTauCap(params: HarnessParams, cal: ByoCalibration): void {
  * Order mirrors `validateCalibration` then the committed dispatch — validate, then check `yhat` TYPE for the
  * mode (wrong type ⇒ tool error BEFORE any computation), then `splitQuantile` (under-calibration ⇒ fail-closed
  * `underCalibVerdict`), then the region. `abstain`/`reason` conventions mirror the committed paths (set:
- * |C|>tau => set_too_large else covered, as in `btcDirVerdict`, but |C|=0 => intent_not_in_region (P3, D8); interval: abstain:false/covered, as in
+ * |C|>tau => set_too_large else covered, as the retired btc-dir path did, but |C|=0 => intent_not_in_region (P3, D8); interval: abstain:false/covered, as in
  * `conformInterval`; the L3 gate decides DEFER/ABSTAIN on the width). Every error is `HarnessToolError`
  * (⇒ 400), never a 500. (Line-number cross-refs refreshed for F2-B — the "next touch" M011 promised.)
  */
@@ -520,39 +526,6 @@ function byoVerdict(prediction: Prediction, params: HarnessParams, cal: ByoCalib
   });
 }
 
-/** btc-dir verdict: conformal `set` over the committed synthetic calibration. */
-function btcDirVerdict(prediction: Prediction, params: HarnessParams): CoverageVerdict {
-  const split = splitQuantile(BTC_DIR_CALIB, params.alpha, params.nMin);
-  if ("reason" in split) {
-    // Caller demanded more calibration than the committed fixture holds ⇒ honest under-calibration.
-    return underCalibVerdict({
-      taskClass: TASK_BTC_DIR,
-      method: "split",
-      alpha: params.alpha,
-      scores: BTC_DIR_CALIB,
-      residual: [],
-      producedAt: prediction.produced_at,
-      schemaVersion: SCHEMA_VERSION,
-    });
-  }
-  const yhat = typeof prediction.yhat === "string" ? prediction.yhat : String(prediction.yhat);
-  const labels = conformalSet(indicatorScores(yhat, BTC_DIR_LABELS), split.qhat);
-  const abstain = labels.length > params.tau;
-  return buildVerdict({
-    taskClass: TASK_BTC_DIR,
-    method: "split",
-    alpha: params.alpha,
-    scores: BTC_DIR_CALIB,
-    region: buildSetRegion(labels),
-    qhat: split.qhat,
-    abstain,
-    reason: abstain ? "set_too_large" : "covered",
-    residual: [],
-    producedAt: prediction.produced_at,
-    schemaVersion: SCHEMA_VERSION,
-  });
-}
-
 /** cascade verdict: `conformInterval` with NO committed calibration ⇒ empty region ⇒ under_calib (D5). */
 function cascadeVerdict(prediction: Prediction, params: HarnessParams): CoverageVerdict {
   const yhat = typeof prediction.yhat === "number" ? prediction.yhat : Number(prediction.yhat);
@@ -566,6 +539,27 @@ function cascadeVerdict(prediction: Prediction, params: HarnessParams): Coverage
     producedAt: prediction.produced_at,
     schemaVersion: SCHEMA_VERSION,
   }).verdict;
+}
+
+/**
+ * F-7 policy (ADR-CM B-2): a committed calibration's alpha and nMin are server-imposed; a different value is a named
+ * 400 (strict equality), never a silent override. The liq messages are byte-identical to the pre-F-7 ones.
+ */
+function assertPolicy(row: ClassPolicyRow, params: HarnessParams): void {
+  const who = row.predictorId === null ? `task_class '${row.taskClass}'` : `task_class '${row.taskClass}' with predictor_id '${row.predictorId}'`;
+  const what = row.predictorId === null ? "class" : "key";
+  if (params.alpha !== row.alpha) {
+    throw new HarnessToolError(
+      `${who} requires params.alpha = ${String(row.alpha)} (server-imposed for the committed ${what}), got ${String(params.alpha)}`,
+      "policy_alpha_mismatch",
+    );
+  }
+  if (params.nMin !== row.nMin) {
+    throw new HarnessToolError(
+      `${who} requires params.nMin = ${String(row.nMin)} (server-imposed for the committed ${what}), got ${String(params.nMin)}`,
+      "policy_nmin_mismatch",
+    );
+  }
 }
 
 /**
@@ -595,8 +589,9 @@ function stableRunVerdict(prediction: Prediction, params: HarnessParams): Covera
       schemaVersion: SCHEMA_VERSION,
     }).verdict;
   }
-  // Committed population (USDe): split-conformal over the committed SCORES. Same primitive chain as
-  // byoVerdict's interval branch — one quantile implementation (L1), never re-rolled.
+  // Committed population (USDe): alpha/nMin are server-imposed (F-7, ADR-CM B-2), then split-conformal over the
+  // committed SCORES. Same primitive chain as byoVerdict's interval branch (one quantile implementation, L1).
+  assertPolicy(USDE_POLICY, params);
   const scores = committed.scores;
   const split = splitQuantile(scores, params.alpha, params.nMin);
   if ("reason" in split) {
@@ -644,19 +639,8 @@ function liqEligibleVerdict(prediction: Prediction, params: HarnessParams): Cove
       "liq_yhat_domain",
     );
   }
-  // alpha/nMin are SERVER-IMPOSED for this committed class (C-10 / delta D-6): divergent ⇒ a named 400.
-  if (params.alpha !== LIQ_ALPHA) {
-    throw new HarnessToolError(
-      `task_class '${TASK_LIQ_ELIGIBLE}' requires params.alpha = ${String(LIQ_ALPHA)} (server-imposed for the committed class), got ${String(params.alpha)}`,
-      "policy_alpha_mismatch",
-    );
-  }
-  if (params.nMin !== LIQ_NMIN) {
-    throw new HarnessToolError(
-      `task_class '${TASK_LIQ_ELIGIBLE}' requires params.nMin = ${String(LIQ_NMIN)} (server-imposed for the committed class), got ${String(params.nMin)}`,
-      "policy_nmin_mismatch",
-    );
-  }
+  // alpha/nMin are SERVER-IMPOSED for this committed class (C-10 / delta D-6, F-7 row): divergent => a named 400.
+  assertPolicy(LIQ_POLICY, params);
   const k = strateOf(yhat);
   const predictorId = `${UKEMI_LIQ_PREDICTOR_BASE}/s${String(k)}`;
   const committed = lookupCommittedCalibration(TASK_LIQ_ELIGIBLE, predictorId);
@@ -707,7 +691,6 @@ function liqEligibleVerdict(prediction: Prediction, params: HarnessParams): Cove
  */
 export function honestyText(taskClass: string, predictorId: string, isByo: boolean): string {
   if (isByo) return `${CALIBRATE_LABEL} B_t is caller-carried.`;
-  if (taskClass === TASK_BTC_DIR) return `${BTC_DIR_CALIB_PROVENANCE} B_t is caller-carried.`;
   if (taskClass === TASK_STABLE_RUN) {
     const committed = lookupCommittedCalibration(TASK_STABLE_RUN, predictorId);
     return committed !== undefined
@@ -896,11 +879,8 @@ export function runGate(prediction: Prediction, params: HarnessParams, attested?
     verdict = byoVerdict(prediction, params, calibration);
     nCalib = calibration.scores.length;
   } else if (taskClass === TASK_BTC_DIR) {
-    if (typeof prediction.yhat !== "string") {
-      throw new HarnessToolError(`task_class '${TASK_BTC_DIR}' expects a string yhat (label), got ${typeof prediction.yhat}`, "yhat_type_mismatch");
-    }
-    verdict = btcDirVerdict(prediction, params);
-    nCalib = BTC_DIR_CALIB.length;
+    // ADR-CM B-5 (S-12): retired, never served; the BYO guards above keep the name reserved.
+    throw new HarnessToolError(BTC_DIR_RETIRED_MESSAGE, "task_class_retired");
   } else if (taskClass === TASK_CASCADE) {
     if (typeof prediction.yhat !== "number") {
       throw new HarnessToolError(`task_class '${TASK_CASCADE}' expects a number yhat (amount), got ${typeof prediction.yhat}`, "yhat_type_mismatch");
@@ -923,7 +903,7 @@ export function runGate(prediction: Prediction, params: HarnessParams, attested?
     // delta D-4: an unknown class (e.g. the class-B name, decision 108 keeps B out of service) ⇒ a
     // HarnessToolError (⇒ 400 via http.ts), NEVER `under_calib`. The `known:` list carries no class-B name
     // (D-2(a) grep=0), so the B name only appears as the unknown `'${taskClass}'`, never as a served class.
-    throw new HarnessToolError(`unknown task_class '${taskClass}' (known: ${TASK_BTC_DIR}, ${TASK_CASCADE}, ${TASK_STABLE_RUN}, ${TASK_LIQ_ELIGIBLE}; or supply params.calibration for BYO)`, "task_class_unknown");
+    throw new HarnessToolError(`unknown task_class '${taskClass}' (known: ${TASK_CASCADE}, ${TASK_STABLE_RUN}, ${TASK_LIQ_ELIGIBLE}; or supply params.calibration for BYO)`, "task_class_unknown");
   }
 
   // ADR-M017 D2(iii)/D4(3) — attested `residual` seam (P1-b2). When a caller-carried `attested` is present
