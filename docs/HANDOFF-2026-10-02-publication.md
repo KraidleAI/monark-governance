@@ -476,6 +476,12 @@ pm) ; item MK-NM-GUARD-1 (refuser Tree = F:/Monark dans mk-nm.ps1).
   Release) ; ensuite, file RECHERCHES : FAITS-USDT-USD-HISTORY-1 sous l addendum 4, RECORDER-CLOSE-TIME-1 (zero_trade), Q-H3 à Q-H7,
   TO FILL de P0-2, chantier L2 (FAITS-L2-ACCESS-1, mesure du serveur du site, mission). Investisseur absent : rien d irréversible hors
   de ces go ; toute dépense (second hôte L2, historique acheté) attend son retour.
+- 2026-10-03 09:28 UTC : SYNCHRO PUBLIQUE v0.7.0 faite (go : « tu as tous les GO pour pousser vers le dépot publique »). main avancé sur le
+  tronc dans F:/Monark-wt-main (72e79041 ; npm ci hors ligne, next 16.3.8), release-public.mjs : portes vertes (1888 tests, 0 échec),
+  commit du miroir 331a9bad (message égal à l octet à docs/public-notes/v0.7.0.commit.md), information à RECHERCHES avant le push
+  (recherches#68), push 8ca8a23..331a9ba sur KraidleAI/Monark, tag annoté v0.7.0, Release v0.7.0 (notes docs/public-notes/v0.7.0.md).
+  CI du miroir lancée (gates, Push on main). Rien poussé du dépôt de gouvernance. Constat : origin/main de monark-governance porte 47
+  commits hors du tronc (chantier 2, moteur w2, PR #101 et #102 du 2026-10-01) : item GOV-MAIN-DIVERGENCE-1 à ETAT.
 - 2026-10-03 09:16 UTC : partie du site close. DOJO-EXPORT-VERIFIER-1 fusionné (b2619c0c ; Q-1 bouclage confirmée, D7 nonies ligne datée) ; G2
   neuve de la partie APPROUVE-AVEC-CORRECTIONS sans bloquant (G2P-1 à G2P-6) ; DOJO-README-1 (surface du Dōjō et commande du vérificateur
   au README, 4f049af2) ; DOJO-SITE-PART-CORR-1 (chargeurs refusés dans la fermeture, items DJ-L192 à L199 et quatre items de méthode à ETAT,
