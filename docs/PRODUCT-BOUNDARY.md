@@ -50,7 +50,7 @@ Responsible = the maintainer for every row (one maintainer today).
 | `out/banner.jpg` | yes | git mirror, site | maintainer |
 | `apps/bell/package.json` | yes | git mirror | maintainer |
 | `apps/bell/keys/bell-keyring.json` | yes | git mirror, Bell host (trust root of the verifier) | maintainer |
-| `apps/bell/scripts/bell-chain.mjs` | yes | git mirror, Bell host (deployed tree) | maintainer |
+| `apps/bell/scripts/bell-chain.mjs` | yes | git mirror, Bell host (deployed tree), Dojo host (publication and collect trees) | maintainer |
 | `apps/bell/scripts/bell-chain.d.mts` | yes | git mirror | maintainer |
 | `apps/bell/scripts/bell-publish.mjs` | yes | git mirror, Bell host (deployed tree) | maintainer |
 | `apps/bell/scripts/bell-publish.d.mts` | yes | git mirror | maintainer |
@@ -58,7 +58,7 @@ Responsible = the maintainer for every row (one maintainer today).
 | `apps/bell/scripts/bell-verify.d.mts` | yes | git mirror | maintainer |
 | `scripts/verify-bell.mjs` | yes | git mirror (deployment conformity check of the Bell host) | maintainer |
 | `scripts/verify-bell.d.mts` | yes | git mirror | maintainer |
-| `apps/dojo/package.json` | yes | git mirror | maintainer |
+| `apps/dojo/package.json` | yes | git mirror, Dojo host (publication and collect trees) | maintainer |
 | `apps/dojo/keys/dojo-keyring.json` | yes | git mirror (trust root of the Dojo verifier, `--keyring`) | maintainer |
 | `apps/dojo/scripts/dojo-verify-cli.mjs` | yes | git mirror (the reader's verifier of the Dojo, public command) | maintainer |
 | `apps/dojo/scripts/dojo-verify-cli.d.mts` | yes | git mirror | maintainer |

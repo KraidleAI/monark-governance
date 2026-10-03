@@ -180,6 +180,24 @@ Tronc `lot/etude-suite`. Dernier oracle complet : 1 779 tests, dont 1 776 verts,
   F-K-7, D10, F-K-1), sauf décision de l'investisseur. Item LIVE-1-RECORD-1 : enregistrer le bloc LIVE-1 (2026-10-01 → 2027-01-01) avec
   le même enregistreur ; déclencheur 2027-01-01 après minuit UTC ; conditions de Binance relues ce jour-là ; sha256 postés à RECHERCHES.
 - **Dépôt `monark-governance` privé** depuis le 01/10 au moins : aucun push sans vérification préalable de la visibilité et accord de l'investisseur (une CI lancée par erreur à 01:04 UTC, annulée).
+- **Items de méthode de la partie du site, formés le 2026-10-03 à 08:37 UTC** (correcteur DOJO-SITE-PART-CORR-1, `claude-opus-5-5`, décision D-4 de
+  l'orchestrateur ; G2 de la partie, `F:/tmp/dojo/g2-partie/G2-RAPPORT.md`, sha256 `df4f335e…` ; propriétaire : orchestrateur) :
+  - METHODE-SITE-BUILD-CLONE-1 (outillage) : `npm run build -w @monark/site` échoue sur un clone à jonctions, car `node_modules/next` y est
+    une jonction hors de la racine que Next déduit. Source : journal G1 de DOJO-NAV-LINK-1 (`F:/tmp/dojo/nav/G1-DOJO-NAV-LINK-1.md`,
+    `a6e6a3f8…`) l.116-121 et E-2 l.216-225, quatre options ; G2P-4. Déclencheur : prochain G1 ou G2 d'un lot qui touche `apps/site`. État :
+    ouvert ; d'ici là, build du tronc après fusion (option (b)) ; option (a) proposée : `npm ci --offline` dans le clone.
+  - MK-NM-GUARD-1 (outillage) : `F:/tmp/dojo/drand-1a/mk-nm.ps1` (`d70d8aea…`) vide d'abord le `node_modules` de sa cible par `rm-nm.ps1`
+    (l.8) ; lancé sur `F:/Monark`, il a vidé celui du tronc le 2026-10-03 (HANDOFF-2026-10-02 l.458-460). Item : le script refuse toute
+    cible égale au tronc, source de ses jonctions (l.5). Déclencheur : avant le prochain lancement de `mk-nm.ps1` hors d'une enveloppe à
+    garde de chemin. État : ouvert ; d'ici là, enveloppe gardée (modèle : `prep-nm.ps1` de la G2 de la partie, `5f5c7952…`).
+  - RUNBOOK-VITRINE-TAR-ORDER-1 (mode d'emploi) : la commande `tar` de sauvegarde de `docs/RUNBOOK-vitrine.md` l.12 place ses deux
+    `--exclude` après le membre `monark-app` ; jugée fautive à l'envoi du 2026-10-03, sauvegarde refaite (HANDOFF-2026-10-02 l.455-456).
+    Déclencheur : avant le prochain envoi du site. État : ouvert ; suite : manuel de GNU tar lu sur place (ordre des options), puis la ligne.
+  - PS-C-WRITE-1 (recherche ; proposé par `docs/G1-lot-page-fold.md` l.180 ; le fait est admis plus haut, CV4-POWERSHELL-C-WRITE-1) : tout
+    `powershell.exe` imposé (C-V-4 par `Get-CimInstance`, `mk-nm.ps1`, `rm-nm.ps1`) réécrit un fichier de profil de PowerShell sous C: ;
+    G2P-6 : `-NoProfile` ne l'évite pas, d'autres processus de l'hôte le réécrivent aussi. Piste : jonctions par `fs.symlinkSync` en node,
+    C-V-4 par `freemem()` et `tasklist` comme `scripts/oracle/run.mjs` l.153-156. Déclencheur : prochaine révision de la règle C-V-4 de
+    REGLES-MISSION, qui nomme `Get-CimInstance`. État : ouvert.
 
 ## Ce qui reste pour la page
 

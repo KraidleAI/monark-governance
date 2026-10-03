@@ -20,6 +20,9 @@ claude-opus-5-5
 - Mise à jour 2026-10-02 03:06 UTC (orchestrateur) : DJ-L07 à L34 pourvus d'un item (§3.9) ; plus aucune dette sans item au §1.
 - Mise à jour 2026-10-02 08:54 UTC (orchestrateur ; correction 4 du checkpoint de la partie 3, rapport `aca2af79…`) : DJ-L81, DJ-L106,
   DJ-L121 clos sur pièce ; DJ-L103 (IDLE-1 fait, MEASURE-1 reste) et DJ-L118 (constaté, ouvert) mis à jour. Items neufs de la partie 3 : ETAT.
+- Mise à jour 2026-10-03 08:36 UTC (correcteur DOJO-SITE-PART-CORR-1, `claude-opus-5-5`, décision D-4 de l'orchestrateur) : DJ-L192 à L198
+  ajoutés au §3.10 (partie du site) ; sources à `b2619c0c` ; M004 = `docs/adr/ADR-M004-infrastructure-plateforme.md` ; G2S = rapport de la
+  G2 de la partie, `F:/tmp/dojo/g2-partie/G2-RAPPORT.md` (sha256 `df4f335e…`) ; items de méthode de la même G2 : ETAT, « Points connus ».
 
 - **Une entrée par limite** : la mission demande une ligne par limite et borne toute ligne à 160 caractères ; chaque entrée tient donc
   sur quatre lignes au plus, ouvertes par le préfixe `- **DJ-L`, que l'on compte par `grep`.
@@ -628,6 +631,41 @@ claude-opus-5-5
   nature : code · item : DOJO-ANCHOR-OUT-OF-BAND-GUARD-1 (le signataire refuse une ligne d'ancre hors de `--anchor`, avant l'écriture) · déclencheur :
     prochain lot de l'éditeur (avec Q-10 et D3-1, au plus tard 2026-10-09)
   état : ouvert · suite : garde et test rouge à la base ; d'ici là, aucune signature à la main (RUNBOOK §19)
+
+### 3.10 Partie du site, 2026-10-03
+
+- **DJ-L192** · « `.mts` manque à `TEXT_EXTS` : les `.d.mts` exportés, dont les quatre du Dōjō, échappent à `lang:gate`, à `export:check` et au test 42 (c). »
+  source : `scripts/lang-gate.mjs` l.106-108, l.159-161 ; `scripts/export-public.mjs` l.562 ; M004 l.511 (balayage `scanText` à la main) ; G2S G2P-2
+  nature : code · item : LANG-GATE-MTS-1 (ajouter `.mts` à `TEXT_EXTS`, prix mesuré d'abord) · déclencheur : avant le prochain export d'un fichier `.mts`
+  état : ouvert · suite : `scanText` forcé le 2026-10-03 : 9 `.mts` exportés, 0 coup ; 44 suivis, 1 faux positif (`Mon`, `scripts/mission/relance.d.mts` l.36)
+- **DJ-L193** · « Le lien d'en-tête vers `/dojo` est inconditionnel : retirer le record servi rougit la branche E0 du contrôle du build et la suite. »
+  source : `apps/site/components/site-header.tsx` l.37 ; `scripts/assert-fleet-html.mjs` l.655 ; journal G1 de DOJO-NAV-LINK-1, Q-2 ; HANDOFF-2026-10-02 l.483
+  nature : code · item : DOJO-NAV-E0-1 (retirer le lien avec le record, ou le rendre conditionnel : le layout serveur lit le record ; ADR et lot à part)
+  déclencheur : tout retrait du record servi · état : ouvert · suite : voie à choisir avant le retrait ; prémisse épinglée : `test/dojo-render.test.ts` l.432
+- **DJ-L194** · « L'import de l'en-tête porterait les textes du Dōjō dans le JS de chaque page : inférence, faute d'un build de base à comparer. »
+  source : G2S G2P-5 (mesure du build du tronc) ; `apps/site/components/site-header.tsx` l.9 ; `apps/site/lib/dojo-copy.ts`
+  nature : test · item : DOJO-NAV-BUNDLE-1 (mesurer sur un build de base le poids des textes du Dōjō dans le JS de chaque page, puis décider)
+  déclencheur : prochain lot qui touche l'en-tête ou `dojo-copy.ts` · état : ouvert · suite : un module scindé toucherait `dojo_copy_is_digit_free` (G2P-5)
+- **DJ-L195** · « Le miroir public ne rejoue pas la collecte : le collecteur et ses tests ne sont pas exportés (noms d'opérateurs, chemin de lecteur). »
+  source : M004 l.513 (c), l.515 (« Conséquence ») ; item ratifié M004 l.517 (Q-4)
+  nature : code · item : EXPORT-DOJO-COLLECT-1 (purge des fichiers (c), puis export du collecteur et de ses tests par lignes d'ADR)
+  déclencheur : toute demande de rendre la collecte rejouable depuis le miroir (M004 l.515) · état : ouvert · suite : régime complet de l'ADR
+- **DJ-L196** · « La CA du déploiement du Dōjō (`scripts/verify-dojo.mjs`) n'est pas exportée : sa fermeture d'imports atteint des scripts de gouvernance. »
+  source : M004 l.513 (a), l.515 ; item ratifié M004 l.517 (Q-4)
+  nature : code · item : EXPORT-DOJO-CA-1 (décision sur la fermeture (a), jamais l'export de `public-text-deny.mjs`)
+  déclencheur : toute demande de publier la CA du déploiement du Dōjō (M004 l.515) · état : ouvert · suite : décision d'ADR, puis lot
+- **DJ-L197** · « La description de `apps/dojo/package.json`, fichier exporté, ne nomme pas le vérificateur exporté. »
+  source : M004 l.517 (Q-2) ; `apps/dojo/package.json` l.6
+  nature : code · item : EXPORT-DOJO-PKG-DESC-1 · déclencheur : prochain lot qui touche `apps/dojo/package.json` (M004 l.517)
+  état : ouvert · suite : une description qui nomme la commande publique `dojo-verify-cli.mjs`
+- **DJ-L198** · « Aucune portée `dojo` du vocabulaire ni de la langue : les fichiers Dōjō exportés passent la liste globale et la portée `root` seules. »
+  source : M004 l.511, l.517 (Q-3) ; G2S O-5 (mots des commentaires de `dojo-verify.mjs` que des portées non applicables refuseraient)
+  nature : code · item : EXPORT-DOJO-SCOPE-1 (portée `dojo` au modèle de `bell`, décision d'ADR) · déclencheur : EXPORT-DOJO-COLLECT-1 ou tout nouveau
+    fichier `apps/dojo` exporté (M004 l.517) · état : ouvert · suite : commentaires exportés relus contre la portée choisie
+- **DJ-L199** · « Le refus des chargeurs dans la fermeture du vérificateur est textuel : un nom calculé ou un nouveau chargeur intégré lui échappe. »
+  source : `test/export-public.test.ts` l.469-498 (motif `import(`, `require(`, `createRequire`) ; réserve (2) et Q-3 du correcteur DOJO-SITE-PART-CORR-1
+  nature : test · item : EXPORT-DOJO-LOADER-TRACE-1 (trace des modules chargés par le vérificateur exporté, comparée à la liste blanche) · déclencheur :
+    prochain lot qui touche un fichier de la fermeture · état : ouvert · suite : ligne datée de l orchestrateur, 2026-10-03
 
 ## 4. Limites déclarées puis closes, ou tranchées par décision
 
