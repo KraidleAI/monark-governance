@@ -409,6 +409,13 @@ DJ-L06 table sans script (code, rendu serveur des lignes committées).
   source : place à banque USD nommée dans FAITS-USDT-USD-HISTORY-1 après lecture des conditions (candidate Kraken, repli Bitfinex), Pyth en
   contrôle, primaire décide. Réponse PR recherches#62. Ordre : publication, puis FAITS-USDT-USD-HISTORY-1 sous l addendum 4 (conditions et
   couverture SANS lire la série, puis enregistrement scellé, S et F postés), puis RECORDER-CLOSE-TIME-1, Q-H3 à Q-H7, TO FILL P0-2.
+- 2026-10-03 00:00:52 UTC : course finale lancée par le lanceur (run-final.log : code f39e679c, COPY-EQUAL 8073d233…, mint_check ok,
+  first_read 2026-10-02, phase_A=0 à 00:01:33) ; suite en cours. Actes §18 (iii)/(iv) à faire avant 06:30 UTC après la fin de la course.
+- 2026-10-03 00:10 UTC : RECORDER-L2-1 (proposition RECHERCHES be4c291, demande du fondateur) : investisseur « ok go, réponds à recherches,
+  hôte serveur du site si ça tient » ; réponse PR recherches#63 : périmètre de départ carnet spot 1 min 20 niveaux + transactions +
+  liquidations ; après P0-2, en parallèle du chantier 2 ; hôte = serveur du site si la mesure d une journée tient, sinon serveur dédié
+  (dépense, acte investisseur) ; jamais l hôte du Dōjō ; audit par un advisor RECHERCHES demandé avant les items ; lancement du worker et
+  hôte définitif = actes datés de l investisseur. Items à poser à ETAT après l audit : RECORDER-L2-1, RECORDER-LIQ-1, flux différés.
 - 2026-10-02 15:30 UTC : go de minuit reçu ; lanceur `F:/tmp/dojo/final/wait-and-run.sh` armé ; annonce X publiée depuis le 1er octobre
   (investisseur) ; validation visuelle : page reconstruite à l ancre 30/30/30/30/90, captures envoyées, six questions C-V-4 encore ouvertes.
 - 2026-10-02 08:26 UTC, ÉCART DE ROSTER relevé par l orchestrateur : depuis 02:51:22 UTC, les tours de l orchestrateur tournent sous
