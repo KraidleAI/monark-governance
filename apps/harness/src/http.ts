@@ -21,6 +21,7 @@
 import { HARNESS_TOOLS, REGISTERED_TOOL_NAMES } from "./tools/registry.ts";
 import type { HarnessToolDescriptor } from "./tools/registry.ts";
 import { buildOpenApi } from "./openapi.ts";
+import { toolErrorCode, type HarnessErrorCode } from "./tools/gate.ts";
 
 const JSON_HEADERS = { "content-type": "application/json" } as const;
 
@@ -32,7 +33,8 @@ const TOOL_BY_NAME: ReadonlyMap<string, HarnessToolDescriptor> = new Map(
 /** The operations the JSON mirror serves == exactly the registered MCP tools (no more, no less). */
 export const MIRROR_OPERATIONS: readonly string[] = REGISTERED_TOOL_NAMES;
 
-/** Names of the tool-level errors the pure tools throw — surfaced as `400`, never a `500` with a stack. */
+/** Names of the tool-level errors the pure tools throw - surfaced as `400` with their stable `code` (ADR-CM B-3),
+ *  never a `500` with a stack. */
 const TOOL_ERROR_NAMES: ReadonlySet<string> = new Set(["HarnessToolError", "CascadeToolError", "AttestToolError", "CalibrateToolError", "UkemiPredictToolError"]);
 
 function json(body: unknown, status = 200, extraHeaders?: Readonly<Record<string, string>>): Response {
@@ -45,9 +47,11 @@ function json(body: unknown, status = 200, extraHeaders?: Readonly<Record<string
  * `{ structuredContent, content }`. A `GET /{tool}` on a KNOWN operation is a wrong method, answered with
  * `405` + `Allow: POST` and a "use POST /{tool}" hint (an unknown path stays `404`), so a caller that GETs
  * self-corrects. The Origin guard is applied by server.ts BEFORE this, identically to the MCP path, so
- * this handler never sees a present-and-invalid Origin.
+ * this handler never sees a present-and-invalid Origin. `clock` is the current instant handed to the tool
+ * (ADR-CM B-4), read here in src/ (K-8). The output is validated against the tool's output schema before it is
+ * sent (ADR-CM B-6): an invalid output is a `500` with code `output_invalid`, never served.
  */
-export async function handleJsonMirror(request: Request): Promise<Response> {
+export async function handleJsonMirror(request: Request, clock: () => number = Date.now): Promise<Response> {
   const { pathname } = new URL(request.url);
 
   if (request.method === "GET") {
@@ -93,14 +97,21 @@ export async function handleJsonMirror(request: Request): Promise<Response> {
     return json({ error: "invalid_input", operation: name, issues: validated.issues }, 400);
   }
 
+  let result: ReturnType<HarnessToolDescriptor["run"]>;
   try {
-    const { text, structured } = tool.run(validated.value);
-    return json({ structuredContent: structured, content: [{ type: "text", text }] });
+    result = tool.run(validated.value, { nowMs: clock() });
   } catch (error) {
     // A tool-level refusal (bad params / refused witness) is a client error, never a leaked stack.
     if (error instanceof Error && TOOL_ERROR_NAMES.has(error.name)) {
-      return json({ error: "tool_error", operation: name, message: error.message }, 400);
+      return json({ error: "tool_error", operation: name, message: error.message, code: toolErrorCode(error) }, 400);
     }
     return json({ error: "internal_error", operation: name }, 500);
   }
+  // S-15 / B-6: the mirror serves only an output its MCP twin would accept (same projected output schema).
+  const checked = await tool.outputStandardSchema["~standard"].validate(result.structured);
+  if (checked.issues !== undefined) {
+    const code: HarnessErrorCode = "output_invalid";
+    return json({ error: "internal_error", operation: name, code }, 500);
+  }
+  return json({ structuredContent: result.structured, content: [{ type: "text", text: result.text }] });
 }

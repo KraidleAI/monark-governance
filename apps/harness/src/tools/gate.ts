@@ -73,8 +73,8 @@ export const TASK_STABLE_RUN = "stable-run-velocity-24h";
 /**
  * Ukemi liquidation-eligible-coverage class (class A only, decision 108; ADR-U4b D1). Number yhat = the
  * caller-carried liquidable amount (base 8-dec). The stratum k = strateOf(yhat) is derived SERVER-SIDE (the
- * caller never picks it, C-10); alpha/nMin are SERVER-imposed (a divergent params value is a named 400). In
- * U-4b-2a the registry is EMPTY of this class ⇒ every yhat abstains under_calib (no served coverage claimed).
+ * caller never picks it, C-10); alpha/nMin are SERVER-imposed (a divergent params value is a named 400). The
+ * committed registry holds stratum s0 (n = 170, U-4b-2b); a yhat of strata s1 to s3 abstains under_calib.
  */
 export const TASK_LIQ_ELIGIBLE = "liquidation-eligible-coverage";
 
@@ -253,17 +253,45 @@ export interface HarnessParams {
   readonly calibration?: ByoCalibration;
 }
 
+/**
+ * Stable error codes (ADR-CM section 5 B-3, audit P3 S-6; plan docs/G0-lot-cm-2a.md): a closed list, outside the frozen
+ * contracts. The HTTP mirror carries the code in its error body, MCP in `_meta[ERROR_CODE_META_KEY]`. The four
+ * class defaults (attest, calibrate, cascade, ukemi-predict) follow the gate codes; `task_class_retired` is
+ * reserved for CM-2b and not thrown yet. A code is never renamed nor reused for another refusal.
+ */
+export const HARNESS_ERROR_CODES = [
+  "param_invalid", "schema_version_unsupported", "byo_calibration_invalid", "byo_yhat_type", "byo_set_tau_cap",
+  "yhat_type_mismatch", "liq_yhat_domain", "attested_inconsistent", "task_class_unknown", "byo_overrides_committed",
+  "byo_edge_blank", "byo_lookalike_committed", "byo_reserved_kata",
+  "produced_at_invalid", "produced_at_future", "output_invalid",
+  "policy_alpha_mismatch", "policy_nmin_mismatch", "task_class_retired",
+  "attest_refused", "calibrate_input_invalid", "cascade_input_invalid", "ukemi_predict_input_invalid",
+] as const;
+export type HarnessErrorCode = (typeof HARNESS_ERROR_CODES)[number];
+
+/** The MCP `_meta` key of a tool error's code (B-3, amendment "nuit, 2"). */
+export const ERROR_CODE_META_KEY = "monarkgate.tech/error_code";
+
 /** A tool-level error (K-4a): surfaced by the MCP seam as a tool error, never a silent gate. */
 export class HarnessToolError extends Error {
-  constructor(message: string) {
+  readonly code: HarnessErrorCode;
+  constructor(message: string, code: HarnessErrorCode) {
     super(message);
     this.name = "HarnessToolError";
+    this.code = code;
   }
+}
+
+/** The stable code of a harness tool error (any tool error class), or undefined for any other throw. */
+export function toolErrorCode(error: unknown): HarnessErrorCode | undefined {
+  if (!(error instanceof Error)) return undefined;
+  const code = (error as { code?: unknown }).code;
+  return (HARNESS_ERROR_CODES as readonly unknown[]).includes(code) ? (code as HarnessErrorCode) : undefined;
 }
 
 function requireFinite(value: number, name: string): void {
   if (typeof value !== "number" || !Number.isFinite(value)) {
-    throw new HarnessToolError(`invalid param '${name}': expected a finite number`);
+    throw new HarnessToolError(`invalid param '${name}': expected a finite number`, "param_invalid");
   }
 }
 
@@ -275,19 +303,19 @@ export function validateHarnessParams(params: HarnessParams): void {
   requireFinite(params.tauInterval, "tauInterval");
   requireFinite(params.alpha, "alpha");
   if (!Number.isInteger(params.nMin) || params.nMin < 1) {
-    throw new HarnessToolError("invalid param 'nMin': expected an integer >= 1");
+    throw new HarnessToolError("invalid param 'nMin': expected an integer >= 1", "param_invalid");
   }
   if (!(params.alpha > 0 && params.alpha < 1)) {
-    throw new HarnessToolError("invalid param 'alpha': expected a number in the open interval (0,1)");
+    throw new HarnessToolError("invalid param 'alpha': expected a number in the open interval (0,1)", "param_invalid");
   }
-  if (params.tau < 0) throw new HarnessToolError("invalid param 'tau': expected >= 0");
-  if (params.tauInterval < 0) throw new HarnessToolError("invalid param 'tauInterval': expected >= 0");
-  if (params.bFloor < 0) throw new HarnessToolError("invalid param 'bFloor': expected >= 0");
+  if (params.tau < 0) throw new HarnessToolError("invalid param 'tau': expected >= 0", "param_invalid");
+  if (params.tauInterval < 0) throw new HarnessToolError("invalid param 'tauInterval': expected >= 0", "param_invalid");
+  if (params.bFloor < 0) throw new HarnessToolError("invalid param 'bFloor': expected >= 0", "param_invalid");
   if (typeof params.tool !== "string" || params.tool.length === 0) {
-    throw new HarnessToolError("invalid param 'tool': expected a non-empty string");
+    throw new HarnessToolError("invalid param 'tool': expected a non-empty string", "param_invalid");
   }
   if (typeof params.clockOpen !== "boolean") {
-    throw new HarnessToolError("invalid param 'clockOpen': expected a boolean");
+    throw new HarnessToolError("invalid param 'clockOpen': expected a boolean", "param_invalid");
   }
 }
 
@@ -320,7 +348,7 @@ const PRINTABLE_ASCII = /^[ -~]+$/;
  */
 function validateCalibration(cal: ByoCalibration): void {
   if (cal.mode !== "interval" && cal.mode !== "set") {
-    throw new HarnessToolError(`invalid calibration.mode: expected 'interval' or 'set'`);
+    throw new HarnessToolError(`invalid calibration.mode: expected 'interval' or 'set'`, "byo_calibration_invalid");
   }
   // `scores`/`candidates` are typed arrays and array-typed at the SDK boundary (schema); we do NOT use
   // `Array.isArray` here — its guard narrows a typed array to `any[]` (signature `arg is any[]`), which
@@ -328,19 +356,20 @@ function validateCalibration(cal: ByoCalibration): void {
   if (cal.scores.length > CALIBRATE_MAX_N) {
     throw new HarnessToolError(
       `invalid calibration.scores: ${String(cal.scores.length)} scores exceeds the cap of ${String(CALIBRATE_MAX_N)} (resource guard)`,
+      "byo_calibration_invalid",
     );
   }
   for (let i = 0; i < cal.scores.length; i++) {
     const s = cal.scores[i];
     if (s === undefined || !Number.isFinite(s)) {
-      throw new HarnessToolError(`invalid calibration.scores[${String(i)}]: expected a finite number`);
+      throw new HarnessToolError(`invalid calibration.scores[${String(i)}]: expected a finite number`, "byo_calibration_invalid");
     }
   }
   if (cal.mode === "interval") {
     // B-4/B-6: a negative nonconformity score would make q̂ negative ⇒ lo > hi ⇒ buildIntervalRegion throws.
     for (let i = 0; i < cal.scores.length; i++) {
       if ((cal.scores[i] ?? 0) < 0) {
-        throw new HarnessToolError(`invalid calibration.scores[${String(i)}]: interval mode requires non-negative nonconformity scores (B-6)`);
+        throw new HarnessToolError(`invalid calibration.scores[${String(i)}]: interval mode requires non-negative nonconformity scores (B-6)`, "byo_calibration_invalid");
       }
     }
     return;
@@ -348,26 +377,26 @@ function validateCalibration(cal: ByoCalibration): void {
   // set mode: candidates required, non-empty, well-formed, unique labels (B-3).
   const candidates = cal.candidates;
   if (candidates === undefined || candidates.length === 0) {
-    throw new HarnessToolError("invalid calibration.candidates: set mode requires a non-empty candidate list");
+    throw new HarnessToolError("invalid calibration.candidates: set mode requires a non-empty candidate list", "byo_calibration_invalid");
   }
   if (candidates.length > CALIBRATE_MAX_N) {
-    throw new HarnessToolError(`invalid calibration.candidates: ${String(candidates.length)} exceeds the cap of ${String(CALIBRATE_MAX_N)}`);
+    throw new HarnessToolError(`invalid calibration.candidates: ${String(candidates.length)} exceeds the cap of ${String(CALIBRATE_MAX_N)}`, "byo_calibration_invalid");
   }
   const seen = new Set<string>();
   for (let i = 0; i < candidates.length; i++) {
     const c = candidates[i];
     if (c === undefined || typeof c.label !== "string" || !PRINTABLE_ASCII.test(c.label)) {
-      throw new HarnessToolError(`invalid calibration.candidates[${String(i)}].label: expected a non-empty printable-ASCII string`);
+      throw new HarnessToolError(`invalid calibration.candidates[${String(i)}].label: expected a non-empty printable-ASCII string`, "byo_calibration_invalid");
     }
     if (c.label.includes("|")) {
-      throw new HarnessToolError(`invalid calibration.candidates[${String(i)}].label: must not contain '|' (label_schema separator, B-3)`);
+      throw new HarnessToolError(`invalid calibration.candidates[${String(i)}].label: must not contain '|' (label_schema separator, B-3)`, "byo_calibration_invalid");
     }
     if (seen.has(c.label)) {
-      throw new HarnessToolError(`invalid calibration.candidates[${String(i)}].label: duplicate label '${c.label}'`);
+      throw new HarnessToolError(`invalid calibration.candidates[${String(i)}].label: duplicate label '${c.label}'`, "byo_calibration_invalid");
     }
     seen.add(c.label);
     if (typeof c.score !== "number" || !Number.isFinite(c.score)) {
-      throw new HarnessToolError(`invalid calibration.candidates[${String(i)}].score: expected a finite number`);
+      throw new HarnessToolError(`invalid calibration.candidates[${String(i)}].score: expected a finite number`, "byo_calibration_invalid");
     }
   }
 }
@@ -384,6 +413,7 @@ function assertByoSetTauCap(params: HarnessParams, cal: ByoCalibration): void {
   if (params.tau > candidates.length - 1) {
     throw new HarnessToolError(
       `byo 'set' mode requires params.tau = ${String(candidates.length - 1)} or smaller (the number of candidates minus 1, so a COMMIT is never on the whole candidate list), got ${String(params.tau)}`,
+      "byo_set_tau_cap",
     );
   }
 }
@@ -404,10 +434,10 @@ function byoVerdict(prediction: Prediction, params: HarnessParams, cal: ByoCalib
 
   // WRONG-typed yhat for the mode ⇒ tool error BEFORE the region (C-1, mirror the committed dispatch's yhat check).
   if (cal.mode === "interval" && typeof yhat !== "number") {
-    throw new HarnessToolError(`byo 'interval' mode expects a number yhat, got ${typeof yhat}`);
+    throw new HarnessToolError(`byo 'interval' mode expects a number yhat, got ${typeof yhat}`, "byo_yhat_type");
   }
   if (cal.mode === "set" && typeof yhat !== "string") {
-    throw new HarnessToolError(`byo 'set' mode expects a string yhat (label), got ${typeof yhat}`);
+    throw new HarnessToolError(`byo 'set' mode expects a string yhat (label), got ${typeof yhat}`, "byo_yhat_type");
   }
   assertByoSetTauCap(params, cal); // D3 order: after the B-3 label checks and the yhat type check
 
@@ -467,7 +497,7 @@ function byoVerdict(prediction: Prediction, params: HarnessParams, cal: ByoCalib
   // set mode: conformal set over the caller's candidate scores, label_schema derived from the candidates.
   const candidates = cal.candidates;
   if (candidates === undefined || candidates.length === 0) {
-    throw new HarnessToolError("byo 'set' mode requires a non-empty candidate list");
+    throw new HarnessToolError("byo 'set' mode requires a non-empty candidate list", "byo_calibration_invalid");
   }
   const derivedSchema = labelSchema ?? candidates.map((c) => c.label).join("|");
   const labels = conformalSet(new Map(candidates.map((c) => [c.label, c.score] as const)), qhat);
@@ -598,8 +628,8 @@ function stableRunVerdict(prediction: Prediction, params: HarnessParams): Covera
  * D-1/D-2). `yhat` is the caller-carried liquidable amount (base 8-dec). SERVER-owned: alpha/nMin are imposed
  * (a divergent value is a NAMED 400 — the L3 gate reads `params.nMin`, so a divergent nMin would diverge the
  * action); the stratum `k = strateOf(yhat)` is derived SERVER-side; the lookup key is re-derived
- * `${UKEMI_LIQ_PREDICTOR_BASE}/s${k}` (the CLIENT predictor_id is IGNORED for this class). In U-4b-2a the
- * registry is EMPTY of this class, so every yhat abstains `under_calib`. When a stratum is committed (U-4b-2b)
+ * `${UKEMI_LIQ_PREDICTOR_BASE}/s${k}` (the CLIENT predictor_id is IGNORED for this class). The committed
+ * registry holds stratum s0 (U-4b-2b); s1 to s3 are uncommitted and abstain `under_calib`. For a committed stratum
  * with qhat > 0 the region is the conformal UPPER BOUND [0, yhat + qhat] (liqUpperBoundRegion, delta D-1);
  * qhat = 0 abstains `under_calib` on the committed scores (delta D-2). Same primitive chain as stableRunVerdict
  * (splitQuantile -> region -> buildVerdict), but the region is an upper bound, NOT the symmetric interval.
@@ -611,24 +641,27 @@ function liqEligibleVerdict(prediction: Prediction, params: HarnessParams): Cove
   if (!Number.isSafeInteger(yhat) || yhat < 0) {
     throw new HarnessToolError(
       `task_class '${TASK_LIQ_ELIGIBLE}' expects yhat to be a non-negative safe integer (base 8-dec liquidable amount), got ${String(yhat)}`,
+      "liq_yhat_domain",
     );
   }
   // alpha/nMin are SERVER-IMPOSED for this committed class (C-10 / delta D-6): divergent ⇒ a named 400.
   if (params.alpha !== LIQ_ALPHA) {
     throw new HarnessToolError(
       `task_class '${TASK_LIQ_ELIGIBLE}' requires params.alpha = ${String(LIQ_ALPHA)} (server-imposed for the committed class), got ${String(params.alpha)}`,
+      "policy_alpha_mismatch",
     );
   }
   if (params.nMin !== LIQ_NMIN) {
     throw new HarnessToolError(
       `task_class '${TASK_LIQ_ELIGIBLE}' requires params.nMin = ${String(LIQ_NMIN)} (server-imposed for the committed class), got ${String(params.nMin)}`,
+      "policy_nmin_mismatch",
     );
   }
   const k = strateOf(yhat);
   const predictorId = `${UKEMI_LIQ_PREDICTOR_BASE}/s${String(k)}`;
   const committed = lookupCommittedCalibration(TASK_LIQ_ELIGIBLE, predictorId);
   if (committed === undefined) {
-    // EMPTY registry (U-4b-2a) OR an uncommitted stratum ⇒ honest abstention (empty scores, n_calib 0).
+    // An uncommitted stratum (s1 to s3) => honest abstention (empty scores, n_calib 0).
     return underCalibVerdict({
       taskClass: TASK_LIQ_ELIGIBLE, method: "split", alpha: params.alpha, scores: [],
       residual: [], producedAt: prediction.produced_at, schemaVersion: SCHEMA_VERSION,
@@ -726,35 +759,87 @@ const CLASS_LOCKED = [TASK_BTC_DIR, TASK_CASCADE, TASK_LIQ_ELIGIBLE] as const;
 
 /**
  * BYO look-alike rule (ADR-CM §5 B-1, audit P3 S-11; plan docs/G0-lot-cm-1-byo-near-name.md). Returns the 400
- * message when a BYO (task_class, predictor_id) imitates a committed name or takes a reserved kata name, else
+ * message and its code when a BYO (task_class, predictor_id) imitates a committed name or takes a reserved kata name, else
  * undefined. Fold = `asciiLower` (A to Z only); non-ASCII homoglyphs are a declared residual (BYO-HOMOGLYPH-1).
  */
-function byoLookAlike(taskClass: string, predictorId: string): string | undefined {
+function byoLookAlike(taskClass: string, predictorId: string): { readonly message: string; readonly code: HarnessErrorCode } | undefined {
   if (EDGE_BLANK.test(taskClass) || EDGE_BLANK.test(predictorId)) {
-    return `byo task_class and predictor_id must not start or end with a blank: ${JSON.stringify(taskClass)} / ${JSON.stringify(predictorId)} (ADR-CM B-1)`;
+    return { code: "byo_edge_blank", message: `byo task_class and predictor_id must not start or end with a blank: ${JSON.stringify(taskClass)} / ${JSON.stringify(predictorId)} (ADR-CM B-1)` };
   }
   const cls = asciiLower(taskClass);
   const key = asciiLower(predictorId);
   if ((CLASS_LOCKED as readonly string[]).includes(cls) || matchesCommittedKeyFolded(taskClass, predictorId)) {
-    return `calibration must not override the committed (task_class, predictor_id) '${taskClass}' / '${predictorId}', compared without ASCII case: use a caller-owned key for BYO (ADR-CM B-1, ADR-M008 A6)`;
+    return { code: "byo_lookalike_committed", message: `calibration must not override the committed (task_class, predictor_id) '${taskClass}' / '${predictorId}', compared without ASCII case: use a caller-owned key for BYO (ADR-CM B-1, ADR-M008 A6)` };
   }
   if (KATA_CLASS_RE.test(cls) || key.startsWith(KATA_KEY_PREFIX)) {
-    return `task_class '${taskClass}' / predictor_id '${predictorId}' takes a name reserved for MONARK kata classes (pattern ${KATA_CLASS_RE.source}, key prefix '${KATA_KEY_PREFIX}'): use a caller-owned name for BYO (ADR-CM B-1)`;
+    return { code: "byo_reserved_kata", message: `task_class '${taskClass}' / predictor_id '${predictorId}' takes a name reserved for MONARK kata classes (pattern ${KATA_CLASS_RE.source}, key prefix '${KATA_KEY_PREFIX}'): use a caller-owned name for BYO (ADR-CM B-1)` };
   }
   return undefined;
 }
 
+/** "Not in the future" tolerance at the HTTP and MCP entry points (ADR-CM section 5 B-4): 300 s of clock skew. */
+export const PRODUCED_AT_FUTURE_TOLERANCE_MS = 300_000;
+
+/** RFC 3339 section 5.6 date-time: full-date "T" full-time, fraction optional, offset Z or +-hh:mm (T and Z in either case). */
+const RFC3339_DATE_TIME = /^(\d{4})-(\d{2})-(\d{2})[Tt](\d{2}):(\d{2}):(\d{2})(?:\.\d+)?(?:[Zz]|([+-])(\d{2}):(\d{2}))$/;
+
+/**
+ * The instant (epoch ms) of a STRICT RFC 3339 date-time, or undefined (ADR-CM B-4, audit P3 S-10 and P5(b)). The
+ * calendar date (leap years included), hour 00-23 and minute 00-59 are checked by a round trip through a UTC date
+ * (a field out of range rolls over and fails the round trip); second 00-60 (a leap second counts as the next
+ * second); offset at most 23:59. The fraction is ignored: the 300 s tolerance dwarfs it. Pure: no clock is read.
+ */
+export function rfc3339Instant(text: string): number | undefined {
+  const m = RFC3339_DATE_TIME.exec(text);
+  if (m === null) return undefined;
+  const [y, mo, d, h, mi, sec] = [m[1], m[2], m[3], m[4], m[5], m[6]].map(Number) as [number, number, number, number, number, number];
+  const offH = Number(m[8] ?? "0");
+  const offM = Number(m[9] ?? "0");
+  if (sec > 60 || offH > 23 || offM > 59) return undefined;
+  const t = new Date(0);
+  t.setUTCFullYear(y, mo - 1, d);
+  t.setUTCHours(h, mi, 0, 0);
+  const roundTrip = t.getUTCFullYear() === y && t.getUTCMonth() === mo - 1 && t.getUTCDate() === d && t.getUTCHours() === h && t.getUTCMinutes() === mi;
+  if (!roundTrip) return undefined;
+  const sign = m[7] === "-" ? -1 : 1;
+  return t.getTime() + sec * 1000 - sign * (offH * 60 + offM) * 60_000;
+}
+
+/** Options of `runGate`. `nowMs` is the current instant, read in src/ by the HTTP and MCP entry points and injected
+ *  (K-8: no clock under src/tools/). Absent (a direct call) => only the RFC 3339 check runs (declared, B-4). */
+export interface RunGateOptions {
+  readonly nowMs?: number;
+}
+
+/** `produced_at` (ADR-CM B-4): strict RFC 3339, else 400 `produced_at_invalid`; with `nowMs`, at most
+ *  PRODUCED_AT_FUTURE_TOLERANCE_MS after it, else 400 `produced_at_future`. No bar grid (USDe, liq, cascade, BYO). */
+function assertProducedAt(producedAt: string, nowMs: number | undefined): void {
+  const at = typeof producedAt === "string" ? rfc3339Instant(producedAt) : undefined;
+  if (at === undefined) {
+    throw new HarnessToolError(`invalid prediction.produced_at ${JSON.stringify(producedAt)}: expected an RFC 3339 date-time (ADR-CM B-4)`, "produced_at_invalid");
+  }
+  if (nowMs !== undefined && at > nowMs + PRODUCED_AT_FUTURE_TOLERANCE_MS) {
+    throw new HarnessToolError(
+      `prediction.produced_at '${producedAt}' is in the future: more than ${String(PRODUCED_AT_FUTURE_TOLERANCE_MS / 1000)} s after the server clock (ADR-CM B-4)`,
+      "produced_at_future",
+    );
+  }
+}
+
 /**
  * Compose the real primitives into a closed `GateDecision`. Throws `HarnessToolError` on an unknown
- * `task_class`, a wrong-typed `yhat`, or invalid params (K-4a). The gate NEVER calls `params.tool`.
+ * `task_class`, a wrong-typed `yhat`, an invalid `produced_at`, or invalid params (K-4a). The gate NEVER calls
+ * `params.tool`.
  */
-export function runGate(prediction: Prediction, params: HarnessParams, attested?: AttestedPrice): GateDecision {
+export function runGate(prediction: Prediction, params: HarnessParams, attested?: AttestedPrice, options: RunGateOptions = {}): GateDecision {
   validateHarnessParams(params);
   if (prediction.schema_version !== SCHEMA_VERSION) {
     throw new HarnessToolError(
       `unsupported prediction.schema_version '${prediction.schema_version}': the harness speaks '${SCHEMA_VERSION}'`,
+      "schema_version_unsupported",
     );
   }
+  assertProducedAt(prediction.produced_at, options.nowMs);
 
   const taskClass = prediction.task_class;
   const calibration = params.calibration;
@@ -770,12 +855,13 @@ export function runGate(prediction: Prediction, params: HarnessParams, attested?
       taskClass === TASK_BTC_DIR ||
       taskClass === TASK_CASCADE ||
       taskClass === TASK_LIQ_ELIGIBLE || // class-lock: the liq class is committed on the CLASS (server-imposed
-      // alpha/nMin + server-derived stratum), so a BYO `calibration` may never override it, even on the empty
-      // -2a registry where lookupCommittedCalibration would return undefined (mutant (c) drops this ⇒ RED).
+      // alpha/nMin + server-derived stratum), so a BYO `calibration` may never override it, whatever the key:
+      // lookupCommittedCalibration only knows the s0 key (mutant (c) drops this => RED).
       lookupCommittedCalibration(taskClass, prediction.predictor_id) !== undefined;
     if (overridesCommitted) {
       throw new HarnessToolError(
         `calibration must not override the committed (task_class, predictor_id) '${taskClass}' / '${prediction.predictor_id}': use a caller-owned key for BYO (ADR-M007 D7, ADR-M008 A6)`,
+        "byo_overrides_committed",
       );
     }
     // Look-alike guard (ADR-CM B-1, audit P3 S-11): AFTER the exact guard, so an exact committed name keeps its
@@ -783,7 +869,7 @@ export function runGate(prediction: Prediction, params: HarnessParams, attested?
     // takes a reserved kata name is refused too.
     const lookAlike = byoLookAlike(taskClass, prediction.predictor_id);
     if (lookAlike !== undefined) {
-      throw new HarnessToolError(lookAlike);
+      throw new HarnessToolError(lookAlike.message, lookAlike.code);
     }
   }
 
@@ -794,7 +880,7 @@ export function runGate(prediction: Prediction, params: HarnessParams, attested?
   if (attested !== undefined) {
     const inconsistency = checkAttestedConsistency(taskClass, attested.subject);
     if (inconsistency !== undefined) {
-      throw new HarnessToolError(inconsistency);
+      throw new HarnessToolError(inconsistency, "attested_inconsistent");
     }
   }
 
@@ -806,33 +892,33 @@ export function runGate(prediction: Prediction, params: HarnessParams, attested?
     nCalib = calibration.scores.length;
   } else if (taskClass === TASK_BTC_DIR) {
     if (typeof prediction.yhat !== "string") {
-      throw new HarnessToolError(`task_class '${TASK_BTC_DIR}' expects a string yhat (label), got ${typeof prediction.yhat}`);
+      throw new HarnessToolError(`task_class '${TASK_BTC_DIR}' expects a string yhat (label), got ${typeof prediction.yhat}`, "yhat_type_mismatch");
     }
     verdict = btcDirVerdict(prediction, params);
     nCalib = BTC_DIR_CALIB.length;
   } else if (taskClass === TASK_CASCADE) {
     if (typeof prediction.yhat !== "number") {
-      throw new HarnessToolError(`task_class '${TASK_CASCADE}' expects a number yhat (amount), got ${typeof prediction.yhat}`);
+      throw new HarnessToolError(`task_class '${TASK_CASCADE}' expects a number yhat (amount), got ${typeof prediction.yhat}`, "yhat_type_mismatch");
     }
     verdict = cascadeVerdict(prediction, params);
     nCalib = verdict.n_calib; // 0 — no committed cascade calibration
   } else if (taskClass === TASK_STABLE_RUN) {
     if (typeof prediction.yhat !== "number") {
-      throw new HarnessToolError(`task_class '${TASK_STABLE_RUN}' expects a number yhat (velocity forecast), got ${typeof prediction.yhat}`);
+      throw new HarnessToolError(`task_class '${TASK_STABLE_RUN}' expects a number yhat (velocity forecast), got ${typeof prediction.yhat}`, "yhat_type_mismatch");
     }
     verdict = stableRunVerdict(prediction, params);
     nCalib = verdict.n_calib; // 613 for the committed USDe key; 0 for any other population (under_calib)
   } else if (taskClass === TASK_LIQ_ELIGIBLE) {
     if (typeof prediction.yhat !== "number") {
-      throw new HarnessToolError(`task_class '${TASK_LIQ_ELIGIBLE}' expects a number yhat (liquidable amount), got ${typeof prediction.yhat}`);
+      throw new HarnessToolError(`task_class '${TASK_LIQ_ELIGIBLE}' expects a number yhat (liquidable amount), got ${typeof prediction.yhat}`, "yhat_type_mismatch");
     }
     verdict = liqEligibleVerdict(prediction, params);
-    nCalib = verdict.n_calib; // 0 on the empty -2a registry (under_calib); the committed count at -2b
+    nCalib = verdict.n_calib; // 170 for the committed stratum s0; 0 for s1 to s3 (under_calib)
   } else {
     // delta D-4: an unknown class (e.g. the class-B name, decision 108 keeps B out of service) ⇒ a
     // HarnessToolError (⇒ 400 via http.ts), NEVER `under_calib`. The `known:` list carries no class-B name
     // (D-2(a) grep=0), so the B name only appears as the unknown `'${taskClass}'`, never as a served class.
-    throw new HarnessToolError(`unknown task_class '${taskClass}' (known: ${TASK_BTC_DIR}, ${TASK_CASCADE}, ${TASK_STABLE_RUN}, ${TASK_LIQ_ELIGIBLE}; or supply params.calibration for BYO)`);
+    throw new HarnessToolError(`unknown task_class '${taskClass}' (known: ${TASK_BTC_DIR}, ${TASK_CASCADE}, ${TASK_STABLE_RUN}, ${TASK_LIQ_ELIGIBLE}; or supply params.calibration for BYO)`, "task_class_unknown");
   }
 
   // ADR-M017 D2(iii)/D4(3) — attested `residual` seam (P1-b2). When a caller-carried `attested` is present
