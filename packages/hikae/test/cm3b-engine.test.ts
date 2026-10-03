@@ -71,7 +71,9 @@ function mulberry32(seed: number): () => number {
 // (qhat, sigmaHat) pairs (fixed values and seeded draws over many binades): the exact rule holds at h* and fails at its
 // successor; x <= h* iff fl(x / sigmaHat) <= qhat on the four neighbours of h*; the raw product fl(qhat x sigmaHat) is
 // not h* on a share of the grid (the advisor's point: the product band can exclude its own qhat point).
-// killer: packages/hikae/src/scaled-band.ts:43 ROR "h / sigmaHat > qhat" -> "h / sigmaHat >= qhat"
+// G2 of CM-3b: subnormal and zero qhat with a large sigmaHat (edges far from the product, checked by the same exact rule
+// and pinned from the reviewer's BigInt oracle), and the named refusal of a negative qhat.
+// killer: packages/hikae/src/scaled-band.ts:35 ROR "ofBits(b) / sigmaHat <= qhat" -> "ofBits(b) / sigmaHat < qhat"
 test("band_edge_is_the_largest_double_under_qhat", () => {
   const edge = fn<(q: number, s: number) => number | null>("bandEdge");
   const rnd = mulberry32(31);
@@ -91,8 +93,14 @@ test("band_edge_is_the_largest_double_under_qhat", () => {
     }
   }
   assert.ok(differ > 0, "the product band differs from h* somewhere on the grid");
+  for (const [q, s, want] of [[6.752248630174e-311, 1.0124145746231078e28, 6.836074924667226e-283], [5e-324, 1e300, 7.410984687618697e-24], [0, 1e300, 2.470328229206233e-24]] as const) {
+    const h = edge(q, s);
+    assert.equal(h, want, `q ${q} s ${s}`);
+    assert.ok(divLeq(want, s, q) && !divLeq(up(want), s, q), `exact rule at q ${q} s ${s}`);
+  }
   assert.equal(edge(1e300, 1e10), null, "a non-finite product gives no band");
-  for (const [q, s] of [[-1, 1], [Number.NaN, 1], [1, 0], [1, -1], [1, Infinity]]) assert.throws(() => edge(q as number, s as number), RangeError);
+  assert.throws(() => edge(-1, 1), /qhat -1/);
+  for (const [q, s] of [[Number.NaN, 1], [1, 0], [1, -1], [1, Infinity]]) assert.throws(() => edge(q as number, s as number), RangeError);
 });
 
 /** Test-side previous double of x > 0. */
@@ -107,7 +115,9 @@ function exactPrev(x: number): number {
 // buildIntervalRegion. qhat = 0 (all-zero scores) is under_calib: at sigmaHat 2 the band [0, 5e-324] would otherwise be
 // served (fl(5e-324 / 2) = 0), and the additive band at qhat 0 abstains too (NDG-1). Negative scores, a sigmaHat not
 // finite and > 0, and the refusals of riskControlRow fail closed; attempt and spendIndex reach the row (amendment A-1).
-// killer: packages/hikae/src/scaled-band.ts:83 CONST "row.qhat === 0" -> "false"
+// G2 of CM-3b: a subnormal qhat with sigmaHat 1000 returns without an exception (the ulp walk did not end), and a qhat > 0
+// whose edge is 0 (qhat 5e-324, sigmaHat 0.3: fl(5e-324 / 0.3) = 1.5e-323 > qhat) is under_calib.
+// killer: packages/hikae/src/scaled-band.ts:80 CONST "row.qhat === 0" -> "false"
 test("conform_scaled_band_serves_zero_to_h_star", () => {
   const band = fn<(scores: readonly number[], s: number, a: string, d: string, nMin: number, o?: Row) => Row>("conformScaledBand");
   const edge = fn<(q: number, s: number) => number | null>("bandEdge");
@@ -131,6 +141,16 @@ test("conform_scaled_band_serves_zero_to_h_star", () => {
   for (const s of [2, 1, 0.5]) assert.deepEqual(band(zeros, s, "0.01", "0.05", 300), UNDER, `zeros, sigmaHat ${s}`);
   assert.equal(edge(0, 2), Number.MIN_VALUE, "the edge itself is a subnormal at sigmaHat 2");
   assert.deepEqual(buildIntervalRegion(5, 5), UNDER_ABSTAIN);
+  // Subnormal qhat (scores 5e-324 and 0, rank on a 5e-324): sigmaHat 1000 decides, sigmaHat 0.3 has h* = 0.
+  const tiny = [...Array.from({ length: 300 }, () => 5e-324), ...zeros];
+  const tinyRow = riskControlRow(tiny, "0.01", "0.05", 300, { domain: "band" });
+  assert.ok("qhat" in tinyRow && tinyRow.qhat === 5e-324);
+  assert.equal(edge(5e-324, 0.3), 0);
+  assert.deepEqual(band(tiny, 0.3, "0.01", "0.05", 300), UNDER, "qhat > 0 with h* = 0");
+  const big = band(tiny, 1000, "0.01", "0.05", 300);
+  const hBig = edge(5e-324, 1000);
+  assert.ok(hBig !== null && hBig > 0 && divLeq(hBig, 1000, 5e-324) && !divLeq(up(hBig), 1000, 5e-324));
+  assert.deepEqual(big.region, { kind: "interval", lo: 0, hi: hBig }, "subnormal qhat at sigmaHat 1000: no exception");
   // Refusals.
   for (const s of [0, -1, Number.NaN, Infinity]) assert.deepEqual(band(scores, s, "0.01", "0.05", 300), UNDER, `sigmaHat ${s}`);
   assert.deepEqual(band([...scores, -0.1], sigma, "0.01", "0.05", 300), UNDER, "a negative score");
@@ -142,7 +162,7 @@ const UNDER_ABSTAIN = { abstain: true, reason: "under_calib" };
 // E-2: orderedCalibDigest is the P2 bench's scoresSha256 / auxSha256 (sha256 of the JSON writing in time order). Vectors
 // computed on 2026-10-03 by RECHERCHES kata/bench/calibrate.ts seqDigest (Node 24.21.0), the first and the empty one
 // also by sha256sum on the literal text. Order matters (calibDigest sorts); a non-finite number throws.
-// killer: packages/hikae/src/canonical-row.ts:38 CONST "sha(aux)" -> "sha(scores)"
+// killer: packages/hikae/src/canonical-row.ts:61 CONST "sha(aux)" -> "sha(scores)"
 test("ordered_calib_digest_matches_the_p2_bench", () => {
   const digest = fn<(s: readonly number[], a: readonly number[]) => Row>("orderedCalibDigest");
   const v = [0, 1, 1e-7, 0.30000000000000004, 1.5501056004166666e-4, 2, 123456789.125, -0, 5e-324];
@@ -156,16 +176,29 @@ test("ordered_calib_digest_matches_the_p2_bench", () => {
   for (const bad of [Number.NaN, Infinity, -Infinity]) assert.throws(() => digest([0, bad], []), RangeError);
 });
 
+function cyclic(): unknown {
+  const o: Record<string, unknown> = { a: 1 };
+  o.self = [o];
+  return o;
+}
+
 // S-13: canonicalRow writes an F-7 row as minified JSON, keys sorted by UTF-8 bytes, numbers in the shortest round-trip
-// decimal (-0 as 0, 1e+21), and throws on a non-finite number, undefined or a function at any depth.
-// killer: packages/hikae/src/canonical-row.ts:26 CONST "Number.isFinite(v)" -> "true"
+// decimal (-0 as 0, 1e+21), and throws on a non-finite number, undefined or a function at any depth; G2 of CM-3b: also on
+// a sparse array, an object that is not plain, a string or key with a lone surrogate, a cycle. Null-prototype objects pass.
+// killer: packages/hikae/src/canonical-row.ts:24 CONST "!t.isWellFormed()" -> "false"
 test("canonical_row_is_one_writing_for_f7_rows", () => {
   const canon = fn<(v: unknown) => string>("canonicalRow");
   const row = { b: 1, a: [0.1, -0, 1e21, 1e-7, "x"], "é": null, Z: true, n: { y: 2, x: [] } };
   assert.equal(canon(row), '{"Z":true,"a":[0.1,0,1e+21,1e-7,"x"],"b":1,"n":{"x":[],"y":2},"é":null}');
   assert.equal(canon({ "é": 1, "￿": 2, "😀": 3 }), '{"é":1,"￿":2,"😀":3}', "UTF-8 byte order, not UTF-16");
   assert.equal(canon(1.5501056004166666e-4), "0.00015501056004166666");
-  for (const [name, bad] of [["NaN", Number.NaN], ["Infinity", Infinity], ["nested -Infinity", { a: [1, -Infinity] }], ["undefined", { a: undefined }], ["function", { f: () => 0 }], ["bigint", [1n]]] as const) {
+  const bare = Object.create(null) as Record<string, unknown>;
+  bare.k = [1, { j: "\ud83d\ude00" }];
+  assert.equal(canon(bare), '{"k":[1,{"j":"\ud83d\ude00"}]}');
+  const shared = { x: 1 };
+  assert.equal(canon({ a: shared, b: [shared] }), '{"a":{"x":1},"b":[{"x":1}]}', "a shared object is not a cycle");
+  for (const [name, bad] of [["NaN", Number.NaN], ["Infinity", Infinity], ["nested -Infinity", { a: [1, -Infinity] }], ["undefined", { a: undefined }], ["function", { f: () => 0 }], ["bigint", [1n]],
+    ["sparse", [1, , 3]], ["Date", new Date(0)], ["Map", new Map()], ["boxed", Object(1)], ["lone surrogate key", { "\ud800": 1 }], ["lone surrogate", "\udc00"], ["cycle", cyclic()]] as const) {
     assert.throws(() => canon(bad), RangeError, name);
   }
 });
