@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 // scripts/detect-ee7-history.mjs -- detector of the EE-7 episodes of the historical blocks (lot EE7-HISTORY-DETECTOR-1, 2026-10-03): the
 // rule that addendum 4 of ADR 0006 of RECHERCHES (section 3) fixed before any read, on the source and the read that its addendum 5 fixed
-// (C1 to C4). Node 24, zero dependencies, offline, deterministic.
+// (C1 to C4), with the episode kinds of its addendum 7 (W3, W4; lot EE7-ADD7-1). Node 24, zero dependencies, offline, deterministic.
 //   node scripts/detect-ee7-history.mjs --root <dir> --from <instant> --to <instant>
 // S and F come from ONE run over the whole recording, --from at the earliest 2022-08-01T00:15Z (the read of the first slot of the
 // recording, which starts in 2022-08); a run per block serves the C4 counts only.
@@ -9,7 +9,9 @@
 // writes (lot COINBASE-USDT-RECORDER-1): USDT-USD-15m.csv (fixed header below, values as received), missing.json (its array `missing`:
 // every slot without a candle), manifest.json and SHA256SUMS (sha256sum -c format; raw/ pages and requests.jsonl when listed). Every
 // month that the window needs is verified before any read: SHA256SUMS re-read, each listed file re-hashed, no file left unlisted; then
-// each 15-minute slot of the month must be exactly one CSV row or one missing.json entry. Any doubt is a named refusal.
+// its manifest.json must be the recorder's for that month (D-1 of lot EE7-ADD7-1, correction 5 of the review of RECHERCHES): schema
+// SCHEMA, product USDT-USD, granularity_s 900, end_exclusive the end of the month and a recorder_sha256; then each 15-minute slot of
+// the month must be exactly one CSV row or one missing.json entry. Any doubt is a named refusal.
 // Read at instant tau of the 15-minute grid (addendum 5, C2): the close of the candle whose start is tau - 15 min, never the candle
 // stamped tau (it would read the future); absent when missing.json lists that candle, never replaced nor interpolated. Declared, not
 // corrected (C3): a candle covers [tau - 15 min, tau), where addendum 4 read (tau - 15 min, tau). The window: --from <= tau < --to.
@@ -17,26 +19,31 @@
 //   S = the instant of the FIRST of 4 consecutive present reads with |x - 1| > 0.01; an absent read neither counts nor resets the run;
 //   F = the first instant after the 4th read such that [F - 24 h, F) holds at least 48 present reads and every one has |x - 1| < 0.005
 //       (F may equal --to: it rests on earlier reads only); the next search for S starts at F;
-//   an absent read never opens nor closes an episode; an episode still open at --to has F null and is named in open_episode_at_end.
+//   an absent read never opens nor closes an episode; one still open at --to takes F = --to (addendum 7, W4), named in open_episode_at_end.
 // Output, and nothing else (stdout, exit 0): one closed JSON {source, window, reads, edge, calm_certified_from, episodes,
 // open_episode_at_end} of instants, counts and sha256 digests; no price and no volume, anywhere. C4, counts that inform and never move
 // S nor F: reads.absent, the absent reads of the window, i.e. the missing candles of [--from - 15 min, --to - 15 min), one slot before
 // the candles [B0, B1) of a block run with --from B0 --to B1 (at most one candle differs at each end; --from B0 + 15 min and --to
-// B1 + 15 min read exactly them); and per episode present_reads_last_24h, the present reads of [F - 24 h, F) (null while open).
+// B1 + 15 min read exactly them); and per episode present_reads_last_24h, the present reads of [F - 24 h, F) (null if open at --to).
 // edge, information only: the present reads that depart (|x - 1| > 0.01) in a row at the start and at the end of the window, absent
 // reads skipped as in the rule: a run that --from cuts (its S may be earlier) or that --to cuts.
 // calm_certified_from (F-1): the first instant f of the window whose day [f - 24 h, f) lies in the window (f >= --from + 24 h) and
 // holds at least 48 present reads, all with |x - 1| < 0.005; null if none. At f, whatever came before --from, every episode begun
 // earlier is closed and no run of departing reads is pending: an episode whose S is at or after f is that of a run over the whole
 // recording; before f, an episode in progress at --from may be invisible or show a late S.
+// Episodes (addendum 7; D-2 of lot EE7-ADD7-1): each carries its kind (closed list KINDS) and its exclusion interval [exclude_from, F).
+// W4 first: open-at-end, still open at --to, F = --to. Then W3: lead-in, an S that calm_certified_from does not certify (S before it,
+// or no such instant: Q-1 of that lot), listed and never dropped; else episode. exclude_from is S when calm_certified_from certifies
+// it, --from otherwise: a late S never under-excludes. While calm_certified_from is set, an open episode begins at or after it.
 // A named refusal (STOPS, closed list) prints {ok: false, stop, detail} on stderr and exits 1 (usage: 2); a detail names a file, a
-// line, a column or an instant, never the content of a field. Writes no file.
+// line, a column, a key or an instant, never the content of a field. Writes no file.
 import { createHash } from "node:crypto";
 import { existsSync, readdirSync, readFileSync, realpathSync, statSync } from "node:fs";
 import { join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
 export const PRODUCT = "USDT-USD";
+export const SCHEMA = "monark.series.coinbase.v1"; // the schema of the recorder's manifest.json (D-1 of lot EE7-ADD7-1)
 export const CSV_NAME = `${PRODUCT}-15m.csv`;
 export const CSV_HEADER = "open_time_utc,open_time_ms,low,high,open,close,volume";
 export const SEALED = [CSV_NAME, "manifest.json", "missing.json"]; // the files that SHA256SUMS must list
@@ -46,8 +53,10 @@ export const OPEN_BAND = "0.01"; // ... each with |x - 1| > 0.01
 export const CALM_BAND = "0.005"; // F: every present read of [F - 24 h, F) with |x - 1| < 0.005 ...
 export const CALM_SPAN_MS = 86_400_000; // ... over 24 h ...
 export const CALM_MIN_PRESENT = 48; // ... and at least 48 of them present
-export const STOPS = ["usage", "bad_time", "month_absent", "sums_missing", "sums_malformed", "sums_mismatch", "sums_unlisted", "csv_header",
-  "csv_row", "bad_value", "missing_malformed", "missing_conflict", "slot_unaccounted"];
+export const KINDS = ["episode", "lead-in", "open-at-end"]; // the kind of an episode, closed list (addendum 7, W3 and W4)
+export const STOPS = ["usage", "bad_time", "month_absent", "sums_missing", "sums_malformed", "sums_mismatch", "sums_unlisted",
+  "manifest_malformed", "manifest_mismatch", "csv_header", "csv_row", "bad_value", "missing_malformed", "missing_conflict",
+  "slot_unaccounted"];
 const LF = String.fromCharCode(10);
 const DECIMAL = /^[0-9]+([.][0-9]+)?$/;
 const TIME = /^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}(:00)?Z$/;
@@ -111,6 +120,7 @@ export function deviationVersus(x, band) {
 const OPEN = parseDecimal(OPEN_BAND), CALM = parseDecimal(CALM_BAND);
 const departs = (x) => deviationVersus(x, OPEN) > 0; // |x - 1| > 0.01, strictly
 const calm = (x) => deviationVersus(x, CALM) < 0; // |x - 1| < 0.005, strictly
+const [EPISODE, LEAD_IN, OPEN_AT_END] = KINDS;
 
 /** Every file under dir, as a relative path with "/" separators. */
 const filesUnder = (dir, prefix = "") => readdirSync(dir, { withFileTypes: true }).flatMap((e) => (e.isDirectory()
@@ -137,6 +147,19 @@ function verifyMonth(dir, month) {
   }
   for (const name of filesUnder(dir)) if (name !== "SHA256SUMS" && !listed.has(name)) stop("sums_unlisted", { file: at(name) });
   return sha256(bytes);
+}
+
+/** One month's manifest.json, pinned by the seal: the Coinbase recorder's for that month (D-1 of lot EE7-ADD7-1): its schema, the
+ *  product, the 900 s grid, the exclusive end of the month and the digest of the recorder that wrote it; a refusal names the key only. */
+function readManifest(dir, month) {
+  const file = `${month}/15m/manifest.json`, text = readFileSync(join(dir, "manifest.json"), "utf8");
+  let doc;
+  try { doc = JSON.parse(text); } catch { stop("manifest_malformed", { file, why: "not JSON" }); }
+  if (doc === null || typeof doc !== "object" || Array.isArray(doc)) stop("manifest_malformed", { file, why: "not an object" });
+  const end = isoOf(nextMonth(Date.parse(`${month}-01T00:00:00Z`))); // the exclusive end of the month, in the recorder's form
+  const wanted = { schema: (v) => v === SCHEMA, product: (v) => v === PRODUCT, granularity_s: (v) => v === STEP_MS / 1000,
+    end_exclusive: (v) => v === end, recorder_sha256: (v) => typeof v === "string" && /^[0-9a-f]{64}$/.test(v) };
+  for (const [key, ok] of Object.entries(wanted)) if (!ok(doc[key])) stop("manifest_mismatch", { file, key });
 }
 
 /** The closes of one month's CSV by open time (ms), each an exact fraction; every row checked before its close is kept. */
@@ -181,6 +204,7 @@ function readWindow(root, from, to) {
   const book = new Map(), months = [], reads = [];
   for (let t = from - STEP_MS; t < to - STEP_MS; t = nextMonth(t)) {
     const month = monthOf(t), dir = join(root, month, "15m"), sha256sums = verifyMonth(dir, month);
+    readManifest(dir, month);
     const closes = readCsv(dir, month), missing = readMissing(dir, month);
     for (let slot = Date.parse(`${month}-01T00:00:00Z`), end = nextMonth(slot); slot < end; slot += STEP_MS) {
       if (closes.has(slot) && missing.has(slot)) stop("missing_conflict", { month, open_time_utc: isoOf(slot) });
@@ -236,13 +260,15 @@ function departingHead(xs) {
 export function run(argv) {
   const { root, from, to } = parseArgs(argv), { reads, months } = readWindow(root, from, to), { episodes, certified } = detect(reads);
   const at = (i) => isoOf(from + i * STEP_MS), present = reads.filter((x) => x !== null).length, open = episodes.find((e) => e.f === null);
+  const whole = (e) => certified !== null && e.s >= certified; // W3: an S at or after calm_certified_from is that of the whole recording
   return {
     source: { venue: "coinbase", product: PRODUCT, granularity_s: STEP_MS / 1000, months, detector_sha256: sha256(readFileSync(SCRIPT)) },
     window: { from: isoOf(from), to_exclusive: isoOf(to) },
     reads: { present, absent: reads.length - present },
     edge: { start: departingHead(reads), end: departingHead(reads.toReversed()) },
     calm_certified_from: certified === null ? null : at(certified),
-    episodes: episodes.map((e) => ({ S: at(e.s), F: e.f === null ? null : at(e.f), present_reads_in_episode: e.inside,
+    episodes: episodes.map((e) => ({ kind: e.f === null ? OPEN_AT_END : whole(e) ? EPISODE : LEAD_IN, S: at(e.s),
+      F: at(e.f ?? reads.length), exclude_from: at(whole(e) ? e.s : 0), present_reads_in_episode: e.inside,
       present_reads_last_24h: e.day })),
     open_episode_at_end: open === undefined ? null : at(open.s),
   };
