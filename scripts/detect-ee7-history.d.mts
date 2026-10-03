@@ -3,6 +3,7 @@
 // only. Runtime implementation = detect-ee7-history.mjs; Node ignores this file. Neither file is in the export whitelist
 // (scripts/export-public.mjs): the detector reads a series that is not redistributable and stays out of the public tree.
 export const PRODUCT: string;
+export const SCHEMA: string;
 export const CSV_NAME: string;
 export const CSV_HEADER: string;
 export const SEALED: readonly string[];
@@ -12,6 +13,7 @@ export const OPEN_BAND: string;
 export const CALM_BAND: string;
 export const CALM_SPAN_MS: number;
 export const CALM_MIN_PRESENT: number;
+export const KINDS: readonly EpisodeKind[];
 export const STOPS: readonly string[];
 
 /** An exact decimal: the fraction n / s, s a power of ten. */
@@ -32,13 +34,20 @@ export interface DetectorArgs {
   to: number;
 }
 
-/** One episode: S and F as ISO 8601 UTC instants, F null while the episode is still open at the end of the window; the present reads
- *  of [S, F) (of [S, --to) while open) and, C4 of addendum 5, of [F - 24 h, F), null while open. */
+/** The kind of an episode, closed list (addendum 7; D-2 of lot EE7-ADD7-1): open-at-end (W4, still open at --to), lead-in (W3, an S
+ *  that calm_certified_from does not certify: S before it, or no such instant) or episode. */
+export type EpisodeKind = "episode" | "lead-in" | "open-at-end";
+
+/** One episode: its kind; S and F as ISO 8601 UTC instants, F = --to for an episode still open at the end of the window (W4); its
+ *  exclusion interval [exclude_from, F), exclude_from = S when calm_certified_from certifies S, --from otherwise (W3); the present reads
+ *  of [S, F) and, C4 of addendum 5, the window's present reads of [F - 24 h, F), F = --to for an episode open at --to (D-5). */
 export interface Episode {
+  kind: EpisodeKind;
   S: string;
-  F: string | null;
+  F: string;
+  exclude_from: string;
   present_reads_in_episode: number;
-  present_reads_last_24h: number | null;
+  present_reads_last_24h: number;
 }
 
 /** The closed report: instants, counts and sha256 digests, never a value. `edge` (information only): the present reads that depart
