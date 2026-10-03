@@ -66,7 +66,7 @@ const CHAIN = { walkTimeline, trustOf, lineHash };
 // Pins: written by scripts/sync-bell-served.mjs from the served host at 2026-09-24T02:00:59Z (read_at in the file); the first
 // line's facts re-hashed independently by the reader-side verifier (bell-verify.mjs, lines 1, head_seq 1) before this lot.
 // v4 (ADR-BELL-OTS-PRB D-B12): the sync now writes the manifest entry itself; this pin is re-set to the sha256 it prints.
-const PINNED_FILE_SHA256 = "8bf1424bc988689458dac1902cb443d7d395141e8969afc27672ab16de309f53";
+const PINNED_FILE_SHA256 = "507b5c688086524676cbaa81a03ce653c979a5be6b872972b08907fef62d9425";
 const PINNED_FIRST = {
   seq: 1,
   kind: "publication",

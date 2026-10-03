@@ -2,7 +2,7 @@
   "$comment": "Committed, hashed facts about the SERVED Bell host, rendered by /bell and /bell/method through apps/site/lib/bell-served-load.ts after a sha256 check against apps/site/data/manifest.sha256.json. Written by scripts/sync-bell-served.mjs (source-repo tool) from the files the host serves: /timeline.jsonl walked line by line under the committed keyring (chain, signatures, key schedule), /bell/pubkey.json (byte-identical to the committed keyring), /state.json and /provenance.json (bound by sha256 to the latest signed publication line, the head), the immutable /states/<sha256>.json of the head and of the first record. first_record and head = the facts of those two lines (line_hash = sha256 of the canonical line). lines = the facts of every walked line, in order: seq, kind, line_hash, prev_line_hash and, for a publication, its state and provenance digests (the anchors sync binds each anchor row to them). head.runs = every run of the latest publication as served: the signed records, the residual counts (every code), the per-session rows, the volume-ratio periods and definitions WITHOUT the ratio values, the supply readout, the proof-of-reserves status only, the wrappers, the halt census and deltas, and per run from the provenance: the start of the collection, the operator counts, the fault statuses (each marked as on a ledger operator or not; no label is kept), the closing-price request digest. keyring = key ids, statuses and first seq of the committed keyring. deploy_check = counts of the committed deploy check, captured on these same bodies. collector_revision = the last commit of the collector source. served_schema = the key lists of the served envelopes and the publisher's closed list of objects. bodies_sha256 = the sha256 of the four bodies as read at read_at.",
   "schema": "monark-site-bell-served-v4",
   "host": "https://bell.monarkgate.tech",
-  "read_at": "2026-09-25T02:44:41.407Z",
+  "read_at": "2026-10-03T06:10:14.168Z",
   "timeline": {
     "schema": "bell-timeline-v1",
     "lines": 2,
@@ -610,7 +610,7 @@
     ]
   },
   "deploy_check": {
-    "checked_at": "2026-09-24T08:41:49.208Z",
+    "checked_at": "2026-10-03T04:15:56.315Z",
     "checks_total": 12,
     "checks_passed": 12,
     "tls_authorized": true
