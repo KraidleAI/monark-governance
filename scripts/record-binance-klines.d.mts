@@ -35,10 +35,10 @@ export interface RecorderArgs {
 }
 
 /** A monark.series.binance.v1 manifest as a reader finds it in a sealed folder (D-4 of the second round, G2C-5): the manifests of the
- *  recorder 48aa58b3 (sealed before lot RECORDER-CLOSE-TIME-1) have neither irregular_close nor zero_trade, which there means never
- *  computed; present and empty means none. */
+ *  recorders 48aa58b3 and 0a1ae564 (sealed before lot RECORDER-CLOSE-TIME-1) have neither irregular_close nor zero_trade, which there means never
+ *  computed. This recorder writes no v1 (lot BINANCE-V2-1, Q-U5 of RECHERCHES): it reads one as a replay's source, for its interval. */
 export interface SeriesManifestV1 {
-  schema: string;
+  schema: "monark.series.binance.v1";
   mode: "record" | "replay";
   platform: string;
   endpoint: string;
@@ -68,14 +68,19 @@ export interface SeriesManifestV1 {
   zero_trade?: number[];
 }
 
-/** manifest.json as this recorder writes it, recording or replay: the same schema, both lists always present. */
-export interface SeriesManifest extends SeriesManifestV1 {
+/** manifest.json as this recorder writes it, recording or replay (lot BINANCE-V2-1, Q-U5 of RECHERCHES): monark.series.binance.v2, the
+ *  fields of v1 and both lists always present, so that one identifier keeps one meaning. */
+export interface SeriesManifest extends Omit<SeriesManifestV1, "schema"> {
+  schema: "monark.series.binance.v2";
   /** Kept candles whose close is not open + interval - 1 ms, the close as received (rule 8 of RECHERCHES ADR 0006): ascending. A close
    *  out of its slot is a stop (close_out_of_slot), so each listed close lies in [open, open + interval - 1 ms): a truncation. */
   irregular_close: { open_time_ms: number; close_time_ms: number }[];
   /** Open times of the kept candles with 0 trades, a truncated one included (rule 8 bis): ascending. */
   zero_trade: number[];
 }
+
+/** A manifest as a reader finds it, sealed or as the source of a replay: v1 or v2, told apart by its schema (lot BINANCE-V2-1, D-1). */
+export type SeriesManifestRead = SeriesManifestV1 | SeriesManifest;
 
 /** A named stop: `code` is one of STOPS. */
 export class RecorderStop extends Error {

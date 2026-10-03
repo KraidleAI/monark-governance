@@ -16,7 +16,7 @@ import { join, resolve } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { CSV_COLUMNS, expectedCount, LIMIT, main, MAX_PAGES, parseArgs, parseTime, PAUSE_MS, RecorderStop, run, STOPS, SYMBOLS }
   from "../scripts/record-binance-klines.mjs";
-import type { RecorderIo, SeriesManifest, SeriesManifestV1 } from "../scripts/record-binance-klines.mjs";
+import type { RecorderIo, SeriesManifest, SeriesManifestRead, SeriesManifestV1 } from "../scripts/record-binance-klines.mjs";
 import * as recorder from "../scripts/record-binance-klines.mjs"; // INTERVALS read as a property: the base, without it, still loads
 
 type Row = [number, string, string, string, string, string, number, string, number, string, string, string];
@@ -622,7 +622,9 @@ test("binance_klines_refuses_a_trust_anchor_taken_from_the_environment", async (
       false], JSON.stringify(env));
   }
   // a name that only contains one of them, or OPENSSL_ past its start, sets no anchor: the recording runs (OPENSSL_CONFIG: refused above)
-  const near = await record(series(4), at(0), at(4), { io: { env: { NODE_USE_SYSTEM_CA_NOTE: "1", MY_SSL_CERT_FILE: "x", MY_OPENSSL_CONF: "y" } } });
+  // and so does OPENSSL with no underscore (BINANCE-OPENSSL-PREFIX-PIN-1: mutant E2 of the fusion campaign refused it, no case saw it)
+  const near = await record(series(4), at(0), at(4), { io: { env: { NODE_USE_SYSTEM_CA_NOTE: "1", MY_SSL_CERT_FILE: "x", MY_OPENSSL_CONF: "y",
+    OPENSSL: "z" } } });
   assert.equal(near.code, "ok");
 });
 
@@ -669,7 +671,7 @@ test("binance_klines_refuses_a_replay_of_an_altered_raw_page", async () => {
     rewrite(dir, "requests.jsonl", (b) => JSON.stringify({ ...logOf(rec.out)[1], sha256: "0".repeat(64) }) + LF + b);
   };
   const sealedV1 = (dir: string): void => { // a manifest of the recorder 48aa58b3: neither list, never computed (D-4 of the second round)
-    const m: SeriesManifestV1 = manifestOf(rec.out);
+    const m: SeriesManifestV1 = { ...manifestOf(rec.out), schema: "monark.series.binance.v1" }; // its schema too (lot BINANCE-V2-1)
     delete m.irregular_close;
     delete m.zero_trade;
     writeFileSync(join(dir, "manifest.json"), JSON.stringify(m, null, 2) + LF);
@@ -721,9 +723,10 @@ test("binance_klines_refuses_a_replay_of_an_altered_raw_page", async () => {
   [["raw_page_altered", "SHA256SUMS", recorded, false], ["raw_page_altered", "requests.jsonl", recorded, false],
     ["raw_page_altered", "requests.jsonl", null, false], ["raw_page_altered", "SHA256SUMS", null, false], 0],
   "each present file attests the page on its own; two digests attest nothing, the true one first too; a replay's SHA256SUMS attests no page");
-  // the manifest this recorder writes carries both lists (D-4 of the second round: required there, optional in SeriesManifestV1)
+  // the manifest this recorder writes names monark.series.binance.v2 (lot BINANCE-V2-1, D-1) and carries both lists (D-4 of the second
+  // round: required there, optional in SeriesManifestV1)
   const own = manifestOf(rec.out);
-  assert.deepEqual([own.irregular_close.length, own.zero_trade.length, own.rows], [0, 0, 8]);
+  assert.deepEqual([own.schema, own.irregular_close.length, own.zero_trade.length, own.rows], ["monark.series.binance.v2", 0, 0, 8]);
 });
 
 // killer: scripts/record-binance-klines.mjs:316 CONST "realpathSync(argv1) === realpathSync(SCRIPT)" -> "resolve(argv1) === resolve(SCRIPT)"
@@ -746,3 +749,77 @@ test("binance_klines_runs_its_command_line_through_a_junction", () => {
     `await import(${JSON.stringify(pathToFileURL(copy).href)});`, "no-such-file"])], [[2, "", stopLine("usage", { absent: ["symbol", "interval",
     "start", "end", "out"] }) + LF], [0, "", ""]], "through the junction, the usage stop; imported, nothing");
 });
+
+// killer: scripts/record-binance-klines.mjs:259 CONST "monark.series.binance.v2" -> "monark.series.binance.v1"
+test("binance_klines_writes_v2_and_replays_a_sealed_v1_unrefused", async () => {
+  // Q-U5 of RECHERCHES (2026-10-03), lot BINANCE-V2-1, D-1: one identifier, one meaning. Every manifest this recorder writes, recording
+  // or replay, names monark.series.binance.v2 with both lists; a folder sealed under v1 (recorder 48aa58b3: schema v1, neither list,
+  // never computed) is read without refusal and replays to the same CSV and missing.json bytes under v2, its lists computed from raw/,
+  // the sealed folder left as it is
+  const V1 = "monark.series.binance.v1", V2 = "monark.series.binance.v2", calls: Calls = { urls: [], inits: [] };
+  const rec = await record(halt(), at(0), at(16), { perPage: 4 }), sealed = fresh();
+  mkdirSync(join(sealed, "raw"), { recursive: true });
+  for (const f of [...rawNames(rec.out).map((n) => `raw/${n}`), "requests.jsonl", "SHA256SUMS", "BTCUSDT-15m.csv", "missing.json"]) {
+    writeFileSync(join(sealed, f), bytes(join(rec.out, f)));
+  }
+  const v1: SeriesManifestV1 = { ...manifestOf(rec.out), schema: V1 };
+  delete v1.irregular_close;
+  delete v1.zero_trade;
+  writeFileSync(join(sealed, "manifest.json"), JSON.stringify(v1, null, 2) + LF);
+  const before = bytes(join(sealed, "manifest.json")), sums = text(sealed, "SHA256SUMS");
+  writeFileSync(join(sealed, "SHA256SUMS"), sums.replace(sha(bytes(join(rec.out, "manifest.json"))), sha(before)));
+  const lines = text(sealed, "SHA256SUMS").split(LF).filter((l) => l !== "");
+  assert.deepEqual(lines.map((l) => sha(bytes(join(sealed, l.slice(66))))), lines.map((l) => l.slice(0, 64)), "sealed: every SHA256SUMS line holds");
+  const replay = async (from: string): Promise<[string, string]> => {
+    const out = fresh(), argv = ["--symbol", "BTCUSDT", "--interval", "15m", "--start", iso(at(0)), "--end", iso(at(16)), "--out", out, "--from-raw", from];
+    return [await outcome(run(argv, { fetch: offline(calls) })), out];
+  };
+  const [[fromV1, outV1], [fromV2, outV2]] = [await replay(sealed), await replay(rec.out)];
+  /** What a reader of manifest.json finds: its schema, its mode, and whether each list is present. */
+  const shape = (dir: string): unknown[] => {
+    const m = jsonOf(dir, "manifest.json") as SeriesManifestRead | null;
+    return [m?.schema, m?.mode, m !== null && "irregular_close" in m, m !== null && "zero_trade" in m];
+  };
+  assert.deepEqual([rec.code, fromV1, fromV2, calls.urls.length], ["ok", "ok", "ok", 0]);
+  assert.deepEqual([shape(rec.out), shape(sealed), shape(outV1), shape(outV2)], [[V2, "record", true, true], [V1, "record", false, false],
+    [V2, "replay", true, true], [V2, "replay", true, true]], "written: v2 with both lists, recording and replay alike; read: a v1 unrefused");
+  const files = (dir: string): Buffer[] => ["BTCUSDT-15m.csv", "missing.json"].map((n) => bytes(join(dir, n)));
+  const lists = (dir: string): unknown[] => [manifestOf(dir).irregular_close, manifestOf(dir).zero_trade];
+  assert.deepEqual([files(outV1), files(outV2), lists(outV1), lists(outV2), bytes(join(sealed, "manifest.json"))],
+    [files(rec.out), files(rec.out), lists(rec.out), lists(rec.out), before], "same bytes and lists from a v1 or a v2 source; the v1 untouched");
+});
+
+// killer: scripts/record-binance-klines.mjs:149 CONST ".filter((e) => e.status === 200)" -> ""
+test("binance_klines_refuses_a_page_planted_at_the_cursor_of_a_non_200_answer", async () => {
+  // BINANCE-REPLAY-NON200-ATTEST-1 (G2-CTV2-2; mutant R4 of the fusion campaign survived): requests.jsonl logs every answer with the
+  // sha256 of its body, and only a 200 attests a page. A recording stopped by a 500 whose body is [] (empty klines, were it read): as
+  // written, its stopped cursor has no page; a raw/ page planted there with those very bytes is refused, nothing written, never a request
+  const rec = await record(series(8), at(0), at(8), { perPage: 4, script: new Map([[1, { status: 500, body: "[]" }]]) });
+  const calls: Calls = { urls: [], inits: [] }, out = fresh();
+  const argvOf = (to: string): string[] => ["--symbol", "BTCUSDT", "--interval", "15m", "--start", iso(at(0)), "--end", iso(at(8)), "--out", to,
+    "--from-raw", rec.out];
+  const asWritten = await outcome(run(argvOf(fresh()), { fetch: offline(calls) }));
+  writeFileSync(join(rec.out, "raw", `BTCUSDT-${String(at(4))}.json`), "[]"); // the bytes that requests.jsonl logged for the 500
+  const planted = await run(argvOf(out), { fetch: offline(calls) }).then(() => ["ok"], (e: unknown) =>
+    (e instanceof RecorderStop ? [e.code, e.detail.attested_by, e.detail.attested] : ["not a stop"]));
+  assert.deepEqual([rec.code, logOf(rec.out).map((l) => [l.status, l.sha256 === sha("[]")]), asWritten, planted, existsSync(out), calls.urls.length],
+    ["server_error", [[200, false], [500, true]], "raw_page_missing", ["raw_page_altered", "requests.jsonl", null], false, 0]);
+});
+
+/** Lot BINANCE-V2-1, D-1 (G2-CTV2-1: the type surface was right but nothing pinned it): the typecheck gate (tsc --noEmit) reads these
+ *  types and Node erases them, so nothing here runs. Accepts<T, U> compiles iff U is assignable to T; the line under each @ts-expect-error
+ *  must fail to compile, else tsc reports the directive unused. Each line reddens under a mutant of that surface (T1 to T4 of the G2). */
+type Accepts<T, U extends T> = U;
+export type ManifestTypeChecks = [
+  // @ts-expect-error a written manifest never names v1 (T1, T2)
+  Accepts<SeriesManifest["schema"], "monark.series.binance.v1">,
+  // @ts-expect-error nor v3: one literal, not any string (T1)
+  Accepts<SeriesManifest["schema"], "monark.series.binance.v3">,
+  // @ts-expect-error a v1, even with both lists, is not what run resolves to (T1, T2)
+  Accepts<Awaited<ReturnType<typeof run>>, Required<SeriesManifestV1>>,
+  // @ts-expect-error unnarrowed, a read manifest may lack a list (T4)
+  Accepts<Pick<SeriesManifest, "zero_trade">, SeriesManifestRead>,
+  // @ts-expect-error a v1 never names v2 (T3)
+  Accepts<SeriesManifestV1["schema"], "monark.series.binance.v2">,
+  Accepts<SeriesManifestRead, SeriesManifestV1>, // a sealed v1 is a read manifest (T4)
+];
