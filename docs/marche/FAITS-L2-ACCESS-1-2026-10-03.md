@@ -122,3 +122,9 @@ Binance, est la source lue ici. Une relecture sur la nouvelle documentation est 
 - FAITS-L2-NEWDOCS-1 : relire liquidations et connexion futures sur la nouvelle documentation quand elle sert ces pages ; déclencheur :
   avant la première course en ligne.
 - FAITS-ARCHIVE-NODE-1 : voir 6.
+
+## Ajout daté du 2026-10-03 à 18:52 UTC : région de l hôte (L2-REGION-HOST-1)
+
+- Réponse de l investisseur, choix « France » à la question posée le 2026-10-03 vers 18:50 UTC (pays d hébergement du serveur du site).
+- La France n est pas sur la liste des pays interdits du 5 janvier 2026 (section 5) : l hôte est admis pour l enregistreur L2.
+  L2-REGION-HOST-1 est clos pour cet hôte ; le second hôte (RECORDER-L2-REGION-2) passera le même contrôle avant tout appel.
