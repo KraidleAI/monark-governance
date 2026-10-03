@@ -427,6 +427,10 @@ DJ-L06 table sans script (code, rendu serveur des lignes committées).
   22 jours (IN-GRID) ; paquet retiré 01:39:36 ; miroir public-seq3 MIRROR-EQUAL, vérificateur hors ligne verify_exit=0 (self_consistent
   et trousseau). PREMIER SNAPSHOT attendu au créneau 03:30 UTC (day 2026-10-02) ; à lire au §17 ; aucun acte sur le publieur d ici là.
   Journal : F:/PRODUITS/dojo-mirror/JOURNAL-mise-en-service-2026-10-01.md. Script des actes : F:/tmp/dojo/final/acte-18.sh.
+- 2026-10-03 03:34 UTC : PREMIER SNAPSHOT PUBLIÉ au créneau 03:30 : seq 4, day 2026-10-02, 288 lignes, lines_sha256 cd443e7c…,
+  line_hash a27bf355… ; unité inactive, aucun verrou ; miroir public-seq4 MIRROR-EQUAL, vérificateur hors ligne vert (snapshots 1,
+  verify_exit=0). PRIORITÉ 1 TENUE : la page a sa première publication. Reste du chemin site : A-8 (5)-(9) OTS après publication,
+  A-6 (Caddy), CA-1 (G7.txt → commit de fusion du tronc), §24 proxy, TU-7 synchro du site, envoi ; puis DOJO-MOBILE-AFTER-SEND-1.
 - 2026-10-02 15:30 UTC : go de minuit reçu ; lanceur `F:/tmp/dojo/final/wait-and-run.sh` armé ; annonce X publiée depuis le 1er octobre
   (investisseur) ; validation visuelle : page reconstruite à l ancre 30/30/30/30/90, captures envoyées, six questions C-V-4 encore ouvertes.
 - 2026-10-02 08:26 UTC, ÉCART DE ROSTER relevé par l orchestrateur : depuis 02:51:22 UTC, les tours de l orchestrateur tournent sous
