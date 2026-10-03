@@ -476,6 +476,13 @@ pm) ; item MK-NM-GUARD-1 (refuser Tree = F:/Monark dans mk-nm.ps1).
   Release) ; ensuite, file RECHERCHES : FAITS-USDT-USD-HISTORY-1 sous l addendum 4, RECORDER-CLOSE-TIME-1 (zero_trade), Q-H3 à Q-H7,
   TO FILL de P0-2, chantier L2 (FAITS-L2-ACCESS-1, mesure du serveur du site, mission). Investisseur absent : rien d irréversible hors
   de ces go ; toute dépense (second hôte L2, historique acheté) attend son retour.
+- 2026-10-03 07:1x UTC : USDT/USD : FAITS partie 1 (b51d6584 : Kraken « own benefit », Bitfinex restreint) et partie 2 (4f1ce3c6 :
+  profondeur Kraken mesurée sur horodatages, décisions verbatim « utilise celui qui te parait le plus optimale », « kraken n a pas assez
+  d hitorique », « ok go coinbase ») : source = Coinbase USDT-USD 900 s ; Q-U1 (écart de borne de la lecture en bougies) envoyée à
+  RECHERCHES (PR recherches#65) ; aucune série lue. Lots en cours (workflow wf_4d991db1-3db, base 599c29d4 de lot/series-intervals) :
+  COINBASE-USDT-RECORDER-1 (F:/Monark-wt-cbrec), EE7-HISTORY-DETECTOR-1 (F:/Monark-wt-ee7), RECORDER-CLOSE-TIME-1 (F:/Monark-wt-closetime),
+  chacun G1 puis G2 neuve. Lots du site en cours : DOJO-NAV-LINK-1 (wf_e8a2b2da-05c), DOJO-EXPORT-VERIFIER-1 (wf_83b6c840-e4f).
+  Firecrawl : crédits bas signalés par le connecteur (à recharger par l investisseur).
 - 2026-10-02 15:30 UTC : go de minuit reçu ; lanceur `F:/tmp/dojo/final/wait-and-run.sh` armé ; annonce X publiée depuis le 1er octobre
   (investisseur) ; validation visuelle : page reconstruite à l ancre 30/30/30/30/90, captures envoyées, six questions C-V-4 encore ouvertes.
 - 2026-10-02 08:26 UTC, ÉCART DE ROSTER relevé par l orchestrateur : depuis 02:51:22 UTC, les tours de l orchestrateur tournent sous
