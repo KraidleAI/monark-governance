@@ -1,11 +1,11 @@
 #!/usr/bin/env node
 // scripts/record-coinbase-candles.mjs -- recorder of Coinbase Exchange candles (USDT-USD, 900 s), the USDT/USD reference of the EE-7
-// detector of RECHERCHES (ADR 0006 addendum 4, section 3; lot COINBASE-USDT-RECORDER-1, 2026-10-03). Node 24, zero dependencies,
+// detector of RECHERCHES (ADR 0006 addendum 4, section 3; lot COINBASE-USDT-RECORDER-1; addendum 7, lot COINBASE-ADD7-1). Node 24, zero deps,
 // patterned on scripts/record-binance-klines.mjs. Terms and documentation read before any request:
 // docs/marche/FAITS-USDT-USD-HISTORY-1-conditions-2026-10-03.md (parts 2 and 4); the series are NOT redistributable and never enter a
 // repository (an output directory under any git tree is refused); RECHERCHES reviews this recorder before its first call.
 //   record: node scripts/record-coinbase-candles.mjs --product USDT-USD --granularity 15m --start 2022-09-01T00:00Z
-//           --end 2022-10-01T00:00Z --out <dir>
+//           --end 2022-10-01T00:00Z --out <dir> [--pass 2]   (the second reading of a month, ADR 0006 addendum 7 R1)
 //   replay: the same flags plus --from-raw <recorded dir>: once every raw/ page matches the SHA256SUMS of <recorded dir>, rebuilds the CSV,
 //           missing.json and the manifest from its raw/ alone, offline, window by window (the CSV and missing.json come out byte-identical).
 // Network discipline: one hard-coded endpoint whose URL passes checkHost (https, a host of the closed list, no port, no user) before each
@@ -14,13 +14,13 @@
 // any OPENSSL_* refused; NODE_TLS_REJECT_UNAUTHORIZED=0 refused; no header is set (so no authentication header); a delay of 30 s per
 // request, whose expiry stops (timeout); at least 250 ms between two requests; at most 100 requests per run, counted before the first
 // one; no retry, ever.
-// Windows: [start, end) is cut into cores of 298 slots, one request each, in order, asking start = core start - 900 s and end = core end:
-// 300 data points if both bounds are served, 299 if one is, never 301 (the documentation reads neither bound). A slot is missing when the
-// answer for its core does not serve it; a candle before start is discarded and counted (documented), one at start or at end is a counted
-// margin candle, one after end stops; a candle whose slot was already seen must be identical. An empty page is a window without trades
-// (its slots are declared missing), never the end of the run; a page that serves candles, none in its [start, end], stops
-// (window_not_served), and so does a slot of [start, end) that a page serves and no core keeps (window_inconsistent): a reading of the
-// bounds other than the measured ones ends in a named stop, never in a false gap.
+// Windows: [start, end) is cut into cores of 298 slots (--pass 2: a first core of 149, so that each later bound falls in the middle of a
+// core of pass 1), one request each, in order, asking start = core start - 900 s and end = core end: at most 300 data points, never 301
+// (the documentation reads neither bound). A slot is missing when the answer for its core does not serve it; a candle before start is
+// discarded and counted (documented), one at start or at end is a counted margin candle, one after end stops; a candle whose slot was
+// already seen must be identical. A page that serves candles, none in its [start, end], stops (window_not_served); after the last request
+// a slot of [start, end) that a page serves and no core keeps stops (window_inconsistent), then any empty page (empty_page, the pages
+// listed: a question to RECHERCHES, addendum 7): a reading of the bounds other than the measured ones ends in a named stop, never a false gap.
 // Candles [time, low, high, open, close, volume] are JSON numbers: JSON.parse reads the shape, the raw text gives the digits (never a
 // float). Named stops (RecorderStop.code, closed list STOPS) write nothing to the normalized outputs; raw/ (a body other than 200 under
 // raw/errors/) and requests.jsonl (a line with the status and headers of an answer as they arrive, then that line with the size and the
@@ -42,7 +42,7 @@ export const PRODUCTS = ["USDT-USD"]; // closed list
 export const GRANULARITIES = Object.freeze({ "15m": 900 }); // closed list: name -> seconds, the value of the granularity parameter
 const MINUTE_MS = 60_000; // a bad_time names the grid in minutes: "not on the 15-minute grid"
 export const WINDOW = 300; // data points per request, the documented maximum
-const CORE = WINDOW - 2; // slots per request: a margin slot on each side keeps 299 or 300 points under any reading of the bounds
+const CORE = WINDOW - 2, HALF = CORE / 2; // slots per request: a margin slot on each side keeps 299 or 300 points; HALF opens pass 2
 export const PAUSE_MS = 250;
 export const MAX_PAGES = 100;
 export const TIMEOUT_MS = 30_000;
@@ -50,7 +50,7 @@ export const CSV_COLUMNS = ["open_time_utc", "open_time_ms", "low", "high", "ope
 export const STOPS = ["usage", "bad_product", "bad_granularity", "bad_time", "end_in_future", "too_many_pages", "proxy_refused",
   "tls_unverified", "out_not_empty", "out_in_git_tree", "host_refused", "network_error", "timeout", "rate_limited", "server_error",
   "redirect_refused", "http_status", "body_not_json", "body_not_candles", "row_shape", "off_grid", "out_of_window", "duplicate_conflict",
-  "raw_page_altered", "raw_page_missing", "raw_page_unused", "window_not_served", "window_inconsistent"];
+  "raw_page_altered", "raw_page_missing", "raw_page_unused", "window_not_served", "window_inconsistent", "empty_page", "bad_pass"];
 const LF = String.fromCharCode(10);
 const DECIMAL = /^[0-9]+([.][0-9]+)?$/; // a plain decimal: no sign, no exponent (JSON already refuses a leading zero)
 const SECONDS = /^[0-9]+$/;
@@ -59,7 +59,7 @@ const TIME = /^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}(:00)?Z$/;
 const SUM_LINE = /^([0-9a-f]{64}) {2}(.+)$/; // a SHA256SUMS line: the sha256, two spaces, a path relative to the recorded directory
 const PROXY_NAME = /^(NODE_OPTIONS|NODE_USE_ENV_PROXY)$|_PROXY$/i; // NODE_OPTIONS, even quoted, or a config file flag routes fetch via a proxy
 const TRUST_NAME = /^(NODE_USE_SYSTEM_CA|NODE_EXTRA_CA_CERTS|SSL_CERT_FILE|SSL_CERT_DIR)$|^OPENSSL_/i; // TLS roots added or replaced; OPENSSL_*: a family
-const FLAGS = ["--product", "--granularity", "--start", "--end", "--out", "--from-raw"];
+const FLAGS = ["--product", "--granularity", "--start", "--end", "--out", "--from-raw", "--pass"];
 const REQUIRED = ["product", "granularity", "start", "end", "out"];
 const SCRIPT = fileURLToPath(import.meta.url);
 
@@ -100,13 +100,26 @@ export function parseArgs(argv) {
   if (!Object.hasOwn(GRANULARITIES, granularity)) stop("bad_granularity", { value: granularity, allowed: Object.keys(GRANULARITIES) });
   const step = GRANULARITIES[granularity] * 1000, start = parseTime(a.get("start"), granularity), end = parseTime(a.get("end"), granularity);
   if (end <= start) stop("bad_time", { why: "--end must come after --start" });
-  return { product, granularity, step, start, end, out: resolve(a.get("out")), fromRaw: a.has("from-raw") ? resolve(a.get("from-raw")) : null };
+  const pass = a.has("pass") ? ["1", "2"].indexOf(a.get("pass")) + 1 : 1; // absent: the first reading of the window
+  if (pass === 0) stop("bad_pass", { value: a.get("pass"), allowed: ["1", "2"] });
+  return { product, granularity, step, start, end, out: resolve(a.get("out")), fromRaw: a.has("from-raw") ? resolve(a.get("from-raw")) : null, pass };
 }
 
 /** Grid slots in [start, end): 2 880 in a month of 30 days, 146 112 from 2022-08-01 to 2026-10-01 (the monthly plan of the corrections). */
 export const expectedCount = (start, end, granularity = "15m") => (end - start) / (GRANULARITIES[granularity] * 1000);
-/** Requests of one run, one per core of 298 slots: 10 in any month (2 688 to 2 976 slots), 491 from 2022-08-01 to 2026-10-01. */
-export const windowCount = (start, end, granularity = "15m") => Math.ceil(expectedCount(start, end, granularity) / CORE);
+/** Requests of one run, one per core: pass 1, 10 in any month (2 688 to 2 976 slots), 491 from 2022-08-01 to 2026-10-01; pass 2, 10 or 11. */
+export const windowCount = (start, end, granularity = "15m", pass = 1) => cores(start, end, GRANULARITIES[granularity] * 1000, pass).length;
+
+/** The windows [from, to) of one run, in order (recording, replay and windowCount): cores of CORE slots from start, the last one cut at
+ *  end; pass 2 opens with a core of HALF slots (ADR 0006 addendum 7 R1: a second reading, its windows shifted by half a core). */
+function cores(start, end, step, pass) {
+  const out = [];
+  for (let from = start, to; from < end; from = to) {
+    to = Math.min(from + (pass === 2 && from === start ? HALF : CORE) * step, end);
+    out.push([from, to]);
+  }
+  return out;
+}
 
 /** No proxy route and no widened TLS trust: a variable named NODE_OPTIONS or NODE_USE_ENV_PROXY or ending in _PROXY, or one of the four
  *  names of TRUST_NAME or starting with OPENSSL_ (any case, any value, even empty), or any node flag is refused, its detail naming them,
@@ -210,11 +223,12 @@ function candlesOf(ctx, body, from) {
 
 /** The window loop that the recording and the replay share: same windows, same order, same checks. Every candle is compared with the
  *  first one seen for its slot on any page (the end margin of a window comes before the core that keeps that slot). A page that serves
- *  candles, none in its [start, end], and a slot of [start, end) seen on a page yet kept by no core are named stops (G2c-2 of the G2). */
+ *  candles, none in its [start, end], and a slot of [start, end) seen on a page yet kept by no core are named stops (G2c-2 of the G2);
+ *  an empty page is counted and the run goes on to its last request, then stops empty_page (addendum 7, correction 3 of RECHERCHES). */
 async function collect(ctx, page) {
-  const rows = new Map(), seen = new Map(), span = CORE * ctx.step, got = { pages: 0, duplicates: 0, before: 0, atStart: 0, atEnd: 0 };
-  for (let from = ctx.start; from < ctx.end; from += span) {
-    const to = Math.min(from + span, ctx.end), first = from - ctx.step;
+  const rows = new Map(), seen = new Map(), got = { pages: 0, duplicates: 0, before: 0, atStart: 0, atEnd: 0, empty: [] };
+  for (const [from, to] of cores(ctx.start, ctx.end, ctx.step, ctx.pass)) {
+    const first = from - ctx.step;
     if (got.pages > 0 && ctx.live) await ctx.sleep(PAUSE_MS);
     const body = await page(ctx, from, to);
     got.pages += 1;
@@ -234,9 +248,11 @@ async function collect(ctx, page) {
       else rows.set(ms, fields);
     }
     if (served > 0 && inside === 0) stop("window_not_served", { page: isoOf(from), candles: served });
+    if (served === 0) got.empty.push(isoOf(from));
   }
   const orphans = [...seen.keys()].filter((t) => t >= ctx.start && t < ctx.end && !rows.has(t));
   if (orphans.length > 0) stop("window_inconsistent", { slots: orphans.length, first: isoOf(Math.min(...orphans)) });
+  if (got.empty.length > 0) stop("empty_page", { empty_pages: got.empty.length, pages: got.empty });
   return { rows, ...got };
 }
 
@@ -254,10 +270,10 @@ function writeOutputs(ctx, got, norm, startedAt) {
   const csvName = `${ctx.product}-${ctx.granularity}.csv`, first = norm.times[0], last = norm.times.at(-1);
   const missingText = JSON.stringify({ product: ctx.product, granularity: ctx.granularity, start: isoOf(ctx.start),
     end_exclusive: isoOf(ctx.end), count: norm.missing.length, missing: norm.missing }, null, 2) + LF;
-  const manifest = { schema: "monark.series.coinbase.v1", mode: ctx.live ? "record" : "replay", platform: "coinbase",
+  const manifest = { schema: "monark.series.coinbase.v2", mode: ctx.live ? "record" : "replay", platform: "coinbase",
     endpoint: `${ORIGIN}/products/${ctx.product}/candles`, product: ctx.product, granularity: ctx.granularity,
-    granularity_s: ctx.step / 1000, start: isoOf(ctx.start), end_exclusive: isoOf(ctx.end),
-    expected: expectedCount(ctx.start, ctx.end, ctx.granularity), rows: norm.times.length, missing: norm.missing.length,
+    granularity_s: ctx.step / 1000, start: isoOf(ctx.start), end_exclusive: isoOf(ctx.end), pass: ctx.pass,
+    expected: expectedCount(ctx.start, ctx.end, ctx.granularity), rows: norm.times.length, missing: norm.missing.length, empty_pages: got.empty.length,
     duplicates_removed: got.duplicates, discarded_before_start: got.before, margin_at_start: got.atStart, margin_at_end: got.atEnd,
     pages: got.pages, first_open_time: first === undefined ? null : isoOf(first), last_open_time: last === undefined ? null : isoOf(last),
     csv: csvName, csv_sha256: sha256(norm.csv), missing_sha256: sha256(missingText), recorder_sha256: sha256(readFileSync(SCRIPT)),
@@ -277,7 +293,7 @@ export async function run(argv, io = {}) {
   const now = io.now ?? Date.now;
   const args = parseArgs(argv);
   if (args.end > now()) stop("end_in_future", { end: isoOf(args.end), now: new Date(now()).toISOString() });
-  const pages = windowCount(args.start, args.end, args.granularity);
+  const pages = windowCount(args.start, args.end, args.granularity, args.pass);
   if (pages > MAX_PAGES) stop("too_many_pages", { pages, max: MAX_PAGES });
   const live = args.fromRaw === null;
   if (live) guardEnv(io.env ?? process.env, io.execArgv ?? process.execArgv);
