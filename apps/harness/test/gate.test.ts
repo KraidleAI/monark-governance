@@ -607,7 +607,12 @@ test("gate_stable_run_byo_anti_override_is_key_aware_A6", () => {
   // (ii) a DIFFERENT population (msUSD) on the same class MAY BYO its own scores (BYO by κ by family).
   const msusdPred = adaptToPrediction(narabiFlow("eip155:1", MSUSD_TOKEN));
   assert.notEqual(msusdPred.predictor_id, USDE_STABLE_RUN_PREDICTOR_ID);
-  const d = runGate(msusdPred, { ...GOOD_PARAMS, intent: msusdPred.yhat, nMin: 5, tauInterval: 2, calibration: { scores: callerScores, mode: "interval" } });
+  let d: ReturnType<typeof runGate>;
+  try {
+    d = runGate(msusdPred, { ...GOOD_PARAMS, intent: msusdPred.yhat, nMin: 5, tauInterval: 2, calibration: { scores: callerScores, mode: "interval" } });
+  } catch (e) {
+    assert.fail(`the msUSD BYO path must run (not locked), got ${String(e)}`);
+  }
   assert.equal(d.verdict.reason, "covered", "the msUSD BYO path RUNS (not locked)");
   assert.equal(d.verdict.n_calib, callerScores.length, "the CALLER's scores are used (n=10), never the USDe 613");
   assert.equal(d.verdict.calib_digest, calibDigest(callerScores), "calib_digest is over the CALLER's scores, never the USDe digest");
