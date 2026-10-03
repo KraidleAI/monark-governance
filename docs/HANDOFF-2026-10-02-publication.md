@@ -416,6 +416,12 @@ DJ-L06 table sans script (code, rendu serveur des lignes committées).
   liquidations ; après P0-2, en parallèle du chantier 2 ; hôte = serveur du site si la mesure d une journée tient, sinon serveur dédié
   (dépense, acte investisseur) ; jamais l hôte du Dōjō ; audit par un advisor RECHERCHES demandé avant les items ; lancement du worker et
   hôte définitif = actes datés de l investisseur. Items à poser à ETAT après l audit : RECORDER-L2-1, RECORDER-LIQ-1, flux différés.
+- 2026-10-03 00:19 UTC : audit advisor marché RECHERCHES (ab8bfa3) plié (profondeur ±100 pb, meilleur prix J1, différences BTC/ETH si
+  tenable, OI 5 min, exchangeInfo quotidien, chaîne d identifiants + reconstruction quotidienne, liquidations jamais étiquette). Investisseur
+  (verbatim : « maintenant, oui pour un second enregistreur ») : départ MAINTENANT (capture brute, code épinglé, relecture ensuite),
+  second enregistreur autre région OUI (dépense investisseur). Réponse PR recherches#64. Items ETAT : RECORDER-L2-1, RECORDER-LIQ-1,
+  RECORDER-OI-1, RECORDER-EXCHINFO-1, RECORDER-L2-REGION-2 ; différés FUNDING, oracle, diffs BNB/SOL. Ordre du jour : actes §18 avant
+  06:30, puis FAITS-L2-ACCESS-1 (conditions, région, points d accès, lus sur place), mesure d une journée du serveur du site, mission G1.
 - 2026-10-02 15:30 UTC : go de minuit reçu ; lanceur `F:/tmp/dojo/final/wait-and-run.sh` armé ; annonce X publiée depuis le 1er octobre
   (investisseur) ; validation visuelle : page reconstruite à l ancre 30/30/30/30/90, captures envoyées, six questions C-V-4 encore ouvertes.
 - 2026-10-02 08:26 UTC, ÉCART DE ROSTER relevé par l orchestrateur : depuis 02:51:22 UTC, les tours de l orchestrateur tournent sous
