@@ -33,7 +33,7 @@
 
 ## Tests
 
-Dix-huit tests (trois neufs, quinze modifiés) sont F2P contre `f3b330c` (rouges par assertion, verts au gel), un tueur chacun ; les épingles (ce qui ne change pas) sont pliées dedans. Les autres changements de tests sont hors des corps (constantes de tête) ou des lignes tueuses ré-ancrées.
+Dix-huit tests (quatre neufs, quatorze modifiés) sont F2P contre `f3b330c` (rouges par assertion, verts au gel), un tueur chacun ; les épingles (ce qui ne change pas) sont pliées dedans. Les autres changements de tests sont hors des corps (constantes de tête) ou des lignes tueuses ré-ancrées.
 
 Neuf : `apps/harness/test/gate-cm2b.test.ts`
 - R-1 `btc_dir_is_retired_with_a_named_400` : refus direct, HTTP (corps exact) et MCP (texte, `_meta`) ; garde BYO exacte inchangée octet pour octet ; imitation refusée ; `known:` ; description ;
