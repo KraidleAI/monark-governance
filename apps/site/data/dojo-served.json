@@ -1,0 +1,103 @@
+{
+  "$comment": "Committed, hashed facts about the SERVED Dojo host, rendered by /dojo through apps/site/lib/dojo-served-load.ts after a sha256 check against apps/site/data/manifest.sha256.json. Written by the source repository's sync tool from the files the host serves: timeline.jsonl walked line by line under the committed keyring; the head = the last snapshot line, its lines file and the history file bound to their signed lines by sha256, count and recomputed Merkle root; the totals composed from the lines equal the signed ones; the reader's tool, run on the same bytes under the committed keyring, accepted the tree and recomputed the signed roots. timeline.anchor = the signed anchor line in force, whole. keyring = the committed keyring. bodies_sha256 = the sha256 of the timeline and of the served key set as read at read_at.",
+  "schema": "monark-site-dojo-served-v1",
+  "host": "https://dojo.monarkgate.tech",
+  "read_at": "2026-10-03T06:11:44.011Z",
+  "timeline": {
+    "schema": "dojo-timeline-v1",
+    "lines": 4,
+    "snapshots": 1,
+    "anchor": {
+      "dust_threshold_microusd": "1000000",
+      "horizon": 365,
+      "k_reads": 4,
+      "key_id": "c7963c9b0624a68f8b3e2d19a99b1efe4327c14e261477129b65a005415b2592",
+      "kind": "anchor",
+      "mint": "FYZcYCHSp8FzNba1UtDZydKKGosmxVNpFBiVuia38AhT",
+      "objective_unit_microusd_days": "30000000000",
+      "pool": "GhCGq9qTCBWZvpBY4fzfvxvENWe1syryLuGACgj3Lhvg",
+      "pool_quote_vault": "6KLxyVpYwMGyQJHsvWqFpRk1crEQ79sG3Wi3C1SkZbTW",
+      "prev_line_hash": "492f9558f840f870bea2cd025df1435406f7f9d184eb38692b3570460c2f373a",
+      "price_window_days": 7,
+      "program": "TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb",
+      "published_at": "2026-10-01T19:56:58.867Z",
+      "read_rule": {
+        "beacon_chain_hash": "52db9ba70e0cc0f6eaf7803dd07447a1f5477735fd3f661792ba94600c84e971",
+        "beacon_genesis_time": 1692803367,
+        "beacon_period": 3,
+        "beacon_public_key": "83cf0f2896adee7eb8b5f01fcad3912212c437e0073e911fb90022d3e760183c8c4b450b6a0a6c3ac6a5776a2d1064510d1fec758c921cc22b0e17e63aaf4bcb5ed66304de9cf809bd274ca73bab4af5a6e9c76a4bc09e76eae8991ef5ece45a",
+        "beacon_scheme": "bls-unchained-g1-rfc9380",
+        "read_offset_s": 900,
+        "read_tolerance_s": 600,
+        "sol_usd_max_age_s": 165
+      },
+      "schema": "dojo-timeline-v1",
+      "seed_anchor": "60c345e6e78cbda5f21ad2a8093bfcea463ce59b99c8605c8a2adbb55f943536",
+      "seq": 2,
+      "sig": "LKxq6xDx8BuxrnX3V6G3mQ5zWtB7oXUMszppXWgZ0v0D_FHYNLJMrGy2unZ_GtlO2s5YiKGY3wd7cxCNkXOkBA",
+      "sol_usd_source": "7UVimffxr9ow1uXYxsr4LHAcV58mLzhmwaeKvJ1pjLiE",
+      "tier_units": [
+        "1",
+        "2",
+        "3",
+        "4",
+        "5"
+      ],
+      "tier_windows": [
+        30,
+        30,
+        30,
+        30,
+        90
+      ],
+      "validation_days": 30
+    }
+  },
+  "head": {
+    "seq": 4,
+    "day": "2026-10-02",
+    "status": "counted",
+    "lines_count": 288,
+    "root": "f74af5f32e1f5b2cfcfea0e58a03b551ff74854b8a190251e98f68961b2d1822",
+    "lines_sha256": "cd443e7c9e6af0359ac51d0233dd6c02a1f08525e20398f255ab4eb19f6329ca",
+    "score_total": "8728988561030649",
+    "validated_total": "0",
+    "holders_count": null,
+    "price_version": null,
+    "threshold_unit": null,
+    "dust_threshold": null,
+    "decimals": 6,
+    "k_reads": 4,
+    "reads_done": 4,
+    "slot_min": 452463776,
+    "slot_max": 452686880,
+    "line_hash": "a27bf35532857e550d7baf1c33c79e9d0f47df4609d8e922ae3aac60c614e6cc",
+    "key_id": "c7963c9b0624a68f8b3e2d19a99b1efe4327c14e261477129b65a005415b2592",
+    "published_at": "2026-10-03T03:30:06.278Z"
+  },
+  "history": {
+    "history_first_day": "2026-09-10",
+    "history_last_day": "2026-10-01",
+    "history_sha256": "e7dc3537bef95d2dc1371af072efa3a63da90f2d46005d3935f278c53c3ba5ac",
+    "history_lines_count": 4181,
+    "history_root": "e35af0b39fe53442c54cf29e9f6cbaeff61a5348602d50b4b548f123d10273eb"
+  },
+  "keyring": {
+    "keys": [
+      {
+        "key_id": "c7963c9b0624a68f8b3e2d19a99b1efe4327c14e261477129b65a005415b2592",
+        "public_key": {
+          "crv": "Ed25519",
+          "kty": "OKP",
+          "x": "GCXvHmnAHOgrPGHPJhurqq7ayxtu76cj4w63M4bEk6I"
+        },
+        "valid_from_seq": 1
+      }
+    ],
+    "schema": "dojo-keyring-v1"
+  },
+  "bodies_sha256": {
+    "timeline": "f13a39d0cad2515529ea9e94c80c0fe368ef61ca43ea49de0d5e240616793d43",
+    "pubkey": "8cc6c3dd804391756cdbd490ee75f7ee883886603641f705d1c203dfaa97c324"
+  }
+}
