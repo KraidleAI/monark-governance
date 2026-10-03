@@ -134,3 +134,10 @@ Binance, est la source lue ici. Une relecture sur la nouvelle documentation est 
 - Le lecteur de ces pages est le siège d orchestrateur de MONARK, tenu par `claude-opus-5-5` sur décision de l investisseur du
   2026-10-03 vers 04:2x UTC, verbatim : « fais avec OPUS 5.5 comme orchestrateur pour la suite. » (HANDOFF du tronc,
   `docs/HANDOFF-2026-10-02-publication.md` l.437). Ce n est pas un écart de roster : c est une décision datée de l investisseur.
+
+## Ajout daté du 2026-10-03 à 22:14 UTC : FAITS-L2-NEWDOCS-1 avant le G1 de P1-a1 (ADR-L2-CAPTURE-1, déclencheur avancé)
+
+- Relu à 22:14 UTC dans le navigateur interne : la nouvelle documentation sert toujours une page 404 pour les flux de liquidation
+  (`…/derivatives-trading-usds-futures/websocket-market-streams/Liquidation-Order-Streams`). Page absente, consignée et datée ; la page
+  « legacy » a été lue le même jour (section 3, 18:0x UTC). La condition de l ADR (« lecture faite, ou page encore absente consignée et
+  datée, la page legacy relue le même jour ») est tenue ; l item reste ouvert jusqu à ce que la nouvelle page existe.
