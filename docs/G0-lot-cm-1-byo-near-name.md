@@ -13,7 +13,7 @@ Sur le seul chemin BYO (`params.calibration` présent), avant tout calcul :
    - le couple (classe abaissée, clé abaissée) égale un couple commis abaissé (l'adresse `0x…` en casse de somme de contrôle tombe ici) ;
    - la classe abaissée suit le motif réservé des classes kata `^(btc|eth|bnb|sol)-(dir|range|mae-down|mae-up)-(1h|4h)$` ;
    - la clé abaissée commence par `kata:` ;
-3. le message des cas déjà refusés par la garde exacte est inchangé octet pour octet ; les nouveaux cas portent un message qui nomme la règle. Une requête déjà refusée par un contrôle placé après la garde (par exemple une classe inconnue sans BYO n'est pas concernée, mais un BYO qui aurait échoué plus loin, sur `yhat` ou sur les candidats) peut changer de message : un 400 reste un 400 (contrôle par diff de MONARK, C-6).
+3. le message des cas déjà refusés par la garde exacte est inchangé octet pour octet ; les nouveaux cas portent un message qui nomme la règle. La garde neuve précède `validateCalibration`, les contrôles de `yhat` et de tau, et `attested` : une requête déjà refusée par l'un d'eux et portant un nom imitant change de message ; 400 reste 400 (contrôle par diff de MONARK, C-6 et F-5).
 
 Hors BYO, rien ne change : une classe inconnue rend déjà 400 (`gate.ts:797`).
 
@@ -37,4 +37,4 @@ Les homoglyphes non ASCII (par exemple un « с » cyrillique dans `btс-dir-15m
 
 ## Taille et sortie
 
-Code : `gate.ts` +23/−3, `calibration.ts` +18 ; tests : environ 160 lignes ; une PR, R-25 sous 1 150. Oracle : `npm run typecheck`, `npm test` (le seul échec toléré est `bell-served.test.ts:153` dans un clone superficiel). Revue G2 par une instance neuve, puis G7 ; déploiement par MONARK sur le sha donné, après le go de l'investisseur.
+Code : `gate.ts` +38/−0, `calibration.ts` +16/−0 (mesurés par MONARK, `git diff 404480e8 c53f0a72`) ; tests : environ 143 lignes ; une PR, R-25 sous 1 150. Oracle : `npm run typecheck`, `npm test` (le seul échec toléré est `bell-served.test.ts:153` dans un clone superficiel). Revue G2 par une instance neuve, puis G7 ; déploiement par MONARK sur le sha donné, après le go de l'investisseur.

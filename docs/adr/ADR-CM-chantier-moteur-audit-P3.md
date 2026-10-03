@@ -154,3 +154,9 @@ C-1 écart base et servi (en tête, B-0) ; C-2 btc-dir déjà retirée (Q-F1, B-
 |---|---|---|
 | LIQ-BAND-EXACT-GUARD-1 : garde « max ŷ de la strate + q̂ ≤ 2^53 » au chargement d'une calibration liq, avec son test (s3 la romprait, mesuré par MONARK) | RECHERCHES, dans CM-4 (import gardé) | avant toute strate liq nouvelle |
 | BYO-ASCII-LOOKALIKE-1 : imitations ASCII (l, I, 1 ; rn, m ; `_`, `-` ; `k4ta:`) qui passent B-1 ; remède par liste fermée et réduction des confusables | RECHERCHES | plan de CM-2 ; tout remède est une ligne B neuve au §5 et passe par le go du fondateur |
+
+## Amendement daté 2026-10-03 (nuit) : chiffres et prix (re-revue de MONARK sur CM-1, F-2 et F-4)
+
+- **Chiffres** : à l'en-tête (« Écart entre la base et le servi »), le diff `62e0cae..404480e8` de `gate.ts` (B-0) est **+23/−3**, et non +26/−3. CM-1 seul mesure `gate.ts` +38/−0 et `calibration.ts` +16/−0 (`git diff 404480e8 c53f0a72`).
+- **Prix de BYO-ASCII-LOOKALIKE-1** : environ 40 lignes de code et 80 de tests, une ligne B neuve au §5 (go du fondateur). Cas : rapport `recherches:coordination/pieces/2026-10-03-cm1-dem4/cm1-RAPPORT.md` (sha256 `d6ef7ec9…6b99`), E1 à E15.
+- **CM-1 fusionnée** dans la base (`c53f0a72`, PR #103) et dans le tronc de MONARK (`59b95f29`) ; rien n'est déployé.
