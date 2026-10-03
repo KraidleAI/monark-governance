@@ -93,6 +93,8 @@ Tronc `lot/etude-suite`. Dernier oracle complet : 1 779 tests, dont 1 776 verts,
   un défaut du code de la page. Règle d'ici là : un tel fichier est « non conclu » et l'oracle est relancé une fois. Pour nommer la cause,
   il faut une copie mémoire du processus mort : demande formée à l'investisseur (activer WER `LocalDumps` pour `node.exe`, ou fournir
   ProcDump et un débogueur) ; c'est un réglage du système, que l'orchestrateur ne fait pas lui-même.
+  Deux morts de plus le 2026-10-03, hors oracle, jamais comptées « tuées » : `test/record-coinbase-candles.test.ts` sous un mutant de la
+  comparaison (re-revue de COINBASE-ADD7-1, RR-2) ; `test/h5-e2e-probe.test.ts` sous M31 (G2 de CM-1, section 2.4).
 - **Partie 1, état de l'inspection** : tête `lot/page-v1` = `e79d9714`. Relectures G2 collecte, éditeur et page approuvées ; oracle
   complet vert hors `r25` de la partie entière (1 849 tests, 0 rouge) ; F2P de toutes les pièces et corrections ; mutants 146 tués sur 147
   (K31 corrigé, K131 non conclu par un saut voulu). Checkpoint-2 du validateur : ACCEPTE-AVEC-CORRECTIONS. Relecture G2 neuve du lot
@@ -208,6 +210,9 @@ Tronc `lot/etude-suite`. Dernier oracle complet : 1 779 tests, dont 1 776 verts,
     Alias, lots RECHERCHES du 2026-10-03 : METHODE-PS-LOCALAPPDATA-1 (I-6 ; même constat, même piste ; leur déclencheur : prochain lot de
     méthode). Mesuré : `LOCALAPPDATA` redirigé sous `F:/tmp` ne change rien (`F:/tmp/rech/ct/corr/CORR.md` l.131) ; leurs tours suivants
     ont lu C-V-4 sans PowerShell (`os.freemem`, `tasklist`, `systeminfo` pour la mémoire virtuelle, équivalence [abs] : Q-CORR3-1).
+    Lots du 2026-10-03 (addendum 7, BINANCE-V2-1) : même constat pour `mk-nm.ps1`, `rm-nm.ps1` et `Get-CimInstance` (Q-CORR-2 du
+    correcteur Binance, E-2 du correcteur EE-7) ; piège mesuré : sous Git Bash, `tasklist /FI` voit son argument converti en chemin et
+    compte 0 `node.exe` (O-CTV2-1 ; E-3 du correcteur Coinbase) ; `MSYS_NO_PATHCONV=1`, ou `execFileSync` comme l'oracle, le rend juste.
 - **Items des lots RECHERCHES USDT/USD et Binance, 2026-10-03** (lots COINBASE-USDT-RECORDER-1, EE7-HISTORY-DETECTOR-1 et
   RECORDER-CLOSE-TIME-1, fusionnés au tronc `c26ec2af` ; sources : journaux et revues sous `F:/tmp/rech/`, dossiers `cb`, `ee7`, `ct` ;
   I-1 à I-8 : numéros du lot RECORDER-CLOSE-TIME-1 ; recensement complet, clos et absorbés compris, avec preuves :
@@ -217,39 +222,53 @@ Tronc `lot/etude-suite`. Dernier oracle complet : 1 779 tests, dont 1 776 verts,
     `cb/corr/CORR.md` l.290-292, `cb/corr2/CORR2.md` l.388-389. Déclencheur : avant la première requête Coinbase ; état : ouvert.
   - COINBASE-BOUNDS-READ-1 (mesure) : lire les compteurs de marge du premier mois réel contre la table des signatures mesurée, puis
     dater au FAITS la lecture des bornes du serveur. Source : `cb/corr/CORR.md` l.293-297, `cb/corr2/CORR2.md` l.308-332 et l.385-387.
-    Déclencheur : premier mois enregistré ; état : ouvert.
+    Table de la passe 2 mesurée par COINBASE-ADD7-1 (`cbadd7/G1.md` l.295-313, item 6) : au premier mois, les compteurs des deux passes
+    sont lus contre la lecture que la sonde aura nommée (COINBASE-PROBE-RUN-1). Déclencheur : premier mois enregistré ; état : ouvert.
   - COINBASE-RATE-HEADERS-1 (enregistreur) : fermer la liste des en-têtes de limite journalisés d'après les noms reçus au premier mois.
     Source : `cb/G1.md` l.374-375. Déclencheur : premier mois enregistré ; état : ouvert.
   - COINBASE-TRUNCATION-RESIDUAL-1 (PAROXYSME, mesuré) : une page tronquée du côté que la marge voisine ne témoigne pas, ou une bougie
     omise dans un coeur, sort 0 avec des faux manquants ; minimum : seconde lecture décalée du mois 1, comparée au CSV (étape (c'), RR2-1) ;
     fermeture : double lecture chaque mois. Source : `cb/corr2/CORR2.md` l.373-384 et l.436-453, `cb/rr2/G2-RAPPORT.rr2.md` l.214-248.
-    Déclencheur : avant la boucle des 49 mois, qu'il bloque (Q-C2-8) ; état : ouvert.
+    Déclencheur : avant la boucle des 49 mois, qu'il bloque (Q-C2-8) ; état : ouvert. Construction faite au code par COINBASE-ADD7-1
+    (addendum 7 R1 : `--pass 2` décalée d'un demi-coeur, `compare-coinbase-passes.mjs`, arrêt `passes_disagree` ; plan : chaque mois lu
+    deux fois ; fusion `09ed61c5`), non encore courue ; résidu mesuré : COINBASE-PASS-SHARED-BOUND-1 (ci-dessous) ; clôture : Q-2 de
+    `F:/tmp/rech/itemsadd7/JOURNAL.md`.
   - COINBASE-HOLE-WINDOW-1 (PAROXYSME) : sous les lectures B ou C, un trou d'au moins une requête (75 h sans échange) arrête le mois en
     `window_not_served` au lieu de l'écrire. Source : `cb/corr2/CORR2.md` l.368-372. Déclencheur : signature B ou C au premier mois, ou
     un mois arrêté `window_not_served` (Q-C2-6) ; état : ouvert.
+    Depuis COINBASE-ADD7-1, sous les autres lectures, une page vide arrête le mois `empty_page` (`cbadd7/G1.md` l.370-371, l.431-432) ;
+    joindre à cette question pour RECHERCHES : une page au coeur vide qui sert une marge compte 298 manquants et sort 0, vue par la
+    seconde lecture (G2-12) ; `empty_pages` vaut 0 dans tout manifeste écrit, le compte vit dans le détail de l'arrêt (G2-6).
   - COINBASE-MUTANTS-CORR-1 (mutants) : campagne de fusion par `scripts/mutants/run.mjs` sur un clone ; survivants connus W10 (détail
     `first`), G02 et G03 (garde d'exécution ; G03 non équivalent sous `--preserve-symlinks-main`). Source : `cb/corr3/CORR3.md` l.277-283
     et l.302-319, `cb/rr3/G2-RAPPORT.rr3.md` l.74. Déclencheur : fusion du lot, atteint (`fca34dc2`) ;
     campagne de fusion faite le 2026-10-03 (`F:/tmp/rech/mutfusion/`, section 5) : W10, G02 et G03 survivent, non équivalents,
     tueurs mesurés, prix environ 13 lignes ; à tuer au tour de corrections du lot COINBASE-ADD7-1, qui touche l'enregistreur (le solde
-    R-25 de l'ancien lot imposerait sa scission) ; état : ouvert.
+    R-25 de l'ancien lot imposerait sa scission) ; état : clos le 2026-10-03 : W10, G02 et G03 tués au tour de corrections de
+    COINBASE-ADD7-1 (`F:/tmp/methode/cbadd7/mut-1/RESULTS.json` `539ae87b...`, 76 sur 76, `strict` ; re-revue : rouges), tests au tronc
+    (`test/compare-coinbase-passes.test.ts` l.168, `test/probe-coinbase-bounds.test.ts` l.209-235), fusion `09ed61c5`.
   - COINBASE-PLAN-ENVOK-OPENSSL-1 (plan) : le contrôle `envok` du plan refuse aussi tout nom `^OPENSSL_`, miroir de la garde. Source :
-    `cb/corr3/CORR3.md` l.256-262 et l.284-285. Déclencheur : avant la première requête Coinbase ; état : ouvert.
+    `cb/corr3/CORR3.md` l.256-262 et l.284-285. Déclencheur : avant la première requête Coinbase ; état : clos le 2026-10-03 : le plan
+    de COINBASE-ADD7-1 porte `OPENSSL_.*` dans `DENY` et `envok` le refuse (`cbadd7/G1.md` l.267-268 ; constat positif G2-14 de sa G2) ;
+    la copie du plan garde ces deux lignes.
   - COINBASE-CI-LINUX-1 (CI) : le lot n'a tourné que sous Windows ; la CI `ubuntu-latest` de sa PR sera sa première course Linux.
     Source : `cb/rr2/G2-RAPPORT.rr2.md` l.282-290 et l.349-350. Déclencheur : la PR ; état : ouvert.
   - SERIES-ENV-ALLOWLIST-1 (PAROXYSME, les deux enregistreurs) : une liste de noms refusés ne se prouve pas complète ; construction :
     une liste de noms admis (`env -i` dans la boucle Coinbase ; liste blanche dans l'enregistreur Binance, alias I-5 (c), à confirmer).
     Source : `cb/corr2/CORR2.md` l.362-367, `ct/corr3/CORR3.md` l.66. Déclencheur : Q-C2-1, avant la boucle des 49 mois ; côté Binance,
-    avant la course des 35 ; état : ouvert.
+    avant la course des 35 ; état : ouvert ; la sonde Coinbase garde la même liste de refus (`cbadd7/G1.md` l.369) ; côté Binance :
+    lot BINANCE-PRE153-1 en cours.
   - SERIES-BODY-BOUND-1 (les deux enregistreurs ; étend BINANCE-BODY-BOUND-1) : le corps d'une réponse est lu en entier, sans borne
     (`arrayBuffer`) ; lecture en flux bornée, arrêt `body_too_large`. Source : `cb/G1.md` l.381-383 ; code fusionné : Coinbase l.154,
-    Binance l.164. Déclencheur : relecture de RECHERCHES (demandée) ; état : ouvert.
+    Binance l.164. Déclencheur : relecture de RECHERCHES (demandée) ; état : ouvert ; la sonde Coinbase aussi (`res.text()` sans
+    borne, G2-11 de COINBASE-ADD7-1). Lot COINBASE-PASS-EDGES-1 en cours (enregistreur et sonde) ; lot BINANCE-PRE153-1 en cours
+    (côté Binance).
   - SERIES-ABSENT-ROOT-TEST-1 (test ; étend BINANCE-ABSENT-ROOT-TEST-1) : la garde de sortie sur une racine absente n'est prouvée que par
     sonde ; test Windows seul qui cherche une lettre libre. Source : `cb/G1.md` l.388-390. Déclencheur : décision de l'orchestrateur ;
     état : ouvert.
   - SERIES-ERROR-BODY-1, partie Binance (enregistreur) : garder le corps d'une réponse non 200 sous `raw/errors/`, comme Coinbase ;
     absent du code fusionné. Source : `cb/corr/CORR.md` l.288-289. Déclencheur : avant la première course en ligne Binance, la course
-    des 35 ; état : ouvert.
+    des 35 ; état : ouvert ; lot BINANCE-PRE153-1 en cours.
   - SERIES-PROXY-GUARD-1 (I-4, résidu) : la garde d'environnement est faite des deux côtés ; reste un appelant de `run()` dans le même
     processus, qui pourrait poser un répartiteur global avant la première requête. Source : `ct/corr/CORR.md` l.125,
     `ct/corr2/CORR2.md` l.103. Déclencheur : premier appelant de production de `run()` hors ligne de commande ; état : ouvert.
@@ -258,16 +277,29 @@ Tronc `lot/etude-suite`. Dernier oracle complet : 1 779 tests, dont 1 776 verts,
     mesuré sur les trois scripts des lots avant leur correction, non mesuré fichier par fichier. Source : `ee7/corr2/CORR2.md` l.164,
     `ee7/rr2/G2-RAPPORT.rr2.md` l.37 (mutants N8 et N11 : Q-14 du lot EE-7). Déclencheur : prochain lot qui touche l'un d'eux ;
     état : ouvert ; N8 et N11 non équivalents, tueurs mesurés (campagne de fusion du 2026-10-03, `F:/tmp/rech/mutfusion/`, section 5,
-    prix environ 8 lignes) ; le lot EE7-ADD7-1 touche le détecteur : à tuer à son tour de corrections.
+    prix environ 8 lignes) ; le lot EE7-ADD7-1 touche le détecteur : à tuer à son tour de corrections. Partie EE-7 close le 2026-10-03 :
+    N8 et N11 tués (`F:/tmp/methode/ee7add7/mut-2/RESULTS.json` `0bf6e1c4...`, G26 et G27 `strict` ; épingles vertes à la base) ; garde
+    de l'enregistreur Coinbase : G02 et G03 tués (COINBASE-MUTANTS-CORR-1). Portée étendue (Q-CORR-4 du correcteur de COINBASE-ADD7-1) :
+    gardes de `compare-coinbase-passes.mjs` l.141 et de `probe-coinbase-bounds.mjs` l.169, formes G02 et G03 survivantes, non
+    équivalentes (`c306cb83...`, sonde `4f489257...`) ; tueur : le test de la sonde l.216-235 étendu aux deux scripts, environ 5 lignes,
+    une campagne, une preuve rouge ; déclencheur : la réponse à Q-CORR-4, au plus tard la G2 de la partie ; état : ouvert.
   - TUYAU-EE7-IN-1 (branchement ; absorbe COINBASE-EE7-PIPE-1) : test d'intégration non-LLM enregistreur Coinbase, dossier mensuel,
     détecteur EE-7, contrôles du manifeste compris. Source : `ee7/corr2/CORR2.md` l.165, `cb/G1.md` l.376-380. Déclencheur : fusion
-    de l'enregistreur, atteint (`fca34dc2`) ; état : ouvert ; d'ici là, ni l'enregistreur ni le détecteur ne sont « built ».
+    de l'enregistreur, atteint (`fca34dc2`) ; état : clos le 2026-10-03 par le test l.630 de `test/detect-ee7-history.test.ts`
+    (EE7-ADD7-1, fusion `e970c488` ; constat C-7 de sa G2) : `record()` de l'enregistreur du tronc écrit le mois scellé `2025-03/15m`, le
+    détecteur le lit, puis le refuse `manifest_mismatch` une fois son manifeste passé à BTC-USD ; F2P : l.630 base `assert-fail`, gel
+    `pass` (`F:/tmp/methode/ee7add7/red-proof-1/RED-PROOF.json` `b0d68230...`, sorti `ok` faux pour deux épingles, l.551 et l.569, pas
+    pour ce test). Ni l'enregistreur ni le détecteur ne sont « built » : TUYAU-EE7-OUT-1 reste ouvert ; passe 1 seule (la seconde lecture
+    et la comparaison : COINBASE-PASSES-PIPE-1).
   - TUYAU-EE7-OUT-1 (branchement) : consommateur de la liste `H-EE-7-<n>` hachée avant le descellement. Source : `ee7/G1.md` l.100.
     Déclencheur : préparation de P0-2 ; état : ouvert.
   - EE7-WINDOW-LEADIN-1 (recherche, avec RECHERCHES) : un épisode en cours au premier instant enregistré n'est vu par aucune course ;
     lire `calm_certified_from` de la course officielle avant le hachage de S et F. Source : `ee7/corr2/CORR2.md` l.162,
     `ee7/rr2/G2-RAPPORT.rr2.md` l.35-36 (constats R-3 et R-4). Déclencheur : première course réelle du détecteur ; état : ouvert ; critère et
     sort de l'amorce posés par Q-U3.
+    Addendum 7 (réponse à Q-U3) : W3 et W4 faits au code par EE7-ADD7-1 (genres `lead-in` et `open-at-end`, fusion `e970c488`) ; W2
+    (`calm_certified_from` au plus 2022-09-01T00:00Z avant tout hachage) non outillé par le détecteur (Q-7 de son G1, C-8 de sa G2) ; le
+    cas `calm_certified_from` nul (Q-1 de son G1, défaut prudent) ne touche qu'une course que W2 refuse de hacher (P2 de sa G2).
   - EE7-C3-TRADES-1 (porteur RECHERCHES) : mesurer l'écart C3 par les transactions de la place primaire autour de chaque S et F.
     Source : `ee7/corr2/CORR2.md` l.163 ; transmis à RECHERCHES le 2026-10-03 (recherches#71, section 7). Déclencheur : première course
     réelle, avant le descellement ; état : ouvert.
@@ -276,20 +308,29 @@ Tronc `lot/etude-suite`. Dernier oracle complet : 1 779 tests, dont 1 776 verts,
     Déclencheur : prochain lot qui touche la garde, ou prochain faux rouge ; état : ouvert.
   - PROBE-NARABI-LOAD-1 (recherche) : trois tests de `test/probe-narabi-state.test.ts` rouges une fois sous charge (premier GET jamais
     reçu), verts seuls ; lien possible avec LOOPBACK-SEQUENTIAL-PORTS-1, non mesuré. Source : `ee7/corr/CORR.md` l.135 et l.161.
-    Déclencheur : prochain rouge de ces tests ; état : ouvert.
+    Déclencheur : prochain rouge de ces tests ; état : ouvert. Déclencheur atteint le 2026-10-03 : l'oracle G7 du tronc à `e970c488`
+    (enregistrement `efbf12f0...`, 19:00:04Z à 19:12:28Z) sort 1 sur `probe_state_digest_cross_check` (l.93 : `unreachable` au lieu
+    de `state_mismatch`) ; rejeu à `31e119ec` vert (`6052f3e7...`). Mesurer avant de lier (HANDOFF, Q-6) ; départ : Q-9 de
+    `F:/tmp/rech/itemsadd7/JOURNAL.md`.
   - I-2 de RECORDER-CLOSE-TIME-1, tuyau des listes `irregular_close` et `zero_trade` (branchement) : déclarer entrée, sortie, état et test
     de composition ; la pièce reste « upcoming » tant qu'aucun chemin servi ne les lit. Source : `ct/corr/CORR.md` l.123. Déclencheur :
-    G7 de la partie ; état : ouvert.
-  - SERIES-TLS-PEER-LOG-1 (I-7, nom proposé) : journaliser, par requête, les empreintes du certificat feuille et de son émetteur dans
-    `requests.jsonl`. Source : `ct/corr2/CORR2.md` l.106. Déclencheur : avant la première course en ligne Binance, la course des 35 ;
-    état : ouvert.
+    G7 de la partie USDT/USD, non atteint (HANDOFF, Q-5) ; état : ouvert. Absorbe Q-CTV2-3 de BINANCE-V2-1 (G2-CTV2-5) : `v2` est le
+    format de ce tuyau ; aucun dossier v2 sous `F:/PRODUITS/marche/` (798 manifestes, tous v1 : `ctv2/corr/CORR.md` l.50-53) ; lecteur
+    aval annoncé par RECHERCHES : W2C-ADAPTER-V2-1 (refuse tout schéma autre que `monark.series.binance.v2`).
+  - SERIES-TLS-PEER-LOG-1 (I-7, nom confirmé : HANDOFF, Q-7) : journaliser, par requête, les empreintes du certificat feuille et de son
+    émetteur dans `requests.jsonl`. Source : `ct/corr2/CORR2.md` l.106. Déclencheur : avant la première course en ligne Binance, la course
+    des 35 ; état : ouvert ; lot BINANCE-PRE153-1 en cours.
   - BINANCE-REPLAY-NON200-ATTEST-1 (mutants) : le filtre de statut de `logged` n'est épinglé par aucun test, le mutant R4 survit
     (un rejeu sur une page posée au curseur d'une réponse non 200 écrit au lieu de s'arrêter `raw_page_altered`) ; tueur mesuré,
     prix environ 10 lignes de test. Source : `F:/tmp/rech/mutfusion/JOURNAL.md` section 5. Déclencheur : tour de corrections du lot
-    BINANCE-V2-1, qui touche l'enregistreur, au plus tard avant le premier rejeu d'un enregistrement arrêté ; état : ouvert.
+    BINANCE-V2-1, qui touche l'enregistreur, au plus tard avant le premier rejeu d'un enregistrement arrêté ; état : clos le 2026-10-03 :
+    test `binance_klines_refuses_a_page_planted_at_the_cursor_of_a_non_200_answer` (tueur l.792 vers l.149), R4 tué
+    (`F:/tmp/methode/ctv2/mutants/RESULTS.json` `85829d1c...`, P1 et K26 `strict`) ; épingle verte à la base ; fusion `c2787443`.
   - BINANCE-OPENSSL-PREFIX-PIN-1 (mutants ; O-RR3-1) : le mutant E2 refuse le nom `OPENSSL` sans tiret bas, que le code livré admet ;
     aucun test n'épingle cette frontière. Tueur mesuré : ce nom ajouté au cas proche du test de la garde de confiance ; prix : un nom
-    dans une liste existante. Source : idem. Déclencheur : celui de BINANCE-REPLAY-NON200-ATTEST-1 ; état : ouvert.
+    dans une liste existante. Source : idem. Déclencheur : celui de BINANCE-REPLAY-NON200-ATTEST-1 ; état : clos le 2026-10-03 : nom
+    `OPENSSL` dans l'environnement de `near` du test l.605, E2 tué (`85829d1c...`, P2 `strict`) ; fusion `c2787443`. Le tueur déclaré de
+    ce test reste l.58 : une campagne future ne rejoue E2 que par une ligne de table (O-CORR-1 ; Q-4 du recensement).
   - MUTANTS-MULTI-LINE-1 (outillage) : `scripts/mutants/run.mjs` n'applique qu'une ligne par mutant ; les mutants de revue cb M42
     et L01, sur deux lignes, sont restés hors campagne. Construction : une ligne de table à plusieurs éditions appliquées d'un bloc,
     et son test ; prix environ 10 lignes d'outil et 10 de test. Source : idem. Déclencheur : prochain lot qui touche l'outil, ou
@@ -307,6 +348,97 @@ Tronc `lot/etude-suite`. Dernier oracle complet : 1 779 tests, dont 1 776 verts,
     SERIES-TLS-TRUST-ENV-1 (I-5).
   - Actes de l'orchestrateur en cours, non re-décrits (recherches#71 ; `docs/HANDOFF-2026-10-02-publication.md` l.479-485) : relecture de
     l'enregistreur Coinbase par RECHERCHES, sonde Q-U4, Q-U3, Q-U5, premier mois Coinbase, scellement des 118, course des 35.
+    Au 2026-10-03, lots de l'addendum 7 : la sonde Q-U4 est COINBASE-PROBE-RUN-1 (ci-dessous) ; Q-U3 et Q-U5 sont répondues (addendum 7
+    W1 à W4 ; identifiant `v2` des manifestes des deux enregistreurs) ; le premier mois Coinbase se lit en deux passes (addendum 7 R1) ;
+    l'enregistreur Binance est relu CONFORME par RECHERCHES au sha `6fcee7c0` (feu pour les 118 puis les 35), sha que BINANCE-PRE153-1
+    changera : relecture au nouveau sha ensuite (HANDOFF du tronc, 19:00 UTC).
+- **Items des lots de l addendum 7, de BINANCE-V2-1 et de CM-1, 2026-10-03** (lots COINBASE-ADD7-1, BINANCE-V2-1 et EE7-ADD7-1,
+  fusionnés au tronc `09ed61c5`, `c2787443` et `e970c488`, et contrôle de CM-1 ; sources : journaux, revues, corrections et re-revues
+  sous `F:/tmp/rech/`, dossiers `cbadd7`, `ctv2`, `ee7add7`, `cm1rev`, `cm1rr` ; recensement complet, clos et absorbés compris, avec
+  preuves et questions : `F:/tmp/rech/itemsadd7/JOURNAL.md` (empreinte : `F:/tmp/rech/itemsadd7/DELIVERED.sha256`) ; propriétaire :
+  orchestrateur, sauf mention) :
+  - COINBASE-PASS-SHARED-BOUND-1 (PAROXYSME, mesuré) : les deux passes partagent le `start` de leur première requête et le `end` de leur
+    dernière ; une omission liée à ces seules requêtes est scellée fausse dans les deux et la comparaison sort 0 : [0, 148) et la bande
+    de fin propre à la longueur du mois (5 à 144 créneaux ; 292 sur 2 976 pour un mois de 31 jours). Construction acceptée par
+    RECHERCHES : la passe 2 ouvre par un coeur qui commence 149 créneaux avant le mois et ferme par un coeur qui finit 149 créneaux après,
+    témoins hors du mois comptés, jamais écrits ni comparés ; RECHERCHES demande la relecture de 2022-08 par cette passe avant la boucle.
+    Source : `cbadd7/G1.md` l.341-348 et l.407-425, `cbadd7/g2/G2-RAPPORT.md` l.163-204 (G2-1), messagerie de RECHERCHES (bords de
+    mois Coinbase, 2026-10-03). Déclencheur : avant la boucle des 49 mois ; prix : au plus une requête de plus par mois, environ 40
+    lignes de code et 60 de tests ; état : ouvert ; lot COINBASE-PASS-EDGES-1 en cours.
+  - EE7-MANIFEST-READ-1 (correction 5 de RECHERCHES) : faite par EE7-ADD7-1 pour les cinq clés (`schema` v2, `product`,
+    `granularity_s`, `end_exclusive`, `recorder_sha256` : détecteur l.154-162) ; reste ce que l'item exige « désormais » : `pass = 1` et
+    `empty_pages = 0`, que le détecteur ne lit pas (`empty_pages` vaut 0 dans tout manifeste écrit ; `pass` n'est contrôlé nulle part).
+    Source : `cbadd7/G1.md` l.349-353. Déclencheur : avant la première course du détecteur sur un mois scellé ; prix : environ 10
+    lignes et un test ; état : ouvert pour ce reste, porteur à trancher (Q-1 du recensement : COINBASE-PASSES-PIPE-1, ou le détecteur).
+  - COINBASE-PASSES-PIPE-1 (branchement) : la sortie de la comparaison des passes n'a pour consommateur que le plan ; construction : le
+    détecteur refuse un mois sans son scellé de mois (`coinbase-passes/<mois>.sha256`, qui lie les deux SHA256SUMS et la sortie verte de
+    la comparaison), et un test d'intégration passe 1, passe 2, comparaison, détecteur sur un mois imité, avec TUYAU-EE7-IN-1 (G2-15).
+    Source : `cbadd7/G1.md` l.354-359. Déclencheur : fusion de l'enregistreur et du détecteur, atteint (`09ed61c5`, `e970c488`) ; prix :
+    environ 15 lignes et un test d'environ 40 ; état : ouvert ; d'ici là, ni la comparaison ni la sonde ne sont « built ».
+  - COINBASE-PROBE-RUN-1 (acte ; la sonde Q-U4) : course réelle de `scripts/probe-coinbase-bounds.mjs` (3 requêtes BTC-USD sur une
+    semaine de 2026-09) ; `probe.json` scellé posté à RECHERCHES ; `readings` vide ou `format_accepted` faux : P3 (correction et
+    relecture avant toute requête USDT-USD). Noter G2-10 : la sonde contrôle la forme d'une bougie moins que l'enregistreur (une forme
+    refusée se verrait au premier mois par un arrêt nommé). Source : `cbadd7/G1.md` l.284-287 et l.360-362. Déclencheur : après la G2
+    du lot, atteint ; prix : 3 requêtes et une lecture ; état : ouvert ; ordre annoncé : campagne de fusion, la sonde, puis 2022-08.
+  - COINBASE-MUTANTS-ADD7-1 (mutants) : campagne par l'outil du tronc sur les lignes neuves de l'enregistreur, de la comparaison et de
+    la sonde. Source : `cbadd7/G1.md` l.363-366. Déclencheur : fusion du lot, atteint (`09ed61c5`) ; prix : une campagne (déjà mesurées
+    sur ces lignes : 78 sur 100 à la G2, 76 sur 76 au correcteur) ; état : ouvert ; campagne de fusion des trois lots en cours (lot
+    MUT-FUSION-ADD7-1, `F:/tmp/rech/mutadd7/`).
+  - EE7-RECORDER-IDENTITY-1 (détecteur) : `recorder_sha256` n'est contrôlé qu'en forme (64 hexadécimaux) ; fermer la chaîne de
+    scellement exige l'identité de l'enregistreur relu (son sha256, ou une liste fermée de versions) et son report par mois. Source :
+    `ee7add7/g2/G2-RAPPORT.md` l.218-223 (C-6), `ee7add7/corr/CORR.md` l.50 (D-8). Déclencheur : avant le premier hachage d'une liste
+    H-EE-7 ; prix : chiffré à son déclencheur (HANDOFF, Q-11) ; état : ouvert.
+  - BINANCE-REPLAY-SCHEMA-LIST-1 (nom proposé ; Q-CTV2-1, PAROXYSME) : le rejeu lit le manifeste source pour son intervalle seul ; un
+    schéma inconnu ou absent n'est pas refusé (sonde de la G2 : v3, sans schéma, `coinbase.v1`, v2 sans listes, rejoués `ok`, la
+    sortie étant recalculée depuis `raw/`). Construction : liste fermée des schémas lus (`binance.v1`, `binance.v2`), arrêt nommé neuf
+    `schema_unknown` avant toute écriture, un test. Source : `ctv2/G1.md` l.114, `ctv2/g2/G2-RAPPORT.md` l.56-58. Déclencheur : avant
+    le premier rejeu d'une source qui n'est ni un scellé v1 (48aa58b3, 0a1ae564) ni un dossier de cet enregistreur ; prix : environ 25
+    lignes R-25, jusqu'à 65 si une ligne s'insère (estimation, exact au G0) ; état : ouvert.
+  - MUTANTS-TYPECHECK-1 (outillage ; PAROXYSME) : `scripts/mutants/run.mjs` ne lance que `node --test`, un mutant de type (`.d.mts`) y
+    survit toujours. Construction : une ligne de table marquée `typecheck` fait lancer `tsc --noEmit -p tsconfig.json` dans le clone de
+    l'outil (tué si erreur dans un fichier cible), et son test ; à fondre avec MUTANTS-MULTI-LINE-1 si un même lot touche l'outil.
+    Source : `ctv2/corr/CORR.md` l.212-219 (Q-CORR-3). Déclencheur : la campagne de fusion de BINANCE-V2-1 (en cours sans ce mode :
+    T1 à T4 n'ont de preuve que par pilote), ou le prochain lot qui touche l'outil ; prix : environ 30 lignes d'outil et 25 de test
+    (estimation) ; état : ouvert.
+  - MUTANTS-REPLAY-NONCONCLU-1 (outillage) : l'outil de mutants ne rejoue sur toutes les cibles que les « survit » ; un mutant rouge
+    sans assertion au premier passage reste « non conclu » (M32 de CM-1). Construction : rejouer aussi les « non conclu », et son test.
+    Source : `cm1rr/RAPPORT.md` l.67 (F-1, voie (c) ; la voie (b) est faite dans la PR #104). Déclencheur : le prochain lot qui touche
+    l'outil (proposé, Q-8 du recensement) ; prix : chiffré à son déclencheur ; état : ouvert.
+  - MUTANTS-LOCK-MIDRUN-1 (outillage ; item antérieur absent d'ETAT, `docs/adr/ADR-RPC-GUARD-DRAND-1.md` l.134) : l'outil de mutants
+    ne lit le verrou d'hôte qu'au lancement ; un oracle d'un autre lot peut le prendre en cours de campagne. Deux chevauchements le
+    2026-10-03 (`cbadd7/corr/CORR.md` l.231-238 ; `ee7add7/corr/CORR.md` l.173-179) ; les arbres concernés sont rejoués verts par les
+    oracles G7 du tronc. Parade d'ici là : la garde externe de REGLES-MISSION. Déclencheur et prix : non écrits dans les sources lues
+    (Q-3 du recensement) ; état : ouvert.
+  - RED-PROOF-PIN-1 (outillage ; item antérieur absent d'ETAT, `docs/adr/ADR-METHODE-2.md` l.22 et l.62, lot M-4b) : `red-proof.mjs`
+    refuse un test vert à la base ; la catégorie « épingle » (tueur tué, `<before>` présent à la base, comptée à part) n'est pas au
+    tronc (0 occurrence de `pins`). Les trois tours de corrections du 2026-10-03 y ont buté (`ctv2/corr/CORR.md` l.193-196,
+    `ee7add7/corr/CORR.md` l.191-195, `cbadd7/corr/CORR.md` l.200-209), réglés par décision de l'orchestrateur. Déclencheur du lot
+    M-4b : G7 de M-6, atteint ; prix : au plus 547 lignes ; état : ouvert.
+  - HARNESS-BYO-400-RATE-1 (nom proposé ; mesure) : le nombre de clients touchés par B-0 et B-1 de CM-1 n'est pas mesuré ; borne : le
+    taux de réponses 400 sur `POST /gate` dans `harness-access.log` (route et statut, aucun corps), sur une fenêtre avant et une après
+    le déploiement de l'arbre qui les porte. Source : `cm1rev/RAPPORT.md` l.164 et l.181 (Q-6). Déclencheur : l'acte (3) de l'ordre de
+    déploiement retenu ; prix : deux lectures du journal d'accès ; état : ouvert.
+  - Clos ou absorbés dans ces lots, preuves au recensement : EE7-SCHEMA-V2-1 (le détecteur lit `monark.series.coinbase.v2`), Q-CTV2-3
+    (dans I-2), et à leur place plus haut : COINBASE-MUTANTS-CORR-1, COINBASE-PLAN-ENVOK-OPENSSL-1, TUYAU-EE7-IN-1,
+    BINANCE-REPLAY-NON200-ATTEST-1, BINANCE-OPENSSL-PREFIX-PIN-1, partie EE-7 de MAIN-GUARD-REALPATH-1 ; Q-8 (copies sous `F:/tmp`) :
+    clos au HANDOFF du tronc (19:00 UTC).
+  - Existants mis à jour à leur place : COINBASE-BOUNDS-READ-1, COINBASE-TRUNCATION-RESIDUAL-1, COINBASE-HOLE-WINDOW-1,
+    SERIES-ENV-ALLOWLIST-1, SERIES-BODY-BOUND-1, SERIES-ERROR-BODY-1, MAIN-GUARD-REALPATH-1, EE7-WINDOW-LEADIN-1, PROBE-NARABI-LOAD-1,
+    I-2, SERIES-TLS-PEER-LOG-1, les actes en cours, PS-C-WRITE-1, VERIFY-TEST-DEAD-CHILD-2, REPLAY-INTERVAL-BIND-1 (Katas). Questions
+    ouvertes des journaux et de ce lot : au recensement (HANDOFF, Q-9).
+- **Chantier moteur (RECHERCHES)** : CM-1 (BYO-NEAR-NAME-1, S-11 ; ligne B-1 de `docs/adr/ADR-CM-chantier-moteur-audit-P3.md`) est
+  fusionnée dans la branche de base `base/chantier-moteur-2026-10-03` (PR #103 `c53f0a72`, points de forme PR #104 `6da4504d`) et dans
+  le tronc (`59b95f29`, `2cf89fce`) ; rien n'est déployé : la faille S-11 reste servie jusqu'au déploiement. Ordre des déploiements
+  retenu (`docs/G7-lot-cm-1.md` l.35), chaque acte sous le go de l'investisseur : (1) relecture d'hôte en lecture seule par MONARK ;
+  (2) NARABI-L-1 seule, depuis sa fusion `5c5f636` ; (3) l'arbre au sha de fusion. Contrôle par diff de MONARK : C-1 à C-8 puis F-1 à
+  F-5 pliés (PR #104), rien de bloquant au dernier tour (`F:/tmp/rech/cm1rev/RAPPORT.md`, `F:/tmp/rech/cm1rr/RAPPORT.md`). Items portés
+  par RECHERCHES, au §10 et aux amendements datés de l'ADR-CM : BYO-ASCII-LOOKALIKE-1 (imitations ASCII qui passent B-1 ; déclencheur :
+  plan de CM-2 ; prix : environ 40 lignes de code et 80 de tests, une ligne B neuve, go du fondateur) ; LIQ-BAND-EXACT-GUARD-1 (garde
+  « max yhat de la strate + qhat au plus 2^53 » au chargement d'une calibration liq, avec son test, dans CM-4 ; déclencheur : avant toute
+  strate liq nouvelle) ; au G0 de CM-1 seulement : BYO-HOMOGLYPH-1 (résidu non ASCII, appel direct seul, hors contrat ; sans
+  déclencheur ni prix : Q-7 du recensement). Côté MONARK :
+  MUTANTS-REPLAY-NONCONCLU-1 et HARNESS-BYO-400-RATE-1 (ci-dessus) ; le §10 porte aussi BTC-DIR-RETIRE-SURFACES-1 et W2E-TAIL-1
+  (MONARK). Suite : plan de CM-2.
 
 ## Ce qui reste pour la page
 
@@ -400,8 +532,9 @@ Tronc `lot/etude-suite`. Dernier oracle complet : 1 779 tests, dont 1 776 verts,
   intervalle ; élargi le 2026-10-03 par RECORDER-CLOSE-TIME-1, son I-1 ; faits : manifeste comparé, clôture hors créneau, pages attestées,
   lecture fermée de Q-CORR2-1 ; restent (a) l'intervalle nommé par `requests.jsonl`, (b) une source `raw/` seule et (d) une
   ancre externe, prix (a) environ 4 lignes et 2 cas, (d) environ 6 lignes et 2 cas ; source : `F:/tmp/rech/ct/corr2/CORR2.md` l.100,
-  `ct/corr3/CORR3.md` l.78 ; déclencheur : avant le scellement des 118 ; ouvert ; acte de fusion lié, fait le 2026-10-03 : la ligne datée H-6 de
-  `docs/marche/FAITS-binance-klines-2026-10-01.md` dit la garde `close_time` retirée et nomme `close_out_of_slot`).
+  `ct/corr3/CORR3.md` l.78 ; déclencheur : avant le scellement des 118 ; ouvert, lot BINANCE-PRE153-1 en cours ((a), (b), (d)) ; acte
+  de fusion lié, fait le 2026-10-03 : la ligne datée H-6 de `docs/marche/FAITS-binance-klines-2026-10-01.md` dit la garde `close_time`
+  retirée et nomme `close_out_of_slot`).
   Suite de P2 (messagerie #32 à #36) : séries descellées, recensement et parité exacts ; P2a-1 relu (#33), plié et contrôlé (#35) ;
   audit P3 de notre moteur : 24 points confirmés, 3 partiels, S-5 tranché en 400 nommé (#34) ; P2a-2 relu (#36) : quatre corrections,
   Q-P2a-4 voie (c) (seul le motif de la venue exempté dans le registre privé). Accord « P2a complet » après le pli et notre contrôle.
