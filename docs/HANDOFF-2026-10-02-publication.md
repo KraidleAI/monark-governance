@@ -444,6 +444,12 @@ DJ-L06 table sans script (code, rendu serveur des lignes committées).
   visuelle sur données réelles) ; le lever est une décision de l investisseur. Constat : la première tête porte des lots âgés jusqu à
   23 jours (historique depuis le 10 septembre) que les textes de la page n expliquent pas. Question rendue à l investisseur.
   Fenêtre : TU-7 doit tomber avant la prochaine publication (00:30 UTC le 4 octobre), sinon CA-1 à refaire.
+- 2026-10-03 04:2x UTC : investisseur (verbatim : « ok on suit ta reco, enchaine toutes les étapes ») : voie 1, texte d abord.
+  Second cp-1 bref (workflow wf_f141eb2b-745) : validateur claude-fable-5-1 ACCEPTE-AVEC-CORRECTIONS (rapport aa4a9717…, C-1 de fond :
+  historique lu par helius + chainstack, pas la paire quotidienne) ; vérificateur claude-opus-5-5 (FACTCHECK af19f26f…) : 5 affirmations
+  sur 6 tiennent, la 3e corrigée par C-1. Texte accepté 57f95f75… (456 car.). Ligne datée ADR-DOJO-PR-4 dans le lot (36453a59, C-4).
+  Lot DOJO-RETRO-TEXT-1 : worktree F:/Monark-wt-retro, branche lot/retro-text ; mission G1 633cb20b… (reçu vert) ; G1 puis G2 neuve
+  lancés 05:0x UTC (workflow wf_df4e37c8-808). Suite : fusion au tronc + oracle, TU-7, oracle, contrôle visuel, envoi, registre built.
 - 2026-10-02 15:30 UTC : go de minuit reçu ; lanceur `F:/tmp/dojo/final/wait-and-run.sh` armé ; annonce X publiée depuis le 1er octobre
   (investisseur) ; validation visuelle : page reconstruite à l ancre 30/30/30/30/90, captures envoyées, six questions C-V-4 encore ouvertes.
 - 2026-10-02 08:26 UTC, ÉCART DE ROSTER relevé par l orchestrateur : depuis 02:51:22 UTC, les tours de l orchestrateur tournent sous
