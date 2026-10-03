@@ -436,6 +436,14 @@ DJ-L06 table sans script (code, rendu serveur des lignes committées).
   réponse. Lu : G7.txt local = c0c60617 (à porter sur la fusion du tronc d10d757f, qui contient f39e679c) ; dojo.monarkgate.tech résout.
 - 2026-10-03 04:2x UTC : DÉCISION de l investisseur (verbatim : « fais avec OPUS 5.5 comme orchestrateur pour la suite. », /model
   claude-opus-5-5) : orchestrateur sous claude-opus-5-5 pour la suite ; écart de 04:1x clos par sa décision. Chemin du site lancé.
+- 2026-10-03 04:18 UTC : chemin du site FAIT jusqu au proxy : OTS de l ancre (c1f84de4, PENDING), G7.txt → 4ce547b0, clé d hôte §15 (0),
+  Bell REPLACE → IMPORT + CA Bell 12/12 (34d6a784), A-6 (dojo.monarkgate.tech servi, certificat émis), CA-1 12/12 (ba3099e1),
+  DOJO-EDGE-CACHE-1 constaté, §24 proxy du site en service (traversées 404). Journal de mise en service à jour.
+  ARRÊT AVANT TU-7 sur un bloquant écrit (ADR-DOJO-PR-3, ligne datée 2026-10-02 08:56) : second cp-1 bref du validateur
+  (PR4B-CP1-POST-ANNOUNCE-1 : DOJO-RETRO-TEXT-1, texte de méthode des jours rétroactifs, PAS ENCORE ÉCRIT ; rendu de history ; validation
+  visuelle sur données réelles) ; le lever est une décision de l investisseur. Constat : la première tête porte des lots âgés jusqu à
+  23 jours (historique depuis le 10 septembre) que les textes de la page n expliquent pas. Question rendue à l investisseur.
+  Fenêtre : TU-7 doit tomber avant la prochaine publication (00:30 UTC le 4 octobre), sinon CA-1 à refaire.
 - 2026-10-02 15:30 UTC : go de minuit reçu ; lanceur `F:/tmp/dojo/final/wait-and-run.sh` armé ; annonce X publiée depuis le 1er octobre
   (investisseur) ; validation visuelle : page reconstruite à l ancre 30/30/30/30/90, captures envoyées, six questions C-V-4 encore ouvertes.
 - 2026-10-02 08:26 UTC, ÉCART DE ROSTER relevé par l orchestrateur : depuis 02:51:22 UTC, les tours de l orchestrateur tournent sous
