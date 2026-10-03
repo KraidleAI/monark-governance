@@ -45,6 +45,7 @@ function refused(p: Prediction, cal: NonNullable<HarnessParams["calibration"]>, 
 
 // Test T-1 (F2P): the nine look-alike names of MONARK's probe (status of audit P3, priority 1) are refused.
 // killer: apps/harness/src/tools/gate.ts byoLookAlike CONST "asciiLower(taskClass)" -> "taskClass"
+// killer: apps/harness/src/tools/gate.ts CLASS_LOCKED drop TASK_LIQ_ELIGIBLE
 test("byo_lookalike_probe_names_refused", () => {
   const set: [string, string][] = [
     ["BTC-DIR-15M", "caller:model"],
@@ -52,6 +53,7 @@ test("byo_lookalike_probe_names_refused", () => {
     [" btc-dir-15m", "caller:model"],
     ["Cascade-Liquidable-24h", "caller:model"],
     ["liquidation-eligible-coverage ", "caller:model"],
+    ["Liquidation-Eligible-Coverage", "caller:model"],
   ];
   for (const [cls, key] of set) refused(pred(cls, key, "A"), SET_CAL, `set ${JSON.stringify(cls)}`);
   const usde: [string, string][] = [
@@ -91,8 +93,9 @@ test("byo_kata_names_reserved", () => {
 // fragment, and another population on the stable-run class (committed by KEY only) still decide; the
 // already-refused exact names keep their message byte for byte.
 // killer: apps/harness/src/tools/gate.ts byoLookAlike CONST "return undefined" (end) -> "return 'x'"
+// killer: apps/harness/src/tools/gate.ts KATA_CLASS_RE drop the "^" anchor
 test("byo_honest_names_unchanged", () => {
-  const honest: [string, string][] = [["acme-model-x", "caller:model"], ["my-btc-dir-1h-clone", "caller:model"], ["btc-dir-1d", "caller:kata"]];
+  const honest: [string, string][] = [["acme-model-x", "caller:model"], ["my-btc-dir-1h-clone", "caller:model"], ["btc-dir-1d", "caller:kata"], ["acme-btc-dir-1h", "caller:model"]];
   for (const [cls, key] of honest) {
     const d = runGate(pred(cls, key, "A"), { ...PARAMS, calibration: SET_CAL });
     assertClosedGateDecision(d);

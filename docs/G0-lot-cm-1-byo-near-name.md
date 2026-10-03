@@ -22,13 +22,13 @@ Hors BYO, rien ne change : une classe inconnue rend déjà 400 (`gate.ts:797`).
 - T-1 : les neuf noms imitants de la sonde de MONARK ([S] §Priorité 1) rendent `HarnessToolError` ;
 - T-2 : blancs en tête et en fin (espace, tabulation, U+00A0) sur la classe et sur la clé ;
 - T-3 : motif kata réservé (casse quelconque) et préfixe `kata:` ;
-- T-4 (garde du comportement) : un BYO honnête (`acme-model-x`, et une autre population sur `stable-run-velocity-24h`) reste en 200 avec un verdict identique ; les messages existants restent identiques.
+- T-4 (garde du comportement) : un BYO honnête (`acme-model-x`, `acme-btc-dir-1h`, et une autre population sur `stable-run-velocity-24h`) reste en 200 avec un verdict identique ; les messages existants restent identiques.
 
 Chaque test nomme son mutant tueur sur la ligne au-dessus.
 
 ## Résidu déclaré
 
-Les homoglyphes non ASCII (par exemple un « с » cyrillique dans `btс-dir-15m`) ne sont pas abaissés et passent. Les refuser demanderait de restreindre le BYO à l'ASCII, un changement servi absent de la liste B-1 ; item BYO-HOMOGLYPH-1, à soumettre avec CM-2.
+Les homoglyphes non ASCII (par exemple un « с » cyrillique dans `btс-dir-15m`) ne sont pas abaissés et passent, mais seulement en appel direct de `runGate` : au servi, le schéma gelé `prediction.schema.json:11,13` (`^[ -~]+$`, `minLength 1`), appliqué par `http.ts:91` et par la frontière MCP, les refuse déjà en 400 (mesuré par la G2). Il refuse aussi la tabulation et U+00A0 : au servi, seule l'espace ASCII en tête ou en fin atteint la garde, et les cas tabulation et U+00A0 de T-2 ne valent que pour l'appel direct. BYO-HOMOGLYPH-1 se réduit donc à l'appel direct de `runGate` (hors contrat) et ne demande aucun changement servi.
 
 ## Taille et sortie
 
