@@ -77,3 +77,12 @@ Relu sur place par l'orchestrateur (navigateur interne), juste avant la premièr
 - https://www.binance.com/en/terms : sert le même PDF, nommé par son sha256 `bf4879710c904b991848972ec4818ba2cf9e4ce314c09adae84fa2750d3477f7`
   (égal à la première lecture) : texte inchangé.
 - Statut inchangé : enregistrable pour la recherche interne, non redistribuable.
+
+## Ajout daté du 2026-10-03 : « Prohibited Use Policy » de Binance lue, demande de procurement close
+
+- La « Prohibited Use Policy » de Binance (section 2 : « Non lu », demande formée au fondateur) est lue sur place par l'orchestrateur le
+  2026-10-03 entre 17:57 et 18:06 UTC : https://www.binance.com/en/about-legal/prohibited-use-policy, PDF
+  `3c287bd60863eccef6a16b8580190c96d4c9414931928d7fafdb227bf967cd63`, « Last updated: 5 January 2026 ». Faits :
+  `F:/Monark-wt-l2adr/docs/marche/FAITS-L2-ACCESS-1-2026-10-03.md` section 5 (branche `lot/l2-adr`, commit `dfdd7e3b`, non fusionnée au
+  tronc à `e970c488`). La demande de procurement du 2026-10-01 est close. Statut des séries inchangé (usage interne, non
+  redistribuable) ; la réserve sur cette politique avait été levée par l'investisseur le 2026-10-02 (`docs/ETAT.md`, consignes).
