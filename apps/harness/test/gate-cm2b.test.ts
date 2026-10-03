@@ -105,6 +105,9 @@ test("usde_committed_key_imposes_alpha_and_nmin", async () => {
   assert.equal(n.code, "policy_nmin_mismatch");
   assert.equal(n.message, `task_class '${USDE}' with predictor_id '${USDE_STABLE_RUN_PREDICTOR_ID}' requires params.nMin = 50 (server-imposed for the committed key), got 51`);
   assert.equal(refused(() => runGate(usde, { ...PARAMS, alpha: 0.10000000000000002 }), "USDe alpha + 1 ulp").code, "policy_alpha_mismatch", "strict equality");
+  // Order (G0, liq order kept): alpha is checked before nMin, for liq and for USDe.
+  assert.equal(refused(() => runGate(usde, { ...PARAMS, alpha: 0.5, nMin: 51 }), "USDe both wrong").code, "policy_alpha_mismatch", "USDe: alpha first");
+  assert.equal(refused(() => runGate(pred(LIQ, 5000, "x"), { ...PARAMS, alpha: 0.1, nMin: 50, intent: 1 }), "liq both wrong").code, "policy_alpha_mismatch", "liq: alpha first");
   const h = await http({ prediction: usde, params: { ...PARAMS, alpha: 0.5 } });
   assert.equal(h.status, 400, "HTTP 400");
   assert.match(h.text, /"code":"policy_alpha_mismatch"/, "HTTP code");
@@ -176,7 +179,7 @@ test("usde_band_edges_within_half_ulp_stated_and_band_unchanged", () => {
 // committed Binance witness is concordant with btc-dir-15m only; since the class is retired, a concordant attested
 // passes the consistency guard (no attested_inconsistent) and meets the retirement (400 task_class_retired), through the
 // registry run(). No served class has a committed subject, so the residual seam is not reached on the served surface
-// (declared in docs/G0-lot-cm-2b.md, open question 1). The witness pin stays.
+// (dormant chain, ADR-CM amendment "nuit, 3"). The witness pin stays; the registry still threads env.attested.
 // killer: apps/harness/src/tools/gate.ts:883 CONST "\"task_class_retired\"" -> "\"task_class_unknown\""
 test("attested_concordant_meets_the_btc_dir_retirement", () => {
   const gateTool = HARNESS_TOOLS.find((t) => t.name === "gate");
@@ -192,4 +195,11 @@ test("attested_concordant_meets_the_btc_dir_retirement", () => {
       "btc-dir-15m, with or without a concordant attested, is retired",
     );
   }
+  // The registry still threads env.attested into runGate (a run() that dropped it would decide here): the same witness
+  // on the USDe key, whose class has no committed subject, is a 400 attested_inconsistent.
+  assert.throws(
+    () => gateTool.run({ prediction: pred(USDE, 0.0001, USDE_STABLE_RUN_PREDICTOR_ID), params: PARAMS, attested: price }),
+    (e: unknown) => e instanceof HarnessToolError && (e as { code?: unknown }).code === "attested_inconsistent",
+    "a discordant attested through the registry run() is a 400 attested_inconsistent",
+  );
 });
