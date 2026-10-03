@@ -476,6 +476,21 @@ pm) ; item MK-NM-GUARD-1 (refuser Tree = F:/Monark dans mk-nm.ps1).
   Release) ; ensuite, file RECHERCHES : FAITS-USDT-USD-HISTORY-1 sous l addendum 4, RECORDER-CLOSE-TIME-1 (zero_trade), Q-H3 à Q-H7,
   TO FILL de P0-2, chantier L2 (FAITS-L2-ACCESS-1, mesure du serveur du site, mission). Investisseur absent : rien d irréversible hors
   de ces go ; toute dépense (second hôte L2, historique acheté) attend son retour.
+- 2026-10-03 19:00 UTC : addendum 7, Binance v2 et CM-1 fusionnés ; chantier L2 lancé. Go de l investisseur : « oui, supprime les
+  copies sous F:/tmp », « ok go, enchaîne tout », « ok go, enchaîne ». Fait : huit dossiers de copies de pages Binance supprimés
+  (4 563 fichiers, aucune jonction, Q-8 clos). Fusions au tronc, chacune G1, G2 neuve, corrections et re-revue ciblée, oracle du
+  tronc 0 : COINBASE-ADD7-1 (09ed61c5 ; manifeste coinbase.v2 par la doctrine Q-U5), BINANCE-V2-1 (c2787443 ; relu CONFORME par
+  RECHERCHES au sha 6fcee7c0), CM-1 de RECHERCHES (PR #103 c53f0a72 puis #104 6da4504d sur la branche de base, tronc 59b95f29 et
+  2cf89fce ; contrôle par diff MONARK, rien de bloquant, rien déployé, ordre des déploiements retenu), EE7-ADD7-1 (e970c488 ; C4
+  de l épisode open at end lu comme RECHERCHES). Décisions de l orchestrateur : Q-CORR des trois correcteurs acceptées (gardes de
+  non-regression vertes à la base, tueurs tués). Construction des bords de mois Coinbase acceptée par RECHERCHES (passe 2 qui déborde
+  de 149 créneaux) : lot COINBASE-PASS-EDGES-1 en G1 avec SERIES-BODY-BOUND-1 ; cinq items Binance au déclencheur atteint (avant les
+  118 et les 35) : lot BINANCE-PRE153-1 en G1, relecture de RECHERCHES au nouveau sha ensuite. L2 : FAITS-L2-ACCESS-1 lu sur place
+  (branche lot/l2-adr ; Prohibited Use Policy de Binance trouvée et lue, procurement du 2026-10-01 clos ; data.binance.vision sous
+  CC BY-NC-SA, non utilisé) ; pays de l hôte du site : France, réponse de l investisseur, permis ; ADR-L2-CAPTURE-1 en rédaction
+  (advisor, pli, checkpoint-1), validation de l investisseur ensuite. En cours : campagne de mutants de fusion et items à ETAT
+  (wf_7e678397-c5e). PAROXYSME : registre du Dōjō inchangé ; limites nouvelles portées par des items (COINBASE-PASS-SHARED-BOUND-1
+  en lot, MUTANTS-TYPECHECK-1, MUTANTS-REPLAY-NONCONCLU-1, FAITS-L2-NEWDOCS-1, FAITS-ARCHIVE-NODE-1) ; aucun procurement attendu.
 - 2026-10-03 15:37 UTC : actes de fusion des lots RECHERCHES rendus (workflow wf_796e9548-470, deux G1 Opus 5.5 max, LIVRE-AVEC-RESERVES).
   ITEMS-RECH-1 fusionné (b45557e3, fusion 50cca389 ; lang-gate et export --check verts, docs hors export) : 43 items recensés, 25
   ouverts écrits à leur place dans ETAT, 11 clos, 7 absorbés. Campagne de mutants de fusion par l outil du tronc : 215 mutants, 204
