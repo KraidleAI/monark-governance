@@ -51,7 +51,7 @@ Deux fichiers neufs, `apps/harness/test/error-code.test.ts` et `apps/harness/tes
 - P-1 `run_gate_refuses_a_non_rfc3339_produced_at` : formes refusées et acceptées (bissextiles, seconde 60, décalage 23:59, `t`/`z`, fraction, `-00:00`) en appel direct ;
 - P-2 `produced_at_in_the_future_is_refused_at_http_and_mcp` : horloge injectée, +300 s accepté, +301 s refusé (HTTP), 2099 refusé (HTTP et MCP), et 2099 décidé en appel direct sans `nowMs` (épingle déclarée).
 
-Tests existants : aucun n'attend un corps d'erreur complet ; aucun n'est modifié dans son corps. Les tueurs des tests hérités qui visent `gate.ts` (`gate-byo-lookalike`, `gate-byo-tau-cap`, `gate-empty-set`, `oracle-fixtures`) sont ré-ancrés sur les lignes décalées (ligne tueuse seulement).
+Tests existants : aucun n'attend un corps d'erreur complet ; aucun n'est modifié dans son corps. Les tueurs des tests hérités qui visent `gate.ts` (`gate-byo-lookalike`, `gate-byo-tau-cap`, `gate-empty-set`, `oracle-fixtures`) sont ré-ancrés sur les lignes décalées (ligne tueuse seulement). Le tueur de `oracle-fixtures.test.ts` (`gate.ts:488`) était déjà périmé à la base (la ligne 488 de `ff06ead` ne porte pas `labels.length > params.tau`) : il est ré-ancré sur la ligne de `btcDirVerdict` qu'il visait.
 
 ## Écarts au dessin de l'advisor
 
@@ -62,3 +62,7 @@ Tests existants : aucun n'attend un corps d'erreur complet ; aucun n'est modifi�
 ## Taille et sortie
 
 Code : `gate.ts`, `http.ts`, `server.ts`, `tools/registry.ts`, et une ligne de code par classe dans `attest.ts`, `calibrate.ts`, `cascade.ts`, `ukemi-predict.ts` ; tests : deux fichiers neufs. Une PR, R-25 sous 1 150. Oracle : `npx tsc --noEmit`, eslint sur les fichiers changés, `npm run gate:vocab`, `npm run lint:ratchet`, `npm test` (seul échec toléré : `bell-served.test.ts:153` dans un clone superficiel), `scripts/red-proof.mjs --base ff06ead --draw 5 --seed 20261004`. Revue G2 par une instance neuve, puis G7 ; déploiement par MONARK sur le sha donné, après le go de l'investisseur.
+
+## Mesures (gel `295fb7c`)
+
+R-25 : 14 fichiers, +557/−73, soit 630 lignes (docs exclus). Tests : harnais 115 → 123 ; `npm test` 1 940 (1 916 verts, 2 échecs : `bell-served.test.ts:153` et le test 42 d'export, dont la CI exportée a rougi sur `sentinel_run_releases_chainstack_lock_on_sigterm`, instable à la base) → 1 949 (1 926 verts, 22 ignorés, 1 échec : `bell-served.test.ts:153`). `red-proof` : OK, 8 jugés F2P, 5 tueurs tirés (graine 20261004), tous tués ; les trois autres tueurs vérifiés à la main, tués.
