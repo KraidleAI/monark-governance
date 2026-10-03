@@ -4,7 +4,8 @@
 // its body, DojoTableBody, which holds no hook. Oracles, never the modules under test: the build check (assertDojoBody and dojoExpected of
 // scripts/assert-fleet-html.mjs) on the page rendered from records built at run time from the signed fixture (keys made by node:crypto,
 // never written), the served lines files, the closed list of lib/dojo-copy.ts. No network. The exports this part adds are asserted present
-// first, so that at the base each test reds by an assertion (red-proof), never by an import.
+// first, so that at the base each test reds by an assertion (red-proof), never by an import. The link to the page from the site header's
+// primary nav is rendered the same way (next/link and next/navigation stubbed), its source read first.
 import { after, test } from "node:test";
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
@@ -365,4 +366,68 @@ test("dojo_page_reads_a_local_root_on_the_server_at_build_only", async () => {
   const naming = tracked.filter((f) => f !== "" && !/^(test|docs)[/]/.test(f) && !f.endsWith(".md") && existsSync(join(ROOT, f))
     && readFileSync(join(ROOT, f), "latin1").includes(NAME));
   assert.deepEqual(naming, ["apps/site/app/dojo/page.tsx"], "the name in the server page alone");
+});
+
+/** The site header the server renders at `pathname`, inside the real ThemeProvider: the header, the theme provider and the lockups
+ *  transpiled like the page's components; next/link an anchor that passes its props through, next/navigation a stub whose
+ *  usePathname returns `pathname`; any other import fails. A directory per call: each module is imported once. */
+async function headerAt(pathname: string): Promise<string> {
+  const dir = temp("dojo-render-header-"), link = join(dir, "next-link.mjs"), nav = join(dir, "next-navigation.mjs");
+  writeFileSync(link, `import { createElement } from "${urlOf(fromRoot.resolve("react"))}";${NL}` +
+    `export default function Link({ href, children, ...rest }) { return createElement("a", { href, ...rest }, children); }${NL}`);
+  writeFileSync(nav, `export function usePathname() { return ${JSON.stringify(pathname)}; }${NL}`);
+  const target = (spec: string): string => {
+    if (spec.startsWith("@/lib/")) return urlOf(join(SITE, "lib", `${spec.slice(6)}.ts`));
+    if (spec.startsWith("@/components/")) return urlOf(join(dir, `${spec.slice(13)}.mjs`));
+    if (spec === "react" || spec === "react/jsx-runtime") return urlOf(fromRoot.resolve(spec));
+    if (spec === "next/link") return urlOf(link);
+    return spec === "next/navigation" ? urlOf(nav) : assert.fail(`an import the header render does not resolve: ${spec}`);
+  };
+  const options = { jsx: ts.JsxEmit.ReactJSX, module: ts.ModuleKind.ESNext, target: ts.ScriptTarget.ES2022 };
+  for (const name of ["site-header", "theme-provider", "lockups"]) {
+    const source = readFileSync(join(SITE, "components", `${name}.tsx`), "utf8");
+    const out = ts.transpileModule(source, { fileName: `${name}.tsx`, compilerOptions: options }).outputText;
+    writeFileSync(join(dir, `${name}.mjs`), out.replace(/from "([^"]+)"/g, (_, spec: string) => `from "${target(spec)}"`));
+  }
+  const header = (await import(urlOf(join(dir, "site-header.mjs")))) as Rec, theme = (await import(urlOf(join(dir, "theme-provider.mjs")))) as Rec;
+  return renderToStaticMarkup(createElement(theme.ThemeProvider as FunctionComponent, null, createElement(header.SiteHeader as FunctionComponent)));
+}
+
+// killer: apps/site/components/site-header.tsx:37 CONST "href: DOJO_ROUTE" -> "href: \"/dojo\""
+// killer: apps/site/components/site-header.tsx:37 SDL "{ href: DOJO_ROUTE" -> ""
+test("dojo_render_header_links_the_snapshot_right_after_docs", async () => {
+  // The source (D-1): in NAV_ITEMS, the entry right after Docs is the route and the name of lib/dojo-copy.ts, imported, never typed.
+  const sf = ts.createSourceFile("site-header.tsx", readFileSync(join(SITE, "components", "site-header.tsx"), "utf8"), ts.ScriptTarget.Latest, true,
+    ts.ScriptKind.TSX);
+  const items: string[][] = [], imported: string[] = [];
+  const visit = (n: ts.Node): void => {
+    if (ts.isImportDeclaration(n) && ts.isStringLiteral(n.moduleSpecifier) && n.moduleSpecifier.text === "@/lib/dojo-copy") {
+      const named = n.importClause?.namedBindings;
+      if (named !== undefined && ts.isNamedImports(named)) for (const e of named.elements) imported.push(e.getText(sf));
+    }
+    if (ts.isVariableDeclaration(n) && n.name.getText(sf) === "NAV_ITEMS" && n.initializer !== undefined && ts.isArrayLiteralExpression(n.initializer)) {
+      for (const el of n.initializer.elements) items.push(ts.isObjectLiteralExpression(el) ? el.properties.map((p) => p.getText(sf)) : [el.getText(sf)]);
+    }
+    ts.forEachChild(n, visit);
+  };
+  visit(sf);
+  const docs = items.findIndex((p) => p.join(", ") === 'href: "/docs", label: "Docs"');
+  assert.ok(docs >= 0, "the primary nav keeps its Docs entry");
+  assert.deepEqual(items[docs + 1], ["href: DOJO_ROUTE", "label: `${DOJO_NAME} snapshot`"], "right after Docs: the route and the name of lib/dojo-copy.ts");
+  assert.deepEqual(imported.sort(), ["DOJO_NAME", "DOJO_ROUTE"], "both imported from lib/dojo-copy.ts, under their own names");
+  assert.equal(`${copy.DOJO_NAME} snapshot`, "Dōjō snapshot", "the label, exactly, with the macrons");
+  // The render: right after Docs, the route labelled Dōjō snapshot, linked once; the current entry is the page's own, as for the others.
+  for (const at of [copy.DOJO_ROUTE, "/docs"]) {
+    const nav = /<nav aria-label="Primary"[^>]*>(.*?)<[/]nav>/.exec(await headerAt(at))?.[1] ?? assert.fail(`no primary nav at ${at}`);
+    const links = [...nav.matchAll(/<a href="([^"]*)"( aria-current="page")?>([^<]*)<[/]a>/g)]
+      .map((m) => ({ href: m[1] ?? "", current: m[2] !== undefined, text: m[3] ?? "" }));
+    const i = links.findIndex((a) => a.href === "/docs");
+    assert.ok(i >= 0, `at ${at}: the Docs link is rendered`);
+    assert.deepEqual(links[i + 1], { href: copy.DOJO_ROUTE, current: at === copy.DOJO_ROUTE, text: "Dōjō snapshot" }, `at ${at}: right after Docs`);
+    assert.deepEqual(links.filter((a) => a.current).map((a) => a.href), [at], `at ${at}: one current entry, the page's own`);
+    assert.equal(links.filter((a) => a.href === copy.DOJO_ROUTE).length, 1, `at ${at}: the snapshot is linked once`);
+  }
+  // D-2: the link never leads to an absent page: a served snapshot is committed, so /dojo is built (notFound() only without one).
+  const data = loadDojoServed(ROOT);
+  assert.ok(data !== null && served.dojoPageFiguresOf(data).state !== "E0", "a served snapshot is committed: the page the header links is built");
 });
