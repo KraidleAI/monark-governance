@@ -476,6 +476,13 @@ pm) ; item MK-NM-GUARD-1 (refuser Tree = F:/Monark dans mk-nm.ps1).
   Release) ; ensuite, file RECHERCHES : FAITS-USDT-USD-HISTORY-1 sous l addendum 4, RECORDER-CLOSE-TIME-1 (zero_trade), Q-H3 à Q-H7,
   TO FILL de P0-2, chantier L2 (FAITS-L2-ACCESS-1, mesure du serveur du site, mission). Investisseur absent : rien d irréversible hors
   de ces go ; toute dépense (second hôte L2, historique acheté) attend son retour.
+- 2026-10-03 11:00 UTC : CI du miroir public verte sur 331a9bad (gates, Push on main). RECHERCHES, premier tour de corrections rendu
+  (wf_12c7d7c9-85b) : Coinbase (marge, garde d environnement, intégrité du rejeu), EE-7 (Q-8, C2, C4, edge), Binance successeur (M1,
+  interval_mismatch, close_out_of_slot) ; G2 neuves : APPROUVE-AVEC-CORRECTIONS pour les trois. Bloquants restants : confiance TLS
+  élargie par l environnement (NODE_USE_SYSTEM_CA=1 présent dans l environnement réel) pour Coinbase et Binance ; faux manquants hors
+  classe couverte (Coinbase, construction mesurée G2c-2-CONS) ; reprise de S à F non épinglée et fenêtre d amorce (EE-7). Second tour
+  lancé (wf_57e38fa7-2d0 ; missions 9a0f2b25, 44ab31e7, 0438c5ea), chacun suivi d une re-revue neuve. Première course Coinbase : UN mois
+  (2022-08), rejoué hors ligne et lu contre la table des signatures, avant la boucle ; après la relecture de RECHERCHES.
 - 2026-10-03 09:28 UTC : SYNCHRO PUBLIQUE v0.7.0 faite (go : « tu as tous les GO pour pousser vers le dépot publique »). main avancé sur le
   tronc dans F:/Monark-wt-main (72e79041 ; npm ci hors ligne, next 16.3.8), release-public.mjs : portes vertes (1888 tests, 0 échec),
   commit du miroir 331a9bad (message égal à l octet à docs/public-notes/v0.7.0.commit.md), information à RECHERCHES avant le push
