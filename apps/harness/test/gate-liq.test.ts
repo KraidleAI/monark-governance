@@ -348,7 +348,7 @@ async function servedToolsList(): Promise<Obj> {
 // altered in registry.ts; the openapi description altered => red.
 // CM-2b (ADR-CM B-5, B-2, B-7): the served description moves (btc-dir retired, USDe alpha/nMin declared, the USDe band
 // edge stated); the sha256 pin moves 55744504... -> cb4029d2... (recorded in docs/G0-lot-cm-2b.md). The liq clause is unchanged.
-// killer: apps/harness/src/tools/gate.ts:212 CONST "refusal. For" -> "refusal; for"
+// killer: apps/harness/src/tools/gate.ts:213 CONST "refusal. For" -> "refusal; for"
 test("hdesc_served_gate_description_is_the_committed_clause", async () => {
   assert.equal(hasCommittedCalibrationForClass(TASK_LIQ_ELIGIBLE), true, "the delivered registry holds the liq class");
   const list = await servedToolsList();

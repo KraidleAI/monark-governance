@@ -305,6 +305,16 @@ export function matchesCommittedKeyFolded(taskClass: string, predictorId: string
 }
 
 /**
+ * True iff (taskClass, predictorId) equals a committed key after `fold` on both sides (ADR-CM B-10: the ASCII
+ * confusable reduction of gate.ts). Like `matchesCommittedKeyFolded`, a BYO guard only, never a serving lookup.
+ */
+export function matchesCommittedKeyWith(fold: (s: string) => string, taskClass: string, predictorId: string): boolean {
+  const cls = fold(taskClass);
+  const key = fold(predictorId);
+  return COMMITTED_CALIBRATIONS.some((c) => fold(c.taskClass) === cls && fold(c.predictorId) === key);
+}
+
+/**
  * True iff at least one committed calibration exists for `taskClass` (REGISTRY level, delta D-3). The served
  * honesty text of the liq class is keyed on THIS, never on a per-(task_class, predictor_id) lookup with the
  * CLIENT key (which the server ignores): so the empty-registry text stays honest, and a future committed

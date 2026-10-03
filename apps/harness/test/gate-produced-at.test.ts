@@ -62,7 +62,7 @@ function refusedWith(fn: () => unknown, code: string, at: string): string {
 
 // Test P-1 (F2P): a direct runGate refuses every non RFC 3339 produced_at (P5(b)), and accepts the RFC 3339 edge
 // forms (leap years, leap second, offset 23:59 and -00:00, lower-case t and z, a long fraction).
-// killer: apps/harness/src/tools/gate.ts:783 CONST "sec > 60" -> "sec > 61"
+// killer: apps/harness/src/tools/gate.ts:822 CONST "sec > 60" -> "sec > 61"
 test("run_gate_refuses_a_non_rfc3339_produced_at", () => {
   const refused = [
     "yesterday", "", "2026-09-04", "2026-09-04T00:00:00", "2026-09-04T00:00Z", "2026-09-04 00:00:00Z",
@@ -119,7 +119,7 @@ async function mcpGate(producedAt: string, nowMs: number): Promise<Obj> {
 
 // Test P-2 (F2P): at the HTTP and MCP entry points a produced_at more than 300 s after the injected clock is a 400
 // produced_at_future (offsets honoured); 300 s exactly is accepted; a direct runGate without nowMs only checks RFC 3339.
-// killer: apps/harness/src/tools/gate.ts:764 CONST "300_000" -> "301_000"
+// killer: apps/harness/src/tools/gate.ts:803 CONST "300_000" -> "301_000"
 test("produced_at_in_the_future_is_refused_at_http_and_mcp", async () => {
   const NOW = Date.parse("2026-10-03T12:00:00Z");
   const http = async (producedAt: string): Promise<{ status: number; body: Obj }> => {
