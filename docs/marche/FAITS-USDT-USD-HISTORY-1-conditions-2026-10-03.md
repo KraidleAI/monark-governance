@@ -56,3 +56,17 @@ Orchestrateur `claude-opus-5-5` (décision de l investisseur du 2026-10-03). Lu 
   bougie ; à soumettre à RECHERCHES avant toute lecture. **Contrôle croisé** : Kraken, transactions, sur les seules heures autour de S et F.
 - Ordre : enregistreur Coinbase (G1, patron de l enregistreur Binance), relecture RECHERCHES avant la première requête, course scellée
   par mois, détecteur EE-7 (S, F) ; seuls S et F sortent. Aucune série lue à ce jour.
+
+## Partie 3 (2026-10-03, 07:14 à 07:17 UTC) : Pyth, contrôle croisé de l addendum 4 §3 et de l addendum 5 C5
+
+- Question de l investisseur, verbatim : « est ce que PYTH est vraiment utilisé? il est devenu payant non? ».
+- [lu] docs.pyth.network, « Use Historical Price Data (Benchmarks) » : depuis le 26 août 2026 à 16:00 UTC, « every request must include
+  an Authorization: Bearer $PYTH_API_KEY header » ; la clé s obtient sur une page de facturation derrière connexion (non ouverte).
+- [lu] app.pyth.com/plans, « Plans & Pricing » : l offre Free porte « No Pyth API access » (consultation seule dans le terminal) ; l accès
+  API avec clé commence à l offre Starter, « $500/month ».
+- Conséquence : l historique Pyth USDT/USD de l addendum 4 §3 et de C5 n est pas accessible sans dépense ni clé ; aucune dépense sans
+  l investisseur et l orchestrateur ne détient aucune clé. Le contrôle croisé tenable sans dépense est Kraken seul (transactions, §3).
+- Précédent : Shōgen ADR-0023 (2026-09-03) constatait déjà la clé exigée par Hermes depuis le 26 août 2026 ; le contrôle de l addendum 4
+  par MONARK (message addendum-4-diff du 2026-10-02) ne l a pas signalé : omission de MONARK.
+- Le Dōjō n est pas touché : il lit le compte Pyth SOL/USD sur la chaîne Solana par ses nœuds RPC, sans API Pyth ni clé ; au snapshot
+  seq 4, trois des quatre lectures portent le cours SOL/USD (présence comptée, aucune valeur lue).
