@@ -1,9 +1,17 @@
 # G7 du lot CM-3a : moteur, première moitié (E-8, E-4, E-5, E-12, E-9, E-6)
 
 - **ADR** : `docs/adr/ADR-CM-chantier-moteur-audit-P3.md` §3 (CM-3 sans différence servie), R-2, R-3. Plan : `docs/G0-lot-cm-3a.md`.
-- **Base** : `2abe801` (branche `recherches/cm-3a`). Commits : `f0deeeb` (G0), `20564c3` (tests rouges), `4e726c4` (code, gel).
+- **Base** : `2abe801` (branche `recherches/cm-3a`). Commits : `f0deeeb` (G0), `20564c3` (tests rouges), `4e726c4` (code), `ee1c184` (G7) ; corrections de la G2 : `ecd3a0c` (tests, G0), `24c6a27` (code, **gel**).
 
-## Oracle
+## G2 (instance neuve) : APPROUVE-AVEC-CORRECTIONS, pliée
+
+Rejeu indépendant de 430 appels (octets identiques), E-5 exact sur 30 000 rangs, E-9 égal sur 7 245 points. Corrections : E-12 sous l'amendement A-1 (`spendIndex` = h + 1, h les recalibrations non exemptées, défaut `attempt`, entier dans 1..`attempt`) ; E-6 sur scores non binaires (score au-dessus de `silenceAt` refusé, `calibMisses` compté aux scores de `silenceAt` seulement en silence) ; note pour CM-4 au G0 (`misses` lu dans `calibMisses`, jamais dans `kObs`) ; borne du test de temps à 4 s.
+
+## Oracle (après la G2)
+
+- `red-proof --base 2abe801 --gel 24c6a27 --repo /home/user/monark-governance-cm3 --draw 8 --seed 21` : **OK**, 7 jugés F2P, 7 tueurs tirés, 7 tués. Moteur 73/73, harnais 127/127 (rejeu épinglé `b891dcab…` inchangé), `tsc`, eslint, `gate:vocab`, `lint:ratchet` 69/69 verts. R-25 : +467/−15, **482 lignes**.
+
+## Oracle (avant la G2)
 
 - `node scripts/red-proof.mjs --base 2abe801 --gel 4e726c4 --repo /home/user/monark-governance-cm3 --draw 8 --seed 9` : **OK**, 7 tests jugés F2P (rouges par assertion à la base, verts au gel), 7 tueurs tirés (tous ceux du lot), 7 tués.
 - `npx tsc --noEmit`, eslint sur les fichiers changés, `gate:vocab`, `lint:ratchet` 69/69 : verts.
