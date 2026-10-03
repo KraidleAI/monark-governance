@@ -91,13 +91,14 @@ async function e1(): Promise<{ f: ReturnType<typeof dojoFixture>; k: Rec; r1: Re
 test("dojo_live_renders_through_the_same_figures", async () => {
   const viewOf = added("dojoLiveViewOf"), firstOf = added("dojoFirstViewOf"), bodyOf = added("dojoBodyOf"), foldOf = added("dojoFoldOf");
   const { k, r1, c, e2 } = await e1(), r2 = await recordOf(e2, k), after = await loaded(r2);
-  const fixed = [copy.DOJO_TITLE, T.lead, T.method, T.exclusion, T.bounds, T.check, T.tree, T.beacon, T.rereadFirst, T.table, T.foldCounted,
-    T.foldCheck];
+  const fixed = [copy.DOJO_TITLE, T.lead, T.method, T.retro, T.exclusion, T.bounds, T.check, T.tree, T.beacon, T.rereadFirst, T.table,
+    T.foldCounted, T.foldCheck];
   /** The sentences the build check composes apart for a record (dojoExpected), those that carry figures. */
   const built = async (r: Rec): Promise<string[]> => {
     const e = await atRoot(r, (dir) => dojoExpected(dir)), method = T.method.split("{")[0] ?? T.method;
     assert.ok(e.state !== "E0" && e.sentences.includes(T.rereadFirst), "every built page carries the reread's first sentence (TXT-14r)");
     assert.ok(e.sentences.includes(T.table), "and, its head counted, the first sentence of the table of every line (TXT-17)");
+    assert.ok(e.sentences.includes(T.retro), "and the days before the first day read, which the page renders in its first fold (DOJO-RETRO-TEXT-1)");
     return e.sentences.filter((s) => !fixed.includes(s) && !s.startsWith(method)).sort(); // the method sentence: the page's, below
   };
   const first = firstOf(c, T), v = await viewOf(c, wired(c, e2).deps);
@@ -339,8 +340,8 @@ test("dojo_live_calls_the_reread_without_bounds", () => {
   const tail = ["<DojoLive", "counted={", "<DojoSentence text={T.method} figures={figures} />", "{COUNTED.map((s) => (",
     '<details className="pt-3 text-sm text-muted-foreground">', '<summary className="cursor-pointer">{T.foldCheck}</summary>', "{CHECK.map((s) => ("];
   assert.ok(tail.every((s, i) => inPage(s) === 1 && (i === 0 || page.indexOf(tail[i - 1] ?? "") < page.indexOf(s)))
-    && inPage("const COUNTED = [T.exclusion, T.bounds], CHECK = [T.check, T.tree, T.beacon];") === 1,
-    "the method, the exclusion and the bounds passed to the first fold, then the second fold: the check, the tree, the beacon (D-2)");
+    && inPage("const COUNTED = [T.retro, T.exclusion, T.bounds], CHECK = [T.check, T.tree, T.beacon];") === 1,
+    "the method, retro, the exclusion and the bounds passed to the first fold, then the second fold: the check, the tree, the beacon (D-2)");
 });
 
 // killer: apps/site/lib/dojo-served.ts:91 CONST "h.slot_min > h.slot_max" -> "false"

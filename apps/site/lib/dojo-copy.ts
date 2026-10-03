@@ -44,6 +44,13 @@ export const DOJO_TEXT = {
     "the smallest reading, and an account no longer found counts as zero. When a balance decreases, the part that left starts " +
     "again from zero, newest first. The hold score is the sum, over the days counted, of the part still held. Points become " +
     "validated once the part that produced them has been held for {validation_days} days in a row, and stay provisional until then.",
+  // The days before the first day read, rebuilt once from the history: rendered in the fold "How it is counted" right after the method,
+  // in every state; no figure of the history file is rendered.
+  retro:
+    "The days before the first day read, from the token's creation on, were rebuilt once from the token's transaction history, " +
+    "read through two distinct operators: each such day counts the smallest balance each address held that day, at the start of " +
+    "the day or after any of its transactions. They are published in the history file that a signed line of the timeline names " +
+    "by its SHA-256, and the first day read continues from them as from a previous day's line.",
   exclusion:
     "An address off the Ed25519 curve is a program address, such as a pool or an escrow, or an address no key can sign for: its " +
     "line is published with the class program and a hold score of zero.",

@@ -16,7 +16,7 @@ import { DojoSentence } from "@/components/dojo/dojo-figures";
 // two native folds: how it is counted (the method sentence names the anchor's validation window in days, same component), how to check it.
 export const metadata: Metadata = { title: DOJO_TITLE, description: T.lead };
 
-const COUNTED = [T.exclusion, T.bounds], CHECK = [T.check, T.tree, T.beacon];
+const COUNTED = [T.retro, T.exclusion, T.bounds], CHECK = [T.check, T.tree, T.beacon];
 
 export default function DojoPage() {
   const data = loadDojoServed(recordRootOf());

@@ -544,3 +544,8 @@ Voir §4 (par PR), §6 (menaces), §7 (items). C-V-4 : chaque G1 de la piste C r
   que le code a fait : manifeste du paquet final `b4bdbca0…` (missing_address_days 0, transactions_without_quorum 0), checks run 0018
   `984139fd…` (unordered 0). DOJO-RETRO-TEXT-1 clos ; PR4B-CP1-POST-ANNOUNCE-1 tenu pour le texte ; validation visuelle de l investisseur
   sur données réelles due à la synchro (TU-7). Lot DOJO-RETRO-TEXT-1 (`lot/retro-text`), R-25 borne 547.
+- **Ligne datée (orchestrateur, 2026-10-03 06:1x UTC) — G7 du lot DOJO-RETRO-TEXT-1** : G1 `claude-opus-5-5` LIVRE-AVEC-RESERVES (journal
+  `F:/tmp/dojo/retro/G1-DOJO-RETRO-TEXT-1.md` `b8739d6d…`, R-25 60, preuve rouge F2P 6/6 et 6 tueurs tués) ; G2 neuve APPROUVE-AVEC-CORRECTIONS
+  (`F:/tmp/dojo/retro/g2/G2-RAPPORT.md` `83aaf0fa…`) : F-1 bloquant hors du lot (base rouge sur `bell_served_data_matches_deploy_ca`,
+  causée par la CA de Bell rejouée à l acte A-6) réparé au tronc par la resynchronisation des données Bell ; F-5 : `TEXTS_SHA256` de la
+  liste fermée = `f61fb0d728a9e3fa2ac895bcc89830b0b6c9d5325e7de9e0f145f0d7ccf9b83c` (35 textes). Oracle exit 0 cité à la fusion au tronc.

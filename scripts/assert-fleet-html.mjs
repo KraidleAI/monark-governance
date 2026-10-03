@@ -677,7 +677,7 @@ export async function dojoExpected(dataRoot = REPO_ROOT) {
   // The anchor's figures, read here from the anchor in force: validation window (method, every state), Migration window (tier sentence, E2).
   const A = data.timeline.anchor, anchor = { validation_days: String(A.validation_days), ...(e2 ? { migration_days: String(A.tier_windows[4]) } : {}) };
   const all = { ...f, ...anchor };
-  const shown = [T.lead, counted ? T.counted : T.abstained, versioned ? T.tiers : T.noVersion, T.method, T.exclusion, T.bounds, T.check, T.tree, T.beacon,
+  const shown = [T.lead, counted ? T.counted : T.abstained, versioned ? T.tiers : T.noVersion, T.method, T.retro, T.exclusion, T.bounds, T.check, T.tree, T.beacon,
     T.rereadFirst, ...(counted ? [T.totals, T.table] : []), ...(e2 ? [holders, T.tier] : []), T.foldCounted, T.foldCheck];
   const fill = (s) => s.replace(/\{([a-z_]+)\}/g, (_, k) => {
     if (!Object.hasOwn(all, k)) throw new Error(`assert-dojo: {${k}} names no figure of the record's state (fail-closed)`);

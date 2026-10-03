@@ -124,7 +124,7 @@ async function expectedAt(dir: string): Promise<Exclude<Awaited<ReturnType<typeo
   return e.state === "E0" ? assert.fail("a record was expected") : e;
 }
 
-// killer: apps/site/app/dojo/page.tsx:19 CONST "[T.exclusion," -> "[T.method, T.exclusion,"
+// killer: apps/site/app/dojo/page.tsx:19 CONST "[T.retro," -> "[T.method, T.retro,"
 // killer: apps/site/app/dojo/page.tsx:41 CONST "<DojoSentence text={T.method} figures={figures} />" -> "{T.method}"
 // killer: scripts/assert-fleet-html.mjs:678 CONST "String(A.tier_windows[4])" -> "String(A.tier_windows[3])"
 // killer: apps/site/lib/dojo-served.ts:49 CONST "migration_days: migrationOf(data)" -> "migration_days: validation_days"
@@ -166,7 +166,7 @@ test("dojo_render_page_passes_the_build_check", async () => {
 // killer: apps/site/app/dojo/page.tsx:49 CONST "<details className=" -> "<details open className="
 test("dojo_render_page_folds_the_explanations", async () => {
   // DOJO-PAGE-FOLD-1 (D-1, D-2): the essentials open; below the table, two native folds, closed by default, each opened by its own label
-  // with no script: "How it is counted" (the tier sentences, the method, the exclusion, the bounds), then "Check it yourself" (the check,
+  // with no script: "How it is counted" (the tier sentences, the method, retro, the exclusion, the bounds), then "Check it yourself" (the check,
   // the tree, the beacon). The page the server renders, in each state; each sentence as the closed list writes it, its figures filled in.
   assert.ok("dojoFoldOf" in served, "lib/dojo-served.ts exports dojoFoldOf");
   const { recs } = await records();
@@ -184,12 +184,36 @@ test("dojo_render_page_folds_the_explanations", async () => {
       list.every((s, i) => text.includes(s) && (i === 0 || text.indexOf(list[i - 1] ?? "") < text.indexOf(s)));
     const essentials = [copy.DOJO_TITLE, T.lead, said(T[head ?? assert.fail("no sentence")]), T.rereadFirst, ...open.map((k) => said(T[k])),
       ...(state === "EA" ? [] : [T.table])];
-    const how = [...folded.map((k) => said(T[k])), said(T.method), T.exclusion, T.bounds], yours = [T.check, T.tree, T.beacon];
+    const how = [...folded.map((k) => said(T[k])), said(T.method), T.retro, T.exclusion, T.bounds], yours = [T.check, T.tree, T.beacon];
     assert.ok(inOrder(atOpening, essentials), `${state}: the essentials at the opening, in order, the table last`);
     assert.ok(inOrder(counted, [T.foldCounted, ...how]) && inOrder(check, [T.foldCheck, ...yours]), `${state}: each fold, its sentences in order`);
     assert.deepEqual([...how, ...yours].filter((s) => atOpening.includes(s) || (yours.includes(s) && counted.includes(s))), [],
       `${state}: nothing folded at the opening, nothing of the second fold in the first`);
     assert.equal(folded.length, state === "E2" ? 2 : 1, `${state}: the tier sentences folded (the unit or its absence, the tier under a version)`);
+  }
+});
+
+// killer: scripts/assert-fleet-html.mjs:680 CONST "T.method, T.retro, " -> "T.method, "
+// killer: apps/site/app/dojo/page.tsx:19 CONST "[T.retro, T.exclusion," -> "[T.exclusion, T.retro,"
+// killer: apps/site/app/dojo/page.tsx:19 CONST "T.retro, " -> ""
+test("dojo_render_page_folds_the_rebuilt_days_after_the_method", async () => {
+  // DOJO-RETRO-TEXT-1 (ADR-DOJO-PR-4, second cp-1 of PR-4b after the announcement): the days before the first day read, rebuilt once from
+  // the history, said by one sentence of the closed list, as approved (its sha256), with no figure. The page the server renders, in each
+  // state: the first fold holds it once, right after the method and right before the exclusion, and nothing else does; the check composes it.
+  assert.ok("retro" in copy.DOJO_TEXT, "lib/dojo-copy.ts carries the sentence retro");
+  assert.equal(createHash("sha256").update(T.retro).digest("hex"), "57f95f75464f7f2d4299514a6236e7b1d254ec1d9b69a0d899ee538623a660fc",
+    "the sentence approved at the second cp-1, byte for byte");
+  const { recs } = await records();
+  for (const state of ["E1", "E2", "EA"] as const) {
+    const dir = rootWith(recs[state]), html = await pageAt(dir), main = (html.split("<main")[1] ?? "").replace(/^[^>]*>/, "").split("</main>")[0] ?? "";
+    const f = served.dojoPageFiguresOf(loadDojoServed(dir)), shown = f.state === "E0" ? assert.fail(`${state}: a record`) : f;
+    const said = (s: string): string => served.sentenceParts(s, shown).map((p) => (typeof p === "string" ? p : p.value)).join("");
+    const [, folded] = served.dojoFoldOf(served.dojoBodyOf(shown).slice(1));
+    const [, first = ""] = main.split("<details"), paragraphs = [...first.matchAll(/<p>(.*?)<[/]p>/g)].map((m) => textOf(m[1] ?? ""));
+    assert.deepEqual(paragraphs, [...folded.map((k) => said(T[k])), said(T.method), T.retro, T.exclusion, T.bounds],
+      `${state}: the paragraphs of the first fold, in order: retro right after the method, right before the exclusion`);
+    assert.equal(textOf(main).split(T.retro).length - 1, 1, `${state}: once on the page, in that fold alone`);
+    assert.ok((await expectedAt(dir)).sentences.includes(T.retro), `${state}: the build check composes it`);
   }
 });
 
