@@ -532,3 +532,15 @@ Voir §4 (par PR), §6 (menaces), §7 (items). C-V-4 : chaque G1 de la piste C r
   `line_malformed` et les phrases du chargeur), JSON ou non ; `not_json` ne nomme qu'un texte hors JSON EN DEÇÀ de la borne. Le code
   ne change pas (décision de l'orchestrateur, `docs/ETAT.md`).
   « Leur refus nommé existant » se lit donc « un refus nommé ».
+- **Ligne datée (orchestrateur `claude-opus-5-5` par décision de l investisseur, 2026-10-03 05:0x UTC) — second cp-1 bref de PR-4b après
+  l annonce (PR4B-CP1-POST-ANNOUNCE-1), pli de C-4 du validateur** : rapport `F:/tmp/dojo/retro/cp1/CP1-RETRO-RAPPORT.md` (sha256 `aa4a9717…`,
+  `claude-fable-5-1`, ACCEPTE-AVEC-CORRECTIONS ; C-1 de fond : l historique a été lu par deux opérateurs distincts, `helius` et `chainstack`,
+  `history-collect.ts` l.37, et non par la paire des lectures quotidiennes ; C-2, C-3 d anglais) ; vérification indépendante des six
+  affirmations contre le code (`F:/tmp/dojo/retro/factcheck/FACTCHECK.md` sha256 `af19f26f…`, `claude-opus-5-5` : cinq tiennent, la
+  troisième non, corrigée par C-1). DOJO-RETRO-TEXT-1 accepté : clé `DOJO_TEXT.retro`, 456 caractères, sha256 du texte
+  `57f95f75464f7f2d4299514a6236e7b1d254ec1d9b69a0d899ee538623a660fc` ; rendu dans le volet « How it is counted » juste après `method`,
+  dans les trois états (E1, E2, EA), donc aussi dans la liste `shown` de `scripts/assert-fleet-html.mjs` ; `dojo_page_lexicon_is_closed` :
+  35 textes, `TEXTS_SHA256` repiqué. Rendu de `history` : aucun chiffre (l.70, M-P17 inchangé). Pièces sous lesquelles la phrase dit ce
+  que le code a fait : manifeste du paquet final `b4bdbca0…` (missing_address_days 0, transactions_without_quorum 0), checks run 0018
+  `984139fd…` (unordered 0). DOJO-RETRO-TEXT-1 clos ; PR4B-CP1-POST-ANNOUNCE-1 tenu pour le texte ; validation visuelle de l investisseur
+  sur données réelles due à la synchro (TU-7). Lot DOJO-RETRO-TEXT-1 (`lot/retro-text`), R-25 borne 547.
