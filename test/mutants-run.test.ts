@@ -99,7 +99,7 @@ function run(args: string[], o: RunOpts = {}): Run {
   return done(spawnSync(process.execPath, argv, { encoding: "utf8", env, timeout: 600_000 }), out);
 }
 async function runAsync(args: string[], o: RunOpts = {}): Promise<Run> { // the event loop stays free: a child of this test that exits is reaped, never a zombie (MUTANTS-WAITER-ZOMBIE-1)
-  const { argv, env, out } = cmd(args, o), c = spawn(process.execPath, argv, { env }), r = { status: null as number | null, stdout: "", stderr: "", pid: c.pid };
+  const { argv, env, out } = cmd(args, o), c = spawn(process.execPath, argv, { env, timeout: 600_000 }), r = { status: null as number | null, stdout: "", stderr: "", pid: c.pid };
   c.stdout.setEncoding("utf8").on("data", (d: string) => { r.stdout += d; }); c.stderr.setEncoding("utf8").on("data", (d: string) => { r.stderr += d; });
   r.status = await new Promise<number | null>((ok) => c.on("close", ok));
   return done(r, out);
@@ -181,7 +181,7 @@ test("mutants_anchor_absent_or_twice_on_its_line_is_lost_counted_never_applied",
 });
 
 const heldOwners = ahead(() => { // the six owners side by side, each on its lock root (table held.json: one.json is rewritten by the tests that run meanwhile)
-  const f = fixture(), t = table("held.json", [T1]), dead = spawnSync(process.execPath, ["-e", "0"]).pid, mark = (pid: number): string => JSON.stringify({ lock: "oracle/lock.mjs", pid });
+  const f = fixture(), t = table("held.json", [T1]), dead = 0x7FFFFFF0, mark = (pid: number): string => JSON.stringify({ lock: "oracle/lock.mjs", pid }); // G2 M-3: a pid no host allocates, never a freed one
   const owners: [string | null, number][] = [[mark(process.pid), 4], ["a legacy free-text owner", 4], [JSON.stringify({ lock: "sh", pid: dead }), 4], [JSON.stringify({ pid: dead }), 4], [null, 4], [mark(dead), 0]];
   return Promise.all(owners.map(async ([owner, code]) => { // corrections D-6: no launch refusal; acquire() of oracle/lock.mjs takes over its own tag with a dead pid only, never another
     const lock = ownLock(), o = join(lock, "oracle-lock", "owner.txt");
@@ -462,9 +462,9 @@ test("mutants_a_live_waiter_ahead_passes_first_then_the_run_goes_on", { timeout:
 });
 
 // MUTANTS-LOCK-WAIT-BOUND-LOAD-1: stop.waited_ms counts from the entry into the wait (run.mjs:228, t0 of gate(), after the clone and the launch); its upper
-// bound is named: the wait, one poll, and a margin for a loaded host's late timers. It stays under 3 * WAIT, the least wait the killer's mutant can record
-// (acquire() returns null only once its own clock, started after gate()'s, reaches maxMs): that mutant is killed whatever the load.
-const WAIT = 1000, POLL = 100, MARGIN = 1500;
+// bound is named: the wait, one poll, and a margin for a loaded host's late timers. It stays under 2 * WAIT, the least wait a 2 * or 3 * o.wait mutant can record
+// (acquire() returns null only once its own clock, started after gate()'s, reaches maxMs): those mutants are killed whatever the load (G2 C-1: WAIT 2000).
+const WAIT = 2000, POLL = 100, MARGIN = 1500;
 // killer: scripts/mutants/run.mjs:231 CONST "maxMs: o.wait }" -> "maxMs: 3 * o.wait }"
 test("mutants_the_lock_wait_stops_at_its_named_bound", () => { // G27: this test's live pid queued ahead
   const { dir, base } = lk(), lock = mkdtempSync(join(fixture().root, "lock-"));

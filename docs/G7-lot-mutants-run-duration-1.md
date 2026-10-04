@@ -75,6 +75,41 @@ Aucune ligne de `run.mjs` ne change. J ai vérifié les 45 lignes `killer:` du f
 - `node_modules` copié d un autre arbre de travail au même `package-lock.json`.
 - Le changement de mode de `packages/rpc-guard/bin/rpc-guard.mjs` n est pas apparu dans cet arbre ; rien de ce côté n est commité.
 
+## Pli de la G2 (2026-10-04)
+
+Revue : `coordination/pieces/2026-10-04-G2-recherches/G2-mutants-run-duration.md`, verdict APPROUVE-AVEC-CORRECTIONS, aucun bloquant. Pli au commit suivant `3f79a8bc`, `test/mutants-run.test.ts` seul ; aucune ligne ajoutée ni retirée, chaque modification reste sur sa ligne.
+
+### Plié
+
+- **C-1, G27 : `WAIT = 2000`** (`MARGIN = 1500`, `POLL = 100`). La borne haute devient 3 600 ms, sous `2 * WAIT` = 4 000. Le commentaire au-dessus le dit. Mesuré dans une copie jetable (dépôt git initialisé, `run.mjs:231` muté, `waited_ms` journalisé), G27 lancé seul :
+
+  | `run.mjs:231` | `waited_ms` | G27 |
+  |---|---|---|
+  | `maxMs: o.wait }` (non muté) | 2 015 | vert (2,5 s) |
+  | `maxMs: 2 * o.wait }` | 4 030 | **rouge (tué)** |
+  | `maxMs: 3 * o.wait }` (tueur déclaré) | 6 037 | **rouge (tué)** |
+  | `maxMs: o.wait + 1000 }` | 3 026 | vert (survit) |
+
+  Le mutant `o.wait + 1000` survit : un décalage absolu de 1 s reste sous toute borne qui laisse 1 s de marge à un hôte chargé. Il n est pas le tueur déclaré ; je le note ici.
+- **M-1 : `runAsync` passe `timeout: 600_000` à `spawn`**, la même borne que `run()` (`spawnSync`). Un enfant qui attend la mémoire par défaut (5 400 000 ms) est tué à 600 s ; `after()` n attend plus 90 minutes.
+- **M-3 : le propriétaire mort est le pid `0x7FFFFFF0`**, qu aucun hôte n alloue, au lieu d un pid libéré. J ai lu `lock.mjs` d abord : `ownerPid` exige un entier > 0 (2 147 483 632 l est), et `alive()` appelle `process.kill(pid, 0)`. Linux : `pid_max` vaut au plus 4 194 304, `kill` rend ESRCH (vérifié ici, Node 24) ; `zombie()` n est pas atteint. Windows : `uv_kill` échoue à `OpenProcess` (ERROR_INVALID_PARAMETER), traduit en ESRCH. L intention reste : un propriétaire marqué `oracle/lock.mjs` dont le pid est mort est repris (exit 0) ; les deux autres lignes à ce pid (`lock: "sh"`, pas de `lock`) ne le sont jamais (exit 4). Le `spawnSync` qui fabriquait le pid libéré disparaît. Point ouvert 4 ci-dessus : levé pour ce test.
+
+### Laissés ouverts
+
+- **M-2** (seuil mémoire de 4 096 Mo avec plus de processus en même temps) : un défaut ne donne qu un rouge (`memoire` au lieu de `verrou`), jamais un vert à tort ; la dépendance existait avant le lot. La lever demanderait de changer le plancher de tests qui ne sont pas jugés ici. À mesurer chez toi sous Windows.
+- **M-4** (macOS, attendant non récolté de G28) : macOS n est pas une cible ; l attente de 60 s absorbe le délai. Information seulement.
+- **M-5** (« sous 60 s dans la suite » dépend de l hôte) : seule ta CI et ton poste Windows tranchent, comme le dit le point ouvert 1. Ici, après le pli et sur un hôte chargé (moyenne de charge 7 à 21, une autre session tournait), voir les chiffres ci-dessous.
+- **M-6** (`--test-skip-pattern` sans motif de nom : les lancements anticipés partent quand même, environ 7 s) : sans effet sur un verdict ; la revue a vérifié qu il ne reste ni racine ni processus.
+
+### Preuve après le pli (Node 24.21.0, sans proxy)
+
+- `tsc --noEmit` : 0. `eslint test/mutants-run.test.ts` : 0.
+- `node --test test/mutants-run.test.ts`, deux fois : 45/45 et 45/45, 43,4 s puis 38,7 s réels (hôte chargé ; G27 coûte 1 s de plus qu avant le pli).
+- `npm test` complet : exit 0, 2 117 tests, 2 095 verts, **0 échec**, 22 sautés, 515 s de mur sous une charge de 21 ; les 45 tests du fichier font une somme de 95,5 s sous cette charge (à ne pas comparer aux 34,6 s du gel mesurés à vide ; voir M-5).
+- Adresses des tueurs : 45/45 vérifiées avec `parseKiller` (texte avant présent exactement une fois sur sa ligne, ligne suivante `test(`).
+- `node scripts/red-proof.mjs --base ad2354df --gel <arbre> --repo <arbre> --test-only --out <brouillon>` : **OK**, exit 0. 7 jugés, 38 inchangés, 7/7 **pinned**, 7/7 tueurs **tués**. `RED-PROOF.json` sha256 `84fe4eb73d8ef64c…` (horodaté).
+- R-25 : `git diff --numstat ad2354df -- scripts test` : `64 28 test/mutants-run.test.ts`, **92** ≤ 547. Le pli seul : 5 insertions, 5 suppressions.
+
 ## Sortie
 
 LIVRÉ pour contrôle par MONARK. Rien poussé.
