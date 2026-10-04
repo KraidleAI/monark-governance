@@ -37,7 +37,7 @@
 // Test seam: run(argv, io) and main(argv, io) take fetch (shaped as https.request: url, options -> ClientRequest), sleep, clock, env,
 // execArgv and print from their caller; neither the command line nor the environment can set them; the default fetch is https.request.
 // The agent never commits (R-20).
-import { createHash } from "node:crypto";
+import { createHash, X509Certificate } from "node:crypto";
 import { appendFileSync, existsSync, mkdirSync, readdirSync, readFileSync, realpathSync, statSync, writeFileSync } from "node:fs";
 import { Agent, request } from "node:https";
 import { delimiter, dirname, isAbsolute, join, resolve } from "node:path";
@@ -97,12 +97,15 @@ export const isoOf = (ms) => new Date(ms).toISOString().replace(".000Z", "Z");
  *  TLS 1.2 or 1.3 alike (m-2 of the review: no ticket to race). */
 const AGENT = new Agent({ maxCachedSessions: 0, keepAlive: false });
 /** D-3 of lot BINANCE-PRE153-1 (SERIES-TLS-PEER-LOG-1), read on the socket of the answer itself when it arrives (no diagnostics channel,
- *  no binding): the sha256 of the leaf and issuer certificates (DER) that authenticated its connection; resumed stays in the line, always
- *  false: a resumed session (none is offered) attests nothing, nor plain HTTP, nor an answer without a socket (null). */
+ *  no binding): the sha256 of the leaf and issuer certificates (DER) that authenticated its connection, the issuer only when the leaf
+ *  verifies under its key, else null (SERIES-TLS-ISSUER-BY-NAME-1, F-1 of the G2 of #115: node names a stale issuer, one of the same
+ *  name, after a TLS server was created before the default trust changed); resumed stays in the line, always false: a resumed session
+ *  (none is offered) attests nothing, nor plain HTTP, nor an answer without a socket (null). */
 const certificates = (socket) => {
   const c = socket?.getPeerCertificate?.(true), issuer = c?.issuerCertificate?.raw;
+  const signs = (() => { try { return new X509Certificate(c.raw).verify(new X509Certificate(issuer).publicKey); } catch { return false; } })();
   return c?.raw && socket.isSessionReused() === false
-    ? { leaf_sha256: sha256(c.raw), issuer_sha256: issuer ? sha256(issuer) : null, resumed: false } : null;
+    ? { leaf_sha256: sha256(c.raw), issuer_sha256: signs ? sha256(issuer) : null, resumed: false } : null;
 };
 
 /** --start or --end: YYYY-MM-DDTHH:MMZ or YYYY-MM-DDTHH:MM:00Z, a real date (round trip), on the grid of the interval (15m by default). */
