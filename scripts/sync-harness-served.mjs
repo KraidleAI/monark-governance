@@ -27,13 +27,15 @@ import { createHash } from "node:crypto";
 import { fileURLToPath } from "node:url";
 import { CALIBRATE_LABEL } from "../apps/harness/src/tools/calibrate.ts";
 import {
-  TASK_BTC_DIR, TASK_CASCADE, TASK_STABLE_RUN, TASK_LIQ_ELIGIBLE, CASCADE_UNCALIBRATED_SENTENCE, STABLE_RUN_COMMITTED_CORE,
+  TASK_CASCADE, TASK_STABLE_RUN, TASK_LIQ_ELIGIBLE, CASCADE_UNCALIBRATED_SENTENCE, STABLE_RUN_COMMITTED_CORE,
   STABLE_RUN_UNCALIBRATED_SENTENCE, LIQ_EMPTY_REGISTRY_SENTENCE, LIQ_REQUIREMENTS_SENTENCE, GATE_TOOL_DESCRIPTION,
   LIQ_UPPER_BOUND_SENTENCE, LIQ_H3_SENTENCE, LIQ_CONDITIONAL_SENTENCE, LIQ_COMMITTED_SENTENCE,
 } from "../apps/harness/src/tools/gate.ts";
 import { DEMONSTRATIVE_LABEL } from "../packages/monark/src/adapter-shogen.ts";
 // The one declared text rule (internal reference tokens in parentheses removed), shared with the site loader and its test.
 import { stripRefs } from "../apps/site/lib/harness-served-load.ts";
+// The deploy check's gate body, imported (never a copy), so the two cannot drift before deployment (G2 of CM-2b surfaces, M2).
+import { GATE_BODY } from "./verify-harness.mjs";
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..");
 export const OUT_REL = "apps/site/data/harness-served.json";
@@ -47,10 +49,6 @@ const sameSet = (a, b) => a.length === b.length && [...a].sort().join(",") === [
 
 // The deploy check's own request bodies (scripts/verify-harness.mjs GATE_BODY / CALIBRATE_BODY / CASCADE_BODY /
 // GATE_LIQ_BODY), byte-identical so each served response hashes to the sha256 the committed check recorded.
-const GATE_BODY = {
-  prediction: { schema_version: "1.0.0", task_class: "btc-dir-15m", yhat: "up", predictor_id: "internal:momentum-4c", produced_at: "2026-09-04T00:00:00Z" },
-  params: { remainingBudget: 0.1, bFloor: 0, tau: 1, tauInterval: 1, alpha: 0.1, nMin: 50, intent: "up", tool: "perps_order_preview", clockOpen: true },
-};
 const CALIBRATE_BODY = { scores: [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0], alpha: 0.1, nMin: 5 };
 const CASCADE_BODY = { L: [[0, 100], [50, 0]], e: [40, 20], shock: 0, producedAt: "2026-09-04T00:00:00Z" };
 const GATE_LIQ_BODY = {
@@ -60,14 +58,12 @@ const GATE_LIQ_BODY = {
 
 // CLOSED clause list — exact served phrases, never a paraphrase. Each class row names the phrases that must be served;
 // the stable-run row keeps the scope qualifier of the committed calibration (calm-window redemption flow).
-const BTC_SYNTHETIC = "declared synthetic — a plumbing fixture, not a measured predictor";
 const STABLE_ONE = "a committed stable-run velocity calibration for the USDe synthetic-dollar-whitelisted-redeem population";
 const STABLE_CALM = "over calm-window redemption flow";
 const STABLE_NONSTATIONARY = "the calibration is measured non-stationary across half-years";
 const STABLE_NO_COVERAGE = "no coverage is measured";
 for (const p of [STABLE_ONE, STABLE_CALM, STABLE_NONSTATIONARY, STABLE_NO_COVERAGE]) need(STABLE_RUN_COMMITTED_CORE.includes(p), `closed clause absent from the harness source: ${p}`);
 const BASE_CLASSES = [
-  { class_id: TASK_BTC_DIR, state: "synthetic", clauses: [BTC_SYNTHETIC] },
   { class_id: TASK_CASCADE, state: "none", clauses: [CASCADE_UNCALIBRATED_SENTENCE] },
   { class_id: TASK_STABLE_RUN, state: "committed", clauses: [STABLE_ONE, STABLE_CALM, STABLE_NONSTATIONARY, STABLE_NO_COVERAGE, `for any other population, ${STABLE_RUN_UNCALIBRATED_SENTENCE}`] },
 ];
@@ -101,8 +97,8 @@ export function liqCallAgrees(liqState, liqCall) {
 const BYO_CLAUSE = "the gate conformalizes against THOSE caller-supplied scores (BYO)";
 const NEVER_CALLS = "The gate only emits a decision; it never calls the named tool.";
 const BT_CLAUSE = "B_t is caller-carried";
-// The `attested` clauses: who carries the attestation, that no verifier runs, and that a BYO call does not take one.
-const ATTESTED = ["the attestation is carried by the caller", "the verifier is not executed here", "BYO classes do not accept `attested`"];
+// The `attested` clauses: who carries the attestation, that no verifier runs, that a BYO call does not take one, and that no served class takes one (C-2).
+const ATTESTED = ["the attestation is carried by the caller", "the verifier is not executed here", "BYO classes do not accept `attested`", "No served class has a committed attestation subject (the retired 'btc-dir-15m' held the only one), so any `attested` is refused."];
 for (const p of [...ATTESTED, BYO_CLAUSE, NEVER_CALLS]) need(GATE_TOOL_DESCRIPTION.includes(p), `closed clause absent from the harness source: ${p}`);
 const TOOL_NOTES = { cascade: "This cascade tool is v0", gate: NEVER_CALLS, calibrate: CALIBRATE_LABEL.split(". ")[0] };
 const INTERNAL = /\bADR-|\b[CDKU]-\d|\bD\d+\b|\bP1\b|\bKraidle\b|binance|coinbase|databento|massive|polygon|helius|chainstack|tenderly|drpc|blastapi|nodies|cloudfront|\bverified\b|guarantee|partner|autonomous/i;

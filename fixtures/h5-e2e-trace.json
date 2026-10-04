@@ -7,7 +7,8 @@
     "effort": "max",
     "date": "2026-09-11",
     "grounding": "ADR-M005 H5 / C-6",
-    "reviewer": "Independently reviewed and recorded before commit."
+    "reviewer": "Independently reviewed and recorded before commit.",
+    "repinned": "2026-10-04, CM-2b surfaces: step 5 on the committed USDe key, step 7 on the task_class_retired refusal."
   },
   "transport": {
     "mcp": "MCP streamable-HTTP via createMcpHandler (SDK modelcontextprotocol server 2.0.0); a real JSON-RPC tools/call over a 127.0.0.1 socket; the response is framed as text/event-stream.",
@@ -18,7 +19,7 @@
     "protocol_version_negotiated": "the SDK 2.0.0 negotiates protocolVersion 2025-11-25 (the ADR names 2026-07-28); a pre-existing SDK observation, outside H5 scope."
   },
   "honesty": {
-    "calibration": "synthetic: the btc-dir-15m calibration is a HIKAE S2a plumbing fixture (declared synthetic, not a measured predictor). The btc-dir decision here is demonstrative, not a trading signal.",
+    "calibration": "committed: the USDe key of stable-run-velocity-24h, measured on calm-window redemption flow and measured non-stationary across half-years; no coverage is measured. btc-dir-15m is retired and its synthetic calibration is no longer served.",
     "budget_bt": "B_t is caller-carried: remainingBudget enters as a gate parameter and the SAME value leaves as remaining_budget. The stateless server does NOT deplete it (depletion would be monetisation, outside ADR-M005 scope, D6).",
     "cascade_class": "under_calib: no cascade calibration is committed, so the cascade -> gate path abstains. That abstention is the honest, expected result, not a defect.",
     "attest": "demonstrative, not probative: a projection of ONE committed, previously Shōgen-verified witness (Binance BTCUSDT, self-notarised); the verifier is not executed at call time.",
@@ -67,7 +68,7 @@
           "cascade",
           "gate"
         ],
-        "response_sha256": "b88cd06630582014c2ca569aa9f865593a933dea6e6848823b58716d17663141"
+        "response_sha256": "2ed3e97dadb4c34ed458d774f385f23575078fca64b3829c11d527c847ee34e0"
       }
     },
     {
@@ -194,9 +195,9 @@
       "n": 5,
       "surface": "mcp",
       "op": "tools/call",
-      "label": "btc-dir-gate",
+      "label": "committed-gate",
       "tool": "gate",
-      "note": "btc-dir-15m over the committed SYNTHETIC calibration (a plumbing fixture, not a measured predictor): the committed synthetic decision, demonstrative only.",
+      "note": "the committed USDe key of stable-run-velocity-24h, over its measured calibration (alpha and nMin imposed by the server; no coverage is measured): the committed decision.",
       "request": {
         "jsonrpc": "2.0",
         "id": 5,
@@ -206,9 +207,9 @@
           "arguments": {
             "prediction": {
               "schema_version": "1.0.0",
-              "task_class": "btc-dir-15m",
-              "yhat": "up",
-              "predictor_id": "internal:momentum-4c",
+              "task_class": "stable-run-velocity-24h",
+              "yhat": 0.0001,
+              "predictor_id": "narabi:persistence-v2@eip155:1/erc20:0x4c9edd5852cd905f086c759e8383e09bff1e68b3",
               "produced_at": "2026-09-04T00:00:00Z"
             },
             "params": {
@@ -220,7 +221,7 @@
               "tool": "perps_order_preview",
               "clockOpen": true,
               "remainingBudget": 0.1,
-              "intent": "up"
+              "intent": 0.0001
             }
           }
         }
@@ -229,7 +230,7 @@
         "content": [
           {
             "type": "text",
-            "text": "synthetic — HIKAE S2a instrument draw (harness_version=fixtures-synth, seed=101, n=300, nCalib=150); 0/1 indicator scores; calib_digest=fcebed27fd3f9607bba94898f5ae4ebba548ced519d1d800b49890235358eda6; declared synthetic, a plumbing fixture, not a measured predictor (ADR-M005 D5, C-8). B_t is caller-carried. verdict action=commit reason=covered region={up} qhat=0 n_calib=150 calib_digest=fcebed27...58eda6"
+            "text": "a committed stable-run velocity calibration for the USDe synthetic-dollar-whitelisted-redeem population (key narabi:persistence-v2@eip155:1/erc20:0x4c9edd5852cd905f086c759e8383e09bff1e68b3) over calm-window redemption flow; coverage is stated under the split-conformal bound of Barber, Candes, Ramdas and Tibshirani 2023 (Thm 2, unit weights): at least 1 − α minus the average total-variation gap between calibration windows and the next one; that gap is not estimated here and the calibration is measured non-stationary across half-years, so 1 − α is the coverage only if that gap is zero (exchangeability), which is not assumed here; no coverage is measured; each band edge is yhat - qhat or yhat + qhat rounded to the nearest double, so it can differ from the exact edge by up to half a unit in the last place of that edge; the band is not widened for it; every other (task_class, predictor_id) abstains (under_calib); B_t is caller-carried. verdict action=commit reason=covered region=[-0.000031192280833333336, 0.00023119228083333333] qhat=0.00013119228083333334 n_calib=613 calib_digest=c9793b28...d9e86c"
           }
         ],
         "structuredContent": {
@@ -237,25 +238,23 @@
           "action": "commit",
           "allow": true,
           "tool": "perps_order_preview",
-          "intent": "up",
+          "intent": 0.0001,
           "verdict": {
             "schema_version": "1.0.0",
-            "task_class": "btc-dir-15m",
+            "task_class": "stable-run-velocity-24h",
             "method": "split",
             "alpha": 0.1,
-            "n_calib": 150,
+            "n_calib": 613,
             "region": {
-              "kind": "set",
-              "labels": [
-                "up"
-              ],
-              "label_schema": "up|down"
+              "kind": "interval",
+              "lo": -0.000031192280833333336,
+              "hi": 0.00023119228083333333
             },
-            "qhat": 0,
+            "qhat": 0.00013119228083333334,
             "abstain": false,
             "reason": "covered",
             "residual": [],
-            "calib_digest": "fcebed27fd3f9607bba94898f5ae4ebba548ced519d1d800b49890235358eda6",
+            "calib_digest": "c9793b281167465af88c9e837aaeaf7fb26c709ff4c5e342c68893e759d9e86c",
             "produced_at": "2026-09-04T00:00:00Z"
           },
           "remaining_budget": 0.1,
@@ -329,7 +328,7 @@
       "op": "tools/call",
       "label": "attested-gate",
       "tool": "gate",
-      "note": "the attestation is carried by the caller and is not re-verified at call time (the verifier is not executed here); `attest` only projects the committed witness — verify a caller-carried attestation offline with the Shōgen verifier; only `attested.residual` is filed into `verdict.residual`; the decision is otherwise unchanged",
+      "note": "the attestation is carried by the caller and is not re-verified at call time (the verifier is not executed here); `attest` only projects the committed witness — verify a caller-carried attestation offline with the Shōgen verifier; btc-dir-15m, the only class with a committed attestation subject, is retired, so this call is refused (task_class_retired): the attest -> gate join is dormant",
       "request": {
         "jsonrpc": "2.0",
         "id": 7,
@@ -386,45 +385,16 @@
         }
       },
       "response": {
+        "_meta": {
+          "monarkgate.tech/error_code": "task_class_retired"
+        },
         "content": [
           {
             "type": "text",
-            "text": "synthetic — HIKAE S2a instrument draw (harness_version=fixtures-synth, seed=101, n=300, nCalib=150); 0/1 indicator scores; calib_digest=fcebed27fd3f9607bba94898f5ae4ebba548ced519d1d800b49890235358eda6; declared synthetic, a plumbing fixture, not a measured predictor (ADR-M005 D5, C-8). B_t is caller-carried. verdict action=commit reason=covered region={up} qhat=0 n_calib=150 calib_digest=fcebed27...58eda6"
+            "text": "task_class 'btc-dir-15m' is retired (ADR 0005, decided 2026-09-30): it is no longer served; the name stays reserved against BYO"
           }
         ],
-        "structuredContent": {
-          "schema_version": "1.0.0",
-          "action": "commit",
-          "allow": true,
-          "tool": "perps_order_preview",
-          "intent": "up",
-          "verdict": {
-            "schema_version": "1.0.0",
-            "task_class": "btc-dir-15m",
-            "method": "split",
-            "alpha": 0.1,
-            "n_calib": 150,
-            "region": {
-              "kind": "set",
-              "labels": [
-                "up"
-              ],
-              "label_schema": "up|down"
-            },
-            "qhat": 0,
-            "abstain": false,
-            "reason": "covered",
-            "residual": [
-              "A(notary-neutrality)",
-              "A(self-attestation)",
-              "A(transport-check-delegated)"
-            ],
-            "calib_digest": "fcebed27fd3f9607bba94898f5ae4ebba548ced519d1d800b49890235358eda6",
-            "produced_at": "2026-09-04T00:00:00Z"
-          },
-          "remaining_budget": 0.1,
-          "reason": "covered"
-        }
+        "isError": true
       }
     },
     {
@@ -479,17 +449,13 @@
     "cascade_gate_action": "abstain",
     "cascade_gate_reason": "under_calib",
     "cascade_gate_remaining_budget": 0.1,
-    "btc_dir_action": "commit",
-    "btc_dir_reason": "covered",
-    "btc_dir_calib_digest": "fcebed27fd3f9607bba94898f5ae4ebba548ced519d1d800b49890235358eda6",
+    "committed_gate_action": "commit",
+    "committed_gate_reason": "covered",
+    "committed_gate_calib_digest": "c9793b281167465af88c9e837aaeaf7fb26c709ff4c5e342c68893e759d9e86c",
     "attest_label": "real, notary Shōgen, demonstrative, not probative",
     "attest_sens_emis_digest": "4ad0e84b4f078e7ee62482ca86853c09e3c17bf074274168d65c024d1777e24b",
-    "attested_gate_action": "commit",
-    "attested_gate_residual": [
-      "A(notary-neutrality)",
-      "A(self-attestation)",
-      "A(transport-check-delegated)"
-    ],
+    "attested_gate_is_error": true,
+    "attested_gate_error_code": "task_class_retired",
     "mirror_matches_mcp_cascade": true
   }
 }

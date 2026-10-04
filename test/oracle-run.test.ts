@@ -8,11 +8,12 @@
  */
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { execFileSync, spawnSync } from "node:child_process";
+import { execFileSync, spawn, spawnSync } from "node:child_process";
 import { createHash } from "node:crypto";
 import { appendFileSync, existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { basename, join } from "node:path";
+import { pathToFileURL } from "node:url";
 
 const ROOT = join(import.meta.dirname, "..");
 const CI = `on:
@@ -304,3 +305,16 @@ test("oracle_cv4_refuses_the_suite — free memory or node.exe out of bounds => 
   assert.deepEqual([c?.min_free_mb, c?.max_node], [4096, 40], "C-V-4 defaults (decision Q-M3-8)");
   assert.equal(d.status === 3, (c?.free_mb ?? 0) < 4096 || (c?.node_exe ?? 0) > 40, d.out);
 }));
+
+// killer: scripts/oracle/lock.mjs:13 CONST "process.kill(pid, 0) && !zombie(pid)" -> "process.kill(pid, 0)"
+test("oracle_lock_alive_reads_a_zombie_as_dead — a waiter that has exited but is not yet reaped (state Z of /proc/<pid>/stat) holds no lock: alive() is false for it, true for a live pid; without /proc, kill(pid, 0) alone (MUTANTS-WAITER-ZOMBIE-1)", { timeout: 30_000, skip: existsSync("/proc/self/stat") ? false : "no /proc (Windows, macOS): alive() keeps kill(pid, 0)" }, async () => {
+  const sh = spawn("sh", ["-c", "sleep 0.3 & echo $!; exec sleep 25"], { stdio: ["ignore", "pipe", "ignore"] }); // sleep never reaps its child: a zombie until sh's sleep ends
+  try {
+    const pid = Number(await new Promise<string>((ok) => sh.stdout.setEncoding("utf8").once("data", ok)));
+    const state = (): string => { const t = readFileSync(`/proc/${String(pid)}/stat`, "utf8"); return t.charAt(t.lastIndexOf(")") + 2); };
+    while (state() !== "Z") await new Promise((ok) => setTimeout(ok, 20));
+    const lock = pathToFileURL(join(ROOT, "scripts", "oracle", "lock.mjs")).href, probe = `import { alive } from ${JSON.stringify(lock)}; console.log(JSON.stringify([alive(${String(pid)}), alive(process.pid)]));`;
+    const r = spawnSync(process.execPath, ["--input-type=module", "-e", probe], { encoding: "utf8", timeout: 10_000 });
+    assert.deepEqual([state(), r.stdout.trim()], ["Z", "[false,true]"], r.stderr);
+  } finally { sh.kill(); }
+});

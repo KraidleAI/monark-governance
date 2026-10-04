@@ -94,7 +94,7 @@ test("binomial_zero_error_floor_table", () => {
 // [M-4, SOA 3(e)] k*: (100, 0.10, 0.10) -> 5 (P 0.05758; k = 6: 0.11716); (200, 0.10, 0.05) -> 12 (0.03205; 13: 0.05656);
 // (500, 0.10, 0.05) -> 38 (0.03934; 39: 0.05502); split thresholds 9, 19, 49 are larger. [M-5] USDe n 613: 48 at
 // delta 0.05, 51 at 0.10. [M-6] liq s0 n 170 at alpha 0.01: none. [M-3] first n with k* >= 1 and k* >= 2 at alpha 0.01.
-// killer: packages/hikae/src/binomial.ts:96 CONST "k + 1" -> "k"
+// killer: packages/hikae/src/binomial.ts:172 CONST "return i - 1" -> "return i"
 test("binomial_kstar_matches_synthesis_table", () => {
   const table: [number, string, string, number, string, string, number][] = [
     [100, "0.10", "0.10", 5, "0.05758", "0.11716", 9],

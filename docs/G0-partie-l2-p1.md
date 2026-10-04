@@ -596,3 +596,80 @@ adresse, aucun schéma d'URL, aucun domaine ni nom d'hôte, aucun montant. Porte
 - **Q-P1-13** : oui, `l2_time_offset_logged` vérifie aussi la condition (2) de RECHERCHES (`serverTime` entier sûr, sinon écart non
   calculé et nommé) ; milieu arrondi vers le bas au microseconde.
 - **O-1** : retenue ; le cas tardif de `l2_day_late_frame_marked` est « une microseconde après » la borne.
+
+## Décisions de l orchestrateur sur les questions du G1 de P1-a1 (2026-10-03, 23:19 UTC)
+
+- **G1 de P1-a1** (`claude-opus-5-5`, journal `F:/tmp/rech/l2/a1/G1.md`, sha256 `9bdb6ba0…`) : LIVRE-AVEC-RESERVES ; oracle G1 vert
+  (2 042 tests, 0 échec, enregistrement `550d9e1f…`) ; R-25 275 ; commis sur `lot/l2-p1-a1` (`f5596bf3`), pas au tronc.
+- **Q-1** (les tueurs d un fichier sous `test/`) : option (A). L outil du tronc refuse par construction un tueur sous `test/`
+  (`scripts/mutants/run.mjs` l.37 et l.106-110 ; `scripts/red-proof.mjs` l.51-54) : campagne 0 tué sur 8, vérification du G1 hors
+  preuve 8 sur 8. Lot d outil MUTANTS-TEST-SUPPORT-1 (un module d appui déclaré sous `test/`, jamais un `*.test.ts`, admis comme code
+  mutable ; amendement daté de la convention ; cas neufs aux tests de l outil), après la fusion de MUTANTS-TOOL-2 (même fichier) ;
+  puis campagne de P1-a1 rejouée par l outil. P1-a1 n est pas fusionné avant ; (B) écarté (contraire à D-22 et Q-23) ; (C) non
+  retenu comme preuve. Les lots suivants avancent en parallèle sur le tronc et fusionnent dans l ordre de P-1.
+- **Q-2** : oui, sous un Cadre sans PowerShell, le pré-contrôle C-V-4 se fait par `systeminfo` (mémoires physique et virtuelle
+  disponibles), `tasklist` (compte de `node.exe`) et `os.freemem()` ; ligne datée de `docs/methode/REGLES-MISSION.md`.
+- **Q-3** : oui, lecture confirmée : les fabriques prennent la liste des origines admises en paramètre ; la liste fermée des hôtes
+  est fixée par a3, a4 et b1 depuis leurs lignes de FAITS ; l auto-test de P1-a1 emploie des origines synthétiques en `.example`.
+
+## Décisions de l orchestrateur sur le G1 de P1-a2 et sur P1-b1 (2026-10-04, 01:1x UTC)
+
+- **G1 de P1-a2** (`claude-opus-5-5`, `F:/tmp/rech/l2/a2/G1.md`, sha256 `f5d7e362…`) : LIVRE-AVEC-RESERVES ; mutants de l outil du tronc
+  6 sur 6 tués (`b555d7dd…`) ; R-25 488 ; commis sur `lot/l2-p1-a2` (`39ac2fdb`). Q-8 : les deux rouges de son oracle viennent de la
+  base (`c033b227`, corrigé en `0c8f8177`) ; l oracle de fusion au tronc tranche (forme (a)). Q-1 : six tests, un tueur chacun
+  (`l2_segment_period_one_hour` porte la période). Q-2 : la marque d une reprise est écrite par le journal de la reprise et lue par c1.
+  Q-3 : horloge qui recule : trame dans le segment ouvert, ou dans le suivant après une coupe, `recv_us` tel que lu, aucun segment
+  rouvert. Q-4 : défaut de production `Date.now()*1000` (résolution ms) ; ordre fin par `mono_ns` ; limite formée : item
+  L2-RECV-US-RESOLUTION-1 (ETAT). Q-5 : le lecteur partagé tourne dans un fil de travail dans le processus vivant, mesuré en c5.
+  Q-6 : `rank` depuis 0 ; `offset` et `length` en octets du fichier de trames ; LF exclue de `length`. Q-7 : 488 lignes acceptées
+  (borne 547) ; écart au plan déclaré.
+- **P1-b1** écrit par RECHERCHES (PR #112, partage de charge) : son prérequis FAITS-L2-ACCESS-3 (d) et (f) manquait au G1 (faute de
+  l orchestrateur, qui a passé le lot sans lui) ; la lecture sur place (a) à (f) est faite avant la fusion de b1. Q-B1-2 : confirmé
+  (429 sans `Retry-After` lisible : 60 s ; 418 sans `Retry-After` lisible : arrêt `ip_banned_no_retry_after` ; au-delà de 3 jours,
+  borne de FAITS-L2-ACCESS-1 l.38-39 : arrêt `retry_after_too_long`). Q-B1-3 et Q-P1-6 : le plafond du jour sous 4 000 par minute est
+  une suspension nommée ; code et test en c5.
+
+## Décision de l orchestrateur sur Q-P1-7 (2026-10-04, 02:2x UTC)
+
+- **Q-P1-7** : lecture de chaîne. Après S5, un premier événement restant dont `U` = `lastUpdateId` + 1 est accepté, comme A1 accepte
+  `U` = identifiant précédent + 1 : les quantités sont absolues ([F2] l.34-35) et aucun événement n existe entre `lastUpdateId` et `U`.
+  Même règle à la bascule (§4.3). Le cas `S5-U-plus-1` est accepté, sans nouvel instantané ; `S5-U-plus-2` reste un essai vain nommé.
+  P1-b2 est confié à RECHERCHES (partage de charge, tableau commun), empilé sur P1-b1 (#112).
+
+## Décisions de l orchestrateur avant le G1 de P1-a3 (2026-10-04, 02:3x UTC)
+
+- **Q-P1-3** : base générale `wss://stream.binance.com:9443`. FAITS-L2-ACCESS-3 (a) n écrit, pour `wss://data-stream.binance.vision`, ni
+  le port ni la règle des 24 h ; la condition de la recommandation (les règles de [F1] l.16-19 confirmées pour la base réservée) n est
+  donc pas remplie. La base réservée est mesurée à M-1 (item L2-DATA-STREAM-BASE-1, ETAT).
+- **Q-P1-5** : oui, le brut est le message tel que le client embarqué le délivre ; item L2-OWN-WS-CLIENT-1 et extensions négociées
+  journalisées.
+- **Ordre de fusion (§8.3, P-1)** : il suit l ordre topologique des dépendances de §8.3, et non plus une file stricte ; deux lots
+  indépendants fusionnent dans l ordre où ils sont prêts (le plan supposait un seul implémenteur ; deux équipes écrivent désormais).
+  Chaque fusion garde tests, tueurs, mutations et oracle du tronc. Exemple : b1 (dépend de a1) peut fusionner avant a3 et a4.
+- **P1-b2** dépend de a3 et de b1 : il attend le G1 de a3 (confié par erreur à RECHERCHES à 02:2x UTC sans cette dépendance ; corrigé
+  dans la messagerie). P1-a3 part sur `lot/l2-p1-a3`, qui porte a1 et a2.
+
+## Décisions de l orchestrateur sur le G1 de P1-a3 (2026-10-04, 03:3x UTC)
+
+G1 `claude-opus-5-5` LIVRE-AVEC-RESERVES (`F:/tmp/rech/l2/a3/G1.md` `0bbcd41f…`), commis sur `lot/l2-p1-a3` (`7ea82728`) ; tueurs 8/8 par
+l outil du tronc, oracle G1 vert (2 085 tests, 0 échec), R-25 460. Les huit questions sont confirmées telles que proposées :
+- **Q-1** : oui, huit tests (un tueur par test ; précédent Q-1 de a2). **Q-2** : oui, délai remis à 1 s après une connexion qui a livré
+  du texte ; une porte par processus, ouverture différée et nommée au plafond. **Q-3** : oui, contrat du journal pour c1 (filtre PLAIN).
+- **Q-4** : oui, un message binaire ferme la connexion (`binary_message`), rien d écrit, sans remise du délai.
+- **Q-5** : oui, la limite du socket tenu jusqu au délai TCP est portée par L2-OWN-WS-CLIENT-1, avec le compte des sockets en fermeture
+  en M-1 (PAROXYSME).
+- **Q-6** : oui, `openLink({ symbol, url, out }, io)` ; « P1-a3 les mesure » (FAITS-L2-ACCESS-3 l.41-42) est remplacé par Q-P1-3,
+  mesure en M-1.
+- **Q-7** : oui, une ligne de FAITS montrant entière la forme `?streams=…&timeUnit=MICROSECOND` est due avant M-1 (lecture sur place
+  par MONARK) ; à la première connexion de M-1, `T` de `@trade` est contrôlé en microsecondes, une contradiction arrête le dérivé.
+- **Q-8** : oui, `writer_stop` pour tout arrêt de l écrivain ; reprise armée après l écriture de la file ; borne de `stop()` sur un
+  disque bloqué fixée par c5.
+- La G2 de P1-a3 va à RECHERCHES (règle 4 amendée), puis P1-b2 s empile sur a3 et b1.
+
+## Décision de l orchestrateur sur P1-b1 plié (2026-10-04, 03:4x UTC)
+
+- **#112** (tête `29db1863`) : contrôle léger de MONARK fait (zone, CI sans rouge, R-25 540 ≤ 547, G2 neuve de RECHERCHES APPROUVE,
+  `G2-112-fold.md`). C-8 : les noms de fichiers du code sont actés. Fusion au tronc après a1 et a2 (a1 attend MUTANTS-TEST-SUPPORT-1) ;
+  le rejeu Windows réel de C-1 est l oracle du tronc à cette fusion.
+- **P1-B1-BIS** (§8.1, solde 7 < 10 ; RECHERCHES) : C-3, C-4 avec m-1, C-5, les survivants restants de C-6 et C-7, m-2, m-3, m-4, H11.
+  Déclencheur : avant le G1 de c5, au plus tard avant M-1.

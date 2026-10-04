@@ -41,6 +41,7 @@ const FORBIDDEN: { re: RegExp; why: string }[] = [
   { re: /["']node:child_process["']/, why: "node child_process import" },
   { re: /\bfetch\s*\(/, why: "fetch call" },
   { re: /\bprocess\.env(?:\.[A-Za-z_]\w*|\[[^\]]+\])\s*=(?!=)/, why: "process.env write" },
+  { re: /\bDate\.now\b|new Date\(\s*\)|\bperformance\.now\b/, why: "clock read (a call or a reference, CM-2a C-7)" },
 ];
 
 // Test — the registry is (a) within the closed allowlist and (b) EXACTLY the terminal set
@@ -189,6 +190,9 @@ test("harness_tool_descriptions_pass_vocab", async () => {
 // kept out of the honesty prose, precedent u4b_liq_class_text_says_upper_bound_never_interval). Mutants:
 // `stable-run-uncalibrated-interval` (C-1) and `demonstrative-label-accuracy` (a served text born OUTSIDE
 // apps/harness/src, invisible to the static CLI) => red here.
+// CM-2b (ADR-CM B-5): btc-dir-15m is retired, so its carrier is no longer served: the call is a tool error with the
+// stable code, and the gate reaches five distinct honesty branches.
+// killer: apps/harness/src/tools/gate.ts:927 CONST "\"task_class_retired\"" -> "\"task_class_unknown\""
 test("harness_served_honesty_carriers_pass_vocab", async () => {
   const config = JSON.parse(readFileSync(VOCAB_PATH, "utf8")) as VocabConfig;
   const patterns = [...compilePatterns(config.banned), ...compilePatterns(config.scan.harness.banned)];
@@ -198,7 +202,6 @@ test("harness_served_honesty_carriers_pass_vocab", async () => {
   const TEN = [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1];
   const BYO = "byo:demo-class";
   const CALLS: { label: string; tool: string; args: Obj; carrier: string }[] = [
-    { label: "gate btc-dir", tool: "gate", args: { prediction: pred(TASK_BTC_DIR, "up", "internal:momentum-4c"), params: { ...P, intent: "up" } }, carrier: honestyText(TASK_BTC_DIR, "internal:momentum-4c", false) },
     { label: "gate cascade class", tool: "gate", args: { prediction: pred(TASK_CASCADE, 100, CASCADE_PREDICTOR_ID), params: P }, carrier: honestyText(TASK_CASCADE, CASCADE_PREDICTOR_ID, false) },
     { label: "gate stable-run committed key", tool: "gate", args: { prediction: pred(TASK_STABLE_RUN, 0.0001, USDE_STABLE_RUN_PREDICTOR_ID), params: { ...P, nMin: 50 } }, carrier: honestyText(TASK_STABLE_RUN, USDE_STABLE_RUN_PREDICTOR_ID, false) },
     { label: "gate stable-run other population", tool: "gate", args: { prediction: pred(TASK_STABLE_RUN, 0.0001, "other:population"), params: P }, carrier: honestyText(TASK_STABLE_RUN, "other:population", false) },
@@ -210,9 +213,12 @@ test("harness_served_honesty_carriers_pass_vocab", async () => {
     { label: "calibrate", tool: "calibrate", args: { scores: TEN, alpha: 0.1, nMin: 5 }, carrier: calibrateHonestyText() },
     { label: "calibrate under_calib", tool: "calibrate", args: { scores: [0.1, 0.2], alpha: 0.1, nMin: 5 }, carrier: calibrateHonestyText() },
   ];
-  // Non-vacuity: every served tool is exercised, and the six gate honesty branches are six DISTINCT served texts.
+  // Non-vacuity: every served tool is exercised, and the five gate honesty branches are five DISTINCT served texts.
   assert.deepEqual([...new Set(CALLS.map((c) => c.tool))].sort(), [...REGISTERED_TOOL_NAMES].sort(), "every served tool is called");
-  assert.equal(new Set(CALLS.filter((c) => c.tool === "gate").map((c) => c.carrier)).size, 6, "the gate calls reach six distinct honesty branches");
+  assert.equal(new Set(CALLS.filter((c) => c.tool === "gate").map((c) => c.carrier)).size, 5, "the gate calls reach five distinct honesty branches");
+  const retired = await mcpCall("tools/call", { name: "gate", arguments: { prediction: pred(TASK_BTC_DIR, "up", "internal:momentum-4c"), params: { ...P, intent: "up" } } });
+  assert.equal(retired["isError"], true, "btc-dir-15m is a served tool error (retired)");
+  assert.deepEqual(retired["_meta"], { "monarkgate.tech/error_code": "task_class_retired" }, "with the retired code");
   for (const c of CALLS) {
     const r = await mcpCall("tools/call", { name: c.tool, arguments: c.args });
     assert.notEqual(r["isError"], true, `${c.label}: served without a tool error (${JSON.stringify(r["content"])})`);

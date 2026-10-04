@@ -8,8 +8,9 @@
 // and a rounding up each serve another set); at the limit of 300 data points (the request of the recorder: a core of 298 slots and a
 // margin slot on each side). The network discipline of scripts/record-coinbase-candles.mjs, through its own functions: guardEnv (no
 // proxy route, no widened TLS trust), guardOut (--out empty, outside any git tree), checkHost before each request (https, the closed
-// host), redirects refused, a delay of 30 s, 250 ms between two requests, no retry; a 429, a 5xx, a 3xx, a network error, an expired
-// delay or a 200 body that is not a list of candles is a named stop; any other status is kept and the next request is made.
+// host), redirects refused, a delay of 30 s, 250 ms between two requests, no retry, each body read as a stream of at most BODY_MAX bytes
+// (readBody, SERIES-BODY-BOUND-1); a 429, a 5xx, a 3xx, a network error, an expired delay, a body past BODY_MAX (body_too_large) or a 200
+// body that is not a list of candles is a named stop; any other status is kept and the next request is made.
 // Prices stripped before any write (P2): a body stays in memory, and of each candle [time, low, high, open, close, volume] the time alone is
 // kept. Written in --out: requests.jsonl (one line per answer as its status and headers arrive: status, date, retry-after and the header names),
 // probe.json (per request its URL, its status and the open times served, in the order received; the conclusion) and SHA256SUMS; no body.
@@ -26,12 +27,13 @@ import { createHash } from "node:crypto";
 import { appendFileSync, existsSync, mkdirSync, readFileSync, realpathSync, writeFileSync } from "node:fs";
 import { join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
-import { checkHost, guardEnv, guardOut, isoOf, ORIGIN, PAUSE_MS, RecorderStop, TIMEOUT_MS } from "./record-coinbase-candles.mjs";
+import { BODY_MAX, checkHost, guardEnv, guardOut, isoOf, ORIGIN, PAUSE_MS, readBody, RecorderStop, TIMEOUT_MS } from "./record-coinbase-candles.mjs";
 
 export const SCHEMA = "monark.coinbase.bounds.v1";
 export const PRODUCTS = ["BTC-USD"]; // closed list, its own: never the recorder's USDT-USD (P1)
 export const STOPS = ["usage", "bad_product", "end_in_future", "proxy_refused", "tls_unverified", "out_not_empty", "out_in_git_tree",
-  "host_refused", "network_error", "timeout", "rate_limited", "server_error", "redirect_refused", "body_not_json", "body_not_candles"];
+  "host_refused", "network_error", "timeout", "rate_limited", "server_error", "redirect_refused", "body_not_json", "body_not_candles",
+  "body_too_large"];
 const STEP_S = 900, STEP = STEP_S * 1000, DAY = 86_400_000, WEEK = Date.UTC(2026, 8, 7), WEEK_END = WEEK + 7 * DAY;
 /** [name, start, end] in ms: aligned, both bounds 1 s later, 300 data points (P2). */
 const REQUESTS = [["aligned", WEEK, WEEK + 10 * STEP], ["shifted", WEEK + DAY + 1000, WEEK + DAY + 10 * STEP + 1000],
@@ -89,18 +91,20 @@ function timesOf(url, text) {
 }
 
 /** One request: checkHost, a fetch that follows no redirect under its delay, the status and headers logged as they arrive, the body
- *  read in memory and its open times alone kept. */
+ *  read in memory as the recorder reads it (at most BODY_MAX bytes, then decoded as res.text() decodes) and its open times alone kept. */
 async function ask(ctx, [name, from, to]) {
   const url = `${ORIGIN}/products/${ctx.product}/candles?granularity=${String(STEP_S)}&start=${isoOf(from)}&end=${isoOf(to)}`;
   checkHost(url);
   const at = new Date(ctx.now()).toISOString(), signal = AbortSignal.timeout(ctx.timeoutMs);
   const failed = (e) => stop(signal.aborted ? "timeout" : "network_error", { url, message: String(e?.cause?.message ?? e?.message ?? e) });
-  let res, text;
+  let res, body;
   try { res = await ctx.fetch(url, { redirect: "manual", signal }); } catch (e) { failed(e); }
   const status = res.status, header = (h) => res.headers.get(h);
   appendFileSync(join(ctx.out, "requests.jsonl"), JSON.stringify({ name, url, status, at, headers: { date: header("date"),
     "retry-after": header("retry-after") }, header_names: [...res.headers.keys()] }) + LF);
-  try { text = await res.text(); } catch (e) { failed(e); }
+  try { body = await readBody(res); } catch (e) { failed(e); }
+  if (body === null) stop("body_too_large", { url, status, max_bytes: BODY_MAX });
+  const text = new TextDecoder().decode(body);
   if (status === 429) stop("rate_limited", { url, status, retry_after: header("retry-after") });
   if (status >= 500) stop("server_error", { url, status });
   if (status >= 300 && status < 400) stop("redirect_refused", { url, status, location: header("location") });

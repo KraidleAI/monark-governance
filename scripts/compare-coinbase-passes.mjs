@@ -5,10 +5,15 @@
 //   node scripts/compare-coinbase-passes.mjs --pass-1 <folder> --pass-2 <folder>
 // Each folder is verified before any read: its SHA256SUMS well formed, every listed file at its sha256, no file left unlisted; its manifest of the
 // recorder's schema (monark.series.coinbase.v2: a v1 manifest is refused), with the pass of its flag, no empty page, its CSV and missing.json listed
-// and the CSV at the sha256 that the manifest names; both manifests of the same product, granularity, start, end and recorder (recorder_sha256). Each
-// CSV row: the fixed header, 7 fields, an open time on the grid of the month, strictly ascending. Then, slot by slot of the month: a candle that one
-// pass holds and the other lacks, or two candles of one slot whose five values differ (compared as received, byte for byte), stop the comparison
-// (passes_disagree), every such slot listed by its open time under absent_from_pass_1, absent_from_pass_2 or differ; never a value.
+// and the CSV at the sha256 that the manifest names, witness_slots absent or null in pass 1 and coherent in pass 2 (lot COINBASE-PASS-EDGES-1:
+// the slots that pass 2 read outside the month, never compared), empty_witness_pages absent in pass 1 and 0 or 1 in pass 2 (lot
+// COINBASE-PRE-LOOP-1: at most one core of witnesses alone, 298 > 149); both manifests of the same product, granularity, start, end and recorder
+// (recorder_sha256); a month whose cores of pass 2 never end where a core of pass 1 ends (sharedEnd of the recorder: end - start of 149
+// slots modulo 298 is not comparable, G2-1 of the G2 of lot COINBASE-PASS-EDGES-1, a pass 2 that the recorder refuses before any
+// request). Each CSV row: the fixed header, 7 fields, an open time on the grid of the month, strictly ascending. Then, slot by
+// slot of the month: a candle that one pass holds and the other lacks, or two candles of one slot whose five values differ (compared as
+// received, byte for byte), stop the comparison (passes_disagree), every such slot listed by its open time under absent_from_pass_1,
+// absent_from_pass_2 or differ; never a value.
 // Output, and nothing else: one closed JSON line on stdout (exit 0): the month, its slots, the slots present in both passes and those
 // absent from both, the sha256 of each SHA256SUMS (it pins every byte of its folder) and of each CSV, and the sha256 of this script; no
 // price and no volume. A named stop (a RecorderStop, the class of the recorder, its code in STOPS below) prints {ok: false, stop, detail}
@@ -18,7 +23,7 @@ import { createHash } from "node:crypto";
 import { existsSync, readdirSync, readFileSync, realpathSync, statSync } from "node:fs";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
-import { CSV_COLUMNS, GRANULARITIES, isoOf, PRODUCTS, RecorderStop } from "./record-coinbase-candles.mjs";
+import { CSV_COLUMNS, GRANULARITIES, isoOf, PRODUCTS, RecorderStop, sharedEnd } from "./record-coinbase-candles.mjs";
 
 export const SCHEMA = "monark.coinbase.passes.v1";
 export const SERIES_SCHEMA = "monark.series.coinbase.v2"; // the manifest that the recorder writes since addendum 7 (v1: refused, Q-U5)
@@ -28,6 +33,7 @@ const SAME = ["product", "granularity", "granularity_s", "start", "end_exclusive
 const LF = String.fromCharCode(10);
 const SUM_LINE = /^([0-9a-f]{64}) {2}([A-Za-z0-9_.-]+(?:[/][A-Za-z0-9_.-]+)*)$/; // a SHA256SUMS line: the sha256, two spaces, a path
 const SCRIPT = fileURLToPath(import.meta.url);
+const HALF = 149; // slots that pass 2 reads on each side of the month (lot COINBASE-PASS-EDGES-1)
 
 const stop = (code, detail) => { throw new RecorderStop(code, detail); };
 const sha256 = (bytes) => createHash("sha256").update(bytes).digest("hex");
@@ -77,6 +83,20 @@ function manifestOf(dir, pass, listed) {
   return m;
 }
 
+/** witness_slots w of a manifest (lot COINBASE-PASS-EDGES-1, D-4), read once the month is known: absent or null in pass 1; in pass 2
+ *  the count of the slots that it read outside the month, the first and the last of them (null both for none), each a slot of the grid
+ *  among the HALF before the month or the HALF after it, the count at most the slots of those two zones from first to last and two at
+ *  least when first is not last. */
+function witnessesOk(w, pass, start, end, step) {
+  if (pass === 1) return w === undefined || w === null;
+  if (w === null || typeof w !== "object" || !Number.isSafeInteger(w.count) || w.count < 0) return false;
+  if (w.count === 0) return w.first === null && w.last === null;
+  const zone = (t) => t % step === 0 && ((t >= start - HALF * step && t < start) || (t >= end && t < end + HALF * step));
+  const [f, l] = [w.first, w.last].map((s) => (Number.isFinite(Date.parse(s)) && isoOf(Date.parse(s)) === s ? Date.parse(s) : Number.NaN));
+  const room = (l - f) / step + 1 - (f < end && l >= end ? (end - start) / step : 0); // the month between them is no room
+  return zone(f) && zone(l) && w.count <= room && (f === l || w.count >= 2);
+}
+
 /** The rows of one CSV by open time, the text of their five values; each row checked first (7 fields, a slot of the month, ascending). */
 function rowsOf(dir, pass, m, start, end, step) {
   const lines = readFileSync(join(dir, m.csv), "utf8").split(LF), rows = new Map();
@@ -103,6 +123,13 @@ export function run(argv) {
   const named = PRODUCTS.includes(m1.product) && step === m1.granularity_s * 1000 && Number.isSafeInteger(start) && Number.isSafeInteger(end);
   if (!named || end <= start || start % step !== 0 || end % step !== 0 || isoOf(start) !== m1.start || isoOf(end) !== m1.end_exclusive) {
     stop("not_comparable", { field: "product, granularity, start, end_exclusive" });
+  }
+  const shared = sharedEnd(start, end, step); // G2-1: the same guard as the recorder's, before the witnesses and the rows
+  if (shared !== null) stop("not_comparable", { field: "start, end_exclusive", core_end: isoOf(shared) });
+  for (const [i, m] of [m1, m2].entries()) { // lot COINBASE-PRE-LOOP-1: empty_witness_pages absent in pass 1, 0 or 1 in pass 2
+    if (!witnessesOk(m.witness_slots, i + 1, start, end, step)) stop("not_comparable", { pass: i + 1, file: "manifest.json" });
+    const w = m.empty_witness_pages, pages = i === 0 ? !Object.hasOwn(m, "empty_witness_pages") : Number.isInteger(w) && w >= 0 && w <= 1;
+    if (!pages) stop("not_comparable", { pass: i + 1, file: "manifest.json", key: "empty_witness_pages" });
   }
   const [one, two] = dirs.map((d, i) => rowsOf(d, i + 1, [m1, m2][i], start, end, step));
   const lists = { absent_from_pass_1: [], absent_from_pass_2: [], differ: [] };
