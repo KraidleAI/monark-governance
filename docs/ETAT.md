@@ -469,6 +469,12 @@ Tronc `lot/etude-suite`. Dernier oracle complet : 1 779 tests, dont 1 776 verts,
     réussi, le fichier reste hors de `acquired` (`guarded.ts:43-46`) et la garde répond `lock_held` jusqu à l acte du RUNBOOK.
     Construction : retirer le fichier sur échec d écriture, test et tueur d abord. Porteur : RECHERCHES (zone `packages/rpc-guard/`
     ouverte, recherches#150), après #137 et le lot b de CM-4a-ii ; état : ouvert.
+  - TEST-FORCE-EXIT-NEED-1 (question de RECHERCHES, 2026-10-04) : `--test-force-exit` est-il encore nécessaire ? Construction : mesurer,
+    fichier par fichier, ce qui ne sortirait pas sans lui, puis le retirer s il n y a plus rien. Porteur : RECHERCHES, priorité basse,
+    après ses lots en cours (recherches#154) ; état : ouvert.
+  - MUTANTS-RUN-EXIT-CODE-1 (signalé par RECHERCHES, 2026-10-04) : `scripts/mutants/run.mjs` juge un mutant sur la sortie, pas sur le
+    code de sortie ; un rapport d échec perdu donne « survit » au lieu de « tué » (sens sûr, mesure fausse). Construction : juger sur le
+    code, tests et tueur d abord. Porteur : RECHERCHES (zone `scripts/mutants/` ouverte, recherches#154) ; état : ouvert.
   - L2-RECV-US-RESOLUTION-1 (PAROXYSME ; Q-4 du G1 de L2-P1-a2) : Node n offre aucune horloge murale à la microseconde ; `recv_us`
     de production vaut `Date.now()*1000` (résolution ms), l ordre fin étant porté par `mono_ns`. Construction qui donne la garantie :
     mesurer la résolution réelle et la dérive de `performance.timeOrigin + performance.now()` contre l horloge de l hôte sur un jour
