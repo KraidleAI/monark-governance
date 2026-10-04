@@ -104,6 +104,16 @@ test("synthetic_registry_is_seeded_and_shaped", () => {
   }
 });
 
+// killer: apps/harness/test/helpers/synthetic-registry.ts:58 CONST "? 1 : 0" -> "? 0 : 1"
+test("synthetic_registry_counts_follow_a2", () => {
+  for (const { side, calib: c, key } of CELLS.filter((x) => x.calib.kStar !== null)) {
+    const [m, k] = [c.misses ?? NaN, c.kStar ?? NaN];
+    assert.deepEqual([c.qhat, c.kObs], side === null ? [c.qhat, m] : m > k ? [1, 0] : [0, m], key);
+    if (c.status === "region") assert.equal(c.check1 === "empty", m === 0, key);
+    else assert.ok(m > k || [c.check1, c.check2].includes("reject"), key);
+  }
+});
+
 // killer: apps/harness/src/server.ts:32 CONST "./version.ts" -> "./policy-table-file.ts"
 test("policy_modules_are_not_served", () => {
   const src = join(dirname(fileURLToPath(import.meta.url)), "..", "src");
