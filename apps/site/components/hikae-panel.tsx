@@ -25,10 +25,9 @@ import { cn } from "@/lib/utils";
  * conditional, coverage — grounded in packages/hikae/README.md (L1/L2/L3 table) and src/l2-monitor.ts (the monitor
  * makes no coverage claim). No market number, no probability of being right is rendered. `status` is
  * the card's status READ from the fleet register by the /fleet page (server) and handed in as a prop. "Honest limits" (a
- * built block) names what the served gate already carries: a committed calibration for its demonstration class, declared
- * synthetic by the served description (a plumbing fixture, not a measured predictor) — pinned both ways against that
- * description by the root test registry_notes_track_served_descriptions. "Living proof" stays upcoming and says only
- * what is not shown yet.
+ * built block) says the served gate decides against committed calibrations; the synthetic demonstration class is retired,
+ * so its clause is gone, pinned both ways against the served description by the root test
+ * registry_notes_track_served_descriptions. "Living proof" stays upcoming and says only what is not shown yet.
  */
 export function HikaePanel({ contract, status }: { contract: FrozenContract; status: AgentStatus }) {
   return (
@@ -75,8 +74,7 @@ export function HikaePanel({ contract, status }: { contract: FrozenContract; sta
               policy.
             </p>
             <p className="mt-2">
-              The served <code>gate</code> tool decides against committed calibrations; the one behind its
-              demonstration class is declared synthetic, a plumbing fixture, not a measured predictor.
+              The served <code>gate</code> tool decides against committed calibrations.
             </p>
           </PanelBlock>
           <PanelBlock title="Living proof" status="upcoming">
