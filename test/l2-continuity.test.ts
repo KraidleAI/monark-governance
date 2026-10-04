@@ -145,11 +145,11 @@ test("l2_server_shutdown_renews_at_once", async () => {
   r.socks[1]?.onopen();
   live(r, at + 120_000);
   r.socks[1]?.onmessage({ data: '{"e":"serverShutdown","E":8}' }); // the raw form, on the new connection, during the overlap
-  assert.deepEqual([r.socks.length, shape(r).slice(2)], [2, [["open", 1, null, at]]],
-    "never switched: the old one stays open past 60 s, no failover; a second renewal waits for the end of the overlap");
+  assert.deepEqual([r.socks.length, shape(r).slice(2)], [2, [["open", 1, null, at], ["renew_deferred", 1, "server_shutdown", at + 120_000]]],
+    "never switched: the old one stays open past 60 s, no failover; a second renewal waits for the end of the overlap, named");
   r.socks[0]?.onclose({ code: 1006, reason: "", wasClean: false }); // until the place cuts it
   const cut = at + 120_000;
-  assert.deepEqual([r.socks.length, shape(r).slice(3)], [3, [["close", 0, "closed", cut], ["overlap_break", 0, 1, cut], ["renew", 1, "server_shutdown", cut]]],
+  assert.deepEqual([r.socks.length, shape(r).slice(4)], [3, [["close", 0, "closed", cut], ["overlap_break", 0, 1, cut], ["renew", 1, "server_shutdown", cut]]],
     "then a named break, and the renewal that waited");
   await wait(50);
   live(r, at + 240_000);
@@ -157,6 +157,8 @@ test("l2_server_shutdown_renews_at_once", async () => {
   r.socks[2]?.onopen(); // an overlap begins
   await link.stop();
   assert.equal(r.clock.pending(), 0, "stopped within an overlap: no timer left");
+  assert.deepEqual(shape(r).slice(-2), [["close", 2, "stopped", at + 240_000], ["close", 1, "stopped", at + 240_000]],
+    "stopped within an overlap: both closes named stopped, no overlap_break");
   assert.deepEqual(framesOf(r, r.lines()[0]?.cid, 0), [decoy, down], "read after the writer has it: the frame is in the raw");
 });
 
@@ -181,4 +183,60 @@ test("l2_market_link_futures_watchdog", async () => {
   assert.deepEqual([no({ symbol: "ALL", url: L.spotUrl("BTCUSDT"), kind: "market" }), no({ symbol: "BTCUSDT", url: L.marketUrl() }),
     no({ symbol: "ALL", url: `${MARKET}/stream?streams=btcusdt@forceOrder`, kind: "market" }), no({ symbol: "BTCUSDT", url: L.marketUrl(), kind: "market" }),
     no({ symbol: "ALL", url: L.marketUrl(), kind: "futures" as "market" })], ["host_refused", "host_refused", "host_refused", "bad_symbol", "bad_kind"]);
+});
+
+// killer: scripts/l2/links.mjs:118 CONST "switchedTo === cur.cid" -> "switchedTo !== null"
+test("l2_stale_switch_bound_to_its_connection", async () => {
+  assert.equal(typeof L.marketUrl, "function", "the links of P1-a4 exist");
+  const r = rig(), link = r.open({ symbol: "BTCUSDT", url: L.spotUrl("BTCUSDT") }), at = H23; // rank 0: 23 h
+  r.socks[0]?.onopen();
+  live(r, at);
+  r.socks[1]?.onopen(); // new connection #1
+  const one = String(r.lines().filter((l) => l.event === "open")[1]?.cid);
+  assert.equal(link.switched(one), true, "the book switched to #1");
+  live(r, at + 10_000);
+  r.socks[1]?.onclose({ code: 1006, reason: "", wasClean: false }); // #1 dies during the overlap
+  assert.equal(link.switched(one), false, "#1 is dead: nothing to switch to");
+  await wait(50);
+  live(r, at + 11_000);
+  assert.equal(r.socks.length, 3, "a new connection #2 after 1 s; the old one is never reopened");
+  r.socks[2]?.onopen();
+  const two = String(r.lines().filter((l) => l.event === "open")[2]?.cid);
+  live(r, at + 71_000);
+  assert.deepEqual(shape(r).filter((l) => l[0] === "close"), [["close", 1, "closed", at + 10_000]],
+    "#2 open 60 s, the switch to #1 is stale: the old one stays open");
+  assert.equal(link.switched(two), true, "the book switched to #2");
+  assert.deepEqual(shape(r).at(-1), ["close", 0, "renewed", at + 71_000], "switched(#2): the old one closes");
+  await link.stop();
+  assert.equal(r.clock.pending(), 0, "no timer left");
+});
+
+// killer: scripts/l2/links.mjs:118 CONST "kind === \"market\" ||" -> "false ||"
+test("l2_market_overlap_needs_no_switch", async () => {
+  assert.equal(typeof L.marketUrl, "function", "the /market URL exists");
+  const r = rig(), link = r.open({ symbol: "ALL", url: L.marketUrl(), kind: "market" }), at = H23 + 4 * MIN5; // rank 4: 23 h 20 min
+  r.socks[0]?.onopen();
+  live(r, at);
+  assert.deepEqual([r.socks.length, shape(r).at(-1)], [2, ["renew", 0, "age", at]], "a planned renewal of /market");
+  r.socks[1]?.onopen();
+  live(r, at + 59_999);
+  assert.deepEqual(shape(r).map((l) => l[0]), ["open", "renew", "open"], "60 s - 1 ms into the overlap: the old one still open");
+  live(r, at + 60_000);
+  assert.deepEqual(shape(r).slice(2), [["open", 1, null, at], ["close", 0, "renewed", at + 60_000]],
+    "60 s: the old one closes, renewed, switched() never called (/market feeds no book)");
+  await link.stop();
+});
+
+// killer: scripts/l2/links.mjs:107 CONST "kind === \"market\" && u.searchParams.has(\"timeUnit\")" -> "false"
+test("l2_market_url_closed", async () => {
+  assert.equal(typeof L.marketUrl, "function", "the /market URL exists");
+  const r = rig(), tail = MARKET_PATH.slice("/market".length), no = (url: string): string => attempt(() => r.open({ symbol: "ALL", url, kind: "market" }));
+  assert.deepEqual([no(`${MARKET}/marketx${tail}`), no(`${MARKET}/market?streams=btcusdt@forceOrder`), no(`${L.marketUrl()}&timeUnit=MICROSECOND`),
+    no(`${MARKET}/market/..%2fpublic${tail}`), no(`${MARKET}/market/..%5Cpublic${tail}`), no(`${MARKET}/market/%2e%2e/public${tail}`)],
+  ["host_refused", "host_refused", "host_refused", "host_refused", "host_refused", "host_refused"], "refused: route, timeUnit (e), encoded segments");
+  assert.equal(r.socks.length, 0, "refused before the factory");
+  const asked: string[] = [], io: LinkIo = { ...r.io, webSocket: (url: string) => { asked.push(url); return r.io.webSocket(url); } };
+  const link = L.openLink({ symbol: "ALL", url: `wss://FSTREAM.binance.com:443${MARKET_PATH}`, out: r.out, kind: "market" }, io);
+  assert.deepEqual(asked, [MARKET + MARKET_PATH], "the factory opens the URL checked, not the string given");
+  await link.stop();
 });
