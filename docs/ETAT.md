@@ -431,6 +431,14 @@ Tronc `lot/etude-suite`. Dernier oracle complet : 1 779 tests, dont 1 776 verts,
     RECHERCHES (zone ouverte : `apps/sentinel/src/run.ts` et son test) ; déploiement de la sentinelle par MONARK ; état : ouvert.
   - ADR-CM-AMEND-3-1 : l amendement ADR-CM « 2026-10-04 (3) » (1.1.0) est cité par d autres ADR mais absent du tronc et de la base
     (Q-4 du G0 de CM-4a-i). Porteur : RECHERCHES, PR de documentation de l étape 7 du plan CM-3c/CM-4 ; état : ouvert.
+  - SERVED-PENDING-1 (plan r3 §8.5, étendu au chargeur du site ; absent d ETAT jusqu ici) : un instantané en attente
+    `apps/site/data/harness-pending.json` (schéma propre `harness-pending-v1`, champs en processus seuls), écrit hors ligne au temps (i) ;
+    les tests de l état servi le comparent au harnais en processus quand il existe ; les pages gardent le servi, seules les traces BYO
+    et H5 le lisent ; promotion par la synchro au temps (ii) sous contrôle de MONARK. Décisions Q-SP1-1 à Q-SP1-5 du 2026-10-04 17:0x UTC
+    (messagerie). Porteur : RECHERCHES, PR sur la base avant le bloc C ; état : en cours (G0 `bdc946b2`).
+  - UKEMI-PENDING-1 (Q-SP1-4) : les deux tests de site-ukemi (`:1198`, `:1438`) lisent `ukemi-served.json` et rougiraient au bloc C
+    sur `schema_version` du corps de la CA, ce qu un instantané en attente du harnais ne couvre pas. Construction : le même mécanisme
+    pour l état servi d ukemi (synchro et vérification). Porteur : RECHERCHES, sur la base avant le bloc C ; état : ouvert.
   - L2-RECV-US-RESOLUTION-1 (PAROXYSME ; Q-4 du G1 de L2-P1-a2) : Node n offre aucune horloge murale à la microseconde ; `recv_us`
     de production vaut `Date.now()*1000` (résolution ms), l ordre fin étant porté par `mono_ns`. Construction qui donne la garantie :
     mesurer la résolution réelle et la dérive de `performance.timeOrigin + performance.now()` contre l horloge de l hôte sur un jour
