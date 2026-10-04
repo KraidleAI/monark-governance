@@ -77,7 +77,7 @@ const launcherArgs = (): string[] => {
   return words.slice(1, words.findIndex((w) => w.includes("*")));
 };
 
-// killer: test/helpers/blocking-stdout.cjs:4 CONST "setBlocking(true)" -> "setBlocking(false)"
+// killer: package.json:16 CONST "node -r ./test/helpers/blocking-stdout.cjs --test" -> "node --test"
 test("launcher_delivers_every_byte_before_force_exit - the node --test launcher of scripts.test, read only after it exits, loses nothing it wrote at exit", async () => {
   const dir = mkdtempSync(join(tmpdir(), "tfe-launcher-"));
   try {
