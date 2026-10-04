@@ -98,7 +98,25 @@ Oracle du gel `73d6ee4` :
 Réponses de la G2 consignées : Q-RPT-1 (Linux, oui ; neutre sous Windows), Q-RPT-2 (confirmé sous Node 24.21.0 : ligne de sortie dans
 `base.tap` et `gel.tap`), Q-RPT-3 (garder le refus, durci comme ci-dessus).
 
+## Re-revue de la G2 (APPROUVE ; survivants mineurs tués)
+
+Rapport : `scratchpad/G2-red-proof-tools-rr.md`. Commit `4d7cb93` (tests seuls, **gel** `4d7cb93`, aucun code changé) :
+
+| Survivant | Test | Résultat (mutant à la main, Node 24.21.0, lanceur protégé) |
+|---|---|---|
+| **W2** (l.38, `writeSync(1, ` → `process.stdout.write(`) | `red_proof_keeps_the_exit_line_when_a_test_replaces_stdout_write` (fichier fixe `mock` : `mock_lost` se lit `missing`, refus ; le passage n'est pas tronqué ; une ligne de sortie à nonce) | tué (tueur déclaré) |
+| **W4b** (l.100, `${nonce}` → `[0-9a-f]+`) | `red_proof_reads_a_wrong_or_stale_nonce_as_truncated` (unitaire : nonce faux ; passage : base et gel portent des nonces différents) | tué (tueur déclaré) |
+| **W5** (l.164, nonce constant) | même test | tué |
+
+**Limite déclarée** : un test délibérément malveillant peut lire le nonce dans `/proc/self/environ` (le bloc initial n'est pas effacé
+par `delete process.env`) et imiter la ligne ; l'issue n'est alors qu'un `missing` (refus), jamais un F2P, un `pinned` ni un tueur
+`killed`.
+
+Oracle du gel `4d7cb93` : `--base 6dd2ecb7 --gel 4d7cb934 --draw 9 --seed 37` : **OK**, exit 0 ; 9 F2P, 22 inchangés, 9/9 tués ;
+`RED-PROOF.json` sha256 `49c3f0d7…`, digest `8d252e20…`. `test/red-proof.test.ts` : 31/31 sous Node 24.21.0, 30/31 sous Node 22
+(`vi_hangs`, préexistant). `tsc` vert ; adresses des tueurs 31/31. R-25 sur `6dd2ecb7...HEAD` : **169**.
+
 ## Sortie
 
-Prêt pour le contrôle par diff de MONARK. Item RED-PROOF-TAP-TRUNCATION-1 clos au gel `73d6ee4` (pli de la G2) ; Q-RPT-1 à Q-RPT-3 répondues par la G2. Le changement de mode de `packages/rpc-guard/bin/rpc-guard.mjs` laissé par `npm ci` n'est pas commis ; rien n'est
+Prêt pour le contrôle par diff de MONARK. Item RED-PROOF-TAP-TRUNCATION-1 clos au gel `4d7cb93` (pli de la G2 et de sa re-revue) ; Q-RPT-1 à Q-RPT-3 répondues par la G2. Le changement de mode de `packages/rpc-guard/bin/rpc-guard.mjs` laissé par `npm ci` n'est pas commis ; rien n'est
 poussé.
