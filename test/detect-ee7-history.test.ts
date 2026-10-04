@@ -627,7 +627,7 @@ test("ee7_refuses_a_month_whose_manifest_is_not_the_recorders_for_usdt_usd_at_90
   assert.deepEqual(shape(detectOn(reads)), [[4, 104, 100]], "the manifest as the recorder writes it: the month is read");
 });
 
-// killer: scripts/detect-ee7-history.mjs:160 CONST "v === SCHEMA" -> "v === PRODUCT"
+// killer: scripts/detect-ee7-history.mjs:159 CONST "v === SCHEMA" -> "v === PRODUCT"
 test("ee7_reads_a_month_that_the_coinbase_recorder_wrote_and_refuses_it_once_its_manifest_names_btc_usd", async () => {
   const m = Date.UTC(2025, 2, 1), end = Date.UTC(2025, 3, 1), out = join(fresh(), "2025-03", "15m"), i = (k: number): string => iso(m + k * STEP);
   const page = (url: string): Promise<Response> => { // the candles of [start, end] inside March, newest first; 4 depart from slot 100
@@ -704,7 +704,7 @@ const refusal = (argv: string[]): [number, string | undefined, string | undefine
   return [exit, out.stop, out.detail?.file, out.detail?.key, how];
 };
 
-// killer: scripts/detect-ee7-history.mjs:160 ROR "v === 1," -> "v >= 1,"
+// killer: scripts/detect-ee7-history.mjs:159 ROR "v === 1," -> "v >= 1,"
 test("ee7_refuses_a_month_whose_manifest_is_not_a_sealed_pass_1", () => {
   // the rest of EE7-MANIFEST-READ-1 (m2 of the review of RECHERCHES): a folder of pass 2, or one whose manifest lacks pass, or names it as
   // text, is never read as the series; nor one that counts an empty page (the recorder writes none: it stops) or lacks the count

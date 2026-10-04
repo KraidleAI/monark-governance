@@ -62,7 +62,7 @@ function compare(one: string, two: string): [number, Record<string, unknown>, bo
   return [code, said, toStderr];
 }
 
-// killer: scripts/compare-coinbase-passes.mjs:142 SDL "else both += 1;" -> ""
+// killer: scripts/compare-coinbase-passes.mjs:143 SDL "else both += 1;" -> ""
 test("coinbase_passes_agree_on_two_readings_of_one_month", async () => {
   // three slots without trade, read as missing by both passes; a marked close read the same by both: exit 0, the closed result
   const s = series([5, 300, 451], new Map([[7, MARKS[1] ?? ""]])), one = await recorded(s, "1"), two = await recorded(s, "2");
@@ -76,7 +76,7 @@ test("coinbase_passes_agree_on_two_readings_of_one_month", async () => {
   assert.deepEqual([said.pass_1, said.pass_2, said.compare_sha256], [digests(one), digests(two), sha(readFileSync(SCRIPT))]);
 });
 
-// killer: scripts/compare-coinbase-passes.mjs:144 SDL "if (Object.values(lists).some((l) => l.length > 0))" -> ""
+// killer: scripts/compare-coinbase-passes.mjs:145 SDL "if (Object.values(lists).some((l) => l.length > 0))" -> ""
 test("coinbase_passes_stop_on_a_candle_that_one_reading_lacks", async () => {
   // a candle that one pass served and the other did not (the false absent of addendum 7 R1) stops the comparison, its open time listed,
   // never its value; each side, then both at once
@@ -92,7 +92,7 @@ test("coinbase_passes_stop_on_a_candle_that_one_reading_lacks", async () => {
   }
 });
 
-// killer: scripts/compare-coinbase-passes.mjs:141 ROR "a !== b" -> "a === b"
+// killer: scripts/compare-coinbase-passes.mjs:142 ROR "a !== b" -> "a === b"
 test("coinbase_passes_stop_on_two_candles_of_one_slot_that_differ", async () => {
   // the same slot served by both passes with another close: listed under differ, by its open time alone
   const one = await recorded(series(), "1"), two = await recorded(series([], new Map([[300, MARKS[1] ?? ""], [301, MARKS[2] ?? ""]])), "2");
@@ -116,7 +116,7 @@ function forged(dir: string, change: (copy: string) => void, late?: (copy: strin
   return copy;
 }
 
-// killer: scripts/compare-coinbase-passes.mjs:70 CONST "sha256(readFileSync(path)) !== hash" -> "false"
+// killer: scripts/compare-coinbase-passes.mjs:71 CONST "sha256(readFileSync(path)) !== hash" -> "false"
 test("coinbase_passes_refuse_folders_that_are_not_two_sealed_readings_of_one_month", async () => {
   const one = await recorded(series(), "1"), two = await recorded(series(), "2"), short = await recorded(series(), "2", N - 1);
   const edit = (file: string, f: (text: string) => string) => (d: string): void => { writeFileSync(join(d, file), f(readFileSync(join(d, file), "utf8"))); };
@@ -189,7 +189,7 @@ test("coinbase_passes_never_get_a_reading_whose_pages_disagree_on_a_slot", async
   }
 });
 
-// killer: scripts/compare-coinbase-passes.mjs:168 SDL "process.exitCode = main(process.argv.slice(2));" -> ""
+// killer: scripts/compare-coinbase-passes.mjs:169 SDL "process.exitCode = main(process.argv.slice(2));" -> ""
 test("coinbase_passes_command_line_prints_one_line_and_exits", async () => {
   // no argument: the usage stop on stderr, exit 2, before any read. Lot COINBASE-PASS-EDGES-1: the same stop through a junction under
   // --preserve-symlinks-main (copies of the comparison and of the recorder that it imports: XC-G03 of the campaign of the fusion
@@ -254,7 +254,7 @@ test("coinbase_passes_see_a_slot_that_the_request_opening_or_closing_pass_1_omit
   assert.deepEqual(got, want, "months of 2 688, 2 784, 2 880 and 2 976 slots");
 });
 
-// killer: scripts/compare-coinbase-passes.mjs:90 CONST "return w === undefined || w === null;" -> "return true;"
+// killer: scripts/compare-coinbase-passes.mjs:91 CONST "return w === undefined || w === null;" -> "return true;"
 test("coinbase_passes_ignore_the_witnesses_of_pass_2_but_require_their_count_coherent", async () => {
   // lot COINBASE-PASS-EDGES-1 (D-4): witness_slots counts the slots that pass 2 read outside the month, never compared: a pass 2 whose
   // witnesses have gaps and marked closes agrees with pass 1. Absent or null in pass 1; in pass 2 a count, the first and the last witness
