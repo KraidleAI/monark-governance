@@ -479,9 +479,9 @@ test("red_proof_test_only_fails_closed_on_a_production_change", () => {
 
 // killer: scripts/red-proof.mjs:216 CONST "production.push(p)" -> "null"
 test("red_proof_test_only_counts_a_test_file_that_production_imports_as_production", () => {
-  const r = pinRun("b1", { "test/h.ts": "export const H = 2;\n", "test/free.ts": "export const F = 1;\n", "test/pin.test.ts": `${PINS}${PIN}`, "docs/G0-pin.md": G0(true, XX) }, ["--test-only"],
-    { "scripts/rec.mjs": 'import { H } from "../test/h.ts";\nexport const R = H;\n', "test/h.ts": "export const H = 1;\n" }); // G2 B-1: as scripts/record-byo-demo.mjs:14
-  assert.deepEqual([r.status, r.proof.ok, r.proof.tests, r.proof.files.production, r.proof.refusals], [1, false, [], ["test/h.ts"], ["production changed: test/h.ts"]]);
+  const r = pinRun("b1", { "test/h.ts": "export const H = 2;\n", "packages/w/test/hw.ts": "export const HW = 2;\n", "test/free.ts": "export const F = 1;\n", "test/pin.test.ts": `${PINS}${PIN}`, "docs/G0-pin.md": G0(true, XX) }, ["--test-only"],
+    { "scripts/rec.mjs": 'import { H } from "../test/h.ts";\nexport const R = H;\n', "test/h.ts": "export const H = 1;\n", "packages/w/rec.js": 'export { HW } from "./test/hw.ts";\n', "packages/w/test/hw.ts": "export const HW = 1;\n" }); // G2 B-1: as scripts/record-byo-demo.mjs:14, and a package's own test/
+  assert.deepEqual([r.status, r.proof.ok, r.proof.tests, r.proof.files.production, r.proof.refusals], [1, false, [], ["packages/w/test/hw.ts", "test/h.ts"], ["production changed: packages/w/test/hw.ts", "production changed: test/h.ts"]]);
 });
 
 // killer: scripts/red-proof.mjs:218 CONST "!names.has(d.name)" -> "false"
