@@ -39,7 +39,7 @@ const SCORES = [0.5, 0.1, 0.9, 0.3, 1.0, 0.7, 0.2, 0.8, 0.4, 0.6];
 const INTERVAL = { scores: SCORES, mode: "interval" as const };
 const SET = { scores: SCORES, mode: "set" as const, candidates: [{ label: "A", score: 0.5 }, { label: "B", score: 1.5 }] };
 const UNKNOWN_MESSAGE =
-  "unknown task_class 'nope-class' (known: btc-dir-15m, cascade-liquidable-24h, stable-run-velocity-24h, liquidation-eligible-coverage; or supply params.calibration for BYO)";
+  "unknown task_class 'nope-class' (known: cascade-liquidable-24h, stable-run-velocity-24h, liquidation-eligible-coverage; or supply params.calibration for BYO)";
 
 function pred(taskClass: string, yhat: string | number, predictorId = "caller:model", schemaVersion = "1.0.0"): Prediction {
   return { schema_version: schemaVersion, task_class: taskClass, yhat, predictor_id: predictorId, produced_at: AT };
@@ -88,7 +88,7 @@ async function mcpToolsCall(name: string, args: Obj): Promise<Obj> {
 }
 
 // Test E-1 (F2P): the codes are a closed list, pinned in order (snake_case, unique).
-// killer: apps/harness/src/tools/gate.ts:263 CONST "byo_set_tau_cap" -> "byo_tau_cap"
+// killer: apps/harness/src/tools/gate.ts:272 CONST "byo_set_tau_cap" -> "byo_tau_cap"
 test("harness_error_codes_are_a_closed_pinned_list", () => {
   const listed = (gateModule as Record<string, unknown>)["HARNESS_ERROR_CODES"];
   assert.deepEqual(listed, CODES, "HARNESS_ERROR_CODES is the pinned closed list");
@@ -129,7 +129,7 @@ function callArgs(src: string, open: number): string[] {
 }
 
 // Test E-2 (F2P): every `new HarnessToolError(` in apps/harness/src names a code; a literal code is in the list.
-// killer: apps/harness/src/tools/gate.ts:306 CONST "\"param_invalid\");" -> ");"
+// killer: apps/harness/src/tools/gate.ts:315 CONST "\"param_invalid\");" -> ");"
 test("every_harness_tool_error_names_a_code", () => {
   const SRC = fileURLToPath(new URL("../src", import.meta.url));
   const walk = (dir: string): string[] =>
@@ -153,7 +153,7 @@ test("every_harness_tool_error_names_a_code", () => {
 });
 
 // Test E-3 (F2P): each refusal path of runGate carries its code; the four liq messages stay byte-identical.
-// killer: apps/harness/src/tools/gate.ts:775 CONST "code: \"byo_reserved_kata\"" -> "code: \"byo_lookalike_committed\""
+// killer: apps/harness/src/tools/gate.ts:758 CONST "code: \"byo_reserved_kata\"" -> "code: \"byo_lookalike_committed\""
 test("gate_refusals_carry_their_code", () => {
   const cases: [string, () => unknown, string][] = [
     ["nMin 0", () => runGate(pred("btc-dir-15m", "up"), { ...PARAMS, nMin: 0 }), "param_invalid"],
@@ -161,7 +161,8 @@ test("gate_refusals_carry_their_code", () => {
     ["negative interval score", () => runGate(pred("byo-x", 1), { ...PARAMS, calibration: { scores: [-1, 1], mode: "interval" } }), "byo_calibration_invalid"],
     ["interval string yhat", () => runGate(pred("byo-x", "A"), { ...PARAMS, calibration: INTERVAL }), "byo_yhat_type"],
     ["set tau 5", () => runGate(pred("byo-x", "A"), { ...PARAMS, nMin: 5, tau: 5, calibration: SET }), "byo_set_tau_cap"],
-    ["btc-dir number yhat", () => runGate(pred("btc-dir-15m", 1), PARAMS), "yhat_type_mismatch"],
+    ["cascade string yhat", () => runGate(pred("cascade-liquidable-24h", "1"), PARAMS), "yhat_type_mismatch"],
+    ["btc-dir retired", () => runGate(pred("btc-dir-15m", "up"), PARAMS), "task_class_retired"],
     ["discordant attested", () => runGate(pred("btc-dir-15m", "up"), PARAMS, attested("https://example.test/x")), "attested_inconsistent"],
     ["unknown class", () => runGate(pred("nope-class", 1), PARAMS), "task_class_unknown"],
     ["byo on btc-dir", () => runGate(pred("btc-dir-15m", 1), { ...PARAMS, calibration: INTERVAL }), "byo_overrides_committed"],
@@ -249,7 +250,10 @@ test("mcp_tool_error_keeps_its_text_and_adds_the_code", async () => {
 // with code output_invalid, never served; a valid one stays 200.
 // killer: apps/harness/src/http.ts:112 CONST "checked.issues !== undefined" -> "false"
 test("http_mirror_validates_its_output", async () => {
-  const body = { prediction: pred("btc-dir-15m", "up", "internal:momentum-4c"), params: PARAMS };
+  const body = { prediction: pred("stable-run-velocity-24h", 0.0001, USDE_STABLE_RUN_PREDICTOR_ID), params: { ...PARAMS, intent: 0 } };
+  const retired = await mirror("/gate", { ...body, prediction: pred("btc-dir-15m", "up", "internal:momentum-4c") });
+  assert.equal(retired.status, 400, "btc-dir-15m is retired (CM-2b), the USDe key is the served vehicle");
+  assert.match(retired.text, /"code":"task_class_retired"/, "retired code");
   const tool = HARNESS_TOOLS.find((t) => t.name === "gate");
   assert.ok(tool !== undefined, "the gate tool is registered");
   const ok = await mirror("/gate", body);

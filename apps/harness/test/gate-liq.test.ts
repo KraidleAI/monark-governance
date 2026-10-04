@@ -346,6 +346,9 @@ async function servedToolsList(): Promise<Obj> {
 // served string leaf (tool AND schema descriptions, checkpoint-1 C-9). Mutants: describeGate(false) hard-coded at the
 // served call site (R-HD-1, a whole class now killable); the committed branch dropping a sentence; the served descriptor
 // altered in registry.ts; the openapi description altered => red.
+// CM-2b (ADR-CM B-5, B-2, B-7): the served description moves (btc-dir retired, USDe alpha/nMin declared, the USDe band
+// edge stated); the sha256 pin moves 55744504... -> cb4029d2... (recorded in docs/G0-lot-cm-2b.md). The liq clause is unchanged.
+// killer: apps/harness/src/tools/gate.ts:212 CONST "refusal. For" -> "refusal; for"
 test("hdesc_served_gate_description_is_the_committed_clause", async () => {
   assert.equal(hasCommittedCalibrationForClass(TASK_LIQ_ELIGIBLE), true, "the delivered registry holds the liq class");
   const list = await servedToolsList();
@@ -365,8 +368,8 @@ test("hdesc_served_gate_description_is_the_committed_clause", async () => {
   assert.equal(listed, describeGate(true), "the served text is the committed-state description (describeGate(false) hard-coded reds here)");
   assert.equal(
     createHash("sha256").update(listed, "utf8").digest("hex"),
-    "5574450432b7252bb82a31e51eb01b707d286fc9bf4af425a2bf5bce787aed77",
-    "the served description is byte for byte the pre-HARNESS-DESC-1 committed text (D-HD-1 identity, ADR-U4b-2b D2)",
+    "cb4029d2e1bf183c69e4db97d9d9f112bdd030b44edcc4e1afc4f513d9e6d532",
+    "the served description is byte for byte the CM-2b committed text (ADR-CM B-5, B-2, B-7; was 55744504..., ADR-U4b-2b D2)",
   );
   const slice = liqSlice(listed);
   assert.equal(slice, EXPECTED_COMMITTED_CLAUSE, "the served liq clause is EXACTLY the committed clause");
