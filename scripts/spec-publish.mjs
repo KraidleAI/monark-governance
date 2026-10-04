@@ -3,33 +3,31 @@
 //
 //   node scripts/spec-publish.mjs --release <id> --date <YYYY-MM-DD> --out <dir> [--root <name>=<dir>]... [--verify <dir>] [--inputs <file>]
 //
-// It writes ONE dated version of the spec repository into a LOCAL, absent or empty --out directory: every file of the release's closed
-// input list (scripts/spec-publish-inputs.json), copied byte for byte from its declared source, plus VERSION (the date argument and a
-// LF) and MANIFEST.sha256 ("<sha256>  <path>" per other file, sorted by path, LF; `sha256sum -c --strict MANIFEST.sha256` checks it).
-// The date argument is the only time in the output: the same sources and date give the same bytes. It never publishes and never
-// writes outside --out; its only git commands are three reads of the previous published tree. Publication stays MONARK's act (F-5).
+// It writes ONE dated version of the spec repository into a LOCAL, absent or empty --out directory outside any git tree: every file of
+// the release's closed input list (scripts/spec-publish-inputs.json), each pinned by its sha256 and copied byte for byte, plus VERSION
+// (the date argument and a LF) and MANIFEST.sha256 ("<sha256>  <path>" per other file, sorted by path, LF; `sha256sum -c --strict
+// MANIFEST.sha256` checks it); files 0644. The date argument is the only time in the output: the same sources and date give the same
+// bytes. The tree is written in a temporary directory beside --out and renamed into place: on any failure --out stays absent or as it
+// was. It never publishes; its git commands are reads only. Publication stays MONARK's act (F-5).
 //
-// Roots: "governance" (this repository by default), "recherches" (a clone of that repository) and "previous" (a clean checkout of the
-// spec repository at the release's previous_commit); an input of an external root pins its sha256. FAIL-CLOSED (exit 1, nothing
-// written), each problem named by its code: release_unknown, date_invalid, root_missing, input_blacklisted, input_missing,
-// input_digest, not_text, crlf, vocabulary, json_invalid, schema_invalid, policy_table_invalid, not_canonical (a policy table file
-// must be its own canonical writing, so its sha256 is its policy_table_sha256), previous_commit, previous_dirty, withdrawn (a file
-// of the previous tree the release drops). --verify <dir> then compares --out with <dir> (.git ignored): exit 0 iff the same paths
-// with the same bytes. Exit 2: usage.
+// Roots: "governance" (this repository by default), "recherches" (a clone of that repository) and "previous" (the top of a clean
+// checkout of the spec repository at the release's previous_commit). FAIL-CLOSED (exit 1, nothing written), each problem named by its
+// code: release_unknown, date_invalid, root_missing, input_blacklisted, input_missing, input_escapes (a link out of its root),
+// input_not_file, input_digest, not_text, crlf, vocabulary, json_invalid, schema_invalid, policy_table_invalid, not_canonical (a policy
+// table file must be its own canonical writing, so its sha256 is its policy_table_sha256), previous_commit, previous_dirty, withdrawn
+// (a file of the previous tree the release drops); then out_not_empty, out_parent_missing, out_in_git_tree, write_failed. --verify
+// <dir> then compares --out with <dir> (.git ignored): exit 0 iff the same paths with the same bytes. Exit 2: usage.
 import { spawnSync } from "node:child_process";
 import { createHash } from "node:crypto";
-import { existsSync, mkdirSync, readdirSync, readFileSync, statSync, writeFileSync } from "node:fs";
-import { dirname, join, resolve } from "node:path";
+import { chmodSync, existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, realpathSync, renameSync, rmdirSync, rmSync, statSync, writeFileSync } from "node:fs";
+import { dirname, join, resolve, sep } from "node:path";
 import { fileURLToPath } from "node:url";
-import { loadExempt, scanText as scanLang } from "./lang-gate.mjs";
-import { compilePatterns, scanText as scanVocab } from "./grep-forbidden.mjs";
-import { DATA_SOURCE_FORMS, HOSTING_FORMS, KITCHEN_FORMS, OPERATOR_FORMS, SECRET_SHAPES } from "./public-text-deny.mjs";
-import { STRUCTURAL_BLACKLIST, WINDOWS_ABS_PATH_RE } from "./export-public.mjs";
+import { checkPublicText } from "./public-text-deny.mjs";
+import { STRUCTURAL_BLACKLIST } from "./export-public.mjs";
 
 export const REPO_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 export const INPUTS_FILE = "scripts/spec-publish-inputs.json";
 export const ROOTS = Object.freeze(["governance", "recherches", "previous"]);
-export const EXTERNAL_ROOTS = Object.freeze(["recherches", "previous"]);
 export const KINDS = Object.freeze(["text", "json", "schema", "policy-table"]);
 export const RESERVED = Object.freeze(["VERSION", "MANIFEST.sha256"]);
 const sha = (b) => createHash("sha256").update(b).digest("hex");
@@ -56,16 +54,15 @@ export function parseInputs(raw) {
   for (const [id, rel] of Object.entries(raw.releases)) {
     if (!closed(rel, ["previous_commit", "entries", "note"]) || !Array.isArray(rel.entries) || rel.entries.length === 0) bad(`${id}: entries`);
     if (rel.previous_commit !== null && !/^[0-9a-f]{40}$/.test(String(rel.previous_commit))) bad(`${id}: previous_commit`);
-    const outs = new Set();
     for (const e of rel.entries) {
       if (!closed(e, ["out", "root", "path", "kind", "sha256", "note"])) bad(`${id}: entry keys`);
-      if (!okPath(e.out) || RESERVED.includes(e.out) || outs.has(e.out)) bad(`${id}: output ${e.out}`);
-      outs.add(e.out);
+      if (!okPath(e.out) || RESERVED.includes(e.out)) bad(`${id}: output ${e.out}`);
       if (!ROOTS.includes(e.root) || !okPath(e.path) || !KINDS.includes(e.kind)) bad(`${id}: ${e.out} source or kind`);
-      if (e.sha256 !== null && !/^[0-9a-f]{64}$/.test(String(e.sha256))) bad(`${id}: ${e.out} sha256`);
-      if (e.sha256 === null && EXTERNAL_ROOTS.includes(e.root)) bad(`${id}: ${e.out} comes from ${e.root} and must pin its sha256`);
+      if (!/^[0-9a-f]{64}$/.test(String(e.sha256))) bad(`${id}: ${e.out} must pin its sha256`);
       if (e.root === "previous" && rel.previous_commit === null) bad(`${id}: ${e.out} reads the previous tree, previous_commit is null`);
     }
+    const all = [...rel.entries.map((e) => String(e.out)), ...RESERVED].map((p) => p.toLowerCase());
+    if (new Set(all).size !== all.length || all.some((a) => all.some((b) => b.startsWith(`${a}/`)))) bad(`${id}: two outputs collide (a name in any case, or a file under another)`);
   }
   return raw;
 }
@@ -89,27 +86,31 @@ export function canonicalJson(v) {
   return `{${keys.map((k) => `${JSON.stringify(k)}:${canonicalJson(v[k])}`).join(",")}}`;
 }
 
-// ---- The vocabulary gate of the public spec repository: a closed list of rules. Venue names are not banned there (BLQ-DEP-7). ----
-export const GATE_RULES = Object.freeze(["lang", "claims", "vendor", "kitchen", "secret", "path", "format", "email"]);
-const anyCase = (forms) => forms.map((f) => new RegExp(f.re.source, `${f.re.flags.replace("i", "")}i`));
-// The form G0..G7 stays out: the published report and vectors cite a plan file named "...-G0-..." (measured at ddfee9e).
-const FORMS = [["vendor", anyCase([...DATA_SOURCE_FORMS, ...OPERATOR_FORMS, ...HOSTING_FORMS])],
-  ["kitchen", [...KITCHEN_FORMS.filter((f) => f.why !== "gate G0..G7").map((f) => f.re), /\bRECHERCHES\b/]], ["secret", SECRET_SHAPES],
-  ["path", [WINDOWS_ABS_PATH_RE]], ["format", [/\p{Cf}/u]], ["email", [/(?<![\w.+-])(?!noreply@)[\w.+-]+@[\w-]+\.[A-Za-z][\w.]*/]]];
-let gateConfig = null;
+// ---- The vocabulary gate of the public spec repository: the public free-text gate (checkPublicText, kind "notes") on the NFKC text,
+// with a closed list of exceptions: G0..G7 and monark-governance, which the published files cite, the json-schema.org URL, and a venue named inside a cell key
+// written in its grammar (kata:<id>@<venue>/..., ukemi:...@.../aave-v3-core/...). Plus private names, home paths and withheld words.
+const KEY_TOKEN = /\b(?:kata|ukemi):[\w.-]+@[\w:.-]+(?:\/[\w.-]+)+/g;
+const EXCEPTED = (v) => (v.rule === "k" && /^G[0-7]$/.test(v.word)) || (v.rule === "c" && /^monark-governance$/i.test(v.word))
+  || (v.rule === "g" && /^https:\/\/json-schema\.org\/draft\//.test(v.word)); // and the meta-schema URL a JSON Schema names in $schema
+const EXTRA = [["private", /recherches/i], ["home", /(?<![\w.-])(?:\/home|\/Users|\/root|~)\/[\w.-]|[A-Za-z]:\\+Users\\/i]];
+/** sha256 of the NFKC lower-case words withheld from every file by instruction, matched by digest so that the word is never written. */
+export const WITHHELD = Object.freeze(["e8522fd87f748c388684c3eff07de12ac2f77d5c8f5f0222d50c7e819e26ca91"]);
 
-/** vocabularyHits(text) -> [{rule, line, word}]: every hit of the spec repository's gate, empty when the text is clean. */
-export function vocabularyHits(text) {
-  gateConfig ??= { maskers: loadExempt(REPO_ROOT).maskers, claims: compilePatterns(JSON.parse(readFileSync(join(REPO_ROOT, "vocab-banned.json"), "utf8")).banned) };
-  const hits = [...scanLang(text, gateConfig.maskers).map((h) => ({ rule: "lang", line: h.line, word: h.word })),
-    ...scanVocab(text, gateConfig.claims).map((h) => ({ rule: "claims", line: h.line, word: h.word }))];
-  text.split("\n").forEach((l, i) => {
-    for (const [rule, res] of FORMS) for (const re of res) { const m = re.exec(l); if (m) hits.push({ rule, line: i + 1, word: rule === "secret" ? "(masked)" : m[0] }); }
+/** vocabularyHits(text, withheld) -> [{rule, line, word}]: every hit of the spec repository's gate, empty when the text is clean. */
+export function vocabularyHits(text, withheld = WITHHELD) {
+  const t = text.normalize("NFKC").replace(KEY_TOKEN, "KEY");
+  if (t.trim() === "") return [];
+  const hits = checkPublicText(t, "notes").violations.filter((v) => !EXCEPTED(v)).map((v) => ({ rule: v.rule, line: v.line, word: v.word }));
+  t.split("\n").forEach((l, i) => {
+    for (const [rule, re] of EXTRA) { const m = re.exec(l); if (m) hits.push({ rule, line: i + 1, word: m[0] }); }
+    for (const w of l.toLowerCase().match(/[\p{L}\p{N}]+/gu) ?? []) if (withheld.includes(sha(w))) hits.push({ rule: "withheld", line: i + 1, word: "(withheld)" });
   });
   return hits;
 }
 
-/** contentProblems(out, kind, bytes) -> [{code, detail}]: what keeps one output file out of a version. */
+const strings = (v) => (typeof v === "string" ? [v] : v !== null && typeof v === "object" ? Object.entries(v).flatMap(([k, x]) => [...(Array.isArray(v) ? [] : [k]), ...strings(x)]) : []);
+
+/** contentProblems(out, kind, bytes) -> [{code, detail}]: what keeps one output file out of a version. JSON is also gated decoded. */
 export function contentProblems(out, kind, bytes) {
   let text;
   try { text = new TextDecoder("utf-8", { fatal: true }).decode(bytes); } catch { return [{ code: "not_text", detail: `${out}: not UTF-8` }]; }
@@ -119,6 +120,7 @@ export function contentProblems(out, kind, bytes) {
   if (kind === "text") return p;
   let v;
   try { v = JSON.parse(text); } catch (e) { return [...p, { code: "json_invalid", detail: `${out}: ${e.message}` }]; }
+  p.push(...vocabularyHits(strings(v).join("\n")).map((h) => ({ code: "vocabulary", detail: `${out}: a decoded string [${h.rule}] ${h.word}` })));
   if (kind === "schema" && !(isObj(v) && typeof v.$schema === "string")) p.push({ code: "schema_invalid", detail: `${out}: no $schema` });
   if (kind !== "policy-table") return p;
   if (!isObj(v) || v.row_format !== "class-policy-v2" || !isObj(v.class) || !Array.isArray(v.rows) || out !== `policy/${String(v.class.task_class)}.json`) {
@@ -141,12 +143,14 @@ export function plan({ inputs, release, date, roots }) {
   const rel = Object.hasOwn(inputs.releases, release) ? inputs.releases[release] : null;
   if (rel === null) return { files, problems: [...problems, { code: "release_unknown", detail: String(release) }] };
   for (const e of rel.entries) {
-    const dir = roots[e.root], abs = dir === undefined ? null : join(dir, e.path);
+    const dir = roots[e.root], abs = dir === undefined ? null : join(dir, e.path), at = `${e.out} <- ${e.root}:${e.path}`;
     if (abs === null) { add("root_missing", `${e.out}: root ${e.root} not given`); continue; }
-    if (e.root === "governance" && STRUCTURAL_BLACKLIST.some((re) => re.test(e.path))) { add("input_blacklisted", `${e.out} <- ${e.path}`); continue; }
-    if (!existsSync(abs) || !statSync(abs).isFile()) { add("input_missing", `${e.out} <- ${e.root}:${e.path}`); continue; }
+    if (e.root === "governance" && STRUCTURAL_BLACKLIST.some((re) => re.test(e.path))) { add("input_blacklisted", at); continue; }
+    if (!existsSync(abs)) { add("input_missing", at); continue; }
+    if (!realpathSync(abs).startsWith(realpathSync(dir) + sep)) { add("input_escapes", `${at} resolves out of its root`); continue; }
+    if (!statSync(abs).isFile()) { add("input_not_file", at); continue; }
     const bytes = readFileSync(abs);
-    if (e.sha256 !== null && sha(bytes) !== e.sha256) { add("input_digest", `${e.out} <- ${e.root}:${e.path} is ${sha(bytes)}, pinned ${e.sha256}`); continue; }
+    if (sha(bytes) !== e.sha256) { add("input_digest", `${at} is ${sha(bytes)}, pinned ${e.sha256}`); continue; }
     problems.push(...contentProblems(e.out, e.kind, bytes));
     files.push({ path: e.out, bytes });
   }
@@ -154,7 +158,8 @@ export function plan({ inputs, release, date, roots }) {
   if (rel.previous_commit !== null && prev === undefined) add("root_missing", `previous tree at ${rel.previous_commit} not given`);
   else if (rel.previous_commit !== null) {
     const outs = new Set([...rel.entries.map((e) => e.out), ...RESERVED]); // declared outputs: a missing input is input_missing, not withdrawn
-    if (git(prev, ["rev-parse", "HEAD"])?.trim() !== rel.previous_commit) add("previous_commit", `${prev} is not at ${rel.previous_commit}`);
+    const [top, head] = (git(prev, ["rev-parse", "--show-toplevel", "HEAD"]) ?? "").split("\n");
+    if (!existsSync(prev) || top !== realpathSync(prev) || head !== rel.previous_commit) add("previous_commit", `${prev} is not the top of a git tree at ${rel.previous_commit}`);
     else if (git(prev, ["status", "--porcelain"]) !== "") add("previous_dirty", `${prev} has local changes`);
     else for (const p of (git(prev, ["ls-files", "-z"]) ?? "").split("\0")) if (p !== "" && !outs.has(p)) add("withdrawn", `${p} is published, the release drops it`);
   }
@@ -180,12 +185,23 @@ export function compareTrees(produced, published) {
   return r;
 }
 
-/** produce(o) -> {files: [{path, sha256, bytes}], manifest_sha256}; throws SpecPublishError before any write on a problem. */
+/** produce(o) -> {files: [{path, sha256, bytes}], manifest_sha256}; throws SpecPublishError and leaves --out as it was on any failure. */
 export function produce({ inputs, release, date, roots, out }) {
-  const { files, problems } = plan({ inputs, release, date, roots });
+  const { files, problems } = plan({ inputs, release, date, roots }), parent = dirname(out);
   if (problems.length > 0) throw new SpecPublishError("refused", `${problems.length} problem(s)`, problems);
   if (existsSync(out) && readdirSync(out).length > 0) throw new SpecPublishError("out_not_empty", `${out} is not empty`);
-  for (const f of files) { mkdirSync(dirname(join(out, f.path)), { recursive: true }); writeFileSync(join(out, f.path), f.bytes); }
+  if (!existsSync(parent)) throw new SpecPublishError("out_parent_missing", `${parent} does not exist`);
+  if (git(parent, ["rev-parse", "--show-toplevel"]) !== null) throw new SpecPublishError("out_in_git_tree", `${out} is inside a git working tree`);
+  const tmp = mkdtempSync(join(parent, ".spec-publish-"));
+  try {
+    for (const f of files) { const p = join(tmp, f.path); mkdirSync(dirname(p), { recursive: true }); writeFileSync(p, f.bytes); chmodSync(p, 0o644); }
+    chmodSync(tmp, 0o755);
+    if (existsSync(out)) rmdirSync(out);
+    renameSync(tmp, out);
+  } catch (e) {
+    rmSync(tmp, { recursive: true, force: true });
+    throw new SpecPublishError("write_failed", `${e.message}; nothing left in ${out}`);
+  }
   return { files: files.map((f) => ({ path: f.path, sha256: sha(f.bytes), bytes: f.bytes.length })), manifest_sha256: sha(files.at(-1).bytes) };
 }
 
