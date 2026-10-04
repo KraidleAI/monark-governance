@@ -40,3 +40,14 @@
 ## Sortie
 
 Prêt pour le contrôle par diff de MONARK, à fusionner avec #106. Temps (ii) après le déploiement de l'arbre qui porte CM-2b.
+
+## Pli du contrôle par diff de MONARK sur CM-2b (C-1, 2026-10-04)
+
+- Plan : section du même nom au G0. Commits : `9768897` (tests), `69cfd7f` (surfaces, **gel**), puis ce commit de documents.
+- `node scripts/red-proof.mjs --base 2abe801 --gel 69cfd7f --repo /home/user/monark-governance --draw 9 --seed 31` : **OK**, 13 tests jugés F2P, 9 tueurs tirés, 9 tués. Contre la base GitHub (`--base 98e3779`) : **OK**, 31 jugés, 9 tueurs tirés, 9 tués. Un premier passage était REFUSED (une ligne tueuse manquait au-dessus d'un test modifié, et le mot de cuisine « G2 » dans un commentaire de `fleet.ts` faisait rougir le fichier `site-build-fleet.test.ts` au gel) : corrigé avant le gel cité.
+- `npx tsc --noEmit`, eslint (fichiers changés), `gate:vocab`, `lint:ratchet` 69/69, `lang:gate` : verts.
+- `npm test` au gel : 1 911 tests, 39 échecs ; le même `npm test` sur `2abe801` dans ce conteneur : 65 échecs. Comparaison par nom : aucun échec propre au gel (le seul écart, `apps/sentinel/test/u4b-select-episode.test.ts` en échec de fichier, est le même test `u4b_fill_ts_quorum2_…` rouge à la base, rejoué seul trois fois). Les échecs communs sont d'environnement, dans des paquets que le lot ne touche pas (`packages/rpc-guard`, Ukemi, Bell, Dojo, sentinelle, export), plus les deux rouges du temps (ii).
+- R-25 par `r25()` contre `2abe801` : **384 lignes comptées** (+239/−145 ; borne 547). Avant ce pli : 319 par `r25()` (le « 413 » de la G2 était un `--shortstat` brut, fixtures JSON comprises).
+- Shōgen : `integration_test` = `http_mirror_matches_mcp_surface`, `verify_harness_ca_passes_on_the_in_process_harness` et les deux tests unitaires de la jointure ; limite déclarée (valeurs du témoin servi non épinglées, ATTEST-KATA-SUBJECT-1) ; statut `built` inchangé.
+- Couplage avec #110 (C-2) : voir le G0 ; à refaire quand #110 est dans la base de ce lot.
+- Le changement de mode de `packages/rpc-guard/bin/rpc-guard.mjs` n'est pas commis.
