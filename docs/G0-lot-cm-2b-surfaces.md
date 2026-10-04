@@ -40,4 +40,8 @@ Les huit autres rouges de CM-2b sont verts en processus à ce lot. Échecs d'env
 
 ## Taille et sortie
 
-R-25 contre `2abe801` : environ 380 lignes comptées (borne 547). Oracle : `tsc`, eslint, `gate:vocab`, `lint:ratchet`, tests du harnais, `npm test`, `red-proof --base 2abe801 --gel <sha> --repo /home/user/monark-governance --draw 6 --seed 17`. Fusion par MONARK avec #106.
+R-25 contre `2abe801` : 379 lignes comptées (18 fichiers, +197/−182 ; borne 547). Oracle : `tsc`, eslint, `gate:vocab`, `lint:ratchet`, tests du harnais, `npm test`, `red-proof --base 2abe801 --gel <sha> --repo /home/user/monark-governance --draw 6 --seed 17`. Fusion par MONARK avec #106.
+
+## Mesures (gel `cd4b534`)
+
+`red-proof --base 2abe801 --gel cd4b534 --repo /home/user/monark-governance --draw 6 --seed 17` : OK, 9 jugés F2P, 6 tueurs tirés, 6 tués. Harnais 126/126. `npm test` : 1 955 tests, 1 930 verts, 22 ignorés, 3 échecs : `bell-served.test.ts:153` (clone superficiel) et les deux rouges du temps (ii) ci-dessus. Une première suite complète avait en plus le test 42 d'export et `sentinel_run_releases_chainstack_lock_on_sigterm` (charge), absents à la seconde.
