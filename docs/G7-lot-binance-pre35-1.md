@@ -157,6 +157,12 @@ confiance : node nomme alors l'AC de même nom de la confiance précédente, et 
 lecture compte comme faux. J'ai retenu `verify` plutôt que `checkIssued`, qui compare les noms et les identifiants : c'est la confusion
 de nom elle-même. Mesuré : `verify` est `false` exactement dans les cas faux.
 
+Précisions de la G2 neuve de RECHERCHES (2026-10-04, `G2-115-fold.md`, APPROUVE) :
+- **m-1** : « exactement dans les cas faux » est trop fort. Si l AC périmée a même nom **et même clé** que l AC de confiance (réémission), node nomme encore la périmée et `verify` est vrai : le correctif prouve que la clé de l émetteur journalisé a signé la feuille, pas que le certificat journalisé est celui de la confiance actuelle. Sans effet sur la course des 35 (aucun serveur créé, aucun changement de confiance).
+- **m-2** : un 200 journalisé avec `issuer_sha256: null` reste accepté (la feuille est attestée ; `tls_unattested` ne joue qu en l absence de certificat attesté). Sur la course des 35, ce cas est inattendu et se lit comme un signal à examiner, jamais comme un arrêt.
+- **m-3** : la sonde `s1linux.mjs` n est pas commise ; la mesure Linux est rejouable par `pr115-probe/p5b-trigger.mjs` (pièces de MONARK), rejouée par la G2 avec ses propres certificats : S1, S3, S4 faux 3/3, S2 juste 3/3, sous Node 22.22.2 et 24.21.0.
+- Survivant déclaré : le `catch` qui rend `true` au lieu de `false` ; équivalent en pratique (node fournit toujours un émetteur lisible dans les cas mesurés), avec R06 et R30.
+
 | Correction | Test | Tueur (vérifié tué au gel `484b0796`) |
 |---|---|---|
 | F-1 | `binance_klines_logs_the_true_issuer_of_two_cas_of_one_name`. Cas 4, qui rejoue S1 : `endpoint()` prend `trustLate`, le serveur est créé sous la confiance précédente, puis la confiance change. La ligne ne porte aucun émetteur, ou la vraie AC, jamais l'autre. Le commentaire du test dit l'ordre sur lequel repose chaque cas. Rouge à `c35378b` (émetteur faux) | `:108` `signs ? sha256(issuer)` → `issuer ? sha256(issuer)` |
