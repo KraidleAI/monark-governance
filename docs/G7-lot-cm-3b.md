@@ -27,7 +27,7 @@ Aucun fichier du chemin servi n'est touché (deux fichiers neufs de `hikae` et d
 
 ## Changements
 
-- **S-4 / E-1 (moteur)** : `bandEdge(qhat, sigmaHat)` = le plus grand double h avec fl(h / σ̂) ≤ q̂, depuis fl(q̂ · σ̂) par pas d'un ulp ; `conformScaledBand` = `riskControlRow` (domaine `band`, `attempt`, `spendIndex`) puis `buildIntervalRegion(0, h*)`. Vérifié sur 1 600 couples (q̂, σ̂) par une règle d'arrondi exacte en BigInt (au plus près, pair) côté test ; |r| ≤ h* ⇔ fl(|r| / σ̂) ≤ q̂ aux voisins de h* ; le produit brut diffère de h* sur une part de la grille.
+- **S-4 / E-1 (moteur)** : `bandEdge(qhat, sigmaHat)` = le plus grand double h avec fl(h / σ̂) ≤ q̂, par bissection sur les motifs de bits entre 0 et `MAX_VALUE` (63 pas au plus ; `null` si `MAX_VALUE` passe : pas de bord fini) ; `conformScaledBand` = `riskControlRow` (domaine `band`, imposé contre le sac d'options ; `attempt`, `spendIndex`) puis `buildIntervalRegion(0, h*)`. Vérifié sur 1 600 couples (q̂, σ̂) par une règle d'arrondi exacte en BigInt (au plus près, pair) côté test ; |r| ≤ h* ⇔ fl(|r| / σ̂) ≤ q̂ aux voisins de h* ; le produit brut diffère de h* sur une part de la grille.
 - **E-14** : q̂ = 0 rend `under_calib` dans la bande à l'échelle (sans cette garde, σ̂ = 2 servirait [0, 5e-324]) et dans la bande additive (épinglé).
 - **E-2** : `orderedCalibDigest(scores, aux)`, égal au `seqDigest` du banc P2 sur un vecteur croisé (et `sha256sum` sur le texte) ; non fini refusé.
 - **S-13** : `canonicalRow`, un canonicaliseur pour les lignes F-7 (clés triées en octets UTF-8, décimal aller-retour le plus court) ; `calibDigest` et le canonicaliseur du livre Ukemi restent, avec la raison écrite au G0.
@@ -40,7 +40,7 @@ Aucun fichier de `schemas/**`, `packages/contracts/**`, `apps/**`, `skills/**`, 
 ## Écarts au dessin
 
 - `orderedCalibDigest` refuse un nombre non fini (le banc écrirait `null`).
-- `conformScaledBand` refuse aussi h* = 0 et un produit q̂ · σ̂ non fini (`under_calib`).
+- `conformScaledBand` refuse aussi h* = 0 et l'absence de bord fini (`bandEdge` rend `null` : `MAX_VALUE` passe), en `under_calib`.
 
 ## Questions ouvertes
 
@@ -84,3 +84,23 @@ Prêt pour la G2 par une instance neuve. Aucun déploiement (CM-3 ne change rien
 - `lang:gate` : vert (0 occurrence). `tsc --noEmit`, `gate:vocab`, `lint:ratchet` 69/69, eslint (deux fichiers) : verts. `packages/hikae/test` 77/77 ; `apps/harness/test` 129/129.
 - `verifie-ancres.mjs` (mêmes refs) : tueurs 566, ANCRE 557, DERIVE 0, PERDU 9 (les 9 préexistants).
 - R-25 : inchangé, **359** contre la base après #108 (éditions en place, +6/−6 sur les deux fichiers du lot, déjà comptés).
+
+## G2 de #109 (instance neuve, 2026-10-04) : APPROUVE-AVEC-CORRECTIONS, pliée
+
+- Base de la PR : `b540a26` (base/chantier-moteur-2026-10-03 avec #108). Commits : `d9f0b36` (tests, rouge sur B-1), `cd32fb1` (code, **gel**), puis ce commit de documents. Le gel passe de `cb8bd51` à `cd32fb1`.
+- **B-1** (bloquant) : `scaled-band.ts:79` étalait le sac d'options après `domain: "band"`, si bien qu'un `domain` venu d'une variable (sans contrôle des propriétés en trop) l'emportait : 399 scores de 2 et un de −5, σ̂ 1, `{ attempt: 1, domain: "finite" }` servaient [0, 2]. Correction en place : `{ ...options, domain: "band" }`. Test neuf `conform_scaled_band_keeps_the_band_domain`, tueur `scaled-band.ts:79` (retour à l'ordre fautif), mesuré tué.
+- **B-2** (bloquant) : chaque refus de `canonicalRow` est épinglé par son message exact, plus seulement par `RangeError` (un contrôle de cycle supprimé finit en dépassement de pile, lui aussi `RangeError`). Mesuré : supprimer le contrôle de cycle (`canonical-row.ts:47` au gel) ou la copie `inner` (`:48`) fait rougir le test. Une valeur symbole s'ajoute aux refus.
+- Mineurs pliés :
+  - textes périmés : l.30 et l.43 ci-dessus, en-tête de `conformScaledBand` (`scaled-band.ts:71-74`, en place) : bissection et absence de bord fini, plus de produit q̂ · σ̂ ;
+  - la branche « pas de bord » (`scaled-band.ts:82`) est atteinte : 400 scores de 1e300, σ̂ 1e10, `under_calib`. Son mutant (contrôle supprimé) reste équivalent : `buildIntervalRegion(0, null)` s'abstient aussi ; le commentaire du test dit que la garde est une défense en profondeur ;
+  - en-tête de `canonicalRow` : une VALEUR symbole lève ; hors du type `RowValue`, l'écrivain n'est pas un validateur (clés symboles, propriétés non indicielles des tableaux et propriétés non énumérables omises, accesseurs appelés, Proxy accepté, aucune normalisation Unicode des clés), chaque point mesuré. +2 lignes d'en-tête : les tueurs suivent, en place, `canonical-row.ts:24` → `:26` et `:61` → `:63` (les numéros `:59`/`:61` du bloc précédent décrivent `cb8bd51`) ;
+  - imbrication profonde : `seen` est copié à chaque niveau (O(profondeur²)) et une profondeur de l'ordre de 20 000 finit en dépassement de pile brut, non en refus nommé ; cela reste fermé par défaut (exception, jamais une écriture) ;
+  - registre r3 : les titres 6 et 7 et les trois citations du §1.4 sont appliqués dans cette PR ; le commit de documentation d'après #107 ne doit pas les ré-appliquer. Les « nuit, 4 » des l.58 et l.61 de ce G7 sont des notes historiques « → », justes telles quelles.
+
+### Oracle (gel `cd32fb1`)
+
+- **Oracle du lot**, preuve isolée : `red-proof --base b540a26 --gel cd32fb1 --draw 4 --seed 109` : **OK**, 5 jugés F2P, 4 tueurs tirés, 4 tués (dont `scaled-band.ts:79`) ; avec `--draw 8` : 5 tueurs tirés (tous), 5 tués.
+- La preuve croisée sur la fusion (`--base ad40dd5`) n'est plus l'oracle : la G2 la mesure REFUSÉE sur un fichier de test de #106/#111 (`test/site-build-fleet.test.ts`), hors du lot ; elle passait ici à `cb8bd51` (20 jugés), selon l'environnement.
+- `tsc --noEmit`, `lang:gate`, `gate:vocab`, `lint:ratchet` 69/69, eslint (trois fichiers) : verts. `packages/hikae/test` 78/78 (77 + B-1) ; `apps/harness/test` 129/129 (Node 24.21.0).
+- `verifie-ancres.mjs` (refs base, cm-2b, cm-2a-suite, cm-2b-surfaces, cm-3a, cm-3b) : tueurs 567, ANCRE 558, DERIVE 0, PERDU 9 (les 9 préexistants).
+- R-25 (motif exact de `ci.yml`, référence de fusion de la PR contre `b540a26`, sans conflit) : **386** (4 fichiers, +386/−0 ; contenu 0), soit 359 + 27 (25 lignes de test, 2 d'en-tête), sous 547.
