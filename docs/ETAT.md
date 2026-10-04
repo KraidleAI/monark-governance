@@ -395,6 +395,8 @@ Tronc `lot/etude-suite`. Dernier oracle complet : 1 779 tests, dont 1 776 verts,
     porté par RECHERCHES (#110 ou une suite), avant le déploiement commun de CM-2a et CM-2b.
   - SEAL-118 : **fait le 2026-10-04 à 02:59 UTC** (forme B, rejeu hors ligne par `9842d42d`, 472 fichiers, 118 sur 118 vérifiés ; journal
     de provenance ; ancre recherches#94). Reste des 153 : la course des 35, après la fusion de BINANCE-PRE35-1 (#115).
+    Copies de travail sous `F:/tmp/seal118` (428 Mo) : décision de l investisseur (2026-10-04, 03:3x UTC, choix verbatim « Après le
+    scellement des 35 (Recommandé) ») : supprimées après le scellement des 35 ; ancre, outils et rapports gardés.
   - SEAL118-PAGES-REFETCH-1 (PAROXYSME ; Q-SEAL118-4) : les pages des 118 ne sont attestées que par le journal du 2026-10-02, sans
     provenance TLS (Q-G2C-1). Construction : redemander les mêmes 140 URL par l enregistreur du tronc, qui journalise les empreintes TLS,
     et comparer à l octet. Prix : 140 requêtes de poids 2, environ 70 s, aucun coût. Déclencheur : avec la course des 35 ; état : ouvert.
@@ -637,6 +639,9 @@ Tronc `lot/etude-suite`. Dernier oracle complet : 1 779 tests, dont 1 776 verts,
   **#105 fusionnée** dans la base (`98e3779a`, 2026-10-04 vers 00:00 UTC) et au tronc (`4a1b4844`). CM-2b : PR #106 (`2abe8013`),
   posée sur #105 ; CI `r25-taille-de-lot` rouge (702 lignes) ; ordre forcé : verdict et fusion de #105, contrôle par diff de #106
   par une instance neuve, puis les surfaces.
+  CM-2c (#107) : Q-1 tranchée par l investisseur (2026-10-04, 03:3x UTC, choix verbatim « Go explicite aux quatre (Recommandé) ») :
+  les précisions (1) à (4) de B-10 (`.` lu `-` ; `4` lu `a` sous `kata:` ; E16 ; repli i → l, faux refus `btc-dlr-1h` déclaré,
+  BYO-LOOKALIKE-RESIDUAL-1) ont son go explicite (règle de l amendement « soir » de l ADR-CM, l.156).
   - BTC-DIR-RETIRE-SURFACES-1 (MONARK ; déclencheur « PR CM-2b » atteint le 2026-10-03) : liste du G0 de CM-2b (§ du même nom).
     Décision de l investisseur (2026-10-03, 22:4x UTC, choix verbatim « Built, preuve attest servi (Recommandé) ») : Shōgen garde
     `built` ; `integration_test` de `apps/site/lib/fleet.ts` pointe vers un test d intégration non-LLM de l outil `attest` servi, plus

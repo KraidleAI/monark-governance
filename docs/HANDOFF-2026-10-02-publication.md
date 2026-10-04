@@ -482,6 +482,8 @@ pm) ; item MK-NM-GUARD-1 (refuser Tree = F:/Monark dans mk-nm.ps1).
   prends que des taches légéres. tu es à 87% d usage hebdo, n arrete pas les travaux en cours, mais fais en sorte que le gros du travail
   soit fait par recherche ») : MONARK ne lance plus de workflow ni de travail lourd ; RECHERCHES écrit et fait relire par sa G2 neuve ;
   MONARK contrôle léger, fusionne, agit (règle 4 du tableau amendée, message recherches#90). Travaux en cours menés à leur fin.
+- 2026-10-04 03:3x UTC : DÉCISIONS de l investisseur (choix verbatim) : « Go explicite aux quatre (Recommandé) » (précisions (1) à (4)
+  de B-10 dans CM-2c, Q-1 de mon contrôle de #107) ; « Après le scellement des 35 (Recommandé) » (copies de `F:/tmp/seal118`).
 - 2026-10-04 00:5x UTC : fusions au tronc : CM-2a (`4a1b4844`, PR #105 `98e3779a`), COINBASE-PASS-EDGES-1 (`44d8892d`), BINANCE-PRE153-1
   (`328be484`). Leurs oracles G7 (`569c91c6…`, `bba0b720…`, `2ce4d71c…`) portent seulement deux rouges venus de la CA de l étape 3
   committée sans resynchronisation du site (error_origin de l orchestrateur) ; correction `0c8f8177`, oracle vert : 2 060 tests,
