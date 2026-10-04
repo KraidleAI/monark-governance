@@ -11,7 +11,7 @@
 // an import red on a file that exists at base, any other red, not green at gel, no valid killer. A killed child (exit 134, signal, heap
 // limit) or a timed-out run or test is inconclusive, never a pass nor a kill; so is a truncated TAP (inconclusive_truncated, RED-PROOF-TAP-TRUNCATION-1). Exit 0 iff a test at least is judged, each is F2P or
 // new-module and each drawn killer is killed (ok holds without --draw: the JSON then reads "drawn": 0; G2 and cp-2 draw by mission);
-// 1 otherwise; 2 on a usage or tool error. --test-only (RED-PROOF-TEST-ONLY-1; mode written in the JSON; no --draw): any change outside *.test.ts, test/ and docs/**/*.md (files.production) refuses with no test run; else a test green at base and gel is "pinned" iff its killer, fired at gel, kills it (the F2P substitute). "(test 42)" is skipped (host lock only). Outputs in --out: RED-PROOF.json (digest over the
+// 1 otherwise; 2 on a usage or tool error. --test-only (RED-PROOF-TEST-ONLY-1; schema red-proof-v2 writes "mode", a v1 proof is f2p; no --draw) refuses with no test run on any change outside *.test.ts, test/ and docs/**/*.md, a changed test/ file a production file names (files.production), a removed test (files.removed) or no G0 of the diff with a "red-proof: test-only" line; else a test green at base and gel, in the npm test globs, whose killer the G0 lists, is "pinned" iff that killer, fired at gel, reddens it by an assertion (the F2P substitute). "(test 42)" is skipped (host lock only). Outputs in --out: RED-PROOF.json (digest over the
 // changes, docs/**/*.md out), base.tap and gel.tap (per-file TAP streams after "# red-proof file:" lines).
 //
 // Style hypothesis (C-G2-10): a body closes on its declaration line (ends with ");") or on the first later line closing at column 0 ("}" or ")"); else refused, "unsupported test layout" (RED-PROOF-LEX-FALLBACK-1).
@@ -179,6 +179,8 @@ function verdictOf(t) {
   if (t.killer === null) return ["refused", "no killer declared on the line above the test"];
   if (t.killerProblem !== null) return ["refused", `invalid killer: ${t.killerProblem}`];
   if (t.gel !== "pass") return ["refused", `not green at gel (${t.gel})`];
+  if (t.only && !t.inGlobs) return ["refused", "outside the npm test globs of package.json: CI never runs it"];
+  if (t.only && !t.listed) return ["refused", "its killer is not listed in the G0 that declares the lot test-only"];
   if (t.only) return t.base === "pass" ? ["pinned", "green at base and gel on the same production code, its declared killer fired at gel"] : ["refused", `red at base under --test-only (${t.base}): the production code is the same`];
   if (t.base === "assert-fail") return ["F2P", "red at base by an assertion failure, green at gel"];
   if (t.base === "import-fail" && t.newModule) return ["new-module", `the base cannot load ${t.module}, which the diff adds`];
@@ -196,17 +198,29 @@ export function drawKillers(population, n, seed) {
   return a.slice(0, k);
 }
 
-function fire(tree, tmp, out, row, i) {
+function fire(tree, tmp, out, row, tap) {
   const k = row.killer, p = join(tree, k.file), orig = readFileSync(p), before = sha(orig), lines = orig.toString("utf8").split("\n");
   lines[k.line - 1] = k.op === "SDL" ? "" : lines[k.line - 1].replace(k.before, () => k.after);
   writeFileSync(p, lines.join("\n"));
   let run;
   try { run = runFile(tree, row.file, tmp, row.name); } finally { writeFileSync(p, orig); }
-  const after = sha(readFileSync(p)), st = statusIn(run, row.name), tap = `killer-${i + 1}.tap`;
+  const after = sha(readFileSync(p)), st = statusIn(run, row.name);
   if (after !== before) throw new Error(`${k.file} was not restored to sha256 ${before}`);
   writeFileSync(join(out, tap), run.tap);
   const outcome = st.status === "pass" ? "stillborn" : ["inconclusive", "inconclusive_truncated", "missing", "skip"].includes(st.status) ? "inconclusive" : st.file ? "invalid" : "killed";
   return { name: row.name, file: row.file, killer: k, status: st.status, outcome, sha256_before: before, sha256_after: after, tap: { path: tap, sha256: sha(run.tap) } };
+}
+
+function testOnlyGate(gelTree, gitDir, base, changes, tests, production) { // RED-PROOF-TEST-ONLY-1, G2 B-1, B-2, Q-RTO-4, m-4
+  const src = git(gelTree, ["ls-files", "-z"]).split("\0").filter((p) => /\.[cm]?[jt]sx?$/.test(p) && !p.endsWith(".test.ts") && !/(^|\/)test\//.test(p) && existsSync(join(gelTree, p))).map((p) => readFileSync(join(gelTree, p), "utf8"));
+  for (const [p] of [...changes].filter(([q]) => !q.endsWith(".test.ts") && /(^|\/)test\//.test(q))) if (src.some((text) => text.includes(p.slice(p.lastIndexOf("test/")).replace(/\.[^./]+$/, "")))) production.push(p); // named by production code: production
+  const names = new Set(tests.flatMap((p) => declarations(readFileSync(join(gelTree, p), "utf8")).map((d) => d.name)));
+  const removed = [...changes].filter(([p, st]) => p.endsWith(".test.ts") && st !== "A").flatMap(([p]) => declarations(git(gitDir, ["show", `${base}:${p}`])).filter((d) => !names.has(d.name)).map((d) => `${p} :: ${d.name}`));
+  const g0 = [...changes].filter(([p, st]) => st !== "D" && /^docs\/(.+\/)?G0-[^/]+\.md$/.test(p)).map(([p]) => [p, readFileSync(join(gelTree, p), "utf8")]).find(([, text]) => /^red-proof: test-only$/m.test(text)) ?? null;
+  const script = existsSync(join(gelTree, "package.json")) ? JSON.parse(readFileSync(join(gelTree, "package.json"), "utf8")).scripts?.test ?? "" : "";
+  const globs = [...script.matchAll(/"([^"]+)"/g)].map((m) => new RegExp(`^${m[1].replace(/[.+?^${}()|[\]\\]/g, "\\$&").replace(/\*/g, "[^/]*")}$`));
+  production.sort();
+  return { removed, g0, globs, refusals: [...production.map((p) => `production changed: ${p}`), ...removed.map((r) => `test removed: ${r}`), ...(g0 === null ? ['no G0 of the diff declares "red-proof: test-only"'] : [])] };
 }
 
 function parseArgs(argv) {
@@ -244,9 +258,9 @@ export function main(argv) {
     for (const p of [...tests, ...support]) put(gelTree, baseTree, p);
     linkModules(repo, gelTree); linkModules(repo, baseTree);
     const digest = sha([...changes.keys()].filter((p) => !/^docs\/(.+\/)?[^/]+\.md$/.test(p)).sort().map((p) => `${changes.get(p)} ${p} ${changes.get(p) === "D" ? "-" : sha(readFileSync(join(gelTree, p)))}`).join("\n"));
-    const rows = [];
-    let baseTap = "", gelTap = "", unchanged = 0;
-    for (const f of only && production.length > 0 ? [] : tests) { // --test-only: a production change refuses before any run
+    const gate = only ? testOnlyGate(gelTree, gitDir, base, changes, tests, production) : { removed: [], g0: null, globs: [], refusals: [] }, rows = [];
+    let baseTap = "", gelTap = "", unchanged = 0, pins = 0;
+    for (const f of gate.refusals.length > 0 ? [] : tests) { // --test-only: a refusal of the gate stops before any run
       const b = runFile(baseTree, f, tmp), g = runFile(gelTree, f, tmp);
       baseTap += `# red-proof file: ${f}\n${b.tap}`; gelTap += `# red-proof file: ${f}\n${g.tap}`;
       const { judged, all, unsupported } = judgedOf(readFileSync(join(gelTree, f), "utf8"), added.has(f) ? null : changedLines(gitDir, range, f));
@@ -254,28 +268,29 @@ export function main(argv) {
       for (const t of judged) {
         const bs = statusIn(b, t.name), gs = statusIn(g, t.name), module = bs.status === "import-fail" ? missingModule(bs.entry, f, added) : null;
         const row = { name: t.name, file: f, line: t.line, base: bs.status, gel: gs.status, module, killer: t.killer, killerProblem: t.killer === null ? null : killerProblem(t.killer, gelTree) };
-        const [verdict, reason] = unsupported.has(t) ? ["refused", "unsupported test layout"] : verdictOf({ ...row, newModule: module !== null && added.has(module), only });
+        const [verdict, reason] = unsupported.has(t) ? ["refused", "unsupported test layout"] : verdictOf({ ...row, newModule: module !== null && added.has(module), only, inGlobs: gate.globs.some((re) => re.test(f)), listed: t.killer !== null && gate.g0 !== null && gate.g0[1].includes(`${t.killer.file}:${t.killer.line} ${t.killer.op} ${JSON.stringify(t.killer.before)} -> ${JSON.stringify(t.killer.after)}`) });
         rows.push({ ...row, verdict, reason, kill: null });
       }
     }
     for (const r of rows.filter((x) => x.verdict === "pinned")) { // the F2P substitute: its declared killer, fired alone at gel, must kill it
-      r.kill = fire(gelTree, tmp, out, r, rows.filter((x) => x.kill !== null).length);
+      r.kill = fire(gelTree, tmp, out, r, `pin-${++pins}.tap`);
       if (r.kill.outcome !== "killed") [r.verdict, r.reason] = r.kill.outcome === "inconclusive" ? ["inconclusive", "the run of its declared killer was killed, timed out or truncated"] : ["refused", `its declared killer is ${r.kill.outcome} at gel: the test pins nothing it names`];
+      else if (r.kill.status !== "assert-fail") [r.verdict, r.reason] = ["refused", `its declared killer reddens it without an assertion failure (${r.kill.status})`];
     }
     const admitted = rows.filter((r) => r.verdict === "F2P" || r.verdict === "new-module" || r.verdict === "pinned");
-    const drawn = a.draw > 0 ? drawKillers(admitted, a.draw, a.seed).map((r, i) => fire(gelTree, tmp, out, r, i)) : [];
+    const drawn = a.draw > 0 ? drawKillers(admitted, a.draw, a.seed).map((r, i) => fire(gelTree, tmp, out, r, `killer-${i + 1}.tap`)) : [];
     writeFileSync(join(out, "base.tap"), baseTap); writeFileSync(join(out, "gel.tap"), gelTap);
-    const ok = rows.length > 0 && admitted.length === rows.length && drawn.every((d) => d.outcome === "killed") && !(only && production.length > 0);
+    const ok = rows.length > 0 && admitted.length === rows.length && drawn.every((d) => d.outcome === "killed") && gate.refusals.length === 0;
     const head = wt ? git(gitDir, ["rev-parse", "HEAD"]).trim() : gelSha;
     const proof = {
-      schema: "red-proof-v1", mode: only ? "test-only" : "f2p", at: new Date().toISOString(), node: process.version, repo, base, gel: { ref: a.gel, mode: wt ? "worktree" : "commit", head, digest },
-      files: { tests, support, added: [...added].sort(), skipped, production }, tests: rows, unchanged,
+      schema: "red-proof-v2", mode: only ? "test-only" : "f2p", at: new Date().toISOString(), node: process.version, repo, base, gel: { ref: a.gel, mode: wt ? "worktree" : "commit", head, digest },
+      files: { tests, support, added: [...added].sort(), skipped, production, removed: gate.removed }, declared: gate.g0?.[0] ?? null, refusals: gate.refusals, tests: rows, unchanged,
       draw: a.draw > 0 ? { seed: a.seed, requested: a.draw, population: admitted.length, drawn } : null,
       tap: { base: { path: "base.tap", sha256: sha(baseTap) }, gel: { path: "gel.tap", sha256: sha(gelTap) } }, drawn: drawn.length, ok,
     };
     writeFileSync(join(out, "RED-PROOF.json"), `${JSON.stringify(proof, null, 2)}\n`);
     for (const r of rows) console.log(`${r.verdict.padEnd(12)} ${r.file} :: ${r.name}${admitted.includes(r) ? "" : ` -- ${r.reason}`}`);
-    if (only && production.length > 0) console.log(`--test-only refused: production files changed: ${production.join(", ")}`);
+    for (const r of gate.refusals) console.log(`--test-only refused: ${r}`);
     for (const d of [...rows.flatMap((r) => r.kill ?? []), ...drawn]) console.log(`killer ${d.outcome.padEnd(12)} ${d.killer.file}:${d.killer.line} ${d.killer.op} (${d.name})`);
     console.log(`red-proof ${ok ? "OK" : "REFUSED"}: ${rows.length} judged, ${unchanged} unchanged, ${drawn.length} killer(s) drawn -> ${join(out, "RED-PROOF.json")}`);
     return ok ? 0 : 1;
