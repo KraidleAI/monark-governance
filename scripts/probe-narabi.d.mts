@@ -21,6 +21,8 @@ export const CHAINSTACK_PROVIDERS: readonly string[];
 export const STATE_MAX_BYTES: number;
 export const STATE_TIMEOUT_MS: number;
 export const STATE_RETRIES: number;
+/** The Fetch "bad port" list of the fetch the probe calls, copied with its provenance (PROBE-BADPORT-REASON-1). */
+export const FETCH_BAD_PORTS: readonly string[];
 
 // ── -1b-ii-a (ALERT): SMTP conversation bounds ────────────────────────────────────────────────
 /** Hard cap on the SINGLE wall-clock deadline for the WHOLE SMTP exchange — connect + TLS handshake + conversation
@@ -30,9 +32,10 @@ export const DEFAULT_SMTP_DEADLINE_MS: number;
 /** Total byte cap on all SMTP responses in one conversation (a misbehaving/drip server can never fill memory). */
 export const SMTP_MAX_BYTES: number;
 
-/** narabi.json reason (DETECTION sub-lot; -1b-ii-b adds state_mismatch/state_unreachable). `null` = healthy. */
+/** narabi.json reason (DETECTION sub-lot; -1b-ii-b adds state_mismatch/state_unreachable; PROBE-BADPORT-REASON-1 adds
+ *  bad_port). `null` = healthy. */
 export type ProbeReason =
-  | "lag" | "chain_broken" | "unreachable" | "too_large" | "insecure_url" | "probe_error"
+  | "lag" | "chain_broken" | "unreachable" | "too_large" | "insecure_url" | "bad_port" | "probe_error"
   | "state_mismatch" | "state_unreachable" | null;
 
 /** The CLOSED set of alert-send outcomes recorded in narabi.json (-1b-ii-a, C-B-1). NEVER a raw server line. */
@@ -76,11 +79,11 @@ export function isLoopbackHost(hostname: string): boolean;
 /** The state.json URL derived from the timeline URL by basename replacement (-1b-ii-b, C-B-12). */
 export function deriveStateUrl(timelineUrl: string): string;
 
-export type TransportDecision = { ok: true } | { ok: false; reason: "insecure_url" };
+export type TransportDecision = { ok: true } | { ok: false; reason: "insecure_url" | "bad_port" };
 export function urlTransportAllowed(url: string): TransportDecision;
 
 export interface FetchOpts { timeoutMs?: number; maxBytes?: number; retries?: number }
-export type FetchResult = { ok: true; text: string } | { ok: false; reason: "unreachable" | "too_large" | "insecure_url" };
+export type FetchResult = { ok: true; text: string } | { ok: false; reason: "unreachable" | "too_large" | "insecure_url" | "bad_port" };
 export function fetchTimeline(url: string, opts?: FetchOpts): Promise<FetchResult>;
 
 export interface TransportBounds { timeoutMs: number; maxBytes: number; retries: number }
