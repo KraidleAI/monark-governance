@@ -10,21 +10,25 @@
 // TARGETS: the test files of the quoted package.json "test" globs whose import closure holds the mutated file (targetsOf): import/export ... from
 // "x", import "x", import("x") of a string literal (a computed import( is skipped, never a target: item MUTANTS-DYNAMIC-IMPORT-1); relative and
 // file: specifiers; .ts .tsx .mts .cts .mjs .cjs .js; plus the --targets files, no duplicate (Q-G2-3). First run on the direct importers (a killer:
-// its own test file), else on every target; a survivor or a non conclu (D-4) rerun on every target file whole. REFUSED (exit 2) before any clone: usage, --repo without
-// .git, --out inside --repo by real paths (a link, a name like ..x: C-G2-3), a host oracle lock that held() of oracle/lock.mjs reads held (no race
-// with an oracle), <out>/clone present (one launch per clone), the tool outside a git checkout (tool_tree), a --file or --targets not in the tree,
-// a malformed row, no target (an empty graph needs --targets). THEN: one --no-local clone of --repo at its HEAD, its changed and untracked files
+// its own test file), else on every target; a survivor or a non conclu (D-4) rerun on every target file whole, never a time overrun (a run past
+// its bound or a test past --timeout-ms: corrections D-5). REFUSED (exit 2) before any clone: usage, --repo without .git, --out inside --repo by
+// real paths (a link, a name like ..x: C-G2-3), <out>/clone present (one launch per clone), the tool outside a git checkout (tool_tree), a --file
+// or --targets not in the tree, a malformed row, no target (an empty graph needs --targets); a held host lock is no refusal, each run waits for
+// it in the FIFO queue (corrections D-6). THEN: one --no-local clone of --repo at its HEAD, its changed and untracked files
 // copied (sha256 checked), deleted ones removed; its node_modules built as in oracle/run.mjs: the main checkout's entries junctioned, @monark/*
 // re-pointed into the clone (item MUTANTS-NM-WORKSPACES-1); a baseline run of every target file (not green: no mutant runs, "non conclu (base)"); one mutant
 // at a time: each <before> exactly once on its line, else anchor-lost (counted, no edit applied); before each run (a baseline, a mutant), free memory
 // under --min-free-mb (default and floor 4096: C-V-4, C-V-9) is polled every --poll-ms (5000) up to --wait-ms (5400000, the bound of acquire()), then the
 // host lock is taken by acquire() of oracle/lock.mjs for that run alone (FIFO, never forced: a waiting oracle passes between two mutants) and released
-// at once (D-3, D-5); a bound passed stops the campaign by name (exit 4, record stop with the ids not run); node --test in TAP ("(test 42)" skipped: it
+// at once (D-3, D-5); memory is read again once the lock is taken: short, the lock is released at once and the bounded wait goes on, never with the
+// lock held (corrections D-4); a bound passed stops the campaign by name (exit 4, record stop with the ids not run); node --test in TAP ("(test 42)" skipped: it
 // runs once, in the oracle's suite, ADR D3), the file restored in a finally and its sha256 checked (a mismatch, or a file changed since the start,
 // stops the campaign: exit 3). VERDICT: tue iff a top-level entry fails by assertion (classify of red-proof.mjs: ERR_ASSERTION), survit iff every
 // entry is ok, non conclu otherwise (dead or timed-out child, signal, exit 134, no entry, failures without assertion); never "equivalent". A row
-// marked typecheck (D-2) runs tsc --noEmit -p tsconfig.json of the clone's node_modules/typescript instead: tue iff an error falls in a target file,
-// survit otherwise, non conclu if tsc dies; such rows run iff the unmutated tsc exits 0 (baseline_typecheck). Children: childEnv of
+// marked typecheck (D-2) runs tsc --noEmit -p tsconfig.json of the clone's node_modules/typescript instead: tue iff an error falls in a target file;
+// non conclu if tsc dies, if every error falls outside the targets (corrections D-2, note "N error(s) outside the targets") or if tsc exits non-zero
+// without a diagnostic line "file(l,c): error TSn:" (corrections D-3, note "tsc exit N without a diagnostic line"); survit otherwise. Such rows run
+// iff the unmutated tsc exits 0 (baseline_typecheck: vert, rouge on a non-zero exit, non conclu if tsc dies). Children: childEnv of
 // oracle/run.mjs over the DENY list of red-proof.mjs. RECORD monark.mutants.v1 <out>/RESULTS.json (tool_sha256: the bytes that run; tool_tree,
 // tool_dirty: HEAD and dirty recipe of the tool's repository; fields only added since, D-6), one line per mutant in <out>/RESULTS.txt, TAP in <out>/tap/;
 // last stdout line: mutants-result {"exit","record","sha256"}. Exit 0 iff every mutant is killed, 1 otherwise, 2 refused, 3 restore, 4 stopped by a
@@ -37,7 +41,7 @@ import { freemem, tmpdir } from "node:os";
 import { basename, dirname, isAbsolute, join, relative, resolve, sep } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { classify, DENY, parseKiller, parseTap } from "../red-proof.mjs";
-import { acquire, held } from "../oracle/lock.mjs";
+import { acquire } from "../oracle/lock.mjs";
 import { childEnv } from "../oracle/run.mjs";
 
 const OPS = ["COR", "ROR", "SDL", "CONST"], EXTS = [".ts", ".tsx", ".mts", ".cts", ".mjs", ".cjs", ".js"], TEST_CODE = /(^|\/)test\/|\.test\.ts$/;
@@ -136,8 +140,6 @@ export async function main(argv) {
   if (!existsSync(join(repo, ".git"))) throw new Error(`${slash(repo)} is not a git checkout (no .git)`);
   const rel = relative(realpathSync(repo), real(out)); // C-G2-3: real paths, never a string prefix (a link into --repo, a name like ..x: inside)
   if (!isAbsolute(rel) && rel.split(sep)[0] !== "..") throw new Error(`--out ${slash(out)} lies inside --repo: a campaign never writes in the tree`);
-  const lock = held(o.lockRoot);
-  if (lock !== null) throw new Error(`${lock}: no campaign races an oracle`);
   if (existsSync(clone)) throw new Error(`${slash(clone)} exists: one launch per clone (read its RESULTS.txt, take a new --out)`);
   if (o.file !== undefined && !inTree(repo, o.file)) throw new Error(`--file ${o.file} is not a file of the tree`); // Q-G2-6: before any clone
   const base = git(repo, "rev-parse", "--verify", `${o.base}^{commit}`).toString().trim(), [gel, dirty, untracked] = stateOf(repo);
@@ -209,9 +211,10 @@ export async function main(argv) {
     const t0 = Date.now(), r = spawnSync(process.execPath, [...args, ...files], { cwd: clone, env: envOf(tmp), encoding: "utf8", timeout: o.timeout * 10, maxBuffer: 1 << 28, stdio: ["ignore", "pipe", "pipe"] });
     const tap = r.stdout ?? "", es = parseTap(tap).filter((e) => !e.skip), bad = es.filter((e) => !e.ok), codes = [...tap.matchAll(/^\s*code: '?([A-Z_]+)'?\s*$/gm)].map((x) => x[1]);
     writeFileSync(join(taps, `${name}.tap`), tap);
-    const dead = r.error !== undefined || r.signal !== null || r.status === 134;
+    const dead = r.error !== undefined || r.signal !== null || r.status === 134, late = r.error?.code === "ETIMEDOUT" || /^\s*failureType: 'testTimeoutFailure'\s*$/m.test(tap);
     return { files, status: dead || es.length === 0 ? "non conclu" : bad.length === 0 ? "survit" : bad.some((e) => classify(e) === "assert-fail") ? "tue" : "non conclu",
-      strict: codes.length === 1 && codes[0] === "ERR_ASSERTION", fails: bad.map((e) => e.name), oks: es.length - bad.length, exit: r.status, signal: r.signal, ms: Date.now() - t0, tap_sha256: sha(tap) };
+      strict: codes.length === 1 && codes[0] === "ERR_ASSERTION", fails: bad.map((e) => e.name), oks: es.length - bad.length, exit: r.status, signal: r.signal, ms: Date.now() - t0, tap_sha256: sha(tap),
+      timed_out: late }; // corrections D-5: a run past its bound (spawnSync ETIMEDOUT) or a test past --timeout-ms (TAP testTimeoutFailure)
   };
   const tsc = (files, name) => { // TYPECHECK (D-2): the typecheck gate of the clone under its own TypeScript; tue iff an error falls in a target file
     const t0 = Date.now(), r = spawnSync(process.execPath, [join(clone, "node_modules", "typescript", "lib", "tsc.js"), "--noEmit", "-p", "tsconfig.json"],
@@ -222,11 +225,13 @@ export async function main(argv) {
       fails, oks: 0, exit: r.status, signal: r.signal, ms: Date.now() - t0, tap_sha256: sha(text), typecheck: true, outside: errors.length - fails.length };
   };
   const gate = async (id, run) => { // MEMORY-WAIT (D-3), then LOCK-MIDRUN (D-5): the host lock held for this run alone; { stop, waited_ms } once a bound passes
-    const t0 = Date.now();
-    while (memShort()) { if (Date.now() - t0 >= o.wait) return { stop: "memoire", waited_ms: Date.now() - t0 }; await sleep(o.poll); }
-    const memory = Date.now() - t0, had = SIGNALS.map((e) => process.listeners(e)), lk = await acquire(o.lockRoot, { role: "mutants", out: slash(out), mutant: id }, { pollMs: o.poll, maxMs: o.wait });
-    try { return lk === null ? { stop: "verrou", waited_ms: Date.now() - t0 } : { ...run(), memory_wait_ms: memory, lock_wait_ms: lk.waitedMs }; }
-    finally { lk?.release(); SIGNALS.forEach((e, i) => process.listeners(e).filter((f) => !had[i].includes(f)).forEach((f) => process.removeListener(e, f))); }
+    const t0 = Date.now(); // corrections D-4: memory read again once the lock is taken; short, the lock is released and the bounded wait goes on
+    for (let short = memShort(); ;) {
+      if (short) { if (Date.now() - t0 >= o.wait) return { stop: "memoire", waited_ms: Date.now() - t0 }; await sleep(o.poll); short = memShort(); continue; }
+      const memory = Date.now() - t0, had = SIGNALS.map((e) => process.listeners(e)), lk = await acquire(o.lockRoot, { role: "mutants", out: slash(out), mutant: id }, { pollMs: o.poll, maxMs: o.wait });
+      try { if (lk === null) return { stop: "verrou", waited_ms: Date.now() - t0 }; short = memShort(); if (!short) return { ...run(), memory_wait_ms: memory, lock_wait_ms: lk.waitedMs }; }
+      finally { lk?.release(); SIGNALS.forEach((e, i) => process.listeners(e).filter((f) => !had[i].includes(f)).forEach((f) => process.removeListener(e, f))); }
+    }
   };
   const runnable = mutants.filter((m) => m.lost === null), all = [...new Set(runnable.filter((m) => !m.typecheck).flatMap((m) => m.targets))];
   const typed = [...new Set(runnable.filter((m) => m.typecheck).flatMap((m) => m.targets))]; // D-2: the target files of the typecheck rows
@@ -257,16 +262,16 @@ export async function main(argv) {
       else if (text === null) row.note = "anchor lost on the clone";
       else if ((m.typecheck ? bt : b)?.status !== "vert") row.status = "non conclu (base)";
       else {
-        const g = await gate(m.id, () => { // the file mutated under the lock only; a non conclu replayed as a survivor (D-4); a typecheck row has no replay
-          try { writeFileSync(p, text); const first = m.typecheck ? tsc(m.targets, m.id) : runSet(m.first, m.test, m.id);
-            return { first, replay: !m.typecheck && ["survit", "non conclu"].includes(first.status) ? runSet(m.targets, undefined, `${m.id}.replay`) : null }; }
+        const g = await gate(m.id, () => { // the file mutated under the lock only; a non conclu replayed as a survivor (D-4) unless timed out (corrections
+          try { writeFileSync(p, text); const first = m.typecheck ? tsc(m.targets, m.id) : runSet(m.first, m.test, m.id); // D-5); a typecheck row has no replay
+            return { first, replay: !m.typecheck && (first.status === "survit" || (first.status === "non conclu" && !first.timed_out)) ? runSet(m.targets, undefined, `${m.id}.replay`) : null }; }
           finally { writeFileSync(p, orig); }
         });
         if (g.stop) { stop = { reason: g.stop, at: m.id, waited_ms: g.waited_ms }; break; }
-        const f = g.first;
+        const f = g.first, unjudged = m.typecheck && f.status === "survit" && f.exit !== 0; // corrections D-2, D-3: tsc out non-zero (any error), none in a target
         row.sha_after = sha(readFileSync(p));
-        Object.assign(row, { status: f.status, strict: f.strict, fails: f.fails, oks: f.oks, exit: f.exit, ms: f.ms, tap_sha256: f.tap_sha256, replay: g.replay,
-          note: f.outside > 0 ? `${f.outside} error(s) outside the targets` : null, memory_wait_ms: g.memory_wait_ms, lock_wait_ms: g.lock_wait_ms });
+        Object.assign(row, { status: unjudged ? "non conclu" : f.status, strict: f.strict, fails: f.fails, oks: f.oks, exit: f.exit, ms: f.ms, tap_sha256: f.tap_sha256, replay: g.replay,
+          note: f.outside > 0 ? `${f.outside} error(s) outside the targets` : unjudged ? `tsc exit ${String(f.exit)} without a diagnostic line` : null, memory_wait_ms: g.memory_wait_ms, lock_wait_ms: g.lock_wait_ms });
         if (row.sha_after !== row.sha_before) [row.note, code] = ["the file was not restored", 3];
       }
     }
