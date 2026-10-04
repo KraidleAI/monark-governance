@@ -12,13 +12,14 @@ import { after, test } from "node:test";
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
 import { createHash, generateKeyPairSync, type KeyObject, sign, X509Certificate } from "node:crypto";
-import { subscribe, unsubscribe } from "node:diagnostics_channel";
 import { copyFileSync, existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
-import { createServer, type IncomingHttpHeaders, type IncomingMessage, type ServerResponse } from "node:http";
-import { createServer as createTlsServer } from "node:https";
+import { type ClientRequest, createServer, type IncomingHttpHeaders, type IncomingMessage, request as httpRequest,
+  type ServerResponse } from "node:http";
+import { type Agent, createServer as createTlsServer, type RequestOptions } from "node:https";
+import { createRequire, syncBuiltinESMExports } from "node:module";
 import { tmpdir } from "node:os";
-import { join, resolve } from "node:path";
-import { getCACertificates, setDefaultCACertificates, type TLSSocket } from "node:tls";
+import { delimiter, join, resolve, sep } from "node:path";
+import { getCACertificates, type SecureVersion, setDefaultCACertificates, type TLSSocket } from "node:tls";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { CSV_COLUMNS, expectedCount, LIMIT, main, MAX_PAGES, parseArgs, parseTime, PAUSE_MS, RecorderStop, run, STOPS, SYMBOLS }
   from "../scripts/record-binance-klines.mjs";
@@ -27,13 +28,17 @@ import * as recorder from "../scripts/record-binance-klines.mjs"; // INTERVALS r
 import { listen } from "./helpers/loopback.ts";
 
 type Row = [number, string, string, string, string, string, number, string, number, string, string, string];
-type FetchLike = (url: string, init: RequestInit) => Promise<Response>;
-interface Reply { status: number; headers?: Record<string, string>; body?: string; cut?: boolean; part?: string }
-interface Endpoint { base: string; urls: string[]; headers: IncomingHttpHeaders[]; close: () => Promise<void> }
-interface Calls { urls: string[]; inits: RequestInit[] }
-interface Recording { code: string; out: string; calls: Calls; sleeps: number[]; served: string[]; headers: IncomingHttpHeaders[] }
-interface Plan { script?: ReadonlyMap<number, Reply>; perPage?: number; symbol?: string; interval?: string; io?: RecorderIo; out?: string;
-  plain?: boolean }
+type FetchLike = (url: string, options: RequestOptions) => ClientRequest; // shaped as https.request (lot BINANCE-PRE35-1)
+interface Reply { status: number; headers?: Record<string, string>; body?: string; cut?: boolean; part?: string; hold?: boolean }
+/** The TLS side of a loopback endpoint (lot BINANCE-PRE35-1): its leaf (the file's endpoint leaf by default), the CAs trusted while it
+ *  runs (the file's one CA by default) and the highest TLS version it speaks. */
+interface TlsPlan { leaf?: Issued; trust?: readonly Issued[]; maxVersion?: SecureVersion; trustLate?: boolean }
+interface Endpoint { base: string; urls: string[]; headers: IncomingHttpHeaders[]; reused: (boolean | null)[]; close: () => Promise<void> }
+interface Calls { urls: string[]; inits: RequestOptions[] }
+interface Recording { code: string; out: string; calls: Calls; sleeps: number[]; served: string[]; headers: IncomingHttpHeaders[];
+  reused: (boolean | null)[] }
+interface Plan extends TlsPlan { script?: ReadonlyMap<number, Reply>; perPage?: number; symbol?: string; interval?: string; io?: RecorderIo;
+  out?: string; plain?: boolean }
 /** What a line of requests.jsonl names of the connection that served it (lot BINANCE-PRE153-1, D-3). */
 interface Peer { leaf_sha256: string; issuer_sha256: string | null; resumed: boolean }
 interface Logged { url: string; status: number; bytes: number; sha256: string | null; file: string | null; tls: Peer | null;
@@ -41,8 +46,16 @@ interface Logged { url: string; status: number; bytes: number; sha256: string | 
 interface MissingDoc { symbol: string; interval: string; start: string; end_exclusive: string; count: number;
   missing: { open_time_ms: number; open_time_utc: string }[] }
 
-const realFetch = globalThis.fetch;
 globalThis.fetch = (): Promise<Response> => Promise.reject(new Error("tripwire: these tests never call the global fetch"));
+// F-3 of the G2 of #115: the default transport is https.request, a tripwire too, synced into the ESM bindings (the recorder's among
+// them); only via sends, through the original captured here; a test may set its own spy and put this tripwire back; restored after the file
+const HTTPS = createRequire(import.meta.url)("node:https") as typeof import("node:https"), realHttpsRequest = HTTPS.request;
+HTTPS.request = (): never => { throw new Error("tripwire: these tests never call https.request"); };
+syncBuiltinESMExports();
+after(() => { HTTPS.request = realHttpsRequest; syncBuiltinESMExports(); });
+// m-1 of the review of BINANCE-PRE153-1: the children start from this environment, so none prints a warning on stderr (Node 22 warns
+// UNDICI-EHPA under NODE_USE_ENV_PROXY), which the junction test compares whole
+process.env.NODE_NO_WARNINGS = "1";
 const ORIGIN = "https://api.binance.com", LF = String.fromCharCode(10), T0 = Date.UTC(2025, 0, 1);
 const STEP_MS = 900_000, HOUR_MS = 3_600_000, FOUR_HOURS_MS = 14_400_000; // the closed list's durations, written here, never imported
 const ROOT = mkdtempSync(join(tmpdir(), "binance-klines-"));
@@ -77,12 +90,12 @@ const normalized = (out: string): string[] => (existsSync(out) ? readdirSync(out
 const rawCount = (out: string): number => (existsSync(join(out, "raw")) ? readdirSync(join(out, "raw")).length : 0);
 /** A file of a replay's source made a directory: present, unreadable (BINANCE-PRE153-1 corrections, D-2: mutants G12 and G18). */
 const asDir = (file: string) => (dir: string): void => { mkdirSync(join(dir, file)); };
-const offline = (calls: Calls): FetchLike => (url, init) => { calls.urls.push(url); calls.inits.push(init); return Promise.reject(new Error("offline")); };
+const offline = (calls: Calls): FetchLike => (url, options) => { calls.urls.push(url); calls.inits.push(options); throw new Error("offline"); };
 
 /** The one CA of this file, built on first use (BINANCE-PRE153-1 corrections, D-6: a recording stops on a 200 whose connection showed no
- *  certificate, so the loopback endpoint serves HTTPS): it signs the endpoint's leaf and the TLS tests' leaves, so that this process never
- *  trusts two CAs of one name (measured: the issuer of a leaf served alone is looked up by name, and then named the other CA). Each
- *  endpoint trusts it for this process alone; the default trust is restored after the file. */
+ *  certificate, so the loopback endpoint serves HTTPS): it signs the endpoint's leaf and the TLS tests' leaves. Each endpoint trusts it
+ *  (or the CAs its test names) for this process alone; the default trust is restored after the file. Two CAs of one name: measured by
+ *  binance_klines_logs_the_true_issuer_of_two_cas_of_one_name. */
 let fileCa: Issued | null = null, endpointLeaf: Issued | null = null;
 const caOf = (): Issued => (fileCa ??= issue(7));
 const TRUSTED = getCACertificates("default");
@@ -91,16 +104,18 @@ after(() => { setDefaultCACertificates(TRUSTED); });
 /** The loopback endpoint, HTTPS unless `plain`: request n gets `script` n when given (status, headers and body, the head of a body then
  *  a cut, or a cut connection), else the rows that its query selects, as H-2 says the real endpoint does. Each request URL and its
  *  headers are kept, in order. */
-async function endpoint(rows: readonly Row[], script: ReadonlyMap<number, Reply> = new Map(), perPage = LIMIT, plain = false): Promise<Endpoint> {
-  const urls: string[] = [], headers: IncomingHttpHeaders[] = [];
+async function endpoint(rows: readonly Row[], script: ReadonlyMap<number, Reply> = new Map(), perPage = LIMIT, plain = false,
+  tls: TlsPlan = {}): Promise<Endpoint> {
+  const urls: string[] = [], headers: IncomingHttpHeaders[] = [], reused: (boolean | null)[] = [];
   const handle = (req: IncomingMessage, res: ServerResponse): void => {
     const n = urls.length, url = req.url ?? "/", fixed = script.get(n);
     urls.push(url);
     headers.push(req.headers);
+    reused.push((req.socket as Partial<TLSSocket>).isSessionReused?.() ?? null); // the server's view of each connection (BINANCE-PRE35-1)
     if (fixed?.cut === true) { req.socket.destroy(); return; }
     if (fixed?.part !== undefined) { // its status, its headers and the head of a longer body, then the connection is cut (D-4)
       res.writeHead(fixed.status, { ...fixed.headers, "content-length": "4096" });
-      res.write(fixed.part, () => { setTimeout(() => { req.socket.destroy(); }, 20); });
+      res.write(fixed.part, () => { if (fixed.hold !== true) setTimeout(() => { req.socket.destroy(); }, 20); }); // hold: never ends
       return;
     }
     if (fixed !== undefined) { res.writeHead(fixed.status, fixed.headers ?? {}).end(fixed.body ?? ""); return; }
@@ -108,23 +123,30 @@ async function endpoint(rows: readonly Row[], script: ReadonlyMap<number, Reply>
     const rowsOut = rows.filter((r) => r[0] >= from && r[0] <= to).slice(0, Math.min(Number(q.get("limit")), perPage));
     res.writeHead(200, { "content-type": "application/json", "x-mbx-used-weight-1m": String(2 * (n + 1)) }).end(JSON.stringify(rowsOut));
   };
-  const leaf = (endpointLeaf ??= issue(8, caOf()));
-  setDefaultCACertificates([new X509Certificate(caOf().der).toString()]);
-  const server = plain ? createServer(handle)
-    : createTlsServer({ key: leaf.key.export({ type: "pkcs8", format: "pem" }), cert: new X509Certificate(leaf.der).toString() }, handle);
+  const leaf = tls.leaf ?? (endpointLeaf ??= issue(8, caOf()));
+  const trust = (): void => { setDefaultCACertificates((tls.trust ?? [caOf()]).map((ca) => new X509Certificate(ca.der).toString())); };
+  if (tls.trustLate !== true) trust(); // the trust first, then the server; trustLate: the other order (S1 of the G2 of #115, F-1)
+  const server = plain ? createServer(handle) : createTlsServer({ key: leaf.key.export({ type: "pkcs8", format: "pem" }),
+    cert: new X509Certificate(leaf.der).toString(), maxVersion: tls.maxVersion ?? "TLSv1.3" }, handle);
+  if (tls.trustLate === true) trust();
   const port = await listen(server);
   const close = (): Promise<void> => new Promise<void>((done) => { server.closeAllConnections(); server.close(() => { done(); }); });
-  return { base: `${plain ? "http" : "https"}://127.0.0.1:${String(port)}`, urls, headers, close };
+  return { base: `${plain ? "http" : "https"}://127.0.0.1:${String(port)}`, urls, headers, reused, close };
 }
 
-/** The injected fetch: the recorder's URL rewritten from https://api.binance.com to the loopback server, `init` untouched (so the
- *  redirect mode acts on a real fetch); any other URL is refused, never sent. */
+/** The injected fetch, shaped as https.request: the recorder's URL rewritten from https://api.binance.com to the loopback server, its
+ *  options untouched (its own agent, so the TLS discipline acts on a real request); over plain HTTP, the agent left out (an HTTPS agent
+ *  cannot carry it); any other URL is refused, never sent. */
 function via(ep: Endpoint, calls: Calls): FetchLike {
-  return (url, init) => {
+  return (url, options) => {
     calls.urls.push(url);
-    calls.inits.push(init);
-    if (!url.startsWith(`${ORIGIN}/api/v3/klines?`)) return Promise.reject(new Error(`refused ${url}`));
-    return realFetch(`${ep.base}${url.slice(ORIGIN.length)}`, init);
+    calls.inits.push(options);
+    if (!url.startsWith(`${ORIGIN}/api/v3/klines?`)) throw new Error(`refused ${url}`);
+    const to = `${ep.base}${url.slice(ORIGIN.length)}`;
+    const req = ep.base.startsWith("http:") ? httpRequest(to, { ...options, agent: undefined }) : realHttpsRequest(to, options);
+    // an error of a request that its caller never handles (the base's recorder never ends it) cannot end this process; the recorder's
+    // own listener still fires
+    return req.on("error", () => undefined);
   };
 }
 
@@ -140,19 +162,19 @@ async function outcome(p: Promise<unknown>): Promise<string> {
 
 /** One in-process recording over [start, end) against the loopback endpoint: clean environment, no flag, pauses recorded. */
 async function record(rows: readonly Row[], start: number, end: number, plan: Plan = {}): Promise<Recording> {
-  const ep = await endpoint(rows, plan.script, plan.perPage, plan.plain), calls: Calls = { urls: [], inits: [] }, sleeps: number[] = [];
+  const ep = await endpoint(rows, plan.script, plan.perPage, plan.plain, plan), calls: Calls = { urls: [], inits: [] }, sleeps: number[] = [];
   const out = plan.out ?? fresh(), symbol = plan.symbol ?? "BTCUSDT";
   const sleep = (ms: number): Promise<void> => { sleeps.push(ms); return Promise.resolve(); };
   const io: RecorderIo = { fetch: via(ep, calls), sleep, env: {}, execArgv: [], ...plan.io };
   try {
     const code = await outcome(run(["--symbol", symbol, "--interval", plan.interval ?? "15m", "--start", iso(start), "--end", iso(end), "--out", out], io));
-    return { code, out, calls, sleeps, served: ep.urls, headers: ep.headers };
+    return { code, out, calls, sleeps, served: ep.urls, headers: ep.headers, reused: ep.reused };
   } finally {
     await ep.close();
   }
 }
 
-// killer: scripts/record-binance-klines.mjs:215 CONST "${ctx.end - 1}" -> "${ctx.end}"
+// killer: scripts/record-binance-klines.mjs:221 CONST "${ctx.end - 1}" -> "${ctx.end}"
 test("binance_klines_pages_a_full_page_then_a_partial_one", async () => {
   const n = LIMIT + 7, r = await record(series(n), at(0), at(n));
   assert.equal(r.code, "ok");
@@ -160,7 +182,8 @@ test("binance_klines_pages_a_full_page_then_a_partial_one", async () => {
     `${ORIGIN}/api/v3/klines?symbol=BTCUSDT&interval=15m&startTime=${String(s)}&endTime=${String(at(n) - 1)}&limit=1000`;
   assert.deepEqual(r.calls.urls, [q(at(0)), q(at(LIMIT))], "cursor = last openTime + 15 min, endTime = end - 1 ms, limit 1000, one host");
   assert.deepEqual([r.sleeps, PAUSE_MS >= 500], [[PAUSE_MS], true], "one pause of at least 500 ms between two requests, none before");
-  assert.deepEqual(r.calls.inits.map((i) => [i.redirect, i.headers, i.method]), [["manual", undefined, undefined], ["manual", undefined, undefined]]);
+  assert.deepEqual(r.calls.inits.map((i) => [i.headers, i.method, i.agent !== undefined && i.agent === r.calls.inits[0]?.agent,
+    i.signal instanceof AbortSignal]), [[undefined, undefined, true, true], [undefined, undefined, true, true]], "its own agent, no header");
   assert.deepEqual(r.headers.map((h) => [h.authorization, h["x-mbx-apikey"], h.cookie]), [[undefined, undefined, undefined],
     [undefined, undefined, undefined]], "no authentication header reaches the endpoint");
   const m = manifestOf(r.out), csv = text(r.out, "BTCUSDT-15m.csv").split(LF);
@@ -181,7 +204,7 @@ test("binance_klines_pages_a_full_page_then_a_partial_one", async () => {
   assert.equal(m.csv_sha256, sha(text(r.out, "BTCUSDT-15m.csv")));
 });
 
-// killer: scripts/record-binance-klines.mjs:322 COR "!rows.has(t)" -> "rows.has(t)"
+// killer: scripts/record-binance-klines.mjs:326 COR "!rows.has(t)" -> "rows.has(t)"
 test("binance_klines_removes_an_identical_duplicate_and_declares_gaps", async () => {
   // page 1 skips at(4); page 2 repeats at(5) byte for byte (an overlap); page 3 is the endpoint's; page 4 is empty (a tail gap)
   const r = await record(series(10, [4]), at(0), at(12), { script: new Map([[0, page([0, 1, 2, 3, 5])], [1, page([5, 6, 7])]]) });
@@ -195,14 +218,14 @@ test("binance_klines_removes_an_identical_duplicate_and_declares_gaps", async ()
   assert.deepEqual(jsonOf(r.out, "missing.json"), declared, "every absent grid slot declared, none filled");
 });
 
-// killer: scripts/record-binance-klines.mjs:305 ROR "JSON.stringify(kept) === JSON.stringify(k)" -> "JSON.stringify(kept) !== JSON.stringify(k)"
+// killer: scripts/record-binance-klines.mjs:309 ROR "JSON.stringify(kept) === JSON.stringify(k)" -> "JSON.stringify(kept) !== JSON.stringify(k)"
 test("binance_klines_refuses_a_conflicting_duplicate", async () => {
   const conflict = { status: 200, body: JSON.stringify([row(at(2), "9.99000000"), row(at(3))]) };
   const r = await record(series(4), at(0), at(4), { script: new Map([[0, page([0, 1, 2])], [1, conflict]]) });
   assert.deepEqual([r.code, r.served.length, rawCount(r.out), logOf(r.out).length, normalized(r.out)], ["duplicate_conflict", 2, 2, 2, []]);
 });
 
-// killer: scripts/record-binance-klines.mjs:225 CONST "manual" -> "follow"
+// killer: scripts/record-binance-klines.mjs:250 CONST "status >= 300 && status < 400" -> "status >= 300 && status < 300"
 test("binance_klines_stops_on_http_refusals", async () => {
   const cases: [Reply, string, string | null][] = [
     [{ status: 429, headers: { "retry-after": "30" } }, "rate_limited", "30"],
@@ -227,7 +250,7 @@ test("binance_klines_stops_on_http_refusals", async () => {
   assert.deepEqual([cut.code, cut.served.length, existsSync(join(cut.out, "requests.jsonl")), normalized(cut.out)], ["network_error", 1, false, []]);
 });
 
-// killer: scripts/record-binance-klines.mjs:286 SDL "k[6] < k[0] || k[6] > k[0] + ctx.step - 1" -> ""
+// killer: scripts/record-binance-klines.mjs:290 SDL "k[6] < k[0] || k[6] > k[0] + ctx.step - 1" -> ""
 test("binance_klines_stops_on_bad_bodies_and_candles", async () => {
   const json = (v: unknown): Reply => ({ status: 200, body: JSON.stringify(v) });
   const base = row(at(1)), off = at(1) + 60_000, late = row(at(2)), early = row(at(1)), numeric: unknown[] = [...base];
@@ -270,13 +293,13 @@ test("binance_klines_stops_on_bad_bodies_and_candles", async () => {
     [{ open_time_ms: at(1), close_time_ms: at(2) - 2 }, { open_time_ms: at(2), close_time_ms: at(2) }]]);
 });
 
-// killer: scripts/record-binance-klines.mjs:294 ROR "pages === MAX_PAGES" -> "pages > MAX_PAGES"
+// killer: scripts/record-binance-klines.mjs:298 ROR "pages === MAX_PAGES" -> "pages > MAX_PAGES"
 test("binance_klines_stops_after_one_hundred_pages", async () => {
   const r = await record(series(150), at(0), at(150), { perPage: 1 });
   assert.deepEqual([r.code, MAX_PAGES, r.served.length, r.sleeps.length, rawCount(r.out), normalized(r.out)], ["too_many_pages", 100, 100, 99, 100, []]);
 });
 
-// killer: scripts/record-binance-klines.mjs:160 SDL "if (existsSync(join(dir, " -> ""
+// killer: scripts/record-binance-klines.mjs:167 SDL "if (existsSync(join(dir, " -> ""
 test("binance_klines_refuses_an_unusable_output_directory", async () => {
   const full = fresh(), file = fresh(), repo = fresh(), worktree = fresh(), empty = fresh(), link = fresh();
   mkdirSync(full);
@@ -301,7 +324,7 @@ test("binance_klines_refuses_an_unusable_output_directory", async () => {
   assert.equal(manifestOf(empty).rows, 4);
 });
 
-// killer: scripts/record-binance-klines.mjs:150 CONST "if (names.length > 0)" -> "if (false)"
+// killer: scripts/record-binance-klines.mjs:151 CONST "if (names.length > 0)" -> "if (false)"
 test("binance_klines_refuses_a_proxy_or_an_unverified_tls", async () => {
   const proxy = "http://127.0.0.1:9";
   const cases: [RecorderIo, string][] = [
@@ -326,8 +349,9 @@ test("binance_klines_refuses_a_proxy_or_an_unverified_tls", async () => {
     [{ env: { HOME: "/home" } }, "env_refused"], [{ env: { PATHEXT: ".EXE" } }, "env_refused"],
     [{ env: { MY_TEMP: "/tmp" } }, "env_refused"], [{ env: { SYSTEMROOT_X: "x" } }, "env_refused"],
     [{ env: { PATHEXT: ".EXE", HTTPS_PROXY: proxy } }, "proxy_refused"], [{ env: { PATHEXT: ".EXE" }, execArgv: ["--no-warnings"] }, "proxy_refused"],
-    [{ env: { HOMEDRIVE: "C:", HOMEPATH: "/h", LOGONSERVER: "x", MSYSTEM: "MINGW64", PATH: "/usr/bin", SYSTEMDRIVE: "C:", SystemRoot: "C:/W",
-      TEMP: "/tmp", USERDOMAIN: "x", USERNAME: "x", USERPROFILE: "/u", windir: "C:/W" } }, "ok"], // the twelve admitted names
+    [{ env: { HOMEDRIVE: "C:", HOMEPATH: resolve("/h"), LOGONSERVER: "x", MSYSTEM: "MINGW64", PATH: resolve("/usr/bin"), SYSTEMDRIVE: "C:",
+      SystemRoot: resolve("/W"), TEMP: resolve("/tmp"), USERDOMAIN: "x", USERNAME: "x", USERPROFILE: resolve("/u"), windir: resolve("/W") } },
+    "ok"], // the twelve admitted names, their values of the closed form (lot BINANCE-PRE35-1)
   ];
   for (const [io, code] of cases) {
     const r = await record(series(4), at(0), at(4), { io });
@@ -346,7 +370,7 @@ test("binance_klines_refuses_a_proxy_or_an_unverified_tls", async () => {
     detail: { variables: ["COMSPEC", "PATHEXT"], execArgv_length: 0 } }), 0, false], "env_refused names the variables, never a value");
 });
 
-// killer: scripts/record-binance-klines.mjs:319 CONST "k[1], k[2]" -> "Number(k[1]), k[2]"
+// killer: scripts/record-binance-klines.mjs:323 CONST "k[1], k[2]" -> "Number(k[1]), k[2]"
 test("binance_klines_keeps_decimal_strings_byte_for_byte", async () => {
   const long = "123456789012345678901234567890.123456789012345678901234567890";
   const odd: Row = [at(0), "0.00000001000", long, "00012.50", "1.10000000", "5", at(1) - 1, "0", 2, "0.000000000000000000000001", "1.0", "0"];
@@ -357,7 +381,7 @@ test("binance_klines_keeps_decimal_strings_byte_for_byte", async () => {
   assert.deepEqual(bytes(join(r.out, "raw", `BTCUSDT-${String(at(0))}.json`)), Buffer.from(body), "raw/ holds the bytes as received");
 });
 
-// killer: scripts/record-binance-klines.mjs:269 SDL "ctx.used.add(name);" -> ""
+// killer: scripts/record-binance-klines.mjs:273 SDL "ctx.used.add(name);" -> ""
 test("binance_klines_replays_raw_to_the_same_bytes", async () => {
   const r = await record(series(10, [4]), at(0), at(12), { script: new Map([[0, page([0, 1, 2, 3, 5])], [1, page([5, 6, 7])]]) });
   assert.equal(r.code, "ok");
@@ -390,7 +414,7 @@ test("binance_klines_replays_raw_to_the_same_bytes", async () => {
     ["written", "raw_page_missing", "raw_page_unused", "source_unattested"], "one JSON line per run: written, then the named stops of the replay");
 });
 
-// killer: scripts/record-binance-klines.mjs:137 CONST "(end - start) / INTERVALS[interval]" -> "(end - start) / INTERVALS[interval] + 1"
+// killer: scripts/record-binance-klines.mjs:138 CONST "(end - start) / INTERVALS[interval]" -> "(end - start) / INTERVALS[interval] + 1"
 test("binance_klines_expects_70080_candles_on_the_founder_range", async () => {
   const start = parseTime("2024-10-01T00:00:00Z"), end = parseTime("2026-10-01T00:00:00Z");
   assert.deepEqual([expectedCount(start, end), (end - start) / 86_400_000, SYMBOLS], [70_080, 730, ["BTCUSDT", "ETHUSDT", "BNBUSDT", "SOLUSDT"]]);
@@ -407,7 +431,7 @@ test("binance_klines_expects_70080_candles_on_the_founder_range", async () => {
     "2026-09-30T23:45:00Z", 70_082]);
 });
 
-// killer: scripts/record-binance-klines.mjs:130 SDL "!Object.hasOwn(INTERVALS, interval)" -> ""
+// killer: scripts/record-binance-klines.mjs:131 SDL "!Object.hasOwn(INTERVALS, interval)" -> ""
 test("binance_klines_refuses_bad_arguments", async () => {
   const base = ["--symbol", "BTCUSDT", "--interval", "15m", "--start", "2025-01-01T00:00Z", "--end", "2025-01-01T01:00Z"];
   const swap = (flag: string, value: string): string[] => base.map((v, i) => (base[i - 1] === flag ? value : v));
@@ -473,7 +497,7 @@ async function replayed(from: string, symbol: string, interval: string): Promise
   return [await outcome(run(argv, { fetch: offline(calls), now: () => end })), out];
 }
 
-// killer: scripts/record-binance-klines.mjs:309 CONST "+ ctx.step" -> "+ 900_000"
+// killer: scripts/record-binance-klines.mjs:313 CONST "+ ctx.step" -> "+ 900_000"
 test("binance_klines_records_17520_hourly_candles_aligned_on_the_hour", async () => {
   const [start, end] = FOUNDER, { r, m, opens } = await founderRun("ETHUSDT", "1h", HOUR_MS);
   assert.equal(r.code, "ok");
@@ -504,7 +528,7 @@ test("binance_klines_records_17520_hourly_candles_aligned_on_the_hour", async ()
     ["ok", true, "interval_mismatch", "interval_mismatch", false, false]);
 });
 
-// killer: scripts/record-binance-klines.mjs:284 CONST "k[0] % ctx.step" -> "k[0] % 900_000"
+// killer: scripts/record-binance-klines.mjs:288 CONST "k[0] % ctx.step" -> "k[0] % 900_000"
 test("binance_klines_records_4380_four_hour_candles_aligned_on_the_utc_day", async () => {
   const [start, end] = FOUNDER, { r, m, opens } = await founderRun("BNBUSDT", "4h", FOUR_HOURS_MS);
   assert.equal(r.code, "ok");
@@ -539,7 +563,7 @@ const halt = (patch: (k: Row, i: number) => void = () => undefined): Row[] => [0
   return k;
 });
 
-// killer: scripts/record-binance-klines.mjs:331 ROR "k[6] !== k[0] + ctx.step - 1" -> "k[6] === k[0] + ctx.step - 1"
+// killer: scripts/record-binance-klines.mjs:335 ROR "k[6] !== k[0] + ctx.step - 1" -> "k[6] === k[0] + ctx.step - 1"
 test("binance_klines_keeps_a_truncated_candle_as_received_and_lists_it", async () => {
   const r = await record(halt((k, i) => { if (i === 13) k[6] = at(13) + 60_000; }), at(0), at(16)); // slot 13 cut after 1 min, 7 trades
   assert.equal(r.code, "ok");
@@ -553,7 +577,7 @@ test("binance_klines_keeps_a_truncated_candle_as_received_and_lists_it", async (
     "completeness reads missing.json alone: the cut candle is present, the five after it are absent");
 });
 
-// killer: scripts/record-binance-klines.mjs:332 ROR "k[8] === 0" -> "k[8] !== 0"
+// killer: scripts/record-binance-klines.mjs:336 ROR "k[8] === 0" -> "k[8] !== 0"
 test("binance_klines_lists_the_zero_trade_candles_through_the_truncated_one", async () => {
   const r = await record(halt((k, i) => { if (i === 14) k[8] = 0; }), at(0), at(16)); // slot 14: 0 trades, a regular close, alone
   assert.equal(r.code, "ok");
@@ -562,7 +586,7 @@ test("binance_klines_lists_the_zero_trade_candles_through_the_truncated_one", as
     "every candle with 0 trades, ascending: the run from slot 2 through the cut slot 6 (rule 8 bis), then slot 14; slots 1 and 12 trade");
 });
 
-// killer: scripts/record-binance-klines.mjs:332 COR "k[8] === 0" -> "k[8] === 0 || k[6] !== k[0] + ctx.step - 1"
+// killer: scripts/record-binance-klines.mjs:336 COR "k[8] === 0" -> "k[8] === 0 || k[6] !== k[0] + ctx.step - 1"
 test("binance_klines_ends_the_zero_trade_run_at_a_truncated_candle_with_trades", async () => {
   // rule 8 bis (RECHERCHES ADR 0006, addendum 4, section 5): a truncated candle with trades closes the zero_trade run, so E is its close
   // + 1 ms downstream; it is listed in irregular_close and never in zero_trade (D-1 of the corrections, G2 F-1: mutant M1 survived)
@@ -573,7 +597,7 @@ test("binance_klines_ends_the_zero_trade_run_at_a_truncated_candle_with_trades",
     "3"], "the run is slots 2 to 5; the cut slot 6 ends it: listed with its close as received, its trades as received, not a zero_trade candle");
 });
 
-// killer: scripts/record-binance-klines.mjs:285 SDL "k[0] < ctx.start || k[0] >= ctx.end" -> ""
+// killer: scripts/record-binance-klines.mjs:289 SDL "k[0] < ctx.start || k[0] >= ctx.end" -> ""
 test("binance_klines_keeps_every_grid_stop_behind_an_irregular_close", async () => {
   const json = (v: unknown): Reply => ({ status: 200, body: JSON.stringify(v) }), cut = row(at(1)), other = row(at(1)), next = row(at(2));
   cut[6] = at(1) + CUT_MS;
@@ -597,7 +621,7 @@ test("binance_klines_keeps_every_grid_stop_behind_an_irregular_close", async () 
     [true, true, true, true, true, true, true, false], "the closed list keeps the grid stops, names the replay's, no longer close_time");
 });
 
-// killer: scripts/record-binance-klines.mjs:350 CONST "zero_trade: lists.zeroTrade" -> "zero_trade: []"
+// killer: scripts/record-binance-klines.mjs:354 CONST "zero_trade: lists.zeroTrade" -> "zero_trade: []"
 test("binance_klines_replays_cut_and_zero_trade_candles_to_the_same_bytes", async () => {
   const r = await record(halt(), at(0), at(16), { perPage: 4 }), clean = await record(series(4), at(0), at(4));
   assert.deepEqual([r.code, clean.code], ["ok", "ok"]);
@@ -616,7 +640,7 @@ test("binance_klines_replays_cut_and_zero_trade_candles_to_the_same_bytes", asyn
     "the same lists in the recording and in its replay; present and empty when nothing is irregular");
 });
 
-// killer: scripts/record-binance-klines.mjs:179 SDL "named !== args.interval" -> ""
+// killer: scripts/record-binance-klines.mjs:186 SDL "named !== args.interval" -> ""
 test("binance_klines_refuses_a_replay_under_another_interval", async () => {
   // D-2 of the corrections (G2 F-2): the 1h page of the G2 probe, one candle at T0 closing at T0 + 1 h - 1 ms, replayed under 15m with
   // --end cut at T0 + 15 min wrote 1 row and exited 0. Recorded, its manifest names 1h: interval_mismatch. D-1 of lot BINANCE-PRE153-1
@@ -664,7 +688,7 @@ test("binance_klines_refuses_a_replay_under_another_interval", async () => {
     [["interval_mismatch", false], 0]);
 });
 
-// killer: scripts/record-binance-klines.mjs:71 CONST "|WINDIR)$/i" -> "|WINDIR|NODE_USE_SYSTEM_CA)$/i"
+// killer: scripts/record-binance-klines.mjs:74 CONST "|WINDIR)$/i" -> "|WINDIR|NODE_USE_SYSTEM_CA)$/i"
 test("binance_klines_refuses_a_trust_anchor_taken_from_the_environment", async () => {
   // D-1 of the second round (G2C-1): NODE_USE_SYSTEM_CA was measured set to 1 on this host, whose system store holds two interception
   // roots; it and the other variables that add or swap a TLS trust anchor are refused by NAME, whatever the value, in any case, before
@@ -693,7 +717,7 @@ test("binance_klines_refuses_a_trust_anchor_taken_from_the_environment", async (
   assert.deepEqual([near.code, near.calls.urls.length, existsSync(near.out)], ["env_refused", 0, false]);
 });
 
-// killer: scripts/record-binance-klines.mjs:330 CONST "times.map((t) => rows.get(t))" -> "[...rows.values()]"
+// killer: scripts/record-binance-klines.mjs:334 CONST "times.map((t) => rows.get(t))" -> "[...rows.values()]"
 test("binance_klines_lists_ascending_from_a_page_out_of_order", async () => {
   // D-2 of the second round (G2C-3, mutant X11 survived): H-2 says the endpoint answers in ascending order and checkRow does not require
   // it; both lists follow the open times (D-1 of the corrections), never the order of a page
@@ -709,7 +733,7 @@ test("binance_klines_lists_ascending_from_a_page_out_of_order", async () => {
     { open_time_ms: at(2), close_time_ms: at(2) + CUT_MS }], [0, 2].map(at)], "ascending, whatever the order of the page");
 });
 
-// killer: scripts/record-binance-klines.mjs:272 CONST "pages.get(name) !== got" -> "false"
+// killer: scripts/record-binance-klines.mjs:276 CONST "pages.get(name) !== got" -> "false"
 test("binance_klines_refuses_a_replay_of_an_altered_raw_page", async () => {
   // D-3 of the second round (G2C-4): a stopped recording keeps neither manifest nor SHA256SUMS, only requests.jsonl, which logged the
   // sha256 of each page as received; a sealed one also lists raw/ in SHA256SUMS. A replay reads each page against both, each file when
@@ -798,7 +822,7 @@ test("binance_klines_refuses_a_replay_of_an_altered_raw_page", async () => {
   assert.deepEqual([own.schema, own.irregular_close.length, own.zero_trade.length, own.rows], ["monark.series.binance.v2", 0, 0, 8]);
 });
 
-// killer: scripts/record-binance-klines.mjs:399 CONST "realpathSync(argv1) === realpathSync(SCRIPT)" -> "resolve(argv1) === resolve(SCRIPT)"
+// killer: scripts/record-binance-klines.mjs:403 CONST "realpathSync(argv1) === realpathSync(SCRIPT)" -> "resolve(argv1) === resolve(SCRIPT)"
 test("binance_klines_runs_its_command_line_through_a_junction", () => {
   // D-5 of the second round (F-4 of the G2 of the history detector, same pattern): through a directory junction node runs the module at
   // its real path while argv[1] keeps the junction, so a guard on resolved paths ran nothing and exited 0 in silence. A copy of the
@@ -819,7 +843,7 @@ test("binance_klines_runs_its_command_line_through_a_junction", () => {
     "start", "end", "out"] }) + LF], [0, "", ""]], "through the junction, the usage stop; imported, nothing");
 });
 
-// killer: scripts/record-binance-klines.mjs:341 CONST "monark.series.binance.v2" -> "monark.series.binance.v1"
+// killer: scripts/record-binance-klines.mjs:345 CONST "monark.series.binance.v2" -> "monark.series.binance.v1"
 test("binance_klines_writes_v2_and_replays_a_sealed_v1_unrefused", async () => {
   // Q-U5 of RECHERCHES (2026-10-03), lot BINANCE-V2-1, D-1: one identifier, one meaning. Every manifest this recorder writes, recording
   // or replay, names monark.series.binance.v2 with both lists; a folder sealed under v1 (recorder 48aa58b3: schema v1, neither list,
@@ -858,7 +882,7 @@ test("binance_klines_writes_v2_and_replays_a_sealed_v1_unrefused", async () => {
     [files(rec.out), files(rec.out), lists(rec.out), lists(rec.out), before], "same bytes and lists from a v1 or a v2 source; the v1 untouched");
 });
 
-// killer: scripts/record-binance-klines.mjs:201 CONST "e.status === 200 && " -> ""
+// killer: scripts/record-binance-klines.mjs:208 CONST "e.status === 200 && " -> ""
 test("binance_klines_refuses_a_page_planted_at_the_cursor_of_a_non_200_answer", async () => {
   // BINANCE-REPLAY-NON200-ATTEST-1 (G2-CTV2-2; mutant R4 of the fusion campaign survived): requests.jsonl logs every answer with the
   // sha256 of its body, and only a 200 attests a page. A recording stopped by a 500 whose body is [] (empty klines, were it read): as
@@ -903,56 +927,65 @@ function issue(serial: number, ca?: Issued): Issued {
   return { key: privateKey, der: tlv(0x30, tbs, ECDSA_SHA256, tlv(0x03, Buffer.from([0]), signature)) };
 }
 
-// killer: scripts/record-binance-klines.mjs:104 CONST "{ ...ticket, resumed: true }" -> "null"
-test("binance_klines_logs_the_certificates_of_the_connection_that_served_each_page", async () => {
-  // D-3 of lot BINANCE-PRE153-1 (SERIES-TLS-PEER-LOG-1): two HTTPS loopback servers, A and B, two leaves of the file's one CA, trusted
-  // for this process alone, restored after. A request of the test held open on A keeps A's undici pool, and its session cache, alive
-  // (journal M-8: an origin with no connection left loses both); A closes each connection of the recorder after its answer, so pages 1, 2
-  // and 4 each open a connection to A that resumes A's session and shows no chain (M-1): they name A's leaf by lineage (resumed: true),
-  // page 4 after B's tickets (one lineage per origin); page 3 opens the first connection to B, a full handshake. Plain HTTP, which shows
-  // none: binance_klines_stops_on_a_200_whose_connection_showed_no_certificate (BINANCE-PRE153-1 corrections, D-6)
-  const ca = caOf(), [a, b] = [issue(2, ca), issue(3, ca)], trusted = getCACertificates("default"); // the file's one CA (corrections, D-6)
-  let release = (): void => undefined, ticketed = (): void => undefined;
-  const held = new Promise<void>((done) => { release = done; }), ticket = new Promise<void>((done) => { ticketed = done; });
-  const watch = (m: unknown): void => { (m as { socket: TLSSocket }).socket.once("session", () => { ticketed(); }); };
-  const serve = async (leaf: Issued): Promise<{ base: string; close: () => Promise<void> }> => {
-    const server = createTlsServer({ key: leaf.key.export({ type: "pkcs8", format: "pem" }), cert: new X509Certificate(leaf.der).toString() },
-      (req, res) => {
-        if (req.url === "/hold") { void held.then(() => { res.writeHead(200).end("[]"); }); return; }
-        const from = Number(new URL(req.url ?? "/", "https://127.0.0.1").searchParams.get("startTime"));
-        res.writeHead(200, { connection: "close" }).end(JSON.stringify(series(16).filter((r) => r[0] >= from).slice(0, 4)));
-      });
-    const port = await listen(server);
-    const close = (): Promise<void> => new Promise<void>((done) => { server.closeAllConnections(); server.close(() => { done(); }); });
-    return { base: `https://127.0.0.1:${String(port)}`, close };
-  };
-  const [A, B] = [await serve(a), await serve(b)], calls: Calls = { urls: [], inits: [] };
-  const to = (url: string): string => `${Number(new URL(url).searchParams.get("startTime")) === at(8) ? B.base : A.base}${url.slice(ORIGIN.length)}`;
-  const fetchTls: FetchLike = (url, init) => {
-    calls.urls.push(url);
-    return url.startsWith(`${ORIGIN}/api/v3/klines?`) ? realFetch(to(url), init) : Promise.reject(new Error(`refused ${url}`));
-  };
-  subscribe("undici:client:connected", watch);
-  try {
-    setDefaultCACertificates([new X509Certificate(ca.der).toString()]);
-    const hold = realFetch(`${A.base}/hold`).then((r) => r.text()).catch(() => "no answer"); // A's pool lives while this waits
-    await Promise.race([ticket, new Promise<void>((done) => { setTimeout(done, 10_000).unref(); })]); // its session received: undici offers it
-    const out = fresh(), code = await outcome(run(["--symbol", "BTCUSDT", "--interval", "15m", "--start", iso(at(0)), "--end", iso(at(16)), "--out", out],
-      { fetch: fetchTls, sleep: () => Promise.resolve(), env: {}, execArgv: [] }));
-    release();
-    const rest = await hold;
-    const peer = (leaf: Issued, resumed: boolean): Peer => ({ leaf_sha256: sha(leaf.der), issuer_sha256: sha(ca.der), resumed });
-    assert.deepEqual([code, calls.urls.length, rest, logOf(out).map((l) => [l.status, l.tls])],
-      ["ok", 4, "[]", [[200, peer(a, true)], [200, peer(a, true)], [200, peer(b, false)], [200, peer(a, true)]]]);
-  } finally {
-    release();
-    setDefaultCACertificates(trusted);
-    unsubscribe("undici:client:connected", watch);
-    await Promise.all([A.close(), B.close()]);
+// killer: scripts/record-binance-klines.mjs:98 CONST "maxCachedSessions: 0" -> "maxCachedSessions: 100"
+test("binance_klines_never_resumes_a_tls_session", async () => {
+  // SERIES-TLS-RESUME-1 (lot BINANCE-PRE35-1; L-1 of BINANCE-PRE153-1, m-2 of its review): the loopback endpoint offers resumption (node's
+  // defaults: session tickets, and session ids under TLS 1.2), under TLS 1.2 then 1.3. Four pages, each on its own connection: the server
+  // sees no session resumed, and each line names the leaf that authenticated it and its CA (resumed: false). A recorder that kept sessions
+  // would resume from page 2, and a resumed connection attests nothing (tls_unattested)
+  const got: unknown[] = [];
+  for (const maxVersion of ["TLSv1.2", "TLSv1.3"] as const) {
+    const r = await record(series(16), at(0), at(16), { perPage: 4, maxVersion });
+    got.push([maxVersion, r.code, r.reused, logOf(r.out).map((l) => l.tls)]);
   }
+  const peer: Peer = { leaf_sha256: sha(endpointLeaf?.der ?? ""), issuer_sha256: sha(caOf().der), resumed: false };
+  assert.deepEqual(got, ["TLSv1.2", "TLSv1.3"].map((v) => [v, "ok", [false, false, false, false], [peer, peer, peer, peer]]));
 });
 
-// killer: scripts/record-binance-klines.mjs:258 ROR "size > MAX_BODY_BYTES" -> "size >= MAX_BODY_BYTES"
+// killer: scripts/record-binance-klines.mjs:108 CONST "signs ? sha256(issuer)" -> "issuer ? sha256(issuer)"
+test("binance_klines_logs_the_true_issuer_of_two_cas_of_one_name", async () => {
+  // SERIES-TLS-ISSUER-BY-NAME-1 (O-1 of the BINANCE-PRE153-1 corrections; F-1 of the G2 of #115): two CAs of one name ("loopback test
+  // ca", no key identifier), each signs a leaf. Each endpoint sets the trust BEFORE its server is created; in that order, trusted in
+  // turn, one at a time, each line names its own CA (cases 1-3). S1 of the G2 (case 4): the server is created under the previous trust,
+  // then the trust changes; node then names the other CA of that name, which the leaf does not verify under: the line logs no issuer
+  // (null; the true CA, were node to name it). Trusted together, trust before server, in either order (cases 5-6): the handshake holds
+  // with the true CA, or fails (CERT_SIGNATURE_FAILURE), a network_error before any line. The next endpoint trusts the file's CA again
+  const [one, two] = [caOf(), issue(9)], [a, b] = [issue(10, one), issue(11, two)], got: [string, (string | null)[]][] = [];
+  const plans: [readonly Issued[], Issued, boolean][] = [[[one], a, false], [[two], b, false], [[one], a, false], [[two], b, true],
+    [[one, two], b, false], [[two, one], b, false]];
+  for (const [trust, leaf, trustLate] of plans) {
+    const r = await record(series(4), at(0), at(4), { leaf, trust, trustLate });
+    got.push([r.code, logOf(r.out).map((l) => l.tls?.issuer_sha256 ?? null)]);
+  }
+  const [x, y] = [sha(one.der), sha(two.der)], together = got.slice(4).map(([code, issuers]) =>
+    (code === "ok" ? issuers.length === 1 && issuers[0] === y : code === "network_error" && issuers.length === 0));
+  const late = [got[3]?.[0], got[3]?.[1].length, got[3]?.[1].every((i) => i === null || i === y)];
+  assert.deepEqual([got.slice(0, 3), late, together], [[["ok", [x]], ["ok", [y]], ["ok", [x]]], ["ok", 1, true], [true, true]]);
+});
+
+// killer: scripts/record-binance-klines.mjs:157 SDL "if (unformed.length > 0)" -> ""
+test("binance_klines_refuses_an_admitted_name_with_an_unformed_value", async () => {
+  // SERIES-ENV-VALUES-1 (lot BINANCE-PRE35-1; L-2 of BINANCE-PRE153-1): the values of the twelve admitted names have a closed form:
+  // SYSTEMROOT equals WINDIR (names in any case), HOMEPATH, SYSTEMROOT, TEMP, USERPROFILE and WINDIR are absolute paths, PATH is made of
+  // absolute paths (an empty entry, the current directory, included). Else env_refused before any request, naming the variables, never a
+  // value; values of the form record
+  const [w, v, path] = [resolve(ROOT, "w"), resolve(ROOT, "v"), [resolve(ROOT, "a"), resolve(ROOT, "b")].join(delimiter)];
+  const cases: [Record<string, string>, string[]][] = [[{ SystemRoot: w, windir: v, PATH: path }, ["SystemRoot", "windir"]],
+    [{ SYSTEMROOT: w, PATH: path }, ["SYSTEMROOT"]], [{ PATH: `${path}${delimiter}bin`, TEMP: "tmp", USERPROFILE: w, HOMEPATH: `.${sep}h` },
+      ["HOMEPATH", "PATH", "TEMP"]], [{ Path: `${path}${delimiter}` }, ["Path"]],
+    [{ USERPROFILE: "u" }, ["USERPROFILE"]], [{ SystemRoot: "W", windir: "W" }, ["SystemRoot", "windir"]]]; // C-2 of the G2: equal, relative
+  const lines: string[] = [], calls: Calls = { urls: [], inits: [] };
+  for (const [env] of cases) {
+    const argv = ["--symbol", "BTCUSDT", "--interval", "15m", "--start", iso(at(0)), "--end", iso(at(4)), "--out", fresh()];
+    await main(argv, { fetch: offline(calls), env, execArgv: [], print: (l) => { lines.push(l); } }).catch(() => -1);
+  }
+  const formed = await record(series(4), at(0), at(4), { io: { env: { SystemRoot: w, windir: w, PATH: path, TEMP: v, USERPROFILE: v,
+    HOMEPATH: v } } });
+  assert.deepEqual([lines, calls.urls.length, formed.code], [cases.map(([, variables]) => stopLine("env_refused", { variables,
+    why: "values outside their closed form" })), 0, "ok"]);
+});
+
+// killer: scripts/record-binance-klines.mjs:262 ROR "size > MAX_BODY_BYTES" -> "size >= MAX_BODY_BYTES"
 test("binance_klines_reads_a_body_in_a_stream_up_to_its_bound", async () => {
   // D-5 of lot BINANCE-PRE153-1 (SERIES-BODY-BOUND-1): 1 000 candles of the widest row recorded take 186 394 bytes (journal M-5); the
   // bound, 262 144 bytes, is read in a stream. A 200 body of exactly the bound (klines padded with blanks) is read; one byte more stops
@@ -970,7 +1003,7 @@ test("binance_klines_reads_a_body_in_a_stream_up_to_its_bound", async () => {
   }
 });
 
-// killer: scripts/record-binance-klines.mjs:62 CONST "\"source_unattested\", " -> ""
+// killer: scripts/record-binance-klines.mjs:65 CONST "\"source_unattested\", " -> ""
 test("binance_klines_names_each_stop_of_the_lot_in_its_closed_list", () => {
   // BINANCE-PRE153-1 corrections, D-2 (G2-BNPRE-2: mutants G01 and G02 survived, no test pinned a code the lot added): the closed list
   // names each stop the lot adds (source_unattested, body_too_large; env_refused and tls_unattested in its corrections) and the one whose
@@ -979,7 +1012,7 @@ test("binance_klines_names_each_stop_of_the_lot_in_its_closed_list", () => {
     [true, true, true, true, true]);
 });
 
-// killer: scripts/record-binance-klines.mjs:180 CONST "catch { return null; }" -> "catch { return Buffer.alloc(0); }"
+// killer: scripts/record-binance-klines.mjs:187 CONST "catch { return null; }" -> "catch { return Buffer.alloc(0); }"
 test("binance_klines_anchors_an_absent_sums_as_null", async () => {
   // BINANCE-PRE153-1 corrections, D-2 (G2-BNPRE-2: mutant G17 survived; probe P3, E4): a source made of raw/ and requests.jsonl (the form
   // of the 118) replays; its manifest anchors the requests.jsonl read and names no SHA256SUMS: null, never the digest of nothing (D-1 (d)
@@ -993,7 +1026,7 @@ test("binance_klines_anchors_an_absent_sums_as_null", async () => {
     ["ok", "ok", sha(bytes(join(src, "requests.jsonl"))), null, 0]);
 });
 
-// killer: scripts/record-binance-klines.mjs:71 CONST "|WINDIR)$/i" -> "|WINDIR|COMSPEC)$/i"
+// killer: scripts/record-binance-klines.mjs:74 CONST "|WINDIR)$/i" -> "|WINDIR|COMSPEC)$/i"
 test("binance_klines_refuses_every_other_name_of_the_environment", async () => {
   // BINANCE-PRE153-1 corrections, D-2 (G2-BNPRE-2: mutant G30 survived, the admitted list was pinned by sample only): each name of this
   // process's environment outside the twelve, and names of a Windows shell that the harness may lack, stops a recording before any
@@ -1010,39 +1043,7 @@ test("binance_klines_refuses_every_other_name_of_the_environment", async () => {
   assert.deepEqual([names.length > 8, passed, calls.urls.length], [true, [], 0]);
 });
 
-// killer: scripts/record-binance-klines.mjs:222 CONST "request.path === path" -> "true"
-test("binance_klines_binds_its_own_request_under_a_concurrent_one", async () => {
-  // BINANCE-PRE153-1 corrections, D-2 (G2-BNPRE-2: mutant G22 survived; probe P2, BC-other): the request is bound to its connection by its
-  // path. A request of this process on another path, sent while the recorder waits for its answer, to another origin with another leaf,
-  // leaves the recorder's line naming its own server's leaf. Two HTTPS loopback servers, two leaves of the file's CA, trusted while it runs
-  const ca = caOf(), [a, b] = [issue(5, ca), issue(6, ca)], trusted = getCACertificates("default"), out = fresh();
-  let side = Promise.resolve("not sent");
-  const serve = async (leaf: Issued, onKlines: () => void): Promise<{ base: string; close: () => Promise<void> }> => {
-    const server = createTlsServer({ key: leaf.key.export({ type: "pkcs8", format: "pem" }), cert: new X509Certificate(leaf.der).toString() },
-      (req, res) => {
-        if (!(req.url ?? "").startsWith("/api/v3/klines")) { res.writeHead(200).end("[]"); return; }
-        onKlines();
-        setTimeout(() => { res.writeHead(200).end(JSON.stringify(series(4))); }, 400);
-      });
-    const port = await listen(server);
-    const close = (): Promise<void> => new Promise<void>((done) => { server.closeAllConnections(); server.close(() => { done(); }); });
-    return { base: `https://127.0.0.1:${String(port)}`, close };
-  };
-  const B = await serve(b, () => undefined);
-  const A = await serve(a, () => { setTimeout(() => { side = realFetch(`${B.base}/other`).then((r) => r.text()); }, 100); });
-  try {
-    setDefaultCACertificates([new X509Certificate(ca.der).toString()]);
-    const fetchA: FetchLike = (url, init) => realFetch(`${A.base}${url.slice(ORIGIN.length)}`, init);
-    const code = await outcome(run(["--symbol", "BTCUSDT", "--interval", "15m", "--start", iso(at(0)), "--end", iso(at(4)), "--out", out],
-      { fetch: fetchA, sleep: () => Promise.resolve(), env: {}, execArgv: [] }));
-    assert.deepEqual([code, await side, logOf(out).map((l) => l.tls?.leaf_sha256 ?? null)], ["ok", "[]", [sha(a.der)]]);
-  } finally {
-    setDefaultCACertificates(trusted);
-    await Promise.all([A.close(), B.close()]);
-  }
-});
-
-// killer: scripts/record-binance-klines.mjs:176 CONST " || !existsSync(at(\"SHA256SUMS\"))" -> ""
+// killer: scripts/record-binance-klines.mjs:183 CONST " || !existsSync(at(\"SHA256SUMS\"))" -> ""
 test("binance_klines_refuses_a_source_whose_pages_nothing_attests", async () => {
   // BINANCE-PRE153-1 corrections, D-1 (G2-BNPRE-1, probe P1): a manifest names the interval, but neither requests.jsonl nor SHA256SUMS
   // attests a page: a page altered there was replayed, exit 0, the altered value written. Refused before any file is read, nothing written
@@ -1056,25 +1057,7 @@ test("binance_klines_refuses_a_source_whose_pages_nothing_attests", async () => 
     ["ok", 2, "source_unattested", false, 0]);
 });
 
-// killer: scripts/record-binance-klines.mjs:107 CONST "catch { /*" -> "catch (e) { throw e; /*"
-test("binance_klines_ignores_a_publication_without_a_socket", () => {
-  // BINANCE-PRE153-1 corrections, D-3 (G2-BNPRE-4, probe P4: the subscriber threw from its own catch, a WeakMap refusing an undefined
-  // key, and the process ended): a child imports a copy of the recorder, which subscribes to undici's connections; four publications
-  // without a socket reach that subscriber, which ignores them: the child lives on and exits 0
-  const dir = fresh(), copy = join(dir, "record-binance-klines.mjs");
-  mkdirSync(dir);
-  copyFileSync(RECORDER, copy);
-  const env: Record<string, string | undefined> = { ...process.env, HTTPS_PROXY: "http://127.0.0.1:9", NODE_USE_ENV_PROXY: "1" };
-  delete env.NODE_TEST_CONTEXT; // the child is no test runner
-  const script = ['import { channel, hasSubscribers } from "node:diagnostics_channel";', `await import(${JSON.stringify(pathToFileURL(copy).href)});`,
-    'for (const m of [undefined, null, {}, { connectParams: { protocol: "https:", host: "api.binance.com" } }]) {',
-    '  channel("undici:client:connected").publish(m);', "}", "await new Promise((done) => { setTimeout(done, 100); });",
-    'console.log(String(hasSubscribers("undici:client:connected")));'].join(LF);
-  const r = spawnSync(process.execPath, ["--input-type=module", "-e", script, "no-such-file"], { env, encoding: "utf8", timeout: 60_000 });
-  assert.deepEqual([r.status, r.stdout], [0, `true${LF}`], r.stderr);
-});
-
-// killer: scripts/record-binance-klines.mjs:235 SDL "log(line);" -> ""
+// killer: scripts/record-binance-klines.mjs:239 SDL "log(line);" -> ""
 test("binance_klines_logs_an_answer_as_it_arrives_before_its_body", async () => {
   // BINANCE-PRE153-1 corrections, D-4 (G2-BNPRE-5; probe P3, E6 cut): as the Coinbase recorder, an answer is logged as it arrives, its
   // status, headers and certificates, before its body is read, then that line again with the size, sha256 and file of the body. A body
@@ -1090,25 +1073,52 @@ test("binance_klines_logs_an_answer_as_it_arrives_before_its_body", async () => 
     ["network_error", [[429, "30", false]], []], "a 429 cut after its head: its status and Retry-After kept on its arrival line");
 });
 
-// killer: scripts/record-binance-klines.mjs:236 SDL "if (status === 200 && peer === null)" -> ""
+// killer: scripts/record-binance-klines.mjs:240 SDL "if (status === 200 && peer === null)" -> ""
 test("binance_klines_stops_on_a_200_whose_connection_showed_no_certificate", async () => {
   // BINANCE-PRE153-1 corrections, D-6 (Q-BNPRE-6): over plain HTTP no certificate is seen. A 200 stops (tls_unattested) once its arrival
-  // line is logged, tls null, its body never read nor kept (cancelled: an injected fetch shows it); any other status keeps its own stop.
+  // line is logged, tls null, its body never read nor kept (its connection closed); any other status keeps its own stop.
   // The replay is not concerned: an arrival line attests no page, so a page planted at that cursor is refused
   const plain = await record(series(4), at(0), at(4), { plain: true }), lines = linesOf(plain.out), kept = rawNames(plain.out);
   const limited = await record(series(4), at(0), at(4), { plain: true, script: new Map([[0, { status: 429, headers: { "retry-after": "30" } }]]) });
-  let timer: ReturnType<typeof setTimeout> | undefined;
-  const cancelled: string[] = [], body = new ReadableStream<Uint8Array>({ // "[]", closed 300 ms later: a recorder that reads it ends
-    start: (c) => { c.enqueue(new Uint8Array([91, 93])); timer = setTimeout(() => { c.close(); }, 300); },
-    cancel: () => { clearTimeout(timer); cancelled.push("cancelled"); } });
-  const injected = await record(series(4), at(0), at(4), { io: { fetch: () => Promise.resolve(new Response(body, { status: 200 })) } });
+  // a 200 whose body never ends (lot BINANCE-PRE35-1): a recorder that read it would wait for its 30 s timeout; it closes the connection
+  const held = await record(series(4), at(0), at(4), { plain: true, script: new Map([[0, { status: 200, part: "[", hold: true }]]) });
   writeFileSync(join(plain.out, "raw", `BTCUSDT-${String(at(0))}.json`), JSON.stringify(series(4))); // planted where nothing was kept
   const calls: Calls = { urls: [], inits: [] }, argv = ["--symbol", "BTCUSDT", "--interval", "15m", "--start", iso(at(0)), "--end", iso(at(4)),
     "--out", fresh(), "--from-raw", plain.out];
   assert.deepEqual([plain.code, lines.map((l) => [l.status, l.tls, "sha256" in l]), kept, normalized(plain.out), limited.code,
-    logOf(limited.out).map((l) => [l.status, l.tls, l.headers["retry-after"]]), injected.code, cancelled, rawNames(injected.out),
+    logOf(limited.out).map((l) => [l.status, l.tls, l.headers["retry-after"]]), held.code, rawNames(held.out),
     await outcome(run(argv, { fetch: offline(calls) })), calls.urls.length],
-  ["tls_unattested", [[200, null, false]], [], [], "rate_limited", [[429, null, "30"]], "tls_unattested", ["cancelled"], [], "raw_page_altered", 0]);
+  ["tls_unattested", [[200, null, false]], [], [], "rate_limited", [[429, null, "30"]], "tls_unattested", [], "raw_page_altered", 0]);
+});
+
+// killer: scripts/record-binance-klines.mjs:373 CONST "request(url, options)" -> "request(url)"
+test("binance_klines_requests_through_its_own_agent_by_default", async () => {
+  // C-1 and n-3 of the G2 of lot BINANCE-PRE35-1: the default transport, no fetch injected. https.request is replaced by a spy that throws
+  // (offline), synced into the ESM bindings (refused unless the binding shows it), and AbortSignal.timeout is spied: the recorder hands
+  // https.request its URL, its own agent (maxCachedSessions 0, keepAlive false) and the very 30 s signal, then stops network_error.
+  // Both restored after
+  const https = createRequire(import.meta.url)("node:https") as typeof import("node:https"), timeout = AbortSignal.timeout.bind(AbortSignal);
+  const timeoutAsIs = Object.getOwnPropertyDescriptor(AbortSignal, "timeout") ?? {}; // restored as it was, not a bound copy
+  const original = https.request, seen: unknown[] = [], signals: [number, AbortSignal][] = [];
+  let code = "not run", bound = false;
+  try {
+    https.request = ((url: string, options: RequestOptions) => {
+      const agent = options.agent as Agent;
+      seen.push([url, agent.options.maxCachedSessions, agent.options.keepAlive, options.signal === signals[0]?.[1]]);
+      throw new Error("offline spy");
+    }) as typeof https.request;
+    AbortSignal.timeout = (ms: number): AbortSignal => { const s = timeout(ms); signals.push([ms, s]); return s; };
+    syncBuiltinESMExports();
+    bound = (await import("node:https")).request === https.request;
+    if (bound) code = await outcome(run(["--symbol", "BTCUSDT", "--interval", "15m", "--start", iso(at(0)), "--end", iso(at(4)), "--out", fresh()],
+      { env: {}, execArgv: [] }));
+  } finally {
+    https.request = original;
+    Object.defineProperty(AbortSignal, "timeout", timeoutAsIs);
+    syncBuiltinESMExports();
+  }
+  const url = `${ORIGIN}/api/v3/klines?symbol=BTCUSDT&interval=15m&startTime=${String(at(0))}&endTime=${String(at(4) - 1)}&limit=1000`;
+  assert.deepEqual([bound, code, seen, signals.map(([ms]) => ms)], [true, "network_error", [[url, 0, false, true]], [30_000]]);
 });
 
 /** Lot BINANCE-V2-1, D-1 (G2-CTV2-1: the type surface was right but nothing pinned it): the typecheck gate (tsc --noEmit) reads these
