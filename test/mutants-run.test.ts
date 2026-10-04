@@ -69,7 +69,8 @@ function fixture(): Fixture {
   fx = { root, dir, base, gel: git(dir, "rev-parse", "HEAD") };
   return fx;
 }
-after(() => { if (fx !== undefined) rmSync(fx.root, { recursive: true, force: true, maxRetries: 5 }); });
+const pending: Promise<unknown>[] = []; // the runs started ahead (lot MUTANTS-RUN-TEST-DURATION-1): settled before the fixture root goes
+after(async () => { await Promise.all(pending); if (fx !== undefined) rmSync(fx.root, { recursive: true, force: true, maxRetries: 5 }); });
 function mini(name: string, files: Record<string, string>): { dir: string; base: string } { // a repository of its own: base (package.json, .gitignore), then gel (files)
   const dir = join(fixture().root, name);
   write(dir, { ".gitignore": "node_modules/\n", "package.json": `${JSON.stringify({ name, private: true, type: "module", scripts: { test: 'node --test "test/*.test.ts"' } })}\n` });
@@ -98,11 +99,21 @@ function run(args: string[], o: RunOpts = {}): Run {
   return done(spawnSync(process.execPath, argv, { encoding: "utf8", env, timeout: 600_000 }), out);
 }
 async function runAsync(args: string[], o: RunOpts = {}): Promise<Run> { // the event loop stays free: a child of this test that exits is reaped, never a zombie (MUTANTS-WAITER-ZOMBIE-1)
-  const { argv, env, out } = cmd(args, o), c = spawn(process.execPath, argv, { env }), r = { status: null as number | null, stdout: "", stderr: "", pid: c.pid };
+  const { argv, env, out } = cmd(args, o), c = spawn(process.execPath, argv, { env, timeout: 600_000 }), r = { status: null as number | null, stdout: "", stderr: "", pid: c.pid };
   c.stdout.setEncoding("utf8").on("data", (d: string) => { r.stdout += d; }); c.stderr.setEncoding("utf8").on("data", (d: string) => { r.stderr += d; });
   r.status = await new Promise<number | null>((ok) => c.on("close", ok));
   return done(r, out);
 }
+// Lot MUTANTS-RUN-TEST-DURATION-1: the runs that mostly wait (a held lock, a live waiter, a hung child) start side by side as the file loads, each on a
+// lock root of its own, and their tests await them in place; under --test-name-pattern (red-proof, a mutant campaign) each starts in its own test only.
+const SELECTED = process.execArgv.some((a) => a.startsWith("--test-name-pattern"));
+function ahead<T>(start: () => Promise<T>): () => Promise<T> {
+  let p: Promise<T> | undefined;
+  const get = (): Promise<T> => { if (p === undefined) { p = Promise.resolve().then(start); pending.push(p.catch(() => undefined)); } return p; };
+  if (!SELECTED) void get();
+  return get;
+}
+const ownLock = (): string => mkdtempSync(join(fixture().root, "lock-"));
 const campaign = (): Run => (main ??= run(["--base", fixture().base, "--table", table("table.mjs", ROWS), "--killers", // the one shared campaign; --targets
   "--targets", "test/b.test.ts,test/a.test.ts"])); // adds b, imported by no test, to the graph's targets; a is one already: no duplicate (Q-G2-3)
 const row = (r: Run, id: string): MutantRow | undefined => r.rec?.results.find((x) => x.id === id);
@@ -169,14 +180,19 @@ test("mutants_anchor_absent_or_twice_on_its_line_is_lost_counted_never_applied",
   assert.deepEqual([d.status, row(d, "A1")?.status, d.rec?.baseline, d.rec?.min_free_mb], [1, "anchor-lost", null, 4096], d.stderr);
 });
 
-// killer: scripts/mutants/run.mjs:232 CONST "{ stop: \"verrou\", waited_ms" -> "{ stop: \"memoire\", waited_ms"
-test("mutants_wait_for_a_held_oracle_lock_in_its_queue_never_take_a_live_one_and_stop_by_name", () => {
-  const f = fixture(), t = table("one.json", [T1]), dead = spawnSync(process.execPath, ["-e", "0"]).pid, mark = (pid: number): string => JSON.stringify({ lock: "oracle/lock.mjs", pid });
+const heldOwners = ahead(() => { // the six owners side by side, each on its lock root (table held.json: one.json is rewritten by the tests that run meanwhile)
+  const f = fixture(), t = table("held.json", [T1]), dead = 0x7FFFFFF0, mark = (pid: number): string => JSON.stringify({ lock: "oracle/lock.mjs", pid }); // G2 M-3: a pid no host allocates, never a freed one
   const owners: [string | null, number][] = [[mark(process.pid), 4], ["a legacy free-text owner", 4], [JSON.stringify({ lock: "sh", pid: dead }), 4], [JSON.stringify({ pid: dead }), 4], [null, 4], [mark(dead), 0]];
-  for (const [owner, code] of owners) { // corrections D-6: no launch refusal; acquire() of oracle/lock.mjs takes over its own tag with a dead pid only, never another
-    const lock = mkdtempSync(join(f.root, "lock-")), o = join(lock, "oracle-lock", "owner.txt");
+  return Promise.all(owners.map(async ([owner, code]) => { // corrections D-6: no launch refusal; acquire() of oracle/lock.mjs takes over its own tag with a dead pid only, never another
+    const lock = ownLock(), o = join(lock, "oracle-lock", "owner.txt");
     if (owner === null) mkdirSync(dirname(o), { recursive: true }); else write(lock, { "oracle-lock/owner.txt": owner });
-    const r = run(["--base", f.base, "--table", t, "--wait-ms", "1000", "--poll-ms", "100"], { lock }), s = r.rec?.stop, held = code === 4; // waited 1 s at BASELINE
+    return { owner, code, o, r: await runAsync(["--base", f.base, "--table", t, "--wait-ms", "1000", "--poll-ms", "100"], { lock }) }; // waited 1 s at BASELINE
+  }));
+});
+// killer: scripts/mutants/run.mjs:232 CONST "{ stop: \"verrou\", waited_ms" -> "{ stop: \"memoire\", waited_ms"
+test("mutants_wait_for_a_held_oracle_lock_in_its_queue_never_take_a_live_one_and_stop_by_name", async () => {
+  for (const { owner, code, o, r } of await heldOwners()) {
+    const s = r.rec?.stop, held = code === 4;
     assert.deepEqual([owner, r.status, existsSync(join(r.out, "clone")), s?.reason, s?.at, existsSync(o) && readFileSync(o, "utf8")],
       [owner, code, true, held ? "verrou" : undefined, held ? "BASELINE" : undefined, held ? owner ?? false : false], r.stderr);
   }
@@ -379,14 +395,18 @@ test("mutants_non_conclu_is_replayed_on_every_target_file_whole", () => {
   assert.deepEqual([x1?.status, x1?.replay?.files, x1?.replay?.status], ["non conclu", ["test/a.test.ts", "test/c.test.ts", "test/b.test.ts"], "non conclu"]); // a syntax error: still non conclu
 });
 
-// killer: scripts/mutants/run.mjs:231 CONST "mutant: id" -> "mutant: \"campaign\""
-test("mutants_take_the_host_lock_for_each_run_alone_and_never_pass_a_queued_waiter", () => {
-  const f = fixture(), lock = mkdtempSync(join(f.root, "lock-")), log = join(f.root, "owners.log"), env = { FX_LOG: log, FX_LOCK: lock }, q = `oracle-lock.queue/${"1".padStart(15, "0")}-${process.pid}.json`;
+const hostLock = ahead(async () => { // the first run, its owners and lock read at once; then the queued waiter and the second run
+  const f = fixture(), lock = ownLock(), log = join(f.root, "owners.log"), env = { FX_LOG: log, FX_LOCK: lock }, q = `oracle-lock.queue/${"1".padStart(15, "0")}-${process.pid}.json`;
   const { dir, base } = lk(), t = table("lk.json", [L("L1", 1, "1", "2"), L("L2", 2, "3", "4")]);
-  const r = run(["--repo", dir, "--base", base, "--table", t], { lock, env }), owners = (existsSync(log) ? readFileSync(log, "utf8").trim().split("\n") : []).map((l) => JSON.parse(l) as { mutant: string; pid: number; lock: string });
-  assert.deepEqual([r.status, owners.map((x) => [x.mutant, x.pid, x.lock]), existsSync(join(lock, "oracle-lock"))], [0, ["BASELINE", "L1", "L2"].map((id) => [id, r.pid, "oracle/lock.mjs"]), false], r.stderr);
+  const r = await runAsync(["--repo", dir, "--base", base, "--table", t], { lock, env }), owners = (existsSync(log) ? readFileSync(log, "utf8").trim().split("\n") : []).map((l) => JSON.parse(l) as { mutant: string; pid: number; lock: string });
+  const first = { r, owners, held: existsSync(join(lock, "oracle-lock")) };
   write(lock, { [q]: "{}" }); // a live waiter queued first (this process): the tool waits behind it, never takes the lock, then stops by name
-  const w = run(["--repo", dir, "--base", base, "--table", t, "--wait-ms", "1500", "--poll-ms", "100"], { lock, env }), s = w.rec?.stop;
+  return { lock, q, first, w: await runAsync(["--repo", dir, "--base", base, "--table", t, "--wait-ms", "1500", "--poll-ms", "100"], { lock, env }) };
+});
+// killer: scripts/mutants/run.mjs:231 CONST "mutant: id" -> "mutant: \"campaign\""
+test("mutants_take_the_host_lock_for_each_run_alone_and_never_pass_a_queued_waiter", async () => {
+  const { lock, q, first: { r, owners, held }, w } = await hostLock(), s = w.rec?.stop;
+  assert.deepEqual([r.status, owners.map((x) => [x.mutant, x.pid, x.lock]), held], [0, ["BASELINE", "L1", "L2"].map((id) => [id, r.pid, "oracle/lock.mjs"]), false], r.stderr);
   assert.deepEqual([w.status, s?.reason, s?.at, s?.not_run, existsSync(join(lock, q)), existsSync(join(lock, "oracle-lock")), existsSync(join(w.out, "tap")) && readdirSync(join(w.out, "tap"))], [4, "verrou", "BASELINE", ["L1", "L2"], true, false, []], w.stderr);
 });
 
@@ -413,10 +433,13 @@ test("mutants_an_edit_past_the_end_is_lost_sdl_empties_its_line_and_a_block_is_m
   assert.match(existsSync(txt) ? readFileSync(txt, "utf8") : "", /^B1 l\.2 CONST tue .* ; edits l\.2,l\.4$/m);
 });
 
+const lockStop = ahead(() => {
+  const { dir, base } = lk(), lock = ownLock(), env = { FX_LOCK: lock, FX_LOG: join(fixture().root, "lk1.log"), FX_STOP: "1" };
+  return runAsync(["--repo", dir, "--base", base, "--table", table("lk1.json", [L("L1", 1, "1", "2"), L("L2", 2, "3", "4")]), "--wait-ms", "1000", "--poll-ms", "100"], { lock, env });
+});
 // killer: scripts/mutants/run.mjs:270 CONST "at: m.id" -> "at: \"BASELINE\""
-test("mutants_a_lock_stop_between_two_mutants_names_the_mutant_and_keeps_the_rows_run", () => { // G37 G38: at L1 the fixture test queues an entry of the tool's pid
-  const { dir, base } = lk(), lock = mkdtempSync(join(fixture().root, "lock-")), env = { FX_LOCK: lock, FX_LOG: join(fixture().root, "lk1.log"), FX_STOP: "1" };
-  const r = run(["--repo", dir, "--base", base, "--table", table("lk1.json", [L("L1", 1, "1", "2"), L("L2", 2, "3", "4")]), "--wait-ms", "1000", "--poll-ms", "100"], { lock, env }), s = r.rec?.stop;
+test("mutants_a_lock_stop_between_two_mutants_names_the_mutant_and_keeps_the_rows_run", async () => { // G37 G38: at L1 the fixture test queues an entry of the tool's pid
+  const r = await lockStop(), s = r.rec?.stop;
   assert.deepEqual([r.status, s?.reason, s?.at, s?.not_run, r.rec?.results.map((x) => [x.id, x.status])], [4, "verrou", "L2", ["L2"], [["L1", "tue"]]], r.stderr);
 });
 
@@ -427,20 +450,27 @@ test("mutants_more_than_ten_runs_leave_no_listener_warning", () => { // G02 G29:
   assert.deepEqual([r.status, r.rec?.results.length, /MaxListenersExceededWarning/.test(r.stderr)], [0, 11, false], r.stderr);
 });
 
-// killer: scripts/mutants/run.mjs:232 CONST "lock_wait_ms: lk.waitedMs" -> "lock_wait_ms: 0"
-test("mutants_a_live_waiter_ahead_passes_first_then_the_run_goes_on", { timeout: 90_000 }, async () => { // G28: a waiter queued ahead, alive 6 s (past the tool's start); async, so the waiter is reaped at its exit
-  const { dir, base } = lk(), lock = mkdtempSync(join(fixture().root, "lock-")), child = spawn(process.execPath, ["-e", "setTimeout(() => {}, 6000)"], { stdio: "ignore" });
+const liveWaiter = ahead(() => { // a waiter queued ahead, alive 6 s (past the tool's start); async, so the waiter is reaped at its exit
+  const { dir, base } = lk(), lock = ownLock(), child = spawn(process.execPath, ["-e", "setTimeout(() => {}, 6000)"], { stdio: "ignore" });
   write(lock, { [`oracle-lock.queue/000000000000003-${String(child.pid)}.json`]: "{}" });
-  const r = await runAsync(["--repo", dir, "--base", base, "--table", table("lk3.json", [L("L1", 1, "1", "2")]), "--poll-ms", "100", "--wait-ms", "60000"], { lock, env: { FX_LOCK: lock, FX_LOG: join(fixture().root, "lk3.log") } });
+  return runAsync(["--repo", dir, "--base", base, "--table", table("lk3.json", [L("L1", 1, "1", "2")]), "--poll-ms", "100", "--wait-ms", "60000"], { lock, env: { FX_LOCK: lock, FX_LOG: join(fixture().root, "lk3.log") } });
+});
+// killer: scripts/mutants/run.mjs:232 CONST "lock_wait_ms: lk.waitedMs" -> "lock_wait_ms: 0"
+test("mutants_a_live_waiter_ahead_passes_first_then_the_run_goes_on", { timeout: 90_000 }, async () => { // G28
+  const r = await liveWaiter();
   assert.deepEqual([r.status, (r.rec?.baseline?.lock_wait_ms ?? 0) >= 1000], [0, true], r.stderr);
 });
 
+// MUTANTS-LOCK-WAIT-BOUND-LOAD-1: stop.waited_ms counts from the entry into the wait (run.mjs:228, t0 of gate(), after the clone and the launch); its upper
+// bound is named: the wait, one poll, and a margin for a loaded host's late timers. It stays under 2 * WAIT, the least wait a 2 * or 3 * o.wait mutant can record
+// (acquire() returns null only once its own clock, started after gate()'s, reaches maxMs): those mutants are killed whatever the load (G2 C-1: WAIT 2000).
+const WAIT = 2000, POLL = 100, MARGIN = 1500;
 // killer: scripts/mutants/run.mjs:231 CONST "maxMs: o.wait }" -> "maxMs: 3 * o.wait }"
 test("mutants_the_lock_wait_stops_at_its_named_bound", () => { // G27: this test's live pid queued ahead
   const { dir, base } = lk(), lock = mkdtempSync(join(fixture().root, "lock-"));
   write(lock, { [`oracle-lock.queue/000000000000001-${String(process.pid)}.json`]: "{}" });
-  const r = run(["--repo", dir, "--base", base, "--table", table("lk4.json", [L("L1", 1, "1", "2")]), "--wait-ms", "1000", "--poll-ms", "100"], { lock, env: { FX_LOCK: lock, FX_LOG: join(fixture().root, "lk4.log") } });
-  assert.deepEqual([r.status, r.rec?.stop?.reason, (r.rec?.stop?.waited_ms ?? 0) >= 1000, (r.rec?.stop?.waited_ms ?? 9e9) < 2000], [4, "verrou", true, true], r.stderr);
+  const r = run(["--repo", dir, "--base", base, "--table", table("lk4.json", [L("L1", 1, "1", "2")]), "--wait-ms", String(WAIT), "--poll-ms", String(POLL)], { lock, env: { FX_LOCK: lock, FX_LOG: join(fixture().root, "lk4.log") } });
+  assert.deepEqual([r.status, r.rec?.stop?.reason, (r.rec?.stop?.waited_ms ?? 0) >= WAIT, (r.rec?.stop?.waited_ms ?? 9e9) < WAIT + POLL + MARGIN], [4, "verrou", true, true], r.stderr);
 });
 
 // killer: scripts/mutants/run.mjs:222 CONST "):/gm)]" -> "):/g)]"
@@ -465,9 +495,12 @@ test("mutants_typecheck_never_emits_into_the_clone", () => { // G21: a tsconfig 
   assert.deepEqual([r.status, row(r, "Y1")?.status, existsSync(join(r.out, "clone", "test", "f.test.js"))], [0, "tue", false], r.stderr);
 });
 
+const deadTsc = ahead(() => { const { dir, base } = fk(); // Z1 hangs to its bound (3 s)
+  return runAsync(["--repo", dir, "--base", base, "--targets", "test/f.test.ts", "--timeout-ms", "300", "--table", table("fk1.json", [Y("Z1", "number;", "number; // HANG"), Y("Z2", "number;", "number; // CRASH")])], { lock: ownLock() });
+});
 // killer: scripts/mutants/run.mjs:224 CONST "r.error !== undefined || r.signal !== null || r.status === 134 ? \"non conclu\"" -> "false ? \"non conclu\""
-test("mutants_a_dead_or_silent_tsc_is_non_conclu_never_survit", () => { // G24; corrections D-3: Z1 a tsc killed at its bound, Z2 a tsc out 1 without a diagnostic line
-  const { dir, base } = fk(), r = run(["--repo", dir, "--base", base, "--targets", "test/f.test.ts", "--timeout-ms", "300", "--table", table("fk1.json", [Y("Z1", "number;", "number; // HANG"), Y("Z2", "number;", "number; // CRASH")])]);
+test("mutants_a_dead_or_silent_tsc_is_non_conclu_never_survit", async () => { // G24; corrections D-3: Z1 a tsc killed at its bound, Z2 a tsc out 1 without a diagnostic line
+  const r = await deadTsc();
   assert.deepEqual([r.rec?.baseline_typecheck?.status, ...["Z1", "Z2"].map((id) => [row(r, id)?.status, row(r, id)?.note])], ["vert", ["non conclu", null], ["non conclu", "tsc exit 1 without a diagnostic line"]], r.stderr);
 });
 
@@ -512,12 +545,15 @@ test("mutants_short_memory_under_the_lock_is_waited_out_without_it_to_the_bound"
   assert.match(existsSync(log) ? readFileSync(log, "utf8") : "", /^-L-+$/); // one read before the lock, one under it (short: released), then each wait without it
 });
 
-// killer: scripts/mutants/run.mjs:267 CONST "!first.timed_out" -> "true"
-test("mutants_a_time_overrun_is_non_conclu_and_never_replayed", () => { // corrections D-5: H1 a test past --timeout-ms, G1 a run past its bound; X1, no overrun, replayed
+const overrun = ahead(() => { // G1 runs to its bound (5 s)
   const { dir, base } = mini("to", { "lib/h.mjs": "export const H = 1;\nexport const G = 1;\n", "test/h.test.ts": `${HEAD}import { G, H } from "../lib/h.mjs";\nif (G === 2) await new Promise((r) => setTimeout(r, 9000));\n` +
     'test("h", async () => { if (H === 2) await new Promise((r) => setTimeout(r, 60000)); assert.deepEqual([G, H], [1, 1]); });\n' });
   const h = (id: string, line: number, after: string): Row => ({ id, file: "lib/h.mjs", line, op: "CONST", before: "1", after, why: "w" });
-  const r = run(["--repo", dir, "--base", base, "--table", table("to.json", [h("H1", 1, "2"), h("G1", 2, "2"), h("X1", 1, '1; throw new Error("load")')]), "--timeout-ms", "500"]);
+  return runAsync(["--repo", dir, "--base", base, "--table", table("to.json", [h("H1", 1, "2"), h("G1", 2, "2"), h("X1", 1, '1; throw new Error("load")')]), "--timeout-ms", "500"], { lock: ownLock() });
+});
+// killer: scripts/mutants/run.mjs:267 CONST "!first.timed_out" -> "true"
+test("mutants_a_time_overrun_is_non_conclu_and_never_replayed", async () => { // corrections D-5: H1 a test past --timeout-ms, G1 a run past its bound; X1, no overrun, replayed
+  const r = await overrun();
   assert.deepEqual([r.status, r.rec?.baseline?.status, ["H1", "G1", "X1"].map((id) => [row(r, id)?.status, row(r, id)?.replay?.status ?? null])], [1, "vert", [["non conclu", null], ["non conclu", null], ["non conclu", "non conclu"]]], r.stderr);
 });
 
