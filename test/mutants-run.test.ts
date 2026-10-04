@@ -506,8 +506,11 @@ test("mutants_typecheck_never_emits_into_the_clone", () => { // G21: a tsconfig 
   assert.deepEqual([r.status, row(r, "Y1")?.status, existsSync(join(r.out, "clone", "test", "f.test.js"))], [0, "tue", false], r.stderr);
 });
 
-const deadTsc = ahead(() => { const { dir, base } = fk(); // Z1 hangs to its bound (3 s)
-  return runAsync(["--repo", dir, "--base", base, "--targets", "test/f.test.ts", "--timeout-ms", "300", "--table", table("fk1.json", [Y("Z1", "number;", "number; // HANG"), Y("Z2", "number;", "number; // CRASH")])], { lock: ownLock() });
+// Lot MUTANTS-LIVE-WAITER-AHEAD-1: --timeout-ms of the two runs ahead whose rows overrun on purpose. Each child of the tool has 10 * OVER (15 s) to its
+// bound, the room of their baseline under load (3 s and 5 s before: a baseline slowed past them is non conclu and runs no row); a row that hangs runs to it.
+const OVER = 1500;
+const deadTsc = ahead(() => { const { dir, base } = fk(); // Z1 hangs to its bound (10 * OVER)
+  return runAsync(["--repo", dir, "--base", base, "--targets", "test/f.test.ts", "--timeout-ms", String(OVER), "--table", table("fk1.json", [Y("Z1", "number;", "number; // HANG"), Y("Z2", "number;", "number; // CRASH")])], { lock: ownLock() });
 });
 // killer: scripts/mutants/run.mjs:224 CONST "r.error !== undefined || r.signal !== null || r.status === 134 ? \"non conclu\"" -> "false ? \"non conclu\""
 test("mutants_a_dead_or_silent_tsc_is_non_conclu_never_survit", async () => { // G24; corrections D-3: Z1 a tsc killed at its bound, Z2 a tsc out 1 without a diagnostic line
@@ -556,11 +559,11 @@ test("mutants_short_memory_under_the_lock_is_waited_out_without_it_to_the_bound"
   assert.match(existsSync(log) ? readFileSync(log, "utf8") : "", /^-L-+$/); // one read before the lock, one under it (short: released), then each wait without it
 });
 
-const overrun = ahead(() => { // G1 runs to its bound (5 s)
-  const { dir, base } = mini("to", { "lib/h.mjs": "export const H = 1;\nexport const G = 1;\n", "test/h.test.ts": `${HEAD}import { G, H } from "../lib/h.mjs";\nif (G === 2) await new Promise((r) => setTimeout(r, 9000));\n` +
+const overrun = ahead(() => { // G1 runs to its bound (10 * OVER), its module asleep 5 s past it
+  const { dir, base } = mini("to", { "lib/h.mjs": "export const H = 1;\nexport const G = 1;\n", "test/h.test.ts": `${HEAD}import { G, H } from "../lib/h.mjs";\nif (G === 2) await new Promise((r) => setTimeout(r, ${String(10 * OVER + 5000)}));\n` +
     'test("h", async () => { if (H === 2) await new Promise((r) => setTimeout(r, 60000)); assert.deepEqual([G, H], [1, 1]); });\n' });
   const h = (id: string, line: number, after: string): Row => ({ id, file: "lib/h.mjs", line, op: "CONST", before: "1", after, why: "w" });
-  return runAsync(["--repo", dir, "--base", base, "--table", table("to.json", [h("H1", 1, "2"), h("G1", 2, "2"), h("X1", 1, '1; throw new Error("load")')]), "--timeout-ms", "500"], { lock: ownLock() });
+  return runAsync(["--repo", dir, "--base", base, "--table", table("to.json", [h("H1", 1, "2"), h("G1", 2, "2"), h("X1", 1, '1; throw new Error("load")')]), "--timeout-ms", String(OVER)], { lock: ownLock() });
 });
 // killer: scripts/mutants/run.mjs:267 CONST "!first.timed_out" -> "true"
 test("mutants_a_time_overrun_is_non_conclu_and_never_replayed", async () => { // corrections D-5: H1 a test past --timeout-ms, G1 a run past its bound; X1, no overrun, replayed
