@@ -421,7 +421,16 @@ Tronc `lot/etude-suite`. Dernier oracle complet : 1 779 tests, dont 1 776 verts,
     test 42 (151 s au run de #126) dans son propre job s il domine. Porteur : RECHERCHES ; état : ouvert.
   - SENTINEL-SIGTERM-LINUX-1 : `sentinel_run_releases_chainstack_lock_on_sigterm` est sauté sous win32, donc jamais jugé par l oracle
     Windows ; rouge deux fois sur la CI Linux de `recherches/cm-2c` (`d939ec4c`, run `37184209168`), vert sur #126. Demande : 20
-    passes au repos et 20 sous charge sous Linux à `60c481e6` (recherches#135). Porteur : RECHERCHES ; état : ouvert.
+    passes au repos et 20 sous charge sous Linux à `60c481e6` (recherches#135). Porteur : RECHERCHES ; état : clos le 2026-10-04
+    16:5x UTC : vert à `c68451fc` (20/20 au repos, 60/60 sous charge) ; rouge de `d939ec4c` reproduit (9/63 sous charge), base sans
+    `9d6181e0` (SENTINEL-SIGTERM-LOAD-1 : l ancien test envoyait SIGTERM avant le gestionnaire). Rapport RECHERCHES
+    `pieces/2026-10-04-sentinel-sigterm-linux/RAPPORT.md`.
+  - SENTINEL-SIGTERM-STARTUP-WINDOW-1 (nommé au G0 et au G7 de SENTINEL-SIGTERM-LOAD-1, absent d ETAT jusqu ici) : `run.ts` prend le
+    verrou (l.295) avant d installer son gestionnaire de SIGTERM (l.342) ; un SIGTERM dans cette fenêtre tue le processus et laisse le
+    verrou pris. Construction : installer le gestionnaire avant la prise du verrou, test qui envoie SIGTERM dans la fenêtre. Porteur :
+    RECHERCHES (zone ouverte : `apps/sentinel/src/run.ts` et son test) ; déploiement de la sentinelle par MONARK ; état : ouvert.
+  - ADR-CM-AMEND-3-1 : l amendement ADR-CM « 2026-10-04 (3) » (1.1.0) est cité par d autres ADR mais absent du tronc et de la base
+    (Q-4 du G0 de CM-4a-i). Porteur : RECHERCHES, PR de documentation de l étape 7 du plan CM-3c/CM-4 ; état : ouvert.
   - L2-RECV-US-RESOLUTION-1 (PAROXYSME ; Q-4 du G1 de L2-P1-a2) : Node n offre aucune horloge murale à la microseconde ; `recv_us`
     de production vaut `Date.now()*1000` (résolution ms), l ordre fin étant porté par `mono_ns`. Construction qui donne la garantie :
     mesurer la résolution réelle et la dérive de `performance.timeOrigin + performance.now()` contre l horloge de l hôte sur un jour
