@@ -360,6 +360,8 @@ Tronc `lot/etude-suite`. Dernier oracle complet : 1 779 tests, dont 1 776 verts,
     APPROUVE, fusion `728bd6b5` ; journal `docs/G1-lot-probe-badport.md`) : raison `bad_port` avant tout appel, liste recopiée de node
     v24.15.0 avec sa provenance et un test contre la source embarquée ; ADR-NARABI-OPS-1 et RUNBOOK-sentinel amendés. Reste un acte :
     le déploiement sur Bell, sous le go de l investisseur, précédé de la vérification de la liste pour le node de Bell (v24.21.0).
+    **Déployé sur Bell le 2026-10-04 à 06:56:55 UTC** (go « vous avez tous mes GO ») : liste de Bell (node v24.21.0, undici 7.29.1)
+    égale à la copie, 82/82, sha256 `544e409f…` ; fichier `15da93f2…` au sha `728bd6b5`, précédent gardé ; tir simulé sain.
   - PROBE-BADPORT-STATE-1 (Q-4 du G1) : une `PROBE_STATE_URL` sur un port refusé reste `state_unreachable` ; une raison nommée
     changerait l ensemble fermé `state_*` de l ADR-NARABI-OPS-1. Prix : environ 3 lignes et 1 cas. Déclencheur : le prochain changement
     de la sonde ; état : ouvert.
