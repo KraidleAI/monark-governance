@@ -63,7 +63,7 @@ export function assertKataRequest(p: Prediction, params: HarnessParams, cls: Cla
   if (dir ? !(y >= -1 && y <= 1) : !(Number.isFinite(y) && y > 0)) refuse("kata_yhat_domain", `yhat ${String(y)} is outside the domain of '${cls.task_class}' (${dir ? "a lean in [-1, 1]" : "a finite scale > 0"})`);
   if (params.alpha !== Number(cls.alpha)) refuse("policy_alpha_mismatch", `task_class '${cls.task_class}' requires params.alpha = ${String(cls.alpha)}, got ${String(params.alpha)}`);
   if (params.nMin !== cls.n_min) refuse("policy_nmin_mismatch", `task_class '${cls.task_class}' requires params.nMin = ${String(cls.n_min)}, got ${String(params.nMin)}`);
-  if (dir && params.tau > 1) refuse("policy_tau_cap", `task_class '${cls.task_class}' requires params.tau <= 1, got ${String(params.tau)}`);
+  if (dir && !(params.tau <= 1)) refuse("policy_tau_cap", `task_class '${cls.task_class}' requires params.tau <= 1, got ${String(params.tau)}`);
 }
 
 /** The cell lookup (spec sections 9 and 11): the key, then the current row of that key in the class's table, if any. */
