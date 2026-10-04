@@ -536,7 +536,8 @@ test("narabi_live_renders_no_endpoint_url — the parser drops the endpoint URLs
 });
 
 // ── the gate card: size + digest derived at build, class + key bound to the served description ────────────────
-test("narabi_gate_facts_read_from_committed_sources — n_calib and calib_digest are derived from the sha-pinned fixture; class and key equal the served gate description", () => {
+// killer: apps/site/lib/harness-served-load.ts:192 CONST "!existsSync(join(root, HARNESS_PENDING_REL))" -> "false"
+test("narabi_gate_facts_read_from_committed_sources — n_calib and calib_digest are derived from the sha-pinned fixture; class and key equal the served gate description", async () => {
   const calib = loadNarabiCalibration(ROOT);
   assert.equal(calib.nCalib, USDE_STABLE_RUN_CALIB.length, "n_calib = the harness's committed calibration length");
   assert.equal(calib.calibDigest, USDE_STABLE_RUN_CALIB_DIGEST_PINNED, "calib_digest = the harness's pinned digest");
@@ -563,16 +564,21 @@ test("narabi_gate_facts_read_from_committed_sources — n_calib and calib_digest
 
   // Class + key: equal to the harness's committed key AND present in the SERVED description. The served
   // /openapi.json is the generator's compact JSON: its sha256 equals the value the committed deployment conformity
-  // record holds for the served document (docs/deploy-CA-harness.json, check "openapi").
+  // record holds for the served document (docs/deploy-CA-harness.json, check "openapi"); while a pending snapshot exists
+  // (SERVED-PENDING-1, time (i) to (ii) of a block that changes a served surface), the in-process sha256 it carries instead.
   assert.equal(NARABI_SERVED.gate.task_class, USDE_STABLE_RUN_TASK_CLASS, "task_class = the committed calibration class");
   assert.equal(NARABI_SERVED.gate.predictor_id, USDE_STABLE_RUN_PREDICTOR_ID, "predictor_id = the committed calibration key");
   assert.ok(GATE_TOOL_DESCRIPTION.includes(`For '${NARABI_SERVED.gate.task_class}'`), "the served gate description names the class");
   assert.ok(GATE_TOOL_DESCRIPTION.includes(`(key ${NARABI_SERVED.gate.predictor_id})`), "the served gate description names the key");
+  const { loadHarnessPending } = await import("../apps/site/lib/harness-served-load.ts");
+  assert.equal(typeof loadHarnessPending, "function", "the openapi check follows the pending snapshot when one exists");
+  const pending = loadHarnessPending(ROOT);
   const openapi = JSON.stringify(buildOpenApi());
   const ca = JSON.parse(readFileSync(join(ROOT, "docs", "deploy-CA-harness.json"), "utf8")) as { checks: { name: string; sha256: string }[] };
   const servedOpenapi = ca.checks.find((c) => c.name === "openapi");
   assert.ok(servedOpenapi, "the deployment conformity record carries the served openapi check");
-  assert.equal(sha256(openapi), servedOpenapi.sha256, "the committed generator reproduces the served /openapi.json byte for byte (CA record)");
+  if (pending === null) assert.equal(sha256(openapi), servedOpenapi.sha256, "the committed generator reproduces the served /openapi.json byte for byte (CA record)");
+  else assert.equal(sha256(openapi), pending.openapi_sha256, "the committed generator reproduces the pending snapshot's /openapi.json (the served one is older until time (ii))");
   assert.ok(openapi.includes(NARABI_SERVED.gate.task_class) && openapi.includes(NARABI_SERVED.gate.predictor_id), "the served document carries class and key");
   assert.equal(NARABI_SERVED.gate.openapi_sha256, servedOpenapi.sha256, "the committed record was read from the served document the deployment record pins");
 
