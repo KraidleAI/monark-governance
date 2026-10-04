@@ -206,7 +206,7 @@ export default function IntegratorsPage() {
         </div>
       </div>
       <p className="mt-3 max-w-[820px] text-[13px] leading-[1.5] text-muted-foreground">
-        Recorded with the committed fixture class <code className="font-mono">{btc.class_id}</code>:{" "}
+        Recorded with the committed class <code className="font-mono">{btc.class_id}</code>:{" "}
         {btc.clauses.join("; ")}. Supply your own <code className="font-mono">{byoParam}</code> (nonconformity scores) to
         gate your own predictor under your own task class.
       </p>

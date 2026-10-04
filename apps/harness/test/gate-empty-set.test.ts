@@ -84,7 +84,7 @@ test("nonempty_set_verdict_semantics_unchanged", () => {
 // Test E-4 (pin): the L3 order called directly. An empty set region never COMMITs, whatever tau (0, 1, 100),
 // with a large budget and an open clock, and whatever the verdict fields (the D8 verdict or the pre-D8 one):
 // the intent is not in the empty region, so L3 answers ABSTAIN intent_not_in_region (l3-gate.ts l.97-98).
-// killer: packages/hikae/src/l3-gate.ts:97 CONST "!intentInRegion(input.intent, region)" -> "false"
+// killer: packages/hikae/src/l3-gate.ts:101 CONST "!intentInRegion(input.intent, region)" -> "false"
 test("empty_set_never_commits_at_l3", () => {
   const verdictOf = (abstain: boolean, reason: "intent_not_in_region" | "covered"): CoverageVerdict =>
     buildVerdict({

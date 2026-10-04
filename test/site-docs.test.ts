@@ -575,6 +575,7 @@ const honestLimitsParagraphs = (panelSource: string): string[] => {
   const block = /<PanelBlock title="Honest limits" status="built">([\s\S]*?)<\/PanelBlock>/.exec(panelSource)?.[1] ?? "";
   return [...block.matchAll(/<p\b[^>]*>([\s\S]*?)<\/p>/g)].map((m) => (m[1] ?? "").trim());
 };
+// killer: apps/site/lib/fleet.ts:137 CONST "its join is dormant" -> "its join is served"
 test("shogen_served_scope_is_said_on_three_surfaces — one sentence, byte for byte, on MONARK Building, the Shōgen docs page and the Shōgen panel", () => {
   assert.equal(SHOGEN_SERVED_SCOPE, SHOGEN_SCOPE_TEXT, "the sentence is the investor's, byte for byte");
   // C-2 (checkpoint-2): the sentence's state words are not read from the register, so the test couples them to it:
@@ -583,7 +584,9 @@ test("shogen_served_scope_is_said_on_three_surfaces — one sentence, byte for b
   const shogen = FLEET_AGENTS.find((a) => a.name === "Shōgen");
   assert.ok(shogen !== undefined && shogen.status === "built", "the register says Shōgen is built, as the sentence does");
   assert.match(shogen.wiring.served_by, /^MCP attest/, "the register says the served piece is the attest tool, as the sentence does");
-  assert.equal(shogen.wiring.served_by, "MCP attest → gate (the attested envelope key; attested.residual filed into verdict.residual on the served gate)", "any change to the served wiring revisits the sentence (its second half says the full sensor is not served)");
+  // Revisited at CM-2b surfaces: the attest tool is still the served piece (the sentence holds); its join into the gate is
+  // dormant since the attested class was retired, and the register says so.
+  assert.equal(shogen.wiring.served_by, "MCP attest (the attested envelope key of the gate stays declared; its join is dormant since the subject class was retired)", "any change to the served wiring revisits the sentence (its second half says the full sensor is not served)");
   const importsScope = (rel: string): boolean => importsFrom(sourceFile(rel), "@/lib/shogen-copy").includes("SHOGEN_SERVED_SCOPE");
   // (a) MONARK Building: the fleet layer carries it as its note, rendered right after the list of built pieces.
   const roadmap = read(ROADMAP);
@@ -760,4 +763,39 @@ test("docs_research_alone_waives_the_cited_platform_names — MakerDAO and Compo
   assert.match(researchSrc, /siteVocabulary\(root, CITED_FIGURES_WAIVER\);/, "the page passes its constant, unchanged: a wider argument would widen the exception without an ADR line");
   const figureReaders = sources.filter((rel) => /\bloadCommitted\(\s*[\w.()]+\s*\)/.test(read(rel)));
   assert.deepEqual(figureReaders, ["apps/site/app/docs/research/page.tsx"], "only /docs/research reads the committed figures, the one page the waiver covers");
+});
+
+// CM-2b surfaces (G2 of the lot, M5; MONARK's choice in its diff check of CM-2b, §4, then K-6): Shōgen stays built; its integration
+// tests are, first, the h5 probe (it pins the served witness values), then the served attest tests (the HTTP mirror, a real listener
+// under the deploy CA; limit: neither pins the witness values, ATTEST-KATA-SUBJECT-1) and the two unit tests of the dormant join.
+// killer: apps/site/lib/fleet.ts:142 CONST "[\"probe_harness_records_real_decision\", " -> "["
+test("shogen_integration_tests_are_the_served_attest_and_the_join_units", () => {
+  const shogen = FLEET_AGENTS.find((a) => a.name === "Shōgen");
+  assert.ok(shogen !== undefined && shogen.status === "built", "Shōgen stays built");
+  assert.deepEqual(
+    [...shogen.wiring.integration_test].sort(),
+    ["gate_attested_discordant_is_tool_error", "gate_attested_is_frozen_attested_price", "http_mirror_matches_mcp_surface", "probe_harness_records_real_decision", "verify_harness_ca_passes_on_the_in_process_harness"],
+    "the h5 probe, the two served attest integration tests and the two join unit tests",
+  );
+  assert.equal(shogen.wiring.integration_test[0], "probe_harness_records_real_decision", "the h5 probe comes first (K-6): it pins the served witness values");
+});
+
+// C-1 of MONARK's diff check of CM-2b ((b) to (d)): no surface presents the attest -> gate join as live, nor btc-dir-15m as
+// a fixture class the recorded call runs on; each rewritten surface says what is true now.
+// killer: apps/site/lib/docs-pieces.ts:50 CONST "refused today" -> "filed today"
+test("no_surface_presents_the_attest_join_as_live", () => {
+  const surfaces: [string, string, string][] = [
+    ["apps/site/app/roadmap/page.tsx", "its residual carried into the verdict", "its join into the verdict dormant"],
+    ["apps/site/components/docs/schemas/gate.tsx", "The residual of a testimony rides into the verdict", "no served class has one"],
+    ["apps/site/lib/docs-pieces.ts", "its residual filed into the verdict", "refused today: no served class has a subject"],
+    ["apps/site/lib/docs-pieces.ts", "the testimony's residual rides into the verdict", "Its join into the gate's verdict is dormant"],
+    ["apps/site/components/gate-sim/controls.tsx", "Classification task, label schema", "Illustrative bring-your-own classification task"],
+    ["apps/site/app/integrators/page.tsx", "committed fixture class", "Recorded with the committed class"],
+    ["fixtures/PROVENANCE-h5-e2e-trace.md", "the served attest → gate tuyau", "the attest → gate tuyau, dormant since CM-2b"],
+    ["skills/monark/INTEGRATION.md", "two built-in plumbing fixtures", "the built-in plumbing fixture `cascade-liquidable-24h`"],
+  ];
+  for (const [rel, stale, now] of surfaces) {
+    assert.ok(!read(rel).includes(stale), `${rel}: "${stale}" is gone`);
+    assert.ok(read(rel).includes(now), `${rel}: says "${now}"`);
+  }
 });

@@ -196,6 +196,26 @@ C-1 écart base et servi (en tête, B-0) ; C-2 btc-dir déjà retirée (Q-F1, B-
 - **Intention du go 3 du fondateur** (« oui aux 1, 2 et 3 ») : B-10 refuse les imitations ASCII mesurées par MONARK (E1 à E17). Trois précisions, déclarées au G0 (`docs/G0-lot-cm-2c.md`, §Écarts), en font partie : (1) `.` lu `-`, suites de `-` réduites, `-` de bord retirés ; (2) `4` lu `a` pour le seul préfixe de clé `kata:` ; (3) E16 (clé USDe avec `O` pour `0`) refusée comme imitation de la clé commise, non comme une autre population au sens d'A6.
 - **Résidu déclaré** (passe encore, aucun item maintenant) : `|` pour l, S/5, 7/t, 8/b, nn/m, cl/d, z/2 ; séparateurs `+` et `~` ; blancs internes retirés, non lus `-` ; clés `kata-:x`, `kata.:x`, `kata_:x`, `kata;x`, `k@ta:x`.
 
+## Amendement daté 2026-10-03 (nuit, 5) : contrat 1.1.0 (E-13/S-9), B-11, lot CM-3c (source : recherches/cm-3b 58ca01b)
+
+- **Décision du fondateur**, verbatim (2026-10-03) : « Tout passer en 1.1.0. Toutes les empreintes changent, et il faut prévenir les appelants et republier la spécification. »
+- **§3, ligne CM-3, amendée** : « E-13/S-9 ne change ni `schema_version` (1.0.0) ni les empreintes `openapi.json` » ne vaut plus que pour CM-3a et CM-3b. E-13/S-9 devient le lot **CM-3c** (item CONTRACT-1-1-0), qui passe `schema_version` à 1.1.0 et déplace les empreintes.
+- **B-11 (nouveau, CM-3c)** :
+
+| # | Partie | Aujourd'hui | Après |
+|---|---|---|---|
+| B-11 | CM-3c | `schema_version` 1.0.0 ; `method` ∈ {`split`, `hac-cp`} ; pas de raison distincte pour silence, veto, hors support ; q̂ sans unité | `schema_version` 1.1.0 pour tout verdict et toute décision ; `method` gagne `risk-control` ; `COVERAGE_REASONS` gagne `calib_silence`, `calib_vetoed`, `out_of_support` ; champs optionnels `qhat_unit` et `h_star` ; aucune valeur retirée ni renommée. Toutes les empreintes de verdicts, l'épingle du rejeu, `openapi.json` et la description bougent ; un consommateur 1.0.0 refuse une ligne 1.1.0 (schéma fermé) : les appelants sont prévenus |
+
+- **Répartition** : RECHERCHES pour `packages/contracts`, `schemas/**`, les adaptateurs, les épingles et les tests (par exception à R-3, sur cette décision du fondateur, avec contrôle par diff de MONARK) ; MONARK pour la spécification publique (`KraidleAI/monark-kata-spec`), l'export du miroir public, `apps/site`, `apps/bell` et `apps/dojo` s'ils portent `schema_version`, et l'avis aux appelants.
+- **Calendrier** : CM-3c est programmé avec le chemin kata (CM-4), pour que les appelants servis voient un seul changement de format.
+- **Item formé** : CONTRACT-1-1-0 ; propriétaires ci-dessus ; déclencheur : plan de CM-4.
+
+## Amendement daté 2026-10-04 (1) : OPENAPI-ERROR-CODE-1 au §10 (contrôle par diff de MONARK sur CM-2a, C-5) (source : recherches/cm-2a-suite 7e37bb9)
+
+| Item | Propriétaire | Déclencheur |
+|---|---|---|
+| OPENAPI-ERROR-CODE-1 : `openapi.json` décrit le champ `code` du corps d'erreur 400 (liste fermée `HARNESS_ERROR_CODES`) et le 500 `output_invalid` ; prix : environ 60 lignes (code d'`openapi.ts` et son test), empreinte d'`openapi.json` déplacée | RECHERCHES | avec CM-3c et CM-4 (une seule nouvelle empreinte d'`openapi.json` et une seule version datée de la spécification publique) |
+
 ## Amendement daté 2026-10-04 (2) : contrôle par diff de MONARK sur CM-2c (source : recherches/cm-2c 136e029c)
 
 - **Source** : rapport de MONARK `recherches:coordination/pieces/2026-10-04-controles-107-112/cm2c-RAPPORT.md` (sha256 `e1215864…52fa`), verdict APPROUVE-AVEC-CORRECTIONS. Ici, « l'amendement (nuit, 4) » désigne seulement celui de ce lot, « (nuit, 4) : précisions de B-10 (CM-2c) ».
