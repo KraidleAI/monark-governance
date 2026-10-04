@@ -125,6 +125,8 @@ fois sur la ligne citée, ligne au-dessus d'une déclaration) : 22/22. Aucune li
   - `test/red-proof.test.ts` : **24/24**. Le rouge préexistant noté plus haut sous Node 22 (`vi_hangs`) ne se produit pas sous Node 24.
   - `tsc --noEmit` vert ; eslint vert ; `lint:ratchet` 69/69 ; `gate:vocab` OK.
   - Les 24 lignes `// killer:` sont relues contre le script : 24/24.
+  - `test/mutants-run.test.ts` (qui importe `DENY`) : 42/43. Il échoue sur `mutants_a_live_waiter_ahead_passes_first_then_the_run_goes_on`,
+    qui est **déjà rouge au tronc `dbdc8433`** sur cet hôte, rejoué seul. Le lot ne touche ni `scripts/mutants/` ni ce test.
 - **R-25** contre `dbdc8433` (`r25()`) : +125/−11, **136 lignes comptées**, sous 547.
 - **Non mesuré sous Windows (à confirmer par MONARK)** :
   - **Q-RPJ-5** : la forme que donne Git pour Windows à la jonction `wt4/linked` dans `ls-files --others --exclude-standard -z`. Les
