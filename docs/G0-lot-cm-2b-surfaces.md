@@ -45,3 +45,13 @@ R-25 contre `2abe801` : 379 lignes comptées (18 fichiers, +197/−182 ; borne 5
 ## Mesures (gel `cd4b534`)
 
 `red-proof --base 2abe801 --gel cd4b534 --repo /home/user/monark-governance --draw 6 --seed 17` : OK, 9 jugés F2P, 6 tueurs tirés, 6 tués. Harnais 126/126. `npm test` : 1 955 tests, 1 930 verts, 22 ignorés, 3 échecs : `bell-served.test.ts:153` (clone superficiel) et les deux rouges du temps (ii) ci-dessus. Une première suite complète avait en plus le test 42 d'export et `sentinel_run_releases_chainstack_lock_on_sigterm` (charge), absents à la seconde.
+
+## G2 (instance neuve) : APPROUVE-AVEC-CORRECTIONS, pliée
+
+- Constats : trace h5 ré-enregistrée hors ligne octet pour octet ; entrées du manifeste exactes ; seuls les fichiers permis touchés.
+- (1) `scripts/verify-harness.mjs` exporte `GATE_BODY` ; `scripts/sync-harness-served.mjs` l'importe au lieu d'une copie (tue M2).
+- (2) En-tête de `test/h5-e2e-probe.test.ts` : la clé USDe commise rend commit/covered ; btc-dir retirée (l'étape 7 montre le refus).
+- (3) `test/site-docs.test.ts` `shogen_integration_tests_are_the_served_attest_and_the_join_units` : épingle les trois tests de Shōgen (tue M5 ; `probe_harness_records_real_decision` reste provisoire jusqu'au choix de MONARK).
+- (4) `test/skills.test.ts` `skill_states_the_retired_class_and_the_usde_policy` : `task_class_retired` et α/nMin de la clé USDe lus dans `class-policy.ts` (tue M4, M6).
+- Cause précise de `narabi_gate_facts_read_from_committed_sources` : `docs/deploy-CA-harness.json` porte l'empreinte d'`openapi` `9e3176…` (servi d'avant CM-2b) contre `fc746a6…` en processus ; ce fichier n'est réécrit qu'au déploiement (temps (ii)).
+- Après la G2 : `red-proof --base 2abe801 --gel 3fb4413 --repo /home/user/monark-governance --draw 9 --seed 23` OK (11 jugés F2P, 9 tueurs tirés, 9 tués) ; harnais 126/126 ; R-25 : 19 fichiers, +225/−188, soit 413 lignes comptées (borne 547).
