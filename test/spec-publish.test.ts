@@ -181,7 +181,7 @@ test("the_previous_tree_must_be_the_clean_top_of_its_commit_and_nothing_publishe
   assert.deepEqual(codes(problems(at(head, entries))), ["previous_dirty"]);
 });
 
-// killer: scripts/spec-publish.mjs:93 CONST "/^G[0-7]$/" -> "/^G[0-6]$/"
+// killer: scripts/spec-publish.mjs:93 CONST "/^G[0-7]$/" -> "/^G[1-7]$/"
 test("vocabulary_gate_is_the_public_free_text_gate_with_closed_exceptions", async () => {
   const m = await api(), rules = (t: string, withheld?: string[]): string[] => [...new Set(m.vocabularyHits(t, withheld).map((h) => h.rule))];
   const e = String.fromCharCode(0xe9), wide = (s: string): string => [...s].map((ch) => String.fromCharCode(ch.charCodeAt(0) + 0xfee0)).join("");
