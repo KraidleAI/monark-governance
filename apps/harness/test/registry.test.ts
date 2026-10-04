@@ -192,7 +192,7 @@ test("harness_tool_descriptions_pass_vocab", async () => {
 // apps/harness/src, invisible to the static CLI) => red here.
 // CM-2b (ADR-CM B-5): btc-dir-15m is retired, so its carrier is no longer served: the call is a tool error with the
 // stable code, and the gate reaches five distinct honesty branches.
-// killer: apps/harness/src/tools/gate.ts:883 CONST "\"task_class_retired\"" -> "\"task_class_unknown\""
+// killer: apps/harness/src/tools/gate.ts:927 CONST "\"task_class_retired\"" -> "\"task_class_unknown\""
 test("harness_served_honesty_carriers_pass_vocab", async () => {
   const config = JSON.parse(readFileSync(VOCAB_PATH, "utf8")) as VocabConfig;
   const patterns = [...compilePatterns(config.banned), ...compilePatterns(config.scan.harness.banned)];

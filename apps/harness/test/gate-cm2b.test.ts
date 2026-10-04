@@ -65,7 +65,7 @@ async function http(body: unknown): Promise<{ status: number; text: string }> {
 
 // Test R-1 (F2P, B-5): btc-dir-15m without BYO is a 400 task_class_retired (direct, HTTP, MCP); its BYO refusals are
 // unchanged byte for byte; the known: list and the description no longer serve it.
-// killer: apps/harness/src/tools/gate.ts:883 SDL "throw new HarnessToolError(BTC_DIR_RETIRED_MESSAGE, \"task_class_retired\");" -> ""
+// killer: apps/harness/src/tools/gate.ts:927 SDL "throw new HarnessToolError(BTC_DIR_RETIRED_MESSAGE, \"task_class_retired\");" -> ""
 test("btc_dir_is_retired_with_a_named_400", async () => {
   const btc = pred("btc-dir-15m", "up", "internal:momentum-4c");
   for (const p of [PARAMS, { ...PARAMS, alpha: 0.0464, intent: "up" }]) {
@@ -146,7 +146,7 @@ function scaled(x: number): { n: bigint; ulp: bigint } {
 // Test R-3 (F2P, B-7): the USDe served text states the half-ulp edge; on a grid of yhat each served edge is the nearest
 // double of the exact yhat -/+ qhat (|edge - exact| <= ulp(edge)/2, exact rational in BigInt); the band and the
 // decisions are byte-identical to the base (replay digest measured at f3b330c).
-// killer: apps/harness/src/tools/gate.ts:128 CONST "half a unit in the last place" -> "one unit in the last place"
+// killer: apps/harness/src/tools/gate.ts:129 CONST "half a unit in the last place" -> "one unit in the last place"
 test("usde_band_edges_within_half_ulp_stated_and_band_unchanged", () => {
   const clause =
     "each band edge is yhat - qhat or yhat + qhat rounded to the nearest double, so it can differ from the exact edge " +
@@ -181,7 +181,7 @@ test("usde_band_edges_within_half_ulp_stated_and_band_unchanged", () => {
 // passes the consistency guard (no attested_inconsistent) and meets the retirement (400 task_class_retired), through the
 // registry run(). No served class has a committed subject, so the residual seam is not reached on the served surface
 // (dormant chain, ADR-CM amendment "nuit, 3"). The witness pin stays; the registry still threads env.attested.
-// killer: apps/harness/src/tools/gate.ts:883 CONST "\"task_class_retired\"" -> "\"task_class_unknown\""
+// killer: apps/harness/src/tools/gate.ts:927 CONST "\"task_class_retired\"" -> "\"task_class_unknown\""
 test("attested_concordant_meets_the_btc_dir_retirement", () => {
   const gateTool = HARNESS_TOOLS.find((t) => t.name === "gate");
   assert.ok(gateTool, "the gate tool is registered");

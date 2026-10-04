@@ -31,7 +31,7 @@ function refusal(fn: () => unknown): string {
   return assert.fail("expected a refusal, the call decided");
 }
 
-// killer: apps/harness/src/tools/gate.ts:321 CONST "\"param_invalid\");" -> "\"byo_calibration_invalid\");"
+// killer: apps/harness/src/tools/gate.ts:322 CONST "\"param_invalid\");" -> "\"byo_calibration_invalid\");"
 test("every_refusal_site_pins_its_code_and_the_stale_registry_comment_is_gone", async () => {
   // C-6: the liq honesty comment no longer says the registry is empty (s0 is committed).
   const src = readFileSync(new URL("../src/tools/gate.ts", import.meta.url), "utf8");

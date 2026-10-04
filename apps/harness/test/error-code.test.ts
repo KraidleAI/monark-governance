@@ -25,7 +25,7 @@ import { USDE_STABLE_RUN_PREDICTOR_ID } from "../src/calibration.ts";
 const CODES = [
   "param_invalid", "schema_version_unsupported", "byo_calibration_invalid", "byo_yhat_type", "byo_set_tau_cap",
   "yhat_type_mismatch", "liq_yhat_domain", "attested_inconsistent", "task_class_unknown", "byo_overrides_committed",
-  "byo_edge_blank", "byo_lookalike_committed", "byo_reserved_kata",
+  "byo_edge_blank", "byo_lookalike_committed", "byo_reserved_kata", "byo_lookalike_confusable",
   "produced_at_invalid", "produced_at_future", "output_invalid",
   "policy_alpha_mismatch", "policy_nmin_mismatch", "task_class_retired",
   "attest_refused", "calibrate_input_invalid", "cascade_input_invalid", "ukemi_predict_input_invalid",
@@ -88,7 +88,7 @@ async function mcpToolsCall(name: string, args: Obj): Promise<Obj> {
 }
 
 // Test E-1 (F2P): the codes are a closed list, pinned in order (snake_case, unique).
-// killer: apps/harness/src/tools/gate.ts:272 CONST "byo_set_tau_cap" -> "byo_tau_cap"
+// killer: apps/harness/src/tools/gate.ts:273 CONST "byo_set_tau_cap" -> "byo_tau_cap"
 test("harness_error_codes_are_a_closed_pinned_list", () => {
   const listed = (gateModule as Record<string, unknown>)["HARNESS_ERROR_CODES"];
   assert.deepEqual(listed, CODES, "HARNESS_ERROR_CODES is the pinned closed list");
@@ -129,7 +129,7 @@ function callArgs(src: string, open: number): string[] {
 }
 
 // Test E-2 (F2P): every `new HarnessToolError(` in apps/harness/src names a code; a literal code is in the list.
-// killer: apps/harness/src/tools/gate.ts:315 CONST "\"param_invalid\");" -> ");"
+// killer: apps/harness/src/tools/gate.ts:316 CONST "\"param_invalid\");" -> ");"
 test("every_harness_tool_error_names_a_code", () => {
   const SRC = fileURLToPath(new URL("../src", import.meta.url));
   const walk = (dir: string): string[] =>
@@ -153,7 +153,7 @@ test("every_harness_tool_error_names_a_code", () => {
 });
 
 // Test E-3 (F2P): each refusal path of runGate carries its code; the four liq messages stay byte-identical.
-// killer: apps/harness/src/tools/gate.ts:758 CONST "code: \"byo_reserved_kata\"" -> "code: \"byo_lookalike_committed\""
+// killer: apps/harness/src/tools/gate.ts:797 CONST "code: \"byo_reserved_kata\"" -> "code: \"byo_lookalike_committed\""
 test("gate_refusals_carry_their_code", () => {
   const cases: [string, () => unknown, string][] = [
     ["nMin 0", () => runGate(pred("btc-dir-15m", "up"), { ...PARAMS, nMin: 0 }), "param_invalid"],

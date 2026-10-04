@@ -65,7 +65,7 @@ Prêt pour le contrôle par diff de MONARK, à fusionner avec #106. Temps (ii) a
 ### Oracle
 
 - `node scripts/red-proof.mjs --base 330dbe40 --gel d7f52706 --repo /home/user/monark-governance --draw 6 --seed 37` : **OK**, 13 tests jugés F2P, 6 tueurs tirés, 6 tués.
-- `verifie-ancres.mjs` (refs base, cm-2b, cm-2a-suite, cm-2b-surfaces) : tueurs 555, ANCRE 546, DERIVE 0, PERDU 9 (les 9 préexistants de la base), comme le plan.
+- `verifie-ancres.mjs` (refs base, cm-2b, cm-2a-suite, et la tête d'avant la suite `968bae6e` ; la ref `cm-2b-surfaces` poussée vaut le gel et rendrait DERIVE auto-confirmant) : tueurs 555, ANCRE 546, DERIVE 0, PERDU 9 (les 9 préexistants de la base), comme le plan. Mesure refaite à la G2 de la suite (m-2).
 - `tsc --noEmit`, `gate:vocab`, `lint:ratchet` 69/69, `lang:gate` : verts.
 - Fichiers touchés et voisins (`h5-e2e-probe`, `harness-served`, `site-docs`, `verify-harness-liq`, `skills`, `site-build-fleet`, `gate-cm2b`, `narabi-live`, `site-ukemi`, `ci-gates`, `error-code-sites`, `gate-liq`, `http`) : 221 tests, 219 verts. `probe_harness_records_real_decision` repasse au vert. Restent les deux rouges du temps (ii) : `harness_served_data_matches_in_process_harness` et `narabi_gate_facts_read_from_committed_sources` (`openapi` servi `9e3176ea…` contre `d605b912…` en processus).
-- R-25 par `r25()` contre `330dbe4` : **406 lignes comptées** (+251/−155 ; borne 547) ; 384 avant la suite. Le plan attendait 387 : les 19 lignes de plus sont les retouches de MONARK sur #110 et #111 et les commentaires réécrits de K-6.
+- R-25 par `r25()` contre `330dbe4` : **406 lignes comptées** (+251/−155 ; borne 547) ; 384 avant la suite. Le « 387 » du plan était un compte net (+3) ; `r25()` compte insertions et suppressions, les deux chiffres ne se comparent donc pas (m-3 de la G2). La suite compte 22 lignes (406 − 384) : les retouches de MONARK sur #110 et #111, les commentaires réécrits de K-6, C-2 et les épingles.
