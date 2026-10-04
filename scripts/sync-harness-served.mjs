@@ -42,7 +42,7 @@ import {
 } from "../apps/harness/src/tools/gate.ts";
 import { DEMONSTRATIVE_LABEL } from "../packages/monark/src/adapter-shogen.ts";
 // The one declared text rule (internal reference tokens in parentheses removed), shared with the site loader and its test.
-import { stripRefs } from "../apps/site/lib/harness-served-load.ts";
+import { SHAPES, stripRefs } from "../apps/site/lib/harness-served-load.ts";
 // The deploy check's gate body, imported (never a copy), so the two cannot drift before deployment (G2 of CM-2b surfaces, M2).
 import { GATE_BODY } from "./verify-harness.mjs";
 import { handleJsonMirror } from "../apps/harness/src/http.ts";
@@ -253,10 +253,10 @@ export function shapesFrom({ health, openapi, list, gateCall, liqCall, calCall, 
   };
 }
 
-/** The shared fields (and the /openapi.json sha256) on which a new served snapshot differs from the pending one (pure). */
+/** The shared fields (the loader's fixed SHAPES list, and the /openapi.json sha256) on which a new served snapshot differs from the pending one, plus any key or schema a pending snapshot may not carry (pure). */
 export function pendingDiff(served, pending) {
-  const keys = Object.keys(pending).filter((k) => !["$comment", "schema", "written_at", "openapi_sha256"].includes(k));
-  const drift = keys.filter((k) => JSON.stringify(served[k]) !== JSON.stringify(pending[k]));
+  const known = ["$comment", "schema", "written_at", ...SHAPES, "openapi_sha256"], unknown = Object.keys(pending).filter((k) => !known.includes(k));
+  const drift = [...(pending.schema === "monark-site-harness-pending-v1" ? [] : ["schema"]), ...SHAPES.filter((k) => JSON.stringify(served[k]) !== JSON.stringify(pending[k])), ...unknown];
   return served.bodies_sha256?.["/openapi.json"] === pending.openapi_sha256 ? drift : [...drift, "openapi_sha256"];
 }
 
@@ -286,7 +286,7 @@ export function markPendingSince(text, day) {
 async function pendingMain() {
   const pending = await inProcessPending(new Date().toISOString());
   const marked = markPendingSince(readFileSync(join(ROOT, OUT_REL), "utf8"), pending.written_at.slice(0, 10));
-  emit(PENDING_REL, pending, null, `version ${pending.version}, in process`);
+  emit(PENDING_REL, pending, null, `version ${pending.version}, in process; re-pin its manifest entry, a new written_at on every --pending`);
   writeFileSync(join(ROOT, OUT_REL), marked);
   console.log(`sync-harness-served OK — pending_since set in ${OUT_REL}; manifest sha256 (CRLF->LF): ${sha256(Buffer.from(marked.replace(/\r\n/g, "\n"), "utf8"))}; re-pin it in test/harness-served.test.ts`);
 }

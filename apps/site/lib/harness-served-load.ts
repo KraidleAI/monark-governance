@@ -110,7 +110,7 @@ export interface HarnessShapes {
   byo_clause: string;
   attest: { label: string; hypotheses: string[]; channel: string; verifier_rev: string; observed_instant: number };
 }
-const SHAPES = ["version", "api", "tools", "gate_request", "calibrate_contract", "response_required", "bounds", "refusal", "honesty", "classes", "byo_clause", "attest"];
+export const SHAPES = ["version", "api", "tools", "gate_request", "calibrate_contract", "response_required", "bounds", "refusal", "honesty", "classes", "byo_clause", "attest"];
 export interface HarnessServed extends HarnessShapes {
   read_at: string;
   mcp: { url: string; remote_type: string; server_name: string };
@@ -178,7 +178,7 @@ function servedFile(root: string): { out: HarnessServed; pendingSince: string | 
   if (![new URL(out.api.url).host, new URL(out.mcp.url).host].includes(out.deploy_check.tls_host)) fail("the TLS host of the deploy check is neither the api host nor the MCP host");
   return { out, pendingSince: d.pending_since === undefined ? undefined : str(d.pending_since, /^\d{4}-\d{2}-\d{2}$/, "pending_since") };
 }
-/** The served facts the pages render (pending_since is admitted on the file, never returned). */
+/** The served facts the pages render (pending_since is admitted on the file, never returned; its iff with a pending snapshot is checked by loadHarnessPending, which the trace loaders and the in-process pin call). */
 export function loadHarnessServed(root: string): HarnessServed {
   return servedFile(root).out;
 }

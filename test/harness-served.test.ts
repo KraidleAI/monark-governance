@@ -401,19 +401,28 @@ test("harness_pending_snapshot_is_fail_closed", async () => {
   }
 });
 
+/** Two staged next harnesses that differ from the served one: the /calibrate result requires one more key (pending), the
+ *  /gate params require one more param (nextGate); marked = the served snapshot carrying pending_since. */
+function nextShapes(): { served: Rec; marked: Rec; pending: Rec; nextGate: Rec } {
+  const served = servedJson(), base = currentPending();
+  const cal = served.calibrate_contract as { request: Rec; result: { required: string[]; optional: string[] } };
+  const g = served.gate_request as { params: Rec[] };
+  return {
+    served, marked: { ...served, pending_since: "2026-10-04" },
+    pending: { ...base, calibrate_contract: { ...cal, result: { ...cal.result, required: [...cal.result.required, "n_scores"] } } },
+    nextGate: { ...base, gate_request: { ...g, params: [...g.params, { name: "lane", type: "string", required: true, text: "a param the next harness requires" }] } },
+  };
+}
+
 // killer: apps/site/lib/harness-served-load.ts:293 CONST "loadHarnessPending(root) ?? loadHarnessServed(root)" -> "loadHarnessServed(root)"
 test("trace_loaders_follow_the_pending_snapshot_only", () => {
   // Q-SP1-2: while a pending snapshot exists, a recorded payload follows IT alone (a trace still on the served shapes is a
   // trace not re-recorded). The pending /calibrate result requires one more key; the re-recorded loop carries it.
-  const served = servedJson(), marked = { ...served, pending_since: "2026-10-04" }, base = currentPending();
-  const cal = served.calibrate_contract as { request: Rec; result: { required: string[]; optional: string[] } };
-  const pending = { ...base, calibrate_contract: { ...cal, result: { ...cal.result, required: [...cal.result.required, "n_scores"] } } };
+  const { marked, pending, nextGate } = nextShapes();
   const rerecorded = JSON.parse(read(BYO_TRACE_REL)) as { steps: { label?: string; response?: { structuredContent?: Rec } }[] };
   const sc = rerecorded.steps.find((x) => x.label === "calibrate")?.response?.structuredContent;
   assert.ok(sc !== undefined, "the BYO loop carries a calibrate result");
   sc.n_scores = 10;
-  const g = served.gate_request as { params: Rec[] };
-  const nextGate = { ...base, gate_request: { ...g, params: [...g.params, { name: "lane", type: "string", required: true, text: "a param the next harness requires" }] } };
   const cases: [Record<string, Rec>, (root: string) => unknown, RegExp | null, string][] = [
     [{ [HARNESS_SERVED_REL]: marked, [PENDING_REL]: pending }, loadByoTrace, /calibrate (?:request|result) does not match its schema/, "killer: a BYO loop whose calibrate follows the served snapshot and not the pending one reds"],
     [{ [HARNESS_SERVED_REL]: marked, [PENDING_REL]: pending, [BYO_TRACE_REL]: rerecorded }, loadByoTrace, null, "a BYO loop re-recorded on the pending shapes loads"],
@@ -428,6 +437,24 @@ test("trace_loaders_follow_the_pending_snapshot_only", () => {
     } finally {
       unstage(t);
     }
+  }
+});
+
+// killer: apps/site/lib/harness-served-load.ts:183 CONST "servedFile(root).out" -> "{ ...servedFile(root).out, ...loadHarnessPending(root) }"
+test("harness_pages_keep_the_served_snapshot_while_pending", () => {
+  // Q-SP1-2 (MONARK took the opposite of the letter of plan r3 §8.5; G2 B1): the pages read the served snapshot alone. A
+  // pending snapshot whose /gate request AND /calibrate contract differ from the served ones changes the traces, never them.
+  const { marked, pending, nextGate } = nextShapes(), next: Rec = { ...pending, gate_request: nextGate.gate_request }, pages = loadHarnessServed(ROOT);
+  assert.notDeepEqual([next.gate_request, next.calibrate_contract], [pages.gate_request, pages.calibrate_contract], "staging: the pending /gate request and /calibrate contract differ from the served ones");
+  const t = stage({ [HARNESS_SERVED_REL]: marked, [PENDING_REL]: next });
+  try {
+    let got: ReturnType<typeof loadHarnessServed> | undefined;
+    assert.doesNotThrow(() => { got = loadHarnessServed(t); }, "pending_since is admitted on the served snapshot");
+    assert.deepEqual([got?.gate_request, got?.calibrate_contract], [pages.gate_request, pages.calibrate_contract], "killer: the pages keep the served /gate request and /calibrate contract while a pending snapshot exists");
+    assert.deepEqual(got, pages, "the pages read the same served projection");
+    assert.throws(() => loadH5Trace(t), /request params does not match its schema/, "control: the traces follow the staged pending snapshot");
+  } finally {
+    unstage(t);
   }
 });
 
@@ -452,6 +479,21 @@ test("harness_pending_sync_writes_in_process_shapes", async () => {
   } finally {
     unstage(t);
   }
+});
+
+// killer: scripts/sync-harness-served.mjs:259 CONST "SHAPES.filter" -> "Object.keys(pending).filter"
+test("harness_pending_promotion_compares_the_fixed_fields", async () => {
+  // G2 m1: promotion compares the loader's fixed shared-field list (SHAPES), never the pending file's own keys, so a
+  // hand-edited pending snapshot missing a field, carrying a foreign key or under another schema cannot promote.
+  const sync = (await import("../scripts/sync-harness-served.mjs")) as unknown as { pendingDiff?: (served: Rec, pending: Rec) => string[] };
+  assert.equal(typeof sync.pendingDiff, "function", "the sync compares a promotion with the pending snapshot (SERVED-PENDING-1)");
+  const diff = sync.pendingDiff as (served: Rec, pending: Rec) => string[];
+  const served = servedJson(), pending = pendingOf(served), next = { ...served, gate_request: nextShapes().nextGate.gate_request };
+  const truncated = Object.fromEntries(Object.entries(pending).filter(([k]) => k !== "gate_request" && k !== "calibrate_contract"));
+  assert.deepEqual(diff(served, pending), [], "control: a served snapshot equal to the pending one is promoted");
+  assert.deepEqual(diff(next, truncated), ["gate_request", "calibrate_contract"], "killer: a pending snapshot missing gate_request and calibrate_contract cannot promote a served snapshot whose /gate request changed");
+  assert.deepEqual(diff(served, { ...pending, read_at: served.read_at }), ["read_at"], "a pending snapshot carrying a key it may not carry cannot promote");
+  assert.deepEqual(diff(served, { ...pending, schema: "monark-site-harness-served-v1" }), ["schema"], "a pending snapshot under another schema cannot promote");
 });
 
 /**
