@@ -614,21 +614,31 @@ Tronc `lot/etude-suite`. Dernier oracle complet : 1 779 tests, dont 1 776 verts,
     publication sans `request` pendant une requête de bouclage tenue ouverte). Source : `bnpre/corr/CORR.md` l.91,
     `bnpre/g2/G2-RAPPORT.md` l.105, `bnpre/rr/G2-RAPPORT.rr.md` l.70 (O-1). Déclencheur : le prochain lot qui touche
     `scripts/record-binance-klines.mjs` ; prix : une ligne et un cas ; état : ouvert.
+    **Clos le 2026-10-04** par le lot BINANCE-PRE35-1 (PR #115, fusion au tronc `c5c700b8`, oracle vert, 2 096 tests).
   - SERIES-TLS-RESUME-1 (nom proposé ; PAROXYSME, limite L-1 de BINANCE-PRE153-1) : la lignée d'une session TLS reprise est déduite de
     la politique du cache de sessions d'undici (source lue, mesurée), jamais montrée par la connexion. Construction qui donne la
     garantie : couper la reprise (`maxCachedSessions: 0`), ce qui exige un répartiteur propre, hors du `fetch` par défaut (paquet
     `undici` : R-8 ; ou `https.request` de node). Source : `bnpre/G1.md` l.118 (Q-BNPRE-5) et l.130. Déclencheur : avant la course des
     35 ; prix : environ 15 lignes et le test adapté ; état : ouvert.
+    **Clos le 2026-10-04** par le lot BINANCE-PRE35-1 (PR #115, fusion au tronc `c5c700b8`, oracle vert, 2 096 tests).
   - SERIES-ENV-VALUES-1 (nom proposé ; PAROXYSME, limite L-2 de BINANCE-PRE153-1) : les valeurs des douze noms admis ne sont jamais
     lues ; un `SYSTEMROOT` ou un `WINDIR` qui pointe ailleurs passerait (des chemins de fournisseurs Winsock s'en déduisent sous
     Windows : non mesuré). Construction : une forme fermée des valeurs (`SYSTEMROOT` = `WINDIR`, chemins absolus ; `PATH` fait de
     chemins absolus), valeurs jamais imprimées. Source : `bnpre/G1.md` l.131. Déclencheur : avant la course des 35 ; prix : environ 6
     lignes et 2 cas ; état : ouvert.
+    **Clos le 2026-10-04** par le lot BINANCE-PRE35-1 (PR #115, fusion au tronc `c5c700b8`, oracle vert, 2 096 tests).
   - SERIES-TLS-ISSUER-BY-NAME-1 (nom proposé ; mesure, O-1 du correcteur de BINANCE-PRE153-1) : dans un processus qui a confié deux AC
     de même nom sans identifiants de clé, `issuer_sha256` d'une feuille servie seule a nommé l'autre AC (mécanisme non lu : source C++
     de node absente de l'hôte ; effet sur une chaîne de production non mesuré). Construction : une sonde de bouclage (feuille et
     intermédiaire avec identifiants de clé, puis feuille seule, deux racines de même nom confiées) qui mesure l'émetteur journalisé.
     Source : `bnpre/corr/CORR.md` l.103. Déclencheur : avant la course des 35 ; prix : une sonde, aucune ligne du lot ; état : ouvert.
+    **Clos le 2026-10-04** par le lot BINANCE-PRE35-1 (PR #115, fusion au tronc `c5c700b8`, oracle vert, 2 096 tests).
+  - SERIES-ENV-PROVENANCE-1 (PAROXYSME ; F-5 de la G2 de MONARK sur #115) : la forme fermée de SERIES-ENV-VALUES-1 contrôle la forme
+    des valeurs, pas leur provenance : `SYSTEMROOT` = `WINDIR` = tout dossier absolu passe. Construction à chercher : les lier au dossier
+    Windows que rapporte le système, sans code natif. Propriétaire : RECHERCHES (recherche et mesure sur l hôte win32), report ici par
+    MONARK ; source : `docs/G7-lot-binance-pre35-1.md` l.193-202. Déclencheur : le prochain lot qui touche la garde d environnement
+    d un enregistreur, ou la première course sur un autre hôte que celui des 35. Prix : une sonde hors réseau sur win32, environ une
+    demi-session ; si une source sans code natif tient, environ 4 lignes et 1 cas. État : ouvert.
   - Clos dans ces lots, preuves au recensement : COINBASE-WITNESS-ONLY-PAGE-1 (formé au G1, `cbedges/G1.md` l.333-337 ; clos par la
     règle de RECHERCHES, `record-coinbase-candles.mjs` l.293-294 et l.325, tests l.851 et l.863), SERIES-STATUS-FIRST-LOG-1 (nom proposé
     par la G2, G2-BNPRE-5 ; sans objet par la ligne d'arrivée, l.233-235, test l.1094) ; et à leur place : partie Binance de
