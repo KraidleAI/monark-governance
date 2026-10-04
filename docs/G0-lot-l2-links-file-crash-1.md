@@ -16,7 +16,7 @@ red-proof: test-only
 
 ## Règle
 
-1. **Témoin** : `test/helpers/keep-cause.ts` exporte `keepCause(file)`, appelé au chargement avant tout autre travail du fichier. Il écrit sur **stdout**, que le lanceur lit jusqu à sa fin, des lignes `# keep-cause <file>: ...`. Le rapporteur `spec` les imprime telles quelles.
+1. **Témoin** : `test/helpers/keep-cause.ts` exporte `keepCause(file)`, appelé au chargement avant tout autre travail du fichier, mais après l évaluation de ses imports statiques : une erreur levée pendant cette évaluation n a aucun témoin et reste sur stderr seul (revue G2, m-4). Il écrit sur **stdout**, que le lanceur lit jusqu à sa fin, des lignes `# keep-cause <file>: ...`. Le rapporteur `spec` les imprime telles quelles.
    - Chaque exception non attrapée, et chaque rejet que nul écouteur ne prend, est écrit par `uncaughtExceptionMonitor`, avec l étape en cours : `load`, `test "<nom>"` ou `between tests`. Un moniteur ne change rien à la suite : le harnais rapporte l erreur comme avant.
    - À une sortie non nulle, il écrit le code, l étape, et le nombre de tests commencés et finis.
    - Rien n est écrit pour un fichier vert. L écriture va droit au fd 1 quand rien n est en file (un gestionnaire de sortie n a plus de tour de boucle), sinon elle se met en file derrière les rapports.

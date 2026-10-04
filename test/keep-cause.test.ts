@@ -27,8 +27,8 @@ function run(body: string): { lines: string[]; status: number | null } {
 
 // killer: test/helpers/keep-cause.ts:36 CONST "${origin} during ${step}" -> "${origin}"
 test("keep_cause_a_throw_at_load_reaches_stdout", () => {
-  const r = run(`throw new Error("boom at load");`); // the harness, still booting, throws it again: exit 7, no exit event (harness.js:124)
-  assert.deepEqual([r.status, r.lines], [7, ["fixture: unhandledRejection during load: Error: boom at load"]], "the cause on stdout, stderr gone");
+  const r = run(`throw new Error("boom at load");`); // Node 24.21.0 rethrows it from the booting harness (exit 7, origin unhandledRejection): neither is pinned
+  assert.deepEqual([r.status !== 0, r.lines.some((l) => /^fixture: (uncaughtException|unhandledRejection) during load: Error: boom at load$/.test(l))], [true, true], "the cause on stdout, stderr gone");
 });
 
 // killer: test/helpers/keep-cause.ts:32 CONST "begun += 1" -> "begun += 0"

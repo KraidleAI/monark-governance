@@ -136,6 +136,15 @@ On lit la cause au texte de la faute ou à une ligne `# keep-cause test/l2-links
 - **R-25** (`scripts/oracle/r25.mjs`, `050da36d...HEAD`) :
   - STAT : +103/−5, **108 lignes** (sous 547 ; borne de la CI 1205) ;
   - CONTENT_STAT : 0.
+- **Après la fusion `895c5dc4`, contre la base de la PR `318a3238`** (`origin/lot/etude-suite`, revue G2, m-3). La plage `050da36d...HEAD` vaut désormais 409 lignes, puisque la fusion de #129 y entre ; elle ne mesure plus le lot.
+  - **Red-proof** : `node scripts/red-proof.mjs --test-only --base 318a3238 --gel /home/user/monark-governance-llc --repo /home/user/monark-governance-llc --seed 37` donne **OK**, exit 0. Rejoué sur l arbre du pli G2, code et tests finaux. `--seed` est sans effet en `--test-only` (aucun tirage).
+    - 5 tests jugés, 12 inchangés, 0 tueur tiré ; `files.production` est vide, `files.removed` aussi.
+    - Les 5 tests de `test/keep-cause.test.ts` sont `pinned`. Les 5 tueurs du G0 sont **tués** : `keep-cause.ts` lignes 36, 32, 38 (deux tueurs) et 17.
+    - `RED-PROOF.json` : sha256 `ceb9107b067f…`, digest de l arbre `09246d457bdb…`.
+  - **R-25** (`scripts/oracle/r25.mjs`, `318a3238...HEAD`) : STAT +103/−5, **108 lignes**, sous 547 et sous la borne de la CI 1205 ; CONTENT_STAT : 0. Le diff du lot est identique à celui mesuré sur `050da36d`.
+  - **`git diff --shortstat 318a3238 HEAD`** (docs compris) : 5 fichiers, 372 insertions, 5 suppressions ; hors `docs/`, 3 fichiers, 103 insertions, 5 suppressions, soit les 108 de R-25.
+
+- **Point non épinglé : `setBlocking(true)`** (`test/helpers/keep-cause.ts:34`, commit `79f63392`, revue G2, m-2). Aucun test ne le tient : la mutation `?.(true)` vers `?.(false)` laisse les 5 tests de `keep-cause` verts (mesure du G2). Il ne repose que sur la mesure de l injection : une ligne perdue sur 16 sans lui, puis 32 sur 32 avec lui. Un test déterministe serait coûteux ; il n est pas fait.
 
 ## Constat annexe : des rapports perdus sans échec sous Linux (hors lot)
 
@@ -160,10 +169,28 @@ On lit la cause au texte de la faute ou à une ligne `# keep-cause test/l2-links
    - **12 rouges `l2_*` avec une erreur** : c est la cause du chargement, lue (par exemple `EPERM` de `mkdtemp`) ;
    - **`exit code N during <étape>`** : une sortie, nommée avec son étape ;
    - **ni test, ni ligne `keep-cause`** : une mort sans gestionnaire. Seul un second rapporteur garde alors le code ou le signal. Par exemple `--test-reporter=spec --test-reporter-destination=stdout --test-reporter=tap --test-reporter-destination=<fichier>` sur la ligne `node --test` de `test:main` : le bloc YAML du fichier y porte `exitCode` et `signal`. Ainsi, `3221225477` est une violation d accès et `1` un `TerminateProcess`. C est un changement d outil, proposé et non fait.
-3. **Le constat annexe ne concerne pas Windows**, puisque les tuyaux y bloquent. Il concerne la CI Linux (`g3-verification`).
+3. **Limites du témoin** :
+   - les imports statiques d un fichier (pour `l2-links` : `l2-fake-place.ts`, `links.mjs`, `segments.mjs`) sont évalués **avant** `keepCause`. Une erreur levée pendant leur évaluation n a aucun témoin : elle reste sur stderr seul, que le lanceur peut perdre (revue G2, m-4) ;
+   - les compteurs `tests begun` et `ended` comptent les tests **et les sous-tests** ; sous `--test-isolation=none`, les crochets de racine de deux fichiers qui appellent `keepCause` se mélangeraient. Aucun effet aujourd hui : `l2-links` n a pas de sous-test, et `npm test` isole chaque fichier (revue G2, m-5).
+4. **Le constat annexe ne concerne pas Windows**, puisque les tuyaux y bloquent. Il concerne la CI Linux (`g3-verification`).
 
 ## Écarts au plan
 
 - **Commit ajouté** : `79f63392` rend stdout bloquant. L injection a montré qu une ligne mise en file pouvait se perdre à la sortie. Les tueurs du G0 gardent leurs lignes.
 - **Comportement de `before`** : quand le crochet `before` échoue, le témoin compte `tests begun 0, ended 12` (`beforeEach` ne s exécute pas, `afterEach` si). Ce compte est noté tel quel.
 - **Cause sous Windows non prouvée** : la partie lisibilité est livrée ; la cause attend la prochaine occurrence.
+
+## G2
+
+Revue adverse indépendante : `G2-l2-links-file-crash-1.md` (tête revue `895c5dc4`), verdict **APPROUVE SOUS RÉSERVE**, aucun bloquant. Les cinq mineurs sont repliés dans un seul commit :
+
+| Mineur | Constat du G2 | Repli |
+|---|---|---|
+| **m-1** | `test/keep-cause.test.ts:30` épinglait un détail interne de Node 24.21.0 : la sortie 7 et l origine `unhandledRejection` (`harness.js:124`). La CI prend Node 24 flottant. | L assertion vérifie désormais `r.status !== 0` et une ligne qui correspond à `/^fixture: (uncaughtException\|unhandledRejection) during load: Error: boom at load$/`. Aucune ligne déplacée : le tueur `test/helpers/keep-cause.ts:36` (« `during ${step}` » retiré) reste ANCRE et **tué** (vérifié à la main, puis par red-proof contre `318a3238`). |
+| **m-2** | `setBlocking(true)` n est épinglé par aucun test. | Dit dans la section « Oracle » (« Point non épinglé ») : il ne repose que sur la mesure 1 sur 16, puis 32 sur 32. Pas de test ajouté. |
+| **m-3** | R-25 et red-proof n étaient donnés que contre `050da36d` ; après la fusion, cette plage vaut 409. | Ajout des chiffres contre la base de la PR `318a3238` dans « Oracle » : red-proof `--test-only` **OK** (5 `pinned`, 5 tueurs tués), R-25 **108**. |
+| **m-4** | Le commentaire de `keep-cause.ts:29` taisait que les imports statiques sont évalués avant `keepCause`. | Commentaire de la ligne 29 précisé (« after the evaluation of its static imports: an error thrown while they evaluate has no witness »), règle 1 du G0 précisée, limite ajoutée à « Pour MONARK » (point 3). |
+| **m-5** | Les compteurs comptent aussi les sous-tests ; sous `--test-isolation=none`, les crochets de deux fichiers se mélangeraient. | Commentaires en fin des lignes 32 et 33 de `keep-cause.ts` (« begun and ended count tests and subtests », « under --test-isolation=none the hooks of two files calling keepCause would mix »), limite ajoutée à « Pour MONARK » (point 3). |
+
+- **Aucune ligne déplacée** dans `test/helpers/keep-cause.ts` ni dans `test/keep-cause.test.ts` : les commentaires sont réécrits sur leur ligne, et les 17 tueurs gardent leur numéro.
+- **Contrôles du pli** : `node --test test/keep-cause.test.ts test/l2-links.test.ts` trois fois, 17 sur 17, exit 0, aucun `l2-links-*` laissé dans `TMPDIR` ; `verifie-ancres.mjs . --touched 318a3238 HEAD` donne 17 tueurs, 17 ANCRE, 0 DERIVE, 0 PERDU ; `tsc --noEmit`, `lint`, `gate:vocab` verts ; `lint:ratchet` 69/69 ; `lang:gate` OK.

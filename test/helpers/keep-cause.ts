@@ -26,11 +26,11 @@ function say(line: string): void {
   process.stdout.write(text);
 }
 
-/** Installs the witnesses of `file` (its path, as the runner names it); called once, at load, before any other work of the file. */
+/** Installs the witnesses of `file` (its path, as the runner names it); called once, at load, before any other work of the file but after the evaluation of its static imports: an error thrown while they evaluate has no witness and stays on stderr alone. */
 export function keepCause(file: string): void {
   let step = "load", begun = 0, ended = 0;
-  beforeEach((t) => { begun += 1; step = `test "${t.name}"`; }); // the first hook builds the harness: its own handlers come first
-  afterEach(() => { ended += 1; step = "between tests"; });
+  beforeEach((t) => { begun += 1; step = `test "${t.name}"`; }); // the first hook builds the harness: its own handlers come first; begun and ended count tests and subtests
+  afterEach(() => { ended += 1; step = "between tests"; }); // root hooks: under --test-isolation=none the hooks of two files calling keepCause would mix
   (process.stdout as unknown as { _handle?: { setBlocking?: (on: boolean) => void } })._handle?.setBlocking?.(true); // as red-proof: an exit drops no queued line
   // a monitor changes nothing: the harness reports as before, else the process dies as before (a rejection with no listener left too)
   process.on("uncaughtExceptionMonitor", (e, origin) => { say(`${file}: ${origin} during ${step}: ${describeCause(e)}`); });
