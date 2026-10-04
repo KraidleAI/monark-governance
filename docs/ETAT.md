@@ -395,14 +395,33 @@ Tronc `lot/etude-suite`. Dernier oracle complet : 1 779 tests, dont 1 776 verts,
       Q-CORR-4 : contrôle refait au HEAD de la fusion ; Q-CORR-5 : Q-11 du G1 close.
   - LOOPBACK-PORT0-HELPER-ONLY-1 (PAROXYSME ; Q-CORR-3) : la garde de port 0 est lexicale ; un port 0 tenu dans une variable, ou un
     `--port 0` passé à un processus, lui échappe. Construction : garde stricte, toute liaison d un fichier de test passe par l aide ;
-    environ 6 lignes de garde et 1 de test, 1 site à inliner (mesuré). Déclencheur : HARNESS-LOOPBACK-PORTS-1 (RECHERCHES) ; état : ouvert.
+    environ 6 lignes de garde et 1 de test, 1 site à inliner (mesuré). Déclencheur : HARNESS-LOOPBACK-PORTS-1 (RECHERCHES) ; état : clos
+    au G7 du lot (l.181) ; limites déclarées (l.137-140) reprises par LOOPBACK-GUARD-RUNTIME-1 ci-dessous.
   - LOOPBACK-CLOSEDPORT-RACE-1 (PAROXYSME ; Q-CORR-7) : le cas D-2 et le test 6 du G1 dépendent d un port fermé qu un autre processus
     peut prendre. Construction pour D-2 : une fabrique qui lie port + 1, environ 2 lignes, puis rejeu de M18, M21 et de l oracle ;
-    pour le test 6, mesure de fréquence au banc d abord. Déclencheur : HARNESS-LOOPBACK-PORTS-1 ; état : ouvert.
+    pour le test 6, mesure de fréquence au banc d abord. Déclencheur : HARNESS-LOOPBACK-PORTS-1 ; état : clos
+    au G7 du lot (D-2 et test 6, `docs/G7-lot-harness-loopback-ports-1.md` l.181).
   - EXPORT-HARNESS-413-LOAD-1 (2026-10-04 14:3x UTC ; 1re passe de v0.8.0) : `oversized_body_413_and_normal_tools_call_unaffected`
     rouge une fois dans la CI exportée du test 42, sous charge (65 ms), assertion interne non nommée ; 15/15 vert au repos, test 42
     vert dans 103 relevés d oracle. Construction : le test 42 porte le texte de l assertion interne, reproduction sous charge, test
-    déterministe sans perdre (a2) ni ses tueurs. Porteur : RECHERCHES (recherches#129), PR sur le tronc ; état : ouvert.
+    déterministe sans perdre (a2) ni ses tueurs. Porteur : RECHERCHES (recherches#129), PR sur le tronc ; état : clos
+    le 2026-10-04 16:4x UTC, #127 fusionnée au tronc (`60c481e6`). Cause : le RST après le 403 ; sous win32, la réponse reçue non lue
+    est jetée. (a2) jugé sur `{403, complete: false}` côté serveur ; 30/30 vert sous charge Windows à `50031a46` ; oracle G7 vert
+    (2218 tests, 0 échec).
+  - LOOPBACK-GUARD-RUNTIME-1 (PAROXYSME ; limites déclarées du G7 de HARNESS-LOOPBACK-PORTS-1) : la garde est lexicale ; lui échappent
+    un nom calculé, un alias par déstructuration, `PORT=0` en environnement, dgram sans import, une expression du port. Construction :
+    une garde d exécution chargée par `--import` pour chaque fichier de test, qui intercepte `listen` et `bind` de net et dgram et
+    refuse un port hors du tirage de l aide ; prix à mesurer au G0. Porteur : RECHERCHES, après CM-3c ; état : ouvert.
+  - EXPORT-TEST42-SUMMARY-1 : le test 42 rougit parfois en « implausibly small suite » (CI exportée sortie 0, ligne de résumé non
+    captée). Hypothèse (G2 de #127) : `--test-force-exit` appelle `process.exit` avant que stdout ait fini de s écrire dans le tube,
+    sous Linux ; `scripts/red-proof.mjs` contourne déjà ce cas. Construction : lire le résumé dans un fichier de reporter
+    (`--test-reporter-destination`) au lieu de stdout. Porteur : RECHERCHES ; état : ouvert.
+  - CI-G3-DURATION-1 : `g3-verification` prend 7 min 06 s sur le runner (#125) ; #121, #126 et #112 coupées à 10 min, tests en
+    cours. Borne portée à 20 (`04c97744`, règle temps × 3, plafond 20). Construction : mesurer les fichiers sur le runner, sortir le
+    test 42 (151 s au run de #126) dans son propre job s il domine. Porteur : RECHERCHES ; état : ouvert.
+  - SENTINEL-SIGTERM-LINUX-1 : `sentinel_run_releases_chainstack_lock_on_sigterm` est sauté sous win32, donc jamais jugé par l oracle
+    Windows ; rouge deux fois sur la CI Linux de `recherches/cm-2c` (`d939ec4c`, run `37184209168`), vert sur #126. Demande : 20
+    passes au repos et 20 sous charge sous Linux à `60c481e6` (recherches#135). Porteur : RECHERCHES ; état : ouvert.
   - L2-RECV-US-RESOLUTION-1 (PAROXYSME ; Q-4 du G1 de L2-P1-a2) : Node n offre aucune horloge murale à la microseconde ; `recv_us`
     de production vaut `Date.now()*1000` (résolution ms), l ordre fin étant porté par `mono_ns`. Construction qui donne la garantie :
     mesurer la résolution réelle et la dérive de `performance.timeOrigin + performance.now()` contre l horloge de l hôte sur un jour
