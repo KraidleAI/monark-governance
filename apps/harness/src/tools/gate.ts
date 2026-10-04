@@ -33,7 +33,7 @@ import {
   NUMERIC_LABEL_SCHEMA,
 } from "@monark/hikae";
 import type { GateInput } from "@monark/hikae";
-import { assertClosedGateDecision, assertNoForbiddenKey } from "@monark/contracts";
+import { assertClosedGateDecision, assertNoForbiddenKey, TOOL_ERROR_CODES } from "@monark/contracts";
 import type { GateDecision, Prediction, CoverageVerdict, AttestedPrice } from "@monark/contracts";
 import {
   lookupCommittedCalibration,
@@ -264,19 +264,19 @@ export interface HarnessParams {
 }
 
 /**
- * Stable error codes (ADR-CM section 5 B-3, audit P3 S-6; plan docs/G0-lot-cm-2a.md): a closed list, outside the frozen
- * contracts. The HTTP mirror carries the code in its error body, MCP in `_meta[ERROR_CODE_META_KEY]`. The four
- * class defaults (attest, calibrate, cascade, ukemi-predict) follow the gate codes; `task_class_retired` is
- * thrown for `btc-dir-15m` since CM-2b (ADR-CM B-5). A code is never renamed nor reused for another refusal.
+ * Stable error codes (ADR-CM section 5 B-3, audit P3 S-6; plan docs/G0-lot-cm-2a.md): a closed list. The HTTP mirror
+ * carries the code in its error body, MCP in `_meta[ERROR_CODE_META_KEY]`. The four class defaults (attest,
+ * calibrate, cascade, ukemi-predict) follow the gate codes; `task_class_retired` is thrown for `btc-dir-15m` since
+ * CM-2b (ADR-CM B-5). A code is never renamed nor reused for another refusal.
+ * Since contract 1.1.0 block A (lot CM-3c-1, spec section 13) the list is TOOL_ERROR_CODES of @monark/contracts,
+ * re-exported here: the 24 codes above in their order, then 8 codes reserved until their lot and thrown by nothing
+ * yet (input_invalid and json_invalid in block C; kata_key_invalid, kata_yhat_domain, features_digest_required,
+ * policy_tau_cap, produced_at_off_grid and produced_at_stale in block D). The list is served nowhere: only
+ * toolErrorCode reads it, so no served byte moves. Before T0 (at the latest at the G7 of CM-4b) a test requires a
+ * thrower for each code but output_invalid, which has its 500 path.
+ * The block is kept at its former line count, so that the killer addresses below this line stay valid.
  */
-export const HARNESS_ERROR_CODES = [
-  "param_invalid", "schema_version_unsupported", "byo_calibration_invalid", "byo_yhat_type", "byo_set_tau_cap",
-  "yhat_type_mismatch", "liq_yhat_domain", "attested_inconsistent", "task_class_unknown", "byo_overrides_committed",
-  "byo_edge_blank", "byo_lookalike_committed", "byo_reserved_kata", "byo_lookalike_confusable",
-  "produced_at_invalid", "produced_at_future", "output_invalid",
-  "policy_alpha_mismatch", "policy_nmin_mismatch", "task_class_retired",
-  "attest_refused", "calibrate_input_invalid", "cascade_input_invalid", "ukemi_predict_input_invalid",
-] as const;
+export const HARNESS_ERROR_CODES = TOOL_ERROR_CODES;
 export type HarnessErrorCode = (typeof HARNESS_ERROR_CODES)[number];
 
 /** The MCP `_meta` key of a tool error's code (B-3, amendment "nuit, 2"). */
