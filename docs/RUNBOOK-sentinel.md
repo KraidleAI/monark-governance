@@ -420,7 +420,7 @@ Symptôme : `chainstack_guard: "lock_held"` au JSON de fin (le run publie en key
 systemctl is-active monark-sentinel.service           # DOIT être inactive ou failed — jamais activating : ne JAMAIS déverrouiller un run vivant
 ls /var/lib/monark-sentinel/ledger/*/chainstack.lock  # exactement UN chemin, sinon STOP
 LOCK=$(ls /var/lib/monark-sentinel/ledger/*/chainstack.lock); CYCLE=$(basename "$(dirname "$LOCK")")
-cat "$LOCK"                                           # {pid, iso} (packages/rpc-guard/src/lock.ts:25), non secret : vérifier que ce pid n'existe plus (ps -p <pid>)
+cat "$LOCK"                                           # {pid, iso} (packages/rpc-guard/src/lock.ts:26), non secret : vérifier que ce pid n'existe plus (ps -p <pid>)
 cd /opt/monark-harness && sudo -u sentinel /usr/bin/env node packages/rpc-guard/bin/rpc-guard.mjs unlock \
   --ledger-dir /var/lib/monark-sentinel/ledger --cycle "$CYCLE" --op chainstack --reason runbook-sigkill-unlock
 echo "exit=$?"; test ! -e "$LOCK" && echo "lock released"

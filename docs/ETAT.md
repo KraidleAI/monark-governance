@@ -433,7 +433,8 @@ Tronc `lot/etude-suite`. Dernier oracle complet : 1 779 tests, dont 1 776 verts,
     verrou pris. Construction : installer le gestionnaire avant la prise du verrou, test qui envoie SIGTERM dans la fenêtre. Porteur :
     RECHERCHES (zone ouverte : `apps/sentinel/src/run.ts` et son test) ; déploiement de la sentinelle par MONARK ; état : code au
     tronc (#137, `124c03c2` ; CI Linux : les 4 tests SIGTERM verts ; oracle Windows vert) ; déploiement groupé avec
-    RPC-GUARD-LOCK-WRITE-LEAK-1 (décision de l investisseur, 2026-10-04 21:4x UTC).
+    RPC-GUARD-LOCK-WRITE-LEAK-1 (décision de l investisseur, 2026-10-04 21:4x UTC), fait le 2026-10-04 à 23:34:40 UTC (arbre
+    `c9aebb44`, JOURNAL-PROVENANCE) ; état : clos.
   - ADR-CM-AMEND-3-1 : l amendement ADR-CM « 2026-10-04 (3) » (1.1.0) est cité par d autres ADR mais absent du tronc et de la base
     (Q-4 du G0 de CM-4a-i). Porteur : RECHERCHES, PR de documentation de l étape 7 du plan CM-3c/CM-4 ; état : ouvert.
   - SERVED-PENDING-1 (plan r3 §8.5, étendu au chargeur du site ; absent d ETAT jusqu ici) : un instantané en attente
@@ -468,7 +469,14 @@ Tronc `lot/etude-suite`. Dernier oracle complet : 1 779 tests, dont 1 776 verts,
   - RPC-GUARD-LOCK-WRITE-LEAK-1 (H-1 de RECHERCHES, G2 de #137) : si l écriture ou le fsync du verrou échoue après un `openSync "wx"`
     réussi, le fichier reste hors de `acquired` (`guarded.ts:43-46`) et la garde répond `lock_held` jusqu à l acte du RUNBOOK.
     Construction : retirer le fichier sur échec d écriture, test et tueur d abord. Porteur : RECHERCHES (zone `packages/rpc-guard/`
-    ouverte, recherches#150), après #137 et le lot b de CM-4a-ii ; état : ouvert.
+    ouverte, recherches#150), après #137 et le lot b de CM-4a-ii ; état : clos au tronc par #140 (`c9aebb44`, CI verte, oracle
+    Windows vert : 2 244 tests, 0 échec), déployé avec #137 le 2026-10-04 à 23:34:40 UTC (JOURNAL-PROVENANCE).
+  - SENTINEL-GUARD-ARMING-1 (constat du déploiement du 2026-10-04, 23:3x UTC) : la jambe Chainstack gardée n est pas armée sur l hôte
+    du site. Le fichier d environnement porte la seule clé d URL (comptes de clés, jamais les valeurs : URL 1, cycle 0, origine 0,
+    plancher 0) et le dossier `ledger/` est absent ; trois dry-runs rendent `chainstack: false`, `chainstack_guard: "unconfigured"` :
+    la sentinelle publie sur les points publics, sans jambe payante. Aucun acte du RUNBOOK-sentinel §6-bis n est consigné au journal.
+    Construction : §6-bis (3) et (4), avec P-3 (cycle et plancher lus sur place à la console Chainstack, par l investisseur), puis le
+    dry-run gardé (6) et les critères (a) et (b). Porteur : MONARK, avec l investisseur pour P-3 ; état : ouvert.
   - TEST-FORCE-EXIT-NEED-1 (question de RECHERCHES, 2026-10-04) : `--test-force-exit` est-il encore nécessaire ? Construction : mesurer,
     fichier par fichier, ce qui ne sortirait pas sans lui, puis le retirer s il n y a plus rien. Porteur : RECHERCHES, priorité basse,
     après ses lots en cours (recherches#154) ; état : ouvert.
@@ -680,6 +688,10 @@ Tronc `lot/etude-suite`. Dernier oracle complet : 1 779 tests, dont 1 776 verts,
     (`apps/sentinel/src/rpc.ts.prev`, `apps/site/app/products/page.tsx`, `apps/site/lib/narabi-snapshot.ts`,
     `packages/monark/test/cross-agent-gate.test.ts`), hors du chemin du harnais et de la sentinelle. Construction : les retirer, et
     l'arbre précédent, sur accord de l'investisseur (suppression) ; déclencheur : le prochain déploiement du harnais ; état : ouvert.
+    Relevé du 2026-10-04 à 23:3x UTC : trois arbres gardés (`.prev-20261003-2231`, `.prev-20261004-0742`, `.prev-20261004-2331`) et
+    huit sauvegardes `.bak-*.tgz` (11 Go utilisés sur 96). Le processus du harnais, lancé à 07:44:08 UTC et non redémarré par le
+    déploiement de la sentinelle, a pour répertoire de travail l arbre renommé `.prev-20261004-2331` : à ne retirer qu après le
+    prochain redémarrage du harnais.
   - Clos ou absorbés dans ces lots, preuves au recensement : EE7-SCHEMA-V2-1 (le détecteur lit `monark.series.coinbase.v2`), Q-CTV2-3
     (dans I-2), et à leur place plus haut : COINBASE-MUTANTS-CORR-1, COINBASE-PLAN-ENVOK-OPENSSL-1, TUYAU-EE7-IN-1,
     BINANCE-REPLAY-NON200-ATTEST-1, BINANCE-OPENSSL-PREFIX-PIN-1, partie EE-7 de MAIN-GUARD-REALPATH-1 ; Q-8 (copies sous `F:/tmp`) :
