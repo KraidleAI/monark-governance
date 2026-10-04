@@ -3,7 +3,7 @@
   "schema": "monark-site-ukemi-served-v2",
   "host": "https://api.monarkgate.tech",
   "path": "/openapi.json",
-  "read_at": "2026-09-25T03:26:01.410Z",
+  "read_at": "2026-10-04T00:19:36.782Z",
   "served_class": "liquidation-eligible-coverage",
   "registry_state": "committed",
   "liq_clause": "the served region is a conformal upper bound on the liquidable amount for the calibrated class; the lower edge is 0 by construction, not a calibrated bound; abstains (under_calib) outside it; this class requires alpha = 0.01, nMin = 100; calibrated on one recorded episode; no coverage is claimed on any other event; the H-3 exchangeability check is a report, a YES licenses nothing more; the bound holds only if yhat was produced by the frozen close-factor rule on a mono-collateral WETH account at the first crossing, which the gate does not check",

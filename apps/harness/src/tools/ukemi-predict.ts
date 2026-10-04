@@ -25,7 +25,7 @@ import { assertClosedPrediction, assertNoForbiddenKey } from "@monark/contracts"
 import type { Prediction } from "@monark/contracts";
 import { strateOf } from "../ukemi-strata.ts";
 import { UKEMI_LIQ_PREDICTOR_BASE } from "../calibration.ts";
-import { TASK_LIQ_ELIGIBLE } from "./gate.ts";
+import { TASK_LIQ_ELIGIBLE, type HarnessErrorCode } from "./gate.ts";
 
 export const UKEMI_PREDICT_TOOL_NAME = "ukemi-predict";
 
@@ -67,6 +67,8 @@ export const UKEMI_PREDICT_LABEL =
 /** A tool-level error (K-4a analog): surfaced by the MCP/HTTP seam as a 400 tool error, never a silent output
  *  and never a 500. Registered in `TOOL_ERROR_NAMES` (http.ts) so a refusal is a client error. */
 export class UkemiPredictToolError extends Error {
+  /** Stable error code of this class (ADR-CM B-3, plan docs/G0-lot-cm-2a.md). */
+  readonly code: HarnessErrorCode = "ukemi_predict_input_invalid";
   constructor(message: string) {
     super(message);
     this.name = "UkemiPredictToolError";
