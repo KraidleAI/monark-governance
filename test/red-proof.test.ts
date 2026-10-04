@@ -126,13 +126,13 @@ function row(name: string): ProofRow {
 }
 const admitted = (rows: ProofRow[]): ProofRow[] => rows.filter((t) => t.verdict === "F2P" || t.verdict === "new-module");
 
-// killer: scripts/red-proof.mjs:142 COR "!ent.isSymbolicLink()" -> "ent.isSymbolicLink()"
+// killer: scripts/red-proof.mjs:154 COR "!ent.isSymbolicLink()" -> "ent.isSymbolicLink()"
 test("red_proof_admits_an_assertion_red_at_base_through_a_workspace_link", () => {
   const r = row("f2p_true");
   assert.deepEqual([r.base, r.gel, r.verdict], ["assert-fail", "pass", "F2P"]);
 });
 
-// killer: scripts/red-proof.mjs:173 SDL "green at base" -> ""
+// killer: scripts/red-proof.mjs:185 SDL "green at base" -> ""
 test("red_proof_refuses_a_test_green_at_base_or_red_at_gel", () => {
   const r = row("green_at_base"), g = row("red_at_gel");
   assert.deepEqual([r.base, r.gel, r.verdict, g.base, g.gel, g.verdict], ["pass", "pass", "refused", "assert-fail", "assert-fail", "refused"]);
@@ -140,25 +140,25 @@ test("red_proof_refuses_a_test_green_at_base_or_red_at_gel", () => {
   assert.deepEqual([row("gel_typeerror").base, row("gel_typeerror").gel, row("gel_typeerror").verdict], ["assert-fail", "other-fail", "refused"]);
 });
 
-// killer: scripts/red-proof.mjs:171 COR "&& t.newModule" -> "|| t.newModule"
+// killer: scripts/red-proof.mjs:183 COR "&& t.newModule" -> "|| t.newModule"
 test("red_proof_refuses_an_import_red_on_a_module_that_exists_at_base", () => {
   const r = row("import_existing");
   assert.deepEqual([r.base, r.gel, r.module, r.verdict], ["import-fail", "pass", "lib/old.ts", "refused"]);
 });
 
-// killer: scripts/red-proof.mjs:241 COR "&& added.has(module)" -> "&& !added.has(module)"
+// killer: scripts/red-proof.mjs:253 COR "&& added.has(module)" -> "&& !added.has(module)"
 test("red_proof_admits_a_new_module_with_its_killer", () => {
   const r = row("new_module — (fresh) [x] $y 'z' #w"), n = row("new_no_killer");
   assert.deepEqual([r.base, r.gel, r.module, r.verdict, n.base, n.module, n.verdict], ["import-fail", "pass", "lib/fresh.ts", "new-module", "import-fail", "lib/fresh.ts", "refused"]);
 });
 
-// killer: scripts/red-proof.mjs:167 SDL "no killer declared" -> ""
+// killer: scripts/red-proof.mjs:179 SDL "no killer declared" -> ""
 test("red_proof_refuses_a_test_without_killer", () => {
   const r = row("no_killer");
   assert.deepEqual([r.base, r.gel, r.killer, r.verdict], ["assert-fail", "pass", null, "refused"]);
 });
 
-// killer: scripts/red-proof.mjs:168 SDL "invalid killer" -> ""
+// killer: scripts/red-proof.mjs:180 SDL "invalid killer" -> ""
 test("red_proof_refuses_a_stale_or_ambiguous_killer", () => {
   for (const r of [row("stale_killer"), row("ambiguous_killer")]) {
     assert.deepEqual([r.base, r.verdict], ["assert-fail", "refused"]);
@@ -167,14 +167,14 @@ test("red_proof_refuses_a_stale_or_ambiguous_killer", () => {
   assert.deepEqual([row("outside_killer").reason, row("test_code_killer").reason, statSync(join(fixture().dir, "node_modules", "fx-dep", "index.js")).mtimeMs], ["invalid killer: node_modules/fx-dep/index.js is out of scope: not a file inside the gel clone", "invalid killer: test/cases.test.ts is test code: a killer mutates production code", fixture().nm]);
 });
 
-// killer: scripts/red-proof.mjs:195 CONST "\"stillborn\"" -> "\"killed\""
+// killer: scripts/red-proof.mjs:207 CONST "\"stillborn\"" -> "\"killed\""
 test("red_proof_refuses_a_stillborn_killer_among_the_drawn", () => {
   const { status, proof } = commitRun();
   assert.deepEqual(Object.fromEntries((proof.draw?.drawn ?? []).map((d) => [d.name, d.outcome])), { f2p_true: "killed", stillborn: "stillborn", "new_module — (fresh) [x] $y 'z' #w": "killed" });
   assert.deepEqual([status, proof.ok], [1, false]);
 });
 
-// killer: scripts/red-proof.mjs:254 CONST "sha256: sha(baseTap)" -> "sha256: sha(gelTap)"
+// killer: scripts/red-proof.mjs:266 CONST "sha256: sha(baseTap)" -> "sha256: sha(gelTap)"
 test("red_proof_tap_sha256_recomputes_equal", () => {
   const { proof, out } = commitRun(), f = fixture();
   for (const t of [proof.tap.base, proof.tap.gel, ...(proof.draw?.drawn ?? []).map((d) => d.tap)]) assert.equal(sha(readFileSync(join(out, t.path))), t.sha256, t.path);
@@ -183,7 +183,7 @@ test("red_proof_tap_sha256_recomputes_equal", () => {
   assert.equal(proof.gel.digest, sha(Buffer.from(recipe.filter(([, p]) => !/^docs\/(.+\/)?[^/]+\.md$/.test(p ?? "")).map(([s, p]) => `${s ?? ""} ${p ?? ""} ${s === "D" ? "-" : sha(readFileSync(join(f.dir, p ?? "")))}`).join("\n"))), "digest recipe");
 });
 
-// killer: scripts/red-proof.mjs:262 SDL "rmSync(work" -> ""
+// killer: scripts/red-proof.mjs:274 SDL "rmSync(work" -> ""
 test("red_proof_restores_each_mutated_file_and_removes_its_clones", () => {
   const f = fixture(), { proof, left } = commitRun();
   assert.equal(proof.draw?.drawn.length, 3);
@@ -196,7 +196,7 @@ test("red_proof_restores_each_mutated_file_and_removes_its_clones", () => {
   assert.ok(existsSync(join(f.dir, "node_modules", "fx-dep", "index.js")), "the linked package survives the cleanup");
 });
 
-// killer: scripts/red-proof.mjs:99 SDL "Reached heap limit" -> ""
+// killer: scripts/red-proof.mjs:111 SDL "Reached heap limit" -> ""
 test("red_proof_counts_a_killed_child_as_inconclusive", () => {
   const tap = (diag: string, note = ""): string => `TAP version 13\n${note}not ok 1 - t\n  ---\n${diag}  ...\n1..1\n`;
   const oom = "# FATAL ERROR: Reached heap limit Allocation failed - JavaScript heap out of memory\n"; // the shape measured on this host: both signals
@@ -211,7 +211,7 @@ test("red_proof_counts_a_killed_child_as_inconclusive", () => {
   assert.deepEqual([parent("ERR_ASSERTION", "ERR_ASSERTION"), parent("ERR_ASSERTION", "ERR_TEST_FAILURE")].map((t) => classify(parseTap(t)[0])), ["assert-fail", "other-fail"]);
 });
 
-// killer: scripts/red-proof.mjs:179 CONST "seed >>> 0" -> "0"
+// killer: scripts/red-proof.mjs:191 CONST "seed >>> 0" -> "0"
 test("red_proof_draw_is_reproducible_at_a_fixed_seed", () => {
   const pop = Array.from({ length: 20 }, (_, i) => i), d = drawKillers(pop, 3, 42);
   assert.deepEqual(drawKillers(pop, 3, 42), d);
@@ -221,7 +221,7 @@ test("red_proof_draw_is_reproducible_at_a_fixed_seed", () => {
   assert.deepEqual(proof.draw?.drawn.map((x) => x.name), drawKillers(admitted(proof.tests), 3, 7).map((t) => t.name));
 });
 
-// killer: scripts/red-proof.mjs:217 SDL "ls-files" -> ""
+// killer: scripts/red-proof.mjs:229 SDL "ls-files" -> ""
 test("red_proof_worktree_gel_counts_untracked_files_and_exits_zero", () => {
   const { status, proof } = worktreeRun(), sub = run("worktree-sub", join(fixture().root, "wt", "test"), []); // --gel names a sub-directory; no --draw
   assert.deepEqual([proof.tests, sub.proof.tests].map((ts) => ts.map((t) => [t.file, t.name, t.base, t.gel, t.verdict])), Array(2).fill([
@@ -231,20 +231,20 @@ test("red_proof_worktree_gel_counts_untracked_files_and_exits_zero", () => {
   assert.deepEqual([status, proof.ok, proof.gel.mode, proof.gel.head, proof.draw?.drawn.map((d) => d.outcome), proof.drawn, sub.status, sub.proof.ok, sub.proof.drawn], [0, true, "worktree", fixture().base, ["killed", "killed"], 2, 0, true, 0]);
 });
 
-// killer: scripts/red-proof.mjs:117 SDL "set.add(l)" -> ""
+// killer: scripts/red-proof.mjs:129 SDL "set.add(l)" -> ""
 test("red_proof_judges_only_the_changed_tests_of_a_modified_file", () => {
   const { proof } = worktreeRun(); // old_first: unchanged, the line deleted under it and the blank and comment lines added there are in no body; old_green loses a line: judged
   assert.deepEqual([proof.unchanged, proof.files.support, proof.tests.filter((t) => t.file === "test/old.test.ts").map((t) => t.name)], [1, ["test/helpers/h.ts"], ["twice_new", "old_green"]]);
 });
 
-// killer: scripts/red-proof.mjs:165 SDL "runs under the host lock only" -> ""
+// killer: scripts/red-proof.mjs:177 SDL "runs under the host lock only" -> ""
 test("red_proof_never_runs_test_42_outside_the_host_lock", () => {
   const r = row("slow (test 42)");
   assert.deepEqual([r.base, r.gel, r.verdict], ["missing", "missing", "refused"]); // filtered out by --test-skip-pattern: never run, absent from the TAP
   assert.match(r.reason, /host lock/);
 });
 
-// killer: scripts/red-proof.mjs:248 COR "&& drawn.every(" -> "|| drawn.every("
+// killer: scripts/red-proof.mjs:260 COR "&& drawn.every(" -> "|| drawn.every("
 test("red_proof_fails_on_a_stillborn_draw_or_an_empty_diff", () => {
   const weak = weakRun(), empty = run("empty", fixture().gel, [], fixture().gel);
   assert.deepEqual([weak.proof.tests.map((t) => t.verdict), Object.fromEntries((weak.proof.draw?.drawn ?? []).map((d) => [d.name, d.outcome])), weak.proof.ok, weak.status],
@@ -252,13 +252,13 @@ test("red_proof_fails_on_a_stillborn_draw_or_an_empty_diff", () => {
   assert.deepEqual([empty.proof.tests.length, empty.proof.ok, empty.status, empty.proof.drawn], [0, false, 1, 0]);
 });
 
-// killer: scripts/red-proof.mjs:241 CONST "unsupported test layout" -> ""
+// killer: scripts/red-proof.mjs:253 CONST "unsupported test layout" -> ""
 test("red_proof_refuses_an_unsupported_test_layout", () => {
   const r = weakRun().proof.tests.find((t) => t.file === "test/layout.test.ts" && t.name === "layout_bad");
   assert.deepEqual([r?.verdict, r?.reason], ["refused", "unsupported test layout"]);
 });
 
-// killer: scripts/red-proof.mjs:266 CONST "import.meta.main !== false" -> "process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)"
+// killer: scripts/red-proof.mjs:278 CONST "import.meta.main !== false" -> "process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)"
 test("red_proof_launched_through_a_junction_records_or_refuses_never_a_silent_exit_0", () => {
   const f = fixture(), j = join(f.root, "scripts-junction"), cli = join(j, "red-proof.mjs"); // RED-PROOF-JUNCTION-GUARD-1: argv[1] is the link, import.meta.url the real path
   symlinkSync(join(import.meta.dirname, "..", "scripts"), j, "junction"); // New-Item -ItemType Junction on Windows, a symlink elsewhere
@@ -266,7 +266,7 @@ test("red_proof_launched_through_a_junction_records_or_refuses_never_a_silent_ex
   assert.deepEqual([u.status, /usage/.test(u.stderr), e.status, e.proof.tests.length, e.proof.ok], [2, true, 1, 0, false], u.stderr);
 });
 
-// killer: scripts/red-proof.mjs:142 CONST "link(realpathSync(from), to)" -> "null"
+// killer: scripts/red-proof.mjs:154 CONST "link(realpathSync(from), to)" -> "null"
 test("red_proof_links_the_real_target_of_a_junctioned_module_and_repoints_a_junctioned_scope", () => {
   const f = fixture(), c = join(f.root, "junction-clone"); // RED-PROOF-JUNCTION-1 (C-4 of CM-2a): a clone whose node_modules entries are each a junction (mk-nm.ps1)
   git(f.root, "clone", "-q", f.dir, c);
@@ -277,7 +277,7 @@ test("red_proof_links_the_real_target_of_a_junctioned_module_and_repoints_a_junc
   assert.ok(cols(j).some(([, n, b, g, v]) => n === "f2p_true" && b === "assert-fail" && g === "pass" && v === "F2P"));
 });
 
-// killer: scripts/red-proof.mjs:277 CONST "skipped.push(link); continue;" -> "changes.push(p); continue;"
+// killer: scripts/red-proof.mjs:289 CONST "skipped.push(link); continue;" -> "changes.push(p); continue;"
 test("red_proof_worktree_gel_with_a_junctioned_node_modules_is_judged", () => {
   const f = fixture(), wt = join(f.root, "wt3"); // the node_modules junction is no directory to the node_modules/ ignore rule: git lists it as untracked
   git(f.dir, "worktree", "add", "-q", "--detach", wt, f.base);
@@ -308,19 +308,19 @@ function driftRun(): Run { // B-1 of the G2: a lot that adds a workspace package
   return run("drift", git(d, "rev-parse", "HEAD"), [], git(d, "rev-parse", "HEAD~1"), { repo: d });
 }
 
-// killer: scripts/red-proof.mjs:142 CONST " && realpathSync(from).split(sep).includes(\"node_modules\")" -> ""
+// killer: scripts/red-proof.mjs:154 CONST " && realpathSync(from).split(sep).includes(\"node_modules\")" -> ""
 test("red_proof_never_loads_a_workspace_the_base_lacks_from_the_repo_working_copy", () => {
   const r = driftRun(), v = r.proof.tests.find((t) => t.name === "v_dbl"); // the base clone must not see packages/v of --repo: no false F2P
   assert.deepEqual([r.status, r.proof.ok, v?.base, v?.gel, v?.verdict], [1, false, "import-fail", "pass", "refused"]);
 });
 
-// killer: scripts/red-proof.mjs:142 CONST "isDir(from) &&" -> "true &&"
+// killer: scripts/red-proof.mjs:154 CONST "isDir(from) &&" -> "true &&"
 test("red_proof_leaves_out_a_broken_link_and_a_link_to_a_file_in_node_modules", () => {
   const r = driftRun(), l = r.proof.tests.find((t) => t.name === "links_kept_out"); // the tool runs on; the clones list @fx and fx-dep only
   assert.deepEqual([r.status, l?.base, l?.gel], [1, "pass", "pass"]);
 });
 
-// killer: scripts/red-proof.mjs:276 CONST "find((q) => isLink(join(gitDir, q)))" -> "find(() => false)"
+// killer: scripts/red-proof.mjs:288 CONST "find((q) => isLink(join(gitDir, q)))" -> "find(() => false)"
 test("red_proof_records_a_skipped_linked_directory_and_still_stops_on_an_untracked_nested_repo", () => {
   const f = fixture(), wt = join(f.root, "wt4"), nested = join(f.root, "wt5"); // m-1 of the G2: only a link is skipped, and the proof says so
   git(f.dir, "worktree", "add", "-q", "--detach", wt, f.base);
@@ -343,15 +343,105 @@ const untrackedOf = (d: string, ps: string[]): { changes: string[]; skipped: str
   return redProof.untrackedOf(d, ps);
 };
 
-// killer: scripts/red-proof.mjs:276 CONST "parts.slice(0, i + 1).join(\"/\")" -> "p"
+// killer: scripts/red-proof.mjs:288 CONST "parts.slice(0, i + 1).join(\"/\")" -> "p"
 test("red_proof_skips_a_linked_directory_in_each_shape_git_may_list_it", () => {
   const d = shapes(); // RED-PROOF-JUNCTION-1 win32: git output injected; Git for Windows may walk a junction as a directory and list the files under it
   const got = [["linked"], ["linked/"], ["linked/old.ts", "linked/fresh.ts"], ["a.ts", "linked/", "linked/old.ts", ""]].map((ps) => untrackedOf(d, ps));
   assert.deepEqual(got, [{ changes: [], skipped: ["linked"] }, { changes: [], skipped: ["linked"] }, { changes: [], skipped: ["linked"] }, { changes: ["a.ts"], skipped: ["linked"] }]);
 });
 
-// killer: scripts/red-proof.mjs:278 SDL "throw new Error" -> ""
+// killer: scripts/red-proof.mjs:290 SDL "throw new Error" -> ""
 test("red_proof_stops_by_name_on_an_untracked_directory_in_each_shape", () => {
   const d = shapes(); // no copy is tried, so no errno decides the stop (EISDIR on Linux, EPERM on win32)
   for (const ps of [["vendor/sub/"], ["vendor/sub"], ["a.ts", "vendor/sub/"]]) assert.throws(() => untrackedOf(d, ps), /^Error: untracked directory vendor\/sub\/ is no file to copy \(a nested repository\?\)/, ps.join(","));
+});
+
+const CORK = "await new Promise((r) => setTimeout(r, 200)); process.stdout.cork();"; // writes stay queued in the child at its forced exit: the real loss, deterministic
+function tapRun(): Run { // RED-PROOF-TAP-TRUNCATION-1: a child that leaves a write queued on stdout, a child whose stream is cut after its first test (G2: also spoofed, and a grandchild)
+  const f = fixture(), wt = join(f.root, "wt6");
+  if (!existsSync(wt)) {
+    git(f.dir, "worktree", "add", "-q", "--detach", wt, f.gel);
+    write(wt, { "test/sync.test.ts": `${HEAD}test("sync_out", () => { process.stdout.write(\`\${"x".repeat(1 << 20)}\\n\`); assert.equal(process.stdout.writableLength, 0); });\n`,
+      "test/cut.test.ts": `${HEAD}test("cut_first", () => { assert.equal(1, 1); });\ntest("cut_lost", async () => { ${CORK} assert.equal(1, 1); });\n`,
+      "test/spoof.test.ts": `${HEAD}test("spoof_first", () => { assert.equal(1, 1); });\ntest("spoof_lost", async () => { console.log("red-proof child exit 0"); ${CORK} assert.equal(1, 1); });\n`,
+      "test/mock.test.ts": `${HEAD}test("mock_first", () => { assert.equal(1, 1); });\ntest("mock_lost", async () => { await new Promise((r) => setTimeout(r, 200)); process.stdout.write = () => true; assert.equal(1, 1); });\n`,
+      "test/grand.test.ts": `${HEAD}import { spawnSync } from "node:child_process";\ntest("grand_json", () => { assert.equal(JSON.parse(spawnSync(process.execPath, [...process.execArgv, "-e", "console.log(7)"], { encoding: "utf8" }).stdout), 7); });\n` });
+  }
+  return run("tap", wt, [], f.gel);
+}
+
+// killer: scripts/red-proof.mjs:38 CONST "setBlocking?.(true)" -> "setBlocking?.(false)"
+test("red_proof_child_stdout_writes_are_synchronous_so_a_forced_exit_drops_nothing", () => {
+  const r = tapRun().proof.tests.find((t) => t.name === "sync_out"); // without it, process.exit() of --test-force-exit drops what the pipe has not taken
+  assert.deepEqual([r?.base, r?.gel], ["pass", "pass"]);
+});
+
+// killer: scripts/red-proof.mjs:100 SDL "red-proof child exit" -> ""
+test("red_proof_names_a_cut_child_stream_inconclusive_truncated_never_a_misread", () => {
+  const { proof, out } = tapRun(), cut = proof.tests.filter((t) => t.file === "test/cut.test.ts"); // the runner's own plan agrees with its one entry
+  assert.deepEqual(cut.map((t) => [t.name, t.base, t.gel, t.verdict, t.reason]), ["cut_first", "cut_lost"].map((n) => [n, "inconclusive_truncated", "inconclusive_truncated", "inconclusive", "a run's TAP is truncated (inconclusive_truncated)"]));
+  assert.match(readFileSync(join(out, "gel.tap"), "utf8"), /# red-proof file: test\/cut\.test\.ts\n(?:(?!# red-proof file:)[^])*\nok 1 - cut_first\n(?:(?!# red-proof file:)[^])*\n1\.\.1\n/);
+  assert.equal(proof.ok, false);
+});
+
+// killer: scripts/red-proof.mjs:99 CONST "Number(plan[1]) !== n" -> "false"
+test("red_proof_names_a_tap_without_its_plan_or_summary_truncated", async () => {
+  const mod: Record<string, unknown> = await import("../scripts/red-proof.mjs"), truncation = mod.truncation as ((tap: string, nonce: string) => string | null) | undefined;
+  const e = "TAP version 13\nok 1 - a\nok 2 - b\n", child = "# red-proof child exit 0f1e 0\n", sum = "# tests 2\n# duration_ms 5.1\n";
+  assert.equal(typeof truncation, "function");
+  assert.deepEqual([`${e}${child}1..2\n${sum}`, `${e}${child}`, `${e}${child}1..1\n${sum}`, `${e}1..2\n${sum}`, `${e}${child}1..3\n${sum}`, `${e}${child}${sum}`, `${e}${child}1..2\n# duration_ms\n`, `${e}# red-proof child exit 0\n1..2\n${sum}`].map((t) => truncation?.(t, "0f1e")),
+    [null, "no closing summary (# duration_ms)", "plan 1..1 for 2 top-level entries", "no child exit line: the child's stream was cut", "plan 1..3 for 2 top-level entries", "plan missing for 2 top-level entries", "no closing summary (# duration_ms)", "no child exit line: the child's stream was cut"]); // G2 of the lot: plan long, plan absent, summary cut in its line, no nonce
+});
+
+// killer: scripts/red-proof.mjs:100 CONST "exit ${nonce} -?" -> "exit -?"
+test("red_proof_reads_a_spoofed_exit_line_without_the_run_nonce_as_truncated", () => {
+  const spoof = tapRun().proof.tests.filter((t) => t.file === "test/spoof.test.ts"); // G2 m-2: a test prints the line, then its stream is cut
+  assert.deepEqual(spoof.map((t) => [t.name, t.base, t.gel]), [["spoof_first", "inconclusive_truncated", "inconclusive_truncated"], ["spoof_lost", "inconclusive_truncated", "inconclusive_truncated"]]);
+});
+
+// killer: scripts/red-proof.mjs:38 CONST "delete process.env.RED_PROOF_EXIT; " -> ""
+test("red_proof_exit_line_never_reaches_a_grandchild_spawned_with_the_childs_execargv", () => {
+  const { proof, out } = tapRun(), g = proof.tests.find((t) => t.name === "grand_json"); // G2 m-1: the grandchild's stdout stays its own
+  const part = /# red-proof file: test\/grand\.test\.ts\n((?:(?!# red-proof file:)[^])*)/.exec(readFileSync(join(out, "gel.tap"), "utf8"))?.[1] ?? "";
+  assert.deepEqual([g?.base, g?.gel, part.match(/^# red-proof child exit [0-9a-f]{16} 0$/gm)?.length], ["pass", "pass", 1]);
+});
+
+function cutRun(): Run { // G2 G9, G10, G14: a run truncated at base only; a drawn killer whose run is truncated
+  const f = fixture(), wt = join(f.root, "wt7");
+  if (!existsSync(wt)) {
+    git(f.dir, "worktree", "add", "-q", "--detach", wt, f.base);
+    write(wt, { "packages/w/index.js": W(true), "lib/cut.ts": "export const CUT = false;\n",
+      "test/cutbase.test.ts": `${HEAD}import { double } from "@fx/w";\n// killer: packages/w/index.js:1 COR "x + x" -> "x - x"\ntest("cut_at_base", async () => { if (double(1) !== 2) { ${CORK} } assert.equal(1, 1); });\n`,
+      "test/cutkill.test.ts": `${HEAD}import { CUT } from "../lib/cut.ts";\n// killer: lib/cut.ts:1 CONST "false" -> "true"\ntest("cut_by_killer", async () => { if (CUT) { ${CORK} } assert.equal(CUT, false); });\n` });
+  }
+  return run("cut", wt, ["--draw", "1", "--seed", "1"]);
+}
+
+// killer: scripts/red-proof.mjs:207 CONST "\"inconclusive\", \"inconclusive_truncated\", " -> "\"inconclusive\", "
+test("red_proof_counts_a_drawn_killer_whose_run_is_truncated_inconclusive_never_killed", () => {
+  const { status, proof } = cutRun(), k = proof.tests.find((t) => t.name === "cut_by_killer");
+  assert.deepEqual([k?.base, k?.gel, k?.verdict, proof.draw?.drawn.map((d) => [d.name, d.status, d.outcome]), proof.ok, status], ["import-fail", "pass", "new-module", [["cut_by_killer", "inconclusive_truncated", "inconclusive"]], false, 1]);
+});
+
+// killer: scripts/red-proof.mjs:178 CONST "t.base.startsWith(\"inconclusive\") || " -> ""
+test("red_proof_names_a_truncation_at_base_alone_inconclusive", () => {
+  const r = cutRun().proof.tests.find((t) => t.name === "cut_at_base");
+  assert.deepEqual([r?.base, r?.gel, r?.verdict, r?.reason], ["inconclusive_truncated", "pass", "inconclusive", "a run's TAP is truncated (inconclusive_truncated)"]);
+});
+
+const section = (tap: string, file: string): string => new RegExp(`# red-proof file: ${file.replace(/\./g, "\\.")}\\n((?:(?!# red-proof file:)[^])*)`).exec(tap)?.[1] ?? "";
+
+// killer: scripts/red-proof.mjs:38 CONST "writeSync(1, " -> "process.stdout.write("
+test("red_proof_keeps_the_exit_line_when_a_test_replaces_stdout_write", () => {
+  const { proof, out } = tapRun(), m = proof.tests.filter((t) => t.file === "test/mock.test.ts"); // G2 rr W2: the lost result reads missing (refused), the run is not truncated
+  assert.deepEqual([m.map((t) => [t.name, t.base, t.gel]), section(readFileSync(join(out, "gel.tap"), "utf8"), "test/mock.test.ts").match(/^# red-proof child exit [0-9a-f]{16} 0$/gm)?.length],
+    [[["mock_first", "pass", "pass"], ["mock_lost", "missing", "missing"]], 1]);
+});
+
+// killer: scripts/red-proof.mjs:100 CONST "exit ${nonce} -?" -> "exit [0-9a-f]+ -?"
+test("red_proof_reads_a_wrong_or_stale_nonce_as_truncated", async () => {
+  const mod: Record<string, unknown> = await import("../scripts/red-proof.mjs"), truncation = mod.truncation as ((tap: string, nonce: string) => string | null) | undefined;
+  const tap = "TAP version 13\nok 1 - a\n# red-proof child exit 0f1e 0\n1..1\n# duration_ms 5.1\n", { out } = tapRun(); // G2 rr W4b, W5: each run draws its own nonce
+  const nonces = ["base.tap", "gel.tap"].map((t) => /^# red-proof child exit ([0-9a-f]{16}) 0$/m.exec(section(readFileSync(join(out, t), "utf8"), "test/sync.test.ts"))?.[1]);
+  assert.deepEqual([truncation?.(tap, "0f1e"), truncation?.(tap, "a1b2"), nonces.length, nonces.every((n) => n !== undefined), nonces[0] !== nonces[1]], [null, "no child exit line: the child's stream was cut", 2, true, true]);
 });

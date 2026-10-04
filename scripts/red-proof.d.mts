@@ -1,6 +1,6 @@
 // scripts/red-proof.d.mts -- type surface of scripts/red-proof.mjs (F2P proof, ADR-METHODE-2 D2, lot M-4): the root test imports its pure
 // helpers and reads RED-PROOF.json typed, free of the ratcheted no-unsafe rules (sbom.d.mts precedent). Node ignores this file.
-export type Status = "pass" | "skip" | "assert-fail" | "import-fail" | "other-fail" | "missing" | "inconclusive";
+export type Status = "pass" | "skip" | "assert-fail" | "import-fail" | "other-fail" | "missing" | "inconclusive" | "inconclusive_truncated";
 export interface TapEntry { ok: boolean; name: string; skip: boolean; lines: string[] }
 export interface Killer { file: string; line: number; op: string; before: string; after: string }
 export interface ProofRow {
@@ -18,5 +18,6 @@ export interface RedProof {
 }
 export function parseTap(tap: string): TapEntry[];
 export function classify(entry: TapEntry | undefined): Status;
+export function truncation(tap: string): string | null;
 export function drawKillers<T>(population: readonly T[], n: number, seed: number): T[];
 export function untrackedOf(gitDir: string, paths: readonly string[]): { changes: string[]; skipped: string[] };
