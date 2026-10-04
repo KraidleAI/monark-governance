@@ -411,17 +411,20 @@ function sha256(abs) {
 // size is an internal concern, not a storefront one. So the export DERIVES the public workflow from
 // the internal one by a DETERMINISTIC, dependency-free text rewrite:
 //   (1) add a `push` trigger under `on:` (public pushes run the gates);
-//   (2) remove the whole `r25-taille-de-lot` job (its 2-space key line up to the next 2-space job key);
+//   (2) remove each job of INTERNAL_JOBS, a closed list (its 2-space key line up to the next 2-space job key):
+//       `r25-taille-de-lot`, and `g3-export` (CI-G3-DURATION-1: it runs the root test/export-public.test.ts, and the
+//       root test/ is never exported, so the job would red on the mirror);
 //   (3) prepend a one-line provenance header;
 //   (4) drop the 2-line governance "Delivery flow" comment (it is FALSE in the public workflow and is
 //       the sole other "r25" mention — see the inline note; error_origin = internal).
 // The JOBS stay BYTE-IDENTICAL: the pinned action SHAs and the "every job blocking, no
-// continue-on-error" invariant carry over untouched. FAIL-CLOSED (exit 1) if the `on:` block or the r25
-// job are not found — a silent verbatim copy would ship the governance-only gate and mask the drift,
+// continue-on-error" invariant carry over untouched. FAIL-CLOSED (exit 1) if the `on:` block or an internal
+// job is not found — a silent verbatim copy would ship the governance-only gate and mask the drift,
 // which test 42(f) / mutant M5 (short-circuited derivation) catches.
 export const CI_WORKFLOW_PATH = ".github/workflows/ci.yml";
 export const DERIVED_HEADER =
-  "# Derived by scripts/export-public.mjs from the internal workflow (ADR-M004 D7 bis): lot-size gate removed, push trigger added.";
+  "# Derived by scripts/export-public.mjs from the internal workflow (ADR-M004 D7 bis): lot-size gate and source-only export test job removed, push trigger added.";
+const INTERNAL_JOBS = ["r25-taille-de-lot", "g3-export"];
 
 export function derivePublicWorkflow(raw) {
   const eol = raw.includes("\r\n") ? "\r\n" : "\n";
@@ -432,18 +435,20 @@ export function derivePublicWorkflow(raw) {
     process.exit(1);
   }
   let out = raw.replace(onNeedle, `on:${eol}  push:${eol}  pull_request:`);
-  // (2) remove the `r25-taille-de-lot` job: its 2-space-indented key line up to (not including) the next
-  //     2-space-indented job key. All r25 body lines are >= 4 spaces, so /^ {2}\S/ first re-matches at
-  //     the following job (g3-verification), never inside the job body.
+  // (2) remove each INTERNAL_JOBS job: its 2-space-indented key line up to (not including) the next
+  //     2-space-indented job key. All body lines are >= 4 spaces, so /^ {2}\S/ first re-matches at
+  //     the following job, never inside the job body.
   const lines = out.split(eol);
-  const start = lines.findIndex((l) => l === "  r25-taille-de-lot:");
-  if (start === -1) {
-    console.error(`export FAILED — ${CI_WORKFLOW_PATH}: the internal lot-size gate job was not found (fail-closed, D7 bis R1).`);
-    process.exit(1);
+  for (const job of INTERNAL_JOBS) {
+    const start = lines.findIndex((l) => l === `  ${job}:`);
+    if (start === -1) {
+      console.error(`export FAILED — ${CI_WORKFLOW_PATH}: the internal job ${job} was not found (fail-closed, D7 bis R1).`);
+      process.exit(1);
+    }
+    let end = start + 1;
+    while (end < lines.length && !/^ {2}\S/.test(lines[end])) end++;
+    lines.splice(start, end - start);
   }
-  let end = start + 1;
-  while (end < lines.length && !/^ {2}\S/.test(lines[end])) end++;
-  lines.splice(start, end - start);
   // (4) drop the governance-only "Delivery flow" comment pair (source lines 11-12). It is FALSE in the
   //     public workflow (a push DOES run now; there is no r25) and would contradict the header prepended
   //     below; it is also the sole surviving "r25" mention, so removing it makes `grep -c r25` = 0 (D7 bis
