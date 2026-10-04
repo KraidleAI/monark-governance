@@ -53,7 +53,7 @@ function selfSigned(cn: string): { key: string; cert: string; fingerprint: strin
 // WebSocket server's), named foreign_connection; a resumed TLS session of node:tls to the place, published on the channel as undici
 // publishes its connections (undici's own session cache holds its sessions by WeakRef: whether it resumes is up to the collector), is
 // named session_resumed (base: null with no note); the first, fresh connection gives the REST server's fingerprint.
-// killer: scripts/l2/rest.mjs:95 CONST " || s.remotePort !== peer.port" -> ""
+// killer: scripts/l2/rest.mjs:102 CONST " || s.remotePort !== peer.port" -> ""
 test("l2_tls_peer_only_from_own_connection", async () => {
   const R = await load(), rest = selfSigned("rest.test"), ws = selfSigned("ws.test");
   setDefaultCACertificates([rest.cert, ws.cert]);
@@ -88,10 +88,10 @@ test("l2_tls_peer_only_from_own_connection", async () => {
   await c.request("time", null);
   hold = null;
   (link as WebSocket | null)?.close();
-  const first = connect({ host: "localhost", port: restPort });
+  const first = connect({ host: "localhost", port: restPort, servername: "localhost" });
   sockets.add(first);
   const session = await new Promise<Buffer>((done) => { first.once("session", done); });
-  const resumed = connect({ host: "localhost", port: restPort, session });
+  const resumed = connect({ host: "localhost", port: restPort, servername: "localhost", session });
   sockets.add(resumed);
   await new Promise((done) => { resumed.once("secureConnect", done); });
   assert.deepEqual([resumed.isSessionReused(), resumed.getPeerCertificate()], [true, {}], "a resumed session shows no certificate");
@@ -106,7 +106,7 @@ test("l2_tls_peer_only_from_own_connection", async () => {
 });
 
 // m-3: the closed lists cannot be widened by another module of the process; PEER is the host and port of ORIGIN.
-// killer: scripts/l2/rest.mjs:23 CONST "Object.freeze([\"api.binance.com\"])" -> "([\"api.binance.com\"])"
+// killer: scripts/l2/rest.mjs:27 CONST "Object.freeze([\"api.binance.com\"])" -> "([\"api.binance.com\"])"
 test("l2_rest_closed_lists_frozen", async () => {
   const R = await load();
   assert.deepEqual([R.HOSTS, R.SYMBOLS, R.STOPS, R.TLS_NOTES, R.PEER].map((x) => Object.isFrozen(x) && x !== undefined), [true, true, true, true, true]);

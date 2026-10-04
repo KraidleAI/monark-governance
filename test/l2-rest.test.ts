@@ -45,7 +45,7 @@ async function code(p: Promise<unknown>): Promise<string> {
   return "answered";
 }
 
-// killer: scripts/l2/rest.mjs:24 CONST "weight: 250" -> "weight: 251"
+// killer: scripts/l2/rest.mjs:29 CONST "weight: 250" -> "weight: 251"
 test("l2_rest_logged_and_kept_before_read", async () => {
   const depth = Buffer.from("{\"lastUpdateId\":7,\"x\":[[\"0.10\",\"1.000\"]]}\n"), bad = Buffer.from("not json {");
   const { R, c, place, out, inits } = await rig((p) => (p.startsWith("/api/v3/depth") ? { status: 200, body: depth, headers: { "x-mbx-used-weight-1m": "250" } }
@@ -82,7 +82,7 @@ test("l2_rest_logged_and_kept_before_read", async () => {
   w.close();
 });
 
-// killer: scripts/l2/rest.mjs:116 CONST "status === 429 || status === 418" -> "status === 429"
+// killer: scripts/l2/rest.mjs:129 CONST "status === 429 || status === 418" -> "status === 429"
 test("l2_rest_429_418_suspend_until_retry_after", async () => {
   for (const [status, stopCode, retry, waitS] of [[429, "rate_limited", "7", 7], [418, "ip_banned", "120", 120], [429, "rate_limited", undefined, 60],
     [418, "ip_banned", "259200", 259_200]] as const) {
@@ -114,7 +114,7 @@ test("l2_rest_429_418_suspend_until_retry_after", async () => {
   }
 });
 
-// killer: scripts/l2/rest.mjs:120 CONST "state.stopped = true" -> "state.stopped = false"
+// killer: scripts/l2/rest.mjs:133 CONST "state.stopped = true" -> "state.stopped = false"
 test("l2_rest_451_stops_all", async () => {
   const { R, c, place, out, clock } = await rig(() => ({ status: 451, body: "{\"code\":0,\"msg\":\"restricted\"}" }));
   assert.equal(await code(c.request("exchangeInfo", "BNBUSDT")), "restricted_location");
@@ -140,7 +140,7 @@ test("l2_rest_451_stops_all", async () => {
   }
 });
 
-// killer: scripts/l2/rest.mjs:74 ROR "n > BODY_MAX" -> "n >= BODY_MAX"
+// killer: scripts/l2/rest.mjs:82 ROR "n > BODY_MAX" -> "n >= BODY_MAX"
 test("l2_rest_body_bound_named", async () => {
   let size = 8_388_608;
   const { c, out } = await rig(() => ({ status: 200, body: Buffer.alloc(size, 0x20) }));
@@ -154,7 +154,7 @@ test("l2_rest_body_bound_named", async () => {
   c.close();
 });
 
-// killer: scripts/l2/rest.mjs:57 CONST "u.protocol !== \"https:\" || " -> ""
+// killer: scripts/l2/rest.mjs:65 CONST "u.protocol !== \"https:\" || " -> ""
 test("l2_rest_host_and_redirect_refused", async () => {
   const { R, c, place, out } = await rig(() => ({ status: 302, headers: { location: "http://127.0.0.1:1/x" } }));
   for (const url of ["http://api.binance.com/api/v3/time", "https://api.binance.com.evil.example/x", "https://api.binance.com:8443/x",
@@ -171,7 +171,7 @@ test("l2_rest_host_and_redirect_refused", async () => {
   c.close();
 });
 
-// killer: scripts/l2/rest.mjs:156 CONST "replace(/0+$/, \"\")" -> "replace(/0$/, \"\")"
+// killer: scripts/l2/rest.mjs:169 CONST "replace(/0+$/, \"\")" -> "replace(/0$/, \"\")"
 test("l2_exchangeinfo_scale_and_limits", async () => {
   const R = await load();
   const limits = [{ rateLimitType: "REQUEST_WEIGHT", interval: "MINUTE", intervalNum: 1, limit: 6000 },
@@ -189,7 +189,7 @@ test("l2_exchangeinfo_scale_and_limits", async () => {
   }
 });
 
-// killer: scripts/l2/rest.mjs:170 CONST "Math.floor((sentUs + receivedUs) / 2)" -> "Math.round((sentUs + receivedUs) / 2)"
+// killer: scripts/l2/rest.mjs:186 CONST "Math.floor((sentUs + receivedUs) / 2)" -> "Math.round((sentUs + receivedUs) / 2)"
 test("l2_time_offset_logged", async () => {
   const { R, c, out } = await rig(() => ({ status: 200, body: "{\"serverTime\":1760000000123}" }));
   const a = await c.request("time", null);
@@ -213,7 +213,7 @@ test("l2_time_offset_logged", async () => {
 // B-2 of the G2 of part P1 (lot P1-B1-BIS): test sockets published on the channel while a request runs (an injected fetch, no
 // network). Only a TLS socket whose servername and remote port are those of the place (PEER) is the request's own; any other window
 // logs no fingerprint and names why (TLS_NOTES); a socket published outside a request is not attributed; no address is written.
-// killer: scripts/l2/rest.mjs:95 CONST "s.servername !== peer.servername || " -> ""
+// killer: scripts/l2/rest.mjs:102 CONST "s.servername !== peer.servername || " -> ""
 test("l2_tls_peer_logged_without_address", async () => {
   const R = await load(), out = mkdtempSync(join(tmpdir(), "l2-rest-")), connected = channel("undici:client:connected");
   const tls = (servername: string, remotePort: number, cert: object, reused = false): object => ({ servername, remotePort,
@@ -244,7 +244,7 @@ test("l2_tls_peer_logged_without_address", async () => {
 // G2 B1, m1, B2, J1, m2, m3: a failure names its code, never an address; a body that fails mid-read is still logged; a symbol outside
 // the closed list (or a null one for depth and exchangeInfo) is refused before any request; the requests of a client are chained;
 // files are written exclusively and a disk failure is a named stop.
-// killer: scripts/l2/rest.mjs:81 CONST "e?.cause?.code ?? " -> "e?.cause?.message ?? "
+// killer: scripts/l2/rest.mjs:89 CONST "e?.cause?.code ?? " -> "e?.cause?.message ?? "
 test("l2_rest_failures_named_without_address_and_symbols_closed", async () => {
   const R = await load();
   const out = mkdtempSync(join(tmpdir(), "l2-rest-")), cause = Object.assign(new Error("connect ECONNREFUSED 127.0.0.1:59999"), { code: "ECONNREFUSED" });
