@@ -55,7 +55,7 @@ import { LIQ_POLICY, USDE_POLICY, type ClassPolicyRow } from "../class-policy.ts
 // (ADR-M017 D2): the committed subject<->class binding table + the pure consistency predicate. A pure
 // sibling module at src/ (no I/O, imports nothing from the tools), so the K-8 tools scan stays meaningful
 // and there is no import cycle (attestation-binding.ts never imports gate.ts).
-import { checkAttestedConsistency } from "../attestation-binding.ts";
+import { checkAttestedConsistency, NO_SERVED_ATTESTATION_SUBJECT_SENTENCE } from "../attestation-binding.ts";
 
 /** Server-fixed contract version (K-4c) — NOT carried by the caller. */
 export const SCHEMA_VERSION = "1.0.0";
@@ -220,7 +220,7 @@ export function describeGate(registryHasLiq: boolean): string {
     "A caller-carried `attested` price must declare a subject consistent with the committed task class " +
     "(exact committed-URL membership; BYO classes do not accept `attested` in P1); " +
     GATE_NON_REVERIFICATION_SENTENCE +
-    "; no temporal binding in P1. " +
+    `; no temporal binding in P1. ${NO_SERVED_ATTESTATION_SUBJECT_SENTENCE} ` +
     "The gate only emits a decision; it never calls the named tool."
   );
 }
