@@ -438,7 +438,25 @@ Tronc `lot/etude-suite`. Dernier oracle complet : 1 779 tests, dont 1 776 verts,
     (messagerie). Porteur : RECHERCHES, PR sur la base avant le bloc C ; état : en cours (G0 `bdc946b2`).
   - UKEMI-PENDING-1 (Q-SP1-4) : les deux tests de site-ukemi (`:1198`, `:1438`) lisent `ukemi-served.json` et rougiraient au bloc C
     sur `schema_version` du corps de la CA, ce qu un instantané en attente du harnais ne couvre pas. Construction : le même mécanisme
-    pour l état servi d ukemi (synchro et vérification). Porteur : RECHERCHES, sur la base avant le bloc C ; état : ouvert.
+    pour l état servi d ukemi (synchro et vérification). Porteur : RECHERCHES, sur la base avant le bloc C ; état : en cours (PR #133,
+    `CA_SCHEMA_VERSION` ; l instantané en attente d ukemi est reporté au G0 du bloc C sous UKEMI-PENDING-SNAPSHOT-1, G0 du lot).
+  - MUTANTS-LIVE-WAITER-AHEAD-1 (2026-10-04 18:4x UTC) : G28 (`mutants_a_live_waiter_ahead…`) rouge sous la charge de l oracle
+    (lock_wait_ms < 1000) : depuis #125 l attendant de 6 s fixes part au chargement et peut mourir avant l entrée de l outil dans
+    l attente. Construction : l attendant vit jusqu à cette entrée ; même examen pour G27 (3 197 ms pour 3 600 sous Windows). Porteur :
+    RECHERCHES (recherches#141), PR sur le tronc avant #130 ; état : en cours.
+  - L2-LINKS-FILE-CRASH-1 (2026-10-04 18:3x UTC) : `test/l2-links.test.ts` planté au chargement sous l oracle (363 ms, aucun test
+    rapporté, aucune trace), une fois. Construction : rendre la cause lisible (`test/helpers/keep-cause.ts`), `trap()` et
+    `mkdtempSync` dans `before()` ; rejeu Windows par MONARK après la PR. Porteur : RECHERCHES (recherches#140) ; état : en cours.
+  - TEST-FORCE-EXIT-REPORT-LOSS-1 (2026-10-04 20:2x UTC ; proposé par RECHERCHES) : sous Linux, avec `--test-force-exit`, des
+    rapports de fin de fichier se perdent alors que le fichier sort 0 (suites vertes à 2 116 et 2 170 tests rapportés pour 2 211) ;
+    une CI verte ne prouve alors rien des tests non rapportés. Construction au G0 : compte rapporté contre un plancher ou contre un
+    fichier tap. Porteur : RECHERCHES, zone ouverte (scripts de test, `ci.yml`, un test de garde ; recherches#145) ; état : ouvert.
+  - TAIL-TS-COUNTS-1 (Q-1 de CM-4a-ii, voie (a)) : l addendum 8 d ADR 0006 (P0 `ec202d00`) garde l exception de zone : MONARK écrit
+    `tail.ts` et la garde de vague 2. Livrable de MONARK : l entrée par comptes de `tail.ts` (`{num, den}` non réduits, chaînes
+    décimales, refus de l addendum §1), sur la signature et les vecteurs que RECHERCHES fournit ; tests et tueurs W2-E chez
+    RECHERCHES. Déclencheur : la pièce de RECHERCHES ; avant le lot b de CM-4a-ii. Porteur : MONARK ; état : ouvert.
+  - VERIFIERS-LIST-F5A-1 (Q-2 de CM-4a-ii) : la liste publiée des vérificateurs listés (identité lue avant « @ », minuscules ASCII)
+    est due par MONARK avant F-5a. Porteur : MONARK ; état : ouvert.
   - L2-RECV-US-RESOLUTION-1 (PAROXYSME ; Q-4 du G1 de L2-P1-a2) : Node n offre aucune horloge murale à la microseconde ; `recv_us`
     de production vaut `Date.now()*1000` (résolution ms), l ordre fin étant porté par `mono_ns`. Construction qui donne la garantie :
     mesurer la résolution réelle et la dérive de `performance.timeOrigin + performance.now()` contre l horloge de l hôte sur un jour

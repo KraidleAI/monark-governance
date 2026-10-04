@@ -5,7 +5,7 @@
 // the OS temp directory (outside any git tree, removed after the file) and read back with the shared reader of lot P1-a2. Each test
 // names, on the line above it, the production mutation that reddens it (scripts/red-proof.mjs convention); every outcome is compared by
 // assert, a named stop read as its code. Synthetic data only.
-import { after, test } from "node:test";
+import { after, before, test } from "node:test";
 import assert from "node:assert/strict";
 import { existsSync, mkdtempSync, readFileSync, rmSync } from "node:fs";
 import { open } from "node:fs/promises";
@@ -16,12 +16,12 @@ import type { Gate, Link, LinkIo } from "../scripts/l2/links.mjs";
 import { readSegment, segmentOf } from "../scripts/l2/segments.mjs";
 import type { SegmentFile } from "../scripts/l2/segments.mjs";
 import { OP, startPlace, trap, viaWebSocket, type Peer, type Place } from "./l2-fake-place.ts";
-
-trap();
-const ROOT = mkdtempSync(join(tmpdir(), "l2-links-")), places: Place[] = [];
+import { keepCause } from "./helpers/keep-cause.ts";
+keepCause("test/l2-links.test.ts"); // a crash of this file names its cause on stdout, which the runner keeps (L2-LINKS-FILE-CRASH-1)
+let ROOT = ""; const places: Place[] = []; before(() => { trap(); ROOT = mkdtempSync(join(tmpdir(), "l2-links-")); }); // fails: 12 named reds
 after(async () => {
   for (const p of places) await p.stop();
-  rmSync(ROOT, { recursive: true, force: true, maxRetries: 3 });
+  if (ROOT !== "") rmSync(ROOT, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 });
 });
 const LF = String.fromCharCode(10), ORIGIN = "wss://stream.binance.com:9443"; // Q-P1-3, written here, never imported
 const pathOf = (s: string): string => `/stream?streams=${s}@depth@100ms/${s}@bookTicker/${s}@trade&timeUnit=MICROSECOND`; // points 2, 3
