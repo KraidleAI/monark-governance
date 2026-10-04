@@ -57,3 +57,18 @@ Plan : c 100, d 31, t 143 à 227 (274 à 358). Mesure avant le gel : c 153, d 81
   `intervalNum`, `limit`, noms non encore épinglés par un FAITS : à confirmer par (f) avant la fusion.
 - **Q-B1-2** : `Retry-After` absent ou illisible sur 429 ou 418 : 60 s (choix de ce lot) ou arrêt nommé ?
 - **Q-B1-3** : Q-P1-6 (plafond du jour sous 4 000) se décide dans la boucle (c5) : b1 rend le plafond lu, sans politique.
+
+## Pli de la G2 (instance neuve : APPROUVE-AVEC-CORRECTIONS ; décisions de l'orchestrateur du 2026-10-04)
+
+- **B1** : un arrêt ne porte que le code ou le nom de l'erreur, jamais son message (une adresse et un port y passaient) ; la redirection
+  n'est plus recopiée dans le détail.
+- **B2** : symbole contrôlé contre la liste fermée du plan (§3 point 1 : BTCUSDT, ETHUSDT, BNBUSDT, SOLUSDT) avant de bâtir l'URL ;
+  `null` pour l'heure de la place seulement ; sinon arrêt `bad_symbol`, aucune requête.
+- **B3** : tests ajoutés pour le signal de 30 s, l'absence d'en-tête, la suspension comptée depuis la réception, le milieu arrondi de
+  l'écart, l'intervalle `MINUTE`, les en-têtes `date` et `retry-after` journalisés.
+- **Q-B1-2 décidée** : 429 sans `Retry-After` lisible : 60 s ; 418 sans `Retry-After` lisible : arrêt nommé
+  `ip_banned_no_retry_after`, comme 451 ; tout `Retry-After` au-delà de 3 jours : arrêt nommé `retry_after_too_long`.
+- **J1** : les requêtes d'un client sont chaînées (une seconde attend la première) ; une fenêtre qui voit plus d'une connexion ne
+  donne aucune empreinte, `tls_peer_note: "several_connections"`. `connectParams` reste non lu (point 8 ci-dessus).
+- **Mineurs** : une lecture de corps qui échoue en route garde sa ligne de `requests.jsonl` (statut, octets lus, rien de gardé) ;
+  fichiers écrits en `wx`, horodatage des noms à la microseconde ; une erreur de disque est l'arrêt nommé `disk_error`.
