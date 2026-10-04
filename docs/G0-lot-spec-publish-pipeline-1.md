@@ -56,7 +56,7 @@ Code, surface de types, liste d'entrées et test : sous 547 lignes ascendantes (
 - Q-SP-5 : chemins proposés des sources 1.1.0 (`spec/…`, `apps/harness/policy/<classe>.json`) à confirmer par CM-3c, CM-4 et SPEC-1-1-0-RELEASE.
 - Q-SP-6 : la CI du dépôt public (recalcul de `MANIFEST.sha256`, des empreintes de schémas et de `policy_table_sha256`) : un fichier de workflow produit par cet outil depuis une source de gouvernance (le format de chemin admet `.github/…`), ou écrit par MONARK dans le dépôt public ?
 
-## 7. Bloc daté 2026-10-04 03:4x UTC : plis de la G2 (APPROUVE-AVEC-CORRECTIONS, 3 bloquantes) et scission R-25
+## 7. Bloc daté 2026-10-04 03:41:07 UTC (commit `e15fbab6`, après les tests `0823c5de` et le code `e89c004c` de 03:28 ; le prochain bloc daté précède les tests rouges) : plis de la G2 (APPROUVE-AVEC-CORRECTIONS, 3 bloquantes) et scission R-25
 
 **Scission (CHECKLIST-G7 §4 : « ≤ 547 ou lot scindé »).** La déclaration de la version `contract-1.1.0` (51 lignes de la liste d'entrées) et son test I-2 quittent ce lot pour **SPEC-1-1-0-RELEASE** (MONARK, go F-5a), qui les reprend avec des sources épinglées et ses chemins confirmés (Q-SP-5). Le §3 ne vaut plus que pour `kata-wave1` ; la sorte `policy-table` et l'écriture canonique restent dans l'outil, prêtes pour ce lot-là.
 
