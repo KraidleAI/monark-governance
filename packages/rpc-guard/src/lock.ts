@@ -4,7 +4,7 @@
 // gets EEXIST => fail-closed (aligned "Chainstack cap = one role at a time"). A stale lock after a crash STAYS held
 // (fail-closed, never a masked eternal block); release is the EXPLICIT served `unlock` subcommand, which appends a
 // chained `outcome=unlocked` line (consigned, never an automatic theft).
-import { existsSync, fstatSync, lstatSync, unlinkSync, type BigIntStats } from "node:fs";
+import { existsSync, unlinkSync, type BigIntStats } from "node:fs";
 import { join } from "node:path";
 import { DURABLE_FS, type CycleLedger, type CycleLedgerEntry } from "./ledger.ts";
 
@@ -46,17 +46,17 @@ export function runUnlock(ledger: CycleLedger, op: string, reason: string): Cycl
 /** RPC-GUARD-LOCK-WRITE-LEAK-1: run `write` on the fd of the lock file THIS call created ("wx"), then close it. On a failure
  *  of the write, the fsync or the close, the file is removed iff the path still names the file this fd created (same dev,
  *  ino and birth time, read from the fd before the write), then the FIRST error is rethrown. A file swapped in at the path
- *  meanwhile (a foreign lock) is never removed. Best effort: an identity that cannot be read, or a failed removal, leaves
- *  the file (fail-closed: lock_held until the served unlock), and the original error is still the one thrown. */
+ *  meanwhile (a foreign lock) is never removed. Best effort: an identity that cannot be read or is degenerate (ino or birth
+ *  time 0n: no proof the file is ours), or a failed removal, leaves the file (fail-closed: lock_held until the served unlock). */
 function sealOwnLock(lockPath: string, fd: number, write: () => void): void {
   let own: BigIntStats | undefined, failure: { error: unknown } | undefined;
-  try { own = fstatSync(fd, { bigint: true }); } catch { own = undefined; }
+  try { own = DURABLE_FS.fstatSync(fd); } catch { own = undefined; }
   try { write(); } catch (e) { failure = { error: e }; }
   try { DURABLE_FS.closeSync(fd); } catch (e) { failure ??= { error: e }; }
   if (failure === undefined) return;
   try {
-    const now = lstatSync(lockPath, { bigint: true });
-    const same = own !== undefined && now.dev === own.dev && now.ino === own.ino && now.birthtimeNs === own.birthtimeNs;
+    const now = DURABLE_FS.lstatSync(lockPath);
+    const same = own !== undefined && own.ino !== 0n && own.birthtimeNs !== 0n && now.dev === own.dev && now.ino === own.ino && now.birthtimeNs === own.birthtimeNs;
     if (same) DURABLE_FS.unlinkSync(lockPath);
   } catch { /* best effort: the removal never masks the original error */ }
   throw failure.error;

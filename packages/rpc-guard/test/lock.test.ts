@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { existsSync, readFileSync, renameSync, writeFileSync } from "node:fs";
+import { existsSync, fstatSync, lstatSync, readFileSync, renameSync, writeFileSync, type BigIntStats } from "node:fs";
 import { join } from "node:path";
 import { openGuardedClient, runCli, verifyCycleLedger, type Snapshot, type RunLimits } from "@monark/rpc-guard";
 import { acquireLock, LockHeldError } from "../src/lock.ts";
@@ -102,7 +102,7 @@ test("lock_close_failure_after_write_failure_surfaces_the_write_error", () => {
   } finally { j.restore(); cleanup(); }
 });
 
-// killer: packages/rpc-guard/src/lock.ts:59 CONST "own !== undefined && now.dev === own.dev && now.ino === own.ino && now.birthtimeNs === own.birthtimeNs" -> "own !== undefined"
+// killer: packages/rpc-guard/src/lock.ts:59 CONST "own !== undefined && own.ino !== 0n && own.birthtimeNs !== 0n && now.dev === own.dev && now.ino === own.ino && now.birthtimeNs === own.birthtimeNs" -> "own !== undefined"
 test("lock_failure_never_removes_a_foreign_lock", () => {
   const { dir, cleanup } = tmp();
   const err = fault("EIO");
@@ -130,7 +130,7 @@ test("lock_failure_never_removes_a_foreign_lock", () => {
   } finally { cleanup(); }
 });
 
-// killer: packages/rpc-guard/src/lock.ts:59 SDL " && now.birthtimeNs === own.birthtimeNs" -> ""
+// killer: packages/rpc-guard/src/lock.ts:59 CONST " && now.birthtimeNs === own.birthtimeNs" -> ""
 test("lock_failure_never_removes_a_foreign_lock_recreated_at_the_same_path", () => {
   // (d) Our file removed (a served unlock, lock.ts:42) then another writer's "wx" create at the SAME path: ext4 and XFS hand
   // the freed inode straight back (same dev, same ino), so only the birth time tells the foreign lock from ours. The test is
@@ -159,4 +159,31 @@ test("lock_failed_removal_never_masks_the_original_error", () => {
     assert.deepEqual(j.ops, ["open:wx:helius.lock", "write:helius.lock", "close:helius.lock", "unlink:helius.lock"], "the removal was attempted");
     assert.equal(existsSync(join(cd, "helius.lock")), true, "a failed removal leaves the lock (fail-closed: lock_held until the served unlock)");
   } finally { j.restore(); cleanup(); }
+});
+
+// MONARK decision on G2 m-2: a degenerate identity (ino 0n, or birth time 0n on a FS without btime) proves nothing, so the
+// lock is KEPT (lock_held until the RUNBOOK act: the safe direction). Both identity reads of the DURABLE_FS seam report the
+// degenerate field, as such a FS does; the other fields are the real ones, so only the degenerate-identity clause keeps it.
+function degenerateLockFailure(dir: string, cycle: string, field: "ino" | "birthtimeNs"): void {
+  const err = fault("EIO"), cd = ensureCycleDir(dir, cycle);
+  const zero = (st: BigIntStats): BigIntStats => ({ ...st, [field]: 0n }) as BigIntStats;
+  const j = journal({ writeSync: () => { throw err; } });
+  Object.assign(DURABLE_FS, { fstatSync: (fd: number) => zero(fstatSync(fd, { bigint: true })), lstatSync: (p: string) => zero(lstatSync(p, { bigint: true })) });
+  try {
+    assert.equal(thrown(() => acquireLock(cd, "helius")), err, "the original error surfaces");
+    assert.deepEqual(j.ops, ["open:wx:helius.lock", "write:helius.lock", "close:helius.lock"], "no removal attempted");
+    assert.equal(existsSync(join(cd, "helius.lock")), true, `a ${field} 0n identity is no proof of ours: the lock is kept`);
+  } finally { j.restore(); }
+}
+
+// killer: packages/rpc-guard/src/lock.ts:59 CONST "own.ino !== 0n && " -> ""
+test("lock_failure_keeps_a_lock_whose_ino_is_degenerate", () => {
+  const { dir, cleanup } = tmp();
+  try { degenerateLockFailure(dir, "c-ino0", "ino"); } finally { cleanup(); }
+});
+
+// killer: packages/rpc-guard/src/lock.ts:59 CONST "own.birthtimeNs !== 0n && " -> ""
+test("lock_failure_keeps_a_lock_whose_birth_time_is_degenerate", () => {
+  const { dir, cleanup } = tmp();
+  try { degenerateLockFailure(dir, "c-btime0", "birthtimeNs"); } finally { cleanup(); }
 });
