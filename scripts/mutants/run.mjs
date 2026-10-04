@@ -5,7 +5,7 @@
 // MUTANTS: --table, a module exporting MUTANTS or a JSON array, rows { id, line, op, before, after, why[, file][, test][, typecheck] }, or with
 // edits: [{ line, before, after }, ...] in place of line, before, after: edits on distinct lines, applied as one block (lot MUTANTS-TOOL-2, D-1); op in COR,
 // ROR, SDL, CONST (SDL empties the line); a row without file mutates --file, else the one non-test code file that base..tree
-// changes, else refused ("ambiguous file"). --killers: the "// killer:" lines (parseKiller of scripts/red-proof.mjs) of the test
+// changes, else refused ("ambiguous file"); a file under test/ is mutable iff a test file of the globs imports it directly, never a *.test.ts (MUTANTS-TEST-SUPPORT-1). --killers: the "// killer:" lines (parseKiller of scripts/red-proof.mjs) of the test
 // files that base..tree changes, as K1, K2... (files sorted, then line), each first run as the test declared right below it, alone.
 // TARGETS: the test files of the quoted package.json "test" globs whose import closure holds the mutated file (targetsOf): import/export ... from
 // "x", import "x", import("x") of a string literal (a computed import( is skipped, never a target: item MUTANTS-DYNAMIC-IMPORT-1); relative and
@@ -117,10 +117,10 @@ function mutate(text, m) { // the text with the mutant's edits applied as one bl
   return lines.join("\n");
 }
 
-function lostOf(m, root) { // why the mutant cannot apply to the tree at root, or null; its edits lie on distinct lines, each is checked alone
+function lostOf(m, root, globs) { // why the mutant cannot apply to the tree at root, or null; its edits lie on distinct lines, each is checked alone
   if (!OPS.includes(m.op) || m.edits.some((e) => e.before === "")) return `operator ${m.op} or an empty <before>`;
   if (!inTree(root, m.file)) return `${String(m.file)} is not a file of the tree`;
-  if (TEST_CODE.test(m.file)) return `${m.file} is test code: a mutant mutates production code`;
+  if (TEST_CODE.test(m.file) && (m.file.endsWith(".test.ts") || targetsOf(root, m.file, globs).direct.length === 0)) return `${m.file} is test code: a mutant mutates production code`;
   const text = readFileSync(join(root, m.file), "utf8"), e = m.edits.find((x) => mutate(text, { op: m.op, edits: [x] }) === null);
   return e === undefined ? null : `"${e.before}" is not exactly once on ${m.file}:${e.line}`;
 }
@@ -172,7 +172,7 @@ export async function main(argv) {
   const fallback = o.targets?.split(",") ?? [];
   if (fallback.some((t) => !isFile(join(repo, t)))) throw new Error(`--targets ${o.targets}: not files of the tree`);
   for (const m of mutants) {
-    m.lost = lostOf(m, repo);
+    m.lost = lostOf(m, repo, globs);
     const g = m.lost === null ? targetsOf(repo, m.file, globs) : { direct: [], transitive: [] }, found = [...g.direct, ...g.transitive];
     m.targets = [...new Set([...(m.own ? [m.own] : []), ...found, ...fallback])]; // Q-G2-3: --targets adds its files to the graph's
     m.first = m.own ? [m.own] : g.direct.length > 0 ? g.direct : m.targets;

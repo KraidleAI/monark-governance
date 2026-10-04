@@ -17,7 +17,7 @@
 // Style hypothesis (C-G2-10): a body closes on its declaration line (ends with ");") or on the first later line closing at column 0 ("}" or ")"); else refused, "unsupported test layout" (RED-PROOF-LEX-FALLBACK-1).
 // KILLER CONVENTION (closed): the line right above a top-level test( or it( declaration reads
 //   // killer: <file>:<line> <OP> "<before>" -> "<after>"        OP in COR, ROR, SDL, CONST
-// <file> is repo-relative production code (never *.test.ts nor under test/) whose real path lies in the gel clone (else out of scope);
+// <file> is repo-relative production code, or a support module under test/ that the test file imports by a static relative import (MUTANTS-TEST-SUPPORT-1, amendment of 2026-10-04, ADR-METHODE-2 D2), never a *.test.ts, whose real path lies in the gel clone (else out of scope);
 // <before> occurs exactly once on that line and becomes <after>; SDL empties the line, with "" as <after>. --draw n --seed s draws n
 // killers of the admitted tests (seeded, reproducible), applies each alone to the gel clone and reruns that test: killed = red with its
 // modules loaded, stillborn = still green, invalid = a load failure, inconclusive = as above; the file is restored (sha256 checked
@@ -51,10 +51,10 @@ export function parseKiller(line) {
   return m ? { file: m[1], line: Number(m[2]), op: m[3], before: str(m[4]), after: str(m[5]) } : null;
 }
 
-function killerProblem(k, tree) {
+function killerProblem(k, tree, from) {
   if (!OPS.includes(k.op)) return `operator ${k.op} is not one of ${OPS.join(", ")}`;
   if (!/^[\w.@-]+(\/[\w.@-]+)*$/.test(k.file) || k.file.split("/").includes("..") || !existsSync(join(tree, k.file)) || !realpathSync(join(tree, k.file)).startsWith(realpathSync(tree) + sep)) return `${k.file} is out of scope: not a file inside the gel clone`;
-  if (/(^|\/)test\/|\.test\.ts$/.test(k.file)) return `${k.file} is test code: a killer mutates production code`;
+  if (/\.test\.ts$/.test(k.file) || (/(^|\/)test\//.test(k.file) && !supportOf(tree, from).includes(k.file))) return `${k.file} is test code: a killer mutates production code`;
   const text = readFileSync(join(tree, k.file), "utf8").split("\n")[k.line - 1];
   if (text === undefined) return `${k.file}:${k.line} is out of range`;
   if (k.op === "SDL" ? k.after !== "" : k.before === k.after) return "SDL takes an empty <after>; the other operators change the text";
@@ -267,7 +267,7 @@ export function main(argv) {
       unchanged += all - judged.length;
       for (const t of judged) {
         const bs = statusIn(b, t.name), gs = statusIn(g, t.name), module = bs.status === "import-fail" ? missingModule(bs.entry, f, added) : null;
-        const row = { name: t.name, file: f, line: t.line, base: bs.status, gel: gs.status, module, killer: t.killer, killerProblem: t.killer === null ? null : killerProblem(t.killer, gelTree) };
+        const row = { name: t.name, file: f, line: t.line, base: bs.status, gel: gs.status, module, killer: t.killer, killerProblem: t.killer === null ? null : killerProblem(t.killer, gelTree, f) };
         const [verdict, reason] = unsupported.has(t) ? ["refused", "unsupported test layout"] : verdictOf({ ...row, newModule: module !== null && added.has(module), only, inGlobs: gate.globs.some((re) => re.test(f)), listed: t.killer !== null && gate.g0 !== null && gate.g0[1].includes(`${t.killer.file}:${t.killer.line} ${t.killer.op} ${JSON.stringify(t.killer.before)} -> ${JSON.stringify(t.killer.after)}`) });
         rows.push({ ...row, verdict, reason, kill: null });
       }
@@ -315,4 +315,11 @@ export function untrackedOf(gitDir, paths) {
     changes.push(p);
   }
   return { changes, skipped };
+}
+
+/** MUTANTS-TEST-SUPPORT-1: the repo-relative paths that testFile imports by a static relative specifier ("./x.ts", multi-line braces included; import type
+ *  excluded, it runs nothing): the support modules it declares. A function declaration, hoisted, kept last so that no line of the script above moves. */
+function supportOf(tree, testFile) {
+  const text = existsSync(join(tree, testFile)) ? readFileSync(join(tree, testFile), "utf8") : "";
+  return [...text.matchAll(/^\s*import\s+(?!type\s)(?:[^;"']*?\sfrom\s*)?["'](\.\.?\/[^"']+)["']/gm)].map((m) => posix.join(posix.dirname(testFile), m[1]));
 }
