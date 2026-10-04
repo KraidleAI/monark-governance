@@ -1,5 +1,5 @@
 // scripts/l2/day.mjs -- the day and its seal (lot P1-c1 of part P1, 2026-10-04): ADR-L2-CAPTURE-1 D-17, section 2.3 points 8 and 10
-// ("Jour et scellé"), Q-9 and Q-10 closed, conditions (1) and (2) of RECHERCHES on Q-5; plan docs/G0-partie-l2-p1.md section 7, section
+// ("day and seal"), Q-9 and Q-10 closed, conditions (1) and (2) of RECHERCHES on Q-5; plan docs/G0-partie-l2-p1.md section 7, section
 // 3 point 19, D24-5; lot plan docs/G0-lot-l2-p1-c1.md. Node 24, zero dependencies. sealDay() derives one day of one symbol from the raw
 // alone (Q-P1-8: the replay's code, called by c5 on its schedule and by c6 for --from-raw): it reads, by the shared reader of P1-a2, the
 // segments of the symbol's spot connections and of /market whose hour lies in [day start - 1 h, day end + grace], and the journal. Day
