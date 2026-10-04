@@ -51,3 +51,21 @@ Prêt pour le contrôle par diff de MONARK, à fusionner avec #106. Temps (ii) a
 - Shōgen : `integration_test` = `http_mirror_matches_mcp_surface`, `verify_harness_ca_passes_on_the_in_process_harness` et les deux tests unitaires de la jointure ; limite déclarée (valeurs du témoin servi non épinglées, ATTEST-KATA-SUBJECT-1) ; statut `built` inchangé.
 - Couplage avec #110 (C-2) : voir le G0 ; à refaire quand #110 est dans la base de ce lot.
 - Le changement de mode de `packages/rpc-guard/bin/rpc-guard.mjs` n'est pas commis.
+
+## Suite de fusion après #106 et #110 (2026-10-04, PLAN-FUSION étape 3)
+
+- Base du lot : `330dbe4` (base/chantier-moteur-2026-10-03 avec #106 et #110). Fusion `--no-ff` de la base dans la branche : `3dca4f5`, sans conflit. Suite : `d7f5270` (**gel**), puis ce commit de documents. Aucune réécriture d'historique.
+- Trace h5 ré-enregistrée par `scripts/record-h5-e2e-trace.mjs` (deux passes identiques) : une seule valeur bouge, `fixtures/h5-e2e-trace.json:71`, `response_sha256` de `tools/list` `6df16cd3…` → `2ed3e97d…` (la phrase C-2 de #110) ; sha256 (LF) `e403cf01…` → `b016bf4a…`, 21 753 octets. Épingles en place : `test/h5-e2e-probe.test.ts:84`, `test/harness-served.test.ts:51`, `apps/site/data/manifest.sha256.json:15`, `fixtures/PROVENANCE-h5-e2e-trace.md:80` (plus une ligne d'historique, l.81).
+- C-2 : `scripts/sync-harness-served.mjs:101`, `ATTESTED` porte la phrase d'`attestation-binding.ts:65` mot pour mot ; la garde de la l.102 la trouve dans la description.
+- K-6 (décision de MONARK) : `apps/site/lib/fleet.ts:142`, `probe_harness_records_real_decision` en tête de `integration_test` ; commentaire l.138-141 : la limite (valeurs du témoin non épinglées) ne vaut plus que pour `http_mirror_matches_mcp_surface` et `verify_harness_ca_passes_on_the_in_process_harness` ; `built` inchangé. `test/site-docs.test.ts` : liste attendue avec la sonde, `integration_test[0]` épinglé ; tueur l.771 `apps/site/lib/fleet.ts:142 CONST "[\"probe_harness_records_real_decision\", " -> "["`, mesuré rouge.
+- Retouches de MONARK sur #111 : « 13 checks » → 15 (`scripts/verify-harness.mjs:20`, `test/verify-harness-liq.test.ts:84`) ; commentaires de `test/h5-e2e-probe.test.ts:53-54` et `:195` : le tuyau attest → gate est refusé ; `skills/monark/SKILL.md:62` nomme `liquidation-eligible-coverage` (α 0,01, nMin 100) ; `apps/site/app/how/page.tsx:77` ne dit plus « the residuals carried through ».
+- Retouches de MONARK sur #110 (zone harnais) : F-1 `apps/harness/src/calibration.ts:11-12` (« names it only as retired ») ; F-3 `docs/G0-lot-cm-2a-suite.md:37` (`schema-projection.ts:112`) ; N-1 `apps/harness/src/tools/ukemi-predict.ts:10` (le registre liq commet s0 seul). F-2 (README l.22-24) non fait : la phrase y est épinglée octet pour octet par `gate-cm2b.test.ts:236`.
+- Toutes les éditions sont à nombre de lignes constant, sauf la ligne d'historique de provenance et l'assertion K-6 ; aucune ligne de `gate.ts` ne bouge. Le changement de mode de `packages/rpc-guard/bin/rpc-guard.mjs` n'est pas commis.
+
+### Oracle
+
+- `node scripts/red-proof.mjs --base 330dbe40 --gel d7f52706 --repo /home/user/monark-governance --draw 6 --seed 37` : **OK**, 13 tests jugés F2P, 6 tueurs tirés, 6 tués.
+- `verifie-ancres.mjs` (refs base, cm-2b, cm-2a-suite, cm-2b-surfaces) : tueurs 555, ANCRE 546, DERIVE 0, PERDU 9 (les 9 préexistants de la base), comme le plan.
+- `tsc --noEmit`, `gate:vocab`, `lint:ratchet` 69/69, `lang:gate` : verts.
+- Fichiers touchés et voisins (`h5-e2e-probe`, `harness-served`, `site-docs`, `verify-harness-liq`, `skills`, `site-build-fleet`, `gate-cm2b`, `narabi-live`, `site-ukemi`, `ci-gates`, `error-code-sites`, `gate-liq`, `http`) : 221 tests, 219 verts. `probe_harness_records_real_decision` repasse au vert. Restent les deux rouges du temps (ii) : `harness_served_data_matches_in_process_harness` et `narabi_gate_facts_read_from_committed_sources` (`openapi` servi `9e3176ea…` contre `d605b912…` en processus).
+- R-25 par `r25()` contre `330dbe4` : **406 lignes comptées** (+251/−155 ; borne 547) ; 384 avant la suite. Le plan attendait 387 : les 19 lignes de plus sont les retouches de MONARK sur #110 et #111 et les commentaires réécrits de K-6.
