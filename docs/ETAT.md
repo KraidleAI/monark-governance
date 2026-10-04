@@ -683,11 +683,6 @@ Tronc `lot/etude-suite`. Dernier oracle complet : 1 779 tests, dont 1 776 verts,
   les précisions (1) à (4) de B-10 (`.` lu `-` ; `4` lu `a` sous `kata:` ; E16 ; repli i → l, faux refus `btc-dlr-1h` déclaré,
   BYO-LOOKALIKE-RESIDUAL-1) ont son go explicite (règle de l amendement « soir » de l ADR-CM, l.156).
   SPEC-PUBLISH-PIPELINE-1 (CR-8 ; écrit par RECHERCHES, G2 en trois tours ACCEPT) : **fusionné au tronc le 2026-10-04** (PR #117, fusion
-  Pile CM-2 au tronc (2026-10-04, 05:0x à 05:4x UTC) : #106, #110, #111 et #108 fusionnées sur la base du chantier moteur, puis au tronc
-  une par une par leur commit de fusion (R-25 par fusion, porte verte à chaque fois ; une fusion de la base en un bloc rougissait R-25) :
-  `ce4e5d2f` (#106) et `be3ce45b` (#110) : les 10 rouges de surface déclarés au G0 de CM-2b ; `9e0b611d` (#111) et `8aae90af` (#108) :
-  seuls les 2 rouges du temps (ii), `harness_served_data_matches_in_process_harness` et `narabi_gate_facts_read_from_committed_sources`,
-  acceptés par l amendement « nuit, 3 » jusqu au déploiement de l étape 4 et à la resynchronisation. Restent #109 (étape 5) et #107 (étape 6).
   `96eab664`, oracle vert) : producteur déterministe de l arbre de `monark-kata-spec`, `--verify` égal à l octet sur `ddfee9e`
   (manifeste `720e99d4…`) ; l outil ne pousse ni ne publie jamais. Décisions de MONARK sur Q-SP-1 à Q-SP-6 : les propositions du
   G7 sont retenues ; pour Q-SP-1, les sources 1.1.0 neuves ne vont sous `spec/` de la gouvernance (publique) qu après le go F-5a.
@@ -696,6 +691,11 @@ Tronc `lot/etude-suite`. Dernier oracle complet : 1 779 tests, dont 1 776 verts,
   `packages/contracts` ; déclencheur : fusion de CM-3c-1) ; DURABLE-SCAN-TEMPLATE-1 (rpc-guard : le scan de `durable.test.ts` lit un
   gabarit après `from(` comme un spécifiant ; déclencheur : le prochain lot de rpc-guard) ; SPEC-CI-SOURCE-1 (Q-SP-6 : le workflow de
   CI du dépôt public produit depuis une source de gouvernance épinglée ; déclencheur : le premier workflow de ce dépôt) ; états : ouverts.
+  Pile CM-2 au tronc (2026-10-04, 05:0x à 05:4x UTC) : #106, #110, #111 et #108 fusionnées sur la base du chantier moteur, puis au tronc
+  une par une par leur commit de fusion (R-25 par fusion, porte verte à chaque fois ; une fusion de la base en un bloc rougissait R-25) :
+  `ce4e5d2f` (#106) et `be3ce45b` (#110) : les 10 rouges de surface déclarés au G0 de CM-2b ; `9e0b611d` (#111) et `8aae90af` (#108) :
+  seuls les 2 rouges du temps (ii), `harness_served_data_matches_in_process_harness` et `narabi_gate_facts_read_from_committed_sources`,
+  acceptés par l amendement « nuit, 3 » jusqu au déploiement de l étape 4 et à la resynchronisation. Restent #109 (étape 5) et #107 (étape 6).
   - BTC-DIR-RETIRE-SURFACES-1 (MONARK ; déclencheur « PR CM-2b » atteint le 2026-10-03) : liste du G0 de CM-2b (§ du même nom).
     Décision de l investisseur (2026-10-03, 22:4x UTC, choix verbatim « Built, preuve attest servi (Recommandé) ») : Shōgen garde
     `built` ; `integration_test` de `apps/site/lib/fleet.ts` pointe vers un test d intégration non-LLM de l outil `attest` servi, plus
