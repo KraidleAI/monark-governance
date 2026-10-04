@@ -10,9 +10,9 @@ with an uptime promise.
 
 ## The redemption-velocity class
 
-Besides the two built-in plumbing fixtures, this endpoint serves `stable-run-velocity-24h`: a committed
-split-conformal calibration for one population (USDe), measured on calm onchain redemption-flow windows.
-Every other population abstains (`under_calib`). Alongside it, an off-tool **daily** sentinel steps an
+Besides the built-in plumbing fixture `cascade-liquidable-24h` (no calibration: it abstains), this endpoint serves
+`stable-run-velocity-24h`: a committed split-conformal calibration for one population (USDe), measured on calm
+onchain redemption-flow windows. On the committed USDe key the server imposes `alpha = 0.1` and `nMin = 50` (any other value is a named 400). Every other population abstains (`under_calib`). Alongside it, an off-tool **daily** sentinel steps an
 adaptive quantile tracker on the attested 24h flow and publishes a replayable timeline (`state.json`,
 `timeline.jsonl`) at `monarkgate.tech/narabi/`; the committed gate region is static and does not change
 until a pre-registered drift criterion fires and an ADR says so.

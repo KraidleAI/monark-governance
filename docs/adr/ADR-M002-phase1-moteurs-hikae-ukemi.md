@@ -142,6 +142,7 @@ COMMIT   si intent in C, |C|<=tau, B_t>=B_floor
 ```
 - DEFER ≠ ABSTAIN (attend vs refuse) ; horloge close ⇒ DEFER → ABSTAIN `clock_expired`. Le PnL n'entre pas dans pi.
 - **Amendé M011 (2026-09-17, NDG-1)** : le prédicat ABSTAIN `under_calib` fire aussi sur `verdict.reason === "under_calib"` (D6(b)), et le chemin `interval` ajoute `lo >= hi` (largeur nulle) ⇒ `under_calib`, jamais COMMIT. Voir `docs/adr/ADR-M011-interval-non-degenerescence.md`.
+- **Amendé ADR-CM (2026-10-04 (3), B-16, contrat 1.1.0)** : la ligne NDG-1 du chemin `interval` (`lo >= hi`) rend `region_degenerate`, et non plus `under_calib` ; la garde commune `under_calib` s'étend aux raisons « sans région » et `calib_*`, qui s'abstiennent avec la raison du verdict. L'ordre du prédicat ne change pas. Voir `docs/adr/ADR-M011-interval-non-degenerescence.md` §7.
 - **Propriétés exécutables** (oracle non-LLM) : **H3** — la somme des miscovers est identique sous pi0 (commit dès
   intent in C) et pi^H (identité pure ⇒ test de propriété) ; **H2.3** — l'erreur conditionnelle à COMMIT **n'est pas**
   bornée par alpha : chiffre de desk **étiqueté**, et la tournure « X % de fills corrects » entre dans le **gate
@@ -262,6 +263,7 @@ suite de miscovers RÉELLE des traces S2 Shōgen — rapport `docs/measure-M009a
   `contracts` (gelé, D2), **pas** dupliqué dans `ukemi`. Le Lot U ne construit aucune région en Phase 1 ; à l'intégration
   Phase 2, HIKAE conforme la `Prediction` numérique d'UKEMI en région `interval` via ce constructeur.
   - **Amendé M011 (2026-09-17, NDG-1)** : une région `interval` valide exige désormais `lo < hi` **strict** ; `lo == hi` (largeur nulle : `q̂=0` ou absorption flottante `ŷ±q̂===ŷ`) ⇒ `abstain=true, reason=under_calib` dans `buildIntervalRegion` (M5 `lo>hi`⇒throw conservé). Voir `docs/adr/ADR-M011-interval-non-degenerescence.md`.
+  - **Amendé ADR-CM (2026-10-04 (3), B-16, contrat 1.1.0)** : `lo == hi` ⇒ verdict `region: null`, `reason: region_degenerate` (au lieu de `under_calib`) ; `lo > hi` ⇒ throw, inchangé. Voir `docs/adr/ADR-M011-interval-non-degenerescence.md` §7.
 - **Réserve C13d — levée par la décision (d)** : l'horizon est désormais **24 h**, celui de l'objet payé (SYNTHESE
   §3.1 : VaR 99 %/24 h, Chaos/LlamaRisk). Reste déclaré, non fondé : aucun acheteur n'a encore nommé une exigence de
   couverture (G7 UKEMI, NON TROUVÉ) ; le niveau 99 % est une cible HIKAE Phase 2, pas une sortie UKEMI Phase 1.

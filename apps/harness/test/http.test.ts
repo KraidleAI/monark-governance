@@ -6,19 +6,20 @@
  */
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { once } from "node:events";
 import { request as httpRequest } from "node:http";
 import { assertClosedGateDecision, assertClosedPrediction, assertClosedAttestedPrice, calibDigest } from "@monark/contracts";
 import { handleJsonMirror, MIRROR_OPERATIONS } from "../src/http.ts";
 import { HARNESS_TOOLS, REGISTERED_TOOL_NAMES } from "../src/tools/registry.ts";
 import { CALIBRATE_MAX_N } from "../src/tools/calibrate.ts";
 import { startServer } from "../src/server.ts";
+import { startLoopback } from "./helpers/loopback.ts";
 
 const API_HOST = "api.monarkgate.tech";
 
 const GATE_BODY = {
-  prediction: { schema_version: "1.0.0", task_class: "btc-dir-15m", yhat: "up", predictor_id: "internal:momentum-4c", produced_at: "2026-09-04T00:00:00Z" },
-  params: { remainingBudget: 0.1, bFloor: 0, tau: 1, tauInterval: 1, alpha: 0.1, nMin: 50, intent: "up", tool: "perps_order_preview", clockOpen: true },
+  // CM-2b (ADR-CM B-5): btc-dir-15m is retired; the committed USDe key (F-7 alpha 0.1, nMin 50) is the served gate body.
+  prediction: { schema_version: "1.0.0", task_class: "stable-run-velocity-24h", yhat: 0.0001, predictor_id: "narabi:persistence-v2@eip155:1/erc20:0x4c9edd5852cd905f086c759e8383e09bff1e68b3", produced_at: "2026-09-04T00:00:00Z" },
+  params: { remainingBudget: 0.1, bFloor: 0, tau: 1, tauInterval: 1, alpha: 0.1, nMin: 50, intent: 0, tool: "perps_order_preview", clockOpen: true },
 } as const;
 const CASCADE_BODY = { L: [[0, 100], [50, 0]], e: [40, 20], shock: 0, producedAt: "2026-09-04T00:00:00Z" } as const;
 /** A valid calibrate body: n=10 >= nMin, p=⌈11·0.9⌉=10 <= n ⇒ q̂ is a number (a covered, not under_calib, result). */
@@ -141,10 +142,10 @@ function wiredPost(
 // mirror, and the Origin guard runs on that surface too. Mutants: (a) `isJsonMirrorHost` always false ⇒
 // the `api.` POST hits the MCP handler and is NOT a mirror 200 GateDecision ⇒ red; (b) drop the
 // originGuard before dispatch ⇒ the evil-Origin request is not 403 ⇒ red.
+// killer: apps/harness/src/server.ts:188 CONST "(port, host)" -> "(0, host)"
 test("http_mirror_routes_by_host_and_guards_origin", async () => {
-  const server = startServer(0);
+  const server = await startLoopback((port) => startServer(port));
   try {
-    await once(server, "listening");
     const addr = server.address();
     assert.ok(addr !== null && typeof addr === "object", "address() must be an AddressInfo");
     const port = addr.port;

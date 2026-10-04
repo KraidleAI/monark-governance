@@ -7,7 +7,7 @@
  * per-account liquidable amount yhat by the FROZEN close-factor rule (Aave v3.5.0), and emits the K-1 envelope
  * `{prediction, provenance, label}`. `prediction` alone is the frozen `Prediction` contract; `provenance` and
  * `label` ride OUTSIDE it (motif attest.run / adapter-narabi). The `gate` tool consumes the `prediction`
- * downstream (producer -> gate -> region); at HEAD the liq registry is empty, so the gate abstains under_calib.
+ * downstream (producer -> gate -> region); the liq registry commits stratum s0 only (U-4b-2b): covered there, under_calib on the other strata.
  *
  * NOT REGISTERED in U-5a (decisions 51/123: the endpoint keeps 4 tools). `ukemi-predict` replaces `cascade` in
  * U-5b (registration + route + 4->4 set + skill/MCP/README, same fusion). U-5a delivers the complete module +

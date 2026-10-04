@@ -109,7 +109,7 @@ export function derefVerdict(gateDecision: JsonObject, coverageVerdict: JsonObje
  *  (ADR-M007 D7): the OPTIONAL `calibration` object opens the BYO loop — the caller supplies its
  *  own nonconformity `scores` + a `mode` (interval|set), and the gate conformalizes against THOSE scores
  *  instead of a committed class. It stays OUT of `required` so the existing committed-class calls
- *  (btc-dir / cascade) remain valid. `maxItems: CALIBRATE_MAX_N` bounds both `scores` and `candidates`
+ *  (cascade, USDe, liq) remain valid. `maxItems: CALIBRATE_MAX_N` bounds both `scores` and `candidates`
  *  at the SDK boundary (motif CASCADE_MAX_NODES / calibrate); `gate.ts` re-validates below the boundary. */
 export const PARAMS_SCHEMA: JsonObject = {
   type: "object",

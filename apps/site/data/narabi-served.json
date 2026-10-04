@@ -1,11 +1,11 @@
 {
   "$comment": "Committed, hashed facts that /narabi states and the two published Narabi files do not carry, rendered through apps/site/lib/narabi-served-load.ts (by /narabi, and by the Narabi freshness line of / and /fleet) after a sha256 check against apps/site/data/manifest.sha256.json. Written by the source repository's sync tool (not part of this export). gate = the class id and key of the one committed Narabi class, read from the gate description of the served https://api.monarkgate.tech/openapi.json, whose sha256 (openapi_sha256) equals the value the deployment conformity record holds for it. sentinel_timer = the daily UTC publication slots and the random delay of the sentinel's systemd timer. probe = the freshness deadline of the external probe and its daily UTC shots. No market value, no data-source name.",
   "schema": "monark-site-narabi-served-v1",
-  "read_at": "2026-09-25T03:26:06.358Z",
+  "read_at": "2026-10-04T07:44:41.003Z",
   "gate": {
     "class_id": "stable-run-velocity-24h",
     "key": "narabi:persistence-v2@eip155:1/erc20:0x4c9edd5852cd905f086c759e8383e09bff1e68b3",
-    "openapi_sha256": "9e3176eae8893f05e7168f3c1e1b9e4dd4a1170a8a8a8f3cd933c94ff657a2ff"
+    "openapi_sha256": "d605b912916cc679d4347299bf7d22bb77bf8e1af4c502dd18e2213e6d2a38d7"
   },
   "sentinel_timer": {
     "on_calendar_utc": [

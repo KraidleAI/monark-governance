@@ -12,7 +12,6 @@ import { after, test } from "node:test";
 import assert from "node:assert/strict";
 import { execFile, execFileSync } from "node:child_process";
 import { createHash, generateKeyPairSync, type KeyObject } from "node:crypto";
-import { once } from "node:events";
 import { cpSync, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { createServer, type IncomingMessage, type ServerResponse } from "node:http";
 import { tmpdir } from "node:os";
@@ -35,6 +34,7 @@ import { MINT, betaOf, dateOf, dojoFixture, dojoKeyringOf, removeTrees, render, 
 import * as D from "../scripts/dojo-deploy.mjs";
 import { CA_CHECKS, CA_KEYS, CA_REL, KEYRING_REL, MANIFEST_CLAUSE, MANIFEST_REL, OUT_REL, runSync } from "../scripts/sync-dojo-served.mjs";
 import { headersFor, parseCaddyfile, serveCaddy } from "./bell-caddy.ts";
+import { listen } from "./helpers/loopback.ts";
 
 type Rec = Record<string, unknown>;
 type CaMod = typeof import("../scripts/verify-dojo.mjs");
@@ -98,16 +98,14 @@ function host(edit: Edit = () => undefined): Host {
 }
 const CADDY = readFileSync(join(REPO, ...D.DOJO_CADDYFILE.split("/")), "utf8");
 type Hook = (req: IncomingMessage, res: ServerResponse, headers: (p: string) => Record<string, string>) => boolean;
-/** `dir` served on 127.0.0.1:0 by the Caddy model of `caddy` while `f` runs; a `hook` returning true has answered the request itself. */
+/** `dir` served on 127.0.0.1 (a port above 10080: test/helpers/loopback.ts) by the Caddy model of `caddy` while `f` runs; a `hook` returning true has answered the request itself. */
 async function served<T>(dir: string, f: (url: string) => Promise<T>, caddy = CADDY, hook: Hook = () => false): Promise<T> {
   const site = parseCaddyfile(caddy)[0];
   assert.ok(site !== undefined, "one site block");
   const inner = serveCaddy(site, dir);
   const srv = createServer((req, res) => { if (!hook(req, res, (p) => headersFor(site, p))) inner.emit("request", req, res); });
-  srv.listen(0, "127.0.0.1");
-  await once(srv, "listening");
-  const a = srv.address();
-  try { return await f(`http://127.0.0.1:${String(a !== null && typeof a === "object" ? a.port : 0)}`); } finally {
+  const port = await listen(srv);
+  try { return await f(`http://127.0.0.1:${String(port)}`); } finally {
     srv.closeAllConnections();
     await new Promise<void>((r) => { srv.close(() => { r(); }); });
   }

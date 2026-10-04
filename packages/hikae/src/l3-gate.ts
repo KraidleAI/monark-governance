@@ -17,7 +17,7 @@
  * refuses; PnL does not enter π.
  *
  * Reason priority order (declared, deterministic overlap):
- *   non_evaluable → upstream_timeout → under_calib (n<n_min OR verdict.reason under_calib, D6(b)) →
+ *   non_evaluable → upstream_timeout → non_evaluable (a non-finite numeric field, E-8) → under_calib (n<n_min OR verdict.reason under_calib, D6(b)) →
  *   intent_not_in_region → budget_exhausted → [ |C|>tau ? (clock ? DEFER:set_too_large : ABSTAIN:clock_expired)
  *                       : COMMIT:covered ].
  *   `interval` sub-path only: under_calib ALSO on lo>=hi (NDG-1), tested first, before budget.
@@ -82,6 +82,10 @@ function decide(input: GateInput): Verdictum {
   // lines of the `set` path, so hoisting them before the branch is byte-neutral for `set`.
   if (!input.evaluable) return { action: "abstain", allow: false, reason: "non_evaluable" };
   if (input.timedOut) return { action: "abstain", allow: false, reason: "upstream_timeout" };
+  // Audit P3 E-8 (ADR-CM CM-3a): `x < NaN` and `x > NaN` are false, so a NaN in one of the six numeric fields used to
+  // reach COMMIT. A non-finite field abstains `non_evaluable` (the decision cannot be evaluated), before every other
+  // numeric guard. The served harness already refuses these values upstream (validateHarnessParams, nCalib a length).
+  if (!finiteFields(input)) return { action: "abstain", allow: false, reason: "non_evaluable" };
   // D6(b) (ADR-M011): `nCalib < nMin` was an INCOMPLETE proxy for "verdict under_calib" — also fire on
   // ANY under_calib verdict (empty `set` region, qhat null) so the gate reason matches the coverage
   // truth (closes the latent p>n gap at n>=nMin; a `set`-path intent_not_in_region no longer masks it).
@@ -154,4 +158,9 @@ export function gate(input: GateInput): GateDecision {
     remaining_budget: input.remainingBudget,
     reason,
   };
+}
+
+/** E-8: true iff the six numeric fields read by `decide` are finite numbers. */
+function finiteFields(input: GateInput): boolean {
+  return [input.remainingBudget, input.bFloor, input.tau, input.tauInterval, input.nCalib, input.nMin].every((v) => Number.isFinite(v));
 }
