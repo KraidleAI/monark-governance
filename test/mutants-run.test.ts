@@ -450,27 +450,38 @@ test("mutants_more_than_ten_runs_leave_no_listener_warning", () => { // G02 G29:
   assert.deepEqual([r.status, r.rec?.results.length, /MaxListenersExceededWarning/.test(r.stderr)], [0, 11, false], r.stderr);
 });
 
-const liveWaiter = ahead(() => { // a waiter queued ahead, alive 6 s (past the tool's start); async, so the waiter is reaped at its exit
-  const { dir, base } = lk(), lock = ownLock(), child = spawn(process.execPath, ["-e", "setTimeout(() => {}, 6000)"], { stdio: "ignore" });
-  write(lock, { [`oracle-lock.queue/000000000000003-${String(child.pid)}.json`]: "{}" });
-  return runAsync(["--repo", dir, "--base", base, "--table", table("lk3.json", [L("L1", 1, "1", "2")]), "--poll-ms", "100", "--wait-ms", "60000"], { lock, env: { FX_LOCK: lock, FX_LOG: join(fixture().root, "lk3.log") } });
+// Lot MUTANTS-LIVE-WAITER-AHEAD-1: the waiter lives until the tool has entered its wait, never a fixed span from its own start (a clone and a launch slowed
+// past it by a loaded host left it dead, the wait empty). It polls the queue until a second entry is there, the tool's, written by acquire() as its wait
+// begins (oracle/lock.mjs: mine, at t0), then lives HOLD more: lock_wait_ms is HOLD at least, whatever the load (late timers only lengthen it). It is
+// killed once the tool is done, whatever its outcome (a 120 s cap of its own if the test process dies first); async, so the waiter is reaped at its exit.
+const HOLD = 1500, WAITER = `const { readdirSync } = require("node:fs"), q = process.argv[1], me = "-" + process.pid + ".json";
+const t = setInterval(() => { let fs = []; try { fs = readdirSync(q); } catch {} if (fs.some((f) => !f.endsWith(me))) { clearInterval(t); setTimeout(() => {}, Number(process.argv[2])); } }, 20); setTimeout(() => process.exit(0), 120000).unref();`;
+const liveWaiter = ahead(async () => { // a waiter queued ahead, alive until the tool waits behind it, then HOLD more
+  const { dir, base } = lk(), lock = ownLock(), queue = join(lock, "oracle-lock.queue"), child = spawn(process.execPath, ["-e", WAITER, queue, String(HOLD)], { stdio: "ignore" });
+  try { write(lock, { [`oracle-lock.queue/000000000000003-${String(child.pid)}.json`]: "{}" });
+    return await runAsync(["--repo", dir, "--base", base, "--table", table("lk3.json", [L("L1", 1, "1", "2")]), "--poll-ms", "100", "--wait-ms", "60000"], { lock, env: { FX_LOCK: lock, FX_LOG: join(fixture().root, "lk3.log") } }); }
+  finally { child.kill(); }
 });
 // killer: scripts/mutants/run.mjs:232 CONST "lock_wait_ms: lk.waitedMs" -> "lock_wait_ms: 0"
 test("mutants_a_live_waiter_ahead_passes_first_then_the_run_goes_on", { timeout: 90_000 }, async () => { // G28
   const r = await liveWaiter();
-  assert.deepEqual([r.status, (r.rec?.baseline?.lock_wait_ms ?? 0) >= 1000], [0, true], r.stderr);
+  assert.deepEqual([r.status, (r.rec?.baseline?.lock_wait_ms ?? 0) >= HOLD], [0, true], r.stderr);
 });
 
 // MUTANTS-LOCK-WAIT-BOUND-LOAD-1: stop.waited_ms counts from the entry into the wait (run.mjs:228, t0 of gate(), after the clone and the launch); its upper
-// bound is named: the wait, one poll, and a margin for a loaded host's late timers. It stays under 2 * WAIT, the least wait a 2 * or 3 * o.wait mutant can record
-// (acquire() returns null only once its own clock, started after gate()'s, reaches maxMs): those mutants are killed whatever the load (G2 C-1: WAIT 2000).
-const WAIT = 2000, POLL = 100, MARGIN = 1500;
-// killer: scripts/mutants/run.mjs:231 CONST "maxMs: o.wait }" -> "maxMs: 3 * o.wait }"
-test("mutants_the_lock_wait_stops_at_its_named_bound", () => { // G27: this test's live pid queued ahead
-  const { dir, base } = lk(), lock = mkdtempSync(join(fixture().root, "lock-"));
+// bound is named. Lot MUTANTS-LIVE-WAITER-AHEAD-1: that bound is now KILL = 2 * WAIT itself, the least wait a 2 * or 3 * o.wait mutant can record (acquire()
+// returns null only once its own clock, started after gate()'s, reaches maxMs): those mutants stay killed whatever the load, and the late timers of a loaded
+// host have KILL - WAIT (3000 ms, against 1197 measured under load) where WAIT + POLL + MARGIN left them 1600. The run starts ahead (it mostly waits).
+const WAIT = 3000, POLL = 100, KILL = 2 * WAIT;
+const lockBound = ahead(() => { // this process's live pid queued ahead: the tool waits to its bound, then stops by name
+  const { dir, base } = lk(), lock = ownLock();
   write(lock, { [`oracle-lock.queue/000000000000001-${String(process.pid)}.json`]: "{}" });
-  const r = run(["--repo", dir, "--base", base, "--table", table("lk4.json", [L("L1", 1, "1", "2")]), "--wait-ms", String(WAIT), "--poll-ms", String(POLL)], { lock, env: { FX_LOCK: lock, FX_LOG: join(fixture().root, "lk4.log") } });
-  assert.deepEqual([r.status, r.rec?.stop?.reason, (r.rec?.stop?.waited_ms ?? 0) >= WAIT, (r.rec?.stop?.waited_ms ?? 9e9) < WAIT + POLL + MARGIN], [4, "verrou", true, true], r.stderr);
+  return runAsync(["--repo", dir, "--base", base, "--table", table("lk4.json", [L("L1", 1, "1", "2")]), "--wait-ms", String(WAIT), "--poll-ms", String(POLL)], { lock, env: { FX_LOCK: lock, FX_LOG: join(fixture().root, "lk4.log") } });
+});
+// killer: scripts/mutants/run.mjs:231 CONST "maxMs: o.wait }" -> "maxMs: 3 * o.wait }"
+test("mutants_the_lock_wait_stops_at_its_named_bound", async () => { // G27
+  const r = await lockBound(), w = r.rec?.stop?.waited_ms;
+  assert.deepEqual([r.status, r.rec?.stop?.reason, (w ?? 0) >= WAIT, (w ?? 9e9) < KILL], [4, "verrou", true, true], r.stderr);
 });
 
 // killer: scripts/mutants/run.mjs:222 CONST "):/gm)]" -> "):/g)]"
@@ -495,8 +506,11 @@ test("mutants_typecheck_never_emits_into_the_clone", () => { // G21: a tsconfig 
   assert.deepEqual([r.status, row(r, "Y1")?.status, existsSync(join(r.out, "clone", "test", "f.test.js"))], [0, "tue", false], r.stderr);
 });
 
-const deadTsc = ahead(() => { const { dir, base } = fk(); // Z1 hangs to its bound (3 s)
-  return runAsync(["--repo", dir, "--base", base, "--targets", "test/f.test.ts", "--timeout-ms", "300", "--table", table("fk1.json", [Y("Z1", "number;", "number; // HANG"), Y("Z2", "number;", "number; // CRASH")])], { lock: ownLock() });
+// Lot MUTANTS-LIVE-WAITER-AHEAD-1: --timeout-ms of the two runs ahead whose rows overrun on purpose. Each child of the tool has 10 * OVER (15 s) to its
+// bound, the room of their baseline under load (3 s and 5 s before: a baseline slowed past them is non conclu and runs no row); a row that hangs runs to it.
+const OVER = 1500;
+const deadTsc = ahead(() => { const { dir, base } = fk(); // Z1 hangs to its bound (10 * OVER)
+  return runAsync(["--repo", dir, "--base", base, "--targets", "test/f.test.ts", "--timeout-ms", String(OVER), "--table", table("fk1.json", [Y("Z1", "number;", "number; // HANG"), Y("Z2", "number;", "number; // CRASH")])], { lock: ownLock() });
 });
 // killer: scripts/mutants/run.mjs:224 CONST "r.error !== undefined || r.signal !== null || r.status === 134 ? \"non conclu\"" -> "false ? \"non conclu\""
 test("mutants_a_dead_or_silent_tsc_is_non_conclu_never_survit", async () => { // G24; corrections D-3: Z1 a tsc killed at its bound, Z2 a tsc out 1 without a diagnostic line
@@ -545,11 +559,11 @@ test("mutants_short_memory_under_the_lock_is_waited_out_without_it_to_the_bound"
   assert.match(existsSync(log) ? readFileSync(log, "utf8") : "", /^-L-+$/); // one read before the lock, one under it (short: released), then each wait without it
 });
 
-const overrun = ahead(() => { // G1 runs to its bound (5 s)
-  const { dir, base } = mini("to", { "lib/h.mjs": "export const H = 1;\nexport const G = 1;\n", "test/h.test.ts": `${HEAD}import { G, H } from "../lib/h.mjs";\nif (G === 2) await new Promise((r) => setTimeout(r, 9000));\n` +
+const overrun = ahead(() => { // G1 runs to its bound (10 * OVER), its module asleep 5 s past it
+  const { dir, base } = mini("to", { "lib/h.mjs": "export const H = 1;\nexport const G = 1;\n", "test/h.test.ts": `${HEAD}import { G, H } from "../lib/h.mjs";\nif (G === 2) await new Promise((r) => setTimeout(r, ${String(10 * OVER + 5000)}));\n` +
     'test("h", async () => { if (H === 2) await new Promise((r) => setTimeout(r, 60000)); assert.deepEqual([G, H], [1, 1]); });\n' });
   const h = (id: string, line: number, after: string): Row => ({ id, file: "lib/h.mjs", line, op: "CONST", before: "1", after, why: "w" });
-  return runAsync(["--repo", dir, "--base", base, "--table", table("to.json", [h("H1", 1, "2"), h("G1", 2, "2"), h("X1", 1, '1; throw new Error("load")')]), "--timeout-ms", "500"], { lock: ownLock() });
+  return runAsync(["--repo", dir, "--base", base, "--table", table("to.json", [h("H1", 1, "2"), h("G1", 2, "2"), h("X1", 1, '1; throw new Error("load")')]), "--timeout-ms", String(OVER)], { lock: ownLock() });
 });
 // killer: scripts/mutants/run.mjs:267 CONST "!first.timed_out" -> "true"
 test("mutants_a_time_overrun_is_non_conclu_and_never_replayed", async () => { // corrections D-5: H1 a test past --timeout-ms, G1 a run past its bound; X1, no overrun, replayed
