@@ -12,8 +12,8 @@ export interface DrawnKiller {
   sha256_before: string; sha256_after: string; tap: { path: string; sha256: string };
 }
 export interface RedProof {
-  schema: "red-proof-v1"; mode: "f2p" | "test-only"; at: string; node: string; repo: string; base: string; gel: { ref: string; mode: "worktree" | "commit"; head: string; digest: string };
-  files: { tests: string[]; support: string[]; added: string[]; skipped: string[]; production: string[] }; tests: ProofRow[]; unchanged: number;
+  schema: "red-proof-v2"; mode: "f2p" | "test-only"; at: string; node: string; repo: string; base: string; gel: { ref: string; mode: "worktree" | "commit"; head: string; digest: string };
+  files: { tests: string[]; support: string[]; added: string[]; skipped: string[]; production: string[]; removed: string[] }; declared: string | null; refusals: string[]; tests: ProofRow[]; unchanged: number;
   draw: { seed: number; requested: number; population: number; drawn: DrawnKiller[] } | null; tap: Record<"base" | "gel", { path: string; sha256: string }>; drawn: number; ok: boolean;
 }
 export function parseTap(tap: string): TapEntry[];
