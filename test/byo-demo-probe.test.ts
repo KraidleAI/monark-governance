@@ -197,3 +197,14 @@ test("probe_byo_demo_loop_closes", async () => {
   const demoText = readFileSync(DEMO_PATH, "utf8");
   assert.equal(NON_GENERIC.test(demoText), false, "DEMO.md (published in the skill) must stay generic (NON_GENERIC guard: no named asset, trade, or MVP overclaim)");
 });
+
+// DEMO-HASH-STALE-1 (CM-2b surfaces, MONARK's request): the truncated digest DEMO.md cites for the recorded BYO trace is the
+// first 8 hex of the committed trace's LF sha256 (it was a stale `79b54471…`), and the provenance states the full value.
+// killer: skills/monark/DEMO.md:88 CONST "daf8d3ea…" -> "79b54471…"
+test("demo_md_cites_the_current_byo_trace_digest", () => {
+  const sha = sha256Lf(readFileSync(TRACE_PATH, "utf8"));
+  assert.equal(sha, TRACE_SHA256_PINNED, "the committed trace is the pinned one");
+  const cited = [...readFileSync(DEMO_PATH, "utf8").matchAll(/`([0-9a-f]{8})…`/g)].map((m) => m[1]);
+  assert.deepEqual(cited, [sha.slice(0, 8)], "DEMO.md cites exactly the current truncated digest of fixtures/byo-demo-trace.json");
+  assert.ok(readFileSync(PROVENANCE_PATH, "utf8").includes(sha), "the provenance states the full digest");
+});
