@@ -20,6 +20,7 @@ import { ADDR, ANCHOR_DAY, DAY1, FIRST, anchorBody, at, dateOf, dayLines, dojoFi
   linesOf, newKey, removeTrees, render, seedChain, snapshotBody, versionBody, versionOf, writeTree, type DayLine, type Fixture, type HistoryLine,
   type Line, type Step } from "./helpers/dojo-fixture.ts";
 import type { Fraction } from "../scripts/dojo-core.mjs";
+import { listen } from "../../../test/helpers/loopback.ts";
 
 const SCRIPT = join(import.meta.dirname, "..", "scripts", "dojo-verify-cli.mjs"); // PR-1b-5b (ADR-DOJO-PR-1B-5 PLI-1): the CLI and its transport
 const CORE = join(import.meta.dirname, "..", "scripts", "dojo-verify.mjs"); // the verifier core; as a script, the old command runs nothing (PLI-1 bis)
@@ -537,7 +538,7 @@ test("dojo_verify_refuses_each_named_mutant", async () => {
 });
 
 // ---- PR-1b-4 (ADR-DOJO-PR-1B-4 section 4; pli cp-1 C-V-1): the URL source, --day and the closed keys of a report. Loopback servers
-// only (127.0.0.1, port 0, closed in a finally), lowered bounds and race guards (motif apps/bell/test/bell-verify.test.ts:101) ----
+// only (127.0.0.1, a port above 10080, closed in a finally), lowered bounds and race guards (motif apps/bell/test/bell-verify.test.ts:101) ----
 type Served = { url: string; seen: string[]; close: () => Promise<void> };
 /** A loopback server of `tree`: each path asked, in order; `route` answers first when it returns true, else the file (200) or 404. */
 async function serve(tree: ReadonlyMap<string, Buffer>, route: (p: string, res: ServerResponse) => boolean = () => false): Promise<Served> {
@@ -546,8 +547,7 @@ async function serve(tree: ReadonlyMap<string, Buffer>, route: (p: string, res: 
     seen.push(p);
     if (!route(p, res)) res.writeHead(b === undefined ? 404 : 200).end(b);
   });
-  await new Promise<void>((r) => { server.listen(0, "127.0.0.1", () => { r(); }); });
-  const a = server.address(), port = a !== null && typeof a === "object" ? a.port : 0;
+  const port = await listen(server);
   const close = (): Promise<void> => new Promise<void>((r) => { server.closeAllConnections(); server.close(() => { r(); }); });
   return { url: `http://127.0.0.1:${String(port)}`, seen, close };
 }
