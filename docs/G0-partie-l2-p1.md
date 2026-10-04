@@ -635,3 +635,16 @@ adresse, aucun schéma d'URL, aucun domaine ni nom d'hôte, aucun montant. Porte
   `U` = identifiant précédent + 1 : les quantités sont absolues ([F2] l.34-35) et aucun événement n existe entre `lastUpdateId` et `U`.
   Même règle à la bascule (§4.3). Le cas `S5-U-plus-1` est accepté, sans nouvel instantané ; `S5-U-plus-2` reste un essai vain nommé.
   P1-b2 est confié à RECHERCHES (partage de charge, tableau commun), empilé sur P1-b1 (#112).
+
+## Décisions de l orchestrateur avant le G1 de P1-a3 (2026-10-04, 02:3x UTC)
+
+- **Q-P1-3** : base générale `wss://stream.binance.com:9443`. FAITS-L2-ACCESS-3 (a) n écrit, pour `wss://data-stream.binance.vision`, ni
+  le port ni la règle des 24 h ; la condition de la recommandation (les règles de [F1] l.16-19 confirmées pour la base réservée) n est
+  donc pas remplie. La base réservée est mesurée à M-1 (item L2-DATA-STREAM-BASE-1, ETAT).
+- **Q-P1-5** : oui, le brut est le message tel que le client embarqué le délivre ; item L2-OWN-WS-CLIENT-1 et extensions négociées
+  journalisées.
+- **Ordre de fusion (§8.3, P-1)** : il suit l ordre topologique des dépendances de §8.3, et non plus une file stricte ; deux lots
+  indépendants fusionnent dans l ordre où ils sont prêts (le plan supposait un seul implémenteur ; deux équipes écrivent désormais).
+  Chaque fusion garde tests, tueurs, mutations et oracle du tronc. Exemple : b1 (dépend de a1) peut fusionner avant a3 et a4.
+- **P1-b2** dépend de a3 et de b1 : il attend le G1 de a3 (confié par erreur à RECHERCHES à 02:2x UTC sans cette dépendance ; corrigé
+  dans la messagerie). P1-a3 part sur `lot/l2-p1-a3`, qui porte a1 et a2.

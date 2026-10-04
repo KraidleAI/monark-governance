@@ -397,6 +397,9 @@ Tronc `lot/etude-suite`. Dernier oracle complet : 1 779 tests, dont 1 776 verts,
     `sentinel_run_releases_chainstack_lock_on_sigterm` rougit sous la charge de la CI exportée (test 42, run 37169648100 de #110 ; déjà
     vu par RECHERCHES à la base) et passe seul. Construction : borne de temps du test tenue par un événement, jamais par une durée.
     Déclencheur : signalé à RECHERCHES le 2026-10-04 ; état : ouvert.
+  - L2-DATA-STREAM-BASE-1 (mesure ; Q-P1-3 du plan de P1) : la base `wss://data-stream.binance.vision` (moindre privilège) n a ni port
+    ni règle des 24 h écrits ; P1 part sur la base générale. Construction : mesurer port, durée de connexion et règles à M-1, puis basculer
+    si elles égalent celles de la base générale. Déclencheur : M-1 ; état : ouvert.
   - FAITS-L2-ACCESS-3-E-1 (procurement ; (e) de FAITS-L2-ACCESS-3, non établi le 2026-10-04) : `timeUnit` sur les routes futures ;
     absent des deux pages « legacy » lues ; la page neuve (`…/ws-streams/public`) ne rend pas son corps dans le navigateur interne.
     Construction : la lire par le navigateur externe ou par le fichier source de la page, datée et épinglée. Déclencheur : avant le G1
