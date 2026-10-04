@@ -17,7 +17,7 @@ import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
 import { createHash } from "node:crypto";
 import { cpSync, existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
-import { createServer, type IncomingHttpHeaders, type Server } from "node:http";
+import { createServer, type IncomingHttpHeaders } from "node:http";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -26,6 +26,7 @@ import { checkHost, CSV_COLUMNS, expectedCount, GRANULARITIES, HOSTS, main, MAX_
 import type { RecorderIo, SeriesManifest } from "../scripts/record-coinbase-candles.mjs";
 import { main as compare } from "../scripts/compare-coinbase-passes.mjs";
 import { DetectorStop, run as detect } from "../scripts/detect-ee7-history.mjs";
+import { listen } from "./helpers/loopback.ts";
 
 /** A candle as served: time in seconds, then low, high, open, close and volume as the JSON text writes them. */
 type Candle = readonly [number, string, string, string, string, string];
@@ -91,22 +92,6 @@ const normalized = (out: string): string[] => (existsSync(out) ? readdirSync(out
 /** The open times (ms) that the CSV of --out lists, in its order. */
 const opensOf = (out: string): number[] => text(out, "USDT-USD-15m.csv").split(LF).slice(1, -1).map((l) => Number(l.split(",")[1]));
 const offline = (calls: Calls): FetchLike => (url, init) => { calls.urls.push(url); calls.inits.push(init); return Promise.reject(new Error("offline")); };
-
-/** A loopback port that fetch accepts: a random port above 10080 (the Fetch port check of this runtime blocks 82 ports, all at or below
- *  10080, and this host hands port 0 out in sequence from 1024 up: G1 journals of SERIES-BINANCE and SERIES-INTERVALS), another one on
- *  any listen error (in use, or excluded by the OS). */
-async function listen(server: Server): Promise<number> {
-  for (let i = 0; i < 50; i++) {
-    const port = 10_081 + Math.floor(Math.random() * 55_000);
-    const bound = await new Promise<boolean>((done) => {
-      const ok = (): void => { server.off("error", ko); done(true); };
-      const ko = (): void => { server.off("listening", ok); done(false); };
-      server.once("error", ko).once("listening", ok).listen(port, "127.0.0.1");
-    });
-    if (bound) return port;
-  }
-  return assert.fail("no free loopback port above 10080 in 50 tries");
-}
 
 /** The loopback endpoint: request n gets `script` n when given (status, headers and body, a cut connection, or silence before the
  *  headers or inside the body, after its `stall` text, "[" by default), else what `reading` serves for its start and end, newest first

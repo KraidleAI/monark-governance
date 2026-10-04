@@ -20,12 +20,12 @@
  * Determinism: the tools read no clock (`produced_at` is caller-carried); the ephemeral port is
  * DELIBERATELY not recorded. Re-running the recorder reproduces the file byte-for-byte.
  */
-import { once } from "node:events";
 import type { Server as HttpServer } from "node:http";
 import { startServer } from "../apps/harness/src/server.ts";
 import { CALIBRATE_LABEL } from "../apps/harness/src/tools/calibrate.ts";
 import { mcpSend, mcpToolsCall, sha256Lf, PRODUCED_AT } from "./h5-trace-builder.ts";
 import type { JsonRpcRequest, ToolCallResponse } from "./h5-trace-builder.ts";
+import { startLoopback } from "./helpers/loopback.ts";
 
 export { sha256Lf, PRODUCED_AT };
 
@@ -182,9 +182,8 @@ function objField(o: Record<string, unknown>, k: string): Record<string, unknown
 
 /** Drive the BYO calibrate → gate chain over the wire and return the captured, deterministic trace. */
 export async function buildByoTrace(): Promise<ByoTrace> {
-  const server: HttpServer = startServer(0);
+  const server: HttpServer = await startLoopback((port) => startServer(port));
   try {
-    await once(server, "listening");
     const addr = server.address();
     if (addr === null || typeof addr === "string") throw new Error("startServer did not yield an AddressInfo");
     if (addr.address !== "127.0.0.1") throw new Error(`harness must bind 127.0.0.1, got ${addr.address}`);

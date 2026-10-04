@@ -190,6 +190,7 @@ export function checkChain(lines) {
 
 /** Transport policy (C-6): https anywhere; http on loopback ONLY (the offline test wire). Anything else is
  *  refused BEFORE any dial (reason insecure_url), so a mis-set PROBE_URL never leaks a plaintext GET off-box.
+ *  An admitted URL on a port that fetch refuses is refused too, reason bad_port (portAllowed, PROBE-BADPORT-REASON-1).
  *  Exported so the test can assert it with ZERO packets (the mutant-removed variant stops here). */
 export function isLoopbackHost(hostname) {
   const h = String(hostname).replace(/^\[|\]$/g, "").toLowerCase();
@@ -218,6 +219,28 @@ function rawUrlHost(url) {
   const colon = auth.indexOf(":");
   return colon >= 0 ? auth.slice(0, colon) : auth;
 }
+/** The Fetch "bad port" list of the fetch this probe calls (undici, bundled in Node), COPIED by hand: Node exposes it through
+ *  no public API (no undici builtin module; the one in-process reader, process.binding("natives"), is deprecated, DEP0111).
+ *  Provenance: node.exe v24.15.0, embedded module internal/deps/undici/undici (undici 7.24.4), its `var badPorts` array,
+ *  module sha256 d6332aa1ca04f71ffdba505a7e2cb61d15d3e0799bdcc06352a89d6a58ebe475, read 2026-10-03. Strings, as undici holds
+ *  them: its requestBadPort blocks an http(s) URL iff badPortsSet.has(url.port), url.port being the WHATWG port string ("" for
+ *  the scheme default), and fetch then rejects "bad port" before any connect. test/probe-narabi.test.ts compares this copy
+ *  with the source embedded in the node.exe that runs the suite (PROBE-BADPORT-REASON-1). */
+export const FETCH_BAD_PORTS = Object.freeze([
+  "1", "7", "9", "11", "13", "15", "17", "19", "20", "21", "22", "23", "25", "37", "42", "43", "53", "69", "77", "79", "87", "95",
+  "101", "102", "103", "104", "109", "110", "111", "113", "115", "117", "119", "123", "135", "137", "139", "143", "161", "179",
+  "389", "427", "465", "512", "513", "514", "515", "526", "530", "531", "532", "540", "548", "554", "556", "563", "587", "601",
+  "636", "989", "990", "993", "995", "1719", "1720", "1723", "2049", "3659", "4045", "4190", "5060", "5061", "6000", "6566",
+  "6665", "6666", "6667", "6668", "6669", "6679", "6697", "10080",
+]);
+const FETCH_BAD_PORT_SET = new Set(FETCH_BAD_PORTS);
+/** A port that fetch refuses ("bad port", before any connect) would read unreachable on every try, forever, like a surface
+ *  that is down: such a URL is refused BEFORE any call with its own reason, bad_port. Reached only once the transport is
+ *  admitted, so an insecure URL keeps insecure_url whatever its port (no other reason changes). */
+function portAllowed(u) {
+  if (FETCH_BAD_PORT_SET.has(u.port)) return { ok: false, reason: "bad_port" };
+  return { ok: true };
+}
 export function urlTransportAllowed(url) {
   let u;
   try {
@@ -225,14 +248,14 @@ export function urlTransportAllowed(url) {
   } catch {
     return { ok: false, reason: "insecure_url" };
   }
-  if (u.protocol === "https:") return { ok: true };
+  if (u.protocol === "https:") return portAllowed(u);
   // http ONLY on a strict loopback literal: no userinfo (the 127.0.0.1@evil.com trick), and BOTH the DIALED
   // host (u.hostname) AND the raw host (before normalization) must be loopback, so a mis-set PROBE_URL never
   // leaks a plaintext GET off-box (C-G2-1). rawUrlHost is what refuses 127.1 / 0x7f.0.0.1 / 2130706433.
   if (
     u.protocol === "http:" && u.username === "" && u.password === "" &&
     isLoopbackHost(u.hostname) && isLoopbackHost(rawUrlHost(url))
-  ) return { ok: true };
+  ) return portAllowed(u);
   return { ok: false, reason: "insecure_url" };
 }
 
@@ -336,7 +359,7 @@ function crossCheckVerdict(stateCheck, expectedDigestT) {
 
 /** Pure decision over an already-obtained body (and an OPTIONAL state cross-check result). Precedence, FIXED
  *  (advisor #8): cannot-evaluate > chain_broken > state_unreachable > state_mismatch > lag. A transport
- *  failure (unreachable/too_large/insecure_url) or a parse failure (probe_error) is unhealthy with no
+ *  failure (unreachable/too_large/insecure_url/bad_port) or a parse failure (probe_error) is unhealthy with no
  *  freshness verdict; a broken chain outranks a state fault, which outranks lag (a rewrite / a stale or
  *  unreachable state.json makes the freshness verdict untrustworthy). `stateCheck` undefined = no cross-check. */
 export function evaluate({ text, nowIso, reachable, fetchReason, stateCheck }) {

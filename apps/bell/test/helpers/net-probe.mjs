@@ -8,13 +8,10 @@
 import net from "node:net";
 import http from "node:http";
 import https from "node:https";
-import { createServer } from "node:http";
+import { closedPort } from "../../../../test/helpers/loopback.ts";
 
-// A CLOSED loopback port, free by construction: bind :0, read the port, close, then reuse it (nothing listens).
-const port = await new Promise((resolve) => {
-  const s = createServer();
-  s.listen(0, "127.0.0.1", () => { const p = s.address().port; s.close(() => { resolve(p); }); });
-});
+// A CLOSED loopback port above 10080, free by construction: bound, then closed (nothing listens; test/helpers/loopback.ts).
+const port = await closedPort();
 const host = "127.0.0.1";
 
 const msg = (e) => String((e && e.message) ? e.message : e);

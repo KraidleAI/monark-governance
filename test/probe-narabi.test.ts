@@ -26,6 +26,7 @@ import {
 } from "../scripts/probe-narabi.mjs";
 import type { NarabiState } from "../scripts/probe-narabi.mjs";
 import { loadNarabiCapture } from "../apps/site/lib/narabi-capture-load.ts";
+import { closedPort, listen } from "./helpers/loopback.ts";
 
 const SELF = fileURLToPath(import.meta.url);
 // C-B-6: NO test may send a REAL mail. Every child spawned here gets an env with all SMTP_*/ALERT_* PURGED
@@ -343,7 +344,7 @@ test("probe_get_over_loopback_http_executes — an http:// GET on loopback execu
     if (req.url === "/narabi/state.json") { res.writeHead(200, { "content-type": "application/json" }); res.end(JSON.stringify({ digest: okLastDigestT })); return; }
     okHits++; res.writeHead(200, { "content-type": "application/jsonl" }); res.end(body);
   });
-  await new Promise<void>((resolve) => okServer.listen(0, "127.0.0.1", () => resolve()));
+  await listen(okServer);
   try {
     const addr = okServer.address() as { port: number };
     const url = `http://127.0.0.1:${String(addr.port)}/narabi/timeline.jsonl`;
@@ -368,7 +369,7 @@ test("probe_get_over_loopback_http_executes — an http:// GET on loopback execu
   }
 
   const hangServer = createServer(() => { /* accept the socket, never write a response */ });
-  await new Promise<void>((resolve) => hangServer.listen(0, "127.0.0.1", () => resolve()));
+  await listen(hangServer);
   try {
     const addr = hangServer.address() as { port: number };
     const url = `http://127.0.0.1:${String(addr.port)}/narabi/timeline.jsonl`;
@@ -478,10 +479,10 @@ test("probe_invalid_now_still_writes_narabi_json — an unparseable --now yields
 test("probe_does_not_follow_redirects — a loopback server that answers 302 to another host is treated as unreachable; the redirect target is NEVER dialed (redirect: manual) (C-G2-4)", async () => {
   let targetHit = false;
   const target = createServer((_req, res) => { targetHit = true; res.writeHead(200, { "content-type": "application/jsonl" }); res.end(readFileSync(FIXTURE, "utf8")); });
-  await new Promise<void>((resolve) => target.listen(0, "127.0.0.1", () => resolve()));
+  await listen(target);
   const targetPort = (target.address() as { port: number }).port;
   const redirector = createServer((_req, res) => { res.writeHead(302, { location: `http://127.0.0.1:${String(targetPort)}/narabi/timeline.jsonl` }); res.end(); });
-  await new Promise<void>((resolve) => redirector.listen(0, "127.0.0.1", () => resolve()));
+  await listen(redirector);
   try {
     const redirPort = (redirector.address() as { port: number }).port;
     const r = await runProbeAsync(["--url", `http://127.0.0.1:${String(redirPort)}/narabi/timeline.jsonl`, "--now", "2026-09-20T10:35Z"], { PROBE_RETRIES: "0" });
@@ -644,7 +645,7 @@ async function startFakeSmtp(opts: FakeOpts = {}): Promise<FakeSmtp> {
       }
     });
   });
-  await new Promise<void>((r) => { server.listen(0, "127.0.0.1", () => { r(); }); });
+  await listen(server);
   const port = (server.address() as { port: number }).port;
   return { port, cap, close: () => new Promise<void>((r) => { server.close(() => { r(); }); }) };
 }
@@ -734,7 +735,7 @@ test("probe_state_mismatch_drives_smtp_alert_merged — the merged detection+ale
     if (req.url === "/narabi/state.json") { res.writeHead(200, { "content-type": "application/json" }); res.end(staleState); return; }
     res.writeHead(404); res.end();
   });
-  await new Promise<void>((r) => { http.listen(0, "127.0.0.1", () => { r(); }); });
+  await listen(http);
   const httpPort = (http.address() as { port: number }).port;
   const fake = await startFakeSmtp();
   try {
@@ -886,7 +887,7 @@ test("probe_smtp_single_wall_clock_deadline_covers_whole_exchange — sendSmtp a
       }
     });
   });
-  await new Promise<void>((r) => { server.listen(0, "127.0.0.1", () => { r(); }); });
+  await listen(server);
   const p = sendSmtp({ host: "127.0.0.1", port: (server.address() as { port: number }).port, tls: "none", user: "u@x.tld", pass: "p", from: "u@x.tld", to: "u@x.tld", message: "x\n", deadlineMs: DEADLINE, clock });
   p.catch(() => { /* settled below via the timer; never an unhandled rejection */ });
   try {
@@ -911,7 +912,7 @@ test("probe_smtp_connect_deadline_bounds_handshake — a server that accepts TCP
   // destroy it in finally, else server.close() would wait for a connection the child already dropped.
   let srvSock: net.Socket | undefined;
   const server = net.createServer((sock) => { srvSock = sock; sock.on("error", () => { /* silent: no ServerHello */ }); });
-  await new Promise<void>((r) => { server.listen(0, "127.0.0.1", () => { r(); }); });
+  await listen(server);
   try {
     const port = (server.address() as { port: number }).port, DEADLINE = 700, t0 = Date.now();
     const r = await runProbeAt(freshOut(), ["--file", FIXTURE, "--now", LAG_NOW], smtpEnv(port, { SMTP_TLS: "implicit", SMTP_DEADLINE_MS: String(DEADLINE) }), 8000);
@@ -1029,7 +1030,7 @@ test("probe_smtp_implicit_tls_never_speaks_plaintext — SMTP_TLS=implicit to a 
   // A cleartext greeting makes the client's TLS layer reject the first record fast (ERR_SSL_WRONG_VERSION_NUMBER),
   // so the handshake FAILS instead of hanging; the client's ClientHello is still recorded first (measured spike).
   const server = net.createServer((s) => { s.on("error", () => { /* peer RST on TLS-fail destroy — ignored (C-G2-2) */ }); s.write("220 fake plaintext\r\n"); s.on("data", (d: Buffer) => { received += d.toString("latin1"); }); });
-  await new Promise<void>((r) => { server.listen(0, "127.0.0.1", () => { r(); }); });
+  await listen(server);
   try {
     const port = (server.address() as { port: number }).port;
     const r = await runProbeAt(freshOut(), ["--file", FIXTURE, "--now", LAG_NOW], smtpEnv(port, { SMTP_TLS: "implicit", SMTP_DEADLINE_MS: "800" }), 8000);
@@ -1083,8 +1084,7 @@ test("probe_smtp_unconfigured_is_noisy — an unhealthy verdict with no SMTP con
 
 // ── C-3 (SMTP transport): a closed SMTP port is smtp_unreachable; a server that never greets is smtp_timeout ──
 test("probe_smtp_unreachable_closed_port_and_timeout — a closed loopback SMTP port yields smtp_unreachable; a server that accepts but never greets yields smtp_timeout; both exit 1 (C-3 SMTP)", async () => {
-  const tmp = net.createServer(); await new Promise<void>((r) => { tmp.listen(0, "127.0.0.1", () => { r(); }); });
-  const closed = (tmp.address() as { port: number }).port; await new Promise<void>((r) => { tmp.close(() => { r(); }); });
+  const closed = await closedPort();
   const r1 = await runProbeAt(freshOut(), ["--file", FIXTURE, "--now", LAG_NOW], smtpEnv(closed));
   assert.equal(r1.state.alert_error, "smtp_unreachable", "a closed SMTP port is smtp_unreachable");
   assert.equal(r1.status, 1);
@@ -1136,8 +1136,7 @@ test("probe_smtp_failure_leaves_narabi_written — a 535-rejecting server and a 
     assert.equal(r.state.alerted, false, "a failed send keeps alerted:false (retry next shot)");
     assert.equal(r.status, 1);
   } finally { await fake.close(); }
-  const tmp = net.createServer(); await new Promise<void>((r) => { tmp.listen(0, "127.0.0.1", () => { r(); }); });
-  const closed = (tmp.address() as { port: number }).port; await new Promise<void>((r) => { tmp.close(() => { r(); }); });
+  const closed = await closedPort();
   const out2 = freshOut();
   const r2 = await runProbeAt(out2, ["--file", FIXTURE, "--now", LAG_NOW], smtpEnv(closed));
   assert.equal(existsSync(out2), true, "narabi.json written on a connect failure (kills M-ii-20: connector throw -> FATAL -> unwritten)");
@@ -1198,8 +1197,7 @@ test("g2_no_test_can_send_real_mail — childEnv strips SMTP_*/ALERT_* even when
 //    finally is never reached when the connect rejects), so the child still EXITS PROMPTLY. The pre-existing
 //    no_residual_timer_handle only pins the SUCCESS path (finally); this twin closes the gap on the failure path. ──
 test("probe_smtp_no_residual_timer_handle_on_connect_failure — the FAILURE twin: with a 30 s SMTP_DEADLINE_MS a CONNECT failure (a closed loopback port -> smtp_unreachable) STILL lets the child EXIT PROMPTLY, because the single deadline timer is cleared in the connect-failure catch — the ONLY release on this path, the conversation finally is never reached; a timer left armed there would keep the process alive to the 30 s deadline (C-G2D-1)", async () => {
-  const tmp = net.createServer(); await new Promise<void>((r) => { tmp.listen(0, "127.0.0.1", () => { r(); }); });
-  const closed = (tmp.address() as { port: number }).port; await new Promise<void>((r) => { tmp.close(() => { r(); }); });
+  const closed = await closedPort();
   const t0 = Date.now();
   const r = await runProbeAt(freshOut(), ["--file", FIXTURE, "--now", LAG_NOW], smtpEnv(closed, { SMTP_DEADLINE_MS: "30000" }), 20000);
   const elapsed = Date.now() - t0;
@@ -1208,4 +1206,94 @@ test("probe_smtp_no_residual_timer_handle_on_connect_failure — the FAILURE twi
   assert.equal(r.killed, false, "not SIGKILLed — the connect-failure catch cleared the single timer (mutant: clearT removed from that catch -> timer stays armed to the 30 s deadline > killMs -> SIGKILL -> killed:true)");
   assert.ok(elapsed < 8000, `child exited well before the 30 s deadline (elapsed=${String(elapsed)}ms) — timer cleared in the connect-failure catch (mutant: not cleared -> lives to 30 s -> SIGKILL)`);
   assert.equal(r.status, 1, "smtp_unreachable exits 1");
+});
+
+// ---- PROBE-BADPORT-REASON-1: a URL whose port fetch refuses ("bad port", before any connect) read unreachable on every
+// try, forever. It is now refused BEFORE any call with its own reason, bad_port. No test below dials anything. ----
+
+// killer: scripts/probe-narabi.mjs:241 CONST "bad_port" -> "insecure_url"
+test("probe_refuses_fetch_bad_port_before_any_dial -- a URL on a port that fetch refuses (http on loopback, https anywhere, leading zeros included) is refused bad_port by the pure guard and by fetchTimeline itself, never unreachable; insecure_url keeps precedence whatever the port; the scheme default (explicit :80 or :443), port 0 and the neighbours of listed ports stay admitted (PROBE-BADPORT-REASON-1 D-1, D-2)", async () => {
+  for (const u of [
+    "http://127.0.0.1:6000/narabi/timeline.jsonl", "http://localhost:10080/x", "http://[::1]:1/x",
+    "https://monarkgate.tech:465/narabi/timeline.jsonl", "https://monarkgate.tech:0587/x",
+  ]) {
+    assert.deepEqual(urlTransportAllowed(u), { ok: false, reason: "bad_port" }, `refused bad_port before any dial: ${u}`);
+  }
+  // fetchTimeline vets the port ITSELF, like the transport (C-G2D-4): a direct caller gets bad_port with no fetch call.
+  const direct = await fetchTimeline("http://127.0.0.1:6000/narabi/timeline.jsonl", { retries: 0 });
+  assert.deepEqual(direct, { ok: false, reason: "bad_port" }, "fetchTimeline refuses the port itself, never unreachable");
+  // D-2: insecure_url keeps precedence over the port check (no other reason changes).
+  for (const u of ["http://monarkgate.tech:25/x", "http://127.1:6000/x", "http://user:pass@127.0.0.1:6000/x", "ftp://127.0.0.1:21/x", "not a url"]) {
+    assert.deepEqual(urlTransportAllowed(u), { ok: false, reason: "insecure_url" }, `still insecure_url: ${u}`);
+  }
+  // D-2: admitted URLs stay admitted. The scheme default reads as the port "" (as undici sees it), 0 is not listed.
+  for (const u of [
+    "http://127.0.0.1:80/x", "https://monarkgate.tech:443/narabi/timeline.jsonl", "http://127.0.0.1:0/x",
+    "http://127.0.0.1:5999/x", "http://127.0.0.1:6001/x", "http://127.0.0.1:10081/x", "https://monarkgate.tech:8443/x",
+  ]) {
+    assert.deepEqual(urlTransportAllowed(u), { ok: true }, `still admitted: ${u}`);
+  }
+});
+
+// Replaces fetch in the probe child: records each call on stderr and never dials (a refused URL must never reach it).
+const FETCH_SPY_SRC = `
+globalThis.fetch = (input) => {
+  process.stderr.write("FETCH-CALL " + String(input) + "\\n");
+  return Promise.reject(new TypeError("fetch replaced by the test: no dial"));
+};
+`;
+// killer: scripts/probe-narabi.mjs:241 SDL "FETCH_BAD_PORT_SET.has" -> ""
+test("probe_bad_port_url_is_named_end_to_end -- the REAL probe given a PROBE_URL, then a --url, on a port that fetch refuses writes reason bad_port (reachable false, unhealthy, exit 1) with ZERO fetch calls (a spy replaces fetch in the child) instead of an unreachable on every try; its alert mail carries reason: bad_port and none of the banned vocabulary; an admitted URL still reaches fetch (PROBE-BADPORT-REASON-1 D-1, D-2, D-3)", async () => {
+  const spy = join(scratchDir(), "fetch-spy.mjs");
+  writeFileSync(spy, FETCH_SPY_SRC);
+  const spyOpts = `--import=${pathToFileURL(spy).href}`;
+  const calls = (s: string): number => (s.match(/^FETCH-CALL /gm) ?? []).length;
+  const fake = await startFakeSmtp();
+  try {
+    const r1 = await runProbeAt(freshOut(), ["--now", HEALTHY_NOW], { ...smtpEnv(fake.port), PROBE_URL: "http://127.0.0.1:6665/narabi/timeline.jsonl", NODE_OPTIONS: spyOpts });
+    assert.equal(r1.state.reason, "bad_port", "a PROBE_URL on a refused port is named bad_port, not unreachable");
+    assert.equal(r1.state.reachable, false, "nothing was read");
+    assert.equal(r1.state.status, "unhealthy", "unhealthy");
+    assert.equal(r1.status, 1, "exit 1, like any unhealthy verdict");
+    assert.equal(calls(r1.stderr), 0, "refused BEFORE any fetch call (the unreachable path calls fetch retries+1 times)");
+    assert.equal(r1.state.alert_error, null, "the alert was delivered");
+    assert.equal(fake.cap.delivered, 1, "exactly one alert mail");
+    assert.match(fake.cap.data, /^reason: bad_port\r?$/m, "the mail body names the reason");
+    const vocab = JSON.parse(readFileSync(join(REPO, "vocab-banned.json"), "utf8")) as { banned: { re: string }[]; scan: { sentinel: { banned: { re: string }[] } } };
+    for (const b of [...vocab.banned, ...vocab.scan.sentinel.banned]) assert.doesNotMatch(fake.cap.data, new RegExp(b.re, "i"), `banned pattern ${b.re}`);
+    assert.doesNotMatch(fake.cap.data, /partner|autonomous|guarantee|verified|score/i, "the mail-vocab list (fact 12)");
+  } finally { await fake.close(); }
+  const r2 = await runProbeAt(freshOut(), ["--url", "https://monarkgate.tech:587/narabi/timeline.jsonl", "--now", HEALTHY_NOW], { NODE_OPTIONS: spyOpts });
+  assert.equal(r2.state.reason, "bad_port", "a --url on a refused port is named bad_port too");
+  assert.equal(r2.status, 1, "exit 1");
+  assert.equal(calls(r2.stderr), 0, "no fetch call");
+  assert.equal(r2.state.alert_error, "smtp_unconfigured", "with no SMTP config the verdict still records the closed-set alert_error");
+  // Control (D-2, and the spy is live): an admitted port still reaches fetch, once with PROBE_RETRIES=0, and reads unreachable.
+  const r3 = await runProbeAt(freshOut(), ["--url", "http://127.0.0.1:6001/narabi/timeline.jsonl", "--now", HEALTHY_NOW], { NODE_OPTIONS: spyOpts, PROBE_RETRIES: "0" });
+  assert.equal(calls(r3.stderr), 1, "the admitted URL reached fetch exactly once");
+  assert.equal(r3.state.reason, "unreachable", "an admitted URL keeps its old verdict when fetch fails");
+});
+
+// killer: scripts/probe-narabi.mjs:234 CONST "10080" -> "10081"
+test("probe_fetch_bad_ports_equal_the_embedded_fetch_list -- FETCH_BAD_PORTS equals, entry for entry, the badPorts array of the undici source EMBEDDED in the node.exe that runs this suite; over ports 0..65535 the guard refuses exactly those; and fetch rejects each of them as bad port before any connect, so no admitted URL is newly refused (PROBE-BADPORT-REASON-1 D-1, D-2)", async () => {
+  const natives = (process as unknown as { binding: (name: string) => Record<string, unknown> }).binding("natives");
+  const src = natives["internal/deps/undici/undici"];
+  if (typeof src !== "string") return assert.fail("the undici source embedded in this node.exe is not readable");
+  const at = src.indexOf("var badPorts =");
+  assert.ok(at >= 0 && src.indexOf("var badPorts =", at + 1) < 0, "exactly one badPorts array in the embedded undici");
+  const open = src.indexOf("[", at);
+  const embedded = src.slice(open + 1, src.indexOf("]", open)).split(",").map((s) => s.trim().replace(/"/g, "")).filter((s) => s !== "");
+  assert.ok(embedded.length > 0 && embedded.every((p) => /^\d+$/.test(p)), "the embedded list parses to decimal port strings");
+  const probeModule = await import("../scripts/probe-narabi.mjs");
+  assert.deepEqual(probeModule.FETCH_BAD_PORTS, embedded, `the copy equals the list of this runtime (node ${process.version}, undici ${String(process.versions.undici)})`);
+  const refused: string[] = [];
+  for (let p = 0; p <= 65535; p++) {
+    const d = urlTransportAllowed(`http://127.0.0.1:${String(p)}/x`);
+    if (!d.ok && d.reason === "bad_port") refused.push(String(p));
+  }
+  assert.deepEqual(refused, embedded, "over every port, the guard refuses exactly the embedded list");
+  for (const p of probeModule.FETCH_BAD_PORTS) {
+    const cause = await fetch(`http://127.0.0.1:${p}/x`).then(() => "resolved", (e: unknown) => (e instanceof TypeError && e.cause instanceof Error ? e.cause.message : String(e)));
+    assert.equal(cause, "bad port", `fetch of this runtime refuses port ${p} before any connect`);
+  }
 });
