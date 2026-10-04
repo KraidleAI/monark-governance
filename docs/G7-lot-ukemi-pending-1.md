@@ -49,8 +49,10 @@ Zone écrite : trois des fichiers décidés (Q-UP-1). La synchro d'ukemi, son `.
 
   Les six autres reverdissent. Le corps liq copié suit sans qu'on le touche.
 - **La partie de l.1175 qui dépend de B-17** ne rougit pas dans cette simulation, et c'est attendu : le harnais du clone sert encore `calib_digest`. Elle rougira quand le bloc C renommera ce champ en `scores_sha256`, tant que ses lecteurs ne suivent pas :
-  - `servedVerdictFacts` (`sync-ukemi-served.mjs:122`, `:131`) ;
-  - la CA (`verify-harness.mjs:291`, `:362`).
+  - `servedVerdictFacts` (`sync-ukemi-served.mjs:122`, `:131`) et la ligne versée `calibration_digest` (`:149`) ;
+  - la CA (`verify-harness.mjs:291`, `:362`, et le détail `:366`).
+
+  Le G0 (§6 point 4) cite `verify-harness.mjs:270`, numéroté sur `880654ed` ; au gel, deux lignes lisent le champ (`:291`, `:362`), plus le détail `:366` (m-4 de la G2).
 
   Ces renommages restent au bloc C (Q-UP-4).
 - Clone retiré ; l'arbre du lot n'a pas bougé (`git status` propre).
@@ -66,3 +68,11 @@ Zone écrite : trois des fichiers décidés (Q-UP-1). La synchro d'ukemi, son `.
 ## Différences servies
 
 Aucune. Les corps de la CA gardent les mêmes octets (`"1.0.0"`). La CA versée, `ukemi-served.json`, `harness-served.json`, le manifeste et les pages ne bougent pas.
+
+## G2
+
+G2 fraîche : APPROUVE, aucun bloquant (`recherches:coordination/pieces/2026-10-04-G2-recherches/G2-ukemi-pending-1.md`).
+- m-2 plié : le commentaire de `verify-harness.mjs:73` ne dit plus que `GATE_LIQ_BODY` est le seul export (même nombre de lignes, aucun tueur déplacé).
+- m-4 plié : liste B-17 ci-dessus complétée.
+- m-1 laissé : le test des corps lit le texte source exprès (il prouve qu'aucun littéral ne reste) ; le bloc C le relira.
+- m-3 laissé : importer le corps liq dans `sync-harness-served.mjs` sort de la ligne décidée ; noté pour le G0 du bloc C.

@@ -70,8 +70,8 @@ const GATE_BYO_BODY = {
 // 0.01/100 (any other value is a named 400). The body of the committed call is UNCHANGED since HARNESS-DESC-1 (its
 // yhat lies in the committed stratum s0, below the first served cut); the second call puts yhat ON the first served cut,
 // so the server derives stratum s1, which the registry does not hold. No amount of the calibration is typed here:
-// q-hat is read from the served verdict. GATE_LIQ_BODY is this script's ONLY export (the run-guard below keeps the CLI
-// from running on import): scripts/sync-ukemi-served.mjs POSTs this very object, never a copy, so the served verdict it
+// q-hat is read from the served verdict. GATE_LIQ_BODY is exported with GATE_BODY and CA_SCHEMA_VERSION (the run-guard
+// below keeps the CLI from running on import): scripts/sync-ukemi-served.mjs POSTs this very object, never a copy, so the served verdict it
 // records is the answer this check hashes as gate_liq_call (ADR-U4b-2b D5 point 1; G2 of U-4b-2b, M-1).
 export const GATE_LIQ_BODY = {
   prediction: { schema_version: CA_SCHEMA_VERSION, task_class: "liquidation-eligible-coverage", yhat: 5000, predictor_id: "ca:verify-harness", produced_at: "2026-09-04T00:00:00Z" },
