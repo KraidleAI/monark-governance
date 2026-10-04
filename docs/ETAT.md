@@ -393,6 +393,10 @@ Tronc `lot/etude-suite`. Dernier oracle complet : 1 779 tests, dont 1 776 verts,
   - Décision de l investisseur (2026-10-04, 01:2x UTC, C-2 du contrôle de CM-2b), choix verbatim « Dire la vérité dans la description
     (Recommandé) » : la description servie dit qu aucune classe servie n a de sujet d attestation, donc que tout `attested` est refusé ;
     porté par RECHERCHES (#110 ou une suite), avant le déploiement commun de CM-2a et CM-2b.
+  - SENTINEL-SIGTERM-LOAD-1 (zone RECHERCHES, `apps/sentinel/test/sentinel-chainstack-guard.test.ts:321`) : le test
+    `sentinel_run_releases_chainstack_lock_on_sigterm` rougit sous la charge de la CI exportée (test 42, run 37169648100 de #110 ; déjà
+    vu par RECHERCHES à la base) et passe seul. Construction : borne de temps du test tenue par un événement, jamais par une durée.
+    Déclencheur : signalé à RECHERCHES le 2026-10-04 ; état : ouvert.
   - FAITS-L2-ACCESS-3-E-1 (procurement ; (e) de FAITS-L2-ACCESS-3, non établi le 2026-10-04) : `timeUnit` sur les routes futures ;
     absent des deux pages « legacy » lues ; la page neuve (`…/ws-streams/public`) ne rend pas son corps dans le navigateur interne.
     Construction : la lire par le navigateur externe ou par le fichier source de la page, datée et épinglée. Déclencheur : avant le G1
