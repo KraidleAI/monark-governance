@@ -60,6 +60,7 @@ import { tmpdir } from "node:os";
 import { join, relative, dirname } from "node:path";
 import { createHash } from "node:crypto";
 import { collectFiles, derivePublicWorkflow } from "../scripts/export-public.mjs";
+import { innerFailures } from "./helpers/inner-failures.ts";
 
 const ROOT = join(import.meta.dirname, "..");
 
@@ -372,8 +373,9 @@ test("export_public_no_governance_no_french — clean public export (test 42)", 
     const nFail = summaryCount(output, "fail");
     const summary =
       nTests === null ? output.split(/\r?\n/).slice(-30).join("\n") : `tests ${nTests} / pass ${nPass} / fail ${nFail}`;
-    // EXPORT-TEST42-INNER-NAMES-1: name the failing inner tests (spec reporter lines), so an intermittent failure is attributable.
-    const failing = [...new Set(output.split(/\r?\n/).map((l) => l.trim()).filter((l) => /^(✖|not ok)(\s|$)/.test(l)))].slice(0, 10);
+    // EXPORT-TEST42-INNER-NAMES-1, EXPORT-HARNESS-413-LOAD-1: name the failing inner tests, each with the text of its failing
+    // assertion (test/helpers/inner-failures.ts), so an intermittent failure is attributable from this report alone.
+    const failing = innerFailures(output);
     assert.ok(
       !run.error && run.status === 0,
       `exported CI (npm run ci) failed (status=${run.status}, error=${run.error?.message ?? "none"}): ${summary}`
