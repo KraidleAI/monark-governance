@@ -15,6 +15,7 @@ import { canonical, keyIdOf, keyringOf, signLine } from "../scripts/bell-chain.m
 import { BellVerifyError, VERIFY_BOUNDS, dirSource, urlAllowed, urlSource, verifyServed } from "../scripts/bell-verify.mjs";
 import { rotateKey } from "../scripts/bell-publish.mjs";
 import { readJson, resealHead, serveDir, servedState, tmp, type Obj } from "./helpers/bell-served.ts";
+import { listen } from "../../../test/helpers/loopback.ts";
 
 const HERE = dirname(fileURLToPath(import.meta.url)), SCRIPT = join(HERE, "..", "scripts", "bell-verify.mjs");
 const K = generateKeyPairSync("ed25519").privateKey, KR = keyringOf(K, 1);
@@ -88,8 +89,7 @@ test("bell_verify_refuses_redirect_and_offloopback_http", async () => {
   }
   const { pub } = servedState(K, 1), target = await serveDir(pub, null);
   const redirector = createServer((req, res) => { if ((req.url ?? "").startsWith("/mute/")) return; res.writeHead(302, { location: `${target.url}${req.url ?? "/"}` }); res.end(); }); // /mute/: silent (C-6)
-  await new Promise<void>((r) => { redirector.listen(0, "127.0.0.1", () => { r(); }); });
-  const a = redirector.address(), rUrl = `http://127.0.0.1:${String(a !== null && typeof a === "object" ? a.port : 0)}`;
+  const rUrl = `http://127.0.0.1:${String(await listen(redirector))}`;
   try {
     assert.equal(await outcome(verifyServed({ source: urlSource(target.url), keyring: KR })), "accepted", "served over loopback http");
     const hits = target.seen.length;

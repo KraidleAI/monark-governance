@@ -43,12 +43,12 @@ const sha = (s: string | Buffer): string => createHash("sha256").update(s).diges
 const shaLf = (rel: string): string => sha(Buffer.from(readFileSync(join(ROOT, rel), "utf8").replace(/\r\n/g, "\n"), "utf8"));
 const read = (rel: string): string => readFileSync(join(ROOT, rel), "utf8");
 
-// Pins: the snapshot as read on the served harness on 2026-10-04 (00:19:36Z) by scripts/sync-harness-served.mjs, and the
+// Pins: the snapshot as read on the served harness on 2026-10-04T07:44:40Z (step 4 deploy) by scripts/sync-harness-served.mjs, and the
 // two traces (the SAME pins as test/byo-demo-probe.test.ts and test/h5-e2e-probe.test.ts: a re-record re-pins here too).
 const PINNED: Record<string, string> = {
-  [HARNESS_SERVED_REL]: "a5f9a168869242678b1c54f2a646a51384529f3a4e5b4c502f44d9ebf17dcd23",
+  [HARNESS_SERVED_REL]: "77d7b9143e8b6c03bb9f5670941f2550499fbc7cf687fb8bf76ff5542cf61fb1",
   [BYO_TRACE_REL]: "daf8d3eabacbc601e608d01936d02c0f7ba78dfb5a0d6f5741ecea5fb4eef6d2",
-  [H5_TRACE_REL]: "0b32b33071b15c6e40ea529d87221fdade7bf4fb5f2171773802a85083569932", // re-pinned with the h5 re-record of U-4b-2b
+  [H5_TRACE_REL]: "b016bf4a4950cff1d39dccd970f7371f4dc8e3bb261d3d14c53b372825eda0a0", // re-pinned after #110 (C-2: tools/list sha only; was e403cf01...)
 };
 
 interface Schema { required?: string[]; properties?: Record<string, Schema>; type?: string | string[]; description?: string; maxItems?: number; items?: Schema; additionalProperties?: unknown }
@@ -193,6 +193,7 @@ test("harness_served_loader_is_fail_closed", () => {
   }
 });
 
+// killer: apps/site/lib/harness-served-load.ts:294 SDL "noForbiddenKey(d, banned, `${where} result`);" -> ""
 test("harness_trace_loaders_are_fail_closed", () => {
   // The traces are staged with the snapshot, the manifest and schemas/; each mutant is RE-HASHED into the staged
   // manifest, so only the loader's own checks (shape, forbidden keys, loopback) stand between it and a page.
@@ -224,16 +225,17 @@ test("harness_trace_loaders_are_fail_closed", () => {
     rehash(H5_TRACE_REL, fresh(H5_TRACE_REL));
     assert.deepEqual(loadH5Trace(tmp), loadH5Trace(ROOT), "control: a re-serialized, re-hashed trace still loads (the mutants below differ only by their mutation)");
 
-    // T1 — the review's mutant: an undeclared key and a forbidden key in the rendered btc-dir-gate request.
+    // T1 — the review's mutant: an undeclared key and a forbidden key in the rendered committed-gate request (the committed
+    // USDe key since CM-2b; btc-dir-15m is retired).
     restore();
     let t = fresh(H5_TRACE_REL);
-    Object.assign(stepOf(t, "btc-dir-gate").request?.params?.arguments?.prediction as Rec, { confidence: 0.99, not_in_schema: true });
+    Object.assign(stepOf(t, "committed-gate").request?.params?.arguments?.prediction as Rec, { confidence: 0.99, not_in_schema: true });
     rehash(H5_TRACE_REL, t);
-    assert.throws(() => loadH5Trace(tmp), /btc-dir-gate request prediction does not match its schema/, "T1: a request key outside the frozen Prediction throws");
-    // T2 — a forbidden key where no shape check reaches: nested in the rendered btc-dir result (verdict.region).
+    assert.throws(() => loadH5Trace(tmp), /committed-gate request prediction does not match its schema/, "T1: a request key outside the frozen Prediction throws");
+    // T2 — a forbidden key where no shape check reaches: nested in the rendered committed result (verdict.region).
     restore();
     t = fresh(H5_TRACE_REL);
-    ((stepOf(t, "btc-dir-gate").response?.structuredContent?.verdict as Rec).region as Rec).confidence = 0.99;
+    ((stepOf(t, "committed-gate").response?.structuredContent?.verdict as Rec).region as Rec).confidence = 0.99;
     rehash(H5_TRACE_REL, t);
     assert.throws(() => loadH5Trace(tmp), /forbidden key \(confidence\)/, "T2: a forbidden key at any depth of a rendered result throws");
     // T3 — an undeclared param in the rendered BYO gate request.
@@ -265,6 +267,9 @@ test("harness_trace_loaders_are_fail_closed", () => {
   }
 });
 
+// CM-2b surfaces: the recorded gate decisions are the cascade abstention and the committed USDe key; step 7 (the
+// retired class carrying the attested witness) is a tool error, not a decision, so no page renders it as one.
+// killer: apps/site/lib/harness-served-load.ts:288 CONST "|| sc === undefined" -> "|| false"
 test("byo_trace_rendered_equals_trace", () => {
   type TraceStep = { label?: string; op?: string; tool?: string; request?: { params?: { arguments?: unknown } }; response?: { structuredContent?: Record<string, unknown> } };
   const steps = (rel: string): TraceStep[] => (JSON.parse(read(rel)) as { steps: TraceStep[] }).steps;
@@ -283,7 +288,8 @@ test("byo_trace_rendered_equals_trace", () => {
   assert.equal(byo.bind, "127.0.0.1", "the BYO loop was recorded on the loopback address (an in-process server)");
   assert.equal(h5.bind, "127.0.0.1", "the end-to-end trace was recorded on the loopback address (an in-process server)");
   assert.ok(!/worker_model|generated_by|claude-|previously/.test(JSON.stringify([byo, h5])), "no generator metadata nor step note reaches a page");
-  const expected = steps(H5_TRACE_REL).filter((x) => x.tool === "gate").map((x) => {
+  assert.deepEqual(h5.decisions.map((x) => x.step), ["cascade-gate", "committed-gate"], "the recorded gate decisions (step 7 is the retired-class refusal)");
+  const expected = steps(H5_TRACE_REL).filter((x) => x.tool === "gate" && x.response?.structuredContent !== undefined).map((x) => {
     const sc = x.response?.structuredContent;
     return `${x.label ?? ""}:${String(sc?.action)}:${String(sc?.reason)}:${String((sc?.verdict as { task_class?: unknown } | undefined)?.task_class)}`;
   });
@@ -388,7 +394,6 @@ const PROSE_WORDS: ReadonlyMap<string, string> = new Map([
   ["prediction", "the /gate key, named in a <code> element"],
   ["reason", "an English noun (the reason is one of)"],
   ["scores", "an English noun (nonconformity scores)"],
-  ["set", "an English word (set mode)"],
   ["set_digest", "the calibrate result key, named in a <code> element"],
   ["structuredContent", "the envelope key, named in a <code> element"],
   ["tool", "an English noun (call the gate as a tool)"],

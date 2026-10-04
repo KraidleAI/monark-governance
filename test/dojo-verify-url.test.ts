@@ -16,6 +16,7 @@ import { proofOf, rootOf } from "../apps/dojo/scripts/dojo-core.mjs";
 import * as dv from "../apps/dojo/scripts/dojo-verify.mjs"; // C-V-1: the new exports through the namespace, checked first
 import { urlSource } from "../apps/dojo/scripts/dojo-verify-cli.mjs";
 import { ADDR, ANCHOR_DAY, dateOf, dojoFixture, dojoKeyringOf, removeTrees, render, writeTree } from "../apps/dojo/test/helpers/dojo-fixture.ts";
+import { listen } from "./helpers/loopback.ts";
 
 type Ok = Extract<dv.DojoVerifyReport, { ok: true }>;
 const SCRIPT = join(import.meta.dirname, "..", "apps", "dojo", "scripts", "dojo-verify-cli.mjs"); // PR-1b-5b (ADR-DOJO-PR-1B-5 PLI-1)
@@ -33,7 +34,7 @@ async function success(env: NodeJS.ProcessEnv, ...args: string[]): Promise<Ok> {
   assert.deepEqual([code, out.indexOf("\n"), out.length > 1], [0, out.length - 1, true], out); // C-G2-1 (G2 of PR-1b-5b): an empty stdout is no line
   return JSON.parse(out) as Ok;
 }
-/** A loopback server (127.0.0.1, port 0) of the tree that `get` names at each request; each path asked, in order. */
+/** A loopback server (127.0.0.1, a port above 10080: test/helpers/loopback.ts) of the tree that `get` names at each request; each path asked, in order. */
 // A `hook` that returns true has answered the request (or ended its connection) itself.
 async function serve(get: () => ReadonlyMap<string, Buffer>, hook: (req: IncomingMessage, res: ServerResponse) => boolean = () => false):
   Promise<{ url: string; seen: string[]; close: () => Promise<void> }> {
@@ -43,8 +44,7 @@ async function serve(get: () => ReadonlyMap<string, Buffer>, hook: (req: Incomin
     if (hook(req, res)) return;
     res.writeHead(b === undefined ? 404 : 200).end(b);
   });
-  await new Promise<void>((r) => { server.listen(0, "127.0.0.1", () => { r(); }); });
-  const a = server.address(), port = a !== null && typeof a === "object" ? a.port : 0;
+  const port = await listen(server);
   const close = (): Promise<void> => new Promise<void>((r) => { server.closeAllConnections(); server.close(() => { r(); }); });
   return { url: `http://127.0.0.1:${String(port)}`, seen, close };
 }

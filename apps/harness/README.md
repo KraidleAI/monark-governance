@@ -18,18 +18,19 @@ Free, pure, no persistence, no trading (ADR-M005 D1). Transport: MCP Streamable 
 - `params` — the **non-frozen** gate parameters (declared by the server, never in `schemas/`). The
   OPTIONAL `params.calibration` opens the **BYO** path (ADR-M007 D7): see below.
 - `attested` — OPTIONAL: a caller-carried frozen `AttestedPrice` (ADR-M017). Its subject must be DECLARED
-  consistent with the served class (exact committed-URL membership); the gate runs no verifier on it at call time, and only its
-  `residual` is filed into `verdict.residual` (the decision is otherwise unchanged). BYO classes and
-  `liquidation-eligible-coverage` accept none: a tool error.
+  consistent with the served class (exact committed-URL membership); the gate runs no verifier on it at call time.
+  No served class has a committed attestation subject (the retired `btc-dir-15m` held the only one), so any
+  `attested` is refused: a tool error (`attested_inconsistent`; on `btc-dir-15m`, `task_class_retired`). The
+  residual seam (`attested.residual` filed into `verdict.residual`) is therefore dormant on every served path.
 
 **Dispatch is on `prediction.task_class`** (ADR-M005 D5), UNLESS the caller supplies `params.calibration`
 (then the BYO path runs, keyed on presence — see the BYO row):
 
 | `task_class`               | Path                          | Calibration                                   | Typical result |
 |----------------------------|-------------------------------|-----------------------------------------------|----------------|
-| `btc-dir-15m`              | `conformalSet` (region `set`) | committed **synthetic** (HIKAE S2a draw)      | a real decision (commit/defer/abstain) |
+| `btc-dir-15m`              | **retired** (ADR 0005, 2026-09-30; ADR-CM B-5) | not served (the synthetic calibration stays committed for the fixtures) | **tool error** `task_class_retired` (400); the name stays reserved against BYO |
 | `cascade-liquidable-24h`   | `conformInterval` (`interval`)| **none committed** ⇒ empty region             | **`abstain` / `under_calib`** (the honest, expected result — not a defect) |
-| `stable-run-velocity-24h`  | `splitQuantile` + `buildIntervalRegion` (`interval`) | committed **per key** `(task_class, predictor_id)`: one **measured** population (USDe, calm-window redemption flow) | the committed key: a real decision under the served wording (no coverage is measured); any other key: **`abstain` / `under_calib`** |
+| `stable-run-velocity-24h`  | `splitQuantile` + `buildIntervalRegion` (`interval`) | committed **per key** `(task_class, predictor_id)`: one **measured** population (USDe, calm-window redemption flow) | the committed key: `alpha = 0.1`, `nMin = 50` imposed (else a tool error, ADR-CM B-2), a real decision under the served wording (no coverage is measured; each band edge is the nearest double of yhat -/+ q̂, at most half an ulp of the edge away); any other key: **`abstain` / `under_calib`** with the caller's `alpha`/`nMin` |
 | `liquidation-eligible-coverage` | `splitQuantile` over the committed stratum, then the upper bound `[0, yhat + q̂]` (wire kind `interval`) | committed **per stratum** of `yhat`, the stratum derived server-side (the client `predictor_id` is ignored): stratum 0 of one recorded episode, **measured**; `alpha = 0.01`, `nMin = 100` imposed (else a tool error) | the committed stratum: a conformal **upper bound** (with a narrow `tauInterval`, `defer` / `interval_too_wide`); every other stratum: **`abstain` / `under_calib`** |
 | any caller-owned class **with `params.calibration`** | BYO — `splitQuantile` over the caller's scores, then `buildIntervalRegion` (`interval` mode) or `conformalSet` over `candidates` (`set` mode) | **caller-supplied** (BYO, ADR-M007 D7) | a real decision on the caller's own model; `verdict.calib_digest = calibDigest(caller scores)` closes the `calibrate`↔`gate` audit |
 
@@ -44,7 +45,7 @@ the caller carries `q̂` and `B_t` exactly as before (stateless, D6).
 
 **Output** is the frozen `GateDecision` (`schemas/gate-decision.schema.json`, projected as the tool
 `outputSchema`; its `verdict` `$ref` is mechanically dereferenced from `coverage-verdict.schema.json`).
-The honesty declaration (`synthetic`, calibration digest, "B_t is caller-carried", the cascade
+The honesty declaration (calibration provenance, "B_t is caller-carried", the cascade
 abstention sentence) rides in the tool result **`content` text**, never inside the closed decision (K-1).
 
 ## `GateInput` — field by field (who owns each field)
@@ -76,10 +77,10 @@ server **reads no clock**.
 | `schemaVersion` | fixed `"1.0.0"` | K-4c |
 | `timedOut`      | `false` | K-4d — a pure server never invents an upstream timeout |
 | `evaluable`     | derived from `yhat` | K-4d — right type but non-directional/non-finite `yhat` ⇒ `abstain`/`non_evaluable` (a decision); wrong-typed `yhat` ⇒ tool error |
-| `nCalib`        | derived (btc-dir: committed calibration size; cascade: `0`; stable-run: the committed key's size, else `0`; liquidation-eligible-coverage: the committed stratum's size, else `0`; BYO: the caller's `scores.length`) | K-4d |
+| `nCalib`        | derived (cascade: `0`; stable-run: the committed key's size, else `0`; liquidation-eligible-coverage: the committed stratum's size, else `0`; BYO: the caller's `scores.length`) | K-4d |
 | `verdict`       | built server-side (calibration ⇒ region; BYO ⇒ the caller's scores) | D5 |
 
-Any invalid param, an unknown `task_class` (with no `calibration`), a BYO validation failure, a
+Any invalid param, an unknown or retired `task_class` (with no `calibration`), a BYO validation failure, a
 `calibration` on a committed class (anti-override), or a wrong-typed `yhat` yields a **tool error**,
 never a silent gate.
 
@@ -88,7 +89,8 @@ never a silent gate.
 The `btc-dir-15m` calibration is **derived** from the HIKAE S2a instrument (`generateLabeledSeries`
 over the committed `S2_DEFAULT.s2a` — `harness_version = "fixtures-synth"`, seed `101`, `n=300`) and
 is **digest-pinned** (`calibDigest` asserted equal to a committed constant at load, fail-closed). It is
-**declared `synthetic`** — a plumbing fixture, not a measured predictor (ADR-M005 D5, C-8). No cascade
+**declared `synthetic`**, a plumbing fixture, not a measured predictor (ADR-M005 D5, C-8); since CM-2b the class is
+retired and this calibration is no longer served (kept for the fixtures and the engine oracles). No cascade
 calibration exists, so that class abstains honestly.
 
 The `stable-run-velocity-24h` calibration is **measured** for ONE population (USDe, calm-window redemption flow),

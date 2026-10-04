@@ -36,16 +36,14 @@ output field alike:
 MONARK offers no guarantee of availability. It does not predict prices and does not judge whether an
 act is legitimate; it gates the coverage of YOUR prediction and nothing else.
 
-### The `gate` envelope: `{prediction, params}`, and the optional `attested` intake
+### The `gate` envelope: `{prediction, params}`, and the `attested` key (refused today)
 
-`gate` takes `{prediction, params}` — both required, unchanged. It also accepts an OPTIONAL
-`attested: AttestedPrice` — an attested price testimony (origin and bytes, never truth). When present,
-only its named `residual` hypotheses are carried through to `verdict.residual`. `attested` never enters
-the coverage math and makes no claim that the price is true. `attested.subject` must be a URL committed
-for that `task_class` — a declared match checked for coherence, never a call-time re-derivation of the
-fact — and there is no temporal binding in this phase.
-A bring-your-own call that carries `attested` is refused (a BYO class has no committed subject), never
-accepted silently.
+`gate` takes `{prediction, params}` — both required, unchanged. Its contract also declares an OPTIONAL
+`attested: AttestedPrice` — an attested price testimony (origin and bytes, never truth) whose
+`attested.subject` must be a URL committed for that `task_class`. No served class has a committed
+attestation subject (the retired `btc-dir-15m` held the only one), so **any `attested` is refused** today
+(a named 400, `attested_inconsistent`), never accepted silently: do not send it. `attested` never enters
+the coverage math and makes no claim that the price is true; there is no temporal binding in this phase.
 
 ## Operational surface
 
@@ -53,19 +51,20 @@ A public, unauthenticated endpoint, no availability commitment; bounded: n ≤ 1
 body ≤ 256 KB. A verdict below your `bFloor` returns `budget_exhausted`; out-of-calibration input
 returns `under_calib` and abstains - no success is invented.
 
-## The two built-in task classes are NOT use cases
+## The built-in fixture class is NOT a use case
 
-The two built-in `task_class` values (`btc-dir-15m`, `cascade-liquidable-24h`) are internal
-**plumbing fixtures**, not use cases and not endorsements: `btc-dir-15m` uses a declared **synthetic**
-calibration (never a measured predictor), and `cascade-liquidable-24h` ships no calibration at all, so
-it abstains (`under_calib`). They are NOT use cases. The real path is BYO: bring your own predictor +
+The built-in `task_class` `cascade-liquidable-24h` is an internal **plumbing fixture**, not a use case and not
+an endorsement: it ships no calibration at all, so it abstains (`under_calib`). The former fixture `btc-dir-15m`
+is retired and not served (a call to it returns a named 400, `task_class_retired`; its declared **synthetic**
+calibration is no longer served). They are NOT use cases. The real path is BYO: bring your own predictor +
 nonconformity scores.
 
-A third `task_class`, `stable-run-velocity-24h` (redemption-run velocity, the Narabi sensor), is **served by
+Two other `task_class`es are served. `liquidation-eligible-coverage` has one committed stratum, s0 (the server imposes `alpha = 0.01` and `nMin = 100`); `stable-run-velocity-24h` (redemption-run velocity, the Narabi sensor) is **served by
 this endpoint** with a **committed calibration for one population** — USDe, key
 `narabi:persistence-v2@eip155:1/erc20:0x4c9edd5852cd905f086c759e8383e09bff1e68b3`, measured on calm onchain
 redemption-flow windows. The calibration is measured non-stationary across half-years, so **no per-window
 coverage is claimed**; the committed region is static and **every other population abstains** (`under_calib`).
+On that key the server imposes `alpha = 0.1` and `nMin = 50` (any other value is a named 400).
 Alongside it, an off-tool **daily** sentinel steps an adaptive quantile tracker on the attested 24h flow and
 publishes a replayable timeline (`state.json`, `timeline.jsonl`) at `monarkgate.tech/narabi/`; the committed
 gate region does not change until a pre-registered drift criterion fires and an ADR says so.

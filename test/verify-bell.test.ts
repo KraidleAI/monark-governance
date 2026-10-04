@@ -10,7 +10,6 @@
  */
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { once } from "node:events";
 import { execFile, execFileSync } from "node:child_process";
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { createServer } from "node:http";
@@ -24,6 +23,7 @@ import { BELL_ROOT_REDIRECT, BELL_TREE_PATHS, CHECK_NAMES, UNIT_INSTALLED, gitBl
 import { canonical, keyringOf } from "../apps/bell/scripts/bell-chain.mjs";
 import { CADDY_DEDICATED } from "../scripts/verify-bell.mjs";
 import { DOJO_CADDYFILE_INSTALLED } from "../scripts/dojo-deploy.mjs";
+import { listen } from "./helpers/loopback.ts";
 
 const REPO = fileURLToPath(new URL("../", import.meta.url));
 const sha = (b: string | Uint8Array): string => createHash("sha256").update(b).digest("hex");
@@ -77,10 +77,9 @@ const red = (r: CaResult): string[] => (r.ca === null ? ["usage"] : r.ca.checks.
 async function served<T>(caddyText: string, f: (url: string) => Promise<T>): Promise<T> {
   const site: CaddySite | undefined = parseCaddyfile(caddyText)[0];
   assert.ok(site !== undefined, "one site block");
-  const srv: Server = serveCaddy(site, pub.publicDir).listen(0, "127.0.0.1");
-  await once(srv, "listening");
-  const a = srv.address();
-  try { return await f(`http://127.0.0.1:${String(a !== null && typeof a === "object" ? a.port : 0)}`); } finally {
+  const srv: Server = serveCaddy(site, pub.publicDir);
+  const port = await listen(srv);
+  try { return await f(`http://127.0.0.1:${String(port)}`); } finally {
     srv.closeAllConnections();
     await new Promise<void>((r) => { srv.close(() => { r(); }); });
   }
@@ -95,10 +94,9 @@ async function servedRoot301<T>(f: (url: string) => Promise<T>): Promise<T> {
   const srv: Server = createServer((req, res) => {
     if ((req.url ?? "/").split("?")[0] === "/") { res.writeHead(301, { ...rootHeaders, location: BELL_ROOT_REDIRECT }); res.end(); return; }
     inner.emit("request", req, res);
-  }).listen(0, "127.0.0.1");
-  await once(srv, "listening");
-  const a = srv.address();
-  try { return await f(`http://127.0.0.1:${String(a !== null && typeof a === "object" ? a.port : 0)}`); } finally {
+  });
+  const port = await listen(srv);
+  try { return await f(`http://127.0.0.1:${String(port)}`); } finally {
     srv.closeAllConnections();
     await new Promise<void>((r) => { srv.close(() => { r(); }); });
   }
