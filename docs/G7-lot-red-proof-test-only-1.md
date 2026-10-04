@@ -127,13 +127,12 @@ Contrôles au gel `c7a7d27` : `test/red-proof.test.ts` 44/45 sous Node 22 (le ro
 commit des tests) ; adresses des tueurs **45/45** ; R-25 sur `c2ccc78e...HEAD` : **205** (sous 547). Mutants rejoués en place
 (lanceur protégé, fichier restauré, `git status` propre).
 
-**Oracle red-proof non rejoué** : le disque de l'hôte est plein (`df` : 74 Mo libres sur `/`, quota atteint par d'autres travaux :
-`/tmp/l2-book-*`, d'autres worktrees) ; un passage clone deux fois le dépôt (≈ 1,2 Go). Commande à rejouer dès que la place revient :
-`node scripts/red-proof.mjs --base c2ccc78e --gel c7a7d275 --repo /home/user/monark-governance-rt --draw 14 --seed 37` (attendu : 14 F2P,
-14 tués). Le passage sous Node 24 attend aussi la place.
+Oracle du gel `c7a7d27` (rejoué dès que la place disque est revenue) : `node scripts/red-proof.mjs --base c2ccc78e --gel c7a7d275
+--repo /home/user/monark-governance-rt --draw 14 --seed 37` : **OK**, exit 0 ; 14 F2P, 31 inchangés, 14 tueurs tirés (la population),
+14 tués ; `RED-PROOF.json` sha256 `ade235a9…`, digest `cf7feb68…`. `test/red-proof.test.ts` sous Node 24.21.0 : **45/45**.
 
 ## Sortie
 
 Prêt pour le contrôle par diff de MONARK, après RED-PROOF-TAP-TRUNCATION-1 (empilé, fusionné). Item RED-PROOF-TEST-ONLY-1 clos au
-gel `c7a7d27` (pli de la G2 et de sa re-revue) **sous réserve de l'oracle red-proof** à rejouer ; Q-RTO-1 à Q-RTO-4 répondues, Q-RTO-5 et Q-RTO-6 ouvertes. Le changement de mode de `packages/rpc-guard/bin/rpc-guard.mjs` laissé par `npm ci`
+gel `c7a7d27` (pli de la G2 et de sa re-revue) ; Q-RTO-1 à Q-RTO-4 répondues, Q-RTO-5 et Q-RTO-6 ouvertes. Le changement de mode de `packages/rpc-guard/bin/rpc-guard.mjs` laissé par `npm ci`
 n'est pas commis ; rien n'est poussé.
