@@ -2,7 +2,7 @@
 
 - **Plan** : `docs/G0-lot-cm-4b.md` amendé (commit `58f0d8bb`), sur la décision déléguée C-1 à C-11 (`recherches` `29fb1c2`), les réponses de MONARK Z-1 à Z-6 (`fd9a6a9`, `0cc319c`) et l'arbitrage du fondateur sur D (**D = 7 jours**).
 - **Base** : `e6dc5542` (`origin/base/chantier-moteur-2026-10-03`, refetchée : inchangée, aucune fusion). **Gel** : `871b2965`. Commits : `e592d469` (G0 initial), `58f0d8bb` (G0 amendé), `095b7792` (tests rouges), `871b2965` (code, gel), ce commit (G7). Branche `recherches/cm-4b` ; rien n'est poussé, aucune PR ouverte.
-- **Statut** : prêt pour la G2 et le contrôle par diff de MONARK (Z-6 : `policy-guard.ts` de B2 change).
+- **Statut** : G2 rendue (`recherches:coordination/pieces/2026-10-04-G2-recherches/G2-cm-4b-lot-a.md`, **APPROUVE SOUS RÉSERVE**) et pliée (section « G2 »). **Gel après pli** : `838fa879`. Prêt pour le contrôle par diff de MONARK (Z-6 : `policy-guard.ts` de B2 change).
 
 ## Ce que le lot change
 
@@ -107,6 +107,8 @@ Tout dans `apps/harness/` ; aucun fichier de `packages/`, `schemas/`, `apps/site
 - **Bloc D** (G0 amendé, section « Bloc D ») :
   - B-14 avec le motif réduit exact et les deux tests inversés de `gate-byo-confusable.test.ts` ;
   - le branchement de `kataPath` dans `runGate` ; la clause kata ; les 6 lanceurs ; B-15 et B-9 précisée servies ; l'instantané en attente ; le tueur de bout en bout ;
+  - **les 6 codes kata quittent `PENDING` ensemble, au commit du branchement** (G2, m-5) : dès que `gate.ts` importe `kata-path.ts`, leurs 6 littéraux entrent d'un coup dans le graphe servi, et le cliquet statique exige ce retrait dans ce commit même ;
+  - **ce même commit fait rougir `kata_path_is_not_served` et `guard_modules_are_not_served`** (`policy-guard.test.ts:179`), car `kata-path.ts`, `policy-classes.ts` et `policy-marginal.ts` deviennent servis. D doit, dans ce commit : inverser `kata_path_is_not_served`, et retirer `policy-classes.ts` et `policy-marginal.ts` de la liste de `guard_modules_are_not_served` (`policy-guard.ts` reste hors du graphe servi) ;
   - le cliquet dynamique au G7 du dernier lot ;
   - le commentaire `gate.ts:275`, devenu faux.
 
@@ -114,6 +116,51 @@ Tout dans `apps/harness/` ; aucun fichier de `packages/`, `schemas/`, `apps/site
 
 ## Questions
 
-Aucune question de contrat neuve. Deux lectures déclarées au G0 sont à confirmer par la G2 ou par MONARK :
-1. **Cliquet au lot a.** La décision le place « dès le lot b de CM-4b », qui n'existe plus. Sa condition 3 exige qu'il existe avant C. **Défaut** : lot a (fait).
-2. **Verdict d'une région kata servie.** Un ensemble `{side}` suit la règle servie de `byoVerdict` : `abstain` = |C| > `tau`, `set_too_large`, sinon `covered`. Il n'y a de différence qu'avec `tau` < 1. Une bande suit `conformInterval` : `abstain` faux, `covered`. **Défaut** : ces règles servies (faites). Si l'advisor préfère `covered` et `abstain` faux pour tout `{side}`, le changement tient en une ligne (`kata-path.ts:93`) et une assertion.
+Aucune question de contrat neuve. Les deux lectures déclarées au G0 sont **décidées comme prises** : décision déléguée de RECHERCHES, sur l'avis de la G2 (§9(a) et §9(b) du rapport G2, tous deux « d'accord »). Plus rien n'est ouvert.
+1. **Cliquet au lot a** (décidé : lot a). La décision le place « dès le lot b de CM-4b », qui n'existe plus. Sa condition 3 exige qu'il existe avant C. **Défaut** retenu : lot a (fait).
+2. **Verdict d'une région kata servie** (décidé : la règle servie, `byoVerdict` pour `{side}`, `conformInterval` pour une bande). Un ensemble `{side}` suit la règle servie de `byoVerdict` : `abstain` = |C| > `tau`, `set_too_large`, sinon `covered`. Il n'y a de différence qu'avec `tau` < 1. Une bande suit `conformInterval` : `abstain` faux, `covered`. **Défaut** retenu : ces règles servies (faites). La lecture « `covered` toujours » est écartée (elle créerait une seconde règle servie de verdict d'ensemble). La ligne de spec correspondante (§11 point 5 et §5) va à la liste r4 (G2, m-6).
+
+## G2
+
+- **Rapport** : `recherches:coordination/pieces/2026-10-04-G2-recherches/G2-cm-4b-lot-a.md`, lu en entier. Verdict **APPROUVE SOUS RÉSERVE**, aucun bloquant ; réserves avant fusion : m-1, m-2 (tests) et m-5 (phrase du bloc D).
+- **Lectures 9(a) et 9(b)** : **décidées comme prises**, par décision déléguée de RECHERCHES sur l'avis de la G2 (d'accord sur les deux) :
+  - (a) le cliquet de C-3 est au lot a ;
+  - (b) un `{side}` servi suit `byoVerdict` (`abstain` = 1 > `tau`, `set_too_large`, sinon `covered`) ; une bande servie suit `conformInterval` (`abstain` faux, `covered`).
+- **Commits du pli** (base `e6dc5542` refetchée : inchangée, aucune fusion) :
+  - `152e246b` : tests rouges (m-1, m-2, m-3, m-4, m-8) ;
+  - `838fa879` : code, **gel après pli** (m-8) et tueur de `kata_tau_cap_on_set_classes` réancré ;
+  - ce commit : G0 corrigé (m-5, m-7) et cette section.
+
+### Points pliés
+
+| # | Pli | Tueur (forme fermée) |
+|---|---|---|
+| m-1 | `venue` de 65 caractères dans `bad` (`kata_key_grammar`) et dans les clés de parité requête/garde (8 clés désormais) | `// killer: apps/harness/src/policy-classes.ts:40 COR " \|\| (m[2] ?? \"\").length > 64" -> ""` (à la main, tue `kata_key_grammar`) |
+| m-2 | cas C-8 qui ne change que `t2` de `up-b2` (`"0.69"`, `t1` gardé) dans `guard_thresholds_agree_per_side` | `// killer: apps/harness/src/policy-guard.ts:124 COR " && r.thresholds?.t2 === rs[0]?.thresholds?.t2" -> ""` (à la main) |
+| m-3 | **faisable, fait** : test neuf `kata_lookup_reads_current_rows_only`, table construite à la main, copie `current: false` de la ligne `up-b1` placée avant elle, seuils `0.01`/`0.02` et `n` différents ; on attend la `cell_key`, `policy_row_sha256` et `n_calib` de la ligne `current`. Rien n'est renvoyé à CM-4c | déclaré : `// killer: apps/harness/src/kata-path.ts:85 CONST "current.find((r) => r.cell_key === key)" -> "table.rows.find((r) => r.cell_key === key)"` ; à la main aussi `:77` (`current.find((r) => r.cell_key.startsWith` → `table.rows.find(...`) et `:75` (`table.rows.filter((r) => r.current)` → `table.rows`), tués |
+| m-4 | le cliquet statique lit le texte servi sans ses lignes de commentaire (`//`, `/*`, `*` en tête), par le support neuf `apps/harness/test/helpers/code-lines.ts` ; test neuf `thrower_ratchet_ignores_comment_lines`. `PENDING` inchangé (8 codes) : chaque code compté garde un lanceur hors commentaire | déclaré : `// killer: apps/harness/test/helpers/code-lines.ts:5 CONST "!COMMENT_LINE.test(l)" -> "true"` |
+| m-5 | section « Bloc D » du G0 et de ce G7 : les 6 codes kata quittent `PENDING` ensemble au commit du branchement ; ce commit fait rougir `kata_path_is_not_served` et `guard_modules_are_not_served`, que D met à jour | (texte) |
+| m-6 | liste r4 (`LISTE-REVISION.md`, hors de cet arbre) : ligne 8 « lot b » → « lot a », et une ligne neuve pour la règle 9(b). À porter par RECHERCHES sur la liste | (hors arbre) |
+| m-7 | G0 : empreinte de la liste r4 `4c580b37…e7b5` ; support `+4/−4` | (texte) |
+| m-8 | `kata-path.ts:66` : `!(params.tau <= 1)` ; `tau` NaN rend `policy_tau_cap` en appel direct (assertion ajoutée à `kata_tau_cap_on_set_classes`) | réancré : `// killer: apps/harness/src/kata-path.ts:66 ROR "!(params.tau <= 1)" -> "!(params.tau <= 2)"` ; à la main : `CONST "!(params.tau <= 1)" -> "params.tau > 1"`, tué |
+
+Aucune ligne de `src` n'a bougé : les autres tueurs gardent leurs adresses ; seul celui de `:66` change de texte (réancré).
+
+### Oracle du pli (Node 24.21.0, variables de proxy retirées, TMPDIR propre, effacé à la fin)
+
+- **red-proof du pli contre le G7** : `node scripts/red-proof.mjs --base f172f582 --gel 838fa879 --repo /home/user/monark-governance-c4b --draw 3 --seed 37` : 7 jugés, 11 inchangés ; **1 F2P** (`kata_tau_cap_on_set_classes`, son tueur tiré et tué) ; **6 resserrements verts à la base**, refusés comme « self-confirming », ce qui est attendu d'un resserrement : `kata_key_grammar`, `kata_key_predicate_is_shared_with_the_guard`, `kata_lookup_reads_current_rows_only`, `guard_thresholds_agree_per_side`, `every_listed_code_has_a_served_thrower_or_is_pending`, `thrower_ratchet_ignores_comment_lines`. Sortie 1 (REFUSED) pour cette seule raison. `RED-PROOF.json` sha256 `a24c7774ea4ac3a58e7dae899ca7a2a53835270e48dbee94346c3a2a006b81ea`.
+- **Tueurs appliqués à la main** (copie jetable du gel `838fa879`, `kata-path.test.ts` relancé, fichier restauré) : les 7 du tableau (m-1, m-2, m-3 `:85`, `:77`, `:75`, m-4, m-8) sont **tous tués**, chacun par le seul test visé. Contre-épreuve sur une copie de `f172f582` avec ses tests : les 5 mutants de `src` de m-1, m-2 et m-3 **survivent** (0 rouge), ce que le pli ferme.
+- **red-proof du lot entier contre la base** : `node scripts/red-proof.mjs --base e6dc5542 --gel 838fa879 --repo /home/user/monark-governance-c4b --draw 18 --seed 37` : **OK**, sortie 0. **18 jugés, tous new-module**, 0 inchangé, **18 tueurs tirés, 18 tués**. `RED-PROOF.json` sha256 `b798bf083b68a504bee976304ec997a471d18b2730528d51ebd7834457b0c54b` (dépend des chemins).
+- **Ancres** : `verifie-ancres.mjs . --touched e6dc5542 HEAD` : 18 tueurs, 18 ancrés, 0 dérivé, 0 perdu. Arbre entier : 905, 895, 0, 10 (les 10 perdus de la base, aucun de ce lot).
+- **Aucun octet servi ne change** (base `e6dc5542` contre gel `838fa879`, harnais en processus, script hors dépôt, horloge fixée) :
+  - diff vide sur `packages/`, `schemas/`, `apps/site/`, `scripts/`, `test/`, `apps/harness/src/tools/`, `http.ts`, `server.ts`, `openapi.ts`, `schema-projection.ts`, `calibration.ts`, `class-policy.ts`, `docs/deploy-CA-harness.json` ;
+  - `buildOpenApi()` et `GET /openapi.json` (miroir) : `d605b912916cc679d4347299bf7d22bb77bf8e1af4c502dd18e2213e6d2a38d7` des deux côtés ;
+  - `tools/list` (MCP) : `7dfcbd9eed4640b86a9b9b362ba4ec8393b18007d1c9516b96158c0500a29eac` des deux côtés ;
+  - 8 réponses `POST /gate` du miroir (kata direction et bande, `tau` NaN, clé invalide, `btc-dir-15m` avec et sans `calibration`, BYO ensemble refusé, BYO bande 200) : identiques octet pour octet ;
+  - `apps/site/data/harness-served.json` `77d7b914…`, `scripts/verify-harness.mjs` `8f540258…`, `docs/deploy-CA-harness.json` `edbe345d…` : inchangés.
+- **`npm test` complet au gel après pli** : 2 268 tests, 2 246 verts, 22 sautés, **0 rouge**, sortie 0 (test 42 vert dans la suite).
+- `tsc --noEmit` vert ; `eslint .` sortie 0 ; `lint:ratchet` 69/69 ; `gate:vocab` OK (346 fichiers) ; `lang:gate` OK.
+- **R-25** (`r25()` contre `e6dc5542`) : STAT **512** (+506/−6) ≤ 547 ; CONTENT_STAT 0.
+- `packages/rpc-guard/bin/rpc-guard.mjs` n'est pas indexé ; aucun `git add -A`.
+
+**Après le pli** : les conditions de la réserve (m-1, m-2, m-5) sont remplies ; la G2 n'a pas d'objection à la fusion du lot a sur la base avant C.
