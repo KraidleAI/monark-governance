@@ -13,6 +13,7 @@ import { existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, 
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { classify, drawKillers, parseTap, type ProofRow, type RedProof } from "../scripts/red-proof.mjs";
+import * as redProof from "../scripts/red-proof.mjs"; // a namespace: a base without untrackedOf still loads the file, and the tests below go red by assertion
 
 const CLI = join(import.meta.dirname, "..", "scripts", "red-proof.mjs");
 const sha = (b: Buffer): string => createHash("sha256").update(b).digest("hex");
@@ -276,7 +277,7 @@ test("red_proof_links_the_real_target_of_a_junctioned_module_and_repoints_a_junc
   assert.ok(cols(j).some(([, n, b, g, v]) => n === "f2p_true" && b === "assert-fail" && g === "pass" && v === "F2P"));
 });
 
-// killer: scripts/red-proof.mjs:246 CONST "skipped.push(p)" -> "changes.set(p, \"A\")"
+// killer: scripts/red-proof.mjs:313 CONST "skipped.push(link); continue;" -> "changes.push(p); continue;"
 test("red_proof_worktree_gel_with_a_junctioned_node_modules_is_judged", () => {
   const f = fixture(), wt = join(f.root, "wt3"); // the node_modules junction is no directory to the node_modules/ ignore rule: git lists it as untracked
   git(f.dir, "worktree", "add", "-q", "--detach", wt, f.base);
@@ -319,7 +320,7 @@ test("red_proof_leaves_out_a_broken_link_and_a_link_to_a_file_in_node_modules", 
   assert.deepEqual([r.status, l?.base, l?.gel], [1, "pass", "pass"]);
 });
 
-// killer: scripts/red-proof.mjs:246 CONST "lstatSync(join(gitDir, p)).isSymbolicLink() && " -> ""
+// killer: scripts/red-proof.mjs:312 CONST "find((q) => isLink(join(gitDir, q)))" -> "find(() => false)"
 test("red_proof_records_a_skipped_linked_directory_and_still_stops_on_an_untracked_nested_repo", () => {
   const f = fixture(), wt = join(f.root, "wt4"), nested = join(f.root, "wt5"); // m-1 of the G2: only a link is skipped, and the proof says so
   git(f.dir, "worktree", "add", "-q", "--detach", wt, f.base);
@@ -329,7 +330,30 @@ test("red_proof_records_a_skipped_linked_directory_and_still_stops_on_an_untrack
   write(join(nested, "vendor", "sub"), { "n.js": "export const N = 1;\n" });
   git(join(nested, "vendor", "sub"), "init", "-q", "-b", "main"); git(join(nested, "vendor", "sub"), "add", "-A"); git(join(nested, "vendor", "sub"), "commit", "-q", "-m", "n");
   const n = spawnSync(process.execPath, [CLI, "--base", f.base, "--gel", nested, "--out", join(f.root, "out-nested")], { encoding: "utf8", env: GIT_ENV });
-  assert.deepEqual([r.status, r.proof.files.skipped, n.status, /EISDIR/.test(n.stderr), existsSync(join(f.root, "out-nested", "RED-PROOF.json"))], [1, ["linked"], 2, true, false], n.stderr);
+  assert.deepEqual([r.status, r.proof.files.skipped, n.status, /untracked directory vendor\/sub\/ is no file to copy/.test(n.stderr), existsSync(join(f.root, "out-nested", "RED-PROOF.json"))], [1, ["linked"], 2, true, false], n.stderr); // the stop is named, never an errno (EISDIR here, EPERM on win32)
+});
+
+function shapes(): string { // a worktree-like directory: a junction to a directory, a plain file, an untracked nested repository's directory
+  const d = join(fixture().root, "shapes");
+  if (!existsSync(d)) { write(d, { "a.ts": "export const A = 1;\n", "vendor/sub/n.js": "export const N = 1;\n" }); symlinkSync(join(fixture().dir, "lib"), join(d, "linked"), "junction"); }
+  return d;
+}
+const untrackedOf = (d: string, ps: string[]): { changes: string[]; skipped: string[] } => {
+  assert.equal(typeof (redProof as Record<string, unknown>).untrackedOf, "function", "scripts/red-proof.mjs exports untrackedOf");
+  return redProof.untrackedOf(d, ps);
+};
+
+// killer: scripts/red-proof.mjs:312 CONST "parts.slice(0, i + 1).join(\"/\")" -> "p"
+test("red_proof_skips_a_linked_directory_in_each_shape_git_may_list_it", () => {
+  const d = shapes(); // RED-PROOF-JUNCTION-1 win32: git output injected; Git for Windows may walk a junction as a directory and list the files under it
+  const got = [["linked"], ["linked/"], ["linked/old.ts", "linked/fresh.ts"], ["a.ts", "linked/", "linked/old.ts", ""]].map((ps) => untrackedOf(d, ps));
+  assert.deepEqual(got, [{ changes: [], skipped: ["linked"] }, { changes: [], skipped: ["linked"] }, { changes: [], skipped: ["linked"] }, { changes: ["a.ts"], skipped: ["linked"] }]);
+});
+
+// killer: scripts/red-proof.mjs:314 SDL "throw new Error" -> ""
+test("red_proof_stops_by_name_on_an_untracked_directory_in_each_shape", () => {
+  const d = shapes(); // no copy is tried, so no errno decides the stop (EISDIR on Linux, EPERM on win32)
+  for (const ps of [["vendor/sub/"], ["vendor/sub"], ["a.ts", "vendor/sub/"]]) assert.throws(() => untrackedOf(d, ps), /^Error: untracked directory vendor\/sub\/ is no file to copy \(a nested repository\?\)/, ps.join(","));
 });
 
 const CORK = "await new Promise((r) => setTimeout(r, 200)); process.stdout.cork();"; // writes stay queued in the child at its forced exit: the real loss, deterministic

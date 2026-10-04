@@ -1,0 +1,15 @@
+{
+  "format": "spec-inputs-v1",
+  "releases": {
+    "kata-wave1": {
+      "previous_commit": "ddfee9e076d979081fa7b21ec27940e3556bacf7",
+      "note": "the content published at ddfee9e (KATA-SPEC version 2026-10-02 and the wave 1 report), plus VERSION and MANIFEST.sha256",
+      "entries": [
+        {"out": "KATA-SPEC.md", "root": "recherches", "path": "kata/spec/KATA-SPEC.md", "kind": "text", "sha256": "b32a4062794d32292fd37f340061c3b5e61b5d40d077bfbb7fdf6b38548cc39d"},
+        {"out": "reports/README.md", "root": "previous", "path": "reports/README.md", "kind": "text", "sha256": "32f26de654a0cd1604d943eb5f5d25174566dee454b2abb1d13f4ceae6920b2e", "note": "no source outside the published tree: carried from it"},
+        {"out": "reports/wave1-report.md", "root": "recherches", "path": "kata/registry/wave1-report.md", "kind": "text", "sha256": "e91edb41b1c50e4c1f87ebd2c99f6192e09d8c7cdc5574c38aee9f16b042016b"},
+        {"out": "vectors.json", "root": "recherches", "path": "kata/spec/vectors.json", "kind": "json", "sha256": "06ecf06909e39d67d0703f48a71b4975d536dd2dcf6903396e1a10648fbda9fb"}
+      ]
+    }
+  }
+}

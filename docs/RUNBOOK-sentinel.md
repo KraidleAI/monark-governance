@@ -677,3 +677,8 @@ last line is not older than J-1 at the 10:30 UTC deadline, and writes `narabi.js
 00:48:20 UTC, 25.481 s wall clock, `chainstack: true`, 1 line written, T=3) => D <= 600 s, so 10:30 UTC is kept.
 **Residual, declared: a dead probe is silent** (no dead-man switch yet — formed item, trigger: G0 T-1b). Before the deploy the manual check was: `curl -s https://monarkgate.tech/narabi/timeline.jsonl | tail -1` — the last
 `day` should be yesterday (UTC) after 10:00.
+
+**Dated 2026-10-04 (orchestrator, PROBE-BADPORT-REASON-1)** — `bad_port`: the probe refuses, before any call, a URL whose port the
+runtime's `fetch` refuses (reason `bad_port`, rank cannot-evaluate). The refused-port list is a copy from node v24.15.0. Before deploying
+the probe on a host whose node differs (Bell runs v24.21.0, measured 2026-09-23), run the one-line check of `docs/G1-lot-probe-badport.md`
+§9 Q-2 on that host: expected `<version> <undici> SAME 82/82`; `DIFF` or fewer than 82 = STOP, the list is redone for that node.

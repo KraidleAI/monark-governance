@@ -69,6 +69,7 @@ import { assertUkemiBody, scanNumericTokens, ukemiExpected, renderedBody, extrac
 import { scanText, scanSource, renderedTexts, loadExemptFile, exemptValues } from "../apps/site/test/honesty-lint.ts";
 import { FLEET_AGENTS } from "../apps/site/lib/fleet.ts";
 import { insideFor } from "../apps/site/lib/fleet-presentation.ts";
+import { startLoopback } from "./helpers/loopback.ts";
 
 const ROOT = join(import.meta.dirname, "..");
 const read = (rel: string): string => readFileSync(join(ROOT, ...rel.split("/")), "utf8");
@@ -1209,14 +1210,9 @@ test("site_ukemi_course_served_stratum_status_bound_to_served_verdict — the pr
   }))).text();
   // M-1: the deploy CA, run as deployed (child process) against THIS tree's harness on 127.0.0.1 (no network, TLS skipped),
   // records for gate_liq_call the sha256 of the very answer the sync reads for its body: bound now, not only at W.
-  const server = startServer(0);
+  const server = await startLoopback((port) => startServer(port));
   let caText = "";
   try {
-    await new Promise<void>((resolve) => {
-      server.once("listening", () => {
-        resolve();
-      });
-    });
     const addr = server.address();
     assert.ok(addr !== null && typeof addr === "object", "address() must be an AddressInfo");
     const base = `http://127.0.0.1:${String(addr.port)}`;

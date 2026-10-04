@@ -20,3 +20,4 @@ export function parseTap(tap: string): TapEntry[];
 export function classify(entry: TapEntry | undefined): Status;
 export function truncation(tap: string): string | null;
 export function drawKillers<T>(population: readonly T[], n: number, seed: number): T[];
+export function untrackedOf(gitDir: string, paths: readonly string[]): { changes: string[]; skipped: string[] };

@@ -197,7 +197,21 @@ globalThis.fetch = (url, init) => {
   return fail(400);
 };
 `;
-const HANG_SRC = `globalThis.fetch = () => new Promise(() => {});`;
+// SENTINEL-SIGTERM-LOAD-1: the hang stub announces, ONCE, that run.ts has entered its first fetch. run.ts issues no
+// fetch before main() registered its SIGTERM handler (run.ts:340-342 precede rpc.finalized()), so this line is the
+// EVENT that says "the lock is held AND the handler is installed": the test signals only after it, never after a
+// duration (the old lock-file poll could fire SIGTERM in the window between acquireLock and process.on).
+const FETCH_BLOCKED_MARK = "SENTINEL_TEST_FETCH_BLOCKED";
+const HANG_SRC = `let told = false;
+globalThis.fetch = () => { if (!told) { told = true; process.stdout.write(${JSON.stringify(FETCH_BLOCKED_MARK)} + "\\n"); } return new Promise(() => {}); };`;
+// A SAFETY bound only: it turns a hang into a NAMED failure, never decides pass/fail on a healthy run. Two awaits
+// at 50 s stay under the suite's --test-timeout=120000, so the named error is what the runner reports.
+const HANG_GUARD_MS = 50_000;
+function untilEvent<T>(p: Promise<T>, what: string): Promise<T> {
+  let timer: NodeJS.Timeout | undefined;
+  const hang = new Promise<never>((_, rej) => { timer = setTimeout(() => { rej(new Error(`hang: ${what} did not happen within the ${String(HANG_GUARD_MS)} ms safety bound`)); }, HANG_GUARD_MS); });
+  return Promise.race([p, hang]).finally(() => { clearTimeout(timer); });
+}
 function writeStub(src: string, name: string): string { const p = join(scratchDir(), name); writeFileSync(p, src); return pathToFileURL(p).href; }
 
 interface EndJson { processedDays: string[]; stopped: string | null; chainstack: boolean; chainstack_guard: string; exit_code: number; }
@@ -318,6 +332,7 @@ test("sentinel_run_re_acquires_lock_after_clean_exit — because run 1 released 
   assert.equal(existsSync(join(dir, "ledger", CYCLE, "chainstack.lock")), false, "no .lock remains after the second clean exit");
 });
 
+// killer: apps/sentinel/src/run.ts:342 SDL "process.on(" -> ""
 test("sentinel_run_releases_chainstack_lock_on_sigterm — a SIGTERM (a TimeoutStartSec kill) fires run.ts's handler, which runs the served unlock synchronously and exits, so the cycle lock is released even on a kill. WIN32 SKIP is declared + NON-vacuous: on non-win32 (CI ubuntu-latest) the body RUNS; on win32 process.kill is a hard kill with no handler and the RUNBOOK unlock covers a SIGKILL (C-7)", { skip: process.platform === "win32" ? "win32: process.kill is a hard kill (no SIGTERM handler); RUNBOOK unlock covers a SIGKILL (C-7)" : false }, async () => {
   const l3 = fixtureLines()[2]!;
   const dir = seedState(2);
@@ -325,15 +340,23 @@ test("sentinel_run_releases_chainstack_lock_on_sigterm — a SIGTERM (a TimeoutS
   mkdirSync(ledgerDir, { recursive: true });
   const lockPath = join(ledgerDir, CYCLE, "chainstack.lock");
   // HANG every fetch so the run blocks holding the lock (acquired at openGuardedClient, BEFORE any fetch).
-  const child = spawn(process.execPath, ["--import", writeStub(HANG_SRC, "hang.mjs"), RUN_TS, "--state", dir], { cwd: REPO, env: guardEnv(dir, { ...finVars(l3) }), stdio: "ignore" });
-  const exited = new Promise<number | null>((res) => child.on("exit", (code) => { res(code); }));
+  const child = spawn(process.execPath, ["--import", writeStub(HANG_SRC, "hang.mjs"), RUN_TS, "--state", dir], { cwd: REPO, env: guardEnv(dir, { ...finVars(l3) }), stdio: ["ignore", "pipe", "pipe"] });
+  let stdout = "";
+  let stderr = "";
+  child.stderr.setEncoding("utf8").on("data", (s: string) => { stderr += s; });
+  const exited = new Promise<{ code: number | null; signal: NodeJS.Signals | null }>((res) => child.on("exit", (code, signal) => { res({ code, signal }); }));
+  // EVENT, not duration: the first of (the stub's "fetch blocked" line) or (the child's exit, a start-up failure).
+  const blocked = new Promise<"blocked" | "exited">((res) => {
+    child.stdout.setEncoding("utf8").on("data", (s: string) => { stdout += s; if (stdout.split("\n").slice(0, -1).includes(FETCH_BLOCKED_MARK)) res("blocked"); });
+    void exited.then(() => { res("exited"); });
+  });
   try {
-    const t0 = Date.now();
-    while (!existsSync(lockPath) && Date.now() - t0 < 20_000 && child.exitCode === null) await new Promise((r) => setTimeout(r, 100));
+    const first = await untilEvent(blocked, "run.ts blocking on its first fetch");
+    assert.equal(first, "blocked", `run.ts reached its first fetch before exiting. stdout=${JSON.stringify(stdout)} stderr=${JSON.stringify(stderr)}`);
     assert.ok(existsSync(lockPath), "the cycle lock is acquired at start-up (before any fetch)");
     child.kill("SIGTERM");
-    const code = await exited;
-    assert.notEqual(code, null, "the child exited after SIGTERM (the handler ran then process.exit)");
+    const { code, signal } = await untilEvent(exited, "the child's exit after SIGTERM");
+    assert.notEqual(code, null, `the child exited after SIGTERM (the handler ran then process.exit); signal=${String(signal)} stderr=${JSON.stringify(stderr)}`);
     assert.equal(existsSync(lockPath), false, "the SIGTERM handler released the cycle lock — no .lock remains (D-lock i)");
     assert.ok(readLedger(ledgerDir, CYCLE).some((l) => l.outcome === "unlocked"), "an unlocked line was chained by the served unlock in the SIGTERM handler");
   } finally { if (child.exitCode === null) child.kill("SIGKILL"); }

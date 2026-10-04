@@ -1,7 +1,11 @@
 // scripts/record-binance-klines.d.mts -- type surface of scripts/record-binance-klines.mjs for the type-checked root test
-// (test/record-binance-klines.test.ts), which imports the recorder without running it (run-guard) and without any network (its fetch
-// is injected). Runtime implementation = record-binance-klines.mjs; Node ignores this file. Neither file is in the export whitelist
+// (test/record-binance-klines.test.ts), which imports the recorder without running it (run-guard) and without any network (a fetch
+// shaped as https.request is injected, or https.request itself is replaced by a spy that throws). Runtime implementation =
+// record-binance-klines.mjs; Node ignores this file. Neither file is in the export whitelist
 // (scripts/export-public.mjs): the recorder and its series stay out of the public tree (condition C-5, series not redistributable).
+import type { ClientRequest } from "node:http";
+import type { RequestOptions } from "node:https";
+
 export const ENDPOINT: string;
 export const HOSTS: readonly string[];
 export const SYMBOLS: readonly string[];
@@ -17,7 +21,9 @@ export const STOPS: readonly string[];
 
 /** What a run takes from its caller instead of the process: the test seam, never a command-line flag nor a variable. */
 export interface RecorderIo {
-  fetch?: (url: string, init: RequestInit) => Promise<Response>;
+  /** Shaped as node:https request (lot BINANCE-PRE35-1): called with the URL and the recorder's options (its own agent, which keeps
+   *  no TLS session, and a 30 s signal); the recorder ends the request. Default: https.request. */
+  fetch?: (url: string, options: RequestOptions) => ClientRequest;
   sleep?: (ms: number) => Promise<void>;
   now?: () => number;
   env?: Record<string, string | undefined>;

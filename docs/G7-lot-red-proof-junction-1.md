@@ -85,7 +85,62 @@ fois sur la ligne citée, ligne au-dessus d'une déclaration) : 22/22. Aucune li
 - Hors Linux, non mesuré : `process.cwd()` d'un cwd atteint par une jonction (Windows peut rendre le chemin de la jonction) ; sans
   effet attendu, git et le clone acceptant ce chemin.
 
+## 2026-10-04 : rouge sous win32 à l'oracle du tronc, pli
+
+- **Constat** (MONARK, `coordination/messages/2026-10-04-MONARK-vers-RECHERCHES-116-114-fusionnees-113-rouge-win32.md`) : après la
+  fusion de #113, l'oracle du tronc est rouge, exit 1, 1 échec sur 2 116 (Node v24.15.0, win32). Le test en cause est
+  `red_proof_records_a_skipped_linked_directory_and_still_stops_on_an_untracked_nested_repo`. Attendu `[1, ["linked"], 2, true, false]`,
+  obtenu `[1, [], 2, false, false]`, avec `EPERM: operation not permitted, copyfile '…\wt5\vendor\sub'`.
+- **Cause 1, la jonction `wt4/linked` absente de `files.skipped`.** L'ancienne l.217 ne testait que le chemin tel que git le liste :
+  `lstatSync(join(gitDir, p)).isSymbolicLink()`. Git pour Windows ne tient pas une jonction pour un lien. Il la lit sans doute comme
+  un répertoire et liste alors les fichiers qu'elle contient (`linked/old.ts`, `linked/fresh.ts`), puisque `ls-files --others` est
+  lancé sans `--directory`. Aucun de ces chemins n'est un lien, donc rien n'est écarté. Le statut 1 obtenu (au lieu d'un arrêt) va
+  dans ce sens, mais la forme exacte n'est **pas mesurée**.
+- **Cause 2, l'arrêt sur `wt5/vendor/sub/` lu par son errno.** L'arrêt venait de `copyFileSync` sur un répertoire. Sous Linux, ce
+  `copyFileSync` rend `EISDIR` ; sous win32, il rend `EPERM`. Le test lisait `/EISDIR/`.
+- **Correctif** (`073ef453`). Nouvelle fonction exportée `untrackedOf(gitDir, paths)`. Elle est ajoutée en fin de script, après la
+  garde d'entrée : c'est une déclaration hissée, donc aucune adresse de tueur ne bouge. La l.217 est réécrite en place, la l.27 gagne
+  `readlinkSync`, la l.38 gagne `isLink`.
+  - Un `/` final est retiré.
+  - Chaque préfixe du chemin est examiné. Il compte pour un lien si `lstatSync(…).isSymbolicLink()` est vrai (Node lit une jonction
+    ainsi sous win32) ou, à défaut, si `readlinkSync` réussit.
+  - Si l'un de ces préfixes est un lien vers un répertoire, il est inscrit **une fois** dans `skipped`. Cela vaut pour les trois
+    formes `linked`, `linked/` et `linked/<fichier>`.
+  - Un non suivi qui est un répertoire sans lien arrête l'outil **avant toute copie**, avec ce message :
+    `untracked directory vendor/sub/ is no file to copy (a nested repository?)`. L'outil sort en 2 et n'écrit aucune preuve. Aucun
+    errno ne décide plus de l'arrêt.
+- **Tests** (`79ea3cf5`).
+  - Le test l.323 affirme maintenant l'arrêt nommé, et non plus `EISDIR`. Son tueur devient l.276 `find(() => false)`.
+  - Deux tests nouveaux injectent la sortie de git sous ses formes win32 probables :
+    - `red_proof_skips_a_linked_directory_in_each_shape_git_may_list_it` (tueur l.276 : seul le chemin entier est examiné) ;
+    - `red_proof_stops_by_name_on_an_untracked_directory_in_each_shape` (tueur l.278, SDL du `throw`).
+  - Le tueur du test 19 devient l.277.
+  - Le test importe le module par un espace de noms (`import * as redProof`). Ainsi la base, qui n'a pas `untrackedOf`, charge
+    encore le fichier, et ses tests y rougissent par assertion. Un import nommé aurait fait échouer le chargement du fichier entier.
+  - Pas de seam d'injection d'`EPERM` : aucune copie n'est plus tentée sur un répertoire.
+- **Fusion du tronc** : `origin/lot/etude-suite` à `dbdc8433`, en `--no-ff` (`0f094837`), sans conflit.
+- **Oracle** (Linux, Node v24.21.0).
+  - `node scripts/red-proof.mjs --base dbdc8433 --gel 073ef453 --repo <worktree> --draw 20 --seed 37` : **OK**, exit 0. 8 tests jugés,
+    tous F2P ; 16 inchangés ; 8 tueurs tirés (la population entière), 8 tués. `RED-PROOF.json` sha256 `23bef9f3…`, digest `63ae5cbd…`.
+  - `test/red-proof.test.ts` : **24/24**. Le rouge préexistant noté plus haut sous Node 22 (`vi_hangs`) ne se produit pas sous Node 24.
+  - `tsc --noEmit` vert ; eslint vert ; `lint:ratchet` 69/69 ; `gate:vocab` OK.
+  - Les 24 lignes `// killer:` sont relues contre le script : 24/24.
+  - `test/mutants-run.test.ts` (qui importe `DENY`) : 42/43. Il échoue sur `mutants_a_live_waiter_ahead_passes_first_then_the_run_goes_on`,
+    qui est **déjà rouge au tronc `dbdc8433`** sur cet hôte, rejoué seul. Le lot ne touche ni `scripts/mutants/` ni ce test.
+- **R-25** contre `dbdc8433` (`r25()`) : +125/−11, **136 lignes comptées**, sous 547.
+- **Non mesuré sous Windows (à confirmer par MONARK)** :
+  - **Q-RPJ-5** : la forme que donne Git pour Windows à la jonction `wt4/linked` dans `ls-files --others --exclude-standard -z`. Les
+    formes possibles sont `linked`, `linked/` ou les fichiers dessous. Les trois sont couvertes ; la vraie reste à lire.
+  - **Q-RPJ-6** : sous Node 24.15 win32, `lstatSync` d'une jonction a-t-il `isSymbolicLink()` vrai ? Le repli par `readlinkSync` n'est
+    tué par aucun tueur sous Linux, où `lstat` répond déjà.
+  - **Q-RPJ-7** : le dépôt imbriqué `wt5/vendor/sub` est-il listé `vendor/sub/` ? L'arrêt nommé couvre aussi `vendor/sub` et la
+    forme sans `/`.
+  - **Q-RPJ-8** : l'oracle du tronc rejoué sous win32 sur la nouvelle tête. Attendu : `test/red-proof.test.ts` vert, 24/24.
+  - Hors de ce test : sous win32, le tueur du test 19 (l.277) serait mort-né si git ignore un `node_modules` en jonction comme
+    répertoire (voir Q-RPJ-1).
+  - Q-RPJ-1 à Q-RPJ-4 restent ouvertes.
+
 ## Sortie
 
-Prêt pour le contrôle par diff de MONARK. Items RED-PROOF-JUNCTION-1 et RED-PROOF-JUNCTION-GUARD-1 clos au gel `4cf8134` sous
-réserve de Q-RPJ-1 à Q-RPJ-4.
+Prêt pour le contrôle par diff de MONARK. Items RED-PROOF-JUNCTION-1 et RED-PROOF-JUNCTION-GUARD-1 clos au gel `073ef453` (pli win32 ;
+premier pli `4cf8134`) sous réserve de Q-RPJ-1 à Q-RPJ-8.

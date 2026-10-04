@@ -18,7 +18,6 @@
  */
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { once } from "node:events";
 import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import type { Server as HttpServer } from "node:http";
@@ -39,6 +38,7 @@ import {
   CALLER_YHAT,
 } from "./byo-demo-builder.ts";
 import type { ByoTrace } from "./byo-demo-builder.ts";
+import { startLoopback } from "./helpers/loopback.ts";
 
 const TRACE_PATH = fileURLToPath(new URL("../fixtures/byo-demo-trace.json", import.meta.url));
 const VOCAB_PATH = fileURLToPath(new URL("../vocab-banned.json", import.meta.url));
@@ -137,9 +137,8 @@ test("probe_byo_demo_loop_closes", async () => {
   // (6) ANTI-MOCK (LOAD-BEARING) — perturbations NOT present in the committed trace, over the SAME wire
   // seam (byoToolsCall), must track the independent recompute. A frozen/mock trace (which holds only the
   // demo α=0.1/ŷ=0/these scores) returns the wrong value ⇒ these red.
-  const server: HttpServer = startServer(0);
+  const server: HttpServer = await startLoopback((port) => startServer(port));
   try {
-    await once(server, "listening");
     const addr = server.address();
     assert.ok(addr !== null && typeof addr === "object", "address() must be an AddressInfo");
     assert.equal(addr.address, "127.0.0.1", "the harness binds 127.0.0.1 only");
