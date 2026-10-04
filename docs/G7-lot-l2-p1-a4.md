@@ -76,3 +76,49 @@ Aucun push, aucune PR. Node v24.21.0. Aucun réseau ; place factice de P1-a1 et 
 - m-6 du G2 de a3 (l'URL porte-t-elle les flux du symbole ?) reste à c5 : a4 contrôle origine et route, pas les flux.
 - TL-6 : la part brute (`l2_overlap_planned_raw`) est livrée ; avec `l2_half_open_watchdog_named` (a3) et `l2_overlap_switch_no_gap`
   (b2), TL-6 est complet pour le G7 de P1. TL-7a : la liaison `/market` est livrée, le test de composition reste en c6.
+
+## G2 (revue indépendante, APPROUVE SOUS RÉSERVE) : pliage
+
+Rapport : `coordination/pieces/2026-10-04-G2-recherches/G2-l2-p1-a4.md`. Avant le pliage, `lot/etude-suite` avait bougé
+(`115fc65a`, `docs/ETAT.md` seul) : fusionné par un commit de fusion (`8a7d2c08`). Commits du pliage : `c400e91b` (tests rouges) puis
+`f501f394` (correctif, tueurs réancrés). Chaque point, et comment il est plié :
+
+- **B-1, bascule périmée** : la bascule est liée à la connexion. `switched(cid)` pose `switchedTo = cid` ; `renew()` le remet à nul ;
+  `retire()` et l'`overlap_break` lisent `moved()` = `kind === "market" || switchedTo === cur.cid` (`links.mjs:118`). Test neuf
+  `l2_stale_switch_bound_to_its_connection` : `switched(n°1)`, n°1 coupée à 10 s du chevauchement, `switched(n°1)` alors faux, n°2 ouverte
+  après 1 s ; à 60 s de la n°2 l'ancienne reste ouverte ; `switched(n°2)` la ferme (`renewed`). Rouge au gel par assertion (F2P).
+  Tueur `:118 CONST "switchedTo === cur.cid" -> "switchedTo !== null"` (tué). Le survivant du G2 `|| !cur.live` (`:193`) est tué par ce test.
+- **B-2, `/market` sans attente de bascule** : test neuf `l2_market_overlap_needs_no_switch` : renouvellement `/market` à 23 h 20 min,
+  ancienne ouverte à 60 s − 1 ms, `close` `renewed` à 60 s, `switched()` jamais appelé. Vert au gel (le code tenait déjà la règle) :
+  le red-proof du pliage le refuse (« green at base »), son tueur `:118 CONST "kind === \"market\" ||" -> "false ||"` est appliqué à la
+  main au gel : tué. F2P et tueur tué au red-proof du lot contre `0effb5b2`.
+- **m-1** : le format du journal le permet (liste d'événements ouverte, même tête, même PLAIN) : une reconnexion mise en attente écrit
+  `renew_deferred` (`cause`), une fois, au moment de l'attente (`links.mjs:123`). `l2_server_shutdown_renews_at_once` l'attend (rouge au
+  gel) ; SDL de `:123` à la main : tué.
+- **m-2** : refus de `/marketx/stream?…` et de `/market?streams=…` ajoutés (`l2_market_url_closed`) ; route `/market/` → `/market`
+  (`:46`) à la main : tué.
+- **m-3** : `l2_server_shutdown_renews_at_once` relit le journal après l'arrêt dans un chevauchement : deux `close` `stopped`, aucun
+  `overlap_break` ; `&& !stopped` ôté (`:140`) à la main : tué.
+- **m-4** : `timeUnit` refusé sur une liaison `market` (`host_refused`, repli de (e)) (`links.mjs:107`) ; tueur de
+  `l2_market_url_closed` : `:107 CONST "kind === \"market\" && u.searchParams.has(\"timeUnit\")" -> "false"` (tué).
+- **m-5** : tout `%` dans le chemin est refusé (`admitted`, `links.mjs:76`) : `/market/..%2fpublic`, `..%5Cpublic` refusés,
+  `%2e%2e` toujours refusé ; condition ôtée à la main : tuée. Aucune URL légitime (`spotUrl`, `marketUrl`) n'a de `%` dans son chemin.
+- **m-6** : la fabrique reçoit le `href` contrôlé (`links.mjs:168`) ; `l2_market_url_closed` ouvre `wss://FSTREAM.binance.com:443/market/…`
+  et exige que la fabrique reçoive la forme normalisée ; `href` → `url` à la main : tué.
+- En-tête de `links.mjs` réécrit à 21 lignes (PLAIN reste l.39, renvoi de `book.mjs` l.27 intact) ; `links.d.mts` dit la liaison de la
+  bascule et les refus neufs. Tueurs déplacés réancrés : `l2-links` `:115`, `:164`, `:165`, `:159`, `:202`, `:171` (garde d'`onopen`),
+  `:76` (texte visé désormais `u.href.startsWith(route)`), et `l2-continuity` `:182`.
+
+Preuves du pliage :
+- `red-proof.mjs --base 8b402b98 --gel f501f394 --draw 4 --seed 37` : 4 jugés ; F2P `l2_server_shutdown_renews_at_once`,
+  `l2_stale_switch_bound_to_its_connection`, `l2_market_url_closed` ; refusé `l2_market_overlap_needs_no_switch` (vert au gel, voir B-2) ;
+  3 tueurs tirés, 3 tués (`:118`, `:107`, `:182`) ; `RED-PROOF.json` sha256 `661944359ac33479…`.
+- Red-proof du lot, `--base 0effb5b2 --gel f501f394 --draw 7 --seed 37` : sortie 0, « red-proof OK: 7 judged, 12 unchanged, 7 killer(s)
+  drawn », sept F2P, sept tueurs tués (`:42`, `:44`, `:45`, `:107`, `:118` × 2, `:182`) ; sha256 `b39c987cd5d7c70b…`.
+- Tueurs à la main au pliage, chacun seul sur une copie (`l2-continuity` et `l2-links` lancés) : 17 mutants (les huit points ci-dessus,
+  le survivant `:193`, les huit tueurs réancrés), 17 tués.
+- Ancres : `verifie-ancres.mjs . --touched 0effb5b2 HEAD` : 19 tueurs, 19 ANCRE, 0 DERIVE, 0 PERDU.
+- `npm test` : 2 217 tests, 2 196 réussis, 0 échec, 21 ignorés (sortie 0). Un premier passage avait échoué sur le seul test 42
+  (`export_public_no_governance_no_french`, « implausibly small suite » sous charge) ; seul (`npm run test:export`) il passe, et le second
+  passage complet est vert. `tsc` 0 ; `lint` 0 ; `lint:ratchet` 69/69 ; `gate:vocab` OK ; `lang:gate` OK.
+- R-25 du lot contre `0effb5b2` : 424 (367 insertions, 57 suppressions), borne du lot 547 : vert.
