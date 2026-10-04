@@ -45,3 +45,43 @@ Aucune. Aucun instantané en attente n'est versé ; sans lui, chargeur, pages et
 - **Q-SP1-7 (MONARK) : `scripts/sync-harness-served.d.mts`.** Les déclarations de la synchro sont hors de la zone décidée ; le test type localement `inProcessPending`, `pendingDiff` et `markPendingSince`. Proposition : trois déclarations ajoutées par le bloc C, qui rouvre la synchro, ou une ouverture de zone d'un fichier.
 - **Information, pour l'ordre des blocs** : `--pending` envoie au harnais en processus les corps de la CA (`GATE_BODY` de `scripts/verify-harness.mjs`, `GATE_LIQ_BODY` de la synchro, `schema_version: "1.0.0"`). Si le bloc C refuse ces corps, `--pending` échoue fermé tant que UKEMI-PENDING-1 ne les a pas passés en 1.1.0.
 - **Information, choix du dessin hors de la lettre des décisions** : nom de schéma `monark-site-harness-pending-v1` (l'option (b) ; abrégé `harness-pending-v1` dans `0058bfe`) ; `mcp` absent de l'instantané en attente ; `openapi_sha256` à la place de `bodies_sha256` ; refus de `pending_since` sans instantané en attente.
+
+## Pli de la G2 (2026-10-04)
+
+- **Revue** : G2 fraîche, `recherches` `coordination/pieces/2026-10-04-G2-recherches/G2-served-pending-1.md` (sur `cb607a03`) : CHANGES REQUESTED, un bloquant (B1), mineurs m1 à m7.
+- **Gel du pli** : `e966c496` (un commit sur `cb607a03`, non poussé). Zone inchangée : `apps/site/lib/harness-served-load.ts`, `scripts/sync-harness-served.mjs`, `test/harness-served.test.ts`. Aucune ligne du chargeur ni de la synchro n'est ajoutée ni retirée : toutes les adresses de tueurs restent valides.
+
+### B1 (bloquant) : les pages gardent le servi tant qu'un instantané en attente existe
+
+- Test neuf `harness_pages_keep_the_served_snapshot_while_pending` : un instantané en attente dont `gate_request` (un param requis de plus) **et** `calibrate_contract` (une clé requise de plus au résultat) diffèrent du servi ; `loadHarnessServed(t)` rend les valeurs servies et la projection entière de `ROOT` ; contrôle : `loadH5Trace(t)` suit bien l'instantané en attente (rouge). Les deux variantes (`pending`, `nextGate`) passent dans `nextShapes()`, partagé avec `trace_loaders_follow_the_pending_snapshot_only`.
+- Tueur en forme fermée : `harness-served-load.ts:183 CONST "servedFile(root).out" -> "{ ...servedFile(root).out, ...loadHarnessPending(root) }"` : **tué** (ERR_ASSERTION).
+- Mutant du relecteur (le chargeur prend `gate_request` et `calibrate_contract` de l'instantané en attente), tiré à la main : **rouge** sur le test neuf (il survivait à 105/105).
+
+### m1 : la promotion compare la liste fixe
+
+- `pendingDiff` itère `SHAPES` du chargeur (désormais exporté, même ligne), nomme toute clé que l'instantané en attente ne peut pas porter et un schéma autre que `monark-site-harness-pending-v1`. Un fichier en attente sans `gate_request` ne promeut plus en silence.
+- Test neuf `harness_pending_promotion_compares_the_fixed_fields` (contrôle vide ; tronqué -> `gate_request`, `calibrate_contract` ; `read_at` en trop ; schéma servi). Tueur : `sync-harness-served.mjs:259 CONST "SHAPES.filter" -> "Object.keys(pending).filter"` : **tué**. L'ancien `pendingDiff` (clés ouvertes), rejoué à la main : rouge.
+
+### Autres mineurs
+
+- **m2, pris** : une phrase sur la même ligne de commentaire de `loadHarnessServed` (le « si et seulement si » est tenu par `loadHarnessPending`, que les chargeurs de trace et `:76` appellent).
+- **m7, pris** : la sortie de `--pending` dit de ré-épingler l'entrée de manifeste de l'instantané en attente, `written_at` neuf à chaque passage.
+- **m3, laissé** : la branche de promotion de `main()` lit le réseau ; sa partie pure (`pendingDiff`) est maintenant testée sur la liste fixe, et un `pending_since` laissé après promotion rougit la CI par le refus dans les deux sens.
+- **m4, laissé** : la date de `pending_since` n'est jamais rendue et n'est comparée qu'en chaîne à `written_at` ; un contrôle de calendrier n'est pas une correction triviale (`Date.parse` admet des jours hors mois).
+- **m5, laissé** : les deux tueurs `:192` tuent par un refus fermé, valide pour red-proof ; la sémantique est tenue par les cas 2 et 3 de `:76` (ERR_ASSERTION), comme le note la G2.
+- **m6, laissé (hors zone)** : `inProcessPending` poste les corps 1.0.0 de la CA ; à porter dans la liste de contrôle du G0 du bloc C (ordre avec UKEMI-PENDING-1).
+
+### Questions, suite
+
+- **Q-SP1-6** : la G2 partage la lecture ; `pending_since` arrive avec le bloc C, par `--pending` (servi, entrée de manifeste et `PINNED` ré-épinglés dans le lot qui l'écrit). MONARK confirme.
+- **Q-SP1-7** : la G2 préfère la première option ; les déclarations de `inProcessPending`, `pendingDiff` et `markPendingSince` entrent dans `scripts/sync-harness-served.d.mts` au bloc C, qui rouvre la synchro. Le test garde son typage local d'ici là.
+- Nom de schéma `monark-site-harness-pending-v1` : accepté par la G2 ; un mot de MONARK suffit.
+
+### Oracle du pli (Node 24.21.0, variables de proxy retirées, TMPDIR propre)
+
+- `tsc --noEmit`, `npm run lint`, `lint:ratchet` 69/69, `gate:vocab` (338 fichiers), `lang:gate`, `export:check` : verts.
+- `test/harness-served.test.ts`, `test/narabi-live.test.ts`, `test/site-ukemi.test.ts` : **72/72**.
+- `npm test` complet : trois passages sur `e966c496` : (1) 2 236 tests, 1 rouge ; (2) 2 206 tests, 1 rouge ; (3) 2 212 tests, 2 189 verts, 22 sautés, 1 rouge. Le rouge est chaque fois le seul test 42 (`export_public_no_governance_no_french`), hôte local sous charge ; tout le reste est vert. Les trois fois, c'est le mode connu EXPORT-TEST42-SUMMARY-1 : le `npm run ci` exporté sort à 0, mais sa ligne de synthèse n'est pas capturée (« implausibly small suite »). Un passage du fichier seul a rougi autrement, par `ukemi_conc_pool_first_error_stops_dispatch_and_drains_before_rethrow`, un test de concurrence d'`ukemi`, dans le CI exporté (sortie 1). Un autre passage du test 42 seul est vert. Aucun de ces fichiers n'est dans la zone : le pli ne change de l'export que l'`export` de `SHAPES`. Sur une copie de `cb607a03` hors git, le test 42 est vert. **Pas de passage complet à 0 rouge sur cet hôte** : à rejouer sous verrou d'hôte ou en CI.
+- `node scripts/red-proof.mjs --base 880654ed --gel e966c496 --repo /home/user/monark-governance-sp1 --draw 8 --seed 37` : **OK**, 8 jugés, **8 F2P** (les six du gel, plus `harness_pages_keep_the_served_snapshot_while_pending` et `harness_pending_promotion_compares_the_fixed_fields`), 37 inchangés, 8 tueurs tirés, **8 tués** (`load.ts:183`, `:192` deux fois, `:196`, `:293`, `:335`, `sync.mjs:259`, `:260`) ; digest `78974219…88ca`.
+- `verifie-ancres.mjs --ref 880654ed` : 831 tueurs, 821 ANCRE, DERIVE 0, PERDU 10 (les dix de la base, hors lot).
+- **R-25** (contre `880654ed`) : **504 lignes** (+410/−94 ; borne 547).
