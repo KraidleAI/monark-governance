@@ -83,6 +83,24 @@ function attempt(f: () => unknown): string {
     return e instanceof LinkStop ? e.code : `not a stop: ${e instanceof Error ? e.message : "unknown"}`;
   }
 }
+/** A stalled disk: each write waits for release(). */
+function stalled(): { opener: (path: string) => Promise<SegmentFile>; release: () => void } {
+  let release = (): void => undefined;
+  const held = new Promise<void>((ok) => { release = ok; });
+  const opener = async (path: string): Promise<SegmentFile> => {
+    const h = await open(path, "ax");
+    return { appendFile: async (data) => { await held; await h.appendFile(data); }, close: () => h.close() };
+  };
+  return { opener, release };
+}
+type Fake = { onopen: () => void; onmessage: (e: { data: unknown }) => void; onclose: (e: object) => void; close: () => void; extensions: string };
+/** A link on sockets the test drives by hand, after `taken` openings of other links at t = 0; `socks` lists each one the factory made. */
+async function handLink(symbol: string, taken = 0): Promise<{ r: Rig; socks: Fake[]; link: Link }> {
+  const r = await rig(() => undefined), socks: Fake[] = [];
+  for (let i = 0; i < taken; i++) r.gate.take(0);
+  const webSocket = (): WebSocket => { const s = { close: () => undefined, extensions: "" } as Fake; socks.push(s); return s as unknown as WebSocket; };
+  return { r, socks, link: openLink({ symbol, url: spotUrl(symbol), out: r.out }, { ...r.io, webSocket }) };
+}
 const framesOf = (r: Rig, cid: unknown): string[] => [...readSegment(r.out, String(cid), segmentOf(T0))].map((f) => f.bytes.toString("utf8"));
 
 // killer: scripts/l2/links.mjs:92 CONST "!PLAIN.test(v)" -> "false"
@@ -150,21 +168,17 @@ test("l2_half_open_watchdog_named", async () => {
 // killer: scripts/l2/links.mjs:123 CONST "end(c, s.code);" -> ""
 test("l2_backpressure_named_stop", async () => {
   const MIB = 1_048_576, BOUND = 8_388_608; // D24-4, written here, never imported
-  let release = (): void => undefined;
-  const held = new Promise<void>((ok) => { release = ok; });
-  const slow = async (path: string): Promise<SegmentFile> => { // every write waits for release(): a stalled disk
-    const h = await open(path, "ax");
-    return { appendFile: async (data) => { await held; await h.appendFile(data); }, close: () => h.close() };
-  };
-  const r = await rig((peer) => { if (r.place.peers.length === 1) for (let i = 0; i < 9; i++) peer.send(OP.text, String(i).repeat(MIB)); }, slow);
+  const disk = stalled();
+  const r = await rig((peer) => { if (r.place.peers.length === 1) for (let i = 0; i < 9; i++) peer.send(OP.text, String(i).repeat(MIB)); }, disk.opener);
   const link = r.link("BNBUSDT");
   await until(() => events(r).includes("close"), "the ninth MiB overflows the queue");
   const [opened, stop, closed] = r.lines();
   assert.deepEqual([stop, closed?.cause], [{ host_us: T0, mono_ns: "0", symbol: "BNBUSDT", cid: opened?.cid, event: "writer_stop",
     cause: "queue_overflow", bound: BOUND, queued: BOUND, length: MIB, recv_us: T0 }, "queue_overflow"], "named, the hole from the refused frame on");
   await until(() => r.place.peers[0]?.got.some((f) => f.op === OP.close) === true, "its CLOSE reached the place");
-  assert.deepEqual(events(r), ["open", "writer_stop", "close"], "no reopening while the stalled disk holds the queue");
-  release();
+  r.clock.advance(60_000); // past the longest delay: a reopening armed by a timer, not by the writer's close, would open here (C-2, H04)
+  assert.deepEqual([events(r), r.asked.length], [["open", "writer_stop", "close"], 1], "no reopening while the stalled disk holds the queue");
+  disk.release();
   await until(() => events(r).includes("retry"), "the queue written, then a reopening");
   await link.stop();
   assert.deepEqual(framesOf(r, opened?.cid).map((t) => [t.length, t[0]]), [0, 1, 2, 3, 4, 5, 6, 7].map((i) => [MIB, String(i)]),
@@ -207,8 +221,9 @@ test("l2_reconnect_attempts_bounded", async () => {
   assert.deepEqual(Array.from({ length: 30 }, () => r.gate.take(300_000)).filter((w) => w > 0), [300_000], "the window slid: 29 more, then a wait");
   await until(() => events(r).filter((e) => e === "retry").length === 2, "the second connection cut, a reopening scheduled");
   await link.stop();
+  const n = r.lines().length;
   r.clock.advance(60_000);
-  assert.equal(r.asked.length, 2, "a stopped link opens nothing more: its timer cancelled");
+  assert.deepEqual([r.asked.length, r.lines().length], [2, n], "a stopped link opens nothing more, nor defers: its timer cancelled (H16, H33)");
 });
 
 // killer: scripts/l2/links.mjs:62 CONST "h.startsWith(`${o}/`)" -> "true"
@@ -250,4 +265,49 @@ test("l2_reconnect_delay_capped", async () => {
 test("l2_combined_url_time_unit", () => {
   assert.deepEqual(["BTCUSDT", "ETHUSDT", "BNBUSDT", "SOLUSDT"].map((s) => spotUrl(s)), ["btcusdt", "ethusdt", "bnbusdt", "solusdt"].map((s) => ORIGIN + pathOf(s)));
   assert.deepEqual(["XRPUSDT", "btcusdt", ""].map((s) => attempt(() => spotUrl(s))), ["bad_symbol", "bad_symbol", "bad_symbol"], "a closed list of symbols");
+});
+
+// killer: scripts/l2/links.mjs:117 CONST "timer = io.setTimer(connect, wait);" -> "io.setTimer(connect, wait);"
+test("l2_stop_during_deferral", async () => {
+  const { r, socks, link } = await handLink("ETHUSDT", 30); // the gate full at t = 0: the opening deferred 300 s
+  await link.stop();
+  r.clock.advance(300_000);
+  assert.deepEqual([events(r), r.lines()[0]?.wait_ms, socks.length], [["defer"], 300_000, 0], "a stopped link never opens what it deferred");
+});
+
+// killer: scripts/l2/links.mjs:147 SDL "await Promise.all(closing);" -> ""
+test("l2_stop_waits_for_writers", async () => {
+  const disk = stalled();
+  let resolved = false;
+  const r = await rig((peer) => { peer.send(OP.text, "{}"); peer.send(OP.ping, "q"); }, disk.opener);
+  const link = r.link("BNBUSDT");
+  await until(() => events(r).includes("ping"), "a frame queued on the stalled disk, then a ping");
+  const done = link.stop().then(() => { resolved = true; });
+  await wait(100);
+  assert.equal(resolved, false, "stop() waits while its writer holds the queue");
+  disk.release();
+  await done;
+  assert.deepEqual(framesOf(r, r.lines()[0]?.cid), ["{}"], "resolved once the queue is written");
+});
+
+// killer: scripts/l2/links.mjs:128 CONST "{ if (c.live) note(" -> "{ note("
+test("l2_events_after_close_ignored", async () => {
+  const { r, socks, link } = await handLink("BTCUSDT");
+  await link.stop();
+  socks[0]?.onopen();
+  socks[0]?.onmessage({ data: "late" }); // without the guard of onmessage (H11), the closed writer stops on it: writer_stop
+  assert.deepEqual([events(r), socks.length], [["close"], 1], "an opening or a message after the link's own close: nothing journaled nor written");
+});
+
+// killer: scripts/l2/links.mjs:39 CONST "0-9_@/;=, ]" -> "0-9_@/;=, .]"
+test("l2_journal_filter_dot_colon", async () => {
+  const reasons = ["127.0.0.1", "::1", "ip-10-0-0-1"], { r, socks, link } = await handLink("SOLUSDT");
+  for (const [i, reason] of reasons.entries()) {
+    socks[i]?.onclose({ code: 1000, reason, wasClean: true });
+    await until(() => events(r).filter((e) => e === "retry").length > i, "closed, its writer closed, a reopening");
+    r.clock.advance(60_000);
+  }
+  await link.stop();
+  assert.deepEqual(r.lines().filter((l) => l.cause === "closed").map((l) => l.reason), [null, null, "ip-10-0-0-1"],
+    "a dot alone, a colon alone: null; a dotless name is a word to PLAIN, not an address (G7 of a3, m-3)");
 });
