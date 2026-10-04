@@ -7,11 +7,13 @@
 //   replay: the same flags plus --from-raw <recorded dir>: rebuilds the CSV, missing.json and the manifest from <recorded dir>/raw/ alone,
 //           offline, along the same cursor chain (the CSV and missing.json come out byte-identical).
 // Network discipline: one hard-coded endpoint whose host is checked against a closed list before each request; redirects refused (any
-// 3xx stops); NODE_TLS_REJECT_UNAUTHORIZED=0 refused; a recording admits the variables of a closed list alone (ADMITTED_ENV, names in any
-// case, values never read: any other name stops, env_refused, a TLS trust anchor or an OPENSSL_* among them, proxy_refused for a proxy
-// variable, a NODE_OPTIONS, a NODE_USE_ENV_PROXY or a *_PROXY) and no node flag in execArgv (proxy_refused); no header is set (so no
-// authentication header); at least 500 ms between two requests; at most 100 requests; no retry, ever; each body is read in a stream, at
-// most MAX_BODY_BYTES (body_too_large beyond); a 200 whose connection showed no certificate stops before its body is read (tls_unattested).
+// 3xx stops, https.request follows none); NODE_TLS_REJECT_UNAUTHORIZED=0 refused; a recording admits the variables of a closed list alone
+// (ADMITTED_ENV, names in any case: any other name stops, env_refused, a TLS trust anchor or an OPENSSL_* among them, proxy_refused for a
+// proxy variable, a NODE_OPTIONS, a NODE_USE_ENV_PROXY or a *_PROXY), their values of a closed form (env_refused, values never printed) and
+// no node flag in execArgv (proxy_refused); no header is set (so no authentication header); at least 500 ms between two requests; at most
+// 100 requests; no retry, ever; one connection per request, by a full TLS handshake (no session kept, none resumed); each body is read in a
+// stream, at most MAX_BODY_BYTES (body_too_large beyond); a 200 whose connection showed no certificate stops before its body is read
+// (tls_unattested).
 // Pagination: startTime = cursor, endTime = end - 1 ms, limit = 1000; next cursor = last openTime + one interval; the loop ends when the
 // cursor reaches the end or a page is empty (the rest of the grid is then declared missing).
 // Named stops (RecorderStop.code, closed list STOPS) write nothing to the normalized outputs; raw/ and requests.jsonl keep what was
@@ -32,12 +34,13 @@
 // the source's requests.jsonl and SHA256SUMS as read (an anchor outside the source). Schema (lot BINANCE-V2-1, Q-U5 of RECHERCHES): every
 // manifest written here, recording or replay, is monark.series.binance.v2 with both lists (empty = none); a replay reads its source
 // manifest for the interval alone, its schema unread: a sealed v1 (recorders 48aa58b3 and 0a1ae564) has neither list = never computed, and stays v1.
-// Test seam: run(argv, io) and main(argv, io) take fetch, sleep, clock, env, execArgv and print from their caller; neither the command
-// line nor the environment can set them; the default fetch is read at each request. The agent never commits (R-20).
+// Test seam: run(argv, io) and main(argv, io) take fetch (shaped as https.request: url, options -> ClientRequest), sleep, clock, env,
+// execArgv and print from their caller; neither the command line nor the environment can set them; the default fetch is https.request.
+// The agent never commits (R-20).
 import { createHash } from "node:crypto";
-import { subscribe, unsubscribe } from "node:diagnostics_channel";
 import { appendFileSync, existsSync, mkdirSync, readdirSync, readFileSync, realpathSync, statSync, writeFileSync } from "node:fs";
-import { dirname, join, resolve } from "node:path";
+import { Agent, request } from "node:https";
+import { delimiter, dirname, isAbsolute, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
 export const ENDPOINT = "https://api.binance.com/api/v3/klines";
@@ -71,6 +74,8 @@ const REQUIRED = ["symbol", "interval", "start", "end", "out"];
 const ADMITTED_ENV = /^(HOMEDRIVE|HOMEPATH|LOGONSERVER|MSYSTEM|PATH|SYSTEMDRIVE|SYSTEMROOT|TEMP|USERDOMAIN|USERNAME|USERPROFILE|WINDIR)$/i;
 // BINANCE-PRE153-1 corrections, D-5 (Q-BNPRE-3): the proxy variables, named as the Coinbase recorder names them (PROXY_NAME)
 const PROXY_ENV = /^(NODE_OPTIONS|NODE_USE_ENV_PROXY)$|_PROXY$/i;
+// SERIES-ENV-VALUES-1 (lot BINANCE-PRE35-1): the admitted names whose value is an absolute path; PATH is made of absolute paths only
+const PATH_VALUED = /^(HOMEPATH|SYSTEMROOT|TEMP|USERPROFILE|WINDIR)$/i;
 const SCRIPT = fileURLToPath(import.meta.url);
 
 /** A named stop: `code` is one of STOPS, `detail` what was seen (URL, status, Retry-After, open time). */
@@ -87,25 +92,18 @@ const sha256 = (bytes) => createHash("sha256").update(bytes).digest("hex");
 /** ISO 8601 UTC to the second, the form of --start and --end: 2024-10-01T00:00:00Z. */
 export const isoOf = (ms) => new Date(ms).toISOString().replace(".000Z", "Z");
 
-/** D-3 of lot BINANCE-PRE153-1 (SERIES-TLS-PEER-LOG-1; method of the G2 of RECORDER-CLOSE-TIME-1, PEERCERT.json): each connection of the
- *  default fetch, read once when undici publishes it. A full TLS handshake shows the sha256 of its leaf and issuer certificates (DER);
- *  later the socket shows none, nor does a resumed session (measured, journal M-1, M-2), which stands for the handshake whose ticket it
- *  resumed: the latest session its origin received, as undici's cache keeps it, one per origin's pool (resumed: true); no TLS, or no
- *  such ticket: null. A subscriber that throws would end the process: this one never throws, and a failure, a publication without a
- *  socket among them, writes nothing to PEERS, where its request then reads null (BINANCE-PRE153-1 corrections, D-3; G2-BNPRE-4). */
-const PEERS = new WeakMap(), TICKETS = new Map();
+/** SERIES-TLS-RESUME-1 (lot BINANCE-PRE35-1; L-1 of BINANCE-PRE153-1): the recorder's own agent keeps no TLS session
+ *  (maxCachedSessions: 0), so it offers none, and no connection (keepAlive off): each request opens a connection by a full handshake,
+ *  TLS 1.2 or 1.3 alike (m-2 of the review: no ticket to race). */
+const AGENT = new Agent({ maxCachedSessions: 0, keepAlive: false });
+/** D-3 of lot BINANCE-PRE153-1 (SERIES-TLS-PEER-LOG-1), read on the socket of the answer itself when it arrives (no diagnostics channel,
+ *  no binding): the sha256 of the leaf and issuer certificates (DER) that authenticated its connection; resumed stays in the line, always
+ *  false: a resumed session (none is offered) attests nothing, nor plain HTTP, nor an answer without a socket (null). */
 const certificates = (socket) => {
-  const c = socket.getPeerCertificate?.(true), issuer = c?.issuerCertificate?.raw;
-  return c?.raw ? { leaf_sha256: sha256(c.raw), issuer_sha256: issuer ? sha256(issuer) : null, resumed: false } : null;
+  const c = socket?.getPeerCertificate?.(true), issuer = c?.issuerCertificate?.raw;
+  return c?.raw && socket.isSessionReused() === false
+    ? { leaf_sha256: sha256(c.raw), issuer_sha256: issuer ? sha256(issuer) : null, resumed: false } : null;
 };
-subscribe("undici:client:connected", (message) => {
-  try {
-    const { connectParams, socket } = message, origin = `${connectParams.protocol}//${connectParams.host}`, ticket = TICKETS.get(origin);
-    const peer = certificates(socket) ?? (ticket && socket.isSessionReused?.() === true ? { ...ticket, resumed: true } : null);
-    PEERS.set(socket, peer);
-    socket.on("session", () => { TICKETS.set(origin, peer); });
-  } catch { /* nothing written, nothing thrown */ }
-});
 
 /** --start or --end: YYYY-MM-DDTHH:MMZ or YYYY-MM-DDTHH:MM:00Z, a real date (round trip), on the grid of the interval (15m by default). */
 export function parseTime(text, interval = "15m") {
@@ -148,6 +146,12 @@ export function guardEnv(env, execArgv) {
   const names = Object.keys(env).filter((name) => !ADMITTED_ENV.test(name)).sort(), detail = { variables: names, execArgv_length: execArgv.length };
   if (execArgv.length > 0 || names.some((name) => PROXY_ENV.test(name))) stop("proxy_refused", detail);
   if (names.length > 0) stop("env_refused", detail);
+  // SERIES-ENV-VALUES-1: SYSTEMROOT equals WINDIR (names in any case; both absent pass), path values absolute, PATH of absolute paths
+  const valuesOf = (name) => JSON.stringify(Object.keys(env).filter((k) => k.toUpperCase() === name).map((k) => env[k]));
+  const unformed = Object.keys(env).filter((k) => (PATH_VALUED.test(k) && !isAbsolute(String(env[k])))
+    || (/^PATH$/i.test(k) && !String(env[k]).split(delimiter).every((p) => isAbsolute(p)))
+    || (/^(SYSTEMROOT|WINDIR)$/i.test(k) && valuesOf("SYSTEMROOT") !== valuesOf("WINDIR"))).sort();
+  if (unformed.length > 0) stop("env_refused", { variables: unformed, why: "values outside their closed form" });
 }
 
 /** --out: absent or an empty directory, with no ancestor (as given, then as resolved on disk) holding .git, directory or file. */
@@ -204,37 +208,34 @@ const logged = (text) => attested(entries(text).filter((e) => e.status === 200 &
 /** SHA256SUMS (sha256sum -c format): each raw/ line. */
 const summed = (text) => attested([...text.matchAll(/^([0-9a-f]{64}) {2}raw\/(.+)$/gm)].map((m) => [m[2], m[1]]));
 
-/** One request (D-2, D-3 and D-5 of lot BINANCE-PRE153-1; BINANCE-PRE153-1 corrections, D-4 and D-6): every answer is logged as it
- *  arrives, before its body is read (as the Coinbase recorder), with its status, headers and the certificates of the connection that sent
- *  the request (tls: undici's sendHeaders binds the request to it by path, so that a fetch rewritten to the loopback, the test seam, binds
- *  too); a 200 whose connection showed none (tls: null) then stops, its body never read (tls_unattested); else the body is read in a stream
- *  up to MAX_BODY_BYTES and the line logged again with its size, sha256 and file (beyond the bound: the count read, nothing kept,
+/** One request (D-2, D-3 and D-5 of lot BINANCE-PRE153-1; BINANCE-PRE153-1 corrections, D-4 and D-6; lot BINANCE-PRE35-1): every answer
+ *  is logged as it arrives, before its body is read (as the Coinbase recorder), with its status, headers and the certificates read on its
+ *  own socket; a 200 whose connection showed none (tls: null) then stops, its connection closed, its body never read (tls_unattested);
+ *  else the body is read in a stream up to MAX_BODY_BYTES and the line logged again with its size, sha256 and file (beyond the bound: the count read, nothing kept,
  *  body_too_large); a body cut leaves its arrival line alone (network_error); the body is kept before it is parsed, under raw/ for a 200
  *  and raw/errors/ else (SERIES-ERROR-BODY-1, as the Coinbase recorder); any status but 200 stops, without retry. */
 async function livePage(ctx, cursor) {
   const url = `${ENDPOINT}?symbol=${ctx.symbol}&interval=${ctx.interval}&startTime=${cursor}&endTime=${ctx.end - 1}&limit=${LIMIT}`;
-  const u = new URL(url), path = u.pathname + u.search;
+  const u = new URL(url);
   if (u.protocol !== "https:" || !HOSTS.includes(u.host)) stop("host_refused", { url });
   const at = new Date(ctx.now()).toISOString(), name = `${ctx.symbol}-${cursor}.json`;
   const failed = (e) => stop("network_error", { url, message: String(e?.cause?.message ?? e?.message ?? e) });
   const log = (entry) => { appendFileSync(join(ctx.out, "requests.jsonl"), JSON.stringify(entry) + LF); };
-  let res, body, peer = null;
-  const bind = ({ request, socket }) => { if (request.path === path) peer = PEERS.get(socket) ?? null; };
-  subscribe("undici:client:sendHeaders", bind);
+  let res, body;
   try {
-    res = await ctx.fetch(url, { redirect: "manual", signal: AbortSignal.timeout(TIMEOUT_MS) });
+    res = await new Promise((done, fail) => {
+      ctx.fetch(url, { agent: AGENT, signal: AbortSignal.timeout(TIMEOUT_MS) }).once("response", done).on("error", fail).end();
+    });
   } catch (e) {
     failed(e);
-  } finally {
-    unsubscribe("undici:client:sendHeaders", bind);
   }
-  const header = (h) => res.headers.get(h);
-  const status = res.status, retryAfter = header("retry-after");
+  const header = (h) => res.headers[h] ?? null, peer = certificates(res.socket);
+  const status = res.statusCode, retryAfter = header("retry-after");
   const line = { url, status, at, tls: peer,
     headers: { date: header("date"), "x-mbx-used-weight-1m": header("x-mbx-used-weight-1m"), "retry-after": retryAfter } };
   log(line);
-  if (status === 200 && peer === null) { res.body?.cancel().catch(() => undefined); stop("tls_unattested", { url, status }); }
-  try { body = await bounded(res.body); } catch (e) { failed(e); }
+  if (status === 200 && peer === null) { res.destroy(); stop("tls_unattested", { url, status }); }
+  try { body = await bounded(res); } catch (e) { failed(e); }
   const file = body.bytes === null ? null : `raw/${status === 200 ? "" : "errors/"}${name}`;
   log({ ...line, bytes: body.size, sha256: body.bytes === null ? null : sha256(body.bytes), file });
   if (file === null) stop("body_too_large", { url, status, bytes: body.size, max_bytes: MAX_BODY_BYTES });
@@ -366,7 +367,7 @@ export async function run(argv, io = {}) {
   if (live) guardEnv(io.env ?? process.env, io.execArgv ?? process.execArgv);
   const source = live ? { attest: [], anchors: { requests: null, sums: null } } : guardReplay(args);
   guardOut(args.out);
-  const ctx = { ...args, live, now, used: new Set(), ...source, fetch: io.fetch ?? ((url, init) => globalThis.fetch(url, init)),
+  const ctx = { ...args, live, now, used: new Set(), ...source, fetch: io.fetch ?? ((url, options) => request(url, options)),
     sleep: io.sleep ?? ((ms) => new Promise((done) => { setTimeout(done, ms); })) };
   const startedAt = new Date(now()).toISOString();
   if (live) mkdirSync(join(args.out, "raw"), { recursive: true }); // a replay creates --out once every check has passed
