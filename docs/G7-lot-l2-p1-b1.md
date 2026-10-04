@@ -63,7 +63,7 @@ verts au premier gel par nature.
 
 ## Écarts au plan
 
-- Taille : c 153 (en-tête de discipline compris), d 81, t 179 contre c 100, d 31, t 143 à 227 ; total sous 547.
+- Taille : c 174 (en-tête de discipline compris), d 84, t 262 après le pli (153, 81, 179 au premier gel) contre c 100, d 31, t 143 à 227 ; total 520, sous 547.
 - `Retry-After` : décidé à la G2 (ci-dessus).
 - SERIES-TLS-PEER-LOG-1 prouvé ici sur un message de test du canal seulement ; la preuve sur la place reste à M-1 (§9 du plan).
 - FAITS-L2-ACCESS-3 (d) et (f), prérequis du G1, absents : les noms de clés lus d'`exchangeInfo` sont à confirmer (Q-B1-1).
