@@ -190,3 +190,9 @@ C-1 écart base et servi (en tête, B-0) ; C-2 btc-dir déjà retirée (Q-F1, B-
 - **Statut de Shōgen inchangé** : `built` reste sur la page. La liste BTC-DIR-RETIRE-SURFACES-1 ne propose à MONARK que de ré-adresser la preuve du registre aux tests unitaires de la jointure qui restent (`gate_attested_is_frozen_attested_price`, `gate_attested_discordant_is_tool_error`) et, pour l'étape 7 de la trace h5, retrait ou ré-épinglage avec note de provenance (MONARK décide).
 - **Item formé** : ATTEST-KATA-SUBJECT-1 (sujet attesté pour les futures classes kata Binance) ; propriétaire RECHERCHES ; déclencheur : après CM-4 ; aucun travail maintenant ; toute ligne neuve de la table d'attestation passe par une ligne B neuve au §5.
 - **BTC-DIR-RETIRE-SURFACES-1** est livré par MONARK avec CM-2b ; jusque-là, les tests de `test/` qui comparent le harnais aux surfaces de MONARK (liste dans `docs/G0-lot-cm-2b.md`) sont rouges par construction.
+
+## Amendement daté 2026-10-04 : OPENAPI-ERROR-CODE-1 au §10 (contrôle par diff de MONARK sur CM-2a, C-5)
+
+| Item | Propriétaire | Déclencheur |
+|---|---|---|
+| OPENAPI-ERROR-CODE-1 : `openapi.json` décrit le champ `code` du corps d'erreur 400 (liste fermée `HARNESS_ERROR_CODES`) et le 500 `output_invalid` ; prix : environ 60 lignes (code d'`openapi.ts` et son test), empreinte d'`openapi.json` déplacée | RECHERCHES | avec CM-3c et CM-4 (une seule nouvelle empreinte d'`openapi.json` et une seule version datée de la spécification publique) |
