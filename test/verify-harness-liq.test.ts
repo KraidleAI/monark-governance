@@ -20,7 +20,7 @@ import { splitQuantile } from "@monark/hikae";
 import { API_HOST_PREFIX, startServer } from "../apps/harness/src/server.ts";
 import {
   describeGate, GATE_TOOL_DESCRIPTION, LIQ_COMMITTED_SENTENCE, LIQ_CONDITIONAL_SENTENCE, LIQ_EMPTY_REGISTRY_SENTENCE, LIQ_H3_SENTENCE,
-  LIQ_REQUIREMENTS_SENTENCE, LIQ_UPPER_BOUND_SENTENCE, LIQ_ALPHA, LIQ_NMIN, TASK_LIQ_ELIGIBLE,
+  LIQ_REQUIREMENTS_SENTENCE, LIQ_UPPER_BOUND_SENTENCE, LIQ_ALPHA, LIQ_NMIN, SCHEMA_VERSION, TASK_LIQ_ELIGIBLE,
 } from "../apps/harness/src/tools/gate.ts";
 import { lookupCommittedCalibration, UKEMI_LIQ_PREDICTOR_BASE, USDE_STABLE_RUN_CALIB_DIGEST_PINNED } from "../apps/harness/src/calibration.ts";
 import { strateOf, STRATA_CUTS_SERVED } from "../apps/harness/src/ukemi-strata.ts";
@@ -61,6 +61,32 @@ test("verify_harness_liq_literals_equal_served_constants", () => {
   assert.ok("qhat" in q && !text.includes(String(q.qhat)), "the committed q-hat is not typed in the CA script");
 });
 
+// (1b) UKEMI-PENDING-1 (MONARK e9cd32b, Q-UP-2): the CA bodies speak the version of this tree's harness. One constant,
+// CA_SCHEMA_VERSION, equal to SCHEMA_VERSION of gate.ts (the script stays zero-dependency, so this parity is the pin);
+// the two exported bodies carry it. Block C moves both in one line each; one moved alone => red.
+// killer: scripts/verify-harness.mjs:41 CONST "1.0.0" -> "1.1.0"
+test("verify_harness_ca_schema_version_equals_the_harness_schema_version", async () => {
+  const ca = (await import(new URL("../scripts/verify-harness.mjs", import.meta.url).href)) as unknown as { CA_SCHEMA_VERSION?: unknown; GATE_BODY: { prediction: { schema_version: unknown } }; GATE_LIQ_BODY: { prediction: { schema_version: unknown } } };
+  assert.equal(ca.CA_SCHEMA_VERSION, SCHEMA_VERSION, "CA_SCHEMA_VERSION of the CA is the SCHEMA_VERSION the harness accepts");
+  assert.equal(ca.GATE_BODY.prediction.schema_version, SCHEMA_VERSION, "GATE_BODY carries it");
+  assert.equal(ca.GATE_LIQ_BODY.prediction.schema_version, SCHEMA_VERSION, "GATE_LIQ_BODY carries it");
+});
+
+// (1c) the four literal CA bodies (GATE_BODY, GATE_RETIRED_BODY, GATE_BYO_BODY, GATE_LIQ_BODY; the future and uncommitted
+// bodies derive) read the constant, no body types a version, and the copy of GATE_LIQ_BODY in scripts/sync-harness-served.mjs
+// follows it through the imported GATE_BODY (its one line, e9cd32b Q-UP-1). A literal left in either script => red.
+// killer: scripts/sync-harness-served.mjs:68 CONST "GATE_BODY.prediction.schema_version" -> "\"1.0.0\""
+test("verify_harness_ca_bodies_read_the_ca_schema_version", () => {
+  const text = readFileSync(SCRIPT, "utf8");
+  for (const body of ["GATE_BODY", "GATE_RETIRED_BODY", "GATE_BYO_BODY", "GATE_LIQ_BODY"]) {
+    assert.ok(text.includes(`const ${body} = {\n  prediction: { schema_version: CA_SCHEMA_VERSION, `), `${body} reads CA_SCHEMA_VERSION`);
+  }
+  assert.equal(text.split("schema_version: ").length - 1, 4, "the CA writes schema_version in its four literal bodies only");
+  const sync = readFileSync(fileURLToPath(new URL("../scripts/sync-harness-served.mjs", import.meta.url)), "utf8");
+  assert.ok(sync.includes("const GATE_LIQ_BODY = {\n  prediction: { schema_version: GATE_BODY.prediction.schema_version, task_class: \"liquidation-eligible-coverage\", "), "the copied liq body follows the CA version");
+  assert.equal(sync.split("schema_version: ").length - 1, 1, "the harness sync writes schema_version in that copy only");
+});
+
 interface CaCheck { name: string; ok: boolean; status: number; detail?: string }
 interface Ca { checks: CaCheck[]; tls: { skipped?: boolean } }
 
@@ -87,7 +113,7 @@ const GREEN = {
 // uncommitted body put in s0 => red.
 // CM-2b surfaces: 15 checks; the gate body is the committed USDe key, and two 400 checks carry their code (btc-dir-15m
 // retired: task_class_retired; produced_at in 2099: produced_at_future, MONARK C-8).
-// killer: scripts/verify-harness.mjs:271 CONST "got === code" -> "got !== code"
+// killer: scripts/verify-harness.mjs:274 CONST "got === code" -> "got !== code"
 test("verify_harness_ca_passes_on_the_in_process_harness", async () => {
   const server: HttpServer = await startLoopback((port) => startServer(port));
   try {
