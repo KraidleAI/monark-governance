@@ -29,6 +29,8 @@ Un préchargement, en ligne dans `scripts.test`, juste après `--test-force-exit
 "--import=data:text/javascript,process.stdout._handle&&process.stdout._handle.setBlocking(true);process.on('exit',function(c){if(c===0&&process.stdout.writableLength>0)process.exitCode=70})"
 ```
 
+(Après la G2, m-4 : `setBlocking` n est appelé que si `typeof(process.stdout._handle.setBlocking)==='function'`, comme dans `test/helpers/blocking-stdout.cjs` ; voir le G7.)
+
 `node --test` passe ses `--import` aux enfants par leur `execArgv` (mesuré, et c est déjà ce que fait `scripts/red-proof.mjs`). Le module tourne dans chaque enfant. **Correction après le gel (mesurée, voir le G7)** : il ne tourne pas dans le lanceur. Node 24.21 n initialise pas les modules `--import` du processus `--test` lui-même (un `--require` de fichier, lui, y est chargé). Il fait deux choses, dans chaque enfant. Le lanceur est traité à part : voir « Le lanceur » plus bas.
 
 1. **La cause est corrigée** : stdout devient bloquant. Chaque écriture est remise au tuyau avant de rendre la main ; `process.exit()` n a plus rien à jeter. C est le correctif du préchargement de `red-proof.mjs`, ici dans le script de la suite.
@@ -98,11 +100,11 @@ Le test 42 de #130 profite du préchargement : le `package.json` exporté le por
 
 ## Tests (d abord)
 
-Nouveau fichier `test/test-force-exit-report.test.ts`, trois tests :
+Nouveau fichier `test/test-force-exit-report.test.ts`, trois tests au gel du plan. **Mise à jour (G2, m-2)** : le lot en livre cinq (plus le test du lanceur et celui de l export, voir « Le lanceur » plus haut), puis six après le pli de la G2, qui scinde le test 3 (voir le G7) :
 
 1. **`test_scripts_carry_the_report_preload`** : `scripts.test` porte, juste après `--test-force-exit`, un argument `"--import=data:text/javascript,…"` unique, sans `?`, `#`, `%`, `$`, espace ni accent grave. Tout autre script qui porte `--test-force-exit` porte le même argument.
 2. **`report_preload_delivers_every_byte_before_force_exit`** : un enfant écrit 4 Mio sur stdout puis appelle `process.exit(0)`, et le parent ne lit qu après la sortie de l enfant (ou 2 s au plus). Sans le préchargement, des octets sont perdus (non-vacuité de la fixture). Avec le préchargement pris dans `scripts.test`, les 4 Mio arrivent et le code vaut 0.
-3. **`report_preload_reds_a_child_that_would_drop_bytes`** : même enfant, avec un `--import` placé avant qui neutralise `setBlocking`. La garde rend le code 70. Un enfant qui sort à 3 garde 3. Un enfant qui n écrit qu un octet sort à 0 (pas de faux rouge).
+3. **`report_preload_reds_a_child_that_would_drop_bytes`** : même enfant, avec un `--import` placé avant qui neutralise `setBlocking`. La garde rend le code 70. Un enfant qui sort à 3 garde 3. Un enfant qui n écrit rien (0 octet) sort à 0 (pas de faux rouge).
 
 Tueurs (lignes `killer:` au-dessus des déclarations ; `package.json` ligne 16, le script `test`, au gel) :
 

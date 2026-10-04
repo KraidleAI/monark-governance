@@ -27,6 +27,9 @@ const preload = (): string | undefined => AFTER_FORCE_EXIT.exec(scripts().test ?
 // Placed BEFORE the preload: setBlocking becomes a no-op, so stdout stays non-blocking and only the exit guard is left.
 const NO_BLOCKING = "--import=data:text/javascript,process.stdout._handle.setBlocking=function(){return 0}";
 const CHUNK = 65536;
+// On win32 Node makes a pipe stdout blocking when it creates it (net.Socket: setBlocking(true), then a synchronous _write), so a
+// child cannot drop bytes there and the two measurements of a loss below have nothing to measure: they are skipped by name.
+const SYNC_PIPES = process.platform === "win32" ? "stdout pipes are synchronous on win32 (net.Socket makeSyncWrite): nothing can be dropped" : false;
 
 /** A child writes `chunks` x 64 KiB to stdout then calls process.exit(code); the parent reads only once it has exited (or after 2 s). */
 async function drop(imports: string[], chunks: number, code: number): Promise<{ status: number | null; bytes: number }> {
@@ -51,7 +54,7 @@ test("test_scripts_carry_the_report_preload - scripts.test imports the preload r
 });
 
 // killer: package.json:16 CONST "setBlocking(true)" -> "setBlocking(false)"
-test("report_preload_delivers_every_byte_before_force_exit - a child that exits right after writing 4 MiB loses nothing", async () => {
+test("report_preload_delivers_every_byte_before_force_exit - a child that exits right after writing 4 MiB loses nothing", { skip: SYNC_PIPES }, async () => {
   const arg = preload();
   assert.ok(arg !== undefined, "scripts.test carries no report preload");
   const bare = await drop([], 64, 0);
@@ -61,12 +64,18 @@ test("report_preload_delivers_every_byte_before_force_exit - a child that exits 
 });
 
 // killer: package.json:16 ROR "writableLength>0" -> "writableLength<0"
-test("report_preload_reds_a_child_that_would_drop_bytes - exit 70 on bytes left queued, a failure code kept, no false red", async () => {
+test("report_preload_reds_a_child_that_would_drop_bytes - exit 70 on bytes left queued", { skip: SYNC_PIPES }, async () => {
   const arg = preload();
   assert.ok(arg !== undefined, "scripts.test carries no report preload");
   const lost = await drop([NO_BLOCKING, arg], 64, 0);
   assert.ok(lost.bytes < 64 * CHUNK, `fixture: with setBlocking neutralised some bytes must be dropped (got ${lost.bytes})`);
   assert.equal(lost.status, 70, "a 0 exit with stdout bytes still queued must become 70 (the runner reds the file by name)");
+});
+
+// killer: package.json:16 ROR "c===0" -> "c!==0"
+test("report_preload_keeps_a_failure_code_and_reds_nothing_clean - a failure code kept, no false red", async () => {
+  const arg = preload();
+  assert.ok(arg !== undefined, "scripts.test carries no report preload");
   assert.equal((await drop([NO_BLOCKING, arg], 64, 3)).status, 3, "a failing child keeps its own code");
   assert.equal((await drop([NO_BLOCKING, arg], 0, 0)).status, 0, "a child with nothing queued stays 0");
 });
