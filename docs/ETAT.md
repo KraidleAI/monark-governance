@@ -463,6 +463,10 @@ Tronc `lot/etude-suite`. Dernier oracle complet : 1 779 tests, dont 1 776 verts,
     accords avec la doublure ; tests et tueurs W2-E au lot b de CM-4a-ii (RECHERCHES).
   - VERIFIERS-LIST-F5A-1 (Q-2 de CM-4a-ii) : la liste publiée des vérificateurs listés (identité lue avant « @ », minuscules ASCII)
     est due par MONARK avant F-5a. Porteur : MONARK ; état : ouvert.
+  - RPC-GUARD-LOCK-WRITE-LEAK-1 (H-1 de RECHERCHES, G2 de #137) : si l écriture ou le fsync du verrou échoue après un `openSync "wx"`
+    réussi, le fichier reste hors de `acquired` (`guarded.ts:43-46`) et la garde répond `lock_held` jusqu à l acte du RUNBOOK.
+    Construction : retirer le fichier sur échec d écriture, test et tueur d abord. Porteur : RECHERCHES (zone `packages/rpc-guard/`
+    ouverte, recherches#150), après #137 et le lot b de CM-4a-ii ; état : ouvert.
   - L2-RECV-US-RESOLUTION-1 (PAROXYSME ; Q-4 du G1 de L2-P1-a2) : Node n offre aucune horloge murale à la microseconde ; `recv_us`
     de production vaut `Date.now()*1000` (résolution ms), l ordre fin étant porté par `mono_ns`. Construction qui donne la garantie :
     mesurer la résolution réelle et la dérive de `performance.timeOrigin + performance.now()` contre l horloge de l hôte sur un jour
