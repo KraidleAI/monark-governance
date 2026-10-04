@@ -7,13 +7,13 @@ export interface Inputs { format: "spec-inputs-v1"; releases: Record<string, { p
 export interface Problem { code: string; detail: string }
 type Roots = Partial<Record<Root, string>>;
 export const REPO_ROOT: string;
-export const WITHHELD: readonly string[];
+export const WITHHELD: readonly { length: number; sha256: string }[];
 export class SpecPublishError extends Error { code: string; problems: Problem[]; constructor(code: string, message: string, problems?: Problem[]) }
 export function validDate(s: unknown): boolean;
 export function parseInputs(raw: unknown): Inputs;
 export function loadInputs(file?: string): Inputs;
 export function canonicalJson(v: unknown): string;
-export function vocabularyHits(text: string, withheld?: readonly string[]): { rule: string; line: number; word: string }[];
+export function vocabularyHits(text: string, withheld?: readonly { length: number; sha256: string }[]): { rule: string; line: number; word: string }[];
 export function contentProblems(out: string, kind: Kind, bytes: Buffer): Problem[];
 export function plan(o: { inputs: Inputs; release: string; date: string; roots: Roots }): { files: { path: string; bytes: Buffer }[]; problems: Problem[] };
 export function listTree(dir: string, rel?: string): string[];

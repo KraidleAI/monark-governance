@@ -19,7 +19,7 @@
 // <dir> then compares --out with <dir> (.git ignored): exit 0 iff the same paths with the same bytes. Exit 2: usage.
 import { spawnSync } from "node:child_process";
 import { createHash } from "node:crypto";
-import { chmodSync, existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, realpathSync, renameSync, rmdirSync, rmSync, statSync, writeFileSync } from "node:fs";
+import { chmodSync, existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, realpathSync, renameSync, rmSync, statSync, writeFileSync } from "node:fs";
 import { dirname, join, resolve, sep } from "node:path";
 import { fileURLToPath } from "node:url";
 import { checkPublicText } from "./public-text-deny.mjs";
@@ -89,23 +89,26 @@ export function canonicalJson(v) {
 // ---- The vocabulary gate of the public spec repository: the public free-text gate (checkPublicText, kind "notes") on the NFKC text,
 // with a closed list of exceptions: G0..G7 and monark-governance, which the published files cite, the json-schema.org URL, and a venue named inside a cell key
 // written in its grammar (kata:<id>@<venue>/..., ukemi:...@.../aave-v3-core/...). Plus private names, home paths and withheld words.
-const KEY_TOKEN = /\b(?:kata|ukemi):[\w.-]+@[\w:.-]+(?:\/[\w.-]+)+/g;
+const KEY_TOKEN = /\b(?:kata|ukemi):[\w.-]+@[\w:.-]+(?:\/[\w.-]+)+/g, VENUE = /@(eip155:\d+\/)?[a-z0-9-]+\//; // only the venue segment is masked
 const EXCEPTED = (v) => (v.rule === "k" && /^G[0-7]$/.test(v.word)) || (v.rule === "c" && /^monark-governance$/i.test(v.word))
   || (v.rule === "g" && /^https:\/\/json-schema\.org\/draft\//.test(v.word)); // and the meta-schema URL a JSON Schema names in $schema
-const EXTRA = [["private", /recherches/i], ["home", /(?<![\w.-])(?:\/home|\/Users|\/root|~)\/[\w.-]|[A-Za-z]:\\+Users\\/i]];
-/** sha256 of the NFKC lower-case words withheld from every file by instruction, matched by digest so that the word is never written. */
-export const WITHHELD = Object.freeze(["e8522fd87f748c388684c3eff07de12ac2f77d5c8f5f0222d50c7e819e26ca91"]);
+const EXTRA = [["private", /recherches/i], ["home", /(?<![\w.-])(?:\/var\/home|\/home|\/Users|\/root|~|\$HOME)\/[\w.-]|[A-Za-z]:\\+Users\\/i]];
+/** The words withheld from every file by instruction: their length and the sha256 of their NFKC lower-case form, matched on every
+ *  substring of that length (glued to letters or digits too), so that the word is never written. */
+export const WITHHELD = Object.freeze([{ length: 6, sha256: "e8522fd87f748c388684c3eff07de12ac2f77d5c8f5f0222d50c7e819e26ca91" }]);
 
-/** vocabularyHits(text, withheld) -> [{rule, line, word}]: every hit of the spec repository's gate, empty when the text is clean. */
+/** vocabularyHits(text, withheld) -> [{rule, line, word}]: every hit of the spec repository's gate, empty when the text is clean. The
+ *  private, home and withheld checks read the whole NFKC text; the public free-text gate reads it with the venue of each key masked. */
 export function vocabularyHits(text, withheld = WITHHELD) {
-  const t = text.normalize("NFKC").replace(KEY_TOKEN, "KEY");
+  const t = text.normalize("NFKC"), hits = [];
   if (t.trim() === "") return [];
-  const hits = checkPublicText(t, "notes").violations.filter((v) => !EXCEPTED(v)).map((v) => ({ rule: v.rule, line: v.line, word: v.word }));
   t.split("\n").forEach((l, i) => {
     for (const [rule, re] of EXTRA) { const m = re.exec(l); if (m) hits.push({ rule, line: i + 1, word: m[0] }); }
-    for (const w of l.toLowerCase().match(/[\p{L}\p{N}]+/gu) ?? []) if (withheld.includes(sha(w))) hits.push({ rule: "withheld", line: i + 1, word: "(withheld)" });
+    const low = [...l.toLowerCase()];
+    for (const w of withheld) for (let j = 0; j + w.length <= low.length; j++) if (sha(low.slice(j, j + w.length).join("")) === w.sha256) { hits.push({ rule: "withheld", line: i + 1, word: "(withheld)" }); break; }
   });
-  return hits;
+  const masked = t.replace(KEY_TOKEN, (k) => k.replace(VENUE, "@$1KEY/"));
+  return [...checkPublicText(masked, "notes").violations.filter((v) => !EXCEPTED(v)).map((v) => ({ rule: v.rule, line: v.line, word: v.word })), ...hits];
 }
 
 const strings = (v) => (typeof v === "string" ? [v] : v !== null && typeof v === "object" ? Object.entries(v).flatMap(([k, x]) => [...(Array.isArray(v) ? [] : [k]), ...strings(x)]) : []);
@@ -196,8 +199,7 @@ export function produce({ inputs, release, date, roots, out }) {
   try {
     for (const f of files) { const p = join(tmp, f.path); mkdirSync(dirname(p), { recursive: true }); writeFileSync(p, f.bytes); chmodSync(p, 0o644); }
     chmodSync(tmp, 0o755);
-    if (existsSync(out)) rmdirSync(out);
-    renameSync(tmp, out);
+    renameSync(tmp, out); // over an empty --out where rename(2) allows it (POSIX); elsewhere write_failed and --out untouched
   } catch (e) {
     rmSync(tmp, { recursive: true, force: true });
     throw new SpecPublishError("write_failed", `${e.message}; nothing left in ${out}`);
