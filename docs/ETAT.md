@@ -698,6 +698,9 @@ Tronc `lot/etude-suite`. Dernier oracle complet : 1 779 tests, dont 1 776 verts,
   `ce4e5d2f` (#106) et `be3ce45b` (#110) : les 10 rouges de surface déclarés au G0 de CM-2b ; `9e0b611d` (#111) et `8aae90af` (#108) :
   seuls les 2 rouges du temps (ii), `harness_served_data_matches_in_process_harness` et `narabi_gate_facts_read_from_committed_sources`,
   acceptés par l amendement « nuit, 3 » jusqu au déploiement de l étape 4 et à la resynchronisation. Restent #109 (étape 5) et #107 (étape 6).
+  #109 (`92bdec97`) et #107 (`aaf5d039`) suivent au tronc. **Étape 4 déployée le 2026-10-04 à 07:44:08 UTC** (arbre `94974ddf`, go
+  « vous avez tous mes GO ») : sonde 84/84, CA 15 contrôles ; temps (ii) commis (`8082f223`), oracle du tronc à 0 échec : les 2 rouges
+  sont fermés. Restent hors de ce go : l envoi du site (les surfaces de #111) et la synchro du miroir public, à l investisseur.
   - BTC-DIR-RETIRE-SURFACES-1 (MONARK ; déclencheur « PR CM-2b » atteint le 2026-10-03) : liste du G0 de CM-2b (§ du même nom).
     Décision de l investisseur (2026-10-03, 22:4x UTC, choix verbatim « Built, preuve attest servi (Recommandé) ») : Shōgen garde
     `built` ; `integration_test` de `apps/site/lib/fleet.ts` pointe vers un test d intégration non-LLM de l outil `attest` servi, plus
