@@ -373,6 +373,14 @@ Tronc `lot/etude-suite`. Dernier oracle complet : 1 779 tests, dont 1 776 verts,
     de production vaut `Date.now()*1000` (résolution ms), l ordre fin étant porté par `mono_ns`. Construction qui donne la garantie :
     mesurer la résolution réelle et la dérive de `performance.timeOrigin + performance.now()` contre l horloge de l hôte sur un jour
     de M-1, ou un module natif (R-8). Déclencheur : avant le G1 de P1-c4 ; prix : une mesure ; état : ouvert.
+  - CM-2b-TOOLS-1 (outil ; C-7 du contrôle de CM-2b, mesuré le 2026-10-04) : (a) `scripts/mutants/run.mjs` ne tourne pas sur un arbre
+    rouge par construction (base rouge, tout « non conclu ») ; construction : une option `--skip-tests` ou `--exclude-targets` (contournement
+    mesuré : `NODE_OPTIONS=--test-skip-pattern`) ; (b) pour un fichier de test en échec, l oracle ne garde que « test failed » sans
+    stderr ; construction : garder cette stderr au journal. Prix : environ 20 lignes et 2 cas. Déclencheur : le prochain lot de l outil ;
+    état : ouvert.
+  - Décision de l investisseur (2026-10-04, 01:2x UTC, C-2 du contrôle de CM-2b), choix verbatim « Dire la vérité dans la description
+    (Recommandé) » : la description servie dit qu aucune classe servie n a de sujet d attestation, donc que tout `attested` est refusé ;
+    porté par RECHERCHES (#110 ou une suite), avant le déploiement commun de CM-2a et CM-2b.
   - FAITS-L2-ACCESS-3-E-1 (procurement ; (e) de FAITS-L2-ACCESS-3, non établi le 2026-10-04) : `timeUnit` sur les routes futures ;
     absent des deux pages « legacy » lues ; la page neuve (`…/ws-streams/public`) ne rend pas son corps dans le navigateur interne.
     Construction : la lire par le navigateur externe ou par le fichier source de la page, datée et épinglée. Déclencheur : avant le G1
