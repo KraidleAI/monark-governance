@@ -4,7 +4,6 @@
  */
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { once } from "node:events";
 import { request as httpRequest } from "node:http";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
@@ -12,6 +11,7 @@ import { assertClosedPrediction } from "@monark/contracts";
 import { HOST, PORT, originGuard, startServer, MAX_REQUEST_BODY_BYTES } from "../src/server.ts";
 import { HARNESS_VERSION } from "../src/version.ts";
 import { buildOpenApi } from "../src/openapi.ts";
+import { startLoopback } from "./helpers/loopback.ts";
 
 /**
  * Minimal wired POST over node:http (self-contained — no import outside the harness workspace, so the
@@ -45,6 +45,7 @@ function guard(origin: string | null): Response | undefined {
 // Test — a present, non-allowlisted (or malformed) Origin is rejected with 403 (K-9/C-1), BOTH as a
 // unit and ON THE WIRED HTTP PATH (C-2). Mutants: `isHarnessOriginAllowed` returns `true` ⇒ red (unit);
 // drop the `originGuard(request)` call in `handleNodeRequest` (before dispatch) ⇒ red (wired).
+// killer: apps/harness/src/server.ts:188 CONST "(port, host)" -> "(0, host)"
 test("origin_invalid_returns_403", async () => {
   // (a) unit — the guard function itself.
   const evil = guard("https://evil.example.com");
@@ -59,9 +60,8 @@ test("origin_invalid_returns_403", async () => {
 
   // (b) WIRED — the guard must actually run on the HTTP request path, before dispatch. A real request
   // with a non-allowlisted Origin gets 403; an apex Origin is NOT 403 (it passes the guard).
-  const server = startServer(0);
+  const server = await startLoopback((port) => startServer(port));
   try {
-    await once(server, "listening");
     const addr = server.address();
     assert.ok(addr !== null && typeof addr === "object", "address() must be an AddressInfo");
     const url = `http://127.0.0.1:${String(addr.port)}/mcp`;
@@ -98,10 +98,10 @@ test("origin_absent_is_accepted", () => {
 // Mutants: (a) drop the bounded read (buffer the whole body) ⇒ the oversized POST is no longer 413 ⇒ red;
 // (b) `>=` instead of `>` ⇒ the exactly-at-cap control becomes 413 ⇒ red; (c) truncate/alter the body in
 // the reader ⇒ the mirror yhat===100 assertion (c1) AND the MCP SSE result assertion (c2) both red.
+// killer: apps/harness/src/server.ts:188 CONST "(port, host)" -> "(0, host)"
 test("oversized_body_413_and_normal_tools_call_unaffected", async () => {
-  const server = startServer(0);
+  const server = await startLoopback((port) => startServer(port));
   try {
-    await once(server, "listening");
     const addr = server.address();
     assert.ok(addr !== null && typeof addr === "object", "address() must be an AddressInfo");
     const port = addr.port;
@@ -170,11 +170,11 @@ test("oversized_body_413_and_normal_tools_call_unaffected", async () => {
 });
 
 // Test — the server binds 127.0.0.1 ONLY (K-8/C-10). Mutant: HOST = "0.0.0.0" ⇒ red.
+// killer: apps/harness/src/server.ts:188 CONST "(port, host)" -> "(0, host)"
 test("harness_binds_localhost_only", async () => {
   assert.equal(HOST, "127.0.0.1", "the bind host constant is localhost");
-  const server = startServer(0); // ephemeral port, DEFAULT host = the security property under test
+  const server = await startLoopback((port) => startServer(port)); // drawn port, DEFAULT host = the security property under test
   try {
-    await once(server, "listening");
     const addr = server.address();
     assert.ok(addr !== null && typeof addr === "object", "address() must be an AddressInfo");
     assert.equal(addr.address, "127.0.0.1", "must bind localhost only, never 0.0.0.0");
@@ -193,6 +193,7 @@ test("harness_binds_localhost_only", async () => {
 //   (a) server.ts `version: HARNESS_VERSION` -> `"1.0.0"` ⇒ the wired serverInfo assertion reds;
 //   (b) version.ts HARNESS_VERSION -> "1.0.0" ⇒ the equality passes (both "1.0.0") but the
 //       startsWith("1.") doctrinal guard reds — the guard's non-vacuity proof.
+// killer: apps/harness/src/server.ts:188 CONST "(port, host)" -> "(0, host)"
 test("serverInfo_version_is_single_source_and_never_one", async () => {
   // Doctrinal guard: the advertised version is a 0.MINOR.PATCH release aligned on the git tag, never a
   // 1.x — "1.0.0 is a human decision, never an agent's; the interface contracts do not thaw"
@@ -215,9 +216,8 @@ test("serverInfo_version_is_single_source_and_never_one", async () => {
 
   // WIRED — reproduce the `initialize` probe that measured the defect (2026-09-18) on the `mcp.` surface:
   // the live serverInfo.version must equal HARNESS_VERSION. Stateless: no prior session is needed.
-  const server = startServer(0);
+  const server = await startLoopback((port) => startServer(port));
   try {
-    await once(server, "listening");
     const addr = server.address();
     assert.ok(addr !== null && typeof addr === "object", "address() must be an AddressInfo");
     const initialize = JSON.stringify({
@@ -245,10 +245,10 @@ test("serverInfo_version_is_single_source_and_never_one", async () => {
 // a socket leak; the drain reduces socket handles but does NOT close it. The ×100 matrix therefore does NOT reach
 // 0 (~4% residual, matrix-clean-82/) => D4 "0-flake" escalated to config-CI (orchestrator). No deterministic MUTANT
 // reddens here. Test 18 (universe) is already drained; test 22 is spawnSync (no server handle) — untouched.
+// killer: apps/harness/src/server.ts:188 CONST "(port, host)" -> "(0, host)"
 test("harness_server_drain_leaves_no_server_handle", async () => {
-  const server = startServer(0);
+  const server = await startLoopback((port) => startServer(port));
   try {
-    await once(server, "listening");
     const addr = server.address();
     assert.ok(addr !== null && typeof addr === "object", "address() must be an AddressInfo");
     // Open a real connection so closeAllConnections() has a live socket to destroy.
