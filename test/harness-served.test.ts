@@ -48,7 +48,7 @@ const read = (rel: string): string => readFileSync(join(ROOT, rel), "utf8");
 const PINNED: Record<string, string> = {
   [HARNESS_SERVED_REL]: "55bd4ad228d6b015a49906a3e13036a7f789790cf22e4d7028027401eace6f4a",
   [BYO_TRACE_REL]: "daf8d3eabacbc601e608d01936d02c0f7ba78dfb5a0d6f5741ecea5fb4eef6d2",
-  [H5_TRACE_REL]: "e403cf011e1140159d7fae1bdcec24cf3eaa6ab41d1c2ecab226953ef582a092", // re-pinned with the h5 re-record of CM-2b surfaces (was 0b32b330...)
+  [H5_TRACE_REL]: "b016bf4a4950cff1d39dccd970f7371f4dc8e3bb261d3d14c53b372825eda0a0", // re-pinned after #110 (C-2: tools/list sha only; was e403cf01...)
 };
 
 interface Schema { required?: string[]; properties?: Record<string, Schema>; type?: string | string[]; description?: string; maxItems?: number; items?: Schema; additionalProperties?: unknown }

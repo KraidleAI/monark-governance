@@ -97,8 +97,8 @@ export function liqCallAgrees(liqState, liqCall) {
 const BYO_CLAUSE = "the gate conformalizes against THOSE caller-supplied scores (BYO)";
 const NEVER_CALLS = "The gate only emits a decision; it never calls the named tool.";
 const BT_CLAUSE = "B_t is caller-carried";
-// The `attested` clauses: who carries the attestation, that no verifier runs, and that a BYO call does not take one.
-const ATTESTED = ["the attestation is carried by the caller", "the verifier is not executed here", "BYO classes do not accept `attested`"];
+// The `attested` clauses: who carries the attestation, that no verifier runs, that a BYO call does not take one, and that no served class takes one (C-2).
+const ATTESTED = ["the attestation is carried by the caller", "the verifier is not executed here", "BYO classes do not accept `attested`", "No served class has a committed attestation subject (the retired 'btc-dir-15m' held the only one), so any `attested` is refused."];
 for (const p of [...ATTESTED, BYO_CLAUSE, NEVER_CALLS]) need(GATE_TOOL_DESCRIPTION.includes(p), `closed clause absent from the harness source: ${p}`);
 const TOOL_NOTES = { cascade: "This cascade tool is v0", gate: NEVER_CALLS, calibrate: CALIBRATE_LABEL.split(". ")[0] };
 const INTERNAL = /\bADR-|\b[CDKU]-\d|\bD\d+\b|\bP1\b|\bKraidle\b|binance|coinbase|databento|massive|polygon|helius|chainstack|tenderly|drpc|blastapi|nodies|cloudfront|\bverified\b|guarantee|partner|autonomous/i;

@@ -81,7 +81,7 @@ const GREEN = {
   description: "status=200 committed_clause=true empty_registry_sentence=false",
 };
 
-// (2) the CA end-to-end against the in-process harness: 13 checks, exit 0, every check ok, the three liq checks present,
+// (2) the CA end-to-end against the in-process harness: 15 checks, exit 0, every check ok, the three liq checks present,
 // ok, and each reading what it should (detail). Mutants: describeGate(false) hard-coded (the served description drops
 // the committed clause) => mcp_gate_description_liq red; the liq body sent with alpha 0.1 (a named 400) => red; the
 // uncommitted body put in s0 => red.

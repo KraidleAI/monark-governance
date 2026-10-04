@@ -17,7 +17,7 @@
 // on the COMMITTED registry -- a gate call in the committed stratum s0 (200, verdict.reason covered, the upper bound
 // [0, yhat + qhat], the committed n_calib and C5 digest, the committed class text in `content`), a gate call in an
 // UNcommitted stratum (200, abstain, verdict.reason under_calib, n_calib 0), and the served tools/list description of
-// `gate` (the committed clause entire, the empty-registry sentence absent). 13 checks.
+// `gate` (the committed clause entire, the empty-registry sentence absent). 15 checks (CM-2b adds gate_retired_call and gate_future_call).
 // Then writes the CA
 //   { url, mcp_url, checked_at, checks:[{ name, ok, status, sha256 }], tls:{ issuer, valid_to, authorized } | { skipped } }
 // to stdout (and --out FILE), and exits non-zero on any failure. The per-check sha256 pins the exact

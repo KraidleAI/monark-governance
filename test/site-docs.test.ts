@@ -765,18 +765,19 @@ test("docs_research_alone_waives_the_cited_platform_names — MakerDAO and Compo
   assert.deepEqual(figureReaders, ["apps/site/app/docs/research/page.tsx"], "only /docs/research reads the committed figures, the one page the waiver covers");
 });
 
-// CM-2b surfaces (G2 of the lot, M5; MONARK's choice in its diff check of CM-2b, §4): Shōgen stays built; its integration
-// tests are the served attest tests (the HTTP mirror, a real listener under the deploy CA) and the two unit tests of the
-// dormant join into the gate. Limit: neither served test pins the witness values (ATTEST-KATA-SUBJECT-1).
-// killer: apps/site/lib/fleet.ts:142 CONST "\"http_mirror_matches_mcp_surface\"" -> "\"probe_harness_records_real_decision\""
+// CM-2b surfaces (G2 of the lot, M5; MONARK's choice in its diff check of CM-2b, §4, then K-6): Shōgen stays built; its integration
+// tests are, first, the h5 probe (it pins the served witness values), then the served attest tests (the HTTP mirror, a real listener
+// under the deploy CA; limit: neither pins the witness values, ATTEST-KATA-SUBJECT-1) and the two unit tests of the dormant join.
+// killer: apps/site/lib/fleet.ts:142 CONST "[\"probe_harness_records_real_decision\", " -> "["
 test("shogen_integration_tests_are_the_served_attest_and_the_join_units", () => {
   const shogen = FLEET_AGENTS.find((a) => a.name === "Shōgen");
   assert.ok(shogen !== undefined && shogen.status === "built", "Shōgen stays built");
   assert.deepEqual(
     [...shogen.wiring.integration_test].sort(),
-    ["gate_attested_discordant_is_tool_error", "gate_attested_is_frozen_attested_price", "http_mirror_matches_mcp_surface", "verify_harness_ca_passes_on_the_in_process_harness"],
-    "the two served attest integration tests and the two join unit tests",
+    ["gate_attested_discordant_is_tool_error", "gate_attested_is_frozen_attested_price", "http_mirror_matches_mcp_surface", "probe_harness_records_real_decision", "verify_harness_ca_passes_on_the_in_process_harness"],
+    "the h5 probe, the two served attest integration tests and the two join unit tests",
   );
+  assert.equal(shogen.wiring.integration_test[0], "probe_harness_records_real_decision", "the h5 probe comes first (K-6): it pins the served witness values");
 });
 
 // C-1 of MONARK's diff check of CM-2b ((b) to (d)): no surface presents the attest -> gate join as live, nor btc-dir-15m as

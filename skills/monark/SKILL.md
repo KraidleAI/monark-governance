@@ -59,7 +59,7 @@ is retired and not served (a call to it returns a named 400, `task_class_retired
 calibration is no longer served). They are NOT use cases. The real path is BYO: bring your own predictor +
 nonconformity scores.
 
-The other served `task_class`, `stable-run-velocity-24h` (redemption-run velocity, the Narabi sensor), is **served by
+Two other `task_class`es are served: `liquidation-eligible-coverage` (the server imposes `alpha = 0.01` and `nMin = 100`), and `stable-run-velocity-24h` (redemption-run velocity, the Narabi sensor), **served by
 this endpoint** with a **committed calibration for one population** — USDe, key
 `narabi:persistence-v2@eip155:1/erc20:0x4c9edd5852cd905f086c759e8383e09bff1e68b3`, measured on calm onchain
 redemption-flow windows. The calibration is measured non-stationary across half-years, so **no per-window
