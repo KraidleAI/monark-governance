@@ -1,8 +1,8 @@
 # G7 du lot d'outil RED-PROOF-TAP-TRUNCATION-1 : un TAP tronqué de `scripts/red-proof.mjs` ne se lit jamais comme un verdict
 
 - **Plan** : `docs/G0-lot-red-proof-tap-truncation-1.md`. **Base** : `6dd2ecb7` (tête de la PR #113, gel `4cf8134`, empilement).
-  Branche `recherches/red-proof-tap-truncation-1`. Commits : `31a2bc7` (G0), `2c30798` (tests rouges), `de8ab67` (code, **gel**), puis ce
-  G7. Hôte de mesure : Linux, 4 cœurs, Node v22.22.2.
+  Branche `recherches/red-proof-tap-truncation-1`. Commits : `31a2bc7` (G0), `2c30798` (tests rouges), `de8ab67` (code, premier gel), `fc510e2`
+  (G7) ; pli de la G2 : `50104ae` (tests), `73d6ee4` (code, **gel**), puis ce G7 révisé. Hôte de mesure : Linux, 4 cœurs, Node v22.22.2.
 
 ## Cause et correctif
 
@@ -53,7 +53,7 @@ jamais un test) : 22 inchangés.
 - G0, « tests ≈ 30 » : +55 lignes de test et 22 adresses réécrites.
 - Pas de destination fichier pour le TAP (`--test-reporter-destination`) : elle ne touche pas le saut 1 (l'enfant parle au lanceur par
   un tuyau que l'outil ne choisit pas), et son effet sur le saut 2 n'est pas mesurable à ces taux ; la garde couvre le saut 2.
-- Pas encore de G2 neuve sur ce lot (à faire avant de passer la PR à MONARK, règle 4 amendée).
+- G2 neuve faite et pliée (section ci-dessous).
 
 ## Questions pour MONARK
 
@@ -65,8 +65,40 @@ jamais un test) : 22 inchangés.
 - **Q-RPT-3** : un passage où seule la ligne de sortie manque (TAP sinon complet) est refusé `inconclusive_truncated`. Ce refus prudent
   vous convient-il, ou faut-il ne nommer que le plan court ?
 
+## Pli de la G2 (instance neuve : APPROUVE-AVEC-CORRECTIONS, rien de bloquant)
+
+Rapport : `scratchpad/G2-red-proof-tools.md` (sondes `scratchpad/g2-rpt/`). La G2 confirme la cause sous Node 24.21.0 : sans
+`PRELOAD`, 44 passages courts sur 96 (`detect-ee7-history`, plans 17 à 31, exit 0) ; avec, 96/96 à `1..33`.
+
+| Point | Changement | Test (rouge à la base `6dd2ecb7`) | Tueur |
+|---|---|---|---|
+| **G10** (à corriger) : sans `inconclusive_truncated` dans la liste de l.207, un tueur tiré sur un TAP tronqué se lit **`killed`** | aucun code (l.207 était juste, sans test) | `red_proof_counts_a_drawn_killer_whose_run_is_truncated_inconclusive_never_killed` : nouveau module `lib/cut.ts`, le tueur `CUT = true` fait geler stdout (`cork`) ; tir `inconclusive_truncated` → `inconclusive`, preuve refusée | l.207 (G10 déclaré) |
+| **G9**, **G14** : la base seule tronquée | aucun code | `red_proof_names_a_truncation_at_base_alone_inconclusive` (base tronquée, gel `pass` : `inconclusive`, motif nommé) | l.178 (G9 déclaré) ; G14 tué aussi |
+| **G2**, **G3**, **G4** : ancre de `# duration_ms`, plan long, plan absent | aucun code | corps de `red_proof_names_a_tap_without_its_plan_or_summary_truncated` élargi (plan `1..3` pour 2, résumé sans plan, `# duration_ms` coupé dans sa ligne, ligne de sortie sans nonce) | l.99 déclaré ; G2, G3, G4 tués |
+| **Q-RPT-3** / **m-2** : la ligne de sortie pouvait être imitée (`console.log`) ou perdue (`process.stdout.write` remplacé) | l.38 : la ligne porte un **nonce par passage** (`RED_PROOF_EXIT`, `randomBytes`, l.164-167), écrite par `writeSync(1, …)` et **seulement si rien n'attend dans la file** de `process.stdout` (sinon : pas de ligne, troncature nommée) ; l.100 l'exige | `red_proof_reads_a_spoofed_exit_line_without_the_run_nonce_as_truncated` | l.100, le nonce retiré de l'expression |
+| **m-1** : un petit-enfant lancé avec `process.execArgv` héritait du `PRELOAD` et écrivait la ligne sur son propre stdout (faux `other-fail`) | l.38 : l'enfant **retire le nonce de son env** ; sans nonce, le module n'écrit rien | `red_proof_exit_line_never_reaches_a_grandchild_spawned_with_the_childs_execargv` (exactement une ligne, `grand_json` vert) | l.38, `delete` retiré |
+
+La perte réelle est désormais simulée par `process.stdout.cork()` (les écritures restent en file à la sortie forcée, le mécanisme du
+saut 1) au lieu du remplacement de `process.stdout.write`, que `writeSync` contourne exprès.
+
+Mutants de la G2 rejoués à la main sur le gel `73d6ee4` (Node 24.21.0, fichier entier) : G1, G2, G3, G4, G9, G10, G11 (désormais la
+condition « file vide »), G12, G13, G14, G15 tués ; survivent G5, G6, G8 (affaiblissements notés par la G2) et G7 (ancre retirée, le
+nonce reste exigé). Mutant neuf G16 (nonce constant) tué par 19 tests.
+
+Oracle du gel `73d6ee4` :
+- `node scripts/red-proof.mjs --base 6dd2ecb7 --gel 73d6ee48 --repo /home/user/monark-governance-rt --draw 7 --seed 37` : **OK**, exit 0 ;
+  7 F2P, 22 inchangés, 7 tueurs tirés (la population), 7 tués ; `RED-PROOF.json` sha256 `ca12d881…`, digest `f4641185…`.
+- `test/red-proof.test.ts` : 28/29 sous Node 22 (le rouge préexistant `vi_hangs`), **29/29 sous Node 24.21.0**.
+- `tsc` vert (aussi au commit des tests), `lint:ratchet` 69/69, `gate:vocab` OK ; adresses des tueurs 29/29 (contrôleur).
+- R-25 par `r25()` sur `6dd2ecb7...HEAD` : +118/−33, **151** (sous 547).
+- Fait vu en passant : deux suites lancées en parallèle sous `node --test` sans `PRELOAD` (la commande `npm test` du dépôt), l'une a
+  rendu 18 tests au lieu de 29, exit 1 sans rouge de plus. `npm test` lui-même est exposé au saut 1 ; hors zone du lot, item à
+  former (NPM-TEST-FORCE-EXIT-TRUNCATION-1, propriétaire MONARK).
+
+Réponses de la G2 consignées : Q-RPT-1 (Linux, oui ; neutre sous Windows), Q-RPT-2 (confirmé sous Node 24.21.0 : ligne de sortie dans
+`base.tap` et `gel.tap`), Q-RPT-3 (garder le refus, durci comme ci-dessus).
+
 ## Sortie
 
-Prêt pour la G2 neuve puis le contrôle par diff de MONARK. Item RED-PROOF-TAP-TRUNCATION-1 clos au gel `de8ab67` sous réserve de
-Q-RPT-1 à Q-RPT-3. Le changement de mode de `packages/rpc-guard/bin/rpc-guard.mjs` laissé par `npm ci` n'est pas commis ; rien n'est
+Prêt pour le contrôle par diff de MONARK. Item RED-PROOF-TAP-TRUNCATION-1 clos au gel `73d6ee4` (pli de la G2) ; Q-RPT-1 à Q-RPT-3 répondues par la G2. Le changement de mode de `packages/rpc-guard/bin/rpc-guard.mjs` laissé par `npm ci` n'est pas commis ; rien n'est
 poussé.
