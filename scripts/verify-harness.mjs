@@ -36,13 +36,21 @@ const DEFAULT_MCP = "https://mcp.monarkgate.tech";
 // dropped OR a stray tool reddens (B-2, motif registry.test.ts:55).
 const TOOLS = ["gate", "cascade", "attest", "calibrate"];
 
-// Same fixture shapes the harness tests use (a real, non-abstain btc-dir decision; a 2-node cascade;
+// Same fixture shapes the harness tests use (a real, non-abstain decision on the committed USDe key, alpha 0.1 and nMin 50
+// imposed since CM-2b, btc-dir-15m being retired; a 2-node cascade;
 // a calibrate call whose n=10 >= nMin and p=⌈11·0.9⌉=10 <= n yields a numeric q̂).
 const GATE_BODY = {
-  prediction: { schema_version: "1.0.0", task_class: "btc-dir-15m", yhat: "up", predictor_id: "internal:momentum-4c", produced_at: "2026-09-04T00:00:00Z" },
-  params: { remainingBudget: 0.1, bFloor: 0, tau: 1, tauInterval: 1, alpha: 0.1, nMin: 50, intent: "up", tool: "perps_order_preview", clockOpen: true },
+  prediction: { schema_version: "1.0.0", task_class: "stable-run-velocity-24h", yhat: 0.0001, predictor_id: "narabi:persistence-v2@eip155:1/erc20:0x4c9edd5852cd905f086c759e8383e09bff1e68b3", produced_at: "2026-09-04T00:00:00Z" },
+  params: { remainingBudget: 0.1, bFloor: 0, tau: 1, tauInterval: 1, alpha: 0.1, nMin: 50, intent: 0.0001, tool: "perps_order_preview", clockOpen: true },
 };
 const CASCADE_BODY = { L: [[0, 100], [50, 0]], e: [40, 20], shock: 0, producedAt: "2026-09-04T00:00:00Z" };
+// CM-2b (ADR-CM B-5): the retired class answers a named 400 with its stable code (CM-2a, B-3).
+const GATE_RETIRED_BODY = {
+  prediction: { schema_version: "1.0.0", task_class: "btc-dir-15m", yhat: "up", predictor_id: "internal:momentum-4c", produced_at: "2026-09-04T00:00:00Z" },
+  params: { ...GATE_BODY.params, intent: "up" },
+};
+// CM-2a (ADR-CM B-4, MONARK C-8): a produced_at far in the future answers 400 produced_at_future at the entry point.
+const GATE_FUTURE_BODY = { prediction: { ...GATE_BODY.prediction, produced_at: "2099-01-01T00:00:00Z" }, params: GATE_BODY.params };
 const CALIBRATE_BODY = { scores: [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0], alpha: 0.1, nMin: 5 };
 // Lot C2 BYO loop: a /gate call that REUSES CALIBRATE_BODY.scores as caller-supplied calibration (interval
 // mode, a caller-owned task_class). Hand-rolled n=10, α=0.1 ⇒ p=⌈11·0.9⌉=10 ⇒ q̂=10th smallest=1.0; ŷ=0 ⇒
@@ -253,6 +261,15 @@ async function main() {
     const action = j && j.structuredContent ? j.structuredContent.action : null;
     return { ok: res.status === 200 && ["commit", "defer", "abstain"].includes(action), detail: `action=${action}` };
   }));
+
+  // CM-2b / CM-2a: a 400 carries its stable `code`: the retired class, and a produced_at in 2099.
+  for (const [name, body, code] of [["gate_retired_call", GATE_RETIRED_BODY, "task_class_retired"], ["gate_future_call", GATE_FUTURE_BODY, "produced_at_future"]]) {
+    checks.push(await wiredCheck(name, `${api}/gate`, jsonInit(body), apiHostHeader, (res, text) => {
+      const j = parseJson(text);
+      const got = j && typeof j.code === "string" ? j.code : null;
+      return { ok: res.status === 400 && j !== null && j.error === "tool_error" && got === code, detail: `status=${res.status} code=${String(got)}` };
+    }));
+  }
 
   // U-4b-2b (ADR-U4b-2b D4): the liq class is SERVED through the gate on the COMMITTED registry. A yhat of the committed
   // stratum s0 answers 200 with verdict.reason covered and the conformal UPPER BOUND [0, yhat + qhat] (qhat read from the

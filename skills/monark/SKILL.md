@@ -56,9 +56,9 @@ returns `under_calib` and abstains - no success is invented.
 ## The two built-in task classes are NOT use cases
 
 The two built-in `task_class` values (`btc-dir-15m`, `cascade-liquidable-24h`) are internal
-**plumbing fixtures**, not use cases and not endorsements: `btc-dir-15m` uses a declared **synthetic**
-calibration (never a measured predictor), and `cascade-liquidable-24h` ships no calibration at all, so
-it abstains (`under_calib`). They are NOT use cases. The real path is BYO: bring your own predictor +
+**plumbing fixtures**, not use cases and not endorsements: `btc-dir-15m` is retired (a call to it returns a
+named 400, `task_class_retired`; its declared **synthetic** calibration is no longer served), and
+`cascade-liquidable-24h` ships no calibration at all, so it abstains (`under_calib`). They are NOT use cases. The real path is BYO: bring your own predictor +
 nonconformity scores.
 
 A third `task_class`, `stable-run-velocity-24h` (redemption-run velocity, the Narabi sensor), is **served by
@@ -66,6 +66,7 @@ this endpoint** with a **committed calibration for one population** — USDe, ke
 `narabi:persistence-v2@eip155:1/erc20:0x4c9edd5852cd905f086c759e8383e09bff1e68b3`, measured on calm onchain
 redemption-flow windows. The calibration is measured non-stationary across half-years, so **no per-window
 coverage is claimed**; the committed region is static and **every other population abstains** (`under_calib`).
+On that key the server imposes `alpha = 0.1` and `nMin = 50` (any other value is a named 400).
 Alongside it, an off-tool **daily** sentinel steps an adaptive quantile tracker on the attested 24h flow and
 publishes a replayable timeline (`state.json`, `timeline.jsonl`) at `monarkgate.tech/narabi/`; the committed
 gate region does not change until a pre-registered drift criterion fires and an ADR says so.

@@ -27,7 +27,7 @@ import { createHash } from "node:crypto";
 import { fileURLToPath } from "node:url";
 import { CALIBRATE_LABEL } from "../apps/harness/src/tools/calibrate.ts";
 import {
-  TASK_BTC_DIR, TASK_CASCADE, TASK_STABLE_RUN, TASK_LIQ_ELIGIBLE, CASCADE_UNCALIBRATED_SENTENCE, STABLE_RUN_COMMITTED_CORE,
+  TASK_CASCADE, TASK_STABLE_RUN, TASK_LIQ_ELIGIBLE, CASCADE_UNCALIBRATED_SENTENCE, STABLE_RUN_COMMITTED_CORE,
   STABLE_RUN_UNCALIBRATED_SENTENCE, LIQ_EMPTY_REGISTRY_SENTENCE, LIQ_REQUIREMENTS_SENTENCE, GATE_TOOL_DESCRIPTION,
   LIQ_UPPER_BOUND_SENTENCE, LIQ_H3_SENTENCE, LIQ_CONDITIONAL_SENTENCE, LIQ_COMMITTED_SENTENCE,
 } from "../apps/harness/src/tools/gate.ts";
@@ -48,8 +48,8 @@ const sameSet = (a, b) => a.length === b.length && [...a].sort().join(",") === [
 // The deploy check's own request bodies (scripts/verify-harness.mjs GATE_BODY / CALIBRATE_BODY / CASCADE_BODY /
 // GATE_LIQ_BODY), byte-identical so each served response hashes to the sha256 the committed check recorded.
 const GATE_BODY = {
-  prediction: { schema_version: "1.0.0", task_class: "btc-dir-15m", yhat: "up", predictor_id: "internal:momentum-4c", produced_at: "2026-09-04T00:00:00Z" },
-  params: { remainingBudget: 0.1, bFloor: 0, tau: 1, tauInterval: 1, alpha: 0.1, nMin: 50, intent: "up", tool: "perps_order_preview", clockOpen: true },
+  prediction: { schema_version: "1.0.0", task_class: "stable-run-velocity-24h", yhat: 0.0001, predictor_id: "narabi:persistence-v2@eip155:1/erc20:0x4c9edd5852cd905f086c759e8383e09bff1e68b3", produced_at: "2026-09-04T00:00:00Z" },
+  params: { remainingBudget: 0.1, bFloor: 0, tau: 1, tauInterval: 1, alpha: 0.1, nMin: 50, intent: 0.0001, tool: "perps_order_preview", clockOpen: true },
 };
 const CALIBRATE_BODY = { scores: [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0], alpha: 0.1, nMin: 5 };
 const CASCADE_BODY = { L: [[0, 100], [50, 0]], e: [40, 20], shock: 0, producedAt: "2026-09-04T00:00:00Z" };
@@ -60,14 +60,12 @@ const GATE_LIQ_BODY = {
 
 // CLOSED clause list — exact served phrases, never a paraphrase. Each class row names the phrases that must be served;
 // the stable-run row keeps the scope qualifier of the committed calibration (calm-window redemption flow).
-const BTC_SYNTHETIC = "declared synthetic — a plumbing fixture, not a measured predictor";
 const STABLE_ONE = "a committed stable-run velocity calibration for the USDe synthetic-dollar-whitelisted-redeem population";
 const STABLE_CALM = "over calm-window redemption flow";
 const STABLE_NONSTATIONARY = "the calibration is measured non-stationary across half-years";
 const STABLE_NO_COVERAGE = "no coverage is measured";
 for (const p of [STABLE_ONE, STABLE_CALM, STABLE_NONSTATIONARY, STABLE_NO_COVERAGE]) need(STABLE_RUN_COMMITTED_CORE.includes(p), `closed clause absent from the harness source: ${p}`);
 const BASE_CLASSES = [
-  { class_id: TASK_BTC_DIR, state: "synthetic", clauses: [BTC_SYNTHETIC] },
   { class_id: TASK_CASCADE, state: "none", clauses: [CASCADE_UNCALIBRATED_SENTENCE] },
   { class_id: TASK_STABLE_RUN, state: "committed", clauses: [STABLE_ONE, STABLE_CALM, STABLE_NONSTATIONARY, STABLE_NO_COVERAGE, `for any other population, ${STABLE_RUN_UNCALIBRATED_SENTENCE}`] },
 ];
