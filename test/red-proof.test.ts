@@ -413,7 +413,7 @@ function pinRun(key: string, files: Record<string, string | null>, extra: string
     if (Object.keys(commit).length > 0) { write(wt, commit); git(wt, "add", "-A"); git(wt, "commit", "-q", "-m", "base of the lot"); git(wt, "tag", `base-${key}`); } // a base the fixture lacks (B-1)
     for (const [p, text] of Object.entries(files)) if (text === null) rmSync(join(wt, p)); else write(wt, { [p]: text });
   }
-  return run(`${key}${extra.length > 0 ? "" : "-f2p"}`, wt, extra, git(wt, "rev-parse", "HEAD"));
+  return run(`to-${key}${extra.length > 0 ? "" : "-f2p"}`, wt, extra, git(wt, "rev-parse", "HEAD"));
 }
 const pinOk = (): Run => pinRun("pin", { "test/pin.test.ts": `${PINS}${PIN}`, "docs/G0-pin.md": G0(true, XX) }, ["--test-only"]);
 const pinWeak = (): Run => pinRun("weak", { "docs/G0-pin.md": G0(true, XX, 'lib/old.ts:1 CONST "1" -> "5"', 'packages/w/index.js:1 COR "x + x" -> "x.y.z"'), "test/sub/out.test.ts": `${PINS}// killer: ${XX}\ntest("pin_out", () => { assert.equal(double(4), 8); });\n`,
