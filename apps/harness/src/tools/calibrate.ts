@@ -25,6 +25,7 @@
  */
 import { splitQuantile } from "@monark/hikae";
 import { calibDigest } from "@monark/contracts";
+import type { HarnessErrorCode } from "./gate.ts";
 
 export const CALIBRATE_TOOL_NAME = "calibrate";
 
@@ -85,6 +86,8 @@ export function calibrateVerdictSummary(r: CalibrateResult): string {
 
 /** A tool-level error (K-4a analog): surfaced by the MCP/HTTP seam as a tool error, never a silent output. */
 export class CalibrateToolError extends Error {
+  /** Stable error code of this class (ADR-CM B-3, plan docs/G0-lot-cm-2a.md). */
+  readonly code: HarnessErrorCode = "calibrate_input_invalid";
   constructor(message: string) {
     super(message);
     this.name = "CalibrateToolError";

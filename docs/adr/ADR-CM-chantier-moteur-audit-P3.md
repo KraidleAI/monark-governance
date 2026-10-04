@@ -160,3 +160,25 @@ C-1 écart base et servi (en tête, B-0) ; C-2 btc-dir déjà retirée (Q-F1, B-
 - **Chiffres** : à l'en-tête (« Écart entre la base et le servi »), le diff `62e0cae..404480e8` de `gate.ts` (B-0) est **+23/−3**, et non +26/−3. CM-1 seul mesure `gate.ts` +38/−0 et `calibration.ts` +16/−0 (`git diff 404480e8 c53f0a72`).
 - **Prix de BYO-ASCII-LOOKALIKE-1** : environ 40 lignes de code et 80 de tests, une ligne B neuve au §5 (go du fondateur). Cas : rapport `recherches:coordination/pieces/2026-10-03-cm1-dem4/cm1-RAPPORT.md` (sha256 `d6ef7ec9…6b99`), E1 à E15.
 - **CM-1 fusionnée** dans la base (`c53f0a72`, PR #103) et dans le tronc de MONARK (`59b95f29`) ; rien n'est déployé.
+
+## Amendement daté 2026-10-03 (nuit, 2) : plan de CM-2, B-2 resserré, B-10 ; go du fondateur
+
+- **Go du fondateur**, verbatim : « oui aux 1, 2 et 3 », réponse à la présentation de RECHERCHES du 2026-10-03 (1 : B-2 resserré ; 2 : changements servis qui en découlent ; 3 : B-10). Avis de l'advisor du plan de CM-2 (avis, jamais verdict) ; mesures de MONARK (`recherches:coordination/pieces/2026-10-03-cm1-dem4/dem4-RAPPORT.md` §3 et §4).
+- **B-2 remplacé** par : le serveur impose les seuls paramètres liés à la calibration. Table F-7 :
+
+| Classe | α | nMin | tau | `tauInterval` |
+|---|---|---|---|---|
+| USDe, clé commise seulement | 0,10 imposé | 50 imposé | sans objet (validé fini ≥ 0) | appelant |
+| USDe, autres clés | appelant (`under_calib`) | appelant | appelant | appelant |
+| liq | 0,01 imposé (déjà) | 100 imposé (déjà) | sans objet | appelant |
+| cascade | sans objet (registre vide) | sans objet | appelant | appelant |
+| BYO set et interval | inchangé (plafond de B-0) | inchangé | inchangé | inchangé |
+
+  Un α ou un nMin envoyé différent de la table rend un 400 nommé (égalité stricte, comme liq aujourd'hui) ; la valeur de l'appelant n'est jamais remplacée en silence. `tauInterval` est la tolérance de largeur de l'appelant : il ne change aucune revendication de couverture. Le plafond tau ≤ 1 passe aux classes kata `set` (CM-4).
+- **B-3 étendu** : le code d'erreur stable figure aussi côté MCP (`_meta`, `monarkgate.tech/error_code`), le premier contenu du message restant identique octet pour octet.
+- **B-4 précisé** : `produced_at` RFC 3339 strict dans `runGate` (ferme P5(b)) ; « pas dans le futur » aux points d'entrée HTTP et MCP, avec une tolérance déclarée de 300 s et l'instant injecté depuis `src/` (K-8) ; aucune grille pour USDe, liq, cascade et le BYO.
+- **B-5 précisé** : `btc-dir-15m` rend un 400 nommé `task_class_retired` ; la liste `known:` du message de classe inconnue et la description du service changent ; empreintes de la description et d'`openapi.json` déplacées.
+- **B-7 précisé** : l'écart du texte USDe est compté en ulp **du bord** (au plus un demi-ulp du bord, la bande n'est pas élargie).
+- **B-10 (nouveau, CM-2c)** : BYO-ASCII-LOOKALIKE-1 : un nom BYO dont la réduction des confusables ASCII (l, I, 1 ; rn, m ; 0, o ; `_`, `-` ; blancs internes) égale un nom commis ou suit le motif kata, ou une clé dont la réduction commence par `kata:`, rend un 400 nommé.
+- **Ordre des 400** : une requête invalide sur deux points peut changer de message ; 400 reste 400.
+- **Découpage** : CM-2a (S-6, S-15/B-6, S-10/B-4, STALE-COMMENTS-1) ; CM-2b après 2a (S-12/B-5, S-1/B-2, E-7/B-7) ; CM-2c (B-10).
