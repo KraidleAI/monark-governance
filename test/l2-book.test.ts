@@ -6,7 +6,7 @@
 // Synthetic data only.
 import { after, test } from "node:test";
 import assert from "node:assert/strict";
-import { existsSync, mkdtempSync, readFileSync } from "node:fs";
+import { existsSync, mkdtempSync, readFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { OP, startPlace, trap, viaFetch, viaWebSocket, type Peer, type Place, type Reply } from "./l2-fake-place.ts";
@@ -16,8 +16,9 @@ import { cidOf, readSegment, segmentOf } from "../scripts/l2/segments.mjs";
 import type * as BookM from "../scripts/l2/book.mjs";
 
 trap();
-const places: Place[] = [];
-after(async () => { for (const p of places) await p.stop(); });
+const places: Place[] = [], outs: string[] = [];
+const tmp = (): string => { const d = mkdtempSync(join(tmpdir(), "l2-book-")); outs.push(d); return d; };
+after(async () => { for (const p of places) await p.stop(); for (const d of outs) rmSync(d, { recursive: true, force: true }); });
 const T0 = 1_760_000_000_000_000; // a synthetic wall clock in microseconds
 type L = [string, string];
 const BIDS: L[] = [["0.10", "1.0"], ["0.09", "2.0"]], ASKS: L[] = [["0.20", "3.0"]];
@@ -41,7 +42,7 @@ async function rig(snaps: Reply[] | (() => Reply), onPeer: (peer: Peer) => void 
   const queue = typeof snaps === "function" ? [] : [...snaps], at: number[] = [], clock = { us: T0 }, sleeps: number[] = [], hold = { wait: Promise.resolve() };
   const place = await startPlace(onPeer, () => { at.push(clock.us); clock.us += 1; return typeof snaps === "function" ? snaps() : queue.shift() ?? { status: 451 }; });
   places.push(place);
-  const out = mkdtempSync(join(tmpdir(), "l2-book-")), nowUs = (): number => clock.us;
+  const out = tmp(), nowUs = (): number => clock.us;
   const rest = Rest.createRest({ fetch: viaFetch(place, [Rest.ORIGIN]), nowUs, out });
   const sleep = (ms: number): Promise<void> => { sleeps.push(ms); clock.us += ms * 1000; return hold.wait; };
   const book = M.createBook({ symbol: "BTCUSDT", rest, wallUs: nowUs, monoNs: () => BigInt(clock.us) * 1000n, sleep, out });
@@ -283,7 +284,7 @@ test("l2_buffers_bounded_oldest_dropped", async () => {
 
 // killer: scripts/l2/book.mjs:54 CONST "!PLAIN.test(v)" -> "false"
 test("l2_book_guards_named", async () => {
-  const M = await load(), out = mkdtempSync(join(tmpdir(), "l2-book-")), file = join(out, "journal.jsonl");
+  const M = await load(), out = tmp(), file = join(out, "journal.jsonl");
   assert.throws(() => M.createBook({ symbol: "XRPUSDT" } as BookM.BookIo), { code: "bad_symbol" });
   // The journal of a link takes no address (P1-a3 PLAIN); a <cid> that is not one of P1-a3 is refused; a codeless stop is named.
   let calls = 0;
