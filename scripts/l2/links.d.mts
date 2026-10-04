@@ -45,8 +45,9 @@ export interface LinkIo {
   open?: (path: string) => Promise<SegmentFile>;
 }
 
-/** symbol: one of SYMBOLS for a spot link, "ALL" for /market, named in each <cid>; url: the URL opened, spotUrl(symbol) or marketUrl(),
- *  on the origin and route of its kind; out: the output directory; kind: "spot" (the default) or "market". */
+/** symbol: one of SYMBOLS for a spot link, "ALL" for /market, named in each <cid>; url: spotUrl(symbol) or marketUrl(), on the origin
+ *  and route of its kind, no "%" in its path, no timeUnit on /market; its normalized form is opened; out: the output directory; kind:
+ *  "spot" (the default) or "market". */
 export interface LinkSpec {
   symbol: string;
   url: string;
@@ -56,7 +57,8 @@ export interface LinkSpec {
 
 /** A link: stop() closes its connections, named "stopped", cancels its timers and resolves once each of its writers is closed (never,
  *  while a stalled disk keeps a writer from writing its queue). switched(cid): the book follows <cid>, the new connection of an overlap,
- *  open; the old one then closes ("renewed") once the new one has been open OVERLAP_MS; false, nothing changed, otherwise. */
+ *  open and live; the old one then closes ("renewed") once that connection has been open OVERLAP_MS (a switch to a connection that dies
+ *  never closes the old one for its successor); false, nothing changed, otherwise. A /market link needs no switch. */
 export interface Link {
   stop(): Promise<void>;
   switched(cid: string): boolean;

@@ -1,24 +1,24 @@
-// scripts/l2/links.mjs -- the links of the L2 recorder (lots P1-a3 and P1-a4 of part P1, 2026-10-04): ADR-L2-CAPTURE-1 D-8, D-19, D-21,
-// section 2.3; plan docs/G0-partie-l2-p1.md section 3 points 1 to 8, D24-1, D24-4; decisions Q-P1-3 and Q-P1-5; lot plan
-// docs/G0-lot-l2-p1-a4.md. Node 24, zero dependencies. "undici l.N" is line N of the client source embedded in Node v24.15.0 (undici
-// 7.24.4, sha256 d6332aa1ca04f71f...), as in the plan's L-1. A link is the run of connections of one kind: spot, one symbol on the
-// combined URL of spotUrl() (three streams, place times in microseconds), or market, the four @forceOrder of marketUrl() (no timeUnit:
-// FAITS-L2-ACCESS-3 (e) not established). openLink() refuses, before the factory is called and before anything is written, a URL off the
-// origin and route of its kind (host_refused); each text message, as the embedded client delivers it and unread, goes to the segment
-// writer of its connection (scripts/l2/segments.mjs, one <cid> each); the client alone writes the PONGs (undici l.14979-14984), the link
-// sends nothing but a CLOSE (D-19). Journal <out>/journal.jsonl, one line per event as it happens: host_us and mono_ns (host clocks),
-// symbol, cid, event (open, ping, close, writer_stop, retry, defer, renew, overlap_break), its fields; a string that PLAIN refuses is
-// written null: no address (IPv4, IPv6, host:port); no socket address is read, the open channel (undici l.15394) never subscribed. Pings
-// are read on undici:websocket:ping, which names their client (undici l.15156). Watchdog (D24-1): no message nor ping for WATCHDOG_K
-// ping intervals of the kind closes the connection, named. A writer stop (queue_overflow past 8 MiB, write_failed, clock_invalid) is
-// journaled as writer_stop and closes a live connection, named. After a close of the connection followed, once its writer is closed,
-// a new one after 1, 2, 4... s, capped at RETRY_CAP_MS, back to 1 s after one that delivered text; the process gate admits OPENS_MAX
-// openings per OPENS_WINDOW_MS, sliding, and defers the others, named. Planned renewal (points 6, 7; D-8): at RENEW_AGE_MS + rank x
-// RENEW_STAGGER_MS of age, or at once on serverShutdown (read after the writer has the frame), a new connection opens; the old one closes
-// (renewed) once the new one has been open OVERLAP_MS and the book has switched (switched(cid), from c5; /market feeds no book), else
-// stays open until the place cuts it, then a named overlap_break: no failover, never reopened. One overlap at a time. Test seam: factory,
-// clocks, timers, gate and file opener come from the caller, never from the command line nor the environment. The agent never commits
-// (R-20).
+// scripts/l2/links.mjs -- the links of the L2 recorder (lots P1-a3 and P1-a4, 2026-10-04): ADR-L2-CAPTURE-1 D-8, D-19, D-21, section 2.3;
+// plan docs/G0-partie-l2-p1.md section 3 points 1 to 8, D24-1, D24-4; decisions Q-P1-3 and Q-P1-5; lot plan docs/G0-lot-l2-p1-a4.md. Node
+// 24, zero dependencies. "undici l.N" is line N of the client source embedded in Node v24.15.0 (undici 7.24.4, sha256 d6332aa1ca04f71f...),
+// as in the plan's L-1. A link is the run of connections of one kind: spot, one symbol on the combined URL of spotUrl() (three streams,
+// place times in microseconds), or market, the four @forceOrder of marketUrl() (no timeUnit: FAITS-L2-ACCESS-3 (e) not established).
+// openLink() refuses, before the factory is called and before anything is written, a URL off the origin and route of its kind, a "%" in its
+// path, a timeUnit on /market (host_refused), and opens the URL checked; each text message, as the embedded client delivers it and unread,
+// goes to the segment writer of its connection (scripts/l2/segments.mjs, one <cid> each); the client alone writes the PONGs (undici
+// l.14979-14984), the link sends nothing but a CLOSE (D-19). Journal <out>/journal.jsonl, one line per event as it happens: host_us and
+// mono_ns (host clocks), symbol, cid, event (open, ping, close, writer_stop, retry, defer, renew, renew_deferred, overlap_break), its
+// fields; a string that PLAIN refuses is written null: no address (IPv4, IPv6, host:port); no socket address is read, the open channel
+// (undici l.15394) never subscribed. Pings are read on undici:websocket:ping, which names their client (undici l.15156). Watchdog (D24-1):
+// no message nor ping for WATCHDOG_K ping intervals of the kind closes the connection, named. A writer stop (queue_overflow past 8 MiB,
+// write_failed, clock_invalid) is journaled as writer_stop and closes a live connection, named. After a close of the connection followed,
+// once its writer is closed, a new one after 1, 2, 4... s, capped at RETRY_CAP_MS, back to 1 s after one that delivered text; the process
+// gate admits OPENS_MAX openings per OPENS_WINDOW_MS, sliding, and defers the others, named. Planned renewal (points 6, 7; D-8): at
+// RENEW_AGE_MS + rank x RENEW_STAGGER_MS of age, or at once on serverShutdown (read after the writer has the frame), a new connection
+// opens; the old one closes (renewed) once the new one has been open OVERLAP_MS and the book has switched to it (switched(cid) of that
+// <cid>, from c5; /market feeds no book), else stays open until the place cuts it, then a named overlap_break: no failover, never reopened.
+// One overlap at a time, a renewal asked during one waits (renew_deferred) for its end. Test seam: factory, clocks, timers, gate and file
+// opener come from the caller, never from the command line nor the environment. The agent never commits (R-20).
 import { subscribe } from "node:diagnostics_channel";
 import { appendFileSync, mkdirSync } from "node:fs";
 import { join } from "node:path";
@@ -70,10 +70,10 @@ export function marketUrl() {
   return `${MARKET_ORIGIN}/market/stream?streams=${SYMBOLS.map((s) => `${s.toLowerCase()}@${MARKET_STREAM}`).join("/")}`;
 }
 
-/** True iff the URL parses and its normalized form begins with the route of its kind: another scheme, host, port or route, or a user
- *  part, is refused (the host is never matched by a prefix of its own). */
+/** The parsed URL iff its normalized form begins with the route of its kind and its path holds no "%" (an encoded slash, backslash or
+ *  dot is never a segment the parser sees), else null: another scheme, host, port or route, or a user part, is refused. */
 const admitted = (url, route) => {
-  try { return new URL(url).href.startsWith(route); } catch { return false; }
+  try { const u = new URL(url); return u.href.startsWith(route) && !u.pathname.includes("%") ? u : null; } catch { return null; }
 };
 /** True iff a text message is the serverShutdown event, combined or raw (FAITS-L2-ACCESS-3 (c)); the word alone is not enough. */
 const isShutdown = (text) => {
@@ -103,23 +103,29 @@ subscribe("undici:websocket:ping", ({ payload, websocket }) => { PINGS.get(webso
 export function openLink({ symbol, url, out, kind = "spot" }, io) {
   if (!Object.hasOwn(KINDS, kind)) stop("bad_kind", { kind });
   if (kind === "spot" ? !SYMBOLS.includes(symbol) : symbol !== "ALL") stop("bad_symbol", { symbol });
-  if (!admitted(url, KINDS[kind].route)) stop("host_refused", { url });
+  const u = admitted(url, KINDS[kind].route), href = u?.href; // the factory opens the URL checked here, never the string given
+  if (u === null || (kind === "market" && u.searchParams.has("timeUnit"))) stop("host_refused", { url }); // (e): no timeUnit on /market
   mkdirSync(out, { recursive: true });
-  const journal = join(out, "journal.jsonl"), query = new URL(url).searchParams, closing = new Set();
+  const journal = join(out, "journal.jsonl"), query = u.searchParams, closing = new Set();
   const streams = query.get("streams"), timeUnit = query.get("timeUnit"), ping = KINDS[kind].ping;
   const age = RENEW_AGE_MS + (kind === "spot" ? SYMBOLS.indexOf(symbol) : SYMBOLS.length) * RENEW_STAGGER_MS;
-  let cur = null, old = null, switched = false, timer = null, failures = 0, stopped = false;
+  let cur = null, old = null, switchedTo = null, timer = null, failures = 0, stopped = false;
   const note = (cid, event, fields = {}) => {
     const line = { host_us: io.wallUs(), mono_ns: String(io.monoNs()), symbol, cid, event, ...fields };
     appendFileSync(journal, JSON.stringify(line, (_, v) => (typeof v === "string" && !PLAIN.test(v) ? null : v)) + LF);
   };
   const arm = (c) => { io.clearTimer(c.dog); c.dog = io.setTimer(() => { end(c, "watchdog"); }, WATCHDOG_K * ping); };
-  const retire = () => { if (old !== null && cur?.lapped === true && switched) end(old, "renewed"); };
+  const moved = () => kind === "market" || (cur !== null && switchedTo === cur.cid); // /market feeds no book: nothing to wait for
+  const retire = () => { if (old !== null && cur?.lapped === true && moved()) end(old, "renewed"); };
   function renew(c, cause) { // a planned renewal of the connection followed: a new one opens, the old one stays until retire()
     if (!c.live || c !== cur || stopped) return;
-    if (old !== null) { c.due ??= cause; return; } // one overlap at a time: this one waits for the end of the current one
+    if (old !== null) { // one overlap at a time: this one waits for the end of the current one, named once
+      if (c.due === undefined) note(c.cid, "renew_deferred", { cause });
+      c.due ??= cause;
+      return;
+    }
     note(c.cid, "renew", { cause }); // its age timer stays: renew() of a connection no longer followed does nothing
-    [old, cur, switched, c.due] = [c, null, kind === "market", undefined]; // /market feeds no book: nothing to wait for
+    [old, cur, switchedTo, c.due] = [c, null, null, undefined]; // the switch is bound to the new connection's <cid>
     connect();
   }
   function end(c, cause, detail = {}) { // once per connection: the named close, its writer closed, then a new connection if followed
@@ -131,7 +137,7 @@ export function openLink({ symbol, url, out, kind = "spot" }, io) {
     note(c.cid, "close", { cause, ...detail });
     if (c === old) { // no failover: the old one is never reopened; closed before the switch, a named break
       old = null;
-      if (!switched && !stopped) note(c.cid, "overlap_break", { to: cur?.lapped === undefined ? null : cur.cid });
+      if (!moved() && !stopped) note(c.cid, "overlap_break", { to: cur?.lapped === undefined ? null : cur.cid });
       if (cur?.due !== undefined) renew(cur, cur.due);
     }
     const followed = c === cur;
@@ -159,7 +165,7 @@ export function openLink({ symbol, url, out, kind = "spot" }, io) {
       end(c, s.code); // a live connection closes on it, named
     };
     c.w = openWriter(out, cid, { wallUs: io.wallUs, monoNs: io.monoNs, open: io.open, onStop });
-    c.ws = io.webSocket(url);
+    c.ws = io.webSocket(href);
     c.ws.binaryType = "arraybuffer";
     c.ws.onopen = () => {
       if (!c.live) return;
@@ -185,7 +191,7 @@ export function openLink({ symbol, url, out, kind = "spot" }, io) {
   return {
     switched(cid) {
       if (stopped || old === null || cur?.lapped === undefined || !cur.live || cid !== cur.cid) return false;
-      switched = true;
+      switchedTo = cid; // bound to this connection: if it dies, a later new one waits for its own switch
       retire();
       return true;
     },

@@ -132,7 +132,7 @@ test("l2_renewal_age_staggered_by_rank", async () => {
       ["ALL", "age", H23 + 4 * MIN5]], "23 h of age plus 5 min x rank, /market last: at most 23 h 20 min, 40 min before the 24 h bound");
 });
 
-// killer: scripts/l2/links.mjs:176 SDL "if (isShutdown(e.data)) renew(c, \"server_shutdown\");" -> ""
+// killer: scripts/l2/links.mjs:182 SDL "if (isShutdown(e.data)) renew(c, \"server_shutdown\");" -> ""
 test("l2_server_shutdown_renews_at_once", async () => {
   const r = rig(), link = r.open({ symbol: "SOLUSDT", url: L.spotUrl("SOLUSDT") }), at = 1_000;
   const decoy = '{"stream":"solusdt@trade","data":{"e":"trade","x":"serverShutdown"}}', down = '{"stream":"!serverShutdown","data":{"e":"serverShutdown","E":7}}';
