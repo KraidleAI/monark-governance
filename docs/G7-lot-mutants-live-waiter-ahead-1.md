@@ -45,9 +45,16 @@ G28 : délai 0 vert (2,97 s) ; 7 000 ms **vert** (9,7 s) ; 15 000 ms **vert** (1
 - Durée du fichier sans boucle, base puis gel, en alternance : 31,2 / 29,3 / 31,9 / 27,4 s. Aucune hausse : G27 part en avance, les 15 s de `OVER` se recouvrent.
 - `npm test` complet au gel : 2196 tests, 2176 verts, 19 sautés, **1 échec, le seul test 42** (« exported CI ran an implausibly small suite », aléa connu) ; relancé seul : **vert**.
 - `tsc --noEmit` vert ; `lint` vert ; `lint:ratchet` 69/69 ; `gate:vocab` OK ; `lang:gate` OK.
-- R-25 sur `050da36d...44310020` hors `docs/**/*.md` : un fichier, +31/−17, **48 lignes** (sous 547).
+- R-25 sur `050da36d...44310020` hors `docs/**/*.md` : un fichier, +31/−17, **48 lignes** (sous 547) ; même chiffre contre `318a3238`, base de la PR après la fusion du tronc.
 
 ## Écarts au plan
 
 - Règle 4 ajoutée par amendement (`944154dc`) : `deadTsc` et `overrun` n étaient pas dans la demande ; la mesure sous charge les a montrés dépendants d un délai fixe, au même titre que G27.
 - G32 (`mutants_a_memory_stop_at_the_baseline_is_not_waited_again_by_the_typecheck_baseline`) garde sa borne `waited_ms < 600` (attente 300 ms) : elle n est pas un lancement en avance, ne tue aucun mutant à elle seule (le mutant `run.mjs:243 " || stop !== null ?" -> " ?"`, appliqué à la main, est tué par `at` : `'BASELINE-TYPECHECK'` contre `'BASELINE'`), et a tenu sur les 6 exécutions chargées. Signalée, hors lot.
+
+## G2
+
+G2 neuve : APPROUVE, aucun bloquant (`recherches:coordination/pieces/2026-10-04-G2-recherches/G2-mutants-live-waiter-ahead-1.md`). Mineures pliées sans déplacer de ligne :
+- m-1 : l attendant a son propre plafond de 120 s (`setTimeout(() => process.exit(0), 120000).unref()`), pour le cas où le processus de test meurt avant l outil ; la règle 1 du G0 tient aussi dans ce cas.
+- m-2 : l écriture de l entrée de file passe dans le `try`, l attendant est tué même si elle lève.
+- m-3 : le commentaire ne nomme plus une constante `LATE` inexistante ; R-25 précisé contre `318a3238`.

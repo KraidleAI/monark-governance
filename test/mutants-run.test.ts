@@ -453,13 +453,13 @@ test("mutants_more_than_ten_runs_leave_no_listener_warning", () => { // G02 G29:
 // Lot MUTANTS-LIVE-WAITER-AHEAD-1: the waiter lives until the tool has entered its wait, never a fixed span from its own start (a clone and a launch slowed
 // past it by a loaded host left it dead, the wait empty). It polls the queue until a second entry is there, the tool's, written by acquire() as its wait
 // begins (oracle/lock.mjs: mine, at t0), then lives HOLD more: lock_wait_ms is HOLD at least, whatever the load (late timers only lengthen it). It is
-// killed once the tool is done, whatever its outcome; async, so the waiter is reaped at its exit.
+// killed once the tool is done, whatever its outcome (a 120 s cap of its own if the test process dies first); async, so the waiter is reaped at its exit.
 const HOLD = 1500, WAITER = `const { readdirSync } = require("node:fs"), q = process.argv[1], me = "-" + process.pid + ".json";
-const t = setInterval(() => { let fs = []; try { fs = readdirSync(q); } catch {} if (fs.some((f) => !f.endsWith(me))) { clearInterval(t); setTimeout(() => {}, Number(process.argv[2])); } }, 20);`;
+const t = setInterval(() => { let fs = []; try { fs = readdirSync(q); } catch {} if (fs.some((f) => !f.endsWith(me))) { clearInterval(t); setTimeout(() => {}, Number(process.argv[2])); } }, 20); setTimeout(() => process.exit(0), 120000).unref();`;
 const liveWaiter = ahead(async () => { // a waiter queued ahead, alive until the tool waits behind it, then HOLD more
   const { dir, base } = lk(), lock = ownLock(), queue = join(lock, "oracle-lock.queue"), child = spawn(process.execPath, ["-e", WAITER, queue, String(HOLD)], { stdio: "ignore" });
-  write(lock, { [`oracle-lock.queue/000000000000003-${String(child.pid)}.json`]: "{}" });
-  try { return await runAsync(["--repo", dir, "--base", base, "--table", table("lk3.json", [L("L1", 1, "1", "2")]), "--poll-ms", "100", "--wait-ms", "60000"], { lock, env: { FX_LOCK: lock, FX_LOG: join(fixture().root, "lk3.log") } }); }
+  try { write(lock, { [`oracle-lock.queue/000000000000003-${String(child.pid)}.json`]: "{}" });
+    return await runAsync(["--repo", dir, "--base", base, "--table", table("lk3.json", [L("L1", 1, "1", "2")]), "--poll-ms", "100", "--wait-ms", "60000"], { lock, env: { FX_LOCK: lock, FX_LOG: join(fixture().root, "lk3.log") } }); }
   finally { child.kill(); }
 });
 // killer: scripts/mutants/run.mjs:232 CONST "lock_wait_ms: lk.waitedMs" -> "lock_wait_ms: 0"
@@ -471,7 +471,7 @@ test("mutants_a_live_waiter_ahead_passes_first_then_the_run_goes_on", { timeout:
 // MUTANTS-LOCK-WAIT-BOUND-LOAD-1: stop.waited_ms counts from the entry into the wait (run.mjs:228, t0 of gate(), after the clone and the launch); its upper
 // bound is named. Lot MUTANTS-LIVE-WAITER-AHEAD-1: that bound is now KILL = 2 * WAIT itself, the least wait a 2 * or 3 * o.wait mutant can record (acquire()
 // returns null only once its own clock, started after gate()'s, reaches maxMs): those mutants stay killed whatever the load, and the late timers of a loaded
-// host have LATE = KILL - WAIT (3000 ms, against 1197 measured under load) where WAIT + POLL + MARGIN left them 1600. The run starts ahead (it mostly waits).
+// host have KILL - WAIT (3000 ms, against 1197 measured under load) where WAIT + POLL + MARGIN left them 1600. The run starts ahead (it mostly waits).
 const WAIT = 3000, POLL = 100, KILL = 2 * WAIT;
 const lockBound = ahead(() => { // this process's live pid queued ahead: the tool waits to its bound, then stops by name
   const { dir, base } = lk(), lock = ownLock();
