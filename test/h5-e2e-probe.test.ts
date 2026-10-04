@@ -110,7 +110,7 @@ interface VocabConfig {
   scan: { harness: { banned: { re: string; why: string }[] } };
 }
 
-// killer: apps/harness/src/tools/gate.ts:883 CONST "\"task_class_retired\"" -> "\"task_class_unknown\""
+// killer: apps/harness/src/tools/gate.ts:927 CONST "\"task_class_retired\"" -> "\"task_class_unknown\""
 test("probe_harness_records_real_decision", async () => {
   // (1) FAITHFULNESS — the committed trace is byte-faithful to what the LIVE in-process server produces
   // NOW. A stale/hand-edited trace (or a committed replay whose demo values drifted) reds here.
@@ -197,7 +197,7 @@ test("probe_harness_records_real_decision", async () => {
 // (ADR-CM amendment "nuit, 3"). Asserted on BOTH the LIVE trace and the COMMITTED trace: (a) the step is the refusal with
 // its code; (c) the subject is a committed btc-dir subject (the table is imported); (d) the note carries the
 // non-re-verification sentence and says the join is dormant; (e) the carried attested equals the step-6 output.
-// killer: apps/harness/src/tools/gate.ts:883 CONST "\"task_class_retired\"" -> "\"task_class_unknown\""
+// killer: apps/harness/src/tools/gate.ts:927 CONST "\"task_class_retired\"" -> "\"task_class_unknown\""
 test("h5_carries_attested", async () => {
   const live = await buildTrace();
   const committed = JSON.parse(readFileSync(TRACE_PATH, "utf8")) as H5Trace;
