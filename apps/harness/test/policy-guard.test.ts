@@ -62,7 +62,7 @@ const reforged = (edit: (rows: Cell[]) => void): { bytes: Uint8Array; pins: Guar
   return { bytes, pins: { ...PINS, registrySha256: createHash("sha256").update(bytes).digest("hex") } };
 };
 
-// killer: apps/harness/src/policy-guard.ts:101 SDL "want(Object.keys(cell.test.months)" -> ""
+// killer: apps/harness/src/policy-guard.ts:104 SDL "want(Object.keys(cell.test.months)" -> ""
 test("guard_admits_every_synthetic_table", () => {
   for (const name of CLASSES) guardKataTable(tableFrom(name, SYN.bytes, PINS), SYN.bytes, PINS, entry(name));
   assert.deepEqual(new Set(ROWS.map((r) => r.status)), new Set(["region", "silence", "vetoed", "under_calib"]));
@@ -90,7 +90,7 @@ test("guard_refuses_arithmetic_off_the_counts", () => {
   refuse({ ...r, n_min: 7 }, /n_min 7, not n0 6/);
 });
 
-// killer: apps/harness/src/policy-guard.ts:62 CONST "r.misses ?? -1" -> "r.k_obs ?? -1"
+// killer: apps/harness/src/policy-guard.ts:63 CONST "r.misses ?? -1" -> "r.k_obs ?? -1"
 test("guard_direction_qhat_and_misses", () => {
   check(dirMisses);
   assert.equal(dirMisses.k_obs, 0);
@@ -99,7 +99,7 @@ test("guard_direction_qhat_and_misses", () => {
   refuse({ ...dirRegion, k_obs: (dirRegion.k_obs ?? 0) + 1 }, /qhat or k_obs/);
 });
 
-// killer: apps/harness/src/policy-guard.ts:74 SDL "is(r.status === st && r.status_reason === why" -> ""
+// killer: apps/harness/src/policy-guard.ts:76 SDL "is(r.status === st && r.status_reason === why" -> ""
 test("guard_status_and_reason_recomputed", () => {
   for (const r of [dirMisses, vetoed, find((x) => x.status === "silence" && x.side === null)]) refuse(regionLike(r), /status/);
   refuse({ ...dirMisses, miss_bound: "0.5000000", bound_on: "commit" }, /miss_bound and bound_on not both set on a region row/); // declared redundancy: block A refuses first (G2 m-5); the guard clause itself: guard_refuses_arithmetic_off_the_counts
@@ -108,7 +108,7 @@ test("guard_status_and_reason_recomputed", () => {
   for (const r of ROWS.filter((x) => x.status === "under_calib")) check(r);
 });
 
-// killer: apps/harness/src/policy-guard.ts:70 CONST "calib === \"region\"" -> "calib === \"silence\""
+// killer: apps/harness/src/policy-guard.ts:72 CONST "calib === \"region\"" -> "calib === \"silence\""
 test("guard_test_veto_conditional", () => {
   check(vetoed);
   refuse({ ...vetoed, status: "region", status_reason: "" }, /status 'region'/);
@@ -130,7 +130,7 @@ test("guard_recompute_and_verifiers", () => {
   refuse({ ...under, recompute: rc }, /under_calib with a calibrated column/);
 });
 
-// killer: apps/harness/src/policy-guard.ts:92 ROR "?? 0) > 0" -> "?? 0) >= 0"
+// killer: apps/harness/src/policy-guard.ts:95 ROR "?? 0) > 0" -> "?? 0) >= 0"
 test("guard_band_edges_and_support", () => {
   check(bandRegion);
   const b = (qhat: number, min: number, max: number): PolicyRow => ({ ...bandRegion, qhat, calib_support: { min, max } });
@@ -191,18 +191,18 @@ test("guard_names_k_test_above_n_test", () => {
   refuse(retired("live:1", 101, 100, "1"), /k_test above its n_test/);
 });
 
-// killer: apps/harness/src/policy-guard.ts:63 SDL "is(m >= 0 && m <= r.n" -> ""
+// killer: apps/harness/src/policy-guard.ts:64 SDL "is(m >= 0 && m <= r.n" -> ""
 test("guard_names_misses_above_n", () => {
   const s = find((x) => x.side === null && x.status === "silence" && x.runs_miss !== "empty");
   refuse({ ...s, misses: s.n + 3, k_obs: s.n + 3 }, /misses outside 0\.\.n/);
 });
 
-// killer: apps/harness/src/policy-guard.ts:87 SDL "is(pins.verifiers.every(" -> ""
+// killer: apps/harness/src/policy-guard.ts:88 SDL "is(pins.verifiers.every(" -> ""
 test("guard_requires_verifier_pins_as_identities", () => {
   for (const v of ["Verifier-B", "verifier-b@rev"]) refuse(dirRegion, /not an identity/, { ...PINS, verifiers: [v] });
 });
 
-// killer: apps/harness/src/policy-guard.ts:79 CONST "adr:decisions\\/[0-9A-Za-z]" -> "adr:[\\w./-]"
+// killer: apps/harness/src/policy-guard.ts:80 CONST "adr:decisions\\/[0-9A-Za-z]" -> "adr:[\\w./-]"
 test("guard_adr_cause_under_decisions_only", () => {
   check(retired("adr:decisions/0007-retire.md", null, null, null));
   for (const c of ["adr:/x.md", "adr:../../etc.md", "adr:..md", "adr:decisions/../x.md", "adr:other/x.md"]) refuse(retired(c, null, null, null), /retire cause/);

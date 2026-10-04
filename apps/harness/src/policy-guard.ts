@@ -37,7 +37,7 @@ export function guardKataRow(r: PolicyRow, cls: ClassEntry, pins: GuardPins): vo
   assertClosedPolicyRow(r, key);
   const dir = r.region_rule === "sign-set";
   const t = r.test ?? { k_test: null, n_test: 0, u_test: null };
-  is(r.source.wave === 1, "is not a wave 1 row: wave >= 2 rows need the wave 2 guard (lot CM-4a-ii-b)");
+  is(r.source.wave === 1, `has source.wave ${String(r.source.wave)}, not 1: wave >= 2 rows need the wave 2 guard (lot CM-4a-ii-b), a null wave is a marginal row`);
   is([r.bridge, r.fwd, r.vetoes?.bridge ?? null, r.vetoes?.fwd ?? null, r.tail_frac, r.tail_m, r.tail_a, r.tail_tail_num, r.tail_tail_den, r.miss_adj_a, r.miss_adj_tail_num, r.miss_adj_tail_den, r.fit_sha256].every((v) => v === null), "carries a wave 2 column on a wave 1 row");
   is(r.statement === "per-calibration" && r.task_class === cls.task_class && r.region_rule === cls.region_rule && r.alpha === cls.alpha && cls.test_delta === KATA_BASE_DELTA, "does not follow its class entry");
   is(KATA_H_MS[r.horizon ?? ""] === cls.h_ms && dir === (r.bucket !== "b0") && dir === (r.thresholds !== null) && r.aux_seq === (dir ? "label" : "score"), "has a horizon, bucket, thresholds or aux_seq off its class and mode");
@@ -45,7 +45,7 @@ export function guardKataRow(r: PolicyRow, cls: ClassEntry, pins: GuardPins): vo
   is(r.cell_key === `kata:${String(r.kata_id)}@${String(r.venue)}/${String(r.symbol)}/${String(r.horizon)}/${String(r.bucket)}` && /^[A-Z0-9]+$/.test(r.symbol ?? "") && (r.symbol ?? "").startsWith((r.task_class.split("-")[0] ?? "-").toUpperCase()), "has a cell_key or symbol off its columns and class");
   is(r.source.registry_file === pins.registryFile && r.source.registry_sha256 === pins.registrySha256 && r.source.generator === pins.generator, "has a source off the pins");
   is(r.source.trial_id === [r.task_class, r.kata_id, r.venue, r.symbol, r.horizon, "CALIB"].join("|"), "has a trial_id not recomposed from its columns");
-  is(r.runs_level === KATA_BASE_DELTA && r.test_delta === spendDelta(KATA_BASE_DELTA, 1) && r.calib_attempt === 1 && r.calib_cause === "initial" && r.calib_parent === "none", "breaks the pinned constants of a wave 1 row (runs_level, test_delta, attempt 1, initial, none)");
+  is(r.order === "time" && r.current && r.runs_level === KATA_BASE_DELTA && r.test_delta === spendDelta(KATA_BASE_DELTA, 1) && r.calib_attempt === 1 && r.calib_cause === "initial" && r.calib_parent === "none", "breaks the pinned constants of a wave 1 row (order time, current, runs_level, test_delta, attempt 1, initial, none)");
   is(r.epoch === 1, "has an epoch other than 1 while no epoch log is pinned");
   is(dir ? r.scale_table === null : r.scale_table?.kind === "hour-of-week" && r.scale_table.values.length === (r.horizon === "1h" ? 168 : 42), "has a scale_table off hour-of-week, 168 values at 1h or 42 at 4h");
   is(!Object.is(r.qhat, -0) && (r.calib_support === null || r.calib_support.min <= r.calib_support.max), "has a qhat -0 or a calib_support with min above max");
@@ -53,6 +53,7 @@ export function guardKataRow(r: PolicyRow, cls: ClassEntry, pins: GuardPins): vo
   const ks = riskControlMaxExceedances(r.n, r.alpha, KATA_BASE_DELTA);
   is(r.n_min === n0, `has n_min ${String(r.n_min)}, not n0 ${String(n0)}`);
   is(r.k_star === (ks < 0 ? null : ks), "has a k_star the exact rule does not give");
+  is([t, r.retire ?? t].every((b) => b.k_test === null || b.n_test === null || b.k_test <= b.n_test), "has a k_test above its n_test (test or retire block)");
   is(t.u_test === uTest(t.k_test, t.n_test), "has a u_test the exact bound does not give");
   if (r.n < n0) {
     is([r.p_served, r.k_obs, r.misses, r.qhat, r.miss_bound, r.marginal_alpha, r.runs_miss, r.runs_aux, r.recompute, r.bound_on, r.retire].every((v) => v === null), "is under_calib with a calibrated column set");
@@ -60,6 +61,7 @@ export function guardKataRow(r: PolicyRow, cls: ClassEntry, pins: GuardPins): vo
     return;
   }
   const m = r.misses ?? -1;
+  is(m >= 0 && m <= r.n, "has misses outside 0..n");
   const p = r.n - ks;
   is(r.p_served === p && p >= splitRankExact(r.n, r.alpha), "has a p_served off n - k_star or below the split rank");
   is(r.marginal_alpha === ceilDecimal4({ num: BigInt(r.n + 1 - p), den: BigInt(r.n + 1) }), "has a marginal_alpha the exact rule does not give");
@@ -75,7 +77,7 @@ export function guardKataRow(r: PolicyRow, cls: ClassEntry, pins: GuardPins): vo
   if (r.retire !== null) {
     const c = r.retire;
     const live = /^live:[1-9][0-9]*$/.test(c.cause);
-    is(status === "region" && (live || /^adr:[\w./-]+\.md$/.test(c.cause)), "has a retire cause outside live:<k> and adr:<file>.md (epoch:<id> needs the pinned epoch log), or retires a row that serves no region");
+    is(status === "region" && (live || (/^adr:decisions\/[0-9A-Za-z][0-9A-Za-z._-]*\.md$/.test(c.cause) && !c.cause.includes(".."))), "has a retire cause outside live:<k> and adr:decisions/<file>.md (epoch:<id> needs the pinned epoch log), or retires a row that serves no region");
     is(live ? c.n_test !== null && c.k_test !== null && c.n_test >= 1 && vetoFires(c.n_test, c.k_test, r.alpha) && c.u_test === uTest(c.k_test, c.n_test) : c.n_test === null && c.k_test === null && c.u_test === null, "has retire counts off its cause or a live block the binomial rule does not fire on");
   }
   const region = r.status === "region";
@@ -83,6 +85,7 @@ export function guardKataRow(r: PolicyRow, cls: ClassEntry, pins: GuardPins): vo
   const rc = r.recompute;
   is(rc !== null && rc.scores_sha256 === r.scores_sha256, "is calibrated without a recompute bound to its scores_sha256");
   const id = verifierIdentity(rc?.verifier ?? "");
+  is(pins.verifiers.every((v) => v === verifierIdentity(v)), "pins a verifier that is not an identity (lower case, no revision)");
   is(pins.verifiers.includes(id), "has a verifier outside the pinned list");
   is(id !== verifierIdentity(r.source.generator), "has a verifier equal to the generator");
   if (dir) return;

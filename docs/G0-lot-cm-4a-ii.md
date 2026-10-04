@@ -33,8 +33,8 @@ Plan §8.3, ligne B2, avec la décision Q-1 condition 2 et le reçu de B1. Tout 
 | G-1. Entrées de classe kata (32), constantes épinglées | spec §9, plan §5.2.1, A-2 §2.2 point 2 ; reçu 1 et 4 | **a** |
 | G-2. Garde d'une ligne kata de la vague 1 : arithmétique depuis les comptes, statut, raison, veto TEST conditionnel, `recompute` et vérificateurs, garde de bande, grammaires, couplages `source.wave` | A-2 §2.2 points 2 à 5, 7, 8 ; plan §4, §5.3 ; décision Q-1 condition 2 ; reçu 2, 3, 5 (part kata) | **a** |
 | G-3. Garde d'une table kata : comparaison au registre de B1, puis G-2 sur chaque ligne, contrôles de case (m-1, m-2) | A-2 §2.2 point 1 ; reçu 2, 3 | **a** |
-| G-4. Entrées de classe USDe, liq, cascade ; lignes `marginal` construites depuis `calibration.ts` et gardées ; leurs tables | plan §5.1, §5.2.1, A-2 §2.3 ; reçu 5 (part marginale) | **b** |
-| G-5. LIQ-BAND-EXACT-GUARD-1 | plan v1 §5.3 point 6, ADR-CM §10 | **b** |
+| G-4. Entrées de classe USDe, liq, cascade ; lignes `marginal` construites depuis `calibration.ts` et gardées ; leurs tables | plan §5.1, §5.2.1, A-2 §2.3 ; reçu 5 (part marginale) | ~~b~~ **a** (passé au lot a, section « Mesure au code ») |
+| G-5. LIQ-BAND-EXACT-GUARD-1 | plan v1 §5.3 point 6, ADR-CM §10 | ~~b~~ **a** (passé au lot a, section « Mesure au code ») |
 | G-6. Vague ≥ 2 : queues recalculées depuis les comptes (addendum 8), refus d'une queue réduite, `tail_m ≤ n − r`, support de A, queue vide ou ≤ `runs_level` sur une ligne `region`, blocs pont et FWD-2, chaîne A-1 au-delà de l'essai 1 | addendum 8 §1, §4 ; A-2 §2.2 points 3, 5, 6 ; décision Q-1 condition 2 | **b**, sous Q-1 |
 
 ### G-1. Entrées de classe kata (lot a)
@@ -59,7 +59,7 @@ Plan §8.3, ligne B2, avec la décision Q-1 condition 2 et le reçu de B1. Tout 
 
 ### G-3. Garde d'une table kata (lot a)
 
-`guardKataTable(table, registryBytes, pins, verifiers)` :
+`guardKataTable(table, registryBytes, pins, expected)` (les vérificateurs sont dans `pins` ; signature corrigée après la G2 du lot a, m-6) :
 - `assertTableMatchesRegistry` de B1, avec l'entrée attendue de G-1 pour la classe (m-4) ;
 - G-2 sur chaque ligne ;
 - sur chaque case du registre de la classe (m-1, m-2) : clés de `test.months` en `YYYY-MM` (mois 01 à 12) ; `symbol` = majuscules ASCII, préfixé du symbole de la classe en majuscules (`btc-…` ↔ `BTC…`) ; `calib.status` égal au statut CALIB recalculé de sa ligne ; `test.vetoed` égal à `vetoes.test` recalculé (un `vetoed` à `test.vetoed` faux est refusé par G-2 point 5, la projection recopiant `test.vetoed`).
@@ -138,3 +138,18 @@ Le bloc entier (~795) dépasse 547 : **coupe en deux lots empilés d'une même P
 ## Mesure au code : G-4 et G-5 passent au lot a (2026-10-04)
 
 Après G-1 à G-3 (commits `066e8021`, `f4394af3`), R-25 mesuré contre `7a0b1a49` : **312** (estimation du G0 : ~465). G-4 et G-5 n'attendent aucune réponse ; ils entrent donc au lot a (commits `371fa31e`, `b85da486`), sous la borne : **464**. Le lot b ne porte plus que **G-6** (vague ≥ 2, sous Q-1). Tests et tueurs ajoutés : `apps/harness/test/policy-marginal.test.ts` (4 tests, un tueur chacun ; tueurs d'A-2 §5 pour USDe et liq) ; `guard_modules_are_not_served` couvre aussi `policy-marginal.ts`. Écart déclaré à G-4 : la classe cascade prend `region_rule` `additive-band`, lu du verdict servi (`cascadeVerdict` → `conformInterval`, intervalle symétrique), le plan §5.2.1 ne nommant que `committed-key`.
+
+## Pli de la G2 du lot a (2026-10-04)
+
+G2 `recherches:coordination/pieces/2026-10-04-G2-recherches/G2-cm-4a-ii-lot-a.md` : **APPROUVE**, mineures m-1 à m-6. Base refetchée : `origin/base/chantier-moteur-2026-10-03` toujours à `7a0b1a49` (#133 pas encore poussée sur la base), aucune fusion. Chaque pli de code a son test rouge d'abord (commit `d6894e3a`) et son tueur en forme fermée :
+
+| Mineure | Pli | Test (tueur) |
+|---|---|---|
+| m-1 | `order` = `time` et `current` épinglés sur une ligne kata de vague 1 (`policy-guard.ts:48`) | `guard_pins_order_time_and_current` (`:48 CONST`) |
+| m-2 | refus nommé « k_test above its n_test » sur `test` et `retire`, avant tout appel binomial (`:56`) ; refus nommé « misses outside 0..n » (`:64`) | `guard_names_k_test_above_n_test` (`:56 SDL`), `guard_names_misses_above_n` (`:64 SDL`) |
+| m-3 | la liste épinglée des vérificateurs doit être faite d'identités (minuscules, sans révision), sinon refus nommé (`:88`) ; choix : exiger, pas normaliser en silence | `guard_requires_verifier_pins_as_identities` (`:88 SDL`) |
+| m-4 | `adr:` restreint à `adr:decisions/<nom>.md`, `..` refusé (`:80`) | `guard_adr_cause_under_decisions_only` (`:80 CONST`) |
+| m-5 | motifs resserrés : `/declares the order ascending…/` ; bord LIQ à `edge + 1` ; clause propre de la garde (`miss_bound or bound_on off the region rule`) ; `miss_bound` sur `silence` : redondance déclarée, le bloc A refuse d'abord (motif du bloc A) ; message de `source.wave` qui nomme la valeur (nulle : ligne marginale) | tests existants, tueurs inchangés |
+| m-6 | signature de G-3 corrigée ; table du périmètre : G-4 et G-5 au lot a | docs |
+
+**Ligne pour la révision suivante des pièces** (non éditées ici) : le choix `region_rule` = `additive-band` pour la classe cascade (lu de `cascadeVerdict` → `conformInterval`, jugé « justifié » par la G2) doit entrer au plan §5.2.1 et à la spec §9-§10 **avant que le bloc C publie l'entrée de classe** avec son fichier de table ; MONARK le contrôle au G0 du bloc C.
