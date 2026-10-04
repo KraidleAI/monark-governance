@@ -97,3 +97,12 @@ Corrections de test seulement, plus une ligne d'en-tête ; aucune ligne de produ
 - **C-2** : deux cas de L-2, un `USERPROFILE` relatif, et `SystemRoot` et `windir` égaux mais relatifs.
 - **n-5** : l'en-tête du `.d.mts` nomme la couture de forme `https.request`.
 - n-1, n-2, n-4 et les réponses aux questions : au G7.
+
+## Pli du contrôle de MONARK sur #115 (APPROUVE-AVEC-CORRECTIONS, 2026-10-04)
+
+Commits ajoutés, aucune réécriture ; détail et mesures au G7.
+- **F-1** : la section « O-1 » ci-dessus est réfutée, et retirée par la note datée du G7. L'émetteur n'est journalisé que si la feuille
+  se vérifie sous sa clé (`X509Certificate.verify`), sinon `issuer_sha256: null` : 1 ligne de production. Un cas rejoue S1. Tueur :
+  `signs ? sha256(issuer)` → `issuer ? sha256(issuer)`.
+- **F-3** : piège `https.request` au niveau du fichier de test.
+- F-5, F-6, F-8 : au G7.

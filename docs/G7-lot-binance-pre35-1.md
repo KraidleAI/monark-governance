@@ -121,6 +121,83 @@ des documents. Aucune ligne de production changée : `scripts/record-binance-kli
 - **Q-PRE35-3** : garder `resumed`, toujours `false`. Le rejeu ne lit jamais `tls`. Lecture : « une poignée de main complète a attesté
   cette ligne » ; une session reprise donne `tls: null`.
 
+## Pli du contrôle de MONARK sur #115 (APPROUVE-AVEC-CORRECTIONS, 2026-10-04)
+
+Message `2026-10-04-MONARK-vers-RECHERCHES-r2-et-115-controles.md` §2 ; rapport
+`pieces/2026-10-04-r2-pr115-controle/pr115-RAPPORT.md` (sondes `pr115-probe/`). Commits ajoutés après `c35378b`, sans réécriture :
+`cadfc084` (tests), `484b0796` (code, **nouveau gel**), puis ce pli des documents.
+
+### Note datée du 2026-10-04 (F-1) : retrait de quatre phrases
+
+Les quatre phrases suivantes du G0 et de ce G7 sont **retirées**. Le G0 reste tel que commis, comme pour son E-5.
+1. « La mesure est propre : aucune ligne de production » (G0 §O-1 ; ce G7, table des items, ligne O-1).
+2. « chaque ligne nomme la vraie AC » (ce G7, Mesure O-1, premier point).
+3. « Jamais un émetteur faux » (ce G7, Mesure O-1, deuxième point).
+4. « l'émetteur faux de CORR O-1 venait de la lignée d'une session reprise » (G0 §O-1 ; ce G7, Mesure O-1, troisième point).
+
+Mesure qui les remplace : une poignée de main **complète**, connexion autorisée, sans aucune reprise, peut journaliser un
+`issuer_sha256` faux. Il suffit qu'un serveur TLS du processus ait été créé **avant** que `tls.setDefaultCACertificates` change la
+confiance : node nomme alors l'AC de même nom de la confiance précédente, et la feuille ne se vérifie pas sous sa clé.
+- Mesures de MONARK (win32, Node 24.15.0 et 22.23.2) : S1 faux 3/3 ; P4 faux 59/60 ; P5 : la feuille ne se vérifie pas sous
+  l'émetteur journalisé.
+- Mesure ici (**Linux**, Node 22.22.2 et 24.21.0). Sonde `s1linux.mjs` du bac à sable de la session : les séquences S1 à S4 de
+  `p5b-trigger.mjs`, avec des AC de même nom, sans identifiant de clé, bâties en DER comme dans le fichier de test. Trois processus par
+  séquence et par version :
+  - S1 (serveur, puis confiance), S3 (confiance posée deux fois) et S4 (un `tls.createServer()` de plus) : émetteur faux 3/3, et
+    `verify` du faux émetteur `false` 3/3 ;
+  - S2 (confiance, puis serveur) : émetteur juste 3/3, `verify` `true`.
+  - Le défaut n'est donc pas propre à win32.
+- Pourquoi le test du lot passait : `endpoint()` posait la confiance avant de créer le serveur, c'est-à-dire l'ordre S2. Ma sonde du G0
+  créait aussi les serveurs une fois la confiance posée.
+- Effet sur la course des 35 : aucun. Le processus de la ligne de commande ne crée aucun serveur et n'appelle jamais
+  `setDefaultCACertificates`.
+
+**Clos par construction** (SERIES-TLS-ISSUER-BY-NAME-1, PAROXYSME) : `certificates()` (l.106-108) journalise l'émetteur seulement si
+`new X509Certificate(feuille).verify(new X509Certificate(émetteur).publicKey)` est vrai, sinon `issuer_sha256: null`. Tout échec de
+lecture compte comme faux. J'ai retenu `verify` plutôt que `checkIssued`, qui compare les noms et les identifiants : c'est la confusion
+de nom elle-même. Mesuré : `verify` est `false` exactement dans les cas faux.
+
+| Correction | Test | Tueur (vérifié tué au gel `484b0796`) |
+|---|---|---|
+| F-1 | `binance_klines_logs_the_true_issuer_of_two_cas_of_one_name`. Cas 4, qui rejoue S1 : `endpoint()` prend `trustLate`, le serveur est créé sous la confiance précédente, puis la confiance change. La ligne ne porte aucun émetteur, ou la vraie AC, jamais l'autre. Le commentaire du test dit l'ordre sur lequel repose chaque cas. Rouge à `c35378b` (émetteur faux) | `:108` `signs ? sha256(issuer)` → `issuer ? sha256(issuer)` |
+| F-3 | piège `https.request` au niveau du fichier, synchronisé dans les liaisons ESM (celle de l'enregistreur comprise) et restauré après le fichier. `via` envoie par l'original capturé. Le test de C-1 pose son espion puis remet le piège. Le mécanisme est celui que C-1 prouve atteint (liaison synchronisée) | (sécurité de test : aucun test jugé) |
+
+- **Oracle** : `node scripts/red-proof.mjs --base 0c8f8177d9d54005b71a01a4b0e4a9fecd0ca72c --gel 484b0796 --repo
+  /home/user/monark-governance-bn --draw 7 --seed 37` : **OK** sous Node 24.21.0 (`RED-PROOF.json` `becdd197215437d8…`) et sous Node
+  22.22.2 (`d899923a30218ce2…`) : 7 jugés F2P, 30 inchangés, 7 tueurs tirés (toute la population), 7 tués.
+- Les 37 lignes `// killer:` recalées sur le gel, appliquées une à une : 37 tuées.
+- Suite du fichier : 37/37 sous Node 22.22.2 et 24.21.0, trois passes chacune. `typecheck`, eslint (test), `gate:vocab` et
+  `lint:ratchet` (69/69) verts.
+- R-25 (`r25()`, base `0c8f817`, gel `484b0796`) : +240/−220, soit **460 lignes comptées**, sous 547.
+
+### Notes (F-6, F-8)
+
+- **F-6** : changement d'empreinte de requête et de journal par rapport aux 118, à lire avec n-1.
+  - Les seuls en-têtes envoyés sont `host` et `connection`.
+  - Un en-tête `retry-after` (ou `location`) dupliqué est journalisé par sa **première** valeur : `"30"`, là où la base journalisait
+    `"30, 60"`. `date` et `x-mbx-used-weight-1m` restent joints.
+  - Informatif : Binance ne duplique pas ces en-têtes, et l'arrêt reste nommé.
+- **F-8** : M-2 du journal G1 de BINANCE-PRE153-1 (la chaîne disparaissait de la socket undici dès le ticket traité, d'où la lecture
+  à la connexion) **ne se reproduit pas** avec `node:https`. Mesure de MONARK (P1, deux Node, win32) : tickets traités avant la
+  réponse, en TLS 1.3 comme en 1.2 ; feuille et AC visibles à la réponse et encore après le corps, même socket en keep-alive comprise.
+  L'enregistreur lit à l'arrivée de la réponse (l.235).
+
+### Item formé (F-5, PAROXYSME)
+
+- **SERIES-ENV-PROVENANCE-1** (recherche) : la forme fermée de SERIES-ENV-VALUES-1 contrôle la **forme** des valeurs, pas leur
+  **provenance**. `SYSTEMROOT` = `WINDIR` = n'importe quel dossier absolu passe, alors que des chemins de fournisseurs Winsock se
+  déduisent de `SystemRoot`. Construction à chercher : lier `SYSTEMROOT` et `WINDIR` au dossier Windows que rapporte le système, sans
+  code natif ; la source reste à mesurer.
+  - **Propriétaire** : RECHERCHES (recherche et mesure sur l'hôte win32 de la course), puis MONARK (report à l'ETAT du tronc à la fusion,
+    selon son message).
+  - **Déclencheur** : le prochain lot qui touche la garde d'environnement d'un enregistreur, ou la première course sur un autre hôte que
+    celui des 35, au premier des deux.
+  - **Prix** : une sonde hors réseau sur win32 (lecture de la source candidate, deux Node), environ une demi-session. Si une source
+    sans code natif tient : environ 4 lignes et 1 cas. Sinon : la limite reste déclarée, sans code.
+
+F-2 (la ligne `env -i` exacte de la course, rejouée hors réseau dans le shell de la course) : pour MONARK. F-4 et F-7 : consignés,
+rien à faire.
+
 ## Sortie
 
 Prêt pour le contrôle par diff de MONARK.
