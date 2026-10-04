@@ -18,7 +18,7 @@ import type * as BookM from "../scripts/l2/book.mjs";
 trap();
 const places: Place[] = [], outs: string[] = [];
 const tmp = (): string => { const d = mkdtempSync(join(tmpdir(), "l2-book-")); outs.push(d); return d; };
-after(async () => { for (const p of places) await p.stop(); for (const d of outs) rmSync(d, { recursive: true, force: true }); });
+after(async () => { for (const p of places) await p.stop(); for (const d of outs) rmSync(d, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 }); });
 const T0 = 1_760_000_000_000_000; // a synthetic wall clock in microseconds
 type L = [string, string];
 const BIDS: L[] = [["0.10", "1.0"], ["0.09", "2.0"]], ASKS: L[] = [["0.20", "3.0"]];
