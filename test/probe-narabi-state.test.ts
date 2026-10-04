@@ -20,6 +20,7 @@ import {
 } from "../scripts/probe-narabi.mjs";
 import type { NarabiState, StateCheck } from "../scripts/probe-narabi.mjs";
 import { loadNarabiCapture } from "../apps/site/lib/narabi-capture-load.ts";
+import { listen } from "./helpers/loopback.ts";
 
 const HERE = fileURLToPath(new URL(".", import.meta.url));
 const REPO = join(HERE, "..");
@@ -81,23 +82,6 @@ async function runProbeAsync(args: readonly string[], explicit: Record<string, s
   return { status, state: JSON.parse(readFileSync(out, "utf8")) as NarabiState };
 }
 
-/** A loopback port that fetch accepts (lot PROBE-NARABI-LOAD-1). This host hands port 0 out in ONE sequence, shared by every bind and
- *  every outbound connect, from 1024 up; the Fetch port check of this runtime blocks 82 ports, all at or below 10080 (Node 24.15.0,
- *  undici 7.24.4, read in its own source). A server bound on one of them is never dialed: fetch rejects "bad port", the probe reports
- *  unreachable, the red measured under load (G1 journal of PROBE-NARABI-LOAD-1). So a random port above 10080 is asked for, and another
- *  one on any listen error (in use, or excluded by the OS), as in test/record-binance-klines.test.ts. */
-async function listen(server: Server): Promise<number> {
-  for (let i = 0; i < 50; i++) {
-    const port = 10_081 + Math.floor(Math.random() * 55_000);
-    const bound = await new Promise<boolean>((done) => {
-      const ok = (): void => { server.off("error", ko); done(true); };
-      const ko = (): void => { server.off("listening", ok); done(false); };
-      server.once("error", ko).once("listening", ok).listen(port, "127.0.0.1");
-    });
-    if (bound) return port;
-  }
-  return assert.fail("no free loopback port above 10080 in 50 tries");
-}
 function close(server: Server): Promise<void> {
   server.closeAllConnections();
   return new Promise((resolve) => server.close(() => resolve()));

@@ -14,7 +14,7 @@ import { spawnSync } from "node:child_process";
 import { createHash, generateKeyPairSync, type KeyObject, sign, X509Certificate } from "node:crypto";
 import { subscribe, unsubscribe } from "node:diagnostics_channel";
 import { copyFileSync, existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
-import { createServer, type IncomingHttpHeaders, type IncomingMessage, type Server, type ServerResponse } from "node:http";
+import { createServer, type IncomingHttpHeaders, type IncomingMessage, type ServerResponse } from "node:http";
 import { createServer as createTlsServer } from "node:https";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
@@ -24,6 +24,7 @@ import { CSV_COLUMNS, expectedCount, LIMIT, main, MAX_PAGES, parseArgs, parseTim
   from "../scripts/record-binance-klines.mjs";
 import type { RecorderIo, SeriesManifest, SeriesManifestRead, SeriesManifestV1 } from "../scripts/record-binance-klines.mjs";
 import * as recorder from "../scripts/record-binance-klines.mjs"; // INTERVALS read as a property: the base, without it, still loads
+import { listen } from "./helpers/loopback.ts";
 
 type Row = [number, string, string, string, string, string, number, string, number, string, string, string];
 type FetchLike = (url: string, init: RequestInit) => Promise<Response>;
@@ -77,23 +78,6 @@ const rawCount = (out: string): number => (existsSync(join(out, "raw")) ? readdi
 /** A file of a replay's source made a directory: present, unreadable (BINANCE-PRE153-1 corrections, D-2: mutants G12 and G18). */
 const asDir = (file: string) => (dir: string): void => { mkdirSync(join(dir, file)); };
 const offline = (calls: Calls): FetchLike => (url, init) => { calls.urls.push(url); calls.inits.push(init); return Promise.reject(new Error("offline")); };
-
-/** A loopback port that fetch accepts. The Fetch port check of this runtime blocks 82 ports, all at or below 10080 (Node 24.15.0, undici
- *  7.24.4, read in its own source; G1 journal of SERIES-BINANCE, section 8). This host hands port 0 out in sequence from 1024 up, through
- *  phases below 10081 that outlast any retry (measured: 300 binds in a row, 3914 to 4213; G1 journal of SERIES-INTERVALS). So a random
- *  port above 10080 is asked for, and another one on any listen error (in use, or excluded by the OS). */
-async function listen(server: Server): Promise<number> {
-  for (let i = 0; i < 50; i++) {
-    const port = 10_081 + Math.floor(Math.random() * 55_000);
-    const bound = await new Promise<boolean>((done) => {
-      const ok = (): void => { server.off("error", ko); done(true); };
-      const ko = (): void => { server.off("listening", ok); done(false); };
-      server.once("error", ko).once("listening", ok).listen(port, "127.0.0.1");
-    });
-    if (bound) return port;
-  }
-  return assert.fail("no free loopback port above 10080 in 50 tries");
-}
 
 /** The one CA of this file, built on first use (BINANCE-PRE153-1 corrections, D-6: a recording stops on a 200 whose connection showed no
  *  certificate, so the loopback endpoint serves HTTPS): it signs the endpoint's leaf and the TLS tests' leaves, so that this process never
