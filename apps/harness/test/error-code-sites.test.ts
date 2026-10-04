@@ -1,6 +1,7 @@
 /**
  * Harness - CM-2a follow-up (MONARK's diff check of #105: C-1, C-3, C-6; plan docs/G0-lot-cm-2a-suite.md). The lot changes
- * no behaviour: the only line red at the base is the stale comment of C-6 (gate.ts, "In U-4b-2a the registry is empty").
+ * no behaviour: the only lines red at the base are the stale comments of C-6 (gate.ts, "In U-4b-2a the registry is empty")
+ * and of C-4 of MONARK's diff check of CM-2b (calibration.ts, attestation-binding.ts, schema-projection.ts).
  * The code pins of C-1 (14 refusal sites of gate.ts that no test pinned, plus the default code of UkemiPredictToolError)
  * and the three paths of C-3 (a short fraction of produced_at, offset minutes, a non-tool error on MCP) are folded into
  * that one F2P test: a separate test body would be green at the base and refused by red-proof as self-confirming.
@@ -35,6 +36,9 @@ test("every_refusal_site_pins_its_code_and_the_stale_registry_comment_is_gone", 
   // C-6: the liq honesty comment no longer says the registry is empty (s0 is committed).
   const src = readFileSync(new URL("../src/tools/gate.ts", import.meta.url), "utf8");
   assert.ok(!src.includes("In U-4b-2a the registry is empty"), "stale comment (C-6)");
+  // C-4 of MONARK's diff check of CM-2b: comments made false by the retirement of btc-dir-15m.
+  const stale: [string, string][] = [["calibration.ts", "lives in the tool description"], ["attestation-binding.ts", "TOTAL over the FOUR served"], ["schema-projection.ts", "(btc-dir / cascade) remain valid"]];
+  for (const [f, t] of stale) assert.ok(!readFileSync(new URL(`../src/${f}`, import.meta.url), "utf8").includes(t), `stale comment (C-4): ${f}`);
   // C-1: one call per site (MONARK's lines at f3b330cf -> 2abe801), code and message prefix pinned.
   const sites: [string, () => unknown, string][] = [
     ["303 requireFinite", () => runGate(pr("x", 1), { ...P, tau: Infinity }), "param_invalid :: invalid param 'tau': expected a finite number"],

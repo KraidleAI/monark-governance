@@ -18,7 +18,8 @@ import { createHarnessHandler } from "../src/server.ts";
 import { USDE_STABLE_RUN_CALIB, USDE_STABLE_RUN_PREDICTOR_ID } from "../src/calibration.ts";
 import { HARNESS_TOOLS } from "../src/tools/registry.ts";
 import { runAttest } from "../src/tools/attest.ts";
-import { BINANCE_BTCUSDT_TICKER_URL } from "../src/attestation-binding.ts";
+import { ATTESTATION_BINDING, BINANCE_BTCUSDT_TICKER_URL } from "../src/attestation-binding.ts";
+import { readFileSync } from "node:fs";
 
 const PARAMS: HarnessParams = { remainingBudget: 0.1, bFloor: 0, tau: 1, tauInterval: 1, alpha: 0.1, nMin: 50, intent: 0, tool: "perps_order_preview", clockOpen: true };
 const AT = "2026-09-04T00:00:00Z";
@@ -202,4 +203,36 @@ test("attested_concordant_meets_the_btc_dir_retirement", () => {
     (e: unknown) => e instanceof HarnessToolError && (e as { code?: unknown }).code === "attested_inconsistent",
     "a discordant attested through the registry run() is a 400 attested_inconsistent",
   );
+});
+
+// C-2 of MONARK's diff check of CM-2b (founder's decision, 2026-10-04: tell the truth in the description). The only
+// committed attestation subject belongs to the retired btc-dir-15m, so every served path refuses a caller-carried
+// `attested`; the served description (tools/list and /openapi.json) and the harness README say so. The sentence is a
+// literal here so the base loads this file. The table is read too: a served class gaining a subject reddens this test.
+// killer: apps/harness/src/attestation-binding.ts:65 CONST "so any `attested` is refused" -> "so any `attested` is accepted"
+test("served_description_says_no_served_class_takes_attested", async () => {
+  const SENTENCE = "No served class has a committed attestation subject (the retired 'btc-dir-15m' held the only one), so any `attested` is refused.";
+  const gateTool = HARNESS_TOOLS.find((t) => t.name === "gate");
+  assert.ok(gateTool?.description.includes(SENTENCE), "tools/list serves the sentence");
+  const oa = (await (await handleJsonMirror(new Request("http://api.monarkgate.tech/openapi.json"))).json()) as { paths: Record<string, { post: { description: string } }> };
+  assert.ok(oa.paths["/gate"]?.post.description.includes(SENTENCE), "/openapi.json serves the sentence");
+  assert.equal(GATE_TOOL_DESCRIPTION.split(SENTENCE).length, 2, "the description carries the sentence once");
+  const price = runAttest().price;
+  const withSubject = [...ATTESTATION_BINDING].filter(([, subjects]) => subjects.length > 0).map(([c]) => c);
+  assert.deepEqual(withSubject, ["btc-dir-15m"], "the retired class holds the only committed subject");
+  const codes = [...ATTESTATION_BINDING.keys(), "caller-owned-class"].map((c) => {
+    const yhat = c === "btc-dir-15m" ? "up" : 0.0001;
+    const id = c === USDE ? USDE_STABLE_RUN_PREDICTOR_ID : "caller:model";
+    return `${c} ${String(refused(() => runGate(pred(c, yhat, id), PARAMS, price), c).code)}`;
+  });
+  assert.deepEqual(codes, [
+    "btc-dir-15m task_class_retired",
+    "stable-run-velocity-24h attested_inconsistent",
+    "cascade-liquidable-24h attested_inconsistent",
+    "liquidation-eligible-coverage attested_inconsistent",
+    "caller-owned-class attested_inconsistent",
+  ], "the committed witness is refused on every class");
+  const readme = readFileSync(new URL("../README.md", import.meta.url), "utf8").replace(/\s+/g, " ");
+  assert.ok(readme.includes("No served class has a committed attestation subject (the retired `btc-dir-15m` held the only one), so any `attested` is refused"), "the README says it too");
+  assert.ok(!readme.includes("only its `residual` is filed into `verdict.residual`"), "the README no longer presents the residual seam as live");
 });
