@@ -14,7 +14,7 @@
 
 ### B-2 / S-1 : F-7
 
-1. Module de données `apps/harness/src/class-policy.ts` (pur : ni horloge, ni E/S ; à `src/`, pas sous `src/tools/`) : `LIQ_POLICY` (classe entière, α 0,01, nMin 100) et `USDE_POLICY` (clé commise seule, α 0,1, nMin 50), `CLASS_POLICY`, `policyFor`. Le nom évite `class-policy-v2-guard.ts`, réservé à MONARK (§4).
+1. Module de données `apps/harness/src/class-policy.ts` (pur : ni horloge, ni E/S ; à `src/`, pas sous `src/tools/`) : `LIQ_POLICY` (classe entière, α 0,01, nMin 100) et `USDE_POLICY` (clé commise seule, α 0,1, nMin 50), `CLASS_POLICY` (`policyFor`, prévu ici, est retiré par la G2 du lot jusqu'à CM-4 ; correction du 2026-10-04, C-4 du contrôle par diff de MONARK). Le nom évite `class-policy-v2-guard.ts`, réservé à MONARK (§4).
 2. Une seule fonction `assertPolicy` dans `gate.ts`, égalité stricte, sert liq et USDe. Liq : messages identiques octet pour octet, même ordre (domaine de yhat, puis α, puis nMin). USDe, clé commise : `task_class 'stable-run-velocity-24h' with predictor_id '<clé>' requires params.alpha = 0.1 (server-imposed for the committed key), got <v>` (code `policy_alpha_mismatch`), de même pour nMin (`policy_nmin_mismatch`), avant `splitQuantile`.
 3. Inchangés : les autres clés USDe (`under_calib` avec les valeurs de l'appelant), tau et `tauInterval` (appelant), cascade, BYO.
 4. La description déclare les valeurs imposées à USDe (« on that key it requires alpha = 0.1, nMin = 50 »), comme elle le fait déjà pour liq.
