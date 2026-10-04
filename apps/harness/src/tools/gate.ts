@@ -41,6 +41,7 @@ import {
   hasCommittedCalibrationForClass,
   asciiLower,
   matchesCommittedKeyFolded,
+  matchesCommittedKeyWith,
 } from "../calibration.ts";
 // (ADR-U4b D1/D3/D4, decisions 108/126): the served Mondrian strata + the upper-bound region helper. A PURE
 // sibling at src/ (no I/O; imports only @monark/hikae), so importing it keeps the K-8 tools scan meaningful
@@ -271,7 +272,7 @@ export interface HarnessParams {
 export const HARNESS_ERROR_CODES = [
   "param_invalid", "schema_version_unsupported", "byo_calibration_invalid", "byo_yhat_type", "byo_set_tau_cap",
   "yhat_type_mismatch", "liq_yhat_domain", "attested_inconsistent", "task_class_unknown", "byo_overrides_committed",
-  "byo_edge_blank", "byo_lookalike_committed", "byo_reserved_kata",
+  "byo_edge_blank", "byo_lookalike_committed", "byo_reserved_kata", "byo_lookalike_confusable",
   "produced_at_invalid", "produced_at_future", "output_invalid",
   "policy_alpha_mismatch", "policy_nmin_mismatch", "task_class_retired",
   "attest_refused", "calibrate_input_invalid", "cascade_input_invalid", "ukemi_predict_input_invalid",
@@ -741,6 +742,44 @@ const KATA_KEY_PREFIX = "kata:";
 const CLASS_LOCKED = [TASK_BTC_DIR, TASK_CASCADE, TASK_LIQ_ELIGIBLE] as const;
 
 /**
+ * The ASCII confusable reduction of ADR-CM B-10 (BYO-ASCII-LOOKALIKE-1; plan docs/G0-lot-cm-2c.md), applied to both
+ * sides of every comparison: ASCII lower case; blanks removed; "rn" -> "m"; i, l and 1 -> "l" (upper-case I lowers to
+ * i); "0" -> "o"; "_" and "." -> "-"; runs of "-" collapsed; "-" trimmed at both ends.
+ */
+export function confusableReduce(s: string): string {
+  return asciiLower(s)
+    .replace(/\s+/gu, "")
+    .replace(/rn/g, "m")
+    .replace(/[l1i]/g, "l")
+    .replace(/0/g, "o")
+    .replace(/[_.]/g, "-")
+    .replace(/-{2,}/g, "-")
+    .replace(/^-+|-+$/g, "");
+}
+
+/** The 32 reserved kata class names, reduced (exact set, no reduced regex). */
+const KATA_CLASSES_REDUCED: ReadonlySet<string> = new Set(
+  ["btc", "eth", "bnb", "sol"].flatMap((a) =>
+    ["dir", "range", "mae-down", "mae-up"].flatMap((f) => ["1h", "4h"].map((h) => confusableReduce(`${a}-${f}-${h}`))),
+  ),
+);
+
+/**
+ * BYO confusable rule (ADR-CM B-10). Runs after the B-1 rule, so a name B-1 refuses keeps its B-1 message and code.
+ * Refuses a class whose reduction is a class-locked name or a reserved kata name, a (class, key) pair whose reduction
+ * is a committed pair, and a key whose reduction, with "4" read as "a" (key prefix only), starts with "kata:". Any ASCII
+ * look-alike outside this closed reduction still passes: a declared residual class (BYO-LOOKALIKE-RESIDUAL-1). */
+function byoConfusable(taskClass: string, predictorId: string): string | undefined {
+  const cls = confusableReduce(taskClass);
+  const lockedOrKata = CLASS_LOCKED.some((c) => confusableReduce(c) === cls) || KATA_CLASSES_REDUCED.has(cls);
+  const kataKey = confusableReduce(predictorId).replace(/4/g, "a").startsWith(KATA_KEY_PREFIX);
+  if (lockedOrKata || kataKey || matchesCommittedKeyWith(confusableReduce, taskClass, predictorId)) {
+    return `task_class '${taskClass}' / predictor_id '${predictorId}' reduces to a committed or reserved name once ASCII confusables are folded (l, I, 1; rn, m; 0, o; _ and . as -; repeated -; blanks): use a distinct caller-owned name for BYO (ADR-CM B-10)`;
+  }
+  return undefined;
+}
+
+/**
  * BYO look-alike rule (ADR-CM §5 B-1, audit P3 S-11; plan docs/G0-lot-cm-1-byo-near-name.md). Returns the 400
  * message and its code when a BYO (task_class, predictor_id) imitates a committed name or takes a reserved kata name, else
  * undefined. Fold = `asciiLower` (A to Z only); non-ASCII homoglyphs are a declared residual (BYO-HOMOGLYPH-1).
@@ -858,6 +897,11 @@ export function runGate(prediction: Prediction, params: HarnessParams, attested?
     const lookAlike = byoLookAlike(taskClass, prediction.predictor_id);
     if (lookAlike !== undefined) {
       throw new HarnessToolError(lookAlike.message, lookAlike.code);
+    }
+    // Confusable guard (ADR-CM B-10, BYO-ASCII-LOOKALIKE-1): after B-1, whose messages and codes stay byte-identical.
+    const confusable = byoConfusable(taskClass, prediction.predictor_id);
+    if (confusable !== undefined) {
+      throw new HarnessToolError(confusable, "byo_lookalike_confusable");
     }
   }
 
