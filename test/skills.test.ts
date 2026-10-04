@@ -18,6 +18,7 @@ import { readFileSync, readdirSync, statSync, mkdtempSync, mkdirSync, copyFileSy
 import { join, extname } from "node:path";
 import { tmpdir } from "node:os";
 import { CALIBRATE_LABEL } from "../apps/harness/src/tools/calibrate.ts";
+import { USDE_POLICY } from "../apps/harness/src/class-policy.ts";
 import { compilePatterns, scanText } from "../scripts/grep-forbidden.mjs";
 import { collectFiles, WHITELIST_DIRS } from "../scripts/export-public.mjs";
 
@@ -189,4 +190,12 @@ test("skill_is_mit0 — LICENSE is MIT-0 (MIT No Attribution), not plain MIT (AD
     !/shall be included in all copies/i.test(lic),
     "MIT-0 must NOT carry MIT's 'shall be included in all copies' attribution clause (else it is plain MIT)",
   );
+});
+
+// CM-2b surfaces (G2 of the lot, M4 and M6): the skill says the retired class answers its named 400, and states the USDe
+// key's imposed alpha and nMin, read from the F-7 rows (apps/harness/src/class-policy.ts), never typed twice.
+// killer: skills/monark/SKILL.md:69 CONST "`nMin = 50`" -> "`nMin = 51`"
+test("skill_states_the_retired_class_and_the_usde_policy", () => {
+  assert.ok(SKILL.includes("`task_class_retired`"), "SKILL.md names the retired class's code");
+  assert.ok(SKILL.includes(`\`alpha = ${String(USDE_POLICY.alpha)}\` and \`nMin = ${String(USDE_POLICY.nMin)}\``), "SKILL.md states the USDe alpha and nMin of the F-7 row");
 });

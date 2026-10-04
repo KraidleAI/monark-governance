@@ -7,8 +7,8 @@
  * (gate/cascade/attest not exercised via createHarnessHandler)" recorded in docs/G2-lot-h3.md.
  *
  * The honest result the demo produces: cascade -> gate ABSTAINS (`under_calib`) — no cascade
- * calibration is committed (D5) — and btc-dir-15m returns the committed SYNTHETIC decision
- * (commit/covered, declared synthetic, demonstrative only). attest is a demonstrative Shōgen
+ * calibration is committed (D5) — and the committed USDe key of stable-run-velocity-24h returns commit/covered over its
+ * measured calibration; btc-dir-15m is retired (step 7 shows the refusal). attest is a demonstrative Shōgen
  * projection. All of this is DECLARED in plain English in the trace's `honesty` block and in
  * `fixtures/PROVENANCE-h5-e2e-trace.md`.
  *
