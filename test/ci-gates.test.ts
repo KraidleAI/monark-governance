@@ -1654,7 +1654,7 @@ test("series_pinned_are_declared_and_hashed — every R-25-excluded data file is
 // so a step-level (8-space) timeout-minutes cannot masquerade as the job backstop. CI-G3-DURATION-1 (c): the workflow runs
 // its tests through package.json scripts only (no bare `node --test`), exactly test:main and test:export, each carrying the
 // same two guards; a new test job adds its script here, so its guards are locked too.
-// killer: package.json:17 CONST "--test-force-exit --test-name-pattern" -> "--test-name-pattern"
+// killer: package.json:18 CONST "--test-force-exit --test-name-pattern" -> "--test-name-pattern"
 test("ci_jobs_have_timeout_and_test_flags_locked — per-job timeout-minutes <= 20 + test guards (checkpoint-2 V-1(b)/V-3)", () => {
   const jobsIdx = LINES.findIndex((l) => /^jobs\s*:/.test(l));
   assert.notEqual(jobsIdx, -1, "top-level key 'jobs:' missing from the workflow");
@@ -1719,7 +1719,7 @@ function expandTestGlob(glob: string): string[] {
   const last = new RegExp(`^${segs[segs.length - 1]!.replace(/[.]/g, "\\.").replace(/\*/g, "[^/]*")}$`);
   return dirs.flatMap((d) => readdirSync(join(ROOT, d)).filter((n) => last.test(n)).map((n) => `${d}/${n}`));
 }
-// killer: .github/workflows/ci.yml:165 CONST "npm run test:export" -> "npm run test:main"
+// killer: .github/workflows/ci.yml:164 CONST "npm run test:export" -> "npm run test:main"
 test("ci_g3_export_runs_test_42_alone_and_g3_main_skips_only_it - the suite is split in two CI jobs with no test lost (CI-G3-DURATION-1)", () => {
   const scripts = (JSON.parse(readFileSync(join(ROOT, "package.json"), "utf8")) as { scripts: Record<string, string> }).scripts;
   const full = scripts.test ?? "";

@@ -418,7 +418,7 @@ function jobBodies(text: string): Map<string, string[]> {
 
 // -- L-4 / C-3 : the derived public workflow keeps every RETAINED job body byte-identical (test 42(f'); D7 ter). The dropped jobs
 // are a CLOSED list (CI-G3-DURATION-1 adds g3-export, which runs the never-exported root test/): each must exist in the source.
-// killer: scripts/export-public.mjs:430 CONST ", \"g3-export\"]" -> "]"
+// killer: scripts/export-public.mjs:427 CONST ", \"g3-export\"]" -> "]"
 test("export_public_derived_jobs_are_byte_identical — every retained job body survives derivation unchanged (test 42(f'), ADR-M004 D7 ter amended)", () => {
   const governance = readFileSync(join(ROOT, ".github", "workflows", "ci.yml"), "utf8");
   const eol = governance.includes("\r\n") ? "\r\n" : "\n";
