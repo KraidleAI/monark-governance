@@ -500,6 +500,8 @@ pm) ; item MK-NM-GUARD-1 (refuser Tree = F:/Monark dans mk-nm.ps1).
   seule ; MONARK prépare un brouillon groupé (v0.8.0, spécification 1.1.0, scellement des 35 s il est fait) que l investisseur publie lui-même.
 - 2026-10-04 16:5x UTC : DÉCISION de l investisseur (choix verbatim) : « Publier maintenant (Recommandé) » : ligne P0 de l addendum 8
   d ADR 0006 sur `KraidleAI/monark-precommitments` (commit `ec202d00`, 16:57:45Z), avant tout code de CM-4a (voie (a) de la Q-1).
+- 2026-10-04 21:4x UTC : DÉCISION de l investisseur (choix verbatim) : « Avec le correctif H-1 (Recommandé) » : la sentinelle sera
+  redéployée une seule fois, avec #137 (SIGTERM, tronc `124c03c2`) et RPC-GUARD-LOCK-WRITE-LEAK-1, quand celui-ci sera au tronc.
 - 2026-10-04 00:5x UTC : fusions au tronc : CM-2a (`4a1b4844`, PR #105 `98e3779a`), COINBASE-PASS-EDGES-1 (`44d8892d`), BINANCE-PRE153-1
   (`328be484`). Leurs oracles G7 (`569c91c6…`, `bba0b720…`, `2ce4d71c…`) portent seulement deux rouges venus de la CA de l étape 3
   committée sans resynchronisation du site (error_origin de l orchestrateur) ; correction `0c8f8177`, oracle vert : 2 060 tests,
