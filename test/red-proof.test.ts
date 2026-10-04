@@ -61,7 +61,7 @@ function fixture(): Fixture {
   const root = mkdtempSync(join(tmpdir(), "red-proof-fx-")), dir = join(root, "repo");
   GIT_ENV.GIT_CONFIG_GLOBAL = join(root, "gitconfig"); writeFileSync(GIT_ENV.GIT_CONFIG_GLOBAL, "[core]\nautocrlf = true\n"); // any host: the tool's clone must override it
   write(dir, {
-    "package.json": '{"name":"fx","private":true,"type":"module"}\n', ".gitignore": "node_modules/\n", "lib/old.ts": "export const OLD = 1;\n", "test/old.test.ts": OLD("", "// a base note, deleted by the worktree\n\n", "  if (process.pid > 0) return;\n"),
+    "package.json": '{"name":"fx","private":true,"type":"module","scripts":{"test":"node --test \\"test/*.test.ts\\""}}\n', ".gitignore": "node_modules/\n", "lib/old.ts": "export const OLD = 1;\n", "test/old.test.ts": OLD("", "// a base note, deleted by the worktree\n\n", "  if (process.pid > 0) return;\n"),
     "packages/w/package.json": '{"name":"@fx/w","type":"module","exports":"./index.js"}\n', "packages/w/index.js": W(false),
     "node_modules/fx-dep/package.json": '{"name":"fx-dep","type":"module","exports":"./index.js"}\n', "node_modules/fx-dep/index.js": "export const HALF = 2;\n",
   });
@@ -132,7 +132,7 @@ test("red_proof_admits_an_assertion_red_at_base_through_a_workspace_link", () =>
   assert.deepEqual([r.base, r.gel, r.verdict], ["assert-fail", "pass", "F2P"]);
 });
 
-// killer: scripts/red-proof.mjs:185 SDL "green at base" -> ""
+// killer: scripts/red-proof.mjs:188 SDL "green at base" -> ""
 test("red_proof_refuses_a_test_green_at_base_or_red_at_gel", () => {
   const r = row("green_at_base"), g = row("red_at_gel");
   assert.deepEqual([r.base, r.gel, r.verdict, g.base, g.gel, g.verdict], ["pass", "pass", "refused", "assert-fail", "assert-fail", "refused"]);
@@ -140,13 +140,13 @@ test("red_proof_refuses_a_test_green_at_base_or_red_at_gel", () => {
   assert.deepEqual([row("gel_typeerror").base, row("gel_typeerror").gel, row("gel_typeerror").verdict], ["assert-fail", "other-fail", "refused"]);
 });
 
-// killer: scripts/red-proof.mjs:183 COR "&& t.newModule" -> "|| t.newModule"
+// killer: scripts/red-proof.mjs:186 COR "&& t.newModule" -> "|| t.newModule"
 test("red_proof_refuses_an_import_red_on_a_module_that_exists_at_base", () => {
   const r = row("import_existing");
   assert.deepEqual([r.base, r.gel, r.module, r.verdict], ["import-fail", "pass", "lib/old.ts", "refused"]);
 });
 
-// killer: scripts/red-proof.mjs:253 COR "&& added.has(module)" -> "&& !added.has(module)"
+// killer: scripts/red-proof.mjs:271 COR "&& added.has(module)" -> "&& !added.has(module)"
 test("red_proof_admits_a_new_module_with_its_killer", () => {
   const r = row("new_module — (fresh) [x] $y 'z' #w"), n = row("new_no_killer");
   assert.deepEqual([r.base, r.gel, r.module, r.verdict, n.base, n.module, n.verdict], ["import-fail", "pass", "lib/fresh.ts", "new-module", "import-fail", "lib/fresh.ts", "refused"]);
@@ -167,14 +167,14 @@ test("red_proof_refuses_a_stale_or_ambiguous_killer", () => {
   assert.deepEqual([row("outside_killer").reason, row("test_code_killer").reason, statSync(join(fixture().dir, "node_modules", "fx-dep", "index.js")).mtimeMs], ["invalid killer: node_modules/fx-dep/index.js is out of scope: not a file inside the gel clone", "invalid killer: test/cases.test.ts is test code: a killer mutates production code", fixture().nm]);
 });
 
-// killer: scripts/red-proof.mjs:207 CONST "\"stillborn\"" -> "\"killed\""
+// killer: scripts/red-proof.mjs:210 CONST "\"stillborn\"" -> "\"killed\""
 test("red_proof_refuses_a_stillborn_killer_among_the_drawn", () => {
   const { status, proof } = commitRun();
   assert.deepEqual(Object.fromEntries((proof.draw?.drawn ?? []).map((d) => [d.name, d.outcome])), { f2p_true: "killed", stillborn: "stillborn", "new_module — (fresh) [x] $y 'z' #w": "killed" });
   assert.deepEqual([status, proof.ok], [1, false]);
 });
 
-// killer: scripts/red-proof.mjs:266 CONST "sha256: sha(baseTap)" -> "sha256: sha(gelTap)"
+// killer: scripts/red-proof.mjs:289 CONST "sha256: sha(baseTap)" -> "sha256: sha(gelTap)"
 test("red_proof_tap_sha256_recomputes_equal", () => {
   const { proof, out } = commitRun(), f = fixture();
   for (const t of [proof.tap.base, proof.tap.gel, ...(proof.draw?.drawn ?? []).map((d) => d.tap)]) assert.equal(sha(readFileSync(join(out, t.path))), t.sha256, t.path);
@@ -183,7 +183,7 @@ test("red_proof_tap_sha256_recomputes_equal", () => {
   assert.equal(proof.gel.digest, sha(Buffer.from(recipe.filter(([, p]) => !/^docs\/(.+\/)?[^/]+\.md$/.test(p ?? "")).map(([s, p]) => `${s ?? ""} ${p ?? ""} ${s === "D" ? "-" : sha(readFileSync(join(f.dir, p ?? "")))}`).join("\n"))), "digest recipe");
 });
 
-// killer: scripts/red-proof.mjs:274 SDL "rmSync(work" -> ""
+// killer: scripts/red-proof.mjs:298 SDL "rmSync(work" -> ""
 test("red_proof_restores_each_mutated_file_and_removes_its_clones", () => {
   const f = fixture(), { proof, left } = commitRun();
   assert.equal(proof.draw?.drawn.length, 3);
@@ -211,7 +211,7 @@ test("red_proof_counts_a_killed_child_as_inconclusive", () => {
   assert.deepEqual([parent("ERR_ASSERTION", "ERR_ASSERTION"), parent("ERR_ASSERTION", "ERR_TEST_FAILURE")].map((t) => classify(parseTap(t)[0])), ["assert-fail", "other-fail"]);
 });
 
-// killer: scripts/red-proof.mjs:191 CONST "seed >>> 0" -> "0"
+// killer: scripts/red-proof.mjs:194 CONST "seed >>> 0" -> "0"
 test("red_proof_draw_is_reproducible_at_a_fixed_seed", () => {
   const pop = Array.from({ length: 20 }, (_, i) => i), d = drawKillers(pop, 3, 42);
   assert.deepEqual(drawKillers(pop, 3, 42), d);
@@ -221,7 +221,7 @@ test("red_proof_draw_is_reproducible_at_a_fixed_seed", () => {
   assert.deepEqual(proof.draw?.drawn.map((x) => x.name), drawKillers(admitted(proof.tests), 3, 7).map((t) => t.name));
 });
 
-// killer: scripts/red-proof.mjs:229 SDL "ls-files" -> ""
+// killer: scripts/red-proof.mjs:246 SDL "ls-files" -> ""
 test("red_proof_worktree_gel_counts_untracked_files_and_exits_zero", () => {
   const { status, proof } = worktreeRun(), sub = run("worktree-sub", join(fixture().root, "wt", "test"), []); // --gel names a sub-directory; no --draw
   assert.deepEqual([proof.tests, sub.proof.tests].map((ts) => ts.map((t) => [t.file, t.name, t.base, t.gel, t.verdict])), Array(2).fill([
@@ -244,7 +244,7 @@ test("red_proof_never_runs_test_42_outside_the_host_lock", () => {
   assert.match(r.reason, /host lock/);
 });
 
-// killer: scripts/red-proof.mjs:260 COR "&& drawn.every(" -> "|| drawn.every("
+// killer: scripts/red-proof.mjs:283 COR "&& drawn.every(" -> "|| drawn.every("
 test("red_proof_fails_on_a_stillborn_draw_or_an_empty_diff", () => {
   const weak = weakRun(), empty = run("empty", fixture().gel, [], fixture().gel);
   assert.deepEqual([weak.proof.tests.map((t) => t.verdict), Object.fromEntries((weak.proof.draw?.drawn ?? []).map((d) => [d.name, d.outcome])), weak.proof.ok, weak.status],
@@ -252,13 +252,13 @@ test("red_proof_fails_on_a_stillborn_draw_or_an_empty_diff", () => {
   assert.deepEqual([empty.proof.tests.length, empty.proof.ok, empty.status, empty.proof.drawn], [0, false, 1, 0]);
 });
 
-// killer: scripts/red-proof.mjs:253 CONST "unsupported test layout" -> ""
+// killer: scripts/red-proof.mjs:271 CONST "unsupported test layout" -> ""
 test("red_proof_refuses_an_unsupported_test_layout", () => {
   const r = weakRun().proof.tests.find((t) => t.file === "test/layout.test.ts" && t.name === "layout_bad");
   assert.deepEqual([r?.verdict, r?.reason], ["refused", "unsupported test layout"]);
 });
 
-// killer: scripts/red-proof.mjs:278 CONST "import.meta.main !== false" -> "process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)"
+// killer: scripts/red-proof.mjs:302 CONST "import.meta.main !== false" -> "process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)"
 test("red_proof_launched_through_a_junction_records_or_refuses_never_a_silent_exit_0", () => {
   const f = fixture(), j = join(f.root, "scripts-junction"), cli = join(j, "red-proof.mjs"); // RED-PROOF-JUNCTION-GUARD-1: argv[1] is the link, import.meta.url the real path
   symlinkSync(join(import.meta.dirname, "..", "scripts"), j, "junction"); // New-Item -ItemType Junction on Windows, a symlink elsewhere
@@ -277,7 +277,7 @@ test("red_proof_links_the_real_target_of_a_junctioned_module_and_repoints_a_junc
   assert.ok(cols(j).some(([, n, b, g, v]) => n === "f2p_true" && b === "assert-fail" && g === "pass" && v === "F2P"));
 });
 
-// killer: scripts/red-proof.mjs:289 CONST "skipped.push(link); continue;" -> "changes.push(p); continue;"
+// killer: scripts/red-proof.mjs:313 CONST "skipped.push(link); continue;" -> "changes.push(p); continue;"
 test("red_proof_worktree_gel_with_a_junctioned_node_modules_is_judged", () => {
   const f = fixture(), wt = join(f.root, "wt3"); // the node_modules junction is no directory to the node_modules/ ignore rule: git lists it as untracked
   git(f.dir, "worktree", "add", "-q", "--detach", wt, f.base);
@@ -320,7 +320,7 @@ test("red_proof_leaves_out_a_broken_link_and_a_link_to_a_file_in_node_modules", 
   assert.deepEqual([r.status, l?.base, l?.gel], [1, "pass", "pass"]);
 });
 
-// killer: scripts/red-proof.mjs:288 CONST "find((q) => isLink(join(gitDir, q)))" -> "find(() => false)"
+// killer: scripts/red-proof.mjs:312 CONST "find((q) => isLink(join(gitDir, q)))" -> "find(() => false)"
 test("red_proof_records_a_skipped_linked_directory_and_still_stops_on_an_untracked_nested_repo", () => {
   const f = fixture(), wt = join(f.root, "wt4"), nested = join(f.root, "wt5"); // m-1 of the G2: only a link is skipped, and the proof says so
   git(f.dir, "worktree", "add", "-q", "--detach", wt, f.base);
@@ -343,14 +343,14 @@ const untrackedOf = (d: string, ps: string[]): { changes: string[]; skipped: str
   return redProof.untrackedOf(d, ps);
 };
 
-// killer: scripts/red-proof.mjs:288 CONST "parts.slice(0, i + 1).join(\"/\")" -> "p"
+// killer: scripts/red-proof.mjs:312 CONST "parts.slice(0, i + 1).join(\"/\")" -> "p"
 test("red_proof_skips_a_linked_directory_in_each_shape_git_may_list_it", () => {
   const d = shapes(); // RED-PROOF-JUNCTION-1 win32: git output injected; Git for Windows may walk a junction as a directory and list the files under it
   const got = [["linked"], ["linked/"], ["linked/old.ts", "linked/fresh.ts"], ["a.ts", "linked/", "linked/old.ts", ""]].map((ps) => untrackedOf(d, ps));
   assert.deepEqual(got, [{ changes: [], skipped: ["linked"] }, { changes: [], skipped: ["linked"] }, { changes: [], skipped: ["linked"] }, { changes: ["a.ts"], skipped: ["linked"] }]);
 });
 
-// killer: scripts/red-proof.mjs:290 SDL "throw new Error" -> ""
+// killer: scripts/red-proof.mjs:314 SDL "throw new Error" -> ""
 test("red_proof_stops_by_name_on_an_untracked_directory_in_each_shape", () => {
   const d = shapes(); // no copy is tried, so no errno decides the stop (EISDIR on Linux, EPERM on win32)
   for (const ps of [["vendor/sub/"], ["vendor/sub"], ["a.ts", "vendor/sub/"]]) assert.throws(() => untrackedOf(d, ps), /^Error: untracked directory vendor\/sub\/ is no file to copy \(a nested repository\?\)/, ps.join(","));
@@ -417,7 +417,7 @@ function cutRun(): Run { // G2 G9, G10, G14: a run truncated at base only; a dra
   return run("cut", wt, ["--draw", "1", "--seed", "1"]);
 }
 
-// killer: scripts/red-proof.mjs:207 CONST "\"inconclusive\", \"inconclusive_truncated\", " -> "\"inconclusive\", "
+// killer: scripts/red-proof.mjs:210 CONST "\"inconclusive\", \"inconclusive_truncated\", " -> "\"inconclusive\", "
 test("red_proof_counts_a_drawn_killer_whose_run_is_truncated_inconclusive_never_killed", () => {
   const { status, proof } = cutRun(), k = proof.tests.find((t) => t.name === "cut_by_killer");
   assert.deepEqual([k?.base, k?.gel, k?.verdict, proof.draw?.drawn.map((d) => [d.name, d.status, d.outcome]), proof.ok, status], ["import-fail", "pass", "new-module", [["cut_by_killer", "inconclusive_truncated", "inconclusive"]], false, 1]);
@@ -427,6 +427,119 @@ test("red_proof_counts_a_drawn_killer_whose_run_is_truncated_inconclusive_never_
 test("red_proof_names_a_truncation_at_base_alone_inconclusive", () => {
   const r = cutRun().proof.tests.find((t) => t.name === "cut_at_base");
   assert.deepEqual([r?.base, r?.gel, r?.verdict, r?.reason], ["inconclusive_truncated", "pass", "inconclusive", "a run's TAP is truncated (inconclusive_truncated)"]);
+});
+
+const PIN = '// killer: packages/w/index.js:1 COR "x + x" -> "x - x"\ntest("pin_ok", () => { assert.equal(double(3), 6); });\n', PINS = `${HEAD}import { existsSync } from "node:fs";\nimport { double } from "@fx/w";\n`;
+const G0 = (decl: boolean, ...killers: string[]): string => `# G0 of a test-only lot\n${decl ? "red-proof: test-only\r\n" : ""}${killers.map((k) => `- \`${k}\`\n`).join("")}`, XX = 'packages/w/index.js:1 COR "x + x" -> "x - x"';
+function pinRun(key: string, files: Record<string, string | null>, extra: string[], commit: Record<string, string> = {}): Run { // RED-PROOF-TEST-ONLY-1: a lot that only adds tests pinning what the gel already does
+  const f = fixture(), wt = join(f.root, `wt-${key}`);
+  if (!existsSync(wt)) {
+    git(f.dir, "worktree", "add", "-q", "--detach", wt, f.gel);
+    if (Object.keys(commit).length > 0) { write(wt, commit); git(wt, "add", "-A"); git(wt, "commit", "-q", "-m", "base of the lot"); git(wt, "tag", `base-${key}`); } // a base the fixture lacks (B-1)
+    for (const [p, text] of Object.entries(files)) if (text === null) rmSync(join(wt, p)); else write(wt, { [p]: text });
+  }
+  return run(`to-${key}${extra.length > 0 ? "" : "-f2p"}`, wt, extra, git(wt, "rev-parse", "HEAD"));
+}
+const pinOk = (): Run => pinRun("pin", { "test/pin.test.ts": `${PINS}${PIN}`, "docs/G0-pin.md": G0(true, XX) }, ["--test-only"]);
+const pinWeak = (): Run => pinRun("weak", { "docs/G0-pin.md": G0(true, XX, 'lib/old.ts:1 CONST "1" -> "5"', 'packages/w/index.js:1 COR "x + x" -> "x.y.z"'), "test/sub/out.test.ts": `${PINS}// killer: ${XX}\ntest("pin_out", () => { assert.equal(double(4), 8); });\n`,
+  "test/pin.test.ts": `${PINS}${PIN}// killer: lib/old.ts:1 CONST "1" -> "5"\ntest("pin_weak", () => { assert.equal(double(5), 10); });\n// killer: packages/w/index.js:1 COR "x + x" -> "x.y.z"\ntest("pin_throw", () => { double(3); });\n` +
+    `// killer: ${XX}\ntest("pin_todo", { todo: true }, () => { assert.equal(double(2), 4); });\n// killer: ${XX}\ntest("pin_red", () => { if (!existsSync("docs/G0-pin.md")) throw new TypeError("base"); assert.equal(double(1), 2); });\n// killer: packages/w/index.js:1 COR "x + x" -> "x * x"\ntest("pin_unlisted", () => { assert.equal(double(3), 6); });\n` }, ["--test-only"]);
+const cols = (r: Run): unknown[][] => r.proof.tests.map((t) => [t.name, t.base, t.gel, t.verdict, t.kill?.outcome ?? null, t.kill?.status ?? null]);
+const reason = (r: Run, name: string): string => r.proof.tests.find((t) => t.name === name)?.reason ?? "";
+
+// killer: scripts/red-proof.mjs:280 CONST " || r.verdict === \"pinned\"" -> ""
+test("red_proof_test_only_admits_a_pin_whose_declared_killer_kills_it_at_gel", () => {
+  const p = pinOk(), f2p = pinRun("pin", {}, []); // without the flag, the same lot is green at base
+  assert.deepEqual([p.status, p.proof.ok, p.proof.schema, p.proof.mode, p.proof.declared, p.proof.refusals, p.proof.files.production, p.proof.files.removed, cols(p), p.proof.tests[0]?.kill?.tap.path, p.proof.drawn],
+    [0, true, "red-proof-v2", "test-only", "docs/G0-pin.md", [], [], [], [["pin_ok", "pass", "pass", "pinned", "killed", "assert-fail"]], "pin-1.tap", 0]);
+  assert.deepEqual([f2p.status, f2p.proof.mode, f2p.proof.tests.map((t) => [t.verdict, t.reason, t.kill])], [1, "f2p", [["refused", "green at base: a self-confirming test", null]]]);
+});
+
+// killer: scripts/red-proof.mjs:277 CONST "r.kill.outcome !== \"killed\"" -> "false"
+test("red_proof_test_only_refuses_a_pin_whose_killer_survives", () => {
+  const w = pinWeak();
+  assert.deepEqual([w.status, w.proof.ok, cols(w).find((c) => c[0] === "pin_weak"), cols(w).find((c) => c[0] === "pin_ok")], [1, false, ["pin_weak", "pass", "pass", "refused", "stillborn", "pass"], ["pin_ok", "pass", "pass", "pinned", "killed", "assert-fail"]]);
+  assert.match(reason(w, "pin_weak"), /its declared killer is stillborn at gel/);
+});
+
+// killer: scripts/red-proof.mjs:278 CONST "r.kill.status !== \"assert-fail\"" -> "false"
+test("red_proof_test_only_refuses_a_kill_that_is_no_assertion_failure", () => {
+  const w = pinWeak(); // G2 Q-RTO-3, m-3: a test without an assertion, reddened by a throw of the mutated code
+  assert.deepEqual([cols(w).find((c) => c[0] === "pin_throw"), reason(w, "pin_throw")], [["pin_throw", "pass", "pass", "refused", "killed", "other-fail"], "its declared killer reddens it without an assertion failure (other-fail)"]);
+});
+
+// killer: scripts/red-proof.mjs:184 CONST "t.base === \"pass\" ?" -> "true ?"
+test("red_proof_test_only_refuses_a_pin_red_at_base_and_a_passing_todo", () => {
+  const w = pinWeak(); // G2 T5, T6, m-4: red at base without an assertion (other-fail); a todo is skip, never pass
+  assert.deepEqual([cols(w).find((c) => c[0] === "pin_red"), reason(w, "pin_red"), cols(w).find((c) => c[0] === "pin_todo")],
+    [["pin_red", "other-fail", "pass", "refused", null, null], "red at base under --test-only (other-fail): the production code is the same", ["pin_todo", "skip", "skip", "refused", null, null]]);
+});
+
+// killer: scripts/red-proof.mjs:182 CONST "t.only && !t.inGlobs" -> "false"
+test("red_proof_test_only_refuses_a_pin_outside_the_npm_test_globs", () => {
+  assert.deepEqual(cols(pinWeak()).find((c) => c[0] === "pin_out"), ["pin_out", "pass", "pass", "refused", null, null]); // G2 m-4: test/sub/ is outside "test/*.test.ts"
+  assert.equal(reason(pinWeak(), "pin_out"), "outside the npm test globs of package.json: CI never runs it");
+});
+
+// killer: scripts/red-proof.mjs:183 CONST "t.only && !t.listed" -> "false"
+test("red_proof_test_only_refuses_a_pin_whose_killer_its_g0_does_not_list", () => {
+  assert.deepEqual([cols(pinWeak()).find((c) => c[0] === "pin_unlisted"), reason(pinWeak(), "pin_unlisted")], [["pin_unlisted", "pass", "pass", "refused", null, null], "its killer is not listed in the G0 that declares the lot test-only"]);
+});
+
+// killer: scripts/red-proof.mjs:276 CONST "pin-${++pins}.tap" -> "pin-${pins}.tap"
+test("red_proof_test_only_keeps_each_kill_in_its_own_tap", () => {
+  const { proof, out } = pinWeak(), taps = proof.tests.flatMap((t) => (t.kill === null ? [] : [t.kill.tap])); // G2 m-6
+  assert.deepEqual(taps.map((t) => t.path), ["pin-1.tap", "pin-2.tap", "pin-3.tap"]);
+  for (const t of taps) assert.equal(sha(readFileSync(join(out, t.path))), t.sha256, t.path);
+});
+
+// killer: scripts/red-proof.mjs:263 CONST "gate.refusals.length > 0 ? [] : tests" -> "tests"
+test("red_proof_test_only_fails_closed_on_a_production_change", () => {
+  const f = fixture(), r = run("test-only-prod", f.gel, ["--test-only"]), d = spawnSync(process.execPath, [CLI, "--base", f.base, "--gel", f.gel, "--test-only", "--draw", "1", "--seed", "1"], { encoding: "utf8", env: GIT_ENV });
+  const del = pinRun("delprod", { "lib/old.ts": null, "test/pin.test.ts": `${PINS}${PIN}`, "docs/G0-pin.md": G0(true, XX) }, ["--test-only"]); // G2 T10: a deleted production file
+  assert.deepEqual([r.status, r.proof.ok, r.proof.mode, r.proof.tests, r.proof.files.production], [1, false, "test-only", [], ["lib/fresh.ts", "lib/old.ts", "packages/w/index.js"]]);
+  assert.deepEqual([del.status, del.proof.ok, del.proof.tests, del.proof.refusals], [1, false, [], ["production changed: lib/old.ts"]]);
+  assert.deepEqual([d.status, /--test-only fires every killer/.test(d.stderr)], [2, true], d.stderr);
+});
+
+// killer: scripts/red-proof.mjs:216 CONST "production.push(p)" -> "null"
+test("red_proof_test_only_counts_a_test_file_that_production_imports_as_production", () => {
+  const r = pinRun("b1", { "test/h.ts": "export const H = 2;\n", "packages/w/test/hw.ts": "export const HW = 2;\n", "test/free.ts": "export const F = 1;\n", "test/pin.test.ts": `${PINS}${PIN}`, "docs/G0-pin.md": G0(true, XX) }, ["--test-only"],
+    { "scripts/rec.mjs": 'import { H } from "../test/h.ts";\nexport const R = H;\n', "packages/w/rec.js": 'export { HW } from "./test/hw.ts";\n' }); // G2 B-1: as scripts/record-byo-demo.mjs:14, and a package's own test/; files the base names but lacks, added by the lot
+  assert.deepEqual([r.status, r.proof.ok, r.proof.tests, r.proof.files.production, r.proof.refusals], [1, false, [], ["packages/w/test/hw.ts", "test/h.ts"], ["production changed: packages/w/test/hw.ts", "production changed: test/h.ts"]]);
+});
+
+// killer: scripts/red-proof.mjs:218 CONST "!(st === \"M\" ? names([p]) : moved).has(d.name)" -> "false"
+test("red_proof_test_only_refuses_a_removed_test_and_names_it", () => {
+  const f = fixture(), moved = readFileSync(join(f.dir, "test", "fresh.test.ts"), "utf8"); // G2 B-2; a moved file keeps its tests: not removed
+  const r = pinRun("b2", { "test/existing.test.ts": null, "test/fresh.test.ts": null, "test/fresh2.test.ts": moved, "test/pin.test.ts": `${PINS}${PIN}`, "docs/G0-pin.md": G0(true, XX) }, ["--test-only"]);
+  assert.deepEqual([r.status, r.proof.ok, r.proof.tests, r.proof.files.removed, r.proof.refusals], [1, false, [], ["test/existing.test.ts :: import_existing"], ["test removed: test/existing.test.ts :: import_existing"]]);
+});
+
+// killer: scripts/red-proof.mjs:219 CONST "/^red-proof: test-only\\r?$/m.test(text)" -> "true"
+test("red_proof_test_only_refuses_a_lot_whose_g0_does_not_declare_it", () => {
+  const r = pinRun("nodecl", { "test/pin.test.ts": `${PINS}${PIN}`, "docs/G0-pin.md": G0(false, XX) }, ["--test-only"]); // G2 Q-RTO-4
+  assert.deepEqual([r.status, r.proof.ok, r.proof.declared, r.proof.tests, r.proof.refusals], [1, false, null, [], ['no G0 of the diff declares "red-proof: test-only"']]);
+});
+
+// killer: scripts/red-proof.mjs:216 CONST "st !== \"A\" || " -> ""
+test("red_proof_test_only_refuses_a_modified_test_support_file_and_admits_an_added_one", () => {
+  const r = pinRun("b3", { "test/fixtures/f.json": '{"v":2}\n', "test/fixtures/new.json": '{"v":1}\n', "test/pin.test.ts": `${PINS}${PIN}`, "docs/G0-pin.md": G0(true, XX) }, ["--test-only"], { "test/fixtures/f.json": '{"v":1}\n' }); // G2 rr B-3: read by a computed path (scripts/census/u4-*.mjs)
+  const a = pinRun("b3add", { "test/fixtures/new.json": '{"v":1}\n', "test/pin.test.ts": `${PINS}${PIN}`, "docs/G0-pin.md": G0(true, XX) }, ["--test-only"]);
+  assert.deepEqual([r.status, r.proof.tests, r.proof.files.production, a.status, a.proof.ok, a.proof.files.support, a.proof.files.production], [1, [], ["test/fixtures/f.json"], 0, true, ["test/fixtures/new.json"], []]);
+});
+
+// killer: scripts/red-proof.mjs:218 CONST "st === \"M\" ? names([p]) : moved" -> "moved"
+test("red_proof_test_only_names_a_test_removed_inside_a_modified_file_even_if_another_file_reuses_its_name", () => {
+  const cases = readFileSync(join(fixture().dir, "test", "cases.test.ts"), "utf8").replace(/^test\("no_killer".*\n/m, ""); // G2 rr X2
+  const r = pinRun("x2", { "test/cases.test.ts": cases, "test/pin.test.ts": `${PINS}${PIN}test("no_killer", () => { assert.equal(double(3), 6); });\n`, "docs/G0-pin.md": G0(true, XX) }, ["--test-only"]);
+  assert.deepEqual([r.status, r.proof.tests, r.proof.files.removed], [1, [], ["test/cases.test.ts :: no_killer"]]);
+});
+
+// killer: scripts/red-proof.mjs:219 CONST "/^red-proof: test-only\\r?$/m" -> "/red-proof: test-only/"
+test("red_proof_test_only_reads_the_declaration_only_on_a_line_of_its_own", () => {
+  const r = pinRun("x3", { "test/pin.test.ts": `${PINS}${PIN}`, "docs/G0-pin.md": `${G0(false, XX)}The line \`red-proof: test-only\` would declare it.\n` }, ["--test-only"]); // G2 rr X3; a CRLF declaration counts (every G0() above)
+  assert.deepEqual([r.status, r.proof.declared, r.proof.refusals], [1, null, ['no G0 of the diff declares "red-proof: test-only"']]);
 });
 
 const section = (tap: string, file: string): string => new RegExp(`# red-proof file: ${file.replace(/\./g, "\\.")}\\n((?:(?!# red-proof file:)[^])*)`).exec(tap)?.[1] ?? "";
