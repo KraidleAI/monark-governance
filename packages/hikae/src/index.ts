@@ -104,3 +104,9 @@ export type { TrackerParams, TrackerState } from "./tracker.ts";
 // Runs diagnostic (worksite 2, lots L2-1r and L2-1r2): exact one-sided runs test on a time-ordered 0/1 sequence, balanced exceedance; import-guard input.
 export { runsCount, runsLowerTailLeq, balancedExceedance } from "./runs.ts";
 export type { Balanced, Bits, RunsTail } from "./runs.ts";
+
+// Kata path, lot CM-3b (audit P3 S-4/E-1 engine side, E-2, S-13): scaled band [0, h*], F-7 row canonicalizer, ordered digest.
+export { bandEdge, conformScaledBand } from "./scaled-band.ts";
+export type { ScaledBand, ScaledBandOptions } from "./scaled-band.ts";
+export { canonicalRow, orderedCalibDigest } from "./canonical-row.ts";
+export type { RowValue } from "./canonical-row.ts";
