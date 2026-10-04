@@ -9,7 +9,9 @@
 // junction under --preserve-symlinks-main, then imported by a process whose argv[1] names an absent path. These three tests kill mutants of a
 // file that exists at the base, so they live here, in the test file of a module that the lot adds (red-proof refuses a test green at the
 // base: Q-A7-11). One child process runs the command line with no argument (a usage stop). Each test names, on the line above it, the
-// production mutation that reddens it (scripts/red-proof.mjs convention). Outputs under the OS temp directory, removed after the file.
+// production mutation that reddens it (scripts/red-proof.mjs convention). One test bounds the body (lot COINBASE-PASS-EDGES-1, D-3:
+// 65 536 bytes, written here); its corrections add to it a large 404, a stalled body, an invalid UTF-8 byte (G2-3, G2-6, G2-7 of its G2)
+// and the two launch guards of the probe, in a child (XP-G03, XP-G02). Outputs under the OS temp directory, removed after the file.
 import { after, test } from "node:test";
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
@@ -87,7 +89,7 @@ function leaks(p: Probed): string[] {
   return MARKS.filter((m) => texts.some((t) => t.includes(m)));
 }
 
-// killer: scripts/probe-coinbase-bounds.mjs:102 CONST "[...res.headers.keys()]" -> "[...res.headers.entries()]"
+// killer: scripts/probe-coinbase-bounds.mjs:104 CONST "[...res.headers.keys()]" -> "[...res.headers.entries()]"
 test("coinbase_probe_asks_three_windows_of_one_week_and_writes_no_price", async () => {
   const p = await probe(), r = p.result, first = (q: Probe.ProbeRequest): unknown[] => [q.name, q.status, q.times?.length, q.times?.[0], q.times?.at(-1)];
   assert.deepEqual([p.code, p.calls.urls, p.sleeps, p.calls.inits.map((i) => [i.redirect, i.headers, i.signal instanceof AbortSignal])],
@@ -106,7 +108,7 @@ test("coinbase_probe_asks_three_windows_of_one_week_and_writes_no_price", async 
   assert.deepEqual([r?.probe_sha256, r?.recorder_sha256, r?.redistributable], [sha(readFileSync(PROBE)), sha(readFileSync(RECORDER)), false]);
 });
 
-// killer: scripts/probe-coinbase-bounds.mjs:53 CONST "t > s && t <= e" -> "t >= s && t <= e"
+// killer: scripts/probe-coinbase-bounds.mjs:55 CONST "t > s && t <= e" -> "t >= s && t <= e"
 test("coinbase_probe_names_the_reading_of_the_bounds_from_the_signature_table", async () => {
   // each reading of the table (CORR2 section 11) served alone: the probe names it (E and G one row at 300 points, as in the table) and
   // the inclusion of start and end by the aligned request; bounds rounded to the grid, a refusal at the limit or the window ignored
@@ -130,7 +132,7 @@ test("coinbase_probe_names_the_reading_of_the_bounds_from_the_signature_table", 
   assert.equal(refused.result?.requests[2]?.times, null, "a refusal keeps its status, never a body");
 });
 
-// killer: scripts/probe-coinbase-bounds.mjs:106 SDL "if (status >= 300 && status < 400) stop(" -> ""
+// killer: scripts/probe-coinbase-bounds.mjs:110 SDL "if (status >= 300 && status < 400) stop(" -> ""
 test("coinbase_probe_keeps_the_network_discipline_of_the_recorder", async () => {
   // the malformed 200 bodies carry the marks (G2-2 of the G2): a stop detail that printed a body or a refused candle would show one
   const reply = (status: number, body = "", headers: Record<string, string> = {}): Response => new Response(body, { status, headers });
@@ -165,7 +167,7 @@ test("coinbase_probe_keeps_the_network_discipline_of_the_recorder", async () => 
   assert.deepEqual([silent.stop, broken.stop, asked], ["timeout", "network_error", 2]);
 });
 
-// killer: scripts/probe-coinbase-bounds.mjs:75 CONST "!PRODUCTS.includes" -> "PRODUCTS.includes"
+// killer: scripts/probe-coinbase-bounds.mjs:77 CONST "!PRODUCTS.includes" -> "PRODUCTS.includes"
 test("coinbase_probe_refuses_any_product_but_btc_usd_and_a_week_not_yet_closed", async () => {
   // P1: BTC-USD alone, never USDT-USD; the week closed (its end at or before now); --out as the recorder wants it
   const full = fresh(), argv = (product: string) => (out: string): string[] => ["--product", product, "--out", out];
@@ -182,7 +184,7 @@ test("coinbase_probe_refuses_any_product_but_btc_usd_and_a_week_not_yet_closed",
   assert.deepEqual([PRODUCTS, closed.code, closed.calls.urls.length, readdirSync(full)], [["BTC-USD"], 0, 3, ["keep.txt"]], "the week closed at now");
 });
 
-// killer: scripts/record-coinbase-candles.mjs:157 SDL "checkHost(url);" -> ""
+// killer: scripts/record-coinbase-candles.mjs:192 SDL "checkHost(url);" -> ""
 test("coinbase_recorder_and_probe_refuse_an_origin_outside_the_closed_host_before_any_request", async () => {
   // correction 4 of RECHERCHES (the mutant that removes checkHost from the recorder survived): copies of the recorder and of the probe,
   // the origin of the recorder changed in its copy (the probe reads it from there): each refuses it before its first request
@@ -213,7 +215,7 @@ const child = (args: string[]): [number | null, string, string] => {
   return [r.status, r.stdout, r.stderr];
 };
 
-// killer: scripts/record-coinbase-candles.mjs:334 CONST "=== realpathSync(SCRIPT)" -> "=== SCRIPT"
+// killer: scripts/record-coinbase-candles.mjs:385 CONST "=== realpathSync(SCRIPT)" -> "=== SCRIPT"
 test("coinbase_recorder_runs_its_command_line_through_a_link_that_node_keeps", () => {
   // G03 of the campaign of the fusion, the construction measured by the corr3 of COINBASE-USDT-RECORDER-1: a copy of the recorder, a
   // junction to its folder, a child launched through it under --preserve-symlinks-main (import.meta.url then names the link) with no
@@ -226,7 +228,7 @@ test("coinbase_recorder_runs_its_command_line_through_a_link_that_node_keeps", (
     stop: "usage", detail: { absent: ["product", "granularity", "start", "end", "out"] } }) + LF]);
 });
 
-// killer: scripts/record-coinbase-candles.mjs:334 COR " && existsSync(process.argv[1])" -> ""
+// killer: scripts/record-coinbase-candles.mjs:385 COR " && existsSync(process.argv[1])" -> ""
 test("coinbase_recorder_imported_by_a_process_whose_argv_names_an_absent_path_runs_nothing", () => {
   // G02 of the campaign of the fusion, its measured form: node -e imports the recorder, argv[1] an absent path: the guard runs nothing
   // and throws nothing (exit 0, nothing printed)
@@ -234,10 +236,67 @@ test("coinbase_recorder_imported_by_a_process_whose_argv_names_an_absent_path_ru
   assert.deepEqual(child(["--input-type=module", "-e", imported, join(ROOT, "absent")]), [0, "", ""]);
 });
 
-// killer: scripts/probe-coinbase-bounds.mjs:170 SDL "process.exitCode = await main(process.argv.slice(2));" -> ""
+// killer: scripts/probe-coinbase-bounds.mjs:174 SDL "process.exitCode = await main(process.argv.slice(2));" -> ""
 test("coinbase_probe_command_line_prints_one_line_and_exits", () => {
   // no argument: the usage stop on stderr, exit 2, before any request
   const r = spawnSync(process.execPath, [PROBE], { encoding: "utf8", timeout: 30_000, env: { SYSTEMROOT: process.env.SYSTEMROOT },
     stdio: ["ignore", "pipe", "pipe"] });
   assert.deepEqual([r.status, r.stdout, r.stderr], [2, "", JSON.stringify({ ok: false, stop: "usage", detail: { absent: ["--product", "--out"] } }) + LF]);
+});
+
+// killer: scripts/probe-coinbase-bounds.mjs:106 SDL "if (body === null) stop(" -> ""
+test("coinbase_probe_reads_a_body_as_a_stream_of_at_most_65536_bytes", async () => {
+  // SERIES-BODY-BOUND-1 (lot COINBASE-PASS-EDGES-1, D-3): a 200 body of 85 537 bytes sent in chunks of 20 000 (a byte order mark, a
+  // marked candle, then spaces) stops body_too_large in the chunk that passes 65 536 bytes, its stream cancelled, after the first request,
+  // its status line alone written, nothing of it kept nor printed; one of exactly 65 536 bytes, in chunks too, is read, its mark removed
+  // as res.text() removes it
+  const rows = `[[${String(WEEK + S)},${MARKS.slice(0, 5).join(",")}]]`, cancelled: number[] = [];
+  const sized = (n: number): Answer => (k) => {
+    const bytes = new Uint8Array(n).fill(32);
+    bytes.set(new TextEncoder().encode(`${String.fromCharCode(0xfeff)}${rows}`));
+    return k !== 0 ? null : new Response(new ReadableStream<Uint8Array>({ start: (c) => {
+      for (let i = 0; i < bytes.length; i += 20_000) c.enqueue(bytes.slice(i, i + 20_000));
+      c.close();
+    }, cancel: () => { cancelled.push(n); } }), { status: 200 });
+  };
+  const over = await probe({ answer: sized(85_537) }), exact = await probe({ answer: sized(65_536) });
+  const said = JSON.parse(over.lines[0] ?? "{}") as { detail?: unknown }, log = join(over.out, "requests.jsonl");
+  const logged = existsSync(log) ? readFileSync(log, "utf8") : "";
+  const files = existsSync(over.out) ? readdirSync(over.out) : [];
+  assert.deepEqual([over.code, over.stop, said.detail, over.calls.urls.length, files, logged.split(LF).length, leaks(over), cancelled],
+    [1, "body_too_large", { url: urlOf([WEEK, WEEK + 10 * S]), status: 200, max_bytes: 65_536 }, 1, ["requests.jsonl"], 2, [], [85_537]]);
+  assert.deepEqual([exact.code, exact.result?.requests[0]?.times, leaks(exact)], [0, [iso(WEEK + S)], []]);
+  // G2 of that lot: a 404 past the bound stops body_too_large too, its status line alone written (G2-3); a body that stalls after its
+  // headers, its stream errored by the abort of its request as a real fetch errors it, stops on its delay: timeout, never network_error
+  // (G2-6); a 200 body ending with the byte 0xFF is decoded as res.text() decodes it, a replacement character (3 bytes), then refused:
+  // body_not_json, never an unforeseen error (G2-7)
+  const lost = await probe({ answer: (k) => (k === 0 ? new Response(" ".repeat(70_000), { status: 404 }) : null) });
+  const stalled = await probe({ io: { timeoutMs: 50, fetch: (_url, init) => Promise.resolve(new Response(new ReadableStream<Uint8Array>({
+    start: (c) => {
+      c.enqueue(new TextEncoder().encode("["));
+      init.signal?.addEventListener("abort", () => { c.error(new Error("aborted")); });
+    } }), { status: 200 })) } });
+  const page = new TextEncoder().encode(rows), odd = new Uint8Array(page.length + 1);
+  odd.set(page);
+  odd[page.length] = 0xff;
+  const broken = await probe({ answer: (k) => (k === 0 ? new Response(odd, { status: 200 }) : null) });
+  const detail = (p: Probed): unknown => (JSON.parse(p.lines[0] ?? "{}") as { detail?: unknown }).detail;
+  const written = (p: Probed): string[] => (existsSync(p.out) ? readdirSync(p.out) : []);
+  assert.deepEqual([lost.code, lost.stop, detail(lost), written(lost), stalled.code, stalled.stop, written(stalled), broken.code, broken.stop,
+    detail(broken), [lost, stalled, broken].flatMap(leaks)], [1, "body_too_large", { url: urlOf([WEEK, WEEK + 10 * S]), status: 404,
+    max_bytes: 65_536 }, ["requests.jsonl"], 1, "timeout", ["requests.jsonl"], 1, "body_not_json",
+    { url: urlOf([WEEK, WEEK + 10 * S]), bytes: page.length + 3 }, []]);
+  // D-3 of the corrections of that lot, the launch guards of the probe in the forms that the campaign of the fusion MUT-FUSION-ADD7-1
+  // measured: through a junction under --preserve-symlinks-main (copies of the probe and of the recorder that it imports), no argument,
+  // the usage stop, exit 2 (XP-G03); imported by a process whose argv[1] names an absent path, nothing runs, nothing printed (XP-G02).
+  // Both guards are lines that the lot leaves unchanged: a test of them alone, green at the base, would be refused by
+  // scripts/red-proof.mjs; they live in this body, red at the base
+  const dir = fresh(), link = fresh();
+  mkdirSync(dir);
+  copyFileSync(PROBE, join(dir, "probe-coinbase-bounds.mjs"));
+  copyFileSync(RECORDER, join(dir, "record-coinbase-candles.mjs"));
+  symlinkSync(dir, link, "junction");
+  const usage = JSON.stringify({ ok: false, stop: "usage", detail: { absent: ["--product", "--out"] } }) + LF;
+  assert.deepEqual([child(["--preserve-symlinks-main", join(link, "probe-coinbase-bounds.mjs")]), child(["--input-type=module", "-e",
+    `await import(${JSON.stringify(pathToFileURL(PROBE).href)});`, join(ROOT, "absent")])], [[2, "", usage], [0, "", ""]]);
 });
