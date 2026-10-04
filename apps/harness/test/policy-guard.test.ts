@@ -36,6 +36,8 @@ const bandRegion = find((r) => r.side === null && r.status === "region");
 const dirMisses = find((r) => r.side !== null && r.status === "silence" && r.qhat === 1);
 const vetoed = find((r) => r.status === "vetoed");
 const under = find((r) => r.status === "under_calib");
+const retired = (cause: string, k: number | null, n: number | null, u: string | null, r = dirRegion): PolicyRow =>
+  ({ ...r, status: "retired", status_reason: `retired: ${cause}`, retire: { cause, k_test: k, n_test: n, u_test: u }, bound_on: null, miss_bound: null });
 const regionLike = (r: PolicyRow): PolicyRow => ({ ...r, status: "region", status_reason: "", bound_on: r.side === null ? "region" : "commit", miss_bound: missUpperBound(r.n, r.k_star ?? 0, "0.05") });
 
 // killer: apps/harness/src/policy-classes.ts:19 CONST "\"0.45\"" -> "\"0.46\""
@@ -82,7 +84,7 @@ test("guard_refuses_arithmetic_off_the_counts", () => {
   check(dirRegion);
   const r = dirRegion;
   refuse({ ...r, k_star: (r.k_star ?? 0) + 1 }, /k_star/);
-  refuse({ ...r, miss_bound: "0.9999999" }, /miss_bound/);
+  refuse({ ...r, miss_bound: "0.9999999" }, /miss_bound or bound_on off the region rule/);
   refuse({ ...r, marginal_alpha: "0.9999" }, /marginal_alpha/);
   refuse({ ...r, p_served: (r.p_served ?? 0) - 1 }, /p_served/);
   refuse({ ...r, n_min: 7 }, /n_min 7, not n0 6/);
@@ -100,7 +102,7 @@ test("guard_direction_qhat_and_misses", () => {
 // killer: apps/harness/src/policy-guard.ts:74 SDL "is(r.status === st && r.status_reason === why" -> ""
 test("guard_status_and_reason_recomputed", () => {
   for (const r of [dirMisses, vetoed, find((x) => x.status === "silence" && x.side === null)]) refuse(regionLike(r), /status/);
-  refuse({ ...dirMisses, miss_bound: "0.5000000", bound_on: "commit" }, /miss_bound/);
+  refuse({ ...dirMisses, miss_bound: "0.5000000", bound_on: "commit" }, /miss_bound and bound_on not both set on a region row/); // declared redundancy: block A refuses first (G2 m-5); the guard clause itself: guard_refuses_arithmetic_off_the_counts
   refuse({ ...dirMisses, status_reason: "dependence check rejects" }, /reason/);
   refuse({ ...under, status_reason: "empty bucket" }, /off under_calib/);
   for (const r of ROWS.filter((x) => x.status === "under_calib")) check(r);
@@ -155,8 +157,6 @@ test("guard_wave_couplings_and_grammars", () => {
   refuse({ ...r, source: { ...r.source, generator: "other" } }, /source off the pins/);
   refuse({ ...r, horizon: r.horizon === "1h" ? "4h" : "1h" }, /horizon/);
   refuse({ ...r, symbol: "XRPUSDT", cell_key: r.cell_key.replace(String(r.symbol), "XRPUSDT") }, /symbol/);
-  const retired = (cause: string, k: number | null, n: number | null, u: string | null): PolicyRow =>
-    ({ ...r, status: "retired", status_reason: `retired: ${cause}`, retire: { cause, k_test: k, n_test: n, u_test: u }, bound_on: null, miss_bound: null });
   check(retired("live:1", 100, 100, "1"));
   check(retired("adr:decisions/0007-retire.md", null, null, null));
   refuse(retired("epoch:EE-1/x", null, null, null), /retire cause/);
@@ -177,4 +177,33 @@ test("guard_modules_are_not_served", () => {
   for (const f of ["server.ts", "http.ts", "openapi.ts", "schema-projection.ts", ...readdirSync(join(src, "tools")).map((t) => `tools/${t}`)]) walk(join(src, f));
   assert.ok(seen.size > 6 && seen.has(join(src, "http.ts")));
   for (const f of ["policy-classes.ts", "policy-guard.ts", "policy-marginal.ts"]) assert.ok(!seen.has(join(src, f)), f);
+});
+
+// killer: apps/harness/src/policy-guard.ts:48 CONST "r.order === \"time\" && r.current && " -> "true && "
+test("guard_pins_order_time_and_current", () => {
+  for (const r of [{ ...dirRegion, order: "ascending" as const }, { ...dirRegion, current: false }, { ...bandRegion, order: "ascending" as const }]) refuse(r, /pinned constants of a wave 1 row \(order time, current/);
+});
+
+// killer: apps/harness/src/policy-guard.ts:56 SDL "is([t, r.retire ?? t].every(" -> ""
+test("guard_names_k_test_above_n_test", () => {
+  const n = dirRegion.test?.n_test ?? 0;
+  refuse({ ...dirRegion, test: { k_test: n + 1, n_test: n, u_test: "1" } }, /k_test above its n_test/);
+  refuse(retired("live:1", 101, 100, "1"), /k_test above its n_test/);
+});
+
+// killer: apps/harness/src/policy-guard.ts:63 SDL "is(m >= 0 && m <= r.n" -> ""
+test("guard_names_misses_above_n", () => {
+  const s = find((x) => x.side === null && x.status === "silence" && x.runs_miss !== "empty");
+  refuse({ ...s, misses: s.n + 3, k_obs: s.n + 3 }, /misses outside 0\.\.n/);
+});
+
+// killer: apps/harness/src/policy-guard.ts:87 SDL "is(pins.verifiers.every(" -> ""
+test("guard_requires_verifier_pins_as_identities", () => {
+  for (const v of ["Verifier-B", "verifier-b@rev"]) refuse(dirRegion, /not an identity/, { ...PINS, verifiers: [v] });
+});
+
+// killer: apps/harness/src/policy-guard.ts:79 CONST "adr:decisions\\/[0-9A-Za-z]" -> "adr:[\\w./-]"
+test("guard_adr_cause_under_decisions_only", () => {
+  check(retired("adr:decisions/0007-retire.md", null, null, null));
+  for (const c of ["adr:/x.md", "adr:../../etc.md", "adr:..md", "adr:decisions/../x.md", "adr:other/x.md"]) refuse(retired(c, null, null, null), /retire cause/);
 });

@@ -66,7 +66,7 @@ test("marginal_guard_refuses_altered_rows", () => {
     [raw({ ...USDE, alpha: "0.02" }, [usdeRow]), /class entry differs/],
   ];
   for (const [t, re] of forged) assert.throws(() => (t.class.task_class === LIQ.task_class ? guardLiq(t) : guardUsde(t)), re);
-  assert.throws(() => marginalRow(USDE_CAL, USDE, USDE_POLICY, "ascending", INP), /not/);
+  assert.throws(() => marginalRow(USDE_CAL, USDE, USDE_POLICY, "ascending", INP), /declares the order ascending but its stored scores are not/);
   assert.throws(() => marginalRow({ ...USDE_CAL, scores: USDE_STABLE_RUN_CALIB.slice(0, 40) }, USDE, USDE_POLICY, "time", INP), /under_calib/);
 });
 
@@ -77,7 +77,7 @@ test("liq_band_exact_guard", () => {
   assert.throws(() => assertLiqBandExact(at("s3", liqRow.qhat ?? 0), LIQ), /LIQ-BAND-EXACT-GUARD-1/);
   const edge = 2 ** 53 - ((STRATA_CUTS_SERVED[2] as number) - 1);
   assertLiqBandExact(at("s2", edge), LIQ);
-  assert.throws(() => assertLiqBandExact(at("s2", edge + 2), LIQ), /LIQ-BAND-EXACT-GUARD-1/);
+  assert.throws(() => assertLiqBandExact(at("s2", edge + 1), LIQ), /LIQ-BAND-EXACT-GUARD-1/);
   for (const k of ["s4", "s01", "x"]) assert.throws(() => assertLiqBandExact(at(k, 1), LIQ), /not a stratum key/);
   assert.throws(() => assertLiqBandExact({ ...liqRow, cell_key: "other/base/s0" }, LIQ), /not a stratum key/);
   assert.throws(() => assertLiqBandExact(liqRow, { ...LIQ, strata_cuts: [] }), /not a stratum key/);
