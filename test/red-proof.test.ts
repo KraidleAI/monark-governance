@@ -332,12 +332,15 @@ test("red_proof_records_a_skipped_linked_directory_and_still_stops_on_an_untrack
   assert.deepEqual([r.status, r.proof.files.skipped, n.status, /EISDIR/.test(n.stderr), existsSync(join(f.root, "out-nested", "RED-PROOF.json"))], [1, ["linked"], 2, true, false], n.stderr);
 });
 
-function tapRun(): Run { // RED-PROOF-TAP-TRUNCATION-1: a child that leaves a write queued on stdout, a child whose stream is cut after its first test
+const CORK = "await new Promise((r) => setTimeout(r, 200)); process.stdout.cork();"; // writes stay queued in the child at its forced exit: the real loss, deterministic
+function tapRun(): Run { // RED-PROOF-TAP-TRUNCATION-1: a child that leaves a write queued on stdout, a child whose stream is cut after its first test (G2: also spoofed, and a grandchild)
   const f = fixture(), wt = join(f.root, "wt6");
   if (!existsSync(wt)) {
     git(f.dir, "worktree", "add", "-q", "--detach", wt, f.gel);
     write(wt, { "test/sync.test.ts": `${HEAD}test("sync_out", () => { process.stdout.write(\`\${"x".repeat(1 << 20)}\\n\`); assert.equal(process.stdout.writableLength, 0); });\n`,
-      "test/cut.test.ts": `${HEAD}test("cut_first", () => { assert.equal(1, 1); });\ntest("cut_lost", async () => { await new Promise((r) => setTimeout(r, 200)); process.stdout.write = () => true; assert.equal(1, 1); });\n` });
+      "test/cut.test.ts": `${HEAD}test("cut_first", () => { assert.equal(1, 1); });\ntest("cut_lost", async () => { ${CORK} assert.equal(1, 1); });\n`,
+      "test/spoof.test.ts": `${HEAD}test("spoof_first", () => { assert.equal(1, 1); });\ntest("spoof_lost", async () => { console.log("red-proof child exit 0"); ${CORK} assert.equal(1, 1); });\n`,
+      "test/grand.test.ts": `${HEAD}import { spawnSync } from "node:child_process";\ntest("grand_json", () => { assert.equal(JSON.parse(spawnSync(process.execPath, [...process.execArgv, "-e", "console.log(7)"], { encoding: "utf8" }).stdout), 7); });\n` });
   }
   return run("tap", wt, [], f.gel);
 }
@@ -358,9 +361,45 @@ test("red_proof_names_a_cut_child_stream_inconclusive_truncated_never_a_misread"
 
 // killer: scripts/red-proof.mjs:99 CONST "Number(plan[1]) !== n" -> "false"
 test("red_proof_names_a_tap_without_its_plan_or_summary_truncated", async () => {
-  const mod: Record<string, unknown> = await import("../scripts/red-proof.mjs"), truncation = mod.truncation as ((tap: string) => string | null) | undefined;
-  const e = "TAP version 13\nok 1 - a\nok 2 - b\n", child = "# red-proof child exit 0\n", sum = "# tests 2\n# duration_ms 5.1\n";
+  const mod: Record<string, unknown> = await import("../scripts/red-proof.mjs"), truncation = mod.truncation as ((tap: string, nonce: string) => string | null) | undefined;
+  const e = "TAP version 13\nok 1 - a\nok 2 - b\n", child = "# red-proof child exit 0f1e 0\n", sum = "# tests 2\n# duration_ms 5.1\n";
   assert.equal(typeof truncation, "function");
-  assert.deepEqual([`${e}${child}1..2\n${sum}`, `${e}${child}`, `${e}${child}1..1\n${sum}`, `${e}1..2\n${sum}`].map((t) => truncation?.(t)),
-    [null, "no closing summary (# duration_ms)", "plan 1..1 for 2 top-level entries", "no child exit line: the child's stream was cut"]);
+  assert.deepEqual([`${e}${child}1..2\n${sum}`, `${e}${child}`, `${e}${child}1..1\n${sum}`, `${e}1..2\n${sum}`, `${e}${child}1..3\n${sum}`, `${e}${child}${sum}`, `${e}${child}1..2\n# duration_ms\n`, `${e}# red-proof child exit 0\n1..2\n${sum}`].map((t) => truncation?.(t, "0f1e")),
+    [null, "no closing summary (# duration_ms)", "plan 1..1 for 2 top-level entries", "no child exit line: the child's stream was cut", "plan 1..3 for 2 top-level entries", "plan missing for 2 top-level entries", "no closing summary (# duration_ms)", "no child exit line: the child's stream was cut"]); // G2 of the lot: plan long, plan absent, summary cut in its line, no nonce
+});
+
+// killer: scripts/red-proof.mjs:100 CONST "exit ${nonce} -?" -> "exit -?"
+test("red_proof_reads_a_spoofed_exit_line_without_the_run_nonce_as_truncated", () => {
+  const spoof = tapRun().proof.tests.filter((t) => t.file === "test/spoof.test.ts"); // G2 m-2: a test prints the line, then its stream is cut
+  assert.deepEqual(spoof.map((t) => [t.name, t.base, t.gel]), [["spoof_first", "inconclusive_truncated", "inconclusive_truncated"], ["spoof_lost", "inconclusive_truncated", "inconclusive_truncated"]]);
+});
+
+// killer: scripts/red-proof.mjs:38 CONST "delete process.env.RED_PROOF_EXIT; " -> ""
+test("red_proof_exit_line_never_reaches_a_grandchild_spawned_with_the_childs_execargv", () => {
+  const { proof, out } = tapRun(), g = proof.tests.find((t) => t.name === "grand_json"); // G2 m-1: the grandchild's stdout stays its own
+  const part = /# red-proof file: test\/grand\.test\.ts\n((?:(?!# red-proof file:)[^])*)/.exec(readFileSync(join(out, "gel.tap"), "utf8"))?.[1] ?? "";
+  assert.deepEqual([g?.base, g?.gel, part.match(/^# red-proof child exit [0-9a-f]{16} 0$/gm)?.length], ["pass", "pass", 1]);
+});
+
+function cutRun(): Run { // G2 G9, G10, G14: a run truncated at base only; a drawn killer whose run is truncated
+  const f = fixture(), wt = join(f.root, "wt7");
+  if (!existsSync(wt)) {
+    git(f.dir, "worktree", "add", "-q", "--detach", wt, f.base);
+    write(wt, { "packages/w/index.js": W(true), "lib/cut.ts": "export const CUT = false;\n",
+      "test/cutbase.test.ts": `${HEAD}import { double } from "@fx/w";\n// killer: packages/w/index.js:1 COR "x + x" -> "x - x"\ntest("cut_at_base", async () => { if (double(1) !== 2) { ${CORK} } assert.equal(1, 1); });\n`,
+      "test/cutkill.test.ts": `${HEAD}import { CUT } from "../lib/cut.ts";\n// killer: lib/cut.ts:1 CONST "false" -> "true"\ntest("cut_by_killer", async () => { if (CUT) { ${CORK} } assert.equal(CUT, false); });\n` });
+  }
+  return run("cut", wt, ["--draw", "1", "--seed", "1"]);
+}
+
+// killer: scripts/red-proof.mjs:207 CONST "\"inconclusive\", \"inconclusive_truncated\", " -> "\"inconclusive\", "
+test("red_proof_counts_a_drawn_killer_whose_run_is_truncated_inconclusive_never_killed", () => {
+  const { status, proof } = cutRun(), k = proof.tests.find((t) => t.name === "cut_by_killer");
+  assert.deepEqual([k?.base, k?.gel, k?.verdict, proof.draw?.drawn.map((d) => [d.name, d.status, d.outcome]), proof.ok, status], ["import-fail", "pass", "new-module", [["cut_by_killer", "inconclusive_truncated", "inconclusive"]], false, 1]);
+});
+
+// killer: scripts/red-proof.mjs:178 CONST "t.base.startsWith(\"inconclusive\") || " -> ""
+test("red_proof_names_a_truncation_at_base_alone_inconclusive", () => {
+  const r = cutRun().proof.tests.find((t) => t.name === "cut_at_base");
+  assert.deepEqual([r?.base, r?.gel, r?.verdict, r?.reason], ["inconclusive_truncated", "pass", "inconclusive", "a run's TAP is truncated (inconclusive_truncated)"]);
 });
