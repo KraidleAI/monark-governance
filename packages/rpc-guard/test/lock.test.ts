@@ -166,7 +166,7 @@ test("lock_failed_removal_never_masks_the_original_error", () => {
 // degenerate field, as such a FS does; the other fields are the real ones, so only the degenerate-identity clause keeps it.
 function degenerateLockFailure(dir: string, cycle: string, field: "ino" | "birthtimeNs"): void {
   const err = fault("EIO"), cd = ensureCycleDir(dir, cycle);
-  const zero = (st: BigIntStats): BigIntStats => ({ ...st, [field]: 0n }) as BigIntStats;
+  const zero = (st: BigIntStats): BigIntStats => ({ ...st, [field]: 0n });
   const j = journal({ writeSync: () => { throw err; } });
   Object.assign(DURABLE_FS, { fstatSync: (fd: number) => zero(fstatSync(fd, { bigint: true })), lstatSync: (p: string) => zero(lstatSync(p, { bigint: true })) });
   try {
