@@ -5,7 +5,9 @@
  * S-13: ONE canonicalizer for the F-7 rows, `canonicalRow`: minified JSON, object keys sorted by their UTF-8 bytes (the
  * order of canonicalStringify in packages/monark), every number finite and written as JavaScript writes it (the
  * shortest round-trip decimal: 0 and 1 without a point, 1e-7, 1e+21; -0 is written 0). A non-finite number, undefined,
- * a function, a symbol or a bigint throws a RangeError, never a silent null. The two other canonicalizers keep their
+ * a function, a symbol or a bigint VALUE throws a RangeError, never a silent null. Outside the declared RowValue type it
+ * is not a validator: symbol keys, extra (non-index) properties of arrays and non-enumerable properties are dropped,
+ * getters are called, a Proxy is accepted, and keys get no Unicode normalisation. The two other canonicalizers keep their
  * domains: calibDigest (sorted float64, the frozen calib_digest field) and the Ukemi book writer (no floats).
  *
  * E-2: `orderedCalibDigest` = the sha256 of the CALIB scores and of the auxiliary sequence, each in time order, written

@@ -68,15 +68,15 @@ export type ScaledBand =
   | { readonly reason: "under_calib" };
 
 /**
- * S-4 / E-1 engine side: riskControlRow on the "band" domain (scores in time order, none negative nor non-finite), then
- * the closed band [0, h*] built by buildIntervalRegion. FAIL-CLOSED `under_calib`: every refusal of riskControlRow, a
- * sigmaHat that is not finite and > 0, a non-finite product qhat x sigmaHat, and qhat = 0 or h* = 0 (NDG-1: a zero-width
- * band never serves, audit P3 E-14).
+ * S-4 / E-1 engine side: riskControlRow on the "band" domain (scores in time order, none negative nor non-finite; a caller
+ * options bag never overrides it), then the closed band [0, h*] of buildIntervalRegion. FAIL-CLOSED `under_calib`: every
+ * refusal of riskControlRow, a sigmaHat that is not finite and > 0, no finite edge (bandEdge null: MAX_VALUE itself passes),
+ * and qhat = 0 or h* = 0 (NDG-1: a zero-width band never serves, audit P3 E-14).
  */
 export function conformScaledBand(scores: readonly number[], sigmaHat: number, alphaDec: string, baseDeltaDec: string, nMin: number, options: ScaledBandOptions = {}): ScaledBand {
   const under: ScaledBand = { reason: "under_calib" };
   if (!Number.isFinite(sigmaHat) || sigmaHat <= 0) return under;
-  const row = riskControlRow(scores, alphaDec, baseDeltaDec, nMin, { domain: "band", ...options });
+  const row = riskControlRow(scores, alphaDec, baseDeltaDec, nMin, { ...options, domain: "band" });
   if ("reason" in row || row.silence || row.qhat === 0) return under;
   const hStar = bandEdge(row.qhat, sigmaHat);
   if (hStar === null) return under;
