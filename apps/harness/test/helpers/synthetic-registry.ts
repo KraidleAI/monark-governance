@@ -1,7 +1,7 @@
 /**
- * Seeded synthetic kata registry of the shape of wave1.json (lot CM-4a-i; plan r3 section 5.3 point 8, BLQ-DEP-6), no
- * market data: 32 classes, 8 katas, the statuses region, silence (two reasons), vetoed and under_calib (n below n0, one
- * side without thresholds). Exact counts: k*, rank = n - k*, U, UTest, qhat and k_obs (A-2 2.2.3), the TEST veto (2.2.5).
+ * Seeded synthetic kata registry of the shape of wave1.json (lot CM-4a-i; plan r3 section 5.3 point 8, BLQ-DEP-6), no market
+ * data: 32 classes, 8 katas, statuses region, silence (two reasons), vetoed, under_calib (n below n0, one side without thresholds);
+ * one threshold pair per side (b1's, CM-4b C-8). Exact counts: k*, rank = n - k*, U, UTest, qhat, k_obs (A-2 2.2.3), TEST veto (2.2.5).
  */
 import { createHash } from "node:crypto";
 import { sha256Canonical, type ClassEntry } from "@monark/contracts";
@@ -66,7 +66,7 @@ export function syntheticRegistry(seed = 37): { readonly registry: { rows: Recor
       const tag = `${key}:${String(n)}`;
       rows.push({
         taskClass, key, kataId, W: dir ? 200 : 101, venue: "binance", symbol, horizon: h, side, bucket,
-        thresholds: dir && !noThresholds ? { t1: String(0.1 + rnd() * 0.2), t2: String(0.4 + rnd() * 0.3) } : null,
+        thresholds: dir && !noThresholds ? ((drawn: Record<string, string>) => (bucket.endsWith("-b1") ? drawn : rows.at(-1)?.thresholds))({ t1: String(0.1 + rnd() * 0.2), t2: String(0.4 + rnd() * 0.3) }) : null,
         hourOfWeekFactors: factors, factorTableSha256: factors === null ? null : sha256Canonical(factors),
         alpha, testDelta: DELTA, calibAttempt: 1, auxSeq: dir ? "label" : "score", order: "time",
         calibSupport: dir ? null : { min: 0.001 + rnd() * 0.002, max: 0.02 + rnd() * 0.01 }, seriesSha256: digest(`${symbol}:series`), epoch: 1,
