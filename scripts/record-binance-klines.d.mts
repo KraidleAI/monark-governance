@@ -1,6 +1,6 @@
 // scripts/record-binance-klines.d.mts -- type surface of scripts/record-binance-klines.mjs for the type-checked root test
-// (test/record-binance-klines.test.ts), which imports the recorder without running it (run-guard) and without any network (its fetch
-// is injected). Runtime implementation = record-binance-klines.mjs; Node ignores this file. Neither file is in the export whitelist
+// (test/record-binance-klines.test.ts), which imports the recorder without running it (run-guard) and without any network (a fetch
+// shaped as https.request is injected, or https.request itself is replaced by a spy that throws). Runtime implementation = record-binance-klines.mjs; Node ignores this file. Neither file is in the export whitelist
 // (scripts/export-public.mjs): the recorder and its series stay out of the public tree (condition C-5, series not redistributable).
 import type { ClientRequest } from "node:http";
 import type { RequestOptions } from "node:https";
