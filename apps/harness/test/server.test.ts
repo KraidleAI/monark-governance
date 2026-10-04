@@ -4,7 +4,7 @@
  */
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { request as httpRequest } from "node:http";
+import { request as httpRequest, type IncomingMessage, type ServerResponse } from "node:http";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { assertClosedPrediction } from "@monark/contracts";
@@ -35,6 +35,11 @@ function wiredPost(port: number, host: string, path: string, body: string, accep
     req.end();
   });
 }
+
+/** The non-allowlisted Origin of the wired (a2) case. */
+const EVIL = "https://evil.example.com";
+/** The errors by which a client loses a response the server did send: a reset of the connection (EXPORT-HARNESS-413-LOAD-1). */
+const RESET = new Set(["ECONNRESET", "EPIPE", "ECONNABORTED"]);
 
 function guard(origin: string | null): Response | undefined {
   const headers: Record<string, string> = {};
@@ -121,20 +126,35 @@ test("oversized_body_413_and_normal_tools_call_unaffected", async () => {
     // bad-Origin request carrying an OVERSIZED body gets 403 (the guard fired on the header), NOT 413
     // (which would mean the bounded reader ran first, buffering a body from a rejected origin). Killing
     // mutant: move `originGuard` below `readBodyBounded` in `handleNodeRequest` ⇒ this flips 403→413 ⇒ red.
-    const badOriginOversized = await new Promise<number>((resolve) => {
+    // The verdict rests on what the SERVER sent, seen on its own `request` event (EXPORT-HARNESS-413-LOAD-1): the 403, with the
+    // body not yet received in full (`req.complete` false: the guard ran before the body was read; a reader that buffers the
+    // whole body first also reds here). The client must see that 403, or a reset: the server closes a socket that still holds
+    // unread body bytes, so the OS answers the rest with RST, and win32 drops a received but unread 403 when the RST lands
+    // first (Linux keeps it): the red of the exported CI on win32 under load (65 ms). Any other status or error stays red.
+    const sent = new Promise<{ status: number; complete: boolean }>((resolve) => {
+      const onRequest = (req: IncomingMessage, res: ServerResponse): void => {
+        if (req.headers.origin !== EVIL) return;
+        server.off("request", onRequest);
+        res.once("finish", () => { resolve({ status: res.statusCode, complete: req.complete }); });
+      };
+      server.on("request", onRequest);
+    });
+    const seen = await new Promise<number | string>((resolve) => {
       const body = "a".repeat(MAX_REQUEST_BODY_BYTES + 1);
       let done = false;
-      const finish = (code: number): void => { if (!done) { done = true; resolve(code); } };
+      const finish = (outcome: number | string): void => { if (!done) { done = true; resolve(outcome); } };
       const req = httpRequest(
         { hostname: "127.0.0.1", port, path: "/", method: "POST",
-          headers: { "content-type": "application/json", "content-length": Buffer.byteLength(body), origin: "https://evil.example.com", host: "mcp.monarkgate.tech" } },
+          headers: { "content-type": "application/json", "content-length": Buffer.byteLength(body), origin: EVIL, host: "mcp.monarkgate.tech" } },
         (res) => { res.resume(); finish(res.statusCode ?? 0); },
       );
-      req.on("error", () => { finish(0); });
+      req.on("error", (e: NodeJS.ErrnoException) => { finish(e.code ?? e.message); });
       req.write(body);
       req.end();
     });
-    assert.equal(badOriginOversized, 403, "bad-Origin + oversized body ⇒ 403 (guard runs header-first, before the body is read), NOT 413");
+    assert.deepEqual(await sent, { status: 403, complete: false }, "bad-Origin + oversized body ⇒ the server sent 403 before reading the body (guard runs header-first), NOT 413");
+    if (typeof seen === "number") assert.equal(seen, 403, "bad-Origin + oversized body ⇒ 403 (guard runs header-first, before the body is read), NOT 413");
+    else assert.ok(RESET.has(seen), `the client may lose the 403 only to a reset of the unread body (win32), not to ${seen}`);
 
     // (b) positive control — a body EXACTLY at the cap is NOT capped (kills a `>=`-for-`>` mutant). The MCP
     // handler rejects this garbage payload some OTHER way, but never with 413.
