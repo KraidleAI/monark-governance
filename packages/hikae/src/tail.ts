@@ -90,7 +90,11 @@ function choose(n: number, k: number): bigint {
   return c;
 }
 
-/** r = ceil(n x tail_frac) = (n x num + den - 1) div den, exact (D2). The one writing of this rank, shared by tailExceedance. */
+/**
+ * r = ceil(n x tail_frac) = (n x num + den - 1) div den, exact (D2). The one writing of this rank, shared by tailExceedance.
+ * Its refusals are TailCountsError, a RangeError subclass: a guard that maps a RangeError to under_calib (D2) tests
+ * `instanceof TailCountsError` first (G2 of #135, m-3).
+ */
 export function tailRank(n: number, tailFracDec: string): number {
   const frac = unitOr(tailFracDec, "tail-frac-not-unit-decimal");
   const nn = count("n", n);
@@ -103,6 +107,7 @@ export function tailRank(n: number, tailFracDec: string): number {
  * num = sum over j = 1..m - a of C(m - 1, j - 1) C(n - m + 1, j), den = C(n, m), never reduced.
  * Checks, the first failing one throws: level; n, m, a safe integers >= 0 (in this order); n >= 1; m <= n; the support of A
  * (m = 0 needs a = 0; m >= 1 needs max(0, 2m - n - 1) <= a <= m - 1). m = 0 gives `empty`.
+ * Cost: O(m) bigint products of numbers up to C(n, m); the caller bounds n before calling on imported counts (G2 of #135, m-2).
  */
 export function adjacencyTailFromCounts(n: number, m: number, a: number, levelDec: string): AdjacencyCountsTail {
   const level = unitOr(levelDec, "level-not-unit-decimal");
@@ -148,7 +153,11 @@ export function tailExceedance(scores: readonly number[], tailFracDec: string): 
   return { empty: m === 0, r, tau, m, bits };
 }
 
-/** The adjacency upper tail on bits: counts n, m and A = #{t : b_t = b_(t+1) = 1}, then the one arithmetic of the counts entry. */
+/**
+ * The adjacency upper tail on bits: counts n, m and A = #{t : b_t = b_(t+1) = 1}, then the one arithmetic of the counts entry.
+ * No bit (n = 0) throws n-zero and the level is checked before `empty`: stricter than D2 read literally, never reached since D2
+ * runs only at n >= n0 (G2 of #135, m-1).
+ */
 export function adjacencyUpperTail(bits: readonly TailBit[], levelDec: string): AdjacencyTail {
   let ones = 0;
   let a = 0;
