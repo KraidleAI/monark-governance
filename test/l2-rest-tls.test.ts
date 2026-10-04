@@ -88,12 +88,12 @@ test("l2_tls_peer_only_from_own_connection", async () => {
   await c.request("time", null);
   hold = null;
   (link as WebSocket | null)?.close();
-  const first = connect({ host: "localhost", port: restPort, servername: "localhost" });
+  const first = connect({ host: "127.0.0.1", port: restPort, servername: "localhost" }); // dial the bound address: a runner resolving localhost to ::1 first loses the "session" event after its fallback
   sockets.add(first);
-  const session = await new Promise<Buffer>((done) => { first.once("session", done); });
-  const resumed = connect({ host: "localhost", port: restPort, servername: "localhost", session });
+  const session = await new Promise<Buffer>((done, fail) => { first.once("session", done); setTimeout(() => { fail(new Error("no TLS session ticket within 10 s")); }, 10_000).unref(); });
+  const resumed = connect({ host: "127.0.0.1", port: restPort, servername: "localhost", session });
   sockets.add(resumed);
-  await new Promise((done) => { resumed.once("secureConnect", done); });
+  await new Promise((done, fail) => { resumed.once("secureConnect", done); setTimeout(() => { fail(new Error("no resumed TLS connect within 10 s")); }, 10_000).unref(); });
   assert.deepEqual([resumed.isSessionReused(), resumed.getPeerCertificate()], [true, {}], "a resumed session shows no certificate");
   await tick(50);
   during = () => { channel("undici:client:connected").publish({ socket: resumed }); };
