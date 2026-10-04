@@ -9,11 +9,11 @@
 // The place serves the frames that each test builds and knows neither the recorder nor the chain rule (FM-3.3). Out of its scope: TLS,
 // permessage-deflate, frames of the real place (D-25). "undici l.N" is line N of the client source embedded in Node v24.15.0
 // (undici 7.24.4, sha256 d6332aa1ca04f71f...), as in the plan's L-1. Synthetic data only.
-import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
-import { createServer, type IncomingMessage, type Server } from "node:http";
+import { createServer, type IncomingMessage } from "node:http";
 import type { AddressInfo } from "node:net";
 import type { Duplex } from "node:stream";
+import { listen } from "./helpers/loopback.ts";
 
 export const OP = { cont: 0, text: 1, close: 8, ping: 9, pong: 10 } as const; // the opcodes this place writes and reads
 const GUID = "258EAFA5-E914-47DA-95CA-C5AB0DC85B11"; // the client hashes its key with it (undici l.14069, l.14497)
@@ -54,21 +54,6 @@ export function parse(buf: Buffer): { frames: Frame[]; rest: Buffer } {
     at = off + m + n;
   }
   return { frames, rest: buf.subarray(at) };
-}
-
-/** A loopback port that fetch accepts: copied from test/record-binance-klines.test.ts l.69-80, whose comment (l.65-68) gives the measures
- *  (the Fetch port check of this runtime blocks ports at or below 10080; this host hands port 0 out in phases below 10081). */
-async function listen(server: Server): Promise<number> {
-  for (let i = 0; i < 50; i++) {
-    const port = 10_081 + Math.floor(Math.random() * 55_000);
-    const bound = await new Promise<boolean>((done) => {
-      const ok = (): void => { server.off("error", ko); done(true); };
-      const ko = (): void => { server.off("listening", ok); done(false); };
-      server.once("error", ko).once("listening", ok).listen(port, "127.0.0.1");
-    });
-    if (bound) return port;
-  }
-  return assert.fail("no free loopback port above 10080 in 50 tries");
 }
 
 /** The fake place: `onPeer` scripts each WebSocket connection (any path), `rest` answers each HTTP request from its path and query. */

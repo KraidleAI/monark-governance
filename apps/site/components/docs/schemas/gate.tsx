@@ -281,7 +281,7 @@ export function StrandsSchema({ decisionTitle, decisionKeys }: { decisionTitle: 
         no score field, anywhere
       </Tx>
       <Tx x={960} y={456} size={12} color={C.ink2} anchor="end">
-        The residual of a testimony rides into the verdict; on the served path the decision is the region&rsquo;s and the budget&rsquo;s.
+        A testimony&rsquo;s residual joins the verdict only on a class with a committed subject; no served class has one.
       </Tx>
     </Diagram>
   );

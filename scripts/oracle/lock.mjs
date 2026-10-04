@@ -10,7 +10,7 @@ import { existsSync, mkdirSync, readdirSync, readFileSync, rmdirSync, rmSync, wr
 import { join } from "node:path";
 
 const MARK = "oracle/lock.mjs"; // the owner.txt writer tag: only this module's pid is a pid of process.kill's namespace
-export const alive = (pid) => { try { return process.kill(pid, 0); } catch (e) { return e.code === "EPERM"; } };
+export const alive = (pid) => { try { return process.kill(pid, 0) && !zombie(pid); } catch (e) { return e.code === "EPERM"; } };
 const ownerPid = (dir) => {
   try { const { pid, lock } = JSON.parse(readFileSync(join(dir, "owner.txt"), "utf8")); return lock === MARK && Number.isInteger(pid) && pid > 0 ? pid : undefined; } catch { return undefined; }
 };
@@ -45,3 +45,9 @@ export async function acquire(root, owner, { pollMs = 5000, maxMs = 5_400_000 } 
 
 /** Read-only: null when <root>/oracle-lock is absent or written HERE by a dead pid (acquire takes it over), else why it is held (lot M-6, Q-V-1). */
 export const held = (root) => { const dir = join(root, "oracle-lock"), pid = ownerPid(dir); return !existsSync(dir) || (pid !== undefined && !alive(pid)) ? null : `${dir} is held by ${pid === undefined ? `an owner not written by ${MARK} (never taken over)` : `the live pid ${pid}`}`; };
+
+/** Linux: an exited, not yet reaped pid (state Z, the field after the last ")" of /proc/<pid>/stat) holds no lock, though kill(pid, 0) succeeds on it.
+ * No /proc (Windows, macOS) or an unreadable entry: false, kill(pid, 0) alone decides as before (MUTANTS-WAITER-ZOMBIE-1). */
+function zombie(pid) {
+  try { const stat = readFileSync(`/proc/${pid}/stat`, "utf8"); return stat.charAt(stat.lastIndexOf(")") + 2) === "Z"; } catch { return false; }
+}

@@ -86,15 +86,15 @@ export function binomCdfLeq(n: number, k: number, a: Ratio, delta: Ratio): boole
   return delta.den * total <= delta.num * a.den ** bn;
 }
 
-/** k*: the largest k >= 0 with P(Bin(n, alpha) <= k) <= test_delta, or -1 when (1 - alpha)^n > test_delta. */
+/**
+ * k*: the largest k >= 0 with P(Bin(n, alpha) <= k) <= test_delta, or -1 when (1 - alpha)^n > test_delta.
+ * Audit P3 E-9 (ADR-CM CM-3a): one linear pass over the exact terms (largestCdfIndexLeq, end of this file)
+ * instead of one exact CDF per k (8.7 s at n 4368, alpha 0.45, test_delta 0.05); same decision as binomCdfLeq.
+ * The lines below this function keep their numbers (killers of earlier lots are anchored on them).
+ */
 export function riskControlMaxExceedances(n: number, alphaDec: string, deltaDec: string): number {
   assertCount("n", n);
-  const a = parseAlpha(alphaDec);
-  const d = parseTestDelta(deltaDec);
-  if (!binomCdfLeq(n, 0, a, d)) return -1;
-  let k = 0;
-  while (binomCdfLeq(n, k + 1, a, d)) k++;
-  return k;
+  return largestCdfIndexLeq(n, parseAlpha(alphaDec), parseTestDelta(deltaDec));
 }
 
 /** n0: the smallest n with (1 - alpha)^n <= test_delta (zero misses meet the rule at n0, not at n0 - 1). */
@@ -155,4 +155,22 @@ export function spendDelta(baseDec: string, attempt: number): string {
   let end = text.length;
   while (end > 1 && text[end - 1] === "0") end--;
   return `0.${text.slice(0, end)}`;
+}
+
+/**
+ * E-9: the largest k in -1..n-1 with P(Bin(n, a) <= k) <= delta (delta < 1, 0 < a < 1), in one pass over the exact
+ * terms t_i = C(n, i) a.num^i q^(n - i), q = a.den - a.num, with t_(i+1) = t_i (n - i) a.num / ((i + 1) q) (an exact
+ * integer division); the running sum is compared with delta x a.den^n at each i: the decision of binomCdfLeq(n, i, a, delta).
+ */
+function largestCdfIndexLeq(n: number, a: Ratio, delta: Ratio): number {
+  const q = a.den - a.num;
+  const bound = delta.num * a.den ** BigInt(n);
+  let term = q ** BigInt(n);
+  let cum = 0n;
+  for (let i = 0; i <= n; i++) {
+    cum += term;
+    if (delta.den * cum > bound) return i - 1;
+    term = (term * BigInt(n - i) * a.num) / (BigInt(i + 1) * q);
+  }
+  return n; // unreachable for delta < 1: at i = n the sum is a.den^n
 }

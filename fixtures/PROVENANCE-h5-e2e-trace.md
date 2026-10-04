@@ -22,7 +22,7 @@ so the H5 trace is pinned HERE instead, the same way the `s3-binance.*` fixtures
   tool description was DEDUPED — the committed sentence's "every other … abstains (under_calib)" queue is no
   longer rendered in the description, which now interpolates `STABLE_RUN_COMMITTED_CORE` — changing only the
   `tools/list` step's `response_sha256`; the b2 `residual` seam is a no-op on these steps, which carry no
-  `attested`; grounding: ADR-M012 (i) / ADR-M017 D4(5)), and **regenerated 2026-09-19 for the ADR-M018 D4 lot** (E9: the served `cascade-liquidable-24h` NUMERIC-class under_calib region `label_schema` changed `up|down` -> `numeric` — every numeric (interval) caller now passes `NUMERIC_LABEL_SCHEMA`; the ONLY drift is that one region byte, both values 7 chars so the file holds at 15731 bytes; grounding: E9 / ADR-M018 D4), and **regenerated 2026-09-19 for ADR-EC H-attested (step 7 attested-gate added, mirror renumbered 8)** (a step 7 `attested-gate` was inserted after the step 6 `attest` — the served attest → gate tuyau: the gate carries the live `AttestedPrice` of step 6 and files its `residual` into `verdict.residual`, the decision otherwise byte-identical to step 5; the former HTTP mirror step is renumbered 8; `observed` gains `attested_gate_action`/`attested_gate_residual`; nothing above the step 6 `attest` changes, so the file grows 15731 -> 21859 bytes; grounding: ADR-EC E1 / C-7, ADR-M017 D2(iii)/D4(3)), and **regenerated 2026-09-22 for U-4b-2a** (the `gate`
+  `attested`; grounding: ADR-M012 (i) / ADR-M017 D4(5)), and **regenerated 2026-09-19 for the ADR-M018 D4 lot** (E9: the served `cascade-liquidable-24h` NUMERIC-class under_calib region `label_schema` changed `up|down` -> `numeric` — every numeric (interval) caller now passes `NUMERIC_LABEL_SCHEMA`; the ONLY drift is that one region byte, both values 7 chars so the file holds at 15731 bytes; grounding: E9 / ADR-M018 D4), and **regenerated 2026-09-19 for ADR-EC H-attested (step 7 attested-gate added, mirror renumbered 8)** (a step 7 `attested-gate` was inserted after the step 6 `attest` — the attest → gate tuyau, dormant since CM-2b: the gate carries the live `AttestedPrice` of step 6 and files its `residual` into `verdict.residual`, the decision otherwise byte-identical to step 5; the former HTTP mirror step is renumbered 8; `observed` gains `attested_gate_action`/`attested_gate_residual`; nothing above the step 6 `attest` changes, so the file grows 15731 -> 21859 bytes; grounding: ADR-EC E1 / C-7, ADR-M017 D2(iii)/D4(3)), and **regenerated 2026-09-22 for U-4b-2a** (the `gate`
   tool description gained the served `liquidation-eligible-coverage` class clause and the `cascade` description
   gained the "v0, replaced at U-5" label — changing only the `tools/list` step's bytes; the served decisions
   are unchanged, the liq registry stays empty; grounding: ADR-U4b D1 / decisions 123/126, Q-NEW-2), and
@@ -51,17 +51,19 @@ and drives:
    `structuredContent`.
 
 The chain (per C-6): `cascade`(UKEMI) → `Prediction`, then `gate` → `GateDecision`; and `attest` →
-`AttestedPrice` (the Shōgen projection) → `gate(attested)` (step 7, the served attest → gate tuyau:
-`attested.residual` is filed into `verdict.residual`, the decision otherwise byte-identical to step 5;
-ADR-M017 D2(iii)/D4(3)).
+`AttestedPrice` (the Shōgen projection) → `gate(attested)` on `btc-dir-15m` (step 7, ADR-M017 D2(iii)/D4(3)).
+Since CM-2b (ADR-CM B-5) `btc-dir-15m` is retired; it was the only class with a committed attestation subject, so
+step 7 is the refusal `task_class_retired` (400, MCP `isError`): the attest → gate join is dormant (ADR-CM amendment
+"nuit, 3"). The step is kept and re-pinned on that refusal.
 
 ## The honest decision the demo produces
 
 - **cascade → gate = `abstain` / `under_calib`.** No cascade calibration is committed (ADR-M005 D5), so
   the gate abstains. That abstention is the honest, expected result — the demonstration's whole point.
-- **btc-dir-15m = `commit` / `covered`, over a SYNTHETIC calibration.** The btc-dir calibration is a
-  HIKAE S2a plumbing fixture (`calib_digest` `fcebed27…`), declared synthetic, not a measured predictor.
-  This decision is demonstrative, not a trading signal.
+- **committed USDe key (step 5, `committed-gate`) = `commit` / `covered`.** The `stable-run-velocity-24h`
+  calibration of the USDe key is measured (calm-window redemption flow, non-stationary across half-years; no coverage
+  is measured), `calib_digest` `c9793b28…`; alpha and nMin are imposed by the server. Until 2026-10-04 this step was
+  `btc-dir-15m` over a synthetic plumbing fixture; that class is retired (CM-2b).
 - **attest = demonstrative, not probative.** A projection of ONE committed, previously Shōgen-verified
   witness (Binance BTCUSDT, self-notarised); the verifier is not executed at call time.
 - **B_t is caller-carried.** `remainingBudget` enters as a gate parameter and the SAME value leaves as
@@ -75,8 +77,11 @@ These statements live in the trace's `honesty` block and are re-asserted by
 
 - The tools read no clock (`produced_at`/`producedAt` are caller-carried); the ephemeral port is
   intentionally NOT recorded. Re-running the recorder reproduces the file byte-for-byte.
-- **sha256 (LF)** of `h5-e2e-trace.json`: `0b32b33071b15c6e40ea529d87221fdade7bf4fb5f2171773802a85083569932`
-  (21951 bytes; **re-pinned 2026-09-24 for U-4b-2b** -- TWO fields changed: the `tools/list` step's `response_sha256`
+- **sha256 (LF)** of `h5-e2e-trace.json`: `b016bf4a4950cff1d39dccd970f7371f4dc8e3bb261d3d14c53b372825eda0a0`
+  (21753 bytes). **Re-pinned 2026-10-04 after #110 (C-2)**: ONE field, the `tools/list` step's `response_sha256` `6df16cd3…` -> `2ed3e97d…`.
+  Prior pin `e403cf01…` (21753 bytes; **re-pinned 2026-10-04 for CM-2b surfaces** (docs/G0-lot-cm-2b-surfaces.md): step 5 is the committed
+  USDe key, step 7 the `task_class_retired` refusal, the honesty block and `observed` follow; regenerated by the
+  recorder. Prior pin `0b32b330…`, 21951 bytes, **re-pinned 2026-09-24 for U-4b-2b** -- TWO fields changed: the `tools/list` step's `response_sha256`
   (`6b78a420...` -> `b88cd066...`, the value it had before HARNESS-DESC-1: the committed-state `gate` description is
   byte-identical to that text; measured alone, this change returns the whole file to `4ad9b340...`, 21943 bytes) and the
   step-6 note (IF-1: "previously verified" -> "previously Shogen-verified" with the macron, +8 bytes); every served
@@ -92,7 +97,7 @@ These statements live in the trace's `honesty` block and are re-asserted by
   gained the "v0, replaced at U-5" label (decision 123 / Q-NEW-2); no served decision, `structuredContent`,
   `yhat`, or digest changes — the registry stays empty of the liq class — so line 292 stays the Binance ticker
   URL and the file grows 21859 -> 21943 bytes. Prior re-pin 2026-09-19 for ADR-EC H-attested — a step 7 `attested-gate` was inserted after the
-  step 6 `attest` (the served attest → gate tuyau: the gate carries the live `AttestedPrice` of step 6 and files
+  step 6 `attest` (the attest → gate tuyau, dormant since CM-2b: the gate carries the live `AttestedPrice` of step 6 and files
   its `residual` into `verdict.residual`, the decision otherwise byte-identical to step 5), the former HTTP mirror
   step is renumbered 8, and `observed` gains `attested_gate_action`/`attested_gate_residual`. Nothing above the
   step 6 `attest` changes, so line 292 stays the Binance ticker URL and the file grows 15731 -> 21859 bytes.
@@ -122,7 +127,7 @@ response to equal an INDEPENDENT recompute:
 - `gate` with a perturbed `B_t=0.4242` ⇒ `remaining_budget=0.4242` (echo), so a frozen constant reds;
 - `attest.sens_emis_digest` == the digest read straight from `s3-binance.constat.json`
   (`empreinte_sent_revele_sha256`), so a mock digest reds;
-- btc-dir `verdict.calib_digest` == the real synthetic calibration digest.
+- the committed `verdict.calib_digest` == the USDe committed calibration digest.
 
 ## Reproduce
 

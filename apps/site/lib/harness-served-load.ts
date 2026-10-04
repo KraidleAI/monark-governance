@@ -274,7 +274,8 @@ export function loadByoTrace(root: string): ByoLoop {
   return out;
 }
 
-/** The recorded end-to-end decisions, and the one recorded gate call /integrators shows (btc-dir-gate). */
+/** The recorded end-to-end decisions, and the one recorded gate call /integrators shows (committed-gate: the committed
+ *  USDe key since btc-dir-15m is retired, CM-2b; the field keeps its name `btcDir` for the pages that read it). */
 export interface H5Trace { decisions: RecordedDecision[]; btcDir: { request: Obj; result: Obj }; bind: string }
 export function loadH5Trace(root: string): H5Trace {
   const served = loadHarnessServed(root);
@@ -294,7 +295,7 @@ export function loadH5Trace(root: string): H5Trace {
     decisions.push(recorded(s, d));
   }
   if (decisions.length < 1) fail("the end-to-end trace carries no gate decision");
-  const btc = step(steps, "btc-dir-gate");
-  if (btc.s.tool !== "gate") fail("the recorded btc-dir-gate step is not a gate call");
+  const btc = step(steps, "committed-gate");
+  if (btc.s.tool !== "gate") fail("the recorded committed-gate step is not a gate call");
   return { decisions, btcDir: { request: btc.args, result: btc.sc }, bind: loopback(t) };
 }

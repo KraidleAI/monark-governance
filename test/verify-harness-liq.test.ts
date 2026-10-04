@@ -11,7 +11,6 @@
  */
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { once } from "node:events";
 import { execFile } from "node:child_process";
 import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
@@ -25,6 +24,7 @@ import {
 } from "../apps/harness/src/tools/gate.ts";
 import { lookupCommittedCalibration, UKEMI_LIQ_PREDICTOR_BASE, USDE_STABLE_RUN_CALIB_DIGEST_PINNED } from "../apps/harness/src/calibration.ts";
 import { strateOf, STRATA_CUTS_SERVED } from "../apps/harness/src/ukemi-strata.ts";
+import { listen, startLoopback } from "./helpers/loopback.ts";
 
 const SCRIPT = fileURLToPath(new URL("../scripts/verify-harness.mjs", import.meta.url));
 const LIQ_CHECKS = ["gate_liq_call", "gate_liq_uncommitted_call", "mcp_gate_description_liq"] as const;
@@ -81,20 +81,26 @@ const GREEN = {
   description: "status=200 committed_clause=true empty_registry_sentence=false",
 };
 
-// (2) the CA end-to-end against the in-process harness: 13 checks, exit 0, every check ok, the three liq checks present,
+// (2) the CA end-to-end against the in-process harness: 15 checks, exit 0, every check ok, the three liq checks present,
 // ok, and each reading what it should (detail). Mutants: describeGate(false) hard-coded (the served description drops
 // the committed clause) => mcp_gate_description_liq red; the liq body sent with alpha 0.1 (a named 400) => red; the
 // uncommitted body put in s0 => red.
+// CM-2b surfaces: 15 checks; the gate body is the committed USDe key, and two 400 checks carry their code (btc-dir-15m
+// retired: task_class_retired; produced_at in 2099: produced_at_future, MONARK C-8).
+// killer: scripts/verify-harness.mjs:271 CONST "got === code" -> "got !== code"
 test("verify_harness_ca_passes_on_the_in_process_harness", async () => {
-  const server: HttpServer = startServer(0);
+  const server: HttpServer = await startLoopback((port) => startServer(port));
   try {
-    await once(server, "listening");
     const addr = server.address();
     assert.ok(addr !== null && typeof addr === "object", "address() must be an AddressInfo");
     const base = `http://127.0.0.1:${String(addr.port)}`;
     const r = await runCa(["--api", base, "--mcp", base, "--api-host", "api.monarkgate.tech"]);
     const ca = JSON.parse(r.stdout) as Ca;
-    assert.equal(ca.checks.length, 13, "the CA carries 13 checks (U-4b-2b adds gate_liq_uncommitted_call)");
+    assert.equal(ca.checks.length, 15, "the CA carries 15 checks (U-4b-2b adds gate_liq_uncommitted_call; CM-2b adds gate_retired_call and gate_future_call)");
+    for (const [name, detail] of [["gate_retired_call", "status=400 code=task_class_retired"], ["gate_future_call", "status=400 code=produced_at_future"], ["gate_call", "action=commit"]]) {
+      const c = ca.checks.find((x) => x.name === name);
+      assert.ok(c !== undefined && c.ok && c.detail === detail, `CA check ${name} reads ${detail}: ${JSON.stringify(c)}`);
+    }
     for (const name of LIQ_CHECKS) {
       const c = ca.checks.find((x) => x.name === name);
       assert.ok(c !== undefined && c.ok, `CA check ${name} is present and ok: ${JSON.stringify(c)}`);
@@ -115,7 +121,7 @@ test("verify_harness_ca_passes_on_the_in_process_harness", async () => {
 
 // (3) The NEGATIVE control (C-G2-1 of G2 HARNESS-DESC-1, re-derived at U-4b-2b per the extension of item 4 (c)): the CA
 // must RED on over-claiming surfaces. System under test = the CA script run as deployed (child process). Adversarial
-// vector = a node:http PROXY on 127.0.0.1:0 (motif test/probe-narabi-state.test.ts serve()) in front of the REAL in-process
+// vector = a node:http PROXY on 127.0.0.1 at a drawn port above 10080 (motif test/probe-narabi-state.test.ts serve()) in front of the REAL in-process
 // harness: every request passes through (real SDK SSE framing, real mirror bodies: A-8) except the rewrite points: the
 // served `gate` description in tools/list, the api. answers to the two liq POST /gate (told apart by the stratum of the
 // request's yhat), and, for (alpha) only, the committed call's request (moved to an uncommitted stratum so the upstream
@@ -263,14 +269,13 @@ test("verify_harness_ca_liq_checks_red_on_overclaiming_surfaces", { timeout: 300
       committed: edit((b) => { const c0 = b.content[0]; if (c0 !== undefined) c0.text = `${c0.text} ${LIQ_EMPTY_REGISTRY_SENTENCE}`; }),
       details: liqPlus(GREEN.description, GREEN.uncommitted, GREEN.liq.replace("empty_text=false", "empty_text=true")) },
   ];
-  const upstream: HttpServer = startServer(0);
+  const upstream: HttpServer = await startLoopback((port) => startServer(port));
   try {
-    await once(upstream, "listening");
     for (const v of vectors) {
       const seen: Seen = { rewrites: 0, committed: 0, uncommitted: 0 };
-      const proxy = overclaimingProxy(portOf(upstream), v, seen).listen(0, "127.0.0.1");
+      const proxy = overclaimingProxy(portOf(upstream), v, seen);
       try {
-        await once(proxy, "listening");
+        await listen(proxy);
         const base = `http://127.0.0.1:${String(portOf(proxy))}`;
         const r = await runCa(["--api", base, "--mcp", base, "--api-host", "api.monarkgate.tech"]);
         const ca = JSON.parse(r.stdout) as Ca;
