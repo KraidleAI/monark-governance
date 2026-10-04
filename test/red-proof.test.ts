@@ -13,6 +13,7 @@ import { existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, 
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { classify, drawKillers, parseTap, type ProofRow, type RedProof } from "../scripts/red-proof.mjs";
+import * as redProof from "../scripts/red-proof.mjs"; // a namespace: a base without untrackedOf still loads the file, and the tests below go red by assertion
 
 const CLI = join(import.meta.dirname, "..", "scripts", "red-proof.mjs");
 const sha = (b: Buffer): string => createHash("sha256").update(b).digest("hex");
@@ -81,12 +82,12 @@ after(() => { if (fx !== undefined) rmSync(fx.root, { recursive: true, force: tr
 
 interface Run { status: number | null; proof: RedProof; out: string; left: string[] }
 const runs = new Map<string, Run>();
-function run(key: string, gel: string, extra: string[], base = fixture().base): Run {
+function run(key: string, gel: string, extra: string[], base = fixture().base, opts: { repo?: string | null; cli?: string } = {}): Run { // repo null: no --repo
   const f = fixture(), done = runs.get(key);
   if (done !== undefined) return done;
   const out = join(f.root, `out-${key}`), tmp = join(f.root, `tmp-${key}`);
   mkdirSync(tmp, { recursive: true });
-  const r = spawnSync(process.execPath, [CLI, "--base", base, "--gel", gel, "--repo", f.dir, "--out", out, ...extra], { encoding: "utf8", env: { ...GIT_ENV, ...Object.fromEntries([...DENIED, "FX_VISIBLE"].map((k) => [k, "fake"])), TEMP: tmp, TMP: tmp, TMPDIR: tmp } });
+  const r = spawnSync(process.execPath, [opts.cli ?? CLI, "--base", base, "--gel", gel, ...(opts.repo === null ? [] : ["--repo", opts.repo ?? f.dir]), "--out", out, ...extra], { encoding: "utf8", env: { ...GIT_ENV, ...Object.fromEntries([...DENIED, "FX_VISIBLE"].map((k) => [k, "fake"])), TEMP: tmp, TMP: tmp, TMPDIR: tmp } });
   assert.ok(existsSync(join(out, "RED-PROOF.json")), `red-proof exited ${r.status} without a proof: ${r.stderr}`); // a tool crash is an assertion failure
   const res = { status: r.status, proof: JSON.parse(readFileSync(join(out, "RED-PROOF.json"), "utf8")) as RedProof, out, left: readdirSync(tmp) };
   runs.set(key, res);
@@ -255,4 +256,102 @@ test("red_proof_fails_on_a_stillborn_draw_or_an_empty_diff", () => {
 test("red_proof_refuses_an_unsupported_test_layout", () => {
   const r = weakRun().proof.tests.find((t) => t.file === "test/layout.test.ts" && t.name === "layout_bad");
   assert.deepEqual([r?.verdict, r?.reason], ["refused", "unsupported test layout"]);
+});
+
+// killer: scripts/red-proof.mjs:266 CONST "import.meta.main !== false" -> "process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)"
+test("red_proof_launched_through_a_junction_records_or_refuses_never_a_silent_exit_0", () => {
+  const f = fixture(), j = join(f.root, "scripts-junction"), cli = join(j, "red-proof.mjs"); // RED-PROOF-JUNCTION-GUARD-1: argv[1] is the link, import.meta.url the real path
+  symlinkSync(join(import.meta.dirname, "..", "scripts"), j, "junction"); // New-Item -ItemType Junction on Windows, a symlink elsewhere
+  const u = spawnSync(process.execPath, [cli], { encoding: "utf8", env: GIT_ENV }), e = run("junction-cli", f.gel, [], f.gel, { cli });
+  assert.deepEqual([u.status, /usage/.test(u.stderr), e.status, e.proof.tests.length, e.proof.ok], [2, true, 1, 0, false], u.stderr);
+});
+
+// killer: scripts/red-proof.mjs:142 CONST "link(realpathSync(from), to)" -> "null"
+test("red_proof_links_the_real_target_of_a_junctioned_module_and_repoints_a_junctioned_scope", () => {
+  const f = fixture(), c = join(f.root, "junction-clone"); // RED-PROOF-JUNCTION-1 (C-4 of CM-2a): a clone whose node_modules entries are each a junction (mk-nm.ps1)
+  git(f.root, "clone", "-q", f.dir, c);
+  mkdirSync(join(c, "node_modules"));
+  for (const e of ["fx-dep", "@fx"]) symlinkSync(join(f.dir, "node_modules", e), join(c, "node_modules", e), "junction"); // a package and a whole scope
+  const cols = (r: Run): string[][] => r.proof.tests.map((t) => [t.file, t.name, t.base, t.gel, t.verdict]), j = run("junction-clone", f.gel, [], f.base, { repo: c });
+  assert.deepEqual(cols(j), cols(commitRun())); // the workspace @fx/w still resolves in each clone: f2p_true stays red at base
+  assert.ok(cols(j).some(([, n, b, g, v]) => n === "f2p_true" && b === "assert-fail" && g === "pass" && v === "F2P"));
+});
+
+// killer: scripts/red-proof.mjs:277 CONST "skipped.push(link); continue;" -> "changes.push(p); continue;"
+test("red_proof_worktree_gel_with_a_junctioned_node_modules_is_judged", () => {
+  const f = fixture(), wt = join(f.root, "wt3"); // the node_modules junction is no directory to the node_modules/ ignore rule: git lists it as untracked
+  git(f.dir, "worktree", "add", "-q", "--detach", wt, f.base);
+  write(wt, { "packages/w/index.js": W(true), "test/j.test.ts": `${HEAD}import { double } from "@fx/w";\nimport { HALF } from "fx-dep";\n// killer: packages/w/index.js:1 COR "x + x" -> "x - x"\ntest("through_junction", () => { assert.equal(double(HALF), 4); });\n` });
+  symlinkSync(join(f.dir, "node_modules"), join(wt, "node_modules"), "junction");
+  const { status, proof } = run("junction-wt", wt, ["--draw", "1", "--seed", "1"], f.base, { repo: null }); // no --repo: node_modules is read through the junction
+  assert.deepEqual([status, proof.ok, proof.files.added, proof.tests.map((t) => [t.name, t.base, t.gel, t.verdict]), proof.draw?.drawn.map((d) => d.outcome)],
+    [0, true, ["test/j.test.ts"], [["through_junction", "assert-fail", "pass", "F2P"]], ["killed"]]);
+});
+
+function driftRun(): Run { // B-1 of the G2: a lot that adds a workspace package, a --repo working copy drifted from the gel, mk-nm.ps1 junctions
+  const f = fixture(), d = join(f.root, "drift"), store = join(f.root, "store", "node_modules"); // store: the real targets of the junctions (F:/Monark/node_modules/<x>)
+  if (!existsSync(d)) {
+    write(store, { "fx-dep/package.json": '{"name":"fx-dep","type":"module","exports":"./index.js"}\n', "fx-dep/index.js": "export const HALF = 2;\n" });
+    write(d, { "package.json": '{"name":"dr","private":true,"type":"module","workspaces":["packages/*"]}\n', ".gitignore": "node_modules/\n", "lib/a.js": "export const A = 1;\n" });
+    git(d, "init", "-q", "-b", "main"); git(d, "add", "-A"); git(d, "commit", "-q", "-m", "base");
+    write(d, { "packages/v/package.json": '{"name":"@fx/v","type":"module","exports":"./index.js"}\n', "packages/v/index.js": "export const dbl = (x) => x + x;\n",
+      "test/v.test.ts": `${HEAD}import { dbl } from "@fx/v";\nimport { HALF } from "fx-dep";\n// killer: packages/v/index.js:1 COR "x + x" -> "x - x"\ntest("v_dbl", () => { assert.equal(dbl(HALF), 4); });\n`,
+      "test/links.test.ts": `${HEAD}import { readdirSync } from "node:fs";\nimport { HALF } from "fx-dep";\n// killer: lib/a.js:1 CONST "1" -> "2"\ntest("links_kept_out", () => { assert.deepEqual([readdirSync("node_modules").sort(), HALF], [["@fx", "fx-dep"], 2]); });\n` });
+    git(d, "add", "-A"); git(d, "commit", "-q", "-m", "gel");
+    mkdirSync(join(d, "node_modules", "@fx"), { recursive: true });
+    symlinkSync(join(d, "packages", "v"), join(d, "node_modules", "@fx", "v"), "junction"); // npm's workspace link, to a package the base lacks
+    symlinkSync(join(store, "fx-dep"), join(d, "node_modules", "fx-dep"), "junction");
+    symlinkSync(join(store, "absent"), join(d, "node_modules", "fx-broken"), "junction"); // a broken link
+    symlinkSync(join(store, "fx-dep", "index.js"), join(d, "node_modules", "fx-file"), "file"); // a link to a file under node_modules
+    writeFileSync(join(d, "packages", "v", "index.js"), "export const dbl = (x) => x + x + 1;\n"); // the drift: uncommitted, or another branch checked out
+  }
+  return run("drift", git(d, "rev-parse", "HEAD"), [], git(d, "rev-parse", "HEAD~1"), { repo: d });
+}
+
+// killer: scripts/red-proof.mjs:142 CONST " && realpathSync(from).split(sep).includes(\"node_modules\")" -> ""
+test("red_proof_never_loads_a_workspace_the_base_lacks_from_the_repo_working_copy", () => {
+  const r = driftRun(), v = r.proof.tests.find((t) => t.name === "v_dbl"); // the base clone must not see packages/v of --repo: no false F2P
+  assert.deepEqual([r.status, r.proof.ok, v?.base, v?.gel, v?.verdict], [1, false, "import-fail", "pass", "refused"]);
+});
+
+// killer: scripts/red-proof.mjs:142 CONST "isDir(from) &&" -> "true &&"
+test("red_proof_leaves_out_a_broken_link_and_a_link_to_a_file_in_node_modules", () => {
+  const r = driftRun(), l = r.proof.tests.find((t) => t.name === "links_kept_out"); // the tool runs on; the clones list @fx and fx-dep only
+  assert.deepEqual([r.status, l?.base, l?.gel], [1, "pass", "pass"]);
+});
+
+// killer: scripts/red-proof.mjs:276 CONST "find((q) => isLink(join(gitDir, q)))" -> "find(() => false)"
+test("red_proof_records_a_skipped_linked_directory_and_still_stops_on_an_untracked_nested_repo", () => {
+  const f = fixture(), wt = join(f.root, "wt4"), nested = join(f.root, "wt5"); // m-1 of the G2: only a link is skipped, and the proof says so
+  git(f.dir, "worktree", "add", "-q", "--detach", wt, f.base);
+  symlinkSync(join(f.dir, "lib"), join(wt, "linked"), "junction");
+  const r = run("linked-wt", wt, [], f.base, { repo: null });
+  git(f.dir, "worktree", "add", "-q", "--detach", nested, f.base);
+  write(join(nested, "vendor", "sub"), { "n.js": "export const N = 1;\n" });
+  git(join(nested, "vendor", "sub"), "init", "-q", "-b", "main"); git(join(nested, "vendor", "sub"), "add", "-A"); git(join(nested, "vendor", "sub"), "commit", "-q", "-m", "n");
+  const n = spawnSync(process.execPath, [CLI, "--base", f.base, "--gel", nested, "--out", join(f.root, "out-nested")], { encoding: "utf8", env: GIT_ENV });
+  assert.deepEqual([r.status, r.proof.files.skipped, n.status, /untracked directory vendor\/sub\/ is no file to copy/.test(n.stderr), existsSync(join(f.root, "out-nested", "RED-PROOF.json"))], [1, ["linked"], 2, true, false], n.stderr); // the stop is named, never an errno (EISDIR here, EPERM on win32)
+});
+
+function shapes(): string { // a worktree-like directory: a junction to a directory, a plain file, an untracked nested repository's directory
+  const d = join(fixture().root, "shapes");
+  if (!existsSync(d)) { write(d, { "a.ts": "export const A = 1;\n", "vendor/sub/n.js": "export const N = 1;\n" }); symlinkSync(join(fixture().dir, "lib"), join(d, "linked"), "junction"); }
+  return d;
+}
+const untrackedOf = (d: string, ps: string[]): { changes: string[]; skipped: string[] } => {
+  assert.equal(typeof (redProof as Record<string, unknown>).untrackedOf, "function", "scripts/red-proof.mjs exports untrackedOf");
+  return redProof.untrackedOf(d, ps);
+};
+
+// killer: scripts/red-proof.mjs:276 CONST "parts.slice(0, i + 1).join(\"/\")" -> "p"
+test("red_proof_skips_a_linked_directory_in_each_shape_git_may_list_it", () => {
+  const d = shapes(); // RED-PROOF-JUNCTION-1 win32: git output injected; Git for Windows may walk a junction as a directory and list the files under it
+  const got = [["linked"], ["linked/"], ["linked/old.ts", "linked/fresh.ts"], ["a.ts", "linked/", "linked/old.ts", ""]].map((ps) => untrackedOf(d, ps));
+  assert.deepEqual(got, [{ changes: [], skipped: ["linked"] }, { changes: [], skipped: ["linked"] }, { changes: [], skipped: ["linked"] }, { changes: ["a.ts"], skipped: ["linked"] }]);
+});
+
+// killer: scripts/red-proof.mjs:278 SDL "throw new Error" -> ""
+test("red_proof_stops_by_name_on_an_untracked_directory_in_each_shape", () => {
+  const d = shapes(); // no copy is tried, so no errno decides the stop (EISDIR on Linux, EPERM on win32)
+  for (const ps of [["vendor/sub/"], ["vendor/sub"], ["a.ts", "vendor/sub/"]]) assert.throws(() => untrackedOf(d, ps), /^Error: untracked directory vendor\/sub\/ is no file to copy \(a nested repository\?\)/, ps.join(","));
 });

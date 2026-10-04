@@ -24,7 +24,7 @@
 // before and after) and the run kept as killer-<n>.tap.
 import { spawnSync } from "node:child_process";
 import { createHash } from "node:crypto";
-import { copyFileSync, existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, realpathSync, rmSync, statSync, symlinkSync, writeFileSync } from "node:fs";
+import { copyFileSync, existsSync, lstatSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, readlinkSync, realpathSync, rmSync, statSync, symlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join, posix, resolve, sep } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -35,7 +35,7 @@ export const DENY = /API_KEY|_KEY$|TOKEN|SECRET|^GH_|^GITHUB_|^CHAINSTACK_|^MONA
 const ENV = { ...Object.fromEntries(Object.entries(process.env).filter(([k]) => !DENY.test(k))), GIT_OPTIONAL_LOCKS: "0", NODE_TEST_CONTEXT: undefined }; // a nested node --test must print TAP, not report to a parent
 const sha = (b) => createHash("sha256").update(b).digest("hex");
 const str = (s) => { try { return JSON.parse(`"${s}"`); } catch { return s; } };
-const isDir = (p) => existsSync(p) && statSync(p).isDirectory();
+const isDir = (p) => existsSync(p) && statSync(p).isDirectory(); const isLink = (p) => { try { return lstatSync(p).isSymbolicLink() || readlinkSync(p) !== ""; } catch { return false; } }; // a junction: Node's lstat reads it as a link on win32; readlink, the fallback, succeeds on any reparse link
 
 function git(cwd, args) {
   const r = spawnSync("git", ["-c", "core.longpaths=true", ...args], { cwd, env: ENV, encoding: "utf8", maxBuffer: 1 << 28 });
@@ -139,10 +139,10 @@ function linkModules(repo, tree) {
     const pj = join(tree, d, e, "package.json");
     if (existsSync(pj)) ws.set(JSON.parse(readFileSync(pj, "utf8")).name, join(tree, d, e));
   }
-  const place = (ent, name, from, to) => { if (ent.isFile()) copyFileSync(from, to); else if (!ent.isSymbolicLink()) link(from, to); else if (ws.has(name)) link(ws.get(name), to); };
+  const place = (ent, name, from, to) => { if (ent.isFile()) copyFileSync(from, to); else if (!ent.isSymbolicLink()) link(from, to); else if (ws.has(name)) link(ws.get(name), to); else if (isDir(from) && realpathSync(from).split(sep).includes("node_modules")) link(realpathSync(from), to); }; // a junction to a package (mk-nm.ps1): its real target, never a workspace the tree lacks
   mkdirSync(nm);
   for (const e of readdirSync(src, { withFileTypes: true })) {
-    if (!e.name.startsWith("@") || !e.isDirectory()) { place(e, e.name, join(src, e.name), join(nm, e.name)); continue; }
+    if (!e.name.startsWith("@") || !isDir(join(src, e.name))) { place(e, e.name, join(src, e.name), join(nm, e.name)); continue; }
     mkdirSync(join(nm, e.name));
     for (const f of readdirSync(join(src, e.name), { withFileTypes: true })) place(f, `${e.name}/${f.name}`, join(src, e.name, f.name), join(nm, e.name, f.name));
   }
@@ -211,10 +211,10 @@ export function main(argv) {
   const a = parseArgs(argv), wt = isDir(a.gel), top = wt ? git(resolve(a.gel), ["rev-parse", "--show-toplevel"]).trim() : null, repo = resolve(a.repo ?? top ?? "."), gitDir = top ?? repo;
   const base = git(repo, ["rev-parse", "--verify", `${a.base}^{commit}`]).trim();
   const gelSha = wt ? null : git(repo, ["rev-parse", "--verify", `${a.gel}^{commit}`]).trim();
-  const range = wt ? [base] : [base, gelSha], changes = new Map();
+  const range = wt ? [base] : [base, gelSha], changes = new Map(), skipped = [];
   const ns = git(gitDir, ["diff", "--name-status", "--no-renames", "-z", ...range]).split("\0");
   for (let i = 0; i + 1 < ns.length; i += 2) changes.set(ns[i + 1], ns[i] === "D" || ns[i] === "A" ? ns[i] : "M");
-  if (wt) for (const p of git(gitDir, ["ls-files", "--others", "--exclude-standard", "-z"]).split("\0")) if (p !== "") changes.set(p, "A");
+  if (wt) { const u = untrackedOf(gitDir, git(gitDir, ["ls-files", "--others", "--exclude-standard", "-z"]).split("\0")); for (const p of u.changes) changes.set(p, "A"); skipped.push(...u.skipped); } // a link to a directory (a junctioned node_modules) is no change, recorded; a nested repo stops by name
   const added = new Set([...changes.keys()].filter((p) => changes.get(p) === "A"));
   const live = [...changes.keys()].filter((p) => changes.get(p) !== "D").sort();
   const tests = live.filter((p) => p.endsWith(".test.ts")), support = live.filter((p) => !p.endsWith(".test.ts") && /(^|\/)test\//.test(p));
@@ -249,7 +249,7 @@ export function main(argv) {
     const head = wt ? git(gitDir, ["rev-parse", "HEAD"]).trim() : gelSha;
     const proof = {
       schema: "red-proof-v1", at: new Date().toISOString(), node: process.version, repo, base, gel: { ref: a.gel, mode: wt ? "worktree" : "commit", head, digest },
-      files: { tests, support, added: [...added].sort() }, tests: rows, unchanged,
+      files: { tests, support, added: [...added].sort(), skipped }, tests: rows, unchanged,
       draw: a.draw > 0 ? { seed: a.seed, requested: a.draw, population: admitted.length, drawn } : null,
       tap: { base: { path: "base.tap", sha256: sha(baseTap) }, gel: { path: "gel.tap", sha256: sha(gelTap) } }, drawn: drawn.length, ok,
     };
@@ -263,6 +263,20 @@ export function main(argv) {
   }
 }
 
-if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
+if (import.meta.main !== false) { // as oracle/run.mjs l.40: a launch through a junction or a link runs main; an import runs nothing
   try { process.exitCode = main(process.argv.slice(2)); } catch (e) { console.error(`red-proof: ${e instanceof Error ? e.message : String(e)}`); process.exitCode = 2; }
+}
+
+/** Untracked paths of a worktree gel (`git ls-files --others -z`, RED-PROOF-JUNCTION-1 m-1 and its win32 fold): a path at or under a link to a directory is no change,
+ *  its top-most link recorded once in skipped, whatever shape git gives it ("linked", "linked/", or "linked/<file>" from a git that walks a junction as a directory);
+ *  an untracked directory that is no link (a nested repository, listed "vendor/sub/") stops the run by name, never by the errno of a copy (EISDIR, EPERM on win32). */
+export function untrackedOf(gitDir, paths) {
+  const changes = [], skipped = [];
+  for (const p of paths.map((x) => x.replace(/\/+$/, "")).filter((x) => x !== "")) {
+    const parts = p.split("/"), link = parts.map((_, i) => parts.slice(0, i + 1).join("/")).find((q) => isLink(join(gitDir, q)));
+    if (link !== undefined && isDir(join(gitDir, link))) { if (!skipped.includes(link)) skipped.push(link); continue; }
+    if (link === undefined && isDir(join(gitDir, p))) throw new Error(`untracked directory ${p}/ is no file to copy (a nested repository?): commit, ignore or remove it`);
+    changes.push(p);
+  }
+  return { changes, skipped };
 }
