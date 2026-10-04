@@ -16,6 +16,7 @@ import type { DatabentoGet, PolygonGet } from "../../src/close.ts";
 import type { JsonRpcCall } from "../../src/quorum.ts";
 import { canonical, keyringOf, sha256Hex, signLine, type Keyring } from "../../scripts/bell-chain.mjs";
 import { publishToDir } from "../../scripts/bell-publish.mjs";
+import { listen } from "../../../../test/helpers/loopback.ts";
 
 export type Obj = Record<string, unknown>;
 const HERE = dirname(fileURLToPath(import.meta.url));
@@ -165,7 +166,7 @@ export const committedCaddyRules = (): HeaderRule[] | null => (existsSync(CADDYF
 export interface Server { url: string; seen: string[]; close: () => Promise<void> }
 /** A loopback static server over `root` (Caddy's `file_server` stand-in): 200 + file bytes, else 404, never a listing; the
  *  headers of `rules` whose matcher matches the request path. */
-export function serveDir(root: string, rules: readonly HeaderRule[] | null): Promise<Server> {
+export async function serveDir(root: string, rules: readonly HeaderRule[] | null): Promise<Server> {
   const seen: string[] = [];
   const server = createServer((req, res) => {
     const p = (req.url ?? "/").split("?")[0] ?? "/", f = join(root, ...p.split("/").filter((s) => s !== ""));
@@ -176,10 +177,6 @@ export function serveDir(root: string, rules: readonly HeaderRule[] | null): Pro
     res.writeHead(ok ? 200 : 404, h);
     res.end(ok ? readFileSync(f) : undefined);
   });
-  return new Promise((resolve) => {
-    server.listen(0, "127.0.0.1", () => {
-      const a = server.address(), port = a !== null && typeof a === "object" ? a.port : 0;
-      resolve({ url: `http://127.0.0.1:${String(port)}`, seen, close: () => new Promise<void>((c) => { server.closeAllConnections(); server.close(() => { c(); }); }) });
-    });
-  });
+  const port = await listen(server);
+  return { url: `http://127.0.0.1:${String(port)}`, seen, close: () => new Promise<void>((c) => { server.closeAllConnections(); server.close(() => { c(); }); }) };
 }

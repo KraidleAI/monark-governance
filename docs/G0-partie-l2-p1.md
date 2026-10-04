@@ -648,3 +648,28 @@ adresse, aucun schéma d'URL, aucun domaine ni nom d'hôte, aucun montant. Porte
   Chaque fusion garde tests, tueurs, mutations et oracle du tronc. Exemple : b1 (dépend de a1) peut fusionner avant a3 et a4.
 - **P1-b2** dépend de a3 et de b1 : il attend le G1 de a3 (confié par erreur à RECHERCHES à 02:2x UTC sans cette dépendance ; corrigé
   dans la messagerie). P1-a3 part sur `lot/l2-p1-a3`, qui porte a1 et a2.
+
+## Décisions de l orchestrateur sur le G1 de P1-a3 (2026-10-04, 03:3x UTC)
+
+G1 `claude-opus-5-5` LIVRE-AVEC-RESERVES (`F:/tmp/rech/l2/a3/G1.md` `0bbcd41f…`), commis sur `lot/l2-p1-a3` (`7ea82728`) ; tueurs 8/8 par
+l outil du tronc, oracle G1 vert (2 085 tests, 0 échec), R-25 460. Les huit questions sont confirmées telles que proposées :
+- **Q-1** : oui, huit tests (un tueur par test ; précédent Q-1 de a2). **Q-2** : oui, délai remis à 1 s après une connexion qui a livré
+  du texte ; une porte par processus, ouverture différée et nommée au plafond. **Q-3** : oui, contrat du journal pour c1 (filtre PLAIN).
+- **Q-4** : oui, un message binaire ferme la connexion (`binary_message`), rien d écrit, sans remise du délai.
+- **Q-5** : oui, la limite du socket tenu jusqu au délai TCP est portée par L2-OWN-WS-CLIENT-1, avec le compte des sockets en fermeture
+  en M-1 (PAROXYSME).
+- **Q-6** : oui, `openLink({ symbol, url, out }, io)` ; « P1-a3 les mesure » (FAITS-L2-ACCESS-3 l.41-42) est remplacé par Q-P1-3,
+  mesure en M-1.
+- **Q-7** : oui, une ligne de FAITS montrant entière la forme `?streams=…&timeUnit=MICROSECOND` est due avant M-1 (lecture sur place
+  par MONARK) ; à la première connexion de M-1, `T` de `@trade` est contrôlé en microsecondes, une contradiction arrête le dérivé.
+- **Q-8** : oui, `writer_stop` pour tout arrêt de l écrivain ; reprise armée après l écriture de la file ; borne de `stop()` sur un
+  disque bloqué fixée par c5.
+- La G2 de P1-a3 va à RECHERCHES (règle 4 amendée), puis P1-b2 s empile sur a3 et b1.
+
+## Décision de l orchestrateur sur P1-b1 plié (2026-10-04, 03:4x UTC)
+
+- **#112** (tête `29db1863`) : contrôle léger de MONARK fait (zone, CI sans rouge, R-25 540 ≤ 547, G2 neuve de RECHERCHES APPROUVE,
+  `G2-112-fold.md`). C-8 : les noms de fichiers du code sont actés. Fusion au tronc après a1 et a2 (a1 attend MUTANTS-TEST-SUPPORT-1) ;
+  le rejeu Windows réel de C-1 est l oracle du tronc à cette fusion.
+- **P1-B1-BIS** (§8.1, solde 7 < 10 ; RECHERCHES) : C-3, C-4 avec m-1, C-5, les survivants restants de C-6 et C-7, m-2, m-3, m-4, H11.
+  Déclencheur : avant le G1 de c5, au plus tard avant M-1.

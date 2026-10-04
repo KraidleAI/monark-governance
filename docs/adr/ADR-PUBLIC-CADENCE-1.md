@@ -416,3 +416,12 @@ Ordre : A1, puis A2, puis C ; B après les réponses de l'investisseur. L'implé
 | §10 | R-25 de PR-A1, ×2,29 mesuré, ×2,14 décidé pour le G0 de PR-A2 ; place de PR-A1b |
 | §14 | item PR-A1b (C-G2-6, C-V2-2, C-V2-3, C-V2-4) ; état des items touchés par PR-A1 |
 | §16 | ce paragraphe |
+
+## 17. Amendement daté 2026-10-04 — exception à D2 pour le contrat 1.1.0
+
+- **Objet** : D2 (l.16 ; §3.2 point 1) publie un tag `v0.MINOR.PATCH` par lot qui change l'export. Le contrat 1.1.0 est livré en plusieurs lots (blocs A, B1, B2, C et D de l'ADR-CM, amendement « 2026-10-04 (3) »), alors que la décision du fondateur « Avec CM-4 » veut **une seule version datée** de la spécification publique et un seul changement de format pour les appelants. Appliquée à la lettre, D2 publierait des états partiels de la 1.1.0.
+- **Exception** : les lots du contrat 1.1.0 ne déclenchent **ni commit public ni tag** à leur G7. Ils restent sur `base/chantier-moteur-2026-10-03` et n'entrent au tronc `lot/etude-suite`, donc dans l'export, qu'à T0 (déploiement de la 1.1.0, go F-5b du fondateur). L'export de T0 porte **un seul tag** MINOR, dont les notes `docs/public-notes/<tag>.md` nomment la version du harnais (`HARNESS_VERSION`) et le contrat 1.1.0, et renvoient à la spécification datée.
+- **Ce qui ne change pas** : les lots sans rapport avec la 1.1.0 continuent de publier selon D1 et D2 depuis le tronc ; N-2 (« nothing to publish is not a release ») tient ; la porte des textes publics s'applique aux notes.
+- **Si MONARK fusionne un bloc 1.1.0 au tronc avant T0** : aucun export n'est lancé entre cette fusion et T0, et un lot sans rapport qui doit publier dans cet intervalle attend T0 ou demande une ligne datée.
+- **Fin de l'exception** : au tag de T0, ou par une ligne datée qui l'annule.
+- **Provenance** : texte proposé par RECHERCHES (`recherches:coordination/pieces/2026-10-04-contrat-1-1-0-r3/TEXTES-ACTES-MONARK.md` §2), relu et appliqué par l'orchestrateur MONARK le 2026-10-04 08:0x UTC.

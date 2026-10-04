@@ -18,7 +18,6 @@
  */
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { once } from "node:events";
 import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import type { Server as HttpServer } from "node:http";
@@ -39,6 +38,7 @@ import {
   CALLER_YHAT,
 } from "./byo-demo-builder.ts";
 import type { ByoTrace } from "./byo-demo-builder.ts";
+import { startLoopback } from "./helpers/loopback.ts";
 
 const TRACE_PATH = fileURLToPath(new URL("../fixtures/byo-demo-trace.json", import.meta.url));
 const VOCAB_PATH = fileURLToPath(new URL("../vocab-banned.json", import.meta.url));
@@ -137,9 +137,8 @@ test("probe_byo_demo_loop_closes", async () => {
   // (6) ANTI-MOCK (LOAD-BEARING) — perturbations NOT present in the committed trace, over the SAME wire
   // seam (byoToolsCall), must track the independent recompute. A frozen/mock trace (which holds only the
   // demo α=0.1/ŷ=0/these scores) returns the wrong value ⇒ these red.
-  const server: HttpServer = startServer(0);
+  const server: HttpServer = await startLoopback((port) => startServer(port));
   try {
-    await once(server, "listening");
     const addr = server.address();
     assert.ok(addr !== null && typeof addr === "object", "address() must be an AddressInfo");
     assert.equal(addr.address, "127.0.0.1", "the harness binds 127.0.0.1 only");
@@ -196,4 +195,15 @@ test("probe_byo_demo_loop_closes", async () => {
   assert.equal(NON_GENERIC.test(provenanceText), false, "PROVENANCE-byo-demo.md must stay generic (NON_GENERIC guard)");
   const demoText = readFileSync(DEMO_PATH, "utf8");
   assert.equal(NON_GENERIC.test(demoText), false, "DEMO.md (published in the skill) must stay generic (NON_GENERIC guard: no named asset, trade, or MVP overclaim)");
+});
+
+// DEMO-HASH-STALE-1 (CM-2b surfaces, MONARK's request): the truncated digest DEMO.md cites for the recorded BYO trace is the
+// first 8 hex of the committed trace's LF sha256 (it was a stale `79b54471…`), and the provenance states the full value.
+// killer: skills/monark/DEMO.md:88 CONST "daf8d3ea…" -> "79b54471…"
+test("demo_md_cites_the_current_byo_trace_digest", () => {
+  const sha = sha256Lf(readFileSync(TRACE_PATH, "utf8"));
+  assert.equal(sha, TRACE_SHA256_PINNED, "the committed trace is the pinned one");
+  const cited = [...readFileSync(DEMO_PATH, "utf8").matchAll(/`([0-9a-f]{8})…`/g)].map((m) => m[1]);
+  assert.deepEqual(cited, [sha.slice(0, 8)], "DEMO.md cites exactly the current truncated digest of fixtures/byo-demo-trace.json");
+  assert.ok(readFileSync(PROVENANCE_PATH, "utf8").includes(sha), "the provenance states the full digest");
 });

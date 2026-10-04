@@ -1,7 +1,7 @@
 # G7 du lot CM-2a : codes d'erreur stables, validation de sortie, `produced_at` (S-6, S-15, S-10/P5(b), STALE-COMMENTS-1)
 
 - **ADR** : `docs/adr/ADR-CM-chantier-moteur-audit-P3.md`, amendement daté « plan de CM-2 » (go du fondateur « oui aux 1, 2 et 3 ») : B-3, B-4, B-6. Plan : `docs/G0-lot-cm-2a.md`.
-- **Base** : `ff06ead` (branche `recherches/cm-2a`, posée sur `recherches/cm-1-docs`, PR #104 non encore fusionnée).
+- **Base** : base de fusion mesurée `c596afd3..f3b330cf` (#104 fusionnée, `6da4504d`, arbre de `c596afd3` ; `ff06ead` = `c596afd3` + l'amendement de l'ADR ; `c7c9c4e` = `f3b330cf` moins G0 et G7 : les chiffres ci-dessous valent pour le code). Corrigé le 2026-10-04 (contrôle par diff de MONARK, C-9).
 
 ## Oracle
 
@@ -17,7 +17,7 @@
 ## Changements servis (liste fermée)
 
 - **B-3** : corps d'erreur HTTP `{error:"tool_error", operation, message, code}` ; MCP : premier contenu identique, `_meta` gagne `monarkgate.tech/error_code`. Les 400 liq α et nMin portent déjà `policy_alpha_mismatch` et `policy_nmin_mismatch`, pour que leur code ne change pas en CM-2b.
-- **B-4** : `produced_at` RFC 3339 strict dans `runGate` (400 `produced_at_invalid`) ; aux entrées HTTP et MCP, plus de 300 s dans le futur rend 400 `produced_at_future`. **Formes jusqu'ici acceptées au servi par ajv et désormais refusées** : l'espace comme séparateur, les décalages `+0100` et `+01`. Seul l'outil `gate` est concerné (`cascade` et `ukemi-predict` hors périmètre).
+- **B-4** : `produced_at` RFC 3339 strict dans `runGate` (400 `produced_at_invalid`) ; aux entrées HTTP et MCP, plus de 300 s dans le futur rend 400 `produced_at_future`. **Formes jusqu'ici acceptées au servi par ajv et désormais refusées** : tout séparateur autre que `T` ou `t` (l'espace et tout blanc `\s` de JavaScript : tabulation, LF, CR, VT, U+00A0, U+2028, U+3000, U+FEFF, U+200A…), tout décalage sans deux-points ou sans minutes (`±hhmm`, dont `-0000`, et `±hh`), et les heures ou minutes hors bornes que la branche de seconde intercalaire d'ajv laissait passer quand l'heure UTC calculée tombe à 23:59 (`2026-09-04T24:59:00+01:00`, `T24:59:30+01:00`, `T46:59:60+23:00`, `T23:99:60+00:40`, `T23:99:00+00:40`). Mesure de MONARK (`census.mjs`, contrôle par diff du 2026-10-03, C-2) : sur 60 000 chaînes tirées, 6 585 sont acceptées par l'ancienne frontière et refusées par la tête, aucune dans l'autre sens ; aucun appelant connu n'envoie ces formes. (Déclaration complétée le 2026-10-04, lot CM-2a-suite.) Seul l'outil `gate` est concerné (`cascade` et `ukemi-predict` hors périmètre).
 - **B-6** : une sortie HTTP invalide rend 500 `{error:"internal_error", operation, code:"output_invalid"}`.
 
 ## Items
