@@ -406,14 +406,17 @@ async function sigtermInWindow(at: "acquired" | "acquiring"): Promise<void> {
   } finally { if (run.child.exitCode === null) run.child.kill("SIGKILL"); }
 }
 
+// killer: apps/sentinel/src/run.ts:341 CONST "leg?.release(); " -> ""
 test("sentinel_sigterm_after_lock_acquired_before_handler_releases_lock — a SIGTERM delivered right after the cycle lock is written and closed (the start-up window of the base: lock held, before the old process.on) is handled: exit 1, no .lock, a chained unlocked line (SENTINEL-SIGTERM-STARTUP-WINDOW-1). WIN32 SKIP declared: process.kill is a hard kill there", SIGTERM_SKIP, async () => {
   await sigtermInWindow("acquired");
 });
 
+// killer: apps/sentinel/src/run.ts:342 SDL "process.on(" -> ""
 test("sentinel_sigterm_while_lock_acquiring_releases_lock — a SIGTERM delivered just before the lock's exclusive open (acquisition in progress) is queued; the handler runs once the synchronous acquisition is done and releases the lock: exit 1, no .lock, a chained unlocked line (SENTINEL-SIGTERM-STARTUP-WINDOW-1). WIN32 SKIP declared", SIGTERM_SKIP, async () => {
   await sigtermInWindow("acquiring");
 });
 
+// killer: apps/sentinel/src/run.ts:341 CONST "process.exit(1)" -> "process.exit(0)"
 test("sentinel_sigterm_without_leg_exits_cleanly — with no paid leg (CHAINSTACK_CYCLE_ID absent => unconfigured, no lock ever taken) a SIGTERM at the first fetch runs the same handler, which releases nothing and exits 1: no .lock, no cycle ledger created (SENTINEL-SIGTERM-STARTUP-WINDOW-1). WIN32 SKIP declared", SIGTERM_SKIP, async () => {
   const l3 = fixtureLines()[2]!;
   const dir = seedState(2);
