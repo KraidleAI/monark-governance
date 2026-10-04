@@ -29,7 +29,7 @@ Un préchargement, en ligne dans `scripts.test`, juste après `--test-force-exit
 "--import=data:text/javascript,process.stdout._handle&&process.stdout._handle.setBlocking(true);process.on('exit',function(c){if(c===0&&process.stdout.writableLength>0)process.exitCode=70})"
 ```
 
-`node --test` passe ses `--import` aux enfants par leur `execArgv` (mesuré, et c est déjà ce que fait `scripts/red-proof.mjs`). Le module tourne donc dans le lanceur et dans chaque enfant. Il fait deux choses.
+`node --test` passe ses `--import` aux enfants par leur `execArgv` (mesuré, et c est déjà ce que fait `scripts/red-proof.mjs`). Le module tourne dans chaque enfant. **Correction après le gel (mesurée, voir le G7)** : il ne tourne pas dans le lanceur. Node 24.21 n initialise pas les modules `--import` du processus `--test` lui-même (un `--require` de fichier, lui, y est chargé). Il fait deux choses, dans chaque enfant.
 
 1. **La cause est corrigée** : stdout devient bloquant. Chaque écriture est remise au tuyau avant de rendre la main ; `process.exit()` n a plus rien à jeter. C est le correctif du préchargement de `red-proof.mjs`, ici dans le script de la suite.
 2. **La garde** : à la sortie, si le code vaut 0 et que stdout garde encore des octets en file (`writableLength > 0`), ces octets vont être perdus. Le code devient alors 70. Le lanceur marque le fichier rouge, **par son nom** (`✖ <fichier>`, `'test failed'`), et la suite sort 1. Avec stdout bloquant, `writableLength` vaut 0 après chaque écriture : la garde ne joue que si le blocage manque (une autre plateforme, un Node futur, un `_handle` absent).
@@ -70,8 +70,10 @@ Le préchargement suit `--test-force-exit` : la regex des gardes de (a) se lit t
 
 1. **Le lot qui fusionne en second élargit les gardes de #130 d un jeton** : `/^node --test (--test-timeout=\d+ --test-force-exit "--import=[^"]+") /`. (a) et (b) restent des égalités, et le préchargement fait partie des gardes.
 2. `test:main` et `test:export` portent alors le préchargement juste après `--test-force-exit` (avant le drapeau de saut ou de nom).
-3. Le tueur de #130 `package.json:18 CONST "--test-force-exit --test-name-pattern" -> "--test-name-pattern"` perd son texte. Il se ré-ancre en `CONST "--test-force-exit \"--import" -> "\"--import"`, sur la même ligne et avec le même sens (la garde `--test-force-exit` retirée de `test:export`).
+3. Le tueur de #130 `package.json:18 CONST "--test-force-exit --test-name-pattern" -> "--test-name-pattern"` perd son texte. Il se ré-ancre en `CONST "--test-timeout=300000 --test-force-exit " -> "--test-timeout=300000 "`, sur la même ligne et avec le même sens (la garde `--test-force-exit` retirée de `test:export`), sans guillemet échappé dans le texte cherché.
 4. Le premier test de ce lot exige déjà le même préchargement dans **tout** script qui porte `--test-force-exit` : `test:main` et `test:export` y entrent d eux-mêmes.
+
+**Fait** (mise à jour après le gel) : #130 est entré au tronc (`0effb5b2`). Le tronc a été fusionné dans la branche (commit de fusion `91932df0`), avec les points 1 à 3 ci-dessus. `ci.yml` ne change toujours pas : g3 lance `test:main`, `g3-export` lance `test:export`, et les deux portent le préchargement. Le red-proof et R-25 se lisent désormais contre `0effb5b2` (voir le G7).
 
 Le test 42 de #130 profite du préchargement : le `package.json` exporté le porte, donc `npm run ci` imbriqué ne perd plus la fin de sa sortie.
 
