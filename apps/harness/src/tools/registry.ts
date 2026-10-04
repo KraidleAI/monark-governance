@@ -23,7 +23,7 @@ import { cascadeInputStandardSchema, cascadeOutputStandardSchema, CASCADE_INPUT_
 import type { Json } from "../schema-projection.ts";
 import { attestInputStandardSchema, attestOutputStandardSchema, ATTEST_INPUT_SCHEMA, ATTEST_OUTPUT_SCHEMA } from "../schema-projection.ts";
 import { calibrateInputStandardSchema, calibrateOutputStandardSchema, CALIBRATE_INPUT_SCHEMA, CALIBRATE_OUTPUT_SCHEMA } from "../schema-projection.ts";
-import { runGate, honestyText, gateVerdictSummary, GATE_TOOL_NAME, GATE_TOOL_DESCRIPTION, type HarnessParams } from "./gate.ts";
+import { runGate, honestyText, gateVerdictSummary, toolErrorCode, ERROR_CODE_META_KEY, GATE_TOOL_NAME, GATE_TOOL_DESCRIPTION, type HarnessParams, type RunGateOptions } from "./gate.ts";
 import { runCascade, cascadeHonestyText, CASCADE_TOOL_NAME, CASCADE_TOOL_DESCRIPTION, type CascadeInput } from "./cascade.ts";
 import { runAttest, attestHonestyText, ATTEST_TOOL_NAME, ATTEST_TOOL_DESCRIPTION } from "./attest.ts";
 import { runCalibrate, calibrateHonestyText, calibrateVerdictSummary, CALIBRATE_TOOL_NAME, CALIBRATE_TOOL_DESCRIPTION, type CalibrateInput } from "./calibrate.ts";
@@ -49,9 +49,13 @@ export interface HarnessToolDescriptor {
    *  -> GateDecision; cascade: FinancialSystem -> Prediction). registerTools no longer hardcodes one. */
   readonly inputStandardSchema: StandardSchemaWithJSON;
   readonly outputStandardSchema: StandardSchemaWithJSON;
-  /** Executes the tool: caller-carried args (validated at the SDK boundary) → structured content + text. */
-  readonly run: (args: unknown) => { readonly text: string; readonly structured: Record<string, unknown> };
+  /** Executes the tool: caller-carried args (validated at the SDK boundary) -> structured content + text. `ctx.nowMs`
+   *  is the current instant injected by the entry point (src/, K-8); only `gate` reads it (ADR-CM B-4). */
+  readonly run: (args: unknown, ctx?: ToolRunContext) => { readonly text: string; readonly structured: Record<string, unknown> };
 }
+
+/** What an entry point injects into a tool run (ADR-CM B-4): the current instant, read in src/, never under src/tools/. */
+export type ToolRunContext = RunGateOptions;
 
 /** The tools registered by THIS lot's cumulative state (H1: `gate`; H2: `cascade`; H3: `attest`; C1:
  *  `calibrate` — the terminal set {attest,gate,cascade,calibrate}, ADR-M007). */
@@ -63,9 +67,9 @@ export const HARNESS_TOOLS: readonly HarnessToolDescriptor[] = [
     outputSchemaJson: TOOL_OUTPUT_SCHEMA,
     inputStandardSchema: toolInputStandardSchema,
     outputStandardSchema: toolOutputStandardSchema,
-    run: (args) => {
+    run: (args, ctx) => {
       const env = args as GateEnvelope;
-      const decision = runGate(env.prediction, env.params, env.attested);
+      const decision = runGate(env.prediction, env.params, env.attested, ctx);
       // structuredContent = the closed GateDecision ONLY (K-1); honesty prose rides in `content` text.
       // B-1: the honesty text is keyed on the PRESENCE of a BYO calibration, not task_class alone. The
       // verdict summary (a delivery aid for text-only clients, derived from `decision`) follows the prose.
@@ -128,8 +132,11 @@ export const REGISTERED_TOOL_NAMES: readonly string[] = HARNESS_TOOLS.map((t) =>
  * Register every harness tool on a fresh `McpServer` instance (the stateless per-request factory, D6).
  * Input/output are the PROJECTED frozen schemas (D8); the SDK enforces `additionalProperties:false`
  * at the boundary (measured), and `runGate` re-asserts the closed contract on the way out (D9).
+ * `clock` is the entry point's clock (server.ts, ADR-CM B-4): read per call, never here by itself (K-8); absent,
+ * the tools run without `nowMs`. A tool error keeps the SDK's own error result, first content byte-identical (the
+ * error message), and adds its stable code in `_meta` (ADR-CM B-3); any other throw takes the SDK path unchanged.
  */
-export function registerTools(server: McpServer): void {
+export function registerTools(server: McpServer, clock?: () => number): void {
   for (const tool of HARNESS_TOOLS) {
     server.registerTool(
       tool.name,
@@ -139,8 +146,14 @@ export function registerTools(server: McpServer): void {
         outputSchema: tool.outputStandardSchema,
       },
       (args: unknown) => {
-        const { text, structured } = tool.run(args);
-        return { content: [{ type: "text" as const, text }], structuredContent: structured };
+        try {
+          const { text, structured } = tool.run(args, clock === undefined ? {} : { nowMs: clock() });
+          return { content: [{ type: "text" as const, text }], structuredContent: structured };
+        } catch (error) {
+          const code = toolErrorCode(error);
+          if (code === undefined || !(error instanceof Error)) throw error;
+          return { content: [{ type: "text" as const, text: error.message }], isError: true, _meta: { [ERROR_CODE_META_KEY]: code } };
+        }
       },
     );
   }

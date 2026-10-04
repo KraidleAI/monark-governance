@@ -33,7 +33,7 @@ const BTC_PRED: Prediction = {
 // btc-dir fixture (M-2): n = 150 with 6 ones, so qhat = 0 iff ceil(151(1-alpha)) <= 144 iff alpha >= 7/151
 // (0.046357...), and under_calib iff alpha < 1/151 (0.006622...). With tau = 1: qhat = 0 gives the
 // singleton {up} (covered, commit), qhat = 1 gives {up, down} (set_too_large, defer).
-// killer: apps/harness/src/tools/gate.ts:488 ROR "labels.length > params.tau" -> "labels.length >= params.tau"
+// killer: apps/harness/src/tools/gate.ts:540 ROR "labels.length > params.tau" -> "labels.length >= params.tau"
 test("oracle_btc_dir_fixture_commit_switch_at_alpha_7_over_151", () => {
   assert.equal(BTC_DIR_CALIB.length, 150, "n = 150");
   assert.equal(BTC_DIR_CALIB.filter((s) => s === 1).length, 6, "6 ones");

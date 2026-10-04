@@ -20,6 +20,7 @@ import { fromShogen, isAdapterError, DEMONSTRATIVE_LABEL } from "@monark/monark"
 import type { AdapterOutput } from "@monark/monark";
 import { assertClosedAttestedPrice, assertNoForbiddenKey } from "@monark/contracts";
 import { SHOGEN_LOT_BYTES, SHOGEN_VERDICT_TEXT, SHOGEN_CONSTAT } from "../shogen-fixture.ts";
+import type { HarnessErrorCode } from "./gate.ts";
 
 export const ATTEST_TOOL_NAME = "attest";
 
@@ -35,6 +36,8 @@ export const ATTEST_TOOL_DESCRIPTION =
 
 /** A tool-level error (fail-closed): an adapter refusal is surfaced as a tool error, never a silent price. */
 export class AttestToolError extends Error {
+  /** Stable error code of this class (ADR-CM B-3, plan docs/G0-lot-cm-2a.md). */
+  readonly code: HarnessErrorCode = "attest_refused";
   constructor(message: string) {
     super(message);
     this.name = "AttestToolError";

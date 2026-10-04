@@ -20,6 +20,8 @@ visuelle de l investisseur et la première synchro.
 - « je te donne le go pour les push les déploiement et tout autre action, sauf publier sur X »
 - « pas de CI ni de PUSH avant de me dire pour que je mette le repo en publique et éviter des erreur a refaire » (dépôt
   `monark-governance` : vérifier sa visibilité seul avant tout push)
+  Précision de l investisseur (2026-10-04, 00:4x UTC), verbatim : « c est moi qui le met en publique quand y a des CI » ; le push du
+  tronc (go « Pousser, dépôt privé (Recommandé) ») a eu lieu à 00:4x UTC, le dépôt étant passé public à 00:38:33 UTC par l investisseur.
 - « a chaque push ou modofication qui encombrerait le travail de l autre claude vous écrivez dans la messagerie des deux claude, pour
   éviter les conflits. »
 - « différe la preuve bitcoin, accélére le travail, on doit publier quelque chose, il faut finir le snapshot. avec les scores déja
@@ -476,6 +478,19 @@ pm) ; item MK-NM-GUARD-1 (refuser Tree = F:/Monark dans mk-nm.ps1).
   Release) ; ensuite, file RECHERCHES : FAITS-USDT-USD-HISTORY-1 sous l addendum 4, RECORDER-CLOSE-TIME-1 (zero_trade), Q-H3 à Q-H7,
   TO FILL de P0-2, chantier L2 (FAITS-L2-ACCESS-1, mesure du serveur du site, mission). Investisseur absent : rien d irréversible hors
   de ces go ; toute dépense (second hôte L2, historique acheté) attend son retour.
+- 2026-10-04 00:5x UTC : fusions au tronc : CM-2a (`4a1b4844`, PR #105 `98e3779a`), COINBASE-PASS-EDGES-1 (`44d8892d`), BINANCE-PRE153-1
+  (`328be484`). Leurs oracles G7 (`569c91c6…`, `bba0b720…`, `2ce4d71c…`) portent seulement deux rouges venus de la CA de l étape 3
+  committée sans resynchronisation du site (error_origin de l orchestrateur) ; correction `0c8f8177`, oracle vert : 2 060 tests,
+  0 échec (`a0ba04b3…`). Items des deux lots recensés à ETAT (`647ebd90`). Tronc poussé sur monark-governance (go « Pousser, dépôt
+  privé (Recommandé) » ; dépôt public par l investisseur pour les CI). Équipe avec RECHERCHES : tableau partagé `coordination/TABLEAU.md`,
+  relève toutes les 10 minutes, revue croisée ; RECHERCHES porte les surfaces de CM-2b, la suite de CM-2a (#110), le plan 1.1.0, la
+  relecture des enregistreurs, puis L2 P1-b1. Décisions de l investisseur : R-25 « Garder, 547 dès CM-2c » ; 1.1.0 « Avec CM-4 » et
+  « faire come si on le concevait pour la premiére fois, un gros upgrade ». PAROXYSME : registre du Dōjō inchangé ; limites formées.
+- 2026-10-03 22:35 UTC : étape 3 du déploiement de CM-1 faite (go relayé par RECHERCHES, confirmé par l investisseur). Le harnais
+  sert `6da4504d` depuis 22:33:46 UTC : CA 13/13 et TLS, 84 cas identiques à l octet à la cible, les 27 changements tous de B-0
+  ou B-1. npm ci dans une copie à part, échangée par renommage (écart au RUNBOOK déclaré au journal) ; arbre précédent et sauvegarde
+  gardés (HOST-HARNESS-PREV-1). RECHERCHES : sentinelle reçue, HARNESS-LOOPBACK-PORTS-1 de son côté, CM-2a (#105) au contrôle par
+  diff, CM-2b en G2 neuve. PAROXYSME : registre du Dōjō inchangé ; items neufs portés (HOST-HARNESS-PREV-1, mesure de B-0 et B-1).
 - 2026-10-03 21:31 UTC : actes de fusion de la partie addendum 7 rendus (wf_7e678397-c5e). ITEMS-ADD7-1 fusionné (5f4a8928, fusion
   0ecccfe0) : 47 entrées, 15 neuves à ETAT, 8 closes avec preuve. MUT-FUSION-ADD7-1 : 612 mutants, 601 tués, 7 équivalents prouvés,
   4 non équivalents (gardes de la comparaison et de la sonde Coinbase) tués au tour de corrections de COINBASE-PASS-EDGES-1 (Q-MA-7).

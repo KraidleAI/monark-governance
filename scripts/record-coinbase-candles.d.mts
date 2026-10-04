@@ -10,6 +10,8 @@ export const WINDOW: number;
 export const PAUSE_MS: number;
 export const MAX_PAGES: number;
 export const TIMEOUT_MS: number;
+/** Bytes of one body at most (SERIES-BODY-BOUND-1): one byte more stops the run (body_too_large). */
+export const BODY_MAX: number;
 export const CSV_COLUMNS: readonly string[];
 export const STOPS: readonly string[];
 
@@ -33,8 +35,17 @@ export interface RecorderArgs {
   end: number;
   out: string;
   fromRaw: string | null;
-  /** 1, or 2 for the second reading of a window: its cores shifted by half a core (ADR 0006 addendum 7 R1). */
+  /** 1, or 2 for the second reading of a window: its cores shifted by half a core (ADR 0006 addendum 7 R1), from 149 slots before start
+   *  to 149 slots after end (lot COINBASE-PASS-EDGES-1). */
   pass: number;
+}
+
+/** The slots that a pass 2 read outside [start, end) (lot COINBASE-PASS-EDGES-1): never written to the CSV nor to missing.json. */
+export interface WitnessSlots {
+  count: number;
+  /** Open times (ISO 8601) of the first and of the last witness; null both when count is 0. */
+  first: string | null;
+  last: string | null;
 }
 
 /** manifest.json of one recording or replay. */
@@ -53,12 +64,16 @@ export interface SeriesManifest {
   expected: number;
   rows: number;
   missing: number;
-  /** Always 0 in a written manifest: an empty page stops the run (empty_page). */
+  /** Always 0 in a written manifest: an empty page stops the run (empty_page), but one of witnesses alone (empty_witness_pages). */
   empty_pages: number;
   duplicates_removed: number;
   discarded_before_start: number;
   margin_at_start: number;
   margin_at_end: number;
+  /** Pass 2 alone; absent from a manifest of pass 1. */
+  witness_slots?: WitnessSlots;
+  /** Pass 2 alone: the empty pages whose core starts after end_exclusive, witnesses alone (rule of RECHERCHES, lot COINBASE-PASS-EDGES-1). */
+  empty_witness_pages?: number;
   pages: number;
   first_open_time: string | null;
   last_open_time: string | null;
@@ -86,8 +101,12 @@ export function parseTime(text: string, granularity?: string): number;
 export function parseArgs(argv: readonly string[]): RecorderArgs;
 export function expectedCount(start: number, end: number, granularity?: string): number;
 export function windowCount(start: number, end: number, granularity?: string, pass?: number): number;
+/** The first end (ms) of a core of pass 2 that is also the end of a core of pass 1, or null: end - start of 149 slots modulo 298 alone. */
+export function sharedEnd(start: number, end: number, step: number): number | null;
 export function guardEnv(env: Record<string, string | undefined>, execArgv: readonly string[]): void;
 export function guardOut(out: string): void;
 export function checkHost(url: string): void;
+/** The bytes of a body read as a stream, or null once they pass BODY_MAX. */
+export function readBody(res: Response): Promise<Buffer | null>;
 export function run(argv: readonly string[], io?: RecorderIo): Promise<SeriesManifest>;
 export function main(argv: readonly string[], io?: RecorderIo): Promise<number>;

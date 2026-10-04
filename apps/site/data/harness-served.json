@@ -1,7 +1,7 @@
 {
   "$comment": "Committed, hashed facts about the SERVED MONARK harness, rendered by /integrators and /console through apps/site/lib/harness-served-load.ts after a sha256 check against apps/site/data/manifest.sha256.json. Written by the source repository's sync tool (not part of this export) from the served bodies (api /health, /openapi.json, /gate, /calibrate, /attest, /cascade; mcp initialize and tools/list; the MCP registry entry), each body hashing to the sha256 the committed deploy check recorded. Text is copied as served, as closed clauses only; the one rule applied: internal reference tokens in parentheses are removed. No market value, no data-source name.",
   "schema": "monark-site-harness-served-v1",
-  "read_at": "2026-09-25T03:26:05.861Z",
+  "read_at": "2026-10-04T00:19:36.208Z",
   "version": "0.4.0",
   "api": {
     "url": "https://api.monarkgate.tech",
@@ -135,7 +135,7 @@
     "repository_url": "https://github.com/KraidleAI/monark"
   },
   "deploy_check": {
-    "checked_at": "2026-09-25T03:24:23.912Z",
+    "checked_at": "2026-10-03T22:34:02.234Z",
     "count": 13,
     "ok_count": 13,
     "tls_host": "api.monarkgate.tech",

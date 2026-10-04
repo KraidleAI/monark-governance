@@ -1,7 +1,7 @@
 {
   "url": "https://api.monarkgate.tech",
   "mcp_url": "https://mcp.monarkgate.tech",
-  "checked_at": "2026-09-25T03:24:23.912Z",
+  "checked_at": "2026-10-03T22:34:02.234Z",
   "checks": [
     {
       "name": "health",
