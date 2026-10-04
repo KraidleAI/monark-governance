@@ -43,11 +43,14 @@ function decided(p: Prediction, cal: NonNullable<HarnessParams["calibration"]>, 
   }
 }
 
+/** The codes of the B-1 rule. A name B-1 refuses keeps a B-1 code and message: the B-10 guard (CM-2c) runs after it. */
+const B1_CODES: readonly unknown[] = ["byo_edge_blank", "byo_lookalike_committed", "byo_reserved_kata"];
+
 function refused(p: Prediction, cal: NonNullable<HarnessParams["calibration"]>, at: string): void {
   assert.throws(
     () => runGate(p, { ...PARAMS, calibration: cal }),
-    (e: unknown) => e instanceof HarnessToolError,
-    `${at}: a look-alike BYO must be a named tool error (400)`,
+    (e: unknown) => e instanceof HarnessToolError && B1_CODES.includes(e.code) && /\(ADR-CM B-1[,)]/.test(e.message),
+    `${at}: a look-alike BYO must be a named tool error (400) with a B-1 code and message, not a later guard's`,
   );
 }
 

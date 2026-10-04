@@ -42,7 +42,7 @@ test("byo_confusable_class_names_refused", () => {
   const lookAlikes = [
     "cascade-liquidabIe-24h", "cascade-liquidab1e-24h", "liquidation-eIigible-coverage", "Iiquidation-eligible-coverage",
     "btc-dir-l5m", "btc-dir-I5m", "btc-dir-15rn", "btc--dir-15m", "btc-dir-15m.", "btc_dir_15m", "cascade-liquidable -24h",
-    "CASCADE_LIQUIDABLE_24H", "liquidation.eligible.coverage",
+    "CASCADE_LIQUIDABLE_24H", "liquidation.eligible.coverage", "-btc-dir-15m",
   ];
   for (const c of lookAlikes) assert.equal(outcome(c, "caller:model"), "byo_lookalike_confusable", `${c}: refused`);
   for (const c of HONEST) assert.equal(outcome(c, "caller:model"), "decided", `${c}: an honest BYO name decides`);
@@ -51,14 +51,16 @@ test("byo_confusable_class_names_refused", () => {
 // Test C-2 (F2P): look-alike kata class names (E11 to E13) and kata keys (E14, E15) are refused; near names decide.
 // killer: apps/harness/src/tools/gate.ts:775 CONST ".replace(/4/g, \"a\")" -> ".replace(/4/g, \"4\")"
 test("byo_confusable_kata_names_and_keys_refused", () => {
-  for (const c of ["btc-dir-lh", "so1-dir-1h", "bnb-dir-Ih", "eth_range_4h", "sol-mae-down-l h"]) {
+  // sol_mae_up_4h: the mae-up family; btc-dlr-1h: i folds to l (precision (4) of B-10, ADR-CM amendment 2026-10-04).
+  for (const c of ["btc-dir-lh", "so1-dir-1h", "bnb-dir-Ih", "eth_range_4h", "sol-mae-down-l h", "sol_mae_up_4h", "btc-dlr-1h"]) {
     assert.equal(outcome(c, "caller:model"), "byo_lookalike_confusable", `${c}: a reduced kata name is refused`);
   }
-  for (const k of ["k4ta:x", "kata :x", "K4TA:btc-dir-1h", "k a t a:x"]) {
+  for (const k of ["k4ta:x", "kata :x", "K4TA:btc-dir-1h", "k a t a:x", "_kata:x"]) {
     assert.equal(outcome("byo-x", k), "byo_lookalike_confusable", `${k}: a reduced kata key is refused`);
   }
   for (const k of ["kat:x", "katana:x", "caller:kata", "4ta:x"]) assert.equal(outcome("byo-x", k), "decided", `${k}: decides`);
-  for (const c of ["eth-dir-1d", "btc-dir-2h", "sol-dir-1hr"]) assert.equal(outcome(c, "caller:model"), "decided", `${c}: decides`);
+  // doge-dir-1h: an asset outside the four kata assets, with a kata family and horizon, is not reserved.
+  for (const c of ["eth-dir-1d", "btc-dir-2h", "sol-dir-1hr", "doge-dir-1h"]) assert.equal(outcome(c, "caller:model"), "decided", `${c}: decides`);
 });
 
 // Test C-3 (F2P): a (class, key) pair whose reduction is a committed pair (E16, the USDe key with O for 0) is refused;
@@ -71,7 +73,9 @@ test("byo_confusable_committed_pair_refused", async () => {
   assert.equal(outcome("stable-run-velocity-24h", usdeO), "byo_lookalike_confusable", "USDe key with O for 0: refused");
   assert.equal(outcome("stable_run_velocity_24h", USDE_STABLE_RUN_PREDICTOR_ID), "byo_lookalike_confusable", "class confusable + committed key: refused");
   assert.equal(outcome("stable-run-velocity-24h", "caller:other-population"), "decided", "another population decides");
+  assert.equal(outcome("my-model", USDE_STABLE_RUN_PREDICTOR_ID), "decided", "another class with the committed USDe key decides (pair, not key)");
   // B-1 first: codes unchanged.
+  assert.equal(outcome("byo-x", "kata:x"), "byo_reserved_kata", "B-1 kata key keeps its code");
   assert.equal(outcome("BTC-DIR-15M", "caller:model"), "byo_lookalike_committed", "B-1 case variant keeps its code");
   assert.equal(outcome("eth-dir-1h", "caller:model"), "byo_reserved_kata", "B-1 kata name keeps its code");
   assert.equal(outcome(" byo-x", "caller:model"), "byo_edge_blank", "B-1 edge blank keeps its code");
