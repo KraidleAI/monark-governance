@@ -98,7 +98,7 @@ test("w2_guard_admits_a_wave2_row", () => {
   refuse({ ...w2(), fit_sha256: "ab".repeat(32) }, /wave 2 core band rows only/);
 });
 
-// killer: apps/harness/src/policy-wave2.ts:37 CONST "canonicalJson([...strings(t), ...strings(c)])" -> "canonicalJson([r.tail_tail_num, r.tail_tail_den, r.miss_adj_tail_num, r.miss_adj_tail_den])"
+// killer: apps/harness/src/policy-wave2.ts:39 CONST "canonicalJson([...strings(t), ...strings(c)])" -> "canonicalJson([r.tail_tail_num, r.tail_tail_den, r.miss_adj_tail_num, r.miss_adj_tail_den])"
 test("w2_guard_refuses_a_reduced_tail", () => {
   const r = w2();
   const [num, den] = [BigInt(r.tail_tail_num ?? 0), BigInt(r.tail_tail_den ?? 1)];
@@ -113,7 +113,7 @@ test("w2_guard_refuses_a_reduced_tail", () => {
   refuse({ ...empty, tail_tail_num: "0", tail_tail_den: "1" }, /a null pair/);
 });
 
-// killer: apps/harness/src/policy-guard.ts:82 CONST "\"tail sequence constant (fails closed)\"" -> "\"auxiliary sequence constant (fails closed)\""
+// killer: apps/harness/src/policy-guard.ts:83 CONST "\"tail sequence constant (fails closed)\"" -> "\"auxiliary sequence constant (fails closed)\""
 test("w2_guard_refuses_region_with_empty_or_low_tail", () => {
   const cases: [Partial<Counts>, string][] = [[{ tail_m: 0, tail_a: 0 }, "tail sequence constant (fails closed)"], [{ tail_a: 10 }, "dependence check rejects"], [{ misses: 2, miss_adj_a: 1 }, "dependence check rejects"]];
   for (const [c, why] of cases) {
@@ -123,7 +123,7 @@ test("w2_guard_refuses_region_with_empty_or_low_tail", () => {
   check(w2({ misses: 0, miss_adj_a: 0 })); // an empty check 1 is not a refusal (D2)
 });
 
-// killer: apps/harness/src/policy-wave2.ts:32 ROR "<= r.n - rank" -> "< r.n - rank"
+// killer: apps/harness/src/policy-wave2.ts:34 ROR "<= r.n - rank" -> "< r.n - rank"
 test("w2_guard_tail_m_and_support", () => {
   check(w2({ tail_m: 37 }));
   refuse(w2({ tail_m: 38, tail_a: 1 }), /tail_m above n - r \(r 703\)/);
@@ -138,7 +138,7 @@ test("w2_guard_bounds_n_before_the_tails", () => {
   refuse({ ...w2(), horizon: "4h", n: 2191 }, /n above the CALIB-2 block/);
 });
 
-// killer: apps/harness/src/policy-guard.ts:84 CONST "[\"bridge\", \"test\", \"fwd\"]" -> "[\"test\", \"bridge\", \"fwd\"]"
+// killer: apps/harness/src/policy-guard.ts:85 CONST "[\"bridge\", \"test\", \"fwd\"]" -> "[\"test\", \"bridge\", \"fwd\"]"
 test("w2_guard_bridge_and_fwd_vetoes", () => {
   const vetoed = (c: Partial<Counts>, why: string, v: { test: boolean; bridge: boolean; fwd: boolean }, over: Partial<PolicyRow> = {}): PolicyRow => ({ ...w2(c, ["vetoed", why]), vetoes: v, ...over });
   check(vetoed({ bridge: [20, 740] }, "vetoed: bridge", { test: false, bridge: true, fwd: false }));
@@ -164,7 +164,7 @@ test("w2_guard_spend_and_causes", () => {
   refuse({ ...w2(), calib_attempt: 5 }, /calib_attempt/);
 });
 
-// killer: apps/harness/src/policy-wave2.ts:55 CONST "r.calib_parent === sha256Canonical(p)" -> "true"
+// killer: apps/harness/src/policy-wave2.ts:58 CONST "r.calib_parent === sha256Canonical(p)" -> "true"
 test("w2_guard_calib_parent_chain", () => {
   guardCalibChain([w2(), PARENT]);
   const chain = (rows: PolicyRow[]): void => assert.throws(() => guardCalibChain(rows), /breaks the calib_parent chain/);
@@ -188,4 +188,61 @@ test("w2_module_is_not_served", () => {
   };
   for (const f of ["server.ts", "http.ts", "openapi.ts", "schema-projection.ts", ...readdirSync(join(src, "tools")).map((t) => `tools/${t}`)]) walk(join(src, f));
   assert.ok(seen.size > 6 && seen.has(join(src, "http.ts")) && !seen.has(join(src, "policy-wave2.ts")));
+});
+
+/** G2 of lot b, B-1: a wave 2 row at attempt `at`, spend and counts recomputed at its test_delta (admitted before the fold). */
+const atAttempt = (at: number, d: string): PolicyRow => {
+  const ks = riskControlMaxExceedances(P1.n, P1.alpha, d);
+  const p = P1.n - ks;
+  return { ...w2(), calib_attempt: at, test_delta: d, n_min: zeroErrorFloor(P1.alpha, d), k_star: ks, p_served: p, marginal_alpha: ceilDecimal4({ num: BigInt(P1.n + 1 - p), den: BigInt(P1.n + 1) }), miss_bound: missUpperBound(P1.n, ks, d) };
+};
+
+// killer: apps/harness/src/policy-guard.ts:57 CONST "(w2 ? 2 : 1)" -> "(w2 ? Math.max(at, 2) : 1)"
+test("w2_guard_attempt_2_only_on_wave_2", () => {
+  check(w2());
+  refuse(atAttempt(3, "0.0125"), /A-1 spend \(attempt 1 on wave 1, 2 on wave 2/);
+  refuse(atAttempt(4, "0.00625"), /A-1 spend \(attempt 1 on wave 1, 2 on wave 2/);
+});
+
+// killer: apps/harness/src/policy-wave2.ts:58 CONST "(r.source.wave === 2 ? 2 : 1)" -> "r.calib_attempt"
+test("w2_chain_attempt_2_only_on_wave_2", () => {
+  const two = { ...w2(), current: false };
+  guardCalibChain([PARENT, w2()]);
+  assert.throws(() => guardCalibChain([PARENT, two, { ...atAttempt(3, "0.0125"), calib_parent: sha256Canonical(two) }]), /breaks the calib_parent chain at attempt 3/);
+  // m-1, declared reading: the parent digest is of the replaced form (current false); the served form (current true) is refused
+  assert.throws(() => guardCalibChain([PARENT, { ...w2(), calib_parent: sha256Canonical(P1) }]), /breaks the calib_parent chain at attempt 2/);
+});
+
+// killer: apps/harness/src/policy-guard.ts:66 SDL "is(!w2 || ([\"bridge\", \"test\", \"fwd\"] as const).every(" -> ""
+test("w2_guard_bounds_n_test_of_each_block", () => {
+  check(w2({ bridge: [5, 8760], fwd: [4, 4392] }));
+  check({ ...w2(), test: block(11, 4392) });
+  refuse(w2({ bridge: [5, 8761] }), /n_test above its block/);
+  refuse(w2({ fwd: [4, 4393] }), /n_test above its block/);
+  refuse({ ...w2(), test: block(11, 4393) }, /n_test above its block/);
+});
+
+const KS300 = riskControlMaxExceedances(300, P1.alpha, D2);
+/** An under_calib wave 2 row (n 300 below n0 368): calibrated and tail columns null, every veto false. */
+const UNDER: PolicyRow = {
+  ...w2(), n: 300, k_star: KS300 < 0 ? null : KS300, status: "under_calib", status_reason: "n 300 below n0 368", p_served: null, k_obs: null, misses: null, qhat: null, miss_bound: null, marginal_alpha: null,
+  bound_on: null, recompute: null, tail_m: null, tail_a: null, tail_tail_num: null, tail_tail_den: null, miss_adj_a: null, miss_adj_tail_num: null, miss_adj_tail_den: null,
+};
+
+// killer: apps/harness/src/policy-guard.ts:70 CONST "r.retire, ...tails]" -> "r.retire]"
+test("w2_guard_under_calib_tail_columns_null", () => {
+  check(UNDER);
+  for (const c of [{ tail_m: 5 }, { tail_a: 1 }, { miss_adj_a: 0 }]) refuse({ ...UNDER, ...c }, /under_calib with a calibrated column set/);
+});
+
+// killer: apps/harness/src/policy-guard.ts:71 CONST "[r.vetoes?.test, ...(w2 ? [r.vetoes?.bridge, r.vetoes?.fwd] : [])]" -> "[r.vetoes?.test]"
+test("w2_guard_under_calib_bridge_and_fwd_vetoes_false", () => {
+  for (const v of [{ test: false, bridge: true, fwd: false }, { test: false, bridge: false, fwd: true }]) refuse({ ...UNDER, vetoes: v }, /veto off under_calib/);
+});
+
+// killer: apps/harness/src/policy-guard.ts:85 CONST "[\"bridge\", \"test\", \"fwd\"]" -> "[\"bridge\", \"fwd\", \"test\"]"
+test("w2_guard_veto_order_test_before_fwd", () => {
+  const both: PolicyRow = { ...w2({ fwd: [20, 700] }, ["vetoed", "vetoed: test"]), test: block(30, 740), vetoes: { test: true, bridge: false, fwd: true } };
+  check(both);
+  refuse({ ...both, status_reason: "vetoed: fwd" }, /not 'vetoed' and 'vetoed: test'/);
 });
