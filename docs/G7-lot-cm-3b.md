@@ -50,3 +50,21 @@ Aucun fichier de `schemas/**`, `packages/contracts/**`, `apps/**`, `skills/**`, 
 ## Sortie
 
 Prêt pour la G2 par une instance neuve. Aucun déploiement (CM-3 ne change rien au servi).
+
+## Suite de fusion après #106, #110 et #111 (2026-10-04, PLAN-FUSION étape 5)
+
+- Base avancée : `e45340a` (base/chantier-moteur-2026-10-03 avec #106, #110 et #111). Fusion `--no-ff` de la base dans la branche : `217e682`. Aucune réécriture d'historique. #108 (`ad40dd5`) n'est pas encore dans la base.
+- **Un conflit**, la queue de l'ADR-CM, résolu par le registre unique r3 (`AMENDEMENT-ADR-CM-r3.md` §1.3) : ordre chronologique des commits d'écriture, corps mot pour mot, titres 1 à 4 inchangés à l'octet.
+  - `## Amendement daté 2026-10-03 (nuit, 4) : contrat 1.1.0 (E-13/S-9), B-11, lot CM-3c` → `## Amendement daté 2026-10-03 (nuit, 5) : contrat 1.1.0 (E-13/S-9), B-11, lot CM-3c (source : recherches/cm-3b 58ca01b)` (`58ca01b`, 2026-10-03T23:26Z), en premier ;
+  - `## Amendement daté 2026-10-04 : OPENAPI-ERROR-CODE-1 au §10 (contrôle par diff de MONARK sur CM-2a, C-5)` → `## Amendement daté 2026-10-04 (1) : OPENAPI-ERROR-CODE-1 au §10 (contrôle par diff de MONARK sur CM-2a, C-5) (source : recherches/cm-2a-suite 7e37bb9)` (`7e37bb9`, 2026-10-04T00:12Z), ensuite.
+  - Diff des corps vide contre les deux parents (seuls les deux titres changent) ; ADR sha256 (LF) `0d542bf1…71b2f5`, 212 lignes. L'amendement « 2026-10-04 (2) » (CM-2c) entrera avec #107.
+- Citations de l'amendement de ce lot (règle par objet, r3 §1.4 ; chacune vise le contrat 1.1.0) : « nuit, 4 » → « nuit, 5 » dans `docs/G0-lot-cm-3b.md:42`, `docs/G7-lot-cm-3b.md:12` et `docs/G0-lot-cm-2a-suite.md:28` (deux occurrences). Aucune autre occurrence de « nuit, 4 » dans l'arbre.
+- Aucun fichier de code touché par la suite. Le changement de mode de `packages/rpc-guard/bin/rpc-guard.mjs` n'est pas commis.
+
+### Oracle
+
+- `node scripts/red-proof.mjs --base ad40dd5 --gel 307a163 --repo /home/user/monark-governance-c3b --draw 6 --seed 41` : **OK**, 4 jugés F2P, 4 tueurs tirés, 4 tués (le lot prouve toujours contre sa base d'origine).
+- `verifie-ancres.mjs` (refs base, cm-2b, cm-2a-suite, cm-2b-surfaces, cm-3a, cm-3b) sur l'arbre fusionné : tueurs 566, ANCRE 557, **DERIVE 0**, PERDU 9 (les 9 préexistants de la base), comme le plan.
+- `tsc --noEmit`, `gate:vocab`, `lint:ratchet` 69/69 : verts. `packages/hikae/test` 77/77 ; `apps/harness/test` 129/129 (127 + les tests de #110).
+- `lang:gate` : **rouge**, 7 occurrences en `hikae`, toutes de ce lot et déjà présentes à `58ca01b` (la base `e45340a` et `ad40dd5` sont vertes) : le jeton `aux` (`canonical-row.ts:59`, `:61` ; `cm3b-engine.test.ts:165`) et le `é` des données de test du canonicaliseur (`cm3b-engine.test.ts:191-193`). La porte n'était pas dans l'oracle d'origine ; à plier dans #109 avant sa fusion (hors de cette suite).
+- R-25 (motif exact de `ci.yml`, sur la référence de fusion de la PR, `docs/**/*.md` exclus) : **359** (4 fichiers, +359/−0 ; contenu 0) contre la base avec #108 fusionné ; 841 contre `e45340a` tant que #108 n'y est pas (le diff compte alors #108), sous la borne de PR 1 205.
