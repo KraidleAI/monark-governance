@@ -1651,7 +1651,10 @@ test("series_pinned_are_declared_and_hashed — every R-25-excluded data file is
 // guard) and `--test-force-exit` (exit even if a handle leaks after the tests settle). Mutants (measured in the pli):
 // drop a job's timeout-minutes => red; set one to 30 => red; drop --test-force-exit => red. Job keys are the 2-space
 // entries of the top-level `jobs:` block (not a global regex); the timeout line is anchored at the 4-space (job) column
-// so a step-level (8-space) timeout-minutes cannot masquerade as the job backstop.
+// so a step-level (8-space) timeout-minutes cannot masquerade as the job backstop. CI-G3-DURATION-1 (c): the workflow runs
+// its tests through package.json scripts only (no bare `node --test`), exactly test:main and test:export, each carrying the
+// same two guards; a new test job adds its script here, so its guards are locked too.
+// killer: package.json:18 CONST "--test-force-exit --test-name-pattern" -> "--test-name-pattern"
 test("ci_jobs_have_timeout_and_test_flags_locked — per-job timeout-minutes <= 20 + test guards (checkpoint-2 V-1(b)/V-3)", () => {
   const jobsIdx = LINES.findIndex((l) => /^jobs\s*:/.test(l));
   assert.notEqual(jobsIdx, -1, "top-level key 'jobs:' missing from the workflow");
@@ -1672,10 +1675,88 @@ test("ci_jobs_have_timeout_and_test_flags_locked — per-job timeout-minutes <= 
     const minutes = Number(tmLine.replace(/\D/g, ""));
     assert.ok(minutes <= 20, `job '${jobs[j]!.name}' timeout-minutes=${minutes} exceeds the 20-minute backstop (checkpoint-2 V-1(b))`);
   }
-  const pkg = JSON.parse(readFileSync(join(ROOT, "package.json"), "utf8")) as { scripts: { test: string } };
-  const testScript = pkg.scripts.test;
+  const pkg = JSON.parse(readFileSync(join(ROOT, "package.json"), "utf8")) as { scripts: Record<string, string> };
+  const testScript = pkg.scripts.test ?? "";
   assert.match(testScript, /--test-timeout=\d+/, "scripts.test must carry --test-timeout=<ms> (the per-test hang guard, checkpoint-2 V-1(b))");
   assert.ok(testScript.includes("--test-force-exit"), "scripts.test must carry --test-force-exit (exit even if a handle leaks after the tests settle)");
+  const code = LINES.filter((l) => !/^\s*#/.test(l));
+  assert.deepEqual(code.filter((l) => /\bnode\s+--test\b/.test(l)), [], "no bare `node --test` in the workflow: a CI test run goes through a locked package.json script");
+  const invoked = [...new Set(code.flatMap((l) => [...l.matchAll(/\bnpm (?:test\b|run (test(?::[\w-]+)?)(?![\w:-]))/g)].map((m) => m[1] ?? "test")))].sort();
+  assert.deepEqual(invoked, ["test:export", "test:main"], "the workflow runs the suite as test:main (g3-verification) + test:export (g3-export), CI-G3-DURATION-1");
+  for (const name of invoked) {
+    const s = pkg.scripts[name] ?? "";
+    assert.match(s, /--test-timeout=\d+/, `scripts["${name}"] must carry --test-timeout=<ms> (run by the workflow)`);
+    assert.ok(s.includes("--test-force-exit"), `scripts["${name}"] must carry --test-force-exit (run by the workflow)`);
+  }
+});
+
+// CI-G3-DURATION-1 (docs/G0-lot-ci-g3-duration-1.md): test 42 (export_public_no_governance_no_french: a nested `npm ci && npm run
+// ci` of the public export; 151 s on the runner of PR 126, about ten times the next test) leaves g3-verification for a job of its
+// own, g3-export. No coverage is lost, and `npm test` still runs everything: (a) test:main is EXACTLY scripts.test plus one skip
+// flag (same globs, same guards); (b) test:export runs the SAME pattern as a name filter over test/export-public.test.ts, with the
+// same guards; (c) in the npm test globs that pattern names exactly one test declaration, test 42 itself, so main + export = the
+// suite; (d) g3-verification runs test:main, g3-export runs `npm ci` then test:export, with no `if:`; (e) the g3-export bound
+// exceeds --test-timeout, so a slow test 42 reds by name before the job is cancelled; (f) the public workflow drops g3-export (the
+// root test/ is never exported: the job would red on the mirror).
+const TEST42_PATTERN = "\\(test 42\\)";
+function jobBlock(name: string): string[] {
+  const idx = LINES.findIndex((l) => new RegExp(`^  ${name}\\s*:\\s*$`).test(l));
+  if (idx === -1) return [];
+  const block: string[] = [];
+  for (let i = idx + 1; i < LINES.length && !/^ {0,2}\S/.test(LINES[i]!); i++) block.push(LINES[i]!.replace(/#.*$/, ""));
+  return block;
+}
+function expandTestGlob(glob: string): string[] {
+  let dirs = [""];
+  const segs = glob.split("/");
+  for (const seg of segs.slice(0, -1)) {
+    dirs = dirs.flatMap((d) => {
+      const abs = join(ROOT, d);
+      if (seg !== "*") return existsSync(join(abs, seg)) ? [d ? `${d}/${seg}` : seg] : [];
+      return readdirSync(abs).filter((n) => statSync(join(abs, n)).isDirectory()).map((n) => (d ? `${d}/${n}` : n));
+    });
+  }
+  const last = new RegExp(`^${segs[segs.length - 1]!.replace(/[.]/g, "\\.").replace(/\*/g, "[^/]*")}$`);
+  return dirs.flatMap((d) => readdirSync(join(ROOT, d)).filter((n) => last.test(n)).map((n) => `${d}/${n}`));
+}
+// killer: .github/workflows/ci.yml:164 CONST "npm run test:export" -> "npm run test:main"
+test("ci_g3_export_runs_test_42_alone_and_g3_main_skips_only_it - the suite is split in two CI jobs with no test lost (CI-G3-DURATION-1)", () => {
+  const scripts = (JSON.parse(readFileSync(join(ROOT, "package.json"), "utf8")) as { scripts: Record<string, string> }).scripts;
+  const full = scripts.test ?? "";
+  const guards = /^node --test (--test-timeout=\d+ --test-force-exit) /.exec(full)?.[1];
+  assert.ok(guards !== undefined, "scripts.test starts with `node --test --test-timeout=<ms> --test-force-exit ` (the locked guards)");
+  // (a) test:main = scripts.test + the skip flag, nothing else.
+  assert.equal(scripts["test:main"], full.replace(guards, `${guards} --test-skip-pattern="${TEST42_PATTERN}"`), "(a) test:main must be scripts.test plus --test-skip-pattern only (same globs, same guards)");
+  // (b) test:export = the same guards, the same pattern as a name filter, the one file.
+  assert.equal(scripts["test:export"], `node --test ${guards} --test-name-pattern="${TEST42_PATTERN}" "test/export-public.test.ts"`, "(b) test:export must run test 42 alone with the same guards");
+  // (c) the pattern names exactly one test declaration (a line opening with test/it/describe/suite) of the npm test globs: test 42.
+  const files = [...full.matchAll(/"([^"]+\.test\.ts)"/g)].flatMap((m) => expandTestGlob(m[1]!));
+  assert.ok(files.includes("test/export-public.test.ts") && files.length >= 100, `the npm test globs reach the suite (saw ${files.length} files)`);
+  const re = new RegExp(TEST42_PATTERN);
+  const named = files.flatMap((f) =>
+    [...readFileSync(join(ROOT, f), "utf8").matchAll(/^[ \t]*(?:test|it|describe|suite)(?:\.\w+)?\(\s*(["'`])((?:(?!\1)[^\\]|\\.)*)\1/gm)]
+      .map((m) => m[2]!)
+      .filter((n) => re.test(n))
+      .map((n) => `${f}: ${n}`),
+  );
+  assert.deepEqual(named, ["test/export-public.test.ts: export_public_no_governance_no_french — clean public export (test 42)"], "(c) the test 42 pattern must name test 42 and nothing else");
+  // (d) the two jobs run the two halves; g3-export installs first; no `if:` anywhere in either job.
+  const g3 = jobBlock("g3-verification");
+  const ex = jobBlock("g3-export");
+  assert.ok(g3.some((l) => /^\s*run:\s*npm run gate:vocab && npm run typecheck && npm run test:main\s*$/.test(l)), "(d) g3-verification must run gate:vocab, typecheck, then test:main");
+  assert.ok(ex.length > 0, "(d) job 'g3-export' missing from the workflow");
+  const ciAt = ex.findIndex((l) => /^\s*run:\s*npm ci\s*$/.test(l));
+  const runAt = ex.findIndex((l) => /^\s*run:\s*npm run test:export\s*$/.test(l));
+  assert.ok(ciAt !== -1 && runAt > ciAt, "(d) g3-export must run `npm ci` then `npm run test:export`");
+  assert.ok(![...g3, ...ex].some((l) => IF_DIRECTIVE_RE.test(l) || COE_DIRECTIVE_RE.test(l)), "(d) no `if:` or continue-on-error on g3-verification or g3-export");
+  // (e) job bound above the per-test bound.
+  const minutes = Number(ex.find((l) => /^    timeout-minutes\s*:/.test(l))?.replace(/\D/g, "") ?? "0");
+  const perTestMs = Number(/--test-timeout=(\d+)/.exec(guards)?.[1] ?? "0");
+  assert.ok(minutes * 60_000 > perTestMs, `(e) g3-export timeout-minutes (${minutes}) must exceed --test-timeout (${perTestMs} ms)`);
+  // (f) the public workflow drops the internal job.
+  const derived = derivePublicWorkflow(WF);
+  assert.ok(!/^ {2}g3-export\s*:/m.test(derived) && !derived.includes("test:export"), "(f) the derived public workflow must not carry g3-export");
+  assert.ok(derived.includes("npm run test:main"), "(f) the derived public workflow keeps g3-verification and its test:main run");
 });
 
 // Lot CI-site (ADR-M003 D9 octies) — the g3-site job's step order is load-bearing: `next build` must produce

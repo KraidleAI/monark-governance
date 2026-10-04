@@ -141,7 +141,27 @@ jobs:
       - name: Install (lockfile must be present and consistent)
         run: npm ci
       - name: Vocabulary gate + strict typecheck + tests (contracts_frozen, fixtures, tests 1-41)
-        run: npm run gate:vocab && npm run typecheck && npm test
+        run: npm run gate:vocab && npm run typecheck && npm run test:main
+
+  g3-export:
+    runs-on: ubuntu-latest
+    # Test 42 alone (CI-G3-DURATION-1, docs/G0-lot-ci-g3-duration-1.md). export_public_no_governance_no_french runs a nested
+    # `npm ci && npm run ci` of the public export: 151 s on the runner of PR 126, about ten times the next test. It leaves
+    # g3-verification, whose test:main is the same suite with only this test skipped (pinned by ci-gates.test.ts), so every
+    # PR still runs every test. Bound = measured job wall-time x3, capped <= 20: (npm ci ~15 s + 151 s) x3 ~= 8.3 min => 10,
+    # above the 5-min --test-timeout, so a slow test 42 reds by name first. Internal job: the root test/ is never exported,
+    # so derivePublicWorkflow drops it from the public workflow.
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: "24"
+          cache: npm
+      - name: Install (lockfile must be present and consistent)
+        run: npm ci
+      - name: Test 42 alone (clean public export, and its own CI green; ADR-M004 D7)
+        run: npm run test:export
 
   g4-architecture:
     runs-on: ubuntu-latest
