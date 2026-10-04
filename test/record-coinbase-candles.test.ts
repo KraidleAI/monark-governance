@@ -1,6 +1,8 @@
-// test/record-coinbase-candles.test.ts -- lots COINBASE-USDT-RECORDER-1 (2026-10-03, corrected after its two G2) and COINBASE-ADD7-1
-// (ADR 0006 addendum 7: --pass 2, empty_page): the Coinbase candle recorder scripts/record-coinbase-candles.mjs, run in-process against a
-// loopback server that imitates GET /products/USDT-USD/candles
+// test/record-coinbase-candles.test.ts -- lots COINBASE-USDT-RECORDER-1 (2026-10-03, corrected after its two G2), COINBASE-ADD7-1
+// (ADR 0006 addendum 7: --pass 2, empty_page) and COINBASE-PASS-EDGES-1 (pass 2 from 149 slots before the window to 149 after it, its
+// witnesses; a body read as a stream of at most 65 536 bytes; its corrections: a pass 2 whose core would end where a core of pass 1
+// ends refused, an empty page of witnesses alone counted): the Coinbase candle recorder scripts/record-coinbase-candles.mjs, run
+// in-process against a loopback server that imitates GET /products/USDT-USD/candles
 // (start and end in ISO 8601 UTC; both bounds served, newest first, unless a test names another reading of the bounds: the seven of the
 // G2 probe p-robust.mjs), through an injected fetch that only rewrites https://api.exchange.coinbase.com to that server and refuses any
 // other URL (the 144 runs of the second G2 get their pages from a fetch that builds them in memory). The global fetch is a tripwire for
@@ -28,7 +30,7 @@ type Candle = readonly [number, string, string, string, string, string];
 type FetchLike = (url: string, init: RequestInit) => Promise<Response>;
 /** A reading of the start and end parameters: the candles that the endpoint serves for them (seconds), or null for a refusal (400). */
 type Reading = (cs: readonly Candle[], start: number, end: number) => readonly Candle[] | null;
-interface Reply { status: number; headers?: Record<string, string>; body?: string; cut?: boolean; silent?: "headers" | "body" }
+interface Reply { status: number; headers?: Record<string, string>; body?: string; cut?: boolean; silent?: "headers" | "body"; stall?: string }
 interface Endpoint { base: string; urls: string[]; headers: IncomingHttpHeaders[]; served: number[]; close: () => Promise<void> }
 interface Calls { urls: string[]; inits: RequestInit[] }
 interface Recording {
@@ -105,8 +107,8 @@ async function listen(server: Server): Promise<number> {
 }
 
 /** The loopback endpoint: request n gets `script` n when given (status, headers and body, a cut connection, or silence before the
- *  headers or inside the body), else what `reading` serves for its start and end, newest first (H-3), or a 400 when it refuses. Each
- *  request URL and its headers are kept, in order, with the count of candles that `reading` served. */
+ *  headers or inside the body, after its `stall` text, "[" by default), else what `reading` serves for its start and end, newest first
+ *  (H-3), or a 400 when it refuses. Each request URL and its headers are kept, in order, with the count of candles that `reading` served. */
 async function endpoint(candles: readonly Candle[], script: ReadonlyMap<number, Reply> = new Map(), reading: Reading = BOTH): Promise<Endpoint> {
   const urls: string[] = [], headers: IncomingHttpHeaders[] = [], served: number[] = [];
   const server = createServer((req, res) => {
@@ -115,7 +117,7 @@ async function endpoint(candles: readonly Candle[], script: ReadonlyMap<number, 
     headers.push(req.headers);
     if (fixed?.cut === true) { req.socket.destroy(); return; }
     if (fixed?.silent === "headers") return; // nothing is ever answered: the connection stays open until close()
-    if (fixed?.silent === "body") { res.writeHead(200, { "content-type": "application/json" }).write("["); return; }
+    if (fixed?.silent === "body") { res.writeHead(200, { "content-type": "application/json" }).write(fixed.stall ?? "["); return; }
     if (fixed !== undefined) { res.writeHead(fixed.status, fixed.headers ?? {}).end(fixed.body ?? ""); return; }
     const q = new URL(url, "http://127.0.0.1").searchParams, sec = (k: string): number => Date.parse(q.get(k) ?? "") / 1000;
     const got = reading(candles, sec("start"), sec("end"));
@@ -163,7 +165,7 @@ async function record(candles: readonly Candle[], start: number, end: number, pl
   }
 }
 
-// killer: scripts/record-coinbase-candles.mjs:118 CONST "HALF : CORE)" -> "HALF : WINDOW)"
+// killer: scripts/record-coinbase-candles.mjs:131 CONST "from + CORE * step" -> "from + WINDOW * step"
 test("coinbase_candles_requests_cores_of_298_slots_with_a_margin_slot_on_each_side", async () => {
   const n = 307, r = await record(series(n + 1), at(0), at(n));
   assert.equal(r.code, "ok");
@@ -199,7 +201,7 @@ test("coinbase_candles_requests_cores_of_298_slots_with_a_margin_slot_on_each_si
     sha(readFileSync(RECORDER))]);
 });
 
-// killer: scripts/record-coinbase-candles.mjs:244 ROR "ms < first" -> "ms <= first"
+// killer: scripts/record-coinbase-candles.mjs:285 ROR "ms < first" -> "ms <= first"
 test("coinbase_candles_discards_candles_outside_their_core_and_declares_gaps", async () => {
   // page 1: a candle before start, the start margin, a gap at 4, an identical duplicate of 5; page 2: one candle, slot 450, the rest of its
   // core missing (an empty page would stop the run: addendum 7); page 3: the endpoint's, start excluded, so that no page serves a slot of
@@ -218,7 +220,7 @@ test("coinbase_candles_discards_candles_outside_their_core_and_declares_gaps", a
     ["USDT-USD", "15m", iso(at(0)), iso(at(610)), 298, [slot(at(4)), slot(at(298))], slot(at(595))], "every absent grid slot declared, none filled");
 });
 
-// killer: scripts/record-coinbase-candles.mjs:254 SDL "if (orphans.length > 0)" -> ""
+// killer: scripts/record-coinbase-candles.mjs:297 SDL "if (orphans.length > 0)" -> ""
 test("coinbase_candles_stops_on_a_slot_that_only_a_margin_serves", async () => {
   // page 1 serves slot 298 as its end margin, page 2 (core 298 to 595) serves nothing: two pages disagree on a slot, a named stop after
   // the last request, nothing normalized, never a gap (G2c-2 of the second G2: a margin candle never fills a gap)
@@ -228,7 +230,7 @@ test("coinbase_candles_stops_on_a_slot_that_only_a_margin_serves", async () => {
     ["window_inconsistent", { slots: 1, first: iso(at(298)) }, 3, 3, []]);
 });
 
-// killer: scripts/record-coinbase-candles.mjs:240 ROR "prior !== line" -> "prior === line"
+// killer: scripts/record-coinbase-candles.mjs:281 ROR "prior !== line" -> "prior === line"
 test("coinbase_candles_refuses_a_conflicting_duplicate_within_or_across_windows", async () => {
   const r = await record([], at(0), at(4), { script: new Map([[0, page([candle(at(2), "1.0002"), candle(at(1)), candle(at(2)), candle(at(0))])]]) });
   assert.deepEqual([r.code, r.served.length, rawCount(r.out), logOf(r.out).length, normalized(r.out)], ["duplicate_conflict", 1, 1, 1, []]);
@@ -249,7 +251,7 @@ test("coinbase_candles_refuses_a_conflicting_duplicate_within_or_across_windows"
   }
 });
 
-// killer: scripts/record-coinbase-candles.mjs:162 CONST "manual" -> "follow"
+// killer: scripts/record-coinbase-candles.mjs:197 CONST "manual" -> "follow"
 test("coinbase_candles_stops_on_http_refusals_without_retry", async () => {
   const cases: [Reply, string, string | null][] = [
     [{ status: 429, headers: { "retry-after": "1" } }, "rate_limited", "1"],
@@ -279,7 +281,7 @@ test("coinbase_candles_stops_on_http_refusals_without_retry", async () => {
   assert.deepEqual([cut.code, cut.served.length, existsSync(join(cut.out, "requests.jsonl")), normalized(cut.out)], ["network_error", 1, false, []]);
 });
 
-// killer: scripts/record-coinbase-candles.mjs:219 SDL "ms % ctx.step !== 0" -> ""
+// killer: scripts/record-coinbase-candles.mjs:255 SDL "ms % ctx.step !== 0" -> ""
 test("coinbase_candles_stops_on_bad_bodies_and_candles", async () => {
   const body = (b: string): Reply => ({ status: 200, body: b }), t = String(at(1) / 1000), v = "1,2,3,4,5";
   const cases: [Reply, string][] = [
@@ -301,7 +303,7 @@ test("coinbase_candles_stops_on_bad_bodies_and_candles", async () => {
   assert.deepEqual([second.code, parsed(second.detail)], ["row_shape", { page: iso(at(0)), row: 1, why: "not 6 numbers" }]);
 });
 
-// killer: scripts/record-coinbase-candles.mjs:297 ROR "pages > MAX_PAGES" -> "pages >= MAX_PAGES"
+// killer: scripts/record-coinbase-candles.mjs:348 ROR "pages > MAX_PAGES" -> "pages >= MAX_PAGES"
 test("coinbase_candles_refuses_more_than_one_hundred_windows_before_any_request", async () => {
   const start = Date.UTC(2022, 0, 1), cap = start + 100 * 298 * STEP_MS, over = await record([], start, cap + STEP_MS);
   assert.deepEqual([over.code, over.calls.urls.length, existsSync(over.out), MAX_PAGES, windowCount(start, cap + STEP_MS), windowCount(start, cap)],
@@ -314,7 +316,7 @@ test("coinbase_candles_refuses_more_than_one_hundred_windows_before_any_request"
     ["empty_page", 100, 99, 100, 100, iso(start + 99 * 298 * STEP_MS), []], "100 windows requested, each one empty: listed, nothing written");
 });
 
-// killer: scripts/record-coinbase-candles.mjs:140 SDL "if (existsSync(join(dir, " -> ""
+// killer: scripts/record-coinbase-candles.mjs:161 SDL "if (existsSync(join(dir, " -> ""
 test("coinbase_candles_refuses_an_unusable_output_directory", async () => {
   const full = fresh(), file = fresh(), repo = fresh(), worktree = fresh(), empty = fresh(), link = fresh();
   mkdirSync(full);
@@ -338,7 +340,7 @@ test("coinbase_candles_refuses_an_unusable_output_directory", async () => {
   assert.deepEqual([ok.code, ok.calls.urls.length, manifestOf(empty).rows], ["ok", 1, 4], "an empty directory outside any git tree is used");
 });
 
-// killer: scripts/record-coinbase-candles.mjs:60 CONST "|_PROXY$/i" -> "/i"
+// killer: scripts/record-coinbase-candles.mjs:71 CONST "|_PROXY$/i" -> "/i"
 test("coinbase_candles_refuses_any_proxy_route_or_an_unverified_tls", async () => {
   const quoted = `${String.fromCharCode(34)}--use-env-proxy${String.fromCharCode(34)}`; // the form that node parses and the G1 guard missed (G2 F-2)
   const cases: [RecorderIo, string][] = [
@@ -361,7 +363,7 @@ test("coinbase_candles_refuses_any_proxy_route_or_an_unverified_tls", async () =
     { variables: ["NODE_OPTIONS", "https_proxy"], flags: ["--import"] }, false], "the detail names the variables and the flags, never a value");
 });
 
-// killer: scripts/record-coinbase-candles.mjs:61 CONST "NODE_USE_SYSTEM_CA|" -> ""
+// killer: scripts/record-coinbase-candles.mjs:72 CONST "NODE_USE_SYSTEM_CA|" -> ""
 test("coinbase_candles_refuses_any_variable_that_widens_the_tls_trust", async () => {
   // NODE_USE_SYSTEM_CA=1 is set in the agent sessions of this host (G2c-1 of the second G2: 341 trusted roots instead of the 145 bundled
   // with node); each of the five names, in any case and with any value, even empty, stops before any request, its detail naming it
@@ -381,7 +383,7 @@ test("coinbase_candles_refuses_any_variable_that_widens_the_tls_trust", async ()
     "NODE_USE_SYSTEM_CA", "OPENSSL_CONF", "SSL_CERT_DIR", "SSL_CERT_FILE"], flags: [] }, false], "the five names, sorted, never a value");
 });
 
-// killer: scripts/record-coinbase-candles.mjs:61 CONST "|^OPENSSL_" -> ""
+// killer: scripts/record-coinbase-candles.mjs:72 CONST "|^OPENSSL_" -> ""
 test("coinbase_candles_refuses_any_variable_whose_name_starts_with_openssl", async () => {
   // the four OpenSSL names that passed the name-by-name guard of the Binance recorder (its re-review rr2, G2RR2-5), and two other cases:
   // any name that starts with OPENSSL_, any value, stops before any request; a name that only contains it is not refused
@@ -393,7 +395,7 @@ test("coinbase_candles_refuses_any_variable_whose_name_starts_with_openssl", asy
   assert.deepEqual([near.code, near.calls.urls.length], ["ok", 1], "MY_OPENSSL_CONF does not start with OPENSSL_: recorded");
 });
 
-// killer: scripts/record-coinbase-candles.mjs:262 CONST "...rows.get(t).slice(1)" -> "...rows.get(t).slice(1).map(Number)"
+// killer: scripts/record-coinbase-candles.mjs:305 CONST "...rows.get(t).slice(1)" -> "...rows.get(t).slice(1).map(Number)"
 test("coinbase_candles_keeps_numbers_byte_for_byte", async () => {
   const long = "123456789012345678901234567890.123456789012345678901234567890", ws = String.fromCharCode(32, 9, 13, 10);
   const t = String(at(0) / 1000), u = String(at(1) / 1000);
@@ -405,7 +407,7 @@ test("coinbase_candles_keeps_numbers_byte_for_byte", async () => {
   assert.deepEqual(bytes(join(r.out, "raw", `USDT-USD-${String(at(0))}.json`)), Buffer.from(body), "raw/ holds the bytes as received");
 });
 
-// killer: scripts/record-coinbase-candles.mjs:182 SDL "ctx.used.add(name);" -> ""
+// killer: scripts/record-coinbase-candles.mjs:218 SDL "ctx.used.add(name);" -> ""
 test("coinbase_candles_replays_raw_to_the_same_bytes", async () => {
   const first = page([candle(at(298)), ...series(298, [4]).reverse(), candle(at(5)), candle(at(-1))]);
   const r = await record(series(306), at(0), at(305), { script: new Map([[0, first]]) });
@@ -429,7 +431,7 @@ test("coinbase_candles_replays_raw_to_the_same_bytes", async () => {
     ["written", "raw_page_missing", "raw_page_unused"], "one JSON line per run: written, then the two named stops of the replay");
 });
 
-// killer: scripts/record-coinbase-candles.mjs:100 SDL "!Object.hasOwn(GRANULARITIES, granularity)" -> ""
+// killer: scripts/record-coinbase-candles.mjs:111 SDL "!Object.hasOwn(GRANULARITIES, granularity)" -> ""
 test("coinbase_candles_refuses_bad_arguments", async () => {
   const base = ["--product", "USDT-USD", "--granularity", "15m", "--start", "2023-01-02T00:00Z", "--end", "2023-01-02T01:00Z"];
   const swap = (flag: string, value: string): string[] => base.map((v, i) => (base[i - 1] === flag ? value : v));
@@ -466,7 +468,7 @@ test("coinbase_candles_refuses_bad_arguments", async () => {
   assert.deepEqual([GRANULARITIES, Object.isFrozen(GRANULARITIES), PRODUCTS], [{ "15m": 900 }, true, ["USDT-USD"]], "the closed lists");
 });
 
-// killer: scripts/record-coinbase-candles.mjs:149 CONST "!HOSTS.includes(u.host)" -> "!HOSTS.includes(u.hostname)"
+// killer: scripts/record-coinbase-candles.mjs:170 CONST "!HOSTS.includes(u.host)" -> "!HOSTS.includes(u.hostname)"
 test("coinbase_candles_checks_the_host_before_each_request", () => {
   const codeOf = (url: string): string => {
     try { checkHost(url); return "ok"; } catch (e) { return e instanceof RecorderStop ? e.code : "not a stop"; }
@@ -480,7 +482,7 @@ test("coinbase_candles_checks_the_host_before_each_request", () => {
   assert.deepEqual([HOSTS, ORIGIN], [["api.exchange.coinbase.com"], "https://api.exchange.coinbase.com"]);
 });
 
-// killer: scripts/record-coinbase-candles.mjs:118 CONST "? HALF :" -> "? CORE :"
+// killer: scripts/record-coinbase-candles.mjs:129 CONST "? HALF * step : 0" -> "? CORE * step : 0"
 test("coinbase_candles_records_2880_candles_in_september_2022_and_plans_50_months", async () => {
   const start = Date.UTC(2022, 8, 1), end = Date.UTC(2022, 9, 1);
   const r = await record(Array.from({ length: 2880 }, (_, i) => candle(start + i * STEP_MS)), start, end, { io: { now: () => end } }); // end = now: closed
@@ -494,14 +496,14 @@ test("coinbase_candles_records_2880_candles_in_september_2022_and_plans_50_month
   assert.deepEqual([iso(months[0]?.[0] ?? 0), iso(months.at(-1)?.[1] ?? 0), months.map(([a, b]) => windowCount(a, b)).every((w) => w === 10),
     months.reduce((sum, [a, b]) => sum + windowCount(a, b), 0), expectedCount(from, Date.UTC(2026, 9, 1)), windowCount(from, Date.UTC(2026, 9, 1)),
     windowCount(Date.UTC(2023, 1, 1), Date.UTC(2023, 2, 1))], ["2022-08-01T00:00:00Z", "2026-10-01T00:00:00Z", true, 500, 146_112, 491, 10]);
-  // addendum 7 R1: each month read again with --pass 2 (a first core of 149 slots): 11 windows in a month of 30 or 31 days, 10 in a month
-  // of 28 or 29; 546 for the 50 months, 1 046 requests for the two readings
-  const second = months.map(([a, b]) => windowCount(a, b, "15m", 2));
-  assert.deepEqual([second.filter((w) => w === 11).length, second.filter((w) => w === 10).length, second.reduce((s, w) => s + w, 0),
-    windowCount(Date.UTC(2023, 1, 1), Date.UTC(2023, 2, 1), "15m", 2), windowCount(start, end, "15m", 2)], [46, 4, 546, 10, 11]);
+  // addendum 7 R1 and lot COINBASE-PASS-EDGES-1: each month read again with --pass 2, from 149 slots before it to 149 after it: 11 windows
+  // in a month of 28, 29, 30 or 31 days; 550 for the 50 months, 1 050 requests for the two readings
+  const second = months.map(([a, b]) => windowCount(a, b, "15m", 2)), feb = (y: number): number => windowCount(Date.UTC(y, 1, 1), Date.UTC(y, 2, 1), "15m", 2);
+  assert.deepEqual([second.filter((w) => w === 11).length, second.reduce((s, w) => s + w, 0), feb(2023), feb(2024), windowCount(start, end, "15m", 2)],
+    [50, 550, 11, 11, 11]);
 });
 
-// killer: scripts/record-coinbase-candles.mjs:156 CONST "isoOf(from - ctx.step)" -> "isoOf(from)"
+// killer: scripts/record-coinbase-candles.mjs:191 CONST "isoOf(from - ctx.step)" -> "isoOf(from)"
 test("coinbase_candles_declares_no_false_gap_under_seven_readings_of_the_bounds", async () => {
   // the seven readings of start and end of the G2 probe p-robust.mjs (the documentation reads neither bound: FAITS part 4) over three
   // windows, [0, 700); a complete series, and one with gaps every 7 slots, at the edges of the cores and margins, and in a block longer
@@ -525,7 +527,7 @@ test("coinbase_candles_declares_no_false_gap_under_seven_readings_of_the_bounds"
   }
 });
 
-// killer: scripts/record-coinbase-candles.mjs:250 SDL "if (served > 0 && inside === 0)" -> ""
+// killer: scripts/record-coinbase-candles.mjs:292 SDL "if (served > 0 && inside === 0)" -> ""
 test("coinbase_candles_writes_no_false_gap_under_eighteen_readings_of_eight_series", async () => {
   // the 144 runs of the probe p-patched-g2c.mjs of the second G2 (G2c-2), September 2022: eight series (complete, the G2 gaps, gaps on
   // every edge of the cores and margins, random gaps at 30 % twice and at 70 %, a hole of 400 slots, one over a whole request) under
@@ -592,7 +594,7 @@ const edges = (pages: readonly (readonly number[])[]): Promise<Recording> => rec
   { script: new Map(pages.map((ids, n): [number, Reply] => [n, page(ids.map((i) => candle(at(i))).reverse())])) });
 const range = (a: number, b: number): number[] => Array.from({ length: b - a }, (_, k) => a + k);
 
-// killer: scripts/record-coinbase-candles.mjs:253 ROR "t >= ctx.start" -> "t > ctx.start"
+// killer: scripts/record-coinbase-candles.mjs:296 ROR "t >= ctx.start" -> "t > ctx.start"
 test("coinbase_candles_stops_on_a_start_slot_that_only_a_later_page_serves", async () => {
   // page 1 serves its core but not the --start slot, page 2 serves that slot before its own start: served, kept by no core, a named stop,
   // never an exit 0 that declares a served slot missing
@@ -600,14 +602,14 @@ test("coinbase_candles_stops_on_a_start_slot_that_only_a_later_page_serves", asy
   assert.deepEqual([r.code, parsed(r.detail), r.served.length, normalized(r.out)], ["window_inconsistent", { slots: 1, first: iso(at(0)) }, 3, []]);
 });
 
-// killer: scripts/record-coinbase-candles.mjs:250 CONST "served > 0 &&" -> "served > 1 &&"
+// killer: scripts/record-coinbase-candles.mjs:292 CONST "served > 0 &&" -> "served > 1 &&"
 test("coinbase_candles_stops_on_a_page_of_one_candle_before_its_window", async () => {
   // page 2 serves one candle, slot 10, before its own start (page 1 served it): not its window, a named stop at that page
   const r = await edges([range(-1, 299), [10], range(595, 601)]);
   assert.deepEqual([r.code, parsed(r.detail), r.served.length, normalized(r.out)], ["window_not_served", { page: iso(at(298)), candles: 1 }, 2, []]);
 });
 
-// killer: scripts/record-coinbase-candles.mjs:237 ROR "ms >= first ? 1 : 0" -> "ms > first ? 1 : 0"
+// killer: scripts/record-coinbase-candles.mjs:278 ROR "ms >= first ? 1 : 0" -> "ms > first ? 1 : 0"
 test("coinbase_candles_writes_a_page_that_serves_only_its_start_margin_and_older_candles", async () => {
   // page 2 serves its start margin (slot 297) and older candles, its core empty; page 1 serves no end margin, page 3 no start margin:
   // no page serves a slot of core 2, a true gap of 298 slots, written
@@ -617,13 +619,15 @@ test("coinbase_candles_writes_a_page_that_serves_only_its_start_margin_and_older
     doc?.missing.at(-1)], ["ok", 3, 302, 298, 197, 2, 1, slot(at(298)), slot(at(595))]);
 });
 
-/** One run against an endpoint that answers nothing (headers) or stalls inside the body (body): each request carries a delay (300 ms
- *  through the test seam, 30 s by default); the caller gives up after 5 s, so a recorder without a delay reddens a test, never hangs it. */
-async function silentRun(silent: "headers" | "body"): Promise<{ code: string; detail: string; requests: number; ms: number; out: string }> {
-  const ep = await endpoint([], new Map([[0, { status: 200, silent }]])), calls: Calls = { urls: [], inits: [] }, t0 = Date.now(), out = fresh();
+/** One run against an endpoint that answers nothing (headers) or stalls inside the body (body), after its `stall` text: each request
+ *  carries a delay (300 ms through the test seam unless the caller names another, 30 s by default); the caller gives up after 5 s, so a
+ *  recorder without a delay reddens a test, never hangs it. */
+interface Silent { code: string; detail: string; requests: number; ms: number; out: string }
+async function silentRun(silent: "headers" | "body", stall = "[", timeoutMs = 300): Promise<Silent> {
+  const ep = await endpoint([], new Map([[0, { status: 200, silent, stall }]])), calls: Calls = { urls: [], inits: [] }, t0 = Date.now(), out = fresh();
   let timer: ReturnType<typeof setTimeout> | undefined;
   const late = new Promise<[string, string]>((done) => { timer = setTimeout(() => { done(["no stop within 5 s", ""]); }, 5000); });
-  const io: RecorderIo = { fetch: via(ep, calls), sleep: () => Promise.resolve(), env: {}, execArgv: [], timeoutMs: 300 };
+  const io: RecorderIo = { fetch: via(ep, calls), sleep: () => Promise.resolve(), env: {}, execArgv: [], timeoutMs };
   try {
     const [code, detail] = await Promise.race([outcome(run(argvOf(at(0), at(4), out), io)), late]);
     return { code, detail, requests: ep.urls.length, ms: Date.now() - t0, out };
@@ -633,7 +637,7 @@ async function silentRun(silent: "headers" | "body"): Promise<{ code: string; de
   }
 }
 
-// killer: scripts/record-coinbase-candles.mjs:159 CONST "signal.aborted ?" -> "false ?"
+// killer: scripts/record-coinbase-candles.mjs:194 CONST "signal.aborted ?" -> "false ?"
 test("coinbase_candles_stops_on_a_silent_endpoint", async () => {
   // no answer at all, then headers without the end of the body: the expiry of the delay is its own named stop (Q-C-5)
   for (const silent of ["headers", "body"] as const) {
@@ -643,7 +647,7 @@ test("coinbase_candles_stops_on_a_silent_endpoint", async () => {
   }
 });
 
-// killer: scripts/record-coinbase-candles.mjs:166 SDL "log(line);" -> ""
+// killer: scripts/record-coinbase-candles.mjs:201 SDL "log(line);" -> ""
 test("coinbase_candles_logs_the_status_and_headers_of_an_answer_before_its_body", async () => {
   // an answer whose body stalls keeps its status and headers in requests.jsonl (Q-C-12), its body file never written; no answer at all
   // leaves no line
@@ -654,7 +658,7 @@ test("coinbase_candles_logs_the_status_and_headers_of_an_answer_before_its_body"
     ["timeout", [[200, `raw/USDT-USD-${String(at(0))}.json`, undefined, null, true]], 0, []], "the line of the headers, no body line, no body file");
 });
 
-// killer: scripts/record-coinbase-candles.mjs:203 CONST "sha256(readFileSync(page)) !== hash" -> "false"
+// killer: scripts/record-coinbase-candles.mjs:239 CONST "sha256(readFileSync(page)) !== hash" -> "false"
 test("coinbase_candles_refuses_a_replay_of_altered_raw_pages", async () => {
   const r = await record(series(306), at(0), at(305)), page0 = join("raw", rawNames(r.out)[0] ?? "none");
   assert.equal(r.code, "ok");
@@ -689,20 +693,20 @@ async function replayOf(change: (dir: string) => void): Promise<[number, string,
   return [code, said.stop ?? "", said.detail?.why ?? "", existsSync(out), calls.urls.length];
 }
 
-// killer: scripts/record-coinbase-candles.mjs:189 COR " || !statSync(sums).isFile()" -> ""
+// killer: scripts/record-coinbase-candles.mjs:225 COR " || !statSync(sums).isFile()" -> ""
 test("coinbase_candles_refuses_a_replay_whose_sums_are_a_directory", async () => {
   const swap = (d: string): void => { rmSync(join(d, "SHA256SUMS")); mkdirSync(join(d, "SHA256SUMS")); };
   assert.deepEqual(await replayOf(swap), [1, "raw_page_altered", "no SHA256SUMS", false, 0], "a named stop, never an unforeseen error");
 });
 
-// killer: scripts/record-coinbase-candles.mjs:191 CONST "lines.pop() !==" -> "lines.pop(), false ||"
+// killer: scripts/record-coinbase-candles.mjs:227 CONST "lines.pop() !==" -> "lines.pop(), false ||"
 test("coinbase_candles_refuses_a_replay_whose_sums_lack_their_last_line_feed", async () => {
   // the last line (requests.jsonl, after every raw/ line) without its line feed: malformed, never a line dropped in silence
   const strip = (d: string): void => { writeFileSync(join(d, "SHA256SUMS"), text(d, "SHA256SUMS").slice(0, -1)); };
   assert.deepEqual(await replayOf(strip), [1, "raw_page_altered", "malformed line", false, 0]);
 });
 
-// killer: scripts/record-coinbase-candles.mjs:194 COR " || names.has(m[2])" -> ""
+// killer: scripts/record-coinbase-candles.mjs:230 COR " || names.has(m[2])" -> ""
 test("coinbase_candles_refuses_a_replay_whose_sums_list_a_page_twice", async () => {
   const twice = (d: string): void => {
     const sums = text(d, "SHA256SUMS");
@@ -711,19 +715,19 @@ test("coinbase_candles_refuses_a_replay_whose_sums_list_a_page_twice", async () 
   assert.deepEqual(await replayOf(twice), [1, "raw_page_altered", "malformed line", false, 0], "the same raw/ line twice, identical");
 });
 
-// killer: scripts/record-coinbase-candles.mjs:198 CONST "existsSync(raw) ? readdirSync(raw) : []" -> "readdirSync(raw)"
+// killer: scripts/record-coinbase-candles.mjs:234 CONST "existsSync(raw) ? readdirSync(raw) : []" -> "readdirSync(raw)"
 test("coinbase_candles_refuses_a_replay_without_its_raw_directory", async () => {
   const gone = (d: string): void => { rmSync(join(d, "raw"), { recursive: true }); };
   assert.deepEqual(await replayOf(gone), [1, "raw_page_altered", "listed in SHA256SUMS, absent", false, 0], "a named stop, never an unforeseen error");
 });
 
-// killer: scripts/record-coinbase-candles.mjs:203 COR "!statSync(page).isFile() || " -> ""
+// killer: scripts/record-coinbase-candles.mjs:239 COR "!statSync(page).isFile() || " -> ""
 test("coinbase_candles_refuses_a_replay_whose_listed_page_is_a_directory", async () => {
   const swap = (d: string): void => { const p = join(d, "raw", rawNames(d)[0] ?? "none"); rmSync(p); mkdirSync(p); };
   assert.deepEqual(await replayOf(swap), [1, "raw_page_altered", "sha256 differs", false, 0], "a named stop, never an unforeseen error");
 });
 
-// killer: scripts/record-coinbase-candles.mjs:334 CONST "realpathSync(process.argv[1]) ===" -> "resolve(process.argv[1]) ==="
+// killer: scripts/record-coinbase-candles.mjs:385 CONST "realpathSync(process.argv[1]) ===" -> "resolve(process.argv[1]) ==="
 test("coinbase_candles_runs_its_command_line_when_launched_through_a_link", () => {
   // the main guard compares real paths (F-4 of the G2 of the EE-7 detector): a copy of the recorder under the temp root, a junction to
   // its directory, one child launched through it with no argument and a minimal environment: a usage stop (exit 2, its JSON line)
@@ -738,28 +742,39 @@ test("coinbase_candles_runs_its_command_line_when_launched_through_a_link", () =
     "start", "end", "out"] } }) + LF]);
 });
 
-// killer: scripts/record-coinbase-candles.mjs:104 SDL "if (pass === 0) stop(" -> ""
-test("coinbase_candles_shifts_its_cores_by_half_a_core_in_pass_2", async () => {
-  // addendum 7 R1: --pass 2 reads [0, 600) through the cores [0, 149), [149, 447) and [447, 600), each request with its two margin
-  // slots; the replay of that folder needs --pass 2 (a raw page is named by the start of its window); any other value of --pass stops
-  const r = await record(series(601), at(0), at(600), { pass: "2" }), m = manifestOf(r.out), calls: Calls = { urls: [], inits: [] };
-  const q = (s: number, e: number): string => `${CANDLES}?granularity=900&start=${iso(s)}&end=${iso(e)}`;
-  assert.deepEqual([r.code, r.calls.urls], ["ok", [q(at(-1), at(149)), q(at(148), at(447)), q(at(446), at(600))]]);
-  assert.deepEqual([m.pass, m.pages, m.rows, m.missing, m.empty_pages, m.duplicates_removed, m.margin_at_start, m.margin_at_end],
-    [2, 3, 600, 0, 0, 0, 2, 3], "every slot kept once, the margin candles counted");
+// killer: scripts/record-coinbase-candles.mjs:289 SDL "else if (ms < ctx.start || ms >= ctx.end) witnesses.add(ms);" -> ""
+test("coinbase_candles_reads_pass_2_from_149_slots_before_its_window_to_149_slots_after_it", async () => {
+  // addendum 7 R1, lot COINBASE-PASS-EDGES-1 (D-1): --pass 2 reads [0, 600) through the cores [-149, 149), [149, 447), [447, 745) and
+  // [745, 749), each request with its two margin slots, none with a start or an end of pass 1 ([-1, 298], [297, 596], [595, 600]); a slot
+  // of those cores outside [0, 600) is a witness (its close marked here): counted in the manifest, a count, the first and the last, never
+  // written to the CSV, to missing.json nor as a value; one served twice is a removed duplicate. The replay of that folder needs --pass 2
+  // (a raw page is named by the start of its window); any other value of --pass stops
+  const mark = "7.7777", again50 = candle(at(-50), mark);
+  const twice: Reading = (cs, s, e) => (s < again50[0] && e > again50[0] ? [...(BOTH(cs, s, e) ?? []), again50] : BOTH(cs, s, e));
+  const ids = range(-150, 750).filter((i) => i !== -100 && i !== 700), calls: Calls = { urls: [], inits: [] };
+  const r = await record(ids.map((i) => candle(at(i), i < 0 || i >= 600 ? mark : "1.0001")), at(0), at(600), { pass: "2", reading: twice });
+  const m = manifestOf(r.out), q = (s: number, e: number): string => `${CANDLES}?granularity=900&start=${iso(s)}&end=${iso(e)}`;
+  assert.deepEqual([r.code, r.calls.urls], ["ok", [q(at(-150), at(149)), q(at(148), at(447)), q(at(446), at(745)), q(at(744), at(749))]]);
+  assert.deepEqual([m.pass, m.pages, m.rows, m.missing, m.empty_pages, m.duplicates_removed, m.discarded_before_start, m.margin_at_start,
+    m.margin_at_end, m.witness_slots], [2, 4, 600, 0, 0, 1, 0, 4, 4, { count: 296, first: iso(at(-149)), last: iso(at(748)) }]);
+  const doc = jsonOf(r.out, "missing.json") as MissingDoc | null;
+  const kept = m.rows + m.duplicates_removed + m.discarded_before_start + m.margin_at_start + m.margin_at_end;
+  assert.deepEqual([kept + (m.witness_slots?.count ?? 0) - r.candles, opensOf(r.out), m.last_open_time, doc?.count, doc?.missing],
+    [0, range(0, 600).map(at), iso(at(599)), 0, []], "every candle accounted for; the CSV and missing.json hold the window alone");
+  assert.deepEqual(["USDT-USD-15m.csv", "missing.json", "manifest.json"].filter((f) => text(r.out, f).includes(mark)), [], "no witness value");
   const again = fresh(), replay = (out: string, pass: string[]): Promise<[string, string]> =>
     outcome(run([...argvOf(at(0), at(600), out), "--from-raw", r.out, ...pass], { fetch: offline(calls) }));
   const [same] = await replay(again, ["--pass", "2"]), [without] = await replay(fresh(), []);
-  assert.deepEqual([same, text(again, "USDT-USD-15m.csv") === text(r.out, "USDT-USD-15m.csv"), manifestOf(again).pass, without, calls.urls.length],
-    ["ok", true, 2, "raw_page_missing", 0], "replayed with --pass 2 to the same bytes; without it, a page of pass 1 is missing");
+  assert.deepEqual([same, text(again, "USDT-USD-15m.csv") === text(r.out, "USDT-USD-15m.csv"), manifestOf(again).witness_slots, without,
+    calls.urls.length], ["ok", true, m.witness_slots, "raw_page_missing", 0], "replayed with --pass 2 to the same bytes; without it, a page is missing");
   for (const value of ["3", "0", "", "2.0", "two"]) {
     const x = await record(series(4), at(0), at(4), { pass: value });
     assert.deepEqual([x.code, parsed(x.detail).allowed, x.calls.urls.length, existsSync(x.out)], ["bad_pass", ["1", "2"], 0, false], `--pass ${value}`);
   }
-  assert.deepEqual([windowCount(at(0), at(600), "15m", 2), windowCount(at(0), at(149), "15m", 2), windowCount(at(0), at(150), "15m", 2)], [3, 1, 2]);
+  assert.deepEqual([windowCount(at(0), at(600), "15m", 2), windowCount(at(0), at(298), "15m", 2), windowCount(at(0), at(299), "15m", 2)], [4, 2, 3]);
 });
 
-// killer: scripts/record-coinbase-candles.mjs:255 SDL "if (got.empty.length > 0) stop(" -> ""
+// killer: scripts/record-coinbase-candles.mjs:298 SDL "if (got.empty.length > 0) stop(" -> ""
 test("coinbase_candles_stops_on_an_empty_page_after_its_last_request", async () => {
   // addendum 7, correction 3 of RECHERCHES: a page that serves no candle is never a silent gap of 298 slots; the run makes its last
   // request, then stops empty_page, the windows listed (a question to RECHERCHES), nothing normalized; no other page serves a slot of it
@@ -767,4 +782,90 @@ test("coinbase_candles_stops_on_an_empty_page_after_its_last_request", async () 
   assert.deepEqual([one.code, parsed(one.detail), one.served.length, rawCount(one.out), normalized(one.out)],
     ["empty_page", { empty_pages: 1, pages: [iso(at(298))] }, 3, 3, []]);
   assert.deepEqual([two.code, parsed(two.detail), two.served.length], ["empty_page", { empty_pages: 2, pages: [iso(at(0)), iso(at(298))] }, 3]);
+});
+
+// killer: scripts/record-coinbase-candles.mjs:345 CONST "const reach = windows.at(-1)[1];" -> "const reach = args.end;"
+test("coinbase_candles_stops_pass_2_on_a_witness_past_its_last_core_or_on_a_last_core_not_yet_past", async () => {
+  // lot COINBASE-PASS-EDGES-1 (D-1): a candle after the last core of pass 2 (149 slots past --end) stops out_of_window; pass 2 asks
+  // nothing while the end of its last core is not past (end_in_future names that end), at a time when pass 1 runs; a pass 2 to which no
+  // core serves a slot outside [0, 600) writes witness_slots 0, null, null, and one served witness alone, slot -10, writes 1 and its time
+  // twice (G2-4 of the G2 of that lot); the manifest of pass 1 keeps the 31 keys of the base, in their order (G2-2)
+  const full = range(-150, 750).map((i) => candle(at(i))), last = page([candle(at(750)), candle(at(749)), candle(at(744))]);
+  const past = await record(full, at(0), at(600), { pass: "2", script: new Map([[3, last]]) });
+  assert.deepEqual([past.code, parsed(past.detail), past.served.length, normalized(past.out)],
+    ["out_of_window", { page: iso(at(745)), row: 0, open_time_ms: at(750), end: iso(at(749)) }, 4, []]);
+  const early = await record(full, at(0), at(600), { pass: "2", io: { now: () => at(749) - 1 } });
+  const first = await record(full, at(0), at(600), { io: { now: () => at(749) - 1 } });
+  const closed = await record(full, at(0), at(600), { pass: "2", io: { now: () => at(749) } });
+  assert.deepEqual([early.code, parsed(early.detail).end, early.calls.urls.length, existsSync(early.out), first.code, closed.code],
+    ["end_in_future", iso(at(749)), 0, false, "ok", "ok"]);
+  const bare = await record([-150, ...range(0, 600), 749].map((i) => candle(at(i))), at(0), at(600), { pass: "2" }), m = manifestOf(bare.out);
+  assert.deepEqual([bare.code, m.witness_slots, m.rows, m.margin_at_start, m.margin_at_end], ["ok", { count: 0, first: null, last: null }, 600, 3, 3]);
+  const lone = await record([-150, -10, ...range(0, 600), 749].map((i) => candle(at(i))), at(0), at(600), { pass: "2" });
+  assert.deepEqual([lone.code, manifestOf(lone.out).witness_slots], ["ok", { count: 1, first: iso(at(-10)), last: iso(at(-10)) }], "one witness");
+  assert.deepEqual(Object.keys(manifestOf(first.out)), ["schema", "mode", "platform", "endpoint", "product", "granularity", "granularity_s",
+    "start", "end_exclusive", "pass", "expected", "rows", "missing", "empty_pages", "duplicates_removed", "discarded_before_start",
+    "margin_at_start", "margin_at_end", "pages", "first_open_time", "last_open_time", "csv", "csv_sha256", "missing_sha256", "recorder_sha256",
+    "node", "from_raw", "started_at", "finished_at", "redistributable", "terms"], "pass 1: the 31 keys of the base, in their order");
+});
+
+// killer: scripts/record-coinbase-candles.mjs:180 ROR "bytes > BODY_MAX" -> "bytes >= BODY_MAX"
+test("coinbase_candles_reads_a_body_as_a_stream_of_at_most_65536_bytes", async () => {
+  // SERIES-BODY-BOUND-1 (lot COINBASE-PASS-EDGES-1, D-3): a page of exactly 65 536 bytes (its candles, then spaces) is written; a body one
+  // byte longer stops body_too_large as that byte arrives, even one that never ends (before its delay: the base waits for the end, a
+  // timeout), its status line alone in requests.jsonl, nothing of it written under raw/ nor raw/errors/, nothing normalized; an answer
+  // without a body (a 304: null) reads as zero bytes. G2 of that lot: the endless body runs under a delay of its own, 2 000 ms, that its
+  // stop beats under any load (G2-5); a body past the bound under another status (a 503 of 70 000 bytes) stops body_too_large too, its
+  // status line alone, nothing under raw/errors/ (G2-3)
+  const full = bodyOf(series(4)), exact = full + " ".repeat(65_536 - full.length), kept = `USDT-USD-${String(at(0))}.json`;
+  const ok = await record([], at(0), at(4), { script: new Map([[0, { status: 200, body: exact }]]) });
+  const none = await record(series(4), at(0), at(4), { script: new Map([[0, { status: 304 }]]) });
+  assert.deepEqual([ok.code, manifestOf(ok.out).rows, bytes(join(ok.out, "raw", kept)).length, none.code, logOf(none.out).map((l) => [l.status,
+    l.bytes]), errorsOf(none.out)], ["ok", 4, 65_536, "redirect_refused", [[304, 0]], [kept]]);
+  const over = await silentRun("body", "[" + " ".repeat(65_536), 2000), heads = linesOf(over.out).map((l) => [l.status, l.file, l.sha256]);
+  assert.deepEqual([over.code, parsed(over.detail), over.requests, heads, rawCount(over.out), errorsOf(over.out), normalized(over.out)],
+    ["body_too_large", { url: `${CANDLES}?granularity=900&start=${iso(at(-1))}&end=${iso(at(4))}`, status: 200, max_bytes: 65_536 }, 1,
+      [[200, `raw/${kept}`, undefined]], 0, [], []]);
+  const large = await record([], at(0), at(4), { script: new Map([[0, { status: 503, body: " ".repeat(70_000) }]]) });
+  assert.deepEqual([large.code, parsed(large.detail), linesOf(large.out).map((l) => [l.status, l.sha256]), errorsOf(large.out), normalized(large.out)],
+    ["body_too_large", { url: `${CANDLES}?granularity=900&start=${iso(at(-1))}&end=${iso(at(4))}`, status: 503, max_bytes: 65_536 },
+      [[503, undefined]], [], []], "a 503 past the bound");
+});
+
+// killer: scripts/record-coinbase-candles.mjs:344 SDL "if (shared !== null) stop(" -> ""
+test("coinbase_candles_refuses_pass_2_of_a_window_whose_core_would_end_where_one_of_pass_1_ends", async () => {
+  // G2-1 of the G2 of lot COINBASE-PASS-EDGES-1 (D-1 of its corrections): over n = 149 slots modulo 298, a core of pass 2 ends at --end,
+  // where the last core of pass 1 ends (both requests would ask end = --end): pass 2 stops bad_pass before any request, nothing created;
+  // pass 1 of 149 slots, and pass 2 of a month (February 2023, 2 688 slots, its eleven requests), are written
+  for (const n of [149, 447]) {
+    const r = await record([], at(0), at(n), { pass: "2" });
+    assert.deepEqual([r.code, parsed(r.detail), r.calls.urls.length, existsSync(r.out)], ["bad_pass",
+      { value: "2", allowed: ["1"], core_end: iso(at(n)) }, 0, false], `${String(n)} slots`);
+  }
+  const S = Date.UTC(2023, 1, 1), E = Date.UTC(2023, 2, 1), one = await record(series(150), at(0), at(149));
+  const month = await record(range(-150, 2838).map((i) => candle(S + i * STEP_MS)), S, E, { pass: "2" }), m = manifestOf(month.out);
+  assert.deepEqual([one.code, month.code, month.calls.urls.length, m.rows, m.missing], ["ok", "ok", 11, 2688, 0], "pass 1 of 149 slots, a month");
+});
+
+// killer: scripts/record-coinbase-candles.mjs:293 CONST "from > ctx.end" -> "false"
+test("coinbase_candles_counts_an_empty_page_of_witnesses_alone_in_pass_2", async () => {
+  // rule of RECHERCHES (2026-10-03, section 2; D-4 of the corrections of lot COINBASE-PASS-EDGES-1): in February 2023 (2 688 slots) the
+  // eleventh core of pass 2, [2 831, 2 837), holds witnesses alone and the tenth, [2 533, 2 831), holds the end of the month inside its
+  // request; nothing is served from slot 2 830 on: the eleventh page is empty, admitted and counted (empty_witness_pages), the month
+  // written whole, its witnesses the 149 slots before it and the 142 after it that the tenth page served
+  const S = Date.UTC(2023, 1, 1), E = Date.UTC(2023, 2, 1), t = (i: number): number => S + i * STEP_MS;
+  const r = await record(range(-150, 2830).map((i) => candle(t(i))), S, E, { pass: "2" }), m = manifestOf(r.out);
+  assert.deepEqual([r.code, r.served.length, m.rows, m.missing, m.empty_pages, m.empty_witness_pages, m.witness_slots],
+    ["ok", 11, 2688, 0, 0, 1, { count: 291, first: iso(t(-149)), last: iso(t(2829)) }]);
+});
+
+// killer: scripts/record-coinbase-candles.mjs:293 CONST "from > ctx.end" -> "true"
+test("coinbase_candles_stops_pass_2_on_an_empty_page_that_holds_a_slot_of_its_month", async () => {
+  // D-4 of the corrections of lot COINBASE-PASS-EDGES-1: the tenth core of pass 2 in February 2023, [2 533, 2 831), holds the last 155
+  // slots of the month and 143 witnesses; nothing is served from slot 2 532 to 2 831: its page is empty, the run makes its last request,
+  // then stops empty_page, nothing normalized, never a gap of 156 slots written. The other branch, a core of witnesses alone after a core
+  // that ends at --end, is the window of 149 slots modulo 298 that pass 2 refuses before any request (D-1, its test two tests above)
+  const S = Date.UTC(2023, 1, 1), E = Date.UTC(2023, 2, 1), t = (i: number): number => S + i * STEP_MS;
+  const r = await record(range(-150, 2838).filter((i) => i < 2532 || i > 2831).map((i) => candle(t(i))), S, E, { pass: "2" });
+  assert.deepEqual([r.code, parsed(r.detail), r.served.length, normalized(r.out)], ["empty_page", { empty_pages: 1, pages: [iso(t(2533))] }, 11, []]);
 });
