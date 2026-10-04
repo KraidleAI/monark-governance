@@ -11,7 +11,7 @@ import { bandEdge, binomCdfLeq, ceilDecimal4, missUpperBound, parseAlpha, parseT
 import { KATA_BASE_DELTA, KATA_H_MS } from "./policy-classes.ts";
 import { readRegistry, type ProjectionInputs } from "./policy-projection.ts";
 import { assertTableMatchesRegistry } from "./policy-table-file.ts";
-import { guardCalibChain, W2_CALIB_N_MAX, W2_TAIL_FRAC, wave2Admission } from "./policy-wave2.ts";
+import { guardCalibChain, W2_BLOCK_N_MAX, W2_CALIB_N_MAX, W2_TAIL_FRAC, wave2Admission } from "./policy-wave2.ts";
 
 /** The pins of the guard: the projection inputs and the closed list of verifier identities (A-2 section 2.2 point 7). */
 export type GuardPins = ProjectionInputs & { readonly verifiers: readonly string[] };
@@ -54,7 +54,7 @@ export function guardKataRow(r: PolicyRow, cls: ClassEntry, pins: GuardPins): vo
   is(r.order === "time" && (w2 || r.current) && r.runs_level === KATA_BASE_DELTA, "breaks the pinned constants of a wave 1 row (order time, current, runs_level) or of a wave 2 row (order time, runs_level)");
   const at = r.calib_attempt;
   const delta = spendDelta(KATA_BASE_DELTA, at);
-  is(at === (w2 ? Math.max(at, 2) : 1) && r.test_delta === delta && (at === 1 ? r.calib_cause === "initial" && r.calib_parent === "none" : r.calib_cause === "outcome" && /^[0-9a-f]{64}$/.test(r.calib_parent ?? "")), "breaks the pinned constants of the A-1 spend (attempt 1 on wave 1, at least 2 on wave 2; test_delta = base / 2^(attempt - 1); initial and none at attempt 1 only, outcome and a parent digest after)");
+  is(at === (w2 ? 2 : 1) && r.test_delta === delta && (at === 1 ? r.calib_cause === "initial" && r.calib_parent === "none" : r.calib_cause === "outcome" && /^[0-9a-f]{64}$/.test(r.calib_parent ?? "")), "breaks the pinned constants of the A-1 spend (attempt 1 on wave 1, 2 on wave 2 (ADR 0006 D1); test_delta = base / 2^(attempt - 1); initial and none at attempt 1 only, outcome and a parent digest after)");
   is(r.epoch === 1, "has an epoch other than 1 while no epoch log is pinned");
   is(dir ? r.scale_table === null : r.scale_table?.kind === "hour-of-week" && r.scale_table.values.length === (r.horizon === "1h" ? 168 : 42), "has a scale_table off hour-of-week, 168 values at 1h or 42 at 4h");
   is(!Object.is(r.qhat, -0) && (r.calib_support === null || r.calib_support.min <= r.calib_support.max), "has a qhat -0 or a calib_support with min above max");
@@ -63,6 +63,7 @@ export function guardKataRow(r: PolicyRow, cls: ClassEntry, pins: GuardPins): vo
   is(r.n_min === n0, `has n_min ${String(r.n_min)}, not n0 ${String(n0)}`);
   is(r.k_star === (ks < 0 ? null : ks), "has a k_star the exact rule does not give");
   const blocks = { bridge: r.bridge, test: r.test, fwd: r.fwd };
+  is(!w2 || (["bridge", "test", "fwd"] as const).every((k) => (blocks[k]?.n_test ?? 0) <= (W2_BLOCK_N_MAX[k][r.horizon ?? ""] ?? 0)), "has an n_test above its block (bridge 8760 / 2190, TEST-2 and FWD-2 4392 / 1098 at 1h / 4h), refused before any bound or veto");
   is([t, r.bridge ?? t, r.fwd ?? t, r.retire ?? t].every((b) => b.k_test === null || b.n_test === null || b.k_test <= b.n_test), "has a k_test above its n_test (test, bridge, fwd or retire block)");
   is([t, r.bridge ?? t, r.fwd ?? t].every((b) => b.u_test === uTest(b.k_test, b.n_test)), "has a u_test the exact bound does not give");
   if (r.n < n0) {

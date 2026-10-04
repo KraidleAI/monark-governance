@@ -10,6 +10,8 @@ import { adjacencyTailFromCounts, tailRank, TailCountsError, type AdjacencyCount
 export const W2_TAIL_FRAC: Readonly<Record<string, string>> = { "1h": "0.95", "4h": "0.90" };
 /** Points of the CALIB-2 block (D6, 2022-10-01 to 2023-10-01) per horizon: the bound on n before any tail arithmetic (G2 of #135, m-2). */
 export const W2_CALIB_N_MAX: Readonly<Record<string, number>> = { "1h": 8760, "4h": 2190 };
+/** Points of the bridge (365 days), TEST-2 and FWD-2 (183 days each) blocks of D6 per horizon: the bound on n_test before any bound or veto (G2 of lot b, m-2). */
+export const W2_BLOCK_N_MAX: Readonly<Record<"bridge" | "test" | "fwd", Readonly<Record<string, number>>>> = { bridge: W2_CALIB_N_MAX, test: { "1h": 4392, "4h": 1098 }, fwd: { "1h": 4392, "4h": 1098 } };
 
 type Is = (ok: boolean, what: string) => void;
 
@@ -41,9 +43,10 @@ export function wave2Admission(r: PolicyRow, is: Is): { reject: boolean; empty: 
 const CELL = ["kata_id", "w", "venue", "symbol", "horizon", "side", "bucket", "thresholds", "scale_table"] as const;
 
 /**
- * A-1 point 4 on the per-calibration rows of a table: per cell, attempts 1..k without a gap; the calib_parent of attempt
- * j >= 2 is the digest of the canonical writing of row j - 1 (the policy_row_sha256 digest); the same kata cell and factor
- * table as the parent (D1); only the last attempt is current (spec section 10).
+ * A-1 point 4 on the per-calibration rows of a table: per cell, attempts 1..k without a gap, attempt 1 on wave 1 and 2 on
+ * wave 2 (D1; G2 of lot b, B-1); the calib_parent of attempt j >= 2 is the digest of the canonical writing of row j - 1 as
+ * written in the table, current false (the policy_row_sha256 digest; declared reading, G2 of lot b, m-1); the same kata cell
+ * and factor table as the parent (D1); only the last attempt is current (spec section 10).
  */
 export function guardCalibChain(rows: readonly PolicyRow[]): void {
   const cells = new Map<string, PolicyRow[]>();
@@ -52,8 +55,8 @@ export function guardCalibChain(rows: readonly PolicyRow[]): void {
     chain.sort((x, y) => x.calib_attempt - y.calib_attempt);
     chain.forEach((r, i) => {
       const p = chain[i - 1];
-      const ok = r.calib_attempt === i + 1 && r.current === (i === chain.length - 1) && (p === undefined ? r.calib_parent === "none" : r.calib_parent === sha256Canonical(p) && CELL.every((k) => canonicalJson(r[k]) === canonicalJson(p[k])));
-      if (!ok) throw new Error(`MONARK import guard: ${key} breaks the calib_parent chain at attempt ${String(r.calib_attempt)} (attempts 1..k without a gap, parent = digest of the previous row, same kata cell and factor table, only the last row current).`);
+      const ok = r.calib_attempt === i + 1 && r.calib_attempt === (r.source.wave === 2 ? 2 : 1) && r.current === (i === chain.length - 1) && (p === undefined ? r.calib_parent === "none" : r.calib_parent === sha256Canonical(p) && CELL.every((k) => canonicalJson(r[k]) === canonicalJson(p[k])));
+      if (!ok) throw new Error(`MONARK import guard: ${key} breaks the calib_parent chain at attempt ${String(r.calib_attempt)} (attempts 1..k without a gap, attempt 1 on wave 1 and 2 on wave 2, parent = digest of the previous row, same kata cell and factor table, only the last row current).`);
     });
   }
 }
