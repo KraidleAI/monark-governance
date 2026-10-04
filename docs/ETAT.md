@@ -399,6 +399,10 @@ Tronc `lot/etude-suite`. Dernier oracle complet : 1 779 tests, dont 1 776 verts,
   - LOOPBACK-CLOSEDPORT-RACE-1 (PAROXYSME ; Q-CORR-7) : le cas D-2 et le test 6 du G1 dépendent d un port fermé qu un autre processus
     peut prendre. Construction pour D-2 : une fabrique qui lie port + 1, environ 2 lignes, puis rejeu de M18, M21 et de l oracle ;
     pour le test 6, mesure de fréquence au banc d abord. Déclencheur : HARNESS-LOOPBACK-PORTS-1 ; état : ouvert.
+  - EXPORT-HARNESS-413-LOAD-1 (2026-10-04 14:3x UTC ; 1re passe de v0.8.0) : `oversized_body_413_and_normal_tools_call_unaffected`
+    rouge une fois dans la CI exportée du test 42, sous charge (65 ms), assertion interne non nommée ; 15/15 vert au repos, test 42
+    vert dans 103 relevés d oracle. Construction : le test 42 porte le texte de l assertion interne, reproduction sous charge, test
+    déterministe sans perdre (a2) ni ses tueurs. Porteur : RECHERCHES (recherches#129), PR sur le tronc ; état : ouvert.
   - L2-RECV-US-RESOLUTION-1 (PAROXYSME ; Q-4 du G1 de L2-P1-a2) : Node n offre aucune horloge murale à la microseconde ; `recv_us`
     de production vaut `Date.now()*1000` (résolution ms), l ordre fin étant porté par `mono_ns`. Construction qui donne la garantie :
     mesurer la résolution réelle et la dérive de `performance.timeOrigin + performance.now()` contre l horloge de l hôte sur un jour

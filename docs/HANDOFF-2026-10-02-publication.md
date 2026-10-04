@@ -494,6 +494,8 @@ pm) ; item MK-NM-GUARD-1 (refuser Tree = F:/Monark dans mk-nm.ps1).
   l investisseur), toute dépense, X, et la règle « aucun workflow, tâches légères » ; chaque acte extérieur est annoncé avant d être fait.
 - 2026-10-04 14:1x UTC : DÉCISIONS de l investisseur (choix verbatim) : « Renvoyer le site maintenant (Recommandé) » (le site décrit encore
   l ancien service, btc-dir comprise) ; « v0.8.0 après l envoi du site (Recommandé) » (synchro du dépôt public, méthode de v0.7.0).
+- 2026-10-04 14:39 UTC : v0.8.0 publiée sur KraidleAI/Monark (miroir `beb09607`, tag annoté, Release Latest) ; 1re passe de l outil rouge
+  sur un aléa de test du harnais dans la CI exportée, relance verte ; item EXPORT-HARNESS-413-LOAD-1 chez RECHERCHES (recherches#129).
 - 2026-10-04 00:5x UTC : fusions au tronc : CM-2a (`4a1b4844`, PR #105 `98e3779a`), COINBASE-PASS-EDGES-1 (`44d8892d`), BINANCE-PRE153-1
   (`328be484`). Leurs oracles G7 (`569c91c6…`, `bba0b720…`, `2ce4d71c…`) portent seulement deux rouges venus de la CA de l étape 3
   committée sans resynchronisation du site (error_origin de l orchestrateur) ; correction `0c8f8177`, oracle vert : 2 060 tests,
