@@ -131,8 +131,16 @@ Oracle du gel `c7a7d27` (rejoué dès que la place disque est revenue) : `node s
 --repo /home/user/monark-governance-rt --draw 14 --seed 37` : **OK**, exit 0 ; 14 F2P, 31 inchangés, 14 tueurs tirés (la population),
 14 tués ; `RED-PROOF.json` sha256 `ade235a9…`, digest `cf7feb68…`. `test/red-proof.test.ts` sous Node 24.21.0 : **45/45**.
 
+## Ré-empilement sur la tête neuve de #113
+
+#113 a avancé (`9990b9ad`) ; elle est fusionnée dans RED-PROOF-TAP-TRUNCATION-1 (`f2bfec0`, tête `013101a`), puis celui-ci ici
+(`--no-ff`, `a57dfbb` : les quatre adresses de tueurs de `untrackedOf` décalées des 24 lignes des deux lots ; 47/47 au contrôleur). La
+**base** du lot devient `013101a3`. Oracle : `--base 013101a3 --gel a57dfbb3 --draw 14 --seed 37` : **OK**, exit 0 ; 14 F2P,
+33 inchangés, 14/14 tués ; sha256 `a59cd6ef…`, digest `6e5e37a1…`. `test/red-proof.test.ts` 46/47 sous Node 22 (`vi_hangs`) ; `tsc`
+vert. R-25 sur `013101a3...HEAD` : **209**.
+
 ## Sortie
 
 Prêt pour le contrôle par diff de MONARK, après RED-PROOF-TAP-TRUNCATION-1 (empilé, fusionné). Item RED-PROOF-TEST-ONLY-1 clos au
-gel `c7a7d27` (pli de la G2 et de sa re-revue) ; Q-RTO-1 à Q-RTO-4 répondues, Q-RTO-5 et Q-RTO-6 ouvertes. Le changement de mode de `packages/rpc-guard/bin/rpc-guard.mjs` laissé par `npm ci`
+gel `a57dfbb` (pli de la G2, de sa re-revue et ré-empilement sur #113) ; Q-RTO-1 à Q-RTO-4 répondues, Q-RTO-5 et Q-RTO-6 ouvertes. Le changement de mode de `packages/rpc-guard/bin/rpc-guard.mjs` laissé par `npm ci`
 n'est pas commis ; rien n'est poussé.
