@@ -425,6 +425,11 @@ Tronc `lot/etude-suite`. Dernier oracle complet : 1 779 tests, dont 1 776 verts,
     37169648100) sur `ENOENT` sous `/tmp/monark-journal-…/w106/.git/objects` ; vert ici. Construction : rendre la copie du dépôt de test
     indépendante du nettoyage concurrent de `/tmp` (dossier propre au test, copie atomique), et un cas qui la rejoue sous charge.
     Déclencheur : le prochain lot d outillage ; état : ouvert (critique K-5 des contrôles de #107 à #112).
+    **Clos le 2026-10-04** par le lot LINT-UNTRACKED-TMP-1 (PR #118 de RECHERCHES, fusion au tronc `8732e9b0`, oracle : seuls les 2 rouges
+    du temps (ii)) : la cause était la maintenance détachée de git (≥ 2.47) qui tient puis supprime `.git/objects/maintenance.lock` ;
+    `maintenance.auto = false` dans la config du test, copie qui saute les `*.lock` sous `.git/` ; 6/2 400 → 0/2 400.
+  - CPSYNC-LIVE-REPO-ABORT-1 (information, RECHERCHES) : un `cpSync` natif non filtré d un dépôt git vivant peut faire avorter tout le
+    processus de test. Déclencheur : tout test neuf qui copie un dépôt vivant ; état : ouvert.
   - Temps (ii) de BTC-DIR-RETIRE-SURFACES-1 complété (critique K-4) : `apps/site/data/ukemi-served.json` par `scripts/sync-ukemi-served.mjs`,
     après la CA, avec `harness-served.json` et `narabi-served.json` ; et `integration_test` de Shōgen : `probe_harness_records_real_decision`
     en tête, puis les deux tests plus faibles et les deux tests unitaires de la jointure (critique K-6, décision de l orchestrateur).
