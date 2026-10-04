@@ -672,6 +672,15 @@ Tronc `lot/etude-suite`. Dernier oracle complet : 1 779 tests, dont 1 776 verts,
   CM-2c (#107) : Q-1 tranchée par l investisseur (2026-10-04, 03:3x UTC, choix verbatim « Go explicite aux quatre (Recommandé) ») :
   les précisions (1) à (4) de B-10 (`.` lu `-` ; `4` lu `a` sous `kata:` ; E16 ; repli i → l, faux refus `btc-dlr-1h` déclaré,
   BYO-LOOKALIKE-RESIDUAL-1) ont son go explicite (règle de l amendement « soir » de l ADR-CM, l.156).
+  SPEC-PUBLISH-PIPELINE-1 (CR-8 ; écrit par RECHERCHES, G2 en trois tours ACCEPT) : **fusionné au tronc le 2026-10-04** (PR #117, fusion
+  `96eab664`, oracle vert) : producteur déterministe de l arbre de `monark-kata-spec`, `--verify` égal à l octet sur `ddfee9e`
+  (manifeste `720e99d4…`) ; l outil ne pousse ni ne publie jamais. Décisions de MONARK sur Q-SP-1 à Q-SP-6 : les propositions du
+  G7 sont retenues ; pour Q-SP-1, les sources 1.1.0 neuves ne vont sous `spec/` de la gouvernance (publique) qu après le go F-5a.
+  Items : SPEC-1-1-0-RELEASE (MONARK : la déclaration `contract-1.1.0` et I-2, sources épinglées ; déclencheur : la publication de
+  la spécification 1.1.0) ; CANON-SINGLE-SOURCE-1 (RECHERCHES : l écriture canonique de l outil remplacée par la fonction unique de
+  `packages/contracts` ; déclencheur : fusion de CM-3c-1) ; DURABLE-SCAN-TEMPLATE-1 (rpc-guard : le scan de `durable.test.ts` lit un
+  gabarit après `from(` comme un spécifiant ; déclencheur : le prochain lot de rpc-guard) ; SPEC-CI-SOURCE-1 (Q-SP-6 : le workflow de
+  CI du dépôt public produit depuis une source de gouvernance épinglée ; déclencheur : le premier workflow de ce dépôt) ; états : ouverts.
   - BTC-DIR-RETIRE-SURFACES-1 (MONARK ; déclencheur « PR CM-2b » atteint le 2026-10-03) : liste du G0 de CM-2b (§ du même nom).
     Décision de l investisseur (2026-10-03, 22:4x UTC, choix verbatim « Built, preuve attest servi (Recommandé) ») : Shōgen garde
     `built` ; `integration_test` de `apps/site/lib/fleet.ts` pointe vers un test d intégration non-LLM de l outil `attest` servi, plus
