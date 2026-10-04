@@ -22,15 +22,22 @@ async function load(): Promise<typeof Rest> {
   return m ?? assert.fail("scripts/l2/rest.mjs is absent");
 }
 
-/** A client on a fresh place answering `script(path)`; the clock is `clock.us`, moved by the test. */
-async function rig(script: (path: string) => Reply): Promise<{ R: typeof Rest; c: Rest.RestClient; place: Place; out: string; clock: { us: number } }> {
+/** A client on a fresh place answering `script(path)`; each clock read returns `clock.us` then adds `clock.step` (sent != received);
+ *  `inits` spies on the fetch init of every request. */
+async function rig(script: (path: string) => Reply): Promise<{ R: typeof Rest; c: Rest.RestClient; place: Place; out: string;
+  clock: { us: number; step: number }; inits: RequestInit[] }> {
   const R = await load();
   const place = await startPlace(() => undefined, script);
   places.push(place);
-  const out = mkdtempSync(join(tmpdir(), "l2-rest-")), clock = { us: T0 };
-  const c = R.createRest({ fetch: viaFetch(place, [R.ORIGIN]), nowUs: () => clock.us, out });
-  return { R, c, place, out, clock };
+  const out = mkdtempSync(join(tmpdir(), "l2-rest-")), clock = { us: T0, step: 3 }, inits: RequestInit[] = [], f = viaFetch(place, [R.ORIGIN]);
+  const nowUs = (): number => { const t = clock.us; clock.us += clock.step; return t; };
+  const c = R.createRest({ fetch: (url, init) => { inits.push(init); return f(url, init); }, nowUs, out });
+  return { R, c, place, out, clock, inits };
 }
+const stopOf = async (p: Promise<unknown>): Promise<{ code: string; text: string }> => {
+  try { await p; } catch (e) { return { code: String((e as { code?: unknown }).code), text: `${String(e)} ${JSON.stringify((e as { detail?: unknown }).detail)}` }; }
+  return { code: "answered", text: "" };
+};
 const lines = (out: string): Rest.RequestLine[] =>
   readFileSync(join(out, "requests.jsonl"), "utf8").trim().split("\n").map((l) => JSON.parse(l) as Rest.RequestLine);
 async function code(p: Promise<unknown>): Promise<string> {
@@ -38,15 +45,18 @@ async function code(p: Promise<unknown>): Promise<string> {
   return "answered";
 }
 
-// killer: scripts/l2/rest.mjs:21 CONST "weight: 250" -> "weight: 251"
+// killer: scripts/l2/rest.mjs:23 CONST "weight: 250" -> "weight: 251"
 test("l2_rest_logged_and_kept_before_read", async () => {
   const depth = Buffer.from("{\"lastUpdateId\":7,\"x\":[[\"0.10\",\"1.000\"]]}\n"), bad = Buffer.from("not json {");
-  const { R, c, place, out } = await rig((p) => (p.startsWith("/api/v3/depth") ? { status: 200, body: depth, headers: { "x-mbx-used-weight-1m": "250" } }
+  const { R, c, place, out, inits } = await rig((p) => (p.startsWith("/api/v3/depth") ? { status: 200, body: depth, headers: { "x-mbx-used-weight-1m": "250" } }
     : { status: 200, body: bad }));
   const a = await c.request("depth", "BTCUSDT");
   assert.ok(a.body.equals(depth));
   assert.ok(readFileSync(join(out, a.kept)).equals(depth), "the 200 body is kept as received");
-  assert.match(a.kept, /^rest\/BTCUSDT\/BTCUSDT-depth-\d{8}T\d{9}Z\.json$/);
+  assert.match(a.kept, /^rest\/BTCUSDT\/BTCUSDT-depth-\d{8}T\d{12}Z\.json$/);
+  // G2 B3: the init is exactly { redirect: "manual", signal } (the 30 s timeout signal, no header).
+  assert.deepEqual(Object.keys(inits[0] ?? {}).sort(), ["redirect", "signal"]);
+  assert.ok(inits[0]?.signal instanceof AbortSignal && inits[0].redirect === "manual");
   const l = lines(out)[0];
   assert.deepEqual([l?.kind, l?.weight, l?.status, l?.bytes, l?.sha256, l?.kept, l?.headers["x-mbx-used-weight-1m"], l?.tls_peer_sha256],
     ["depth", 250, 200, depth.length, createHash("sha256").update(depth).digest("hex"), a.kept, "250", null]);
@@ -62,26 +72,39 @@ test("l2_rest_logged_and_kept_before_read", async () => {
   c.close();
 });
 
-// killer: scripts/l2/rest.mjs:113 CONST "status === 429 || status === 418" -> "status === 429"
+// killer: scripts/l2/rest.mjs:126 CONST "status === 429 || status === 418" -> "status === 429"
 test("l2_rest_429_418_suspend_until_retry_after", async () => {
-  for (const [status, stopCode, retry, waitS] of [[429, "rate_limited", "7", 7], [418, "ip_banned", "120", 120], [429, "rate_limited", undefined, 60]] as const) {
+  for (const [status, stopCode, retry, waitS] of [[429, "rate_limited", "7", 7], [418, "ip_banned", "120", 120], [429, "rate_limited", undefined, 60],
+    [418, "ip_banned", "259200", 259_200]] as const) {
     let next: Reply = { status, body: "{\"code\":-1003}", ...(retry === undefined ? {} : { headers: { "retry-after": retry } }) };
     const { c, place, out, clock } = await rig(() => next);
     assert.equal(await code(c.request("depth", "SOLUSDT")), stopCode);
     assert.deepEqual(readdirSync(join(out, "rest", "errors")).map((n) => n.endsWith(`-${String(status)}.json`)), [true], "error body kept");
-    assert.equal(c.suspendedUntilUs, T0 + waitS * 1_000_000);
-    clock.us = T0 + waitS * 1_000_000 - 1;
+    const h = lines(out)[0]?.headers;
+    assert.deepEqual([h?.["retry-after"], typeof h?.date], [retry ?? null, "string"], "retry-after and date logged");
+    const until = T0 + 3 + waitS * 1_000_000; // counted from the receive time (sent T0, received T0 + 3)
+    assert.equal(c.suspendedUntilUs, until);
+    clock.us = until - 1;
     assert.equal(await code(c.request("time", null)), "suspended");
     assert.equal(place.calls.length, 1, "no request while suspended");
-    clock.us = T0 + waitS * 1_000_000;
+    clock.us = until;
     next = { status: 200, body: "{\"serverTime\":1}" };
     assert.equal(await code(c.request("time", null)), "answered");
     assert.equal(place.calls.length, 2);
     c.close();
   }
+  // A 418 without a readable Retry-After and any Retry-After above 3 days stop every later request.
+  for (const [status, retry, stopCode] of [[418, undefined, "ip_banned_no_retry_after"], [418, "soon", "ip_banned_no_retry_after"],
+    [429, "259201", "retry_after_too_long"]] as const) {
+    const { c, place } = await rig(() => ({ status, ...(retry === undefined ? {} : { headers: { "retry-after": retry } }) }));
+    assert.equal(await code(c.request("depth", "SOLUSDT")), stopCode);
+    assert.equal(await code(c.request("time", null)), "stopped");
+    assert.equal(place.calls.length, 1);
+    c.close();
+  }
 });
 
-// killer: scripts/l2/rest.mjs:118 CONST "state.stopped = true; " -> ""
+// killer: scripts/l2/rest.mjs:100 CONST "state.stopped = true; " -> ""
 test("l2_rest_451_stops_all", async () => {
   const { c, place, out, clock } = await rig(() => ({ status: 451, body: "{\"code\":0,\"msg\":\"restricted\"}" }));
   assert.equal(await code(c.request("exchangeInfo", "BNBUSDT")), "restricted_location");
@@ -96,7 +119,7 @@ test("l2_rest_451_stops_all", async () => {
   c.close();
 });
 
-// killer: scripts/l2/rest.mjs:68 ROR "n > BODY_MAX" -> "n >= BODY_MAX"
+// killer: scripts/l2/rest.mjs:73 ROR "n > BODY_MAX" -> "n >= BODY_MAX"
 test("l2_rest_body_bound_named", async () => {
   let size = 8_388_608;
   const { c, out } = await rig(() => ({ status: 200, body: Buffer.alloc(size, 0x20) }));
@@ -110,22 +133,24 @@ test("l2_rest_body_bound_named", async () => {
   c.close();
 });
 
-// killer: scripts/l2/rest.mjs:51 CONST "u.protocol !== \"https:\" || " -> ""
+// killer: scripts/l2/rest.mjs:56 CONST "u.protocol !== \"https:\" || " -> ""
 test("l2_rest_host_and_redirect_refused", async () => {
-  const { R, c, place, out } = await rig(() => ({ status: 302, headers: { location: "https://elsewhere.example/x" } }));
+  const { R, c, place, out } = await rig(() => ({ status: 302, headers: { location: "http://127.0.0.1:1/x" } }));
   for (const url of ["http://api.binance.com/api/v3/time", "https://api.binance.com.evil.example/x", "https://api.binance.com:8443/x",
     "https://fapi.binance.com/fapi/v1/time", "not a url"]) {
     assert.throws(() => R.guardUrl(url), (e: unknown) => (e as { code?: string }).code === "host_refused", url);
   }
   assert.equal(R.guardUrl(R.urlOf("time", null)), "https://api.binance.com/api/v3/time");
-  assert.equal(await code(c.request("time", null)), "redirect_refused");
+  const r = await stopOf(c.request("time", null));
+  assert.equal(r.code, "redirect_refused");
+  assert.ok(!r.text.includes("127.0.0.1") && !readFileSync(join(out, "requests.jsonl"), "utf8").includes("127.0.0.1"), "no address");
   assert.deepEqual(place.calls, ["/api/v3/time"], "the redirect is not followed");
   assert.equal(lines(out)[0]?.status, 302);
   assert.equal(existsSync(join(out, "rest", "errors")), true);
   c.close();
 });
 
-// killer: scripts/l2/rest.mjs:136 CONST "replace(/0+$/, \"\")" -> "replace(/0$/, \"\")"
+// killer: scripts/l2/rest.mjs:157 CONST "replace(/0+$/, \"\")" -> "replace(/0$/, \"\")"
 test("l2_exchangeinfo_scale_and_limits", async () => {
   const R = await load();
   const limits = [{ rateLimitType: "REQUEST_WEIGHT", interval: "MINUTE", intervalNum: 1, limit: 6000 },
@@ -138,19 +163,19 @@ test("l2_exchangeinfo_scale_and_limits", async () => {
     assert.deepEqual(f.rateLimits, limits);
   }
   for (const bad of [doc(0.01), doc("0.00"), doc("1e-2"), doc("0.01", []), doc("0.01", [{ ...limits[0], limit: "6000" }]),
-    doc("0.01", [{ ...limits[0], intervalNum: 5 }]), Buffer.from("{\"symbols\":[]}")]) {
+    doc("0.01", [{ ...limits[0], intervalNum: 5 }]), doc("0.01", [{ ...limits[0], interval: "SECOND" }]), Buffer.from("{\"symbols\":[]}")]) {
     assert.throws(() => R.exchangeInfoFacts(bad), (e: unknown) => (e as { code?: string }).code === "exchange_info_shape", bad.toString());
   }
 });
 
-// killer: scripts/l2/rest.mjs:150 CONST "Math.floor((sentUs + receivedUs) / 2)" -> "Math.round((sentUs + receivedUs) / 2)"
+// killer: scripts/l2/rest.mjs:171 CONST "Math.floor((sentUs + receivedUs) / 2)" -> "Math.round((sentUs + receivedUs) / 2)"
 test("l2_time_offset_logged", async () => {
-  const { R, c, out, clock } = await rig(() => ({ status: 200, body: "{\"serverTime\":1760000000123}" }));
+  const { R, c, out } = await rig(() => ({ status: 200, body: "{\"serverTime\":1760000000123}" }));
   const a = await c.request("time", null);
-  clock.us = T0 + 1;
-  const e = R.logTimeOffset(out, a.body, T0, T0 + 1); // midpoint T0 + 0.5 us, floored
-  assert.deepEqual(e, { event: "clock_offset", sent_us: T0, received_us: T0 + 1, server_time_ms: 1_760_000_000_123,
-    offset_us: 1_760_000_000_123_000 - T0, reason: null });
+  assert.deepEqual([a.sentUs, a.receivedUs], [T0, T0 + 3]);
+  const e = R.logTimeOffset(out, a.body, a.sentUs, a.receivedUs); // midpoint T0 + 1.5 us, floored to T0 + 1
+  assert.deepEqual(e, { event: "clock_offset", sent_us: T0, received_us: T0 + 3, server_time_ms: 1_760_000_000_123,
+    offset_us: 1_760_000_000_123_000 - (T0 + 1), reason: null });
   assert.ok(Number.isSafeInteger(e.offset_us));
   const unsafe = R.logTimeOffset(out, Buffer.from("{\"serverTime\":1760000000123.5}"), T0, T0 + 2);
   assert.deepEqual([unsafe.offset_us, unsafe.server_time_ms, unsafe.reason], [null, null, "server_time_not_safe_integer"]);
@@ -159,21 +184,79 @@ test("l2_time_offset_logged", async () => {
   c.close();
 });
 
-// killer: scripts/l2/rest.mjs:81 CONST "cert.fingerprint256" -> "cert.subject"
+// killer: scripts/l2/rest.mjs:91 CONST "cert.fingerprint256" -> "cert.subject"
 test("l2_tls_peer_logged_without_address", async () => {
   const connected = channel("undici:client:connected");
   const fake = { connectParams: { hostname: "203.0.113.9", localAddress: "198.51.100.7", port: 443 },
     socket: { remoteAddress: "203.0.113.9", localAddress: "198.51.100.7", getPeerCertificate: () => ({ fingerprint256: "AB:CD:EF", subject: { CN: "x" } }) } };
-  let tls = false;
-  const { c, out } = await rig(() => { if (tls) connected.publish(fake); return { status: 200, body: "{\"serverTime\":1}" }; });
+  let tls = false, twice = false;
+  const { c, out } = await rig(() => {
+    if (tls || twice) connected.publish(fake);
+    if (twice) connected.publish(fake);
+    return { status: 200, body: "{\"serverTime\":1}" };
+  });
   await c.request("time", null); // plain loopback: no TLS socket
   tls = true;
   await c.request("time", null); // a test socket carrying a certificate, published while the request runs
   tls = false;
   connected.publish(fake); // outside a request: not attributed
   await c.request("time", null);
-  assert.deepEqual(lines(out).map((l) => l.tls_peer_sha256), [null, "AB:CD:EF", null]);
+  twice = true;
+  await c.request("time", null); // two connections in one window: no fingerprint, named
+  assert.deepEqual(lines(out).map((l) => [l.tls_peer_sha256, l.tls_peer_note]),
+    [[null, null], ["AB:CD:EF", null], [null, null], [null, "several_connections"]]);
   const written = readFileSync(join(out, "requests.jsonl"), "utf8");
   for (const address of ["203.0.113.9", "198.51.100.7", "127.0.0.1", "localAddress", "remoteAddress"]) assert.ok(!written.includes(address), address);
   c.close();
+});
+
+// G2 B1, m1, B2, J1, m2, m3: a failure names its code, never an address; a body that fails mid-read is still logged; a symbol outside
+// the closed list (or a null one for depth and exchangeInfo) is refused before any request; the requests of a client are chained;
+// files are written exclusively and a disk failure is a named stop.
+// killer: scripts/l2/rest.mjs:80 CONST "e?.cause?.code ?? " -> "e?.cause?.message ?? "
+test("l2_rest_failures_named_without_address_and_symbols_closed", async () => {
+  const R = await load();
+  const out = mkdtempSync(join(tmpdir(), "l2-rest-")), cause = Object.assign(new Error("connect ECONNREFUSED 127.0.0.1:59999"), { code: "ECONNREFUSED" });
+  let t = T0, mode = "refused", calls = 0, release = (): void => undefined;
+  const body = (): ReadableStream => {
+    let pulls = 0;
+    return new ReadableStream({ pull: (ctl) => { if (pulls++ === 0) ctl.enqueue(new Uint8Array([123])); else ctl.error(new Error("reset 127.0.0.1:443")); } });
+  };
+  const fetch = async (): Promise<Response> => {
+    calls += 1;
+    if (mode === "refused") throw Object.assign(new TypeError("fetch failed"), { cause });
+    if (mode === "midbody") return new Response(body(), { status: 200 });
+    if (mode === "held") await new Promise<void>((ok) => { release = ok; });
+    return new Response("{\"serverTime\":1}", { status: 200 });
+  };
+  const c = R.createRest({ fetch, nowUs: () => (t += 1), out });
+  const refused = await stopOf(c.request("time", null));
+  assert.equal(refused.code, "network_error");
+  assert.ok(refused.text.includes("ECONNREFUSED") && !/127\.0\.0\.1|59999/.test(refused.text), refused.text);
+  mode = "midbody";
+  const mid = await stopOf(c.request("time", null));
+  assert.ok(mid.code === "network_error" && !mid.text.includes("127.0.0.1"), mid.text);
+  assert.deepEqual(lines(out).map((l) => [l.status, l.bytes, l.kept]), [[200, 1, null]], "a failed body read is still logged");
+  for (const [kind, symbol] of [["depth", "../../escaped"], ["depth", "BTCUSDT&limit=1"], ["exchangeInfo", "btcusdt"], ["depth", null],
+    ["exchangeInfo", null], ["time", "BTCUSDT"]] as const) {
+    assert.equal((await stopOf(c.request(kind, symbol))).code, "bad_symbol", `${kind} ${String(symbol)}`);
+  }
+  assert.equal(calls, 2, "no fetch for a refused symbol");
+  assert.deepEqual(readdirSync(out).sort(), ["requests.jsonl"], "nothing written outside");
+  mode = "held";
+  const first = c.request("time", null), second = c.request("time", null);
+  for (let i = 0; i < 20 && calls < 3; i++) await new Promise((ok) => { setTimeout(ok, 5); });
+  await new Promise((ok) => { setTimeout(ok, 20); });
+  assert.equal(calls, 3, "the second request waits for the first");
+  mode = "ok";
+  release();
+  await first;
+  await second;
+  assert.equal(calls, 4);
+  const gone = R.createRest({ fetch, nowUs: () => T0, out: join(out, "absent", "\u0000") });
+  assert.equal((await stopOf(gone.request("time", null))).code, "disk_error");
+  const fixed = R.createRest({ fetch, nowUs: () => T0, out });
+  await fixed.request("time", null);
+  assert.equal((await stopOf(fixed.request("time", null))).code, "disk_error", "an existing file is never overwritten");
+  for (const x of [c, gone, fixed]) x.close();
 });
