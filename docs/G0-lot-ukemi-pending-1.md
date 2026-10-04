@@ -5,8 +5,8 @@
   - `docs/ETAT.md` du tronc (`origin/lot/etude-suite` = `050da36d`, ligne posée par `d1cf7a1b`), l.439-441 : « les deux tests de site-ukemi (`:1198`, `:1438`) lisent `ukemi-served.json` et rougiraient au bloc C sur `schema_version` du corps de la CA, ce qu un instantané en attente du harnais ne couvre pas. Construction : le même mécanisme pour l état servi d ukemi (synchro et vérification). Porteur : RECHERCHES, sur la base avant le bloc C ; état : ouvert. » ;
   - plan r3 `recherches:coordination/pieces/2026-10-04-contrat-1-1-0-r3/PLAN-CM-3c-CM-4.md` : §1 point 1 (« Toute autre valeur de `prediction.schema_version` rend 400 `schema_version_unsupported` »), §6 (recensement : `scripts/verify-harness.mjs:14,50,270,320-346` et `scripts/sync-ukemi-served.mjs:19,29,122,131-132,146-149` changent au bloc C pour B-17, « à changer au temps (i), sinon la CA d'après déploiement est rouge »), §8.5 (ligne « comparaisons en processus, `test/site-ukemi.test.ts:1198`, `:1438`, recensement de MONARK (b2) ») ;
   - le mécanisme analogue : SERVED-PENDING-1, `docs/G0-lot-served-pending-1.md` et `docs/G7-lot-served-pending-1.md` de `recherches/served-pending-1` (PR #132), dont la note : « `--pending` envoie au harnais en processus les corps de la CA (`GATE_BODY` de `scripts/verify-harness.mjs`, `GATE_LIQ_BODY` de la synchro, `schema_version: "1.0.0"`). Si le bloc C refuse ces corps, `--pending` échoue fermé tant que UKEMI-PENDING-1 ne les a pas passés en 1.1.0 » ; G2 de SERVED-PENDING-1, m6.
-- **Base** : `origin/base/chantier-moteur-2026-10-03` = `880654ed`. Branche `recherches/ukemi-pending-1`, arbre `/home/user/monark-governance-ukp`. Auteur : RECHERCHES. Borne R-25 : 547 lignes contre `880654ed`.
-- **Statut : arrêté au G0.** Ni MONARK ni le plan ne nomment la zone de l'item, et deux choix de dessin restent ouverts (section 4). Rien n'est écrit hors de ce document.
+- **Base** : `origin/base/chantier-moteur-2026-10-03` = `7a0b1a49` (fusion de #132, SERVED-PENDING-1) ; G0 mesuré sur `880654ed`, rebasé sans conflit. Branche `recherches/ukemi-pending-1`, arbre `/home/user/monark-governance-ukp`. Auteur : RECHERCHES. Borne R-25 : 547 lignes contre `7a0b1a49`.
+- **Statut : décidé.** MONARK a répondu à Q-UP-1 à Q-UP-4 (`recherches` `e9cd32b`, `coordination/messages/2026-10-04-MONARK-vers-RECHERCHES-UKEMI-PENDING-1-Q.md`) : propositions retenues, Q-UP-3 dans sa variante « Q-UP-2 seule ». Section 6 ; les sections 1 à 5 restent la mesure et les questions telles que posées.
 
 ## 1. Ce que l'item exige (texte d'ETAT et décision de MONARK)
 
@@ -132,3 +132,35 @@ C'est probable pour l'empreinte (plan §9, « toutes les empreintes changent »)
 
   Q-UP-2 seul (alternative de Q-UP-3) : **~60**. Borne 547.
 - **Différences servies** : aucune. Aucun instantané en attente n'est versé ; la CA versée, `ukemi-served.json`, le manifeste et les pages ne bougent pas.
+
+## 6. Décisions de MONARK (`recherches` `e9cd32b`) et plan retenu
+
+1. **Q-UP-1, zone** : ces fichiers et eux seuls, jusqu'à la fusion du lot :
+   - `scripts/verify-harness.mjs` ;
+   - `scripts/sync-ukemi-served.mjs` et son `.d.mts` ;
+   - `apps/site/lib/ukemi-served-load.ts` ;
+   - `test/site-ukemi.test.ts` ;
+   - `test/verify-harness-liq.test.ts` ;
+   - la seule ligne du corps liq copié dans `scripts/sync-harness-served.mjs` (option (b) : #132 est sur la base, à `7a0b1a49`).
+
+   Sous la décision de Q-UP-3, le lot n'écrit que dans `scripts/verify-harness.mjs`, la ligne de `scripts/sync-harness-served.mjs` et `test/verify-harness-liq.test.ts`. La synchro d'ukemi, son `.d.mts`, le chargeur et `test/site-ukemi.test.ts` restent dans la zone sans être touchés.
+2. **Q-UP-2, (a)** : une constante `CA_SCHEMA_VERSION` dans `verify-harness.mjs`, exportée, lue par les quatre corps littéraux. Le test de parité contre `SCHEMA_VERSION` de `gate.ts` est le tueur. Le script reste sans dépendance.
+   - La copie de `GATE_LIQ_BODY` dans `sync-harness-served.mjs` suit, en une ligne : `schema_version: GATE_BODY.prediction.schema_version`. `GATE_BODY` y est déjà importé de la CA (l.47), donc ni import ni autre ligne ne change.
+   - La parité de cette copie est testée (forme du corps copié, aucun autre `schema_version` dans le fichier).
+3. **Q-UP-3** : pas d'instantané en attente d'ukemi dans ce lot. Le report est un item :
+   - **UKEMI-PENDING-SNAPSHOT-1** : l'instantané en attente de l'état servi d'ukemi (`ukemi-pending.json`, `--pending` de la synchro d'ukemi, `loadUkemiPending`, l.623 et partie (1) de l.1175 lues contre lui ; dessin du §4, Q-UP-3, proposition).
+   - **Déclencheur** : le G0 du bloc C.
+   - **Critère** : le bloc C change l'empreinte C5 (`digestPinned` de la strate engagée) ou la clause liq. Sinon, l'item se ferme sans code.
+   - **Prix noté** : R-25 d'environ 405.
+   - **Porteur** : RECHERCHES ; état : ouvert.
+4. **Q-UP-4** : les renommages B-17 (`servedVerdictFacts`, `sync-ukemi-served.mjs:131-132`, et la ligne `verify-harness.mjs:270`, `calib_digest` vers `scores_sha256`) restent au bloc C (plan §6). Ce lot ne les touche pas.
+
+**Plan retenu** :
+- **Tests rouges** (`test/verify-harness-liq.test.ts`) :
+  - `verify_harness_ca_schema_version_equals_the_harness_schema_version` : `CA_SCHEMA_VERSION === SCHEMA_VERSION`, et les deux corps exportés la portent. À la base, la constante n'existe pas : rouge par assertion. Tueur : la constante changée seule (`"1.0.0"` vers `"1.1.0"`, CONST).
+  - `verify_harness_ca_bodies_read_the_ca_schema_version` : les quatre corps littéraux lisent la constante, la CA n'écrit `schema_version` que là, et la copie liq de la synchro du harnais suit par `GATE_BODY`. À la base, chaque corps porte le littéral `"1.0.0"` : rouge par assertion. Tueur : la copie remise au littéral (CONST).
+  - L'ajout de trois lignes en tête de `verify-harness.mjs` déplace la ligne du tueur existant (l.271 vers l.274) ; sa ligne `// killer:` suit.
+- **Code** : la constante et les quatre corps ; la ligne de la copie.
+- **Oracle** : `node scripts/red-proof.mjs --base 7a0b1a49 --gel <gel> --repo /home/user/monark-governance-ukp --draw 2 --seed 37` ; `tsc --noEmit`, `lint`, `lint:ratchet`, `gate:vocab`, `lang:gate` ; `npm test` complet ; le bloc C simulé du §2 rejoué.
+- **Attendu de la simulation** (`SCHEMA_VERSION = "1.1.0"` dans `gate.ts` et `CA_SCHEMA_VERSION = "1.1.0"`, comme le bloc C les changerait) : seuls les trois littéraux des tests de `site-ukemi` (l.1137, l.1457, l.1638) restent rouges ; la partie de l.1175 qui dépend de B-17 ne rougit pas sous le seul refus de version.
+- **R-25 estimé** : ~60. **Différences servies** : aucune.
