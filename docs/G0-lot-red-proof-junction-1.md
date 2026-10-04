@@ -62,3 +62,21 @@ Attendu : script ≈ 6 lignes, test ≈ 40, docs hors compte R-25 (`docs/**/*.md
   worktree dont `node_modules` est une jonction.
 - **Q-RPJ-2** : la commande prise à la lettre de C-4 portait-elle le chemin du script par une jonction (cas 1) ? Le contournement
   `--repo` ne corrige que le cas 2 ; le cas 1 sortait 0 sans rien écrire.
+
+## Pli de la G2 (instance neuve : APPROUVE-AVEC-CORRECTIONS ; tests rouges au premier gel `34c4d55`, puis code)
+
+- **B-1** (bloquante), l.142 : la cible réelle n'est liée que si elle est sous un répertoire `node_modules`
+  (`realpathSync(from).split(sep).includes("node_modules")`) ; sinon (lien npm vers un espace de travail que l'arbre n'a pas, paquet
+  ajouté par le lot) le lien reste omis, comme à la base : la base ne charge jamais la copie de travail de `--repo`. Test
+  `red_proof_never_loads_a_workspace_the_base_lacks_from_the_repo_working_copy` (exp2 du relecteur : copie de travail dérivée) ;
+  tueur : la condition `node_modules` retirée.
+- **m-1**, l.217 : seul un lien vers un répertoire est écarté (`lstatSync(…).isSymbolicLink()`), inscrit dans `files.skipped` du
+  `RED-PROOF.json` (l.214, l.252, `red-proof.d.mts`) ; un dépôt imbriqué non suivi s'arrête encore (`EISDIR`, exit 2). Test
+  `red_proof_records_a_skipped_linked_directory_and_still_stops_on_an_untracked_nested_repo` ; tueur : le contrôle `lstatSync` retiré.
+  Le tueur du test du cas 3 devient `skipped.push(p)` → `changes.set(p, "A")`.
+- **m-3** : test `red_proof_leaves_out_a_broken_link_and_a_link_to_a_file_in_node_modules` (lien cassé, lien vers un fichier) ;
+  tueurs `isDir(from)` → `true` (déclaré) et → `existsSync(from)` (à la main), tués.
+- **m-2** : `import.meta.main !== false` exige Node 24.2 ou plus ; `engines` inchangé ; question Q-RPJ-3 du G7.
+- **m-4**, **m-5** : notés au G7 ; la question « la commande de C-4 passait-elle par une jonction ? » (Q-RPJ-2 ci-dessus) devient
+  Q-RPJ-4 au G7, dont Q-RPJ-1 à Q-RPJ-3 sont reformulées selon la G2.
+- Aucune ligne du script ajoutée ni retirée : les adresses des tueurs existants restent justes.
