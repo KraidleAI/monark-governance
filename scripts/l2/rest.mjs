@@ -17,7 +17,7 @@
 // logs none and names why, from the closed list TLS_NOTES (fail closed: never a fingerprint in doubt). The requests of a client are
 // chained. A stop carries an error code or name, never an error message (no address).
 // Test seam: createRest(io) takes fetch, the wall clock in microseconds, the output directory and, for a loopback TLS test only, the
-// TLS name and port of the place's own connection (io.peer; PEER otherwise) from its caller.
+// TLS name and port of the place's own connection (io.peer, servername localhost only, else host_refused; PEER otherwise) from its caller.
 import { createHash } from "node:crypto";
 import { subscribe, unsubscribe } from "node:diagnostics_channel";
 import { appendFileSync, mkdirSync, writeFileSync } from "node:fs";
@@ -94,7 +94,8 @@ const peerOf = (w) => (w.own > 1 ? [null, "several_connections"] : w.own === 1 ?
 /** The REST client of one recorder: io = { fetch, nowUs, out, peer? }. request(kind, symbol) resolves to { body, kept, sentUs, receivedUs } on
  *  a 200; the requests of one client are chained (one at a time), so the TLS window of a request holds only its own connection. */
 export function createRest(io) {
-  const peer = io.peer ?? PEER, state = { suspendedUntilUs: 0, stopped: false, w: null };
+  const peer = io.peer === undefined ? PEER : io.peer?.servername === "localhost" ? io.peer : stop("host_refused", { peer: "not_loopback" });
+  const state = { suspendedUntilUs: 0, stopped: false, w: null };
   const onConnected = (msg) => {
     const s = msg?.socket, w = state.w;
     if (w === null || s === null || typeof s !== "object") return;

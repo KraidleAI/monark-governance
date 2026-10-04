@@ -82,7 +82,7 @@ test("l2_rest_logged_and_kept_before_read", async () => {
   w.close();
 });
 
-// killer: scripts/l2/rest.mjs:129 CONST "status === 429 || status === 418" -> "status === 429"
+// killer: scripts/l2/rest.mjs:130 CONST "status === 429 || status === 418" -> "status === 429"
 test("l2_rest_429_418_suspend_until_retry_after", async () => {
   for (const [status, stopCode, retry, waitS] of [[429, "rate_limited", "7", 7], [418, "ip_banned", "120", 120], [429, "rate_limited", undefined, 60],
     [418, "ip_banned", "259200", 259_200]] as const) {
@@ -114,7 +114,7 @@ test("l2_rest_429_418_suspend_until_retry_after", async () => {
   }
 });
 
-// killer: scripts/l2/rest.mjs:133 CONST "state.stopped = true" -> "state.stopped = false"
+// killer: scripts/l2/rest.mjs:134 CONST "state.stopped = true" -> "state.stopped = false"
 test("l2_rest_451_stops_all", async () => {
   const { R, c, place, out, clock } = await rig(() => ({ status: 451, body: "{\"code\":0,\"msg\":\"restricted\"}" }));
   assert.equal(await code(c.request("exchangeInfo", "BNBUSDT")), "restricted_location");
@@ -171,7 +171,7 @@ test("l2_rest_host_and_redirect_refused", async () => {
   c.close();
 });
 
-// killer: scripts/l2/rest.mjs:169 CONST "replace(/0+$/, \"\")" -> "replace(/0$/, \"\")"
+// killer: scripts/l2/rest.mjs:170 CONST "replace(/0+$/, \"\")" -> "replace(/0$/, \"\")"
 test("l2_exchangeinfo_scale_and_limits", async () => {
   const R = await load();
   const limits = [{ rateLimitType: "REQUEST_WEIGHT", interval: "MINUTE", intervalNum: 1, limit: 6000 },
@@ -189,7 +189,7 @@ test("l2_exchangeinfo_scale_and_limits", async () => {
   }
 });
 
-// killer: scripts/l2/rest.mjs:186 CONST "Math.floor((sentUs + receivedUs) / 2)" -> "Math.round((sentUs + receivedUs) / 2)"
+// killer: scripts/l2/rest.mjs:187 CONST "Math.floor((sentUs + receivedUs) / 2)" -> "Math.round((sentUs + receivedUs) / 2)"
 test("l2_time_offset_logged", async () => {
   const { R, c, out } = await rig(() => ({ status: 200, body: "{\"serverTime\":1760000000123}" }));
   const a = await c.request("time", null);
@@ -213,7 +213,7 @@ test("l2_time_offset_logged", async () => {
 // B-2 of the G2 of part P1 (lot P1-B1-BIS): test sockets published on the channel while a request runs (an injected fetch, no
 // network). Only a TLS socket whose servername and remote port are those of the place (PEER) is the request's own; any other window
 // logs no fingerprint and names why (TLS_NOTES); a socket published outside a request is not attributed; no address is written.
-// killer: scripts/l2/rest.mjs:102 CONST "s.servername !== peer.servername || " -> ""
+// killer: scripts/l2/rest.mjs:103 CONST "s.servername !== peer.servername || " -> ""
 test("l2_tls_peer_logged_without_address", async () => {
   const R = await load(), out = tmp(), connected = channel("undici:client:connected");
   const tls = (servername: string, remotePort: number, cert: object, reused = false): object => ({ servername, remotePort,

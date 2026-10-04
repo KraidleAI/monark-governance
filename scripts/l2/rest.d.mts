@@ -34,7 +34,7 @@ export interface RestIo {
   /** Wall clock of the host in microseconds, an integer. */
   nowUs: () => number;
   out: string;
-  /** A loopback TLS test only: the TLS name and port of the place's own connection; PEER otherwise. */
+  /** A loopback TLS test only: the TLS name (localhost, else host_refused) and port of the place's own connection; PEER otherwise. */
   peer?: TlsPeer;
 }
 

@@ -7,7 +7,7 @@ import { after, test } from "node:test";
 import assert from "node:assert/strict";
 import { channel } from "node:diagnostics_channel";
 import { createHash, generateKeyPairSync, sign, X509Certificate } from "node:crypto";
-import { mkdtempSync, readFileSync, rmSync } from "node:fs";
+import { mkdtempSync, readdirSync, readFileSync, rmSync } from "node:fs";
 import { createServer, type Server } from "node:https";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -53,7 +53,7 @@ function selfSigned(cn: string): { key: string; cert: string; fingerprint: strin
 // WebSocket server's), named foreign_connection; a resumed TLS session of node:tls to the place, published on the channel as undici
 // publishes its connections (undici's own session cache holds its sessions by WeakRef: whether it resumes is up to the collector), is
 // named session_resumed (base: null with no note); the first, fresh connection gives the REST server's fingerprint.
-// killer: scripts/l2/rest.mjs:102 CONST " || s.remotePort !== peer.port" -> ""
+// killer: scripts/l2/rest.mjs:103 CONST " || s.remotePort !== peer.port" -> ""
 test("l2_tls_peer_only_from_own_connection", async () => {
   const R = await load(), rest = selfSigned("rest.test"), ws = selfSigned("ws.test");
   setDefaultCACertificates([rest.cert, ws.cert]);
@@ -114,4 +114,27 @@ test("l2_rest_closed_lists_frozen", async () => {
   assert.deepEqual(R.PEER, { servername: o.hostname, port: 443 });
   assert.deepEqual(R.HOSTS, [o.host]);
   assert.deepEqual(R.TLS_NOTES, ["several_connections", "session_resumed", "no_certificate", "foreign_connection", "no_tls", "reused_socket"]);
+});
+
+// Q-2 of the G7 (m-3 of its G2): the io.peer seam is out of reach of the production call path. No module under scripts/ but rest
+// itself names createRest together with a peer; the book takes a ready client (io.rest), never createRest's io; and a peer whose
+// name is not localhost is a named stop, so a spread config cannot attribute a foreign certificate (stream.binance.com:9443).
+// killer: scripts/l2/rest.mjs:97 CONST "io.peer?.servername === \"localhost\"" -> "true"
+test("l2_rest_peer_seam_loopback_only", async () => {
+  const R = await load(), root = new URL("../scripts/", import.meta.url), own = ["l2/rest.mjs", "l2/rest.d.mts"];
+  const files = readdirSync(root, { recursive: true, encoding: "utf8" }).map((f) => f.replace(/\\/g, "/")).filter((f) => /\.[cm]?[jt]s$/.test(f));
+  const src = (f: string): string => readFileSync(new URL(f, root), "utf8");
+  assert.ok(files.includes("l2/book.mjs") && files.includes("l2/rest.mjs"), "the walk reaches scripts/l2");
+  const callers = files.filter((f) => !own.includes(f) && /\bcreateRest\b/.test(src(f)));
+  for (const f of callers) assert.ok(!/\bpeer\b/.test(src(f)), `${f} calls createRest and names a peer`);
+  const book = src("l2/book.mjs");
+  assert.deepEqual([/\bcreateRest\b/.test(book), /\bpeer\b/.test(book), book.includes("io.rest.request(")], [false, false, true], "the book takes a ready client");
+  assert.ok(src("l2/book.d.mts").includes(`rest: Pick<RestClient, "request" | "stopped" | "suspendedUntilUs">;`), "the book's io holds a client, not createRest's io");
+  const io = { fetch: (): Promise<Response> => Promise.reject(new Error("never")), nowUs: (): number => 1_760_000_000_000_000, out: "unused" };
+  for (const peer of [{ servername: "stream.binance.com", port: 9443 }, { servername: "api.binance.com", port: 443 }, { servername: "127.0.0.1", port: 443 }]) {
+    assert.throws(() => R.createRest({ ...io, peer }), (e: unknown) => e instanceof R.RestStop && e.code === "host_refused" && e.detail.peer === "not_loopback",
+      peer.servername);
+  }
+  R.createRest({ ...io, peer: { servername: "localhost", port: 1 } }).close();
+  R.createRest(io).close();
 });
