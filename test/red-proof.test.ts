@@ -406,7 +406,7 @@ test("red_proof_names_a_truncation_at_base_alone_inconclusive", () => {
 });
 
 const PIN = '// killer: packages/w/index.js:1 COR "x + x" -> "x - x"\ntest("pin_ok", () => { assert.equal(double(3), 6); });\n', PINS = `${HEAD}import { existsSync } from "node:fs";\nimport { double } from "@fx/w";\n`;
-const G0 = (decl: boolean, ...killers: string[]): string => `# G0 of a test-only lot\n${decl ? "red-proof: test-only\n" : ""}${killers.map((k) => `- \`${k}\`\n`).join("")}`, XX = 'packages/w/index.js:1 COR "x + x" -> "x - x"';
+const G0 = (decl: boolean, ...killers: string[]): string => `# G0 of a test-only lot\n${decl ? "red-proof: test-only\r\n" : ""}${killers.map((k) => `- \`${k}\`\n`).join("")}`, XX = 'packages/w/index.js:1 COR "x + x" -> "x - x"';
 function pinRun(key: string, files: Record<string, string | null>, extra: string[], commit: Record<string, string> = {}): Run { // RED-PROOF-TEST-ONLY-1: a lot that only adds tests pinning what the gel already does
   const f = fixture(), wt = join(f.root, `wt-${key}`);
   if (!existsSync(wt)) {
@@ -481,21 +481,41 @@ test("red_proof_test_only_fails_closed_on_a_production_change", () => {
 // killer: scripts/red-proof.mjs:216 CONST "production.push(p)" -> "null"
 test("red_proof_test_only_counts_a_test_file_that_production_imports_as_production", () => {
   const r = pinRun("b1", { "test/h.ts": "export const H = 2;\n", "packages/w/test/hw.ts": "export const HW = 2;\n", "test/free.ts": "export const F = 1;\n", "test/pin.test.ts": `${PINS}${PIN}`, "docs/G0-pin.md": G0(true, XX) }, ["--test-only"],
-    { "scripts/rec.mjs": 'import { H } from "../test/h.ts";\nexport const R = H;\n', "test/h.ts": "export const H = 1;\n", "packages/w/rec.js": 'export { HW } from "./test/hw.ts";\n', "packages/w/test/hw.ts": "export const HW = 1;\n" }); // G2 B-1: as scripts/record-byo-demo.mjs:14, and a package's own test/
+    { "scripts/rec.mjs": 'import { H } from "../test/h.ts";\nexport const R = H;\n', "packages/w/rec.js": 'export { HW } from "./test/hw.ts";\n' }); // G2 B-1: as scripts/record-byo-demo.mjs:14, and a package's own test/; files the base names but lacks, added by the lot
   assert.deepEqual([r.status, r.proof.ok, r.proof.tests, r.proof.files.production, r.proof.refusals], [1, false, [], ["packages/w/test/hw.ts", "test/h.ts"], ["production changed: packages/w/test/hw.ts", "production changed: test/h.ts"]]);
 });
 
-// killer: scripts/red-proof.mjs:218 CONST "!names.has(d.name)" -> "false"
+// killer: scripts/red-proof.mjs:218 CONST "!(st === \"M\" ? names([p]) : moved).has(d.name)" -> "false"
 test("red_proof_test_only_refuses_a_removed_test_and_names_it", () => {
   const f = fixture(), moved = readFileSync(join(f.dir, "test", "fresh.test.ts"), "utf8"); // G2 B-2; a moved file keeps its tests: not removed
   const r = pinRun("b2", { "test/existing.test.ts": null, "test/fresh.test.ts": null, "test/fresh2.test.ts": moved, "test/pin.test.ts": `${PINS}${PIN}`, "docs/G0-pin.md": G0(true, XX) }, ["--test-only"]);
   assert.deepEqual([r.status, r.proof.ok, r.proof.tests, r.proof.files.removed, r.proof.refusals], [1, false, [], ["test/existing.test.ts :: import_existing"], ["test removed: test/existing.test.ts :: import_existing"]]);
 });
 
-// killer: scripts/red-proof.mjs:219 CONST "/^red-proof: test-only$/m.test(text)" -> "true"
+// killer: scripts/red-proof.mjs:219 CONST "/^red-proof: test-only\\r?$/m.test(text)" -> "true"
 test("red_proof_test_only_refuses_a_lot_whose_g0_does_not_declare_it", () => {
   const r = pinRun("nodecl", { "test/pin.test.ts": `${PINS}${PIN}`, "docs/G0-pin.md": G0(false, XX) }, ["--test-only"]); // G2 Q-RTO-4
   assert.deepEqual([r.status, r.proof.ok, r.proof.declared, r.proof.tests, r.proof.refusals], [1, false, null, [], ['no G0 of the diff declares "red-proof: test-only"']]);
+});
+
+// killer: scripts/red-proof.mjs:216 CONST "st !== \"A\" || " -> ""
+test("red_proof_test_only_refuses_a_modified_test_support_file_and_admits_an_added_one", () => {
+  const r = pinRun("b3", { "test/fixtures/f.json": '{"v":2}\n', "test/fixtures/new.json": '{"v":1}\n', "test/pin.test.ts": `${PINS}${PIN}`, "docs/G0-pin.md": G0(true, XX) }, ["--test-only"], { "test/fixtures/f.json": '{"v":1}\n' }); // G2 rr B-3: read by a computed path (scripts/census/u4-*.mjs)
+  const a = pinRun("b3add", { "test/fixtures/new.json": '{"v":1}\n', "test/pin.test.ts": `${PINS}${PIN}`, "docs/G0-pin.md": G0(true, XX) }, ["--test-only"]);
+  assert.deepEqual([r.status, r.proof.tests, r.proof.files.production, a.status, a.proof.ok, a.proof.files.support, a.proof.files.production], [1, [], ["test/fixtures/f.json"], 0, true, ["test/fixtures/new.json"], []]);
+});
+
+// killer: scripts/red-proof.mjs:218 CONST "st === \"M\" ? names([p]) : moved" -> "moved"
+test("red_proof_test_only_names_a_test_removed_inside_a_modified_file_even_if_another_file_reuses_its_name", () => {
+  const cases = readFileSync(join(fixture().dir, "test", "cases.test.ts"), "utf8").replace(/^test\("no_killer".*\n/m, ""); // G2 rr X2
+  const r = pinRun("x2", { "test/cases.test.ts": cases, "test/pin.test.ts": `${PINS}${PIN}test("no_killer", () => { assert.equal(double(3), 6); });\n`, "docs/G0-pin.md": G0(true, XX) }, ["--test-only"]);
+  assert.deepEqual([r.status, r.proof.tests, r.proof.files.removed], [1, [], ["test/cases.test.ts :: no_killer"]]);
+});
+
+// killer: scripts/red-proof.mjs:219 CONST "/^red-proof: test-only\\r?$/m" -> "/red-proof: test-only/"
+test("red_proof_test_only_reads_the_declaration_only_on_a_line_of_its_own", () => {
+  const r = pinRun("x3", { "test/pin.test.ts": `${PINS}${PIN}`, "docs/G0-pin.md": `${G0(false, XX)}The line \`red-proof: test-only\` would declare it.\n` }, ["--test-only"]); // G2 rr X3; a CRLF declaration counts (every G0() above)
+  assert.deepEqual([r.status, r.proof.declared, r.proof.refusals], [1, null, ['no G0 of the diff declares "red-proof: test-only"']]);
 });
 
 const section = (tap: string, file: string): string => new RegExp(`# red-proof file: ${file.replace(/\./g, "\\.")}\\n((?:(?!# red-proof file:)[^])*)`).exec(tap)?.[1] ?? "";
