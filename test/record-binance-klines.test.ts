@@ -15,7 +15,7 @@ import { createHash, generateKeyPairSync, type KeyObject, sign, X509Certificate 
 import { copyFileSync, existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
 import { type ClientRequest, createServer, type IncomingHttpHeaders, type IncomingMessage, request as httpRequest, type Server,
   type ServerResponse } from "node:http";
-import { type Agent, createServer as createTlsServer, request as httpsRequest, type RequestOptions } from "node:https";
+import { type Agent, createServer as createTlsServer, type RequestOptions } from "node:https";
 import { createRequire, syncBuiltinESMExports } from "node:module";
 import { tmpdir } from "node:os";
 import { delimiter, join, resolve, sep } from "node:path";
@@ -31,7 +31,7 @@ type FetchLike = (url: string, options: RequestOptions) => ClientRequest; // sha
 interface Reply { status: number; headers?: Record<string, string>; body?: string; cut?: boolean; part?: string; hold?: boolean }
 /** The TLS side of a loopback endpoint (lot BINANCE-PRE35-1): its leaf (the file's endpoint leaf by default), the CAs trusted while it
  *  runs (the file's one CA by default) and the highest TLS version it speaks. */
-interface TlsPlan { leaf?: Issued; trust?: readonly Issued[]; maxVersion?: SecureVersion }
+interface TlsPlan { leaf?: Issued; trust?: readonly Issued[]; maxVersion?: SecureVersion; trustLate?: boolean }
 interface Endpoint { base: string; urls: string[]; headers: IncomingHttpHeaders[]; reused: (boolean | null)[]; close: () => Promise<void> }
 interface Calls { urls: string[]; inits: RequestOptions[] }
 interface Recording { code: string; out: string; calls: Calls; sleeps: number[]; served: string[]; headers: IncomingHttpHeaders[];
@@ -46,6 +46,12 @@ interface MissingDoc { symbol: string; interval: string; start: string; end_excl
   missing: { open_time_ms: number; open_time_utc: string }[] }
 
 globalThis.fetch = (): Promise<Response> => Promise.reject(new Error("tripwire: these tests never call the global fetch"));
+// F-3 of the G2 of #115: the default transport is https.request, a tripwire too, synced into the ESM bindings (the recorder's among
+// them); only via sends, through the original captured here; a test may set its own spy and put this tripwire back; restored after the file
+const HTTPS = createRequire(import.meta.url)("node:https") as typeof import("node:https"), realHttpsRequest = HTTPS.request;
+HTTPS.request = (): never => { throw new Error("tripwire: these tests never call https.request"); };
+syncBuiltinESMExports();
+after(() => { HTTPS.request = realHttpsRequest; syncBuiltinESMExports(); });
 // m-1 of the review of BINANCE-PRE153-1: the children start from this environment, so none prints a warning on stderr (Node 22 warns
 // UNDICI-EHPA under NODE_USE_ENV_PROXY), which the junction test compares whole
 process.env.NODE_NO_WARNINGS = "1";
@@ -134,9 +140,11 @@ async function endpoint(rows: readonly Row[], script: ReadonlyMap<number, Reply>
     res.writeHead(200, { "content-type": "application/json", "x-mbx-used-weight-1m": String(2 * (n + 1)) }).end(JSON.stringify(rowsOut));
   };
   const leaf = tls.leaf ?? (endpointLeaf ??= issue(8, caOf()));
-  setDefaultCACertificates((tls.trust ?? [caOf()]).map((ca) => new X509Certificate(ca.der).toString()));
+  const trust = (): void => { setDefaultCACertificates((tls.trust ?? [caOf()]).map((ca) => new X509Certificate(ca.der).toString())); };
+  if (tls.trustLate !== true) trust(); // the trust first, then the server; trustLate: the other order (S1 of the G2 of #115, F-1)
   const server = plain ? createServer(handle) : createTlsServer({ key: leaf.key.export({ type: "pkcs8", format: "pem" }),
     cert: new X509Certificate(leaf.der).toString(), maxVersion: tls.maxVersion ?? "TLSv1.3" }, handle);
+  if (tls.trustLate === true) trust();
   const port = await listen(server);
   const close = (): Promise<void> => new Promise<void>((done) => { server.closeAllConnections(); server.close(() => { done(); }); });
   return { base: `${plain ? "http" : "https"}://127.0.0.1:${String(port)}`, urls, headers, reused, close };
@@ -151,7 +159,7 @@ function via(ep: Endpoint, calls: Calls): FetchLike {
     calls.inits.push(options);
     if (!url.startsWith(`${ORIGIN}/api/v3/klines?`)) throw new Error(`refused ${url}`);
     const to = `${ep.base}${url.slice(ORIGIN.length)}`;
-    const req = ep.base.startsWith("http:") ? httpRequest(to, { ...options, agent: undefined }) : httpsRequest(to, options);
+    const req = ep.base.startsWith("http:") ? httpRequest(to, { ...options, agent: undefined }) : realHttpsRequest(to, options);
     // an error of a request that its caller never handles (the base's recorder never ends it) cannot end this process; the recorder's
     // own listener still fires
     return req.on("error", () => undefined);
@@ -182,7 +190,7 @@ async function record(rows: readonly Row[], start: number, end: number, plan: Pl
   }
 }
 
-// killer: scripts/record-binance-klines.mjs:218 CONST "${ctx.end - 1}" -> "${ctx.end}"
+// killer: scripts/record-binance-klines.mjs:221 CONST "${ctx.end - 1}" -> "${ctx.end}"
 test("binance_klines_pages_a_full_page_then_a_partial_one", async () => {
   const n = LIMIT + 7, r = await record(series(n), at(0), at(n));
   assert.equal(r.code, "ok");
@@ -212,7 +220,7 @@ test("binance_klines_pages_a_full_page_then_a_partial_one", async () => {
   assert.equal(m.csv_sha256, sha(text(r.out, "BTCUSDT-15m.csv")));
 });
 
-// killer: scripts/record-binance-klines.mjs:323 COR "!rows.has(t)" -> "rows.has(t)"
+// killer: scripts/record-binance-klines.mjs:326 COR "!rows.has(t)" -> "rows.has(t)"
 test("binance_klines_removes_an_identical_duplicate_and_declares_gaps", async () => {
   // page 1 skips at(4); page 2 repeats at(5) byte for byte (an overlap); page 3 is the endpoint's; page 4 is empty (a tail gap)
   const r = await record(series(10, [4]), at(0), at(12), { script: new Map([[0, page([0, 1, 2, 3, 5])], [1, page([5, 6, 7])]]) });
@@ -226,14 +234,14 @@ test("binance_klines_removes_an_identical_duplicate_and_declares_gaps", async ()
   assert.deepEqual(jsonOf(r.out, "missing.json"), declared, "every absent grid slot declared, none filled");
 });
 
-// killer: scripts/record-binance-klines.mjs:306 ROR "JSON.stringify(kept) === JSON.stringify(k)" -> "JSON.stringify(kept) !== JSON.stringify(k)"
+// killer: scripts/record-binance-klines.mjs:309 ROR "JSON.stringify(kept) === JSON.stringify(k)" -> "JSON.stringify(kept) !== JSON.stringify(k)"
 test("binance_klines_refuses_a_conflicting_duplicate", async () => {
   const conflict = { status: 200, body: JSON.stringify([row(at(2), "9.99000000"), row(at(3))]) };
   const r = await record(series(4), at(0), at(4), { script: new Map([[0, page([0, 1, 2])], [1, conflict]]) });
   assert.deepEqual([r.code, r.served.length, rawCount(r.out), logOf(r.out).length, normalized(r.out)], ["duplicate_conflict", 2, 2, 2, []]);
 });
 
-// killer: scripts/record-binance-klines.mjs:247 CONST "status >= 300 && status < 400" -> "status >= 300 && status < 300"
+// killer: scripts/record-binance-klines.mjs:250 CONST "status >= 300 && status < 400" -> "status >= 300 && status < 300"
 test("binance_klines_stops_on_http_refusals", async () => {
   const cases: [Reply, string, string | null][] = [
     [{ status: 429, headers: { "retry-after": "30" } }, "rate_limited", "30"],
@@ -258,7 +266,7 @@ test("binance_klines_stops_on_http_refusals", async () => {
   assert.deepEqual([cut.code, cut.served.length, existsSync(join(cut.out, "requests.jsonl")), normalized(cut.out)], ["network_error", 1, false, []]);
 });
 
-// killer: scripts/record-binance-klines.mjs:287 SDL "k[6] < k[0] || k[6] > k[0] + ctx.step - 1" -> ""
+// killer: scripts/record-binance-klines.mjs:290 SDL "k[6] < k[0] || k[6] > k[0] + ctx.step - 1" -> ""
 test("binance_klines_stops_on_bad_bodies_and_candles", async () => {
   const json = (v: unknown): Reply => ({ status: 200, body: JSON.stringify(v) });
   const base = row(at(1)), off = at(1) + 60_000, late = row(at(2)), early = row(at(1)), numeric: unknown[] = [...base];
@@ -301,13 +309,13 @@ test("binance_klines_stops_on_bad_bodies_and_candles", async () => {
     [{ open_time_ms: at(1), close_time_ms: at(2) - 2 }, { open_time_ms: at(2), close_time_ms: at(2) }]]);
 });
 
-// killer: scripts/record-binance-klines.mjs:295 ROR "pages === MAX_PAGES" -> "pages > MAX_PAGES"
+// killer: scripts/record-binance-klines.mjs:298 ROR "pages === MAX_PAGES" -> "pages > MAX_PAGES"
 test("binance_klines_stops_after_one_hundred_pages", async () => {
   const r = await record(series(150), at(0), at(150), { perPage: 1 });
   assert.deepEqual([r.code, MAX_PAGES, r.served.length, r.sleeps.length, rawCount(r.out), normalized(r.out)], ["too_many_pages", 100, 100, 99, 100, []]);
 });
 
-// killer: scripts/record-binance-klines.mjs:164 SDL "if (existsSync(join(dir, " -> ""
+// killer: scripts/record-binance-klines.mjs:167 SDL "if (existsSync(join(dir, " -> ""
 test("binance_klines_refuses_an_unusable_output_directory", async () => {
   const full = fresh(), file = fresh(), repo = fresh(), worktree = fresh(), empty = fresh(), link = fresh();
   mkdirSync(full);
@@ -332,7 +340,7 @@ test("binance_klines_refuses_an_unusable_output_directory", async () => {
   assert.equal(manifestOf(empty).rows, 4);
 });
 
-// killer: scripts/record-binance-klines.mjs:148 CONST "if (names.length > 0)" -> "if (false)"
+// killer: scripts/record-binance-klines.mjs:151 CONST "if (names.length > 0)" -> "if (false)"
 test("binance_klines_refuses_a_proxy_or_an_unverified_tls", async () => {
   const proxy = "http://127.0.0.1:9";
   const cases: [RecorderIo, string][] = [
@@ -378,7 +386,7 @@ test("binance_klines_refuses_a_proxy_or_an_unverified_tls", async () => {
     detail: { variables: ["COMSPEC", "PATHEXT"], execArgv_length: 0 } }), 0, false], "env_refused names the variables, never a value");
 });
 
-// killer: scripts/record-binance-klines.mjs:320 CONST "k[1], k[2]" -> "Number(k[1]), k[2]"
+// killer: scripts/record-binance-klines.mjs:323 CONST "k[1], k[2]" -> "Number(k[1]), k[2]"
 test("binance_klines_keeps_decimal_strings_byte_for_byte", async () => {
   const long = "123456789012345678901234567890.123456789012345678901234567890";
   const odd: Row = [at(0), "0.00000001000", long, "00012.50", "1.10000000", "5", at(1) - 1, "0", 2, "0.000000000000000000000001", "1.0", "0"];
@@ -389,7 +397,7 @@ test("binance_klines_keeps_decimal_strings_byte_for_byte", async () => {
   assert.deepEqual(bytes(join(r.out, "raw", `BTCUSDT-${String(at(0))}.json`)), Buffer.from(body), "raw/ holds the bytes as received");
 });
 
-// killer: scripts/record-binance-klines.mjs:270 SDL "ctx.used.add(name);" -> ""
+// killer: scripts/record-binance-klines.mjs:273 SDL "ctx.used.add(name);" -> ""
 test("binance_klines_replays_raw_to_the_same_bytes", async () => {
   const r = await record(series(10, [4]), at(0), at(12), { script: new Map([[0, page([0, 1, 2, 3, 5])], [1, page([5, 6, 7])]]) });
   assert.equal(r.code, "ok");
@@ -422,7 +430,7 @@ test("binance_klines_replays_raw_to_the_same_bytes", async () => {
     ["written", "raw_page_missing", "raw_page_unused", "source_unattested"], "one JSON line per run: written, then the named stops of the replay");
 });
 
-// killer: scripts/record-binance-klines.mjs:135 CONST "(end - start) / INTERVALS[interval]" -> "(end - start) / INTERVALS[interval] + 1"
+// killer: scripts/record-binance-klines.mjs:138 CONST "(end - start) / INTERVALS[interval]" -> "(end - start) / INTERVALS[interval] + 1"
 test("binance_klines_expects_70080_candles_on_the_founder_range", async () => {
   const start = parseTime("2024-10-01T00:00:00Z"), end = parseTime("2026-10-01T00:00:00Z");
   assert.deepEqual([expectedCount(start, end), (end - start) / 86_400_000, SYMBOLS], [70_080, 730, ["BTCUSDT", "ETHUSDT", "BNBUSDT", "SOLUSDT"]]);
@@ -439,7 +447,7 @@ test("binance_klines_expects_70080_candles_on_the_founder_range", async () => {
     "2026-09-30T23:45:00Z", 70_082]);
 });
 
-// killer: scripts/record-binance-klines.mjs:128 SDL "!Object.hasOwn(INTERVALS, interval)" -> ""
+// killer: scripts/record-binance-klines.mjs:131 SDL "!Object.hasOwn(INTERVALS, interval)" -> ""
 test("binance_klines_refuses_bad_arguments", async () => {
   const base = ["--symbol", "BTCUSDT", "--interval", "15m", "--start", "2025-01-01T00:00Z", "--end", "2025-01-01T01:00Z"];
   const swap = (flag: string, value: string): string[] => base.map((v, i) => (base[i - 1] === flag ? value : v));
@@ -505,7 +513,7 @@ async function replayed(from: string, symbol: string, interval: string): Promise
   return [await outcome(run(argv, { fetch: offline(calls), now: () => end })), out];
 }
 
-// killer: scripts/record-binance-klines.mjs:310 CONST "+ ctx.step" -> "+ 900_000"
+// killer: scripts/record-binance-klines.mjs:313 CONST "+ ctx.step" -> "+ 900_000"
 test("binance_klines_records_17520_hourly_candles_aligned_on_the_hour", async () => {
   const [start, end] = FOUNDER, { r, m, opens } = await founderRun("ETHUSDT", "1h", HOUR_MS);
   assert.equal(r.code, "ok");
@@ -536,7 +544,7 @@ test("binance_klines_records_17520_hourly_candles_aligned_on_the_hour", async ()
     ["ok", true, "interval_mismatch", "interval_mismatch", false, false]);
 });
 
-// killer: scripts/record-binance-klines.mjs:285 CONST "k[0] % ctx.step" -> "k[0] % 900_000"
+// killer: scripts/record-binance-klines.mjs:288 CONST "k[0] % ctx.step" -> "k[0] % 900_000"
 test("binance_klines_records_4380_four_hour_candles_aligned_on_the_utc_day", async () => {
   const [start, end] = FOUNDER, { r, m, opens } = await founderRun("BNBUSDT", "4h", FOUR_HOURS_MS);
   assert.equal(r.code, "ok");
@@ -571,7 +579,7 @@ const halt = (patch: (k: Row, i: number) => void = () => undefined): Row[] => [0
   return k;
 });
 
-// killer: scripts/record-binance-klines.mjs:332 ROR "k[6] !== k[0] + ctx.step - 1" -> "k[6] === k[0] + ctx.step - 1"
+// killer: scripts/record-binance-klines.mjs:335 ROR "k[6] !== k[0] + ctx.step - 1" -> "k[6] === k[0] + ctx.step - 1"
 test("binance_klines_keeps_a_truncated_candle_as_received_and_lists_it", async () => {
   const r = await record(halt((k, i) => { if (i === 13) k[6] = at(13) + 60_000; }), at(0), at(16)); // slot 13 cut after 1 min, 7 trades
   assert.equal(r.code, "ok");
@@ -585,7 +593,7 @@ test("binance_klines_keeps_a_truncated_candle_as_received_and_lists_it", async (
     "completeness reads missing.json alone: the cut candle is present, the five after it are absent");
 });
 
-// killer: scripts/record-binance-klines.mjs:333 ROR "k[8] === 0" -> "k[8] !== 0"
+// killer: scripts/record-binance-klines.mjs:336 ROR "k[8] === 0" -> "k[8] !== 0"
 test("binance_klines_lists_the_zero_trade_candles_through_the_truncated_one", async () => {
   const r = await record(halt((k, i) => { if (i === 14) k[8] = 0; }), at(0), at(16)); // slot 14: 0 trades, a regular close, alone
   assert.equal(r.code, "ok");
@@ -594,7 +602,7 @@ test("binance_klines_lists_the_zero_trade_candles_through_the_truncated_one", as
     "every candle with 0 trades, ascending: the run from slot 2 through the cut slot 6 (rule 8 bis), then slot 14; slots 1 and 12 trade");
 });
 
-// killer: scripts/record-binance-klines.mjs:333 COR "k[8] === 0" -> "k[8] === 0 || k[6] !== k[0] + ctx.step - 1"
+// killer: scripts/record-binance-klines.mjs:336 COR "k[8] === 0" -> "k[8] === 0 || k[6] !== k[0] + ctx.step - 1"
 test("binance_klines_ends_the_zero_trade_run_at_a_truncated_candle_with_trades", async () => {
   // rule 8 bis (RECHERCHES ADR 0006, addendum 4, section 5): a truncated candle with trades closes the zero_trade run, so E is its close
   // + 1 ms downstream; it is listed in irregular_close and never in zero_trade (D-1 of the corrections, G2 F-1: mutant M1 survived)
@@ -605,7 +613,7 @@ test("binance_klines_ends_the_zero_trade_run_at_a_truncated_candle_with_trades",
     "3"], "the run is slots 2 to 5; the cut slot 6 ends it: listed with its close as received, its trades as received, not a zero_trade candle");
 });
 
-// killer: scripts/record-binance-klines.mjs:286 SDL "k[0] < ctx.start || k[0] >= ctx.end" -> ""
+// killer: scripts/record-binance-klines.mjs:289 SDL "k[0] < ctx.start || k[0] >= ctx.end" -> ""
 test("binance_klines_keeps_every_grid_stop_behind_an_irregular_close", async () => {
   const json = (v: unknown): Reply => ({ status: 200, body: JSON.stringify(v) }), cut = row(at(1)), other = row(at(1)), next = row(at(2));
   cut[6] = at(1) + CUT_MS;
@@ -629,7 +637,7 @@ test("binance_klines_keeps_every_grid_stop_behind_an_irregular_close", async () 
     [true, true, true, true, true, true, true, false], "the closed list keeps the grid stops, names the replay's, no longer close_time");
 });
 
-// killer: scripts/record-binance-klines.mjs:351 CONST "zero_trade: lists.zeroTrade" -> "zero_trade: []"
+// killer: scripts/record-binance-klines.mjs:354 CONST "zero_trade: lists.zeroTrade" -> "zero_trade: []"
 test("binance_klines_replays_cut_and_zero_trade_candles_to_the_same_bytes", async () => {
   const r = await record(halt(), at(0), at(16), { perPage: 4 }), clean = await record(series(4), at(0), at(4));
   assert.deepEqual([r.code, clean.code], ["ok", "ok"]);
@@ -648,7 +656,7 @@ test("binance_klines_replays_cut_and_zero_trade_candles_to_the_same_bytes", asyn
     "the same lists in the recording and in its replay; present and empty when nothing is irregular");
 });
 
-// killer: scripts/record-binance-klines.mjs:183 SDL "named !== args.interval" -> ""
+// killer: scripts/record-binance-klines.mjs:186 SDL "named !== args.interval" -> ""
 test("binance_klines_refuses_a_replay_under_another_interval", async () => {
   // D-2 of the corrections (G2 F-2): the 1h page of the G2 probe, one candle at T0 closing at T0 + 1 h - 1 ms, replayed under 15m with
   // --end cut at T0 + 15 min wrote 1 row and exited 0. Recorded, its manifest names 1h: interval_mismatch. D-1 of lot BINANCE-PRE153-1
@@ -725,7 +733,7 @@ test("binance_klines_refuses_a_trust_anchor_taken_from_the_environment", async (
   assert.deepEqual([near.code, near.calls.urls.length, existsSync(near.out)], ["env_refused", 0, false]);
 });
 
-// killer: scripts/record-binance-klines.mjs:331 CONST "times.map((t) => rows.get(t))" -> "[...rows.values()]"
+// killer: scripts/record-binance-klines.mjs:334 CONST "times.map((t) => rows.get(t))" -> "[...rows.values()]"
 test("binance_klines_lists_ascending_from_a_page_out_of_order", async () => {
   // D-2 of the second round (G2C-3, mutant X11 survived): H-2 says the endpoint answers in ascending order and checkRow does not require
   // it; both lists follow the open times (D-1 of the corrections), never the order of a page
@@ -741,7 +749,7 @@ test("binance_klines_lists_ascending_from_a_page_out_of_order", async () => {
     { open_time_ms: at(2), close_time_ms: at(2) + CUT_MS }], [0, 2].map(at)], "ascending, whatever the order of the page");
 });
 
-// killer: scripts/record-binance-klines.mjs:273 CONST "pages.get(name) !== got" -> "false"
+// killer: scripts/record-binance-klines.mjs:276 CONST "pages.get(name) !== got" -> "false"
 test("binance_klines_refuses_a_replay_of_an_altered_raw_page", async () => {
   // D-3 of the second round (G2C-4): a stopped recording keeps neither manifest nor SHA256SUMS, only requests.jsonl, which logged the
   // sha256 of each page as received; a sealed one also lists raw/ in SHA256SUMS. A replay reads each page against both, each file when
@@ -830,7 +838,7 @@ test("binance_klines_refuses_a_replay_of_an_altered_raw_page", async () => {
   assert.deepEqual([own.schema, own.irregular_close.length, own.zero_trade.length, own.rows], ["monark.series.binance.v2", 0, 0, 8]);
 });
 
-// killer: scripts/record-binance-klines.mjs:400 CONST "realpathSync(argv1) === realpathSync(SCRIPT)" -> "resolve(argv1) === resolve(SCRIPT)"
+// killer: scripts/record-binance-klines.mjs:403 CONST "realpathSync(argv1) === realpathSync(SCRIPT)" -> "resolve(argv1) === resolve(SCRIPT)"
 test("binance_klines_runs_its_command_line_through_a_junction", () => {
   // D-5 of the second round (F-4 of the G2 of the history detector, same pattern): through a directory junction node runs the module at
   // its real path while argv[1] keeps the junction, so a guard on resolved paths ran nothing and exited 0 in silence. A copy of the
@@ -851,7 +859,7 @@ test("binance_klines_runs_its_command_line_through_a_junction", () => {
     "start", "end", "out"] }) + LF], [0, "", ""]], "through the junction, the usage stop; imported, nothing");
 });
 
-// killer: scripts/record-binance-klines.mjs:342 CONST "monark.series.binance.v2" -> "monark.series.binance.v1"
+// killer: scripts/record-binance-klines.mjs:345 CONST "monark.series.binance.v2" -> "monark.series.binance.v1"
 test("binance_klines_writes_v2_and_replays_a_sealed_v1_unrefused", async () => {
   // Q-U5 of RECHERCHES (2026-10-03), lot BINANCE-V2-1, D-1: one identifier, one meaning. Every manifest this recorder writes, recording
   // or replay, names monark.series.binance.v2 with both lists; a folder sealed under v1 (recorder 48aa58b3: schema v1, neither list,
@@ -890,7 +898,7 @@ test("binance_klines_writes_v2_and_replays_a_sealed_v1_unrefused", async () => {
     [files(rec.out), files(rec.out), lists(rec.out), lists(rec.out), before], "same bytes and lists from a v1 or a v2 source; the v1 untouched");
 });
 
-// killer: scripts/record-binance-klines.mjs:205 CONST "e.status === 200 && " -> ""
+// killer: scripts/record-binance-klines.mjs:208 CONST "e.status === 200 && " -> ""
 test("binance_klines_refuses_a_page_planted_at_the_cursor_of_a_non_200_answer", async () => {
   // BINANCE-REPLAY-NON200-ATTEST-1 (G2-CTV2-2; mutant R4 of the fusion campaign survived): requests.jsonl logs every answer with the
   // sha256 of its body, and only a 200 attests a page. A recording stopped by a 500 whose body is [] (empty klines, were it read): as
@@ -950,24 +958,28 @@ test("binance_klines_never_resumes_a_tls_session", async () => {
   assert.deepEqual(got, ["TLSv1.2", "TLSv1.3"].map((v) => [v, "ok", [false, false, false, false], [peer, peer, peer, peer]]));
 });
 
-// killer: scripts/record-binance-klines.mjs:105 CONST "sha256(issuer)" -> "sha256(c.raw)"
+// killer: scripts/record-binance-klines.mjs:108 CONST "signs ? sha256(issuer)" -> "issuer ? sha256(issuer)"
 test("binance_klines_logs_the_true_issuer_of_two_cas_of_one_name", async () => {
-  // SERIES-TLS-ISSUER-BY-NAME-1 (O-1 of the BINANCE-PRE153-1 corrections, probe): two CAs of one name ("loopback test ca", no key
-  // identifier), each signs a leaf. Trusted in turn, one at a time, in this one process: each line names its own CA, never the other.
-  // Trusted together, in either order: the store looks the issuer up by name and takes the first of its own order (measured: either CA,
-  // as their random keys fall), so the handshake holds and the line names the true CA, or it fails (CERT_SIGNATURE_FAILURE), a
-  // network_error before any line: never a wrong issuer. The other CA is built here; the next endpoint trusts the file's CA again
+  // SERIES-TLS-ISSUER-BY-NAME-1 (O-1 of the BINANCE-PRE153-1 corrections; F-1 of the G2 of #115): two CAs of one name ("loopback test
+  // ca", no key identifier), each signs a leaf. Each endpoint sets the trust BEFORE its server is created; in that order, trusted in
+  // turn, one at a time, each line names its own CA (cases 1-3). S1 of the G2 (case 4): the server is created under the previous trust,
+  // then the trust changes; node then names the other CA of that name, which the leaf does not verify under: the line logs no issuer
+  // (null; the true CA, were node to name it). Trusted together, trust before server, in either order (cases 5-6): the handshake holds
+  // with the true CA, or fails (CERT_SIGNATURE_FAILURE), a network_error before any line. The next endpoint trusts the file's CA again
   const [one, two] = [caOf(), issue(9)], [a, b] = [issue(10, one), issue(11, two)], got: [string, (string | null)[]][] = [];
-  for (const [trust, leaf] of [[[one], a], [[two], b], [[one], a], [[one, two], b], [[two, one], b]] as const) {
-    const r = await record(series(4), at(0), at(4), { leaf, trust });
+  const plans: [readonly Issued[], Issued, boolean][] = [[[one], a, false], [[two], b, false], [[one], a, false], [[two], b, true],
+    [[one, two], b, false], [[two, one], b, false]];
+  for (const [trust, leaf, trustLate] of plans) {
+    const r = await record(series(4), at(0), at(4), { leaf, trust, trustLate });
     got.push([r.code, logOf(r.out).map((l) => l.tls?.issuer_sha256 ?? null)]);
   }
-  const [x, y] = [sha(one.der), sha(two.der)], together = got.slice(3).map(([code, issuers]) =>
+  const [x, y] = [sha(one.der), sha(two.der)], together = got.slice(4).map(([code, issuers]) =>
     (code === "ok" ? issuers.length === 1 && issuers[0] === y : code === "network_error" && issuers.length === 0));
-  assert.deepEqual([got.slice(0, 3), together], [[["ok", [x]], ["ok", [y]], ["ok", [x]]], [true, true]]);
+  const late = [got[3]?.[0], got[3]?.[1].length, got[3]?.[1].every((i) => i === null || i === y)];
+  assert.deepEqual([got.slice(0, 3), late, together], [[["ok", [x]], ["ok", [y]], ["ok", [x]]], ["ok", 1, true], [true, true]]);
 });
 
-// killer: scripts/record-binance-klines.mjs:154 SDL "if (unformed.length > 0)" -> ""
+// killer: scripts/record-binance-klines.mjs:157 SDL "if (unformed.length > 0)" -> ""
 test("binance_klines_refuses_an_admitted_name_with_an_unformed_value", async () => {
   // SERIES-ENV-VALUES-1 (lot BINANCE-PRE35-1; L-2 of BINANCE-PRE153-1): the values of the twelve admitted names have a closed form:
   // SYSTEMROOT equals WINDIR (names in any case), HOMEPATH, SYSTEMROOT, TEMP, USERPROFILE and WINDIR are absolute paths, PATH is made of
@@ -989,7 +1001,7 @@ test("binance_klines_refuses_an_admitted_name_with_an_unformed_value", async () 
     why: "values outside their closed form" })), 0, "ok"]);
 });
 
-// killer: scripts/record-binance-klines.mjs:259 ROR "size > MAX_BODY_BYTES" -> "size >= MAX_BODY_BYTES"
+// killer: scripts/record-binance-klines.mjs:262 ROR "size > MAX_BODY_BYTES" -> "size >= MAX_BODY_BYTES"
 test("binance_klines_reads_a_body_in_a_stream_up_to_its_bound", async () => {
   // D-5 of lot BINANCE-PRE153-1 (SERIES-BODY-BOUND-1): 1 000 candles of the widest row recorded take 186 394 bytes (journal M-5); the
   // bound, 262 144 bytes, is read in a stream. A 200 body of exactly the bound (klines padded with blanks) is read; one byte more stops
@@ -1016,7 +1028,7 @@ test("binance_klines_names_each_stop_of_the_lot_in_its_closed_list", () => {
     [true, true, true, true, true]);
 });
 
-// killer: scripts/record-binance-klines.mjs:184 CONST "catch { return null; }" -> "catch { return Buffer.alloc(0); }"
+// killer: scripts/record-binance-klines.mjs:187 CONST "catch { return null; }" -> "catch { return Buffer.alloc(0); }"
 test("binance_klines_anchors_an_absent_sums_as_null", async () => {
   // BINANCE-PRE153-1 corrections, D-2 (G2-BNPRE-2: mutant G17 survived; probe P3, E4): a source made of raw/ and requests.jsonl (the form
   // of the 118) replays; its manifest anchors the requests.jsonl read and names no SHA256SUMS: null, never the digest of nothing (D-1 (d)
@@ -1047,7 +1059,7 @@ test("binance_klines_refuses_every_other_name_of_the_environment", async () => {
   assert.deepEqual([names.length > 8, passed, calls.urls.length], [true, [], 0]);
 });
 
-// killer: scripts/record-binance-klines.mjs:180 CONST " || !existsSync(at(\"SHA256SUMS\"))" -> ""
+// killer: scripts/record-binance-klines.mjs:183 CONST " || !existsSync(at(\"SHA256SUMS\"))" -> ""
 test("binance_klines_refuses_a_source_whose_pages_nothing_attests", async () => {
   // BINANCE-PRE153-1 corrections, D-1 (G2-BNPRE-1, probe P1): a manifest names the interval, but neither requests.jsonl nor SHA256SUMS
   // attests a page: a page altered there was replayed, exit 0, the altered value written. Refused before any file is read, nothing written
@@ -1061,7 +1073,7 @@ test("binance_klines_refuses_a_source_whose_pages_nothing_attests", async () => 
     ["ok", 2, "source_unattested", false, 0]);
 });
 
-// killer: scripts/record-binance-klines.mjs:236 SDL "log(line);" -> ""
+// killer: scripts/record-binance-klines.mjs:239 SDL "log(line);" -> ""
 test("binance_klines_logs_an_answer_as_it_arrives_before_its_body", async () => {
   // BINANCE-PRE153-1 corrections, D-4 (G2-BNPRE-5; probe P3, E6 cut): as the Coinbase recorder, an answer is logged as it arrives, its
   // status, headers and certificates, before its body is read, then that line again with the size, sha256 and file of the body. A body
@@ -1077,7 +1089,7 @@ test("binance_klines_logs_an_answer_as_it_arrives_before_its_body", async () => 
     ["network_error", [[429, "30", false]], []], "a 429 cut after its head: its status and Retry-After kept on its arrival line");
 });
 
-// killer: scripts/record-binance-klines.mjs:237 SDL "if (status === 200 && peer === null)" -> ""
+// killer: scripts/record-binance-klines.mjs:240 SDL "if (status === 200 && peer === null)" -> ""
 test("binance_klines_stops_on_a_200_whose_connection_showed_no_certificate", async () => {
   // BINANCE-PRE153-1 corrections, D-6 (Q-BNPRE-6): over plain HTTP no certificate is seen. A 200 stops (tls_unattested) once its arrival
   // line is logged, tls null, its body never read nor kept (its connection closed); any other status keeps its own stop.
@@ -1095,7 +1107,7 @@ test("binance_klines_stops_on_a_200_whose_connection_showed_no_certificate", asy
   ["tls_unattested", [[200, null, false]], [], [], "rate_limited", [[429, null, "30"]], "tls_unattested", [], "raw_page_altered", 0]);
 });
 
-// killer: scripts/record-binance-klines.mjs:370 CONST "request(url, options)" -> "request(url)"
+// killer: scripts/record-binance-klines.mjs:373 CONST "request(url, options)" -> "request(url)"
 test("binance_klines_requests_through_its_own_agent_by_default", async () => {
   // C-1 and n-3 of the G2 of lot BINANCE-PRE35-1: the default transport, no fetch injected. https.request is replaced by a spy that throws
   // (offline), synced into the ESM bindings (refused unless the binding shows it), and AbortSignal.timeout is spied: the recorder hands
