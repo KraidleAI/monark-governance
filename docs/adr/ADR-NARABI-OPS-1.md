@@ -95,6 +95,10 @@ is still stale) is caught. Consequences:
   differs -> `state_mismatch`; the 2nd GET fails OR the body yields no comparable digest -> `state_unreachable`
   (a DISTINCT reason from a GET₁ `unreachable`). Precedence, FIXED: cannot-evaluate (`insecure_url`/`unreachable`/
   `too_large`/`probe_error`) > `chain_broken` > `state_unreachable` > `state_mismatch` > `lag`.
+  *Amendment dated 2026-10-04 (orchestrator, lot PROBE-BADPORT-REASON-1, merge `728bd6b5`)*: the closed `reason` set gains `bad_port`,
+  a cannot-evaluate reason ranked with `insecure_url`: a probe URL whose port is one the runtime's `fetch` refuses is refused before
+  any call (list copied from node v24.15.0 with its provenance and pinned by a test against the embedded source; journal
+  `docs/G1-lot-probe-badport.md`). A `PROBE_STATE_URL` on such a port stays `state_unreachable` (item PROBE-BADPORT-STATE-1).
 - **`narabi.json` gains `state_checked: boolean`** (true iff the digest was compared). This joins the schema-2
   shape whose `schema` bump (with `alerted`/`alert_error`/`last_alert_day`) is added by sub-lot -1b-ii-a; this
   sub-lot did not touch the `SCHEMA` constant (kept as one edit at the -a/-b merge).

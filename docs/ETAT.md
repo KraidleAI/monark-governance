@@ -356,9 +356,21 @@ Tronc `lot/etude-suite`. Dernier oracle complet : 1 779 tests, dont 1 776 verts,
     (port au-dessus de 10080) ; prix environ 15 lignes et un passage par fichier. Déclencheur : atteint ; prochain lot d outillage.
   - BADPORT-NODE-UPGRADE-1 (PAROXYSME) : la garantie tient pour la liste de ports refusés de Node 24.15.0 et undici 7.24.4 ; à chaque
     changement de version de Node relevé par l oracle, relire la liste embarquée. Déclencheur : premier changement de version de Node.
-  - PROBE-BADPORT-REASON-1 (sonde servie) : une adresse de sonde sur un port refusé est lue `unreachable` à jamais ; la refuser avant
-    tout appel avec une raison nommée (environ 3 lignes et 1 test) change le comportement servi. Déclencheur : décision de
-    l investisseur avec le prochain changement de la sonde ; état : ouvert.
+  - PROBE-BADPORT-REASON-1 (sonde servie) : **Clos le 2026-10-04 au tronc** par le lot du même nom (G1 LIVRE-AVEC-RESERVES, G2 neuve
+    APPROUVE, fusion `728bd6b5` ; journal `docs/G1-lot-probe-badport.md`) : raison `bad_port` avant tout appel, liste recopiée de node
+    v24.15.0 avec sa provenance et un test contre la source embarquée ; ADR-NARABI-OPS-1 et RUNBOOK-sentinel amendés. Reste un acte :
+    le déploiement sur Bell, sous le go de l investisseur, précédé de la vérification de la liste pour le node de Bell (v24.21.0).
+  - PROBE-BADPORT-STATE-1 (Q-4 du G1) : une `PROBE_STATE_URL` sur un port refusé reste `state_unreachable` ; une raison nommée
+    changerait l ensemble fermé `state_*` de l ADR-NARABI-OPS-1. Prix : environ 3 lignes et 1 cas. Déclencheur : le prochain changement
+    de la sonde ; état : ouvert.
+  - PROBE-MAIL-VOCAB-BADPORT-1 (Q-5 du G1) : la liste de raisons de `probe_alert_mail_has_no_forbidden_vocab` ne nomme pas `bad_port`
+    (couvert par T2 sur le courriel réel) ; l y ajouter dans un lot qui accepte le refus de red-proof pour un test déjà vert. Prix : une
+    ligne. Déclencheur : le prochain lot de la sonde ; état : ouvert.
+  - NODE-NATIVES-READ-1 (PAROXYSME) : le test de la liste lit `process.binding("natives")`, déprécié (DEP0111) ; un node qui le
+    retire fait échouer le test (« not readable »), jamais passer à tort. Construction : lire la liste dans l exécutable de node, ou
+    balayer les ports sans connexion ; environ 20 lignes. Déclencheur : le premier échec « not readable » ; état : ouvert.
+  - VERIFY-BADPORT-1 : `apps/bell/scripts/bell-verify.mjs` et `apps/dojo/scripts/dojo-verify.mjs` lisent un port refusé par `fetch`
+    comme une panne de réseau. Construction : la même garde nommée. Déclencheur : le prochain lot qui touche leur transport ; état : ouvert.
   - PROBE-UNREACHABLE-WATCH-1 : tout rouge `unreachable` d un test de sonde après ce correctif rouvre la cause ; un rouge naturel
     antérieur du fichier frère `test/probe-narabi.test.ts` (enregistrement `21e79bd7…-cp-2-20260929…`, l.2626-2637) est consigné
     ici. Déclencheur : le prochain tel rouge ; état : ouvert.
