@@ -504,6 +504,9 @@ pm) ; item MK-NM-GUARD-1 (refuser Tree = F:/Monark dans mk-nm.ps1).
   redéployée une seule fois, avec #137 (SIGTERM, tronc `124c03c2`) et RPC-GUARD-LOCK-WRITE-LEAK-1, quand celui-ci sera au tronc.
 - 2026-10-04 22:0x UTC : DÉCISION de l investisseur (choix verbatim) : « Publier maintenant (Recommandé) » : ligne P0 de l amendement A-1
   d ADR 0004 après le contrôle C-3 (CONFORME) ; commit `3283e9ce`, reçu par GitHub à 22:04:04Z.
+- 2026-10-04 23:0x UTC : DÉCISION de l investisseur (réponse verbatim) : « 1 jour » : préavis D entre la publication de NOTICE-1-1-0 et de la
+  spécification 1.1.0 (T − D) et la bascule T0. S écarte du plan r3 §9.2 (« D (≥ 7 jours) »), proposé après explication (qui sont les
+  appelants, ce qui change) et la recommandation de 7 jours ; la décision du fondateur prime ; ligne pour la liste r4.
 - 2026-10-04 00:5x UTC : fusions au tronc : CM-2a (`4a1b4844`, PR #105 `98e3779a`), COINBASE-PASS-EDGES-1 (`44d8892d`), BINANCE-PRE153-1
   (`328be484`). Leurs oracles G7 (`569c91c6…`, `bba0b720…`, `2ce4d71c…`) portent seulement deux rouges venus de la CA de l étape 3
   committée sans resynchronisation du site (error_origin de l orchestrateur) ; correction `0c8f8177`, oracle vert : 2 060 tests,
