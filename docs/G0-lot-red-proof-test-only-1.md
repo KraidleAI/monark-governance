@@ -55,3 +55,33 @@ Attendu : script ≈ 15 lignes, types 3, tests ≈ 35 ; docs hors compte. Bien s
 - **Q-RTO-2** : `--draw` refusé en `--test-only` : les commandes de mission de la G2 et du cp-2 portent `--draw n --seed s` ; faut-il
   plutôt l'accepter et l'ignorer (écrit dans la preuve) ?
 - **Q-RTO-3** : le mode est choisi par l'auteur. Faut-il que MONARK le refuse quand le G0 du lot ne dit pas « test seulement » ?
+
+## Pli de la G2 (instance neuve : CORRECTIONS REQUISES, B-1 et B-2 bloquantes) : conception révisée
+
+Rebase de l'empilement : la tête révisée de RED-PROOF-TAP-TRUNCATION-1 (`1994b52`) est fusionnée ici (`--no-ff`, `24f8e8c`) ; la base de
+ce lot devient `1994b52` (le diff `1994b52..gel` ne porte que ce lot).
+
+En `--test-only`, l'outil refuse **avant tout passage** (aucune ligne, `ok: false`, exit 1, motifs dans `refusals`) si :
+
+1. un fichier change hors `*.test.ts`, `test/`, `docs/**/*.md` (inchangé ; un fichier de production supprimé compte) ;
+2. **(B-1)** un fichier de `test/` qui n'est pas un `*.test.ts` change (ou disparaît) **et** un fichier de code hors frontière de test
+   du gel (`git ls-files`, `.js/.mjs/.cjs/.ts/.mts/.cts/.jsx/.tsx`) contient son chemin depuis `test/` sans extension (ex.
+   `test/byo-demo-builder`, que nomme `scripts/record-byo-demo.mjs:14`) : il est compté en production. Recherche textuelle, donc large
+   (échec fermé) ; un chemin calculé à l'exécution lui échappe (limite déclarée) ;
+3. **(B-2)** une déclaration de test d'un `*.test.ts` supprimé ou modifié (lue à la base) n'existe plus dans aucun fichier de test du
+   gel : `files.removed` la nomme (`<fichier> :: <nom>`). Un fichier déplacé dont les tests reviennent n'est pas un retrait ;
+4. **(Q-RTO-4)** aucun `docs/**/G0-*.md` ajouté ou modifié par le diff ne porte la ligne exacte `red-proof: test-only` ; `declared`
+   nomme ce G0.
+
+Puis, pour chaque test jugé (après les refus communs) :
+
+5. **(m-4)** hors des globs de `scripts.test` du `package.json` du gel : refusé (CI ne le lance jamais) ; sans globs, tout est refusé ;
+6. **(Q-RTO-3)** son tueur doit être écrit dans ce G0 sous la forme `<fichier>:<ligne> <OP> "<avant>" -> "<après>"` (celle de la ligne
+   `// killer:`) ; sinon refusé ;
+7. vert à la base et au gel (règle inchangée, désormais testée : T5, T6) ;
+8. **(Q-RTO-3, m-3)** le tir doit le rougir **par une assertion** (`assert-fail`) ; tué autrement (`other-fail`) = refusé. Un test
+   `{ todo: true }` vert se lit `skip` au gel : refusé.
+
+Preuve : schéma **`red-proof-v2`** (m-5 ; `mode` au sommet, `files.production`, `files.removed`, `declared`, `refusals`, `kill` par
+ligne ; une preuve v1 est en mode f2p). Chaque tir garde son TAP, `pin-<n>.tap` (m-6). `--draw` reste une erreur d'usage (Q-RTO-2) ;
+la frontière de production reste fermée, sans exception (Q-RTO-1).

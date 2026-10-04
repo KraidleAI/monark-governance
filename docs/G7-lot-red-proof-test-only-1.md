@@ -1,8 +1,9 @@
 # G7 du lot d'outil RED-PROOF-TEST-ONLY-1 : un mode `--test-only` de `scripts/red-proof.mjs` pour un lot qui n'ajoute que des épingles
 
 - **Plan** : `docs/G0-lot-red-proof-test-only-1.md`. **Base** : `fc510e25` (tête de RED-PROOF-TAP-TRUNCATION-1, empilé sur la PR #113).
-  Branche `recherches/red-proof-test-only-1`. Commits : `baff3a3` (G0), `26011bc` (tests rouges et types), `3f6c8d3` (code, **gel**),
-  puis ce G7. Hôte de mesure : Linux, Node v22.22.2.
+  Branche `recherches/red-proof-test-only-1`. Commits : `baff3a3` (G0), `26011bc` (tests rouges et types), `3f6c8d3` (code, premier gel),
+  `e6e9309` (G7) ; pli de la G2 : `24f8e8c` (fusion `--no-ff` de la tête révisée de RED-PROOF-TAP-TRUNCATION-1, `1994b52`, qui devient
+  la **base** du lot), `eb3eaf9` (tests et types), `b6f33ef` (code), `86940fe` et `9e82a42` (tests ; **gel** `9e82a42`), puis ce G7 révisé. Hôte de mesure : Linux, Node v22.22.2.
 
 ## Ce que fait le mode (gel `3f6c8d3`)
 
@@ -46,7 +47,7 @@ et les 28 lignes `// killer:` revérifiées : **28/28**. Seules des lignes `// k
 
 - `scripts/red-proof.d.mts` (`mode`, `files.production`, `kill`, verdict `pinned`) est commis avec les tests, pour que `tsc` reste vert à
   ce commit.
-- Pas encore de G2 neuve sur ce lot (à faire avant de passer la PR à MONARK).
+- G2 neuve faite et pliée (section ci-dessous).
 - Aucun vrai lot de test seul n'a été rejoué (SENTINEL-SIGTERM-LOAD-1 n'est pas écrit ; le pli de BINANCE-PRE35-1 est hors de ce dépôt
   de travail) ; à faire par le premier lot qui s'en sert.
 
@@ -62,8 +63,54 @@ et les 28 lignes `// killer:` revérifiées : **28/28**. Seules des lignes `// k
 - **Q-RTO-4** : le choix du mode revient à l'auteur. MONARK refuse-t-il un `--test-only` quand le G0 du lot ne se déclare pas « test
   seulement » ?
 
+## Pli de la G2 (instance neuve : CORRECTIONS REQUISES ; B-1 et B-2 bloquantes)
+
+Rapport : `scratchpad/G2-red-proof-tools.md`. Conception révisée : section « Pli de la G2 » du G0. Code au gel `9e82a42` :
+`testOnlyGate` l.214-224, verdict l.182-184, garde l.263, tir l.276-278, preuve v2 l.286, motifs l.293.
+
+| Point | Changement | Test (rouge à la base `1994b52`) | Tueur |
+|---|---|---|---|
+| **B-1** : `test/h.ts` changé, importé par `scripts/rec.mjs`, passait `ok:true` | l.216 : un fichier de `test/` (hors `*.test.ts`) changé ou supprimé, dont le chemin depuis `test/` sans extension figure dans un fichier de code du gel hors frontière de test, va en production (recherche textuelle : échec fermé ; un chemin calculé lui échappe) | `red_proof_test_only_counts_a_test_file_that_production_imports_as_production` (`test/h.ts` et `packages/w/test/hw.ts` importés, `test/free.ts` non) | l.216 `production.push(p)` → `null` |
+| **B-2** : un `*.test.ts` supprimé passait sans trace | l.218 : chaque déclaration d'un test supprimé ou modifié (lue à la base) absente de tous les tests du gel est nommée dans `files.removed` et refuse ; un fichier déplacé dont les tests reviennent n'est pas un retrait | `red_proof_test_only_refuses_a_removed_test_and_names_it` | l.218 `!names.has(d.name)` → `false` |
+| **Q-RTO-4** : déclaration vérifiable | l.219 : un `docs/**/G0-*.md` du diff porte la ligne exacte `red-proof: test-only` (`declared`), sinon refus | `red_proof_test_only_refuses_a_lot_whose_g0_does_not_declare_it` | l.219 |
+| **Q-RTO-3** : la liste des tueurs au G0 | l.183 : le tueur de chaque test doit figurer dans ce G0 sous la forme `<fichier>:<ligne> <OP> "<avant>" -> "<après>"` | `red_proof_test_only_refuses_a_pin_whose_killer_its_g0_does_not_list` | l.183 |
+| **Q-RTO-3**, **m-3** : tué sans assertion | l.278 : un tir `killed` dont le statut n'est pas `assert-fail` refuse le test | `red_proof_test_only_refuses_a_kill_that_is_no_assertion_failure` (`pin_throw`, `other-fail`) | l.278 |
+| **m-4** : hors des globs de `npm test` ; `{ todo: true }` | l.182 : globs lus dans `scripts.test` du `package.json` du gel (sans globs : tout refusé) ; un `todo` vert se lit `skip` au gel, donc refusé (épinglé) | `red_proof_test_only_refuses_a_pin_outside_the_npm_test_globs` ; `…_red_at_base_and_a_passing_todo` | l.182 |
+| **T5**, **T6** : la règle « vert à la base » sans test | aucun code | `red_proof_test_only_refuses_a_pin_red_at_base_and_a_passing_todo` (`pin_red`, `other-fail` à la base) | l.184 `true ?` ; T5 tué aussi |
+| **m-5** | schéma `red-proof-v2` (l.286), `mode` au sommet ; une preuve v1 se lit f2p ; aucun lecteur des preuves dans le dépôt | (assertions du test d'admission) | — |
+| **m-6**, **T9** | l.276 : `pin-<n>.tap` par compteur ; le tirage garde `killer-<n>.tap` | `red_proof_test_only_keeps_each_kill_in_its_own_tap` (3 tirs, 3 fichiers, sha256 recalculés) | l.276 |
+| **T10** | aucun code (l.250 juste) | `red_proof_test_only_fails_closed_on_a_production_change` étendu : un fichier de production supprimé | l.263 déclaré ; T10 tué |
+
+Le dépôt fixe gagne `scripts.test` (`node --test "test/*.test.ts"`) dans son `package.json` de base (hors corps de test). Une collision de
+clé de cache (`weak`, déjà prise par `weakRun`) a été corrigée par `86940fe` avant l'oracle.
+
+Mutants rejoués à la main au gel (Node 24.21.0, fichier entier ; T1, T10, T18 à T21 rejoués sous un lanceur protégé par `setBlocking`,
+le lanceur nu ayant tronqué leur sortie) : T1 à T3, T5 à T11, T13 à T21 tués ; survivent T4 et T12 (redondants, comme le dit la G2).
+Neufs : T15 (globs), T16 (G0), T17 (assertion), T18 (B-1), T19 (B-2), T20 (déclaration), T21 (clé de recherche = chemin entier).
+
+Oracle du gel `9e82a42` :
+- `node scripts/red-proof.mjs --base 1994b52f --gel 9e82a42c --repo /home/user/monark-governance-rt --draw 11 --seed 37` : **OK**, exit 0 ;
+  11 F2P, 29 inchangés, 11 tueurs tirés (la population), 11 tués ; `RED-PROOF.json` sha256 `d1635132…`, digest `06ab190f…`, schéma v2.
+- Même plage avec `--test-only` : REFUSED, exit 1, trois motifs (deux fichiers de production, pas de déclaration au G0).
+- `test/red-proof.test.ts` : 39/40 sous Node 22 (le rouge préexistant `vi_hangs`), **40/40 sous Node 24.21.0**. Un passage nu sous
+  Node 22 a rendu 29 tests sur 40 : le saut 1 frappe aussi `npm test` (item NPM-TEST-FORCE-EXIT-TRUNCATION-1, G7 du lot 1).
+- `tsc` vert (aussi au commit des tests), eslint vert, `lint:ratchet` 69/69, `gate:vocab` OK, `test/mutants-run.test.ts` 21/21 ;
+  adresses des tueurs **40/40** (contrôleur ; l'adresse l.207 du lot 1 re-pointée en l.208 dans la fusion).
+- R-25 par `r25()` sur `1994b52f...HEAD` : +151/−34, **185** (sous 547) ; depuis l'ancienne base `fc510e25` (pli du lot 1 compris) : 256.
+
+Réponses consignées : **Q-RTO-1** frontière fermée, sans exception (plus B-1) ; **Q-RTO-2** `--draw` reste une erreur d'usage ; les
+gabarits de mission G2 et cp-2 d'un lot test seulement passent `--test-only` sans `--draw` (à porter par MONARK) ; **Q-RTO-3** tir par
+assertion exigé, tueurs listés au G0 et vérifiés par l'outil, la G2 juge s'ils visent le comportement nommé ; **Q-RTO-4** déclaration
+`red-proof: test-only` au G0 du diff, vérifiée par l'outil.
+
+Questions restantes pour MONARK :
+- **Q-RTO-5** : m-4 n'est appliqué qu'en `--test-only` ; faut-il aussi refuser en mode F2P un fichier jugé hors des globs de `npm test`
+  (`apps/site/test`, `packages/*/<sous-dossier>`) ? Cela change des verdicts existants.
+- **Q-RTO-6** : la recherche B-1 est textuelle ; un import par chemin calculé lui échappe. Faut-il une liste fermée des aides de test
+  importées par la production (les deux `*-builder.ts`) en plus ?
+
 ## Sortie
 
-Prêt pour la G2 neuve puis le contrôle par diff de MONARK, après RED-PROOF-TAP-TRUNCATION-1 (empilé). Item RED-PROOF-TEST-ONLY-1 clos au
-gel `3f6c8d3` sous réserve de Q-RTO-1 à Q-RTO-4. Le changement de mode de `packages/rpc-guard/bin/rpc-guard.mjs` laissé par `npm ci`
+Prêt pour le contrôle par diff de MONARK, après RED-PROOF-TAP-TRUNCATION-1 (empilé, fusionné). Item RED-PROOF-TEST-ONLY-1 clos au
+gel `9e82a42` (pli de la G2) ; Q-RTO-1 à Q-RTO-4 répondues, Q-RTO-5 et Q-RTO-6 ouvertes. Le changement de mode de `packages/rpc-guard/bin/rpc-guard.mjs` laissé par `npm ci`
 n'est pas commis ; rien n'est poussé.
