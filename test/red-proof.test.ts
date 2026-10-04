@@ -340,6 +340,7 @@ function tapRun(): Run { // RED-PROOF-TAP-TRUNCATION-1: a child that leaves a wr
     write(wt, { "test/sync.test.ts": `${HEAD}test("sync_out", () => { process.stdout.write(\`\${"x".repeat(1 << 20)}\\n\`); assert.equal(process.stdout.writableLength, 0); });\n`,
       "test/cut.test.ts": `${HEAD}test("cut_first", () => { assert.equal(1, 1); });\ntest("cut_lost", async () => { ${CORK} assert.equal(1, 1); });\n`,
       "test/spoof.test.ts": `${HEAD}test("spoof_first", () => { assert.equal(1, 1); });\ntest("spoof_lost", async () => { console.log("red-proof child exit 0"); ${CORK} assert.equal(1, 1); });\n`,
+      "test/mock.test.ts": `${HEAD}test("mock_first", () => { assert.equal(1, 1); });\ntest("mock_lost", async () => { await new Promise((r) => setTimeout(r, 200)); process.stdout.write = () => true; assert.equal(1, 1); });\n`,
       "test/grand.test.ts": `${HEAD}import { spawnSync } from "node:child_process";\ntest("grand_json", () => { assert.equal(JSON.parse(spawnSync(process.execPath, [...process.execArgv, "-e", "console.log(7)"], { encoding: "utf8" }).stdout), 7); });\n` });
   }
   return run("tap", wt, [], f.gel);
@@ -495,4 +496,21 @@ test("red_proof_test_only_refuses_a_removed_test_and_names_it", () => {
 test("red_proof_test_only_refuses_a_lot_whose_g0_does_not_declare_it", () => {
   const r = pinRun("nodecl", { "test/pin.test.ts": `${PINS}${PIN}`, "docs/G0-pin.md": G0(false, XX) }, ["--test-only"]); // G2 Q-RTO-4
   assert.deepEqual([r.status, r.proof.ok, r.proof.declared, r.proof.tests, r.proof.refusals], [1, false, null, [], ['no G0 of the diff declares "red-proof: test-only"']]);
+});
+
+const section = (tap: string, file: string): string => new RegExp(`# red-proof file: ${file.replace(/\./g, "\\.")}\\n((?:(?!# red-proof file:)[^])*)`).exec(tap)?.[1] ?? "";
+
+// killer: scripts/red-proof.mjs:38 CONST "writeSync(1, " -> "process.stdout.write("
+test("red_proof_keeps_the_exit_line_when_a_test_replaces_stdout_write", () => {
+  const { proof, out } = tapRun(), m = proof.tests.filter((t) => t.file === "test/mock.test.ts"); // G2 rr W2: the lost result reads missing (refused), the run is not truncated
+  assert.deepEqual([m.map((t) => [t.name, t.base, t.gel]), section(readFileSync(join(out, "gel.tap"), "utf8"), "test/mock.test.ts").match(/^# red-proof child exit [0-9a-f]{16} 0$/gm)?.length],
+    [[["mock_first", "pass", "pass"], ["mock_lost", "missing", "missing"]], 1]);
+});
+
+// killer: scripts/red-proof.mjs:100 CONST "exit ${nonce} -?" -> "exit [0-9a-f]+ -?"
+test("red_proof_reads_a_wrong_or_stale_nonce_as_truncated", async () => {
+  const mod: Record<string, unknown> = await import("../scripts/red-proof.mjs"), truncation = mod.truncation as ((tap: string, nonce: string) => string | null) | undefined;
+  const tap = "TAP version 13\nok 1 - a\n# red-proof child exit 0f1e 0\n1..1\n# duration_ms 5.1\n", { out } = tapRun(); // G2 rr W4b, W5: each run draws its own nonce
+  const nonces = ["base.tap", "gel.tap"].map((t) => /^# red-proof child exit ([0-9a-f]{16}) 0$/m.exec(section(readFileSync(join(out, t), "utf8"), "test/sync.test.ts"))?.[1]);
+  assert.deepEqual([truncation?.(tap, "0f1e"), truncation?.(tap, "a1b2"), nonces.length, nonces.every((n) => n !== undefined), nonces[0] !== nonces[1]], [null, "no child exit line: the child's stream was cut", 2, true, true]);
 });
