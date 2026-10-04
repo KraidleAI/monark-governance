@@ -29,7 +29,7 @@ Un préchargement, en ligne dans `scripts.test`, juste après `--test-force-exit
 "--import=data:text/javascript,process.stdout._handle&&process.stdout._handle.setBlocking(true);process.on('exit',function(c){if(c===0&&process.stdout.writableLength>0)process.exitCode=70})"
 ```
 
-`node --test` passe ses `--import` aux enfants par leur `execArgv` (mesuré, et c est déjà ce que fait `scripts/red-proof.mjs`). Le module tourne dans chaque enfant. **Correction après le gel (mesurée, voir le G7)** : il ne tourne pas dans le lanceur. Node 24.21 n initialise pas les modules `--import` du processus `--test` lui-même (un `--require` de fichier, lui, y est chargé). Il fait deux choses, dans chaque enfant.
+`node --test` passe ses `--import` aux enfants par leur `execArgv` (mesuré, et c est déjà ce que fait `scripts/red-proof.mjs`). Le module tourne dans chaque enfant. **Correction après le gel (mesurée, voir le G7)** : il ne tourne pas dans le lanceur. Node 24.21 n initialise pas les modules `--import` du processus `--test` lui-même (un `--require` de fichier, lui, y est chargé). Il fait deux choses, dans chaque enfant. Le lanceur est traité à part : voir « Le lanceur » plus bas.
 
 1. **La cause est corrigée** : stdout devient bloquant. Chaque écriture est remise au tuyau avant de rendre la main ; `process.exit()` n a plus rien à jeter. C est le correctif du préchargement de `red-proof.mjs`, ici dans le script de la suite.
 2. **La garde** : à la sortie, si le code vaut 0 et que stdout garde encore des octets en file (`writableLength > 0`), ces octets vont être perdus. Le code devient alors 70. Le lanceur marque le fichier rouge, **par son nom** (`✖ <fichier>`, `'test failed'`), et la suite sort 1. Avec stdout bloquant, `writableLength` vaut 0 après chaque écriture : la garde ne joue que si le blocage manque (une autre plateforme, un Node futur, un `_handle` absent).
@@ -58,6 +58,25 @@ Un préchargement, en ligne dans `scripts.test`, juste après `--test-force-exit
 - **Les tests jamais enregistrés** : un `await` de premier niveau placé après un `test()` laisse `--test-force-exit` finir le fichier avant l enregistrement des tests suivants (`test/bell-deploy-config.test.ts`, commentaire des lignes 24-26). Ce n est pas une perte de rapport : l enfant n a jamais connu ces tests, et aucune garde de sortie ne peut le voir. Ce mode reste couvert par la règle d écriture de ce commentaire (question 2).
 - `scripts/red-proof.mjs` et `scripts/mutants/run.mjs` ont déjà leur propre préchargement ou n en ont pas besoin ; ils ne changent pas.
 - `ci.yml` ne change pas : la CI lance la suite par `npm test` (et, après #130, par `npm run test:main` et `npm run test:export`), donc par les scripts.
+
+## Le lanceur (ajout daté du 2026-10-04, zones ouvertes par MONARK : message 96aeca9 pour le fichier, 5ac3905 pour la ligne d export)
+
+- **Constat** : le processus lanceur de `node --test` ne charge pas les modules `--import`, mais il appelle lui aussi `process.exit()` sous `--test-force-exit`. Son code de sortie reste juste ; seule la fin du journal peut se perdre. C est la forme du rouge du test 42 (EXPORT-TEST42-SUMMARY-1), dont le `npm run ci` imbriqué écrit dans un tuyau créé par Node (`spawnSync`).
+- **Correction de la première mesure** : les chiffres annoncés d abord (171 à 228 résultats sur 3 200, à chaque essai) étaient surtout un artefact du harnais. Il lisait la sortie du lanceur après sa sortie, et `child_process` jette les octets non lus d un tuyau quand l enfant sort. Le trou reste réel. Remesuré avec un lecteur attaché tôt (lecture après 3 s) :
+  - sans `-r` : 3 à 6 exécutions sur 10 perdent, jusqu à 2 478 lignes et le résumé, avec exit 0. Une sonde sur ce `process.exit` relève 12 à 46 Kio encore en file ;
+  - avec `-r` : 0 exécution sur 20 perd.
+- **Construction** : `test/helpers/blocking-stdout.cjs`, quatre lignes en anglais, qui ne font que `setBlocking(true)` sur stdout. Il est chargé par `node -r ./test/helpers/blocking-stdout.cjs --test` dans `test`, `test:main` et `test:export`. Sans garde de sortie : la garde reste dans le préchargement en ligne, par fichier. Sans stderr : le rapport et le résumé vont sur stdout. Le `./` est nécessaire, car `-r test/…` se résout comme un nom de paquet.
+- **Export** : le `package.json` exporté charge le fichier. Il entre donc dans `WHITELIST_FILES`, avec sa ligne de `docs/PRODUCT-BOUNDARY.md` (exigée par `product_boundary_matches_export_list`) et l addendum ADR-M004 D7 undecies.
+- **Tests** (d abord) :
+  - `launcher_delivers_every_byte_before_force_exit` : une sonde chargée dans le lanceur seul écrit 1 Mio juste avant sa sortie forcée, et le parent ne lit qu après la sortie ou 2 s. À la base, sans `-r`, 146 176 octets arrivent ; au gel, avec `-r`, le Mio entier, le résumé et exit 0 (3 essais sur 3).
+  - `exported_tree_ships_every_preload_its_test_scripts_load` : chaque fichier qu un script charge par `-r` est dans `collectFiles(ROOT).kept`.
+  - Le test 1 exige le préfixe `-r` dans tout script à `--test-force-exit`.
+- **Tueurs** :
+  - `package.json:16 CONST "node -r ./test/helpers/blocking-stdout.cjs --test" -> "node --test"` ;
+  - `scripts/export-public.mjs:76 SDL "  \"test/helpers/blocking-stdout.cjs\"," -> ""`.
+
+  Le red-proof refuse un tueur sur `test/helpers/**`, qu il compte comme du code de test.
+- **#130** : la vérification (a)-(b) lit la tête `node -r ./test/helpers/blocking-stdout.cjs --test` avant les gardes, et (b) s écrit `${tête} ${gardes} --test-name-pattern=…`.
 
 ## Composition avec la PR #130 (CI-G3-DURATION-1)
 
@@ -106,4 +125,4 @@ Environ 100 lignes (un script d une ligne, un fichier de test). Borne R-25 : 547
 
 1. **`--test-force-exit` est-il encore utile ?** Le lot le garde. Une suite complète sans le drapeau dira si un fichier y pend ; la mesure est notée au G7 si elle est faite.
 2. **Les tests jamais enregistrés** (await de premier niveau, voir plus haut) restent hors de la garde. Faut-il un item à part ?
-3. **Windows** : le préchargement y est sans effet sur les rapports (les tuyaux bloquent déjà), mais la ligne doit passer par `cmd.exe`. Un `npm test` sur la tête fusionnée le confirme.
+3. **Windows** : le préchargement y est sans effet sur les rapports (les tuyaux bloquent déjà), mais la ligne doit passer par `cmd.exe`. MONARK rejoue `test:main` et `test:export` sous `cmd.exe` à la fusion.
