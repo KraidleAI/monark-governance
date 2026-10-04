@@ -6,15 +6,15 @@ import { after, test } from "node:test";
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
 import { channel } from "node:diagnostics_channel";
-import { existsSync, mkdtempSync, readdirSync, readFileSync } from "node:fs";
+import { existsSync, mkdtempSync, readdirSync, readFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { startPlace, trap, viaFetch, type Place, type Reply } from "./l2-fake-place.ts";
 import type * as Rest from "../scripts/l2/rest.mjs";
 
 trap();
-const places: Place[] = [];
-after(async () => { for (const p of places) await p.stop(); });
+const places: Place[] = [], outs: string[] = [], tmp = (): string => { const d = mkdtempSync(join(tmpdir(), "l2-rest-")); outs.push(d); return d; };
+after(async () => { for (const p of places) await p.stop(); for (const d of outs) rmSync(d, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 }); });
 const T0 = 1_760_000_000_000_000; // a synthetic wall clock in microseconds
 
 async function load(): Promise<typeof Rest> {
@@ -29,7 +29,7 @@ async function rig(script: (path: string) => Reply, R0?: typeof Rest): Promise<{
   const R = R0 ?? await load();
   const place = await startPlace(() => undefined, script);
   places.push(place);
-  const out = mkdtempSync(join(tmpdir(), "l2-rest-")), clock = { us: T0, step: 3 }, inits: RequestInit[] = [], f = viaFetch(place, [R.ORIGIN]);
+  const out = tmp(), clock = { us: T0, step: 3 }, inits: RequestInit[] = [], f = viaFetch(place, [R.ORIGIN]);
   const nowUs = (): number => { const t = clock.us; clock.us += clock.step; return t; };
   const c = R.createRest({ fetch: (url, init) => { inits.push(init); return f(url, init); }, nowUs, out });
   return { R, c, place, out, clock, inits };
@@ -133,7 +133,7 @@ test("l2_rest_451_stops_all", async () => {
     let calls = 0;
     const body = fail === "read" ? new ReadableStream({ pull: (ctl) => { ctl.error(new Error("reset")); } }) : fail === "over" ? new Uint8Array(R.BODY_MAX + 1) : "{}";
     const x = R.createRest({ fetch: () => { calls += 1; return Promise.resolve(new Response(body, { status })); }, nowUs: () => T0,
-      out: fail === "disk" ? join(out, "absent", "\u0000") : mkdtempSync(join(tmpdir(), "l2-rest-")) });
+      out: fail === "disk" ? join(out, "absent", "\u0000") : tmp() });
     await code(x.request("depth", "BTCUSDT"));
     assert.deepEqual([x.stopped, await code(x.request("time", null)), calls], [status === 451, status === 451 ? "stopped" : "suspended", 1], `${String(status)} ${fail}`);
     x.close();
@@ -237,7 +237,7 @@ test("l2_tls_peer_logged_without_address", async () => {
 // killer: scripts/l2/rest.mjs:81 CONST "e?.cause?.code ?? " -> "e?.cause?.message ?? "
 test("l2_rest_failures_named_without_address_and_symbols_closed", async () => {
   const R = await load();
-  const out = mkdtempSync(join(tmpdir(), "l2-rest-")), cause = Object.assign(new Error("connect ECONNREFUSED 127.0.0.1:59999"), { code: "ECONNREFUSED" });
+  const out = tmp(), cause = Object.assign(new Error("connect ECONNREFUSED 127.0.0.1:59999"), { code: "ECONNREFUSED" });
   let t = T0, mode = "refused", calls = 0, release = (): void => undefined;
   const body = (): ReadableStream => {
     let pulls = 0;
