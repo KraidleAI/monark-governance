@@ -134,3 +134,7 @@ Le bloc entier (~795) dépasse 547 : **coupe en deux lots empilés d'une même P
 **Q-2 (information, pour la G2) : identité d'un vérificateur.** Lecture du G-2 point 6 (chaîne avant `@`, minuscules ASCII). Les identités publiées et la liste fermée restent à la ligne datée de MONARK avant F-5a (Q-3 de B1) ; le lot les prend en paramètre.
 
 **Q-3 (information) : époque et causes exemptées.** Tant qu'aucun journal `epoch-events.json` n'est épinglé, `epoch` = 1 et toute cause `epoch:` ou `refresh:` est refusée (A-1 point 4). La grammaire des identifiants d'instance sera fixée par le lot qui épingle le journal (EPOCH-EVENTS-1, CM-4c) ; aucune ligne de la vague 1 n'en dépend (mesuré : `epoch` = 1 sur 280).
+
+## Mesure au code : G-4 et G-5 passent au lot a (2026-10-04)
+
+Après G-1 à G-3 (commits `066e8021`, `f4394af3`), R-25 mesuré contre `7a0b1a49` : **312** (estimation du G0 : ~465). G-4 et G-5 n'attendent aucune réponse ; ils entrent donc au lot a (commits `371fa31e`, `b85da486`), sous la borne : **464**. Le lot b ne porte plus que **G-6** (vague ≥ 2, sous Q-1). Tests et tueurs ajoutés : `apps/harness/test/policy-marginal.test.ts` (4 tests, un tueur chacun ; tueurs d'A-2 §5 pour USDe et liq) ; `guard_modules_are_not_served` couvre aussi `policy-marginal.ts`. Écart déclaré à G-4 : la classe cascade prend `region_rule` `additive-band`, lu du verdict servi (`cascadeVerdict` → `conformInterval`, intervalle symétrique), le plan §5.2.1 ne nommant que `committed-key`.
