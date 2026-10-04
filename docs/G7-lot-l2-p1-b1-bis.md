@@ -108,6 +108,54 @@ autre cas écrit `null` et le nom de la cause (échec fermé de l'attestation). 
 - Aucune clé dans le dépôt : `no_secret_in_repo` passe ; la clé de test naît et meurt dans le processus du test.
 - Le changement de mode de `packages/rpc-guard/bin/rpc-guard.mjs` n'est pas dans ce worktree et n'est pas commis.
 
+## Suite de la G2 du lot et du message de MONARK (2026-10-04, après la fusion de #128)
+
+- **Fusion du tronc** : `origin/lot/etude-suite` à `050da36d` (#128, L2-REST-TEST-TMP-1, l'aide partagée `tmp()` de
+  `test/l2-rest.test.ts`) fusionné dans la branche par le commit de fusion `f2067f15`, sans conflit (ni rebasage ni poussée forcée).
+  Nouvelle base de fusion : `050da36d`.
+- **m-1 de la G2** (`ea4dd553`) : `l2_tls_peer_logged_without_address` prend son dossier de `tmp()`, retiré dans `after` même quand le
+  test échoue ; le `rmSync` en ligne est retiré. `mkdtempSync` ne reste que dans `tmp()`.
+- **Q-2 et m-3 de la G2** (`abc87420`, nouveau gel) :
+  - `createRest` n'accepte `io.peer` que si son `servername` est `localhost`, sinon arrêt nommé `host_refused`
+    (`detail.peer = "not_loopback"`) avant tout abonnement au canal. Une configuration étalée par c5 ne peut donc plus attribuer le
+    certificat d'un hôte étranger (`stream.binance.com:9443`, ni même `api.binance.com:443`).
+  - Test neuf `l2_rest_peer_seam_loopback_only` (`test/l2-rest-tls.test.ts`), qui prouve la couture inatteignable par l'appel de
+    production :
+    - aucun fichier sous `scripts/`, hors `rest.mjs` et `rest.d.mts`, ne nomme `createRest` avec un `peer` ;
+    - `book.mjs` ne nomme ni `createRest` ni `peer` et lit REST par `io.rest.request(` ; le type de son io tient un client
+      (`Pick<RestClient, ...>`), pas l'io de `createRest` ;
+    - trois pairs non `localhost` sont refusés par `host_refused` ; un pair `localhost` et l'absence de pair sont admis.
+  - Tueur : `scripts/l2/rest.mjs:97 CONST "io.peer?.servername === \"localhost\"" -> "true"`, tué par assertion
+    (« Missing expected exception: stream.binance.com »).
+  - La ligne ajoutée à `rest.mjs` décale de +1 les lignes à partir de 98 : les tueurs `:129`, `:133`, `:169`, `:186` et `:102` (deux)
+    sont ré-ancrés en `:130`, `:134`, `:170`, `:187` et `:103`.
+- **Q-3** : MONARK écrit lui-même la ligne datée de `docs/G0-partie-l2-p1.md` à la fusion.
+
+### Item formé : L2-TLS-PEER-UNATTESTED-1
+
+- **Limite déclarée** : aucune requête REST ne s'arrête (aucun arrêt nommé) quand son pair TLS ne peut pas être attesté. La ligne de
+  `requests.jsonl` écrit alors `tls_peer_sha256: null` et la cause dans `tls_peer_note` (liste fermée `TLS_NOTES`). Les données de la
+  requête sont gardées.
+- **Pourquoi pas d'arrêt maintenant** (Q-1, accord de MONARK) : une requête sur une connexion du pool n'a rien à attester, et la reprise
+  de session d'undici (`session_resumed`) dépend du ramasse-miettes. La densité d'attestation sur la place est inconnue (m-7 de la G2).
+- **Déclencheur** : M-1, qui mesure sur la place réelle la part des lignes avec empreinte et la répartition des notes.
+- **Puis c5** : compter les notes au manifeste du jour, et poser un seuil par jour sur ce compte (au-delà : arrêt nommé ou marque du
+  jour), fixé à partir de la mesure de M-1.
+- **Porteur** : c5, après M-1.
+
+### Oracle de la suite (Linux, Node v24.21.0, variables de mandataire retirées, `TMPDIR` privé)
+
+- `tsc --noEmit`, `npm run lint` : verts. `lint:ratchet` 69/69, `gate:vocab` et `lang:gate` verts.
+- `node --test test/l2-*.test.ts`, 3 passages : 44 sur 44 à chaque fois, sortie 0 ; **0** dossier `l2-rest-*` laissé.
+- `verifie-ancres` sur les six fichiers de test `l2-*` : 44 tueurs, 44 ANCRE, 0 DERIVE, 0 PERDU.
+- `node scripts/red-proof.mjs --base 050da36d --gel abc87420 --draw 4 --seed 37` : **OK**. 5 tests jugés, tous F2P (rouges par
+  assertion à la base, verts au gel) ; 7 inchangés ; 4 tueurs tirés (`:97`, `:103` deux fois, `:27`), 4 tués. `RED-PROOF.json`
+  `92e3f5af…`.
+- `npm test` au gel : **2 197 tests, 2 176 réussis, 21 sautés, 0 échec**, sortie 0, en 336 s ; aucun dossier `l2-rest-*` laissé.
+- R-25 (contre `050da36d`, `docs/**/*.md` exclus) : `rest.mjs` +43/−24, `rest.d.mts` +18/−3, `l2-rest.test.ts` +41/−32,
+  `l2-rest-tls.test.ts` +140/−0, soit **301**, sous 547.
+- Le changement de mode de `packages/rpc-guard/bin/rpc-guard.mjs` n'est pas commis.
+
 ## Sortie
 
 Prêt pour le contrôle par diff de MONARK et une G2 neuve du lot.
