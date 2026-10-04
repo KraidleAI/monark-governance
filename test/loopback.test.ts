@@ -77,12 +77,13 @@ test("loopback_closed_port_refuses_a_connection", async () => {
 });
 
 // reddened by: a server returned that listens on another port than the drawn one (a `start` that ignores its port, as M17 of the
-// G2), or that server left open
+// G2), or that server left open. The factory binds port + 1 (LOOPBACK-CLOSEDPORT-RACE-1): no closed port that another process can take.
 test("loopback_start_refuses_a_server_off_the_drawn_port", async () => {
-  const other = await closedPort(), built: Server[] = [];
-  const ignoring = (): Server => { const b = createServer().listen(other, "127.0.0.1"); built.push(b); return b; };
-  await assert.rejects(startLoopback(ignoring, () => other + 1), { message: `the server listens on port ${String(other)}, not on the drawn port ${String(other + 1)}` });
-  assert.deepEqual([built.length, built[0]?.listening], [1, false], "refused at its first try, and closed");
+  const built: Server[] = [], off = /^the server listens on port (\d+), not on the drawn port (\d+)$/;
+  const e: unknown = await startLoopback((port) => { const b = createServer().listen(port + 1, "127.0.0.1"); built.push(b); return b; }).then(() => null, (x: unknown) => x);
+  const m = off.exec(e instanceof Error ? e.message : String(e)), open = built.some((b) => b.listening);
+  for (const b of built) b.close();
+  assert.deepEqual([Number(m?.[1]) - Number(m?.[2]), open], [1, false], "refused at the try that listens, one above the drawn port, and closed");
 });
 
 // reddened by: a listener of a try left on the server, after it listens (M06 of the G2) or after a refused try (M08), or kept by on()
