@@ -15,7 +15,8 @@ import { createHash, generateKeyPairSync, type KeyObject, sign, X509Certificate 
 import { copyFileSync, existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
 import { type ClientRequest, createServer, type IncomingHttpHeaders, type IncomingMessage, request as httpRequest, type Server,
   type ServerResponse } from "node:http";
-import { createServer as createTlsServer, request as httpsRequest, type RequestOptions } from "node:https";
+import { type Agent, createServer as createTlsServer, request as httpsRequest, type RequestOptions } from "node:https";
+import { createRequire, syncBuiltinESMExports } from "node:module";
 import { tmpdir } from "node:os";
 import { delimiter, join, resolve, sep } from "node:path";
 import { getCACertificates, type SecureVersion, setDefaultCACertificates, type TLSSocket } from "node:tls";
@@ -975,7 +976,8 @@ test("binance_klines_refuses_an_admitted_name_with_an_unformed_value", async () 
   const [w, v, path] = [resolve(ROOT, "w"), resolve(ROOT, "v"), [resolve(ROOT, "a"), resolve(ROOT, "b")].join(delimiter)];
   const cases: [Record<string, string>, string[]][] = [[{ SystemRoot: w, windir: v, PATH: path }, ["SystemRoot", "windir"]],
     [{ SYSTEMROOT: w, PATH: path }, ["SYSTEMROOT"]], [{ PATH: `${path}${delimiter}bin`, TEMP: "tmp", USERPROFILE: w, HOMEPATH: `.${sep}h` },
-      ["HOMEPATH", "PATH", "TEMP"]], [{ Path: `${path}${delimiter}` }, ["Path"]]];
+      ["HOMEPATH", "PATH", "TEMP"]], [{ Path: `${path}${delimiter}` }, ["Path"]],
+    [{ USERPROFILE: "u" }, ["USERPROFILE"]], [{ SystemRoot: "W", windir: "W" }, ["SystemRoot", "windir"]]]; // C-2 of the G2: equal, relative
   const lines: string[] = [], calls: Calls = { urls: [], inits: [] };
   for (const [env] of cases) {
     const argv = ["--symbol", "BTCUSDT", "--interval", "15m", "--start", iso(at(0)), "--end", iso(at(4)), "--out", fresh()];
@@ -1091,6 +1093,36 @@ test("binance_klines_stops_on_a_200_whose_connection_showed_no_certificate", asy
     logOf(limited.out).map((l) => [l.status, l.tls, l.headers["retry-after"]]), held.code, rawNames(held.out),
     await outcome(run(argv, { fetch: offline(calls) })), calls.urls.length],
   ["tls_unattested", [[200, null, false]], [], [], "rate_limited", [[429, null, "30"]], "tls_unattested", [], "raw_page_altered", 0]);
+});
+
+// killer: scripts/record-binance-klines.mjs:370 CONST "request(url, options)" -> "request(url)"
+test("binance_klines_requests_through_its_own_agent_by_default", async () => {
+  // C-1 and n-3 of the G2 of lot BINANCE-PRE35-1: the default transport, no fetch injected. https.request is replaced by a spy that throws
+  // (offline), synced into the ESM bindings (refused unless the binding shows it), and AbortSignal.timeout is spied: the recorder hands
+  // https.request its URL, its own agent (maxCachedSessions 0, keepAlive false) and the very 30 s signal, then stops network_error.
+  // Both restored after
+  const https = createRequire(import.meta.url)("node:https") as typeof import("node:https"), timeout = AbortSignal.timeout.bind(AbortSignal);
+  const timeoutAsIs = Object.getOwnPropertyDescriptor(AbortSignal, "timeout") ?? {}; // restored as it was, not a bound copy
+  const original = https.request, seen: unknown[] = [], signals: [number, AbortSignal][] = [];
+  let code = "not run", bound = false;
+  try {
+    https.request = ((url: string, options: RequestOptions) => {
+      const agent = options.agent as Agent;
+      seen.push([url, agent.options.maxCachedSessions, agent.options.keepAlive, options.signal === signals[0]?.[1]]);
+      throw new Error("offline spy");
+    }) as typeof https.request;
+    AbortSignal.timeout = (ms: number): AbortSignal => { const s = timeout(ms); signals.push([ms, s]); return s; };
+    syncBuiltinESMExports();
+    bound = (await import("node:https")).request === https.request;
+    if (bound) code = await outcome(run(["--symbol", "BTCUSDT", "--interval", "15m", "--start", iso(at(0)), "--end", iso(at(4)), "--out", fresh()],
+      { env: {}, execArgv: [] }));
+  } finally {
+    https.request = original;
+    Object.defineProperty(AbortSignal, "timeout", timeoutAsIs);
+    syncBuiltinESMExports();
+  }
+  const url = `${ORIGIN}/api/v3/klines?symbol=BTCUSDT&interval=15m&startTime=${String(at(0))}&endTime=${String(at(4) - 1)}&limit=1000`;
+  assert.deepEqual([bound, code, seen, signals.map(([ms]) => ms)], [true, "network_error", [[url, 0, false, true]], [30_000]]);
 });
 
 /** Lot BINANCE-V2-1, D-1 (G2-CTV2-1: the type surface was right but nothing pinned it): the typecheck gate (tsc --noEmit) reads these
