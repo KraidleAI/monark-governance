@@ -124,8 +124,59 @@ CI : 1 205) ; CONTENT 0. G0 et G7 hors compte. Dont 57 lignes de la copie de l a
   `alive()`). Item à former (outil, zone MONARK) : récolter l enfant (lancer `run` en asynchrone) ou lire l état `Z` ; déclencheur :
   le prochain oracle sous Linux.
 
+## G2 neuve (2026-10-04) : ACCEPTE-AVEC-CORRECTIONS, pliée au commit `88bd5672`
+
+Rapport : `scratchpad/G2-harness-loopback.md` (sondes `strays-probe.mjs`, `selfconn.mjs`, `zombie.mjs`). Aucune correction bloquante ;
+affirmations reproduites (6 sites, copie identique, garde rouge à la base, K1-K7 tués, export : copie présente, `tsc` 0, harnais 10/10).
+
+- **m1 (contournements de la garde stricte), plié** : `strays` lit `\.listen\s*\(` (espace avant la parenthèse, et `?.listen`),
+  `["listen"](` (nom entre crochets), `startServer\s*\(`, `startServer as` et `= startServer` (alias), et `\.bind\s*\(` dans un fichier
+  qui importe `dgram` (au-delà, `.bind` de `Function` ferait des faux sites) ; le rappel admis ne franchit plus `;`, une fin de ligne
+  ni des parenthèses non vides (`(?:[^;\n()]|\(\))*?` au lieu de `[^;]*?`) : `Promise.all([startLoopback((port) => make(port)),
+  b.listen(port)])` et la ligne suivante sans `;` sont refusés. Formes de port 0 : `listen\s*\(` et `startServer\s*\(`. Une ligne
+  d échantillons neuve (8 cas, dont un `f.bind(null)` épargné hors dgram), un échantillon `s.listen (0)`. **Limites déclarées** (en-tête de la
+  garde) : nom calculé autre que `"listen"`, alias par déstructuration, port en variable d environnement (`PORT=0`), dgram dans un
+  fichier qui ne l importe pas, expression du port du rappel (`port * 0`, rattrapée à l exécution par la postcondition de
+  `startLoopback`, sonde X3 de la G2).
+- **m2 (faux sites, échec fermé), consigné** : commentaires et chaînes lus (le cas de la ligne `// killer:` de ce lot) ; paramètre typé
+  `(port: number) =>` et `listen({ port, host })` dans un rappel lus comme écarts. Une phrase dans l en-tête de la garde.
+- **m3, plié** : l en-tête de la garde disait « a port 0 held in a variable passes it » ; il dit « passes the port-0 forms, the strict
+  form refuses it ».
+- **m4, consigné** : la copie exportée nomme des chemins non exportés (`test/loopback.test.ts`, les trois fichiers d enregistreur et
+  de sonde) et des noms de lots et de journaux ; `lang:gate` et `gate:vocab` passent ; inhérent à l identité octet pour octet.
+- **m5, consigné** : le changement de mode de `packages/rpc-guard/bin/rpc-guard.mjs` (laissé par `npm ci`) est à défaire avant la case 2
+  de CHECKLIST-G7 ; jamais commis.
+- **Q-HL-1, tranchée par la G2 : pliée.** Le test 6 lit `connected` avec `socket.localPort === port` **et** `socket.localAddress ===
+  "127.0.0.1"` comme une auto-connexion, donc « rien n écoute » ; commentaire au-dessus du test avec les taux mesurés et la parité :
+  la G2 reproduit 3 auto-connexions sur 66 503 `connect` vers le port pair 45124, 0 sur 841 513 vers l impair 45123 (Linux garde la
+  parité du bas de la plage, 32768) ; un auditeur tient le seau de liaison du port, que le noyau saute : une auto-connexion prouve
+  l absence d auditeur. Tueur « port laissé ouvert » vérifié : K8 ci-dessous, tué.
+- **Q-HL-2, réponse de la G2 : copie acceptée** (identité gardée, `.gitattributes` `eol=lf` ; l export la porte identique ; à rouvrir si
+  un second paquet exporté, `apps/sentinel`, en a besoin).
+- **Q-HL-3, réponse de la G2 : plausible, non vérifiable ici.** K6 et K7 sont les lectures naturelles des deux comportements que nomme
+  la ligne `reddened by` de D-2 ; une variante `continue` de M18 mourrait aussi. **MONARK confirme M18 et M21 contre le texte de sa G2.**
+- **Q-HL-4, confirmée par la G2** (sous `spawnSync`, `process.kill(pid, 0)` vrai alors que `/proc/<pid>/stat` lit `Z`). **Item proposé
+  MUTANTS-WAITER-ZOMBIE-1** (zone MONARK, test d outil) : `test/mutants-run.test.ts:420` lance le run en asynchrone, ou le « waiter »
+  hors de ses enfants ; en option, `alive()` (`scripts/oracle/lock.mjs:13`) lit l état `Z` comme mort sous Linux. Déclencheur : le
+  prochain oracle sous Linux.
+
+### Rejeu après le pli (tête `88bd5672`, clone ; sha256 vérifié avant et après chaque restauration)
+
+| # | Mutation | Test | Résultat |
+|---|---|---|---|
+| K1-K7 | comme ci-dessus (K5 désormais l.49) | idem | **7/7 tués** (K1 : 6/6 tests du harnais) |
+| K8 | `test/helpers/loopback.ts:55` SDL de la fermeture de `closedPort` (port laissé ouvert) | test 6 | tué |
+| K9 | `http.test.ts:146` → `startServer (Number(process.env.P ?? 0))` (espace et port en expression : la sonde X2) | parcours de la garde | tué (stricte) |
+| K10 | `http.test.ts:146` → `(await Promise.all([startLoopback((port) => startServer(port)), server.listen(port)]))[0]` | parcours de la garde | tué |
+| K11 | `http.test.ts:17` + `void import("node:dgram").then((d) => d.createSocket("udp4").bind(p));` | parcours de la garde | tué |
+| K12 | `test/loopback-guard.test.ts:46` `(?:[^;\n()]|\(\))*?` → `[^;]*?` | échantillons de la garde | tué |
+
+**12/12 tués.** Tests du harnais, de l aide et de la garde : 133/133 ; `loopback.test.ts` et la garde, 200 passages (4 en parallèle) :
+200 verts. `tsc --noEmit` 0 ; eslint 0 sur les deux fichiers. R-25 par `r25()` sur `5803d966...88bd5672` : 129 insertions, 44
+suppressions, **173** (sous 547) ; CONTENT 0.
+
 ## Sortie
 
-LIVRÉ pour contrôle par MONARK, sous réserve de Q-HL-1 à Q-HL-3. LOOPBACK-PORT0-HELPER-ONLY-1 clos au gel ; LOOPBACK-CLOSEDPORT-RACE-1
-clos pour D-2, ouvert pour le test 6 (Q-HL-1). Le changement de mode de `packages/rpc-guard/bin/rpc-guard.mjs` laissé par `npm ci`
+LIVRÉ pour contrôle par MONARK après la G2 neuve pliée (tête `88bd5672`), sous réserve de Q-HL-3 (confirmation de M18 et M21).
+LOOPBACK-PORT0-HELPER-ONLY-1 clos (limites déclarées) ; LOOPBACK-CLOSEDPORT-RACE-1 clos (D-2 et test 6) ; MUTANTS-WAITER-ZOMBIE-1 proposé. Le changement de mode de `packages/rpc-guard/bin/rpc-guard.mjs` laissé par `npm ci`
 n est pas commis ; rien n est poussé.
