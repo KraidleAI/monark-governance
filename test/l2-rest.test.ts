@@ -6,7 +6,7 @@ import { after, test } from "node:test";
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
 import { channel } from "node:diagnostics_channel";
-import { existsSync, mkdtempSync, readdirSync, readFileSync } from "node:fs";
+import { existsSync, mkdtempSync, readdirSync, readFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { startPlace, trap, viaFetch, type Place, type Reply } from "./l2-fake-place.ts";
@@ -194,41 +194,51 @@ test("l2_time_offset_logged", async () => {
   const { R, c, out } = await rig(() => ({ status: 200, body: "{\"serverTime\":1760000000123}" }));
   const a = await c.request("time", null);
   assert.deepEqual([a.sentUs, a.receivedUs], [T0, T0 + 3]);
-  const e = R.logTimeOffset(out, a.body, a.sentUs, a.receivedUs); // midpoint T0 + 1.5 us, floored to T0 + 1
-  assert.deepEqual(e, { event: "clock_offset", sent_us: T0, received_us: T0 + 3, server_time_ms: 1_760_000_000_123,
+  const clock = { wallUs: (): number => T0 + 10, monoNs: (): bigint => 5_000_000_000n }; // P1-B1-BIS m-1: the head of P1-a3
+  const head = { host_us: T0 + 10, mono_ns: "5000000000", symbol: null, cid: null, event: "clock_offset" };
+  const e = R.logTimeOffset(out, a.body, a.sentUs, a.receivedUs, clock); // midpoint T0 + 1.5 us, floored to T0 + 1
+  assert.deepEqual(e, { ...head, sent_us: T0, received_us: T0 + 3, server_time_ms: 1_760_000_000_123,
     offset_us: 1_760_000_000_123_000 - (T0 + 1), reason: null });
   assert.ok(Number.isSafeInteger(e.offset_us));
-  const unsafe = R.logTimeOffset(out, Buffer.from("{\"serverTime\":1760000000123.5}"), T0, T0 + 2);
+  const unsafe = R.logTimeOffset(out, Buffer.from("{\"serverTime\":1760000000123.5}"), T0, T0 + 2, clock);
   assert.deepEqual([unsafe.offset_us, unsafe.server_time_ms, unsafe.reason], [null, null, "server_time_not_safe_integer"]);
-  const journal = readFileSync(join(out, "journal.jsonl"), "utf8").trim().split("\n").map((l) => JSON.parse(l) as Rest.ClockOffset);
-  assert.deepEqual(journal, [e, unsafe]);
+  assert.throws(() => R.logTimeOffset(out, Buffer.from("not json {"), T0, T0 + 2, clock), (x: unknown) => (x as { code?: string }).code === "body_not_json");
+  const text = readFileSync(join(out, "journal.jsonl"), "utf8").trim().split("\n");
+  assert.ok(text.every((l) => l.startsWith(`{"host_us":${String(T0 + 10)},"mono_ns":"5000000000","symbol":null,"cid":null,"event":"clock_offset",`)), text[0]);
+  assert.deepEqual(text.map((l) => JSON.parse(l) as Rest.ClockOffset), [e, unsafe, { ...head, sent_us: T0, received_us: T0 + 2, server_time_ms: null,
+    offset_us: null, reason: "body_not_json" }], "one line either way, a body that is not JSON too, written before its stop");
   c.close();
 });
 
-// killer: scripts/l2/rest.mjs:92 CONST "cert.fingerprint256" -> "cert.subject"
+// B-2 of the G2 of part P1 (lot P1-B1-BIS): test sockets published on the channel while a request runs (an injected fetch, no
+// network). Only a TLS socket whose servername and remote port are those of the place (PEER) is the request's own; any other window
+// logs no fingerprint and names why (TLS_NOTES); a socket published outside a request is not attributed; no address is written.
+// killer: scripts/l2/rest.mjs:95 CONST "s.servername !== peer.servername || " -> ""
 test("l2_tls_peer_logged_without_address", async () => {
-  const connected = channel("undici:client:connected");
-  const fake = { connectParams: { hostname: "203.0.113.9", localAddress: "198.51.100.7", port: 443 },
-    socket: { remoteAddress: "203.0.113.9", localAddress: "198.51.100.7", getPeerCertificate: () => ({ fingerprint256: "AB:CD:EF", subject: { CN: "x" } }) } };
-  let tls = false, twice = false;
-  const { c, out } = await rig(() => {
-    if (tls || twice) connected.publish(fake);
-    if (twice) connected.publish(fake);
-    return { status: 200, body: "{\"serverTime\":1}" };
-  });
-  await c.request("time", null); // plain loopback: no TLS socket
-  tls = true;
-  await c.request("time", null); // a test socket carrying a certificate, published while the request runs
-  tls = false;
-  connected.publish(fake); // outside a request: not attributed
+  const R = await load(), out = mkdtempSync(join(tmpdir(), "l2-rest-")), connected = channel("undici:client:connected");
+  const tls = (servername: string, remotePort: number, cert: object, reused = false): object => ({ servername, remotePort,
+    remoteAddress: "203.0.113.9", localAddress: "198.51.100.7", getPeerCertificate: () => cert, isSessionReused: () => reused });
+  const own = tls("api.binance.com", 443, { fingerprint256: "AB:CD:EF", subject: { CN: "x" } }), other = { fingerprint256: "12:34" };
+  const cases: [object[], string | null, string | null][] = [[[], null, "reused_socket"], [[own], "AB:CD:EF", null],
+    [[tls("stream.binance.com", 443, other)], null, "foreign_connection"], [[tls("api.binance.com", 9443, other)], null, "foreign_connection"],
+    [[tls("stream.binance.com", 9443, other), own], "AB:CD:EF", null], [[own, own], null, "several_connections"],
+    [[tls("api.binance.com", 443, {}, true)], null, "session_resumed"], [[tls("api.binance.com", 443, {})], null, "no_certificate"],
+    [[{ servername: "api.binance.com", remotePort: 443, remoteAddress: "203.0.113.9" }], null, "no_tls"]];
+  let publish: object[] = [], t = T0;
+  const fetch = (): Promise<Response> => {
+    for (const socket of publish) connected.publish({ connectParams: { hostname: "203.0.113.9", localAddress: "198.51.100.7", port: 443 }, socket });
+    return Promise.resolve(new Response("{\"serverTime\":1}"));
+  };
+  const c = R.createRest({ fetch, nowUs: () => (t += 1), out });
+  for (const [sockets] of cases) { publish = sockets; await c.request("time", null); }
+  publish = [];
+  connected.publish({ socket: own }); // outside a request: not attributed
   await c.request("time", null);
-  twice = true;
-  await c.request("time", null); // two connections in one window: no fingerprint, named
-  assert.deepEqual(lines(out).map((l) => [l.tls_peer_sha256, l.tls_peer_note]),
-    [[null, null], ["AB:CD:EF", null], [null, null], [null, "several_connections"]]);
+  assert.deepEqual(lines(out).map((l) => [l.tls_peer_sha256, l.tls_peer_note]), [...cases.map(([, f, n]) => [f, n]), [null, "reused_socket"]]);
   const written = readFileSync(join(out, "requests.jsonl"), "utf8");
   for (const address of ["203.0.113.9", "198.51.100.7", "127.0.0.1", "localAddress", "remoteAddress"]) assert.ok(!written.includes(address), address);
   c.close();
+  rmSync(out, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 });
 });
 
 // G2 B1, m1, B2, J1, m2, m3: a failure names its code, never an address; a body that fails mid-read is still logged; a symbol outside
