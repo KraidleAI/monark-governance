@@ -86,3 +86,14 @@ R-25 au plus 547 (insertions plus suppressions, `scripts/oracle/r25.mjs`). Prév
   lignes de tests (chaque test touché devient jugé). À garder pour un lot d'outil ?
 - **Q-PRE35-2** : une entrée vide de `PATH` (fréquente en fin de `Path` sous Windows) arrête la course (`env_refused`, `PATH` nommé).
   Choix fermé par défaut ; à confirmer avant la course des 35.
+
+## Pli de la G2 (APPROUVE-AVEC-CORRECTIONS, 2026-10-04)
+
+Corrections de test seulement, plus une ligne d'en-tête ; aucune ligne de production. Commits ajoutés, aucune réécriture.
+- **C-1** : un test du transport par défaut, sans `fetch` injecté : `https.request` remplacé par un espion qui lève, synchronisé dans les
+  liaisons ESM (`syncBuiltinESMExports`, refusé si la liaison ne le montre pas), restauré après. Il affirme que l'espion reçoit l'URL,
+  l'agent propre (`maxCachedSessions: 0`, `keepAlive: false`) et le signal. Tueur : `request(url, options)` → `request(url)` (l.370).
+- **n-3** : le même test espionne `AbortSignal.timeout` : 30 000 ms, et ce signal-là est celui que reçoit la requête.
+- **C-2** : deux cas de L-2, un `USERPROFILE` relatif, et `SystemRoot` et `windir` égaux mais relatifs.
+- **n-5** : l'en-tête du `.d.mts` nomme la couture de forme `https.request`.
+- n-1, n-2, n-4 et les réponses aux questions : au G7.
