@@ -159,7 +159,7 @@ export function plan({ inputs, release, date, roots }) {
     else for (const p of (git(prev, ["ls-files", "-z"]) ?? "").split("\0")) if (p !== "" && !outs.has(p)) add("withdrawn", `${p} is published, the release drops it`);
   }
   if (problems.length > 0) return { files: [], problems };
-  files.push({ path: "VERSION", bytes: Buffer.from(`${date}\n`) });
+  files.push({ path: "VERSION", bytes: Buffer.from(date + "\n") });
   return { files: [...files.sort(byPath), { path: "MANIFEST.sha256", bytes: Buffer.from(manifestText(files)) }], problems };
 }
 
