@@ -5,8 +5,9 @@
 // refused (any 3xx stops); no header set; no retry, ever; a 30 s timeout; every answer logged to requests.jsonl; the body is read under
 // a bound of 8 MiB (SERIES-BODY-BOUND-1) and kept as received before it is parsed: a 200 under rest/<SYMBOL>/, any other status under
 // rest/errors/ (SERIES-ERROR-BODY-1). 429 and 418 suspend every request until Retry-After (seconds; a 429 without one: 60 s); a 418
-// without one, a Retry-After above 3 days and a 451 (refused region) stop every later request of this client. exchangeInfo gives the price scale (rank of the last non-zero
-// decimal of PRICE_FILTER tickSize) and the rateLimits table; the place time gives the clock offset in microseconds, logged to
+// without one, a Retry-After above 3 days and a 451 (refused region) stop every later request of this client, from the status alone,
+// before a failed body read or a failed write can throw (FM-1.2); kept is a posix path on every OS. exchangeInfo gives the price scale
+// (rank of the last non-zero decimal of PRICE_FILTER tickSize) and the rateLimits table; the place time gives the clock offset in microseconds, logged to
 // journal.jsonl (condition (2) of RECHERCHES: serverTime a safe integer, else no offset, named). TLS peer (SERIES-TLS-PEER-LOG-1): the
 // fingerprint of the place certificate is read from the socket that the diagnostics channel undici:client:connected publishes while
 // a request runs (Node's undici, plan L-1); neither connectParams nor any address of the socket is read; the
@@ -97,7 +98,6 @@ export function createRest(io) {
     writeFileSync(join(io.out, dir, name), body, { flag: "wx" });
     return `${dir}/${name}`;
   });
-  const halt = (code, detail) => { state.stopped = true; stop(code, detail); };
   async function once(kind, symbol) {
     if (state.stopped) stop("stopped", { kind, symbol });
     const url = guardUrl(urlOf(kind, symbol)), sentUs = io.nowUs();
@@ -113,9 +113,14 @@ export function createRest(io) {
       state.window = false;
     }
     try { got = await boundedBody(res, seen); } catch (e) { failed = errorName(e); got = { over: true, bytes: seen.n }; }
-    const receivedUs = io.nowUs(), header = (name) => res.headers.get(name), status = res.status;
+    const receivedUs = io.nowUs(), header = (name) => res.headers.get(name), status = res.status, limited = status === 429 || status === 418;
+    const ra = header("retry-after"), readable = /^[0-9]+$/.test(ra ?? ""), s = readable ? Number(ra) : RETRY_AFTER_DEFAULT_S;
+    const halted = status === 451 ? "restricted_location" : !limited ? null : status === 418 && !readable ? "ip_banned_no_retry_after"
+      : s > RETRY_AFTER_MAX_S ? "retry_after_too_long" : null;
+    if (halted !== null) state.stopped = true; // the stop and the suspension hold before anything below can fail
+    else if (limited) state.suspendedUntilUs = receivedUs + s * 1_000_000;
     const name = `${symbol ?? "ALL"}-${kind}-${stamp(sentUs)}${status === 200 ? "" : `-${String(status)}`}.json`;
-    const kept = got.over ? null : status === 200 ? keep(join("rest", symbol ?? "ALL"), name, got.body) : keep(join("rest", "errors"), name, got.body);
+    const kept = got.over ? null : status === 200 ? keep(`rest/${symbol ?? "ALL"}`, name, got.body) : keep("rest/errors", name, got.body);
     const line = { kind, symbol, url, weight: KINDS[kind].weight, status, sent_us: sentUs, received_us: receivedUs,
       bytes: got.over ? got.bytes : got.body.length, sha256: got.over ? null : sha256(got.body), kept,
       tls_peer_sha256: state.events > 1 ? null : state.peer, tls_peer_note: state.events > 1 ? "several_connections" : null,
@@ -123,14 +128,8 @@ export function createRest(io) {
     disk(() => { appendFileSync(join(io.out, "requests.jsonl"), JSON.stringify(line) + LF); });
     if (failed !== null) stop("network_error", { url, status, error: failed, bytes_read: seen.n });
     if (got.over) stop("body_too_large", { url, status, bytes_read: got.bytes, max: BODY_MAX });
-    if (status === 429 || status === 418) {
-      const ra = header("retry-after"), readable = /^[0-9]+$/.test(ra ?? ""), s = readable ? Number(ra) : RETRY_AFTER_DEFAULT_S;
-      if (status === 418 && !readable) halt("ip_banned_no_retry_after", { url, status });
-      if (s > RETRY_AFTER_MAX_S) halt("retry_after_too_long", { url, status, retry_after: ra });
-      state.suspendedUntilUs = receivedUs + s * 1_000_000;
-      stop(status === 429 ? "rate_limited" : "ip_banned", { url, status, retry_after: ra, until_us: state.suspendedUntilUs });
-    }
-    if (status === 451) halt("restricted_location", { url, status });
+    if (halted !== null) stop(halted, { url, status, retry_after: ra });
+    if (limited) stop(status === 429 ? "rate_limited" : "ip_banned", { url, status, retry_after: ra, until_us: state.suspendedUntilUs });
     if (status >= 300 && status < 400) stop("redirect_refused", { url, status });
     if (status !== 200) stop("http_status", { url, status });
     return { body: got.body, kept, sentUs, receivedUs };
