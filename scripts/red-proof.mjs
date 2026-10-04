@@ -23,7 +23,7 @@
 // modules loaded, stillborn = still green, invalid = a load failure, inconclusive = as above; the file is restored (sha256 checked
 // before and after) and the run kept as killer-<n>.tap.
 import { spawnSync } from "node:child_process";
-import { createHash } from "node:crypto";
+import { createHash, randomBytes } from "node:crypto";
 import { copyFileSync, existsSync, lstatSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, realpathSync, rmSync, statSync, symlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join, posix, resolve, sep } from "node:path";
@@ -33,9 +33,9 @@ const OPS = ["COR", "ROR", "SDL", "CONST"];
 const KILLER = /^\s*\/\/ killer: (\S+):(\d+) (\w+) "((?:[^"\\]|\\.)*)" -> "((?:[^"\\]|\\.)*)"\s*$/;
 export const DENY = /API_KEY|_KEY$|TOKEN|SECRET|^GH_|^GITHUB_|^CHAINSTACK_|^MONARK_PUBLIC_MIRROR$/i; // the lot's tests never see these names (Q-G2-5); exported for scripts/mutants/run.mjs (lot M-6, Q-V-3)
 const ENV = { ...Object.fromEntries(Object.entries(process.env).filter(([k]) => !DENY.test(k))), GIT_OPTIONAL_LOCKS: "0", NODE_TEST_CONTEXT: undefined }; // a nested node --test must print TAP, not report to a parent
-// Loaded in the runner and, through its execArgv, in the child: a blocking stdout leaves process.exit() of --test-force-exit nothing to drop (POSIX pipes are
-// non-blocking; Windows already blocks); the child's last write on it is its exit line, which truncation() requires (RED-PROOF-TAP-TRUNCATION-1).
-const PRELOAD = `--import=data:text/javascript,${encodeURIComponent('process.stdout._handle?.setBlocking?.(true); if (process.env.NODE_TEST_CONTEXT === "child-v8") process.on("exit", (c) => process.stdout.write(`\\nred-proof child exit ${c}\\n`));')}`;
+// Loaded in the runner and, through its execArgv, in the child: a blocking stdout leaves process.exit() of --test-force-exit nothing to drop (POSIX pipes are non-blocking;
+// Windows already blocks). The child takes the run's nonce out of its env (a grandchild never sees it) and, at exit, writes its exit line straight to fd 1 iff nothing is still queued: truncation() requires it.
+const PRELOAD = `--import=data:text/javascript,${encodeURIComponent('import { writeSync } from "node:fs"; process.stdout._handle?.setBlocking?.(true); const n = process.env.RED_PROOF_EXIT; if (process.env.NODE_TEST_CONTEXT === "child-v8" && n) { delete process.env.RED_PROOF_EXIT; process.on("exit", (c) => { if (process.stdout.writableLength === 0) try { writeSync(1, `\\nred-proof child exit ${n} ${c}\\n`); } catch {} }); }')}`;
 const sha = (b) => createHash("sha256").update(b).digest("hex");
 const str = (s) => { try { return JSON.parse(`"${s}"`); } catch { return s; } };
 const isDir = (p) => existsSync(p) && statSync(p).isDirectory();
@@ -92,12 +92,12 @@ function blocks(lines) {
   return out;
 }
 
-/** Why one run's TAP is incomplete, or null: closed by its summary, a plan that counts its top-level entries, the child's exit line (any lost suffix loses it). */
-export function truncation(tap) {
+/** Why one run's TAP is incomplete, or null: closed by its summary, a plan that counts its top-level entries, the child's exit line with the run's nonce (any lost suffix loses it). */
+export function truncation(tap, nonce) {
   const plan = /^1\.\.(\d+)$/m.exec(tap), n = tap.split(/\r?\n/).filter((l) => /^(ok|not ok) \d+ - /.test(l)).length;
   if (!/^# duration_ms \S+$/.test(tap.trimEnd().split(/\r?\n/).at(-1) ?? "")) return "no closing summary (# duration_ms)";
   if (plan === null || Number(plan[1]) !== n) return `plan ${plan?.[0] ?? "missing"} for ${n} top-level entries`;
-  if (!/^# red-proof child exit -?\d+$/m.test(tap)) return "no child exit line: the child's stream was cut";
+  if (!new RegExp(`^# red-proof child exit ${nonce} -?\\d+$`, "m").test(tap)) return "no child exit line: the child's stream was cut";
   return null;
 }
 
@@ -161,16 +161,16 @@ function linkModules(repo, tree) {
 }
 
 function runFile(tree, file, tmp, only) {
-  const pick = only === undefined ? [] : [`--test-name-pattern=^${only.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}$`];
+  const pick = only === undefined ? [] : [`--test-name-pattern=^${only.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}$`], nonce = randomBytes(8).toString("hex");
   const r = spawnSync(process.execPath, [PRELOAD, "--test", "--test-reporter=tap", "--test-force-exit", "--test-timeout=120000", "--test-skip-pattern=\\(test 42\\)", ...pick, file],
-    { cwd: tree, env: { ...ENV, TEMP: tmp, TMP: tmp, TMPDIR: tmp }, encoding: "utf8", timeout: 1_800_000, maxBuffer: 1 << 28 });
-  return { tap: r.stdout ?? "", dead: r.error !== undefined || r.signal !== null || r.status === 134 }; // 134: the runner itself aborted (Q-G2-3)
+    { cwd: tree, env: { ...ENV, TEMP: tmp, TMP: tmp, TMPDIR: tmp, RED_PROOF_EXIT: nonce }, encoding: "utf8", timeout: 1_800_000, maxBuffer: 1 << 28 });
+  return { tap: r.stdout ?? "", nonce, dead: r.error !== undefined || r.signal !== null || r.status === 134 }; // 134: the runner itself aborted (Q-G2-3)
 }
 
 function statusIn(run, name) {
   if (run.dead) return { status: "inconclusive", entry: undefined, file: false };
   const es = parseTap(run.tap), fl = fileLevel(es), entry = fl ?? es.find((e) => e.name === name), status = classify(entry);
-  return { status: status !== "inconclusive" && truncation(run.tap) !== null ? "inconclusive_truncated" : status, entry, file: fl !== undefined };
+  return { status: status !== "inconclusive" && truncation(run.tap, run.nonce) !== null ? "inconclusive_truncated" : status, entry, file: fl !== undefined };
 }
 
 function verdictOf(t) {
