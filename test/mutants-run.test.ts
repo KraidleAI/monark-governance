@@ -520,3 +520,25 @@ test("mutants_a_time_overrun_is_non_conclu_and_never_replayed", () => { // corre
   const r = run(["--repo", dir, "--base", base, "--table", table("to.json", [h("H1", 1, "2"), h("G1", 2, "2"), h("X1", 1, '1; throw new Error("load")')]), "--timeout-ms", "500"]);
   assert.deepEqual([r.status, r.rec?.baseline?.status, ["H1", "G1", "X1"].map((id) => [row(r, id)?.status, row(r, id)?.replay?.status ?? null])], [1, "vert", [["non conclu", null], ["non conclu", null], ["non conclu", "non conclu"]]], r.stderr);
 });
+
+// Lot MUTANTS-TEST-SUPPORT-1: sp/, a support module test/place.ts that test/place.test.ts imports (a killer on it, and a table row), test/shared.test.ts that it
+// imports too (a test file: never mutable) and test/stray.ts that no test file imports (not declared: still test code).
+const SP = { "test/place.ts": "export const frame = (n) => (n < 126 ? 0 : 2);\n", "test/shared.test.ts": "export const K = 1;\n", "test/stray.ts": "export const S = 1;\n",
+  "test/place.test.ts": `${HEAD}import { frame } from "./place.ts";\nimport { K } from "./shared.test.ts";\n// killer: test/place.ts:1 ROR "n < 126" -> "n <= 126"\ntest("frame_wide", () => { assert.deepEqual([frame(125), frame(126), K], [0, 2, 1]); });\n` };
+const P = (id: string, file: string, before: string, after: string): Row => ({ id, file, line: 1, op: "CONST", before, after, why: "w" });
+let SPR: Run | undefined;
+const sp = (): Run => (SPR ??= ((m) => run(["--repo", m.dir, "--base", m.base, "--killers", "--table", table("sp.json", [P("P1", "test/place.ts", ": 2)", ": 3)"),
+  P("P2", "test/shared.test.ts", "1", "2"), P("P3", "test/stray.ts", "1", "2")])]))(mini("sp", SP)));
+
+// killer: scripts/mutants/run.mjs:123 CONST "targetsOf(root, m.file, globs).direct.length === 0" -> "true"
+test("mutants_a_killer_or_a_row_mutates_a_support_module_a_test_file_imports", () => {
+  const r = sp();
+  assert.deepEqual([r.rec?.baseline?.status, ...["K1", "P1"].map((id) => [row(r, id)?.status, row(r, id)?.targets, row(r, id)?.fails])], ["vert", ["tue", ["test/place.test.ts"], ["frame_wide"]],
+    ["tue", ["test/place.test.ts"], ["frame_wide"]]], r.stderr);
+});
+
+// killer: scripts/mutants/run.mjs:123 CONST "m.file.endsWith(\".test.ts\") || " -> ""
+test("mutants_still_refuse_a_test_file_or_an_unimported_module_under_test", () => {
+  const r = sp(), why = (f: string): string => `${f} is test code: a mutant mutates production code`;
+  assert.deepEqual(["P1", "P2", "P3"].map((id) => [row(r, id)?.status, row(r, id)?.note]), [["tue", null], ["anchor-lost", why("test/shared.test.ts")], ["anchor-lost", why("test/stray.ts")]], r.stderr);
+});
