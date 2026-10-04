@@ -87,7 +87,7 @@ const GREEN = {
 // uncommitted body put in s0 => red.
 // CM-2b surfaces: 15 checks; the gate body is the committed USDe key, and two 400 checks carry their code (btc-dir-15m
 // retired: task_class_retired; produced_at in 2099: produced_at_future, MONARK C-8).
-// killer: scripts/verify-harness.mjs:270 CONST "got === code" -> "got !== code"
+// killer: scripts/verify-harness.mjs:271 CONST "got === code" -> "got !== code"
 test("verify_harness_ca_passes_on_the_in_process_harness", async () => {
   const server: HttpServer = startServer(0);
   try {
