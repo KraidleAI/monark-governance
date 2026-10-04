@@ -474,8 +474,9 @@ Tronc `lot/etude-suite`. Dernier oracle complet : 1 779 tests, dont 1 776 verts,
   (MONARK). CM-2a : PR #105 (`f3b330cf`), contrôle par diff de MONARK rendu le 2026-10-03 (23:4x UTC) : APPROUVE-AVEC-CORRECTIONS
   (`F:/tmp/rech/cm2arev/RAPPORT.md`, sha256 `ed09b168…`), rien de bloquant pour la fusion ; avant déploiement : C-1 (14 sites de
   refus sans code épinglé), C-2 (liste des formes de `produced_at` refusées incomplète), C-8 (côté MONARK : la CA ne voit pas
-  CM-2a) ; aucun appelant connu touché par B-4. CM-2a fait 700 lignes, au-delà de la borne de lot de 547 (CHECKLIST-G7 point 4) :
-  scission en deux PR demandée à RECHERCHES avant fusion. CM-2b : PR #106 (`2abe8013`),
+  CM-2a) ; aucun appelant connu touché par B-4. R-25 : décision de l investisseur (2026-10-03, 23:5x UTC, choix verbatim « Garder,
+  547 dès CM-2c (Recommandé) ») : CM-2a (700) et CM-2b (702) gardent la borne de 1 150 de l ADR-CM validée ; 547 par lot dès CM-2c.
+  **#105 fusionnée** dans la base (`98e3779a`, 2026-10-04 vers 00:00 UTC) et au tronc (`4a1b4844`). CM-2b : PR #106 (`2abe8013`),
   posée sur #105 ; CI `r25-taille-de-lot` rouge (702 lignes) ; ordre forcé : verdict et fusion de #105, contrôle par diff de #106
   par une instance neuve, puis les surfaces.
   - BTC-DIR-RETIRE-SURFACES-1 (MONARK ; déclencheur « PR CM-2b » atteint le 2026-10-03) : liste du G0 de CM-2b (§ du même nom).
@@ -487,7 +488,18 @@ Tronc `lot/etude-suite`. Dernier oracle complet : 1 779 tests, dont 1 776 verts,
     en ligne : (i) avec #106, ce qui est vert à l arbre fusionné et contre le service d aujourd hui ; (ii) après le déploiement de cet
     arbre (go séparé), `apps/site/data/harness-served.json` régénéré, la CA, et les tests qui lisent ces données, rouges entre les
     deux par construction. Le temps (i) porte aussi C-8 du contrôle de CM-2a : deux contrôles de plus à `scripts/verify-harness.mjs`
-    (un 400 avec son code ; un `produced_at` en 2099 rendu 400 `produced_at_future`). État : en attente de la scission de #105.
+    (un 400 avec son code ; un `produced_at` en 2099 rendu 400 `produced_at_future`). État : contrôle par diff de #106 en cours.
+  - CONTRACT-1-1-0 (CM-3c, ligne B-11 de l ADR-CM ; part de MONARK : spécification publique, miroir, site, avis aux appelants,
+    déploiement). Décisions de l investisseur (2026-10-03, 23:4x à 23:5x UTC) : calendrier « Avec CM-4 (Recommandé) » ; portée,
+    verbatim : « nous somme en train de mettre a jour le moteur MONARK, autant que le nouveau soit prét pour tout le reste du pla et
+    ne pas refaire aprés, en ce moment personne n utilise monark engine; donc on doit faire come si on le concevait pour la
+    premiére fois, un gros upgrade ». Lecture transmise à RECHERCHES : une seule version 1.1.0 pour prédiction, verdict et décision
+    (`apps/harness/src/tools/gate.ts:62` les lie), aucune acceptation du 1.0.0. Recensement de la zone MONARK :
+    `F:/tmp/rech/v110/RECENSEMENT-1-1-0.md` (27 sites, 29 empreintes sûres, 10 conditionnelles ; aucune liste d appelants ; rien ne
+    produit encore `KraidleAI/monark-kata-spec`). Déclencheur : le plan de CM-3c ; état : ouvert.
+  - DEMO-HASH-STALE-1 : `skills/monark/DEMO.md:88` cite l empreinte tronquée `79b54471…` de la trace byo, périmée (actuelle
+    `daf8d3ea…`), sans test. Construction : la corriger et l épingler par un test ; environ 3 lignes. Déclencheur : le lot des
+    surfaces de CM-2b (temps (i)) ; état : ouvert.
   - RED-PROOF-JUNCTION-1 (outil ; C-4 du contrôle de CM-2a, mesuré le 2026-10-03) : `scripts/red-proof.mjs` (`linkModules`,
     l.135-149) ne lie une jonction de `node_modules` que si c est un espace de travail ; sur un clone dont chaque entrée est une
     jonction (`mk-nm.ps1`), un test qui importe un paquet hors espace de travail rend `ERR_MODULE_NOT_FOUND` et la preuve REFUSED.
