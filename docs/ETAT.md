@@ -431,7 +431,9 @@ Tronc `lot/etude-suite`. Dernier oracle complet : 1 779 tests, dont 1 776 verts,
   - SENTINEL-SIGTERM-STARTUP-WINDOW-1 (nommé au G0 et au G7 de SENTINEL-SIGTERM-LOAD-1, absent d ETAT jusqu ici) : `run.ts` prend le
     verrou (l.295) avant d installer son gestionnaire de SIGTERM (l.342) ; un SIGTERM dans cette fenêtre tue le processus et laisse le
     verrou pris. Construction : installer le gestionnaire avant la prise du verrou, test qui envoie SIGTERM dans la fenêtre. Porteur :
-    RECHERCHES (zone ouverte : `apps/sentinel/src/run.ts` et son test) ; déploiement de la sentinelle par MONARK ; état : ouvert.
+    RECHERCHES (zone ouverte : `apps/sentinel/src/run.ts` et son test) ; déploiement de la sentinelle par MONARK ; état : code au
+    tronc (#137, `124c03c2` ; CI Linux : les 4 tests SIGTERM verts ; oracle Windows vert) ; déploiement groupé avec
+    RPC-GUARD-LOCK-WRITE-LEAK-1 (décision de l investisseur, 2026-10-04 21:4x UTC).
   - ADR-CM-AMEND-3-1 : l amendement ADR-CM « 2026-10-04 (3) » (1.1.0) est cité par d autres ADR mais absent du tronc et de la base
     (Q-4 du G0 de CM-4a-i). Porteur : RECHERCHES, PR de documentation de l étape 7 du plan CM-3c/CM-4 ; état : ouvert.
   - SERVED-PENDING-1 (plan r3 §8.5, étendu au chargeur du site ; absent d ETAT jusqu ici) : un instantané en attente

@@ -361,3 +361,79 @@ test("sentinel_run_releases_chainstack_lock_on_sigterm — a SIGTERM (a TimeoutS
     assert.ok(readLedger(ledgerDir, CYCLE).some((l) => l.outcome === "unlocked"), "an unlocked line was chained by the served unlock in the SIGTERM handler");
   } finally { if (child.exitCode === null) child.kill("SIGKILL"); }
 });
+
+// SENTINEL-SIGTERM-STARTUP-WINDOW-1: a SIGTERM delivered INSIDE the start-up window, at a fixed point of the code (never
+// after a duration). The preload wraps the DURABLE_FS seam of the REAL module run.ts loads (packages/rpc-guard/src/ledger.ts,
+// the same realpath as @monark/rpc-guard) and sends SIGTERM to its own process around the lock's openSync "wx": "acquired" =
+// after the lock fd is closed (the lock is held), "acquiring" = just before the "wx" open. It first writes a mark on fd 1
+// (the point WAS reached: non-vacuous) and hangs every fetch. Linux delivers a self-sent unblocked signal before kill()
+// returns, so with no listener the kernel default kills the process inside the window; win32 is a hard kill (skip).
+const WINDOW_MARK = "SENTINEL_TEST_SIGTERM_IN_WINDOW";
+const WINDOW_SRC = `import { writeSync } from "node:fs";
+import { DURABLE_FS } from ${JSON.stringify(pathToFileURL(join(REPO, "packages", "rpc-guard", "src", "ledger.ts")).href)};
+const at = process.env.STUB_SIGTERM_AT;
+const fire = () => { writeSync(1, ${JSON.stringify(WINDOW_MARK)} + " " + at + "\\n"); process.kill(process.pid, "SIGTERM"); };
+const open = DURABLE_FS.openSync, close = DURABLE_FS.closeSync;
+let lockFd = -1;
+DURABLE_FS.openSync = (p, f) => { const isLock = f === "wx" && p.endsWith("chainstack.lock"); if (isLock && at === "acquiring") fire(); const fd = open(p, f); if (isLock) lockFd = fd; return fd; };
+DURABLE_FS.closeSync = (fd) => { close(fd); if (fd === lockFd) { lockFd = -1; if (at === "acquired") fire(); } };
+globalThis.fetch = () => new Promise(() => {});`;
+const SIGTERM_SKIP = { skip: process.platform === "win32" ? "win32: process.kill is a hard kill (no SIGTERM handler); RUNBOOK unlock covers a SIGKILL (C-7)" : false };
+function spawnTracked(stub: string, dir: string, vars: Record<string, string>, opts?: { cycle?: boolean }): { child: ReturnType<typeof spawn>; out: () => string; err: () => string; exited: Promise<{ code: number | null; signal: NodeJS.Signals | null }> } {
+  const child = spawn(process.execPath, ["--import", stub, RUN_TS, "--state", dir], { cwd: REPO, env: guardEnv(dir, vars, opts), stdio: ["ignore", "pipe", "pipe"] });
+  let stdout = "", stderr = "";
+  child.stdout.setEncoding("utf8").on("data", (s: string) => { stdout += s; });
+  child.stderr.setEncoding("utf8").on("data", (s: string) => { stderr += s; });
+  const exited = new Promise<{ code: number | null; signal: NodeJS.Signals | null }>((res) => child.on("close", (code, signal) => { res({ code, signal }); }));
+  return { child, out: () => stdout, err: () => stderr, exited };
+}
+async function sigtermInWindow(at: "acquired" | "acquiring"): Promise<void> {
+  const l3 = fixtureLines()[2]!;
+  const dir = seedState(2);
+  const ledgerDir = join(dir, "ledger");
+  mkdirSync(ledgerDir, { recursive: true });
+  const lockPath = join(ledgerDir, CYCLE, "chainstack.lock");
+  const run = spawnTracked(writeStub(WINDOW_SRC, `window-${at}.mjs`), dir, { ...finVars(l3), STUB_SIGTERM_AT: at });
+  try {
+    const { code, signal } = await untilEvent(run.exited, `the child's exit after a SIGTERM ${at}`);
+    assert.ok(run.out().includes(`${WINDOW_MARK} ${at}`), `the preload reached the window point (${at}) and sent SIGTERM. stdout=${JSON.stringify(run.out())} stderr=${JSON.stringify(run.err())}`);
+    assert.equal(signal, null, `the child was NOT killed by the signal: the handler, installed before the lock, ran (signal=${String(signal)})`);
+    assert.equal(code, 1, `the handler exits 1 after the served unlock (code=${String(code)}) stderr=${JSON.stringify(run.err())}`);
+    assert.equal(existsSync(lockPath), false, `no .lock remains after a SIGTERM ${at} (the next slot re-acquires, never lock_held)`);
+    const led = readLedger(ledgerDir, CYCLE);
+    assert.ok(led.some((l) => l.outcome === "unlocked"), "the handler chained an unlocked line by the served unlock");
+    verifyCycleLedger(led);
+  } finally { if (run.child.exitCode === null) run.child.kill("SIGKILL"); }
+}
+
+// killer: apps/sentinel/src/run.ts:341 CONST "leg?.release(); " -> ""
+test("sentinel_sigterm_after_lock_acquired_before_handler_releases_lock — a SIGTERM delivered right after the cycle lock is written and closed (the start-up window of the base: lock held, before the old process.on) is handled: exit 1, no .lock, a chained unlocked line (SENTINEL-SIGTERM-STARTUP-WINDOW-1). WIN32 SKIP declared: process.kill is a hard kill there", SIGTERM_SKIP, async () => {
+  await sigtermInWindow("acquired");
+});
+
+// killer: apps/sentinel/src/run.ts:342 SDL "process.on(" -> ""
+test("sentinel_sigterm_while_lock_acquiring_releases_lock — a SIGTERM delivered just before the lock's exclusive open (acquisition in progress) is queued; the handler runs once the synchronous acquisition is done and releases the lock: exit 1, no .lock, a chained unlocked line (SENTINEL-SIGTERM-STARTUP-WINDOW-1). WIN32 SKIP declared", SIGTERM_SKIP, async () => {
+  await sigtermInWindow("acquiring");
+});
+
+// killer: apps/sentinel/src/run.ts:341 CONST "process.exit(1)" -> "process.exit(0)"
+test("sentinel_sigterm_without_leg_exits_1_and_creates_no_ledger — with no paid leg (CHAINSTACK_CYCLE_ID absent => unconfigured, no lock ever taken) a SIGTERM at the first fetch runs the same handler, which releases nothing and exits 1: no .lock, no cycle ledger created (SENTINEL-SIGTERM-STARTUP-WINDOW-1). WIN32 SKIP declared", SIGTERM_SKIP, async () => {
+  const l3 = fixtureLines()[2]!;
+  const dir = seedState(2);
+  const ledgerDir = join(dir, "ledger");
+  mkdirSync(ledgerDir, { recursive: true });
+  const run = spawnTracked(writeStub(HANG_SRC, "hang-noleg.mjs"), dir, { ...finVars(l3) }, { cycle: false });
+  try {
+    const blocked = new Promise<"blocked" | "exited">((res) => {
+      run.child.stdout!.on("data", () => { if (run.out().split("\n").slice(0, -1).includes(FETCH_BLOCKED_MARK)) res("blocked"); });
+      void run.exited.then(() => { res("exited"); });
+    });
+    const first = await untilEvent(blocked, "run.ts blocking on its first fetch (no leg)");
+    assert.equal(first, "blocked", `run.ts reached its first fetch before exiting. stdout=${JSON.stringify(run.out())} stderr=${JSON.stringify(run.err())}`);
+    run.child.kill("SIGTERM");
+    const { code, signal } = await untilEvent(run.exited, "the child's exit after SIGTERM (no leg)");
+    assert.equal(signal, null, `the child was NOT killed by the signal: the handler is installed on every run (signal=${String(signal)})`);
+    assert.equal(code, 1, `the handler exits 1 (code=${String(code)}) stderr=${JSON.stringify(run.err())}`);
+    assert.equal(existsSync(join(ledgerDir, CYCLE)), false, "no cycle ledger and no .lock: a leg never opened is never released, nor created");
+  } finally { if (run.child.exitCode === null) run.child.kill("SIGKILL"); }
+});
