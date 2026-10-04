@@ -116,6 +116,14 @@ Oracle du gel `4d7cb93` : `--base 6dd2ecb7 --gel 4d7cb934 --draw 9 --seed 37` : 
 `RED-PROOF.json` sha256 `49c3f0d7…`, digest `8d252e20…`. `test/red-proof.test.ts` : 31/31 sous Node 24.21.0, 30/31 sous Node 22
 (`vi_hangs`, préexistant). `tsc` vert ; adresses des tueurs 31/31. R-25 sur `6dd2ecb7...HEAD` : **169**.
 
+## Ré-empilement sur la tête neuve de #113
+
+La PR #113 a avancé sur origin (`9990b9ad` : pli win32 de RED-PROOF-JUNCTION-1 et fusion du tronc). Fusion `--no-ff` `f2bfec0`
+(imports joints ; les quatre adresses de tueurs de `untrackedOf` décalées des 12 lignes de ce lot ; 33/33 au contrôleur). La **base**
+du lot devient `9990b9ad`. Oracle : `--base 9990b9ad --gel f2bfec0f --draw 9 --seed 37` : **OK**, exit 0 ; 9 F2P, 24 inchangés, 9/9
+tués ; sha256 `1061cfd8…`, digest `1e150686…`. `test/red-proof.test.ts` 32/33 sous Node 22 (`vi_hangs`) ; `tsc` vert. R-25 sur
+`9990b9ad...HEAD` : **173**.
+
 ## Sortie
 
 Prêt pour le contrôle par diff de MONARK. Item RED-PROOF-TAP-TRUNCATION-1 clos au gel `4d7cb93` (pli de la G2 et de sa re-revue) ; Q-RPT-1 à Q-RPT-3 répondues par la G2. Le changement de mode de `packages/rpc-guard/bin/rpc-guard.mjs` laissé par `npm ci` n'est pas commis ; rien n'est
