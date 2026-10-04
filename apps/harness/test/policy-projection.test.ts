@@ -22,7 +22,7 @@ const ceil4 = (n: number, rank: number): string => {
   return `${String(m / 10000n)}.${String(m % 10000n).padStart(4, "0")}`;
 };
 
-// killer: apps/harness/src/policy-projection.ts:101 CONST "\"commit\"" -> "\"region\""
+// killer: apps/harness/src/policy-projection.ts:106 CONST "\"commit\"" -> "\"region\""
 test("projection_direction_region_row", () => {
   const c = find((x) => x.side !== null && x.status === "region" && (x.calib.misses ?? 0) > 0);
   const r = project(c);
@@ -40,7 +40,7 @@ test("projection_direction_region_row", () => {
   assert.equal(r.cell_key, c.key);
 });
 
-// killer: apps/harness/src/policy-projection.ts:97 CONST "\"hour-of-week\"" -> "\"us-profile\""
+// killer: apps/harness/src/policy-projection.ts:102 CONST "\"hour-of-week\"" -> "\"us-profile\""
 test("projection_band_region_row", () => {
   for (const h of ["1h", "4h"]) {
     const c = find((x) => x.side === null && x.status === "region" && x.horizon === h);
@@ -55,7 +55,7 @@ test("projection_band_region_row", () => {
   }
 });
 
-// killer: apps/harness/src/policy-projection.ts:110 CONST "\"vetoed: test\"" -> "\"vetoed: bridge\""
+// killer: apps/harness/src/policy-projection.ts:115 CONST "\"vetoed: test\"" -> "\"vetoed: bridge\""
 test("projection_silence_and_vetoed_rows", () => {
   for (const reason of [/^misses \d+ above k\* \d+$/, /^dependence check rejects$/]) {
     const c = find((x) => x.status === "silence" && reason.test(x.calib.reason));
@@ -69,14 +69,14 @@ test("projection_silence_and_vetoed_rows", () => {
   assert.deepEqual(r.vetoes, { test: true, bridge: null, fwd: null });
 });
 
-// killer: apps/harness/src/policy-projection.ts:104 CONST "c.misses" -> "c.kObs"
+// killer: apps/harness/src/policy-projection.ts:109 CONST "c.misses" -> "c.kObs"
 test("projection_misses_never_from_k_obs", () => {
   const c = find((x) => x.side !== null && x.status === "silence" && x.calib.qhat === 1);
   const r = project({ ...c, calib: { ...c.calib, kObs: 0, misses: 324 } });
   assert.deepEqual([r.k_obs, r.misses, r.qhat], [0, 324, 1]);
 });
 
-// killer: apps/harness/src/policy-projection.ts:79 CONST "\"n/a\"" -> "\"n/b\""
+// killer: apps/harness/src/policy-projection.ts:83 CONST "\"n/a\"" -> "\"n/b\""
 test("projection_under_calib_row", () => {
   for (const dir of [true, false]) {
     const c = find((x) => (x.side !== null) === dir && x.status === "under_calib" && (x.thresholds !== null) === dir);
@@ -87,7 +87,7 @@ test("projection_under_calib_row", () => {
   }
 });
 
-// killer: apps/harness/src/policy-projection.ts:87 SDL "if (cell.status !== \"under_calib\" || c.reason !== NO_THRESHOLDS)" -> ""
+// killer: apps/harness/src/policy-projection.ts:91 SDL "if (cell.status !== \"under_calib\" || c.reason !== NO_THRESHOLDS)" -> ""
 test("projection_side_without_thresholds_has_no_row", () => {
   const sides = CELLS.filter((x) => x.side !== null && x.thresholds === null);
   assert.equal(sides.length, 3);
@@ -98,7 +98,7 @@ test("projection_side_without_thresholds_has_no_row", () => {
   assert.throws(() => projectCell({ ...c, calib: { ...c.calib, reason: "empty bucket" } }, INP), /L-1/);
 });
 
-// killer: apps/harness/src/policy-projection.ts:113 CONST "scores_sha256: c.scoresSha256" -> "scores_sha256: c.auxSha256"
+// killer: apps/harness/src/policy-projection.ts:118 CONST "scores_sha256: c.scoresSha256" -> "scores_sha256: c.auxSha256"
 test("projection_inputs_outside_the_registry", () => {
   const c = find((x) => x.status === "silence" && x.calib.auxSha256 !== x.calib.scoresSha256);
   const r = project(c);
@@ -119,13 +119,21 @@ test("registry_cell_closed_reader", () => {
     [{ ...raw, calib: { ...calib, check1: "maybe" } }, /check1 is not one of/], [{ ...raw, live1: {} }, /live1 is not one of/],
     [{ ...raw, key: String(raw.key).replace("/b0", "/up-b1") }, /key is not recomposed/],
     [{ ...raw, factorTableSha256: "00".repeat(32) }, /not the digest of the factors/], [{ ...raw, hourOfWeekFactors: null }, /mixes direction and scale/],
+    [{ ...raw, thresholds: { t1: "0.1", t2: "0.5" } }, /mixes direction and scale/], [{ ...raw, calibAttempt: 2 }, /calibAttempt is not one of 1/],
+    [{ ...raw, taskClass: String(raw.taskClass).replace(/-[a-z-]+-/, "-dir-") }, /taskClass does not match/], [{ ...raw, hourOfWeekFactors: [1], factorTableSha256: sha256Canonical([1]) }, /is not 168 values/],
   ];
   for (const [v, re] of bad) assert.throws(() => readRegistryCell(v), re);
   const top = JSON.parse(new TextDecoder().decode(SYN.bytes)) as Record<string, unknown>;
   assert.throws(() => readRegistry(new TextEncoder().encode(JSON.stringify({ ...top, extra: 1 }))), /registry has an unknown key/);
+  assert.throws(() => readRegistry(new TextEncoder().encode(JSON.stringify({ ...top, rows: [...(top.rows as unknown[]), raw] }))), /repeats a \(taskClass, key\) pair/);
 });
 
-// killer: apps/harness/src/policy-projection.ts:107 CONST "\"0.05\"" -> "\"0.5\""
+// killer: apps/harness/src/policy-projection.ts:94 SDL "if (c.rank !==" -> ""
+test("projection_rank_is_n_minus_k_star", () => {
+  for (const c of CELLS.filter((x) => x.calib.rank !== null)) assert.throws(() => projectCell({ ...c, calib: { ...c.calib, rank: (c.calib.rank ?? 0) + 1 } }, INP), /rank is not n - kStar/);
+});
+
+// killer: apps/harness/src/policy-projection.ts:112 CONST "\"0.05\"" -> "\"0.5\""
 test("projected_rows_pass_the_closed_check", () => {
   const rows = CELLS.map((c) => projectCell(c, INP)).filter((r) => r !== null);
   assert.equal(rows.length, CELLS.length - 3);

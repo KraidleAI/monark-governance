@@ -1,10 +1,10 @@
 /**
  * Seeded synthetic kata registry of the shape of wave1.json (lot CM-4a-i; plan r3 section 5.3 point 8, BLQ-DEP-6), no
  * market data: 32 classes, 8 katas, the statuses region, silence (two reasons), vetoed and under_calib (n below n0, one
- * side without thresholds). Counts by the exact rules: k*, rank = n - k*, U, UTest, the conditional TEST veto (A-2 2.2.5).
+ * side without thresholds). Exact counts: k*, rank = n - k*, U, UTest, qhat and k_obs (A-2 2.2.3), the TEST veto (2.2.5).
  */
 import { createHash } from "node:crypto";
-import { sha256Canonical } from "@monark/contracts";
+import { sha256Canonical, type ClassEntry } from "@monark/contracts";
 import { binomCdfLeq, missUpperBound, parseAlpha, riskControlMaxExceedances, zeroErrorFloor } from "@monark/hikae";
 
 const DELTA = "0.05";
@@ -55,11 +55,12 @@ export function syntheticRegistry(seed = 37): { readonly registry: { rows: Recor
       const kStar = calibrated ? riskControlMaxExceedances(n, alpha, DELTA) : null;
       const misses = kStar === null ? null : plan === "silence-misses" ? kStar + between(1, 30) : between(0, kStar);
       const calibStatus = calibrated ? (plan === "silence-misses" || plan === "silence-runs" ? "silence" : "region") : "under_calib";
-      const qhat = misses === null ? null : dir ? (calibStatus === "silence" ? 1 : 0) : 1.5 + rnd() * 3;
+      const qhat = misses === null ? null : dir ? (misses > (kStar ?? 0) ? 1 : 0) : 1.5 + rnd() * 3;
       const nTest = plan === "empty" ? 0 : between(n0, dir ? 400 : 1500);
       const kTest = plan === "empty" || (plan === "under" && !dir) ? null : plan === "vetoed" ? Math.min(nTest, Math.ceil(nTest * Number(alpha) * 1.5) + 8) : Math.floor(nTest * Number(alpha) * 0.9);
       const vetoed = calibStatus === "region" && nTest >= 1 && kTest !== null && testVetoFires(nTest, kTest, alpha);
-      const check1 = !calibrated ? "n/a" : misses === 0 || qhat === 1 ? "empty" : "pass";
+      const kObs = misses === null ? null : dir && qhat === 1 ? 0 : misses;
+      const check1 = !calibrated ? "n/a" : kObs === 0 ? "empty" : "pass";
       const reason = plan === "empty" ? "empty bucket (no thresholds on this side)" : plan === "under" ? `n ${String(n)} below n0 ${String(n0)}`
         : plan === "silence-misses" ? `misses ${String(misses)} above k* ${String(kStar)}` : plan === "silence-runs" ? "dependence check rejects" : "";
       const tag = `${key}:${String(n)}`;
@@ -72,7 +73,7 @@ export function syntheticRegistry(seed = 37): { readonly registry: { rows: Recor
         drops: { calib: between(0, 2), test: 0 },
         calib: {
           n, scoresSha256: n === 0 ? sha256Canonical([]) : digest(`${tag}:scores`), auxSha256: n === 0 ? sha256Canonical([]) : digest(`${tag}:second`),
-          qhat, rank: kStar === null ? null : n - kStar, kStar, kObs: misses === null ? null : dir && qhat === 1 ? 0 : misses, misses,
+          qhat, rank: kStar === null ? null : n - kStar, kStar, kObs, misses,
           U: kStar === null ? null : missUpperBound(n, kStar, DELTA), check1, check2: !calibrated ? "n/a" : plan === "silence-runs" ? "reject" : "pass", status: calibStatus, reason,
         },
         test: {
@@ -86,4 +87,12 @@ export function syntheticRegistry(seed = 37): { readonly registry: { rows: Recor
   const registry = { plan: "synthetic registry (seeded)", engine: "synthetic", trialRegistryHead: { length: 32, hash: digest("trials") }, rows };
   const bytes = new TextEncoder().encode(`${JSON.stringify(registry, null, 2)}\n`);
   return { registry, bytes, sha256: createHash("sha256").update(bytes).digest("hex") };
+}
+
+/** A class entry of the shape of spec section 9 for the tests' tables (the 32 kata entries and their test: block B2). */
+export function syntheticClassEntry(task_class: string): ClassEntry {
+  const dir = task_class.includes("-dir-");
+  return { task_class, region_kind: dir ? "set" : "interval", region_rule: dir ? "sign-set" : "scaled-band", qhat_unit: dir ? "score" : "scale", statement: "per-calibration",
+    method: "risk-control", alpha: dir ? "0.45" : "0.01", test_delta: DELTA, n_min: dir ? 6 : 299, h_ms: task_class.endsWith("-1h") ? 3_600_000 : 14_400_000, grid: true,
+    cell_key_rule: "kata-bucket", cell_key_base: null, strata_cuts: null, label_schema: dir ? "up|down" : null, text: `class text of ${task_class}` };
 }

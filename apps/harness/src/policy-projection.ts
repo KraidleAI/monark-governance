@@ -40,7 +40,7 @@ const CELL = obj({
   taskClass: str, key: str, kataId: str, W: int, venue: str, symbol: str, horizon: lit(["1h", "4h"] as const),
   side: nul(lit(["up", "down"] as const)), bucket: lit(["up-b1", "up-b2", "up-b3", "down-b1", "down-b2", "down-b3", "b0"] as const),
   thresholds: nul(obj({ t1: str, t2: str })), hourOfWeekFactors: nul(arr(nul(num))), factorTableSha256: nul(hex),
-  alpha: str, testDelta: str, calibAttempt: int, auxSeq: lit(["label", "score"] as const), order: lit(["time"] as const),
+  alpha: str, testDelta: str, calibAttempt: lit([1] as const), auxSeq: lit(["label", "score"] as const), order: lit(["time"] as const),
   calibSupport: nul(obj({ min: num, max: num })), seriesSha256: hex, epoch: int, drops: obj({ calib: int, test: int }),
   calib: obj({
     n: int, status: lit(["under_calib", "silence", "region"] as const), reason: str, qhat: nul(num), rank: nul(int), kStar: nul(int),
@@ -56,7 +56,9 @@ export const NO_THRESHOLDS = "empty bucket (no thresholds on this side)";
 export function readRegistryCell(value: unknown, at = "cell"): RegistryCell {
   const c = CELL(value, at);
   if (c.key !== `kata:${c.kataId}@${c.venue}/${c.symbol}/${c.horizon}/${c.bucket}`) bad(`${at}.key`, "is not recomposed from its fields");
-  if ((c.side === null) !== (c.hourOfWeekFactors !== null) || (c.hourOfWeekFactors === null) !== (c.factorTableSha256 === null)) bad(at, "mixes direction and scale fields");
+  if ((c.side === null) !== (c.hourOfWeekFactors !== null) || (c.hourOfWeekFactors === null) !== (c.factorTableSha256 === null) || (c.side === null && c.thresholds !== null)) bad(at, "mixes direction and scale fields");
+  if (!c.taskClass.endsWith(`-${c.horizon}`) || c.taskClass.includes("-dir-") !== (c.side !== null)) bad(`${at}.taskClass`, "does not match the horizon and the kind of the cell");
+  if (c.hourOfWeekFactors !== null && c.hourOfWeekFactors.length !== (c.horizon === "1h" ? 168 : 42)) bad(`${at}.hourOfWeekFactors`, "is not 168 values at 1h or 42 at 4h");
   if (c.hourOfWeekFactors !== null && sha256Canonical(c.hourOfWeekFactors) !== c.factorTableSha256) bad(`${at}.factorTableSha256`, "is not the digest of the factors");
   return c;
 }
@@ -64,7 +66,9 @@ export function readRegistryCell(value: unknown, at = "cell"): RegistryCell {
 /** Reads a registry file's bytes: `{plan, engine, trialRegistryHead, rows}`, each row through readRegistryCell. */
 export function readRegistry(bytes: Uint8Array): readonly RegistryCell[] {
   const top = obj({ plan: str, engine: str, trialRegistryHead: obj({ length: int, hash: hex }), rows: arr((v) => v) });
-  return top(JSON.parse(new TextDecoder().decode(bytes)), "registry").rows.map((v, i) => readRegistryCell(v, `registry.rows[${String(i)}]`));
+  const cells = top(JSON.parse(new TextDecoder().decode(bytes)), "registry").rows.map((v, i) => readRegistryCell(v, `registry.rows[${String(i)}]`));
+  if (new Set(cells.map((c) => `${c.taskClass} ${c.key}`)).size !== cells.length) bad("registry", "repeats a (taskClass, key) pair");
+  return cells;
 }
 
 /** The inputs of the projection that the registry does not hold (G0 Q-3: parameters, no published value here). */
@@ -87,6 +91,7 @@ export function projectCell(cell: RegistryCell, inp: ProjectionInputs): PolicyRo
     if (cell.status !== "under_calib" || c.reason !== NO_THRESHOLDS) bad(cell.key, `has no thresholds on its side but is not under_calib with the reason '${NO_THRESHOLDS}' (L-1)`);
     return null;
   }
+  if (c.rank !== (c.kStar === null ? null : c.n - c.kStar)) bad(`${cell.key}.calib.rank`, "is not n - kStar");
   const rule = dir ? "sign-set" : "scaled-band";
   const att = cell.status === "under_calib" ? null : (inp.attestation(cell.key) ?? bad(cell.key, "is calibrated without a recompute attestation"));
   const factors = cell.hourOfWeekFactors;
@@ -94,7 +99,7 @@ export function projectCell(cell: RegistryCell, inp: ProjectionInputs): PolicyRo
     row_format: "class-policy-v2", task_class: cell.taskClass, cell_key: cell.key, region_rule: rule, current: true,
     kata_id: cell.kataId, w: cell.W, venue: cell.venue, symbol: cell.symbol, horizon: cell.horizon, side: cell.side, bucket: cell.bucket,
     thresholds: cell.thresholds,
-    scale_table: factors === null ? null : { kind: "hour-of-week", values: factors, sha256: cell.factorTableSha256 ?? "" },
+    scale_table: factors === null ? null : { kind: "hour-of-week", values: factors, sha256: cell.factorTableSha256 as string },
     calib_support: cell.calibSupport, fit_sha256: null,
     statement: "per-calibration", alpha: cell.alpha, test_delta: cell.testDelta, calib_attempt: cell.calibAttempt,
     calib_cause: "initial", calib_parent: "none", epoch: cell.epoch,

@@ -1,17 +1,17 @@
 /**
- * Class table files class-policy-v2 (lot CM-4a-i, block B1; docs/G0-lot-cm-4a-i.md; spec sections 9 and 10): class
- * entries, table file, byte for byte comparison, synthetic registry, served import graph. Each test names its killer.
+ * Class table files class-policy-v2 (lot CM-4a-i, block B1; docs/G0-lot-cm-4a-i.md; spec section 10): table file, byte
+ * for byte comparison, synthetic registry, served import graph (kata class entries: block B2). Each test names its killer.
  */
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { readdirSync, readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
-import { assertClosedClassEntry, sha256Canonical, type ClassEntry, type PolicyRow, type PolicyTable } from "@monark/contracts";
+import { sha256Canonical, type ClassEntry, type PolicyRow, type PolicyTable } from "@monark/contracts";
 import { missUpperBound, riskControlMaxExceedances } from "@monark/hikae";
 import { projectCell, readRegistry, type ProjectionInputs } from "../src/policy-projection.ts";
-import { assertPolicyTableFile, assertTableMatchesRegistry, buildPolicyTable, kataClassEntries, policyTableSha256 } from "../src/policy-table-file.ts";
-import { syntheticRegistry, testVetoFires } from "./helpers/synthetic-registry.ts";
+import { assertPolicyTableFile, assertTableMatchesRegistry, buildPolicyTable, policyTableSha256 } from "../src/policy-table-file.ts";
+import { syntheticClassEntry, syntheticRegistry, testVetoFires } from "./helpers/synthetic-registry.ts";
 
 const SYN = syntheticRegistry();
 const CELLS = readRegistry(SYN.bytes);
@@ -19,27 +19,14 @@ const INP: ProjectionInputs = {
   registryFile: "synthetic.json", registrySha256: SYN.sha256, generator: "synthetic-generator",
   attestation: () => ({ verifier: "verifier-b", report_sha256: "cd".repeat(32) }), text: (rule) => `text of ${rule}`,
 };
-const CLASSES = new Map(kataClassEntries((c) => `class text of ${c}`).map((e) => [e.task_class, e]));
-const cls = (name: string): ClassEntry => CLASSES.get(name) ?? assert.fail(`no class ${name}`);
+const CLASSES = [...new Set(CELLS.map((c) => c.taskClass))];
+const cls = (name: string): ClassEntry => syntheticClassEntry(name);
 const rowsOf = (name: string): PolicyRow[] => CELLS.filter((c) => c.taskClass === name).map((c) => projectCell(c, INP)).filter((r) => r !== null);
 const tableOf = (name: string): PolicyTable => buildPolicyTable(cls(name), rowsOf(name));
 const raw = (name: string, rows: PolicyRow[]): PolicyTable => ({ row_format: "class-policy-v2", class: cls(name), rows });
+const match = (t: PolicyTable, bytes = SYN.bytes, inp = INP): void => assertTableMatchesRegistry(t, bytes, inp, cls(t.class.task_class));
 
-// killer: apps/harness/src/policy-table-file.ts:19 CONST "\"0.45\"" -> "\"0.46\""
-test("kata_class_entries_match_spec_section_9", () => {
-  assert.equal(CLASSES.size, 32);
-  for (const e of CLASSES.values()) {
-    assertClosedClassEntry(e);
-    assert.match(e.task_class, /^[a-z0-9]{2,10}-(dir|range|mae-down|mae-up)-(15m|1h|4h|24h)$/);
-    const dir = e.task_class.includes("-dir-");
-    const want = dir ? ["set", "sign-set", "score", "0.45", 6, "up|down"] : ["interval", "scaled-band", "scale", "0.01", 299, null];
-    assert.deepEqual([e.region_kind, e.region_rule, e.qhat_unit, e.alpha, e.n_min, e.label_schema], want);
-    assert.deepEqual([e.statement, e.method, e.test_delta, e.grid, e.cell_key_rule, e.cell_key_base, e.strata_cuts], ["per-calibration", "risk-control", "0.05", true, "kata-bucket", null, null]);
-    assert.deepEqual([e.h_ms, e.text], [e.task_class.endsWith("-1h") ? 3_600_000 : 14_400_000, `class text of ${e.task_class}`]);
-  }
-});
-
-// killer: apps/harness/src/policy-table-file.ts:39 ROR ">= 0" -> "> 0"
+// killer: apps/harness/src/policy-table-file.ts:23 ROR ">= 0" -> "> 0"
 test("table_file_sorted_and_keyed", () => {
   const rows = rowsOf("btc-dir-1h");
   const t = buildPolicyTable(cls("btc-dir-1h"), [...rows].reverse());
@@ -54,7 +41,7 @@ test("table_file_sorted_and_keyed", () => {
   assert.equal(policyTableSha256(tableOf("eth-range-1h")), other);
 });
 
-// killer: apps/harness/src/policy-table-file.ts:42 SDL "if (new Set(current).size" -> ""
+// killer: apps/harness/src/policy-table-file.ts:26 SDL "if (new Set(current).size" -> ""
 test("table_file_one_current_per_cell", () => {
   const first = rowsOf("btc-dir-1h")[0] as PolicyRow;
   const twice = [first, { ...first, calib_attempt: 2 }];
@@ -62,15 +49,15 @@ test("table_file_one_current_per_cell", () => {
   assert.equal(buildPolicyTable(cls("btc-dir-1h"), [{ ...first, current: false }, twice[1] as PolicyRow]).rows.length, 2);
 });
 
-// killer: apps/harness/src/policy-table-file.ts:63 SDL "if (createHash(\"sha256\")" -> ""
+// killer: apps/harness/src/policy-table-file.ts:48 SDL "if (createHash(\"sha256\")" -> ""
 test("table_matches_registry_byte_for_byte", () => {
-  for (const name of CLASSES.keys()) assertTableMatchesRegistry(tableOf(name), SYN.bytes, INP);
+  for (const name of CLASSES) match(tableOf(name));
   const spaced = new TextEncoder().encode(`${new TextDecoder().decode(SYN.bytes)}\n`);
-  assert.throws(() => assertTableMatchesRegistry(tableOf("btc-dir-1h"), spaced, INP), /pinned sha256/);
-  assert.throws(() => assertTableMatchesRegistry(tableOf("btc-dir-1h"), SYN.bytes, { ...INP, registrySha256: "00".repeat(32) }), /pinned sha256/);
+  assert.throws(() => match(tableOf("btc-dir-1h"), spaced), /pinned sha256/);
+  assert.throws(() => match(tableOf("btc-dir-1h"), SYN.bytes, { ...INP, registrySha256: "00".repeat(32) }), /pinned sha256/);
 });
 
-// killer: apps/harness/src/policy-table-file.ts:74 SDL "for (const key of want.keys())" -> ""
+// killer: apps/harness/src/policy-table-file.ts:59 SDL "for (const key of want.keys())" -> ""
 test("table_refuses_rows_off_the_projection", () => {
   const dir = tableOf("eth-dir-1h");
   const band = tableOf("btc-range-1h");
@@ -85,10 +72,15 @@ test("table_refuses_rows_off_the_projection", () => {
     [buildPolicyTable(cls("eth-dir-1h"), [...dir.rows, { ...r0, cell_key: `${r0.cell_key}x` }]), "a row without a registry cell"],
     [raw("eth-dir-1h", dir.rows.slice(1)), "a projectable cell without its row"],
   ];
-  for (const [t, what] of altered) assert.throws(() => assertTableMatchesRegistry(t, SYN.bytes, INP), (e: Error) => e.message.includes(what));
+  for (const [t, what] of altered) assert.throws(() => match(t), (e: Error) => e.message.includes(what));
 });
 
-// killer: apps/harness/test/helpers/synthetic-registry.ts:75 CONST "n - kStar" -> "n - kStar + 1"
+// killer: apps/harness/src/policy-table-file.ts:47 SDL "if (canonicalJson(table.class)" -> ""
+test("table_class_entry_is_the_expected_one", () => {
+  for (const c of [{ ...cls("btc-dir-1h"), alpha: "0.46" }, { ...cls("btc-dir-1h"), n_min: 7 }]) assert.throws(() => match({ ...tableOf("btc-dir-1h"), class: c }), /class entry differs/);
+});
+
+// killer: apps/harness/test/helpers/synthetic-registry.ts:76 CONST "n - kStar" -> "n - kStar + 1"
 test("synthetic_registry_is_seeded_and_shaped", () => {
   assert.equal(syntheticRegistry(37).sha256, SYN.sha256);
   assert.notEqual(syntheticRegistry(38).sha256, SYN.sha256);
@@ -109,8 +101,7 @@ test("synthetic_registry_counts_follow_a2", () => {
   for (const { side, calib: c, key } of CELLS.filter((x) => x.calib.kStar !== null)) {
     const [m, k] = [c.misses ?? NaN, c.kStar ?? NaN];
     assert.deepEqual([c.qhat, c.kObs], side === null ? [c.qhat, m] : m > k ? [1, 0] : [0, m], key);
-    if (c.status === "region") assert.equal(c.check1 === "empty", m === 0, key);
-    else assert.ok(m > k || [c.check1, c.check2].includes("reject"), key);
+    assert.ok(c.status === "region" ? (c.check1 === "empty") === (m === 0) : m > k || [c.check1, c.check2].includes("reject"), key);
   }
 });
 
