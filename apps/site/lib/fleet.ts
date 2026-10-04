@@ -135,11 +135,11 @@ export const FLEET_AGENTS: FleetAgent[] = [
     // the gate is dormant since btc-dir-15m, the only class with a committed attestation subject, was retired.
     wiring: {
       served_by: "MCP attest (the attested envelope key of the gate stays declared; its join is dormant since the subject class was retired)",
-      // Served leg: the attest tool on the real MCP wire, with an independent digest oracle —
-      // probe_harness_records_real_decision (test/h5-e2e-probe.test.ts, step 6; a provisional choice, to be confirmed
-      // by MONARK's review). The join at unit level: gate_attested_is_frozen_attested_price (apps/harness/test/schema.test.ts) and
-      // gate_attested_discordant_is_tool_error (apps/harness/test/gate.test.ts).
-      integration_test: ["probe_harness_records_real_decision", "gate_attested_is_frozen_attested_price", "gate_attested_discordant_is_tool_error"],
+      // Served leg (MONARK's diff check of CM-2b): POST /attest on the HTTP mirror, closed AttestedPrice, content equal to the MCP text —
+      // http_mirror_matches_mcp_surface (apps/harness/test/http.test.ts); a real listener under the deploy CA (attest_call) —
+      // verify_harness_ca_passes_on_the_in_process_harness (test/verify-harness-liq.test.ts). Limit: neither pins the served witness
+      // values (ATTEST-KATA-SUBJECT-1). The join, unit level: gate_attested_is_frozen_attested_price, gate_attested_discordant_is_tool_error.
+      integration_test: ["http_mirror_matches_mcp_surface", "verify_harness_ca_passes_on_the_in_process_harness", "gate_attested_is_frozen_attested_price", "gate_attested_discordant_is_tool_error"],
       note: "served through the MCP attest tool, replayed on the real wire by an integration test; its join into the gate is dormant since the class it attested was retired",
     },
   },
