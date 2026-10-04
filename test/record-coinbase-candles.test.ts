@@ -24,6 +24,8 @@ import { fileURLToPath } from "node:url";
 import { checkHost, CSV_COLUMNS, expectedCount, GRANULARITIES, HOSTS, main, MAX_PAGES, ORIGIN, PAUSE_MS, PRODUCTS, RecorderStop, run,
   STOPS, WINDOW, windowCount } from "../scripts/record-coinbase-candles.mjs";
 import type { RecorderIo, SeriesManifest } from "../scripts/record-coinbase-candles.mjs";
+import { main as compare } from "../scripts/compare-coinbase-passes.mjs";
+import { DetectorStop, run as detect } from "../scripts/detect-ee7-history.mjs";
 
 /** A candle as served: time in seconds, then low, high, open, close and volume as the JSON text writes them. */
 type Candle = readonly [number, string, string, string, string, string];
@@ -868,4 +870,41 @@ test("coinbase_candles_stops_pass_2_on_an_empty_page_that_holds_a_slot_of_its_mo
   const S = Date.UTC(2023, 1, 1), E = Date.UTC(2023, 2, 1), t = (i: number): number => S + i * STEP_MS;
   const r = await record(range(-150, 2838).filter((i) => i < 2532 || i > 2831).map((i) => candle(t(i))), S, E, { pass: "2" });
   assert.deepEqual([r.code, parsed(r.detail), r.served.length, normalized(r.out)], ["empty_page", { empty_pages: 1, pages: [iso(t(2533))] }, 11, []]);
+});
+
+// killer: scripts/record-coinbase-candles.mjs:131 CONST "end + pad);" -> "end);"
+test("coinbase_candles_records_both_passes_of_a_28_day_month_in_bounded_time_for_the_comparison_never_for_the_detector", () => {
+  // lot COINBASE-PRE-LOOP-1 (m4 of the review of RECHERCHES): mutant g1-R10, the last core of pass 2 cut at --end, makes cores() loop
+  // without end before any request, synchronously: no delay of node:test can fire and the run dies on the heap limit, "not concluded".
+  // Here a child process bounded in time (30 s) and heap (64 MB) records February 2023 in pass 1 then in pass 2, from pages built in
+  // memory (nothing served from slot 2 830 on: the eleventh page of pass 2, witnesses alone, is empty and counted); under the mutant it
+  // dies and this test reddens by assertion. Then the use of the two folders: the comparison reads both (m1: empty_witness_pages 1 in
+  // pass 2); the EE-7 detector reads pass 1 and refuses pass 2 (m2: pass 1 alone is the series), which reddens this test at the base
+  const roots = [fresh(), fresh()], outs = roots.map((r) => join(r, "2023-02", "15m"));
+  const child = `globalThis.fetch = () => Promise.reject(new Error("tripwire"));
+    const { run } = await import(process.argv[1]), S = Date.UTC(2023, 1, 1), STEP = 900000;
+    const fetch = (url) => { const q = new URL(url).searchParams, rows = [];
+      for (let t = Math.min(Date.parse(q.get("end")), S + 2829 * STEP); t >= Math.max(Date.parse(q.get("start")), S - 150 * STEP); t -= STEP) {
+        rows.push("[" + String(t / 1000) + ",0.9990,1.0010,1.0000,1.0001,125.5]"); }
+      return Promise.resolve(new Response("[" + rows.join(",") + "]", { status: 200 })); };
+    for (const pass of ["1", "2"]) {
+      const m = await run(["--product", "USDT-USD", "--granularity", "15m", "--start", "2023-02-01T00:00Z", "--end", "2023-03-01T00:00Z",
+        "--out", process.argv[1 + Number(pass)], "--pass", pass], { fetch, sleep: () => Promise.resolve(), env: {}, execArgv: [] });
+      console.log(JSON.stringify([m.pass, m.rows, m.missing, m.empty_pages, m.empty_witness_pages ?? null]));
+    }`;
+  const r = spawnSync(process.execPath, ["--max-old-space-size=64", "--input-type=module", "-e", child, RECORDER.href, ...outs],
+    { encoding: "utf8", timeout: 30_000, env: {}, stdio: ["ignore", "pipe", "pipe"] });
+  assert.deepEqual([r.status, r.signal, r.stdout], [0, null, `[1,2688,0,0,null]${LF}[2,2688,0,0,1]${LF}`], "both passes written in bounded time");
+  const lines: string[] = [], code = compare(["--pass-1", outs[0] ?? "", "--pass-2", outs[1] ?? ""], { print: (l) => { lines.push(l); } });
+  const said = parsed(lines[0] ?? "");
+  assert.deepEqual([code, said.slots, said.both, said.neither], [0, 2688, 2688, 0], "the comparison reads both passes");
+  const read = (root: string): unknown => {
+    try {
+      return detect(["--root", root, "--from", "2023-02-01T00:15Z", "--to", "2023-03-01T00:15Z"]).reads;
+    } catch (e) {
+      return e instanceof DetectorStop ? [e.code, e.detail] : String(e);
+    }
+  };
+  assert.deepEqual(roots.map(read), [{ present: 2688, absent: 0 }, ["manifest_mismatch", { file: "2023-02/15m/manifest.json", key: "pass" }]],
+    "the detector reads pass 1 and refuses pass 2");
 });
