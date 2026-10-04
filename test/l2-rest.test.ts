@@ -24,9 +24,9 @@ async function load(): Promise<typeof Rest> {
 
 /** A client on a fresh place answering `script(path)`; each clock read returns `clock.us` then adds `clock.step` (sent != received);
  *  `inits` spies on the fetch init of every request. */
-async function rig(script: (path: string) => Reply): Promise<{ R: typeof Rest; c: Rest.RestClient; place: Place; out: string;
+async function rig(script: (path: string) => Reply, R0?: typeof Rest): Promise<{ R: typeof Rest; c: Rest.RestClient; place: Place; out: string;
   clock: { us: number; step: number }; inits: RequestInit[] }> {
-  const R = await load();
+  const R = R0 ?? await load();
   const place = await startPlace(() => undefined, script);
   places.push(place);
   const out = mkdtempSync(join(tmpdir(), "l2-rest-")), clock = { us: T0, step: 3 }, inits: RequestInit[] = [], f = viaFetch(place, [R.ORIGIN]);
@@ -53,23 +53,33 @@ test("l2_rest_logged_and_kept_before_read", async () => {
   const a = await c.request("depth", "BTCUSDT");
   assert.ok(a.body.equals(depth));
   assert.ok(readFileSync(join(out, a.kept)).equals(depth), "the 200 body is kept as received");
-  assert.match(a.kept, /^rest\/BTCUSDT\/BTCUSDT-depth-\d{8}T\d{12}Z\.json$/);
+  assert.equal(a.kept, "rest/BTCUSDT/BTCUSDT-depth-20251009T085320000000Z.json");
   // G2 B3: the init is exactly { redirect: "manual", signal } (the 30 s timeout signal, no header).
   assert.deepEqual(Object.keys(inits[0] ?? {}).sort(), ["redirect", "signal"]);
   assert.ok(inits[0]?.signal instanceof AbortSignal && inits[0].redirect === "manual");
   const l = lines(out)[0];
-  assert.deepEqual([l?.kind, l?.weight, l?.status, l?.bytes, l?.sha256, l?.kept, l?.headers["x-mbx-used-weight-1m"], l?.tls_peer_sha256],
-    ["depth", 250, 200, depth.length, createHash("sha256").update(depth).digest("hex"), a.kept, "250", null]);
+  assert.deepEqual([l?.kind, l?.weight, l?.status, l?.bytes, l?.sha256, l?.kept, l?.headers["x-mbx-used-weight-1m"], l?.tls_peer_sha256, l?.sent_us,
+    l?.received_us], ["depth", 250, 200, depth.length, createHash("sha256").update(depth).digest("hex"), a.kept, "250", null, T0, T0 + 3]);
   assert.equal(place.calls[0], "/api/v3/depth?symbol=BTCUSDT&limit=5000");
   // exchangeInfo and time: paths and weights; a body that is not JSON is kept before the parse stops.
   const e = await c.request("exchangeInfo", "ETHUSDT");
   assert.ok(readFileSync(join(out, e.kept)).equals(bad));
   assert.equal(await code(Promise.resolve().then(() => R.exchangeInfoFacts(e.body))), "body_not_json");
-  await c.request("time", null);
+  assert.equal((await c.request("time", null)).kept, "rest/ALL/ALL-time-20251009T085320000012Z.json");
   assert.deepEqual(place.calls.slice(1), ["/api/v3/exchangeInfo?symbol=ETHUSDT", "/api/v3/time"]);
   assert.deepEqual(lines(out).map((x) => [x.kind, x.weight]), [["depth", 250], ["exchangeInfo", 20], ["time", 1]]);
-  assert.deepEqual([R.TIMEOUT_MS, R.DEPTH_LIMIT, R.BODY_MAX], [30_000, 5000, 8_388_608]);
+  assert.deepEqual([R.TIMEOUT_MS, R.DEPTH_LIMIT, R.BODY_MAX, R.SYMBOLS], [30_000, 5000, 8_388_608, ["BTCUSDT", "ETHUSDT", "BNBUSDT", "SOLUSDT"]]);
   c.close();
+  // C-1 of MONARK: under Windows path rules (relative parts joined by path.win32, the temp root kept), kept stays posix.
+  const src = readFileSync(new URL("../scripts/l2/rest.mjs", import.meta.url), "utf8"), from = `import { join } from "node:path";`;
+  const shim = String.raw`import { posix, win32 } from "node:path"; const join = (...p) => (p[0].startsWith("/") ? posix.join(...p).replaceAll("\\", "/") : win32.join(...p));`;
+  assert.ok(src.includes(from), "the path import is shimmed");
+  const { c: w, out: wout } = await rig((p) => ({ status: p.startsWith("/api/v3/depth") ? 200 : 404 }),
+    (await import(`data:text/javascript,${encodeURIComponent(src.replace(from, shim))}`)) as typeof Rest);
+  await w.request("depth", "BTCUSDT");
+  assert.equal(await code(w.request("time", null)), "http_status");
+  assert.deepEqual(lines(wout).map((x) => x.kept), ["rest/BTCUSDT/BTCUSDT-depth-20251009T085320000000Z.json", "rest/errors/ALL-time-20251009T085320000006Z-404.json"]);
+  w.close();
 });
 
 // killer: scripts/l2/rest.mjs:126 CONST "status === 429 || status === 418" -> "status === 429"
@@ -106,7 +116,7 @@ test("l2_rest_429_418_suspend_until_retry_after", async () => {
 
 // killer: scripts/l2/rest.mjs:100 CONST "state.stopped = true; " -> ""
 test("l2_rest_451_stops_all", async () => {
-  const { c, place, out, clock } = await rig(() => ({ status: 451, body: "{\"code\":0,\"msg\":\"restricted\"}" }));
+  const { R, c, place, out, clock } = await rig(() => ({ status: 451, body: "{\"code\":0,\"msg\":\"restricted\"}" }));
   assert.equal(await code(c.request("exchangeInfo", "BNBUSDT")), "restricted_location");
   assert.equal(c.stopped, true);
   clock.us += 86_400_000_000;
@@ -117,14 +127,25 @@ test("l2_rest_451_stops_all", async () => {
   assert.equal(lines(out).length, 1);
   assert.equal(readdirSync(join(out, "rest", "errors")).length, 1);
   c.close();
+  // C-2 of MONARK (FM-1.2): the 451 stop and the 429 suspension hold from the status alone, though the body fails, passes the bound or
+  // cannot be kept; nothing is sent afterwards.
+  for (const [status, fail] of [[451, "read"], [451, "over"], [451, "disk"], [429, "disk"]] as const) {
+    let calls = 0;
+    const body = fail === "read" ? new ReadableStream({ pull: (ctl) => { ctl.error(new Error("reset")); } }) : fail === "over" ? new Uint8Array(R.BODY_MAX + 1) : "{}";
+    const x = R.createRest({ fetch: () => { calls += 1; return Promise.resolve(new Response(body, { status })); }, nowUs: () => T0,
+      out: fail === "disk" ? join(out, "absent", "\u0000") : mkdtempSync(join(tmpdir(), "l2-rest-")) });
+    await code(x.request("depth", "BTCUSDT"));
+    assert.deepEqual([x.stopped, await code(x.request("time", null)), calls], [status === 451, status === 451 ? "stopped" : "suspended", 1], `${String(status)} ${fail}`);
+    x.close();
+  }
 });
 
 // killer: scripts/l2/rest.mjs:73 ROR "n > BODY_MAX" -> "n >= BODY_MAX"
 test("l2_rest_body_bound_named", async () => {
   let size = 8_388_608;
   const { c, out } = await rig(() => ({ status: 200, body: Buffer.alloc(size, 0x20) }));
-  const a = await c.request("depth", "BTCUSDT");
-  assert.equal(a.body.length, 8_388_608, "a body of exactly the bound is kept");
+  assert.equal(await code(c.request("depth", "BTCUSDT")), "answered", "a body of exactly the bound is answered");
+  assert.equal(lines(out)[0]?.bytes, 8_388_608);
   size += 1;
   assert.equal(await code(c.request("depth", "BTCUSDT")), "body_too_large");
   const l = lines(out)[1];
