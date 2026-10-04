@@ -41,7 +41,9 @@ CI Linux de #110, run `37169648100`, job `g3-verification` (`111339807999`), Nod
 4. **Pourquoi vert ailleurs** :
    - L'hôte de RECHERCHES a git 2.43 : la maintenance automatique y tourne au premier plan, donc elle est finie au retour du commit.
    - Sous Windows, `daemonize` n'existe pas : la maintenance reste au premier plan.
-   - Sous Node 22, `cpSync` copie en JS (`opendir` puis `lstat`) : la fenêtre existe aussi, mais elle est plus étroite.
+   - ~~Sous Node 22, `cpSync` copie en JS (`opendir` puis `lstat`) : la fenêtre existe aussi, mais elle est plus étroite.~~
+     Ligne datée 2026-10-04 (m4 de la G2 neuve) : c'est faux pour Node 22.22.2, qui a aussi le chemin natif. Le G7 mesure le même
+     rouge 3/3 qu'avec Node 24, et le même message.
 
 ## Contenu
 

@@ -35,7 +35,7 @@ La cause est un **processus git détaché qui modifie la source pendant la copie
   ne survit plus à sa commande. Les empreintes C1 et C2 sont inchangées (le test doré est vert).
 - `copy(from, prefix)` est le seul outil de copie, pour `repo()` et `generated()` :
   - Chaque copie va dans un répertoire neuf de `mkdtempSync` sous `T`. Le compteur `seq` est retiré.
-  - Un `filter` écarte les `*.lock` **avant** tout `lstat`. Un verrou qui disparaît pendant la copie n'est donc jamais lu, et une
+  - Un `filter` écarte les `*.lock` situés sous `.git/` (restriction de m3, `53eeed5f`) **avant** tout `lstat`. Un verrou qui disparaît pendant la copie n'est donc jamais lu, et une
     copie ne porte jamais de verrou périmé.
   - Le nettoyage reste celui de `T` seul, par le `after` du fichier.
 - Cas neuf `LINT-UNTRACKED-TMP-1: …` (async, environ 7 s sous Node 24 en charge) :
@@ -43,7 +43,9 @@ La cause est un **processus git détaché qui modifie la source pendant la copie
   - Il copie 100 fois le dépôt de `generated()` pendant qu'un enfant Node crée et efface en boucle `.git/objects/maintenance.lock`.
     Chaque copie doit résoudre le même `HEAD^{tree}`. L'enfant est tué et attendu, puis le verrou est effacé.
   - Puis `build` rend le cas vert de LINT-UNTRACKED (`docs/new.md`, listé `(non suivi)`, n'est pas un hit R-PATH).
-  - Tueur : `scripts/journal/index.mjs:120 CONST "off.has(h.extract)" -> "false"`.
+  - Tueur : `scripts/journal/index.mjs:120 CONST "off.has(h.extract)" -> "false"`. Il ne couvre que la partie `build` du cas
+    (m1). La copie et la configuration sont du code de test : un lot de test seul n'a pas de tueur de production pour elles, et
+    leur oracle est la table des mutations ci-dessous (filtre retiré, configuration vidée).
 
 La « copie atomique » de l'item (copie puis renommage) est écartée : la destination n'est lue par personne d'autre. Le défaut est
 la source qui change.
@@ -70,7 +72,7 @@ Chaque mutation a été appliquée au gel, puis rejouée par `--test-name-patter
 | Copie remise à la forme de la base (`cpSync` sans `filter`), Node 24 | rouge 3/3, `ENOENT … loadXXXX/.git/objects` (le message de la CI) |
 | La même, Node 22.22.2 | rouge 3/3, même message |
 | `T/gitconfig` remis vide | rouge, par assertion (`""` au lieu de `"false"`) |
-| Tueur l.120 `-> "false"` | rouge, par assertion |
+| Tueur l.120 `-> "false"` | rouge, par assertion (il rougit aussi `LINT-UNTRACKED` : il garde `build`, pas la copie) |
 
 Les 37 tueurs de la base (dont celui de LINT-UNTRACKED, l.120 `-> "true"`) gardent leurs adresses : le code de production
 n'est pas touché.
@@ -128,6 +130,38 @@ le G7 sont hors compte.
   de la mesure, puis effacée. Je n'ai pas créé de second worktree.
 - La suite complète a été lancée une fois, sous les versions de la CI. Elle n'a pas été rejouée sous Node 22.
 - Le dépôt superficiel n'a pas été approfondi (`fetch --unshallow`), parce qu'il est partagé avec les autres worktrees.
+
+## Plis de la G2 neuve (ACCEPTE, 4 mineurs)
+
+Rapport : `G2-lint-untracked.md` (bloc-notes de RECHERCHES). Plis au commit `53eeed5f` (test) et au commit de ce texte (docs).
+
+- **m1** : la portée du tueur l.120 est écrite plus haut (§ Correctif) ; l'oracle de la copie et de la configuration est la table
+  des mutations.
+- **m2** : l'enfant qui crée et efface le verrou doit être vivant.
+  - Le cas attend la ligne `churning` de l'enfant (écrite après 100 cycles) avant les 100 copies. Une erreur de lancement
+    (`error`) ou une sortie précoce (`exit`) rejette cette attente ; rien n'est avalé.
+  - Après la dernière copie, il exige `exitCode` et `signalCode` nuls.
+  - Le `finally` ne tue et n'attend l'enfant que s'il tourne encore.
+  - Mutations mesurées : exécutable absent, rouge (`spawn /nonexistent/node ENOENT`) ; `process.exit(0)` en tête de l'enfant,
+    rouge (`churn exited 0 null`). Aucune des deux ne passe à vide.
+- **m3** : le filtre ne vise plus que les `*.lock` dont le chemin contient un segment `.git`. Une assertion d'une ligne copie un
+  `Cargo.lock` hors de `.git/` et exige qu'il soit présent. Mutation : l'ancien filtre (`!p.endsWith(".lock")`) rougit par
+  assertion.
+- **m4** : le G0 §4 disait que Node 22 copie en JS. C'est faux pour 22.22.2, qui a aussi le chemin natif (rouge 3/3, même
+  message que la CI). Le G0 est corrigé par une ligne datée.
+- Après les plis : `npx tsc --noEmit` vert ; eslint vert sur le fichier ; le cas seul est vert sous Node 24.21.0 et git 2.55.0.
+- Charge après les plis : `node --test test/journal-index.test.ts`, 8 lancements à la fois, sous Node 24.21.0 et git 2.55.0. Résultat : **0 / 8** en échec, 28/28 tests verts dans chaque lancement, aucun `ENOENT`.
+- R-25 après les plis : par `r25()` contre `71363ef1`, +28/−8, **36 lignes**, ≤ 547.
+
+## Item d'information
+
+- **CPSYNC-LIVE-REPO-ABORT-1** (propriétaire MONARK ; déclencheur : tout test neuf qui copie un dépôt git vivant). Un `cpSync`
+  natif sans `filter` d'un dépôt vivant peut faire **avorter tout le processus de test**, par une exception C++ non rattrapée
+  (`std::filesystem::filesystem_error … directory iterator cannot open directory`). Cela arrive quand `gc --auto` réécrit
+  `.git/objects` pendant la copie : mesuré sous Node 24.21.0 et git 2.55.0, à 300 commits dans un même dépôt. Aucun test ne peut
+  rattraper cette erreur. Ce fichier n'y est plus exposé, car toute copie y passe par un `filter`, donc par le chemin JS. Une
+  recherche rapide de la G2 n'a trouvé aucun autre test qui copie un dépôt vivant sans filtre ; cette recherche n'est pas
+  exhaustive.
 
 ## Branchement
 
