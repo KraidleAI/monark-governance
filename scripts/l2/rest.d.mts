@@ -3,6 +3,8 @@
 // the L2 recorder stays out of the public tree.
 export const ORIGIN: string;
 export const HOSTS: readonly string[];
+/** The TLS name and port of the place's own connection (ORIGIN's), frozen. */
+export const PEER: Readonly<TlsPeer>;
 export const KINDS: Readonly<Record<RestKind, { readonly path: string; readonly weight: number }>>;
 export const DEPTH_LIMIT: number;
 export const TIMEOUT_MS: number;
@@ -11,6 +13,11 @@ export const RETRY_AFTER_DEFAULT_S: number;
 export const RETRY_AFTER_MAX_S: number;
 export const SYMBOLS: readonly string[];
 export const STOPS: readonly string[];
+export const TLS_NOTES: readonly TlsNote[];
+
+/** Why a request line holds no fingerprint (closed list TLS_NOTES). */
+export type TlsNote = "several_connections" | "session_resumed" | "no_certificate" | "foreign_connection" | "no_tls" | "reused_socket";
+export interface TlsPeer { servername: string; port: number }
 
 export type RestKind = "depth" | "exchangeInfo" | "time";
 
@@ -27,6 +34,8 @@ export interface RestIo {
   /** Wall clock of the host in microseconds, an integer. */
   nowUs: () => number;
   out: string;
+  /** A loopback TLS test only: the TLS name (localhost, else host_refused) and port of the place's own connection; PEER otherwise. */
+  peer?: TlsPeer;
 }
 
 /** A 200 answer: the body as received, its path under `out`, the local send and receive times in microseconds. */
@@ -57,7 +66,7 @@ export interface RequestLine {
   sha256: string | null;
   kept: string | null;
   tls_peer_sha256: string | null;
-  tls_peer_note: "several_connections" | null;
+  tls_peer_note: TlsNote | null;
   headers: { date: string | null; "x-mbx-used-weight-1m": string | null; "retry-after": string | null };
 }
 
@@ -68,17 +77,23 @@ export interface ExchangeInfoFacts {
   requestWeightPerMinute: number;
 }
 
+/** One line of journal.jsonl: the head of P1-a3 (symbol and cid null), then the offset. */
 export interface ClockOffset {
+  host_us: number;
+  mono_ns: string;
+  symbol: null;
+  cid: null;
   event: "clock_offset";
   sent_us: number;
   received_us: number;
   server_time_ms: number | null;
   offset_us: number | null;
-  reason: "server_time_not_safe_integer" | null;
+  reason: "server_time_not_safe_integer" | "body_not_json" | null;
 }
 
 export function guardUrl(url: string): string;
 export function urlOf(kind: RestKind, symbol: string | null): string;
 export function createRest(io: RestIo): RestClient;
 export function exchangeInfoFacts(body: Buffer): ExchangeInfoFacts;
-export function logTimeOffset(out: string, body: Buffer, sentUs: number, receivedUs: number): ClockOffset;
+export function logTimeOffset(out: string, body: Buffer, sentUs: number, receivedUs: number,
+  clock: { wallUs: () => number; monoNs: () => bigint }): ClockOffset;
