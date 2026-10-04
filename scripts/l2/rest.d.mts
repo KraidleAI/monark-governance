@@ -8,6 +8,8 @@ export const DEPTH_LIMIT: number;
 export const TIMEOUT_MS: number;
 export const BODY_MAX: number;
 export const RETRY_AFTER_DEFAULT_S: number;
+export const RETRY_AFTER_MAX_S: number;
+export const SYMBOLS: readonly string[];
 export const STOPS: readonly string[];
 
 export type RestKind = "depth" | "exchangeInfo" | "time";
@@ -55,6 +57,7 @@ export interface RequestLine {
   sha256: string | null;
   kept: string | null;
   tls_peer_sha256: string | null;
+  tls_peer_note: "several_connections" | null;
   headers: { date: string | null; "x-mbx-used-weight-1m": string | null; "retry-after": string | null };
 }
 
