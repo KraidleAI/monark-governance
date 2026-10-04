@@ -36,13 +36,18 @@ aucune série brute dans le dépôt. Tronc relu au G7 : `origin/lot/etude-suite`
   champs de `Tail` ; c1 la passe au lecteur comme marque et la reporte au `missing.json`.
 - **Q-C1-5** : `closed(cid, seg)` est-il bien à fournir par c5 (le disque seul ne dit pas qu'un fichier est encore ouvert) ?
 - **Q-C1-6** : la fenêtre de lecture [début − 1 h ; fin + grâce] par heure de segment suffit-elle ? Limite : une trame dont l'heure de
-  place précède sa réception de plus d'une heure n'entre dans aucun index ; item proposé L2-DAY-SCAN-WINDOW-1, mesure en M-6.
+  place **suit** sa réception de plus d'une heure n'est pas lue au scellé de son jour ; depuis le pli du G2 (B-3), elle est rangée au
+  jour de sa réception, marquée `early`, `of` = son jour, comptée ; item proposé L2-DAY-SCAN-WINDOW-1, mesure en M-6.
 - **Q-C1-7** : amorce et ancres restent-elles hors de c1 (c2 rejoue, c5 écrit les ancres), `SHA256SUMS` listant tout fichier présent
   au dossier du jour au scellé, ancres comprises ?
 - **Q-C1-8** : `script_sha256` = empreintes des cinq modules `scripts/l2/*.mjs` (`book`, `day`, `links`, `rest`, `segments`) jusqu'à la
   commande de c4, qui s'y ajoutera : d'accord ?
-- **Q-C1-9** : l'index d'un jour tenu en mémoire au scellé est-il acceptable, sa taille mesurée en M-1 (c5 scelle dans un fil de
-  travail, Q-5 de a2) ?
+- **Q-C1-9** : l'index d'un jour tenu en mémoire au scellé, compact depuis le pli du G2 (trois int32 par trame, plafond
+  `INDEX_BOUND` = 8 388 608 trames, arrêt `index_bound` ; mesures à la section G2), est-il acceptable, sa taille réelle mesurée en M-1
+  (c5 scelle dans un fil de travail, Q-5 de a2) ?
+- **Q-C1-10** (pli du G2, B-1) : contrat pour c5 accepté ? À chaque lancement, avant toute ouverture, c5 journalise
+  `{"event":"start","symbol":"ALL","cid":null}` (avec `host_us`, `mono_ns`) ; c1 y lit l'arrêt du processus : chaque connexion encore
+  ouverte au journal est close d'office, trou `process_restart` jusqu'à la première trame de la connexion suivante.
 
 ## Preuves
 
@@ -82,3 +87,100 @@ aucune série brute dans le dépôt. Tronc relu au G7 : `origin/lot/etude-suite`
 - c6 : `--from-raw` rappelle `sealDay` ; à la clôture de FAITS-L2-ACCESS-3-E-1, `TIME_UNITS.market` et la lecture de `E` sur `/market`
   changent ensemble, et les jours de liquidations se réindexent depuis le brut.
 - MAST FM-1.5 (jour scellé trop tôt) : preuve `l2_day_seal_waits_grace_and_segments`.
+
+## G2 (2026-10-04, REFUSE, trois bloquants) : pli
+
+Rapport : `recherches/coordination/pieces/2026-10-04-G2-recherches/G2-l2-p1-c1.md`. Le tronc avait bougé (`origin/lot/etude-suite`
+en `0b04be9b`, une note de `docs/HANDOFF-2026-10-02-publication.md`) : fusionné d'abord, commit de fusion `489255fe`. Puis
+`fc85d60d` (tests rouges et `day.d.mts`), `416e3733` (gel), et ce commit (G0 et G7). Aucun push.
+
+### Bloquants
+
+- **B-1 (journal après un arrêt brutal)** : un événement `start` de c5 (contrat **Q-C1-10**, déclaré au G0) vide l'ensemble des
+  connexions ouvertes de chaque liaison et ouvre un trou `process_restart` (`cid` nul), de la dernière trame des connexions mortes (à
+  défaut, du dernier événement journalisé de la liaison) à la première de la connexion suivante. Cas au test
+  `l2_day_missing_from_journal_and_chain` : `c` ouverte sans fermeture, `start`, puis `d` ouverte et fermée par le chien de garde :
+  les deux trous sont au `missing.json`.
+- **B-2 (scellé d'un jour chargé)** : une trame tenue au scellé est un triplet d'int32 (numéro de segment, rang, marque + 4 × son jour)
+  dans le seau de son flux ; les trames sont classées au fil de la lecture (seules celles du jour sont gardées), les `@bookTicker`
+  d'une connexion attendent la fin de ses segments (Q-9). Au-delà de `INDEX_BOUND` = 8 388 608 trames tenues : arrêt nommé
+  `index_bound`, rien écrit (plus de `RangeError`). `index.jsonl` est écrit par morceaux de 64 Ki caractères (`writeSync`), chaque
+  fichier haché par morceaux de 64 Kio. Test `l2_day_index_bound_named_stop` (borne abaissée par la couture `bound` ; 2 000 trames,
+  seuils de morceau franchis à l'écriture et au hachage).
+  **Mesures** (jour synthétique écrit hors dépôt sous le `TMPDIR` du pli, effacé ; une connexion, 20 segments, ¼ différences, ¼
+  `@bookTicker`, ½ transactions ; Node v24.21.0) :
+
+| Trames | Brut | Code | Durée | RSS de pointe | `index.jsonl` |
+|---|---|---|---|---|---|
+| 4 000 000 | 591 Mo | gel `61f79238` | 42,6 s | 2 190 Mio | 397 Mio |
+| 4 000 000 | 591 Mo | pli | 42,1 s | 246 Mio | 397 Mio |
+| 8 388 600 (borne) | 1,3 Go | pli | 76,0 s | 388 Mio | 836 Mio |
+
+  À la borne, l'index (836 Mio) dépasse `MAX_STRING_LENGTH` de V8 (536 870 888 caractères) : le gel y tombait sur `RangeError`.
+  Hors de la borne : les différences d'une connexion gardées pour Q-9 (24 octets chacune, ≈ 21 Mo pour 25 h à 100 ms) et le
+  journal (m-8). 388 Mio à la borne restent proches du `MemoryMax=512M` de D24-4 si c5 scelle dans son unité : voir Q-G2-1.
+- **B-3 (trame hors fenêtre)** : une trame non marquée dont le segment précède la fenêtre de son jour va à l'index de son jour de
+  réception, `mark: "early"`, `of` = son jour, comptée `counts.early` (miroir de `late`). Cas au test `l2_day_index_by_event_time`
+  (reçue à J 21:30, `E` = J+1 00:10). Libellé de Q-C1-6 corrigé au G0 et ci-dessus (« précède » → « suit »).
+
+### Mineurs
+
+- **m-1** : les trois changements du rapport appliqués (trou fermé pile à minuit, événement à minuit, trou ouvert pile à la fin) ; les
+  trois survivants (`:107` deux fois, `:108` au pli) sont tués.
+- **m-2** : trame `/market` sans flux, attendue pour BTCUSDT et ETHUSDT (`l2_day_seal_waits_grace_and_segments`) ; phrase sur le cas
+  spot (`!serverShutdown` : règle de `E`, sinon `place_time_unsafe`) au G0, point 5.
+- **m-3** : `bad_symbol` (`../x`), `bad_day` (`2026-02-30`, `2026-2-03`) dans le test du scellé.
+- **m-4** : segment réel à queue tronquée, journalisé `tail_marked` par les champs de `checkTail`, lu sous sa marque (`frames: 1`) ;
+  `anchor-close.json` posé avant le scellé et attendu au `SHA256SUMS` ; tardive dont `E` est à 13:00 UTC.
+- **m-5 (item proposé L2-DAY-CHAIN-SPAN-1, renvoyé au G0 de c2 ou de c5)** : une rupture de chaîne ouverte à J 23:59 et refermée à J+1
+  n'apparaît pas au `missing.json` de J+1, et le tout premier départ n'ouvre aucun trou de 00:00 au premier `open`. Non corrigé :
+  c2 rejoue la chaîne depuis le brut (rien n'est perdu). Question Q-G2-2.
+- **m-6 (corrigé)** : [A] « Chien de garde » est explicite (« de la dernière trame reçue à la première de la connexion neuve ») :
+  c'était un écart à l'ADR, corrigé. `from_us` = `recv_us` de la dernière ligne d'index de la connexion fermée, `to_us` = celui de la
+  première de la connexion ouverte, lus au bord des index (64 Kio au plus par fichier) ; à défaut de trame au disque, l'heure du
+  journal (lecture déclarée). Test `l2_day_hole_bounds_from_frames`.
+- **m-7 (corrigé)** : `index.jsonl`, `missing.json`, `manifest.json` puis `SHA256SUMS` chacun synchronisé (`fsyncSync`), le dossier
+  du jour synchronisé avant et après `SHA256SUMS` ; un nom hors de la liste fermée `DAY_FILES` arrête le scellé (`stray_file`). Les
+  segments bruts eux-mêmes ne sont pas synchronisés par a2 : hors de c1, à dire au G0 de c5.
+- **m-8 (item proposé L2-DAY-JOURNAL-STREAM-1)** : `journal.jsonl` est encore lu en entier à chaque scellé ; lecture par lignes (le
+  `linesOf` de a2, à exporter) renvoyée à c5 ou c6, qui fixeront aussi la coupe du journal.
+- **m-9 (renvoyé aux G0 de c2, c3 et c6)** : les dérivés de c2 (minutes, parité) et de c3 (deux empreintes, D-20) doivent entrer au
+  manifeste et au dossier avant `SHA256SUMS` : `sealDay` prendra des dérivés (ou une fonction) avant le scellé ; `DAY_FILES` porte
+  déjà `minutes.jsonl`, les noms de c3 s'y ajouteront. `config` est écrit dans l'ordre de clés de l'appelant : c5 et c6 le passent
+  dans le même ordre (rejeu à l'octet), à écrire au G0 de c6.
+
+### Mutants rejoués au pli (copie de travail, un à la fois, fichier restauré)
+
+Tués : les neuf tueurs ; les survivants du G2 `:107` (`to_us > start`, `from_us < end`), `:108`, flux nul sur `/market` (`:158`), garde
+`bad_symbol` (`:175`), aller-retour `dayOf` de `bad_day` (`:177`), marque de queue jamais passée (`:155`), noms fixes au lieu de
+`readdirSync` ; au pli : `start` ignoré (`:87`), `open.clear()` retiré (`:92`), repli `seen` (`:91`), bord haut lu au journal (`:102`),
+garde `stray_file` (`:184`), remise à zéro du morceau (`text = ""`, `:201`), early retiré (`:132`). Équivalents, déclarés : `Math.floor`
+→ `Math.round` dans `dayOf` (`:60`) : `dayOf` n'est appelé que sur des multiples du jour (`of` vient de `dn × DAY_US`, `bad_day` de
+minuit), le cas « `E` après midi » de m-4 ne peut pas le tuer ; regex de `bad_day` retirée (l'aller-retour la couvre) ; écriture du
+morceau dans la boucle retirée (même sortie, mémoire seule) ; `"wx"` → `"w"` (`day_sealed` garde avant). Le tri des différences
+du gel a disparu : sur une connexion, `u` croît (le G2 l'avait jugé équivalent).
+
+### Preuves du pli
+
+- `node scripts/red-proof.mjs --base 61f79238 --gel 416e3733 --repo /home/user/monark-governance-c1 --draw 7 --seed 37` : sortie 0,
+  « red-proof OK: 7 judged, 2 unchanged, 7 killer(s) drawn » ; `RED-PROOF.json` sha256 `db965d40f1081595…`. Les sept tests touchés
+  sont F2P (rouges par assertion au gel), les deux intacts (`l2_bookticker_day_rule`, `l2_place_time_unsafe_integer_named_stop`)
+  gardent leur tueur, ré-ancré.
+- Lot entier, contre le tronc fusionné `0b04be9b` : `--base 0b04be9b --gel 416e3733 --draw 9 --seed 37` : sortie 0, « red-proof OK:
+  9 judged, 0 unchanged, 9 killer(s) drawn » ; sha256 `b5deab205b877b07…`. Tueurs : `:180` CONST, `:148` ROR, `:131` ROR, `:179` ROR,
+  `:103` CONST, `:104` CONST, `:162` CONST, `:163` SDL, `:129` ROR.
+- Ancres : `verifie-ancres.mjs . --touched 0b04be9b HEAD` et `--touched 61f79238 HEAD` : 9 tueurs, 9 ANCRE, 0 DERIVE, 0 PERDU.
+- R-25 (`scripts/oracle/r25.mjs`, base `0b04be9b`) : `STAT` 477 (477 insertions, 0 suppression ; `day.mjs` 214, `day.d.mts` 52, tests
+  211), borne du lot 547 ; `CONTENT_STAT` 0 ; GREEN.
+- `npm test` : `test:main` 2 199 tests, 2 178 réussis, 0 échec, 21 ignorés (sortie 0 ; le G7 du gel relevait 2 218 : écart de
+  19 non analysé ici, hors du lot, qui ne touche que `test/l2-day.test.ts`, 9 tests, tous verts) ; `test:export` 1 sur 1 (sortie 0).
+  `tsc` 0 ; `lint` 0 erreur ; `lint:ratchet` 69/69 ; `gate:vocab` OK (335 fichiers) ; `lang:gate` OK.
+
+### Questions pour MONARK (pli du G2)
+
+- **Q-G2-1** : `INDEX_BOUND` = 8 388 608 trames (388 Mio de pointe mesurés à la borne) : le garder jusqu'à M-1, ou l'abaisser tant que
+  c5 scelle dans l'unité de l'enregistreur (`MemoryMax=512M`), ou faire sceller c5 dans une unité à part ? Un jour qui dépasse s'arrête
+  nommé (`index_bound`) et se rejoue par c6 après relèvement.
+- **Q-G2-2** : m-5 (ruptures de chaîne à cheval sur minuit, premier départ) à c2 ou à c5 ?
+- **Q-G2-3** : Q-C1-10 (événement `start`) accepté comme contrat de c5 ?
+- **Q-G2-4** : à défaut de trame au disque, les bornes d'un trou tombent sur l'heure du journal (m-6) : d'accord ?
