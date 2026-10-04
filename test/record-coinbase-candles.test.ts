@@ -893,7 +893,7 @@ test("coinbase_candles_records_both_passes_of_a_28_day_month_in_bounded_time_for
       console.log(JSON.stringify([m.pass, m.rows, m.missing, m.empty_pages, m.empty_witness_pages ?? null]));
     }`;
   const r = spawnSync(process.execPath, ["--max-old-space-size=64", "--input-type=module", "-e", child, RECORDER.href, ...outs],
-    { encoding: "utf8", timeout: 30_000, env: {}, stdio: ["ignore", "pipe", "pipe"] });
+    { encoding: "utf8", timeout: 30_000, env: { SYSTEMROOT: process.env.SYSTEMROOT }, stdio: ["ignore", "pipe", "pipe"] }); // C-1: node starts on Windows
   assert.deepEqual([r.status, r.signal, r.stdout], [0, null, `[1,2688,0,0,null]${LF}[2,2688,0,0,1]${LF}`], "both passes written in bounded time");
   const lines: string[] = [], code = compare(["--pass-1", outs[0] ?? "", "--pass-2", outs[1] ?? ""], { print: (l) => { lines.push(l); } });
   const said = parsed(lines[0] ?? "");

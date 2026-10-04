@@ -712,7 +712,8 @@ test("ee7_refuses_a_month_whose_manifest_is_not_a_sealed_pass_1", () => {
   const drop = (k: string) => manifestDoc((d) => Object.fromEntries(Object.entries(d).filter(([n]) => n !== k)));
   const cases: [string, (dir: string) => void, string][] = [["pass 2", set("pass", 2), "pass"], ["no pass", drop("pass"), "pass"],
     ["pass as text", set("pass", "1"), "pass"], ["an empty page counted", set("empty_pages", 1), "empty_pages"],
-    ["no empty_pages", drop("empty_pages"), "empty_pages"]];
+    ["no empty_pages", drop("empty_pages"), "empty_pages"], ["empty_pages -1", set("empty_pages", -1), "empty_pages"],
+    ["empty_pages 0.5", set("empty_pages", 0.5), "empty_pages"]]; // C-2 of the G2: v <= 0 and v < 1 read neither
   for (const [what, alter, key] of cases) {
     assert.deepEqual(refusal(altered(new Map([["2025-02", alter]]))[1]), [1, "manifest_mismatch", "2025-02/15m/manifest.json", key, "ok"], what);
   }
@@ -731,4 +732,9 @@ test("ee7_refuses_months_written_by_different_recorders", () => {
   other(join(root, "2025-01", "15m"));
   seal(join(root, "2025-01", "15m"));
   assert.deepEqual(refusal(argv), [0, undefined, undefined, undefined, "ok"], "both months of the other recorder: read (not pinned)");
+  // m-1 of the G2: three months, the third differs; every month is compared with the first, not only the second
+  const n = 12 * 4 + 2688 + 8, third = sealed(T0, rep(C, n)), march = join(third, "2025-03", "15m");
+  other(march);
+  seal(march);
+  assert.deepEqual(refusal(argvOf(third, T0, n)), [1, "manifest_mismatch", "2025-03/15m/manifest.json", "recorder_sha256", "ok"], "the third differs");
 });
