@@ -665,3 +665,11 @@ l outil du tronc, oracle G1 vert (2 085 tests, 0 échec), R-25 460. Les huit que
 - **Q-8** : oui, `writer_stop` pour tout arrêt de l écrivain ; reprise armée après l écriture de la file ; borne de `stop()` sur un
   disque bloqué fixée par c5.
 - La G2 de P1-a3 va à RECHERCHES (règle 4 amendée), puis P1-b2 s empile sur a3 et b1.
+
+## Décision de l orchestrateur sur P1-b1 plié (2026-10-04, 03:4x UTC)
+
+- **#112** (tête `29db1863`) : contrôle léger de MONARK fait (zone, CI sans rouge, R-25 540 ≤ 547, G2 neuve de RECHERCHES APPROUVE,
+  `G2-112-fold.md`). C-8 : les noms de fichiers du code sont actés. Fusion au tronc après a1 et a2 (a1 attend MUTANTS-TEST-SUPPORT-1) ;
+  le rejeu Windows réel de C-1 est l oracle du tronc à cette fusion.
+- **P1-B1-BIS** (§8.1, solde 7 < 10 ; RECHERCHES) : C-3, C-4 avec m-1, C-5, les survivants restants de C-6 et C-7, m-2, m-3, m-4, H11.
+  Déclencheur : avant le G1 de c5, au plus tard avant M-1.
