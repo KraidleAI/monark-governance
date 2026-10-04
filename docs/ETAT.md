@@ -431,7 +431,9 @@ Tronc `lot/etude-suite`. Dernier oracle complet : 1 779 tests, dont 1 776 verts,
   - SENTINEL-SIGTERM-STARTUP-WINDOW-1 (nommé au G0 et au G7 de SENTINEL-SIGTERM-LOAD-1, absent d ETAT jusqu ici) : `run.ts` prend le
     verrou (l.295) avant d installer son gestionnaire de SIGTERM (l.342) ; un SIGTERM dans cette fenêtre tue le processus et laisse le
     verrou pris. Construction : installer le gestionnaire avant la prise du verrou, test qui envoie SIGTERM dans la fenêtre. Porteur :
-    RECHERCHES (zone ouverte : `apps/sentinel/src/run.ts` et son test) ; déploiement de la sentinelle par MONARK ; état : ouvert.
+    RECHERCHES (zone ouverte : `apps/sentinel/src/run.ts` et son test) ; déploiement de la sentinelle par MONARK ; état : code au
+    tronc (#137, `124c03c2` ; CI Linux : les 4 tests SIGTERM verts ; oracle Windows vert) ; déploiement groupé avec
+    RPC-GUARD-LOCK-WRITE-LEAK-1 (décision de l investisseur, 2026-10-04 21:4x UTC).
   - ADR-CM-AMEND-3-1 : l amendement ADR-CM « 2026-10-04 (3) » (1.1.0) est cité par d autres ADR mais absent du tronc et de la base
     (Q-4 du G0 de CM-4a-i). Porteur : RECHERCHES, PR de documentation de l étape 7 du plan CM-3c/CM-4 ; état : ouvert.
   - SERVED-PENDING-1 (plan r3 §8.5, étendu au chargeur du site ; absent d ETAT jusqu ici) : un instantané en attente
@@ -467,6 +469,12 @@ Tronc `lot/etude-suite`. Dernier oracle complet : 1 779 tests, dont 1 776 verts,
     réussi, le fichier reste hors de `acquired` (`guarded.ts:43-46`) et la garde répond `lock_held` jusqu à l acte du RUNBOOK.
     Construction : retirer le fichier sur échec d écriture, test et tueur d abord. Porteur : RECHERCHES (zone `packages/rpc-guard/`
     ouverte, recherches#150), après #137 et le lot b de CM-4a-ii ; état : ouvert.
+  - TEST-FORCE-EXIT-NEED-1 (question de RECHERCHES, 2026-10-04) : `--test-force-exit` est-il encore nécessaire ? Construction : mesurer,
+    fichier par fichier, ce qui ne sortirait pas sans lui, puis le retirer s il n y a plus rien. Porteur : RECHERCHES, priorité basse,
+    après ses lots en cours (recherches#154) ; état : ouvert.
+  - MUTANTS-RUN-EXIT-CODE-1 (signalé par RECHERCHES, 2026-10-04) : `scripts/mutants/run.mjs` juge un mutant sur la sortie, pas sur le
+    code de sortie ; un rapport d échec perdu donne « survit » au lieu de « tué » (sens sûr, mesure fausse). Construction : juger sur le
+    code, tests et tueur d abord. Porteur : RECHERCHES (zone `scripts/mutants/` ouverte, recherches#154) ; état : ouvert.
   - L2-RECV-US-RESOLUTION-1 (PAROXYSME ; Q-4 du G1 de L2-P1-a2) : Node n offre aucune horloge murale à la microseconde ; `recv_us`
     de production vaut `Date.now()*1000` (résolution ms), l ordre fin étant porté par `mono_ns`. Construction qui donne la garantie :
     mesurer la résolution réelle et la dérive de `performance.timeOrigin + performance.now()` contre l horloge de l hôte sur un jour
@@ -954,7 +962,8 @@ Tronc `lot/etude-suite`. Dernier oracle complet : 1 779 tests, dont 1 776 verts,
   région de l hôte, points d accès, Q-6 à Q-10) avant tout appel ; hôte = serveur du site sous quota ; audit advisor marché (0007-AVIS) plié.
 - **ADR de la vague 2 ACCEPTÉ par le fondateur** (v8.1, 2026-10-02 ; empreinte du texte accepté `fe48c03a33da7ab0090b97a41b911f74102de61fa6059188e1c01d23a8fb4be6`,
   relevée sur place à 19:13 UTC, pour P0-2 ; checkpoint-1 MONARK ACCEPTE-AVEC-CORRECTIONS plié). Parties : A W2-E + W2-S (MONARK après le
-  chantier 2), B W2-H + W2-L, acte P0-2, C W2-C + W2-F, D course 2b. Dû par MONARK : C-3 (diff A-1) au début de W2-E ; C-6 (FAITS) avant P0-2.
+  chantier 2), B W2-H + W2-L, acte P0-2, C W2-C + W2-F, D course 2b. C-3 (diff A-1) fait le 2026-10-04 :
+  CONFORME, ligne P0 d A-1 `3283e9ce` ; dû par MONARK : C-6 (FAITS) avant P0-2.
   LIVE-2-RECORD-1 (conditionnel : si P0-2 vient après la première lecture de LIVE-1 par RECHERCHES, MONARK enregistre LIVE-2, premier
   trimestre civil complet après P0-2, scellé ; C-5 du checkpoint-1 v6). Checkpoint-1 v6 rendu le 2026-10-02 à 18:49 UTC :
   ACCEPTE-AVEC-CORRECTIONS (C-1 à C-10 ; rapport `F:/tmp/kata-w2v6/cp1/CP1-W2-RAPPORT.md` sha256 `c01df603…`, 17 recalculs égaux).
