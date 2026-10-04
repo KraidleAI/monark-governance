@@ -9,8 +9,10 @@ export const SAMPLING: Readonly<{ stream: string; per_symbol_ms: number; kept: s
 export const KEYS: Readonly<Record<string, string>>;
 export const MISSING_EVENTS: readonly string[];
 export const STOPS: readonly string[];
+export const INDEX_BOUND: number;
+export const DAY_FILES: readonly string[];
 
-/** A named stop: `code` is one of STOPS (bad_symbol, bad_day, place_time_unsafe, day_sealed). */
+/** A named stop: `code` is one of STOPS (bad_symbol, bad_day, place_time_unsafe, day_sealed, index_bound, stray_file). */
 export class DayStop extends Error {
   readonly code: string;
   readonly detail: Record<string, unknown>;
@@ -18,18 +20,19 @@ export class DayStop extends Error {
 }
 
 /** One line of days/<SYMBOL>/<YYYY-MM-DD>/index.jsonl: the frame's stream (null when none is read), its segment and rank; mark
- *  recv_day = indexed by its reception day (Q-9 fallback, /market); late = received past its day plus the grace, `of` its day. */
+ *  recv_day = indexed by its reception day (Q-9 fallback, /market); late = received past its day plus the grace, early = its segment
+ *  before its day's window: both at their reception day, `of` their day. */
 export interface DayLine {
   stream: string | null;
   cid: string;
   seg: string;
   rank: number;
-  mark?: "recv_day" | "late";
+  mark?: "recv_day" | "late" | "early";
   of?: string;
 }
 
 /** What a seal takes from its caller (the test seam): out, the symbol, the UTC day, the host's wall clock in microseconds, whether a
- *  segment is closed (from the writers of c5), and the configuration written to the manifest as given. */
+ *  segment is closed (from the writers of c5), the configuration written to the manifest as given, the frames held at most (INDEX_BOUND). */
 export interface SealSpec {
   out: string;
   symbol: string;
@@ -37,6 +40,7 @@ export interface SealSpec {
   nowUs: number;
   closed: (cid: string, seg: string) => boolean;
   config?: Record<string, unknown>;
+  bound?: number;
 }
 
 export type SealResult =

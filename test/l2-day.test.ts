@@ -7,10 +7,10 @@
 import { after, before, test } from "node:test";
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { appendFileSync, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { cidOf, openWriter } from "../scripts/l2/segments.mjs";
+import { checkTail, cidOf, openWriter } from "../scripts/l2/segments.mjs";
 import type * as DayM from "../scripts/l2/day.mjs";
 import { keepCause } from "./helpers/keep-cause.ts";
 keepCause("test/l2-day.test.ts"); // a crash of this file names its cause on stdout, which the runner keeps (L2-LINKS-FILE-CRASH-1)
@@ -54,21 +54,23 @@ const sha = (b: Buffer): string => createHash("sha256").update(b).digest("hex");
 const at = (cid: string, seg: string, rank: number, stream: string, mark: Line = {}): Line => ({ stream, cid, seg, rank, ...mark });
 const [DEPTH, TRADE, TICKER] = ["btcusdt@depth@100ms", "btcusdt@trade", "btcusdt@bookTicker"];
 
-// killer: scripts/l2/day.mjs:130 CONST "segmentOf(start - PERIOD_US)" -> "segmentOf(start)"
+// killer: scripts/l2/day.mjs:180 CONST "segmentOf(start - PERIOD_US)" -> "segmentOf(start)"
 test("l2_day_index_by_event_time", async () => {
   const out = fresh();
   const a = await conn(out, "spot", "BTCUSDT", [[START - 30 * 60 * S, depth(1, 2, START + 5)], [START - 20 * 60 * S, trade(START - 1, 7)],
-    [END - HOUR, trade(END - 1, 8)], [END + S, depth(3, 4, END)], [END + 2 * S, trade(END - 2, 9)]]);
+    [END - 5 * HOUR / 2, trade(END + 10 * 60 * S, 10)], [END - HOUR, trade(END - 1, 8)], [END + S, depth(3, 4, END)], [END + 2 * S, trade(END - 2, 9)]]);
   await conn(out, "spot", "ETHUSDT", [[START + HOUR, depth(1, 2, START + HOUR, "ethusdt")]]);
-  assert.deepEqual(await seal(out), { sealed: true, dir: dir(out, "BTCUSDT", D), frames: 3 });
-  assert.deepEqual(index(out), [at(a, "20261003T23", 0, DEPTH), at(a, "20261004T23", 0, TRADE), at(a, "20261005T00", 1, TRADE)]);
+  assert.deepEqual(await seal(out), { sealed: true, dir: dir(out, "BTCUSDT", D), frames: 4 }); // E 1 h past its reception: early (G2 B-3)
+  assert.deepEqual(index(out), [at(a, "20261003T23", 0, DEPTH), at(a, "20261004T21", 0, TRADE, { mark: "early", of: D1 }),
+    at(a, "20261004T23", 0, TRADE), at(a, "20261005T00", 1, TRADE)]);
+  assert.equal((JSON.parse(read(out, "BTCUSDT", D, "manifest.json")) as { counts: Line }).counts.early, 1);
   assert.deepEqual(await seal(out, "BTCUSDT", "2026-10-03"), { sealed: true, dir: dir(out, "BTCUSDT", "2026-10-03"), frames: 1 });
   assert.deepEqual(index(out, "BTCUSDT", "2026-10-03"), [at(a, "20261003T23", 1, TRADE)]);
   assert.deepEqual(await seal(out, "BTCUSDT", D1, END + DAY + GRACE + 1), { sealed: true, dir: dir(out, "BTCUSDT", D1), frames: 1 });
   assert.deepEqual(index(out, "BTCUSDT", D1), [at(a, "20261005T00", 0, DEPTH)]);
 });
 
-// killer: scripts/l2/day.mjs:118 ROR "list[lo][0] <= f.u" -> "list[lo][0] < f.u"
+// killer: scripts/l2/day.mjs:148 ROR "diffs.a[lo * 3] <= u" -> "diffs.a[lo * 3] < u"
 test("l2_bookticker_day_rule", async () => {
   const out = fresh(), recv = { mark: "recv_day" };
   const a = await conn(out, "spot", "BTCUSDT", [[START + HOUR, ticker(5)], [END - S, depth(10, 20, END - 2)], [END + S, ticker(10)],
@@ -83,57 +85,83 @@ test("l2_bookticker_day_rule", async () => {
     at(b, "20261005T00", 0, TICKER, recv), at(a, "20261005T00", 2, DEPTH), at(a, "20261005T00", 5, DEPTH)]);
 });
 
-// killer: scripts/l2/day.mjs:137 ROR "f.recv > (f.dn + 1) * DAY_US + GRACE_US" -> "f.recv >= (f.dn + 1) * DAY_US + GRACE_US"
+// killer: scripts/l2/day.mjs:131 ROR "recv > (dn + 1) * DAY_US + GRACE_US" -> "recv >= (dn + 1) * DAY_US + GRACE_US"
 test("l2_day_late_frame_marked", async () => {
   const out = fresh();
-  const a = await conn(out, "spot", "BTCUSDT", [[END + GRACE, depth(1, 1, START + HOUR)], [END + GRACE + 1, depth(2, 2, START + 2 * HOUR)]]);
+  const a = await conn(out, "spot", "BTCUSDT", [[END + GRACE, depth(1, 1, START + HOUR)], [END + GRACE + 1, depth(2, 2, START + 13 * HOUR)]]); // `of` after noon
   assert.deepEqual(await seal(out), { sealed: true, dir: dir(out, "BTCUSDT", D), frames: 1 });
   assert.deepEqual(index(out), [at(a, "20261005T00", 0, DEPTH)]);
   assert.deepEqual(await seal(out, "BTCUSDT", D1, END + DAY + GRACE + 1), { sealed: true, dir: dir(out, "BTCUSDT", D1), frames: 1 });
   assert.deepEqual(index(out, "BTCUSDT", D1), [at(a, "20261005T00", 1, DEPTH, { mark: "late", of: D })]);
-  assert.deepEqual((JSON.parse(read(out, "BTCUSDT", D1, "manifest.json")) as Line).counts, { streams: { [DEPTH]: 1 }, late: 1, recv_day: 0 });
+  assert.deepEqual((JSON.parse(read(out, "BTCUSDT", D1, "manifest.json")) as Line).counts, { streams: { [DEPTH]: 1 }, late: 1, early: 0, recv_day: 0 });
 });
 
-// killer: scripts/l2/day.mjs:129 ROR "!(nowUs > end + GRACE_US)" -> "!(nowUs >= end + GRACE_US)"
+// killer: scripts/l2/day.mjs:179 ROR "!(nowUs > end + GRACE_US)" -> "!(nowUs >= end + GRACE_US)"
 test("l2_day_seal_waits_grace_and_segments", async () => {
   const out = fresh();
   const a = await conn(out, "spot", "BTCUSDT", [[START + HOUR, depth(1, 1, START + HOUR)]]);
-  const m = await conn(out, "market", "ALL", [[START + 2 * HOUR, liq("btcusdt", 1)], [START + 2 * HOUR + 1, liq("ethusdt", 2)]]);
+  const m = await conn(out, "market", "ALL", [[START + 2 * HOUR, liq("btcusdt", 1)], [START + 2 * HOUR + 1, liq("ethusdt", 2)],
+    [START + 2 * HOUR + 2, JSON.stringify({ e: "serverShutdown", E: 3 })]]); // no stream: each symbol
   assert.deepEqual(await seal(out, "BTCUSDT", D, END + GRACE), { sealed: false, wait: "grace" });
   assert.deepEqual(await seal(out, "BTCUSDT", D, END + GRACE + 1, (cid) => cid !== m), { sealed: false, wait: "segments", open: [`${m}/20261004T02`] });
   assert.equal(existsSync(join(out, "days")), false);
-  assert.deepEqual(await seal(out), { sealed: true, dir: dir(out, "BTCUSDT", D), frames: 2 });
+  for (const [symbol, day, code] of [["../x", D, "bad_symbol"], ["BTCUSDT", "2026-02-30", "bad_day"], ["BTCUSDT", "2026-2-03", "bad_day"]]) {
+    assert.equal(await seal(out, symbol, day), code);
+  }
+  mkdirSync(dir(out, "BTCUSDT", D), { recursive: true });
+  writeFileSync(join(dir(out, "BTCUSDT", D), "stray.tmp"), "");
+  assert.equal(await seal(out), "stray_file"); // G2 m-7: a residue is never sealed
+  rmSync(join(dir(out, "BTCUSDT", D), "stray.tmp"));
+  writeFileSync(join(dir(out, "BTCUSDT", D), "anchor-close.json"), "{}" + LF); // Q-C1-7: an anchor of c5, sealed with the day
+  assert.deepEqual(await seal(out), { sealed: true, dir: dir(out, "BTCUSDT", D), frames: 3 });
   const sums = read(out, "BTCUSDT", D, "SHA256SUMS");
   const rows = sums.split(LF).filter((l) => l !== "").map((l) => /^([0-9a-f]{64}) {2}(\S+)$/.exec(l)!);
   const segs = [a, a, m, m].map((c, k) => `../../../conn/${c}/${c === a ? "20261004T01" : "20261004T02"}${k % 2 === 0 ? ".frames" : ".index.jsonl"}`);
-  assert.deepEqual(rows.map((r) => r[2]), [...segs, "index.jsonl", "manifest.json", "missing.json"].sort());
+  assert.deepEqual(rows.map((r) => r[2]), [...segs, "anchor-close.json", "index.jsonl", "manifest.json", "missing.json"].sort());
   for (const r of rows) assert.equal(r[1], sha(readFileSync(join(dir(out, "BTCUSDT", D), r[2]!))), r[2]);
-  assert.deepEqual(await seal(out, "ETHUSDT"), { sealed: true, dir: dir(out, "ETHUSDT", D), frames: 1 });
+  assert.deepEqual(await seal(out, "ETHUSDT"), { sealed: true, dir: dir(out, "ETHUSDT", D), frames: 2 });
   assert.match(read(out, "ETHUSDT", D, "SHA256SUMS"), new RegExp(`  ../../../conn/${m}/20261004T02.frames${LF}`));
   assert.equal(await seal(out), "day_sealed");
   assert.equal(read(out, "BTCUSDT", D, "SHA256SUMS"), sums);
 });
 
-// killer: scripts/l2/day.mjs:67 CONST "open.size === 0" -> "open.size >= 0"
+// killer: scripts/l2/day.mjs:103 CONST "open.size === 0" -> "open.size >= 0"
 test("l2_day_missing_from_journal_and_chain", async () => {
-  const out = fresh(), h = (k: number): number => START + k * (HOUR / 2), tail = { seg: "20261004T01", ranks: 1, causes: ["truncated_line"] };
+  const out = fresh(), h = (k: number): number => START + k * (HOUR / 2);
+  const q = await conn(out, "spot", "BTCUSDT", [[START + HOUR, depth(1, 1, START + HOUR)]]), qi = join(out, "conn", q, "20261004T01.index.jsonl");
+  appendFileSync(qi, '{"rank":1,"off'); // a truncated line: the tail that c5 marks at its start (Q-C1-4), read under its mark
   const j = (us: number, symbol: string, cid: string | null, event: string, f: Line = {}): Line => ({ host_us: us, mono_ns: "1", symbol, cid, event, ...f });
-  const lines = [j(h(-6), "BTCUSDT", "z", "open"), j(h(-4), "BTCUSDT", "z", "close", { cause: "watchdog" }), j(h(-2), "BTCUSDT", "a", "open"),
+  const lines = [j(h(-6), "BTCUSDT", "z", "open"), j(h(-4), "BTCUSDT", "z", "close", { cause: "watchdog" }), j(h(0), "BTCUSDT", "a", "open"),
     j(h(-2), "ALL", "m", "open"), j(h(-1), "BTCUSDT", "a", "chain_gap", { reason: "gap" }), j(h(1), "BTCUSDT", "b", "open"),
     j(h(1) + 1, "BTCUSDT", "a", "close", { cause: "renewed" }), j(h(2), "BTCUSDT", "b", "ping", { bytes: 1 }),
     j(h(2), "BTCUSDT", "b", "close", { cause: "watchdog" }), j(h(2) + 1, "BTCUSDT", null, "retry", { delay_ms: 1000 }),
     j(h(2) + S, "BTCUSDT", "c", "open"), j(h(3), "BTCUSDT", "c", "chain_gap", { reason: "gap", U: 9 }),
     j(h(3) + 1, "BTCUSDT", "c", "sync_try_vain", { reason: "snapshot_before_buffer", try: 1 }), j(h(3), "ETHUSDT", "e", "chain_gap"),
-    j(h(4), "ALL", "m", "close", { cause: "closed" }), j(h(5), "BTCUSDT", "q", "tail_marked", tail), j(END, "BTCUSDT", "c", "chain_gap")];
-  mkdirSync(out, { recursive: true });
+    j(h(4), "ALL", "m", "close", { cause: "closed" }), j(h(6), "ALL", null, "start"), j(h(6) + 1, "BTCUSDT", q, "tail_marked", { ...checkTail(out, q, "20261004T01")! }),
+    j(h(6) + S, "BTCUSDT", "d", "open"), j(h(7), "BTCUSDT", "d", "close", { cause: "watchdog" }), j(h(8), "BTCUSDT", "f", "open"),
+    j(END, "BTCUSDT", "f", "chain_gap"), j(START, "BTCUSDT", "y", "chain_gap"), j(END, "BTCUSDT", "f", "close", { cause: "watchdog" })];
   writeFileSync(join(out, "journal.jsonl"), lines.map((l) => JSON.stringify(l) + LF).join(""));
-  assert.deepEqual(await seal(out), { sealed: true, dir: dir(out, "BTCUSDT", D), frames: 0 });
-  assert.deepEqual(JSON.parse(read(out, "BTCUSDT", D, "missing.json")), {
-    holes: [{ link: "BTCUSDT", cid: "b", cause: "watchdog", from_us: h(2), to_us: h(2) + S }, { link: "ALL", cid: "m", cause: "closed", from_us: h(4), to_us: null }],
-    events: [lines[11], lines[12], lines[15]] });
+  assert.deepEqual(await seal(out), { sealed: true, dir: dir(out, "BTCUSDT", D), frames: 1 });
+  assert.deepEqual(JSON.parse(read(out, "BTCUSDT", D, "missing.json")), { // c open at the start (Q-C1-10): a hole, and d's after it
+    holes: [{ link: "BTCUSDT", cid: "b", cause: "watchdog", from_us: h(2), to_us: h(2) + S }, { link: "ALL", cid: "m", cause: "closed", from_us: h(4), to_us: null },
+      { link: "BTCUSDT", cid: null, cause: "process_restart", from_us: h(3) + 1, to_us: h(6) + S }, { link: "BTCUSDT", cid: "d", cause: "watchdog", from_us: h(7), to_us: h(8) }],
+    events: [lines[11], lines[12], lines[16], lines[21]] });
 });
 
-// killer: scripts/l2/day.mjs:103 CONST "const us = data?.E;" -> "const us = data?.E < 1e14 ? data?.E * 1000 : data?.E;"
+// killer: scripts/l2/day.mjs:104 CONST "edgeOf(out, l.cid, true) ?? l.host_us" -> "l.host_us"
+test("l2_day_hole_bounds_from_frames", async () => {
+  const out = fresh(), t = START + HOUR, j = (us: number, cid: string, event: string, f: Line = {}): Line => ({ host_us: us, mono_ns: "1", symbol: "BTCUSDT", cid, event, ...f });
+  const x = await conn(out, "spot", "BTCUSDT", [[t, depth(1, 1, t)], [t + 10 * S, depth(2, 2, t)]]);
+  const y = await conn(out, "spot", "BTCUSDT", [[t + 80 * S, depth(3, 3, t)], [t + 90 * S, depth(4, 4, t)]]);
+  const lines = [j(t - S, x, "open"), j(t + 70 * S, x, "close", { cause: "watchdog" }), j(t + 75 * S, y, "open"), { ...j(t + HOUR, "", "start"), symbol: "ALL", cid: null },
+    j(t + HOUR + S, "g", "open")]; // ADR "watchdog": from the last frame received to the first of the new connection
+  writeFileSync(join(out, "journal.jsonl"), lines.map((l) => JSON.stringify(l) + LF).join(""));
+  assert.deepEqual(await seal(out), { sealed: true, dir: dir(out, "BTCUSDT", D), frames: 4 });
+  assert.deepEqual((JSON.parse(read(out, "BTCUSDT", D, "missing.json")) as Line).holes, [{ link: "BTCUSDT", cid: x, cause: "watchdog", from_us: t + 10 * S, to_us: t + 80 * S },
+    { link: "BTCUSDT", cid: null, cause: "process_restart", from_us: t + 90 * S, to_us: t + HOUR + S }]);
+});
+
+// killer: scripts/l2/day.mjs:162 CONST "const us = data?.E;" -> "const us = data?.E < 1e14 ? data?.E * 1000 : data?.E;"
 test("l2_manifest_time_unit_per_source", async () => {
   const out = fresh(), ms = Date.UTC(2026, 9, 4, 1); // a time of a millisecond magnitude: read in microseconds all the same
   const a = await conn(out, "spot", "BTCUSDT", [[START + HOUR, depth(1, 1, ms)]]);
@@ -146,10 +174,10 @@ test("l2_manifest_time_unit_per_source", async () => {
     grace_us: GRACE, period_us: HOUR, sampling: { stream: "forceOrder", per_symbol_ms: 1000, kept: "largest" },
     keys: { "depth@100ms": "U,u", bookTicker: "u", trade: "t", forceOrder: "bytes", order: "key,bytes" }, node: process.version,
     undici: process.versions.undici, script_sha256: shas, config: { probe: 1 },
-    counts: { streams: { "btcusdt@forceOrder": 1, [DEPTH]: 1 }, late: 1, recv_day: 1 } });
+    counts: { streams: { "btcusdt@forceOrder": 1, [DEPTH]: 1 }, late: 1, early: 0, recv_day: 1 } });
 });
 
-// killer: scripts/l2/day.mjs:104 SDL "if (!Number.isSafeInteger(us)) stop(\"place_time_unsafe\"" -> ""
+// killer: scripts/l2/day.mjs:163 SDL "if (!Number.isSafeInteger(us)) stop(\"place_time_unsafe\"" -> ""
 test("l2_place_time_unsafe_integer_named_stop", async () => {
   for (const E of ["1.5", "9007199254740993", "\"123\""]) {
     const out = fresh(), bad = `{"stream":"btcusdt@trade","data":{"e":"trade","E":${E},"t":1}}`;
@@ -164,5 +192,20 @@ test("l2_place_time_unsafe_integer_named_stop", async () => {
     assert.equal(existsSync(dir(out, "BTCUSDT", D)), false);
     assert.deepEqual(readFileSync(raw), before);
     assert.deepEqual(await seal(out, "ETHUSDT"), { sealed: true, dir: dir(out, "ETHUSDT", D), frames: 1 });
+  }
+});
+
+// killer: scripts/l2/day.mjs:129 ROR "held + n > bound" -> "held + n >= bound"
+test("l2_day_index_bound_named_stop", async () => { // G2 B-2: past the bound, a named stop; below it, an index written and hashed by chunks
+  const out = fresh(), n = 2000, frames: [number, string][] = [];
+  for (let k = 0; k < n; k += 1) frames.push([START + HOUR + k * 1000, k % 2 === 0 ? depth(k, k, START + HOUR) : trade(START + HOUR, k)]);
+  const a = await conn(out, "spot", "BTCUSDT", frames), M = await load(), spec = { out, symbol: "BTCUSDT", day: D, nowUs: END + GRACE + 1, closed: () => true };
+  assert.throws(() => M.sealDay({ ...spec, bound: n - 1 }), (e: unknown) => e instanceof M.DayStop && e.code === "index_bound");
+  assert.equal(existsSync(dir(out, "BTCUSDT", D)), false);
+  assert.deepEqual(M.sealDay({ ...spec, bound: n }), { sealed: true, dir: dir(out, "BTCUSDT", D), frames: n });
+  const ranks = [...Array(n).keys()];
+  assert.deepEqual(index(out), [...ranks.filter((k) => k % 2 === 0).map((k) => at(a, "20261004T01", k, DEPTH)), ...ranks.filter((k) => k % 2 === 1).map((k) => at(a, "20261004T01", k, TRADE))]);
+  for (const r of read(out, "BTCUSDT", D, "SHA256SUMS").split(LF).filter((l) => l !== "").map((l) => l.split("  "))) {
+    assert.equal(r[0], sha(readFileSync(join(dir(out, "BTCUSDT", D), r[1]!))), r[1]);
   }
 });
