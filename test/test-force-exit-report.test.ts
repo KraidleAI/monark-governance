@@ -17,6 +17,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { setTimeout as delay } from "node:timers/promises";
 import { fileURLToPath } from "node:url";
+import { collectFiles } from "../scripts/export-public.mjs";
 
 const ROOT = fileURLToPath(new URL("../", import.meta.url));
 const scripts = (): Record<string, string> => (JSON.parse(readFileSync(ROOT + "package.json", "utf8")) as { scripts: Record<string, string> }).scripts;
@@ -76,7 +77,7 @@ const launcherArgs = (): string[] => {
   return words.slice(1, words.findIndex((w) => w.includes("*")));
 };
 
-// killer: test/helpers/blocking-stdout.cjs:9 CONST "setBlocking(true)" -> "setBlocking(false)"
+// killer: test/helpers/blocking-stdout.cjs:4 CONST "setBlocking(true)" -> "setBlocking(false)"
 test("launcher_delivers_every_byte_before_force_exit - the node --test launcher of scripts.test, read only after it exits, loses nothing it wrote at exit", async () => {
   const dir = mkdtempSync(join(tmpdir(), "tfe-launcher-"));
   try {
@@ -100,4 +101,12 @@ test("launcher_delivers_every_byte_before_force_exit - the node --test launcher 
   } finally {
     rmSync(dir, { recursive: true, force: true });
   }
+});
+
+// killer: scripts/export-public.mjs:76 SDL "  \"test/helpers/blocking-stdout.cjs\"," -> ""
+test("exported_tree_ships_every_preload_its_test_scripts_load - the public mirror runs package.json as is, so each -r file of a script is exported (ADR-M004 D7 undecies)", () => {
+  const kept = new Set(collectFiles(ROOT).kept.map((f) => f.rel));
+  const loaded = Object.values(scripts()).flatMap((s) => [...s.matchAll(/(?:^| )-r (\S+)/g)].map((m) => m[1]!.replace(/^\.\//, "")));
+  assert.ok(loaded.includes("test/helpers/blocking-stdout.cjs"), "scripts.test loads test/helpers/blocking-stdout.cjs with -r");
+  assert.deepEqual(loaded.filter((f) => !kept.has(f)), [], "every file a test script loads with -r must be in collectFiles(ROOT).kept, or the exported CI cannot start");
 });
