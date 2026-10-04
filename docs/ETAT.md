@@ -471,12 +471,15 @@ Tronc `lot/etude-suite`. Dernier oracle complet : 1 779 tests, dont 1 776 verts,
     Construction : retirer le fichier sur échec d écriture, test et tueur d abord. Porteur : RECHERCHES (zone `packages/rpc-guard/`
     ouverte, recherches#150), après #137 et le lot b de CM-4a-ii ; état : clos au tronc par #140 (`c9aebb44`, CI verte, oracle
     Windows vert : 2 244 tests, 0 échec), déployé avec #137 le 2026-10-04 à 23:34:40 UTC (JOURNAL-PROVENANCE).
-  - SENTINEL-GUARD-ARMING-1 (constat du déploiement du 2026-10-04, 23:3x UTC) : la jambe Chainstack gardée n est pas armée sur l hôte
-    du site. Le fichier d environnement porte la seule clé d URL (comptes de clés, jamais les valeurs : URL 1, cycle 0, origine 0,
-    plancher 0) et le dossier `ledger/` est absent ; trois dry-runs rendent `chainstack: false`, `chainstack_guard: "unconfigured"` :
-    la sentinelle publie sur les points publics, sans jambe payante. Aucun acte du RUNBOOK-sentinel §6-bis n est consigné au journal.
-    Construction : §6-bis (3) et (4), avec P-3 (cycle et plancher lus sur place à la console Chainstack, par l investisseur), puis le
-    dry-run gardé (6) et les critères (a) et (b). Porteur : MONARK, avec l investisseur pour P-3 ; état : ouvert.
+  - SENTINEL-GUARD-ARMING-1 : c est le 2ᵉ redéploiement d ADR-NARABI-OPS-1 (A.7 ; A.8 item 10 : déclencheur le G7 du pli §11-1,
+    procédure RUNBOOK-sentinel §6-bis, propriétaire l orchestrateur), jamais exécuté. Relevé du 2026-10-04 à 23:3x UTC : la garde (-1d)
+    tourne sur l hôte du site sans clés de cycle (fichier d environnement, comptes de clés seuls : URL 1, cycle 0, origine 0, plancher 0 ;
+    pas de dossier `ledger/`) ; trois dry-runs rendent `chainstack: false`, `chainstack_guard: "unconfigured"`. La timeline publie 7
+    points depuis la ligne du 2026-09-23 (`sentinel_sha` `e73866a8…`, arbre `af9b889`), 8 ou 9 avant : la jambe payante est noire
+    depuis, et la phrase d A.7 « le VPS exécute `c4981d0` » (résiduel 118) est périmée. Construction : relire P-1 (pli §11-1 : fusion,
+    G2-delta, re-checkpoint-2, G7) et P-2 (clôture du temps 1 et de la course U-4b-1b), puis §6-bis (3) à (7) avec P-3 lu sur place
+    par l investisseur à la console Chainstack, ou une décision de l investisseur de laisser la jambe noire. Porteur : MONARK ; état :
+    ouvert.
   - TEST-FORCE-EXIT-NEED-1 (question de RECHERCHES, 2026-10-04) : `--test-force-exit` est-il encore nécessaire ? Construction : mesurer,
     fichier par fichier, ce qui ne sortirait pas sans lui, puis le retirer s il n y a plus rien. Porteur : RECHERCHES, priorité basse,
     après ses lots en cours (recherches#154) ; état : ouvert.
