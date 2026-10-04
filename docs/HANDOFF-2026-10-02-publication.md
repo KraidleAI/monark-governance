@@ -20,6 +20,8 @@ visuelle de l investisseur et la première synchro.
 - « je te donne le go pour les push les déploiement et tout autre action, sauf publier sur X »
 - « pas de CI ni de PUSH avant de me dire pour que je mette le repo en publique et éviter des erreur a refaire » (dépôt
   `monark-governance` : vérifier sa visibilité seul avant tout push)
+  Précision de l investisseur (2026-10-04, 00:4x UTC), verbatim : « c est moi qui le met en publique quand y a des CI » ; le push du
+  tronc (go « Pousser, dépôt privé (Recommandé) ») a eu lieu à 00:4x UTC, le dépôt étant passé public à 00:38:33 UTC par l investisseur.
 - « a chaque push ou modofication qui encombrerait le travail de l autre claude vous écrivez dans la messagerie des deux claude, pour
   éviter les conflits. »
 - « différe la preuve bitcoin, accélére le travail, on doit publier quelque chose, il faut finir le snapshot. avec les scores déja
