@@ -628,3 +628,10 @@ adresse, aucun schéma d'URL, aucun domaine ni nom d'hôte, aucun montant. Porte
   (429 sans `Retry-After` lisible : 60 s ; 418 sans `Retry-After` lisible : arrêt `ip_banned_no_retry_after` ; au-delà de 3 jours,
   borne de FAITS-L2-ACCESS-1 l.38-39 : arrêt `retry_after_too_long`). Q-B1-3 et Q-P1-6 : le plafond du jour sous 4 000 par minute est
   une suspension nommée ; code et test en c5.
+
+## Décision de l orchestrateur sur Q-P1-7 (2026-10-04, 02:2x UTC)
+
+- **Q-P1-7** : lecture de chaîne. Après S5, un premier événement restant dont `U` = `lastUpdateId` + 1 est accepté, comme A1 accepte
+  `U` = identifiant précédent + 1 : les quantités sont absolues ([F2] l.34-35) et aucun événement n existe entre `lastUpdateId` et `U`.
+  Même règle à la bascule (§4.3). Le cas `S5-U-plus-1` est accepté, sans nouvel instantané ; `S5-U-plus-2` reste un essai vain nommé.
+  P1-b2 est confié à RECHERCHES (partage de charge, tableau commun), empilé sur P1-b1 (#112).
