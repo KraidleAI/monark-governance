@@ -486,6 +486,12 @@ pm) ; item MK-NM-GUARD-1 (refuser Tree = F:/Monark dans mk-nm.ps1).
   de B-10 dans CM-2c, Q-1 de mon contrôle de #107) ; « Après le scellement des 35 (Recommandé) » (copies de `F:/tmp/seal118`).
 - 2026-10-04 05:3x UTC : DÉCISIONS de l investisseur (choix verbatim) : « Après le scellement vérifié (Recommandé) » (copies de travail
   de la course des 35, Q-C35-3) ; « Rien, c est voulu » (nom de produit confidentiel dans 15 documents anciens du dépôt public).
+- 2026-10-04 06:5x UTC : GO de l investisseur (verbatim : « vous avez tous mes GO »), après le résumé du chantier moteur. Lecture de MONARK :
+  go pour chaque acte en attente de son go, chacun à ses conditions préalables, qui restent : (a) déploiement de l étape 4 (pile CM-2, sha
+  fusionné après #107, oracle du tronc) puis le temps (ii) ; (b) sonde `bad_port` sur Bell, après la relecture de la liste des ports de
+  node v24.21.0 de Bell ; (c) course et scellement des 35 selon PLAN-COURSE-35 (outils r3 relus, répétition faite) ; (d) F-5a et la
+  publication de la spécification 1.1.0 quand CM-3c et CM-4 sont prêts. Restent hors de ce go : DNS, domaine, certificat (actes de
+  l investisseur), toute dépense, X, et la règle « aucun workflow, tâches légères » ; chaque acte extérieur est annoncé avant d être fait.
 - 2026-10-04 00:5x UTC : fusions au tronc : CM-2a (`4a1b4844`, PR #105 `98e3779a`), COINBASE-PASS-EDGES-1 (`44d8892d`), BINANCE-PRE153-1
   (`328be484`). Leurs oracles G7 (`569c91c6…`, `bba0b720…`, `2ce4d71c…`) portent seulement deux rouges venus de la CA de l étape 3
   committée sans resynchronisation du site (error_origin de l orchestrateur) ; correction `0c8f8177`, oracle vert : 2 060 tests,
