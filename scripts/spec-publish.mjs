@@ -162,7 +162,7 @@ export function plan({ inputs, release, date, roots }) {
   else if (rel.previous_commit !== null) {
     const outs = new Set([...rel.entries.map((e) => e.out), ...RESERVED]); // declared outputs: a missing input is input_missing, not withdrawn
     const [top, head] = (git(prev, ["rev-parse", "--show-toplevel", "HEAD"]) ?? "").split("\n");
-    if (!existsSync(prev) || top !== realpathSync(prev) || head !== rel.previous_commit) add("previous_commit", `${prev} is not the top of a git tree at ${rel.previous_commit}`);
+    if (!existsSync(prev) || !top || realpathSync(top) !== realpathSync(prev) || head !== rel.previous_commit) add("previous_commit", `${prev} is not the top of a git tree at ${rel.previous_commit}`);
     else if (git(prev, ["status", "--porcelain"]) !== "") add("previous_dirty", `${prev} has local changes`);
     else for (const p of (git(prev, ["ls-files", "-z"]) ?? "").split("\0")) if (p !== "" && !outs.has(p)) add("withdrawn", `${p} is published, the release drops it`);
   }

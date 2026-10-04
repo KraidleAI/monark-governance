@@ -93,7 +93,8 @@ test("produce_copies_each_input_byte_for_byte_with_version_and_manifest", async 
   const r = (() => { try { return m.produce({ inputs: w.inputs, release: "v", date: "2026-10-02", roots: w.roots, out }); } finally { process.umask(mask); } })();
   const want: [string, string][] = [["KATA-SPEC.md", SPEC], ["VERSION", "2026-10-02\n"], ["policy/btc-dir-1h.json", TABLE], ["reports/README.md", NOTE],
     ["reports/wave1-report.md", REPORT], ["schemas/x.schema.json", SCHEMA]];
-  for (const [p, body] of want) assert.deepEqual([readFileSync(join(out, p), "utf8"), statSync(join(out, p)).mode & 0o777], [body, 0o644], p);
+  const mode = process.platform === "win32" ? 0o666 : 0o644; // win32 shows a writable file as 0o666, whatever was asked (oracle G7, 2026-10-04)
+  for (const [p, body] of want) assert.deepEqual([readFileSync(join(out, p), "utf8"), statSync(join(out, p)).mode & 0o777], [body, mode], p);
   const manifest = want.map(([p, body]) => `${sha(body)}  ${p}\n`).join("");
   assert.equal(readFileSync(join(out, "MANIFEST.sha256"), "utf8"), manifest);
   assert.equal(r.manifest_sha256, sha(manifest));
