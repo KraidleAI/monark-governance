@@ -103,7 +103,7 @@ async function handLink(symbol: string, taken = 0): Promise<{ r: Rig; socks: Fak
 }
 const framesOf = (r: Rig, cid: unknown): string[] => [...readSegment(r.out, String(cid), segmentOf(T0))].map((f) => f.bytes.toString("utf8"));
 
-// killer: scripts/l2/links.mjs:92 CONST "!PLAIN.test(v)" -> "false"
+// killer: scripts/l2/links.mjs:114 CONST "!PLAIN.test(v)" -> "false"
 test("l2_capture_raw_as_served", async () => {
   const wide = String.fromCodePoint(0xe9, 0x20ac, 0x1f600); // two, three and four bytes in UTF-8
   const texts = [JSON.stringify({ stream: "btcusdt@trade", data: { e: "trade", t: 1 } }), "", `{"s":"${wide}"}`, "x".repeat(70_000)];
@@ -165,7 +165,7 @@ test("l2_half_open_watchdog_named", async () => {
   assert.deepEqual([framesOf(r, r.lines()[0]?.cid), r.place.peers.length], [["{}"], 2]);
 });
 
-// killer: scripts/l2/links.mjs:123 CONST "end(c, s.code);" -> ""
+// killer: scripts/l2/links.mjs:159 CONST "end(c, s.code);" -> ""
 test("l2_backpressure_named_stop", async () => {
   const MIB = 1_048_576, BOUND = 8_388_608; // D24-4, written here, never imported
   const disk = stalled();
@@ -185,7 +185,7 @@ test("l2_backpressure_named_stop", async () => {
     "the eight MiB accepted before the overflow are written, the ninth never");
 });
 
-// killer: scripts/l2/links.mjs:122 SDL "{ cause: s.code, ...s.detail }" -> ""
+// killer: scripts/l2/links.mjs:158 SDL "{ cause: s.code, ...s.detail }" -> ""
 test("l2_writer_stop_named_after_close", async () => {
   let release = (): void => undefined, writes = 0;
   const held = new Promise<void>((ok) => { release = ok; });
@@ -226,7 +226,7 @@ test("l2_reconnect_attempts_bounded", async () => {
   assert.deepEqual([r.asked.length, r.lines().length], [2, n], "a stopped link opens nothing more, nor defers: its timer cancelled (H16, H33)");
 });
 
-// killer: scripts/l2/links.mjs:62 CONST "h.startsWith(`${o}/`)" -> "true"
+// killer: scripts/l2/links.mjs:76 CONST "new URL(url).href.startsWith(route)" -> "true"
 test("l2_host_refused", async () => {
   const r = await rig(() => undefined), q = pathOf("btcusdt");
   const urls = [`wss://data-stream.binance.vision${q}`, `wss://stream.binance.com:443${q}`, `wss://stream.binance.com${q}`, `ws://stream.binance.com:9443${q}`,
@@ -261,13 +261,13 @@ test("l2_reconnect_delay_capped", async () => {
   await link.stop();
 });
 
-// killer: scripts/l2/links.mjs:56 CONST "&timeUnit=${TIME_UNIT}" -> ""
+// killer: scripts/l2/links.mjs:64 CONST "&timeUnit=${TIME_UNIT}" -> ""
 test("l2_combined_url_time_unit", () => {
   assert.deepEqual(["BTCUSDT", "ETHUSDT", "BNBUSDT", "SOLUSDT"].map((s) => spotUrl(s)), ["btcusdt", "ethusdt", "bnbusdt", "solusdt"].map((s) => ORIGIN + pathOf(s)));
   assert.deepEqual(["XRPUSDT", "btcusdt", ""].map((s) => attempt(() => spotUrl(s))), ["bad_symbol", "bad_symbol", "bad_symbol"], "a closed list of symbols");
 });
 
-// killer: scripts/l2/links.mjs:117 CONST "timer = io.setTimer(connect, wait);" -> "io.setTimer(connect, wait);"
+// killer: scripts/l2/links.mjs:153 CONST "timer = io.setTimer(connect, wait);" -> "io.setTimer(connect, wait);"
 test("l2_stop_during_deferral", async () => {
   const { r, socks, link } = await handLink("ETHUSDT", 30); // the gate full at t = 0: the opening deferred 300 s
   await link.stop();
@@ -275,7 +275,7 @@ test("l2_stop_during_deferral", async () => {
   assert.deepEqual([events(r), r.lines()[0]?.wait_ms, socks.length], [["defer"], 300_000, 0], "a stopped link never opens what it deferred");
 });
 
-// killer: scripts/l2/links.mjs:147 SDL "await Promise.all(closing);" -> ""
+// killer: scripts/l2/links.mjs:196 SDL "await Promise.all(closing);" -> ""
 test("l2_stop_waits_for_writers", async () => {
   const disk = stalled();
   let resolved = false;
@@ -290,7 +290,7 @@ test("l2_stop_waits_for_writers", async () => {
   assert.deepEqual(framesOf(r, r.lines()[0]?.cid), ["{}"], "resolved once the queue is written");
 });
 
-// killer: scripts/l2/links.mjs:128 CONST "{ if (c.live) note(" -> "{ note("
+// killer: scripts/l2/links.mjs:165 SDL "if (!c.live) return;" -> ""
 test("l2_events_after_close_ignored", async () => {
   const { r, socks, link } = await handLink("BTCUSDT");
   await link.stop();

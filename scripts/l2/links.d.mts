@@ -1,5 +1,5 @@
-// scripts/l2/links.d.mts -- type surface of scripts/l2/links.mjs for the type-checked root test (test/l2-links.test.ts), which opens
-// links on the loopback fake place with injected clocks and timers. Runtime implementation = links.mjs; Node ignores this file. Neither
+// scripts/l2/links.d.mts -- type surface of scripts/l2/links.mjs for the type-checked root tests (test/l2-links.test.ts, P1-a3, and
+// test/l2-continuity.test.ts, P1-a4), which open links on the loopback fake place with injected clocks and timers. Runtime implementation = links.mjs; Node ignores this file. Neither
 // file is in the export whitelist (scripts/export-public.mjs): the recorder and its data stay out of the public tree.
 import type { SegmentFile } from "./segments.mjs";
 
@@ -15,8 +15,14 @@ export const RETRY_CAP_MS: number;
 export const OPENS_MAX: number;
 export const OPENS_WINDOW_MS: number;
 export const STOPS: readonly string[];
+export const MARKET_ORIGIN: string;
+export const MARKET_STREAM: string;
+export const FUTURES_PING_MS: number;
+export const RENEW_AGE_MS: number;
+export const RENEW_STAGGER_MS: number;
+export const OVERLAP_MS: number;
 
-/** A named stop, thrown before anything is opened or written: `code` is one of STOPS (bad_symbol, host_refused). */
+/** A named stop, thrown before anything is opened or written: `code` is one of STOPS (bad_kind, bad_symbol, host_refused). */
 export class LinkStop extends Error {
   readonly code: string;
   readonly detail: Record<string, unknown>;
@@ -39,19 +45,24 @@ export interface LinkIo {
   open?: (path: string) => Promise<SegmentFile>;
 }
 
-/** symbol: one of SYMBOLS, named in each <cid>; url: the URL opened, spotUrl(symbol) for a spot link; out: the output directory. */
+/** symbol: one of SYMBOLS for a spot link, "ALL" for /market, named in each <cid>; url: the URL opened, spotUrl(symbol) or marketUrl(),
+ *  on the origin and route of its kind; out: the output directory; kind: "spot" (the default) or "market". */
 export interface LinkSpec {
   symbol: string;
   url: string;
   out: string;
+  kind?: "spot" | "market";
 }
 
-/** A link: stop() closes its connection, named "stopped", cancels its timers and resolves once each of its writers is closed (never,
- *  while a stalled disk keeps a writer from writing its queue). */
+/** A link: stop() closes its connections, named "stopped", cancels its timers and resolves once each of its writers is closed (never,
+ *  while a stalled disk keeps a writer from writing its queue). switched(cid): the book follows <cid>, the new connection of an overlap,
+ *  open; the old one then closes ("renewed") once the new one has been open OVERLAP_MS; false, nothing changed, otherwise. */
 export interface Link {
   stop(): Promise<void>;
+  switched(cid: string): boolean;
 }
 
 export function spotUrl(symbol: string): string;
+export function marketUrl(): string;
 export function openingGate(): Gate;
 export function openLink(spec: LinkSpec, io: LinkIo): Link;

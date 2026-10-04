@@ -32,10 +32,10 @@ const PING = channel("undici:websocket:ping");
 let made = 0;
 
 /** Timers and host clocks under the test's hand (as test/l2-links.test.ts): advance(ms) runs each timer due by then, at its instant. */
-function fakeClock(): { now: number; set: (fn: () => void, ms: number) => number; clear: (h: unknown) => void; advance: (ms: number) => void } {
+function fakeClock(): { now: number; set: (fn: () => void, ms: number) => number; clear: (h: unknown) => void; advance: (ms: number) => void; pending: () => number } {
   const due = new Map<number, [number, () => void]>();
   let id = 0;
-  const clock = { now: 0, set: (fn: () => void, ms: number) => { due.set(++id, [clock.now + ms, fn]); return id; },
+  const clock = { now: 0, set: (fn: () => void, ms: number) => { due.set(++id, [clock.now + ms, fn]); return id; }, pending: () => due.size,
     clear: (h: unknown) => { due.delete(h as number); },
     advance: (ms: number) => {
       const end = clock.now + ms;
@@ -103,12 +103,12 @@ test("l2_overlap_planned_raw", async () => {
   r.socks[1]?.onmessage({ data: "b0" });
   const cidB = r.lines().filter((l) => l.event === "open")[1]?.cid;
   assert.equal(link.switched("spot-BNBUSDT-20261004T000000000Z"), false, "another cid: nothing changes");
+  live(r, at + 10_000);
+  assert.equal(link.switched(String(cidB)), true, "the book switched to the new connection, 10 s into the overlap");
   live(r, at + 59_999);
-  assert.deepEqual(shape(r).map((l) => l[0]), ["open", "renew", "open"], "the old one open 60 s - 1 ms into the overlap");
-  live(r, at + 70_000);
-  assert.deepEqual(shape(r).map((l) => l[0]), ["open", "renew", "open"], "60 s passed, the book not switched: the old one stays open");
-  assert.equal(link.switched(String(cidB)), true, "the book switched to the new connection");
-  assert.deepEqual(shape(r), [["open", 0, null, 0], ["renew", 0, "age", at], ["open", 1, null, at], ["close", 0, "renewed", at + 70_000]],
+  assert.deepEqual(shape(r).map((l) => l[0]), ["open", "renew", "open"], "switched, the old one still open 60 s - 1 ms into the overlap");
+  live(r, at + 60_000);
+  assert.deepEqual(shape(r), [["open", 0, null, 0], ["renew", 0, "age", at], ["open", 1, null, at], ["close", 0, "renewed", at + 60_000]],
     "the new one opened before the old one closed: no instant without an open connection");
   assert.equal(link.switched(String(cidB)), false, "no overlap left");
   await wait(50);
@@ -126,12 +126,13 @@ test("l2_renewal_age_staggered_by_rank", async () => {
   links.push(r.open({ symbol: "ALL", url: L.marketUrl(), kind: "market" }));
   live(r, H23 + 4 * MIN5 + 1);
   for (const link of links) await link.stop();
+  assert.equal(r.clock.pending(), 0, "stopped links leave no timer: watchdog, age, overlap, reopening");
   assert.deepEqual(r.lines().filter((l) => l.event === "renew").map((l) => [l.symbol, l.cause, (Number(l.host_us) - T0) / 1000]),
     [["BTCUSDT", "age", H23], ["ETHUSDT", "age", H23 + MIN5], ["BNBUSDT", "age", H23 + 2 * MIN5], ["SOLUSDT", "age", H23 + 3 * MIN5],
       ["ALL", "age", H23 + 4 * MIN5]], "23 h of age plus 5 min x rank, /market last: at most 23 h 20 min, 40 min before the 24 h bound");
 });
 
-// killer: scripts/l2/links.mjs:154 SDL "if (isShutdown(e.data)) renew(c, \"server_shutdown\");" -> ""
+// killer: scripts/l2/links.mjs:176 SDL "if (isShutdown(e.data)) renew(c, \"server_shutdown\");" -> ""
 test("l2_server_shutdown_renews_at_once", async () => {
   const r = rig(), link = r.open({ symbol: "SOLUSDT", url: L.spotUrl("SOLUSDT") }), at = 1_000;
   const decoy = '{"stream":"solusdt@trade","data":{"e":"trade","x":"serverShutdown"}}', down = '{"stream":"!serverShutdown","data":{"e":"serverShutdown","E":7}}';
@@ -142,14 +143,20 @@ test("l2_server_shutdown_renews_at_once", async () => {
   r.socks[0]?.onmessage({ data: down });
   assert.deepEqual([r.socks.length, shape(r).at(-1)], [2, ["renew", 0, "server_shutdown", at]], "serverShutdown: a new connection at once");
   r.socks[1]?.onopen();
-  r.socks[0]?.onclose({ code: 1006, reason: "", wasClean: false }); // the place cuts the old one before any switch: no failover
-  assert.deepEqual(shape(r).slice(2), [["open", 1, null, at], ["close", 0, "closed", at], ["overlap_break", 0, 1, at]], "a named break");
-  await wait(50);
   live(r, at + 120_000);
-  assert.equal(r.socks.length, 2, "the old one is never reopened");
-  r.socks[1]?.onmessage({ data: '{"e":"serverShutdown","E":8}' }); // the raw form, on the connection followed
-  assert.deepEqual([r.socks.length, shape(r).at(-1)?.slice(0, 3)], [3, ["renew", 1, "server_shutdown"]], "the raw form renews too");
+  r.socks[1]?.onmessage({ data: '{"e":"serverShutdown","E":8}' }); // the raw form, on the new connection, during the overlap
+  assert.deepEqual([r.socks.length, shape(r).slice(2)], [2, [["open", 1, null, at]]],
+    "never switched: the old one stays open past 60 s, no failover; a second renewal waits for the end of the overlap");
+  r.socks[0]?.onclose({ code: 1006, reason: "", wasClean: false }); // until the place cuts it
+  const cut = at + 120_000;
+  assert.deepEqual([r.socks.length, shape(r).slice(3)], [3, [["close", 0, "closed", cut], ["overlap_break", 0, 1, cut], ["renew", 1, "server_shutdown", cut]]],
+    "then a named break, and the renewal that waited");
+  await wait(50);
+  live(r, at + 240_000);
+  assert.equal(r.socks.length, 3, "the old one is never reopened");
+  r.socks[2]?.onopen(); // an overlap begins
   await link.stop();
+  assert.equal(r.clock.pending(), 0, "stopped within an overlap: no timer left");
   assert.deepEqual(framesOf(r, r.lines()[0]?.cid, 0), [decoy, down], "read after the writer has it: the frame is in the raw");
 });
 
