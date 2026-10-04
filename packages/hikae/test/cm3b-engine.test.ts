@@ -154,10 +154,28 @@ test("conform_scaled_band_serves_zero_to_h_star", () => {
   // Refusals.
   for (const s of [0, -1, Number.NaN, Infinity]) assert.deepEqual(band(scores, s, "0.01", "0.05", 300), UNDER, `sigmaHat ${s}`);
   assert.deepEqual(band([...scores, -0.1], sigma, "0.01", "0.05", 300), UNDER, "a negative score");
+  // No finite edge: MAX_VALUE itself passes (fl(MAX_VALUE / 1e10) <= qhat 1e300), bandEdge is null, under_calib. Reachable;
+  // deleting that check stays fail-closed only because buildIntervalRegion(0, null) abstains (defence in depth).
+  assert.equal(edge(1e300, 1e10), null);
+  assert.deepEqual(band(Array.from({ length: 400 }, () => 1e300), 1e10, "0.01", "0.05", 300), UNDER, "no finite edge");
   assert.deepEqual(band(scores.slice(0, 298), sigma, "0.01", "0.05", 1), UNDER, "n below n0");
   assert.deepEqual(band(scores, sigma, "0.01", "0.05", 300, { attempt: 2, spendIndex: 3 }), UNDER, "spendIndex above attempt");
 });
 const UNDER_ABSTAIN = { abstain: true, reason: "under_calib" };
+
+// G2 of #109 (B-1): a caller's options bag never overrides the "band" domain. An options object held in a variable escapes
+// the excess-property check, so { domain: "finite" } can reach conformScaledBand at run time; with 399 scores of 2 and one
+// of -5 the finite domain serves qhat 2, the band domain refuses the negative score: under_calib.
+// killer: packages/hikae/src/scaled-band.ts:79 CONST "{ ...options, domain: \"band\" }" -> "{ domain: \"band\", ...options }"
+test("conform_scaled_band_keeps_the_band_domain", () => {
+  const band = fn<(scores: readonly number[], s: number, a: string, d: string, nMin: number, o?: Row) => Row>("conformScaledBand");
+  const scores = [...Array.from({ length: 399 }, () => 2), -5];
+  const finite = riskControlRow(scores, "0.01", "0.05", 300, { domain: "finite" });
+  assert.ok("qhat" in finite && !finite.silence && finite.qhat === 2, "the finite domain alone would serve a row");
+  const options: Row = { attempt: 1, domain: "finite" };
+  assert.deepEqual(band(scores, 1, "0.01", "0.05", 300, options), UNDER, "a negative score under an options domain finite");
+  assert.deepEqual(band(scores, 1, "0.01", "0.05", 300, { domain: "finite" }), UNDER, "same with a literal bag");
+});
 
 // E-2: orderedCalibDigest is the P2 bench's scoresSha256 / auxSha256 (sha256 of the JSON writing in time order). Vectors
 // computed on 2026-10-03 by RECHERCHES kata/bench/calibrate.ts seqDigest (Node 24.21.0), the first and the empty one
@@ -197,8 +215,15 @@ test("canonical_row_is_one_writing_for_f7_rows", () => {
   assert.equal(canon(bare), '{"k":[1,{"j":"\ud83d\ude00"}]}');
   const shared = { x: 1 };
   assert.equal(canon({ a: shared, b: [shared] }), '{"a":{"x":1},"b":[{"x":1}]}', "a shared object is not a cycle");
-  for (const [name, bad] of [["NaN", Number.NaN], ["Infinity", Infinity], ["nested -Infinity", { a: [1, -Infinity] }], ["undefined", { a: undefined }], ["function", { f: () => 0 }], ["bigint", [1n]],
-    ["sparse", [1, , 3]], ["Date", new Date(0)], ["Map", new Map()], ["boxed", Object(1)], ["lone surrogate key", { "\ud800": 1 }], ["lone surrogate", "\udc00"], ["cycle", cyclic()]] as const) {
-    assert.throws(() => canon(bad), RangeError, name);
+  // G2 of #109 (B-2): each refusal is pinned by its own message; a deleted cycle check would end in a stack overflow,
+  // also a RangeError, so the class alone does not pin it.
+  for (const [name, bad, message] of [["NaN", Number.NaN, /^canonicalRow: non-finite number NaN$/], ["Infinity", Infinity, /^canonicalRow: non-finite number Infinity$/],
+    ["nested -Infinity", { a: [1, -Infinity] }, /^canonicalRow: non-finite number -Infinity$/], ["undefined", { a: undefined }, /^canonicalRow: not a row value \(undefined\)$/],
+    ["function", { f: () => 0 }, /^canonicalRow: not a row value \(function\)$/], ["bigint", [1n], /^canonicalRow: not a row value \(bigint\)$/],
+    ["symbol", Symbol("s"), /^canonicalRow: not a row value \(symbol\)$/], ["sparse", [1, , 3], /^canonicalRow: a sparse array \(hole at 1\)$/],
+    ["Date", new Date(0), /^canonicalRow: not a plain object$/], ["Map", new Map(), /^canonicalRow: not a plain object$/], ["boxed", Object(1), /^canonicalRow: not a plain object$/],
+    ["lone surrogate key", { "\ud800": 1 }, /^canonicalRow: a string or key with a lone surrogate$/], ["lone surrogate", "\udc00", /^canonicalRow: a string or key with a lone surrogate$/],
+    ["cycle", cyclic(), /^canonicalRow: a cycle$/]] as const) {
+    assert.throws(() => canon(bad), { name: "RangeError", message }, name);
   }
 });
