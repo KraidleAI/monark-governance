@@ -41,7 +41,7 @@ const FORBIDDEN: { re: RegExp; why: string }[] = [
   { re: /["']node:child_process["']/, why: "node child_process import" },
   { re: /\bfetch\s*\(/, why: "fetch call" },
   { re: /\bprocess\.env(?:\.[A-Za-z_]\w*|\[[^\]]+\])\s*=(?!=)/, why: "process.env write" },
-  { re: /\bDate\.now\s*\(|new Date\(\s*\)|performance\.now\s*\(/, why: "clock read" },
+  { re: /\bDate\.now\b|new Date\(\s*\)|\bperformance\.now\b/, why: "clock read (a call or a reference, CM-2a C-7)" },
 ];
 
 // Test — the registry is (a) within the closed allowlist and (b) EXACTLY the terminal set
