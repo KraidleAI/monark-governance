@@ -129,3 +129,34 @@ test("lock_failure_never_removes_a_foreign_lock", () => {
     assert.equal(readFileSync(join(swap, "helius.lock"), "utf8"), FOREIGN, "the foreign lock at the path is never removed");
   } finally { cleanup(); }
 });
+
+// killer: packages/rpc-guard/src/lock.ts:59 SDL " && now.birthtimeNs === own.birthtimeNs" -> ""
+test("lock_failure_never_removes_a_foreign_lock_recreated_at_the_same_path", () => {
+  // (d) Our file removed (a served unlock, lock.ts:42) then another writer's "wx" create at the SAME path: ext4 and XFS hand
+  // the freed inode straight back (same dev, same ino), so only the birth time tells the foreign lock from ours. The test is
+  // deterministic everywhere; its power to kill depends on the FS reusing the inode (ext4/XFS yes, tmpfs no).
+  const { dir, cleanup } = tmp();
+  const err = fault("EIO");
+  const re = ensureCycleDir(dir, "c-recreate"), lock = join(re, "helius.lock");
+  const realClose = DURABLE_FS.closeSync, realUnlink = DURABLE_FS.unlinkSync;
+  const j = journal({ writeSync: () => { throw err; }, closeSync: (fd) => { realClose(fd); realUnlink(lock); writeFileSync(lock, FOREIGN, { flag: "wx" }); } });
+  try {
+    assert.equal(thrown(() => acquireLock(re, "helius")), err, "the original error surfaces");
+  } finally { j.restore(); }
+  try {
+    assert.equal(readFileSync(lock, "utf8"), FOREIGN, "a foreign lock recreated at the path (inode reused on ext4) is kept");
+  } finally { cleanup(); }
+});
+
+// killer: packages/rpc-guard/src/lock.ts:61 CONST "} catch { /* best effort: the removal never masks the original error */ }" -> "} finally { }"
+test("lock_failed_removal_never_masks_the_original_error", () => {
+  const { dir, cleanup } = tmp();
+  const err = fault("ENOSPC");
+  const cd = ensureCycleDir(dir, "c-eperm");
+  const j = journal({ writeSync: () => { throw err; }, unlinkSync: () => { throw fault("EPERM"); } });
+  try {
+    assert.equal(thrown(() => acquireLock(cd, "helius")), err, "the write error surfaces, never the EPERM of the removal");
+    assert.deepEqual(j.ops, ["open:wx:helius.lock", "write:helius.lock", "close:helius.lock", "unlink:helius.lock"], "the removal was attempted");
+    assert.equal(existsSync(join(cd, "helius.lock")), true, "a failed removal leaves the lock (fail-closed: lock_held until the served unlock)");
+  } finally { j.restore(); cleanup(); }
+});
