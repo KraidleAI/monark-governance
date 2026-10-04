@@ -701,7 +701,7 @@ export function honestyText(taskClass: string, predictorId: string, isByo: boole
     // Keyed on REGISTRY presence (delta D-3), NOT on lookupCommittedCalibration(TASK_LIQ, predictorId): the
     // server ignores the client key for this class, and `honestyText` has no `yhat` to derive the stratum, so
     // a per-key lookup would either surclaim "committed" for a non-served stratum or read "no calibration" for
-    // every naked id. In U-4b-2a the registry is empty ⇒ the honest empty-registry text.
+    // every naked id. Since U-4b-2b the registry carries s0 (n 170), so the committed text; an empty registry gives the empty-registry text.
     return hasCommittedCalibrationForClass(TASK_LIQ_ELIGIBLE)
       ? `${LIQ_COMMITTED_SENTENCE}; B_t is caller-carried.`
       : `${LIQ_EMPTY_REGISTRY_SENTENCE}; B_t is caller-carried.`;
