@@ -393,6 +393,11 @@ Tronc `lot/etude-suite`. Dernier oracle complet : 1 779 tests, dont 1 776 verts,
   - Décision de l investisseur (2026-10-04, 01:2x UTC, C-2 du contrôle de CM-2b), choix verbatim « Dire la vérité dans la description
     (Recommandé) » : la description servie dit qu aucune classe servie n a de sujet d attestation, donc que tout `attested` est refusé ;
     porté par RECHERCHES (#110 ou une suite), avant le déploiement commun de CM-2a et CM-2b.
+  - SEAL-118 : **fait le 2026-10-04 à 02:59 UTC** (forme B, rejeu hors ligne par `9842d42d`, 472 fichiers, 118 sur 118 vérifiés ; journal
+    de provenance ; ancre recherches#94). Reste des 153 : la course des 35, après la fusion de BINANCE-PRE35-1 (#115).
+  - SEAL118-PAGES-REFETCH-1 (PAROXYSME ; Q-SEAL118-4) : les pages des 118 ne sont attestées que par le journal du 2026-10-02, sans
+    provenance TLS (Q-G2C-1). Construction : redemander les mêmes 140 URL par l enregistreur du tronc, qui journalise les empreintes TLS,
+    et comparer à l octet. Prix : 140 requêtes de poids 2, environ 70 s, aucun coût. Déclencheur : avec la course des 35 ; état : ouvert.
   - LINT-UNTRACKED-TMP-1 (zone MONARK, `test/journal-index.test.ts:323`, copie `cpSync` l.84) : rouge dans la CI Linux de #110 (run
     37169648100) sur `ENOENT` sous `/tmp/monark-journal-…/w106/.git/objects` ; vert ici. Construction : rendre la copie du dépôt de test
     indépendante du nettoyage concurrent de `/tmp` (dossier propre au test, copie atomique), et un cas qui la rejoue sous charge.
