@@ -49,6 +49,14 @@ Tueur posé au-dessus du test : `// killer: apps/sentinel/src/run.ts:342 SDL "pr
 - Ligne `killer:` ajoutée (aucune n existait) ; elle ne change pas le corps du test.
 - La troisième passe de la CI exportée sous charge a été interrompue par la limite de la tâche de fond (deux passes complètes vertes).
 
+## G2 neuve de RECHERCHES (2026-10-04) : APPROUVE-AVEC-CORRECTIONS, pliée
+
+- Cause racine confirmée (`run.ts:295`, `lock.ts:20`, journal `fsync`, puis `run.ts:342`) ; « fetch implique gestionnaire posé » tient par l ordre du code (premier fetch `rpc.finalized()`, `run.ts:357` ; aucun fetch entre `:332` et `:356`, aucun au chargement), rien ne l impose. Rejeu sous charge (Node 24.21, 4 cœurs) : base 20/40 en échec, correctif 0/40 (K=8, P=4) et 0/40 (K=16, P=8). Tueur `run.ts:342` vérifié rouge 5 fois sur 5 ; il rougit aussi la base, donc seule la mesure de charge sépare base et correctif.
+- **C-1** (plié au G0) : la phrase « défaut seulement dans le test, `TimeoutStartSec` » était trop forte ; `systemctl stop`, arrêt et redémarrage envoient aussi SIGTERM dans la fenêtre.
+- **C-2, item de production formé : SENTINEL-SIGTERM-STARTUP-WINDOW-1** (zone RECHERCHES, `apps/sentinel/src/run.ts`). Un SIGTERM réel entre la prise du verrou et `run.ts:342` laisse `chainstack.lock` ; les passages suivants lisent `lock_held` (`run.ts:245`) et tournent sans clé jusqu au déverrouillage du RUNBOOK. Dégradé, jamais FATAL ; gravité basse (`deploy/monark-sentinel.service:46`). Construction : poser le gestionnaire avant la prise du verrou, et qu il libère le verrou s il est tenu. Prix : environ 10 lignes et un cas. Déclencheur : le prochain lot de `run.ts`, ou une occurrence au journal de l hôte. État : ouvert.
+- Mineurs consignés : un fetch ajouté plus tard avant `:342` ferait rougir le test par intermittence (visible, jamais un faux vert) ; la borne 2 × 50 s doit suivre `--test-timeout=120000` (rien ne les lie) ; la base de la CI exportée reste « non mesurée ».
+- Oracle : fusion sur la preuve de charge ; red-proof rejoué en confirmation non bloquante quand RED-PROOF-TEST-ONLY-1 sera fusionné.
+
 ## Sortie
 
 LIVRÉ pour contrôle par MONARK. Rien poussé.
