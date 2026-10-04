@@ -611,3 +611,20 @@ adresse, aucun schéma d'URL, aucun domaine ni nom d'hôte, aucun montant. Porte
   disponibles), `tasklist` (compte de `node.exe`) et `os.freemem()` ; ligne datée de `docs/methode/REGLES-MISSION.md`.
 - **Q-3** : oui, lecture confirmée : les fabriques prennent la liste des origines admises en paramètre ; la liste fermée des hôtes
   est fixée par a3, a4 et b1 depuis leurs lignes de FAITS ; l auto-test de P1-a1 emploie des origines synthétiques en `.example`.
+
+## Décisions de l orchestrateur sur le G1 de P1-a2 et sur P1-b1 (2026-10-04, 01:1x UTC)
+
+- **G1 de P1-a2** (`claude-opus-5-5`, `F:/tmp/rech/l2/a2/G1.md`, sha256 `f5d7e362…`) : LIVRE-AVEC-RESERVES ; mutants de l outil du tronc
+  6 sur 6 tués (`b555d7dd…`) ; R-25 488 ; commis sur `lot/l2-p1-a2` (`39ac2fdb`). Q-8 : les deux rouges de son oracle viennent de la
+  base (`c033b227`, corrigé en `0c8f8177`) ; l oracle de fusion au tronc tranche (forme (a)). Q-1 : six tests, un tueur chacun
+  (`l2_segment_period_one_hour` porte la période). Q-2 : la marque d une reprise est écrite par le journal de la reprise et lue par c1.
+  Q-3 : horloge qui recule : trame dans le segment ouvert, ou dans le suivant après une coupe, `recv_us` tel que lu, aucun segment
+  rouvert. Q-4 : défaut de production `Date.now()*1000` (résolution ms) ; ordre fin par `mono_ns` ; limite formée : item
+  L2-RECV-US-RESOLUTION-1 (ETAT). Q-5 : le lecteur partagé tourne dans un fil de travail dans le processus vivant, mesuré en c5.
+  Q-6 : `rank` depuis 0 ; `offset` et `length` en octets du fichier de trames ; LF exclue de `length`. Q-7 : 488 lignes acceptées
+  (borne 547) ; écart au plan déclaré.
+- **P1-b1** écrit par RECHERCHES (PR #112, partage de charge) : son prérequis FAITS-L2-ACCESS-3 (d) et (f) manquait au G1 (faute de
+  l orchestrateur, qui a passé le lot sans lui) ; la lecture sur place (a) à (f) est faite avant la fusion de b1. Q-B1-2 : confirmé
+  (429 sans `Retry-After` lisible : 60 s ; 418 sans `Retry-After` lisible : arrêt `ip_banned_no_retry_after` ; au-delà de 3 jours,
+  borne de FAITS-L2-ACCESS-1 l.38-39 : arrêt `retry_after_too_long`). Q-B1-3 et Q-P1-6 : le plafond du jour sous 4 000 par minute est
+  une suspension nommée ; code et test en c5.
