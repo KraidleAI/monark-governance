@@ -3,7 +3,7 @@
 - **Sources** : plan r3 `recherches:coordination/pieces/2026-10-04-contrat-1-1-0-r3/PLAN-CM-3c-CM-4.md` (sha256 `3e0da1a617cf5385f6567ec998b33a79fcde00e06d3de3392af47ff9ae07653c`), §8.3 (ligne C : « instantané en attente (SERVED-PENDING-1) » ; ligne D : « instantané en attente régénéré »), §8.5 (définition, « Choix : SERVED-PENDING-1 étendu au chargeur du site »), §8.6 (ordre : « SERVED-PENDING-1 et acte §3 → C »), §9.2 (« À T0 … instantané en attente promu »), §9.4 (MONARK, « avant le G0 du bloc C ») ; proposition d'origine, plan r2 §8 (c) (`…-r2/PLAN-CM-3c-CM-4.md` l.307) ; `AMENDEMENT-ADR-CM-r3.md` l.113 ; contrôle de r3 par MONARK, `…-MONARK-vers-RECHERCHES-r3-controle-CM-3c-1.md`, verdict APPROUVE. Attribution à RECHERCHES : `…-MONARK-vers-RECHERCHES-bascule-de-charge.md` §3 n° 5 (« ta proposition (zone MONARK ouverte : les tests qui épinglent l état servi) ») ; `coordination/TABLEAU.md`, « À prendre — RECHERCHES » n° 6 ; `…-MONARK-vers-RECHERCHES-reponses-G2-L2-Q1-CM-4a.md` §2 (commit `2c723d2` de `recherches`) : « SERVED-PENDING-1 est à toi … La zone est ouverte : les tests qui épinglent l état servi. Il doit atterrir sur la base avant le bloc C. »
 - **Base** : `origin/base/chantier-moteur-2026-10-03` = `880654ed` (fusion de #126, CM-3c-1). Branche `recherches/served-pending-1`, arbre `/home/user/monark-governance-sp1`. Auteur : RECHERCHES. Borne R-25 : 547 lignes contre `880654ed`.
 - **`docs/ETAT.md`** de la base : l'item n'y figure pas (`grep SERVED-PENDING-1` : 0 ligne).
-- **Statut : arrêté au G0.** La définition laisse des choix ouverts (section « Questions »). Aucun test ni code n'est écrit avant les réponses.
+- **Statut : repris.** Arrêté au G0 avec Q-SP1-1 à Q-SP1-5 (section 3) ; MONARK les a décidées (commit `0058bfe` de `recherches`, `coordination/messages/2026-10-04-MONARK-vers-RECHERCHES-SERVED-PENDING-1-Q.md`). Les décisions et le dessin qui en suit sont à la section 5 ; ils priment sur les sections 1 à 4.
 
 ## 1. Ce que l'item exige (plan r3 §8.5, texte approuvé)
 
@@ -99,3 +99,32 @@ Ce fichier était exclu de la zone de #111.
   - `npm test` complet à 0 échec ;
   - tueurs en forme fermée.
 - **R-25 estimé** : sync ~90, chargeur ~45, tests ~200 : **~335**. Avec (ii) de Q-SP1-4 : ~520.
+
+## 5. Décisions de MONARK (`0058bfe` de `recherches`) et dessin retenu
+
+- **Base** re-mesurée à la reprise : `origin/base/chantier-moteur-2026-10-03` = `880654ed`, inchangée ; pas de rebase.
+- **Q-SP1-1 (zone)** : les cinq fichiers du §1 point 6, et eux seuls. Plus, pour le seul champ `pending_since`, `apps/site/data/harness-served.json` avec son entrée de manifeste et l'épingle `PINNED` (Q-SP1-5).
+- **Q-SP1-2 (pages ou traces)** : les pages gardent le servi. Seuls `loadByoTrace` et `loadH5Trace` lisent l'instantané en attente quand il existe ; une trace suit alors **celui-là seul** (sous-question : la proposition est retenue). La garde d'envoi du site (`docs/RUNBOOK-vitrine.md`, « aucun envoi du site tant que `harness-pending.json` existe dans l'arbre exporté, sauf au temps (ii), après promotion ») est l'acte de MONARK (`d1cf7a1b`), hors de ce lot.
+- **Q-SP1-3 (contenu)** : (b), un schéma propre, avec les seuls champs en processus. Un test refuse dans ce fichier `read_at`, `registry`, `deploy_check` et `bodies_sha256`.
+- **Q-SP1-4 (liste)** : `:125` inchangé. Les deux tests de `site-ukemi` sont l'item UKEMI-PENDING-1 (hors de ce lot) ; `test/site-ukemi.test.ts` n'est pas touché. Ses pièges `TRAPS` (l.1438-1441) lisent dans les corps de `:76` et `:539` des phrases qui y restent mot pour mot.
+- **Q-SP1-5** : `pending_since` dans le servi, accepté ; promotion par la synchro par défaut (première option), lancée par MONARK au temps (ii).
+
+### 5.1 Dessin
+
+- **Instantané en attente** `apps/site/data/harness-pending.json`, schéma `monark-site-harness-pending-v1` (le nom de l'option (b) ; le message de MONARK l'abrège en `harness-pending-v1`). Clés, closes : `$comment`, `schema`, `written_at`, les douze champs que les deux instantanés partagent (`version`, `api`, `tools`, `gate_request`, `calibrate_contract`, `response_required`, `bounds`, `refusal`, `honesty`, `classes`, `byo_clause`, `attest`), et `openapi_sha256`.
+  - Ni `read_at`, ni `mcp` (son URL et son type viennent du registre), ni `registry`, ni `deploy_check`, ni `bodies_sha256` : rien de ce qui n'est lu que sur le serveur.
+  - `openapi_sha256` est l'empreinte du document `/openapi.json` **en processus** ; elle remplace, sous un nom qui ne prétend pas avoir été servie, la seule empreinte que `:76` et `:539` comparent.
+  - Il est lu, comme les trois autres fichiers, après le contrôle de son empreinte dans `manifest.sha256.json` : son entrée de manifeste entre avec lui, au bloc C.
+- **`pending_since`** (`AAAA-MM-JJ`) dans le servi : le chargeur l'admet, ne le rend pas (`loadHarnessServed` rend la même projection), et exige, en fermeture sûre, qu'un instantané en attente existe **si et seulement si** le servi le porte, et que `pending_since` ne soit pas postérieur au jour de `written_at`. Une seconde écriture `--pending` (bloc D) garde le `pending_since` déjà posé.
+- **Chargeur** : `loadHarnessPending(root)` (null sans fichier) ; `loadByoTrace` et `loadH5Trace` prennent `gate_request` et `calibrate_contract` dans `loadHarnessPending(root) ?? loadHarnessServed(root)`. `loadHarnessServed` et les pages : inchangés hors de la clé admise.
+- **Synchro** :
+  - `--pending` : en processus seulement (`handleJsonMirror` sur les corps de la CA, `HARNESS_TOOLS` pour `tools/list`), les mêmes contrôles fermés que la synchro servie sur ces corps ; écrit l'instantané en attente et insère `pending_since` dans le servi après `read_at`, sans toucher à un autre octet ; imprime les deux empreintes à reporter au manifeste et à `PINNED`.
+  - par défaut (promotion, temps (ii)) : si l'instantané en attente existe et que le nouveau servi en diffère sur un champ partagé ou sur l'empreinte de `/openapi.json`, elle refuse d'écrire ; sinon elle écrit le servi (sans `pending_since`), retire l'instantané en attente et dit de retirer son entrée du manifeste.
+  - Les corps de la CA (`GATE_BODY`, `GATE_LIQ_BODY`) restent ceux de `scripts/verify-harness.mjs` : leur passage en 1.1.0 est UKEMI-PENDING-1 et le bloc C, pas ce lot.
+- **Tests** :
+  - `:76` compare le harnais en processus à l'instantané en attente quand il existe, sinon au servi ; il rejoue sur un arbre temporaire les cas « en attente égal au harnais, servi plus ancien » (vert) et « harnais différent des deux » (rouge, tueur 1).
+  - `:539` compare l'`openapi.json` en processus à `openapi_sha256` de l'instantané en attente quand il existe, sinon à la CA, comme aujourd'hui.
+  - Neuf, `harness_pending_snapshot_is_fail_closed` : en attente sans `pending_since` sur le servi (tueur 2), `pending_since` sans instantané en attente, `pending_since` postérieur, les quatre champs refusés, un instantané non listé ; contrôle : le servi qui porte `pending_since` rend la même projection.
+  - Neuf, `trace_loaders_follow_the_pending_snapshot_only` : une trace BYO dont `calibrate` suit le servi et non l'instantané en attente rougit, une trace qui suit l'instantané en attente passe avec lui et rougit sans lui (tueur 3) ; même chose pour les paramètres de `/gate` dans la trace de bout en bout.
+  - Neuf, `harness_pending_sync_writes_in_process_shapes` : l'instantané que `--pending` écrirait aujourd'hui égale le servi sur les champs partagés ; la comparaison de promotion ne trouve rien entre eux et nomme chaque champ changé ; l'insertion de `pending_since` ne touche aucun autre octet.
+- **Aucun instantané en attente n'est versé** dans ce lot ; les tests le créent dans des répertoires temporaires. `harness-served.json`, son entrée de manifeste et `PINNED` ne bougent pas : sans instantané en attente, `pending_since` y serait refusé ; ils changent avec le bloc C (question Q-SP1-6 du compte rendu).
