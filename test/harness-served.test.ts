@@ -43,10 +43,10 @@ const sha = (s: string | Buffer): string => createHash("sha256").update(s).diges
 const shaLf = (rel: string): string => sha(Buffer.from(readFileSync(join(ROOT, rel), "utf8").replace(/\r\n/g, "\n"), "utf8"));
 const read = (rel: string): string => readFileSync(join(ROOT, rel), "utf8");
 
-// Pins: the snapshot as read on the served harness on 2026-10-04 (00:19:36Z) by scripts/sync-harness-served.mjs, and the
+// Pins: the snapshot as read on the served harness on 2026-10-04T07:44:40Z (step 4 deploy) by scripts/sync-harness-served.mjs, and the
 // two traces (the SAME pins as test/byo-demo-probe.test.ts and test/h5-e2e-probe.test.ts: a re-record re-pins here too).
 const PINNED: Record<string, string> = {
-  [HARNESS_SERVED_REL]: "a5f9a168869242678b1c54f2a646a51384529f3a4e5b4c502f44d9ebf17dcd23",
+  [HARNESS_SERVED_REL]: "77d7b9143e8b6c03bb9f5670941f2550499fbc7cf687fb8bf76ff5542cf61fb1",
   [BYO_TRACE_REL]: "daf8d3eabacbc601e608d01936d02c0f7ba78dfb5a0d6f5741ecea5fb4eef6d2",
   [H5_TRACE_REL]: "b016bf4a4950cff1d39dccd970f7371f4dc8e3bb261d3d14c53b372825eda0a0", // re-pinned after #110 (C-2: tools/list sha only; was e403cf01...)
 };
