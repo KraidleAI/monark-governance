@@ -66,7 +66,7 @@ test("fake_place_ping_gets_a_masked_pong_with_the_same_payload_and_nothing_else"
   assert.deepEqual(peer?.got.map((f) => f.op), [OP.pong, OP.pong, OP.close]);
 });
 
-// killer: test/l2-fake-place.ts:92 CONST "writeUInt16BE(code)" -> "writeUInt16BE(1000)"
+// killer: test/l2-fake-place.ts:77 CONST "writeUInt16BE(code)" -> "writeUInt16BE(1000)"
 test("fake_place_server_close_is_answered_and_seen_with_its_code", async () => {
   const s = await session((peer) => { peer.close(1001); });
   await until(() => s.codes.length === 1);
@@ -74,7 +74,7 @@ test("fake_place_server_close_is_answered_and_seen_with_its_code", async () => {
   assert.deepEqual(s.place.peers[0]?.got.map((f) => [f.op, f.masked, f.payload.readUInt16BE(0)]), [[OP.close, true, 1001]]);
 });
 
-// killer: test/l2-fake-place.ts:93 CONST "muted = true" -> "muted = false"
+// killer: test/l2-fake-place.ts:78 CONST "muted = true" -> "muted = false"
 test("fake_place_mute_answers_nothing_and_a_cut_ends_the_client", async () => {
   const s = await session((peer) => { peer.mute(); });
   const peer = s.place.peers[0];
@@ -95,7 +95,7 @@ test("fake_place_a_leading_bom_does_not_reach_the_client", async () => {
   s.ws.close();
 });
 
-// killer: test/l2-fake-place.ts:80 CONST "writeHead(r.status" -> "writeHead(200"
+// killer: test/l2-fake-place.ts:65 CONST "writeHead(r.status" -> "writeHead(200"
 test("fake_place_rest_answers_its_script_through_fetch", async () => {
   const place = await startPlace(() => undefined, (path) => (path.startsWith("/api/v3/time")
     ? { status: 200, headers: { "x-mbx-used-weight-1m": "1" }, body: "{\"serverTime\":1}" } : { status: 429, headers: { "retry-after": "2" } }));
@@ -106,7 +106,7 @@ test("fake_place_rest_answers_its_script_through_fetch", async () => {
   assert.deepEqual(place.calls, ["/api/v3/time", "/api/v3/depth?symbol=A&limit=5000"]);
 });
 
-// killer: test/l2-fake-place.ts:124 CONST "allowed.includes(u.origin)" -> "true"
+// killer: test/l2-fake-place.ts:109 CONST "allowed.includes(u.origin)" -> "true"
 test("fake_place_factories_refuse_other_origins", async () => {
   const place = await startPlace(() => undefined, () => ({ status: 200, body: "{}" }));
   places.push(place);
