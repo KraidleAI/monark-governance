@@ -139,10 +139,10 @@ function linkModules(repo, tree) {
     const pj = join(tree, d, e, "package.json");
     if (existsSync(pj)) ws.set(JSON.parse(readFileSync(pj, "utf8")).name, join(tree, d, e));
   }
-  const place = (ent, name, from, to) => { if (ent.isFile()) copyFileSync(from, to); else if (!ent.isSymbolicLink()) link(from, to); else if (ws.has(name)) link(ws.get(name), to); };
+  const place = (ent, name, from, to) => { if (ent.isFile()) copyFileSync(from, to); else if (!ent.isSymbolicLink()) link(from, to); else if (ws.has(name)) link(ws.get(name), to); else if (isDir(from)) link(realpathSync(from), to); }; // a junction outside the workspaces (mk-nm.ps1): its real target
   mkdirSync(nm);
   for (const e of readdirSync(src, { withFileTypes: true })) {
-    if (!e.name.startsWith("@") || !e.isDirectory()) { place(e, e.name, join(src, e.name), join(nm, e.name)); continue; }
+    if (!e.name.startsWith("@") || !isDir(join(src, e.name))) { place(e, e.name, join(src, e.name), join(nm, e.name)); continue; }
     mkdirSync(join(nm, e.name));
     for (const f of readdirSync(join(src, e.name), { withFileTypes: true })) place(f, `${e.name}/${f.name}`, join(src, e.name, f.name), join(nm, e.name, f.name));
   }
@@ -214,7 +214,7 @@ export function main(argv) {
   const range = wt ? [base] : [base, gelSha], changes = new Map();
   const ns = git(gitDir, ["diff", "--name-status", "--no-renames", "-z", ...range]).split("\0");
   for (let i = 0; i + 1 < ns.length; i += 2) changes.set(ns[i + 1], ns[i] === "D" || ns[i] === "A" ? ns[i] : "M");
-  if (wt) for (const p of git(gitDir, ["ls-files", "--others", "--exclude-standard", "-z"]).split("\0")) if (p !== "") changes.set(p, "A");
+  if (wt) for (const p of git(gitDir, ["ls-files", "--others", "--exclude-standard", "-z"]).split("\0")) if (p !== "" && !isDir(join(gitDir, p))) changes.set(p, "A"); // a linked directory (a junctioned node_modules) is no change
   const added = new Set([...changes.keys()].filter((p) => changes.get(p) === "A"));
   const live = [...changes.keys()].filter((p) => changes.get(p) !== "D").sort();
   const tests = live.filter((p) => p.endsWith(".test.ts")), support = live.filter((p) => !p.endsWith(".test.ts") && /(^|\/)test\//.test(p));
@@ -263,6 +263,6 @@ export function main(argv) {
   }
 }
 
-if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
+if (import.meta.main !== false) { // as oracle/run.mjs l.40: a launch through a junction or a link runs main; an import runs nothing
   try { process.exitCode = main(process.argv.slice(2)); } catch (e) { console.error(`red-proof: ${e instanceof Error ? e.message : String(e)}`); process.exitCode = 2; }
 }
