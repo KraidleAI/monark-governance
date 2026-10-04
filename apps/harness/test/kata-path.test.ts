@@ -18,6 +18,7 @@ import { guardKataRow, guardKataTable, type GuardPins } from "../src/policy-guar
 import { projectCell, readRegistry } from "../src/policy-projection.ts";
 import { buildPolicyTable } from "../src/policy-table-file.ts";
 import { toolErrorCode, type HarnessParams } from "../src/tools/gate.ts";
+import { codeLines } from "./helpers/code-lines.ts";
 import { syntheticRegistry } from "./helpers/synthetic-registry.ts";
 
 const SYN = syntheticRegistry();
@@ -100,7 +101,7 @@ test("kata_key_grammar", () => {
   for (const k of ok) assert.equal(key(k), "ok", k);
   const bad = [
     `${pid}/up-b1`, pid.replace("/1h", "/4h"), pid.replace("BTCUSDT", "ETHUSDT"), pid.replace("kata:", ""), pid.replace("kata:", "KATA:"), pid.replace("BTCUSDT", "btcusdt"),
-    `kata:@${venue}/BTCUSDT/1h`, `kata:${kata}@/BTCUSDT/1h`, `kata:${"a".repeat(65)}@${venue}/BTCUSDT/1h`, `kata:${kata}@${venue}/BTC${"X".repeat(18)}/1h`, `kata:${kata}@${venue}/B/1h`,
+    `kata:@${venue}/BTCUSDT/1h`, `kata:${kata}@/BTCUSDT/1h`, `kata:${"a".repeat(65)}@${venue}/BTCUSDT/1h`, `kata:${kata}@${"v".repeat(65)}/BTCUSDT/1h`, `kata:${kata}@${venue}/BTC${"X".repeat(18)}/1h`, `kata:${kata}@${venue}/B/1h`,
     `kata:${kata}-@${venue}/BTCUSDT/1h`, `kata:${kata}@${venue}/BTCUSDT/1h `, `kata:${kata}@${venue}/BTCUSDT`,
   ];
   for (const k of bad) assert.equal(key(k), "kata_key_invalid", k);
@@ -115,7 +116,7 @@ test("kata_key_grammar", () => {
 test("kata_key_predicate_is_shared_with_the_guard", () => {
   const row = DIR.rows[0] ?? assert.fail("no row");
   const keys = [pidOf(DIR), pidOf(DIR).replace("BTCUSDT", `BTC${"X".repeat(17)}`), pidOf(DIR).replace("BTCUSDT", `BTC${"X".repeat(18)}`), pidOf(DIR).replace("BTCUSDT", "B"),
-    pidOf(DIR).replace(/kata:[^@]+@/, `kata:${"k".repeat(65)}@`), pidOf(DIR).replace(/@[^/]+\//, "@Binance/"), pidOf(DIR).replace(/kata:[^@]+@/, "kata:a--b@")];
+    pidOf(DIR).replace(/kata:[^@]+@/, `kata:${"k".repeat(65)}@`), pidOf(DIR).replace(/@[^/]+\//, "@Binance/"), pidOf(DIR).replace(/kata:[^@]+@/, "kata:a--b@"), pidOf(DIR).replace(/@[^/]+\//, `@${"v".repeat(65)}/`)];
   for (const k of keys) {
     const [, kata_id = "", venue = "", symbol = ""] = /^kata:([^@]*)@([^/]*)\/([^/]*)\//.exec(k) ?? [];
     const forged: PolicyRow = { ...row, kata_id, venue, symbol, cell_key: `${k}/${String(row.bucket)}`, source: { ...row.source, trial_id: [row.task_class, kata_id, venue, symbol, row.horizon, "CALIB"].join("|") } };
@@ -173,6 +174,7 @@ test("kata_tau_cap_on_set_classes", () => {
   assert.equal(req(DIR, pr(DIR, 0.5), { ...P, tau: 0 }), "ok");
   assert.equal(req(DIR, pr(DIR, 0.5), { ...P, tau: 1.5 }), "policy_tau_cap");
   assert.equal(req(DIR, pr(DIR, 0.5), { ...P, tau: 2 }), "policy_tau_cap");
+  assert.equal(req(DIR, pr(DIR, 0.5), { ...P, tau: NaN }), "policy_tau_cap", "a tau that is not <= 1 is refused on the direct call too");
   assert.equal(req(BAND, pr(BAND, 0.01), { ...PB, tau: 5 }), "ok");
 });
 
@@ -200,6 +202,17 @@ test("kata_bucket_edges_compare_the_double", () => {
   // A side without thresholds has no row (L-1): the key stops at the side, under_calib.
   const e4 = table("eth-dir-4h");
   assert.deepEqual(Object.entries(kataVerdictFields(e4, pr(e4, -0.5), 1)).filter(([k]) => ["cell_key", "reason", "policy_row_sha256", "n_calib"].includes(k)), [["n_calib", 0], ["reason", "under_calib"], ["cell_key", `${pidOf(e4)}/down`], ["policy_row_sha256", null]]);
+});
+
+// killer: apps/harness/src/kata-path.ts:85 CONST "current.find((r) => r.cell_key === key)" -> "table.rows.find((r) => r.cell_key === key)"
+test("kata_lookup_reads_current_rows_only", () => {
+  // Spec section 11 point 4: a replaced row (current false) sorts before its replacement (same cell_key, lower calib_attempt);
+  // neither its thresholds nor the row itself are read. Hand-built table, not guarded.
+  const b1 = DIR.rows.find((r) => r.bucket === "up-b1") ?? assert.fail("no up-b1 row");
+  const old: PolicyRow = { ...b1, current: false, calib_attempt: b1.calib_attempt - 1 || 1, thresholds: { t1: "0.01", t2: "0.02" }, n: b1.n + 1 };
+  const mixed = { ...DIR, rows: DIR.rows.flatMap((r) => (r === b1 ? [old, r] : [r])) };
+  const v = kataVerdictFields(mixed, pr(DIR, Number(b1.thresholds?.t1) / 2), 1);
+  assert.deepEqual([v.cell_key, v.policy_row_sha256, v.n_calib], [b1.cell_key, sha(canonicalJson(b1)), b1.n]);
 });
 
 // killer: apps/harness/src/kata-path.ts:82 CONST "sha256Canonical([])" -> "sha256Canonical([0])"
@@ -289,6 +302,7 @@ test("guard_thresholds_agree_per_side", () => {
   const upB2 = (c: Cell): boolean => c.taskClass === "sol-dir-1h" && String(c.key).endsWith("/up-b2");
   assert.equal(refused(() => undefined), "ok");
   assert.match(refused((cells) => cells.filter(upB2).forEach((c) => (c.thresholds = { t1: "0.11", t2: "0.5" }))), /side .*thresholds that differ.*\(C-8\)/);
+  assert.match(refused((cells) => cells.filter(upB2).forEach((c) => (c.thresholds = { t1: c.thresholds?.t1 ?? "", t2: "0.69" }))), /side .*thresholds that differ.*\(C-8\)/, "t2 alone");
   const dropped = refused((cells) => cells.splice(cells.findIndex(upB2), 1));
   assert.match(dropped, /without its three buckets/);
 });
@@ -320,8 +334,15 @@ const PENDING = ["input_invalid", "json_invalid", "kata_key_invalid", "kata_yhat
 test("every_listed_code_has_a_served_thrower_or_is_pending", () => {
   // Static at this lot: a code has a thrower when its literal is in a served module (default codes of the other tools
   // included); output_invalid has its 500 path. The G7 of the last lot of block D makes it dynamic, PENDING empty.
-  const text = [...servedModules()].map((f) => readFileSync(f, "utf8")).join("\n");
+  const text = [...servedModules()].map((f) => codeLines(readFileSync(f, "utf8"))).join("\n");
   const unthrown = TOOL_ERROR_CODES.filter((c) => c !== "output_invalid" && !text.includes(`"${c}"`));
   assert.deepEqual(unthrown, PENDING);
   assert.ok(readFileSync(join(SRC, "kata-path.ts"), "utf8").includes("\"kata_key_invalid\""), "a thrower outside the served graph does not count");
+});
+
+// killer: apps/harness/test/helpers/code-lines.ts:5 CONST "!COMMENT_LINE.test(l)" -> "true"
+test("thrower_ratchet_ignores_comment_lines", () => {
+  // G2 m-4: a literal in a comment line is no thrower; a trailing comment on a code line stays (the code before it counts).
+  const lines = ['throw new E("a");', '// "b"', '  /* "c"', '   * "d"', '   */', '  x("e"); // "f"'];
+  assert.equal(codeLines(lines.join("\n")), [lines[0], lines[5]].join("\n"));
 });
