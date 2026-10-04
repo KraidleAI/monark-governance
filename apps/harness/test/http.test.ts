@@ -6,13 +6,13 @@
  */
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { once } from "node:events";
 import { request as httpRequest } from "node:http";
 import { assertClosedGateDecision, assertClosedPrediction, assertClosedAttestedPrice, calibDigest } from "@monark/contracts";
 import { handleJsonMirror, MIRROR_OPERATIONS } from "../src/http.ts";
 import { HARNESS_TOOLS, REGISTERED_TOOL_NAMES } from "../src/tools/registry.ts";
 import { CALIBRATE_MAX_N } from "../src/tools/calibrate.ts";
 import { startServer } from "../src/server.ts";
+import { startLoopback } from "./helpers/loopback.ts";
 
 const API_HOST = "api.monarkgate.tech";
 
@@ -141,10 +141,10 @@ function wiredPost(
 // mirror, and the Origin guard runs on that surface too. Mutants: (a) `isJsonMirrorHost` always false ⇒
 // the `api.` POST hits the MCP handler and is NOT a mirror 200 GateDecision ⇒ red; (b) drop the
 // originGuard before dispatch ⇒ the evil-Origin request is not 403 ⇒ red.
+// killer: apps/harness/src/server.ts:188 CONST "(port, host)" -> "(0, host)"
 test("http_mirror_routes_by_host_and_guards_origin", async () => {
-  const server = startServer(0);
+  const server = await startLoopback((port) => startServer(port));
   try {
-    await once(server, "listening");
     const addr = server.address();
     assert.ok(addr !== null && typeof addr === "object", "address() must be an AddressInfo");
     const port = addr.port;
