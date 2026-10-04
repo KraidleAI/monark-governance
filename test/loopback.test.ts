@@ -75,3 +75,23 @@ test("loopback_closed_port_refuses_a_connection", async () => {
   });
   assert.equal(code, "ECONNREFUSED", "nothing listens on a closed port");
 });
+
+// reddened by: a server returned that listens on another port than the drawn one (a `start` that ignores its port, as M17 of the
+// G2), or that server left open
+test("loopback_start_refuses_a_server_off_the_drawn_port", async () => {
+  const other = await closedPort(), built: Server[] = [];
+  const ignoring = (): Server => { const b = createServer().listen(other, "127.0.0.1"); built.push(b); return b; };
+  await assert.rejects(startLoopback(ignoring, () => other + 1), { message: `the server listens on port ${String(other)}, not on the drawn port ${String(other + 1)}` });
+  assert.deepEqual([built.length, built[0]?.listening], [1, false], "refused at its first try, and closed");
+});
+
+// reddened by: a listener of a try left on the server, after it listens (M06 of the G2) or after a refused try (M08), or kept by on()
+test("loopback_listen_leaves_no_listener_behind", async () => {
+  const busy = createServer(), server = createServer(), refused = createServer(), taken = await listen(busy);
+  const counts = (s: Server): number[] => [s.listenerCount("error"), s.listenerCount("listening")];
+  try {
+    await listen(server, scripted(taken, 1).draw);
+    await assert.rejects(listen(refused, scripted(taken, Infinity).draw), { message: "no free loopback port above 10080 in 50 tries" });
+    assert.deepEqual([counts(server), counts(refused)], [[0, 0], [0, 0]], "no listener left after a listen, nor after the named failure");
+  } finally { await close(server); await close(busy); }
+});

@@ -114,7 +114,7 @@ test("verify_harness_ca_passes_on_the_in_process_harness", async () => {
 
 // (3) The NEGATIVE control (C-G2-1 of G2 HARNESS-DESC-1, re-derived at U-4b-2b per the extension of item 4 (c)): the CA
 // must RED on over-claiming surfaces. System under test = the CA script run as deployed (child process). Adversarial
-// vector = a node:http PROXY on 127.0.0.1:0 (motif test/probe-narabi-state.test.ts serve()) in front of the REAL in-process
+// vector = a node:http PROXY on 127.0.0.1 at a drawn port above 10080 (motif test/probe-narabi-state.test.ts serve()) in front of the REAL in-process
 // harness: every request passes through (real SDK SSE framing, real mirror bodies: A-8) except the rewrite points: the
 // served `gate` description in tools/list, the api. answers to the two liq POST /gate (told apart by the stratum of the
 // request's yhat), and, for (alpha) only, the committed call's request (moved to an uncommitted stratum so the upstream

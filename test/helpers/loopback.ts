@@ -27,11 +27,16 @@ function settled(server: Server): Promise<boolean> {
 }
 
 /** Starts a server by `start(port)`, which calls listen, on drawn ports until one listens (another port on any listen error); the
- *  named failure after TRIES tries. Returns the listening server: a fresh one per try when `start` builds one, as startServer does. */
+ *  named failure after TRIES tries, or at once when the server listens on another port than the drawn one (a `start` that ignores
+ *  its port: that server is closed first). Returns the listening server: a fresh one per try when `start` builds one, as startServer does. */
 export async function startLoopback<S extends Server>(start: (port: number) => S, draw: () => number = drawPort): Promise<S> {
   for (let i = 0; i < TRIES; i++) {
-    const server = start(draw());
-    if (await settled(server)) return server;
+    const port = draw(), server = start(port);
+    if (!(await settled(server))) continue;
+    const a = server.address(), bound = typeof a === "object" && a !== null ? a.port : a;
+    if (bound === port) return server;
+    server.close();
+    return assert.fail(`the server listens on port ${String(bound)}, not on the drawn port ${String(port)}`);
   }
   return assert.fail(`no free loopback port above 10080 in ${String(TRIES)} tries`);
 }
