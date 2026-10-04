@@ -215,7 +215,7 @@ test("l2_time_offset_logged", async () => {
 // logs no fingerprint and names why (TLS_NOTES); a socket published outside a request is not attributed; no address is written.
 // killer: scripts/l2/rest.mjs:102 CONST "s.servername !== peer.servername || " -> ""
 test("l2_tls_peer_logged_without_address", async () => {
-  const R = await load(), out = mkdtempSync(join(tmpdir(), "l2-rest-")), connected = channel("undici:client:connected");
+  const R = await load(), out = tmp(), connected = channel("undici:client:connected");
   const tls = (servername: string, remotePort: number, cert: object, reused = false): object => ({ servername, remotePort,
     remoteAddress: "203.0.113.9", localAddress: "198.51.100.7", getPeerCertificate: () => cert, isSessionReused: () => reused });
   const own = tls("api.binance.com", 443, { fingerprint256: "AB:CD:EF", subject: { CN: "x" } }), other = { fingerprint256: "12:34" };
@@ -238,7 +238,6 @@ test("l2_tls_peer_logged_without_address", async () => {
   const written = readFileSync(join(out, "requests.jsonl"), "utf8");
   for (const address of ["203.0.113.9", "198.51.100.7", "127.0.0.1", "localAddress", "remoteAddress"]) assert.ok(!written.includes(address), address);
   c.close();
-  rmSync(out, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 });
 });
 
 // G2 B1, m1, B2, J1, m2, m3: a failure names its code, never an address; a body that fails mid-read is still logged; a symbol outside
