@@ -125,7 +125,9 @@ jobs:
 
   g3-verification:
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    # Re-measured 2026-10-04 (same rule: wall-time x3, capped <= 20): green run of PR 125 took 7 min 06 s; PRs 121,
+    # 126 and 112 were cancelled at the former bound 10 with tests still passing (no hang in the log of 126).
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
