@@ -1,0 +1,233 @@
+// test/spec-publish.test.ts -- lot SPEC-PUBLISH-PIPELINE-1: the producer of the public spec repository (scripts/spec-publish.mjs) and its
+// closed input list (scripts/spec-publish-inputs.json). The module is loaded on demand, so the base, which lacks it, reddens by assertion.
+// Composition: a version is produced from synthetic roots under the OS temp directory (governance, recherches, and a previous git tree),
+// replayed and compared byte for byte. No network, nothing pushed. Each test names on the line above it the production mutation that
+// reddens it (scripts/red-proof.mjs convention).
+import { after, test } from "node:test";
+import assert from "node:assert/strict";
+import { spawnSync } from "node:child_process";
+import { createHash } from "node:crypto";
+import { cpSync, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { dirname, join } from "node:path";
+import { fileURLToPath } from "node:url";
+import type { Inputs, Kind, Problem } from "../scripts/spec-publish.mjs";
+
+type Api = typeof import("../scripts/spec-publish.mjs");
+type Roots = { governance: string; recherches: string; previous: string };
+const SCRIPT = fileURLToPath(new URL("../scripts/spec-publish.mjs", import.meta.url));
+let loaded: Api | null = null;
+async function api(): Promise<Api> {
+  loaded ??= await import("../scripts/spec-publish.mjs").then((m: Api) => m, () => null);
+  assert.ok(loaded !== null, "scripts/spec-publish.mjs loads");
+  return loaded;
+}
+const ROOT = mkdtempSync(join(tmpdir(), "spec-publish-"));
+after(() => { rmSync(ROOT, { recursive: true, force: true, maxRetries: 3 }); });
+let made = 0;
+const fresh = (): string => join(ROOT, `d${String(++made)}`);
+const sha = (b: string | Buffer): string => createHash("sha256").update(b).digest("hex");
+const put = (dir: string, rel: string, body: string): void => { mkdirSync(dirname(join(dir, rel)), { recursive: true }); writeFileSync(join(dir, rel), body); };
+const git = (cwd: string, ...args: string[]): string => {
+  const r = spawnSync("git", ["-c", "user.name=t", "-c", "user.email=t@t.invalid", "-c", "commit.gpgsign=false", ...args], { cwd, encoding: "utf8" });
+  assert.equal(r.status, 0, r.stderr);
+  return r.stdout.trim();
+};
+const commit = (dir: string): string => { git(dir, "add", "-A"); git(dir, "commit", "-qm", "v"); return git(dir, "rev-parse", "HEAD"); };
+const codes = (ps: readonly Problem[]): string[] => ps.map((p) => p.code).sort();
+const SPEC = "# Spec\n\nA kata is a pure function.\n", REPORT = "# Report\n\nkata:trend-ema-v1@binance/BTCUSDT/1h\n", NOTE = "# Note\n";
+const SCHEMA = '{"$schema":"https://json-schema.org/draft/2020-12/schema"}\n';
+const TABLE = '{"class":{"task_class":"btc-dir-1h"},"row_format":"class-policy-v2","rows":[]}';
+const at = (head: string, entries: Inputs["releases"][string]["entries"]): Inputs => ({ format: "spec-inputs-v1", releases: { v: { previous_commit: head, entries } } });
+
+/** Three synthetic roots and a release "v" that reads all of them; the previous tree is a git repository with two published files. */
+function world(): { roots: Roots; head: string; inputs: Inputs } {
+  const roots = { governance: fresh(), recherches: fresh(), previous: fresh() };
+  put(roots.governance, "spec/schema.json", SCHEMA); put(roots.governance, "policy/btc-dir-1h.json", TABLE);
+  put(roots.recherches, "kata/KATA-SPEC.md", SPEC); put(roots.recherches, "kata/report.md", REPORT);
+  put(roots.previous, "KATA-SPEC.md", "old\n"); put(roots.previous, "reports/README.md", NOTE);
+  git(roots.previous, "init", "-q");
+  const head = commit(roots.previous);
+  return { roots, head, inputs: at(head, [
+    { out: "KATA-SPEC.md", root: "recherches", path: "kata/KATA-SPEC.md", kind: "text", sha256: sha(SPEC) },
+    { out: "policy/btc-dir-1h.json", root: "governance", path: "policy/btc-dir-1h.json", kind: "policy-table", sha256: null },
+    { out: "reports/README.md", root: "previous", path: "reports/README.md", kind: "text", sha256: sha(NOTE) },
+    { out: "reports/wave1-report.md", root: "recherches", path: "kata/report.md", kind: "text", sha256: sha(REPORT) },
+    { out: "schemas/x.schema.json", root: "governance", path: "spec/schema.json", kind: "schema", sha256: null },
+  ]) };
+}
+
+// killer: scripts/spec-publish-inputs.json:60 CONST "b32a4062" -> "b32a4063"
+test("inputs_pin_the_four_files_published_at_ddfee9e", async () => {
+  const w = (await api()).loadInputs().releases["kata-wave1"];
+  assert.equal(w?.previous_commit, "ddfee9e076d979081fa7b21ec27940e3556bacf7");
+  assert.deepEqual(w.entries.map((e) => [e.out, e.root, e.path, e.sha256]), [
+    ["KATA-SPEC.md", "recherches", "kata/spec/KATA-SPEC.md", "b32a4062794d32292fd37f340061c3b5e61b5d40d077bfbb7fdf6b38548cc39d"],
+    ["reports/README.md", "previous", "reports/README.md", "32f26de654a0cd1604d943eb5f5d25174566dee454b2abb1d13f4ceae6920b2e"],
+    ["reports/wave1-report.md", "recherches", "kata/registry/wave1-report.md", "e91edb41b1c50e4c1f87ebd2c99f6192e09d8c7cdc5574c38aee9f16b042016b"],
+    ["vectors.json", "recherches", "kata/spec/vectors.json", "06ecf06909e39d67d0703f48a71b4975d536dd2dcf6903396e1a10648fbda9fb"],
+  ]);
+});
+
+// killer: scripts/spec-publish.mjs:147 CONST "add(\"input_missing\"" -> "add(\"input_digest\""
+test("inputs_declare_the_1_1_0_files_and_every_absent_one_fails_closed", async () => {
+  const m = await api(), inputs = m.loadInputs(), c = inputs.releases["contract-1.1.0"];
+  const classes = [...["bnb", "btc", "eth", "sol"].flatMap((s) => ["dir", "mae-down", "mae-up", "range"].flatMap((f) => [`${s}-${f}-1h`, `${s}-${f}-4h`])),
+    "liquidation-eligible-coverage", "stable-run-velocity-24h"];
+  const kinds = (k: Kind): string[] => (c?.entries ?? []).filter((e) => e.kind === k).map((e) => e.out);
+  assert.deepEqual(kinds("policy-table"), classes.map((k) => `policy/${k}.json`).sort());
+  assert.deepEqual(kinds("schema"), ["coverage-verdict", "gate-decision", "policy-row", "prediction", "tool-error"].map((s) => `schemas/${s}.schema.json`));
+  const r = m.plan({ inputs, release: "contract-1.1.0", date: "2026-10-20", roots: { governance: m.REPO_ROOT } });
+  assert.deepEqual(r.files, []);
+  const missing = r.problems.filter((p) => p.code === "input_missing").map((p) => p.detail.split(" <- ")[0]);
+  for (const e of c?.entries.filter((x) => x.root === "governance") ?? []) assert.equal(missing.includes(e.out), !existsSync(join(m.REPO_ROOT, e.path)), e.out);
+  assert.ok(r.problems.some((p) => p.code === "root_missing" && p.detail.includes("previous")), "the previous tree is required");
+});
+
+// killer: scripts/spec-publish.mjs:66 SDL "if (e.sha256 === null && EXTERNAL_ROOTS.includes(e.root))" -> ""
+test("parse_inputs_refuses_any_departure_from_the_closed_format", async () => {
+  const m = await api(), head = "a".repeat(40);
+  const make = (e: Record<string, unknown>, rel: Record<string, unknown> = {}): unknown => ({ format: "spec-inputs-v1", releases: { v: {
+    previous_commit: head, entries: [{ out: "A.md", root: "recherches", path: "a.md", kind: "text", sha256: "0".repeat(64), ...e }], ...rel } } });
+  assert.doesNotThrow(() => m.parseInputs(make({})));
+  assert.doesNotThrow(() => m.parseInputs(make({ out: ".github/workflows/verify.yml" })));
+  const bad: [Record<string, unknown>, Record<string, unknown>?][] = [[{ extra: 1 }], [{ out: "VERSION" }], [{ out: "a/../b" }], [{ out: ".git/config" }],
+    [{ root: "elsewhere" }], [{ kind: "binary" }], [{ sha256: "ABC" }], [{ sha256: null }], [{ root: "previous" }, { previous_commit: null }],
+    [{}, { previous_commit: "main" }], [{}, { entries: [] }], [{}, { entries: [{ out: "A.md" }, { out: "A.md" }] }], [{}, { owner: "x" }]];
+  for (const [e, rel] of bad) {
+    assert.throws(() => m.parseInputs(make(e, rel)), (x: unknown) => x instanceof m.SpecPublishError && x.code === "inputs_invalid", JSON.stringify([e, rel]));
+  }
+});
+
+// killer: scripts/spec-publish.mjs:135 CONST "}  ${f.path}" -> "} ${f.path}"
+test("produce_copies_each_input_byte_for_byte_with_version_and_manifest", async () => {
+  const m = await api(), w = world(), out = fresh();
+  const r = m.produce({ inputs: w.inputs, release: "v", date: "2026-10-02", roots: w.roots, out });
+  const want: [string, string][] = [["KATA-SPEC.md", SPEC], ["VERSION", "2026-10-02\n"], ["policy/btc-dir-1h.json", TABLE], ["reports/README.md", NOTE],
+    ["reports/wave1-report.md", REPORT], ["schemas/x.schema.json", SCHEMA]];
+  for (const [p, body] of want) assert.equal(readFileSync(join(out, p), "utf8"), body, p);
+  const manifest = want.map(([p, body]) => `${sha(body)}  ${p}\n`).join("");
+  assert.equal(readFileSync(join(out, "MANIFEST.sha256"), "utf8"), manifest);
+  assert.equal(r.manifest_sha256, sha(manifest));
+  assert.deepEqual(m.listTree(out), ["KATA-SPEC.md", "MANIFEST.sha256", "VERSION", "policy/btc-dir-1h.json", "reports/README.md", "reports/wave1-report.md", "schemas/x.schema.json"]);
+});
+
+// killer: scripts/spec-publish.mjs:178 CONST "else r.differ.push(p);" -> "else r.equal.push(p);"
+test("composition_replay_gives_the_same_bytes_and_only_the_date_moves_them", async () => {
+  const m = await api(), w = world(), [a, b, c] = [fresh(), fresh(), fresh()];
+  for (const [out, date] of [[a, "2026-10-02"], [b, "2026-10-02"], [c, "2026-10-03"]] as const) m.produce({ inputs: w.inputs, release: "v", date, roots: w.roots, out });
+  const same = m.compareTrees(a, b), moved = m.compareTrees(a, c);
+  assert.deepEqual([same.equal.length, same.differ, same.missing, same.extra], [7, [], [], []]);
+  assert.deepEqual([moved.equal.length, moved.differ], [5, ["MANIFEST.sha256", "VERSION"]]);
+});
+
+// killer: scripts/spec-publish.mjs:217 ROR "diff === 0 ? 0 : 1" -> "diff !== 0 ? 0 : 1"
+test("cli_verify_compares_a_published_tree_path_by_path", async () => {
+  await api();
+  const w = world(), file = join(fresh(), "inputs.json"), first = fresh();
+  put(dirname(file), "inputs.json", JSON.stringify(w.inputs));
+  const run = (out: string, ...more: string[]): { status: number | null; stdout: string; stderr: string } => spawnSync(process.execPath, [SCRIPT, "--release", "v",
+    "--date", "2026-10-02", "--out", out, "--inputs", file, ...Object.entries(w.roots).flatMap(([k, v]) => ["--root", `${k}=${v}`]), ...more], { encoding: "utf8" });
+  assert.equal(run(first).status, 0);
+  const copy = fresh();
+  cpSync(first, copy, { recursive: true });
+  const equal = run(fresh(), "--verify", copy);
+  assert.deepEqual([equal.status, /verify EQUAL: 7 equal, 0 differ, 0 missing, 0 extra/.test(equal.stdout)], [0, true]);
+  const old = run(fresh(), "--verify", w.roots.previous);
+  assert.deepEqual([old.status, /differ  KATA-SPEC\.md/.test(old.stdout), /verify DIFFERENT: 1 equal, 1 differ, 0 missing, 5 extra/.test(old.stdout)], [1, true, true]);
+  rmSync(join(w.roots.recherches, "kata/report.md"));
+  const refused = fresh(), r = run(refused);
+  assert.deepEqual([r.status, /input_missing {2}reports\/wave1-report\.md/.test(r.stderr), existsSync(refused)], [1, true, false]);
+});
+
+// killer: scripts/spec-publish.mjs:149 SDL "if (e.sha256 !== null && sha(bytes) !== e.sha256)" -> ""
+test("a_missing_tampered_or_blacklisted_input_or_root_refuses_and_writes_nothing", async () => {
+  const m = await api(), w = world(), out = fresh();
+  put(w.roots.recherches, "kata/report.md", `${REPORT}tampered\n`);
+  rmSync(join(w.roots.governance, "spec/schema.json"));
+  const inputs = at(w.head, [...(w.inputs.releases.v?.entries ?? []), { out: "notes.md", root: "governance", path: "docs/adr/ADR-X.md", kind: "text", sha256: null }]);
+  assert.deepEqual(codes(m.plan({ inputs, release: "v", date: "2026-10-02", roots: w.roots }).problems), ["input_blacklisted", "input_digest", "input_missing"]);
+  assert.throws(() => m.produce({ inputs, release: "v", date: "2026-10-02", roots: w.roots, out }), (x: unknown) => x instanceof m.SpecPublishError && x.code === "refused");
+  assert.equal(existsSync(out), false);
+  assert.deepEqual(codes(m.plan({ inputs: w.inputs, release: "v", date: "2026-10-02", roots: { governance: w.roots.governance } }).problems),
+    ["input_missing", ...Array<string>(4).fill("root_missing")]);
+  assert.deepEqual(codes(m.plan({ inputs: w.inputs, release: "w", date: "2026-10-02", roots: w.roots }).problems), ["release_unknown"]);
+  put(out, "stale", "x");
+  const clean = world();
+  assert.throws(() => m.produce({ inputs: clean.inputs, release: "v", date: "2026-10-02", roots: clean.roots, out }), (x: unknown) => x instanceof m.SpecPublishError && x.code === "out_not_empty");
+});
+
+// killer: scripts/spec-publish.mjs:159 COR "!outs.has(p)" -> "outs.has(p)"
+test("the_previous_tree_must_be_clean_at_its_commit_and_nothing_published_is_withdrawn", async () => {
+  const m = await api(), w = world(), p = w.roots.previous, entries = w.inputs.releases.v?.entries ?? [];
+  const problems = (inputs: Inputs): Problem[] => m.plan({ inputs, release: "v", date: "2026-10-02", roots: w.roots }).problems;
+  assert.deepEqual(problems(w.inputs), []);
+  put(p, "VERSION", "2026-10-01\n"); put(p, "MANIFEST.sha256", "x\n"); put(p, "reports/old.md", "# Old\n");
+  const head = commit(p);
+  assert.deepEqual(problems(at(head, entries)).map((x) => [x.code, x.detail]), [["withdrawn", "reports/old.md is published, the release drops it"]]);
+  assert.deepEqual(codes(problems(w.inputs)), ["previous_commit"]);
+  put(p, "stray.md", "x\n");
+  assert.deepEqual(codes(problems(at(head, entries))), ["previous_dirty"]);
+});
+
+// killer: scripts/spec-publish.mjs:97 CONST "\"gate G0..G7\"" -> "\"gate\""
+test("vocabulary_gate_of_the_spec_repository_one_rule_per_sample", async () => {
+  const m = await api(), rules = (t: string): string[] => [...new Set(m.vocabularyHits(t).map((h) => h.rule))];
+  const e = String.fromCharCode(0xe9);
+  assert.deepEqual(m.GATE_RULES, ["lang", "claims", "vendor", "kitchen", "secret", "path", "format", "email"]);
+  const samples: [string, string][] = [["lang", `R${e}sum${e}`], ["claims", "anti" + "-hallucination"], ["vendor", "Data" + "bento"], ["kitchen", "the orchestrator ruling"],
+    ["kitchen", "RECHERCHES"], ["secret", `ghp_${"a".repeat(36)}`], ["path", "F:" + "\\tmp\\x"], ["format", `a${String.fromCharCode(0x200b)}b`], ["email", "write to someone@example.org"]];
+  for (const [rule, text] of samples) assert.deepEqual(rules(text), [rule], text);
+  assert.deepEqual(m.vocabularyHits("kata:trend-ema-v1@binance/BTCUSDT/1h, aave-v3-core, monark-governance, plan 0005-G0-part-P1-library.md, noreply@example.org"), []);
+});
+
+// killer: scripts/spec-publish.mjs:127 ROR "canonicalJson(v) !== text" -> "canonicalJson(v) === text"
+test("each_output_kind_is_checked_and_a_policy_table_must_be_canonical", async () => {
+  const m = await api(), c = (out: string, kind: Kind, body: string | Buffer): string[] => codes(m.contentProblems(out, kind, typeof body === "string" ? Buffer.from(body) : body));
+  assert.deepEqual(c("policy/btc-dir-1h.json", "policy-table", TABLE), []);
+  assert.deepEqual(c("policy/btc-dir-1h.json", "policy-table", JSON.stringify(JSON.parse(TABLE), null, 2)), ["not_canonical"]);
+  assert.deepEqual(c("policy/eth-dir-1h.json", "policy-table", TABLE), ["policy_table_invalid"]);
+  assert.deepEqual(c("policy/btc-dir-1h.json", "policy-table", TABLE.replace("v2", "v1")), ["policy_table_invalid"]);
+  assert.deepEqual(c("a.md", "text", "one\r\ntwo\n"), ["crlf"]);
+  assert.deepEqual([c("a.md", "text", Buffer.from([0x61, 0xff])), c("a.md", "text", "a\0b")], [["not_text"], ["not_text"]]);
+  assert.deepEqual([c("a.json", "json", "{"), c("s.json", "schema", "{}"), c("s.json", "schema", SCHEMA)], [["json_invalid"], ["schema_invalid"], []]);
+});
+
+// killer: scripts/spec-publish.mjs:83 CONST "? \"0\" :" -> "? \"-0\" :"
+test("canonical_writing_follows_section_2_of_the_draft", async () => {
+  const m = await api();
+  assert.equal(m.canonicalJson(JSON.parse('{"b":1,"a":[0.1,1e-7,-0]}')), '{"a":[0.1,1e-7,0],"b":1}');
+  assert.equal(m.canonicalJson({ z: null, y: [true, 1e21, "x"] }), '{"y":[true,1e+21,"x"],"z":null}');
+  for (const bad of [{ [`k${String.fromCharCode(0xe9)}`]: 1 }, [`a${String.fromCharCode(0xd800)}`], [Infinity]]) {
+    assert.throws(() => m.canonicalJson(bad), (x: unknown) => x instanceof m.SpecPublishError && x.code === "not_canonical", JSON.stringify(bad));
+  }
+});
+
+// killer: scripts/spec-publish.mjs:46 SDL "return false;" -> ""
+test("the_version_date_is_a_calendar_day_and_no_clock_is_read", async () => {
+  const m = await api(), w = world();
+  for (const [s, ok] of [["2026-10-02", true], ["2024-02-29", true], ["2026-02-29", false], ["2026-10-2", false], ["2026-13-01", false], ["2026-10-02T00:00:00Z", false]] as const) {
+    assert.equal(m.validDate(s), ok, s);
+  }
+  assert.deepEqual(codes(m.plan({ inputs: w.inputs, release: "v", date: "2026-02-30", roots: w.roots }).problems), ["date_invalid"]);
+  assert.ok(!/Date\.now\(|new Date\(\)|process\.hrtime|performance\.now|toISOString/.test(readFileSync(SCRIPT, "utf8")), "no clock read in the producer");
+});
+
+// killer: scripts/spec-publish.mjs:157 CONST "[\"rev-parse\", \"HEAD\"]" -> "[\"push\", \"HEAD\"]"
+test("the_producer_never_publishes_its_git_commands_are_three_reads_and_it_writes_once", async () => {
+  await api();
+  const src = readFileSync(SCRIPT, "utf8");
+  assert.deepEqual([...src.matchAll(/git\(prev, \["([\w-]+)"/g)].map((x) => x[1]), ["rev-parse", "status", "ls-files"]);
+  assert.deepEqual([src.match(/spawnSync\("git"/g)?.length, src.match(/spawnSync\(/g)?.length, src.match(/writeFileSync\(/g)?.length], [1, 1, 1]);
+  assert.ok(!/fetch\(|node:https?"|node:net"/.test(src), "no network");
+});
+
+// killer: scripts/spec-publish.mjs:207 CONST "return 2; }" -> "return 1; }"
+test("cli_usage_errors_exit_2", async () => {
+  await api();
+  const out = fresh(), ok = ["--release", "v", "--date", "2026-10-02", "--out", out];
+  for (const args of [[], ["--release", "v"], [...ok, "--root", "elsewhere=/x"], [...ok, "--root", "previous=/a", "--root", "previous=/b"], [...ok, "--date", "2026-10-03"], ["--bogus", "1"]]) {
+    assert.equal(spawnSync(process.execPath, [SCRIPT, ...args], { encoding: "utf8" }).status, 2, args.join(" "));
+  }
+  assert.equal(existsSync(out), false);
+});
