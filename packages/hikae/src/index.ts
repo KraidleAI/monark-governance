@@ -105,6 +105,10 @@ export type { TrackerParams, TrackerState } from "./tracker.ts";
 export { runsCount, runsLowerTailLeq, balancedExceedance } from "./runs.ts";
 export type { Balanced, Bits, RunsTail } from "./runs.ts";
 
+// W2-E engine (ADR 0006 v8.1 D2, addendum 8): tail indicator, exact adjacency upper tail from bits or from counts; import-guard input.
+export { tailRank, tailExceedance, adjacencyUpperTail, adjacencyTailFromCounts, TailCountsError } from "./tail.ts";
+export type { TailBit, TailCountsErrorCode, AdjacencyCountsTail, TailExceedance, AdjacencyTail } from "./tail.ts";
+
 // Kata path, lot CM-3b (audit P3 S-4/E-1 engine side, E-2, S-13): scaled band [0, h*], F-7 row canonicalizer, ordered digest.
 export { bandEdge, conformScaledBand } from "./scaled-band.ts";
 export type { ScaledBand, ScaledBandOptions } from "./scaled-band.ts";
