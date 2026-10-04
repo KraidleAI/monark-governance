@@ -381,6 +381,22 @@ Tronc `lot/etude-suite`. Dernier oracle complet : 1 779 tests, dont 1 776 verts,
     ses tueurs. Construction : admettre un module d appui déclaré sous `test/` (jamais un `*.test.ts`), amendement daté de la
     convention, cas neufs aux tests de l outil ; environ 30 lignes et 4 cas. Déclencheur : la fusion de MUTANTS-TOOL-2 ; puis
     campagne de L2-P1-a1 rejouée ; état : ouvert.
+  - Lots d outil MUTANTS-TOOL-2 et LOOPBACK-PORTS-1, tours de corrections (décisions de l orchestrateur, 2026-10-04, 03:4x UTC) :
+    - MUTANTS-TOOL-2 : correcteur `claude-opus-5-5` LIVRE-AVEC-RESERVES, re-revue `claude-sonnet-5-5` (palier de re-revue ciblée d un
+      petit diff) APPROUVE-AVEC-CORRECTIONS ; O-1 plié par l orchestrateur (`timed_out?: boolean` dans `run.d.mts`). Q-C1 : non, D-3
+      ne s étend pas à la base (une base non nulle donne « non conclu (base) », jamais « survit ») ; Q-C2, Q-C3, Q-C6, Q-C8 et Q-C9 :
+      lectures confirmées ; Q-C4 : `timed_out` gardé et déclaré ; Q-C5 : garde de l.271 gardée, C17 survivant équivalent déclaré
+      (sonde exit-probe) ; Q-C7 : la borne 547 gouverne (466). MUTANTS-MEMORY-WAIT-1 (absent d ETAT, HANDOFF Q-MA-9) : clos par ce lot.
+    - LOOPBACK-PORTS-1 : correcteur LIVRE-AVEC-RESERVES, re-revue `claude-sonnet-5-5` APPROUVE (elle sert de revue ciblée des lignes
+      exécutables de l aide, Q-CORR-6). Q-CORR-1 : garde en fichier neuf confirmée ; Q-CORR-2 : mesure des mutants cas par cas
+      ratifiée pour ce lot (l outil du tronc refuse `test/`), table de 13 lignes rejouée à la fusion de MUTANTS-TEST-SUPPORT-1 ;
+      Q-CORR-4 : contrôle refait au HEAD de la fusion ; Q-CORR-5 : Q-11 du G1 close.
+  - LOOPBACK-PORT0-HELPER-ONLY-1 (PAROXYSME ; Q-CORR-3) : la garde de port 0 est lexicale ; un port 0 tenu dans une variable, ou un
+    `--port 0` passé à un processus, lui échappe. Construction : garde stricte, toute liaison d un fichier de test passe par l aide ;
+    environ 6 lignes de garde et 1 de test, 1 site à inliner (mesuré). Déclencheur : HARNESS-LOOPBACK-PORTS-1 (RECHERCHES) ; état : ouvert.
+  - LOOPBACK-CLOSEDPORT-RACE-1 (PAROXYSME ; Q-CORR-7) : le cas D-2 et le test 6 du G1 dépendent d un port fermé qu un autre processus
+    peut prendre. Construction pour D-2 : une fabrique qui lie port + 1, environ 2 lignes, puis rejeu de M18, M21 et de l oracle ;
+    pour le test 6, mesure de fréquence au banc d abord. Déclencheur : HARNESS-LOOPBACK-PORTS-1 ; état : ouvert.
   - L2-RECV-US-RESOLUTION-1 (PAROXYSME ; Q-4 du G1 de L2-P1-a2) : Node n offre aucune horloge murale à la microseconde ; `recv_us`
     de production vaut `Date.now()*1000` (résolution ms), l ordre fin étant porté par `mono_ns`. Construction qui donne la garantie :
     mesurer la résolution réelle et la dérive de `performance.timeOrigin + performance.now()` contre l horloge de l hôte sur un jour
@@ -454,6 +470,7 @@ Tronc `lot/etude-suite`. Dernier oracle complet : 1 779 tests, dont 1 776 verts,
     et L01, sur deux lignes, sont restés hors campagne. Construction : une ligne de table à plusieurs éditions appliquées d'un bloc,
     et son test ; prix environ 10 lignes d'outil et 10 de test. Source : idem. Déclencheur : prochain lot qui touche l'outil, ou
     prochaine table portant un mutant sur plusieurs lignes ; état : ouvert.
+    **Clos le 2026-10-04** par le lot MUTANTS-TOOL-2 (corrections après la G2 neuve ; fusion au tronc `b47de143`).
   - Campagne de mutants de fusion des trois lots, 2026-10-03, par l'outil du tronc : 215 mutants, 204 tués, 11 survivants ;
     équivalents prouvés par raisonnement et mesure : ct M3, ee7 P4 et N12, cb M55 ; les sept autres portent les items ci-dessus.
     Preuves : `F:/tmp/rech/mutfusion/` (empreintes : `DELIVERED.sha256`).
@@ -541,15 +558,18 @@ Tronc `lot/etude-suite`. Dernier oracle complet : 1 779 tests, dont 1 776 verts,
     Source : `ctv2/corr/CORR.md` l.212-219 (Q-CORR-3). Déclencheur : la campagne de fusion de BINANCE-V2-1 (en cours sans ce mode :
     T1 à T4 n'ont de preuve que par pilote), ou le prochain lot qui touche l'outil ; prix : environ 30 lignes d'outil et 25 de test
     (estimation) ; état : ouvert.
+    **Clos le 2026-10-04** par le lot MUTANTS-TOOL-2 (corrections après la G2 neuve ; fusion au tronc `b47de143`).
   - MUTANTS-REPLAY-NONCONCLU-1 (outillage) : l'outil de mutants ne rejoue sur toutes les cibles que les « survit » ; un mutant rouge
     sans assertion au premier passage reste « non conclu » (M32 de CM-1). Construction : rejouer aussi les « non conclu », et son test.
     Source : `cm1rr/RAPPORT.md` l.67 (F-1, voie (c) ; la voie (b) est faite dans la PR #104). Déclencheur : le prochain lot qui touche
     l'outil (proposé, Q-8 du recensement) ; prix : chiffré à son déclencheur ; état : ouvert.
+    **Clos le 2026-10-04** par le lot MUTANTS-TOOL-2 (corrections après la G2 neuve ; fusion au tronc `b47de143`).
   - MUTANTS-LOCK-MIDRUN-1 (outillage ; item antérieur absent d'ETAT, `docs/adr/ADR-RPC-GUARD-DRAND-1.md` l.134) : l'outil de mutants
     ne lit le verrou d'hôte qu'au lancement ; un oracle d'un autre lot peut le prendre en cours de campagne. Deux chevauchements le
     2026-10-03 (`cbadd7/corr/CORR.md` l.231-238 ; `ee7add7/corr/CORR.md` l.173-179) ; les arbres concernés sont rejoués verts par les
     oracles G7 du tronc. Parade d'ici là : la garde externe de REGLES-MISSION. Déclencheur et prix : non écrits dans les sources lues
     (Q-3 du recensement) ; état : ouvert.
+    **Clos le 2026-10-04** par le lot MUTANTS-TOOL-2 (corrections après la G2 neuve ; fusion au tronc `b47de143`).
   - RED-PROOF-PIN-1 (outillage ; item antérieur absent d'ETAT, `docs/adr/ADR-METHODE-2.md` l.22 et l.62, lot M-4b) : `red-proof.mjs`
     refuse un test vert à la base ; la catégorie « épingle » (tueur tué, `<before>` présent à la base, comptée à part) n'est pas au
     tronc (0 occurrence de `pins`). Les trois tours de corrections du 2026-10-03 y ont buté (`ctv2/corr/CORR.md` l.193-196,
