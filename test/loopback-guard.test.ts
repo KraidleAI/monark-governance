@@ -3,9 +3,13 @@
 // Strict since lot HARNESS-LOOPBACK-PORTS-1 (LOOPBACK-PORT0-HELPER-ONLY-1): a test file binds only the port that a startLoopback
 // callback is given, so a port 0 held in a variable or a --port handed to a process is refused too; the harness, exported alone,
 // carries a byte copy of the helper. Forms: those of the census of the G1 (29 sites in 15 files at 8700329f) and their
-// neighbours, each matched over the whole text (a form may span lines). A lexical guard: a port 0 held in a variable passes it; for a
-// server started through the helper, the postcondition of startLoopback refuses any port but the drawn one. This file holds a sample
-// of each form, so it is the one test file not scanned. Builtins only: it also runs on a tree without the helper (the base of the lot).
+// neighbours, each matched over the whole text (a form may span lines). A lexical guard: a port 0 held in a variable passes the port-0
+// forms, the strict form refuses it. Known limits (G2 of HARNESS-LOOPBACK-PORTS-1, m1): a listen reached by a computed name other
+// than "listen", an alias by destructuring, a port in an environment variable (PORT=0), a datagram socket in a file that does not
+// import dgram, and an expression of the callback's port (port * 0); for a server started through the helper, the postcondition of
+// startLoopback refuses any port but the drawn one. Fail-closed (m2): the forms read comments and strings, and a typed callback
+// parameter or a listen given options inside a callback reads as a stray. This file holds a sample of each form, so it is the one
+// test file not scanned. Builtins only: it also runs on a tree without the helper (the base of the lot).
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { existsSync, readdirSync, readFileSync } from "node:fs";
@@ -20,9 +24,9 @@ const HELPER = "test/helpers/loopback.ts", COPY = "apps/harness/test/helpers/loo
 /** A bind of port 0: listen given a port 0, none, undefined or null, or a callback alone; listen given options with port 0 or with no
  *  port (a spread aside); the harness started at 0; a draw that answers 0 (M16 of the G2); a datagram socket bound at 0. */
 const PORT_0 = [
-  /listen\(\s*(?:0\s*[,)]|\)|undefined\b|null\b|\(\s*\)\s*=>|function\b)/g,
-  /listen\(\s*\{(?:[^}]*\bport\s*:\s*0\b|(?![^}]*(?:\bport\b|\.\.\.))[^}]*\})/g,
-  /startServer\(\s*0\s*[,)]/g,
+  /listen\s*\(\s*(?:0\s*[,)]|\)|undefined\b|null\b|\(\s*\)\s*=>|function\b)/g,
+  /listen\s*\(\s*\{(?:[^}]*\bport\s*:\s*0\b|(?![^}]*(?:\bport\b|\.\.\.))[^}]*\})/g,
+  /startServer\s*\(\s*0\s*[,)]/g,
   /\b(?:listen|startLoopback)\([^;\n]*=>\s*0\s*\)/g,
   /\.bind\(\s*0\s*[,)]/g,
 ];
@@ -35,10 +39,14 @@ const testFiles = (dir: string): string[] => readdirSync(join(ROOT, dir), { with
 /** `file:line` of each bind of port 0 in `text`. */
 const at = (file: string, text: string, i: number): string => `${file}:${String(text.slice(0, i).split("\n").length)}`;
 const binds = (file: string, text: string): string[] => PORT_0.flatMap((re) => [...text.matchAll(re)].map((m) => at(file, text, m.index)));
-/** `file:line` of each bind in `text` (a listen or startServer call, a --port string) but the port a startLoopback callback is given. */
+/** `file:line` of each bind in `text` (a listen or startServer call, listen by its name in brackets, startServer aliased, a --port
+ *  string, a bind in a file that imports dgram) but the port a startLoopback callback is given, bound before any `;`, line end or
+ *  non-empty parentheses that would leave the callback. */
 const strays = (file: string, text: string): string[] => {
-  const ok = new Set([...text.matchAll(/startLoopback\(\(\s*(\w+)\s*\)\s*=>[^;]*?((?:\.listen|\bstartServer)\(\s*\1\b)/dg)].map((m) => m.indices?.[2]?.[0]));
-  return [...text.matchAll(/\.listen\(|\bstartServer\(|["'`]--port\b/g)].filter((m) => !ok.has(m.index)).map((m) => at(file, text, m.index));
+  const ok = new Set([...text.matchAll(/startLoopback\(\(\s*(\w+)\s*\)\s*=>(?:[^;\n()]|\(\))*?((?:\.listen|\bstartServer)\s*\(\s*\1\b)/dg)].map((m) => m.indices?.[2]?.[0]));
+  const dgram = /["'`](?:node:)?dgram["'`]/.test(text) ? "|\\.bind\\s*\\(" : "";
+  const bind = new RegExp(`\\.listen\\s*\\(|\\[\\s*["'\`]listen["'\`]\\s*\\]\\s*\\(|\\bstartServer\\s*\\(|\\bstartServer\\s+as\\b|=\\s*startServer\\b(?!\\s*\\()|["'\`]--port\\b${dgram}`, "g");
+  return [...text.matchAll(bind)].filter((m) => !ok.has(m.index)).map((m) => at(file, text, m.index));
 };
 
 // reddened by: a test file that binds port 0 (at 8700329f: 29 sites in 15 files; M16 and M17 of the G2), or a port but the one a
@@ -57,11 +65,13 @@ test("loopback_guard_every_bind_of_a_test_file_goes_through_the_helper", () => {
 // reddened by: a form that no longer bites its sample, or one that bites a bind of a drawn port; a bind outside a startLoopback
 // callback spared by the strict guard, or a bind of the port such a callback is given bitten
 test("loopback_guard_forms_bite_port_0_and_spare_a_drawn_port", () => {
-  const zero = ["s.listen(0, h)", "s.listen(\n  0,\n  h)", "s.listen()", "s.listen(undefined, h)", "s.listen(null)", "s.listen(() => {})",
+  const zero = ["s.listen(0, h)", "s.listen (0)", "s.listen(\n  0,\n  h)", "s.listen()", "s.listen(undefined, h)", "s.listen(null)", "s.listen(() => {})",
     "s.listen(function () {})", "s.listen({ host: h, port: 0 })", "s.listen({ host: h })", "startServer(0)", "listen(s, () => 0)",
     "startLoopback(f, () => 0)", "u.bind(0, h)"];
   const drawn = ["s.listen(p, h)", "s.listen({ host: h, port })", "s.listen({ ...o })", "listen(s)", "listen(s, d.draw)",
     "startLoopback((port) => startServer(port))", "u.bind(p, h)"];
   assert.deepEqual([zero.filter((x) => binds("", x).length === 0), drawn.filter((x) => binds("", x).length > 0)], [[], []], "bitten: every sample of port 0, none of a drawn port");
+  assert.deepEqual(["s.listen (0)", "s[\"listen\"](0)", "import { startServer as go } from \"x\"", "const go = startServer", "import dgram from \"node:dgram\"; u.bind(p, h)",
+    "Promise.all([startLoopback((port) => make(port)), b.listen(port)])", "startLoopback((port) => make(port))\nb.listen(port)", "f.bind(null)"].map((x) => strays("", x).length), [1, 1, 1, 1, 1, 1, 1, 0], "the bypasses of the G2 (m1) are strays; a function bind outside a dgram file is not");
   assert.deepEqual(["s.listen(p, h)", "const p = 0; s.listen(p, h)", "startServer(port)", "spawn(n, [\"--port\", \"0\"])", "startLoopback((port) => s.listen(other, h))", "startLoopback((port) => { const b = s.listen(port + 1, h); return b; })", "startLoopback((port) => startServer(port))"].map((x) => strays("", x).length), [1, 1, 1, 1, 1, 0, 0], "strict: a bind is the port a startLoopback callback is given");
 });

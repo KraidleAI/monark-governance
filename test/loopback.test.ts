@@ -64,16 +64,19 @@ test("loopback_start_takes_a_fresh_server_per_try", async () => {
   } finally { await close(server); await close(busy); }
 });
 
-// reddened by: the port left open, or a port at or below 10080
+// reddened by: the port left open, or a port at or below 10080. A self-connect (localPort === port on 127.0.0.1, TCP simultaneous
+// open) also proves that nothing listens: a listener holds the port's bind bucket, which the kernel skips when it picks a source port.
+// Measured on Linux (HARNESS-LOOPBACK-PORTS-1, G0 and G2): 16 self-connects in 1 002 000 replays of this body, all on even ports of
+// the ephemeral range 32768-60999 (connect keeps the parity of the range's low end); 0 in 841 513 connects to an odd port.
 test("loopback_closed_port_refuses_a_connection", async () => {
   const port = await closedPort();
   assert.ok(port > 10_080, String(port));
   const code = await new Promise<string>((done) => {
     const socket = connect(port, "127.0.0.1");
-    socket.once("connect", () => { socket.destroy(); done("connected"); });
+    socket.once("connect", () => { const self = socket.localPort === port && socket.localAddress === "127.0.0.1"; socket.destroy(); done(self ? "self-connect" : "connected"); });
     socket.once("error", (e: NodeJS.ErrnoException) => { done(e.code ?? e.message); });
   });
-  assert.equal(code, "ECONNREFUSED", "nothing listens on a closed port");
+  assert.ok(code === "ECONNREFUSED" || code === "self-connect", `nothing listens on a closed port: ${code}`);
 });
 
 // reddened by: a server returned that listens on another port than the drawn one (a `start` that ignores its port, as M17 of the
