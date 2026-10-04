@@ -575,6 +575,7 @@ const honestLimitsParagraphs = (panelSource: string): string[] => {
   const block = /<PanelBlock title="Honest limits" status="built">([\s\S]*?)<\/PanelBlock>/.exec(panelSource)?.[1] ?? "";
   return [...block.matchAll(/<p\b[^>]*>([\s\S]*?)<\/p>/g)].map((m) => (m[1] ?? "").trim());
 };
+// killer: apps/site/lib/fleet.ts:137 CONST "its join is dormant" -> "its join is served"
 test("shogen_served_scope_is_said_on_three_surfaces — one sentence, byte for byte, on MONARK Building, the Shōgen docs page and the Shōgen panel", () => {
   assert.equal(SHOGEN_SERVED_SCOPE, SHOGEN_SCOPE_TEXT, "the sentence is the investor's, byte for byte");
   // C-2 (checkpoint-2): the sentence's state words are not read from the register, so the test couples them to it:
@@ -583,7 +584,9 @@ test("shogen_served_scope_is_said_on_three_surfaces — one sentence, byte for b
   const shogen = FLEET_AGENTS.find((a) => a.name === "Shōgen");
   assert.ok(shogen !== undefined && shogen.status === "built", "the register says Shōgen is built, as the sentence does");
   assert.match(shogen.wiring.served_by, /^MCP attest/, "the register says the served piece is the attest tool, as the sentence does");
-  assert.equal(shogen.wiring.served_by, "MCP attest → gate (the attested envelope key; attested.residual filed into verdict.residual on the served gate)", "any change to the served wiring revisits the sentence (its second half says the full sensor is not served)");
+  // Revisited at CM-2b surfaces: the attest tool is still the served piece (the sentence holds); its join into the gate is
+  // dormant since the attested class was retired, and the register says so.
+  assert.equal(shogen.wiring.served_by, "MCP attest (the attested envelope key of the gate stays declared; its join is dormant since the subject class was retired)", "any change to the served wiring revisits the sentence (its second half says the full sensor is not served)");
   const importsScope = (rel: string): boolean => importsFrom(sourceFile(rel), "@/lib/shogen-copy").includes("SHOGEN_SERVED_SCOPE");
   // (a) MONARK Building: the fleet layer carries it as its note, rendered right after the list of built pieces.
   const roadmap = read(ROADMAP);

@@ -624,6 +624,7 @@ test("roadmap_built_list_renders_served_notes_and_links_panels_on_fleet — {a.w
   }
 });
 
+// killer: apps/harness/src/tools/gate.ts:211 CONST "is retired and answers a named" -> "is a plumbing fixture, not a measured predictor and answers a named"
 test("registry_notes_track_served_descriptions — the register notes, the served-state lines of / and /fleet and the Hikae and Shōgen panels restate the served tool descriptions, in both directions (R26, R27, R30, R31)", () => {
   const hikae = builtAgents().find((a) => a.name === "Hikae");
   const ukemi = builtAgents().find((a) => a.name === "Ukemi");
@@ -639,7 +640,7 @@ test("registry_notes_track_served_descriptions — the register notes, the serve
     GATE_TOOL_DESCRIPTION.includes(FIXTURE),
     "Hikae's note must carry the synthetic-fixture clause exactly while the served gate description carries it",
   );
-  assert.ok(GATE_TOOL_DESCRIPTION.includes(FIXTURE), "today the served gate declares its demonstration calibration synthetic");
+  assert.ok(!GATE_TOOL_DESCRIPTION.includes(FIXTURE), "since CM-2b the synthetic demonstration class is retired: the served gate no longer carries its clause");
   const hikaePanel = flat("apps/site/components/hikae-panel.tsx");
   assert.equal(hikaePanel.includes(FIXTURE), GATE_TOOL_DESCRIPTION.includes(FIXTURE), "the Hikae panel carries the fixture clause exactly while the served gate does");
   assert.equal(
@@ -683,6 +684,7 @@ test("registry_notes_track_served_descriptions — the register notes, the serve
   );
 });
 
+// killer: apps/site/components/hikae-panel.tsx:77 CONST "decides against committed calibrations." -> "decides against committed calibrations, a plumbing fixture, not a measured predictor."
 test("built_panels_keep_served_facts_in_built_blocks — a served fact sits in a built block; 'Living proof' stays upcoming and says only what is not shown yet (H8 of the review of 2026-09-24)", () => {
   for (const rel of ["apps/site/components/shogen-panel.tsx", "apps/site/components/hikae-panel.tsx"]) {
     const src = read(rel);
@@ -692,7 +694,11 @@ test("built_panels_keep_served_facts_in_built_blocks — a served fact sits in a
     const limits = panelBlock(src, "Honest limits");
     assert.equal(limits.status, "built", `${rel}: Honest limits is a built block`);
   }
-  assert.ok(panelBlock(read("apps/site/components/hikae-panel.tsx"), "Honest limits").inner.includes("a plumbing fixture, not a measured predictor"));
+  // Since the synthetic demonstration class is retired, the Hikae block keeps the served fact (committed calibrations) and
+  // drops the fixture clause.
+  const hikaeLimits = panelBlock(read("apps/site/components/hikae-panel.tsx"), "Honest limits").inner;
+  assert.ok(hikaeLimits.includes("decides against committed calibrations"), "the Hikae block states the served fact");
+  assert.ok(!hikaeLimits.includes("a plumbing fixture, not a measured predictor"), "the retired fixture clause is gone");
   assert.ok(panelBlock(read("apps/site/components/shogen-panel.tsx"), "Honest limits").inner.includes("self-notarized"));
 });
 
