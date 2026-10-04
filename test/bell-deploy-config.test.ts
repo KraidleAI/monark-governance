@@ -7,7 +7,6 @@
  */
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { once } from "node:events";
 import { mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from "node:fs";
 import { request } from "node:http";
 import type { Server } from "node:http";
@@ -17,6 +16,7 @@ import { spawnSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
 import { escapeHtml, headersFor, listingHtml, parseCaddyfile, realPublication, serveCaddy, type CaddySite } from "./bell-caddy.ts";
 import { BELL_ROOT_REDIRECT, BELL_TREE_PATHS, UNIT_INSTALLED } from "../scripts/verify-bell.mjs";
+import { listen } from "./helpers/loopback.ts";
 
 const REPO = fileURLToPath(new URL("../", import.meta.url));
 const read = (rel: string): string => readFileSync(REPO + rel, "utf8");
@@ -91,10 +91,8 @@ function get(port: number, path: string): Promise<Got> {
   });
 }
 async function withServer<T>(srv: Server, f: (port: number) => Promise<T>): Promise<T> {
-  srv.listen(0, "127.0.0.1");
-  await once(srv, "listening");
-  const a = srv.address();
-  try { return await f(a !== null && typeof a === "object" ? a.port : 0); } finally { srv.closeAllConnections(); await new Promise<void>((r) => { srv.close(() => { r(); }); }); }
+  const port = await listen(srv);
+  try { return await f(port); } finally { srv.closeAllConnections(); await new Promise<void>((r) => { srv.close(() => { r(); }); }); }
 }
 
 // S-8. Mutants (each red here): `browse` added; root widened; ACAO removed.

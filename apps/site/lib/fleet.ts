@@ -131,14 +131,16 @@ export const FLEET_AGENTS: FleetAgent[] = [
     role: "sensor",
     line: "Attested perception — an attested price testimony.",
     status: "built",
-    // attest → gate on the served wire: the `attested` envelope key files attested.residual into verdict.residual.
-    // gate_attested_concordant_files_residual replays that seam.
+    // Status kept `built` by the founder's decision of 2026-10-03. The served leg is the MCP attest tool; its join into
+    // the gate is dormant since btc-dir-15m, the only class with a committed attestation subject, was retired.
     wiring: {
-      served_by: "MCP attest → gate (the attested envelope key; attested.residual filed into verdict.residual on the served gate)",
-      // One served leg: attest → gate. gate_attested_concordant_files_residual (apps/harness/test/gate.test.ts)
-      // drives it through registry.run() with the real runAttest() price and asserts the seam files attested.residual.
-      integration_test: ["gate_attested_concordant_files_residual"],
-      note: "served through the MCP gate: its attested testimony's residual is carried into the verdict, replayed by an integration test",
+      served_by: "MCP attest (the attested envelope key of the gate stays declared; its join is dormant since the subject class was retired)",
+      // Served leg, first (K-6, MONARK's decision): probe_harness_records_real_decision (test/h5-e2e-probe.test.ts) drives attest over the real
+      // MCP wire and pins the served witness values. Then POST /attest on the HTTP mirror, content equal to the MCP text — http_mirror_matches_mcp_surface
+      // (apps/harness/test/http.test.ts); a real listener under the deploy CA — verify_harness_ca_passes_on_the_in_process_harness. Limit, for those two
+      // only: neither pins the served witness values (ATTEST-KATA-SUBJECT-1). The join, unit level: gate_attested_is_frozen_attested_price, gate_attested_discordant_is_tool_error.
+      integration_test: ["probe_harness_records_real_decision", "http_mirror_matches_mcp_surface", "verify_harness_ca_passes_on_the_in_process_harness", "gate_attested_is_frozen_attested_price", "gate_attested_discordant_is_tool_error"],
+      note: "served through the MCP attest tool, replayed on the real wire by an integration test; its join into the gate is dormant since the class it attested was retired",
     },
   },
   {
@@ -147,10 +149,10 @@ export const FLEET_AGENTS: FleetAgent[] = [
     line: "Coverage-controlled inference — the gate itself.",
     status: "built",
     // The served gate itself. probe_harness_records_real_decision drives it on the real MCP wire
-    // (btc-dir-15m → commit/covered; cascade → abstain); the bring-your-own and stable-run legs follow.
+    // (the committed USDe key → commit/covered; cascade → abstain); the bring-your-own and stable-run legs follow.
     wiring: {
-      served_by: "MCP gate (btc-dir-15m committed decision; stable-run-velocity-24h; BYO calibration)",
-      // Three served legs: the real MCP wire (btc-dir/cascade) — probe_harness_records_real_decision
+      served_by: "MCP gate (stable-run-velocity-24h committed decision; BYO calibration)",
+      // Three served legs: the real MCP wire (committed USDe key/cascade) — probe_harness_records_real_decision
       // (test/h5-e2e-probe.test.ts); the BYO calibration loop — probe_byo_demo_loop_closes (test/byo-demo-probe.test.ts);
       // and the stable-run task class over the served gate tool — gate_stable_run_honesty_text_is_keyed_A2_A7f
       // (apps/harness/test/gate.test.ts, via gateTool.run()).
@@ -159,10 +161,9 @@ export const FLEET_AGENTS: FleetAgent[] = [
         "probe_byo_demo_loop_closes",
         "gate_stable_run_honesty_text_is_keyed_A2_A7f",
       ],
-      // The demonstration-class clause restates, digit-free, the SERVED gate description ("… declared synthetic — a
-      // plumbing fixture, not a measured predictor", GATE_TOOL_DESCRIPTION); both directions are pinned by the root
-      // test registry_notes_track_served_descriptions (test/site-build-fleet.test.ts).
-      note: "the served gate itself: each reading is conformed into a coverage region then decided, replayed on the real wire, on the bring-your-own loop, and on the stable-run class by integration tests; its demonstration class runs on a committed synthetic calibration, a plumbing fixture, not a measured predictor",
+      // The synthetic demonstration class is retired: the served gate description no longer carries its clause,
+      // so neither does the note (both directions pinned by registry_notes_track_served_descriptions).
+      note: "the served gate itself: each reading is conformed into a coverage region then decided, replayed on the real wire, on the bring-your-own loop, and on the stable-run class by integration tests",
     },
   },
   {

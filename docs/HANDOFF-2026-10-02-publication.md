@@ -20,6 +20,8 @@ visuelle de l investisseur et la première synchro.
 - « je te donne le go pour les push les déploiement et tout autre action, sauf publier sur X »
 - « pas de CI ni de PUSH avant de me dire pour que je mette le repo en publique et éviter des erreur a refaire » (dépôt
   `monark-governance` : vérifier sa visibilité seul avant tout push)
+  Précision de l investisseur (2026-10-04, 00:4x UTC), verbatim : « c est moi qui le met en publique quand y a des CI » ; le push du
+  tronc (go « Pousser, dépôt privé (Recommandé) ») a eu lieu à 00:4x UTC, le dépôt étant passé public à 00:38:33 UTC par l investisseur.
 - « a chaque push ou modofication qui encombrerait le travail de l autre claude vous écrivez dans la messagerie des deux claude, pour
   éviter les conflits. »
 - « différe la preuve bitcoin, accélére le travail, on doit publier quelque chose, il faut finir le snapshot. avec les scores déja
@@ -476,6 +478,28 @@ pm) ; item MK-NM-GUARD-1 (refuser Tree = F:/Monark dans mk-nm.ps1).
   Release) ; ensuite, file RECHERCHES : FAITS-USDT-USD-HISTORY-1 sous l addendum 4, RECORDER-CLOSE-TIME-1 (zero_trade), Q-H3 à Q-H7,
   TO FILL de P0-2, chantier L2 (FAITS-L2-ACCESS-1, mesure du serveur du site, mission). Investisseur absent : rien d irréversible hors
   de ces go ; toute dépense (second hôte L2, historique acheté) attend son retour.
+- 2026-10-04 02:3x UTC : DÉCISION de l investisseur (verbatim : « ne lance plus de workflows. donne les prochaines taches a recherches,
+  prends que des taches légéres. tu es à 87% d usage hebdo, n arrete pas les travaux en cours, mais fais en sorte que le gros du travail
+  soit fait par recherche ») : MONARK ne lance plus de workflow ni de travail lourd ; RECHERCHES écrit et fait relire par sa G2 neuve ;
+  MONARK contrôle léger, fusionne, agit (règle 4 du tableau amendée, message recherches#90). Travaux en cours menés à leur fin.
+- 2026-10-04 03:3x UTC : DÉCISIONS de l investisseur (choix verbatim) : « Go explicite aux quatre (Recommandé) » (précisions (1) à (4)
+  de B-10 dans CM-2c, Q-1 de mon contrôle de #107) ; « Après le scellement des 35 (Recommandé) » (copies de `F:/tmp/seal118`).
+- 2026-10-04 05:3x UTC : DÉCISIONS de l investisseur (choix verbatim) : « Après le scellement vérifié (Recommandé) » (copies de travail
+  de la course des 35, Q-C35-3) ; « Rien, c est voulu » (nom de produit confidentiel dans 15 documents anciens du dépôt public).
+- 2026-10-04 06:5x UTC : GO de l investisseur (verbatim : « vous avez tous mes GO »), après le résumé du chantier moteur. Lecture de MONARK :
+  go pour chaque acte en attente de son go, chacun à ses conditions préalables, qui restent : (a) déploiement de l étape 4 (pile CM-2, sha
+  fusionné après #107, oracle du tronc) puis le temps (ii) ; (b) sonde `bad_port` sur Bell, après la relecture de la liste des ports de
+  node v24.21.0 de Bell ; (c) course et scellement des 35 selon PLAN-COURSE-35 (outils r3 relus, répétition faite) ; (d) F-5a et la
+  publication de la spécification 1.1.0 quand CM-3c et CM-4 sont prêts. Restent hors de ce go : DNS, domaine, certificat (actes de
+  l investisseur), toute dépense, X, et la règle « aucun workflow, tâches légères » ; chaque acte extérieur est annoncé avant d être fait.
+- 2026-10-04 00:5x UTC : fusions au tronc : CM-2a (`4a1b4844`, PR #105 `98e3779a`), COINBASE-PASS-EDGES-1 (`44d8892d`), BINANCE-PRE153-1
+  (`328be484`). Leurs oracles G7 (`569c91c6…`, `bba0b720…`, `2ce4d71c…`) portent seulement deux rouges venus de la CA de l étape 3
+  committée sans resynchronisation du site (error_origin de l orchestrateur) ; correction `0c8f8177`, oracle vert : 2 060 tests,
+  0 échec (`a0ba04b3…`). Items des deux lots recensés à ETAT (`647ebd90`). Tronc poussé sur monark-governance (go « Pousser, dépôt
+  privé (Recommandé) » ; dépôt public par l investisseur pour les CI). Équipe avec RECHERCHES : tableau partagé `coordination/TABLEAU.md`,
+  relève toutes les 10 minutes, revue croisée ; RECHERCHES porte les surfaces de CM-2b, la suite de CM-2a (#110), le plan 1.1.0, la
+  relecture des enregistreurs, puis L2 P1-b1. Décisions de l investisseur : R-25 « Garder, 547 dès CM-2c » ; 1.1.0 « Avec CM-4 » et
+  « faire come si on le concevait pour la premiére fois, un gros upgrade ». PAROXYSME : registre du Dōjō inchangé ; limites formées.
 - 2026-10-03 22:35 UTC : étape 3 du déploiement de CM-1 faite (go relayé par RECHERCHES, confirmé par l investisseur). Le harnais
   sert `6da4504d` depuis 22:33:46 UTC : CA 13/13 et TLS, 84 cas identiques à l octet à la cible, les 27 changements tous de B-0
   ou B-1. npm ci dans une copie à part, échangée par renommage (écart au RUNBOOK déclaré au journal) ; arbre précédent et sauvegarde

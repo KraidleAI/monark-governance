@@ -156,7 +156,7 @@ const PHASES: { id: string; label: ReactNode; body: ReactNode; tone: string }[] 
   {
     id: "integration",
     label: <>Phase two &middot; in progress</>,
-    body: <>Integration: the attested-price envelope on the served gate, its residual carried into the verdict, and the token budget B_t carried by the caller and echoed by the gate.</>,
+    body: <>Integration: the attested-price envelope declared on the served gate (its join into the verdict dormant: no served class takes one), and the token budget B_t carried by the caller and echoed by the gate.</>,
     tone: "text-defer",
   },
 ];

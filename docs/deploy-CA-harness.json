@@ -1,7 +1,7 @@
 {
   "url": "https://api.monarkgate.tech",
   "mcp_url": "https://mcp.monarkgate.tech",
-  "checked_at": "2026-10-03T22:34:02.234Z",
+  "checked_at": "2026-10-04T07:44:22.821Z",
   "checks": [
     {
       "name": "health",
@@ -14,7 +14,7 @@
       "name": "openapi",
       "ok": true,
       "status": 200,
-      "sha256": "9e3176eae8893f05e7168f3c1e1b9e4dd4a1170a8a8a8f3cd933c94ff657a2ff",
+      "sha256": "d605b912916cc679d4347299bf7d22bb77bf8e1af4c502dd18e2213e6d2a38d7",
       "detail": "paths=/gate,/cascade,/attest,/calibrate"
     },
     {
@@ -35,15 +35,29 @@
       "name": "mcp_tools_list",
       "ok": true,
       "status": 200,
-      "sha256": "17602a13a00efa17c699a2e79ab2dfbac9fd4d91436ca3c7461259674e25b30a",
+      "sha256": "7dfcbd9eed4640b86a9b9b362ba4ec8393b18007d1c9516b96158c0500a29eac",
       "detail": "tools=gate,cascade,attest,calibrate"
     },
     {
       "name": "gate_call",
       "ok": true,
       "status": 200,
-      "sha256": "793e0df9ec43b214747eea703f3d183b7e09a5fdcf0631f0f391a0b8a35bb8a9",
+      "sha256": "9cd5a9189d653b03650ce2dc50cbf1c36887d085eab5e7bb305bf044f8c70416",
       "detail": "action=commit"
+    },
+    {
+      "name": "gate_retired_call",
+      "ok": true,
+      "status": 400,
+      "sha256": "676f76747ef39d532e0d2a6e4c55876b7f5d97a76b5b3b1f261cd28c843d8442",
+      "detail": "status=400 code=task_class_retired"
+    },
+    {
+      "name": "gate_future_call",
+      "ok": true,
+      "status": 400,
+      "sha256": "05c2ad36b25112fba8e7a8f4c82ef378441a7bbad6a3cfcb97d43a969e62a6c6",
+      "detail": "status=400 code=produced_at_future"
     },
     {
       "name": "gate_liq_call",
@@ -63,7 +77,7 @@
       "name": "mcp_gate_description_liq",
       "ok": true,
       "status": 200,
-      "sha256": "17602a13a00efa17c699a2e79ab2dfbac9fd4d91436ca3c7461259674e25b30a",
+      "sha256": "7dfcbd9eed4640b86a9b9b362ba4ec8393b18007d1c9516b96158c0500a29eac",
       "detail": "status=200 committed_clause=true empty_registry_sentence=false"
     },
     {

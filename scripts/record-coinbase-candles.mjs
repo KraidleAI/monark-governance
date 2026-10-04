@@ -13,14 +13,21 @@
 // the TLS trust kept to the roots bundled with node: any variable NODE_USE_SYSTEM_CA, NODE_EXTRA_CA_CERTS, SSL_CERT_FILE, SSL_CERT_DIR or
 // any OPENSSL_* refused; NODE_TLS_REJECT_UNAUTHORIZED=0 refused; no header is set (so no authentication header); a delay of 30 s per
 // request, whose expiry stops (timeout); at least 250 ms between two requests; at most 100 requests per run, counted before the first
-// one; no retry, ever.
-// Windows: [start, end) is cut into cores of 298 slots (--pass 2: a first core of 149, so that each later bound falls in the middle of a
-// core of pass 1), one request each, in order, asking start = core start - 900 s and end = core end: at most 300 data points, never 301
-// (the documentation reads neither bound). A slot is missing when the answer for its core does not serve it; a candle before start is
-// discarded and counted (documented), one at start or at end is a counted margin candle, one after end stops; a candle whose slot was
-// already seen must be identical. A page that serves candles, none in its [start, end], stops (window_not_served); after the last request
-// a slot of [start, end) that a page serves and no core keeps stops (window_inconsistent), then any empty page (empty_page, the pages
-// listed: a question to RECHERCHES, addendum 7): a reading of the bounds other than the measured ones ends in a named stop, never a false gap.
+// one; no retry, ever; each body read as a stream, at most BODY_MAX bytes: one byte more stops (body_too_large), nothing of it written.
+// Windows: [start, end) is cut into cores of 298 slots (--pass 2, lot COINBASE-PASS-EDGES-1: [start - 149 slots, end + 149 slots), so
+// that each bound of its cores inside [start, end) falls in a core of pass 1, 149 slots after its start; the starts of the requests of
+// the two passes never meet (298 k - 1 against 298 k - 150 slots after start), and a core of pass 2 ends where a core of pass 1 ends
+// only when end - start is 149 slots modulo 298, at end: such a pass 2 stops before any request (bad_pass, G2-1 of the G2 of that lot;
+// the comparison refuses that month too), so no request of pass 2 shares its start or its end with one of pass 1; a slot of its cores
+// outside [start, end) is a witness, counted in the manifest, witness_slots, never written to the CSV nor to missing.json), one request
+// each, in order, asking start = core start - 900 s and end = core end: at most 300 data points, never 301 (the documentation reads
+// neither bound). A slot is missing when the answer for its core does not serve it; a candle before start is discarded and counted
+// (documented), one at start or at end is a counted margin candle, one after end stops; a candle whose slot was already seen must be
+// identical. A page that serves candles, none in its [start, end], stops (window_not_served); after the last request a slot of
+// [start, end) that a page serves and no core keeps stops (window_inconsistent), then any empty page (empty_page, the pages listed: a
+// question to RECHERCHES, addendum 7) but an empty page whose core starts after end, after a core whose request holds end strictly
+// inside it: witnesses alone, counted (empty_witness_pages, pass 2; rule of RECHERCHES, 2026-10-03). A reading of the bounds other
+// than the measured ones ends in a named stop, never a false gap.
 // Candles [time, low, high, open, close, volume] are JSON numbers: JSON.parse reads the shape, the raw text gives the digits (never a
 // float). Named stops (RecorderStop.code, closed list STOPS) write nothing to the normalized outputs; raw/ (a body other than 200 under
 // raw/errors/) and requests.jsonl (a line with the status and headers of an answer as they arrive, then that line with the size and the
@@ -42,15 +49,19 @@ export const PRODUCTS = ["USDT-USD"]; // closed list
 export const GRANULARITIES = Object.freeze({ "15m": 900 }); // closed list: name -> seconds, the value of the granularity parameter
 const MINUTE_MS = 60_000; // a bad_time names the grid in minutes: "not on the 15-minute grid"
 export const WINDOW = 300; // data points per request, the documented maximum
-const CORE = WINDOW - 2, HALF = CORE / 2; // slots per request: a margin slot on each side keeps 299 or 300 points; HALF opens pass 2
+const CORE = WINDOW - 2, HALF = CORE / 2; // slots per request: a margin slot on each side keeps 299 or 300 points; HALF pads pass 2
 export const PAUSE_MS = 250;
 export const MAX_PAGES = 100;
 export const TIMEOUT_MS = 30_000;
+/** Bytes of one body, read as a stream (SERIES-BODY-BOUND-1): 300 candles of 15 min whose five values are the longest plain text of a
+ *  float64 (24 characters) weigh 41 401 bytes, 52 202 indented by two spaces; 2 ** 16 is above both (G1 journal, COINBASE-PASS-EDGES-1). */
+export const BODY_MAX = 65_536;
 export const CSV_COLUMNS = ["open_time_utc", "open_time_ms", "low", "high", "open", "close", "volume"];
 export const STOPS = ["usage", "bad_product", "bad_granularity", "bad_time", "end_in_future", "too_many_pages", "proxy_refused",
   "tls_unverified", "out_not_empty", "out_in_git_tree", "host_refused", "network_error", "timeout", "rate_limited", "server_error",
   "redirect_refused", "http_status", "body_not_json", "body_not_candles", "row_shape", "off_grid", "out_of_window", "duplicate_conflict",
-  "raw_page_altered", "raw_page_missing", "raw_page_unused", "window_not_served", "window_inconsistent", "empty_page", "bad_pass"];
+  "raw_page_altered", "raw_page_missing", "raw_page_unused", "window_not_served", "window_inconsistent", "empty_page", "bad_pass",
+  "body_too_large"];
 const LF = String.fromCharCode(10);
 const DECIMAL = /^[0-9]+([.][0-9]+)?$/; // a plain decimal: no sign, no exponent (JSON already refuses a leading zero)
 const SECONDS = /^[0-9]+$/;
@@ -107,18 +118,28 @@ export function parseArgs(argv) {
 
 /** Grid slots in [start, end): 2 880 in a month of 30 days, 146 112 from 2022-08-01 to 2026-10-01 (the monthly plan of the corrections). */
 export const expectedCount = (start, end, granularity = "15m") => (end - start) / (GRANULARITIES[granularity] * 1000);
-/** Requests of one run, one per core: pass 1, 10 in any month (2 688 to 2 976 slots), 491 from 2022-08-01 to 2026-10-01; pass 2, 10 or 11. */
+/** Requests of one run, one per core: pass 1, 10 in any month (2 688 to 2 976 slots), 491 from 2022-08-01 to 2026-10-01; pass 2, 11. */
 export const windowCount = (start, end, granularity = "15m", pass = 1) => cores(start, end, GRANULARITIES[granularity] * 1000, pass).length;
 
-/** The windows [from, to) of one run, in order (recording, replay and windowCount): cores of CORE slots from start, the last one cut at
- *  end; pass 2 opens with a core of HALF slots (ADR 0006 addendum 7 R1: a second reading, its windows shifted by half a core). */
+/** The windows [from, to) of one run, in order (recording, replay, windowCount and end_in_future): cores of CORE slots, the last one cut
+ *  short, over [start, end) in pass 1 and over [start - HALF, end + HALF) slots in pass 2 (ADR 0006 addendum 7 R1, a second reading whose
+ *  windows are shifted by half a core; lot COINBASE-PASS-EDGES-1, its first and last ones too: no start shared with pass 1, and an end
+ *  shared only when end - start is HALF slots modulo CORE, a pass 2 that run refuses: sharedEnd). */
 function cores(start, end, step, pass) {
-  const out = [];
-  for (let from = start, to; from < end; from = to) {
-    to = Math.min(from + (pass === 2 && from === start ? HALF : CORE) * step, end);
+  const out = [], pad = pass === 2 ? HALF * step : 0;
+  for (let from = start - pad, to; from < end + pad; from = to) {
+    to = Math.min(from + CORE * step, end + pad);
     out.push([from, to]);
   }
   return out;
+}
+
+/** The first end of a core of pass 2 that is also the end of a core of pass 1 over [start, end), or null (G2-1 of the G2 of lot
+ *  COINBASE-PASS-EDGES-1): only when end - start is HALF slots modulo CORE, a core of pass 2 then ending at end, as the last core of pass
+ *  1 does; run refuses such a pass 2 before any request and scripts/compare-coinbase-passes.mjs refuses such a month. */
+export function sharedEnd(start, end, step) {
+  const ends = new Set(cores(start, end, step, 1).map(([, to]) => to));
+  return cores(start, end, step, 2).map(([, to]) => to).find((to) => ends.has(to)) ?? null;
 }
 
 /** No proxy route and no widened TLS trust: a variable named NODE_OPTIONS or NODE_USE_ENV_PROXY or ending in _PROXY, or one of the four
@@ -149,9 +170,23 @@ export function checkHost(url) {
   if (u === null || u.protocol !== "https:" || !HOSTS.includes(u.host) || u.username !== "" || u.password !== "") stop("host_refused", { url });
 }
 
+/** The body of an answer read as a stream: its bytes, or null as soon as they pass BODY_MAX (the stream then cancelled, nothing kept);
+ *  an error of the stream rejects, for its caller to name (SERIES-BODY-BOUND-1; scripts/probe-coinbase-bounds.mjs reads its bodies so). */
+export async function readBody(res) {
+  const reader = res.body?.getReader(), chunks = [];
+  let bytes = 0;
+  for (let part = await reader?.read(); part !== undefined && !part.done; part = await reader.read()) {
+    bytes += part.value.byteLength;
+    if (bytes > BODY_MAX) { reader.cancel().catch(() => undefined); return null; }
+    chunks.push(part.value);
+  }
+  return Buffer.concat(chunks);
+}
+
 /** One request per window: its status and headers are logged as they arrive, with the file that will keep its body (raw/ for a 200,
  *  raw/errors/ else), then that line again with the size and sha256 of the body, written before it is read; any status but 200 stops,
- *  no retry; an error once the delay has expired is a timeout, any other one a network_error. */
+ *  no retry; an error once the delay has expired is a timeout, any other one a network_error; a body past BODY_MAX stops
+ *  (body_too_large) with the first line alone, nothing of it written. */
 async function livePage(ctx, from, to) {
   const url = `${ORIGIN}/products/${ctx.product}/candles?granularity=${String(ctx.step / 1000)}&start=${isoOf(from - ctx.step)}&end=${isoOf(to)}`;
   checkHost(url);
@@ -164,7 +199,8 @@ async function livePage(ctx, from, to) {
   const status = res.status, retryAfter = header("retry-after"), file = status === 200 ? `raw/${name}` : `raw/errors/${name}`;
   const line = { url, status, at, file, headers: { date: header("date"), "retry-after": retryAfter }, header_names: [...res.headers.keys()] };
   log(line);
-  try { body = Buffer.from(await res.arrayBuffer()); } catch (e) { failed(e); }
+  try { body = await readBody(res); } catch (e) { failed(e); }
+  if (body === null) stop("body_too_large", { url, status, max_bytes: BODY_MAX });
   log({ ...line, bytes: body.length, sha256: sha256(body) });
   if (status !== 200) mkdirSync(join(ctx.out, "raw", "errors"), { recursive: true });
   writeFileSync(join(ctx.out, file), body);
@@ -224,9 +260,14 @@ function candlesOf(ctx, body, from) {
 /** The window loop that the recording and the replay share: same windows, same order, same checks. Every candle is compared with the
  *  first one seen for its slot on any page (the end margin of a window comes before the core that keeps that slot). A page that serves
  *  candles, none in its [start, end], and a slot of [start, end) seen on a page yet kept by no core are named stops (G2c-2 of the G2);
- *  an empty page is counted and the run goes on to its last request, then stops empty_page (addendum 7, correction 3 of RECHERCHES). */
+ *  an empty page is counted and the run goes on to its last request, then stops empty_page (addendum 7, correction 3 of RECHERCHES).
+ *  A slot of a core outside [start, end), in pass 2 alone, is a witness: kept apart, never a row (lot COINBASE-PASS-EDGES-1). An empty
+ *  page whose core starts after end holds witnesses alone, and the core before it holds end strictly inside its request: counted, never
+ *  a stop (rule of RECHERCHES, 2026-10-03). A core of pass 2 starts at end only when end - start is HALF slots modulo CORE, a pass 2 that
+ *  run refuses before any request (sharedEnd): from = end never reaches this loop, where its empty page would stay a stop. */
 async function collect(ctx, page) {
-  const rows = new Map(), seen = new Map(), got = { pages: 0, duplicates: 0, before: 0, atStart: 0, atEnd: 0, empty: [] };
+  const rows = new Map(), seen = new Map(), witnesses = new Set();
+  const got = { pages: 0, duplicates: 0, before: 0, atStart: 0, atEnd: 0, empty: [], emptyWitness: 0 };
   for (const [from, to] of cores(ctx.start, ctx.end, ctx.step, ctx.pass)) {
     const first = from - ctx.step;
     if (got.pages > 0 && ctx.live) await ctx.sleep(PAUSE_MS);
@@ -244,16 +285,18 @@ async function collect(ctx, page) {
       if (ms < first) got.before += 1;
       else if (ms === first) got.atStart += 1;
       else if (ms === to) got.atEnd += 1;
-      else if (rows.has(ms)) got.duplicates += 1;
+      else if (rows.has(ms) || witnesses.has(ms)) got.duplicates += 1;
+      else if (ms < ctx.start || ms >= ctx.end) witnesses.add(ms);
       else rows.set(ms, fields);
     }
     if (served > 0 && inside === 0) stop("window_not_served", { page: isoOf(from), candles: served });
-    if (served === 0) got.empty.push(isoOf(from));
+    if (served === 0 && from > ctx.end) got.emptyWitness += 1; // witnesses alone, end inside the request before: counted
+    else if (served === 0) got.empty.push(isoOf(from));
   }
   const orphans = [...seen.keys()].filter((t) => t >= ctx.start && t < ctx.end && !rows.has(t));
   if (orphans.length > 0) stop("window_inconsistent", { slots: orphans.length, first: isoOf(Math.min(...orphans)) });
   if (got.empty.length > 0) stop("empty_page", { empty_pages: got.empty.length, pages: got.empty });
-  return { rows, ...got };
+  return { rows, witnesses, ...got };
 }
 
 /** Ascending candles to CSV lines (the five values as received); every grid slot of [start, end) without a candle is missing. */
@@ -265,6 +308,10 @@ function normalize(ctx, rows) {
   return { csv: [CSV_COLUMNS.join(","), ...lines].join(LF) + LF, times, missing };
 }
 
+/** witness_slots of a pass 2 (lot COINBASE-PASS-EDGES-1): the count of its witnesses, the open times of the first and of the last (null
+ *  for none); never a value. */
+const witnessesOf = (w) => ({ count: w.size, first: w.size > 0 ? isoOf(Math.min(...w)) : null, last: w.size > 0 ? isoOf(Math.max(...w)) : null });
+
 /** The normalized outputs, written once every check has passed; SHA256SUMS covers every file of --out. */
 function writeOutputs(ctx, got, norm, startedAt) {
   const csvName = `${ctx.product}-${ctx.granularity}.csv`, first = norm.times[0], last = norm.times.at(-1);
@@ -275,6 +322,7 @@ function writeOutputs(ctx, got, norm, startedAt) {
     granularity_s: ctx.step / 1000, start: isoOf(ctx.start), end_exclusive: isoOf(ctx.end), pass: ctx.pass,
     expected: expectedCount(ctx.start, ctx.end, ctx.granularity), rows: norm.times.length, missing: norm.missing.length, empty_pages: got.empty.length,
     duplicates_removed: got.duplicates, discarded_before_start: got.before, margin_at_start: got.atStart, margin_at_end: got.atEnd,
+    ...(ctx.pass === 2 ? { witness_slots: witnessesOf(got.witnesses), empty_witness_pages: got.emptyWitness } : {}), // pass 1: base keys
     pages: got.pages, first_open_time: first === undefined ? null : isoOf(first), last_open_time: last === undefined ? null : isoOf(last),
     csv: csvName, csv_sha256: sha256(norm.csv), missing_sha256: sha256(missingText), recorder_sha256: sha256(readFileSync(SCRIPT)),
     node: process.version, from_raw: ctx.fromRaw, started_at: startedAt, finished_at: new Date(ctx.now()).toISOString(),
@@ -291,9 +339,12 @@ function writeOutputs(ctx, got, norm, startedAt) {
 /** One recording (or, with --from-raw, one replay) into --out: resolves to the manifest, rejects with a RecorderStop. */
 export async function run(argv, io = {}) {
   const now = io.now ?? Date.now;
-  const args = parseArgs(argv);
-  if (args.end > now()) stop("end_in_future", { end: isoOf(args.end), now: new Date(now()).toISOString() });
-  const pages = windowCount(args.start, args.end, args.granularity, args.pass);
+  const args = parseArgs(argv), windows = cores(args.start, args.end, args.step, args.pass);
+  const shared = args.pass === 2 ? sharedEnd(args.start, args.end, args.step) : null; // G2-1: before any request, in both modes
+  if (shared !== null) stop("bad_pass", { value: "2", allowed: ["1"], core_end: isoOf(shared) });
+  const reach = windows.at(-1)[1]; // the end of the last window: --end, or 149 slots past it in pass 2 (its witnesses: past data alone)
+  if (reach > now()) stop("end_in_future", { end: isoOf(reach), now: new Date(now()).toISOString() });
+  const pages = windows.length;
   if (pages > MAX_PAGES) stop("too_many_pages", { pages, max: MAX_PAGES });
   const live = args.fromRaw === null;
   if (live) guardEnv(io.env ?? process.env, io.execArgv ?? process.execArgv);

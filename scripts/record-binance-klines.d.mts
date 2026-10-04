@@ -1,7 +1,11 @@
 // scripts/record-binance-klines.d.mts -- type surface of scripts/record-binance-klines.mjs for the type-checked root test
-// (test/record-binance-klines.test.ts), which imports the recorder without running it (run-guard) and without any network (its fetch
-// is injected). Runtime implementation = record-binance-klines.mjs; Node ignores this file. Neither file is in the export whitelist
+// (test/record-binance-klines.test.ts), which imports the recorder without running it (run-guard) and without any network (a fetch
+// shaped as https.request is injected, or https.request itself is replaced by a spy that throws). Runtime implementation =
+// record-binance-klines.mjs; Node ignores this file. Neither file is in the export whitelist
 // (scripts/export-public.mjs): the recorder and its series stay out of the public tree (condition C-5, series not redistributable).
+import type { ClientRequest } from "node:http";
+import type { RequestOptions } from "node:https";
+
 export const ENDPOINT: string;
 export const HOSTS: readonly string[];
 export const SYMBOLS: readonly string[];
@@ -10,12 +14,16 @@ export const LIMIT: number;
 export const PAUSE_MS: number;
 export const MAX_PAGES: number;
 export const TIMEOUT_MS: number;
+/** The largest body a request reads, in bytes, before body_too_large (lot BINANCE-PRE153-1, D-5). */
+export const MAX_BODY_BYTES: number;
 export const CSV_COLUMNS: readonly string[];
 export const STOPS: readonly string[];
 
 /** What a run takes from its caller instead of the process: the test seam, never a command-line flag nor a variable. */
 export interface RecorderIo {
-  fetch?: (url: string, init: RequestInit) => Promise<Response>;
+  /** Shaped as node:https request (lot BINANCE-PRE35-1): called with the URL and the recorder's options (its own agent, which keeps
+   *  no TLS session, and a 30 s signal); the recorder ends the request. Default: https.request. */
+  fetch?: (url: string, options: RequestOptions) => ClientRequest;
   sleep?: (ms: number) => Promise<void>;
   now?: () => number;
   env?: Record<string, string | undefined>;
@@ -72,6 +80,10 @@ export interface SeriesManifestV1 {
  *  fields of v1 and both lists always present, so that one identifier keeps one meaning. */
 export interface SeriesManifest extends Omit<SeriesManifestV1, "schema"> {
   schema: "monark.series.binance.v2";
+  /** A replay: the sha256 of its source's requests.jsonl and SHA256SUMS as read, null when absent; a recording: null (lot
+   *  BINANCE-PRE153-1, D-1 (d): an anchor outside the source, sealed with the replay). */
+  from_raw_requests_sha256: string | null;
+  from_raw_sha256sums_sha256: string | null;
   /** Kept candles whose close is not open + interval - 1 ms, the close as received (rule 8 of RECHERCHES ADR 0006): ascending. A close
    *  out of its slot is a stop (close_out_of_slot), so each listed close lies in [open, open + interval - 1 ms): a truncation. */
   irregular_close: { open_time_ms: number; close_time_ms: number }[];
