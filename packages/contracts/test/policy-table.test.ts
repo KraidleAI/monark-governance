@@ -133,14 +133,19 @@ test("policy_row_value_grammars", () => {
   refused({ ...BAND, tail_tail_num: "0123" }, /tail_tail_num is not a string/);
   refused({ ...BAND, miss_adj_tail_den: "0" }, /miss_adj_tail_den is not a string/);
   refused({ ...BAND, tail_tail_num: 12 }, /tail_tail_num is not a string/);
-  refused({ ...DIR, alpha: "0.450" }, /alpha is not a shortest round-trip decimal/);
-  refused({ ...DIR, alpha: "NaN" }, /alpha is not a shortest round-trip decimal/);
+  refused({ ...DIR, thresholds: { t1: "0.50", t2: "1" } }, /thresholds\.t1 is not a shortest round-trip decimal/);
   refused({ ...DIR, w: 2 ** 53 }, /w is not a safe integer/);
   refused({ ...DIR, calib_attempt: 5 }, /calib_attempt is not a safe integer in \[1, 4\]/);
   refused({ ...DIR, calib_parent: "parent" }, /calib_parent is not a string/);
   refused({ ...DIR, bucket: "up-b4" }, /bucket is not one of/);
   refused({ ...DIR, row_format: "class-policy-v1" }, /row_format is not one of class-policy-v2/);
   refused({ ...BAND, scale_table: { ...(BAND["scale_table"] as Obj), values: [0.8, 0, null] } }, /values\[1\] is not a finite number > 0/);
+});
+
+// killer: packages/contracts/src/policy-table.ts:71 CONST "[0-9]{0,3}[1-9]" -> "[0-9]{0,4}[1-9]"
+test("policy_row_alpha_grammar", () => {
+  for (const alpha of ["0.1", "0.45", "0.01", "0.0001", "0.9999", "0.1234"]) assertClosedPolicyRow({ ...DIR, alpha });
+  for (const alpha of ["-0.1", "2", "1e-7", "0.12345", "0", "1", "0.450", "NaN", ".5", 0.5]) refused({ ...DIR, alpha }, /PolicyRow\.alpha is not a string/);
 });
 
 // killer: packages/contracts/src/policy-table.ts:109 SDL "cuts.every" -> ""

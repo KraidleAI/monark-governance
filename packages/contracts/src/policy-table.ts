@@ -68,7 +68,7 @@ const ROW_SHAPE = {
   thresholds: nul(obj({ t1: dec, t2: dec })),
   scale_table: nul(obj({ kind: oneOf(["hour-of-week", "us-profile"] as const), values: arr(nul(pos)), sha256: HEX64 })),
   calib_support: nul(obj({ min: pos, max: pos })), fit_sha256: nul(HEX64),
-  statement: oneOf(STATEMENTS), alpha: dec, test_delta: nul(dec), calib_attempt: int(1, 4), calib_cause: nul(str),
+  statement: oneOf(STATEMENTS), alpha: re(/^0\.[0-9]{0,3}[1-9]$/), test_delta: nul(dec), calib_attempt: int(1, 4), calib_cause: nul(str),
   calib_parent: nul(re(/^(none|[0-9a-f]{64})$/)), epoch: nul(int(1)), bound_on: nul(oneOf(["commit", "region"] as const)),
   tau_cap: nul(int(1, 1)), n_min: int(1),
   n: int(0), k_star: nul(int(0)), p_served: nul(int(1)), k_obs: nul(int(0)), misses: nul(int(0)), qhat: nul(num),

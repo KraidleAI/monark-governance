@@ -5,7 +5,7 @@
   "packages/contracts/src/enums.ts": "28858323730c563cee088626e02897eb48aabe2be6d04f3c7f6df0fd5adb0b2c",
   "packages/contracts/src/forbidden-keys.ts": "a2298a6cc8c0b868f419c82f8b862b76d483b177a3828f43a197f5406075da9a",
   "packages/contracts/src/index.ts": "caae510e66eddb9169aac3a96436d5bfb13abc9e0327c83d521a9e5f571a4a17",
-  "packages/contracts/src/policy-table.ts": "946b9d5bfdef9e5059aa2e894f21600e758acb96df2062694772525aa939926f",
+  "packages/contracts/src/policy-table.ts": "38e67a495495352ac506382d5001ec6f60f8166a3307a390f642d86dd11921a6",
   "packages/contracts/src/region.ts": "369054e6760ed8abf8d00d21c587d1265288d1fce6ebbfc3cb23d623b0dc05e6",
   "packages/contracts/src/serialize.ts": "508341eb741424e660b52ae45f4323791650612eef172060071715f25c91d253",
   "packages/contracts/src/tool-error-codes.ts": "4d3271caf044707e846d6efe5f386ef36382f19a7c96bc8b8f32dadf5edf231c",
