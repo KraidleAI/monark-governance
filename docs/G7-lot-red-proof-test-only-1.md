@@ -109,8 +109,31 @@ Questions restantes pour MONARK :
 - **Q-RTO-6** : la recherche B-1 est textuelle ; un import par chemin calculé lui échappe. Faut-il une liste fermée des aides de test
   importées par la production (les deux `*-builder.ts`) en plus ?
 
+## Re-revue de la G2 (CORRECTIONS REQUISES : B-3 ; X2, X3)
+
+Rapport : `scratchpad/G2-red-proof-tools-rr.md`. Lot 1 re-plié et fusionné (`871c542`, `--no-ff`, deux queues du fichier de test
+gardées) : la **base** du lot devient `c2ccc78` (tête de RED-PROOF-TAP-TRUNCATION-1). La PR #113 n'a pas bougé sur origin (`6dd2ecb`) :
+rien d'elle n'est fusionné. Commits : `9ab3059` (tests), `c7a7d27` (code, **gel**), puis ce G7.
+
+| Point | Changement (gel `c7a7d27`) | Test (rouge à la base) | Mutant à la main |
+|---|---|---|---|
+| **B-3** (bloquante) : un chemin calculé échappe à la recherche (`scripts/census/u4-*.mjs` lisent `apps/sentinel/test/fixtures/ukemi/…` par `join(…, "test", "fixtures", …)`) ; un lot pouvait aussi affaiblir une aide d'assertion partagée | l.216 : sous `--test-only`, un fichier de `test/` hors `*.test.ts` **modifié ou supprimé** va en production ; seul un ajout passe, et la recherche des chemins littéraux reste pour l'ajout (un fichier que la production nomme sans l'avoir) | `red_proof_test_only_refuses_a_modified_test_support_file_and_admits_an_added_one` (modifié : refusé ; ajouté : `ok`, exit 0) ; le test B-1 vise désormais des ajouts nommés par la base | tueur déclaré l.216 tué ; B-1 (`production.push`) tué |
+| **X2** : retrait dans un fichier modifié non testé ; un même nom dans un autre fichier le masquait | l.217-218 : retrait jugé par fichier ; un fichier modifié garde ses propres tests ; ceux d'un fichier supprimé doivent revenir dans un fichier ajouté (déplacement) | `red_proof_test_only_names_a_test_removed_inside_a_modified_file_even_if_another_file_reuses_its_name` | X2 (`st === "D"`) et X2b (clé partagée) tués |
+| **X3** : déclaration non ancrée ; CRLF | l.219 : `/^red-proof: test-only\r?$/m` ; chaque G0 de fixture écrit la déclaration en CRLF | `red_proof_test_only_reads_the_declaration_only_on_a_line_of_its_own` (phrase citée en ligne : refus) | X3 tué ; `\r?` retiré (X3b) est **équivalent** : en JS, `$` avec `m` s'arrête déjà devant `\r` ; gardé pour la lecture |
+
+Limite restante, déclarée : `listed` accepte le tueur n'importe où dans le texte du G0 (pas seulement dans une liste).
+
+Contrôles au gel `c7a7d27` : `test/red-proof.test.ts` 44/45 sous Node 22 (le rouge préexistant `vi_hangs`) ; `tsc` vert (aussi au
+commit des tests) ; adresses des tueurs **45/45** ; R-25 sur `c2ccc78e...HEAD` : **205** (sous 547). Mutants rejoués en place
+(lanceur protégé, fichier restauré, `git status` propre).
+
+**Oracle red-proof non rejoué** : le disque de l'hôte est plein (`df` : 74 Mo libres sur `/`, quota atteint par d'autres travaux :
+`/tmp/l2-book-*`, d'autres worktrees) ; un passage clone deux fois le dépôt (≈ 1,2 Go). Commande à rejouer dès que la place revient :
+`node scripts/red-proof.mjs --base c2ccc78e --gel c7a7d275 --repo /home/user/monark-governance-rt --draw 14 --seed 37` (attendu : 14 F2P,
+14 tués). Le passage sous Node 24 attend aussi la place.
+
 ## Sortie
 
 Prêt pour le contrôle par diff de MONARK, après RED-PROOF-TAP-TRUNCATION-1 (empilé, fusionné). Item RED-PROOF-TEST-ONLY-1 clos au
-gel `9e82a42` (pli de la G2) ; Q-RTO-1 à Q-RTO-4 répondues, Q-RTO-5 et Q-RTO-6 ouvertes. Le changement de mode de `packages/rpc-guard/bin/rpc-guard.mjs` laissé par `npm ci`
+gel `c7a7d27` (pli de la G2 et de sa re-revue) **sous réserve de l'oracle red-proof** à rejouer ; Q-RTO-1 à Q-RTO-4 répondues, Q-RTO-5 et Q-RTO-6 ouvertes. Le changement de mode de `packages/rpc-guard/bin/rpc-guard.mjs` laissé par `npm ci`
 n'est pas commis ; rien n'est poussé.
