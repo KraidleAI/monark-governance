@@ -25,7 +25,7 @@ Un test neuf, `apps/harness/test/error-code-sites.test.ts` : `every_refusal_site
 
 ## Note de fusion
 
-L'amendement daté de ce lot et celui de CM-3b (« nuit, 4 ») s'ajoutent tous deux en fin de l'ADR-CM : la PR fusionnée en second se rebase (ordre chronologique : « nuit, 4 » du 2026-10-03, puis celui du 2026-10-04).
+L'amendement daté de ce lot et celui de CM-3b (« nuit, 5 ») s'ajoutent tous deux en fin de l'ADR-CM : la PR fusionnée en second se rebase (ordre chronologique : « nuit, 5 » du 2026-10-03, puis celui du 2026-10-04).
 
 ## Pli du contrôle par diff de MONARK sur CM-2b (2026-10-04)
 
