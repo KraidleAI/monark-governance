@@ -373,6 +373,10 @@ Tronc `lot/etude-suite`. Dernier oracle complet : 1 779 tests, dont 1 776 verts,
     de production vaut `Date.now()*1000` (résolution ms), l ordre fin étant porté par `mono_ns`. Construction qui donne la garantie :
     mesurer la résolution réelle et la dérive de `performance.timeOrigin + performance.now()` contre l horloge de l hôte sur un jour
     de M-1, ou un module natif (R-8). Déclencheur : avant le G1 de P1-c4 ; prix : une mesure ; état : ouvert.
+  - FAITS-L2-ACCESS-3-E-1 (procurement ; (e) de FAITS-L2-ACCESS-3, non établi le 2026-10-04) : `timeUnit` sur les routes futures ;
+    absent des deux pages « legacy » lues ; la page neuve (`…/ws-streams/public`) ne rend pas son corps dans le navigateur interne.
+    Construction : la lire par le navigateur externe ou par le fichier source de la page, datée et épinglée. Déclencheur : avant le G1
+    de P1-a4 ; état : ouvert.
   - I-2 de RECORDER-CLOSE-TIME-1, tuyau des listes `irregular_close` et `zero_trade` (branchement) : déclarer entrée, sortie, état et test
     de composition ; la pièce reste « upcoming » tant qu'aucun chemin servi ne les lit. Source : `ct/corr/CORR.md` l.123. Déclencheur :
     G7 de la partie USDT/USD, non atteint (HANDOFF, Q-5) ; état : ouvert. Absorbe Q-CTV2-3 de BINANCE-V2-1 (G2-CTV2-5) : `v2` est le
