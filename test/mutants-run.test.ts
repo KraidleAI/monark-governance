@@ -86,11 +86,22 @@ function table(name: string, rows: object[]): string {
 }
 interface Run { status: number | null; stdout: string; stderr: string; out: string; rec: MutantsRecord | null; pid: number }
 let n = 0, main: Run | undefined;
-function run(args: string[], o: { out?: string; lock?: string; floor?: boolean; cli?: string; node?: string[]; env?: Record<string, string> } = {}): Run {
-  const f = fixture(), out = o.out ?? join(f.root, `out-${++n}`), rec = join(out, "RESULTS.json"), floor = o.floor === false ? [] : ["--min-free-mb", "4096"];
-  const lock = o.lock ?? join(f.root, "no-lock"), r = spawnSync(process.execPath, [...(o.node ?? []), o.cli ?? CLI, "--repo", f.dir, "--out", out, "--lock-root", lock, ...floor,
-    "--timeout-ms", "60000", ...args], { encoding: "utf8", env: { ...GIT_ENV, FX_TOKEN: "x", ...o.env }, timeout: 600_000 });
-  return { status: r.status, stdout: r.stdout, stderr: r.stderr, out, rec: existsSync(rec) ? (JSON.parse(readFileSync(rec, "utf8")) as MutantsRecord) : null, pid: r.pid };
+type RunOpts = { out?: string; lock?: string; floor?: boolean; cli?: string; node?: string[]; env?: Record<string, string> };
+function cmd(args: string[], o: RunOpts): { argv: string[]; env: NodeJS.ProcessEnv; out: string } {
+  const f = fixture(), out = o.out ?? join(f.root, `out-${++n}`), floor = o.floor === false ? [] : ["--min-free-mb", "4096"], lock = o.lock ?? join(f.root, "no-lock");
+  return { argv: [...(o.node ?? []), o.cli ?? CLI, "--repo", f.dir, "--out", out, "--lock-root", lock, ...floor, "--timeout-ms", "60000", ...args], env: { ...GIT_ENV, FX_TOKEN: "x", ...o.env }, out };
+}
+const done = (r: { status: number | null; stdout: string; stderr: string; pid: number | undefined }, out: string, rec = join(out, "RESULTS.json")): Run =>
+  ({ status: r.status, stdout: r.stdout, stderr: r.stderr, out, rec: existsSync(rec) ? (JSON.parse(readFileSync(rec, "utf8")) as MutantsRecord) : null, pid: r.pid ?? 0 });
+function run(args: string[], o: RunOpts = {}): Run {
+  const { argv, env, out } = cmd(args, o);
+  return done(spawnSync(process.execPath, argv, { encoding: "utf8", env, timeout: 600_000 }), out);
+}
+async function runAsync(args: string[], o: RunOpts = {}): Promise<Run> { // the event loop stays free: a child of this test that exits is reaped, never a zombie (MUTANTS-WAITER-ZOMBIE-1)
+  const { argv, env, out } = cmd(args, o), c = spawn(process.execPath, argv, { env }), r = { status: null as number | null, stdout: "", stderr: "", pid: c.pid };
+  c.stdout.setEncoding("utf8").on("data", (d: string) => { r.stdout += d; }); c.stderr.setEncoding("utf8").on("data", (d: string) => { r.stderr += d; });
+  r.status = await new Promise<number | null>((ok) => c.on("close", ok));
+  return done(r, out);
 }
 const campaign = (): Run => (main ??= run(["--base", fixture().base, "--table", table("table.mjs", ROWS), "--killers", // the one shared campaign; --targets
   "--targets", "test/b.test.ts,test/a.test.ts"])); // adds b, imported by no test, to the graph's targets; a is one already: no duplicate (Q-G2-3)
@@ -417,10 +428,10 @@ test("mutants_more_than_ten_runs_leave_no_listener_warning", () => { // G02 G29:
 });
 
 // killer: scripts/mutants/run.mjs:232 CONST "lock_wait_ms: lk.waitedMs" -> "lock_wait_ms: 0"
-test("mutants_a_live_waiter_ahead_passes_first_then_the_run_goes_on", () => { // G28: a waiter queued ahead, alive 6 s (past the tool's start)
+test("mutants_a_live_waiter_ahead_passes_first_then_the_run_goes_on", { timeout: 90_000 }, async () => { // G28: a waiter queued ahead, alive 6 s (past the tool's start); async, so the waiter is reaped at its exit
   const { dir, base } = lk(), lock = mkdtempSync(join(fixture().root, "lock-")), child = spawn(process.execPath, ["-e", "setTimeout(() => {}, 6000)"], { stdio: "ignore" });
   write(lock, { [`oracle-lock.queue/000000000000003-${String(child.pid)}.json`]: "{}" });
-  const r = run(["--repo", dir, "--base", base, "--table", table("lk3.json", [L("L1", 1, "1", "2")]), "--poll-ms", "100"], { lock, env: { FX_LOCK: lock, FX_LOG: join(fixture().root, "lk3.log") } });
+  const r = await runAsync(["--repo", dir, "--base", base, "--table", table("lk3.json", [L("L1", 1, "1", "2")]), "--poll-ms", "100", "--wait-ms", "60000"], { lock, env: { FX_LOCK: lock, FX_LOG: join(fixture().root, "lk3.log") } });
   assert.deepEqual([r.status, (r.rec?.baseline?.lock_wait_ms ?? 0) >= 1000], [0, true], r.stderr);
 });
 
