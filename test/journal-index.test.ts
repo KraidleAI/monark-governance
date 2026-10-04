@@ -1,7 +1,7 @@
 /**
  * Root test `journal_index` (ADR-METHODE-2 D8a, D10, D11, D12 (d); lot M-5; decision 275-e). It drives the CLI
  * scripts/journal/index.mjs (add, build) over throwaway git repositories under the OS temp directory: a template with two
- * byte-deterministic commits (fixed identity and dates, no system or global git config, no GIT_* variable; C2 adds docs/b.md;
+ * byte-deterministic commits (fixed identity and dates, no system config, a global one that only turns automatic maintenance off, no GIT_* variable; C2 adds docs/b.md;
  * C3, off the branch, is committed at +0100 an hour after its author) and the frozen files of test/fixtures/journal/ at their
  * repo paths, one copy per build. The frozen entries are the clean fixture (green: the golden test); each control test forges
  * one defect from them. The line above each test is its killer, the production mutation that reddens it (convention of
@@ -10,11 +10,12 @@
  */
 import { after, test } from "node:test";
 import assert from "node:assert/strict";
-import { execFileSync, spawnSync } from "node:child_process";
+import { execFileSync, spawn, spawnSync } from "node:child_process";
 import { createHash } from "node:crypto";
 import { copyFileSync, cpSync, existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { once } from "node:events";
 
 type Entry = Record<string, unknown>;
 interface Hit { code: string; lot: string; line: number; extract: string }
@@ -22,7 +23,9 @@ const ROOT = join(import.meta.dirname, ".."), FX = join(ROOT, "test", "fixtures"
 const C1 = "d3b8d4d9814b74bfa0ae9563616e8feb6f27309d", C2 = "8216f30324b60802d9d6c91beb5f3082dbe0653e";
 const T = mkdtempSync(join(tmpdir(), "monark-journal-")), TPL = join(T, "tpl");
 after(() => { rmSync(T, { recursive: true, force: true, maxRetries: 3 }); });
-writeFileSync(join(T, "gitconfig"), "");
+// LINT-UNTRACKED-TMP-1: since git 2.47 a commit detaches its automatic maintenance, which holds <objects>/maintenance.lock after the
+// commit returns; a copy taken then lists that lock and fails with ENOENT on its .git/objects (CI #110, run 37169648100). Off here.
+writeFileSync(join(T, "gitconfig"), "[maintenance]\n\tauto = false\n");
 const ENV = { ...Object.fromEntries(Object.entries(process.env).filter(([k]) => !k.toUpperCase().startsWith("GIT_"))), GIT_CONFIG_NOSYSTEM: "1", GIT_CONFIG_GLOBAL: join(T, "gitconfig") };
 const git = (a: string[], env: NodeJS.ProcessEnv = {}): string =>
   execFileSync("git", ["-C", TPL, "-c", "user.name=f", "-c", "user.email=f@example.invalid", ...a], { env: { ...ENV, ...env }, encoding: "utf8" }).trim();
@@ -43,11 +46,11 @@ const x = (n: number, patch: Entry = {}): Entry => ({ ...X[n - 1], ...patch });
 const Z = frozen("M-Z");
 /** Line `n` of the frozen M-Z journal, the shape of the real M-5.jsonl (lot M-5b): 1 G2 ACCEPTE, 2 cp-2 REFUS and 3 G2 ACCEPTE (dated the same second), all at C1; 4 cp-2 ACCEPTE-AVEC-CORRECTIONS and 5 G7 ACCEPTE at C2. */
 const z = (n: number, patch: Entry = {}): Entry => ({ ...Z[n - 1], ...patch });
-let seq = 0;
+/** A copy of the repository `from` in a new directory of T; git's lock files (*.lock under .git/) are filtered out before any stat (one may vanish mid-copy). */
+const copy = (from: string, prefix: string): string => { const d = mkdtempSync(join(T, prefix)); cpSync(from, d, { recursive: true, filter: (p) => !(p.endsWith(".lock") && p.split(/[\\/]/).includes(".git")) }); return d; };
 /** A copy of the template (or of `from`) whose docs/journal holds `lots` (lot -> entries, or raw lines). */
 function repo(lots: Record<string, (Entry | string)[]> = {}, from = TPL): string {
-  const r = join(T, `r${String(++seq)}`);
-  cpSync(from, r, { recursive: true });
+  const r = copy(from, "r");
   mkdirSync(join(r, "docs", "journal"), { recursive: true });
   for (const [lot, rows] of Object.entries(lots)) writeFileSync(join(r, "docs", "journal", `${lot}.jsonl`), rows.map((e) => `${typeof e === "string" ? e : JSON.stringify(e)}\n`).join(""));
   return r;
@@ -77,11 +80,11 @@ let gen: { dir: string; mission: string; text: string; recu: Entry; G: string } 
  * edits gen.mjs (the stamp's revision G != recu_head) and holds docs/new.md untracked; then launched by scripts/mission/launch.mjs. */
 function generated(): NonNullable<typeof gen> {
   if (gen !== undefined) return gen;
-  const g = repo(), w = join(T, `w${String(seq)}`), sh = (d: string, ...a: string[]): string => execFileSync("git", ["-C", d, "-c", "user.name=f", "-c", "user.email=f@example.invalid", ...a], { env: ENV, encoding: "utf8" }).trim();
+  const g = repo(), sh = (d: string, ...a: string[]): string => execFileSync("git", ["-C", d, "-c", "user.name=f", "-c", "user.email=f@example.invalid", ...a], { env: ENV, encoding: "utf8" }).trim();
   mkdirSync(join(g, "scripts", "mission"), { recursive: true });
   for (const f of ["gen.mjs", "lint.mjs"]) copyFileSync(join(ROOT, "scripts", "mission", f), join(g, "scripts", "mission", f));
   sh(g, "add", "scripts"); sh(g, "commit", "-q", "-m", "generator");
-  cpSync(g, w, { recursive: true });
+  const w = copy(g, "w");
   writeFileSync(join(w, "scripts", "mission", "gen.mjs"), "// edited on the lot branch\n", { flag: "a" }); sh(w, "commit", "-q", "-am", "lot");
   writeFileSync(join(w, "docs", "new.md"), "untracked\n");
   const [[rules], [body], mission, G] = [file("gen-rules.md", "Rules fixture.\n"), file("gen-body.md", "Body fixture.\n"), join(T, "gen.md"), sh(g, "rev-parse", "HEAD")];
@@ -326,6 +329,23 @@ test("LINT-UNTRACKED: replayed at recu_head, an R-PATH hit on a path that the ge
   // killer: scripts/journal/index.mjs:115 CONST "lines.some((l) => l.startsWith(STAMP_FIELD))" -> "true"
   const listed = g.text.split("\n").filter((l) => l.includes("` (non suivi) `")).map(() => "R-PATH").join(",");
   assert.deepEqual(build({ "M-X": [line(bare, s3)] }, g.dir).hits, [`J-LINT M-X:1 gen-bare.md replayed at ${String(g.recu.head)}: ${listed}`]); // no stamp line: not a generated header
+});
+
+// killer: scripts/journal/index.mjs:120 CONST "off.has(h.extract)" -> "false"
+test("LINT-UNTRACKED-TMP-1: no git maintenance outlives a commit here, and 100 copies of the generated repository taken while a lock comes and goes in its .git/objects are whole; LINT-UNTRACKED stays green on them", async () => {
+  assert.equal(spawnSync("git", ["-C", TPL, "config", "--get", "maintenance.auto"], { env: ENV, encoding: "utf8" }).stdout.trim(), "false"); // a commit detaches no maintenance
+  const g = generated(), lock = join(g.dir, ".git", "objects", "maintenance.lock"), tree = (d: string): string => execFileSync("git", ["-C", d, "rev-parse", "HEAD^{tree}"], { env: ENV, encoding: "utf8" }).trim();
+  const churn = spawn(process.execPath, ["-e", `const f = require("node:fs"), p = ${JSON.stringify(lock)}; for (let n = 1; ; n++) { try { f.writeFileSync(p, ""); f.unlinkSync(p); } catch {} if (n === 100) process.stdout.write("churning\\n"); }`], { stdio: ["ignore", "pipe", "inherit"] }); // the detached maintenance of CI #110, replayed
+  const trees = new Set<string>();
+  try {
+    assert.equal(await new Promise<string>((ok, ko) => { churn.once("error", ko); churn.once("exit", (c, sig) => { ko(new Error(`churn exited ${String(c)} ${String(sig)}`)); }); churn.stdout.once("data", (b: Buffer) => { ok(b.toString()); }); }), "churning\n"); // started and churning
+    for (let i = 0; i < 100; i++) { const d = copy(g.dir, "load"); trees.add(tree(d)); rmSync(d, { recursive: true, force: true }); }
+    assert.deepEqual([churn.exitCode, churn.signalCode], [null, null]); // still churning after the last copy
+  } finally { if (churn.pid !== undefined && churn.exitCode === null && churn.signalCode === null) { const gone = once(churn, "exit"); churn.kill("SIGKILL"); await gone; } rmSync(lock, { force: true }); }
+  assert.deepEqual([...trees], [tree(g.dir)]);
+  const m = x(3, { mission: { path: g.mission, sha: sha(g.text), recu_sha: sha(g.text), recu_date: g.recu.date, recu_head: g.recu.head } });
+  assert.deepEqual(build({ "M-X": [m] }, g.dir).codes, []); // docs/new.md, listed (non suivi) in the header, is no R-PATH hit
+  const c = repo(); writeFileSync(join(c, "Cargo.lock"), "x\n"); assert.equal(existsSync(join(copy(c, "lk"), "Cargo.lock")), true); // a lock file outside .git/ is copied
 });
 
 // killer: scripts/journal/index.mjs:149 CONST "e.tier = tier ?? o.tier" -> "e.tier = o.tier"

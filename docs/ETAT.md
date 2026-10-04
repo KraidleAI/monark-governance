@@ -413,6 +413,11 @@ Tronc `lot/etude-suite`. Dernier oracle complet : 1 779 tests, dont 1 776 verts,
     de provenance ; ancre recherches#94). Reste des 153 : la course des 35, après la fusion de BINANCE-PRE35-1 (#115).
     Copies de travail sous `F:/tmp/seal118` (428 Mo) : décision de l investisseur (2026-10-04, 03:3x UTC, choix verbatim « Après le
     scellement des 35 (Recommandé) ») : supprimées après le scellement des 35 ; ancre, outils et rapports gardés.
+    Copies de travail de la course des 35 (`C/stage`, `C/refetch118`, `C/replay`, `C/verif`, `C/arrets` après copie de leurs journaux) :
+    décision de l investisseur (2026-10-04, 05:3x UTC, choix verbatim « Après le scellement vérifié (Recommandé) ») : supprimées après
+    le scellement vérifié des 35, avec celles de `F:/tmp/seal118` ; journaux, ancre, outils et rapports gardés (Q-C35-3 du PLAN-COURSE-35).
+    Nom de produit confidentiel présent dans 15 documents anciens de `monark-governance` (public) : décision de l investisseur (même heure,
+    choix verbatim « Rien, c est voulu ») : il y reste ; l outil SPEC-PUBLISH-PIPELINE-1 le bloque par empreinte dans ce qu il produit.
   - SEAL118-PAGES-REFETCH-1 (PAROXYSME ; Q-SEAL118-4) : les pages des 118 ne sont attestées que par le journal du 2026-10-02, sans
     provenance TLS (Q-G2C-1). Construction : redemander les mêmes 140 URL par l enregistreur du tronc, qui journalise les empreintes TLS,
     et comparer à l octet. Prix : 140 requêtes de poids 2, environ 70 s, aucun coût. Déclencheur : avec la course des 35 ; état : ouvert.
@@ -420,6 +425,11 @@ Tronc `lot/etude-suite`. Dernier oracle complet : 1 779 tests, dont 1 776 verts,
     37169648100) sur `ENOENT` sous `/tmp/monark-journal-…/w106/.git/objects` ; vert ici. Construction : rendre la copie du dépôt de test
     indépendante du nettoyage concurrent de `/tmp` (dossier propre au test, copie atomique), et un cas qui la rejoue sous charge.
     Déclencheur : le prochain lot d outillage ; état : ouvert (critique K-5 des contrôles de #107 à #112).
+    **Clos le 2026-10-04** par le lot LINT-UNTRACKED-TMP-1 (PR #118 de RECHERCHES, fusion au tronc `8732e9b0`, oracle : seuls les 2 rouges
+    du temps (ii)) : la cause était la maintenance détachée de git (≥ 2.47) qui tient puis supprime `.git/objects/maintenance.lock` ;
+    `maintenance.auto = false` dans la config du test, copie qui saute les `*.lock` sous `.git/` ; 6/2 400 → 0/2 400.
+  - CPSYNC-LIVE-REPO-ABORT-1 (information, RECHERCHES) : un `cpSync` natif non filtré d un dépôt git vivant peut faire avorter tout le
+    processus de test. Déclencheur : tout test neuf qui copie un dépôt vivant ; état : ouvert.
   - Temps (ii) de BTC-DIR-RETIRE-SURFACES-1 complété (critique K-4) : `apps/site/data/ukemi-served.json` par `scripts/sync-ukemi-served.mjs`,
     après la CA, avec `harness-served.json` et `narabi-served.json` ; et `integration_test` de Shōgen : `probe_harness_records_real_decision`
     en tête, puis les deux tests plus faibles et les deux tests unitaires de la jointure (critique K-6, décision de l orchestrateur).
@@ -614,21 +624,31 @@ Tronc `lot/etude-suite`. Dernier oracle complet : 1 779 tests, dont 1 776 verts,
     publication sans `request` pendant une requête de bouclage tenue ouverte). Source : `bnpre/corr/CORR.md` l.91,
     `bnpre/g2/G2-RAPPORT.md` l.105, `bnpre/rr/G2-RAPPORT.rr.md` l.70 (O-1). Déclencheur : le prochain lot qui touche
     `scripts/record-binance-klines.mjs` ; prix : une ligne et un cas ; état : ouvert.
+    **Clos le 2026-10-04** par le lot BINANCE-PRE35-1 (PR #115, fusion au tronc `c5c700b8`, oracle vert, 2 096 tests).
   - SERIES-TLS-RESUME-1 (nom proposé ; PAROXYSME, limite L-1 de BINANCE-PRE153-1) : la lignée d'une session TLS reprise est déduite de
     la politique du cache de sessions d'undici (source lue, mesurée), jamais montrée par la connexion. Construction qui donne la
     garantie : couper la reprise (`maxCachedSessions: 0`), ce qui exige un répartiteur propre, hors du `fetch` par défaut (paquet
     `undici` : R-8 ; ou `https.request` de node). Source : `bnpre/G1.md` l.118 (Q-BNPRE-5) et l.130. Déclencheur : avant la course des
     35 ; prix : environ 15 lignes et le test adapté ; état : ouvert.
+    **Clos le 2026-10-04** par le lot BINANCE-PRE35-1 (PR #115, fusion au tronc `c5c700b8`, oracle vert, 2 096 tests).
   - SERIES-ENV-VALUES-1 (nom proposé ; PAROXYSME, limite L-2 de BINANCE-PRE153-1) : les valeurs des douze noms admis ne sont jamais
     lues ; un `SYSTEMROOT` ou un `WINDIR` qui pointe ailleurs passerait (des chemins de fournisseurs Winsock s'en déduisent sous
     Windows : non mesuré). Construction : une forme fermée des valeurs (`SYSTEMROOT` = `WINDIR`, chemins absolus ; `PATH` fait de
     chemins absolus), valeurs jamais imprimées. Source : `bnpre/G1.md` l.131. Déclencheur : avant la course des 35 ; prix : environ 6
     lignes et 2 cas ; état : ouvert.
+    **Clos le 2026-10-04** par le lot BINANCE-PRE35-1 (PR #115, fusion au tronc `c5c700b8`, oracle vert, 2 096 tests).
   - SERIES-TLS-ISSUER-BY-NAME-1 (nom proposé ; mesure, O-1 du correcteur de BINANCE-PRE153-1) : dans un processus qui a confié deux AC
     de même nom sans identifiants de clé, `issuer_sha256` d'une feuille servie seule a nommé l'autre AC (mécanisme non lu : source C++
     de node absente de l'hôte ; effet sur une chaîne de production non mesuré). Construction : une sonde de bouclage (feuille et
     intermédiaire avec identifiants de clé, puis feuille seule, deux racines de même nom confiées) qui mesure l'émetteur journalisé.
     Source : `bnpre/corr/CORR.md` l.103. Déclencheur : avant la course des 35 ; prix : une sonde, aucune ligne du lot ; état : ouvert.
+    **Clos le 2026-10-04** par le lot BINANCE-PRE35-1 (PR #115, fusion au tronc `c5c700b8`, oracle vert, 2 096 tests).
+  - SERIES-ENV-PROVENANCE-1 (PAROXYSME ; F-5 de la G2 de MONARK sur #115) : la forme fermée de SERIES-ENV-VALUES-1 contrôle la forme
+    des valeurs, pas leur provenance : `SYSTEMROOT` = `WINDIR` = tout dossier absolu passe. Construction à chercher : les lier au dossier
+    Windows que rapporte le système, sans code natif. Propriétaire : RECHERCHES (recherche et mesure sur l hôte win32), report ici par
+    MONARK ; source : `docs/G7-lot-binance-pre35-1.md` l.193-202. Déclencheur : le prochain lot qui touche la garde d environnement
+    d un enregistreur, ou la première course sur un autre hôte que celui des 35. Prix : une sonde hors réseau sur win32, environ une
+    demi-session ; si une source sans code natif tient, environ 4 lignes et 1 cas. État : ouvert.
   - Clos dans ces lots, preuves au recensement : COINBASE-WITNESS-ONLY-PAGE-1 (formé au G1, `cbedges/G1.md` l.333-337 ; clos par la
     règle de RECHERCHES, `record-coinbase-candles.mjs` l.293-294 et l.325, tests l.851 et l.863), SERIES-STATUS-FIRST-LOG-1 (nom proposé
     par la G2, G2-BNPRE-5 ; sans objet par la ligne d'arrivée, l.233-235, test l.1094) ; et à leur place : partie Binance de
@@ -662,6 +682,20 @@ Tronc `lot/etude-suite`. Dernier oracle complet : 1 779 tests, dont 1 776 verts,
   CM-2c (#107) : Q-1 tranchée par l investisseur (2026-10-04, 03:3x UTC, choix verbatim « Go explicite aux quatre (Recommandé) ») :
   les précisions (1) à (4) de B-10 (`.` lu `-` ; `4` lu `a` sous `kata:` ; E16 ; repli i → l, faux refus `btc-dlr-1h` déclaré,
   BYO-LOOKALIKE-RESIDUAL-1) ont son go explicite (règle de l amendement « soir » de l ADR-CM, l.156).
+  SPEC-PUBLISH-PIPELINE-1 (CR-8 ; écrit par RECHERCHES, G2 en trois tours ACCEPT) : **fusionné au tronc le 2026-10-04** (PR #117, fusion
+  Pile CM-2 au tronc (2026-10-04, 05:0x à 05:4x UTC) : #106, #110, #111 et #108 fusionnées sur la base du chantier moteur, puis au tronc
+  une par une par leur commit de fusion (R-25 par fusion, porte verte à chaque fois ; une fusion de la base en un bloc rougissait R-25) :
+  `ce4e5d2f` (#106) et `be3ce45b` (#110) : les 10 rouges de surface déclarés au G0 de CM-2b ; `9e0b611d` (#111) et `8aae90af` (#108) :
+  seuls les 2 rouges du temps (ii), `harness_served_data_matches_in_process_harness` et `narabi_gate_facts_read_from_committed_sources`,
+  acceptés par l amendement « nuit, 3 » jusqu au déploiement de l étape 4 et à la resynchronisation. Restent #109 (étape 5) et #107 (étape 6).
+  `96eab664`, oracle vert) : producteur déterministe de l arbre de `monark-kata-spec`, `--verify` égal à l octet sur `ddfee9e`
+  (manifeste `720e99d4…`) ; l outil ne pousse ni ne publie jamais. Décisions de MONARK sur Q-SP-1 à Q-SP-6 : les propositions du
+  G7 sont retenues ; pour Q-SP-1, les sources 1.1.0 neuves ne vont sous `spec/` de la gouvernance (publique) qu après le go F-5a.
+  Items : SPEC-1-1-0-RELEASE (MONARK : la déclaration `contract-1.1.0` et I-2, sources épinglées ; déclencheur : la publication de
+  la spécification 1.1.0) ; CANON-SINGLE-SOURCE-1 (RECHERCHES : l écriture canonique de l outil remplacée par la fonction unique de
+  `packages/contracts` ; déclencheur : fusion de CM-3c-1) ; DURABLE-SCAN-TEMPLATE-1 (rpc-guard : le scan de `durable.test.ts` lit un
+  gabarit après `from(` comme un spécifiant ; déclencheur : le prochain lot de rpc-guard) ; SPEC-CI-SOURCE-1 (Q-SP-6 : le workflow de
+  CI du dépôt public produit depuis une source de gouvernance épinglée ; déclencheur : le premier workflow de ce dépôt) ; états : ouverts.
   - BTC-DIR-RETIRE-SURFACES-1 (MONARK ; déclencheur « PR CM-2b » atteint le 2026-10-03) : liste du G0 de CM-2b (§ du même nom).
     Décision de l investisseur (2026-10-03, 22:4x UTC, choix verbatim « Built, preuve attest servi (Recommandé) ») : Shōgen garde
     `built` ; `integration_test` de `apps/site/lib/fleet.ts` pointe vers un test d intégration non-LLM de l outil `attest` servi, plus

@@ -36,7 +36,7 @@ export const PIECE_DOCS: Readonly<Record<string, PieceDoc>> = {
   shogen: {
     tagline: "attested perception: bytes, a hash and named residual hypotheses, never a truth claim",
     summary:
-      "Attested perception. The piece turns a source's answer into an attested testimony: the exact bytes, their hash, and the transport assumptions the testimony still rests on, named one by one. It carries no price number and no score. A gate-side adapter interprets the bytes, and the testimony's residual rides into the verdict.",
+      "Attested perception. The piece turns a source's answer into an attested testimony: the exact bytes, their hash, and the transport assumptions the testimony still rests on, named one by one. It carries no price number and no score. Its join into the gate's verdict is dormant: no served class has a committed attestation subject.",
     entry: {
       title: "A source's answer, as bytes",
       lines: ["What the attestor read, not what it means", "the canonical name of the source", "the exact response, when the class keeps it", "the transport's clock, carried as data"],
@@ -47,7 +47,7 @@ export const PIECE_DOCS: Readonly<Record<string, PieceDoc>> = {
     },
     output: {
       title: "An attested testimony",
-      lines: ["a frozen contract with closed keys", "carried to the gate in the optional envelope", "its residual filed into the verdict", "no number, no score"],
+      lines: ["a frozen contract with closed keys", "declared in the gate's optional envelope", "refused today: no served class has a subject", "no number, no score"],
     },
     contracts: ["attested-price.schema.json"],
     notClaim: "that the price is true. A testimony attests origin and bytes, never truth.",

@@ -182,3 +182,17 @@ C-1 écart base et servi (en tête, B-0) ; C-2 btc-dir déjà retirée (Q-F1, B-
 - **B-10 (nouveau, CM-2c)** : BYO-ASCII-LOOKALIKE-1 : un nom BYO dont la réduction des confusables ASCII (l, I, 1 ; rn, m ; 0, o ; `_`, `-` ; blancs internes) égale un nom commis ou suit le motif kata, ou une clé dont la réduction commence par `kata:`, rend un 400 nommé.
 - **Ordre des 400** : une requête invalide sur deux points peut changer de message ; 400 reste 400.
 - **Découpage** : CM-2a (S-6, S-15/B-6, S-10/B-4, STALE-COMMENTS-1) ; CM-2b après 2a (S-12/B-5, S-1/B-2, E-7/B-7) ; CM-2c (B-10).
+
+## Amendement daté 2026-10-03 (nuit, 3) : jointure attest → gate dormante après le retrait de btc-dir (CM-2b)
+
+- **Décision du fondateur**, verbatim (2026-10-03, réponse à la question 1 du G0 de CM-2b) : « oui mais on ne touche pas au statut de shogen, on laisse built sur la page et on fait ce qu on doit faire ici. de toute façon y a un agent qui travaille sur le VRAI SHOGEN dans son propre repertoire, pas le shogen de monark ».
+- **Jointure dormante** : btc-dir-15m était la seule classe servie dont la table d'attestation (`apps/harness/src/attestation-binding.ts`) a un sujet. Après B-5, un `attested` concordant n'atteint plus aucune décision servie (il rend `task_class_retired`) : la jointure `attest` → `gate` (ADR-M017) devient dormante au servi. C'est accepté ; la ligne btc-dir de la table reste.
+- **Statut de Shōgen inchangé** : `built` reste sur la page. La liste BTC-DIR-RETIRE-SURFACES-1 ne propose à MONARK que de ré-adresser la preuve du registre aux tests unitaires de la jointure qui restent (`gate_attested_is_frozen_attested_price`, `gate_attested_discordant_is_tool_error`) et, pour l'étape 7 de la trace h5, retrait ou ré-épinglage avec note de provenance (MONARK décide).
+- **Item formé** : ATTEST-KATA-SUBJECT-1 (sujet attesté pour les futures classes kata Binance) ; propriétaire RECHERCHES ; déclencheur : après CM-4 ; aucun travail maintenant ; toute ligne neuve de la table d'attestation passe par une ligne B neuve au §5.
+- **BTC-DIR-RETIRE-SURFACES-1** est livré par MONARK avec CM-2b ; jusque-là, les tests de `test/` qui comparent le harnais aux surfaces de MONARK (liste dans `docs/G0-lot-cm-2b.md`) sont rouges par construction.
+
+## Amendement daté 2026-10-04 : OPENAPI-ERROR-CODE-1 au §10 (contrôle par diff de MONARK sur CM-2a, C-5)
+
+| Item | Propriétaire | Déclencheur |
+|---|---|---|
+| OPENAPI-ERROR-CODE-1 : `openapi.json` décrit le champ `code` du corps d'erreur 400 (liste fermée `HARNESS_ERROR_CODES`) et le 500 `output_invalid` ; prix : environ 60 lignes (code d'`openapi.ts` et son test), empreinte d'`openapi.json` déplacée | RECHERCHES | avec CM-3c et CM-4 (une seule nouvelle empreinte d'`openapi.json` et une seule version datée de la spécification publique) |

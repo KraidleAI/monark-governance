@@ -66,7 +66,7 @@ function firstHit(ordered: [boolean, Expected][]): Expected {
 // in packages/hikae/src/l3-gate.ts header, reason priority order: non_evaluable, upstream_timeout,
 // under_calib (n < n_min, or verdict under_calib: D6(b)), intent_not_in_region, budget_exhausted, then
 // |C| > tau (clock open: defer set_too_large, else abstain clock_expired), else commit covered.
-// killer: packages/hikae/src/l3-gate.ts:88 COR "||" -> "&&"
+// killer: packages/hikae/src/l3-gate.ts:92 COR "||" -> "&&"
 test("oracle_l3_set_path_reason_order_exhaustive", () => {
   const seen = new Set<string>();
   for (let mask = 0; mask < 128; mask++) {
@@ -113,7 +113,7 @@ test("oracle_l3_set_path_reason_order_exhaustive", () => {
 // then lo >= hi gives under_calib (NDG-1, before budget), then budget_exhausted, then width > tauInterval
 // (clock open: defer interval_too_wide, else abstain clock_expired), then intent outside [lo, hi], else
 // commit covered. All 2^8 flag combinations times 3 budgets (768 cases), including B_t = B_floor.
-// killer: packages/hikae/src/l3-gate.ts:126 ROR "<" -> "<="
+// killer: packages/hikae/src/l3-gate.ts:130 ROR "<" -> "<="
 test("oracle_l3_interval_path_reason_order_exhaustive", () => {
   const seen = new Set<string>();
   for (let mask = 0; mask < 256; mask++) {
