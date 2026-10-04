@@ -393,6 +393,13 @@ Tronc `lot/etude-suite`. Dernier oracle complet : 1 779 tests, dont 1 776 verts,
   - Décision de l investisseur (2026-10-04, 01:2x UTC, C-2 du contrôle de CM-2b), choix verbatim « Dire la vérité dans la description
     (Recommandé) » : la description servie dit qu aucune classe servie n a de sujet d attestation, donc que tout `attested` est refusé ;
     porté par RECHERCHES (#110 ou une suite), avant le déploiement commun de CM-2a et CM-2b.
+  - LINT-UNTRACKED-TMP-1 (zone MONARK, `test/journal-index.test.ts:323`, copie `cpSync` l.84) : rouge dans la CI Linux de #110 (run
+    37169648100) sur `ENOENT` sous `/tmp/monark-journal-…/w106/.git/objects` ; vert ici. Construction : rendre la copie du dépôt de test
+    indépendante du nettoyage concurrent de `/tmp` (dossier propre au test, copie atomique), et un cas qui la rejoue sous charge.
+    Déclencheur : le prochain lot d outillage ; état : ouvert (critique K-5 des contrôles de #107 à #112).
+  - Temps (ii) de BTC-DIR-RETIRE-SURFACES-1 complété (critique K-4) : `apps/site/data/ukemi-served.json` par `scripts/sync-ukemi-served.mjs`,
+    après la CA, avec `harness-served.json` et `narabi-served.json` ; et `integration_test` de Shōgen : `probe_harness_records_real_decision`
+    en tête, puis les deux tests plus faibles et les deux tests unitaires de la jointure (critique K-6, décision de l orchestrateur).
   - SENTINEL-SIGTERM-LOAD-1 (zone RECHERCHES, `apps/sentinel/test/sentinel-chainstack-guard.test.ts:321`) : le test
     `sentinel_run_releases_chainstack_lock_on_sigterm` rougit sous la charge de la CI exportée (test 42, run 37169648100 de #110 ; déjà
     vu par RECHERCHES à la base) et passe seul. Construction : borne de temps du test tenue par un événement, jamais par une durée.
