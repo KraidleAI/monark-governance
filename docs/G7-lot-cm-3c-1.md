@@ -2,7 +2,7 @@
 
 - **Plan** : `docs/G0-lot-cm-3c-1.md` (commit `49b64c33`) ; plan r3 §8.3 (ligne A) et §8.4. Réponses à Q-1 et Q-3 : `recherches:coordination/pieces/2026-10-04-contrat-1-1-0-r3/avis/DECISION-PolicyRow-Q1-Q3.md` et `AVIS-advisor-PolicyRow-Q1-Q3.md` (table « colonne | type | obligatoire | source »), approuvées par MONARK (`recherches` `3e2fe0c`). Q-2 réglée par l'avance de la base.
 - **Base** : `43d90ac9` (`base/chantier-moteur-2026-10-03`). **Gel** : `6bd1d1df` (branche `recherches/cm-3c-1`, non poussée).
-- **Statut** : code écrit ; un garde rouge, `lang:gate`, sur trois identifiants de colonne fixés par la décision (Q-L ci-dessous). Reste la G2.
+- **Statut** : clos. G2 faite (APPROUVE-AVEC-CORRECTIONS), pliée : B-1 par Q-L voie 1, C-1 par le gel `b0dc5b8d` (section « Plis du 2026-10-04 »). Contrôle par diff de MONARK tenu, puis fusion `--no-ff` de `be5ca9a1` sur la base `base/chantier-moteur-2026-10-03` : `880654ed`, oracle G7 Windows vert (2 232 tests, 0 échec ; `recherches:coordination/messages/2026-10-04-MONARK-vers-RECHERCHES-126-base-127-rejeu.md`, commit `8e5ac53`). Ligne pliée au premier commit de documentation du lot suivant (CM-4a-i), à la demande de MONARK (`recherches` `17b2196`, §3).
 
 ## Ce que le lot change
 
