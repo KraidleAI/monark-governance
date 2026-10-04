@@ -6,7 +6,8 @@
 // Each folder is verified before any read: its SHA256SUMS well formed, every listed file at its sha256, no file left unlisted; its manifest of the
 // recorder's schema (monark.series.coinbase.v2: a v1 manifest is refused), with the pass of its flag, no empty page, its CSV and missing.json listed
 // and the CSV at the sha256 that the manifest names, witness_slots absent or null in pass 1 and coherent in pass 2 (lot COINBASE-PASS-EDGES-1:
-// the slots that pass 2 read outside the month, never compared); both manifests of the same product, granularity, start, end and recorder
+// the slots that pass 2 read outside the month, never compared), empty_witness_pages absent in pass 1 and 0 or 1 in pass 2 (lot
+// COINBASE-PRE-LOOP-1: at most one core of witnesses alone, 298 > 149); both manifests of the same product, granularity, start, end and recorder
 // (recorder_sha256); a month whose cores of pass 2 never end where a core of pass 1 ends (sharedEnd of the recorder: end - start of 149
 // slots modulo 298 is not comparable, G2-1 of the G2 of lot COINBASE-PASS-EDGES-1, a pass 2 that the recorder refuses before any
 // request). Each CSV row: the fixed header, 7 fields, an open time on the grid of the month, strictly ascending. Then, slot by
@@ -125,8 +126,10 @@ export function run(argv) {
   }
   const shared = sharedEnd(start, end, step); // G2-1: the same guard as the recorder's, before the witnesses and the rows
   if (shared !== null) stop("not_comparable", { field: "start, end_exclusive", core_end: isoOf(shared) });
-  for (const [i, m] of [m1, m2].entries()) {
+  for (const [i, m] of [m1, m2].entries()) { // lot COINBASE-PRE-LOOP-1: empty_witness_pages absent in pass 1, 0 or 1 in pass 2
     if (!witnessesOk(m.witness_slots, i + 1, start, end, step)) stop("not_comparable", { pass: i + 1, file: "manifest.json" });
+    const w = m.empty_witness_pages, pages = i === 0 ? !Object.hasOwn(m, "empty_witness_pages") : Number.isInteger(w) && w >= 0 && w <= 1;
+    if (!pages) stop("not_comparable", { pass: i + 1, file: "manifest.json", key: "empty_witness_pages" });
   }
   const [one, two] = dirs.map((d, i) => rowsOf(d, i + 1, [m1, m2][i], start, end, step));
   const lists = { absent_from_pass_1: [], absent_from_pass_2: [], differ: [] };
