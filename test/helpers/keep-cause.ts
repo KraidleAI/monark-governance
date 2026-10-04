@@ -31,8 +31,8 @@ export function keepCause(file: string): void {
   let step = "load", begun = 0, ended = 0;
   beforeEach((t) => { begun += 1; step = `test "${t.name}"`; }); // the first hook builds the harness: its own handlers come first
   afterEach(() => { ended += 1; step = "between tests"; });
-  // a monitor changes nothing of what follows: the harness reports the error as before (an unhandled rejection reaches it as
-  // origin "unhandledRejection" once no listener of that event is left, after the harness's end), else the process dies as before
+  (process.stdout as unknown as { _handle?: { setBlocking?: (on: boolean) => void } })._handle?.setBlocking?.(true); // as red-proof: an exit drops no queued line
+  // a monitor changes nothing: the harness reports as before, else the process dies as before (a rejection with no listener left too)
   process.on("uncaughtExceptionMonitor", (e, origin) => { say(`${file}: ${origin} during ${step}: ${describeCause(e)}`); });
   process.on("exit", (code) => {
     if (code !== 0) say(`${file}: exit code ${String(code)} during ${step}, tests begun ${String(begun)}, ended ${String(ended)}`);
