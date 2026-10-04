@@ -14,8 +14,8 @@
  */
 
 // L1 — split conformal.
-export { indicatorScore, indicatorScores, splitQuantile, conformalSet, riskControlQuantile } from "./l1-split.ts";
-export type { SplitResult, RiskControlResult } from "./l1-split.ts";
+export { indicatorScore, indicatorScores, splitQuantile, conformalSet, riskControlQuantile, scoresInDomain, splitRankExact, splitQuantileExact, riskControlRow } from "./l1-split.ts";
+export type { SplitResult, RiskControlResult, ScoreDomain, RiskControlRow, RiskControlRowOptions } from "./l1-split.ts";
 
 // Binomial core (worksite 2, lot L2-1): exact comparator, k*, n0, the upper bound U, four-decimal rounding, spend.
 export { parseUnitDecimal, parseAlpha, parseTestDelta, binomCdfLeq, riskControlMaxExceedances, zeroErrorFloor, missUpperBound, ceilDecimal4, spendDelta } from "./binomial.ts";
