@@ -14,7 +14,7 @@ const HEADER = /^(✖|not ok)(\s|$)/;
 /** A line that opens another entry, a summary or a location ends the detail of the current entry. */
 const STOP = /^(✖|✔|ℹ|▶|﹣|not ok\b|ok\b|# |test at )/;
 /** Stack frames and TAP bookkeeping: never detail. */
-const NOISE = /^(at |---$|\.\.\.$|duration_ms:|type:|location:)/;
+const NOISE = /^(at |---$|\.\.\.$|duration_ms:|type:|location:|failureType:|error: \|-$)/;
 
 /** The failing entries of a nested run's output, at most ENTRIES, each a header line then its indented detail lines. */
 export function innerFailures(output: string): string[] {

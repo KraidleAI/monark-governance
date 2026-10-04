@@ -48,8 +48,12 @@ const TAP = [
   "  error: |-",
   "    bad-Origin + oversized body ⇒ 403",
   "    ",
-  "    0 !== 403",
+  "    + actual - expected",
   "    ",
+  "      {",
+  "    +   status: 413",
+  "    -   status: 403",
+  "      }",
   "  code: 'ERR_ASSERTION'",
   "  ...",
   "ok 4 - harness_binds_localhost_only",
@@ -73,8 +77,10 @@ test("inner_failures_carry_the_failing_assertion_text", () => {
   assert.equal(spec[1], "✖ outer (66.2ms)\n  'test failed'", "the parent keeps its own reason, cut at the next entry");
   const tap = innerFailures(TAP);
   assert.equal(tap.length, 1);
-  assert.ok(tap[0]?.includes("  bad-Origin + oversized body ⇒ 403\n  0 !== 403"), `the TAP error is kept: ${tap[0] ?? ""}`);
+  assert.ok(tap[0]?.includes("  bad-Origin + oversized body ⇒ 403\n  + actual - expected"), `the TAP error is kept: ${tap[0] ?? ""}`);
+  assert.ok(tap[0]?.includes("  +   status: 413\n  -   status: 403"), `the TAP diff is kept whole within DETAIL: ${tap[0] ?? ""}`);
   assert.ok(!tap[0]?.includes("duration_ms") && !tap[0]?.includes("harness_binds_localhost_only"), "no TAP bookkeeping, no next entry");
+  assert.ok(!tap[0]?.includes("failureType") && !tap[0]?.includes("error: |-"), "the TAP failureType and error keys spend no detail line");
   const many = Array.from({ length: ENTRIES + 5 }, (_, i) => `✖ t${String(i)} (1ms)\n  AssertionError: m${String(i)}`).join("\n");
   assert.equal(innerFailures(many).length, ENTRIES, "the list is bounded");
   assert.deepEqual(innerFailures("✔ a (1ms)\nℹ fail 0"), [], "a green run names nothing");

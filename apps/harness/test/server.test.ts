@@ -127,15 +127,18 @@ test("oversized_body_413_and_normal_tools_call_unaffected", async () => {
     // (which would mean the bounded reader ran first, buffering a body from a rejected origin). Killing
     // mutant: move `originGuard` below `readBodyBounded` in `handleNodeRequest` ⇒ this flips 403→413 ⇒ red.
     // The verdict rests on what the SERVER sent, seen on its own `request` event (EXPORT-HARNESS-413-LOAD-1): the 403, with the
-    // body not yet received in full (`req.complete` false: the guard ran before the body was read; a reader that buffers the
-    // whole body first also reds here). The client must see that 403, or a reset: the server closes a socket that still holds
+    // body not read in full (`req.complete` false proves only that: the guard answered before the whole body was consumed; a
+    // reader that buffers the whole body first reds here). The client must see that 403, or a reset: the server closes a socket that still holds
     // unread body bytes, so the OS answers the rest with RST, and win32 drops a received but unread 403 when the RST lands
     // first (Linux keeps it): the red of the exported CI on win32 under load (65 ms). Any other status or error stays red.
-    const sent = new Promise<{ status: number; complete: boolean }>((resolve) => {
+    // A server that drops the socket without finishing a response must red on a named assertion, not hang to the runner timeout
+    // (G2 C-1): `close` gives the fast verdict, and the wait for `sent` is capped once the client has its outcome.
+    const sent = new Promise<{ status: number; complete: boolean } | string>((resolve) => {
       const onRequest = (req: IncomingMessage, res: ServerResponse): void => {
         if (req.headers.origin !== EVIL) return;
         server.off("request", onRequest);
         res.once("finish", () => { resolve({ status: res.statusCode, complete: req.complete }); });
+        res.once("close", () => { resolve("closed the response without finishing it"); });
       };
       server.on("request", onRequest);
     });
@@ -152,7 +155,13 @@ test("oversized_body_413_and_normal_tools_call_unaffected", async () => {
       req.write(body);
       req.end();
     });
-    assert.deepEqual(await sent, { status: 403, complete: false }, "bad-Origin + oversized body ⇒ the server sent 403 before reading the body (guard runs header-first), NOT 413");
+    let cap: NodeJS.Timeout | undefined;
+    const served = await Promise.race([sent, new Promise<string>((resolve) => {
+      cap = setTimeout(() => { resolve("finished no response within 10 s"); }, 10_000);
+    })]);
+    clearTimeout(cap);
+    if (typeof served === "string") assert.fail(`bad-Origin + oversized body: the server ${served} (it must finish its 403)`);
+    assert.deepEqual(served, { status: 403, complete: false }, "bad-Origin + oversized body ⇒ the server sent 403 before reading the body (guard runs header-first), NOT 413");
     if (typeof seen === "number") assert.equal(seen, 403, "bad-Origin + oversized body ⇒ 403 (guard runs header-first, before the body is read), NOT 413");
     else assert.ok(RESET.has(seen), `the client may lose the 403 only to a reset of the unread body (win32), not to ${seen}`);
 
