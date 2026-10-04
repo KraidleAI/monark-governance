@@ -454,7 +454,9 @@ Tronc `lot/etude-suite`. Dernier oracle complet : 1 779 tests, dont 1 776 verts,
   - TAIL-TS-COUNTS-1 (Q-1 de CM-4a-ii, voie (a)) : l addendum 8 d ADR 0006 (P0 `ec202d00`) garde l exception de zone : MONARK écrit
     `tail.ts` et la garde de vague 2. Livrable de MONARK : l entrée par comptes de `tail.ts` (`{num, den}` non réduits, chaînes
     décimales, refus de l addendum §1), sur la signature et les vecteurs que RECHERCHES fournit ; tests et tueurs W2-E chez
-    RECHERCHES. Déclencheur : la pièce de RECHERCHES ; avant le lot b de CM-4a-ii. Porteur : MONARK ; état : ouvert.
+    RECHERCHES. Déclencheur : la pièce de RECHERCHES ; avant le lot b de CM-4a-ii. Porteur : MONARK ; état : livré le 2026-10-04,
+    PR #135 fusionnée sur la base (`abe14e6b`, oracle vert, 2 257 tests) après la G2 APPROUVE de RECHERCHES ; 10/10 vecteurs, 6 000
+    accords avec la doublure ; tests et tueurs W2-E au lot b de CM-4a-ii (RECHERCHES).
   - VERIFIERS-LIST-F5A-1 (Q-2 de CM-4a-ii) : la liste publiée des vérificateurs listés (identité lue avant « @ », minuscules ASCII)
     est due par MONARK avant F-5a. Porteur : MONARK ; état : ouvert.
   - L2-RECV-US-RESOLUTION-1 (PAROXYSME ; Q-4 du G1 de L2-P1-a2) : Node n offre aucune horloge murale à la microseconde ; `recv_us`
