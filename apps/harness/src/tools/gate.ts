@@ -767,8 +767,8 @@ const KATA_CLASSES_REDUCED: ReadonlySet<string> = new Set(
 /**
  * BYO confusable rule (ADR-CM B-10). Runs after the B-1 rule, so a name B-1 refuses keeps its B-1 message and code.
  * Refuses a class whose reduction is a class-locked name or a reserved kata name, a (class, key) pair whose reduction
- * is a committed pair, and a key whose reduction, with "4" read as "a" (key prefix only), starts with "kata:".
- */
+ * is a committed pair, and a key whose reduction, with "4" read as "a" (key prefix only), starts with "kata:". Any ASCII
+ * look-alike outside this closed reduction still passes: a declared residual class (BYO-LOOKALIKE-RESIDUAL-1). */
 function byoConfusable(taskClass: string, predictorId: string): string | undefined {
   const cls = confusableReduce(taskClass);
   const lockedOrKata = CLASS_LOCKED.some((c) => confusableReduce(c) === cls) || KATA_CLASSES_REDUCED.has(cls);
