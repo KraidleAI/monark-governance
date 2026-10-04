@@ -21,7 +21,7 @@ Point d accroche : un module `--import` dans l enfant (le `run.ts` réel) envelo
 |---|---|---|---|
 | `sentinel_sigterm_after_lock_acquired_before_handler_releases_lock` | après la fermeture du descripteur de `chainstack.lock` | rouge : `signal=SIGTERM`, code nul | vert : code 1, plus de `.lock`, ligne `unlocked`, `verifyCycleLedger` |
 | `sentinel_sigterm_while_lock_acquiring_releases_lock` | juste avant `openSync(..., "wx")` du verrou | rouge : `signal=SIGTERM` | vert : idem |
-| `sentinel_sigterm_without_leg_exits_cleanly` | premier `fetch`, sans jambe (`unconfigured`), par `child.kill` | rouge : `signal=SIGTERM` | vert : code 1, aucun journal de cycle |
+| `sentinel_sigterm_without_leg_exits_1_and_creates_no_ledger` | premier `fetch`, sans jambe (`unconfigured`), par `child.kill` | rouge : `signal=SIGTERM` | vert : code 1, aucun journal de cycle |
 
 Sauts déclarés sous win32 (`process.kill` y est un arrêt dur), même motif que `sentinel_run_releases_chainstack_lock_on_sigterm`, inchangé.
 
@@ -58,6 +58,18 @@ Les 4 tests SIGTERM du fichier (`--test-name-pattern=sigterm`), 20 exécutions d
 - **Changement de comportement déclaré** (G0, Construction 5) : un passage sans jambe ouverte qui reçoit SIGTERM sort désormais par `exit 1` au lieu de mourir par le signal. Les deux sont un échec du oneshot pour systemd. Si MONARK préfère la mort par signal hors jambe, il faut un renvoi du signal dans le gestionnaire ; c est un choix de MONARK.
 - `apps/dojo/src/collect.ts` cite `apps/sentinel/src/run.ts:341` et `:299-306` comme calques ; c est hors zone et non touché. `:341` reste la ligne du gestionnaire.
 - Le RUNBOOK et les amendements de l ADR (`docs/ADR-AMENDEMENTS-narabi-ops-1d-G7-source.md`, « handler SIGTERM installé si la jambe est ouverte ») décrivent l ancien ordre ; ils sont hors zone et n ont pas été mis à jour.
+
+## G2
+
+G2 neuve : APPROUVÉ SOUS RÉSERVE, aucun bloquant dans le code (`recherches:coordination/pieces/2026-10-04-G2-recherches/G2-sentinel-sigterm-startup-window-1.md`).
+- **B-1 (hors zone, à MONARK)** : `docs/adr/ADR-NARABI-OPS-1.md:200` et `:225` décrivent encore « handler SIGTERM installé si la jambe est ouverte (`run.ts:320-321`) », `finally` en `:367-370`. À corriger en : posé à chaque passage, avant la prise du verrou (`run.ts:341-342`), `finally` en `:391-394`, et les 3 tests ajoutés au tableau D-lock. `docs/ADR-AMENDEMENTS-narabi-ops-1d-G7-source.md:47`, `:72` : à laisser s il est la source figée de l amendement.
+- **m-1** : le commentaire du test (`:200-203`, qui cite `run.ts:340-342`) n est pas recalé : il reste vrai (le gestionnaire est toujours posé à `:342`, son corps à `:341`).
+- **m-2** plié : « au premier `await` réellement pendant ».
+- **m-3** : le mutant qui vide `removeListener` survit ; non tenu, équivalent en pratique pour un CLI qui sort juste après.
+- **m-4** (hors zone, à MONARK) : `docs/RUNBOOK-sentinel.md:405` et `ADR-AMENDEMENTS…:287` citent `run.ts:319`, devenu `:344` ; aucune procédure ne change.
+- **m-5** plié : le test sans jambe s appelle `sentinel_sigterm_without_leg_exits_1_and_creates_no_ledger`.
+- Hors lot, **H-1** (antérieur, sans signal) : si l écriture ou le fsync du verrou échoue après un `openSync "wx"` réussi, le fichier reste (pas encore dans `acquired`, `guarded.ts:43-46` ne le retire pas) : `lock_held` jusqu à l acte du RUNBOOK. Item proposé, lot `packages/rpc-guard`.
+- Question 1 : la G2 recommande de garder `exit 1` (systemd `oneshot` compte les deux comme échec) ; `143` possible dans un autre lot si MONARK veut distinguer de l arrêt L-1.
 
 ## Sortie
 

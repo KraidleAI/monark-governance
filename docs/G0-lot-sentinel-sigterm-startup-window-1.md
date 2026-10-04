@@ -8,7 +8,7 @@
 
 - À la base, `main` ouvre la jambe payée (`run.ts:340`, `openChainstackLeg` → `openGuardedClient` → `acquireLock`, `guarded.ts:46`, `lock.ts:20`), ouvre le journal du cycle sous le verrou, et ne pose son gestionnaire qu ensuite (`run.ts:342`, et seulement si `leg.status === "ok"`).
 - Tant qu aucun écouteur `SIGTERM` n est posé, Node laisse au noyau l action par défaut : un SIGTERM tue le processus sur le champ, sans `finally`. Un SIGTERM réel (`systemctl stop`, arrêt ou redémarrage de l hôte, `TimeoutStartSec`) tombé entre `lock.ts:20` et `run.ts:342` laisse `chainstack.lock`. Les passages suivants lisent `lock_held` (`classifyGuardOpenError`) et tournent sans la jambe payée jusqu au déverrouillage du RUNBOOK (§6-bis). Dégradé, jamais FATAL ; gravité basse.
-- La fenêtre est **synchrone** : de `acquireLock` à `process.on`, aucun `await`. Un gestionnaire JavaScript ne s exécute qu au tour suivant de la boucle d événements ; posé avant, il ne peut donc jamais s exécuter au milieu de l acquisition. Un signal reçu pendant la fenêtre est capté par libuv et mis en file ; le gestionnaire s exécute après la fin de la section synchrone de `main`, au premier `await` (`rpc.finalized()`), quand `leg` est déjà affecté.
+- La fenêtre est **synchrone** : de `acquireLock` à `process.on`, aucun `await`. Un gestionnaire JavaScript ne s exécute qu au tour suivant de la boucle d événements ; posé avant, il ne peut donc jamais s exécuter au milieu de l acquisition. Un signal reçu pendant la fenêtre est capté par libuv et mis en file ; le gestionnaire s exécute après la fin de la section synchrone de `main`, au premier `await` réellement pendant (`rpc.finalized()`), quand `leg` est déjà affecté.
 
 ## Construction
 
@@ -30,7 +30,7 @@ Point d accroche, comme les tests existants : un module `--import` dans l enfant
 
 1. `sentinel_sigterm_after_lock_acquired_before_handler_releases_lock` : signal juste après la fermeture du descripteur de `chainstack.lock` (verrou tenu, fenêtre de la base). Attendu : marque vue, sortie par `exit` avec code 1 (pas de signal), plus de `.lock`, une ligne `unlocked` chaînée, `verifyCycleLedger` vert. À la base : mort par signal, code nul, `.lock` restant.
 2. `sentinel_sigterm_while_lock_acquiring_releases_lock` : signal juste avant l `openSync(..., "wx")` du verrou (acquisition en cours). Attendu : idem 1 (le gestionnaire, en file, s exécute après la prise et libère). À la base : mort par signal avant la création du verrou, code nul.
-3. `sentinel_sigterm_without_leg_exits_cleanly` : passage sans jambe (`CHAINSTACK_CYCLE_ID` absent, `unconfigured`), SIGTERM envoyé par le test à la marque du premier `fetch`. Attendu : code 1, aucun `.lock`, aucun journal créé. À la base : mort par signal, code nul.
+3. `sentinel_sigterm_without_leg_exits_1_and_creates_no_ledger` : passage sans jambe (`CHAINSTACK_CYCLE_ID` absent, `unconfigured`), SIGTERM envoyé par le test à la marque du premier `fetch`. Attendu : code 1, aucun `.lock`, aucun journal créé. À la base : mort par signal, code nul.
 
 Chaque test borne ses attentes par `untilEvent` (sécurité seulement). Le test existant `sentinel_run_releases_chainstack_lock_on_sigterm` reste inchangé, sauf sa ligne `// killer:` recalée sur la nouvelle ligne de `process.on`, et son commentaire sur l ordre gestionnaire / premier `fetch`.
 

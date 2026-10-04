@@ -417,7 +417,7 @@ test("sentinel_sigterm_while_lock_acquiring_releases_lock — a SIGTERM delivere
 });
 
 // killer: apps/sentinel/src/run.ts:341 CONST "process.exit(1)" -> "process.exit(0)"
-test("sentinel_sigterm_without_leg_exits_cleanly — with no paid leg (CHAINSTACK_CYCLE_ID absent => unconfigured, no lock ever taken) a SIGTERM at the first fetch runs the same handler, which releases nothing and exits 1: no .lock, no cycle ledger created (SENTINEL-SIGTERM-STARTUP-WINDOW-1). WIN32 SKIP declared", SIGTERM_SKIP, async () => {
+test("sentinel_sigterm_without_leg_exits_1_and_creates_no_ledger — with no paid leg (CHAINSTACK_CYCLE_ID absent => unconfigured, no lock ever taken) a SIGTERM at the first fetch runs the same handler, which releases nothing and exits 1: no .lock, no cycle ledger created (SENTINEL-SIGTERM-STARTUP-WINDOW-1). WIN32 SKIP declared", SIGTERM_SKIP, async () => {
   const l3 = fixtureLines()[2]!;
   const dir = seedState(2);
   const ledgerDir = join(dir, "ledger");
