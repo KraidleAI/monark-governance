@@ -10,6 +10,8 @@ export const LIMIT: number;
 export const PAUSE_MS: number;
 export const MAX_PAGES: number;
 export const TIMEOUT_MS: number;
+/** The largest body a request reads, in bytes, before body_too_large (lot BINANCE-PRE153-1, D-5). */
+export const MAX_BODY_BYTES: number;
 export const CSV_COLUMNS: readonly string[];
 export const STOPS: readonly string[];
 
@@ -72,6 +74,10 @@ export interface SeriesManifestV1 {
  *  fields of v1 and both lists always present, so that one identifier keeps one meaning. */
 export interface SeriesManifest extends Omit<SeriesManifestV1, "schema"> {
   schema: "monark.series.binance.v2";
+  /** A replay: the sha256 of its source's requests.jsonl and SHA256SUMS as read, null when absent; a recording: null (lot
+   *  BINANCE-PRE153-1, D-1 (d): an anchor outside the source, sealed with the replay). */
+  from_raw_requests_sha256: string | null;
+  from_raw_sha256sums_sha256: string | null;
   /** Kept candles whose close is not open + interval - 1 ms, the close as received (rule 8 of RECHERCHES ADR 0006): ascending. A close
    *  out of its slot is a stop (close_out_of_slot), so each listed close lies in [open, open + interval - 1 ms): a truncation. */
   irregular_close: { open_time_ms: number; close_time_ms: number }[];
