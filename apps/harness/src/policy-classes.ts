@@ -25,3 +25,19 @@ export function kataClassEntries(text: (taskClass: string) => string): readonly 
     };
   })));
 }
+
+const KATA_KEY = /^kata:([a-z0-9]+(?:-[a-z0-9]+)*)@([a-z0-9]+(?:-[a-z0-9]+)*)\/([A-Z0-9]{2,20})\/([a-z0-9]+)$/;
+
+/**
+ * The kata key grammar (spec section 9; delegated decision CM-4b C-5): `kata:<kataId>@<venue>/<SYMBOL>/<h>`, kataId and
+ * venue lower-case words joined by "-" (1 to 64 characters), SYMBOL 2 to 20 of A-Z 0-9 starting with the class's symbol
+ * in upper case, <h> the class's horizon, no bucket. Grammar only: an unregistered kata or venue is a key with no row.
+ * One predicate for the request check and the import guard. Returns why the key is refused, or undefined.
+ */
+export function kataKeyProblem(key: string, taskClass: string): string | undefined {
+  const m = KATA_KEY.exec(key);
+  const parts = taskClass.split("-");
+  if (m === null || (m[1] ?? "").length > 64 || (m[2] ?? "").length > 64) return "is not kata:<kataId>@<venue>/<SYMBOL>/<h> (kataId, venue: 1 to 64 of a-z 0-9 and inner '-'; SYMBOL: 2 to 20 of A-Z 0-9)";
+  const [sym, h] = [(parts[0] ?? "").toUpperCase(), parts.at(-1)];
+  return (m[3] ?? "").startsWith(sym) && m[4] === h ? undefined : `does not match its class '${taskClass}' (SYMBOL starting with '${sym}', <h> '${String(h)}')`;
+}
