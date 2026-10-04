@@ -10,8 +10,8 @@
 // every slot without a candle), manifest.json and SHA256SUMS (sha256sum -c format; raw/ pages and requests.jsonl when listed). Every
 // month that the window needs is verified before any read: SHA256SUMS re-read, each listed file re-hashed, no file left unlisted; then
 // its manifest.json must be the recorder's for that month (D-1 of lot EE7-ADD7-1, correction 5 of the review of RECHERCHES): schema
-// SCHEMA, product USDT-USD, granularity_s 900, end_exclusive the end of the month and a recorder_sha256; then each 15-minute slot of
-// the month must be exactly one CSV row or one missing.json entry. Any doubt is a named refusal.
+// SCHEMA, product USDT-USD, granularity_s 900, end_exclusive the end of the month, pass 1, empty_pages 0 and the recorder_sha256 of the
+// first month read (COINBASE-PRE-LOOP-1); then each 15-minute slot of the month is one CSV row or one missing.json entry. Any doubt: a named refusal.
 // Read at instant tau of the 15-minute grid (addendum 5, C2): the close of the candle whose start is tau - 15 min, never the candle
 // stamped tau (it would read the future); absent when missing.json lists that candle, never replaced nor interpolated. Declared, not
 // corrected (C3): a candle covers [tau - 15 min, tau), where addendum 4 read (tau - 15 min, tau). The window: --from <= tau < --to.
@@ -149,19 +149,19 @@ function verifyMonth(dir, month) {
   return sha256(bytes);
 }
 
-/** One month's manifest.json, pinned by the seal: the Coinbase recorder's for that month (D-1 of lot EE7-ADD7-1): its schema, the
- *  product, the 900 s grid, the exclusive end of the month and the digest of the recorder that wrote it; a refusal names the key only. */
-function readManifest(dir, month) {
+/** One month's manifest.json, pinned by the seal: the recorder's for that month (D-1 of lot EE7-ADD7-1), of pass 1 and no empty page. */
+function readManifest(dir, month, first) {
   const file = `${month}/15m/manifest.json`, text = readFileSync(join(dir, "manifest.json"), "utf8");
   let doc;
   try { doc = JSON.parse(text); } catch { stop("manifest_malformed", { file, why: "not JSON" }); }
   if (doc === null || typeof doc !== "object" || Array.isArray(doc)) stop("manifest_malformed", { file, why: "not an object" });
   const end = isoOf(nextMonth(Date.parse(`${month}-01T00:00:00Z`))); // the exclusive end of the month, in the recorder's form
-  const wanted = { schema: (v) => v === SCHEMA, product: (v) => v === PRODUCT, granularity_s: (v) => v === STEP_MS / 1000,
-    end_exclusive: (v) => v === end, recorder_sha256: (v) => typeof v === "string" && /^[0-9a-f]{64}$/.test(v) };
+  const wanted = { schema: (v) => v === SCHEMA, product: (v) => v === PRODUCT, granularity_s: (v) => v === STEP_MS / 1000, pass: (v) => v === 1,
+    empty_pages: (v) => v === 0, end_exclusive: (v) => v === end, // the recorder's digest: that of the first month of the run (m2, one per run)
+    recorder_sha256: (v) => typeof v === "string" && /^[0-9a-f]{64}$/.test(v) && (first ?? v) === v };
   for (const [key, ok] of Object.entries(wanted)) if (!ok(doc[key])) stop("manifest_mismatch", { file, key });
+  return doc.recorder_sha256;
 }
-
 /** The closes of one month's CSV by open time (ms), each an exact fraction; every row checked before its close is kept. */
 function readCsv(dir, month) {
   const file = `${month}/15m/${CSV_NAME}`, lines = readFileSync(join(dir, CSV_NAME), "utf8").split(LF), closes = new Map();
@@ -201,10 +201,10 @@ function readMissing(dir, month) {
 
 /** The reads of the window: reads[i] is the close read at instant from + i * STEP_MS, null when absent; and each month's digest. */
 function readWindow(root, from, to) {
-  const book = new Map(), months = [], reads = [];
+  const book = new Map(), months = [], reads = [], recorders = []; // recorder_sha256: one per run (lot COINBASE-PRE-LOOP-1)
   for (let t = from - STEP_MS; t < to - STEP_MS; t = nextMonth(t)) {
     const month = monthOf(t), dir = join(root, month, "15m"), sha256sums = verifyMonth(dir, month);
-    readManifest(dir, month);
+    recorders.push(readManifest(dir, month, recorders[0]));
     const closes = readCsv(dir, month), missing = readMissing(dir, month);
     for (let slot = Date.parse(`${month}-01T00:00:00Z`), end = nextMonth(slot); slot < end; slot += STEP_MS) {
       if (closes.has(slot) && missing.has(slot)) stop("missing_conflict", { month, open_time_utc: isoOf(slot) });

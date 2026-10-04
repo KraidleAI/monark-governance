@@ -13,7 +13,6 @@
  * `mcpToolsCall` is the ANTI-MOCK SEAM: the probe's test-chosen perturbation drives it too, so a mutant
  * that replaces it with a frozen/replayed response makes the probe's perturbation assertion go RED.
  */
-import { once } from "node:events";
 import { request as httpRequest } from "node:http";
 import { createHash } from "node:crypto";
 import { readFileSync } from "node:fs";
@@ -21,6 +20,7 @@ import { fileURLToPath } from "node:url";
 import type { Server as HttpServer, IncomingHttpHeaders } from "node:http";
 import { startServer } from "../apps/harness/src/server.ts";
 import { GATE_NON_REVERIFICATION_SENTENCE } from "../apps/harness/src/tools/gate.ts";
+import { startLoopback } from "./helpers/loopback.ts";
 
 export const HOST_MCP = "mcp.monarkgate.tech";
 export const HOST_API = "api.monarkgate.tech";
@@ -192,9 +192,8 @@ function field(o: Record<string, unknown>, k: string): unknown { return o[k]; }
 
 /** Drive the full end-to-end chain over the wire and return the captured, deterministic trace. */
 export async function buildTrace(): Promise<H5Trace> {
-  const server: HttpServer = startServer(0);
+  const server: HttpServer = await startLoopback((port) => startServer(port));
   try {
-    await once(server, "listening");
     const addr = server.address();
     if (addr === null || typeof addr === "string") throw new Error("startServer did not yield an AddressInfo");
     if (addr.address !== "127.0.0.1") throw new Error(`harness must bind 127.0.0.1, got ${addr.address}`);

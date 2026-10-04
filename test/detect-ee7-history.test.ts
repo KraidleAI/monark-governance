@@ -73,8 +73,9 @@ function candlesAt(first: number, candles: readonly Read[], cells: Cells = ["0.9
       missing: missing.map((t) => ({ open_time_ms: t, open_time_utc: iso(t) })) }; // the keys and the layout of the recorder's file
     writeFileSync(join(dir, "missing.json"), JSON.stringify(doc, null, 2) + LF);
     const manifest = { schema: SCHEMA, mode: "record", platform: "coinbase", product: "USDT-USD", granularity: "15m", granularity_s: 900,
-      start: iso(m), end_exclusive: iso(nextMonth(m)), expected: rows.length + missing.length, rows: rows.length, missing: missing.length,
-      csv: CSV, recorder_sha256: sha(readFileSync(RECORDER)) }; // keys of the recorder's manifest.json (l.273-281), among them D-1's five
+      start: iso(m), end_exclusive: iso(nextMonth(m)), pass: 1, expected: rows.length + missing.length, rows: rows.length,
+      missing: missing.length, empty_pages: 0, csv: CSV, recorder_sha256: sha(readFileSync(RECORDER)) }; // keys of the recorder's manifest.json
+      // (l.318-328), among them D-1's five and, lot COINBASE-PRE-LOOP-1, pass and empty_pages
     writeFileSync(join(dir, "manifest.json"), JSON.stringify(manifest, null, 2) + LF);
     seal(dir);
   }
@@ -586,7 +587,7 @@ test("ee7_certifies_nothing_without_a_whole_calm_day_inside_the_window", () => {
 const manifestDoc = (f: (doc: Record<string, unknown>) => Record<string, unknown>): ((dir: string) => void) =>
   edit("manifest.json", (t) => JSON.stringify(f(JSON.parse(t) as Record<string, unknown>), null, 2) + LF);
 
-// killer: scripts/detect-ee7-history.mjs:207 SDL "readManifest(dir, month);" -> ""
+// killer: scripts/detect-ee7-history.mjs:207 SDL "recorders.push(readManifest(dir, month, recorders[0]));" -> ""
 test("ee7_refuses_a_month_whose_manifest_is_not_the_recorders_for_usdt_usd_at_900_s_and_that_month", () => {
   const reads = [...rep(C, 4), ...rep(D, 4), ...rep(C, 100)], set = (k: string, v: unknown) => manifestDoc((d) => ({ ...d, [k]: v }));
   const drop = (k: string): ((dir: string) => void) => manifestDoc((d) => Object.fromEntries(Object.entries(d).filter(([n]) => n !== k)));
@@ -626,7 +627,7 @@ test("ee7_refuses_a_month_whose_manifest_is_not_the_recorders_for_usdt_usd_at_90
   assert.deepEqual(shape(detectOn(reads)), [[4, 104, 100]], "the manifest as the recorder writes it: the month is read");
 });
 
-// killer: scripts/detect-ee7-history.mjs:160 CONST "v === SCHEMA" -> "v === PRODUCT"
+// killer: scripts/detect-ee7-history.mjs:159 CONST "v === SCHEMA" -> "v === PRODUCT"
 test("ee7_reads_a_month_that_the_coinbase_recorder_wrote_and_refuses_it_once_its_manifest_names_btc_usd", async () => {
   const m = Date.UTC(2025, 2, 1), end = Date.UTC(2025, 3, 1), out = join(fresh(), "2025-03", "15m"), i = (k: number): string => iso(m + k * STEP);
   const page = (url: string): Promise<Response> => { // the candles of [start, end] inside March, newest first; 4 depart from slot 100
@@ -686,4 +687,54 @@ test("ee7_certifies_no_S_while_calm_certified_from_is_null_provisionally", () =>
   assert.deepEqual([closed.calm_certified_from, closed.episodes, open.calm_certified_from, open.episodes], [null, [{ kind: "lead-in", S: i(4),
     F: i(104), exclude_from: i(0), present_reads_in_episode: 100, present_reads_last_24h: 96 }], null, [{ kind: "open-at-end", S: i(4), F: i(58),
     exclude_from: i(0), present_reads_in_episode: 54, present_reads_last_24h: 58 }]]);
+});
+
+/** Lot COINBASE-PRE-LOOP-1: the reads of a run over 2025-01 and 2025-02, its folders sealed after `alter` changed the named months. */
+const altered = (alter: ReadonlyMap<string, (dir: string) => void>): [string, string[]] => {
+  const reads = [...rep(C, 4), ...rep(D, 4), ...rep(C, 100)], root = sealed(T0, reads);
+  for (const [month, f] of alter) { f(join(root, month, "15m")); seal(join(root, month, "15m")); }
+  return [root, argvOf(root, T0, reads.length)];
+};
+/** [exit, stop, file, key] of one run through main (inside outcome: an error that is not a stop reddens by assertion). */
+const refusal = (argv: string[]): [number, string | undefined, string | undefined, string | undefined, string] => {
+  const lines: string[] = [];
+  let exit = -1;
+  const how = outcome(() => { exit = main(argv, { print: (l: string): void => { lines.push(l); } }); });
+  const out = JSON.parse(lines.at(-1) ?? "{}") as { stop?: string; detail?: { file?: string; key?: string } };
+  return [exit, out.stop, out.detail?.file, out.detail?.key, how];
+};
+
+// killer: scripts/detect-ee7-history.mjs:159 ROR "v === 1," -> "v >= 1,"
+test("ee7_refuses_a_month_whose_manifest_is_not_a_sealed_pass_1", () => {
+  // the rest of EE7-MANIFEST-READ-1 (m2 of the review of RECHERCHES): a folder of pass 2, or one whose manifest lacks pass, or names it as
+  // text, is never read as the series; nor one that counts an empty page (the recorder writes none: it stops) or lacks the count
+  const set = (k: string, v: unknown) => manifestDoc((d) => ({ ...d, [k]: v }));
+  const drop = (k: string) => manifestDoc((d) => Object.fromEntries(Object.entries(d).filter(([n]) => n !== k)));
+  const cases: [string, (dir: string) => void, string][] = [["pass 2", set("pass", 2), "pass"], ["no pass", drop("pass"), "pass"],
+    ["pass as text", set("pass", "1"), "pass"], ["an empty page counted", set("empty_pages", 1), "empty_pages"],
+    ["no empty_pages", drop("empty_pages"), "empty_pages"], ["empty_pages -1", set("empty_pages", -1), "empty_pages"],
+    ["empty_pages 0.5", set("empty_pages", 0.5), "empty_pages"]]; // C-2 of the G2: v <= 0 and v < 1 read neither
+  for (const [what, alter, key] of cases) {
+    assert.deepEqual(refusal(altered(new Map([["2025-02", alter]]))[1]), [1, "manifest_mismatch", "2025-02/15m/manifest.json", key, "ok"], what);
+  }
+  assert.deepEqual(refusal(altered(new Map())[1]), [0, undefined, undefined, undefined, "ok"], "pass 1, no empty page: read");
+});
+
+// killer: scripts/detect-ee7-history.mjs:161 CONST "(first ?? v) === v" -> "true"
+test("ee7_refuses_months_written_by_different_recorders", () => {
+  // m2, the choice of the G0 of lot COINBASE-PRE-LOOP-1: recorder_sha256 identical over every month that the run reads (S and F come
+  // from one run over the whole recording); the first month read sets it, a later one that differs is refused there, by its key alone
+  const other = (dir: string): void => { manifestDoc((d) => ({ ...d, recorder_sha256: sha("another recorder") }))(dir); };
+  const [root, argv] = altered(new Map([["2025-02", other]]));
+  assert.deepEqual(refusal(argv), [1, "manifest_mismatch", "2025-02/15m/manifest.json", "recorder_sha256", "ok"], "the second month differs");
+  assert.deepEqual(refusal(altered(new Map([["2025-01", other]]))[1]), [1, "manifest_mismatch", "2025-02/15m/manifest.json", "recorder_sha256",
+    "ok"], "the first month differs: the second is refused");
+  other(join(root, "2025-01", "15m"));
+  seal(join(root, "2025-01", "15m"));
+  assert.deepEqual(refusal(argv), [0, undefined, undefined, undefined, "ok"], "both months of the other recorder: read (not pinned)");
+  // m-1 of the G2: three months, the third differs; every month is compared with the first, not only the second
+  const n = 12 * 4 + 2688 + 8, third = sealed(T0, rep(C, n)), march = join(third, "2025-03", "15m");
+  other(march);
+  seal(march);
+  assert.deepEqual(refusal(argvOf(third, T0, n)), [1, "manifest_mismatch", "2025-03/15m/manifest.json", "recorder_sha256", "ok"], "the third differs");
 });
