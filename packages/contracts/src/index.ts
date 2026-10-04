@@ -58,3 +58,13 @@ export {
   serializeVerdict,
   serializeGateDecision,
 } from "./serialize.ts";
+
+// Contract 1.1.0, block A (lot CM-3c-1): canonical writing, tool error codes, policy table formats.
+export type { CanonicalValue } from "./canonical.ts";
+export { canonicalJson, sha256Canonical, scoresSha256, requestSha256 } from "./canonical.ts";
+export { TOOL_ERROR_CODES, type ToolErrorCode } from "./tool-error-codes.ts";
+export type { QhatUnit, ClassEntry, PolicyRow, PolicyTable } from "./policy-table.ts";
+export {
+  QHAT_UNITS, REGION_RULES, ROW_STATUSES, STATEMENTS, CELL_KEY_RULES, SCORE_ORDERS, CHECK_OUTCOMES,
+  POLICY_ALLOWED_KEYS, assertClosedClassEntry, assertClosedPolicyRow, assertClosedPolicyTable,
+} from "./policy-table.ts";

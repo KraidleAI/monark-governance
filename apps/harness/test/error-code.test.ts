@@ -12,6 +12,7 @@ import { readFileSync, readdirSync, statSync } from "node:fs";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import type { Prediction, AttestedPrice } from "@monark/contracts";
+import * as contracts from "@monark/contracts";
 import * as gateModule from "../src/tools/gate.ts";
 import { runGate, HarnessToolError, type HarnessParams } from "../src/tools/gate.ts";
 import { handleJsonMirror } from "../src/http.ts";
@@ -21,7 +22,7 @@ import { projectShogen } from "../src/tools/attest.ts";
 import { SHOGEN_LOT_BYTES, SHOGEN_VERDICT_TEXT, SHOGEN_CONSTAT } from "../src/shogen-fixture.ts";
 import { USDE_STABLE_RUN_PREDICTOR_ID } from "../src/calibration.ts";
 
-/** The closed list of codes, pinned in order (G0 CM-2a, rules S-6 2 to 4). */
+/** The closed list of codes, pinned in order (G0 CM-2a, rules S-6 2 to 4; the last 8 reserved since 1.1.0 block A, Q-3). */
 const CODES = [
   "param_invalid", "schema_version_unsupported", "byo_calibration_invalid", "byo_yhat_type", "byo_set_tau_cap",
   "yhat_type_mismatch", "liq_yhat_domain", "attested_inconsistent", "task_class_unknown", "byo_overrides_committed",
@@ -29,6 +30,8 @@ const CODES = [
   "produced_at_invalid", "produced_at_future", "output_invalid",
   "policy_alpha_mismatch", "policy_nmin_mismatch", "task_class_retired",
   "attest_refused", "calibrate_input_invalid", "cascade_input_invalid", "ukemi_predict_input_invalid",
+  "input_invalid", "json_invalid", "kata_key_invalid", "kata_yhat_domain", "features_digest_required", "policy_tau_cap",
+  "produced_at_off_grid", "produced_at_stale",
 ];
 
 const LIQ = "liquidation-eligible-coverage";
@@ -87,11 +90,12 @@ async function mcpToolsCall(name: string, args: Obj): Promise<Obj> {
   return reply.result;
 }
 
-// Test E-1 (F2P): the codes are a closed list, pinned in order (snake_case, unique).
-// killer: apps/harness/src/tools/gate.ts:273 CONST "byo_set_tau_cap" -> "byo_tau_cap"
+// Test E-1 (F2P): the codes are a closed list, pinned in order (snake_case, unique), the list of @monark/contracts.
+// killer: packages/contracts/src/tool-error-codes.ts:8 CONST "byo_set_tau_cap" -> "byo_tau_cap"
 test("harness_error_codes_are_a_closed_pinned_list", () => {
   const listed = (gateModule as Record<string, unknown>)["HARNESS_ERROR_CODES"];
   assert.deepEqual(listed, CODES, "HARNESS_ERROR_CODES is the pinned closed list");
+  assert.equal(listed, (contracts as Record<string, unknown>)["TOOL_ERROR_CODES"], "the harness re-exports TOOL_ERROR_CODES");
   assert.equal(new Set(CODES).size, CODES.length, "codes are unique");
   for (const c of CODES) assert.match(c, /^[a-z]+(?:_[a-z]+)*$/, `${c} is snake_case`);
   assert.equal((gateModule as Record<string, unknown>)["ERROR_CODE_META_KEY"], "monarkgate.tech/error_code", "the MCP _meta key");
