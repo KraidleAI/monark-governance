@@ -8,14 +8,17 @@
 // nothing (the raw is never touched). @bookTicker carries no time (FAITS-L2-ACCESS-2 (d)): the day of the diff of the same connection
 // whose [U;u] holds its u, else its reception day, marked recv_day (Q-9). /market: FAITS-L2-ACCESS-3 (e) is not established
 // (FAITS-L2-ACCESS-3-E-1), E is neither read nor converted: reception day, marked recv_day (Q-C1-1). A frame received more than GRACE_US
-// after the end of its day is late: it goes to the index of its reception day, marked with its own. missing.json: the holes of the
-// symbol's link and of /market (from a close that leaves the link without an open connection to its next open) and the named events
-// of MISSING_EVENTS in the day, from journal.jsonl. The seal waits for the end of the day plus the grace and for each segment read to
-// be closed (closed(cid, seg), from c5); it writes index.jsonl, missing.json, manifest.json, then SHA256SUMS last (sha256sum -c format,
-// every file of the day folder and each segment referenced, by relative path); a sealed day is never rewritten. The agent never
-// commits (R-20).
+// after the end of its day is late: it goes to the index of its reception day, marked with its own. A frame whose segment lies before the
+// window of its day (E more than 1 h after its reception) is early: the same, mirrored (G2 B-3). missing.json: the holes of the symbol's
+// link and of /market (from a close that leaves the link without an open connection, or a start of c5 that finds connections never
+// closed, Q-C1-10; from the last frame received to the first of the next connection, ADR "watchdog", else the journal's times) and the
+// named events of MISSING_EVENTS in the day, from journal.jsonl. The seal waits for the end of the day plus the grace and for each
+// segment read to be closed (closed(cid, seg), from c5); a frame is held as three int32 in a bucket of its stream, at most `bound` of
+// them (index_bound); it writes index.jsonl by chunks, missing.json, manifest.json, each synced, then SHA256SUMS last (sha256sum -c
+// format, every file of the day folder, a closed list, and each segment referenced, by relative path, hashed by chunks); a sealed day is
+// never rewritten. The agent never commits (R-20).
 import { createHash } from "node:crypto";
-import { existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
+import { closeSync, existsSync, fstatSync, fsyncSync, mkdirSync, openSync, readdirSync, readFileSync, readSync, writeSync } from "node:fs";
 import { join } from "node:path";
 import { SYMBOLS } from "./links.mjs";
 import { PERIOD_US, readSegment, segmentOf } from "./segments.mjs";
@@ -28,8 +31,10 @@ export const SAMPLING = Object.freeze({ stream: "forceOrder", per_symbol_ms: 100
 export const KEYS = Object.freeze({ "depth@100ms": "U,u", bookTicker: "u", trade: "t", forceOrder: "bytes", order: "key,bytes" }); // Q-P1-9
 export const MISSING_EVENTS = Object.freeze(["writer_stop", "overlap_break", "chain_gap", "sync_try_vain", "sync_suspended",
   "chain_stopped", "buffer_trimmed", "tail_marked"]);
-export const STOPS = Object.freeze(["bad_symbol", "bad_day", "place_time_unsafe", "day_sealed"]);
-const LF = String.fromCharCode(10), MODULES = ["book", "day", "links", "rest", "segments"];
+export const STOPS = Object.freeze(["bad_symbol", "bad_day", "place_time_unsafe", "day_sealed", "index_bound", "stray_file"]);
+export const INDEX_BOUND = 8_388_608; // G2 B-2: frames held at a seal (12 bytes each in the index, 32 for a pending bookTicker)
+export const DAY_FILES = Object.freeze(["index.jsonl", "missing.json", "manifest.json", "anchor-open.json", "anchor-close.json", "minutes.jsonl"]);
+const LF = String.fromCharCode(10), MODULES = ["book", "day", "links", "rest", "segments"], CHUNK = 65_536, MARKS = [null, "recv_day", "late", "early"];
 
 /** A named stop: `code` is one of STOPS, `detail` what was seen. */
 export class DayStop extends Error {
@@ -41,8 +46,15 @@ export class DayStop extends Error {
   }
 }
 const stop = (code, detail) => { throw new DayStop(code, detail); };
-const sha = (bytes) => createHash("sha256").update(bytes).digest("hex");
 const json = (text) => { try { return JSON.parse(text); } catch { return null; } };
+const column = (T) => ({ a: new T(4096), n: 0 }); // a growable typed column
+const put = (c, ...v) => { if (c.n + v.length > c.a.length) { const a = new c.a.constructor(c.a.length * 2); a.set(c.a); c.a = a; } for (const x of v) c.a[c.n++] = x; };
+/** The sha256 of a file read by chunks, never whole. */
+function shaOf(path) {
+  const fd = openSync(path, "r"), hash = createHash("sha256"), chunk = Buffer.alloc(CHUNK);
+  try { for (let n = readSync(fd, chunk); n > 0; n = readSync(fd, chunk)) hash.update(chunk.subarray(0, n)); } finally { closeSync(fd); }
+  return hash.digest("hex");
+}
 
 /** The UTC day, YYYY-MM-DD, of a time in microseconds. */
 export const dayOf = (us) => new Date(Math.floor(us / DAY_US) * 86_400_000).toISOString().slice(0, 10);
@@ -54,20 +66,42 @@ function journalOf(out, symbol) {
   return readFileSync(file, "utf8").split(LF).map(json).filter((l) => l !== null && (l.symbol === symbol || l.symbol === "ALL"));
 }
 
+/** recv_us of the first (or last) frame that a connection holds on disk, read in the head (or tail) of its segments' index; null if none. */
+function edgeOf(out, cid, last) {
+  const d = join(out, "conn", String(cid)), names = /^[a-z]+-[A-Z0-9]+-[0-9T]+Z$/.test(String(cid)) && existsSync(d)
+    ? readdirSync(d).filter((n) => n.endsWith(".index.jsonl")).sort() : [];
+  for (const name of last ? names.reverse() : names) {
+    const fd = openSync(join(d, name), "r"), size = fstatSync(fd).size, buf = Buffer.alloc(Math.min(size, CHUNK));
+    try { readSync(fd, buf, 0, buf.length, last ? size - buf.length : 0); } finally { closeSync(fd); }
+    const us = buf.toString("utf8").split(LF).map(json).filter((e) => Number.isSafeInteger(e?.recv_us)).map((e) => e.recv_us);
+    if (us.length > 0) return last ? us[us.length - 1] : us[0];
+  }
+  return null;
+}
+
 /** The holes of each link (symbol, ALL) that cut [start, end), and its named events in the day (MISSING_EVENTS), as written. */
-function missingOf(lines, start, end) {
-  const live = new Map(), holes = [], gaps = new Map();
+function missingOf(out, lines, start, end) {
+  const live = new Map(), holes = [], gaps = new Map(), seen = new Map();
+  const gap = (link, cid, cause, from_us) => { const hole = { link, cid, cause, from_us, to_us: null }; holes.push(hole); gaps.set(link, hole); };
   for (const l of lines) {
+    if (l.event === "start") { // Q-C1-10: a launch of c5; a connection open before it died with the process, never closed
+      for (const [link, open] of live) {
+        if (open.size === 0) continue;
+        const last = [...open].map((c) => edgeOf(out, c, true)).filter((us) => us !== null);
+        gap(link, null, "process_restart", last.length > 0 ? Math.max(...last) : seen.get(link));
+        open.clear();
+      }
+      continue;
+    }
     const open = live.get(l.symbol) ?? new Set();
     live.set(l.symbol, open);
+    seen.set(l.symbol, l.host_us);
     if (l.event === "open") {
       open.add(l.cid);
       const hole = gaps.get(l.symbol);
-      if (hole !== undefined) { hole.to_us = l.host_us; gaps.delete(l.symbol); }
+      if (hole !== undefined) { hole.to_us = edgeOf(out, l.cid, false) ?? l.host_us; gaps.delete(l.symbol); }
     } else if (l.event === "close" && open.delete(l.cid) && open.size === 0) {
-      const hole = { link: l.symbol, cid: l.cid, cause: l.cause ?? null, from_us: l.host_us, to_us: null };
-      holes.push(hole);
-      gaps.set(l.symbol, hole);
+      gap(l.symbol, l.cid, l.cause ?? null, edgeOf(out, l.cid, true) ?? l.host_us);
     }
   }
   return { holes: holes.filter((h) => h.from_us < end && (h.to_us === null || h.to_us > start)),
@@ -87,41 +121,57 @@ function segmentsOf(out, symbol, from, to) {
   return found;
 }
 
-/** Each frame of the segments read, with its day number (dn, days since 1970-01-01 UTC) and mark: the rules of the header. */
-function framesOf(out, symbol, segs, marks) {
-  const lower = symbol.toLowerCase(), frames = [], diffs = new Map(); // cid -> its diffs [U, u, dn]
-  for (const [cid, seg] of segs) {
-    const spot = cid.startsWith("spot-");
-    for (const f of readSegment(out, cid, seg, marks.get(`${cid}/${seg}`) ?? null)) {
+/** The index of day number `dn0`, bucketed by stream (stream -> int32 triples: segment number in segs, rank, kind + 4 x the frame's day
+ *  number), from each frame of the segments read by the rules of the header, its counts and the segments used; past `bound`, a stop. */
+function indexOf(out, symbol, segs, marks, dn0, bound) {
+  const lower = symbol.toLowerCase(), buckets = new Map(), used = new Set(), counts = { streams: {}, late: 0, early: 0, recv_day: 0 };
+  let held = 0, cid = null, diffs = null, tickers = null; // per connection: its diffs [U, u, dn], its bookTickers [s, rank, recv, u]
+  const hold = (n) => { if (held + n > bound) stop("index_bound", { symbol, bound }); };
+  const place = (stream, s, rank, recv, dn, kind) => { // kind 0: by its place time, 1: recv_day
+    const late = kind === 0 && recv > (dn + 1) * DAY_US + GRACE_US; // D24-5: at the end plus the grace, still in its day
+    const k = late ? 2 : kind === 0 && segs[s][1] < segmentOf(dn * DAY_US - PERIOD_US) ? 3 : kind; // early: out of its day's window
+    if ((k >= 2 ? Math.floor(recv / DAY_US) : dn) !== dn0) return; // late and early go to their reception day
+    hold(1);
+    held += 1;
+    const key = String(stream);
+    if (!buckets.has(key)) buckets.set(key, { stream, col: column(Int32Array) });
+    put(buckets.get(key).col, s, rank, k >= 2 ? k + 4 * dn : k);
+    used.add(s);
+    counts.streams[key] = (counts.streams[key] ?? 0) + 1;
+    if (k > 0) counts[MARKS[k]] += 1;
+  };
+  const flush = () => { // Q-9: the diff of the same connection whose closed [U;u] holds u (diffs in u order on one connection)
+    for (let i = 0; tickers !== null && i < tickers.n; i += 4) {
+      const u = tickers.a[i + 3], n = diffs.n / 3;
+      let lo = 0, hi = n;
+      while (lo < hi) { const mid = (lo + hi) >> 1; if (diffs.a[mid * 3 + 1] < u) lo = mid + 1; else hi = mid; }
+      const hit = lo < n && diffs.a[lo * 3] <= u, recv = tickers.a[i + 2]; // else reception day, marked
+      place(`${lower}@bookTicker`, tickers.a[i], tickers.a[i + 1], recv, hit ? diffs.a[lo * 3 + 2] : Math.floor(recv / DAY_US), hit ? 0 : 1);
+    }
+  };
+  for (let s = 0; s < segs.length; s += 1) {
+    const [c, seg] = segs[s], spot = c.startsWith("spot-");
+    if (c !== cid) { flush(); [cid, diffs, tickers] = [c, column(Float64Array), column(Float64Array)]; }
+    for (const f of readSegment(out, c, seg, marks.get(`${c}/${seg}`) ?? null)) {
       const doc = json(f.bytes.toString("utf8")), data = doc?.data ?? doc, stream = typeof doc?.stream === "string" ? doc.stream : null;
-      const at = { stream, cid, seg, rank: f.rank, recv: f.recv_us, dn: Math.floor(f.recv_us / DAY_US), mark: "recv_day" };
       if (!spot) {
-        if (stream === null || !stream.endsWith("@forceOrder") || stream === `${lower}@forceOrder`) frames.push(at);
+        if (stream === null || !stream.endsWith("@forceOrder") || stream === `${lower}@forceOrder`) place(stream, s, f.rank, f.recv_us, Math.floor(f.recv_us / DAY_US), 1);
         continue;
       }
-      if (stream === `${lower}@bookTicker`) { frames.push({ ...at, u: data?.u }); continue; }
+      if (stream === `${lower}@bookTicker`) { hold(tickers.n / 4 + 1); put(tickers, s, f.rank, f.recv_us, Number.isSafeInteger(data?.u) ? data.u : NaN); continue; }
       const us = data?.E; // the place time, in microseconds (timeUnit=MICROSECOND on the URL), never read from its magnitude
-      if (!Number.isSafeInteger(us)) stop("place_time_unsafe", { symbol, cid, seg, rank: f.rank }); // condition (2)
-      Object.assign(at, { dn: Math.floor(us / DAY_US), mark: null });
-      if (stream === `${lower}@depth@100ms` && Number.isSafeInteger(data.U) && Number.isSafeInteger(data.u)) {
-        if (!diffs.has(cid)) diffs.set(cid, []);
-        diffs.get(cid).push([data.U, data.u, at.dn]);
-      }
-      frames.push(at);
+      if (!Number.isSafeInteger(us)) stop("place_time_unsafe", { symbol, cid: c, seg, rank: f.rank }); // condition (2)
+      const dn = Math.floor(us / DAY_US);
+      if (stream === `${lower}@depth@100ms` && Number.isSafeInteger(data.U) && Number.isSafeInteger(data.u)) put(diffs, data.U, data.u, dn);
+      place(stream, s, f.rank, f.recv_us, dn, 0);
     }
   }
-  for (const list of diffs.values()) list.sort((x, y) => x[1] - y[1]);
-  for (const f of frames.filter((x) => Number.isSafeInteger(x.u))) { // Q-9: the diff of the same connection whose closed [U;u] holds u
-    const list = diffs.get(f.cid) ?? [];
-    let lo = 0, hi = list.length;
-    while (lo < hi) { const mid = (lo + hi) >> 1; if (list[mid][1] < f.u) lo = mid + 1; else hi = mid; }
-    if (lo < list.length && list[lo][0] <= f.u) Object.assign(f, { dn: list[lo][2], mark: null }); // else reception day, marked
-  }
-  return frames;
+  flush();
+  return { buckets, used, counts };
 }
 
 /** Seal one day of one symbol (header); { sealed: false, wait } while it must wait, else { sealed: true, dir, frames }. */
-export function sealDay({ out, symbol, day, nowUs, closed, config = {} }) {
+export function sealDay({ out, symbol, day, nowUs, closed, config = {}, bound = INDEX_BOUND }) {
   if (!SYMBOLS.includes(symbol)) stop("bad_symbol", { symbol });
   const start = Date.parse(`${day}T00:00:00Z`) * 1000, end = start + DAY_US, dir = join(out, "days", symbol, day);
   if (!/^[0-9]{4}-[0-9]{2}-[0-9]{2}$/.test(day) || !Number.isSafeInteger(start) || dayOf(start) !== day) stop("bad_day", { day });
@@ -130,28 +180,35 @@ export function sealDay({ out, symbol, day, nowUs, closed, config = {} }) {
   const segs = segmentsOf(out, symbol, segmentOf(start - PERIOD_US), segmentOf(end + GRACE_US));
   const open = segs.filter(([cid, seg]) => !closed(cid, seg)).map(([cid, seg]) => `${cid}/${seg}`);
   if (open.length > 0) return { sealed: false, wait: "segments", open };
+  const stray = existsSync(dir) ? readdirSync(dir).filter((n) => !DAY_FILES.includes(n)) : []; // G2 m-7: a residue is never sealed
+  if (stray.length > 0) stop("stray_file", { symbol, day, names: stray });
   const lines = journalOf(out, symbol);
   const marks = new Map(lines.filter((l) => l.event === "tail_marked").map((l) => [`${l.cid}/${l.seg}`, l]));
-  const index = [], counts = { streams: {}, late: 0, recv_day: 0 };
-  for (const f of framesOf(out, symbol, segs, marks)) {
-    const late = f.mark === null && f.recv > (f.dn + 1) * DAY_US + GRACE_US; // D24-5: at the end plus the grace, still in its day
-    if ((late ? Math.floor(f.recv / DAY_US) : f.dn) * DAY_US !== start) continue; // a late frame goes to its reception day
-    const line = { stream: f.stream, cid: f.cid, seg: f.seg, rank: f.rank, ...(late ? { mark: "late", of: dayOf(f.dn * DAY_US) } : f.mark ? { mark: f.mark } : {}) };
-    index.push(line);
-    counts.streams[String(f.stream)] = (counts.streams[String(f.stream)] ?? 0) + 1;
-    if (late) counts.late += 1; else if (f.mark !== null) counts.recv_day += 1;
-  }
-  index.sort((a, b) => (String(a.stream) < String(b.stream) ? -1 : String(a.stream) > String(b.stream) ? 1 : 0)); // stable: read order kept
-  const script_sha256 = Object.fromEntries(MODULES.map((m) => [`scripts/l2/${m}.mjs`, sha(readFileSync(new URL(`./${m}.mjs`, import.meta.url)))]));
+  const { buckets, used, counts } = indexOf(out, symbol, segs, marks, start / DAY_US, bound);
+  const script_sha256 = Object.fromEntries(MODULES.map((m) => [`scripts/l2/${m}.mjs`, shaOf(new URL(`./${m}.mjs`, import.meta.url))]));
   const manifest = { schema: SCHEMA, symbol, day, redistributable: false, time_unit: TIME_UNITS, grace_us: GRACE_US, period_us: PERIOD_US,
     sampling: SAMPLING, keys: KEYS, node: process.version, undici: process.versions.undici ?? null, script_sha256, config, counts };
   mkdirSync(dir, { recursive: true });
-  writeFileSync(join(dir, "index.jsonl"), index.map((l) => JSON.stringify(l) + LF).join(""));
-  writeFileSync(join(dir, "missing.json"), JSON.stringify(missingOf(lines, start, end)) + LF);
-  writeFileSync(join(dir, "manifest.json"), JSON.stringify(manifest) + LF);
-  const used = [...new Set(index.map((l) => `${l.cid}/${l.seg}`))];
+  const write = (name, body, flag = "w") => { const fd = openSync(join(dir, name), flag); try { body(fd); fsyncSync(fd); } finally { closeSync(fd); } };
+  const sync = () => { const fd = openSync(dir, "r"); try { fsyncSync(fd); } finally { closeSync(fd); } };
+  write("index.jsonl", (fd) => { // by stream, then in read order; by chunks, never one string
+    for (const key of [...buckets.keys()].sort()) {
+      const { stream, col: { a, n } } = buckets.get(key);
+      let text = "";
+      for (let i = 0; i < n; i += 3) {
+        const k = a[i + 2] & 3, of = k >= 2 ? { of: dayOf(((a[i + 2] - k) / 4) * DAY_US) } : {};
+        text += JSON.stringify({ stream, cid: segs[a[i]][0], seg: segs[a[i]][1], rank: a[i + 1], ...(k > 0 ? { mark: MARKS[k], ...of } : {}) }) + LF;
+        if (text.length >= CHUNK) { writeSync(fd, text); text = ""; }
+      }
+      writeSync(fd, text);
+    }
+  });
+  write("missing.json", (fd) => writeSync(fd, JSON.stringify(missingOf(out, lines, start, end)) + LF));
+  write("manifest.json", (fd) => writeSync(fd, JSON.stringify(manifest) + LF));
+  sync();
   const paths = [...readdirSync(dir).filter((n) => n !== "SHA256SUMS"),
-    ...used.flatMap((s) => [".frames", ".index.jsonl"].map((x) => `../../../conn/${s}${x}`))].sort();
-  writeFileSync(join(dir, "SHA256SUMS"), paths.map((p) => `${sha(readFileSync(join(dir, p)))}  ${p}${LF}`).join(""), { flag: "wx" });
-  return { sealed: true, dir, frames: index.length };
+    ...[...used].sort((x, y) => x - y).flatMap((s) => [".frames", ".index.jsonl"].map((x) => `../../../conn/${segs[s][0]}/${segs[s][1]}${x}`))].sort();
+  write("SHA256SUMS", (fd) => writeSync(fd, paths.map((p) => `${shaOf(join(dir, p))}  ${p}${LF}`).join("")), "wx");
+  sync();
+  return { sealed: true, dir, frames: Object.values(counts.streams).reduce((x, y) => x + y, 0) };
 }
