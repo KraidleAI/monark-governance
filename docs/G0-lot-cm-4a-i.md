@@ -114,6 +114,8 @@ Risque `lang:gate` : le lecteur nomme les clés du registre `auxSeq` et `auxSha2
 
 Le plan estimait ~540. La marge sous 547 est mince. **Coupe déclarée si la mesure dépasse** : les entrées de classe kata et leur test (~60) passent au bloc B2 (~400 au plan), qui les lit de toute façon pour `alpha` et `n_min` ; le reste de B1 ne change pas.
 
+**Coupe appliquée le 2026-10-04, au pli de la G2** (B-1 seul portait R-25 à 551) : `kataClassEntries` et `kata_class_entries_match_spec_section_9` passent au bloc B2 ; les tests de B1 construisent leurs entrées de classe par une aide synthétique (`syntheticClassEntry`). Détail au G7, section « Pli de la G2 ».
+
 ## Questions
 
 **Q-1 (bloquante, pour MONARK) : porte d'ordre avant le G0 de CM-4a.**
