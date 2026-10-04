@@ -66,5 +66,21 @@ Prêt pour la G2 par une instance neuve. Aucun déploiement (CM-3 ne change rien
 - `node scripts/red-proof.mjs --base ad40dd5 --gel 307a163 --repo /home/user/monark-governance-c3b --draw 6 --seed 41` : **OK**, 4 jugés F2P, 4 tueurs tirés, 4 tués (le lot prouve toujours contre sa base d'origine).
 - `verifie-ancres.mjs` (refs base, cm-2b, cm-2a-suite, cm-2b-surfaces, cm-3a, cm-3b) sur l'arbre fusionné : tueurs 566, ANCRE 557, **DERIVE 0**, PERDU 9 (les 9 préexistants de la base), comme le plan.
 - `tsc --noEmit`, `gate:vocab`, `lint:ratchet` 69/69 : verts. `packages/hikae/test` 77/77 ; `apps/harness/test` 129/129 (127 + les tests de #110).
-- `lang:gate` : **rouge**, 7 occurrences en `hikae`, toutes de ce lot et déjà présentes à `58ca01b` (la base `e45340a` et `ad40dd5` sont vertes) : le jeton `aux` (`canonical-row.ts:59`, `:61` ; `cm3b-engine.test.ts:165`) et le `é` des données de test du canonicaliseur (`cm3b-engine.test.ts:191-193`). La porte n'était pas dans l'oracle d'origine ; à plier dans #109 avant sa fusion (hors de cette suite).
+- `lang:gate` : rouge à `15abaea` sur 7 occurrences en `hikae`, toutes de ce lot et déjà présentes à `58ca01b` (la base `e45340a` et `ad40dd5` sont vertes) : le jeton `aux` (`canonical-row.ts:59`, `:61` ; `cm3b-engine.test.ts:165`) et le `é` des données de test du canonicaliseur (`cm3b-engine.test.ts:191-193`). La porte n'était pas dans l'oracle d'origine. Plié par le commit suivant (voir ci-dessous).
 - R-25 (motif exact de `ci.yml`, sur la référence de fusion de la PR, `docs/**/*.md` exclus) : **359** (4 fichiers, +359/−0 ; contenu 0) contre la base avec #108 fusionné ; 841 contre `e45340a` tant que #108 n'y est pas (le diff compte alors #108), sous la borne de PR 1 205.
+
+### Correction `lang:gate` (2026-10-04) : le gel bouge
+
+- **Le gel passe de `307a163` au commit qui porte ce paragraphe** (tête de `recherches/cm-3b`). Raison : la porte `lang:gate` (`ci.yml:122`) était rouge sur le code même du lot ; la correction touche le code et les tests du lot, donc le gel.
+- `packages/hikae/src/canonical-row.ts:59` et `:61` : le paramètre `aux` de `orderedCalibDigest` devient `auxiliary` ; le champ rendu `auxSha256` (nom du banc P2) ne change pas, ni l'API.
+- `packages/hikae/test/cm3b-engine.test.ts:165` : le tueur suit, `canonical-row.ts:61 CONST "sha(auxiliary)" -> "sha(scores)"`, même ligne visée.
+- `cm3b-engine.test.ts:191-193` : `é` écrit `\u00e9` dans les quatre littéraux. La porte lit le texte source ; à l'exécution les chaînes sont identiques (vérifié littéral par littéral), le test donne toujours U+00E9 au canonicaliseur et l'ordre UTF-8 (`é`, U+FFFF, 😀) reste distinct de l'ordre UTF-16.
+- Toutes les éditions sont en place : aucune ligne ne bouge, aucun tueur à ré-ancrer.
+
+#### Oracle
+
+- `red-proof --base ad40dd5 --gel <ce commit> --repo /home/user/monark-governance-c3b --draw 6 --seed 41` : **OK**, 20 jugés (F2P ou module neuf), 6 tueurs tirés, 6 tués. Le gel contient la fusion de la base, donc le diff `ad40dd5..gel` compte aussi #106, #110 et #111 (16 tests de plus).
+- Preuve isolée du lot : même commande, base = fusion simulée de `e45340a` et `ad40dd5` (arbre `a88fa5da`, la base après #108 ; diff au gel = les 4 fichiers du lot) : **OK**, 4 jugés F2P, 4 tueurs tirés, 4 tués, dont `canonical-row.ts:61`.
+- `lang:gate` : vert (0 occurrence). `tsc --noEmit`, `gate:vocab`, `lint:ratchet` 69/69, eslint (deux fichiers) : verts. `packages/hikae/test` 77/77 ; `apps/harness/test` 129/129.
+- `verifie-ancres.mjs` (mêmes refs) : tueurs 566, ANCRE 557, DERIVE 0, PERDU 9 (les 9 préexistants).
+- R-25 : inchangé, **359** contre la base après #108 (éditions en place, +6/−6 sur les deux fichiers du lot, déjà comptés).

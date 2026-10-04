@@ -56,7 +56,7 @@ function write(v: RowValue, seen: readonly object[]): string {
 }
 
 /** E-2: the sha256 of the scores and of the auxiliary sequence, each in time order (P2 bench scoresSha256, auxSha256). */
-export function orderedCalibDigest(scores: readonly number[], aux: readonly number[]): { readonly scoresSha256: string; readonly auxSha256: string } {
+export function orderedCalibDigest(scores: readonly number[], auxiliary: readonly number[]): { readonly scoresSha256: string; readonly auxSha256: string } {
   const sha = (xs: readonly number[]): string => createHash("sha256").update(canonicalRow(xs)).digest("hex");
-  return { scoresSha256: sha(scores), auxSha256: sha(aux) };
+  return { scoresSha256: sha(scores), auxSha256: sha(auxiliary) };
 }

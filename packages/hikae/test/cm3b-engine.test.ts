@@ -162,7 +162,7 @@ const UNDER_ABSTAIN = { abstain: true, reason: "under_calib" };
 // E-2: orderedCalibDigest is the P2 bench's scoresSha256 / auxSha256 (sha256 of the JSON writing in time order). Vectors
 // computed on 2026-10-03 by RECHERCHES kata/bench/calibrate.ts seqDigest (Node 24.21.0), the first and the empty one
 // also by sha256sum on the literal text. Order matters (calibDigest sorts); a non-finite number throws.
-// killer: packages/hikae/src/canonical-row.ts:61 CONST "sha(aux)" -> "sha(scores)"
+// killer: packages/hikae/src/canonical-row.ts:61 CONST "sha(auxiliary)" -> "sha(scores)"
 test("ordered_calib_digest_matches_the_p2_bench", () => {
   const digest = fn<(s: readonly number[], a: readonly number[]) => Row>("orderedCalibDigest");
   const v = [0, 1, 1e-7, 0.30000000000000004, 1.5501056004166666e-4, 2, 123456789.125, -0, 5e-324];
@@ -188,9 +188,9 @@ function cyclic(): unknown {
 // killer: packages/hikae/src/canonical-row.ts:24 CONST "!t.isWellFormed()" -> "false"
 test("canonical_row_is_one_writing_for_f7_rows", () => {
   const canon = fn<(v: unknown) => string>("canonicalRow");
-  const row = { b: 1, a: [0.1, -0, 1e21, 1e-7, "x"], "é": null, Z: true, n: { y: 2, x: [] } };
-  assert.equal(canon(row), '{"Z":true,"a":[0.1,0,1e+21,1e-7,"x"],"b":1,"n":{"x":[],"y":2},"é":null}');
-  assert.equal(canon({ "é": 1, "￿": 2, "😀": 3 }), '{"é":1,"￿":2,"😀":3}', "UTF-8 byte order, not UTF-16");
+  const row = { b: 1, a: [0.1, -0, 1e21, 1e-7, "x"], "\u00e9": null, Z: true, n: { y: 2, x: [] } };
+  assert.equal(canon(row), '{"Z":true,"a":[0.1,0,1e+21,1e-7,"x"],"b":1,"n":{"x":[],"y":2},"\u00e9":null}');
+  assert.equal(canon({ "\u00e9": 1, "￿": 2, "😀": 3 }), '{"\u00e9":1,"￿":2,"😀":3}', "UTF-8 byte order, not UTF-16");
   assert.equal(canon(1.5501056004166666e-4), "0.00015501056004166666");
   const bare = Object.create(null) as Record<string, unknown>;
   bare.k = [1, { j: "\ud83d\ude00" }];
