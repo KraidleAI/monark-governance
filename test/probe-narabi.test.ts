@@ -26,6 +26,7 @@ import {
 } from "../scripts/probe-narabi.mjs";
 import type { NarabiState } from "../scripts/probe-narabi.mjs";
 import { loadNarabiCapture } from "../apps/site/lib/narabi-capture-load.ts";
+import { closedPort, listen } from "./helpers/loopback.ts";
 
 const SELF = fileURLToPath(import.meta.url);
 // C-B-6: NO test may send a REAL mail. Every child spawned here gets an env with all SMTP_*/ALERT_* PURGED
@@ -343,7 +344,7 @@ test("probe_get_over_loopback_http_executes — an http:// GET on loopback execu
     if (req.url === "/narabi/state.json") { res.writeHead(200, { "content-type": "application/json" }); res.end(JSON.stringify({ digest: okLastDigestT })); return; }
     okHits++; res.writeHead(200, { "content-type": "application/jsonl" }); res.end(body);
   });
-  await new Promise<void>((resolve) => okServer.listen(0, "127.0.0.1", () => resolve()));
+  await listen(okServer);
   try {
     const addr = okServer.address() as { port: number };
     const url = `http://127.0.0.1:${String(addr.port)}/narabi/timeline.jsonl`;
@@ -368,7 +369,7 @@ test("probe_get_over_loopback_http_executes — an http:// GET on loopback execu
   }
 
   const hangServer = createServer(() => { /* accept the socket, never write a response */ });
-  await new Promise<void>((resolve) => hangServer.listen(0, "127.0.0.1", () => resolve()));
+  await listen(hangServer);
   try {
     const addr = hangServer.address() as { port: number };
     const url = `http://127.0.0.1:${String(addr.port)}/narabi/timeline.jsonl`;
@@ -478,10 +479,10 @@ test("probe_invalid_now_still_writes_narabi_json — an unparseable --now yields
 test("probe_does_not_follow_redirects — a loopback server that answers 302 to another host is treated as unreachable; the redirect target is NEVER dialed (redirect: manual) (C-G2-4)", async () => {
   let targetHit = false;
   const target = createServer((_req, res) => { targetHit = true; res.writeHead(200, { "content-type": "application/jsonl" }); res.end(readFileSync(FIXTURE, "utf8")); });
-  await new Promise<void>((resolve) => target.listen(0, "127.0.0.1", () => resolve()));
+  await listen(target);
   const targetPort = (target.address() as { port: number }).port;
   const redirector = createServer((_req, res) => { res.writeHead(302, { location: `http://127.0.0.1:${String(targetPort)}/narabi/timeline.jsonl` }); res.end(); });
-  await new Promise<void>((resolve) => redirector.listen(0, "127.0.0.1", () => resolve()));
+  await listen(redirector);
   try {
     const redirPort = (redirector.address() as { port: number }).port;
     const r = await runProbeAsync(["--url", `http://127.0.0.1:${String(redirPort)}/narabi/timeline.jsonl`, "--now", "2026-09-20T10:35Z"], { PROBE_RETRIES: "0" });
@@ -644,7 +645,7 @@ async function startFakeSmtp(opts: FakeOpts = {}): Promise<FakeSmtp> {
       }
     });
   });
-  await new Promise<void>((r) => { server.listen(0, "127.0.0.1", () => { r(); }); });
+  await listen(server);
   const port = (server.address() as { port: number }).port;
   return { port, cap, close: () => new Promise<void>((r) => { server.close(() => { r(); }); }) };
 }
@@ -734,7 +735,7 @@ test("probe_state_mismatch_drives_smtp_alert_merged — the merged detection+ale
     if (req.url === "/narabi/state.json") { res.writeHead(200, { "content-type": "application/json" }); res.end(staleState); return; }
     res.writeHead(404); res.end();
   });
-  await new Promise<void>((r) => { http.listen(0, "127.0.0.1", () => { r(); }); });
+  await listen(http);
   const httpPort = (http.address() as { port: number }).port;
   const fake = await startFakeSmtp();
   try {
@@ -886,7 +887,7 @@ test("probe_smtp_single_wall_clock_deadline_covers_whole_exchange — sendSmtp a
       }
     });
   });
-  await new Promise<void>((r) => { server.listen(0, "127.0.0.1", () => { r(); }); });
+  await listen(server);
   const p = sendSmtp({ host: "127.0.0.1", port: (server.address() as { port: number }).port, tls: "none", user: "u@x.tld", pass: "p", from: "u@x.tld", to: "u@x.tld", message: "x\n", deadlineMs: DEADLINE, clock });
   p.catch(() => { /* settled below via the timer; never an unhandled rejection */ });
   try {
@@ -911,7 +912,7 @@ test("probe_smtp_connect_deadline_bounds_handshake — a server that accepts TCP
   // destroy it in finally, else server.close() would wait for a connection the child already dropped.
   let srvSock: net.Socket | undefined;
   const server = net.createServer((sock) => { srvSock = sock; sock.on("error", () => { /* silent: no ServerHello */ }); });
-  await new Promise<void>((r) => { server.listen(0, "127.0.0.1", () => { r(); }); });
+  await listen(server);
   try {
     const port = (server.address() as { port: number }).port, DEADLINE = 700, t0 = Date.now();
     const r = await runProbeAt(freshOut(), ["--file", FIXTURE, "--now", LAG_NOW], smtpEnv(port, { SMTP_TLS: "implicit", SMTP_DEADLINE_MS: String(DEADLINE) }), 8000);
@@ -1029,7 +1030,7 @@ test("probe_smtp_implicit_tls_never_speaks_plaintext — SMTP_TLS=implicit to a 
   // A cleartext greeting makes the client's TLS layer reject the first record fast (ERR_SSL_WRONG_VERSION_NUMBER),
   // so the handshake FAILS instead of hanging; the client's ClientHello is still recorded first (measured spike).
   const server = net.createServer((s) => { s.on("error", () => { /* peer RST on TLS-fail destroy — ignored (C-G2-2) */ }); s.write("220 fake plaintext\r\n"); s.on("data", (d: Buffer) => { received += d.toString("latin1"); }); });
-  await new Promise<void>((r) => { server.listen(0, "127.0.0.1", () => { r(); }); });
+  await listen(server);
   try {
     const port = (server.address() as { port: number }).port;
     const r = await runProbeAt(freshOut(), ["--file", FIXTURE, "--now", LAG_NOW], smtpEnv(port, { SMTP_TLS: "implicit", SMTP_DEADLINE_MS: "800" }), 8000);
@@ -1083,8 +1084,7 @@ test("probe_smtp_unconfigured_is_noisy — an unhealthy verdict with no SMTP con
 
 // ── C-3 (SMTP transport): a closed SMTP port is smtp_unreachable; a server that never greets is smtp_timeout ──
 test("probe_smtp_unreachable_closed_port_and_timeout — a closed loopback SMTP port yields smtp_unreachable; a server that accepts but never greets yields smtp_timeout; both exit 1 (C-3 SMTP)", async () => {
-  const tmp = net.createServer(); await new Promise<void>((r) => { tmp.listen(0, "127.0.0.1", () => { r(); }); });
-  const closed = (tmp.address() as { port: number }).port; await new Promise<void>((r) => { tmp.close(() => { r(); }); });
+  const closed = await closedPort();
   const r1 = await runProbeAt(freshOut(), ["--file", FIXTURE, "--now", LAG_NOW], smtpEnv(closed));
   assert.equal(r1.state.alert_error, "smtp_unreachable", "a closed SMTP port is smtp_unreachable");
   assert.equal(r1.status, 1);
@@ -1136,8 +1136,7 @@ test("probe_smtp_failure_leaves_narabi_written — a 535-rejecting server and a 
     assert.equal(r.state.alerted, false, "a failed send keeps alerted:false (retry next shot)");
     assert.equal(r.status, 1);
   } finally { await fake.close(); }
-  const tmp = net.createServer(); await new Promise<void>((r) => { tmp.listen(0, "127.0.0.1", () => { r(); }); });
-  const closed = (tmp.address() as { port: number }).port; await new Promise<void>((r) => { tmp.close(() => { r(); }); });
+  const closed = await closedPort();
   const out2 = freshOut();
   const r2 = await runProbeAt(out2, ["--file", FIXTURE, "--now", LAG_NOW], smtpEnv(closed));
   assert.equal(existsSync(out2), true, "narabi.json written on a connect failure (kills M-ii-20: connector throw -> FATAL -> unwritten)");
@@ -1198,8 +1197,7 @@ test("g2_no_test_can_send_real_mail — childEnv strips SMTP_*/ALERT_* even when
 //    finally is never reached when the connect rejects), so the child still EXITS PROMPTLY. The pre-existing
 //    no_residual_timer_handle only pins the SUCCESS path (finally); this twin closes the gap on the failure path. ──
 test("probe_smtp_no_residual_timer_handle_on_connect_failure — the FAILURE twin: with a 30 s SMTP_DEADLINE_MS a CONNECT failure (a closed loopback port -> smtp_unreachable) STILL lets the child EXIT PROMPTLY, because the single deadline timer is cleared in the connect-failure catch — the ONLY release on this path, the conversation finally is never reached; a timer left armed there would keep the process alive to the 30 s deadline (C-G2D-1)", async () => {
-  const tmp = net.createServer(); await new Promise<void>((r) => { tmp.listen(0, "127.0.0.1", () => { r(); }); });
-  const closed = (tmp.address() as { port: number }).port; await new Promise<void>((r) => { tmp.close(() => { r(); }); });
+  const closed = await closedPort();
   const t0 = Date.now();
   const r = await runProbeAt(freshOut(), ["--file", FIXTURE, "--now", LAG_NOW], smtpEnv(closed, { SMTP_DEADLINE_MS: "30000" }), 20000);
   const elapsed = Date.now() - t0;

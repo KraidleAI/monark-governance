@@ -10,7 +10,7 @@ import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
 import { createHash } from "node:crypto";
 import { copyFileSync, existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
-import { createServer, type IncomingHttpHeaders, type Server } from "node:http";
+import { createServer, type IncomingHttpHeaders } from "node:http";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
@@ -18,6 +18,7 @@ import { CSV_COLUMNS, expectedCount, LIMIT, main, MAX_PAGES, parseArgs, parseTim
   from "../scripts/record-binance-klines.mjs";
 import type { RecorderIo, SeriesManifest, SeriesManifestRead, SeriesManifestV1 } from "../scripts/record-binance-klines.mjs";
 import * as recorder from "../scripts/record-binance-klines.mjs"; // INTERVALS read as a property: the base, without it, still loads
+import { listen } from "./helpers/loopback.ts";
 
 type Row = [number, string, string, string, string, string, number, string, number, string, string, string];
 type FetchLike = (url: string, init: RequestInit) => Promise<Response>;
@@ -61,23 +62,6 @@ const logOf = (out: string): Logged[] => (existsSync(join(out, "requests.jsonl")
 const normalized = (out: string): string[] => (existsSync(out) ? readdirSync(out).filter((n) => n !== "raw" && n !== "requests.jsonl") : []);
 const rawCount = (out: string): number => (existsSync(join(out, "raw")) ? readdirSync(join(out, "raw")).length : 0);
 const offline = (calls: Calls): FetchLike => (url, init) => { calls.urls.push(url); calls.inits.push(init); return Promise.reject(new Error("offline")); };
-
-/** A loopback port that fetch accepts. The Fetch port check of this runtime blocks 82 ports, all at or below 10080 (Node 24.15.0, undici
- *  7.24.4, read in its own source; G1 journal of SERIES-BINANCE, section 8). This host hands port 0 out in sequence from 1024 up, through
- *  phases below 10081 that outlast any retry (measured: 300 binds in a row, 3914 to 4213; G1 journal of SERIES-INTERVALS). So a random
- *  port above 10080 is asked for, and another one on any listen error (in use, or excluded by the OS). */
-async function listen(server: Server): Promise<number> {
-  for (let i = 0; i < 50; i++) {
-    const port = 10_081 + Math.floor(Math.random() * 55_000);
-    const bound = await new Promise<boolean>((done) => {
-      const ok = (): void => { server.off("error", ko); done(true); };
-      const ko = (): void => { server.off("listening", ok); done(false); };
-      server.once("error", ko).once("listening", ok).listen(port, "127.0.0.1");
-    });
-    if (bound) return port;
-  }
-  return assert.fail("no free loopback port above 10080 in 50 tries");
-}
 
 /** The loopback endpoint: request n gets `script` n when given (status, headers and body, or a cut connection), else the rows that its
  *  query selects, as H-2 says the real endpoint does. Each request URL and its headers are kept, in order. */

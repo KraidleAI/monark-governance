@@ -22,7 +22,6 @@
  */
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { once } from "node:events";
 import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import type { Server as HttpServer } from "node:http";
@@ -44,6 +43,7 @@ import {
   BTC_DIR_PREDICTION,
 } from "./h5-trace-builder.ts";
 import type { H5Trace, ToolCallResponse } from "./h5-trace-builder.ts";
+import { startLoopback } from "./helpers/loopback.ts";
 
 const TRACE_PATH = fileURLToPath(new URL("../fixtures/h5-e2e-trace.json", import.meta.url));
 const VOCAB_PATH = fileURLToPath(new URL("../vocab-banned.json", import.meta.url));
@@ -152,9 +152,8 @@ test("probe_harness_records_real_decision", async () => {
   // (6) ANTI-MOCK (LOAD-BEARING) — perturbations NOT present in the committed trace, over the SAME wire
   // seam, must track the independent recompute. A frozen/mock trace (which holds only shock=0, yhat=100)
   // returns the wrong value at shock=0.6 (yhat=150) ⇒ this reds. Same idea for a perturbed B_t echo.
-  const server: HttpServer = startServer(0);
+  const server: HttpServer = await startLoopback((port) => startServer(port));
   try {
-    await once(server, "listening");
     const addr = server.address();
     assert.ok(addr !== null && typeof addr === "object", "address() must be an AddressInfo");
     assert.equal(addr.address, "127.0.0.1", "the harness binds 127.0.0.1 only");

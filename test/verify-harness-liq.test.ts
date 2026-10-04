@@ -11,7 +11,6 @@
  */
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { once } from "node:events";
 import { execFile } from "node:child_process";
 import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
@@ -25,6 +24,7 @@ import {
 } from "../apps/harness/src/tools/gate.ts";
 import { lookupCommittedCalibration, UKEMI_LIQ_PREDICTOR_BASE, USDE_STABLE_RUN_CALIB_DIGEST_PINNED } from "../apps/harness/src/calibration.ts";
 import { strateOf, STRATA_CUTS_SERVED } from "../apps/harness/src/ukemi-strata.ts";
+import { listen, startLoopback } from "./helpers/loopback.ts";
 
 const SCRIPT = fileURLToPath(new URL("../scripts/verify-harness.mjs", import.meta.url));
 const LIQ_CHECKS = ["gate_liq_call", "gate_liq_uncommitted_call", "mcp_gate_description_liq"] as const;
@@ -86,9 +86,8 @@ const GREEN = {
 // the committed clause) => mcp_gate_description_liq red; the liq body sent with alpha 0.1 (a named 400) => red; the
 // uncommitted body put in s0 => red.
 test("verify_harness_ca_passes_on_the_in_process_harness", async () => {
-  const server: HttpServer = startServer(0);
+  const server: HttpServer = await startLoopback((port) => startServer(port));
   try {
-    await once(server, "listening");
     const addr = server.address();
     assert.ok(addr !== null && typeof addr === "object", "address() must be an AddressInfo");
     const base = `http://127.0.0.1:${String(addr.port)}`;
@@ -263,14 +262,13 @@ test("verify_harness_ca_liq_checks_red_on_overclaiming_surfaces", { timeout: 300
       committed: edit((b) => { const c0 = b.content[0]; if (c0 !== undefined) c0.text = `${c0.text} ${LIQ_EMPTY_REGISTRY_SENTENCE}`; }),
       details: liqPlus(GREEN.description, GREEN.uncommitted, GREEN.liq.replace("empty_text=false", "empty_text=true")) },
   ];
-  const upstream: HttpServer = startServer(0);
+  const upstream: HttpServer = await startLoopback((port) => startServer(port));
   try {
-    await once(upstream, "listening");
     for (const v of vectors) {
       const seen: Seen = { rewrites: 0, committed: 0, uncommitted: 0 };
-      const proxy = overclaimingProxy(portOf(upstream), v, seen).listen(0, "127.0.0.1");
+      const proxy = overclaimingProxy(portOf(upstream), v, seen);
       try {
-        await once(proxy, "listening");
+        await listen(proxy);
         const base = `http://127.0.0.1:${String(portOf(proxy))}`;
         const r = await runCa(["--api", base, "--mcp", base, "--api-host", "api.monarkgate.tech"]);
         const ca = JSON.parse(r.stdout) as Ca;
