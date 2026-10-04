@@ -507,6 +507,9 @@ pm) ; item MK-NM-GUARD-1 (refuser Tree = F:/Monark dans mk-nm.ps1).
 - 2026-10-04 23:0x UTC : DÉCISION de l investisseur (réponse verbatim) : « 1 jour » : préavis D entre la publication de NOTICE-1-1-0 et de la
   spécification 1.1.0 (T − D) et la bascule T0. S écarte du plan r3 §9.2 (« D (≥ 7 jours) »), proposé après explication (qui sont les
   appelants, ce qui change) et la recommandation de 7 jours ; la décision du fondateur prime ; ligne pour la liste r4.
+- 2026-10-04 23:1x UTC : ARBITRAGE du fondateur, relayé verbatim par RECHERCHES (règle 8 ; messages `1f3e7e5` et `29fb1c2`) après deux
+  réponses croisées (« 1 jour » à MONARK, « D = 7 jours (Recommandé) » à RECHERCHES), à la question « Laquelle fait foi ? » :
+  « D = 7 jours ». Remplace la ligne précédente : D = 7 jours, conforme au plan r3 §9.2 ; accord de MONARK. T0 reste fixé au go F-5a.
 - 2026-10-04 00:5x UTC : fusions au tronc : CM-2a (`4a1b4844`, PR #105 `98e3779a`), COINBASE-PASS-EDGES-1 (`44d8892d`), BINANCE-PRE153-1
   (`328be484`). Leurs oracles G7 (`569c91c6…`, `bba0b720…`, `2ce4d71c…`) portent seulement deux rouges venus de la CA de l étape 3
   committée sans resynchronisation du site (error_origin de l orchestrateur) ; correction `0c8f8177`, oracle vert : 2 060 tests,
