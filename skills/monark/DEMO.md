@@ -85,7 +85,7 @@ calibrated, and nothing else.
 ## Recorded demonstration
 
 This exact loop is recorded, byte-for-byte, in `fixtures/byo-demo-trace.json` (LF sha256
-`79b54471…`), produced by the deterministic recorder `scripts/record-byo-demo.mjs` and re-driven and
+`daf8d3ea…`), produced by the deterministic recorder `scripts/record-byo-demo.mjs` and re-driven and
 verified end-to-end by `test/byo-demo-probe.test.ts`. Its origin, digest, and the mock-discriminating
 checks are documented in `fixtures/PROVENANCE-byo-demo.md`.
 
@@ -93,7 +93,7 @@ checks are documented in `fixtures/PROVENANCE-byo-demo.md`.
 
 The BYO loop above uses YOUR scores. Separately, this endpoint serves one committed class,
 `stable-run-velocity-24h` (redemption-run velocity for USDe), measured on calm onchain redemption-flow
-windows; every other population abstains (`under_calib`). An off-tool **daily** sentinel steps an adaptive
+windows; on the committed USDe key the server imposes `alpha = 0.1` and `nMin = 50` (any other value is a named 400). Every other population abstains (`under_calib`). An off-tool **daily** sentinel steps an adaptive
 quantile tracker on the attested 24h flow and publishes a replayable timeline (`state.json`,
 `timeline.jsonl`) at `monarkgate.tech/narabi/`; the committed gate region is static until a pre-registered
 drift criterion fires and an ADR says so.

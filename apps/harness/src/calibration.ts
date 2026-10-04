@@ -8,8 +8,8 @@
  * guard, so a silent drift in the HIKAE draw (or in this derivation) throws at import time rather than
  * changing the gate's behaviour unnoticed.
  *
- * It is DECLARED synthetic (a plumbing fixture, not a measured predictor): the honesty of the class
- * lives in the tool description and in `BTC_DIR_CALIB_PROVENANCE`, never inside a frozen contract
+ * It is DECLARED synthetic (a plumbing fixture, not a measured predictor). The class is retired (ADR-CM B-5): no longer
+ * served, and the tool description names it only as retired; its honesty lives in `BTC_DIR_CALIB_PROVENANCE`, never inside a frozen contract
  * (K-1). No cascade calibration exists — that class abstains (`under_calib`), by design (D5).
  */
 import { S2_DEFAULT, generateLabeledSeries, indicatorScore, HARNESS_VERSION } from "@monark/hikae";

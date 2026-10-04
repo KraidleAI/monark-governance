@@ -215,7 +215,7 @@ export function gateJson(state: SimState, actions: readonly string[]): string {
     intent: state.intent,
     verdict: region
       ? {
-          task_class: "btc-dir-15m",
+          task_class: "byo-direction",
           alpha: ALPHA,
           region,
           abstain: false,

@@ -191,7 +191,7 @@ C-1 écart base et servi (en tête, B-0) ; C-2 btc-dir déjà retirée (Q-F1, B-
 - **Item formé** : ATTEST-KATA-SUBJECT-1 (sujet attesté pour les futures classes kata Binance) ; propriétaire RECHERCHES ; déclencheur : après CM-4 ; aucun travail maintenant ; toute ligne neuve de la table d'attestation passe par une ligne B neuve au §5.
 - **BTC-DIR-RETIRE-SURFACES-1** est livré par MONARK avec CM-2b ; jusque-là, les tests de `test/` qui comparent le harnais aux surfaces de MONARK (liste dans `docs/G0-lot-cm-2b.md`) sont rouges par construction.
 
-## Amendement daté 2026-10-03 (nuit, 4) : contrat 1.1.0 (E-13/S-9), B-11, lot CM-3c
+## Amendement daté 2026-10-03 (nuit, 5) : contrat 1.1.0 (E-13/S-9), B-11, lot CM-3c (source : recherches/cm-3b 58ca01b)
 
 - **Décision du fondateur**, verbatim (2026-10-03) : « Tout passer en 1.1.0. Toutes les empreintes changent, et il faut prévenir les appelants et republier la spécification. »
 - **§3, ligne CM-3, amendée** : « E-13/S-9 ne change ni `schema_version` (1.0.0) ni les empreintes `openapi.json` » ne vaut plus que pour CM-3a et CM-3b. E-13/S-9 devient le lot **CM-3c** (item CONTRACT-1-1-0), qui passe `schema_version` à 1.1.0 et déplace les empreintes.
@@ -204,3 +204,9 @@ C-1 écart base et servi (en tête, B-0) ; C-2 btc-dir déjà retirée (Q-F1, B-
 - **Répartition** : RECHERCHES pour `packages/contracts`, `schemas/**`, les adaptateurs, les épingles et les tests (par exception à R-3, sur cette décision du fondateur, avec contrôle par diff de MONARK) ; MONARK pour la spécification publique (`KraidleAI/monark-kata-spec`), l'export du miroir public, `apps/site`, `apps/bell` et `apps/dojo` s'ils portent `schema_version`, et l'avis aux appelants.
 - **Calendrier** : CM-3c est programmé avec le chemin kata (CM-4), pour que les appelants servis voient un seul changement de format.
 - **Item formé** : CONTRACT-1-1-0 ; propriétaires ci-dessus ; déclencheur : plan de CM-4.
+
+## Amendement daté 2026-10-04 (1) : OPENAPI-ERROR-CODE-1 au §10 (contrôle par diff de MONARK sur CM-2a, C-5) (source : recherches/cm-2a-suite 7e37bb9)
+
+| Item | Propriétaire | Déclencheur |
+|---|---|---|
+| OPENAPI-ERROR-CODE-1 : `openapi.json` décrit le champ `code` du corps d'erreur 400 (liste fermée `HARNESS_ERROR_CODES`) et le 500 `output_invalid` ; prix : environ 60 lignes (code d'`openapi.ts` et son test), empreinte d'`openapi.json` déplacée | RECHERCHES | avec CM-3c et CM-4 (une seule nouvelle empreinte d'`openapi.json` et une seule version datée de la spécification publique) |

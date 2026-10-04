@@ -44,7 +44,17 @@ export const DEMO_CASCADE_INPUT: CascadeInput = { L: [[0, 100], [50, 0]], e: [40
 export const GATE_PARAMS = { bFloor: 0, tau: 1, tauInterval: 1, alpha: 0.1, nMin: 50, tool: "perps_order_preview", clockOpen: true } as const;
 export const DEMO_REMAINING_BUDGET = 0.1;
 
-/** The btc-dir-15m prediction the committed synthetic calibration decides (the "committed synthetic decision"). */
+/** The committed USDe key of stable-run-velocity-24h (GATE_PARAMS carries its imposed alpha 0.1 and nMin 50): the
+ *  committed decision of the trace since btc-dir-15m is retired (ADR-CM B-5, CM-2b). */
+export const USDE_PREDICTION = {
+  schema_version: "1.0.0",
+  task_class: "stable-run-velocity-24h",
+  yhat: 0.0001,
+  predictor_id: "narabi:persistence-v2@eip155:1/erc20:0x4c9edd5852cd905f086c759e8383e09bff1e68b3",
+  produced_at: PRODUCED_AT,
+} as const;
+
+/** The retired btc-dir-15m prediction (ADR-CM B-5): carried by step 7 with the attested witness, refused (400). */
 export const BTC_DIR_PREDICTION = {
   schema_version: "1.0.0",
   task_class: "btc-dir-15m",
@@ -219,19 +229,20 @@ export async function buildTrace(): Promise<H5Trace> {
     const gateCascadeArgs = { prediction: cascadePrediction, params: { ...GATE_PARAMS, remainingBudget: DEMO_REMAINING_BUDGET, intent: 100 } };
     const gateCascade = await mcpToolsCall(port, 4, "gate", gateCascadeArgs);
 
-    // 5) gate(btc-dir-15m) -> the committed synthetic decision (synthetic calibration, declared).
-    const gateBtcArgs = { prediction: BTC_DIR_PREDICTION, params: { ...GATE_PARAMS, remainingBudget: DEMO_REMAINING_BUDGET, intent: "up" } };
-    const gateBtc = await mcpToolsCall(port, 5, "gate", gateBtcArgs);
+    // 5) gate(USDe committed key) -> the committed decision (measured calibration; btc-dir-15m is retired, CM-2b).
+    const gateUsdeArgs = { prediction: USDE_PREDICTION, params: { ...GATE_PARAMS, remainingBudget: DEMO_REMAINING_BUDGET, intent: 0.0001 } };
+    const gateUsde = await mcpToolsCall(port, 5, "gate", gateUsdeArgs);
 
     // 6) attest(Shōgen) -> AttestedPrice envelope: demonstrative, not probative.
     const attest = await mcpToolsCall(port, 6, "attest", {});
     const at = structuredOf(attest);
     const atPrice = field(at, "price");
 
-    // 7) gate(btc-dir-15m) CARRYING the LIVE attested price of step 6 — the SERVED attest -> gate tuyau
-    //    (ADR-M017 D2(iii)/D4(3)): the gate FILES attested.residual into verdict.residual and leaves the
-    //    decision otherwise unchanged. Same prediction/params object as step 5 (byte-identity by reference).
-    const gateAttestedArgs = { prediction: BTC_DIR_PREDICTION, params: gateBtcArgs.params, attested: atPrice };
+    // 7) gate(btc-dir-15m) CARRYING the LIVE attested price of step 6 (ADR-M017 D2(iii)/D4(3)). btc-dir-15m was the
+    //    only class with a committed attestation subject; it is retired (ADR-CM B-5), so the call passes the
+    //    consistency guard and is refused (400 task_class_retired): the attest -> gate join is dormant since CM-2b
+    //    (ADR-CM amendment "nuit, 3"). Kept and re-pinned on that refusal.
+    const gateAttestedArgs = { prediction: BTC_DIR_PREDICTION, params: { ...GATE_PARAMS, remainingBudget: DEMO_REMAINING_BUDGET, intent: "up" }, attested: atPrice };
     const gateAttested = await mcpToolsCall(port, 7, "gate", gateAttestedArgs);
 
     // 8) HTTP/JSON mirror of cascade (api. Host) — both surfaces must agree.
@@ -239,19 +250,18 @@ export async function buildTrace(): Promise<H5Trace> {
 
     const mirrorMatches = JSON.stringify(structuredOf(mirror)) === JSON.stringify(cascadePrediction);
     const gc = structuredOf(gateCascade);
-    const gb = structuredOf(gateBtc);
-    const ga = structuredOf(gateAttested);
+    const gb = structuredOf(gateUsde);
     const gbVerdict = field(gb, "verdict");
-    const gaVerdict = field(ga, "verdict");
+    const gaMeta = (gateAttested as unknown as { _meta?: Record<string, unknown> })._meta;
 
     const steps: Step[] = [
       { n: 1, surface: "mcp", op: "initialize", request: initReq, result: { protocolVersion: initResult.protocolVersion, serverInfo: initResult.serverInfo } },
       { n: 2, surface: "mcp", op: "tools/list", request: listReq, result: { names, response_sha256: listSha } },
       { n: 3, surface: "mcp", op: "tools/call", label: "cascade", tool: "cascade", note: "UKEMI cascade -> Prediction (estimated liquidable amount).", request: { jsonrpc: "2.0", id: 3, method: "tools/call", params: { name: "cascade", arguments: cascadeArgs } }, response: cascade },
       { n: 4, surface: "mcp", op: "tools/call", label: "cascade-gate", tool: "gate", note: "cascade -> gate: no cascade calibration is committed, so the gate abstains (under_calib). This is the honest, expected result.", request: { jsonrpc: "2.0", id: 4, method: "tools/call", params: { name: "gate", arguments: gateCascadeArgs } }, response: gateCascade },
-      { n: 5, surface: "mcp", op: "tools/call", label: "btc-dir-gate", tool: "gate", note: "btc-dir-15m over the committed SYNTHETIC calibration (a plumbing fixture, not a measured predictor): the committed synthetic decision, demonstrative only.", request: { jsonrpc: "2.0", id: 5, method: "tools/call", params: { name: "gate", arguments: gateBtcArgs } }, response: gateBtc },
+      { n: 5, surface: "mcp", op: "tools/call", label: "committed-gate", tool: "gate", note: "the committed USDe key of stable-run-velocity-24h, over its measured calibration (alpha and nMin imposed by the server; no coverage is measured): the committed decision.", request: { jsonrpc: "2.0", id: 5, method: "tools/call", params: { name: "gate", arguments: gateUsdeArgs } }, response: gateUsde },
       { n: 6, surface: "mcp", op: "tools/call", label: "attest", tool: "attest", note: "Shōgen projection of one committed, previously Shōgen-verified witness; demonstrative, not probative; the verifier is not executed at call time.", request: { jsonrpc: "2.0", id: 6, method: "tools/call", params: { name: "attest", arguments: {} } }, response: attest },
-      { n: 7, surface: "mcp", op: "tools/call", label: "attested-gate", tool: "gate", note: `${GATE_NON_REVERIFICATION_SENTENCE}; only \`attested.residual\` is filed into \`verdict.residual\`; the decision is otherwise unchanged`, request: { jsonrpc: "2.0", id: 7, method: "tools/call", params: { name: "gate", arguments: gateAttestedArgs } }, response: gateAttested },
+      { n: 7, surface: "mcp", op: "tools/call", label: "attested-gate", tool: "gate", note: `${GATE_NON_REVERIFICATION_SENTENCE}; btc-dir-15m, the only class with a committed attestation subject, is retired, so this call is refused (task_class_retired): the attest -> gate join is dormant`, request: { jsonrpc: "2.0", id: 7, method: "tools/call", params: { name: "gate", arguments: gateAttestedArgs } }, response: gateAttested },
       { n: 8, surface: "http", op: "POST /cascade", label: "cascade-mirror", tool: "cascade", note: "HTTP/JSON mirror (api. Host): the same frozen structuredContent as the MCP surface.", request: { host: HOST_API, method: "POST", path: "/cascade", body: cascadeArgs }, response: mirror },
     ];
 
@@ -265,6 +275,7 @@ export async function buildTrace(): Promise<H5Trace> {
         date: "2026-09-11",
         grounding: "ADR-M005 H5 / C-6",
         reviewer: "Independently reviewed and recorded before commit.",
+        repinned: "2026-10-04, CM-2b surfaces: step 5 on the committed USDe key, step 7 on the task_class_retired refusal.",
       },
       transport: {
         mcp: "MCP streamable-HTTP via createMcpHandler (SDK modelcontextprotocol server 2.0.0); a real JSON-RPC tools/call over a 127.0.0.1 socket; the response is framed as text/event-stream.",
@@ -275,7 +286,7 @@ export async function buildTrace(): Promise<H5Trace> {
         protocol_version_negotiated: "the SDK 2.0.0 negotiates protocolVersion 2025-11-25 (the ADR names 2026-07-28); a pre-existing SDK observation, outside H5 scope.",
       },
       honesty: {
-        calibration: "synthetic: the btc-dir-15m calibration is a HIKAE S2a plumbing fixture (declared synthetic, not a measured predictor). The btc-dir decision here is demonstrative, not a trading signal.",
+        calibration: "committed: the USDe key of stable-run-velocity-24h, measured on calm-window redemption flow and measured non-stationary across half-years; no coverage is measured. btc-dir-15m is retired and its synthetic calibration is no longer served.",
         budget_bt: "B_t is caller-carried: remainingBudget enters as a gate parameter and the SAME value leaves as remaining_budget. The stateless server does NOT deplete it (depletion would be monetisation, outside ADR-M005 scope, D6).",
         cascade_class: "under_calib: no cascade calibration is committed, so the cascade -> gate path abstains. That abstention is the honest, expected result, not a defect.",
         attest: "demonstrative, not probative: a projection of ONE committed, previously Shōgen-verified witness (Binance BTCUSDT, self-notarised); the verifier is not executed at call time.",
@@ -288,13 +299,13 @@ export async function buildTrace(): Promise<H5Trace> {
         cascade_gate_action: field(gc, "action"),
         cascade_gate_reason: field(gc, "reason"),
         cascade_gate_remaining_budget: field(gc, "remaining_budget"),
-        btc_dir_action: field(gb, "action"),
-        btc_dir_reason: field(gb, "reason"),
-        btc_dir_calib_digest: gbVerdict !== null && typeof gbVerdict === "object" ? (gbVerdict as Record<string, unknown>)["calib_digest"] : undefined,
+        committed_gate_action: field(gb, "action"),
+        committed_gate_reason: field(gb, "reason"),
+        committed_gate_calib_digest: gbVerdict !== null && typeof gbVerdict === "object" ? (gbVerdict as Record<string, unknown>)["calib_digest"] : undefined,
         attest_label: field(at, "label"),
         attest_sens_emis_digest: atPrice !== null && typeof atPrice === "object" ? (atPrice as Record<string, unknown>)["sens_emis_digest"] : undefined,
-        attested_gate_action: field(ga, "action"),
-        attested_gate_residual: gaVerdict !== null && typeof gaVerdict === "object" ? (gaVerdict as Record<string, unknown>)["residual"] : undefined,
+        attested_gate_is_error: (gateAttested as unknown as { isError?: unknown }).isError,
+        attested_gate_error_code: gaMeta?.["monarkgate.tech/error_code"],
         mirror_matches_mcp_cascade: mirrorMatches,
       },
     };

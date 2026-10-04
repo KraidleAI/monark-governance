@@ -55,7 +55,7 @@ import { LIQ_POLICY, USDE_POLICY, type ClassPolicyRow } from "../class-policy.ts
 // (ADR-M017 D2): the committed subject<->class binding table + the pure consistency predicate. A pure
 // sibling module at src/ (no I/O, imports nothing from the tools), so the K-8 tools scan stays meaningful
 // and there is no import cycle (attestation-binding.ts never imports gate.ts).
-import { checkAttestedConsistency } from "../attestation-binding.ts";
+import { checkAttestedConsistency, NO_SERVED_ATTESTATION_SUBJECT_SENTENCE } from "../attestation-binding.ts";
 
 /** Server-fixed contract version (K-4c) — NOT carried by the caller. */
 export const SCHEMA_VERSION = "1.0.0";
@@ -220,7 +220,7 @@ export function describeGate(registryHasLiq: boolean): string {
     "A caller-carried `attested` price must declare a subject consistent with the committed task class " +
     "(exact committed-URL membership; BYO classes do not accept `attested` in P1); " +
     GATE_NON_REVERIFICATION_SENTENCE +
-    "; no temporal binding in P1. " +
+    `; no temporal binding in P1. ${NO_SERVED_ATTESTATION_SUBJECT_SENTENCE} ` +
     "The gate only emits a decision; it never calls the named tool."
   );
 }
@@ -701,7 +701,7 @@ export function honestyText(taskClass: string, predictorId: string, isByo: boole
     // Keyed on REGISTRY presence (delta D-3), NOT on lookupCommittedCalibration(TASK_LIQ, predictorId): the
     // server ignores the client key for this class, and `honestyText` has no `yhat` to derive the stratum, so
     // a per-key lookup would either surclaim "committed" for a non-served stratum or read "no calibration" for
-    // every naked id. In U-4b-2a the registry is empty ⇒ the honest empty-registry text.
+    // every naked id. Since U-4b-2b the registry carries s0 (n 170), so the committed text; an empty registry gives the empty-registry text.
     return hasCommittedCalibrationForClass(TASK_LIQ_ELIGIBLE)
       ? `${LIQ_COMMITTED_SENTENCE}; B_t is caller-carried.`
       : `${LIQ_EMPTY_REGISTRY_SENTENCE}; B_t is caller-carried.`;

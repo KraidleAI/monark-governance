@@ -39,7 +39,7 @@ NDG-1 rend `under_calib` un q̂ = 0 calibré ; l'effet est nul en pratique à α
 
 ## E-13 / S-9 : décidé par le fondateur, non codé ici (lot CM-3c)
 
-Décision du fondateur, verbatim (2026-10-03) : « Tout passer en 1.1.0. Toutes les empreintes changent, et il faut prévenir les appelants et republier la spécification. » C'est l'option (i) (passage global). CM-3b reste sans différence servie ; le changement est l'item **CONTRACT-1-1-0**, lot **CM-3c**, ligne **B-11** de l'ADR-CM (amendement daté du 2026-10-03, « nuit, 4 ») :
+Décision du fondateur, verbatim (2026-10-03) : « Tout passer en 1.1.0. Toutes les empreintes changent, et il faut prévenir les appelants et republier la spécification. » C'est l'option (i) (passage global). CM-3b reste sans différence servie ; le changement est l'item **CONTRACT-1-1-0**, lot **CM-3c**, ligne **B-11** de l'ADR-CM (amendement daté du 2026-10-03, « nuit, 5 ») :
 
 1. `schema_version` 1.0.0 → 1.1.0 pour **tout** verdict et toute décision (adaptateurs `adapter-shogen.ts:38`, `adapter-narabi.ts:26`, `adapter-book.ts:26`, `s2/instrument.ts:33`, harnais) ;
 2. valeurs d'énumération ajoutées : `METHODS` gagne `risk-control` ; `COVERAGE_REASONS` gagne `calib_silence`, `calib_vetoed`, `out_of_support` ; aucune valeur retirée ni renommée ;

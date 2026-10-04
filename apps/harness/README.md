@@ -18,9 +18,10 @@ Free, pure, no persistence, no trading (ADR-M005 D1). Transport: MCP Streamable 
 - `params` — the **non-frozen** gate parameters (declared by the server, never in `schemas/`). The
   OPTIONAL `params.calibration` opens the **BYO** path (ADR-M007 D7): see below.
 - `attested` — OPTIONAL: a caller-carried frozen `AttestedPrice` (ADR-M017). Its subject must be DECLARED
-  consistent with the served class (exact committed-URL membership); the gate runs no verifier on it at call time, and only its
-  `residual` is filed into `verdict.residual` (the decision is otherwise unchanged). BYO classes and
-  `liquidation-eligible-coverage` accept none: a tool error.
+  consistent with the served class (exact committed-URL membership); the gate runs no verifier on it at call time.
+  No served class has a committed attestation subject (the retired `btc-dir-15m` held the only one), so any
+  `attested` is refused: a tool error (`attested_inconsistent`; on `btc-dir-15m`, `task_class_retired`). The
+  residual seam (`attested.residual` filed into `verdict.residual`) is therefore dormant on every served path.
 
 **Dispatch is on `prediction.task_class`** (ADR-M005 D5), UNLESS the caller supplies `params.calibration`
 (then the BYO path runs, keyed on presence — see the BYO row):

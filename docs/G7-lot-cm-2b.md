@@ -16,7 +16,7 @@
 
 ## Changements servis (liste fermée)
 
-- **B-5** : `btc-dir-15m` sans BYO rend 400 `task_class_retired` ; la garde BYO exacte garde son message octet pour octet ; `known:` sans btc-dir.
+- **B-5** : `btc-dir-15m` sans BYO rend 400 `task_class_retired` ; la garde BYO exacte garde son message octet pour octet ; `known:` sans btc-dir. À la base, btc-dir sans BYO ne rendait pas seulement `commit` ou `defer` : aussi `abstain`/`under_calib` (α 0,0066 ; nMin 100 000), `abstain`/`non_evaluable` (yhat « flat ») et 400 `yhat_type_mismatch` (yhat nombre) ; tout devient 400 `task_class_retired` (un 400 reste un 400 ; le code et le message changent). Ajout du 2026-10-04, C-3 du contrôle par diff de MONARK.
 - **B-2** : la clé USDe commise exige α = 0,1 et nMin = 50 (400 `policy_alpha_mismatch` / `policy_nmin_mismatch`, α vérifié d'abord) ; messages liq inchangés ; autres clés USDe, tau, `tauInterval`, cascade et BYO inchangés. Lignes F-7 dans `apps/harness/src/class-policy.ts`.
 - **B-7** : le texte USDe dit que chaque bord est l'arrondi au double le plus proche de yhat ∓ q̂, à au plus un demi-ulp du bord exact ; bande inchangée (rejeu octet pour octet de 12 décisions).
 - **Description et openapi** : sha256 de la description `55744504…` → `cb4029d2…` ; `JSON.stringify(buildOpenApi())` `9e3176ea…` → `fc746a60…`.

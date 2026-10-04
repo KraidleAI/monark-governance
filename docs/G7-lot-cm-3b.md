@@ -9,7 +9,7 @@
 - `canonicalRow` refuse tableaux creux, objets non simples, surrogates isolées, cycles.
 - Unités de [0, h*] écrites (|r| ou label positif, transposition de l'avis 0005).
 - Tests : refus nommé de q̂ négatif, h* = 0 avec q̂ > 0 rend `under_calib`, q̂ sous-normal à σ̂ 1000 sans exception. **Écart** : à σ̂ 1000 le moteur sert un bord h* > 0 exact (le relecteur attendait `under_calib`) ; refuser les q̂ sous-normaux serait une règle neuve, laissée à CM-4.
-- **E-13/S-9** : décision du fondateur (« Tout passer en 1.1.0 … ») écrite au G0 et en amendement daté de l'ADR-CM (« nuit, 4 ») : B-11, lot CM-3c (CONTRACT-1-1-0), §3 ligne CM-3 amendée, répartition RECHERCHES / MONARK, calendrier avec CM-4. Non codé ici.
+- **E-13/S-9** : décision du fondateur (« Tout passer en 1.1.0 … ») écrite au G0 et en amendement daté de l'ADR-CM (« nuit, 5 ») : B-11, lot CM-3c (CONTRACT-1-1-0), §3 ligne CM-3 amendée, répartition RECHERCHES / MONARK, calendrier avec CM-4. Non codé ici.
 
 ## Oracle (après la G2)
 
