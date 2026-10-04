@@ -38,8 +38,9 @@ const TOOLS = ["gate", "cascade", "attest", "calibrate"];
 
 // Same fixture shapes the harness tests use (a real, non-abstain decision on the committed USDe key, alpha 0.1 and nMin 50
 // imposed since CM-2b, btc-dir-15m being retired; a 2-node cascade;
-// a calibrate call whose n=10 >= nMin and p=⌈11·0.9⌉=10 <= n yields a numeric q̂).
-const GATE_BODY = {
+// a calibrate call whose n=10 >= nMin and p=⌈11·0.9⌉=10 <= n yields a numeric q̂). Exported: scripts/sync-harness-served.mjs
+// POSTs this very object, never a copy (G2 of CM-2b surfaces, M2).
+export const GATE_BODY = {
   prediction: { schema_version: "1.0.0", task_class: "stable-run-velocity-24h", yhat: 0.0001, predictor_id: "narabi:persistence-v2@eip155:1/erc20:0x4c9edd5852cd905f086c759e8383e09bff1e68b3", produced_at: "2026-09-04T00:00:00Z" },
   params: { remainingBudget: 0.1, bFloor: 0, tau: 1, tauInterval: 1, alpha: 0.1, nMin: 50, intent: 0.0001, tool: "perps_order_preview", clockOpen: true },
 };

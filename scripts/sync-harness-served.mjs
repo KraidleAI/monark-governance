@@ -34,6 +34,8 @@ import {
 import { DEMONSTRATIVE_LABEL } from "../packages/monark/src/adapter-shogen.ts";
 // The one declared text rule (internal reference tokens in parentheses removed), shared with the site loader and its test.
 import { stripRefs } from "../apps/site/lib/harness-served-load.ts";
+// The deploy check's gate body, imported (never a copy), so the two cannot drift before deployment (G2 of CM-2b surfaces, M2).
+import { GATE_BODY } from "./verify-harness.mjs";
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..");
 export const OUT_REL = "apps/site/data/harness-served.json";
@@ -47,10 +49,6 @@ const sameSet = (a, b) => a.length === b.length && [...a].sort().join(",") === [
 
 // The deploy check's own request bodies (scripts/verify-harness.mjs GATE_BODY / CALIBRATE_BODY / CASCADE_BODY /
 // GATE_LIQ_BODY), byte-identical so each served response hashes to the sha256 the committed check recorded.
-const GATE_BODY = {
-  prediction: { schema_version: "1.0.0", task_class: "stable-run-velocity-24h", yhat: 0.0001, predictor_id: "narabi:persistence-v2@eip155:1/erc20:0x4c9edd5852cd905f086c759e8383e09bff1e68b3", produced_at: "2026-09-04T00:00:00Z" },
-  params: { remainingBudget: 0.1, bFloor: 0, tau: 1, tauInterval: 1, alpha: 0.1, nMin: 50, intent: 0.0001, tool: "perps_order_preview", clockOpen: true },
-};
 const CALIBRATE_BODY = { scores: [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0], alpha: 0.1, nMin: 5 };
 const CASCADE_BODY = { L: [[0, 100], [50, 0]], e: [40, 20], shock: 0, producedAt: "2026-09-04T00:00:00Z" };
 const GATE_LIQ_BODY = {
