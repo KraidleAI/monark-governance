@@ -6,13 +6,14 @@
   - `AMENDEMENT-ADR-CM-r3.md` (`774a5601…d0d0`) §2 (R-25 en blocs A, B1, B2, C, D ; Q-F3, l.116) ;
   - A-2 r3 `recherches:decisions/0004-ADR-amendment-A-2-import-guard.md` (`d883725a…7d12`) §2.1, §2.2 points 1 et 4, §5 ;
   - addendum 3 de l'ADR 0005, `0005-ADR-addendum-3-contract-1-1-0.md` (`9647f743…586a`) ;
-  - addendum 8 de l'ADR 0006, **brouillon**, `0006-ADR-addendum-8-guard-recomputes-from-counts.md` (`4d03a7e2…517b`) ;
+  - addendum 8 de l'ADR 0006, `0006-ADR-addendum-8-guard-recomputes-from-counts.md` (sha256 `4d03a7e2e3cf2e9f745acc75048dfc0d9527ae8ccff7a97aa4a11250afed517b`, octets du blob git, LF ; dernier commit `recherches` `fdd8744`) : contrôlé par MONARK et **publié en ligne P0** dans `KraidleAI/monark-precommitments`, commit **`ec202d00`** (`PRECOMMITMENTS.md`, push reçu par GitHub à 16:57:45Z le 2026-10-04). Fichier **gelé** : toute retouche passe par un addendum 9 ;
   - décision déléguée `avis/DECISION-PolicyRow-Q1-Q3.md` (`117eb289…37ba4`) et avis `AVIS-advisor-PolicyRow-Q1-Q3.md` (`d54c3443…12b0a`) : table « colonne | type | obligatoire | source » et projection §1.4, approuvées par MONARK (`recherches` `3e2fe0c`) ;
   - décision déléguée `avis/DECISION-Q-F3.md` ;
   - format du registre `recherches:kata/registry/FORMAT.md` (`dc1ec944…03b0`) ; forme lue sur `wave1.json` (`811fcd57…d9cb`), hors dépôt public (plan §5.3 point 8) ;
+  - réponses de MONARK à ce G0 : `recherches` `2c723d2` (`coordination/messages/2026-10-04-MONARK-vers-RECHERCHES-reponses-G2-L2-Q1-CM-4a.md`, Q-1 voie (a), Q-2 à Q-4) et `491e3b3` (`…-P0-publiee-sigterm.md`, ligne P0 `ec202d00` publiée, « le code de CM-4a-i (B1) peut partir ») ;
   - messages de MONARK `recherches` `17b2196` (pile L2 au tronc, contrôle de #126, correction de forme du G7 de CM-3c-1) et `8e5ac53` (#126 fusionnée sur la base en `880654ed`, « le bloc suivant part de `880654ed` »).
 - **Base** : `origin/base/chantier-moteur-2026-10-03` = `880654ed` (fusion de #126, CM-3c-1). Les lots 1.1.0 fusionnent sur cette base jusqu'à T0 (ADR-PUBLIC-CADENCE-1 §17). Branche `recherches/cm-4a-i`, arbre `/home/user/monark-governance-c3c2`. Auteur : RECHERCHES. Borne R-25 du lot : 547 lignes comptées contre `880654ed` (`scripts/oracle/r25.mjs`, pathspec de `ci.yml:82`).
-- **Statut** : **G0 écrit, arrêté avant le code.** Une porte d'ordre du plan n'est pas franchie (Q-1, bloquante, pour MONARK). Aucune question de contrat ne bloque le lot (section « Questions »).
+- **Statut** : G0 écrit et arrêté avant le code (commit `92c170ec`), puis **repris le 2026-10-04 sur les réponses de MONARK** : Q-1 levée par la voie (a) (ligne P0 de l'addendum 8, `ec202d00`), Q-2 (lecture L-1) acceptée, Q-3 (valeurs par défaut) acceptée pour B1, Q-4 notée pour l'étape 7. Base remesurée à la reprise : `origin/base/chantier-moteur-2026-10-03` = `880654ed`, inchangée, aucun rebase. Le code part de ce G0 (section « Réponses de MONARK »).
 
 ## Pourquoi ce lot
 
@@ -64,7 +65,7 @@ Rien d'autre : ni arithmétique de garde (B2), ni bande (§4, B2), ni LIQ-BAND-E
 
 **Aucune.** Les deux modules neufs ne sont importés par aucun module servi (`server.ts`, `http.ts`, `tools/**`, `openapi.ts`, `schema-projection.ts`) ; un test le vérifie sur le graphe d'import. `calibration.ts`, `class-policy.ts` et `gate.ts` ne changent pas. Le rejeu épinglé de CM-3a (`apps/harness/test/served-replay-cm3.test.ts`) reste vert sans changement ; `contracts_frozen` reste vert sans ré-épinglage.
 
-## Lecture L-1 (déclarée, à contrôler par MONARK) : pas de ligne pour un côté sans seuils
+## Lecture L-1 (acceptée par MONARK, Q-2) : pas de ligne pour un côté sans seuils
 
 - Plan §5.4 point 6 : « Direction sans seuils (aucune ligne du côté) : `cell_key` = `<predictor_id>/<side>` et `under_calib` ».
 - Spec §9 (« With no row for the side (no thresholds) ») et §11 point 4 : le recalcul d'un verdict sans ligne vérifie qu'« aucune ligne courante n'a de `cell_key` qui commence par `<cell_key>-` ».
@@ -129,3 +130,10 @@ Le plan estimait ~540. La marge sous 547 est mince. **Coupe déclarée si la mes
 **Q-4 (information, pour MONARK) : registre de l'ADR-CM.** `docs/adr/ADR-CM-chantier-moteur-audit-P3.md` s'arrête à l'amendement « 2026-10-04 (2) », sur la base comme au tronc. L'amendement « 2026-10-04 (3) » (contrat 1.1.0, `AMENDEMENT-ADR-CM-r3.md` §2), que citent déjà l'ADR-M001 (D9-ter), l'ADR-M002, l'ADR-M011 §7 et ADR-PUBLIC-CADENCE-1 §17, n'y est pas, ni la réparation du registre (plan §8.1 étape 7, §9.3 M-1). Il porte entre autres la règle R-25 en blocs, que ce lot applique. Ce n'est pas un rouge de ce lot ; je le note pour que la PR de documentation de l'étape 7 le reprenne.
 
 **Mineures de la G2 de CM-3c-1 (m-1)** : `source.trial_id` et `source.wave` nuls sur une ligne `marginal`, `calib_support.min ≤ max`, `strata_cuts` non vide, `qhat` `-0`, `test_delta < 0.25` : toutes au bloc B2 (lignes `marginal`, arithmétique et garde). B1 n'en porte aucune.
+
+## Réponses de MONARK (2026-10-04, `recherches` `2c723d2` et `491e3b3`)
+
+- **Q-1 : voie (a).** MONARK a contrôlé l'addendum 8 (support de A, r = ceil(n × tail_frac), comptes dépendant de l'ordre liés par `scores_sha256` et vérifiés hors ligne, D2 inchangé) et, sur le go de l'investisseur (« Publier maintenant (Recommandé) »), a publié sa ligne P0 : `KraidleAI/monark-precommitments` commit **`ec202d00`**, fichier `0006-ADR-addendum-8-guard-recomputes-from-counts.md`, sha256 `4d03a7e2e3cf2e9f745acc75048dfc0d9527ae8ccff7a97aa4a11250afed517b`. La porte d'ordre du plan (§9.1 point 2, §9.3 M-3) est franchie ; le code de B1 part. Le fichier est gelé : ce lot ne le touche pas et ne le lit pas (aucune queue de vague 2 en B1).
+- **Q-2 : lecture L-1 acceptée.** Une direction sans seuils n'a pas de ligne ; tout autre cas est refusé (la case doit être `under_calib`, de raison `empty bucket (no thresholds on this side)`).
+- **Q-3 : valeurs par défaut acceptées pour B1.** Les entrées hors registre restent des paramètres ; les tests les remplissent de valeurs synthétiques. Les valeurs publiées seront arrêtées par une ligne datée avant F-5a.
+- **Q-4 : notée.** L'amendement ADR-CM « 2026-10-04 (3) » entre par la PR de documentation de l'étape 7 (item ADR-CM-AMEND-3-1 d'ETAT), pas par ce lot.
