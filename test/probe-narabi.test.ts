@@ -1209,3 +1209,93 @@ test("probe_smtp_no_residual_timer_handle_on_connect_failure — the FAILURE twi
   assert.ok(elapsed < 8000, `child exited well before the 30 s deadline (elapsed=${String(elapsed)}ms) — timer cleared in the connect-failure catch (mutant: not cleared -> lives to 30 s -> SIGKILL)`);
   assert.equal(r.status, 1, "smtp_unreachable exits 1");
 });
+
+// ---- PROBE-BADPORT-REASON-1: a URL whose port fetch refuses ("bad port", before any connect) read unreachable on every
+// try, forever. It is now refused BEFORE any call with its own reason, bad_port. No test below dials anything. ----
+
+// killer: scripts/probe-narabi.mjs:241 CONST "bad_port" -> "insecure_url"
+test("probe_refuses_fetch_bad_port_before_any_dial -- a URL on a port that fetch refuses (http on loopback, https anywhere, leading zeros included) is refused bad_port by the pure guard and by fetchTimeline itself, never unreachable; insecure_url keeps precedence whatever the port; the scheme default (explicit :80 or :443), port 0 and the neighbours of listed ports stay admitted (PROBE-BADPORT-REASON-1 D-1, D-2)", async () => {
+  for (const u of [
+    "http://127.0.0.1:6000/narabi/timeline.jsonl", "http://localhost:10080/x", "http://[::1]:1/x",
+    "https://monarkgate.tech:465/narabi/timeline.jsonl", "https://monarkgate.tech:0587/x",
+  ]) {
+    assert.deepEqual(urlTransportAllowed(u), { ok: false, reason: "bad_port" }, `refused bad_port before any dial: ${u}`);
+  }
+  // fetchTimeline vets the port ITSELF, like the transport (C-G2D-4): a direct caller gets bad_port with no fetch call.
+  const direct = await fetchTimeline("http://127.0.0.1:6000/narabi/timeline.jsonl", { retries: 0 });
+  assert.deepEqual(direct, { ok: false, reason: "bad_port" }, "fetchTimeline refuses the port itself, never unreachable");
+  // D-2: insecure_url keeps precedence over the port check (no other reason changes).
+  for (const u of ["http://monarkgate.tech:25/x", "http://127.1:6000/x", "http://user:pass@127.0.0.1:6000/x", "ftp://127.0.0.1:21/x", "not a url"]) {
+    assert.deepEqual(urlTransportAllowed(u), { ok: false, reason: "insecure_url" }, `still insecure_url: ${u}`);
+  }
+  // D-2: admitted URLs stay admitted. The scheme default reads as the port "" (as undici sees it), 0 is not listed.
+  for (const u of [
+    "http://127.0.0.1:80/x", "https://monarkgate.tech:443/narabi/timeline.jsonl", "http://127.0.0.1:0/x",
+    "http://127.0.0.1:5999/x", "http://127.0.0.1:6001/x", "http://127.0.0.1:10081/x", "https://monarkgate.tech:8443/x",
+  ]) {
+    assert.deepEqual(urlTransportAllowed(u), { ok: true }, `still admitted: ${u}`);
+  }
+});
+
+// Replaces fetch in the probe child: records each call on stderr and never dials (a refused URL must never reach it).
+const FETCH_SPY_SRC = `
+globalThis.fetch = (input) => {
+  process.stderr.write("FETCH-CALL " + String(input) + "\\n");
+  return Promise.reject(new TypeError("fetch replaced by the test: no dial"));
+};
+`;
+// killer: scripts/probe-narabi.mjs:241 SDL "FETCH_BAD_PORT_SET.has" -> ""
+test("probe_bad_port_url_is_named_end_to_end -- the REAL probe given a PROBE_URL, then a --url, on a port that fetch refuses writes reason bad_port (reachable false, unhealthy, exit 1) with ZERO fetch calls (a spy replaces fetch in the child) instead of an unreachable on every try; its alert mail carries reason: bad_port and none of the banned vocabulary; an admitted URL still reaches fetch (PROBE-BADPORT-REASON-1 D-1, D-2, D-3)", async () => {
+  const spy = join(scratchDir(), "fetch-spy.mjs");
+  writeFileSync(spy, FETCH_SPY_SRC);
+  const spyOpts = `--import=${pathToFileURL(spy).href}`;
+  const calls = (s: string): number => (s.match(/^FETCH-CALL /gm) ?? []).length;
+  const fake = await startFakeSmtp();
+  try {
+    const r1 = await runProbeAt(freshOut(), ["--now", HEALTHY_NOW], { ...smtpEnv(fake.port), PROBE_URL: "http://127.0.0.1:6665/narabi/timeline.jsonl", NODE_OPTIONS: spyOpts });
+    assert.equal(r1.state.reason, "bad_port", "a PROBE_URL on a refused port is named bad_port, not unreachable");
+    assert.equal(r1.state.reachable, false, "nothing was read");
+    assert.equal(r1.state.status, "unhealthy", "unhealthy");
+    assert.equal(r1.status, 1, "exit 1, like any unhealthy verdict");
+    assert.equal(calls(r1.stderr), 0, "refused BEFORE any fetch call (the unreachable path calls fetch retries+1 times)");
+    assert.equal(r1.state.alert_error, null, "the alert was delivered");
+    assert.equal(fake.cap.delivered, 1, "exactly one alert mail");
+    assert.match(fake.cap.data, /^reason: bad_port\r?$/m, "the mail body names the reason");
+    const vocab = JSON.parse(readFileSync(join(REPO, "vocab-banned.json"), "utf8")) as { banned: { re: string }[]; scan: { sentinel: { banned: { re: string }[] } } };
+    for (const b of [...vocab.banned, ...vocab.scan.sentinel.banned]) assert.doesNotMatch(fake.cap.data, new RegExp(b.re, "i"), `banned pattern ${b.re}`);
+    assert.doesNotMatch(fake.cap.data, /partner|autonomous|guarantee|verified|score/i, "the mail-vocab list (fact 12)");
+  } finally { await fake.close(); }
+  const r2 = await runProbeAt(freshOut(), ["--url", "https://monarkgate.tech:587/narabi/timeline.jsonl", "--now", HEALTHY_NOW], { NODE_OPTIONS: spyOpts });
+  assert.equal(r2.state.reason, "bad_port", "a --url on a refused port is named bad_port too");
+  assert.equal(r2.status, 1, "exit 1");
+  assert.equal(calls(r2.stderr), 0, "no fetch call");
+  assert.equal(r2.state.alert_error, "smtp_unconfigured", "with no SMTP config the verdict still records the closed-set alert_error");
+  // Control (D-2, and the spy is live): an admitted port still reaches fetch, once with PROBE_RETRIES=0, and reads unreachable.
+  const r3 = await runProbeAt(freshOut(), ["--url", "http://127.0.0.1:6001/narabi/timeline.jsonl", "--now", HEALTHY_NOW], { NODE_OPTIONS: spyOpts, PROBE_RETRIES: "0" });
+  assert.equal(calls(r3.stderr), 1, "the admitted URL reached fetch exactly once");
+  assert.equal(r3.state.reason, "unreachable", "an admitted URL keeps its old verdict when fetch fails");
+});
+
+// killer: scripts/probe-narabi.mjs:234 CONST "10080" -> "10081"
+test("probe_fetch_bad_ports_equal_the_embedded_fetch_list -- FETCH_BAD_PORTS equals, entry for entry, the badPorts array of the undici source EMBEDDED in the node.exe that runs this suite; over ports 0..65535 the guard refuses exactly those; and fetch rejects each of them as bad port before any connect, so no admitted URL is newly refused (PROBE-BADPORT-REASON-1 D-1, D-2)", async () => {
+  const natives = (process as unknown as { binding: (name: string) => Record<string, unknown> }).binding("natives");
+  const src = natives["internal/deps/undici/undici"];
+  if (typeof src !== "string") return assert.fail("the undici source embedded in this node.exe is not readable");
+  const at = src.indexOf("var badPorts =");
+  assert.ok(at >= 0 && src.indexOf("var badPorts =", at + 1) < 0, "exactly one badPorts array in the embedded undici");
+  const open = src.indexOf("[", at);
+  const embedded = src.slice(open + 1, src.indexOf("]", open)).split(",").map((s) => s.trim().replace(/"/g, "")).filter((s) => s !== "");
+  assert.ok(embedded.length > 0 && embedded.every((p) => /^\d+$/.test(p)), "the embedded list parses to decimal port strings");
+  const probeModule = await import("../scripts/probe-narabi.mjs");
+  assert.deepEqual(probeModule.FETCH_BAD_PORTS, embedded, `the copy equals the list of this runtime (node ${process.version}, undici ${String(process.versions.undici)})`);
+  const refused: string[] = [];
+  for (let p = 0; p <= 65535; p++) {
+    const d = urlTransportAllowed(`http://127.0.0.1:${String(p)}/x`);
+    if (!d.ok && d.reason === "bad_port") refused.push(String(p));
+  }
+  assert.deepEqual(refused, embedded, "over every port, the guard refuses exactly the embedded list");
+  for (const p of probeModule.FETCH_BAD_PORTS) {
+    const cause = await fetch(`http://127.0.0.1:${p}/x`).then(() => "resolved", (e: unknown) => (e instanceof TypeError && e.cause instanceof Error ? e.cause.message : String(e)));
+    assert.equal(cause, "bad port", `fetch of this runtime refuses port ${p} before any connect`);
+  }
+});
