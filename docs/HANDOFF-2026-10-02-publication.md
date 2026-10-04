@@ -478,6 +478,10 @@ pm) ; item MK-NM-GUARD-1 (refuser Tree = F:/Monark dans mk-nm.ps1).
   Release) ; ensuite, file RECHERCHES : FAITS-USDT-USD-HISTORY-1 sous l addendum 4, RECORDER-CLOSE-TIME-1 (zero_trade), Q-H3 à Q-H7,
   TO FILL de P0-2, chantier L2 (FAITS-L2-ACCESS-1, mesure du serveur du site, mission). Investisseur absent : rien d irréversible hors
   de ces go ; toute dépense (second hôte L2, historique acheté) attend son retour.
+- 2026-10-04 02:3x UTC : DÉCISION de l investisseur (verbatim : « ne lance plus de workflows. donne les prochaines taches a recherches,
+  prends que des taches légéres. tu es à 87% d usage hebdo, n arrete pas les travaux en cours, mais fais en sorte que le gros du travail
+  soit fait par recherche ») : MONARK ne lance plus de workflow ni de travail lourd ; RECHERCHES écrit et fait relire par sa G2 neuve ;
+  MONARK contrôle léger, fusionne, agit (règle 4 du tableau amendée, message recherches#90). Travaux en cours menés à leur fin.
 - 2026-10-04 00:5x UTC : fusions au tronc : CM-2a (`4a1b4844`, PR #105 `98e3779a`), COINBASE-PASS-EDGES-1 (`44d8892d`), BINANCE-PRE153-1
   (`328be484`). Leurs oracles G7 (`569c91c6…`, `bba0b720…`, `2ce4d71c…`) portent seulement deux rouges venus de la CA de l étape 3
   committée sans resynchronisation du site (error_origin de l orchestrateur) ; correction `0c8f8177`, oracle vert : 2 060 tests,
