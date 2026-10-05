@@ -1,18 +1,24 @@
 /**
  * Root test `r25_integration` (lot R25-INTEGRATION-RULE-1, ADR-M003 D9 nonies, G0 docs/G0-lot-r25-integration-rule-1.md
- * section 7; lot 1a: the module, T-1..T-9 and the G2 folds; lot 1b adds the CI and oracle wiring, T-10 and T-11).
- * Fixtures are throwaway git repositories under the OS temp dir whose PRs are real merge commits; proofs are written by
- * the test; the API is a stub. No network. The four E-5 killers: T-1, T-3, T-4, T-5.
+ * section 7, T-1..T-10; T-11 is in test/oracle-run.test.ts, the wiring pin in test/ci-gates.test.ts). Fixtures are
+ * throwaway git repositories under the OS temp dir whose PRs are real merge commits; proofs are written by the test;
+ * T-10 serves the GitHub API from a local HTTP server. No network. The four E-5 killers: T-1, T-3, T-4, T-5.
  */
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { execFileSync } from "node:child_process";
-import { appendFileSync, copyFileSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { execFileSync, spawn } from "node:child_process";
+import { createHash } from "node:crypto";
+import { appendFileSync, copyFileSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { createServer, type IncomingMessage, type Server, type ServerResponse } from "node:http";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
-import { buildProof, effective, REPO, SCHEMA, specsOf } from "../scripts/lot-size-integration.mjs";
+import { pathToFileURL } from "node:url";
+import type { AddressInfo } from "node:net";
+import { startLoopback } from "./helpers/loopback.ts";
+import { buildProof, effective, R25_DIFF_RE, REPO, SCHEMA, specsOf } from "../scripts/lot-size-integration.mjs";
 
 const ROOT = join(import.meta.dirname, "..");
+const REAL_CI = readFileSync(join(ROOT, ".github", "workflows", "ci.yml"), "utf8");
 const TARGET = "base/c2-integration";
 const ciOf = (bound: number): string => `jobs:
   r25:
@@ -87,6 +93,14 @@ const proofOf = (fx: Fx, merged: object[], id: object = {}): object => ({
   schema: SCHEMA, repo: REPO, base_sha: null, head_sha: fx.g("rev-parse", "HEAD"), complete: true, merged,
   pr: { number: 7, head_ref: "lot/etude-suite", head_repo: REPO, base_ref: TARGET, base_repo: REPO, head_sha: fx.g("rev-parse", "HEAD"), ...id },
 });
+const sha256 = (b: Buffer): string => createHash("sha256").update(b).digest("hex");
+interface OracleR25 { exit: number; mode: string; proof: { file: string; sha256: string } | null; counts: { name: string; changed: number; limit: number | null }[] }
+/** r25() of the oracle, imported in a child (the module has no type surface), on the fixture's own workflow. */
+const oracle = (fx: Fx, base: string, proofFile: string | null, env: object = {}): OracleR25 => JSON.parse(execFileSync(process.execPath, ["--input-type=module", "-e",
+  `import { r25 } from ${JSON.stringify(pathToFileURL(join(ROOT, "scripts", "oracle", "r25.mjs")).href)}; import { readFileSync } from "node:fs";
+  const [d, b, p] = process.argv.slice(1); console.log(JSON.stringify(r25(d, readFileSync(d + "/.github/workflows/ci.yml", "utf8"), b, p === "-" ? null : p)));`,
+  fx.dir, base, proofFile ?? "-"], { encoding: "utf8", env: { ...process.env, ...env } })) as OracleR25;
+
 // killer: scripts/lot-size-integration.mjs:90 CONST "if (proven.has(c)) continue;" -> "if (proven.has(c) || ps.length === 1) continue;"
 test("r25i_hidden_unreviewed_commit_is_counted - E-5 (1): a direct push and an amended copy of a reviewed commit count, the proven PR does not (A-1, A-2)", () => withFx((fx) => {
   const { m1, h1 } = trunk(fx);
@@ -116,8 +130,8 @@ test("r25i_fake_branch_name_bypasses_nothing - E-5 (2): a fork named lot/etude-s
 
 // killer: scripts/lot-size-integration.mjs:28 CONST "\"-c\", \"merge.conflictStyle=merge\", " -> ""
 // killer: scripts/lot-size-integration.mjs:76 CONST "[\"show\", \"--remerge-diff\"" -> "[\"show\", \"--no-diff-merges\""
-test("r25i_conflict_resolution_above_bound_is_red - E-5 (3): with bound 20, a 25-line resolution counts 31 (red), a 10-line one 16 (green), whatever the user's git config; 3 lines slipped into a clean merge count 3 (A-3)", () => {
-  for (const [n, red, changed] of [[25, true, 31], [10, false, 16]] as const) withFx((fx) => {
+test("r25i_conflict_resolution_above_bound_is_red - E-5 (3): through the oracle's r25() with bound 20, a 25-line resolution is red, a 10-line one green; 3 lines slipped into a clean merge count 3 (A-3)", () => {
+  for (const [n, exit, changed] of [[25, 1, 31], [10, 0, 16]] as const) withFx((fx) => {
     fx.g("checkout", "-q", "-b", "feat");
     const h1 = fx.commit("p1", "src/p1.txt", 15); // under the bound 20: PR #1 proves (G2 B-2)
     fx.g("checkout", "-q", "lot/etude-suite");
@@ -129,10 +143,10 @@ test("r25i_conflict_resolution_above_bound_is_red - E-5 (3): with bound 20, a 25
     assert.throws(() => fx.g("merge", "-q", TARGET, "-m", "sync"));
     writeFileSync(join(fx.dir, "c.txt"), Array.from({ length: n }, (_, i) => `r${i}\n`).join(""));
     fx.g("commit", "-qam", "sync, resolved");
-    const r = fx.count(proofOf(fx, [pr(1, m1, h1)]));
-    process.env.GIT_CONFIG_PARAMETERS = "'merge.conflictstyle=zdiff3' 'diff.algorithm=patience'";
-    try { assert.deepEqual([r.mode, r.code, r.code > 20, fx.count(proofOf(fx, [pr(1, m1, h1)])).code], ["integration", changed, red, changed], r.detail.join("\n")); }
-    finally { delete process.env.GIT_CONFIG_PARAMETERS; }
+    const file = join(fx.dir, ".git", "proof.json");
+    writeFileSync(file, JSON.stringify(proofOf(fx, [pr(1, m1, h1)])));
+    const [r, z] = [{}, { GIT_CONFIG_PARAMETERS: "'merge.conflictstyle=zdiff3' 'diff.algorithm=patience'" }].map((env) => oracle(fx, TARGET, file, env));
+    assert.deepEqual([r?.mode, r?.counts[0]?.changed, r?.exit, z?.counts[0]?.changed], ["integration", changed, exit, changed], JSON.stringify([r, z]));
   }, ciOf(20));
   withFx((fx) => {
     fx.g("checkout", "-q", TARGET);
@@ -226,6 +240,22 @@ test("r25i_proving_pr_contribution_is_remeasured - G2 B-2: a PR green against an
   assert.deepEqual([r.mode, r.code, r.w[0]], ["integration", 2005, 2005], r.detail.join("\n"));
 }));
 
+// killer: scripts/oracle/r25.mjs:20 CONST "join(import.meta.dirname, \"..\", \"lot-size-integration.mjs\")" -> "join(clone, \"scripts\", \"lot-size-integration.mjs\")"
+// killer: scripts/oracle/r25.mjs:44 CONST "if (!readFileSync(JUDGE).equals(readFileSync(join(clone, \"scripts\", \"lot-size-integration.mjs\")))) return" -> "if (false) return"
+test("oracle_r25_runs_its_own_module_and_refuses_a_foreign_one - G2 B-3: a line makes the measured tree's module answer `integration 0 0`, in an unproven commit or inside a proving PR; the oracle runs its own module, sees foreign bytes and keeps the count of today: red", () => {
+  for (const proven of [false, true]) withFx((fx) => {
+    const { m1, h1 } = trunk(fx), merged = [pr(1, m1, h1)], mod = join(fx.dir, "scripts", "lot-size-integration.mjs");
+    if (proven) fx.g("checkout", "-q", "-b", "judge");
+    writeFileSync(mod, `if (process.argv[2] === "count") { console.log("integration 0 0"); process.exit(0); }\n${readFileSync(mod, "utf8")}`);
+    fx.g("commit", "-qam", "a judge that always agrees");
+    if (proven) { const h2 = fx.g("rev-parse", "HEAD"); fx.g("checkout", "-q", "lot/etude-suite"); merged.push(pr(2, fx.merge("judge", "Merge pull request #2"), h2)); }
+    const file = join(fx.dir, ".git", "proof.json");
+    writeFileSync(file, JSON.stringify(proofOf(fx, merged)));
+    const r = oracle(fx, TARGET, file);
+    assert.deepEqual([proven, r.mode, r.counts[0]?.changed, r.exit], [proven, "gate-files", 53, 1], JSON.stringify(r));
+  }, ciOf(20));
+});
+
 // killer: scripts/lot-size-integration.mjs:122 CONST "runs.length > 0 && " -> ""
 // killer: scripts/lot-size-integration.mjs:121 CONST " && c.app?.slug === \"github-actions\"" -> ""
 // killer: scripts/lot-size-integration.mjs:120 CONST " || r.total_count !== r.check_runs.length" -> ""
@@ -249,4 +279,50 @@ test("r25i_build_proof_needs_a_measured_head_and_reads_nothing_for_a_written_pr 
     const written = await buildProof({ api: () => Promise.reject(new Error("no API call for a written PR")), cwd: fx.dir, pr: ev("recherches/x"), base: TARGET });
     assert.deepEqual([written.merged, calls], [[], []]);
   } finally { fx.done(); }
+});
+
+/** The `run:` block of the r25 step of the REAL workflow, dedented, `${{ github.base_ref }}` substituted as GitHub does. */
+function ciBlock(base: string): string {
+  const lines = REAL_CI.split(/\r?\n/), at = lines.findIndex((l) => /^ {8}run: \|\s*$/.test(l) && lines.slice(0, lines.indexOf(l)).some((p) => /^ {2}r25-taille-de-lot:/.test(p)));
+  const body: string[] = [];
+  for (let i = at + 1; i < lines.length && (lines[i]?.trim() === "" || /^ {10}/.test(lines[i] ?? "")); i++) body.push((lines[i] ?? "").slice(10));
+  return body.join("\n").replaceAll("${{ github.base_ref }}", base);
+}
+
+// killer: scripts/oracle/r25.mjs:48 CONST "counts: n.map((x, i) => Math.min(Number(x), written[i]))" -> "counts: written"
+test("r25i_ci_block_and_oracle_agree - E-4: the real run: block of ci.yml under bash, on the synthetic merge with a local API, and the oracle's r25() on the PR head print the same mode and counts from the same proof file; one R25_DIFF_RE", async () => {
+  const re = (f: string): string | undefined => /const R25_DIFF_RE = (\/.+\/);/.exec(readFileSync(join(ROOT, f), "utf8"))?.[1];
+  assert.deepEqual([re("scripts/oracle/r25.mjs"), re("test/ci-gates.test.ts")], [String(R25_DIFF_RE), String(R25_DIFF_RE)], "R25_DIFF_RE drifted");
+  const fx = new Fx(REAL_CI);
+  let server: Server | undefined;
+  try {
+    const { m1, h1 } = trunk(fx), head = fx.g("rev-parse", "HEAD");
+    fx.g("update-ref", `refs/remotes/origin/${TARGET}`, TARGET);
+    fx.g("checkout", "-q", "--detach", TARGET);
+    fx.merge(head, "synthetic refs/pull/7/merge");
+    const runs = { total_count: 1, check_runs: [{ name: "r25-taille-de-lot", app: { slug: "github-actions" }, conclusion: "success" }] };
+    const serve = (q: IncomingMessage, s: ServerResponse): void => {
+      const u = q.url ?? "", ok = q.headers.authorization === "Bearer fx-token";
+      const body = !ok ? null : u.startsWith(`/repos/${REPO}/pulls?state=closed`) ? [{ number: 1, merged_at: "2026-10-05T00:00:00Z", merge_commit_sha: m1, head: { sha: h1 }, base: { ref: "lot/etude-suite" } }] : u.startsWith(`/repos/${REPO}/commits/${h1}/check-runs?`) ? runs : null;
+      s.writeHead(body === null ? 404 : 200, { "content-type": "application/json" }).end(JSON.stringify(body));
+    };
+    const http = createServer(serve);
+    server = await startLoopback((port) => http.listen(port, "127.0.0.1"));
+    const port = (server.address() as AddressInfo).port;
+    const tmp = join(fx.dir, ".git", "runner"), event = join(fx.dir, ".git", "event.json");
+    mkdirSync(tmp);
+    writeFileSync(event, JSON.stringify({ pull_request: { number: 7, head: { ref: "lot/etude-suite", sha: head, repo: { full_name: REPO } }, base: { ref: TARGET, repo: { full_name: REPO } } } }));
+    const env = { PATH: process.env.PATH ?? "", HOME: process.env.HOME ?? fx.dir, VIBEGATES_PR_LIMIT: "1205", VIBEGATES_CONTENT_LIMIT: "8000", GITHUB_EVENT_PATH: event, GITHUB_BASE_REF: TARGET, RUNNER_TEMP: tmp, GITHUB_API_URL: `http://127.0.0.1:${String(port)}`, R25_READ_TOKEN: "fx-token" };
+    const out = await new Promise<string>((res) => {
+      const c = spawn("bash", ["--noprofile", "--norc", "-eo", "pipefail", "-c", ciBlock(TARGET)], { cwd: fx.dir, env });
+      let o = "";
+      c.stdout.on("data", (d: Buffer) => { o += d.toString(); });
+      c.stderr.on("data", (d: Buffer) => { o += d.toString(); });
+      c.on("close", (code) => res(`${o}exit ${String(code)}\n`));
+    });
+    assert.match(out, /^R-25 mode: integration\nChanged lines: 12 \(ADR bound: 1205\)\nContent changed lines: 0 \(ADR bound: 8000\)\nexit 0$/m, out);
+    fx.g("checkout", "-q", "--detach", head);
+    const proofFile = join(tmp, "lot-size-proof.json"), r = oracle(fx, `origin/${TARGET}`, proofFile);
+    assert.deepEqual([r.mode, r.counts.map((c) => c.changed), r.exit, r.proof?.sha256], ["integration", [12, 0], 0, sha256(readFileSync(proofFile))]);
+  } finally { server?.close(); fx.done(); }
 });
