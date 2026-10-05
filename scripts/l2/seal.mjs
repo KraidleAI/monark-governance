@@ -4,7 +4,7 @@
 // and the replay (n-5 of the G2 of c3); in this order: bestTap, deriveDay with its tap, canonDay with the tap's result (Q-C3-4); the
 // parts' manifest keys disjoint, and their missing.json keys, else stray_file, nothing written; provisional bounds of L2-MINUTES-SIZE-1
 // (minutes.jsonl 64 MiB, twice a run of canonDay 32 MiB) until its joint measure under the unit; this module and the command hashed into
-// script_sha256 beside the modules of the day (Q-C1-8, Q-C4-5). The agent never commits (R-20).
+// script_sha256 beside the modules of the day (Q-C1-8, Q-C4-5), and the child that seals for the loop (Q-C5B-4, as its G2 asks). The agent never commits (R-20).
 import { bestTap, canonDay } from "./canon.mjs";
 import { DayStop, sealDay } from "./day.mjs";
 import { deriveDay } from "./derive.mjs";
@@ -28,7 +28,7 @@ export function hookOf(scale, bounds = SEAL_BOUNDS) {
     const best = bestTap({ scale, start: ctx.start, end: ctx.end });
     const dv = deriveDay({ ...ctx, scale, bound: bounds.minutes, tap: best.tap });
     const cv = canonDay({ ...ctx, best: best.result(), bound: bounds.canon });
-    return mergeDerived(ctx.symbol, ctx.day, [dv, cv, { modules: ["seal", COMMAND] }]);
+    return mergeDerived(ctx.symbol, ctx.day, [dv, cv, { modules: ["seal-child", "seal", COMMAND] }]);
   };
 }
 

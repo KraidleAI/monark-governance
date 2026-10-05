@@ -15,18 +15,18 @@
 // --out lies under no git tree, as given and as resolved on disk, no dangling link on its path, and is absent, empty, or an L2 output to
 // resume (its entries of OUT_ENTRIES alone, each of its type, journal.jsonl among them; a link anywhere under it stops); quota (Q-11, point 16): the bytes of --out, counted at the start and on
 // each check, journal a quota_alarm once at ALARM_PCT % of --quota-bytes and stop at STOP_PCT % (quota_stop); at the start the free
-// space of the file system holds the rest of the quota, else disk_short. The loop (P1-c5-bis) and the replay (P1-c6) are not built: after
-// its guards the command stops, named (not_built). Test seam (point 22): run(argv, io) and main(argv, io) take the clocks, the
-// environment, execArgv, the reading of the free space and print from their caller, never from the command line nor the environment.
+// space of the file system holds the rest of the quota, else disk_short. A recording runs the loop (record(), P1-c5-bis-b) until a signal or
+// a named stop; the replay (P1-c6) is not built: after its guards it stops, named (not_built). Test seam (point 22): run(argv, io) and main(argv,
+// io) take the clocks, timers, fetch, the WebSocket factory, the environment, execArgv, the free space and print from their caller.
 // Exit 1 on a named stop (closed list STOPS), 2 on usage. The command runs when node starts this very file, compared by real paths
 // (MAIN-GUARD-REALPATH-1). adopt() (P1-c5) takes --out for the loop, markTails() (P1-c5-bis-a) marks tails at its start. The agent never commits (R-20).
-import { closeSync, constants, existsSync, fstatSync, lstatSync, mkdirSync, opendirSync, openSync, readdirSync, readFileSync, readSync, realpathSync, statfsSync, statSync, writeSync } from "node:fs";
+import { closeSync, constants, existsSync, fstatSync, lstatSync, mkdirSync, opendirSync, openSync, readdirSync, readFileSync, readSync, realpathSync, rmSync, statfsSync, statSync, writeFileSync, writeSync } from "node:fs";
 import { dirname, join, resolve, win32 } from "node:path";
-import { fileURLToPath } from "node:url";
-import { SYMBOLS } from "./l2/links.mjs"; import { checkTail } from "./l2/segments.mjs";
+import { fileURLToPath } from "node:url"; import { createBook } from "./l2/book.mjs"; import { dayOf, DAY_US, GRACE_US } from "./l2/day.mjs"; import { SEAL_TIMEOUT_MS, sealApart } from "./l2/seal.mjs";
+import { marketUrl, openingGate, openLink, spotUrl, SYMBOLS } from "./l2/links.mjs"; import { checkTail, PERIOD_US, segmentOf } from "./l2/segments.mjs"; import { createRest, exchangeInfoFacts, logTimeOffset, RestStop } from "./l2/rest.mjs";
 
 export const STOPS = Object.freeze(["usage", "bad_quota", "bad_symbol", "bad_day", "proxy_refused", "env_refused", "out_not_l2",
-  "out_in_git_tree", "out_too_deep", "quota_stop", "disk_short", "not_built"]);
+  "out_in_git_tree", "out_too_deep", "quota_stop", "disk_short", "not_built", "rest_stopped", "unhandled_rejection"]);
 export const ADMITTED_ENV = Object.freeze({ win32: Object.freeze(["SYSTEMROOT", "TEMP", "TMP"]) }); // Q-P1-10; names in upper case
 export const OUT_ENTRIES = Object.freeze(["conn", "days", "journal.jsonl", "requests.jsonl", "rest"]); // what P1-a2 to P1-c3 write in --out
 const OUT_DIRS = Object.freeze(["conn", "days", "rest"]); // the directories of OUT_ENTRIES; the others are files
@@ -263,10 +263,153 @@ export function markTails(at, io) {
   return found;
 }
 
-/** One run: its guards, then a named stop until the loop (P1-c5) and the replay (P1-c6) are built. */
+// The loop (P1-c5-bis-b). Its calendar, on the host clock (plan section 3): the cut of every writer on the hour (D24-3); the seals at HH:03,
+// once the day's end plus the grace (D24-5) is past and no writer holds a segment of its window, else at the next hour; the place time at
+// minute 30 (point 13); check() every 10 min at minute 5 (n-3 of c4: a synchronous walk, about 1 s at 300 000 files, away from the cuts,
+// the place time and the anchors); exchangeInfo at 23:58:00 + 10 s x rank and the anchors at 23:59:10 + 10 s x rank, on the host clock
+// corrected by the last offset (points 14, 15). Planned renewals (point 6) are the links' own.
+const MINUTE_US = 60_000_000;
+export const WEIGHT_FLOOR = 4_000; // Q-P1-6, Q-B1-3: the worst minute of D24-2; a REQUEST_WEIGHT limit read below it suspends every resync, named
+export const STOP_BOUND_MS = 30_000; // Q-8 of a3: the clean stop waits this long for the writers, then as long for a seal child, which it then kills
+export const OVERDUE_US = 20_000_000; // m-2 of the G2 of c5-bis-b: a dated event (exchangeInfo, anchor) later than this, after a clock step, is skipped, named
+export const EXIT_GRACE_MS = 5_000; // m-1 (b): once main resolves, the command line exits within this, though a socket lingers
+export const SCHEDULE = Object.freeze([["cut", null, PERIOD_US, 0, false], ["seal", null, PERIOD_US, 3 * MINUTE_US, false],
+  ["time", null, PERIOD_US, 30 * MINUTE_US, false], ["check", null, 10 * MINUTE_US, 5 * MINUTE_US, false],
+  ...SYMBOLS.flatMap((s, r) => [["exchangeInfo", s, DAY_US, (86_280 + 10 * r) * 1_000_000, true], ["anchor", s, DAY_US, (86_350 + 10 * r) * 1_000_000, true]])].map((e) => Object.freeze(e)));
+
+/** The events of SCHEDULE in (fromUs, endUs] of the host clock, in time order; a corrected one when the host clock plus offsetUs reads its phase. */
+export function calendar(fromUs, endUs, offsetUs = 0) {
+  const events = [];
+  for (const [task, symbol, period, phase, corrected] of SCHEDULE) {
+    const off = corrected ? offsetUs : 0;
+    for (let t = (Math.floor((fromUs + off - phase) / period) + 1) * period + phase - off; t <= endUs; t += period) events.push({ at: t, task, symbol });
+  }
+  return events.sort((x, y) => x.at - y.at);
+}
+
+/** The recording loop once adopt and markTails passed (header): the REST client, the books and the links under adopt's root, the calendar;
+ *  on a signal (io.signal) or a named stop, the clean stop: the links stopped, their writers awaited STOP_BOUND_MS at most (Q-8 of a3), the
+ *  books and the REST client closed, a seal child awaited as long, then killed; one stopped line. */
+export async function record(plan, { at, check }, io) {
+  const signal = io.signal ?? signals(), proc = io.process ?? (io.signal === undefined ? process : null); // n-4: before anything opens; the net (B-1): the command line's process
+  const { wallUs, monoNs } = io, setTimer = io.setTimer ?? setTimeout, clearTimer = io.clearTimer ?? clearTimeout, env = { ...(io.env ?? process.env) };
+  const note = (event, fields, symbol = "ALL") => appendLine(join(at, "journal.jsonl"), { host_us: wallUs(), mono_ns: String(monoNs()), symbol, cid: null, event, ...fields });
+  const rest = createRest({ fetch: io.fetch ?? globalThis.fetch, nowUs: wallUs, out: at }), facts = new Map(), due = new Set(), followed = new Map(), abort = new AbortController();
+  let offset = 0, low = null, lowUntil = 0, timer = null, sealing = null, finished = false, done = () => {}, links = new Map();
+  const ended = new Promise((r) => { done = r; }), finish = (cause) => { if (!finished) { finished = true; done(cause); } }, codeOf = (e) => String(e?.code ?? e?.name ?? "unknown");
+  const tell = (event, fields, symbol) => { try { note(event, fields, symbol); } catch { /* the journal failed too: the stop names the cause */ } };
+  const failed = (task, e, symbol = "ALL", where = {}) => { tell("schedule_failed", { task, ...where, code: codeOf(e) }, symbol); };
+  const stray = (e) => { tell("unhandled_rejection", { code: codeOf(e) }); try { stop("unhandled_rejection", { code: codeOf(e) }); } catch (s) { finish(s); } }; // B-1: the net
+  proc?.on("unhandledRejection", stray);
+  const snapshot = (kind, symbol) => rest.request(kind, symbol).catch((e) => { // B-2 (plan section 4.3): a 451 on a book's snapshot stops everything at once
+    if (rest.stopped) finish(new RecorderStop("rest_stopped", { task: "snapshot", symbol, code: codeOf(e) }));
+    throw e;
+  });
+  const bookRest = { request: (kind, symbol) => (low === null ? snapshot(kind, symbol) : Promise.reject(new RestStop("suspended", { why: "request_weight", limit: low }))),
+    get stopped() { return rest.stopped; }, get suspendedUntilUs() { return low === null ? rest.suspendedUntilUs : Math.max(rest.suspendedUntilUs, lowUntil); } };
+  const sleep = io.sleep ?? ((ms) => new Promise((r) => { setTimeout(r, ms).unref(); }));
+  const books = new Map(SYMBOLS.map((s) => [s, createBook({ symbol: s, rest: bookRest, wallUs, monoNs, sleep, out: at })]));
+  const onText = (text, cid) => { // a diff of a connection the book does not follow: the switch once it reaches the book, or its own is gone (Q-A4-3)
+    const symbol = cid.split("-")[1], book = books.get(symbol), from = followed.get(symbol) ?? cid;
+    if (book === undefined || !book.feed(text, cid)) return; // /market feeds no book; another stream; a retired connection
+    followed.set(symbol, from);
+    if (cid === from || !(book.id === null || JSON.parse(text)?.data?.U <= book.id + 1 || links.get(symbol).closed(from, ""))) return; // "": no segment, so true once the link no longer holds <from>
+    book.switchTo(cid);
+    links.get(symbol).switched(cid);
+    followed.set(symbol, cid);
+  };
+  const linkIo = { webSocket: io.webSocket ?? ((url) => new WebSocket(url)), wallUs, monoNs, setTimer, clearTimer, gate: openingGate(), open: io.open, onText };
+  const openIn = (start) => { // the "cid/seg" of the day's window that a writer holds open (Q-C1-5), for the child
+    const conn = join(at, "conn"), [from, to] = [segmentOf(start - PERIOD_US), segmentOf(start + DAY_US + GRACE_US)];
+    return (existsSync(conn) ? readdirSync(conn) : []).flatMap((c) => readdirSync(join(conn, c)).filter((n) => n.endsWith(".frames")).map((n) => n.slice(0, -7))
+      .filter((g) => g >= from && g <= to && [...links.values()].some((l) => !l.closed(c, g))).map((g) => `${c}/${g}`));
+  };
+  const apart = (spec) => (io.seal ?? sealApart)({ ...spec, out: at }, { env, signal: abort.signal }); // the one call of the child (its root: adopt's, its fd 3)
+  async function seals() { // one symbol at a time; a throw on one key journaled with its symbol and day, the next keys go on (r-1 of the G2 delta)
+    for (const key of [...due].sort()) {
+      const [symbol, day] = key.split("/"), start = Date.parse(`${day}T00:00:00Z`) * 1000, f = facts.get(key);
+      try {
+        const lock = join(at, "days", symbol, `.${day}.seal.lock`); // n-4 of the G2 of c5-bis-a: one seal of a day at a time, an orphan child's too
+        if (finished || (existsSync(lock) && Date.now() - statSync(lock).mtimeMs < SEAL_TIMEOUT_MS)) continue; // sealDay waits for the grace itself
+        let r = { sealed: false, failed: { stop: "no_scale" } };
+        if (f !== undefined) {
+          mkdirSync(dirname(lock), { recursive: true });
+          writeFileSync(lock, String(process.pid));
+          try { r = await apart({ symbol, day, nowUs: wallUs(), scale: f.scale, config: f, open: openIn(start) }); } finally { rmSync(lock, { force: true }); }
+        }
+        if (abort.signal.aborted) return; // n-1: a seal aborted by the clean stop writes nothing after the stopped line (its seal_done false)
+        if (r.wait !== undefined) continue; // a segment still open: the next hour
+        due.delete(key); // sealed, or failed and left to the replay (P1-c6), named
+        note(r.sealed ? "day_sealed" : "seal_failed", r.sealed ? { day, frames: r.frames } : { day, ...r.failed }, symbol);
+      } catch (e) { failed("seal", e, symbol, { day }); } // the key stays due: the next hour
+    }
+  }
+  async function fire({ at: t, task, symbol, days = [dayOf(t + offset + PERIOD_US)] }) { // one event; a failure journaled, a named stop ends the loop
+    try {
+      if (task === "cut") for (const l of links.values()) l.cut();
+      else if (task === "check") check();
+      else if (task === "seal") { if (dayOf(t - PERIOD_US) !== dayOf(t)) for (const s of SYMBOLS) due.add(`${s}/${dayOf(t - PERIOD_US)}`); sealing ??= seals().catch((e) => { failed("seal", e); }).finally(() => { sealing = null; }); } // the day before, at 00:03
+      else if (task === "time") { const r = await rest.request("time", null); if (finished) return; const e = logTimeOffset(at, r.body, r.sentUs, r.receivedUs, { wallUs, monoNs }); offset = e.offset_us ?? offset; }
+      else if (task === "exchangeInfo") {
+        const f = exchangeInfoFacts((await rest.request("exchangeInfo", symbol)).body), was = low; if (finished) return; // r-2 of the G2 delta: an answer after the stop writes nothing to the journal or days/
+        for (const d of days) facts.set(`${symbol}/${d}`, { tickSize: f.tickSize, scale: f.scale, rateLimits: f.rateLimits });
+        low = f.requestWeightPerMinute < WEIGHT_FLOOR ? f.requestWeightPerMinute : null;
+        if (low !== null) lowUntil = calendar(wallUs(), wallUs() + DAY_US, offset).filter((e) => e.task === "exchangeInfo").at(-1).at + 1_000_000; // past the next round
+        if ((was === null) !== (low === null)) note(low === null ? "weight_resumed" : "weight_suspended", { limit: f.requestWeightPerMinute, floor: WEIGHT_FLOOR });
+      } else { // anchor: the bytes kept by the REST client, as anchor-close.json of its day and anchor-open.json of the next (D-9)
+        const { body } = await rest.request("depth", symbol); if (finished) return; // r-2
+        for (const [d, name] of [[dayOf(t + offset), "anchor-close.json"], [dayOf(t + offset + PERIOD_US), "anchor-open.json"]]) {
+          mkdirSync(join(at, "days", symbol, d), { recursive: true });
+          writeFileSync(join(at, "days", symbol, d, name), body, { flag: "wx" });
+        }
+      }
+    } catch (e) {
+      if (finished || e instanceof RecorderStop) { finish(e); return; } // r-2: a failure after the stop is not journaled
+      failed(task, e, symbol ?? "ALL");
+      try { if (rest.stopped) stop("rest_stopped", { task, code: String(e?.code ?? null) }); } catch (s) { finish(s); } // 451 and the others: everything stops
+    }
+  }
+  let last = wallUs();
+  const arm = () => { if (!finished) timer = setTimer(tick, Math.min(PERIOD_US / 1000, Math.max(0, (calendar(last, last + DAY_US, offset)[0].at - wallUs()) / 1000))); }; // n-3: under setTimeout's cap
+  function tick() {
+    const now = wallUs(), events = calendar(last, now, offset);
+    last = Math.max(last, now); // a clock stepped back fires nothing twice
+    for (const e of events) { // m-2: a dated event overdue after a clock step is skipped, named (an anchor never written from a later depth)
+      if (["exchangeInfo", "anchor"].includes(e.task) && now - e.at > OVERDUE_US) tell("event_skipped", { task: e.task, late_us: now - e.at }, e.symbol);
+      else void fire(e);
+    }
+    arm();
+  }
+  signal.addEventListener("abort", () => { finish(null); }, { once: true });
+  if (signal.aborted) finish(null);
+  for (const e of [{ at: last, task: "time" }, ...SYMBOLS.map((symbol) => ({ at: last, task: "exchangeInfo", symbol, days: [dayOf(last), dayOf(last + PERIOD_US)] }))]) {
+    if (finished) break; // m-1 (a): a stop during the start waits for no request
+    await Promise.race([fire(e), ended]);
+  }
+  if (!finished) links = new Map([...SYMBOLS.map((s) => [s, { symbol: s, url: spotUrl(s), out: at }]), ["ALL", { symbol: "ALL", url: marketUrl(), out: at, kind: "market" }]].map(([k, spec]) => [k, openLink(spec, linkIo)])); // m-3: after the start (G0 point 2)
+  arm();
+  const cause = await ended, within = (p) => new Promise((r) => { const t = setTimer(() => { r(false); }, STOP_BOUND_MS); void p.then(() => { clearTimer(t); r(true); }, () => { clearTimer(t); r(false); }); });
+  clearTimer(timer);
+  const linksClosed = await within(Promise.all([...links.values()].map((l) => l.stop())));
+  for (const b of books.values()) b.close();
+  rest.close();
+  const sealDone = await within(sealing ?? Promise.resolve());
+  if (!sealDone) abort.abort();
+  proc?.off("unhandledRejection", stray);
+  note("stopped", { cause: cause?.code ?? "signal", links_closed: linksClosed, seal_done: sealDone });
+  if (cause !== null) throw cause;
+  return { mode: "record", out: plan.out, stopped: "signal", links_closed: linksClosed, seal_done: sealDone };
+}
+/** SIGTERM or SIGINT aborts the signal of a run started from the command line. */
+const signals = () => { const c = new AbortController(), on = () => { c.abort(); }; process.once("SIGTERM", on); process.once("SIGINT", on); return c.signal; };
+
+/** One run: its guards; a recording takes --out (adopt), marks its tails, then runs the loop; the replay (P1-c6) stops, named. */
 export async function run(argv, io = {}) {
   const plan = prepare(argv, io);
-  return stop("not_built", { mode: plan.mode, out: plan.out, resume: plan.resume });
+  if (plan.mode === "replay") return stop("not_built", { mode: plan.mode, out: plan.out, resume: plan.resume });
+  const clocks = { wallUs: io.wallUs ?? (() => Date.now() * 1000), monoNs: io.monoNs ?? process.hrtime.bigint }, taken = adopt(plan, clocks);
+  markTails(taken.at, clocks);
+  return record(plan, taken, { ...io, ...clocks });
 }
 
 /** The command line: one JSON line on stdout when a run ends (exit 0), one on stderr on a named stop (1; usage 2). */
@@ -285,4 +428,6 @@ export async function main(argv, io = {}) {
 /** The command line runs when node starts this very file, through a link too: real paths compared (MAIN-GUARD-REALPATH-1); an import
  *  runs nothing, nor does a node whose argv[1] is absent or names no file (realpathSync throws). */
 const started = (argv1) => { try { return realpathSync(argv1) === realpathSync(SCRIPT); } catch { return false; } };
-if (started(process.argv[1])) process.exitCode = await main(process.argv.slice(2));
+/** m-1 (b): the exit code set, then the process ends within EXIT_GRACE_MS, though a socket whose other end never answers its CLOSE lingers. */
+export function leave(code) { process.exitCode = code; setTimeout(() => { process.exit(code); }, EXIT_GRACE_MS).unref(); }
+if (started(process.argv[1])) leave(await main(process.argv.slice(2)));
