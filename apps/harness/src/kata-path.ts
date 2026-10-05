@@ -8,7 +8,7 @@
 import { sha256Canonical, type ClassEntry, type CoverageReason, type CoverageVerdict, type PolicyTable, type Prediction, type PredictionRegion } from "@monark/contracts";
 export type { ServedTable, ServedTableTexts };
 import { bandEdge } from "@monark/hikae";
-import { kataClassEntries, kataKeyProblem } from "./policy-classes.ts";
+import { KATA_DIR_TAU_CAP, kataClassEntries, kataKeyProblem } from "./policy-classes.ts";
 import { servedMarginalTables } from "./policy-served.ts";
 import type { ServedTable, ServedTableTexts } from "./policy-served.ts";
 import { buildPolicyTable, policyTableSha256 } from "./policy-table-file.ts";
@@ -59,7 +59,7 @@ export function assertKataRequest(p: Prediction, params: HarnessParams, cls: Cla
   if (dir ? !(y >= -1 && y <= 1) : !(Number.isFinite(y) && y > 0)) refuse("kata_yhat_domain", `yhat ${String(y)} is outside the domain of '${cls.task_class}' (${dir ? "a lean in [-1, 1]" : "a finite scale > 0"})`);
   if (params.alpha !== Number(cls.alpha)) refuse("policy_alpha_mismatch", `task_class '${cls.task_class}' requires params.alpha = ${String(cls.alpha)}, got ${String(params.alpha)}`);
   if (params.nMin !== cls.n_min) refuse("policy_nmin_mismatch", `task_class '${cls.task_class}' requires params.nMin = ${String(cls.n_min)}, got ${String(params.nMin)}`);
-  if (dir && !(params.tau <= 1)) refuse("policy_tau_cap", `task_class '${cls.task_class}' requires params.tau <= 1, got ${String(params.tau)}`);
+  if (dir && !(params.tau <= KATA_DIR_TAU_CAP)) refuse("policy_tau_cap", `task_class '${cls.task_class}' requires params.tau <= ${String(KATA_DIR_TAU_CAP)}, got ${String(params.tau)}`);
 }
 
 /** The cell lookup (spec sections 9 and 11): the key, then the current row of that key in the class's table, if any. */
@@ -117,4 +117,13 @@ export function kataVerdict(f: KataVerdictFields, p: Prediction, schemaVersion: 
 export function servedPolicyTables(texts: ServedTableTexts): readonly ServedTable[] {
   const kata = kataClassEntries(texts.classText).map((c) => buildPolicyTable(c, [])).map((table) => ({ task_class: table.class.task_class, table, policy_table_sha256: policyTableSha256(table) }));
   return [...kata, ...servedMarginalTables(texts)].sort((a, b) => (a.task_class < b.task_class ? -1 : 1));
+}
+
+/** The tripwire of KATA-CLAUSE-COMMITTED-STATE-1 (block D, lot D-3; G2 N-6 of D-2): the kata clause of the gate description
+ *  (kataClause, tools/gate.ts) states that the kata tables hold no committed row. The served build passes through this check,
+ *  so the first kata row fails the load until the clause of the committed state, with its dated Z-3 line, replaces it. */
+export function kataTablesHoldNoRow(tables: readonly ServedTable[]): readonly ServedTable[] {
+  const held = tables.filter((t) => t.table.class.cell_key_rule === "kata-bucket" && t.table.rows.length > 0).map((t) => `'${t.task_class}'`);
+  if (held.length > 0) throw new Error(`KATA-CLAUSE-COMMITTED-STATE-1: the kata clause describes kata tables with no row, but ${held.join(", ")} hold rows`);
+  return tables;
 }
