@@ -198,6 +198,13 @@ test("l2_minutes_bound_named", async () => {
   assert.equal(existsSync(join(dayDir(past), "index.jsonl")) || existsSync(join(dayDir(past), "minutes.jsonl")), false);
 });
 
+// killer: scripts/l2/derive.mjs:82 CONST "text.length >= CHUNK" -> "false"
+test("l2_minutes_written_by_chunks", async () => {
+  const [at] = await strict(), segs: [string, string][] = ["20261003T23", "20261004T00"].map((g) => [cidOf("spot", "BTCUSDT", START - S), g]); // G2 m-a: the day of 72 KiB
+  const dv = (await load()).deriveDay({ out: at, symbol: "BTCUSDT", day: D, start: START, end: END, segs, marks: new Map(), dir: dayDir(at), scale: 2 }), chunks = [dv.files![0]![1]].flat();
+  assert.ok(chunks.length >= 2 && chunks.slice(0, -1).every((c) => c.length >= 65_536), `${String(chunks.length)} chunk(s)`); // never one string (B-1); day.mjs:210 joins none (structural)
+});
+
 // killer: scripts/l2/derive.mjs:103 CONST "ev.U - 1" -> "ev.U - 2"
 test("l2_replay_passes_stale_snapshots", async () => {
   const out = fresh(); // G2 m-1: no anchor; kept 90, then 99 = U - 2 of the first event 101..102: both stale (S4), the book never set
@@ -309,7 +316,7 @@ test("l2_chain_hole_cut_to_day", async () => {
 // killer: scripts/l2/day.mjs:194 COR "!DAY_FILES.includes(n) || BASE.includes(n)" -> "!DAY_FILES.includes(n)"
 test("l2_derive_hook_contract", () => {
   const hook = (dv: Derived) => (): unknown => sealDay({ out: fresh(), symbol: "BTCUSDT", day: D, nowUs: END + 121 * S, closed: () => true, derive: () => dv });
-  const forged: Derived[] = [{ files: [["anchor-open.json", "{}"]] }, { files: [["manifest.json", "{}"]] }, { manifest: { schema: "forged" } }, { missing: { holes: [] } }];
+  const forged: Derived[] = [{ files: [["anchor-open.json", "{}"]] }, { files: [["manifest.json", "{}"]] }, { manifest: { schema: "forged" } }, { missing: { holes: [] } }, { files: [["minutes.jsonl", "a"], ["minutes.jsonl", "b"]] }];
   for (const dv of forged) assert.throws(hook(dv), (e: DayStop) => e.code === "stray_file", JSON.stringify(dv)); // G2 m-7, P5: derived names only, no key overwritten
 });
 
