@@ -1060,10 +1060,10 @@ test("l2_seal_apart_root_closed", { skip: APART }, async () => {
   // r-3 (M3) of the G2 delta of c5-bis-a: the parent closes the root it opened for the child, once spawned and after a failed spawn.
   const m = await seal(), out = fresh(), [open, close] = [fs.openSync, fs.closeSync], opened: number[] = [], shut: number[] = [];
   await day(out);
-  fs.openSync = ((...a: Parameters<typeof open>) => { const fd = open(...a); if (a[0] === out) opened.push(fd); return fd; }) as typeof open;
-  fs.closeSync = ((fd: number) => { shut.push(fd); close(fd); }) as typeof close;
+  fs.openSync = (...a: Parameters<typeof open>) => { const fd = open(...a); if (a[0] === out) opened.push(fd); return fd; };
+  fs.closeSync = (fd: number) => { shut.push(fd); close(fd); };
   syncBuiltinESMExports();
-  try { for (const spec of [specOf(out), { ...specOf(out), config: "x".repeat(200_000) }]) await m.sealApart(spec, { env: {} }); } finally { [fs.openSync, fs.closeSync] = [open, close]; syncBuiltinESMExports(); }
+  try { for (const spec of [specOf(out), { ...specOf(out), config: { x: "x".repeat(200_000) } }]) await m.sealApart(spec, { env: {} }); } finally { [fs.openSync, fs.closeSync] = [open, close]; syncBuiltinESMExports(); }
   assert.deepEqual([opened.length, opened.filter((fd) => !shut.includes(fd))], [2, []]);
 });
 

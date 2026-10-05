@@ -291,7 +291,7 @@ test("l2_rest_failures_named_without_address_and_symbols_closed", async () => {
   for (const x of [c, gone, fixed]) x.close();
 });
 
-// killer: scripts/l2/rest.mjs:129 CONST "; if (io.signal?.aborted) stop(" -> "; if (false) stop("
+// killer: scripts/l2/rest.mjs:129 CONST "} if (io.signal?.aborted) stop(" -> "} if (false) stop("
 test("l2_rest_aborted_writes_nothing", async () => {
   // r-2 of the G2 delta of c5-bis-b (lot c5-bis-c): the loop's signal aborted while a request is in flight: its late answer writes neither
   // requests.jsonl nor rest/, the request stops (stopped); a request asked after it never reaches fetch.
