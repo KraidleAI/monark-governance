@@ -295,12 +295,12 @@ test("l2_rest_failures_named_without_address_and_symbols_closed", async () => {
 test("l2_rest_aborted_writes_nothing", async () => {
   // r-2 of the G2 delta of c5-bis-b (lot c5-bis-c): the loop's signal aborted while a request is in flight: its late answer writes neither
   // requests.jsonl nor rest/, the request stops (stopped); a request asked after it never reaches fetch.
-  const R = await load(), out = tmp(), ac = new AbortController(), sent: string[] = [];
+  const R = await load(), out = tmp(), ac = new AbortController(), sent: string[] = [], signals: (AbortSignal | null | undefined)[] = [];
   let answer = (): void => undefined;
-  const fetch = (url: string): Promise<Response> => { sent.push(url); return sent.length > 1 ? Promise.resolve(new Response("{}")) : new Promise((r) => { answer = () => { r(new Response("{}")); }; }); };
+  const fetch = (url: string, init: RequestInit): Promise<Response> => { sent.push(url); signals.push(init.signal); return sent.length > 1 ? Promise.resolve(new Response("{}")) : new Promise((r) => { answer = () => { r(new Response("{}")); }; }); };
   const c = R.createRest({ fetch, nowUs: () => T0, out, signal: ac.signal }), a = code(c.request("time", null)), b = code(c.request("depth", "BTCUSDT"));
   await new Promise((r) => setTimeout(r, 5));
   ac.abort();
   answer();
-  assert.deepEqual([await a, await b, sent.length, readdirSync(out)], ["stopped", "stopped", 1, []]);
+  assert.deepEqual([await a, await b, sent.length, readdirSync(out), signals[0]?.aborted], ["stopped", "stopped", 1, [], true], "the fetch aborted too");
 });
