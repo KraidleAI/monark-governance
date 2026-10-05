@@ -942,16 +942,19 @@ test("l2_record_snapshot_451_ends_all", async () => {
 });
 
 // killer: scripts/record-binance-l2.mjs:387 CONST "await Promise.race([fire(e), ended]);" -> "await fire(e);"
+// killer: scripts/record-binance-l2.mjs:352 CONST "if (finished) return; const e" -> "const e"
 test("l2_record_stop_during_start", async () => {
-  // m-1 (a) of the G2 of c5-bis-b (Q-8 of a3): a place silent at the start (its requests never answer) holds no clean stop: the signal
-  // ends the run at once, no link opened.
-  const m = await command(), out = fresh(), h = host(at(0, 10, 0), place(0));
-  h.io.fetch = (url) => { h.fetched.push([h.io.wallUs!(), new URL(url).pathname]); return new Promise(() => undefined); };
+  // m-1 (a) of the G2 of c5-bis-b (Q-8 of a3): a place silent at the start (its requests unanswered) holds no clean stop: the signal ends
+  // the run at once, no link opened. r-2 of its delta: the answer that comes after the stop writes no line after the stopped line.
+  const m = await command(), out = fresh(), h = host(at(0, 10, 0), place(0)), answer = h.io.fetch!, late: (() => void)[] = [];
+  h.io.fetch = (url, i) => { h.fetched.push([h.io.wallUs!(), new URL(url).pathname]); return new Promise((r) => { late.push(() => { r(answer(url, i)); }); }); };
   const w = watch(m.run(argv(out), h.io));
   await h.until(at(0, 10, 0, 1));
   h.stop();
   await h.until(at(0, 10, 0, 2)).then(() => waited(h, w));
   assert.deepEqual([w.settled, h.fetched.map(([, p]) => p), h.socks.length], [signalled(out), [TIME], 0]);
+  late[0]?.(); await h.until(at(0, 10, 0, 3));
+  assert.deepEqual([(journal(out) as Line[]).at(-1)?.event, events(out, ["clock_offset"]).length], ["stopped", 0]);
 });
 
 // killer: scripts/record-binance-l2.mjs:432 CONST "process.exit(code)" -> "undefined"
