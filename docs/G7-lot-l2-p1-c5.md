@@ -212,3 +212,7 @@ l'ancien mutant (`=== real`) arrêtait `adopt` lui-même, rouge sans assertion ;
 - **n-5 (RUNBOOK de M-1)** : un `journal.jsonl` vide (coupure entre sa création et la ligne `start`) rend la sortie non reprenable
   (`out_not_l2`) ; échec fermé ; la reprise demande de retirer ce fichier vide à la main.
 - **n-6** : survivants équivalents de la G2 (M8b, M23, M27) sans test ; M14, M20 et M28 étaient couverts en course par m-1 et m-2.
+
+## Rejeu Windows de MONARK (2026-10-05) : deux sauts nommés
+
+`l2_check_walk_pinned` et `l2_check_alarm_pinned` rendaient `EPERM` sous Windows : leur échange atomique du lien parent de `--out` (`swap()` de `staged()`, un `renameSync` sur un lien de dossier existant) n existe pas sous win32, qui refuse ce renommage même sans descripteur ouvert (mesure de MONARK). Le code rend l `EPERM` tel quel, ce qui est juste. Les deux tests sont sautés sous win32 avec leur raison écrite, comme `l2_append_link_named` ; ils restent jugés sous Linux, où l épinglage par descripteur qu ils prouvent existe (sous win32, la fenêtre est déclarée plus haut, risques déclarés). Test seul, deux lignes ; aucune ligne visée par un tueur ne bouge ; R-25 547.
