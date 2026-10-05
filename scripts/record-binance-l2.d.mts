@@ -36,7 +36,7 @@ export interface RecorderIo {
   clearTimer?: (handle: unknown) => void;
   sleep?: (ms: number) => Promise<void>;
   open?: (path: string) => Promise<import("./l2/segments.mjs").SegmentFile>;
-  seal?: (spec: import("./l2/seal.mjs").ApartSpec & { config: unknown }, io: { env: Record<string, string>; signal: AbortSignal }) => Promise<import("./l2/seal.mjs").ApartResult>;
+  seal?: (spec: import("./l2/seal.mjs").ApartSpec & { config: unknown }, io: { env: Record<string, string>; signal: AbortSignal; onKill: (r: import("./l2/seal.mjs").ApartResult) => void }) => Promise<import("./l2/seal.mjs").ApartResult>;
   signal?: AbortSignal;
   /** B-1 of the G2 of c5-bis-b: where the loop hears an unhandled rejection (the command line's process when no signal is given). */
   process?: { on(event: "unhandledRejection", fn: (e: unknown) => void): unknown; off(event: "unhandledRejection", fn: (e: unknown) => void): unknown };

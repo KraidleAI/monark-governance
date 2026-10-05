@@ -1260,3 +1260,77 @@ test("l2_record_slow_start_anchors", async () => {
   await run;
   assert.deepEqual([L.SYMBOLS.map((s) => existsSync(join(out, "days", s, D, "anchor-close.json"))), events(out, ["event_skipped"])], [[true, true, true, true], []]);
 });
+
+// ---- fold of the G2 of c5-bis-c ----
+// killer: scripts/record-binance-l2.mjs:360 CONST "if (dayOf(sentUs + offset) !== dayOf(t + offset)) return" -> "if (false) return"
+test("l2_record_slow_place_anchors", async () => {
+  // B-1 of the G2 of c5-bis-c (its reproducer): a place slow throughout, each answer 10 s late (the offset read +5 s), the start at 23:59:00:
+  // the anchors decided in D leave one after the other; one sent once the corrected day has changed is skipped, named, never D's anchor-close.json.
+  const m = await command(), out = fresh(), h = host(at(0, 23, 59), place(0)), answer = h.io.fetch!;
+  h.io.fetch = (url, i) => new Promise((r) => { h.io.setTimer!(() => { r(answer(url, i)); }, 10_000); });
+  const run = m.run(argv(out), h.io);
+  await h.until(at(1, 0, 1));
+  h.stop();
+  await run;
+  assert.deepEqual([L.SYMBOLS.map((s) => existsSync(join(out, "days", s, D, "anchor-close.json"))), events(out, ["event_skipped"]).map((l) => [l.symbol, l.at_send])],
+    [[true, false, false, false], [["ETHUSDT", true], ["BNBUSDT", true], ["SOLUSDT", true]]]);
+});
+
+// killer: scripts/record-binance-l2.mjs:378 CONST "dayOf(now + offset) !== dayOf(e.at + offset)" -> "dayOf(now + offset) !== dayOf(e.at)"
+test("l2_record_anchor_day_corrected", async () => {
+  // m-4 of the G2 of c5-bis-c: the anchors' day is the corrected one, on both sides. The place 5 s ahead, the host clock stepped from 23:59
+  // to 23:59:58 (its day still D, the corrected one D + 1): no anchor; the place 30 s behind, the anchors run past the host's midnight
+  // (corrected, still D): all four.
+  const m = await command(), [ahead, behind] = [fresh(), fresh()], a = host(at(0, 23, 58, 30), place(5 * S)), b = host(at(0, 23, 59, 30), place(-30 * S));
+  const runA = m.run(argv(ahead), a.io);
+  await a.until(at(0, 23, 59));
+  a.jump(at(0, 23, 59, 58));
+  await a.until(at(0, 23, 59, 59));
+  a.stop();
+  await runA;
+  const runB = m.run(argv(behind), b.io);
+  await b.until(at(1, 0, 0, 20));
+  b.stop();
+  await runB;
+  assert.deepEqual([a.fetched.filter(([, p]) => p.startsWith("/api/v3/depth")).length, events(ahead, ["event_skipped"]).filter((l) => l.task === "anchor").length,
+    L.SYMBOLS.map((s) => existsSync(join(behind, "days", s, D, "anchor-close.json")))], [0, 4, [true, true, true, true]]);
+});
+
+// killer: scripts/l2/seal.mjs:60 CONST "if (first) try {" -> "if (false) try {"
+test("l2_seal_apart_kill_told", { skip: APART }, async () => {
+  // m-1 of the G2 of c5-bis-c: the kill is told at once (onKill, its failure), before the call ends on the child's close.
+  const m = await seal(), out = fresh(), told: [unknown, boolean][] = [];
+  await day(out);
+  let ended = false;
+  const r = await m.sealApart(specOf(out), { env: {}, timeoutMs: 1, onKill: (k) => { told.push([(k as { failed?: { stop: unknown } }).failed?.stop, ended]); } }).finally(() => { ended = true; });
+  assert.deepEqual([told, r.sealed], [[["seal_timeout", false]], false]);
+});
+
+// killer: scripts/record-binance-l2.mjs:327 CONST "tell(\"seal_killed\"" -> "void (\"seal_killed\""
+test("l2_record_seal_kill_named", async () => {
+  // m-1: a seal child killed during the run (a child held in D would keep the seal long after) is journaled at its kill, its symbol and day.
+  const m = await command(), out = fresh(), h = host(at(0, 23, 59, 50), place(0), (spec, o) => {
+    if (spec.symbol === "BNBUSDT") o.onKill({ sealed: false, failed: { code: null, signal: null, stop: "seal_timeout", detail: { timeout_ms: 1 } } });
+    return new Promise(() => undefined);
+  });
+  const run = m.run(argv(out), h.io);
+  await h.until(at(1, 0, 3, 1));
+  const named = events(out, ["seal_killed"]).map((l) => [l.symbol, l.day, l.stop]);
+  h.stop();
+  await h.until(at(1, 0, 4, 10));
+  await run;
+  assert.deepEqual(named, [["BNBUSDT", D, "seal_timeout"]]);
+});
+
+// killer: scripts/l2/links.mjs:212 CONST "catch { /* m-6" -> "catch (z) { throw z; /* m-6"
+test("l2_link_hook_failure_journal_broken", async () => {
+  // m-6 of the G2 of c5-bis-c: a hook that throws while the journal fails (here a directory) never leaves onmessage (on a real socket, an
+  // uncaughtException): the message is kept by its writer.
+  const out = fresh(), h = handLink(out, () => { throw new TypeError("x"); });
+  rmSync(join(out, "journal.jsonl"), { force: true });
+  mkdirSync(join(out, "journal.jsonl"));
+  assert.doesNotThrow(() => { h.ws.onmessage({ data: "a" }); });
+  const frames = join(out, "conn", h.cid(), `${segmentOf(h.clock.now)}.frames`);
+  assert.ok(await twice(() => codeOf(() => readFileSync(frames, "utf8")) === "a" + LF), "the message kept");
+  await h.link.stop().catch(() => undefined);
+});

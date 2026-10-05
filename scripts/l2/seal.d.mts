@@ -24,6 +24,6 @@ export type ApartResult = SealResult | { sealed: false; failed: { code: number |
 export const SEAL_TIMEOUT_MS: number;
 /** sealOf in a child process (node --max-old-space-size=<heapMb> scripts/l2/seal-child.mjs) spawned with `env` alone (none by default),
  *  written through spec.out (adopt's `at`) opened once and passed as the child's fd 3, never a path; past timeoutMs or on `signal`, the
- *  child killed and failed.stop seal_timeout or seal_aborted, resolved once the child is reaped; root_refused (spec.root, adopt's identity, not
+ *  child killed and failed.stop seal_timeout or seal_aborted (given to onKill at the kill), resolved on the killed child's close; root_refused (spec.root, adopt's identity, not
  *  the directory opened: root_moved), spec_refused (timeoutMs not in (0, 2^31), env null), spawn_failed named; never rejects. */
-export function sealApart(spec: ApartSpec, io?: { env?: Record<string, string>; heapMb?: number; timeoutMs?: number; signal?: AbortSignal }): Promise<ApartResult>;
+export function sealApart(spec: ApartSpec, io?: { env?: Record<string, string>; heapMb?: number; timeoutMs?: number; signal?: AbortSignal; onKill?: (r: ApartResult) => void }): Promise<ApartResult>;
