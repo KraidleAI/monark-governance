@@ -515,7 +515,10 @@ test("r25a_ci_w_counts_the_real_lines_under_measured_attributes - O-1: a PR adds
 // killer: scripts/lot-size-integration.mjs:178 CONST "if (infoAttributes(cwd)) throw" -> "if (false) throw"
 test("r25a_ci_w_fails_closed_without_the_pinned_read - O-1: a machine $GIT_DIR/info/attributes `* -diff` (that GIT_ATTR_SOURCE does not replace), or a git older than 2.40 (no GIT_ATTR_SOURCE): the job prints no count, says why and is red (W 0, green, before the lot)", () => {
   const real = execFileSync("bash", ["-c", "command -v git"], { encoding: "utf8" }).trim(), seen: string[] = [];
-  for (const kind of ["info/attributes", "git 2.39.5"]) withFx((fx) => {
+  // win32: the fake git is a sh script without extension on a ':'-joined PATH, which execFileSync never runs there (PATHEXT, ';'):
+  // the real git answers. That case is named and skipped there only; the info/attributes case runs everywhere.
+  const kinds = process.platform === "win32" ? ["info/attributes"] : ["info/attributes", "git 2.39.5"];
+  for (const kind of kinds) withFx((fx) => {
     fx.g("checkout", "-q", "-b", "pr", TARGET);
     fx.commit("pr", "src/c.txt", 3000);
     const bin = join(fx.dir, ".git", "bin");
@@ -525,7 +528,7 @@ test("r25a_ci_w_fails_closed_without_the_pinned_read - O-1: a machine $GIT_DIR/i
     const out = ciRun(fx, kind === "info/attributes" ? {} : { PATH: `${bin}:${process.env.PATH ?? ""}` });
     seen.push(`${kind}: ${changed(out)} ${String(out.includes("::error::Gate R-25: pinned git read not obtained. Fail-closed."))} ${/^exit (\d+)$/m.exec(out)?.[1] ?? "?"}`);
   }, REAL_CI);
-  assert.deepEqual(seen, ["info/attributes: none true 1", "git 2.39.5: none true 1"]);
+  assert.deepEqual(seen, ["info/attributes: none true 1", "git 2.39.5: none true 1"].slice(0, kinds.length));
 });
 
 // killer: scripts/lot-size-integration.mjs:180 CONST "GIT_CONFIG_PARAMETERS: undefined, " -> ""

@@ -112,3 +112,9 @@ Ces deux tests sont des resserrements : verts au gel dès leur commit (`96f77186
 | `npm run test:export` | vert (1/1) |
 | `tsc --noEmit` ; `lint` | 0 ; 0 |
 | R-25, `r25()` contre `171d6b2f` | `STAT 131 insertions, 11 deletions, changed 142`, `CONTENT_STAT 0`, GREEN, sous 547 |
+
+## 10. Rejeu Windows de MONARK (2026-10-05) : un cas sauté, nommé
+
+Au rejeu Windows de `3fda80bb` (75/76), `r25a_ci_w_fails_closed_without_the_pinned_read` rendait `git 2.39.5: 3000 false 1`. La cause est dans le test : le faux `git` est un script `sh` sans extension, placé sur un `PATH` joint par `:`. `execFileSync` ne le lance jamais sous win32 (`PATHEXT`, séparateur `;`), et c est le vrai git, 2.55, qui répond.
+
+Le cas « git 2.39.5 » est donc sauté sous win32 seul, avec sa raison écrite dans le test. Le cas `info/attributes` tourne partout. Sous Linux, les deux cas restent jugés (27/27) et le tueur `:178` est inchangé.
