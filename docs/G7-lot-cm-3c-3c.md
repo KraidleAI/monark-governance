@@ -106,6 +106,7 @@ Node 24.21.0, variables de proxy retirées pour les tests, TMPDIR `/tmp/c3c-1`.
 ## Pli de la G2 (`G2-cm-3c-3c`, APPROUVE SOUS RÉSERVE)
 
 - **B-1** (R-25 du lot à 548 > 547) : plié, voir « R-25 ». Documentation seule, aucune ligne de code.
+- **Contrôles au pli** (`0f6cdc5b`, TMPDIR `/tmp/c3cfold-1`) : `npm test` **2 316 tests, 2 294 verts, 0 rouge, 22 sautés, 0 annulé, exit 0**, test 42 vert (113 s) ; `tsc` 0 ; `eslint .` 0 ; `lint:ratchet` 69/69 ; `gate:vocab`, `lang:gate`, `export:check` OK ; build du site vert ; ancres `--touched 662618d5 HEAD` : 57 tueurs (pli de 3c-3b2 compris), 57 ancrés, 0 dérivé, 0 perdu.
 - **Pli de 3c-3b2 fusionné** (`4521598f`) : les épingles `served_replay_full_bytes_are_pinned_at_1_1_0` et `usde_band_full_bytes_are_pinned_at_1_1_0` sont **vertes sans changement** à la tête. Le seul octet servi que change ce lot (message Q-F2, `gate.ts:865`) n'entre pas dans le rejeu de 111 appels, aucun appel n'y étant en 1.0.0. **Aucune épingle ne bouge**, rien à nommer au titre de la règle du G7 de 3c-3b2.
 - **m-1** et **m-2** : préconditions de fusion, ci-dessous.
 - **m-3** (pour C', trou antérieur au lot) : le mutant `scripts/verify-harness.mjs:365` (retrait de `&& digest === calibrateScoresSha256`) survit ; son équivalent à `418a421f` (`digest === calibrateSetDigest`) survivait déjà. À faire en C' : un vecteur de plus dans `verify_harness_ca_liq_checks_red_on_overclaiming_surfaces`, une surface dont le `scores_sha256` du verdict BYO diffère de celui de `calibrate`, qui tue ce mutant.
