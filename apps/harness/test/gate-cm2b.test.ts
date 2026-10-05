@@ -178,6 +178,16 @@ test("usde_band_edges_within_half_ulp_stated_and_band_unchanged", () => {
   assert.equal(createHash("sha256").update(replay).digest("hex"), "f99eddb82c11186a478dac182d8cab23a13e3565f69384588c9c7f3a099bed5d", "decisions unchanged since the base");
 });
 
+// G2 B-1 of 3c-3b2: next to the version-independent projection of the USDe band, the full 1.1.0 served bytes of the same
+// grid are pinned (whole GateDecision), so a served field the projection ignores cannot move unseen. Any lot that changes
+// served bytes updates this pin in a declared line (G7). Second mutant fired by hand: gate.ts:619 residual ["x"].
+// killer: apps/harness/src/tools/gate.ts:617 CONST "method: \"split\"" -> "method: \"hac-cp\""
+test("usde_band_full_bytes_are_pinned_at_1_1_0", () => {
+  const grid = [0, 1e-12, 1e-6, 0.0000416, 0.0001, 0.00123, -0.0003, 0.1, 1, 12345.678, 3e-4, 7.5e-5];
+  const replay = grid.map((yhat) => JSON.stringify(runGate(pred(USDE, yhat, USDE_STABLE_RUN_PREDICTOR_ID), { ...PARAMS, tool: "t" }))).join("\n");
+  assert.equal(createHash("sha256").update(replay).digest("hex"), "50ccc9fdda33f942c258e8bb5f4cac8481853654ed841279c2cb4d33b280a7ca", "served bytes of the USDe band (1.1.0)");
+});
+
 // Test R-4 (F2P, B-5; moved from gate.test.ts gate_attested_concordant_files_residual, ADR-M017 D2(iii)/D4(3)): the
 // committed Binance witness is concordant with btc-dir-15m only; since the class is retired, a concordant attested
 // passes the consistency guard (no attested_inconsistent) and meets the retirement (400 task_class_retired), through the

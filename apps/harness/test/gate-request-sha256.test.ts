@@ -151,8 +151,8 @@ test("request_sha256_is_the_digest_of_the_received_envelope", async () => {
 // HTTP and MCP, after every existing check (whose codes stay); bodies equal up to their canonical writing share a digest.
 // killer: apps/harness/src/tools/gate.ts:1014 CONST "if (e instanceof RangeError)" -> "if (false)"
 test("i_json_envelopes_are_param_invalid_and_existing_refusals_keep_their_code", async () => {
-  const set = ENVELOPES["byo-set"], usde = ENVELOPES["usde"], itv = ENVELOPES["byo-interval"];
-  assert.ok(set !== undefined && usde !== undefined && itv !== undefined);
+  const set = ENVELOPES["byo-set"], usde = ENVELOPES["usde"], itv = ENVELOPES["byo-interval"], liq = ENVELOPES["liq"];
+  assert.ok(set !== undefined && usde !== undefined && itv !== undefined && liq !== undefined);
   // The raw text "X" of a body is spliced in place of the string "@@": a lone surrogate escape or 1e400 (binary64 overflow).
   const raw = (e: object, x: string): string => JSON.stringify(e).replace('"@@"', x);
   const cases: [string, string, string][] = [
@@ -162,8 +162,12 @@ test("i_json_envelopes_are_param_invalid_and_existing_refusals_keep_their_code",
     ["yhat 1e400", raw({ ...usde, prediction: { ...usde.prediction, yhat: "@@" } }, "1e400"), "param_invalid"],
     ["intent 1e400", raw({ ...usde, params: { ...usde.params, intent: "@@" } }, "1e400"), "param_invalid"],
     ["scores 1e400", raw({ ...itv, params: { ...itv.params, calibration: { scores: "@@", mode: "interval" } } }, "[1e400]"), "byo_calibration_invalid"],
+    // Not an I-JSON vector: tau 1e400 is refused before the envelope by the param check ("expected a finite number",
+    // same code with or without the killer). The I-JSON vectors are the five above; the rest keep an existing refusal.
     ["tau 1e400", raw({ ...set, params: { ...set.params, tau: "@@" } }, "1e400"), "param_invalid"],
     ["interval yhat surrogate", raw({ ...itv, prediction: { ...itv.prediction, yhat: "@@" } }, '"\\ud800"'), "byo_yhat_type"],
+    ["set tau cap, intent surrogate", raw({ ...set, params: { ...set.params, tau: 5, intent: "@@" } }, '"\\ud800"'), "byo_set_tau_cap"],
+    ["liq yhat 1e400", raw({ ...liq, prediction: { ...liq.prediction, yhat: "@@" } }, "1e400"), "liq_yhat_domain"],
   ];
   const server = await startLoopback((port) => startServer(port));
   try {
