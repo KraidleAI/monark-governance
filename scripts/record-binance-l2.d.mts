@@ -45,3 +45,11 @@ export function freeBytes(path: string): number;
 export function prepare(argv: readonly string[], io?: RecorderIo): Plan;
 export function run(argv: readonly string[], io?: RecorderIo): Promise<never>;
 export function main(argv: readonly string[], io?: RecorderIo): Promise<number>;
+
+/** The recorder that the start line of its journal names (P1-c5, n-5 of the G2 of c4). */
+export const RECORDER: string;
+/** One JSON line appended to a file of --out by one write: no link followed, one link alone (nlink 1), else out_not_l2, nothing written. */
+export function appendLine(path: string, line: Record<string, unknown>): void;
+/** A recording takes --out after prepare (P1-c5): a resumed output must be this recorder's; --out made, its real path pinned, the start
+ *  line journaled. check(): real path unchanged, guards of --out again, journal.jsonl and requests.jsonl of one link each, then the quota. */
+export function adopt(plan: Extract<Plan, { mode: "record" }>, io: { wallUs: () => number; monoNs: () => bigint }): { real: string; check: () => number };
