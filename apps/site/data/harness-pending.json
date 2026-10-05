@@ -1,7 +1,7 @@
 {
   "$comment": "The shapes the NEXT harness serves, written in process by the source repository's sync tool (--pending) before it is deployed: no fact read on the server. While this file exists, the served snapshot carries pending_since and the recorded traces follow this file; the deployed harness's sync promotes it.",
   "schema": "monark-site-harness-pending-v1",
-  "written_at": "2026-10-05T16:40:00.262Z",
+  "written_at": "2026-10-05T17:05:03.454Z",
   "version": "0.4.0",
   "api": {
     "url": "https://api.monarkgate.tech",
@@ -122,5 +122,5 @@
     "verifier_rev": "0fe3c32d35382b3f290a43c4156399ca4512bb89",
     "observed_instant": 1786594228
   },
-  "openapi_sha256": "de635be9d7708036add1b85427749539f0aa4190db63203ffac96d7a0a857ba1"
+  "openapi_sha256": "61c9df97a254a863a68fdc2c493799803397bfa190b85db3ca97673d2a8ccbf0"
 }
