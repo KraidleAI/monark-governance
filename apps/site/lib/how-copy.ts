@@ -70,9 +70,9 @@ export const REASON_GLOSS: Record<string, ReasonGloss> = {
   attestation_refused: { tone: TONE_ABSTAIN, gloss: "The verifier refused the testimony — a hash or signature did not hold." },
   binding_broken: { tone: TONE_ABSTAIN, gloss: "The prediction is not bound to the testimony it claims." },
   non_evaluable: { tone: TONE_ABSTAIN, gloss: "The input cannot be evaluated against the contract at all." },
-  calib_silence: { tone: TONE_ABSTAIN, gloss: "The policy row of this cell holds its calibration silent: no region is served." },
-  calib_vetoed: { tone: TONE_ABSTAIN, gloss: "The policy row of this cell vetoes its calibration: no region is served." },
-  calib_retired: { tone: TONE_ABSTAIN, gloss: "The policy row of this cell retires its calibration: no region is served." },
+  calib_silence: { tone: TONE_ABSTAIN, gloss: "This cell's calibration missed too often, or failed a dependence check, so no region is served." },
+  calib_vetoed: { tone: TONE_ABSTAIN, gloss: "A check registered in advance vetoed this cell's calibration, so no region is served." },
+  calib_retired: { tone: TONE_ABSTAIN, gloss: "This cell's calibration was retired by the published monitoring rule, so no region is served." },
   out_of_support: { tone: TONE_ABSTAIN, gloss: "The prediction lies outside the range this cell was calibrated on." },
   region_degenerate: { tone: TONE_ABSTAIN, gloss: "The region would have no width, so it states nothing to act on." },
 };

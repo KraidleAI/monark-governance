@@ -65,3 +65,10 @@ export function readTextOrNull(abs: string): string | null;
 export function windowsAbsPathHits(text: string): PathHit[];
 /** Windows-absolute-path violations across a resolved (kept) file list. */
 export function windowsPathViolations(kept: CollectedFile[]): PathViolation[];
+
+/** SITE-SEND-GUARD-MECH-1 (lot CM-3c-4a): the two pending snapshot files, and the two served files that mark one with pending_since. */
+export const PENDING_SNAPSHOT_FILES: string[];
+export const PENDING_MARKED_FILES: string[];
+/** What blocks a send (`--out`, so also release-public.mjs) in `kept`: each snapshot file, and each served file carrying
+ *  pending_since (an unreadable one blocks). Empty: the send may go. Pure; `readText` is readTextOrNull in the CLI. */
+export function pendingSendBlockers(kept: CollectedFile[], readText: (abs: string) => string | null): string[];

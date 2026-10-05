@@ -105,6 +105,21 @@ export function derefVerdict(gateDecision: JsonObject, coverageVerdict: JsonObje
   return gd;
 }
 
+/** (3) OPENAPI-ERROR-CODE-1 (lot CM-3c-4a, Q-C5 condition 4): the frozen error bodies of the mirror, stripped, with every
+ *  local `#/$defs/<name>` reference inlined (OpenAPI resolves `#` against its own document) and `$defs` dropped. */
+function inlineDefs(node: Json, defs: JsonObject): Json {
+  if (Array.isArray(node)) return node.map((n) => inlineDefs(n, defs));
+  if (node === null || typeof node !== "object") return node;
+  const ref = node["$ref"];
+  if (typeof ref === "string") return inlineDefs(asObject(defs[ref.replace(/^#\/\$defs\//, "")] ?? null, ref), defs);
+  return Object.fromEntries(Object.entries(node).filter(([k]) => k !== "$defs").map(([k, v]) => [k, inlineDefs(v, defs)]));
+}
+const TOOL_ERROR_SCHEMA = asObject(stripMeta(loadFrozen("tool-error.schema.json")), "ToolError");
+const TOOL_ERROR_DEFS = asObject(TOOL_ERROR_SCHEMA["$defs"] ?? null, "ToolError.$defs");
+/** The 400 body (the root: tool_error, invalid_input, invalid_json) and the 500 body ($defs/InternalError). */
+export const TOOL_ERROR_400_SCHEMA = asObject(inlineDefs(TOOL_ERROR_SCHEMA, TOOL_ERROR_DEFS), "ToolError 400");
+export const TOOL_ERROR_500_SCHEMA = asObject(inlineDefs(TOOL_ERROR_DEFS["InternalError"] ?? null, TOOL_ERROR_DEFS), "ToolError 500");
+
 /** Non-frozen gate parameters (ADR-M005 D5/D6, caller-carried). Declared here, never in schemas/.
  *  (ADR-M007 D7): the OPTIONAL `calibration` object opens the BYO loop — the caller supplies its
  *  own nonconformity `scores` + a `mode` (interval|set), and the gate conformalizes against THOSE scores

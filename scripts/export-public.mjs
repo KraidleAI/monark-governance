@@ -17,6 +17,8 @@
 //      `upcoming` data whose every test-consumer is export-excluded; NON-fatal, REPORTED; NEVER the blacklist.
 //   5. WINDOWS-PATH GUARD (D7 septies (iii)) — the export FAILS HARD (exit 1) if any kept file carries a
 //      reader-local drive path (F: / C: + separator + segment); mirrored in --check, regardless of scope.
+//   6. PENDING-SNAPSHOT GUARD (SITE-SEND-GUARD-MECH-1) — --out FAILS HARD (exit 1, nothing written) while a pending
+//      snapshot of the site data is kept; --check is not guarded (CI stays green from C2 to T0).
 //
 // The first publication of KraidleAI/Monark is a deliberate maintainer decision. This
 // script only writes to a LOCAL --out directory; it never pushes and never touches a
@@ -269,6 +271,24 @@ export function windowsPathViolations(kept) {
   return out;
 }
 
+// SITE-SEND-GUARD-MECH-1 (lot CM-3c-4a; MONARK Q-CP-4: no bypass): a pending snapshot (time (i) of a block, sync --pending)
+// describes a harness not yet served, so no site send and no mirror release may carry it before T0. The T0 promotion
+// (sync-harness-served.mjs, then sync-ukemi-served.mjs) removes both files and pending_since: the guard lifts there only.
+export const PENDING_SNAPSHOT_FILES = ["apps/site/data/harness-pending.json", "apps/site/data/ukemi-pending.json"];
+export const PENDING_MARKED_FILES = ["apps/site/data/harness-served.json", "apps/site/data/ukemi-served.json"];
+/** What blocks a send in `kept`: each snapshot file, and each served file carrying pending_since (unreadable: blocks). */
+export function pendingSendBlockers(kept, readText) {
+  const out = [];
+  for (const f of kept) {
+    if (PENDING_SNAPSHOT_FILES.includes(f.rel)) out.push(f.rel);
+    if (!PENDING_MARKED_FILES.includes(f.rel)) continue;
+    let marked = true;
+    try { marked = "pending_since" in JSON.parse(readText(f.abs) ?? "null"); } catch { /* fail closed */ }
+    if (marked) out.push(`${f.rel} (pending_since)`);
+  }
+  return out;
+}
+
 // Directory names NEVER copied to the public export: installed deps and build output. Added by Lot
 // F-public for apps/site (Next.js). A committed working tree lacks them, but a local `npm install` /
 // `next build` creates node_modules/.next/.turbo, and the whole-tree copy exercised by test 42 would
@@ -490,6 +510,14 @@ function doExport(root, outDir) {
   if (pathViolations.length) {
     console.error("export FAILED — exported file(s) carry a reader-local Windows absolute path (D7 septies (iii)):");
     for (const v of pathViolations) console.error(`  ${v.rel}:${v.line}:${v.col}  ${v.snippet}`);
+    process.exit(1);
+  }
+  // SITE-SEND-GUARD-MECH-1: refuse before any write while a pending snapshot is kept (release-public.mjs runs this export).
+  const blockers = pendingSendBlockers(kept, readTextOrNull);
+  if (blockers.length) {
+    console.error("export FAILED — a pending snapshot is in the exported tree (SITE-SEND-GUARD-MECH-1): no site send and no mirror release before T0:");
+    for (const b of blockers) console.error(`  ${b}`);
+    console.error("  Send from the deployed SHA or the trunk, or promote at T0 (node scripts/sync-harness-served.mjs, then node scripts/sync-ukemi-served.mjs).");
     process.exit(1);
   }
   // Derive the public CI workflow up-front so a bad workflow fails CLOSED before anything is written

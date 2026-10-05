@@ -269,11 +269,11 @@ export interface HarnessParams {
  * calibrate, cascade, ukemi-predict) follow the gate codes; `task_class_retired` is thrown for `btc-dir-15m` since
  * CM-2b (ADR-CM B-5). A code is never renamed nor reused for another refusal.
  * Since contract 1.1.0 block A (lot CM-3c-1, spec section 13) the list is TOOL_ERROR_CODES of @monark/contracts,
- * re-exported here: the 24 codes above in their order, then 8 codes reserved until their lot and thrown by nothing
- * yet (input_invalid and json_invalid in block C; kata_key_invalid, kata_yhat_domain, features_digest_required,
- * policy_tau_cap, produced_at_off_grid and produced_at_stale in block D). The list is served nowhere: only
- * toolErrorCode reads it, so no served byte moves. Before T0 (at the latest at the G7 of CM-4b) a test requires a
- * thrower for each code but output_invalid, which has its 500 path.
+ * re-exported here: the 24 codes above in their order, then 8 codes added by 1.1.0: input_invalid and json_invalid,
+ * served by the 400 bodies of http.ts since C' (lot CM-3c-4a), and 6 reserved for block D and thrown by nothing yet
+ * (kata_key_invalid, kata_yhat_domain, features_digest_required, policy_tau_cap, produced_at_off_grid, produced_at_stale).
+ * /openapi.json projects them from schemas/tool-error.schema.json. Before T0 (at the latest at the G7 of CM-4b) a test
+ * requires a thrower for each code but output_invalid, which has its 500 path.
  * The block is kept at its former line count, so that the killer addresses below this line stay valid.
  */
 export const HARNESS_ERROR_CODES = TOOL_ERROR_CODES;
@@ -862,7 +862,7 @@ export function runGate(prediction: Prediction, params: HarnessParams, attested?
   validateHarnessParams(params);
   if (prediction.schema_version !== SCHEMA_VERSION) {
     throw new HarnessToolError(
-      `unsupported prediction.schema_version '${prediction.schema_version}': the harness speaks '${SCHEMA_VERSION}'; specification: https://github.com/KraidleAI/monark-kata-spec`,
+      `unsupported prediction.schema_version '${prediction.schema_version}': the gate speaks '${SCHEMA_VERSION}'; specification: https://github.com/KraidleAI/monark-kata-spec`,
       "schema_version_unsupported",
     );
   }

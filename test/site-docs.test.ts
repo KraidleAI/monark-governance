@@ -31,6 +31,7 @@ import { FLEET_AGENTS, PRODUCTS } from "../apps/site/lib/fleet.ts";
 import { DOCS_SECTIONS, DOCS_PIECES_ROOT, pieceSlug } from "../apps/site/lib/docs-nav.ts";
 import { PIECE_DOCS, ROLE_WORDS } from "../apps/site/lib/docs-pieces.ts";
 import { REASON_DOCS, POLICY_STEPS, CHAMBERS, ACTION_GLOSSES } from "../apps/site/lib/docs-gate.ts";
+import { REASON_GLOSS } from "../apps/site/lib/how-copy.ts";
 import { loadDocsReferences, DOCS_REFERENCES_REL, DOCS_QUOTE_MAX_WORDS } from "../apps/site/lib/docs-references-load.ts";
 import { siteVocabulary } from "../apps/site/lib/docs-vocab.ts";
 import { loadGateEnums } from "../apps/site/lib/gate-enums.ts";
@@ -437,6 +438,21 @@ test("docs_reason_glosses_track_the_frozen_enum — both ways, with a valid answ
   }
   assert.equal(ACTION_GLOSSES.length, actions.length, "one gloss per frozen answer");
   for (const st of POLICY_STEPS) for (const c of st.onNo) assert.ok(reasons.includes(c), `the policy names the unknown code ${c}`);
+});
+
+// ── (7 bis) the three calibration glosses are MONARK's texts (Q-3c-1; lot CM-3c-4a, Q-CP-3) ─────────────────────────────
+// how-copy.ts carries them byte for byte; docs-gate.ts in its table form (lowercase initial, no final period).
+// killer: apps/site/lib/how-copy.ts:73 CONST "missed too often" -> "missed too oft"
+test("calib_reason_glosses_are_monark_texts", () => {
+  const texts: [string, string][] = [
+    ["calib_silence", "This cell's calibration missed too often, or failed a dependence check, so no region is served."],
+    ["calib_vetoed", "A check registered in advance vetoed this cell's calibration, so no region is served."],
+    ["calib_retired", "This cell's calibration was retired by the published monitoring rule, so no region is served."],
+  ];
+  for (const [code, text] of texts) {
+    assert.equal((REASON_GLOSS as Record<string, { gloss: string } | undefined>)[code]?.gloss, text, `${code}: the /how gloss is MONARK's text, byte for byte`);
+    assert.equal((REASON_DOCS as Record<string, { gloss: string } | undefined>)[code]?.gloss, `${text.charAt(0).toLowerCase()}${text.slice(1, -1)}`, `${code}: the /docs gloss is the same text in the table form`);
+  }
 });
 
 // ── (8) the language gate scans the docs route ───────────────────────────────────────────────────────────────────────

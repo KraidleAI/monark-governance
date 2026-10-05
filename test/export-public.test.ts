@@ -61,6 +61,7 @@ import { join, relative, dirname } from "node:path";
 import { createHash } from "node:crypto";
 import { collectFiles, derivePublicWorkflow } from "../scripts/export-public.mjs";
 import { innerFailures } from "./helpers/inner-failures.ts";
+import { dropPendingSnapshot } from "./helpers/pending-snapshot.ts";
 
 const ROOT = join(import.meta.dirname, "..");
 
@@ -161,6 +162,8 @@ test("export_public_no_governance_no_french — clean public export (test 42)", 
       join(src, "LICENSE"),
       "MONARK public export test fixture (not a real license). Real license = investor pending Q4, ADR-M004 D7 bis R2.\n",
     );
+    // SITE-SEND-GUARD-MECH-1 (lot CM-3c-4a): --out refuses while a pending snapshot is in the tree; export it as promoted.
+    dropPendingSnapshot(src);
 
     // Lot F-public: seed build-output / installed-deps dirs the export MUST NOT walk into apps/site
     // (WALK_SKIP_DIRS in export-public.mjs). cpSync's own filter skips node_modules, so inject these AFTER
@@ -420,7 +423,7 @@ function jobBodies(text: string): Map<string, string[]> {
 
 // -- L-4 / C-3 : the derived public workflow keeps every RETAINED job body byte-identical (test 42(f'); D7 ter). The dropped jobs
 // are a CLOSED list (CI-G3-DURATION-1 adds g3-export, which runs the never-exported root test/): each must exist in the source.
-// killer: scripts/export-public.mjs:427 CONST ", \"g3-export\"]" -> "]"
+// killer: scripts/export-public.mjs:450 CONST ", \"g3-export\"]" -> "]"
 test("export_public_derived_jobs_are_byte_identical — every retained job body survives derivation unchanged (test 42(f'), ADR-M004 D7 ter amended)", () => {
   const governance = readFileSync(join(ROOT, ".github", "workflows", "ci.yml"), "utf8");
   const eol = governance.includes("\r\n") ? "\r\n" : "\n";
@@ -474,7 +477,7 @@ test("export_public_derived_jobs_are_byte_identical — every retained job body 
 // .d.mts type surface of each .mjs); any dynamic import or require is refused, fail closed (G2P-1: an `import(`, a `require(` or a
 // `createRequire` in a closure file reds). A new static import of the verifier reds until the whitelist names it, and any other
 // apps/dojo file in the export reds.
-// killer: scripts/export-public.mjs:118 CONST "apps/dojo/keys/dojo-keyring.json" -> "apps/dojo/scripts/dojo-seed.mjs"
+// killer: scripts/export-public.mjs:121 CONST "apps/dojo/keys/dojo-keyring.json" -> "apps/dojo/scripts/dojo-seed.mjs"
 test("export_dojo_ships_the_verifier_closure_only — the export carries the import closure of apps/dojo/scripts/dojo-verify-cli.mjs, its public keyring and its manifest, nothing else of apps/dojo (ADR-M004 D7 nonies)", () => {
   const kept = new Set(collectFiles(ROOT).kept.map((f) => f.rel));
   const closure = new Set<string>();
