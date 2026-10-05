@@ -772,7 +772,7 @@ test("r25h_ci_refuses_a_bare_cr_and_keeps_crlf - R25-CR-ONLY-LINES-1: src/cr-onl
   stage(fx, "docs/notes-cr.md", "100644", "a\rb\r");
   fx.g("commit", "-qm", "cr");
   const out = ciRun(fx);
-  assert.deepEqual([changed(out), refusedIn(out), exitOf(out)], ["none", ['bare-cr "src/cr-only.cjs"'], "1"], out);
+  assert.deepEqual([changed(out), refusedIn(out), exitOf(out)], ["none", ['bare-cr "src/cr-only.cjs"', 'long-line "src/cr-only.cjs"'], "1"], out);
 }, REAL_CI));
 
 // killer: scripts/lot-size-integration.mjs:228 CONST " || b.includes(\"\\u2029\")" -> ""
@@ -782,7 +782,7 @@ test("r25h_ci_refuses_the_js_line_separators - R25-CR-ONLY-LINES-1, Q-4: src/ls-
   stage(fx, "src/ps-sep.cjs", "100644", statements(300, "\u2029"));
   fx.g("commit", "-qm", "separators");
   const out = ciRun(fx);
-  assert.deepEqual([changed(out), refusedIn(out), exitOf(out)], ["none", ['line-separator "src/ls-sep.cjs"', 'line-separator "src/ps-sep.cjs"'], "1"], out);
+  assert.deepEqual([changed(out), refusedIn(out), exitOf(out)], ["none", ['line-separator "src/ls-sep.cjs"', 'line-separator "src/ps-sep.cjs"', 'long-line "src/ls-sep.cjs"', 'long-line "src/ps-sep.cjs"'], "1"], out);
 }, REAL_CI));
 
 // killer: scripts/lot-size-integration.mjs:216 CONST "mode === \"160000\"" -> "mode === \"169999\""
