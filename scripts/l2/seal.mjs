@@ -34,3 +34,28 @@ export function hookOf(scale, bounds = SEAL_BOUNDS) {
 
 /** One day of one symbol sealed by the recorder: sealDay's spec, the day's scale and the bounds; sealDay's result. */
 export const sealOf = ({ scale, bounds = SEAL_BOUNDS, ...spec }) => sealDay({ ...spec, derive: hookOf(scale, bounds) });
+
+// The seal of the loop runs apart (lot P1-c5-bis-a): in a child process of node whose heap a node flag caps, never in a Worker, whose
+// resourceLimits are no hard cap under node v24.21.0 and leave the external memory out (m-5 of the G2 of c5; measures in the lot plan).
+// The child is spawned with the env its caller gives (the recorder's, guarded: empty on Linux) and one flag, the cap; it refuses any
+// other (scripts/l2/seal-child.mjs). A heap past the cap kills the child alone: the day stays unsealed, the failure named to the caller.
+import { spawn } from "node:child_process";
+import { fileURLToPath } from "node:url";
+export const SEAL_HEAP_MB = 128; // the cap of the child's heap (L2-MINUTES-SIZE-1: the external memory, about 224 MiB at INDEX_BOUND, comes on top)
+const CHILD = fileURLToPath(new URL("./seal-child.mjs", import.meta.url));
+
+/** sealOf of `spec` in a child process: closed(cid, seg) is false for the "cid/seg" of spec.open (the segments its writers hold open);
+ *  sealOf's result, or { sealed: false, failed: { code, signal, stop, detail } } (a named stop of the child, or its death); never rejects. */
+export function sealApart(spec, { env, heapMb = SEAL_HEAP_MB }) {
+  return new Promise((done) => {
+    let text = "";
+    const child = spawn(process.execPath, [`--max-old-space-size=${heapMb}`, CHILD, JSON.stringify(spec)], { env, stdio: ["ignore", "pipe", "ignore"] });
+    child.stdout.setEncoding("utf8").on("data", (d) => { text += d; });
+    child.on("error", (e) => { done({ sealed: false, failed: { code: null, signal: null, stop: "spawn_failed", detail: { error: e.code ?? null } } }); });
+    child.on("close", (code, signal) => {
+      let line = null;
+      try { line = JSON.parse(text); } catch { line = null; }
+      done(code === 0 && line?.result ? line.result : { sealed: false, failed: { code, signal, stop: line?.stop ?? null, detail: line?.detail ?? null } });
+    });
+  });
+}

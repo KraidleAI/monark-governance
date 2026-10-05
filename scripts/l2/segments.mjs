@@ -67,7 +67,7 @@ export function openWriter(out, cid, io) {
     cur.index = await open(join(dir, `${seg}.index.jsonl`));
   }
   async function shut() {
-    await Promise.all([cur.frames.close(), cur.index.close()]);
+    await Promise.all([cur.frames, cur.index].map(async (f) => { await f.sync?.(); await f.close(); })); // synced before closed (m-7 of c1)
     closed.push(cur.seg);
     last = cur.end;
     cur = null;
