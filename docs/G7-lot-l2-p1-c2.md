@@ -188,9 +188,52 @@ la main : `:103` `while` → `if`, `:117` `>=` → `>`, nom de `:124`, `:52` (de
 
 ### Items
 
-- **L2-MINUTES-SIZE-1** : `MINUTES_BOUND` (128 Mio) révisé en M-1 sur un jour réel de BTCUSDT.
+- **L2-MINUTES-SIZE-1** : `MINUTES_BOUND` (128 Mio) révisé en M-1 sur un jour réel de BTCUSDT. Étendu à la re-revue du delta
+  (m-b) : mesure conjointe avec `INDEX_BOUND` sous `MemoryMax=512M` (D24-4), dans le processus de c5 et sous cgroup (index au
+  plafond, puis minutes au plafond). À défaut, `MINUTES_BOUND` passe à 64 Mio, borne provisoire.
+- **L2-SNAPSHOT-RELOAD-1** (re-revue du delta, m-c ; G0 de c5) : arrêt nommé si l'instantané relu à la pose n'a plus le
+  `lastUpdateId` lu à la liste (`derive.mjs:106`), avec un test par injection.
 - **L2-REPLAY-INTERLEAVE-1** : ruptures entre connexions (`cross_conn_ruptures`) mesurées en M-1 avec M-5 ; lecture entrelacée par
   heure de place si M-1 en trouve.
 
 Re-revue courte demandée par le G2 : le delta de B-1 (`derive.mjs:80` à `:82`, `:123` ; `day.mjs:35`, `:210`), plus
 `l2_minutes_bound_named`.
+
+### Re-revue du delta (2026-10-05, APPROUVE ; m-a, m-b, m-c, n-1, n-2) : pli court
+
+Pièce : `G2-l2-p1-c2-delta.md`. Delta relu `55ca5e28..588a5912`, sans condition pour la fusion. Base `173ea0fd` inchangée
+(`origin/lot/etude-suite`), aucune fusion. Commits : `c5c24958` (tests rouges), `a7e4a2af` (gel), puis G0 et G7.
+
+- **m-a (corrigé)** : test `l2_minutes_written_by_chunks`. Il appelle `deriveDay` en direct sur le jour de 72 Kio de
+  `l2_minute_place_time_strict` et affirme au moins deux morceaux, chacun sauf le dernier d'au moins 65 536 caractères. Tueur
+  `derive.mjs:82 CONST "text.length >= CHUNK" -> "false"` : un seul morceau, le test rougit (« 1 chunk(s) »). Le test est vert à
+  `588a5912` (durcissement) ; son tueur, appliqué à la main, le tue, et red-proof le tire et le tue aussi.
+  **Mutant structurel déclaré** : `day.mjs:210`, `[].concat(text)` → `[[].concat(text).join("")]`. La jointure à l'écriture ne
+  change ni les octets ni l'empreinte : aucun test par la sortie ne peut la voir. Elle est tenue par revue, et par l'ordre des
+  appels (`deriveDay` rend des morceaux, le test l'affirme).
+- **m-b (porté aux documents)** : G0 point 9. La mesure de la re-revue y est chiffrée : mémoire tenue égale à la borne
+  (131 Mo après `gc`), RSS maximal de 450 à 470 Mo avec le tas par défaut, de 340 à 360 Mo avec un tas plafonné. L'item
+  L2-MINUTES-SIZE-1 est étendu (voir Items). Aucun code.
+- **m-c (renvoyé au G0 de c5)** : la relecture d'un instantané gardé (`derive.mjs:106`) n'est pas vérifiée contre le `lid` de la
+  liste. Hors du contrat d'écriture de b1 (`flag: "wx"`), on obtient une `TypeError` hors de `STOPS`, ou un carnet posé sur un corps
+  autre que celui haché. Le correctif tient en une ligne changée en place, mais son test (injection à la relecture) dépasse la
+  marge de R-25 qui reste (5 lignes). Item **L2-SNAPSHOT-RELOAD-1**, au G0 de c5, qui fixe le contrat d'écriture de `rest/` : arrêt
+  nommé si `full?.lid !== s.lid`, test par injection.
+- **n-1 (gardée)** : `cross_conn_ruptures` compte `E < lastE` au sens strict, conforme au G0 (« antérieure »). Le mutant `<=`
+  survit ; le cas relève de L2-REPLAY-INTERLEAVE-1 (M-1).
+- **n-2 (corrigé)** : `day.mjs:194`, changée en place, gagne `new Set(names).size < names.length` : deux entrées de même nom dans
+  `dv.files` arrêtent, `stray_file`. Cas ajouté au tableau `forged` de `l2_derive_hook_contract` (rouge à `588a5912`, vert au gel).
+  Appliqué à la main : sans le terme, le test rougit (« Missing expected exception »).
+
+Preuves du pli court :
+
+- Lot entier : `node scripts/red-proof.mjs --base 173ea0fd --gel a7e4a2af --repo /home/user/monark-governance-c2 --draw 17 --seed
+  37`. Sortie 0, « red-proof OK: 17 judged, 0 unchanged, 17 killer(s) drawn » ; `RED-PROOF.json` sha256 `f57252d784e2b238…`. Les
+  17 tests sont F2P, et les 17 tueurs sont tirés et tués.
+- Ancres : `verifie-ancres.mjs . --touched 173ea0fd HEAD` : 17 tueurs, 17 ANCRE, 0 DERIVE, 0 PERDU. Avec `--files
+  test/l2-day.test.ts,test/l2-derive.test.ts` : 28 tueurs, 28 ANCRE.
+- `node --test test/l2-*.test.ts` : 79 sur 79. `tsc` 0 ; `lint` 0 ; `lint:ratchet` 69/69 ; `gate:vocab` OK (335 fichiers) ;
+  `lang:gate` OK.
+- R-25 (`r25()`, base `173ea0fd`) : `STAT` 542 (530 insertions, 12 suppressions). Borne du lot 547, marge 5 ; `CONTENT_STAT` 0 ;
+  GREEN. La ligne 194 de `day.mjs` et le tableau `forged` étaient déjà neufs contre la base : leur changement en place ne coûte
+  rien.

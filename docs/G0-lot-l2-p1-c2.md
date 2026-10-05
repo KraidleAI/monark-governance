@@ -70,6 +70,17 @@ la forme `derive: (ctx) => deriveDay({ ...ctx, scale })`.
    Plafond de V8 pour une chaîne unique (mesure du G2) : 536 870 888 caractères, soit environ 5 800 niveaux par côté dans ±100 pb à
    chaque minute. À environ 33 octets par niveau, la borne tient en moyenne environ 1 400 niveaux par côté sur les 1 440 minutes ;
    révisée en M-1 sur un jour réel (item L2-MINUTES-SIZE-1).
+   - **Mémoire mesurée (re-revue du delta, m-b)** : processus seul, carnet synthétique au ras de la borne (133 Mo écrits). La
+     mémoire tenue par le rendu de `deriveDay` vaut la borne (131 Mo après `gc`). Le RSS maximal atteint 450 à 470 Mo avec le tas
+     par défaut, 340 à 360 Mo avec un tas plafonné (`--max-old-space-size` 200 ou 256) : les déchets de chaque minute ne sont repris
+     qu'à la pression.
+   - **Somme des bornes non établie** : l'index (`buckets`, jusqu'à `INDEX_BOUND`) est encore vivant quand le crochet tourne. Sous
+     `MemoryMax=512M` (D24-4), L2-MINUTES-SIZE-1 mesure donc les deux ensemble, dans le processus de c5 et sous cgroup : index au
+     plafond, puis minutes au plafond. À défaut de cette mesure, `MINUTES_BOUND` passe à 64 Mio, borne provisoire.
+   - **Écriture** : le corps reste en morceaux jusqu'au `writeSync` de chacun (`day.mjs:210`). Le test
+     `l2_minutes_written_by_chunks` affirme au moins deux morceaux sur le jour de 72 Kio. Une jointure à l'écriture ne change pas la
+     sortie : ce mutant est structurel, tenu par revue (G7).
+   - **Contrat du crochet (re-revue du delta, n-2)** : un nom de `dv.files` n'y figure qu'une fois, sinon `stray_file`.
 10. **Instantanés à la demande (pli du G2, m-9)** : chaque instantané gardé est lu une fois pour son `lastUpdateId`, puis relâché ;
    il est relu au moment de poser le carnet. Mémoire des instantanés : un seul à la fois, plus les deux ancres.
 11. **Références (pli du G2, m-5)** : un segment est listé au `SHA256SUMS` dès qu'une trame du flux de différences y est lue
@@ -100,7 +111,8 @@ import dynamique qu'il affirme : la base, sans le module, rougit par assertion.
 Pli du G2 (un test, un tueur chacun) : `l2_minutes_bound_named` (B-1), `l2_replay_passes_stale_snapshots` (m-1),
 `l2_parity_port_bounds` (m-2), `l2_minute_side_empty` (m-3), `l2_replay_cross_guard_table` (m-4, garde croisée en table),
 `l2_refs_every_diff_read` (m-5, Q-C2-9), `l2_chain_duplicate_is_chained` (A1), `l2_chain_hole_cut_to_day` (m-6),
-`l2_derive_hook_contract` (m-7), `l2_parity_synced_on_anchor` (m-8), `l2_derive_bounds_closed` (m-10).
+`l2_derive_hook_contract` (m-7), `l2_parity_synced_on_anchor` (m-8), `l2_derive_bounds_closed` (m-10). Re-revue du delta :
+`l2_minutes_written_by_chunks` (m-a) ; `l2_derive_hook_contract` gagne un cas (n-2, nom en double).
 
 ## Preuve rouge, contrôles
 
