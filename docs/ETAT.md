@@ -500,7 +500,29 @@ Tronc `lot/etude-suite`. Dernier oracle complet : 1 779 tests, dont 1 776 verts,
     (résolutions de conflit par remerge-diff, commits hors de toute PR fusionnée et relue), contre la borne de 1 205 ; définition fermée
     de la PR d intégration et preuve d appartenance, fail-closed ; une seule source pour le job CI et la porte r25 de l oracle ; ligne
     datée d ADR-M003 D9. Porteur : RECHERCHES (zone ouverte, cahier des charges E-1 à E-7, recherches#189) ; contrôle par diff et
-    oracle : MONARK ; déclencheur : avant la PR d intégration de C2 ; état : ouvert.
+    oracle : MONARK ; déclencheur : avant la PR d intégration de C2 ; état : fermé le 2026-10-05 (1a #154 `58054d8c`, 1b #155
+    `023801ec`, oracles Windows verts, CI verte) ; restes formés : R25-ATTR-SOURCE-1, CI-PERMS-JUDGE-YAML-1, CI-WORKFLOWS-SET-1.
+  - R25-ATTR-SOURCE-1 (O-1 de la G2 de R25-INTEGRATION-RULE-1) : le compte d aujourd hui (`W`) du job r25 lu sous le même épinglage
+    d attributs que le module et l oracle (un `.gitattributes` mesuré ne doit pas le baisser). Porteur : RECHERCHES (lot en cours) ;
+    contrôle par diff et oracle : MONARK ; déclencheur : après 1b ; état : ouvert.
+  - CI-PERMS-JUDGE-YAML-1 (PAROXYSME ; R-2 de la G2 du pli Q-2 de 1b) : le juge `problems()` des permissions de `ci.yml` est lexical ;
+    il refuse les clés `? ` et les clés doubles échappées, mais ne lit ni ancres, ni alias, ni fusions `<<:`, ni étiquettes, ni scalaires
+    multilignes. Construction visée : une lecture YAML réelle (dépendance vérifiée au registre d abord, R-8) ou les permissions
+    effectives du jeton du run. Porteur : RECHERCHES ; d ici là, contrôle par diff des fichiers de la gate par MONARK ; déclencheur :
+    avant T0 ; état : ouvert.
+  - CI-WORKFLOWS-SET-1 (m-1 de la même G2) : aucun test ne lit un second fichier sous `.github/workflows/` ; l ensemble des workflows
+    est `{ci.yml}`, à épingler par une égalité d ensemble. Porteur : RECHERCHES, lot à part ; déclencheur : avant T0 ; état : ouvert.
+  - CODEQL-ALERTS-2 (MONARK, 2026-10-05 12:2x UTC) : alertes CodeQL ouvertes sur le tronc depuis la bascule de la branche par défaut,
+    #41 et #44 (`test/dojo-render.test.ts:73`, `:378`), #43 (`test/red-proof.test.ts:545`), #45 (`test/public-surfaces-honesty.test.ts:184`) ;
+    #42 levée par #159 (CODEQL-42). Correction selon ADR-CODEQL-ALERTS-1 D4, sinon rejet justifié selon D6, fait par MONARK sur
+    justification écrite. Porteur : RECHERCHES ; déclencheur : au plus tôt, au plus tard avant l avance de `main` à T0 (check CodeQL
+    requis sur `main`, décision 170) ; état : ouvert.
+  - SITE-SEND-GUARD-MECH-1 (demande de MONARK pour C') : `export-public.mjs --out` refuse tant qu un instantané en attente existe, sans drapeau de
+    contournement ; la promotion à T0 lève la garde. Porteur : RECHERCHES (C', lot 3c-4a, G0 `8f554390`) ; d ici là, la règle du
+    RUNBOOK, tenue par MONARK : aucun envoi du site ni release du miroir depuis la base avant C' ; état : ouvert.
+  - HOST-REDEPLOY-GUARD-1 (PAROXYSME ; Q-CP-5 du G0 de C') : la règle m-1 (redéployer l hôte depuis le SHA déployé seulement, jusqu à
+    T0) est une règle de procédure ; construction visée : une garde mécanique dans le script de déploiement de MONARK. Porteur :
+    MONARK ; déclencheur : avant le prochain redéploiement de l hôte ; état : ouvert.
   - MUTANTS-RUN-EXIT-CODE-1 (signalé par RECHERCHES, 2026-10-04) : `scripts/mutants/run.mjs` juge un mutant sur la sortie, pas sur le
     code de sortie ; un rapport d échec perdu donne « survit » au lieu de « tué » (sens sûr, mesure fausse). Construction : juger sur le
     code, tests et tueur d abord. Porteur : RECHERCHES (zone `scripts/mutants/` ouverte, recherches#154) ; état : ouvert.
