@@ -809,7 +809,7 @@ test("r25h_ci_refuses_a_symlink - R25-GITLINK-SYMLINK-1, Q-6: src/link.mjs, a sy
   assert.deepEqual([changed(out), refusedIn(out), exitOf(out)], ["none", ['symlink "src/link.mjs"'], "1"], out);
 }, REAL_CI));
 
-// killer: scripts/lot-size-integration.mjs:267 CONST "[base] = opt(\"--base\")" -> "[base = \"origin/lot/etude-suite\"] = opt(\"--base\")"
+// killer: scripts/lot-size-integration.mjs:268 CONST "[base] = opt(\"--base\")" -> "[base = \"origin/lot/etude-suite\"] = opt(\"--base\")"
 test("r25h_pin_requires_the_workflow_and_the_base - Q-7: `pin` alone, or with --ci and no --base, prints nothing and exits 2, even where origin/lot/etude-suite exists: the changed paths are never left unchecked by a default (exit 0, the pinned read printed, before the lot)", () => withFx((fx) => {
   fx.g("update-ref", "refs/remotes/origin/lot/etude-suite", "HEAD");
   const run = (...a: string[]): string => { const r = spawnSync(process.execPath, ["scripts/lot-size-integration.mjs", "pin", ...a], { cwd: fx.dir, encoding: "utf8" }); return `${String(r.status)} ${String(r.stdout.length)}`; };
@@ -921,14 +921,16 @@ test("r25m_the_repository_itself_passes_the_long_line_cap - its tree at HEAD, ad
   } finally { rmSync(d, { recursive: true, force: true, maxRetries: 3 }); }
 });
 
-// killer: scripts/lot-size-integration.mjs:232 CONST "JSON.stringify(Buffer.from(r.slice(r.indexOf(\" \") + 1), \"latin1\").toString(\"utf8\"))" -> "Buffer.from(r.slice(r.indexOf(\" \") + 1), \"latin1\").toString(\"utf8\")"
+// killer: scripts/lot-size-integration.mjs:245 CONST "JSON.stringify(s).replace" -> "s.replace"
+// killer: scripts/lot-size-integration.mjs:245 CONST "\\u007f-\\uffff]" -> "\\u0080-\\uffff]"
 test("r25m_a_refused_path_is_named_as_a_json_string - G2 N-1 of R25-GUARDS-2: a refused path holding a LF, a quote and a U+00E9 is named on ONE line, as a JSON string, by `pin` and by the oracle's log: the job's log gets no line of the author's (a `::warning::` workflow command, read by the runner, before the lot)", { skip: process.platform === "win32" ? "the runner of the job is Linux; git for Windows refuses a control character in a path name (core.protectNTFS)" : false }, () => withFx((fx) => {
   fx.g("checkout", "-q", "-b", "pr", TARGET);
   const evil = 'src/new\n::warning::forged "q" \u00e9.cjs';
   stage(fx, evil, "100644", "a\rb\n");
+  stage(fx, "src/del\u007f.cjs", "100644", "a\rb\n"); // G2 delta N-2: DEL escaped too
   fx.g("commit", "-qm", "path");
   const out = ciRun(fx), log = (oracle(fx, TARGET, null) as OracleR25 & { log?: string }).log ?? "";
-  assert.deepEqual([refusedIn(out), out.split("\n").some((l) => l.startsWith("::warning::")), log.split("\n").filter((l) => l.startsWith("refused ")), exitOf(out)], [['bare-cr "src/new\\n::warning::forged \\"q\\" \\u00e9.cjs"'], false, ['refused bare-cr "src/new\\n::warning::forged \\"q\\" \\u00e9.cjs"'], "1"], out);
+  assert.deepEqual([refusedIn(out), out.split("\n").some((l) => l.startsWith("::warning::")), log.split("\n").filter((l) => l.startsWith("refused ")), exitOf(out)], [['bare-cr "src/del\\u007f.cjs"', 'bare-cr "src/new\\n::warning::forged \\"q\\" \\u00e9.cjs"'], false, ['refused bare-cr "src/del\\u007f.cjs"', 'refused bare-cr "src/new\\n::warning::forged \\"q\\" \\u00e9.cjs"'], "1"], out);
 }, REAL_CI));
 
 // killer: scripts/lot-size-integration.mjs:229 CONST " && isJson(b))" -> ")"
@@ -941,22 +943,43 @@ test("r25m_a_long_line_json_must_parse - Q-8: src/code.json, 3 000 statements on
   assert.deepEqual(refusedHere(fx), ['long-line "src/code.json"']);
 }, REAL_CI));
 
-// killer: scripts/lot-size-integration.mjs:229 CONST " && !/(^|\\/)package\\.json$/.test(p)" -> ""
+// killer: scripts/lot-size-integration.mjs:229 CONST " && !/(^|\\/)(package|devcontainer|tasks|deno|turbo|vercel|composer)\\.json$/i.test(p)" -> ""
+// killer: scripts/lot-size-integration.mjs:229 CONST "\\.json$/i.test(p)" -> "\\.json$/.test(p)"
 test("r25m_package_json_is_never_exempt - G2 B-1: npm runs the strings of package.json with no call line (pretest before npm test): a root package.json and apps/tool/package.json, valid JSON whose \"pretest\" holds 3 000 statements on one line, are refused long-line; src/notpackage.json (the same bytes) and a short package.json pass (nothing refused before the lot)", () => withFx((fx) => {
   fx.g("checkout", "-q", "-b", "pr", TARGET);
   const pkg = `{\n  "name": "x",\n  "scripts": {\n    "pretest": ${JSON.stringify(`node -e '${statements(3000, " ")}'`)},\n    "test": "node --test"\n  }\n}\n`;
-  for (const p of ["package.json", "apps/tool/package.json", "src/notpackage.json"]) stage(fx, p, "100644", pkg);
+  for (const p of ["package.json", "apps/tool/package.json", "apps/case/Package.json", "apps/upper/PACKAGE.JSON", "src/notpackage.json"]) stage(fx, p, "100644", pkg); // npm reads Package.json as package.json on NTFS, APFS
   stage(fx, "apps/short/package.json", "100644", '{\n  "name": "short",\n  "scripts": { "test": "node --test" }\n}\n');
   fx.g("commit", "-qm", "package");
-  assert.deepEqual(refusedHere(fx), ['long-line "apps/tool/package.json"', 'long-line "package.json"']);
+  assert.deepEqual(refusedHere(fx), ['long-line "apps/case/Package.json"', 'long-line "apps/tool/package.json"', 'long-line "apps/upper/PACKAGE.JSON"', 'long-line "package.json"']);
 }, REAL_CI));
 
-// killer: scripts/lot-size-integration.mjs:232 CONST ".replace(/[\\[\\u007f-\\uffff]/g" -> ".replace(/[\\u007f-\\uffff]/g"
-test("r25m_a_refused_path_cannot_form_a_workflow_command - G2 R-2: the runner reads the old form ##[command] anywhere in a line; src/##[add-mask]refused.cjs and src/##[warning title=forged]ok \u00e9.cjs (a bare CR each; legal names on win32 too) are named by `pin` and the oracle in ASCII with `[` and every character above U+007E escaped: no line of the job's log holds ##[ (both named raw before the lot)", () => withFx((fx) => {
+// killer: scripts/lot-size-integration.mjs:245 CONST ".replace(/[\\[\\u007f-\\uffff]/g" -> ".replace(/[\\u007f-\\uffff]/g"
+// killer: scripts/lot-size-integration.mjs:245 CONST "-\\uffff]" -> "-\\u00ff]"
+test("r25m_a_refused_path_cannot_form_a_workflow_command - G2 R-2: the runner reads the old hash-hash-bracket form anywhere in a line; two paths opening a hash-hash-bracket command (add-mask, warning) and two holding U+2028 and a C1 control (a bare CR each; legal names on win32 too) are named by `pin` and the oracle in ASCII with `[` and every character above U+007E escaped: no line of the job's log holds that form (both named raw before the lot)", () => withFx((fx) => {
   fx.g("checkout", "-q", "-b", "pr", TARGET);
-  for (const p of ["src/##[add-mask]refused.cjs", "src/##[warning title=forged]ok \u00e9.cjs"]) stage(fx, p, "100644", "a\rb\n");
+  for (const p of ["src/##[add-mask]refused.cjs", "src/##[warning title=forged]ok \u00e9.cjs", "src/ls\u2028.cjs", "src/nel\u0085.cjs"]) stage(fx, p, "100644", "a\rb\n"); // G2 delta N-2: U+2028, a C1 control
   fx.g("commit", "-qm", "commands");
   const out = ciRun(fx), log = (oracle(fx, TARGET, null) as OracleR25 & { log?: string }).log ?? "";
-  const named = ['bare-cr "src/##\\u005badd-mask]refused.cjs"', 'bare-cr "src/##\\u005bwarning title=forged]ok \\u00e9.cjs"'];
-  assert.deepEqual([refusedIn(out), out.includes("##["), log.includes("##["), log.split("\n").filter((l) => l.startsWith("refused ")), exitOf(out)], [named, false, false, named.map((n) => `refused ${n}`), "1"], out);
+  const named = ['bare-cr "src/##\\u005badd-mask]refused.cjs"', 'bare-cr "src/##\\u005bwarning title=forged]ok \\u00e9.cjs"', 'bare-cr "src/ls\\u2028.cjs"', 'bare-cr "src/nel\\u0085.cjs"'];
+  assert.deepEqual([refusedIn(out), out.includes("##["), log.includes("##["), /[^\n\x20-\x7e]/.test(log), log.split("\n").filter((l) => l.startsWith("refused ")), exitOf(out)], [named, false, false, false, named.map((n) => `refused ${n}`), "1"], out);
+}, REAL_CI));
+
+// killer: scripts/lot-size-integration.mjs:229 CONST "|devcontainer|tasks|deno|turbo|vercel|composer)" -> ")"
+test("r25m_tool_run_json_is_never_exempt - G2 delta R-1: other JSON whose strings a tool runs with no call line (.devcontainer/devcontainer.json postCreateCommand, .vscode/Tasks.json on folder open, deno.json tasks, turbo.json, vercel.json buildCommand, composer.json scripts), valid JSON with a long line, any case, are refused long-line; src/data.json passes (nothing refused before the lot)", () => withFx((fx) => {
+  fx.g("checkout", "-q", "-b", "pr", TARGET);
+  const cmd = `{ "command": ${JSON.stringify(`node -e '${statements(3000, " ")}'`)} }\n`;
+  const tools = [".devcontainer/devcontainer.json", ".vscode/Tasks.json", "deno.json", "apps/web/turbo.json", "VERCEL.json", "composer.json"];
+  for (const p of [...tools, "src/data.json"]) stage(fx, p, "100644", cmd);
+  fx.g("commit", "-qm", "tools");
+  assert.deepEqual(refusedHere(fx), tools.map((p) => `long-line ${JSON.stringify(p)}`).sort());
+}, REAL_CI));
+
+// killer: scripts/lot-size-integration.mjs:223 CONST "named(Buffer.from(p, \"latin1\").toString(\"utf8\"))" -> "p"
+test("r25m_an_unread_blob_names_its_path_escaped - G2 delta N-1: an index entry of mode 100644 pointing at a tree, at a path opening a hash-hash-bracket warning command, makes `refusals` throw; `pin` names the path escaped, the form absent from the job's log, and the job is red (named raw before the fold)", () => withFx((fx) => {
+  fx.g("checkout", "-q", "-b", "pr", TARGET);
+  fx.g("update-index", "--add", "--cacheinfo", `100644,${fx.g("write-tree")},src/##[warning title=forged]x.cjs`);
+  fx.g("commit", "-qm", "a tree as a blob");
+  const out = ciRun(fx);
+  assert.deepEqual([out.includes("##["), out.includes('of "src/##\\u005bwarning title=forged]x.cjs" unread'), exitOf(out)], [false, true, "1"], out);
 }, REAL_CI));
