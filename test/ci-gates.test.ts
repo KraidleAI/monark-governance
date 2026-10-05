@@ -1749,7 +1749,7 @@ function expandTestGlob(glob: string): string[] {
       return readdirSync(abs).filter((n) => statSync(join(abs, n)).isDirectory()).map((n) => (d ? `${d}/${n}` : n));
     });
   }
-  const last = new RegExp(`^${segs[segs.length - 1]!.replace(/[.]/g, "\\.").replace(/\*/g, "[^/]*")}$`);
+  const last = new RegExp(`^${segs[segs.length - 1]!.replace(/[\\^$.|?+()[\]{}]/g, "\\$&").replace(/\*/g, "[^/]*")}$`);
   return dirs.flatMap((d) => readdirSync(join(ROOT, d)).filter((n) => last.test(n)).map((n) => `${d}/${n}`));
 }
 // killer: .github/workflows/ci.yml:190 CONST "npm run test:export" -> "npm run test:main"
