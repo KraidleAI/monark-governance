@@ -13,11 +13,9 @@
 // interior-rank threshold is recomputed); the sync checked it against the source repository's committed calibration.
 // The pages render its values by property access, never as typed literals. Self-contained (node built-ins only, no
 // alias and no value import).
-// A second file, apps/site/data/ukemi-pending.json (schema monark-site-ukemi-pending-v1), exists only between time (i) of
-// a block that changes a served fact of the class and T0 (UKEMI-PENDING-SNAPSHOT-1): written IN PROCESS by the sync's
-// --pending, it carries the shared fields the next harness will serve and no fact read on the server; while it exists the
-// served file carries pending_since (never rendered). The pages read the served file alone; the source repository's
-// in-process pins read loadUkemiInProcess.
+// apps/site/data/ukemi-pending.json (schema monark-site-ukemi-pending-v1) exists only from time (i) of a block to T0: written
+// IN PROCESS by the sync's --pending (no fact read on the server), with pending_since (never rendered) on the served file.
+// The pages read the served file alone; the source repository's in-process pins read loadUkemiInProcess.
 import { existsSync, readFileSync } from "node:fs";
 import { createHash } from "node:crypto";
 import { join } from "node:path";

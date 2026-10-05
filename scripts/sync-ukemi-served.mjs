@@ -31,17 +31,12 @@
 // alpha), and the sha256 of the /gate body as read, which is the deploy check's gate_liq_call sha256). No other served
 // text is copied. Output: LF, two-space
 // JSON; it then sets the file's CRLF->LF sha256 under its own key in apps/site/data/manifest.sha256.json.
-// PENDING SNAPSHOT (UKEMI-PENDING-SNAPSHOT-1, the counterpart of SERVED-PENDING-1 for this class):
-//  - node scripts/sync-ukemi-served.mjs --pending, at time (i) of a block that changes a served fact of the class, reads
-//    NOTHING over the network: it runs the same checks (servedFacts, verdictFactsOf: never the deploy check, which is of
-//    time (ii)) on the bodies the IN-PROCESS harness answers to the same two requests, then writes, everything computed
-//    first: apps/site/data/ukemi-pending.json (schema monark-site-ukemi-pending-v1: written_at and the shared fields;
-//    no host, path, read_at nor body digest), pending_since (UTC day; kept if already set) after read_at in the served
-//    file, no other byte touched, and the two manifest entries;
-//  - the default run, at T0 after the deploy check and the harness sync (it refuses while
-//    apps/site/data/harness-pending.json exists), PROMOTES: while a pending snapshot exists it refuses to write unless the
-//    new served file equals it on every shared field, then writes the served file (no pending_since), sets its manifest
-//    entry, removes the pending entry and the pending file.
+// PENDING SNAPSHOT (UKEMI-PENDING-SNAPSHOT-1): --pending, at time (i) of a block, reads NOTHING over the network; the same
+// checks (never the deploy check) on the IN-PROCESS answers to the same two requests, all computed first, then it writes
+// apps/site/data/ukemi-pending.json (written_at and the shared fields only), pending_since (UTC day, kept if set) after
+// read_at in the served file (no other byte) and both manifest entries. The default run at T0 (refused while
+// apps/site/data/harness-pending.json exists) PROMOTES: it writes only a served file equal to the pending snapshot on every
+// shared field, sets its entry, then removes the pending entry and file.
 import { existsSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { join, dirname, resolve } from "node:path";
 import { createHash } from "node:crypto";
@@ -226,14 +221,8 @@ export function ukemiPendingDiff(served, pending) {
 export async function inProcessUkemiPending(writtenAt) {
   const call = async (path, body) => (await handleJsonMirror(new Request(`${API_SERVER_URL}${path}`, body === undefined ? {} : { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body) }))).text();
   const facts = servedFacts(await call(OPENAPI_PATH));
-  return {
-    $comment: PENDING_COMMENT,
-    schema: PENDING_SCHEMA,
-    written_at: writtenAt,
-    served_class: TASK_LIQ_ELIGIBLE,
-    ...facts,
-    liq_verdict: verdictFactsOf(await call(GATE_PATH, GATE_LIQ_BODY), facts.registry_state),
-  };
+  const liqVerdict = verdictFactsOf(await call(GATE_PATH, GATE_LIQ_BODY), facts.registry_state);
+  return { $comment: PENDING_COMMENT, schema: PENDING_SCHEMA, written_at: writtenAt, served_class: TASK_LIQ_ELIGIBLE, ...facts, liq_verdict: liqVerdict };
 }
 
 /** The served file's text with pending_since (a UTC day) after read_at, no other byte touched; kept when already set (pure). */
