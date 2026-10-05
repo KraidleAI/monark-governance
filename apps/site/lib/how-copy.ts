@@ -49,7 +49,7 @@ export interface ReasonGloss {
 }
 
 /**
- * The thirteen frozen reason codes → their tone + gloss. Keyed by the reason CODE, which is NOT a
+ * The eighteen frozen reason codes → their tone + gloss. Keyed by the reason CODE, which is NOT a
  * contract field (see lib/sim.ts header: reason codes are cited as plain literals), so a literal key is
  * honest here. The page renders the code text FROM the loaded enum, never from these keys; the R2 test
  * pins keys == enum BOTH WAYS (a new reason with no gloss, or a phantom gloss, reds), so the rendered
@@ -70,6 +70,11 @@ export const REASON_GLOSS: Record<string, ReasonGloss> = {
   attestation_refused: { tone: TONE_ABSTAIN, gloss: "The verifier refused the testimony — a hash or signature did not hold." },
   binding_broken: { tone: TONE_ABSTAIN, gloss: "The prediction is not bound to the testimony it claims." },
   non_evaluable: { tone: TONE_ABSTAIN, gloss: "The input cannot be evaluated against the contract at all." },
+  calib_silence: { tone: TONE_ABSTAIN, gloss: "The policy row of this cell holds its calibration silent: no region is served." },
+  calib_vetoed: { tone: TONE_ABSTAIN, gloss: "The policy row of this cell vetoes its calibration: no region is served." },
+  calib_retired: { tone: TONE_ABSTAIN, gloss: "The policy row of this cell retires its calibration: no region is served." },
+  out_of_support: { tone: TONE_ABSTAIN, gloss: "The prediction lies outside the range this cell was calibrated on." },
+  region_degenerate: { tone: TONE_ABSTAIN, gloss: "The region would have no width, so it states nothing to act on." },
 };
 
 /**

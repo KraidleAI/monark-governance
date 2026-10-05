@@ -1,30 +1,37 @@
 #!/usr/bin/env node
 // scripts/gen-gate-decision-fixtures.mjs -- FIXTURES-GATE-DECISION-GEN-1 (contract 1.1.0, block C, lot CM-3c-2): writes the nine
 // fixtures/NN-*.gate-decision.json states and fixtures/manifest.json (ADR-M002 D1/D11) from gate() of @monark/hikae on declared verdicts
-// (q-hat split conformal on the declared scores, digest by the provenance tool). It reproduces the committed files byte for byte
-// (test/gate-decision-fixtures-gen.test.ts); block C regenerates them in 1.1.0 from here, never by hand. No network, no clock.
+// (q-hat split conformal on the declared scores). Contract 1.1.0 since lot CM-3c-3c: no region is null (q-hat null with it), q-hat in
+// score units, no served cell (synthetic states), request_sha256 of the declared envelope. It reproduces the committed files byte for
+// byte (test/gate-decision-fixtures-gen.test.ts); they are regenerated from here, never by hand. No network, no clock.
 //   node scripts/gen-gate-decision-fixtures.mjs [--write]      (without --write: exit 1 if a committed file differs)
 import { readFileSync, writeFileSync } from "node:fs";
 import { createHash } from "node:crypto";
 import { fileURLToPath } from "node:url";
 import { resolve } from "node:path";
 import { gate, buildSetRegion, splitQuantile } from "@monark/hikae";
-import { calibDigest } from "./lib/calib-digest-provenance.mjs";
+import { requestSha256, scoresSha256 } from "@monark/contracts";
 
-export const FIXTURE_SCHEMA_VERSION = "1.0.0", AT = "2026-09-04T12:00:00Z";
+export const FIXTURE_SCHEMA_VERSION = "1.1.0", AT = "2026-09-04T12:00:00Z";
 const GOOD = [...Array(47).fill(0), 1, 1, 1], BAD = Array.from({ length: 50 }, (_, i) => (i % 2 === 0 ? 1 : 0)), TEN = [0, 0, 1, 0, 0, 1, 0, 0, 0, 1];
 
 function verdict(scores, labels, abstain = false, reason = "covered") {
   const q = splitQuantile(scores, 0.1, 50); // q-hat 0 on GOOD, 1 on BAD, none (under_calib) on TEN
+  const region = labels.length > 0 ? buildSetRegion(labels) : null;
   return {
     schema_version: FIXTURE_SCHEMA_VERSION, task_class: "btc-dir-15m", method: "hac-cp", alpha: 0.1, n_calib: scores.length,
-    region: buildSetRegion(labels), qhat: "qhat" in q ? q.qhat : null, abstain, reason, residual: ["assume:tls-notary", "assume:delegation"],
-    scores: [...scores], calib_digest: calibDigest(scores), produced_at: AT,
+    region, qhat: region !== null && "qhat" in q ? q.qhat : null, qhat_unit: "score", scale: null, abstain, reason,
+    residual: ["assume:tls-notary", "assume:delegation"], scores: [...scores], scores_sha256: scoresSha256(scores),
+    cell_key: null, policy_row_sha256: null, policy_table_sha256: null, produced_at: AT,
   };
 }
 
-const decide = (v, intent, remainingBudget, timedOut = false) => gate({ intent, verdict: v, remainingBudget, bFloor: 0, tau: 1, tauInterval: 1,
-  nCalib: v.n_calib, nMin: 50, clockOpen: true, timedOut, evaluable: true, tool: "perps_order_preview", schemaVersion: FIXTURE_SCHEMA_VERSION });
+function decide(v, intent, remainingBudget, timedOut = false) {
+  const params = { remainingBudget, bFloor: 0, tau: 1, tauInterval: 1, intent, tool: "perps_order_preview", clockOpen: true };
+  const prediction = { schema_version: FIXTURE_SCHEMA_VERSION, task_class: v.task_class, yhat: "up", predictor_id: "fixture:declared", produced_at: AT };
+  return gate({ ...params, verdict: v, nCalib: v.n_calib, nMin: 50, timedOut, evaluable: true, schemaVersion: FIXTURE_SCHEMA_VERSION,
+    requestSha256: requestSha256({ prediction, params }) });
+}
 
 /** The nine states, file name -> file text (2-space JSON, LF, final newline), and the manifest text (sha256 of each file). */
 export function gateDecisionFixtures() {

@@ -1,8 +1,7 @@
 {
-  "$comment": "Committed, hashed facts about the SERVED MONARK harness, rendered by /integrators and /console through apps/site/lib/harness-served-load.ts after a sha256 check against apps/site/data/manifest.sha256.json. Written by the source repository's sync tool (not part of this export) from the served bodies (api /health, /openapi.json, /gate, /calibrate, /attest, /cascade; mcp initialize and tools/list; the MCP registry entry), each body hashing to the sha256 the committed deploy check recorded. Text is copied as served, as closed clauses only; the one rule applied: internal reference tokens in parentheses are removed. No market value, no data-source name.",
-  "schema": "monark-site-harness-served-v1",
-  "read_at": "2026-10-04T07:44:40.609Z",
-  "pending_since": "2026-10-05",
+  "$comment": "The shapes the NEXT harness serves, written in process by the source repository's sync tool (--pending) before it is deployed: no fact read on the server. While this file exists, the served snapshot carries pending_since and the recorded traces follow this file; the deployed harness's sync promotes it.",
+  "schema": "monark-site-harness-pending-v1",
+  "written_at": "2026-10-05T04:52:56.875Z",
   "version": "0.4.0",
   "api": {
     "url": "https://api.monarkgate.tech",
@@ -12,7 +11,6 @@
     "openapi_version": "3.1.0",
     "title": "MONARK harness — HTTP/JSON mirror"
   },
-  "mcp": { "url": "https://mcp.monarkgate.tech/mcp", "remote_type": "streamable-http", "server_name": "monark" },
   "tools": [
     { "name": "attest", "note": "real, notary Shōgen, demonstrative, not probative" },
     {
@@ -67,7 +65,7 @@
   },
   "calibrate_contract": {
     "request": { "required": [ "scores", "alpha", "nMin" ], "optional": [] },
-    "result": { "required": [ "qhat", "n", "alpha", "method", "set_digest", "label", "reason" ], "optional": [] }
+    "result": { "required": [ "qhat", "n", "alpha", "method", "scores_sha256", "label", "reason" ], "optional": [] }
   },
   "response_required": [ "structuredContent", "content" ],
   "bounds": { "calibrate_scores": 10000, "gate_scores": 10000, "gate_candidates": 10000, "cascade_nodes": 64 },
@@ -124,28 +122,5 @@
     "verifier_rev": "0fe3c32d35382b3f290a43c4156399ca4512bb89",
     "observed_instant": 1786594228
   },
-  "registry": {
-    "name": "tech.monarkgate/monark",
-    "version": "0.4.0",
-    "status": "active",
-    "published_at": "2026-09-18T05:49:22.850573Z",
-    "repository_url": "https://github.com/KraidleAI/monark"
-  },
-  "deploy_check": {
-    "checked_at": "2026-10-04T07:44:22.821Z",
-    "count": 15,
-    "ok_count": 15,
-    "tls_host": "api.monarkgate.tech",
-    "tls_valid_to": "Dec 10 04:57:46 2026 GMT"
-  },
-  "bodies_sha256": {
-    "/health": "d754b2feb82a3c45588e379d4d343c140ee8229d63f6771c940c27121c90f441",
-    "/openapi.json": "d605b912916cc679d4347299bf7d22bb77bf8e1af4c502dd18e2213e6d2a38d7",
-    "tools/list": "7dfcbd9eed4640b86a9b9b362ba4ec8393b18007d1c9516b96158c0500a29eac",
-    "/gate": "9cd5a9189d653b03650ce2dc50cbf1c36887d085eab5e7bb305bf044f8c70416",
-    "/gate liquidation-eligible-coverage": "7922956678f3336c3d119ee0469ab483f549803d99165d685584e3df5d5a3243",
-    "/calibrate": "5a67ff502aaef51050048955cf7ca8e17011401235c6f7afaaf2b376f7a05e88",
-    "/attest": "aeeb34e020d93b21e31c676552d260ceffae1e79c69b56ba2b5c911079d6ad69",
-    "/cascade": "dc4ede52dc5b35efc2b3fdb0a82638454e6dbe27545387c79941292b7fa16576"
-  }
+  "openapi_sha256": "70fc336a3220fd469ebfcabe7e2d8e1e0ebebc2046226636de09be7b0970444f"
 }
