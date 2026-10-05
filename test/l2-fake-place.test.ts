@@ -79,9 +79,10 @@ test("fake_place_mute_answers_nothing_and_a_cut_ends_the_client", async () => {
   const s = await session((peer) => { peer.mute(); });
   const peer = s.place.peers[0];
   s.ws.close(1000);
-  // L2-FAKE-PLACE-FLAKE-1: wait for the client's CLOSE to reach the place, not for a fixed delay; the cut below then tells a mute place
-  // (1006) from one that answered (1000), whatever the scheduling.
+  // L2-FAKE-PLACE-FLAKE-1: wait for the client's CLOSE to reach the place, not for a fixed delay; then 200 ms more, in which a mute place
+  // sends nothing (a late answer reaches the client before the cut); the cut tells a mute place (1006) from one that answered (1000).
   await until(() => (peer?.got.length ?? 0) === 1);
+  await wait(200);
   assert.deepEqual([s.codes, peer?.got.map((f) => f.op)], [[], [OP.close]]);
   peer?.cut();
   await until(() => s.codes.length === 1);
