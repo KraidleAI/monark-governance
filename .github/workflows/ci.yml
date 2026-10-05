@@ -89,9 +89,9 @@ jobs:
           # (3bis)/(4quater) pins the bound, the two exact pathspec lists and their equality with the ADR list.
           # Both counts read W under the module's pinned read (lot R25-ATTR-SOURCE-1, ADR-M003 D9 undecies): its PIN, GIT_ENV and its
           # attribute tree (every path text but the declared binary assets, D9 duodecies), as the module and the oracle read, so neither a
-          # .gitattributes of the measured tree (-diff, binary, a diff driver) nor a NUL byte lowers W. No pinned read (git < 2.40, a non-empty info/attributes, a module error): fail-closed.
-          R25_PIN=$(node scripts/lot-size-integration.mjs pin) || {
-            echo '::error::Gate R-25: pinned git read not obtained. Fail-closed.'
+          # .gitattributes of the measured tree (-diff, binary, a diff driver) nor a NUL byte lowers W. No pinned read (git < 2.40, a non-empty info/attributes, a module error), or a changed path the module refuses first (a gitlink, a symlink, a declared asset without its magic number, a bare CR or a JS line separator; D9 terdecies): fail-closed.
+          R25_PIN=$(node scripts/lot-size-integration.mjs pin --ci .github/workflows/ci.yml --base "origin/$GITHUB_BASE_REF") || {
+            echo '::error::Gate R-25: pinned git read not obtained, or a changed path refused (see the lines above). Fail-closed.'
             exit 1
           }
           eval "$R25_PIN"

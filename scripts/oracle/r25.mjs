@@ -7,12 +7,12 @@
 // reported apart; the lot bound counts both, like the CI (decision Q-M3-5 on R25-UNIT-1), and equality is green (-gt).
 // R-25 integration rule (ADR-M003 D9 nonies, lot R25-INTEGRATION-RULE-1): with a declared proof (run.mjs --r25-proof), the ORACLE's
 // own scripts/lot-size-integration.mjs runs its `count` command on the clone as the CI job does, only if the clone holds the same bytes
-// (else W, mode gate-files, G2 B-3); only its mode `integration` lowers a count, never above W. W is read under the module's PIN and env (delta3 m-g), the larger of two reads: attributes of the module's attrTree (delta2 O-1, R25-NUL-BINARY-1), the CI's read since `pin` (O-1), and the measured tree's (never below the CI, delta3 m-h); a non-empty $GIT_DIR/info/attributes throws (delta3 m-f). An integration count above W is red, as the job's cap (R25-COUNT-CAP-1).
+// (else W, mode gate-files, G2 B-3); only its mode `integration` lowers a count, never above W. W is read under the module's PIN and env (delta3 m-g), the larger of two reads: attributes of the module's attrTree (delta2 O-1, R25-NUL-BINARY-1), the CI's read since `pin` (O-1), and the measured tree's (never below the CI, delta3 m-h); a non-empty $GIT_DIR/info/attributes throws (delta3 m-f). An integration count above W is red, as the job's cap (R25-COUNT-CAP-1). Before it, the module's refusals (D9 terdecies, lot R25-GUARDS-2), run by the ORACLE's module on the clone: mode refused, W kept, red.
 import { execFileSync } from "node:child_process";
 import { createHash } from "node:crypto";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
-import { attrTree, GIT_ENV, infoAttributes, PIN } from "../lot-size-integration.mjs";
+import { attrTree, GIT_ENV, infoAttributes, PIN, refusals, specsOf } from "../lot-size-integration.mjs";
 
 export const R25_DIFF_RE = /^\s*([A-Z_]+)=\$\(git diff --shortstat "origin\/\$\{\{ github\.base_ref \}\}\.\.\.HEAD" -- (.+)\) \|\| \{\s*$/;
 const METRIC_RE = /^\s*([A-Z_]+)=\$\(printf '%s\\n' "\$([A-Z_]+)" \| awk /;
@@ -30,11 +30,11 @@ export function r25(clone, ciText, base, proofFile = null) {
     const limit = lines.map((l) => new RegExp(`^\\s*${bound}:\\s*["']?(\\d+)["']?\\s*(#.*)?$`).exec(l)).find((m) => m !== null)?.[1];
     return { name, insertions: ins, deletions: del, changed: ins + del, bound, limit: limit === undefined ? null : Number(limit) };
   });
-  const eff = integration(clone, base, proofFile, counts.map((c) => c.changed));
+  const W = counts.map((c) => c.changed), refused = counts.length === 2 ? refusals(clone, base, specsOf(ciText)) : [], eff = { ...integration(clone, base, proofFile, W), ...(refused.length > 0 ? { mode: "refused", counts: W, red: true } : {}) };
   eff.counts.forEach((n, i) => { counts[i].changed = n; });
   const red = eff.red === true || counts.length === 0 || counts.some((c) => c.limit === null || c.changed > c.limit);
   const log = counts.map((c) => `${c.name}: ${c.insertions} insertions(+), ${c.deletions} deletions(-), changed ${c.changed} (bound ${c.bound} = ${c.limit})`);
-  return { exit: red ? 1 : 0, counts, mode: eff.mode, proof: eff.proof, log: `${[`mode ${eff.mode}${eff.proof ? ` proof ${eff.proof.sha256}` : ""}`, ...log, red ? "RED" : "GREEN"].join("\n")}\n` };
+  return { exit: red ? 1 : 0, counts, mode: eff.mode, proof: eff.proof, log: `${[`mode ${eff.mode}${eff.proof ? ` proof ${eff.proof.sha256}` : ""}`, ...refused.map((r) => `refused ${r}`), ...log, red ? "RED" : "GREEN"].join("\n")}\n` };
 }
 
 function integration(clone, base, proofFile, written) {
