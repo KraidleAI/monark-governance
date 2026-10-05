@@ -666,7 +666,7 @@ const PENDING_BODIES_SHA256: Record<string, string> = {
   "/gate liquidation-eligible-coverage": "e2bfb18be056b2ed6f0d1cdae681d9b9e38ede054c79509898243d327a105fe7",
   "/calibrate": "f169e9f6e333374a9d47a2010674ca789aba45bd126ef8764df2f0fb86a2cb90",
 };
-// killer: apps/harness/src/tools/gate.ts:732 CONST "scores_sha256=${digest}`" -> "scores_sha256=${digest} `"
+// killer: apps/harness/src/tools/gate.ts:769 CONST "scores_sha256=${digest}`" -> "scores_sha256=${digest} `"
 test("pending_bodies_are_pinned_byte_for_byte", async () => {
   const { handleJsonMirror } = await import("../apps/harness/src/http.ts");
   const { GATE_LIQ_BODY } = await import("../scripts/sync-ukemi-served.mjs");
