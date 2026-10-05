@@ -513,6 +513,14 @@ pm) ; item MK-NM-GUARD-1 (refuser Tree = F:/Monark dans mk-nm.ps1).
 - 2026-10-04 23:34 UTC : sentinelle redéployée une seule fois, comme décidé (#137 + #140, arbre `c9aebb44`) : copie à part, dry-runs
   (copie, puis arbre en place) à sortie 0, rien d écrit, bascule par deux renommages à 23:34:40 UTC. Constat : jambe Chainstack non armée
   sur l hôte (SENTINEL-GUARD-ARMING-1). `sentinel_sha` change à la première ligne écrite après le déploiement (run de 00:30 UTC).
+- 2026-10-05 00:4x UTC : DÉCISIONS du fondateur, relayées verbatim par RECHERCHES (message `b0c079c`) : Q-F1 « Oui, ces 3 tables
+  (Recommandé) » : les empreintes réelles des tables USDe, liq et cascade sont publiques dès la PR C2, avant F-5a ; les 32 tables kata
+  restent synthétiques. Q-F2 « Version + dépôt de spec (Recommandé) » : le refus 1.0.0 nomme la version 1.1.0 et le dépôt de la
+  spécification ; la date T0 entre au go F-5a.
+- 2026-10-05 00:0x à 01:0x UTC : #141 (CM-4b lot a) sur la base, `87f6081c` (oracle 2 311 / 0) ; #142 au tronc, `d305ae15` (oracle
+  2 250 / 0, `cmd.exe` vert) ; #143 rouge à l oracle Windows (`EPERM` au fsync du dossier, `day.mjs:196`), fusion retirée. Réponses :
+  G7 de c1, bloc C Q-M1 à Q-M16, hors délégation, UKEMI-PENDING-SNAPSHOT-1 M1 à M4 ; amendement 9 de l ADR-CM contrôlé.
+  `sentinel_sha` de la ligne du 2026-10-04 égal au pré-enregistré (JOURNAL-PROVENANCE).
 - 2026-10-04 00:5x UTC : fusions au tronc : CM-2a (`4a1b4844`, PR #105 `98e3779a`), COINBASE-PASS-EDGES-1 (`44d8892d`), BINANCE-PRE153-1
   (`328be484`). Leurs oracles G7 (`569c91c6…`, `bba0b720…`, `2ce4d71c…`) portent seulement deux rouges venus de la CA de l étape 3
   committée sans resynchronisation du site (error_origin de l orchestrateur) ; correction `0c8f8177`, oracle vert : 2 060 tests,

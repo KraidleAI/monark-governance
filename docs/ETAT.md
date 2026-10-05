@@ -457,7 +457,18 @@ Tronc `lot/etude-suite`. Dernier oracle complet : 1 779 tests, dont 1 776 verts,
   - TEST-FORCE-EXIT-REPORT-LOSS-1 (2026-10-04 20:2x UTC ; proposé par RECHERCHES) : sous Linux, avec `--test-force-exit`, des
     rapports de fin de fichier se perdent alors que le fichier sort 0 (suites vertes à 2 116 et 2 170 tests rapportés pour 2 211) ;
     une CI verte ne prouve alors rien des tests non rapportés. Construction au G0 : compte rapporté contre un plancher ou contre un
-    fichier tap. Porteur : RECHERCHES, zone ouverte (scripts de test, `ci.yml`, un test de garde ; recherches#145) ; état : ouvert.
+    fichier tap. Porteur : RECHERCHES, zone ouverte (scripts de test, `ci.yml`, un test de garde ; recherches#145) ; état : clos le
+    2026-10-05 par #142 (tronc `d305ae15` ; oracle Windows vert, 2 250 tests, 0 échec ; `test:main` et `test:export` verts sous `cmd.exe`).
+  - CM-5-PLAN-1 (audit P3, E-11/S-14 : la surveillance par clé kata de CM-5, qu aucun bloc A à E ne porte) : G0 de CM-5 après T0,
+    ou raison écrite de ne pas remédier. Porteur : RECHERCHES ; déclencheur : T0 ; état : ouvert.
+  - L2-DAY-SCAN-WINDOW-1 (Q-C1-6 du G7 de L2 P1-c1) : une trame dont l heure de place suit sa réception de plus d une heure n est pas
+    lue au scellé de son jour ; elle est rangée au jour de son segment, marquée `early` et comptée. Mesure en M-6. Porteur :
+    RECHERCHES ; état : ouvert.
+  - BLOC-C-ACTES-MONARK-1 (G0 du bloc C, 2026-10-05) : (a) appliquer la pièce des textes d ADR (Q-M7 : ADR-M001 D4 et C5, ADR-M005
+    K-4 (c), ADR-M007 §7, ADR-M010 §12, `CONTRIBUTING.md:56-57`) et trancher ses deux ajouts optionnels, avant la fusion de C2 ;
+    (b) écrire les entrées de `frozen_contract_fields_stay_dynamic` que RECHERCHES propose (Q-M14) ; (c) seconde ligne Z-3 en C' (S-8,
+    B-13) ; (d) fusionner la PR de l amendement 9 de l ADR-CM, contrôlée le 2026-10-05, avant le code de C1. Porteur : MONARK ; état :
+    ouvert.
   - TAIL-TS-COUNTS-1 (Q-1 de CM-4a-ii, voie (a)) : l addendum 8 d ADR 0006 (P0 `ec202d00`) garde l exception de zone : MONARK écrit
     `tail.ts` et la garde de vague 2. Livrable de MONARK : l entrée par comptes de `tail.ts` (`{num, den}` non réduits, chaînes
     décimales, refus de l addendum §1), sur la signature et les vecteurs que RECHERCHES fournit ; tests et tueurs W2-E chez
@@ -812,6 +823,11 @@ Tronc `lot/etude-suite`. Dernier oracle complet : 1 779 tests, dont 1 776 verts,
     (`apps/harness/src/tools/gate.ts:62` les lie), aucune acceptation du 1.0.0. Recensement de la zone MONARK :
     `F:/tmp/rech/v110/RECENSEMENT-1-1-0.md` (27 sites, 29 empreintes sûres, 10 conditionnelles ; aucune liste d appelants ; rien ne
     produit encore `KraidleAI/monark-kata-spec`). Déclencheur : le plan de CM-3c ; état : ouvert.
+    Liste de T0 de MONARK (relevée le 2026-10-05) : les deux schémas neufs sur le site, avec la republication de la spécification ;
+    les textes publics hors pages (Q-M16 du G0 du bloc C : `skills/monark/SKILL.md`, `DEMO.md`, `INTEGRATION.md`, `README.md:328`,
+    `docs/RUNBOOK-harness.md:169`, `apps/site/lib/sim.ts:25`, `docs/deploy-CA-harness.json`) ; « calibration digest » et
+    `DIGEST_NOTE` ; `/integrators` et `/docs/integrators` (`calib_digest`, `set_digest`) ; le `$comment` de `ukemi-pending.json`
+    (porte de vocabulaire) ; la page Narabi et son chargeur (Q-M6) ; l ordre CA, sync du harnais, puis sync ukemi (RUNBOOK-vitrine).
   - DEMO-HASH-STALE-1 : `skills/monark/DEMO.md:88` cite l empreinte tronquée `79b54471…` de la trace byo, périmée (actuelle
     `daf8d3ea…`), sans test. Construction : la corriger et l épingler par un test ; environ 3 lignes. Déclencheur : le lot des
     surfaces de CM-2b (temps (i)) ; état : ouvert.
