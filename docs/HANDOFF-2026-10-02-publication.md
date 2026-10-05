@@ -533,6 +533,10 @@ pm) ; item MK-NM-GUARD-1 (refuser Tree = F:/Monark dans mk-nm.ps1).
   certificat. Inchangés : G2 neuve par lot, contrôle par diff et fusions de MONARK, oracles, R-25, règles d hôte.
 - 2026-10-05 04:1x UTC : DÉCISION de l investisseur (verbatim) « fais le, je te donne le go » : branche par défaut du dépôt de gouvernance
   `main` → `lot/etude-suite` (un visiteur voit le tronc vérifié) ; `main` intacte et protégée, avancée jusqu au tronc à la bascule T0.
+- 2026-10-05 04:2x UTC : DÉCISION de l investisseur (verbatim) « applique ta reco et informe recherches » : R-25 n est pas désactivée ;
+  les lots écrits gardent 547 et 1 205 ; une PR d intégration (commits tous issus de PR fusionnées et relues) ne compte que le neuf
+  (résolutions de conflit, commits non relus), contre 1 205, fail-closed sans preuve. Lot R25-INTEGRATION-RULE-1 confié à RECHERCHES
+  (recherches#189), G0 d abord ; la ligne (9) de l ADR-CM (exception bornée à 1 400) reste le repli pour l intégration de C2.
 - 2026-10-04 00:5x UTC : fusions au tronc : CM-2a (`4a1b4844`, PR #105 `98e3779a`), COINBASE-PASS-EDGES-1 (`44d8892d`), BINANCE-PRE153-1
   (`328be484`). Leurs oracles G7 (`569c91c6…`, `bba0b720…`, `2ce4d71c…`) portent seulement deux rouges venus de la CA de l étape 3
   committée sans resynchronisation du site (error_origin de l orchestrateur) ; correction `0c8f8177`, oracle vert : 2 060 tests,

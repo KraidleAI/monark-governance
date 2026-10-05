@@ -496,6 +496,11 @@ Tronc `lot/etude-suite`. Dernier oracle complet : 1 779 tests, dont 1 776 verts,
     après ses lots en cours (recherches#154) ; état : ouvert.
   - MUTANTS-REPLAY-PROMOTE-1 (proposé au G7 de MUTANTS-RUN-EXIT-CODE-1, #144) : une ligne dont le rejeu est « tue » prend le statut
     du rejeu. Porteur : RECHERCHES ; déclencheur : le prochain lot qui touche `scripts/mutants/` ; état : ouvert.
+  - R25-INTEGRATION-RULE-1 (décision de l investisseur, 2026-10-05 04:2x UTC) : R-25 ne compte, sur une PR d intégration, que le neuf
+    (résolutions de conflit par remerge-diff, commits hors de toute PR fusionnée et relue), contre la borne de 1 205 ; définition fermée
+    de la PR d intégration et preuve d appartenance, fail-closed ; une seule source pour le job CI et la porte r25 de l oracle ; ligne
+    datée d ADR-M003 D9. Porteur : RECHERCHES (zone ouverte, cahier des charges E-1 à E-7, recherches#189) ; contrôle par diff et
+    oracle : MONARK ; déclencheur : avant la PR d intégration de C2 ; état : ouvert.
   - MUTANTS-RUN-EXIT-CODE-1 (signalé par RECHERCHES, 2026-10-04) : `scripts/mutants/run.mjs` juge un mutant sur la sortie, pas sur le
     code de sortie ; un rapport d échec perdu donne « survit » au lieu de « tué » (sens sûr, mesure fausse). Construction : juger sur le
     code, tests et tueur d abord. Porteur : RECHERCHES (zone `scripts/mutants/` ouverte, recherches#154) ; état : ouvert.
