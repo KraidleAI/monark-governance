@@ -96,7 +96,7 @@ for (const [sig, c] of [["SIGINT", 130], ["SIGTERM", 143]]) process.once(sig, ()
 const ran = [];
 let code = 2;
 try {
-  execFileSync("git", ["clone", "-q", "--no-local", "--no-checkout", "-c", "core.autocrlf=false", tree, clone], { stdio: "ignore" });
+  execFileSync("git", ["clone", "-q", "--no-local", "--no-checkout", "--template=", "-c", "core.autocrlf=false", tree, clone], { stdio: "ignore" });
   git(clone, "checkout", "-q", "--detach", head);
   if (patch.length > 0) { writeFileSync(join(runDir, "dirty.patch"), patch); git(clone, "apply", join(runDir, "dirty.patch")); }
   for (const f of untracked) { mkdirSync(dirname(join(clone, f)), { recursive: true }); copyFileSync(join(tree, f), join(clone, f)); }
