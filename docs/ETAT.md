@@ -90,8 +90,11 @@ Tronc `lot/etude-suite`. Dernier oracle complet : 1 779 tests, dont 1 776 verts,
     version du 1.1.0, publiée le jour de T0 ;
   - **une seule release** du miroir, à T0, depuis la base fusionnée au tronc ; pas de v0.9.0 séparée avant ;
   - **T0 visé : 2026-10-06**, quand la liste « avant T0 » ci-dessus est fusionnée ; ensuite, le chantier suivant ;
-  - **lieu de la spécification** : défaut de la cellule, une adresse sous `monarkgate.tech` (déjà admise par `public-text-deny`, aucun
-    dépôt neuf) ; un dépôt public `monark-kata-spec` resterait une décision du fondateur.
+  - **lieu de la spécification** : décision du fondateur (2026-10-05 22:3x UTC, option retenue verbatim : « Créer monark-kata-spec
+    (Recommandé) ») : le dépôt public `KraidleAI/monark-kata-spec`, que vise déjà `scripts/spec-publish.mjs` (SPEC-PUBLISH-PIPELINE-1)
+    et que nomme le message servi `gate.ts:902` ; rien à recoder. Création du dépôt : le fondateur, ou MONARK sur son accord ; MONARK
+    étend la liste d autorisation de `public-text-deny` (V-1) avec son test.
+- **Garde CodeQL du tronc** : fermée (analyse de `74120213`, 0 alerte ouverte).
 
 ## Points connus (à traiter, non bloquants sauf mention)
 
