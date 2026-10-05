@@ -10,9 +10,9 @@ import { createHash } from "node:crypto";
 import { readdirSync, readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
-import { canonicalJson, TOOL_ERROR_CODES, type ClassEntry, type PolicyRow, type PolicyTable, type Prediction } from "@monark/contracts";
+import { canonicalJson, COVERAGE_REASONS, TOOL_ERROR_CODES, type ClassEntry, type PolicyRow, type PolicyTable, type Prediction } from "@monark/contracts";
 import { UKEMI_LIQ_COMMITTED } from "../src/calibration.ts";
-import { assertKataRequest, kataPath, kataVerdictFields, servedPolicyTables, type ServedTableTexts } from "../src/kata-path.ts";
+import { assertKataRequest, KATA_REASONS, kataPath, kataVerdictFields, servedPolicyTables, type ServedTableTexts } from "../src/kata-path.ts";
 import { kataClassEntries } from "../src/policy-classes.ts";
 import { guardKataRow, guardKataTable, type GuardPins } from "../src/policy-guard.ts";
 import { projectCell, readRegistry } from "../src/policy-projection.ts";
@@ -325,6 +325,14 @@ test("kata_path_is_not_served", () => {
   const seen = servedModules();
   assert.ok(seen.size > 6 && seen.has(join(SRC, "tools/gate.ts")));
   for (const f of ["kata-path.ts", "policy-classes.ts", "policy-guard.ts"]) assert.ok(!seen.has(join(SRC, f)), f);
+});
+
+// Q-3a-2: every reason a kata verdict can carry is a frozen coverage reason of contract 1.1.0 (block D drops KATA_REASONS).
+// killer: apps/harness/src/kata-path.ts:17 CONST "\"region_degenerate\"] as const" -> "\"region_degenerate\", \"kata_only\"] as const"
+test("kata_reasons_within_coverage_reasons", () => {
+  const coverage: readonly string[] = COVERAGE_REASONS;
+  for (const r of KATA_REASONS) assert.ok(coverage.includes(r), `${r} is a coverage reason`);
+  assert.equal(new Set(KATA_REASONS).size, KATA_REASONS.length, "no reason twice");
 });
 
 /** C-3 (delegated decision CM-4b): the codes with no served thrower yet, exact; block C removes input_invalid and json_invalid. */
