@@ -1,4 +1,4 @@
-// test/l2-loop.test.ts -- lot L2-P1-c5 (2026-10-05): what the recording loop is built on, before the loop itself (P1-c5-bis): the seal
+// test/l2-loop.test.ts -- lots L2-P1-c5 and P1-c5-bis-a (2026-10-05): what the recording loop is built on, before the loop itself (P1-c5-bis-b): the seal
 // hook that composes the replay of P1-c2 and the digests of P1-c3 (scripts/l2/seal.mjs), the command hashed into the day's manifest,
 // a kept snapshot read again with another lastUpdateId named (scripts/l2/derive.mjs), and how a recording takes --out
 // (scripts/record-binance-l2.mjs: a parent that is a file, a journal of this recorder, the start line, one link per journal, the real
@@ -6,18 +6,22 @@
 // are written by the writer of P1-a2 with an injected wall clock, anchors and snapshots by hand, under the OS temp directory (made in
 // before(), removed after), outside any git tree: no network, no place, synthetic frames whose numbers mean nothing of a market. Each
 // test asserts what it loads, so the base, which has neither seal.mjs nor adopt, reddens by assertion. Each test names, on the line above
-// it, the mutation that reddens it.
+// it, the mutation that reddens it. P1-c5-bis-a (lot plan docs/G0-lot-l2-p1-c5-bis.md), at the end: the seal apart in a capped child
+// process, its own guards, a file vanished under the walk, the link's hook, cut and closed segments (sockets driven by hand, no place),
+// segments synced before closed, tails marked once at a start.
 import { after, before, test } from "node:test";
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
 import { spawnSync } from "node:child_process";
-import { closeSync, constants, existsSync, linkSync, mkdirSync, mkdtempSync, openSync, readdirSync, readFileSync, realpathSync, renameSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
+import { createRequire, syncBuiltinESMExports } from "node:module";
+import { closeSync, constants, existsSync, linkSync, mkdirSync, mkdtempSync, openSync, readdirSync, readFileSync, realpathSync, renameSync, rmSync, statSync, symlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { DayStop, sealDay, STOPS, type DeriveContext } from "../scripts/l2/day.mjs";
 import { deriveDay } from "../scripts/l2/derive.mjs";
-import { cidOf, openWriter } from "../scripts/l2/segments.mjs";
+import { cidOf, openWriter, segmentOf, type SegmentFile } from "../scripts/l2/segments.mjs";
+import * as L from "../scripts/l2/links.mjs";
 import type * as RecordM from "../scripts/record-binance-l2.mjs";
 import type * as SealM from "../scripts/l2/seal.mjs";
 import { keepCause } from "./helpers/keep-cause.ts";
@@ -353,4 +357,356 @@ test("l2_append_not_a_file", { skip: process.platform === "win32" ? "no FIFO" : 
   assert.equal(spawnSync("mkfifo", [fifo]).status, 0);
   const without = detailOf(() => m.appendLine(fifo, { event: "x" })), reader = openSync(fifo, constants.O_RDONLY | constants.O_NONBLOCK);
   try { assert.deepEqual([without, detailOf(() => m.appendLine(fifo, { event: "x" }))], [{ entry: fifo, why: "not a regular file" }, { entry: fifo, why: "not a regular file" }]); } finally { closeSync(reader); }
+});
+
+// ---- P1-c5-bis-a ----
+const fs = createRequire(import.meta.url)("node:fs") as { -readonly [K in keyof typeof import("node:fs")]: (typeof import("node:fs"))[K] }; // the CommonJS object, whose lstatSync a test wraps
+const CHILD = join(SCRIPTS, "l2", "seal-child.mjs"), APART = process.platform === "win32" ? "win32: libuv gives a child the names of its base environment, which the child refuses (m-7 of the G7 of c4, M-1)" : false;
+const specOf = (out: string, open: string[] = []): SealM.ApartSpec => ({ out, symbol: "BTCUSDT", day: D, nowUs: END + 121 * S, scale: 2, open });
+/** The child spawned by hand: [exit code, its JSON line or null], with `flags` before the script and `env`. */
+function child(out: string, flags: string[], env: Record<string, string>): [number | null, unknown] {
+  const r = spawnSync(process.execPath, [...flags, CHILD, JSON.stringify(specOf(out))], { env, encoding: "utf8" });
+  try { return [r.status, JSON.parse(r.stdout) as unknown]; } catch { return [r.status, null]; }
+}
+/** f() once true, polled for 5 s at most (the writer's loop runs on the file system). */
+const twice = async (f: () => boolean): Promise<boolean> => { for (let i = 0; i < 1_000 && !f(); i += 1) await new Promise((r) => setTimeout(r, 5)); return f(); };
+/** A spot link of BTCUSDT on a socket driven by hand, its clock at `now` (us), each message's hook recorded. */
+type Sock = { onopen: () => void; onmessage: (e: { data: unknown }) => void };
+function handLink(out: string, hook?: (text: string, cid: string) => void): { link: L.Link; ws: Sock; socks: Sock[]; texts: [string, string][]; clock: { now: number }; cid: () => string } {
+  const clock = { now: START + 10 * 3_600 * S }, texts: [string, string][] = [], socks: Sock[] = [];
+  const io: L.LinkIo = { webSocket: () => { const w = { close: () => undefined, extensions: "" } as unknown as Sock; socks.push(w); return w as unknown as WebSocket; },
+    wallUs: () => clock.now, monoNs: () => BigInt(clock.now) * 1000n, setTimer: () => 0, clearTimer: () => undefined, gate: L.openingGate(), onText: hook ?? ((t, c) => { texts.push([t, c]); }) };
+  const link = L.openLink({ symbol: "BTCUSDT", url: L.spotUrl("BTCUSDT"), out }, io), ws = socks[0]!;
+  ws.onopen();
+  return { link, ws, socks, texts, clock, cid: () => cidOf("spot", "BTCUSDT", START + 10 * 3_600 * S) };
+}
+
+// killer: scripts/l2/seal-child.mjs:36 CONST "!open.includes(" -> "open.includes("
+test("l2_seal_apart_as_in_process", { skip: APART }, async () => {
+  // Q-5 of a2, Q-C1-9, m-5 of the G2 of c5: the loop seals in a child process; its day is the in-process seal's, byte for byte, and it
+  // waits while a writer holds a segment open (closed(cid, seg) from the loop's "cid/seg").
+  const m = await seal(), [a, b] = [fresh(), fresh()], seg = `${cidOf("spot", "BTCUSDT", START + S)}/${segmentOf(START)}`;
+  assert.equal(typeof m.sealApart, "function", "sealApart is absent");
+  for (const out of [a, b]) await day(out);
+  assert.deepEqual(await m.sealApart(specOf(a, [seg]), { env: {} }), { sealed: false, wait: "segments", open: [seg] });
+  assert.deepEqual([await m.sealApart(specOf(a), { env: {} }), await sealed(b)], [{ sealed: true, dir: dayDir(a), frames: 4 }, { sealed: true, dir: dayDir(b), frames: 4 }]);
+  assert.equal(readFileSync(join(dayDir(a), "SHA256SUMS"), "utf8"), readFileSync(join(dayDir(b), "SHA256SUMS"), "utf8"), "the same bytes, apart or not");
+});
+
+// killer: scripts/l2/seal-child.mjs:32 CONST "execArgv.length !== 1 || " -> ""
+test("l2_seal_child_flags_closed", { skip: APART }, async () => {
+  // The child's own guard (c4's execArgv guard, for the one flag it is spawned with): the heap cap alone, else proxy_refused, nothing read.
+  const out = fresh(), cap = "--max-old-space-size=64", refused = { stop: "proxy_refused", detail: { why: "the heap cap alone" } };
+  await day(out);
+  const of = (n: number): unknown => [1, { ...refused, detail: { ...refused.detail, execArgv_length: n } }];
+  assert.deepEqual([child(out, [], {}), child(out, ["--no-warnings"], {}), child(out, [cap, "--no-warnings"], {}), child(out, ["--no-warnings", cap], {})],
+    [of(0), of(1), of(2), of(2)], "none, another one alone, or a second one: refused");
+  assert.equal(existsSync(join(dayDir(out), "SHA256SUMS")), false);
+});
+
+// killer: scripts/l2/seal-child.mjs:33 SDL "  guardEnv(env, []);" -> ""
+test("l2_seal_child_env_closed", { skip: APART }, async () => {
+  // SERIES-ENV-ALLOWLIST-1 in the child: the closed list of the platform (empty on Linux), names only, never a value.
+  const out = fresh(), cap = "--max-old-space-size=64";
+  await day(out);
+  assert.deepEqual([child(out, [cap], { HTTPS_PROXY: "http://proxy.invalid" }), child(out, [cap], { LANG: "C" })],
+    [[1, { stop: "proxy_refused", detail: { variables: ["HTTPS_PROXY"], execArgv_length: 0 } }], [1, { stop: "env_refused", detail: { variables: ["LANG"], execArgv_length: 0 } }]]);
+  assert.equal(existsSync(join(dayDir(out), "SHA256SUMS")), false);
+});
+
+// killer: scripts/l2/seal.mjs:71 CONST "`--max-old-space-size=${heapMb}`, CHILD" -> "CHILD"
+test("l2_seal_apart_heap_named", { skip: APART }, async () => {
+  // m-5 of the G2 of c5: a heap past the cap kills the child alone; the day stays unsealed, the failure named, this process lives on.
+  const m = await seal(), out = fresh(), big = (i: number): [number, string] => [START + S + i * 1000, JSON.stringify({ stream: "btcusdt@trade", data: { e: "trade", E: START + S + i * 1000, s: "BTCUSDT", t: i, x: "y".repeat(4_000_000) } })];
+  assert.equal(typeof m.sealApart, "function", "sealApart is absent");
+  for (const i of [0, 1, 2, 3]) await conn(out, [big(i)]); // one connection each: a queue holds 8 MiB at most
+  const r = await m.sealApart(specOf(out), { env: {}, heapMb: 8 }), failed = (r as { failed?: { code: number | null; signal: string | null; stop: unknown; detail: unknown } }).failed;
+  assert.deepEqual([r.sealed, failed?.stop, failed?.code, failed?.signal, existsSync(join(dayDir(out), "SHA256SUMS"))], [false, null, null, "SIGABRT", false]);
+  assert.match(String((failed?.detail as { stderr?: string } | null)?.stderr), /heap/, "the tail of the child's stderr says why (n-2)");
+  assert.equal(m.SEAL_HEAP_MB, 128, "the cap measured in the lot plan");
+});
+
+// killer: scripts/record-binance-l2.mjs:133 CONST ", { throwIfNoEntry: false }" -> ""
+test("l2_walk_vanished_entry_absent", async () => {
+  // The concurrent seal of the G2 of c5: a file unlinked under days/ between the listing and its lstat counts as absent, never a stop.
+  const m = await command(), dir = fresh(), tmp = join(dir, "days", "BTCUSDT", `.${D}.SHA256SUMS.tmp`), real = fs.lstatSync;
+  mkdirSync(dirname(tmp), { recursive: true });
+  writeFileSync(join(dir, "journal.jsonl"), "x".repeat(10));
+  writeFileSync(tmp, "y".repeat(5));
+  fs.lstatSync = ((...a: Parameters<typeof real>) => { if (a[0] === tmp && existsSync(tmp)) fs.unlinkSync(tmp); return real(...a); }) as typeof real;
+  syncBuiltinESMExports();
+  try { assert.deepEqual([codeOf(() => m.bytesUnder(dir)), existsSync(tmp)], [10, false]); } finally { fs.lstatSync = real; syncBuiltinESMExports(); }
+});
+
+// killer: scripts/l2/links.mjs:181 CONST "fed(io, note, e.data, cid)" -> "0"
+test("l2_link_feeds_its_hook", async () => {
+  // Q-A4-3: each text message reaches the loop's hook with its <cid>, once its writer has it; a binary one never.
+  const out = fresh(), h = handLink(out);
+  h.ws.onmessage({ data: "a" });
+  h.ws.onmessage({ data: "b" });
+  h.ws.onmessage({ data: new ArrayBuffer(1) });
+  assert.deepEqual(h.texts, [["a", h.cid()], ["b", h.cid()]]);
+  await h.link.stop();
+});
+
+// killer: scripts/l2/links.mjs:205 CONST "live.get(cid).closed.includes(seg)" -> "true"
+test("l2_link_closed_segments", async () => {
+  // Q-C1-5: closed(cid, seg) is false while a writer of the link holds the segment open, true once closed, true for a <cid> it never held.
+  const out = fresh(), h = handLink(out), seg = segmentOf(h.clock.now);
+  h.ws.onmessage({ data: "a" });
+  assert.equal(typeof h.link.closed, "function", "closed is absent");
+  assert.ok(await twice(() => existsSync(join(out, "conn", h.cid(), `${seg}.frames`))));
+  assert.deepEqual([h.link.closed(h.cid(), seg), h.link.closed(cidOf("spot", "BTCUSDT", START), seg)], [false, true]);
+  await h.link.stop();
+  assert.equal(h.link.closed(h.cid(), seg), true);
+});
+
+// killer: scripts/l2/links.mjs:204 CONST "w.cut()" -> "0"
+test("l2_link_cut_on_the_hour", async () => {
+  // D24-3: cut(), on the hour, closes each writer's open segment once its hour is over, no frame needed.
+  const out = fresh(), h = handLink(out), seg = segmentOf(h.clock.now);
+  h.ws.onmessage({ data: "a" });
+  assert.equal(typeof h.link.cut, "function", "cut is absent");
+  h.link.cut();
+  h.clock.now += 3_600 * S;
+  h.link.cut();
+  assert.deepEqual([await twice(() => h.link.closed(h.cid(), seg)), existsSync(join(out, "conn", h.cid(), `${segmentOf(h.clock.now)}.frames`))], [true, false]);
+  await h.link.stop();
+});
+
+// killer: scripts/l2/segments.mjs:70 CONST "f.sync?.()" -> "0"
+test("l2_segment_synced_before_close", async () => {
+  // m-7 of the G7 of c1: each file of a segment is synced, then closed, before the seal can read it.
+  const ops: string[] = [], file = (name: string): SegmentFile & { sync: () => Promise<void> } =>
+    ({ appendFile: () => { ops.push(`${name} append`); return Promise.resolve(); }, sync: () => { ops.push(`${name} sync`); return Promise.resolve(); }, close: () => { ops.push(`${name} close`); return Promise.resolve(); } });
+  const w = openWriter(fresh(), cidOf("spot", "BTCUSDT", START), { wallUs: () => START, monoNs: () => 1n, open: (p) => Promise.resolve(file(p.endsWith(".frames") ? "frames" : "index")) });
+  w.push("a");
+  await w.close();
+  assert.deepEqual(ops.filter((o) => !o.endsWith("append")).sort(), ["frames close", "frames sync", "index close", "index sync"]);
+  assert.ok(ops.indexOf("frames sync") < ops.indexOf("frames close") && ops.indexOf("index sync") < ops.indexOf("index close"));
+});
+
+/** An output adopted after a run that opened `cids` (their last segment cut short by hand: a frame without its line), then `between`
+ *  runs that opened nothing; the root and the clocks of adopt. */
+async function crashed(m: typeof RecordM, cids: number, between = 0): Promise<{ at: string; real: string; tails: () => Line[] }> {
+  const out = fresh(), opened: string[] = [];
+  mkdirSync(out);
+  for (let i = 0; i < cids; i += 1) {
+    const cid = cidOf("spot", "BTCUSDT", START + i * S);
+    opened.push(JSON.stringify({ host_us: 1, mono_ns: "1", symbol: "BTCUSDT", cid, event: "open" }));
+    let now = START + i * S;
+    const w = openWriter(out, cid, { wallUs: () => now, monoNs: () => 1n });
+    for (const us of [now, START + 3_600 * S]) { now = us; w.push("{}"); }
+    await w.close();
+    fs.appendFileSync(join(out, "conn", cid, `${segmentOf(START + 3_600 * S)}.frames`), "{}" + LF);
+  }
+  writeFileSync(join(out, "journal.jsonl"), [START_LINE, ...opened.map((l) => JSON.parse(l) as Line), ...Array<Line>(between).fill(START_LINE)].map((l) => JSON.stringify(l) + LF).join(""));
+  const run = m.adopt(plan(m, out), clocks);
+  return { at: run.at, real: run.real, tails: () => journal(run.real).filter((l) => (l as Line).event === "tail_marked") as Line[] };
+}
+
+// killer: scripts/record-binance-l2.mjs:258 CONST "marked.has(`${cid}/${seg}`)" -> "false"
+test("l2_tails_marked_once", async () => {
+  // Q-C1-4: at a start, the tail of each last segment of the last run is journaled tail_marked, the fields of checkTail, once.
+  const m = await command(), c = await crashed(m, 2), cid = cidOf("spot", "BTCUSDT", START), seg = segmentOf(START + 3_600 * S);
+  assert.equal(typeof m.markTails, "function", "markTails is absent");
+  const first = m.markTails(c.at, clocks);
+  assert.deepEqual([first.length, m.markTails(c.at, clocks).length, c.tails().length], [2, 0, 2], "marked once");
+  assert.deepEqual(c.tails()[0], { host_us: 7, mono_ns: "9", symbol: "BTCUSDT", cid, event: "tail_marked", seg, ranks: 1, frames_kept: 3, frames_size: 6, index_kept: 74, index_size: 74, causes: ["frame_without_line"] });
+});
+
+// killer: scripts/record-binance-l2.mjs:254 CONST "run.size > 0 ? run : last, new Set()" -> "run, new Set()"
+test("l2_tails_of_the_last_run_with_links", async () => {
+  // A run that died before its links opened (its start alone) leaves the run before it to the next start: its tails are still found.
+  const m = await command(), c = await crashed(m, 1, 2);
+  assert.equal(typeof m.markTails, "function", "markTails is absent");
+  assert.deepEqual([m.markTails(c.at, clocks).length, c.tails().length], [1, 1]);
+});
+
+// ---- P1-c5-bis-a, fold of its G2 ----
+/** dev and ino of a directory, as the parent of the seal child passes them (B-1 of the G2 of c5-bis-a). */
+const idOf = (dir: string): { dev: string; ino: string } => { const s = statSync(dir, { bigint: true }); return { dev: String(s.dev), ino: String(s.ino) }; };
+const UNPINNED = "fd 3 alone, the pinned root";
+/** The child spawned by hand with its one flag, env {} and `fds` from fd 3: [exit code, its JSON line or null]; 30 s at most. */
+function pinnedChild(spec: unknown, fds: number[]): [number | null, unknown] {
+  const r = spawnSync(process.execPath, ["--max-old-space-size=64", CHILD, JSON.stringify(spec)], { env: {}, encoding: "utf8", timeout: 30_000, stdio: ["ignore", "pipe", "pipe", ...fds] });
+  try { return [r.status, JSON.parse(r.stdout) as unknown]; } catch { return [r.status, null]; }
+}
+/** An output adopted (its root pinned, `at`), a day of D under it. */
+async function adopted(m: typeof RecordM): Promise<{ at: string; real: string }> {
+  const c = await crashed(m, 0);
+  await day(c.real);
+  return c;
+}
+
+// killer: scripts/l2/seal.mjs:71 CONST ", fd]" -> "]"
+test("l2_seal_apart_through_the_pinned_root", { skip: APART }, async () => {
+  // B-1 of the G2 of c5-bis-a: adopt's root, /proc/self/fd/<n>, is close-on-exec, absent in the child (whose mkdir spun there without end):
+  // the parent passes it as the child's fd 3. The day sealed apart through it is the in-process seal's through the same kind of root,
+  // byte for byte, and the call ends; env defaults to none (n-3).
+  const m = await seal(), r = await command(), [a, b] = [await adopted(r), await adopted(r)];
+  assert.equal(typeof m.SEAL_TIMEOUT_MS, "number", "the deadline of sealApart is absent");
+  const inProcess = m.sealOf({ out: b.at, symbol: "BTCUSDT", day: D, nowUs: END + 121 * S, closed: () => true, scale: 2 });
+  assert.deepEqual([await m.sealApart(specOf(a.at)), inProcess], [{ sealed: true, dir: dayDir(a.at), frames: 4 }, { sealed: true, dir: dayDir(b.at), frames: 4 }]);
+  assert.equal(readFileSync(join(dayDir(a.real), "SHA256SUMS"), "utf8"), readFileSync(join(dayDir(b.real), "SHA256SUMS"), "utf8"), "the same bytes, apart or not");
+});
+
+// killer: scripts/l2/seal-child.mjs:26 CONST "String(st.ino) === root?.ino" -> "true"
+test("l2_seal_child_root_checked", { skip: APART }, async () => {
+  // B-1: the child writes through its fd 3 alone, checked first (a directory of the dev and ino its parent names): another directory is
+  // refused, named, nothing written; no fd 3 (the reproducer of the G2: a spec naming /proc/self/fd/999) is refused at once, never a spin.
+  const out = fresh(), other = fresh();
+  await day(out);
+  mkdirSync(other);
+  const spec = { ...specOf(out), root: idOf(out) };
+  const fd = openSync(other, "r");
+  try {
+    assert.deepEqual([pinnedChild(spec, [fd]), pinnedChild({ ...spec, out: "/proc/self/fd/999" }, [])],
+      [[1, { stop: "out_not_l2", detail: { extra: [], why: UNPINNED } }], [1, { stop: "out_not_l2", detail: { extra: [], why: UNPINNED } }]]); // no fd 3: node's own there
+  } finally { closeSync(fd); }
+  assert.deepEqual([existsSync(join(dayDir(out), "SHA256SUMS")), existsSync(join(other, "days"))], [false, false]);
+});
+
+// killer: scripts/l2/seal-child.mjs:26 CONST "extra.length === 0" -> "true"
+test("l2_seal_child_root_alone", { skip: APART }, async () => {
+  // B-1: fd 3 is the one descriptor the child takes from its parent; a file, a directory or a socket past it is refused, named.
+  const out = fresh();
+  await day(out);
+  const fd = openSync(out, "r"), file = openSync(CHILD, "r"), spec = { ...specOf(out), root: idOf(out) };
+  try {
+    assert.deepEqual(pinnedChild(spec, [fd, file]), [1, { stop: "out_not_l2", detail: { extra: [4], why: UNPINNED } }]);
+    assert.deepEqual(pinnedChild(spec, [fd]), [0, { result: { sealed: true, dir: dayDir(out), frames: 4 } }]);
+  } finally { closeSync(fd); closeSync(file); }
+});
+
+// killer: scripts/l2/seal.mjs:72 CONST "timer = setTimeout(" -> "timer = Math.max("
+test("l2_seal_apart_deadline", { skip: APART }, async () => {
+  // B-1: past its deadline the child is killed and the call ends, a named failure; never a promise left pending.
+  const m = await seal(), out = fresh();
+  await day(out);
+  assert.equal(typeof m.SEAL_TIMEOUT_MS, "number", "the deadline of sealApart is absent");
+  assert.deepEqual(await m.sealApart(specOf(out), { env: {}, timeoutMs: 1 }), { sealed: false, failed: { code: null, signal: null, stop: "seal_timeout", detail: { timeout_ms: 1 } } });
+});
+
+// killer: scripts/l2/seal.mjs:73 CONST "signal?.addEventListener(" -> "void ("
+test("l2_seal_apart_aborted", { skip: APART }, async () => {
+  // B-1: the loop's clean stop aborts a seal under way (the child killed), or one not begun (no child): seal_aborted, named.
+  const m = await seal(), out = fresh(), ac = new AbortController(), aborted = { sealed: false, failed: { code: null, signal: null, stop: "seal_aborted", detail: null } };
+  await day(out);
+  assert.equal(typeof m.SEAL_TIMEOUT_MS, "number", "the deadline of sealApart is absent");
+  const under = m.sealApart(specOf(out), { env: {}, signal: ac.signal });
+  ac.abort();
+  assert.deepEqual([await under, await m.sealApart(specOf(out), { env: {}, signal: AbortSignal.abort() })], [aborted, aborted]);
+});
+
+// killer: scripts/l2/seal.mjs:74 CONST "catch (e) { return finish(" -> "catch (e) { throw e; return finish("
+test("l2_seal_apart_never_rejects", { skip: APART }, async () => {
+  // m-2 of the G2 of c5-bis-a: a spec past what one argument holds (E2BIG), one that is not JSON, a root absent (n-8: never an empty day
+  // sealed): a named failure each, never a rejection.
+  const m = await seal(), out = fresh();
+  await day(out);
+  const of = (s: unknown): Promise<unknown> => m.sealApart(s as SealM.ApartSpec, { env: {} }).then((r) => (r as { failed?: unknown }).failed, (e: unknown) => ({ rejected: String(e) }));
+  const named = (stop: string, error: string): unknown => ({ code: null, signal: null, stop, detail: { error } });
+  assert.deepEqual(await Promise.all([of({ ...specOf(out), config: "x".repeat(200_000) }), of({ ...specOf(out), nowUs: 1n }), of(specOf(join(out, "none")))]),
+    [named("spawn_failed", "E2BIG"), named("spec_refused", "TypeError"), named("root_refused", "ENOENT")]);
+  assert.equal(existsSync(join(out, "none")), false);
+});
+
+// killer: scripts/l2/seal-child.mjs:26 CONST "st.nlink > 0n && " -> ""
+test("l2_seal_apart_root_deleted", { skip: APART }, async () => {
+  // r-1 of the G2 delta of c5-bis-a: a pinned root deleted since it was opened (nlink 0; the child's mkdir spun there to the deadline) is refused at once.
+  const m = await seal(), out = fresh(), fd = openSync(mkdirSync(out, { recursive: true }) ?? out, "r");
+  rmSync(out, { recursive: true });
+  assert.deepEqual(await m.sealApart(specOf(`/proc/self/fd/${String(fd)}`), { timeoutMs: 5_000 }).finally(() => { closeSync(fd); }), { sealed: false, failed: { code: 1, signal: null, stop: "out_not_l2", detail: { extra: [], why: UNPINNED } } });
+});
+
+// killer: scripts/l2/seal.mjs:64 CONST "given === undefined ? undefined : null" -> "given"
+test("l2_seal_apart_io_refused", { skip: APART }, async () => {
+  // r-2 and n-9 of the G2 delta of c5-bis-a: a signal no AbortSignal, an io getter that throws: spec_refused before the root is opened; a null io is none.
+  const m = await seal(), none = join(fresh(), "none"), named = (stop: string, error: string): unknown => ({ code: null, signal: null, stop, detail: { error } });
+  const of = (io: unknown): Promise<unknown> => Promise.resolve().then(async () => await m.sealApart(specOf(none), io as never)).then((r) => (r as { failed?: unknown }).failed, (e: unknown) => ({ rejected: String(e) }));
+  assert.deepEqual(await Promise.all([of({ signal: {} }), of({ signal: new EventTarget() }), of({ get env(): never { throw new RangeError("io"); } }), of(null)]),
+    [named("spec_refused", "TypeError"), named("spec_refused", "TypeError"), named("spec_refused", "RangeError"), named("root_refused", "ENOENT")]);
+});
+
+// killer: scripts/l2/seal.mjs:60 CONST "child?.kill(\"SIGKILL\")" -> "0"
+test("l2_seal_apart_child_killed", { skip: APART }, async () => {
+  // r-3 (M4) of the G2 delta of c5-bis-a: past the deadline or on abort the child is dead, not left to seal: no day sealed after a seal's time.
+  const m = await seal(), [a, b] = [fresh(), fresh()], ac = new AbortController();
+  await day(a); await day(b);
+  const ends = [m.sealApart(specOf(a), { timeoutMs: 1 }), m.sealApart(specOf(b), { signal: ac.signal })], slept = new Promise((r) => { ac.abort(); setTimeout(r, 3_000); });
+  assert.deepEqual([...(await Promise.all(ends)).map((r) => r.sealed), await slept, ...[a, b].map((o) => existsSync(join(dayDir(o), "SHA256SUMS")))], [false, false, undefined, false, false]);
+});
+
+// killer: scripts/record-binance-l2.mjs:257 CONST ".sort()" -> ""
+test("l2_tails_of_the_last_segment_by_name", async () => {
+  // m-3 of the G2 of c5-bis-a: the last segment of a connection is the last by name, whatever order its directory lists them in.
+  const m = await command(), c = await crashed(m, 1), real = fs.readdirSync;
+  fs.readdirSync = ((...a: Parameters<typeof real>) => (real(...a) as unknown as string[]).sort().reverse()) as unknown as typeof real;
+  syncBuiltinESMExports();
+  try { assert.equal(m.markTails(c.at, clocks).length, 1); } finally { fs.readdirSync = real; syncBuiltinESMExports(); }
+});
+
+// killer: scripts/l2/segments.mjs:70 CONST "await f.sync?.()" -> "f.sync?.()"
+test("l2_segment_closed_once_synced", async () => {
+  // m-3: a file of a segment closes once its fsync has ended, never once it was asked.
+  const ops: string[] = [], file = (name: string): SegmentFile => ({ appendFile: () => Promise.resolve(), close: () => { ops.push(`${name} close`); return Promise.resolve(); },
+    sync: () => new Promise<void>((r) => { setTimeout(() => { ops.push(`${name} synced`); r(); }, 5); }) });
+  const w = openWriter(fresh(), cidOf("spot", "BTCUSDT", START), { wallUs: () => START, monoNs: () => 1n, open: (p) => Promise.resolve(file(p.endsWith(".frames") ? "frames" : "index")) });
+  w.push("a");
+  await w.close();
+  assert.deepEqual(["frames", "index"].map((n) => ops.filter((o) => o.startsWith(n))), [["frames synced", "frames close"], ["index synced", "index close"]]);
+});
+
+// killer: scripts/l2/segments.mjs:67 CONST "; await syncDir(dir);" -> ";"
+test("l2_segment_dir_synced", async () => {
+  // n-6 of the G2 of c5-bis-a: once a segment's two files exist, conn/<cid>/ is synced, as sealDay syncs the day's directory.
+  const p = createRequire(import.meta.url)("node:fs/promises") as { open: typeof import("node:fs/promises").open }, real = p.open, out = fresh(), cid = cidOf("spot", "BTCUSDT", START), synced: string[] = [];
+  p.open = (async (...a: Parameters<typeof real>) => { const h = await real(...a), s = h.sync.bind(h); h.sync = async () => { synced.push(String(a[0])); await s(); }; return h; });
+  syncBuiltinESMExports();
+  try {
+    const w = openWriter(out, cid, { wallUs: () => START, monoNs: () => 1n });
+    w.push("a");
+    await w.close();
+  } finally { p.open = real; syncBuiltinESMExports(); }
+  assert.ok(synced.includes(join(out, "conn", cid)), "conn/<cid>/ synced");
+});
+
+// killer: scripts/l2/links.mjs:204 CONST "for (const w of live.values()) w.cut();" -> "cur?.w.cut();"
+test("l2_link_cut_in_an_overlap", async () => {
+  // m-3: cut() reaches each writer the link holds, the old connection's during an overlap too.
+  const out = fresh(), h = handLink(out), seg = segmentOf(h.clock.now), first = h.cid();
+  h.ws.onmessage({ data: "a" });
+  h.clock.now += 1_000; // a millisecond on: the new connection's <cid>
+  h.ws.onmessage({ data: JSON.stringify({ e: "serverShutdown" }) });
+  const second = cidOf("spot", "BTCUSDT", h.clock.now);
+  assert.equal(h.socks.length, 2, "a new connection opened");
+  h.socks[1]!.onopen();
+  h.socks[1]!.onmessage({ data: "b" });
+  h.clock.now += 3_600 * S;
+  h.link.cut();
+  assert.ok(await twice(() => h.link.closed(first, seg) && h.link.closed(second, seg)), "both segments closed");
+  await h.link.stop();
+});
+
+// killer: scripts/l2/links.mjs:181 CONST "c.w.push(e.data); fed(io, note, e.data, cid);" -> "fed(io, note, e.data, cid); c.w.push(e.data);"
+test("l2_link_hook_after_the_writer", async () => {
+  // m-3: the hook runs once the writer has the message: a hook that stops the link loses nothing of it.
+  const held: { stop?: Promise<void> } = {}, out = fresh(), h = handLink(out, () => { held.stop ??= h.link.stop(); });
+  h.ws.onmessage({ data: "a" });
+  await held.stop;
+  assert.equal(codeOf(() => readFileSync(join(out, "conn", h.cid(), `${segmentOf(h.clock.now)}.frames`), "utf8")), "a" + LF);
+});
+
+// killer: scripts/l2/links.mjs:212 CONST "catch (x) {" -> "catch (x) { throw x;"
+test("l2_link_hook_failure_named", async () => {
+  // m-4 of the G2 of c5-bis-a: a hook that throws never reaches the socket's dispatch (an uncaughtException ends the recorder): named
+  // hook_failed in the journal, the message kept by its writer, the next one fed.
+  let n = 0;
+  const out = fresh(), h = handLink(out, () => { n += 1; if (n === 1) throw new TypeError("x"); });
+  assert.doesNotThrow(() => { h.ws.onmessage({ data: "a" }); });
+  h.ws.onmessage({ data: "b" });
+  await h.link.stop();
+  assert.deepEqual([n, (journal(out) as Line[]).filter((l) => l.event === "hook_failed").map((l) => [l.cid, l.error])], [2, [[h.cid(), "TypeError"]]]);
+  assert.equal(readFileSync(join(out, "conn", h.cid(), `${segmentOf(h.clock.now)}.frames`), "utf8"), "a" + LF + "b" + LF);
 });

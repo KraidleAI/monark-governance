@@ -19,11 +19,11 @@
 // its guards the command stops, named (not_built). Test seam (point 22): run(argv, io) and main(argv, io) take the clocks, the
 // environment, execArgv, the reading of the free space and print from their caller, never from the command line nor the environment.
 // Exit 1 on a named stop (closed list STOPS), 2 on usage. The command runs when node starts this very file, compared by real paths
-// (MAIN-GUARD-REALPATH-1). adopt() (P1-c5) takes --out for the loop. The agent never commits (R-20).
-import { closeSync, constants, existsSync, fstatSync, lstatSync, mkdirSync, opendirSync, openSync, readSync, realpathSync, statfsSync, statSync, writeSync } from "node:fs";
+// (MAIN-GUARD-REALPATH-1). adopt() (P1-c5) takes --out for the loop, markTails() (P1-c5-bis-a) marks tails at its start. The agent never commits (R-20).
+import { closeSync, constants, existsSync, fstatSync, lstatSync, mkdirSync, opendirSync, openSync, readdirSync, readFileSync, readSync, realpathSync, statfsSync, statSync, writeSync } from "node:fs";
 import { dirname, join, resolve, win32 } from "node:path";
 import { fileURLToPath } from "node:url";
-import { SYMBOLS } from "./l2/links.mjs";
+import { SYMBOLS } from "./l2/links.mjs"; import { checkTail } from "./l2/segments.mjs";
 
 export const STOPS = Object.freeze(["usage", "bad_quota", "bad_symbol", "bad_day", "proxy_refused", "env_refused", "out_not_l2",
   "out_in_git_tree", "out_too_deep", "quota_stop", "disk_short", "not_built"]);
@@ -130,7 +130,7 @@ export function bytesUnder(dir, depth = 0) {
       const path = join(dir, e.name);
       if (!e.isFile() && !e.isDirectory()) stop("out_not_l2", { entry: path, why: "neither a file nor a directory" });
       if (e.isDirectory() && depth === WALK_DEPTH) stop("out_too_deep", { dir: path, depth: WALK_DEPTH });
-      sum += e.isDirectory() ? bytesUnder(path, depth + 1) : lstatSync(path).size;
+      sum += e.isDirectory() ? bytesUnder(path, depth + 1) : (lstatSync(path, { throwIfNoEntry: false })?.size ?? 0); // vanished: absent (a seal unlinks its temporary)
     }
   } finally { d.closeSync(); }
   return sum;
@@ -179,7 +179,7 @@ export function prepare(argv, io = {}) {
 /** The recorder that the start line of its journal names (n-5 of the G2 of c4); bytes of journal.jsonl read for its first line. */
 export const RECORDER = "scripts/record-binance-l2.mjs";
 const HEAD = 4096;
-const LINUX = process.platform === "linux", RACED = Object.freeze(["ENOENT", "ENOTDIR", "ELOOP"]); // m-3: a path changed under check()
+const LINUX = process.platform === "linux", RACED = Object.freeze(["ENOENT", "ENOTDIR", "ELOOP"]), CID = /^(spot|market)-[A-Z0-9]+-[0-9]{8}T[0-9]{9}Z$/; // m-3; a <cid> (segments.mjs:28)
 const DIR_OPEN = constants.O_RDONLY | (constants.O_DIRECTORY ?? 0) | (constants.O_NOFOLLOW ?? 0); // --out opened once (Linux), never through a link
 
 /** One JSON line appended to a file of --out by one write: never through a link (O_NOFOLLOW: out_not_l2, not ELOOP, n-8 of the delta G2
@@ -242,7 +242,25 @@ export function adopt(plan, io) {
     return plan.check({ at, pin });
   });
   check();
-  return { real, check };
+  return { real, at, check };
+}
+
+/** At a start, once adopt passed (Q-C1-4, P1-c5-bis-a): the last segment of each connection that the last run with an open line opened (an
+ *  earlier run's were checked at the start after it), unless already marked, gets checkTail of P1-a2; a tail found is journaled, one
+ *  tail_marked line (the head of P1-a3, then the fields of the tail), which the seal of c1 reads as the mark. `at`: adopt's root. */
+export function markTails(at, io) {
+  const lines = existsSync(join(at, "journal.jsonl")) ? readFileSync(join(at, "journal.jsonl"), "utf8").split(LF).map((t) => { try { return JSON.parse(t); } catch { return null; } }) : [];
+  let last = new Set(), run = new Set();
+  for (const l of lines) if (l?.event === "start") [last, run] = [run.size > 0 ? run : last, new Set()]; else if (l?.event === "open" && CID.test(l.cid)) run.add(l.cid);
+  const marked = new Set(lines.filter((l) => l?.event === "tail_marked").map((l) => `${l.cid}/${l.seg}`)), found = [];
+  for (const cid of run.size > 0 ? run : last) {
+    const seg = existsSync(join(at, "conn", cid)) ? readdirSync(join(at, "conn", cid)).filter((n) => n.endsWith(".frames")).sort().at(-1)?.slice(0, -7) : undefined;
+    const tail = seg === undefined || marked.has(`${cid}/${seg}`) ? null : checkTail(at, cid, seg);
+    if (tail === null) continue;
+    appendLine(join(at, "journal.jsonl"), { host_us: io.wallUs(), mono_ns: String(io.monoNs()), symbol: cid.split("-")[1], cid, event: "tail_marked", ...tail });
+    found.push(tail);
+  }
+  return found;
 }
 
 /** One run: its guards, then a named stop until the loop (P1-c5) and the replay (P1-c6) are built. */
