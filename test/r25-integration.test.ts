@@ -1149,3 +1149,48 @@ test("r25s_every_trunk_asset_passes_its_structure - each of the 45 declared bina
   const failed = assets.filter((p) => !(passes(p.slice(p.lastIndexOf(".") + 1), { p: blobOf(p) }).p ?? false));
   assert.deepEqual([assets.length, failed], [45, []]);
 });
+
+// Lot R25-ASSET-PNG-HARDEN-1 (items R25-ASSET-FIXED-CHUNK-SIZE-1 and R25-ASSET-INFLATE-CAP-1, G2 of R25-ASSET-STRUCTURE-1, findings 2 and
+// 3; ADR-M003 D9 quindecies). A PNG chunk of fixed size by the specification has that size (by colour type for sBIT, bKGD, tRNS; tRNS of a
+// palette image at most one byte per PLTE entry), each chunk but IDAT appears once, and the pixel data is refused past an absolute cap
+// before inflating. Fixtures in memory, as above.
+const splitIdat = (p: Buffer): Buffer => { const at = p.indexOf("IDAT") + 4, n = p.readUInt32BE(at - 8), d = p.subarray(at, at + n); return Buffer.concat([p.subarray(0, at - 8), pngChunk("IDAT", d.subarray(0, 5)), pngChunk("IDAT", d.subarray(5)), p.subarray(at + n + 4)]); };
+
+// killer: scripts/lot-size-integration.mjs:266 CONST "n !== (" -> "false && ("
+// killer: scripts/lot-size-integration.mjs:254 CONST "gAMA: 4" -> "gAMA: 65000"
+// killer: scripts/lot-size-integration.mjs:254 CONST "IEND: 0, " -> ""
+// killer: scripts/lot-size-integration.mjs:254 CONST "cHRM: 32" -> "cHRM: 33"
+test("r25s_png_fixed_size_chunks_have_their_spec_length - in the trunk logo, gAMA of 4 bytes, cHRM of 32, sRGB of 1, pHYs of 9 pass; a gAMA of 65 000 bytes of text, a gAMA of 5, a cHRM of 33, an sRGB of 2, a pHYs of 10 and an IEND carrying one byte are refused (they pass before the lot)", () => {
+  const logo = blobOf("out/logo.png"), at = (t: string, d: Buffer | string): Buffer => beforeIend(logo, pngChunk(t, d));
+  assert.deepEqual(passes("png", {
+    gAMA: at("gAMA", Buffer.from("0000b18f", "hex")), cHRM: at("cHRM", Buffer.alloc(32, 1)), sRGB: at("sRGB", Buffer.from([0])), pHYs: at("pHYs", Buffer.from("00000b1300000b1301", "hex")),
+    gAMAText: at("gAMA", "console.log('run me');\n".repeat(2826).padEnd(65000, "/")), gAMA5: at("gAMA", Buffer.alloc(5)), cHRM33: at("cHRM", Buffer.alloc(33, 1)), sRGB2: at("sRGB", Buffer.from([0, 0])), pHYs10: at("pHYs", Buffer.alloc(10)),
+    iendByte: Buffer.concat([logo.subarray(0, logo.length - 12), pngChunk("IEND", "\n")]),
+  }), { gAMA: true, cHRM: true, sRGB: true, pHYs: true, gAMAText: false, gAMA5: false, cHRM33: false, sRGB2: false, pHYs10: false, iendByte: false });
+});
+
+// killer: scripts/lot-size-integration.mjs:265 CONST " || (t !== \"IDAT\" && seen.has(t))" -> ""
+// killer: scripts/lot-size-integration.mjs:265 CONST "t !== \"IDAT\" && " -> ""
+// killer: scripts/lot-size-integration.mjs:266 CONST "Math.min(n, seen.get(\"PLTE\") / 3)" -> "n"
+// killer: scripts/lot-size-integration.mjs:254 CONST "sBIT: [1, null, 3, 3, 2, null, 4]" -> "sBIT: [1, null, 3, 3, 2, null, 3]"
+// killer: scripts/lot-size-integration.mjs:254 CONST "tRNS: [2, null, 6]" -> "tRNS: [2, null, 6, null, null, null, 6]"
+// killer: scripts/lot-size-integration.mjs:254 CONST "bKGD: [2, null, 6, 1, 2, null, 6]" -> "bKGD: [2, null, 6, 2, 2, null, 6]"
+test("r25s_png_colour_chunks_fit_the_colour_type_once_each - sBIT, bKGD and tRNS pass at the size of their colour type (greyscale 1, 2, 2; truecolour 3, 6, 6; palette bKGD 1 and tRNS up to one byte per PLTE entry; truecolour with alpha sBIT 4, bKGD 6) and are refused at another size, tRNS in an image with alpha, tRNS longer than the palette or before it; a second gAMA is refused, two IDAT chunks pass (a second gAMA passes before the lot)", () => {
+  const logo = blobOf("out/logo.png"), at = (t: string, h: string): Buffer => beforeIend(logo, pngChunk(t, Buffer.from(h, "hex"))), plte = pngChunk("PLTE", Buffer.from("000000ffffff", "hex"));
+  const c = (t: string, h: string): Buffer => pngChunk(t, Buffer.from(h, "hex")), pal = (...more: Buffer[]): Buffer => pngOf(2, 1, 3, 0, Buffer.from([0, 0, 1]), more);
+  assert.deepEqual(passes("png", {
+    sBIT4: at("sBIT", "08080808"), bKGD6: at("bKGD", "000000000000"), sBIT3: at("sBIT", "080808"), bKGD2: at("bKGD", "0000"), tRNSAlpha: at("tRNS", "000000000000"),
+    grey: pngOf(2, 1, 0, 0, Buffer.from([0, 0, 0]), [c("sBIT", "08"), c("bKGD", "0000"), c("tRNS", "0000")]), greyTRNS6: pngOf(2, 1, 0, 0, Buffer.from([0, 0, 0]), [c("tRNS", "000000000000")]),
+    rgb: pngOf(1, 1, 2, 0, Buffer.from([0, 0, 0, 0]), [c("sBIT", "080808"), c("bKGD", "000000000000"), c("tRNS", "000000000000")]),
+    palette: pal(plte, c("tRNS", "00ff"), c("bKGD", "01")), paletteTRNS3: pal(plte, c("tRNS", "00ff00")), tRNSFirst: pal(c("tRNS", "00"), plte),
+    twice: beforeIend(logo, c("gAMA", "0000b18f"), c("gAMA", "0000b18f")), twoIdat: splitIdat(pngOf(4, 3, 6, 0, Buffer.alloc(51, 1))),
+  }), { sBIT4: true, bKGD6: true, sBIT3: false, bKGD2: false, tRNSAlpha: false, grey: true, greyTRNS6: false, rgb: true, palette: true, paletteTRNS3: false, tRNSFirst: false, twice: false, twoIdat: true });
+});
+
+// killer: scripts/lot-size-integration.mjs:254 CONST "PNG_INFLATE_MAX = 2 ** 26" -> "PNG_INFLATE_MAX = 2 ** 27"
+// killer: scripts/lot-size-integration.mjs:271 CONST "size <= PNG_INFLATE_MAX" -> "size < PNG_INFLATE_MAX"
+test("r25s_png_pixel_data_is_capped_before_inflating - a greyscale image of 8191 x 8192 (64 MiB of pixel data with its filter bytes, the cap) passes; one row more is refused `pixel data size` before inflating, and so is a 16384 x 16384 header (256 MiB declared) with a short stream (one row more passes before the lot)", () => {
+  const zeros = Buffer.alloc(8192 * 8193), png = (lsi.ASSET_STRUCTURE as Record<string, Structure> | undefined)?.png;
+  const cap = pngOf(8191, 8192, 0, 0, zeros.subarray(0, 8192 * 8192)), over = pngOf(8191, 8193, 0, 0, zeros), header = pngOf(16384, 16384, 0, 0, zeros.subarray(0, 16385));
+  assert.deepEqual([png?.(cap), png?.(over), png?.(header)], [null, "pixel data size", "pixel data size"]);
+});
