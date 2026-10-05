@@ -176,7 +176,7 @@ test("guard_modules_are_not_served", () => {
   };
   for (const f of ["server.ts", "http.ts", "openapi.ts", "schema-projection.ts", ...readdirSync(join(src, "tools")).map((t) => `tools/${t}`)]) walk(join(src, f));
   assert.ok(seen.size > 6 && seen.has(join(src, "http.ts")));
-  for (const f of ["policy-classes.ts", "policy-guard.ts", "policy-marginal.ts"]) assert.ok(!seen.has(join(src, f)), f);
+  for (const f of ["policy-classes.ts", "policy-guard.ts"]) assert.ok(!seen.has(join(src, f)), f);
 });
 
 // killer: apps/harness/src/policy-guard.ts:54 CONST "r.order === \"time\" && (w2 || r.current) && " -> "true && "

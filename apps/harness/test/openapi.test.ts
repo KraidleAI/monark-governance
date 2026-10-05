@@ -120,7 +120,7 @@ test("openapi_generated_matches_frozen_schemas", () => {
   const calibrateOut = responseStructured(spec, "calibrate");
   assert.deepEqual(
     calibrateOut["required"],
-    ["qhat", "n", "alpha", "method", "set_digest", "label", "reason"],
+    ["qhat", "n", "alpha", "method", "scores_sha256", "label", "reason"],
     "calibrate response requires the 7 D3 fields (reason IN the schema, M-5)",
   );
   assert.equal(calibrateOut["additionalProperties"], false, "calibrate response is a closed envelope");

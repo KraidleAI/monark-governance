@@ -13,7 +13,7 @@ import { createHash } from "node:crypto";
 import { readdirSync, readFileSync, statSync } from "node:fs";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
-import { assertClosedGateDecision } from "@monark/contracts";
+import { assertClosedGateDecision, scoresSha256 } from "@monark/contracts";
 import type { Prediction, AttestedPrice } from "@monark/contracts";
 import { splitQuantile } from "@monark/hikae";
 import {
@@ -118,13 +118,13 @@ test("u4b_gate_liq_serves_committed_stratum_and_abstains_elsewhere", () => {
     const d = runGate(liqPred(yhat), LIQ_PARAMS);
     assertClosedGateDecision(d);
     assert.equal(d.verdict.reason, "covered", `yhat=${String(yhat)}: the committed stratum is covered`);
-    assert.equal(d.verdict.region.kind, "interval", "the wire kind stays interval (frozen contract, delta D-1)");
-    if (d.verdict.region.kind !== "interval") continue;
+    assert.equal(d.verdict.region?.kind, "interval", "the wire kind stays interval (frozen contract, delta D-1)");
+    if (d.verdict.region?.kind !== "interval") continue;
     assert.equal(d.verdict.region.lo, 0, "the lower edge is 0 by construction (upper bound, never symmetric)");
     assert.equal(d.verdict.region.hi, yhat + q.qhat, "the upper edge is yhat + q-hat of the committed stratum");
     assert.equal(d.verdict.qhat, q.qhat, "the verdict carries the committed q-hat");
     assert.equal(d.verdict.n_calib, s0.scores.length, "n_calib is the committed stratum size");
-    assert.equal(d.verdict.calib_digest, s0.digestPinned, "the verdict carries the committed stratum digest");
+    assert.equal(d.verdict.scores_sha256, scoresSha256(s0.scores), "the verdict carries the committed stratum digest");
     assert.equal(d.action, "defer", "L3: a covered bound wider than tauInterval defers (clock open)");
     assert.equal(d.reason, "interval_too_wide", "L3 top-level reason (not the coverage reason)");
   }
@@ -137,7 +137,7 @@ test("u4b_gate_liq_serves_committed_stratum_and_abstains_elsewhere", () => {
     assert.equal(d.verdict.reason, "under_calib", "verdict reason under_calib");
     assert.equal(d.verdict.n_calib, 0, "n_calib 0: no committed scores for this stratum");
     assert.equal(d.verdict.qhat, null, "qhat null on an uncommitted stratum");
-    assert.equal(d.verdict.region.kind, "set", "under_calib carries the empty SET region (never a covered bound)");
+    assert.equal(d.verdict.region, null, "under_calib carries no region (never a covered bound)");
   }
 });
 
