@@ -4,7 +4,7 @@
 // and the replay (n-5 of the G2 of c3); in this order: bestTap, deriveDay with its tap, canonDay with the tap's result (Q-C3-4); the
 // parts' manifest keys disjoint, and their missing.json keys, else stray_file, nothing written; provisional bounds of L2-MINUTES-SIZE-1
 // (minutes.jsonl 64 MiB, twice a run of canonDay 32 MiB) until its joint measure under the unit; this module and the command hashed into
-// script_sha256 beside the modules of the day (Q-C1-8, Q-C4-5). The agent never commits (R-20).
+// script_sha256 beside the modules of the day (Q-C1-8, Q-C4-5), and the child that seals for the loop (Q-C5B-4, as its G2 asks). The agent never commits (R-20).
 import { bestTap, canonDay } from "./canon.mjs";
 import { DayStop, sealDay } from "./day.mjs";
 import { deriveDay } from "./derive.mjs";
@@ -28,7 +28,7 @@ export function hookOf(scale, bounds = SEAL_BOUNDS) {
     const best = bestTap({ scale, start: ctx.start, end: ctx.end });
     const dv = deriveDay({ ...ctx, scale, bound: bounds.minutes, tap: best.tap });
     const cv = canonDay({ ...ctx, best: best.result(), bound: bounds.canon });
-    return mergeDerived(ctx.symbol, ctx.day, [dv, cv, { modules: ["seal", COMMAND] }]);
+    return mergeDerived(ctx.symbol, ctx.day, [dv, cv, { modules: ["seal-child", "seal", COMMAND] }]);
   };
 }
 
@@ -51,20 +51,20 @@ const CHILD = fileURLToPath(new URL("./seal-child.mjs", import.meta.url)), TAIL 
 /** sealOf of `spec` in a child process (header): spec.out (adopt's `at`) opened here once as a directory, the child's fd 3, its dev and
  *  ino in the spec; closed(cid, seg) is false for the "cid/seg" of spec.open. sealOf's result, or { sealed: false, failed: { code, signal,
  *  stop, detail } }: a named stop of the child, its death (detail: the tail of its stderr), root_refused, spec_refused, spawn_failed,
- *  seal_timeout past timeoutMs, seal_aborted on `signal`; never rejects, never pending past timeoutMs. */
+ *  seal_timeout past timeoutMs, seal_aborted on `signal`, given to io.onKill at the kill, resolved on the killed child's close (n-12); never rejects, never pending past timeoutMs but for that close. */
 export function sealApart(spec, io) {
   return new Promise((done) => {
     const failed = (stop, detail = null, code = null, sig = null) => ({ sealed: false, failed: { code, signal: sig, stop, detail } });
-    let child = null, timer = null, fd = null, step = "spec_refused", text = "", err = "", signal;
+    let child = null, timer = null, fd = null, step = "spec_refused", text = "", err = "", signal, killed = null;
     const finish = (r) => { clearTimeout(timer); signal?.removeEventListener("abort", aborted); done(r); }; // the first one holds
-    const halt = (stop, detail) => { child?.kill("SIGKILL"); finish(failed(stop, detail)); };
+    const halt = (stop, detail) => { const first = killed === null; killed ??= failed(stop, detail); if (first) try { io?.onKill?.(killed); } catch { /* the caller's */ } child?.kill("SIGKILL"); }; // n-12: resolved on its close; m-1 of the G2 of c5-bis-c: told at the kill
     const aborted = () => { halt("seal_aborted"); };
     try { // a null io is none, a getter of it that throws spec_refused (n-9 of the G2 delta of c5-bis-a), so is a signal no AbortSignal (r-2)
       const { env = {}, heapMb = SEAL_HEAP_MB, timeoutMs = SEAL_TIMEOUT_MS, signal: given } = io ?? {};
-      if ((signal = given instanceof AbortSignal ? given : given === undefined ? undefined : null) === null) throw new TypeError("signal");
+      if ((signal = given instanceof AbortSignal ? given : given === undefined ? undefined : null) === null || env === null || !(typeof timeoutMs === "number" && timeoutMs > 0 && timeoutMs < 2 ** 31)) throw new TypeError("io"); // n-11
       if (signal?.aborted) return finish(failed("seal_aborted")); else step = "root_refused";
       fd = openSync(spec.out, constants.O_RDONLY | (constants.O_DIRECTORY ?? 0)); // through /proc/self/fd/<n>: the pinned directory itself
-      const st = fstatSync(fd, { bigint: true });
+      const st = fstatSync(fd, { bigint: true }); if (spec.root !== undefined && (spec.root?.dev !== String(st.dev) || spec.root?.ino !== String(st.ino))) throw Object.assign(new Error("root"), { code: "root_moved" }); // n-13: adopt's identity
       step = "spec_refused";
       const arg = JSON.stringify({ ...spec, root: { dev: String(st.dev), ino: String(st.ino) } });
       step = "spawn_failed";
@@ -74,11 +74,11 @@ export function sealApart(spec, io) {
     } catch (e) { return finish(failed(step, { error: e?.code ?? e?.name ?? null })); } finally { if (fd !== null) closeSync(fd); }
     child.stdout.setEncoding("utf8").on("data", (d) => { text += d; });
     child.stderr.setEncoding("utf8").on("data", (d) => { err = (err + d).slice(-TAIL); });
-    child.on("error", (e) => { finish(failed("spawn_failed", { error: e.code ?? null })); });
+    child.on("error", (e) => { finish(killed ?? failed("spawn_failed", { error: e.code ?? null })); });
     child.on("close", (code, sig) => {
       let line = null;
       try { line = JSON.parse(text); } catch { line = null; }
-      finish(code === 0 && line?.result ? line.result : failed(line?.stop ?? null, line?.detail ?? (err === "" ? null : { stderr: err }), code, sig));
+      finish(killed ?? (code === 0 && line?.result ? line.result : failed(line?.stop ?? null, line?.detail ?? (err === "" ? null : { stderr: err }), code, sig)));
     });
   });
 }

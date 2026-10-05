@@ -11,10 +11,10 @@
 // included, G2 B-1; whole files under a content conflict, its largest diff to a parent under a structural one, G2 B-4;
 // at least its combined diff without renames, delta2 B-5); at most the written count W. A PR whose contribution M^1..M exceeds a bound proves nothing (G2 B-2).
 // Anything else (no or foreign proof, a non-candidate PR, an unproven commit touching the gate, git < 2.40,
-// an error) returns W: the module is never a source of green.
+// an error) returns W: the module is never a source of green. `pin --ci <ci.yml> --base <ref>` prints the pinned read of the job's W, or refuses (refusals).
 import { execFileSync } from "node:child_process";
 import { readFileSync, rmSync, statSync, writeFileSync } from "node:fs";
-import { pathToFileURL } from "node:url";
+import { pathToFileURL } from "node:url"; import { inflateSync } from "node:zlib";
 
 export const REPO = "KraidleAI/monark-governance";
 export const SCHEMA = "monark.r25-proof.v1";
@@ -27,11 +27,11 @@ export const BOUND_KEYS = ["VIBEGATES_PR_LIMIT", "VIBEGATES_CONTENT_LIMIT"]; // 
 const CHECK = "r25-taille-de-lot", SHA = /^[0-9a-f]{40}$/, EMPTY_TREE = "4b825dc642cb6eb9a060e54bf8d69288fbee4904";
 // Options that change a count, pinned over any user or system config so the CI and the oracle cannot diverge (G2 m-2): no user
 // attributes file (G2 m-a) nor system one (GIT_ATTR_NOSYSTEM, delta3 m-f); messages in English (counts and conflict headers are
-// parsed); GIT_DIFF_OPTS dropped (G2 B-4); git's default bigFileThreshold (delta2 m-d); attributes of the empty tree (delta2 B-6).
-// The oracle's W read takes the same PIN and env (delta3 m-g). A non-empty $GIT_DIR/info/attributes, that --attr-source does not replace, is an error: W (delta3 m-f).
+// parsed); GIT_DIFF_OPTS dropped (G2 B-4); git's default bigFileThreshold (delta2 m-d); attributes of attrTree, not the tree's (B-6), matched case-sensitively (a clone on NTFS sets core.ignorecase).
+// The oracle's W read takes the same PIN and env (delta3 m-g), and so do the r25 job's two W counts, through `pin` (O-1). A non-empty $GIT_DIR/info/attributes, that --attr-source does not replace, is an error: W (delta3 m-f).
 export const infoAttributes = (cwd) => (statSync(execFileSync("git", ["-C", cwd, "rev-parse", "--path-format=absolute", "--git-path", "info/attributes"], { encoding: "utf8", env: GIT_ENV() }).trim(), { throwIfNoEntry: false })?.size ?? 0) > 0;
-export const PIN = ["-c", "merge.conflictStyle=merge", "-c", "diff.algorithm=myers", "-c", "diff.renames=true", "-c", "merge.renames=true", "-c", "merge.directoryRenames=conflict", "-c", "diff.suppressBlankEmpty=false", "-c", "core.attributesFile=", "-c", "core.bigFileThreshold=512m"];
-export const GIT_ENV = () => ({ ...process.env, GIT_DIFF_OPTS: undefined, LC_ALL: "C", GIT_ATTR_NOSYSTEM: "1" }); const gitIn = (cwd, raw = false) => (...a) => { const o = execFileSync("git", ["-C", cwd, `--attr-source=${EMPTY_TREE}`, ...PIN, ...a], { encoding: "utf8", maxBuffer: 1 << 30, stdio: ["ignore", "pipe", "pipe"], env: GIT_ENV() }); return raw ? o : o.trim(); };
+export const PIN = ["-c", "merge.conflictStyle=merge", "-c", "diff.algorithm=myers", "-c", "diff.renames=true", "-c", "merge.renames=true", "-c", "merge.directoryRenames=conflict", "-c", "diff.suppressBlankEmpty=false", "-c", "core.attributesFile=", "-c", "core.bigFileThreshold=512m", "-c", "core.ignorecase=false"];
+export const GIT_ENV = (base = process.env) => ({ ...base, GIT_DIFF_OPTS: undefined, LC_ALL: "C", GIT_ATTR_NOSYSTEM: "1" }); const gitIn = (cwd, raw = false, src = attrTree(cwd)) => (...a) => { const o = execFileSync("git", ["-C", cwd, `--attr-source=${src}`, ...PIN, ...a], { encoding: "utf8", maxBuffer: 1 << 30, stdio: ["ignore", "pipe", "pipe"], env: GIT_ENV() }); return raw ? o : o.trim(); };
 const rows = (s) => s.split("\n").filter((l) => l !== "");
 
 /** Candidate (G0 2.2): head and target in L, both in this repository, distinct; read from GitHub's PR object only. */
@@ -167,6 +167,166 @@ const fetchApi = (root, token) => async (path, deadline) => {
 };
 const ghApi = async (path) => JSON.parse(execFileSync("gh", ["api", path.slice(1)], { encoding: "utf8", maxBuffer: 1 << 28, timeout: 30_000 }));
 
+/** The r25 job's two `git diff --shortstat` counts (W, the lines R25_DIFF_RE reads) under the read of the module and the oracle (lot
+ * R25-ATTR-SOURCE-1, G7 O-1, ADR-M003 D9 undecies): shell lines the job evaluates first. PIN as command-scope config (GIT_CONFIG_COUNT;
+ * GIT_CONFIG_PARAMETERS, read after it, dropped), GIT_ENV, and the attributes of attrTree (GIT_ATTR_SOURCE, git >= 2.40): a
+ * .gitattributes of the measured tree (-diff, binary, a diff driver) no longer lowers W. Refused (W unread, the job red): git < 2.40, a
+ * non-empty $GIT_DIR/info/attributes, that GIT_ATTR_SOURCE does not replace. */
+export function pinShell(cwd) {
+  const v = /(\d+)\.(\d+)/.exec(execFileSync("git", ["--version"], { encoding: "utf8", env: GIT_ENV() })) ?? ["", "0", "0"];
+  if (Number(v[1]) * 1000 + Number(v[2]) < 2040) throw new Error(`git ${v[0]} is older than 2.40: no GIT_ATTR_SOURCE`);
+  if (infoAttributes(cwd)) throw new Error("$GIT_DIR/info/attributes is not empty: GIT_ATTR_SOURCE does not replace it");
+  const kv = PIN.filter((_, i) => PIN[i - 1] === "-c").map((a) => [a.slice(0, a.indexOf("=")), a.slice(a.indexOf("=") + 1)]);
+  const env = { ...GIT_ENV({}), GIT_CONFIG_PARAMETERS: undefined, GIT_ATTR_SOURCE: attrTree(cwd), GIT_CONFIG_COUNT: String(kv.length), ...Object.fromEntries(kv.flatMap(([k, x], i) => [[`GIT_CONFIG_KEY_${i}`, k], [`GIT_CONFIG_VALUE_${i}`, x]])) };
+  return Object.entries(env).map(([k, x]) => (x === undefined ? `unset ${k}` : `export ${k}='${x.replaceAll("'", "'\\''")}'`)).join("\n");
+}
+
+/** The attributes every count reads, in place of the empty tree's (lot R25-GUARDS-1, item R25-NUL-BINARY-1, ADR-M003 D9 duodecies). A
+ * content git detects as binary (a NUL byte in its first 8 000) counted 0 lines; every path is now text for diff and counts its lines,
+ * under both pathspecs, but the closed list of binary assets the repository holds, each in its own directory (measured on the trunk),
+ * left to git's detection. Written to the object store of `cwd` (two objects, the same bytes each time), then proven in force by check-attr. */
+export const BINARY_ASSETS = ["apps/site/app/fonts/*.ttf", "apps/site/public/bell/anchors/*.ots", "docs/bell-publications/*.ots", "docs/course-bell/*.ots", "docs/dojo-publications/*.ots", "fixtures/*.cbor", "out/*.jpg", "out/*.png", "test/fixtures/*.ots"];
+export const ATTRIBUTES = `* diff\n${BINARY_ASSETS.map((p) => `${p} !diff\n`).join("")}`;
+const PROBES = `probe.mjs: diff: set\n${BINARY_ASSETS[0].replaceAll("*", "probe")}: diff: unspecified`; // a code path and an asset path
+export function attrTree(cwd) {
+  const g = (a, input, env = GIT_ENV()) => execFileSync("git", ["-C", cwd, ...a], { input, encoding: "utf8", env }).trim();
+  const id = g(["mktree"], `100644 blob ${g(["hash-object", "-w", "--no-filters", "--stdin"], ATTRIBUTES)}\t.gitattributes\n`);
+  // An id absent from the store reads no attribute, silently: the read of `pin` (GIT_ATTR_SOURCE; --attr-source sets it) must see them.
+  const read = g([...PIN, "check-attr", "diff", "--", ...PROBES.split("\n").map((l) => l.slice(0, l.indexOf(": ")))], undefined, { ...GIT_ENV(), GIT_ATTR_SOURCE: id });
+  if (read !== PROBES) throw new Error(`attribute tree ${id} not in force: check-attr read ${read.replaceAll("\n", "; ")}`);
+  return id;
+}
+
+/** The paths R-25 refuses before any count (lot R25-GUARDS-2, items R25-ASSET-DIR-MAGIC-1, R25-CR-ONLY-LINES-1 and R25-GITLINK-SYMLINK-1,
+ * ADR-M003 D9 terdecies), each `<reason> <path as a JSON string>`, sorted. On the range of the two counts, `<base>...HEAD`, under either pathspec of `specs`:
+ * a gitlink (its code lives in another repository) or a symlink (it counts its target); a declared binary asset (a path attrTree leaves to
+ * git's detection) whose first bytes are not one of the magic numbers of its format, measured on the trunk; any other path holding a CR not
+ * followed by LF, or a JS line separator (U+2028, U+2029): JS ends a line there, git does not. Read from objects only (no work tree, no
+ * autocrlf, no filesystem symlink, no .gitmodules `ignore`); deletions pass; a UTF-16/32 byte order mark is refused. A declared asset past its magic is parsed by ASSET_STRUCTURE (D9 quindecies). Residual, said as is: a polyglot in a legitimate field of its format passes. */
+export const ASSET_MAGIC = { cbor: Array.from({ length: 32 }, (_, i) => (0xa0 + i).toString(16)), jpg: ["ffd8ff"], ots: ["004f70656e54696d657374616d7073000050726f6f6600bf89e2e884e8929401"], png: ["89504e470d0a1a0a"], ttf: ["00010000"] };
+export function refusals(cwd, base, specs) {
+  const g = (a, input, env = GIT_ENV()) => execFileSync("git", ["-C", cwd, ...PIN, ...a], { input, env, maxBuffer: 1 << 30, stdio: ["pipe", "pipe", "pipe"] });
+  const bare = BINARY_ASSETS.map((p) => p.slice(p.lastIndexOf(".") + 1)).filter((x) => !Object.hasOwn(ASSET_MAGIC, x) || !Object.hasOwn(ASSET_STRUCTURE, x));
+  if (bare.length > 0) throw new Error(`no magic number or no structure check for the declared assets ${bare.join(", ")}`);
+  const to = new Map(), out = [], files = [];
+  for (const s of specs) { // paths as latin1 strings: their bytes, whatever their encoding
+    const f = g(["diff", "--raw", "-z", "--no-renames", "--no-abbrev", "--ignore-submodules=none", `${base}...HEAD`, "--", ...s]).toString("latin1").split("\0");
+    for (let i = 0; i + 1 < f.length; i += 2) { const m = /^:\d{6} (\d{6}) [0-9a-f]+ ([0-9a-f]+) [A-Z]$/.exec(f[i]); if (m === null) throw new Error(`unread --raw entry ${f[i]}`); to.set(f[i + 1], [m[1], m[2]]); }
+  }
+  for (const [p, [mode, id]] of to) if (mode === "160000") out.push(`gitlink ${p}`); else if (mode === "120000") out.push(`symlink ${p}`); else if (mode !== "000000") files.push([p, id]);
+  if (files.length > 0) {
+    const a = g(["check-attr", "-z", "--stdin", "diff"], Buffer.from(files.map(([p]) => `${p}\0`).join(""), "latin1"), { ...GIT_ENV(), GIT_ATTR_SOURCE: attrTree(cwd) }).toString("latin1").split("\0");
+    const asset = new Set(a.filter((_, i) => i % 3 === 0 && a[i + 2] === "unspecified")), batch = g(["cat-file", "--batch"], files.map(([, id]) => `${id}\n`).join(""));
+    let at = 0;
+    for (const [p, id] of files) {
+      const nl = batch.indexOf(10, at), [got, type, size] = batch.subarray(at, nl).toString("latin1").split(" ");
+      if (got !== id || type !== "blob") throw new Error(`blob ${id} of ${named(Buffer.from(p, "latin1").toString("utf8"))} unread`);
+      const b = batch.subarray(nl + 1, nl + 1 + Number(size));
+      at = nl + 2 + b.length;
+      if (asset.has(p)) { const x = p.slice(p.lastIndexOf(".") + 1); if (!(ASSET_MAGIC[x] ?? []).some((h) => b.subarray(0, h.length / 2).toString("hex") === h)) out.push(`asset-magic ${p}`); else if (ASSET_STRUCTURE[x](b) !== null) out.push(`asset-structure ${p}`); continue; }
+      for (let i = b.indexOf(13); i >= 0; i = b.indexOf(13, i + 1)) if (b[i + 1] !== 10) { out.push(`bare-cr ${p}`); break; }
+      if (b.includes("\u2028") || b.includes("\u2029")) out.push(`line-separator ${p}`); if (/^(fffe|feff|0000feff)/.test(b.subarray(0, 4).toString("hex"))) out.push(`utf16-bom ${p}`);
+      if (LONG_LINE_PATHS[p] !== id && overlong(b) && !(p.endsWith(".json") && /^[\x20-\x7e]*$/.test(p) && !/(^|\/)(package|\.?devcontainer|tasks|deno|turbo|vercel|composer)\.json$/i.test(p) && isJson(b))) out.push(`long-line ${p}`);
+    }
+  }
+  return out.map((r) => `${r.slice(0, r.indexOf(" "))} ${named(Buffer.from(r.slice(r.indexOf(" ") + 1), "latin1").toString("utf8"))}`).sort(); // one ASCII line each
+}
+
+/** Code on one long line counted 1 line and runs (lot R25-MINIFIED-LINE-1, ADR-M003 D9 quaterdecies). A text path of `refusals` is refused
+ * `long-line` when one of its lines (the bytes between two LF, a CR included, the last one with or without a final LF) is longer than
+ * LINE_MAX bytes, measured on the trunk, but a `.json` path whose blob parses as JSON (Node reads it as data; `.jsonl`, `.csv`, `.txt` and any
+ * other extension run as CommonJS), never a non-ASCII path or a JSON file a tool runs (any ASCII case), and the blobs of LONG_LINE_PATHS. */
+export const LINE_MAX = 2000, LONG_LINE_PATHS = { "docs/biblio/procurements-M015/_raw/tradexyz_llms_full.txt": "3989315d68addc8ea3bb6e5cd0ee7dcd6f8bf326" };
+function overlong(b) { // memchr steps over the blob: no string built, one pass even for a single line of a gibibyte
+  for (let at = 0, nl = 0; at <= b.length; at = nl + 1) { nl = b.indexOf(10, at); if (nl < 0) nl = b.length; if (nl - at > LINE_MAX) return true; }
+  return false;
+}
+function isJson(b) { try { JSON.parse(b.toString("utf8")); return true; } catch { return false; } } // decodes the blob: called on a long-line .json only
+function named(s) { return JSON.stringify(s).replace(/[\[\u007f-\uffff]/g, (c) => `\\u${c.charCodeAt(0).toString(16).padStart(4, "0")}`); } // one ASCII name: no `::`, no `##[`
+
+/** The end of structure of each declared asset format, past its magic (lot R25-ASSET-STRUCTURE-1, item R25-ASSET-POLYGLOT-1, option (c)
+ * reduced, ADR-M003 D9 quindecies): null, or why the blob is refused `asset-structure`. A payload appended after the format's end (a zip
+ * archive, read from its end) or held in a metadata chunk, segment, table, operation or attestation outside the closed lists measured on the
+ * trunk (45 assets, 0 refused) is refused. A free field of an admitted part (PNG palette and deflate stream, JPEG tables and entropy data,
+ * TrueType tables, OpenTimestamps operands of at most OTS_OPERAND_MAX bytes and pending branches, CBOR strings) is not: hardening, not closure. */
+const CRC = Array.from({ length: 256 }, (_, n) => { for (let k = 0; k < 8; k++) n = n & 1 ? 0xedb88320 ^ (n >>> 1) : n >>> 1; return n >>> 0; });
+const crc32 = (b) => { let c = ~0; for (const x of b) c = CRC[(c ^ x) & 255] ^ (c >>> 8); return ~c >>> 0; }; // zlib.crc32 is Node >= 20.15 only
+export const PNG_CHUNKS = ["IHDR", "PLTE", "IDAT", "IEND", "tRNS", "gAMA", "cHRM", "sRGB", "iCCP", "pHYs", "bKGD", "sBIT"], JPEG_SEGMENTS = [0xc0, 0xc1, 0xc2, 0xc4, 0xdb, 0xdd, 0xda];
+export const TTF_TABLES = ["DSIG", "GDEF", "GPOS", "GSUB", "HVAR", "OS/2", "STAT", "avar", "cmap", "cvt ", "fpgm", "fvar", "gasp", "glyf", "gvar", "head", "hhea", "hmtx", "loca", "maxp", "name", "post", "prep"];
+export const OTS_CALENDARS = ["alice.btc.calendar.opentimestamps.org", "bob.btc.calendar.opentimestamps.org", "btc.calendar.catallaxy.com", "calendar.invalid", "finney.calendar.eternitywall.com"], OTS_OPERAND_MAX = 89;
+const ADAM7 = [[0, 0, 8, 8], [4, 0, 8, 8], [0, 4, 4, 8], [2, 0, 4, 4], [0, 2, 2, 4], [1, 0, 2, 2], [0, 1, 1, 2]];
+function png(b) { // chunks with their CRC, IHDR first, IEND last and nothing after it; PLTE on a palette image only; one zlib stream of the exact pixel size
+  if (b.length < 33 || b.readUInt32BE(8) !== 13 || b.toString("latin1", 12, 16) !== "IHDR") return "IHDR first";
+  const w = b.readUInt32BE(16), h = b.readUInt32BE(20), depth = b[24], color = b[25], idat = [], row = (x) => 1 + Math.ceil((x * depth * ({ 0: 1, 2: 3, 3: 1, 4: 2, 6: 4 }[color] ?? NaN)) / 8);
+  for (let o = 8; ; ) {
+    if (o + 12 > b.length) return "no IEND";
+    const n = b.readUInt32BE(o), t = b.toString("latin1", o + 4, o + 8);
+    if (n > b.length - o - 12 || crc32(b.subarray(o + 4, o + 8 + n)) !== b.readUInt32BE(o + 8 + n)) return `chunk ${t} overruns or fails its CRC`;
+    if (!PNG_CHUNKS.includes(t) || (t === "PLTE" && color !== 3) || (t === "IHDR" && o !== 8)) return `chunk ${t}`;
+    if (t === "IDAT") idat.push(b.subarray(o + 8, o + 8 + n));
+    o += 12 + n;
+    if (t === "IEND") { if (o !== b.length) return `${b.length - o} bytes after IEND`; break; }
+  }
+  const z = Buffer.concat(idat), size = b[28] === 0 ? h * row(w) : ADAM7.reduce((s, [x, y, dx, dy]) => s + (w > x && h > y ? Math.ceil((h - y) / dy) * row(Math.ceil((w - x) / dx)) : 0), 0);
+  if (((z[2] >> 1) & 3) === 0) return "stored deflate block";
+  try { const { buffer, engine } = inflateSync(z, { info: true, maxOutputLength: Math.max(1, size) }); return buffer.length === size && engine.bytesWritten === z.length ? null : "pixel data size"; } catch { return "pixel data"; }
+}
+function jpg(b) { // segments of the closed list, entropy data to the next marker but RSTn, EOI and nothing after it
+  for (let o = 2; o + 1 < b.length; ) {
+    const m = b[o + 1];
+    if (b[o] !== 0xff) return `no marker at ${String(o)}`;
+    if (m === 0xd9) return o + 2 === b.length ? null : `${String(b.length - o - 2)} bytes after EOI`;
+    if (!JPEG_SEGMENTS.includes(m) || o + 4 > b.length) return `segment ff${m.toString(16)}`;
+    o += 2 + b.readUInt16BE(o + 2);
+    if (m === 0xda) while (o + 1 < b.length && !(b[o] === 0xff && b[o + 1] !== 0 && (b[o + 1] & 0xf8) !== 0xd0)) o++;
+  }
+  return "no EOI";
+}
+function ttf(b) { // tags of the closed list, ascending; tables in offset order, 0 to 3 NUL bytes before each and after the last, nothing else
+  const n = b.length < 12 ? 0 : b.readUInt16BE(4), dir = [];
+  if (n === 0 || 12 + 16 * n > b.length) return "table directory";
+  for (let i = 0, r = 12; i < n; i++, r += 16) dir.push([b.toString("latin1", r, r + 4), b.readUInt32BE(r + 8), b.readUInt32BE(r + 12)]);
+  if (dir.some(([t], i) => !TTF_TABLES.includes(t) || (i > 0 && t <= dir[i - 1][0]))) return "table tags";
+  let end = 12 + 16 * n;
+  for (const [t, off, len] of dir.sort((x, y) => x[1] - y[1])) { if (off < end || off - end > 3 || b.subarray(end, off).some((x) => x !== 0)) return `bytes before ${t}`; end = off + len; }
+  return end <= b.length && b.length - end <= 3 && !b.subarray(end).some((x) => x !== 0) ? null : "bytes after the last table";
+}
+function ots(b) { // readOtsProof of apps/site/lib/bell-anchors.ts in plain JS (header and version read as the magic), and no unknown attestation, a pending URI of the closed list, operands of at most OTS_OPERAND_MAX bytes
+  let i = 32;
+  const byte = () => { if (i >= b.length) throw new Error("truncated proof"); return b[i++]; };
+  const varuint = () => { for (let v = 0, s = 1, k = 0; k < 8; k++, s *= 128) { const x = byte(); v += (x & 0x7f) * s; if (x < 0x80) return v; } throw new Error("varuint too long"); };
+  const varbytes = (max, min = 0) => { const n = varuint(); if (n > max || n < min || i + n > b.length) throw new Error("varbytes out of bounds"); i += n; return b.subarray(i - n, i); };
+  const item = (t, d) => {
+    if (t === 0x00) {
+      const tag = b.toString("hex", i, (i += 8)), p = varbytes(8192), at = i;
+      if (tag === "0588960d73d71901") { i -= p.length; varuint(); }
+      else if (tag === "83dfe30d2ef90c8e") { i -= p.length; const u = varbytes(1000).toString("latin1"); if (!OTS_CALENDARS.some((h) => u === `https://${h}`)) throw new Error("calendar outside the list"); }
+      else throw new Error(`attestation ${tag}`);
+      if (i !== at) throw new Error("attestation payload");
+    } else if (t === 0xf0 || t === 0xf1) { varbytes(OTS_OPERAND_MAX, 1); tree(d + 1); }
+    else if ([0xf2, 0xf3, 0x02, 0x03, 0x08, 0x67].includes(t)) tree(d + 1);
+    else throw new Error(`operation ${t.toString(16)}`);
+  };
+  const tree = (d) => { if (d > 256) throw new Error("recursion limit"); let t = byte(); while (t === 0xff) { item(byte(), d); t = byte(); } item(t, d); };
+  try { const op = byte(); i += { 8: 32, 2: 20, 3: 20 }[op] ?? NaN; if (!(i <= b.length)) return "file hash"; tree(0); } catch (e) { return e.message; }
+  return i === b.length ? null : "bytes after the proof";
+}
+function cbor(b) { // one well-formed item, definite lengths, depth at most 64, nothing after it
+  let i = 0;
+  const item = (d) => {
+    const x = b[i++], ai = x & 31, k = [1, 2, 4, 8][ai - 24];
+    if (x === undefined || d > 64 || ai > 27 || i + (k ?? 0) > b.length) throw new Error("item");
+    const n = k === undefined ? ai : Number(k === 8 ? b.readBigUInt64BE(i) : b.readUIntBE(i, k));
+    i += k ?? 0;
+    if (x >> 5 === 2 || x >> 5 === 3) { if (n > b.length - i) throw new Error("string"); i += n; }
+    else if (x >> 5 === 4 || x >> 5 === 5) for (let j = 0; j < n * (x >> 5 === 5 ? 2 : 1); j++) item(d + 1);
+    else if (x >> 5 === 6) item(d + 1);
+  };
+  try { item(0); } catch (e) { return e.message; }
+  return i === b.length ? null : "bytes after the item";
+}
+export const ASSET_STRUCTURE = { cbor, jpg, ots, png, ttf };
+
 if (process.argv[1] !== undefined && import.meta.url === pathToFileURL(process.argv[1]).href) {
   const [cmd, ...argv] = process.argv.slice(2), opt = (k, n = 1) => (argv.includes(k) ? argv.slice(argv.indexOf(k) + 1, argv.indexOf(k) + 1 + n) : []);
   try {
@@ -187,6 +347,14 @@ if (process.argv[1] !== undefined && import.meta.url === pathToFileURL(process.a
       const r = effective({ cwd: process.cwd(), ciText: readFileSync(ci, "utf8"), base, proof, written: w.map(Number) });
       for (const d of [`mode ${r.mode}`, ...r.detail]) console.error(`r25-integration: ${d}`);
       console.log(`${r.mode} ${r.code} ${r.content}`);
-    } else throw new Error("usage: lot-size-integration.mjs proof|count ...");
-  } catch (e) { console.error(`r25-integration: ${String(e.message).split("\n")[0]}`); process.exitCode = 2; }
+    } else if (cmd === "pin") {
+      const [ci] = opt("--ci"), [base] = opt("--base");
+      if (!ci || !base) throw new Error("usage: pin --ci <ci.yml> --base <ref>: the changed paths are checked before the read is printed");
+      const shell = pinShell(process.cwd()), refused = refusals(process.cwd(), base, specsOf(readFileSync(ci, "utf8")));
+      for (const r of refused) console.error(`r25-integration: refused ${r}`);
+      if (refused.length > 0) throw new Error(`${refused.length} changed path(s) refused before the count (ADR-M003 D9 terdecies, quaterdecies): no pinned read`);
+      console.log(shell);
+    }
+    else throw new Error("usage: lot-size-integration.mjs proof|count|pin ...");
+  } catch (e) { const why = String(e.stderr ?? "").trim().split("\n").at(-1); console.error(`r25-integration: ${String(e.message).split("\n")[0]}${why ? ` (${why})` : ""}`); process.exitCode = 2; }
 }
