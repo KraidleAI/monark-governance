@@ -8,9 +8,9 @@
 // proof only when every page answered 200 (any old file is removed first). `count` prints ONE stdout line
 // `<mode> <code> <content>` (detail on stderr). Only mode `integration` lowers a count, to the sum over the commits no
 // proving merged PR carries: (b) diff to the parent, (a) `git show --remerge-diff` of a merge (a PR's own merge M
-// included, G2 B-1; whole files under a content conflict, its largest diff to a parent under a structural one, G2 B-4);
-// at most the written count W. A PR whose contribution M^1..M exceeds a bound proves nothing (G2 B-2).
-// Anything else (no or foreign proof, a non-candidate PR, an unproven commit touching the gate, git < 2.36,
+// included, G2 B-1; whole files under a content conflict, its largest diff to a parent under a structural one, G2 B-4;
+// at least its combined diff without renames, delta2 B-5); at most the written count W. A PR whose contribution M^1..M exceeds a bound proves nothing (G2 B-2).
+// Anything else (no or foreign proof, a non-candidate PR, an unproven commit touching the gate, git < 2.40,
 // an error) returns W: the module is never a source of green.
 import { execFileSync } from "node:child_process";
 import { readFileSync, rmSync, writeFileSync } from "node:fs";
@@ -27,9 +27,11 @@ export const BOUND_KEYS = ["VIBEGATES_PR_LIMIT", "VIBEGATES_CONTENT_LIMIT"]; // 
 const CHECK = "r25-taille-de-lot", SHA = /^[0-9a-f]{40}$/, EMPTY_TREE = "4b825dc642cb6eb9a060e54bf8d69288fbee4904";
 // Options that change a count, pinned over any user or system config so the CI and the oracle cannot diverge (G2 m-2); no
 // user attributes file (`* -diff` there would hide every line, G2 m-a); messages in English (the counts and the conflict
-// headers are parsed: a translated git would read 0); GIT_DIFF_OPTS dropped (its -u0 would beat --unified, G2 B-4).
-const PIN = ["-c", "merge.conflictStyle=merge", "-c", "diff.algorithm=myers", "-c", "diff.renames=true", "-c", "merge.renames=true", "-c", "merge.directoryRenames=conflict", "-c", "diff.suppressBlankEmpty=false", "-c", "core.attributesFile="];
-const gitIn = (cwd, raw = false) => (...a) => { const o = execFileSync("git", ["-C", cwd, ...PIN, ...a], { encoding: "utf8", maxBuffer: 1 << 30, stdio: ["ignore", "pipe", "pipe"], env: { ...process.env, GIT_DIFF_OPTS: undefined, LC_ALL: "C" } }); return raw ? o : o.trim(); };
+// headers are parsed: a translated git would read 0); GIT_DIFF_OPTS dropped (its -u0 would beat --unified, G2 B-4); git's
+// default bigFileThreshold (a machine's 1 makes every file binary, delta2 m-d); attributes of the empty tree only (a measured
+// .gitattributes merge=union would make a conflicted merge clean, delta2 B-6; git >= 2.40).
+const PIN = ["-c", "merge.conflictStyle=merge", "-c", "diff.algorithm=myers", "-c", "diff.renames=true", "-c", "merge.renames=true", "-c", "merge.directoryRenames=conflict", "-c", "diff.suppressBlankEmpty=false", "-c", "core.attributesFile=", "-c", "core.bigFileThreshold=512m"];
+const gitIn = (cwd, raw = false) => (...a) => { const o = execFileSync("git", ["-C", cwd, `--attr-source=${EMPTY_TREE}`, ...PIN, ...a], { encoding: "utf8", maxBuffer: 1 << 30, stdio: ["ignore", "pipe", "pipe"], env: { ...process.env, GIT_DIFF_OPTS: undefined, LC_ALL: "C" } }); return raw ? o : o.trim(); };
 const rows = (s) => s.split("\n").filter((l) => l !== "");
 
 /** Candidate (G0 2.2): head and target in L, both in this repository, distinct; read from GitHub's PR object only. */
@@ -77,7 +79,7 @@ export function boundsOf(ciText) {
   });
 }
 
-const metric = (stat) => ["insertion", "deletion"].reduce((n, w) => n + Number(new RegExp(`(\\d+) ${w}`).exec(stat)?.[1] ?? 0), 0);
+const metric = (stat) => { if (stat.trim() !== "" && !/ (insertion|deletion)/.test(stat)) throw new Error(`unread --shortstat ${stat.trim()}`); return ["insertion", "deletion"].reduce((n, w) => n + Number(new RegExp(`(\\d+) ${w}`).exec(stat)?.[1] ?? 0), 0); }; // never 0 unread (delta2 O-2)
 // The new material of one commit: (b) diff to its parent; (a) a merge's remerge-diff (its conflict resolutions and any
 // line added to a clean merge); a root or an octopus: the full diff to the empty tree or the first parent (fail-closed).
 const change = (c, ps) => (ps.length === 2 ? ["show", "--remerge-diff", "--format=", c] : ["diff", ps[0] ?? EMPTY_TREE, c]);
@@ -94,13 +96,22 @@ function remerged(patch) {
   }
   return n;
 }
+/** A merge's combined diff without renames (G2 delta2 B-5): the lines of M absent at the same path from EACH parent; a merge's
+ * rename detection (file or directory) carries lines its remerge-diff never shows. A floor: null (structural) stays null. */
+const both = (r, k) => (r === null ? null : Math.max(r, k));
+const COMBINED = ["show", "--cc", "--no-renames", "--no-ext-diff", "--no-textconv", "--no-color", "--unified=0", "--format="];
+function combined(patch) {
+  let n = 0, h = false;
+  for (const l of patch.split("\n")) if (/^diff --(cc|combined) /.test(l)) h = false; else if (l.startsWith("@@@")) h = true; else if (h && /[+-]/.test(l.slice(0, 2))) n++;
+  return n;
+}
 
 /** The counts R-25 compares to its bounds (G0 section 3). written = [code, content] as counted today (W). */
 export function effective({ cwd, ciText, base, proof, written }) {
   const out = (mode, code = written[0], content = written[1], detail = []) => ({ mode, code, content, detail });
   try {
     const git = gitIn(cwd), raw = gitIn(cwd, true), v = /(\d+)\.(\d+)/.exec(git("--version")) ?? ["", "0", "0"];
-    if (Number(v[1]) * 1000 + Number(v[2]) < 2036) throw new Error(`git ${v[0]} has no --remerge-diff (2.36)`);
+    if (Number(v[1]) * 1000 + Number(v[2]) < 2040) throw new Error(`git ${v[0]} is older than 2.40 (--remerge-diff 2.36, --attr-source 2.40): the count of today`);
     const specs = specsOf(ciText), b = git("rev-parse", "--verify", "--end-of-options", `${base}^{commit}`);
     const [head, p1, p2] = git("rev-list", "--parents", "-n", "1", "HEAD").split(" "), heads = p2 !== undefined && p1 === b ? [head, p2] : [head];
     if (!(proof?.schema === SCHEMA && proof.repo === REPO && proof.complete === true && Array.isArray(proof.merged) && heads.includes(proof.pr?.head_sha))) return out("unproven");
@@ -110,7 +121,7 @@ export function effective({ cwd, ciText, base, proof, written }) {
       if (proven.has(c)) continue;
       // A merge whose remerge-diff hides what a conflict kept (null: a structural conflict) counts, like its gate check, its
       // largest diff to a parent (G2 B-4, fail-closed).
-      const per = specs.map((s) => (ps.length === 2 ? remerged(raw(...REMERGE, c, "--", ...s)) : metric(git(...change(c, ps), "--shortstat", "--", ...s))));
+      const per = specs.map((s) => (ps.length === 2 ? both(remerged(raw(...REMERGE, c, "--", ...s)), combined(raw(...COMBINED, c, "--", ...s))) : metric(git(...change(c, ps), "--shortstat", "--", ...s))));
       const odd = per.includes(null), views = odd ? ps.map((p) => ["diff", p, c]) : [change(c, ps)];
       const gate = views.some((v) => git(...v, "--name-only", "-z").split("\0").some((f) => GATE_FILES.some((g) => f === g || (g.endsWith("/") && f.startsWith(g)))));
       if (gate) return out("gate-files", written[0], written[1], [`${c} touches the gate unproven: every line counts`]);
