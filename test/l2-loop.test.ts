@@ -736,11 +736,13 @@ test("l2_record_loop_schedules", async () => {
   // FM-1.1 (plan section 3 points 13 to 15, D24-3, D24-5; n-3 of c4): across a day boundary, the place 5 s ahead: the place time at the
   // start and at minute 30; exchangeInfo at the start, then at 23:58:00 + 10 s x rank of the place; the anchors at 23:59:10 + 10 s x rank,
   // the same bytes closing D and opening D + 1; the cut on the hour (the seal of D at 00:03 waits for the segments of hour 00 alone, then
-  // seals at 01:03 at the scale of its day, once); check() at minute 5 of ten (a stray entry found at 02:15, a named stop after the clean stop).
-  const m = await command(), out = fresh(), seals: [number, string, number, unknown, string[]][] = [];
+  // seals at 01:03 at the scale of its day, once, its lock held during each call: n-4); check() at minute 5 of ten (a stray entry found at
+  // 02:15, a named stop after the clean stop).
+  const m = await command(), out = fresh(), seals: [number, string, number, unknown, string[], boolean][] = [];
   assert.equal(typeof m.calendar, "function", "the loop is absent");
   const h = host(at(0, 23, 20), place(5 * S, undefined, (now) => (now < at(0, 23, 57) ? "0.01000000" : "0.10000000")), (spec) => {
-    seals.push([h.io.wallUs!(), `${spec.symbol}/${spec.day}`, spec.scale, spec.config, [...new Set(spec.open!.map((o) => o.split("/")[1]!))]]);
+    seals.push([h.io.wallUs!(), `${spec.symbol}/${spec.day}`, spec.scale, spec.config, [...new Set(spec.open!.map((o) => o.split("/")[1]!))],
+      existsSync(join(out, "days", spec.symbol, `.${spec.day}.seal.lock`))]);
     return Promise.resolve(spec.open!.length > 0 ? { sealed: false, wait: "segments", open: spec.open! } : { sealed: true, dir: "", frames: 0 });
   });
   const run = m.run(argv(out), h.io).catch((e: unknown) => e);
@@ -749,7 +751,7 @@ test("l2_record_loop_schedules", async () => {
   await h.until(at(1, 2, 15));
   assert.deepEqual(h.fetched, [[at(0, 23, 20), TIME], ...L.SYMBOLS.map((s) => [at(0, 23, 20), ex(s)]), [at(0, 23, 30), TIME],
     ...L.SYMBOLS.map((s, r) => [at(0, 23, 57, 55 + 10 * r), ex(s)]), ...L.SYMBOLS.map((s, r) => [at(0, 23, 59, 5 + 10 * r), dp(s)]), [at(1, 0, 30), TIME], [at(1, 1, 30), TIME]]);
-  assert.deepEqual(seals, [at(1, 0, 3), at(1, 1, 3)].flatMap((t, i) => [...L.SYMBOLS].sort().map((s) => [t, `${s}/${D}`, 2, { tickSize: "0.01000000", scale: 2, rateLimits: limits(6_000) }, i === 0 ? ["20261005T00"] : []])));
+  assert.deepEqual(seals, [at(1, 0, 3), at(1, 1, 3)].flatMap((t, i) => [...L.SYMBOLS].sort().map((s) => [t, `${s}/${D}`, 2, { tickSize: "0.01000000", scale: 2, rateLimits: limits(6_000) }, i === 0 ? ["20261005T00"] : [], true])));
   const close = readFileSync(join(dayDir(out), "anchor-close.json"), "utf8");
   assert.deepEqual([close, readFileSync(join(out, "days", "BTCUSDT", "2026-10-05", "anchor-open.json"), "utf8")], [BOOK, BOOK]);
   assert.equal(((await run) as { code?: string }).code, "out_not_l2");
