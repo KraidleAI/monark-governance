@@ -9,8 +9,9 @@
   - décisions déléguées : `avis/DECISION-PolicyRow-Q1-Q3.md` (`117eb289…37ba4`, Q-1 condition 4, Q-3) ; `…/2026-10-04-CM-4b-avis/DECISION-CM-4b-C1-C11.md` (`bee35dbc…bb5a`) : C-1 condition 2 et 5, C-3 condition 3, C-4 (forme L3), C-9 (forme avant ce G0), C-10, C-11 condition 2 ; avis lus : `AVIS-advisor-PolicyRow-Q1-Q3.md`, `AVIS-advisor-CM-4b-C1-C11.md` ;
   - G0 et G7 sur la base : `docs/G0-lot-cm-3c-1.md`, `docs/G7-lot-cm-3c-1.md` (bloc A) ; `docs/G0-lot-cm-4a-i.md`, `docs/G7-lot-cm-4a-i.md` (B1) ; `docs/G0-lot-cm-4a-ii.md`, `docs/G7-lot-cm-4a-ii.md`, `docs/G7-lot-cm-4a-ii-b.md` (B2) ; `docs/G0-lot-served-pending-1.md`, `docs/G7-lot-served-pending-1.md` ; `docs/G0-lot-ukemi-pending-1.md`, `docs/G7-lot-ukemi-pending-1.md` (item UKEMI-PENDING-SNAPSHOT-1, déclencheur : ce G0) ; W2E-TAIL-1 / TAIL-TS-COUNTS-1 (`docs/ETAT.md` du tronc, #135 sur la base) ; CM-4b lot a : `docs/G0-lot-cm-4b.md` et `docs/G7-lot-cm-4b.md` de `origin/recherches/cm-4b` (`12577be9`, PR #141) ;
   - messages de MONARK depuis le 2026-10-04, dont : `…-Q1-Q3-controle.md` (ENGINE-ROW-RETIRE-PATH-1 : sortie déclarée), `…-128-129-130.md` (Q-SP1-6 confirmée), `…-SERVED-PENDING-1-Q.md`, `…-UKEMI-PENDING-1-Q.md`, `…-CM-4b-Z.md` (Z-1 à Z-6), `…-CM-4b-croisement.md`, `…-D-7-accord.md` (D = 7 jours), `…-138-139.md`, `2026-10-05-MONARK-vers-RECHERCHES-141-et-audit-P3.md` (S-8 au bloc C, sinon D ; #141 en fusion).
-- **Base** : `origin/base/chantier-moteur-2026-10-03` = **`e6dc5542`** (refetchée : `git fetch origin '+refs/heads/*:refs/remotes/origin/*'`). **#141 (CM-4b lot a) n'est pas encore fusionnée** (PR ouverte, tête `12577be9` ; MONARK annonce la fusion à la CI verte). Ce G0 part donc de `e6dc5542` et le note : le code ne part qu'après la fusion de #141, sur la nouvelle tête (précondition P-1). La base porte A, B1, B2, SERVED-PENDING-1, UKEMI-PENDING-1 et `tail.ts`. Branche `recherches/cm-3c-2`, arbre `/home/user/monark-governance-blc`. Auteur : RECHERCHES.
-- **Statut** : G0 écrit **avant tout code**, arrêté sur les questions de la section 12. Rien n'est poussé, aucune PR n'est ouverte.
+- **Base (amendée 2026-10-05)** : `origin/base/chantier-moteur-2026-10-03` = **`87f6081c`**, fusion de #141 (CM-4b lot a, tête `12577be9`), oracle de MONARK vert (2 311 tests, 0 échec) ; la base est fusionnée dans `recherches/cm-3c-2` par un commit de fusion (aucun conflit : ce G0 ne porte que de la documentation). #141 ne touche aucune ancre citée ici (`kata-path.ts`, `policy-classes.ts`, `policy-guard.ts`, aides de test, deux docs) ; `gate.ts:62` et `verify-harness.mjs:41` inchangés. P-1 rempli. Le reste de cette puce est l'état du G0 initial.
+- **Base initiale** : `origin/base/chantier-moteur-2026-10-03` = **`e6dc5542`** (refetchée : `git fetch origin '+refs/heads/*:refs/remotes/origin/*'`). **#141 (CM-4b lot a) n'est pas encore fusionnée** (PR ouverte, tête `12577be9` ; MONARK annonce la fusion à la CI verte). Ce G0 part donc de `e6dc5542` et le note : le code ne part qu'après la fusion de #141, sur la nouvelle tête (précondition P-1). La base porte A, B1, B2, SERVED-PENDING-1, UKEMI-PENDING-1 et `tail.ts`. Branche `recherches/cm-3c-2`, arbre `/home/user/monark-governance-blc`. Auteur : RECHERCHES.
+- **Statut** : G0 écrit **avant tout code**, arrêté sur les questions de la section 12. **Amendé le 2026-10-05** (section 14) : Q-M1 à Q-M16 répondues par MONARK, Q-C1 à Q-C5 décidées (décision déléguée), Q-F1 et Q-F2 répondues par le fondateur. Branche poussée, aucune PR ouverte.
 
 ## 1. Constat principal : le bloc C ne tient pas dans une PR de 1 205
 
@@ -109,6 +110,7 @@ Contre le servi actuel (déploiement de l'étape 4, `harness-served.json` `77d7b
 | 6 | B-16 | C' | largeur nulle : `region: null`, raison `region_degenerate` (verdict et L3) au lieu de `under_calib` |
 | 7 | S-8 (B-8) | C' (Q-M13) | texte liq des strates s1 à s3 en `under_calib` : texte de la classe, plus la phrase calibrée |
 | 8 | OPENAPI-ERROR-CODE-1 | C' | `/openapi.json` décrit `code` du 400 et le 500 `output_invalid` |
+| 9 | B-11 amendée, Q-C2 (ajout du 2026-10-05) | C2 (3c-3b) | une enveloppe `gate` non écrivable canoniquement (I-JSON, RFC 7493) rend **400 `param_invalid`** au lieu de **200** : surrogate isolée dans une chaîne libre (`intent`, `tool`, `yhat` chaîne en mode ensemble) ; littéral numérique hors binary64 (`1e400`) sur `yhat` ou `intent` (aujourd'hui `non_evaluable`, ou écho, par exemple `intent: null`). Conversion de la seule `RangeError` de `requestSha256`, au calcul de `request_sha256`, après tous les contrôles existants (`scores` `[1e400]` reste `byo_calibration_invalid` ; `tau` `1e400` reste `param_invalid` ; `yhat` `"\ud800"` en intervalle reste `byo_yhat_type`) ; `calibrate` `[1e400]` → `calibrate_input_invalid`. Aucun code neuf. **Précondition** : la ligne datée de l'ADR-CM contrôlée par MONARK (P-10 ; liste r4, ligne 21), et une phrase de NOTICE-1-1-0 |
 
 **Ne change pas** : l'ordre de décision L3 (plan §3) ; la description kata (bloc D) ; les contrats d'attestation (`AttestedPrice`, `AttestedFlow`, `AttestedBook` restent en 1.0.0 : `packages/monark/src/adapter-*.ts`, `apps/sentinel/src/flow.ts:50`, `scripts/record-usde-calib.mjs:57`) ; les pages du site (servi jusqu'à T0, décision Q-SP1-2) ; `HARNESS_VERSION` (acte de MONARK à T0).
 
@@ -132,6 +134,8 @@ Contre le servi actuel (déploiement de l'étape 4, `harness-served.json` `77d7b
 | S-8 | appel liq en s1 : texte de classe ; en s0 : phrase calibrée | texte choisi sur la présence au registre (l'ancien critère) |
 | OPENAPI | réponse 400 du document : `code` égal au catalogue | `CONST` : un code retiré |
 | LIQ-BAND-EXACT-GUARD-1 | une ligne s3 forgée de même q̂ refusée au chargement servi | `SDL` de l'appel à `guardMarginalTable` au chargement |
+| B-11, Q-C1 (2026-10-05) | quatre verdicts BYO (intervalle et ensemble, servis et `under_calib`) : `qhat_unit` du mode, `scale` nul | `CONST "label" -> "score"` sur la branche intervalle |
+| B-11, Q-C2 (2026-10-05) | cinq vecteurs I-JSON (HTTP et MCP) ⇒ 400 `param_invalid` ; refus existants gardent leur code ; trois paires de même `request_sha256` | `SDL` de la conversion (500 revient) ; `ROR` qui convertit toute exception |
 
 ## 6. Ré-épinglages
 
@@ -163,12 +167,12 @@ Les 5 raisons (`calib_silence`, `calib_vetoed`, `calib_retired`, `out_of_support
 
 ## 8. Préconditions
 
-- **P-1. #141 fusionnée** sur la base (`PENDING` de `kata-path.test.ts`, `KATA_REASONS`, `servedPolicyTables`) ; ce G0 est alors rebasé, et le code part de la nouvelle tête. État : PR ouverte, fusion annoncée par MONARK.
+- **P-1. #141 fusionnée** sur la base (`PENDING` de `kata-path.test.ts`, `KATA_REASONS`, `servedPolicyTables`) ; ce G0 est alors rebasé, et le code part de la nouvelle tête. État : PR ouverte, fusion annoncée par MONARK. **État 2026-10-05 : rempli** (`87f6081c`, oracle vert, 2 311 tests, 0 échec) ; G0 fusionné avec la base.
 - **P-2. Actes M-5 de MONARK** :
   - §1 (ADR-M001 D9-ter, `docs/adr/ADR-M001-phase0-depot-langage-contrats.md:242`) et §2 (ADR-PUBLIC-CADENCE-1 §17, l.420) : **en place** à `e6dc5542` ;
   - **§3, avant le G0 de 3c-2** : **en place** (ADR-M011 §7, `ADR-M011-interval-non-degenerescence.md:189` ; ADR-M002 l.145 et l.266) ;
-  - actes restants nommés par l'amendement 9, **non faits** : ADR-M001 Décision 4 et C5 (`calib_digest`), ADR-M005 K-4 (c) (l.100, `"1.0.0"`), ADR-M007 B-7 (l.38, l.40, l.76, `set_digest`), ADR-M010 l.38 et l.139, `CONTRIBUTING.md:56-57`. Échéance proposée : avant la fusion de C2 (Q-M7).
-- **P-3. ADR-CM-AMEND-3-1** : l'amendement 9 (« 2026-10-04 (3) », B-11 amendée, B-17, items), base des lignes servies de C2, **n'est ni sur la base ni au tronc** (dernier amendement : « 2026-10-04 (2) », l.219). PR de documentation (étape 7 du plan §8.1), avec les lignes datées que ce G0 ajoute (Q-M8), avant le code de C1.
+  - actes restants nommés par l'amendement 9, **non faits** : ADR-M001 Décision 4 et C5 (`calib_digest`), ADR-M005 K-4 (c) (l.100, `"1.0.0"`), ADR-M007 B-7 (l.38, l.40, l.76, `set_digest`), ADR-M010 l.38 et l.139, `CONTRIBUTING.md:56-57`. Échéance proposée : avant la fusion de C2 (Q-M7). **État 2026-10-05** : Q-M7 répondue (« je les applique avant la fusion de C2 ») ; textes rédigés dans la pièce `recherches:coordination/pieces/2026-10-05-bloc-C-textes-ADR/TEXTES-ADR-bloc-C.md` (sha256 dans son `SHA256SUMS`), ancres à `87f6081c` ; à appliquer par MONARK **avant la fusion de C2** ; ne bloque pas C1.
+- **P-3. ADR-CM-AMEND-3-1** : l'amendement 9 (« 2026-10-04 (3) », B-11 amendée, B-17, items), base des lignes servies de C2, **n'est ni sur la base ni au tronc** (dernier amendement : « 2026-10-04 (2) », l.219). PR de documentation (étape 7 du plan §8.1), avec les lignes datées que ce G0 ajoute (Q-M8), avant le code de C1. **État 2026-10-05** : Q-M8 répondue ; PR de documentation rédigée sur la branche `recherches/adr-cm-amendement-9` (depuis `87f6081c`, fichier `docs/adr/ADR-CM-chantier-moteur-audit-P3.md`, même octets à la base et au tronc), poussée sans PR : texte r3 §2 à l'octet, puis huit lignes datées du 2026-10-05 (Q-F3 close ; D = 7 jours ; découpe C1, C2, C' ; B-8 en C' ; refus I-JSON de Q-C2 ; go Q-F1 ; go Q-F2 ; items LATE-CALL-WINDOW-1 et UKEMI-PENDING-SNAPSHOT-1). La lecture de D9-ter (Q-M1) et la ligne Z-3 (Q-M12) restent des lignes de MONARK, non dupliquées. **Contrôle de MONARK avant le code de C1.**
 - **P-4. Ouvertures de zone** (par nom et durée ; Q-M3) :
 
   | Fichiers | Lot | Durée |
@@ -183,11 +187,13 @@ Les 5 raisons (`calib_silence`, `calib_vetoed`, `calib_retired`, `out_of_support
   | `fixtures/byo-demo-trace.json`, `fixtures/h5-e2e-trace.json`, `fixtures/PROVENANCE-byo-demo.md`, `PROVENANCE-h5-e2e-trace.md`, `PROVENANCE-usde.md` | C2 | jusqu'à la fusion de C2 |
   | `test/byo-demo-builder.ts`, `test/byo-demo-probe.test.ts`, `test/h5-trace-builder.ts`, `test/h5-e2e-probe.test.ts`, `test/harness-served.test.ts`, `test/narabi-live.test.ts` (l.540-547), `test/fixtures-root.test.ts`, `test/verify-harness-liq.test.ts`, `test/sas-audit.test.ts`, `test/site-ukemi.test.ts` (trois littéraux), `test/ci-gates.test.ts` (l.853-855 et, si mesuré, la liste fermée de `frozen_contract_fields_stay_dynamic`) | C2, C' | jusqu'à la fusion de C' |
 
-- **P-5. SERVED-PENDING-1** : **fusionnée** (#132, `7a0b1a49`) ; Q-SP1-6 confirmée par MONARK (`pending_since` arrive avec le bloc C, nom `monark-site-harness-pending-v1`) ; **Q-SP1-7 sans réponse** (trois déclarations dans `scripts/sync-harness-served.d.mts`, Q-M9) ; m6 réglé par UKEMI-PENDING-1 (`CA_SCHEMA_VERSION`, changée avec `gate.ts:62`).
-- **P-6. UKEMI-PENDING-SNAPSHOT-1** fusionné sur la base avant C2 (section 10, Q-M5).
-- **P-7. Textes et sources des trois tables marginales** (USDe, liq, cascade) fixés par la ligne datée de MONARK (Z-3) avant le code de C2, et go du fondateur sur leur publication (Q-M12, Q-F1).
-- **P-8. Classe cascade `additive-band`** : contrôlée par MONARK à ce G0 (G0 de B2, « Pli de la G2 », dernière puce ; ligne r4 4 : « avant que le bloc C publie l'entrée de classe ») (Q-M11).
-- **P-9. Révision r4 des pièces** (lignes 4 et 17 au moins) écrite par RECHERCHES avant le G7 de C2 (Q-M15).
+- **P-5. SERVED-PENDING-1** : **fusionnée** (#132, `7a0b1a49`) ; Q-SP1-6 confirmée par MONARK (`pending_since` arrive avec le bloc C, nom `monark-site-harness-pending-v1`) ; **Q-SP1-7 sans réponse** (trois déclarations dans `scripts/sync-harness-served.d.mts`, Q-M9) ; m6 réglé par UKEMI-PENDING-1 (`CA_SCHEMA_VERSION`, changée avec `gate.ts:62`). **État 2026-10-05** : Q-M9 répondue (oui, défaut) : Q-SP1-7 tranchée, trois déclarations dans `scripts/sync-harness-served.d.mts` en C2.
+- **P-6. UKEMI-PENDING-SNAPSHOT-1** fusionné sur la base avant C2 (section 10, Q-M5). **État 2026-10-05** : Q-M5 répondue (oui) : lot à part sur la base, **avant C2**, zone de Q-UP-1 rouverte sur les fichiers nommés jusqu'à sa fusion ; prix noté ~405. Ne bloque pas C1.
+- **P-7. Textes et sources des trois tables marginales** (USDe, liq, cascade) fixés par la ligne datée de MONARK (Z-3) avant le code de C2, et go du fondateur sur leur publication (Q-M12, Q-F1). **État 2026-10-05** : **go du fondateur Q-F1 donné** (verbatim « Oui, ces 3 tables (Recommandé) ») ; Q-M12 répondue : textes = phrases servies à l'octet, `source` = provenance déjà publique ; empreintes UTF-8 relevées par MONARK à `87f6081c` (message `92efa2a`, abrégées) : `STABLE_RUN_COMMITTED_SENTENCE` 926 octets `84be45f0…e767a6`, `STABLE_RUN_UNCALIBRATED_SENTENCE` 100 octets `8ecfa679…0f53ff`, `LIQ_COMMITTED_SENTENCE` 482 octets `adaa0118…f4a39f`, `LIQ_EMPTY_REGISTRY_SENTENCE` 110 octets `94f90557…b06830`, `CASCADE_UNCALIBRATED_SENTENCE` 82 octets `2f95bc28…c33deb`. **Reste** : la ligne datée Z-3 de MONARK, empreintes complètes, au journal du tronc (prochain commit de docs), **avant le code de C2** ; C' l'ajuste par une seconde ligne (S-8, B-13). Question ouverte à MONARK : `content` servi **égal** au texte de table, ou le **contient** (Q-C3 condition 5 ; les strates liq s1 à s3 ne s'alignent qu'après S-8).
+- **P-8. Classe cascade `additive-band`** : contrôlée par MONARK à ce G0 (G0 de B2, « Pli de la G2 », dernière puce ; ligne r4 4 : « avant que le bloc C publie l'entrée de classe ») (Q-M11). **État 2026-10-05 : contrôlée** (Q-M11 : `cascadeVerdict`, `gate.ts:531` à `87f6081c`, appelle `conformInterval` ; entrée `additive-band`, `interval`, `qhat_unit: label` ; `calib: []`, verdict `under_calib`, table sans ligne).
+- **P-9. Révision r4 des pièces** (lignes 4 et 17 au moins) écrite par RECHERCHES avant le G7 de C2 (Q-M15). **État 2026-10-05** : Q-M15 répondue (oui) ; la liste r4 porte maintenant les lignes 18 à 26 (décision Q-C, go Q-F1 et Q-F2).
+- **P-10 (ajout 2026-10-05). Ligne datée de l'ADR-CM pour le refus I-JSON de Q-C2** (section 4, ligne 9 ; liste r4, ligne 21) : rédigée dans la branche de l'amendement 9 (ligne datée 2026-10-05 (5)), **contrôlée par MONARK avant la fusion de C2** ; phrase de NOTICE-1-1-0 avec l'avis (publication au go F-5a).
+- **P-11 (ajout 2026-10-05). Ligne Z-3 de MONARK** (empreintes complètes des cinq phrases, `source`) au journal du tronc, avant le code de C2 (Q-M12) ; et la ligne de MONARK sous D9-ter (lecture de Q-M1), au prochain commit de docs du tronc.
 
 ## 9. R-25 (estimation, `r25()` contre la base de chaque PR)
 
@@ -211,6 +217,11 @@ Les 5 raisons (`calib_silence`, `calib_vetoed`, `calib_retired`, `out_of_support
   - C2 > 1 205 : les corps 400 avec `code` et leurs tests (~45) passent en C' (le schéma d'erreur de C1 les décrit déjà) ;
   - 3c-4 > 547 : `canonicalRow` (~60) sort du chantier 1.1.0 (aucun octet servi).
 - Si MONARK exclut les instantanés en attente du compte R-25 (Q-M4), C2 gagne ~134 lignes de marge.
+- **Réestimation du 2026-10-05** (après Q-M4 et la décision Q-C1 à Q-C5) :
+  - Q-M4 : **compter** (`ci.yml:82` inchangé) ; la marge de ~134 n'existe pas.
+  - **C1 (3c-2) : ~540 + ~45 = ~585**, au-dessus de 547 : sondes clé par clé et liste d'écarts du schéma de table (Q-C4, conditions 2 et 3), union à trois branches et `$defs/InternalError` du schéma d'erreur, parité 29 + 3 = 32 (Q-C5, condition 1). **La coupe nommée devient probable** : la projection (~55) passe en 3c-3b, et C1 revient à ~530. Le G0 court de 3c-2 la déclare, ou la mesure au gel la rend inutile.
+  - **C2 : ~1 065 + ~25 (Q-C2 : conversion, cinq vecteurs HTTP et MCP, vecteurs d'empreinte, test `canonicalJson(JSON.parse(corps))`) + ~10 (Q-C1 : quatre verdicts BYO) + ~55 (projection reçue de C1) = ~1 155**, sous 1 205 ; marge ~50. Q-C3 (`servedMarginalTables` dans un module à part) est à coût constant (code déplacé de `kata-path.ts`, compté une fois). Si la mesure au gel dépasse, la coupe nommée de C2 (corps 400 avec `code`, ~45, vers C') s'applique, avec la condition 6 de Q-C5.
+  - C' : ~410, inchangé.
 
 ## 10. Items fermés ou déclenchés
 
@@ -236,6 +247,8 @@ Les 5 raisons (`calib_silence`, `calib_vetoed`, `calib_retired`, `out_of_support
 **Constante de la version : 300 s**, lue sur `PRODUCED_AT_FUTURE_TOLERANCE_MS` (même source que B-4), **aucune colonne de `ClassEntry`**. Raisons : la vague 1 n'a que 1h et 4h (fenêtre de 8,3 % et 2,1 % de h) ; une classe plus courte (15m, F-K-5) passe déjà par une révision datée (spec §9) ; aucune mesure de latence des appelants n'existe, et une colonne vide ou fixée à 300 partout ne dirait rien de plus. Conséquence écrite : une borne par classe après la fusion de C2 exigera une nouvelle valeur de `row_format` et un acte d'ADR. La valeur publiée reste due avant F-5a, le code et les vecteurs au lot de D qui sert `produced_at_stale`.
 
 ## 12. Questions
+
+Réponses et décisions : section 14 (amendement du 2026-10-05).
 
 ### Choix de contrat (pour un advisor, sous la délégation du fondateur ; défaut proposé)
 
@@ -276,3 +289,79 @@ Les 5 raisons (`calib_silence`, `calib_vetoed`, `calib_retired`, `out_of_support
 - **C2** : red-proof de la PR entière contre sa base au gel de 3c-3c ; tests de format F2P (rouges à la base par assertion) ; tueurs de la section 5 ; projection de C1 inchangée (aucune décision servie ne change en C2) ; liste close des rouges de 3c-3a et 3c-3b à leurs G7 ; bloc C simulé du G7 d'UKEMI-PENDING-1 rejoué (0 rouge attendu à la tête).
 - **C'** : F2P des vecteurs B-12, B-13, B-16, S-8, OPENAPI ; projection : écarts seulement sur la liste close, chacun nommé par sa ligne B.
 - **Toujours** : `verifie-ancres.mjs . --touched <base> HEAD` (0 dérivé, 0 perdu ; ancres déplacées réancrées dans le commit qui les déplace) ; `tsc --noEmit`, `eslint .`, `lint:ratchet`, `gate:vocab`, `lang:gate` (D7 decies couvre `aux_seq`, `runs_aux`, `aux_sha256` dans `policy-row.schema.json`) ; `npm test` complet à 0 rouge (Node 24.21.0, proxy retiré, TMPDIR propre ; test 42 relancé seul s'il est seul rouge) ; R-25 par `scripts/oracle/r25.mjs`.
+
+## 14. Amendement daté du 2026-10-05 : base après #141, réponses de MONARK, décision Q-C1 à Q-C5, go du fondateur Q-F1 et Q-F2
+
+- **Sources** (sha256 des octets LF ; `recherches` à `b0c079c`) :
+  - réponses de MONARK : `recherches:coordination/messages/2026-10-05-MONARK-vers-RECHERCHES-bloc-C-reponses.md` (commit `92efa2a`, `19de89cc0d0a8512bf5d2f66142b6999794f67c7757800b0feff0e5009e1eb05`) ;
+  - décision déléguée : `recherches:coordination/pieces/2026-10-05-bloc-C-avis/DECISION-bloc-C-QC1-QC5.md` (`9d3e6231866bd40f5d8dec5182711c93f6d127c89bbd83222531ab0eb79fc042`), sur l'avis `AVIS-advisor-bloc-C-QC1-QC5.md` (`754f27d4d1919dc9f26cdc56a224da68a781b68d5487889961d30aadb8296bf0`) ;
+  - go du fondateur et relais : `recherches:coordination/messages/2026-10-05-RECHERCHES-vers-MONARK-bloc-C-decisions-QF.md` (`5d6aa7bbb0961fc0fae44eb52357f70f6bcc7fabc7643753c8b44c4fe70273e2`) ;
+  - liste r4 : `…/2026-10-04-contrat-1-1-0-r4-liste/LISTE-REVISION.md`, lignes 18 à 26.
+- **Base** : `87f6081c` (#141), fusionnée dans cette branche (en-tête). Les sections 1 à 13 restent la mesure et les questions telles que posées, sauf les lignes marquées « 2026-10-05 » (en-tête, section 4 ligne 9, section 8, section 9).
+
+### 14.1 Réponses de MONARK (Q-M1 à Q-M16)
+
+| Question | Réponse | Effet |
+|---|---|---|
+| Q-M1 | **oui, trois PR** (C1, C2, C'). Lecture de D9-ter : ré-épinglage 2 en deux commits, un par lot (CM-3c-2 en C1 : deux schémas neufs, compte 7 → 9 ; CM-3c-3 en C2 : les trois schémas de verdict en 1.1.0) ; C' ne touche pas le paquet gelé ; zone ouverte jusqu'à la fusion de C2 | MONARK écrit cette lecture en ligne datée sous D9-ter (tronc) ; non dupliquée dans l'amendement 9 |
+| Q-M2 | oui : liste close des rouges à chaque G7 intermédiaire, oracle = CI de la tête de C2, red-proof de la PR entière au gel de 3c-3c | section 13 inchangée |
+| Q-M3 | oui : tableau P-4 ouvert tel qu'écrit, par nom et pour la durée de chaque ligne | P-4 rempli |
+| Q-M4 | **compter** (défaut) ; pathspec de `ci.yml:82` inchangé | section 9, réestimation |
+| Q-M5 | oui : UKEMI-PENDING-SNAPSHOT-1 lot à part sur la base avant C2, zone de Q-UP-1 rouverte jusqu'à sa fusion | P-6 |
+| Q-M6 | oui (défaut) : page Narabi et son chargeur à T0 ; C2 repointe seulement `test/narabi-live.test.ts:540-547` | section 3.4 |
+| Q-M7 | oui : RECHERCHES rédige, MONARK applique avant la fusion de C2 | pièce `2026-10-05-bloc-C-textes-ADR/TEXTES-ADR-bloc-C.md` ; P-2 |
+| Q-M8 | oui : RECHERCHES rédige la PR de documentation de l'amendement 9 avec ses lignes datées ; MONARK la contrôle avant le code de C1 | branche `recherches/adr-cm-amendement-9` ; P-3 |
+| Q-M9 | oui (défaut) : trois déclarations dans `scripts/sync-harness-served.d.mts` en C2 | P-5 |
+| Q-M10 | `retire` du bloc A reste ; aucune autre forme de preuve ; la fenêtre ferme à la fusion de C2 | section 6 : `policy-table.ts` inchangé ; section 10 |
+| Q-M11 | **contrôlée** : `cascadeVerdict` (`gate.ts:531`) → `conformInterval`, [ŷ − q̂, ŷ + q̂], unité du label ; entrée `additive-band`, `interval`, `qhat_unit: label` ; `calib: []`, verdict `under_calib`, table sans ligne | P-8 ; ligne r4 4 tenue à C2 |
+| Q-M12 | oui : textes = phrases servies à l'octet (empreintes abrégées en P-7), `source` = provenance publique ; ligne datée complète de MONARK au journal avant le code de C2 ; seconde ligne en C' (S-8, B-13) | P-7, P-11 |
+| Q-M13 | oui : S-8 en C' (bloc C), même ligne servie | section 4 ligne 7 ; ligne datée 2026-10-05 (4) de l'amendement 9 |
+| Q-M14 | oui : RECHERCHES mesure et propose les entrées de `frozen_contract_fields_stay_dynamic` ; MONARK les écrit | au G0 court de 3c-3c |
+| Q-M15, Q-M16 | oui (défauts) | P-9 ; textes publics hors pages à T0, par MONARK |
+
+### 14.2 Décision déléguée Q-C1 à Q-C5 (avec leurs conditions)
+
+Qualité : décision déléguée (RECHERCHES sur l'avis d'un advisor), sous la délégation du fondateur, verbatim « pour les choix que tu me demandes, lances des advisors spécialisés et décidez ». Ce n'est pas un go du fondateur.
+
+- **Q-C1, défaut retenu** : `qhat_unit` BYO fixé par le mode, `label` en `interval`, `score` en `set` ; `scale` toujours nul sur le BYO. Conditions : spécification r4 §5 et §8 (« on a caller-supplied calibration, fixed by its mode » ; un même `task_class` BYO peut porter deux unités ; ligne r4 18) ; tueur en 3c-3b : quatre verdicts BYO (intervalle et ensemble, servis et `under_calib`), `qhat_unit` attendu et `scale` nul, mutant `CONST "label" -> "score"` sur la branche intervalle (le contrôle fermé ne le tue pas).
+- **Q-C2, défaut retenu sur le code, élargi à I-JSON** : 400 `param_invalid` pour une **surrogate isolée** dans une chaîne libre **et** pour un **littéral numérique hors binary64** (`1e400`). **Changement servi 200 → 400** : section 4, **ligne 9**, avec la ligne datée de l'ADR-CM de MONARK pour précondition (P-10). Conditions :
+  1. lieu : au calcul de `request_sha256`, après tous les contrôles existants ; seule une `RangeError` de `requestSha256` est convertie (les refus existants gardent leur code : `scores` `[1e400]` → `byo_calibration_invalid` ; `tau` `1e400` → `param_invalid` ; `yhat` `"\ud800"` en intervalle → `byo_yhat_type`) ;
+  2. vecteurs HTTP et MCP, chacun 400 `param_invalid` : `intent` `"\ud800"` ; `tool` `"\udc00x"` ; `intent` `1e400` ; `yhat` `1e400` en BYO intervalle ; `yhat` `"\ud800"` en BYO ensemble ; vecteurs d'empreinte : `-0` et `0`, `1.0` et `1`, `0.10000000000000001` et `0.1` donnent la même `request_sha256` ;
+  3. test : `request_sha256` = sha256 de `canonicalJson(JSON.parse(corps))` ;
+  4. tueurs : `SDL` de la conversion (le 500 revient) ; `ROR` qui convertit toute exception (les vecteurs de la condition 1 rougissent) ;
+  5. ligne datée de l'ADR-CM sous B-11 amendée (rédigée : amendement 9, ligne datée 2026-10-05 (5)) et phrase de NOTICE-1-1-0 ;
+  6. `calibrate` : `scores` `[1e400]` → `calibrate_input_invalid` avant `scoresSha256`.
+  Lignes r4 19 à 21. Tueurs ajoutés à la section 5 (lot 3c-3b).
+- **Q-C3, variante du défaut** : une fonction `servedMarginalTables` dans son propre module du harnais (nom proposé `apps/harness/src/policy-served.ts`), importée par `gate.ts` en C2 et appelée par `servedPolicyTables` (`[...tables kata, ...servedMarginalTables(texts)]`, triées) : égalité par construction ; aucun code kata au graphe servi avant D. Conditions : le module n'importe ni `kata-path.ts`, ni `policy-classes.ts`, ni `policy-guard.ts`, ne porte aucun littéral de code, et `kata_path_is_not_served` liste exactement les modules `policy-*` servis ; tables construites une fois au chargement, en échec fermé ; empreinte synthétique de `kata-path.test.ts` (`d32cf528…`) inchangée (preuve du déplacement) ; textes et `source` en un seul paramètre défini dans un seul module, valeurs de la ligne Z-3 ; relation `content` ↔ `text` testée en C2 sur USDe et cascade, écart liq s1 à s3 nommé en liste close et fermé en C' ; G7 honnête : sur une table construite en processus, la comparaison de lignes de `guardMarginalTable` est une tautologie, les contrôles effectifs sont `assertPolicyTableFile` et `assertLiqBandExact` (LIQ-BAND-EXACT-GUARD-1 fermé par ce dernier) ; subordonnée à Q-F1 (donné). **Le module neuf entre au graphe servi : à signaler au contrôle par diff de C2.** Ligne r4 22. Remplace la puce `kata-path.ts` de la section 3.3.
+- **Q-C4, défaut retenu, avec un critère** : le schéma porte ce qui se dit d'une clé seule (type, nullabilité, énumération, motif, bornes entières) ; tout couplage reste au contrôle fermé et est nommé en description. Racine `{row_format, class, rows}`, `$defs` `ClassEntry` (16), `PolicyRow` (60), `VetoBlock` ; `additionalProperties: false` ; toutes les clés `required` ; une seule convention de nullabilité ; entiers bornés à 9007199254740991 (`calib_attempt` 1 à 4, `tau_cap` 1 ou null) ; motifs exacts du contrôle ; `dec` en sur-ensemble déclaré ; en-tête 2020-12, `$id` `https://monark.local/schemas/policy-row.schema.json`, `title` `PolicyTable`, aucun `examples` ni `default` réel. Conditions : tout document admis par le contrôle est valide pour le schéma (corpus B1, B2, 35 tables synthétiques, une ligne par statut et par `region_rule`) ; parité clé par clé sur les 76 clés ; **liste fermée des écarts** épinglée (`dec` exact `-0` et `0.10000000000000001`, `strata_cuts` croissantes, `scale_table.sha256`, couplages de Q-1 condition 1, règles de fichier, surrogate isolée) ; tueurs `CONST` d'une clé, d'une énumération, motif `u_test` à 6 décimales, mutant D9-ter ; si Q-M10 changeait `retire` (non : Q-M10 le garde), parité rejouée ; aucun texte ni empreinte réels (C-10 condition 1) ; validateur ajv 2020 de test, aucune dépendance neuve. Ligne r4 23.
+- **Q-C5, défaut précisé** : racine = `oneOf` de trois objets fermés par `error` (`tool_error` avec `code` ∈ 29 codes dans l'ordre de `TOOL_ERROR_CODES` ; `invalid_input` avec `code` `input_invalid` et `issues` requis, éléments sans forme ; `invalid_json` avec `code` `json_invalid`) ; 500 sous `$defs/InternalError` (`{error: "internal_error", operation, code?: "output_invalid"}`) : le fichier porte exactement les 32 codes ; `$id` `https://monark.local/schemas/tool-error.schema.json`, `title` `ToolError`, description qui exclut MCP, 404 et 405. Conditions : parité en C1 (29 dans l'ordre ; union = les 32) ; conformité servie en C2 (chaque corps 400 du miroir HTTP valide la racine, les 500 `InternalError`, les 404 et 405 non) ; cliquet C-3 (`openapi.ts` lit les codes du schéma ou de `TOOL_ERROR_CODES`, jamais en littéraux ; `PENDING` après C' = les 6 codes kata) ; OPENAPI-ERROR-CODE-1 en C' projette ce fichier ; spécification r4 §13 (un code inconnu reste un refus) ; si la coupe de C2 envoie les corps 400 avec `code` en C', la condition de conformité suit. Ligne r4 24.
+- Section 3.1, points 1 et 2 : « Contenu exact : Q-C4 / Q-C5 » se lit avec ces décisions.
+
+### 14.3 Go du fondateur (verbatim)
+
+- **Q-F1** : question portée par RECHERCHES après les réponses de MONARK à Q-M1 et Q-M12 (« à partir de la PR C2 (la bascule 1.1.0), le service et le dépôt public contiennent l empreinte réelle des tables de politique USDe, liq et cascade, avant ton go F-5a […] Tu autorises ? ») ; **réponse verbatim : « Oui, ces 3 tables (Recommandé) »**. Les 32 tables kata restent synthétiques jusqu'à F-5a. Exception à C-10 condition 1 pour ces trois tables seulement (ligne r4 25, close). C2 peut servir `policy_table_sha256` sur ces classes ; le go couvre aussi leurs empreintes dans `harness-pending.json`, les traces et les 9 décisions régénérées.
+- **Q-F2** : libellé du refus 1.0.0 ; **réponse verbatim : « Version + dépôt de spec (Recommandé) »**. En C2, le message nomme la version parlée (1.1.0) et le dépôt de la spécification ; la date T0 y entre par une ligne au go F-5a ; texte exact par la porte de vocabulaire et la ligne datée de MONARK (ligne r4 26).
+
+### 14.4 Préconditions, état au 2026-10-05
+
+| # | Objet | État | Bloque |
+|---|---|---|---|
+| P-1 | #141 sur la base | **fait** (`87f6081c`) | — |
+| P-2 | actes d'ADR restants (Q-M7) | textes rédigés (pièce `TEXTES-ADR-bloc-C.md`) ; application par MONARK | fusion de C2 |
+| P-3 | amendement 9 de l'ADR-CM (Q-M8) | rédigé, branche `recherches/adr-cm-amendement-9` poussée sans PR ; contrôle de MONARK | **code de C1** |
+| P-4 | ouvertures de zone (Q-M3) | **ouvertes** | — |
+| P-5 | SERVED-PENDING-1, Q-SP1-7 | **fait** ; Q-SP1-7 tranchée (Q-M9) | — |
+| P-6 | UKEMI-PENDING-SNAPSHOT-1 (Q-M5) | lot à part à faire, sur la base | C2 |
+| P-7 | textes Z-3 et go Q-F1 | go Q-F1 **donné** ; ligne Z-3 de MONARK (empreintes de `92efa2a`, complètes au journal) attendue | code de C2 |
+| P-8 | classe cascade (Q-M11) | **contrôlée** | — |
+| P-9 | révision r4 | lignes 18 à 26 portées ; pièce r4 avant le G7 de C2 | G7 de C2 |
+| P-10 | ligne ADR-CM du refus I-JSON (Q-C2) | rédigée (amendement 9, ligne (5)) ; contrôle de MONARK | fusion de C2 |
+| P-11 | lignes de MONARK : D9-ter (Q-M1), Z-3 (Q-M12) | annoncées « au prochain commit de docs du tronc » | Z-3 : code de C2 |
+
+**Le code de C1 part** au contrôle de l'amendement 9 par MONARK (P-3), sur la base `87f6081c` ou plus récente, par un G0 court de 3c-2 qui déclare la coupe de la projection si la mesure la demande (section 9).
+
+### 14.5 Questions ouvertes (hors délégation, pour MONARK)
+
+- Z-3 : `content` servi **égal** au texte de table, ou le **contient** (Q-C3 condition 5) ?
+- Affichage par le site des deux schémas neufs à T0 (titres, compte 9, `UNSERVED_CONTRACT_FILES`).
+- Compléments de la pièce des textes d'ADR hors de la liste du plan (ADR-M001 Décision 5 ; ADR-M005 D5 l.94-95) : à prendre ou à laisser par écrit.
