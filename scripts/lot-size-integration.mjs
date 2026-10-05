@@ -220,28 +220,29 @@ export function refusals(cwd, base, specs) {
     let at = 0;
     for (const [p, id] of files) {
       const nl = batch.indexOf(10, at), [got, type, size] = batch.subarray(at, nl).toString("latin1").split(" ");
-      if (got !== id || type !== "blob") throw new Error(`blob ${id} of ${p} unread`);
+      if (got !== id || type !== "blob") throw new Error(`blob ${id} of ${named(Buffer.from(p, "latin1").toString("utf8"))} unread`);
       const b = batch.subarray(nl + 1, nl + 1 + Number(size));
       at = nl + 2 + b.length;
       if (asset.has(p)) { if (!(ASSET_MAGIC[p.slice(p.lastIndexOf(".") + 1)] ?? []).some((h) => b.subarray(0, h.length / 2).toString("hex") === h)) out.push(`asset-magic ${p}`); continue; }
       for (let i = b.indexOf(13); i >= 0; i = b.indexOf(13, i + 1)) if (b[i + 1] !== 10) { out.push(`bare-cr ${p}`); break; }
       if (b.includes("\u2028") || b.includes("\u2029")) out.push(`line-separator ${p}`); if (/^(fffe|feff|0000feff)/.test(b.subarray(0, 4).toString("hex"))) out.push(`utf16-bom ${p}`);
-      if (LONG_LINE_PATHS[p] !== id && overlong(b) && !(p.endsWith(".json") && !/(^|\/)package\.json$/.test(p) && isJson(b))) out.push(`long-line ${p}`);
+      if (LONG_LINE_PATHS[p] !== id && overlong(b) && !(p.endsWith(".json") && !/(^|\/)(package|devcontainer|tasks|deno|turbo|vercel|composer)\.json$/i.test(p) && isJson(b))) out.push(`long-line ${p}`);
     }
   }
-  return out.map((r) => `${r.slice(0, r.indexOf(" "))} ${JSON.stringify(Buffer.from(r.slice(r.indexOf(" ") + 1), "latin1").toString("utf8")).replace(/[\[\u007f-\uffff]/g, (c) => `\\u${c.charCodeAt(0).toString(16).padStart(4, "0")}`)}`).sort(); // one ASCII line, no `::` or `##[` command
+  return out.map((r) => `${r.slice(0, r.indexOf(" "))} ${named(Buffer.from(r.slice(r.indexOf(" ") + 1), "latin1").toString("utf8"))}`).sort(); // one ASCII line each
 }
 
 /** Code on one long line counted 1 line and runs (lot R25-MINIFIED-LINE-1, ADR-M003 D9 quaterdecies). A text path of `refusals` is refused
  * `long-line` when one of its lines (the bytes between two LF, a CR included, the last one with or without a final LF) is longer than
  * LINE_MAX bytes, measured on the trunk, but a `.json` path whose blob parses as JSON (Node reads it as data; `.jsonl`, `.csv`, `.txt` and any
- * other extension run as CommonJS, measured), never a package.json (npm runs its strings), and the exact blobs of LONG_LINE_PATHS. */
+ * other extension run as CommonJS), never a JSON file a tool runs (package.json and the others, any case), and the blobs of LONG_LINE_PATHS. */
 export const LINE_MAX = 2000, LONG_LINE_PATHS = { "docs/biblio/procurements-M015/_raw/tradexyz_llms_full.txt": "3989315d68addc8ea3bb6e5cd0ee7dcd6f8bf326" };
 function overlong(b) { // memchr steps over the blob: no string built, one pass even for a single line of a gibibyte
   for (let at = 0, nl = 0; at <= b.length; at = nl + 1) { nl = b.indexOf(10, at); if (nl < 0) nl = b.length; if (nl - at > LINE_MAX) return true; }
   return false;
 }
 function isJson(b) { try { JSON.parse(b.toString("utf8")); return true; } catch { return false; } } // decodes the blob: called on a long-line .json only
+function named(s) { return JSON.stringify(s).replace(/[\[\u007f-\uffff]/g, (c) => `\\u${c.charCodeAt(0).toString(16).padStart(4, "0")}`); } // one ASCII name: no `::`, no `##[`
 
 if (process.argv[1] !== undefined && import.meta.url === pathToFileURL(process.argv[1]).href) {
   const [cmd, ...argv] = process.argv.slice(2), opt = (k, n = 1) => (argv.includes(k) ? argv.slice(argv.indexOf(k) + 1, argv.indexOf(k) + 1 + n) : []);
