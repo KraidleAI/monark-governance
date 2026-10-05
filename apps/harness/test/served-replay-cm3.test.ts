@@ -83,6 +83,23 @@ test("served_replay_identical_and_nan_never_commits_in_the_served_gate", () => {
   }
 });
 
+// G2 B-1 of 3c-3b2: next to the version-independent projection, the full 1.1.0 served bytes of the same 111 calls are
+// pinned (whole GateDecision; a refusal by its code and message), so a served field the projection ignores (method,
+// residual, schema_version, cell fields...) cannot move unseen. Any lot that changes served bytes updates this pin in a
+// declared line (G7). Second mutant fired by hand: gate.ts:619 "residual: []," -> "residual: [\"x\"],".
+// killer: apps/harness/src/tools/gate.ts:617 CONST "method: \"split\"" -> "method: \"hac-cp\""
+test("served_replay_full_bytes_are_pinned_at_1_1_0", () => {
+  const lines = replaySet().map(([p, params]) => {
+    try {
+      return JSON.stringify(runGate(p, params, undefined, { nowMs: NOW }));
+    } catch (e) {
+      return JSON.stringify({ error: (e as { code?: unknown }).code ?? null, message: (e as Error).message });
+    }
+  });
+  assert.equal(lines.length, 111);
+  assert.equal(createHash("sha256").update(lines.join("\n")).digest("hex"), "cb6a4e4f7fddff49e2ad7f951b19e1c24072b5487c3aed8e1cdc97a47fcfa528", "served bytes of the replay (1.1.0)");
+});
+
 // G2 m-6 of 3c-3a (spec r3 section 5, constraints the closed check does not hold): on every served verdict of the replay,
 // (c) n_calib is the length of scores when scores is carried; (d) scores is carried on a caller-supplied calibration only
 // (cell_key null); (e) a caller-supplied calibration (cell_key null) never has qhat_unit "scale", and scale is null.

@@ -13,7 +13,7 @@ import { createHash } from "node:crypto";
 import { readdirSync, readFileSync, statSync } from "node:fs";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
-import { assertClosedGateDecision, scoresSha256 } from "@monark/contracts";
+import { assertClosedGateDecision } from "@monark/contracts";
 import type { Prediction, AttestedPrice } from "@monark/contracts";
 import { splitQuantile } from "@monark/hikae";
 import {
@@ -34,7 +34,7 @@ import {
   type HarnessParams,
   SCHEMA_VERSION,
 } from "../src/tools/gate.ts";
-import { hasCommittedCalibrationForClass, lookupCommittedCalibration, UKEMI_LIQ_PREDICTOR_BASE } from "../src/calibration.ts";
+import { hasCommittedCalibrationForClass, lookupCommittedCalibration, UKEMI_LIQ_PREDICTOR_BASE, UKEMI_LIQ_SCORES_SHA256_PINNED } from "../src/calibration.ts";
 import { strateOf, STRATA_CUTS_SERVED } from "../src/ukemi-strata.ts";
 import { HARNESS_TOOLS, type GateEnvelope } from "../src/tools/registry.ts";
 import { handleJsonMirror } from "../src/http.ts";
@@ -124,7 +124,7 @@ test("u4b_gate_liq_serves_committed_stratum_and_abstains_elsewhere", () => {
     assert.equal(d.verdict.region.hi, yhat + q.qhat, "the upper edge is yhat + q-hat of the committed stratum");
     assert.equal(d.verdict.qhat, q.qhat, "the verdict carries the committed q-hat");
     assert.equal(d.verdict.n_calib, s0.scores.length, "n_calib is the committed stratum size");
-    assert.equal(d.verdict.scores_sha256, scoresSha256(s0.scores), "the verdict carries the committed stratum digest");
+    assert.equal(d.verdict.scores_sha256, UKEMI_LIQ_SCORES_SHA256_PINNED[`${UKEMI_LIQ_PREDICTOR_BASE}/s0`], "the verdict carries the pinned stratum digest");
     assert.equal(d.action, "defer", "L3: a covered bound wider than tauInterval defers (clock open)");
     assert.equal(d.reason, "interval_too_wide", "L3 top-level reason (not the coverage reason)");
   }

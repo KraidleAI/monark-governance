@@ -18,6 +18,7 @@ import {
   STABLE_RUN_UNCALIBRATED_SENTENCE,
   STABLE_RUN_COMMITTED_SENTENCE,
   TASK_STABLE_RUN,
+  gateVerdictSummary,
   type HarnessParams,
   SCHEMA_VERSION,
 } from "../src/tools/gate.ts";
@@ -137,6 +138,14 @@ test("gate_dispatches_on_task_class", () => {
   const b = runGate(USDE_PRED, { ...GOOD_PARAMS, intent: 0 });
   assert.notEqual(b.verdict.reason, "under_calib");
   assertBtcDirRetired();
+});
+
+// G2 m-1 of 3c-3b2: the summary line of a cascade gate states the absent region and q-hat as null (1.1.0 wire,
+// region null iff qhat null), not the 1.0.0 empty-set token.
+// killer: apps/harness/src/tools/gate.ts:728 CONST "? \"null\"" -> "? \"{}\""
+test("gate_summary_states_null_region_and_qhat_on_cascade", () => {
+  const d = runGate(CASCADE_PRED, { ...GOOD_PARAMS, intent: 12345 });
+  assert.ok(gateVerdictSummary(d).includes("region=null qhat=null"), gateVerdictSummary(d));
 });
 
 // Test — the description carries the cascade honesty sentence (K-4e).
