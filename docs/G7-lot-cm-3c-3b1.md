@@ -233,3 +233,15 @@ Mesure de la G2 (en processus, horloge fixe au 2026-10-03, `418a421f` contre `e4
 - **Q-3b1-1 (garde d'export, écart 1)** : **tranchée**, accord de MONARK (message `2026-10-05-MONARK-vers-RECHERCHES-3c-3b1.md`) : relecture datée de Q-3b-4, appliquée au pli (section « Relecture datée de Q-3b-4 »).
 - **Q-3b1-2 (comparaison de la liste rouge)** : **tranchée**, accord de MONARK (même message) : on compare par nom de test ; un rouge hors liste est un écart ; un rouge listé absent ou vert n'en est pas un. La liste est maintenant nommée en entier (B-1).
 - **Q-3b1-3 (borne d'intégration, B-2)** : posée par RECHERCHES (message à MONARK écrit par RECHERCHES, hors de ce lot) et **tranchée en décision de cellule** : l'intégration de C2 passe par **R25-INTEGRATION-RULE-1** ; la borne de repli de 1 400 **n'est pas relevée** ; si la règle n'est pas sur la base à temps, **C2b est coupée vers C'**, avec la coupe mesurée au G0 court de 3c-3c.
+
+## Jobs de CI rouges à la tête C2a (ajout après l'ouverture de #150)
+
+La liste fermée ci-dessus compte des tests. Deux jobs de CI sont rouges à la tête, et aucun ne sort de cette liste ni des familles décidées (Q-3a-1) :
+
+- **`g3-verification`** : il s'arrête à son étape `tsc` (sortie 2), avant l'étape des tests. Les erreurs sont les 66 erreurs `tsc` déjà comptées, toutes dans des fichiers de test : tests du harnais (3c-3b2) et tests racine (3c-3c). Il y en a 0 dans `apps/harness/src`. La comparaison des tests par nom vient donc du passage complet local et de l'oracle Windows.
+- **`g3-site`** : `next build` échoue au prérendu de `/console` et de `/integrators`.
+  - Message : `harness served: gate result does not match its schema (missing {request_sha256}, undeclared {})`, à `apps/site/lib/harness-served-load.ts:47`, depuis `:220` et `:300`.
+  - Cause : le chargeur valide le fichier servi `apps/site/data/harness-served.json`, encore en 1.0.0 jusqu'à T0, contre le schéma `gate-decision` gelé, déjà en 1.1.0.
+  - Même cause que les 10 rouges de `harness-served` de la liste.
+  - Propriétaire : 3c-3c. `harness-served-load.ts` et `harness-pending.json` sont en C2 selon le G0 du bloc (l. 83 et l. 186).
+  - Exigence pour 3c-3c : le chargeur lit le servi sous son propre schéma, 1.0.0 jusqu'à T0, et l'instantané en attente sous 1.1.0. La tête de C2b doit avoir `g3-site` vert.
