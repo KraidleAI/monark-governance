@@ -1837,30 +1837,80 @@ test("sentinel_readme_is_a_kept_export — apps/sentinel/README.md is an English
 });
 
 // Lot CODEQL-ALERTS-1 (ADR-CODEQL-ALERTS-1 D1; CodeQL alerts 7-12, actions/missing-workflow-permissions): the workflow
-// limits the GITHUB_TOKEN to read-only repository contents. ONE `permissions` key in the whole file (a job-level block
-// would override the workflow one), top-level, placed after the `on:` block and before `jobs:` (never between `on:` and
-// its keys: derivePublicWorkflow's on/pull_request needle would break), whose body is exactly `contents: read`; no
-// `write` token on any non-comment line (0 today, measured); and the DERIVED public workflow keeps the same block.
-// Named mutants (G1): block removed => red; `contents: write` => red; a job-level `permissions: write-all` => red; the
-// block moved above `on:` => red.
-test("ci_workflow_declares_least_privilege_permissions - one top-level contents: read block after on:, no write (ADR-CODEQL-ALERTS-1 D1)", () => {
-  const isCode = (l: string): boolean => !/^\s*#/.test(l);
-  const keyIdx = LINES.flatMap((l, i) => (isCode(l) && /^\s*["']?permissions["']?\s*:/.test(l) ? [i] : []));
-  assert.equal(keyIdx.length, 1, `exactly ONE permissions key in the workflow (a job-level block overrides the workflow one), saw ${String(keyIdx.length)}`);
-  const permIdx = keyIdx[0]!;
-  assert.match(LINES[permIdx]!, /^permissions:\s*$/, "the permissions key is TOP-LEVEL (column 0) and opens a block (no inline value such as read-all)");
-  const onIdx = LINES.findIndex((l) => /^on\s*:/.test(l));
-  const jobsIdx = LINES.findIndex((l) => /^jobs\s*:/.test(l));
-  assert.ok(onIdx !== -1 && onIdx < permIdx && permIdx < jobsIdx, `permissions: must sit after the on: block and before jobs: (on=${String(onIdx)}, permissions=${String(permIdx)}, jobs=${String(jobsIdx)})`);
-  const body: string[] = [];
-  for (let i = permIdx + 1; i < LINES.length; i++) {
-    const l = LINES[i]!;
-    if (/^\S/.test(l) && isCode(l)) break; // the next top-level key ends the block (test 38 idiom)
-    if (l.trim() !== "" && isCode(l)) body.push(l);
-  }
-  assert.deepEqual(body, ["  contents: read"], "the permissions block is exactly `contents: read` (read-only repository contents)");
-  assert.deepEqual(LINES.filter((l) => isCode(l) && /\bwrite(?:-all)?\b/.test(l)), [], "no write scope on any non-comment line of the workflow");
+// limits the GITHUB_TOKEN to read-only scopes. The ROOT block, top-level, after the `on:` block and before `jobs:` (never
+// between `on:` and its keys: derivePublicWorkflow's on/pull_request needle would break), is exactly `contents: read`.
+// Lot R25-INTEGRATION-RULE-1 (G0 Q-2, MONARK 2026-10-05; dated line under ADR-CODEQL-ALERTS-1 D1): ONE job-level block,
+// on the job r25-taille-de-lot only, exactly `contents: read`, `pull-requests: read`, `checks: read` (the integration
+// proof's API reads). problems() judges any workflow text; the real one has none, and each named mutant has one: root
+// block removed, widened, written, made inline; the job block removed, an extra scope, a missing scope, a write scope,
+// `write-all`, moved to another job, a second block on another job. No `write` token on any non-comment line, and the
+// DERIVED public workflow (the r25 job stripped) keeps the root block alone.
+// killer: .github/workflows/ci.yml:48 CONST "checks: read" -> "statuses: read"
+test("ci_workflow_declares_least_privilege_permissions - root contents: read after on:, one job block on r25-taille-de-lot (contents, pull-requests, checks: read), no write (ADR-CODEQL-ALERTS-1 D1)", () => {
+  const isCode = (l: string): boolean => l.trim() !== "" && !/^\s*#/.test(l);
+  const KEY_RE = /(?:^|[\s{,])["']?permissions["']?\s*:/;
+  const ROOT = ["  contents: read"];
+  const R25 = ["      contents: read", "      pull-requests: read", "      checks: read"];
+  const problems = (lines: string[]): string[] => {
+    const out: string[] = [];
+    const keys = lines.flatMap((l, i) => (isCode(l) && KEY_RE.test(l) ? [i] : []));
+    const onIdx = lines.findIndex((l) => /^on\s*:/.test(l));
+    const jobsIdx = lines.findIndex((l) => /^jobs\s*:/.test(l));
+    const body = (at: number, indent: number): string[] => {
+      const b: string[] = [];
+      for (let i = at + 1; i < lines.length; i++) {
+        const l = lines[i]!;
+        if (!isCode(l)) continue;
+        if ((/^ */.exec(l)?.[0].length ?? 0) <= indent) break; // the next key at the block's own column ends it
+        b.push(l.replace(/\s+#.*$/, ""));
+      }
+      return b;
+    };
+    const jobOf = (at: number): string => {
+      for (let i = at; i > jobsIdx; i--) { const m = /^ {2}([\w-]+)\s*:/.exec(lines[i]!); if (m) return m[1]!; }
+      return "(no job)";
+    };
+    const root = keys.filter((i) => /^permissions:\s*$/.test(lines[i]!));
+    if (root.length !== 1) out.push(`expected ONE top-level permissions: block, saw ${String(root.length)}`);
+    else {
+      const r = root[0]!;
+      if (!(onIdx !== -1 && onIdx < r && r < jobsIdx)) out.push(`the root block must sit after on: and before jobs: (on=${String(onIdx)}, permissions=${String(r)}, jobs=${String(jobsIdx)})`);
+      if (JSON.stringify(body(r, 0)) !== JSON.stringify(ROOT)) out.push(`the root block is exactly contents: read, saw ${JSON.stringify(body(r, 0))}`);
+    }
+    const job = keys.filter((i) => !root.includes(i));
+    if (job.length !== 1) out.push(`expected ONE job-level permissions block (r25-taille-de-lot), saw ${String(job.length)}`);
+    else {
+      const j = job[0]!;
+      if (!/^ {4}permissions:\s*$/.test(lines[j]!)) out.push(`the job block is a job-level key (4 spaces) opening a block, saw ${JSON.stringify(lines[j])}`);
+      if (jobsIdx === -1 || j < jobsIdx || jobOf(j) !== "r25-taille-de-lot") out.push(`the job block belongs to r25-taille-de-lot, saw ${jobOf(j)}`);
+      if (JSON.stringify(body(j, 4)) !== JSON.stringify(R25)) out.push(`the r25 job block is exactly contents, pull-requests, checks: read, saw ${JSON.stringify(body(j, 4))}`);
+    }
+    const writes = lines.filter((l) => isCode(l) && /\bwrite(?:-all)?\b/.test(l));
+    if (writes.length > 0) out.push(`no write scope on any non-comment line, saw ${JSON.stringify(writes)}`);
+    return out;
+  };
+  assert.deepEqual(problems(LINES), [], "the workflow keeps the root contents: read block and the one r25 job block (G0 Q-2), nothing wider");
+  const at = (re: RegExp): number => LINES.findIndex((l) => re.test(l));
+  const rootAt = at(/^permissions:\s*$/), jobAt = at(/^ {4}permissions:\s*$/), g1At = at(/^ {2}g1-controle-generation\s*:/), g3At = at(/^ {2}g3-verification\s*:/);
+  assert.ok(rootAt !== -1 && jobAt !== -1 && g1At !== -1 && g1At < jobAt && jobAt < g3At, "the mutants' anchors are present (root block, r25 job block, g1 before it, g3 after it)");
+  const edit = (i: number, del: number, ...add: string[]): string[] => { const c = [...LINES]; c.splice(i, del, ...add); return c; };
+  const blk = LINES.slice(jobAt, jobAt + 4);
+  const mutants: Record<string, string[]> = {
+    "root block removed": edit(rootAt, 2),
+    "root block widened": edit(rootAt + 2, 0, "  pull-requests: read"),
+    "root contents: write": edit(rootAt + 1, 1, "  contents: write"),
+    "root inline read-all": edit(rootAt, 2, "permissions: read-all"),
+    "job block removed": edit(jobAt, 4),
+    "job block extra scope": edit(jobAt + 4, 0, "      statuses: read"),
+    "job block missing scope": edit(jobAt + 3, 1),
+    "job block write scope": edit(jobAt + 3, 1, "      checks: write"),
+    "job block write-all": edit(jobAt, 4, "    permissions: write-all"),
+    "job block moved to g1": (() => { const c = edit(jobAt, 4); c.splice(g1At + 1, 0, ...blk); return c; })(),
+    "second job block on g3": edit(g3At + 1, 0, ...blk),
+  };
+  for (const [name, m] of Object.entries(mutants)) assert.ok(problems(m).length > 0, `mutant "${name}" must be refused`);
   const derived = derivePublicWorkflow(WF).split(/\r?\n/);
-  const dIdx = derived.findIndex((l) => /^permissions:\s*$/.test(l));
-  assert.ok(dIdx !== -1 && derived[dIdx + 1] === "  contents: read", "the DERIVED public workflow keeps the least-privilege block (the mirror's CI is read-only too)");
+  assert.deepEqual(derived.filter((l) => isCode(l) && KEY_RE.test(l)), ["permissions:"], "the DERIVED public workflow (r25 job stripped) keeps the root block alone");
+  const dIdx = derived.indexOf("permissions:");
+  assert.ok(derived[dIdx + 1] === "  contents: read", "the DERIVED public workflow keeps the least-privilege block (the mirror's CI is read-only too)");
 });
