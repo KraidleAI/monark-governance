@@ -1347,3 +1347,32 @@ test("l2_link_hook_failure_journal_broken", async () => {
   assert.ok(await twice(() => codeOf(() => readFileSync(frames, "utf8")) === "a" + LF), "the message kept");
   await h.link.stop().catch(() => undefined);
 });
+
+// ---- fold of the G2 delta of c5-bis-c ----
+// killer: scripts/record-binance-l2.mjs:360 CONST "if (dayOf(sentUs + offset) !== dayOf(t + offset)) return" -> "if (dayOf(sentUs) !== dayOf(t)) return"
+test("l2_record_anchor_sent_day_corrected", async () => {
+  // d-2 of the G2 delta of c5-bis-c: the send-time check reads the corrected day on both sides. The place 30 s behind, each depth answered
+  // 25 s late: ETHUSDT decided at 23:59:50 (host day D) leaves at 00:00:05 (host day D + 1, corrected 23:59:35, still D): kept; BNBUSDT
+  // decided at 00:00:00 (host D + 1, corrected D) leaves at 00:00:00 corrected (D + 1): skipped at send.
+  const m = await command(), out = fresh(), h = host(at(0, 23, 59, 30), place(-30 * S)), answer = h.io.fetch!;
+  h.io.fetch = (url, i) => (!new URL(url).pathname.startsWith("/api/v3/depth") ? answer(url, i) : new Promise((r) => { h.io.setTimer!(() => { r(answer(url, i)); }, 25_000); }));
+  const run = m.run(argv(out), h.io);
+  await h.until(at(1, 0, 2));
+  h.stop();
+  await run;
+  assert.deepEqual([L.SYMBOLS.map((s) => existsSync(join(out, "days", s, D, "anchor-close.json"))), events(out, ["event_skipped"]).map((l) => [l.symbol, l.at_send])],
+    [[true, true, false, false], [["BNBUSDT", true], ["SOLUSDT", true]]]);
+});
+
+// killer: scripts/l2/seal.mjs:60 CONST "try { io?.onKill?.(killed); }" -> "try { child?.once(\"close\", () => io?.onKill?.(killed)); }"
+test("l2_seal_apart_told_at_the_kill", { skip: APART }, async () => {
+  // d-3 of the G2 delta of c5-bis-c: onKill runs within the kill itself (here the abort, synchronously), never at the killed child's close,
+  // which a child held in D would delay; once, though the deadline (1 ms) halts it again before that close.
+  const m = await seal(), out = fresh(), ac = new AbortController(), told: unknown[] = [];
+  await day(out);
+  const r = m.sealApart(specOf(out), { env: {}, timeoutMs: 1, signal: ac.signal, onKill: (k) => { told.push((k as { failed?: { stop: unknown } }).failed?.stop); } });
+  ac.abort();
+  const atKill = [...told], spin = Date.now() + 20;
+  while (Date.now() < spin); // the deadline's timer is due before the loop next polls for the killed child's close: a second halt, told nothing
+  assert.deepEqual([atKill, (await r).sealed, told], [["seal_aborted"], false, ["seal_aborted"]]);
+});
