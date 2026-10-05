@@ -547,6 +547,8 @@ pm) ; item MK-NM-GUARD-1 (refuser Tree = F:/Monark dans mk-nm.ps1).
   donc sans CI) puis #161 (intégration de C2), premières PR d intégration sous ADR-M003 D9 nonies : CI et oracle 0 et 0 ; repli 1 400
   de la ligne (9) d ADR-CM non utilisé. C' (3c-4a) démarre. Branches fusionnées `base/c2-integration` et `base/sync-tronc-2026-10-05` :
   suppression sur accord de l investisseur (demandé le 2026-10-05). CodeQL du tronc : 0 alerte ouverte à 13:31 UTC (#159, #163).
+- 2026-10-05 16:3x UTC : DÉCISION du fondateur (verbatim) « ok, c est oui alors », Q-D1 du bloc D : les 32 tables kata, vides à la
+  bascule, portent leur empreinte réelle dans le service et le dépôt public dès D, avant F-5a (ADR-CM ligne (11) sur la base).
 - 2026-10-04 00:5x UTC : fusions au tronc : CM-2a (`4a1b4844`, PR #105 `98e3779a`), COINBASE-PASS-EDGES-1 (`44d8892d`), BINANCE-PRE153-1
   (`328be484`). Leurs oracles G7 (`569c91c6…`, `bba0b720…`, `2ce4d71c…`) portent seulement deux rouges venus de la CA de l étape 3
   committée sans resynchronisation du site (error_origin de l orchestrateur) ; correction `0c8f8177`, oracle vert : 2 060 tests,
