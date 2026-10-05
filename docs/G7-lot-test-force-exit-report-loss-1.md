@@ -15,13 +15,14 @@ Deux pièces, une par processus qui appelle `process.exit()` sous `--test-force-
 3. **Export** : le `package.json` exporté charge ce fichier. Il entre donc dans `WHITELIST_FILES` (une ligne), avec sa ligne de `docs/PRODUCT-BOUNDARY.md` (exigée par `product_boundary_matches_export_list`) et l addendum ADR-M004 D7 undecies. C est le seul fichier exporté de `test/**` racine.
 4. **Le test de #130** (`test/ci-gates.test.ts`) : les gardes verrouillées de `ci_g3_export_runs_test_42_alone_and_g3_main_skips_only_it` lisent la tête `node -r ./test/helpers/blocking-stdout.cjs --test` puis le préchargement. (a) et (b) restent des égalités. Le tueur `package.json:18` de #130 se ré-ancre sur la même ligne, avec le même sens.
 
-Tests (5, dans `test/test-force-exit-report.test.ts`) et leurs tueurs :
+Tests (5 au gel, 6 après le pli de la G2, qui scinde le test 3 ; dans `test/test-force-exit-report.test.ts`) et leurs tueurs :
 
 | Test | Tueur |
 |---|---|
 | `test_scripts_carry_the_report_preload` | `package.json:16 CONST "--import=data:text/javascript," -> "--import=data:text/plain,"` |
 | `report_preload_delivers_every_byte_before_force_exit` | `package.json:16 CONST "setBlocking(true)" -> "setBlocking(false)"` |
 | `report_preload_reds_a_child_that_would_drop_bytes` | `package.json:16 ROR "writableLength>0" -> "writableLength<0"` |
+| `report_preload_keeps_a_failure_code_and_reds_nothing_clean` (G2, B-1) | `package.json:16 ROR "c===0" -> "c!==0"` |
 | `launcher_delivers_every_byte_before_force_exit` | `package.json:16 CONST "node -r ./test/helpers/blocking-stdout.cjs --test" -> "node --test"` |
 | `exported_tree_ships_every_preload_its_test_scripts_load` | `scripts/export-public.mjs:76 SDL "  \"test/helpers/blocking-stdout.cjs\"," -> ""` |
 
@@ -142,7 +143,7 @@ Chaque garde garde son sens : les fichiers qui portent des littéraux (`test/*.t
 
 Les quatre gardes sont réconciliées (`d8531b40`) et la suite complète est verte.
 
-- **TEST-FORCE-EXIT-REPORT-LOSS-1** : une CI verte ne peut plus taire la fin d un fichier de tests (cause retirée par `setBlocking` ; garde par fichier si le blocage manque).
+- **TEST-FORCE-EXIT-REPORT-LOSS-1** : une CI verte ne peut plus taire la fin d un fichier de tests **par perte de rapports en file** (cause retirée par `setBlocking` ; garde par fichier si le blocage manque). Les trous qui restent à `--test-force-exit` sont nommés dans « Suites ».
 - **EXPORT-TEST42-SUMMARY-1** : la sortie imbriquée du test 42 n est plus tronquée (le lanceur exporté bloque).
 - **Le trou du lanceur** (limite dite au G7 précédent, question 1) : couvert par `test/helpers/blocking-stdout.cjs`.
 
@@ -151,10 +152,11 @@ Les quatre gardes sont réconciliées (`d8531b40`) et la suite complète est ver
 - **TEST-FORCE-EXIT-NEED-1** : mesurer, fichier par fichier, ce qui ne sortirait pas sans `--test-force-exit`, et retirer le drapeau s il n y a plus rien. Le lot le garde.
 - **MUTANTS-RUN-EXIT-CODE-1** : `scripts/mutants/run.mjs` juge sur la sortie, pas sur le code de sortie. Un rapport d échec perdu y donne « survit » au lieu de « tué » ; le sens est sûr, la mesure est fausse. Tests d abord, avec un tueur.
 - Les tests jamais enregistrés (`await` de premier niveau, question 2 du G0) restent hors de la garde.
+- Deux autres formes de `--test-force-exit` restent muettes, mesurées identiques à la base par la G2 (m-3) : une exception non rattrapée levée après le dernier test (par exemple dans un `setTimeout`) laisse le fichier à exit 0 ; un `process.exit(0)` appelé dans un test coupe le fichier, et les tests suivants ne sont jamais rapportés, exit 0. Ce ne sont pas des pertes de rapport en file : ni `setBlocking` ni la garde (qui ne lit que `writableLength`) ne les voient. À verser dans TEST-FORCE-EXIT-NEED-1, avec la question 2.
 
 ## Windows
 
-Les tuyaux y bloquent déjà : les deux pièces y sont sans effet sur les rapports. Mais `-r ./test/helpers/blocking-stdout.cjs` et le préchargement en ligne passent par `cmd.exe`. Ce n est pas vérifié ici : **à la fusion, MONARK lance l oracle Windows, puis `npm run test:main` et `npm run test:export` sous `cmd.exe`** (64f458c).
+Les tuyaux y bloquent déjà : les deux pièces y sont sans effet sur les rapports. Les deux mesures d une perte (`report_preload_delivers_every_byte_before_force_exit`, `report_preload_reds_a_child_that_would_drop_bytes`) n y ont donc rien à mesurer : elles sont sautées par nom sous win32 (G2, B-1). L oracle Windows doit montrer ces deux sauts nommés, pas des échecs. Mais `-r ./test/helpers/blocking-stdout.cjs` et le préchargement en ligne passent par `cmd.exe`. Ce n est pas vérifié ici : **à la fusion, MONARK lance l oracle Windows, puis `npm run test:main` et `npm run test:export` sous `cmd.exe`** (64f458c).
 
 ## Écarts
 
@@ -163,6 +165,41 @@ Les tuyaux y bloquent déjà : les deux pièces y sont sans effet sur les rappor
 - Le commentaire de `scripts/red-proof.mjs` (« Loaded in the runner and, through its execArgv, in the child ») surestime la portée de son `--import` : le lanceur ne le charge pas. Le red-proof lit le TAP de l enfant ; le lot ne le touche pas.
 - Le mode de `packages/rpc-guard/bin/rpc-guard.mjs` n est pas touché.
 
+## G2 (pli)
+
+Relecture : `coordination/pieces/2026-10-04-G2-recherches/G2-test-force-exit-report-loss-1.md`, sur la tête `97a10917`. Verdict : approuvé sous réserve de B-1. Tronc refusionné : `origin/lot/etude-suite` avait avancé à `53c7f15d` (#140, sentinelle, HANDOFF) ; fusion `a5b10428`, sans conflit. Pli : `fe29e300`.
+
+| Point | Pli |
+|---|---|
+| **B-1** (bloquant) : sous win32, Node rend un stdout de type `Pipe` bloquant dès sa création (`net.Socket` : `setBlocking(true)`, puis `_write` synchrone). Les fixtures des tests 2 et 3 supposent une perte et rougiraient. | `SYNC_PIPES` (`process.platform === "win32"` ? raison : `false`) saute par nom `report_preload_delivers_every_byte_before_force_exit` et `report_preload_reds_a_child_that_would_drop_bytes`. Le test 3 est scindé : la partie valable partout (« un code d échec est gardé », « pas de faux rouge ») devient `report_preload_keeps_a_failure_code_and_reds_nothing_clean`, sans saut, avec son tueur `package.json:16 ROR "c===0" -> "c!==0"` (mutant appliqué à la main : le test rougit, avec le test 3 et le test 1). Les tueurs restent sur la ligne au-dessus de chaque déclaration. Le test du lanceur ne change pas (il exige seulement que tout arrive). Non vérifiable ici sous Windows : les sauts se liront dans l oracle Windows à la fusion. |
+| **m-1** : le G0 disait « un enfant qui n écrit qu un octet » ; le code écrit 0 octet. | G0 corrigé (« n écrit rien (0 octet) »). |
+| **m-2** : le G0 annonçait trois tests. | G0 : ligne de renvoi (cinq au gel, six après ce pli). |
+| **m-3** : deux trous de `--test-force-exit` restent muets. | Nommés dans « Suites », à côté des tests jamais enregistrés ; « Items clos » précise « par perte de rapports en file ». |
+| **m-4** : le préchargement en ligne appelait `setBlocking(true)` sans vérifier son type. | Aligné sur le `.cjs` : `process.stdout._handle&&typeof(process.stdout._handle.setBlocking)==='function'&&process.stdout._handle.setBlocking(true);`, dans les trois scripts. `typeof(…)` sans espace, apostrophes simples : la règle du test 1 (ni `?`, `#`, `%`, `$`, espace, accent grave) tient, et rien de neuf pour `sh` ou `cmd.exe` (les apostrophes y étaient déjà, `'exit'`). Les verrous d égalité de #130 dans `test/ci-gates.test.ts` lisent `--import=[^"]+` et comparent les trois scripts entre eux : inchangés, 34/34. Mesuré : avec un `setBlocking` qui n est pas une fonction, l ancienne ligne sort 1 sur `TypeError`, la nouvelle sort 0. |
+| **m-5** : la ligne `scripts/export-public.mjs:76` n a pas de commentaire de raison. | Pas de changement : la zone ouverte par MONARK (5ac3905) ne couvrait que cette ligne. Sa raison est dans ADR-M004 D7 undecies. À reprendre au prochain lot qui touche ce fichier. |
+
+### Contrôles au pli (`fe29e300`, Node 24.21.0)
+
+| Contrôle | Résultat |
+|---|---|
+| `test/test-force-exit-report.test.ts` | 6/6 |
+| `test/ci-gates.test.ts` | 34/34 |
+| les quatre gardes (`bell-anchors`, `no-cash-provider-name`, `site-build-fleet`, `release-public-flow`) | 55/55 |
+| `npm run test:main` (une fois) | 2 250 / 2 228 / **0** / 22, exit 0, 156 s (le tronc ajoute 8 tests, la scission 1) |
+| `npm run test:export` | 1/1, exit 0, 60 s |
+| `export:check`, `tsc --noEmit`, `lint` | 0, 0, 0 |
+| `lint:ratchet`, `gate:vocab`, `lang:gate` | 69/69, OK (335 fichiers), 0 |
+
+Tueurs appliqués à la main sur une copie jetable : `c===0` → `c!==0` (3 rouges), `setBlocking(true)` → `(false)` (2), `writableLength>0` → `<0` (2), `data:text/javascript,` → `data:text/plain,` (5).
+
+**Red-proof** contre le tronc `53c7f15d` : `node scripts/red-proof.mjs --base 53c7f15d --gel HEAD --repo /home/user/monark-governance-tfe --draw 6 --seed 37` (HEAD = `fe29e300`) : **REFUSED** (exit 1), 11 jugés, 78 inchangés, **7 F2P** (les 6 tests du lot et le test (a)-(f) de #130), 6 tueurs tirés, **6 tués**. Les 4 refus sont les quatre gardes élargies, attendus et expliqués plus haut (« Red-proof »). `RED-PROOF.json` sha256 `17bf36f49b6dadd4…` (horodaté).
+
+**Ancres** : `verifie-ancres.mjs . --touched 53c7f15d HEAD` → 11 tueurs, **11 ANCRE**, 0 DERIVE, 0 PERDU.
+
+**R-25** : `r25(".", ci.yml, "53c7f15d")` : `STAT` 138 insertions, 11 suppressions, **149** (borne 1 205) ; `CONTENT_STAT` 0 (borne 8 000). VERT.
+
 ## Sortie
 
-**LIVRÉ.** Les quatre lignes ouvertes par MONARK (64f458c) sont commises (`d8531b40`). Les quatre fichiers : 55/55. `npm test` deux fois, `test:main` et `test:export` : 0 échec, test 42 vert dans les deux `npm test`. Portes vertes. Red-proof contre `0b04be9b` : 6 F2P, 5/5 tueurs tués, 4 refus par construction (gardes élargies, vertes à la base) ; ancres 10/10 ; R-25 140. Reste à la fusion : l oracle Windows, puis `test:main` et `test:export` sous `cmd.exe` (MONARK). Rien poussé.
+**LIVRÉ.** Les quatre lignes ouvertes par MONARK (64f458c) sont commises (`d8531b40`). Les quatre fichiers : 55/55. `npm test` deux fois, `test:main` et `test:export` : 0 échec, test 42 vert dans les deux `npm test`. Portes vertes. Red-proof contre `0b04be9b` : 6 F2P, 5/5 tueurs tués, 4 refus par construction (gardes élargies, vertes à la base) ; ancres 10/10 ; R-25 140. Reste à la fusion : l oracle Windows, puis `test:main` et `test:export` sous `cmd.exe` (MONARK).
+
+**Après la G2** : B-1 et m-1 à m-4 pliés (`fe29e300`), m-5 laissé (zone d une ligne, raison dans D7 undecies). Tronc `53c7f15d` fusionné (`a5b10428`). `test:main` 2 250 / 0 échec, `test:export` 1/1, portes vertes ; red-proof contre `53c7f15d` : 7 F2P, 6/6 tueurs tués, 4 refus attendus ; ancres 11/11 ; R-25 149. Poussé sur `recherches/test-force-exit-report-loss-1`, sans PR.
