@@ -197,7 +197,7 @@ export function setManifestEntry(manifestText, rel, sha) {
 /** Remove `rel` from the manifest text: exactly one line goes, else refused (an absent entry, a non-canonical manifest). */
 export function removeManifestEntry(manifestText, rel) {
   const m = canonicalManifest(manifestText);
-  if (!(rel in m.files)) throw new Error(`${rel} has no entry in the manifest; restore it, or the pending file, before promoting`);
+  if (!(rel in m.files)) throw new Error(`${rel} has no entry in the manifest; restore it, or the pending file, before promoting (if the served file no longer carries pending_since, the promotion was interrupted after the manifest: remove ${rel})`);
   delete m.files[rel];
   const out = JSON.stringify(m, null, 2) + "\n", lines = lf(manifestText).split("\n");
   const gone = lines.findIndex((l) => l.startsWith(`    ${JSON.stringify(rel)}: `));
@@ -261,7 +261,7 @@ async function readBody(url, init) {
 
 async function main() {
   const blocked = promotionBlocked(ROOT);
-  if (blocked !== null) fail(blocked);
+  if (blocked !== null) fail(blocked); // fail-closed on EVERY default sync, not the promotion alone (G2 m-3, RECHERCHES): no ukemi resync while harness-pending.json exists
   const openapi = await readBody(`${API_HOST}${OPENAPI_PATH}`, { method: "GET" });
   const readAt = new Date().toISOString();
   const gate = await readBody(`${API_HOST}${GATE_PATH}`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(GATE_LIQ_BODY) });
