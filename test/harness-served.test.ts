@@ -660,13 +660,13 @@ test("harness_served_budget_note_carries_the_served_clause", () => {
 // version-independent projection, so no byte of a 1.1.0 decision body was pinned outside openapi_sha256. These are the
 // sha256 of the bodies the in-process harness answers to the deploy check's own requests, under the served snapshot's keys:
 // the bodies the pending snapshot announces, which the deploy check records at T0.
-// killer: apps/harness/src/tools/gate.ts:732 CONST "scores_sha256=${digest}`" -> "scores_sha256=${digest} `"
 const PENDING_BODIES_SHA256: Record<string, string> = {
   "/openapi.json": "70fc336a3220fd469ebfcabe7e2d8e1e0ebebc2046226636de09be7b0970444f",
   "/gate": "3ed9be555ba1187c4def82cea685c0b013e41f79ebe62ddb00391729a4b1ac2a",
   "/gate liquidation-eligible-coverage": "e2bfb18be056b2ed6f0d1cdae681d9b9e38ede054c79509898243d327a105fe7",
   "/calibrate": "f169e9f6e333374a9d47a2010674ca789aba45bd126ef8764df2f0fb86a2cb90",
 };
+// killer: apps/harness/src/tools/gate.ts:732 CONST "scores_sha256=${digest}`" -> "scores_sha256=${digest} `"
 test("pending_bodies_are_pinned_byte_for_byte", async () => {
   const { handleJsonMirror } = await import("../apps/harness/src/http.ts");
   const { GATE_LIQ_BODY } = await import("../scripts/sync-ukemi-served.mjs");

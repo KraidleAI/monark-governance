@@ -536,7 +536,7 @@ test("narabi_live_renders_no_endpoint_url — the parser drops the endpoint URLs
 });
 
 // ── the gate card: size + digest derived at build, class + key bound to the served description ────────────────
-// killer: apps/site/lib/harness-served-load.ts:192 CONST "!existsSync(join(root, HARNESS_PENDING_REL))" -> "false"
+// killer: apps/site/lib/harness-served-load.ts:192 CONST "!existsSync(join(root, HARNESS_PENDING_REL))" -> "true"
 test("narabi_gate_facts_read_from_committed_sources — n_calib and calib_digest are derived from the sha-pinned fixture; class and key equal the served gate description", async () => {
   const calib = loadNarabiCalibration(ROOT);
   assert.equal(calib.nCalib, USDE_STABLE_RUN_CALIB.length, "n_calib = the harness's committed calibration length");
