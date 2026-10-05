@@ -10,7 +10,8 @@
   - `b4474bae` « the gate » et corps 400 avec `code` ;
   - **`387e32c7` gel** : OPENAPI-ERROR-CODE-1 et ses ré-épinglages ;
   - `556df176` et `8e5c1ed9` : lignes de tueurs seules (ré-ancrage, voir « Ancres ») ;
-  - le commit de ce G7.
+  - le commit de ce G7 (`6e0b3b5e`) ;
+  - pli du G2 : `83944897` (tests, R-1 et N-7), puis le commit de cette mise à jour du G7.
 - Aucun `git add -A` ; `packages/rpc-guard/bin/rpc-guard.mjs` jamais indexé. Aucun moteur touché (`packages/hikae/` inchangé), aucun fichier du paquet gelé écrit.
 
 ## Ce que le lot écrit
@@ -50,6 +51,7 @@ Rien n'est servi avant T0 (ADR-PUBLIC-CADENCE-1 §17).
 | `http_400_bodies_validate_the_tool_error_root` (neuf) | `apps/harness/src/http.ts:97 CONST "code: \"input_invalid\", " -> ""` | tué |
 | `features_digest_of_63_chars_is_input_invalid` (neuf) | `apps/harness/src/http.ts:97 CONST "\"input_invalid\"" -> "\"json_invalid\""` | tué |
 | `openapi_400_and_500_are_the_tool_error_projections` (neuf) | `apps/harness/src/openapi.ts:86 CONST "TOOL_ERROR_400_SCHEMA" -> "TOOL_ERROR_500_SCHEMA"` | tué |
+| `export_windows_path_guard_bites_seeded_text_file` (pli de R-1 : copie promue, refus attribué à la seule garde des chemins) | `scripts/export-public.mjs:513 SDL "    process.exit(1);" -> ""` | tué (à la main : rouge par assertion, `--out` sort 0 et écrit `EXPORT-MANIFEST.json` ; vert une fois la ligne rendue) |
 | `verify_harness_ca_liq_checks_red_on_overclaiming_surfaces` (vecteur m-3) | `scripts/verify-harness.mjs:365 CONST " && digest === calibrateScoresSha256;" -> ";"` | tué (à la main) |
 | `every_listed_code_has_a_served_thrower_or_is_pending` (`PENDING` = 6) | à la main : `http.ts:97` sans `code: "input_invalid", ` | tué (à la main ; son tueur déclaré, `gate.ts:927`, reste) |
 | `schema_version_refusal_…` (URL, ancien tueur) | à la main : `gate.ts:865 CONST "; specification: https://github.com/KraidleAI/monark-kata-spec" -> ""` | tué (à la main) |
@@ -65,6 +67,7 @@ Rien n'est servi avant T0 (ADR-PUBLIC-CADENCE-1 §17).
 ## Ancres
 
 - `verifie-ancres.mjs . --touched 37d66ca9 HEAD` : **53 tueurs, 53 ancrés, 0 dérivé, 0 perdu** (après `556df176`).
+- Après le pli du G2 (`83944897`, `export-hygiene.test.ts` désormais touché) : **60 tueurs, 60 ancrés, 0 dérivé, 0 perdu**.
 - Arbre entier : 1 166 tueurs, 1 157 ancrés, 0 dérivé, **9 perdus, tous déjà perdus à la base** (7 de `packages/hikae` sur `l1-split.ts`, 2 de `test/oracle-run.test.ts`). La base en avait 11 : les deux tueurs du test 42 (`export-public.mjs:427` et `:118`) étaient déjà décalés ; ré-ancrés ici (`:450`, `:121`), avec celui de `test-force-exit-report.test.ts:115` (`:76` → `:78`) que l'en-tête de la garde décalait (`8e5c1ed9`).
 
 ## Contrôles
@@ -85,20 +88,37 @@ Node 24.21.0, variables de proxy retirées pour les tests, TMPDIR propre à la s
 | CI `g3-verification` | `npm run gate:vocab && npm run typecheck && npm run test:main` | exit 0 : vocabulaire OK, `tsc` 0, `test:main` **2 539 tests, 2 517 verts, 0 rouge, 22 sautés** |
 | CI `g4-architecture` | `npm run lint && npm run lint:ratchet` | exit 0 : `eslint` 0, cliquet 69/69 |
 
+Après le pli du G2 (`83944897`) : `node --test test/export-*.test.ts test/release-public-flow.test.ts test/site-send-guard.test.ts` **11/11 verts** ; `tsc` 0 ; `eslint` 0 ; cliquet 69/69 ; `gate:vocab` OK (346 fichiers) ; `lang:gate` OK. `npm test` complet non relancé (seuls deux fichiers de test changent). Le test d'`export-hygiene` modifié n'est pas F2P au sens de `red-proof` (il est vert à la base : il bouche un trou de tueur ouvert par la garde, comme m-3) ; son tueur est tiré à la main.
+
 ## R-25
 
-`r25()` de `scripts/oracle/r25.mjs` contre `37d66ca9` (base fusionnée), à `8e5c1ed9` : **STAT 332** (+305 / −27, dont 6 lignes des trois ré-ancrages de tueurs) ≤ 547 ; CONTENT_STAT 6 (les gloses de `/docs`). Estimation du G0 : ~200. L'écart (~+130) est dans les tests (garde : copie entière et cas purs, ~60 ; corps 400 et 500 contre le schéma, ~45 ; projection OpenAPI indépendante, ~35), et dans l'aide `pending-snapshot.ts` et l'adaptation de `release_public_flow`. Il reste **215** de marge pour le lot ; pour la PR C' (≤ 1 205), 3c-4b dispose de 873 contre ~470 estimés.
+`r25()` de `scripts/oracle/r25.mjs` contre `37d66ca9` (base fusionnée), à `8e5c1ed9` : **STAT 332** (+305 / −27, dont 6 lignes des trois ré-ancrages de tueurs) ≤ 547 ; CONTENT_STAT 6 (les gloses de `/docs`). Estimation du G0 : ~200. L'écart (~+130) est dans les tests (garde : copie entière et cas purs, ~60 ; corps 400 et 500 contre le schéma, ~45 ; projection OpenAPI indépendante, ~35), et dans l'aide `pending-snapshot.ts` et l'adaptation de `release_public_flow`. Il restait 215 de marge pour le lot ; pour la PR C' (≤ 1 205), 3c-4b disposait de 873 contre ~470 estimés.
+- **Après le pli du G2** (`83944897`) : **STAT 344** (+317 / −27) ≤ 547, CONTENT_STAT 6 inchangé (+12 : R-1 et N-7). Marge du lot : **203** ; 3c-4b dispose de **861** pour la PR C'.
 
 ## Écarts au G0
 
 1. **`scripts/sync-harness-served.mjs:233`** (zone ouverte jusqu'à la fusion de C', P-4) : la liste exacte des réponses de `/gate` devient 200, 400, 403 et 500 ; sans cela `--pending` échoue fermé sur la réponse 500 neuve. À T0 la promotion lit l'hôte 1.1.0, qui sert la même liste.
-2. **Tests qui exportent une copie de l'arbre** : le test 42 et `release_public_flow` promeuvent la copie (`test/helpers/pending-snapshot.ts` : instantanés retirés, `pending_since` retiré, manifeste du site recalculé) avant le `--out` qui doit réussir ; `release_public_flow` affirme d'abord que la release s'arrête à l'export avec l'instantané. `export-hygiene` ne change pas (la garde des chemins Windows sort avant).
+2. **Tests qui exportent une copie de l'arbre** : le test 42 et `release_public_flow` promeuvent la copie (`test/helpers/pending-snapshot.ts` : instantanés retirés, `pending_since` retiré, manifeste du site recalculé) avant le `--out` qui doit réussir ; `release_public_flow` affirme d'abord que la release s'arrête à l'export avec l'instantané. `export-hygiene` change aussi (pli de R-1) : `export_windows_path_guard_bites_seeded_text_file` promeut sa copie par `dropPendingSnapshot` avant `--out` et affirme que la sortie ne nomme pas `SITE-SEND-GUARD-MECH-1`. Sans cela, la garde d'envoi sortait à 1 à la place de la garde des chemins Windows et masquait le mutant qui retire la sortie de celle-ci (`export-public.mjs:513`) ; le test porte désormais ce tueur.
 3. **Découpe de T-1 et T-2** : `--check` vert avec l'instantané est mesuré dans T-1 (même copie) ; T-2 porte la fonction pure (un cas par bloquant, cas « illisible », cas « autres chemins »).
 4. **Garde de `release-public.mjs`** : par son étape d'export, pas dans son `preflight` : les portes locales tournent d'abord (longues), puis l'export refuse, le miroir intact. Voir Q-CPA-1.
 5. **Tueurs** : un seul par test (forme fermée) ; les tueurs secondaires (URL du refus, `PENDING`, m-3) sont tirés à la main ci-dessus.
 
-## Questions (pour MONARK)
+## Dry-run de la release (R-2)
 
-- **Q-CPA-1** (écart 4) : faut-il que `release-public.mjs` refuse aussi dans son `preflight`, avant les portes (quelques lignes de plus en 3c-4b ou plus tard) ? Défaut : non, le refus par l'export est fermé et le miroir n'est pas touché.
-- **Q-CPA-2** : la ligne du RUNBOOK-vitrine qui nomme la garde mécanique (à MONARK, G0 §6) ; elle peut dire que la garde ne lève qu'à la promotion de T0.
-- **Q-CPA-3** (écart 1) : accepter la ligne de `sync-harness-served.mjs` dans ce lot. Défaut : oui (zone ouverte, une ligne).
+`release-public.mjs --dry-run` passe lui aussi par `export-public.mjs --out` (`release-public.mjs:10`, `:172-179`). De C2 à T0, il est donc bloqué comme la release : il ne refuse qu'après les portes locales complètes (`npm run ci`, ~15 min), sur « RELEASE ABORTED: export failed », le miroir intact. Conforme à Q-CP-4 (aucun drapeau), mais l'opérateur doit le savoir : **la ligne du RUNBOOK-vitrine de MONARK (Q-CPA-2) doit le dire**, avec la levée à la seule promotion de T0.
+
+## Questions (pour MONARK) et réponses de la cellule
+
+- **Q-CPA-1** (écart 4) : faut-il que `release-public.mjs` refuse aussi dans son `preflight`, avant les portes (quelques lignes de plus en 3c-4b ou plus tard) ? Défaut : non, le refus par l'export est fermé et le miroir n'est pas touché. **Réponse de la cellule : non pour ce lot.** Le refus en `preflight` (appel de `pendingSendBlockers` sur l'ensemble gardé, même message, la garde de l'export restant l'autorité) est formé comme suite **RELEASE-PREFLIGHT-SEND-GUARD-1**.
+- **Q-CPA-2** : la ligne du RUNBOOK-vitrine qui nomme la garde mécanique (à MONARK, G0 §6) ; elle peut dire que la garde ne lève qu'à la promotion de T0. Elle doit aussi dire que `release-public --dry-run` est bloqué de C2 à T0, et seulement après les portes locales complètes (~15 min) (R-2).
+- **Q-CPA-3** (écart 1) : accepter la ligne de `sync-harness-served.mjs` dans ce lot. Défaut : oui (zone ouverte, une ligne). **Réponse de la cellule : oui.**
+
+## Pli du G2
+
+G2 : `recherches:coordination/pieces/2026-10-04-G2-recherches/G2-c-prime-3c-4a.md`, **approuvé avec réserves**, aucun bloquant.
+- **Pliés** :
+  - **R-1** : `export_windows_path_guard_bites_seeded_text_file` appelle `dropPendingSnapshot(src)` sur la copie avant `--out` et affirme que la sortie ne contient pas `SITE-SEND-GUARD-MECH-1` ; tueur `export-public.mjs:513 SDL` ajouté au-dessus de `test(`, tiré à la main : rouge, puis vert une fois la ligne rendue (voir « Tueurs » et l'écart 2).
+  - **R-2** : écrit ci-dessus (« Dry-run de la release ») et reporté sur Q-CPA-2.
+  - **N-7** : `dropPendingSnapshot` affirme, après son passage, que `pending_since` n'est plus dans `harness-served.json` ni `ukemi-served.json`, avec un message qui nomme l'aide.
+- **Reportés** : N-1 (liste close des instantanés, cliquet proposé), N-2 (formé comme **SCHEMA-PROJECTION-FAIL-CLOSED-1**), N-3 (codes non typés dans `http.ts`, au prochain passage), N-4 (formé comme **TRANSPORT-500-SCHEMA-1**), N-5 (gel profond des deux schémas), N-8 (ligne d'information de `--check`).
+- **N-6** n'est pas un constat : la bande-annonce d'attribution des commits est imposée.
