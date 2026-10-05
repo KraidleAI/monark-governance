@@ -104,6 +104,24 @@ function requireGh() {
   if (!tryCapture("gh auth status").ok) abort("gh is not authenticated (`gh auth status` failed) — refuse (ADR-M010 N-7).");
 }
 
+/** The pending-snapshot blockers of this tree's kept set, read by export-public.mjs's own functions. Its fail-closed exits
+ *  (an unreadable exclusion list: "export FAILED", exit 1) stay as they are; an exit hook adds the RELEASE ABORTED line
+ *  that names the cause, and a thrown error (an unreadable path) aborts with it (G2 N-3). */
+function readSendBlockers() {
+  const named = (code) => {
+    if (code !== 0) console.error("\nRELEASE ABORTED: RELEASE-PREFLIGHT-SEND-GUARD-1 could not read the exported tree (the export's refusal is above).");
+  };
+  process.once("exit", named);
+  try {
+    return pendingSendBlockers(collectFiles(SRC).kept, readTextOrNull);
+  } catch (e) {
+    process.off("exit", named);
+    return abort(`RELEASE-PREFLIGHT-SEND-GUARD-1 could not read the exported tree: ${e instanceof Error ? e.message : String(e)}`);
+  } finally {
+    process.off("exit", named);
+  }
+}
+
 function parseArgs(argv) {
   const a = { dryRun: false, message: null };
   for (let i = 0; i < argv.length; i++) {
@@ -153,7 +171,7 @@ function preflight(opts) {
   if (!vis.ok || vis.out !== "private") abort(`${GOVERNANCE_SLUG} visibility reads '${vis.out}', not 'private' (CA-1.7).`);
   // Pending snapshot, last: the kept set of this tree read as the export reads it, so a release (or a --dry-run) between C2
   // and T0 refuses here, before the long gates, instead of at its export (lot C' 3c-4a, Q-CPA-1).
-  const sg = sendGuard(pendingSendBlockers(collectFiles(SRC).kept, readTextOrNull));
+  const sg = sendGuard(readSendBlockers());
   if (!sg.ok) abort(`RELEASE-PREFLIGHT-SEND-GUARD-1 (SITE-SEND-GUARD-MECH-1): ${sg.reason}; no mirror release before T0. Release from the trunk once promoted at T0 (node scripts/sync-harness-served.mjs, then node scripts/sync-ukemi-served.mjs).`);
   return { message, mirror, gitName, gitEmail };
 }
