@@ -19,7 +19,7 @@
 // GARDE-FSYNC-1: every line, head and lock write is DURABLE (DURABLE_FS below); a power-cut NUL tail stays fail-closed
 // here ("malformed") and is repaired by the served `repair-tail` (./repair.ts, docs/RUNBOOK-rpc-guard.md).
 import { createHash } from "node:crypto";
-import { existsSync, mkdirSync, readFileSync, openSync, writeSync, fsyncSync, closeSync, renameSync, ftruncateSync, unlinkSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync, openSync, writeSync, fsyncSync, closeSync, renameSync, ftruncateSync, unlinkSync, fstatSync, lstatSync, type BigIntStats } from "node:fs";
 import { join, basename } from "node:path";
 import type { AttemptRecord, Outcome } from "./client.ts";
 import { tariffVersionOf } from "./tariff.ts";
@@ -45,7 +45,7 @@ export interface DurableFs {
   closeSync: (fd: number) => void;
   renameSync: (from: string, to: string) => void;
   ftruncateSync: (fd: number, len: number) => void;
-  unlinkSync: (path: string) => void;
+  unlinkSync: (path: string) => void; fstatSync: (fd: number) => BigIntStats; lstatSync: (path: string) => BigIntStats; // identity reads (lock.ts sealOwnLock)
   sleepSync: (ms: number) => void;
 }
 export const DURABLE_FS: DurableFs = {
@@ -55,7 +55,7 @@ export const DURABLE_FS: DurableFs = {
   closeSync: (fd) => { closeSync(fd); },
   renameSync: (from, to) => { renameSync(from, to); },
   ftruncateSync: (fd, len) => { ftruncateSync(fd, len); },
-  unlinkSync: (p) => { unlinkSync(p); },
+  unlinkSync: (p) => { unlinkSync(p); }, fstatSync: (fd) => fstatSync(fd, { bigint: true }), lstatSync: (p) => lstatSync(p, { bigint: true }),
   sleepSync: (ms) => { Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, ms); },
 };
 /** open(flags) -> write -> fsync -> close: returns once the bytes were flushed to the device (fault model, ADR). */

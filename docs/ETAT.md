@@ -395,14 +395,139 @@ Tronc `lot/etude-suite`. Dernier oracle complet : 1 779 tests, dont 1 776 verts,
       Q-CORR-4 : contrôle refait au HEAD de la fusion ; Q-CORR-5 : Q-11 du G1 close.
   - LOOPBACK-PORT0-HELPER-ONLY-1 (PAROXYSME ; Q-CORR-3) : la garde de port 0 est lexicale ; un port 0 tenu dans une variable, ou un
     `--port 0` passé à un processus, lui échappe. Construction : garde stricte, toute liaison d un fichier de test passe par l aide ;
-    environ 6 lignes de garde et 1 de test, 1 site à inliner (mesuré). Déclencheur : HARNESS-LOOPBACK-PORTS-1 (RECHERCHES) ; état : ouvert.
+    environ 6 lignes de garde et 1 de test, 1 site à inliner (mesuré). Déclencheur : HARNESS-LOOPBACK-PORTS-1 (RECHERCHES) ; état : clos
+    au G7 du lot (l.181) ; limites déclarées (l.137-140) reprises par LOOPBACK-GUARD-RUNTIME-1 ci-dessous.
   - LOOPBACK-CLOSEDPORT-RACE-1 (PAROXYSME ; Q-CORR-7) : le cas D-2 et le test 6 du G1 dépendent d un port fermé qu un autre processus
     peut prendre. Construction pour D-2 : une fabrique qui lie port + 1, environ 2 lignes, puis rejeu de M18, M21 et de l oracle ;
-    pour le test 6, mesure de fréquence au banc d abord. Déclencheur : HARNESS-LOOPBACK-PORTS-1 ; état : ouvert.
+    pour le test 6, mesure de fréquence au banc d abord. Déclencheur : HARNESS-LOOPBACK-PORTS-1 ; état : clos
+    au G7 du lot (D-2 et test 6, `docs/G7-lot-harness-loopback-ports-1.md` l.181).
   - EXPORT-HARNESS-413-LOAD-1 (2026-10-04 14:3x UTC ; 1re passe de v0.8.0) : `oversized_body_413_and_normal_tools_call_unaffected`
     rouge une fois dans la CI exportée du test 42, sous charge (65 ms), assertion interne non nommée ; 15/15 vert au repos, test 42
     vert dans 103 relevés d oracle. Construction : le test 42 porte le texte de l assertion interne, reproduction sous charge, test
-    déterministe sans perdre (a2) ni ses tueurs. Porteur : RECHERCHES (recherches#129), PR sur le tronc ; état : ouvert.
+    déterministe sans perdre (a2) ni ses tueurs. Porteur : RECHERCHES (recherches#129), PR sur le tronc ; état : clos
+    le 2026-10-04 16:4x UTC, #127 fusionnée au tronc (`60c481e6`). Cause : le RST après le 403 ; sous win32, la réponse reçue non lue
+    est jetée. (a2) jugé sur `{403, complete: false}` côté serveur ; 30/30 vert sous charge Windows à `50031a46` ; oracle G7 vert
+    (2218 tests, 0 échec).
+  - LOOPBACK-GUARD-RUNTIME-1 (PAROXYSME ; limites déclarées du G7 de HARNESS-LOOPBACK-PORTS-1) : la garde est lexicale ; lui échappent
+    un nom calculé, un alias par déstructuration, `PORT=0` en environnement, dgram sans import, une expression du port. Construction :
+    une garde d exécution chargée par `--import` pour chaque fichier de test, qui intercepte `listen` et `bind` de net et dgram et
+    refuse un port hors du tirage de l aide ; prix à mesurer au G0. Porteur : RECHERCHES, après CM-3c ; état : ouvert.
+  - EXPORT-TEST42-SUMMARY-1 : le test 42 rougit parfois en « implausibly small suite » (CI exportée sortie 0, ligne de résumé non
+    captée). Hypothèse (G2 de #127) : `--test-force-exit` appelle `process.exit` avant que stdout ait fini de s écrire dans le tube,
+    sous Linux ; `scripts/red-proof.mjs` contourne déjà ce cas. Construction : lire le résumé dans un fichier de reporter
+    (`--test-reporter-destination`) au lieu de stdout. Porteur : RECHERCHES ; état : ouvert.
+  - CI-G3-DURATION-1 : `g3-verification` prend 7 min 06 s sur le runner (#125) ; #121, #126 et #112 coupées à 10 min, tests en
+    cours. Borne portée à 20 (`04c97744`, règle temps × 3, plafond 20). Construction : mesurer les fichiers sur le runner, sortir le
+    test 42 (151 s au run de #126) dans son propre job s il domine. Porteur : RECHERCHES ; état : clos le 2026-10-04, #130 au tronc
+    (`0effb5b2`) : `g3-verification` lance `test:main` (3 min 41 s), `g3-export` le seul test 42 (1 min 28 s, borne 10) ; oracle vert.
+  - G3-EXPORT-REQUIRED-1 (de #130) : `g3-export` n est pas un contrôle requis sur `main`. À ajouter à la protection de branche quand
+    ce workflow atteindra `main` (acte de l orchestrateur, fenêtre publique de l investisseur). Porteur : MONARK ; état : ouvert.
+  - SENTINEL-SIGTERM-LINUX-1 : `sentinel_run_releases_chainstack_lock_on_sigterm` est sauté sous win32, donc jamais jugé par l oracle
+    Windows ; rouge deux fois sur la CI Linux de `recherches/cm-2c` (`d939ec4c`, run `37184209168`), vert sur #126. Demande : 20
+    passes au repos et 20 sous charge sous Linux à `60c481e6` (recherches#135). Porteur : RECHERCHES ; état : clos le 2026-10-04
+    16:5x UTC : vert à `c68451fc` (20/20 au repos, 60/60 sous charge) ; rouge de `d939ec4c` reproduit (9/63 sous charge), base sans
+    `9d6181e0` (SENTINEL-SIGTERM-LOAD-1 : l ancien test envoyait SIGTERM avant le gestionnaire). Rapport RECHERCHES
+    `pieces/2026-10-04-sentinel-sigterm-linux/RAPPORT.md`.
+  - SENTINEL-SIGTERM-STARTUP-WINDOW-1 (nommé au G0 et au G7 de SENTINEL-SIGTERM-LOAD-1, absent d ETAT jusqu ici) : `run.ts` prend le
+    verrou (l.295) avant d installer son gestionnaire de SIGTERM (l.342) ; un SIGTERM dans cette fenêtre tue le processus et laisse le
+    verrou pris. Construction : installer le gestionnaire avant la prise du verrou, test qui envoie SIGTERM dans la fenêtre. Porteur :
+    RECHERCHES (zone ouverte : `apps/sentinel/src/run.ts` et son test) ; déploiement de la sentinelle par MONARK ; état : code au
+    tronc (#137, `124c03c2` ; CI Linux : les 4 tests SIGTERM verts ; oracle Windows vert) ; déploiement groupé avec
+    RPC-GUARD-LOCK-WRITE-LEAK-1 (décision de l investisseur, 2026-10-04 21:4x UTC), fait le 2026-10-04 à 23:34:40 UTC (arbre
+    `c9aebb44`, JOURNAL-PROVENANCE) ; état : clos.
+  - ADR-CM-AMEND-3-1 : l amendement ADR-CM « 2026-10-04 (3) » (1.1.0) est cité par d autres ADR mais absent du tronc et de la base
+    (Q-4 du G0 de CM-4a-i). Porteur : RECHERCHES, PR de documentation de l étape 7 du plan CM-3c/CM-4 ; état : ouvert.
+  - SERVED-PENDING-1 (plan r3 §8.5, étendu au chargeur du site ; absent d ETAT jusqu ici) : un instantané en attente
+    `apps/site/data/harness-pending.json` (schéma propre `harness-pending-v1`, champs en processus seuls), écrit hors ligne au temps (i) ;
+    les tests de l état servi le comparent au harnais en processus quand il existe ; les pages gardent le servi, seules les traces BYO
+    et H5 le lisent ; promotion par la synchro au temps (ii) sous contrôle de MONARK. Décisions Q-SP1-1 à Q-SP1-5 du 2026-10-04 17:0x UTC
+    (messagerie). Porteur : RECHERCHES, PR sur la base avant le bloc C ; état : en cours (G0 `bdc946b2`).
+  - UKEMI-PENDING-1 (Q-SP1-4) : les deux tests de site-ukemi (`:1198`, `:1438`) lisent `ukemi-served.json` et rougiraient au bloc C
+    sur `schema_version` du corps de la CA, ce qu un instantané en attente du harnais ne couvre pas. Construction : le même mécanisme
+    pour l état servi d ukemi (synchro et vérification). Porteur : RECHERCHES, sur la base avant le bloc C ; état : en cours (PR #133,
+    `CA_SCHEMA_VERSION` ; l instantané en attente d ukemi est reporté au G0 du bloc C sous UKEMI-PENDING-SNAPSHOT-1, G0 du lot).
+  - MUTANTS-LIVE-WAITER-AHEAD-1 (2026-10-04 18:4x UTC) : G28 (`mutants_a_live_waiter_ahead…`) rouge sous la charge de l oracle
+    (lock_wait_ms < 1000) : depuis #125 l attendant de 6 s fixes part au chargement et peut mourir avant l entrée de l outil dans
+    l attente. Construction : l attendant vit jusqu à cette entrée ; même examen pour G27 (3 197 ms pour 3 600 sous Windows). Porteur :
+    RECHERCHES (recherches#141), PR sur le tronc avant #130 ; état : clos le 2026-10-04, #136 au tronc (`4dc1f504`), oracle vert.
+  - L2-LINKS-FILE-CRASH-1 (2026-10-04 18:3x UTC) : `test/l2-links.test.ts` planté au chargement sous l oracle (363 ms, aucun test
+    rapporté, aucune trace), une fois. Construction : rendre la cause lisible (`test/helpers/keep-cause.ts`), `trap()` et
+    `mkdtempSync` dans `before()` ; rejeu Windows par MONARK après la PR. Porteur : RECHERCHES (recherches#140) ; état : clos le
+    2026-10-04, #134 au tronc (`f57ef792`) : rejeu Windows 17/17 trois fois, oracles verts sans ligne `# keep-cause`.
+  - TEST-FORCE-EXIT-REPORT-LOSS-1 (2026-10-04 20:2x UTC ; proposé par RECHERCHES) : sous Linux, avec `--test-force-exit`, des
+    rapports de fin de fichier se perdent alors que le fichier sort 0 (suites vertes à 2 116 et 2 170 tests rapportés pour 2 211) ;
+    une CI verte ne prouve alors rien des tests non rapportés. Construction au G0 : compte rapporté contre un plancher ou contre un
+    fichier tap. Porteur : RECHERCHES, zone ouverte (scripts de test, `ci.yml`, un test de garde ; recherches#145) ; état : clos le
+    2026-10-05 par #142 (tronc `d305ae15` ; oracle Windows vert, 2 250 tests, 0 échec ; `test:main` et `test:export` verts sous `cmd.exe`).
+  - CM-5-PLAN-1 (audit P3, E-11/S-14 : la surveillance par clé kata de CM-5, qu aucun bloc A à E ne porte) : G0 de CM-5 après T0,
+    ou raison écrite de ne pas remédier. Porteur : RECHERCHES ; déclencheur : T0 ; état : ouvert.
+  - L2-DAY-SCAN-WINDOW-1 (Q-C1-6 du G7 de L2 P1-c1) : une trame dont l heure de place suit sa réception de plus d une heure n est pas
+    lue au scellé de son jour ; elle est rangée au jour de son segment, marquée `early` et comptée. Mesure en M-6. Porteur :
+    RECHERCHES ; état : ouvert.
+  - BLOC-C-ACTES-MONARK-1 (G0 du bloc C, 2026-10-05) : (a) appliquer la pièce des textes d ADR (Q-M7 : ADR-M001 D4 et C5, ADR-M005
+    K-4 (c), ADR-M007 §7, ADR-M010 §12, `CONTRIBUTING.md:56-57`) et trancher ses deux ajouts optionnels, avant la fusion de C2 ;
+    (b) écrire les entrées de `frozen_contract_fields_stay_dynamic` que RECHERCHES propose (Q-M14) ; (c) seconde ligne Z-3 en C' (S-8,
+    B-13) ; (d) fusionner la PR de l amendement 9 de l ADR-CM, contrôlée le 2026-10-05, avant le code de C1. Porteur : MONARK ; état :
+    ouvert.
+  - TAIL-TS-COUNTS-1 (Q-1 de CM-4a-ii, voie (a)) : l addendum 8 d ADR 0006 (P0 `ec202d00`) garde l exception de zone : MONARK écrit
+    `tail.ts` et la garde de vague 2. Livrable de MONARK : l entrée par comptes de `tail.ts` (`{num, den}` non réduits, chaînes
+    décimales, refus de l addendum §1), sur la signature et les vecteurs que RECHERCHES fournit ; tests et tueurs W2-E chez
+    RECHERCHES. Déclencheur : la pièce de RECHERCHES ; avant le lot b de CM-4a-ii. Porteur : MONARK ; état : livré le 2026-10-04,
+    PR #135 fusionnée sur la base (`abe14e6b`, oracle vert, 2 257 tests) après la G2 APPROUVE de RECHERCHES ; 10/10 vecteurs, 6 000
+    accords avec la doublure ; tests et tueurs W2-E au lot b de CM-4a-ii (RECHERCHES).
+  - VERIFIERS-LIST-F5A-1 (Q-2 de CM-4a-ii) : la liste publiée des vérificateurs listés (identité lue avant « @ », minuscules ASCII)
+    est due par MONARK avant F-5a. Porteur : MONARK ; état : ouvert.
+  - RPC-GUARD-LOCK-WRITE-LEAK-1 (H-1 de RECHERCHES, G2 de #137) : si l écriture ou le fsync du verrou échoue après un `openSync "wx"`
+    réussi, le fichier reste hors de `acquired` (`guarded.ts:43-46`) et la garde répond `lock_held` jusqu à l acte du RUNBOOK.
+    Construction : retirer le fichier sur échec d écriture, test et tueur d abord. Porteur : RECHERCHES (zone `packages/rpc-guard/`
+    ouverte, recherches#150), après #137 et le lot b de CM-4a-ii ; état : clos au tronc par #140 (`c9aebb44`, CI verte, oracle
+    Windows vert : 2 244 tests, 0 échec), déployé avec #137 le 2026-10-04 à 23:34:40 UTC (JOURNAL-PROVENANCE).
+  - SENTINEL-GUARD-ARMING-1 : c est le 2ᵉ redéploiement d ADR-NARABI-OPS-1 (A.7 ; A.8 item 10 : déclencheur le G7 du pli §11-1,
+    procédure RUNBOOK-sentinel §6-bis, propriétaire l orchestrateur), jamais exécuté. Relevé du 2026-10-04 à 23:3x UTC : la garde (-1d)
+    tourne sur l hôte du site sans clés de cycle (fichier d environnement, comptes de clés seuls : URL 1, cycle 0, origine 0, plancher 0 ;
+    pas de dossier `ledger/`) ; trois dry-runs rendent `chainstack: false`, `chainstack_guard: "unconfigured"`. La timeline publie 7
+    points depuis la ligne du 2026-09-23 (`sentinel_sha` `e73866a8…`, arbre `af9b889`), 8 ou 9 avant : la jambe payante est noire
+    depuis, et la phrase d A.7 « le VPS exécute `c4981d0` » (résiduel 118) est périmée. Construction : relire P-1 (pli §11-1 : fusion,
+    G2-delta, re-checkpoint-2, G7) et P-2 (clôture du temps 1 et de la course U-4b-1b), puis §6-bis (3) à (7) avec P-3 lu sur place
+    par l investisseur à la console Chainstack, ou une décision de l investisseur de laisser la jambe noire. Porteur : MONARK ; état :
+    ouvert.
+  - TEST-FORCE-EXIT-NEED-1 (question de RECHERCHES, 2026-10-04) : `--test-force-exit` est-il encore nécessaire ? Construction : mesurer,
+    fichier par fichier, ce qui ne sortirait pas sans lui, puis le retirer s il n y a plus rien. Porteur : RECHERCHES, priorité basse,
+    après ses lots en cours (recherches#154) ; état : ouvert.
+  - MUTANTS-REPLAY-PROMOTE-1 (proposé au G7 de MUTANTS-RUN-EXIT-CODE-1, #144) : une ligne dont le rejeu est « tue » prend le statut
+    du rejeu. Porteur : RECHERCHES ; déclencheur : le prochain lot qui touche `scripts/mutants/` ; état : ouvert.
+  - R25-INTEGRATION-RULE-1 (décision de l investisseur, 2026-10-05 04:2x UTC) : R-25 ne compte, sur une PR d intégration, que le neuf
+    (résolutions de conflit par remerge-diff, commits hors de toute PR fusionnée et relue), contre la borne de 1 205 ; définition fermée
+    de la PR d intégration et preuve d appartenance, fail-closed ; une seule source pour le job CI et la porte r25 de l oracle ; ligne
+    datée d ADR-M003 D9. Porteur : RECHERCHES (zone ouverte, cahier des charges E-1 à E-7, recherches#189) ; contrôle par diff et
+    oracle : MONARK ; déclencheur : avant la PR d intégration de C2 ; état : fermé le 2026-10-05 (1a #154 `58054d8c`, 1b #155
+    `023801ec`, oracles Windows verts, CI verte) ; restes formés : R25-ATTR-SOURCE-1, CI-PERMS-JUDGE-YAML-1, CI-WORKFLOWS-SET-1.
+  - R25-ATTR-SOURCE-1 (O-1 de la G2 de R25-INTEGRATION-RULE-1) : le compte d aujourd hui (`W`) du job r25 lu sous le même épinglage
+    d attributs que le module et l oracle (un `.gitattributes` mesuré ne doit pas le baisser). Porteur : RECHERCHES (lot en cours) ;
+    contrôle par diff et oracle : MONARK ; déclencheur : après 1b ; état : ouvert.
+  - CI-PERMS-JUDGE-YAML-1 (PAROXYSME ; R-2 de la G2 du pli Q-2 de 1b) : le juge `problems()` des permissions de `ci.yml` est lexical ;
+    il refuse les clés `? ` et les clés doubles échappées, mais ne lit ni ancres, ni alias, ni fusions `<<:`, ni étiquettes, ni scalaires
+    multilignes. Construction visée : une lecture YAML réelle (dépendance vérifiée au registre d abord, R-8) ou les permissions
+    effectives du jeton du run. Porteur : RECHERCHES ; d ici là, contrôle par diff des fichiers de la gate par MONARK ; déclencheur :
+    avant T0 ; état : ouvert.
+  - CI-WORKFLOWS-SET-1 (m-1 de la même G2) : aucun test ne lit un second fichier sous `.github/workflows/` ; l ensemble des workflows
+    est `{ci.yml}`, à épingler par une égalité d ensemble. Porteur : RECHERCHES, lot à part ; déclencheur : avant T0 ; état : ouvert.
+  - CODEQL-ALERTS-2 (MONARK, 2026-10-05 12:2x UTC) : alertes CodeQL ouvertes sur le tronc depuis la bascule de la branche par défaut,
+    #41 et #44 (`test/dojo-render.test.ts:73`, `:378`), #43 (`test/red-proof.test.ts:545`), #45 (`test/public-surfaces-honesty.test.ts:184`) ;
+    #42 levée par #159 (CODEQL-42). Correction selon ADR-CODEQL-ALERTS-1 D4, sinon rejet justifié selon D6, fait par MONARK sur
+    justification écrite. Porteur : RECHERCHES ; déclencheur : au plus tôt, au plus tard avant l avance de `main` à T0 (check CodeQL
+    requis sur `main`, décision 170) ; état : ouvert.
+  - SITE-SEND-GUARD-MECH-1 (demande de MONARK pour C') : `export-public.mjs --out` refuse tant qu un instantané en attente existe, sans drapeau de
+    contournement ; la promotion à T0 lève la garde. Porteur : RECHERCHES (C', lot 3c-4a, G0 `8f554390`) ; d ici là, la règle du
+    RUNBOOK, tenue par MONARK : aucun envoi du site ni release du miroir depuis la base avant C' ; état : ouvert.
+  - HOST-REDEPLOY-GUARD-1 (PAROXYSME ; Q-CP-5 du G0 de C') : la règle m-1 (redéployer l hôte depuis le SHA déployé seulement, jusqu à
+    T0) est une règle de procédure ; construction visée : une garde mécanique dans le script de déploiement de MONARK. Porteur :
+    MONARK ; déclencheur : avant le prochain redéploiement de l hôte ; état : ouvert.
+  - MUTANTS-RUN-EXIT-CODE-1 (signalé par RECHERCHES, 2026-10-04) : `scripts/mutants/run.mjs` juge un mutant sur la sortie, pas sur le
+    code de sortie ; un rapport d échec perdu donne « survit » au lieu de « tué » (sens sûr, mesure fausse). Construction : juger sur le
+    code, tests et tueur d abord. Porteur : RECHERCHES (zone `scripts/mutants/` ouverte, recherches#154) ; état : ouvert.
+  - L2-MARKET-STREAMS-CASE-FAITS-1 (Q-A4-1 du G0 de L2 P1-a4) : les flux `/market` sont en minuscules ; la ligne FAITS qui le prouve
+    sur la page primaire est due avant M-1. Porteur : RECHERCHES ; déclencheur : M-1 ; état : ouvert.
   - L2-RECV-US-RESOLUTION-1 (PAROXYSME ; Q-4 du G1 de L2-P1-a2) : Node n offre aucune horloge murale à la microseconde ; `recv_us`
     de production vaut `Date.now()*1000` (résolution ms), l ordre fin étant porté par `mono_ns`. Construction qui donne la garantie :
     mesurer la résolution réelle et la dérive de `performance.timeOrigin + performance.now()` contre l horloge de l hôte sur un jour
@@ -606,6 +731,10 @@ Tronc `lot/etude-suite`. Dernier oracle complet : 1 779 tests, dont 1 776 verts,
     (`apps/sentinel/src/rpc.ts.prev`, `apps/site/app/products/page.tsx`, `apps/site/lib/narabi-snapshot.ts`,
     `packages/monark/test/cross-agent-gate.test.ts`), hors du chemin du harnais et de la sentinelle. Construction : les retirer, et
     l'arbre précédent, sur accord de l'investisseur (suppression) ; déclencheur : le prochain déploiement du harnais ; état : ouvert.
+    Relevé du 2026-10-04 à 23:3x UTC : trois arbres gardés (`.prev-20261003-2231`, `.prev-20261004-0742`, `.prev-20261004-2331`) et
+    huit sauvegardes `.bak-*.tgz` (11 Go utilisés sur 96). Le processus du harnais, lancé à 07:44:08 UTC et non redémarré par le
+    déploiement de la sentinelle, a pour répertoire de travail l arbre renommé `.prev-20261004-2331` : à ne retirer qu après le
+    prochain redémarrage du harnais.
   - Clos ou absorbés dans ces lots, preuves au recensement : EE7-SCHEMA-V2-1 (le détecteur lit `monark.series.coinbase.v2`), Q-CTV2-3
     (dans I-2), et à leur place plus haut : COINBASE-MUTANTS-CORR-1, COINBASE-PLAN-ENVOK-OPENSSL-1, TUYAU-EE7-IN-1,
     BINANCE-REPLAY-NON200-ATTEST-1, BINANCE-OPENSSL-PREFIX-PIN-1, partie EE-7 de MAIN-GUARD-REALPATH-1 ; Q-8 (copies sous `F:/tmp`) :
@@ -723,6 +852,13 @@ Tronc `lot/etude-suite`. Dernier oracle complet : 1 779 tests, dont 1 776 verts,
     (`apps/harness/src/tools/gate.ts:62` les lie), aucune acceptation du 1.0.0. Recensement de la zone MONARK :
     `F:/tmp/rech/v110/RECENSEMENT-1-1-0.md` (27 sites, 29 empreintes sûres, 10 conditionnelles ; aucune liste d appelants ; rien ne
     produit encore `KraidleAI/monark-kata-spec`). Déclencheur : le plan de CM-3c ; état : ouvert.
+    Liste de T0 de MONARK (relevée le 2026-10-05) : les deux schémas neufs sur le site, avec la republication de la spécification ;
+    les textes publics hors pages (Q-M16 du G0 du bloc C : `skills/monark/SKILL.md`, `DEMO.md`, `INTEGRATION.md`, `README.md:328`,
+    `docs/RUNBOOK-harness.md:169`, `apps/site/lib/sim.ts:25`, `docs/deploy-CA-harness.json`) ; « calibration digest » et
+    `DIGEST_NOTE` ; `/integrators` et `/docs/integrators` (`calib_digest`, `set_digest`) ; le `$comment` de `ukemi-pending.json`
+    (porte de vocabulaire) ; la page Narabi et son chargeur (Q-M6) ; l ordre CA, sync du harnais, puis sync ukemi (RUNBOOK-vitrine).
+    Ajouts : « Eight frozen contracts » (`apps/site/app/page.tsx:181`, `docs/page.tsx:61`) ; `apps/harness/README.md` et
+    `fixtures/PROVENANCE-*.md` (coupe de C2, Q-3a-5) ; `main` du dépôt de gouvernance avancée jusqu au tronc (avance rapide).
   - DEMO-HASH-STALE-1 : `skills/monark/DEMO.md:88` cite l empreinte tronquée `79b54471…` de la trace byo, périmée (actuelle
     `daf8d3ea…`), sans test. Construction : la corriger et l épingler par un test ; environ 3 lignes. Déclencheur : le lot des
     surfaces de CM-2b (temps (i)) ; état : ouvert.
@@ -890,7 +1026,8 @@ Tronc `lot/etude-suite`. Dernier oracle complet : 1 779 tests, dont 1 776 verts,
   région de l hôte, points d accès, Q-6 à Q-10) avant tout appel ; hôte = serveur du site sous quota ; audit advisor marché (0007-AVIS) plié.
 - **ADR de la vague 2 ACCEPTÉ par le fondateur** (v8.1, 2026-10-02 ; empreinte du texte accepté `fe48c03a33da7ab0090b97a41b911f74102de61fa6059188e1c01d23a8fb4be6`,
   relevée sur place à 19:13 UTC, pour P0-2 ; checkpoint-1 MONARK ACCEPTE-AVEC-CORRECTIONS plié). Parties : A W2-E + W2-S (MONARK après le
-  chantier 2), B W2-H + W2-L, acte P0-2, C W2-C + W2-F, D course 2b. Dû par MONARK : C-3 (diff A-1) au début de W2-E ; C-6 (FAITS) avant P0-2.
+  chantier 2), B W2-H + W2-L, acte P0-2, C W2-C + W2-F, D course 2b. C-3 (diff A-1) fait le 2026-10-04 :
+  CONFORME, ligne P0 d A-1 `3283e9ce` ; dû par MONARK : C-6 (FAITS) avant P0-2.
   LIVE-2-RECORD-1 (conditionnel : si P0-2 vient après la première lecture de LIVE-1 par RECHERCHES, MONARK enregistre LIVE-2, premier
   trimestre civil complet après P0-2, scellé ; C-5 du checkpoint-1 v6). Checkpoint-1 v6 rendu le 2026-10-02 à 18:49 UTC :
   ACCEPTE-AVEC-CORRECTIONS (C-1 à C-10 ; rapport `F:/tmp/kata-w2v6/cp1/CP1-W2-RAPPORT.md` sha256 `c01df603…`, 17 recalculs égaux).

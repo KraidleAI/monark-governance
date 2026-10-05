@@ -10,7 +10,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { execFileSync, spawn, spawnSync } from "node:child_process";
 import { createHash } from "node:crypto";
-import { appendFileSync, existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { appendFileSync, copyFileSync, existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { basename, join } from "node:path";
 import { pathToFileURL } from "node:url";
@@ -271,8 +271,8 @@ test("oracle_lock_never_takes_a_live_or_unknown_owner — owner.txt JSON of this
 }));
 
 test("oracle_r25_over_the_ci_bound_is_red — insertions + deletions against VIBEGATES_PR_LIMIT 5, equality green (-gt): 3 + 2 = 5 green, 3 + 3 = 6 red, 15 + 3 red (3 committed + 2 tracked-dirty + 10 untracked); same R25_DIFF_RE as test 38 (M11, M13, X6, X7)", () => withFx((fx) => {
-  // killer: scripts/oracle/r25.mjs:23 SDL "changed: ins + del," -> "changed: ins,"
-  // killer: scripts/oracle/r25.mjs:25 ROR "c.changed > c.limit" -> "c.changed >= c.limit"
+  // killer: scripts/oracle/r25.mjs:31 SDL "changed: ins + del," -> "changed: ins,"
+  // killer: scripts/oracle/r25.mjs:35 ROR "c.changed > c.limit" -> "c.changed >= c.limit"
   for (const [text, del, exit] of [["a\n", 2, 0], ["", 3, 1]] as const) {
     writeFileSync(join(fx.repo, "base.txt"), text);
     const r = oracle(fx, ["--role", "G1", "--static-only"]);
@@ -289,6 +289,35 @@ test("oracle_r25_over_the_ci_bound_is_red — insertions + deletions against VIB
   assert.equal(a.rec?.tree.dirty, createHash("sha256").update(execFileSync("git", ["-C", fx.repo, "diff", "--binary", "--full-index", "HEAD"])).update(`\0big.txt\0${sha256(readFileSync(join(fx.repo, "big.txt")))}`).digest("hex"), "dirty is reproducible from content (full index)");
   const re = (f: string): string | undefined => /const R25_DIFF_RE = (\/.+\/);/.exec(readFileSync(join(ROOT, f), "utf8"))?.[1];
   assert.equal(re("scripts/oracle/r25.mjs"), re("test/ci-gates.test.ts"), "R25_DIFF_RE drifted from test 38");
+}));
+
+// killer: scripts/oracle/run.mjs:63 CONST "r25_proof: proofFile === null ? null : sha256(readFileSync(proofFile))" -> "r25_proof: null"
+// killer: scripts/oracle/run.mjs:62 CONST ", readFileSync(join(here, \"..\", \"lot-size-integration.mjs\"), \"utf8\")" -> ""
+test("oracle_r25_integration_reads_the_declared_proof - --r25-proof: the tree's module runs on the declared proof (here a written PR: the count of today), the record names the mode and the proof sha256, the D4 key changes with the proof; no flag: unproven, r25_proof null; a missing file: refusal (ADR-M003 D9 nonies, T-11)", () => withFx((fx) => {
+  type R25Rec = { key: string; r25_mode?: string; r25_proof?: { file: string; sha256: string } | null; r25: Rec["r25"] };
+  const mod = join(ROOT, "scripts", "lot-size-integration.mjs"), proof = join(fx.top, "proof.json");
+  if (existsSync(mod)) { mkdirSync(join(fx.repo, "scripts")); copyFileSync(mod, join(fx.repo, "scripts", "lot-size-integration.mjs")); }
+  const ci = join(fx.repo, ".github", "workflows", "ci.yml"), id = { head_repo: "KraidleAI/monark-governance", base_repo: "KraidleAI/monark-governance", base_ref: "lot/etude-suite" };
+  writeFileSync(ci, readFileSync(ci, "utf8").replace("          CHANGED=", "          CONTENT_STAT=$(git diff --shortstat \"origin/${{ github.base_ref }}...HEAD\" -- 'site/**') || {\n            exit 1\n          }\n          CHANGED="));
+  git(fx.repo, "add", "-A");
+  git(fx.repo, "commit", "-qm", "two counts and the module");
+  writeFileSync(proof, JSON.stringify({ schema: "monark.r25-proof.v1", repo: id.head_repo, complete: true, merged: [], pr: { ...id, number: 1, head_ref: "recherches/x", head_sha: git(fx.repo, "rev-parse", "HEAD") } }));
+  const [a, b] = [[], ["--r25-proof", proof]].map((x) => oracle(fx, ["--role", "G2", "--static-only", ...x]).rec as R25Rec | null);
+  assert.deepEqual([a?.r25_mode, a?.r25_proof, b?.r25_mode, b?.r25_proof], ["unproven", null, "written", { file: proof, sha256: sha256(readFileSync(proof)) }]);
+  assert.deepEqual(b?.r25, a?.r25, "a written PR keeps the count of today");
+  assert.notEqual(a?.key, b?.key, "the D4 key carries the proof (a record served without proof never serves a run with one)");
+  const here = join(ROOT, "scripts", "oracle"), judged = [...readdirSync(here).filter((f) => f.endsWith(".mjs")).sort().map((f) => readFileSync(join(here, f), "utf8")), readFileSync(mod, "utf8")];
+  assert.equal((b as unknown as { key_parts: { script: string } }).key_parts.script, sha256(Buffer.from(judged.join("\0"))), "the D4 key carries the oracle's own module, the judge it runs (G2 B-3)");
+  assert.equal(oracle(fx, ["--role", "G2", "--r25-proof", join(fx.top, "absent.json")]).status, 2);
+}));
+
+// killer: scripts/oracle/run.mjs:99 CONST "\"--template=\", " -> ""
+test("oracle_clone_takes_no_machine_template - G2 delta3 m-f: a machine git template (GIT_TEMPLATE_DIR, or init.templateDir) carrying info/attributes `* -diff` never reaches the clone: r25 reads the 3 lines of the lot, green (0 lines before)", () => withFx((fx) => {
+  const tpl = join(fx.top, "template");
+  mkdirSync(join(tpl, "info"), { recursive: true });
+  writeFileSync(join(tpl, "info", "attributes"), "* -diff\n");
+  const r = oracle(fx, ["--role", "G1", "--static-only"], { GIT_TEMPLATE_DIR: tpl });
+  assert.deepEqual([r.rec?.r25?.map((c) => [c.insertions, c.deletions, c.changed]), r.rec?.gates.find((g) => g.name === "r25")?.exit], [[[3, 0, 3]], 0], r.out);
 }));
 
 test("oracle_cv4_refuses_the_suite — free memory or node.exe out of bounds => exit 3, no suite, lock released; defaults 4096 MB free and 40 node.exe (M12, X13)", () => withFx((fx) => {

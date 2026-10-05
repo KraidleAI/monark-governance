@@ -810,7 +810,7 @@ test("vocab_site_scope_bans_operator_and_venue_names — operator and venue name
 test("site_names_no_data_source — no data-source name form in ANY exported apps/site file, rendered surface or committed data; the literals stay in the non-exported scripts/public-text-deny.mjs (VOCAB-PROVIDERS-SITE-1, R13, R50; decision 69 / C-9)", () => {
   const kept = collectFiles(ROOT).kept;
   // The name literals (this file, and the module it imports them from) must never be exported (else they would publish the names they ban).
-  assert.ok(!kept.some((f) => f.rel.startsWith("test/")), "no repo-root test/ file may be exported");
+  assert.ok(!kept.some((f) => f.rel.startsWith("test/") && f.rel !== "test/helpers/blocking-stdout.cjs"), "no repo-root test/ file may be exported");
   assert.ok(!kept.some((f) => f.rel.startsWith("scripts/public-text-deny.")), "scripts/public-text-deny.* (the vendor lists) is never exported (CA-1.5)");
   const siteFiles = kept.filter((f) => f.rel.startsWith("apps/site/") && !BINARY_EXPORT.test(f.rel));
   assert.ok(siteFiles.length >= 50, `implausibly few exported apps/site text files (${String(siteFiles.length)}) — false green?`);

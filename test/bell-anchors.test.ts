@@ -164,7 +164,7 @@ test("bell_publication_anchors_source_holds_no_fixture", () => {
   assert.ok(readdirSync(PUB, { withFileTypes: true }).every((d) => d.isFile()), "docs/bell-publications/ holds regular files only (no link, no directory)");
   for (const dir of [PUB, SERVED, join(ROOT, "fixtures")]) assert.deepEqual(walk(dir).filter((n) => n.startsWith("fixture-")), [], `no fixture-* file under ${dir}`);
   assert.ok(walk(join(ROOT, "test", "fixtures")).some((n) => /^fixture-.+\.ots$/.test(n)), "non-vacuity: the synthetic proofs live under test/fixtures/");
-  assert.ok(!WHITELIST_DIRS.includes("test") && !WHITELIST_FILES.some((f) => f.startsWith("test/")), "test/ stays out of the public export's whitelist");
+  assert.ok(!WHITELIST_DIRS.includes("test") && !WHITELIST_FILES.some((f) => f.startsWith("test/") && f !== "test/helpers/blocking-stdout.cjs"), "test/ stays out of the public export's whitelist");
 });
 
 // CM-13 (G2 of PR-A) and S-1..S-4, S-11 (ADR-BELL-OTS-PRB T-B2): on syncRoot(), the sync refuses BEFORE any write a publication row that
