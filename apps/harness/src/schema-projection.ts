@@ -116,9 +116,28 @@ function inlineDefs(node: Json, defs: JsonObject): Json {
 }
 const TOOL_ERROR_SCHEMA = asObject(stripMeta(loadFrozen("tool-error.schema.json")), "ToolError");
 const TOOL_ERROR_DEFS = asObject(TOOL_ERROR_SCHEMA["$defs"] ?? null, "ToolError.$defs");
-/** The 400 body (the root: tool_error, invalid_input, invalid_json) and the 500 body ($defs/InternalError). */
+/** The 400 body (the root: tool_error, invalid_input, invalid_json). */
 export const TOOL_ERROR_400_SCHEMA = asObject(inlineDefs(TOOL_ERROR_SCHEMA, TOOL_ERROR_DEFS), "ToolError 400");
-export const TOOL_ERROR_500_SCHEMA = asObject(inlineDefs(TOOL_ERROR_DEFS["InternalError"] ?? null, TOOL_ERROR_DEFS), "ToolError 500");
+/** The keys the transport-level branch takes from $defs/InternalError: a closed list, so a future key of the frozen definition
+ *  (minProperties, allOf, ...) never leaks into that branch. */
+const TRANSPORT_500_KEYS: readonly string[] = ["type", "additionalProperties"];
+/**
+ * The 500 body from the projected $defs/InternalError: oneOf [InternalError (an operation failed; it names the operation), the
+ * transport-level 500 that the frozen description names outside its branches, "without operation" (server.ts, before or around
+ * any operation): InternalError's closed keys and its `error` property alone, so exactly the body that server.ts sends].
+ * Fails closed at load unless the two branches exclude each other: InternalError closed and requiring `operation`.
+ */
+export function internal500Schema(internal: JsonObject): JsonObject {
+  const required = internal["required"];
+  if (internal["additionalProperties"] !== false) throw new Error("InternalError is not closed: the two 500 branches would overlap");
+  if (!Array.isArray(required) || !required.includes("operation")) throw new Error("InternalError does not require operation: the two 500 branches would overlap");
+  const error = asObject(asObject(internal["properties"] ?? null, "InternalError.properties")["error"] ?? null, "InternalError.error");
+  const picked = Object.fromEntries(TRANSPORT_500_KEYS.filter((k) => k in internal).map((k) => [k, internal[k] ?? null]));
+  const transport: JsonObject = { ...picked, required: ["error"], properties: { error } };
+  return { oneOf: [internal, transport] };
+}
+/** The 500 body: $defs/InternalError, or the transport-level 500 (TRANSPORT-500-SCHEMA-1). */
+export const TOOL_ERROR_500_SCHEMA = internal500Schema(asObject(inlineDefs(TOOL_ERROR_DEFS["InternalError"] ?? null, TOOL_ERROR_DEFS), "ToolError 500"));
 
 /** Non-frozen gate parameters (ADR-M005 D5/D6, caller-carried). Declared here, never in schemas/.
  *  (ADR-M007 D7): the OPTIONAL `calibration` object opens the BYO loop — the caller supplies its

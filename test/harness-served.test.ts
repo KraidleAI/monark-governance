@@ -48,7 +48,7 @@ const read = (rel: string): string => readFileSync(join(ROOT, rel), "utf8");
 // traces re-recorded in contract 1.1.0 (the SAME pins as test/byo-demo-probe.test.ts and test/h5-e2e-probe.test.ts).
 const PINNED: Record<string, string> = {
   [HARNESS_SERVED_REL]: "30afbec29cabf11713d3072098c17397ff6dcd2ecd3377c9ca7c5a4a17acf0da",
-  "apps/site/data/harness-pending.json": "f874bb44a50eea8148ced4c19aa7212e46633597af412fc882350f2e1f462fb3",
+  "apps/site/data/harness-pending.json": "cee3c6a02716e376a583b093cfeec9451a19d07ef56f7da49d348caac4ecf91e",
   [BYO_TRACE_REL]: "5c9b03e62bd88703a1ecfe381cf8288cab62aee9d096b03b2302338d49883dfc",
   [H5_TRACE_REL]: "6242f7d0e30703b0973516f37eaca2c84582f44015819a573b55c76126d8fa05",
 };
@@ -661,7 +661,7 @@ test("harness_served_budget_note_carries_the_served_clause", () => {
 // sha256 of the bodies the in-process harness answers to the deploy check's own requests, under the served snapshot's keys:
 // the bodies the pending snapshot announces, which the deploy check records at T0.
 const PENDING_BODIES_SHA256: Record<string, string> = {
-  "/openapi.json": "ccae5fc0cd142a46963d5d5c8a101ee1e204646e073ec2c3b03fc5f0ac24844f",
+  "/openapi.json": "de635be9d7708036add1b85427749539f0aa4190db63203ffac96d7a0a857ba1",
   "/gate": "701e9b068944aca7a9c49bb5415fa2af21006b4ba696c916108c4d326445a08c",
   "/gate liquidation-eligible-coverage": "e2bfb18be056b2ed6f0d1cdae681d9b9e38ede054c79509898243d327a105fe7",
   "/calibrate": "f169e9f6e333374a9d47a2010674ca789aba45bd126ef8764df2f0fb86a2cb90",
