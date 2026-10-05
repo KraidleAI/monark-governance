@@ -1,7 +1,7 @@
 # G7 du lot L2-FLAKES-2 : `l2_free_bytes_default` et le test muet de la fausse place ne dépendent plus de l'hôte
 
 - **Plan** : `docs/G0-lot-l2-flakes-2.md`. **Base** : `753a23a9` (`origin/base/chantier-moteur-2026-10-03`). Branche `recherches/l2-flakes-2`.
-- **Commits** : `5d4129fb` (G0), `44023467` (test ; **gel**), puis ce G7. Hôte : Linux, Node 24.21.0, 4 cœurs, sous la charge d'autres sessions.
+- **Commits** : `5d4129fb` (G0), `44023467` (test ; **gel**), puis ce G7, puis le pli de la G2 (R-1, N-1, N-2 ; section « Pli de la G2 »). Hôte : Linux, Node 24.21.0, 4 cœurs, sous la charge d'autres sessions.
 - **Sous-items** : `L2-FREE-BYTES-FLAKE-1`, `L2-FAKE-PLACE-FLAKE-1`. Les deux fautes sont dans les tests ; aucune ligne de production ne bouge.
 
 ## L2-FREE-BYTES-FLAKE-1 : cause (prouvée)
@@ -36,7 +36,7 @@ Un écrivain concurrent (écrit puis efface un fichier de 4 Mio en boucle, sur l
 | `test/l2-record.test.ts` | 22-23 | `fs` : l'objet CommonJS de `node:fs` (motif de `test/l2-loop.test.ts:363`) |
 | `test/l2-record.test.ts` | 266-274 | la lecture réelle ne vérifie plus que le type (`number`) ; puis `statfsSync` remplacé rend `bsize` 512, `bavail` 7, `bfree` 11, `blocks` 13 et note le chemin lu ; attendu `[3584, [ROOT]]` ; restauré dans `finally` |
 
-Le test prouve davantage qu'avant : le produit exact `bavail × bsize` (et non `bfree`, ni `blocks`), et le chemin exact de l'ancêtre lu. Windows : `join`, `dirname` deux fois rend `ROOT` tel quel ; aucun saut.
+Limite (N-2 de la G2) : sur la lecture réelle, seul le type est vérifié ; le chemin et le produit le sont sur le bouchon, et aucune mutation plausible de `freeBytes` ne survit à ce couple. Le test prouve davantage qu'avant : le produit exact `bavail × bsize` (et non `bfree`, ni `blocks`), et le chemin exact de l'ancêtre lu. Windows : `join`, `dirname` deux fois rend `ROOT` tel quel ; aucun saut.
 
 ## L2-FAKE-PLACE-FLAKE-1 : cause (prouvée)
 
@@ -56,7 +56,7 @@ Préchargement `stall-after-close.cjs` (sha256 `ab2d8b09f7769b2c…`) : `WebSock
 
 | Fichier | Ligne | Changement |
 |---|---|---|
-| `test/l2-fake-place.test.ts` | 82-84 | `await wait(200)` devient `await until(() => (peer?.got.length ?? 0) === 1)` ; commentaire : la cause et la règle |
+| `test/l2-fake-place.test.ts` | 81-84 | `await wait(200)` devient `await until(() => (peer?.got.length ?? 0) === 1)` suivi de `await wait(200)` (pli R-1 de la G2) ; commentaire : la cause et la règle |
 
 `until` compte ses tours (300 × 10 ms), et chaque tour rend la main à la phase des entrées-sorties : la trame est lue dès qu'elle est là. La coupure qui suit (`peer.cut()`, attendu `[1006]`) sépare une place muette d'une place qui aurait répondu (1000), quel que soit l'ordonnanceur.
 
@@ -86,4 +86,12 @@ Lanceur `stress.sh` (sha256 `8292939efae6f31f…`) : `node --test --test-force-e
 - `verifie-ancres.mjs . --touched origin/base/chantier-moteur-2026-10-03 HEAD` : **29 tueurs, 29 ANCRE, 0 DERIVE, 0 PERDU**.
 - `npm run test:main` au gel : **2561 tests, 2539 verts, 0 échec, 22 sautés** (exit 0).
 - `tsc --noEmit` vert ; `eslint .` vert ; `lint:ratchet` 69/69 ; `gate:vocab` OK ; `lang:gate` OK.
-- R-25 contre `origin/base/chantier-moteur-2026-10-03` : +15/−5, **20 lignes** (sous 547), GREEN.
+- R-25 contre `origin/base/chantier-moteur-2026-10-03` : +15/−5, **20 lignes** au gel, GREEN. Plafond du lot : 547 (notre règle) ; plafond de la PR affiché par l'oracle : 1205 (`VIBEGATES_PR_LIMIT`). Après le pli : voir ci-dessous.
+
+## Pli de la G2 (APPROUVÉ, une réserve)
+
+- **R-1** (`a9d51b27`) : après `until(...)`, `await wait(200)` est rétabli. Une place muette correcte n'émet rien, donc cette attente ne peut pas recréer la flake ; elle rend la fenêtre de silence de 200 ms. Mutant de la G2 (place muette qui répond 50 ms plus tard : `|| muted` retiré à `test/l2-fake-place.ts:85`, réponse par `setTimeout(…, muted ? 50 : 0)`) : avant le pli **survit 3/3** ; après le pli **tué 3/3** (`actual: [ [ 1000 ], [ 8 ] ]`) ; fichier restauré, sha256 `a5dcf4afdd94da4d…` identique. Tueur déclaré (`:78`) : tué 5/5. Préchargement de 300 ms : fichier vert 3/3.
+- **Charge après le pli** : les deux fichiers 10 fois seuls, 0 rouge ; 6 lanceurs × 8 exécutions des deux fichiers, `--test-concurrency=16`, avec un écrivain concurrent de 8 Mio en boucle sur le même disque : **48/48 verts** (29 tests chacune).
+- **N-1** : la borne R-25 est dite correctement dans le G0 et ici : plafond du lot 547 (notre règle), plafond de la PR 1205 (`VIBEGATES_PR_LIMIT`, affiché par l'oracle).
+- **N-2** : une ligne sous le changement de `l2_free_bytes_default`.
+- **Vérifications au pli** : base inchangée (`753a23a9`). `npm run test:main` : 2561 tests, 2539 verts, 0 échec, 22 sautés. `tsc`, `eslint` verts ; `lint:ratchet` 69/69 ; `gate:vocab`, `lang:gate` OK ; ancres 29/29 ANCRE ; `red-proof --test-only --gel a9d51b27` OK (2 `pinned`, 2 tueurs tués, `RED-PROOF.json` sha256 `37fd711088c2f13d…`) ; R-25 +15/−4, **19 lignes**, GREEN (plafond de la PR 1205, du lot 547).

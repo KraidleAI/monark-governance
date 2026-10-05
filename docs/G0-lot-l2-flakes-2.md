@@ -33,4 +33,4 @@ Ni l'un ni l'autre ne tient au `TMPDIR` partagé : le premier tient au disque pa
 
 ## Taille
 
-Environ 15 lignes de test changées. Borne R-25 : 547.
+Environ 15 lignes de test changées. Plafond du lot : 547 lignes (notre règle) ; plafond de la PR : 1205 lignes (`VIBEGATES_PR_LIMIT`, porte R-25, `.github/workflows/ci.yml:56`).
