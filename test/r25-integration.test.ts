@@ -515,22 +515,23 @@ test("r25a_ci_w_counts_the_real_lines_under_measured_attributes - O-1: a PR adds
 });
 
 // killer: scripts/lot-size-integration.mjs:177 CONST "< 2040) throw" -> "< 0) throw"
-test("r25a_ci_w_fails_closed_without_the_pinned_read - O-1: a machine $GIT_DIR/info/attributes `* -diff` (that GIT_ATTR_SOURCE does not replace), or a git older than 2.40 (no GIT_ATTR_SOURCE): the job prints no count, says why and is red (W 0, green, before the lot)", () => {
+// killer: scripts/lot-size-integration.mjs:178 CONST "if (infoAttributes(cwd)) throw" -> "if (false) throw"
+test("r25a_ci_w_fails_closed_without_the_pinned_read - O-1: a machine $GIT_DIR/info/attributes `* -diff`, or `*.cjs -diff` that spares the probes of attrTree (G2 R-2 of R25-GUARDS-2: only the info/attributes check stops it), that GIT_ATTR_SOURCE does not replace, or a git older than 2.40 (no GIT_ATTR_SOURCE): the job prints no count, says why and is red (W 0, green, before the lot)", () => {
   const real = execFileSync("bash", ["-c", "command -v git"], { encoding: "utf8" }).trim(), seen: string[] = [];
   // win32: the fake git is a sh script without extension on a ':'-joined PATH, which execFileSync never runs there (PATHEXT, ';'):
-  // the real git answers. That case is named and skipped there only; the info/attributes case runs everywhere.
-  const kinds = process.platform === "win32" ? ["info/attributes"] : ["info/attributes", "git 2.39.5"];
+  // the real git answers. That case is named and skipped there only; the two info/attributes cases run everywhere.
+  const kinds = process.platform === "win32" ? ["info/attributes", "info/attributes *.cjs"] : ["info/attributes", "info/attributes *.cjs", "git 2.39.5"];
   for (const kind of kinds) withFx((fx) => {
     fx.g("checkout", "-q", "-b", "pr", TARGET);
-    fx.commit("pr", "src/c.txt", 3000);
+    fx.commit("pr", kind === "info/attributes *.cjs" ? "src/a.cjs" : "src/c.txt", kind === "info/attributes *.cjs" ? 300 : 3000);
     const bin = join(fx.dir, ".git", "bin");
     mkdirSync(bin);
     writeFileSync(join(bin, "git"), `#!/bin/sh\nif [ "$1" = "--version" ]; then echo "git version 2.39.5"; exit 0; fi\nexec ${real} "$@"\n`, { mode: 0o755 });
-    if (kind === "info/attributes") fx.put(".git/info/attributes", "* -diff\n");
-    const out = ciRun(fx, kind === "info/attributes" ? {} : { PATH: `${bin}:${process.env.PATH ?? ""}` });
+    if (kind.startsWith("info/attributes")) fx.put(".git/info/attributes", kind === "info/attributes" ? "* -diff\n" : "*.cjs -diff\n");
+    const out = ciRun(fx, kind.startsWith("info/attributes") ? {} : { PATH: `${bin}:${process.env.PATH ?? ""}` });
     seen.push(`${kind}: ${changed(out)} ${String(out.includes(PIN_ERROR))} ${/^exit (\d+)$/m.exec(out)?.[1] ?? "?"}`);
   }, REAL_CI);
-  assert.deepEqual(seen, ["info/attributes: none true 1", "git 2.39.5: none true 1"].slice(0, kinds.length));
+  assert.deepEqual(seen, ["info/attributes: none true 1", "info/attributes *.cjs: none true 1", "git 2.39.5: none true 1"].slice(0, kinds.length));
 });
 
 // killer: scripts/lot-size-integration.mjs:180 CONST "GIT_CONFIG_PARAMETERS: undefined, " -> ""
@@ -826,4 +827,29 @@ test("oracle_r25_refuses_what_the_job_refuses - the oracle's r25(), through its 
   fx.g("commit", "-qm", "four");
   const r = oracle(fx, base, null) as OracleR25 & { log?: string };
   assert.deepEqual([r.mode, (r.log ?? "").split("\n").filter((l) => l.startsWith("refused ")), r.exit], ["refused", ["refused asset-magic out/tool.png", "refused bare-cr src/cr-only.cjs", "refused gitlink vendor/subrepo", "refused symlink src/link.mjs"], 1]);
+}, REAL_CI));
+
+// Fold of the G2 of R25-GUARDS-2 (B-1, R-1). A .gitmodules of the PR with `ignore = all` hid an added gitlink from `git diff --raw`
+// (`-c diff.ignoreSubmodules=none` does not override it; `--ignore-submodules=none` does). A UTF-16 or UTF-32 text (with a BOM) carries
+// line separators in bytes the UTF-8 search does not see; TypeScript and browsers decode it.
+
+// killer: scripts/lot-size-integration.mjs:213 CONST "\"--ignore-submodules=none\", " -> ""
+test("r25h_ci_refuses_a_gitlink_hidden_by_gitmodules_ignore - G2 B-1: vendor/subrepo (a gitlink) with a 4-line .gitmodules whose `ignore = all` hid it from `git diff --raw`: `pin` names it and exits 2, the job is red, and so is the oracle (pin rc 0, Changed 4, oracle green, before the fold)", () => withFx((fx) => {
+  fx.g("checkout", "-q", "-b", "pr", TARGET);
+  const base = fx.g("rev-parse", "HEAD");
+  stage(fx, ".gitmodules", "100644", '[submodule "sub"]\n\tpath = vendor/subrepo\n\turl = https://example.invalid/x.git\n\tignore = all\n');
+  stage(fx, "vendor/subrepo", "160000", base);
+  fx.g("commit", "-qm", "hidden gitlink");
+  const out = ciRun(fx), r = oracle(fx, base, null) as OracleR25 & { log?: string };
+  assert.deepEqual([changed(out), refusedIn(out), exitOf(out), r.mode, r.exit], ["none", ["gitlink vendor/subrepo"], "1", "refused", 1], out);
+}, REAL_CI));
+
+// killer: scripts/lot-size-integration.mjs:228 CONST "fffe|feff|0000feff" -> "0000feff"
+test("r25h_ci_refuses_a_utf16_or_utf32_bom - G2 R-1: four text paths whose blob opens with a UTF-16 LE (ff fe), UTF-16 BE (fe ff), UTF-32 LE (ff fe 00 00) or UTF-32 BE (00 00 fe ff) byte order mark are refused utf16-bom: their U+2028 separators are not UTF-8 bytes (Changed 4, green, before the fold)", () => withFx((fx) => {
+  fx.g("checkout", "-q", "-b", "pr", TARGET);
+  const boms: Record<string, string> = { "src/le16.ts": "fffe", "src/be16.ts": "feff", "src/le32.ts": "fffe0000", "src/be32.ts": "0000feff" };
+  for (const [p, h] of Object.entries(boms)) stage(fx, p, "100644", Buffer.concat([Buffer.from(h, "hex"), Buffer.from("let n = 1; n++;\n", "utf16le")]));
+  fx.g("commit", "-qm", "boms");
+  const out = ciRun(fx);
+  assert.deepEqual([changed(out), refusedIn(out), exitOf(out)], ["none", ["utf16-bom src/be16.ts", "utf16-bom src/be32.ts", "utf16-bom src/le16.ts", "utf16-bom src/le32.ts"], "1"], out);
 }, REAL_CI));
