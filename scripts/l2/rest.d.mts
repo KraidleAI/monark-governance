@@ -36,6 +36,8 @@ export interface RestIo {
   out: string;
   /** A loopback TLS test only: the TLS name (localhost, else host_refused) and port of the place's own connection; PEER otherwise. */
   peer?: TlsPeer;
+  /** The loop's (c5-bis-c): once aborted, no request starts and an answer in flight writes nothing (stopped). */
+  signal?: AbortSignal;
 }
 
 /** A 200 answer: the body as received, its path under `out`, the local send and receive times in microseconds. */

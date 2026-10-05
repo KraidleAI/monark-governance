@@ -290,3 +290,17 @@ test("l2_rest_failures_named_without_address_and_symbols_closed", async () => {
   assert.equal((await stopOf(fixed.request("time", null))).code, "disk_error", "an existing file is never overwritten");
   for (const x of [c, gone, fixed]) x.close();
 });
+
+// killer: scripts/l2/rest.mjs:129 CONST "; if (io.signal?.aborted) stop(" -> "; if (false) stop("
+test("l2_rest_aborted_writes_nothing", async () => {
+  // r-2 of the G2 delta of c5-bis-b (lot c5-bis-c): the loop's signal aborted while a request is in flight: its late answer writes neither
+  // requests.jsonl nor rest/, the request stops (stopped); a request asked after it never reaches fetch.
+  const R = await load(), out = tmp(), ac = new AbortController(), sent: string[] = [];
+  let answer = (): void => undefined;
+  const fetch = (url: string): Promise<Response> => { sent.push(url); return sent.length > 1 ? Promise.resolve(new Response("{}")) : new Promise((r) => { answer = () => { r(new Response("{}")); }; }); };
+  const c = R.createRest({ fetch, nowUs: () => T0, out, signal: ac.signal }), a = code(c.request("time", null)), b = code(c.request("depth", "BTCUSDT"));
+  await new Promise((r) => setTimeout(r, 5));
+  ac.abort();
+  answer();
+  assert.deepEqual([await a, await b, sent.length, readdirSync(out)], ["stopped", "stopped", 1, []]);
+});
