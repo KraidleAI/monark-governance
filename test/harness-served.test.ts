@@ -50,7 +50,7 @@ const PINNED: Record<string, string> = {
   [HARNESS_SERVED_REL]: "30afbec29cabf11713d3072098c17397ff6dcd2ecd3377c9ca7c5a4a17acf0da",
   "apps/site/data/harness-pending.json": "57cc4eae9b93fff342d0bcd1be4118443bad78cf1c571fb3969faf4211d67894",
   [BYO_TRACE_REL]: "5c9b03e62bd88703a1ecfe381cf8288cab62aee9d096b03b2302338d49883dfc",
-  [H5_TRACE_REL]: "6242f7d0e30703b0973516f37eaca2c84582f44015819a573b55c76126d8fa05",
+  [H5_TRACE_REL]: "57d38c1907bfea4d7cb746186f9bada86bd210358c0a7902a61392957567fc19",
 };
 
 interface Schema { required?: string[]; properties?: Record<string, Schema>; type?: string | string[]; description?: string; maxItems?: number; items?: Schema; additionalProperties?: unknown }

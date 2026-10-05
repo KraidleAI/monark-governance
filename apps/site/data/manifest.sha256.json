@@ -14,7 +14,7 @@
     "apps/site/data/harness-served.json": "30afbec29cabf11713d3072098c17397ff6dcd2ecd3377c9ca7c5a4a17acf0da",
     "apps/site/data/harness-pending.json": "57cc4eae9b93fff342d0bcd1be4118443bad78cf1c571fb3969faf4211d67894",
     "fixtures/byo-demo-trace.json": "5c9b03e62bd88703a1ecfe381cf8288cab62aee9d096b03b2302338d49883dfc",
-    "fixtures/h5-e2e-trace.json": "6242f7d0e30703b0973516f37eaca2c84582f44015819a573b55c76126d8fa05",
+    "fixtures/h5-e2e-trace.json": "57d38c1907bfea4d7cb746186f9bada86bd210358c0a7902a61392957567fc19",
     "apps/site/data/docs-references.json": "9adfeb45accfb471bf9ff813d0251698b87e65f521f26d3b50195000edef114b",
     "apps/site/data/dojo-served.json": "4c3a2da5184b4e68caa4362dac9cd855e94d1a45e8b496c852ad7ce588b13381"
   }
