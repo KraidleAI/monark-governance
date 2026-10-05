@@ -60,4 +60,6 @@ Les quatre alertes sont fermées par réécriture. Aucun rejet n est demandé à
 | **m3** « s ouvre sur » | regex ancrée : `` /^\s*`([^`]+)`/ `` sur la cellule. Leurre ajouté : `` see `https://bell.monarkgate.tech/` ``. Mutant « ancre retirée », à la main : **tué** (« 2 found »). Le test du README reste vert |
 | **m4** ligne d ADR, #43 | alignée sur la section 1 : `a+b(1)` rendait `"1"`, `[x]` lisait la section de `x` (ligne de la section 5 et de l ADR) |
 
-Vérifications du pli : voir 6.1 (rempli après la fusion du tronc).
+### 6.1 Vérifications du pli (commit `5beedb5c`, puis fusion du tronc `171d6b2f` en `f614c518`, sans conflit)
+
+Les trois fichiers 65/65 ; `npm run test:export` vert ; `tsc` 0 ; `lint` 0 ; `lint:ratchet` 69/69 ; `gate:vocab` OK ; `lang:gate` OK ; ancres `--touched 171d6b2f HEAD` 75/75 ANCRE, 0 DERIVE, 0 PERDU ; tueur déclaré de #45 tué à la main ; mutants m1 (avec la graphie retirée), m2 et m3 tués à la main, m1 seul équivalent (ci-dessus). **R-25** contre le tronc `171d6b2f` : `STAT 63 insertions, 6 deletions, changed 69`, `CONTENT_STAT 0`, GREEN, sous 547.
