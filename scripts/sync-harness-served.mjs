@@ -230,7 +230,7 @@ export function shapesFrom({ health, openapi, list, gateCall, liqCall, calCall, 
   const casc = bodySchema("/cascade").properties;
   need(casc.L.maxItems === casc.e.maxItems && casc.L.items.maxItems === casc.L.maxItems, "the cascade node bounds are not in lockstep");
   const r = gateOp.responses;
-  need(sameSet(Object.keys(r), ["200", "400", "403", "500"]), "the /gate responses are not exactly 200, 400, 403 and 500");
+  need(sameSet(Object.keys(r), ["200", "400", "403", "413", "500"]), "the /gate responses are not exactly 200, 400, 403, 413 and 500");
   const byoParam = Object.entries(params.properties).filter(([name, s]) => !params.required.includes(name) && s.type === "object");
   need(byoParam.length === 1, "the /gate params do not carry exactly one optional object (the BYO calibration)");
   return {

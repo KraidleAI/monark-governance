@@ -12,6 +12,7 @@ import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { buildOpenApi, OPENAPI_VERSION } from "../src/openapi.ts";
 import type { Json } from "../src/schema-projection.ts";
+import * as projection from "../src/schema-projection.ts";
 import { TOOL_ERROR_CODES } from "@monark/contracts";
 
 const SCHEMAS = fileURLToPath(new URL("../../../schemas/", import.meta.url));
@@ -138,19 +139,21 @@ function projectToolError(node: Json, defs: { [k: string]: Json }): Json {
 
 // OPENAPI-ERROR-CODE-1 (ADR-CM amendment 2026-10-04 (1); Q-C5 conditions 3 and 4; lot CM-3c-4a): the 400 and 500 responses of
 // every operation are the projections of the root and of $defs/InternalError of schemas/tool-error.schema.json, so their
-// codes are the 32 of the catalogue; no code is a literal of openapi.ts or schema-projection.ts, and no $ref is left.
+// codes are the 32 of the catalogue; no code is a literal of openapi.ts or schema-projection.ts, and no $ref is left. The 500
+// also admits the transport-level body the frozen description names, {"error":"internal_error"} (TRANSPORT-500-SCHEMA-1).
 // killer: apps/harness/src/openapi.ts:86 CONST "TOOL_ERROR_400_SCHEMA" -> "TOOL_ERROR_500_SCHEMA"
 test("openapi_400_and_500_are_the_tool_error_projections", () => {
   const frozen = asObj(loadJson("tool-error.schema.json"), "tool-error");
   const defs = asObj(frozen["$defs"], "tool-error.$defs");
-  const want400 = projectToolError(frozen, defs), want500 = projectToolError(defs["InternalError"] ?? null, defs);
+  const transport = { type: "object", additionalProperties: false, required: ["error"], properties: { error: { const: "internal_error" } } };
+  const want400 = projectToolError(frozen, defs), want500 = { oneOf: [projectToolError(defs["InternalError"] ?? null, defs), transport] };
   type Responses = Record<string, { content?: Record<string, { schema?: Json } | undefined> } | undefined>;
   const spec = buildOpenApi();
   for (const op of ["attest", "calibrate", "cascade", "gate"]) {
     const post = asObj(asObj(asObj(spec["paths"], "paths")["/" + op], op)["post"], `${op}.post`);
     const responses = post["responses"] as unknown as Responses;
     assert.deepEqual(responses["400"]?.content?.["application/json"]?.schema, want400, `${op}: the 400 is the projected tool-error root`);
-    assert.deepEqual(responses["500"]?.content?.["application/json"]?.schema, want500, `${op}: the 500 is the projected InternalError`);
+    assert.deepEqual(responses["500"]?.content?.["application/json"]?.schema, want500, `${op}: the 500 is the projected InternalError or the transport-level body`);
   }
   const text = JSON.stringify(want400) + JSON.stringify(want500);
   assert.deepEqual(TOOL_ERROR_CODES.filter((c) => !text.includes(`"${c}"`)), [], "the projections carry the 32 codes");
@@ -159,4 +162,41 @@ test("openapi_400_and_500_are_the_tool_error_projections", () => {
     const src = readFileSync(fileURLToPath(new URL(f, import.meta.url)), "utf8");
     assert.deepEqual(TOOL_ERROR_CODES.filter((c) => src.includes(`"${c}"`)), [], `${f}: no code literal (C-3)`);
   }
+});
+
+/** The guarded builder of the 500 schema, read through the namespace (so a tree without it loads this file and reddens by
+ *  assertion), and the independent projection of the frozen $defs/InternalError. */
+function internal500(): { build: (internal: { [k: string]: Json }) => Json; internal: { [k: string]: Json } } {
+  const build = (projection as Record<string, unknown>)["internal500Schema"];
+  assert.equal(typeof build, "function", "the 500 schema is built by a guarded function of schema-projection.ts");
+  const defs = asObj(asObj(loadJson("tool-error.schema.json"), "tool-error")["$defs"], "tool-error.$defs");
+  return { build: build as (internal: { [k: string]: Json }) => Json, internal: asObj(projectToolError(defs["InternalError"] ?? null, defs), "InternalError") };
+}
+
+// TRANSPORT-500-SCHEMA-1, fold of its review (N-1; scope of SCHEMA-PROJECTION-FAIL-CLOSED-1): the two 500 branches exclude each
+// other only while InternalError is closed and requires operation; the builder refuses any other InternalError at load.
+// killer: apps/harness/src/schema-projection.ts:132 CONST "internal[\"additionalProperties\"] !== false" -> "false"
+test("internal_500_branches_fail_closed_unless_exclusive", () => {
+  const { build, internal } = internal500();
+  assert.doesNotThrow(() => build(internal), "the frozen InternalError builds");
+  const without = (key: string): { [k: string]: Json } => Object.fromEntries(Object.entries(internal).filter(([k]) => k !== key));
+  const cases: [string, { [k: string]: Json }][] = [
+    ["additionalProperties true", { ...internal, additionalProperties: true }], ["no additionalProperties", without("additionalProperties")],
+    ["operation optional", { ...internal, required: ["error"] }], ["no required", without("required")],
+  ];
+  for (const [at, bad] of cases) assert.throws(() => build(bad), /would overlap/, `${at}: refused at load`);
+});
+
+// TRANSPORT-500-SCHEMA-1, fold of its review (N-2; scope of SCHEMA-PROJECTION-FAIL-CLOSED-1): the transport-level branch takes
+// a closed list of keys from InternalError (type, additionalProperties) plus its own required and error property, so a future
+// key of the frozen definition (minProperties, allOf) stays in the InternalError branch and never in the transport one.
+// killer: apps/harness/src/schema-projection.ts:136 CONST "...picked" -> "...internal"
+test("transport_500_branch_takes_a_closed_list_of_keys", () => {
+  const { build, internal } = internal500();
+  const props = asObj(internal["properties"], "InternalError.properties");
+  const extended = { ...internal, minProperties: 2, allOf: [{ required: ["operation"] }] };
+  const branches = asObj(build(extended), "500")["oneOf"];
+  assert.ok(Array.isArray(branches) && branches.length === 2, "two branches");
+  assert.deepEqual(branches[0], extended, "the InternalError branch is the definition itself");
+  assert.deepEqual(branches[1], { type: internal["type"] ?? null, additionalProperties: false, required: ["error"], properties: { error: props["error"] ?? null } }, "the transport branch: closed keys and error alone");
 });
