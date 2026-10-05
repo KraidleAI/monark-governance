@@ -8,10 +8,11 @@
  */
 import { test } from "node:test";
 import assert from "node:assert/strict";
+import { execFile } from "node:child_process";
 import { createHash } from "node:crypto";
 import { readdirSync, readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
-import { fileURLToPath } from "node:url";
+import { fileURLToPath, pathToFileURL } from "node:url";
 import { sha256Canonical, type ClassEntry, type PolicyRow, type Prediction } from "@monark/contracts";
 import * as gate from "../src/tools/gate.ts";
 import { CASCADE_UNCALIBRATED_SENTENCE, GATE_TOOL_DESCRIPTION, honestyText, runGate, toolErrorCode, type HarnessParams } from "../src/tools/gate.ts";
@@ -272,4 +273,20 @@ test("kata_clause_reads_its_names_and_tau_cap", () => {
   assert.throws(() => render(some.slice(1)), /not the product/, "a set of classes that is not a product is refused");
   assert.equal(render(), CLAUSE, "by default, the served clause");
   assert.equal((classes as Obj)["KATA_DIR_TAU_CAP"], 1, "the cap of dir classes");
+});
+
+// Test (block D, lot D-3; G2 N-3 of D-2): the cycle gate.ts <-> kata-path.ts loads cold from either side. Each module is
+// imported first in a fresh child process: kata-path.ts (the risky side: gate.ts then runs first and calls servedPolicyTables
+// while it loads), then server.ts; both load and serve the 35 tables. This file loads gate.ts first, so its own load holds
+// under the killer. Green at the base of D-3 (declared; killer fired by hand).
+// killer: apps/harness/src/kata-path.ts:118 CONST "kataClassEntries(texts.classText)" -> "kataClassEntries(TIME_FIELDS.global ? texts.classText : texts.classText)"
+test("kata_path_and_server_load_cold", async () => {
+  const url = (f: string): string => JSON.stringify(pathToFileURL(join(SRC, f)).href);
+  for (const first of ["kata-path.ts", "server.ts"]) {
+    const script = `await import(${url(first)}); const g = await import(${url("tools/gate.ts")}); process.stdout.write(String(g.SERVED_POLICY_TABLES.length));`;
+    const got = await new Promise<{ ok: boolean; out: string }>((resolve) => {
+      execFile(process.execPath, ["--input-type=module", "-e", script], { encoding: "utf8", timeout: 60000 }, (e, stdout, stderr) => { resolve({ ok: e === null, out: e === null ? stdout : stderr.slice(0, 400) }); });
+    });
+    assert.deepEqual(got, { ok: true, out: "35" }, `${first} loads first`);
+  }
 });
