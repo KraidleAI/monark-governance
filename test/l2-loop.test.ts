@@ -126,8 +126,8 @@ test("l2_seal_hashes_the_command", async () => {
   await sealed(out);
   const shas = manifest(out).script_sha256 as Record<string, string>;
   assert.deepEqual(Object.keys(shas).sort(), ["scripts/l2/book.mjs", "scripts/l2/canon.mjs", "scripts/l2/day.mjs", "scripts/l2/derive.mjs",
-    "scripts/l2/links.mjs", "scripts/l2/rest.mjs", "scripts/l2/seal.mjs", "scripts/l2/segments.mjs", RECORDER], "Q-C4-5: the command beside the modules");
-  assert.deepEqual([shas[RECORDER], shas["scripts/l2/seal.mjs"]], [sha(join(SCRIPTS, "record-binance-l2.mjs")), sha(join(SCRIPTS, "l2", "seal.mjs"))]);
+    "scripts/l2/links.mjs", "scripts/l2/rest.mjs", "scripts/l2/seal-child.mjs", "scripts/l2/seal.mjs", "scripts/l2/segments.mjs", RECORDER], "Q-C4-5: the command beside the modules; Q-C5B-4: the seal child");
+  assert.deepEqual([shas[RECORDER], shas["scripts/l2/seal.mjs"], shas["scripts/l2/seal-child.mjs"]], [sha(join(SCRIPTS, "record-binance-l2.mjs")), sha(join(SCRIPTS, "l2", "seal.mjs")), sha(join(SCRIPTS, "l2", "seal-child.mjs"))]);
 });
 
 // killer: scripts/l2/seal.mjs:19 CONST "keys.length > 0" -> "false"
@@ -519,4 +519,150 @@ test("l2_tails_of_the_last_run_with_links", async () => {
   const m = await command(), c = await crashed(m, 1, 2);
   assert.equal(typeof m.markTails, "function", "markTails is absent");
   assert.deepEqual([m.markTails(c.at, clocks).length, c.tails().length], [1, 1]);
+});
+
+// ---- P1-c5-bis-b ----
+const H = 3_600 * S, TIME = "/api/v3/time", ex = (s: string): string => `/api/v3/exchangeInfo?symbol=${s}`, dp = (s: string): string => `/api/v3/depth?symbol=${s}&limit=5000`;
+/** Host microseconds of day D + d at h:m:s. */
+const at = (d: number, h: number, m: number, s = 0): number => START + d * 86_400 * S + h * H + m * 60 * S + s * S;
+const BOOK = JSON.stringify({ lastUpdateId: 7, bids: [["100.00", "1"]], asks: [["101.00", "1"]] });
+const depth = (U: number, u: number): string => JSON.stringify({ stream: "btcusdt@depth@100ms", data: { e: "depthUpdate", E: 1, s: "BTCUSDT", U, u, b: [["100.00", "2"]], a: [] } });
+const limits = (limit: number): Line[] => [{ rateLimitType: "REQUEST_WEIGHT", interval: "MINUTE", intervalNum: 1, limit }];
+/** The place's REST answers: its clock `ahead` us ahead of the host, its REQUEST_WEIGHT limit and tickSize at a host time, a depth of lastUpdateId 7. */
+const place = (ahead: number, limit: (now: number) => number = () => 6_000, tick: (now: number) => string = () => "0.01000000") => (path: string, now: number): [number, unknown] =>
+  path === TIME ? [200, { serverTime: (now + ahead) / 1000 }] : path.startsWith("/api/v3/depth") ? [200, JSON.parse(BOOK)]
+    : [200, { symbols: [{ filters: [{ filterType: "PRICE_FILTER", tickSize: tick(now) }] }], rateLimits: limits(limit(now)) }];
+type Sock = { url: string; opened: boolean; closed: boolean; onopen?: () => void; onmessage?: (e: { data: unknown }) => void; onclose?: (e: { code: number; reason: string; wasClean: boolean }) => void };
+/** A recording on a host driven by hand: its clock and timers, fetch answered by `answer` (never the network), sockets by hand that hear
+ *  "{}" (spot every 20 s from 7 s, /market every 8 min from 4 min 7 s: no watchdog fires, and hour 23 of /market is silent from 23:56:07 to
+ *  00:04:07), the seal given; until(us) runs the timers due in time order; send() a text on the live BTCUSDT socket. */
+function host(t0: number, answer: (path: string, now: number) => [number, unknown], seal: RecordM.RecorderIo["seal"] = () => Promise.resolve({ sealed: true, dir: "", frames: 0 })) {
+  const t = { now: t0 }, timers: { at: number; fn: () => void }[] = [], fetched: [number, string][] = [], socks: Sock[] = [], ac = new AbortController();
+  const pulses = [{ next: t0 + 7 * S, every: 20 * S, spot: true }, { next: t0 + 247 * S, every: 480 * S, spot: false }];
+  const io: RecordM.RecorderIo = { env: {}, execArgv: [], freeBytes: () => 1e12, wallUs: () => t.now, monoNs: () => BigInt(t.now) * 1000n, signal: ac.signal, seal,
+    setTimer: (fn, ms) => { const h = { at: t.now + Math.round(ms * 1000), fn }; timers.push(h); return h; },
+    clearTimer: (h) => { if (timers.includes(h as never)) timers.splice(timers.indexOf(h as never), 1); },
+    sleep: (ms) => new Promise((r) => { io.setTimer!(r, ms); }),
+    fetch: (url) => { const p = new URL(url), path = p.pathname + p.search, [status, body] = answer(path, t.now); fetched.push([t.now, path]); return Promise.resolve(new Response(JSON.stringify(body), { status })); },
+    webSocket: (url) => { const s: Sock = { url, opened: false, closed: false }; socks.push(s); return Object.assign(s, { close: () => { s.closed = true; }, extensions: "" }) as unknown as WebSocket; } };
+  const settle = async (): Promise<void> => { await new Promise((r) => setTimeout(r, 5)); for (const s of socks) if (!s.opened && s.onopen) { s.opened = true; s.onopen(); } };
+  const until = async (us: number): Promise<void> => {
+    for (;;) {
+      await settle();
+      timers.sort((x, y) => x.at - y.at);
+      const p = pulses.reduce((x, y) => (y.next < x.next ? y : x)), next = Math.min(timers[0]?.at ?? Infinity, p.next);
+      if (next > us) break;
+      t.now = Math.max(t.now, next);
+      if (next < p.next) timers.shift()!.fn();
+      else for (const s of socks) if (s.opened && !s.closed && s.url.includes("/market/") !== p.spot) s.onmessage?.({ data: "{}" });
+      if (next === p.next) p.next += p.every;
+    }
+    t.now = us;
+    await settle();
+  };
+  const live = (): Sock => socks.filter((s) => s.url.includes("btcusdt@depth") && !s.closed).at(-1)!;
+  return { io, fetched, until, live, stop: () => { ac.abort(); }, send: (text: string) => { live().onmessage!({ data: text }); } };
+}
+const argv = (out: string): string[] => ["--out", out, "--quota-bytes", "1000000000"];
+const events = (out: string, names: string[]): Line[] => (journal(out) as Line[]).filter((l) => names.includes(l.event as string));
+
+// killer: scripts/record-binance-l2.mjs:276 CONST "(86_350 + 10 * r)" -> "(86_340 + 10 * r)"
+test("l2_record_loop_schedules", async () => {
+  // FM-1.1 (plan section 3 points 13 to 15, D24-3, D24-5; n-3 of c4): across a day boundary, the place 5 s ahead: the place time at the
+  // start and at minute 30; exchangeInfo at the start, then at 23:58:00 + 10 s x rank of the place; the anchors at 23:59:10 + 10 s x rank,
+  // the same bytes closing D and opening D + 1; the cut on the hour (the seal of D at 00:03 waits for the segments of hour 00 alone, then
+  // seals at 01:03 at the scale of its day, once); check() at minute 5 of ten (a stray entry found at 02:15, a named stop after the clean stop).
+  const m = await command(), out = fresh(), seals: [number, string, number, unknown, string[]][] = [];
+  assert.equal(typeof m.calendar, "function", "the loop is absent");
+  const h = host(at(0, 23, 20), place(5 * S, undefined, (now) => (now < at(0, 23, 57) ? "0.01000000" : "0.10000000")), (spec) => {
+    seals.push([h.io.wallUs!(), `${spec.symbol}/${spec.day}`, spec.scale, spec.config, [...new Set(spec.open!.map((o) => o.split("/")[1]!))]]);
+    return Promise.resolve(spec.open!.length > 0 ? { sealed: false, wait: "segments", open: spec.open! } : { sealed: true, dir: "", frames: 0 });
+  });
+  const run = m.run(argv(out), h.io).catch((e: unknown) => e);
+  await h.until(at(1, 2, 10));
+  writeFileSync(join(out, "stray"), "");
+  await h.until(at(1, 2, 15));
+  assert.deepEqual(h.fetched, [[at(0, 23, 20), TIME], ...L.SYMBOLS.map((s) => [at(0, 23, 20), ex(s)]), [at(0, 23, 30), TIME],
+    ...L.SYMBOLS.map((s, r) => [at(0, 23, 57, 55 + 10 * r), ex(s)]), ...L.SYMBOLS.map((s, r) => [at(0, 23, 59, 5 + 10 * r), dp(s)]), [at(1, 0, 30), TIME], [at(1, 1, 30), TIME]]);
+  assert.deepEqual(seals, [at(1, 0, 3), at(1, 1, 3)].flatMap((t, i) => [...L.SYMBOLS].sort().map((s) => [t, `${s}/${D}`, 2, { tickSize: "0.01000000", scale: 2, rateLimits: limits(6_000) }, i === 0 ? ["20261005T00"] : []])));
+  const close = readFileSync(join(dayDir(out), "anchor-close.json"), "utf8");
+  assert.deepEqual([close, readFileSync(join(out, "days", "BTCUSDT", "2026-10-05", "anchor-open.json"), "utf8")], [BOOK, BOOK]);
+  assert.equal(((await run) as { code?: string }).code, "out_not_l2");
+  assert.deepEqual((journal(out) as Line[]).at(-1), { host_us: at(1, 2, 15), mono_ns: String(at(1, 2, 15) * 1000), symbol: "ALL", cid: null, event: "stopped", cause: "out_not_l2", links_closed: true, seal_done: true });
+});
+
+// killer: scripts/record-binance-l2.mjs:372 SDL "  if (!sealDone) abort.abort();" -> ""
+test("l2_record_loop_clean_stop", async () => {
+  // Q-8 of a3: on its signal, the links stop (each connection closed, named), their writers on a stalled disk awaited STOP_BOUND_MS, the
+  // books and the REST client closed, a seal child awaited as long, then killed; one stopped line, then the run resolves.
+  const m = await command(), out = fresh(), seen: { signal?: AbortSignal } = {};
+  assert.equal(typeof m.calendar, "function", "the loop is absent");
+  const h = host(at(0, 23, 59, 50), place(0), (_, o) => { seen.signal = o.signal; return new Promise(() => undefined); });
+  h.io.open = () => Promise.resolve({ appendFile: () => new Promise(() => undefined), close: () => Promise.resolve() }); // a stalled disk
+  const run = m.run(argv(out), h.io);
+  await h.until(at(1, 0, 3, 10));
+  assert.equal(seen.signal?.aborted, false, "a seal in flight");
+  h.stop();
+  await h.until(at(1, 0, 4, 10));
+  assert.deepEqual([await run, seen.signal?.aborted], [{ mode: "record", out, stopped: "signal", links_closed: false, seal_done: false }, true]);
+  assert.deepEqual(events(out, ["close", "stopped"]).map((l) => [l.host_us, l.event, l.cause]), [...Array(5).fill([at(1, 0, 3, 10), "close", "stopped"]), [at(1, 0, 4, 10), "stopped", "signal"]]);
+});
+
+// killer: scripts/record-binance-l2.mjs:298 CONST "low === null ? rest.suspendedUntilUs : " -> ""
+test("l2_record_weight_suspended", async () => {
+  // Q-P1-6, Q-B1-3: a REQUEST_WEIGHT limit read under 4 000 suspends every resync, named, until a reading at or above it: the book waits,
+  // no vain try, and takes its snapshot after the next round of exchangeInfo.
+  const m = await command(), out = fresh(), h = host(at(0, 23, 50), place(0, (now) => (now < at(0, 23, 58) ? 3_999 : 4_000)));
+  assert.equal(typeof m.calendar, "function", "the loop is absent");
+  const run = m.run(argv(out), h.io);
+  await h.until(at(0, 23, 50, 1));
+  h.send(depth(7, 8));
+  await h.until(at(0, 23, 59));
+  h.stop();
+  await run;
+  assert.deepEqual(h.fetched.filter(([, p]) => p.startsWith("/api/v3/depth")), [[at(0, 23, 58, 31), dp("BTCUSDT")]]);
+  assert.deepEqual(events(out, ["weight_suspended", "weight_resumed", "sync_try_vain", "chain_synced"]).map((l) => [l.host_us, l.event, l.limit ?? l.last_update_id]),
+    [[at(0, 23, 50), "weight_suspended", 3_999], [at(0, 23, 58), "weight_resumed", 4_000], [at(0, 23, 58, 31), "chain_synced", 7]]);
+});
+
+// killer: scripts/record-binance-l2.mjs:305 CONST "links.get(symbol).closed(from, \"\")" -> "false"
+test("l2_record_switch_rule", async () => {
+  // Q-A4-3, D-8: a renewal's new connection takes the book once its diff reaches it (switchTo, then switched: the old one closes renewed
+  // after the overlap); after an unplanned close, the next connection takes it at once, its gap named by the book.
+  const m = await command(), out = fresh(), h = host(at(0, 10, 0), place(0));
+  assert.equal(typeof m.calendar, "function", "the loop is absent");
+  const run = m.run(argv(out), h.io);
+  await h.until(at(0, 10, 0, 1));
+  h.send(depth(7, 8));
+  await h.until(at(0, 10, 0, 2));
+  h.send(JSON.stringify({ e: "serverShutdown" }));
+  await h.until(at(0, 10, 0, 3));
+  const b = h.live();
+  h.send(depth(9, 9));
+  await h.until(at(0, 11, 2, 0));
+  b.onclose!({ code: 1006, reason: "", wasClean: false });
+  for (let i = 0; i < 100 && h.live() === b; i += 1) await h.until(h.io.wallUs!() + S); // the retry, once B's writer has closed
+  h.send(depth(20, 20));
+  await h.until(h.io.wallUs!() + S);
+  h.stop();
+  await run;
+  const cids = events(out, ["open"]).filter((l) => l.symbol === "BTCUSDT").map((l) => l.cid);
+  assert.deepEqual(events(out, ["chain_switched", "chain_gap", "close"]).filter((l) => l.symbol === "BTCUSDT" && l.cause !== "stopped").map((l) => [l.event, l.from ?? l.cid, l.to ?? l.cause ?? l.reason]),
+    [["chain_switched", cids[0], cids[1]], ["close", cids[0], "renewed"], ["close", cids[1], "closed"], ["chain_switched", cids[1], cids[2]], ["chain_gap", cids[2], "gap"]]);
+});
+
+// killer: scripts/record-binance-l2.mjs:350 CONST "if (rest.stopped) stop(" -> "if (false) stop("
+test("l2_record_rest_stop_ends_all", async () => {
+  // Plan section 4.3: a 451 stops the REST client, and the loop with it, named after its clean stop; the run marked the tail of the
+  // output it resumed first (Q-C1-4).
+  const m = await command(), c = await crashed(m, 1), out = c.real, h = host(at(0, 10, 0), (p, now) => (p.startsWith("/api/v3/exchangeInfo") ? [451, {}] : place(0)(p, now)));
+  assert.equal(typeof m.calendar, "function", "the loop is absent");
+  let settled: unknown = "running";
+  m.run(argv(out), h.io).then((r) => { settled = r; }, (e: unknown) => { settled = e; });
+  await h.until(at(0, 10, 0, 1));
+  h.stop();
+  await h.until(at(0, 10, 0, 2));
+  assert.deepEqual([(settled as { code?: string }).code, (settled as { detail?: unknown }).detail], ["rest_stopped", { task: "exchangeInfo", code: "restricted_location" }]);
+  assert.equal(c.tails().length, 1, "the tail marked at the start");
+  assert.deepEqual(events(out, ["schedule_failed", "stopped"]).map((l) => [l.event, l.code ?? l.cause]).slice(0, 1).concat(events(out, ["stopped"]).map((l) => [l.event, l.cause])), [["schedule_failed", "restricted_location"], ["stopped", "rest_stopped"]]);
 });

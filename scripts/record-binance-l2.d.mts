@@ -28,7 +28,20 @@ export interface RecorderIo {
   monoNs?: () => bigint;
   freeBytes?: (out: string) => number;
   print?: (line: string, toStderr: boolean) => void;
+  /** The loop's (P1-c5-bis-b): fetch of the REST client, the WebSocket factory, timers (also the links' and the clean stop's bound), the
+   *  books' sleep, the segment file opener, the seal (sealApart by default) and the signal of the clean stop (SIGTERM, SIGINT by default). */
+  fetch?: (url: string, init: RequestInit) => Promise<Response>;
+  webSocket?: (url: string) => WebSocket;
+  setTimer?: (fn: () => void, ms: number) => unknown;
+  clearTimer?: (handle: unknown) => void;
+  sleep?: (ms: number) => Promise<void>;
+  open?: (path: string) => Promise<import("./l2/segments.mjs").SegmentFile>;
+  seal?: (spec: import("./l2/seal.mjs").ApartSpec & { config: unknown }, io: { env: Record<string, string>; signal: AbortSignal }) => Promise<import("./l2/seal.mjs").ApartResult>;
+  signal?: AbortSignal;
 }
+
+/** The end of a recording stopped by its signal: whether the writers closed, and a seal child ended, within STOP_BOUND_MS. */
+export interface Stopped { mode: "record"; out: string; stopped: "signal"; links_closed: boolean; seal_done: boolean }
 
 /** The quota check: the bytes counted under `at` (--out by default), the alarm journaled unless `journal` is false, `pin` run right before
  *  its append (P1-c5, m-2 and n-4 of its G2). */
@@ -47,7 +60,7 @@ export function createQuota(spec: { out: string; quota: number }, io: { wallUs: 
 /** The free bytes (statfs bavail x bsize) of the file system that holds `path`, at its nearest existing ancestor. */
 export function freeBytes(path: string): number;
 export function prepare(argv: readonly string[], io?: RecorderIo): Plan;
-export function run(argv: readonly string[], io?: RecorderIo): Promise<never>;
+export function run(argv: readonly string[], io?: RecorderIo): Promise<Stopped>;
 export function main(argv: readonly string[], io?: RecorderIo): Promise<number>;
 
 /** The recorder that the start line of its journal names (P1-c5, n-5 of the G2 of c4). */
@@ -60,3 +73,14 @@ export function appendLine(path: string, line: Record<string, unknown>, entry?: 
 export function adopt(plan: Extract<Plan, { mode: "record" }>, io: { wallUs: () => number; monoNs: () => bigint }): { real: string; at: string; check: () => number };
 /** At a start (Q-C1-4, P1-c5-bis-a): the tails of the last segments of the last run's connections, each journaled once (tail_marked). */
 export function markTails(at: string, io: { wallUs: () => number; monoNs: () => bigint }): import("./l2/segments.mjs").Tail[];
+
+/** Q-P1-6: a REQUEST_WEIGHT limit read under it suspends every resync, named; Q-8 of a3: the clean stop's bound, in ms. */
+export const WEIGHT_FLOOR: number;
+export const STOP_BOUND_MS: number;
+/** The loop's calendar (P1-c5-bis-b): [task, symbol, period us, phase us, on the host clock corrected by the place's offset]. */
+export const SCHEDULE: readonly (readonly [string, string | null, number, number, boolean])[];
+/** The events of SCHEDULE in (fromUs, toUs] of the host clock, in time order. */
+export function calendar(fromUs: number, toUs: number, offsetUs?: number): { at: number; task: string; symbol: string | null }[];
+/** The loop once adopt and markTails passed; resolves on its signal after the clean stop, rejects with its named stop after it. */
+export function record(plan: Extract<Plan, { mode: "record" }>, taken: { real: string; at: string; check: () => number },
+  io: RecorderIo & { wallUs: () => number; monoNs: () => bigint }): Promise<Stopped>;

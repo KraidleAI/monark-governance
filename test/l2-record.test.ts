@@ -175,7 +175,7 @@ test("l2_args_closed_flags", async () => {
     ["bad_symbol", "bad_day", "bad_day"]);
 });
 
-// killer: scripts/record-binance-l2.mjs:287 CONST "realpathSync(argv1) === realpathSync(SCRIPT)" -> "resolve(argv1) === resolve(SCRIPT)"
+// killer: scripts/record-binance-l2.mjs:404 CONST "realpathSync(argv1) === realpathSync(SCRIPT)" -> "resolve(argv1) === resolve(SCRIPT)"
 test("l2_main_runs_by_real_path", async () => {
   // MAIN-GUARD-REALPATH-1: through a link, node runs the module at its real path while argv[1] keeps the link; a guard on resolved paths
   // ran nothing and exited 0. The scripts folder behind a link, the command run with no argument: the usage stop, exit 2; imported: nothing.
@@ -190,8 +190,8 @@ test("l2_main_runs_by_real_path", async () => {
     `await import(${JSON.stringify(pathToFileURL(join(SCRIPTS, "record-binance-l2.mjs")).href)});`, "no-such-file"])],
   [[2, "", usage + LF], [0, "", ""]], "through the link, the usage stop; imported, nothing");
   const io = { env: {}, execArgv: [], freeBytes: () => 1e9, ...clocks, print: (l: string, e: boolean) => { printed.push([l, e]); } };
-  assert.equal(await m.main(["--out", out, "--quota-bytes", "1000"], io), 1, "after its guards, a named stop: the loop is c5's");
-  assert.deepEqual(printed, [[JSON.stringify({ ok: false, stop: "not_built", detail: { mode: "record", out, resume: false } }), true]]);
+  assert.equal(await m.main(["--from-raw", out, "--symbol", "BTCUSDT", "--day", "2026-10-04", "--out", out], io), 1, "after its guards, a named stop: the replay is c6's");
+  assert.deepEqual(printed, [[JSON.stringify({ ok: false, stop: "not_built", detail: { mode: "replay", out, resume: false } }), true]]);
 });
 
 // killer: scripts/record-binance-l2.mjs:131 CONST "!e.isFile() && !e.isDirectory()" -> "false"

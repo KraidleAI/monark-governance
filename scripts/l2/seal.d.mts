@@ -21,4 +21,4 @@ export const SEAL_HEAP_MB: number;
 export type ApartSpec = Omit<SealSpec, "derive" | "closed"> & { scale: number; bounds?: SealBounds; open?: string[] };
 export type ApartResult = SealResult | { sealed: false; failed: { code: number | null; signal: string | null; stop: string | null; detail: unknown } };
 /** sealOf in a child process (node --max-old-space-size=<heapMb> scripts/l2/seal-child.mjs) spawned with `env` alone; never rejects. */
-export function sealApart(spec: ApartSpec, io: { env: Record<string, string>; heapMb?: number }): Promise<ApartResult>;
+export function sealApart(spec: ApartSpec, io: { env: Record<string, string>; heapMb?: number; signal?: AbortSignal }): Promise<ApartResult>;
