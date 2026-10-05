@@ -24,7 +24,7 @@ const ROOT = join(import.meta.dirname, "..");
 const git = (cwd: string, ...args: string[]): string => execFileSync("git", args, { cwd, encoding: "utf8" }).trim();
 interface RunOpts { mirror?: string | null; email?: string; vis?: string; gates?: string[][]; dirty?: boolean }
 
-// killer: scripts/release-public.mjs:157 CONST "if (!sg.ok)" -> "if (false)"
+// killer: scripts/release-public.mjs:193 SDL "    abort(\"export failed\");" -> ""
 test("release_public_flow — message gate, refusals before any gate, export:check before export, one local commit, no push, gh reads only", () => {
   const tmp = mkdtempSync(join(tmpdir(), "monark-release-flow-"));
   try {
@@ -132,6 +132,25 @@ test("release_public_flow — message gate, refusals before any gate, export:che
     dropPendingSnapshot(src);
     git(src, "-c", "user.email=flow@users.noreply.github.com", "commit", "-q", "-am", "promote");
     refuse([["unexpected remote (C-G2-1)", ["--message", ok], { mirror: mirrorX }, "points at an unexpected remote"]]);
+
+    // G2 N-1: the export still has the last word. A committed file the preflight lets through but the export refuses (a
+    // reader-local Windows path, D7 septies (iii)): every gate runs, then the release stops on its export, mirror untouched.
+    writeFileSync(join(src, "README.md"), `${readFileSync(join(src, "README.md"), "utf8")}\nSee ${"C"}:${"\\"}work${"\\"}x\n`);
+    git(src, "-c", "user.email=flow@users.noreply.github.com", "commit", "-q", "-am", "export-refused");
+    const exportRed = run(["--message", ok]);
+    assert.ok(exportRed.status !== 0 && exportRed.out.includes("RELEASE ABORTED: export failed") && exportRed.out.includes("reader-local Windows absolute path"), `a refused export stops the release:\n${exportRed.out.slice(-1500)}`);
+    assert.deepEqual(exportRed.passed, all, "export refused: every gate ran before it");
+    assert.ok(git(mirrorR, "rev-parse", "HEAD") === headR && git(mirrorR, "status", "--porcelain") === "" && !readdirSync(tmp).some((n) => /-stage-|-message-/.test(n)), "export refused: the mirror clone is untouched, nothing staged");
+    git(src, "reset", "-q", "--hard", "HEAD~1");
+
+    // G2 N-3: an unreadable exclusion list stops the preflight fail-closed, the operator reads a RELEASE ABORTED line.
+    git(src, "rm", "-q", "scripts/export-exclude-data.json");
+    git(src, "-c", "user.email=flow@users.noreply.github.com", "commit", "-q", "-m", "no-exclusion-list");
+    const unreadable = run(["--message", ok]);
+    assert.ok(unreadable.status !== 0 && unreadable.out.includes("export-exclude-data.json is missing") && unreadable.out.includes("RELEASE ABORTED: RELEASE-PREFLIGHT-SEND-GUARD-1 could not read the exported tree"), `an unreadable exclusion list is named by a RELEASE ABORTED line:\n${unreadable.out.slice(-1500)}`);
+    assert.deepEqual(unreadable.passed, [], "unreadable exclusion list: no gate runs");
+    assert.ok(git(mirrorR, "rev-parse", "HEAD") === headR && git(mirrorR, "status", "--porcelain") === "", "unreadable exclusion list: the mirror clone is untouched");
+    git(src, "reset", "-q", "--hard", "HEAD~1");
 
     // Red export:check, followed by one more gate: the tool stops there, before the export (CA-1.3, M1-o).
     assert.equal(LOCAL_GATES.at(-1)?.[1], "npm run export:check", "export:check is the last gate, just before the export");
