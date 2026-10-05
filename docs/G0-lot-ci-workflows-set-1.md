@@ -2,13 +2,13 @@
 
 - **Demande** : item de `docs/ETAT.md` (restes formés de R25-INTEGRATION-RULE-1) : « CI-WORKFLOWS-SET-1 (m-1 de la même G2) : aucun test ne lit un second fichier sous `.github/workflows/` ; l ensemble des workflows est `{ci.yml}`, à épingler par une égalité d ensemble. » Origine : m-1 de la G2 du pli Q-2 de R25-INTEGRATION-RULE-1b.
 - **Base** : `e4aac057` (`origin/lot/etude-suite`, fusion de #173), branche `recherches/ci-workflows-set-1`. Auteur : RECHERCHES.
-- **Zone** : `test/ci-gates.test.ts` (un test ajouté en fin de fichier, deux imports) ; ce G0 et le G7. Aucun code de production, aucun fichier sous `.github/` touché.
+- **Zone** : `test/ci-gates.test.ts` (un test ajouté en fin de fichier, deux imports ; trois tests de plus au pli G2) ; `test/helpers/git-tracked.ts` (ajouté au pli G2, lu par le seul `ci-gates.test.ts`) ; ce G0 et le G7. Aucun code de production, aucun fichier sous `.github/` touché.
 
 red-proof: test-only
 
 ## Constat
 
-Tous les tests de la porte CI lisent un seul fichier, `.github/workflows/ci.yml` (`test/ci-gates.test.ts:51`, constante `WF`). Le juge des permissions `problems()` (`ci_workflow_declares_least_privilege_permissions`), les tests `if:` / `continue-on-error`, l épinglage des actions par SHA, les bornes `timeout-minutes` et le job r25 ne jugent que ce texte. L export public ne transforme que `CI_WORKFLOW_PATH` (`scripts/export-public.mjs:425`). Un second fichier sous `.github/workflows/` (par exemple un `release.yml` avec `permissions: write-all` ou une action non épinglée) serait exécuté par GitHub et échapperait à tous ces juges : la CI resterait verte.
+Tous les tests de la porte CI lisent un seul fichier, `.github/workflows/ci.yml` (`test/ci-gates.test.ts`, constante `WF` : ligne 51 à la base, 54 au gel du pli G2, après les imports ajoutés). Le juge des permissions `problems()` (`ci_workflow_declares_least_privilege_permissions`), les tests `if:` / `continue-on-error`, l épinglage des actions par SHA, les bornes `timeout-minutes` et le job r25 ne jugent que ce texte. L export public ne transforme que `CI_WORKFLOW_PATH` (`scripts/export-public.mjs:425`). Un second fichier sous `.github/workflows/` (par exemple un `release.yml` avec `permissions: write-all` ou une action non épinglée) serait exécuté par GitHub et échapperait à tous ces juges : la CI resterait verte.
 
 Mesure à la base : `git ls-files -- .github/workflows` et `git ls-tree -r --name-only HEAD -- .github/workflows` rendent tous deux la seule ligne `.github/workflows/ci.yml`. `.github/` ne suit par ailleurs que `PULL_REQUEST_TEMPLATE.md`.
 
@@ -56,6 +56,12 @@ Un test ajouté en fin de `test/ci-gates.test.ts`, au style du fichier :
 Un tueur, au-dessus de la déclaration du test :
 
 - `scripts/export-public.mjs:425 CONST "ci.yml" -> "gates.yml"` : l export dériverait un autre chemin que le seul workflow suivi ; l assertion (d) rougit.
+
+Pli de la G2 (N-2, N-3, N-5), un tueur par test ajouté :
+
+- `test/helpers/git-tracked.ts:11 CONST "env: bare(), " -> ""` : git hériterait des `GIT_*` de l appelant ; le test au leurre `GIT_DIR` / `GIT_INDEX_FILE` rougit. Le module est un support importé statiquement par le fichier de test (MUTANTS-TEST-SUPPORT-1).
+- `test/helpers/git-tracked.ts:16 CONST "[...new Set(xs)]" -> "xs"` : un index non fusionné listerait `ci.yml` trois fois ; le test de l index non fusionné rougit.
+- `.github/workflows/ci.yml:37 CONST "actions/checkout@" -> "KraidleAI/monark-governance/.github/actions/checkout@"` : une étape appellerait une action de ce dépôt ; le juge `uses:` rougit.
 
 Un tueur sur une seule ligne de production ne peut pas ajouter de fichier à l index : la preuve rouge de l égalité d ensemble est mesurée à part (ci-dessous).
 
