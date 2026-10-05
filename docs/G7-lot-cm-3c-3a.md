@@ -106,7 +106,7 @@ T6 lit aussi la constante `SCHEMA_VERSION` par l'espace de noms et exige que la 
 
 ## Écarts au G0 du lot
 
-1. **`GateInput.requestSha256`** (non prévu au G0) : `GateDecision.request_sha256` est requis en 1.1.0, et `gate()` de `packages/hikae` n'a pas l'enveloppe ; le champ entre dans `GateInput` (non gelé) et `gate()` le recopie. Le harnais le calcule en 3c-3b (`requestSha256` de l'enveloppe reçue). Effet nul sur les 9 `fixtures/*.gate-decision.json` (générateur vert).
+1. **`GateInput.requestSha256`** (non prévu au G0) : `GateDecision.request_sha256` est requis en 1.1.0, et `gate()` de `packages/hikae` n'a pas l'enveloppe ; le champ entre dans `GateInput` (type hors de la zone gelée) et `gate()` le recopie. Le champ est **requis** dans le type (`requestSha256: string`, `l3-gate.ts:72`) : un oubli dans le harnais TypeScript rougit `tsc`. Seul le générateur `.mjs` non typé (`scripts/gen-gate-decision-fixtures.mjs`) l'omet, jusqu'à 3c-3c ; `JSON.stringify` retire alors la clé. Le harnais le calcule en 3c-3b (`requestSha256` de l'enveloppe reçue). Effet nul sur les 9 `fixtures/*.gate-decision.json` (générateur vert). (Correction m-8 de la G2.)
 2. **`underCalibVerdict` perd `labelSchema`** : sans ensemble vide, le nom du schéma d'étiquettes n'a plus d'objet. Les 7 appels du harnais perdent donc `labelSchema:` en plus de gagner `cell` (3c-3b) ; le commentaire de `NUMERIC_LABEL_SCHEMA` (`packages/hikae/src/region.ts:27-34`) est à reprendre avec l'inversion de `numeric_under_calib_region_is_not_directional` (3c-3b).
 3. **Liste close plus large que les noms du G0**, dans les familles décidées (Q-3a-1) : sentinelle (7 fichiers, import transitif du harnais), `cra-b`, `skills`, `probe-narabi`, `site-build-fleet`, `harness-deploy-config` (chargement) ; lecteurs du format du site `site-docs` (gloses des 5 raisons) en plus de `ci-gates` et `sas-audit` ; **tous** les tests d'`atelier` (fixtures racine 1.0.0), pas seulement l'état S2 ; test 42 (par `tsc`).
 4. **Tueur O-7 changé d'opérateur** : `oracle_l3_set_path_reason_order_exhaustive` portait `l3-gate.ts:92 COR "||" -> "&&"` ; la ligne de l'étape 4 porte deux `||`, le tueur n'y est plus unique. Remplacé par `l3-gate.ts:94 CONST "input.nCalib < input.nMin" -> "false"`, tué à la main.
@@ -127,7 +127,7 @@ T6 lit aussi la constante `SCHEMA_VERSION` par l'espace de noms et exige que la 
 ## Notes pour 3c-3b
 
 - `apps/harness/src/` : `calibration.ts:16`, `tools/calibrate.ts:27` vers `scoresSha256` ou l'outil de provenance (le harnais se recharge) ; `cell` sur chaque `buildVerdict`, `underCalibVerdict`, `conformInterval` ; `labelSchema` retiré (écart 2) ; `requestSha256` sur chaque `GateInput` (écart 1) ; `gate.ts:62` lit `SCHEMA_VERSION` de `@monark/contracts` (le tueur `CONST "1.1.0" -> "1.0.0"` passe sur `enums.ts`).
-- L'étape 4 fait abstenir tout verdict à raison sans région, avec cette raison : un verdict servi aujourd'hui avec une région et `non_evaluable` ou `upstream_timeout` comme raison changerait de raison de décision ; à vérifier par la projection de C1.
+- L'étape 4 fait abstenir tout verdict à raison sans région, avec cette raison. Aucun chemin servi ne pose une telle raison sur un verdict à région (recensement de la G2, section 3) : le changement ne touche que des verdicts faits à la main, et il est épinglé par m-1 (`l3_reserved_reasons_abstain_with_their_reason_on_a_served_region`). (Correction m-8 de la G2.)
 - `u4b_committed_registry_equals_generator_output` et le test du générateur gelé rejouent le ré-épinglage de `GENERATOR_SHA256_LF` dès que le harnais se charge.
 - Le tueur ré-ancré de `served-replay-cm3.test.ts` (`l3-gate.ts:90`) est à tirer à la main.
 - Parité `KATA_REASONS` ⊆ `COVERAGE_REASONS` (Q-3a-2) ; `lint:ratchet` revient à 69 quand le harnais se type.
@@ -138,3 +138,71 @@ T6 lit aussi la constante `SCHEMA_VERSION` par l'espace de noms et exige que la 
 - `atelier` : régénération des 9 décisions (générateur de C1) et `regionText` sur `region: null`.
 - `fixtures-root`, `narabi-live:540-547`, `site-ukemi` : `scoresSha256` ou l'outil de provenance à la place de `calibDigest` du paquet.
 - Test 42 revient au vert avec `tsc` ; `export:check` du miroir avec la ligne d'ADR-M004 D7 (précondition).
+
+## G2
+
+- **Pièce** : `G2-cm-3c-3a.md` (RECHERCHES, coordination, 2026-10-04), tête relue `cbf2ca26`. Verdict **APPROUVE SOUS RÉSERVE**, 0 bloquant, 8 mineurs (m-1 à m-8).
+- **Pli** : commit de tests `df2c0793` (tests seuls, dans les fichiers de test des paquets), puis ce commit (G7). **Aucun commit de gel** : aucune ligne de code ne change. Le paquet gelé (`packages/contracts/src/`, `schemas/`, `closed-check.ts`) n'est pas touché, et aucun second ré-épinglage n'a lieu. `contracts_frozen` reste vert.
+
+### Mineurs pliés dans ce lot
+
+| Mineur | Test | Tueur déclaré (ligne au-dessus du test) | Mutants de la G2 |
+|---|---|---|---|
+| m-1 | `verdict_1_1_0_reserved_reasons_admit_no_region` (neuf, `packages/contracts/test/closed-check.test.ts`) : `region: null` avec chacune des quatre raisons réservées (`upstream_timeout`, `attestation_absent`, `attestation_refused`, `binding_broken`) ⇒ accepté | `packages/contracts/src/enums.ts:33 CONST "[\"upstream_timeout\", \"attestation_absent\", \"attestation_refused\"," -> "[\"attestation_absent\", \"attestation_refused\","` | M9 tué |
+| m-1 | `l3_reserved_reasons_abstain_with_their_reason_on_a_served_region` (neuf, `packages/hikae/test/l3.test.ts`) : verdict `{up}`, `qhat` 0, intention `up`, chacune des quatre raisons réservées ⇒ `abstain` avec cette raison, jamais `commit` | `packages/contracts/src/enums.ts:33 CONST "\"attestation_absent\", \"attestation_refused\"," -> ""` | M10, M15 tués |
+| m-2 | `l3_verdict_reason_wins_over_ncalib_below_nmin` (neuf, `l3.test.ts`) : `calib_silence` `{up, down}` et `out_of_support` sans région, `nCalib` 10 < `nMin` 50 ⇒ la raison du verdict | `packages/hikae/src/l3-gate.ts:94 CONST "reason: noRegionReason ? input.verdict.reason : \"under_calib\"" -> "reason: input.nCalib < input.nMin ? \"under_calib\" : noRegionReason ? input.verdict.reason : \"under_calib\""` | M14 tué |
+| m-3 | `conform_interval_carries_the_cell_on_the_served_path` (neuf, `packages/hikae/test/contracts-integration.test.ts`) : `conformInterval` calibré (19 résidus, `nMin` 19), case `{ scale, 0.02, "k/b0", "b"×64, "c"×64 }` ⇒ `covered`, cinq champs égaux, `serialize` sans exception | `packages/hikae/src/interval-conformer.ts:102 CONST "cell: params.cell," -> "cell: { ...params.cell, cellKey: null, policyRowSha256: null, policyTableSha256: null },"` | M22 tué ; M20 tué aussi (à la main) |
+| m-3 | T9 `verdict_scores_sha256_is_over_the_declared_order` **resserré** d'une assertion : case `scale` à 0,02 recopiée | tueur de T9 inchangé (`verdict.ts:57`) ; tueur du resserrement à la main : `packages/hikae/src/verdict.ts:53 CONST "scale: params.cell.scale," -> "scale: null,"` | M20 tué |
+| m-4 | `qhat_unit enum: verdict schema matches QHAT_UNITS` (neuf, `packages/contracts/test/enums.test.ts`) | `schemas/coverage-verdict.schema.json:59 CONST "[\"label\", \"scale\", \"score\"]" -> "[\"label\", \"scale\", \"score\", \"x\"]"` | M30 tué |
+| m-4 | T6 `verdict_and_decision_schemas_are_1_1_0` **resserré** de deux assertions : `request_sha256: "X"×64` et `cell_key: ""` refusés | tueur de T6 inchangé (`gate-decision.schema.json:16`) ; tueur du resserrement à la main : `schemas/gate-decision.schema.json:27 CONST "\"pattern\": \"^[0-9a-f]{64}$\"" -> "\"minLength\": 1"` | M29 tué ; M27 **déclaré équivalent** (ci-dessous) |
+
+- **m-2, ligne r4** : la lecture de préséance est écrite par RECHERCHES dans le dépôt de recherches, `LISTE-REVISION.md` ligne 30 (non écrite par ce lot). Le test ci-dessus suit cette lecture.
+- **m-4 tenu dans ce lot** : le budget R-25 le permet (section R-25 ci-dessous). Rien de m-4 ne part en 3c-3b2.
+- **m-8** : les deux corrections de texte sont faites plus haut, dans « Écarts au G0 du lot » point 1 (`requestSha256` **requis** dans le type, `tsc` garde l'oubli ; seul le générateur `.mjs` l'omet jusqu'à 3c-3c) et dans « Notes pour 3c-3b » (verdicts faits à la main seulement ; épinglé par m-1).
+
+### Mineurs remis à un lot suivant
+
+- **m-5 → 3c-3b1** : contrôle ajv à l'exécution du corps servi de `/gate`, HTTP et MCP (`served_gate_body_validates_the_frozen_decision_schema`, `request_sha256 === sha256(canonicalJson(JSON.parse(corps)))`), tueur sur `apps/harness/src/tools/gate.ts` fixé au gel de 3c-3b1. Le contrôle fermé n'est pas touché.
+- **m-6 → 3c-3b2** : contraintes implicites de la spec (a) à (e), tests du harnais sur les verdicts servis du rejeu par projection, et lignes r4 (écrites par RECHERCHES).
+- **m-7 → G7 de 3c-3c** : preuve que le test 42 est vert **après** la ligne d'ADR-M004 D7 de MONARK (précondition de fusion inchangée).
+
+### Tueurs à la main des resserrements et des survivants de la G2
+
+Chaque mutant seul, au commit `df2c0793`, test rejoué seul (`--test-name-pattern`, reporter TAP), fichier restauré, sha256 vérifié avant et après (identiques).
+
+| Mutant | Où | Test | Issue |
+|---|---|---|---|
+| M9 | `enums.ts:33`, `upstream_timeout` retiré | `verdict_1_1_0_reserved_reasons_admit_no_region` ; `l3_reserved_reasons_…` | tué, tué |
+| M10 | `enums.ts:33`, `attestation_absent` et `attestation_refused` retirés ; `enums.ts:34`, `binding_broken` retiré | `l3_reserved_reasons_…` ; `verdict_1_1_0_reserved_reasons_…` | tués |
+| M14 | `l3-gate.ts:94`, `nCalib < nMin` gagne | `l3_verdict_reason_wins_over_ncalib_below_nmin` | tué |
+| M15 | `l3-gate.ts:93`, raisons « any » limitées à une région nulle (`calib_*` gardées) | `l3_reserved_reasons_…` | tué |
+| M20 | `verdict.ts:53`, `scale: null` | T9 (resserré) ; `conform_interval_…` | tué, tué |
+| M22 | `interval-conformer.ts:102`, case vidée | `conform_interval_…` | tué |
+| M29 | `gate-decision.schema.json:27`, motif → `minLength` 1 | T6 (resserré) | tué |
+| M30 | `coverage-verdict.schema.json:59`, quatrième unité | `qhat_unit enum: …` | tué |
+| M27 | `coverage-verdict.schema.json:87`, `minLength` 1 → 0 | T6 (resserré) | **survit : équivalent**. Le motif `^[ -~]+$` du même champ refuse déjà la chaîne vide ; `minLength` est redondant. L'assertion `cell_key: ""` refusé épingle la propriété elle-même, quel que soit le garde qui la tient. |
+
+Toutes les assertions rouges sous mutant sont des échecs d'assertion. Les neuf survivants de la G2 : **huit tués, M27 déclaré équivalent**.
+
+### red-proof
+
+`node scripts/red-proof.mjs --base 5a491fa6 --gel df2c0793 --repo /home/user/monark-governance-c2a --draw 15 --seed 37` : sortie 1 (REFUSED, attendu, comme au G7) ; **29 jugés, 72 inchangés** ; `RED-PROOF.json` sha256 `7a2f93e6…2ee8` (dépend des chemins).
+- **F2P, 15** : T1 à T10 (T6 et T9 resserrés, toujours F2P) et les 5 tests neufs ; **15 tueurs tirés, 15 tués**.
+- **Refusés, 14** : exactement les 14 déclarés plus haut (section « red-proof ») ; aucun test du pli n'est refusé.
+
+### Contrôles
+
+- Ancres : `verifie-ancres.mjs . --touched 5a491fa6 HEAD` ⇒ **37 tueurs, 37 ancrés, 0 dérivé, 0 perdu** (32 + 5 neufs).
+- Tests de `packages/contracts` et `packages/hikae` : **163/163 verts** ; `contracts_frozen` vert ; `tsc --noEmit` : 84 erreurs, les mêmes, aucune sous `packages/`.
+- Passage complet `npm test` à `df2c0793` (Node 24.21.0, variables de proxy retirées, TMPDIR `/tmp/c3afold-1`) : **1 948 tests, 1 870 verts, 59 rouges, 19 sautés, 0 `ENOSPC`**. Les 59 sont **exactement la liste close** (27 du harnais, 7 de la sentinelle, 12 racine, 7 lecteurs du format, 5 d'`atelier`, le test 42) : liste inchangée. `dojo_history_collect_to_verify_end_to_end` vert dans ce passage.
+- `gate:vocab` OK (345 fichiers) ; `lang:gate` OK.
+
+### R-25
+
+`r25()` contre `5a491fa6`, tête `df2c0793` : **STAT 545** (+380 / −165) ≤ 547 (marge 2) ; CONTENT_STAT 0. Le pli coûte 35 lignes de tests. **C2 réestimée** : 545 pour 3c-3a ; la borne C2 = 3c-3a + 3c-3b1 ≤ 1 205 laisse **660** à 3c-3b1.
+
+### Avis de la G2 sur Q-3a-8 à Q-3a-10
+
+- **Q-3a-8 : (a)**, le test de composition de Z-3 et la liste close de l'écart liq vont en C'. (b) laisserait un 500 sans code dans C2 sur les cinq vecteurs I-JSON, emporterait le test de m-5 et toucherait des actes (ligne servie de B-11, NOTICE). Conditions : déclarer au G7 de C' la partie USDe et cascade avec un tueur à la main (verte à la base de C'), la partie liq étant F2P avec S-8 ; inscrire la coupe en ligne datée (Q-C3 condition 5 : « testée en C' »). Noté ici ; la cellule tranche.
+- **Q-3a-9 : garder** l'amendement d'ADR-U4b ; sortie identique rejouée par la G2 (`742418fe…` des deux côtés) ; le contrôle par diff de MONARK reste la précondition.
+- **Q-3a-10 : d'accord avec le défaut** ; `dojo_history_collect_to_verify_end_to_end` vert dans le passage complet de la G2 au gel ; à regarder à l'oracle Windows de la tête de C2.
