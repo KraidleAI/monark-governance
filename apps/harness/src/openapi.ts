@@ -88,8 +88,9 @@ export function buildOpenApi(): JsonObject {
           "403": {
             description: "Origin present and not a monarkgate.tech origin (K-9).",
           },
+          "413": { description: "The request body is larger than the harness cap (payload_too_large); the connection is closed." },
           "500": {
-            description: "The tool output broke its frozen contract, or the tool failed; never a stack.",
+            description: "The tool output broke its frozen contract, or the tool failed (both name the operation); or the request failed in transport (no operation); never a stack.",
             content: { "application/json": { schema: TOOL_ERROR_500_SCHEMA } },
           },
         },
