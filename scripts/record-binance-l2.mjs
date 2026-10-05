@@ -26,7 +26,7 @@ import { fileURLToPath } from "node:url"; import { createBook } from "./l2/book.
 import { marketUrl, openingGate, openLink, spotUrl, SYMBOLS } from "./l2/links.mjs"; import { checkTail, PERIOD_US, segmentOf } from "./l2/segments.mjs"; import { createRest, exchangeInfoFacts, logTimeOffset, RestStop } from "./l2/rest.mjs";
 
 export const STOPS = Object.freeze(["usage", "bad_quota", "bad_symbol", "bad_day", "proxy_refused", "env_refused", "out_not_l2",
-  "out_in_git_tree", "out_too_deep", "quota_stop", "disk_short", "not_built", "rest_stopped"]);
+  "out_in_git_tree", "out_too_deep", "quota_stop", "disk_short", "not_built", "rest_stopped", "unhandled_rejection"]);
 export const ADMITTED_ENV = Object.freeze({ win32: Object.freeze(["SYSTEMROOT", "TEMP", "TMP"]) }); // Q-P1-10; names in upper case
 export const OUT_ENTRIES = Object.freeze(["conn", "days", "journal.jsonl", "requests.jsonl", "rest"]); // what P1-a2 to P1-c3 write in --out
 const OUT_DIRS = Object.freeze(["conn", "days", "rest"]); // the directories of OUT_ENTRIES; the others are files
@@ -271,6 +271,8 @@ export function markTails(at, io) {
 const MINUTE_US = 60_000_000;
 export const WEIGHT_FLOOR = 4_000; // Q-P1-6, Q-B1-3: the worst minute of D24-2; a REQUEST_WEIGHT limit read below it suspends every resync, named
 export const STOP_BOUND_MS = 30_000; // Q-8 of a3: the clean stop waits this long for the writers, then as long for a seal child, which it then kills
+export const OVERDUE_US = 20_000_000; // m-2 of the G2 of c5-bis-b: a dated event (exchangeInfo, anchor) later than this, after a clock step, is skipped, named
+export const EXIT_GRACE_MS = 5_000; // m-1 (b): once main resolves, the command line exits within this, though a socket lingers
 export const SCHEDULE = Object.freeze([["cut", null, PERIOD_US, 0, false], ["seal", null, PERIOD_US, 3 * MINUTE_US, false],
   ["time", null, PERIOD_US, 30 * MINUTE_US, false], ["check", null, 10 * MINUTE_US, 5 * MINUTE_US, false],
   ...SYMBOLS.flatMap((s, r) => [["exchangeInfo", s, DAY_US, (86_280 + 10 * r) * 1_000_000, true], ["anchor", s, DAY_US, (86_350 + 10 * r) * 1_000_000, true]])].map((e) => Object.freeze(e)));
@@ -289,12 +291,21 @@ export function calendar(fromUs, endUs, offsetUs = 0) {
  *  on a signal (io.signal) or a named stop, the clean stop: the links stopped, their writers awaited STOP_BOUND_MS at most (Q-8 of a3), the
  *  books and the REST client closed, a seal child awaited as long, then killed; one stopped line. */
 export async function record(plan, { at, check }, io) {
+  const signal = io.signal ?? signals(), proc = io.process ?? (io.signal === undefined ? process : null); // n-4: before anything opens; the net (B-1): the command line's process
   const { wallUs, monoNs } = io, setTimer = io.setTimer ?? setTimeout, clearTimer = io.clearTimer ?? clearTimeout, env = { ...(io.env ?? process.env) };
   const note = (event, fields, symbol = "ALL") => appendLine(join(at, "journal.jsonl"), { host_us: wallUs(), mono_ns: String(monoNs()), symbol, cid: null, event, ...fields });
   const rest = createRest({ fetch: io.fetch ?? globalThis.fetch, nowUs: wallUs, out: at }), facts = new Map(), due = new Set(), followed = new Map(), abort = new AbortController();
-  let offset = 0, low = null, lowUntil = 0, timer = null, sealing = null, finished = false, done = () => {};
-  const ended = new Promise((r) => { done = r; }), finish = (cause) => { if (!finished) { finished = true; done(cause); } };
-  const bookRest = { request: (kind, symbol) => (low === null ? rest.request(kind, symbol) : Promise.reject(new RestStop("suspended", { why: "request_weight", limit: low }))),
+  let offset = 0, low = null, lowUntil = 0, timer = null, sealing = null, finished = false, done = () => {}, links = new Map();
+  const ended = new Promise((r) => { done = r; }), finish = (cause) => { if (!finished) { finished = true; done(cause); } }, codeOf = (e) => String(e?.code ?? e?.name ?? "unknown");
+  const tell = (event, fields, symbol) => { try { note(event, fields, symbol); } catch { /* the journal failed too: the stop names the cause */ } };
+  const failed = (task, e, symbol = "ALL") => { tell("schedule_failed", { task, code: codeOf(e) }, symbol); };
+  const stray = (e) => { tell("unhandled_rejection", { code: codeOf(e) }); try { stop("unhandled_rejection", { code: codeOf(e) }); } catch (s) { finish(s); } }; // B-1: the net
+  proc?.on("unhandledRejection", stray);
+  const snapshot = (kind, symbol) => rest.request(kind, symbol).catch((e) => { // B-2 (plan section 4.3): a 451 on a book's snapshot stops everything at once
+    if (rest.stopped) finish(new RecorderStop("rest_stopped", { task: "snapshot", symbol, code: codeOf(e) }));
+    throw e;
+  });
+  const bookRest = { request: (kind, symbol) => (low === null ? snapshot(kind, symbol) : Promise.reject(new RestStop("suspended", { why: "request_weight", limit: low }))),
     get stopped() { return rest.stopped; }, get suspendedUntilUs() { return low === null ? rest.suspendedUntilUs : Math.max(rest.suspendedUntilUs, lowUntil); } };
   const sleep = io.sleep ?? ((ms) => new Promise((r) => { setTimeout(r, ms).unref(); }));
   const books = new Map(SYMBOLS.map((s) => [s, createBook({ symbol: s, rest: bookRest, wallUs, monoNs, sleep, out: at })]));
@@ -308,7 +319,6 @@ export async function record(plan, { at, check }, io) {
     followed.set(symbol, cid);
   };
   const linkIo = { webSocket: io.webSocket ?? ((url) => new WebSocket(url)), wallUs, monoNs, setTimer, clearTimer, gate: openingGate(), open: io.open, onText };
-  const links = new Map([...SYMBOLS.map((s) => [s, { symbol: s, url: spotUrl(s), out: at }]), ["ALL", { symbol: "ALL", url: marketUrl(), out: at, kind: "market" }]].map(([k, spec]) => [k, openLink(spec, linkIo)]));
   const openIn = (start) => { // the "cid/seg" of the day's window that a writer holds open (Q-C1-5), for the child
     const conn = join(at, "conn"), [from, to] = [segmentOf(start - PERIOD_US), segmentOf(start + DAY_US + GRACE_US)];
     return (existsSync(conn) ? readdirSync(conn) : []).flatMap((c) => readdirSync(join(conn, c)).filter((n) => n.endsWith(".frames")).map((n) => n.slice(0, -7))
@@ -326,6 +336,7 @@ export async function record(plan, { at, check }, io) {
         writeFileSync(lock, String(process.pid));
         try { r = await apart({ symbol, day, nowUs: wallUs(), scale: f.scale, config: f, open: openIn(start) }); } finally { rmSync(lock, { force: true }); }
       }
+      if (abort.signal.aborted) return; // n-1: a seal aborted by the clean stop writes nothing after the stopped line (its seal_done false)
       if (r.wait !== undefined) continue; // a segment still open: the next hour
       due.delete(key); // sealed, or failed and left to the replay (P1-c6), named
       note(r.sealed ? "day_sealed" : "seal_failed", r.sealed ? { day, frames: r.frames } : { day, ...r.failed }, symbol);
@@ -335,7 +346,7 @@ export async function record(plan, { at, check }, io) {
     try {
       if (task === "cut") for (const l of links.values()) l.cut();
       else if (task === "check") check();
-      else if (task === "seal") { if (dayOf(t - PERIOD_US) !== dayOf(t)) for (const s of SYMBOLS) due.add(`${s}/${dayOf(t - PERIOD_US)}`); sealing ??= seals().finally(() => { sealing = null; }); } // the day before, at 00:03
+      else if (task === "seal") { if (dayOf(t - PERIOD_US) !== dayOf(t)) for (const s of SYMBOLS) due.add(`${s}/${dayOf(t - PERIOD_US)}`); sealing ??= seals().catch((e) => { failed("seal", e); }).finally(() => { sealing = null; }); } // the day before, at 00:03
       else if (task === "time") { const r = await rest.request("time", null), e = logTimeOffset(at, r.body, r.sentUs, r.receivedUs, { wallUs, monoNs }); offset = e.offset_us ?? offset; }
       else if (task === "exchangeInfo") {
         const f = exchangeInfoFacts((await rest.request("exchangeInfo", symbol)).body), was = low;
@@ -352,30 +363,37 @@ export async function record(plan, { at, check }, io) {
       }
     } catch (e) {
       if (e instanceof RecorderStop) { finish(e); return; }
-      note("schedule_failed", { task, code: String(e?.code ?? e?.name ?? "unknown") }, symbol ?? "ALL");
+      failed(task, e, symbol ?? "ALL");
       try { if (rest.stopped) stop("rest_stopped", { task, code: String(e?.code ?? null) }); } catch (s) { finish(s); } // 451 and the others: everything stops
     }
   }
   let last = wallUs();
-  const arm = () => { if (!finished) timer = setTimer(tick, Math.max(0, (calendar(last, last + DAY_US, offset)[0].at - wallUs()) / 1000)); };
+  const arm = () => { if (!finished) timer = setTimer(tick, Math.min(PERIOD_US / 1000, Math.max(0, (calendar(last, last + DAY_US, offset)[0].at - wallUs()) / 1000))); }; // n-3: under setTimeout's cap
   function tick() {
     const now = wallUs(), events = calendar(last, now, offset);
     last = Math.max(last, now); // a clock stepped back fires nothing twice
-    for (const e of events) void fire(e);
+    for (const e of events) { // m-2: a dated event overdue after a clock step is skipped, named (an anchor never written from a later depth)
+      if (["exchangeInfo", "anchor"].includes(e.task) && now - e.at > OVERDUE_US) tell("event_skipped", { task: e.task, late_us: now - e.at }, e.symbol);
+      else void fire(e);
+    }
     arm();
   }
-  const signal = io.signal ?? signals();
   signal.addEventListener("abort", () => { finish(null); }, { once: true });
   if (signal.aborted) finish(null);
-  for (const e of [{ at: last, task: "time" }, ...SYMBOLS.map((symbol) => ({ at: last, task: "exchangeInfo", symbol, days: [dayOf(last), dayOf(last + PERIOD_US)] }))]) await fire(e);
+  for (const e of [{ at: last, task: "time" }, ...SYMBOLS.map((symbol) => ({ at: last, task: "exchangeInfo", symbol, days: [dayOf(last), dayOf(last + PERIOD_US)] }))]) {
+    if (finished) break; // m-1 (a): a stop during the start waits for no request
+    await Promise.race([fire(e), ended]);
+  }
+  if (!finished) links = new Map([...SYMBOLS.map((s) => [s, { symbol: s, url: spotUrl(s), out: at }]), ["ALL", { symbol: "ALL", url: marketUrl(), out: at, kind: "market" }]].map(([k, spec]) => [k, openLink(spec, linkIo)])); // m-3: after the start (G0 point 2)
   arm();
-  const cause = await ended, within = (p) => new Promise((r) => { const t = setTimer(() => { r(false); }, STOP_BOUND_MS); void p.then(() => { clearTimer(t); r(true); }); });
+  const cause = await ended, within = (p) => new Promise((r) => { const t = setTimer(() => { r(false); }, STOP_BOUND_MS); void p.then(() => { clearTimer(t); r(true); }, () => { clearTimer(t); r(false); }); });
   clearTimer(timer);
   const linksClosed = await within(Promise.all([...links.values()].map((l) => l.stop())));
   for (const b of books.values()) b.close();
   rest.close();
   const sealDone = await within(sealing ?? Promise.resolve());
   if (!sealDone) abort.abort();
+  proc?.off("unhandledRejection", stray);
   note("stopped", { cause: cause?.code ?? "signal", links_closed: linksClosed, seal_done: sealDone });
   if (cause !== null) throw cause;
   return { mode: "record", out: plan.out, stopped: "signal", links_closed: linksClosed, seal_done: sealDone };
@@ -408,4 +426,6 @@ export async function main(argv, io = {}) {
 /** The command line runs when node starts this very file, through a link too: real paths compared (MAIN-GUARD-REALPATH-1); an import
  *  runs nothing, nor does a node whose argv[1] is absent or names no file (realpathSync throws). */
 const started = (argv1) => { try { return realpathSync(argv1) === realpathSync(SCRIPT); } catch { return false; } };
-if (started(process.argv[1])) process.exitCode = await main(process.argv.slice(2));
+/** m-1 (b): the exit code set, then the process ends within EXIT_GRACE_MS, though a socket whose peer never answers its CLOSE lingers. */
+export function leave(code) { process.exitCode = code; setTimeout(() => { process.exit(code); }, EXIT_GRACE_MS).unref(); }
+if (started(process.argv[1])) leave(await main(process.argv.slice(2)));
