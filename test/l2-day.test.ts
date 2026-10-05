@@ -237,8 +237,7 @@ test("l2_day_index_bound_named_stop", async () => { // G2 B-2: past the bound, a
 // killer: scripts/l2/day.mjs:106 CONST "us === null ? \"journal\" : \"frame\"" -> "\"frame\""
 test("l2_day_hole_bound_source_named", async () => { // Q-G2-4 (condition of MONARK): each bound of a hole names its source, frame or journal
   const out = fresh(), t = START + HOUR, j = (us: number, cid: string, event: string, f: Line = {}): Line => ({ host_us: us, mono_ns: "1", symbol: "BTCUSDT", cid, event, ...f });
-  const x = await conn(out, "spot", "BTCUSDT", [[t, depth(1, 1, t)], [t + 10 * S, depth(2, 2, t)]]);
-  const y = await conn(out, "spot", "BTCUSDT", [[t + 90 * S, depth(3, 3, t)], [t + 100 * S, depth(4, 4, t)]]);
+  const [x, y] = [await conn(out, "spot", "BTCUSDT", [[t, depth(1, 1, t)], [t + 10 * S, depth(2, 2, t)]]), await conn(out, "spot", "BTCUSDT", [[t + 90 * S, depth(3, 3, t)], [t + 100 * S, depth(4, 4, t)]])];
   const z = await conn(out, "spot", "BTCUSDT", [[t + 3 * HOUR + 10 * S, depth(5, 5, t + 3 * HOUR)]]); // "g", "h" and "k": no frame on disk
   const all = (us: number): Line => ({ host_us: us, mono_ns: "1", symbol: "ALL", cid: null, event: "start" });
   const lines = [j(t - S, x, "open"), j(t + 70 * S, x, "close", { cause: "watchdog" }), j(t + 75 * S, "g", "open"), j(t + 80 * S, "g", "close", { cause: "watchdog" }),
@@ -259,22 +258,14 @@ test("l2_day_folder_fsync_per_platform", async () => { // the day folder is sync
   const run = async (platform: string): Promise<unknown[]> => { // the folder's opens, by flag, that were fsynced; "r+" on a POSIX host opened "r"
     const out = fresh(), d = dir(out, "BTCUSDT", D), fds = new Map<number, string>(), synced: string[] = [];
     await conn(out, "spot", "BTCUSDT", [[START + HOUR, depth(1, 1, START + HOUR)]]);
-    fs.openSync = ((p: string, f: string, m?: number) => {
-      const fd = real.open(p, p === d && f === "r+" && host !== "win32" ? "r" : f, m);
-      if (p === d) fds.set(fd, f); else fds.delete(fd);
-      return fd;
-    }) as typeof fs.openSync;
+    fs.openSync = ((p: string, f: string, m?: number) => { const fd = real.open(p, p === d && f === "r+" && host !== "win32" ? "r" : f, m); if (p === d) fds.set(fd, f); else fds.delete(fd); return fd; }) as typeof fs.openSync;
     fs.fsyncSync = (fd: number) => { real.fsync(fd); const f = fds.get(fd); fds.delete(fd); if (f !== undefined) synced.push(f); };
-    Object.defineProperty(process, "platform", { ...desc, value: platform });
-    syncBuiltinESMExports();
+    Object.defineProperty(process, "platform", { ...desc, value: platform }); syncBuiltinESMExports();
     try { return [M.sealDay({ out, symbol: "BTCUSDT", day: D, nowUs: END + GRACE + 1, closed: () => true }), ...synced]; } finally {
-      Object.defineProperty(process, "platform", desc);
-      [fs.openSync, fs.fsyncSync] = [real.open, real.fsync];
-      syncBuiltinESMExports();
+      Object.defineProperty(process, "platform", desc); [fs.openSync, fs.fsyncSync] = [real.open, real.fsync]; syncBuiltinESMExports();
     }
   };
-  const sealed = (out: unknown[]): unknown => (out[0] as { sealed: boolean }).sealed;
-  const flag = host === "win32" ? "r+" : "r", own = await run(host);
+  const sealed = (out: unknown[]): unknown => (out[0] as { sealed: boolean }).sealed, flag = host === "win32" ? "r+" : "r", own = await run(host);
   assert.deepEqual([sealed(own), ...own.slice(1)], [true, flag, flag]); // the host's own path, unchanged on Linux
   if (host !== "win32") { const win = await run("win32"); assert.deepEqual([sealed(win), ...win.slice(1)], [true, "r+", "r+"]); }
 });
