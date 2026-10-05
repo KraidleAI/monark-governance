@@ -8,7 +8,8 @@
 // proof only when every page answered 200 (any old file is removed first). `count` prints ONE stdout line
 // `<mode> <code> <content>` (detail on stderr). Only mode `integration` lowers a count, to the sum over the commits no
 // proving merged PR carries: (b) diff to the parent, (a) `git show --remerge-diff` of a merge (a PR's own merge M
-// included, G2 B-1); at most the written count W. A PR whose contribution M^1..M exceeds a bound proves nothing (G2 B-2).
+// included, G2 B-1; whole files under a content conflict, its largest diff to a parent under a structural one, G2 B-4);
+// at most the written count W. A PR whose contribution M^1..M exceeds a bound proves nothing (G2 B-2).
 // Anything else (no or foreign proof, a non-candidate PR, an unproven commit touching the gate, git < 2.36,
 // an error) returns W: the module is never a source of green.
 import { execFileSync } from "node:child_process";
@@ -24,9 +25,11 @@ export const EXCEPTED_PRS = [56, 89]; // green by a keyed exception (D9 quinquie
 export const GATE_FILES = [".github/workflows/", "scripts/lot-size-integration.mjs", "scripts/oracle/r25.mjs", "scripts/oracle/run.mjs"];
 export const BOUND_KEYS = ["VIBEGATES_PR_LIMIT", "VIBEGATES_CONTENT_LIMIT"]; // the bounds of the STAT and CONTENT_STAT counts
 const CHECK = "r25-taille-de-lot", SHA = /^[0-9a-f]{40}$/, EMPTY_TREE = "4b825dc642cb6eb9a060e54bf8d69288fbee4904";
-// Options that change a count, pinned over any user or system config so the CI and the oracle cannot diverge (G2 m-2).
-const PIN = ["-c", "merge.conflictStyle=merge", "-c", "diff.algorithm=myers", "-c", "diff.renames=true", "-c", "merge.renames=true", "-c", "merge.directoryRenames=conflict"];
-const gitIn = (cwd) => (...a) => execFileSync("git", ["-C", cwd, ...PIN, ...a], { encoding: "utf8", maxBuffer: 1 << 30, stdio: ["ignore", "pipe", "pipe"] }).trim();
+// Options that change a count, pinned over any user or system config so the CI and the oracle cannot diverge (G2 m-2); no
+// user attributes file (`* -diff` there would hide every line, G2 m-a); messages in English (the counts and the conflict
+// headers are parsed: a translated git would read 0); GIT_DIFF_OPTS dropped (its -u0 would beat --unified, G2 B-4).
+const PIN = ["-c", "merge.conflictStyle=merge", "-c", "diff.algorithm=myers", "-c", "diff.renames=true", "-c", "merge.renames=true", "-c", "merge.directoryRenames=conflict", "-c", "diff.suppressBlankEmpty=false", "-c", "core.attributesFile="];
+const gitIn = (cwd, raw = false) => (...a) => { const o = execFileSync("git", ["-C", cwd, ...PIN, ...a], { encoding: "utf8", maxBuffer: 1 << 30, stdio: ["ignore", "pipe", "pipe"], env: { ...process.env, GIT_DIFF_OPTS: undefined, LC_ALL: "C" } }); return raw ? o : o.trim(); };
 const rows = (s) => s.split("\n").filter((l) => l !== "");
 
 /** Candidate (G0 2.2): head and target in L, both in this repository, distinct; read from GitHub's PR object only. */
@@ -61,12 +64,16 @@ export function specsOf(ciText) {
   return specs;
 }
 
-/** The two bounds, read like scripts/oracle/r25.mjs reads them (first `KEY: "<digits>"` line); absent: an error, so W. */
+/** The two bounds, from the r25 job only (the job block holding the STAT lines), each `KEY: "<digits>"` declared exactly
+ * once there: a decoy in another job or a second declaration picks nothing (G2 m-c); else an error, so W. */
 export function boundsOf(ciText) {
+  const lines = ciText.split(/\r?\n/), top = (l) => /^ {0,2}[^\s#]/.test(l), at = lines.findIndex((l) => R25_DIFF_RE.test(l));
+  const from = lines.findLastIndex((l, i) => i <= at && top(l)), to = lines.findIndex((l, i) => i > at && top(l));
+  const job = at < 0 || from < 0 ? [] : lines.slice(from, to < 0 ? lines.length : to);
   return BOUND_KEYS.map((k) => {
-    const v = new RegExp(`^\\s*${k}:\\s*["']?(\\d+)["']?\\s*(#.*)?$`, "m").exec(ciText)?.[1];
-    if (v === undefined) throw new Error(`bound ${k} not found in ci.yml`);
-    return Number(v);
+    const v = job.map((l) => new RegExp(`^\\s*${k}:\\s*["']?(\\d+)["']?\\s*(#.*)?$`).exec(l)?.[1]).filter((x) => x !== undefined);
+    if (v.length !== 1) throw new Error(`bound ${k} declared ${v.length} times in the r25 job, not once`);
+    return Number(v[0]);
   });
 }
 
@@ -74,12 +81,25 @@ const metric = (stat) => ["insertion", "deletion"].reduce((n, w) => n + Number(n
 // The new material of one commit: (b) diff to its parent; (a) a merge's remerge-diff (its conflict resolutions and any
 // line added to a clean merge); a root or an octopus: the full diff to the empty tree or the first parent (fail-closed).
 const change = (c, ps) => (ps.length === 2 ? ["show", "--remerge-diff", "--format=", c] : ["diff", ps[0] ?? EMPTY_TREE, c]);
+const REMERGE = ["show", "--remerge-diff", "--unified=99999999", "--no-ext-diff", "--no-textconv", "--no-color", "--format="];
+/** A merge's lines from its remerge-diff with whole files as context (G2 B-4): every +/- line and, in a file with a content
+ * conflict, every line, since a resolution can keep a side's lines no R-25 measured (a proven PR's net hides what it adds
+ * then removes). Any other conflict (rename/delete, modify/delete, ...) or one without a hunk shows nothing: null. */
+function remerged(patch) {
+  let n = 0;
+  for (const e of patch.split(/^(?=diff --git )/m)) {
+    const at = e.search(/^@@ /m), kinds = [...(at < 0 ? e : e.slice(0, at)).matchAll(/^remerge CONFLICT \(([^)]*)\)/gm)].map((m) => m[1]);
+    if (kinds.some((k) => k !== "content" && k !== "add/add") || (kinds.length > 0 && at < 0)) return null;
+    if (at >= 0) for (const l of e.slice(at).split("\n").slice(0, -1)) if (l[0] === "+" || l[0] === "-" || (kinds.length > 0 && !l.startsWith("@@ ") && l[0] !== "\\")) n++;
+  }
+  return n;
+}
 
 /** The counts R-25 compares to its bounds (G0 section 3). written = [code, content] as counted today (W). */
 export function effective({ cwd, ciText, base, proof, written }) {
   const out = (mode, code = written[0], content = written[1], detail = []) => ({ mode, code, content, detail });
   try {
-    const git = gitIn(cwd), v = /(\d+)\.(\d+)/.exec(git("--version")) ?? ["", "0", "0"];
+    const git = gitIn(cwd), raw = gitIn(cwd, true), v = /(\d+)\.(\d+)/.exec(git("--version")) ?? ["", "0", "0"];
     if (Number(v[1]) * 1000 + Number(v[2]) < 2036) throw new Error(`git ${v[0]} has no --remerge-diff (2.36)`);
     const specs = specsOf(ciText), b = git("rev-parse", "--verify", "--end-of-options", `${base}^{commit}`);
     const [head, p1, p2] = git("rev-list", "--parents", "-n", "1", "HEAD").split(" "), heads = p2 !== undefined && p1 === b ? [head, p2] : [head];
@@ -88,11 +108,15 @@ export function effective({ cwd, ciText, base, proof, written }) {
     const proven = provenSet(git, proof.merged, specs, boundsOf(ciText)), sum = [0, 0], detail = [];
     for (const [c, ...ps] of rows(git("rev-list", "--parents", "HEAD", `^${b}`)).map((l) => l.split(" "))) {
       if (proven.has(c)) continue;
-      const gate = git(...change(c, ps), "--name-only", "-z").split("\0").some((f) => GATE_FILES.some((g) => f === g || (g.endsWith("/") && f.startsWith(g))));
+      // A merge whose remerge-diff hides what a conflict kept (null: a structural conflict) counts, like its gate check, its
+      // largest diff to a parent (G2 B-4, fail-closed).
+      const per = specs.map((s) => (ps.length === 2 ? remerged(raw(...REMERGE, c, "--", ...s)) : metric(git(...change(c, ps), "--shortstat", "--", ...s))));
+      const odd = per.includes(null), views = odd ? ps.map((p) => ["diff", p, c]) : [change(c, ps)];
+      const gate = views.some((v) => git(...v, "--name-only", "-z").split("\0").some((f) => GATE_FILES.some((g) => f === g || (g.endsWith("/") && f.startsWith(g)))));
       if (gate) return out("gate-files", written[0], written[1], [`${c} touches the gate unproven: every line counts`]);
-      const n = specs.map((s) => metric(git(...change(c, ps), "--shortstat", "--", ...s)));
+      const n = per.map((x, i) => x ?? Math.max(...ps.map((p) => metric(git("diff", "--shortstat", p, c, "--", ...specs[i])))));
       n.forEach((x, i) => { sum[i] += x; });
-      detail.push(`${c} ${ps.length === 2 ? "merge" : "commit"} ${n[0]} ${n[1]}`);
+      detail.push(`${c} ${odd ? "structural-merge" : ps.length === 2 ? "merge" : "commit"} ${n[0]} ${n[1]}`);
     }
     return out("integration", Math.min(written[0], sum[0]), Math.min(written[1], sum[1]), detail);
   } catch (e) { return out("error", written[0], written[1], [String(e.message).split("\n")[0]]); }
