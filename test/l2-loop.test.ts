@@ -608,7 +608,7 @@ test("l2_record_loop_clean_stop", async () => {
   assert.deepEqual(events(out, ["close", "stopped"]).map((l) => [l.host_us, l.event, l.cause]), [...Array(5).fill([at(1, 0, 3, 10), "close", "stopped"]), [at(1, 0, 4, 10), "stopped", "signal"]]);
 });
 
-// killer: scripts/record-binance-l2.mjs:298 CONST "low === null ? rest.suspendedUntilUs : " -> ""
+// killer: scripts/record-binance-l2.mjs:298 CONST "Math.max(rest.suspendedUntilUs, lowUntil)" -> "rest.suspendedUntilUs"
 test("l2_record_weight_suspended", async () => {
   // Q-P1-6, Q-B1-3: a REQUEST_WEIGHT limit read under 4 000 suspends every resync, named, until a reading at or above it: the book waits,
   // no vain try, and takes its snapshot after the next round of exchangeInfo.

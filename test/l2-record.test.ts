@@ -190,8 +190,9 @@ test("l2_main_runs_by_real_path", async () => {
     `await import(${JSON.stringify(pathToFileURL(join(SCRIPTS, "record-binance-l2.mjs")).href)});`, "no-such-file"])],
   [[2, "", usage + LF], [0, "", ""]], "through the link, the usage stop; imported, nothing");
   const io = { env: {}, execArgv: [], freeBytes: () => 1e9, ...clocks, print: (l: string, e: boolean) => { printed.push([l, e]); } };
-  assert.equal(await m.main(["--from-raw", out, "--symbol", "BTCUSDT", "--day", "2026-10-04", "--out", out], io), 1, "after its guards, a named stop: the replay is c6's");
-  assert.deepEqual(printed, [[JSON.stringify({ ok: false, stop: "not_built", detail: { mode: "replay", out, resume: false } }), true]]);
+  const loop = { ...io, signal: AbortSignal.abort(), fetch: () => Promise.reject(new Error("no network")), webSocket: () => ({ close: () => undefined }) as unknown as WebSocket };
+  assert.equal(await m.main(["--out", out, "--quota-bytes", "1000"], loop), 0, "after its guards, the loop (P1-c5-bis-b), stopped by its signal");
+  assert.deepEqual(printed, [[JSON.stringify({ ok: true, mode: "record", out, stopped: "signal", links_closed: true, seal_done: true }), false]]);
 });
 
 // killer: scripts/record-binance-l2.mjs:131 CONST "!e.isFile() && !e.isDirectory()" -> "false"
