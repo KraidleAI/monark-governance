@@ -329,7 +329,8 @@ test("l2_rest_fetch_deadline", async () => {
   AbortSignal.timeout = (ms: number): AbortSignal => { asked.push(ms); return AbortSignal.abort(new DOMException("deadline", "TimeoutError")); };
   try {
     const c = R.createRest({ fetch: abortable(signals), nowUs: () => T0, out, signal: new AbortController().signal });
-    assert.deepEqual([await code(c.request("time", null)), asked, signals[0]?.aborted], ["network_error", [R.TIMEOUT_MS], true]);
+    const ended = Promise.race([code(c.request("time", null)), new Promise((r) => { setTimeout(() => { r("pending"); }, 1_000); })]);
+    assert.deepEqual([await ended, asked, signals[0]?.aborted], ["network_error", [R.TIMEOUT_MS], true]);
   } finally { Object.defineProperty(AbortSignal, "timeout", real); }
 });
 
