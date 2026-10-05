@@ -298,7 +298,7 @@ export async function record(plan, { at, check }, io) {
   let offset = 0, low = null, lowUntil = 0, timer = null, sealing = null, finished = false, done = () => {}, links = new Map();
   const ended = new Promise((r) => { done = r; }), finish = (cause) => { if (!finished) { finished = true; done(cause); } }, codeOf = (e) => String(e?.code ?? e?.name ?? "unknown");
   const tell = (event, fields, symbol) => { try { note(event, fields, symbol); } catch { /* the journal failed too: the stop names the cause */ } };
-  const failed = (task, e, symbol = "ALL") => { tell("schedule_failed", { task, code: codeOf(e) }, symbol); };
+  const failed = (task, e, symbol = "ALL", where = {}) => { tell("schedule_failed", { task, ...where, code: codeOf(e) }, symbol); };
   const stray = (e) => { tell("unhandled_rejection", { code: codeOf(e) }); try { stop("unhandled_rejection", { code: codeOf(e) }); } catch (s) { finish(s); } }; // B-1: the net
   proc?.on("unhandledRejection", stray);
   const snapshot = (kind, symbol) => rest.request(kind, symbol).catch((e) => { // B-2 (plan section 4.3): a 451 on a book's snapshot stops everything at once
@@ -325,21 +325,23 @@ export async function record(plan, { at, check }, io) {
       .filter((g) => g >= from && g <= to && [...links.values()].some((l) => !l.closed(c, g))).map((g) => `${c}/${g}`));
   };
   const apart = (spec) => (io.seal ?? sealApart)({ ...spec, out: at }, { env, signal: abort.signal }); // the one call of the child (its root: adopt's, its fd 3)
-  async function seals() { // one symbol at a time
+  async function seals() { // one symbol at a time; a throw on one key journaled with its symbol and day, the next keys go on (r-1 of the G2 delta)
     for (const key of [...due].sort()) {
       const [symbol, day] = key.split("/"), start = Date.parse(`${day}T00:00:00Z`) * 1000, f = facts.get(key);
-      const lock = join(at, "days", symbol, `.${day}.seal.lock`); // n-4 of the G2 of c5-bis-a: one seal of a day at a time, an orphan child's too
-      if (finished || (existsSync(lock) && Date.now() - statSync(lock).mtimeMs < SEAL_TIMEOUT_MS)) continue; // sealDay waits for the grace itself
-      let r = { sealed: false, failed: { stop: "no_scale" } };
-      if (f !== undefined) {
-        mkdirSync(dirname(lock), { recursive: true });
-        writeFileSync(lock, String(process.pid));
-        try { r = await apart({ symbol, day, nowUs: wallUs(), scale: f.scale, config: f, open: openIn(start) }); } finally { rmSync(lock, { force: true }); }
-      }
-      if (abort.signal.aborted) return; // n-1: a seal aborted by the clean stop writes nothing after the stopped line (its seal_done false)
-      if (r.wait !== undefined) continue; // a segment still open: the next hour
-      due.delete(key); // sealed, or failed and left to the replay (P1-c6), named
-      note(r.sealed ? "day_sealed" : "seal_failed", r.sealed ? { day, frames: r.frames } : { day, ...r.failed }, symbol);
+      try {
+        const lock = join(at, "days", symbol, `.${day}.seal.lock`); // n-4 of the G2 of c5-bis-a: one seal of a day at a time, an orphan child's too
+        if (finished || (existsSync(lock) && Date.now() - statSync(lock).mtimeMs < SEAL_TIMEOUT_MS)) continue; // sealDay waits for the grace itself
+        let r = { sealed: false, failed: { stop: "no_scale" } };
+        if (f !== undefined) {
+          mkdirSync(dirname(lock), { recursive: true });
+          writeFileSync(lock, String(process.pid));
+          try { r = await apart({ symbol, day, nowUs: wallUs(), scale: f.scale, config: f, open: openIn(start) }); } finally { rmSync(lock, { force: true }); }
+        }
+        if (abort.signal.aborted) return; // n-1: a seal aborted by the clean stop writes nothing after the stopped line (its seal_done false)
+        if (r.wait !== undefined) continue; // a segment still open: the next hour
+        due.delete(key); // sealed, or failed and left to the replay (P1-c6), named
+        note(r.sealed ? "day_sealed" : "seal_failed", r.sealed ? { day, frames: r.frames } : { day, ...r.failed }, symbol);
+      } catch (e) { failed("seal", e, symbol, { day }); } // the key stays due: the next hour
     }
   }
   async function fire({ at: t, task, symbol, days = [dayOf(t + offset + PERIOD_US)] }) { // one event; a failure journaled, a named stop ends the loop
