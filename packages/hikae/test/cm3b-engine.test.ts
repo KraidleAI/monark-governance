@@ -161,7 +161,7 @@ test("conform_scaled_band_serves_zero_to_h_star", () => {
   assert.deepEqual(band(scores.slice(0, 298), sigma, "0.01", "0.05", 1), UNDER, "n below n0");
   assert.deepEqual(band(scores, sigma, "0.01", "0.05", 300, { attempt: 2, spendIndex: 3 }), UNDER, "spendIndex above attempt");
 });
-const UNDER_ABSTAIN = { abstain: true, reason: "under_calib" };
+const UNDER_ABSTAIN = { abstain: true, reason: "region_degenerate" }; // zero width: region_degenerate since B-16
 
 // G2 of #109 (B-1): a caller's options bag never overrides the "band" domain. An options object held in a variable escapes
 // the excess-property check, so { domain: "finite" } can reach conformScaledBand at run time; with 399 scores of 2 and one

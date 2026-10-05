@@ -112,7 +112,7 @@ test("oracle_l3_set_path_reason_order_exhaustive", () => {
 });
 
 // [D5, interval sub-path of the same header] common guards (non_evaluable, upstream_timeout, under_calib),
-// then lo >= hi gives under_calib (NDG-1, before budget), then budget_exhausted, then width > tauInterval
+// then lo >= hi gives region_degenerate (NDG-1, B-16, before budget), then budget_exhausted, then width > tauInterval
 // (clock open: defer interval_too_wide, else abstain clock_expired), then intent outside [lo, hi], else
 // commit covered. All 2^8 flag combinations times 3 budgets (768 cases), including B_t = B_floor.
 // killer: packages/hikae/src/l3-gate.ts:130 ROR "<" -> "<="
@@ -132,7 +132,7 @@ test("oracle_l3_interval_path_reason_order_exhaustive", () => {
         [notEvaluable, { action: "abstain", reason: "non_evaluable" }],
         [timedOut, { action: "abstain", reason: "upstream_timeout" }],
         [lowCount || verdictUnderCalib, { action: "abstain", reason: "under_calib" }],
-        [degenerate, { action: "abstain", reason: "under_calib" }],
+        [degenerate, { action: "abstain", reason: "region_degenerate" }],
         [remainingBudget < B_FLOOR, { action: "abstain", reason: "budget_exhausted" }],
         [wide && clockOpen, { action: "defer", reason: "interval_too_wide" }],
         [wide, { action: "abstain", reason: "clock_expired" }],
@@ -159,7 +159,7 @@ test("oracle_l3_interval_path_reason_order_exhaustive", () => {
       seen.add(d.reason);
     }
   }
-  assert.equal(seen.size, 8, "every declared reason of the interval path is reached");
+  assert.equal(seen.size, 9, "every declared reason of the interval path is reached (region_degenerate apart since B-16)");
 });
 
 const COMMON = {

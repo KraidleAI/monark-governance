@@ -17,7 +17,7 @@ import { SCHEMA_VERSION } from "../src/tools/gate.ts";
 import { cascadeHonestyText, CASCADE_PREDICTOR_ID } from "../src/tools/cascade.ts";
 import { attestHonestyText } from "../src/tools/attest.ts";
 import { calibrateHonestyText } from "../src/tools/calibrate.ts";
-import { USDE_STABLE_RUN_PREDICTOR_ID } from "../src/calibration.ts";
+import { UKEMI_LIQ_PREDICTOR_BASE, USDE_STABLE_RUN_PREDICTOR_ID } from "../src/calibration.ts";
 
 interface VocabRule { re: string; why: string; }
 interface VocabConfig { banned: VocabRule[]; scan: { harness: { banned: VocabRule[] } }; }
@@ -206,7 +206,7 @@ test("harness_served_honesty_carriers_pass_vocab", async () => {
     { label: "gate cascade class", tool: "gate", args: { prediction: pred(TASK_CASCADE, 100, CASCADE_PREDICTOR_ID), params: P }, carrier: honestyText(TASK_CASCADE, CASCADE_PREDICTOR_ID, false) },
     { label: "gate stable-run committed key", tool: "gate", args: { prediction: pred(TASK_STABLE_RUN, 0.0001, USDE_STABLE_RUN_PREDICTOR_ID), params: { ...P, nMin: 50 } }, carrier: honestyText(TASK_STABLE_RUN, USDE_STABLE_RUN_PREDICTOR_ID, false) },
     { label: "gate stable-run other population", tool: "gate", args: { prediction: pred(TASK_STABLE_RUN, 0.0001, "other:population"), params: P }, carrier: honestyText(TASK_STABLE_RUN, "other:population", false) },
-    { label: "gate liq empty registry", tool: "gate", args: { prediction: pred(TASK_LIQ_ELIGIBLE, 5000, "ukemi:any"), params: { ...P, alpha: LIQ_ALPHA, nMin: LIQ_NMIN } }, carrier: honestyText(TASK_LIQ_ELIGIBLE, "ukemi:any", false) },
+    { label: "gate liq s0", tool: "gate", args: { prediction: pred(TASK_LIQ_ELIGIBLE, 5000, "ukemi:any"), params: { ...P, alpha: LIQ_ALPHA, nMin: LIQ_NMIN } }, carrier: honestyText(TASK_LIQ_ELIGIBLE, `${UKEMI_LIQ_PREDICTOR_BASE}/s0`, false) },
     { label: "gate byo interval", tool: "gate", args: { prediction: pred(BYO, 1, "caller:model"), params: { ...P, calibration: { scores: TEN, mode: "interval" } } }, carrier: honestyText(BYO, "caller:model", true) },
     { label: "gate byo set", tool: "gate", args: { prediction: pred(BYO, "a", "caller:model"), params: { ...P, intent: "a", calibration: { scores: TEN, mode: "set", candidates: [{ label: "a", score: 0.1 }, { label: "b", score: 0.9 }] } } }, carrier: honestyText(BYO, "caller:model", true) },
     { label: "cascade", tool: "cascade", args: { L: [[0, 100], [50, 0]], e: [40, 20], shock: 0, producedAt: AT }, carrier: cascadeHonestyText() },

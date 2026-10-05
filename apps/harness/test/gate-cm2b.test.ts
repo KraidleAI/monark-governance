@@ -2,21 +2,20 @@
  * Harness - served hardening, lot CM-2b (chantier moteur; audit P3 points S-12, S-1 and E-7).
  * Oracle: docs/adr/ADR-CM-chantier-moteur-audit-P3.md section 5 B-5, B-2 (narrowed by the amendment "nuit, 2") and B-7;
  * plan docs/G0-lot-cm-2b.md. btc-dir-15m is retired (a named 400, the name still reserved against BYO); the committed
- * USDe key imposes its calibration's alpha 0.1 and nMin 50 (F-7 rows, liq unchanged); the USDe served text states that
- * each band edge is the nearest double of yhat -/+ qhat (at most half an ulp of the edge away), the band unchanged.
+ * USDe key imposes its calibration's alpha 0.1 and nMin 50 (F-7 rows, liq unchanged); since lot CM-3c-4b (B-13) the band
+ * edges are the ones of the score test and the B-7 clause on the rounded edge is withdrawn from the served text.
  * New names are read through a dynamic import or literals, so the base loads this file and reddens by assertion.
  * Each test names its killer on the line above it.
  */
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
-import type { GateDecision, Prediction } from "@monark/contracts";
-import { splitQuantile } from "@monark/hikae";
+import type { Prediction } from "@monark/contracts";
 import { runGate, HarnessToolError, GATE_TOOL_DESCRIPTION, STABLE_RUN_COMMITTED_SENTENCE, type HarnessParams } from "../src/tools/gate.ts";
 import { SCHEMA_VERSION } from "../src/tools/gate.ts";
 import { handleJsonMirror } from "../src/http.ts";
 import { createHarnessHandler } from "../src/server.ts";
-import { USDE_STABLE_RUN_CALIB, USDE_STABLE_RUN_PREDICTOR_ID } from "../src/calibration.ts";
+import { USDE_STABLE_RUN_PREDICTOR_ID } from "../src/calibration.ts";
 import { HARNESS_TOOLS } from "../src/tools/registry.ts";
 import { runAttest } from "../src/tools/attest.ts";
 import { ATTESTATION_BINDING, BINANCE_BTCUSDT_TICKER_URL } from "../src/attestation-binding.ts";
@@ -132,50 +131,35 @@ test("usde_committed_key_imposes_alpha_and_nmin", async () => {
   ], "the F-7 rows");
 });
 
-/** A double as an exact integer multiple of 2^-1074, and its ulp in the same unit. */
-function scaled(x: number): { n: bigint; ulp: bigint } {
-  const bits = new BigUint64Array(new Float64Array([x]).buffer)[0] ?? 0n;
-  const neg = bits >> 63n === 1n;
-  const e = (bits >> 52n) & 0x7ffn;
-  const f = bits & ((1n << 52n) - 1n);
-  const m = e === 0n ? f : f | (1n << 52n);
-  const shift = e === 0n ? 0n : e - 1n;
-  const n = m << shift;
-  return { n: neg ? -n : n, ulp: e === 0n ? 1n : 1n << (e - 1n) };
+/** The next double up (nextUp), by its bit pattern. */
+function up(x: number): number {
+  if (x === 0) return Number.MIN_VALUE;
+  const v = new DataView(new ArrayBuffer(8));
+  v.setFloat64(0, x);
+  v.setBigUint64(0, v.getBigUint64(0) + (x > 0 ? 1n : -1n));
+  return v.getFloat64(0);
 }
 
-// Test R-3 (F2P, B-7): the USDe served text states the half-ulp edge; on a grid of yhat each served edge is the nearest
-// double of the exact yhat -/+ qhat (|edge - exact| <= ulp(edge)/2, exact rational in BigInt); the band and the
-// decisions are unchanged (version-independent projection, digest measured at the base 418a421f and at 3c-3b2).
-// killer: apps/harness/src/tools/gate.ts:129 CONST "half a unit in the last place" -> "one unit in the last place"
-test("usde_band_edges_within_half_ulp_stated_and_band_unchanged", () => {
-  const clause =
-    "each band edge is yhat - qhat or yhat + qhat rounded to the nearest double, so it can differ from the exact edge " +
-    "by up to half a unit in the last place of that edge; the band is not widened for it";
-  assert.ok(STABLE_RUN_COMMITTED_SENTENCE.includes(clause), "the USDe served text states the half-ulp edge");
-  assert.ok(GATE_TOOL_DESCRIPTION.includes(clause), "the description states it too");
-
-  const split = splitQuantile(USDE_STABLE_RUN_CALIB, 0.1, 50);
-  assert.ok(!("reason" in split), "alpha 0.1 calibrates");
-  const q = scaled(split.qhat).n;
-  const grid = [0, 1e-12, 1e-6, 0.0000416, 0.0001, 0.00123, -0.0003, 0.1, 1, 12345.678, 3e-4, 7.5e-5];
-  let checked = 0;
-  for (const yhat of grid) {
-    const d = runGate(pred(USDE, yhat, USDE_STABLE_RUN_PREDICTOR_ID), PARAMS);
-    const r = d.verdict.region;
+// B-13 (ADR-CM; spec section 8; inverts R-3 of CM-2b): each USDe band edge is the one of the score test, checked against
+// the definition (fl(hi - yhat) <= qhat and the next double up fails; fl(yhat - lo) <= qhat and the next double down
+// fails); some edges are one ulp off fl(yhat -/+ qhat); the BYO edge of (1; 1) is -2^-53, not 0. The B-7 clause is
+// withdrawn from the core sentence, the description and the served content.
+// killer: packages/hikae/src/region.ts:109 ROR "if (ofKey(m) - c <= q) a = m;" -> "if (ofKey(m) - c < q) a = m;"
+test("interval_edges_follow_the_score_test", () => {
+  const usdeText = HARNESS_TOOLS.find((t) => t.name === "gate")?.run({ prediction: pred(USDE, 1e-4, USDE_STABLE_RUN_PREDICTOR_ID), params: PARAMS }).text ?? "";
+  assert.ok(usdeText.startsWith(`${STABLE_RUN_COMMITTED_SENTENCE}; B_t is caller-carried.`), "the served content leads with the committed sentence");
+  for (const t of [STABLE_RUN_COMMITTED_SENTENCE, GATE_TOOL_DESCRIPTION, usdeText]) assert.ok(!/band edge is yhat|half a unit|not widened/.test(t), "no B-7 clause");
+  let moved = 0;
+  for (const yhat of [0, 1e-12, 1e-6, 0.0000416, 0.0001, 0.00123, -0.0003, 0.1, 1, 12345.678, 3e-4, 7.5e-5, -0.0001, 0.0005]) {
+    const v = runGate(pred(USDE, yhat, USDE_STABLE_RUN_PREDICTOR_ID), PARAMS).verdict;
+    const [r, q] = [v.region, v.qhat ?? Number.NaN];
     assert.ok(r !== null && r.kind === "interval", `${String(yhat)}: an interval band`);
-    const y = scaled(yhat).n;
-    for (const [edge, exact] of [[r.lo, y - q], [r.hi, y + q]] as const) {
-      const s = scaled(edge);
-      const gap = s.n - exact;
-      assert.ok(2n * (gap < 0n ? -gap : gap) <= s.ulp, `${String(yhat)}: edge ${String(edge)} within half an ulp of the exact edge`);
-      checked++;
-    }
+    assert.ok(r.hi - yhat <= q && !(up(r.hi) - yhat <= q) && yhat - r.lo <= q && !(yhat + up(-r.lo) <= q), `${String(yhat)}: edges of the score test`);
+    if (r.hi !== yhat + q || r.lo !== yhat - q) moved++;
   }
-  assert.equal(checked, 2 * grid.length, "every edge checked");
-  const proj = (d: GateDecision): string => JSON.stringify([d.action, d.reason, d.allow, d.verdict.region, d.verdict.qhat, d.verdict.n_calib, d.verdict.alpha]);
-  const replay = grid.map((yhat) => proj(runGate(pred(USDE, yhat, USDE_STABLE_RUN_PREDICTOR_ID), { ...PARAMS, tool: "t" }))).join("\n");
-  assert.equal(createHash("sha256").update(replay).digest("hex"), "f99eddb82c11186a478dac182d8cab23a13e3565f69384588c9c7f3a099bed5d", "decisions unchanged since the base");
+  assert.ok(moved > 0, "some edges differ from fl(yhat -/+ qhat)");
+  const byo = runGate(pred("acme-model-x", 1, "acme:key"), { ...PARAMS, nMin: 5, tauInterval: 2, calibration: { scores: [0.5, 0.1, 0.9, 0.3, 1, 0.7, 0.2, 0.8, 0.4, 0.6], mode: "interval" } });
+  assert.deepEqual(byo.verdict.region, { kind: "interval", lo: -(2 ** -53), hi: 2 }, "BYO (1; 1): fl(1 - lo) <= 1 down to -2^-53");
 });
 
 // G2 B-1 of 3c-3b2: next to the version-independent projection of the USDe band, the full 1.1.0 served bytes of the same
