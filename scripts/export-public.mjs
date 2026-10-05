@@ -120,6 +120,8 @@ export const WHITELIST_FILES = [
   "apps/dojo/scripts/dojo-verify.mjs", "apps/dojo/scripts/dojo-verify.d.mts",
   "apps/dojo/scripts/dojo-chain.mjs", "apps/dojo/scripts/dojo-chain.d.mts",
   "apps/dojo/scripts/dojo-core.mjs", "apps/dojo/scripts/dojo-core.d.mts",
+  "scripts/lib/calib-digest-provenance.mjs",
+  "scripts/lib/calib-digest-provenance.d.mts",
 ];
 
 // ADR-M004 D7 bis R2(a): every fixed whitelist entry (dir or file) MUST exist under the export root or

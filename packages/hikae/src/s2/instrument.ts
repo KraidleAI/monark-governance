@@ -27,10 +27,11 @@ import {
 } from "../predictor.ts";
 import type { Candle } from "../predictor.ts";
 import type { GateDecision, Prediction } from "@monark/contracts";
-import { serializePrediction } from "@monark/contracts";
+import { requestSha256, serializePrediction, SCHEMA_VERSION } from "@monark/contracts";
 
 export const HARNESS_VERSION = "fixtures-synth";
-const SCHEMA_VERSION = "1.0.0";
+/** Cell of the demonstration verdicts: 0/1 scores on a set class, no table (contract 1.1.0, spec section 5). */
+const DEMO_CELL = { qhatUnit: "score", scale: null, cellKey: null, policyRowSha256: null, policyTableSha256: null } as const;
 const T0 = "2026-09-04T00:00:00Z"; // injected timestamp (never read) — hash stability.
 
 /** Deterministic seeded PRNG (mulberry32) — reproducible, clock-independent. */
@@ -359,6 +360,7 @@ function commitVerdict() {
     residual: ["assume:tls-notary", "assume:delegation"],
     producedAt: T0,
     schemaVersion: SCHEMA_VERSION,
+    cell: DEMO_CELL,
   });
 }
 function deferVerdict() {
@@ -374,11 +376,12 @@ function deferVerdict() {
     residual: ["assume:tls-notary"],
     producedAt: T0,
     schemaVersion: SCHEMA_VERSION,
+    cell: DEMO_CELL,
   });
 }
 
 function baseInput(over: Partial<GateInput> & { verdict: GateInput["verdict"]; intent: GateInput["intent"] }): GateInput {
-  return {
+  const input = {
     remainingBudget: 0.1,
     bFloor: 0,
     tau: 1,
@@ -392,6 +395,9 @@ function baseInput(over: Partial<GateInput> & { verdict: GateInput["verdict"]; i
     schemaVersion: SCHEMA_VERSION,
     ...over,
   };
+  // No served request behind a demonstration state: the digest is that of its declared envelope (the gate inputs, verdict aside).
+  const params = Object.fromEntries(Object.entries(input).filter(([k]) => k !== "verdict"));
+  return { ...input, requestSha256: requestSha256({ prediction: { schema_version: SCHEMA_VERSION, task_class: "btc-dir-15m", produced_at: T0 }, params }) };
 }
 
 /** The 9 mechanism GateDecisions, in a stable order (test 14 oracle + demo block). */
@@ -419,6 +425,7 @@ export function demoStates(): { readonly id: string; readonly decision: GateDeci
             residual: [],
             producedAt: T0,
             schemaVersion: SCHEMA_VERSION,
+            cell: DEMO_CELL,
           }),
           intent: "up",
           nCalib: 10,

@@ -59,7 +59,7 @@ function replayLine([p, params]: [Prediction, HarnessParams]): string {
   }
 }
 
-// killer: packages/hikae/src/l3-gate.ts:88 SDL "if (!finiteFields(input)) return { action: \"abstain\", allow: false, reason: \"non_evaluable\" };" -> ""
+// killer: packages/hikae/src/l3-gate.ts:90 SDL "if (!finiteFields(input)) return { action: \"abstain\", allow: false, reason: \"non_evaluable\" };" -> ""
 test("served_replay_identical_and_nan_never_commits_in_the_served_gate", () => {
   const set = replaySet();
   assert.equal(set.length, 111);

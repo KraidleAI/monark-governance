@@ -12,6 +12,7 @@ import {
   validVerdictInterval,
   validGateDecision,
 } from "./fixtures.ts";
+import * as contracts from "../src/index.ts";
 
 // Execute the FROZEN source of truth (schemas/*.json) — not the TS mirror.
 // This is what proves a `pattern` typo, an unresolved `$ref`, or a missing C4
@@ -240,4 +241,31 @@ test("attested_book_schema_required_key_missing (S6)", () => {
   delete b["book_digest"];
   assert.equal(vab(b), false, "a missing required key is refused");
   assert.ok(vab.errors?.some((e) => e.keyword === "required" && (e.message ?? "").includes("book_digest")), `refusal must name the missing required key: ${JSON.stringify(vab.errors)}`);
+});
+
+// Contract 1.1.0 (lot CM-3c-3a, spec sections 3, 5, 14): the verdict and decision schemas speak 1.1.0 only; their const is the
+// package's single version constant (Q-3a-4); the verdict carries the five cell fields and scores_sha256, the decision request_sha256.
+// killer: schemas/gate-decision.schema.json:16 SDL "    \"request_sha256\"," -> ""
+test("verdict_and_decision_schemas_are_1_1_0", () => {
+  const vcv = validator(ID.cv);
+  const vgd = validator(ID.gd);
+  const set = validVerdictSet();
+  assert.equal(vcv(set), true, JSON.stringify(vcv.errors));
+  assert.equal(vcv(validVerdictInterval()), true, JSON.stringify(vcv.errors));
+  assert.equal(vgd(validGateDecision()), true, JSON.stringify(vgd.errors));
+  assert.equal(vcv({ ...set, region: null, qhat: null, abstain: true, reason: "under_calib" }), true, JSON.stringify(vcv.errors));
+  assert.equal(vcv({ ...set, method: "risk-control", reason: "calib_silence", abstain: true }), true, JSON.stringify(vcv.errors));
+  assert.equal(vcv({ ...set, schema_version: "1.0.0" }), false, "a 1.0.0 verdict is refused");
+  assert.equal(vgd({ ...validGateDecision(), schema_version: "1.0.0" }), false, "a 1.0.0 decision is refused");
+  assert.equal(vcv({ ...set, calib_digest: "a".repeat(64) }), false, "calib_digest left the verdict");
+  const without = (o: object, k: string) => Object.fromEntries(Object.entries(o).filter(([key]) => key !== k));
+  for (const k of ["qhat_unit", "scale", "scores_sha256", "cell_key", "policy_row_sha256", "policy_table_sha256"]) assert.equal(vcv(without(set, k)), false, `${k} is required`);
+  assert.equal(vgd(without(validGateDecision(), "request_sha256")), false, "request_sha256 is required");
+  assert.equal(vgd({ ...validGateDecision(), request_sha256: "X".repeat(64) }), false, "request_sha256 is lowercase hex (m-4)");
+  assert.equal(vcv({ ...set, cell_key: "" }), false, "cell_key is never empty (m-4)");
+  const version = (contracts as Record<string, unknown>)["SCHEMA_VERSION"];
+  assert.equal(version, "1.1.0", "one exported version constant");
+  const versionOf = (name: string) => (load(name) as { properties: { schema_version: { const?: string; pattern?: string } } }).properties.schema_version;
+  for (const name of ["coverage-verdict.schema.json", "gate-decision.schema.json"]) assert.equal(versionOf(name).const, version, name);
+  assert.match(String(version), new RegExp(String(versionOf("prediction.schema.json").pattern)), "the prediction pattern admits the version");
 });

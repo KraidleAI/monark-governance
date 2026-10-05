@@ -7,7 +7,8 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { request as httpRequest } from "node:http";
-import { assertClosedGateDecision, assertClosedPrediction, assertClosedAttestedPrice, calibDigest } from "@monark/contracts";
+import { assertClosedGateDecision, assertClosedPrediction, assertClosedAttestedPrice } from "@monark/contracts";
+import { calibDigest } from "../../../scripts/lib/calib-digest-provenance.mjs";
 import { handleJsonMirror, MIRROR_OPERATIONS } from "../src/http.ts";
 import { HARNESS_TOOLS, REGISTERED_TOOL_NAMES } from "../src/tools/registry.ts";
 import { CALIBRATE_MAX_N } from "../src/tools/calibrate.ts";

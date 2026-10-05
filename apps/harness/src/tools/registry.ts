@@ -116,7 +116,7 @@ export const HARNESS_TOOLS: readonly HarnessToolDescriptor[] = [
     run: (args) => {
       const input = args as CalibrateInput;
       const result = runCalibrate(input);
-      // structuredContent = the calibrate envelope {qhat,n,alpha,method,set_digest,label,reason}; the
+      // structuredContent = the calibrate envelope {qhat,n,alpha,method,scores_sha256,label,reason}; the
       // K-1 honesty label rides IN the output (carrier 3/3, ADR-M007 D3/D5) and ALSO in `content` text,
       // followed by the verdict summary (a delivery aid for text-only clients, derived from `result`).
       const text = `${calibrateHonestyText()} ${calibrateVerdictSummary(result)}`;

@@ -17,13 +17,13 @@
  * this module produces only the region and the `covered` verdict.
  *
  * Under-calibration (`n < nMin` or `⌈(n+1)(1−α)⌉ > n`): fail-closed via `underCalibVerdict` — the
- * SAME frozen literal as L1 (EMPTY `set` region, `abstain=true`, `qhat=null`, `reason=under_calib`);
- * we invent neither reason nor region, we never silently clamp a `q̂`.
+ * SAME frozen literal as L1 (contract 1.1.0: `region: null`, `abstain=true`, `qhat=null`, `reason=under_calib`);
+ * we invent neither reason nor region, we never silently clamp a `q̂`. The five cell fields are the caller's (`cell`).
  */
 import type { CoverageVerdict } from "@monark/contracts";
 import { splitQuantile } from "./l1-split.ts";
-import { buildIntervalRegion, NUMERIC_LABEL_SCHEMA } from "./region.ts";
-import { buildVerdict, underCalibVerdict } from "./verdict.ts";
+import { buildIntervalRegion } from "./region.ts";
+import { buildVerdict, underCalibVerdict, type VerdictCell } from "./verdict.ts";
 
 /** One calibration pair: prediction `ŷ_i` and realization `y_i` (amounts, finite numbers). */
 export interface CalibPair {
@@ -41,7 +41,8 @@ export interface IntervalConformalParams {
   readonly residual: readonly string[];
   readonly producedAt: string;
   readonly schemaVersion: string;
-  /** Carry the scores on the wire (optional payload); off by default (recomputed via calib_digest). */
+  readonly cell: VerdictCell; // the five cell fields of the verdict (spec section 5), copied as given
+  /** Carry the scores on the wire (optional payload); off by default (identified by scores_sha256). */
   readonly includeScores?: boolean;
 }
 
@@ -66,9 +67,7 @@ function underCalib(params: IntervalConformalParams): IntervalConformalResult {
       residual: params.residual,
       producedAt: params.producedAt,
       schemaVersion: params.schemaVersion,
-      // NUMERIC class (regression conformer): the empty under_calib region names the numeric
-      // nature, never the directional `up|down` default (E9). buildSetRegion still owns the shape.
-      labelSchema: NUMERIC_LABEL_SCHEMA,
+      cell: params.cell,
     }),
     qhat: null,
     region: null,
@@ -100,6 +99,7 @@ export function conformInterval(params: IntervalConformalParams): IntervalConfor
     residual: params.residual,
     producedAt: params.producedAt,
     schemaVersion: params.schemaVersion,
+    cell: params.cell,
     ...(params.includeScores ? { includeScores: true } : {}),
   });
   return { verdict, qhat, region: { lo: ir.region.lo, hi: ir.region.hi } };

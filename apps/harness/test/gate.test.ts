@@ -5,7 +5,8 @@
  */
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { assertClosedGateDecision, assertNoForbiddenKey, calibDigest } from "@monark/contracts";
+import { assertClosedGateDecision, assertNoForbiddenKey } from "@monark/contracts";
+import { calibDigest } from "../../../scripts/lib/calib-digest-provenance.mjs";
 import type { Prediction, AttestedFlow, AttestedPrice, GateDecision } from "@monark/contracts";
 import {
   runGate,

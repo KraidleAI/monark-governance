@@ -21,7 +21,7 @@ import { readFileSync } from "node:fs";
 import { createHash } from "node:crypto";
 import { execFile } from "node:child_process";
 import { fileURLToPath, pathToFileURL } from "node:url";
-import { calibDigest } from "@monark/contracts";
+import { calibDigest } from "../../../scripts/lib/calib-digest-provenance.mjs";
 import { buildRegistryEntries } from "../../../scripts/record-u4b-calib.mjs";
 import { blockFromFiles, spliceBlock } from "../../../scripts/emit-u4b-calibration.mjs";
 import {
@@ -37,8 +37,8 @@ const U4B = "../../sentinel/test/fixtures/ukemi/u4b/";
 const SCORES = at(`${U4B}U4b-scores-weth-2025-09-22.jsonl`);
 const CALIBRATION = at("../src/calibration.ts");
 const GENERATOR = at("../../../scripts/record-u4b-calib.mjs");
-/** LF sha256 of the frozen generator (ADR-U4b D4 gel, re-gel decision 126 unchanged for this file; A-6 of the lot). */
-const GENERATOR_SHA256_LF = "5733daeb7c8ee40ab0a657882bbe1a9bd03a00d4ddab99e01cfa052a1fbc31a3";
+/** LF sha256 of the frozen generator (ADR-U4b D4 gel; re-gel of 2026-10-05, lot CM-3c-3a: calibDigest imported from the provenance tool). */
+const GENERATOR_SHA256_LF = "aa81dbca6b24c1b692895642759a392ebeff58f06d05c965aee0524d34a87c41";
 
 const lfSha256 = (path: string): string => createHash("sha256").update(readFileSync(path, "utf8").replace(/\r\n/g, "\n"), "utf8").digest("hex");
 

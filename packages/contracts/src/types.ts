@@ -18,6 +18,7 @@ import type {
   AttestedBookResidual,
   AttestedBookAbstainReason,
 } from "./enums.ts";
+import type { QhatUnit } from "./policy-table.ts";
 
 /** Lowercase hex, even length (e.g. an ed25519 key). */
 export type Hex = string;
@@ -206,23 +207,28 @@ export type PredictionRegion =
   | { kind: "set"; labels: string[]; label_schema: string }
   | { kind: "interval"; lo: number; hi: number };
 
-/** HIKAE coverage verdict. NO p_correct. `alpha` = TARGET coverage, not a correctness probability. */
+/** HIKAE coverage verdict, contract 1.1.0 (spec section 5). NO p_correct. `alpha` = TARGET coverage, not a correctness probability. */
 export interface CoverageVerdict {
   schema_version: SemVer;
   task_class: string;
   method: Method;
   alpha: number;
   n_calib: number;
-  region: PredictionRegion;
-  /** Conformal quantile, or null when under_calib. */
+  region: PredictionRegion | null;
+  /** Conformal quantile; null exactly when `region` is null (no region served). */
   qhat: number | null;
+  qhat_unit: QhatUnit;
+  scale: number | null;
   abstain: boolean;
   reason: CoverageReason;
   /** Inherited from AttestedPrice.residual (traceability). */
   residual: string[];
-  /** Optional payload; recalculability is by-reference via calib_digest (C5, mirrors ADR-0005). */
+  /** Optional payload; identified by scores_sha256 (in its declared order). */
   scores?: number[];
-  calib_digest: Hex32;
+  scores_sha256: Hex32;
+  cell_key: string | null;
+  policy_row_sha256: Hex32 | null;
+  policy_table_sha256: Hex32 | null;
   produced_at: IsoDateTime;
 }
 
@@ -240,5 +246,6 @@ export interface GateDecision {
    * (ADR-CERT-MONARK). Depletable, settled by arrived labels. NEVER a return/Sharpe.
    */
   remaining_budget: number;
+  request_sha256: Hex32;
   reason: CoverageReason;
 }

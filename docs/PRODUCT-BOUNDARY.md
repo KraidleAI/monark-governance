@@ -40,6 +40,8 @@ Responsible = the maintainer for every row (one maintainer today).
 | `scripts/lang-exempt.json` | yes | git mirror, CI | maintainer |
 | `scripts/usde-full-pull.mjs` | yes | git mirror | maintainer |
 | `scripts/record-usde-calib.mjs` | yes | git mirror | maintainer |
+| `scripts/lib/calib-digest-provenance.mjs` | yes | git mirror | maintainer |
+| `scripts/lib/calib-digest-provenance.d.mts` | yes | git mirror | maintainer |
 | `scripts/assert-fleet-html.mjs` | yes | CI | maintainer |
 | `packages/atelier/index.html` | yes | git mirror | maintainer |
 | `packages/atelier/main.js` | yes | git mirror | maintainer |
