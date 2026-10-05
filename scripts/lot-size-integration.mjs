@@ -13,7 +13,7 @@
 // Anything else (no or foreign proof, a non-candidate PR, an unproven commit touching the gate, git < 2.40,
 // an error) returns W: the module is never a source of green.
 import { execFileSync } from "node:child_process";
-import { readFileSync, rmSync, writeFileSync } from "node:fs";
+import { readFileSync, rmSync, statSync, writeFileSync } from "node:fs";
 import { pathToFileURL } from "node:url";
 
 export const REPO = "KraidleAI/monark-governance";
@@ -25,13 +25,13 @@ export const EXCEPTED_PRS = [56, 89]; // green by a keyed exception (D9 quinquie
 export const GATE_FILES = [".github/workflows/", "scripts/lot-size-integration.mjs", "scripts/oracle/r25.mjs", "scripts/oracle/run.mjs"];
 export const BOUND_KEYS = ["VIBEGATES_PR_LIMIT", "VIBEGATES_CONTENT_LIMIT"]; // the bounds of the STAT and CONTENT_STAT counts
 const CHECK = "r25-taille-de-lot", SHA = /^[0-9a-f]{40}$/, EMPTY_TREE = "4b825dc642cb6eb9a060e54bf8d69288fbee4904";
-// Options that change a count, pinned over any user or system config so the CI and the oracle cannot diverge (G2 m-2); no
-// user attributes file (`* -diff` there would hide every line, G2 m-a); messages in English (the counts and the conflict
-// headers are parsed: a translated git would read 0); GIT_DIFF_OPTS dropped (its -u0 would beat --unified, G2 B-4); git's
-// default bigFileThreshold (a machine's 1 makes every file binary, delta2 m-d); attributes of the empty tree only (a measured
-// .gitattributes merge=union would make a conflicted merge clean, delta2 B-6; git >= 2.40).
-const PIN = ["-c", "merge.conflictStyle=merge", "-c", "diff.algorithm=myers", "-c", "diff.renames=true", "-c", "merge.renames=true", "-c", "merge.directoryRenames=conflict", "-c", "diff.suppressBlankEmpty=false", "-c", "core.attributesFile=", "-c", "core.bigFileThreshold=512m"];
-const gitIn = (cwd, raw = false) => (...a) => { const o = execFileSync("git", ["-C", cwd, `--attr-source=${EMPTY_TREE}`, ...PIN, ...a], { encoding: "utf8", maxBuffer: 1 << 30, stdio: ["ignore", "pipe", "pipe"], env: { ...process.env, GIT_DIFF_OPTS: undefined, LC_ALL: "C" } }); return raw ? o : o.trim(); };
+// Options that change a count, pinned over any user or system config so the CI and the oracle cannot diverge (G2 m-2): no user
+// attributes file (G2 m-a) nor system one (GIT_ATTR_NOSYSTEM, delta3 m-f); messages in English (counts and conflict headers are
+// parsed); GIT_DIFF_OPTS dropped (G2 B-4); git's default bigFileThreshold (delta2 m-d); attributes of the empty tree (delta2 B-6).
+// The oracle's W read takes the same PIN and env (delta3 m-g). A non-empty $GIT_DIR/info/attributes, that --attr-source does not replace, is an error: W (delta3 m-f).
+export const infoAttributes = (cwd) => (statSync(execFileSync("git", ["-C", cwd, "rev-parse", "--path-format=absolute", "--git-path", "info/attributes"], { encoding: "utf8", env: GIT_ENV() }).trim(), { throwIfNoEntry: false })?.size ?? 0) > 0;
+export const PIN = ["-c", "merge.conflictStyle=merge", "-c", "diff.algorithm=myers", "-c", "diff.renames=true", "-c", "merge.renames=true", "-c", "merge.directoryRenames=conflict", "-c", "diff.suppressBlankEmpty=false", "-c", "core.attributesFile=", "-c", "core.bigFileThreshold=512m"];
+export const GIT_ENV = () => ({ ...process.env, GIT_DIFF_OPTS: undefined, LC_ALL: "C", GIT_ATTR_NOSYSTEM: "1" }); const gitIn = (cwd, raw = false) => (...a) => { const o = execFileSync("git", ["-C", cwd, `--attr-source=${EMPTY_TREE}`, ...PIN, ...a], { encoding: "utf8", maxBuffer: 1 << 30, stdio: ["ignore", "pipe", "pipe"], env: GIT_ENV() }); return raw ? o : o.trim(); };
 const rows = (s) => s.split("\n").filter((l) => l !== "");
 
 /** Candidate (G0 2.2): head and target in L, both in this repository, distinct; read from GitHub's PR object only. */
@@ -111,7 +111,7 @@ export function effective({ cwd, ciText, base, proof, written }) {
   const out = (mode, code = written[0], content = written[1], detail = []) => ({ mode, code, content, detail });
   try {
     const git = gitIn(cwd), raw = gitIn(cwd, true), v = /(\d+)\.(\d+)/.exec(git("--version")) ?? ["", "0", "0"];
-    if (Number(v[1]) * 1000 + Number(v[2]) < 2040) throw new Error(`git ${v[0]} is older than 2.40 (--remerge-diff 2.36, --attr-source 2.40): the count of today`);
+    if (Number(v[1]) * 1000 + Number(v[2]) < 2040) throw new Error(`git ${v[0]} is older than 2.40 (--remerge-diff 2.36, --attr-source 2.40): the count of today`); if (infoAttributes(cwd)) throw new Error("$GIT_DIR/info/attributes is not empty: --attr-source does not replace it (delta3 m-f)");
     const specs = specsOf(ciText), b = git("rev-parse", "--verify", "--end-of-options", `${base}^{commit}`);
     const [head, p1, p2] = git("rev-list", "--parents", "-n", "1", "HEAD").split(" "), heads = p2 !== undefined && p1 === b ? [head, p2] : [head];
     if (!(proof?.schema === SCHEMA && proof.repo === REPO && proof.complete === true && Array.isArray(proof.merged) && heads.includes(proof.pr?.head_sha))) return out("unproven");
