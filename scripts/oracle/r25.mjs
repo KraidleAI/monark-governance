@@ -7,7 +7,7 @@
 // reported apart; the lot bound counts both, like the CI (decision Q-M3-5 on R25-UNIT-1), and equality is green (-gt).
 // R-25 integration rule (ADR-M003 D9 nonies, lot R25-INTEGRATION-RULE-1): with a declared proof (run.mjs --r25-proof), the ORACLE's
 // own scripts/lot-size-integration.mjs runs its `count` command on the clone as the CI job does, only if the clone holds the same bytes
-// (else W, mode gate-files, G2 B-3); only its mode `integration` lowers a count, never above W. W is read under the module's PIN and env (delta3 m-g), the larger of two reads: attributes of the empty tree (delta2 O-1) and the measured tree's, the CI's read (never below it, delta3 m-h); a non-empty $GIT_DIR/info/attributes throws (delta3 m-f).
+// (else W, mode gate-files, G2 B-3); only its mode `integration` lowers a count, never above W. W is read under the module's PIN and env (delta3 m-g), the larger of two reads: attributes of the empty tree (delta2 O-1), the CI's read since `pin` (O-1), and the measured tree's (never below the CI, delta3 m-h); a non-empty $GIT_DIR/info/attributes throws (delta3 m-f).
 import { execFileSync } from "node:child_process";
 import { createHash } from "node:crypto";
 import { readFileSync } from "node:fs";
