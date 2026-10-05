@@ -137,3 +137,8 @@ Huit répertoires, neuf couples, comme le G2 l a compté. Un binaire nouveau hor
 | `tsc --noEmit` ; `lint` ; `lint:ratchet` ; `gate:vocab` ; `lang:gate` | 0 ; 0 ; 69/69 ; OK ; OK |
 | `npm run test:main` (gel `27f91b97` et docs du pli) | **2 463 tests, 2 441 verts, 0 rouge, 0 annulé, 22 sautés**, exit 0 |
 | R-25 (`r25()` contre `origin/lot/etude-suite`, `ae24dded`) | `STAT 200 insertions, 28 deletions, changed 228`, `CONTENT_STAT 0`, GREEN, **sous 547** |
+
+## 10. Après la PR #166
+
+- **CodeQL, alerte 46** (`js/incomplete-sanitization`, `scripts/lot-size-integration.mjs:190`) : le chemin de la sonde passe de `.replace("*", "probe")` à `.replaceAll("*", "probe")`. Chaque motif n a qu une `*`, la sonde reste `apps/site/app/fonts/probe.ttf`. Commit `1cc52781`, CI 10 sur 10.
+- **Rejeu Windows de MONARK** (`890960d`) : `r25g_ci_w_counts_a_nul_first_line_under_both_pathspecs` échouait. Sa fixture `apps/site/app/docs/nul.ts` porte un nom de périphérique réservé sous Windows (`NUL`, quelle que soit l extension) : le fichier n existe jamais, et `git add` échoue. Elle devient `apps/site/app/docs/nul-first.ts` ; la ligne 74 du G0 la nomme encore `nul.ts`. Aucune autre fixture du lot ne porte de nom réservé (`nul`, `con`, `prn`, `aux`, `com1` à `com9`, `lpt1` à `lpt9`). Le test et son tueur ne changent pas de ligne.

@@ -579,7 +579,7 @@ const contentChanged = (out: string): string => /^Content changed lines: (\d+) \
 test("r25g_ci_w_counts_a_nul_first_line_under_both_pathspecs - R25-NUL-BINARY-1: a PR adds an executable src/code.mjs whose first line is `// <NUL>` (3 000 lines more) and a docs page of the site (CONTENT) shaped the same: the job's W reads 3 001 and 3 001 and the job is red (0 and 0, green, before the lot)", () => withFx((fx) => {
   fx.g("checkout", "-q", "-b", "pr", TARGET);
   fx.put("src/code.mjs", nul("code", 3000));
-  fx.put("apps/site/app/docs/nul.ts", nul("page", 3000));
+  fx.put("apps/site/app/docs/nul-first.ts", nul("page", 3000));
   fx.g("add", "-A");
   fx.g("commit", "-qm", "nul");
   const out = ciRun(fx);
