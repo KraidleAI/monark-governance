@@ -1,8 +1,8 @@
 // scripts/mutants/run.d.mts -- type surface of scripts/mutants/run.mjs for the root test test/mutants-run.test.ts (precedent:
 // scripts/mission/lint.d.mts): the record monark.mutants.v1 read typed, free of the ratcheted no-unsafe rules. Node ignores this file.
 export interface RunResult { files: string[]; status: string; strict: boolean; fails: string[]; oks: number; exit: number | null; signal: string | null; ms: number; tap_sha256: string | null;
-  memory_wait_ms?: number; lock_wait_ms?: number; typecheck?: true; outside?: number; timed_out?: boolean } // waits: a baseline (D-3, D-5);
-  // typecheck, outside: a tsc run (D-2); timed_out: a node run past --timeout-ms, never replayed (MUTANTS-TOOL-2 corr, D-5, Q-C4)
+  memory_wait_ms?: number; lock_wait_ms?: number; typecheck?: true; outside?: number; timed_out?: boolean; note?: string | null } // waits: a baseline (D-3, D-5);
+  // typecheck, outside: a tsc run (D-2); timed_out: a node run past --timeout-ms, never replayed (MUTANTS-TOOL-2 corr, D-5, Q-C4); note: an exit code that contradicts the entries, or no entry (MUTANTS-RUN-EXIT-CODE-1)
 export interface Edit { line: number; before: string; after: string }
 export interface MutantRow { // targets: the graph's test files plus the --targets files, no duplicate (Q-G2-3)
   id: string; origin: "table" | "killer"; file: string | null; line: number; op: string; why: string; test: string | null; targets: string[]; status: string; strict: boolean;

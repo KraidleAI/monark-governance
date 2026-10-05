@@ -402,7 +402,7 @@ systemd-run --uid=sentinel --pipe --wait \
 ls /var/lib/monark-sentinel/ledger/<CYCLE>/                       # chainstack.jsonl + chainstack.head, AUCUN chainstack.lock
 tail -1 /var/lib/monark-sentinel/ledger/<CYCLE>/chainstack.jsonl   # "outcome":"unlocked" … "reason":"sentinel-daily-end"
 ```
-  Depuis -1d le dry-run OUVRE la jambe (`run.ts:319`, avant tout test de `--dry-run`) : il prend et relâche le verrou et écrit de VRAIES lignes de ledger (une ligne `unlocked` ; des lignes `attempted`, facturées, s'il y a un jour dû), sans rien écrire dans `timeline.jsonl`/`state.json`. La forme `sudo -u sentinel … --dry-run` du §3 ne charge PAS l'EnvironmentFile : elle rend `unconfigured` et ne teste que le pool keyless. **Attendu** (JSON de fin) : `chainstack: true`, `chainstack_guard: "ok"`, `exit_code: 0`, `dryRun: true`, « --dry-run: nothing written. ». **STOP** (corriger puis rejouer ; sinon rollback) selon `chainstack_guard` : `unconfigured` ⇒ `CHAINSTACK_CYCLE_ID` ou `CHAINSTACK_ETH_ORIGIN` absent ou vide (étape 4) ; `config_error` ⇒ `<FLOOR>` non entier ou > 16 000 000 ; `ledger_error` ⇒ parent absent ou droits (étape 3) ; `lock_held` ⇒ verrou orphelin (réparation SIGKILL ci-dessous).
+  Depuis -1d le dry-run OUVRE la jambe (`run.ts:344`, avant tout test de `--dry-run`) : il prend et relâche le verrou et écrit de VRAIES lignes de ledger (une ligne `unlocked` ; des lignes `attempted`, facturées, s'il y a un jour dû), sans rien écrire dans `timeline.jsonl`/`state.json`. La forme `sudo -u sentinel … --dry-run` du §3 ne charge PAS l'EnvironmentFile : elle rend `unconfigured` et ne teste que le pool keyless. **Attendu** (JSON de fin) : `chainstack: true`, `chainstack_guard: "ok"`, `exit_code: 0`, `dryRun: true`, « --dry-run: nothing written. ». **STOP** (corriger puis rejouer ; sinon rollback) selon `chainstack_guard` : `unconfigured` ⇒ `CHAINSTACK_CYCLE_ID` ou `CHAINSTACK_ETH_ORIGIN` absent ou vide (étape 4) ; `config_error` ⇒ `<FLOOR>` non entier ou > 16 000 000 ; `ledger_error` ⇒ parent absent ou droits (étape 3) ; `lock_held` ⇒ verrou orphelin (réparation SIGKILL ci-dessous).
 - **(7) Armement** : `systemctl restart monark-sentinel.timer` puis `systemctl list-timers monark-sentinel.timer --no-pager`. Sous `Persistent=true` un run peut partir aussitôt (§6 (7)) : le consigner comme premier run.
 
 ### Acceptation (critères pré-enregistrés ; `journalctl -u monark-sentinel -n 40 --no-pager`)
@@ -420,7 +420,7 @@ Symptôme : `chainstack_guard: "lock_held"` au JSON de fin (le run publie en key
 systemctl is-active monark-sentinel.service           # DOIT être inactive ou failed — jamais activating : ne JAMAIS déverrouiller un run vivant
 ls /var/lib/monark-sentinel/ledger/*/chainstack.lock  # exactement UN chemin, sinon STOP
 LOCK=$(ls /var/lib/monark-sentinel/ledger/*/chainstack.lock); CYCLE=$(basename "$(dirname "$LOCK")")
-cat "$LOCK"                                           # {pid, iso} (packages/rpc-guard/src/lock.ts:25), non secret : vérifier que ce pid n'existe plus (ps -p <pid>)
+cat "$LOCK"                                           # {pid, iso} (packages/rpc-guard/src/lock.ts:26), non secret : vérifier que ce pid n'existe plus (ps -p <pid>)
 cd /opt/monark-harness && sudo -u sentinel /usr/bin/env node packages/rpc-guard/bin/rpc-guard.mjs unlock \
   --ledger-dir /var/lib/monark-sentinel/ledger --cycle "$CYCLE" --op chainstack --reason runbook-sigkill-unlock
 echo "exit=$?"; test ! -e "$LOCK" && echo "lock released"

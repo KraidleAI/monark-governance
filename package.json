@@ -13,7 +13,9 @@
   },
   "scripts": {
     "typecheck": "tsc --noEmit",
-    "test": "node --test --test-timeout=300000 --test-force-exit \"test/*.test.ts\" \"packages/*/test/*.test.ts\" \"apps/harness/test/*.test.ts\" \"apps/sentinel/test/*.test.ts\" \"apps/bell/test/*.test.ts\" \"apps/dojo/test/*.test.ts\"",
+    "test": "node -r ./test/helpers/blocking-stdout.cjs --test --test-timeout=300000 --test-force-exit \"--import=data:text/javascript,process.stdout._handle&&typeof(process.stdout._handle.setBlocking)==='function'&&process.stdout._handle.setBlocking(true);process.on('exit',function(c){if(c===0&&process.stdout.writableLength>0)process.exitCode=70})\" \"test/*.test.ts\" \"packages/*/test/*.test.ts\" \"apps/harness/test/*.test.ts\" \"apps/sentinel/test/*.test.ts\" \"apps/bell/test/*.test.ts\" \"apps/dojo/test/*.test.ts\"",
+    "test:main": "node -r ./test/helpers/blocking-stdout.cjs --test --test-timeout=300000 --test-force-exit \"--import=data:text/javascript,process.stdout._handle&&typeof(process.stdout._handle.setBlocking)==='function'&&process.stdout._handle.setBlocking(true);process.on('exit',function(c){if(c===0&&process.stdout.writableLength>0)process.exitCode=70})\" --test-skip-pattern=\"\\(test 42\\)\" \"test/*.test.ts\" \"packages/*/test/*.test.ts\" \"apps/harness/test/*.test.ts\" \"apps/sentinel/test/*.test.ts\" \"apps/bell/test/*.test.ts\" \"apps/dojo/test/*.test.ts\"",
+    "test:export": "node -r ./test/helpers/blocking-stdout.cjs --test --test-timeout=300000 --test-force-exit \"--import=data:text/javascript,process.stdout._handle&&typeof(process.stdout._handle.setBlocking)==='function'&&process.stdout._handle.setBlocking(true);process.on('exit',function(c){if(c===0&&process.stdout.writableLength>0)process.exitCode=70})\" --test-name-pattern=\"\\(test 42\\)\" \"test/export-public.test.ts\"",
     "gate:vocab": "node scripts/grep-forbidden.mjs",
     "lint": "eslint .",
     "lint:ratchet": "node scripts/lint-ratchet.mjs",

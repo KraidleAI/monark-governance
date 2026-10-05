@@ -41,7 +41,7 @@ test("no_cash_cross_provider_name_in_export — no cash cross-check provider for
   assert.ok(kept.length >= 80, `implausibly few exported files (${kept.length}) — false green?`);
 
   // Self-check: the literals live in a repo-root test/ file, which is NEVER exported (else they would leak).
-  assert.ok(!kept.some((f) => f.rel.startsWith("test/")), "no repo-root test/ file may be exported (the provider literals here would leak into the public tree)");
+  assert.ok(!kept.some((f) => f.rel.startsWith("test/") && f.rel !== "test/helpers/blocking-stdout.cjs"), "no repo-root test/ file may be exported (the provider literals here would leak into the public tree)");
 
   const hits: string[] = [];
   for (const f of kept) {

@@ -336,6 +336,39 @@ test("ci_gates_blocking_no_continue_on_error — blocking and pinned workflow (t
   );
 });
 
+// Lot R25-INTEGRATION-RULE-1 (ADR-M003 D9 nonies): the r25 job hands its two written counts to scripts/lot-size-integration.mjs,
+// the single implementation the oracle's r25 gate runs too. Pinned: the proof then the count, after both metrics and
+// before any print; the `|| R25I="written ..."` fallback; the two case guards (only mode `integration` with numeric counts
+// replaces a count); the API token in this one step; no head branch name interpolated anywhere. Named mutants (G7):
+// fallback removed, a guard removed, the count moved after the prints, `--base "origin/${{ github.head_ref }}"`. G2 m-4: the
+// target is read from $GITHUB_BASE_REF, never interpolated; m-5: ten digits or more keep the written counts (bash overflow).
+// killer: .github/workflows/ci.yml:106 CONST " || R25I=\"written $CHANGED $CONTENT_CHANGED\"" -> ""
+// killer: .github/workflows/ci.yml:106 CONST "origin/$GITHUB_BASE_REF" -> "origin/${{ github.base_ref }}"
+// killer: .github/workflows/ci.yml:113 CONST "|??????????*" -> ""
+test("ci_r25_integration_rule_is_wired_fail_closed - proof then count after both metrics and before any print, written counts on a module error or a non-numeric answer, the token in the r25 step only, no head branch name interpolated (ADR-M003 D9 nonies)", () => {
+  const at = LINES.findIndex((l) => /^  r25-taille-de-lot\s*:/.test(l)), code: string[] = [];
+  for (let i = at + 1; i < LINES.length && !/^ {0,2}\S/.test(LINES[i] ?? ""); i++) if (!/^\s*#/.test(LINES[i] ?? "") && (LINES[i] ?? "").trim() !== "") code.push((LINES[i] ?? "").trim());
+  const ix = [
+    code.findIndex((l) => l.startsWith("CONTENT_CHANGED=$(printf")),
+    code.indexOf(`node scripts/lot-size-integration.mjs proof --event "$GITHUB_EVENT_PATH" --out "$RUNNER_TEMP/lot-size-proof.json" || echo '::warning::R-25 integration proof not obtained: every line counts (fail-closed).'`),
+    code.indexOf('R25I=$(node scripts/lot-size-integration.mjs count --ci .github/workflows/ci.yml --base "origin/$GITHUB_BASE_REF" --proof "$RUNNER_TEMP/lot-size-proof.json" --written "$CHANGED" "$CONTENT_CHANGED") || R25I="written $CHANGED $CONTENT_CHANGED"'),
+    code.indexOf('read -r R25_MODE NEW_CHANGED NEW_CONTENT <<< "$R25I"'),
+    code.indexOf('case "$R25_MODE/$NEW_CHANGED/$NEW_CONTENT" in'),
+    code.indexOf("integration/[0-9]*/[0-9]*) ;;"),
+    code.indexOf("*) R25_MODE=written; NEW_CHANGED=$CHANGED; NEW_CONTENT=$CONTENT_CHANGED ;;"),
+    code.indexOf('case "$NEW_CHANGED$NEW_CONTENT" in'),
+    code.indexOf("''|*[!0-9]*|??????????*) R25_MODE=written; NEW_CHANGED=$CHANGED; NEW_CONTENT=$CONTENT_CHANGED ;;"),
+    code.indexOf("CHANGED=$NEW_CHANGED"),
+    code.indexOf("CONTENT_CHANGED=$NEW_CONTENT"),
+    code.findIndex((l) => l.startsWith('echo "Changed lines: ')),
+    code.findIndex((l) => l.startsWith("if [ ")),
+  ];
+  assert.ok(ix.every((v, i) => v !== -1 && (i === 0 || v > (ix[i - 1] ?? -1))), `the integration lines are missing or out of order: ${ix.join(" ")}`);
+  assert.deepEqual(LINES.filter((l) => l.includes("R25_READ_TOKEN:")).map((l) => l.trim()), [code.find((l) => l.startsWith("R25_READ_TOKEN: ${{ github.token }} #"))], "the read token is set once, in the r25 step");
+  assert.deepEqual(LINES.filter((l) => /\$\{\{\s*github\.(head_ref|event\.pull_request\.head\.ref)\b/.test(l)), [], "no head branch name is interpolated (injection by branch name)");
+  assert.deepEqual(LINES.filter((l) => l.includes("lot-size-integration.mjs") && l.includes("${{")), [], "no ${{ }} on a line that runs the module (G2 m-4: $GITHUB_BASE_REF)");
+});
+
 // ────────────────────────────────────────────────────────────────────────────────────────────────
 // Lot CI-EXPORT-CHECK (item "export:check absent from CI"; docs/G7-lot-export-clean.md / CHANTIERS:221;
 // ADR-M004 D7 septies "Branchement / dettes") — the public-mirror export hygiene gate `export:check` runs in
@@ -1651,7 +1684,10 @@ test("series_pinned_are_declared_and_hashed — every R-25-excluded data file is
 // guard) and `--test-force-exit` (exit even if a handle leaks after the tests settle). Mutants (measured in the pli):
 // drop a job's timeout-minutes => red; set one to 30 => red; drop --test-force-exit => red. Job keys are the 2-space
 // entries of the top-level `jobs:` block (not a global regex); the timeout line is anchored at the 4-space (job) column
-// so a step-level (8-space) timeout-minutes cannot masquerade as the job backstop.
+// so a step-level (8-space) timeout-minutes cannot masquerade as the job backstop. CI-G3-DURATION-1 (c): the workflow runs
+// its tests through package.json scripts only (no bare `node --test`), exactly test:main and test:export, each carrying the
+// same two guards; a new test job adds its script here, so its guards are locked too.
+// killer: package.json:18 CONST "--test-timeout=300000 --test-force-exit " -> "--test-timeout=300000 "
 test("ci_jobs_have_timeout_and_test_flags_locked — per-job timeout-minutes <= 20 + test guards (checkpoint-2 V-1(b)/V-3)", () => {
   const jobsIdx = LINES.findIndex((l) => /^jobs\s*:/.test(l));
   assert.notEqual(jobsIdx, -1, "top-level key 'jobs:' missing from the workflow");
@@ -1672,10 +1708,89 @@ test("ci_jobs_have_timeout_and_test_flags_locked — per-job timeout-minutes <= 
     const minutes = Number(tmLine.replace(/\D/g, ""));
     assert.ok(minutes <= 20, `job '${jobs[j]!.name}' timeout-minutes=${minutes} exceeds the 20-minute backstop (checkpoint-2 V-1(b))`);
   }
-  const pkg = JSON.parse(readFileSync(join(ROOT, "package.json"), "utf8")) as { scripts: { test: string } };
-  const testScript = pkg.scripts.test;
+  const pkg = JSON.parse(readFileSync(join(ROOT, "package.json"), "utf8")) as { scripts: Record<string, string> };
+  const testScript = pkg.scripts.test ?? "";
   assert.match(testScript, /--test-timeout=\d+/, "scripts.test must carry --test-timeout=<ms> (the per-test hang guard, checkpoint-2 V-1(b))");
   assert.ok(testScript.includes("--test-force-exit"), "scripts.test must carry --test-force-exit (exit even if a handle leaks after the tests settle)");
+  const code = LINES.filter((l) => !/^\s*#/.test(l));
+  assert.deepEqual(code.filter((l) => /\bnode\s+--test\b/.test(l)), [], "no bare `node --test` in the workflow: a CI test run goes through a locked package.json script");
+  const invoked = [...new Set(code.flatMap((l) => [...l.matchAll(/\bnpm (?:test\b|run (test(?::[\w-]+)?)(?![\w:-]))/g)].map((m) => m[1] ?? "test")))].sort();
+  assert.deepEqual(invoked, ["test:export", "test:main"], "the workflow runs the suite as test:main (g3-verification) + test:export (g3-export), CI-G3-DURATION-1");
+  for (const name of invoked) {
+    const s = pkg.scripts[name] ?? "";
+    assert.match(s, /--test-timeout=\d+/, `scripts["${name}"] must carry --test-timeout=<ms> (run by the workflow)`);
+    assert.ok(s.includes("--test-force-exit"), `scripts["${name}"] must carry --test-force-exit (run by the workflow)`);
+  }
+});
+
+// CI-G3-DURATION-1 (docs/G0-lot-ci-g3-duration-1.md): test 42 (export_public_no_governance_no_french: a nested `npm ci && npm run
+// ci` of the public export; 151 s on the runner of PR 126, about ten times the next test) leaves g3-verification for a job of its
+// own, g3-export. No coverage is lost, and `npm test` still runs everything: (a) test:main is EXACTLY scripts.test plus one skip
+// flag (same globs, same guards); (b) test:export runs the SAME pattern as a name filter over test/export-public.test.ts, with the
+// same guards; (c) in the npm test globs that pattern names exactly one test declaration, test 42 itself, so main + export = the
+// suite; (d) g3-verification runs test:main, g3-export runs `npm ci` then test:export, with no `if:`; (e) the g3-export bound
+// exceeds --test-timeout, so a slow test 42 reds by name before the job is cancelled; (f) the public workflow drops g3-export (the
+// root test/ is never exported: the job would red on the mirror).
+const TEST42_PATTERN = "\\(test 42\\)";
+function jobBlock(name: string): string[] {
+  const idx = LINES.findIndex((l) => new RegExp(`^  ${name}\\s*:\\s*$`).test(l));
+  if (idx === -1) return [];
+  const block: string[] = [];
+  for (let i = idx + 1; i < LINES.length && !/^ {0,2}\S/.test(LINES[i]!); i++) block.push(LINES[i]!.replace(/#.*$/, ""));
+  return block;
+}
+function expandTestGlob(glob: string): string[] {
+  let dirs = [""];
+  const segs = glob.split("/");
+  for (const seg of segs.slice(0, -1)) {
+    dirs = dirs.flatMap((d) => {
+      const abs = join(ROOT, d);
+      if (seg !== "*") return existsSync(join(abs, seg)) ? [d ? `${d}/${seg}` : seg] : [];
+      return readdirSync(abs).filter((n) => statSync(join(abs, n)).isDirectory()).map((n) => (d ? `${d}/${n}` : n));
+    });
+  }
+  const last = new RegExp(`^${segs[segs.length - 1]!.replace(/[\\^$.|?+()[\]{}]/g, "\\$&").replace(/\*/g, "[^/]*")}$`);
+  return dirs.flatMap((d) => readdirSync(join(ROOT, d)).filter((n) => last.test(n)).map((n) => `${d}/${n}`));
+}
+// killer: .github/workflows/ci.yml:190 CONST "npm run test:export" -> "npm run test:main"
+test("ci_g3_export_runs_test_42_alone_and_g3_main_skips_only_it - the suite is split in two CI jobs with no test lost (CI-G3-DURATION-1)", () => {
+  const scripts = (JSON.parse(readFileSync(join(ROOT, "package.json"), "utf8")) as { scripts: Record<string, string> }).scripts;
+  const full = scripts.test ?? "";
+  // TEST-FORCE-EXIT-REPORT-LOSS-1: the launcher's blocking stdout (-r) and the per-file report preload are guards too.
+  const [, head, guards] = /^(node -r \.\/test\/helpers\/blocking-stdout\.cjs --test) (--test-timeout=\d+ --test-force-exit "--import=[^"]+") /.exec(full) ?? [];
+  assert.ok(head !== undefined && guards !== undefined, "scripts.test starts with `node -r ./test/helpers/blocking-stdout.cjs --test --test-timeout=<ms> --test-force-exit \"--import=<report preload>\" ` (the locked guards)");
+  // (a) test:main = scripts.test + the skip flag, nothing else.
+  assert.equal(scripts["test:main"], full.replace(guards, `${guards} --test-skip-pattern="${TEST42_PATTERN}"`), "(a) test:main must be scripts.test plus --test-skip-pattern only (same globs, same guards)");
+  // (b) test:export = the same guards, the same pattern as a name filter, the one file.
+  assert.equal(scripts["test:export"], `${head} ${guards} --test-name-pattern="${TEST42_PATTERN}" "test/export-public.test.ts"`, "(b) test:export must run test 42 alone with the same guards");
+  // (c) the pattern names exactly one test declaration (a line opening with test/it/describe/suite) of the npm test globs: test 42.
+  const files = [...full.matchAll(/"([^"]+\.test\.ts)"/g)].flatMap((m) => expandTestGlob(m[1]!));
+  assert.ok(files.includes("test/export-public.test.ts") && files.length >= 100, `the npm test globs reach the suite (saw ${files.length} files)`);
+  const re = new RegExp(TEST42_PATTERN);
+  const named = files.flatMap((f) =>
+    [...readFileSync(join(ROOT, f), "utf8").matchAll(/^[ \t]*(?:test|it|describe|suite)(?:\.\w+)?\(\s*(["'`])((?:(?!\1)[^\\]|\\.)*)\1/gm)]
+      .map((m) => m[2]!)
+      .filter((n) => re.test(n))
+      .map((n) => `${f}: ${n}`),
+  );
+  assert.deepEqual(named, ["test/export-public.test.ts: export_public_no_governance_no_french — clean public export (test 42)"], "(c) the test 42 pattern must name test 42 and nothing else");
+  // (d) the two jobs run the two halves; g3-export installs first; no `if:` anywhere in either job.
+  const g3 = jobBlock("g3-verification");
+  const ex = jobBlock("g3-export");
+  assert.ok(g3.some((l) => /^\s*run:\s*npm run gate:vocab && npm run typecheck && npm run test:main\s*$/.test(l)), "(d) g3-verification must run gate:vocab, typecheck, then test:main");
+  assert.ok(ex.length > 0, "(d) job 'g3-export' missing from the workflow");
+  const ciAt = ex.findIndex((l) => /^\s*run:\s*npm ci\s*$/.test(l));
+  const runAt = ex.findIndex((l) => /^\s*run:\s*npm run test:export\s*$/.test(l));
+  assert.ok(ciAt !== -1 && runAt > ciAt, "(d) g3-export must run `npm ci` then `npm run test:export`");
+  assert.ok(![...g3, ...ex].some((l) => IF_DIRECTIVE_RE.test(l) || COE_DIRECTIVE_RE.test(l)), "(d) no `if:` or continue-on-error on g3-verification or g3-export");
+  // (e) job bound above the per-test bound.
+  const minutes = Number(ex.find((l) => /^    timeout-minutes\s*:/.test(l))?.replace(/\D/g, "") ?? "0");
+  const perTestMs = Number(/--test-timeout=(\d+)/.exec(guards)?.[1] ?? "0");
+  assert.ok(minutes * 60_000 > perTestMs, `(e) g3-export timeout-minutes (${minutes}) must exceed --test-timeout (${perTestMs} ms)`);
+  // (f) the public workflow drops the internal job.
+  const derived = derivePublicWorkflow(WF);
+  assert.ok(!/^ {2}g3-export\s*:/m.test(derived) && !derived.includes("test:export"), "(f) the derived public workflow must not carry g3-export");
+  assert.ok(derived.includes("npm run test:main"), "(f) the derived public workflow keeps g3-verification and its test:main run");
 });
 
 // Lot CI-site (ADR-M003 D9 octies) — the g3-site job's step order is load-bearing: `next build` must produce
@@ -1722,30 +1837,94 @@ test("sentinel_readme_is_a_kept_export — apps/sentinel/README.md is an English
 });
 
 // Lot CODEQL-ALERTS-1 (ADR-CODEQL-ALERTS-1 D1; CodeQL alerts 7-12, actions/missing-workflow-permissions): the workflow
-// limits the GITHUB_TOKEN to read-only repository contents. ONE `permissions` key in the whole file (a job-level block
-// would override the workflow one), top-level, placed after the `on:` block and before `jobs:` (never between `on:` and
-// its keys: derivePublicWorkflow's on/pull_request needle would break), whose body is exactly `contents: read`; no
-// `write` token on any non-comment line (0 today, measured); and the DERIVED public workflow keeps the same block.
-// Named mutants (G1): block removed => red; `contents: write` => red; a job-level `permissions: write-all` => red; the
-// block moved above `on:` => red.
-test("ci_workflow_declares_least_privilege_permissions - one top-level contents: read block after on:, no write (ADR-CODEQL-ALERTS-1 D1)", () => {
-  const isCode = (l: string): boolean => !/^\s*#/.test(l);
-  const keyIdx = LINES.flatMap((l, i) => (isCode(l) && /^\s*["']?permissions["']?\s*:/.test(l) ? [i] : []));
-  assert.equal(keyIdx.length, 1, `exactly ONE permissions key in the workflow (a job-level block overrides the workflow one), saw ${String(keyIdx.length)}`);
-  const permIdx = keyIdx[0]!;
-  assert.match(LINES[permIdx]!, /^permissions:\s*$/, "the permissions key is TOP-LEVEL (column 0) and opens a block (no inline value such as read-all)");
-  const onIdx = LINES.findIndex((l) => /^on\s*:/.test(l));
-  const jobsIdx = LINES.findIndex((l) => /^jobs\s*:/.test(l));
-  assert.ok(onIdx !== -1 && onIdx < permIdx && permIdx < jobsIdx, `permissions: must sit after the on: block and before jobs: (on=${String(onIdx)}, permissions=${String(permIdx)}, jobs=${String(jobsIdx)})`);
-  const body: string[] = [];
-  for (let i = permIdx + 1; i < LINES.length; i++) {
-    const l = LINES[i]!;
-    if (/^\S/.test(l) && isCode(l)) break; // the next top-level key ends the block (test 38 idiom)
-    if (l.trim() !== "" && isCode(l)) body.push(l);
-  }
-  assert.deepEqual(body, ["  contents: read"], "the permissions block is exactly `contents: read` (read-only repository contents)");
-  assert.deepEqual(LINES.filter((l) => isCode(l) && /\bwrite(?:-all)?\b/.test(l)), [], "no write scope on any non-comment line of the workflow");
+// limits the GITHUB_TOKEN to read-only scopes. The ROOT block, top-level, after the `on:` block and before `jobs:` (never
+// between `on:` and its keys: derivePublicWorkflow's on/pull_request needle would break), is exactly `contents: read`.
+// Lot R25-INTEGRATION-RULE-1 (G0 Q-2, MONARK 2026-10-05; dated line under ADR-CODEQL-ALERTS-1 D1): ONE job-level block,
+// on the job r25-taille-de-lot only, exactly `contents: read`, `pull-requests: read`, `checks: read` (the integration
+// proof's API reads). problems() judges any workflow text; the real one has none, and each named mutant has one: root
+// block removed, widened, written, made inline; the job block removed, an extra scope, a missing scope, a write scope,
+// `write-all`, moved to another job, a second block on another job, an escaped double-quoted key, an explicit `? ` key.
+// The judge is LEXICAL (no YAML parser is a repo dependency): it covers block keys, single- or double-quoted keys and
+// inline mappings, and refuses the two forms it cannot read (a double-quoted key holding a `\`, an explicit `? ` key)
+// anywhere in the file (G2 of the Q-2 fold, R-2). No `write` token on any non-comment line, and the DERIVED public
+// workflow (the r25 job stripped) keeps the root block alone.
+// killer: .github/workflows/ci.yml:48 CONST "checks: read" -> "statuses: read"
+test("ci_workflow_declares_least_privilege_permissions - root contents: read after on:, one job block on r25-taille-de-lot (contents, pull-requests, checks: read), no write (ADR-CODEQL-ALERTS-1 D1)", () => {
+  const isCode = (l: string): boolean => l.trim() !== "" && !/^\s*#/.test(l);
+  const KEY_RE = /(?:^|[\s{,])["']?permissions["']?\s*:/;
+  const ROOT = ["  contents: read"];
+  const R25 = ["      contents: read", "      pull-requests: read", "      checks: read"];
+  const problems = (lines: string[]): string[] => {
+    const out: string[] = [];
+    const keys = lines.flatMap((l, i) => (isCode(l) && KEY_RE.test(l) ? [i] : []));
+    const onIdx = lines.findIndex((l) => /^on\s*:/.test(l));
+    const jobsIdx = lines.findIndex((l) => /^jobs\s*:/.test(l));
+    const body = (at: number, indent: number): string[] => {
+      const b: string[] = [];
+      for (let i = at + 1; i < lines.length; i++) {
+        const l = lines[i]!;
+        if (!isCode(l)) continue;
+        if ((/^ */.exec(l)?.[0].length ?? 0) <= indent) break; // the next key at the block's own column ends it
+        b.push(l.replace(/\s+#.*$/, ""));
+      }
+      return b;
+    };
+    const jobOf = (at: number): string => {
+      for (let i = at; i > jobsIdx; i--) { const m = /^ {2}([\w-]+)\s*:/.exec(lines[i]!); if (m) return m[1]!; }
+      return "(no job)";
+    };
+    const root = keys.filter((i) => /^permissions:\s*$/.test(lines[i]!));
+    if (root.length !== 1) out.push(`expected ONE top-level permissions: block, saw ${String(root.length)}`);
+    else {
+      const r = root[0]!;
+      if (!(onIdx !== -1 && onIdx < r && r < jobsIdx)) out.push(`the root block must sit after on: and before jobs: (on=${String(onIdx)}, permissions=${String(r)}, jobs=${String(jobsIdx)})`);
+      if (JSON.stringify(body(r, 0)) !== JSON.stringify(ROOT)) out.push(`the root block is exactly contents: read, saw ${JSON.stringify(body(r, 0))}`);
+    }
+    const job = keys.filter((i) => !root.includes(i));
+    if (job.length !== 1) out.push(`expected ONE job-level permissions block (r25-taille-de-lot), saw ${String(job.length)}`);
+    else {
+      const j = job[0]!;
+      if (!/^ {4}permissions:\s*$/.test(lines[j]!)) out.push(`the job block is a job-level key (4 spaces) opening a block, saw ${JSON.stringify(lines[j])}`);
+      if (jobsIdx === -1 || j < jobsIdx || jobOf(j) !== "r25-taille-de-lot") out.push(`the job block belongs to r25-taille-de-lot, saw ${jobOf(j)}`);
+      if (JSON.stringify(body(j, 4)) !== JSON.stringify(R25)) out.push(`the r25 job block is exactly contents, pull-requests, checks: read, saw ${JSON.stringify(body(j, 4))}`);
+    }
+    const opaque = lines.filter((l) => isCode(l) && (/^\s*(?:-\s+)?\?(?:\s|$)/.test(l) || /"[^"]*\\[^"]*"\s*:/.test(l)));
+    if (opaque.length > 0) out.push(`no explicit ? key and no escaped double-quoted key (the lexical judge cannot read them), saw ${JSON.stringify(opaque)}`);
+    const writes = lines.filter((l) => isCode(l) && /\bwrite(?:-all)?\b/.test(l));
+    if (writes.length > 0) out.push(`no write scope on any non-comment line, saw ${JSON.stringify(writes)}`);
+    return out;
+  };
+  assert.deepEqual(problems(LINES), [], "the workflow keeps the root contents: read block and the one r25 job block (G0 Q-2), nothing wider");
+  const at = (re: RegExp): number => LINES.findIndex((l) => re.test(l));
+  const r25At = at(/^ {2}r25-taille-de-lot\s*:/), rootAt = at(/^permissions:\s*$/), jobAt = at(/^ {4}permissions:\s*$/), g1At = at(/^ {2}g1-controle-generation\s*:/), g3At = at(/^ {2}g3-verification\s*:/);
+  assert.ok(rootAt !== -1 && jobAt !== -1 && g1At !== -1 && g1At < jobAt && jobAt < g3At, "the mutants' anchors are present (root block, r25 job block, g1 before it, g3 after it)");
+  const edit = (i: number, del: number, ...add: string[]): string[] => { const c = [...LINES]; c.splice(i, del, ...add); return c; };
+  const blk = LINES.slice(jobAt, jobAt + 4);
+  const mutants: Record<string, string[]> = {
+    "root block removed": edit(rootAt, 2),
+    "root block widened": edit(rootAt + 2, 0, "  pull-requests: read"),
+    "root contents: write": edit(rootAt + 1, 1, "  contents: write"),
+    "root inline read-all": edit(rootAt, 2, "permissions: read-all"),
+    "job block removed": edit(jobAt, 4),
+    "job block extra scope": edit(jobAt + 4, 0, "      statuses: read"),
+    "job block missing scope": edit(jobAt + 3, 1),
+    "job block write scope": edit(jobAt + 3, 1, "      checks: write"),
+    "job block write-all": edit(jobAt, 4, "    permissions: write-all"),
+    "job block moved to g1": (() => { const c = edit(jobAt, 4); c.splice(g1At + 1, 0, ...blk); return c; })(),
+    "second job block on g3": edit(g3At + 1, 0, ...blk),
+    "escaped double-quoted key on g3": edit(g3At + 1, 0, '    "perm\\x69ssions": {contents: "wr\\x69te"}'),
+    "explicit ? key on g3": edit(g3At + 1, 0, "    ? permissions", "    : read-all"),
+  };
+  for (const [name, m] of Object.entries(mutants)) assert.ok(problems(m).length > 0, `mutant "${name}" must be refused`);
+  // G2 of the Q-2 fold, m-2: the job token carries pull-requests and checks read, so the r25 checkout does not persist
+  // it in .git/config; every later git call of the job is local (diff, rev-list, rev-parse, show) and the proof reads
+  // the API with R25_READ_TOKEN.
+  const r25Body: string[] = [];
+  for (let i = r25At + 1; i < LINES.length && !/^ {0,2}\S/.test(LINES[i]!); i++) if (isCode(LINES[i]!)) r25Body.push(LINES[i]!.replace(/\s+#.*$/, "").trim());
+  const co = r25Body.findIndex((l) => l.startsWith("- uses: actions/checkout@"));
+  assert.deepEqual(r25Body.slice(co + 1, co + 4), ["with:", "fetch-depth: 0", "persist-credentials: false"], "the r25 checkout keeps full history and does not persist the job token (m-2)");
   const derived = derivePublicWorkflow(WF).split(/\r?\n/);
-  const dIdx = derived.findIndex((l) => /^permissions:\s*$/.test(l));
-  assert.ok(dIdx !== -1 && derived[dIdx + 1] === "  contents: read", "the DERIVED public workflow keeps the least-privilege block (the mirror's CI is read-only too)");
+  assert.deepEqual(derived.filter((l) => isCode(l) && KEY_RE.test(l)), ["permissions:"], "the DERIVED public workflow (r25 job stripped) keeps the root block alone");
+  const dIdx = derived.indexOf("permissions:");
+  assert.ok(derived[dIdx + 1] === "  contents: read", "the DERIVED public workflow keeps the least-privilege block (the mirror's CI is read-only too)");
 });

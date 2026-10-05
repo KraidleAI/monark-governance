@@ -24,3 +24,7 @@ Ligne datée 2026-10-03 09:1x UTC (orchestrateur, item RUNBOOK-VITRINE-TAR-ORDER
 ## Invariants
 - Jamais de `git` sur le VPS ; jamais de secret dans l'arbre (la vitrine n'en a pas) ; Caddy n'est **pas** touché par un déploiement de contenu.
 - Les fichiers de la sentinelle (`/var/lib/monark-sentinel/public`) ne sont jamais dans `/opt/monark-app`.
+- (2026-10-04, SERVED-PENDING-1, Q-SP1-2) Aucun envoi du site tant que `apps/site/data/harness-pending.json` existe dans l arbre
+  exporté, sauf au temps (ii), après sa promotion : les traces BYO et H5 suivraient l instantané en attente avant T0.
+- (2026-10-05, UKEMI-PENDING-SNAPSHOT-1, M3) Idem pour `apps/site/data/ukemi-pending.json` ; la promotion ukemi est refusée tant
+  que `harness-pending.json` existe ; à T0, l ordre : CA, sync du harnais, puis sync ukemi.

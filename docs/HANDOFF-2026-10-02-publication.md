@@ -498,6 +498,51 @@ pm) ; item MK-NM-GUARD-1 (refuser Tree = F:/Monark dans mk-nm.ps1).
   sur un aléa de test du harnais dans la CI exportée, relance verte ; item EXPORT-HARNESS-413-LOAD-1 chez RECHERCHES (recherches#129).
 - 2026-10-04 14:4x UTC : DÉCISION de l investisseur (choix verbatim) : « Attendre la 1.1.0 (Recommandé) » : aucun texte sur X pour v0.8.0
   seule ; MONARK prépare un brouillon groupé (v0.8.0, spécification 1.1.0, scellement des 35 s il est fait) que l investisseur publie lui-même.
+- 2026-10-04 16:5x UTC : DÉCISION de l investisseur (choix verbatim) : « Publier maintenant (Recommandé) » : ligne P0 de l addendum 8
+  d ADR 0006 sur `KraidleAI/monark-precommitments` (commit `ec202d00`, 16:57:45Z), avant tout code de CM-4a (voie (a) de la Q-1).
+- 2026-10-04 21:4x UTC : DÉCISION de l investisseur (choix verbatim) : « Avec le correctif H-1 (Recommandé) » : la sentinelle sera
+  redéployée une seule fois, avec #137 (SIGTERM, tronc `124c03c2`) et RPC-GUARD-LOCK-WRITE-LEAK-1, quand celui-ci sera au tronc.
+- 2026-10-04 22:0x UTC : DÉCISION de l investisseur (choix verbatim) : « Publier maintenant (Recommandé) » : ligne P0 de l amendement A-1
+  d ADR 0004 après le contrôle C-3 (CONFORME) ; commit `3283e9ce`, reçu par GitHub à 22:04:04Z.
+- 2026-10-04 23:0x UTC : DÉCISION de l investisseur (réponse verbatim) : « 1 jour » : préavis D entre la publication de NOTICE-1-1-0 et de la
+  spécification 1.1.0 (T − D) et la bascule T0. S écarte du plan r3 §9.2 (« D (≥ 7 jours) »), proposé après explication (qui sont les
+  appelants, ce qui change) et la recommandation de 7 jours ; la décision du fondateur prime ; ligne pour la liste r4.
+- 2026-10-04 23:1x UTC : ARBITRAGE du fondateur, relayé verbatim par RECHERCHES (règle 8 ; messages `1f3e7e5` et `29fb1c2`) après deux
+  réponses croisées (« 1 jour » à MONARK, « D = 7 jours (Recommandé) » à RECHERCHES), à la question « Laquelle fait foi ? » :
+  « D = 7 jours ». Remplace la ligne précédente : D = 7 jours, conforme au plan r3 §9.2 ; accord de MONARK. T0 reste fixé au go F-5a.
+- 2026-10-04 23:34 UTC : sentinelle redéployée une seule fois, comme décidé (#137 + #140, arbre `c9aebb44`) : copie à part, dry-runs
+  (copie, puis arbre en place) à sortie 0, rien d écrit, bascule par deux renommages à 23:34:40 UTC. Constat : jambe Chainstack non armée
+  sur l hôte (SENTINEL-GUARD-ARMING-1). `sentinel_sha` change à la première ligne écrite après le déploiement (run de 00:30 UTC).
+- 2026-10-05 00:4x UTC : DÉCISIONS du fondateur, relayées verbatim par RECHERCHES (message `b0c079c`) : Q-F1 « Oui, ces 3 tables
+  (Recommandé) » : les empreintes réelles des tables USDe, liq et cascade sont publiques dès la PR C2, avant F-5a ; les 32 tables kata
+  restent synthétiques. Q-F2 « Version + dépôt de spec (Recommandé) » : le refus 1.0.0 nomme la version 1.1.0 et le dépôt de la
+  spécification ; la date T0 entre au go F-5a.
+- 2026-10-05 00:0x à 01:0x UTC : #141 (CM-4b lot a) sur la base, `87f6081c` (oracle 2 311 / 0) ; #142 au tronc, `d305ae15` (oracle
+  2 250 / 0, `cmd.exe` vert) ; #143 rouge à l oracle Windows (`EPERM` au fsync du dossier, `day.mjs:196`), fusion retirée. Réponses :
+  G7 de c1, bloc C Q-M1 à Q-M16, hors délégation, UKEMI-PENDING-SNAPSHOT-1 M1 à M4 ; amendement 9 de l ADR-CM contrôlé.
+  `sentinel_sha` de la ligne du 2026-10-04 égal au pré-enregistré (JOURNAL-PROVENANCE).
+- 2026-10-05 01:4x UTC : DÉLÉGATION du fondateur, donnée à RECHERCHES et relayée verbatim (message `2205793`) : « tu peux décider
+  seul, pour tout, coté technique, demande aux advisor et a monark aussi ainsi que ton avis propre. formez une cellule de décisions
+  comme un groupe de devs seniors. enchainez tout le chantier restant, go pour les deploiement et les push vers le github publique
+  quand il le faut ». CONFIRMÉE directement par l investisseur dans la session MONARK, choix verbatim : « Oui, les deux » (go de
+  déploiement et de push vers les dépôts publics `KraidleAI/Monark`, `monark-kata-spec`, `monark-precommitments` donnés par la
+  cellule, sans go à chaque acte ; MONARK exécute, annonce avant, journal après) et « Oui, la cellule fixe T0 » (F-5a, F-5b :
+  spécification 1.1.0 et NOTICE-1-1-0 à T − 7 jours, puis bascule T0). Cellule : advisor, RECHERCHES, MONARK ; accord de trois, ou
+  de deux dont le porteur de zone (pièce `2026-10-05-delegation-fondateur/DELEGATION-ET-CELLULE.md`). Restent hors délégation : la
+  visibilité des dépôts, l argent, les clés et comptes de l investisseur, les suppressions définitives, X, DNS, domaine et
+  certificat. Inchangés : G2 neuve par lot, contrôle par diff et fusions de MONARK, oracles, R-25, règles d hôte.
+- 2026-10-05 04:1x UTC : DÉCISION de l investisseur (verbatim) « fais le, je te donne le go » : branche par défaut du dépôt de gouvernance
+  `main` → `lot/etude-suite` (un visiteur voit le tronc vérifié) ; `main` intacte et protégée, avancée jusqu au tronc à la bascule T0.
+- 2026-10-05 04:2x UTC : DÉCISION de l investisseur (verbatim) « applique ta reco et informe recherches » : R-25 n est pas désactivée ;
+  les lots écrits gardent 547 et 1 205 ; une PR d intégration (commits tous issus de PR fusionnées et relues) ne compte que le neuf
+  (résolutions de conflit, commits non relus), contre 1 205, fail-closed sans preuve. Lot R25-INTEGRATION-RULE-1 confié à RECHERCHES
+  (recherches#189), G0 d abord ; la ligne (9) de l ADR-CM (exception bornée à 1 400) reste le repli pour l intégration de C2.
+- 2026-10-05 10:42 UTC : DÉCISIONS de l investisseur (verbatim), questions du G0 de R25-INTEGRATION-RULE-1 : Q-7 « Oui, désactiver
+  (Recommandé) » : fusion par rebase désactivée sur le dépôt de gouvernance (acte 10:43 UTC ; squash et commit de fusion restent) ;
+  Q-8 « Exception unique (Recommandé) » : la PR qui avance `main` jusqu au tronc à T0 est exemptée une seule fois de R-25 (ADR-M003
+  D9 decies, liée à `207f021f` et à la tête du tronc à T0, sha écrit par MONARK à T0). Règle livrée : #154 (1a) et #155 (1b, `023801ec`).
+- 2026-10-05 12:3x UTC : erratum de la bascule de la branche par défaut : l analyse CodeQL suit la branche par défaut ; sa première
+  analyse du tronc (04:17 UTC) a ouvert 5 alertes de test (#41 à #45) ; #159 (CODEQL-42) et lot CODEQL-ALERTS-2 (journal, ETAT).
 - 2026-10-04 00:5x UTC : fusions au tronc : CM-2a (`4a1b4844`, PR #105 `98e3779a`), COINBASE-PASS-EDGES-1 (`44d8892d`), BINANCE-PRE153-1
   (`328be484`). Leurs oracles G7 (`569c91c6…`, `bba0b720…`, `2ce4d71c…`) portent seulement deux rouges venus de la CA de l étape 3
   committée sans resynchronisation du site (error_origin de l orchestrateur) ; correction `0c8f8177`, oracle vert : 2 060 tests,
