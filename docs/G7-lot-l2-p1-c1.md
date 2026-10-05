@@ -37,13 +37,13 @@ aucune série brute dans le dépôt. Tronc relu au G7 : `origin/lot/etude-suite`
 - **Q-C1-5** : `closed(cid, seg)` est-il bien à fournir par c5 (le disque seul ne dit pas qu'un fichier est encore ouvert) ?
 - **Q-C1-6** : la fenêtre de lecture [début − 1 h ; fin + grâce] par heure de segment suffit-elle ? Limite : une trame dont l'heure de
   place **suit** sa réception de plus d'une heure n'est pas lue au scellé de son jour ; depuis le pli du G2 (B-3), elle est rangée au
-  jour de sa réception, marquée `early`, `of` = son jour, comptée ; item proposé L2-DAY-SCAN-WINDOW-1, mesure en M-6.
+  jour de son segment (second G2 R-1), marquée `early`, `of` = son jour, comptée ; item proposé L2-DAY-SCAN-WINDOW-1, mesure en M-6.
 - **Q-C1-7** : amorce et ancres restent-elles hors de c1 (c2 rejoue, c5 écrit les ancres), `SHA256SUMS` listant tout fichier présent
   au dossier du jour au scellé, ancres comprises ?
 - **Q-C1-8** : `script_sha256` = empreintes des cinq modules `scripts/l2/*.mjs` (`book`, `day`, `links`, `rest`, `segments`) jusqu'à la
   commande de c4, qui s'y ajoutera : d'accord ?
 - **Q-C1-9** : l'index d'un jour tenu en mémoire au scellé, compact depuis le pli du G2 (trois int32 par trame, plafond
-  `INDEX_BOUND` = 8 388 608 trames, arrêt `index_bound` ; mesures à la section G2), est-il acceptable, sa taille réelle mesurée en M-1
+  `INDEX_BOUND` = 4 194 304 trames depuis le second G2, arrêt `index_bound` ; mesures à la section G2), est-il acceptable, sa taille réelle mesurée en M-1
   (c5 scelle dans un fil de travail, Q-5 de a2) ?
 - **Q-C1-10** (pli du G2, B-1) : contrat pour c5 accepté ? À chaque lancement, avant toute ouverture, c5 journalise
   `{"event":"start","symbol":"ALL","cid":null}` (avec `host_us`, `mono_ns`) ; c1 y lit l'arrêt du processus : chaque connexion encore
@@ -114,11 +114,13 @@ en `0b04be9b`, une note de `docs/HANDOFF-2026-10-02-publication.md`) : fusionné
 |---|---|---|---|---|---|
 | 4 000 000 | 591 Mo | gel `61f79238` | 42,6 s | 2 190 Mio | 397 Mio |
 | 4 000 000 | 591 Mo | pli | 42,1 s | 246 Mio | 397 Mio |
-| 8 388 600 (borne) | 1,3 Go | pli | 76,0 s | 388 Mio | 836 Mio |
+| 8 388 600 (borne du premier pli) | 1,3 Go | pli | 76,0 s | 388 Mio | 836 Mio |
 
   À la borne, l'index (836 Mio) dépasse `MAX_STRING_LENGTH` de V8 (536 870 888 caractères) : le gel y tombait sur `RangeError`.
   Hors de la borne : les différences d'une connexion gardées pour Q-9 (24 octets chacune, ≈ 21 Mo pour 25 h à 100 ms) et le
-  journal (m-8). 388 Mio à la borne restent proches du `MemoryMax=512M` de D24-4 si c5 scelle dans son unité : voir Q-G2-1.
+  journal (m-8). 388 Mio valent pour un quart de `@bookTicker` seulement ; pire cas (99,9 % de `@bookTicker`, en attente à 32 octets) :
+  529 Mio sous l'ancienne borne, au-dessus du `MemoryMax=512M` de D24-4 (second G2 R-2) ; borne abaissée à 4 194 304, pire cas
+  320 Mio : tableau de la section du second G2.
 - **B-3 (trame hors fenêtre)** : une trame non marquée dont le segment précède la fenêtre de son jour va à l'index de son jour de
   réception, `mark: "early"`, `of` = son jour, comptée `counts.early` (miroir de `late`). Cas au test `l2_day_index_by_event_time`
   (reçue à J 21:30, `E` = J+1 00:10). Libellé de Q-C1-6 corrigé au G0 et ci-dessus (« précède » → « suit »).
@@ -158,7 +160,9 @@ garde `stray_file` (`:184`), remise à zéro du morceau (`text = ""`, `:201`), e
 → `Math.round` dans `dayOf` (`:60`) : `dayOf` n'est appelé que sur des multiples du jour (`of` vient de `dn × DAY_US`, `bad_day` de
 minuit), le cas « `E` après midi » de m-4 ne peut pas le tuer ; regex de `bad_day` retirée (l'aller-retour la couvre) ; écriture du
 morceau dans la boucle retirée (même sortie, mémoire seule) ; `"wx"` → `"w"` (`day_sealed` garde avant). Le tri des différences
-du gel a disparu : sur une connexion, `u` croît (le G2 l'avait jugé équivalent).
+du gel a disparu : non pas équivalent, mais **borné et marqué** (second G2) : `u` croissant par connexion est la règle documentée
+de la place, non garantie par b2 (A1, `book.mjs:73`, ignore un `u` en arrière sans le journaliser) ; un `u` en arrière trouve un
+intervalle qui le contient (jour juste à minuit près) ou aucun (`recv_day`) : défaut nommé, jamais silencieux, sortie déterministe.
 
 ### Preuves du pli
 
@@ -178,9 +182,96 @@ du gel a disparu : sur une connexion, `u` croît (le G2 l'avait jugé équivalen
 
 ### Questions pour MONARK (pli du G2)
 
-- **Q-G2-1** : `INDEX_BOUND` = 8 388 608 trames (388 Mio de pointe mesurés à la borne) : le garder jusqu'à M-1, ou l'abaisser tant que
-  c5 scelle dans l'unité de l'enregistreur (`MemoryMax=512M`), ou faire sceller c5 dans une unité à part ? Un jour qui dépasse s'arrête
-  nommé (`index_bound`) et se rejoue par c6 après relèvement.
+- **Q-G2-1** (prémisse corrigée au second G2) : au pire cas (99,9 % de `@bookTicker`), 8 388 608 trames montaient à 529 Mio de pointe,
+  au-dessus de `MemoryMax=512M` ; `INDEX_BOUND` est abaissé à 4 194 304 (pire cas 320 Mio, composition du G7 238 Mio). Le garder
+  jusqu'à M-1, ou faire sceller c5 dans une unité à part (et relever la borne) ? Un jour qui dépasse s'arrête nommé (`index_bound`) et
+  se rejoue par c6 après relèvement.
 - **Q-G2-2** : m-5 (ruptures de chaîne à cheval sur minuit, premier départ) à c2 ou à c5 ?
 - **Q-G2-3** : Q-C1-10 (événement `start`) accepté comme contrat de c5 ?
 - **Q-G2-4** : à défaut de trame au disque, les bornes d'un trou tombent sur l'heure du journal (m-6) : d'accord ?
+
+## Second G2 (2026-10-04, APPROUVE SOUS RÉSERVE, R-1 et R-2) : pli du 2026-10-05
+
+Rapport : `recherches/coordination/pieces/2026-10-04-G2-recherches/G2-l2-p1-c1-bis.md`. Pas de nouvelle G2 demandée : `red-proof`,
+ancres et R-25 rejoués. Commits : `b384022c` (tests rouges), `ea4971f2` (gel) ; le tronc avait bougé (`origin/lot/etude-suite` en
+`53c7f15d` : rpc-guard, sentinelle, `ETAT`, `HANDOFF`), fusionné après le gel, commit de fusion `e4592386` ; puis ce commit (G0 et
+G7). `packages/rpc-guard/bin/rpc-guard.mjs` non touché. Poussé sur `origin/recherches/l2-p1-c1` (autorisé), aucune PR.
+
+### Réserves
+
+- **R-1 (trame hors de tout index après un recul d'horloge de plus d'une heure)** : correctif du rapport, en nombres (`day.mjs:133`
+  à `:136`). L'heure de début de chaque segment est calculée une fois ; une trame dont le segment commence après la fin de son jour
+  plus la grâce est tardive ; tardives et précoces vont au jour de leur **segment**, seul scellé qui lit ce segment. Sans recul
+  d'horloge, jour du segment et jour de réception coïncident : `index.jsonl` et `missing.json` identiques à l'octet à ceux de
+  `0b90c2ba` sur deux jours de 20 000 trames (99,9 % `@bookTicker` ; composition du G7). Cas au test `l2_day_late_frame_marked` : la
+  sonde P-A (deux `push` de l'`openWriter` du test, horloge reculée de 2 h, trame de J au segment `20261005T01`) est rangée à J+1,
+  `late`, `of` J, comptée. G0 points 4 et 9 et Q-C1-6 corrigés (« jour de son segment »).
+- **R-2 (mémoire au pire cas)** : `INDEX_BOUND` abaissé à 4 194 304 plutôt que compter un `@bookTicker` en attente à son poids. Raison :
+  le poids seul laisse la composition du G7 à 388 Mio à 8 388 608 ; la borne abaissée tient les deux compositions sous 330 Mio. Les
+  `@bookTicker` en attente comptent déjà à la borne (`hold(tickers.n / 4 + 1)`) ; test par la couture `bound` : deux `@bookTicker`
+  du lendemain en attente arrêtent un scellé de borne 1 (le mutant `hold(1)` survivait). Constante fixée au test.
+  **Mesures** (jours synthétiques écrits directement au format de a2 sous le `TMPDIR` du pli, effacés ; une connexion, 20 segments ;
+  scellé en processus seul ; RSS de pointe par `process.resourceUsage().maxRSS` ; Node v24.21.0) :
+
+| Trames | Composition | Brut (trames et index) | Borne | Durée | RSS de pointe | `index.jsonl` |
+|---|---|---|---|---|---|---|
+| 4 194 190 | 99,9 % `@bookTicker` | 992 Mio | 4 194 304 (défaut) | 39,6 s | 320 Mio (328 au second passage) | 426 Mio |
+| 4 194 300 | ¼ différences, ¼ `@bookTicker`, ½ transactions | 1,1 Gio | 4 194 304 (défaut) | 38,5 s | 238 Mio | 417 Mio |
+| 8 388 000 | 99,9 % `@bookTicker` | 2,0 Gio | 8 388 608 (couture) | 74,3 s | 529 Mio | non relevé |
+| 8 388 000 | 99,9 % `@bookTicker` | 2,0 Gio | 4 194 304 (défaut) | 35,2 s | 219 Mio, arrêt `index_bound`, rien écrit | — |
+
+  La troisième ligne reproduit le constat du rapport (534 Mio) : au-dessus de `MemoryMax=512M`. Pire cas retenu : 320 à 328 Mio, marge
+  de 184 Mio sous le plafond de l'unité.
+
+### Mineurs
+
+- **m-1 (corrigé)** : deux connexions mortes au `start` (chevauchement D-8), l'une sur deux segments (`l2_day_late_frame_marked`) :
+  `Math.max` → `Math.min` et `names.reverse()` retiré tués ; borne basse lue en queue d'un index d'environ 150 Kio
+  (`l2_day_index_bound_named_stop`) : lecture au début du fichier tuée.
+- **m-2 (corrigé)** : une connexion `/market` de seuls `ethusdt@forceOrder`, absente du `SHA256SUMS` de BTCUSDT : `[...used]` →
+  `[...segs.keys()]` tué.
+- **m-3 (corrigé)** : `/market` et un `@bookTicker` `recv_day` reçus à 13:00 UTC, index exact au test du scellé : les deux
+  `Math.round` du jour de réception tués (depuis R-1, ils rangeaient la trame `early` au même jour : seul l'index exact les voit).
+- **m-4 (corrigé)** : `SHA256SUMS` écrit entier dans `../.<jour>.SHA256SUMS.tmp` (hors du dossier, donc hors de `DAY_FILES`),
+  synchronisé, lié (`linkSync`, `EEXIST` comme `wx`), temporaire retiré, dossier synchronisé : une coupure ne laisse jamais un jour
+  scellé à `SHA256SUMS` vide. Un temporaire laissé par une coupure avant le lien est réécrit au scellé suivant (test). Une coupure
+  entre le lien et le retrait laisse un temporaire inerte à côté d'un jour scellé.
+- **m-5 (item L2-DAY-MISSING-REPLAY-1, renvoyé au G0 de c6)** : `missing.json` dépend de l'heure du scellé (journal lu jusqu'au bout,
+  `edgeOf` sur un `open` dont la première trame n'est pas encore au disque) ; correctif proposé : ne lire que les lignes de journal et
+  les bords d'heure ≤ `segmentOf(fin + grâce)` + 1 h. Même G0 : un rejeu d'une période où l'enregistreur est mort sans `start`
+  ultérieur n'a pas de trou ; à dire.
+- **m-6 (rattaché à L2-DAY-JOURNAL-STREAM-1, c5 et c6)** : `edgeOf` lit un dossier et deux index par `open` et `close` de tout
+  l'historique ; ne calculer les bords que des trous qui coupent le jour.
+
+### Mutants rejoués au second pli (copie de travail, un à la fois, fichier restauré, empreinte vérifiée)
+
+Tués : segment postérieur retiré de `late` ; jour de réception au lieu du jour du segment ; `recv > end` → `>=` ; précoce retirée,
+`<` → `<=` ; `Math.max` → `Math.min` ; `names.reverse()` retiré ; queue lue au début ; `[...used]` → `[...segs.keys()]` ; les deux
+`Math.round` du jour de réception ; écriture directe de `SHA256SUMS` en `wx` (ancien code) ; retrait du temporaire supprimé ;
+`hold(tickers.n / 4 + 1)` → `hold(1)` ; `INDEX_BOUND` remis à 8 388 608. Équivalent, déclaré : `hours[s] > end` → `>=` (un début de
+segment est un multiple de l'heure, `end` porte les 120 s de grâce : jamais égaux).
+
+### Preuves du second pli
+
+- Pli : `node scripts/red-proof.mjs --base 0b90c2ba --gel ea4971f2 --repo /home/user/monark-governance-c1 --draw 3 --seed 37` :
+  « red-proof OK: 3 judged, 6 unchanged, 3 killer(s) drawn » ; `RED-PROOF.json` sha256 `b3a67c5e278a52a2…`. F2P :
+  `l2_day_late_frame_marked`, `l2_day_seal_waits_grace_and_segments`, `l2_day_index_bound_named_stop` ; tueurs `:135`, `:182`, `:131`
+  tués.
+- Lot entier, contre le tronc `53c7f15d` : `--base 53c7f15d --gel e4592386 --draw 9 --seed 37` : « red-proof OK: 9 judged, 0
+  unchanged, 9 killer(s) drawn » ; sha256 `3d40f08bf4eb06ca…`. Tueurs ré-ancrés : `:183` CONST, `:151` ROR, `:135` ROR (`recv > end`),
+  `:182` ROR, `:105` CONST, `:106` CONST, `:165` CONST, `:166` SDL, `:131` ROR.
+- Ancres : `verifie-ancres.mjs . --touched 53c7f15d HEAD` : 9 tueurs, 9 ANCRE, 0 DERIVE, 0 PERDU.
+- R-25 (`scripts/oracle/r25.mjs`, base `53c7f15d`) : `STAT` 504 (504 insertions, 0 suppression ; `day.mjs` 220, `day.d.mts` 52, tests
+  232), borne du lot 547, marge 43 ; `CONTENT_STAT` 0 ; GREEN.
+- `npm test` : `test:main` 2 238 tests, 2 216 réussis, 0 échec, 22 ignorés (sortie 0 ; nombre sujet à TEST-FORCE-EXIT-REPORT-LOSS-1,
+  9 tests `l2-day` verts) ; `test:export` 1 sur 1. `tsc` 0 ; `lint` 0 erreur ; `lint:ratchet` 69/69 ; `gate:vocab` OK (335 fichiers) ;
+  `lang:gate` OK.
+
+### Questions pour MONARK (second G2)
+
+- **Q-G2B-1** : R-2 par la borne abaissée (4 194 304) plutôt que par le poids des `@bookTicker` en attente : d'accord ? Le poids seul
+  garderait 8 388 608 trames ordinaires, mais 388 Mio de pointe pour la composition du G7.
+- **Q-G2B-2** : m-5 (`missing.json` dépendant de l'heure du scellé, L2-DAY-MISSING-REPLAY-1) au G0 de c6, avec TL-4
+  `l2_replay_byte_identical` ?
+- **Q-G2B-3** : un temporaire `../.<jour>.SHA256SUMS.tmp` laissé par une coupure entre le lien et le retrait reste inerte à côté du jour
+  scellé ; c5 le retire-t-il à son `start`, ou le laisse-t-on ?
