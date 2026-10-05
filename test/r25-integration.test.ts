@@ -514,7 +514,7 @@ test("r25a_ci_w_counts_the_real_lines_under_measured_attributes - O-1: a PR adds
   assert.deepEqual(seen, ["* -diff: 3001 1", "* binary: 3001 1", "*.x diff=foo: 3001 1", "* -text: 3001 1", "* text eol=crlf: 3001 1"]);
 });
 
-// killer: scripts/lot-size-integration.mjs:178 CONST "if (infoAttributes(cwd)) throw" -> "if (false) throw"
+// killer: scripts/lot-size-integration.mjs:177 CONST "< 2040) throw" -> "< 0) throw"
 test("r25a_ci_w_fails_closed_without_the_pinned_read - O-1: a machine $GIT_DIR/info/attributes `* -diff` (that GIT_ATTR_SOURCE does not replace), or a git older than 2.40 (no GIT_ATTR_SOURCE): the job prints no count, says why and is red (W 0, green, before the lot)", () => {
   const real = execFileSync("bash", ["-c", "command -v git"], { encoding: "utf8" }).trim(), seen: string[] = [];
   // win32: the fake git is a sh script without extension on a ':'-joined PATH, which execFileSync never runs there (PATHEXT, ';'):
