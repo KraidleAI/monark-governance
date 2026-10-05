@@ -31,10 +31,11 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync, readdirSync, statSync, existsSync } from "node:fs";
 import { createHash } from "node:crypto";
+import { spawnSync } from "node:child_process";
 import { join, extname, dirname, basename } from "node:path";
 import ts from "typescript";
 import { compilePatterns, scanText, collectTargets } from "../scripts/grep-forbidden.mjs";
-import { collectFiles, derivePublicWorkflow } from "../scripts/export-public.mjs";
+import { collectFiles, derivePublicWorkflow, CI_WORKFLOW_PATH } from "../scripts/export-public.mjs";
 import { renderedTexts, scanText as scanNumericText, loadExemptFile, scanAppsSite } from "../apps/site/test/honesty-lint.ts";
 import { FLEET_AGENTS, PRODUCTS } from "../apps/site/lib/fleet.ts";
 import type { FleetStatus, FleetWiring } from "../apps/site/lib/fleet.ts";
@@ -1946,4 +1947,28 @@ test("ci_workflow_declares_least_privilege_permissions - root contents: read aft
   assert.deepEqual(derived.filter((l) => isCode(l) && KEY_RE.test(l)), ["permissions:"], "the DERIVED public workflow (r25 job stripped) keeps the root block alone");
   const dIdx = derived.indexOf("permissions:");
   assert.ok(derived[dIdx + 1] === "  contents: read", "the DERIVED public workflow keeps the least-privilege block (the mirror's CI is read-only too)");
+});
+
+// Lot CI-WORKFLOWS-SET-1 (m-1 of the G2 of the Q-2 fold of R25-INTEGRATION-RULE-1b): every gate test above reads ONE file,
+// .github/workflows/ci.yml (WF), and the export derives only CI_WORKFLOW_PATH. A second workflow file would run on GitHub and
+// escape them all (permissions judge problems(), if:/continue-on-error, SHA pins, timeouts). So the set of workflows is pinned
+// by an equality, read from GIT, not from the disk: the index (what will be committed; a staged file reds before its commit)
+// and the HEAD tree (what the runner checks out and GitHub runs). An untracked file never reaches GitHub and does not count.
+// Recursive on purpose: a subdirectory has no use and is refused too. -z keeps paths unquoted whatever core.quotepath says.
+// CodeQL runs as a GitHub default setup (workflow path dynamic/github-code-scanning/codeql, no file in the repo).
+// killer: scripts/export-public.mjs:425 CONST "ci.yml" -> "gates.yml"
+test("ci_workflows_set_is_exactly_ci_yml - the git index and the HEAD tree track one workflow, .github/workflows/ci.yml, the one file every gate test and the export read (CI-WORKFLOWS-SET-1)", () => {
+  const git = (...args: string[]): string => {
+    const r = spawnSync("git", ["-C", ROOT, ...args], { encoding: "utf8" });
+    assert.equal(r.status, 0, `git ${args.join(" ")} must succeed (fail-closed): ${String(r.error ?? r.stderr)}`);
+    return r.stdout;
+  };
+  const paths = (out: string): string[] => out.split("\0").filter((p) => p !== "").sort();
+  assert.equal(git("rev-parse", "--show-prefix").trim(), "", "the test root is the repository root, not a subdirectory of a parent repository");
+  const index = paths(git("ls-files", "-z", "--", ".github/workflows"));
+  const tree = paths(git("ls-tree", "-r", "-z", "--name-only", "HEAD", "--", ".github/workflows"));
+  assert.deepEqual(index, [".github/workflows/ci.yml"], "the git index tracks exactly one workflow, ci.yml");
+  assert.deepEqual(tree, [".github/workflows/ci.yml"], "the HEAD tree tracks exactly one workflow, ci.yml");
+  assert.deepEqual(index, [CI_WORKFLOW_PATH], "the one tracked workflow is the one the public export derives");
+  assert.deepEqual(new Set(index.map((p) => p.slice(p.lastIndexOf("/") + 1))), new Set(["ci.yml"]), "the set of workflows is {ci.yml}");
 });
