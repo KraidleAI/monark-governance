@@ -242,7 +242,7 @@ export function adopt(plan, io) {
     return plan.check({ at, pin });
   });
   check();
-  return { real, at, check };
+  return { real, at, check, root: { dev: String(id.dev), ino: String(id.ino) } }; // n-13 of the G2 delta of c5-bis-a: the identity pinned, for the seal child
 }
 
 /** At a start, once adopt passed (Q-C1-4, P1-c5-bis-a): the last segment of each connection that the last run with an open line opened (an
@@ -271,7 +271,7 @@ export function markTails(at, io) {
 const MINUTE_US = 60_000_000;
 export const WEIGHT_FLOOR = 4_000; // Q-P1-6, Q-B1-3: the worst minute of D24-2; a REQUEST_WEIGHT limit read below it suspends every resync, named
 export const STOP_BOUND_MS = 30_000; // Q-8 of a3: the clean stop waits this long for the writers, then as long for a seal child, which it then kills
-export const OVERDUE_US = 20_000_000; // m-2 of the G2 of c5-bis-b: a dated event (exchangeInfo, anchor) later than this, after a clock step, is skipped, named
+export const OVERDUE_US = 20_000_000; // m-2 of the G2 of c5-bis-b: an exchangeInfo later than this, after a clock step, is skipped, named (an anchor: its day changed)
 export const EXIT_GRACE_MS = 5_000; // m-1 (b): once main resolves, the command line exits within this, though a socket lingers
 export const SCHEDULE = Object.freeze([["cut", null, PERIOD_US, 0, false], ["seal", null, PERIOD_US, 3 * MINUTE_US, false],
   ["time", null, PERIOD_US, 30 * MINUTE_US, false], ["check", null, 10 * MINUTE_US, 5 * MINUTE_US, false],
@@ -290,13 +290,13 @@ export function calendar(fromUs, endUs, offsetUs = 0) {
 /** The recording loop once adopt and markTails passed (header): the REST client, the books and the links under adopt's root, the calendar;
  *  on a signal (io.signal) or a named stop, the clean stop: the links stopped, their writers awaited STOP_BOUND_MS at most (Q-8 of a3), the
  *  books and the REST client closed, a seal child awaited as long, then killed; one stopped line. */
-export async function record(plan, { at, check }, io) {
+export async function record(plan, { at, check, root }, io) {
   const signal = io.signal ?? signals(), proc = io.process ?? (io.signal === undefined ? process : null); // n-4: before anything opens; the net (B-1): the command line's process
-  const { wallUs, monoNs } = io, setTimer = io.setTimer ?? setTimeout, clearTimer = io.clearTimer ?? clearTimeout, env = { ...(io.env ?? process.env) };
+  const { wallUs, monoNs } = io, setTimer = io.setTimer ?? setTimeout, clearTimer = io.clearTimer ?? clearTimeout, env = { ...(io.env ?? process.env) }, quit = new AbortController();
   const note = (event, fields, symbol = "ALL") => appendLine(join(at, "journal.jsonl"), { host_us: wallUs(), mono_ns: String(monoNs()), symbol, cid: null, event, ...fields });
-  const rest = createRest({ fetch: io.fetch ?? globalThis.fetch, nowUs: wallUs, out: at }), facts = new Map(), due = new Set(), followed = new Map(), abort = new AbortController();
+  const rest = createRest({ fetch: io.fetch ?? globalThis.fetch, nowUs: wallUs, out: at, signal: quit.signal }), facts = new Map(), due = new Set(), followed = new Map(), abort = new AbortController();
   let offset = 0, low = null, lowUntil = 0, timer = null, sealing = null, finished = false, done = () => {}, links = new Map();
-  const ended = new Promise((r) => { done = r; }), finish = (cause) => { if (!finished) { finished = true; done(cause); } }, codeOf = (e) => String(e?.code ?? e?.name ?? "unknown");
+  const ended = new Promise((r) => { done = r; }), finish = (cause) => { if (!finished) { finished = true; quit.abort(); done(cause); } }, codeOf = (e) => String(e?.code ?? e?.name ?? "unknown");
   const tell = (event, fields, symbol) => { try { note(event, fields, symbol); } catch { /* the journal failed too: the stop names the cause */ } };
   const failed = (task, e, symbol = "ALL", where = {}) => { tell("schedule_failed", { task, ...where, code: codeOf(e) }, symbol); };
   const stray = (e) => { tell("unhandled_rejection", { code: codeOf(e) }); try { stop("unhandled_rejection", { code: codeOf(e) }); } catch (s) { finish(s); } }; // B-1: the net
@@ -324,7 +324,7 @@ export async function record(plan, { at, check }, io) {
     return (existsSync(conn) ? readdirSync(conn) : []).flatMap((c) => readdirSync(join(conn, c)).filter((n) => n.endsWith(".frames")).map((n) => n.slice(0, -7))
       .filter((g) => g >= from && g <= to && [...links.values()].some((l) => !l.closed(c, g))).map((g) => `${c}/${g}`));
   };
-  const apart = (spec) => (io.seal ?? sealApart)({ ...spec, out: at }, { env, signal: abort.signal }); // the one call of the child (its root: adopt's, its fd 3)
+  const apart = (spec) => (io.seal ?? sealApart)({ ...spec, out: at, root }, { env, signal: abort.signal, onKill: (r) => { tell("seal_killed", { day: spec.day, ...r.failed }, spec.symbol); } }); // the one call of the child (its root: adopt's, its fd 3; m-1: its kill named at once)
   async function seals() { // one symbol at a time; a throw on one key journaled with its symbol and day, the next keys go on (r-1 of the G2 delta)
     for (const key of [...due].sort()) {
       const [symbol, day] = key.split("/"), start = Date.parse(`${day}T00:00:00Z`) * 1000, f = facts.get(key);
@@ -348,7 +348,7 @@ export async function record(plan, { at, check }, io) {
     try {
       if (task === "cut") for (const l of links.values()) l.cut();
       else if (task === "check") check();
-      else if (task === "seal") { if (dayOf(t - PERIOD_US) !== dayOf(t)) for (const s of SYMBOLS) due.add(`${s}/${dayOf(t - PERIOD_US)}`); sealing ??= seals().catch((e) => { failed("seal", e); }).finally(() => { sealing = null; }); } // the day before, at 00:03
+      else if (task === "seal") { if (dayOf(t - PERIOD_US) !== dayOf(t)) for (const s of SYMBOLS) due.add(`${s}/${dayOf(t - PERIOD_US)}`); sealing ??= seals().finally(() => { sealing = null; }); } // the day before, at 00:03; a throw of seals() past its keys (none known) meets the net
       else if (task === "time") { const r = await rest.request("time", null); if (finished) return; const e = logTimeOffset(at, r.body, r.sentUs, r.receivedUs, { wallUs, monoNs }); offset = e.offset_us ?? offset; }
       else if (task === "exchangeInfo") {
         const f = exchangeInfoFacts((await rest.request("exchangeInfo", symbol)).body), was = low; if (finished) return; // r-2 of the G2 delta: an answer after the stop writes nothing to the journal or days/
@@ -357,7 +357,7 @@ export async function record(plan, { at, check }, io) {
         if (low !== null) lowUntil = calendar(wallUs(), wallUs() + DAY_US, offset).filter((e) => e.task === "exchangeInfo").at(-1).at + 1_000_000; // past the next round
         if ((was === null) !== (low === null)) note(low === null ? "weight_resumed" : "weight_suspended", { limit: f.requestWeightPerMinute, floor: WEIGHT_FLOOR });
       } else { // anchor: the bytes kept by the REST client, as anchor-close.json of its day and anchor-open.json of the next (D-9)
-        const { body } = await rest.request("depth", symbol); if (finished) return; // r-2
+        const { body, sentUs } = await rest.request("depth", symbol); if (finished) return; if (dayOf(sentUs + offset) !== dayOf(t + offset)) return tell("event_skipped", { task, late_us: sentUs - t, at_send: true }, symbol); // r-2; B-1 of the G2 of c5-bis-c: sent once its corrected day had changed
         for (const [d, name] of [[dayOf(t + offset), "anchor-close.json"], [dayOf(t + offset + PERIOD_US), "anchor-open.json"]]) {
           mkdirSync(join(at, "days", symbol, d), { recursive: true });
           writeFileSync(join(at, "days", symbol, d, name), body, { flag: "wx" });
@@ -374,8 +374,8 @@ export async function record(plan, { at, check }, io) {
   function tick() {
     const now = wallUs(), events = calendar(last, now, offset);
     last = Math.max(last, now); // a clock stepped back fires nothing twice
-    for (const e of events) { // m-2: a dated event overdue after a clock step is skipped, named (an anchor never written from a later depth)
-      if (["exchangeInfo", "anchor"].includes(e.task) && now - e.at > OVERDUE_US) tell("event_skipped", { task: e.task, late_us: now - e.at }, e.symbol);
+    for (const e of events) { // m-2: a dated event overdue is skipped, named: an anchor once its corrected day changed (n-a: a slow start keeps them), exchangeInfo past OVERDUE_US
+      if (e.task === "anchor" ? dayOf(now + offset) !== dayOf(e.at + offset) : e.task === "exchangeInfo" && now - e.at > OVERDUE_US) tell("event_skipped", { task: e.task, late_us: now - e.at }, e.symbol);
       else void fire(e);
     }
     arm();
@@ -396,7 +396,7 @@ export async function record(plan, { at, check }, io) {
   const sealDone = await within(sealing ?? Promise.resolve());
   if (!sealDone) abort.abort();
   proc?.off("unhandledRejection", stray);
-  note("stopped", { cause: cause?.code ?? "signal", links_closed: linksClosed, seal_done: sealDone });
+  tell("stopped", { cause: cause?.code ?? "signal", links_closed: linksClosed, seal_done: sealDone }); // r-3 of the G2 delta of c5-bis-b: a failed journal leaves the cause
   if (cause !== null) throw cause;
   return { mode: "record", out: plan.out, stopped: "signal", links_closed: linksClosed, seal_done: sealDone };
 }

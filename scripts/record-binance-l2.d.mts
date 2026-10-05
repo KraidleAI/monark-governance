@@ -36,7 +36,7 @@ export interface RecorderIo {
   clearTimer?: (handle: unknown) => void;
   sleep?: (ms: number) => Promise<void>;
   open?: (path: string) => Promise<import("./l2/segments.mjs").SegmentFile>;
-  seal?: (spec: import("./l2/seal.mjs").ApartSpec & { config: unknown }, io: { env: Record<string, string>; signal: AbortSignal }) => Promise<import("./l2/seal.mjs").ApartResult>;
+  seal?: (spec: import("./l2/seal.mjs").ApartSpec & { config: unknown }, io: { env: Record<string, string>; signal: AbortSignal; onKill: (r: import("./l2/seal.mjs").ApartResult) => void }) => Promise<import("./l2/seal.mjs").ApartResult>;
   signal?: AbortSignal;
   /** B-1 of the G2 of c5-bis-b: where the loop hears an unhandled rejection (the command line's process when no signal is given). */
   process?: { on(event: "unhandledRejection", fn: (e: unknown) => void): unknown; off(event: "unhandledRejection", fn: (e: unknown) => void): unknown };
@@ -72,14 +72,14 @@ export function appendLine(path: string, line: Record<string, unknown>, entry?: 
 /** A recording takes --out after prepare (P1-c5): guards again; a resumed output must be this recorder's; --out made, its real path and
  *  directory pinned (Linux: written through /proc/self/fd), guards again, the start line journaled, a first check. check(): the pin, guards
  *  of --out again, journal.jsonl and requests.jsonl of one link each, then the quota; a path changed on the way: out_not_l2. */
-export function adopt(plan: Extract<Plan, { mode: "record" }>, io: { wallUs: () => number; monoNs: () => bigint }): { real: string; at: string; check: () => number };
+export function adopt(plan: Extract<Plan, { mode: "record" }>, io: { wallUs: () => number; monoNs: () => bigint }): { real: string; at: string; check: () => number; root: { dev: string; ino: string } };
 /** At a start (Q-C1-4, P1-c5-bis-a): the tails of the last segments of the last run's connections, each journaled once (tail_marked). */
 export function markTails(at: string, io: { wallUs: () => number; monoNs: () => bigint }): import("./l2/segments.mjs").Tail[];
 
 /** Q-P1-6: a REQUEST_WEIGHT limit read under it suspends every resync, named; Q-8 of a3: the clean stop's bound, in ms. */
 export const WEIGHT_FLOOR: number;
 export const STOP_BOUND_MS: number;
-/** m-2: a dated event (exchangeInfo, anchor) overdue past it, in us, is skipped, named; m-1 (b): the command line's exit bound, in ms. */
+/** m-2: an exchangeInfo overdue past it, in us, is skipped, named (an anchor once its corrected day changed, n-a); m-1 (b): the command line's exit bound, in ms. */
 export const OVERDUE_US: number;
 export const EXIT_GRACE_MS: number;
 /** m-1 (b): sets the exit code, then exits within EXIT_GRACE_MS though a handle lingers. */
@@ -89,5 +89,5 @@ export const SCHEDULE: readonly (readonly [string, string | null, number, number
 /** The events of SCHEDULE in (fromUs, endUs] of the host clock, in time order. */
 export function calendar(fromUs: number, endUs: number, offsetUs?: number): { at: number; task: string; symbol: string | null }[];
 /** The loop once adopt and markTails passed; resolves on its signal after the clean stop, rejects with its named stop after it. */
-export function record(plan: Extract<Plan, { mode: "record" }>, taken: { real: string; at: string; check: () => number },
+export function record(plan: Extract<Plan, { mode: "record" }>, taken: { real: string; at: string; check: () => number; root?: { dev: string; ino: string } },
   io: RecorderIo & { wallUs: () => number; monoNs: () => bigint }): Promise<Stopped>;

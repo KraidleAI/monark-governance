@@ -8,7 +8,7 @@
 // and ino the spec names, and no file, directory nor socket is inherited past it (else out_not_l2; B-1 of that G2). Then sealOf of the
 // spec (JSON: out, symbol, day, nowUs, config, scale, bounds; open, the "cid/seg" its parent's writers hold open; root) written through
 // /proc/self/fd/3, the result's dir named under spec.out. One JSON line on stdout: { result } (exit 0) or { stop, detail } of a named
-// stop (exit 1); a heap past the cap aborts this process alone. The agent never commits (R-20).
+// stop (exit 1); a heap past the cap aborts this process alone. A descriptor the recorder itself inherited without O_CLOEXEC never reaches this child (n-14 of the G2 delta of c5-bis-a: spawn passes its stdio alone). The agent never commits (R-20).
 import { fstatSync, readdirSync, readlinkSync, realpathSync } from "node:fs";
 import { join, relative } from "node:path";
 import { fileURLToPath } from "node:url";
