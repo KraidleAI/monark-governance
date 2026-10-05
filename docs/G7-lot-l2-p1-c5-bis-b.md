@@ -143,3 +143,81 @@ Q-C5BB-7 (`closed(from, "")`), Q-C5BB-8 (lignes neuves hors `MISSING_EVENTS`), Q
   `KillMode=control-group` gardé (n-4 : l'enfant meurt avec la boucle) ; n-7 (`oom_score_adj` de l'enfant) reste à P3.
 - MONARK : rien de bloquant. Pour les relectures : `node_modules/@monark` d'un arbre de travail doit être un dossier de liens relatifs vers
   ses propres `packages/` et `apps/` (un lien vers un autre clone fait échouer les tests du sentinel sans rapport avec le lot).
+
+## Pli de la G2 (BLOQUE, 2026-10-05)
+
+G2 lue : `recherches/coordination/pieces/2026-10-04-G2-recherches/G2-l2-p1-c5-bis-b.md` (tête relue `ca900bc3`). Commits du pli :
+`b1487864` (tests rouges et `.d.mts`, lignes de tueurs de la boucle renumérotées), `a9f49b33` (gel), `bf7c7864` (pli des contrôles :
+les tests qui suivent une course l'attendent par pas bornés de l'horloge de l'hôte, rouges seulement sous la charge du lancement
+parallèle ; le mot « peer » retiré d'un commentaire de la commande, que `l2_rest_peer_seam_loopback_only` refuse), puis ce commit (G7). Base du pli
+`ca900bc3` ; base de mesure du lot inchangée (`c6cf927a`). c5-bis-a (`recherches/l2-p1-c5-bis`, `c6cf927a`) est en relecture delta : un
+pli de plus y serait fusionné ici plus tard par un commit de fusion (avec le correctif Windows de c4 qu'il porterait), pas maintenant.
+
+| Point de la G2 | Suite | Preuve (test ; tueur) |
+|---|---|---|
+| B-1 (levée dans `seals()`) | `seals().catch(...)` : la levée est journalisée `schedule_failed` (`task: "seal"`, code), le jour reste dû (repris à l'heure suivante, nommé à chaque fois) ; la boucle continue, l'arrêt propre écrit `stopped`. `fire` et ses `catch` passent par un journal qui ne lève plus (`tell`) ; `within` rattrape un rejet | `l2_record_seal_throw_named` (reproducteur S1 : `conn/stray`, 00:03:05 ; aucun rejet non géré) ; `:349 CONST` `.catch` retiré |
+| B-1 (filet du processus) | `unhandledRejection` écouté par la commande (le `process` de la ligne de commande, ou `io.process` aux tests) : ligne `unhandled_rejection` (code), arrêt nommé `unhandled_rejection` (nouveau code de `STOPS`) après l'arrêt propre ; écouteur retiré à la fin | `l2_record_unhandled_rejection_stops` ; `:303 CONST` écouteur non posé |
+| B-2 (451 sur un instantané) | le client vu par les carnets (`bookRest`) arrête tout dès qu'une de ses requêtes laisse le client REST arrêté : `rest_stopped`, détail `{ task: "snapshot", symbol, code }` (code d'origine `restricted_location` gardé dans la ligne d'arrêt) | `l2_record_snapshot_451_ends_all` (reproducteur S2 : arrêt dans la seconde) ; `:305 CONST` |
+| m-1 (a) (fenêtre du départ) | signal testé entre les requêtes du départ, chacune en course avec la fin (`Promise.race([fire(e), ended])`) ; aucune liaison ouverte après un arrêt au départ | `l2_record_stop_during_start` (place muette, sonde S3) ; `:385 CONST` |
+| m-1 (b) (sortie du processus) | `leave(code)` : code de sortie posé, puis `process.exit(code)` au plus tard après `EXIT_GRACE_MS` = 5 s (minuteur `unref`) ; la ligne de commande seule l'appelle. Une socket qui ne répond pas au CLOSE n'est pas terminée une à une : la sortie bornée la coupe | `l2_command_exit_bounded` (enfant Node avec un descripteur qui traîne : sortie 3 sous 15 s) ; `:430 CONST` |
+| m-2 (saut d'horloge) | un événement daté (`exchangeInfo`, `anchor`) en retard de plus de `OVERDUE_US` = 20 s est sauté, nommé (`event_skipped`, `late_us`) ; aucune ancre d'un jour passé écrite d'un `depth` neuf ; le jour laissé au rejeu (c6) | `l2_record_overdue_skipped` (sonde S5 : saut de 20 min à 23:52) ; `:376 CONST` |
+| m-3 (liaisons avant le départ) | liaisons ouvertes après l'heure de la place et les quatre `exchangeInfo` (G0 point 2) : la limite de poids est connue avant tout instantané | `l2_record_links_after_start` (aucune socket à chaque requête du départ, cinq après) ; `:387 CONST` |
+| m-4 (M8) | test « neuve en avance » : pas de bascule tant que `U` > id + 1, bascule sans `chain_gap` une fois rejointe | `l2_record_switch_waits_to_join` ; `:316 CONST` (`... <= book.id + 1` en `true`), à la main |
+| m-4 (M12) | test d'une heure non sûre (`offset_us` nul) : l'écart précédent gardé | `l2_record_unsafe_time_keeps_offset` ; `:350 CONST` (`?? offset` retiré), à la main |
+| n-1 (ordre `seal_failed` / `stopped`) | un scellé abandonné par l'arrêt propre n'écrit plus rien après `stopped` (son `seal_done` faux le dit) | `l2_record_stopped_line_last` ; `:339 SDL` |
+| n-2 (verrou laissé) | déclaré pour c6 (ci-dessous) | — |
+| n-3 (plafond de `setTimeout`) | délai de `arm()` borné à une heure (`PERIOD_US`) | non testé (la couture de minuteurs ne modélise pas le plafond) |
+| n-4 (signal avant les liaisons) | `signals()` installé en tête de `record`, avant le client REST et les liaisons | non testé (`io.signal` aux tests) |
+| n-5 | sans enjeu (G2) | — |
+| n-6 (sortie 1 sous `Restart=on-failure`) | déclaré pour P3 (ci-dessous) | — |
+| n-7 | risques du G7 jugés suffisants | — |
+
+### Preuves du pli
+
+- **Preuve rouge** : `node scripts/red-proof.mjs --base ca900bc3 --gel bf7c7864 --repo /home/user/monark-governance-c5bb --draw 10 --seed
+  37` : « red-proof REFUSED: 10 judged, 73 unchanged, 8 killer(s) drawn » ; `RED-PROOF.json` sha256 `242d3eba8ae5c19f…`. Huit F2P (rouges
+  par assertion à `ca900bc3`, verts au gel) : `l2_record_seal_throw_named`, `l2_record_unhandled_rejection_stops`,
+  `l2_record_snapshot_451_ends_all`, `l2_record_stop_during_start`, `l2_command_exit_bounded`, `l2_record_links_after_start`,
+  `l2_record_overdue_skipped`, `l2_record_stopped_line_last` ; leurs huit tueurs tirés et tués. Les deux refus sont les deux tests
+  resserrés de m-4, verts à la base par nature (« self-confirming ») : leurs tueurs appliqués à la main au gel, fichier restauré, sont
+  rouges par assertion (`:316` et `:350`). Les dix tueurs neufs ont aussi été appliqués à la main un par un : dix tués par assertion.
+- Le test de B-1 met de côté, le temps du test, les écouteurs `unhandledRejection` du processus (ceux du lanceur) et compte les rejets
+  laissés : à la base, le rejet `ENOTDIR` est compté et le test rougit par assertion, non par une chute du fichier.
+- **Ancres** : `verifie-ancres.mjs . --touched c6cf927a HEAD` et `--touched ca900bc3 HEAD` : 83 tueurs, 83 ANCRE, 0 DERIVE, 0 PERDU ;
+  `--files` sur les douze `test/l2-*.test.ts` : 178, 178 ANCRE. Tueurs de la boucle renumérotés (`:276` → `:278`, `:298` → `:309`,
+  `:305` → `:316`, `:322` → `:332`, `:356` → `:367`, `:378` → `:395`, `l2-record` `:410` → `:428`) ; ceux de c4, c5 et c5-bis-a inchangés.
+- Chemins des tests neufs bâtis par `join` (aucun chemin POSIX écrit en dur dans une attente), pour le rejeu Windows de MONARK.
+
+| Vérification (tête `bf7c7864`, Node v24.21.0) | Résultat |
+|---|---|
+| `node --test test/l2-*.test.ts` | 178 sur 178, 0 échec, 0 sauté |
+| `npm test` complet | 2 384 tests : 2 362 verts, 0 échec, 22 sautés (raisons nommées), sortie 0 |
+| `tsc --noEmit` (`typecheck`) | 0 |
+| `lint` | 0 |
+| `lint:ratchet` | 69/69 |
+| `gate:vocab` | OK (335 fichiers) |
+| `lang:gate` | OK (0 occurrence hors exemption) |
+| preuve rouge contre `ca900bc3` | 10 jugés : 8 F2P, 8 tueurs tirés tués ; 2 resserrés refusés, tueurs à la main tués |
+| ancres | 83/83 (touchés), 178/178 (`l2-*`) |
+| R-25 contre `c6cf927a` | 540, GREEN, borne du lot 547 |
+
+- **R-25** (`r25()` de `scripts/oracle/r25.mjs` contre `c6cf927a`) : `STAT` 540 (522 insertions, 18 suppressions), `CONTENT_STAT` 0,
+  GREEN ; borne du lot 547, marge 7. Pas de scission. Le prochain pli qui ajouterait plus de 7 lignes hors `docs/**/*.md` déclare le
+  point de scission du G0 (suspension de poids et règle de bascule vers c5-bis-c).
+
+### Déclaré par le pli
+
+- B-1 : un jour dont le scellé lève reste dû ; la levée est reprise à chaque HH:03 (une ligne `schedule_failed` par heure) tant que sa
+  cause reste (un fichier ordinaire sous `conn/` n'est pas filtré par `guardOut`, qui ne lit que le premier niveau). Le rejeu (c6) le
+  scelle. Un rejet du scellé abandonné par l'arrêt propre serait encore journalisé après `stopped` (cas sans chemin connu : `sealApart`
+  résout `seal_aborted`).
+- Filet du processus : posé seulement quand la commande tient le processus (pas de `io.signal`) ou par `io.process` ; un rejet non géré
+  pendant l'arrêt propre lui-même n'en relance pas un autre (`finish` déjà fait), il est seulement journalisé.
+- m-1 (b) : les sockets ne sont pas terminées une à une (la `WebSocket` native n'a pas de `terminate`) ; `process.exit` après 5 s les
+  coupe. Pire cas de l'arrêt : 30 s + 30 s + 5 s, sous les 90 s de `TimeoutStopSec`.
+- m-2 : la tolérance de 20 s vaut pour les seuls événements datés ; les coupes, scellés, heure de la place et `check()` en retard partent
+  encore au rattrapage (sans dommage : une coupe ou un `check()` de plus).
+- n-2 (pour c6) : le verrou `days/<SYMBOLE>/.<jour>.seal.lock` reste après une chute (`SIGKILL`) ; c6 et tout lecteur de
+  `days/<SYMBOLE>/` l'ignorent comme entrée et respectent son âge (`SEAL_TIMEOUT_MS`).
+- n-6 (pour P3) : un arrêt nommé sort 1 ; sous `Restart=on-failure`, un `quota_stop` ou un `rest_stopped` (451) relancerait l'unité en
+  boucle : `RestartPreventExitStatus` ou un code de sortie distinct à trancher en P3.
