@@ -20,5 +20,9 @@ export const SEAL_HEAP_MB: number;
 /** What sealApart takes: sealOf's spec but its function, `open` the "cid/seg" held open by the loop's writers. */
 export type ApartSpec = Omit<SealSpec, "derive" | "closed"> & { scale: number; bounds?: SealBounds; open?: string[] };
 export type ApartResult = SealResult | { sealed: false; failed: { code: number | null; signal: string | null; stop: string | null; detail: unknown } };
-/** sealOf in a child process (node --max-old-space-size=<heapMb> scripts/l2/seal-child.mjs) spawned with `env` alone; never rejects. */
-export function sealApart(spec: ApartSpec, io: { env: Record<string, string>; heapMb?: number }): Promise<ApartResult>;
+/** The deadline of one seal apart, in ms (B-1 of the G2 of c5-bis-a). */
+export const SEAL_TIMEOUT_MS: number;
+/** sealOf in a child process (node --max-old-space-size=<heapMb> scripts/l2/seal-child.mjs) spawned with `env` alone (none by default),
+ *  written through spec.out (adopt's `at`) opened once and passed as the child's fd 3, never a path; past timeoutMs or on `signal`, the
+ *  child killed and failed.stop seal_timeout or seal_aborted; root_refused, spec_refused, spawn_failed named; never rejects. */
+export function sealApart(spec: ApartSpec, io?: { env?: Record<string, string>; heapMb?: number; timeoutMs?: number; signal?: AbortSignal }): Promise<ApartResult>;

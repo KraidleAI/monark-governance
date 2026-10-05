@@ -43,7 +43,7 @@ export interface LinkIo {
   clearTimer(handle: unknown): void;
   gate: Gate;
   open?: (path: string) => Promise<SegmentFile>;
-  /** Each text message once its writer has it, with its <cid> (the loop feeds its book: Q-A4-3, P1-c5-bis-a). */
+  /** Each text message once its writer has it, with its <cid> (the loop feeds its book: Q-A4-3, P1-c5-bis-a); a throw is journaled hook_failed. */
   onText?: (text: string, cid: string) => void;
 }
 
