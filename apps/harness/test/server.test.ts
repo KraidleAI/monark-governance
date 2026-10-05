@@ -305,7 +305,7 @@ test("harness_server_drain_leaves_no_server_handle", async () => {
 // publishes (the same for the four operations, compiled by Ajv 2020 in strict mode), over the wire: the two 500 of an operation
 // (output outside its schema, the tool threw) and the transport-level 500 of server.ts, thrown around the mirror (POST /calibrate)
 // or before routing (an unparseable Host), whose body is exactly {"error":"internal_error"}. The schema stays closed.
-// killer: apps/harness/src/schema-projection.ts:129 CONST "[INTERNAL_500, TRANSPORT_500]" -> "[INTERNAL_500]"
+// killer: apps/harness/src/schema-projection.ts:137 CONST "[internal, transport]" -> "[internal]"
 test("every_500_of_the_server_validates_the_published_500_schema", async () => {
   type Rec = Record<string, unknown>;
   const at = (node: unknown, ...keys: string[]): unknown => keys.reduce<unknown>((n, k) => (n as Rec | undefined)?.[k], node);
@@ -338,6 +338,43 @@ test("every_500_of_the_server_validates_the_published_500_schema", async () => {
       if (operation === null) assert.equal(res.raw, JSON.stringify({ error: "internal_error" }), `${name}: the transport-level body`);
       assert.ok(valid(json), `${name}: the 500 body validates the published 500 schema: ${res.raw}`);
     }
+  } finally {
+    mutable.run = original;
+    server.closeAllConnections();
+    await new Promise<void>((resolve) => { server.close(() => { resolve(); }); });
+  }
+});
+
+// TRANSPORT-500-SCHEMA-1, fold of its review (R-1): every status the server can answer on a described operation is listed by
+// /openapi.json, and nothing else: 200, 400 (not JSON), 403 (an Origin outside monarkgate.tech), 413 (a body one byte over the
+// cap, read in full so no reset races the answer) and 500 (the tool threw). The 404 and 405 of undescribed paths and methods
+// are out of scope. The same list for the four operations.
+// killer: apps/harness/src/openapi.ts:91 SDL "\"413\": {" -> ""
+test("every_status_of_a_described_operation_is_listed_by_openapi", async () => {
+  const spec = buildOpenApi() as { paths: Record<string, { post: { responses: Record<string, unknown> } }> };
+  const listed = Object.values(spec.paths).map((p) => Object.keys(p.post.responses).sort().join(","));
+  assert.ok(listed.length === 4 && listed.every((l) => l === listed[0]), `one status list for the four operations: ${listed.join(" | ")}`);
+  const tool = HARNESS_TOOLS.find((t) => t.name === "calibrate");
+  assert.ok(tool !== undefined, "the calibrate tool is registered");
+  const mutable = tool as { run: typeof tool.run }, original = tool.run;
+  const server = await startLoopback((port) => startServer(port));
+  try {
+    const addr = server.address();
+    assert.ok(addr !== null && typeof addr === "object", "address() must be an AddressInfo");
+    const send = (body: string, headers: Record<string, string> = {}): Promise<number> => new Promise((resolve, reject) => {
+      const req = httpRequest({ hostname: "127.0.0.1", port: addr.port, path: "/calibrate", method: "POST", headers: { "content-type": "application/json", "content-length": Buffer.byteLength(body), host: "api.monarkgate.tech", ...headers } }, (res) => {
+        res.resume();
+        res.on("end", () => { resolve(res.statusCode ?? 0); });
+      });
+      req.on("error", reject);
+      req.end(body);
+    });
+    const ok = JSON.stringify({ scores: [0.1, 0.2, 0.3], alpha: 0.5, nMin: 3 });
+    const sent = [await send(ok), await send("{"), await send(ok, { origin: EVIL }), await send("a".repeat(MAX_REQUEST_BODY_BYTES + 1))];
+    mutable.run = () => { throw new Error("boom"); };
+    sent.push(await send(ok));
+    assert.deepEqual(sent, [200, 400, 403, 413, 500], "each status is reached on the wire");
+    assert.deepEqual(sent.map(String).sort().join(","), listed[0], "/openapi.json lists exactly the statuses the server answers on a described operation");
   } finally {
     mutable.run = original;
     server.closeAllConnections();
