@@ -599,24 +599,58 @@ test("mutants_still_refuse_a_test_file_or_an_unimported_module_under_test", () =
 const LOSE = 'import cp from "node:child_process";\nimport { syncBuiltinESMExports } from "node:module";\nconst real = cp.spawnSync;\n' +
   'cp.spawnSync = (c, a, o) => { const r = real(c, a, o), i = Array.isArray(a) && a.includes("--test") && typeof r.stdout === "string" ? r.stdout.search(/^not ok /m) : -1;\n' +
   '  if (i >= 0 && process.env.FX_LOSE === "tail") r.stdout = r.stdout.slice(0, i); else if (i >= 0 && process.env.FX_LOSE === "zero") r.status = 0;\n  return r; };\nsyncBuiltinESMExports();\n';
-let ECR: { dir: string; base: string } | undefined;
-function ec(mode: string, rows: Row[]): Run {
-  const m = (ECR ??= mini("ec", { "lib/e.mjs": "export const E = 1;\nexport const F = 1;\n", "test/e.test.ts": `${HEAD}import { E, F } from "../lib/e.mjs";\n` +
-    'test("e_first", () => { assert.equal(F, 1); });\ntest("e_second", () => { assert.equal(E, 1); });\n' })), lose = join(fixture().root, "lose.mjs");
+let ECR: { dir: string; base: string } | undefined, ECX: { dir: string; base: string } | undefined;
+const ECS = new Map<string, Run>(); // one campaign per (mode, rows, red), shared by the tests that read it
+function ec(mode: string, rows: Row[], red = false): Run { // red (G2 m-5): ecx/, the same files with e_second red at base (it wants E = 2)
+  const files = (want: string): Record<string, string> => ({ "lib/e.mjs": "export const E = 1;\nexport const F = 1;\n", "test/e.test.ts": `${HEAD}import { E, F } from "../lib/e.mjs";\n` +
+    `test("e_first", () => { assert.equal(F, 1); });\ntest("e_second", () => { assert.equal(E, ${want}); });\n` });
+  const m = red ? (ECX ??= mini("ecx", files("2"))) : (ECR ??= mini("ec", files("1"))), lose = join(fixture().root, "lose.mjs");
+  const key = JSON.stringify([mode, rows, red]), hit = ECS.get(key);
+  if (hit !== undefined) return hit;
   writeFileSync(lose, LOSE);
-  return run(["--repo", m.dir, "--base", m.base, "--table", table(`ec-${mode}.json`, rows)], { node: ["--import", pathToFileURL(lose).href], env: { FX_LOSE: mode } });
+  const r = run(["--repo", m.dir, "--base", m.base, "--table", table(`ec-${mode}${red ? "-red" : ""}.json`, rows)], { node: ["--import", pathToFileURL(lose).href], env: { FX_LOSE: mode } });
+  ECS.set(key, r);
+  return r;
 }
 const E = (id: string, line: number, before: string): Row => ({ id, file: "lib/e.mjs", line, op: "CONST", before, after: `${before.slice(0, -1)}2`, why: "w" });
+const ecTail = (): Run => ec("tail", [E("E1", 1, "E = 1"), E("F1", 2, "F = 1")]), ecZero = (): Run => ec("zero", [E("E1", 1, "E = 1")]);
+const CUT = " (TAP cut: no closing summary)"; // G2 m-4: the TAP lacks its closing "# duration_ms" line (the first condition of truncation() in scripts/red-proof.mjs)
+const txtLine = (r: Run, head: string): string | undefined => readFileSync(join(r.out, "RESULTS.txt"), "utf8").split("\n").find((l) => l.startsWith(head));
 
 // killer: scripts/mutants/run.mjs:214 CONST "bad.length === 0 && r.status !== 0" -> "false"
 test("mutants_a_non_zero_exit_without_a_failing_entry_is_non_conclu_named_never_survit", () => {
   const r = ec("tail", [E("E1", 1, "E = 1"), E("F1", 2, "F = 1")]), get = (id: string): unknown[] => [row(r, id)?.status, row(r, id)?.oks, row(r, id)?.fails, row(r, id)?.exit, row(r, id)?.note];
-  assert.deepEqual([r.status, r.rec?.baseline?.status, get("E1"), get("F1"), row(r, "E1")?.replay?.status], [1, "vert", ["non conclu", 1, [], 1, "exit 1 without a failing entry"],
-    ["non conclu", 0, [], 1, "exit 1 without a test entry"], "non conclu"], r.stderr); // E1: e_second's report lost, e_first ok; F1: no entry left
+  assert.deepEqual([r.status, r.rec?.baseline?.status, get("E1"), get("F1"), row(r, "E1")?.replay?.status], [1, "vert", ["non conclu", 1, [], 1, `exit 1 without a failing entry${CUT}`],
+    ["non conclu", 0, [], 1, `exit 1 without a test entry${CUT}`], "non conclu"], r.stderr); // E1: e_second's report lost, e_first ok; F1: no entry left
 });
 
 // killer: scripts/mutants/run.mjs:214 CONST "bad.length > 0 && r.status === 0" -> "false"
 test("mutants_exit_zero_with_a_failing_entry_is_non_conclu_named_never_killed", () => {
   const r = ec("zero", [E("E1", 1, "E = 1")]), e1 = row(r, "E1");
   assert.deepEqual([r.status, r.rec?.baseline?.status, e1?.status, e1?.fails, e1?.exit, e1?.note], [1, "vert", "non conclu", ["e_second"], 0, "exit 0 with 1 failing entry"], r.stderr);
+});
+
+// killer: scripts/mutants/run.mjs:217 CONST "cut ? \" (TAP cut" -> "false ? \" (TAP cut"
+test("mutants_the_note_says_whether_the_tap_was_cut", () => { // G2 m-4: a cut TAP (tail) is named; a whole TAP with exit 0 (zero) keeps a bare note
+  assert.deepEqual([row(ecTail(), "E1")?.note, row(ecTail(), "F1")?.note, row(ecZero(), "E1")?.note], [`exit 1 without a failing entry${CUT}`, `exit 1 without a test entry${CUT}`,
+    "exit 0 with 1 failing entry"], ecTail().stderr);
+});
+
+// killer: scripts/mutants/run.mjs:135 CONST "r.replay.note ? " -> "false ? "
+test("mutants_results_txt_carries_the_note_of_the_replay", () => { // G2 m-2: the replay's note on the mutant's line, inside its segment
+  const r = ecTail();
+  assert.equal(txtLine(r, "E1 ")?.split(" ; rejeu ")[1], `test/e.test.ts : non conclu (0 rouge(s), 1 vert(s), exit 1 without a failing entry${CUT})`, r.stderr);
+});
+
+// killer: scripts/mutants/run.mjs:247 CONST "g.note ? " -> "false ? "
+test("mutants_a_baseline_whose_exit_contradicts_its_entries_is_non_conclu_named_and_no_mutant_runs", () => { // G2 m-5, m-2: ecx/ at base, e_second's report lost
+  const r = ec("tail", [E("E1", 1, "E = 1")], true), b = r.rec?.baseline, note = `exit 1 without a failing entry${CUT}`;
+  assert.deepEqual([r.status, b?.status, b?.oks, b?.fails, b?.exit, b?.note, row(r, "E1")?.status, row(r, "E1")?.tap_sha256], [1, "non conclu", 1, [], 1, note, "non conclu (base)", null], r.stderr);
+  assert.equal(txtLine(r, "BASELINE ")?.replace(/, \d+ ms\)/, ", N ms)"), `BASELINE l.0 - non conclu (0 rouge(s), 1 vert(s), N ms) restaure OK ; unmutated ; ${note}`);
+});
+
+// killer: scripts/mutants/run.mjs:217 CONST "note: dead ? null :" -> "note: false ? null :"
+test("mutants_a_dead_child_carries_no_exit_code_note", async () => { // G2 m-1: G1, a run past its bound (ETIMEDOUT), is non conclu without a note
+  const r = await overrun(), g1 = row(r, "G1"); // its exit code is the runner's own on SIGTERM (7 on Node 24), not asserted
+  assert.deepEqual([g1?.status, g1?.replay, g1?.note], ["non conclu", null, null], r.stderr);
 });
