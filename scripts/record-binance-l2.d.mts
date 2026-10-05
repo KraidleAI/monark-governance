@@ -1,0 +1,45 @@
+// scripts/record-binance-l2.d.mts -- type surface of scripts/record-binance-l2.mjs for the type-checked root test test/l2-record.test.ts
+// (lot P1-c4 of ADR-L2-CAPTURE-1). Runtime implementation = record-binance-l2.mjs; Node ignores this file. Not in the export whitelist
+// (scripts/export-public.mjs): the L2 recorder and its data stay out of the public tree.
+export const STOPS: readonly string[];
+export const ADMITTED_ENV: Readonly<Record<string, readonly string[]>>;
+export const OUT_ENTRIES: readonly string[];
+export const ALARM_PCT: number;
+export const STOP_PCT: number;
+export const QUOTA_MAX: number;
+export const WALK_DEPTH: number;
+
+/** A named stop: `code` is one of STOPS, `detail` what was seen (names, counts, paths; never a value of the environment). */
+export class RecorderStop extends Error {
+  readonly code: string;
+  readonly detail: Record<string, unknown>;
+  constructor(code: string, detail?: Record<string, unknown>);
+}
+
+/** The arguments of a recording (--out, --quota-bytes) or of a replay (--from-raw, --symbol, --day, --out); paths resolved. */
+export type Args = { mode: "record"; out: string; quota: number }
+  | { mode: "replay"; fromRaw: string; symbol: string; day: string; out: string };
+
+/** What a run takes from its caller (the test seam, point 22 of the plan): never from the command line nor the environment. */
+export interface RecorderIo {
+  env?: Record<string, string | undefined>;
+  execArgv?: readonly string[];
+  wallUs?: () => number;
+  monoNs?: () => bigint;
+  freeBytes?: (out: string) => number;
+  print?: (line: string, toStderr: boolean) => void;
+}
+
+/** The plan of a run once its guards pass: resume = --out is an L2 output to resume; for a recording, the bytes of --out, the free bytes
+ *  and the quota check (counts the bytes, journals quota_alarm once, stops at STOP_PCT %). */
+export type Plan = (Args & { mode: "replay"; resume: boolean })
+  | (Args & { mode: "record"; resume: boolean; used: number; free: number; check: () => number });
+
+export function parseArgs(argv: readonly string[]): Args;
+export function guardEnv(env: Record<string, string | undefined>, execArgv: readonly string[], platform?: string): void;
+export function guardOut(out: string, fs?: { exists?: (path: string) => boolean; real?: (path: string) => string }): boolean;
+export function bytesUnder(dir: string, depth?: number): number;
+export function createQuota(spec: { out: string; quota: number }, io: { wallUs: () => number; monoNs: () => bigint }): () => number;
+export function prepare(argv: readonly string[], io?: RecorderIo): Plan;
+export function run(argv: readonly string[], io?: RecorderIo): Promise<never>;
+export function main(argv: readonly string[], io?: RecorderIo): Promise<number>;
