@@ -105,14 +105,14 @@ export function derefVerdict(gateDecision: JsonObject, coverageVerdict: JsonObje
   return gd;
 }
 
-/** (3) OPENAPI-ERROR-CODE-1 (lot CM-3c-4a, Q-C5 condition 4): the frozen error bodies of the mirror, stripped, with every
- *  local `#/$defs/<name>` reference inlined (OpenAPI resolves `#` against its own document) and `$defs` dropped. */
-export function inlineDefs(node: Json, defs: JsonObject): Json {
-  if (Array.isArray(node)) return node.map((n) => inlineDefs(n, defs));
+/** (3) OPENAPI-ERROR-CODE-1 (lot CM-3c-4a, Q-C5 condition 4): the frozen error bodies of the mirror, stripped, with every local
+ *  `#/$defs/<name>` reference inlined (OpenAPI resolves `#` against its own document) and `$defs` dropped; fails closed (`defOfRef`). */
+export function inlineDefs(node: Json, defs: JsonObject, via: readonly string[] = []): Json {
+  if (Array.isArray(node)) return node.map((n) => inlineDefs(n, defs, via));
   if (node === null || typeof node !== "object") return node;
-  const ref = node["$ref"];
-  if (typeof ref === "string") return inlineDefs(asObject(defs[ref.replace(/^#\/\$defs\//, "")] ?? null, ref), defs);
-  return Object.fromEntries(Object.entries(node).filter(([k]) => k !== "$defs").map(([k, v]) => [k, inlineDefs(v, defs)]));
+  const name = "$ref" in node ? defOfRef(node, defs, via) : null;
+  if (name !== null) return inlineDefs(defs[name] ?? null, defs, [...via, name]);
+  return Object.fromEntries(Object.entries(node).filter(([k]) => k !== "$defs").map(([k, v]) => [k, inlineDefs(v, defs, via)]));
 }
 const TOOL_ERROR_SCHEMA = asObject(stripMeta(loadFrozen("tool-error.schema.json")), "ToolError");
 const TOOL_ERROR_DEFS = asObject(TOOL_ERROR_SCHEMA["$defs"] ?? null, "ToolError.$defs");
@@ -478,3 +478,19 @@ export const UKEMI_PREDICT_OUTPUT_SCHEMA: JsonObject = {
 /** SDK Standard Schemas for the ukemi-predict tool (the `registerTool` arguments at -5b). */
 export const ukemiPredictInputStandardSchema: StandardSchemaWithJSON = fromJsonSchema(UKEMI_PREDICT_INPUT_SCHEMA as unknown as JsonSchemaType);
 export const ukemiPredictOutputStandardSchema: StandardSchemaWithJSON = fromJsonSchema(UKEMI_PREDICT_OUTPUT_SCHEMA as unknown as JsonSchemaType);
+
+/** SCHEMA-PROJECTION-FAIL-CLOSED-1: the definition a `$ref` node of `inlineDefs` stands for (a function declaration, so it is
+ *  hoisted above its first use at load), or a throw, never a silent projection. Refused: a `$ref` that is not a local
+ *  `#/$defs/<name>` of a known object definition (another document, a deeper pointer, an escaped name, a non-string), a `$ref`
+ *  with sibling keywords (inlining would drop them), and a definition reached again on its own path (recursive: inlining
+ *  never ends). `via` is the path of definitions being inlined, so a definition used twice side by side is not recursive. */
+function defOfRef(node: JsonObject, defs: JsonObject, via: readonly string[]): string {
+  const ref = node["$ref"], local = "#/$defs/";
+  const name = typeof ref === "string" && ref.startsWith(local) ? ref.slice(local.length) : "";
+  if (/^$|[/~%]/.test(name) || !Object.hasOwn(defs, name)) throw new Error(`schema-projection: $ref ${JSON.stringify(ref)} does not name a known local definition (#/$defs/<name>)`);
+  asObject(defs[name] ?? null, local + name);
+  const siblings = Object.keys(node).filter((k) => k !== "$ref");
+  if (siblings.length > 0) throw new Error(`schema-projection: $ref ${local}${name} has sibling keywords (${siblings.join(", ")}) that inlining would drop`);
+  if (via.includes(name)) throw new Error(`schema-projection: $ref ${local}${name} is recursive (${[...via, name].join(" -> ")}); it cannot be inlined`);
+  return name;
+}
