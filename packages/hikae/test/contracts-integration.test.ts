@@ -52,6 +52,16 @@ test("verdict_scores_sha256_is_over_the_declared_order", () => {
   const t = baseVerdict(SCORES, TABLE_CELL);
   assert.deepEqual([t.qhat_unit, t.scale, t.cell_key, t.policy_row_sha256, t.policy_table_sha256], ["label", null, "usde/s0", "b".repeat(64), "c".repeat(64)]);
   assert.doesNotThrow(() => serialize(t), "a 1.1.0 verdict passes the closed-check couplings");
+  assert.equal(baseVerdict(SCORES, { ...TABLE_CELL, qhatUnit: "scale", scale: 0.02 }).scale, 0.02, "a non-null scale is copied (m-3)");
+});
+
+// killer: packages/hikae/src/interval-conformer.ts:102 CONST "cell: params.cell," -> "cell: { ...params.cell, cellKey: null, policyRowSha256: null, policyTableSha256: null },"
+test("conform_interval_carries_the_cell_on_the_served_path", () => {
+  const cell: VerdictCell = { qhatUnit: "scale", scale: 0.02, cellKey: "k/b0", policyRowSha256: "b".repeat(64), policyTableSha256: "c".repeat(64) };
+  const calib = Array.from({ length: 19 }, (_, i) => ({ yhat: 0, y: i + 1 }));
+  const v = conformInterval({ taskClass: "t", alpha: 0.1, calib, yhat: 0, nMin: 19, residual: [], producedAt: "2026-09-04T00:00:00Z", schemaVersion: "1.1.0", cell }).verdict;
+  assert.deepEqual([v.reason, v.qhat_unit, v.scale, v.cell_key, v.policy_row_sha256, v.policy_table_sha256], ["covered", "scale", 0.02, "k/b0", "b".repeat(64), "c".repeat(64)]);
+  assert.doesNotThrow(() => serialize(v));
 });
 
 // Contract 1.1.0 (spec section 5): a verdict without region has region and qhat null, abstains, keeps n_calib and the scores digest.

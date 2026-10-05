@@ -261,6 +261,8 @@ test("verdict_and_decision_schemas_are_1_1_0", () => {
   const without = (o: object, k: string) => Object.fromEntries(Object.entries(o).filter(([key]) => key !== k));
   for (const k of ["qhat_unit", "scale", "scores_sha256", "cell_key", "policy_row_sha256", "policy_table_sha256"]) assert.equal(vcv(without(set, k)), false, `${k} is required`);
   assert.equal(vgd(without(validGateDecision(), "request_sha256")), false, "request_sha256 is required");
+  assert.equal(vgd({ ...validGateDecision(), request_sha256: "X".repeat(64) }), false, "request_sha256 is lowercase hex (m-4)");
+  assert.equal(vcv({ ...set, cell_key: "" }), false, "cell_key is never empty (m-4)");
   const version = (contracts as Record<string, unknown>)["SCHEMA_VERSION"];
   assert.equal(version, "1.1.0", "one exported version constant");
   const versionOf = (name: string) => (load(name) as { properties: { schema_version: { const?: string; pattern?: string } } }).properties.schema_version;

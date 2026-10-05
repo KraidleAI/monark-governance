@@ -122,3 +122,15 @@ test("l3_calib_and_regionless_reasons_abstain_with_the_verdict_reason", () => {
   assert.equal(gate(input({ verdict: { ...none, reason: "covered" }, intent: "up" })).reason, "under_calib", "no region, served reason: under_calib");
   assert.equal(gate(input({ verdict: mkVerdict(["up"], 0, "covered"), intent: "up", nCalib: 49 })).reason, "under_calib", "nCalib < nMin");
 });
+
+// killer: packages/contracts/src/enums.ts:33 CONST "\"attestation_absent\", \"attestation_refused\"," -> ""
+test("l3_reserved_reasons_abstain_with_their_reason_on_a_served_region", () => {
+  const served = (reason: CoverageVerdict["reason"]) => gate(input({ verdict: mkVerdict(["up"], 0, reason), intent: "up" }));
+  for (const reason of ["upstream_timeout", "attestation_absent", "attestation_refused", "binding_broken"] as const) assert.deepEqual([served(reason).action, served(reason).reason], ["abstain", reason], reason);
+});
+
+// killer: packages/hikae/src/l3-gate.ts:94 CONST "reason: noRegionReason ? input.verdict.reason : \"under_calib\"" -> "reason: input.nCalib < input.nMin ? \"under_calib\" : noRegionReason ? input.verdict.reason : \"under_calib\""
+test("l3_verdict_reason_wins_over_ncalib_below_nmin", () => {
+  assert.equal(gate(input({ verdict: mkVerdict(["up", "down"], 1, "calib_silence"), intent: "up", nCalib: 10 })).reason, "calib_silence");
+  assert.equal(gate(input({ verdict: { ...mkVerdict(["up"], 0, "out_of_support"), region: null, qhat: null, abstain: true }, intent: "up", nCalib: 10 })).reason, "out_of_support");
+});

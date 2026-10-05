@@ -129,3 +129,8 @@ test("verdict_1_1_0_scores_digest_matches_scores", () => {
   assert.throws(verdictCheck({ ...v, scores_sha256: scoresSha256(sorted) }), /scores_sha256 breaks its coupling with scores/);
   assert.throws(verdictCheck({ ...v, scores: [1, 0, 0, 0, 1] }), /scores_sha256 breaks its coupling with scores/);
 });
+
+// killer: packages/contracts/src/enums.ts:33 CONST "[\"upstream_timeout\", \"attestation_absent\", \"attestation_refused\"," -> "[\"attestation_absent\", \"attestation_refused\","
+test("verdict_1_1_0_reserved_reasons_admit_no_region", () => {
+  for (const reason of ["upstream_timeout", "attestation_absent", "attestation_refused", "binding_broken"]) assert.doesNotThrow(verdictCheck({ ...validVerdictSet(), ...NO_REGION, reason }), reason);
+});
