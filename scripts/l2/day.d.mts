@@ -12,7 +12,7 @@ export const STOPS: readonly string[];
 export const INDEX_BOUND: number;
 export const DAY_FILES: readonly string[];
 
-/** A named stop: `code` is one of STOPS (bad_symbol, bad_day, place_time_unsafe, day_sealed, index_bound, stray_file; off_scale, bad_scale, minutes_bound of P1-c2). */
+/** A named stop: `code` is one of STOPS (bad_symbol, bad_day, place_time_unsafe, day_sealed, index_bound, stray_file; off_scale, bad_scale, minutes_bound of P1-c2; canon_bound of P1-c3). */
 export class DayStop extends Error {
   readonly code: string;
   readonly detail: Record<string, unknown>;
@@ -49,8 +49,10 @@ export interface SealSpec {
   derive?: ((ctx: DeriveContext) => Derived) | null;
 }
 
-/** What the hook reads: the day's bounds in microseconds, the segments read ([cid, seg], sorted), the tail marks by "cid/seg". */
-export interface DeriveContext { out: string; symbol: string; day: string; start: number; end: number; segs: [string, string][]; marks: Map<string, unknown>; dir: string }
+/** What the hook reads: the day's bounds in microseconds, the segments read ([cid, seg], sorted), the tail marks by "cid/seg", the day's
+ *  index by stream (P1-c3): int32 triples, the segment's number in segs, the rank, the mark (0 none, 1 recv_day; 2 late, 3 early + 4 x day). */
+export interface DeriveContext { out: string; symbol: string; day: string; start: number; end: number; segs: [string, string][]; marks: Map<string, unknown>; dir: string;
+  index: Map<string, { stream: string | null; col: { a: Int32Array; n: number } }> }
 
 /** What the hook adds before SHA256SUMS: files of DAY_FILES but the seal's and the anchors' [name, text or its chunks], new manifest and
  *  missing.json keys (else stray_file), paths listed relative to the day folder, modules hashed into script_sha256. */
