@@ -30,7 +30,9 @@ export type {
 } from "./types.ts";
 
 export {
+  SCHEMA_VERSION,
   COVERAGE_REASONS,
+  REASONS_WITHOUT_REGION,
   GATE_ACTIONS,
   METHODS,
   ATTESTED_FLOW_RESIDUALS,
@@ -39,7 +41,6 @@ export {
 } from "./enums.ts";
 
 export { intentInRegion } from "./region.ts";
-export { calibDigest } from "./calib-digest.ts";
 export { FORBIDDEN_KEYS, findForbiddenKey, assertNoForbiddenKey } from "./forbidden-keys.ts";
 export {
   ALLOWED_KEYS,

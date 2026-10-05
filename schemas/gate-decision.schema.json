@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://monark.local/schemas/gate-decision.schema.json",
   "title": "GateDecision",
-  "description": "L3 gate decision (consumed by UKEMI). intent is string|number|null (the set|interval union does NOT leak, C6): the containment predicate is 'intent in labels' (set) or 'lo <= intent <= hi' (interval). remaining_budget = B_t (remaining conformal authorization capacity), a MONARK attribute, depletable, NEVER a yield (ADR-CERT-MONARK). ADR-M001 Decision 5.",
+  "description": "L3 gate decision (consumed by UKEMI), contract 1.1.0. request_sha256 is the digest of the canonical writing of the request envelope as received. intent is string|number|null (the set|interval union does NOT leak, C6): the containment predicate is 'intent in labels' (set) or 'lo <= intent <= hi' (interval). remaining_budget = B_t (remaining conformal authorization capacity), a MONARK attribute, depletable, NEVER a yield (ADR-CERT-MONARK). ADR-M001 Decision 5.",
   "type": "object",
   "additionalProperties": false,
   "required": [
@@ -13,16 +13,18 @@
     "intent",
     "verdict",
     "remaining_budget",
+    "request_sha256",
     "reason"
   ],
   "properties": {
-    "schema_version": { "type": "string", "pattern": "^\\d+\\.\\d+\\.\\d+$" },
+    "schema_version": { "const": "1.1.0" },
     "action": { "enum": ["commit", "defer", "abstain"] },
     "allow": { "type": "boolean" },
     "tool": { "type": "string", "pattern": "^[ -~]+$", "minLength": 1 },
     "intent": { "type": ["string", "number", "null"] },
     "verdict": { "$ref": "coverage-verdict.schema.json" },
     "remaining_budget": { "type": "number" },
+    "request_sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
     "reason": {
       "enum": [
         "covered",
@@ -37,7 +39,12 @@
         "attestation_absent",
         "attestation_refused",
         "binding_broken",
-        "non_evaluable"
+        "non_evaluable",
+        "calib_silence",
+        "calib_vetoed",
+        "calib_retired",
+        "out_of_support",
+        "region_degenerate"
       ]
     }
   }

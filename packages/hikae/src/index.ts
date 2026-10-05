@@ -6,7 +6,7 @@
  *   L2 (l2-monitor) — IM-OCP MONITOR (no guarantee claimed, branch b, D4).
  *   L3 (l3-gate)    — COMMIT/DEFER/ABSTAIN policy, closed predicate (D5). No trading (D0).
  *   region          — buildIntervalRegion (M5 invariant, bounded-or-abstention), buildSetRegion.
- *   verdict         — CoverageVerdict assembly (calib_digest by reference).
+ *   verdict         — CoverageVerdict assembly (scores_sha256 over the declared order; verdict without region).
  *   predictor       — internal:momentum-4c, internal:oracle-didactique ; labelOf (D7/D8).
  *   s2              — S2 instrument (disposable harness ; labelled fixtures).
  *
@@ -40,8 +40,8 @@ export {
 export type { SetRegion, IntervalRegion, IntervalRegionResult, BtcDirLabel } from "./region.ts";
 
 // Verdict assembly.
-export { buildVerdict, underCalibVerdict, serialize } from "./verdict.ts";
-export type { VerdictParams } from "./verdict.ts";
+export { buildVerdict, noRegionVerdict, underCalibVerdict, serialize } from "./verdict.ts";
+export type { VerdictParams, VerdictCell, NoRegionParams } from "./verdict.ts";
 
 // Interval conformer (UKEMI regression, ADR-M003 D6.1) + synthetic class ukemi-liquidable-24h (D6.2).
 export { conformInterval, absoluteResidualScores } from "./interval-conformer.ts";

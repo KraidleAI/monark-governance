@@ -31,6 +31,7 @@ const COMMON = {
   residual: [] as string[],
   producedAt: "2026-09-17T00:00:00Z",
   schemaVersion: "1.0.0",
+  cell: { qhatUnit: "label" as const, scale: null, cellKey: null, policyRowSha256: null, policyTableSha256: null },
 };
 
 // §3.1 — conformer, msUSD-like degenerate calibration (190 residuals=0 + 1 dust) at α=0.10 PINNED.
@@ -92,6 +93,7 @@ test("interval_nondegenerate_l3_handbuilt_zero_width_abstains", () => {
     residual: [],
     producedAt: "2026-09-17T00:00:00Z",
     schemaVersion: "1.0.0",
+    cell: { qhatUnit: "label", scale: null, cellKey: null, policyRowSha256: null, policyTableSha256: null },
   });
   const input: GateInput = {
     intent: 100, // intent ∈ [100,100] ⇒ WITHOUT the guard (mutant M2) this COMMITs
@@ -107,6 +109,7 @@ test("interval_nondegenerate_l3_handbuilt_zero_width_abstains", () => {
     evaluable: true,
     tool: "perps_order_preview",
     schemaVersion: "1.0.0",
+    requestSha256: "e".repeat(64),
   };
   const d = gate(input);
   assert.equal(d.action, "abstain", "zero-width interval region ⇒ ABSTAIN (NDG-1 D3(b)), never COMMIT");
@@ -137,6 +140,7 @@ test("interval_nondegenerate_set_singleton_qhat0_still_commits", () => {
     residual: [],
     producedAt: "2026-09-17T00:00:00Z",
     schemaVersion: "1.0.0",
+    cell: { qhatUnit: "score", scale: null, cellKey: null, policyRowSha256: null, policyTableSha256: null },
   });
   const d = gate({
     intent: "up",
@@ -152,6 +156,7 @@ test("interval_nondegenerate_set_singleton_qhat0_still_commits", () => {
     evaluable: true,
     tool: "perps_order_preview",
     schemaVersion: "1.0.0",
+    requestSha256: "e".repeat(64),
   });
   assert.equal(d.action, "commit", "set singleton q̂=0, intent ∈ {up} ⇒ COMMIT (D5, not degenerate)");
   assert.equal(d.reason, "covered");
@@ -179,6 +184,7 @@ test("interval_nondegenerate_real_interval_still_commits", () => {
     evaluable: true,
     tool: "perps_order_preview",
     schemaVersion: "1.0.0",
+    requestSha256: "e".repeat(64),
   });
   assert.equal(d.action, "commit", "width 198 <= τ 250, intent ∈ [901,1099] ⇒ COMMIT");
   assert.equal(d.reason, "covered");
