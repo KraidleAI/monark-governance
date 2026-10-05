@@ -140,7 +140,7 @@ G2 : `/home/user/recherches/coordination/pieces/2026-10-04-G2-recherches/G2-r25-
 
 | Point | Ce qui change | Test (tueur) |
 |---|---|---|
-| **B-1** (un `.gitmodules` à `ignore = all` cache le gitlink) | `refusals` lit `diff --raw` sous `--ignore-submodules=none` (`scripts/lot-size-integration.mjs:213`). `-c diff.ignoreSubmodules=none` ne l emporte pas sur le `.gitmodules` ; l option de ligne de commande, si. L oracle appelle la même fonction : le même argument le couvre. Aucune autre lecture du lot ne liste d entrées (le compte `W` cache aussi le gitlink, 0 au lieu de 1, sans effet une fois le refus tenu). Phrase dans D9 terdecies | nouveau `r25h_ci_refuses_a_gitlink_hidden_by_gitmodules_ignore` : `vendor/subrepo` et un `.gitmodules` de 4 lignes (`ignore = all`), posés par plomberie : `pin` nomme `gitlink vendor/subrepo` et sort avec 2, job rouge, oracle `refused` rouge (base : `Changed` 4, vert, oracle `unproven` vert). Tueur `:213` `"--ignore-submodules=none", ` retiré |
+| **B-1** (un `.gitmodules` à `ignore = all` cache le gitlink) | `refusals` lit `diff --raw` sous `--ignore-submodules=none` (`scripts/lot-size-integration.mjs:213`). `-c diff.ignoreSubmodules=none` ne l emporte pas sur le `.gitmodules` ; l option de ligne de commande, si. L oracle appelle la même fonction : le même argument le couvre. Les autres lectures (`scripts/lot-size-integration.mjs:124`, `:126`, `:128`, `scripts/oracle/r25.mjs:27`) restent sans l option : un gitlink caché n y coûte qu une ligne, un changement de type vers du code reste visible sous `ignore = all` (mesuré : `T`, 3 000 insertions comptées), et `pin` refuse tout gitlink de la plage ; le compte `W` cache aussi le gitlink, 0 au lieu de 1, sans effet une fois le refus tenu. Phrase dans D9 terdecies | nouveau `r25h_ci_refuses_a_gitlink_hidden_by_gitmodules_ignore` : `vendor/subrepo` et un `.gitmodules` de 4 lignes (`ignore = all`), posés par plomberie : `pin` nomme `gitlink vendor/subrepo` et sort avec 2, job rouge, oracle `refused` rouge (base : `Changed` 4, vert, oracle `unproven` vert). Tueur `:213` `"--ignore-submodules=none", ` retiré |
 | **R-1** (UTF-16 avec BOM : séparateurs U+2028 hors UTF-8) | un chemin texte dont le blob commence par `ff fe`, `fe ff`, `ff fe 00 00` ou `00 00 fe ff` est refusé `utf16-bom` (`:228`, même ligne). 0 au tronc (mesuré : 0 sur 1 038). Phrase dans D9 terdecies | nouveau `r25h_ci_refuses_a_utf16_or_utf32_bom` : quatre chemins, un par BOM, refusés (base : `Changed` 4, vert). Tueur `:228` `fffe|feff|0000feff` -> `0000feff` |
 | **R-2** (Q-a) | rien dans le code | `r25a_ci_w_fails_closed_without_the_pinned_read` : troisième cas `info/attributes *.cjs` (`src/a.cjs`, 300 lignes, `*.cjs -diff`) : `pin` refuse, job rouge ; tueur `:178` rétabli (`if (infoAttributes(cwd)) throw` -> `if (false) throw` : `pin` rc 0, `Changed lines: 0`, vert), `:177` gardé. Les deux cas `info/attributes` courent sous `win32` |
 | **R-3**, **R-4**, Q-b | G7 seulement : section 8 réécrite (prix de (b) selon le régime de l oracle, (a) ne ferme pas ; variante à liste inversée et ses mesures), section 10 (ordre inversé, Q-c ouverte) | sans objet |
@@ -165,3 +165,16 @@ Commits du pli : `18e5f5e5` (tests rouges B-1, R-1, R-2), `45041729` (U+2028 du 
 | `npm run test:main` (tête `02903247`, la fusion qui suit ne touche que `docs/`) | **2 474 tests, 2 452 verts, 0 rouge, 0 annulé, 22 sautés**, exit 0 |
 | R-25 (`r25()` contre `origin/lot/etude-suite`, `75c6bc52`, tête `1f3afb2b`) | `STAT 209 insertions, 27 deletions, changed 236`, `CONTENT_STAT 0`, GREEN, **sous 547** |
 | Mesures du pli au tronc | 0 BOM UTF-16/32 sur 1 038 fichiers sous les pathspecs ; refus du dépôt lui-même : `[]` (test `r25h_every_trunk_asset_passes_its_magic`) |
+
+### 11.3 G2 delta du pli
+
+Verdict **NON BLOQUANT** : B-1, R-1 et R-2 fermés, tueurs `:177`, `:178`, `:213` et `:228` tirés et tués. Observations :
+
+| Point | Suite |
+|---|---|
+| N-a (autres lectures sans `--ignore-submodules=none`) | phrase de 11.1 corrigée ci-dessus |
+| N-b (`big16.ts` et `big32.ts` : BOM big-endian, corps little-endian) | sans effet, le refus ne lit que le préfixe ; laissé tel quel |
+| N-c (titre de D9 terdecies : « trois refus ») | titre corrigé : quatre refus, `utf16-bom` couvre aussi l UTF-32 |
+| N-d (ligne d erreur de git en double quand le stderr n est pas capturé) | cosmétique, rien de sensible ; laissé tel quel |
+| N-e (`utf16-bom` refuse aussi du texte Windows ordinaire : `.ps1` de PowerShell 5.1, `.reg`) | fail-closed voulu, rien de tel au tronc ; demi-phrase ajoutée dans D9 terdecies |
+| N-f (`&#x2028;` dans un `.svg`, code sur une ligne) | résidu de R25-MINIFIED-LINE-1, déjà écrit |
