@@ -43,7 +43,7 @@ d'export).
 | m-8 | re-revue de c4 | `guardOut` : un parent fichier ordinaire arrête, `out_not_l2` (point 4) |
 | n-5 | G2 de c4 | une sortie reprise n'est adoptée que si la première ligne de son journal est un `start` de cet enregistreur (point 5) |
 | n-5bis | re-revue de c4 | écritures de la commande par un descripteur dont `nlink` vaut 1 ; `journal.jsonl` et `requests.jsonl` contrôlés à chaque `check()` (point 5) |
-| n-7 | re-revue de c4 | chemin réel de `--out` fixé à la prise, revérifié à chaque `check()` (point 5) ; l'écriture relative à un dossier ouvert n'existe pas en node (pas d'`openat`) : Q-C5-6 |
+| n-7 | re-revue de c4 | chemin réel de `--out` fixé à la prise, revérifié à chaque `check()` (point 5) ; node n'a pas d'`openat`, mais sous Linux `/proc/self/fd/<fd>/…` en tient lieu (prémisse corrigée au repli du G2 ; Q-C5-6, point 5) |
 | n-2 | G2 de c4 | les gardes de `--out` refaites à chaque `check()`, `.git` compris (point 5) |
 | n-8 | re-revue de c4 | `ELOOP` d'un ajout nommé `out_not_l2` (point 5) |
 | n-3 de c4 | G2 de c4 | re-différé à c5-bis : le rythme de `check()` est un horaire de la boucle ; donnée : 3,3 µs par fichier, environ 1 s à 300 000 fichiers |
@@ -65,8 +65,9 @@ Fichiers : `scripts/l2/seal.mjs` et `scripts/l2/seal.d.mts` (neufs), `scripts/re
    de c5-bis (horaires) et de c6 (rejeu).
 2. **L2-SNAPSHOT-RELOAD-1** (contrat d'écriture de `rest/` : b1 écrit chaque instantané une fois, `flag: "wx"`, jamais réécrit) : à la
    pose du carnet, l'instantané relu dont le `lastUpdateId` diffère de celui lu à la liste, ou illisible, arrête le dérivé du symbole,
-   nommé `snapshot_reload` (aux `STOPS` de `day.mjs`), rien d'écrit (Q-C5-9). Ni `TypeError` hors des `STOPS`, ni carnet posé sur un
-   corps autre que celui haché.
+   nommé `snapshot_reload` (aux `STOPS` de `day.mjs`), rien d'écrit (Q-C5-9). Plus de `TypeError` hors des `STOPS`. Limite (n-1 du G2 de
+   c5) : seul le `lastUpdateId` est comparé ; un corps réécrit avec le même `lastUpdateId` et d'autres niveaux passe, et `SHA256SUMS`
+   hache le fichier en fin de scellé. Fermer demande de hacher les octets lus à la pose (M-1 ou c6).
 3. **L2-MINUTES-SIZE-1, mesure conjointe** (Node v24.21.0, ce poste, 2026-10-05 entre 06:30 et 07:10 UTC). Jour synthétique au ras de
    `INDEX_BOUND` (4 193 304 trames, dont 4 191 664 `@bookTicker`, pire cas de c1), `minutes.jsonl` de 58,6 Mio (820 niveaux par côté
    dans ±100 pb, une différence par minute), un passage de même clé de 15 Mio (200 trames de `t` égal) ; scellé par `sealOf` ; cgroup v1
@@ -78,11 +79,18 @@ Fichiers : `scripts/l2/seal.mjs` et `scripts/l2/seal.d.mts` (neufs), `scripts/re
    - bornes par défaut (minutes au ras de 128 Mio, 1 680 niveaux par côté ; passage de 31 Mio), tas plafonné à 256 Mio : tuée (OOM) ;
    - moitié de la borne d'index (2 096 152 trames), bornes provisoires, sans plafond : scellé sous le cgroup, VmHWM 525 Mio.
 
+   Lecture du VmHWM (repli du G2, m-5) : VmHWM compte des pages de fichiers que le cgroup ne facture pas forcément ; 525 Mio au-dessus
+   d'une limite de 512 Mio n'est donc pas une contradiction, mais ce n'est pas non plus la métrique du budget. La mesure de clôture lit
+   celle du cgroup (`memory.max_usage_in_bytes` en v1, `memory.peak` en v2).
+
    Lecture : la mesure conjointe échoue au pire cas sans plafond de tas, même avec les bornes provisoires ; elle passe avec elles et un
    tas plafonné ; elle échoue aux bornes par défaut. Ce lot pose donc les bornes provisoires (`SEAL_BOUNDS` : 64 Mio et 32 Mio) et
    renvoie le plafond du tas à c5-bis, qui scelle dans un fil de travail (Q-5 de a2) : `resourceLimits.maxOldGenerationSizeMb` du
    `Worker` plafonne le tas sans drapeau de node (la garde d'`execArgv` de c4 reste entière), et un dépassement y devient
-   `ERR_WORKER_OUT_OF_MEMORY`, nommable, au lieu d'une mort du processus (Q-C5-3). L'item reste ouvert : sa clôture est la même mesure,
+   `ERR_WORKER_OUT_OF_MEMORY`, nommable, au lieu d'une mort du processus (Q-C5-3). **Prémisse contredite par la G2 (m-5)** : sous node
+   v24.21.0, `maxOldGenerationSizeMb` n'est pas un plafond dur (tas d'un `Worker` plafonné à 64 Mio monté à environ 1,95 Gio ;
+   `ERR_WORKER_OUT_OF_MEMORY` après 54 à 71 s) et ne compte ni les `ArrayBuffer` ni les `Buffer` : les colonnes de l'index et de canon
+   (environ 224 Mio au ras d'`INDEX_BOUND`) et le passage de canon sont externes. c5-bis doit donc mesurer, pas supposer (G7, « G2 »). L'item reste ouvert : sa clôture est la même mesure,
    faite dans le fil de travail de c5-bis, puis sous l'unité (P3). Durée (n-3 de c3) : un scellé au ras de la borne prend de 45 s (index
    seul) à 190 s (composition, tas plafonné) par symbole : c5-bis ne scelle jamais sur le fil des liaisons.
 4. **m-8** (`record-binance-l2.mjs:104`, changée en place) : `--out` absent dont l'ancêtre existant le plus proche n'est pas un dossier :
@@ -96,6 +104,11 @@ Fichiers : `scripts/l2/seal.mjs` et `scripts/l2/seal.d.mts` (neufs), `scripts/re
    - n-7 : `--out` créé, son chemin réel fixé (`realpathSync.native`) ; `check()` arrête (`out_not_l2`, `why: "real path changed"`) si
      le chemin réel de `--out` a changé ou n'existe plus ;
    - n-2 : `check()` refait `guardOut(--out)` : `.git` au-dessus du chemin donné et du chemin réel, types des entrées ;
+   - repli du G2 (m-1 à m-4, n-2 à n-4 ; détail au G7) : `guardOut` refait au début d'`adopt` et juste avant la ligne `start` ; sous
+     Linux, `--out` ouvert une fois (`O_DIRECTORY | O_NOFOLLOW`), et tout parcours ou ajout de la commande passe par
+     `/proc/self/fd/<fd>/…`, l'équivalent d'`openat` (ailleurs : le chemin réel, fenêtre déclarée) ; dossier fixé par `dev` et `ino` ;
+     le chemin réel et le dossier revérifiés juste avant chaque ajout ; `ENOENT`, `ENOTDIR`, `ELOOP` en chemin : `out_not_l2` ;
+     `prepare` compte sans journaliser, l'alarme part au premier `check()` d'`adopt` ; ajouts en `O_NONBLOCK`, fichier ordinaire exigé ;
    - n-5bis : `appendLine(path, line)` écrit une ligne par un descripteur ouvert `O_APPEND | O_NOFOLLOW` dont `fstat().nlink` vaut 1,
      sinon `out_not_l2`, rien d'écrit ; l'alarme de quota de c4 passe par elle (`:149`, changée en place) ; `check()` contrôle aussi
      `nlink` de `journal.jsonl` et de `requests.jsonl` ;
@@ -136,6 +149,9 @@ l'autre, rougit par assertion. Le test de `derive.mjs` rougit à la base par son
 - `l2_append_link_named` (n-8 ; sauté sous win32, sans `O_NOFOLLOW`) : `journal.jsonl` remplacé par un lien : `out_not_l2`, `a link`.
   Tueur : `// killer: scripts/record-binance-l2.mjs:189 CONST "e.code === \"ELOOP\"" -> "false"`.
 
+Repli du G2 (2026-10-05) : onze tests de plus, un tueur chacun ; les lignes des tueurs existants renumérotées au nouveau gel, celui de
+`l2_check_real_path_pinned` porté sur la condition du chemin réel ; liste et tueurs au G7, section « G2 ».
+
 ## Preuve rouge, contrôles, taille
 
 - Commit de ce G0 ; commit des tests seuls (rouges, avec les `.d.mts`) ; gel ; avant le push, tronc relu, fusionné par un commit de
@@ -168,15 +184,17 @@ l'autre, rougit par assertion. Le test de `derive.mjs` rougit à la base par son
   (défaut : oui)
 - **Q-C5-3** : bornes provisoires posées (64 Mio, 32 Mio) ; le scellé de c5-bis tourne dans un `Worker` au tas plafonné par
   `resourceLimits` (valeur mesurée : 256 Mio passe au pire cas), jamais par un drapeau de node ; `ERR_WORKER_OUT_OF_MEMORY` devient un
-  arrêt nommé du dérivé du symbole. `INDEX_BOUND` inchangé. (défaut : oui)
+  arrêt nommé du dérivé du symbole. `INDEX_BOUND` inchangé. (défaut : oui ; prémisse du `Worker` contredite par la G2, m-5 : à mesurer
+  en c5-bis, voir G7)
 - **Q-C5-4** : la ligne `start` porte `recorder` en plus du contrat de Q-C1-10 ; `missingOf` de c1 ne lit que `event`. (défaut : oui)
 - **Q-C5-5** : la vérification de n-5 est dans `adopt`, pas dans `guardOut` ni `prepare` : les fixtures de c4 (journaux de quelques
   octets) restent valides, et `prepare` n'écrit que l'alarme de quota, désormais par `appendLine` (aucun lien suivi, un seul lien
-  physique). Reste : à 70 % au départ, l'alarme peut s'ajouter au journal d'un dossier étranger hors de tout dépôt avant que `adopt` le
-  refuse. (défaut : accepté, déclaré)
-- **Q-C5-6** : n-7 par chemin réel fixé et revérifié à chaque `check()` ; l'écriture relative à un dossier ouvert demande `openat`, absent
-  de node. La fenêtre entre deux `check()` reste, et les modules a3, b1 et b2 écrivent par chemin (`appendFileSync`). (défaut : accepté,
-  déclaré ; c5-bis la borne par son rythme)
+  physique). Le reste déclaré à l'ouverture (à 70 % au départ, l'alarme pouvait s'ajouter au journal d'un dossier étranger avant que
+  `adopt` le refuse) est fermé au repli du G2 (n-4) : `prepare` ne journalise plus, l'alarme part au premier `check()` d'`adopt`. (défaut : accepté)
+- **Q-C5-6** : n-7 par chemin réel fixé et revérifié à chaque `check()`. Prémisse corrigée au repli du G2 : node n'a pas d'`openat`,
+  mais sous Linux `/proc/self/fd/<fd>/…` donne l'écriture relative à un dossier ouvert (vérifié sous node v24.21.0) ; la commande y passe
+  désormais. Hors Linux (win32) : chemin réel fixé, revérifié avant chaque ajout, fenêtre résiduelle déclarée. Les modules a3, b1 et b2
+  écrivent encore par chemin (`appendFileSync`) : c5-bis peut leur passer cette racine. (défaut : accepté, déclaré)
 - **Q-C5-7** : n-5bis pour les écritures des modules : contrôlé à chaque `check()` (`journal.jsonl`, `requests.jsonl`), pas à chaque
   ajout de a3, b1, b2. (défaut : accepté, déclaré)
 - **Q-C5-8** : n-6 et n-7 de c3 re-différés à M-1 (trames réelles nécessaires). (défaut : oui)
