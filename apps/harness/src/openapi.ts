@@ -89,7 +89,7 @@ export function buildOpenApi(): JsonObject {
             description: "Origin present and not a monarkgate.tech origin (K-9).",
           },
           "500": {
-            description: "The tool output broke its frozen contract, or the tool failed; never a stack.",
+            description: "The tool output broke its frozen contract, or the tool failed (both name the operation); or the request failed in transport (no operation); never a stack.",
             content: { "application/json": { schema: TOOL_ERROR_500_SCHEMA } },
           },
         },

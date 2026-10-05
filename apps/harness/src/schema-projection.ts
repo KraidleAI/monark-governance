@@ -116,9 +116,17 @@ function inlineDefs(node: Json, defs: JsonObject): Json {
 }
 const TOOL_ERROR_SCHEMA = asObject(stripMeta(loadFrozen("tool-error.schema.json")), "ToolError");
 const TOOL_ERROR_DEFS = asObject(TOOL_ERROR_SCHEMA["$defs"] ?? null, "ToolError.$defs");
-/** The 400 body (the root: tool_error, invalid_input, invalid_json) and the 500 body ($defs/InternalError). */
+/** The 400 body (the root: tool_error, invalid_input, invalid_json). */
 export const TOOL_ERROR_400_SCHEMA = asObject(inlineDefs(TOOL_ERROR_SCHEMA, TOOL_ERROR_DEFS), "ToolError 400");
-export const TOOL_ERROR_500_SCHEMA = asObject(inlineDefs(TOOL_ERROR_DEFS["InternalError"] ?? null, TOOL_ERROR_DEFS), "ToolError 500");
+const INTERNAL_500 = asObject(inlineDefs(TOOL_ERROR_DEFS["InternalError"] ?? null, TOOL_ERROR_DEFS), "ToolError 500");
+/** The transport-level 500 that the frozen description names outside its branches, "without operation" (server.ts, before or
+ *  around any operation): $defs/InternalError restricted to its `error` property, so exactly the body that server.ts sends. */
+const TRANSPORT_500: JsonObject = {
+  ...INTERNAL_500, required: ["error"],
+  properties: { error: asObject(asObject(INTERNAL_500["properties"] ?? null, "InternalError.properties")["error"] ?? null, "InternalError.error") },
+};
+/** The 500 body: $defs/InternalError (an operation failed), or the transport-level 500 (TRANSPORT-500-SCHEMA-1). */
+export const TOOL_ERROR_500_SCHEMA: JsonObject = { oneOf: [INTERNAL_500, TRANSPORT_500] };
 
 /** Non-frozen gate parameters (ADR-M005 D5/D6, caller-carried). Declared here, never in schemas/.
  *  (ADR-M007 D7): the OPTIONAL `calibration` object opens the BYO loop — the caller supplies its
