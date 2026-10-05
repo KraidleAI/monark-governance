@@ -2,7 +2,7 @@
 
 - **Mission** : item **R25-ASSET-POLYGLOT-1**, option (c) **réduite**, tranchée par MONARK pour Q-c (message `2026-10-05-MONARK-vers-RECHERCHES-d2-z3-qc.md`, section 3) et chiffrée par la pièce `coordination/pieces/2026-10-05-qc-option-c/PRIX-option-c.md`. **Durcissement, pas fermeture** : l item reste ouvert, (a) chiffrée comme construction de fermeture.
 - **Branche** : `recherches/r25-asset-structure-1`, depuis le tronc `origin/lot/etude-suite` = `e4aac057` (fusion de #173, R25-MINIFIED-LINE-1). Aucun rebase ; une avance du tronc entre par un commit de fusion. Aucune PR ouverte (à la main de MONARK).
-- **Statut** : G0 et tests rouges. Le gel n est pas poussé.
+- **Statut** : G0 et tests rouges (`c30780bd`) ; gel poussé ensuite, compte rendu au G7 `docs/G7-lot-r25-asset-structure-1.md` (R-25 mesuré : 270).
 
 ## 1. Existant mesuré (tronc `e4aac057`, Node 24.21.0, git 2.43.0, lecture par objets)
 
