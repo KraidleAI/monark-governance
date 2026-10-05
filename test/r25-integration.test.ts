@@ -15,7 +15,7 @@ import { dirname, join } from "node:path";
 import { pathToFileURL } from "node:url";
 import type { AddressInfo } from "node:net";
 import { startLoopback } from "./helpers/loopback.ts";
-import { buildProof, effective, R25_DIFF_RE, REPO, SCHEMA, specsOf } from "../scripts/lot-size-integration.mjs";
+import { ATTRIBUTES, BINARY_ASSETS, buildProof, effective, R25_DIFF_RE, REPO, SCHEMA, specsOf } from "../scripts/lot-size-integration.mjs";
 
 const ROOT = join(import.meta.dirname, "..");
 const REAL_CI = readFileSync(join(ROOT, ".github", "workflows", "ci.yml"), "utf8");
@@ -389,10 +389,10 @@ test("oracle_r25_w_reads_under_the_module_pin - G2 delta3 m-g: a commit edits on
 }));
 
 // killer: scripts/oracle/r25.mjs:27 CONST ", []]" -> "]"
-test("oracle_r25_w_is_never_below_the_ci_read - G2 delta3 m-h: a measured .gitattributes `*.ttf diff` makes src/blob.ttf (a NUL byte, then 3 000 lines; a declared binary asset, which attrTree leaves to git's detection) count 3 001 in the measured tree's read; the oracle's W reads 3 001 too (the larger of its attrTree read and that read), not 0", () => withFx((fx) => {
+test("oracle_r25_w_is_never_below_the_ci_read - G2 delta3 m-h: a measured .gitattributes `*.ttf diff` makes apps/site/app/fonts/blob.ttf (a NUL byte, then 3 000 lines; a declared binary asset in its directory, which attrTree leaves to git's detection) count 3 001 in the measured tree's read; the oracle's W reads 3 001 too (the larger of its attrTree read and that read), not 0", () => withFx((fx) => {
   fx.put(".gitattributes", "*.ttf diff\n");
   const base = fx.commit("attributes", "x.txt", 1);
-  fx.put("src/blob.ttf", `\0\n${lines("blob", 3000)}`);
+  fx.put("apps/site/app/fonts/blob.ttf", `\0\n${lines("blob", 3000)}`);
   fx.g("add", "-A");
   fx.g("commit", "-qm", "blob");
   assert.deepEqual([fx.written(base)[0], oracle(fx, base, null).counts[0]?.changed], [3001, 3001]);
@@ -544,16 +544,16 @@ test("r25a_ci_w_reads_under_the_module_pin - O-1, delta3 m-g on the CI side: a P
   assert.equal(changed(ciRun(fx, hostile)), "3002");
   const pin = spawnSync("bash", ["--noprofile", "--norc", "-c", 'eval "$(node scripts/lot-size-integration.mjs pin)" && git config --show-scope --get-regexp "^(merge|diff|core)\\." && echo "$LC_ALL $GIT_ATTR_NOSYSTEM $GIT_ATTR_SOURCE ${GIT_DIFF_OPTS-unset}"'], { cwd: fx.dir, encoding: "utf8", env: { ...process.env, ...hostile, GIT_DIFF_OPTS: "--unified=0", LC_ALL: "fr_FR.UTF-8" } });
   const command = pin.stdout.split("\n").filter((l) => l.startsWith("command\t")).map((l) => l.slice(8).replace(" ", "="));
-  assert.deepEqual([command.sort(), pin.stdout.trim().split("\n").at(-1)], [["core.attributesfile=", "core.bigfilethreshold=512m", "diff.algorithm=myers", "diff.renames=true", "diff.suppressblankempty=false", "merge.conflictstyle=merge", "merge.directoryrenames=conflict", "merge.renames=true"], "C 1 c37f07346ae83e5a741cf9bcba3c717bd7de3e14 unset"]);
+  assert.deepEqual([command.sort(), pin.stdout.trim().split("\n").at(-1)], [["core.attributesfile=", "core.bigfilethreshold=512m", "core.ignorecase=false", "diff.algorithm=myers", "diff.renames=true", "diff.suppressblankempty=false", "merge.conflictstyle=merge", "merge.directoryrenames=conflict", "merge.renames=true"], "C 1 2336999e05d634b0d4c084c82db609f08edb0089 unset"]);
 }, REAL_CI));
 
 
 
 // killer: scripts/lot-size-integration.mjs:180 CONST "GIT_ENV({})" -> "GIT_ENV()"
-test("r25a_pin_prints_exactly_the_pinned_names - G2 m-1: `pin` unsets or exports exactly GIT_DIFF_OPTS, LC_ALL, GIT_ATTR_NOSYSTEM, GIT_CONFIG_PARAMETERS, GIT_ATTR_SOURCE, GIT_CONFIG_COUNT and the eight PIN pairs, in that order, every line one of them: no variable of the runner (R25_READ_TOKEN) is printed or re-exported", () => withFx((fx) => {
+test("r25a_pin_prints_exactly_the_pinned_names - G2 m-1: `pin` unsets or exports exactly GIT_DIFF_OPTS, LC_ALL, GIT_ATTR_NOSYSTEM, GIT_CONFIG_PARAMETERS, GIT_ATTR_SOURCE, GIT_CONFIG_COUNT and the nine PIN pairs, in that order, every line one of them: no variable of the runner (R25_READ_TOKEN) is printed or re-exported", () => withFx((fx) => {
   const out = spawnSync(process.execPath, ["scripts/lot-size-integration.mjs", "pin"], { cwd: fx.dir, encoding: "utf8", env: { ...process.env, R25_READ_TOKEN: "fx-token", MY_RUNNER_VAR: "x" } }).stdout;
   const names = out.trim().split("\n").map((l) => /^(?:unset ([A-Z0-9_]+)|export ([A-Z0-9_]+)=')/.exec(l)).map((m) => m?.[1] ?? m?.[2] ?? "unparsed");
-  const pairs = Array.from({ length: 8 }, (_, i) => [`GIT_CONFIG_KEY_${String(i)}`, `GIT_CONFIG_VALUE_${String(i)}`]).flat();
+  const pairs = Array.from({ length: 9 }, (_, i) => [`GIT_CONFIG_KEY_${String(i)}`, `GIT_CONFIG_VALUE_${String(i)}`]).flat();
   assert.deepEqual(names, ["GIT_DIFF_OPTS", "LC_ALL", "GIT_ATTR_NOSYSTEM", "GIT_CONFIG_PARAMETERS", "GIT_ATTR_SOURCE", "GIT_CONFIG_COUNT", ...pairs], out);
   assert.ok(!out.includes("fx-token"), "the runner's token is never printed");
 }));
@@ -586,10 +586,10 @@ test("r25g_ci_w_counts_a_nul_first_line_under_both_pathspecs - R25-NUL-BINARY-1:
   assert.deepEqual([changed(out), contentChanged(out), exitOf(out)], ["3001", "3001", "1"], out);
 }, REAL_CI));
 
-// killer: scripts/lot-size-integration.mjs:188 CONST "\"ttf\"]" -> "]"
-test("r25g_ci_w_leaves_only_the_declared_binary_assets_to_detection - R25-NUL-BINARY-1: a binary font (src/f.ttf, NUL then 2 000 lines) still counts 0, a text file named src/run.png (300 lines) counts 300, an undeclared binary src/f.woff2 (NUL then 40 lines) counts 41: W 341 (300 before the lot)", () => withFx((fx) => {
+// killer: scripts/lot-size-integration.mjs:188 CONST "\"apps/site/app/fonts/*.ttf\", " -> ""
+test("r25g_ci_w_leaves_only_the_declared_binary_assets_to_detection - R25-NUL-BINARY-1: a binary font in the fonts directory (apps/site/app/fonts/f.ttf, NUL then 2 000 lines) still counts 0, a text file named src/run.png (300 lines) counts 300, an undeclared binary src/f.woff2 (NUL then 40 lines) counts 41: W 341 (300 before the lot)", () => withFx((fx) => {
   fx.g("checkout", "-q", "-b", "pr", TARGET);
-  fx.put("src/f.ttf", `\0\n${lines("font", 2000)}`);
+  fx.put("apps/site/app/fonts/f.ttf", `\0\n${lines("font", 2000)}`);
   fx.put("src/run.png", lines("echo", 300));
   fx.put("src/f.woff2", `\0\n${lines("woff", 40)}`);
   fx.g("add", "-A");
@@ -661,3 +661,56 @@ test("oracle_r25_is_red_on_an_integration_count_above_w - R25-COUNT-CAP-1 in the
     assert.deepEqual([r.mode, r.counts.map((c) => c.changed), r.exit], ["above-written", [3, 0], 1]);
   } finally { rmSync(o, { recursive: true, force: true, maxRetries: 3 }); }
 }));
+
+// Fold of the G2 of R25-GUARDS-1 (R-1, R-3, N-1, N-2). The binary assets are left to git's detection only in the directories that hold
+// them, under a case-sensitive match whatever the clone's core.ignorecase, and the attribute tree is proven in force before any count.
+
+// killer: scripts/lot-size-integration.mjs:188 CONST "\"out/*.png\"" -> "\"*.png\""
+test("r25g_ci_w_counts_code_named_as_an_asset_outside_the_asset_directories - G2 R-1: src/tool.png, executable code whose first line is `// <NUL>` (300 lines more), counts 301; a real binary image out/real.png (NUL then 50 lines) in its directory still counts 0: W 301 (0 before the fold)", () => withFx((fx) => {
+  fx.g("checkout", "-q", "-b", "pr", TARGET);
+  fx.put("src/tool.png", nul("tool", 300));
+  fx.put("out/real.png", `\0\n${lines("png", 50)}`);
+  fx.g("add", "-A");
+  fx.g("commit", "-qm", "assets");
+  assert.deepEqual([changed(ciRun(fx))], ["301"]);
+}, REAL_CI));
+
+// killer: scripts/lot-size-integration.mjs:33 CONST ", \"-c\", \"core.ignorecase=false\"" -> ""
+test("r25g_upper_case_extension_counts_under_core_ignorecase - G2 R-3: in a clone with core.ignorecase=true (as on NTFS), out/RUN.PNG (`// <NUL>`, then 300 lines) does not match out/*.png: the job and the oracle both read 301, not 0", () => withFx((fx) => {
+  fx.g("config", "core.ignorecase", "true");
+  fx.g("checkout", "-q", "-b", "pr", TARGET);
+  const base = fx.g("rev-parse", "HEAD");
+  fx.put("out/RUN.PNG", nul("run", 300));
+  fx.g("add", "-A");
+  fx.g("commit", "-qm", "upper");
+  assert.deepEqual([changed(ciRun(fx)), oracle(fx, base, null).counts[0]?.changed], ["301", 301]);
+}, REAL_CI));
+
+// killer: scripts/lot-size-integration.mjs:196 CONST "if (read !== PROBES) throw" -> "if (false) throw"
+test("r25g_attribute_tree_must_be_in_force - G2 N-1: a module whose attribute tree id is absent from the object store (git reads no attribute then, silently): `pin` refuses (the job prints no count and is red), the module returns W (mode error) and the oracle's r25() throws, instead of reading 0 for src/code.mjs (`// <NUL>`, then 3 000 lines)", () => withFx((fx) => {
+  const o = mkdtempSync(join(tmpdir(), "r25g-oracle-"));
+  try {
+    const f = join(fx.dir, "scripts", "lot-size-integration.mjs"), src = readFileSync(f, "utf8"), at = 'g(["mktree"], ';
+    assert.equal(src.split(at).length, 2, "the mktree call of attrTree moved");
+    writeFileSync(f, src.replace(at, () => `"${"1".repeat(40)}" || ${at}`));
+    fx.g("checkout", "-q", "-b", "pr", TARGET);
+    const base = fx.g("rev-parse", "HEAD");
+    fx.put("src/code.mjs", nul("code", 3000));
+    fx.g("add", "src/code.mjs");
+    fx.g("commit", "-qm", "nul");
+    const out = ciRun(fx);
+    const mod = spawnSync(process.execPath, ["--input-type=module", "-e", `import { effective } from ${JSON.stringify(pathToFileURL(f).href)}; const r = effective({ cwd: process.cwd(), ciText: ${JSON.stringify(REAL_CI)}, base: ${JSON.stringify(base)}, proof: null, written: [9, 9] }); console.log(r.mode, r.code, r.content);`], { cwd: fx.dir, encoding: "utf8" }).stdout.trim();
+    mkdirSync(join(o, "scripts", "oracle"), { recursive: true });
+    copyFileSync(join(ROOT, "scripts", "oracle", "r25.mjs"), join(o, "scripts", "oracle", "r25.mjs"));
+    copyFileSync(f, join(o, "scripts", "lot-size-integration.mjs"));
+    let threw = false;
+    try { oracle(fx, base, null, {}, o); } catch { threw = true; }
+    assert.deepEqual([changed(out), out.includes("::error::Gate R-25: pinned git read not obtained. Fail-closed."), exitOf(out), mod, threw], ["none", true, "1", "error 9 9", true], out);
+  } finally { rmSync(o, { recursive: true, force: true, maxRetries: 3 }); }
+}, REAL_CI));
+
+// killer: scripts/lot-size-integration.mjs:188 CONST "\"fixtures/*.cbor\", " -> ""
+test("r25g_binary_assets_are_the_measured_list - G2 N-2: the closed list of (directory, extension) left to git's detection, measured on the trunk (45 binary files, 9 pairs), and the exact attributes written from it", () => {
+  const list = ["apps/site/app/fonts/*.ttf", "apps/site/public/bell/anchors/*.ots", "docs/bell-publications/*.ots", "docs/course-bell/*.ots", "docs/dojo-publications/*.ots", "fixtures/*.cbor", "out/*.jpg", "out/*.png", "test/fixtures/*.ots"];
+  assert.deepEqual([BINARY_ASSETS, ATTRIBUTES], [list, `* diff\n${list.map((p) => `${p} !diff\n`).join("")}`]);
+});
