@@ -1,5 +1,5 @@
 // scripts/oracle/run.mjs: the single local oracle (ADR-METHODE-2 D3, D4; lot M-3).
-//   node scripts/oracle/run.mjs --role <G1|G2|cp-2|G7|corr> --tree <path> --base <sha> [--key <label>] [--static-only]
+//   node scripts/oracle/run.mjs --role <G1|G2|cp-2|G7|corr> --tree <path> --base <sha> [--key <label>] [--static-only] [--r25-proof <file>]
 // Gates are DERIVED at launch from the `run:` lines of <tree>/.github/workflows/ci.yml (block scalars whole, one-liners
 // split on &&, a repeated command runs once: test 42 runs once, inside `npm test`), minus the CLOSED CI_ONLY list (each
 // with its reason; `uses:` steps, actions/*, are never read). The tree is cloned --no-local into a fresh run dir, its
@@ -39,10 +39,10 @@ const ENV_KEY = ["NODE_OPTIONS", "NODE_ENV", "TZ", "LANG", "LC_ALL", "CI"]; // t
 const DENY = /API_KEY|_KEY$|TOKEN|SECRET|^GH_|^GITHUB_|^CHAINSTACK_|^MONARK_PUBLIC_MIRROR$/i;
 if (import.meta.main !== false) { // main guard (lot M-6, Q-V-3): an import (childEnv below) runs nothing; fail-closed: runs where Node lacks import.meta.main
 const argv = process.argv.slice(2), opt = (k) => (argv.includes(k) ? argv[argv.indexOf(k) + 1] : undefined);
-const [role, treeArg, baseArg, label] = ["--role", "--tree", "--base", "--key"].map(opt), staticOnly = argv.includes("--static-only");
+const [role, treeArg, baseArg, label, proofArg] = ["--role", "--tree", "--base", "--key", "--r25-proof"].map(opt), staticOnly = argv.includes("--static-only"), proofFile = proofArg === undefined ? null : resolve(proofArg);
 const refuse = (msg) => { console.error(`oracle: refused: ${msg}`); process.exit(2); };
 if (!ROLES.includes(role)) refuse(`--role ${ROLES.join("|")} is required (C-1); got ${role ?? "none"}`);
-if (!treeArg || !baseArg) refuse("--tree <path> and --base <sha> are required");
+if (!treeArg || !baseArg) refuse("--tree <path> and --base <sha> are required"); else if (proofFile !== null && !existsSync(proofFile)) refuse(`--r25-proof ${proofFile} is not a file (ADR-M003 D9 nonies: written by \`node scripts/lot-size-integration.mjs proof\` outside the oracle)`);
 for (const k of Object.keys(process.env)) if (DENY.test(k) || /^npm_config_(offline|logs_dir)$/i.test(k)) delete process.env[k]; // before any child process (DENY above); genv's npm overrides win under any case
 const sha256 = (b) => createHash("sha256").update(b).digest("hex"), stamp = () => new Date().toISOString().replace(/\.\d{3}Z$/, "Z");
 const git = (cwd, ...a) => execFileSync("git", ["-C", cwd, ...a], { maxBuffer: 1 << 30, stdio: ["ignore", "pipe", "pipe"] });
@@ -59,8 +59,8 @@ for (const f of untracked) dh.update(`\0${f}\0${sha256(readFileSync(join(tree, f
 const dirty = patch.length > 0 || untracked.length > 0 ? dh.digest("hex") : null; // sha256 of the diff + untracked files
 const lockfile = join(tree, "package-lock.json"), here = import.meta.dirname;
 const parts = { commit: head, base, node: process.version, lockfile: existsSync(lockfile) ? sha256(readFileSync(lockfile)) : null,
-  script: sha256(readdirSync(here).filter((f) => f.endsWith(".mjs")).sort().map((f) => readFileSync(join(here, f), "utf8")).join("\0")),
-  env: sha256(JSON.stringify(ENV_KEY.map((k) => [k, process.env[k] ?? null]))) };
+  script: sha256([...readdirSync(here).filter((f) => f.endsWith(".mjs")).sort().map((f) => readFileSync(join(here, f), "utf8")), readFileSync(join(here, "..", "lot-size-integration.mjs"), "utf8")].join("\0")),
+  env: sha256(JSON.stringify(ENV_KEY.map((k) => [k, process.env[k] ?? null]))), r25_proof: proofFile === null ? null : sha256(readFileSync(proofFile)) };
 const key = sha256(JSON.stringify(parts)), name = `${head}${dirty ? `-${dirty.slice(0, 16)}` : ""}-${role}-${start.replace(/[-:]/g, "")}-${process.pid}`;
 const rec = { schema: "monark.oracle.v1", role, tree: { path: tree, head, dirty, object: null }, base, key, key_parts: parts, label: label ?? null, pid: process.pid, start };
 const write = (fields) => { // a result without its record is a refusal: exit 2, no oracle-result line
@@ -134,12 +134,12 @@ try {
 
   const sh = process.platform === "win32" ? join(execFileSync("git", ["--exec-path"], { encoding: "utf8" }).trim(), "..", "..", "..", "bin", "bash.exe") : "bash";
   const genv = { ...childEnv(tmp), NEXT_TELEMETRY_DISABLED: "1", npm_config_offline: "true", npm_config_logs_dir: join(runDir, "npm-logs") };
-  let r25counts = null, refusal, cv4 = null, waited = null;
+  let r25counts = null, r25info = { mode: null, proof: null }, refusal, cv4 = null, waited = null;
   const runGate = (g) => {
     const log = join(logs, `${String(ran.length + 1).padStart(2, "0")}-${g.name.replace(/[^\w.-]+/g, "_").slice(0, 60)}.log`), t = Date.now();
     let exit = 1;
     if (g.cmd !== "r25") { const fd = openSync(log, "w"); exit = spawnSync(sh, ["-e", "-c", g.cmd], { cwd: clone, env: genv, stdio: ["ignore", fd, fd] }).status ?? 128; closeSync(fd); }
-    else try { const res = r25(clone, ciText, base); [r25counts, exit] = [res.counts, res.exit]; writeFileSync(log, res.log); }
+    else try { const res = r25(clone, ciText, base, proofFile); [r25counts, exit, r25info] = [res.counts, res.exit, res]; writeFileSync(log, res.log); }
     catch (e) { writeFileSync(log, `${e.message}\nRED: diff not computable (fail-closed, ci.yml l.83-88)\n`); }
     ran.push({ name: g.name, lane: STATIC.test(g.cmd) ? "static" : "locked", exit, ms: Date.now() - t, log });
     console.log(`oracle: gate ${g.name} exit=${exit} ${Date.now() - t} ms`);
@@ -164,7 +164,7 @@ try {
   const tests = /^(?:\u2139|#) tests \d+\r?$/m.test(txt) ? { total: n("tests"), pass: n("pass"), fail: n("fail") + n("cancelled"), skip: n("skipped") } : null;
   code = refusal ?? (ran.every((g) => g.exit === 0) ? 0 : 1);
   if (refusal) console.error(`oracle: ${refusal === 3 ? `C-V-4 refused the suite: ${JSON.stringify(cv4)}` : "lock not obtained in time"}`);
-  write({ static_only: staticOnly, gates: ran, tests, r25: r25counts, residues: { tmp_entries: readdirSync(tmp).length }, ci_only: ciOnly, cv4, lock_wait_s: waited, exit: code, served_from: null });
+  write({ static_only: staticOnly, gates: ran, tests, r25: r25counts, r25_mode: r25info.mode, r25_proof: r25info.proof, residues: { tmp_entries: readdirSync(tmp).length }, ci_only: ciOnly, cv4, lock_wait_s: waited, exit: code, served_from: null });
 } catch (e) { code = 2; console.error(`oracle: refused: run dir preparation or gate derivation failed: ${e.stack ?? e}`); }
 process.exitCode = code;
 } // end of the main guard (l.40)
