@@ -107,7 +107,7 @@ export function derefVerdict(gateDecision: JsonObject, coverageVerdict: JsonObje
 
 /** (3) OPENAPI-ERROR-CODE-1 (lot CM-3c-4a, Q-C5 condition 4): the frozen error bodies of the mirror, stripped, with every
  *  local `#/$defs/<name>` reference inlined (OpenAPI resolves `#` against its own document) and `$defs` dropped. */
-function inlineDefs(node: Json, defs: JsonObject): Json {
+export function inlineDefs(node: Json, defs: JsonObject): Json {
   if (Array.isArray(node)) return node.map((n) => inlineDefs(n, defs));
   if (node === null || typeof node !== "object") return node;
   const ref = node["$ref"];

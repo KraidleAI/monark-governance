@@ -200,3 +200,47 @@ test("transport_500_branch_takes_a_closed_list_of_keys", () => {
   assert.deepEqual(branches[0], extended, "the InternalError branch is the definition itself");
   assert.deepEqual(branches[1], { type: internal["type"] ?? null, additionalProperties: false, required: ["error"], properties: { error: props["error"] ?? null } }, "the transport branch: closed keys and error alone");
 });
+
+/** SCHEMA-PROJECTION-FAIL-CLOSED-1 (N-2 of the G2 of C' 3c-4a): the inliner of the error bodies, read through the namespace (so a
+ *  tree without the export loads this file and reddens by assertion). */
+function spfInline(): (node: Json, defs: { [k: string]: Json }) => Json {
+  const inline = (projection as Record<string, unknown>)["inlineDefs"];
+  assert.equal(typeof inline, "function", "the error bodies are inlined by an exported function of schema-projection.ts");
+  return inline as (node: Json, defs: { [k: string]: Json }) => Json;
+}
+const SPF_DEFS: { [k: string]: Json } = { Operation: { type: "string", minLength: 1 } };
+
+// SCHEMA-PROJECTION-FAIL-CLOSED-1: a $ref with sibling keywords fails closed; at the base the siblings were dropped in silence
+// ({ $ref, maxLength: 64 } projected to Operation alone). A bare $ref still inlines, so the frozen bodies are unchanged.
+// killer: apps/harness/src/schema-projection.ts:493 CONST "siblings.length > 0" -> "false"
+test("spf_ref_with_sibling_keywords_fails_closed", () => {
+  const inline = spfInline();
+  assert.deepEqual(inline({ properties: { operation: { $ref: "#/$defs/Operation" } } }, SPF_DEFS), { properties: { operation: { type: "string", minLength: 1 } } }, "a bare $ref inlines");
+  assert.throws(() => inline({ $ref: "#/$defs/Operation", maxLength: 64 }, SPF_DEFS), /has sibling keywords \(maxLength\) that inlining would drop/, "root");
+  assert.throws(() => inline({ type: "object", properties: { operation: { $ref: "#/$defs/Operation", enum: ["gate"] } } }, SPF_DEFS), /has sibling keywords \(enum\)/, "nested");
+  assert.throws(() => inline({ $ref: "#/$defs/Operation", $defs: {} }, SPF_DEFS), /has sibling keywords \(\$defs\)/, "$defs beside the $ref");
+});
+
+// SCHEMA-PROJECTION-FAIL-CLOSED-1: a definition reached again on its own path fails closed with the path named; at the base the
+// inliner recursed until the stack overflowed (RangeError). A definition used twice side by side is not recursive.
+// killer: apps/harness/src/schema-projection.ts:494 CONST "via.includes(name)" -> "false"
+test("spf_recursive_definition_fails_closed", () => {
+  const inline = spfInline();
+  const self = { Node: { type: "object", properties: { next: { $ref: "#/$defs/Node" } } } };
+  assert.throws(() => inline({ $ref: "#/$defs/Node" }, self), /is recursive \(Node -> Node\)/, "self-recursive");
+  assert.throws(() => inline({ items: { $ref: "#/$defs/A" } }, { A: { items: { $ref: "#/$defs/B" } }, B: { items: { $ref: "#/$defs/A" } } }), /is recursive \(A -> B -> A\)/, "mutual");
+  const chain = { A: { items: { $ref: "#/$defs/B" } }, B: { items: { $ref: "#/$defs/Operation" } }, Operation: SPF_DEFS["Operation"] ?? null };
+  assert.deepEqual(inline({ oneOf: [{ $ref: "#/$defs/A" }, { $ref: "#/$defs/A" }] }, chain), { oneOf: [{ items: { items: { type: "string", minLength: 1 } } }, { items: { items: { type: "string", minLength: 1 } } }] }, "a chain used twice side by side inlines");
+});
+
+// SCHEMA-PROJECTION-FAIL-CLOSED-1: only a local #/$defs/<name> of a known object definition inlines. At the base a bare name
+// resolved in silence, a non-string $ref was kept, and an unknown one threw an unrelated message ("expected an object").
+// killer: apps/harness/src/schema-projection.ts:490 CONST "!Object.hasOwn(defs, name)" -> "false"
+test("spf_unknown_or_nonlocal_ref_fails_closed", () => {
+  const inline = spfInline();
+  const defs = { ...SPF_DEFS, "a~1b": { type: "null" }, Flag: true };
+  for (const ref of ["#/$defs/Missing", "#/$defs/constructor", "Operation", "other.schema.json#/$defs/Operation", "#/$defs/Operation/minLength", "#/properties/x", "#/$defs/a~1b", "#/$defs/", 42, null]) {
+    assert.throws(() => inline({ $ref: ref }, defs), /does not name a known local definition/, `${JSON.stringify(ref)}: refused`);
+  }
+  assert.throws(() => inline({ $ref: "#/$defs/Flag" }, defs), /expected an object at #\/\$defs\/Flag/, "a boolean definition: refused");
+});
