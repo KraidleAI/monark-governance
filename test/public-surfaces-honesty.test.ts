@@ -160,6 +160,27 @@ test("public_surfaces_make_no_probative_claim — scrub is load-bearing (synthet
   assert.equal(mask("exactly what is not verified").match(PROBATIVE), null, "negation stays green");
 });
 
+// CodeQL alert 45: Bell's row of the served table is the one whose surface cell opens on an https URL of Bell's host, exactly (host equal,
+// no suffix, no user part; never a substring anywhere in the row), and there is exactly one.
+const BELL_HOST = "bell.monarkgate.tech";
+function bellRowOf(rows: string[]): number {
+  const at = rows.flatMap((l, i) => {
+    const first = /`([^`]+)`/.exec(l.split(/(?<!\\)\|/)[1] ?? "")?.[1] ?? "", u = URL.canParse(first) ? new URL(first) : null;
+    return u !== null && u.protocol === "https:" && u.host === BELL_HOST && u.username === "" && u.password === "" ? [i] : [];
+  });
+  assert.equal(at.length, 1, `one row of the served table is Bell's (${String(at.length)} found)`);
+  return at[0] ?? -1;
+}
+// killer: test/public-surfaces-honesty.test.ts:169 CONST "u.host === BELL_HOST" -> "l.includes(BELL_HOST)"
+test("readme_bell_row_is_read_by_exact_host_never_by_substring — a row that names Bell's URL elsewhere, or a look-alike host, is never Bell's row (CodeQL alert 45)", () => {
+  const bell = "| `https://bell.monarkgate.tech/state.json` · `timeline.jsonl` | Bell's publications | anyone |";
+  const decoys = ["| `https://x.example/` | a relay of https://bell.monarkgate.tech/ | the site |", "| `https://x.example/?https://bell.monarkgate.tech/` | x | y |",
+    "| `https://bell.monarkgate.tech.x.example/` | x | y |", "| `http://bell.monarkgate.tech/` | x | y |", "| `https://u@bell.monarkgate.tech/` | x | y |", "| x | `https://bell.monarkgate.tech/` | y |"];
+  assert.equal(bellRowOf([...decoys, bell]), decoys.length, "Bell's row, after every decoy");
+  for (const d of decoys) assert.throws(() => bellRowOf([d]), /one row of the served table is Bell's \(0 found\)/, d);
+  assert.throws(() => bellRowOf([bell, bell]), /\(2 found\)/, "two rows of Bell's");
+});
+
 // DOJO-README-1: the README says that a surface not in its table is not served. The Dojo host's row follows Bell's, naming the host
 // and the four file forms of the verifier's closed list SERVED (apps/dojo/scripts/dojo-verify-cli.mjs l.17), in the words of the
 // page's lead; its bullet follows Bell's in "Verify it yourself" and runs the exported verifier (WHITELIST_FILES) against the host
@@ -181,7 +202,7 @@ test("readme_names_the_dojo_surface_and_its_verifier — the Dojo host and its f
   assert.ok(servedSource !== undefined && usagePath !== undefined, "the verifier's closed list SERVED and its usage line are read (non-vacuity)");
   // (1) The served table: the row right after Bell's is the Dojo host and the four forms of SERVED, in the words of the page.
   const rows = section("What is served today").filter((l) => l.startsWith("| `"));
-  const bell = rows.findIndex((l) => l.includes("https://bell.monarkgate.tech/"));
+  const bell = bellRowOf(rows);
   assert.ok(bell >= 0, "Bell's row of the served surfaces (non-vacuity)");
   const row = rows[bell + 1] ?? "", [, surface = "", serves = "", readers = ""] = row.split(/(?<!\\)\|/).map((c) => c.trim());
   const forms = [DOJO_TIMELINE_PATH, DOJO_PUBKEY_PATH, dojoLinesPathOf("<sha256>"), dojoHistoryPathOf("<sha256>")];
