@@ -342,9 +342,9 @@ test("ci_gates_blocking_no_continue_on_error — blocking and pinned workflow (t
 // replaces a count); the API token in this one step; no head branch name interpolated anywhere. Named mutants (G7):
 // fallback removed, a guard removed, the count moved after the prints, `--base "origin/${{ github.head_ref }}"`. G2 m-4: the
 // target is read from $GITHUB_BASE_REF, never interpolated; m-5: ten digits or more keep the written counts (bash overflow).
-// killer: .github/workflows/ci.yml:105 CONST " || R25I=\"written $CHANGED $CONTENT_CHANGED\"" -> ""
-// killer: .github/workflows/ci.yml:105 CONST "origin/$GITHUB_BASE_REF" -> "origin/${{ github.base_ref }}"
-// killer: .github/workflows/ci.yml:112 CONST "|??????????*" -> ""
+// killer: .github/workflows/ci.yml:106 CONST " || R25I=\"written $CHANGED $CONTENT_CHANGED\"" -> ""
+// killer: .github/workflows/ci.yml:106 CONST "origin/$GITHUB_BASE_REF" -> "origin/${{ github.base_ref }}"
+// killer: .github/workflows/ci.yml:113 CONST "|??????????*" -> ""
 test("ci_r25_integration_rule_is_wired_fail_closed - proof then count after both metrics and before any print, written counts on a module error or a non-numeric answer, the token in the r25 step only, no head branch name interpolated (ADR-M003 D9 nonies)", () => {
   const at = LINES.findIndex((l) => /^  r25-taille-de-lot\s*:/.test(l)), code: string[] = [];
   for (let i = at + 1; i < LINES.length && !/^ {0,2}\S/.test(LINES[i] ?? ""); i++) if (!/^\s*#/.test(LINES[i] ?? "") && (LINES[i] ?? "").trim() !== "") code.push((LINES[i] ?? "").trim());
@@ -1752,7 +1752,7 @@ function expandTestGlob(glob: string): string[] {
   const last = new RegExp(`^${segs[segs.length - 1]!.replace(/[.]/g, "\\.").replace(/\*/g, "[^/]*")}$`);
   return dirs.flatMap((d) => readdirSync(join(ROOT, d)).filter((n) => last.test(n)).map((n) => `${d}/${n}`));
 }
-// killer: .github/workflows/ci.yml:189 CONST "npm run test:export" -> "npm run test:main"
+// killer: .github/workflows/ci.yml:190 CONST "npm run test:export" -> "npm run test:main"
 test("ci_g3_export_runs_test_42_alone_and_g3_main_skips_only_it - the suite is split in two CI jobs with no test lost (CI-G3-DURATION-1)", () => {
   const scripts = (JSON.parse(readFileSync(join(ROOT, "package.json"), "utf8")) as { scripts: Record<string, string> }).scripts;
   const full = scripts.test ?? "";
@@ -1843,8 +1843,11 @@ test("sentinel_readme_is_a_kept_export — apps/sentinel/README.md is an English
 // on the job r25-taille-de-lot only, exactly `contents: read`, `pull-requests: read`, `checks: read` (the integration
 // proof's API reads). problems() judges any workflow text; the real one has none, and each named mutant has one: root
 // block removed, widened, written, made inline; the job block removed, an extra scope, a missing scope, a write scope,
-// `write-all`, moved to another job, a second block on another job. No `write` token on any non-comment line, and the
-// DERIVED public workflow (the r25 job stripped) keeps the root block alone.
+// `write-all`, moved to another job, a second block on another job, an escaped double-quoted key, an explicit `? ` key.
+// The judge is LEXICAL (no YAML parser is a repo dependency): it covers block keys, single- or double-quoted keys and
+// inline mappings, and refuses the two forms it cannot read (a double-quoted key holding a `\`, an explicit `? ` key)
+// anywhere in the file (G2 of the Q-2 fold, R-2). No `write` token on any non-comment line, and the DERIVED public
+// workflow (the r25 job stripped) keeps the root block alone.
 // killer: .github/workflows/ci.yml:48 CONST "checks: read" -> "statuses: read"
 test("ci_workflow_declares_least_privilege_permissions - root contents: read after on:, one job block on r25-taille-de-lot (contents, pull-requests, checks: read), no write (ADR-CODEQL-ALERTS-1 D1)", () => {
   const isCode = (l: string): boolean => l.trim() !== "" && !/^\s*#/.test(l);
@@ -1885,6 +1888,8 @@ test("ci_workflow_declares_least_privilege_permissions - root contents: read aft
       if (jobsIdx === -1 || j < jobsIdx || jobOf(j) !== "r25-taille-de-lot") out.push(`the job block belongs to r25-taille-de-lot, saw ${jobOf(j)}`);
       if (JSON.stringify(body(j, 4)) !== JSON.stringify(R25)) out.push(`the r25 job block is exactly contents, pull-requests, checks: read, saw ${JSON.stringify(body(j, 4))}`);
     }
+    const opaque = lines.filter((l) => isCode(l) && (/^\s*(?:-\s+)?\?(?:\s|$)/.test(l) || /"[^"]*\\[^"]*"\s*:/.test(l)));
+    if (opaque.length > 0) out.push(`no explicit ? key and no escaped double-quoted key (the lexical judge cannot read them), saw ${JSON.stringify(opaque)}`);
     const writes = lines.filter((l) => isCode(l) && /\bwrite(?:-all)?\b/.test(l));
     if (writes.length > 0) out.push(`no write scope on any non-comment line, saw ${JSON.stringify(writes)}`);
     return out;
@@ -1915,7 +1920,7 @@ test("ci_workflow_declares_least_privilege_permissions - root contents: read aft
   // it in .git/config; every later git call of the job is local (diff, rev-list, rev-parse, show) and the proof reads
   // the API with R25_READ_TOKEN.
   const r25Body: string[] = [];
-  for (let i = r25At + 1; i < LINES.length && !/^ {0,2}\S/.test(LINES[i]!); i++) if (isCode(LINES[i]!)) r25Body.push(LINES[i]!.trim());
+  for (let i = r25At + 1; i < LINES.length && !/^ {0,2}\S/.test(LINES[i]!); i++) if (isCode(LINES[i]!)) r25Body.push(LINES[i]!.replace(/\s+#.*$/, "").trim());
   const co = r25Body.findIndex((l) => l.startsWith("- uses: actions/checkout@"));
   assert.deepEqual(r25Body.slice(co + 1, co + 4), ["with:", "fetch-depth: 0", "persist-credentials: false"], "the r25 checkout keeps full history and does not persist the job token (m-2)");
   const derived = derivePublicWorkflow(WF).split(/\r?\n/);

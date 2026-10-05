@@ -18,10 +18,10 @@ name: gates
 on:
   pull_request:
 
-# Least-privilege GITHUB_TOKEN (ADR-CODEQL-ALERTS-1 D1; CodeQL actions/missing-workflow-permissions): every job reads
-# the repository contents and nothing more, except the one job-level block of the lot-size job (dated line of 2026-10-05
-# under D1: pull-requests and checks read, for its integration proof). Any other widening, here or per job, is an ADR
-# decision; the root test ci_workflow_declares_least_privilege_permissions pins both blocks (no write scope).
+# Least-privilege GITHUB_TOKEN (ADR-CODEQL-ALERTS-1 D1; CodeQL actions/missing-workflow-permissions): this block gives
+# every job read access to the repository contents and nothing more; a job reads more only through its own job-level
+# block, which only the dated lines under D1 admit. Any other widening, here or per job, is an ADR decision; the root
+# test ci_workflow_declares_least_privilege_permissions pins this block and admits no write scope.
 permissions:
   contents: read
 
@@ -50,6 +50,7 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           fetch-depth: 0
+          persist-credentials: false # every later git call is local; the proof reads the API with R25_READ_TOKEN
       - name: Bounded lot size (R-25 — DORA 2024 pp. 39-40, lot inflation degrades stability)
         env:
           VIBEGATES_PR_LIMIT: "1205" # ADR-M003 D9 (R-23: measured median of the 3 Phase 1 lots)
