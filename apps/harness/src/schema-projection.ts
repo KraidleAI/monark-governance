@@ -286,19 +286,19 @@ export const CALIBRATE_INPUT_SCHEMA: JsonObject = {
  * calibrate OUTPUT (ADR-M007 D3, NON-frozen envelope, a product decision "flexible, freeze after C2"): declared
  * HERE, never in schemas/. `reason` is IN the schema (M-5) so `additionalProperties:false` accepts the
  * fail-closed shape; `qhat` is nullable (number on success, null on under_calib). `label` is the K-1
- * honesty carrier (outside any frozen contract, like attest's envelope `label`). `set_digest` is the
- * 64-hex `calibDigest`.
+ * honesty carrier (outside any frozen contract, like attest's envelope `label`). `scores_sha256` is the
+ * 64-hex `scoresSha256`.
  */
 export const CALIBRATE_OUTPUT_SCHEMA: JsonObject = {
   type: "object",
   additionalProperties: false,
-  required: ["qhat", "n", "alpha", "method", "set_digest", "label", "reason"],
+  required: ["qhat", "n", "alpha", "method", "scores_sha256", "label", "reason"],
   properties: {
     qhat: { type: ["number", "null"], description: "The conformal quantile q̂, or null when the calibration is insufficient (fail-closed)." },
     n: { type: "integer", description: "The number of supplied scores (echoed)." },
     alpha: { type: "number", description: "The target miscoverage (echoed)." },
     method: { const: "split", description: "The conformal method — always split." },
-    set_digest: { type: "string", pattern: "^[0-9a-f]{64}$", description: "calibDigest(scores): recalculable by reference; the audit tie to verdict.calib_digest (C2)." },
+    scores_sha256: { type: "string", pattern: "^[0-9a-f]{64}$", description: "scoresSha256(scores) in the caller's order: the audit tie to verdict.scores_sha256 (C2)." },
     label: { type: "string", description: "Honesty label (K-1): the marginal coverage holds only under exchangeability with the supplied scores." },
     reason: { type: ["string", "null"], description: "under_calib when q̂ is null, else null on success." },
   },

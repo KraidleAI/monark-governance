@@ -10,9 +10,9 @@ import { createHash } from "node:crypto";
 import { readdirSync, readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
-import { canonicalJson, TOOL_ERROR_CODES, type ClassEntry, type PolicyRow, type PolicyTable, type Prediction } from "@monark/contracts";
+import { canonicalJson, COVERAGE_REASONS, TOOL_ERROR_CODES, type ClassEntry, type PolicyRow, type PolicyTable, type Prediction } from "@monark/contracts";
 import { UKEMI_LIQ_COMMITTED } from "../src/calibration.ts";
-import { assertKataRequest, kataPath, kataVerdictFields, servedPolicyTables, type ServedTableTexts } from "../src/kata-path.ts";
+import { assertKataRequest, KATA_REASONS, kataPath, kataVerdictFields, servedPolicyTables, type ServedTableTexts } from "../src/kata-path.ts";
 import { kataClassEntries } from "../src/policy-classes.ts";
 import { guardKataRow, guardKataTable, type GuardPins } from "../src/policy-guard.ts";
 import { projectCell, readRegistry } from "../src/policy-projection.ts";
@@ -155,7 +155,7 @@ test("kata_zero_lean_answers_after_every_400", () => {
 
 // killer: apps/harness/src/kata-path.ts:64 SDL "if (params.alpha !== Number(cls.alpha)) refuse(" -> ""
 test("kata_imposed_params_without_row", () => {
-  const served = servedPolicyTables({ classText: (c) => `class text of ${c}`, marginal: { registry_file: "r", registry_sha256: "ab".repeat(32), generator: "g", text: "t" } });
+  const served = servedPolicyTables({ classText: (c) => `class text of ${c}`, marginal: () => ({ registry_file: "r", registry_sha256: "ab".repeat(32), generator: "g", text: "t" }) });
   const empty = served.find((s) => s.task_class === "btc-dir-1h")?.table ?? assert.fail("no table");
   const band = served.find((s) => s.task_class === "btc-range-4h")?.table ?? assert.fail("no table");
   assert.equal(empty.rows.length, 0);
@@ -218,7 +218,7 @@ test("kata_lookup_reads_current_rows_only", () => {
 // killer: apps/harness/src/kata-path.ts:82 CONST "sha256Canonical([])" -> "sha256Canonical([0])"
 test("kata_no_row_verdict_fields", () => {
   // Spec section 11 point 4, recomputed field by field on the served (empty) tables: direction and scale.
-  const served = servedPolicyTables({ classText: (c) => `class text of ${c}`, marginal: { registry_file: "r", registry_sha256: "ab".repeat(32), generator: "g", text: "t" } });
+  const served = servedPolicyTables({ classText: (c) => `class text of ${c}`, marginal: () => ({ registry_file: "r", registry_sha256: "ab".repeat(32), generator: "g", text: "t" }) });
   for (const [name, y, params, from] of [["btc-dir-1h", 0.3, P, DIR], ["btc-dir-1h", -0.3, P, DIR], ["btc-range-4h", 0.02, PB, BAND]] as const) {
     const t = served.find((s) => s.task_class === name)?.table ?? assert.fail(name);
     const dir = name.includes("-dir-");
@@ -276,9 +276,9 @@ test("kata_row_statuses_map_to_regions", () => {
   assert.ok(kinds.has("region:covered") && kinds.has("silence:calib_silence"), [...kinds].join());
 });
 
-// killer: apps/harness/src/kata-path.ts:122 CONST "\"ascending\", texts.marginal" -> "\"time\", texts.marginal"
+// killer: apps/harness/src/policy-served.ts:23 CONST "[liq, LIQ_POLICY, \"ascending\"]" -> "[liq, LIQ_POLICY, \"time\"]"
 test("kata_served_tables_digests", () => {
-  const texts: ServedTableTexts = { classText: (c) => `class text of ${c}`, marginal: { registry_file: "calibration.ts", registry_sha256: "ab".repeat(32), generator: "recorder", text: "row text" } };
+  const texts: ServedTableTexts = { classText: (c) => `class text of ${c}`, marginal: () => ({ registry_file: "calibration.ts", registry_sha256: "ab".repeat(32), generator: "recorder", text: "row text" }) };
   const served = servedPolicyTables(texts);
   const names = served.map((s) => s.task_class);
   assert.equal(served.length, 35);
@@ -325,6 +325,14 @@ test("kata_path_is_not_served", () => {
   const seen = servedModules();
   assert.ok(seen.size > 6 && seen.has(join(SRC, "tools/gate.ts")));
   for (const f of ["kata-path.ts", "policy-classes.ts", "policy-guard.ts"]) assert.ok(!seen.has(join(SRC, f)), f);
+});
+
+// Q-3a-2: every reason a kata verdict can carry is a frozen coverage reason of contract 1.1.0 (block D drops KATA_REASONS).
+// killer: apps/harness/src/kata-path.ts:18 CONST "\"region_degenerate\"] as const" -> "\"region_degenerate\", \"kata_only\"] as const"
+test("kata_reasons_within_coverage_reasons", () => {
+  const coverage: readonly string[] = COVERAGE_REASONS;
+  for (const r of KATA_REASONS) assert.ok(coverage.includes(r), `${r} is a coverage reason`);
+  assert.equal(new Set(KATA_REASONS).size, KATA_REASONS.length, "no reason twice");
 });
 
 /** C-3 (delegated decision CM-4b): the codes with no served thrower yet, exact; block C removes input_invalid and json_invalid. */

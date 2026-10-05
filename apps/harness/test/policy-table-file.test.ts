@@ -105,8 +105,8 @@ test("synthetic_registry_counts_follow_a2", () => {
   }
 });
 
-// killer: apps/harness/src/server.ts:32 CONST "./version.ts" -> "./policy-table-file.ts"
-test("policy_modules_are_not_served", () => {
+// killer: apps/harness/src/policy-served.ts:12 CONST "import { buildPolicyTable" -> "import \"./policy-guard.ts\"; import { buildPolicyTable"
+test("served_policy_modules_are_the_four_marginal_ones", () => {
   const src = join(dirname(fileURLToPath(import.meta.url)), "..", "src");
   const seen = new Set<string>();
   const walk = (file: string): void => {
@@ -116,5 +116,7 @@ test("policy_modules_are_not_served", () => {
   };
   for (const f of ["server.ts", "http.ts", "openapi.ts", "schema-projection.ts", ...readdirSync(join(src, "tools")).map((t) => `tools/${t}`)]) walk(join(src, f));
   assert.ok(seen.size > 6 && seen.has(join(src, "class-policy.ts")));
-  for (const f of ["policy-projection.ts", "policy-table-file.ts"]) assert.ok(!seen.has(join(src, f)), f);
+  // Q-C3 (contract 1.1.0): exactly the four modules of the marginal tables are served, never a kata module (G2 m-4).
+  const policy = [...seen].map((f) => f.slice(src.length + 1)).filter((f) => f.startsWith("policy-")).sort();
+  assert.deepEqual(policy, ["policy-marginal.ts", "policy-projection.ts", "policy-served.ts", "policy-table-file.ts"]);
 });

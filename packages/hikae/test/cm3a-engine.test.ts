@@ -46,17 +46,18 @@ function verdictOf(kind: "set" | "interval"): CoverageVerdict {
     residual: [],
     producedAt: "2026-09-04T00:00:00Z",
     schemaVersion: "1.0.0",
+    cell: { qhatUnit: "score", scale: null, cellKey: null, policyRowSha256: null, policyTableSha256: null },
   });
 }
 
 // E-8: a NaN or an infinity in any of the six numeric fields of decide() abstains non_evaluable, on the set and on the
 // interval path, with the clock open or closed; the finite inputs still COMMIT (pin). At the base, NaN reached COMMIT.
-// killer: packages/hikae/src/l3-gate.ts:165 CONST "Number.isFinite(v)" -> "!Number.isNaN(v)"
+// killer: packages/hikae/src/l3-gate.ts:166 CONST "Number.isFinite(v)" -> "!Number.isNaN(v)"
 test("nan_and_infinity_never_commit", () => {
   for (const kind of ["set", "interval"] as const) {
     const base: GateInput = {
       intent: kind === "set" ? "up" : 1, verdict: verdictOf(kind), remainingBudget: 0.1, bFloor: 0, tau: 1, tauInterval: 2,
-      nCalib: 50, nMin: 50, clockOpen: true, timedOut: false, evaluable: true, tool: "perps_order_preview", schemaVersion: "1.0.0",
+      nCalib: 50, nMin: 50, clockOpen: true, timedOut: false, evaluable: true, tool: "perps_order_preview", schemaVersion: "1.0.0", requestSha256: "e".repeat(64),
     };
     assert.deepEqual([gate(base).action, gate(base).reason], ["commit", "covered"], `${kind}: finite inputs commit`);
     for (const field of ["remainingBudget", "bFloor", "tau", "tauInterval", "nCalib", "nMin"] as const) {

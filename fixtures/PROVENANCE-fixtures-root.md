@@ -24,7 +24,7 @@ these nine shas stay in ONE place (the manifest) — no drift, no duplication. D
 - **Cascade (declared, loud, rare)**: editing any gate-decision state changes `manifest.json` (updated hash),
   which changes the pin below; `fixtures_root_valid` AND `series_pinned_are_declared_and_hashed` both red until
   this line is updated. This is the intended tamper-evidence, not a defect.
-- **sha256 (LF)** of `manifest.json`: `08b2c3edb97a8420956eabe0211fcde04ef0460718784b2fde1c0be6b9269af4`
+- **sha256 (LF)** of `manifest.json`: `3d0384588b0594ecded7850f6aab9971800c3a2b88b335b94951b3087bc10c87` (1.1.0, lot CM-3c-3c; was `08b2c3ed…`)
 
 ## `figures-sourced.json` — committed sourced figures for the public site
 

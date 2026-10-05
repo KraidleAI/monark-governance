@@ -41,6 +41,11 @@ export const REASON_DOCS: Readonly<Record<string, ReasonDoc>> = {
   attestation_refused: { chamber: "input", tone: DOCS_ACTION_ABSTAIN, gloss: "the verifier refused the testimony: a hash or a signature did not hold" },
   binding_broken: { chamber: "input", tone: DOCS_ACTION_ABSTAIN, gloss: "the prediction is not bound to the testimony it claims" },
   non_evaluable: { chamber: "input", tone: DOCS_ACTION_ABSTAIN, gloss: "the input cannot be evaluated against the contract at all" },
+  calib_silence: { chamber: "calibrate", tone: DOCS_ACTION_ABSTAIN, gloss: "the policy row of this cell holds its calibration silent: no region is served" },
+  calib_vetoed: { chamber: "calibrate", tone: DOCS_ACTION_ABSTAIN, gloss: "the policy row of this cell vetoes its calibration: no region is served" },
+  calib_retired: { chamber: "calibrate", tone: DOCS_ACTION_ABSTAIN, gloss: "the policy row of this cell retires its calibration: no region is served" },
+  out_of_support: { chamber: "calibrate", tone: DOCS_ACTION_ABSTAIN, gloss: "the prediction lies outside the range this cell was calibrated on" },
+  region_degenerate: { chamber: "calibrate", tone: DOCS_ACTION_ABSTAIN, gloss: "the region would have no width, so it states nothing to act on" },
 };
 
 /** The stages of the one-decision schema, in order, with their title. */

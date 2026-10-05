@@ -82,9 +82,9 @@ export function ReachSchema({ mcpUrl, apiUrl, tools, decisionTitle }: { mcpUrl: 
 const short = (hex: string): string => `${hex.slice(0, 12)}…`;
 
 /** The bring-your-own loop: calibrate on your scores, then gate your prediction under them; the audit closes when the
- *  decision's calibration digest equals the digest of the set you calibrated. Digests read from the recorded loop. */
-export function ByoLoopSchema({ setDigest, calibDigest, action, reason }: { setDigest: string; calibDigest: string; action: string; reason: string }) {
-  const closes = setDigest === calibDigest;
+ *  decision's scores digest equals the digest of the scores you calibrated. Digests read from the recorded loop. */
+export function ByoLoopSchema({ calibrateSha, verdictSha, action, reason }: { calibrateSha: string; verdictSha: string; action: string; reason: string }) {
+  const closes = calibrateSha === verdictSha;
   return (
     <Diagram w={980} h={300} label="The bring-your-own loop: calibrate on your own scores, then gate your prediction under them; the digests tie the two calls.">
       <Box x={20} y={30} w={290} h={120} rx={12} fill={C.surface} stroke={C.gate} width={1.8} />
@@ -97,7 +97,7 @@ export function ByoLoopSchema({ setDigest, calibDigest, action, reason }: { setD
           <tspan fontSize={12} fontWeight={400}>a miscoverage level and a minimum count</tspan>
         </Ln>
         <Ln x={36} dy={22}>
-          <tspan fontSize={11} fontWeight={400} fontFamily="var(--font-mono)">set_digest {short(setDigest)}</tspan>
+          <tspan fontSize={11} fontWeight={400} fontFamily="var(--font-mono)">scores_sha256 {short(calibrateSha)}</tspan>
         </Ln>
       </Tx>
       <Arrow pts={[[310, 90], [370, 90]]} color={C.ink} width={2} />
@@ -111,7 +111,7 @@ export function ByoLoopSchema({ setDigest, calibDigest, action, reason }: { setD
           <tspan fontSize={12} fontWeight={400}>scores as the calibration parameter</tspan>
         </Ln>
         <Ln x={390} dy={22}>
-          <tspan fontSize={11} fontWeight={400} fontFamily="var(--font-mono)">calib_digest {short(calibDigest)}</tspan>
+          <tspan fontSize={11} fontWeight={400} fontFamily="var(--font-mono)">scores_sha256 {short(verdictSha)}</tspan>
         </Ln>
       </Tx>
       <Arrow pts={[[674, 90], [734, 90]]} color={C.ink} width={2} />

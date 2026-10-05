@@ -32,7 +32,7 @@ test("policy_row_schema_admits_the_synthetic_kata_tables_and_the_served_tables",
     guardKataTable(t, SYN.bytes, PINS, e);
     return t;
   });
-  const served = servedPolicyTables({ classText: (c) => `class text of ${c}`, marginal: { registry_file: "r", registry_sha256: "ab".repeat(32), generator: "g", text: "t" } }).map((s) => s.table);
+  const served = servedPolicyTables({ classText: (c) => `class text of ${c}`, marginal: () => ({ registry_file: "r", registry_sha256: "ab".repeat(32), generator: "g", text: "t" }) }).map((s) => s.table);
   assert.deepEqual([kata.length, served.length], [32, 35]);
   for (const t of [...kata, ...served]) assert.ok(valid(t), t.class.task_class);
   const rows = [...kata, ...served].flatMap((t) => t.rows);

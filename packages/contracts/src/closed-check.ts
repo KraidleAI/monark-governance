@@ -10,6 +10,8 @@
  * The allowed-key sets are kept provably in sync with ../../schemas/*.json
  * (additionalProperties:false) by contracts.test.ts.
  */
+import { scoresSha256 } from "./canonical.ts";
+import { REASONS_WITHOUT_REGION } from "./enums.ts";
 
 export const ALLOWED_KEYS = {
   attestedPrice: [
@@ -39,14 +41,14 @@ export const ALLOWED_KEYS = {
   attestedBookAttestor: ["kind", "key", "sig"],
   prediction: ["schema_version", "task_class", "yhat", "predictor_id", "produced_at", "features_digest"],
   coverageVerdict: [
-    "schema_version", "task_class", "method", "alpha", "n_calib", "region",
-    "qhat", "abstain", "reason", "residual", "scores", "calib_digest", "produced_at",
+    "schema_version", "task_class", "method", "alpha", "n_calib", "region", "qhat", "qhat_unit", "scale", "abstain",
+    "reason", "residual", "scores", "scores_sha256", "cell_key", "policy_row_sha256", "policy_table_sha256", "produced_at",
   ],
   regionSet: ["kind", "labels", "label_schema"],
   regionInterval: ["kind", "lo", "hi"],
   gateDecision: [
     "schema_version", "action", "allow", "tool", "intent",
-    "verdict", "remaining_budget", "reason",
+    "verdict", "remaining_budget", "request_sha256", "reason",
   ],
 } as const;
 
@@ -122,13 +124,31 @@ export function assertClosedCoverageVerdict(value: unknown): void {
   const v = asObject(value, "CoverageVerdict");
   assertOnlyKeys(v, ALLOWED_KEYS.coverageVerdict, "CoverageVerdict");
   const region = v["region"];
-  if (region !== undefined) {
+  if (region !== undefined && region !== null) {
     const r = asObject(region, "CoverageVerdict.region");
     const kind = r["kind"];
     if (kind === "set") assertOnlyKeys(r, ALLOWED_KEYS.regionSet, "CoverageVerdict.region(set)");
     else if (kind === "interval") assertOnlyKeys(r, ALLOWED_KEYS.regionInterval, "CoverageVerdict.region(interval)");
     else throw new Error(`MONARK closed-check: unknown region kind '${String(kind)}' in CoverageVerdict.region.`);
   }
+  assertVerdictCouplings(v);
+}
+
+function fail(field: string, other: string): never {
+  throw new Error(`MONARK closed-check: CoverageVerdict.${field} breaks its coupling with ${other} (contract 1.1.0, spec section 5).`);
+}
+
+/** The couplings of spec section 5, checked before a verdict is sent (contract 1.1.0, lot CM-3c-3a). */
+function assertVerdictCouplings(v: Record<string, unknown>): void {
+  const region = v["region"], qhat = v["qhat"], abstain = v["abstain"], scale = v["scale"], unit = v["qhat_unit"], scores = v["scores"];
+  const reason = String(v["reason"]), cellKey = v["cell_key"], tableSha = v["policy_table_sha256"];
+  if ((region === null) !== (qhat === null)) fail("region", "qhat");
+  if (region === null && (abstain !== true || !(REASONS_WITHOUT_REGION as readonly string[]).includes(reason))) fail("region", "reason");
+  if (reason.startsWith("calib_") && abstain !== true) fail("reason", "abstain");
+  if ((scale !== null) !== (unit === "scale")) fail("scale", "qhat_unit");
+  if (v["policy_row_sha256"] !== null && cellKey === null) fail("policy_row_sha256", "cell_key");
+  if ((cellKey === null) !== (tableSha === null)) fail("cell_key", "policy_table_sha256");
+  if (Array.isArray(scores) && v["scores_sha256"] !== scoresSha256(scores as number[])) fail("scores_sha256", "scores");
 }
 
 export function assertClosedGateDecision(value: unknown): void {

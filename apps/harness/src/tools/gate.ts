@@ -10,13 +10,13 @@
  * Dispatch (D5):
  *   - `btc-dir-15m`         -> retired (ADR 0005, 2026-09-30; ADR-CM B-5): a named 400 `task_class_retired`; the
  *                             name stays reserved against BYO.
- *   - `cascade-liquidable-24h` → `conformInterval` with NO committed calibration ⇒ empty region ⇒
+ *   - `cascade-liquidable-24h` → `conformInterval` with NO committed calibration ⇒ no region (null) ⇒
  *                             `abstain`/`under_calib`. That is the honest expected result, not a defect.
  *   - `stable-run-velocity-24h` → committed calibration looked up PER KEY (task_class, predictor_id)
  *                             (ADR-M008 Amendement bis): the USDe key ⇒ `splitQuantile` + `buildIntervalRegion`
  *                             over USDE_STABLE_RUN_CALIB (region `interval`); any other key ⇒ `under_calib`.
  *
- * Server-owned fields (D6/K-4c/K-4d): `schema_version` is fixed here (`"1.0.0"`), `timedOut=false`,
+ * Server-owned fields (D6/K-4c/K-4d): `schema_version` is `SCHEMA_VERSION` of @monark/contracts, `timedOut=false`,
  * `evaluable`/`nCalib` are derived; `clockOpen`, `tau`, `tauInterval`, `alpha`, `nMin`, `bFloor`,
  * `remainingBudget` (B_t), `intent`, `tool` are caller-carried. Invalid params (K-4a) ⇒ a tool error,
  * never a silent gate. The gate ONLY emits a decision; it NEVER calls `params.tool` (D0/D1).
@@ -30,10 +30,9 @@ import {
   underCalibVerdict,
   conformInterval,
   gate,
-  NUMERIC_LABEL_SCHEMA,
 } from "@monark/hikae";
-import type { GateInput } from "@monark/hikae";
-import { assertClosedGateDecision, assertNoForbiddenKey, TOOL_ERROR_CODES } from "@monark/contracts";
+import type { GateInput, VerdictCell } from "@monark/hikae";
+import { assertClosedGateDecision, assertNoForbiddenKey, requestSha256, sha256Canonical, SCHEMA_VERSION, TOOL_ERROR_CODES } from "@monark/contracts";
 import type { GateDecision, Prediction, CoverageVerdict, AttestedPrice } from "@monark/contracts";
 import {
   lookupCommittedCalibration,
@@ -57,9 +56,10 @@ import { LIQ_POLICY, USDE_POLICY, type ClassPolicyRow } from "../class-policy.ts
 // sibling module at src/ (no I/O, imports nothing from the tools), so the K-8 tools scan stays meaningful
 // and there is no import cycle (attestation-binding.ts never imports gate.ts).
 import { checkAttestedConsistency, NO_SERVED_ATTESTATION_SUBJECT_SENTENCE } from "../attestation-binding.ts";
+import { servedMarginalTables, type ServedTableTexts } from "../policy-served.ts";
 
-/** Server-fixed contract version (K-4c) — NOT carried by the caller. */
-export const SCHEMA_VERSION = "1.0.0";
+/** Server-fixed contract version (K-4c), the one constant of @monark/contracts — NOT carried by the caller. */
+export { SCHEMA_VERSION };
 
 /** Retired (ADR 0005, decided 2026-09-30; ADR-CM B-5): answered by a named 400, the name reserved against BYO. */
 export const TASK_BTC_DIR = "btc-dir-15m";
@@ -448,9 +448,8 @@ function byoVerdict(prediction: Prediction, params: HarnessParams, cal: ByoCalib
   }
   assertByoSetTauCap(params, cal); // D3 order: after the B-3 label checks and the yhat type check
 
-  // label_schema for set mode is DERIVED from the caller's candidates (B-3), joined by `|`; interval mode
-  // is a NUMERIC class, so its empty under_calib region carries NUMERIC_LABEL_SCHEMA, never `up|down` (E9).
-  const labelSchema = cal.mode === "set" ? (cal.candidates ?? []).map((c) => c.label).join("|") : NUMERIC_LABEL_SCHEMA;
+  // Q-C1: a BYO verdict has no class entry; qhat_unit is fixed by the mode, scale and the three table fields are null.
+  const cell: VerdictCell = { qhatUnit: cal.mode === "interval" ? "label" : "score", scale: null, cellKey: null, policyRowSha256: null, policyTableSha256: null };
 
   const split = splitQuantile(cal.scores, params.alpha, params.nMin);
   if ("reason" in split) {
@@ -463,7 +462,7 @@ function byoVerdict(prediction: Prediction, params: HarnessParams, cal: ByoCalib
       residual: [],
       producedAt: prediction.produced_at,
       schemaVersion: SCHEMA_VERSION,
-      labelSchema,
+      cell,
     });
   }
   const qhat = split.qhat;
@@ -482,7 +481,7 @@ function byoVerdict(prediction: Prediction, params: HarnessParams, cal: ByoCalib
         residual: [],
         producedAt: prediction.produced_at,
         schemaVersion: SCHEMA_VERSION,
-        labelSchema: NUMERIC_LABEL_SCHEMA,
+        cell,
       });
     }
     // residual is NOT an honesty carrier (M-2): frozen semantics inherited from the verdict contract.
@@ -498,6 +497,7 @@ function byoVerdict(prediction: Prediction, params: HarnessParams, cal: ByoCalib
       residual: [],
       producedAt: prediction.produced_at,
       schemaVersion: SCHEMA_VERSION,
+      cell,
     });
   }
 
@@ -506,7 +506,7 @@ function byoVerdict(prediction: Prediction, params: HarnessParams, cal: ByoCalib
   if (candidates === undefined || candidates.length === 0) {
     throw new HarnessToolError("byo 'set' mode requires a non-empty candidate list", "byo_calibration_invalid");
   }
-  const derivedSchema = labelSchema ?? candidates.map((c) => c.label).join("|");
+  const derivedSchema = candidates.map((c) => c.label).join("|");
   const labels = conformalSet(new Map(candidates.map((c) => [c.label, c.score] as const)), qhat);
   // P3 (ADR-M005 D5 K-4(d) amendment 2026-09-30, D8): an EMPTY set holds no intent, so the verdict abstains with
   // intent_not_in_region (qhat stays the number, unlike under_calib); never covered. abstain = 1{|C| > tau or |C| = 0}.
@@ -523,7 +523,7 @@ function byoVerdict(prediction: Prediction, params: HarnessParams, cal: ByoCalib
     reason: empty ? "intent_not_in_region" : abstain ? "set_too_large" : "covered",
     residual: [],
     producedAt: prediction.produced_at,
-    schemaVersion: SCHEMA_VERSION,
+    schemaVersion: SCHEMA_VERSION, cell,
   });
 }
 
@@ -538,7 +538,7 @@ function cascadeVerdict(prediction: Prediction, params: HarnessParams): Coverage
     taskClass: TASK_CASCADE,
     residual: [],
     producedAt: prediction.produced_at,
-    schemaVersion: SCHEMA_VERSION,
+    schemaVersion: SCHEMA_VERSION, cell: servedCell(TASK_CASCADE, prediction.predictor_id),
   }).verdict;
 }
 
@@ -587,20 +587,21 @@ function stableRunVerdict(prediction: Prediction, params: HarnessParams): Covera
       taskClass: TASK_STABLE_RUN,
       residual: [],
       producedAt: prediction.produced_at,
-      schemaVersion: SCHEMA_VERSION,
+      schemaVersion: SCHEMA_VERSION, cell: servedCell(TASK_STABLE_RUN, prediction.predictor_id),
     }).verdict;
   }
   // Committed population (USDe): alpha/nMin are server-imposed (F-7, ADR-CM B-2), then split-conformal over the
   // committed SCORES. Same primitive chain as byoVerdict's interval branch (one quantile implementation, L1).
   assertPolicy(USDE_POLICY, params);
   const scores = committed.scores;
+  const cell = servedCell(TASK_STABLE_RUN, prediction.predictor_id);
   const split = splitQuantile(scores, params.alpha, params.nMin);
   if ("reason" in split) {
     // Caller demanded more calibration than the committed set holds (n < nMin, or p > n) ⇒ honest under_calib.
     return underCalibVerdict({
       taskClass: TASK_STABLE_RUN, method: "split", alpha: params.alpha, scores,
       residual: [], producedAt: prediction.produced_at, schemaVersion: SCHEMA_VERSION,
-      labelSchema: NUMERIC_LABEL_SCHEMA,
+      cell,
     });
   }
   const ir = buildIntervalRegion(yhat - split.qhat, yhat + split.qhat);
@@ -609,13 +610,13 @@ function stableRunVerdict(prediction: Prediction, params: HarnessParams): Covera
     return underCalibVerdict({
       taskClass: TASK_STABLE_RUN, method: "split", alpha: params.alpha, scores,
       residual: [], producedAt: prediction.produced_at, schemaVersion: SCHEMA_VERSION,
-      labelSchema: NUMERIC_LABEL_SCHEMA,
+      cell,
     });
   }
   return buildVerdict({
     taskClass: TASK_STABLE_RUN, method: "split", alpha: params.alpha, scores,
     region: ir.region, qhat: split.qhat, abstain: false, reason: "covered",
-    residual: [], producedAt: prediction.produced_at, schemaVersion: SCHEMA_VERSION,
+    residual: [], producedAt: prediction.produced_at, schemaVersion: SCHEMA_VERSION, cell,
   });
 }
 
@@ -644,13 +645,14 @@ function liqEligibleVerdict(prediction: Prediction, params: HarnessParams): Cove
   assertPolicy(LIQ_POLICY, params);
   const k = strateOf(yhat);
   const predictorId = `${UKEMI_LIQ_PREDICTOR_BASE}/s${String(k)}`;
+  const cell = servedCell(TASK_LIQ_ELIGIBLE, predictorId);
   const committed = lookupCommittedCalibration(TASK_LIQ_ELIGIBLE, predictorId);
   if (committed === undefined) {
     // An uncommitted stratum (s1 to s3) => honest abstention (empty scores, n_calib 0).
     return underCalibVerdict({
       taskClass: TASK_LIQ_ELIGIBLE, method: "split", alpha: params.alpha, scores: [],
       residual: [], producedAt: prediction.produced_at, schemaVersion: SCHEMA_VERSION,
-      labelSchema: NUMERIC_LABEL_SCHEMA,
+      cell,
     });
   }
   // Committed stratum (U-4b-2b): split-conformal qhat over the committed scores, then the UPPER-BOUND region.
@@ -661,7 +663,7 @@ function liqEligibleVerdict(prediction: Prediction, params: HarnessParams): Cove
     return underCalibVerdict({
       taskClass: TASK_LIQ_ELIGIBLE, method: "split", alpha: params.alpha, scores,
       residual: [], producedAt: prediction.produced_at, schemaVersion: SCHEMA_VERSION,
-      labelSchema: NUMERIC_LABEL_SCHEMA,
+      cell,
     });
   }
   const region = liqUpperBoundRegion(yhat, split.qhat);
@@ -671,13 +673,13 @@ function liqEligibleVerdict(prediction: Prediction, params: HarnessParams): Cove
     return underCalibVerdict({
       taskClass: TASK_LIQ_ELIGIBLE, method: "split", alpha: params.alpha, scores,
       residual: [], producedAt: prediction.produced_at, schemaVersion: SCHEMA_VERSION,
-      labelSchema: NUMERIC_LABEL_SCHEMA,
+      cell,
     });
   }
   return buildVerdict({
     taskClass: TASK_LIQ_ELIGIBLE, method: "split", alpha: params.alpha, scores,
     region: region.region, qhat: split.qhat, abstain: false, reason: "covered",
-    residual: [], producedAt: prediction.produced_at, schemaVersion: SCHEMA_VERSION,
+    residual: [], producedAt: prediction.produced_at, schemaVersion: SCHEMA_VERSION, cell,
   });
 }
 
@@ -716,20 +718,18 @@ export function honestyText(taskClass: string, predictorId: string, isByo: boole
  * `content` text to the model and DROP `structuredContent` (measured on Hermes v0.21), so a `commit` and
  * an `under_calib` would read identically in the prose channel. This line surfaces the DECISION — action,
  * the coverage `reason` (how `under_calib` becomes visibly distinct from `covered`), the region, q̂,
- * n_calib, and a TRUNCATED calib_digest (8 leading + 6 trailing; the full value stays in
+ * n_calib, and a TRUNCATED scores_sha256 (8 leading + 6 trailing; the full value stays in
  * `structuredContent`). DERIVED from the same closed `GateDecision` (single source, no drift), it restates
  * only fields already on the wire and asserts NO probability of being right.
  */
 export function gateVerdictSummary(d: GateDecision): string {
   const v = d.verdict;
   const region =
-    v.region.kind === "interval"
-      ? `[${String(v.region.lo)}, ${String(v.region.hi)}]`
-      : `{${v.region.labels.join(", ")}}`;
+    v.region === null ? "null"
+      : v.region.kind === "interval" ? `[${String(v.region.lo)}, ${String(v.region.hi)}]` : `{${v.region.labels.join(", ")}}`;
   const qhat = v.qhat === null ? "null" : String(v.qhat);
-  const digest =
-    v.calib_digest.length > 14 ? `${v.calib_digest.slice(0, 8)}...${v.calib_digest.slice(-6)}` : v.calib_digest;
-  return `verdict action=${d.action} reason=${d.reason} region=${region} qhat=${qhat} n_calib=${String(v.n_calib)} calib_digest=${digest}`;
+  const digest = `${v.scores_sha256.slice(0, 8)}...${v.scores_sha256.slice(-6)}`;
+  return `verdict action=${d.action} reason=${d.reason} region=${region} qhat=${qhat} n_calib=${String(v.n_calib)} scores_sha256=${digest}`;
 }
 
 /** A leading or trailing blank (Unicode `\s`, which covers space, tab and no-break space). */
@@ -862,7 +862,7 @@ export function runGate(prediction: Prediction, params: HarnessParams, attested?
   validateHarnessParams(params);
   if (prediction.schema_version !== SCHEMA_VERSION) {
     throw new HarnessToolError(
-      `unsupported prediction.schema_version '${prediction.schema_version}': the harness speaks '${SCHEMA_VERSION}'`,
+      `unsupported prediction.schema_version '${prediction.schema_version}': the harness speaks '${SCHEMA_VERSION}'; specification: https://github.com/KraidleAI/monark-kata-spec`,
       "schema_version_unsupported",
     );
   }
@@ -976,6 +976,7 @@ export function runGate(prediction: Prediction, params: HarnessParams, attested?
     evaluable: deriveEvaluable(taskClass, prediction.yhat, calibration), // K-4d
     tool: params.tool, // NAMED, echoed — NEVER invoked (D0/D1)
     schemaVersion: SCHEMA_VERSION, // K-4c — server-fixed, not caller-carried
+    requestSha256: envelopeSha256(prediction, params, attested), // contract 1.1.0: the envelope as received
   };
 
   const decision = gate(gateInput);
@@ -983,4 +984,34 @@ export function runGate(prediction: Prediction, params: HarnessParams, attested?
   assertClosedGateDecision(decision);
   assertNoForbiddenKey(decision);
   return decision;
+}
+
+/** The texts and sources of the three served tables (Z-3 line of MONARK, 2026-10-05): the served sentences, byte for byte. */
+export const SERVED_TABLE_TEXTS: ServedTableTexts = {
+  classText: (c) => (c === TASK_STABLE_RUN ? STABLE_RUN_UNCALIBRATED_SENTENCE : c === TASK_LIQ_ELIGIBLE ? LIQ_EMPTY_REGISTRY_SENTENCE : CASCADE_UNCALIBRATED_SENTENCE),
+  marginal: (c) => c === TASK_LIQ_ELIGIBLE
+    ? { registry_file: "sha256:fd6fab7ebf5d2779b904494accab8916fac8293587ed24d21fb052cb024074a4", registry_sha256: "fd6fab7ebf5d2779b904494accab8916fac8293587ed24d21fb052cb024074a4", generator: "scripts/record-u4b-calib.mjs", text: LIQ_COMMITTED_SENTENCE }
+    : { registry_file: "fixtures/usde-calib-scores.json", registry_sha256: "e44a68b6b697a32f3f198770e740ab206393dc3425e8cc59e4b0e1e4e65cfd28", generator: "scripts/record-usde-calib.mjs", text: STABLE_RUN_COMMITTED_SENTENCE },
+};
+
+/** The served tables, built once at load, fail-closed (Q-C3). */
+export const SERVED_MARGINAL_TABLES = servedMarginalTables(SERVED_TABLE_TEXTS);
+
+/** The cell of a served class (contract 1.1.0): its key, its current row if any, and its table, read from the served tables. */
+function servedCell(taskClass: string, cellKey: string): VerdictCell {
+  const t = SERVED_MARGINAL_TABLES.find((x) => x.task_class === taskClass);
+  if (t === undefined) throw new Error(`no served table for '${taskClass}'`);
+  const row = t.table.rows.find((r) => r.current && r.cell_key === cellKey);
+  return { qhatUnit: t.table.class.qhat_unit, scale: null, cellKey, policyRowSha256: row === undefined ? null : sha256Canonical(row), policyTableSha256: t.policy_table_sha256 };
+}
+
+/** `request_sha256` of the envelope as received; one not written canonically (I-JSON: a lone surrogate, a number outside
+ *  binary64) is a named 400 `param_invalid` (Q-C2), after every other check. Only the RangeError of the writer converts. */
+function envelopeSha256(prediction: Prediction, params: HarnessParams, attested: AttestedPrice | undefined): string {
+  try {
+    return requestSha256({ prediction, params, ...(attested === undefined ? {} : { attested }) });
+  } catch (e) {
+    if (e instanceof RangeError) throw new HarnessToolError(`the request is not writable canonically (I-JSON, RFC 7493): ${e.message}`, "param_invalid");
+    throw e;
+  }
 }

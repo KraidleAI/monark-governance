@@ -49,7 +49,7 @@ const fail = (why: string): never => {
 const HEX64 = /^[0-9a-f]{64}$/;
 const ISO_UTC = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{3,6})?Z$/;
 const TEXT = /^[^\n]{1,600}$/;
-const KEY = /^[a-zA-Z_]+$/;
+const KEY = /^[a-zA-Z_][a-zA-Z0-9_]*$/; // a key may carry digits (contract 1.1.0: scores_sha256)
 const HOSTNAME = /^[a-z0-9-]+(?:\.[a-z0-9-]+)+$/;
 
 function readListed(root: string, rel: string): string {
@@ -286,8 +286,8 @@ export interface ByoLoop {
   calibrate: { request: Obj; result: Obj; label: string };
   gate: { request: Obj; result: Obj };
   decision: RecordedDecision;
-  set_digest: string;
-  calib_digest: string;
+  /** The scores_sha256 of the calibrate result and of the gate verdict (contract 1.1.0): equal, with alpha and qhat. */
+  scores_sha256: { calibrate: string; verdict: string };
 }
 export function loadByoTrace(root: string): ByoLoop {
   const served = loadHarnessPending(root) ?? loadHarnessServed(root); // the shapes the recording must follow
@@ -307,10 +307,10 @@ export function loadByoTrace(root: string): ByoLoop {
     calibrate: { request: cal.args, result: calResult, label: str(label, TEXT, "calibrate label") },
     gate: { request: gate.args, result: decision },
     decision: recorded(gate.s, decision),
-    set_digest: str(cal.sc.set_digest, HEX64, "set_digest"),
-    calib_digest: str(verdict.calib_digest, HEX64, "verdict digest"),
+    scores_sha256: { calibrate: str(cal.sc.scores_sha256, HEX64, "calibrate scores digest"), verdict: str(verdict.scores_sha256, HEX64, "verdict scores digest") },
   };
-  if (out.set_digest !== out.calib_digest) fail("the recorded loop does not close (calib_digest != set_digest)");
+  const same = out.scores_sha256.calibrate === out.scores_sha256.verdict && cal.sc.alpha === verdict.alpha && cal.sc.qhat === verdict.qhat;
+  if (!same) fail("the recorded loop does not close (the scores digest, alpha and qhat of calibrate and of the verdict differ)");
   noForbiddenKey(out, forbiddenKeys(root), "the recorded BYO loop");
   return out;
 }

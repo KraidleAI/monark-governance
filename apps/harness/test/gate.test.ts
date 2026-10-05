@@ -5,7 +5,7 @@
  */
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { assertClosedGateDecision, assertNoForbiddenKey, calibDigest } from "@monark/contracts";
+import { assertClosedGateDecision, assertNoForbiddenKey, scoresSha256 } from "@monark/contracts";
 import type { Prediction, AttestedFlow, AttestedPrice, GateDecision } from "@monark/contracts";
 import {
   runGate,
@@ -18,6 +18,7 @@ import {
   STABLE_RUN_UNCALIBRATED_SENTENCE,
   STABLE_RUN_COMMITTED_SENTENCE,
   TASK_STABLE_RUN,
+  gateVerdictSummary,
   type HarnessParams,
   SCHEMA_VERSION,
 } from "../src/tools/gate.ts";
@@ -30,7 +31,7 @@ import {
   USDE_STABLE_RUN_CALIB,
   USDE_STABLE_RUN_PREDICTOR_ID,
   USDE_STABLE_RUN_TASK_CLASS,
-  USDE_STABLE_RUN_CALIB_DIGEST_PINNED,
+  USDE_STABLE_RUN_SCORES_SHA256_PINNED,
 } from "../src/calibration.ts";
 import { splitQuantile, buildIntervalRegion, underCalibVerdict, NUMERIC_LABEL_SCHEMA, BTC_DIR_LABEL_SCHEMA } from "@monark/hikae"; // ADR-M011: anti-circularity — L1 q̂ + NDG-1 region before runGate; E9: label_schema constants
 import { fromAttestedFlow, isNarabiError } from "@monark/monark"; // A7: real flows via the adapter
@@ -139,6 +140,14 @@ test("gate_dispatches_on_task_class", () => {
   assertBtcDirRetired();
 });
 
+// G2 m-1 of 3c-3b2: the summary line of a cascade gate states the absent region and q-hat as null (1.1.0 wire,
+// region null iff qhat null), not the 1.0.0 empty-set token.
+// killer: apps/harness/src/tools/gate.ts:728 CONST "? \"null\"" -> "? \"{}\""
+test("gate_summary_states_null_region_and_qhat_on_cascade", () => {
+  const d = runGate(CASCADE_PRED, { ...GOOD_PARAMS, intent: 12345 });
+  assert.ok(gateVerdictSummary(d).includes("region=null qhat=null"), gateVerdictSummary(d));
+});
+
 // Test — the description carries the cascade honesty sentence (K-4e).
 // Mutant: remove/alter the sentence in GATE_TOOL_DESCRIPTION ⇒ red.
 test("gate_description_declares_cascade_uncalibrated", () => {
@@ -203,7 +212,7 @@ test("gate_byo_interval_hand_rolled_oracle", () => {
   assertClosedGateDecision(commit);
   assertNoForbiddenKey(commit);
   assert.equal(commit.verdict.qhat, 1.0, "q̂ = 10th smallest score = 1.0 (hand-computed)");
-  assert.equal(commit.verdict.region.kind, "interval", "interval mode ⇒ interval region");
+  assert.equal(commit.verdict.region?.kind, "interval", "interval mode ⇒ interval region");
   assert.deepEqual(commit.verdict.region, { kind: "interval", lo: -1, hi: 1 }, "region [ŷ−q̂, ŷ+q̂] = [−1,1]");
   assert.equal(commit.verdict.abstain, false, "a covered interval verdict does not abstain");
   assert.equal(commit.verdict.reason, "covered", "the verdict reason is covered (L3 decides width)");
@@ -228,7 +237,7 @@ test("gate_byo_set_hand_rolled_oracle", () => {
   });
   assertClosedGateDecision(commit);
   assert.equal(commit.verdict.qhat, 0.3, "q̂ = 10th smallest score = 0.3 (hand-computed)");
-  assert.equal(commit.verdict.region.kind, "set", "set mode ⇒ set region");
+  assert.equal(commit.verdict.region?.kind, "set", "set mode ⇒ set region");
   assert.deepEqual(commit.verdict.region, { kind: "set", labels: ["A"], label_schema: "A|B|C" }, "C(x)={A}, label_schema derived from candidates (B-3)");
   assert.equal(commit.verdict.abstain, false, "|C|=1 <= tau=1 ⇒ no abstain");
   assert.equal(commit.action, "commit", "intent A ∈ {A}, |C|=1 <= tau=1 ⇒ COMMIT");
@@ -289,26 +298,27 @@ test("gate_byo_honesty_text_is_wired_on_calibration_presence", () => {
   assert.ok(text.startsWith(`${CALIBRATE_LABEL} B_t is caller-carried.`), "BYO content leads with the CALIBRATE_LABEL honesty carrier (B-2)");
   assert.ok(text.includes("exchangeable"), "the BYO content declares the exchangeability hypothesis");
   assert.ok(!text.includes(CASCADE_UNCALIBRATED_SENTENCE), "the BYO content must NOT carry the CASCADE sentence (B-1)");
-  // The verdict summary is DERIVED from the same decision (single source): action + a truncated calib_digest
+  // The verdict summary is DERIVED from the same decision (single source): action + a truncated scores_sha256
   // appear in the content text, so a text-only client sees the decision. Mutant that hardcodes it ⇒ reds.
   const byoDecision = runGate(byoBody.prediction, byoBody.params);
   assert.ok(text.includes(`action=${byoDecision.action}`), "the verdict summary carries the decision action");
-  assert.ok(text.includes(`calib_digest=${byoDecision.verdict.calib_digest.slice(0, 8)}`), "the verdict summary carries the (truncated) calib_digest");
+  assert.ok(text.includes(`scores_sha256=${byoDecision.verdict.scores_sha256.slice(0, 8)}`), "the verdict summary carries the (truncated) scores_sha256");
   // Non-regression: a committed-class gate still carries its own honesty text (not the BYO label).
   const cascadeText = gateTool.run({ prediction: CASCADE_PRED, params: { ...GOOD_PARAMS, intent: 12345 } }).text;
   assert.ok(cascadeText.includes(CASCADE_UNCALIBRATED_SENTENCE), "a cascade gate still carries the CASCADE sentence");
 });
 
-// Test — audit (D-C2.5): the BYO decision's verdict.calib_digest === calibDigest(scores) ===
-// calibrate.runCalibrate(scores).set_digest. This CLOSES the C1↔C2 loop: a caller that calibrated
-// (calibrate → set_digest) and then gated on the SAME scores gets a decision provably built on ITS
-// calibration. Mutant: build the verdict on a different score array ⇒ the triple equality reds.
-test("gate_byo_audit_calib_digest_closes_the_loop", () => {
-  const scores = [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0];
+// Test — audit (D-C2.5, contract 1.1.0): the BYO decision's verdict.scores_sha256 === scoresSha256(scores) ===
+// calibrate.runCalibrate(scores).scores_sha256, in the caller's order. This CLOSES the C1↔C2 loop: a caller that
+// calibrated (calibrate → scores_sha256) and then gated on the SAME scores gets a decision provably built on ITS
+// calibration. Mutant: build the verdict on a different score array (or a sorted copy) ⇒ the triple equality reds.
+test("gate_byo_audit_scores_sha256_closes_the_loop", () => {
+  const scores = [0.6, 0.2, 0.3, 0.4, 0.5, 0.1, 0.7, 0.8, 0.9, 1.0];
   const decision = runGate(BYO_INTERVAL_PRED, { ...GOOD_PARAMS, intent: 0, nMin: 5, tauInterval: 2, calibration: { scores, mode: "interval" } });
   const calibrate = runCalibrate({ scores, alpha: GOOD_PARAMS.alpha, nMin: 5 });
-  assert.equal(decision.verdict.calib_digest, calibDigest(scores), "verdict.calib_digest === calibDigest(scores)");
-  assert.equal(decision.verdict.calib_digest, calibrate.set_digest, "verdict.calib_digest === calibrate.set_digest (C1↔C2 audit)");
+  assert.equal(decision.verdict.scores_sha256, scoresSha256(scores), "verdict.scores_sha256 === scoresSha256(scores), in the caller's order");
+  assert.equal(calibrate.scores_sha256, scoresSha256(scores), "calibrate.scores_sha256 === scoresSha256(scores)");
+  assert.equal(decision.verdict.scores_sha256, calibrate.scores_sha256, "verdict.scores_sha256 === calibrate.scores_sha256 (C1↔C2 audit)");
   assert.equal(decision.verdict.n_calib, scores.length, "n_calib == the caller's score count");
 });
 
@@ -381,26 +391,22 @@ test("gate_committed_classes_unchanged_without_calibration", () => {
   assertBtcDirRetired();
   const usde = runGate(USDE_PRED, { ...GOOD_PARAMS, intent: 0 });
   assert.equal(usde.verdict.reason, "covered", "the committed USDe key stays covered");
-  assert.equal(usde.verdict.calib_digest, USDE_STABLE_RUN_CALIB_DIGEST_PINNED, "USDe calib_digest is the pinned committed digest");
+  assert.equal(usde.verdict.scores_sha256, USDE_STABLE_RUN_SCORES_SHA256_PINNED, "USDe scores_sha256 is the pinned committed digest");
   assert.equal(usde.verdict.n_calib, 613);
 
   const cascade = runGate(CASCADE_PRED, { ...GOOD_PARAMS, intent: 12345 });
   assert.equal(cascade.action, "abstain", "cascade stays an under_calib abstain");
   assert.equal(cascade.reason, "under_calib");
-  // cascade has NO committed calibration ⇒ calibDigest([]) — the empty-input sha256, written in by hand.
-  assert.equal(cascade.verdict.calib_digest, "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855", "cascade calib_digest == calibDigest([])");
+  // cascade has NO committed calibration ⇒ scoresSha256([]) = sha256("[]"), written in by hand.
+  assert.equal(cascade.verdict.scores_sha256, "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945", "cascade scores_sha256 == scoresSha256([])");
   assert.equal(cascade.verdict.reason, "under_calib");
 });
 
-// Test (E9, the ADR-M018 D4 lot) — a NUMERIC (interval) class under `under_calib` carries an EMPTY `set`
-// region whose label_schema names the numeric nature (NUMERIC_LABEL_SCHEMA), NEVER the directional
-// `up|down` (an inert but dishonest octet on the served wire). The frozen coverage-verdict contract
-// requires a set region's label_schema to be non-empty (minLength 1), so a numeric class cannot OMIT it —
-// hence a class-honest schema rather than an empty one. Every reachable served numeric under_calib path is
-// enumerated; a btc-dir positive control shows the directional default is intact (E9 changed only the
-// numeric callers, not underCalibVerdict's default). Mutant: delete `labelSchema: NUMERIC_LABEL_SCHEMA`
-// in interval-conformer.ts `underCalib` (the `labelSchema: NUMERIC_LABEL_SCHEMA` line) — `npm run typecheck` stays GREEN (the default masks it,
-// exactly as workspace hoisting masked m1), and the cascade case below reds.
+// Test (E9, inverted by contract 1.1.0) — a NUMERIC (interval) class under `under_calib` carries NO region
+// (`region: null`, `qhat: null`), never an empty `set` and never a label_schema, directional (`up|down`) or
+// numeric (NUMERIC_LABEL_SCHEMA): 1.1.0 retires the empty set "without region" (ADR-CM B-11 amended). Every
+// reachable served numeric under_calib path is enumerated, each with qhat_unit "label" and scale null; the
+// default of underCalibVerdict carries no region either (the positive control of E9 is gone with the set).
 // CM-2b (ADR-CM B-2): the USDe key's nMin is now imposed (50 <= 613), so its "nMin > n_committed" under_calib path is
 // no longer served: nMin 10000 is a 400 policy_nmin_mismatch. The positive control reads the hikae default directly
 // (btc-dir is retired, ADR-CM B-5).
@@ -430,12 +436,9 @@ test("numeric_under_calib_region_is_not_directional", () => {
   ];
   for (const { name, d } of numericUnderCalib) {
     assert.equal(d.verdict.reason, "under_calib", `${name}: expected an under_calib verdict`);
-    // Whole-region deepEqual (exact keys): empty set region, class-honest numeric label_schema.
-    assert.deepEqual(
-      d.verdict.region,
-      { kind: "set", labels: [], label_schema: NUMERIC_LABEL_SCHEMA },
-      `${name}: numeric under_calib region must be the empty set with a numeric label_schema`,
-    );
+    // No region at all: neither the empty set of 1.0.0 nor any label_schema on the wire.
+    assert.deepEqual([d.verdict.region, d.verdict.qhat, d.verdict.qhat_unit, d.verdict.scale], [null, null, "label", null], `${name}: no region`);
+    assert.ok(!JSON.stringify(d).includes("label_schema"), `${name}: no label_schema on the wire (${NUMERIC_LABEL_SCHEMA}, ${BTC_DIR_LABEL_SCHEMA})`);
   }
 
   // The USDe "nMin > n_committed" path is no longer reachable: nMin is imposed (ADR-CM B-2).
@@ -444,14 +447,15 @@ test("numeric_under_calib_region_is_not_directional", () => {
     (e: unknown) => e instanceof HarnessToolError && (e as { code?: unknown }).code === "policy_nmin_mismatch",
     "USDe key with nMin 10000 is a 400 policy_nmin_mismatch",
   );
-  // Positive control — the directional default of underCalibVerdict is INTACT (E9 changed only the numeric callers).
-  const dflt = underCalibVerdict({ taskClass: "x", method: "split", alpha: 0.1, scores: [], residual: [], producedAt: "2026-09-04T00:00:00Z", schemaVersion: "1.0.0" });
-  assert.deepEqual(dflt.region, { kind: "set", labels: [], label_schema: BTC_DIR_LABEL_SCHEMA }, "the default stays directional up|down");
+  // The default of underCalibVerdict carries no region either (1.1.0: no empty set, no directional default).
+  const cell = { qhatUnit: "label", scale: null, cellKey: null, policyRowSha256: null, policyTableSha256: null } as const;
+  const dflt = underCalibVerdict({ taskClass: "x", method: "split", alpha: 0.1, scores: [], residual: [], producedAt: "2026-09-04T00:00:00Z", schemaVersion: SCHEMA_VERSION, cell });
+  assert.deepEqual([dflt.region, dflt.qhat], [null, null], "the default carries no region");
 });
 
 // ── Narabi / stable-run-velocity-24h — isolation of POPULATION on the wire (ADR-M008 D4/D5 + Amend. bis, C-10) ──
 
-const EMPTY_CALIB_DIGEST = "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"; // calibDigest([])
+const EMPTY_CALIB_DIGEST = "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"; // scoresSha256([])
 const USDE_TOKEN = "erc20:0x4c9EDD5852cd905f086C759E8383e09bff1E68B3"; // A4 canonical token (mixed case; canonicalized in the key)
 const MSUSD_TOKEN = "erc20:0x4ba01f22827018b4772CD326C7627FB4956A7C00"; // Main Street msUSD v2 — a DIFFERENT population
 
@@ -489,7 +493,7 @@ test("gate_stable_run_noncommitted_key_abstains_under_calib", () => {
   assert.equal(d.verdict.reason, "under_calib");
   assert.equal(d.verdict.qhat, null, "no committed calibration for this key ⇒ q̂ null (never clamped)");
   assert.equal(d.verdict.task_class, "stable-run-velocity-24h", "the verdict carries the velocity class");
-  assert.equal(d.verdict.calib_digest, EMPTY_CALIB_DIGEST, "non-committed key ⇒ calib_digest == calibDigest([])");
+  assert.equal(d.verdict.scores_sha256, EMPTY_CALIB_DIGEST, "non-committed key ⇒ scores_sha256 == scoresSha256([])");
   assert.doesNotThrow(() => { assertClosedGateDecision(d); assertNoForbiddenKey(d); }, "the emitted decision is closed + forbidden-key-free");
 });
 
@@ -510,7 +514,7 @@ test("gate_stable_run_task_class_matches_registry", () => {
 
 // Test — A7(b): a REAL USDe mainnet flow → adapter → gate reaches the COMMITTED region (covered), keyed on
 // (task_class, predictor_id). Anti-circularity: q̂ is proven via splitQuantile BEFORE runGate; the pinned
-// digest is the wire calib_digest. Mutant: unwire the USDe key ⇒ under_calib ⇒ every assertion below reds.
+// digest is the wire scores_sha256. Mutant: unwire the USDe key ⇒ under_calib ⇒ every assertion below reds.
 test("gate_stable_run_usde_committed_region_A7b", () => {
   const pred = adaptToPrediction(narabiFlow("eip155:1", USDE_TOKEN));
   assert.equal(pred.predictor_id, USDE_STABLE_RUN_PREDICTOR_ID, "the USDe flow emits the committed key");
@@ -519,11 +523,11 @@ test("gate_stable_run_usde_committed_region_A7b", () => {
   // COMMIT: intent = the forecast, width 2·q̂ ≪ tauInterval=1, budget ≥ floor.
   const d = runGate(pred, { ...GOOD_PARAMS, intent: pred.yhat, tauInterval: 1 });
   assert.equal(d.verdict.reason, "covered", "the committed USDe region is produced (not under_calib)");
-  assert.equal(d.verdict.region.kind, "interval", "a regression region");
+  assert.equal(d.verdict.region?.kind, "interval", "a regression region");
   assert.equal(d.verdict.qhat, sq.qhat, "the wire q̂ equals the independent splitQuantile of the committed scores");
   assert.equal(d.verdict.n_calib, USDE_STABLE_RUN_CALIB.length, "n_calib = 613 committed scores");
   assert.equal(d.verdict.n_calib, 613);
-  assert.equal(d.verdict.calib_digest, USDE_STABLE_RUN_CALIB_DIGEST_PINNED, "the wire calib_digest is the pinned USDe digest");
+  assert.equal(d.verdict.scores_sha256, USDE_STABLE_RUN_SCORES_SHA256_PINNED, "the wire scores_sha256 is the pinned USDe digest");
   assert.equal(d.action, "commit", "intent ∈ region, width ≤ τ_interval, B_t ≥ floor ⇒ commit/covered");
   assert.doesNotThrow(() => { assertClosedGateDecision(d); assertNoForbiddenKey(d); });
 });
@@ -549,8 +553,8 @@ test("gate_stable_run_family_isolation_fail_closed_A7acde", () => {
     assert.equal(d.reason, "under_calib", `${name} ⇒ under_calib`);
     assert.equal(d.verdict.reason, "under_calib", `${name} ⇒ verdict under_calib`);
     assert.equal(d.verdict.qhat, null, `${name} ⇒ q̂ null (never the committed q̂)`);
-    assert.equal(d.verdict.calib_digest, EMPTY_CALIB_DIGEST, `${name} ⇒ calib_digest == calibDigest([]), NEVER the USDe digest`);
-    assert.notEqual(d.verdict.calib_digest, USDE_STABLE_RUN_CALIB_DIGEST_PINNED, `${name} ⇒ never the USDe committed digest`);
+    assert.equal(d.verdict.scores_sha256, EMPTY_CALIB_DIGEST, `${name} ⇒ scores_sha256 == scoresSha256([]), NEVER the USDe digest`);
+    assert.notEqual(d.verdict.scores_sha256, USDE_STABLE_RUN_SCORES_SHA256_PINNED, `${name} ⇒ never the USDe committed digest`);
   }
 });
 
@@ -621,7 +625,7 @@ test("gate_stable_run_ndg1_zero_width_is_under_calib_reused", () => {
 // overwrite the COMMITTED USDe key, but a DIFFERENT population on the same class MAY bring its own scores.
 //   (i)  USDe committed key + calibration ⇒ HarnessToolError (the committed key is locked);
 //   (ii) msUSD (non-committed) key + calibration ⇒ NO throw; the CALLER's scores are used (n_calib=10,
-//        calib_digest = calibDigest(callerScores)), NEVER the USDe 613.
+//        scores_sha256 = scoresSha256(callerScores)), NEVER the USDe 613.
 // Mutants: (a) revert the guard to class-only (`taskClass === TASK_STABLE_RUN`) ⇒ (ii) throws ⇒ red;
 // (b) drop the committed-key lookup term ⇒ (i) no longer throws (a caller silently overrides the committed
 // USDe calibration) ⇒ red. The n_calib===10 assertion proves the BYO path actually RAN (not merely no throw).
@@ -646,8 +650,8 @@ test("gate_stable_run_byo_anti_override_is_key_aware_A6", () => {
   }
   assert.equal(d.verdict.reason, "covered", "the msUSD BYO path RUNS (not locked)");
   assert.equal(d.verdict.n_calib, callerScores.length, "the CALLER's scores are used (n=10), never the USDe 613");
-  assert.equal(d.verdict.calib_digest, calibDigest(callerScores), "calib_digest is over the CALLER's scores, never the USDe digest");
-  assert.notEqual(d.verdict.calib_digest, USDE_STABLE_RUN_CALIB_DIGEST_PINNED, "never the USDe committed digest");
+  assert.equal(d.verdict.scores_sha256, scoresSha256(callerScores), "scores_sha256 is over the CALLER's scores, never the USDe digest");
+  assert.notEqual(d.verdict.scores_sha256, USDE_STABLE_RUN_SCORES_SHA256_PINNED, "never the USDe committed digest");
 });
 
 // ── ADR-M011 — interval non-degeneracy (NDG-1), BYO path (the REAL F2 msUSD repro path) ───────────────

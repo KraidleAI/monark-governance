@@ -4,6 +4,9 @@
  * (enums.test.ts), so the copies cannot drift silently. Closes G2 reserve M3.
  */
 
+/** Version of Prediction, CoverageVerdict and GateDecision (contract 1.1.0): the single exported constant (Q-3, Q-3a-4). */
+export const SCHEMA_VERSION = "1.1.0";
+
 export const COVERAGE_REASONS = [
   "covered",
   "set_too_large",
@@ -18,13 +21,22 @@ export const COVERAGE_REASONS = [
   "attestation_refused",
   "binding_broken",
   "non_evaluable",
+  "calib_silence",
+  "calib_vetoed",
+  "calib_retired",
+  "out_of_support",
+  "region_degenerate",
 ] as const;
 export type CoverageReason = (typeof COVERAGE_REASONS)[number];
+
+/** Reasons a verdict may carry with `region: null` (spec section 6, column "Region" none or any); closed-check and L3 step 4. */
+export const REASONS_WITHOUT_REGION: readonly CoverageReason[] = ["upstream_timeout", "attestation_absent", "attestation_refused",
+  "binding_broken", "non_evaluable", "under_calib", "calib_silence", "calib_vetoed", "calib_retired", "out_of_support", "region_degenerate"];
 
 export const GATE_ACTIONS = ["commit", "defer", "abstain"] as const;
 export type GateAction = (typeof GATE_ACTIONS)[number];
 
-export const METHODS = ["split", "hac-cp"] as const;
+export const METHODS = ["split", "hac-cp", "risk-control"] as const;
 export type Method = (typeof METHODS)[number];
 
 /**

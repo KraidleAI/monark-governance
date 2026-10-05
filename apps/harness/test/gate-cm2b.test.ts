@@ -10,7 +10,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
-import type { Prediction } from "@monark/contracts";
+import type { GateDecision, Prediction } from "@monark/contracts";
 import { splitQuantile } from "@monark/hikae";
 import { runGate, HarnessToolError, GATE_TOOL_DESCRIPTION, STABLE_RUN_COMMITTED_SENTENCE, type HarnessParams } from "../src/tools/gate.ts";
 import { SCHEMA_VERSION } from "../src/tools/gate.ts";
@@ -146,7 +146,7 @@ function scaled(x: number): { n: bigint; ulp: bigint } {
 
 // Test R-3 (F2P, B-7): the USDe served text states the half-ulp edge; on a grid of yhat each served edge is the nearest
 // double of the exact yhat -/+ qhat (|edge - exact| <= ulp(edge)/2, exact rational in BigInt); the band and the
-// decisions are byte-identical to the base (replay digest measured at f3b330c).
+// decisions are unchanged (version-independent projection, digest measured at the base 418a421f and at 3c-3b2).
 // killer: apps/harness/src/tools/gate.ts:129 CONST "half a unit in the last place" -> "one unit in the last place"
 test("usde_band_edges_within_half_ulp_stated_and_band_unchanged", () => {
   const clause =
@@ -163,7 +163,7 @@ test("usde_band_edges_within_half_ulp_stated_and_band_unchanged", () => {
   for (const yhat of grid) {
     const d = runGate(pred(USDE, yhat, USDE_STABLE_RUN_PREDICTOR_ID), PARAMS);
     const r = d.verdict.region;
-    assert.ok(r.kind === "interval", `${String(yhat)}: an interval band`);
+    assert.ok(r !== null && r.kind === "interval", `${String(yhat)}: an interval band`);
     const y = scaled(yhat).n;
     for (const [edge, exact] of [[r.lo, y - q], [r.hi, y + q]] as const) {
       const s = scaled(edge);
@@ -173,8 +173,19 @@ test("usde_band_edges_within_half_ulp_stated_and_band_unchanged", () => {
     }
   }
   assert.equal(checked, 2 * grid.length, "every edge checked");
+  const proj = (d: GateDecision): string => JSON.stringify([d.action, d.reason, d.allow, d.verdict.region, d.verdict.qhat, d.verdict.n_calib, d.verdict.alpha]);
+  const replay = grid.map((yhat) => proj(runGate(pred(USDE, yhat, USDE_STABLE_RUN_PREDICTOR_ID), { ...PARAMS, tool: "t" }))).join("\n");
+  assert.equal(createHash("sha256").update(replay).digest("hex"), "f99eddb82c11186a478dac182d8cab23a13e3565f69384588c9c7f3a099bed5d", "decisions unchanged since the base");
+});
+
+// G2 B-1 of 3c-3b2: next to the version-independent projection of the USDe band, the full 1.1.0 served bytes of the same
+// grid are pinned (whole GateDecision), so a served field the projection ignores cannot move unseen. Any lot that changes
+// served bytes updates this pin in a declared line (G7). Second mutant fired by hand: gate.ts:619 residual ["x"].
+// killer: apps/harness/src/tools/gate.ts:617 CONST "method: \"split\"" -> "method: \"hac-cp\""
+test("usde_band_full_bytes_are_pinned_at_1_1_0", () => {
+  const grid = [0, 1e-12, 1e-6, 0.0000416, 0.0001, 0.00123, -0.0003, 0.1, 1, 12345.678, 3e-4, 7.5e-5];
   const replay = grid.map((yhat) => JSON.stringify(runGate(pred(USDE, yhat, USDE_STABLE_RUN_PREDICTOR_ID), { ...PARAMS, tool: "t" }))).join("\n");
-  assert.equal(createHash("sha256").update(replay).digest("hex"), "06caef6b3e9e4756ae98a6f0793df02c35059c29f74bb0c868cdf29997214258", "decisions byte-identical to the base");
+  assert.equal(createHash("sha256").update(replay).digest("hex"), "50ccc9fdda33f942c258e8bb5f4cac8481853654ed841279c2cb4d33b280a7ca", "served bytes of the USDe band (1.1.0)");
 });
 
 // Test R-4 (F2P, B-5; moved from gate.test.ts gate_attested_concordant_files_residual, ADR-M017 D2(iii)/D4(3)): the

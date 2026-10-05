@@ -11,11 +11,11 @@
 // Host header, so a local fetch would carry `Host: 127.0.0.1` and miss the `api.` mirror route). It checks
 // the endpoint — /health, /openapi.json (the live twin of test 43), a present-and-invalid Origin -> 403 on
 // BOTH hosts, MCP tools/list returns the four tools, a REAL gate/cascade/attest/calibrate call, a gate BYO
-// call (C2: verdict.calib_digest === the calibrate set_digest + action commit, proving the loop), and — for
+// call (C2: verdict.scores_sha256 === the calibrate scores_sha256 + action commit, proving the loop), and — for
 // an https `--api` ONLY — the TLS certificate (issuer, expiry); an http `--api` (plain/local) SKIPS the TLS check.
 // U-4b-2b (ADR-U4b-2b D4; switched from the HARNESS-DESC-1 empty-registry checks): the liquidation-eligible-coverage class
 // on the COMMITTED registry -- a gate call in the committed stratum s0 (200, verdict.reason covered, the upper bound
-// [0, yhat + qhat], the committed n_calib and C5 digest, the committed class text in `content`), a gate call in an
+// [0, yhat + qhat], the committed n_calib and scores_sha256, the committed class text in `content`), a gate call in an
 // UNcommitted stratum (200, abstain, verdict.reason under_calib, n_calib 0), and the served tools/list description of
 // `gate` (the committed clause entire, the empty-registry sentence absent). 15 checks (CM-2b adds gate_retired_call and gate_future_call).
 // Then writes the CA
@@ -38,7 +38,7 @@ const TOOLS = ["gate", "cascade", "attest", "calibrate"];
 
 // The ONE prediction.schema_version of the CA bodies (MONARK e9cd32b Q-UP-2): == SCHEMA_VERSION of apps/harness/src/tools/gate.ts,
 // parity asserted by test/verify-harness-liq.test.ts (zero dependency); block C moves both, each in one line.
-export const CA_SCHEMA_VERSION = "1.0.0";
+export const CA_SCHEMA_VERSION = "1.1.0";
 // Same fixture shapes the harness tests use (a real, non-abstain decision on the committed USDe key, alpha 0.1 and nMin 50
 // imposed since CM-2b, btc-dir-15m being retired; a 2-node cascade;
 // a calibrate call whose n=10 >= nMin and p=⌈11·0.9⌉=10 <= n yields a numeric q̂). Exported: scripts/sync-harness-served.mjs
@@ -59,7 +59,7 @@ const CALIBRATE_BODY = { scores: [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1
 // Lot C2 BYO loop: a /gate call that REUSES CALIBRATE_BODY.scores as caller-supplied calibration (interval
 // mode, a caller-owned task_class). Hand-rolled n=10, α=0.1 ⇒ p=⌈11·0.9⌉=10 ⇒ q̂=10th smallest=1.0; ŷ=0 ⇒
 // region [−1,1], width 2 ≤ tauInterval 2, intent 0 ∈ [−1,1] ⇒ COMMIT (written in). The check asserts the
-// LIVE decision's verdict.calib_digest === the LIVE calibrate set_digest — proving the BYO boucle end-to-end.
+// LIVE decision's verdict.scores_sha256 === the LIVE calibrate scores_sha256 — proving the BYO boucle end-to-end.
 const GATE_BYO_BODY = {
   prediction: { schema_version: CA_SCHEMA_VERSION, task_class: "byo-demo", yhat: 0, predictor_id: "caller:model", produced_at: "2026-09-04T00:00:00Z" },
   params: { remainingBudget: 0.1, bFloor: 0, tau: 1, tauInterval: 2, alpha: 0.1, nMin: 5, intent: 0, tool: "perps_order_preview", clockOpen: true, calibration: { scores: CALIBRATE_BODY.scores, mode: "interval" } },
@@ -85,13 +85,13 @@ const GATE_LIQ_UNCOMMITTED_BODY = {
 };
 // BYTE-IDENTICAL to the served constants (this script stays zero-dependency; test/verify-harness-liq.test.ts
 // verify_harness_liq_literals_equal_served_constants asserts each equality): the five liq sentences of
-// apps/harness/src/tools/gate.ts, the committed C5 digest and size of stratum s0 of apps/harness/src/calibration.ts.
+// apps/harness/src/tools/gate.ts, the scores_sha256 pin and size of stratum s0 of apps/harness/src/calibration.ts.
 const LIQ_UPPER_BOUND_SENTENCE = "a conformal upper bound on the liquidable amount for the calibrated class; the lower edge is 0 by construction, not a calibrated bound; abstains (under_calib) outside it";
 const LIQ_REQUIREMENTS_SENTENCE = "this class requires alpha = 0.01, nMin = 100";
 const LIQ_H3_SENTENCE = "calibrated on one recorded episode; no coverage is claimed on any other event; the H-3 exchangeability check is a report, a YES licenses nothing more";
 const LIQ_CONDITIONAL_SENTENCE = "the bound holds only if yhat was produced by the frozen close-factor rule on a mono-collateral WETH account at the first crossing, which the gate does not check";
 const LIQ_EMPTY_REGISTRY_SENTENCE = "no liquidation-eligible-coverage calibration is committed yet; the gate abstains (under_calib) by construction";
-const LIQ_S0_CALIB_DIGEST = "e7e673664c03e3c5d15956d864f8379b6fe4660ed689be38a85add95d4eff334";
+const LIQ_S0_SCORES_SHA256 = "a927722276941a4f8f677bab3625b8ee3128ecf84d2d078da0a316b42a6ee3c8";
 const LIQ_S0_N_CALIB = 170;
 // The committed clause of the served gate description (describeGate(true), gate.ts) and the committed class text of
 // `content` (LIQ_COMMITTED_SENTENCE, gate.ts), composed from the literals above exactly as the gate module composes them.
@@ -277,7 +277,7 @@ async function main() {
 
   // U-4b-2b (ADR-U4b-2b D4): the liq class is SERVED through the gate on the COMMITTED registry. A yhat of the committed
   // stratum s0 answers 200 with verdict.reason covered and the conformal UPPER BOUND [0, yhat + qhat] (qhat read from the
-  // verdict, > 0), the committed n_calib and C5 digest, and the committed class text in `content` (never the empty-registry
+  // verdict, > 0), the committed n_calib and scores_sha256, and the committed class text in `content` (never the empty-registry
   // sentence). The coverage lives in verdict.reason: under this body (tauInterval 1, clock open) the L3 top-level answer is
   // defer / interval_too_wide, recorded in the detail next to it (checkpoint-1 C-10), never required to be covered.
   checks.push(await wiredCheck("gate_liq_call", `${api}/gate`, jsonInit(GATE_LIQ_BODY), apiHostHeader, (res, text) => {
@@ -288,7 +288,7 @@ async function main() {
     const vreason = v ? v.reason : null;
     const bound = r !== null && r.kind === "interval" && r.lo === 0 && typeof v.qhat === "number" && v.qhat > 0 && r.hi === GATE_LIQ_BODY.prediction.yhat + v.qhat;
     const nOk = v !== null && v.n_calib === LIQ_S0_N_CALIB;
-    const digestOk = v !== null && v.calib_digest === LIQ_S0_CALIB_DIGEST;
+    const digestOk = v !== null && v.scores_sha256 === LIQ_S0_SCORES_SHA256;
     const first = j && Array.isArray(j.content) ? j.content[0] : null;
     const t = first && typeof first.text === "string" ? first.text : "";
     const said = t.includes(LIQ_COMMITTED_SENTENCE) && !t.includes(LIQ_EMPTY_REGISTRY_SENTENCE);
@@ -341,29 +341,29 @@ async function main() {
 
   // calibrate (Lot C1): a REAL BYO call returns a numeric q̂ AND carries the exchangeability label —
   // NOT "demonstrative" (calibrate computes; it is not a replayed witness like attest, ADR-M007 D5).
-  // Capture the LIVE set_digest so the C2 gate_byo_call check below can prove the loop closes.
-  let calibrateSetDigest = null;
+  // Capture the LIVE scores_sha256 so the C2 gate_byo_call check below can prove the loop closes.
+  let calibrateScoresSha256 = null;
   checks.push(await wiredCheck("calibrate_call", `${api}/calibrate`, jsonInit(CALIBRATE_BODY), apiHostHeader, (res, text) => {
     const j = parseJson(text);
     const sc = j ? j.structuredContent : null;
     const label = sc && typeof sc.label === "string" ? sc.label : "";
-    if (sc && typeof sc.set_digest === "string") calibrateSetDigest = sc.set_digest;
+    if (sc && typeof sc.scores_sha256 === "string") calibrateScoresSha256 = sc.scores_sha256;
     const ok = res.status === 200 && sc !== null && typeof sc.qhat === "number"
       && label.includes("exchangeable") && !label.includes("demonstrative");
     return { ok, detail: sc ? `qhat=${String(sc.qhat)}` : "no body" };
   }));
 
   // gate BYO (Lot C2): the BOUCLE. A /gate call reusing CALIBRATE_BODY.scores must return 200 + a COMMIT
-  // AND its verdict.calib_digest must equal the calibrate call's set_digest (same scores ⇒ same digest) —
+  // AND its verdict.scores_sha256 must equal the calibrate call's scores_sha256 (same scores, same order) —
   // proving the caller can calibrate and then gate a covered decision on ITS OWN model, live.
   checks.push(await wiredCheck("gate_byo_call", `${api}/gate`, jsonInit(GATE_BYO_BODY), apiHostHeader, (res, text) => {
     const j = parseJson(text);
     const sc = j ? j.structuredContent : null;
-    const digest = sc && sc.verdict ? sc.verdict.calib_digest : null;
+    const digest = sc && sc.verdict ? sc.verdict.scores_sha256 : null;
     const action = sc ? sc.action : null;
     const ok = res.status === 200 && action === "commit"
-      && typeof digest === "string" && digest === calibrateSetDigest;
-    return { ok, detail: `action=${String(action)} calib_digest=${String(digest)} set_digest=${String(calibrateSetDigest)}` };
+      && typeof digest === "string" && digest === calibrateScoresSha256;
+    return { ok, detail: `action=${String(action)} scores_sha256=${String(digest)} calibrate_scores_sha256=${String(calibrateScoresSha256)}` };
   }));
 
   // TLS only makes sense for an https target; an http `--api` (plain/local) SKIPS it (never a false fail).

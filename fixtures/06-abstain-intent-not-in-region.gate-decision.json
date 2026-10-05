@@ -1,11 +1,11 @@
 {
-  "schema_version": "1.0.0",
+  "schema_version": "1.1.0",
   "action": "abstain",
   "allow": false,
   "tool": "perps_order_preview",
   "intent": "down",
   "verdict": {
-    "schema_version": "1.0.0",
+    "schema_version": "1.1.0",
     "task_class": "btc-dir-15m",
     "method": "hac-cp",
     "alpha": 0.1,
@@ -18,6 +18,8 @@
       "label_schema": "up|down"
     },
     "qhat": 0,
+    "qhat_unit": "score",
+    "scale": null,
     "abstain": false,
     "reason": "covered",
     "residual": [
@@ -76,9 +78,13 @@
       1,
       1
     ],
-    "calib_digest": "dc8a2c4bc6d1a5169ab3596375d710714bcdf4b07294fa1f4a79bc1a0e17e94d",
+    "scores_sha256": "f2982784bcad8c9e801781559ddb3bab31ca03e013159dc8665a6acd15e71208",
+    "cell_key": null,
+    "policy_row_sha256": null,
+    "policy_table_sha256": null,
     "produced_at": "2026-09-04T12:00:00Z"
   },
   "remaining_budget": 0.1,
+  "request_sha256": "333e4420318a15ebfe9cb1aef9cb26bde5db0a2f68fa2ac0fc1a8076a96ee6fa",
   "reason": "intent_not_in_region"
 }
