@@ -903,7 +903,7 @@ test("r25m_long_line_cap_is_the_measured_list - Q-3: the cap is 2 000 bytes and 
   assert.deepEqual([lsi.LINE_MAX, lsi.LONG_LINE_PATHS], [2000, { [TRADEXYZ]: TRADEXYZ_BLOB }]);
 });
 
-// killer: scripts/lot-size-integration.mjs:229 CONST "p.endsWith(\".json\") && !/" -> "false && !/"
+// killer: scripts/lot-size-integration.mjs:229 CONST "p.endsWith(\".json\") && /^" -> "false && /^"
 test("r25m_the_repository_itself_passes_the_long_line_cap - its tree at HEAD, added whole onto an empty commit, refuses nothing; read apart (bytes as latin1 characters), the only non-.json text paths under the two pathspecs with a line over 2 000 bytes are the list, at its blobs (the list absent before the lot)", () => {
   const d = mkdtempSync(join(tmpdir(), "r25m-tree-")), g = (...a: string[]): string => execFileSync("git", ["-C", d, "-c", "user.name=fx", "-c", "user.email=fx@localhost", ...a], { encoding: "utf8" }).trim();
   try {
@@ -943,15 +943,16 @@ test("r25m_a_long_line_json_must_parse - Q-8: src/code.json, 3 000 statements on
   assert.deepEqual(refusedHere(fx), ['long-line "src/code.json"']);
 }, REAL_CI));
 
-// killer: scripts/lot-size-integration.mjs:229 CONST " && !/(^|\\/)(package|devcontainer|tasks|deno|turbo|vercel|composer)\\.json$/i.test(p)" -> ""
+// killer: scripts/lot-size-integration.mjs:229 CONST " && !/(^|\\/)(package|\\.?devcontainer|tasks|deno|turbo|vercel|composer)\\.json$/i.test(p)" -> ""
+// killer: scripts/lot-size-integration.mjs:229 CONST "/^[\\x20-\\x7e]*$/.test(p) && " -> ""
 // killer: scripts/lot-size-integration.mjs:229 CONST "\\.json$/i.test(p)" -> "\\.json$/.test(p)"
 test("r25m_package_json_is_never_exempt - G2 B-1: npm runs the strings of package.json with no call line (pretest before npm test): a root package.json and apps/tool/package.json, valid JSON whose \"pretest\" holds 3 000 statements on one line, are refused long-line; src/notpackage.json (the same bytes) and a short package.json pass (nothing refused before the lot)", () => withFx((fx) => {
   fx.g("checkout", "-q", "-b", "pr", TARGET);
   const pkg = `{\n  "name": "x",\n  "scripts": {\n    "pretest": ${JSON.stringify(`node -e '${statements(3000, " ")}'`)},\n    "test": "node --test"\n  }\n}\n`;
-  for (const p of ["package.json", "apps/tool/package.json", "apps/case/Package.json", "apps/upper/PACKAGE.JSON", "src/notpackage.json"]) stage(fx, p, "100644", pkg); // npm reads Package.json as package.json on NTFS, APFS
+  for (const p of ["package.json", "apps/tool/package.json", "apps/case/Package.json", "apps/upper/PACKAGE.JSON", "apps/kelvin/pac\u212aage.json", "apps/t2/ta\u017fks.json", "apps/t3/package\u200c.json", "src/notpackage.json"]) stage(fx, p, "100644", pkg); // npm reads Package.json as package.json on NTFS, APFS; APFS folds the kelvin sign and the long s, HFS+ ignores U+200C (legal NTFS names); PACKAGE.JSON is refused by its extension
   stage(fx, "apps/short/package.json", "100644", '{\n  "name": "short",\n  "scripts": { "test": "node --test" }\n}\n');
   fx.g("commit", "-qm", "package");
-  assert.deepEqual(refusedHere(fx), ['long-line "apps/case/Package.json"', 'long-line "apps/tool/package.json"', 'long-line "apps/upper/PACKAGE.JSON"', 'long-line "package.json"']);
+  assert.deepEqual(refusedHere(fx), ['long-line "apps/case/Package.json"', 'long-line "apps/kelvin/pac\\u212aage.json"', 'long-line "apps/t2/ta\\u017fks.json"', 'long-line "apps/t3/package\\u200c.json"', 'long-line "apps/tool/package.json"', 'long-line "apps/upper/PACKAGE.JSON"', 'long-line "package.json"']);
 }, REAL_CI));
 
 // killer: scripts/lot-size-integration.mjs:245 CONST ".replace(/[\\[\\u007f-\\uffff]/g" -> ".replace(/[\\u007f-\\uffff]/g"
@@ -965,11 +966,11 @@ test("r25m_a_refused_path_cannot_form_a_workflow_command - G2 R-2: the runner re
   assert.deepEqual([refusedIn(out), out.includes("##["), log.includes("##["), /[^\n\x20-\x7e]/.test(log), log.split("\n").filter((l) => l.startsWith("refused ")), exitOf(out)], [named, false, false, false, named.map((n) => `refused ${n}`), "1"], out);
 }, REAL_CI));
 
-// killer: scripts/lot-size-integration.mjs:229 CONST "|devcontainer|tasks|deno|turbo|vercel|composer)" -> ")"
+// killer: scripts/lot-size-integration.mjs:229 CONST "|\\.?devcontainer|tasks|deno|turbo|vercel|composer)" -> ")"
 test("r25m_tool_run_json_is_never_exempt - G2 delta R-1: other JSON whose strings a tool runs with no call line (.devcontainer/devcontainer.json postCreateCommand, .vscode/Tasks.json on folder open, deno.json tasks, turbo.json, vercel.json buildCommand, composer.json scripts), valid JSON with a long line, any case, are refused long-line; src/data.json passes (nothing refused before the lot)", () => withFx((fx) => {
   fx.g("checkout", "-q", "-b", "pr", TARGET);
   const cmd = `{ "command": ${JSON.stringify(`node -e '${statements(3000, " ")}'`)} }\n`;
-  const tools = [".devcontainer/devcontainer.json", ".vscode/Tasks.json", "deno.json", "apps/web/turbo.json", "VERCEL.json", "composer.json"];
+  const tools = [".devcontainer/devcontainer.json", ".devcontainer.json", ".vscode/Tasks.json", "deno.json", "apps/web/turbo.json", "VERCEL.json", "composer.json"];
   for (const p of [...tools, "src/data.json"]) stage(fx, p, "100644", cmd);
   fx.g("commit", "-qm", "tools");
   assert.deepEqual(refusedHere(fx), tools.map((p) => `long-line ${JSON.stringify(p)}`).sort());
