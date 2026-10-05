@@ -530,7 +530,7 @@ const depth = (U: number, u: number): string => JSON.stringify({ stream: "btcusd
 const limits = (limit: number): Line[] => [{ rateLimitType: "REQUEST_WEIGHT", interval: "MINUTE", intervalNum: 1, limit }];
 /** The place's REST answers: its clock `ahead` us ahead of the host, its REQUEST_WEIGHT limit and tickSize at a host time, a depth of lastUpdateId 7. */
 const place = (ahead: number, limit: (now: number) => number = () => 6_000, tick: (now: number) => string = () => "0.01000000") => (path: string, now: number): [number, unknown] =>
-  path === TIME ? [200, { serverTime: (now + ahead) / 1000 }] : path.startsWith("/api/v3/depth") ? [200, JSON.parse(BOOK)]
+  path === TIME ? [200, { serverTime: (now + ahead) / 1000 }] : path.startsWith("/api/v3/depth") ? [200, JSON.parse(BOOK) as unknown]
     : [200, { symbols: [{ filters: [{ filterType: "PRICE_FILTER", tickSize: tick(now) }] }], rateLimits: limits(limit(now)) }];
 type Sock = { url: string; opened: boolean; closed: boolean; onopen?: () => void; onmessage?: (e: { data: unknown }) => void; onclose?: (e: { code: number; reason: string; wasClean: boolean }) => void };
 /** A recording on a host driven by hand: its clock and timers, fetch answered by `answer` (never the network), sockets by hand that hear
@@ -605,7 +605,7 @@ test("l2_record_loop_clean_stop", async () => {
   h.stop();
   await h.until(at(1, 0, 4, 10));
   assert.deepEqual([await run, seen.signal?.aborted], [{ mode: "record", out, stopped: "signal", links_closed: false, seal_done: false }, true]);
-  assert.deepEqual(events(out, ["close", "stopped"]).map((l) => [l.host_us, l.event, l.cause]), [...Array(5).fill([at(1, 0, 3, 10), "close", "stopped"]), [at(1, 0, 4, 10), "stopped", "signal"]]);
+  assert.deepEqual(events(out, ["close", "stopped"]).map((l) => [l.host_us, l.event, l.cause]), [...Array<unknown>(5).fill([at(1, 0, 3, 10), "close", "stopped"]), [at(1, 0, 4, 10), "stopped", "signal"]]);
 });
 
 // killer: scripts/record-binance-l2.mjs:298 CONST "Math.max(rest.suspendedUntilUs, lowUntil)" -> "rest.suspendedUntilUs"

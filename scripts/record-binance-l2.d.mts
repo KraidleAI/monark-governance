@@ -79,8 +79,8 @@ export const WEIGHT_FLOOR: number;
 export const STOP_BOUND_MS: number;
 /** The loop's calendar (P1-c5-bis-b): [task, symbol, period us, phase us, on the host clock corrected by the place's offset]. */
 export const SCHEDULE: readonly (readonly [string, string | null, number, number, boolean])[];
-/** The events of SCHEDULE in (fromUs, toUs] of the host clock, in time order. */
-export function calendar(fromUs: number, toUs: number, offsetUs?: number): { at: number; task: string; symbol: string | null }[];
+/** The events of SCHEDULE in (fromUs, endUs] of the host clock, in time order. */
+export function calendar(fromUs: number, endUs: number, offsetUs?: number): { at: number; task: string; symbol: string | null }[];
 /** The loop once adopt and markTails passed; resolves on its signal after the clean stop, rejects with its named stop after it. */
 export function record(plan: Extract<Plan, { mode: "record" }>, taken: { real: string; at: string; check: () => number },
   io: RecorderIo & { wallUs: () => number; monoNs: () => bigint }): Promise<Stopped>;

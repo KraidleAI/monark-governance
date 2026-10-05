@@ -275,12 +275,12 @@ export const SCHEDULE = Object.freeze([["cut", null, PERIOD_US, 0, false], ["sea
   ["time", null, PERIOD_US, 30 * MINUTE_US, false], ["check", null, 10 * MINUTE_US, 5 * MINUTE_US, false],
   ...SYMBOLS.flatMap((s, r) => [["exchangeInfo", s, DAY_US, (86_280 + 10 * r) * 1_000_000, true], ["anchor", s, DAY_US, (86_350 + 10 * r) * 1_000_000, true]])].map((e) => Object.freeze(e)));
 
-/** The events of SCHEDULE in (fromUs, toUs] of the host clock, in time order; a corrected one when the host clock plus offsetUs reads its phase. */
-export function calendar(fromUs, toUs, offsetUs = 0) {
+/** The events of SCHEDULE in (fromUs, endUs] of the host clock, in time order; a corrected one when the host clock plus offsetUs reads its phase. */
+export function calendar(fromUs, endUs, offsetUs = 0) {
   const events = [];
   for (const [task, symbol, period, phase, corrected] of SCHEDULE) {
     const off = corrected ? offsetUs : 0;
-    for (let t = (Math.floor((fromUs + off - phase) / period) + 1) * period + phase - off; t <= toUs; t += period) events.push({ at: t, task, symbol });
+    for (let t = (Math.floor((fromUs + off - phase) / period) + 1) * period + phase - off; t <= endUs; t += period) events.push({ at: t, task, symbol });
   }
   return events.sort((x, y) => x.at - y.at);
 }
