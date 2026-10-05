@@ -29,9 +29,11 @@
  */
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { readFileSync, readdirSync, statSync, existsSync } from "node:fs";
+import { readFileSync, readdirSync, statSync, existsSync, mkdtempSync, mkdirSync, writeFileSync, rmSync } from "node:fs";
+import { tmpdir } from "node:os";
 import { createHash } from "node:crypto";
 import { spawnSync } from "node:child_process";
+import { gitOut, tracked } from "./helpers/git-tracked.ts";
 import { join, extname, dirname, basename } from "node:path";
 import ts from "typescript";
 import { compilePatterns, scanText, collectTargets } from "../scripts/grep-forbidden.mjs";
@@ -1955,20 +1957,99 @@ test("ci_workflow_declares_least_privilege_permissions - root contents: read aft
 // by an equality, read from GIT, not from the disk: the index (what will be committed; a staged file reds before its commit)
 // and the HEAD tree (what the runner checks out and GitHub runs). An untracked file never reaches GitHub and does not count.
 // Recursive on purpose: a subdirectory has no use and is refused too. -z keeps paths unquoted whatever core.quotepath says.
-// CodeQL runs as a GitHub default setup (workflow path dynamic/github-code-scanning/codeql, no file in the repo).
+// CodeQL runs as a GitHub default setup (workflow path dynamic/github-code-scanning/codeql, no file in the repo). The reads
+// (test/helpers/git-tracked.ts) run without the caller's GIT_* variables and deduplicate an unmerged index (G2 fold, N-2, N-3).
 // killer: scripts/export-public.mjs:425 CONST "ci.yml" -> "gates.yml"
 test("ci_workflows_set_is_exactly_ci_yml - the git index and the HEAD tree track one workflow, .github/workflows/ci.yml, the one file every gate test and the export read (CI-WORKFLOWS-SET-1)", () => {
-  const git = (...args: string[]): string => {
-    const r = spawnSync("git", ["-C", ROOT, ...args], { encoding: "utf8" });
-    assert.equal(r.status, 0, `git ${args.join(" ")} must succeed (fail-closed): ${String(r.error ?? r.stderr)}`);
-    return r.stdout;
-  };
-  const paths = (out: string): string[] => out.split("\0").filter((p) => p !== "").sort();
-  assert.equal(git("rev-parse", "--show-prefix").trim(), "", "the test root is the repository root, not a subdirectory of a parent repository");
-  const index = paths(git("ls-files", "-z", "--", ".github/workflows"));
-  const tree = paths(git("ls-tree", "-r", "-z", "--name-only", "HEAD", "--", ".github/workflows"));
+  assert.equal(gitOut(ROOT, ["rev-parse", "--show-prefix"]).trim(), "", "the test root is the repository root, not a subdirectory of a parent repository");
+  const { index, tree } = tracked(ROOT, ".github/workflows");
   assert.deepEqual(index, [".github/workflows/ci.yml"], "the git index tracks exactly one workflow, ci.yml");
   assert.deepEqual(tree, [".github/workflows/ci.yml"], "the HEAD tree tracks exactly one workflow, ci.yml");
   assert.deepEqual(index, [CI_WORKFLOW_PATH], "the one tracked workflow is the one the public export derives");
   assert.deepEqual(new Set(index.map((p) => p.slice(p.lastIndexOf("/") + 1))), new Set(["ci.yml"]), "the set of workflows is {ci.yml}");
+});
+
+// A throwaway repository for the two tests below: git with no GIT_* variable of the caller, no system or global config, a fixed
+// identity. `files` are written then committed; the returned `git` runs more git in it.
+const fixtureRepo = (prefix: string, files: Record<string, string>): { dir: string; git: (...args: string[]) => string } => {
+  const dir = mkdtempSync(join(tmpdir(), prefix));
+  const env = { ...Object.fromEntries(Object.entries(process.env).filter(([k]) => !k.toUpperCase().startsWith("GIT_"))), GIT_CONFIG_NOSYSTEM: "1", GIT_CONFIG_GLOBAL: join(dir, "absent.gitconfig") };
+  const git = (...args: string[]): string => {
+    const r = spawnSync("git", ["-C", dir, "-c", "user.name=Fixture", "-c", "user.email=fixture@example.invalid", "-c", "commit.gpgsign=false", ...args], { encoding: "utf8", env });
+    if (r.status !== 0 && args[0] !== "merge") throw new Error(`fixture git ${args.join(" ")} failed: ${String(r.error ?? r.stderr)}`);
+    return r.stdout;
+  };
+  git("init", "-q", "-b", "main");
+  for (const [rel, text] of Object.entries(files)) { mkdirSync(dirname(join(dir, rel)), { recursive: true }); writeFileSync(join(dir, rel), text); }
+  git("add", "--", ...Object.keys(files));
+  git("commit", "-q", "-m", "fixture");
+  return { dir, git };
+};
+
+// G2 fold, N-2: `git -C` overrides neither GIT_DIR nor GIT_INDEX_FILE, so a caller that exports them (a hook) would make the reads
+// judge another repository or another index: a decoy that tracks only a decoy workflow. The reads must still see this checkout.
+// killer: test/helpers/git-tracked.ts:11 CONST "env: bare(), " -> ""
+test("ci_workflows_set_reads_ignore_the_callers_git_env - a decoy GIT_DIR or GIT_INDEX_FILE does not change the tracked workflows (CI-WORKFLOWS-SET-1, G2 N-2)", () => {
+  const decoy = fixtureRepo("ci-workflows-decoy-", { ".github/workflows/decoy.yml": "on: push\n" });
+  const prev = { dir: process.env.GIT_DIR, index: process.env.GIT_INDEX_FILE };
+  const restore = (): void => {
+    if (prev.dir === undefined) delete process.env.GIT_DIR; else process.env.GIT_DIR = prev.dir;
+    if (prev.index === undefined) delete process.env.GIT_INDEX_FILE; else process.env.GIT_INDEX_FILE = prev.index;
+  };
+  const seen: Record<string, { index: string[]; tree: string[] }> = {};
+  try {
+    process.env.GIT_DIR = join(decoy.dir, ".git");
+    seen["GIT_DIR"] = tracked(ROOT, ".github/workflows");
+    restore();
+    process.env.GIT_INDEX_FILE = join(decoy.dir, ".git", "index");
+    seen["GIT_INDEX_FILE"] = tracked(ROOT, ".github/workflows");
+  } finally {
+    restore();
+    rmSync(decoy.dir, { recursive: true, force: true, maxRetries: 3 });
+  }
+  const real = { index: [".github/workflows/ci.yml"], tree: [".github/workflows/ci.yml"] };
+  assert.deepEqual(seen, { GIT_DIR: real, GIT_INDEX_FILE: real }, "the decoy's workflow never replaces this checkout's ci.yml");
+});
+
+// G2 fold, N-3: during a merge conflicted on ci.yml, the index lists it once per stage (1, 2, 3); the reads list it once, so a
+// red names the real cause, not three copies of ci.yml. The equality stays strict.
+// killer: test/helpers/git-tracked.ts:16 CONST "[...new Set(xs)]" -> "xs"
+test("ci_workflows_set_reads_an_unmerged_index_once - a path conflicted in three stages is listed once (CI-WORKFLOWS-SET-1, G2 N-3)", () => {
+  const repo = fixtureRepo("ci-workflows-unmerged-", { ".github/workflows/ci.yml": "on: pull_request\n" });
+  try {
+    repo.git("checkout", "-q", "-b", "side");
+    writeFileSync(join(repo.dir, ".github", "workflows", "ci.yml"), "on: push\n");
+    repo.git("commit", "-q", "-am", "side");
+    repo.git("checkout", "-q", "main");
+    writeFileSync(join(repo.dir, ".github", "workflows", "ci.yml"), "on: workflow_dispatch\n");
+    repo.git("commit", "-q", "-am", "main");
+    repo.git("merge", "-q", "side");
+    const stages = repo.git("ls-files", "-z", "--stage", "--", ".github/workflows").split("\0").filter((l) => l !== "").length;
+    assert.equal(stages, 3, "control: the merge left ci.yml unmerged, in three stages");
+    assert.deepEqual(tracked(repo.dir, ".github/workflows").index, [".github/workflows/ci.yml"], "an unmerged path is read once");
+  } finally {
+    rmSync(repo.dir, { recursive: true, force: true, maxRetries: 3 });
+  }
+});
+
+// G2 fold, N-5: an action or a reusable workflow of THIS repository, called by its full name at a pinned SHA, passes test 38 (it
+// is pinned) and escapes the set above: its steps (a composite action.yml, or a workflow file that exists only at that SHA, on
+// another branch) are judged by no test. So no `uses:` of ci.yml names KraidleAI/monark-governance (a path under it, or its root
+// action.yml by `@`), whatever the case, the quotes or the form (step, job-level reusable workflow, flow mapping).
+const USES_SELF_RE = /(?:^\s*|[-{,]\s*)["']?uses["']?\s*:\s*["']?kraidleai\/monark-governance[/@]/i;
+// killer: .github/workflows/ci.yml:37 CONST "actions/checkout@" -> "KraidleAI/monark-governance/.github/actions/checkout@"
+test("ci_uses_nothing_of_this_repository - no uses: of ci.yml names an action or a reusable workflow of KraidleAI/monark-governance (CI-WORKFLOWS-SET-1, G2 N-5)", () => {
+  const own = (lines: string[]): string[] => lines.filter((l) => !/^\s*#/.test(l) && USES_SELF_RE.test(l));
+  assert.deepEqual(own(LINES), [], "ci.yml calls no action and no reusable workflow of this repository");
+  const sha = "3d3c42e5aac5ba805825da76410c181273ba90b1";
+  for (const red of [
+    `      - uses: KraidleAI/monark-governance/.github/actions/x@${sha}`,
+    `    uses: KraidleAI/monark-governance/.github/workflows/y.yml@${sha}`,
+    `      - uses: KraidleAI/monark-governance@${sha}`,
+    `      - uses: "kraidleai/MONARK-GOVERNANCE/.github/actions/x@${sha}"`,
+    `      - { name: x, uses: 'KraidleAI/monark-governance/.github/actions/x@${sha}' }`,
+  ]) assert.deepEqual(own([red]), [red], `mutant must be refused: ${red.trim()}`);
+  for (const green of [`      - uses: actions/checkout@${sha} # v7.0.1`, `      # uses: KraidleAI/monark-governance/.github/actions/x@${sha}`, `      - uses: KraidleAI/monark-governance-other/x@${sha}`]) {
+    assert.deepEqual(own([green]), [], `control must pass: ${green.trim()}`);
+  }
 });
