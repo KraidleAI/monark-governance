@@ -131,7 +131,9 @@ test("r25i_fake_branch_name_bypasses_nothing - E-5 (2): a fork named lot/etude-s
 // killer: scripts/lot-size-integration.mjs:33 CONST "\"-c\", \"merge.conflictStyle=merge\", " -> ""
 // killer: scripts/lot-size-integration.mjs:86 CONST "\"--remerge-diff\", \"--unified" -> "\"--no-diff-merges\", \"--unified"
 // killer: scripts/oracle/r25.mjs:27 CONST "\"-C\", clone, \"-c\", \"core.attributesFile=\", " -> "\"-C\", clone, "
-test("r25i_conflict_resolution_above_bound_is_red - E-5 (3): through the oracle's r25() with bound 20, a 25-line resolution is red, a 10-line one green, under a hostile git config or user attributes; 3 lines slipped into a clean merge count 3 (A-3)", () => {
+// killer: scripts/oracle/r25.mjs:27 CONST "\"-c\", \"core.bigFileThreshold=512m\", " -> ""
+// killer: scripts/oracle/r25.mjs:27 CONST "`--attr-source=${EMPTY_TREE}`, " -> ""
+test("r25i_conflict_resolution_above_bound_is_red - E-5 (3): through the oracle's r25() with bound 20, a 25-line resolution is red, a 10-line one green, under a hostile git config, user attributes, a machine bigFileThreshold of 1 or a measured .gitattributes * -diff (one line more); 3 lines slipped into a clean merge count 3 (A-3)", () => {
   for (const [n, exit, changed] of [[25, 1, 31], [10, 0, 16]] as const) withFx((fx) => {
     fx.g("checkout", "-q", "-b", "feat");
     const h1 = fx.commit("p1", "src/p1.txt", 15); // under the bound 20: PR #1 proves (G2 B-2)
@@ -147,8 +149,12 @@ test("r25i_conflict_resolution_above_bound_is_red - E-5 (3): through the oracle'
     const file = join(fx.dir, ".git", "proof.json");
     writeFileSync(file, JSON.stringify(proofOf(fx, [pr(1, m1, h1)])));
     fx.put(".git/xdg/git/attributes", "* -diff\n"); // G2 delta m-a: a user attributes file lowers neither W nor the module's count
-    const [r, z, a] = [{}, { GIT_CONFIG_PARAMETERS: "'merge.conflictstyle=zdiff3' 'diff.algorithm=patience'" }, { XDG_CONFIG_HOME: join(fx.dir, ".git", "xdg") }].map((env) => oracle(fx, TARGET, file, env));
-    assert.deepEqual([r?.mode, r?.counts[0]?.changed, r?.exit, z?.counts[0]?.changed, a?.counts[0]?.changed], ["integration", changed, exit, changed, changed], JSON.stringify([r, z, a]));
+    const [r, z, a, b] = [{}, { GIT_CONFIG_PARAMETERS: "'merge.conflictstyle=zdiff3' 'diff.algorithm=patience'" }, { XDG_CONFIG_HOME: join(fx.dir, ".git", "xdg") }, { GIT_CONFIG_PARAMETERS: "'core.bigfilethreshold'='1'" }].map((env) => oracle(fx, TARGET, file, env));
+    assert.deepEqual([r?.mode, r?.counts[0]?.changed, r?.exit, z?.counts[0]?.changed, a?.counts[0]?.changed, b?.counts[0]?.changed], ["integration", changed, exit, changed, changed, changed], JSON.stringify([r, z, a, b]));
+    fx.commit("* -diff", ".gitattributes", 1); // G2 delta2 O-1, oracle side: a measured -diff lowers neither the oracle's W nor the module's count
+    writeFileSync(file, JSON.stringify(proofOf(fx, [pr(1, m1, h1)])));
+    const t = oracle(fx, TARGET, file);
+    assert.deepEqual([t.mode, t.counts[0]?.changed, t.exit], ["integration", changed + 1, exit], JSON.stringify(t));
   }, ciOf(20));
   withFx((fx) => {
     fx.g("checkout", "-q", TARGET);
