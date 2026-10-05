@@ -8,16 +8,19 @@
  */
 import { test } from "node:test";
 import assert from "node:assert/strict";
+import { execFile } from "node:child_process";
 import { createHash } from "node:crypto";
 import { readdirSync, readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
-import { fileURLToPath } from "node:url";
-import { sha256Canonical, type PolicyRow, type Prediction } from "@monark/contracts";
+import { fileURLToPath, pathToFileURL } from "node:url";
+import { sha256Canonical, type ClassEntry, type PolicyRow, type Prediction } from "@monark/contracts";
 import * as gate from "../src/tools/gate.ts";
 import { CASCADE_UNCALIBRATED_SENTENCE, GATE_TOOL_DESCRIPTION, honestyText, runGate, toolErrorCode, type HarnessParams } from "../src/tools/gate.ts";
 import { handleJsonMirror } from "../src/http.ts";
 import { createHarnessHandler } from "../src/server.ts";
 import { kataClassEntries } from "../src/policy-classes.ts";
+import * as classes from "../src/policy-classes.ts";
+import * as kataPathModule from "../src/kata-path.ts";
 import type { ServedTable } from "../src/policy-served.ts";
 
 type Obj = Record<string, unknown>;
@@ -174,7 +177,7 @@ test("describe_gate_kata_clause", () => {
 
 // Test T-13 (F2P): honestyText reads the kata tables: each of the 32 classes serves its class text plus the suffix, never
 // the cascade sentence; the table text is the exact prefix of the served sentence (Z-3).
-// killer: apps/harness/src/tools/gate.ts:740 CONST "SERVED_POLICY_TABLES.find((t) => t.task_class === taskClass)" -> "SERVED_MARGINAL_TABLES.find((t) => t.task_class === taskClass)"
+// killer: apps/harness/src/tools/gate.ts:738 CONST "tables: readonly ServedTable[] = SERVED_POLICY_TABLES" -> "tables: readonly ServedTable[] = SERVED_MARGINAL_TABLES"
 test("kata_class_text_is_table_text_plus_suffix", () => {
   const names = kataClassEntries(() => "").map((e) => e.task_class);
   assert.equal(names.length, 32);
@@ -215,4 +218,85 @@ test("entry_points_never_pass_policy_tables", () => {
   for (const f of ["server.ts", "http.ts", "openapi.ts", "schema-projection.ts", ...readdirSync(join(SRC, "tools")).map((t) => `tools/${t}`)]) walk(join(SRC, f));
   const naming = [...seen].filter((f) => readFileSync(f, "utf8").includes("policyTables")).map((f) => f.slice(SRC.length + 1).replace(/\\/g, "/"));
   assert.deepEqual(naming, ["tools/gate.ts"], "only tools/gate.ts names the seam");
+});
+
+/** A served kata table with one current row on DIR_KEY/up-b1 (the cell of pred(), lean 0.3), through the test seam. */
+function withRow(status: string): ServedTable[] {
+  const base = (((gate as Obj)["SERVED_POLICY_TABLES"] as readonly ServedTable[] | undefined) ?? []).find((t) => t.task_class === "btc-dir-1h") ?? assert.fail("btc-dir-1h is served");
+  const row = { current: true, cell_key: `${DIR_KEY}/up-b1`, thresholds: { t1: "0.5", t2: "0.8" }, status, statement: "per-calibration", alpha: "0.45", n: 20, scores_sha256: "cd".repeat(32), side: "up", text: `row text of ${status}` } as unknown as PolicyRow;
+  return [{ ...base, table: { ...base.table, rows: [row] } }];
+}
+
+// Test T-16 (block D, lot D-3; C-4 condition 3, the end-to-end form): through the seam, a calib_* row of a dir class (silence,
+// vetoed, retired) abstains with its reason, never defer set_too_large (tau 1, clock open, intent in {up, down}); a region
+// row commits at tau 1 and defers set_too_large at tau 0. The honesty text read on the seam's tables is the row text (G2 N-2
+// of D-2): honestyText reads the tables it is given, the served ones by default.
+// killer: packages/hikae/src/l3-gate.ts:93 CONST "REASONS_WITHOUT_REGION.includes(input.verdict.reason)" -> "false"
+test("served_calib_row_abstains_never_defers", () => {
+  const decide = (status: string, tau: number): unknown[] => {
+    const d = runGate(pred(), { ...P_DIR, tau }, undefined, { nowMs: T + 1000, policyTables: withRow(status) });
+    return [d.action, d.reason, d.verdict.reason, d.verdict.n_calib, d.verdict.cell_key];
+  };
+  for (const s of ["silence", "vetoed", "retired"]) assert.deepEqual(decide(s, 1), ["abstain", `calib_${s}`, `calib_${s}`, 20, `${DIR_KEY}/up-b1`], `${s}: abstains, never defers`);
+  assert.deepEqual(decide("region", 1), ["commit", "covered", "covered", 20, `${DIR_KEY}/up-b1`]);
+  assert.deepEqual(decide("region", 0), ["defer", "set_too_large", "set_too_large", 20, `${DIR_KEY}/up-b1`]);
+  const text: (c: string, k: string, byo: boolean, tables?: readonly ServedTable[]) => string = honestyText;
+  assert.equal(text("btc-dir-1h", `${DIR_KEY}/up-b1`, false, withRow("silence")), `row text of silence${SUFFIX}`, "the seam's row text");
+  assert.equal(text("btc-dir-1h", `${DIR_KEY}/up-b1`, false), `no btc-dir-1h calibration is committed for this cell_key; the gate abstains and serves no region${SUFFIX}`, "served: the class text");
+});
+
+// Test (block D, lot D-3; G2 N-6 of D-2): the tripwire of KATA-CLAUSE-COMMITTED-STATE-1. The kata clause describes kata tables
+// with no row, so the served table build fails on a kata table that holds a row; the served tables pass, unchanged, and so
+// does a marginal table with rows (USDe).
+// killer: apps/harness/src/kata-path.ts:126 CONST "t.table.rows.length > 0" -> "false"
+test("kata_tables_hold_no_row_tripwire", () => {
+  const trip = (kataPathModule as Obj)["kataTablesHoldNoRow"];
+  assert.ok(typeof trip === "function", "kata-path.ts exports the tripwire");
+  const check = trip as (t: readonly ServedTable[]) => readonly ServedTable[];
+  const all = ((gate as Obj)["SERVED_POLICY_TABLES"] as readonly ServedTable[] | undefined) ?? [];
+  assert.equal(check(all), all, "the served tables pass, unchanged");
+  assert.ok(all.some((t) => t.table.class.cell_key_rule !== "kata-bucket" && t.table.rows.length > 0), "a marginal table with rows passes");
+  assert.throws(() => check([...all.filter((t) => t.task_class !== "btc-dir-1h"), ...withRow("region")]), /KATA-CLAUSE-COMMITTED-STATE-1.*'btc-dir-1h'/);
+  assert.ok(readFileSync(join(SRC, "tools/gate.ts"), "utf8").includes("= kataTablesHoldNoRow(servedPolicyTables(SERVED_TABLE_TEXTS));"), "the served build passes the tripwire");
+});
+
+// Test (block D, lot D-3; G2 N-5 of D-2): the kata clause reads every value it states: the class names from the entries (a
+// product, checked), alpha and nMin per family, the tau cap of dir classes (KATA_DIR_TAU_CAP, also read by the policy_tau_cap
+// refusal) and the 300 s of B-4. Rendered on other entries and another cap, it names them; by default it is the served clause.
+// killer: apps/harness/src/tools/gate.ts:232 CONST "${names.join(\"-\")}" -> "{btc,eth,bnb,sol}-{dir,range,mae-down,mae-up}-{1h,4h}"
+test("kata_clause_reads_its_names_and_tau_cap", () => {
+  const render = (gate as Obj)["kataClause"] as (entries?: readonly ClassEntry[], tauCap?: number) => string;
+  const some = kataClassEntries(() => "").filter((e) => /^(btc|eth)-.*-1h$/.test(e.task_class));
+  const clause = render(some, 0.5);
+  assert.ok(clause.startsWith("The 8 kata classes `{btc,eth}-{dir,range,mae-down,mae-up}-{1h}` are served"), clause.slice(0, 100));
+  assert.ok(clause.includes(", tau at most 0.5 on dir classes, "), "the cap is read");
+  assert.throws(() => render(some.slice(1)), /not the product/, "a set of classes that is not a product is refused");
+  assert.equal(render(), CLAUSE, "by default, the served clause");
+  assert.equal((classes as Obj)["KATA_DIR_TAU_CAP"], 1, "the cap of dir classes");
+});
+
+// G2 N-2 of D-3: the product check of the kata clause compares sets, not counts: a duplicate class in place of another (32
+// entries, eth-dir-1h twice, no btc-dir-1h) is refused, never rendered as the full product.
+// killer: apps/harness/src/tools/gate.ts:230 CONST "new Set(entries.map((e) => e.task_class)).size !== entries.length || " -> ""
+test("kata_clause_refuses_duplicate_classes", () => {
+  const render = (gate as Obj)["kataClause"] as (entries?: readonly ClassEntry[]) => string;
+  const all = kataClassEntries(() => "");
+  const twin = all.find((e) => e.task_class === "eth-dir-1h") ?? assert.fail("eth-dir-1h");
+  assert.throws(() => render(all.map((e) => (e.task_class === "btc-dir-1h" ? twin : e))), /not the product/);
+});
+
+// Test (block D, lot D-3; G2 N-3 of D-2): the cycle gate.ts <-> kata-path.ts loads cold from either side. Each module is
+// imported first in a fresh child process: kata-path.ts (the risky side: gate.ts then runs first and calls servedPolicyTables
+// while it loads), then server.ts; both load and serve the 35 tables. This file loads gate.ts first, so its own load holds
+// under the killer. Green at the base of D-3 (declared; killer fired by hand).
+// killer: apps/harness/src/kata-path.ts:118 CONST "kataClassEntries(texts.classText)" -> "kataClassEntries(TIME_FIELDS.global ? texts.classText : texts.classText)"
+test("kata_path_and_server_load_cold", async () => {
+  const url = (f: string): string => JSON.stringify(pathToFileURL(join(SRC, f)).href);
+  for (const first of ["kata-path.ts", "server.ts"]) {
+    const script = `await import(${url(first)}); const g = await import(${url("tools/gate.ts")}); process.stdout.write(String(g.SERVED_POLICY_TABLES.length));`;
+    const got = await new Promise<{ ok: boolean; out: string }>((resolve) => {
+      execFile(process.execPath, ["--input-type=module", "-e", script], { encoding: "utf8", timeout: 60000 }, (e, stdout, stderr) => { resolve({ ok: e === null, out: e === null ? stdout : stderr.slice(0, 400) }); });
+    });
+    assert.deepEqual(got, { ok: true, out: "35" }, `${first} loads first`);
+  }
 });

@@ -19,7 +19,8 @@ import { runGate, HarnessToolError, type HarnessParams } from "../src/tools/gate
 import { SCHEMA_VERSION } from "../src/tools/gate.ts";
 import { handleJsonMirror } from "../src/http.ts";
 import { createHarnessHandler } from "../src/server.ts";
-import { HARNESS_TOOLS } from "../src/tools/registry.ts";
+import { HARNESS_TOOLS, REGISTERED_TOOL_NAMES } from "../src/tools/registry.ts";
+import { ATTEST_INPUT_SCHEMA } from "../src/schema-projection.ts";
 import { projectShogen } from "../src/tools/attest.ts";
 import { SHOGEN_LOT_BYTES, SHOGEN_VERDICT_TEXT, SHOGEN_CONSTAT } from "../src/shogen-fixture.ts";
 import { USDE_STABLE_RUN_PREDICTOR_ID } from "../src/calibration.ts";
@@ -347,4 +348,71 @@ test("features_digest_of_63_chars_is_input_invalid", async () => {
   assert.equal(mcp["isError"], true, "MCP refuses it");
   assert.equal(mcp["_meta"], undefined, "without a code");
   assert.match(JSON.stringify(mcp["content"]), /features_digest/, "naming the field");
+});
+
+/** C-3 condition 2 (block D, lot D-3, docs/G0-bloc-d-3.md Q-D3-1): the listed codes no served request can throw, exact, each
+ *  with its reason. Every other listed code has its served request below. */
+const NO_SERVED_REQUEST: Readonly<Record<string, string>> = {
+  output_invalid: "a 500 of the mirror on an output outside its schema, never the answer to a request (http_mirror_validates_its_output)",
+  attest_refused: "attest takes no input: it refuses only when its committed witness fails",
+  ukemi_predict_input_invalid: "the ukemi-predict tool is not registered (U-5b)",
+};
+
+// Test T-15 (block D, lot D-3; C-3 condition 2, the dynamic ratchet): each listed code but NO_SERVED_REQUEST is answered by a
+// served request, a 400 with that code over HTTP (in process), and the code in the MCP _meta for a code a tool throws (the SDK
+// answers input_invalid and json_invalid itself, without a code). A code listed without a request reddens. Green at the base
+// of D-3, since D-2 serves the six kata codes (declared; killer fired by hand).
+// killer: apps/harness/src/kata-path.ts:59 CONST "\"kata_yhat_domain\"" -> "\"param_invalid\""
+test("every_code_but_output_invalid_is_thrown_by_a_served_request", async () => {
+  const T = Date.parse("2026-10-04T04:00:00Z");
+  const C = "cascade-liquidable-24h";
+  const K: HarnessParams = { ...PARAMS, alpha: 0.45, nMin: 6 }, KB: HarnessParams = { ...PARAMS, alpha: 0.01, nMin: 299, intent: 0.01 };
+  const kata = (over: Partial<Prediction> = {}): Prediction => ({ ...pred("btc-dir-1h", 0.3, "kata:vote4@venue/BTCUSDT/1h"), produced_at: "2026-10-04T04:00:00Z", features_digest: "ab".repeat(32), ...over });
+  const at = (p: Prediction, producedAt: string): Prediction => ({ ...p, produced_at: producedAt });
+  const g = (prediction: unknown, params: HarnessParams, extra: Obj = {}): [string, string] => ["/gate", JSON.stringify({ prediction, params, ...extra })];
+  const byo = (cls: string, yhat: string | number, calibration: gateModule.ByoCalibration, over: Partial<HarnessParams> = {}): [string, string] => g(pred(cls, yhat), { ...PARAMS, nMin: 5, ...over, calibration });
+  const requests: Record<string, [string, string]> = {
+    param_invalid: g(pred(C, 1), { ...PARAMS, tau: -1 }), schema_version_unsupported: g(pred(LIQ, 5000, "x", "1.0.0"), LIQ_PARAMS),
+    byo_calibration_invalid: byo("byo-x", "A", { scores: SCORES, mode: "set" }), byo_yhat_type: byo("byo-x", 1, SET), byo_set_tau_cap: byo("byo-x", "A", SET, { tau: 5 }),
+    yhat_type_mismatch: g(pred(C, "1"), PARAMS), liq_yhat_domain: g(pred(LIQ, 1.5), LIQ_PARAMS),
+    attested_inconsistent: g(pred(C, 1), PARAMS, { attested: attested("https://example.test/x") }), task_class_unknown: g(pred("nope-class", 1), PARAMS),
+    byo_overrides_committed: byo("btc-dir-15m", 1, INTERVAL), byo_edge_blank: byo(" byo-x", 1, INTERVAL), byo_lookalike_committed: byo("BTC-DIR-15M", 1, INTERVAL),
+    byo_reserved_kata: byo("eth-dir-1h", 1, INTERVAL), byo_lookalike_confusable: byo("my_range_1h", 1, INTERVAL),
+    produced_at_invalid: g(at(pred(C, 1), "2026-09-04 00:00:00Z"), PARAMS), produced_at_future: g(at(pred(C, 1), "2026-10-04T04:05:01Z"), PARAMS),
+    policy_alpha_mismatch: g(pred(LIQ, 5000), { ...LIQ_PARAMS, alpha: 0.1 }), policy_nmin_mismatch: g(pred(LIQ, 5000), { ...LIQ_PARAMS, nMin: 50 }),
+    task_class_retired: g(pred("btc-dir-15m", "up"), PARAMS),
+    calibrate_input_invalid: ["/calibrate", JSON.stringify({ scores: [0.1, 0.2, 0.3], alpha: 1.5, nMin: 3 })],
+    cascade_input_invalid: ["/cascade", JSON.stringify({ L: [[0, 100], [50, 0]], e: [40, 20], shock: 2, producedAt: AT })],
+    input_invalid: g(pred(C, 1), PARAMS, { rogue: 1 }), json_invalid: ["/gate", "{"],
+    kata_key_invalid: g(kata({ predictor_id: "kata:vote4@venue/ETHUSDT/1h" }), K), kata_yhat_domain: g(kata({ yhat: 1.5 }), K),
+    features_digest_required: g(Object.fromEntries(Object.entries(kata()).filter(([k]) => k !== "features_digest")), K), policy_tau_cap: g(kata(), { ...K, tau: 1.5 }),
+    produced_at_off_grid: g(kata({ task_class: "btc-range-4h", yhat: 0.02, predictor_id: "kata:vote4@venue/BTCUSDT/4h", produced_at: "2026-10-04T03:00:00Z" }), KB),
+    produced_at_stale: g(kata({ produced_at: "2026-10-04T03:00:00Z" }), K),
+  };
+  assert.deepEqual(Object.keys(NO_SERVED_REQUEST), ["output_invalid", "attest_refused", "ukemi_predict_input_invalid"], "the codes with no served request, exact");
+  assert.deepEqual([...Object.keys(requests), ...Object.keys(NO_SERVED_REQUEST)].sort(), [...contracts.TOOL_ERROR_CODES].sort(), "each listed code has a served request or a written reason");
+  const mcp = async (name: string, args: unknown): Promise<Obj> => {
+    const res = await createHarnessHandler(() => T).fetch(new Request("http://mcp.monarkgate.tech/", {
+      method: "POST", headers: { "content-type": "application/json", accept: "application/json, text/event-stream" },
+      body: JSON.stringify({ jsonrpc: "2.0", id: 1, method: "tools/call", params: { name, arguments: args } }),
+    }));
+    const raw = await res.text();
+    const data = raw.split(/\r?\n/).find((l) => l.startsWith("data:"));
+    return (JSON.parse(data === undefined ? raw : data.slice("data:".length).trim()) as { result?: Obj }).result ?? {};
+  };
+  for (const [code, [path, body]] of Object.entries(requests)) {
+    const res = await handleJsonMirror(new Request(`http://api.monarkgate.tech${path}`, { method: "POST", body }), () => T);
+    assert.deepEqual([res.status, ((await res.json()) as Obj)["code"]], [400, code], `${code}: HTTP ${path}`);
+    if (code === "input_invalid" || code === "json_invalid") continue;
+    const r = await mcp(path.slice(1), JSON.parse(body));
+    assert.deepEqual([r["isError"], r["_meta"]], [true, { "monarkgate.tech/error_code": code }], `${code}: MCP`);
+  }
+});
+
+// G2 N-1 of D-3: the reasons of NO_SERVED_REQUEST are facts the test checks, so an exemption reddens when its reason falls (at
+// U-5b, ukemi-predict is registered and its code needs a served request in T-15). Green at its base (declared; killer by hand).
+// killer: apps/harness/src/schema-projection.ts:266 CONST "additionalProperties: false" -> "additionalProperties: true"
+test("no_served_request_reasons_hold", () => {
+  assert.ok(!REGISTERED_TOOL_NAMES.includes("ukemi-predict"), "ukemi-predict is not registered");
+  assert.deepEqual([ATTEST_INPUT_SCHEMA["properties"], ATTEST_INPUT_SCHEMA["additionalProperties"]], [{}, false], "attest takes no input");
 });

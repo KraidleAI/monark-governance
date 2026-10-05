@@ -41,3 +41,7 @@ export function kataKeyProblem(key: string, taskClass: string): string | undefin
   const [sym, h] = [(parts[0] ?? "").toUpperCase(), parts.at(-1)];
   return (m[3] ?? "").startsWith(sym) && m[4] === h ? undefined : `does not match its class '${taskClass}' (SYMBOL starting with '${sym}', <h> '${String(h)}')`;
 }
+
+/** The tau cap of a kata dir class (spec section 9): a set of one label at most. Read by the policy_tau_cap refusal and by
+ *  the kata clause of the gate description (block D, lot D-3; G2 N-5 of D-2). */
+export const KATA_DIR_TAU_CAP = 1;

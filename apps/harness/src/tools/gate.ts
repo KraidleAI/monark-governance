@@ -33,7 +33,7 @@ import {
 } from "@monark/hikae";
 import type { GateInput, VerdictCell } from "@monark/hikae";
 import { assertClosedGateDecision, assertNoForbiddenKey, requestSha256, sha256Canonical, SCHEMA_VERSION, TOOL_ERROR_CODES } from "@monark/contracts";
-import type { GateDecision, Prediction, CoverageVerdict, AttestedPrice } from "@monark/contracts";
+import type { GateDecision, Prediction, CoverageVerdict, AttestedPrice, ClassEntry } from "@monark/contracts";
 import {
   lookupCommittedCalibration,
   UKEMI_LIQ_PREDICTOR_BASE,
@@ -59,8 +59,8 @@ import { checkAttestedConsistency, NO_SERVED_ATTESTATION_SUBJECT_SENTENCE } from
 import type { ServedTable, ServedTableTexts } from "../policy-served.ts";
 // (block D, lot D-2): the served kata path. kata-path.ts reads the exports of this file at call time only, so the import
 // cycle is safe; servedPolicyTables reads none of them while this file loads.
-import { kataPath, kataVerdict, servedPolicyTables } from "../kata-path.ts";
-import { kataClassEntries } from "../policy-classes.ts";
+import { kataPath, kataTablesHoldNoRow, kataVerdict, servedPolicyTables } from "../kata-path.ts";
+import { KATA_DIR_TAU_CAP, kataClassEntries } from "../policy-classes.ts";
 
 /** Server-fixed contract version (K-4c), the one constant of @monark/contracts — NOT carried by the caller. */
 export { SCHEMA_VERSION };
@@ -217,23 +217,23 @@ export function kataClassText(taskClass: string): string {
   return `no ${taskClass} calibration is committed for this cell_key; the gate abstains and serves no region`;
 }
 
-/** The kata clause of the gate description (block D; state: no kata row committed, item KATA-CLAUSE-COMMITTED-STATE-1).
- *  Its values are read from the kata class entries (alpha, nMin per family) and from B-4 (300 s), never typed. */
-export function kataClause(): string {
-  const entries = kataClassEntries(kataClassText);
-  const [dir, band] = [entries.filter((e) => e.region_rule === "sign-set"), entries.filter((e) => e.region_rule !== "sign-set")];
-  const one = (es: typeof entries): { alpha: string; nMin: string } => {
-    const vals = new Set(es.map((e) => `${e.alpha ?? ""} ${String(e.n_min)}`));
+/** The kata clause of the gate description (block D; state: no kata row committed, KATA-CLAUSE-COMMITTED-STATE-1, tripwire
+ *  kataTablesHoldNoRow). Every value is read: names, alpha and nMin per family from the entries, the tau cap, B-4 (300 s). */
+export function kataClause(entries: readonly ClassEntry[] = kataClassEntries(kataClassText), tauCap = KATA_DIR_TAU_CAP): string {
+  const parts = (i: 1 | 2 | 3): string[] => [...new Set(entries.map((e) => /^([a-z0-9]+)-(.+)-([a-z0-9]+)$/.exec(e.task_class)?.[i] ?? ""))];
+  const one = (dir: boolean): { alpha: string; nMin: string } => {
+    const es = entries.filter((e) => (e.region_rule === "sign-set") === dir), vals = new Set(es.map((e) => `${e.alpha ?? ""} ${String(e.n_min)}`));
     if (es.length === 0 || vals.size !== 1) throw new Error(`kata clause: alpha and nMin are not uniform on a family (${[...vals].join("; ")})`);
     return { alpha: es[0]?.alpha ?? "", nMin: String(es[0]?.n_min) };
   };
-  const [d, b] = [one(dir), one(band)];
+  const [d, b, names] = [one(true), one(false), ([1, 2, 3] as const).map((i) => `{${parts(i).join(",")}}`)];
+  if (new Set(entries.map((e) => e.task_class)).size !== entries.length || entries.length !== parts(1).length * parts(2).length * parts(3).length) throw new Error("kata clause: the kata classes are not the product of their parts");
   return (
-    `The ${String(entries.length)} kata classes \`{btc,eth,bnb,sol}-{dir,range,mae-down,mae-up}-{1h,4h}\` are served from their policy tables, ` +
+    `The ${String(entries.length)} kata classes \`${names.join("-")}\` are served from their policy tables, ` +
     "which hold no committed calibration row: every well-formed kata call abstains with no region (under_calib, or non_evaluable on a dir " +
     "lean of exactly 0), and no kata class has an attestation subject. A kata call carries a `predictor_id` of the form " +
     "`kata:<kataId>@<venue>/<SYMBOL>/<h>` (no bucket, <h> the class horizon), a `features_digest`, " +
-    `alpha = ${d.alpha}, nMin = ${d.nMin} on dir classes and alpha = ${b.alpha}, nMin = ${b.nMin} on the others, tau at most 1 on dir classes, ` +
+    `alpha = ${d.alpha}, nMin = ${d.nMin} on dir classes and alpha = ${b.alpha}, nMin = ${b.nMin} on the others, tau at most ${String(tauCap)} on dir classes, ` +
     `and a \`produced_at\` on the class horizon grid, received at most ${String(PRODUCED_AT_FUTURE_TOLERANCE_MS / 1000)} s after it; ` +
     "the full request rules are in section 9 of the contract 1.1.0 specification."
   );
@@ -735,9 +735,9 @@ function liqEligibleVerdict(prediction: Prediction, params: HarnessParams): Cove
  * served the calibrated sentence on s1 to s3 as well. An unknown class reads the cascade sentence, as before.
  * A surclaim mutant (the committed sentence for a key without a row) reddens the A7(f) and S-8 tests.
  */
-export function honestyText(taskClass: string, cellKey: string, isByo: boolean): string {
+export function honestyText(taskClass: string, cellKey: string, isByo: boolean, tables: readonly ServedTable[] = SERVED_POLICY_TABLES): string {
   if (isByo) return `${CALIBRATE_LABEL} B_t is caller-carried.`;
-  const served = SERVED_POLICY_TABLES.find((t) => t.task_class === taskClass);
+  const served = tables.find((t) => t.task_class === taskClass);
   if (served === undefined) return `${CASCADE_UNCALIBRATED_SENTENCE}; B_t is caller-carried.`;
   // The current row of the resolved key (USDe key; liq s0), else the class text (other population; liq s1 to s3;
   // cascade, whose table has no row). One lookup for every served class: the Z-3 composition holds by construction,
@@ -1039,7 +1039,7 @@ export const SERVED_TABLE_TEXTS: ServedTableTexts = {
 };
 
 /** The served tables (block D: the 32 kata tables and the three marginal ones), built once at load, fail-closed (Q-C3). */
-export const SERVED_POLICY_TABLES = servedPolicyTables(SERVED_TABLE_TEXTS);
+export const SERVED_POLICY_TABLES = kataTablesHoldNoRow(servedPolicyTables(SERVED_TABLE_TEXTS));
 /** The three marginal tables (USDe, liq, cascade): a view of SERVED_POLICY_TABLES, not a second build. */
 export const SERVED_MARGINAL_TABLES = SERVED_POLICY_TABLES.filter((t) => t.table.class.cell_key_rule !== "kata-bucket");
 

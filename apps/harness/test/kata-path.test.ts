@@ -169,7 +169,7 @@ test("kata_imposed_params_without_row", () => {
   assert.equal(call(band, PB), "ok");
 });
 
-// killer: apps/harness/src/kata-path.ts:62 ROR "!(params.tau <= 1)" -> "!(params.tau <= 2)"
+// killer: apps/harness/src/kata-path.ts:62 CONST "!(params.tau <= KATA_DIR_TAU_CAP)" -> "!(params.tau <= 2)"
 test("kata_tau_cap_on_set_classes", () => {
   assert.equal(req(DIR, pr(DIR, 0.5), { ...P, tau: 1 }), "ok");
   assert.equal(req(DIR, pr(DIR, 0.5), { ...P, tau: 0 }), "ok");
