@@ -221,3 +221,84 @@ pli de plus y serait fusionné ici plus tard par un commit de fusion (avec le co
   `days/<SYMBOLE>/` l'ignorent comme entrée et respectent son âge (`SEAL_TIMEOUT_MS`).
 - n-6 (pour P3) : un arrêt nommé sort 1 ; sous `Restart=on-failure`, un `quota_stop` ou un `rest_stopped` (451) relancerait l'unité en
   boucle : `RestartPreventExitStatus` ou un code de sortie distinct à trancher en P3.
+
+## Pli de la delta (APPROUVE SOUS RESERVE, 2026-10-05)
+
+Delta lue : `recherches/coordination/pieces/2026-10-04-G2-recherches/G2-l2-p1-c5-bis-b-delta.md` (delta relu `ca900bc3..b84df6d7`,
+aucun bloquant ; r-1 à r-4, notes n-a à n-f). Commits, sans rebase :
+- `7a546ab8` : fusion de `recherches/l2-p1-c5-bis` à `dadc049c` (pli de la delta de c5-bis-a, PR #156). L'appel `apart` passe déjà un vrai
+  `AbortSignal` et un `env` objet : rien à adapter au `sealApart` qui lit son `io` dans son `try` ; `if (abort.signal.aborted) return;`
+  gardé après l'appel (n-d). Tests L2 181 sur 181 après la fusion.
+- `c489d389` (test rouge de r-1), `3662e147` (gel de r-1).
+- `5056a343` : fusion de `recherches/l2-p1-c5-bis` à `3d464be5` (c5 `85211233` : deux sauts win32 nommés des tests d'échange de lien).
+  Base de la PR désormais `3d464be5` ; R-25 du lot mesuré contre elle.
+- `a970a8be` (test rouge de r-2), `fe18cf81` (gel de r-2), `2a3724cb` (le test de m-1 (a) garde son seul tueur de preuve rouge, celui de
+  r-2 est appliqué à la main), puis ce commit (G7).
+
+| Point de la delta | Suite | Preuve (test ; tueur) |
+|---|---|---|
+| **r-1** (une clé de `seals()` affame les suivantes) | un `try` par clé (symbole, jour) dans `seals()` : sa levée est journalisée `schedule_failed` avec le symbole et le jour (`{ task: "seal", day, code }`), la clé reste due (l'heure suivante), les clés suivantes passent. Le `.catch` de l'appel reste en filet | `l2_record_seal_throw_named`, corps repris sur le reproducteur STARVE de la delta : verrou de `BTCUSDT` en dossier daté de 1970 (`EISDIR`) ; `BNBUSDT`, `ETHUSDT` et `SOLUSDT` `day_sealed`, `BTCUSDT` `schedule_failed` (jour D), `stopped`, aucun rejet non géré. Tueur `// killer: scripts/record-binance-l2.mjs:344 CONST "catch (e) { failed(\"seal\", e, symbol, { day }); }" -> "catch (e) { throw e; }"` |
+| **r-2** (écritures après `stopped`) | plié pour la boucle : après chaque réponse REST de `fire` (`time`, `exchangeInfo`, ancre), `if (finished) return;` ; un échec après l'arrêt n'est plus journalisé (`if (finished \|\| e instanceof RecorderStop)`). Ni `clock_offset`, ni `weight_*`, ni `anchor-*.json`, ni `schedule_failed` après `stopped`. Reste (à c5-bis-c) : `requests.jsonl` et `rest/` sont écrits par le client REST lui-même pour une requête en vol | `l2_record_stop_during_start`, étendu au reproducteur AFTERSTOP : la réponse du départ rendue après l'arrêt, la dernière ligne reste `stopped`, aucune `clock_offset`. Tueur à la main (un seul tueur par test pour la preuve rouge, celui de m-1 (a) gardé) : `// killer: scripts/record-binance-l2.mjs:352 CONST "if (finished) return; const e" -> "const e"`, rouge par assertion (`["clock_offset", 1]`) |
+| r-3 (`note("stopped")` nu) | non plié (budget) : à c5-bis-c, liste ci-dessous | — |
+| r-4 (trois survivants) | non plié (budget) : à c5-bis-c, liste ci-dessous | — |
+| n-a (départ lent près de minuit) | déclaré, à c5-bis-c ; le rejeu (c6) couvre les ancres perdues | — |
+| n-b (rejet après le retrait du filet) | déclaré pour P3, avec n-6 | — |
+| n-c (Windows) | à vérifier au rejeu Windows de MONARK : `l2_command_exit_bounded` (`env: {}`) et désormais `EISDIR` d'un `writeFileSync` sur un dossier dans `l2_record_seal_throw_named` (libuv le rend sous win32, à confirmer). Les tests touchés n'utilisent ni `/proc`, ni FIFO, ni `O_NOFOLLOW`, ni renommage sur un lien de dossier : aucun saut win32 requis | — |
+| n-d | gardé à la fusion (ci-dessus) | — |
+| **n-e** (418 sans `Retry-After`) | dit ici : un 418 sans `Retry-After` (ou avec un `Retry-After` de plus de 3 jours) laisse le client REST arrêté ; sur un instantané comme sur `time`, `exchangeInfo` ou une ancre, la course s'arrête aussitôt `rest_stopped` avec son code (`ip_banned_no_retry_after`), comme un 451, conformément au G0 (« les arrêts de b1 »). Un 429 suspend seulement | — |
+| n-f (levée synchrone) | déclaré pour c6 : le filet ne couvre que `unhandledRejection` ; aucun chemin synchrone connu dans la boucle | — |
+
+### Renvoyés à c5-bis-c (liste fermée)
+
+Le budget R-25 de c5-bis-b est pris (546 sur 547 contre `3d464be5`) : ce qui suit va à c5-bis-c, avec les **13 points** que le G7 de
+c5-bis-a renvoyait à c5-bis-b (`docs/G7-lot-l2-p1-c5-bis.md`, section « Renvoyés à c5-bis-b », points 1 à 13 : r-3 M3, L8, L4, M10, M17,
+`timeoutMs` de `_through_the_pinned_root`, r-4 `hook_failed`, n-10 à n-15), non traités ici.
+
+14. **r-2 (reste)** : une requête REST en vol à l'arrêt écrit encore `requests.jsonl` et `rest/` après `stopped`, dans la fenêtre de
+    sortie (`EXIT_GRACE_MS`) ; un `AbortController` de la boucle passé au client REST et abandonné à l'arrêt. Les gardes `if (finished)`
+    de `exchangeInfo`, de l'ancre et du `catch` ne sont pas épinglées par un test (seule celle de `time` l'est, à la main).
+15. **r-3** : `note("stopped")` en `tell("stopped", ...)` (ou le risque déclaré), avec un test au reproducteur JOURNAL : la course sort
+    sur l'arrêt nommé, pas sur `EISDIR` brut.
+16. **r-4 (a)** : la tolérance `OVERDUE_US` épinglée : saut de 19 s, rien sauté ; saut de 21 s, `event_skipped` (sonde JITTER) ; tueur
+    `now - e.at > OVERDUE_US` en `now - e.at > 0`.
+17. **r-4 (b)** : `tell` sans `try` : un test d'un journal en panne sur un chemin d'erreur.
+18. **r-4 (c)** : la branche de rejet de `within` : un test d'un `stop()` de liaison qui rejette.
+19. **n-a** : critère « jour corrigé changé, ou retard au-delà de la tolérance » pour les ancres d'un départ lent près de minuit (sonde
+    SLOWSTART), ou le risque gardé déclaré.
+20. **filet du `.catch` de `seals()`** : depuis r-1, aucune levée connue ne l'atteint ; son retrait ne rougit aucun test (survivant
+    déclaré).
+
+### Preuves du pli de la delta
+
+- **Preuve rouge de r-1** : `node scripts/red-proof.mjs --base 7a546ab8 --gel 3662e147 --repo /home/user/monark-governance-c5bb --draw 10
+  --seed 37` : « red-proof OK: 1 judged, 85 unchanged, 1 killer(s) drawn » ; F2P `l2_record_seal_throw_named` (à la base : trois lignes au
+  lieu de cinq, `ETHUSDT` et `SOLUSDT` jamais scellés), tueur `:344` tiré et tué ; `RED-PROOF.json` sha256 `12f8e0d462b792be…`.
+- **Preuve rouge de r-2** : `--base 5056a343 --gel 2a3724cb --draw 10 --seed 37` : « red-proof OK: 1 judged, 64 unchanged, 1 killer(s)
+  drawn » ; F2P `l2_record_stop_during_start`, tueur `:387` (m-1 (a)) tiré et tué ; sha256 `77c5b7b4acd58733…`. Tueur `:352` de r-2 à la
+  main au gel, fichier restauré : rouge par assertion.
+- **Preuve rouge du pli entier** : `--base 7a546ab8 --gel 2a3724cb --draw 10 --seed 37` : « REFUSED: 4 judged, 82 unchanged, 2 killer(s)
+  drawn » ; les deux F2P du pli et leurs deux tueurs tués ; les deux refus « green at base » (`l2_check_walk_pinned`,
+  `l2_check_alarm_pinned`) sont les sauts win32 de c5 apportés par la fusion `5056a343`, pas des tests du pli ; sha256 `f72e1d856d31380e…`.
+- **Ancres** : `verifie-ancres.mjs . --touched dadc049c HEAD` et `--touched 3d464be5 HEAD` : 86 tueurs, 86 ANCRE, 0 DERIVE, 0 PERDU.
+  Tueurs de la boucle renumérotés (`:332` → `:333`, `:339` → `:340` avec son indentation, `:350` → `:352`, `:367` → `:369`, `:376` →
+  `:378`, `:385` → `:387`, `:387` → `:389`, `:395` → `:397`, `:430` → `:432`, `l2-record` `:428` → `:430`) ; `:349` (`.catch`) remplacé
+  par `:344`.
+- Chemins du test de r-1 bâtis par `join` ; aucun chemin POSIX écrit en dur dans une attente.
+
+| Vérification (tête `2a3724cb`, Node v24.21.0) | Résultat |
+|---|---|
+| `node --test test/l2-*.test.ts` | 181 sur 181, 0 échec, 0 sauté |
+| `npm test` complet | 2 387 tests : 2 365 verts, 0 échec, 22 sautés (raisons nommées), sortie 0 |
+| `tsc --noEmit` (`typecheck`) | 0 |
+| `lint` | 0 |
+| `lint:ratchet` | 69/69 |
+| `gate:vocab` | OK (335 fichiers) |
+| `lang:gate` | OK |
+| preuves rouges | r-1 OK, r-2 OK ; pli entier : 2 F2P, 2 tueurs tués, 2 refus hérités de la fusion de c5 |
+| ancres | 86/86 (touchés depuis `dadc049c` et depuis `3d464be5`) |
+| R-25 contre `3d464be5` (base de la PR) | 546, GREEN, borne du lot 547 |
+
+- **R-25** (`r25()` de `scripts/oracle/r25.mjs`, `ci.yml` du worktree) : contre `3d464be5`, `STAT` 546 (528 insertions, 18 suppressions),
+  `CONTENT_STAT` 0, GREEN, marge 1 (le pli de la delta : +6 nettes, r-1 +4, r-2 +2). Contre `dadc049c` : 550 (la fusion de c5 y compte ses
+  4 lignes de test). Contre `c6cf927a` : 616 (le pli de la delta de c5-bis-a y compte aussi) ; ni l'une ni l'autre n'est plus la base de
+  cette PR.
