@@ -76,6 +76,16 @@ const textOf = (html: string): string => html.replace(/<[^>]*>/g, "").replaceAll
 const rowsIn = (html: string): string[][] => [...(html.split("<tbody>")[1] ?? "").matchAll(/<tr>(.*?)<[/]tr>/g)]
   .map((m) => [...(m[1] ?? "").matchAll(/<td class="break-all">(.*?)<[/]td>/g)].map((c) => textOf(c[1] ?? "")));
 
+// CodeQL alert 41: one regex pass that drops tags swallows text in silence on malformed markup. React escapes < > & in text and in
+// attributes, so a stray < or >, or a bare &, is markup it never writes: textOf refuses it, never reads it.
+test("dojo_render_text_of_refuses_markup_react_never_writes", () => {
+  for (const bad of ["<td>a<b</td>", "a>b", "<p>x&y</p>"]) assert.throws(() => textOf(bad), /textOf/, bad);
+});
+test("dojo_render_text_of_reads_back_any_text_react_renders", () => {
+  for (const s of [`a<b>&"'`, "&amp;lt;", "</td><script>x</script>", "<!-- c -->", "&#x27;&quot;", ""])
+    assert.equal(textOf(renderToStaticMarkup(createElement("td", { title: s }, s))), s, s);
+});
+
 /** A temporary repository root holding `record` (as the sync writes it) and its manifest entry. */
 function rootWith(record: Rec): string {
   const dir = temp("dojo-render-root-"), text = JSON.stringify(record, null, 2) + NL;
