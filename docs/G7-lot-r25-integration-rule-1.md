@@ -4,7 +4,7 @@
 - **Relecture pliée** : `G2-r25-integration-rule-1.md` (G2 neuve de RECHERCHES, pièce de coordination du 2026-10-04), verdict APPROUVE SOUS RÉSERVE, trois bloquants B-1 à B-3 et sept mineurs m-1 à m-7. Tous sont pliés (section 9).
 - **Découpe** : le lot plié mesure 619 lignes R-25 (borne du lot 547). Il est coupé selon le G0 (section 9) :
   - **1a** `recherches/r25-integration-rule-1a`, depuis le tronc : G0 `bbf6582c` (repris tel quel de `94de83b8`), tests rouges `4d7d2b75`, gel `11e45dac`, docs (ce G7 et le G0 mis à jour, commit suivant) ;
-  - **1b** `recherches/r25-integration-rule-1b`, depuis la tête de 1a : tests rouges, gel, docs (section 6.2).
+  - **1b** `recherches/r25-integration-rule-1b`, depuis la tête de 1a `99edbc33` : tests rouges `a0bcc3c0`, gel `0b0c96ac`, docs (section 6.2, commit suivant).
 - **Branche d origine** `recherches/r25-integration-rule-1` (tête `2475e8e5`, celle relue par la G2) : laissée telle quelle, remplacée par 1a puis 1b. Le G7 d origine y reste lisible ; celui-ci le remplace.
 - **Statut** : gel complet des deux lots. Aucune PR ouverte. Deux PR écrites vers le tronc, 1a puis 1b (E-7). La règle ne vit qu après la fusion de 1b.
 
@@ -16,11 +16,12 @@
 | 1a | `scripts/lot-size-integration.d.mts` (neuf) | surface de types du test racine (avec `buildProof`) | 12 |
 | 1a | `test/r25-integration.test.ts` (neuf) | T-1 à T-9 (T-4 sur les comptes du module), B-1, B-2, `buildProof` (m-1, m-3) | 252 |
 | | **Total 1a** (contre le tronc) | | **421** |
-| 1b | `.github/workflows/ci.yml` | job `r25-taille-de-lot` seul : jeton, ligne `proof`, ligne `count` (cible lue dans `$GITHUB_BASE_REF`), repli, deux gardes `case` (la seconde borne la longueur), réassignation, mode | voir 6.2 |
-| 1b | `scripts/oracle/r25.mjs` | `r25(clone, ciText, base, proofFile)` exécute **le module de l oracle**, seulement si le clone porte les mêmes octets | voir 6.2 |
-| 1b | `scripts/oracle/run.mjs` | `--r25-proof`, part `r25_proof` de la clé D4, module dans la part `script`, champs `r25_mode` et `r25_proof` | voir 6.2 |
-| 1b | `test/r25-integration.test.ts` | T-10 (parité CI / oracle), test B-3, T-4 repassé par le `r25()` de l oracle (sous une configuration git hostile) | voir 6.2 |
-| 1b | `test/oracle-run.test.ts`, `test/ci-gates.test.ts` | T-11 (et la part `script` de la clé), test de câblage (m-4, m-5) ; tueurs ré-ancrés | voir 6.2 |
+| 1b | `.github/workflows/ci.yml` | job `r25-taille-de-lot` seul : jeton, ligne `proof`, ligne `count` (cible lue dans `$GITHUB_BASE_REF`), repli, deux gardes `case` (la seconde borne la longueur), réassignation, mode | 19 |
+| 1b | `scripts/oracle/r25.mjs` | `r25(clone, ciText, base, proofFile)` exécute **le module de l oracle**, seulement si le clone porte les mêmes octets | 26 |
+| 1b | `scripts/oracle/run.mjs` | `--r25-proof`, part `r25_proof` de la clé D4, module dans la part `script`, champs `r25_mode` et `r25_proof` | 16 |
+| 1b | `test/r25-integration.test.ts` | T-10 (parité CI / oracle), test B-3, T-4 repassé par le `r25()` de l oracle (sous une configuration git hostile) | 100 |
+| 1b | `test/oracle-run.test.ts`, `test/ci-gates.test.ts` | T-11 (et la part `script` de la clé), test de câblage (m-4, m-5) ; tueurs ré-ancrés | 26 + 35 |
+| | **Total 1b** (contre la tête de 1a ; 1a + 1b contre le tronc : 619) | | **222** |
 
 Mesure : `r25()` **du tronc** (`git show ab8084fb:scripts/oracle/r25.mjs`), pathspec CODE de `ci.yml`, docs hors pathspec. 1a au gel `11e45dac` : `STAT 421 insertions, 0 deletions, changed 421` ; `CONTENT_STAT 0` ; GREEN, sous 547.
 
@@ -90,7 +91,14 @@ Le juge pris sur la cible en CI (Q-9) fermerait R-1 ; il reste une suite possibl
 
 ### 6.2 Lot 1b
 
-Voir le commit de docs de 1b, qui complète cette section.
+Gel `0b0c96ac`, mêmes outils.
+
+- **R-25** (`r25()` du tronc) : contre la tête de 1a `99edbc33`, `STAT 196 insertions, 26 deletions, changed 222`, `CONTENT_STAT 0`, GREEN, sous 547. Après la fusion de 1a, la PR de 1b mesure ces 222 lignes contre le tronc.
+- **red-proof** : `node scripts/red-proof.mjs --base 99edbc33 --gel 0b0c96ac --repo <worktree> --draw 12 --seed 37` -> **OK** : 5 tests jugés, tous F2P (test de câblage, T-11, T-4 par l oracle, test B-3, T-10), 59 inchangés, **5 tueurs tirés (toute la population), 5 tués**. `RED-PROOF.json` sha256 `de4ee0b37cd30b883656b51622b63707b8b2b1a38d18ee78684dab7ff67e559e`.
+- **Tueurs à la main** : les 22 tueurs de `test/r25-integration.test.ts` (dont B-3 `r25.mjs:20` et `:44`, m-2 `:28`) et les 6 tueurs de `oracle-run.test.ts` et `ci-gates.test.ts` qui visent `run.mjs:62`, `:63`, `ci.yml:99` (deux), `:106`, `:183` : **28 tués sur 28**. Les deux tueurs internes `r25.mjs:31` (SDL) et `:35` (ROR) de `oracle_r25_over_the_ci_bound_is_red`, ré-ancrés, sont tués aussi.
+- **Ancres** : `--touched ab8084fb HEAD` et `--touched 99edbc33 HEAD` : 54 tueurs, 52 ANCRE, 2 PERDU, les deux déjà PERDU au tronc (`oracle-run.test.ts:129`, `:182`). Sur tout l arbre, comparé au tronc : un seul PERDU ajouté, `test/dojo-render.test.ts:326` (`ci.yml:226` devenu `:245`, Q-12), comme au G7 d origine.
+- **npm test** complet depuis le worktree, au gel `0b0c96ac` (proxy retiré, suite hors ligne) : **2 317 tests, 2 295 verts, 0 rouge, 0 annulé, 22 sautés**, exit 0.
+- `test/r25-integration.test.ts`, `ci-gates`, `oracle-run` : 64/64 ; `tsc --noEmit` 0 ; `npm run lint` 0 ; `lint:ratchet` 69/69 ; `gate:vocab` OK ; `lang:gate` OK ; `export:check` OK.
 
 ## 7. Ligne datée d ADR-M003 D9 (projet E-6, réécrit après le pli, à contrôler par MONARK)
 
