@@ -1,4 +1,6 @@
-# G0 du lot SCHEMA-PROJECTION-FAIL-CLOSED-1 (contrat 1.1.0) : `inlineDefs` échoue fermé
+# G0 du lot SCHEMA-PROJECTION-FAIL-CLOSED-1 (contrat 1.1.0) : `inlineDefs` échoue fermé sur quatre cas listés
+
+> Note du pli de la G2 (N-6) : le titre disait « échoue fermé » sans borne ; ce G0 ne fermait que les quatre cas du §3. La G2 a trouvé d'autres entrées projetées faux sans levée ; le pli les ferme (voir le G7, « Pli de la G2 »). Le reste de ce G0 n'est pas réécrit.
 
 - **Item** : SCHEMA-PROJECTION-FAIL-CLOSED-1 (`docs/ETAT.md` de `lot/etude-suite`) : « `inlineDefs` perd les mots-clés voisins d'un `$ref` et boucle sur une définition récursive ; la projection doit échouer fermé. » Né de N-2 de la G2 de C' 3c-4a. La partie `500` (exclusion des branches, liste fermée de clés) est déjà pliée par TRANSPORT-500-SCHEMA-1 (N-1, N-2 de sa G2) ; reste le cœur : `inlineDefs`.
 - **Base** : `base/chantier-moteur-2026-10-03` à `7ad0f580` (refspec explicite). Branche `recherches/schema-projection-fail-closed-1`, aucune PR.
