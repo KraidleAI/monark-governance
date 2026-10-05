@@ -41,8 +41,8 @@ Tronc relu au G7 : `origin/lot/etude-suite` toujours en `173ea0fd`.
   garde `to >= start` et garde `from < end` retirées ; trou ouvert à l'heure de l'événement au lieu du dernier appliqué ; minutes au-delà
   de 23:59 ; ordre des niveaux ; plancher des côtés inversé ; `start` réécrit à chaque reprise ; diff illisible non rompu. Crochet de
   `day.mjs` : `refs`, dédoublonnage, `missing`, `manifest`, `modules`, écriture des fichiers, garde `stray_file` : chacun tué.
-  Équivalent déclaré : A1 `ev.u < id` → `<=` (un événement de `u` = id réappliqué ne change rien, quantités absolues ; même règle dans
-  b2).
+  Équivalent déclaré au gel : A1 `ev.u < id` → `<=`. **Déclaration retirée au pli du G2** (m-5) : ce mutant n'est pas équivalent,
+  il a désormais un test (section G2).
 - Garde croisée Q-C2-1 : `l2_day_replay_from_anchor_and_amorce` compare le carnet rejoué à `createBook` de b2 nourri des mêmes trames.
 - `test:main` 2 272 tests, 2 250 réussis, 0 échec, 22 ignorés (sortie 0) ; `test:export` 1 sur 1 (sortie 0). `tsc` 0 ; `lint` 0
   erreur ; `lint:ratchet` 69/69 ; `gate:vocab` OK (335 fichiers) ; `lang:gate` OK.
@@ -63,3 +63,134 @@ Q-C2-8 (échelle passée par l'appelant), Q-C2-9 (chevauchement connexion par co
 - c6 : `--from-raw` rappelle `sealDay` avec le même `derive` ; il copie les instantanés et segments listés au `SHA256SUMS`, dont
   `rest/<SYMBOLE>/…` et les segments de l'amorce.
 - MAST FM-3.2 : bornes de TL-3 et TL-5 ici ; l'oracle réel reste M-4 en M-1 (parité contre l'ancre de la place).
+
+## G2 (2026-10-05, APPROUVE SOUS RÉSERVE, B-1) : pli
+
+Rapport : `recherches/coordination/pieces/2026-10-04-G2-recherches/G2-l2-p1-c2.md`. Tronc relu : `origin/lot/etude-suite` toujours
+en `173ea0fd`, aucune fusion. Commits : `6835aa51` (tests rouges et types), `27f9eb5a` (gel), puis ce commit (G0 et G7). Méthode du
+lot : un test et un tueur par point. `day.mjs` est changé en place seulement (lignes 20, 35, 193, 194, 209, 210) : les onze tueurs de
+c1 gardent leur ligne. `packages/rpc-guard/bin/rpc-guard.mjs` non touché. Poussé sur `origin/recherches/l2-p1-c2`, aucune PR.
+
+### Bloquant
+
+- **B-1 (corrigé)** : `minutes.jsonl` est bâti par morceaux de 64 Kio et compté en octets à chaque ligne. Au-delà de `bound`
+  (`MINUTES_BOUND` = 128 Mio, G0 point 9), arrêt nommé `minutes_bound`, ajouté aux `STOPS` à la ligne 35 changée en place. Rien n'est
+  écrit, car le crochet passe avant `mkdirSync`. `day.mjs:210` écrit chaque morceau l'un après l'autre et ne joint jamais : la
+  copie de `join` disparaît. Le contrat du scellé tient : `SHA256SUMS` est calculé sur le fichier écrit par morceaux. Test
+  `l2_minutes_bound_named` :
+  - le jour de `l2_minute_place_time_strict` fait 72 Kio, donc deux morceaux ;
+  - borne = sa taille exacte : il est scellé, octets identiques, empreinte de `SHA256SUMS` exacte ;
+  - borne = taille − 1 : `minutes_bound`, sans `index.jsonl` ni `minutes.jsonl`.
+
+  Tueur `derive.mjs:82 ROR "size > bound" -> "size >= bound"`. Q-C2-7 est remplacée par ce correctif.
+
+### Mineurs
+
+- **m-1 (corrigé)** : `l2_replay_passes_stale_snapshots`, sans ancre, avec deux instantanés gardés 90 et 99 (= `U` − 2) avant
+  101..102, 103, 104. Attendu : `syncs: []`, 1 440 minutes `chain_open`, un trou `{ START, null }`. Tueur `:103 CONST "ev.U - 1" ->
+  "ev.U - 2"`. Mutant `while` → `if` tué à la main.
+- **m-2 (corrigé)** : `l2_parity_port_bounds`. Trois cas : reprise sur un 104 gardé, puis 105..106, avec L = 103 (`chain_open`) ;
+  dernier événement 102..103 avec L = 103 (`{ u: 103, … }`) ; L = 200 jamais atteint (`chain_open` de la dernière ligne). Tueur
+  `:117 CONST "close.lid + 1" -> "close.lid + 2"`. `>=` → `>` et le nom de la ligne 124 tués à la main.
+- **m-3 (corrigé)** : `l2_minute_side_empty`, avec une ancre `asks: []` : `{ t: START, u: 101, absent: "side_empty" }`. Tueur
+  `:61 COR`.
+- **m-4 (corrigé)** : l'écart est déclaré à l'en-tête de `derive.mjs` et au G0 (point 12), contre FAITS-L2-ACCESS-2 (h) (S4 strict).
+  La garde croisée devient une table (`l2_replay_cross_guard_table`), avec les mêmes trames au rejeu et à `createBook`, dont le faux
+  REST sert l'ancre, puis l'instantané gardé, puis s'arrête. Lignes :
+  - rupture puis reprise après un événement écarté (`U` = `lid` + 1) ;
+  - doublon `u` = id ;
+  - événement à cheval sur une reprise ;
+  - cas P1, attendu divergent et nommé : rejeu posé, b2 nul.
+
+  Tueur `:100 CONST "book.id + 1" -> "book.id + 2"`.
+- **m-5 (corrigé)** : `hit` est posé dès qu'une trame du flux de différences est lue (`:97`), et non plus à l'application.
+  `l2_refs_every_diff_read` reprend la sonde P4 : une connexion B lue après A, avec une trame illisible de 23:55. Le segment
+  `conn/<B>/20261003T23.frames` est listé au `SHA256SUMS`, et la rupture est comptée. Tueur `:97 SDL "hit = true;" -> ""`.
+  **A1 n'est pas un mutant équivalent**, déclaration retirée. Une trame `u` = id d'heure postérieure est un événement enchaîné : elle
+  porte ses minutes. Test `l2_chain_duplicate_is_chained` (3 minutes présentes ; 0 sous le mutant), tueur `:99 ROR "ev.u < book.id"
+  -> "ev.u <= book.id"`.
+- **m-6 (corrigé)** : `to_place_us` est coupé au jour (`Math.min(to, end)`). Test `l2_chain_hole_cut_to_day`, sonde P2 : le trou
+  finit à `END`. Pour P6, la règle retenue garde le trou de durée nulle `{ START, START }` : la minute 00:00 est absente
+  `chain_open`, ce qui reste cohérent (G0 point 6) ; le même test l'affirme. Tueur `:84 CONST "Math.min(to, end)" -> "to"`.
+- **m-7 (corrigé)** : contrat du crochet resserré (`day.mjs:193`, `:194`) :
+  - noms admis = `DAY_FILES` moins les cinq fichiers du scellé et des ancres (`BASE`) ;
+  - une clé de `manifest` ou de `missing` déjà présente arrête, `stray_file` avec `names` et `keys` ;
+  - `missingOf` est calculé avant `mkdirSync` (lecture seule), puis fusionné à l'écriture (`:209`, `:210`).
+
+  Test `l2_derive_hook_contract` (sonde P5 : `anchor-open.json`, `manifest.json`, `schema`, `holes`). Tueur `day.mjs:194 COR
+  "!DAY_FILES.includes(n) || BASE.includes(n)" -> "!DAY_FILES.includes(n)"`.
+- **m-8 (corrigé)** : si `book.since` = L, la parité vaut `{ absent: "synced_on_anchor", u }`, ajoutée au type `Parity`. Test
+  `l2_parity_synced_on_anchor` (sonde P7). Le cas `open` de `l2_daily_parity_counts` (ancre de fermeture = ancre d'ouverture) est
+  désormais nommé de même. Tueur `:117 ROR "book.since === close.lid" -> "book.since !== close.lid"`.
+- **m-9 (corrigé, à bon compte)** : un instantané gardé n'est tenu que par `{ lid, load, ref }`. Il est relu au moment de poser le
+  carnet (`:106`), et il n'en reste qu'un en mémoire à la fois, plus les deux ancres. Le rendu est identique : les tests existants
+  suffisent (G0 point 10).
+- **m-10 (corrigé)** : `l2_derive_bounds_closed` couvre :
+  - `bad_scale` à −1 ;
+  - un instantané gardé à début − 1 h pile, lu ;
+  - un instantané gardé à la fin pile, écarté ;
+  - une ancre de quantité `"10"` contre `"1"`, comptée ;
+  - une différence `U` > `u`, qui rompt.
+
+  Tueur `:71 ROR "scale < 0" -> "scale < -1"`. Les quatre autres survivants du G2 (`:52` `>=` → `>` et `<` → `<=`, `norm` sans
+  garde, `eventOf` sans `U <= u`) sont tués à la main.
+- **Q-C2-9** : le compte est au manifeste, `replay.cross_conn_ruptures`. Ce sont les ruptures vues sur une trame d'heure de place
+  antérieure au dernier événement appliqué, donc lue depuis une autre connexion. Il vaut 1 dans `l2_refs_every_diff_read`. **Item
+  formé L2-REPLAY-INTERLEAVE-1** : mesurer ces cas en M-1 avec M-5, et passer à une lecture entrelacée par heure de place si M-1 en
+  trouve. Le second cas du G2 (rupture de l'ancienne connexion après la bascule de b2) n'est pas compté à part : il relève du même
+  item.
+- **Note sans gravité** (deux instructions par ligne à `day.mjs:194` et `:210`) : gardée, pour les ancres de c1.
+
+### Tueurs appliqués à la main (copie de travail, un à la fois, fichier restauré et empreinte vérifiée)
+
+Les 27 tueurs des deux fichiers sont tous tués, chacun seul (`--test-name-pattern` sur son test) : les 16 de `l2-derive` et les 11 de
+`l2-day`. Cinq tests de durcissement sont verts à `55ca5e28` : `l2_parity_port_bounds`, `l2_minute_side_empty`,
+`l2_replay_cross_guard_table`, `l2_chain_duplicate_is_chained`, `l2_derive_bounds_closed`. Leurs tueurs (`:117` CONST, `:61` COR,
+`:100` CONST, `:99` ROR, `:71` ROR) sont tués à la main. `l2_replay_passes_stale_snapshots` n'est rouge à `55ca5e28` que par la
+nouvelle clé `cross_conn_ruptures` : sa substance (S4) est un durcissement, et son tueur `:103` CONST est tué. Survivants du G2 tués à
+la main : `:103` `while` → `if`, `:117` `>=` → `>`, nom de `:124`, `:52` (deux bornes), `:38` `norm` sans garde, `:35` `eventOf` sans
+`U <= u`.
+
+### Preuves du pli
+
+- Pli : `node scripts/red-proof.mjs --base 55ca5e28 --gel 27f9eb5a --repo /home/user/monark-governance-c2 --draw 14 --seed 37`.
+  Sortie 1, « red-proof REFUSED: 14 judged, 2 unchanged, 9 killer(s) drawn » ; `RED-PROOF.json` sha256 `586591d8e698f1ca…`.
+  - Neuf tests F2P, rouges à la base par assertion : `l2_minute_place_time_strict`, `l2_daily_parity_counts`,
+    `l2_day_replay_from_anchor_and_amorce` (clé et parité nommée), `l2_minutes_bound_named`, `l2_replay_passes_stale_snapshots`,
+    `l2_refs_every_diff_read`, `l2_chain_hole_cut_to_day`, `l2_derive_hook_contract`, `l2_parity_synced_on_anchor`.
+  - Leurs 9 tueurs sont tirés et tous tués.
+  - Le refus vient des cinq tests de durcissement, verts à la base par nature : voir les tueurs appliqués à la main.
+- Lot entier, contre `173ea0fd` : `--base 173ea0fd --gel 27f9eb5a --draw 16 --seed 37`. Sortie 0, « red-proof OK: 16 judged, 0
+  unchanged, 16 killer(s) drawn » ; sha256 `24f20985c0141a46…`. Les 16 tests sont F2P et les 16 tueurs sont tués.
+- Ancres : `verifie-ancres.mjs . --touched 173ea0fd HEAD` donne 16 tueurs, 16 ANCRE, 0 DERIVE, 0 PERDU. Avec
+  `--files test/l2-day.test.ts,test/l2-derive.test.ts` : 27 tueurs, 27 ANCRE.
+- `node --test test/l2-derive.test.ts test/l2-day.test.ts test/l2-book.test.ts` : 33 sur 33. `npm test` complet, une fois, dans le
+  worktree : 2 284 tests, 2 262 réussis, 0 échec, 22 ignorés, sortie 0.
+- Autres contrôles : `tsc` 0 ; `lint` 0 ; `lint:ratchet` 69/69 ; `gate:vocab` OK (335 fichiers) ; `lang:gate` OK.
+- R-25 (`r25()`, base `173ea0fd`) : `STAT` 535 (523 insertions, 12 suppressions). Détail : `derive.mjs` 125, `derive.d.mts` 34,
+  `day.mjs` 11/11, `day.d.mts` 10/1, tests 343. Borne du lot 547, marge 12 ; `CONTENT_STAT` 0 ; GREEN.
+
+### Avis du G2 sur Q-C2-1 à Q-C2-9, et suite donnée
+
+- **Q-C2-1** : d'accord sur la transcription, pas sur la garde trop étroite. Suite : écart à S4 déclaré, garde en table (m-4), cas
+  à plusieurs candidats (m-1).
+- **Q-C2-2** : d'accord, si le contrat est resserré. Suite : noms dérivés seulement, aucune clé écrasée (m-7), corps par morceaux
+  (B-1).
+- **Q-C2-3** : d'accord. L'ancre de fermeture est un candidat (m-8). Suite : instantanés chargés à la demande (m-9).
+- **Q-C2-4** : d'accord ; l'écart du G7 (minutes absentes jusqu'au premier événement enchaîné) est cohérent.
+- **Q-C2-5** : d'accord, si `to_place_us` est coupé au jour. Suite : fait (m-6).
+- **Q-C2-6** : d'accord sur le port, pas sur la parité triviale lisible par `since` seul. Suite : nommée `synced_on_anchor` (m-8).
+- **Q-C2-7** : pas d'accord, c'est B-1. Suite : remplacée par la borne nommée et l'écriture par morceaux. La mesure en M-1 fixe la
+  borne (L2-MINUTES-SIZE-1).
+- **Q-C2-8** : d'accord. Suite : borne basse testée (m-10).
+- **Q-C2-9** : d'accord comme limite déclarée. La lecture par connexion dépasse le cas « hors chevauchement ». Suite : compte au
+  manifeste et item L2-REPLAY-INTERLEAVE-1.
+
+### Items
+
+- **L2-MINUTES-SIZE-1** : `MINUTES_BOUND` (128 Mio) révisé en M-1 sur un jour réel de BTCUSDT.
+- **L2-REPLAY-INTERLEAVE-1** : ruptures entre connexions (`cross_conn_ruptures`) mesurées en M-1 avec M-5 ; lecture entrelacée par
+  heure de place si M-1 en trouve.
+
+Re-revue courte demandée par le G2 : le delta de B-1 (`derive.mjs:80` à `:82`, `:123` ; `day.mjs:35`, `:210`), plus
+`l2_minutes_bound_named`.
