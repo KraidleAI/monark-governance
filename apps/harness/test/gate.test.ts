@@ -19,6 +19,7 @@ import {
   STABLE_RUN_COMMITTED_SENTENCE,
   TASK_STABLE_RUN,
   type HarnessParams,
+  SCHEMA_VERSION,
 } from "../src/tools/gate.ts";
 import { HARNESS_TOOLS, type GateEnvelope } from "../src/tools/registry.ts";
 import { runCalibrate, CALIBRATE_LABEL } from "../src/tools/calibrate.ts";
@@ -47,7 +48,7 @@ const GOOD_PARAMS: HarnessParams = {
 };
 
 const BTC_PRED: Prediction = {
-  schema_version: "1.0.0",
+  schema_version: SCHEMA_VERSION,
   task_class: "btc-dir-15m",
   yhat: "up",
   predictor_id: "internal:momentum-4c",
@@ -55,7 +56,7 @@ const BTC_PRED: Prediction = {
 };
 
 const CASCADE_PRED: Prediction = {
-  schema_version: "1.0.0",
+  schema_version: SCHEMA_VERSION,
   task_class: "cascade-liquidable-24h",
   yhat: 12345,
   predictor_id: "internal:ukemi",
@@ -64,7 +65,7 @@ const CASCADE_PRED: Prediction = {
 
 // A Narabi velocity-forecast Prediction (ADR-M008 D4) — the caller-carried output of the Narabi adapter.
 const STABLE_RUN_PRED: Prediction = {
-  schema_version: "1.0.0",
+  schema_version: SCHEMA_VERSION,
   task_class: "stable-run-velocity-24h",
   yhat: 0.0000416, // a per-hour velocity forecast (fraction of supply / hour)
   predictor_id: "narabi:persistence-v1",
@@ -74,7 +75,7 @@ const STABLE_RUN_PRED: Prediction = {
 /** The committed USDe key: the served committed path after the btc-dir retirement (ADR-CM B-5); GOOD_PARAMS
  *  carries its F-7 alpha 0.1 and nMin 50 (ADR-CM B-2). */
 const USDE_PRED: Prediction = {
-  schema_version: "1.0.0",
+  schema_version: SCHEMA_VERSION,
   task_class: "stable-run-velocity-24h",
   yhat: 0.0001,
   predictor_id: USDE_STABLE_RUN_PREDICTOR_ID,
@@ -101,7 +102,7 @@ test("gate_tool_emits_frozen_gate_decision", () => {
   const d = runGate(USDE_PRED, { ...GOOD_PARAMS, intent: 0 });
   assertClosedGateDecision(d);
   assertNoForbiddenKey(d);
-  assert.equal(d.schema_version, "1.0.0");
+  assert.equal(d.schema_version, SCHEMA_VERSION);
   assert.equal(d.tool, "perps_order_preview");
   const tampered = { ...d, p_correct: 0.9 };
   assert.throws(() => { assertClosedGateDecision(tampered); }, /unknown key/i);
@@ -175,14 +176,14 @@ test("calibration_declared_synthetic", () => {
 
 /** A caller-owned (free-string) task_class ⇒ the BYO path (not the committed btc-dir/cascade classes). */
 const BYO_INTERVAL_PRED: Prediction = {
-  schema_version: "1.0.0",
+  schema_version: SCHEMA_VERSION,
   task_class: "byo-interval-demo",
   yhat: 0,
   predictor_id: "caller:model",
   produced_at: "2026-09-04T00:00:00Z",
 };
 const BYO_SET_PRED: Prediction = {
-  schema_version: "1.0.0",
+  schema_version: SCHEMA_VERSION,
   task_class: "byo-set-demo",
   yhat: "A",
   predictor_id: "caller:model",

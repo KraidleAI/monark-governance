@@ -11,6 +11,7 @@ import assert from "node:assert/strict";
 import type { Prediction } from "@monark/contracts";
 import { splitQuantile, conformalSet, indicatorScores, buildIntervalRegion, BTC_DIR_LABELS } from "@monark/hikae";
 import { runGate, HarnessToolError, type HarnessParams } from "../src/tools/gate.ts";
+import { SCHEMA_VERSION } from "../src/tools/gate.ts";
 import { BTC_DIR_CALIB, USDE_STABLE_RUN_CALIB, USDE_STABLE_RUN_PREDICTOR_ID } from "../src/calibration.ts";
 
 const PARAMS: HarnessParams = {
@@ -26,7 +27,7 @@ const PARAMS: HarnessParams = {
 };
 
 const BTC_PRED: Prediction = {
-  schema_version: "1.0.0",
+  schema_version: SCHEMA_VERSION,
   task_class: "btc-dir-15m",
   yhat: "up",
   predictor_id: "internal:momentum-4c",
@@ -99,7 +100,7 @@ test("oracle_usde_fixture_zero_atom_ties", () => {
   assert.deepEqual(band(0.0017), { qhat: largest, abstain: false }, "alpha = 0.0017: rank 613, qhat = largest score");
 
   const pred: Prediction = {
-    schema_version: "1.0.0",
+    schema_version: SCHEMA_VERSION,
     task_class: "stable-run-velocity-24h",
     yhat,
     predictor_id: USDE_STABLE_RUN_PREDICTOR_ID,

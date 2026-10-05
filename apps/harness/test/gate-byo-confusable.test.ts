@@ -10,6 +10,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import type { Prediction } from "@monark/contracts";
 import { runGate, HarnessToolError, type HarnessParams } from "../src/tools/gate.ts";
+import { SCHEMA_VERSION } from "../src/tools/gate.ts";
 import { handleJsonMirror } from "../src/http.ts";
 import { USDE_STABLE_RUN_PREDICTOR_ID } from "../src/calibration.ts";
 
@@ -19,7 +20,7 @@ const PARAMS: HarnessParams = {
 };
 
 function pred(taskClass: string, predictorId: string): Prediction {
-  return { schema_version: "1.0.0", task_class: taskClass, yhat: 0, predictor_id: predictorId, produced_at: "2026-09-04T00:00:00Z" };
+  return { schema_version: SCHEMA_VERSION, task_class: taskClass, yhat: 0, predictor_id: predictorId, produced_at: "2026-09-04T00:00:00Z" };
 }
 
 /** The code of the refusal, or "decided". */

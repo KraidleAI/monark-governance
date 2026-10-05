@@ -12,6 +12,7 @@ import type { CoverageVerdict, Prediction } from "@monark/contracts";
 import { gate, buildVerdict, buildSetRegion } from "@monark/hikae";
 import type { GateInput } from "@monark/hikae";
 import { runGate, type HarnessParams } from "../src/tools/gate.ts";
+import { SCHEMA_VERSION } from "../src/tools/gate.ts";
 
 const PARAMS: HarnessParams = {
   remainingBudget: 0.1,
@@ -26,7 +27,7 @@ const PARAMS: HarnessParams = {
 };
 
 const BYO_SET_PRED: Prediction = {
-  schema_version: "1.0.0",
+  schema_version: SCHEMA_VERSION,
   task_class: "byo-set-demo",
   yhat: "A",
   predictor_id: "caller:model",

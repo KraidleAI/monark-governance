@@ -15,6 +15,7 @@ import type { Prediction, AttestedPrice } from "@monark/contracts";
 import * as contracts from "@monark/contracts";
 import * as gateModule from "../src/tools/gate.ts";
 import { runGate, HarnessToolError, type HarnessParams } from "../src/tools/gate.ts";
+import { SCHEMA_VERSION } from "../src/tools/gate.ts";
 import { handleJsonMirror } from "../src/http.ts";
 import { createHarnessHandler } from "../src/server.ts";
 import { HARNESS_TOOLS } from "../src/tools/registry.ts";
@@ -44,7 +45,7 @@ const SET = { scores: SCORES, mode: "set" as const, candidates: [{ label: "A", s
 const UNKNOWN_MESSAGE =
   "unknown task_class 'nope-class' (known: cascade-liquidable-24h, stable-run-velocity-24h, liquidation-eligible-coverage; or supply params.calibration for BYO)";
 
-function pred(taskClass: string, yhat: string | number, predictorId = "caller:model", schemaVersion = "1.0.0"): Prediction {
+function pred(taskClass: string, yhat: string | number, predictorId = "caller:model", schemaVersion = SCHEMA_VERSION): Prediction {
   return { schema_version: schemaVersion, task_class: taskClass, yhat, predictor_id: predictorId, produced_at: AT };
 }
 

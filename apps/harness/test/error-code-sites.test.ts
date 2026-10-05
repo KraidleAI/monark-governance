@@ -11,13 +11,14 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import type { Prediction } from "@monark/contracts";
 import { runGate, toolErrorCode, type HarnessParams } from "../src/tools/gate.ts";
+import { SCHEMA_VERSION } from "../src/tools/gate.ts";
 import { runUkemiPredict } from "../src/tools/ukemi-predict.ts";
 import { USDE_STABLE_RUN_PREDICTOR_ID } from "../src/calibration.ts";
 import { HARNESS_TOOLS } from "../src/tools/registry.ts";
 import { createHarnessHandler } from "../src/server.ts";
 
 const P: HarnessParams = { remainingBudget: 0.1, bFloor: 0, tau: 1, tauInterval: 1, alpha: 0.1, nMin: 50, intent: "A", tool: "perps_order_preview", clockOpen: true };
-const pr = (taskClass: string, yhat: string | number, at = "2026-09-04T00:00:00Z"): Prediction => ({ schema_version: "1.0.0", task_class: taskClass, yhat, predictor_id: "caller:model", produced_at: at });
+const pr = (taskClass: string, yhat: string | number, at = "2026-09-04T00:00:00Z"): Prediction => ({ schema_version: SCHEMA_VERSION, task_class: taskClass, yhat, predictor_id: "caller:model", produced_at: at });
 const SC = [0.5, 0.1, 0.9, 0.3, 1.0, 0.7, 0.2, 0.8, 0.4, 0.6];
 const SET = (candidates: { label: string; score: number }[]): HarnessParams => ({ ...P, nMin: 5, calibration: { scores: SC, mode: "set", candidates } });
 
