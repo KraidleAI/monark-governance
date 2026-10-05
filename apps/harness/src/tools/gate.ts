@@ -13,7 +13,7 @@
  *   - `cascade-liquidable-24h` → `conformInterval` with NO committed calibration ⇒ no region (null) ⇒
  *                             `abstain`/`under_calib`. That is the honest expected result, not a defect.
  *   - `stable-run-velocity-24h` → committed calibration looked up PER KEY (task_class, predictor_id)
- *                             (ADR-M008 Amendement bis): the USDe key ⇒ `splitQuantile` + `buildIntervalRegion`
+ *                             (ADR-M008 Amendement bis): the USDe key ⇒ its admitted row + `scoreTestBand`
  *                             over USDE_STABLE_RUN_CALIB (region `interval`); any other key ⇒ `under_calib`.
  *
  * Server-owned fields (D6/K-4c/K-4d): `schema_version` is `SCHEMA_VERSION` of @monark/contracts, `timedOut=false`,
@@ -22,12 +22,12 @@
  * never a silent gate. The gate ONLY emits a decision; it NEVER calls `params.tool` (D0/D1).
  */
 import {
-  splitQuantile,
+  splitQuantileShortest,
   conformalSet,
   buildSetRegion,
-  buildIntervalRegion,
+  scoreTestBand,
   buildVerdict,
-  underCalibVerdict,
+  underCalibVerdict, noRegionVerdict,
   conformInterval,
   gate,
 } from "@monark/hikae";
@@ -125,9 +125,9 @@ export const STABLE_RUN_COMMITTED_CORE =
   "Tibshirani 2023 (Thm 2, unit weights): at least 1 − α minus the average total-variation gap between " +
   "calibration windows and the next one; that gap is not estimated here and the calibration is measured " +
   "non-stationary across half-years, so 1 − α is the coverage only if that gap is zero (exchangeability), " +
-  "which is not assumed here; no coverage is measured; each band edge is yhat - qhat or yhat + qhat rounded to the " +
-  "nearest double, so it can differ from the exact edge by up to half a unit in the last place of that edge; the " +
-  "band is not widened for it";
+  "which is not assumed here; no coverage is measured";
+// ADR-CM B-13 (lot CM-3c-4b): the band edges come from the score test (scoreTestBand of @monark/hikae), so the B-7 clause
+// on the rounded additive edge is withdrawn (core, description, served content; second Z-3 line of MONARK).
 
 /** The SERVER-imposed params of the committed USDe key, declared in the class description (ADR-CM B-2). */
 export const STABLE_RUN_REQUIREMENTS_SENTENCE = `on that key it requires alpha = ${String(USDE_POLICY.alpha)}, nMin = ${String(USDE_POLICY.nMin)}`;
@@ -451,7 +451,7 @@ function byoVerdict(prediction: Prediction, params: HarnessParams, cal: ByoCalib
   // Q-C1: a BYO verdict has no class entry; qhat_unit is fixed by the mode, scale and the three table fields are null.
   const cell: VerdictCell = { qhatUnit: cal.mode === "interval" ? "label" : "score", scale: null, cellKey: null, policyRowSha256: null, policyTableSha256: null };
 
-  const split = splitQuantile(cal.scores, params.alpha, params.nMin);
+  const split = splitQuantileShortest(cal.scores, params.alpha, params.nMin); // B-12: exact rank of String(alpha)
   if ("reason" in split) {
     // Fail-closed under-calibration (n < nMin or p > n): EMPTY set region, qhat null, never clamped.
     return underCalibVerdict({
@@ -469,11 +469,11 @@ function byoVerdict(prediction: Prediction, params: HarnessParams, cal: ByoCalib
 
   if (cal.mode === "interval") {
     const center = yhat as number; // narrowed by the typeof guard above
-    const ir = buildIntervalRegion(center - qhat, center + qhat);
+    const ir = scoreTestBand(center, qhat); // B-13: edges of the score test
     if (ir.abstain) {
-      // Fail-closed under_calib (C-1, mirror interval-conformer.ts:86): a non-finite bound (yhat non-finite),
-      // OR a zero-width region lo===hi (q̂=0 or float absorption `center±q̂===center`, NDG-1 ADR-M011).
-      return underCalibVerdict({
+      // Fail-closed (C-1, mirror interval-conformer.ts:88): under_calib on a non-finite bound (yhat non-finite),
+      // region_degenerate on a zero-width region lo===hi (q̂=0 or float absorption, NDG-1 ADR-M011, B-16).
+      return noRegionVerdict(ir.reason, {
         taskClass,
         method: "split",
         alpha: params.alpha,
@@ -595,26 +595,26 @@ function stableRunVerdict(prediction: Prediction, params: HarnessParams): Covera
   assertPolicy(USDE_POLICY, params);
   const scores = committed.scores;
   const cell = servedCell(TASK_STABLE_RUN, prediction.predictor_id);
-  const split = splitQuantile(scores, params.alpha, params.nMin);
+  const split = admittedSplit(cell); // Q-3b2-2: qhat and alpha read on the admitted row (exact rank, B-12)
   if ("reason" in split) {
-    // Caller demanded more calibration than the committed set holds (n < nMin, or p > n) ⇒ honest under_calib.
+    // No current row for the key (unreachable for the committed key: its row is built at load) ⇒ honest under_calib.
     return underCalibVerdict({
       taskClass: TASK_STABLE_RUN, method: "split", alpha: params.alpha, scores,
       residual: [], producedAt: prediction.produced_at, schemaVersion: SCHEMA_VERSION,
       cell,
     });
   }
-  const ir = buildIntervalRegion(yhat - split.qhat, yhat + split.qhat);
+  const ir = scoreTestBand(yhat, split.qhat); // B-13: edges of the score test
   if (ir.abstain) {
-    // NDG-1 (ADR-M011): a zero-width region (q̂=0 or float absorption yhat±q̂===yhat) ⇒ under_calib. REUSED.
-    return underCalibVerdict({
+    // NDG-1 (ADR-M011): a zero-width region (q̂=0 or float absorption) ⇒ region_degenerate (B-16). REUSED.
+    return noRegionVerdict(ir.reason, {
       taskClass: TASK_STABLE_RUN, method: "split", alpha: params.alpha, scores,
       residual: [], producedAt: prediction.produced_at, schemaVersion: SCHEMA_VERSION,
       cell,
     });
   }
   return buildVerdict({
-    taskClass: TASK_STABLE_RUN, method: "split", alpha: params.alpha, scores,
+    taskClass: TASK_STABLE_RUN, method: "split", alpha: split.alpha, scores,
     region: ir.region, qhat: split.qhat, abstain: false, reason: "covered",
     residual: [], producedAt: prediction.produced_at, schemaVersion: SCHEMA_VERSION, cell,
   });
@@ -657,9 +657,9 @@ function liqEligibleVerdict(prediction: Prediction, params: HarnessParams): Cove
   }
   // Committed stratum (U-4b-2b): split-conformal qhat over the committed scores, then the UPPER-BOUND region.
   const scores = committed.scores;
-  const split = splitQuantile(scores, params.alpha, params.nMin);
+  const split = admittedSplit(cell); // Q-3b2-2: qhat and alpha read on the admitted row (exact rank, B-12)
   if ("reason" in split) {
-    // n < nMin or p > n ⇒ honest under_calib (fail-closed, mirror stableRunVerdict).
+    // No current row for the stratum key ⇒ honest under_calib (fail-closed, mirror stableRunVerdict).
     return underCalibVerdict({
       taskClass: TASK_LIQ_ELIGIBLE, method: "split", alpha: params.alpha, scores,
       residual: [], producedAt: prediction.produced_at, schemaVersion: SCHEMA_VERSION,
@@ -677,7 +677,7 @@ function liqEligibleVerdict(prediction: Prediction, params: HarnessParams): Cove
     });
   }
   return buildVerdict({
-    taskClass: TASK_LIQ_ELIGIBLE, method: "split", alpha: params.alpha, scores,
+    taskClass: TASK_LIQ_ELIGIBLE, method: "split", alpha: split.alpha, scores,
     region: region.region, qhat: split.qhat, abstain: false, reason: "covered",
     residual: [], producedAt: prediction.produced_at, schemaVersion: SCHEMA_VERSION, cell,
   });
@@ -688,29 +688,29 @@ function liqEligibleVerdict(prediction: Prediction, params: HarnessParams): Cove
  * B-1 (CRITICAL): keyed on the PRESENCE of calibration, NOT on `task_class` alone — a BYO decision on a
  * free-string class must NOT fall through to the CASCADE sentence (which would be false on the wire next
  * to a BYO COMMIT). The BYO carrier REUSES `CALIBRATE_LABEL` (B-2: one constant, no paraphrase).
- * A2 (ADR-M008 Amendement bis): the `stable-run-velocity-24h` honesty is keyed on (task_class, predictor_id)
- * — the COMMITTED sentence for the USDe key, the UNCOMMITTED (under_calib) sentence for every other population.
- * A surclaim mutant (returning the committed sentence for a non-committed key) reddens the A7(f) test.
+ * S-8 (ADR-CM B-8, lot CM-3c-4b): a served class reads the RESOLVED cell, `cellKey`, in its served table: the
+ * verdict's cell_key (registry.ts), i.e. the stratum key the server derived for liq and the predictor_id for
+ * the other classes. The text is the one of the current row of that key, else the class text of the table,
+ * then the unchanged suffix (Z-3 rule of MONARK: the table text is the exact prefix of the served sentence).
+ * So the USDe committed sentence rides on the USDe key only and the uncommitted one on every other
+ * population (A2, ADR-M008 Amendement bis); the liq calibrated sentence rides on s0 only, and s1 to s3
+ * (under_calib) read the class text. The old criterion (registry presence of the liq class, delta D-3)
+ * served the calibrated sentence on s1 to s3 as well. An unknown class reads the cascade sentence, as before.
+ * A surclaim mutant (the committed sentence for a key without a row) reddens the A7(f) and S-8 tests.
  */
-export function honestyText(taskClass: string, predictorId: string, isByo: boolean): string {
+export function honestyText(taskClass: string, cellKey: string, isByo: boolean): string {
   if (isByo) return `${CALIBRATE_LABEL} B_t is caller-carried.`;
-  if (taskClass === TASK_STABLE_RUN) {
-    const committed = lookupCommittedCalibration(TASK_STABLE_RUN, predictorId);
-    return committed !== undefined
-      ? `${STABLE_RUN_COMMITTED_SENTENCE}; B_t is caller-carried.`
-      : `${STABLE_RUN_UNCALIBRATED_SENTENCE}; B_t is caller-carried.`;
-  }
-  if (taskClass === TASK_LIQ_ELIGIBLE) {
-    // Keyed on REGISTRY presence (delta D-3), NOT on lookupCommittedCalibration(TASK_LIQ, predictorId): the
-    // server ignores the client key for this class, and `honestyText` has no `yhat` to derive the stratum, so
-    // a per-key lookup would either surclaim "committed" for a non-served stratum or read "no calibration" for
-    // every naked id. Since U-4b-2b the registry carries s0 (n 170), so the committed text; an empty registry gives the empty-registry text.
-    return hasCommittedCalibrationForClass(TASK_LIQ_ELIGIBLE)
-      ? `${LIQ_COMMITTED_SENTENCE}; B_t is caller-carried.`
-      : `${LIQ_EMPTY_REGISTRY_SENTENCE}; B_t is caller-carried.`;
-  }
-  return `${CASCADE_UNCALIBRATED_SENTENCE}; B_t is caller-carried.`;
+  const served = SERVED_MARGINAL_TABLES.find((t) => t.task_class === taskClass);
+  if (served === undefined) return `${CASCADE_UNCALIBRATED_SENTENCE}; B_t is caller-carried.`;
+  // The current row of the resolved key (USDe key; liq s0), else the class text (other population; liq s1 to s3;
+  // cascade, whose table has no row). One lookup for every served class: the Z-3 composition holds by construction,
+  // and a text change in the table (a dated Z-3 line) is a change of the served sentence, never a second copy.
+  const row = served.table.rows.find((r) => r.current && r.cell_key === cellKey);
+  return `${row === undefined ? served.table.class.text : row.text}; B_t is caller-carried.`;
 }
+// (S-8) Before lot CM-3c-4b the liq branch read hasCommittedCalibrationForClass(TASK_LIQ_ELIGIBLE), so every stratum got
+// the calibrated sentence; the USDe branch read lookupCommittedCalibration on the key, the same answer as the current row
+// of the key (rows rebuilt from the same committed calibrations, guardMarginalTable). Line count kept for the killers.
 
 /**
  * A compact, FACTUAL restatement of the frozen decision, carried in the MCP `content` text ALONGSIDE the
@@ -1014,4 +1014,11 @@ function envelopeSha256(prediction: Prediction, params: HarnessParams, attested:
     if (e instanceof RangeError) throw new HarnessToolError(`the request is not writable canonically (I-JSON, RFC 7493): ${e.message}`, "param_invalid");
     throw e;
   }
+}
+
+/** Q-3b2-2 (lot CM-3c-4b): qhat and alpha of a committed key, read on the current row of its cell in the served table
+ *  (the admitted row, built at load with the exact rank of its alpha, B-12); no current row ⇒ under_calib. */
+function admittedSplit(cell: VerdictCell): { readonly qhat: number; readonly alpha: number } | { readonly reason: "under_calib" } {
+  const row = SERVED_MARGINAL_TABLES.flatMap((t) => t.table.rows).find((r) => r.current && r.cell_key === cell.cellKey);
+  return row === undefined || row.qhat === null ? { reason: "under_calib" } : { qhat: row.qhat, alpha: Number(row.alpha) };
 }

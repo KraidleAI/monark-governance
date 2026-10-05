@@ -169,7 +169,7 @@ test("interval_edges_follow_the_score_test", () => {
 test("usde_band_full_bytes_are_pinned_at_1_1_0", () => {
   const grid = [0, 1e-12, 1e-6, 0.0000416, 0.0001, 0.00123, -0.0003, 0.1, 1, 12345.678, 3e-4, 7.5e-5];
   const replay = grid.map((yhat) => JSON.stringify(runGate(pred(USDE, yhat, USDE_STABLE_RUN_PREDICTOR_ID), { ...PARAMS, tool: "t" }))).join("\n");
-  assert.equal(createHash("sha256").update(replay).digest("hex"), "50ccc9fdda33f942c258e8bb5f4cac8481853654ed841279c2cb4d33b280a7ca", "served bytes of the USDe band (1.1.0)");
+  assert.equal(createHash("sha256").update(replay).digest("hex"), "c4b6bf1532879e8074d61a18fefa43ecb71508b366853d94000409c92a8b03fc", "served bytes of the USDe band (1.1.0; B-13 edges since CM-3c-4b, was 50ccc9fd...)");
 });
 
 // Test R-4 (F2P, B-5; moved from gate.test.ts gate_attested_concordant_files_residual, ADR-M017 D2(iii)/D4(3)): the

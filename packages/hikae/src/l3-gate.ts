@@ -20,13 +20,13 @@
  *   non_evaluable → upstream_timeout → non_evaluable (a non-finite numeric field, E-8) → step 4 (n<n_min, no region, no-region or calib_* reason) →
  *   intent_not_in_region → budget_exhausted → [ |C|>tau ? (clock ? DEFER:set_too_large : ABSTAIN:clock_expired)
  *                       : COMMIT:covered ].
- *   `interval` sub-path only: under_calib ALSO on lo>=hi (NDG-1), tested first, before budget.
+ *   `interval` sub-path only: region_degenerate on lo>=hi (NDG-1, ADR-CM B-16), tested first, before budget.
  *
  * D0 (no trading in MONARK; future product = KAIZEN): the gated tools
  * `perps_order_preview` / `perps_order_execute` are NAMED here but NEVER called.
  *
  * `interval` region (UKEMI regression, ADR-M003 D6.1): the Phase 1 throw is LIFTED. Dedicated path —
- *   ABSTAIN  if lo>=hi (zero-width / degenerate region ⇒ under_calib, NDG-1 ADR-M011) — FIRST, before budget
+ *   ABSTAIN  if lo>=hi (zero-width / degenerate region ⇒ region_degenerate, NDG-1 ADR-M011, B-16) — FIRST, before budget
  *   COMMIT   if intent ∈ [lo,hi] AND width (hi−lo) <= τ_interval
  *   DEFER    if width > τ_interval (clock open; otherwise ABSTAIN clock_expired)
  *   ABSTAIN  otherwise (intent ∉ [lo,hi]); + common upstream guards (parse/timeout/calib/budget).
@@ -114,7 +114,7 @@ function decide(input: GateInput): Verdictum {
 }
 
 /**
- * `interval` path (ADR-M003 D6.1; NDG-1 ADR-M011). DECLARED order: NDG-1 (`lo >= hi` ⇒ under_calib, a
+ * `interval` path (ADR-M003 D6.1; NDG-1 ADR-M011). DECLARED order: NDG-1 (`lo >= hi` ⇒ region_degenerate, a
  * zero-width/degenerate region, FIRST) → budget (fail-closed, takes precedence over DEFER — mirror of the
  * `set` path) → WIDTH (the DEFER is driven by the width, independently of the intent: literal reading
  * "DEFER if width > τ_interval, ABSTAIN otherwise") → intent. The DEFER obeys the module's clock
@@ -123,9 +123,9 @@ function decide(input: GateInput): Verdictum {
 function decideInterval(input: GateInput, region: IntervalRegion): Verdictum {
   // NDG-1 (ADR-M011, D3(b)): a zero-width or inverted `interval` region reaching L3 — whatever its
   // provenance, INCLUDING one hand-built past `buildIntervalRegion` — NEVER commits. FIRST, before the
-  // budget (priority under_calib > budget_exhausted, declared order D5). `>=` also captures `lo > hi`.
+  // budget (priority region_degenerate > budget_exhausted, declared order D5). `>=` also captures `lo > hi`.
   if (region.lo >= region.hi) {
-    return { action: "abstain", allow: false, reason: "under_calib" };
+    return { action: "abstain", allow: false, reason: "region_degenerate" };
   }
   if (input.remainingBudget < input.bFloor) {
     return { action: "abstain", allow: false, reason: "budget_exhausted" };

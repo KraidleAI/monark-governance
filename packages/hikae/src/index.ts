@@ -14,7 +14,7 @@
  */
 
 // L1 — split conformal.
-export { indicatorScore, indicatorScores, splitQuantile, conformalSet, riskControlQuantile, scoresInDomain, splitRankExact, splitQuantileExact, riskControlRow } from "./l1-split.ts";
+export { indicatorScore, indicatorScores, splitQuantile, conformalSet, riskControlQuantile, scoresInDomain, splitRankExact, splitQuantileExact, riskControlRow, splitRankShortest, splitQuantileShortest } from "./l1-split.ts";
 export type { SplitResult, RiskControlResult, ScoreDomain, RiskControlRow, RiskControlRowOptions } from "./l1-split.ts";
 
 // Binomial core (worksite 2, lot L2-1): exact comparator, k*, n0, the upper bound U, four-decimal rounding, spend.
@@ -32,6 +32,7 @@ export type { GateInput, GatedTool } from "./l3-gate.ts";
 // Region constructors (M5 invariant owner settled, D9/C4).
 export {
   buildIntervalRegion,
+  scoreTestBand,
   buildSetRegion,
   BTC_DIR_LABEL_SCHEMA,
   NUMERIC_LABEL_SCHEMA,

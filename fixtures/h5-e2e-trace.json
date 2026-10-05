@@ -68,7 +68,7 @@
           "cascade",
           "gate"
         ],
-        "response_sha256": "a1e72a41d71394a2983065ae9b8bc9d125b2b85b71cc2a30b0245889e834d836"
+        "response_sha256": "afeea2673b7a95df3fafcf230cf0230853812a9f9caea0455dd5dcc664e9b2f7"
       }
     },
     {
@@ -232,7 +232,7 @@
         "content": [
           {
             "type": "text",
-            "text": "a committed stable-run velocity calibration for the USDe synthetic-dollar-whitelisted-redeem population (key narabi:persistence-v2@eip155:1/erc20:0x4c9edd5852cd905f086c759e8383e09bff1e68b3) over calm-window redemption flow; coverage is stated under the split-conformal bound of Barber, Candes, Ramdas and Tibshirani 2023 (Thm 2, unit weights): at least 1 − α minus the average total-variation gap between calibration windows and the next one; that gap is not estimated here and the calibration is measured non-stationary across half-years, so 1 − α is the coverage only if that gap is zero (exchangeability), which is not assumed here; no coverage is measured; each band edge is yhat - qhat or yhat + qhat rounded to the nearest double, so it can differ from the exact edge by up to half a unit in the last place of that edge; the band is not widened for it; every other (task_class, predictor_id) abstains (under_calib); B_t is caller-carried. verdict action=commit reason=covered region=[-0.000031192280833333336, 0.00023119228083333333] qhat=0.00013119228083333334 n_calib=613 scores_sha256=e44a68b6...5cfd28"
+            "text": "a committed stable-run velocity calibration for the USDe synthetic-dollar-whitelisted-redeem population (key narabi:persistence-v2@eip155:1/erc20:0x4c9edd5852cd905f086c759e8383e09bff1e68b3) over calm-window redemption flow; coverage is stated under the split-conformal bound of Barber, Candes, Ramdas and Tibshirani 2023 (Thm 2, unit weights): at least 1 − α minus the average total-variation gap between calibration windows and the next one; that gap is not estimated here and the calibration is measured non-stationary across half-years, so 1 − α is the coverage only if that gap is zero (exchangeability), which is not assumed here; no coverage is measured; every other (task_class, predictor_id) abstains (under_calib); B_t is caller-carried. verdict action=commit reason=covered region=[-0.00003119228083333335, 0.00023119228083333336] qhat=0.00013119228083333334 n_calib=613 scores_sha256=e44a68b6...5cfd28"
           }
         ],
         "structuredContent": {
@@ -249,8 +249,8 @@
             "n_calib": 613,
             "region": {
               "kind": "interval",
-              "lo": -0.000031192280833333336,
-              "hi": 0.00023119228083333333
+              "lo": -0.00003119228083333335,
+              "hi": 0.00023119228083333336
             },
             "qhat": 0.00013119228083333334,
             "qhat_unit": "label",
@@ -260,8 +260,8 @@
             "residual": [],
             "scores_sha256": "e44a68b6b697a32f3f198770e740ab206393dc3425e8cc59e4b0e1e4e65cfd28",
             "cell_key": "narabi:persistence-v2@eip155:1/erc20:0x4c9edd5852cd905f086c759e8383e09bff1e68b3",
-            "policy_row_sha256": "975cf8c054dc933ba4d96daa9dfdb6e4ec9ad019b0a2dc179bb0bfc335a35ec9",
-            "policy_table_sha256": "062914dd8e3f0b6b8be2b3a1eab4e55c928f56a6911a1f96e7dad32fe7812365",
+            "policy_row_sha256": "0708a79a7b6e86ecab9a0efa4c303c08c0555bb12d845758336caa79529991e0",
+            "policy_table_sha256": "c7572e084a6765c5a145b54e3a93e1a0ee81b2ad6ccb38630399173454fbf0a8",
             "produced_at": "2026-09-04T00:00:00Z"
           },
           "remaining_budget": 0.1,
