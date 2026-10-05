@@ -32,7 +32,7 @@ v24.21.0. Aucun réseau vers une place : `fetch` répondu en mémoire, sockets m
 | 16 | r-4 (a) | test seul, sonde JITTER : `exchangeInfo` en retard de 19 s part, de 21 s est sautée (`late_us` 21 000 000) | `l2_record_overdue_tolerance` ; `record-binance-l2.mjs:378 CONST "now - e.at > OVERDUE_US" -> "now - e.at > 0"`, à la main |
 | 17 | r-4 (b) | test : journal en panne, `time` répondu 500 à 10:30 : `schedule_failed` perdu en silence, aucun rejet non géré, la course finit au signal | `l2_record_broken_journal_failure` ; `record-binance-l2.mjs:300`, le `try` de `tell` retiré |
 | 18 | r-4 (c) | test : journal en panne, le `stop()` des liaisons rejette (leurs lignes `close`) : l'arrêt propre continue aussitôt, `links_closed: false` | `l2_record_broken_journal_links` ; `record-binance-l2.mjs:391 CONST ", () => { clearTimer(t); r(false); }" -> ", () => undefined"` |
-| 19 | n-a | critère par tâche : une ancre est sautée si le jour corrigé a changé (au `tick` ; « jamais écrite d'un `depth` d'un autre jour » n'était pas vrai avant le contrôle à l'envoi du pli, B-1 ci-dessous), `exchangeInfo` au-delà de `OVERDUE_US` ; sonde SLOWSTART : les quatre ancres de D prises | `l2_record_slow_start_anchors` ; `record-binance-l2.mjs:378 CONST "dayOf(now + offset) !== dayOf(e.at + offset)" -> "now - e.at > OVERDUE_US"` |
+| 19 | n-a | critère par tâche : une ancre est sautée si le jour corrigé a changé (au `tick`, puis à l'envoi depuis le pli de B-1 ci-dessous : jamais écrite d'un `depth` **envoyé** un autre jour corrigé ; une requête à cheval sur minuit, envoyée en D et reçue en D + 1, reste écrite comme clôture de D, fenêtre déclarée au pli du G2 delta, L2-ANCHOR-MIDNIGHT-STRADDLE-1), `exchangeInfo` au-delà de `OVERDUE_US` ; sonde SLOWSTART : les quatre ancres de D prises | `l2_record_slow_start_anchors` ; `record-binance-l2.mjs:378 CONST "dayOf(now + offset) !== dayOf(e.at + offset)" -> "now - e.at > OVERDUE_US"` |
 | 20 | `.catch` de `seals()` | retiré (code mort depuis le `try` par clé) : une levée hors des clés, aucune connue, deviendrait un rejet non géré que le filet du processus arrête nommé | — (déclaré, Q-C5BC-5) |
 
 Les lignes de tueurs existantes ne bougent pas (code changé en place) ; deux lignes de tueurs suivent l'appel `fed(io, note, e.data, c)`
@@ -179,3 +179,54 @@ M19 (garde `finished` de `time`).
 | `tsc`, `lint`, `lint:ratchet`, `gate:vocab`, `lang:gate` | 0, 0, 69/69, OK, OK |
 | ancres | `--touched 7117e271 HEAD` et `--touched f8bedc17 HEAD` : 102/102 ; `l2-*` : 209/209 |
 | R-25 contre `7117e271` (base de la PR) | 436, GREEN, borne du lot 547 (contre `f8bedc17` : 464) |
+
+## Pli du G2 delta (APPROUVE SOUS RESERVE, 2026-10-05)
+
+G2 delta lue : `recherches/coordination/pieces/2026-10-04-G2-recherches/G2-l2-p1-c5-bis-c-delta.md` (tête relue `32e9ce44` ; aucun
+bloquant, cinq mineurs d-1 à d-5). Commits, sans rebase : `a0f92fcd` (fusion du tronc `lot/etude-suite` à `f35ec9b1`, qui porte #157 =
+c5-bis-b et `7117e271` ; sans conflit ; base de la PR désormais le tronc), `7c32df74` (tests de d-2 et d-3), puis ce commit (G7).
+
+| Mineur | Suite | Preuve (test ; tueur) |
+|---|---|---|
+| d-1 (requête d'ancre à cheval sur minuit) | aucun code : fenêtre déclarée, item L2-ANCHOR-MIDNIGHT-STRADDLE-1 ci-dessous ; phrase du point 19 corrigée | — (`l2_record_slow_place_anchors` épingle le choix `sentUs`) |
+| d-2 (`offset` retiré des deux côtés du contrôle à l'envoi, K3c) | test seul : place 30 s en retard, chaque `depth` répondu 25 s plus tard ; `ETHUSDT` décidée à 23:59:50 hôte (D), envoyée à 00:00:05 hôte (D + 1, corrigé 23:59:35, D) : gardée ; `BNBUSDT` et `SOLUSDT`, envoyées à partir du minuit corrigé : sautées à l'envoi | `l2_record_anchor_sent_day_corrected` ; `record-binance-l2.mjs:360 CONST "if (dayOf(sentUs + offset) !== dayOf(t + offset)) return" -> "if (dayOf(sentUs) !== dayOf(t)) return"`, à la main : rouge par assertion (`[true, false, true, true]`, `ETHUSDT` sautée, `BNBUSDT` et `SOLUSDT` écrites) ; restauré, vert. `l2_record_anchor_day_corrected` et `l2_record_slow_place_anchors` restent verts sous ce mutant (le constat) |
+| d-3 (« dit au `kill` » non épinglé au niveau de `sealApart`, K6b, K6) | test seul : abandon juste après l'appel, `onKill` déjà appelé au retour (synchrone) de `abort()` ; une échéance de 1 ms échue avant le `close` de l'enfant tué (la boucle tenue 20 ms) : `onKill` une fois | `l2_seal_apart_told_at_the_kill` ; `seal.mjs:60 CONST "try { io?.onKill?.(killed); }" -> "try { child?.once(\"close\", () => io?.onKill?.(killed)); }"`, à la main : rouge par assertion (3 sur 3), `l2_seal_apart_kill_told` vert sous ce mutant (le constat) ; restauré, vert. K6 (`if (first)` en `if (true)`) : rouge par assertion 10 sur 10. K6c (`try` retiré) : survit, déclaré (faible portée, un `onKill` qui lève est l'erreur de l'appelant) |
+| d-4 (gestionnaires de socket et journal en panne) | reporté : item L2-JOURNAL-BROKEN-HANDLERS-1 | — |
+| d-5 (`late_us` du saut à l'envoi, nom `"23"`) | noté : item L2-LATE-US-PIN-1 | — |
+
+- **Deux lignes par échéance du scellé, voulu** : une échéance (ou un abandon) d'un scellé à part donne deux lignes au journal, `seal_killed`
+  au `kill` (m-1 : l'attente est dite aussitôt, même si l'enfant tué tarde à être relevé) puis `seal_failed` au `close` de l'enfant (la
+  résolution), mêmes champs d'échec.
+- **Lot L2-STOP-SETTLE-1**, porté par la PR #157 (fusionnée dans le tronc `f35ec9b1`) : plage `f8bedc17..7117e271`, tests seuls
+  (`settles()` de `test/helpers/host-clock.ts`, régression `l2_record_stop_bound_armed_late`, tueur `host-clock.ts:8`) ; R-25 mesuré seul
+  30 ; revue : contrôle du diff par MONARK (message `e56a024`) plus le G2 delta de c5-bis-c, qui a trouvé `settles()` juste (« ne masque
+  aucun blocage du code », K12 tué). La G2 de la partie couvre les deux lots.
+- **Note Windows** : les tests du journal en panne (`l2_link_hook_failure_journal_broken`, `l2_record_broken_journal_*`) supposent que
+  l'ajout sur un dossier lève sous win32 (`EISDIR` ou `EPERM`) ; aucun n'affirme le code ; s'il ne levait pas, `_hook_failure_journal_broken`
+  resterait vert à vide, jamais un faux rouge. À confirmer au rejeu de MONARK. `l2_seal_apart_told_at_the_kill` est sous `APART`.
+
+### Items ouverts
+
+- **L2-ANCHOR-MIDNIGHT-STRADDLE-1** (d-1) : une ancre dont la requête chevauche minuit (envoyée avant le minuit corrigé, reçue après) est
+  écrite comme `anchor-close.json` de D ; l'instantané a pu être pris par la place en D + 1. Portée : une ancre au plus (les suivantes
+  partent après minuit et sont sautées), dans la latence d'une requête (`TIMEOUT_MS`, 30 s au pire), seulement si la chaîne REST a déjà
+  20 à 50 s de retard. Effet dans `derive.mjs` : la parité de D rapportée absente, `chain_open` (aucun événement de D n'atteint le
+  `lastUpdateId` de l'ancre), plus un trou nommé du début de D + 1 jusqu'à lui ; jamais une parité fausse. Option : juger sur
+  `receivedUs` (ne coûte aucune ancre légitime à latence normale, sonde 5 du G2 delta), en ajustant `l2_record_slow_place_anchors`.
+- **L2-JOURNAL-BROKEN-HANDLERS-1** (d-4, antérieur au lot) : sur un journal en panne, trois gestionnaires de `openLink` laissent sortir la
+  levée : `onmessage` d'un message binaire (`end` puis `note("close")`), `onmessage` de `serverShutdown` (`renew` puis `note("renew")`),
+  `onclose` (`end` puis `note("close")`) ; sur un vrai `WebSocket`, `uncaughtException`. Suite : `note` de `openLink` sous `try` (ou
+  chaque gestionnaire).
+- **L2-LATE-US-PIN-1** (d-5) : `late_us` du saut à l'envoi non épinglé (K14 survit) ; l'échéance du `fetch` est nommée `error: "23"` (le
+  `code` du `DOMException` `TimeoutError`, lu avant `name` par `errorName`), comme l'abandon valait `"20"` : antérieur, sans portée.
+
+### Preuves du pli delta
+
+| Vérification (tête `7c32df74`, Node v24.21.0) | Résultat |
+|---|---|
+| `node --test test/l2-*.test.ts` | 211 sur 211, 0 échec, 0 sauté |
+| `tsc --noEmit`, `lint` | 0, 0 |
+| `lint:ratchet` | 69/69 |
+| `gate:vocab`, `lang:gate` | OK, OK |
+| ancres | `--touched origin/lot/etude-suite HEAD` : 104/104 ; `--files` des douze `test/l2-*` : 211/211 |
+| R-25 contre `origin/lot/etude-suite` (`f35ec9b1`, base de la PR) | 465 (422 insertions, 43 suppressions ; inchangé par ce G7), `CONTENT_STAT` 0, GREEN, borne du lot 547, marge 82 |
