@@ -32,7 +32,7 @@ v24.21.0. Aucun réseau vers une place : `fetch` répondu en mémoire, sockets m
 | 16 | r-4 (a) | test seul, sonde JITTER : `exchangeInfo` en retard de 19 s part, de 21 s est sautée (`late_us` 21 000 000) | `l2_record_overdue_tolerance` ; `record-binance-l2.mjs:378 CONST "now - e.at > OVERDUE_US" -> "now - e.at > 0"`, à la main |
 | 17 | r-4 (b) | test : journal en panne, `time` répondu 500 à 10:30 : `schedule_failed` perdu en silence, aucun rejet non géré, la course finit au signal | `l2_record_broken_journal_failure` ; `record-binance-l2.mjs:300`, le `try` de `tell` retiré |
 | 18 | r-4 (c) | test : journal en panne, le `stop()` des liaisons rejette (leurs lignes `close`) : l'arrêt propre continue aussitôt, `links_closed: false` | `l2_record_broken_journal_links` ; `record-binance-l2.mjs:391 CONST ", () => { clearTimer(t); r(false); }" -> ", () => undefined"` |
-| 19 | n-a | critère par tâche : une ancre est sautée si le jour corrigé a changé (jamais écrite d'un `depth` d'un autre jour), `exchangeInfo` au-delà de `OVERDUE_US` ; sonde SLOWSTART : les quatre ancres de D prises | `l2_record_slow_start_anchors` ; `record-binance-l2.mjs:378 CONST "dayOf(now + offset) !== dayOf(e.at + offset)" -> "now - e.at > OVERDUE_US"` |
+| 19 | n-a | critère par tâche : une ancre est sautée si le jour corrigé a changé (au `tick` ; « jamais écrite d'un `depth` d'un autre jour » n'était pas vrai avant le contrôle à l'envoi du pli, B-1 ci-dessous), `exchangeInfo` au-delà de `OVERDUE_US` ; sonde SLOWSTART : les quatre ancres de D prises | `l2_record_slow_start_anchors` ; `record-binance-l2.mjs:378 CONST "dayOf(now + offset) !== dayOf(e.at + offset)" -> "now - e.at > OVERDUE_US"` |
 | 20 | `.catch` de `seals()` | retiré (code mort depuis le `try` par clé) : une levée hors des clés, aucune connue, deviendrait un rejet non géré que le filet du processus arrête nommé | — (déclaré, Q-C5BC-5) |
 
 Les lignes de tueurs existantes ne bougent pas (code changé en place) ; deux lignes de tueurs suivent l'appel `fed(io, note, e.data, c)`
@@ -115,3 +115,50 @@ Q-C5BC-4 (critère du saut par tâche), Q-C5BC-5 (filet de `seals()` retiré).
 - c6 : le rejeu reprend toujours les jours non scellés ; le verrou par jour (n-2 de c5-bis-b) et `root_moved` sont des arrêts nommés qu'il
   lit comme tels.
 - P3 : n-6 et n-b de c5-bis-b inchangés ; la résolution à la relève (point 10) ne change pas les bornes de l'arrêt (30 s + 30 s + 5 s).
+
+## Pli de la G2 (BLOQUE, 2026-10-05)
+
+G2 lue : `recherches/coordination/pieces/2026-10-04-G2-recherches/G2-l2-p1-c5-bis-c.md` (tête relue `212ddd30` ; un bloquant B-1, six
+mineurs m-1 à m-6). Commits, sans rebase :
+- `c603dd10` : fusion de `recherches/l2-p1-c5-bis-b` à `f8bedc17` (PR #157 : fusions de c5-bis-a et du tronc `32aba758`), avant le gel ;
+  aucun fichier du lot touché par elle ; tests L2 200 sur 200 après la fusion. Base de la PR désormais `f8bedc17`.
+- `b4cd4bdd` (tests rouges et `.d.mts`), `b3e07862` (gel), `9cff69dd` (pli des contrôles : `lint` des faux du REST), `240cea36` (pli des
+  mutants : le test de l'échéance du `fetch` borné à 1 s), puis ce commit (G7).
+
+| Point de la G2 | Suite | Preuve (test ; tueur) |
+|---|---|---|
+| **B-1** (ancre envoyée après le minuit corrigé) | dans la branche `anchor` de `fire`, après la réponse : `if (dayOf(sentUs + offset) !== dayOf(t + offset))`, rien n'est écrit, `event_skipped` (`late_us` = `sentUs - t`, `at_send: true`). Phrases du G0 et du G7 (point 19) corrigées | `l2_record_slow_place_anchors`, reproducteur de la G2 (départ 23:59:00, chaque réponse 10 s plus tard, écart lu +5 s) : seule `BTCUSDT` (envoyée à 23:59:55 corrigé) écrit `anchor-close.json` de D ; `ETHUSDT`, `BNBUSDT`, `SOLUSDT` sautées à l'envoi. Tueur `record-binance-l2.mjs:360 CONST "if (dayOf(sentUs + offset) !== dayOf(t + offset)) return" -> "if (false) return"` |
+| m-1 (attente sans ligne) | `sealApart` appelle `io.onKill(échec)` une fois, au `kill` (échéance ou abandon), puis se résout au `close` ; la boucle journalise `seal_killed` (symbole, jour, `stop`) aussitôt. Le `.d.mts` dit « résolu au `close` de l'enfant tué » (non plus « relevé ») | `l2_seal_apart_kill_told` (`onKill` avant la fin de l'appel) ; `seal.mjs:60 CONST "if (first) try {" -> "if (false) try {"` ; `l2_record_seal_kill_named` ; `record-binance-l2.mjs:327 CONST "tell(\"seal_killed\"" -> "void (\"seal_killed\""` |
+| m-2 (`fetch` abandonné nommé `network_error`) | dans le `catch` du `fetch` : signal de la boucle abandonné, `stopped` | `l2_rest_aborted_fetch_named` (faux qui honore `init.signal`, rejet `AbortError`) ; `rest.mjs:125 CONST "if (io.signal?.aborted) stop(\"stopped\", { kind, symbol }); stop(\"network_error\"" -> "stop(\"network_error\""` |
+| m-3 (échéance de 30 s) | test seul : `AbortSignal.timeout` espionné (`TIMEOUT_MS`), son signal joint à celui du `fetch` | `l2_rest_fetch_deadline` ; `rest.mjs:123 CONST "AbortSignal.timeout(TIMEOUT_MS), " -> ""`, à la main : rouge par assertion en 1,2 s |
+| m-4 (`offset` du critère) | test seul, deux courses : place 5 s en avance, horloge sautée de 23:59 à 23:59:58 (jour hôte D, corrigé D + 1) : aucune ancre, quatre `event_skipped` ; place 30 s en retard, ancres au-delà du minuit hôte (corrigé D) : quatre `anchor-close.json` de D | `l2_record_anchor_day_corrected` ; `record-binance-l2.mjs:378 CONST "dayOf(now + offset) !== dayOf(e.at + offset)" -> "dayOf(now + offset) !== dayOf(e.at)"`, à la main ; M13 (`dayOf(now) !== dayOf(e.at)`) et l'autre côté seul (`dayOf(now) !== dayOf(e.at + offset)`) à la main : tous rouges par assertion |
+| m-5 (abandon pendant la lecture du corps) | test seul : corps en flux, abandon entre deux morceaux : `stopped`, rien écrit | `l2_rest_aborted_during_body` ; `rest.mjs:129 CONST "} if (io.signal?.aborted) stop(" -> "} if (false) stop("`, à la main ; M21 (garde déplacée avant la lecture) à la main : rouges par assertion |
+| m-6 (journal en panne dans `fed`) | la ligne `hook_failed` écrite dans un `try` : une levée du journal ne sort plus de `onmessage` | `l2_link_hook_failure_journal_broken` (journal en dossier) ; `links.mjs:212 CONST "catch { /* m-6" -> "catch (z) { throw z; /* m-6"` |
+| notes n-1 à n-7 | n-1, n-2, n-4, n-5, n-7 : sans suite ; n-3 : `rest.stopped` n'est pas posé par l'abandon (le carnet fait au plus ses essais vains, désormais nommés `stopped` et non `network_error`, jusqu'à `b.close()`) ; n-6 : rejeu Windows de MONARK (`_broken_journal_links` et `_hook_failure_journal_broken` supposent que l'ajout sur un dossier lève) | — |
+
+Survivants de la G2 gardés déclarés : M4 (`killed ??=` en `killed =`, nom seul), M5 (`killed ??` de l'écouteur `error`), M7 (`dev` non
+comparé : un seul système de fichiers aux tests), M17 (`syncDir(conn/)` à chaque segment : coût seul), M18 (`.catch` remis : code mort),
+M19 (garde `finished` de `time`).
+
+### Preuves du pli
+
+- **Preuve rouge du pli** : `node scripts/red-proof.mjs --base c603dd10 --gel 9cff69dd --repo /home/user/monark-governance-c5bc --draw 10
+  --seed 37` : « red-proof REFUSED: 8 judged, 93 unchanged, 5 killer(s) drawn » ; `RED-PROOF.json` sha256 `ffef32d2e79de2f7…`. Cinq F2P
+  (`l2_record_slow_place_anchors`, `l2_seal_apart_kill_told`, `l2_record_seal_kill_named`, `l2_link_hook_failure_journal_broken`,
+  `l2_rest_aborted_fetch_named`), leurs cinq tueurs tirés et tués ; trois refus « green at base », déclarés (m-3, m-4, m-5 sont des
+  resserrements), leurs tueurs tués à la main (ci-dessus). `240cea36` ne change que le corps de `l2_rest_fetch_deadline` (borné à 1 s :
+  son tueur pendait jusqu'au `timeout` du lanceur avant).
+- **Ancres** : `--touched f8bedc17 HEAD` : 101 tueurs, 101 ANCRE, 0 DERIVE, 0 PERDU ; `--files` sur les douze `test/l2-*.test.ts` : 208, 208 ANCRE. `--touched 7d45fa54
+  HEAD` : 195 tueurs, 193 ANCRE, dont 2 PERDU hérités de la fusion du tronc (`test/oracle-run.test.ts:129` et `:182`, déjà PERDU sur `7d45fa54..f8bedc17`,
+  hors du lot).
+
+| Vérification (tête `240cea36`, Node v24.21.0) | Résultat |
+|---|---|
+| `node --test test/l2-*.test.ts` | 208 sur 208, 0 échec, 0 sauté |
+| `npm test` complet | 2 439 tests : 2 417 verts, 0 échec, 22 sautés (raisons nommées), sortie 0 |
+| `tsc --noEmit`, `lint` | 0, 0 |
+| `lint:ratchet` | 69/69 |
+| `gate:vocab`, `lang:gate` | OK, OK |
+| preuve rouge du pli contre `c603dd10` | 8 jugés : 5 F2P, 5 tueurs tués ; 3 resserrements, tueurs à la main tués |
+| R-25 contre `f8bedc17` (base de la PR) | 437 (394 insertions, 43 suppressions), GREEN, borne du lot 547, marge 110 |
+| R-25 contre `7d45fa54` | 1 398, dont 961 de la fusion du tronc par `f8bedc17` (hors du lot) : plus la base de cette PR ; le lot seul y valait 313 avant le pli |

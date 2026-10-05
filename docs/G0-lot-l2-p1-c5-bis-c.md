@@ -42,7 +42,7 @@ leurs `.d.mts` ; `test/l2-loop.test.ts` (tests ajoutés à la fin, un corps ress
 | 16 | r-4 (a) tolérance `OVERDUE_US` | test seul (sonde JITTER) : 19 s de retard, la requête part ; 21 s, `event_skipped` ; tueur `> 0` à la main | `l2_record_overdue_tolerance` |
 | 17 | r-4 (b) `tell` sans `try` | test : journal en panne, un horaire qui échoue (500 sur `time`) : aucun rejet non géré, la course s'arrête au signal | `l2_record_broken_journal_failure` |
 | 18 | r-4 (c) rejet dans `within` | test : journal en panne, le `stop()` des liaisons rejette : l'arrêt propre finit sans attendre `STOP_BOUND_MS`, `links_closed: false` | `l2_record_broken_journal_links` |
-| 19 | n-a (départ lent près de minuit) | une ancre en retard est sautée seulement si le jour corrigé a changé (elle n'est jamais écrite d'un `depth` d'un autre jour) ; `exchangeInfo` garde la tolérance de 20 s | `l2_record_slow_start_anchors` |
+| 19 | n-a (départ lent près de minuit) | une ancre en retard est sautée seulement si le jour corrigé a changé au `tick` ; **corrigé par le pli de la G2 (B-1)** : jugé au `tick` seul, ce critère laissait écrire comme clôture de D un `depth` envoyé après le minuit corrigé (requêtes chaînées) ; l'ancre est rejugée à l'envoi (`dayOf(sentUs + offset)`), sautée et nommée sinon ; `exchangeInfo` garde la tolérance de 20 s | `l2_record_slow_start_anchors` |
 | 20 | filet `.catch` de `seals()` | retiré : depuis le `try` par clé (r-1), rien ne l'atteint ; une levée hors des clés (aucune connue) deviendrait un rejet non géré, que le filet du processus arrête nommé (`unhandled_rejection`) | — (code mort, déclaré) |
 
 ## Tueurs (un par test, forme close, ligne directement au-dessus de `test(` ; lignes du brouillon, gel à confirmer)
