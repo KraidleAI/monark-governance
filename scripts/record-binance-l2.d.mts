@@ -40,6 +40,8 @@ export function guardEnv(env: Record<string, string | undefined>, execArgv: read
 export function guardOut(out: string, fs?: { exists?: (path: string) => boolean; real?: (path: string) => string }): boolean;
 export function bytesUnder(dir: string, depth?: number): number;
 export function createQuota(spec: { out: string; quota: number }, io: { wallUs: () => number; monoNs: () => bigint }): () => number;
+/** The free bytes (statfs bavail x bsize) of the file system that holds `path`, at its nearest existing ancestor. */
+export function freeBytes(path: string): number;
 export function prepare(argv: readonly string[], io?: RecorderIo): Plan;
 export function run(argv: readonly string[], io?: RecorderIo): Promise<never>;
 export function main(argv: readonly string[], io?: RecorderIo): Promise<number>;

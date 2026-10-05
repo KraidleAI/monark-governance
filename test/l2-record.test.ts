@@ -8,9 +8,9 @@
 import { after, before, test } from "node:test";
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
-import { existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, statfsSync, symlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { dirname, join } from "node:path";
+import { dirname, join, resolve } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import type * as RecordM from "../scripts/record-binance-l2.mjs";
 import { keepCause } from "./helpers/keep-cause.ts";
@@ -39,7 +39,7 @@ const lines = (out: string): unknown[] => existsSync(join(out, "journal.jsonl"))
   ? readFileSync(join(out, "journal.jsonl"), "utf8").split(LF).filter((l) => l !== "").map((l) => JSON.parse(l) as unknown) : [];
 const clocks = { wallUs: (): number => 7, monoNs: (): bigint => 9n };
 
-// killer: scripts/record-binance-l2.mjs:76 CONST "!admitted.includes(name.toUpperCase())" -> "false"
+// killer: scripts/record-binance-l2.mjs:81 CONST "!admitted.test(name)" -> "false"
 test("l2_guard_env_allowlist", async () => {
   const m = await load(), env = (e: Record<string, string>, platform: string): unknown => codeOf(() => m.guardEnv(e, [], platform));
   assert.deepEqual(m.ADMITTED_ENV, { win32: ["SYSTEMROOT", "TEMP", "TMP"] }, "Q-P1-10: win32 alone, three names");
@@ -51,7 +51,7 @@ test("l2_guard_env_allowlist", async () => {
   assert.deepEqual(d, { variables: ["HOME", "TEMP"], execArgv_length: 0 }, "names sorted, never a value");
 });
 
-// killer: scripts/record-binance-l2.mjs:78 CONST "execArgv.length > 0" -> "false"
+// killer: scripts/record-binance-l2.mjs:83 CONST "execArgv.length > 0" -> "false"
 test("l2_guard_proxy_and_flags_refused", async () => {
   const m = await load();
   assert.deepEqual([codeOf(() => m.guardEnv({ ...WIN, HTTPS_PROXY: "http://u:pw@127.0.0.1:9" }, [], "win32")),
@@ -61,7 +61,7 @@ test("l2_guard_proxy_and_flags_refused", async () => {
   assert.equal(JSON.stringify(detailOf(() => m.guardEnv({ HTTPS_PROXY: "http://u:pw@127.0.0.1:9" }, [], "linux"))).includes("pw"), false);
 });
 
-// killer: scripts/record-binance-l2.mjs:80 CONST "!win32.isAbsolute(String(env[name]))" -> "false"
+// killer: scripts/record-binance-l2.mjs:85 CONST "!win32.isAbsolute(String(env[name]))" -> "false"
 test("l2_guard_env_values_closed_form", async () => {
   const m = await load(), env = (e: Record<string, string>): unknown => codeOf(() => m.guardEnv(e, [], "win32"));
   assert.deepEqual([env({ TEMP: "tmp" }), env({ SYSTEMROOT: "" }), env({ TMP: "\\\\host\\share" }), env(WIN)],
@@ -70,7 +70,7 @@ test("l2_guard_env_values_closed_form", async () => {
     { variables: ["TEMP"], why: "values outside their closed form" });
 });
 
-// killer: scripts/record-binance-l2.mjs:92 SDL "if (exists(join(dir, " -> ""
+// killer: scripts/record-binance-l2.mjs:100 SDL "if (exists(join(dir, " -> ""
 test("l2_guard_out_outside_git", async () => {
   const m = await load(), repo = fresh(), worktree = fresh(), link = fresh(), clean = fresh();
   mkdirSync(join(repo, ".git"), { recursive: true });
@@ -85,7 +85,7 @@ test("l2_guard_out_outside_git", async () => {
   assert.equal(existsSync(clean), false);
 });
 
-// killer: scripts/record-binance-l2.mjs:90 CONST "exists(near) ? real(near) : near" -> "real(near)"
+// killer: scripts/record-binance-l2.mjs:98 CONST "exists(near) ? real(near) : near" -> "real(near)"
 test("l2_guard_out_absent_root", async () => {
   // SERIES-ABSENT-ROOT-TEST-1: the walk up ends at a root that does not exist (a win32 drive without a disk), which has no real path; the
   // guard then walks the path as given, reaches that root and admits a new output. Simulated by exists and real of the caller.
@@ -97,7 +97,7 @@ test("l2_guard_out_absent_root", async () => {
     "/.git", "/.git"], "every ancestor up to the root looked at, then the root again as resolved");
 });
 
-// killer: scripts/record-binance-l2.mjs:102 CONST "!OUT_ENTRIES.includes(e.name)" -> "false"
+// killer: scripts/record-binance-l2.mjs:110 CONST "!OUT_ENTRIES.includes(e.name)" -> "false"
 test("l2_guard_out_resume_l2_only", async () => {
   const m = await load(), [empty, l2, mixed, nojournal, file] = [fresh(), fresh(), fresh(), fresh(), fresh()];
   mkdirSync(empty);
@@ -111,7 +111,7 @@ test("l2_guard_out_resume_l2_only", async () => {
   assert.deepEqual([readdirSync(mixed).sort(), readFileSync(file, "utf8")], [["journal.jsonl", "keep.txt"], "a file"], "nothing touched");
 });
 
-// killer: scripts/record-binance-l2.mjs:132 ROR "100 * used >= STOP_PCT * quota" -> "100 * used > STOP_PCT * quota"
+// killer: scripts/record-binance-l2.mjs:145 ROR "100 * used >= STOP_PCT * quota" -> "100 * used > STOP_PCT * quota"
 test("l2_quota_alarm_and_stop", async () => {
   const m = await load(), [at, below] = [fresh(), fresh()];
   put(at, "conn/c/s.frames", 85);
@@ -122,7 +122,7 @@ test("l2_quota_alarm_and_stop", async () => {
   assert.equal(m.createQuota({ out: below, quota: 100 }, clocks)(), 84, "one byte under: no stop");
 });
 
-// killer: scripts/record-binance-l2.mjs:133 ROR "100 * used >= ALARM_PCT * quota" -> "100 * used > ALARM_PCT * quota"
+// killer: scripts/record-binance-l2.mjs:146 ROR "100 * used >= ALARM_PCT * quota" -> "100 * used > ALARM_PCT * quota"
 test("l2_quota_alarm_at_seventy_once", async () => {
   const m = await load(), out = fresh();
   put(out, "conn/c/s.frames", 6_999);
@@ -134,7 +134,7 @@ test("l2_quota_alarm_at_seventy_once", async () => {
   assert.deepEqual([check(), lines(out)], [7_000 + JSON.stringify(line).length + 1, [line]], "once per process; the journal counts");
 });
 
-// killer: scripts/record-binance-l2.mjs:154 ROR "free < args.quota - used" -> "free <= args.quota - used"
+// killer: scripts/record-binance-l2.mjs:172 ROR "free < args.quota - used" -> "free <= args.quota - used"
 test("l2_quota_free_space_at_start", async () => {
   const m = await load(), [fresh1, resumed] = [fresh(), fresh()];
   put(resumed, "journal.jsonl", 100);
@@ -147,20 +147,19 @@ test("l2_quota_free_space_at_start", async () => {
   assert.deepEqual([existsSync(fresh1), readdirSync(resumed)], [false, ["journal.jsonl"]], "nothing written");
 });
 
-// killer: scripts/record-binance-l2.mjs:119 ROR "depth === WALK_DEPTH" -> "depth > WALK_DEPTH"
+// killer: scripts/record-binance-l2.mjs:132 ROR "depth === WALK_DEPTH" -> "depth > WALK_DEPTH"
 test("l2_quota_walk_depth_bound", async () => {
-  const m = await load(), out = fresh(), elsewhere = fresh();
+  const m = await load(), out = fresh();
   put(out, "days/BTCUSDT/2026-10-04/index.jsonl", 10);
   put(out, "conn/spot-BTCUSDT-x/2026100400.frames", 20);
   put(out, "journal.jsonl", 5);
-  put(elsewhere, "big", 5_000);
-  symlinkSync(join(elsewhere, "big"), join(out, "rest")); // a link counts its own size, never its target's
-  assert.equal(m.bytesUnder(out), 35 + join(elsewhere, "big").length, "the files of the layout, three levels deep");
+  put(out, "rest/BTCUSDT/x.json", 4);
+  assert.equal(m.bytesUnder(out), 39, "the files of the layout, three levels deep");
   mkdirSync(join(out, "days", "BTCUSDT", "2026-10-04", "deeper"));
   assert.deepEqual([m.WALK_DEPTH, codeOf(() => m.bytesUnder(out))], [3, "out_too_deep"], "a fourth level stops");
 });
 
-// killer: scripts/record-binance-l2.mjs:60 CONST "foreign.length > 0" -> "false"
+// killer: scripts/record-binance-l2.mjs:63 CONST "foreign.length > 0" -> "false"
 test("l2_args_closed_flags", async () => {
   const m = await load(), args = (argv: string[]): unknown => codeOf(() => m.parseArgs(argv));
   assert.deepEqual(args(["--out", "/o", "--quota-bytes", "5"]), { mode: "record", out: "/o", quota: 5 });
@@ -176,7 +175,7 @@ test("l2_args_closed_flags", async () => {
     ["bad_symbol", "bad_day", "bad_day"]);
 });
 
-// killer: scripts/record-binance-l2.mjs:179 CONST "realpathSync(argv1) === realpathSync(SCRIPT)" -> "resolve(argv1) === resolve(SCRIPT)"
+// killer: scripts/record-binance-l2.mjs:197 CONST "realpathSync(argv1) === realpathSync(SCRIPT)" -> "resolve(argv1) === resolve(SCRIPT)"
 test("l2_main_runs_by_real_path", async () => {
   // MAIN-GUARD-REALPATH-1: through a link, node runs the module at its real path while argv[1] keeps the link; a guard on resolved paths
   // ran nothing and exited 0. The scripts folder behind a link, the command run with no argument: the usage stop, exit 2; imported: nothing.
@@ -193,4 +192,89 @@ test("l2_main_runs_by_real_path", async () => {
   const io = { env: {}, execArgv: [], freeBytes: () => 1e9, ...clocks, print: (l: string, e: boolean) => { printed.push([l, e]); } };
   assert.equal(await m.main(["--out", out, "--quota-bytes", "1000"], io), 1, "after its guards, a named stop: the loop is c5's");
   assert.deepEqual(printed, [[JSON.stringify({ ok: false, stop: "not_built", detail: { mode: "record", out, resume: false } }), true]]);
+});
+
+// killer: scripts/record-binance-l2.mjs:131 CONST "!e.isFile() && !e.isDirectory()" -> "false"
+test("l2_guard_out_links_refused", async () => {
+  // B-1 of the G2: a link under --out leads into a repository; resumed, c4 appended its quota_alarm there and the quota did not count it.
+  const m = await load(), repo = fresh(), [top, deep, file] = [fresh(), fresh(), fresh()];
+  put(repo, ".git/HEAD", 1);
+  put(repo, "data/tracked.jsonl", 3);
+  put(repo, "data/big", 900);
+  for (const out of [deep, file]) put(out, "journal.jsonl", 1);
+  mkdirSync(top);
+  symlinkSync(join(repo, "data", "tracked.jsonl"), join(top, "journal.jsonl"));
+  mkdirSync(join(deep, "days"));
+  symlinkSync(join(repo, "data"), join(deep, "days", "BTCUSDT"), "dir");
+  put(file, "conn/c/x", 1);
+  symlinkSync(join(repo, "data", "big"), join(file, "conn", "c", "s.frames"));
+  const io = { env: {}, execArgv: [], freeBytes: () => 1e9, ...clocks };
+  assert.deepEqual([top, deep, file].map((out) => codeOf(() => m.prepare(["--out", out, "--quota-bytes", "80"], io))),
+    ["out_not_l2", "out_not_l2", "out_not_l2"], "a link at any depth, to a file or a directory, stops");
+  assert.deepEqual([readFileSync(join(repo, "data", "tracked.jsonl"), "utf8"), readdirSync(join(repo, "data")).sort()],
+    ["xxx", ["big", "tracked.jsonl"]], "nothing written in the repository");
+});
+
+// killer: scripts/record-binance-l2.mjs:112 CONST "!typed" -> "false"
+test("l2_guard_out_entry_types", async () => {
+  const m = await load(), [dirJournal, fileConn, linkDays, target] = [fresh(), fresh(), fresh(), fresh()];
+  put(dirJournal, "journal.jsonl/x", 1);
+  for (const out of [fileConn, linkDays]) put(out, "journal.jsonl", 1);
+  put(fileConn, "conn", 1);
+  mkdirSync(target);
+  symlinkSync(target, join(linkDays, "days"), "dir");
+  assert.deepEqual([dirJournal, fileConn, linkDays].map((out) => codeOf(() => m.guardOut(out))), ["out_not_l2", "out_not_l2", "out_not_l2"]);
+  assert.deepEqual(detailOf(() => m.guardOut(linkDays)), { out: linkDays, entry: "days", why: "not of its type" }, "the replay's guard too");
+});
+
+// killer: scripts/record-binance-l2.mjs:96 CONST "linked(near)" -> "false"
+test("l2_guard_out_dangling_link", async () => {
+  const m = await load(), dl = fresh(), target = join(fresh(), "new");
+  symlinkSync(target, dl, "dir");
+  assert.deepEqual([dl, join(dl, "out")].map((out) => codeOf(() => m.guardOut(out))), ["out_not_l2", "out_not_l2"], "never a new output");
+  assert.deepEqual([detailOf(() => m.guardOut(dl)), existsSync(target)], [{ out: dl, entry: dl, why: "dangling link" }, false]);
+});
+
+// killer: scripts/record-binance-l2.mjs:58 CONST "a.has(flag)" -> "false"
+test("l2_args_flag_once", async () => {
+  const m = await load();
+  assert.deepEqual(detailOf(() => m.parseArgs(["--out", "/o", "--quota-bytes", "5", "--out", "/p"])), { flag: "--out" }, "twice");
+  assert.equal(codeOf(() => m.parseArgs(["--out", "--quota-bytes", "--quota-bytes", "5"])), "usage", "a value is never a flag");
+});
+
+// killer: scripts/record-binance-l2.mjs:58 CONST "value === \"\"" -> "false"
+test("l2_args_empty_value", async () => {
+  const m = await load();
+  assert.deepEqual(detailOf(() => m.parseArgs(["--out", "", "--quota-bytes", "5"])), { flag: "--out" }, "an empty --out is no output");
+});
+
+// killer: scripts/record-binance-l2.mjs:167 CONST "args.mode === \"record\"" -> "true"
+test("l2_replay_skips_env_guard", async () => {
+  // Q-C4-7: the replay opens nothing; the environment and execArgv are not its guard, --out is.
+  const m = await load(), out = fresh(), repo = fresh(), io = { env: { FOO: "1" }, execArgv: ["--x"] };
+  mkdirSync(join(repo, ".git"), { recursive: true });
+  const replay = (o: string): string[] => ["--from-raw", "r", "--symbol", "BTCUSDT", "--day", "2026-10-04", "--out", o];
+  assert.deepEqual(codeOf(() => m.prepare(replay(out), io)),
+    { mode: "replay", fromRaw: resolve("r"), symbol: "BTCUSDT", day: "2026-10-04", out, resume: false });
+  assert.equal(codeOf(() => m.prepare(replay(join(repo, "o")), io)), "out_in_git_tree");
+});
+
+// killer: scripts/record-binance-l2.mjs:158 SDL "while (!existsSync(p) && dirname(p) !== p) p = dirname(p);" -> ""
+test("l2_free_bytes_default", async () => {
+  const m = await load(), s = statfsSync(ROOT), got = codeOf(() => m.freeBytes(join(ROOT, "absent", "x")));
+  assert.equal(typeof got, "number", "an absent output reads its nearest existing ancestor");
+  assert.ok(Math.abs((got as number) - s.bavail * s.bsize) <= 64 * s.bsize, "bavail x bsize, a few blocks apart");
+});
+
+// killer: scripts/record-binance-l2.mjs:80 CONST "\"i\"" -> "\"iu\""
+test("l2_guard_env_names_ascii", async () => {
+  const m = await load();
+  assert.equal(codeOf(() => m.guardEnv({ "\u017fYSTEMROOT": "C:\\W", ...WIN }, [], "win32")), "env_refused", "U+017F is no S");
+});
+
+// killer: scripts/record-binance-l2.mjs:29 CONST "\"disk_short\", " -> ""
+test("l2_stops_closed_list", async () => {
+  const m = await load(), text = readFileSync(join(SCRIPTS, "record-binance-l2.mjs"), "utf8");
+  const raised = [...new Set([...text.matchAll(/stop\("([a-z0-9_]+)"/g)].map((x) => x[1]))].sort();
+  assert.deepEqual([...m.STOPS].sort(), raised, "each code raised is in STOPS, and each of STOPS is raised");
 });
