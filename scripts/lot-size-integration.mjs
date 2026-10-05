@@ -202,7 +202,7 @@ export function attrTree(cwd) {
  * a gitlink (its code lives in another repository) or a symlink (it counts its target); a declared binary asset (a path attrTree leaves to
  * git's detection) whose first bytes are not one of the magic numbers of its format, measured on the trunk; any other path holding a CR not
  * followed by LF, or a JS line separator (U+2028, U+2029): JS ends a line there, git does not. Read from objects only (no work tree, no
- * autocrlf, no filesystem symlink); deletions pass. Residual, said as is: a polyglot (the true magic, then code) passes. */
+ * autocrlf, no filesystem symlink, no .gitmodules `ignore`); deletions pass; a UTF-16/32 byte order mark is refused. Residual, said as is: a polyglot passes. */
 export const ASSET_MAGIC = { cbor: Array.from({ length: 32 }, (_, i) => (0xa0 + i).toString(16)), jpg: ["ffd8ff"], ots: ["004f70656e54696d657374616d7073000050726f6f6600bf89e2e884e8929401"], png: ["89504e470d0a1a0a"], ttf: ["00010000"] };
 export function refusals(cwd, base, specs) {
   const g = (a, input, env = GIT_ENV()) => execFileSync("git", ["-C", cwd, ...PIN, ...a], { input, env, maxBuffer: 1 << 30, stdio: ["pipe", "pipe", "pipe"] });
@@ -210,7 +210,7 @@ export function refusals(cwd, base, specs) {
   if (bare.length > 0) throw new Error(`no magic number for the declared assets ${bare.join(", ")}`);
   const to = new Map(), out = [], files = [];
   for (const s of specs) { // paths as latin1 strings: their bytes, whatever their encoding
-    const f = g(["diff", "--raw", "-z", "--no-renames", "--no-abbrev", `${base}...HEAD`, "--", ...s]).toString("latin1").split("\0");
+    const f = g(["diff", "--raw", "-z", "--no-renames", "--no-abbrev", "--ignore-submodules=none", `${base}...HEAD`, "--", ...s]).toString("latin1").split("\0");
     for (let i = 0; i + 1 < f.length; i += 2) { const m = /^:\d{6} (\d{6}) [0-9a-f]+ ([0-9a-f]+) [A-Z]$/.exec(f[i]); if (m === null) throw new Error(`unread --raw entry ${f[i]}`); to.set(f[i + 1], [m[1], m[2]]); }
   }
   for (const [p, [mode, id]] of to) if (mode === "160000") out.push(`gitlink ${p}`); else if (mode === "120000") out.push(`symlink ${p}`); else if (mode !== "000000") files.push([p, id]);
@@ -225,7 +225,7 @@ export function refusals(cwd, base, specs) {
       at = nl + 2 + b.length;
       if (asset.has(p)) { if (!(ASSET_MAGIC[p.slice(p.lastIndexOf(".") + 1)] ?? []).some((h) => b.subarray(0, h.length / 2).toString("hex") === h)) out.push(`asset-magic ${p}`); continue; }
       for (let i = b.indexOf(13); i >= 0; i = b.indexOf(13, i + 1)) if (b[i + 1] !== 10) { out.push(`bare-cr ${p}`); break; }
-      if (b.includes("\u2028") || b.includes("\u2029")) out.push(`line-separator ${p}`);
+      if (b.includes("\u2028") || b.includes("\u2029")) out.push(`line-separator ${p}`); if (/^(fffe|feff|0000feff)/.test(b.subarray(0, 4).toString("hex"))) out.push(`utf16-bom ${p}`);
     }
   }
   return out.map((r) => Buffer.from(r, "latin1").toString("utf8")).sort();
@@ -260,5 +260,5 @@ if (process.argv[1] !== undefined && import.meta.url === pathToFileURL(process.a
       console.log(shell);
     }
     else throw new Error("usage: lot-size-integration.mjs proof|count|pin ...");
-  } catch (e) { console.error(`r25-integration: ${String(e.message).split("\n")[0]}`); process.exitCode = 2; }
+  } catch (e) { const why = String(e.stderr ?? "").trim().split("\n").at(-1); console.error(`r25-integration: ${String(e.message).split("\n")[0]}${why ? ` (${why})` : ""}`); process.exitCode = 2; }
 }
