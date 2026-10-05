@@ -1761,7 +1761,8 @@ test("ukemi_pending_snapshot_is_fail_closed — a pending snapshot loads only be
     [served, pending, true, /carries no pending_since/, "a pending snapshot beside a served file without pending_since reds"],
     [marked(served), null, true, /no pending snapshot exists/, "pending_since without a pending snapshot reds"],
     [{ ...served, pending_since: "9999-12-31" }, pending, true, /later than the day/, "a pending_since later than the day the pending snapshot was written reds"],
-    [{ ...served, pending_since: "4 October" }, pending, true, /pending_since/, "a malformed pending_since reds"],
+    [{ ...served, pending_since: "2026-1-4" }, pending, true, /must be a UTC day/, "a pending_since that is not a UTC day reds, though not later"],
+    [marked(served), { ...pending, written_at: "2026-10-05" }, true, /written_at must be an ISO UTC instant/, "a written_at that is not an ISO instant reds"],
     [marked(v1), pending, true, /must carry exactly/, "pending_since is admitted in schema v2 only"],
     [marked(served), pending, false, /not listed/, "an unlisted pending snapshot reds"],
     [marked(served), { ...pending, schema: "monark-site-ukemi-served-v2" }, true, /schema is not monark-site-ukemi-pending-v1/, "a pending snapshot under the served schema reds"],
@@ -1780,7 +1781,9 @@ test("ukemi_pending_snapshot_is_fail_closed — a pending snapshot loads only be
     }, listed);
   }
   const fields = Object.fromEntries(Object.entries(pending).filter(([k]) => k !== "$comment" && k !== "schema"));
-  await withStage(marked(served), pending, (r) => { assert.deepEqual(loadUkemiPending(r), fields, "control: the staged pending snapshot loads, field by field"); });
+  for (const s of [marked(served), { ...served, pending_since: String(pending.written_at).slice(0, 10) }]) { // pending_since on the day written_at names loads (C2)
+    await withStage(s, pending, (r) => { assert.deepEqual(loadUkemiPending(r), fields, "control: the staged pending snapshot loads, field by field"); });
+  }
 });
 
 // killer: apps/site/lib/ukemi-served-load.ts:192 CONST "!existsSync(join(rootDir, UKEMI_PENDING_REL))" -> "true"
@@ -1840,7 +1843,7 @@ test("ukemi_pending_sync_writes_in_process_facts — --pending writes the in-pro
   assert.equal(sync.removeManifestEntry(withPending, PENDING_REL), manifest, "setting then removing the pending entry gives the manifest back, byte for byte");
   const lines = (x: string): string[] => x.split("\n");
   assert.equal(lines(withPending).filter((l) => !lines(manifest).includes(l)).length, 1, "the pending entry is one line");
-  assert.throws(() => sync.removeManifestEntry(manifest, PENDING_REL), /no entry/, "removing an absent entry is refused");
+  assert.throws(() => sync.removeManifestEntry(manifest, PENDING_REL), /no entry.*interrupted.*remove apps\/site\/data\/ukemi-pending\.json/, "removing an absent entry is refused, naming the interrupted promotion");
   assert.throws(() => sync.removeManifestEntry(withPending.replace(/\n {2}/, "\n "), PENDING_REL), /canonical/, "a manifest not in its canonical form is refused");
   // (4) The served verdict keeps its bytes: verdictFactsOf, then the deploy check's body digest, last.
   const { handleJsonMirror } = await import("../apps/harness/src/http.ts");
@@ -1865,6 +1868,7 @@ test("ukemi_promotion_waits_for_the_harness_promotion — the ukemi promotion is
   } finally {
     t.cleanup();
   }
-  const src = read("scripts/sync-ukemi-served.mjs"), at = src.indexOf("async function main() {");
-  assert.ok(at > 0 && src.slice(at, src.indexOf("\n}\n", at)).includes("promotionBlocked(ROOT)"), "the default sync checks the order before it promotes");
+  const src = read("scripts/sync-ukemi-served.mjs"), at = src.indexOf("async function main() {"), main = src.slice(at, src.indexOf("\n}\n", at));
+  const before = (a: string, b: string): boolean => main.includes(a) && main.indexOf(a) < main.indexOf(b); // killers by hand (G2 m-1): SDL "fail(blocked);", ROR "drift.length > 0" -> "< 0"
+  assert.ok(at > 0 && before("const blocked = promotionBlocked(ROOT);", "if (blocked !== null) fail(blocked);") && before("if (blocked !== null) fail(blocked);", "readBody(") && before("if (drift.length > 0) throw", "writeFileSync("), "the default sync refuses out of order before any read, and a drift before any write");
 });
