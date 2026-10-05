@@ -9,7 +9,8 @@
   - `b6e660b6` tests (19 rouges à la base) ;
   - **`a61a483e` gel** (code et ré-épinglages), fait sur une branche locale, poussé par la coordination en avance rapide ;
   - `26fdf987` lignes de tueurs seules (cinq ré-ancrages) : **tête mesurée** ;
-  - le commit de ce G7.
+  - `26c5b588` ce G7 ;
+  - `c03c3866` pli du G2 (trois tests, une phrase du site), puis la section « Pli du G2 » de ce G7.
 - Aucun `git add -A` ; `packages/rpc-guard/bin/rpc-guard.mjs` jamais indexé ; `node_modules` jamais indexé. Aucun fichier du paquet gelé écrit (`packages/contracts/src/`, `schemas/`).
 
 ## Ce que le lot écrit
@@ -132,6 +133,46 @@ Le poste 14 (`canonicalRow` réexportation de `canonicalJson`) porterait le lot 
 - **Q-CP4B-3** (bord additif hors binary64) : défaut accepté, `under_calib`.
 - **Q-CP4B-4** (coupe de `canonicalRow` au G0) : acceptée ; item après T0.
 
+## Pli du G2
+
+G2 adverse : `G2-c-prime-3c-4b.md` (RECHERCHES, pièce du 2026-10-04), sur `26fdf987` : **approuvé avec réserves**, aucun bloquant. Pli : commit **`c03c3866`** (trois tests, une phrase du site), puis ce G7. Base `base/chantier-moteur-2026-10-03` relue : toujours `9b5511e0`, aucune fusion à faire.
+
+### Plié
+
+- **R-1** (site public) : `apps/site/app/docs/gate/page.tsx:128` dit désormais « an interval of zero width abstains with region_degenerate first » (B-16), au lieu de `under_calib`. Test neuf `docs_interval_order_opens_with_the_first_reason_of_decideInterval` (`test/site-docs.test.ts`) : la phrase de la page doit nommer la première raison que rend `decideInterval` (lue dans `l3-gate.ts`), et l'ancienne phrase ne doit plus y être. Tueur `page.tsx:128 CONST "region_degenerate first" -> "under_calib first"`, tiré à la main : rouge par assertion, puis vert une fois restauré. Le test existant `docs_policy_steps_follow_the_set_path_of_the_code` épingle « for an interval the code declares another order », qui ne bouge pas. Build du site et `assert-fleet-html` verts. **Aucun artefact servi ou épinglé ne change** (données du site, manifeste, `harness-pending.json`, export) : aucun ré-épinglage. R-25 : la page compte dans CONTENT_STAT (2 lignes).
+- **R-2** (Q-CP4B-3) : test neuf `gate_byo_interval_additive_overflow_is_under_calib_QCP4B3` (`apps/harness/test/gate.test.ts`) : `scoreTestBand(1.7e308, 1e307)` rend `under_calib`, et le BYO intervalle à ŷ = 1,7e308, scores 1e307 (q̂ = 1e307, `tauInterval` = `Number.MAX_VALUE`) rend `abstain` / `under_calib`, jamais `commit`. Tueur `packages/hikae/src/region.ts:122 SDL "|| !Number.isFinite(yhat + qhat)" -> ""` (ligne vérifiée), tiré à la main : rouge par assertion (bande rendue [1,6e308, MAX_VALUE]) ; le côté BYO seul, assertion directe neutralisée dans une copie jetable, est rouge aussi (`covered`) ; restauré : vert.
+- **N-3** : test frère `split_rank_shortest_reads_past_four_decimals` (`packages/hikae/test/l1.test.ts`) : (50 ; 0,01961) → 50, et (50 ; 0,0196) → 51 > n en contrôle ; `splitQuantileShortest` rend q̂ = 50. Tueur `l1-split.ts:228 CONST "const frac = m[3] ?? \"\";" -> "const frac = (m[3] ?? \"\").slice(0, 4);"`, tiré à la main : rouge par assertion (T-10 reste vert sous ce mutant, comme le dit le G2) ; restauré : vert.
+- **N-1** : le second tueur de T-11 est à `calibrate.ts:165` (tiré à la main, tué) ; déjà corrigé au point 8 des écarts ci-dessus.
+
+Les trois tests neufs sont verts au gel sans changement du moteur : seul R-1 était rouge avant la correction de la page. red-proof n'est pas relancé pour ce pli : les trois tueurs sont tirés à la main.
+
+### Déclaré
+
+- **N-5** : le rejeu ne change ni action ni raison, mais B-13 peut changer une action hors rejeu, à un ulp du bord. Exemple mesuré par le G2 : BYO (1 ; 1), `intent` = −1e−16, `tauInterval` large : à la base `abstain` / `intent_not_in_region` sur [0, 2] ; au gel `commit` / `covered` sur [−2⁻⁵³, 2]. C'est correct : fl(|−1e−16 − 1|) = 1 ≤ q̂ = 1, la région est l'ensemble des x que le test du score accepte. À porter sur la liste des changements servis (point 2, B-13).
+
+### Pour la liste T0 de MONARK
+
+- **N-6** : `apps/harness/README.md:33` porte encore la clause B-7 (« each band edge is the nearest double of yhat -/+ q̂, at most half an ulp of the edge away ») ; `apps/harness/README.md:33-35` décrit USDe, liq et BYO par `splitQuantile` + `buildIntervalRegion`, alors que ce sont maintenant la ligne admise, le rang exact et `scoreTestBand` ; le commentaire de `liqEligibleVerdict` (`gate.ts`, « (splitQuantile -> region -> buildVerdict) ») est périmé de la même façon. Le README va à T0 : la liste T0 doit nommer ces points.
+
+### Reporté
+
+- **N-2** : le rang exact du conformeur (`interval-conformer.ts:83`) n'est tenu par aucun test (mutant « rang flottant » survivant). Chemin non servi avec des scores aujourd'hui (USDe autre population : `calib: []`). Proposition gardée : `conformInterval` sur (24 ; 0,44) ⇒ q̂ au rang 14.
+- **N-4** : mutants équivalents ou hors domaine, pour information : `gate.ts:617` / `:680` (`params.alpha`, équivalent par `assertPolicy`) ; `gate.ts:1022` sans `r.current` (équivalent tant qu'une clé n'a qu'une ligne) ; `region.ts:105` `<=` → `<` (seulement si MAX − c = q̂ exactement) ; `gate.ts:704` (inatteignable par le service, déjà déclaré ; un test direct de `honestyText` le tuerait).
+- **N-7** : six lignes de tueurs périmées dans `packages/hikae/test/oracle-l1-split.test.ts` (`:34`, `:58`, `:71`, `:83`, `:120`, `:152`, vers `l1-split.ts:37-41`, décalées d'une ligne), antérieures au lot (déjà à `740645b2`) : ménage d'un lot ultérieur.
+
+### Contrôles du pli (à `c03c3866`)
+
+| Contrôle | Résultat |
+|---|---|
+| Fichiers de test touchés (trois tests neufs) | verts ; rouges sous leur tueur |
+| `npm test` complet (rejeu et tests servis compris) | **2 547 tests, 2 525 verts, 0 rouge, 22 sautés, exit 0** |
+| `npx tsc --noEmit` | 0 erreur |
+| `npm run lint` / `npm run lint:ratchet` | 0 erreur / 69/69 |
+| `gate:vocab`, `lang:gate`, `export:check` | OK |
+| `npm run build -w @monark/site` puis `node scripts/assert-fleet-html.mjs` | build vert ; quatre assertions OK ; aucun fichier suivi modifié |
+| `verifie-ancres.mjs . --touched 740645b2 HEAD` | **69 tueurs, 69 ancrés, 0 dérivé, 0 perdu** |
+| R-25, `r25()` contre `740645b2` | **STAT 543** (+368 / −175) ≤ 547 ; CONTENT_STAT 2 |
+
 ## Suite
 
-G2 adverse en cours sur `26fdf987` (revue séparée) ; le pli de la G2 suivra dans ce G7. Puis la PR C' vers `base/chantier-moteur-2026-10-03` (MONARK : contrôle par diff, oracle Windows, fusion) ; NOTICE-1-1-0 finalisée après le gel de C' (§2.4 rang exact, §2.7, §2.8, §2.9).
+PR C' vers `base/chantier-moteur-2026-10-03` (MONARK : contrôle par diff, oracle Windows, fusion) ; NOTICE-1-1-0 finalisée après le gel de C' (§2.4 rang exact, §2.7, §2.8, §2.9) ; liste T0 avec N-6.
