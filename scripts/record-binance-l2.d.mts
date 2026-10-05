@@ -30,16 +30,20 @@ export interface RecorderIo {
   print?: (line: string, toStderr: boolean) => void;
 }
 
+/** The quota check: the bytes counted under `at` (--out by default), the alarm journaled unless `journal` is false, `pin` run right before
+ *  its append (P1-c5, m-2 and n-4 of its G2). */
+export type QuotaCheck = (opts?: { at?: string; journal?: boolean; pin?: () => void }) => number;
+
 /** The plan of a run once its guards pass: resume = --out is an L2 output to resume; for a recording, the bytes of --out, the free bytes
  *  and the quota check (counts the bytes, journals quota_alarm once, stops at STOP_PCT %). */
 export type Plan = (Args & { mode: "replay"; resume: boolean })
-  | (Args & { mode: "record"; resume: boolean; used: number; free: number; check: () => number });
+  | (Args & { mode: "record"; resume: boolean; used: number; free: number; check: QuotaCheck });
 
 export function parseArgs(argv: readonly string[]): Args;
 export function guardEnv(env: Record<string, string | undefined>, execArgv: readonly string[], platform?: string): void;
 export function guardOut(out: string, fs?: { exists?: (path: string) => boolean; real?: (path: string) => string }): boolean;
 export function bytesUnder(dir: string, depth?: number): number;
-export function createQuota(spec: { out: string; quota: number }, io: { wallUs: () => number; monoNs: () => bigint }): () => number;
+export function createQuota(spec: { out: string; quota: number }, io: { wallUs: () => number; monoNs: () => bigint }): QuotaCheck;
 /** The free bytes (statfs bavail x bsize) of the file system that holds `path`, at its nearest existing ancestor. */
 export function freeBytes(path: string): number;
 export function prepare(argv: readonly string[], io?: RecorderIo): Plan;
@@ -49,7 +53,8 @@ export function main(argv: readonly string[], io?: RecorderIo): Promise<number>;
 /** The recorder that the start line of its journal names (P1-c5, n-5 of the G2 of c4). */
 export const RECORDER: string;
 /** One JSON line appended to a file of --out by one write: no link followed, one link alone (nlink 1), else out_not_l2, nothing written. */
-export function appendLine(path: string, line: Record<string, unknown>): void;
-/** A recording takes --out after prepare (P1-c5): a resumed output must be this recorder's; --out made, its real path pinned, the start
- *  line journaled. check(): real path unchanged, guards of --out again, journal.jsonl and requests.jsonl of one link each, then the quota. */
+export function appendLine(path: string, line: Record<string, unknown>, entry?: string): void;
+/** A recording takes --out after prepare (P1-c5): guards again; a resumed output must be this recorder's; --out made, its real path and
+ *  directory pinned (Linux: written through /proc/self/fd), guards again, the start line journaled, a first check. check(): the pin, guards
+ *  of --out again, journal.jsonl and requests.jsonl of one link each, then the quota; a path changed on the way: out_not_l2. */
 export function adopt(plan: Extract<Plan, { mode: "record" }>, io: { wallUs: () => number; monoNs: () => bigint }): { real: string; check: () => number };

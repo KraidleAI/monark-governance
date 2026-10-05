@@ -111,7 +111,7 @@ test("l2_guard_out_resume_l2_only", async () => {
   assert.deepEqual([readdirSync(mixed).sort(), readFileSync(file, "utf8")], [["journal.jsonl", "keep.txt"], "a file"], "nothing touched");
 });
 
-// killer: scripts/record-binance-l2.mjs:145 ROR "100 * used >= STOP_PCT * quota" -> "100 * used > STOP_PCT * quota"
+// killer: scripts/record-binance-l2.mjs:147 ROR "100 * used >= STOP_PCT * quota" -> "100 * used > STOP_PCT * quota"
 test("l2_quota_alarm_and_stop", async () => {
   const m = await load(), [at, below] = [fresh(), fresh()];
   put(at, "conn/c/s.frames", 85);
@@ -122,7 +122,7 @@ test("l2_quota_alarm_and_stop", async () => {
   assert.equal(m.createQuota({ out: below, quota: 100 }, clocks)(), 84, "one byte under: no stop");
 });
 
-// killer: scripts/record-binance-l2.mjs:146 ROR "100 * used >= ALARM_PCT * quota" -> "100 * used > ALARM_PCT * quota"
+// killer: scripts/record-binance-l2.mjs:148 ROR "100 * used >= ALARM_PCT * quota" -> "100 * used > ALARM_PCT * quota"
 test("l2_quota_alarm_at_seventy_once", async () => {
   const m = await load(), out = fresh();
   put(out, "conn/c/s.frames", 6_999);
@@ -134,7 +134,7 @@ test("l2_quota_alarm_at_seventy_once", async () => {
   assert.deepEqual([check(), lines(out)], [7_000 + JSON.stringify(line).length + 1, [line]], "once per process; the journal counts");
 });
 
-// killer: scripts/record-binance-l2.mjs:172 ROR "free < args.quota - used" -> "free <= args.quota - used"
+// killer: scripts/record-binance-l2.mjs:175 ROR "free < args.quota - used" -> "free <= args.quota - used"
 test("l2_quota_free_space_at_start", async () => {
   const m = await load(), [fresh1, resumed] = [fresh(), fresh()];
   put(resumed, "journal.jsonl", 100);
@@ -175,7 +175,7 @@ test("l2_args_closed_flags", async () => {
     ["bad_symbol", "bad_day", "bad_day"]);
 });
 
-// killer: scripts/record-binance-l2.mjs:241 CONST "realpathSync(argv1) === realpathSync(SCRIPT)" -> "resolve(argv1) === resolve(SCRIPT)"
+// killer: scripts/record-binance-l2.mjs:269 CONST "realpathSync(argv1) === realpathSync(SCRIPT)" -> "resolve(argv1) === resolve(SCRIPT)"
 test("l2_main_runs_by_real_path", async () => {
   // MAIN-GUARD-REALPATH-1: through a link, node runs the module at its real path while argv[1] keeps the link; a guard on resolved paths
   // ran nothing and exited 0. The scripts folder behind a link, the command run with no argument: the usage stop, exit 2; imported: nothing.
@@ -248,7 +248,7 @@ test("l2_args_empty_value", async () => {
   assert.deepEqual(detailOf(() => m.parseArgs(["--out", "", "--quota-bytes", "5"])), { flag: "--out" }, "an empty --out is no output");
 });
 
-// killer: scripts/record-binance-l2.mjs:167 CONST "args.mode === \"record\"" -> "true"
+// killer: scripts/record-binance-l2.mjs:170 CONST "args.mode === \"record\"" -> "true"
 test("l2_replay_skips_env_guard", async () => {
   // Q-C4-7: the replay opens nothing; the environment and execArgv are not its guard, --out is.
   const m = await load(), out = fresh(), repo = fresh(), io = { env: { FOO: "1" }, execArgv: ["--x"] };
@@ -259,7 +259,7 @@ test("l2_replay_skips_env_guard", async () => {
   assert.equal(codeOf(() => m.prepare(replay(join(repo, "o")), io)), "out_in_git_tree");
 });
 
-// killer: scripts/record-binance-l2.mjs:158 SDL "while (!existsSync(p) && dirname(p) !== p) p = dirname(p);" -> ""
+// killer: scripts/record-binance-l2.mjs:161 SDL "while (!existsSync(p) && dirname(p) !== p) p = dirname(p);" -> ""
 test("l2_free_bytes_default", async () => {
   const m = await load(), s = statfsSync(ROOT), got = codeOf(() => m.freeBytes(join(ROOT, "absent", "x")));
   assert.equal(typeof got, "number", "an absent output reads its nearest existing ancestor");

@@ -10,7 +10,8 @@
 import { after, before, test } from "node:test";
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
-import { existsSync, linkSync, mkdirSync, mkdtempSync, readFileSync, realpathSync, renameSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
+import { spawnSync } from "node:child_process";
+import { closeSync, constants, existsSync, linkSync, mkdirSync, mkdtempSync, openSync, readdirSync, readFileSync, realpathSync, renameSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -51,7 +52,7 @@ async function conn(out: string, frames: [number, string][]): Promise<void> {
 }
 const diff = (U: number, u: number, E: number, b: Lv[] = []): [number, string] =>
   [E, JSON.stringify({ stream: "btcusdt@depth@100ms", data: { e: "depthUpdate", E, s: "BTCUSDT", U, u, b, a: [] } })];
-const ticker = (u: number, us: number): [number, string] => [us, JSON.stringify({ stream: "btcusdt@bookTicker", data: { u, s: "BTCUSDT", b: "100.00", B: "3", a: "101.00", A: "1" } })];
+const ticker = (u: number, us: number, b = "100.00"): [number, string] => [us, JSON.stringify({ stream: "btcusdt@bookTicker", data: { u, s: "BTCUSDT", b, B: "3", a: "101.00", A: "1" } })];
 const trade = (t: number, E: number): [number, string] => [E, JSON.stringify({ stream: "btcusdt@trade", data: { e: "trade", E, s: "BTCUSDT", t, p: "100.00", q: "1" } })];
 const snap = (lastUpdateId: number): string => JSON.stringify({ lastUpdateId, bids: [["100.00", "1"]], asks: [["101.00", "1"]] });
 const dayDir = (out: string): string => join(out, "days", "BTCUSDT", D);
@@ -62,11 +63,11 @@ function kept(out: string, us: number, body: string): string {
   writeFileSync(join(out, "rest", "BTCUSDT", name), body);
   return join(out, "rest", "BTCUSDT", name);
 }
-/** A day of D: its open anchor, two diffs (the second changes the best bid, the first is on a book just set), a ticker, a trade. */
-async function day(out: string): Promise<void> {
+/** A day of D: its open anchor, two diffs (the second changes the best bid, at `bid`; the first is on a book just set), a ticker, a trade. */
+async function day(out: string, bid = "100.00"): Promise<void> {
   mkdirSync(dayDir(out), { recursive: true });
   writeFileSync(join(dayDir(out), "anchor-open.json"), snap(100));
-  await conn(out, [diff(101, 101, START + S, [["100.00", "2"]]), diff(102, 102, START + 2 * S, [["100.00", "3"]]), ticker(102, START + 3 * S), trade(5, START + 4 * S)]);
+  await conn(out, [diff(101, 101, START + S, [["100.00", "2"]]), diff(102, 102, START + 2 * S, [[bid, "3"]]), ticker(102, START + 3 * S, bid), trade(5, START + 4 * S)]);
 }
 /** sealOf on D at scale 2, or the code of its named stop. */
 async function sealed(out: string, bounds?: SealM.SealBounds): Promise<unknown> {
@@ -83,6 +84,22 @@ function plan(m: typeof RecordM, out: string, quota = 1_000_000): Extract<Record
   const p = m.prepare(["--out", out, "--quota-bytes", String(quota)], { env: {}, execArgv: [], freeBytes: () => 1e12, ...clocks });
   assert.equal(p.mode, "record");
   return p;
+}
+type Opts = NonNullable<Parameters<RecordM.QuotaCheck>[0]>;
+/** top/o reached through a link top -> realtop, resumed, its journal at 7 400 bytes of a quota of 10 000 (75 % once adopted); a foreign
+ *  output of the same form at 90 %; plan.check runs `act` once first, whose options, if any, go to the original check. */
+function staged(m: typeof RecordM, act: (o: Opts, swap: () => void) => Opts | void = () => {}) {
+  const [top, realtop, foreign] = [fresh(), fresh(), fresh()], real = join(realtop, "o"), head = JSON.stringify(START_LINE) + LF;
+  for (const dir of [real, join(foreign, "o")]) mkdirSync(dir, { recursive: true });
+  writeFileSync(join(real, "journal.jsonl"), head + "x".repeat(7_399 - head.length) + LF);
+  writeFileSync(join(foreign, "o", "journal.jsonl"), "f".repeat(9_000));
+  symlinkSync(realtop, top, "dir");
+  const swap = (): void => { symlinkSync(foreign, top + ".new", "dir"); renameSync(top + ".new", top); }; // atomic, as ln -s then mv -T
+  const p = plan(m, join(top, "o"), 10_000), check = p.check;
+  let acted = false;
+  const adopted = { ...p, check: (o: Opts = {}): number => check(acted ? o : (acted = true, act(o, swap) ?? o)) };
+  const events = (dir: string): unknown[] => readFileSync(join(dir, "journal.jsonl"), "utf8").split(LF).filter((l) => l.startsWith("{")).map((l) => (JSON.parse(l) as Line).event);
+  return { out: p.out, real, realtop, events, take: () => codeOf(() => m.adopt(adopted, clocks).real), foreign: () => readFileSync(join(foreign, "o", "journal.jsonl"), "utf8") };
 }
 
 // killer: scripts/l2/seal.mjs:30 CONST "best: best.result()" -> "best: null"
@@ -158,7 +175,7 @@ test("l2_guard_out_parent_file", async () => {
     { out: join(file, "o"), entry: file, why: "not a directory" });
 });
 
-// killer: scripts/record-binance-l2.mjs:199 CONST "first.recorder !== RECORDER" -> "false"
+// killer: scripts/record-binance-l2.mjs:207 CONST "first.recorder !== RECORDER" -> "false"
 test("l2_adopt_journal_of_this_recorder", async () => {
   // n-5 of the G2 of c4: an output is adopted only when its journal begins with a start of this recorder; adopt journals its start first.
   const m = await command(), out = fresh(), foreign = fresh(), junk = fresh();
@@ -176,7 +193,7 @@ test("l2_adopt_journal_of_this_recorder", async () => {
     [JSON.stringify({ event: "start", symbol: "ALL" }) + LF, "xxxx"], "nothing written");
 });
 
-// killer: scripts/record-binance-l2.mjs:186 CONST "fstatSync(fd).nlink !== 1" -> "false"
+// killer: scripts/record-binance-l2.mjs:193 CONST "fstatSync(fd).nlink !== 1" -> "false"
 test("l2_append_single_link", async () => {
   // n-5bis of the delta G2 of c4: journal.jsonl a hard link of a file elsewhere (the G2 wrote its quota_alarm into a repository so).
   const m = await command(), out = fresh(), elsewhere = join(fresh() + "-file");
@@ -189,7 +206,7 @@ test("l2_append_single_link", async () => {
   assert.equal(readFileSync(elsewhere, "utf8"), own, "nothing written through the link");
 });
 
-// killer: scripts/record-binance-l2.mjs:214 CONST "lstatSync(join(real, name)).nlink !== 1" -> "false"
+// killer: scripts/record-binance-l2.mjs:241 CONST "lstatSync(join(at, name)).nlink !== 1" -> "false"
 test("l2_check_single_links", async () => {
   const m = await command(), out = fresh(), elsewhere = fresh() + "-file", run = m.adopt(plan(m, out), clocks);
   writeFileSync(join(out, "requests.jsonl"), "{}" + LF);
@@ -198,7 +215,7 @@ test("l2_check_single_links", async () => {
   assert.deepEqual(detailOf(() => run.check()), { entry: "requests.jsonl", why: "hard link" }, "n-5bis at each check");
 });
 
-// killer: scripts/record-binance-l2.mjs:212 CONST "!== real" -> "=== real"
+// killer: scripts/record-binance-l2.mjs:225 CONST "(existsSync(plan.out) ? realpathSync.native(plan.out) : null) !== real" -> "false"
 test("l2_check_real_path_pinned", async () => {
   // n-7 of the delta G2 of c4: --out swapped for a link to another output after its guards; the G2 wrote a quota_alarm there.
   const m = await command(), top = fresh(), moved = fresh(), other = fresh(), out = join(top, "o");
@@ -213,7 +230,7 @@ test("l2_check_real_path_pinned", async () => {
   assert.equal(readFileSync(join(other, "o", "journal.jsonl"), "utf8"), "x".repeat(750), "nothing written there");
 });
 
-// killer: scripts/record-binance-l2.mjs:213 SDL "    guardOut(plan.out);" -> ""
+// killer: scripts/record-binance-l2.mjs:240 SDL "    guardOut(plan.out);" -> ""
 test("l2_check_git_tree_again", async () => {
   // n-2 of the G2 of c4: a git init above --out after the start is seen at the next check.
   const m = await command(), top = fresh(), out = join(top, "o");
@@ -224,7 +241,7 @@ test("l2_check_git_tree_again", async () => {
   assert.deepEqual([codeOf(() => run.check()), detailOf(() => run.check())], ["out_in_git_tree", { out, git: join(top, ".git") }]);
 });
 
-// killer: scripts/record-binance-l2.mjs:189 CONST "e.code === \"ELOOP\"" -> "false"
+// killer: scripts/record-binance-l2.mjs:196 CONST "e.code === \"ELOOP\"" -> "false"
 test("l2_append_link_named", { skip: process.platform === "win32" ? "win32 has no O_NOFOLLOW: the guards of --out refuse its links" : false }, async () => {
   // n-8 of the delta G2 of c4: an append through a link stops named (out_not_l2), not by ELOOP.
   const m = await command(), out = fresh(), elsewhere = fresh() + "-file", path = join(out, "journal.jsonl");
@@ -235,4 +252,105 @@ test("l2_append_link_named", { skip: process.platform === "win32" ? "win32 has n
   assert.deepEqual([codeOf(() => m.appendLine(path, { event: "x" })), detailOf(() => m.appendLine(path, { event: "x" }))],
     ["out_not_l2", { entry: path, why: "a link" }]);
   assert.equal(readFileSync(elsewhere, "utf8"), "kept");
+});
+
+// killer: scripts/l2/seal.mjs:28 CONST "bestTap({ scale, start" -> "bestTap({ scale: 3, start"
+test("l2_seal_one_scale", async () => {
+  // m-4 (a) of the G2 of c5: the second diff sets a new best bid, which the ticker holds: the tap reads the price at the replay's scale.
+  const out = fresh();
+  await day(out, "100.50");
+  await sealed(out);
+  assert.deepEqual(manifest(out).crosscheck, { i: { tickers: 1, outside: 0 }, ii: { changes: 1, unmatched: 0, unjudged: 1, first: [] } });
+});
+
+// killer: scripts/record-binance-l2.mjs:241 CONST "[\"journal.jsonl\", \"requests.jsonl\"]" -> "[\"requests.jsonl\"]"
+test("l2_check_journal_single_link", async () => {
+  const m = await command(), out = fresh(), elsewhere = fresh() + "-file", run = m.adopt(plan(m, out), clocks);
+  linkSync(join(out, "journal.jsonl"), elsewhere);
+  assert.deepEqual(detailOf(() => run.check()), { entry: "journal.jsonl", why: "hard link" }, "m-4 (b): n-5bis of journal.jsonl at each check");
+});
+
+// killer: scripts/record-binance-l2.mjs:219 SDL "  guardOut(plan.out);" -> ""
+test("l2_adopt_guards_again", async () => {
+  // m-1 of the G2 of c5: after prepare, the parent of --out swapped for a link to a directory that holds .git; nothing made there.
+  const m = await command(), top = fresh(), git = fresh(), out = join(top, "o");
+  mkdirSync(top);
+  mkdirSync(join(git, ".git"), { recursive: true });
+  const p = plan(m, out);
+  rmSync(top, { recursive: true });
+  symlinkSync(git, top, "dir");
+  assert.deepEqual([codeOf(() => m.adopt(p, clocks)), readdirSync(git)], ["out_in_git_tree", [".git"]]);
+});
+
+// killer: scripts/record-binance-l2.mjs:236 SDL "  guardOut(plan.out);" -> ""
+test("l2_adopt_guards_before_start", async () => {
+  // m-1: the same swap once --out is made, while its start line is stamped: the guards again right before the append.
+  const m = await command(), top = fresh(), git = fresh(), out = join(top, "o"), p = plan(m, out);
+  mkdirSync(join(git, ".git"), { recursive: true });
+  const swap = (): number => { renameSync(top, top + "-aside"); symlinkSync(git, top, "dir"); return 7; };
+  assert.deepEqual(codeOf(() => m.adopt(p, { ...clocks, wallUs: swap })), "out_in_git_tree");
+  assert.deepEqual([readdirSync(git), readdirSync(join(top + "-aside", "o"))], [[".git"], []], "no start line anywhere");
+});
+
+// killer: scripts/record-binance-l2.mjs:146 CONST "bytesUnder(at)" -> "bytesUnder(out)"
+test("l2_check_walk_pinned", async () => {
+  // m-2 of the G2 of c5: the parent link swapped atomically during check(), before its walk: the walk counts the pinned --out (75 %,
+  // its alarm), never the foreign one (90 %); the pin before the append stops.
+  const m = await command(), s = staged(m, (_o, swap) => { swap(); });
+  assert.deepEqual(s.take(), "out_not_l2");
+  assert.deepEqual([s.foreign(), s.events(s.real)], ["f".repeat(9_000), ["start", "start"]], "nothing written in the foreign journal");
+});
+
+// killer: scripts/record-binance-l2.mjs:152 CONST "join(at, \"journal.jsonl\")" -> "join(out, \"journal.jsonl\")"
+test("l2_check_alarm_pinned", async () => {
+  // m-2: the swap between the pin and the append of quota_alarm: the alarm lands in the pinned --out.
+  const m = await command(), s = staged(m, (o, swap) => ({ ...o, pin: () => { o.pin?.(); swap(); } }));
+  assert.equal(s.take(), s.real);
+  assert.deepEqual([s.foreign(), s.events(s.real)], ["f".repeat(9_000), ["start", "start", "quota_alarm"]]);
+});
+
+// killer: scripts/record-binance-l2.mjs:222 CONST "`/proc/self/fd/${fd}`" -> "real"
+test("l2_check_through_descriptor", { skip: process.platform === "linux" ? false : "no /proc/self/fd: the real path is written, a window declared" }, async () => {
+  // m-2 on Linux (Q-C5-6): --out renamed and remade at its real path between the pin and the append: the alarm follows the descriptor.
+  const m = await command(), moved = fresh();
+  const s = staged(m, (o) => ({ ...o, pin: () => { o.pin?.(); renameSync(s.realtop, moved); mkdirSync(s.real, { recursive: true }); } }));
+  assert.equal(s.take(), s.real);
+  assert.deepEqual([existsSync(join(s.real, "journal.jsonl")), s.events(join(moved, "o"))], [false, ["start", "start", "quota_alarm"]]);
+});
+
+// killer: scripts/record-binance-l2.mjs:227 CONST "now.dev !== id.dev || now.ino !== id.ino" -> "false"
+test("l2_check_directory_pinned", async () => {
+  // n-2 of the G2 of c5: --out renamed, a new directory at its path: same real path, another directory.
+  const m = await command(), moved = fresh(), s = staged(m), run = m.adopt(plan(m, s.out, 1_000_000), clocks);
+  renameSync(s.realtop, moved);
+  mkdirSync(s.real, { recursive: true });
+  assert.deepEqual(detailOf(() => run.check()), { out: s.out, real: s.real, why: "another directory" });
+});
+
+// killer: scripts/record-binance-l2.mjs:231 CONST "RACED.includes(e?.code)" -> "false"
+test("l2_check_path_vanished_named", async () => {
+  // m-3 of the G2 of c5: --out removed between the pin and the append: a named stop, not a raw ENOENT.
+  const m = await command(), s = staged(m, (o) => ({ ...o, pin: () => { o.pin?.(); rmSync(s.real, { recursive: true }); } }));
+  assert.deepEqual([s.take(), existsSync(s.real)], ["out_not_l2", false]);
+});
+
+// killer: scripts/record-binance-l2.mjs:174 CONST "check({ journal: false })" -> "check()"
+test("l2_quota_alarm_at_adopt", async () => {
+  // n-4 of the G2 of c5 (Q-C5-5): another tool's journal.jsonl alone at 75 %: prepare writes nothing, adopt refuses it; this recorder's
+  // output at 75 %: the alarm after the start line.
+  const m = await command(), other = fresh(), s = staged(m);
+  mkdirSync(other);
+  writeFileSync(join(other, "journal.jsonl"), "o".repeat(7_500));
+  assert.deepEqual([codeOf(() => m.adopt(plan(m, other, 10_000), clocks)), readFileSync(join(other, "journal.jsonl"), "utf8")], ["out_not_l2", "o".repeat(7_500)]);
+  assert.deepEqual([s.take(), s.events(s.real)], [s.real, ["start", "start", "quota_alarm"]]);
+});
+
+// killer: scripts/record-binance-l2.mjs:192 CONST "!fstatSync(fd).isFile()" -> "false"
+test("l2_append_not_a_file", { skip: process.platform === "win32" ? "no FIFO" : false }, async () => {
+  // n-3 of the G2 of c5: journal.jsonl swapped for a FIFO: never blocks, named, without a reader and with one.
+  const m = await command(), dir = fresh(), fifo = join(dir, "journal.jsonl");
+  mkdirSync(dir);
+  assert.equal(spawnSync("mkfifo", [fifo]).status, 0);
+  const without = detailOf(() => m.appendLine(fifo, { event: "x" })), reader = openSync(fifo, constants.O_RDONLY | constants.O_NONBLOCK);
+  try { assert.deepEqual([without, detailOf(() => m.appendLine(fifo, { event: "x" }))], [{ entry: fifo, why: "not a regular file" }, { entry: fifo, why: "not a regular file" }]); } finally { closeSync(reader); }
 });
