@@ -329,7 +329,7 @@ function servedModules(): Set<string> {
 
 // Block D (lot D-2): tools/gate.ts imports the kata path, so kata-path.ts and policy-classes.ts are served; the import
 // guard (policy-guard.ts) stays outside the served graph.
-// killer: apps/harness/src/tools/gate.ts:62 SDL "import { kataPath, kataVerdict, servedPolicyTables } from \"../kata-path.ts\";" -> ""
+// killer: apps/harness/src/tools/gate.ts:62 CONST "\"../kata-path.ts\";" -> "\"../kata-path.ts?served\";"
 test("kata_path_is_served", () => {
   const seen = servedModules();
   assert.ok(seen.size > 6 && seen.has(join(SRC, "tools/gate.ts")));
