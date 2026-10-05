@@ -87,9 +87,9 @@ jobs:
           # below under VIBEGATES_CONTENT_LIMIT, with the same range, :(glob) magic and ins+del metric. Both counts are
           # printed BEFORE either bound is evaluated, so a CODE overflow never hides the CONTENT count. Test 38
           # (3bis)/(4quater) pins the bound, the two exact pathspec lists and their equality with the ADR list.
-          # Both counts read W under the module's pinned read (lot R25-ATTR-SOURCE-1, ADR-M003 D9 undecies): its PIN, GIT_ENV and the
-          # attributes of the empty tree, as the module and the oracle read, so a .gitattributes of the measured tree (-diff, binary, a
-          # diff driver) no longer lowers W. No pinned read (git < 2.40, a non-empty info/attributes, a module error): fail-closed.
+          # Both counts read W under the module's pinned read (lot R25-ATTR-SOURCE-1, ADR-M003 D9 undecies): its PIN, GIT_ENV and its
+          # attribute tree (every path text but the declared binary assets, D9 duodecies), as the module and the oracle read, so neither a
+          # .gitattributes of the measured tree (-diff, binary, a diff driver) nor a NUL byte lowers W. No pinned read (git < 2.40, a non-empty info/attributes, a module error): fail-closed.
           R25_PIN=$(node scripts/lot-size-integration.mjs pin) || {
             echo '::error::Gate R-25: pinned git read not obtained. Fail-closed.'
             exit 1
@@ -120,6 +120,11 @@ jobs:
           case "$NEW_CHANGED$NEW_CONTENT" in
             ''|*[!0-9]*|??????????*) R25_MODE=written; NEW_CHANGED=$CHANGED; NEW_CONTENT=$CONTENT_CHANGED ;;
           esac
+          # Item R25-COUNT-CAP-1 (ADR-M003 D9 duodecies): the module never raises a count; one above the written count is red here too.
+          [ "$NEW_CHANGED" -le "$CHANGED" ] && [ "$NEW_CONTENT" -le "$CONTENT_CHANGED" ] || {
+            echo '::error::Gate R-25: integration count above the written count. Fail-closed.'
+            exit 1
+          }
           CHANGED=$NEW_CHANGED
           CONTENT_CHANGED=$NEW_CONTENT
           echo "R-25 mode: $R25_MODE"

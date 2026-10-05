@@ -1771,7 +1771,7 @@ function expandTestGlob(glob: string): string[] {
   const last = new RegExp(`^${segs[segs.length - 1]!.replace(/[\\^$.|?+()[\]{}]/g, "\\$&").replace(/\*/g, "[^/]*")}$`);
   return dirs.flatMap((d) => readdirSync(join(ROOT, d)).filter((n) => last.test(n)).map((n) => `${d}/${n}`));
 }
-// killer: .github/workflows/ci.yml:198 CONST "npm run test:export" -> "npm run test:main"
+// killer: .github/workflows/ci.yml:203 CONST "npm run test:export" -> "npm run test:main"
 test("ci_g3_export_runs_test_42_alone_and_g3_main_skips_only_it - the suite is split in two CI jobs with no test lost (CI-G3-DURATION-1)", () => {
   const scripts = (JSON.parse(readFileSync(join(ROOT, "package.json"), "utf8")) as { scripts: Record<string, string> }).scripts;
   const full = scripts.test ?? "";
