@@ -496,6 +496,11 @@ Tronc `lot/etude-suite`. Dernier oracle complet : 1 779 tests, dont 1 776 verts,
     après ses lots en cours (recherches#154) ; état : ouvert.
   - MUTANTS-REPLAY-PROMOTE-1 (proposé au G7 de MUTANTS-RUN-EXIT-CODE-1, #144) : une ligne dont le rejeu est « tue » prend le statut
     du rejeu. Porteur : RECHERCHES ; déclencheur : le prochain lot qui touche `scripts/mutants/` ; état : ouvert.
+  - R25-INTEGRATION-RULE-1 (décision de l investisseur, 2026-10-05 04:2x UTC) : R-25 ne compte, sur une PR d intégration, que le neuf
+    (résolutions de conflit par remerge-diff, commits hors de toute PR fusionnée et relue), contre la borne de 1 205 ; définition fermée
+    de la PR d intégration et preuve d appartenance, fail-closed ; une seule source pour le job CI et la porte r25 de l oracle ; ligne
+    datée d ADR-M003 D9. Porteur : RECHERCHES (zone ouverte, cahier des charges E-1 à E-7, recherches#189) ; contrôle par diff et
+    oracle : MONARK ; déclencheur : avant la PR d intégration de C2 ; état : ouvert.
   - MUTANTS-RUN-EXIT-CODE-1 (signalé par RECHERCHES, 2026-10-04) : `scripts/mutants/run.mjs` juge un mutant sur la sortie, pas sur le
     code de sortie ; un rapport d échec perdu donne « survit » au lieu de « tué » (sens sûr, mesure fausse). Construction : juger sur le
     code, tests et tueur d abord. Porteur : RECHERCHES (zone `scripts/mutants/` ouverte, recherches#154) ; état : ouvert.
@@ -830,6 +835,8 @@ Tronc `lot/etude-suite`. Dernier oracle complet : 1 779 tests, dont 1 776 verts,
     `docs/RUNBOOK-harness.md:169`, `apps/site/lib/sim.ts:25`, `docs/deploy-CA-harness.json`) ; « calibration digest » et
     `DIGEST_NOTE` ; `/integrators` et `/docs/integrators` (`calib_digest`, `set_digest`) ; le `$comment` de `ukemi-pending.json`
     (porte de vocabulaire) ; la page Narabi et son chargeur (Q-M6) ; l ordre CA, sync du harnais, puis sync ukemi (RUNBOOK-vitrine).
+    Ajouts : « Eight frozen contracts » (`apps/site/app/page.tsx:181`, `docs/page.tsx:61`) ; `apps/harness/README.md` et
+    `fixtures/PROVENANCE-*.md` (coupe de C2, Q-3a-5) ; `main` du dépôt de gouvernance avancée jusqu au tronc (avance rapide).
   - DEMO-HASH-STALE-1 : `skills/monark/DEMO.md:88` cite l empreinte tronquée `79b54471…` de la trace byo, périmée (actuelle
     `daf8d3ea…`), sans test. Construction : la corriger et l épingler par un test ; environ 3 lignes. Déclencheur : le lot des
     surfaces de CM-2b (temps (i)) ; état : ouvert.
