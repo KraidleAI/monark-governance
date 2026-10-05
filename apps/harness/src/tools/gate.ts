@@ -227,7 +227,7 @@ export function kataClause(entries: readonly ClassEntry[] = kataClassEntries(kat
     return { alpha: es[0]?.alpha ?? "", nMin: String(es[0]?.n_min) };
   };
   const [d, b, names] = [one(true), one(false), ([1, 2, 3] as const).map((i) => `{${parts(i).join(",")}}`)];
-  if (entries.length !== parts(1).length * parts(2).length * parts(3).length) throw new Error("kata clause: the kata classes are not the product of their parts");
+  if (new Set(entries.map((e) => e.task_class)).size !== entries.length || entries.length !== parts(1).length * parts(2).length * parts(3).length) throw new Error("kata clause: the kata classes are not the product of their parts");
   return (
     `The ${String(entries.length)} kata classes \`${names.join("-")}\` are served from their policy tables, ` +
     "which hold no committed calibration row: every well-formed kata call abstains with no region (under_calib, or non_evaluable on a dir " +
