@@ -110,7 +110,7 @@ registerHooks({ load(url, context, nextLoad) {
 // Z-3 composition (rule of MONARK; Q-C3 condition 5; cut (a) of C2, with S-8): the served sentence is the table text of the
 // resolved cell (its current row, else the class text) followed by the unchanged suffix, on USDe (its key and another),
 // cascade and liq s0 to s3; the closed list of the liq gap is empty. USDe and cascade hold at the base (killer by hand).
-// killer: apps/harness/src/tools/gate.ts:710 CONST "}; B_t is caller-carried.`;" -> "}. B_t is caller-carried.`;"
+// killer: apps/harness/src/tools/gate.ts:709 CONST "}; B_t is caller-carried.`;" -> "}. B_t is caller-carried.`;"
 test("served_text_is_table_text_plus_suffix", () => {
   const run = (p: Prediction, params: HarnessParams): string => HARNESS_TOOLS.find((t) => t.name === "gate")?.run({ prediction: p, params }).text ?? "";
   const cases: [string, Prediction, HarnessParams, string][] = [

@@ -13,7 +13,7 @@ test("under_calib_abstains", () => {
 });
 
 // Test 8 — the exact formula p = ceil((n+1)(1-alpha)), oracle on fixed vectors.
-// killer: packages/hikae/src/l1-split.ts:38 ROR "p > n" -> "p >= n"
+// killer: packages/hikae/src/l1-split.ts:40 ROR "p > n" -> "p >= n"
 test("quantile_formula_n_plus_1", () => {
   // n=50, alpha=0.10 ⇒ p = ceil(51*0.9) = ceil(45.9) = 46; 46th smallest score.
   // 47 zeros + 3 ones: positions 1..47 = 0, so 46th = 0.

@@ -173,7 +173,7 @@ const COMMON = {
 
 // [SOA 2.2; Papadopoulos et al. 2002; LEI] the split interval has constant width 2 qhat, independent of the
 // test point: residuals 1..19, alpha = 0.1, p = ceil(20 * 0.9) = 18, qhat = 18.
-// killer: packages/hikae/src/interval-conformer.ts:87 CONST "params.yhat + qhat" -> "params.yhat + 2 * qhat"
+// killer: packages/hikae/src/interval-conformer.ts:87 CONST "scoreTestBand(params.yhat, qhat)" -> "scoreTestBand(params.yhat, 2 * qhat)"
 test("oracle_interval_width_is_two_qhat_for_every_yhat", () => {
   const calib: CalibPair[] = Array.from({ length: 19 }, (_, i) => ({ yhat: 0, y: i + 1 }));
   for (const yhat of [-1e3, 0, 0.5, 1234.5]) {

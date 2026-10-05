@@ -86,7 +86,7 @@ async function mirror(env: GateEnvelope): Promise<{ status: number; decision: Ga
   return { status: res.status, decision: body.structuredContent as GateDecision, text: body.content?.[0]?.text ?? "" };
 }
 
-// killer: apps/harness/src/tools/gate.ts:709 CONST "r.current && r.cell_key === cellKey" -> "r.current"
+// killer: apps/harness/src/tools/gate.ts:708 CONST "r.current && r.cell_key === cellKey" -> "r.current"
 test("u4b_gate_serves_region_from_real_artifact", async () => {
   assert.equal(LIQ_ALPHA, 1 / 100, "the class alpha is 1/100 (the rank below uses it exactly)");
   const lines = jsonl(FIXTURE);

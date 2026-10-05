@@ -200,7 +200,7 @@ test("u4b_liq_description_makes_no_probability_claim", () => {
 // S-8 (ADR-CM B-8, lot CM-3c-4b; inverts u4b_liq_committed_text_is_honest of 2a-3): the honesty text follows the RESOLVED
 // cell, the stratum key the server derives from yhat (the client key stays ignored): the calibrated sentence on s0 only;
 // s1 to s3 (under_calib) and a key that names no stratum read the class text of the served table.
-// killer: apps/harness/src/tools/gate.ts:709 CONST "r.current && r.cell_key === cellKey" -> "r.current && hasCommittedCalibrationForClass(taskClass)"
+// killer: apps/harness/src/tools/gate.ts:708 CONST "r.current && r.cell_key === cellKey" -> "r.current && hasCommittedCalibrationForClass(taskClass)"
 test("liq_honesty_text_follows_the_resolved_cell", () => {
   assert.equal(hasCommittedCalibrationForClass(TASK_LIQ_ELIGIBLE), true, "the registry holds the liq class (s0)");
   const keys = ["ukemi:client-supplied-key/whatever", ...[0, 1, 2, 3].map((k) => `${UKEMI_LIQ_PREDICTOR_BASE}/s${String(k)}`)];
