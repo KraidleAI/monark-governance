@@ -64,6 +64,7 @@ import {
 } from "../apps/harness/src/tools/gate.ts";
 import { ATTESTATION_BINDING } from "../apps/harness/src/attestation-binding.ts";
 import { hasCommittedCalibrationForClass, lookupCommittedCalibration, UKEMI_LIQ_PREDICTOR_BASE } from "../apps/harness/src/calibration.ts";
+import { scoresSha256 } from "../packages/contracts/src/index.ts";
 import { STRATA_CUTS_SERVED, strateOf } from "../apps/harness/src/ukemi-strata.ts";
 import { assertUkemiBody, scanNumericTokens, ukemiExpected, renderedBody, extractMain, mainCorpus, type UkemiExpected } from "../scripts/assert-fleet-html.mjs";
 import { scanText, scanSource, renderedTexts, loadExemptFile, exemptValues } from "../apps/site/test/honesty-lint.ts";
@@ -421,11 +422,11 @@ async function withStage(served: Json, pending: Json | null, fn: (root: string) 
     t.cleanup();
   }
 }
-/** l.1175 (1) and l.1488: the target's calibration digest is the committed C5 of its stratum. */
+/** l.1175 (1) and l.1488: the target's calibration digest is the scores_sha256 of its committed stratum (contract 1.1.0). */
 function digestPin(v: Pinned["liq_verdict"]): void {
   assert.ok(v !== null, "the target carries a verdict");
   const k = lookupCommittedCalibration(TASK_LIQ_ELIGIBLE, `${UKEMI_LIQ_PREDICTOR_BASE}/s${String(v.stratum)}`);
-  assert.equal(v.calibration_digest, k?.digestPinned, "the synced served digest is the committed C5 of its stratum (the pending one, while it exists)");
+  assert.equal(v.calibration_digest, scoresSha256(k?.scores ?? []), "the synced digest is the scores_sha256 of its committed stratum (the pending one, while it exists)");
 }
 /** l.1633: two in-process answers on the target's stratum carry its calibration digest. */
 function gatePin(v: Pinned["liq_verdict"]): void {
@@ -433,7 +434,7 @@ function gatePin(v: Pinned["liq_verdict"]): void {
   assert.ok(v !== null && cut !== undefined, "a dated served verdict and the first served cut");
   const digests = [1, cut - 1].map((yhat) => {
     assert.equal(strateOf(yhat), v.stratum, "the probe falls in the stratum of the served verdict");
-    return runGate({ schema_version: "1.0.0", task_class: TASK_LIQ_ELIGIBLE, yhat, predictor_id: "ukemi:site-copy-check", produced_at: "2026-09-24T00:00:00Z" }, LIQ_TEST_PARAMS).verdict.calib_digest;
+    return runGate({ schema_version: "1.1.0", task_class: TASK_LIQ_ELIGIBLE, yhat, predictor_id: "ukemi:site-copy-check", produced_at: "2026-09-24T00:00:00Z" }, LIQ_TEST_PARAMS).verdict.scores_sha256;
   });
   assert.deepEqual(digests, [v.calibration_digest, v.calibration_digest], `the page says: ${DIGEST_NOTE}`);
 }
@@ -1235,7 +1236,7 @@ test("site_ukemi_prose_claims_conditional — 'calibrated' and 'coverage holds' 
   // The served facts the copy relies on: the class's verdict carries an empty residual list, and no attestation subject
   // is bound to the class, so none can be filed into it. If either changes, this reds and the copy is revisited with it.
   const d = runGate(
-    { schema_version: "1.0.0", task_class: TASK_LIQ_ELIGIBLE, yhat: 1, predictor_id: "ukemi:site-copy-check", produced_at: "2026-09-24T00:00:00Z" },
+    { schema_version: "1.1.0", task_class: TASK_LIQ_ELIGIBLE, yhat: 1, predictor_id: "ukemi:site-copy-check", produced_at: "2026-09-24T00:00:00Z" },
     LIQ_TEST_PARAMS,
   );
   assert.deepEqual(d.verdict.residual, [], "the served liquidation-eligible-coverage verdict carries no residual");
@@ -1279,7 +1280,7 @@ test("site_ukemi_course_served_stratum_status_bound_to_served_verdict — the pr
   const { startServer } = await import("../apps/harness/src/server.ts");
   const { execFile } = await import("node:child_process");
   const sync = await import("../scripts/sync-ukemi-served.mjs");
-  const { USDE_STABLE_RUN_CALIB_DIGEST_PINNED } = await import("../apps/harness/src/calibration.ts");
+  const { USDE_STABLE_RUN_SCORES_SHA256_PINNED } = await import("../apps/harness/src/calibration.ts");
   interface CaRecord { checks: Array<{ name: string; ok: boolean; sha256: string | null }> }
   const liqShaOf = (ca: CaRecord): string | null | undefined => ca.checks.find((k) => k.name === "gate_liq_call")?.sha256;
   const c = loadUkemiCourse(ROOT);
@@ -1301,7 +1302,7 @@ test("site_ukemi_course_served_stratum_status_bound_to_served_verdict — the pr
     assert.equal(today.liq_verdict.body_sha256, liqShaOf(committedCa), "the synced verdict's /gate body is the body the committed deploy CA recorded (gate_liq_call)");
   }
   const pin = await pinTarget(ROOT);
-  // After the switch window the synced verdict must be the registry's committed stratum (its C5 digest): an in-process
+  // After the switch window the synced verdict must be the registry's committed stratum (the sha256 of its scores): an in-process
   // fact, pinned against the pending snapshot while one exists.
   if (pin.liq_verdict !== null && pin.liq_verdict.verdict_reason === "covered") digestPin(pin.liq_verdict);
   // (2) The COMMITTED state as the sync writes it: its pure functions over this tree's in-process answers.
@@ -1399,8 +1400,8 @@ test("site_ukemi_course_served_stratum_status_bound_to_served_verdict — the pr
   }
   // (5) The sync refuses a served verdict that is not this tree's committed stratum (foreign digest), and a verdict that
   //     contradicts the served state.
-  const foreign = JSON.parse(gateText) as { structuredContent: { verdict: { calib_digest: string } } };
-  foreign.structuredContent.verdict.calib_digest = USDE_STABLE_RUN_CALIB_DIGEST_PINNED;
+  const foreign = JSON.parse(gateText) as { structuredContent: { verdict: { scores_sha256: string } } };
+  foreign.structuredContent.verdict.scores_sha256 = USDE_STABLE_RUN_SCORES_SHA256_PINNED;
   assert.throws(() => sync.servedVerdictFacts(JSON.stringify(foreign), "committed", caText), /not this tree's committed stratum/, "a foreign digest is refused");
   assert.throws(() => sync.servedVerdictFacts(gateText, "empty", caText), /empty served registry must answer under_calib/, "a covered verdict under an empty description is refused");
   // M-5: each agreement alone -- a served n_calib + 1, then a served q-hat + 1 (still a positive safe integer) -- is refused.
@@ -1556,7 +1557,7 @@ test("site_ukemi_served_state_carriers_follow_the_dated_served_state — /ukemi 
 test("site_ukemi_count_wording_says_what_the_wire_serves — an uncommitted stratum is served counting no calibration point; the measured counts are on the course page (ADR-U4b-2b D5 point 5)", () => {
   const yhat = STRATA_CUTS_SERVED[0];
   assert.ok(yhat !== undefined && lookupCommittedCalibration(TASK_LIQ_ELIGIBLE, `${UKEMI_LIQ_PREDICTOR_BASE}/s${String(strateOf(yhat))}`) === undefined, "the probe's stratum is not committed (non-vacuous)");
-  const d = runGate({ schema_version: "1.0.0", task_class: TASK_LIQ_ELIGIBLE, yhat, predictor_id: "ukemi:site-copy-check", produced_at: "2026-09-24T00:00:00Z" }, LIQ_TEST_PARAMS);
+  const d = runGate({ schema_version: "1.1.0", task_class: TASK_LIQ_ELIGIBLE, yhat, predictor_id: "ukemi:site-copy-check", produced_at: "2026-09-24T00:00:00Z" }, LIQ_TEST_PARAMS);
   assert.equal(d.verdict.reason, "under_calib", "the uncommitted stratum abstains");
   assert.equal(d.verdict.n_calib, 0, "the served answer on an uncommitted stratum counts no calibration point");
   const calibrate = METHOD_STEPS.find((st) => st.name === "calibrate")?.detail ?? "";

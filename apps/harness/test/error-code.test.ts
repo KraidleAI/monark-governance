@@ -157,6 +157,20 @@ test("every_harness_tool_error_names_a_code", () => {
   }
 });
 
+// Q-F2 (go of the founder, "Version + depot de spec"; lot CM-3c-3c): the refusal of a 1.0.0 prediction names the version
+// the harness speaks and the specification repository, on the thrown error and on the HTTP 400 body. The exact text waits
+// for MONARK's dated line (merge precondition of C2b).
+// killer: apps/harness/src/tools/gate.ts:865 CONST "; specification: https://github.com/KraidleAI/monark-kata-spec" -> ""
+test("schema_version_refusal_names_the_spoken_version_and_the_spec_repository", async () => {
+  const text = "unsupported prediction.schema_version '1.0.0': the harness speaks '1.1.0'; specification: https://github.com/KraidleAI/monark-kata-spec";
+  assert.equal(SCHEMA_VERSION, "1.1.0");
+  assert.throws(() => runGate(pred(LIQ, 5000, "x", "1.0.0"), PARAMS), (e: unknown) => e instanceof HarnessToolError && e.code === "schema_version_unsupported" && e.message === text);
+  const res = await handleJsonMirror(new Request("http://api.monarkgate.tech/gate", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ prediction: pred(LIQ, 5000, "x", "1.0.0"), params: PARAMS }) }));
+  const body = (await res.json()) as { code?: unknown; message?: unknown };
+  assert.equal(res.status, 400);
+  assert.deepEqual([body.code, body.message], ["schema_version_unsupported", text], "the HTTP 400 body carries the code and the same message");
+});
+
 // Test E-3 (F2P): each refusal path of runGate carries its code; the four liq messages stay byte-identical.
 // killer: apps/harness/src/tools/gate.ts:797 CONST "code: \"byo_reserved_kata\"" -> "code: \"byo_lookalike_committed\""
 test("gate_refusals_carry_their_code", () => {

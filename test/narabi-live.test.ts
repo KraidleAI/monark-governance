@@ -114,7 +114,7 @@ import {
 import type { TimelineLine as SentinelLine } from "../apps/sentinel/src/timeline.ts";
 import { PUBLIC_ENDPOINTS, makeRpcPool, QuorumDisagreementError } from "../apps/sentinel/src/rpc.ts";
 import { trackerReplay, trackerDigest, trackerStepSize } from "../packages/hikae/src/index.ts";
-import { calibDigest } from "../packages/contracts/src/index.ts";
+import { calibDigest } from "../scripts/lib/calib-digest-provenance.mjs";
 import {
   USDE_STABLE_RUN_CALIB,
   USDE_STABLE_RUN_CALIB_DIGEST_PINNED,
@@ -542,7 +542,7 @@ test("narabi_gate_facts_read_from_committed_sources — n_calib and calib_digest
   assert.equal(calib.nCalib, USDE_STABLE_RUN_CALIB.length, "n_calib = the harness's committed calibration length");
   assert.equal(calib.calibDigest, USDE_STABLE_RUN_CALIB_DIGEST_PINNED, "calib_digest = the harness's pinned digest");
   // The port equals the producer on the committed scores and on the −0/+0 and order edge cases.
-  assert.equal(calibDigestOf(USDE_STABLE_RUN_CALIB), calibDigest(USDE_STABLE_RUN_CALIB), "calibDigest port = @monark/contracts on the committed scores");
+  assert.equal(calibDigestOf(USDE_STABLE_RUN_CALIB), calibDigest(USDE_STABLE_RUN_CALIB), "calibDigest port = the provenance tool on the committed scores (calibDigest left @monark/contracts, D9-ter)");
   for (const xs of [[0, -0], [-0, 0], [1, 0], [3, 1, 2], [1e-9, 5e-7]]) {
     assert.equal(calibDigestOf(xs), calibDigest(xs), `calibDigest port = producer on ${JSON.stringify(xs)}`);
   }

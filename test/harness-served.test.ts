@@ -43,12 +43,14 @@ const sha = (s: string | Buffer): string => createHash("sha256").update(s).diges
 const shaLf = (rel: string): string => sha(Buffer.from(readFileSync(join(ROOT, rel), "utf8").replace(/\r\n/g, "\n"), "utf8"));
 const read = (rel: string): string => readFileSync(join(ROOT, rel), "utf8");
 
-// Pins: the snapshot as read on the served harness on 2026-10-04T07:44:40Z (step 4 deploy) by scripts/sync-harness-served.mjs, and the
-// two traces (the SAME pins as test/byo-demo-probe.test.ts and test/h5-e2e-probe.test.ts: a re-record re-pins here too).
+// Pins: the snapshot as read on the served harness on 2026-10-04T07:44:40Z (step 4 deploy) by scripts/sync-harness-served.mjs, with
+// the pending_since line of lot CM-3c-3c (was 77d7b914...); the pending snapshot written in process by its --pending; and the two
+// traces re-recorded in contract 1.1.0 (the SAME pins as test/byo-demo-probe.test.ts and test/h5-e2e-probe.test.ts).
 const PINNED: Record<string, string> = {
-  [HARNESS_SERVED_REL]: "77d7b9143e8b6c03bb9f5670941f2550499fbc7cf687fb8bf76ff5542cf61fb1",
-  [BYO_TRACE_REL]: "daf8d3eabacbc601e608d01936d02c0f7ba78dfb5a0d6f5741ecea5fb4eef6d2",
-  [H5_TRACE_REL]: "b016bf4a4950cff1d39dccd970f7371f4dc8e3bb261d3d14c53b372825eda0a0", // re-pinned after #110 (C-2: tools/list sha only; was e403cf01...)
+  [HARNESS_SERVED_REL]: "30afbec29cabf11713d3072098c17397ff6dcd2ecd3377c9ca7c5a4a17acf0da",
+  "apps/site/data/harness-pending.json": "e8bf97756fae25ae8ff372c97aafef7bb3025aa6d6d36066f2d07f56ad5589bf",
+  [BYO_TRACE_REL]: "5c9b03e62bd88703a1ecfe381cf8288cab62aee9d096b03b2302338d49883dfc",
+  [H5_TRACE_REL]: "8b05b4d4cca4337b5af1de08a9c4ecd07497c12880f7c49028aa6ba6688201e6",
 };
 
 interface Schema { required?: string[]; properties?: Record<string, Schema>; type?: string | string[]; description?: string; maxItems?: number; items?: Schema; additionalProperties?: unknown }
@@ -348,8 +350,8 @@ test("byo_trace_rendered_equals_trace", () => {
   assert.equal(label, s.honesty.calibrate_label, "the recorded calibrate label is the served one");
   assert.deepEqual(byo.gate.request, gate?.request?.params?.arguments);
   assert.deepEqual(byo.gate.result, gate?.response?.structuredContent);
-  assert.equal(byo.set_digest, byo.calib_digest, "the recorded loop closes");
-  assert.deepEqual(Object.keys(byo).sort(), ["accept", "bind", "calib_digest", "calibrate", "decision", "gate", "set_digest"], "closed projection");
+  assert.equal(byo.scores_sha256.calibrate, byo.scores_sha256.verdict, "the recorded loop closes");
+  assert.deepEqual(Object.keys(byo).sort(), ["accept", "bind", "calibrate", "decision", "gate", "scores_sha256"], "closed projection");
   const h5 = loadH5Trace(ROOT);
   assert.equal(byo.bind, "127.0.0.1", "the BYO loop was recorded on the loopback address (an in-process server)");
   assert.equal(h5.bind, "127.0.0.1", "the end-to-end trace was recorded on the loopback address (an in-process server)");
@@ -365,6 +367,38 @@ test("byo_trace_rendered_equals_trace", () => {
   const page = read(PAGES[0] ?? "");
   for (const call of ["loadByoTrace(root)", "loadH5Trace(root)", "JSON.stringify(byo.calibrate.request, null, 2)", "JSON.stringify(byo.gate.request, null, 2)", "JSON.stringify(byo.gate.result, null, 2)", "JSON.stringify(btcDir.request, null, 2)", "JSON.stringify(btcDir.result, null, 2)"]) {
     assert.ok(page.includes(call), `/integrators must render the recorded trace through ${call}`);
+  }
+});
+
+// Contract 1.1.0 (lot CM-3c-3c, G0 of the block section 3.4): the BYO loop closes on the scores_sha256, the alpha and the
+// q-hat of the calibrate result and of the gate verdict; each one changed alone in a staged trace (re-hashed) throws.
+// killer: apps/site/lib/harness-served-load.ts:312 CONST " && cal.sc.qhat === verdict.qhat" -> ""
+test("byo_loop_closes_on_scores_sha256_alpha_and_qhat", () => {
+  type Step = { label?: string; response?: { structuredContent?: Rec } };
+  const pending = { [HARNESS_SERVED_REL]: { ...servedJson(), pending_since: "2026-10-05" }, [PENDING_REL]: currentPending() };
+  const mutated = (f: (calibrate: Rec) => void): Rec => {
+    const t = JSON.parse(read(BYO_TRACE_REL)) as Rec & { steps: Step[] };
+    f(t.steps.find((x) => x.label === "calibrate")?.response?.structuredContent ?? {});
+    return t;
+  };
+  const cases: Array<[string, (c: Rec) => void]> = [
+    ["scores_sha256", (c) => { c.scores_sha256 = "0".repeat(64); }],
+    ["alpha", (c) => { c.alpha = 0.2; }],
+    ["qhat", (c) => { c.qhat = 2; }],
+  ];
+  const control = stage({ ...pending, [BYO_TRACE_REL]: mutated(() => undefined) });
+  try {
+    assert.deepEqual(loadByoTrace(control).scores_sha256, loadByoTrace(ROOT).scores_sha256, "control: the staged, re-hashed loop closes");
+  } finally {
+    unstage(control);
+  }
+  for (const [what, f] of cases) {
+    const t = stage({ ...pending, [BYO_TRACE_REL]: mutated(f) });
+    try {
+      assert.throws(() => loadByoTrace(t), /the recorded loop does not close/, `a calibrate ${what} that differs from the verdict's throws`);
+    } finally {
+      unstage(t);
+    }
   }
 });
 
@@ -405,7 +439,7 @@ test("harness_pending_snapshot_is_fail_closed", async () => {
  *  /gate params require one more param (nextGate); marked = the served snapshot carrying pending_since. */
 function nextShapes(): { served: Rec; marked: Rec; pending: Rec; nextGate: Rec } {
   const served = servedJson(), base = currentPending();
-  const cal = served.calibrate_contract as { request: Rec; result: { required: string[]; optional: string[] } };
+  const cal = base.calibrate_contract as { request: Rec; result: { required: string[]; optional: string[] } }; // the in-process contract
   const g = served.gate_request as { params: Rec[] };
   return {
     served, marked: { ...served, pending_since: "2026-10-04" },
@@ -460,9 +494,8 @@ test("harness_pages_keep_the_served_snapshot_while_pending", () => {
 
 // killer: scripts/sync-harness-served.mjs:260 ROR "=== pending.openapi_sha256" -> "!== pending.openapi_sha256"
 test("harness_pending_sync_writes_in_process_shapes", async () => {
-  // Typed here: scripts/sync-harness-served.d.mts is outside the zone MONARK opened (0058bfe point 1).
-  type PendingSync = { inProcessPending(writtenAt: string): Promise<Rec>; pendingDiff(served: Rec, pending: Rec): string[]; markPendingSince(text: string, day: string): string };
-  const sync = (await import("../scripts/sync-harness-served.mjs")) as unknown as PendingSync;
+  // Typed by scripts/sync-harness-served.d.mts (Q-SP1-7, three declarations in C2).
+  const sync = await import("../scripts/sync-harness-served.mjs");
   assert.equal(typeof sync.inProcessPending, "function", "the sync has a --pending mode (SERVED-PENDING-1)");
   const served = servedJson(), pending = await sync.inProcessPending("2026-10-04T12:00:00.000Z"), now = currentPending();
   assert.deepEqual({ ...pending, $comment: now.$comment, written_at: now.written_at }, now, "--pending writes the in-process shapes (the committed pending snapshot, else the served shapes)");
@@ -485,9 +518,9 @@ test("harness_pending_sync_writes_in_process_shapes", async () => {
 test("harness_pending_promotion_compares_the_fixed_fields", async () => {
   // G2 m1: promotion compares the loader's fixed shared-field list (SHAPES), never the pending file's own keys, so a
   // hand-edited pending snapshot missing a field, carrying a foreign key or under another schema cannot promote.
-  const sync = (await import("../scripts/sync-harness-served.mjs")) as unknown as { pendingDiff?: (served: Rec, pending: Rec) => string[] };
+  const sync = await import("../scripts/sync-harness-served.mjs");
   assert.equal(typeof sync.pendingDiff, "function", "the sync compares a promotion with the pending snapshot (SERVED-PENDING-1)");
-  const diff = sync.pendingDiff as (served: Rec, pending: Rec) => string[];
+  const diff = sync.pendingDiff;
   const served = servedJson(), pending = pendingOf(served), next = { ...served, gate_request: nextShapes().nextGate.gate_request };
   const truncated = Object.fromEntries(Object.entries(pending).filter(([k]) => k !== "gate_request" && k !== "calibrate_contract"));
   assert.deepEqual(diff(served, pending), [], "control: a served snapshot equal to the pending one is promoted");
@@ -512,7 +545,7 @@ function renderableValues(): string[] {
   leaves([s, byo, h5], strings, numbers);
   const derived = [
     s.registry.published_at.slice(0, 10), s.read_at.slice(0, 10), s.deploy_check.checked_at.slice(0, 10), s.attest.verifier_rev.slice(0, 12),
-    byo.set_digest.slice(0, 12), byo.calib_digest.slice(0, 12), `${String(s.deploy_check.ok_count)}/${String(s.deploy_check.count)}`,
+    byo.scores_sha256.calibrate.slice(0, 12), byo.scores_sha256.verdict.slice(0, 12), `${String(s.deploy_check.ok_count)}/${String(s.deploy_check.count)}`,
     new Date(s.attest.observed_instant * 1000).toISOString(),
   ];
   const values = [...strings.filter((x) => !/^[A-Za-z_]+$/.test(x)), ...numbers.map(String).filter((x) => x.length >= 4), ...derived];
@@ -575,7 +608,7 @@ const asWord = (text: string, w: string): boolean => {
 // no longer occurs reds too. Object-literal and code positions stay outside this tier (renderedTexts does not read them).
 const PROSE_WORDS: ReadonlyMap<string, string> = new Map([
   ["attested", "the optional /gate key, named in a <code> element"],
-  ["calibrate", "the operation, named in prose (the calibrate set_digest)"],
+  ["calibrate", "the operation, named in prose (the calibrate one)"],
   ["calibration", "an English noun (your calibration, per gate calibration)"],
   ["candidates", "an English noun (candidates in set mode)"],
   ["cascade", "an English noun (nodes per cascade)"],
@@ -588,7 +621,6 @@ const PROSE_WORDS: ReadonlyMap<string, string> = new Map([
   ["prediction", "the /gate key, named in a <code> element"],
   ["reason", "an English noun (the reason is one of)"],
   ["scores", "an English noun (nonconformity scores)"],
-  ["set_digest", "the calibrate result key, named in a <code> element"],
   ["structuredContent", "the envelope key, named in a <code> element"],
   ["tool", "an English noun (call the gate as a tool)"],
 ]);
@@ -622,6 +654,32 @@ test("harness_served_budget_note_carries_the_served_clause", () => {
   for (const rel of ["apps/site/components/gate-sim/index.tsx", "apps/site/components/gate-sim/board.tsx"]) {
     assert.match(read(rel), /\{BUDGET_NOTE\}/, `${rel} must render the budget note`);
   }
+});
+
+// Byte pin of the 1.1.0 bodies (lot CM-3c-3c): since lot 3c-3b2 the served replay and the USDe band are held by a
+// version-independent projection, so no byte of a 1.1.0 decision body was pinned outside openapi_sha256. These are the
+// sha256 of the bodies the in-process harness answers to the deploy check's own requests, under the served snapshot's keys:
+// the bodies the pending snapshot announces, which the deploy check records at T0.
+// killer: apps/harness/src/tools/gate.ts:732 CONST "scores_sha256=${digest}`" -> "scores_sha256=${digest} `"
+const PENDING_BODIES_SHA256: Record<string, string> = {
+  "/openapi.json": "70fc336a3220fd469ebfcabe7e2d8e1e0ebebc2046226636de09be7b0970444f",
+  "/gate": "3ed9be555ba1187c4def82cea685c0b013e41f79ebe62ddb00391729a4b1ac2a",
+  "/gate liquidation-eligible-coverage": "e2bfb18be056b2ed6f0d1cdae681d9b9e38ede054c79509898243d327a105fe7",
+  "/calibrate": "f169e9f6e333374a9d47a2010674ca789aba45bd126ef8764df2f0fb86a2cb90",
+};
+test("pending_bodies_are_pinned_byte_for_byte", async () => {
+  const { handleJsonMirror } = await import("../apps/harness/src/http.ts");
+  const { GATE_LIQ_BODY } = await import("../scripts/sync-ukemi-served.mjs");
+  const { GATE_BODY } = (await import(new URL("../scripts/verify-harness.mjs", import.meta.url).href)) as { GATE_BODY: unknown };
+  const call = async (path: string, body?: unknown): Promise<string> => sha(await (await handleJsonMirror(new Request(`${API_SERVER_URL}${path}`, body === undefined ? {} : { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body) }))).text());
+  const got: Record<string, string> = {
+    "/openapi.json": await call("/openapi.json"), "/gate": await call("/gate", GATE_BODY), "/gate liquidation-eligible-coverage": await call("/gate", GATE_LIQ_BODY),
+    "/calibrate": await call("/calibrate", { scores: [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0], alpha: 0.1, nMin: 5 }),
+  };
+  assert.deepEqual(got, PENDING_BODIES_SHA256, "the in-process 1.1.0 bodies are the pinned bytes");
+  assert.equal(got["/openapi.json"], (JSON.parse(read(PENDING_REL)) as Rec).openapi_sha256, "the openapi pin is the pending snapshot's");
+  const served = loadHarnessServed(ROOT).bodies_sha256;
+  for (const k of Object.keys(got)) assert.ok(k in served && served[k] !== got[k], `${k}: a body the served snapshot records, whose bytes change at T0`);
 });
 
 // UKEMI-SITE-SWITCH-1 (ADR-U4b-2b D5 point 3): the sync's liquidation-eligible-coverage row and call check follow the SERVED
