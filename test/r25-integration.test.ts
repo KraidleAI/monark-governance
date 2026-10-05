@@ -8,7 +8,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { execFileSync, spawn, spawnSync } from "node:child_process";
 import { createHash } from "node:crypto";
-import { appendFileSync, copyFileSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { appendFileSync, copyFileSync, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from "node:http";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
@@ -543,3 +543,23 @@ test("r25a_ci_w_reads_under_the_module_pin - O-1, delta3 m-g on the CI side: a P
   const command = pin.stdout.split("\n").filter((l) => l.startsWith("command\t")).map((l) => l.slice(8).replace(" ", "="));
   assert.deepEqual([command.sort(), pin.stdout.trim().split("\n").at(-1)], [["core.attributesfile=", "core.bigfilethreshold=512m", "diff.algorithm=myers", "diff.renames=true", "diff.suppressblankempty=false", "merge.conflictstyle=merge", "merge.directoryrenames=conflict", "merge.renames=true"], "C 1 4b825dc642cb6eb9a060e54bf8d69288fbee4904 unset"]);
 }, REAL_CI));
+
+
+
+// killer: scripts/lot-size-integration.mjs:180 CONST "GIT_ENV({})" -> "GIT_ENV()"
+test("r25a_pin_prints_exactly_the_pinned_names - G2 m-1: `pin` unsets or exports exactly GIT_DIFF_OPTS, LC_ALL, GIT_ATTR_NOSYSTEM, GIT_CONFIG_PARAMETERS, GIT_ATTR_SOURCE, GIT_CONFIG_COUNT and the eight PIN pairs, in that order, every line one of them: no variable of the runner (R25_READ_TOKEN) is printed or re-exported", () => withFx((fx) => {
+  const out = spawnSync(process.execPath, ["scripts/lot-size-integration.mjs", "pin"], { cwd: fx.dir, encoding: "utf8", env: { ...process.env, R25_READ_TOKEN: "fx-token", MY_RUNNER_VAR: "x" } }).stdout;
+  const names = out.trim().split("\n").map((l) => /^(?:unset ([A-Z0-9_]+)|export ([A-Z0-9_]+)=')/.exec(l)).map((m) => m?.[1] ?? m?.[2] ?? "unparsed");
+  const pairs = Array.from({ length: 8 }, (_, i) => [`GIT_CONFIG_KEY_${String(i)}`, `GIT_CONFIG_VALUE_${String(i)}`]).flat();
+  assert.deepEqual(names, ["GIT_DIFF_OPTS", "LC_ALL", "GIT_ATTR_NOSYSTEM", "GIT_CONFIG_PARAMETERS", "GIT_ATTR_SOURCE", "GIT_CONFIG_COUNT", ...pairs], out);
+  assert.ok(!out.includes("fx-token"), "the runner's token is never printed");
+}));
+
+// killer: scripts/lot-size-integration.mjs:181 CONST "x.replaceAll(\"'\", \"'\\\\''\")" -> "x"
+test("r25a_pin_quotes_any_value - G2 m-2: a PIN entry whose value holds an apostrophe, a $( ), a backtick and a newline, evaluated by bash -e from pinShell, runs nothing and reads back byte for byte from git config", () => withFx((fx) => {
+  const hostile = "a'b\"$(touch pwn1)\n;`touch pwn2`'\\'' ${IFS}*? !! end";
+  const mod = pathToFileURL(join(fx.dir, "scripts", "lot-size-integration.mjs")).href;
+  const shell = spawnSync(process.execPath, ["--input-type=module", "-e", `import * as m from ${JSON.stringify(mod)}; m.PIN.push("-c", "x.y=" + ${JSON.stringify(hostile)}); process.stdout.write(m.pinShell?.(process.cwd()) ?? "");`], { cwd: fx.dir, encoding: "utf8" }).stdout;
+  const r = spawnSync("bash", ["--noprofile", "--norc", "-ec", `${shell}\ngit config --get x.y`], { cwd: fx.dir, encoding: "utf8" });
+  assert.deepEqual([r.stdout, r.status, ["pwn1", "pwn2"].filter((f) => existsSync(join(fx.dir, f)))], [`${hostile}\n`, 0, []], r.stderr);
+}));
