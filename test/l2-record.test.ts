@@ -93,8 +93,8 @@ test("l2_guard_out_absent_root", async () => {
   const exists = (p: string): boolean => { asked.push(p); return false; };
   const real = (p: string): string => { throw Object.assign(new Error(`ENOENT ${p}`), { code: "ENOENT" }); };
   assert.equal(codeOf(() => m.guardOut("/l2-absent-root/a/b", { exists, real })), false, "admitted, no real path asked");
-  assert.deepEqual(asked.filter((p) => p.endsWith(".git")), ["/l2-absent-root/a/b/.git", "/l2-absent-root/a/.git", "/l2-absent-root/.git",
-    "/.git", "/.git"], "every ancestor up to the root looked at, then the root again as resolved");
+  assert.deepEqual(asked.filter((p) => p.endsWith(".git")), ["/l2-absent-root/a/b", "/l2-absent-root/a", "/l2-absent-root", "/", "/"]
+    .map((d) => join(d, ".git")), "every ancestor up to the root looked at, then the root again as resolved (separators of the platform)");
 });
 
 // killer: scripts/record-binance-l2.mjs:110 CONST "!OUT_ENTRIES.includes(e.name)" -> "false"
@@ -161,10 +161,10 @@ test("l2_quota_walk_depth_bound", async () => {
 
 // killer: scripts/record-binance-l2.mjs:63 CONST "foreign.length > 0" -> "false"
 test("l2_args_closed_flags", async () => {
-  const m = await load(), args = (argv: string[]): unknown => codeOf(() => m.parseArgs(argv));
-  assert.deepEqual(args(["--out", "/o", "--quota-bytes", "5"]), { mode: "record", out: "/o", quota: 5 });
+  const m = await load(), args = (argv: string[]): unknown => codeOf(() => m.parseArgs(argv)), o = resolve("/o"); // a drive under win32
+  assert.deepEqual(args(["--out", "/o", "--quota-bytes", "5"]), { mode: "record", out: o, quota: 5 });
   assert.deepEqual(args(["--from-raw", "/r", "--symbol", "BTCUSDT", "--day", "2026-10-04", "--out", "/o"]),
-    { mode: "replay", fromRaw: "/r", symbol: "BTCUSDT", day: "2026-10-04", out: "/o" });
+    { mode: "replay", fromRaw: resolve("/r"), symbol: "BTCUSDT", day: "2026-10-04", out: o });
   assert.deepEqual([["--out", "/o"], ["--out", "/o", "--quota-bytes", "5", "--symbol", "BTCUSDT"], ["--out", "/o", "--out", "/p"],
     ["--out", "--quota-bytes", "5"], ["--quota", "5", "--out", "/o"], ["--from-raw", "/r", "--out", "/o", "--quota-bytes", "5"]].map(args),
   ["usage", "usage", "usage", "usage", "usage", "usage"], "absent, foreign, twice, without a value, unknown, of the other mode");
