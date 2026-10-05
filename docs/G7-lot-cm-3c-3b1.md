@@ -245,3 +245,4 @@ La liste fermée ci-dessus compte des tests. Deux jobs de CI sont rouges à la t
   - Même cause que les 10 rouges de `harness-served` de la liste.
   - Propriétaire : 3c-3c. `harness-served-load.ts` et `harness-pending.json` sont en C2 selon le G0 du bloc (l. 83 et l. 186).
   - Exigence pour 3c-3c : le chargeur lit le servi sous son propre schéma, 1.0.0 jusqu'à T0, et l'instantané en attente sous 1.1.0. La tête de C2b doit avoir `g3-site` vert.
+- **`g4-architecture`** : `eslint .` passe, et `lint:ratchet` donne 84/69 (`D9 ter S3`). C'est la dette déjà mesurée plus haut. Les 15 en trop sont dans des tests : 10 du harnais (3c-3b2) et 5 racine (3c-3c). La tête de C2b revient à 69/69.
