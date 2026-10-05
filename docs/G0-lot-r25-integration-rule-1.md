@@ -1,8 +1,9 @@
 # G0 - lot R25-INTEGRATION-RULE-1 (R-25 ne compte que le neuf d une PR d intégration)
 
 - **Mission** : `coordination/messages/2026-10-05-MONARK-vers-RECHERCHES-R25-integration.md` (branche `claude/monark-repository-access-brln3a` du dépôt de coordination), décision de l investisseur du 2026-10-05, exigences E-1 à E-7.
-- **Branche** : `recherches/r25-integration-rule-1`, depuis le tronc `lot/etude-suite` @ `ab8084fb203026460ff1d4839e4d35cd85f10abb`.
+- **Branche** : `recherches/r25-integration-rule-1`, depuis le tronc `lot/etude-suite` @ `ab8084fb203026460ff1d4839e4d35cd85f10abb`. **Après le pli de la G2** : lot découpé en `recherches/r25-integration-rule-1a` (module et ses tests) et `recherches/r25-integration-rule-1b` (câblage CI et oracle, basé sur 1a), voir section 9.
 - **Statut** : G0 seul. Aucun code, aucun test dans ce commit. Le G1 suit les réponses de MONARK aux questions de la section 10.
+- **Pli de la G2 (2026-10-05)** : les passages marqués « pli G2 » corrigent ce plan d après `G2-r25-integration-rule-1.md` (B-1 à B-3). Le détail est au G7, section 9.
 - **Intention (une)** : sur une PR d intégration **prouvée**, la gate R-25 (job `r25-taille-de-lot` de `ci.yml` et porte r25 de l oracle) mesure seulement le neuf : (a) les résolutions des commits de fusion qu aucune PR fusionnée ne porte, mesurées par `git show --remerge-diff`, et (b) les commits qu aucune PR fusionnée ne porte. La borne reste 1 205 (CODE) et 8 000 (CONTENT). Toute autre PR, et toute PR d intégration sans preuve complète, est mesurée exactement comme aujourd hui.
 
 ## 1. Existant mesuré (tronc `ab8084fb`)
@@ -53,9 +54,10 @@ Une PR `P` de la liste de preuve **prouve** ses commits si et seulement si :
 3. `P.number` ∉ `EXCEPTED_PRS` = {56, 89} (leur R-25 « vert » vient d une garde d exception, pas d une mesure, D9 quinquies et octies ; Q-5) ;
 4. tous les check-runs nommés `r25-taille-de-lot` de l app `github-actions` sur `P.head.sha` concluent `success`, et il y en a au moins un. C est la preuve machine que la PR a été mesurée sur cette tête exacte ; la G2 reste la preuve humaine, contrôlée par MONARK (Q-3) ;
 5. `M = P.merge_commit_sha` existe dans le clone, et :
-   - `M` a deux parents et `M^2 == P.head.sha` (fusion par commit). Ensemble prouvé : {`M`} ∪ `rev-list M^2 ^M^1`, c est-à-dire exactement les commits que la PR a apportés à sa cible au moment de la fusion ;
+   - `M` a deux parents et `M^2 == P.head.sha` (fusion par commit). Ensemble prouvé : `rev-list M^2 ^M^1`, c est-à-dire exactement les commits que la PR a apportés à sa cible au moment de la fusion. **`M` lui-même n est pas prouvé (pli G2 B-1)** : une fusion locale poussée sur le tronc non protégé (#88, #91, #92, #113 à #124) peut porter des lignes ; sa `--remerge-diff` est donc comptée, et elle vaut 0 pour une fusion propre ;
    - ou `M` a un parent (squash). Ensemble prouvé : {`M`} ;
    - sinon (octopus, tête différente, objet absent), rien n est prouvé.
+6. **(pli G2 B-2)** la contribution réelle de la PR à sa cible tient sous les bornes : `git diff --shortstat M^1 M` sous chaque pathspec (CODE, CONTENT) ≤ `VIBEGATES_PR_LIMIT`, `VIBEGATES_CONTENT_LIMIT` (lus dans `ci.yml`). Le check-run vert dit que la tête a été mesurée, mais contre la cible **du moment du run** : un changement de cible, une cible poussée en arrière ou la relance d un vieux run ne sont pas vus. Une PR qui dépasse ne prouve rien (sur-compte, fail-closed).
 
 L ensemble prouvé est dérivé du **graphe** à partir de `M`, jamais de `pulls/{n}/commits` (plafonné à 250, et étranger à la question « qu est-ce qui a été fusionné »), jamais d une branche (qui bouge après la fusion), jamais d un message ni d un patch-id.
 
@@ -110,13 +112,13 @@ suivi d une lecture `read -r R25_MODE NEW_CHANGED NEW_CONTENT` et d une garde `c
 L oracle ne lit pas le réseau et supprime les jetons (DENY). Il ne prouve donc pas l appartenance lui-même. Il **lit une preuve déclarée** :
 
 - l opérateur lance, **avant** l oracle et hors de lui, `node scripts/r25-integration.mjs proof --repo KraidleAI/monark-governance --pr <n> --base <ref> --out <fichier>`. C est la même sous-commande et le même `buildProof` que la CI. Seul le transport change : `gh api` (lecture déclarée, authentifiée par `gh`, aucun jeton dans l environnement) au lieu de `fetch` + `R25_READ_TOKEN` ;
-- `run.mjs` gagne `--r25-proof <fichier>`. `r25()` importe `scripts/r25-integration.mjs` **depuis le clone figé** (import dynamique : ce sont les octets de l arbre mesuré, comme la CI, qui exécute le module de son checkout) et appelle `effective()`. Un clone sans module (arbre antérieur) donne `W` ;
+- `run.mjs` gagne `--r25-proof <fichier>`. **Pli G2 B-3** : `r25()` exécute le module **de l arbre de l oracle** (`scripts/lot-size-integration.mjs` à côté de `scripts/oracle/`), et seulement si le clone porte les mêmes octets ; sinon, ou sans module d un côté, `W`. Un arbre mesuré ne se juge donc jamais lui-même dans l oracle. Le module entre dans la part `script` de la clé D4 ;
 - le record gagne `r25_mode` et `r25_proof: {file, sha256}`. La clé D4 gagne la part `r25_proof` (sha256 ou null), pour qu un record servi sans preuve ne soit jamais servi pour un run avec preuve. Conséquence unique : les records G1/corr déjà en magasin ne sont plus servis (clé changée), ils sont rejoués une fois ;
 - sans `--r25-proof` : `W`. C est le compte d aujourd hui et la porte locale ne change pas pour une PR écrite.
 
 ### 4.4 Pourquoi elles ne peuvent pas diverger
 
-- **Même code** : les deux voies exécutent le fichier `scripts/r25-integration.mjs` de l arbre mesuré ; ni la CI ni l oracle n ont de copie de l algorithme.
+- **Même code** : la CI exécute le module de l arbre mesuré, l oracle le sien, et l oracle rend `W` si les octets diffèrent (pli G2 B-3) : ce sont les mêmes octets, ou bien `W`. Ni la CI ni l oracle n ont de copie de l algorithme. Les options git qui changent un compte sont épinglées dans le module (pli G2 m-2).
 - **Mêmes pathspecs** : le module les lit dans le même `ci.yml` (trois copies de `R25_DIFF_RE` épinglées égales).
 - **Même preuve** : même schéma, même `buildProof`. Les faits prouvés (PR fusionnée, `merge_commit_sha`, check-run sur une tête figée) sont immuables. Deux lectures à des instants différents ne diffèrent donc que par des PR fusionnées entre-temps, absentes de `R`. La CI imprime le sha256 de sa preuve ; MONARK peut le comparer à celui du record de l oracle.
 - **Seule différence structurelle** : en CI, `HEAD` est la fusion synthétique `refs/pull/N/merge`. Elle est dans `U` (non prouvée) et sa `--remerge-diff` vaut 0, car GitHub ne crée cette ref, et ne lance le workflow, que si la fusion est propre. Le test de parité T-10 l épingle.
@@ -140,7 +142,7 @@ L oracle ne lit pas le réseau et supprime les jetons (DENY). Il ne prouve donc 
 |---|---|---|---|
 | A-1 | Commit non relu caché dans une intégration (poussé en direct sur un tronc non protégé) | Hors de tout `S` : compté en entier (règle b). | T-1 |
 | A-2 | Commits d une PR relue réutilisés plus un commit amendé (même message, autre sha) | `S` se prouve par sha via le graphe de `M`, jamais par message ni patch-id : le commit amendé est compté. | T-1 |
-| A-3 | Fusion malicieuse : une résolution cache du code neuf, ou une fusion propre reçoit des lignes en plus | Fusion hors `S` : `--remerge-diff` montre les deux cas (mesuré). La fusion faite par GitHub (`M` prouvé) ne peut pas en porter : GitHub l a calculée. Une fusion interne à une PR prouvée a été comptée dans le diff net de cette PR. | T-4 |
+| A-3 | Fusion malicieuse : une résolution cache du code neuf, ou une fusion propre reçoit des lignes en plus | Toute fusion de `R` hors des PR prouvées, **y compris le `M` d une PR prouvée** (pli G2 B-1 : une fusion locale de PR est courante ici), est mesurée par sa `--remerge-diff` (mesuré : 0 pour une fusion propre, les lignes glissées sinon). Une fusion interne à une PR prouvée a été comptée dans le diff net de cette PR. | T-4, B-1 |
 | A-4 | PR fusionnée par squash (sha différents) | `M` à un parent = `merge_commit_sha`. Il est prouvé seul ; son contenu est le diff net mesuré sur la PR. Les commits d origine ne sont pas dans la cible et ne comptent pas. | T-9 |
 | A-5 | PR fusionnée par rebase | Seul le dernier commit rebasé égale `merge_commit_sha`. Les autres, nouveaux sha, ne sont pas prouvables et sont comptés (fail-closed). Q-7 : désactiver la fusion par rebase. | T-9 |
 | A-6 | PR fusionnée dans une branche hors liste close | Condition 2.3-2 : elle ne prouve rien. | T-8 |
@@ -149,7 +151,7 @@ L oracle ne lit pas le réseau et supprime les jetons (DENY). Il ne prouve donc 
 | A-9 | Faux nom de branche (`base/...` créée pour l occasion, fork nommé `main`, `lot/etude-suite-x`) | Le nom ne fait que rendre la PR candidate (et `head.repo` doit être le dépôt). Ses commits non prouvés sont comptés en entier. | T-3 |
 | A-10 | API indisponible, 403/429, pagination interrompue, délai | Pas de fichier de preuve, mode `unproven`, résultat `W` (aujourd hui). `::warning::` imprimé. | T-5 |
 | A-11 | Preuve d une autre PR, d une autre tête ou d un autre dépôt donnée à l oracle | `repo`, `pr.head_sha` (∈ {`HEAD`, `HEAD^2`}) et `complete` sont vérifiés, sinon `W`. Un opérateur qui forge son propre fichier ne trompe que son oracle local : la CI régénère sa preuve et imprime son sha256. | T-5 |
-| A-12 | La PR d intégration modifie la gate (`ci.yml`, module, `r25.mjs`, `run.mjs`) hors PR relue | Garde `gate-files` : `W`. Résidu R-1 : une modification de `ci.yml` qui retire la garde elle-même s exécute (vrai de toute gate sous `pull_request`, aujourd hui déjà). La garde est alors elle-même du neuf, compté, et visible au contrôle MONARK par diff. | T-7 |
+| A-12 | La PR d intégration modifie la gate (`ci.yml`, module, `r25.mjs`, `run.mjs`) hors PR relue | Garde `gate-files` : `W`. **Elle protège d une erreur, pas d une attaque (pli G2 B-3)** : elle est jugée par le code qu elle garde. Contre une attaque : l oracle exécute **son propre** module, et rend `W` si les octets du module mesuré diffèrent ; MONARK contrôle par diff les fichiers de la gate sur chaque PR d intégration. Résidu R-1 en CI : une modification de `ci.yml` ou du module s exécute (vrai de toute gate sous `pull_request`). | T-7, B-3 |
 | A-13 | Jeton CI | Lecture seule (`contents`, `pull-requests`, `checks` en `read`). Il est passé par `env:` à une seule étape et jamais imprimé. Sous `pull_request`, une PR de fork n a pas de secret et reçoit un jeton en lecture. | T-10, (4quinquies) |
 | A-14 | `pull_request_target` | Non utilisé. Il exécute le workflow de la cible (fermerait R-1), mais avec un jeton en écriture et le contexte des secrets, le motif « pwn request » dès qu on touche au code de la PR. Il faudrait un second workflow hors zone. Q-9. | - |
 | A-15 | Injection par nom de branche (`${{ github.head_ref }}` dans `run:`) | Aucun nom n est interpolé. Le module lit le payload et l API. (4quinquies) l épingle. | (4quinquies) |
@@ -195,7 +197,12 @@ Compte attendu : 11 tests, dont 10 rouges avant le code (F2P) ; (4quinquies) rou
 | `test/oracle-run.test.ts` | 22 |
 | **Total** | **≈ 491 (≈ 494 avec Q-2)**, borne du lot 547, CI 1 205 |
 
-Les docs (`docs/**/*.md`, ADR comprise) sont hors pathspec. Mesure au gel par `r25()` de l oracle sur le pathspec de `ci.yml`. Si le gel dépasse 547 : découpe en 1a (module et ses tests, sans câblage, 395 environ) et 1b (câblage CI et oracle, T-10, T-11, 4quinquies). La règle ne vit qu après 1b. Le lot est une PR écrite vers le tronc, avec G2 neuve, red-proof, contrôle MONARK par diff et oracle Windows (vérifier `git --version` ≥ 2.36 sur cette machine).
+Les docs (`docs/**/*.md`, ADR comprise) sont hors pathspec. Mesure au gel par `r25()` de l oracle sur le pathspec de `ci.yml`. Si le gel dépasse 547 : découpe en 1a (module et ses tests, sans câblage, 395 environ) et 1b (câblage CI et oracle, T-10, T-11, 4quinquies). La règle ne vit qu après 1b.
+
+**Découpe appliquée au pli de la G2 (2026-10-05)** : le lot plié mesure **619** (borne 547) par le `r25()` du tronc. Compacter 72 lignes aurait coûté la lisibilité des tests. Le lot est donc coupé :
+- **1a**, `recherches/r25-integration-rule-1a` depuis le tronc : `scripts/lot-size-integration.mjs`, sa surface `.d.mts`, `test/r25-integration.test.ts` (T-1 à T-9, les tests du pli B-1, B-2, m-1, m-3 ; T-4 sur les comptes du module). Inerte seul : aucun appelant.
+- **1b**, `recherches/r25-integration-rule-1b` depuis la tête de 1a : `ci.yml`, `scripts/oracle/r25.mjs`, `scripts/oracle/run.mjs`, le test de câblage, T-10, T-11, le test B-3, et T-4 repassé par le `r25()` de l oracle. La règle vit après la fusion de 1b.
+- Mesures et têtes au G7. Le lot est une PR écrite vers le tronc, avec G2 neuve, red-proof, contrôle MONARK par diff et oracle Windows (vérifier `git --version` ≥ 2.36 sur cette machine).
 
 ## 10. Questions pour MONARK (avec mes défauts)
 
