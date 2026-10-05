@@ -13,6 +13,7 @@ import { createServer, type IncomingMessage, type Server, type ServerResponse } 
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { pathToFileURL } from "node:url";
+import { crc32 as zlibCrc32, deflateSync } from "node:zlib";
 import type { AddressInfo } from "node:net";
 import { startLoopback } from "./helpers/loopback.ts";
 import { ATTRIBUTES, BINARY_ASSETS, buildProof, effective, R25_DIFF_RE, REPO, SCHEMA, specsOf } from "../scripts/lot-size-integration.mjs";
@@ -809,7 +810,7 @@ test("r25h_ci_refuses_a_symlink - R25-GITLINK-SYMLINK-1, Q-6: src/link.mjs, a sy
   assert.deepEqual([changed(out), refusedIn(out), exitOf(out)], ["none", ['symlink "src/link.mjs"'], "1"], out);
 }, REAL_CI));
 
-// killer: scripts/lot-size-integration.mjs:268 CONST "[base] = opt(\"--base\")" -> "[base = \"origin/lot/etude-suite\"] = opt(\"--base\")"
+// killer: scripts/lot-size-integration.mjs:351 CONST "[base] = opt(\"--base\")" -> "[base = \"origin/lot/etude-suite\"] = opt(\"--base\")"
 test("r25h_pin_requires_the_workflow_and_the_base - Q-7: `pin` alone, or with --ci and no --base, prints nothing and exits 2, even where origin/lot/etude-suite exists: the changed paths are never left unchecked by a default (exit 0, the pinned read printed, before the lot)", () => withFx((fx) => {
   fx.g("update-ref", "refs/remotes/origin/lot/etude-suite", "HEAD");
   const run = (...a: string[]): string => { const r = spawnSync(process.execPath, ["scripts/lot-size-integration.mjs", "pin", ...a], { cwd: fx.dir, encoding: "utf8" }); return `${String(r.status)} ${String(r.stdout.length)}`; };
@@ -984,3 +985,152 @@ test("r25m_an_unread_blob_names_its_path_escaped - G2 delta N-1: an index entry 
   const out = ciRun(fx);
   assert.deepEqual([out.includes("##["), out.includes('of "src/##\\u005bwarning title=forged]x.cjs" unread'), exitOf(out)], [false, true, "1"], out);
 }, REAL_CI));
+
+// Lot R25-ASSET-STRUCTURE-1 (item R25-ASSET-POLYGLOT-1, option (c) reduced, ADR-M003 D9 quindecies). A declared asset past its magic is
+// parsed to the end of its format: nothing after PNG IEND, JPEG EOI, the last TrueType table, the OpenTimestamps proof or the CBOR item,
+// and only the chunks, segments, tables, operations and calendars measured on the trunk. Fixtures are trunk assets read by object id and
+// changed in memory, or built in memory: no binary file in the repository, nothing exposed to autocrlf.
+const blobOf = (p: string): Buffer => execFileSync("git", ["-C", ROOT, "cat-file", "blob", `HEAD:${p}`], { maxBuffer: 1 << 30 });
+type Structure = (b: Buffer) => string | null;
+const passes = (x: string, cases: Record<string, Buffer>): Record<string, boolean> => {
+  const f = (lsi.ASSET_STRUCTURE as Record<string, Structure> | undefined)?.[x];
+  return Object.fromEntries(Object.entries(cases).map(([k, b]) => [k, f !== undefined && f(b) === null]));
+};
+const ZIP_END = Buffer.from(`504b0506${"00".repeat(18)}`, "hex"); // an empty zip archive: read from its end, python3 runs the file before it
+const pngChunk = (type: string, data: Buffer | string): Buffer => {
+  const td = Buffer.concat([Buffer.from(type, "latin1"), Buffer.from(data)]), out = Buffer.alloc(8 + td.length);
+  out.writeUInt32BE(td.length - 4, 0);
+  td.copy(out, 4);
+  out.writeUInt32BE(zlibCrc32(td), 4 + td.length);
+  return out;
+};
+const beforeIend = (b: Buffer, ...c: Buffer[]): Buffer => Buffer.concat([b.subarray(0, b.length - 12), ...c, b.subarray(b.length - 12)]);
+const pngOf = (w: number, h: number, color: number, interlace: number, raw: Buffer, more: Buffer[] = [], level = 9): Buffer => {
+  const ihdr = Buffer.alloc(13);
+  ihdr.writeUInt32BE(w, 0);
+  ihdr.writeUInt32BE(h, 4);
+  ihdr.set([8, color, 0, 0, interlace], 8);
+  return Buffer.concat([Buffer.from("89504e470d0a1a0a", "hex"), pngChunk("IHDR", ihdr), ...more, pngChunk("IDAT", deflateSync(raw, { level })), pngChunk("IEND", "")]);
+};
+
+// killer: scripts/lot-size-integration.mjs:226 CONST "else if (ASSET_STRUCTURE[x](b) !== null)" -> "else if (false)"
+test("r25s_ci_refuses_an_asset_with_a_payload_after_its_end - R25-ASSET-POLYGLOT-1: trunk assets under new names in their directories, each followed by a payload (a zip archive after PNG IEND, a byte after the OpenTimestamps proof and the CBOR item, `PK` after the last TrueType table) or carrying a JPEG comment segment, are refused asset-structure by `pin` and by the oracle; the trunk logo under a new name passes (nothing refused, green, before the lot)", () => withFx((fx) => {
+  fx.g("checkout", "-q", "-b", "pr", TARGET);
+  const jpg = blobOf("out/banner.jpg");
+  stage(fx, "out/zip.png", "100644", Buffer.concat([blobOf("out/logo.png"), ZIP_END]));
+  stage(fx, "out/same.png", "100644", blobOf("out/logo.png"));
+  stage(fx, "out/comment.jpg", "100644", Buffer.concat([jpg.subarray(0, 2), Buffer.from("fffe0007", "hex"), Buffer.from("hello"), jpg.subarray(2)]));
+  stage(fx, "apps/site/app/fonts/tail.ttf", "100644", Buffer.concat([blobOf("apps/site/app/fonts/ArchivoBlack-Regular.ttf"), Buffer.from("PK")]));
+  stage(fx, "docs/course-bell/tail.txt.ots", "100644", Buffer.concat([blobOf("test/fixtures/fixture-bell-seq2-pending.ots"), Buffer.from("\n")]));
+  stage(fx, "fixtures/tail.cbor", "100644", Buffer.concat([blobOf("fixtures/s3-binance.lot.cbor"), Buffer.from("\n")]));
+  fx.g("commit", "-qm", "assets");
+  const out = ciRun(fx), log = (oracle(fx, TARGET, null) as OracleR25 & { log?: string }).log ?? "";
+  const named = ['asset-structure "apps/site/app/fonts/tail.ttf"', 'asset-structure "docs/course-bell/tail.txt.ots"', 'asset-structure "fixtures/tail.cbor"', 'asset-structure "out/comment.jpg"', 'asset-structure "out/zip.png"'];
+  assert.deepEqual([refusedIn(out), out.includes(PIN_ERROR), exitOf(out), log.split("\n").filter((l) => l.startsWith("refused "))], [named, true, "1", named.map((n) => `refused ${n}`)], out);
+}, REAL_CI));
+
+// killer: scripts/lot-size-integration.mjs:268 CONST "if (o !== b.length) return" -> "if (false) return"
+// killer: scripts/lot-size-integration.mjs:264 CONST " || crc32(b.subarray(o + 4, o + 8 + n)) !== b.readUInt32BE(o + 8 + n)" -> ""
+// killer: scripts/lot-size-integration.mjs:265 CONST " || (t === \"IHDR\" && o !== 8)" -> ""
+test("r25s_png_ends_at_iend_with_sound_chunks - the trunk logo passes; a zip archive or one byte after IEND, a chunk whose CRC is wrong, a length running past the file, no IEND, a second IHDR are refused (nothing refused before the lot: the trunk logo fails too)", () => {
+  const logo = blobOf("out/logo.png"), crc = Buffer.from(logo), over = Buffer.from(logo);
+  crc[50] = (crc[50] ?? 0) ^ 1; // a byte of the iCCP profile
+  over.writeUInt32BE(1, logo.length - 12);
+  assert.deepEqual(passes("png", { logo, zip: Buffer.concat([logo, ZIP_END]), byte: Buffer.concat([logo, Buffer.from("\n")]), crc, over, noIend: logo.subarray(0, logo.length - 12), ihdr: beforeIend(logo, logo.subarray(8, 33)) }),
+    { logo: true, zip: false, byte: false, crc: false, over: false, noIend: false, ihdr: false });
+});
+
+// killer: scripts/lot-size-integration.mjs:254 CONST "\"sRGB\", " -> ""
+// killer: scripts/lot-size-integration.mjs:254 CONST "\"sBIT\"]" -> "\"sBIT\", \"tEXt\"]"
+// killer: scripts/lot-size-integration.mjs:265 CONST "(t === \"PLTE\" && color !== 3) || " -> ""
+test("r25s_png_chunks_are_a_closed_list - text and metadata chunks (tEXt, zTXt, iTXt, eXIf, tIME), animation (acTL) and a private chunk (caNv), each with a right CRC, are refused in the trunk logo; gAMA, sRGB and pHYs pass; PLTE is refused in the logo (truecolour with alpha) and passes, with tRNS, in a palette image (nothing passes before the lot)", () => {
+  const logo = blobOf("out/logo.png"), meta = ["tEXt", "zTXt", "iTXt", "eXIf", "tIME", "acTL", "caNv"], kept = { gAMA: "0000b18f", sRGB: "00", pHYs: "00000b1300000b1301" };
+  const palette = pngOf(2, 1, 3, 0, Buffer.from([0, 0, 1]), [pngChunk("PLTE", Buffer.from("000000ffffff", "hex")), pngChunk("tRNS", Buffer.from([0]))]);
+  const cases = { ...Object.fromEntries(meta.map((t) => [t, beforeIend(logo, pngChunk(t, "Comment\0run me"))])), ...Object.fromEntries(Object.entries(kept).map(([t, d]) => [t, beforeIend(logo, pngChunk(t, Buffer.from(d, "hex")))])), plteInLogo: beforeIend(logo, pngChunk("PLTE", Buffer.from("000000", "hex"))), palette };
+  assert.deepEqual(passes("png", cases), { ...Object.fromEntries(meta.map((t) => [t, false])), gAMA: true, sRGB: true, pHYs: true, plteInLogo: false, palette: true });
+});
+
+// killer: scripts/lot-size-integration.mjs:271 CONST "if (((z[2] >> 1) & 3) === 0) return" -> "if (false) return"
+// killer: scripts/lot-size-integration.mjs:272 CONST " && engine.bytesWritten === z.length" -> ""
+// killer: scripts/lot-size-integration.mjs:270 CONST "b[28] === 0 ? h * row(w) :" -> "true ? h * row(w) :"
+test("r25s_png_pixel_data_is_one_zlib_stream_of_the_image_size - a 4x3 RGBA image passes compressed; stored (deflate level 0), one row more or one byte less, or a zip archive after the zlib stream inside IDAT, is refused; a 3x3 Adam7 image passes with its 15 bytes of passes and is refused with the 12 of a plain image (nothing passes before the lot)", () => {
+  const rows = (n: number): Buffer => Buffer.alloc(n * 17, 1).fill(0, 0, 1), good = pngOf(4, 3, 6, 0, rows(3)), at = good.indexOf("IDAT") + 4, n = good.readUInt32BE(at - 8);
+  const tail = Buffer.concat([pngChunk("IDAT", Buffer.concat([good.subarray(at, at + n), ZIP_END]))]), trailing = Buffer.concat([good.subarray(0, at - 8), tail, good.subarray(at + n + 4)]);
+  assert.deepEqual(passes("png", { good, stored: pngOf(4, 3, 6, 0, rows(3), [], 0), moreRow: pngOf(4, 3, 6, 0, rows(4)), lessByte: pngOf(4, 3, 6, 0, rows(3).subarray(1)), trailing, adam7: pngOf(3, 3, 0, 1, Buffer.alloc(15)), adam7Plain: pngOf(3, 3, 0, 1, Buffer.alloc(12)) }),
+    { good: true, stored: false, moreRow: false, lessByte: false, trailing: false, adam7: true, adam7Plain: false });
+});
+
+// killer: scripts/lot-size-integration.mjs:278 CONST "o + 2 === b.length ? null" -> "true ? null"
+// killer: scripts/lot-size-integration.mjs:254 CONST "0xdd, 0xda]" -> "0xdd, 0xda, 0xe0, 0xe1, 0xfe]"
+// killer: scripts/lot-size-integration.mjs:254 CONST "0xc4, 0xdb, 0xdd, " -> "0xc4, 0xdb, "
+test("r25s_jpeg_ends_at_eoi_with_closed_segments - the trunk banner passes, and with a restart interval (DRI); a zip archive or one byte after EOI, an APP0 (JFIF), APP1 (Exif) or COM segment, an SOF3 header, no EOI are refused (nothing passes before the lot)", () => {
+  const jpg = blobOf("out/banner.jpg"), after = (seg: string): Buffer => Buffer.concat([jpg.subarray(0, 2), Buffer.from(seg, "hex"), jpg.subarray(2)]);
+  assert.deepEqual(passes("jpg", { jpg, dri: after("ffdd00040000"), zip: Buffer.concat([jpg, ZIP_END]), byte: Buffer.concat([jpg, Buffer.from("\n")]), app0: after("ffe000104a46494600010100000100010000"), app1: after("ffe1000a457869660000ffff"), com: after("fffe0006616c6572"), sof3: after("ffc30004ffff"), noEoi: jpg.subarray(0, jpg.length - 2) }),
+    { jpg: true, dri: true, zip: false, byte: false, app0: false, app1: false, com: false, sof3: false, noEoi: false });
+});
+
+// killer: scripts/lot-size-integration.mjs:292 CONST "b.length - end <= 3" -> "true"
+// killer: scripts/lot-size-integration.mjs:291 CONST " || b.subarray(end, off).some((x) => x !== 0)" -> ""
+// killer: scripts/lot-size-integration.mjs:289 CONST "!TTF_TABLES.includes(t) || " -> ""
+// killer: scripts/lot-size-integration.mjs:292 CONST "end <= b.length && " -> ""
+test("r25s_ttf_tables_cover_the_file - the trunk font passes, and with 3 NUL bytes of padding at its end; 4 NUL bytes, `PK`, a non-NUL padding byte between two tables, a table moved 4 bytes back over its neighbour, a last table running past the file, a tag outside the measured list, a duplicate tag are refused (nothing passes before the lot)", () => {
+  const ttf = blobOf("apps/site/app/fonts/ArchivoBlack-Regular.ttf"), n = ttf.readUInt16BE(4), dir = Array.from({ length: n }, (_, i) => 12 + 16 * i);
+  const byOff = [...dir].sort((x, y) => ttf.readUInt32BE(x + 8) - ttf.readUInt32BE(y + 8)), end = (r: number): number => ttf.readUInt32BE(r + 8) + ttf.readUInt32BE(r + 12);
+  const gap = byOff.findIndex((r, i) => i > 0 && ttf.readUInt32BE(r + 8) > end(byOff[i - 1] ?? 0)), edit = (f: (b: Buffer) => void): Buffer => { const b = Buffer.from(ttf); f(b); return b; };
+  const last = byOff[n - 1] ?? 0, second = byOff[1] ?? 0;
+  assert.deepEqual(passes("ttf", {
+    ttf, pad3: Buffer.concat([ttf, Buffer.alloc(3)]), pad4: Buffer.concat([ttf, Buffer.alloc(4)]), pk: Buffer.concat([ttf, Buffer.from("PK")]),
+    padByte: edit((b) => { b[end(byOff[gap - 1] ?? 0)] = 0x41; }), overlap: edit((b) => { b.writeUInt32BE(b.readUInt32BE(second + 8) - 4, second + 8); }),
+    past: edit((b) => { b.writeUInt32BE(b.readUInt32BE(last + 12) + 8, last + 12); }), unknown: edit((b) => { b.write("zzzz", dir[n - 1] ?? 0, "latin1"); }), duplicate: edit((b) => { b.write("DSIG", dir[1] ?? 0, "latin1"); }),
+  }), { ttf: true, pad3: true, pad4: false, pk: false, padByte: false, overlap: false, past: false, unknown: false, duplicate: false });
+});
+
+const OTS_HEAD = Buffer.from("004f70656e54696d657374616d7073000050726f6f6600bf89e2e884e8929401", "hex");
+const vbytes = (b: Buffer | string): Buffer => Buffer.concat([Buffer.from([Buffer.from(b).length]), Buffer.from(b)]); // lengths under 128: one varuint byte
+const att = (tag: string, payload: Buffer): Buffer => Buffer.concat([Buffer.from(`00${tag}`, "hex"), vbytes(payload)]);
+const pendingAt = (uri: string): Buffer => att("83dfe30d2ef90c8e", vbytes(uri));
+const proofOf8 = (...tree: (Buffer | string)[]): Buffer => Buffer.concat([OTS_HEAD, Buffer.from([0x08]), Buffer.alloc(32, 7), ...tree.map((t) => (typeof t === "string" ? Buffer.from(t, "hex") : t))]);
+
+// killer: scripts/lot-size-integration.mjs:312 CONST "i === b.length ? null" -> "true ? null"
+// killer: scripts/lot-size-integration.mjs:303 CONST "if (!OTS_CALENDARS.some((h) => u === `https://${h}`)) throw" -> "if (false) throw"
+// killer: scripts/lot-size-integration.mjs:304 CONST "else throw new Error(`attestation ${tag}`);" -> ""
+// killer: scripts/lot-size-integration.mjs:306 CONST "varbytes(OTS_OPERAND_MAX, 1)" -> "varbytes(4096, 1)"
+// killer: scripts/lot-size-integration.mjs:308 CONST "else throw new Error(`operation ${t.toString(16)}`);" -> "else tree(d + 1);"
+// killer: scripts/lot-size-integration.mjs:305 CONST "if (i !== at) throw" -> "if (false) throw"
+test("r25s_ots_proof_is_read_whole - the readOtsProof reader in plain JS: two trunk proofs pass; built proofs pass with a pending branch to a listed calendar, a fork to a Bitcoin attestation and an 89-byte operand; a byte after the proof, a truncated proof, a 90-byte operand, an unknown operation, an unknown attestation (Litecoin), a calendar outside the list (another host, http, a path) and a Bitcoin payload with an extra byte are refused (nothing passes before the lot)", () => {
+  const trunkPending = blobOf("test/fixtures/fixture-bell-seq2-pending.ots"), trunkBlock = blobOf("docs/course-bell/mint_end-AAPLx-manifest.txt.ots");
+  const append = (k: number): string => `f0${vbytes(Buffer.alloc(k, 9)).toString("hex")}08`, listed = pendingAt("https://calendar.invalid"), bitcoin = att("0588960d73d71901", Buffer.from("d28d3b", "hex"));
+  assert.deepEqual(passes("ots", {
+    trunkPending, trunkBlock, pending: proofOf8(append(32), listed), fork: proofOf8("ff", append(32), listed, append(4), bitcoin), op89: proofOf8(append(89), listed),
+    after: Buffer.concat([trunkBlock, Buffer.from("\n")]), truncated: trunkBlock.subarray(0, trunkBlock.length - 1), op90: proofOf8(append(90), listed), op99: proofOf8("99", listed),
+    litecoin: proofOf8(append(32), att("06869a0d73d71b45", Buffer.from("01", "hex"))), host: proofOf8(append(32), pendingAt("https://calendar.example")), http: proofOf8(append(32), pendingAt("http://calendar.invalid")),
+    path: proofOf8(append(32), pendingAt("https://calendar.invalid/x")), payload: proofOf8(append(32), att("0588960d73d71901", Buffer.from("d28d3b00", "hex"))),
+  }), { trunkPending: true, trunkBlock: true, pending: true, fork: true, op89: true, after: false, truncated: false, op90: false, op99: false, litecoin: false, host: false, http: false, path: false, payload: false });
+});
+
+// killer: scripts/lot-size-integration.mjs:326 CONST "i === b.length ? null" -> "true ? null"
+// killer: scripts/lot-size-integration.mjs:318 CONST "ai > 27" -> "ai > 31"
+// killer: scripts/lot-size-integration.mjs:318 CONST "d > 64" -> "d > 65"
+test("r25s_cbor_is_one_item_and_nothing_after - the trunk fixture passes, and a one-entry map nested 64 deep; one byte after the item, an indefinite-length map, a reserved additional information (28), a truncated item, a map nested 65 deep are refused (nothing passes before the lot)", () => {
+  const cbor = blobOf("fixtures/s3-binance.lot.cbor"), nest = (k: number): Buffer => Buffer.concat([Buffer.from("a16161", "hex"), Buffer.alloc(k - 1, 0x81), Buffer.from([0])]);
+  assert.deepEqual(passes("cbor", { cbor, deep64: nest(64), after: Buffer.concat([cbor, Buffer.from("\n")]), indefinite: Buffer.from("bf616101ff", "hex"), reserved: Buffer.from("a161611c", "hex"), truncated: cbor.subarray(0, cbor.length - 1), deep65: nest(65) }),
+    { cbor: true, deep64: true, after: false, indefinite: false, reserved: false, truncated: false, deep65: false });
+});
+
+// killer: scripts/lot-size-integration.mjs:256 CONST "OTS_OPERAND_MAX = 89" -> "OTS_OPERAND_MAX = 4096"
+// killer: scripts/lot-size-integration.mjs:255 CONST "\"prep\"]" -> "\"prep\", \"Silf\"]"
+test("r25s_structure_lists_are_the_measured_ones - the closed lists measured on the trunk (PNG chunks, JPEG segments SOF0-2 DHT DQT DRI SOS, the 23 TrueType tags of the five fonts, the five pending calendars, operands of at most 89 bytes) and one structure check for each extension of BINARY_ASSETS (absent before the lot)", () => {
+  assert.deepEqual([lsi.PNG_CHUNKS, lsi.JPEG_SEGMENTS, lsi.TTF_TABLES, lsi.OTS_CALENDARS, lsi.OTS_OPERAND_MAX, Object.keys(lsi.ASSET_STRUCTURE ?? {}).sort()], [
+    ["IHDR", "PLTE", "IDAT", "IEND", "tRNS", "gAMA", "cHRM", "sRGB", "iCCP", "pHYs", "bKGD", "sBIT"], [0xc0, 0xc1, 0xc2, 0xc4, 0xdb, 0xdd, 0xda],
+    ["DSIG", "GDEF", "GPOS", "GSUB", "HVAR", "OS/2", "STAT", "avar", "cmap", "cvt ", "fpgm", "fvar", "gasp", "glyf", "gvar", "head", "hhea", "hmtx", "loca", "maxp", "name", "post", "prep"],
+    ["alice.btc.calendar.opentimestamps.org", "bob.btc.calendar.opentimestamps.org", "btc.calendar.catallaxy.com", "calendar.invalid", "finney.calendar.eternitywall.com"], 89,
+    [...new Set(BINARY_ASSETS.map((p) => p.slice(p.lastIndexOf(".") + 1)))].sort()]);
+});
+
+// killer: scripts/lot-size-integration.mjs:254 CONST "\"iCCP\", " -> ""
+// killer: scripts/lot-size-integration.mjs:256 CONST "OTS_OPERAND_MAX = 89" -> "OTS_OPERAND_MAX = 88"
+test("r25s_every_trunk_asset_passes_its_structure - each of the 45 declared binary assets of the repository at HEAD (5 fonts, 37 proofs, the CBOR fixture, the banner, the logo with its iCCP profile; 100 operands of 89 bytes) passes the structure check of its format (none before the lot)", () => {
+  const assets = execFileSync("git", ["-C", ROOT, "ls-tree", "-r", "--name-only", "HEAD"], { encoding: "utf8" }).split("\n").filter((p) => BINARY_ASSETS.some((a) => p.startsWith(a.slice(0, a.indexOf("*"))) && !p.slice(a.indexOf("*")).includes("/") && p.endsWith(a.slice(a.indexOf("*") + 1))));
+  const failed = assets.filter((p) => !(passes(p.slice(p.lastIndexOf(".") + 1), { p: blobOf(p) }).p ?? false));
+  assert.deepEqual([assets.length, failed], [45, []]);
+});
