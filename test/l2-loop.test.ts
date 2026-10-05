@@ -25,6 +25,7 @@ import { cidOf, openWriter, segmentOf, type SegmentFile } from "../scripts/l2/se
 import * as L from "../scripts/l2/links.mjs";
 import type * as RecordM from "../scripts/record-binance-l2.mjs";
 import type * as SealM from "../scripts/l2/seal.mjs";
+import { settles } from "./helpers/host-clock.ts";
 import { keepCause } from "./helpers/keep-cause.ts";
 keepCause("test/l2-loop.test.ts"); // a crash of this file names its cause on stdout, which the runner keeps (L2-LINKS-FILE-CRASH-1)
 let ROOT = "", made = 0;
@@ -1038,8 +1039,21 @@ test("l2_record_stopped_line_last", async () => {
   const run = m.run(argv(out), h.io);
   await h.until(at(1, 0, 3, 10));
   h.stop();
-  await h.until(at(1, 0, 3, 41));
-  await run;
-  await h.until(at(1, 0, 3, 42));
+  assert.equal(await settles(run, () => h.until(h.io.wallUs!() + S), 600), true, "the clean stop ends"); // never awaited at a fixed instant
+  await h.until(h.io.wallUs!() + S);
   assert.deepEqual([(journal(out) as Line[]).at(-1)?.event, events(out, ["seal_failed"]).length], ["stopped", 0]);
+});
+
+// killer: test/helpers/host-clock.ts:8 CONST "i < steps && !done" -> "false"
+test("l2_record_stop_bound_armed_late", async () => {
+  // The hang of the test above under load (MONARK's Windows oracle): a disk that no longer answers from the hour's cut, the links' bound
+  // fires at 00:03:40, the seal's is armed then, due at 00:04:10: at 00:03:41 the run still waits; driven, it ends at 00:04:10.
+  const m = await command(), out = fresh(), h = host(at(0, 23, 59, 50), place(0), (_, o) => new Promise((r) => { o.signal.addEventListener("abort", () => { r({ sealed: false } as SealM.ApartResult); }); })), open = h.io.open!;
+  h.io.open = (path) => (h.io.wallUs!() < at(1, 0, 0) ? open(path) : new Promise(() => undefined));
+  const run = m.run(argv(out), h.io);
+  await h.until(at(1, 0, 3, 10));
+  h.stop();
+  await h.until(at(1, 0, 3, 41));
+  assert.deepEqual([await settles(run, () => Promise.resolve(), 1), await settles(run, () => h.until(h.io.wallUs!() + S), 600), (journal(out) as Line[]).at(-1)],
+    [false, true, { host_us: at(1, 0, 4, 10), mono_ns: String(at(1, 0, 4, 10) * 1000), symbol: "ALL", cid: null, event: "stopped", cause: "signal", links_closed: false, seal_done: false }]);
 });
