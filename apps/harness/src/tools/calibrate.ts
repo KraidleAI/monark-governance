@@ -32,7 +32,7 @@ export const CALIBRATE_TOOL_NAME = "calibrate";
 /**
  * Resource cap (motif `CASCADE_MAX_NODES`): the maximum number of caller-supplied scores the
  * tool accepts. The harness is a public, unauthenticated compute surface co-located with the vitrine on
- * one VPS, so `n` must be bounded even though `splitQuantile` (an O(n log n) sort) and `calibDigest` (an
+ * one VPS, so `n` must be bounded even though `splitQuantile` (an O(n log n) sort) and `scoresSha256` (an
  * O(n) hash) are cheap. 10000 is generously above realistic split-conformal calibration sizes (hundreds
  * to low thousands) yet keeps a crafted body bounded; the Caddy 256 KB body cap is the OUTER bound and
  * this constant is the INNER fail-closed guard. Enforced TWICE, fail-closed: the tool-input projection
@@ -124,8 +124,8 @@ export interface CalibrateResult {
 
 /**
  * Compose the real primitive into the `calibrate` result (D3/D4). Fail-closed order (D4): validate
- * `alpha`, `nMin`, and the cap FIRST; validate finiteness of every score BEFORE `calibDigest` (so a
- * non-finite score is a `CalibrateToolError` with a tool message, not `calibDigest`'s bare `Error`);
+ * `alpha`, `nMin`, and the cap FIRST; validate finiteness of every score BEFORE `scoresSha256` (so a
+ * non-finite score is a `CalibrateToolError` with a tool message, not the bare error of `scoresSha256`);
  * then compute `scores_sha256` and the split quantile. `n < nMin` or `p > n` ⇒ `{ qhat: null,
  * reason: "under_calib" }` (never a clamped q̂); success ⇒ `{ qhat, reason: null }`.
  */
@@ -150,8 +150,8 @@ export function runCalibrate(input: CalibrateInput): CalibrateResult {
       `invalid 'scores': ${String(n)} scores exceeds the cap of ${String(CALIBRATE_MAX_N)} (resource guard, ADR-M007 D2)`,
     );
   }
-  // Finiteness BEFORE calibDigest (D4): a non-finite score is a tool error with a message, not the bare
-  // Error `calibDigest` throws — so the seam surfaces a 400, never a 500.
+  // Finiteness BEFORE scoresSha256 (D4): a non-finite score is a tool error with a message, not the bare
+  // error `scoresSha256` throws — so the seam surfaces a 400, never a 500.
   for (let i = 0; i < n; i++) {
     const s = scores[i];
     if (s === undefined || !Number.isFinite(s)) {
