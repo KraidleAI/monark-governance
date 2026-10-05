@@ -176,7 +176,7 @@ test("describe_gate_kata_clause", () => {
 
 // Test T-13 (F2P): honestyText reads the kata tables: each of the 32 classes serves its class text plus the suffix, never
 // the cascade sentence; the table text is the exact prefix of the served sentence (Z-3).
-// killer: apps/harness/src/tools/gate.ts:740 CONST "SERVED_POLICY_TABLES.find((t) => t.task_class === taskClass)" -> "SERVED_MARGINAL_TABLES.find((t) => t.task_class === taskClass)"
+// killer: apps/harness/src/tools/gate.ts:738 CONST "tables: readonly ServedTable[] = SERVED_POLICY_TABLES" -> "tables: readonly ServedTable[] = SERVED_MARGINAL_TABLES"
 test("kata_class_text_is_table_text_plus_suffix", () => {
   const names = kataClassEntries(() => "").map((e) => e.task_class);
   assert.equal(names.length, 32);
@@ -262,7 +262,7 @@ test("kata_tables_hold_no_row_tripwire", () => {
 // Test (block D, lot D-3; G2 N-5 of D-2): the kata clause reads every value it states: the class names from the entries (a
 // product, checked), alpha and nMin per family, the tau cap of dir classes (KATA_DIR_TAU_CAP, also read by the policy_tau_cap
 // refusal) and the 300 s of B-4. Rendered on other entries and another cap, it names them; by default it is the served clause.
-// killer: apps/harness/src/tools/gate.ts:232 CONST "`${parts(0)}-" -> "`{btc,eth,bnb,sol}-"
+// killer: apps/harness/src/tools/gate.ts:232 CONST "${names.join(\"-\")}" -> "{btc,eth,bnb,sol}-{dir,range,mae-down,mae-up}-{1h,4h}"
 test("kata_clause_reads_its_names_and_tau_cap", () => {
   const render = (gate as Obj)["kataClause"] as (entries?: readonly ClassEntry[], tauCap?: number) => string;
   const some = kataClassEntries(() => "").filter((e) => /^(btc|eth)-.*-1h$/.test(e.task_class));
