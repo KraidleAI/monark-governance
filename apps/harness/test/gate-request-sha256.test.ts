@@ -98,7 +98,7 @@ function mcpStructured(raw: string): Record<string, unknown> {
   return sc;
 }
 
-// killer: apps/harness/src/tools/gate.ts:1006 SDL "    requestSha256: envelopeSha256(prediction, params, attested), // contract 1.1.0: the envelope as received" -> ""
+// killer: apps/harness/src/tools/gate.ts:979 SDL "    requestSha256: envelopeSha256(prediction, params, attested), // contract 1.1.0: the envelope as received" -> ""
 test("served_gate_body_validates_the_frozen_decision_schema", async () => {
   const validate = decisionValidator();
   const check = (where: string, sc: Record<string, unknown>, body: string): void => {
@@ -129,7 +129,7 @@ test("served_gate_body_validates_the_frozen_decision_schema", async () => {
 
 // The digest is over the received envelope, not over a fixed part of it: two bodies equal up to key order and blanks
 // give one digest; a body that differs in one params field (intent) or in one prediction field (yhat) gives another.
-// killer: apps/harness/src/tools/gate.ts:876 CONST "requestSha256({ prediction, params, " -> "requestSha256({ prediction, params: {}, "
+// killer: apps/harness/src/tools/gate.ts:1012 CONST "requestSha256({ prediction, params, " -> "requestSha256({ prediction, params: {}, "
 test("request_sha256_is_the_digest_of_the_received_envelope", async () => {
   const post = async (envelope: unknown, pretty: boolean): Promise<string> => {
     const body = pretty ? bodyOf(envelope) : JSON.stringify(envelope);

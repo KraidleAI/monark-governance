@@ -6,11 +6,11 @@
  * gate.ts can import it in block D. The verdict fields stay in a local type until block C adds them to CoverageVerdict.
  */
 import { sha256Canonical, type ClassEntry, type PolicyTable, type Prediction } from "@monark/contracts";
+export type { ServedTable, ServedTableTexts };
 import { bandEdge } from "@monark/hikae";
-import { lookupCommittedCalibration, UKEMI_LIQ_COMMITTED, USDE_STABLE_RUN_PREDICTOR_ID, USDE_STABLE_RUN_TASK_CLASS } from "./calibration.ts";
-import { LIQ_POLICY, USDE_POLICY } from "./class-policy.ts";
 import { kataClassEntries, kataKeyProblem } from "./policy-classes.ts";
-import { marginalClassEntries, marginalRow, type MarginalInputs } from "./policy-marginal.ts";
+import { servedMarginalTables } from "./policy-served.ts";
+import type { ServedTable, ServedTableTexts } from "./policy-served.ts";
 import { buildPolicyTable, policyTableSha256 } from "./policy-table-file.ts";
 import { HarnessToolError, PRODUCED_AT_FUTURE_TOLERANCE_MS, rfc3339Instant, type HarnessErrorCode, type HarnessParams } from "./tools/gate.ts";
 
@@ -107,20 +107,9 @@ export function kataPath(p: Prediction, params: HarnessParams, table: PolicyTabl
   return kataVerdictFields(table, p, params.tau);
 }
 
-/** The texts of the served tables (values fixed by MONARK's dated line before F-5a; synthetic in the tests). */
-export type ServedTableTexts = { readonly classText: (taskClass: string) => string; readonly marginal: MarginalInputs };
-export type ServedTable = { readonly task_class: string; readonly table: PolicyTable; readonly policy_table_sha256: string };
-
-/** The served table files (C-10), built in process: the 32 wave 1 kata classes with no row (B-9), the stable-run,
- *  liquidation and cascade classes with their rows rebuilt from calibration.ts. Pure, deterministic, sorted by task_class. */
+/** The served table files (C-10), built in process: the 32 wave 1 kata classes with no row (B-9), then the three marginal
+ *  tables of policy-served.ts (Q-C3). Pure, deterministic, sorted by task_class. */
 export function servedPolicyTables(texts: ServedTableTexts): readonly ServedTable[] {
-  const [usde, liq, cascade] = marginalClassEntries(texts.classText) as [ClassEntry, ClassEntry, ClassEntry];
-  const usdeCal = lookupCommittedCalibration(USDE_STABLE_RUN_TASK_CLASS, USDE_STABLE_RUN_PREDICTOR_ID);
-  const tables = [
-    ...kataClassEntries(texts.classText).map((c) => buildPolicyTable(c, [])),
-    buildPolicyTable(usde, usdeCal === undefined ? [] : [marginalRow(usdeCal, usde, USDE_POLICY, "time", texts.marginal)]),
-    buildPolicyTable(liq, UKEMI_LIQ_COMMITTED.map((c) => marginalRow(c, liq, LIQ_POLICY, "ascending", texts.marginal))),
-    buildPolicyTable(cascade, []),
-  ];
-  return tables.map((table) => ({ task_class: table.class.task_class, table, policy_table_sha256: policyTableSha256(table) })).sort((a, b) => (a.task_class < b.task_class ? -1 : 1));
+  const kata = kataClassEntries(texts.classText).map((c) => buildPolicyTable(c, [])).map((table) => ({ task_class: table.class.task_class, table, policy_table_sha256: policyTableSha256(table) }));
+  return [...kata, ...servedMarginalTables(texts)].sort((a, b) => (a.task_class < b.task_class ? -1 : 1));
 }

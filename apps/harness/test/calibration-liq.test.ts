@@ -21,7 +21,7 @@ import { readFileSync } from "node:fs";
 import { createHash } from "node:crypto";
 import { execFile } from "node:child_process";
 import { fileURLToPath, pathToFileURL } from "node:url";
-import { calibDigest } from "@monark/contracts";
+import { calibDigest } from "../../../scripts/lib/calib-digest-provenance.mjs";
 import { buildRegistryEntries } from "../../../scripts/record-u4b-calib.mjs";
 import { blockFromFiles, spliceBlock } from "../../../scripts/emit-u4b-calibration.mjs";
 import {

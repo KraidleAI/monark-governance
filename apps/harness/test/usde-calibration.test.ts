@@ -15,7 +15,7 @@ import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
 import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
-import { calibDigest } from "@monark/contracts";
+import { calibDigest } from "../../../scripts/lib/calib-digest-provenance.mjs";
 import { splitQuantile } from "@monark/hikae";
 import { narabiPredictorId } from "@monark/monark";
 import {

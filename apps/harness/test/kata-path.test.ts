@@ -328,7 +328,7 @@ test("kata_path_is_not_served", () => {
 });
 
 // Q-3a-2: every reason a kata verdict can carry is a frozen coverage reason of contract 1.1.0 (block D drops KATA_REASONS).
-// killer: apps/harness/src/kata-path.ts:17 CONST "\"region_degenerate\"] as const" -> "\"region_degenerate\", \"kata_only\"] as const"
+// killer: apps/harness/src/kata-path.ts:18 CONST "\"region_degenerate\"] as const" -> "\"region_degenerate\", \"kata_only\"] as const"
 test("kata_reasons_within_coverage_reasons", () => {
   const coverage: readonly string[] = COVERAGE_REASONS;
   for (const r of KATA_REASONS) assert.ok(coverage.includes(r), `${r} is a coverage reason`);
