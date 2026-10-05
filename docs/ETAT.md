@@ -512,11 +512,17 @@ Tronc `lot/etude-suite`. Dernier oracle complet : 1 779 tests, dont 1 776 verts,
     avant T0 ; état : ouvert.
   - CI-WORKFLOWS-SET-1 (m-1 de la même G2) : aucun test ne lit un second fichier sous `.github/workflows/` ; l ensemble des workflows
     est `{ci.yml}`, à épingler par une égalité d ensemble. Porteur : RECHERCHES, lot à part ; déclencheur : avant T0 ; état : ouvert.
+  - R25-NUL-BINARY-1 (O-a de la G2 de R25-ATTR-SOURCE-1) : un fichier dont la première ligne porte un octet NUL est lu binaire par
+    git et compte 0 sous R-25, comme un sous-module ; construction visée : le compter (ou le refuser) sous les deux pathspecs. Porteur :
+    RECHERCHES ; déclencheur : avant T0 ; l oracle garde le plus grand de ses deux lectures jusque-là (Q-1 de #162) ; état : ouvert.
+  - R25-COUNT-CAP-1 (même G2) : le job r25 ne plafonne pas en bash la sortie `integration` de `count` au compte d aujourd hui `W` ;
+    le module le garantit par construction, le job ne le vérifie pas. Porteur : RECHERCHES ; déclencheur : avant T0 ; état : ouvert.
   - CODEQL-ALERTS-2 (MONARK, 2026-10-05 12:2x UTC) : alertes CodeQL ouvertes sur le tronc depuis la bascule de la branche par défaut,
     #41 et #44 (`test/dojo-render.test.ts:73`, `:378`), #43 (`test/red-proof.test.ts:545`), #45 (`test/public-surfaces-honesty.test.ts:184`) ;
     #42 levée par #159 (CODEQL-42). Correction selon ADR-CODEQL-ALERTS-1 D4, sinon rejet justifié selon D6, fait par MONARK sur
     justification écrite. Porteur : RECHERCHES ; déclencheur : au plus tôt, au plus tard avant l avance de `main` à T0 (check CodeQL
-    requis sur `main`, décision 170) ; état : ouvert.
+    requis sur `main`, décision 170) ; état : fermé le 2026-10-05 (#159 `32aba758`, #163 `11b301a9` ; aucune alerte rejetée ;
+    analyse CodeQL du tronc `11b301a9` : 0 alerte ouverte à 13:31 UTC).
   - SITE-SEND-GUARD-MECH-1 (demande de MONARK pour C') : `export-public.mjs --out` refuse tant qu un instantané en attente existe, sans drapeau de
     contournement ; la promotion à T0 lève la garde. Porteur : RECHERCHES (C', lot 3c-4a, G0 `8f554390`) ; d ici là, la règle du
     RUNBOOK, tenue par MONARK : aucun envoi du site ni release du miroir depuis la base avant C' ; état : ouvert.
