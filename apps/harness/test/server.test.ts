@@ -7,10 +7,12 @@ import assert from "node:assert/strict";
 import { request as httpRequest, type IncomingMessage, type ServerResponse } from "node:http";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
+import { createRequire } from "node:module";
 import { assertClosedPrediction } from "@monark/contracts";
 import { HOST, PORT, originGuard, startServer, MAX_REQUEST_BODY_BYTES } from "../src/server.ts";
 import { HARNESS_VERSION } from "../src/version.ts";
 import { buildOpenApi } from "../src/openapi.ts";
+import { HARNESS_TOOLS } from "../src/tools/registry.ts";
 import { startLoopback } from "./helpers/loopback.ts";
 
 /**
@@ -297,4 +299,48 @@ test("harness_server_drain_leaves_no_server_handle", async () => {
     kinds = process.getActiveResourcesInfo();
   }
   assert.equal(kinds.includes("TCPServerWrap"), false, `the server handle must clear after closeAllConnections()+close() (a leak never does); saw [${kinds.join(",")}]`);
+});
+
+// TRANSPORT-500-SCHEMA-1 (N-4 of the G2 of C' 3c-4a): every 500 the server can send validates the 500 schema that /openapi.json
+// publishes (the same for the four operations, compiled by Ajv 2020 in strict mode), over the wire: the two 500 of an operation
+// (output outside its schema, the tool threw) and the transport-level 500 of server.ts, thrown around the mirror (POST /calibrate)
+// or before routing (an unparseable Host), whose body is exactly {"error":"internal_error"}. The schema stays closed.
+// killer: apps/harness/src/schema-projection.ts:129 CONST "[INTERNAL_500, TRANSPORT_500]" -> "[INTERNAL_500]"
+test("every_500_of_the_server_validates_the_published_500_schema", async () => {
+  type Rec = Record<string, unknown>;
+  const at = (node: unknown, ...keys: string[]): unknown => keys.reduce<unknown>((n, k) => (n as Rec | undefined)?.[k], node);
+  const spec = buildOpenApi(), ops = Object.keys(at(spec, "paths") as Rec);
+  const schemas = ops.map((p) => at(spec, "paths", p, "post", "responses", "500", "content", "application/json", "schema"));
+  assert.ok(ops.length === 4 && schemas.every((x) => JSON.stringify(x) === JSON.stringify(schemas[0])), "one 500 schema for the four operations");
+  const Ajv = (createRequire(import.meta.url)("ajv/dist/2020.js") as { default: new (o: object) => { compile: (s: unknown) => (v: unknown) => boolean } }).default;
+  const valid = new Ajv({ strict: true }).compile(schemas[0]);
+  assert.deepEqual([{ error: "internal_error", operation: "" }, { error: "internal_error", x: 1 }, { error: "tool_error" }].map(valid), [false, false, false], "the 500 schema stays closed");
+  const tool = HARNESS_TOOLS.find((t) => t.name === "calibrate");
+  assert.ok(tool !== undefined, "the calibrate tool is registered");
+  const mutable = tool as { run: typeof tool.run }, original = tool.run;
+  const server = await startLoopback((port) => startServer(port));
+  try {
+    const addr = server.address();
+    assert.ok(addr !== null && typeof addr === "object", "address() must be an AddressInfo");
+    const body = JSON.stringify({ scores: [0.1, 0.2, 0.3], alpha: 0.5, nMin: 3 });
+    const cases: [string, typeof tool.run, string, string | null][] = [
+      ["output_invalid", () => ({ text: "x", structured: { rogue: true } }), "api.monarkgate.tech", "calibrate"],
+      ["the tool threw", () => { throw new Error("boom"); }, "api.monarkgate.tech", "calibrate"],
+      ["transport, around the mirror", () => ({ text: "x", get structured(): never { throw new Error("transport"); } }), "api.monarkgate.tech", null],
+      ["transport, before routing", original, "bad host", null],
+    ];
+    for (const [name, run, host, operation] of cases) {
+      mutable.run = run;
+      const res = await wiredPost(addr.port, host, "/calibrate", body, "application/json");
+      const json = JSON.parse(res.raw) as Rec;
+      assert.equal(res.status, 500, `${name}: a 500`);
+      assert.equal(json["operation"] ?? null, operation, `${name}: the operation named, or none (transport)`);
+      if (operation === null) assert.equal(res.raw, JSON.stringify({ error: "internal_error" }), `${name}: the transport-level body`);
+      assert.ok(valid(json), `${name}: the 500 body validates the published 500 schema: ${res.raw}`);
+    }
+  } finally {
+    mutable.run = original;
+    server.closeAllConnections();
+    await new Promise<void>((resolve) => { server.close(() => { resolve(); }); });
+  }
 });

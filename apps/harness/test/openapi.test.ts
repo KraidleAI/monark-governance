@@ -138,19 +138,21 @@ function projectToolError(node: Json, defs: { [k: string]: Json }): Json {
 
 // OPENAPI-ERROR-CODE-1 (ADR-CM amendment 2026-10-04 (1); Q-C5 conditions 3 and 4; lot CM-3c-4a): the 400 and 500 responses of
 // every operation are the projections of the root and of $defs/InternalError of schemas/tool-error.schema.json, so their
-// codes are the 32 of the catalogue; no code is a literal of openapi.ts or schema-projection.ts, and no $ref is left.
+// codes are the 32 of the catalogue; no code is a literal of openapi.ts or schema-projection.ts, and no $ref is left. The 500
+// also admits the transport-level body the frozen description names, {"error":"internal_error"} (TRANSPORT-500-SCHEMA-1).
 // killer: apps/harness/src/openapi.ts:86 CONST "TOOL_ERROR_400_SCHEMA" -> "TOOL_ERROR_500_SCHEMA"
 test("openapi_400_and_500_are_the_tool_error_projections", () => {
   const frozen = asObj(loadJson("tool-error.schema.json"), "tool-error");
   const defs = asObj(frozen["$defs"], "tool-error.$defs");
-  const want400 = projectToolError(frozen, defs), want500 = projectToolError(defs["InternalError"] ?? null, defs);
+  const transport = { type: "object", additionalProperties: false, required: ["error"], properties: { error: { const: "internal_error" } } };
+  const want400 = projectToolError(frozen, defs), want500 = { oneOf: [projectToolError(defs["InternalError"] ?? null, defs), transport] };
   type Responses = Record<string, { content?: Record<string, { schema?: Json } | undefined> } | undefined>;
   const spec = buildOpenApi();
   for (const op of ["attest", "calibrate", "cascade", "gate"]) {
     const post = asObj(asObj(asObj(spec["paths"], "paths")["/" + op], op)["post"], `${op}.post`);
     const responses = post["responses"] as unknown as Responses;
     assert.deepEqual(responses["400"]?.content?.["application/json"]?.schema, want400, `${op}: the 400 is the projected tool-error root`);
-    assert.deepEqual(responses["500"]?.content?.["application/json"]?.schema, want500, `${op}: the 500 is the projected InternalError`);
+    assert.deepEqual(responses["500"]?.content?.["application/json"]?.schema, want500, `${op}: the 500 is the projected InternalError or the transport-level body`);
   }
   const text = JSON.stringify(want400) + JSON.stringify(want500);
   assert.deepEqual(TOOL_ERROR_CODES.filter((c) => !text.includes(`"${c}"`)), [], "the projections carry the 32 codes");
