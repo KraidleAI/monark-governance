@@ -15,14 +15,15 @@ Différence du tronc (n-12) : `sealApart` ne résout qu'à la fermeture de l'enf
 ## Règle
 
 1. Comme #175 : `journal.jsonl` de `a` et de `b` devient une FIFO (`mkfifo`) que personne n'ouvre en écriture ; l'enfant s'y bloque dans `journalOf` (`scripts/l2/day.mjs:68`), avant toute écriture du jour. Saut nommé sous win32 : `APART || (process.platform === "win32" ? "no FIFO on win32" : false)`.
-2. Propre au tronc : l'attente des deux appels est bornée (`Promise.race` avec une minuterie de 10 s, effacée ensuite) ; passé la borne, chaque `sealed` vaut `"pending"` et l'assertion est rouge, sans attendre `--test-timeout`.
-3. Puis, comme #175, un sommeil de 3 s armé après les deux appels ; chaque FIFO ouverte en écriture non bloquante doit échouer `ENXIO` (aucun lecteur : l'enfant est mort), et aucun `SHA256SUMS`. Attendu : `[false, false, undefined, "ENXIO", "ENXIO", false, false]`.
-4. Propre au tronc : dans un `finally`, chaque FIFO est ouverte puis fermée en `O_WRONLY | O_NONBLOCK` : un enfant encore vivant (tueur) lit EOF et sort ; aucun orphelin.
+2. Propre au tronc : l'attente des deux appels est bornée (`Promise.race` avec une minuterie de 10 s, effacée ensuite) ; passé la borne, chaque résultat vaut `"pending"` et l'assertion est rouge, sans attendre `--test-timeout`.
+3. Puis, comme #175, un sommeil de 3 s armé après les deux appels ; chaque FIFO ouverte en écriture non bloquante doit échouer `ENXIO` (aucun lecteur : l'enfant est mort), et aucun `SHA256SUMS`. Repris du G2 (constat 3) : l'arrêt de chaque appel est vérifié, non plus seulement `sealed: false`, pour qu'un enfant qui ne démarre jamais (`spawn_failed`) soit rouge. Attendu : `["seal_timeout", "seal_aborted", undefined, "ENXIO", "ENXIO", false, false]`.
+4. Propre au tronc : dans un `finally`, chaque FIFO est ouverte puis fermée en `O_WRONLY | O_NONBLOCK` : un enfant encore vivant (tueur) lit EOF et reprend son scellement. Repris du G2 (constat 1) : le `finally` attend ensuite la fermeture des deux enfants, 5 s au plus, avant que le crochet `after` ne supprime leur dossier ; sans cette attente, l'enfant libéré tournait sans fin dans un `mkdirSync` récursif sous un `/proc/self/fd/3` supprimé (orphelin, 100 % CPU). La première version de ce G0 disait « aucun orphelin » : c'était faux.
 5. Pas de nouvel essai, pas de saut hors win32. Le tueur et le nom du test sont inchangés.
 
 ## Tueurs (listés pour `--test-only`)
 
-- `scripts/l2/seal.mjs:60 CONST "child?.kill(\"SIGKILL\")" -> "0"` (inchangé, au-dessus de `l2_seal_apart_child_killed`) : au tronc, il doit rendre le test rouge par assertion (`"pending"`) en un temps borné, sans orphelin.
+- `scripts/l2/seal.mjs:60 CONST "child?.kill(\"SIGKILL\")" -> "0"` (inchangé, au-dessus de `l2_seal_apart_child_killed`) : au tronc, il doit rendre le test rouge par assertion (`"pending"`) en un temps borné, sans orphelin (après l'attente du constat 1 du G2).
+- Tiré à la main, non listé (une seule ligne `// killer:` par test) : `scripts/l2/seal.mjs:71` `spawn(process.execPath,` -> `spawn("/nonexistent/node",` : l'enfant ne démarre jamais ; rouge par l'arrêt vérifié (`spawn_failed`).
 
 ## Vérification du lot
 
