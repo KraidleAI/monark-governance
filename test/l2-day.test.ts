@@ -163,7 +163,7 @@ test("l2_day_missing_from_journal_and_chain", async () => {
     events: [lines[11], lines[12], lines[16], lines[21]] });
 });
 
-// killer: scripts/l2/day.mjs:106 CONST "edgeOf(out, l.cid, true) ?? l.host_us" -> "l.host_us"
+// killer: scripts/l2/day.mjs:106 CONST "us ?? l.host_us" -> "l.host_us"
 test("l2_day_hole_bounds_from_frames", async () => {
   const out = fresh(), t = START + HOUR, j = (us: number, cid: string, event: string, f: Line = {}): Line => ({ host_us: us, mono_ns: "1", symbol: "BTCUSDT", cid, event, ...f });
   const x = await conn(out, "spot", "BTCUSDT", [[t, depth(1, 1, t)], [t + 10 * S, depth(2, 2, t)]]);
@@ -245,7 +245,7 @@ test("l2_day_hole_bound_source_named", async () => { // Q-G2-4 (condition of MON
     j(t + 85 * S, y, "open"), all(t + HOUR), j(t + HOUR + S, "h", "open"), j(t + 2 * HOUR, "k", "open"), all(t + 3 * HOUR), j(t + 3 * HOUR + S, z, "open")];
   writeFileSync(join(out, "journal.jsonl"), lines.map((l) => JSON.stringify(l) + LF).join(""));
   assert.deepEqual(await seal(out), { sealed: true, dir: dir(out, "BTCUSDT", D), frames: 5 });
-  assert.deepEqual((JSON.parse(read(out, "BTCUSDT", D, "missing.json")) as Line).holes, [
+  assert.deepEqual((JSON.parse(read(out, "BTCUSDT", D, "missing.json")) as { holes: DayM.DayHole[] }).holes, [
     { link: "BTCUSDT", cid: x, cause: "watchdog", from_us: t + 10 * S, from_src: "frame", to_us: t + 75 * S, to_src: "journal" },
     { link: "BTCUSDT", cid: "g", cause: "watchdog", from_us: t + 80 * S, from_src: "journal", to_us: t + 90 * S, to_src: "frame" },
     { link: "BTCUSDT", cid: null, cause: "process_restart", from_us: t + 100 * S, from_src: "frame", to_us: t + HOUR + S, to_src: "journal" },

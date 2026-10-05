@@ -12,7 +12,7 @@
 // goes to the index of its segment's day, marked with its own. A frame whose segment lies before the window of its day (E more than 1 h
 // after its reception) is early: the same, mirrored (G2 B-3, R-1 of the second G2). missing.json: the holes of the symbol's
 // link and of /market (from a close that leaves the link without an open connection, or a start of c5 that finds connections never
-// closed, Q-C1-10; from the last frame received to the first of the next connection, ADR "watchdog", else the journal's times) and the
+// closed, Q-C1-10; from the last frame received to the first of the next connection, ADR "watchdog", else the journal's times; from_src, to_src) and the
 // named events of MISSING_EVENTS in the day, from journal.jsonl. The seal waits for the end of the day plus the grace and for each
 // segment read to be closed (closed(cid, seg), from c5); a frame is held as three int32 in a bucket of its stream, at most `bound` of
 // them (index_bound); it writes index.jsonl by chunks, missing.json, manifest.json, each synced, then SHA256SUMS last (sha256sum -c
@@ -84,13 +84,13 @@ function edgeOf(out, cid, last) {
 /** The holes of each link (symbol, ALL) that cut [start, end), and its named events in the day (MISSING_EVENTS), as written. */
 function missingOf(out, lines, start, end) {
   const live = new Map(), holes = [], gaps = new Map(), seen = new Map();
-  const gap = (link, cid, cause, from_us) => { const hole = { link, cid, cause, from_us, to_us: null }; holes.push(hole); gaps.set(link, hole); };
+  const gap = (link, cid, cause, from_us, from_src) => { const hole = { link, cid, cause, from_us, from_src, to_us: null, to_src: null }; holes.push(hole); gaps.set(link, hole); }; // Q-G2-4: *_src "frame" | "journal"
   for (const l of lines) {
     if (l.event === "start") { // Q-C1-10: a launch of c5; a connection open before it died with the process, never closed
       for (const [link, open] of live) {
         if (open.size === 0) continue;
         const last = [...open].map((c) => edgeOf(out, c, true)).filter((us) => us !== null);
-        gap(link, null, "process_restart", last.length > 0 ? Math.max(...last) : seen.get(link));
+        gap(link, null, "process_restart", last.length > 0 ? Math.max(...last) : seen.get(link), last.length > 0 ? "frame" : "journal");
         open.clear();
       }
       continue;
@@ -101,9 +101,9 @@ function missingOf(out, lines, start, end) {
     if (l.event === "open") {
       open.add(l.cid);
       const hole = gaps.get(l.symbol);
-      if (hole !== undefined) { hole.to_us = edgeOf(out, l.cid, false) ?? l.host_us; gaps.delete(l.symbol); }
+      if (hole !== undefined) { const us = edgeOf(out, l.cid, false); [hole.to_us, hole.to_src] = [us ?? l.host_us, us === null ? "journal" : "frame"]; gaps.delete(l.symbol); }
     } else if (l.event === "close" && open.delete(l.cid) && open.size === 0) {
-      gap(l.symbol, l.cid, l.cause ?? null, edgeOf(out, l.cid, true) ?? l.host_us);
+      const us = edgeOf(out, l.cid, true); gap(l.symbol, l.cid, l.cause ?? null, us ?? l.host_us, us === null ? "journal" : "frame");
     }
   }
   return { holes: holes.filter((h) => h.from_us < end && (h.to_us === null || h.to_us > start)),
@@ -193,7 +193,7 @@ export function sealDay({ out, symbol, day, nowUs, closed, config = {}, bound = 
     sampling: SAMPLING, keys: KEYS, node: process.version, undici: process.versions.undici ?? null, script_sha256, config, counts };
   mkdirSync(dir, { recursive: true });
   const write = (name, body, flag = "w") => { const fd = openSync(join(dir, name), flag); try { body(fd); fsyncSync(fd); } finally { closeSync(fd); } };
-  const sync = () => { const fd = openSync(dir, "r"); try { fsyncSync(fd); } finally { closeSync(fd); } };
+  const sync = () => { const fd = openSync(dir, process.platform === "win32" ? "r+" : "r"); try { fsyncSync(fd); } finally { closeSync(fd); } }; // win32: "r" fails EPERM, "r+" ok (ledger.ts)
   write("index.jsonl", (fd) => { // by stream, then in read order; by chunks, never one string
     for (const key of [...buckets.keys()].sort()) {
       const { stream, col: { a, n } } = buckets.get(key);

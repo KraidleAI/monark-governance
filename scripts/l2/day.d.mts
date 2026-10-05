@@ -31,6 +31,19 @@ export interface DayLine {
   of?: string;
 }
 
+/** One hole of days/<SYMBOL>/<YYYY-MM-DD>/missing.json: its link (the symbol, or ALL for /market), the connection closed (null at a
+ *  restart of c5), the cause; each bound names its source (Q-G2-4): "frame" = recv_us of a frame on disk (ADR "watchdog"), "journal" =
+ *  host_us of the journal's line, when no frame of the connection is on disk; to_us and to_src are null while no connection reopened. */
+export interface DayHole {
+  link: string;
+  cid: string | null;
+  cause: string | null;
+  from_us: number;
+  from_src: "frame" | "journal";
+  to_us: number | null;
+  to_src: "frame" | "journal" | null;
+}
+
 /** What a seal takes from its caller (the test seam): out, the symbol, the UTC day, the host's wall clock in microseconds, whether a
  *  segment is closed (from the writers of c5), the configuration written to the manifest as given, the frames held at most (INDEX_BOUND). */
 export interface SealSpec {
