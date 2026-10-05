@@ -426,6 +426,6 @@ export async function main(argv, io = {}) {
 /** The command line runs when node starts this very file, through a link too: real paths compared (MAIN-GUARD-REALPATH-1); an import
  *  runs nothing, nor does a node whose argv[1] is absent or names no file (realpathSync throws). */
 const started = (argv1) => { try { return realpathSync(argv1) === realpathSync(SCRIPT); } catch { return false; } };
-/** m-1 (b): the exit code set, then the process ends within EXIT_GRACE_MS, though a socket whose peer never answers its CLOSE lingers. */
+/** m-1 (b): the exit code set, then the process ends within EXIT_GRACE_MS, though a socket whose other end never answers its CLOSE lingers. */
 export function leave(code) { process.exitCode = code; setTimeout(() => { process.exit(code); }, EXIT_GRACE_MS).unref(); }
 if (started(process.argv[1])) leave(await main(process.argv.slice(2)));

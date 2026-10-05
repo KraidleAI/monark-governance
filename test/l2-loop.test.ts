@@ -863,6 +863,8 @@ async function strays(fn: () => Promise<void>): Promise<unknown[]> {
 }
 /** A run whose end the test reads as it goes: "running" until it settles. */
 function watch(run: Promise<unknown>): { settled: unknown } { const w: { settled: unknown } = { settled: "running" }; run.then((r) => { w.settled = r; }, (e: unknown) => { w.settled = e; }); return w; }
+/** Until w settles (a loaded host: the fetches and the clean stop take real turns), 200 steps of 1 us of the host's clock at most. */
+const waited = async (h: { until: (us: number) => Promise<void>; io: RecordM.RecorderIo }, w: { settled: unknown }): Promise<void> => { for (let i = 0; i < 200 && w.settled === "running"; i += 1) await h.until(h.io.wallUs!() + 1); };
 const signalled = (out: string): unknown => ({ mode: "record", out, stopped: "signal", links_closed: true, seal_done: true });
 
 // killer: scripts/record-binance-l2.mjs:349 CONST ".catch((e) => { failed(\"seal\", e); })" -> ""
@@ -871,16 +873,18 @@ test("l2_record_seal_throw_named", async () => {
   // unhandled rejection; the loop goes on, and its clean stop writes the stopped line.
   const m = await command(), out = fresh(), h = host(at(0, 23, 20), place(0));
   assert.equal(typeof m.calendar, "function", "the loop is absent");
-  const w = { settled: undefined as unknown }, caught = await strays(async () => {
-    Object.assign(w, watch(m.run(argv(out), h.io)));
+  let w = { settled: "running" as unknown };
+  const caught = await strays(async () => {
+    w = watch(m.run(argv(out), h.io));
     await h.until(at(0, 23, 30));
     writeFileSync(join(out, "conn", "stray"), "");
     await h.until(at(1, 0, 3, 5));
     h.stop();
-    await h.until(at(1, 0, 3, 6));
+    await h.until(at(1, 0, 3, 6)).then(() => waited(h, w));
   });
   assert.deepEqual([caught.map((e) => (e as { code?: string }).code), events(out, ["schedule_failed", "stopped"]).map((l) => [l.event, l.task ?? l.cause, l.code ?? null])],
     [[], [["schedule_failed", "seal", "ENOTDIR"], ["stopped", "signal", null]]]);
+  assert.deepEqual(w.settled, signalled(out));
 });
 
 // killer: scripts/record-binance-l2.mjs:303 CONST "proc?.on(\"unhandledRejection\", stray);" -> ""
@@ -891,7 +895,7 @@ test("l2_record_unhandled_rejection_stops", async () => {
   const w = watch(m.run(argv(out), { ...h.io, process: proc }));
   await h.until(at(0, 10, 0, 1));
   proc.emit("unhandledRejection", Object.assign(new Error("lost"), { code: "EIO" }), Promise.resolve());
-  await h.until(at(0, 10, 0, 2));
+  await h.until(at(0, 10, 0, 2)).then(() => waited(h, w));
   const e = w.settled as { code?: string; detail?: unknown };
   assert.deepEqual([e.code, e.detail, proc.listenerCount("unhandledRejection")], ["unhandled_rejection", { code: "EIO" }, 0]);
   assert.deepEqual(events(out, ["unhandled_rejection", "stopped"]).map((l) => [l.event, l.code ?? l.cause]), [["unhandled_rejection", "EIO"], ["stopped", "unhandled_rejection"]]);
@@ -904,7 +908,7 @@ test("l2_record_snapshot_451_ends_all", async () => {
   const w = watch(m.run(argv(out), h.io));
   await h.until(at(0, 10, 0, 1));
   h.send(depth(7, 8));
-  await h.until(at(0, 10, 0, 2));
+  await h.until(at(0, 10, 0, 2)).then(() => waited(h, w));
   const e = w.settled as { code?: string; detail?: unknown };
   assert.deepEqual([e.code, e.detail, events(out, ["stopped"]).map((l) => l.cause)], ["rest_stopped", { task: "snapshot", symbol: "BTCUSDT", code: "restricted_location" }, ["rest_stopped"]]);
 });
@@ -918,7 +922,7 @@ test("l2_record_stop_during_start", async () => {
   const w = watch(m.run(argv(out), h.io));
   await h.until(at(0, 10, 0, 1));
   h.stop();
-  await h.until(at(0, 10, 0, 2));
+  await h.until(at(0, 10, 0, 2)).then(() => waited(h, w));
   assert.deepEqual([w.settled, h.fetched.map(([, p]) => p), h.socks.length], [signalled(out), [TIME], 0]);
 });
 
