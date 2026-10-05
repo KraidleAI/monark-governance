@@ -86,6 +86,7 @@ async function mirror(env: GateEnvelope): Promise<{ status: number; decision: Ga
   return { status: res.status, decision: body.structuredContent as GateDecision, text: body.content?.[0]?.text ?? "" };
 }
 
+// killer: apps/harness/src/tools/gate.ts:708 CONST "r.current && r.cell_key === cellKey" -> "r.current"
 test("u4b_gate_serves_region_from_real_artifact", async () => {
   assert.equal(LIQ_ALPHA, 1 / 100, "the class alpha is 1/100 (the rank below uses it exactly)");
   const lines = jsonl(FIXTURE);
@@ -112,7 +113,7 @@ test("u4b_gate_serves_region_from_real_artifact", async () => {
     const d = structured as unknown as GateDecision;
     if (row.strate === 0) assertBounded(d, yhat, c, `run yhat=${row.yhat}`);
     else assertAbstains(d, `run yhat=${row.yhat} (s${String(row.strate)})`);
-    assert.ok(text.includes(LIQ_COMMITTED_SENTENCE) && !text.includes(LIQ_EMPTY_REGISTRY_SENTENCE), "the content text is the committed class text");
+    assert.ok(text.startsWith(`${row.strate === 0 ? LIQ_COMMITTED_SENTENCE : LIQ_EMPTY_REGISTRY_SENTENCE}; `), "S-8: the calibrated sentence on s0, the class text on s1 to s3");
   }
 
   // The SERVER derives the key from yhat: the client key is ignored (observable only on a committed registry).

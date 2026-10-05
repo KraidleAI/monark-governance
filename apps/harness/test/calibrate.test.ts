@@ -26,6 +26,7 @@ import {
   type CalibrateInput,
 } from "../src/tools/calibrate.ts";
 import { HARNESS_TOOLS } from "../src/tools/registry.ts";
+import { runGate, SCHEMA_VERSION } from "../src/tools/gate.ts";
 import {
   CALIBRATE_INPUT_SCHEMA,
   CALIBRATE_OUTPUT_SCHEMA,
@@ -257,4 +258,15 @@ test("calibrate_honesty_carriers_pass_the_negation_aware_vocab_gate", () => {
 // Test — the tool NAME is the expected literal (a stray rename would drift the registry/route set).
 test("calibrate_tool_name_is_calibrate", () => {
   assert.equal(CALIBRATE_TOOL_NAME, "calibrate", "the tool name is 'calibrate'");
+});
+
+// B-12 (ADR-CM): BYO and calibrate serve the exact split rank of String(alpha): (24; 0.44) -> rank 14 where the float rank
+// gave 15, the same q-hat in both answers (the audit loop). Second killer fired by hand: calibrate.ts:166, the float rank.
+// killer: apps/harness/src/tools/gate.ts:454 CONST "splitQuantileShortest(cal.scores, params.alpha, params.nMin)" -> "splitQuantile(cal.scores, params.alpha, params.nMin)"
+test("gate_byo_and_calibrate_use_the_exact_rank", () => {
+  const scores = Array.from({ length: 24 }, (_, i) => 24 - i);
+  const params = { remainingBudget: 0.1, bFloor: 0, tau: 1, tauInterval: 100, alpha: 0.44, nMin: 5, intent: 0, tool: "t", clockOpen: true, calibration: { scores, mode: "interval" as const } };
+  const d = runGate({ schema_version: SCHEMA_VERSION, task_class: "acme-model-x", yhat: 0, predictor_id: "acme:key", produced_at: "2026-09-04T00:00:00Z" }, params);
+  assert.deepEqual([d.verdict.qhat, d.verdict.region], [14, { kind: "interval", lo: -14, hi: 14 }], "BYO: rank 14");
+  assert.equal(runCalibrate({ scores, alpha: 0.44, nMin: 5 }).qhat, 14, "calibrate: rank 14");
 });

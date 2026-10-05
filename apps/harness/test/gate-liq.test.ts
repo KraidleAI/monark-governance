@@ -197,17 +197,20 @@ test("u4b_liq_description_makes_no_probability_claim", () => {
   assert.ok(LIQ_COMMITTED_SENTENCE.includes("close-factor rule"), "carries the conditional-coverage clause (mutant (h))");
 });
 
-// 2a-3 (delta D-3; re-scoped from u4b_liq_empty_registry_text_is_honest at the registry commit) -- the honesty text is
-// keyed on REGISTRY presence: on the committed -2b registry it is the committed sentence for EVERY client key, a naked
-// one and a key naming an uncommitted stratum alike (the server ignores the client key), never the empty-registry
-// sentence. Mutant (h'): key the honesty on lookupCommittedCalibration(TASK_LIQ, client key) => the naked key and the
-// .../s1 key read the empty sentence => red.
-test("u4b_liq_committed_text_is_honest", () => {
-  assert.equal(hasCommittedCalibrationForClass(TASK_LIQ_ELIGIBLE), true, "the -2b registry holds the liq class");
-  for (const key of ["ukemi:client-supplied-key/whatever", `${UKEMI_LIQ_PREDICTOR_BASE}/s1`, `${UKEMI_LIQ_PREDICTOR_BASE}/s0`]) {
-    const text = honestyText(TASK_LIQ_ELIGIBLE, key, false);
-    assert.equal(text, `${LIQ_COMMITTED_SENTENCE}; B_t is caller-carried.`, `committed text, registry-keyed, for the client key ${key}`);
-    assert.ok(!text.includes(LIQ_EMPTY_REGISTRY_SENTENCE), `no empty-registry sentence next to a committed registry (${key})`);
+// S-8 (ADR-CM B-8, lot CM-3c-4b; inverts u4b_liq_committed_text_is_honest of 2a-3): the honesty text follows the RESOLVED
+// cell, the stratum key the server derives from yhat (the client key stays ignored): the calibrated sentence on s0 only;
+// s1 to s3 (under_calib) and a key that names no stratum read the class text of the served table.
+// killer: apps/harness/src/tools/gate.ts:708 CONST "r.current && r.cell_key === cellKey" -> "r.current && hasCommittedCalibrationForClass(taskClass)"
+test("liq_honesty_text_follows_the_resolved_cell", () => {
+  assert.equal(hasCommittedCalibrationForClass(TASK_LIQ_ELIGIBLE), true, "the registry holds the liq class (s0)");
+  const keys = ["ukemi:client-supplied-key/whatever", ...[0, 1, 2, 3].map((k) => `${UKEMI_LIQ_PREDICTOR_BASE}/s${String(k)}`)];
+  for (const key of keys) {
+    const want = key.endsWith("/s0") ? LIQ_COMMITTED_SENTENCE : LIQ_EMPTY_REGISTRY_SENTENCE;
+    assert.equal(honestyText(TASK_LIQ_ELIGIBLE, key, false), `${want}; B_t is caller-carried.`, key);
+  }
+  for (const [yhat, want] of [[5000, LIQ_COMMITTED_SENTENCE], [5e14, LIQ_EMPTY_REGISTRY_SENTENCE]] as const) {
+    const run = GATE_TOOL.run({ prediction: { schema_version: SCHEMA_VERSION, task_class: TASK_LIQ_ELIGIBLE, yhat, predictor_id: `${UKEMI_LIQ_PREDICTOR_BASE}/s0`, produced_at: "2026-09-04T00:00:00Z" }, params: LIQ_PARAMS });
+    assert.ok(run.text.startsWith(`${want}; B_t is caller-carried. verdict `), `served content at yhat ${String(yhat)}`);
   }
   // The committed text carries its conditions (upper bound, one episode, no other event, H-3 a report, conditional rule).
   for (const s of [LIQ_UPPER_BOUND_SENTENCE, LIQ_H3_SENTENCE, LIQ_CONDITIONAL_SENTENCE]) assert.ok(LIQ_COMMITTED_SENTENCE.includes(s), `committed text carries: "${s}"`);
@@ -370,8 +373,8 @@ test("hdesc_served_gate_description_is_the_committed_clause", async () => {
   assert.equal(listed, describeGate(true), "the served text is the committed-state description (describeGate(false) hard-coded reds here)");
   assert.equal(
     createHash("sha256").update(listed, "utf8").digest("hex"),
-    "4279a54dd880f7f789d452770ff908a0340c479bb94dbd1152296a6023553f38",
-    "the served description is byte for byte the committed text (ADR-CM B-5, B-2, B-7 and C-2 of CM-2b; was cb4029d2..., 55744504...)",
+    "bfb474f36957ea2390c4f4b99dbbebbea128724d7a7e3b58c1bbe81553016443",
+    "the served description is byte for byte the committed text (ADR-CM B-5, B-2, C-2 of CM-2b, B-7 withdrawn by B-13; was 4279a54d..., cb4029d2...)",
   );
   const slice = liqSlice(listed);
   assert.equal(slice, EXPECTED_COMMITTED_CLAUSE, "the served liq clause is EXACTLY the committed clause");

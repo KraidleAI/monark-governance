@@ -575,6 +575,20 @@ test("docs_policy_steps_follow_the_set_path_of_the_code — the schema's order i
   assert.match(read("apps/site/app/docs/gate/page.tsx"), /for an interval the code declares another order/, "the page says the interval order apart");
 });
 
+// G2 R-1 of lot CM-3c-4b: the interval order the page states opens with the first reason decideInterval returns
+// (B-16: a zero-width interval is region_degenerate, no longer under_calib).
+// killer: apps/site/app/docs/gate/page.tsx:128 CONST "region_degenerate first" -> "under_calib first"
+test("docs_interval_order_opens_with_the_first_reason_of_decideInterval — a zero-width interval abstains with region_degenerate first", () => {
+  const src = read("packages/hikae/src/l3-gate.ts");
+  const start = src.indexOf("function decideInterval(");
+  assert.ok(start >= 0, "decideInterval is found (false-green guard)");
+  const first = /reason: "([a-z_]+)"/.exec(src.slice(start))?.[1];
+  assert.equal(first, "region_degenerate", "the code's first interval reason");
+  const page = read("apps/site/app/docs/gate/page.tsx").replace(/\s+/g, " ");
+  assert.ok(page.includes(`an interval of zero width abstains with ${first} first`), "the page names the code's first interval reason");
+  assert.ok(!page.includes("zero width abstains with under_calib"), "the pre-B-16 reason is gone from the page");
+});
+
 // C-G2-8: the language gate walks the docs components too.
 test("lang_gate_walks_the_docs_components — apps/site/components/docs is walked, every component in it", () => {
   assert.equal(skipDir("docs", "apps/site/components"), false, "the /docs components are walked");

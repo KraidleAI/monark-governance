@@ -112,7 +112,7 @@ test("oracle_l3_set_path_reason_order_exhaustive", () => {
 });
 
 // [D5, interval sub-path of the same header] common guards (non_evaluable, upstream_timeout, under_calib),
-// then lo >= hi gives under_calib (NDG-1, before budget), then budget_exhausted, then width > tauInterval
+// then lo >= hi gives region_degenerate (NDG-1, B-16, before budget), then budget_exhausted, then width > tauInterval
 // (clock open: defer interval_too_wide, else abstain clock_expired), then intent outside [lo, hi], else
 // commit covered. All 2^8 flag combinations times 3 budgets (768 cases), including B_t = B_floor.
 // killer: packages/hikae/src/l3-gate.ts:130 ROR "<" -> "<="
@@ -132,7 +132,7 @@ test("oracle_l3_interval_path_reason_order_exhaustive", () => {
         [notEvaluable, { action: "abstain", reason: "non_evaluable" }],
         [timedOut, { action: "abstain", reason: "upstream_timeout" }],
         [lowCount || verdictUnderCalib, { action: "abstain", reason: "under_calib" }],
-        [degenerate, { action: "abstain", reason: "under_calib" }],
+        [degenerate, { action: "abstain", reason: "region_degenerate" }],
         [remainingBudget < B_FLOOR, { action: "abstain", reason: "budget_exhausted" }],
         [wide && clockOpen, { action: "defer", reason: "interval_too_wide" }],
         [wide, { action: "abstain", reason: "clock_expired" }],
@@ -159,7 +159,7 @@ test("oracle_l3_interval_path_reason_order_exhaustive", () => {
       seen.add(d.reason);
     }
   }
-  assert.equal(seen.size, 8, "every declared reason of the interval path is reached");
+  assert.equal(seen.size, 9, "every declared reason of the interval path is reached (region_degenerate apart since B-16)");
 });
 
 const COMMON = {
@@ -173,7 +173,7 @@ const COMMON = {
 
 // [SOA 2.2; Papadopoulos et al. 2002; LEI] the split interval has constant width 2 qhat, independent of the
 // test point: residuals 1..19, alpha = 0.1, p = ceil(20 * 0.9) = 18, qhat = 18.
-// killer: packages/hikae/src/interval-conformer.ts:87 CONST "params.yhat + qhat" -> "params.yhat + 2 * qhat"
+// killer: packages/hikae/src/interval-conformer.ts:87 CONST "scoreTestBand(params.yhat, qhat)" -> "scoreTestBand(params.yhat, 2 * qhat)"
 test("oracle_interval_width_is_two_qhat_for_every_yhat", () => {
   const calib: CalibPair[] = Array.from({ length: 19 }, (_, i) => ({ yhat: 0, y: i + 1 }));
   for (const yhat of [-1e3, 0, 0.5, 1234.5]) {

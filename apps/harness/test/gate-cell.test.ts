@@ -17,6 +17,7 @@ import {
   SERVED_TABLE_TEXTS, STABLE_RUN_COMMITTED_SENTENCE, STABLE_RUN_UNCALIBRATED_SENTENCE, type HarnessParams,
 } from "../src/tools/gate.ts";
 import { UKEMI_LIQ_PREDICTOR_BASE, USDE_STABLE_RUN_PREDICTOR_ID } from "../src/calibration.ts";
+import { HARNESS_TOOLS } from "../src/tools/registry.ts";
 
 const P: HarnessParams = { remainingBudget: 0.1, bFloor: 0, tau: 1, tauInterval: 1, alpha: 0.1, nMin: 50, intent: 0, tool: "perps_order_preview", clockOpen: true };
 const LIQ_P: HarnessParams = { ...P, alpha: 0.01, nMin: 100 };
@@ -104,4 +105,51 @@ registerHooks({ load(url, context, nextLoad) {
   assert.ok(clean.ok, clean.stderr.slice(0, 300));
   const forged = await run("1");
   assert.ok(!forged.ok && forged.stderr.includes(`LIQ-BAND-EXACT-GUARD-1: ${UKEMI_LIQ_PREDICTOR_BASE}/s3`), forged.stderr.slice(0, 400));
+});
+
+// Z-3 composition (rule of MONARK; Q-C3 condition 5; cut (a) of C2, with S-8): the served sentence is the table text of the
+// resolved cell (its current row, else the class text) followed by the unchanged suffix, on USDe (its key and another),
+// cascade and liq s0 to s3; the closed list of the liq gap is empty. USDe and cascade hold at the base (killer by hand).
+// killer: apps/harness/src/tools/gate.ts:709 CONST "}; B_t is caller-carried.`;" -> "}. B_t is caller-carried.`;"
+test("served_text_is_table_text_plus_suffix", () => {
+  const run = (p: Prediction, params: HarnessParams): string => HARNESS_TOOLS.find((t) => t.name === "gate")?.run({ prediction: p, params }).text ?? "";
+  const cases: [string, Prediction, HarnessParams, string][] = [
+    ["usde", USDE, P, rowOf("stable-run-velocity-24h", USDE_STABLE_RUN_PREDICTOR_ID).text],
+    ["usde other", pred("stable-run-velocity-24h", 0.0001, "narabi:other"), P, table("stable-run-velocity-24h").table.class.text],
+    ["cascade", pred("cascade-liquidable-24h", 12345, "internal:ukemi-cascade-v0"), P, table("cascade-liquidable-24h").table.class.text],
+    ["liq s0", LIQ_S0, LIQ_P, rowOf("liquidation-eligible-coverage", `${UKEMI_LIQ_PREDICTOR_BASE}/s0`).text],
+    ...[1e12, 5e13, 5e14].map((y, i): [string, Prediction, HarnessParams, string] => [`liq s${String(i + 1)}`, pred("liquidation-eligible-coverage", y, "ukemi:k"), LIQ_P, table("liquidation-eligible-coverage").table.class.text]),
+  ];
+  const gaps = cases.filter(([, p, params, text]) => !run(p, params).startsWith(`${text}; B_t is caller-carried. verdict `)).map(([name]) => name);
+  assert.deepEqual(gaps, [], "the closed list of the gap is empty");
+});
+
+// Q-3b2-2 (closed in lot CM-3c-4b): qhat, alpha and n_calib served on USDe and liq s0 are read on the admitted row, not
+// recomputed from the scores. A child loads gate.ts with the row builder of policy-marginal.ts doubling qhat (the load
+// guard rebuilds with the same builder, so it passes): the served qhat follows the row, twice the recomputed q-hat.
+// killer: apps/harness/src/tools/gate.ts:598 CONST "admittedSplit(cell)" -> "{ ...splitQuantileShortest(scores, params.alpha, params.nMin), alpha: params.alpha }"
+test("served_qhat_ncalib_alpha_read_from_the_admitted_row", async () => {
+  const hook = `import { registerHooks } from "node:module";
+registerHooks({ load(url, context, nextLoad) {
+  const r = nextLoad(url, context);
+  if (!url.endsWith("/src/policy-marginal.ts")) return r;
+  const src = typeof r.source === "string" ? r.source : Buffer.from(r.source).toString("utf8");
+  return { ...r, source: src.replace("qhat: split.qhat,", "qhat: split.qhat * 2,") };
+} });`;
+  const gate = pathToFileURL(fileURLToPath(new URL("../src/tools/gate.ts", import.meta.url))).href;
+  const child = `const g = await import(${JSON.stringify(gate)});
+const at = { schema_version: g.SCHEMA_VERSION, produced_at: "2026-09-04T00:00:00Z" };
+const P = { remainingBudget: 0.1, bFloor: 0, tau: 1, tauInterval: 1, alpha: 0.1, nMin: 50, intent: 0, tool: "t", clockOpen: true };
+const calls = [[{ ...at, task_class: "stable-run-velocity-24h", yhat: 0.0001, predictor_id: ${JSON.stringify(USDE_STABLE_RUN_PREDICTOR_ID)} }, P],
+  [{ ...at, task_class: "liquidation-eligible-coverage", yhat: 5000, predictor_id: "k" }, { ...P, alpha: 0.01, nMin: 100 }]];
+const rows = g.SERVED_MARGINAL_TABLES.flatMap((t) => t.table.rows);
+process.stdout.write(JSON.stringify(calls.map(([p, q]) => { const v = g.runGate(p, q).verdict; const r = rows.find((x) => x.cell_key === v.cell_key);
+  return [v.qhat, r.qhat, String(v.alpha), r.alpha, v.n_calib, r.n]; })));`;
+  const out = await new Promise<string>((resolve, reject) => {
+    execFile(process.execPath, ["--import", `data:text/javascript,${encodeURIComponent(hook)}`, "--input-type=module", "-e", child], { encoding: "utf8", timeout: 60000 }, (e, stdout, stderr) => { if (e === null) resolve(stdout); else reject(new Error(stderr.slice(0, 400))); });
+  });
+  const got = JSON.parse(out) as [number, number, string, string, number, number][];
+  const recomputed = [rowOf("stable-run-velocity-24h", USDE_STABLE_RUN_PREDICTOR_ID).qhat, rowOf("liquidation-eligible-coverage", `${UKEMI_LIQ_PREDICTOR_BASE}/s0`).qhat];
+  got.forEach(([q, rq, a, ra, n, rn], i) => assert.deepEqual([q, a, n], [rq, ra, rn], `call ${String(i)}: the served values are the row's`));
+  assert.deepEqual(got.map(([q]) => q), recomputed.map((q) => (q ?? Number.NaN) * 2), "the row of the child doubles the q-hat: the served one follows it");
 });

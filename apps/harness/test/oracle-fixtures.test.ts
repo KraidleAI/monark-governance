@@ -114,5 +114,6 @@ test("oracle_usde_fixture_zero_atom_ties", () => {
   const split = splitQuantile(calib, 0.1, 50);
   assert.ok(!("reason" in split), "alpha 0.1 calibrates");
   assert.equal(served.verdict.qhat, split.qhat, "served at the imposed alpha 0.1: the engine qhat");
-  assert.deepEqual(served.verdict.region, { kind: "interval", lo: yhat - split.qhat, hi: yhat + split.qhat });
+  assert.ok(yhat - split.qhat === -0.00008959228083333333, "fl(yhat - qhat)");
+  assert.deepEqual(served.verdict.region, { kind: "interval", lo: -0.00008959228083333335, hi: yhat + split.qhat }, "B-13: lo of the score test, one ulp below fl(yhat - qhat)");
 });

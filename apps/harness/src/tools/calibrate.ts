@@ -23,7 +23,7 @@
  * seam as a tool error, never a silent output); `n < nMin` OR `⌈(n+1)(1−alpha)⌉ > n` ⇒ the honest
  * `{ qhat: null, reason: "under_calib" }` (NEVER a silently clamped q̂). No success is invented.
  */
-import { splitQuantile } from "@monark/hikae";
+import { splitQuantileShortest } from "@monark/hikae";
 import { scoresSha256 } from "@monark/contracts";
 import type { HarnessErrorCode } from "./gate.ts";
 
@@ -161,8 +161,8 @@ export function runCalibrate(input: CalibrateInput): CalibrateResult {
 
   // B-17: the digest is scoresSha256, imported from @monark/contracts, NEVER re-implemented.
   const scores_sha256 = scoresSha256(scores);
-  // The quantile is splitQuantile, imported from @monark/hikae, NEVER re-implemented.
-  const split = splitQuantile(scores, alpha, nMin);
+  // The quantile is splitQuantileShortest (exact rank of String(alpha), B-12), imported from @monark/hikae, NEVER re-implemented.
+  const split = splitQuantileShortest(scores, alpha, nMin);
 
   if ("reason" in split) {
     // Fail-closed: n < nMin OR p > n ⇒ honest under-calibration, NEVER a clamped q̂ (D4).

@@ -33,7 +33,7 @@ import {
   USDE_STABLE_RUN_TASK_CLASS,
   USDE_STABLE_RUN_SCORES_SHA256_PINNED,
 } from "../src/calibration.ts";
-import { splitQuantile, buildIntervalRegion, underCalibVerdict, NUMERIC_LABEL_SCHEMA, BTC_DIR_LABEL_SCHEMA } from "@monark/hikae"; // ADR-M011: anti-circularity — L1 q̂ + NDG-1 region before runGate; E9: label_schema constants
+import { splitQuantile, buildIntervalRegion, scoreTestBand, underCalibVerdict, NUMERIC_LABEL_SCHEMA, BTC_DIR_LABEL_SCHEMA } from "@monark/hikae"; // ADR-M011: anti-circularity — L1 q̂ + NDG-1 region before runGate; E9: label_schema constants
 import { fromAttestedFlow, isNarabiError } from "@monark/monark"; // A7: real flows via the adapter
 
 const GOOD_PARAMS: HarnessParams = {
@@ -435,7 +435,7 @@ test("numeric_under_calib_region_is_not_directional", () => {
     },
   ];
   for (const { name, d } of numericUnderCalib) {
-    assert.equal(d.verdict.reason, "under_calib", `${name}: expected an under_calib verdict`);
+    assert.equal(d.verdict.reason, name.includes("NDG") ? "region_degenerate" : "under_calib", `${name}: expected reason (B-16 on zero width)`);
     // No region at all: neither the empty set of 1.0.0 nor any label_schema on the wire.
     assert.deepEqual([d.verdict.region, d.verdict.qhat, d.verdict.qhat_unit, d.verdict.scale], [null, null, "label", null], `${name}: no region`);
     assert.ok(!JSON.stringify(d).includes("label_schema"), `${name}: no label_schema on the wire (${NUMERIC_LABEL_SCHEMA}, ${BTC_DIR_LABEL_SCHEMA})`);
@@ -607,13 +607,14 @@ test("gate_sentence_barber", () => {
 // conformalization is splitQuantile → buildIntervalRegion. An ALL-ZERO score vector (degenerate calibration)
 // routes to under_calib through THAT chain; the REAL committed USDe scores are non-degenerate (q̂>0, a real
 // region). Mutant (region.ts, ADR-M011): drop the lo===hi guard ⇒ the all-zero case yields a covered width-0
-// region ⇒ the first assertion reds. No second guard is added anywhere in this lot.
-test("gate_stable_run_ndg1_zero_width_is_under_calib_reused", () => {
+// region ⇒ the first assertion reds. No second guard is added anywhere in this lot. Since B-16: region_degenerate.
+// killer: packages/hikae/src/region.ts:75 CONST "reason: \"region_degenerate\"" -> "reason: \"under_calib\""
+test("gate_stable_run_ndg1_zero_width_is_region_degenerate_reused", () => {
   const zeros = Array.from({ length: USDE_STABLE_RUN_CALIB.length }, () => 0);
   const sqZero = splitQuantile(zeros, GOOD_PARAMS.alpha, GOOD_PARAMS.nMin);
   assert.ok("qhat" in sqZero && sqZero.qhat === 0, "all-zero scores ⇒ q̂ = 0 (calibrated, degenerate)");
   const irZero = buildIntervalRegion(0.00005 - 0, 0.00005 + 0); // yhat ± 0 ⇒ lo === hi
-  assert.ok(irZero.abstain && irZero.reason === "under_calib", "NDG-1: a zero-width region ⇒ under_calib (reused)");
+  assert.ok(irZero.abstain && irZero.reason === "region_degenerate", "NDG-1: a zero-width region ⇒ region_degenerate (reused, B-16)");
   // The REAL committed USDe scores are non-degenerate ⇒ a real region.
   const sqReal = splitQuantile(USDE_STABLE_RUN_CALIB, GOOD_PARAMS.alpha, GOOD_PARAMS.nMin);
   assert.ok("qhat" in sqReal && sqReal.qhat > 0, "the committed USDe q̂ is strictly positive (non-degenerate)");
@@ -665,7 +666,9 @@ const MSUSD_LIKE_SCORES: number[] = [...Array.from({ length: 190 }, () => 0), 1.
 // Test — §3.6 (C-1 BLOQUANTE): a BYO `interval` calibration whose region has ZERO WIDTH (q̂=0 at the
 // pinned α=0.10) ⇒ under_calib, never a fabricated width-0 commit. This is the ONLY test that traverses the
 // real repro path (harness byoVerdict). Mutant M1 (region.ts guard removed) ⇒ verdict `covered`/q̂=0 ⇒ red.
-test("gate_byo_interval_degenerate_calibration_is_under_calib_M011", () => {
+// Since B-16 (lot CM-3c-4b) the abstention reason is region_degenerate, in the verdict and at L3.
+// killer: apps/harness/src/tools/gate.ts:476 CONST "noRegionVerdict(ir.reason, {" -> "underCalibVerdict({"
+test("gate_byo_interval_degenerate_calibration_is_region_degenerate_M011", () => {
   assert.equal(GOOD_PARAMS.alpha, 0.1, "GOOD_PARAMS.alpha is 0.10 (the degenerate-at-α=0.10 case)");
   assert.equal(MSUSD_LIKE_SCORES.length, 191, "n=191 (<= CALIBRATE_MAX_N=10000 ⇒ passes the cap)");
   // ANTI-CIRCULARITY: L1 gives q̂=0 (NOT under_calib) at α=0.10 ⇒ the under_calib comes from NDG-1, not L1.
@@ -679,20 +682,21 @@ test("gate_byo_interval_degenerate_calibration_is_under_calib_M011", () => {
     calibration: { scores: MSUSD_LIKE_SCORES, mode: "interval" },
   });
   // Verdict-level (kills M1: with the region.ts guard removed the verdict is `covered`, q̂ 0):
-  assert.equal(d.verdict.reason, "under_calib", "degenerate calibration ⇒ verdict under_calib (NDG-1)");
+  assert.equal(d.verdict.reason, "region_degenerate", "degenerate calibration ⇒ verdict region_degenerate (NDG-1, B-16)");
   assert.equal(d.verdict.qhat, null, "q̂ null on the honest abstention (never a width-0 covered)");
   assert.equal(d.verdict.abstain, true);
   // Gate-level (D3(b) + D6(b)):
   assert.equal(d.action, "abstain");
   assert.equal(d.allow, false);
-  assert.equal(d.reason, "under_calib", "gate reason under_calib (D6(b) — kills M4 ⇒ intent_not_in_region)");
+  assert.equal(d.reason, "region_degenerate", "gate reason region_degenerate (D6(b) — kills M4 ⇒ intent_not_in_region)");
 });
 
 // Test — §3.3 D1 discriminator (structural lo===hi, NOT `q̂>0`): float absorption at q̂>0. The ONLY path
 // where q̂>0 AND lo===hi coexist is BYO fed scores (in the conformer, residuals absorb to 0 BEFORE
 // splitQuantile ⇒ q̂=0, indiscernable). scores=[1e-12 × n], ŷ=1e6 ⇒ q̂=1e-12>0 but 1e6 ± 1e-12 === 1e6.
-// Mutant M3 (replace lo===hi by q̂>0 in the producer) ⇒ verdict `covered` here ⇒ red.
-test("gate_byo_interval_float_absorption_is_under_calib_M011", () => {
+// Mutant M3 (replace lo===hi by q̂>0 in the producer) ⇒ verdict `covered` here ⇒ red. Since B-16: region_degenerate.
+// killer: packages/hikae/src/region.ts:71 ROR "if (lo === hi) {" -> "if (lo > hi + 1) {"
+test("gate_byo_interval_float_absorption_is_region_degenerate_M011", () => {
   const scores: number[] = Array.from({ length: 10 }, () => 1e-12); // n=10 >= nMin 5
   // In-code absorption proof + L1 gives q̂ = 1e-12 > 0 (NOT under_calib, NOT q̂=0): a naive `q̂>0` guard
   // would MISS this — only the STRUCTURAL lo===hi catches it (D1).
@@ -703,10 +707,32 @@ test("gate_byo_interval_float_absorption_is_under_calib_M011", () => {
     { ...BYO_INTERVAL_PRED, yhat: 1e6 },
     { ...GOOD_PARAMS, intent: 1e6, nMin: 5, alpha: 0.1, calibration: { scores, mode: "interval" } },
   );
-  assert.equal(d.verdict.reason, "under_calib", "lo===hi at q̂>0 ⇒ under_calib (structural NDG-1, not q̂>0)");
+  assert.equal(d.verdict.reason, "region_degenerate", "lo===hi at q̂>0 ⇒ region_degenerate (structural NDG-1, not q̂>0)");
   assert.equal(d.verdict.qhat, null);
   assert.equal(d.verdict.abstain, true);
   assert.equal(d.action, "abstain");
+  assert.equal(d.reason, "region_degenerate");
+});
+
+// G2 R-2 of lot CM-3c-4b, Q-CP4B-3: an additive edge outside binary64 (yhat + qhat overflows) stays under_calib as
+// before B-13, never a served band clamped at Number.MAX_VALUE. BYO yhat = 1.7e308, scores 1e307 (q̂ = 1e307): without
+// the guard the score-test band is [~1.6e308, MAX_VALUE] and the gate commits; with it, abstain / under_calib.
+// killer: packages/hikae/src/region.ts:122 SDL "|| !Number.isFinite(yhat + qhat)" -> ""
+test("gate_byo_interval_additive_overflow_is_under_calib_QCP4B3", () => {
+  assert.equal(1.7e308 + 1e307, Infinity, "the additive upper edge overflows binary64");
+  assert.ok(Number.isFinite(1.7e308 - 1e307), "the additive lower edge is finite");
+  assert.deepEqual(scoreTestBand(1.7e308, 1e307), { abstain: true, reason: "under_calib" }, "the band itself is under_calib");
+  const scores: number[] = Array.from({ length: 10 }, () => 1e307);
+  assert.deepEqual(splitQuantile(scores, 0.1, 5), { qhat: 1e307 }, "L1 q̂ = 1e307 (not under_calib)");
+  const d = runGate(
+    { ...BYO_INTERVAL_PRED, yhat: 1.7e308 },
+    { ...GOOD_PARAMS, intent: 1.7e308, tauInterval: Number.MAX_VALUE, nMin: 5, alpha: 0.1, calibration: { scores, mode: "interval" } },
+  );
+  assert.equal(d.verdict.reason, "under_calib", "overflow ⇒ verdict under_calib (Q-CP4B-3)");
+  assert.equal(d.verdict.qhat, null);
+  assert.equal(d.verdict.abstain, true);
+  assert.equal(d.action, "abstain", "never a silent commit");
+  assert.equal(d.allow, false);
   assert.equal(d.reason, "under_calib");
 });
 
