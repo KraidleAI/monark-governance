@@ -1097,14 +1097,14 @@ const proofOf8 = (...tree: (Buffer | string)[]): Buffer => Buffer.concat([OTS_HE
 // killer: scripts/lot-size-integration.mjs:306 CONST "varbytes(OTS_OPERAND_MAX, 1)" -> "varbytes(4096, 1)"
 // killer: scripts/lot-size-integration.mjs:308 CONST "else throw new Error(`operation ${t.toString(16)}`);" -> "else tree(d + 1);"
 // killer: scripts/lot-size-integration.mjs:305 CONST "if (i !== at) throw" -> "if (false) throw"
-test("r25s_ots_proof_is_read_whole - the readOtsProof reader in plain JS: two trunk proofs pass; built proofs pass with a pending branch to a listed calendar, a fork to a Bitcoin attestation and an 89-byte operand; a byte after the proof, a truncated proof, a 90-byte operand, an unknown operation, an unknown attestation (Litecoin), a calendar outside the list (another host, http, a path) and a Bitcoin payload with an extra byte are refused (nothing passes before the lot)", () => {
+test("r25s_ots_proof_is_read_whole - the readOtsProof reader in plain JS: two trunk proofs pass; built proofs pass with a pending branch to a listed calendar, a fork to a Bitcoin attestation and an 89-byte operand; a byte after the proof, a truncated proof, a 90-byte operand, an unknown operation, an unknown attestation (Litecoin), a calendar outside the list (another host, http, a path) and a Bitcoin payload with an extra byte (read as a fork marker if the payload were not read whole) are refused (nothing passes before the lot)", () => {
   const trunkPending = blobOf("test/fixtures/fixture-bell-seq2-pending.ots"), trunkBlock = blobOf("docs/course-bell/mint_end-AAPLx-manifest.txt.ots");
   const append = (k: number): string => `f0${vbytes(Buffer.alloc(k, 9)).toString("hex")}08`, listed = pendingAt("https://calendar.invalid"), bitcoin = att("0588960d73d71901", Buffer.from("d28d3b", "hex"));
   assert.deepEqual(passes("ots", {
     trunkPending, trunkBlock, pending: proofOf8(append(32), listed), fork: proofOf8("ff", append(32), listed, append(4), bitcoin), op89: proofOf8(append(89), listed),
     after: Buffer.concat([trunkBlock, Buffer.from("\n")]), truncated: trunkBlock.subarray(0, trunkBlock.length - 1), op90: proofOf8(append(90), listed), op99: proofOf8("99", listed),
     litecoin: proofOf8(append(32), att("06869a0d73d71b45", Buffer.from("01", "hex"))), host: proofOf8(append(32), pendingAt("https://calendar.example")), http: proofOf8(append(32), pendingAt("http://calendar.invalid")),
-    path: proofOf8(append(32), pendingAt("https://calendar.invalid/x")), payload: proofOf8(append(32), att("0588960d73d71901", Buffer.from("d28d3b00", "hex"))),
+    path: proofOf8(append(32), pendingAt("https://calendar.invalid/x")), payload: proofOf8("ff", append(32), att("0588960d73d71901", Buffer.from("d28d3bff", "hex")), append(4), listed, append(8), listed), // the extra byte would read as a fork
   }), { trunkPending: true, trunkBlock: true, pending: true, fork: true, op89: true, after: false, truncated: false, op90: false, op99: false, litecoin: false, host: false, http: false, path: false, payload: false });
 });
 
