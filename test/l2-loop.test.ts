@@ -293,7 +293,7 @@ test("l2_adopt_guards_before_start", async () => {
 });
 
 // killer: scripts/record-binance-l2.mjs:146 CONST "bytesUnder(at)" -> "bytesUnder(out)"
-test("l2_check_walk_pinned", async () => {
+test("l2_check_walk_pinned", { skip: process.platform === "win32" ? "win32 cannot replace a directory link by rename (EPERM): the atomic swap does not exist" : false }, async () => {
   // m-2 of the G2 of c5: the parent link swapped atomically during check(), before its walk: the walk counts the pinned --out (75 %,
   // its alarm), never the foreign one (90 %); the pin before the append stops.
   const m = await command(), s = staged(m, (_o, swap) => { swap(); });
@@ -302,7 +302,7 @@ test("l2_check_walk_pinned", async () => {
 });
 
 // killer: scripts/record-binance-l2.mjs:152 CONST "join(at, \"journal.jsonl\")" -> "join(out, \"journal.jsonl\")"
-test("l2_check_alarm_pinned", async () => {
+test("l2_check_alarm_pinned", { skip: process.platform === "win32" ? "win32 cannot replace a directory link by rename (EPERM): the atomic swap does not exist" : false }, async () => {
   // m-2: the swap between the pin and the append of quota_alarm: the alarm lands in the pinned --out.
   const m = await command(), s = staged(m, (o, swap) => ({ ...o, pin: () => { o.pin?.(); swap(); } }));
   assert.equal(s.take(), s.real);
