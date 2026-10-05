@@ -130,7 +130,8 @@ test("r25i_fake_branch_name_bypasses_nothing - E-5 (2): a fork named lot/etude-s
 
 // killer: scripts/lot-size-integration.mjs:31 CONST "\"-c\", \"merge.conflictStyle=merge\", " -> ""
 // killer: scripts/lot-size-integration.mjs:84 CONST "\"--remerge-diff\", \"--unified" -> "\"--no-diff-merges\", \"--unified"
-test("r25i_conflict_resolution_above_bound_is_red - E-5 (3): through the oracle's r25() with bound 20, a 25-line resolution is red, a 10-line one green; 3 lines slipped into a clean merge count 3 (A-3)", () => {
+// killer: scripts/oracle/r25.mjs:27 CONST "\"-C\", clone, \"-c\", \"core.attributesFile=\", " -> "\"-C\", clone, "
+test("r25i_conflict_resolution_above_bound_is_red - E-5 (3): through the oracle's r25() with bound 20, a 25-line resolution is red, a 10-line one green, under a hostile git config or user attributes; 3 lines slipped into a clean merge count 3 (A-3)", () => {
   for (const [n, exit, changed] of [[25, 1, 31], [10, 0, 16]] as const) withFx((fx) => {
     fx.g("checkout", "-q", "-b", "feat");
     const h1 = fx.commit("p1", "src/p1.txt", 15); // under the bound 20: PR #1 proves (G2 B-2)
@@ -145,8 +146,9 @@ test("r25i_conflict_resolution_above_bound_is_red - E-5 (3): through the oracle'
     fx.g("commit", "-qam", "sync, resolved");
     const file = join(fx.dir, ".git", "proof.json");
     writeFileSync(file, JSON.stringify(proofOf(fx, [pr(1, m1, h1)])));
-    const [r, z] = [{}, { GIT_CONFIG_PARAMETERS: "'merge.conflictstyle=zdiff3' 'diff.algorithm=patience'" }].map((env) => oracle(fx, TARGET, file, env));
-    assert.deepEqual([r?.mode, r?.counts[0]?.changed, r?.exit, z?.counts[0]?.changed], ["integration", changed, exit, changed], JSON.stringify([r, z]));
+    fx.put(".git/xdg/git/attributes", "* -diff\n"); // G2 delta m-a: a user attributes file lowers neither W nor the module's count
+    const [r, z, a] = [{}, { GIT_CONFIG_PARAMETERS: "'merge.conflictstyle=zdiff3' 'diff.algorithm=patience'" }, { XDG_CONFIG_HOME: join(fx.dir, ".git", "xdg") }].map((env) => oracle(fx, TARGET, file, env));
+    assert.deepEqual([r?.mode, r?.counts[0]?.changed, r?.exit, z?.counts[0]?.changed, a?.counts[0]?.changed], ["integration", changed, exit, changed, changed], JSON.stringify([r, z, a]));
   }, ciOf(20));
   withFx((fx) => {
     fx.g("checkout", "-q", TARGET);
