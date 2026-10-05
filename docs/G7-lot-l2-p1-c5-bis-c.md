@@ -162,3 +162,20 @@ M19 (garde `finished` de `time`).
 | preuve rouge du pli contre `c603dd10` | 8 jugés : 5 F2P, 5 tueurs tués ; 3 resserrements, tueurs à la main tués |
 | R-25 contre `f8bedc17` (base de la PR) | 437 (394 insertions, 43 suppressions), GREEN, borne du lot 547, marge 110 |
 | R-25 contre `7d45fa54` | 1 398, dont 961 de la fusion du tronc par `f8bedc17` (hors du lot) : plus la base de cette PR ; le lot seul y valait 313 avant le pli |
+
+### Fusion du correctif de l'oracle Windows de c5-bis-b
+
+- `bc29c3e7` : fusion de `recherches/l2-p1-c5-bis-b` à `7117e271` (le blocage de `l2_record_stopped_line_last` sous charge, refus de
+  MONARK sur #157 : l'hôte mené jusqu'à ce que la course se règle, `settles()` de `test/helpers/host-clock.ts`). Les deux côtés ajoutaient
+  à la fin de `test/l2-loop.test.ts` : `l2_record_stop_bound_armed_late` gardé avant les tests de c5-bis-c. Le pli de B-1 touche les chemins
+  de l'arrêt (abandon du REST, `seal_killed`) : le correctif tient. Le seul test du lot qui attendait la borne du scellé à un instant fixe,
+  `l2_record_seal_kill_named` (scellé sans fin), mène désormais l'hôte par `settles()` lui aussi.
+- Charge : huit exécutions parallèles de `test/l2-loop.test.ts` sur quatre cœurs : 89 sur 89 chacune.
+
+| Vérification (tête `bc29c3e7`) | Résultat |
+|---|---|
+| `node --test test/l2-*.test.ts` | 209 sur 209 |
+| `npm test` complet | 2 440 tests : 2 418 verts, 0 échec, 22 sautés, sortie 0 |
+| `tsc`, `lint`, `lint:ratchet`, `gate:vocab`, `lang:gate` | 0, 0, 69/69, OK, OK |
+| ancres | `--touched 7117e271 HEAD` et `--touched f8bedc17 HEAD` : 102/102 ; `l2-*` : 209/209 |
+| R-25 contre `7117e271` (base de la PR) | 436, GREEN, borne du lot 547 (contre `f8bedc17` : 464) |
