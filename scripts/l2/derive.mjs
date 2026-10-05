@@ -67,7 +67,7 @@ function minuteOf(t, book) {
 }
 
 /** The hook of sealDay (header): files, manifest and missing.json keys, references. */
-export function deriveDay({ out, symbol, day, start, end, segs, marks, dir, scale, bound = MINUTES_BOUND }) {
+export function deriveDay({ out, symbol, day, start, end, segs, marks, dir, scale, bound = MINUTES_BOUND, tap = null }) {
   if (!Number.isSafeInteger(scale) || scale < 0 || scale > 18) throw new DayStop("bad_scale", { symbol, day, scale });
   const anchor = (name) => (existsSync(join(dir, name)) ? snapOf(readFileSync(join(dir, name), "utf8")) ?? "anchor_shape" : "anchor_missing");
   const open = anchor("anchor-open.json"), close = anchor("anchor-close.json"), anchored = typeof open !== "string";
@@ -113,7 +113,7 @@ export function deriveDay({ out, symbol, day, start, end, segs, marks, dir, scal
       if (book === null) continue;
       side(ev.b, book.bids);
       side(ev.a, book.asks);
-      [book.id, lastE] = [ev.u, E]; // A2, A3
+      [book.id, lastE] = [ev.u, E]; tap?.(ev, book); // A2, A3; tap: each applied diff, for the crosscheck (ii) of P1-c3
       if (parity === null && ev.u >= close.lid) parity = ev.U > close.lid + 1 ? { absent: "chain_open" } : book.since === close.lid ? { absent: "synced_on_anchor", u: ev.u } : parityOf(ev);
     }
     if (hit) for (const x of [".frames", ".index.jsonl"]) refs.add(`../../../conn/${cid}/${seg}${x}`);

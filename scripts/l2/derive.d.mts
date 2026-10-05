@@ -29,6 +29,10 @@ export interface ChainHole { from_place_us: number; to_place_us: number | null }
 export type Parity = { u: number; since: number; bids: number; asks: number } | { absent: "anchor_missing" | "anchor_shape" | "chain_open" }
   | { absent: "synced_on_anchor"; u: number };
 
+/** A diff as the replay applies it, and its book after it (prices at the day's scale; levels as received). */
+export interface Applied { E: number; U: number; u: number; b: [string, string][]; a: [string, string][] }
+export interface ReplayBook { id: number; since: number; bids: Map<bigint, [string, string]>; asks: Map<bigint, [string, string]> }
+
 /** The hook of sealDay for one day of one symbol at price scale `scale` (an integer from 0 to 18, else DayStop bad_scale), minutes.jsonl
- *  at most `bound` bytes (MINUTES_BOUND by default). */
-export function deriveDay(ctx: DeriveContext & { scale: number; bound?: number | undefined }): Derived;
+ *  at most `bound` bytes (MINUTES_BOUND by default); `tap` sees each applied diff and the book after it (P1-c3). */
+export function deriveDay(ctx: Omit<DeriveContext, "index"> & { scale: number; bound?: number | undefined; tap?: ((ev: Applied, book: ReplayBook) => void) | null }): Derived;
