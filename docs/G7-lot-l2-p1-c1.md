@@ -275,3 +275,58 @@ segment est un multiple de l'heure, `end` porte les 120 s de grâce : jamais ég
   `l2_replay_byte_identical` ?
 - **Q-G2B-3** : un temporaire `../.<jour>.SHA256SUMS.tmp` laissé par une coupure entre le lien et le retrait reste inerte à côté du jour
   scellé ; c5 le retire-t-il à son `start`, ou le laisse-t-on ?
+
+## Rouge à l'oracle Windows et condition de Q-G2-4 : pli du 2026-10-05
+
+Messages : `2026-10-05-MONARK-vers-RECHERCHES-143-rouge-windows.md` (oracle Windows de la fusion `b1c319c7` : les 9 tests de
+`l2-day` rouges sur `EPERM: operation not permitted, fsync`, fusion retirée) et `…-143-reponses.md` (Q-G2-4 acceptée « si
+`missing.json` nomme la source de la borne »). Base du pli `b1964ed9`. Commits : `9a00bcfd` (tests rouges), `e080325c` (gel),
+`19c4291e` (compactage pour R-25, sans changement de comportement) ; le tronc avait bougé (`origin/lot/etude-suite` en `d305ae15`,
+#142), fusionné après, commit de fusion `31d1d725` ; puis ce commit (G7). `packages/rpc-guard/bin/rpc-guard.mjs` non touché.
+
+### Correctif Windows (fsync du dossier du jour)
+
+- **Cause** : `day.mjs:196` ouvrait le dossier du jour en `"r"` pour son fsync ; sous win32, un dossier ouvert en `"r"` refuse le
+  fsync (`EPERM`). La CI Linux ne le voyait pas.
+- **Correctif, en place (même ligne `:196`, aucune ancre déplacée)** : `openSync(dir, process.platform === "win32" ? "r+" : "r")`.
+  Voie mesurée au dépôt : `packages/rpc-guard/src/ledger.ts:76` (« measured feasible on win32 with flag "r+" only ») et
+  ADR-GARDE-HELIUS item I-1 (win32 `"r"` ⇒ EPERM, `"r+"` ⇒ OK, p50 0,105 ms, N=500). Le chemin de l'hôte de course (Linux) est
+  inchangé : `"r"`. Pas de saut nommé : le fsync est fait sur les deux systèmes. Effet de durabilité sous NTFS non vérifié (comme I-1).
+- **Test `l2_day_folder_fsync_per_platform`** : `fs.openSync` et `fs.fsyncSync` enveloppés (`module.syncBuiltinESMExports`, comme
+  `test/record-binance-klines.test.ts`) ; il relève, pour chaque ouverture du dossier du jour suivie d'un fsync, son drapeau.
+  Sur l'hôte : deux fsync du dossier, `"r"` sous Linux (`"r+"` sous win32). Sur un hôte POSIX, une seconde passe déclare
+  `process.platform` à `win32` (rétabli en `finally`) : deux fsync, drapeau `"r+"` (l'enveloppe ouvre alors le dossier en `"r"`,
+  seul possible sous POSIX). Tueur : `:211` SDL `sync();` (un mutant qui retire le fsync meurt sous Linux). Mutants rejoués à la
+  main, tués : `:218` `sync();` retiré ; `:196` drapeau ramené à `"r"` pour tous (passe win32 simulée). Juge du point : l'oracle
+  Windows de MONARK.
+
+### Source de chaque borne d'un trou (Q-G2-4, condition de MONARK)
+
+- `missing.json` : chaque trou porte `from_src` et `to_src`, `"frame"` (le `recv_us` d'une trame au disque, ADR « watchdog ») ou
+  `"journal"` (le `host_us` de la ligne du journal, faute de trame de la connexion au disque) ; `to_src` nul tant que `to_us` l'est.
+  Ordre des clés : `link, cid, cause, from_us, from_src, to_us, to_src`.
+- Code, lignes changées en place : `:87` (`gap` prend `from_src`, le trou naît `to_src: null`), `:93` (`process_restart`), `:104`
+  (`open` : `to_us`, `to_src`), `:106` (`close` : `from_us`, `from_src`). `day.d.mts` : type `DayHole`. En-tête `:15` : une mention.
+- Test `l2_day_hole_bound_source_named` : les quatre combinaisons (`close` trame → `open` journal, `close` journal → `open` trame,
+  redémarrage trame → journal, redémarrage journal → trame). Tueur fermé : `:106` CONST `us === null ? "journal" : "frame"` →
+  `"frame"`. Mutants rejoués à la main, tués aussi : même mutant à `:104` et à `:93`. Les quatre tests qui lisent des trous
+  (`l2_day_late_frame_marked`, `l2_day_missing_from_journal_and_chain`, `l2_day_hole_bounds_from_frames`,
+  `l2_day_index_bound_named_stop`) attendent les deux champs.
+- Tueur ré-ancré : `l2_day_hole_bounds_from_frames`, `:106` CONST `"us ?? l.host_us"` → `"l.host_us"` (même ligne, même mutation :
+  la borne basse lue au journal au lieu de la trame).
+- **Le mini-lot proposé L2-DAY-BOUND-SOURCE-1 est abandonné** : plié ici
+  (`2026-10-05-RECHERCHES-vers-MONARK-143-Q-G2-4.md`).
+
+### Preuves du pli
+
+- Pli : `node scripts/red-proof.mjs --base b1964ed9 --gel 19c4291e --repo /home/user/monark-governance-c1 --draw 6 --seed 37` :
+  « red-proof OK: 6 judged, 5 unchanged, 6 killer(s) drawn » ; `RED-PROOF.json` sha256 `80f09d0042a3c151…`. F2P :
+  `l2_day_late_frame_marked`, `l2_day_missing_from_journal_and_chain`, `l2_day_hole_bounds_from_frames`,
+  `l2_day_index_bound_named_stop`, `l2_day_hole_bound_source_named`, `l2_day_folder_fsync_per_platform` ; six tueurs tués.
+- Lot entier, contre le tronc `d305ae15` : `--base d305ae15 --gel 31d1d725 --draw 11 --seed 37` : « red-proof OK: 11 judged, 0
+  unchanged, 11 killer(s) drawn » ; sha256 `0c6ae9fe0acf5141…`.
+- Ancres : `verifie-ancres.mjs . --touched d305ae15 HEAD` : 11 tueurs, 11 ANCRE, 0 DERIVE, 0 PERDU.
+- R-25 (`scripts/oracle/r25.mjs`, base `d305ae15`) : `STAT` 547 (547 insertions, 0 suppression ; `day.mjs` 220, `day.d.mts` 56,
+  tests 271), borne du lot 547, marge 0 ; `CONTENT_STAT` 0 ; GREEN.
+- `node --test test/l2-day.test.ts` : 11 sur 11, huit passages. `test:main` 2 261 tests, 2 239 réussis, 0 échec, 22 ignorés
+  (sortie 0) ; `test:export` 1 sur 1. `tsc` 0 ; `lint` 0 erreur ; `lint:ratchet` 69/69 ; `gate:vocab` OK ; `lang:gate` OK.
