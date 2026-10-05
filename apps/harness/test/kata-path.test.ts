@@ -6,10 +6,11 @@
  */
 import { test } from "node:test";
 import assert from "node:assert/strict";
+import { execFile } from "node:child_process";
 import { createHash } from "node:crypto";
 import { readdirSync, readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
-import { fileURLToPath } from "node:url";
+import { fileURLToPath, pathToFileURL } from "node:url";
 import { canonicalJson, TOOL_ERROR_CODES, type ClassEntry, type PolicyRow, type PolicyTable, type Prediction } from "@monark/contracts";
 import { UKEMI_LIQ_COMMITTED } from "../src/calibration.ts";
 import { assertKataRequest, kataPath, kataVerdictFields, servedPolicyTables, type ServedTableTexts } from "../src/kata-path.ts";
@@ -335,6 +336,21 @@ test("kata_path_is_served", () => {
   assert.ok(seen.size > 6 && seen.has(join(SRC, "tools/gate.ts")));
   for (const f of ["kata-path.ts", "policy-classes.ts", "policy-served.ts"]) assert.ok(seen.has(join(SRC, f)), `${f} is served`);
   assert.ok(!seen.has(join(SRC, "policy-guard.ts")), "policy-guard.ts is not served");
+});
+
+// G2 N-3 of D-2: the cycle gate.ts <-> kata-path.ts loads cold from either side. Each module is imported first in a fresh child
+// process: kata-path.ts (the risky side: gate.ts then runs first and calls servedPolicyTables while it loads), then server.ts;
+// both load and serve the 35 tables. Green at the base of D-3 (declared; killer fired by hand).
+// killer: apps/harness/src/kata-path.ts:118 CONST "kataClassEntries(texts.classText)" -> "kataClassEntries(TIME_FIELDS.global ? texts.classText : texts.classText)"
+test("kata_path_and_server_load_cold", async () => {
+  const url = (f: string): string => JSON.stringify(pathToFileURL(join(SRC, f)).href);
+  for (const first of ["kata-path.ts", "server.ts"]) {
+    const script = `await import(${url(first)}); const g = await import(${url("tools/gate.ts")}); process.stdout.write(String(g.SERVED_POLICY_TABLES.length));`;
+    const got = await new Promise<{ ok: boolean; out: string }>((resolve) => {
+      execFile(process.execPath, ["--input-type=module", "-e", script], { encoding: "utf8", timeout: 60000 }, (e, stdout, stderr) => { resolve({ ok: e === null, out: e === null ? stdout : stderr.slice(0, 400) }); });
+    });
+    assert.deepEqual(got, { ok: true, out: "35" }, `${first} loads first`);
+  }
 });
 
 /** C-3 (delegated decision CM-4b): the codes with no served thrower yet, exact; none since block D (lot D-2), whose served

@@ -132,3 +132,11 @@ test("byo_reserved_kata_body_names_the_wide_pattern", async () => {
   assert.equal(res.status, 400, "HTTP 400");
   assert.equal(await res.text(), JSON.stringify({ error: "tool_error", operation: "gate", message, code: "byo_reserved_kata" }), "exact body");
 });
+
+// G2 N-2 of D-1: a one-letter symbol is refused by B-10 when it is "m", the reduction of "rn" (m-dir-1h imitates rn-dir-1h, a
+// wide name), while any other one-letter symbol decides. Green at the base of D-3 (declared; killer fired by hand).
+// killer: apps/harness/src/tools/gate.ts:799 CONST "(?:m|" -> "(?:"
+test("byo_one_letter_m_is_a_lookalike_of_rn", () => {
+  for (const c of ["m-dir-1h", "m_dir_1h", "M-DIR-1H", "m-range-4h"]) assert.equal(outcome(c), "byo_lookalike_confusable", `${c}: imitates rn-<family>-<h>`);
+  for (const c of ["a-dir-1h", "n-dir-1h", "r-range-4h"]) assert.equal(outcome(c), "decided", `${c}: decides`);
+});
