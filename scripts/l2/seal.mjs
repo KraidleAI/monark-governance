@@ -52,24 +52,26 @@ const CHILD = fileURLToPath(new URL("./seal-child.mjs", import.meta.url)), TAIL 
  *  ino in the spec; closed(cid, seg) is false for the "cid/seg" of spec.open. sealOf's result, or { sealed: false, failed: { code, signal,
  *  stop, detail } }: a named stop of the child, its death (detail: the tail of its stderr), root_refused, spec_refused, spawn_failed,
  *  seal_timeout past timeoutMs, seal_aborted on `signal`; never rejects, never pending past timeoutMs. */
-export function sealApart(spec, { env = {}, heapMb = SEAL_HEAP_MB, timeoutMs = SEAL_TIMEOUT_MS, signal } = {}) {
+export function sealApart(spec, io) {
   return new Promise((done) => {
     const failed = (stop, detail = null, code = null, sig = null) => ({ sealed: false, failed: { code, signal: sig, stop, detail } });
-    let child = null, timer = null, fd = null, step = "root_refused", text = "", err = "";
+    let child = null, timer = null, fd = null, step = "spec_refused", text = "", err = "", signal;
     const finish = (r) => { clearTimeout(timer); signal?.removeEventListener("abort", aborted); done(r); }; // the first one holds
     const halt = (stop, detail) => { child?.kill("SIGKILL"); finish(failed(stop, detail)); };
     const aborted = () => { halt("seal_aborted"); };
-    try {
-      if (signal?.aborted) return finish(failed("seal_aborted"));
+    try { // a null io is none, a getter of it that throws spec_refused (n-9 of the G2 delta of c5-bis-a), so is a signal no AbortSignal (r-2)
+      const { env = {}, heapMb = SEAL_HEAP_MB, timeoutMs = SEAL_TIMEOUT_MS, signal: given } = io ?? {};
+      if ((signal = given instanceof AbortSignal ? given : given === undefined ? undefined : null) === null) throw new TypeError("signal");
+      if (signal?.aborted) return finish(failed("seal_aborted")); else step = "root_refused";
       fd = openSync(spec.out, constants.O_RDONLY | (constants.O_DIRECTORY ?? 0)); // through /proc/self/fd/<n>: the pinned directory itself
       const st = fstatSync(fd, { bigint: true });
       step = "spec_refused";
       const arg = JSON.stringify({ ...spec, root: { dev: String(st.dev), ino: String(st.ino) } });
       step = "spawn_failed";
       child = spawn(process.execPath, [`--max-old-space-size=${heapMb}`, CHILD, arg], { env, stdio: ["ignore", "pipe", "pipe", fd] });
+      timer = setTimeout(() => { halt("seal_timeout", { timeout_ms: timeoutMs }); }, timeoutMs);
+      signal?.addEventListener("abort", aborted, { once: true });
     } catch (e) { return finish(failed(step, { error: e?.code ?? e?.name ?? null })); } finally { if (fd !== null) closeSync(fd); }
-    timer = setTimeout(() => { halt("seal_timeout", { timeout_ms: timeoutMs }); }, timeoutMs);
-    signal?.addEventListener("abort", aborted, { once: true });
     child.stdout.setEncoding("utf8").on("data", (d) => { text += d; });
     child.stderr.setEncoding("utf8").on("data", (d) => { err = (err + d).slice(-TAIL); });
     child.on("error", (e) => { finish(failed("spawn_failed", { error: e.code ?? null })); });

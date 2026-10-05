@@ -4,7 +4,7 @@
 // node --max-old-space-size=<n> seal-child.mjs <spec>, never by hand. Its own guards first, before any data is read (its modules are
 // loaded by then: the parent's explicit env is the first defence, n-1 of the G2 of c5-bis-a): its execArgv is exactly one flag, the heap
 // cap (any other, or none: proxy_refused); its environment passes guardEnv of the command with no flag (the closed list: empty on Linux,
-// so a proxy variable, NODE_OPTIONS or any other name stops it, named); its fd 3 is the root its parent pinned, a directory of the dev
+// so a proxy variable, NODE_OPTIONS or any other name stops it, named); its fd 3 is the root its parent pinned, a linked directory of the dev
 // and ino the spec names, and no file, directory nor socket is inherited past it (else out_not_l2; B-1 of that G2). Then sealOf of the
 // spec (JSON: out, symbol, day, nowUs, config, scale, bounds; open, the "cid/seg" its parent's writers hold open; root) written through
 // /proc/self/fd/3, the result's dir named under spec.out. One JSON line on stdout: { result } (exit 0) or { stop, detail } of a named
@@ -19,11 +19,11 @@ import { sealOf } from "./seal.mjs";
 const HEAP = /^--max-old-space-size=[1-9][0-9]*$/, LF = String.fromCharCode(10), SCRIPT = fileURLToPath(import.meta.url);
 const ROOT = 3, PINNED = `/proc/self/fd/${ROOT}`, OWN = /^((anon_inode|pipe):|\/dev\/null$)/; // past fd 3, node's own: its loops', its pipes', /dev/null
 const target = (n) => { try { return readlinkSync(`/proc/self/fd/${n}`); } catch { return "pipe:"; } }; // gone since listed: the listing's own
-/** Why fd 3 is not the root the parent pinned (a directory of the spec's dev and ino, nothing inherited past it), or null. */
+/** Why fd 3 is not the root the parent pinned (a directory still linked, r-1 of the G2 delta, of the spec's dev and ino, nothing inherited past it), or null. */
 function unpinned(root) {
   try {
     const st = fstatSync(ROOT, { bigint: true }), extra = readdirSync("/proc/self/fd").map(Number).filter((n) => n > ROOT && !OWN.test(target(n)));
-    return st.isDirectory() && String(st.dev) === root?.dev && String(st.ino) === root?.ino && extra.length === 0 ? null : { extra };
+    return st.isDirectory() && st.nlink > 0n && String(st.dev) === root?.dev && String(st.ino) === root?.ino && extra.length === 0 ? null : { extra };
   } catch (e) { return { error: e?.code ?? null }; }
 }
 
