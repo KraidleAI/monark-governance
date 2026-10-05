@@ -1,4 +1,4 @@
-# G0 du lot L2-SEAL-APART-FLAKE-1 : `l2_seal_apart_child_killed` ne dépend plus de l'ordonnanceur
+# G0 du lot L2-SEAL-APART-FLAKE-1 : `l2_seal_apart_child_killed` ne dépend plus d'une échéance gagnée à temps
 
 - **Demande** : item `L2-SEAL-APART-FLAKE-1` ; `test/l2-loop.test.ts:633` `l2_seal_apart_child_killed` rouge une fois sur 48 sous charge (tous les fichiers `test/l2-*.test.ts`, `--test-concurrency=16`, 6 lanceurs sur un même `TMPDIR`), assertion de la ligne 638 : attendu `[false,false,undefined,false,false]`, obtenu `[false,false,undefined,true,false]`.
 - **Base** : `753a23a9` (`origin/base/chantier-moteur-2026-10-03`), branche `recherches/l2-seal-apart-flake-1`. Auteur : RECHERCHES.
