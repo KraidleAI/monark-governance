@@ -66,27 +66,61 @@ export const ATTESTED_PRICE_SCHEMA: JsonObject = loadFrozen("attested-price.sche
 /** Keywords whose VALUE is a map from arbitrary (author-chosen) names to subschemas. The child KEYS
  *  there are property names, NOT schema-node annotations, so they are never stripped by name. */
 const SUBSCHEMA_MAP_KEYWORDS = new Set(["properties", "patternProperties", "$defs", "definitions", "dependentSchemas"]);
+/** Keywords whose VALUE is data (a JSON instance), never a schema: copied verbatim and never descended into, so a `$ref`, `$defs`
+ *  or `description` key inside a `const` stays data (SCHEMA-PROJECTION-FAIL-CLOSED-1). */
+const DATA_KEYWORDS = new Set(["const", "enum", "default", "examples"]);
+/** Keywords that resolve against a dynamic scope or an anchor: none is inlined, so each is refused where a reference is resolved. */
+const DYNAMIC_KEYWORDS = new Set(["$dynamicRef", "$recursiveRef", "$anchor", "$dynamicAnchor", "$recursiveAnchor"]);
+
+const isMap = (v: Json | undefined): v is JsonObject => v !== null && typeof v === "object" && !Array.isArray(v);
+/** Sets `k` as an OWN data property, so a JSON key `__proto__` stays a key and never becomes the prototype. */
+function setOwn(o: JsonObject, k: string, v: Json): void {
+  Object.defineProperty(o, k, { value: v, enumerable: true, writable: true, configurable: true });
+}
 
 /** (1) Drop the identity keys `$schema`/`$id` and the annotation keys `description`/`title` of every
  *  schema node, at every depth. Pure; a function of the input bytes. Position-aware (C-1): inside a
- *  subschema map the keys are property names and are preserved (we still recurse into their subschemas). */
+ *  subschema map the keys are property names and are preserved (we still recurse into their subschemas);
+ *  the value of a data keyword (`const`, `enum`, `default`, `examples`) is copied verbatim. */
 export function stripMeta(node: Json): Json {
   if (Array.isArray(node)) return node.map((n) => stripMeta(n));
   if (node !== null && typeof node === "object") {
     const out: JsonObject = {};
     for (const [k, v] of Object.entries(node)) {
       if (k === "$schema" || k === "$id" || k === "description" || k === "title") continue;
-      if (SUBSCHEMA_MAP_KEYWORDS.has(k) && v !== null && typeof v === "object" && !Array.isArray(v)) {
+      if (DATA_KEYWORDS.has(k)) {
+        setOwn(out, k, structuredClone(v));
+      } else if (SUBSCHEMA_MAP_KEYWORDS.has(k) && isMap(v)) {
         const inner: JsonObject = {};
-        for (const [name, sub] of Object.entries(v)) inner[name] = stripMeta(sub);
-        out[k] = inner;
+        for (const [name, sub] of Object.entries(v)) setOwn(inner, name, stripMeta(sub));
+        setOwn(out, k, inner);
       } else {
-        out[k] = stripMeta(v);
+        setOwn(out, k, stripMeta(v));
       }
     }
     return out;
   }
   return node;
+}
+
+/** Every schema node of `node`, root first, read position-aware like `stripMeta` (a data keyword's value is not a schema). */
+function schemaNodes(node: Json, out: JsonObject[] = []): JsonObject[] {
+  if (Array.isArray(node)) for (const n of node) schemaNodes(n, out);
+  if (!isMap(node)) return out;
+  out.push(node);
+  for (const [k, v] of Object.entries(node)) {
+    if (DATA_KEYWORDS.has(k)) continue;
+    if (SUBSCHEMA_MAP_KEYWORDS.has(k) && isMap(v)) for (const sub of Object.values(v)) schemaNodes(sub, out);
+    else schemaNodes(v, out);
+  }
+  return out;
+}
+
+/** A raw frozen file whose `$id` is only at its root, or a throw: a nested `$id` opens another resource, against which
+ *  `#/$defs/...` would resolve, and `stripMeta` drops it, so it is refused before the strip. */
+export function refuseNestedId(raw: JsonObject, where: string): JsonObject {
+  if (schemaNodes(raw).slice(1).some((n) => Object.hasOwn(n, "$id"))) throw new Error(`schema-projection: ${where} carries a nested $id; its references would resolve against another resource`);
+  return raw;
 }
 
 function asObject(node: Json, where: string): JsonObject {
@@ -96,25 +130,54 @@ function asObject(node: Json, where: string): JsonObject {
   return node;
 }
 
-/** (2) Splice the stripped CoverageVerdict in place of GateDecision.properties.verdict's `$ref`. */
+/** The one node `derefVerdict` replaces: the frozen `GateDecision.properties.verdict`, exactly. */
+const VERDICT_REF = "coverage-verdict.schema.json";
+/** (2) Splice the stripped CoverageVerdict in place of GateDecision.properties.verdict's `$ref`. Fails closed: `verdict` must
+ *  be present and exactly `{ "$ref": "coverage-verdict.schema.json" }` (no sibling, no other target), and the CoverageVerdict
+ *  must carry no `$ref`, `$defs` or dynamic keyword (it would resolve against GateDecision once spliced). */
 export function derefVerdict(gateDecision: JsonObject, coverageVerdict: JsonObject): JsonObject {
-  const gd = asObject(stripMeta(gateDecision), "GateDecision");
-  const props = asObject(gd["properties"] ?? {}, "GateDecision.properties");
-  props["verdict"] = stripMeta(coverageVerdict);
+  const gd = asObject(stripMeta(refuseNestedId(gateDecision, "GateDecision")), "GateDecision");
+  const props = asObject(gd["properties"] ?? null, "GateDecision.properties");
+  const v = props["verdict"];
+  if (!isMap(v) || Object.keys(v).join() !== "$ref" || v["$ref"] !== VERDICT_REF) throw new Error(`schema-projection: GateDecision.properties.verdict is not exactly { "$ref": "${VERDICT_REF}" }`);
+  const cv = stripMeta(refuseNestedId(coverageVerdict, "CoverageVerdict"));
+  const bad = schemaNodes(cv).flatMap((n) => Object.keys(n).filter((k) => k === "$ref" || k === "$defs" || DYNAMIC_KEYWORDS.has(k)));
+  if (bad.length > 0) throw new Error(`schema-projection: CoverageVerdict carries ${bad.join(", ")}; spliced into GateDecision it would resolve there`);
+  setOwn(props, "verdict", cv);
   gd["properties"] = props;
   return gd;
 }
 
 /** (3) OPENAPI-ERROR-CODE-1 (lot CM-3c-4a, Q-C5 condition 4): the frozen error bodies of the mirror, stripped, with every local
- *  `#/$defs/<name>` reference inlined (OpenAPI resolves `#` against its own document) and `$defs` dropped; fails closed (`defOfRef`). */
+ *  `#/$defs/<name>` reference inlined (OpenAPI resolves `#` against its own document) and `$defs` dropped. Position-aware like
+ *  `stripMeta`; the refusals are those of `defOfRef`, plus any dynamic keyword. */
 export function inlineDefs(node: Json, defs: JsonObject, via: readonly string[] = []): Json {
   if (Array.isArray(node)) return node.map((n) => inlineDefs(n, defs, via));
   if (node === null || typeof node !== "object") return node;
-  const name = "$ref" in node ? defOfRef(node, defs, via) : null;
+  const name = Object.hasOwn(node, "$ref") ? defOfRef(node, defs, via) : null;
   if (name !== null) return inlineDefs(defs[name] ?? null, defs, [...via, name]);
-  return Object.fromEntries(Object.entries(node).filter(([k]) => k !== "$defs").map(([k, v]) => [k, inlineDefs(v, defs, via)]));
+  const dynamic = Object.keys(node).filter((k) => DYNAMIC_KEYWORDS.has(k));
+  if (dynamic.length > 0) throw new Error(`schema-projection: ${dynamic.join(", ")} cannot be inlined (dynamic scope or anchor)`);
+  const sub = (v: Json): Json => (isMap(v) ? Object.fromEntries(Object.entries(v).map(([n, s]) => [n, inlineDefs(s, defs, via)])) : inlineDefs(v, defs, via));
+  return Object.fromEntries(Object.entries(node).filter(([k]) => k !== "$defs").map(([k, v]) => [k, DATA_KEYWORDS.has(k) ? structuredClone(v) : SUBSCHEMA_MAP_KEYWORDS.has(k) ? sub(v) : inlineDefs(v, defs, via)]));
 }
-const TOOL_ERROR_SCHEMA = asObject(stripMeta(loadFrozen("tool-error.schema.json")), "ToolError");
+
+/** SCHEMA-PROJECTION-FAIL-CLOSED-1: the definition a `$ref` node of `inlineDefs` stands for, or a throw. Refused: a `$ref` that
+ *  is not a local `#/$defs/<name>` of a known object definition (another document, a deeper pointer, an escaped name, a
+ *  non-string), a `$ref` with sibling keywords (inlining would drop them), and a definition reached again on its own path
+ *  (recursive: inlining never ends). `via` is the path of definitions being inlined, so a definition used twice side by side
+ *  is not recursive. */
+function defOfRef(node: JsonObject, defs: JsonObject, via: readonly string[]): string {
+  const ref = node["$ref"], local = "#/$defs/";
+  const name = typeof ref === "string" && ref.startsWith(local) ? ref.slice(local.length) : "";
+  if (/^$|[/~%]/.test(name) || !Object.hasOwn(defs, name)) throw new Error(`schema-projection: $ref ${JSON.stringify(ref)} does not name a known local definition (#/$defs/<name>)`);
+  asObject(defs[name] ?? null, local + name);
+  const siblings = Object.keys(node).filter((k) => k !== "$ref");
+  if (siblings.length > 0) throw new Error(`schema-projection: $ref ${local}${name} has sibling keywords (${siblings.join(", ")}) that inlining would drop`);
+  if (via.includes(name)) throw new Error(`schema-projection: $ref ${local}${name} is recursive (${[...via, name].join(" -> ")}); it cannot be inlined`);
+  return name;
+}
+const TOOL_ERROR_SCHEMA = asObject(stripMeta(refuseNestedId(loadFrozen("tool-error.schema.json"), "ToolError")), "ToolError");
 const TOOL_ERROR_DEFS = asObject(TOOL_ERROR_SCHEMA["$defs"] ?? null, "ToolError.$defs");
 /** The 400 body (the root: tool_error, invalid_input, invalid_json). */
 export const TOOL_ERROR_400_SCHEMA = asObject(inlineDefs(TOOL_ERROR_SCHEMA, TOOL_ERROR_DEFS), "ToolError 400");
@@ -478,19 +541,3 @@ export const UKEMI_PREDICT_OUTPUT_SCHEMA: JsonObject = {
 /** SDK Standard Schemas for the ukemi-predict tool (the `registerTool` arguments at -5b). */
 export const ukemiPredictInputStandardSchema: StandardSchemaWithJSON = fromJsonSchema(UKEMI_PREDICT_INPUT_SCHEMA as unknown as JsonSchemaType);
 export const ukemiPredictOutputStandardSchema: StandardSchemaWithJSON = fromJsonSchema(UKEMI_PREDICT_OUTPUT_SCHEMA as unknown as JsonSchemaType);
-
-/** SCHEMA-PROJECTION-FAIL-CLOSED-1: the definition a `$ref` node of `inlineDefs` stands for (a function declaration, so it is
- *  hoisted above its first use at load), or a throw, never a silent projection. Refused: a `$ref` that is not a local
- *  `#/$defs/<name>` of a known object definition (another document, a deeper pointer, an escaped name, a non-string), a `$ref`
- *  with sibling keywords (inlining would drop them), and a definition reached again on its own path (recursive: inlining
- *  never ends). `via` is the path of definitions being inlined, so a definition used twice side by side is not recursive. */
-function defOfRef(node: JsonObject, defs: JsonObject, via: readonly string[]): string {
-  const ref = node["$ref"], local = "#/$defs/";
-  const name = typeof ref === "string" && ref.startsWith(local) ? ref.slice(local.length) : "";
-  if (/^$|[/~%]/.test(name) || !Object.hasOwn(defs, name)) throw new Error(`schema-projection: $ref ${JSON.stringify(ref)} does not name a known local definition (#/$defs/<name>)`);
-  asObject(defs[name] ?? null, local + name);
-  const siblings = Object.keys(node).filter((k) => k !== "$ref");
-  if (siblings.length > 0) throw new Error(`schema-projection: $ref ${local}${name} has sibling keywords (${siblings.join(", ")}) that inlining would drop`);
-  if (via.includes(name)) throw new Error(`schema-projection: $ref ${local}${name} is recursive (${[...via, name].join(" -> ")}); it cannot be inlined`);
-  return name;
-}

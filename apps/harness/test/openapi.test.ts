@@ -175,7 +175,7 @@ function internal500(): { build: (internal: { [k: string]: Json }) => Json; inte
 
 // TRANSPORT-500-SCHEMA-1, fold of its review (N-1; scope of SCHEMA-PROJECTION-FAIL-CLOSED-1): the two 500 branches exclude each
 // other only while InternalError is closed and requires operation; the builder refuses any other InternalError at load.
-// killer: apps/harness/src/schema-projection.ts:132 CONST "internal[\"additionalProperties\"] !== false" -> "false"
+// killer: apps/harness/src/schema-projection.ts:195 CONST "internal[\"additionalProperties\"] !== false" -> "false"
 test("internal_500_branches_fail_closed_unless_exclusive", () => {
   const { build, internal } = internal500();
   assert.doesNotThrow(() => build(internal), "the frozen InternalError builds");
@@ -190,7 +190,7 @@ test("internal_500_branches_fail_closed_unless_exclusive", () => {
 // TRANSPORT-500-SCHEMA-1, fold of its review (N-2; scope of SCHEMA-PROJECTION-FAIL-CLOSED-1): the transport-level branch takes
 // a closed list of keys from InternalError (type, additionalProperties) plus its own required and error property, so a future
 // key of the frozen definition (minProperties, allOf) stays in the InternalError branch and never in the transport one.
-// killer: apps/harness/src/schema-projection.ts:136 CONST "...picked" -> "...internal"
+// killer: apps/harness/src/schema-projection.ts:199 CONST "...picked" -> "...internal"
 test("transport_500_branch_takes_a_closed_list_of_keys", () => {
   const { build, internal } = internal500();
   const props = asObj(internal["properties"], "InternalError.properties");
@@ -212,7 +212,7 @@ const SPF_DEFS: { [k: string]: Json } = { Operation: { type: "string", minLength
 
 // SCHEMA-PROJECTION-FAIL-CLOSED-1: a $ref with sibling keywords fails closed; at the base the siblings were dropped in silence
 // ({ $ref, maxLength: 64 } projected to Operation alone). A bare $ref still inlines, so the frozen bodies are unchanged.
-// killer: apps/harness/src/schema-projection.ts:493 CONST "siblings.length > 0" -> "false"
+// killer: apps/harness/src/schema-projection.ts:176 CONST "siblings.length > 0" -> "false"
 test("spf_ref_with_sibling_keywords_fails_closed", () => {
   const inline = spfInline();
   assert.deepEqual(inline({ properties: { operation: { $ref: "#/$defs/Operation" } } }, SPF_DEFS), { properties: { operation: { type: "string", minLength: 1 } } }, "a bare $ref inlines");
@@ -223,7 +223,7 @@ test("spf_ref_with_sibling_keywords_fails_closed", () => {
 
 // SCHEMA-PROJECTION-FAIL-CLOSED-1: a definition reached again on its own path fails closed with the path named; at the base the
 // inliner recursed until the stack overflowed (RangeError). A definition used twice side by side is not recursive.
-// killer: apps/harness/src/schema-projection.ts:494 CONST "via.includes(name)" -> "false"
+// killer: apps/harness/src/schema-projection.ts:177 CONST "via.includes(name)" -> "false"
 test("spf_recursive_definition_fails_closed", () => {
   const inline = spfInline();
   const self = { Node: { type: "object", properties: { next: { $ref: "#/$defs/Node" } } } };
@@ -235,7 +235,7 @@ test("spf_recursive_definition_fails_closed", () => {
 
 // SCHEMA-PROJECTION-FAIL-CLOSED-1: only a local #/$defs/<name> of a known object definition inlines. At the base a bare name
 // resolved in silence, a non-string $ref was kept, and an unknown one threw an unrelated message ("expected an object").
-// killer: apps/harness/src/schema-projection.ts:490 CONST "!Object.hasOwn(defs, name)" -> "false"
+// killer: apps/harness/src/schema-projection.ts:173 CONST "!Object.hasOwn(defs, name)" -> "false"
 test("spf_unknown_or_nonlocal_ref_fails_closed", () => {
   const inline = spfInline();
   const defs = { ...SPF_DEFS, "a~1b": { type: "null" }, "a%20b": { type: "null" }, Flag: true };

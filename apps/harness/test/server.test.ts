@@ -305,7 +305,7 @@ test("harness_server_drain_leaves_no_server_handle", async () => {
 // publishes (the same for the four operations, compiled by Ajv 2020 in strict mode), over the wire: the two 500 of an operation
 // (output outside its schema, the tool threw) and the transport-level 500 of server.ts, thrown around the mirror (POST /calibrate)
 // or before routing (an unparseable Host), whose body is exactly {"error":"internal_error"}. The schema stays closed.
-// killer: apps/harness/src/schema-projection.ts:137 CONST "[internal, transport]" -> "[internal]"
+// killer: apps/harness/src/schema-projection.ts:200 CONST "[internal, transport]" -> "[internal]"
 test("every_500_of_the_server_validates_the_published_500_schema", async () => {
   type Rec = Record<string, unknown>;
   const at = (node: unknown, ...keys: string[]): unknown => keys.reduce<unknown>((n, k) => (n as Rec | undefined)?.[k], node);
