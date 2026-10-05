@@ -6,7 +6,7 @@ import type { Applied, ReplayBook } from "./derive.mjs";
 
 /** The keys of D-20 by stream (Q-P1-9): (U,u), u, t; none for forceOrder, ordered by its bytes alone. */
 export const CANON_KEYS: Readonly<Record<string, readonly string[]>>;
-/** Bytes of one run of equal keys held at most (64 MiB), else DayStop canon_bound. */
+/** 64 MiB: twice the bytes of one run of equal keys (its buffers, then its forms) at most, else DayStop canon_bound. */
 export const RUN_BOUND: number;
 /** Groups and unmatched diffs listed at the manifest at most; each one is counted. */
 export const NAMED_BOUND: number;

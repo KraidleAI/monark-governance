@@ -32,7 +32,7 @@ export const SAMPLING = Object.freeze({ stream: "forceOrder", per_symbol_ms: 100
 export const KEYS = Object.freeze({ "depth@100ms": "U,u", bookTicker: "u", trade: "t", forceOrder: "bytes", order: "key,bytes" }); // Q-P1-9
 export const MISSING_EVENTS = Object.freeze(["writer_stop", "overlap_break", "chain_gap", "sync_try_vain", "sync_suspended",
   "chain_stopped", "buffer_trimmed", "tail_marked"]);
-export const STOPS = Object.freeze(["bad_symbol", "bad_day", "place_time_unsafe", "day_sealed", "index_bound", "stray_file", "off_scale", "bad_scale", "minutes_bound", "canon_bound"]); // off_scale to minutes_bound: P1-c2; canon_bound: P1-c3
+export const STOPS = Object.freeze(["bad_symbol", "bad_day", "place_time_unsafe", "day_sealed", "index_bound", "stray_file", "off_scale", "bad_scale", "minutes_bound", "canon_bound", "canon_reread"]); // off_scale to minutes_bound: P1-c2; canon_*: P1-c3
 export const INDEX_BOUND = 4_194_304; // G2 B-2: frames held at a seal (12 bytes each in the index, 32 for a pending bookTicker); R-2 of the
 // second G2: halved from 8 388 608, so a day of 99.9 % bookTicker at the bound stays under MemoryMax=512M of D24-4 (measures in the G7)
 export const DAY_FILES = Object.freeze(["index.jsonl", "missing.json", "manifest.json", "anchor-open.json", "anchor-close.json", "minutes.jsonl"]);

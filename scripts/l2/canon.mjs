@@ -9,8 +9,8 @@
 // Two digests: raw_sha256 over the sequence, an LF after each frame; fields_sha256 over the distinct re-serialized forms (JSON with
 // sorted keys, strings intact; not JSON: the text), ordered by (key, form): the fallback if M-5 refutes the byte identity. Two payloads
 // of one key with different bytes stay two entries, named (same_key); two of one form with different bytes are named too
-// (same_fields): naming, never merging. A run of equal keys is held to be ordered by bytes: at most `bound` bytes, else canon_bound,
-// nothing written. Trade ids: a jump is never a hole (nothing in missing.json); jumps and the largest are counted, an observation.
+// (same_fields): naming, never merging. A run of equal keys is held with its forms to be ordered by bytes: 2 x its bytes at most
+// `bound`, else canon_bound; an index entry not read again, canon_reread; nothing written. Trade ids: a jump is never a hole, counted.
 // Crosschecks, counted: (i) each u of @bookTicker lies in a received [U;u] of the day's diffs; (ii) each diff of the day that changes
 // the best level net (price or quantity of either side, FAITS-L2-ACCESS-2 (j)) has a @bookTicker u in its [U;u], from bestTap(), the
 // tap of the replay of P1-c2 (the first event on a book just set is not judged). The agent never commits (R-20).
@@ -22,7 +22,7 @@ import { atScale } from "./derive.mjs";
 import { readSegment } from "./segments.mjs";
 
 export const CANON_KEYS = Object.freeze({ "depth@100ms": ["U", "u"], bookTicker: ["u"], trade: ["t"], forceOrder: [] }); // KEYS, day.mjs
-export const RUN_BOUND = 67_108_864; // bytes of one run of equal keys held to order it by bytes (64 MiB), else canon_bound
+export const RUN_BOUND = 67_108_864; // 64 MiB: 2 x the bytes of one run of equal keys (its buffers, then its forms), else canon_bound
 export const NAMED_BOUND = 16; // groups (or unmatched diffs) listed at the manifest at most; each is counted
 const LF = Buffer.from([10]);
 const json = (text) => { try { return JSON.parse(text); } catch { return null; } };
@@ -84,7 +84,7 @@ export function canonDay({ out, symbol, segs, marks, index, best = null, bound =
     readSync(fds.get(path), b, 0, b.length, st.off[x]);
     return b;
   };
-  const tickers = new Float64Array(streams[1].m);
+  if (streams.some((x) => x.at !== x.n)) throw new DayStop("canon_reread", { symbol, read: streams.map((x) => x.at / 3) }); const tickers = new Float64Array(streams[1].m); // G2 n-2
   let nu = 0, outside = 0;
   try {
     for (const st of streams) {
@@ -94,7 +94,7 @@ export function canonDay({ out, symbol, segs, marks, index, best = null, bound =
       let prev = null, jumps = 0, max = null;
       for (let i = 0, j = 0, held = 0; i < st.m; i = j, held = 0) {
         for (j = i; j < st.m && st.k1[perm[j]] === st.k1[perm[i]] && st.k2[perm[j]] === st.k2[perm[i]]; j += 1) held += st.len[perm[j]];
-        if (held > bound) throw new DayStop("canon_bound", { symbol, stream: st.name, bound });
+        if (2 * held > bound) throw new DayStop("canon_bound", { symbol, stream: st.name, bound });
         const run = [...perm.subarray(i, j)].map((x) => ({ x, b: bytesOf(st, x) })).sort((p, q) => Buffer.compare(p.b, q.b));
         const d = run.filter((e, n) => n === 0 || !e.b.equals(run[n - 1].b)); // each payload once by its exact bytes (Q-P1-9)
         const [k1, k2] = [st.k1[perm[i]], st.k2[perm[i]]], key = k1 === -Infinity || st.keys.length === 0 ? null : [k1, k2].slice(0, st.keys.length);

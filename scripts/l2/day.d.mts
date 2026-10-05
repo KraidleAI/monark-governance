@@ -12,7 +12,7 @@ export const STOPS: readonly string[];
 export const INDEX_BOUND: number;
 export const DAY_FILES: readonly string[];
 
-/** A named stop: `code` is one of STOPS (bad_symbol, bad_day, place_time_unsafe, day_sealed, index_bound, stray_file; off_scale, bad_scale, minutes_bound of P1-c2; canon_bound of P1-c3). */
+/** A named stop: `code` is one of STOPS (bad_symbol, bad_day, place_time_unsafe, day_sealed, index_bound, stray_file; off_scale, bad_scale, minutes_bound of P1-c2; canon_bound, canon_reread of P1-c3). */
 export class DayStop extends Error {
   readonly code: string;
   readonly detail: Record<string, unknown>;
