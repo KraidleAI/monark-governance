@@ -324,7 +324,7 @@ export async function record(plan, { at, check, root }, io) {
     return (existsSync(conn) ? readdirSync(conn) : []).flatMap((c) => readdirSync(join(conn, c)).filter((n) => n.endsWith(".frames")).map((n) => n.slice(0, -7))
       .filter((g) => g >= from && g <= to && [...links.values()].some((l) => !l.closed(c, g))).map((g) => `${c}/${g}`));
   };
-  const apart = (spec) => (io.seal ?? sealApart)({ ...spec, out: at, root }, { env, signal: abort.signal }); // the one call of the child (its root: adopt's, its fd 3)
+  const apart = (spec) => (io.seal ?? sealApart)({ ...spec, out: at, root }, { env, signal: abort.signal, onKill: (r) => { tell("seal_killed", { day: spec.day, ...r.failed }, spec.symbol); } }); // the one call of the child (its root: adopt's, its fd 3; m-1: its kill named at once)
   async function seals() { // one symbol at a time; a throw on one key journaled with its symbol and day, the next keys go on (r-1 of the G2 delta)
     for (const key of [...due].sort()) {
       const [symbol, day] = key.split("/"), start = Date.parse(`${day}T00:00:00Z`) * 1000, f = facts.get(key);
@@ -357,7 +357,7 @@ export async function record(plan, { at, check, root }, io) {
         if (low !== null) lowUntil = calendar(wallUs(), wallUs() + DAY_US, offset).filter((e) => e.task === "exchangeInfo").at(-1).at + 1_000_000; // past the next round
         if ((was === null) !== (low === null)) note(low === null ? "weight_resumed" : "weight_suspended", { limit: f.requestWeightPerMinute, floor: WEIGHT_FLOOR });
       } else { // anchor: the bytes kept by the REST client, as anchor-close.json of its day and anchor-open.json of the next (D-9)
-        const { body } = await rest.request("depth", symbol); if (finished) return; // r-2
+        const { body, sentUs } = await rest.request("depth", symbol); if (finished) return; if (dayOf(sentUs + offset) !== dayOf(t + offset)) return tell("event_skipped", { task, late_us: sentUs - t, at_send: true }, symbol); // r-2; B-1 of the G2 of c5-bis-c: sent once its corrected day had changed
         for (const [d, name] of [[dayOf(t + offset), "anchor-close.json"], [dayOf(t + offset + PERIOD_US), "anchor-open.json"]]) {
           mkdirSync(join(at, "days", symbol, d), { recursive: true });
           writeFileSync(join(at, "days", symbol, d, name), body, { flag: "wx" });

@@ -51,13 +51,13 @@ const CHILD = fileURLToPath(new URL("./seal-child.mjs", import.meta.url)), TAIL 
 /** sealOf of `spec` in a child process (header): spec.out (adopt's `at`) opened here once as a directory, the child's fd 3, its dev and
  *  ino in the spec; closed(cid, seg) is false for the "cid/seg" of spec.open. sealOf's result, or { sealed: false, failed: { code, signal,
  *  stop, detail } }: a named stop of the child, its death (detail: the tail of its stderr), root_refused, spec_refused, spawn_failed,
- *  seal_timeout past timeoutMs, seal_aborted on `signal`, once the killed child is reaped (n-12); never rejects, never pending past timeoutMs but to reap it. */
+ *  seal_timeout past timeoutMs, seal_aborted on `signal`, given to io.onKill at the kill, resolved on the killed child's close (n-12); never rejects, never pending past timeoutMs but for that close. */
 export function sealApart(spec, io) {
   return new Promise((done) => {
     const failed = (stop, detail = null, code = null, sig = null) => ({ sealed: false, failed: { code, signal: sig, stop, detail } });
     let child = null, timer = null, fd = null, step = "spec_refused", text = "", err = "", signal, killed = null;
     const finish = (r) => { clearTimeout(timer); signal?.removeEventListener("abort", aborted); done(r); }; // the first one holds
-    const halt = (stop, detail) => { killed ??= failed(stop, detail); child?.kill("SIGKILL"); }; // n-12 of the G2 delta of c5-bis-a: resolved on its close
+    const halt = (stop, detail) => { const first = killed === null; killed ??= failed(stop, detail); if (first) try { io?.onKill?.(killed); } catch { /* the caller's */ } child?.kill("SIGKILL"); }; // n-12: resolved on its close; m-1 of the G2 of c5-bis-c: told at the kill
     const aborted = () => { halt("seal_aborted"); };
     try { // a null io is none, a getter of it that throws spec_refused (n-9 of the G2 delta of c5-bis-a), so is a signal no AbortSignal (r-2)
       const { env = {}, heapMb = SEAL_HEAP_MB, timeoutMs = SEAL_TIMEOUT_MS, signal: given } = io ?? {};

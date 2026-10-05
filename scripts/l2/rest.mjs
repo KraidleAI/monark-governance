@@ -122,7 +122,7 @@ export function createRest(io) {
     try {
       res = await io.fetch(url, { redirect: "manual", signal: AbortSignal.any([AbortSignal.timeout(TIMEOUT_MS), ...(io.signal ? [io.signal] : [])]) });
     } catch (e) {
-      stop("network_error", { url, error: errorName(e) });
+      if (io.signal?.aborted) stop("stopped", { kind, symbol }); stop("network_error", { url, error: errorName(e) }); // m-2 of the G2 of c5-bis-c: an aborted fetch is no network error
     } finally {
       state.w = null;
     }

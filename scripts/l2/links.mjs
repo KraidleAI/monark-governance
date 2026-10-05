@@ -209,6 +209,6 @@ export function openLink({ symbol, url, out, kind = "spot" }, io) {
 /** The loop's hook fed one message of connection c (Q-A4-3): a throw is caught, named hook_failed, never left to the socket's dispatch (an uncaughtException ends the recorder: m-4 of
  *  the G2 of c5-bis-a), the next one fed; one line at the 1st, 10th, 100th... throw of c, its count (r-4 of its G2 delta), its name read in a try, 64 characters at most (n-10). */
 function fed(io, note, text, c) {
-  try { io.onText?.(text, c.cid); } catch (x) { c.hooks = (c.hooks ?? 0) + 1; if (/^10*$/.test(String(c.hooks))) note(c.cid, "hook_failed", { error: nameOf(x), count: c.hooks }); }
+  try { io.onText?.(text, c.cid); } catch (x) { c.hooks = (c.hooks ?? 0) + 1; if (/^10*$/.test(String(c.hooks))) try { note(c.cid, "hook_failed", { error: nameOf(x), count: c.hooks }); } catch { /* m-6 of the G2 of c5-bis-c: a failed journal never leaves onmessage */ } }
 }
 const nameOf = (x) => { try { return typeof x?.name === "string" ? x.name.slice(0, 64) : null; } catch { return null; } };
