@@ -11,15 +11,16 @@
 // the environment of a recording is a closed list of names (ADMITTED_ENV, Q-P1-10: win32 TEMP, TMP and SYSTEMROOT, provisional; empty
 // elsewhere until it is measured under the unit in P3, so a launch under a unit, which sets its own variables, stops), values never
 // printed; a proxy variable or a node flag in execArgv stops (proxy_refused, SERIES-PROXY-GUARD-1), any other name too (env_refused,
-// SERIES-ENV-ALLOWLIST-1); --out lies under no git tree, as given and as resolved on disk, and is absent, empty, or an L2 output to resume
-// (its entries of OUT_ENTRIES alone, journal.jsonl among them); quota (Q-11, point 16): the bytes of --out, counted at the start and on
+// SERIES-ENV-ALLOWLIST-1); a --require of NODE_OPTIONS runs before any guard: the guard closes the accident, not a code already run;
+// --out lies under no git tree, as given and as resolved on disk, no dangling link on its path, and is absent, empty, or an L2 output to
+// resume (its entries of OUT_ENTRIES alone, each of its type, journal.jsonl among them; a link anywhere under it stops); quota (Q-11, point 16): the bytes of --out, counted at the start and on
 // each check, journal a quota_alarm once at ALARM_PCT % of --quota-bytes and stop at STOP_PCT % (quota_stop); at the start the free
 // space of the file system holds the rest of the quota, else disk_short. The loop (P1-c5) and the replay (P1-c6) are not built: after
 // its guards the command stops, named (not_built). Test seam (point 22): run(argv, io) and main(argv, io) take the clocks, the
 // environment, execArgv, the reading of the free space and print from their caller, never from the command line nor the environment.
 // Exit 1 on a named stop (closed list STOPS), 2 on usage. The command runs when node starts this very file, compared by real paths
 // (MAIN-GUARD-REALPATH-1). The agent never commits (R-20).
-import { appendFileSync, existsSync, lstatSync, opendirSync, realpathSync, statfsSync, statSync } from "node:fs";
+import { appendFileSync, constants, existsSync, lstatSync, opendirSync, realpathSync, statfsSync, statSync } from "node:fs";
 import { dirname, join, resolve, win32 } from "node:path";
 import { fileURLToPath } from "node:url";
 import { SYMBOLS } from "./l2/links.mjs";
@@ -28,10 +29,12 @@ export const STOPS = Object.freeze(["usage", "bad_quota", "bad_symbol", "bad_day
   "out_in_git_tree", "out_too_deep", "quota_stop", "disk_short", "not_built"]);
 export const ADMITTED_ENV = Object.freeze({ win32: Object.freeze(["SYSTEMROOT", "TEMP", "TMP"]) }); // Q-P1-10; names in upper case
 export const OUT_ENTRIES = Object.freeze(["conn", "days", "journal.jsonl", "requests.jsonl", "rest"]); // what P1-a2 to P1-c3 write in --out
+const OUT_DIRS = Object.freeze(["conn", "days", "rest"]); // the directories of OUT_ENTRIES; the others are files
 export const ALARM_PCT = 70; // Q-11 of the ADR: alarm at 70 % of the quota, journaled once,
 export const STOP_PCT = 85; // a named stop at 85 % (thresholds of the ADR, quota fixed on M-1: L2-DISK-QUOTA-1)
 export const QUOTA_MAX = 2 ** 46; // 64 TiB: 100 x a quota stays a safe integer
 export const WALK_DEPTH = 3; // directories below --out: days/<SYMBOL>/<day>; one Dir handle open per level at most
+const APPEND = constants.O_WRONLY | constants.O_CREAT | constants.O_APPEND | (constants.O_NOFOLLOW ?? 0);
 const PROXY_ENV = /^(NODE_OPTIONS|NODE_USE_ENV_PROXY)$|_PROXY$/i, LF = String.fromCharCode(10), SCRIPT = fileURLToPath(import.meta.url);
 const FLAGS = Object.freeze({ record: ["--out", "--quota-bytes"], replay: ["--from-raw", "--symbol", "--day", "--out"] });
 
@@ -52,7 +55,7 @@ export function parseArgs(argv) {
   for (let i = 0; i < argv.length; i += 2) {
     const flag = argv[i], value = argv[i + 1];
     if (!FLAGS.replay.includes(flag) && !FLAGS.record.includes(flag)) stop("usage", { flag });
-    if (value === undefined || value.startsWith("--") || a.has(flag)) stop("usage", { flag });
+    if (value === undefined || value === "" || value.startsWith("--") || a.has(flag)) stop("usage", { flag });
     a.set(flag, value);
   }
   const mode = a.has("--from-raw") ? "replay" : "record", absent = FLAGS[mode].filter((f) => !a.has(f));
@@ -71,9 +74,11 @@ export function parseArgs(argv) {
 
 /** The environment of a recording (SERIES-ENV-ALLOWLIST-1, Q-P1-10): any node flag in execArgv, or any name outside the list of the
  *  platform, stops; proxy_refused when a proxy variable or a flag is there, else env_refused; the stop names the variables and counts the
- *  flags, never a value. On win32 (names in any case) each admitted value is an absolute path, else env_refused. */
+ *  flags, never a value. On win32 (names in any ASCII case: a regex without u never folds U+017F into S) each admitted value is an
+ *  absolute path, else env_refused. */
 export function guardEnv(env, execArgv, platform = process.platform) {
-  const admitted = ADMITTED_ENV[platform] ?? [], names = Object.keys(env).filter((name) => !admitted.includes(name.toUpperCase())).sort();
+  const admitted = new RegExp(`^(${ADMITTED_ENV[platform]?.join("|") ?? "(?!)"})$`, "i");
+  const names = Object.keys(env).filter((name) => !admitted.test(name)).sort();
   const detail = { variables: names, execArgv_length: execArgv.length };
   if (execArgv.length > 0 || names.some((name) => PROXY_ENV.test(name))) stop("proxy_refused", detail);
   if (names.length > 0) stop("env_refused", detail);
@@ -82,11 +87,14 @@ export function guardEnv(env, execArgv, platform = process.platform) {
 }
 
 /** --out: no ancestor, as given and as resolved on disk, holds .git (directory or file); the walk up ends at a root, even an absent one
- *  (SERIES-ABSENT-ROOT-TEST-1: exists and real are the caller's for that test alone). Then absent or empty (false: a new output), or an
- *  L2 output to resume (true): its entries all in OUT_ENTRIES, journal.jsonl among them, read one at a time (a foreign one stops). */
+ *  (SERIES-ABSENT-ROOT-TEST-1: exists and real are the caller's for that test alone), and meets no dangling link. Then absent or empty
+ *  (false: a new output), or an L2 output to resume (true): its entries all in OUT_ENTRIES, each of its type (Dirent: a link is neither),
+ *  journal.jsonl among them, read one at a time (a foreign one stops). */
 export function guardOut(out, { exists = existsSync, real = realpathSync.native } = {}) {
   let near = out;
-  while (!exists(near) && dirname(near) !== near) near = dirname(near);
+  for (; !exists(near) && dirname(near) !== near; near = dirname(near)) {
+    if (linked(near)) stop("out_not_l2", { out, entry: near, why: "dangling link" });
+  }
   for (const top of new Set([out, exists(near) ? real(near) : near])) {
     for (let dir = top; ; dir = dirname(dir)) {
       if (exists(join(dir, ".git"))) stop("out_in_git_tree", { out, git: join(dir, ".git") });
@@ -100,15 +108,19 @@ export function guardOut(out, { exists = existsSync, real = realpathSync.native 
   try {
     for (let e = d.readSync(); e !== null; e = d.readSync(), count += 1) {
       if (!OUT_ENTRIES.includes(e.name)) stop("out_not_l2", { out, entry: e.name });
+      const typed = OUT_DIRS.includes(e.name) ? e.isDirectory() : e.isFile();
+      if (!typed) stop("out_not_l2", { out, entry: e.name, why: "not of its type" });
       journal ||= e.name === "journal.jsonl";
     }
   } finally { d.closeSync(); }
   if (count > 0 && !journal) stop("out_not_l2", { out, why: "no journal.jsonl" });
   return count > 0;
 }
+const linked = (path) => { try { return lstatSync(path).isSymbolicLink(); } catch { return false; } };
 
-/** The bytes of the files under `dir` (lstat: a link counts its own size, never followed), one entry at a time; a directory deeper than
- *  WALK_DEPTH below --out stops (out_too_deep), so at most WALK_DEPTH + 1 Dir handles are open. Absent: 0. */
+/** The bytes of the files under `dir`, one entry at a time; an entry neither a file nor a directory (a link, by its Dirent type, never
+ *  followed) stops (out_not_l2); a directory deeper than WALK_DEPTH below --out stops (out_too_deep), so at most WALK_DEPTH + 1 Dir
+ *  handles are open. Absent: 0. */
 export function bytesUnder(dir, depth = 0) {
   if (!existsSync(dir)) return 0;
   const d = opendirSync(dir);
@@ -116,6 +128,7 @@ export function bytesUnder(dir, depth = 0) {
   try {
     for (let e = d.readSync(); e !== null; e = d.readSync()) {
       const path = join(dir, e.name);
+      if (!e.isFile() && !e.isDirectory()) stop("out_not_l2", { entry: path, why: "neither a file nor a directory" });
       if (e.isDirectory() && depth === WALK_DEPTH) stop("out_too_deep", { dir: path, depth: WALK_DEPTH });
       sum += e.isDirectory() ? bytesUnder(path, depth + 1) : lstatSync(path).size;
     }
@@ -133,14 +146,19 @@ export function createQuota({ out, quota }, io) {
     if (100 * used >= ALARM_PCT * quota && !alarmed) {
       alarmed = true;
       const line = { host_us: io.wallUs(), mono_ns: String(io.monoNs()), symbol: "ALL", cid: null, event: "quota_alarm", used, quota };
-      appendFileSync(join(out, "journal.jsonl"), JSON.stringify(line) + LF);
+      appendFileSync(join(out, "journal.jsonl"), JSON.stringify(line) + LF, { flag: APPEND }); // no link followed (win32: no O_NOFOLLOW)
     }
     return used;
   };
 }
 
 /** The free bytes of the file system that holds `path` (its nearest existing ancestor), for an unprivileged writer. */
-const freeBytes = (path) => { let p = path; while (!existsSync(p) && dirname(p) !== p) p = dirname(p); const s = statfsSync(p); return s.bavail * s.bsize; };
+export function freeBytes(path) {
+  let p = path;
+  while (!existsSync(p) && dirname(p) !== p) p = dirname(p);
+  const s = statfsSync(p);
+  return s.bavail * s.bsize;
+}
 
 /** The guards of a run, in order, before anything is opened: arguments, environment (recording), --out, quota and free space (recording).
  *  Returns the plan: the arguments, resume, and for a recording the bytes used, the free bytes and the quota check. */
