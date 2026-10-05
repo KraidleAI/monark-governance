@@ -38,6 +38,8 @@ export interface RecorderIo {
   open?: (path: string) => Promise<import("./l2/segments.mjs").SegmentFile>;
   seal?: (spec: import("./l2/seal.mjs").ApartSpec & { config: unknown }, io: { env: Record<string, string>; signal: AbortSignal }) => Promise<import("./l2/seal.mjs").ApartResult>;
   signal?: AbortSignal;
+  /** B-1 of the G2 of c5-bis-b: where the loop hears an unhandled rejection (the command line's process when no signal is given). */
+  process?: { on(event: "unhandledRejection", fn: (e: unknown) => void): unknown; off(event: "unhandledRejection", fn: (e: unknown) => void): unknown };
 }
 
 /** The end of a recording stopped by its signal: whether the writers closed, and a seal child ended, within STOP_BOUND_MS. */
@@ -77,6 +79,11 @@ export function markTails(at: string, io: { wallUs: () => number; monoNs: () => 
 /** Q-P1-6: a REQUEST_WEIGHT limit read under it suspends every resync, named; Q-8 of a3: the clean stop's bound, in ms. */
 export const WEIGHT_FLOOR: number;
 export const STOP_BOUND_MS: number;
+/** m-2: a dated event (exchangeInfo, anchor) overdue past it, in us, is skipped, named; m-1 (b): the command line's exit bound, in ms. */
+export const OVERDUE_US: number;
+export const EXIT_GRACE_MS: number;
+/** m-1 (b): sets the exit code, then exits within EXIT_GRACE_MS though a handle lingers. */
+export function leave(code: number): void;
 /** The loop's calendar (P1-c5-bis-b): [task, symbol, period us, phase us, on the host clock corrected by the place's offset]. */
 export const SCHEDULE: readonly (readonly [string, string | null, number, number, boolean])[];
 /** The events of SCHEDULE in (fromUs, endUs] of the host clock, in time order. */

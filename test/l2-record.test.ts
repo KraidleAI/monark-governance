@@ -175,7 +175,7 @@ test("l2_args_closed_flags", async () => {
     ["bad_symbol", "bad_day", "bad_day"]);
 });
 
-// killer: scripts/record-binance-l2.mjs:410 CONST "realpathSync(argv1) === realpathSync(SCRIPT)" -> "resolve(argv1) === resolve(SCRIPT)"
+// killer: scripts/record-binance-l2.mjs:428 CONST "realpathSync(argv1) === realpathSync(SCRIPT)" -> "resolve(argv1) === resolve(SCRIPT)"
 test("l2_main_runs_by_real_path", async () => {
   // MAIN-GUARD-REALPATH-1: through a link, node runs the module at its real path while argv[1] keeps the link; a guard on resolved paths
   // ran nothing and exited 0. The scripts folder behind a link, the command run with no argument: the usage stop, exit 2; imported: nothing.

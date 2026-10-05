@@ -12,6 +12,7 @@
 import { after, before, test } from "node:test";
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
+import { EventEmitter } from "node:events";
 import { spawnSync } from "node:child_process";
 import { createRequire, syncBuiltinESMExports } from "node:module";
 import { closeSync, constants, existsSync, linkSync, mkdirSync, mkdtempSync, openSync, readdirSync, readFileSync, realpathSync, renameSync, rmSync, statSync, symlinkSync, writeFileSync } from "node:fs";
@@ -726,12 +727,12 @@ function host(t0: number, answer: (path: string, now: number) => [number, unknow
     await settle();
   };
   const live = (): HandSock => socks.filter((s) => s.url.includes("btcusdt@depth") && !s.closed).at(-1)!;
-  return { io, fetched, until, live, stop: () => { ac.abort(); }, send: (text: string) => { live().onmessage!({ data: text }); } };
+  return { io, fetched, until, live, stop: () => { ac.abort(); }, send: (text: string) => { live().onmessage!({ data: text }); }, jump: (us: number) => { t.now = us; }, socks };
 }
 const argv = (out: string): string[] => ["--out", out, "--quota-bytes", "1000000000"];
 const events = (out: string, names: string[]): Line[] => (journal(out) as Line[]).filter((l) => names.includes(l.event as string));
 
-// killer: scripts/record-binance-l2.mjs:276 CONST "(86_350 + 10 * r)" -> "(86_340 + 10 * r)"
+// killer: scripts/record-binance-l2.mjs:278 CONST "(86_350 + 10 * r)" -> "(86_340 + 10 * r)"
 test("l2_record_loop_schedules", async () => {
   // FM-1.1 (plan section 3 points 13 to 15, D24-3, D24-5; n-3 of c4): across a day boundary, the place 5 s ahead: the place time at the
   // start and at minute 30; exchangeInfo at the start, then at 23:58:00 + 10 s x rank of the place; the anchors at 23:59:10 + 10 s x rank,
@@ -758,7 +759,7 @@ test("l2_record_loop_schedules", async () => {
   assert.deepEqual((journal(out) as Line[]).at(-1), { host_us: at(1, 2, 15), mono_ns: String(at(1, 2, 15) * 1000), symbol: "ALL", cid: null, event: "stopped", cause: "out_not_l2", links_closed: true, seal_done: true });
 });
 
-// killer: scripts/record-binance-l2.mjs:378 SDL "  if (!sealDone) abort.abort();" -> ""
+// killer: scripts/record-binance-l2.mjs:395 SDL "  if (!sealDone) abort.abort();" -> ""
 test("l2_record_loop_clean_stop", async () => {
   // Q-8 of a3: on its signal, the links stop (each connection closed, named), their writers on a stalled disk awaited STOP_BOUND_MS, the
   // books and the REST client closed, a seal child awaited as long, then killed; one stopped line, then the run resolves.
@@ -775,7 +776,7 @@ test("l2_record_loop_clean_stop", async () => {
   assert.deepEqual(events(out, ["close", "stopped"]).map((l) => [l.host_us, l.event, l.cause]), [...Array<unknown>(5).fill([at(1, 0, 3, 10), "close", "stopped"]), [at(1, 0, 4, 10), "stopped", "signal"]]);
 });
 
-// killer: scripts/record-binance-l2.mjs:298 CONST "Math.max(rest.suspendedUntilUs, lowUntil)" -> "rest.suspendedUntilUs"
+// killer: scripts/record-binance-l2.mjs:309 CONST "Math.max(rest.suspendedUntilUs, lowUntil)" -> "rest.suspendedUntilUs"
 test("l2_record_weight_suspended", async () => {
   // Q-P1-6, Q-B1-3: a REQUEST_WEIGHT limit read under 4 000 suspends every resync, named, until a reading at or above it: the book waits,
   // no vain try, and takes its snapshot after the next round of exchangeInfo.
@@ -792,7 +793,7 @@ test("l2_record_weight_suspended", async () => {
     [[at(0, 23, 50), "weight_suspended", 3_999], [at(0, 23, 58), "weight_resumed", 4_000], [at(0, 23, 58, 31), "chain_synced", 7]]);
 });
 
-// killer: scripts/record-binance-l2.mjs:305 CONST "links.get(symbol).closed(from, \"\")" -> "false"
+// killer: scripts/record-binance-l2.mjs:316 CONST "links.get(symbol).closed(from, \"\")" -> "false"
 test("l2_record_switch_rule", async () => {
   // Q-A4-3, D-8: a renewal's new connection takes the book once its diff reaches it (switchTo, then switched: the old one closes renewed
   // after the overlap); after an unplanned close, the next connection takes it at once, its gap named by the book.
@@ -818,7 +819,7 @@ test("l2_record_switch_rule", async () => {
     [["chain_switched", cids[0], cids[1]], ["close", cids[0], "renewed"], ["close", cids[1], "closed"], ["chain_switched", cids[1], cids[2]], ["chain_gap", cids[2], "gap"]]);
 });
 
-// killer: scripts/record-binance-l2.mjs:356 CONST "if (rest.stopped) stop(" -> "if (false) stop("
+// killer: scripts/record-binance-l2.mjs:367 CONST "if (rest.stopped) stop(" -> "if (false) stop("
 test("l2_record_rest_stop_ends_all", async () => {
   // Plan section 4.3: a 451 stops the REST client, and the loop with it, named after its clean stop; the run marked the tail of the
   // output it resumed first (Q-C1-4).
@@ -834,7 +835,7 @@ test("l2_record_rest_stop_ends_all", async () => {
   assert.deepEqual(events(out, ["schedule_failed", "stopped"]).map((l) => [l.event, l.code ?? l.cause]).slice(0, 1).concat(events(out, ["stopped"]).map((l) => [l.event, l.cause])), [["schedule_failed", "restricted_location"], ["stopped", "rest_stopped"]]);
 });
 
-// killer: scripts/record-binance-l2.mjs:322 CONST "Date.now() - statSync(lock).mtimeMs < SEAL_TIMEOUT_MS" -> "false"
+// killer: scripts/record-binance-l2.mjs:332 CONST "Date.now() - statSync(lock).mtimeMs < SEAL_TIMEOUT_MS" -> "false"
 test("l2_record_seal_locked_per_day", async () => {
   // n-4 of the G2 of c5-bis-a: a day whose lock is younger than SEAL_TIMEOUT_MS (another run's seal, or its orphan child) waits for the
   // next hour; a day without its scale (this run started after it) fails, named, and leaves no lock.
@@ -849,4 +850,162 @@ test("l2_record_seal_locked_per_day", async () => {
   await run;
   assert.deepEqual([events(out, ["seal_failed", "day_sealed"]).map((l) => [l.symbol, l.event, l.stop]), L.SYMBOLS.map((s) => existsSync(lock(s)))],
     [[["BNBUSDT", "seal_failed", "no_scale"], ["ETHUSDT", "seal_failed", "no_scale"], ["SOLUSDT", "seal_failed", "no_scale"]], [true, false, false, false]]);
+});
+
+// ---- fold of the G2 of c5-bis-b ----
+/** The rejections that fn leaves unhandled, the process's own listeners (the runner's) set aside meanwhile. */
+async function strays(fn: () => Promise<void>): Promise<unknown[]> {
+  const caught: unknown[] = [], keep = process.listeners("unhandledRejection"), on = (e: unknown): void => { caught.push(e); };
+  process.removeAllListeners("unhandledRejection");
+  process.on("unhandledRejection", on);
+  try { await fn(); } finally { process.off("unhandledRejection", on); for (const l of keep) process.on("unhandledRejection", l); }
+  return caught;
+}
+/** A run whose end the test reads as it goes: "running" until it settles. */
+function watch(run: Promise<unknown>): { settled: unknown } { const w: { settled: unknown } = { settled: "running" }; run.then((r) => { w.settled = r; }, (e: unknown) => { w.settled = e; }); return w; }
+const signalled = (out: string): unknown => ({ mode: "record", out, stopped: "signal", links_closed: true, seal_done: true });
+
+// killer: scripts/record-binance-l2.mjs:349 CONST ".catch((e) => { failed(\"seal\", e); })" -> ""
+test("l2_record_seal_throw_named", async () => {
+  // B-1 of the G2 of c5-bis-b: a throw in the seals (a plain file under conn/: ENOTDIR) is journaled schedule_failed, never left an
+  // unhandled rejection; the loop goes on, and its clean stop writes the stopped line.
+  const m = await command(), out = fresh(), h = host(at(0, 23, 20), place(0));
+  assert.equal(typeof m.calendar, "function", "the loop is absent");
+  const w = { settled: undefined as unknown }, caught = await strays(async () => {
+    Object.assign(w, watch(m.run(argv(out), h.io)));
+    await h.until(at(0, 23, 30));
+    writeFileSync(join(out, "conn", "stray"), "");
+    await h.until(at(1, 0, 3, 5));
+    h.stop();
+    await h.until(at(1, 0, 3, 6));
+  });
+  assert.deepEqual([caught.map((e) => (e as { code?: string }).code), events(out, ["schedule_failed", "stopped"]).map((l) => [l.event, l.task ?? l.cause, l.code ?? null])],
+    [[], [["schedule_failed", "seal", "ENOTDIR"], ["stopped", "signal", null]]]);
+});
+
+// killer: scripts/record-binance-l2.mjs:303 CONST "proc?.on(\"unhandledRejection\", stray);" -> ""
+test("l2_record_unhandled_rejection_stops", async () => {
+  // B-1: the command's net: an unhandled rejection anywhere in the process is journaled and ends the loop, named, after its clean stop;
+  // its listener gone once the run ends.
+  const m = await command(), out = fresh(), proc = new EventEmitter(), h = host(at(0, 10, 0), place(0));
+  const w = watch(m.run(argv(out), { ...h.io, process: proc }));
+  await h.until(at(0, 10, 0, 1));
+  proc.emit("unhandledRejection", Object.assign(new Error("lost"), { code: "EIO" }), Promise.resolve());
+  await h.until(at(0, 10, 0, 2));
+  const e = w.settled as { code?: string; detail?: unknown };
+  assert.deepEqual([e.code, e.detail, proc.listenerCount("unhandledRejection")], ["unhandled_rejection", { code: "EIO" }, 0]);
+  assert.deepEqual(events(out, ["unhandled_rejection", "stopped"]).map((l) => [l.event, l.code ?? l.cause]), [["unhandled_rejection", "EIO"], ["stopped", "unhandled_rejection"]]);
+});
+
+// killer: scripts/record-binance-l2.mjs:305 CONST "if (rest.stopped) finish(" -> "if (false) finish("
+test("l2_record_snapshot_451_ends_all", async () => {
+  // B-2 of the G2 of c5-bis-b (plan section 4.3, FM-1.2): a 451 on a book's snapshot stops everything at once, its cause kept.
+  const m = await command(), out = fresh(), h = host(at(0, 10, 0), (p, now) => (p.startsWith("/api/v3/depth") ? [451, {}] : place(0)(p, now)));
+  const w = watch(m.run(argv(out), h.io));
+  await h.until(at(0, 10, 0, 1));
+  h.send(depth(7, 8));
+  await h.until(at(0, 10, 0, 2));
+  const e = w.settled as { code?: string; detail?: unknown };
+  assert.deepEqual([e.code, e.detail, events(out, ["stopped"]).map((l) => l.cause)], ["rest_stopped", { task: "snapshot", symbol: "BTCUSDT", code: "restricted_location" }, ["rest_stopped"]]);
+});
+
+// killer: scripts/record-binance-l2.mjs:385 CONST "await Promise.race([fire(e), ended]);" -> "await fire(e);"
+test("l2_record_stop_during_start", async () => {
+  // m-1 (a) of the G2 of c5-bis-b (Q-8 of a3): a place silent at the start (its requests never answer) holds no clean stop: the signal
+  // ends the run at once, no link opened.
+  const m = await command(), out = fresh(), h = host(at(0, 10, 0), place(0));
+  h.io.fetch = (url) => { h.fetched.push([h.io.wallUs!(), new URL(url).pathname]); return new Promise(() => undefined); };
+  const w = watch(m.run(argv(out), h.io));
+  await h.until(at(0, 10, 0, 1));
+  h.stop();
+  await h.until(at(0, 10, 0, 2));
+  assert.deepEqual([w.settled, h.fetched.map(([, p]) => p), h.socks.length], [signalled(out), [TIME], 0]);
+});
+
+// killer: scripts/record-binance-l2.mjs:430 CONST "process.exit(code)" -> "undefined"
+test("l2_command_exit_bounded", () => {
+  // m-1 (b): once main resolves, the command line leaves within EXIT_GRACE_MS though a handle lingers (a socket whose peer never answers
+  // its CLOSE): leave() sets the exit code, then exits.
+  const t0 = Date.now(), url = new URL("../scripts/record-binance-l2.mjs", import.meta.url).href;
+  const r = spawnSync(process.execPath, ["--input-type=module", "-e", `const m = await import(${JSON.stringify(url)}); setInterval(() => undefined, 1_000); m.leave(3);`], { timeout: 20_000, env: {} });
+  assert.deepEqual([r.status, r.signal, Date.now() - t0 < 15_000], [3, null, true]);
+});
+
+// killer: scripts/record-binance-l2.mjs:387 CONST "if (!finished) links = " -> "if (finished) links = "
+test("l2_record_links_after_start", async () => {
+  // m-3 of the G2 of c5-bis-b (G0 point 2): the links open once the place time and the four exchangeInfo are read, the weight limit
+  // known before any snapshot.
+  const m = await command(), out = fresh(), h = host(at(0, 10, 0), place(0)), seen: number[] = [], f = h.io.fetch!;
+  h.io.fetch = (url, init) => { seen.push(h.socks.length); return f(url, init); };
+  const run = m.run(argv(out), h.io);
+  await h.until(at(0, 10, 0, 1));
+  const opened = h.socks.length;
+  h.stop();
+  await run;
+  assert.deepEqual([seen, opened], [[0, 0, 0, 0, 0], 5]);
+});
+
+// killer: scripts/record-binance-l2.mjs:376 CONST "now - e.at > OVERDUE_US" -> "false"
+test("l2_record_overdue_skipped", async () => {
+  // m-2 of the G2 of c5-bis-b: the host clock stepped 20 min forward at 23:52, its timers unmoved: exchangeInfo and the anchors, overdue
+  // past OVERDUE_US, are skipped, named; no anchor of D written from a depth of D + 1 (the day left to the replay).
+  const m = await command(), out = fresh(), h = host(at(0, 23, 50), place(0));
+  const run = m.run(argv(out), h.io);
+  await h.until(at(0, 23, 52));
+  h.jump(at(1, 0, 12));
+  await h.until(at(1, 0, 12, 1));
+  h.stop();
+  await run;
+  assert.deepEqual([h.fetched.filter(([, p]) => p.startsWith("/api/v3/depth")), existsSync(join(dayDir(out), "anchor-close.json"))], [[], false]);
+  assert.deepEqual(events(out, ["event_skipped"]).map((l) => [l.task, l.symbol, l.late_us]), [...L.SYMBOLS.map((s, r) => ["exchangeInfo", s, at(1, 0, 12) - at(0, 23, 58, 10 * r)]),
+    ...L.SYMBOLS.map((s, r) => ["anchor", s, at(1, 0, 12) - at(0, 23, 59, 10 + 10 * r)])]);
+});
+
+// killer: scripts/record-binance-l2.mjs:316 CONST "JSON.parse(text)?.data?.U <= book.id + 1" -> "true"
+test("l2_record_switch_waits_to_join", async () => {
+  // m-4 of the G2 of c5-bis-b (Q-A4-3): a renewal's new connection ahead of the book (U > id + 1) does not take it; once the book reaches
+  // it, it does, with no gap.
+  const m = await command(), out = fresh(), h = host(at(0, 10, 0), place(0));
+  const run = m.run(argv(out), h.io);
+  await h.until(at(0, 10, 0, 1));
+  h.send(depth(7, 8));
+  await h.until(at(0, 10, 0, 2));
+  const a = h.live();
+  h.send(JSON.stringify({ e: "serverShutdown" }));
+  await h.until(at(0, 10, 0, 3));
+  h.send(depth(10, 10));
+  a.onmessage!({ data: depth(9, 10) });
+  h.send(depth(11, 11));
+  await h.until(at(0, 10, 0, 4));
+  h.stop();
+  await run;
+  const cids = events(out, ["open"]).filter((l) => l.symbol === "BTCUSDT").map((l) => l.cid);
+  assert.deepEqual(events(out, ["chain_switched", "chain_gap"]).filter((l) => l.symbol === "BTCUSDT").map((l) => [l.event, l.from ?? l.cid, l.to ?? l.reason]), [["chain_switched", cids[0], cids[1]]]);
+});
+
+// killer: scripts/record-binance-l2.mjs:350 CONST "offset = e.offset_us ?? offset" -> "offset = e.offset_us"
+test("l2_record_unsafe_time_keeps_offset", async () => {
+  // m-4 of the G2 of c5-bis-b (point 13): a place time read unsafe (offset_us null) keeps the last offset: exchangeInfo still leaves 5 s early.
+  const m = await command(), out = fresh(), h = host(at(0, 23, 20), (p, now) => (p === TIME && now >= at(0, 23, 30) ? [200, { serverTime: "late" }] : place(5 * S)(p, now)));
+  const run = m.run(argv(out), h.io);
+  await h.until(at(0, 23, 58, 40));
+  h.stop();
+  await run;
+  assert.deepEqual([events(out, ["clock_offset"]).map((l) => l.offset_us), h.fetched.filter(([t, p]) => t > at(0, 23, 30) && p.startsWith("/api/v3/exchangeInfo")).map(([t]) => t)],
+    [[5 * S, null], L.SYMBOLS.map((_, r) => at(0, 23, 57, 55 + 10 * r))]);
+});
+
+// killer: scripts/record-binance-l2.mjs:339 SDL "      if (abort.signal.aborted) return; // n-1: a seal aborted by the clean stop writes nothing after the stopped line (its seal_done false)" -> ""
+test("l2_record_stopped_line_last", async () => {
+  // n-1 of the G2 of c5-bis-b: a seal aborted by the clean stop (its child killed: seal_aborted) writes nothing after the stopped line.
+  const m = await command(), out = fresh(), h = host(at(0, 23, 59, 50), place(0), (_, o) => new Promise((r) => {
+    o.signal.addEventListener("abort", () => { r({ sealed: false, failed: { stop: "seal_aborted" } } as unknown as SealM.ApartResult); });
+  }));
+  const run = m.run(argv(out), h.io);
+  await h.until(at(1, 0, 3, 10));
+  h.stop();
+  await h.until(at(1, 0, 3, 41));
+  await run;
+  await h.until(at(1, 0, 3, 42));
+  assert.deepEqual([(journal(out) as Line[]).at(-1)?.event, events(out, ["seal_failed"]).length], ["stopped", 0]);
 });
