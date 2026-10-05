@@ -595,13 +595,23 @@ test("r25g_ci_w_counts_a_nul_first_line_under_both_pathspecs - R25-NUL-BINARY-1:
 // killer: scripts/lot-size-integration.mjs:188 CONST "\"apps/site/app/fonts/*.ttf\", " -> ""
 test("r25g_ci_w_leaves_only_the_declared_binary_assets_to_detection - R25-NUL-BINARY-1: a binary font in the fonts directory (apps/site/app/fonts/f.ttf, NUL then 2 000 lines) still counts 0, a text file named src/run.png (300 lines) counts 300, an undeclared binary src/f.woff2 (NUL then 40 lines) counts 41: W 341 (300 before the lot)", () => withFx((fx) => {
   fx.g("checkout", "-q", "-b", "pr", TARGET);
-  fx.put("apps/site/app/fonts/f.ttf", `\0\x01\0\0\n${lines("font", 2000)}`); // the TrueType magic (lot R25-GUARDS-2)
+  const name = Buffer.from(`\0\n${lines("font", 2000)}`), font = Buffer.alloc(28); // a TrueType font whose one table, name, holds the lines (lot R25-ASSET-STRUCTURE-1)
+  font.writeUInt32BE(0x00010000, 0);
+  font.writeUInt16BE(1, 4);
+  font.write("name", 12, "latin1");
+  font.writeUInt32BE(28, 20);
+  font.writeUInt32BE(name.length, 24);
+  mkdirSync(join(fx.dir, "apps", "site", "app", "fonts"), { recursive: true });
+  writeFileSync(join(fx.dir, "apps", "site", "app", "fonts", "f.ttf"), Buffer.concat([font, name, Buffer.alloc((4 - (name.length % 4)) % 4)]));
   fx.put("src/run.png", lines("echo", 300));
   fx.put("src/f.woff2", `\0\n${lines("woff", 40)}`);
   fx.g("add", "-A");
   fx.g("commit", "-qm", "assets");
   const out = ciRun(fx);
-  assert.deepEqual([changed(out), exitOf(out)], ["341", "0"], out);
+  stage(fx, "apps/site/app/fonts/g.ttf", "100644", `\0\x01\0\0\n${lines("font", 2000)}`); // the fixture of R25-GUARDS-2, the magic then text: no table directory
+  fx.g("commit", "-qm", "magic then text");
+  const old = ciRun(fx);
+  assert.deepEqual([changed(out), exitOf(out), refusedIn(old), exitOf(old)], ["341", "0", ['asset-structure "apps/site/app/fonts/g.ttf"'], "1"], `${out}${old}`);
 }, REAL_CI));
 
 // killer: scripts/lot-size-integration.mjs:34 CONST "src = attrTree(cwd)" -> "src = EMPTY_TREE"
@@ -676,10 +686,15 @@ test("r25g_ci_w_counts_code_named_as_an_asset_outside_the_asset_directories - G2
   fx.g("checkout", "-q", "-b", "pr", TARGET);
   fx.put("src/tool.png", nul("tool", 300));
   mkdirSync(join(fx.dir, "out"));
-  writeFileSync(join(fx.dir, "out", "real.png"), Buffer.concat([PNG, Buffer.from(`\0\n${lines("png", 50)}`)])); // the PNG magic (lot R25-GUARDS-2)
+  const palette = Buffer.from(`\0\n${lines("png", 50)}`), plte = Buffer.concat([palette, Buffer.alloc((3 - (palette.length % 3)) % 3)]); // a palette image whose PLTE holds the lines (lot R25-ASSET-STRUCTURE-1)
+  writeFileSync(join(fx.dir, "out", "real.png"), pngOf(1, 1, 3, 0, Buffer.from([0, 0]), [pngChunk("PLTE", plte)]));
   fx.g("add", "-A");
   fx.g("commit", "-qm", "assets");
-  assert.deepEqual([changed(ciRun(fx))], ["301"]);
+  const out = ciRun(fx);
+  stage(fx, "out/old.png", "100644", Buffer.concat([PNG, Buffer.from(`\0\n${lines("png", 50)}`)])); // the fixture of R25-GUARDS-2, the magic then text: no IHDR
+  fx.g("commit", "-qm", "magic then text");
+  const old = ciRun(fx);
+  assert.deepEqual([changed(out), refusedIn(old), exitOf(old)], ["301", ['asset-structure "out/old.png"'], "1"], `${out}${old}`);
 }, REAL_CI));
 
 // killer: scripts/lot-size-integration.mjs:33 CONST ", \"-c\", \"core.ignorecase=false\"" -> ""
