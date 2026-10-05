@@ -323,7 +323,7 @@ test("dojo_render_table_starts_over_for_another_head", async () => {
 // killer: apps/site/app/dojo/page.tsx:68 CONST "!isAbsolute(local)" -> "false"
 // killer: apps/site/app/dojo/page.tsx:27 CONST "style={{ paddingTop: 32 }}" -> "data-root={recordRootOf()} style={{ paddingTop: 32 }}"
 // killer: apps/site/components/dojo/dojo-live.tsx:23 CONST "${DOJO_LIVE_PREFIX}${rel}" -> "${process.env.MONARK_DOJO_LOCAL_BUILD_ROOT}${rel}"
-// killer: .github/workflows/ci.yml:226 CONST "run: npm run build" -> "run: MONARK_DOJO_LOCAL_BUILD_ROOT=/tmp npm run build"
+// killer: .github/workflows/ci.yml:252 CONST "run: npm run build" -> "run: MONARK_DOJO_LOCAL_BUILD_ROOT=/tmp npm run build"
 // killer: apps/site/app/dojo/page.tsx:66 CONST "process.env.MONARK_DOJO_LOCAL_BUILD_ROOT" -> "undefined"
 test("dojo_page_reads_a_local_root_on_the_server_at_build_only", async () => {
   // The record of a local build on a fixture (the measures of the page in a browser): MONARK_DOJO_LOCAL_BUILD_ROOT, absent by default,
