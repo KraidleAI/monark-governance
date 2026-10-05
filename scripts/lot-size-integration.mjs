@@ -187,7 +187,7 @@ export function pinShell(cwd) {
  * left to git's detection. Written to the object store of `cwd` (two objects, the same bytes each time), then proven in force by check-attr. */
 export const BINARY_ASSETS = ["apps/site/app/fonts/*.ttf", "apps/site/public/bell/anchors/*.ots", "docs/bell-publications/*.ots", "docs/course-bell/*.ots", "docs/dojo-publications/*.ots", "fixtures/*.cbor", "out/*.jpg", "out/*.png", "test/fixtures/*.ots"];
 export const ATTRIBUTES = `* diff\n${BINARY_ASSETS.map((p) => `${p} !diff\n`).join("")}`;
-const PROBES = `probe.mjs: diff: set\n${BINARY_ASSETS[0].replace("*", "probe")}: diff: unspecified`; // a code path and an asset path
+const PROBES = `probe.mjs: diff: set\n${BINARY_ASSETS[0].replaceAll("*", "probe")}: diff: unspecified`; // a code path and an asset path
 export function attrTree(cwd) {
   const g = (a, input, env = GIT_ENV()) => execFileSync("git", ["-C", cwd, ...a], { input, encoding: "utf8", env }).trim();
   const id = g(["mktree"], `100644 blob ${g(["hash-object", "-w", "--no-filters", "--stdin"], ATTRIBUTES)}\t.gitattributes\n`);
