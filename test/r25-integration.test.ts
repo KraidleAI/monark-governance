@@ -6,9 +6,9 @@
  */
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { execFileSync, spawn } from "node:child_process";
+import { execFileSync, spawn, spawnSync } from "node:child_process";
 import { createHash } from "node:crypto";
-import { appendFileSync, copyFileSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { appendFileSync, copyFileSync, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from "node:http";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
@@ -485,3 +485,84 @@ test("r25i_ci_block_and_oracle_agree - E-4: the real run: block of ci.yml under 
     assert.deepEqual([r.mode, r.counts.map((c) => c.changed), r.exit, r.proof?.sha256], ["integration", [12, 0], 0, sha256(readFileSync(proofFile))]);
   } finally { server?.close(); fx.done(); }
 });
+
+// Lot R25-ATTR-SOURCE-1 (G7 O-1, ADR-M003 D9 undecies): W, the count of today, is the job's own `git diff --shortstat`. It read the
+// attributes of the measured tree, so a PR's own .gitattributes could make its lines count 0. The real r25 block runs under bash on the
+// PR head with no proof (no event payload: the count stays W) and prints W.
+function ciRun(fx: Fx, env: Record<string, string> = {}): string {
+  fx.g("update-ref", `refs/remotes/origin/${TARGET}`, TARGET);
+  const tmp = mkdtempSync(join(fx.dir, ".git", "runner-"));
+  const r = spawnSync("bash", ["--noprofile", "--norc", "-eo", "pipefail", "-c", ciBlock(TARGET)], { cwd: fx.dir, encoding: "utf8", env: { PATH: process.env.PATH ?? "", HOME: process.env.HOME ?? fx.dir, VIBEGATES_PR_LIMIT: "1205", VIBEGATES_CONTENT_LIMIT: "8000", GITHUB_EVENT_PATH: join(tmp, "none.json"), GITHUB_BASE_REF: TARGET, RUNNER_TEMP: tmp, ...env } });
+  return `${r.stdout}${r.stderr}exit ${String(r.status)}\n`;
+}
+const changed = (out: string): string => /^Changed lines: (\d+) \(ADR bound: 1205\)$/m.exec(out)?.[1] ?? "none";
+
+// killer: scripts/lot-size-integration.mjs:180 CONST "GIT_ATTR_SOURCE: EMPTY_TREE, " -> ""
+test("r25a_ci_w_counts_the_real_lines_under_measured_attributes - O-1: a PR adds .gitattributes (`* -diff`, `* binary`, `*.x diff=foo` with a machine driver: textconv and binary, `* -text`, `* text eol=crlf`) and 3 000 lines: the job's W reads 3 001 each time and the job is red (W 0 or 1 before the lot)", () => {
+  const seen: string[] = [];
+  for (const attributes of ["* -diff\n", "* binary\n", "*.x diff=foo\n", "* -text\n", "* text eol=crlf\n"]) withFx((fx) => {
+    fx.g("config", "diff.foo.textconv", "head -1");
+    fx.g("config", "diff.foo.binary", "true");
+    fx.g("checkout", "-q", "-b", "pr", TARGET);
+    fx.put(".gitattributes", attributes);
+    fx.commit("pr", "src/big.x", 3000);
+    const out = ciRun(fx);
+    seen.push(`${attributes.trim()}: ${changed(out)} ${/^exit (\d+)$/m.exec(out)?.[1] ?? "?"}`);
+  }, REAL_CI);
+  assert.deepEqual(seen, ["* -diff: 3001 1", "* binary: 3001 1", "*.x diff=foo: 3001 1", "* -text: 3001 1", "* text eol=crlf: 3001 1"]);
+});
+
+// killer: scripts/lot-size-integration.mjs:178 CONST "if (infoAttributes(cwd)) throw" -> "if (false) throw"
+test("r25a_ci_w_fails_closed_without_the_pinned_read - O-1: a machine $GIT_DIR/info/attributes `* -diff` (that GIT_ATTR_SOURCE does not replace), or a git older than 2.40 (no GIT_ATTR_SOURCE): the job prints no count, says why and is red (W 0, green, before the lot)", () => {
+  const real = execFileSync("bash", ["-c", "command -v git"], { encoding: "utf8" }).trim(), seen: string[] = [];
+  // win32: the fake git is a sh script without extension on a ':'-joined PATH, which execFileSync never runs there (PATHEXT, ';'):
+  // the real git answers. That case is named and skipped there only; the info/attributes case runs everywhere.
+  const kinds = process.platform === "win32" ? ["info/attributes"] : ["info/attributes", "git 2.39.5"];
+  for (const kind of kinds) withFx((fx) => {
+    fx.g("checkout", "-q", "-b", "pr", TARGET);
+    fx.commit("pr", "src/c.txt", 3000);
+    const bin = join(fx.dir, ".git", "bin");
+    mkdirSync(bin);
+    writeFileSync(join(bin, "git"), `#!/bin/sh\nif [ "$1" = "--version" ]; then echo "git version 2.39.5"; exit 0; fi\nexec ${real} "$@"\n`, { mode: 0o755 });
+    if (kind === "info/attributes") fx.put(".git/info/attributes", "* -diff\n");
+    const out = ciRun(fx, kind === "info/attributes" ? {} : { PATH: `${bin}:${process.env.PATH ?? ""}` });
+    seen.push(`${kind}: ${changed(out)} ${String(out.includes("::error::Gate R-25: pinned git read not obtained. Fail-closed."))} ${/^exit (\d+)$/m.exec(out)?.[1] ?? "?"}`);
+  }, REAL_CI);
+  assert.deepEqual(seen, ["info/attributes: none true 1", "git 2.39.5: none true 1"].slice(0, kinds.length));
+});
+
+// killer: scripts/lot-size-integration.mjs:180 CONST "GIT_CONFIG_PARAMETERS: undefined, " -> ""
+test("r25a_ci_w_reads_under_the_module_pin - O-1, delta3 m-g on the CI side: a PR edits one line of src/a.txt (3 000 lines) and copies the old a.txt to src/b.txt; a GIT_CONFIG_PARAMETERS diff.renames=copies in the job's env reads 2 unpinned, the job reads 3 002, and every PIN option is in force at command scope", () => withFx((fx) => {
+  fx.g("checkout", "-q", TARGET);
+  fx.commit("a", "src/a.txt", 3000);
+  fx.g("checkout", "-q", "-b", "pr");
+  copyFileSync(join(fx.dir, "src", "a.txt"), join(fx.dir, "src", "b.txt"));
+  writeFileSync(join(fx.dir, "src", "a.txt"), lines("a", 3000).replace("a 0\n", "edited\n"));
+  fx.g("add", "-A");
+  fx.g("commit", "-qm", "edit and copy");
+  const hostile = { GIT_CONFIG_PARAMETERS: "'diff.renames'='copies'" };
+  assert.equal(changed(ciRun(fx, hostile)), "3002");
+  const pin = spawnSync("bash", ["--noprofile", "--norc", "-c", 'eval "$(node scripts/lot-size-integration.mjs pin)" && git config --show-scope --get-regexp "^(merge|diff|core)\\." && echo "$LC_ALL $GIT_ATTR_NOSYSTEM $GIT_ATTR_SOURCE ${GIT_DIFF_OPTS-unset}"'], { cwd: fx.dir, encoding: "utf8", env: { ...process.env, ...hostile, GIT_DIFF_OPTS: "--unified=0", LC_ALL: "fr_FR.UTF-8" } });
+  const command = pin.stdout.split("\n").filter((l) => l.startsWith("command\t")).map((l) => l.slice(8).replace(" ", "="));
+  assert.deepEqual([command.sort(), pin.stdout.trim().split("\n").at(-1)], [["core.attributesfile=", "core.bigfilethreshold=512m", "diff.algorithm=myers", "diff.renames=true", "diff.suppressblankempty=false", "merge.conflictstyle=merge", "merge.directoryrenames=conflict", "merge.renames=true"], "C 1 4b825dc642cb6eb9a060e54bf8d69288fbee4904 unset"]);
+}, REAL_CI));
+
+
+
+// killer: scripts/lot-size-integration.mjs:180 CONST "GIT_ENV({})" -> "GIT_ENV()"
+test("r25a_pin_prints_exactly_the_pinned_names - G2 m-1: `pin` unsets or exports exactly GIT_DIFF_OPTS, LC_ALL, GIT_ATTR_NOSYSTEM, GIT_CONFIG_PARAMETERS, GIT_ATTR_SOURCE, GIT_CONFIG_COUNT and the eight PIN pairs, in that order, every line one of them: no variable of the runner (R25_READ_TOKEN) is printed or re-exported", () => withFx((fx) => {
+  const out = spawnSync(process.execPath, ["scripts/lot-size-integration.mjs", "pin"], { cwd: fx.dir, encoding: "utf8", env: { ...process.env, R25_READ_TOKEN: "fx-token", MY_RUNNER_VAR: "x" } }).stdout;
+  const names = out.trim().split("\n").map((l) => /^(?:unset ([A-Z0-9_]+)|export ([A-Z0-9_]+)=')/.exec(l)).map((m) => m?.[1] ?? m?.[2] ?? "unparsed");
+  const pairs = Array.from({ length: 8 }, (_, i) => [`GIT_CONFIG_KEY_${String(i)}`, `GIT_CONFIG_VALUE_${String(i)}`]).flat();
+  assert.deepEqual(names, ["GIT_DIFF_OPTS", "LC_ALL", "GIT_ATTR_NOSYSTEM", "GIT_CONFIG_PARAMETERS", "GIT_ATTR_SOURCE", "GIT_CONFIG_COUNT", ...pairs], out);
+  assert.ok(!out.includes("fx-token"), "the runner's token is never printed");
+}));
+
+// killer: scripts/lot-size-integration.mjs:181 CONST "x.replaceAll(\"'\", \"'\\\\''\")" -> "x"
+test("r25a_pin_quotes_any_value - G2 m-2: a PIN entry whose value holds an apostrophe, a $( ), a backtick and a newline, evaluated by bash -e from pinShell, runs nothing and reads back byte for byte from git config", () => withFx((fx) => {
+  const hostile = "a'b\"$(touch pwn1)\n;`touch pwn2`'\\'' ${IFS}*? !! end";
+  const mod = pathToFileURL(join(fx.dir, "scripts", "lot-size-integration.mjs")).href;
+  const shell = spawnSync(process.execPath, ["--input-type=module", "-e", `import * as m from ${JSON.stringify(mod)}; m.PIN.push("-c", "x.y=" + ${JSON.stringify(hostile)}); process.stdout.write(m.pinShell?.(process.cwd()) ?? "");`], { cwd: fx.dir, encoding: "utf8" }).stdout;
+  const r = spawnSync("bash", ["--noprofile", "--norc", "-ec", `${shell}\ngit config --get x.y`], { cwd: fx.dir, encoding: "utf8" });
+  assert.deepEqual([r.stdout, r.status, ["pwn1", "pwn2"].filter((f) => existsSync(join(fx.dir, f)))], [`${hostile}\n`, 0, []], r.stderr);
+}));

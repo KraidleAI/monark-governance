@@ -28,10 +28,10 @@ const CHECK = "r25-taille-de-lot", SHA = /^[0-9a-f]{40}$/, EMPTY_TREE = "4b825dc
 // Options that change a count, pinned over any user or system config so the CI and the oracle cannot diverge (G2 m-2): no user
 // attributes file (G2 m-a) nor system one (GIT_ATTR_NOSYSTEM, delta3 m-f); messages in English (counts and conflict headers are
 // parsed); GIT_DIFF_OPTS dropped (G2 B-4); git's default bigFileThreshold (delta2 m-d); attributes of the empty tree (delta2 B-6).
-// The oracle's W read takes the same PIN and env (delta3 m-g). A non-empty $GIT_DIR/info/attributes, that --attr-source does not replace, is an error: W (delta3 m-f).
+// The oracle's W read takes the same PIN and env (delta3 m-g), and so do the r25 job's two W counts, through `pin` (O-1). A non-empty $GIT_DIR/info/attributes, that --attr-source does not replace, is an error: W (delta3 m-f).
 export const infoAttributes = (cwd) => (statSync(execFileSync("git", ["-C", cwd, "rev-parse", "--path-format=absolute", "--git-path", "info/attributes"], { encoding: "utf8", env: GIT_ENV() }).trim(), { throwIfNoEntry: false })?.size ?? 0) > 0;
 export const PIN = ["-c", "merge.conflictStyle=merge", "-c", "diff.algorithm=myers", "-c", "diff.renames=true", "-c", "merge.renames=true", "-c", "merge.directoryRenames=conflict", "-c", "diff.suppressBlankEmpty=false", "-c", "core.attributesFile=", "-c", "core.bigFileThreshold=512m"];
-export const GIT_ENV = () => ({ ...process.env, GIT_DIFF_OPTS: undefined, LC_ALL: "C", GIT_ATTR_NOSYSTEM: "1" }); const gitIn = (cwd, raw = false) => (...a) => { const o = execFileSync("git", ["-C", cwd, `--attr-source=${EMPTY_TREE}`, ...PIN, ...a], { encoding: "utf8", maxBuffer: 1 << 30, stdio: ["ignore", "pipe", "pipe"], env: GIT_ENV() }); return raw ? o : o.trim(); };
+export const GIT_ENV = (base = process.env) => ({ ...base, GIT_DIFF_OPTS: undefined, LC_ALL: "C", GIT_ATTR_NOSYSTEM: "1" }); const gitIn = (cwd, raw = false) => (...a) => { const o = execFileSync("git", ["-C", cwd, `--attr-source=${EMPTY_TREE}`, ...PIN, ...a], { encoding: "utf8", maxBuffer: 1 << 30, stdio: ["ignore", "pipe", "pipe"], env: GIT_ENV() }); return raw ? o : o.trim(); };
 const rows = (s) => s.split("\n").filter((l) => l !== "");
 
 /** Candidate (G0 2.2): head and target in L, both in this repository, distinct; read from GitHub's PR object only. */
@@ -167,6 +167,20 @@ const fetchApi = (root, token) => async (path, deadline) => {
 };
 const ghApi = async (path) => JSON.parse(execFileSync("gh", ["api", path.slice(1)], { encoding: "utf8", maxBuffer: 1 << 28, timeout: 30_000 }));
 
+/** The r25 job's two `git diff --shortstat` counts (W, the lines R25_DIFF_RE reads) under the read of the module and the oracle (lot
+ * R25-ATTR-SOURCE-1, G7 O-1, ADR-M003 D9 undecies): shell lines the job evaluates first. PIN as command-scope config (GIT_CONFIG_COUNT;
+ * GIT_CONFIG_PARAMETERS, read after it, dropped), GIT_ENV, and the attributes of the empty tree (GIT_ATTR_SOURCE, git >= 2.40): a
+ * .gitattributes of the measured tree (-diff, binary, a diff driver) no longer lowers W. Refused (W unread, the job red): git < 2.40, a
+ * non-empty $GIT_DIR/info/attributes, that GIT_ATTR_SOURCE does not replace. */
+export function pinShell(cwd) {
+  const v = /(\d+)\.(\d+)/.exec(execFileSync("git", ["--version"], { encoding: "utf8", env: GIT_ENV() })) ?? ["", "0", "0"];
+  if (Number(v[1]) * 1000 + Number(v[2]) < 2040) throw new Error(`git ${v[0]} is older than 2.40: no GIT_ATTR_SOURCE`);
+  if (infoAttributes(cwd)) throw new Error("$GIT_DIR/info/attributes is not empty: GIT_ATTR_SOURCE does not replace it");
+  const kv = PIN.filter((_, i) => PIN[i - 1] === "-c").map((a) => [a.slice(0, a.indexOf("=")), a.slice(a.indexOf("=") + 1)]);
+  const env = { ...GIT_ENV({}), GIT_CONFIG_PARAMETERS: undefined, GIT_ATTR_SOURCE: EMPTY_TREE, GIT_CONFIG_COUNT: String(kv.length), ...Object.fromEntries(kv.flatMap(([k, x], i) => [[`GIT_CONFIG_KEY_${i}`, k], [`GIT_CONFIG_VALUE_${i}`, x]])) };
+  return Object.entries(env).map(([k, x]) => (x === undefined ? `unset ${k}` : `export ${k}='${x.replaceAll("'", "'\\''")}'`)).join("\n");
+}
+
 if (process.argv[1] !== undefined && import.meta.url === pathToFileURL(process.argv[1]).href) {
   const [cmd, ...argv] = process.argv.slice(2), opt = (k, n = 1) => (argv.includes(k) ? argv.slice(argv.indexOf(k) + 1, argv.indexOf(k) + 1 + n) : []);
   try {
@@ -187,6 +201,7 @@ if (process.argv[1] !== undefined && import.meta.url === pathToFileURL(process.a
       const r = effective({ cwd: process.cwd(), ciText: readFileSync(ci, "utf8"), base, proof, written: w.map(Number) });
       for (const d of [`mode ${r.mode}`, ...r.detail]) console.error(`r25-integration: ${d}`);
       console.log(`${r.mode} ${r.code} ${r.content}`);
-    } else throw new Error("usage: lot-size-integration.mjs proof|count ...");
+    } else if (cmd === "pin") console.log(pinShell(process.cwd()));
+    else throw new Error("usage: lot-size-integration.mjs proof|count|pin ...");
   } catch (e) { console.error(`r25-integration: ${String(e.message).split("\n")[0]}`); process.exitCode = 2; }
 }
