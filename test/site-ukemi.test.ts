@@ -8,7 +8,7 @@
 // replayed red by F:\tmp\siteB\mutants.mjs.
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { readFileSync, writeFileSync, mkdtempSync, mkdirSync, rmSync, readdirSync, statSync } from "node:fs";
+import { readFileSync, writeFileSync, mkdtempSync, mkdirSync, rmSync, readdirSync, statSync, existsSync } from "node:fs";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
 import { createHash } from "node:crypto";
@@ -343,8 +343,9 @@ function dec8(intString: string): string {
   const v = BigInt(intString);
   return `${(v / 100000000n).toString()}.${(v % 100000000n).toString().padStart(8, "0")}`;
 }
-/** A temporary repo root holding a copy of the site manifest and the two Ukemi data files, rewritable per mutant. */
-function tmpRoot(): { root: string; write: (rel: string, value: Json) => void; cleanup: () => void } {
+/** A temporary repo root holding a copy of the site manifest and the Ukemi data files (the pending snapshot too while the
+ *  tree carries one), rewritable per mutant; drop removes a file and its manifest entry. */
+function tmpRoot(): { root: string; write: (rel: string, value: Json) => void; drop: (rel: string) => void; cleanup: () => void } {
   const root = mkdtempSync(join(tmpdir(), "ukemi-course-"));
   mkdirSync(join(root, "apps", "site", "data"), { recursive: true });
   const manifestRel = "apps/site/data/manifest.sha256.json";
@@ -358,7 +359,109 @@ function tmpRoot(): { root: string; write: (rel: string, value: Json) => void; c
   };
   write(UKEMI_COURSE_REL, rawCourse());
   write(UKEMI_SERVED_REL, rawServed());
-  return { root, write, cleanup: () => rmSync(root, { recursive: true, force: true }) };
+  if (existsSync(join(ROOT, PENDING_REL))) write(PENDING_REL, obj(JSON.parse(read(PENDING_REL)) as unknown, "pending file"));
+  const drop = (rel: string): void => {
+    rmSync(join(root, ...rel.split("/")), { force: true });
+    delete files[rel];
+    writeFileSync(join(root, ...manifestRel.split("/")), JSON.stringify(manifest, null, 2) + "\n");
+  };
+  return { root, write, drop, cleanup: () => rmSync(root, { recursive: true, force: true }) };
+}
+
+/* UKEMI-PENDING-SNAPSHOT-1 (G0 section 11): while a block between its time (i) and T0 carries apps/site/data/ukemi-pending.json,
+ * every fact of the class computed IN PROCESS is pinned against it (the target: the pending snapshot, else the served one);
+ * the pages keep the served one. No pending snapshot is committed before C2: the tests below stage one in a temporary root.
+ * The new functions are read by import(), so that at the base each test reds by an assertion. */
+const PENDING_REL = "apps/site/data/ukemi-pending.json";
+type Loader = typeof import("../apps/site/lib/ukemi-served-load.ts");
+type Sync = typeof import("../scripts/sync-ukemi-served.mjs");
+type Pinned = ReturnType<Loader["loadUkemiInProcess"]>;
+async function pendingLoader(): Promise<Loader> {
+  const m = await import("../apps/site/lib/ukemi-served-load.ts");
+  assert.equal(typeof (m as Partial<Loader>).loadUkemiInProcess, "function", "the loader reads a pending snapshot (UKEMI-PENDING-SNAPSHOT-1)");
+  return m;
+}
+async function pendingSync(): Promise<Sync> {
+  const m = await import("../scripts/sync-ukemi-served.mjs");
+  assert.equal(typeof (m as Partial<Sync>).inProcessUkemiPending, "function", "the sync has a --pending mode (UKEMI-PENDING-SNAPSHOT-1)");
+  return m;
+}
+/** The target of the in-process pins under `root`: its pending snapshot while one exists, else its served one. */
+const pinTarget = async (root: string): Promise<Pinned> => (await pendingLoader()).loadUkemiInProcess(root);
+/** A verdict without the served-only body digest (the pending snapshot's eight keys). */
+const bareVerdict = (v: unknown): Json => Object.fromEntries(Object.entries(obj(v, "liq_verdict")).filter(([k]) => k !== "body_sha256"));
+/** The committed served file, without pending_since. */
+const servedBare = (): Json => Object.fromEntries(Object.entries(rawServed()).filter(([k]) => k !== "pending_since"));
+/** The pending snapshot a served file implies: its shared fields, the verdict without body_sha256, written a day after C2. */
+const pendingOf = (served: Json): Json => ({
+  $comment: "staged", schema: "monark-site-ukemi-pending-v1", written_at: "2026-10-05T12:00:00.000Z", served_class: served.served_class, registry_state: served.registry_state,
+  liq_clause: served.liq_clause, cascade_uncalibrated_sentence_served: served.cascade_uncalibrated_sentence_served, liq_verdict: bareVerdict(served.liq_verdict),
+});
+/** The facts of this tree's harness: the committed pending snapshot while one exists, else the ones the served file implies. */
+const currentPending = (): Json => (existsSync(join(ROOT, PENDING_REL)) ? obj(JSON.parse(read(PENDING_REL)) as unknown, "pending file") : pendingOf(servedBare()));
+/** A served file carrying pending_since: the day C2 marks it (a --pending of C', a day later, keeps it). */
+const marked = (served: Json): Json => ({ ...served, pending_since: "2026-10-04" });
+/** A served file equal to this tree on every shared field (body digests and read_at of the committed one). */
+const treeServed = (): Json => {
+  const s = servedBare(), p = currentPending();
+  return { ...s, liq_clause: p.liq_clause, registry_state: p.registry_state, cascade_uncalibrated_sentence_served: p.cascade_uncalibrated_sentence_served, liq_verdict: { ...obj(p.liq_verdict, "pending liq_verdict"), body_sha256: obj(s.liq_verdict, "liq_verdict").body_sha256 } };
+};
+/** Another tree's facts on a snapshot: another clause (well formed) and another calibration digest. */
+const otherClause = (x: Json): Json => ({ ...x, liq_clause: `${String(x.liq_clause)}; a clause of another tree` });
+const otherDigest = (x: Json): Json => ({ ...x, liq_verdict: { ...obj(x.liq_verdict, "liq_verdict"), calibration_digest: sha256(`another tree ${String(x.liq_clause)}`) } });
+/** The served file of an older tree, marked: another clause and another digest. */
+const olderServed = (): Json => marked(otherDigest(otherClause(treeServed())));
+/** A temporary root with the given served file and pending snapshot (none: null; listed in the manifest unless told). */
+function stagePending(served: Json, pending: Json | null, listed = true): ReturnType<typeof tmpRoot> {
+  const t = tmpRoot();
+  t.drop(PENDING_REL);
+  t.write(UKEMI_SERVED_REL, served);
+  if (pending !== null && listed) t.write(PENDING_REL, pending);
+  else if (pending !== null) writeFileSync(join(t.root, ...PENDING_REL.split("/")), JSON.stringify(pending, null, 2) + "\n");
+  return t;
+}
+/** l.623: the target's served state, its carrier, clause, class and cascade flag are the harness module's. */
+function statePins(s: Pinned): void {
+  const committed = hasCommittedCalibrationForClass(TASK_LIQ_ELIGIBLE);
+  assert.equal(servedCarrierOf(s.registry_state), committed ? "LIQ_COMMITTED_STATE_NOTE" : "LIQ_EMPTY_REGISTRY_SENTENCE", "the /ukemi served sentence follows the harness registry state: switch it and re-sync");
+  const expected = committed
+    ? `the served region is ${GATE_LIQ_UPPER_BOUND_SENTENCE}; ${GATE_LIQ_REQUIREMENTS_SENTENCE}; ${GATE_LIQ_H3_SENTENCE}; ${GATE_LIQ_CONDITIONAL_SENTENCE}`
+    : `${GATE_LIQ_EMPTY_REGISTRY_SENTENCE}; ${GATE_LIQ_REQUIREMENTS_SENTENCE}; ${GATE_LIQ_CONDITIONAL_SENTENCE}`;
+  assert.equal(s.liq_clause, expected, "the synced clause is the gate module's clause for that state, verbatim");
+  assert.equal(s.served_class, TASK_LIQ_ELIGIBLE);
+  assert.equal(s.cascade_uncalibrated_sentence_served, true, "the served cascade text carries the sentence the fleet panel renders");
+}
+/** l.1175 (1) and l.1488: the target's calibration digest is the committed C5 of its stratum. */
+function digestPin(v: Pinned["liq_verdict"]): void {
+  assert.ok(v !== null, "the target carries a verdict");
+  const k = lookupCommittedCalibration(TASK_LIQ_ELIGIBLE, `${UKEMI_LIQ_PREDICTOR_BASE}/s${String(v.stratum)}`);
+  assert.equal(v.calibration_digest, k?.digestPinned, "the synced served digest is the committed C5 of its stratum (the pending one, while it exists)");
+}
+/** l.1633: two in-process answers on the target's stratum carry its calibration digest. */
+function gatePin(v: Pinned["liq_verdict"]): void {
+  const cut = STRATA_CUTS_SERVED[0];
+  assert.ok(v !== null && cut !== undefined, "a dated served verdict and the first served cut");
+  const digests = [1, cut - 1].map((yhat) => {
+    assert.equal(strateOf(yhat), v.stratum, "the probe falls in the stratum of the served verdict");
+    return runGate({ schema_version: "1.0.0", task_class: TASK_LIQ_ELIGIBLE, yhat, predictor_id: "ukemi:site-copy-check", produced_at: "2026-09-24T00:00:00Z" }, LIQ_TEST_PARAMS).verdict.calib_digest;
+  });
+  assert.deepEqual(digests, [v.calibration_digest, v.calibration_digest], `the page says: ${DIGEST_NOTE}`);
+}
+/** Test 4: what --pending writes today equals the target on every shared field (the verdict's eight keys). */
+async function syncPin(s: Pinned): Promise<void> {
+  const { UKEMI_PENDING_SHARED } = await pendingLoader();
+  const shared = (x: Json): Json => Object.fromEntries(UKEMI_PENDING_SHARED.map((k) => [k, k === "liq_verdict" ? bareVerdict(x[k]) : x[k]]));
+  const written = await (await pendingSync()).inProcessUkemiPending("2026-10-05T12:00:00.000Z");
+  assert.deepEqual(shared(written as unknown as Json), shared(s as unknown as Json), "--pending writes the in-process facts: the target's, on every shared field");
+}
+/** The five in-process places, on the target of `root`. */
+async function pinsHold(root: string): Promise<void> {
+  const s = await pinTarget(root);
+  assert.equal(s.registry_state, hasCommittedCalibrationForClass(TASK_LIQ_ELIGIBLE) ? "committed" : "empty", "the target's state is the harness registry's");
+  statePins(s);
+  digestPin(s.liq_verdict);
+  gatePin(s.liq_verdict);
+  await syncPin(s);
 }
 /** Every string a view carries, flattened. */
 function viewStrings(v: CourseView): string[] {
@@ -620,19 +723,26 @@ test("site_ukemi_course_view_types_no_digit — the view module and the course p
   assert.ok(!/\bserved\b/.test(typed), "the page types no other 'served' claim");
 });
 
-test("site_ukemi_served_state_bound_to_harness_registry — synced served state = repository registry; clause = gate module text; loader fails closed", () => {
-  const s = loadUkemiServed(ROOT);
+test("site_ukemi_served_state_bound_to_harness_registry — synced served state = repository registry; clause = gate module text; loader fails closed", async () => {
+  const s = await pinTarget(ROOT);
   const committed = hasCommittedCalibrationForClass(TASK_LIQ_ELIGIBLE);
   // The site renders the served state of the synced file (/ukemi, /, /fleet, /ukemi/course), so the synced state must be
   // the harness registry's: at a registry change this reds until the site is switched and re-synced (UKEMI-SITE-SWITCH-1).
+  // While a pending snapshot exists (time (i) of a block to T0), the in-process facts are pinned against it instead.
   assert.equal(s.registry_state, committed ? "committed" : "empty", "the synced served state must equal the harness registry state");
-  assert.equal(servedCarrierOf(s.registry_state), committed ? "LIQ_COMMITTED_STATE_NOTE" : "LIQ_EMPTY_REGISTRY_SENTENCE", "the /ukemi served sentence follows the harness registry state: switch it and re-sync");
-  const expected = committed
-    ? `the served region is ${GATE_LIQ_UPPER_BOUND_SENTENCE}; ${GATE_LIQ_REQUIREMENTS_SENTENCE}; ${GATE_LIQ_H3_SENTENCE}; ${GATE_LIQ_CONDITIONAL_SENTENCE}`
-    : `${GATE_LIQ_EMPTY_REGISTRY_SENTENCE}; ${GATE_LIQ_REQUIREMENTS_SENTENCE}; ${GATE_LIQ_CONDITIONAL_SENTENCE}`;
-  assert.equal(s.liq_clause, expected, "the synced clause is the gate module's clause for that state, verbatim");
-  assert.equal(s.served_class, TASK_LIQ_ELIGIBLE);
-  assert.equal(s.cascade_uncalibrated_sentence_served, true, "the served cascade text carries the sentence the fleet panel renders");
+  statePins(s);
+  // --pending marks the served file with pending_since alone: no other byte touched, kept on a second run, same projection.
+  const sync = await pendingSync();
+  const text = read(UKEMI_SERVED_REL).replace(/^ {2}"pending_since": "[^"]+",\r?\n/m, ""), markedText = sync.markPendingSince(text, "2026-10-04");
+  assert.equal(markedText.replace('  "pending_since": "2026-10-04",\n', ""), text, "pending_since is inserted after read_at, no other byte of the served file touched");
+  assert.equal(sync.markPendingSince(markedText, "2026-12-01"), markedText, "a second --pending keeps the first pending_since");
+  assert.throws(() => sync.markPendingSince(text.replace(/^ {2}"read_at": .*\n/m, ""), "2026-10-04"), /read_at/, "a served file without its read_at line is refused");
+  const m = stagePending(obj(JSON.parse(markedText) as unknown, "marked file"), currentPending());
+  try {
+    assert.deepEqual(loadUkemiServed(m.root), loadUkemiServed(ROOT), "pending_since is admitted and never rendered: the same served projection");
+  } finally {
+    m.cleanup();
+  }
   const t = tmpRoot();
   try {
     assert.doesNotThrow(() => loadUkemiServed(t.root));
@@ -1198,11 +1308,10 @@ test("site_ukemi_course_served_stratum_status_bound_to_served_verdict — the pr
     const committedCa = JSON.parse(read("docs/deploy-CA-harness.json")) as CaRecord;
     assert.equal(today.liq_verdict.body_sha256, liqShaOf(committedCa), "the synced verdict's /gate body is the body the committed deploy CA recorded (gate_liq_call)");
   }
-  if (today.liq_verdict !== null && today.liq_verdict.verdict_reason === "covered") {
-    // After the switch window the synced verdict must be the registry's committed stratum (its C5 digest).
-    const k = lookupCommittedCalibration(TASK_LIQ_ELIGIBLE, `${UKEMI_LIQ_PREDICTOR_BASE}/s${String(today.liq_verdict.stratum)}`);
-    assert.equal(today.liq_verdict.calibration_digest, k?.digestPinned, "the synced served digest is the committed C5 of its stratum");
-  }
+  const pin = await pinTarget(ROOT);
+  // After the switch window the synced verdict must be the registry's committed stratum (its C5 digest): an in-process
+  // fact, pinned against the pending snapshot while one exists.
+  if (pin.liq_verdict !== null && pin.liq_verdict.verdict_reason === "covered") digestPin(pin.liq_verdict);
   // (2) The COMMITTED state as the sync writes it: its pure functions over this tree's in-process answers.
   const openapi = await (await handleJsonMirror(new Request("http://api.monarkgate.tech/openapi.json"))).text();
   const gateText = await (await handleJsonMirror(new Request("http://api.monarkgate.tech/gate", {
@@ -1236,6 +1345,7 @@ test("site_ukemi_course_served_stratum_status_bound_to_served_verdict — the pr
   assert.equal(facts.registry_state, "committed", "this tree serves the committed clause");
   const verdict = sync.servedVerdictFacts(gateText, facts.registry_state, caText);
   assert.equal(verdict.body_sha256, sha256(gateText), "the recorded body digest is the digest of the answer the verdict was read from");
+  assert.deepEqual((await sync.inProcessUkemiPending(today.read_at)).liq_verdict, bareVerdict(verdict), "--pending reads the verdict of the same body through the same checks, without the deploy check");
   const v2: Json = {
     $comment: sync.COMMENT, schema: sync.SCHEMA, host: sync.API_HOST, path: sync.OPENAPI_PATH, read_at: today.read_at, served_class: TASK_LIQ_ELIGIBLE,
     registry_state: facts.registry_state, liq_clause: facts.liq_clause, cascade_uncalibrated_sentence_served: facts.cascade_uncalibrated_sentence_served,
@@ -1477,16 +1587,25 @@ test("site_ukemi_committed_note_says_conformal_upper_bound — the committed-sta
   assert.ok(loadUkemiCourse(ROOT).unit.startsWith(BOUND_UNIT + " ("), "BOUND_UNIT is the report's unit label up to its decimal count (not rendered)");
 });
 
-test("site_ukemi_served_figures_read_from_the_two_files — the figures of the committed stratum are fields of the two files, read, never copied; a disagreement throws", () => {
+test("site_ukemi_served_figures_read_from_the_two_files — the figures of the committed stratum are fields of the two files, read, never copied; a disagreement throws", async () => {
   const c = loadUkemiCourse(ROOT), s = loadUkemiServed(ROOT), v = s.liq_verdict;
   assert.ok(s.registry_state === "committed" && v !== null && v.bound_margin_base !== null, "a committed served state with its covered verdict (non-vacuous)");
   const base = v.bound_margin_base, k = v.stratum;
   const fresh = obj(obj(list(obj(obj(rawCourse().body, "body").h3, "h3").strata, "h3.strata")[k], "h3 stratum k").fresh, "fresh");
   // (1) The real files: each figure is its field; the margin also rebuilt by BigInt (dec8, independent of the loader).
   assert.deepEqual(servedFiguresOf(s, c), {
-    points: String(v.calibration_points), boundMargin: dec8(base), readDate: s.read_at.slice(0, 10),
-    digest: lookupCommittedCalibration(TASK_LIQ_ELIGIBLE, `${UKEMI_LIQ_PREDICTOR_BASE}/s${String(k)}`)?.digestPinned,
+    points: String(v.calibration_points), boundMargin: dec8(base), readDate: s.read_at.slice(0, 10), digest: v.calibration_digest,
   });
+  digestPin((await pinTarget(ROOT)).liq_verdict);
+  // While a pending snapshot exists, the figure stays the served one and the in-process pin follows the pending one.
+  const t = stagePending(olderServed(), currentPending());
+  try {
+    const older = loadUkemiServed(t.root);
+    assert.equal(servedFiguresOf(older, c)?.digest, older.liq_verdict?.calibration_digest, "the page renders the served digest while a pending snapshot exists");
+    await assert.doesNotReject(async () => { digestPin((await pinTarget(t.root)).liq_verdict); }, "the in-process pin follows the pending snapshot, the served one being older");
+  } finally {
+    t.cleanup();
+  }
   assert.equal(String(v.calibration_points), String(fresh.n), "the served count is the report's count of the stratum");
   assert.equal(dec8(base), list(obj(rawCourse().display, "display").strata_qhat, "strata_qhat")[k], "the margin is display.strata_qhat of the stratum");
   // (2) In-memory objects, each change derived from the loaded ones.
@@ -1630,12 +1749,155 @@ test("site_ukemi_build_check_derives_figures_apart — the build check reads the
   assert.ok(!src.includes("ukemi-served-figures"), "the build check never names the page's figures module (an error common to both would stay green)");
 });
 
-test("site_ukemi_digest_note_says_what_the_gate_returns — two answers on the committed stratum carry one calibration digest, the served one", () => {
-  const v = loadUkemiServed(ROOT).liq_verdict, cut = STRATA_CUTS_SERVED[0];
-  assert.ok(v !== null && cut !== undefined, "a dated served verdict and the first served cut");
-  const digests = [1, cut - 1].map((yhat) => {
-    assert.equal(strateOf(yhat), v.stratum, "the probe falls in the stratum of the served verdict");
-    return runGate({ schema_version: "1.0.0", task_class: TASK_LIQ_ELIGIBLE, yhat, predictor_id: "ukemi:site-copy-check", produced_at: "2026-09-24T00:00:00Z" }, LIQ_TEST_PARAMS).verdict.calib_digest;
-  });
-  assert.deepEqual(digests, [v.calibration_digest, v.calibration_digest], `the page says: ${DIGEST_NOTE}`);
+test("site_ukemi_digest_note_says_what_the_gate_returns — two answers on the committed stratum carry one calibration digest, the served one", async () => {
+  gatePin((await pinTarget(ROOT)).liq_verdict);
+  // The digest of the in-process answers is the pending one while it exists (here a --pending of C', a day after C2).
+  const t = stagePending(olderServed(), currentPending());
+  try {
+    await assert.doesNotReject(async () => { gatePin((await pinTarget(t.root)).liq_verdict); }, "the in-process answers carry the pending digest, the served one being older");
+    await assert.rejects(async () => { gatePin(loadUkemiServed(t.root).liq_verdict); }, { code: "ERR_ASSERTION" }, "control: they do not carry the older served one");
+  } finally {
+    t.cleanup();
+  }
+});
+
+/* ─────────── UKEMI-PENDING-SNAPSHOT-1: the pending snapshot of the served state (G0 section 11) ─────────── */
+
+test("ukemi_pending_snapshot_is_fail_closed — a pending snapshot loads only beside a served file marked pending_since, listed, closed and coherent", async () => {
+  const { loadUkemiPending, loadUkemiInProcess } = await pendingLoader();
+  const served = treeServed(), pending = currentPending(), lv = obj(pending.liq_verdict, "pending liq_verdict");
+  const v1: Json = { ...servedBare(), schema: "monark-site-ukemi-served-v1" };
+  delete v1.liq_verdict;
+  const cases: Array<[Json, Json | null, boolean, RegExp, string]> = [
+    [served, pending, true, /carries no pending_since/, "a pending snapshot beside a served file without pending_since reds"],
+    [marked(served), null, true, /no pending snapshot exists/, "pending_since without a pending snapshot reds"],
+    [{ ...served, pending_since: "9999-12-31" }, pending, true, /later than the day/, "a pending_since later than the day the pending snapshot was written reds"],
+    [{ ...served, pending_since: "4 October" }, pending, true, /pending_since/, "a malformed pending_since reds"],
+    [marked(v1), pending, true, /must carry exactly/, "pending_since is admitted in schema v2 only"],
+    [marked(served), pending, false, /not listed/, "an unlisted pending snapshot reds"],
+    [marked(served), { ...pending, schema: "monark-site-ukemi-served-v2" }, true, /schema is not monark-site-ukemi-pending-v1/, "a pending snapshot under the served schema reds"],
+    [marked(served), { ...pending, liq_clause: "a clause of no state" }, true, /does not open with/, "a pending clause that opens with no state's sentence reds"],
+    [marked(served), { ...pending, liq_verdict: { ...lv, interior_rank_min_n: Number(lv.interior_rank_min_n) - 1 } }, true, /interior_rank_min_n/, "a pending interior-rank threshold that is not the rule's reds"],
+    // Q-UPS-C1, C2, C3: no fact read on the server, no body digest, no field name of the wire.
+    ...["host", "path", "read_at", "body_sha256", "openapi_sha256", "scores_sha256"].map((k): [Json, Json, boolean, RegExp, string] =>
+      [marked(served), { ...pending, [k]: served[k] ?? "0".repeat(64) }, true, /pending file must carry exactly/, `the pending snapshot refuses ${k}`]),
+    ...["body_sha256", "scores_sha256"].map((k): [Json, Json, boolean, RegExp, string] =>
+      [marked(served), { ...pending, liq_verdict: { ...lv, [k]: "0".repeat(64) } }, true, /liq_verdict must carry exactly/, `the pending verdict refuses ${k}`]),
+  ];
+  for (const [file, p, listed, re, why] of cases) {
+    const t = stagePending(file, p, listed);
+    try {
+      assert.throws(() => loadUkemiPending(t.root), re, why);
+      assert.throws(() => loadUkemiInProcess(t.root), re, `${why} (the in-process target)`);
+    } finally {
+      t.cleanup();
+    }
+  }
+  const t = stagePending(marked(served), pending);
+  try {
+    assert.deepEqual(loadUkemiPending(t.root), { written_at: pending.written_at, served_class: pending.served_class, registry_state: pending.registry_state, liq_clause: pending.liq_clause, cascade_uncalibrated_sentence_served: pending.cascade_uncalibrated_sentence_served, liq_verdict: lv }, "control: the staged pending snapshot loads, field by field");
+  } finally {
+    t.cleanup();
+  }
+});
+
+test("ukemi_in_process_pins_follow_the_pending_snapshot — the five in-process places compare this tree with the pending snapshot while it exists, else with the served one", async () => {
+  await pendingLoader();
+  const tree = currentPending();
+  const cases: Array<[Json, Json | null, boolean, string]> = [
+    [olderServed(), tree, false, "a pending snapshot equal to the tree passes, the served one being older (clause and digest)"],
+    [olderServed(), otherDigest(tree), true, "a pending digest that is not the tree's reds"],
+    [olderServed(), otherClause(tree), true, "a pending clause that is not the tree's reds"],
+    [marked(treeServed()), otherDigest(tree), true, "a pending snapshot that differs from the tree reds, even beside a served one equal to it"],
+    [treeServed(), null, false, "control: without a pending snapshot, a served file equal to the tree passes (the base behaviour)"],
+    [otherDigest(otherClause(treeServed())), null, true, "control: without a pending snapshot, an older served file reds (the pins bite)"],
+  ];
+  for (const [file, p, red, why] of cases) {
+    const t = stagePending(file, p);
+    try {
+      if (red) await assert.rejects(pinsHold(t.root), { code: "ERR_ASSERTION" }, why);
+      else await assert.doesNotReject(pinsHold(t.root), why);
+    } finally {
+      t.cleanup();
+    }
+  }
+  await pinsHold(ROOT);
+});
+
+test("ukemi_pages_keep_the_served_snapshot_while_pending — the pages and their figures read the served file alone; a pending snapshot changes only the in-process pins", async () => {
+  const { loadUkemiPending } = await pendingLoader();
+  const pages = loadUkemiServed(ROOT), c = loadUkemiCourse(ROOT), next = otherDigest(otherClause(currentPending()));
+  const t = stagePending(marked(treeServed()), next);
+  try {
+    const got = loadUkemiServed(t.root);
+    assert.deepEqual([got.liq_clause, got.liq_verdict?.calibration_digest], [pages.liq_clause, pages.liq_verdict?.calibration_digest], "the pages keep the served clause and digest while a pending snapshot exists");
+    const bare = stagePending(treeServed(), null);
+    try {
+      assert.deepEqual(got, loadUkemiServed(bare.root), "the pages read the same served projection as without a pending snapshot");
+    } finally {
+      bare.cleanup();
+    }
+    assert.equal(servedFiguresOf(got, c)?.digest, pages.liq_verdict?.calibration_digest, "the rendered digest figure is the served one");
+    assert.deepEqual([loadUkemiPending(t.root)?.liq_clause, loadUkemiPending(t.root)?.liq_verdict.calibration_digest], [next.liq_clause, obj(next.liq_verdict, "next").calibration_digest], "control: the staged pending snapshot carries the other clause and digest");
+  } finally {
+    t.cleanup();
+  }
+});
+
+test("ukemi_pending_sync_writes_in_process_facts — --pending writes the in-process facts; the promotion compares the fixed shared fields; the manifest edits change one line", async () => {
+  const sync = await pendingSync();
+  const { UKEMI_PENDING_SHARED } = await pendingLoader();
+  // (1) What --pending writes today is the target, on every shared field (the committed pending snapshot, else the served file).
+  const written = (await sync.inProcessUkemiPending("2026-10-05T12:00:00.000Z")) as unknown as Json;
+  assert.deepEqual(Object.keys(written), ["$comment", "schema", "written_at", ...UKEMI_PENDING_SHARED], "the pending snapshot carries its closed keys, in order");
+  assert.deepEqual(Object.keys(obj(written.liq_verdict, "written verdict")), Object.keys(obj(rawServed().liq_verdict, "liq_verdict")).filter((k) => k !== "body_sha256"), "the pending verdict carries the eight served keys, in order");
+  await syncPin(await pinTarget(ROOT));
+  const t = stagePending(olderServed(), currentPending());
+  try {
+    await assert.doesNotReject(async () => { await syncPin(await pinTarget(t.root)); }, "--pending equals the pending snapshot, the served one being older");
+  } finally {
+    t.cleanup();
+  }
+  // (2) Promotion at T0: a served file equal to the pending one on every shared field (its verdict without body_sha256) promotes.
+  const pending = currentPending(), next = treeServed();
+  const diff = (p: Json): string[] => sync.ukemiPendingDiff(next, p);
+  assert.deepEqual(diff(pending), [], "a served file equal to the pending snapshot is promoted");
+  assert.deepEqual(diff(otherDigest(pending)), ["liq_verdict"], "another digest is named");
+  assert.deepEqual(diff(otherClause(pending)), ["liq_clause"], "another clause is named");
+  assert.deepEqual(diff(Object.fromEntries(Object.entries(pending).filter(([k]) => k !== "liq_clause" && k !== "cascade_uncalibrated_sentence_served"))), ["liq_clause", "cascade_uncalibrated_sentence_served"], "a pending snapshot missing shared fields cannot promote");
+  assert.deepEqual(diff({ ...pending, liq_verdict: { ...obj(pending.liq_verdict, "liq_verdict"), body_sha256: "0".repeat(64) } }), ["liq_verdict"], "a pending verdict carrying a body digest cannot promote");
+  assert.deepEqual(diff({ ...pending, read_at: next.read_at }), ["read_at"], "a pending snapshot carrying a key it may not carry cannot promote");
+  assert.deepEqual(diff({ ...pending, schema: "monark-site-ukemi-served-v2" }), ["schema"], "a pending snapshot under another schema cannot promote");
+  // (3) The manifest: --pending sets the pending entry right after the last Ukemi entry; the promotion removes it, one line.
+  const manifest = read("apps/site/data/manifest.sha256.json").replace(/^ {4}"apps\/site\/data\/ukemi-pending\.json": "[0-9a-f]{64}",?\r?\n/m, "");
+  const withPending = sync.setManifestEntry(manifest, PENDING_REL, "0".repeat(64));
+  assert.equal(sync.removeManifestEntry(withPending, PENDING_REL), manifest, "setting then removing the pending entry gives the manifest back, byte for byte");
+  const lines = (x: string): string[] => x.split("\n");
+  assert.equal(lines(withPending).filter((l) => !lines(manifest).includes(l)).length, 1, "the pending entry is one line");
+  assert.throws(() => sync.removeManifestEntry(manifest, PENDING_REL), /no entry/, "removing an absent entry is refused");
+  assert.throws(() => sync.removeManifestEntry(withPending.replace(/\n {2}/, "\n "), PENDING_REL), /canonical/, "a manifest not in its canonical form is refused");
+  // (4) The served verdict keeps its bytes: verdictFactsOf, then the deploy check's body digest, last.
+  const { handleJsonMirror } = await import("../apps/harness/src/http.ts");
+  const gateText = await (await handleJsonMirror(new Request("http://api.monarkgate.tech/gate", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(sync.GATE_LIQ_BODY) }))).text();
+  const state = sync.servedFacts(await (await handleJsonMirror(new Request("http://api.monarkgate.tech/openapi.json"))).text()).registry_state;
+  const ca = JSON.stringify({ checks: [{ name: "gate_liq_call", ok: true, sha256: sha256(gateText) }] });
+  assert.equal(JSON.stringify(sync.servedVerdictFacts(gateText, state, ca)), JSON.stringify({ ...sync.verdictFactsOf(gateText, state), body_sha256: sha256(gateText) }), "the served verdict is verdictFactsOf and the body digest, same keys, same order");
+  // (5) The site's files and loader never spell a field name of the wire (Q-UPS-C3).
+  for (const rel of ["apps/site/lib/ukemi-served-load.ts", ...readdirSync(join(ROOT, "apps/site/data")).filter((f) => f.startsWith("ukemi-")).map((f) => `apps/site/data/${f}`)]) {
+    assert.ok(!/calib_digest|scores_sha256/.test(read(rel)), `${rel} spells no field name of the wire`);
+  }
+});
+
+test("ukemi_promotion_waits_for_the_harness_promotion — the ukemi promotion is refused while the harness pending snapshot exists (T0 order: deploy check, harness sync, ukemi sync)", async () => {
+  const sync = await pendingSync();
+  const t = tmpRoot();
+  try {
+    assert.equal(sync.promotionBlocked(t.root), null, "control: no harness pending snapshot, the ukemi promotion may run");
+    writeFileSync(join(t.root, "apps", "site", "data", "harness-pending.json"), "{}\n");
+    assert.match(String(sync.promotionBlocked(t.root)), /harness-pending\.json/, "the ukemi promotion waits while the harness pending snapshot exists");
+  } finally {
+    t.cleanup();
+  }
+  const src = read("scripts/sync-ukemi-served.mjs"), at = src.indexOf("async function main() {");
+  assert.ok(at > 0 && src.slice(at, src.indexOf("\n}\n", at)).includes("promotionBlocked(ROOT)"), "the default sync checks the order before it promotes");
 });
