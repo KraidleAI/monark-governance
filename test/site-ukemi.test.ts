@@ -713,7 +713,7 @@ test("site_ukemi_course_view_types_no_digit — the view module and the course p
   assert.ok(!/\bserved\b/.test(typed), "the page types no other 'served' claim");
 });
 
-// killer: scripts/sync-ukemi-served.mjs:233 CONST "return marked;" -> "return JSON.stringify({ ...JSON.parse(text), pending_since: day }, null, 2) + \"\\n\";"
+// killer: scripts/sync-ukemi-served.mjs:234 CONST "return marked;" -> "return JSON.stringify({ ...JSON.parse(text), pending_since: day }, null, 2) + \"\\n\";"
 test("site_ukemi_served_state_bound_to_harness_registry — synced served state = repository registry; clause = gate module text; loader fails closed", async () => {
   const s = await pinTarget(ROOT);
   const committed = hasCommittedCalibrationForClass(TASK_LIQ_ELIGIBLE);
@@ -1274,7 +1274,7 @@ test("site_ukemi_prose_claims_conditional — 'calibrated' and 'coverage holds' 
 // record that answer green; once the committed file carries a verdict (W step 5), its body digest must be the committed
 // CA's gate_liq_call digest. M-3, the tie case (rank below n, largest-score flag true) states no served status. M-5, a
 // served n_calib + 1 or q-hat + 1 is refused by the sync.
-// killer: scripts/sync-ukemi-served.mjs:224 CONST "verdictFactsOf(await call(GATE_PATH, GATE_LIQ_BODY), facts.registry_state)" -> "JSON.parse(await call(GATE_PATH, GATE_LIQ_BODY)).structuredContent.verdict"
+// killer: scripts/sync-ukemi-served.mjs:225 CONST "verdictFactsOf(await call(GATE_PATH, GATE_LIQ_BODY), facts.registry_state)" -> "JSON.parse(await call(GATE_PATH, GATE_LIQ_BODY)).structuredContent.verdict"
 test("site_ukemi_course_served_stratum_status_bound_to_served_verdict — the present-tense status of the committed stratum rides only on an agreeing dated served verdict", async () => {
   const { handleJsonMirror } = await import("../apps/harness/src/http.ts");
   const { startServer } = await import("../apps/harness/src/server.ts");
@@ -1818,7 +1818,7 @@ test("ukemi_pages_keep_the_served_snapshot_while_pending — the pages and their
   });
 });
 
-// killer: scripts/sync-ukemi-served.mjs:215 CONST "UKEMI_PENDING_SHARED.filter" -> "Object.keys(pending).filter"
+// killer: scripts/sync-ukemi-served.mjs:216 CONST "UKEMI_PENDING_SHARED.filter" -> "Object.keys(pending).filter"
 test("ukemi_pending_sync_writes_in_process_facts — --pending writes the in-process facts; the promotion compares the fixed shared fields; the manifest edits change one line", async () => {
   const sync = await pendingSync();
   const { UKEMI_PENDING_SHARED } = await pendingLoader();
@@ -1858,7 +1858,7 @@ test("ukemi_pending_sync_writes_in_process_facts — --pending writes the in-pro
   }
 });
 
-// killer: scripts/sync-ukemi-served.mjs:238 CONST "existsSync(join(root, HARNESS_PENDING_REL))" -> "false"
+// killer: scripts/sync-ukemi-served.mjs:239 CONST "existsSync(join(root, HARNESS_PENDING_REL))" -> "false"
 test("ukemi_promotion_waits_for_the_harness_promotion — the ukemi promotion is refused while the harness pending snapshot exists (T0 order: deploy check, harness sync, ukemi sync)", async () => {
   const sync = await pendingSync();
   const t = tmpRoot();
