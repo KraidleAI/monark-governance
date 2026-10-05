@@ -5,6 +5,8 @@ import type { DeriveContext, Derived } from "./day.mjs";
 
 export const MINUTE_US: number;
 export const WINDOW_BP: bigint;
+/** Bytes of minutes.jsonl held at a seal at most (G2 B-1), else DayStop minutes_bound. */
+export const MINUTES_BOUND: number;
 
 /** A decimal string as an integer at `scale`; a non-zero digit past it throws DayStop off_scale. */
 export function atScale(text: string, scale: number): bigint;
@@ -24,7 +26,9 @@ export interface MinuteLine {
 export interface ChainHole { from_place_us: number; to_place_us: number | null }
 
 /** The parity at anchor-close.json (manifest key parity), or why it is absent. */
-export type Parity = { u: number; since: number; bids: number; asks: number } | { absent: "anchor_missing" | "anchor_shape" | "chain_open" };
+export type Parity = { u: number; since: number; bids: number; asks: number } | { absent: "anchor_missing" | "anchor_shape" | "chain_open" }
+  | { absent: "synced_on_anchor"; u: number };
 
-/** The hook of sealDay for one day of one symbol at price scale `scale` (an integer from 0 to 18, else DayStop bad_scale). */
-export function deriveDay(ctx: DeriveContext & { scale: number }): Derived;
+/** The hook of sealDay for one day of one symbol at price scale `scale` (an integer from 0 to 18, else DayStop bad_scale), minutes.jsonl
+ *  at most `bound` bytes (MINUTES_BOUND by default). */
+export function deriveDay(ctx: DeriveContext & { scale: number; bound?: number | undefined }): Derived;
