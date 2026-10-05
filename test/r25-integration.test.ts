@@ -903,7 +903,7 @@ test("r25m_long_line_cap_is_the_measured_list - Q-3: the cap is 2 000 bytes and 
   assert.deepEqual([lsi.LINE_MAX, lsi.LONG_LINE_PATHS], [2000, { [TRADEXYZ]: TRADEXYZ_BLOB }]);
 });
 
-// killer: scripts/lot-size-integration.mjs:229 CONST "!(p.endsWith(\".json\") && isJson(b))" -> "true"
+// killer: scripts/lot-size-integration.mjs:229 CONST "p.endsWith(\".json\") && !/" -> "false && !/"
 test("r25m_the_repository_itself_passes_the_long_line_cap - its tree at HEAD, added whole onto an empty commit, refuses nothing; read apart (bytes as latin1 characters), the only non-.json text paths under the two pathspecs with a line over 2 000 bytes are the list, at its blobs (the list absent before the lot)", () => {
   const d = mkdtempSync(join(tmpdir(), "r25m-tree-")), g = (...a: string[]): string => execFileSync("git", ["-C", d, "-c", "user.name=fx", "-c", "user.email=fx@localhost", ...a], { encoding: "utf8" }).trim();
   try {
