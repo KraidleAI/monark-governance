@@ -16,8 +16,8 @@
 //     are composed from the gate module's own constants, so a deploy whose text differs from this tree reds here;
 //   - the kept clause is ASCII (the site is English and ASCII for this text);
 //   - the /gate answer carries a verdict that AGREES with that state and with THIS tree's registry: empty => under_calib,
-//     n_calib 0, qhat null; committed => covered, with n_calib, calib_digest and qhat equal to the repository's committed
-//     stratum (its size, its C5 digest, its split-conformal quantile at the served alpha / nMin). A deploy of another
+//     n_calib 0, qhat null; committed => covered, with n_calib, scores_sha256 and qhat equal to the repository's committed
+//     stratum (its size, the sha256 of its scores, its split-conformal quantile at the served alpha / nMin). A deploy of another
 //     tree, or a foreign digest, reds here;
 //   - the /gate answer hashes to the sha256 the deploy check record recorded for its gate_liq_call control, and that
 //     control is green (ADR-U4b-2b D5 point 1: the served verdict rides on the body the deploy check attested, as
@@ -26,7 +26,7 @@
 // It writes ONLY: the host and paths, the read time, the served class id, the registry state it derived, the served
 // clause, the cascade flag, the sha256 of the OpenAPI body as read, and the served verdict facts under the site's own
 // key names (the probe's stratum, the verdict reason, served_alpha, calibration_points = n_calib, bound_margin_base =
-// q-hat as an exact integer string or null, calibration_digest = calib_digest, the smallest calibration count for which
+// q-hat as an exact integer string or null, calibration_digest = scores_sha256, the smallest calibration count for which
 // the conformal rank at that alpha is interior (the pre-registered H-2bis threshold, computed here from the served
 // alpha), and the sha256 of the /gate body as read, which is the deploy check's gate_liq_call sha256). No other served
 // text is copied. Output: LF, two-space
@@ -42,6 +42,7 @@ import { join, dirname, resolve } from "node:path";
 import { createHash } from "node:crypto";
 import { fileURLToPath } from "node:url";
 import { splitQuantile } from "@monark/hikae";
+import { scoresSha256 } from "@monark/contracts";
 import {
   TASK_LIQ_ELIGIBLE,
   LIQ_ALPHA,
@@ -130,7 +131,7 @@ export function verdictFactsOf(gateText, registryState) {
   if (v.reason !== "covered" && v.reason !== "under_calib") throw new Error(`unexpected verdict reason ${String(v.reason)}`);
   if (!Number.isSafeInteger(v.n_calib) || v.n_calib < 0) throw new Error("verdict n_calib is not a non-negative integer");
   if (v.alpha !== LIQ_ALPHA) throw new Error(`the served alpha ${String(v.alpha)} is not the class alpha`);
-  if (typeof v.calib_digest !== "string" || !/^[0-9a-f]{64}$/.test(v.calib_digest)) throw new Error("verdict calib_digest is not 64 lowercase hex");
+  if (typeof v.scores_sha256 !== "string" || !/^[0-9a-f]{64}$/.test(v.scores_sha256)) throw new Error("verdict scores_sha256 is not 64 lowercase hex");
   if (v.qhat !== null && !(Number.isSafeInteger(v.qhat) && v.qhat > 0)) throw new Error("verdict qhat is neither null nor a positive safe integer");
   const qhat = v.qhat === null ? null : String(v.qhat);
   if (registryState === "empty") {
@@ -139,8 +140,8 @@ export function verdictFactsOf(gateText, registryState) {
     const committed = lookupCommittedCalibration(TASK_LIQ_ELIGIBLE, `${UKEMI_LIQ_PREDICTOR_BASE}/s${String(stratum)}`);
     if (committed === undefined) throw new Error(`this tree's registry does not commit stratum s${String(stratum)} of the probe`);
     const q = splitQuantile(committed.scores, LIQ_ALPHA, LIQ_NMIN);
-    const same = v.reason === "covered" && v.n_calib === committed.scores.length && v.calib_digest === committed.digestPinned && "qhat" in q && qhat === String(q.qhat);
-    if (!same) throw new Error("the served verdict is not this tree's committed stratum (reason, n_calib, calib_digest and qhat must all agree)");
+    const same = v.reason === "covered" && v.n_calib === committed.scores.length && v.scores_sha256 === scoresSha256(committed.scores) && "qhat" in q && qhat === String(q.qhat);
+    if (!same) throw new Error("the served verdict is not this tree's committed stratum (reason, n_calib, scores_sha256 and qhat must all agree)");
   } else {
     throw new Error(`unknown registry state ${String(registryState)}`);
   }
@@ -148,7 +149,7 @@ export function verdictFactsOf(gateText, registryState) {
   // calibration_points (the verdict's n_calib), bound_margin_base (its q-hat, exact integer string), calibration_digest.
   return {
     path: GATE_PATH, stratum, verdict_reason: v.reason, served_alpha: v.alpha, calibration_points: v.n_calib, bound_margin_base: qhat,
-    calibration_digest: v.calib_digest, interior_rank_min_n: interiorRankMinN(v.alpha),
+    calibration_digest: v.scores_sha256, interior_rank_min_n: interiorRankMinN(v.alpha),
   };
 }
 

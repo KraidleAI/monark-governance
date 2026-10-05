@@ -19,8 +19,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
-import { assertClosedGateDecision } from "@monark/contracts";
-import { calibDigest } from "../../../scripts/lib/calib-digest-provenance.mjs";
+import { assertClosedGateDecision, scoresSha256 } from "@monark/contracts";
 import type { Prediction, GateDecision } from "@monark/contracts";
 import { TASK_LIQ_ELIGIBLE, LIQ_ALPHA, LIQ_NMIN, LIQ_COMMITTED_SENTENCE, LIQ_EMPTY_REGISTRY_SENTENCE, type HarnessParams } from "../src/tools/gate.ts";
 import { SCHEMA_VERSION } from "../src/tools/gate.ts";
@@ -58,19 +57,19 @@ function committedFromSeries(rows: readonly ScoreARow[]): Committed {
   const p = Math.ceil(((n + 1) * 99) / 100); // rank ceil((n+1)(1 - alpha)), alpha = LIQ_ALPHA = 1/100 (asserted below)
   const q = scores[p - 1];
   if (q === undefined) throw new Error("the committed stratum has fewer points than its conformal rank");
-  return { qhat: Number(q), n, digest: calibDigest(scores.map(Number)) };
+  return { qhat: Number(q), n, digest: scoresSha256(scores.map(Number)) };
 }
 
 function assertBounded(d: GateDecision, yhat: number, c: Committed, where: string): void {
   assertClosedGateDecision(d);
   assert.equal(d.verdict.reason, "covered", `${where}: the committed stratum is covered`);
-  assert.equal(d.verdict.region.kind, "interval", `${where}: the wire kind stays interval (frozen contract)`);
-  if (d.verdict.region.kind !== "interval") return;
+  assert.equal(d.verdict.region?.kind, "interval", `${where}: the wire kind stays interval (frozen contract)`);
+  if (d.verdict.region?.kind !== "interval") return;
   assert.equal(d.verdict.region.lo, 0, `${where}: lower edge 0 (upper bound, never symmetric)`);
   assert.equal(d.verdict.region.hi, yhat + c.qhat, `${where}: upper edge yhat + qhat_0`);
   assert.equal(d.verdict.qhat, c.qhat, `${where}: the served q-hat is the series' conformal q-hat of s0`);
   assert.equal(d.verdict.n_calib, c.n, `${where}: n_calib is the series' s0 size`);
-  assert.equal(d.verdict.calib_digest, c.digest, `${where}: calib_digest is the C5 of the series' s0 scores`);
+  assert.equal(d.verdict.scores_sha256, c.digest, `${where}: scores_sha256 is over the series' s0 scores, ascending`);
 }
 function assertAbstains(d: GateDecision, where: string): void {
   assertClosedGateDecision(d);

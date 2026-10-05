@@ -850,9 +850,9 @@ test("no_generate_metadata_in_apps_site — generateMetadata unused, §6b metada
 test("frozen_contract_fields_stay_dynamic — loaded contracts' required[] never hard-coded in apps/site (F-2b R-D)", () => {
   const contracts: { file: string; count: number }[] = [
     { file: "attested-price.schema.json", count: 9 },
-    { file: "coverage-verdict.schema.json", count: 12 },
+    { file: "coverage-verdict.schema.json", count: 17 },
     { file: "prediction.schema.json", count: 5 },
-    { file: "gate-decision.schema.json", count: 8 },
+    { file: "gate-decision.schema.json", count: 9 },
   ];
   const fields = new Set<string>();
   for (const c of contracts) {
@@ -1263,7 +1263,7 @@ test("gate_action_enum_order_is_frozen — action=[commit,defer,abstain]; sim in
   const { actions, reasons } = loadGateEnums(ROOT);
   // The order the client indexes by. A reorder in the schema reds HERE.
   assert.deepEqual(actions, ["commit", "defer", "abstain"], "action enum order changed (schema drift)");
-  assert.equal(reasons.length, 13, "gate-decision reason enum must carry the thirteen closed reasons");
+  assert.equal(reasons.length, 18, "gate-decision reason enum must carry the eighteen closed reasons (contract 1.1.0)");
   // lib/sim.ts resolves each action from the loaded enum by index — the load-bearing link. If the enum is
   // reordered, actions[ACTION_ABSTAIN] stops being the third action and this reds. (The derived type
   // GateAction is `string`; it is THIS test, not the type, that catches a reorder.)
@@ -1293,7 +1293,7 @@ test("gate_action_enum_order_is_frozen — action=[commit,defer,abstain]; sim in
 //   L143 covered               — otherwise
 test("sim_emitted_reason_codes_subset_of_frozen_enum — every reason the sim renders is in the frozen enum (R1)", () => {
   const { reasons } = loadGateEnums(ROOT);
-  assert.equal(reasons.length, 13, "frozen gate-decision reason enum must carry the thirteen closed codes");
+  assert.equal(reasons.length, 18, "frozen gate-decision reason enum must carry the eighteen closed codes (contract 1.1.0)");
   const frozen = new Set(reasons);
 
   const base = fresh();

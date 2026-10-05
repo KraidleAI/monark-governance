@@ -9,9 +9,9 @@
 import type { ChamberId } from "./sas-model.ts";
 
 // Positions of the audit labels inside the loaded required[] (schema order, pinned by the root test
-// against the loaded arrays — never a quoted field name here). REASON/REGION/CALIB_DIGEST/PRODUCED_AT
+// against the loaded arrays — never a quoted field name here). REASON/REGION/SCORES_DIGEST/PRODUCED_AT
 // index the CoverageVerdict required[]; REMAINING_BUDGET indexes the GateDecision required[].
-export const FIELD = { REASON: 8, REGION: 5, CALIB_DIGEST: 10, PRODUCED_AT: 11, REMAINING_BUDGET: 6 } as const;
+export const FIELD = { REASON: 8, REGION: 5, SCORES_DIGEST: 12, PRODUCED_AT: 16, REMAINING_BUDGET: 6 } as const; // contract 1.1.0
 
 /** An obviously-illustrative placeholder value (mirrors lib/sim.ts ELLIPSIS) — never a real digest. */
 export const ILLUSTRATIVE = "…";
@@ -58,7 +58,7 @@ export function buildAuditPayload(input: AuditInput): AuditPayload {
   const rows: readonly AuditRow[] = [
     { label: labelAt(input.verdictFields, FIELD.REASON), value: input.reason },
     { label: labelAt(input.verdictFields, FIELD.REGION), value: ILLUSTRATIVE },
-    { label: labelAt(input.verdictFields, FIELD.CALIB_DIGEST), value: ILLUSTRATIVE },
+    { label: labelAt(input.verdictFields, FIELD.SCORES_DIGEST), value: ILLUSTRATIVE },
     { label: labelAt(input.gateFields, FIELD.REMAINING_BUDGET), value: ILLUSTRATIVE },
     { label: labelAt(input.verdictFields, FIELD.PRODUCED_AT), value: ILLUSTRATIVE },
   ];

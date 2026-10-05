@@ -2,7 +2,7 @@
  * Root test (HARNESS-DESC-1 checkpoint-1 C-5; switched at U-4b-2b, ADR-U4b-2b D4): the deployment CA
  * `scripts/verify-harness.mjs` proves the liquidation-eligible-coverage class on the SERVED surface of the COMMITTED
  * registry -- `gate_liq_call` (POST /gate, yhat of the committed stratum s0: 200, verdict.reason covered, the upper bound
- * [0, yhat + qhat], the committed n_calib and C5 digest, the committed class text in `content`),
+ * [0, yhat + qhat], the committed n_calib and scores_sha256, the committed class text in `content`),
  * `gate_liq_uncommitted_call` (yhat on the first served cut, stratum s1: 200, abstain, verdict.reason under_calib,
  * n_calib 0) and `mcp_gate_description_liq` (the tools/list description of `gate`: the committed clause entire, the
  * empty-registry sentence absent). Private: neither root test/ nor the script is exported. No network: the CA runs
@@ -22,7 +22,7 @@ import {
   describeGate, GATE_TOOL_DESCRIPTION, LIQ_COMMITTED_SENTENCE, LIQ_CONDITIONAL_SENTENCE, LIQ_EMPTY_REGISTRY_SENTENCE, LIQ_H3_SENTENCE,
   LIQ_REQUIREMENTS_SENTENCE, LIQ_UPPER_BOUND_SENTENCE, LIQ_ALPHA, LIQ_NMIN, SCHEMA_VERSION, TASK_LIQ_ELIGIBLE,
 } from "../apps/harness/src/tools/gate.ts";
-import { lookupCommittedCalibration, UKEMI_LIQ_PREDICTOR_BASE, USDE_STABLE_RUN_CALIB_DIGEST_PINNED } from "../apps/harness/src/calibration.ts";
+import { lookupCommittedCalibration, UKEMI_LIQ_PREDICTOR_BASE, UKEMI_LIQ_SCORES_SHA256_PINNED, USDE_STABLE_RUN_SCORES_SHA256_PINNED } from "../apps/harness/src/calibration.ts";
 import { strateOf, STRATA_CUTS_SERVED } from "../apps/harness/src/ukemi-strata.ts";
 import { listen, startLoopback } from "./helpers/loopback.ts";
 
@@ -35,8 +35,9 @@ const COMMITTED_CLAUSE = `the served region is ${LIQ_UPPER_BOUND_SENTENCE}; ${LI
 
 // (1) liage (A-10): every literal the CA compares the served surface against is BYTE-IDENTICAL to its served constant
 // (the script stays zero-dependency; motif site_ukemi_copy_equals_served_liq_text): the five liq sentences of gate.ts,
-// the committed digest and size of s0 in calibration.ts, the first served cut of ukemi-strata.ts; the two compositions
+// the scores_sha256 pin and size of s0 in calibration.ts, the first served cut of ukemi-strata.ts; the two compositions
 // are the gate module's own. Mutant: one character changed in any literal => red.
+// killer: scripts/verify-harness.mjs:94 CONST "a927722276941a4f" -> "e7e673664c03e3c5"
 test("verify_harness_liq_literals_equal_served_constants", () => {
   const text = readFileSync(SCRIPT, "utf8");
   const literals: ReadonlyArray<readonly [string, string]> = [
@@ -45,7 +46,7 @@ test("verify_harness_liq_literals_equal_served_constants", () => {
     ["LIQ_H3_SENTENCE", JSON.stringify(LIQ_H3_SENTENCE)],
     ["LIQ_CONDITIONAL_SENTENCE", JSON.stringify(LIQ_CONDITIONAL_SENTENCE)],
     ["LIQ_EMPTY_REGISTRY_SENTENCE", JSON.stringify(LIQ_EMPTY_REGISTRY_SENTENCE)],
-    ["LIQ_S0_CALIB_DIGEST", JSON.stringify(S0.digestPinned)],
+    ["LIQ_S0_SCORES_SHA256", JSON.stringify(UKEMI_LIQ_SCORES_SHA256_PINNED[`${UKEMI_LIQ_PREDICTOR_BASE}/s0`])],
     ["LIQ_S0_N_CALIB", String(N0)],
     ["LIQ_S1_CUT", String(STRATA_CUTS_SERVED[0])],
   ];
@@ -63,8 +64,8 @@ test("verify_harness_liq_literals_equal_served_constants", () => {
 
 // (1b) UKEMI-PENDING-1 (MONARK e9cd32b, Q-UP-2): the CA bodies speak the version of this tree's harness. One constant,
 // CA_SCHEMA_VERSION, equal to SCHEMA_VERSION of gate.ts (the script stays zero-dependency, so this parity is the pin);
-// the two exported bodies carry it. Block C moves both in one line each; one moved alone => red.
-// killer: scripts/verify-harness.mjs:41 CONST "1.0.0" -> "1.1.0"
+// the two exported bodies carry it. Block C moved both in one line each (lot CM-3c-3c); one moved alone => red.
+// killer: scripts/verify-harness.mjs:41 CONST "1.1.0" -> "1.0.0"
 test("verify_harness_ca_schema_version_equals_the_harness_schema_version", async () => {
   const ca = (await import(new URL("../scripts/verify-harness.mjs", import.meta.url).href)) as unknown as { CA_SCHEMA_VERSION?: unknown; GATE_BODY: { prediction: { schema_version: unknown } }; GATE_LIQ_BODY: { prediction: { schema_version: unknown } } };
   assert.equal(ca.CA_SCHEMA_VERSION, SCHEMA_VERSION, "CA_SCHEMA_VERSION of the CA is the SCHEMA_VERSION the harness accepts");
@@ -177,7 +178,7 @@ interface Vector {
   details: string;
 }
 interface Seen { rewrites: number; committed: number; uncommitted: number }
-interface GateBody { content: Array<{ type: string; text: string }>; structuredContent: { action: string; reason: string; verdict: { reason: string; n_calib: number; qhat: number | null; calib_digest: string; region: { kind: string; lo?: number; hi?: number } } } }
+interface GateBody { content: Array<{ type: string; text: string }>; structuredContent: { action: string; reason: string; verdict: { reason: string; n_calib: number; qhat: number | null; scores_sha256: string; region: { kind: string; lo?: number; hi?: number } } } }
 
 const same: Rewrite = (status, body) => ({ status, body });
 const esc = (s: string): string => JSON.stringify(s).slice(1, -1);
@@ -263,7 +264,7 @@ test("verify_harness_ca_liq_checks_red_on_overclaiming_surfaces", { timeout: 300
       committed: edit((b) => { const v = b.structuredContent.verdict; v.region.lo = (v.region.hi ?? 0) - 2 * (v.qhat ?? 0); }),
       details: liqPlus(GREEN.description, GREEN.uncommitted, GREEN.liq.replace("upper_bound=true", "upper_bound=false")) },
     { tag: "gamma-2b-foreign-digest", description: GATE_TOOL_DESCRIPTION, uncommitted: same, red: ["gate_liq_call"],
-      committed: edit((b) => { b.structuredContent.verdict.calib_digest = USDE_STABLE_RUN_CALIB_DIGEST_PINNED; }),
+      committed: edit((b) => { b.structuredContent.verdict.scores_sha256 = USDE_STABLE_RUN_SCORES_SHA256_PINNED; }),
       details: liqPlus(GREEN.description, GREEN.uncommitted, GREEN.liq.replace("digest_s0=true", "digest_s0=false")) },
     { tag: "delta-2b", description: GATE_TOOL_DESCRIPTION, committed: same, red: ["gate_liq_uncommitted_call"],
       uncommitted: edit((b) => { b.structuredContent.verdict.reason = "covered"; }),

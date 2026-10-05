@@ -99,7 +99,7 @@ test("empty_set_never_commits_at_l3", () => {
       reason,
       residual: [],
       producedAt: "2026-09-04T00:00:00Z",
-      schemaVersion: "1.0.0",
+      schemaVersion: SCHEMA_VERSION, cell: { qhatUnit: "score", scale: null, cellKey: null, policyRowSha256: null, policyTableSha256: null },
     });
   for (const verdict of [verdictOf(true, "intent_not_in_region"), verdictOf(false, "covered")]) {
     for (const tau of [0, 1, 100]) {
@@ -116,7 +116,7 @@ test("empty_set_never_commits_at_l3", () => {
         timedOut: false,
         evaluable: true,
         tool: "perps_order_preview",
-        schemaVersion: "1.0.0",
+        schemaVersion: SCHEMA_VERSION, requestSha256: "0".repeat(64),
       };
       const d = gate(input);
       const at = `verdict ${verdict.reason}, tau ${String(tau)}`;

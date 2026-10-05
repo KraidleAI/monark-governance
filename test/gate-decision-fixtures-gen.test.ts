@@ -10,7 +10,7 @@ import { gateDecisionFixtures } from "../scripts/gen-gate-decision-fixtures.mjs"
 
 const FIX = join(import.meta.dirname, "..", "fixtures"), lf = (f: string): string => readFileSync(join(FIX, f), "utf8").replace(/\r\n/g, "\n");
 
-// killer: scripts/gen-gate-decision-fixtures.mjs:35 CONST "\"down\", 0.06" -> "\"down\", 0.07"
+// killer: scripts/gen-gate-decision-fixtures.mjs:42 CONST "\"down\", 0.06" -> "\"down\", 0.07"
 test("gate_decision_fixtures_generator_reproduces_the_committed_files", () => {
   const { files, manifest } = gateDecisionFixtures();
   const committed = readdirSync(FIX).filter((f) => f.endsWith(".gate-decision.json")).sort();

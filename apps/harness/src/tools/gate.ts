@@ -862,7 +862,7 @@ export function runGate(prediction: Prediction, params: HarnessParams, attested?
   validateHarnessParams(params);
   if (prediction.schema_version !== SCHEMA_VERSION) {
     throw new HarnessToolError(
-      `unsupported prediction.schema_version '${prediction.schema_version}': the harness speaks '${SCHEMA_VERSION}'`,
+      `unsupported prediction.schema_version '${prediction.schema_version}': the harness speaks '${SCHEMA_VERSION}'; specification: https://github.com/KraidleAI/monark-kata-spec`,
       "schema_version_unsupported",
     );
   }

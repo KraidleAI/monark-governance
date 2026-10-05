@@ -146,3 +146,51 @@ test("request_sha256_is_the_digest_of_the_received_envelope", async () => {
   assert.notEqual(await post({ ...usde, params: { ...usde.params, intent: 1 } }, false), same, "another intent, another digest");
   assert.notEqual(await post({ ...usde, prediction: { ...usde.prediction, yhat: 0.0002 } }, false), same, "another yhat, another digest");
 });
+
+// Q-C2 (ADR-CM line 2026-10-05 (5)): an envelope not writable canonically (I-JSON) is a named 400 param_invalid, over
+// HTTP and MCP, after every existing check (whose codes stay); bodies equal up to their canonical writing share a digest.
+// killer: apps/harness/src/tools/gate.ts:1014 CONST "if (e instanceof RangeError)" -> "if (false)"
+test("i_json_envelopes_are_param_invalid_and_existing_refusals_keep_their_code", async () => {
+  const set = ENVELOPES["byo-set"], usde = ENVELOPES["usde"], itv = ENVELOPES["byo-interval"], liq = ENVELOPES["liq"];
+  assert.ok(set !== undefined && usde !== undefined && itv !== undefined && liq !== undefined);
+  // The raw text "X" of a body is spliced in place of the string "@@": a lone surrogate escape or 1e400 (binary64 overflow).
+  const raw = (e: object, x: string): string => JSON.stringify(e).replace('"@@"', x);
+  const cases: [string, string, string][] = [
+    ["intent surrogate", raw({ ...set, params: { ...set.params, intent: "@@" } }, '"\\ud800"'), "param_invalid"],
+    ["tool surrogate", raw({ ...set, params: { ...set.params, tool: "@@" } }, '"\\udfff"'), "param_invalid"],
+    ["set yhat surrogate", raw({ ...set, prediction: { ...set.prediction, yhat: "@@" } }, '"\\ud800"'), "param_invalid"],
+    ["yhat 1e400", raw({ ...usde, prediction: { ...usde.prediction, yhat: "@@" } }, "1e400"), "param_invalid"],
+    ["intent 1e400", raw({ ...usde, params: { ...usde.params, intent: "@@" } }, "1e400"), "param_invalid"],
+    ["scores 1e400", raw({ ...itv, params: { ...itv.params, calibration: { scores: "@@", mode: "interval" } } }, "[1e400]"), "byo_calibration_invalid"],
+    // Not an I-JSON vector: tau 1e400 is refused before the envelope by the param check ("expected a finite number",
+    // same code with or without the killer). The I-JSON vectors are the five above; the rest keep an existing refusal.
+    ["tau 1e400", raw({ ...set, params: { ...set.params, tau: "@@" } }, "1e400"), "param_invalid"],
+    ["interval yhat surrogate", raw({ ...itv, prediction: { ...itv.prediction, yhat: "@@" } }, '"\\ud800"'), "byo_yhat_type"],
+    ["set tau cap, intent surrogate", raw({ ...set, params: { ...set.params, tau: 5, intent: "@@" } }, '"\\ud800"'), "byo_set_tau_cap"],
+    ["liq yhat 1e400", raw({ ...liq, prediction: { ...liq.prediction, yhat: "@@" } }, "1e400"), "liq_yhat_domain"],
+  ];
+  const server = await startLoopback((port) => startServer(port));
+  try {
+    const a = server.address(), port = typeof a === "object" && a !== null ? a.port : 0;
+    for (const [name, body, code] of cases) {
+      const res = await handleJsonMirror(new Request("http://api.monarkgate.tech/gate", { method: "POST", body }));
+      assert.deepEqual([res.status, ((await res.json()) as { code?: string }).code], [400, code], `HTTP ${name}`);
+      const mcp = await wiredPost(port, `{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"gate","arguments":${body}}}`);
+      const line = mcp.raw.split(/\r?\n/).find((l) => l.startsWith("data: ")) ?? mcp.raw;
+      const r = (JSON.parse(line.replace(/^data: /, "")) as { result: { isError?: boolean; _meta?: Record<string, string> } }).result;
+      assert.deepEqual([r.isError, r._meta?.["monarkgate.tech/error_code"]], [true, code], `MCP ${name}`);
+    }
+  } finally {
+    server.closeAllConnections();
+    await new Promise<void>((resolve) => { server.close(() => { resolve(); }); });
+  }
+  // Three pairs of bodies written differently, one canonical envelope: one digest each.
+  const digest = async (body: string): Promise<string> => {
+    const res = await handleJsonMirror(new Request("http://api.monarkgate.tech/gate", { method: "POST", body }));
+    return ((await res.json()) as { structuredContent: { request_sha256: string } }).structuredContent.request_sha256;
+  };
+  for (const [x, y] of [["0.0001", "1e-4"], ['"A"', '"\\u0041"'], ["0", "-0"]] as const) {
+    const e: object = x === '"A"' ? { ...set, params: { ...set.params, intent: "@@" } } : x === "0" ? { ...usde, params: { ...usde.params, intent: "@@" } } : { ...usde, prediction: { ...usde.prediction, yhat: "@@" } };
+    assert.equal(await digest(raw(e, x)), await digest(raw(e, y)), `${x} and ${y}: one digest`);
+  }
+});

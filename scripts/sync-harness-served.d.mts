@@ -14,3 +14,9 @@ export function classesFor(liqState: LiqState): ClassRow[];
 /** Does the served liq answer agree with the served state? Judged on verdict.reason and the content text, never on the
  *  top-level reason (L3's action reason). */
 export function liqCallAgrees(liqState: LiqState, liqCall: unknown): boolean;
+/** SERVED-PENDING-1 (Q-SP1-7): the pending snapshot --pending writes, from the in-process harness. */
+export function inProcessPending(writtenAt: string): Promise<Record<string, unknown>>;
+/** The shared fields (and any key or schema a pending snapshot may not carry) on which a served snapshot differs from the pending one. */
+export function pendingDiff(served: Record<string, unknown>, pending: Record<string, unknown>): string[];
+/** The served file's text with pending_since after read_at, no other byte touched; kept when already set. */
+export function markPendingSince(text: string, day: string): string;

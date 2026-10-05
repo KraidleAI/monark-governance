@@ -11,8 +11,10 @@ import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
 import { readFileSync } from "node:fs";
 import { scoresSha256 } from "@monark/contracts";
+import { calibDigest } from "../../../scripts/lib/calib-digest-provenance.mjs";
 import {
   assertCommittedScores,
+  BTC_DIR_CALIB,
   BTC_DIR_CALIB_DIGEST,
   CALIB_DIGEST_PINNED,
   lookupCommittedCalibration,
@@ -36,6 +38,7 @@ test("committed_scores_sha256_load_guard_against_the_new_pins", () => {
   assert.equal(UKEMI_LIQ_SCORES_SHA256_PINNED[`${UKEMI_LIQ_PREDICTOR_BASE}/s0`], LIQ_S0_PIN);
   assert.equal(CALIB_DIGEST_PINNED, BTC_DIR_PIN);
   assert.equal(BTC_DIR_CALIB_DIGEST, BTC_DIR_PIN, "the btc-dir draw, scores_sha256 in the derived order");
+  assert.equal(calibDigest(BTC_DIR_CALIB), "fcebed27fd3f9607bba94898f5ae4ebba548ced519d1d800b49890235358eda6", "the C5 provenance of the retired draw (G2 m-3)");
   assert.equal(createHash("sha256").update(readFileSync(new URL("../../../fixtures/usde-calib-scores.json", import.meta.url))).digest("hex"), USDE_PIN);
 
   const usde = lookupCommittedCalibration(USDE_STABLE_RUN_TASK_CLASS, USDE_STABLE_RUN_PREDICTOR_ID);

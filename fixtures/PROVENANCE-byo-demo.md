@@ -48,8 +48,8 @@ and are re-asserted by `test/byo-demo-probe.test.ts`.
 
 - The tools read no clock (`produced_at` is caller-carried); the ephemeral port is intentionally NOT
   recorded. Re-running the recorder reproduces the file byte-for-byte.
-- **sha256 (LF)** of `byo-demo-trace.json`: `daf8d3eabacbc601e608d01936d02c0f7ba78dfb5a0d6f5741ecea5fb4eef6d2`
-  (9735 bytes). `.gitattributes` normalizes to `eol=lf`, so this digest survives commit; the probe
+- **sha256 (LF)** of `byo-demo-trace.json`: `5c9b03e62bd88703a1ecfe381cf8288cab62aee9d096b03b2302338d49883dfc`
+  (10061 bytes, contract 1.1.0; text at T0). `.gitattributes` normalizes to `eol=lf`, so this digest survives commit; the probe
   LF-normalizes before hashing, so it also survives a CRLF checkout. This value is pinned as
   `TRACE_SHA256_PINNED` in `test/byo-demo-probe.test.ts`. Re-pinned for M012-f — the `initialize` step's
   `serverInfo.version` moved from the misaligned `1.0.0` to the single-source `HARNESS_VERSION` `0.4.0` (the
@@ -57,7 +57,7 @@ and are re-asserted by `test/byo-demo-probe.test.ts`.
   that one value differs — the recorded `structuredContent` and every decision digest are unaffected. (Prior
   re-pin: the verdict summary appended to the `calibrate` and `gate` `content` text.)
 - Byte-reproducible: two consecutive recorder runs printed the identical LF sha256
-  (`daf8d3ea…`, after the M012-f re-pin; `60f34868…` was the pre-M012-f digest), and `probe_byo_demo_loop_closes` re-derives it in-test. Regenerate, never hand-edit:
+  (`5c9b03e6…` in contract 1.1.0; `daf8d3ea…` after the M012-f re-pin; `60f34868…` was the pre-M012-f digest), and `probe_byo_demo_loop_closes` re-derives it in-test. Regenerate, never hand-edit:
   `node scripts/record-byo-demo.mjs`.
 - **No `tools/list` step** is recorded on purpose: unlike `h5-e2e-trace.json` (which re-pinned three
   times as the tool schemas evolved), this trace records only `initialize` + the two `tools/call`
