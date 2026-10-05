@@ -6,7 +6,8 @@
  * The source is a copy of this tree committed on a fresh `main`, so the branch guard passes and the copied tool carries the
  * working-tree changes under test. Nothing reaches GitHub: the remote is the bare repository, gh is the fake.
  * Mutants: M1-k (push restored) reds the ls-remote check; M1-l, M1-m, M1-q and each rule of the message gate red their
- * refusal; M1-o (the gate runner goes on after a red gate) reds the red-gate variant.
+ * refusal; M1-o (the gate runner goes on after a red gate) reds the red-gate variant; a preflight that lets a pending snapshot
+ * through reds the pending refusal (RELEASE-PREFLIGHT-SEND-GUARD-1).
  */
 import { test } from "node:test";
 import assert from "node:assert/strict";
@@ -23,7 +24,7 @@ const ROOT = join(import.meta.dirname, "..");
 const git = (cwd: string, ...args: string[]): string => execFileSync("git", args, { cwd, encoding: "utf8" }).trim();
 interface RunOpts { mirror?: string | null; email?: string; vis?: string; gates?: string[][]; dirty?: boolean }
 
-// killer: scripts/export-public.mjs:521 SDL "    process.exit(1);" -> ""
+// killer: scripts/release-public.mjs:211 SDL "    abort(\"export failed\");" -> ""
 test("release_public_flow — message gate, refusals before any gate, export:check before export, one local commit, no push, gh reads only", () => {
   const tmp = mkdtempSync(join(tmpdir(), "monark-release-flow-"));
   try {
@@ -105,16 +106,51 @@ test("release_public_flow — message gate, refusals before any gate, export:che
       ["--tag (PR-A2)", ["--message", ok, "--tag", "v0.7.0"], {}, "the local tag step is not in this tool yet"],
       ["rule d under --dry-run (FM-3.3)", ["--message", join(tmp, "md.txt"), "--dry-run"], {}, "rule d,"],
       ["dirty source tree (branch guard)", ["--message", ok], { dirty: true }, "working tree is not clean"],
-      ["unexpected remote (C-G2-1)", ["--message", ok], { mirror: mirrorX }, "points at an unexpected remote"],
     ];
-    for (const [label, args, o, why] of refusals) {
-      const r = run(args, o);
-      assert.notEqual(r.status, 0, `${label}: must refuse`);
-      assert.ok(r.out.includes(why), `${label}: refused for another reason than ${JSON.stringify(why)}:\n${r.out.slice(-800)}`);
-      assert.deepEqual(r.passed, [], `${label}: no gate may run before the refusal`);
-      for (const [m, h] of new Map([[mirrorR, headR], [mirrorX, headR]])) assert.ok(git(m, "rev-parse", "HEAD") === h && git(m, "status", "--porcelain") === "", `${label}: ${m} is untouched`);
-      assert.deepEqual(readdirSync(tmp).filter((n) => /-stage-|-message-/.test(n)), [], `${label}: nothing left beside the clones`);
+    const refuse = (list: [string, string[], RunOpts, string][]): void => {
+      for (const [label, args, o, why] of list) {
+        const r = run(args, o);
+        assert.notEqual(r.status, 0, `${label}: must refuse`);
+        assert.ok(r.out.includes(why), `${label}: refused for another reason than ${JSON.stringify(why)}:\n${r.out.slice(-800)}`);
+        assert.deepEqual(r.passed, [], `${label}: no gate may run before the refusal`);
+        for (const [m, h] of new Map([[mirrorR, headR], [mirrorX, headR]])) assert.ok(git(m, "rev-parse", "HEAD") === h && git(m, "status", "--porcelain") === "", `${label}: ${m} is untouched`);
+        assert.deepEqual(readdirSync(tmp).filter((n) => /-stage-|-message-/.test(n)), [], `${label}: nothing left beside the clones`);
+      }
+    };
+    refuse(refusals);
+
+    // SITE-SEND-GUARD-MECH-1 (lot CM-3c-4a, Q-CP-4) and RELEASE-PREFLIGHT-SEND-GUARD-1 (Q-CPA-1): while the tree carries a
+    // pending snapshot, the release and its --dry-run refuse in their preflight, naming each blocker, before any gate and
+    // before the mirror clone is touched; once the snapshot is promoted, they go on. The export's own guard stays.
+    for (const args of [["--message", ok], ["--message", ok, "--dry-run"]]) {
+      const pending = run(args);
+      assert.ok(pending.status !== 0 && pending.out.includes("RELEASE ABORTED: RELEASE-PREFLIGHT-SEND-GUARD-1 (SITE-SEND-GUARD-MECH-1)") && !pending.out.includes("export failed"), `a pending snapshot stops the release in its preflight:\n${pending.out.slice(-1500)}`);
+      for (const b of ["harness-pending.json", "ukemi-pending.json", "harness-served.json (pending_since)", "ukemi-served.json (pending_since)"]) assert.ok(pending.out.includes(`apps/site/data/${b}`), `the refusal names ${b}`);
+      assert.deepEqual(pending.passed, [], `${args.join(" ")}: no gate runs before the pending refusal`);
+      assert.ok(git(mirrorR, "rev-parse", "HEAD") === headR && git(mirrorR, "status", "--porcelain") === "" && !readdirSync(tmp).some((n) => n.includes("-stage-")), "pending snapshot: the mirror clone is untouched, nothing staged");
     }
+    dropPendingSnapshot(src);
+    git(src, "-c", "user.email=flow@users.noreply.github.com", "commit", "-q", "-am", "promote");
+    refuse([["unexpected remote (C-G2-1)", ["--message", ok], { mirror: mirrorX }, "points at an unexpected remote"]]);
+
+    // G2 N-1: the export still has the last word. A committed file the preflight lets through but the export refuses (a
+    // reader-local Windows path, D7 septies (iii)): every gate runs, then the release stops on its export, mirror untouched.
+    writeFileSync(join(src, "README.md"), `${readFileSync(join(src, "README.md"), "utf8")}\nSee ${"C"}:${"\\"}work${"\\"}x\n`);
+    git(src, "-c", "user.email=flow@users.noreply.github.com", "commit", "-q", "-am", "export-refused");
+    const exportRed = run(["--message", ok]);
+    assert.ok(exportRed.status !== 0 && exportRed.out.includes("RELEASE ABORTED: export failed") && exportRed.out.includes("reader-local Windows absolute path"), `a refused export stops the release:\n${exportRed.out.slice(-1500)}`);
+    assert.deepEqual(exportRed.passed, all, "export refused: every gate ran before it");
+    assert.ok(git(mirrorR, "rev-parse", "HEAD") === headR && git(mirrorR, "status", "--porcelain") === "" && !readdirSync(tmp).some((n) => /-stage-|-message-/.test(n)), "export refused: the mirror clone is untouched, nothing staged");
+    git(src, "reset", "-q", "--hard", "HEAD~1");
+
+    // G2 N-3: an unreadable exclusion list stops the preflight fail-closed, the operator reads a RELEASE ABORTED line.
+    git(src, "rm", "-q", "scripts/export-exclude-data.json");
+    git(src, "-c", "user.email=flow@users.noreply.github.com", "commit", "-q", "-m", "no-exclusion-list");
+    const unreadable = run(["--message", ok]);
+    assert.ok(unreadable.status !== 0 && unreadable.out.includes("export-exclude-data.json is missing") && unreadable.out.includes("RELEASE ABORTED: RELEASE-PREFLIGHT-SEND-GUARD-1 could not read the exported tree"), `an unreadable exclusion list is named by a RELEASE ABORTED line:\n${unreadable.out.slice(-1500)}`);
+    assert.deepEqual(unreadable.passed, [], "unreadable exclusion list: no gate runs");
+    assert.ok(git(mirrorR, "rev-parse", "HEAD") === headR && git(mirrorR, "status", "--porcelain") === "", "unreadable exclusion list: the mirror clone is untouched");
+    git(src, "reset", "-q", "--hard", "HEAD~1");
 
     // Red export:check, followed by one more gate: the tool stops there, before the export (CA-1.3, M1-o).
     assert.equal(LOCAL_GATES.at(-1)?.[1], "npm run export:check", "export:check is the last gate, just before the export");
@@ -124,14 +160,6 @@ test("release_public_flow — message gate, refusals before any gate, export:che
     assert.equal(git(mirrorR, "rev-parse", "HEAD"), headR, "red gate: the mirror clone HEAD is unchanged");
     assert.equal(git(mirrorR, "status", "--porcelain"), "", "red gate: nothing was written into the mirror clone");
     assert.deepEqual(readdirSync(tmp).filter((n) => n.includes("-stage-")), [], "red gate: no export was staged");
-
-    // SITE-SEND-GUARD-MECH-1 (lot CM-3c-4a, Q-CP-4): while the tree carries a pending snapshot, the release stops at its
-    // export, before the mirror clone is touched and with nothing staged; once the snapshot is promoted, it goes on.
-    const pending = run(["--message", ok]);
-    assert.ok(pending.status !== 0 && pending.out.includes("SITE-SEND-GUARD-MECH-1") && pending.out.includes("RELEASE ABORTED: export failed"), `a pending snapshot stops the release at its export:\n${pending.out.slice(-1500)}`);
-    assert.ok(git(mirrorR, "rev-parse", "HEAD") === headR && git(mirrorR, "status", "--porcelain") === "" && !readdirSync(tmp).some((n) => n.includes("-stage-")), "pending snapshot: the mirror clone is untouched, nothing staged");
-    dropPendingSnapshot(src);
-    git(src, "-c", "user.email=flow@users.noreply.github.com", "commit", "-q", "-am", "promote");
 
     // Accepted: the dry-run clones the absent mirror and commits nothing; the real run commits once, byte for byte, and
     // prints the push instead of running it (CA-1.1, CA-1.2, CA-1.3).
