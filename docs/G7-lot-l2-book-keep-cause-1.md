@@ -6,7 +6,8 @@
   - `f7a20590` : les deux tests, rouges par assertion à la base ;
   - `70663129` : `l2-book` installe le témoin, `trap()` passe dans `before()` ;
   - `c2906cc0` : le G0 (red-proof test-only, tueurs listés) ;
-  - puis ce G7.
+  - puis ce G7 ;
+  - `c55995e8` et le repli du G2 : la fixture de `keep_cause_names_the_test_and_counts` rendue déterministe (R-1), et ce G7 complété.
 - **Hôte de mesure** : Linux, Node 24.21.0, `TMPDIR` privé.
 
 ## Pourquoi
@@ -68,11 +69,14 @@ La convention de `scripts/red-proof.mjs` interdit un tueur dans un `*.test.ts`. 
   - Les 2 tests sont `pinned` : chaque tueur listé au G0, tiré au gel, est **tué** par une assertion (`keep-cause.ts` lignes 33 et 32).
   - `RED-PROOF.json` : sha256 `ee9e23bed86f…`, digest du gel `563b41441bac…`.
 - La rougeur à la base, sur la vraie base de `l2-book`, est celle du commit `f7a20590` (section « Changement »).
+- **Après le repli du G2** : `--test-only` donne **OK**, exit 0, avec 3 tests jugés et 10 inchangés. `keep_cause_names_the_test_and_counts` est jugé, puisque son corps change. Son tueur (`keep-cause.ts:32 CONST "begun += 1" -> "begun += 0"`) est ajouté à la liste du G0.
+  - Les 3 tests sont `pinned`, et les 3 tueurs sont **tués**.
+  - `RED-PROOF.json` : sha256 `240c6912dadd…`, digest du gel `7fc54d17d7c8…`.
 
 ### Autres contrôles
 
 - **Ancres** : `verifie-ancres.mjs . --touched origin/base/chantier-moteur-2026-10-03 HEAD` donne **13 tueurs, 13 ANCRE, 0 DERIVE, 0 PERDU**.
-- **R-25** (`scripts/oracle/r25.mjs`, base `origin/base/chantier-moteur-2026-10-03`) : STAT +30/−5, **35 lignes** (borne de la CI : 1205) ; CONTENT_STAT : 0 ; GREEN.
+- **R-25** (`scripts/oracle/r25.mjs`, base `origin/base/chantier-moteur-2026-10-03`) : STAT +30/−5, **35 lignes** (borne de la CI : 1205) ; CONTENT_STAT : 0 ; GREEN. Après le repli du G2 : STAT +31/−6, **37 lignes**, GREEN (la base n a pas bougé : `753a23a9`).
 - **Fichiers L2** : `node --test --test-force-exit test/l2-*.test.ts test/keep-cause.test.ts` donne 172 tests, 172 verts, et aucun dossier `l2-*` laissé dans `TMPDIR`.
 - **`npm run test:main` complet** : 2 563 tests, 2 541 verts, 0 échec, 22 sautés, exit 0 (486 s). Les 6 tests de `l2-book` et les 7 de `keep-cause` sont verts.
 - **Outils** : `tsc --noEmit`, `eslint .` et `gate:vocab` sont verts ; `lint:ratchet` donne 69/69 ; `lang:gate` est OK.
@@ -107,7 +111,32 @@ La convention de `scripts/red-proof.mjs` interdit un tueur dans un `*.test.ts`. 
    - **`exit code N during <étape>`** : une sortie, nommée avec son étape et ses compteurs ;
    - **`uncaughtException during <étape>: ...`** : l exception, avec sa pile sur une ligne ;
    - **ni test, ni ligne `keep-cause`** : un kill, un plantage natif ou une erreur d import statique. C est le déclencheur d ORACLE-CHILD-EXIT-TRACE-1.
+   - **Un rouge ordinaire ajoute aussi une ligne** : avec des tests rouges nommés par une assertion, le témoin écrit `exit code 1 during between tests, tests begun N, ended N`. Cette ligne seule ne signale pas une cause perdue (G2, N-3).
 
 ## Écarts au plan
 
 - **Mode de red-proof** : la commande `f2p` demandée (`--draw n --seed 37`) refuse par construction un lot de tests seuls. D où un G0 « red-proof: test-only » ajouté, comme pour L2-LINKS-FILE-CRASH-1, et la preuve donnée dans ce mode.
+
+## G2
+
+Revue adverse fraîche : `G2-l2-book-keep-cause-1.md` (tête revue `3867962b`), verdict **APPROUVÉ**, aucun bloquant.
+
+| Constat | Ce que dit le G2 | Repli |
+|---|---|---|
+| **R-1** (préexistant, hors diff) | `keep_cause_names_the_test_and_counts` est aléatoire sous charge. La fixture lève dans un `setImmediate` et n attend qu un `setTimeout(…, 50)`. Si le minuteur passe avant l immédiat, `b` finit d abord, et le throw est nommé `between tests`. Mesuré : 4 rouges sur 36 à la tête, 3 sur 36 à la base. | `c55995e8` : `b` attend une promesse résolue par un second `setImmediate`, programmé dans l immédiat qui lève, juste avant le throw. `b` ne peut donc finir qu après le throw. L intention est gardée (une exception non attrapée dans `b` est nommée avec son test), et la sortie attendue est inchangée. Détail dans la sous-section suivante. |
+| **N-1** | `runBook` lance l enfant sans `--test-force-exit` : un mutant qui laisse des poignées ouvertes ne rougit qu au délai de 120 s. | **Accepté tel quel** : c est rouge quand même, et `--test-force-exit` changerait la forme mesurée. |
+| **N-2** | Les comptes `begun 0, ended 6` dépendent de la sémantique des crochets de Node 24.21.0, alors que la CI prend Node 24 flottant. | **Accepté tel quel** : c est le même risque que les tests existants du fichier. |
+| **N-3** | Sur un rouge ordinaire, le témoin ajoute une ligne `exit code 1 … begun N, ended N`. | Une phrase ajoutée au guide de lecture (« Pour MONARK », point 2). |
+
+### Preuve du repli de R-1
+
+- **Reproduction forcée, avant le repli** : un préchargement (`NODE_OPTIONS=--import=<fichier>`, hérité par la fixture) fait passer par un `setTimeout(…, 200)` le seul `setImmediate` dont le rappel contient `boom in b`. Le test est alors rouge par assertion : `uncaughtException during between tests` au lieu de `during test "b"`, ce qui est la forme du G2.
+- **Même préchargement, après le repli** : vert.
+- **Tueur** `test/helpers/keep-cause.ts:32 CONST "begun += 1" -> "begun += 0"` : resté valide, tiré à la main. Le test est rouge par `ERR_ASSERTION`, et le sha256 est restauré.
+- **Charge** : `keep-cause.test.ts` et `l2-book.test.ts`, 12 en parallèle, 3 tours, donnent **0 rouge sur 36**.
+- **Fichiers L2 et `keep-cause`** (`--test-force-exit`), 3 passes : 172 sur 172 à chaque passe, et aucun dossier `l2-*` laissé.
+- **`npm run test:main`**, deux exécutions :
+  - **La première** : 2 563 tests, 2 540 verts, **1 échec**, 22 sautés, exit 1. L échec est `l2_seal_apart_child_killed` (`test/l2-loop.test.ts:633`), avec `[false,false,undefined,true,false]` au lieu de `[…,false,false]`. C est l aléa connu **L2-SEAL-APART-FLAKE-1**, pris en cause racine à part : `l2-loop` n est pas touché par ce lot. Le témoin de `l2-loop` l a bien nommé : `# keep-cause test/l2-loop.test.ts: exit code 1 during between tests, tests begun 49, ended 49`. C est un exemple de la ligne de N-3.
+  - **La seconde** : 2 563 tests, 2 541 verts, 0 échec, 22 sautés, exit 0, et aucune ligne `# keep-cause`.
+  - Les 7 tests de `keep-cause` et les 6 de `l2-book` sont verts dans les deux exécutions.
+- **`tsc --noEmit`, `eslint .`, `gate:vocab`** : verts. **`lint:ratchet`** : 69/69. **`lang:gate`** : OK. **Ancres** : 13 tueurs, 13 ANCRE, 0 DERIVE, 0 PERDU.
