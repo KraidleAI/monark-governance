@@ -311,6 +311,15 @@ test("oracle_r25_integration_reads_the_declared_proof - --r25-proof: the tree's 
   assert.equal(oracle(fx, ["--role", "G2", "--r25-proof", join(fx.top, "absent.json")]).status, 2);
 }));
 
+// killer: scripts/oracle/run.mjs:99 CONST "\"--template=\", " -> ""
+test("oracle_clone_takes_no_machine_template - G2 delta3 m-f: a machine git template (GIT_TEMPLATE_DIR, or init.templateDir) carrying info/attributes `* -diff` never reaches the clone: r25 reads the 3 lines of the lot, green (0 lines before)", () => withFx((fx) => {
+  const tpl = join(fx.top, "template");
+  mkdirSync(join(tpl, "info"), { recursive: true });
+  writeFileSync(join(tpl, "info", "attributes"), "* -diff\n");
+  const r = oracle(fx, ["--role", "G1", "--static-only"], { GIT_TEMPLATE_DIR: tpl });
+  assert.deepEqual([r.rec?.r25?.map((c) => [c.insertions, c.deletions, c.changed]), r.rec?.gates.find((g) => g.name === "r25")?.exit], [[[3, 0, 3]], 0], r.out);
+}));
+
 test("oracle_cv4_refuses_the_suite — free memory or node.exe out of bounds => exit 3, no suite, lock released; defaults 4096 MB free and 40 node.exe (M12, X13)", () => withFx((fx) => {
   // killer: scripts/oracle/run.mjs:156 LVR "ORACLE_MIN_FREE_MB ?? 4096" -> "ORACLE_MIN_FREE_MB ?? 0"
   // killer: scripts/oracle/run.mjs:156 LVR "ORACLE_MAX_NODE ?? 40" -> "ORACLE_MAX_NODE ?? 48"

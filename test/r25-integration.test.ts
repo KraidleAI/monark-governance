@@ -130,9 +130,8 @@ test("r25i_fake_branch_name_bypasses_nothing - E-5 (2): a fork named lot/etude-s
 
 // killer: scripts/lot-size-integration.mjs:33 CONST "\"-c\", \"merge.conflictStyle=merge\", " -> ""
 // killer: scripts/lot-size-integration.mjs:86 CONST "\"--remerge-diff\", \"--unified" -> "\"--no-diff-merges\", \"--unified"
-// killer: scripts/oracle/r25.mjs:27 CONST "\"-C\", clone, \"-c\", \"core.attributesFile=\", " -> "\"-C\", clone, "
-// killer: scripts/oracle/r25.mjs:27 CONST "\"-c\", \"core.bigFileThreshold=512m\", " -> ""
-// killer: scripts/oracle/r25.mjs:27 CONST "`--attr-source=${EMPTY_TREE}`, " -> ""
+// killer: scripts/oracle/r25.mjs:27 CONST "\"-C\", clone, ...PIN, " -> "\"-C\", clone, "
+// killer: scripts/oracle/r25.mjs:27 CONST "[`--attr-source=${EMPTY_TREE}`], " -> "[], "
 test("r25i_conflict_resolution_above_bound_is_red - E-5 (3): through the oracle's r25() with bound 20, a 25-line resolution is red, a 10-line one green, under a hostile git config, user attributes, a machine bigFileThreshold of 1 or a measured .gitattributes * -diff (one line more); 3 lines slipped into a clean merge count 3 (A-3)", () => {
   for (const [n, exit, changed] of [[25, 1, 31], [10, 0, 16]] as const) withFx((fx) => {
     fx.g("checkout", "-q", "-b", "feat");
@@ -335,6 +334,68 @@ test("r25i_user_git_attributes_do_not_lower_counts - G2 m-a, delta2 m-d: a user 
     finally { for (const k of Object.keys(e)) Reflect.deleteProperty(process.env, k); }
   });
   assert.deepEqual([written[0], codes], [317, [307, 307, 307]]);
+}));
+
+/** The content side of B-4: PR #5 adds src/big.txt (3 000 lines) then drops it; a branch from the middle edits one line of
+ * it, the merge conflicts on content and keeps the 3 000 lines. Returns the proof naming PR #5. */
+function keptByConflict(fx: Fx): object {
+  fx.g("checkout", "-q", "-b", "feat");
+  const c1 = fx.commit("big", "src/big.txt", 3000);
+  writeFileSync(join(fx.dir, "src", "big.txt"), "head\n");
+  fx.g("commit", "-qam", "drop big");
+  const h5 = fx.commit("s", "src/s.txt", 5);
+  fx.g("checkout", "-q", "lot/etude-suite");
+  const m5 = fx.merge("feat", "Merge pull request #5");
+  fx.g("checkout", "-q", "-b", "g", c1);
+  writeFileSync(join(fx.dir, "src", "big.txt"), lines("big", 3000).replace("big 1500\n", "edited\n"));
+  fx.g("commit", "-qam", "edit");
+  fx.g("checkout", "-q", "lot/etude-suite");
+  assert.throws(() => fx.g("merge", "-q", "g", "-m", "conflict"));
+  fx.g("checkout", "--theirs", "src/big.txt");
+  fx.g("add", "-A");
+  fx.g("commit", "-qm", "conflict resolved, the 3 000 lines kept");
+  return proofOf(fx, [pr(5, m5, h5)]);
+}
+
+// killer: scripts/lot-size-integration.mjs:114 CONST "if (infoAttributes(cwd)) throw" -> "if (false) throw"
+test("r25i_machine_attributes_return_the_written_count - G2 delta3 m-f: a $GIT_DIR/info/attributes, which --attr-source does not replace, marking every path merge=union (the conflict of B-4 merges clean: 3) or -diff (0): the module returns W, 3 005", () => {
+  for (const attr of ["* merge=union\n", "* -diff\n"]) withFx((fx) => {
+    const proof = keptByConflict(fx), written = fx.written(), before = effective({ cwd: fx.dir, ciText: fx.ci, base: TARGET, proof, written });
+    fx.put(".git/info/attributes", attr);
+    const r = effective({ cwd: fx.dir, ciText: fx.ci, base: TARGET, proof, written });
+    assert.deepEqual([attr, before.mode, before.code, r.code, r.content], [attr, "integration", 3005, 3005, 0], r.detail.join("\n"));
+  });
+});
+
+// killer: scripts/oracle/r25.mjs:23 CONST "if (infoAttributes(clone)) throw" -> "if (false) throw"
+test("oracle_r25_refuses_machine_attributes - G2 delta3 m-f: a $GIT_DIR/info/attributes `* -diff` in the clone: the oracle's r25() throws (run.mjs writes RED, fail-closed) instead of reading W 0 for 3 000 lines", () => withFx((fx) => {
+  fx.commit("c", "src/c.txt", 3000);
+  assert.equal(oracle(fx, TARGET, null).counts[0]?.changed, 3000);
+  fx.put(".git/info/attributes", "* -diff\n");
+  assert.throws(() => oracle(fx, TARGET, null), /info\/attributes/);
+}));
+
+// killer: scripts/lot-size-integration.mjs:33 CONST "\"-c\", \"diff.renames=true\", " -> ""
+test("oracle_r25_w_reads_under_the_module_pin - G2 delta3 m-g: a commit edits one line of src/a.txt (3 000 lines) and copies the old a.txt to src/b.txt; a user's diff.renames=copies (~/.gitconfig through HOME, GIT_CONFIG_GLOBAL, GIT_CONFIG_PARAMETERS) reads 2 unpinned; the oracle's W stays 3 002, as the CI reads it", () => withFx((fx) => {
+  const base = fx.commit("a", "src/a.txt", 3000), home = join(fx.dir, ".git", "home");
+  copyFileSync(join(fx.dir, "src", "a.txt"), join(fx.dir, "src", "b.txt"));
+  writeFileSync(join(fx.dir, "src", "a.txt"), lines("a", 3000).replace("a 0\n", "edited\n"));
+  fx.g("add", "-A");
+  fx.g("commit", "-qm", "edit and copy");
+  fx.put(".git/home/.gitconfig", "[diff]\n\trenames = copies\n");
+  const envs = [{ HOME: home, XDG_CONFIG_HOME: join(home, ".config") }, { GIT_CONFIG_GLOBAL: join(home, ".gitconfig") }, { GIT_CONFIG_PARAMETERS: "'diff.renames'='copies'" }];
+  const plain = envs.map((e) => metric(execFileSync("git", ["-C", fx.dir, "diff", "--shortstat", `${base}...HEAD`, "--", "src"], { encoding: "utf8", env: { ...process.env, ...e } })));
+  assert.deepEqual([plain, envs.map((e) => oracle(fx, base, null, e).counts[0]?.changed)], [[2, 2, 2], [3002, 3002, 3002]]);
+}));
+
+// killer: scripts/oracle/r25.mjs:27 CONST ", []]" -> "]"
+test("oracle_r25_w_is_never_below_the_ci_read - G2 delta3 m-h: a measured .gitattributes `*.dat diff` makes src/blob.dat (a NUL byte, then 3 000 lines) count 3 001 in the CI's read; the oracle's W reads 3 001 too (the larger of its empty-tree read and the CI's read), not 0", () => withFx((fx) => {
+  fx.put(".gitattributes", "*.dat diff\n");
+  const base = fx.commit("attributes", "x.txt", 1);
+  fx.put("src/blob.dat", `\0\n${lines("blob", 3000)}`);
+  fx.g("add", "-A");
+  fx.g("commit", "-qm", "blob");
+  assert.deepEqual([fx.written(base)[0], oracle(fx, base, null).counts[0]?.changed], [3001, 3001]);
 }));
 
 // killer: scripts/lot-size-integration.mjs:74 CONST "lines.slice(from," -> "lines.slice(0,"

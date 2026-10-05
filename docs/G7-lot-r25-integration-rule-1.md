@@ -251,3 +251,15 @@ Coût R-25 du pli : 109 lignes (510 -> 619), d où la découpe 1a / 1b.
 **Coût sur les données réelles** : nul (section 4) ; synchro et C2 restent à 0 / 0, toutes les PR prouvantes prouvent encore.
 
 **Coût R-25 du pli delta 2** : 33 lignes sur 1a (513 -> 546, borne 547).
+
+## 12. Pli de la G2 delta 3 (1b seul)
+
+**Relecture** : `G2-r25-integration-rule-1-delta3.md` (G2 neuve de RECHERCHES, pièce de coordination du 2026-10-04), verdict APPROUVE SOUS RÉSERVE, aucun bloquant, trois mineurs m-f à m-h et une observation O-3. 1a (`a00e62f3`, PR #154) est approuvée telle quelle et **ne change pas** : tout le pli est sur 1b, depuis `bbdddb4d`.
+
+### 12.1 Note G0 du pli (écrite avant les tests)
+
+- **m-f** (attributs de machine hors de `--attr-source`) : le module, source unique, met `GIT_ATTR_NOSYSTEM=1` dans l environnement de git (fichier système `$(prefix)/etc/gitattributes`) ; un `$GIT_DIR/info/attributes` non vide (que `--attr-source` ne remplace pas) est une erreur, donc `W` (mode `error`). L oracle fait le même contrôle avant sa lecture `W` (levée, donc RED par `run.mjs`), et clone avec `--template=` : le gabarit de la machine (`GIT_TEMPLATE_DIR`, `init.templateDir`) n atteint plus le clone. Tests : le reproducteur de la G2 (B-4 « contenu » plus `info/attributes` `* merge=union`, puis `* -diff` : `W` = 3 005) ; `* -diff` dans le clone, par le `r25()` de l oracle : levée ; le gabarit `* -diff` par `run.mjs` : 3 lignes, vert. `GIT_ATTR_NOSYSTEM` n est pas épinglé par un test (il faudrait écrire le fichier système de la machine) : déclaré.
+- **m-g** (le `W` de l oracle n épingle pas `diff.renames`) : le module exporte `PIN` et son environnement (`GIT_ENV`) ; la lecture `W` de `scripts/oracle/r25.mjs:27` les reprend, donc lit sous exactement les options et l environnement du module (dont `LC_ALL=C` et `GIT_DIFF_OPTS` retiré). Test : le reproducteur de copie de la G2 sous `diff.renames = copies` par `~/.gitconfig` (`HOME`), `GIT_CONFIG_GLOBAL` et `GIT_CONFIG_PARAMETERS` : 3 002, comme la CI (2 sans épinglage).
+- **m-h** (« jamais plus laxiste » est faux) : correction peu coûteuse retenue plutôt qu une déclaration. Le `W` de l oracle devient le **plus grand** de deux lectures sous le même `PIN` : celle des attributs de l arbre vide (O-1, côté oracle) et celle des attributs de l arbre mesuré, qui est la lecture de la CI. Le `W` de l oracle n est donc jamais sous celui de la CI ; le compte du module est le même des deux côtés, et `min(module, W)` est croissant en `W`. Test : le reproducteur de la G2 (`*.dat diff` mesuré, `src/blob.dat` avec un octet NUL puis 3 000 lignes) : 3 001 dans les deux lectures (0 au gel précédent).
+- **O-3** (le mutant 2.40 -> 2.36 survit) : noté seulement (section 12.3).
+- Coût prévu : une trentaine de lignes de code, une soixantaine de tests, ce texte. Les lignes visées par les tueurs existants restent à leur numéro (le module garde 33 et 34, l oracle 20, 27, 31, 35, 44, 48 ; `run.mjs` 99 et la suite).
