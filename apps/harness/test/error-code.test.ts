@@ -411,7 +411,7 @@ test("every_code_but_output_invalid_is_thrown_by_a_served_request", async () => 
 
 // G2 N-1 of D-3: the reasons of NO_SERVED_REQUEST are facts the test checks, so an exemption reddens when its reason falls (at
 // U-5b, ukemi-predict is registered and its code needs a served request in T-15). Green at its base (declared; killer by hand).
-// killer: apps/harness/src/schema-projection.ts:266 CONST "additionalProperties: false" -> "additionalProperties: true"
+// killer: apps/harness/src/schema-projection.ts:329 CONST "additionalProperties: false" -> "additionalProperties: true"
 test("no_served_request_reasons_hold", () => {
   assert.ok(!REGISTERED_TOOL_NAMES.includes("ukemi-predict"), "ukemi-predict is not registered");
   assert.deepEqual([ATTEST_INPUT_SCHEMA["properties"], ATTEST_INPUT_SCHEMA["additionalProperties"]], [{}, false], "attest takes no input");
