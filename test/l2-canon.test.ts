@@ -167,9 +167,9 @@ test("l2_best_tap_net_change", async () => {
   assert.deepEqual([[...r.events.subarray(0, 2 * r.n)], r.unjudged], [[103, 103, 104, 104], 1]); // the best left (rescan), then its quantity
 });
 
-// killer: scripts/l2/canon.mjs:97 ROR "held > bound" -> "held >= bound"
+// killer: scripts/l2/canon.mjs:97 CONST "2 * held > bound" -> "held > bound"
 test("l2_canon_run_bound_named", async () => {
-  const C = await load(), one = liq(START + S, "1"), two = liq(START + 2 * S, "2"), held = Buffer.byteLength(one) + Buffer.byteLength(two);
+  const C = await load(), one = liq(START + S, "1"), two = liq(START + 2 * S, "2"), held = 2 * (Buffer.byteLength(one) + Buffer.byteLength(two)); // G2 m-1: bytes and forms
   const day = async (bound: number): Promise<[string, unknown]> => {
     const out = fresh(); // forceOrder: one run of one key (its bytes), held whole to be ordered
     await conn(out, [[START + S, one], [START + 2 * S, two]], "market");
@@ -189,4 +189,83 @@ test("l2_canon_day_frames_only", async () => {
   assert.ok(read(out, "index.jsonl").includes(`"mark":"late","of":"2026-10-03"`));
   const t = canon(out).trade!;
   assert.deepEqual([t.frames, t.entries, t.foreign, t.raw_sha256], [2, 1, 1, sha([trade(10, START + 4 * MIN)[1]])]);
+});
+
+// killer: scripts/l2/canon.mjs:118 CONST "Math.max(his[last], k2)" -> "k2"
+test("l2_crosscheck_nested_interval", async () => {
+  const out = fresh(); // G2 m-2: [100;110] on one connection, [101;104] nested on another; u 107 lies in their union
+  await conn(out, [diff(100, 110, START + S), ticker(107, START + 3 * S)]);
+  await conn(out, [[START + 2 * S, diff(101, 104, START + S)[1]]]);
+  assert.deepEqual(await seal(out), { sealed: true, dir: dayDir(out), frames: 3 });
+  assert.deepEqual(manifest(out).crosscheck, { i: { tickers: 1, outside: 0 }, ii: { absent: "no_replay" } });
+});
+
+// killer: scripts/l2/canon.mjs:96 CONST "st.k2[perm[j]] === st.k2[perm[i]]" -> "true"
+test("l2_canonical_diff_key_both_parts", async () => {
+  const out = fresh(), x = diff(101, 103, START + S), y = diff(101, 101, START + S); // G2 m-3: one U, two u; read [101;103] first
+  await conn(out, [x]);
+  await conn(out, [[START + 2 * S, y[1]]]);
+  assert.deepEqual(await seal(out), { sealed: true, dir: dayDir(out), frames: 2 });
+  const d = canon(out)["depth@100ms"]!;
+  assert.deepEqual([d.entries, d.same_key, d.raw_sha256], [2, 0, sha([y[1], x[1]])]); // (U,u) order: [101;101], then [101;103]
+});
+
+// killer: scripts/l2/canon.mjs:107 CONST "cmp(p.f, q.f)" -> "0"
+test("l2_forceorder_forms_sorted", async () => {
+  const out = fresh(), one = liq(START + S, "1"), two = liq(START + 2 * S, "2"); // G2 m-4: by bytes other, three, one, two; forms 1, 2, 1, 2
+  const other = `{"data":{"o":{"q":"1","S":"SELL","s":"BTCUSDT"},"E":${String(START + S)},"e":"forceOrder"},"stream":"btcusdt@forceOrder"}`;
+  const three = `{"data":{"o":{"q":"2","S":"SELL","s":"BTCUSDT"},"E":${String(START + 2 * S)},"e":"forceOrder"},"stream":"btcusdt@forceOrder"}`;
+  await conn(out, [[START + S, one], [START + 2 * S, two], [START + 3 * S, other], [START + 4 * S, three]], "market");
+  assert.deepEqual(await seal(out), { sealed: true, dir: dayDir(out), frames: 4 });
+  const f = canon(out).forceOrder!;
+  assert.deepEqual([f.entries, f.forms, f.same_fields, f.fields_sha256], [4, 2, 2, sha([form(one), form(two)].sort())]);
+});
+
+// killer: scripts/l2/canon.mjs:116 CONST "Math.max(max ?? 0, k1 - prev)" -> "k1 - prev"
+test("l2_trade_id_largest_jump_first", async () => {
+  const out = fresh(); // G2 m-5: the largest jump (3 to 15) comes before a smaller one (16 to 20)
+  await conn(out, [1, 2, 3, 15, 16, 20].map((t, i) => trade(t, START + (i + 1) * S)));
+  assert.deepEqual(await seal(out), { sealed: true, dir: dayDir(out), frames: 6 });
+  assert.deepEqual(canon(out).trade!.jumps, { count: 2, max: 12 });
+});
+
+// killer: scripts/l2/canon.mjs:34 ROR "a[mid] <= x" -> "a[mid] < x"
+test("l2_crosscheck_floor_low_edge", async () => {
+  const out = fresh(), C = await load(), best = { events: Float64Array.from([106, 106]), n: 1, unjudged: 0 }; // G2 m-6: (ii) on [106;106]
+  await conn(out, [diff(101, 103, START + S), diff(110, 112, START + 2 * S), ticker(105, START + 3 * S), ticker(110, START + 4 * S)]);
+  assert.deepEqual(await seal(out, (ctx) => C.canonDay({ ...ctx, best })), { sealed: true, dir: dayDir(out), frames: 4 });
+  assert.deepEqual(manifest(out).crosscheck, { i: { tickers: 2, outside: 1 }, ii: { changes: 1, unmatched: 1, unjudged: 0, first: [[106, 106]] } }); // u 110 at the low edge of [110;112]; 105 not in [106;106]
+});
+
+// killer: scripts/l2/canon.mjs:51 CONST "day ? 1 : 0" -> "1"
+test("l2_best_tap_fresh_book_edges", async () => {
+  const { tap, result } = (await load()).bestTap({ scale: 2, start: START, end: END }); // G2 m-7: a book set at J+1, then two ask levels
+  const book: ReplayBook = { id: 100, since: 100, bids: new Map([[10000n, ["100.00", "1"]]]), asks: new Map([[10100n, ["101.00", "1"]], [10200n, ["102.00", "1"]]]) };
+  tap({ E: END, U: 101, u: 101, b: [], a: [] }, book); // set, out of the day: not counted unjudged
+  book.asks.set(10200n, ["102.00", "2"]);
+  tap({ E: START + S, U: 102, u: 102, b: [], a: [["102.00", "2"]] }, book); // the second ask level: the best ask (101.00) is unchanged
+  const r = result();
+  assert.deepEqual([r.n, r.unjudged], [0, 0]);
+});
+
+// killer: scripts/l2/canon.mjs:103 ROR "named.length < NAMED_BOUND" -> "named.length <= NAMED_BOUND"
+test("l2_canonical_named_bound", async () => {
+  const out = fresh(), C = await load(), ids = Array.from({ length: 17 }, (_, i) => i + 1); // G2 m-7: 17 groups, 16 listed, all counted
+  await conn(out, ids.map((t) => trade(t, START + t * S, "100.00")));
+  await conn(out, ids.map((t) => trade(t, START + t * S + 1000, "100.01")));
+  const best = { events: Float64Array.from(ids.flatMap((u) => [u, u])), n: 17, unjudged: 0 }; // 17 changes, no bookTicker: 16 listed
+  assert.deepEqual(await seal(out, (ctx) => C.canonDay({ ...ctx, best })), { sealed: true, dir: dayDir(out), frames: 34 });
+  const c = canon(out), ii = (manifest(out).crosscheck as Line).ii as Line;
+  assert.deepEqual([c.trade!.same_key, (c.named as unknown as unknown[]).length, ii.unmatched, (ii.first as unknown[]).length], [17, 16, 17, 16]);
+});
+
+// killer: scripts/l2/canon.mjs:87 CONST "x.at !== x.n" -> "false"
+test("l2_canon_index_all_read", async () => {
+  const out = fresh(), C = await load(); // G2 n-2: an entry of the day's index that no segment holds (rank 9): named, nothing written
+  await conn(out, [trade(1, START + S)]);
+  const code = await seal(out, (ctx) => {
+    const k = "btcusdt@trade", { stream, col } = ctx.index.get(k)!, a = Int32Array.from([...col.a.subarray(0, col.n), 0, 9, 0]);
+    return C.canonDay({ ...ctx, index: new Map([...ctx.index, [k, { stream, col: { a, n: col.n + 3 } }]]) });
+  });
+  assert.deepEqual([code, STOPS.includes("canon_reread"), existsSync(join(dayDir(out), "index.jsonl"))], ["canon_reread", true, false]);
 });
