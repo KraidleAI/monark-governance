@@ -335,8 +335,8 @@ test("kata_reasons_within_coverage_reasons", () => {
   assert.equal(new Set(KATA_REASONS).size, KATA_REASONS.length, "no reason twice");
 });
 
-/** C-3 (delegated decision CM-4b): the codes with no served thrower yet, exact; block C removes input_invalid and json_invalid. */
-const PENDING = ["input_invalid", "json_invalid", "kata_key_invalid", "kata_yhat_domain", "features_digest_required", "policy_tau_cap", "produced_at_off_grid", "produced_at_stale"];
+/** C-3 (delegated decision CM-4b): the codes with no served thrower yet, exact; since C' (lot CM-3c-4a) the 6 kata codes. */
+const PENDING = ["kata_key_invalid", "kata_yhat_domain", "features_digest_required", "policy_tau_cap", "produced_at_off_grid", "produced_at_stale"];
 
 // killer: apps/harness/src/tools/gate.ts:927 CONST "\"task_class_retired\"" -> "\"task_class_unknown\""
 test("every_listed_code_has_a_served_thrower_or_is_pending", () => {

@@ -12,6 +12,7 @@ import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { buildOpenApi, OPENAPI_VERSION } from "../src/openapi.ts";
 import type { Json } from "../src/schema-projection.ts";
+import { TOOL_ERROR_CODES } from "@monark/contracts";
 
 const SCHEMAS = fileURLToPath(new URL("../../../schemas/", import.meta.url));
 
@@ -124,4 +125,38 @@ test("openapi_generated_matches_frozen_schemas", () => {
     "calibrate response requires the 7 D3 fields (reason IN the schema, M-5)",
   );
   assert.equal(calibrateOut["additionalProperties"], false, "calibrate response is a closed envelope");
+});
+
+/** The independent projection of a tool-error node: annotations and identity keys dropped, local $defs refs inlined. */
+function projectToolError(node: Json, defs: { [k: string]: Json }): Json {
+  if (Array.isArray(node)) return node.map((n) => projectToolError(n, defs));
+  if (node === null || typeof node !== "object") return node;
+  const ref = node["$ref"];
+  if (typeof ref === "string") return projectToolError(defs[ref.replace("#/$defs/", "")] ?? null, defs);
+  return Object.fromEntries(Object.entries(node).filter(([k]) => !["$schema", "$id", "description", "title", "$defs"].includes(k)).map(([k, v]) => [k, projectToolError(v, defs)]));
+}
+
+// OPENAPI-ERROR-CODE-1 (ADR-CM amendment 2026-10-04 (1); Q-C5 conditions 3 and 4; lot CM-3c-4a): the 400 and 500 responses of
+// every operation are the projections of the root and of $defs/InternalError of schemas/tool-error.schema.json, so their
+// codes are the 32 of the catalogue; no code is a literal of openapi.ts or schema-projection.ts, and no $ref is left.
+// killer: apps/harness/src/openapi.ts:86 CONST "TOOL_ERROR_400_SCHEMA" -> "TOOL_ERROR_500_SCHEMA"
+test("openapi_400_and_500_are_the_tool_error_projections", () => {
+  const frozen = asObj(loadJson("tool-error.schema.json"), "tool-error");
+  const defs = asObj(frozen["$defs"], "tool-error.$defs");
+  const want400 = projectToolError(frozen, defs), want500 = projectToolError(defs["InternalError"] ?? null, defs);
+  type Responses = Record<string, { content?: Record<string, { schema?: Json } | undefined> } | undefined>;
+  const spec = buildOpenApi();
+  for (const op of ["attest", "calibrate", "cascade", "gate"]) {
+    const post = asObj(asObj(asObj(spec["paths"], "paths")["/" + op], op)["post"], `${op}.post`);
+    const responses = post["responses"] as unknown as Responses;
+    assert.deepEqual(responses["400"]?.content?.["application/json"]?.schema, want400, `${op}: the 400 is the projected tool-error root`);
+    assert.deepEqual(responses["500"]?.content?.["application/json"]?.schema, want500, `${op}: the 500 is the projected InternalError`);
+  }
+  const text = JSON.stringify(want400) + JSON.stringify(want500);
+  assert.deepEqual(TOOL_ERROR_CODES.filter((c) => !text.includes(`"${c}"`)), [], "the projections carry the 32 codes");
+  assert.ok(!JSON.stringify(spec).includes("$ref") && !JSON.stringify(spec).includes("$defs"), "no reference is left for OpenAPI to resolve");
+  for (const f of ["../src/openapi.ts", "../src/schema-projection.ts"]) {
+    const src = readFileSync(fileURLToPath(new URL(f, import.meta.url)), "utf8");
+    assert.deepEqual(TOOL_ERROR_CODES.filter((c) => src.includes(`"${c}"`)), [], `${f}: no code literal (C-3)`);
+  }
 });

@@ -17,11 +17,13 @@ import { delimiter, join, relative } from "node:path";
 import { pathToFileURL } from "node:url";
 import { LOCAL_GATES } from "../scripts/release-public.mjs";
 import { DATA_SOURCE_FORMS } from "../scripts/public-text-deny.mjs";
+import { dropPendingSnapshot } from "./helpers/pending-snapshot.ts";
 
 const ROOT = join(import.meta.dirname, "..");
 const git = (cwd: string, ...args: string[]): string => execFileSync("git", args, { cwd, encoding: "utf8" }).trim();
 interface RunOpts { mirror?: string | null; email?: string; vis?: string; gates?: string[][]; dirty?: boolean }
 
+// killer: scripts/export-public.mjs:521 SDL "    process.exit(1);" -> ""
 test("release_public_flow — message gate, refusals before any gate, export:check before export, one local commit, no push, gh reads only", () => {
   const tmp = mkdtempSync(join(tmpdir(), "monark-release-flow-"));
   try {
@@ -122,6 +124,14 @@ test("release_public_flow — message gate, refusals before any gate, export:che
     assert.equal(git(mirrorR, "rev-parse", "HEAD"), headR, "red gate: the mirror clone HEAD is unchanged");
     assert.equal(git(mirrorR, "status", "--porcelain"), "", "red gate: nothing was written into the mirror clone");
     assert.deepEqual(readdirSync(tmp).filter((n) => n.includes("-stage-")), [], "red gate: no export was staged");
+
+    // SITE-SEND-GUARD-MECH-1 (lot CM-3c-4a, Q-CP-4): while the tree carries a pending snapshot, the release stops at its
+    // export, before the mirror clone is touched and with nothing staged; once the snapshot is promoted, it goes on.
+    const pending = run(["--message", ok]);
+    assert.ok(pending.status !== 0 && pending.out.includes("SITE-SEND-GUARD-MECH-1") && pending.out.includes("RELEASE ABORTED: export failed"), `a pending snapshot stops the release at its export:\n${pending.out.slice(-1500)}`);
+    assert.ok(git(mirrorR, "rev-parse", "HEAD") === headR && git(mirrorR, "status", "--porcelain") === "" && !readdirSync(tmp).some((n) => n.includes("-stage-")), "pending snapshot: the mirror clone is untouched, nothing staged");
+    dropPendingSnapshot(src);
+    git(src, "-c", "user.email=flow@users.noreply.github.com", "commit", "-q", "-am", "promote");
 
     // Accepted: the dry-run clones the absent mirror and commits nothing; the real run commits once, byte for byte, and
     // prints the push instead of running it (CA-1.1, CA-1.2, CA-1.3).

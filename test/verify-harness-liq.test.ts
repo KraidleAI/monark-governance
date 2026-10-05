@@ -174,6 +174,7 @@ interface Vector {
   committed: Rewrite;
   uncommitted: Rewrite;
   committedRequest?: (body: string) => string;
+  byo?: Rewrite;
   red: string[];
   details: string;
 }
@@ -215,6 +216,8 @@ function overclaimingProxy(upstream: number, v: Vector, seen: Seen): HttpServer 
           } else if (liq) {
             seen.uncommitted += 1;
             out = v.uncommitted(out.status, out.body);
+          } else if (api && v.byo !== undefined && text.includes('"task_class":"byo-demo"')) {
+            out = v.byo(out.status, out.body);
           } else if (!api && text.includes(`"method":"tools/list"`)) {
             if (out.body.split(served).length !== 2) out = { status: 500, body: "" }; // fail-closed: the SDK encoding moved
             else { seen.rewrites += 1; out.body = out.body.replace(served, () => JSON.stringify(v.description).slice(1, -1)); }
@@ -239,9 +242,10 @@ const shut = (s: HttpServer): Promise<void> => {
   return new Promise((resolve) => { s.close(() => { resolve(); }); });
 };
 
-// O-1b-G2-2 (duration of this test, G2 HARNESS-DESC-1-1b): 16 CA runs here (15 vectors and the crash run; about 0.2 s each
+// O-1b-G2-2 (duration of this test, G2 HARNESS-DESC-1-1b): 17 CA runs here (16 vectors and the crash run; about 0.2 s each
 // idle, measured up to ~10 s each under a loaded full suite for the former 4); the per-test timeout keeps a margin over
 // the suite's 120 s default.
+// killer: scripts/verify-harness.mjs:365 CONST " && digest === calibrateScoresSha256;" -> ";"
 test("verify_harness_ca_liq_checks_red_on_overclaiming_surfaces", { timeout: 300000 }, async () => {
   // M-4 (second exitCode site, main().catch): an unparsable --api throws in `new URL` before any request (the --mcp is a
   // closed local port, never a public host): no CA on stdout, the crash named on stderr, exit exactly 1.
@@ -295,6 +299,9 @@ test("verify_harness_ca_liq_checks_red_on_overclaiming_surfaces", { timeout: 300
     { tag: "mu-2b", description: GATE_TOOL_DESCRIPTION, uncommitted: same, red: ["gate_liq_call"],
       committed: edit((b) => { const c0 = b.content[0]; if (c0 !== undefined) c0.text = `${c0.text} ${LIQ_EMPTY_REGISTRY_SENTENCE}`; }),
       details: liqPlus(GREEN.description, GREEN.uncommitted, GREEN.liq.replace("empty_text=false", "empty_text=true")) },
+    // m-3 (G2 of 3c-3c, lot CM-3c-4a): a covered BYO answer whose verdict digest is not the calibrate call's reds the loop alone.
+    { tag: "nu-byo-foreign-digest", description: GATE_TOOL_DESCRIPTION, committed: same, uncommitted: same, red: ["gate_byo_call"],
+      byo: edit((b) => { b.structuredContent.verdict.scores_sha256 = USDE_STABLE_RUN_SCORES_SHA256_PINNED; }), details: liqPlus(GREEN.description, GREEN.uncommitted) },
   ];
   const upstream: HttpServer = await startLoopback((port) => startServer(port));
   try {

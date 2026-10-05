@@ -11,6 +11,7 @@ import assert from "node:assert/strict";
 import { readFileSync, readdirSync, statSync } from "node:fs";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
+import { createRequire } from "node:module";
 import type { Prediction, AttestedPrice } from "@monark/contracts";
 import * as contracts from "@monark/contracts";
 import * as gateModule from "../src/tools/gate.ts";
@@ -158,11 +159,12 @@ test("every_harness_tool_error_names_a_code", () => {
 });
 
 // Q-F2 (go of the founder, "Version + depot de spec"; lot CM-3c-3c): the refusal of a 1.0.0 prediction names the version
-// the harness speaks and the specification repository, on the thrown error and on the HTTP 400 body. The exact text waits
-// for MONARK's dated line (merge precondition of C2b).
-// killer: apps/harness/src/tools/gate.ts:865 CONST "; specification: https://github.com/KraidleAI/monark-kata-spec" -> ""
+// the gate speaks and the specification repository, on the thrown error and on the HTTP 400 body. Exact text: MONARK's dated
+// line (10) of the ADR-CM (0fcc18f2), "the gate" and not "the harness" (lot CM-3c-4a). The specification URL stays pinned
+// by the same literal (its former killer, "; specification: ..." -> "", is drawn by hand).
+// killer: apps/harness/src/tools/gate.ts:865 CONST "the gate speaks" -> "the harness speaks"
 test("schema_version_refusal_names_the_spoken_version_and_the_spec_repository", async () => {
-  const text = "unsupported prediction.schema_version '1.0.0': the harness speaks '1.1.0'; specification: https://github.com/KraidleAI/monark-kata-spec";
+  const text = "unsupported prediction.schema_version '1.0.0': the gate speaks '1.1.0'; specification: https://github.com/KraidleAI/monark-kata-spec";
   assert.equal(SCHEMA_VERSION, "1.1.0");
   assert.throws(() => runGate(pred(LIQ, 5000, "x", "1.0.0"), PARAMS), (e: unknown) => e instanceof HarnessToolError && e.code === "schema_version_unsupported" && e.message === text);
   const res = await handleJsonMirror(new Request("http://api.monarkgate.tech/gate", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ prediction: pred(LIQ, 5000, "x", "1.0.0"), params: PARAMS }) }));
@@ -288,4 +290,61 @@ test("http_mirror_validates_its_output", async () => {
     mutable.run = original;
   }
   assert.equal((await mirror("/gate", body)).status, 200, "restored");
+});
+
+// Q-C5 condition 2 (decision of block C), with the cut of C2 (Q-3a-5, lot CM-3c-4a): every 400 body of the mirror validates the
+// root of schemas/tool-error.schema.json (invalid_json and invalid_input carry their message and code), every 500 body its
+// $defs/InternalError, and the 404 and 405 bodies do not validate the root.
+// killer: apps/harness/src/http.ts:97 CONST "code: \"input_invalid\", " -> ""
+test("http_400_bodies_validate_the_tool_error_root", async () => {
+  const schema = JSON.parse(readFileSync(fileURLToPath(new URL("../../../schemas/tool-error.schema.json", import.meta.url)), "utf8")) as Obj;
+  const Ajv = (createRequire(import.meta.url)("ajv/dist/2020.js") as { default: new (o: object) => { compile: (s: unknown) => (v: unknown) => boolean } }).default;
+  const root = new Ajv({ strict: true }).compile(schema), internal = new Ajv({ strict: true }).compile({ ...schema, oneOf: undefined, $ref: "#/$defs/InternalError" });
+  const raw = async (method: string, path: string, body?: string): Promise<{ status: number; json: Obj }> => {
+    const res = await handleJsonMirror(new Request(`http://api.monarkgate.tech${path}`, body === undefined ? { method } : { method, body }));
+    return { status: res.status, json: (await res.json()) as Obj };
+  };
+  const gate = { prediction: pred("stable-run-velocity-24h", 0.0001, USDE_STABLE_RUN_PREDICTOR_ID), params: { ...PARAMS, intent: 0 } };
+  const bad: [string, Promise<{ status: number; json: Obj }>, string][] = [
+    ["not JSON", raw("POST", "/gate", "{"), "json_invalid"], ["extra key", raw("POST", "/gate", JSON.stringify({ ...gate, rogue: 1 })), "input_invalid"],
+    ["missing params", raw("POST", "/calibrate", JSON.stringify({ scores: [1] })), "input_invalid"],
+    ["unknown class", raw("POST", "/gate", JSON.stringify({ ...gate, prediction: pred("nope-class", 1) })), "task_class_unknown"],
+    ["calibrate alpha", raw("POST", "/calibrate", JSON.stringify({ scores: [0.1, 0.2, 0.3], alpha: 1.5, nMin: 3 })), "calibrate_input_invalid"],
+  ];
+  for (const [at, pending, code] of bad) {
+    const r = await pending;
+    assert.deepEqual([r.status, r.json["code"], typeof r.json["message"]], [400, code, "string"], `${at}: 400 with its code and a message`);
+    assert.ok(root(r.json), `${at}: the 400 body validates the tool-error root: ${JSON.stringify(r.json)}`);
+  }
+  for (const r of [await raw("POST", "/trade", "{}"), await raw("GET", "/nowhere"), await raw("GET", "/gate"), await raw("PUT", "/gate", "{}")]) {
+    assert.ok([404, 405].includes(r.status) && !root(r.json), `a ${String(r.status)} body is not a tool-error body: ${JSON.stringify(r.json)}`);
+  }
+  const tool = HARNESS_TOOLS.find((t) => t.name === "gate");
+  assert.ok(tool !== undefined, "the gate tool is registered");
+  const mutable = tool as { run: typeof tool.run }, original = tool.run;
+  try {
+    for (const run of [() => ({ text: "x", structured: { rogue: true } }), () => { throw new Error("boom"); }]) {
+      mutable.run = run;
+      const r = await raw("POST", "/gate", JSON.stringify(gate));
+      assert.ok(r.status === 500 && internal(r.json) && !root(r.json), `a 500 body validates InternalError only: ${JSON.stringify(r.json)}`);
+    }
+  } finally {
+    mutable.run = original;
+  }
+});
+
+// C-11 condition 2 (decision CM-4b; cut Q-3b-5 to C'): the form of features_digest is the input schema's, served: a digest of
+// 63 hex characters is a 400 input_invalid on the HTTP mirror, and an MCP tool error without a code (the SDK refuses it
+// before the tool runs, so no _meta code rides).
+// killer: apps/harness/src/http.ts:97 CONST "\"input_invalid\"" -> "\"json_invalid\""
+test("features_digest_of_63_chars_is_input_invalid", async () => {
+  const body = { prediction: { ...pred("stable-run-velocity-24h", 0.0001, USDE_STABLE_RUN_PREDICTOR_ID), features_digest: "a".repeat(63) }, params: { ...PARAMS, intent: 0 } };
+  const http = await mirror("/gate", body);
+  const json = JSON.parse(http.text) as Obj;
+  assert.deepEqual([http.status, json["error"], json["code"]], [400, "invalid_input", "input_invalid"], http.text);
+  assert.equal((await mirror("/gate", { ...body, prediction: { ...body.prediction, features_digest: "a".repeat(64) } })).status, 200, "64 hex characters are served");
+  const mcp = await mcpToolsCall("gate", body);
+  assert.equal(mcp["isError"], true, "MCP refuses it");
+  assert.equal(mcp["_meta"], undefined, "without a code");
+  assert.match(JSON.stringify(mcp["content"]), /features_digest/, "naming the field");
 });

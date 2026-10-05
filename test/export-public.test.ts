@@ -61,6 +61,7 @@ import { join, relative, dirname } from "node:path";
 import { createHash } from "node:crypto";
 import { collectFiles, derivePublicWorkflow } from "../scripts/export-public.mjs";
 import { innerFailures } from "./helpers/inner-failures.ts";
+import { dropPendingSnapshot } from "./helpers/pending-snapshot.ts";
 
 const ROOT = join(import.meta.dirname, "..");
 
@@ -161,6 +162,8 @@ test("export_public_no_governance_no_french — clean public export (test 42)", 
       join(src, "LICENSE"),
       "MONARK public export test fixture (not a real license). Real license = investor pending Q4, ADR-M004 D7 bis R2.\n",
     );
+    // SITE-SEND-GUARD-MECH-1 (lot CM-3c-4a): --out refuses while a pending snapshot is in the tree; export it as promoted.
+    dropPendingSnapshot(src);
 
     // Lot F-public: seed build-output / installed-deps dirs the export MUST NOT walk into apps/site
     // (WALK_SKIP_DIRS in export-public.mjs). cpSync's own filter skips node_modules, so inject these AFTER
