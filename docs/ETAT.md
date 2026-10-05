@@ -514,9 +514,35 @@ Tronc `lot/etude-suite`. Dernier oracle complet : 1 779 tests, dont 1 776 verts,
     est `{ci.yml}`, à épingler par une égalité d ensemble. Porteur : RECHERCHES, lot à part ; déclencheur : avant T0 ; état : ouvert.
   - R25-NUL-BINARY-1 (O-a de la G2 de R25-ATTR-SOURCE-1) : un fichier dont la première ligne porte un octet NUL est lu binaire par
     git et compte 0 sous R-25, comme un sous-module ; construction visée : le compter (ou le refuser) sous les deux pathspecs. Porteur :
-    RECHERCHES ; déclencheur : avant T0 ; l oracle garde le plus grand de ses deux lectures jusque-là (Q-1 de #162) ; état : ouvert.
+    RECHERCHES ; déclencheur : avant T0 ; état : fermé le 2026-10-05 (#166 `e74d39ea`, lot R25-GUARDS-1, ADR-M003 D9 duodecies :
+    arbre d attributs `attrTree`, un binaire hors des actifs déclarés compte ses lignes).
   - R25-COUNT-CAP-1 (même G2) : le job r25 ne plafonne pas en bash la sortie `integration` de `count` au compte d aujourd hui `W` ;
-    le module le garantit par construction, le job ne le vérifie pas. Porteur : RECHERCHES ; déclencheur : avant T0 ; état : ouvert.
+    le module le garantit par construction, le job ne le vérifie pas. Porteur : RECHERCHES ; déclencheur : avant T0 ; état : fermé le
+    2026-10-05 (#166 `e74d39ea` : le job et l oracle refusent un compte d intégration au-dessus de `W`, mode `above-written`).
+  - R25-ASSET-DIR-MAGIC-1 (PAROXYSME ; reste de R-1 de la G2 de R25-GUARDS-1) : dans un répertoire d actifs déclaré, un fichier à octet
+    NUL d extension déclarée compte encore 0, même s il porte du code. Construction visée : refuser sous les deux pathspecs un tel chemin
+    changé dont les premiers octets ne sont pas le nombre magique de son format. Porteur : RECHERCHES ; déclencheur : avant T0 ; ouvert.
+  - R25-CR-ONLY-LINES-1 (PAROXYSME ; R-2 de la même G2) : R-25 compte des `\n` ; 3 001 instructions séparées par `\r` seul comptent 1
+    ligne. Construction visée : compter un `\r` isolé comme une fin de ligne. Porteur : RECHERCHES ; déclencheur : avant T0 ; ouvert.
+  - R25-GITLINK-SYMLINK-1 (Q-3 et N-8 de la même G2) : un sous-module (`160000`) ou un lien symbolique (`120000`) compte 1 ligne ;
+    refuser le premier sous les deux pathspecs, décider du second. Porteur : RECHERCHES ; déclencheur : avant T0 ; état : ouvert.
+  - TRANSPORT-500-SCHEMA-1 (N-4 de la G2 de C' 3c-4a) : le 500 de transport sans `operation` contredit le schéma 500 publié de
+    `/openapi.json`. Porteur : RECHERCHES ; déclencheur : avant la NOTICE de T−7 (le contrat publié doit dire vrai) ; état : ouvert.
+  - SCHEMA-PROJECTION-FAIL-CLOSED-1 (N-2 de la même G2) : `inlineDefs` perd les mots-clés voisins d un `$ref` et boucle sur une
+    définition récursive ; la projection doit échouer fermé. Porteur : RECHERCHES ; déclencheur : avant T0 ; état : ouvert.
+  - RELEASE-PREFLIGHT-SEND-GUARD-1 (Q-CPA-1 de C' 3c-4a) : `release-public` refuse dès son pré-vol, avant les portes locales, tant
+    qu un instantané en attente existe (la garde de l export reste l autorité). Porteur : RECHERCHES ; déclencheur : avant T0 ; ouvert.
+  - CANONICAL-ROW-REEXPORT-1 (coupe nommée Q-CP-8, appliquée au G0 de C' 3c-4b) : `canonicalRow` réexporte `canonicalJson` (clé non
+    ASCII refusée) ; sorti du chantier 1.1.0, aucun octet servi. Porteur : RECHERCHES ; déclencheur : après T0 ; état : ouvert.
+  - L2-HARNESS-FIXED-UNTIL-1 (note de l agent de #157) : des tests du harnais L2 assertent juste après un `until` à instant fixe ; sous
+    charge ils peuvent échouer par assertion (pas bloquer). Porteur : RECHERCHES ; déclencheur : lot c6 de L2 P1 ; état : ouvert.
+  - L2-ANCHOR-MIDNIGHT-STRADDLE-1 (d-1 de la delta G2 de c5-bis-c) : une requête d ancre à cheval sur minuit est écrite comme clôture
+    de D (parité de D absente, jamais fausse) ; option `receivedUs`. Porteur : RECHERCHES ; déclencheur : lot c6 ; état : ouvert.
+  - L2-JOURNAL-BROKEN-HANDLERS-1 (d-4, antérieur au lot) : sur un journal en panne, trois gestionnaires de `openLink` (`onmessage`
+    binaire, `onmessage` de `serverShutdown`, `onclose`) laissent sortir la levée (`uncaughtException` sur un vrai `WebSocket`). Porteur :
+    RECHERCHES ; déclencheur : lot c6 ; état : ouvert.
+  - L2-LATE-US-PIN-1 (d-5) : `late_us` du saut à l envoi non épinglé (K14 survit) ; l échéance du `fetch` est nommée `error: "23"`. Porteur :
+    RECHERCHES ; déclencheur : lot c6 ; état : ouvert.
   - CODEQL-ALERTS-2 (MONARK, 2026-10-05 12:2x UTC) : alertes CodeQL ouvertes sur le tronc depuis la bascule de la branche par défaut,
     #41 et #44 (`test/dojo-render.test.ts:73`, `:378`), #43 (`test/red-proof.test.ts:545`), #45 (`test/public-surfaces-honesty.test.ts:184`) ;
     #42 levée par #159 (CODEQL-42). Correction selon ADR-CODEQL-ALERTS-1 D4, sinon rejet justifié selon D6, fait par MONARK sur
