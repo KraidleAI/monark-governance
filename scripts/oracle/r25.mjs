@@ -8,7 +8,7 @@
 // R-25 integration rule (ADR-M003 D9 nonies, lot R25-INTEGRATION-RULE-1): with a declared proof (run.mjs --r25-proof),
 // the ORACLE's own scripts/lot-size-integration.mjs runs its `count` command on the clone exactly as the CI job does, and
 // only if the clone holds the same bytes (else W, mode gate-files: a measured tree never judges itself, G2 B-3); only its
-// mode `integration` with two numeric counts lowers a count, never above the count of today. W ignores user git attributes (G2 delta m-a).
+// mode `integration` with two numeric counts lowers a count, never above the count of today. W ignores user git attributes (G2 delta m-a) and the measured tree's (attributes of the empty tree, git >= 2.40, delta2 O-1), at git's default bigFileThreshold (delta2 m-d).
 import { execFileSync } from "node:child_process";
 import { createHash } from "node:crypto";
 import { readFileSync } from "node:fs";
@@ -17,14 +17,14 @@ import { join } from "node:path";
 export const R25_DIFF_RE = /^\s*([A-Z_]+)=\$\(git diff --shortstat "origin\/\$\{\{ github\.base_ref \}\}\.\.\.HEAD" -- (.+)\) \|\| \{\s*$/;
 const METRIC_RE = /^\s*([A-Z_]+)=\$\(printf '%s\\n' "\$([A-Z_]+)" \| awk /;
 const BOUND_RE = /^\s*if \[ "\$([A-Z_]+)" -gt "\$([A-Z_]+)" \]; then\s*$/;
-const JUDGE = join(import.meta.dirname, "..", "lot-size-integration.mjs");
+const JUDGE = join(import.meta.dirname, "..", "lot-size-integration.mjs"), EMPTY_TREE = "4b825dc642cb6eb9a060e54bf8d69288fbee4904";
 
 export function r25(clone, ciText, base, proofFile = null) {
   const lines = ciText.split(/\r?\n/);
   const hit = (re, i, v) => lines.map((l) => re.exec(l)).find((m) => m !== null && m[i] === v);
   const counts = lines.map((l) => R25_DIFF_RE.exec(l)).filter((m) => m !== null).map(([, name, specs]) => {
     const pathspecs = specs.split(/\s+/).map((t) => t.replace(/^'(.*)'$/, "$1"));
-    const stat = execFileSync("git", ["-C", clone, "-c", "core.attributesFile=", "diff", "--shortstat", `${base}...HEAD`, "--", ...pathspecs], { encoding: "utf8" });
+    const stat = execFileSync("git", ["-C", clone, "-c", "core.attributesFile=", "-c", "core.bigFileThreshold=512m", `--attr-source=${EMPTY_TREE}`, "diff", "--shortstat", `${base}...HEAD`, "--", ...pathspecs], { encoding: "utf8" });
     const [ins, del] = ["insertion", "deletion"].map((w) => Number(new RegExp(`(\\d+) ${w}`).exec(stat)?.[1] ?? 0));
     const bound = hit(BOUND_RE, 1, hit(METRIC_RE, 2, name)?.[1])?.[2] ?? null;
     const limit = lines.map((l) => new RegExp(`^\\s*${bound}:\\s*["']?(\\d+)["']?\\s*(#.*)?$`).exec(l)).find((m) => m !== null)?.[1];
