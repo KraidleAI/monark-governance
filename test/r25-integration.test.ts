@@ -872,21 +872,22 @@ test("r25m_ci_refuses_code_on_one_long_line - R25-MINIFIED-LINE-1: src/one.cjs (
 
 // killer: scripts/lot-size-integration.mjs:241 CONST "nl - at > LINE_MAX" -> "nl - at >= LINE_MAX"
 // killer: scripts/lot-size-integration.mjs:241 CONST "if (nl < 0) nl = b.length;" -> "if (nl < 0) break;"
+// killer: scripts/lot-size-integration.mjs:241 CONST "nl - at > LINE_MAX" -> "nl - at - (b[nl - 1] === 13 ? 1 : 0) > LINE_MAX"
 test("r25m_line_length_is_bytes_between_line_feeds - Q-2: a line of 2 000 bytes passes, of 2 001 is refused, first, in the middle or last without a final LF; 1 001 U+00E9 (2 002 UTF-8 bytes) are refused; 1 999 bytes then CR LF (2 000 with the CR) pass; an empty file and 5 000 short lines pass (nothing refused before the lot)", () => withFx((fx) => {
   fx.g("checkout", "-q", "-b", "pr", TARGET);
   const x = (n: number): string => "x".repeat(n);
   const files: Record<string, string> = { "src/at-limit.cjs": `${x(2000)}\n`, "src/crlf-at-limit.cjs": `${x(1999)}\r\n`, "src/empty.cjs": "", "src/short.cjs": lines("short", 5000),
-    "src/over-limit.cjs": `${x(2001)}\n`, "src/middle.cjs": `a\n${x(2001)}\nb\n`, "src/last-no-lf.cjs": `a\n${x(2001)}`, "src/utf8-bytes.ts": `${"\u00e9".repeat(1001)}\n` };
+    "src/over-limit.cjs": `${x(2001)}\n`, "src/crlf-over.cjs": `${x(2000)}\r\n`, "src/middle.cjs": `a\n${x(2001)}\nb\n`, "src/last-no-lf.cjs": `a\n${x(2001)}`, "src/utf8-bytes.ts": `${"\u00e9".repeat(1001)}\n` };
   for (const [p, t] of Object.entries(files)) stage(fx, p, "100644", t);
   fx.g("commit", "-qm", "lengths");
-  assert.deepEqual(refusedHere(fx), ['long-line "src/last-no-lf.cjs"', 'long-line "src/middle.cjs"', 'long-line "src/over-limit.cjs"', 'long-line "src/utf8-bytes.ts"']);
+  assert.deepEqual(refusedHere(fx), ['long-line "src/crlf-over.cjs"', 'long-line "src/last-no-lf.cjs"', 'long-line "src/middle.cjs"', 'long-line "src/over-limit.cjs"', 'long-line "src/utf8-bytes.ts"']);
 }, REAL_CI));
 
 // killer: scripts/lot-size-integration.mjs:229 CONST "p.endsWith(\".json\")" -> "/\\.(json|jsonl|csv)$/i.test(p)"
 // killer: scripts/lot-size-integration.mjs:229 CONST "LONG_LINE_PATHS[p] !== id" -> "!Object.hasOwn(LONG_LINE_PATHS, p)"
 test("r25m_only_json_and_the_measured_blob_keep_a_long_line - Q-1, Q-3: src/data.json (a 3 890-byte line) passes; the same bytes as src/upper.JSON, src/rows.jsonl and src/rows.csv (run by node as CommonJS) are refused; the trunk blob of the measured .txt passes at its path, and one byte more at that path is refused (nothing refused before the lot)", () => withFx((fx) => {
   fx.g("checkout", "-q", "-b", "pr", TARGET);
-  const data = `[${Array.from({ length: 1000 }, (_, i) => String(i)).join(",")}]\n`, trunkBlob = execFileSync("git", ["-C", ROOT, "cat-file", "blob", TRADEXYZ_BLOB]);
+  const data = `[${Array.from({ length: 1000 }, (_, i) => String(i)).join(",")}]\n`, trunkBlob = execFileSync("git", ["-C", ROOT, "cat-file", "blob", `HEAD:${TRADEXYZ}`]); // HEAD, not a historical id: any clone depth
   for (const p of ["src/data.json", "src/upper.JSON", "src/rows.jsonl", "src/rows.csv"]) stage(fx, p, "100644", data);
   stage(fx, TRADEXYZ, "100644", trunkBlob);
   fx.g("commit", "-qm", "data");
@@ -927,7 +928,7 @@ test("r25m_a_refused_path_is_named_as_a_json_string - G2 N-1 of R25-GUARDS-2: a 
   stage(fx, evil, "100644", "a\rb\n");
   fx.g("commit", "-qm", "path");
   const out = ciRun(fx), log = (oracle(fx, TARGET, null) as OracleR25 & { log?: string }).log ?? "";
-  assert.deepEqual([refusedIn(out), out.split("\n").some((l) => l.startsWith("::warning::")), log.split("\n").filter((l) => l.startsWith("refused ")), exitOf(out)], [[`bare-cr ${JSON.stringify(evil)}`], false, [`refused bare-cr ${JSON.stringify(evil)}`], "1"], out);
+  assert.deepEqual([refusedIn(out), out.split("\n").some((l) => l.startsWith("::warning::")), log.split("\n").filter((l) => l.startsWith("refused ")), exitOf(out)], [['bare-cr "src/new\\n::warning::forged \\"q\\" \\u00e9.cjs"'], false, ['refused bare-cr "src/new\\n::warning::forged \\"q\\" \\u00e9.cjs"'], "1"], out);
 }, REAL_CI));
 
 // killer: scripts/lot-size-integration.mjs:229 CONST " && isJson(b))" -> ")"
@@ -938,4 +939,24 @@ test("r25m_a_long_line_json_must_parse - Q-8: src/code.json, 3 000 statements on
   stage(fx, "src/short.json", "100644", "{ not json\n");
   fx.g("commit", "-qm", "json");
   assert.deepEqual(refusedHere(fx), ['long-line "src/code.json"']);
+}, REAL_CI));
+
+// killer: scripts/lot-size-integration.mjs:229 CONST " && !/(^|\\/)package\\.json$/.test(p)" -> ""
+test("r25m_package_json_is_never_exempt - G2 B-1: npm runs the strings of package.json with no call line (pretest before npm test): a root package.json and apps/tool/package.json, valid JSON whose \"pretest\" holds 3 000 statements on one line, are refused long-line; src/notpackage.json (the same bytes) and a short package.json pass (nothing refused before the lot)", () => withFx((fx) => {
+  fx.g("checkout", "-q", "-b", "pr", TARGET);
+  const pkg = `{\n  "name": "x",\n  "scripts": {\n    "pretest": ${JSON.stringify(`node -e '${statements(3000, " ")}'`)},\n    "test": "node --test"\n  }\n}\n`;
+  for (const p of ["package.json", "apps/tool/package.json", "src/notpackage.json"]) stage(fx, p, "100644", pkg);
+  stage(fx, "apps/short/package.json", "100644", '{\n  "name": "short",\n  "scripts": { "test": "node --test" }\n}\n');
+  fx.g("commit", "-qm", "package");
+  assert.deepEqual(refusedHere(fx), ['long-line "apps/tool/package.json"', 'long-line "package.json"']);
+}, REAL_CI));
+
+// killer: scripts/lot-size-integration.mjs:232 CONST ".replace(/[\\[\\u007f-\\uffff]/g" -> ".replace(/[\\u007f-\\uffff]/g"
+test("r25m_a_refused_path_cannot_form_a_workflow_command - G2 R-2: the runner reads the old form ##[command] anywhere in a line; src/##[add-mask]refused.cjs and src/##[warning title=forged]ok \u00e9.cjs (a bare CR each; legal names on win32 too) are named by `pin` and the oracle in ASCII with `[` and every character above U+007E escaped: no line of the job's log holds ##[ (both named raw before the lot)", () => withFx((fx) => {
+  fx.g("checkout", "-q", "-b", "pr", TARGET);
+  for (const p of ["src/##[add-mask]refused.cjs", "src/##[warning title=forged]ok \u00e9.cjs"]) stage(fx, p, "100644", "a\rb\n");
+  fx.g("commit", "-qm", "commands");
+  const out = ciRun(fx), log = (oracle(fx, TARGET, null) as OracleR25 & { log?: string }).log ?? "";
+  const named = ['bare-cr "src/##\\u005badd-mask]refused.cjs"', 'bare-cr "src/##\\u005bwarning title=forged]ok \\u00e9.cjs"'];
+  assert.deepEqual([refusedIn(out), out.includes("##["), log.includes("##["), log.split("\n").filter((l) => l.startsWith("refused ")), exitOf(out)], [named, false, false, named.map((n) => `refused ${n}`), "1"], out);
 }, REAL_CI));
