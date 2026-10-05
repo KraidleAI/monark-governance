@@ -12,7 +12,9 @@
   - `49e17dad` : **gel** ;
   - `677051b2` : lignes de tueurs seulement (3 tueurs dont le texte suit le code) ;
   - `470db08a` : le test de chargement à froid passe dans `gate-kata-served.test.ts` (§4, tueurs) ;
-  - ce commit (G7).
+  - `79a92c08` : G7 ;
+  - pli de la G2 de D-3 : `82db37e5` (tests N-1 et N-2), `da2098e7` (N-2, code) ;
+  - ce commit (G7 complété, §8).
 - **Aucun octet servi ne bouge** (§2). Pas de ligne Z-3, pas de ré-épinglage, pas d'ouverture de zone.
 
 ## 1. Ce que le lot change
@@ -65,7 +67,7 @@ Script hors dépôt, lancé en processus sur l'arbre de la base (`753a23a9`) pui
   - **Écart déclaré (Q-D3-1)** : la condition dit « pour chaque code sauf `output_invalid` ». Deux codes n'ont aucune requête servie possible :
     - `attest_refused` : `attest` n'a pas d'entrée ; il projette un témoin engagé et ne refuse que si ces octets échouent ;
     - `ukemi_predict_input_invalid` : l'outil `ukemi-predict` n'est pas enregistré (U-5b).
-  - Ils sont dans `NO_SERVED_REQUEST`, chacun avec sa raison, et le contrôle statique les garde (lanceur dans le graphe servi). Lecture prise sous la délégation de C-3. Je la signale à MONARK : à U-5b, `ukemi_predict_input_invalid` doit sortir de la liste.
+  - Ils sont dans `NO_SERVED_REQUEST`, chacun avec sa raison. Depuis le pli de N-1 (G2 de D-3), `no_served_request_reasons_hold` vérifie ces raisons : `ukemi-predict` absent de `REGISTERED_TOOL_NAMES`, `ATTEST_INPUT_SCHEMA` sans propriété et `additionalProperties: false`. Le contrôle statique ne les garde pas vraiment : il parcourt tous les `tools/*.ts`, `ukemi-predict.ts` compris. Lecture prise sous la délégation de C-3. Je la signale à MONARK : à U-5b, `ukemi_predict_input_invalid` doit sortir de la liste.
 - **C-4 condition 3** : le tueur « a `calib_*` row defers » est couvert sous ses trois formes :
   - verdict pur : `kata_row_statuses_map_to_regions` (CM-4b, lot a) ;
   - décision L3 : bloc C, lot 3c-2 ;
@@ -75,7 +77,7 @@ Script hors dépôt, lancé en processus sur l'arbre de la base (`753a23a9`) pui
   - vecteurs de T-10 (`served_kata_late_call_window`) : − 300 000 ms admis, − 300 001 ms rend `produced_at_stale`, + 300 001 ms rend `produced_at_future` ;
   - T-15 rejoue `produced_at_stale` par une requête servie ;
   - l'item reste ouvert pour la mesure de latence ; déclencheur : service de la vague 1 ;
-  - texte proposé pour la ligne datée, si MONARK la veut (Q-D3-2) : « LATE-CALL-WINDOW-1 : échéance « code » tenue au bloc D (D-2 sert `produced_at_stale` sur l'horloge injectée ; vecteurs de T-10 ; G7 de D-3). Reste ouvert : remède de latence, déclencheur le service de la vague 1. »
+  - texte proposé pour la ligne datée, si MONARK la veut (Q-D3-2) : « LATE-CALL-WINDOW-1 : échéance « code » tenue au bloc D (D-2 sert `produced_at_stale` sur l'horloge injectée, contrôle `assertKataProducedAt` à `apps/harness/src/kata-path.ts:47` ; vecteurs du test `served_kata_late_call_window` (T-10) ; G7 de D-3). Reste ouvert : remède de latence, déclencheur le service de la vague 1. »
 
 ## 4. Points reportés de D-1 et D-2
 
@@ -109,8 +111,8 @@ Script hors dépôt, lancé en processus sur l'arbre de la base (`753a23a9`) pui
   - T-13 ré-ancré : `gate.ts:738 CONST "tables: readonly ServedTable[] = SERVED_POLICY_TABLES" -> "tables: readonly ServedTable[] = SERVED_MARGINAL_TABLES"` ;
   - `kata_tau_cap_on_set_classes` ré-ancré : `kata-path.ts:62 CONST "!(params.tau <= KATA_DIR_TAU_CAP)" -> "!(params.tau <= 2)"` ;
   - en plus, hors forme fermée : le fil-piège retiré de la construction servie (`gate.ts:1042`) rougit `kata_tables_hold_no_row_tripwire` ; `honestyText` revenu à `SERVED_POLICY_TABLES.find` (`gate.ts:740`) rougit T-16 ; « tau at most 1 » tapé (`gate.ts:236`) et le contrôle de produit neutralisé (`gate.ts:230`) rougissent `kata_clause_reads_its_names_and_tau_cap`.
-- **Ancres** : `verifie-ancres.mjs . --touched origin/base/chantier-moteur-2026-10-03 HEAD` donne 44 tueurs, 44 ancrés, 0 dérivé, 0 perdu. Sur l'arbre entier : 1 205 tueurs, 8 perdus, ceux de la base.
-- **R-25** (`r25()` contre la base) : **198** (+176/−22), sous la borne de 547 ; CONTENT_STAT 0 ; GREEN. Estimation du G0 court : ~170.
+- **Ancres** : `verifie-ancres.mjs . --touched origin/base/chantier-moteur-2026-10-03 HEAD` donne 46 tueurs, 46 ancrés (au pli de la G2), 0 dérivé, 0 perdu. Sur l'arbre entier : 1 205 tueurs, 8 perdus, ceux de la base.
+- **R-25** (`r25()` contre la base) : **198** (+176/−22) au gel, **219** (+196/−23) au pli de la G2, sous la borne de 547 ; CONTENT_STAT 0 ; GREEN. Estimation du G0 court : ~170.
 - **Tests** : `npm test` complet à `470db08a` : 2 568 tests, 2 546 réussis, 22 sautés, 0 échec.
 - **Contrôles statiques** : `tsc --noEmit` 0 ; `eslint .` 0 ; `lint:ratchet` 69/69 ; `gate:vocab` OK (346 fichiers) ; `lang:gate` OK ; `export:check` OK.
 - Windows :
@@ -132,3 +134,16 @@ Script hors dépôt, lancé en processus sur l'arbre de la base (`753a23a9`) pui
 - **Q-D3-1** (pour information de MONARK) : les deux codes sans requête servie, et la sortie de `ukemi_predict_input_invalid` de la liste à U-5b.
 - **Q-D3-2** (MONARK) : la ligne datée de l'ADR-CM pour l'échéance « code » de LATE-CALL-WINDOW-1, si MONARK la veut ; texte proposé au §3.
 - KATA-CLAUSE-COMMITTED-STATE-1 reste ouvert : le fil-piège le rend bloquant au chargement, et sa clause d'état engagé, avec sa ligne Z-3, vient avec la première ligne kata (vague 1).
+
+## 8. Points de la G2 de D-3 et suite donnée
+
+G2 : `recherches:coordination/pieces/2026-10-04-G2-recherches/G2-bloc-d-lot-d-3.md`. Verdict **APPROUVÉ**, aucun bloquant, aucune réserve.
+
+| # | Point | Suite |
+|---|---|---|
+| N-1 | les raisons de `NO_SERVED_REQUEST` ne sont vérifiées par rien | **plié** : `no_served_request_reasons_hold` (`error-code.test.ts`). Vert à sa base, déclaré ; tueur tiré à la main, tué : `schema-projection.ts:266 CONST "additionalProperties: false" -> "additionalProperties: true"`. À U-5b, l'enregistrement de `ukemi-predict` le rougit |
+| N-2 | le contrôle de produit de `kataClause` compare des cardinaux | **plié** : `gate.ts:230` refuse aussi un `task_class` en double (même ligne, aucune adresse décalée). Test `kata_clause_refuses_duplicate_classes` : `eth-dir-1h` en double à la place de `btc-dir-1h` lève ; rouge par assertion avant le code ; tueur tiré à la main, tué : `gate.ts:230 CONST "new Set(entries.map((e) => e.task_class)).size !== entries.length \|\| " -> ""` |
+| N-3 | les lignes synthétiques de T-16 ne sont pas des `PolicyRow` valides | note portée à la vague 1 (avec KATA-CLAUSE-COMMITTED-STATE-1) : bâtir les lignes de la couture par `buildPolicyTable` sur des lignes complètes. Aujourd'hui `kataVerdictFields` ne lit que les champs posés, et T-16 ne lit pas `policy_row_sha256` |
+| N-4 | le nom de T-15 n'exempte pas qu'`output_invalid` | déclaré : le nom est l'ancre du plan ; `NO_SERVED_REQUEST` et §3 disent les trois exemptions |
+
+Au pli : octets servis remesurés par le même script, base contre tête, **identiques** sur les 64 artefacts ; tests touchés et suite harnais (`apps/harness/test/*.test.ts`, `test/harness-served`, `test/h5-e2e-probe`, `test/site-build-fleet`) 307 réussis, 0 échec ; `tsc` 0, `eslint .` 0, `lint:ratchet` 69/69, `gate:vocab`, `lang:gate`, `export:check` OK. Base refetchée : inchangée (`753a23a9`).
