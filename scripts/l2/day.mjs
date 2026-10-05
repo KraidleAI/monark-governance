@@ -17,7 +17,7 @@
 // segment read to be closed (closed(cid, seg), from c5); a frame is held as three int32 in a bucket of its stream, at most `bound` of
 // them (index_bound); it writes index.jsonl by chunks, missing.json, manifest.json, each synced, then SHA256SUMS last (sha256sum -c
 // format, every file of the day folder, a closed list, and each segment used, by relative path, hashed by chunks; written whole beside
-// the folder, then linked in); a sealed day is never rewritten. The agent never commits (R-20).
+// the folder, then linked in); a sealed day is never rewritten. A derive hook (P1-c2, m-9) adds its files (by chunks), new manifest and missing.json keys, references and modules first. The agent never commits (R-20).
 import { createHash } from "node:crypto";
 import { closeSync, existsSync, fstatSync, fsyncSync, linkSync, mkdirSync, openSync, readdirSync, readFileSync, readSync, unlinkSync, writeSync } from "node:fs";
 import { join } from "node:path";
@@ -32,7 +32,7 @@ export const SAMPLING = Object.freeze({ stream: "forceOrder", per_symbol_ms: 100
 export const KEYS = Object.freeze({ "depth@100ms": "U,u", bookTicker: "u", trade: "t", forceOrder: "bytes", order: "key,bytes" }); // Q-P1-9
 export const MISSING_EVENTS = Object.freeze(["writer_stop", "overlap_break", "chain_gap", "sync_try_vain", "sync_suspended",
   "chain_stopped", "buffer_trimmed", "tail_marked"]);
-export const STOPS = Object.freeze(["bad_symbol", "bad_day", "place_time_unsafe", "day_sealed", "index_bound", "stray_file"]);
+export const STOPS = Object.freeze(["bad_symbol", "bad_day", "place_time_unsafe", "day_sealed", "index_bound", "stray_file", "off_scale", "bad_scale", "minutes_bound"]); // the last three: P1-c2
 export const INDEX_BOUND = 4_194_304; // G2 B-2: frames held at a seal (12 bytes each in the index, 32 for a pending bookTicker); R-2 of the
 // second G2: halved from 8 388 608, so a day of 99.9 % bookTicker at the bound stays under MemoryMax=512M of D24-4 (measures in the G7)
 export const DAY_FILES = Object.freeze(["index.jsonl", "missing.json", "manifest.json", "anchor-open.json", "anchor-close.json", "minutes.jsonl"]);
@@ -174,7 +174,7 @@ function indexOf(out, symbol, segs, marks, dn0, bound) {
 }
 
 /** Seal one day of one symbol (header); { sealed: false, wait } while it must wait, else { sealed: true, dir, frames }. */
-export function sealDay({ out, symbol, day, nowUs, closed, config = {}, bound = INDEX_BOUND }) {
+export function sealDay({ out, symbol, day, nowUs, closed, config = {}, bound = INDEX_BOUND, derive = null }) {
   if (!SYMBOLS.includes(symbol)) stop("bad_symbol", { symbol });
   const start = Date.parse(`${day}T00:00:00Z`) * 1000, end = start + DAY_US, dir = join(out, "days", symbol, day);
   if (!/^[0-9]{4}-[0-9]{2}-[0-9]{2}$/.test(day) || !Number.isSafeInteger(start) || dayOf(start) !== day) stop("bad_day", { day });
@@ -187,11 +187,11 @@ export function sealDay({ out, symbol, day, nowUs, closed, config = {}, bound = 
   if (stray.length > 0) stop("stray_file", { symbol, day, names: stray });
   const lines = journalOf(out, symbol);
   const marks = new Map(lines.filter((l) => l.event === "tail_marked").map((l) => [`${l.cid}/${l.seg}`, l]));
-  const { buckets, used, counts } = indexOf(out, symbol, segs, marks, start / DAY_US, bound);
-  const script_sha256 = Object.fromEntries(MODULES.map((m) => [`scripts/l2/${m}.mjs`, shaOf(new URL(`./${m}.mjs`, import.meta.url))]));
+  const { buckets, used, counts } = indexOf(out, symbol, segs, marks, start / DAY_US, bound), dv = derive === null ? {} : derive({ out, symbol, day, start, end, segs, marks, dir });
+  const script_sha256 = Object.fromEntries([...MODULES, ...(dv.modules ?? [])].map((m) => [`scripts/l2/${m}.mjs`, shaOf(new URL(`./${m}.mjs`, import.meta.url))]));
   const manifest = { schema: SCHEMA, symbol, day, redistributable: false, time_unit: TIME_UNITS, grace_us: GRACE_US, period_us: PERIOD_US,
-    sampling: SAMPLING, keys: KEYS, node: process.version, undici: process.versions.undici ?? null, script_sha256, config, counts };
-  mkdirSync(dir, { recursive: true });
+    sampling: SAMPLING, keys: KEYS, node: process.version, undici: process.versions.undici ?? null, script_sha256, config, counts }, missing = missingOf(out, lines, start, end), BASE = DAY_FILES.slice(0, 5);
+  const names = (dv.files ?? []).map(([n]) => n), keys = [[dv.manifest, manifest], [dv.missing, missing]].flatMap(([x, y]) => Object.keys(x ?? {}).filter((k) => Object.hasOwn(y, k))); if (names.some((n) => !DAY_FILES.includes(n) || BASE.includes(n)) || keys.length > 0 || new Set(names).size < names.length) stop("stray_file", { symbol, day, names, keys }); mkdirSync(dir, { recursive: true }); // G2 m-7: derived names, each once (n-2), no key overwritten
   const write = (name, body, flag = "w") => { const fd = openSync(join(dir, name), flag); try { body(fd); fsyncSync(fd); } finally { closeSync(fd); } };
   const sync = () => { const fd = openSync(dir, process.platform === "win32" ? "r+" : "r"); try { fsyncSync(fd); } finally { closeSync(fd); } }; // win32: "r" fails EPERM, "r+" ok (ledger.ts)
   write("index.jsonl", (fd) => { // by stream, then in read order; by chunks, never one string
@@ -206,11 +206,11 @@ export function sealDay({ out, symbol, day, nowUs, closed, config = {}, bound = 
       writeSync(fd, text);
     }
   });
-  write("missing.json", (fd) => writeSync(fd, JSON.stringify(missingOf(out, lines, start, end)) + LF));
-  write("manifest.json", (fd) => writeSync(fd, JSON.stringify(manifest) + LF));
+  write("missing.json", (fd) => writeSync(fd, JSON.stringify({ ...missing, ...dv.missing }) + LF));
+  write("manifest.json", (fd) => writeSync(fd, JSON.stringify({ ...manifest, ...dv.manifest }) + LF)); for (const [name, text] of dv.files ?? []) write(name, (fd) => { for (const c of [].concat(text)) writeSync(fd, c); }); // by chunks (G2 B-1)
   sync();
-  const paths = [...readdirSync(dir).filter((n) => n !== "SHA256SUMS"),
-    ...[...used].sort((x, y) => x - y).flatMap((s) => [".frames", ".index.jsonl"].map((x) => `../../../conn/${segs[s][0]}/${segs[s][1]}${x}`))].sort();
+  const paths = [...new Set([...readdirSync(dir).filter((n) => n !== "SHA256SUMS"),
+    ...[...used].sort((x, y) => x - y).flatMap((s) => [".frames", ".index.jsonl"].map((x) => `../../../conn/${segs[s][0]}/${segs[s][1]}${x}`)), ...(dv.refs ?? [])])].sort();
   const tmp = `../.${day}.SHA256SUMS.tmp`; // G2 bis m-4: out of the folder, written whole, then linked (EEXIST, as wx): never empty when sealed
   write(tmp, (fd) => writeSync(fd, paths.map((p) => `${shaOf(join(dir, p))}  ${p}${LF}`).join("")));
   linkSync(join(dir, tmp), join(dir, "SHA256SUMS"));

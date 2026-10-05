@@ -12,7 +12,7 @@ export const STOPS: readonly string[];
 export const INDEX_BOUND: number;
 export const DAY_FILES: readonly string[];
 
-/** A named stop: `code` is one of STOPS (bad_symbol, bad_day, place_time_unsafe, day_sealed, index_bound, stray_file). */
+/** A named stop: `code` is one of STOPS (bad_symbol, bad_day, place_time_unsafe, day_sealed, index_bound, stray_file; off_scale, bad_scale, minutes_bound of P1-c2). */
 export class DayStop extends Error {
   readonly code: string;
   readonly detail: Record<string, unknown>;
@@ -45,7 +45,16 @@ export interface SealSpec {
   closed: (cid: string, seg: string) => boolean;
   config?: Record<string, unknown>;
   bound?: number;
+  /** The derive hook (P1-c2, m-9 of c1), called after the day's index and before anything is written; null: none. */
+  derive?: ((ctx: DeriveContext) => Derived) | null;
 }
+
+/** What the hook reads: the day's bounds in microseconds, the segments read ([cid, seg], sorted), the tail marks by "cid/seg". */
+export interface DeriveContext { out: string; symbol: string; day: string; start: number; end: number; segs: [string, string][]; marks: Map<string, unknown>; dir: string }
+
+/** What the hook adds before SHA256SUMS: files of DAY_FILES but the seal's and the anchors' [name, text or its chunks], new manifest and
+ *  missing.json keys (else stray_file), paths listed relative to the day folder, modules hashed into script_sha256. */
+export interface Derived { files?: [string, string | string[]][]; manifest?: Record<string, unknown>; missing?: Record<string, unknown>; refs?: string[]; modules?: string[] }
 
 export type SealResult =
   | { sealed: false; wait: "grace" }
