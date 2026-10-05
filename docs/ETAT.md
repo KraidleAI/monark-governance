@@ -830,6 +830,8 @@ Tronc `lot/etude-suite`. Dernier oracle complet : 1 779 tests, dont 1 776 verts,
     `docs/RUNBOOK-harness.md:169`, `apps/site/lib/sim.ts:25`, `docs/deploy-CA-harness.json`) ; « calibration digest » et
     `DIGEST_NOTE` ; `/integrators` et `/docs/integrators` (`calib_digest`, `set_digest`) ; le `$comment` de `ukemi-pending.json`
     (porte de vocabulaire) ; la page Narabi et son chargeur (Q-M6) ; l ordre CA, sync du harnais, puis sync ukemi (RUNBOOK-vitrine).
+    Ajouts : « Eight frozen contracts » (`apps/site/app/page.tsx:181`, `docs/page.tsx:61`) ; `apps/harness/README.md` et
+    `fixtures/PROVENANCE-*.md` (coupe de C2, Q-3a-5) ; `main` du dépôt de gouvernance avancée jusqu au tronc (avance rapide).
   - DEMO-HASH-STALE-1 : `skills/monark/DEMO.md:88` cite l empreinte tronquée `79b54471…` de la trace byo, périmée (actuelle
     `daf8d3ea…`), sans test. Construction : la corriger et l épingler par un test ; environ 3 lignes. Déclencheur : le lot des
     surfaces de CM-2b (temps (i)) ; état : ouvert.
