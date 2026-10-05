@@ -20,7 +20,7 @@
 // the folder, then linked in); a sealed day is never rewritten. A derive hook (P1-c2, m-9) adds its files (by chunks), new manifest and missing.json keys, references and modules first. The agent never commits (R-20).
 import { createHash } from "node:crypto";
 import { closeSync, existsSync, fstatSync, fsyncSync, linkSync, mkdirSync, openSync, readdirSync, readFileSync, readSync, unlinkSync, writeSync } from "node:fs";
-import { join } from "node:path";
+import { join, posix } from "node:path";
 import { SYMBOLS } from "./links.mjs";
 import { PERIOD_US, readSegment, segmentOf } from "./segments.mjs";
 
@@ -32,7 +32,7 @@ export const SAMPLING = Object.freeze({ stream: "forceOrder", per_symbol_ms: 100
 export const KEYS = Object.freeze({ "depth@100ms": "U,u", bookTicker: "u", trade: "t", forceOrder: "bytes", order: "key,bytes" }); // Q-P1-9
 export const MISSING_EVENTS = Object.freeze(["writer_stop", "overlap_break", "chain_gap", "sync_try_vain", "sync_suspended",
   "chain_stopped", "buffer_trimmed", "tail_marked"]);
-export const STOPS = Object.freeze(["bad_symbol", "bad_day", "place_time_unsafe", "day_sealed", "index_bound", "stray_file", "off_scale", "bad_scale", "minutes_bound", "canon_bound", "canon_reread"]); // off_scale to minutes_bound: P1-c2; canon_*: P1-c3
+export const STOPS = Object.freeze(["bad_symbol", "bad_day", "place_time_unsafe", "day_sealed", "index_bound", "stray_file", "off_scale", "bad_scale", "minutes_bound", "canon_bound", "canon_reread", "snapshot_reload"]); // off_scale to minutes_bound: P1-c2; canon_*: P1-c3; snapshot_reload: P1-c5
 export const INDEX_BOUND = 4_194_304; // G2 B-2: frames held at a seal (12 bytes each in the index, 32 for a pending bookTicker); R-2 of the
 // second G2: halved from 8 388 608, so a day of 99.9 % bookTicker at the bound stays under MemoryMax=512M of D24-4 (measures in the G7)
 export const DAY_FILES = Object.freeze(["index.jsonl", "missing.json", "manifest.json", "anchor-open.json", "anchor-close.json", "minutes.jsonl"]);
@@ -188,7 +188,7 @@ export function sealDay({ out, symbol, day, nowUs, closed, config = {}, bound = 
   const lines = journalOf(out, symbol);
   const marks = new Map(lines.filter((l) => l.event === "tail_marked").map((l) => [`${l.cid}/${l.seg}`, l]));
   const { buckets, used, counts } = indexOf(out, symbol, segs, marks, start / DAY_US, bound), dv = derive === null ? {} : derive({ out, symbol, day, start, end, segs, marks, dir, index: buckets });
-  const script_sha256 = Object.fromEntries([...MODULES, ...(dv.modules ?? [])].map((m) => [`scripts/l2/${m}.mjs`, shaOf(new URL(`./${m}.mjs`, import.meta.url))]));
+  const script_sha256 = Object.fromEntries([...MODULES, ...(dv.modules ?? [])].map((m) => [posix.join("scripts/l2", `${m}.mjs`), shaOf(new URL(`./${m}.mjs`, import.meta.url))]));
   const manifest = { schema: SCHEMA, symbol, day, redistributable: false, time_unit: TIME_UNITS, grace_us: GRACE_US, period_us: PERIOD_US,
     sampling: SAMPLING, keys: KEYS, node: process.version, undici: process.versions.undici ?? null, script_sha256, config, counts }, missing = missingOf(out, lines, start, end), BASE = DAY_FILES.slice(0, 5);
   const names = (dv.files ?? []).map(([n]) => n), keys = [[dv.manifest, manifest], [dv.missing, missing]].flatMap(([x, y]) => Object.keys(x ?? {}).filter((k) => Object.hasOwn(y, k))); if (names.some((n) => !DAY_FILES.includes(n) || BASE.includes(n)) || keys.length > 0 || new Set(names).size < names.length) stop("stray_file", { symbol, day, names, keys }); mkdirSync(dir, { recursive: true }); // G2 m-7: derived names, each once (n-2), no key overwritten
