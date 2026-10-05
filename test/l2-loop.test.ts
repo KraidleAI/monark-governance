@@ -395,10 +395,11 @@ test("l2_seal_apart_as_in_process", { skip: APART }, async () => {
 // killer: scripts/l2/seal-child.mjs:19 CONST "execArgv.length !== 1 || " -> ""
 test("l2_seal_child_flags_closed", { skip: APART }, async () => {
   // The child's own guard (c4's execArgv guard, for the one flag it is spawned with): the heap cap alone, else proxy_refused, nothing read.
-  const out = fresh(), cap = "--max-old-space-size=64", refused = { stop: "proxy_refused", detail: { execArgv_length: 0, why: "the heap cap alone" } };
+  const out = fresh(), cap = "--max-old-space-size=64", refused = { stop: "proxy_refused", detail: { why: "the heap cap alone" } };
   await day(out);
-  assert.deepEqual([child(out, [], {}), child(out, [cap, "--no-warnings"], {}), child(out, ["--no-warnings", cap], {})],
-    [[1, refused], [1, { ...refused, detail: { ...refused.detail, execArgv_length: 2 } }], [1, { ...refused, detail: { ...refused.detail, execArgv_length: 2 } }]]);
+  const of = (n: number): unknown => [1, { ...refused, detail: { ...refused.detail, execArgv_length: n } }];
+  assert.deepEqual([child(out, [], {}), child(out, ["--no-warnings"], {}), child(out, [cap, "--no-warnings"], {}), child(out, ["--no-warnings", cap], {})],
+    [of(0), of(1), of(2), of(2)], "none, another one alone, or a second one: refused");
   assert.equal(existsSync(join(dayDir(out), "SHA256SUMS")), false);
 });
 
