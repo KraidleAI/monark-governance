@@ -74,13 +74,15 @@ test("served_kata_request_contract", async () => {
     ["produced_at_off_grid", band({ produced_at: "2026-10-04T05:00:00Z" }), P_BAND, T + 3_600_000 + 1000],
     ["produced_at_stale", pred(), P_DIR, T + 300_001],
   ];
+  const messages: string[] = [];
   for (const [code, p, params, now] of cases) {
     const h = await http(p, params, now);
     assert.deepEqual([h.status, h.body["code"]], [400, code], `HTTP ${code}`);
-    assert.match(String(h.body["message"]), /\(contract 1\.1\.0, spec section 9\)$/, `HTTP ${code}: the message names the spec section`);
+    messages.push(`${code} ${String(h.body["message"])}`);
     const m = await mcp(p, params, now);
-    assert.deepEqual([m["isError"], (m["_meta"] as Obj | undefined)?.["monarkgate.tech/error_code"]], [true, code], `MCP ${code}`);
+    assert.deepEqual([m["isError"], (m["_meta"] as Obj | undefined)?.["monarkgate.tech/error_code"], (m["content"] as { text: string }[] | undefined)?.[0]?.text], [true, code, h.body["message"]], `MCP ${code}`);
   }
+  assert.equal(sha(messages.join("\n")), "0670875ec020ce2ec17a7848073e0195ad6d1d4b247988a638a685da6af44aea", "the 8 served messages, byte for byte (listed in docs/G7-lot-d-2.md)");
 });
 
 // Test T-9 (F2P): a well-formed kata call abstains with no region (spec section 2.2.1), direction and band; a dir lean of
