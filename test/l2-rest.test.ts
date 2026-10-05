@@ -2,7 +2,7 @@
 // the REST client of the L2 recorder against the loopback fake place of P1-a1, through its injected fetch (the global fetch and
 // WebSocket are tripwires). The module is loaded by a dynamic import that each test asserts, so the base, which has no scripts/l2/,
 // reddens by assertion. Each test names, on the line above it, the mutation of scripts/l2/rest.mjs that reddens it. Synthetic data only.
-import { after, test } from "node:test";
+import { after, before, test } from "node:test";
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
 import { channel } from "node:diagnostics_channel";
@@ -11,8 +11,8 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { startPlace, trap, viaFetch, type Place, type Reply } from "./l2-fake-place.ts";
 import type * as Rest from "../scripts/l2/rest.mjs";
-
-trap();
+import { keepCause } from "./helpers/keep-cause.ts";
+keepCause("test/l2-rest.test.ts"); before(() => { trap(); }); // a crash names its cause on stdout; a throw of trap(): 13 named reds (L2-KEEP-CAUSE-REST-1)
 const places: Place[] = [], outs: string[] = [], tmp = (): string => { const d = mkdtempSync(join(tmpdir(), "l2-rest-")); outs.push(d); return d; };
 after(async () => { for (const p of places) await p.stop(); for (const d of outs) rmSync(d, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 }); });
 const T0 = 1_760_000_000_000_000; // a synthetic wall clock in microseconds

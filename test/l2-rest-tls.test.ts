@@ -3,7 +3,7 @@
 // built here (a key generated on the fly, none committed; trusted by this process only, setDefaultCACertificates), on ports drawn by
 // test/helpers/loopback.ts: "rest" answers the place time, "ws" answers a WebSocket upgrade. The global fetch and WebSocket are
 // tripwires; the injected fetch sends only the place's URL, rewritten to the "rest" server. Synthetic data only.
-import { after, test } from "node:test";
+import { after, before, test } from "node:test";
 import assert from "node:assert/strict";
 import { channel } from "node:diagnostics_channel";
 import { createHash, generateKeyPairSync, sign, X509Certificate } from "node:crypto";
@@ -16,9 +16,9 @@ import { connect, setDefaultCACertificates } from "node:tls";
 import { listen } from "./helpers/loopback.ts";
 import { trap } from "./l2-fake-place.ts";
 import type * as Rest from "../scripts/l2/rest.mjs";
-
-const REAL = { fetch: globalThis.fetch, WebSocket: globalThis.WebSocket }; // read before the trap below
-trap();
+import { keepCause } from "./helpers/keep-cause.ts";
+keepCause("test/l2-rest-tls.test.ts"); before(() => { trap(); }); // a crash names its cause on stdout; a throw of trap(): 3 named reds (L2-KEEP-CAUSE-REST-1)
+const REAL = { fetch: globalThis.fetch, WebSocket: globalThis.WebSocket }; // read at load, before the trap of before()
 const outs: string[] = [], servers: Server[] = [], sockets = new Set<Duplex>();
 after(async () => {
   for (const s of sockets) s.destroy();
