@@ -592,3 +592,31 @@ test("mutants_still_refuse_a_test_file_or_an_unimported_module_under_test", () =
   const r = sp(), why = (f: string): string => `${f} is test code: a mutant mutates production code`;
   assert.deepEqual(["P1", "P2", "P3"].map((id) => [row(r, id)?.status, row(r, id)?.note]), [["tue", null], ["anchor-lost", why("test/shared.test.ts")], ["anchor-lost", why("test/stray.ts")]], r.stderr);
 });
+
+// Lot MUTANTS-RUN-EXIT-CODE-1: ec/, two tests in one file (e_first reads F, e_second reads E). LOSE, a preload of the tool (--import) that wraps spawnSync for
+// the --test runs alone: FX_LOSE=tail cuts the TAP at its first "not ok" line, the exit code kept (a report lost under --test-force-exit; a pipe is written
+// synchronously on Linux, so the loss is simulated); FX_LOSE=zero gives exit 0 to a TAP with a "not ok" line. The exit code then contradicts the entries.
+const LOSE = 'import cp from "node:child_process";\nimport { syncBuiltinESMExports } from "node:module";\nconst real = cp.spawnSync;\n' +
+  'cp.spawnSync = (c, a, o) => { const r = real(c, a, o), i = Array.isArray(a) && a.includes("--test") && typeof r.stdout === "string" ? r.stdout.search(/^not ok /m) : -1;\n' +
+  '  if (i >= 0 && process.env.FX_LOSE === "tail") r.stdout = r.stdout.slice(0, i); else if (i >= 0 && process.env.FX_LOSE === "zero") r.status = 0;\n  return r; };\nsyncBuiltinESMExports();\n';
+let ECR: { dir: string; base: string } | undefined;
+function ec(mode: string, rows: Row[]): Run {
+  const m = (ECR ??= mini("ec", { "lib/e.mjs": "export const E = 1;\nexport const F = 1;\n", "test/e.test.ts": `${HEAD}import { E, F } from "../lib/e.mjs";\n` +
+    'test("e_first", () => { assert.equal(F, 1); });\ntest("e_second", () => { assert.equal(E, 1); });\n' })), lose = join(fixture().root, "lose.mjs");
+  writeFileSync(lose, LOSE);
+  return run(["--repo", m.dir, "--base", m.base, "--table", table(`ec-${mode}.json`, rows)], { node: ["--import", pathToFileURL(lose).href], env: { FX_LOSE: mode } });
+}
+const E = (id: string, line: number, before: string): Row => ({ id, file: "lib/e.mjs", line, op: "CONST", before, after: `${before.slice(0, -1)}2`, why: "w" });
+
+// killer: scripts/mutants/run.mjs:214 CONST "bad.length === 0 && r.status !== 0" -> "false"
+test("mutants_a_non_zero_exit_without_a_failing_entry_is_non_conclu_named_never_survit", () => {
+  const r = ec("tail", [E("E1", 1, "E = 1"), E("F1", 2, "F = 1")]), get = (id: string): unknown[] => [row(r, id)?.status, row(r, id)?.oks, row(r, id)?.fails, row(r, id)?.exit, row(r, id)?.note];
+  assert.deepEqual([r.status, r.rec?.baseline?.status, get("E1"), get("F1"), row(r, "E1")?.replay?.status], [1, "vert", ["non conclu", 1, [], 1, "exit 1 without a failing entry"],
+    ["non conclu", 0, [], 1, "exit 1 without a test entry"], "non conclu"], r.stderr); // E1: e_second's report lost, e_first ok; F1: no entry left
+});
+
+// killer: scripts/mutants/run.mjs:214 CONST "bad.length > 0 && r.status === 0" -> "false"
+test("mutants_exit_zero_with_a_failing_entry_is_non_conclu_named_never_killed", () => {
+  const r = ec("zero", [E("E1", 1, "E = 1")]), e1 = row(r, "E1");
+  assert.deepEqual([r.status, r.rec?.baseline?.status, e1?.status, e1?.fails, e1?.exit, e1?.note], [1, "vert", "non conclu", ["e_second"], 0, "exit 0 with 1 failing entry"], r.stderr);
+});
