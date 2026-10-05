@@ -238,9 +238,92 @@ test("spf_recursive_definition_fails_closed", () => {
 // killer: apps/harness/src/schema-projection.ts:490 CONST "!Object.hasOwn(defs, name)" -> "false"
 test("spf_unknown_or_nonlocal_ref_fails_closed", () => {
   const inline = spfInline();
-  const defs = { ...SPF_DEFS, "a~1b": { type: "null" }, Flag: true };
-  for (const ref of ["#/$defs/Missing", "#/$defs/constructor", "Operation", "other.schema.json#/$defs/Operation", "#/$defs/Operation/minLength", "#/properties/x", "#/$defs/a~1b", "#/$defs/", 42, null]) {
+  const defs = { ...SPF_DEFS, "a~1b": { type: "null" }, "a%20b": { type: "null" }, Flag: true };
+  for (const ref of ["#/$defs/Missing", "#/$defs/constructor", "Operation", "other.schema.json#/$defs/Operation", "#/$defs/Operation/minLength", "#/properties/x", "#/$defs/a~1b", "#/$defs/a%20b", "#/$defs/", 42, null]) {
     assert.throws(() => inline({ $ref: ref }, defs), /does not name a known local definition/, `${JSON.stringify(ref)}: refused`);
   }
   assert.throws(() => inline({ $ref: "#/$defs/Flag" }, defs), /expected an object at #\/\$defs\/Flag/, "a boolean definition: refused");
+});
+
+/** A function of schema-projection.ts read through the namespace (a tree without it loads this file and reddens by assertion). */
+function spfFn<F>(name: string): F {
+  const f = (projection as Record<string, unknown>)[name];
+  assert.equal(typeof f, "function", `${name} is an exported function of schema-projection.ts`);
+  return f as F;
+}
+
+// SCHEMA-PROJECTION-FAIL-CLOSED-1, fold of its review (N-1): the value of const, enum, default and examples is data, copied
+// verbatim and never read as a schema (at the lot's first gel a $ref in a const was inlined, a $defs in a default dropped); and
+// the inliner is position-aware like stripMeta: a property named $ref, $defs or const is a name, its schema is inlined.
+// killer: apps/harness/src/schema-projection.ts:162 CONST "DATA_KEYWORDS.has(k) ? structuredClone(v)" -> "false ? structuredClone(v)"
+test("spf_data_keywords_are_not_schemas", () => {
+  const inline = spfInline();
+  for (const data of [{ const: { $ref: "#/$defs/Operation" } }, { enum: [{ $ref: "#/$defs/Operation" }, "x"] }, { default: { $defs: 1, a: 2 } }, { examples: [{ $ref: "#/$defs/Missing", $dynamicRef: "#a" }] }]) {
+    assert.deepEqual(inline(data, SPF_DEFS), data, `${JSON.stringify(data)}: data kept verbatim`);
+  }
+  const named = { properties: { $ref: { type: "string" }, $defs: { type: "null" }, const: { $ref: "#/$defs/Operation" } } };
+  assert.deepEqual(inline(named, SPF_DEFS), { properties: { $ref: { type: "string" }, $defs: { type: "null" }, const: { type: "string", minLength: 1 } } }, "property names are names");
+  const strip = spfFn<(node: Json) => Json>("stripMeta");
+  assert.deepEqual(strip({ const: { description: "kept", title: "kept", $id: "kept" }, description: "dropped" }), { const: { description: "kept", title: "kept", $id: "kept" } }, "stripMeta keeps data verbatim");
+});
+
+// SCHEMA-PROJECTION-FAIL-CLOSED-1, fold of its review (N-2): a nested $id opens another resource that #/$defs/... would resolve
+// against, and stripMeta drops it; so the raw frozen file is refused before the strip. A root $id, a property named $id and an
+// $id inside data pass. At the lot's first gel { $id: "other.json", $ref: "#/$defs/Operation" } inlined the root's definition.
+// killer: apps/harness/src/schema-projection.ts:122 CONST "Object.hasOwn(n, \"$id\")" -> "false"
+test("spf_nested_id_fails_closed", () => {
+  const refuse = spfFn<(raw: { [k: string]: Json }, where: string) => { [k: string]: Json }>("refuseNestedId");
+  const frozen = asObj(loadJson("tool-error.schema.json"), "tool-error");
+  assert.equal(refuse(frozen, "ToolError"), frozen, "the frozen file passes (one $id, at its root)");
+  const fine = { $id: "root.json", properties: { $id: { type: "string" } }, const: { $id: "data" } };
+  assert.equal(refuse(fine, "fine"), fine, "root $id, property named $id, $id in data");
+  for (const bad of [{ properties: { a: { $id: "x.json", $ref: "#/$defs/Operation" } } }, { items: { $id: "y.json" } }, { $defs: { A: { $id: "z.json" } } }, { oneOf: [{ type: "null" }, { $id: "w.json" }] }]) {
+    assert.throws(() => refuse(bad, "bad"), /bad carries a nested \$id/, `${JSON.stringify(bad)}: refused`);
+  }
+});
+
+// SCHEMA-PROJECTION-FAIL-CLOSED-1, fold of its review (N-2): $dynamicRef, $recursiveRef, $anchor and $dynamicAnchor are not
+// inlined, so they are refused (at the lot's first gel they passed into /openapi.json untouched). A property so named passes.
+// killer: apps/harness/src/schema-projection.ts:160 CONST "dynamic.length > 0" -> "false"
+test("spf_dynamic_keywords_fail_closed", () => {
+  const inline = spfInline();
+  for (const bad of [{ $dynamicRef: "#/$defs/Operation" }, { items: { $recursiveRef: "#" } }, { $defs: {}, properties: { a: { $anchor: "a", type: "string" } } }, { anyOf: [{ $dynamicAnchor: "n" }] }]) {
+    assert.throws(() => inline(bad, SPF_DEFS), /cannot be inlined \(dynamic scope or anchor\)/, `${JSON.stringify(bad)}: refused`);
+  }
+  const named = { properties: { $anchor: { type: "string" }, $dynamicRef: { type: "null" } } };
+  assert.deepEqual(inline(named, SPF_DEFS), named, "properties so named are names");
+});
+
+// SCHEMA-PROJECTION-FAIL-CLOSED-1, fold of its review (N-3; closes DEREF-VERDICT-FAIL-CLOSED-1): the MCP outputSchema splices
+// CoverageVerdict only in place of a verdict that is exactly { $ref: "coverage-verdict.schema.json" }, and only a CoverageVerdict
+// without $ref, $defs or dynamic keyword. At the lot's first gel each case below was spliced in silence.
+// killer: apps/harness/src/schema-projection.ts:142 CONST "!isMap(v) || Object.keys(v).join() !== \"$ref\" || v[\"$ref\"] !== VERDICT_REF" -> "false"
+test("spf_deref_verdict_fails_closed", () => {
+  const deref = spfFn<(gd: { [k: string]: Json }, cv: { [k: string]: Json }) => Json>("derefVerdict");
+  const gd = asObj(loadJson("gate-decision.schema.json"), "gate-decision"), cv = asObj(loadJson("coverage-verdict.schema.json"), "coverage-verdict");
+  assert.deepEqual(deref(gd, cv), projection.TOOL_OUTPUT_SCHEMA, "the frozen pair projects to the served output schema");
+  const withVerdict = (verdict: Json | undefined): { [k: string]: Json } => {
+    const props = { ...asObj(gd["properties"], "gd.properties") };
+    if (verdict === undefined) delete props["verdict"]; else props["verdict"] = verdict;
+    return { ...gd, properties: props };
+  };
+  for (const [at, verdict] of [["sibling", { $ref: "coverage-verdict.schema.json", maxItems: 3 }], ["other target", { $ref: "other.json" }], ["not a $ref", { type: "string" }], ["absent", undefined]] as const) {
+    assert.throws(() => deref(withVerdict(verdict), cv), /verdict is not exactly/, `${at}: refused`);
+  }
+  for (const [at, extra] of [["internal $ref", { properties: { a: { $ref: "#/$defs/X" } } }], ["$defs", { $defs: { X: {} } }], ["$dynamicRef", { items: { $dynamicRef: "#n" } }]] as const) {
+    assert.throws(() => deref(gd, { ...cv, ...extra }), /CoverageVerdict carries/, `${at}: refused`);
+  }
+});
+
+// SCHEMA-PROJECTION-FAIL-CLOSED-1, fold of its review (N-4): a JSON key __proto__ stays an own data key through stripMeta (at the
+// lot's first gel it became the prototype, the key was lost), and a $ref is read only as an own key, never inherited.
+// killer: apps/harness/src/schema-projection.ts:157 CONST "Object.hasOwn(node, \"$ref\")" -> "\"$ref\" in node"
+test("spf_proto_key_stays_own_data", () => {
+  const inline = spfInline();
+  const strip = spfFn<(node: Json) => Json>("stripMeta");
+  for (const text of ['{"properties":{"x":{"__proto__":{"$ref":"#/$defs/Operation"}}}}', '{"properties":{"__proto__":{"type":"string"},"a":{}}}']) {
+    assert.equal(JSON.stringify(strip(JSON.parse(text) as Json)), text, `${text}: __proto__ kept as a key`);
+  }
+  const inherited = Object.create({ $ref: "#/$defs/Operation" }) as { [k: string]: Json };
+  assert.deepEqual(inline(inherited, SPF_DEFS), {}, "an inherited $ref is not a reference");
 });
