@@ -30,7 +30,7 @@ const rowOf = (c: string, key: string) => table(c).table.rows.find((r) => r.curr
 const cellOf = (d: GateDecision): unknown[] => [d.verdict.qhat_unit, d.verdict.scale, d.verdict.cell_key, d.verdict.policy_row_sha256, d.verdict.policy_table_sha256];
 
 // Q-C1: four BYO verdicts (interval and set, served and under_calib): qhat_unit of the mode, scale and table fields null.
-// killer: apps/harness/src/tools/gate.ts:452 CONST "\"label\" : \"score\"" -> "\"score\" : \"label\""
+// killer: apps/harness/src/tools/gate.ts:489 CONST "\"label\" : \"score\"" -> "\"score\" : \"label\""
 test("byo_qhat_unit_is_fixed_by_the_mode", () => {
   const scores = [0.3, 0.05, 0.2, 0.1, 0.25, 0.15, 0.08, 0.12, 0.18, 0.22];
   const byo = (yhat: string | number): Prediction => pred("byo-demo", yhat, "caller:model");
@@ -45,7 +45,7 @@ test("byo_qhat_unit_is_fixed_by_the_mode", () => {
 });
 
 // The served classes read the current row of the key searched; a key with no row has none (liq s3, cascade).
-// killer: apps/harness/src/tools/gate.ts:1004 CONST "r.current && r.cell_key === cellKey" -> "false"
+// killer: apps/harness/src/tools/gate.ts:1050 CONST "r.current && r.cell_key === cellKey" -> "false"
 test("served_cell_carries_the_current_row_of_the_key", () => {
   const s0 = `${UKEMI_LIQ_PREDICTOR_BASE}/s0`;
   const cases: [GateDecision, string, string, string | null][] = [
@@ -57,7 +57,7 @@ test("served_cell_carries_the_current_row_of_the_key", () => {
 });
 
 // The cascade key searched is the predictor_id received (no row: the class has no committed calibration).
-// killer: apps/harness/src/tools/gate.ts:541 CONST "servedCell(TASK_CASCADE, prediction.predictor_id)" -> "servedCell(TASK_CASCADE, TASK_CASCADE)"
+// killer: apps/harness/src/tools/gate.ts:578 CONST "servedCell(TASK_CASCADE, prediction.predictor_id)" -> "servedCell(TASK_CASCADE, TASK_CASCADE)"
 test("cascade_cell_key_is_the_received_predictor_id", () => {
   const d = runGate(pred("cascade-liquidable-24h", 12345, "internal:ukemi-cascade-v0"), P);
   assert.deepEqual(cellOf(d), ["label", null, "internal:ukemi-cascade-v0", null, table("cascade-liquidable-24h").policy_table_sha256]);
@@ -74,12 +74,13 @@ test("served_values_equal_the_admitted_row", () => {
 
 // Q-C3 and Q-3b-4: one function of bytes (kata parity), the class and row texts are the served sentences, the sources
 // are the provenance already public (USDe: the fixture and its recorder; liq: held by liq_table_source_names_the_series_by_sha256_only).
-// killer: apps/harness/src/tools/gate.ts:994 CONST "registry_file: \"fixtures/usde-calib-scores.json\"" -> "registry_file: \"fixtures/usde.json\""
+// killer: apps/harness/src/tools/gate.ts:1038 CONST "registry_file: \"fixtures/usde-calib-scores.json\"" -> "registry_file: \"fixtures/usde.json\""
 test("served_tables_texts_and_sources", () => {
   const names = SERVED_MARGINAL_TABLES.map((t) => t.task_class);
   assert.deepEqual(servedPolicyTables(SERVED_TABLE_TEXTS).filter((t) => names.includes(t.task_class)), [...SERVED_MARGINAL_TABLES].sort((a, b) => (a.task_class < b.task_class ? -1 : 1)));
   const texts = SERVED_MARGINAL_TABLES.map((t) => [t.table.class.text, ...t.table.rows.map((r) => r.text)]);
-  assert.deepEqual(texts, [[STABLE_RUN_UNCALIBRATED_SENTENCE, STABLE_RUN_COMMITTED_SENTENCE], [LIQ_EMPTY_REGISTRY_SENTENCE, LIQ_COMMITTED_SENTENCE], [CASCADE_UNCALIBRATED_SENTENCE]]);
+  // Block D (lot D-2): SERVED_MARGINAL_TABLES is a view of the served tables, in their order (by task_class).
+  assert.deepEqual(texts, [[CASCADE_UNCALIBRATED_SENTENCE], [LIQ_EMPTY_REGISTRY_SENTENCE, LIQ_COMMITTED_SENTENCE], [STABLE_RUN_UNCALIBRATED_SENTENCE, STABLE_RUN_COMMITTED_SENTENCE]]);
   const usde = rowOf("stable-run-velocity-24h", USDE_STABLE_RUN_PREDICTOR_ID).source;
   assert.deepEqual([usde.registry_file, usde.registry_sha256, usde.generator], ["fixtures/usde-calib-scores.json", "e44a68b6b697a32f3f198770e740ab206393dc3425e8cc59e4b0e1e4e65cfd28", "scripts/record-usde-calib.mjs"]);
 });
@@ -110,7 +111,7 @@ registerHooks({ load(url, context, nextLoad) {
 // Z-3 composition (rule of MONARK; Q-C3 condition 5; cut (a) of C2, with S-8): the served sentence is the table text of the
 // resolved cell (its current row, else the class text) followed by the unchanged suffix, on USDe (its key and another),
 // cascade and liq s0 to s3; the closed list of the liq gap is empty. USDe and cascade hold at the base (killer by hand).
-// killer: apps/harness/src/tools/gate.ts:709 CONST "}; B_t is caller-carried.`;" -> "}. B_t is caller-carried.`;"
+// killer: apps/harness/src/tools/gate.ts:746 CONST "}; B_t is caller-carried.`;" -> "}. B_t is caller-carried.`;"
 test("served_text_is_table_text_plus_suffix", () => {
   const run = (p: Prediction, params: HarnessParams): string => HARNESS_TOOLS.find((t) => t.name === "gate")?.run({ prediction: p, params }).text ?? "";
   const cases: [string, Prediction, HarnessParams, string][] = [
@@ -127,7 +128,7 @@ test("served_text_is_table_text_plus_suffix", () => {
 // Q-3b2-2 (closed in lot CM-3c-4b): qhat, alpha and n_calib served on USDe and liq s0 are read on the admitted row, not
 // recomputed from the scores. A child loads gate.ts with the row builder of policy-marginal.ts doubling qhat (the load
 // guard rebuilds with the same builder, so it passes): the served qhat follows the row, twice the recomputed q-hat.
-// killer: apps/harness/src/tools/gate.ts:598 CONST "admittedSplit(cell)" -> "{ ...splitQuantileShortest(scores, params.alpha, params.nMin), alpha: params.alpha }"
+// killer: apps/harness/src/tools/gate.ts:635 CONST "admittedSplit(cell)" -> "{ ...splitQuantileShortest(scores, params.alpha, params.nMin), alpha: params.alpha }"
 test("served_qhat_ncalib_alpha_read_from_the_admitted_row", async () => {
   const hook = `import { registerHooks } from "node:module";
 registerHooks({ load(url, context, nextLoad) {

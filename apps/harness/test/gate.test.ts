@@ -97,7 +97,7 @@ function assertBtcDirRetired(params: HarnessParams = GOOD_PARAMS): void {
 
 // Test — the tool EMITS the frozen, closed GateDecision; a key outside the contract throws.
 // Mutant: `return { ...decision, p_correct: 0 }` in gate.ts runGate ⇒ red. (CM-2b: on the USDe key; btc-dir retired.)
-// killer: apps/harness/src/tools/gate.ts:927 CONST "\"task_class_retired\"" -> "\"task_class_unknown\""
+// killer: apps/harness/src/tools/gate.ts:966 CONST "\"task_class_retired\"" -> "\"task_class_unknown\""
 test("gate_tool_emits_frozen_gate_decision", () => {
   assertBtcDirRetired();
   const d = runGate(USDE_PRED, { ...GOOD_PARAMS, intent: 0 });
@@ -111,7 +111,7 @@ test("gate_tool_emits_frozen_gate_decision", () => {
 
 // Test — the gate NEVER calls `params.tool` (invariant D0): it only echoes it.
 // Mutant: invoke `globalThis[input.tool]()` in gate.ts ⇒ red. (CM-2b: on the USDe key; btc-dir retired.)
-// killer: apps/harness/src/tools/gate.ts:927 CONST "\"task_class_retired\"" -> "\"task_class_unknown\""
+// killer: apps/harness/src/tools/gate.ts:966 CONST "\"task_class_retired\"" -> "\"task_class_unknown\""
 test("gate_tool_never_calls_tool", () => {
   const g = globalThis as Record<string, unknown>;
   let called = false;
@@ -128,7 +128,7 @@ test("gate_tool_never_calls_tool", () => {
 
 // Test — dispatch is on task_class; cascade has no committed calibration ⇒ abstain/under_calib (K-4b).
 // Mutant: hard-code one path for every class ⇒ red. (CM-2b: the committed USDe key is the diverging class.)
-// killer: apps/harness/src/tools/gate.ts:927 CONST "\"task_class_retired\"" -> "\"task_class_unknown\""
+// killer: apps/harness/src/tools/gate.ts:966 CONST "\"task_class_retired\"" -> "\"task_class_unknown\""
 test("gate_dispatches_on_task_class", () => {
   const d = runGate(CASCADE_PRED, { ...GOOD_PARAMS, intent: 12345 });
   assert.equal(d.action, "abstain");
@@ -142,7 +142,7 @@ test("gate_dispatches_on_task_class", () => {
 
 // G2 m-1 of 3c-3b2: the summary line of a cascade gate states the absent region and q-hat as null (1.1.0 wire,
 // region null iff qhat null), not the 1.0.0 empty-set token.
-// killer: apps/harness/src/tools/gate.ts:728 CONST "? \"null\"" -> "? \"{}\""
+// killer: apps/harness/src/tools/gate.ts:765 CONST "? \"null\"" -> "? \"{}\""
 test("gate_summary_states_null_region_and_qhat_on_cascade", () => {
   const d = runGate(CASCADE_PRED, { ...GOOD_PARAMS, intent: 12345 });
   assert.ok(gateVerdictSummary(d).includes("region=null qhat=null"), gateVerdictSummary(d));
@@ -173,7 +173,7 @@ test("gate_rejects_invalid_params", () => {
 // Mutant: remove the word `synthetic` from BTC_DIR_CALIB_PROVENANCE ⇒ red.
 // CM-2b (ADR-CM B-5): the synthetic btc-dir calibration stays committed (fixtures, oracle) but is no longer served, so
 // the description drops its synthetic plumbing-fixture sentence and names the retirement instead.
-// killer: apps/harness/src/tools/gate.ts:212 CONST "is retired and answers a named" -> "is a plumbing fixture and answers a named"
+// killer: apps/harness/src/tools/gate.ts:248 CONST "is retired and answers a named" -> "is a plumbing fixture and answers a named"
 test("calibration_declared_synthetic", () => {
   assert.ok(BTC_DIR_CALIB_PROVENANCE.includes("synthetic"), "provenance must declare synthetic");
   assert.ok(!GATE_TOOL_DESCRIPTION.includes("plumbing fixture"), "the served description no longer serves the synthetic btc-dir fixture");
@@ -386,7 +386,7 @@ test("gate_byo_fail_closed", () => {
 // byte-identical to their pre-C2 behaviour (verdicts + digests). These digests are the SAME anchors the
 // H5 trace pins, so a drift here would also move the trace. Mutant: any change to the committed paths ⇒ red.
 // CM-2b: btc-dir is retired (ADR-CM B-5); the committed USDe key takes its place as the covered committed path.
-// killer: apps/harness/src/tools/gate.ts:927 CONST "\"task_class_retired\"" -> "\"task_class_unknown\""
+// killer: apps/harness/src/tools/gate.ts:966 CONST "\"task_class_retired\"" -> "\"task_class_unknown\""
 test("gate_committed_classes_unchanged_without_calibration", () => {
   assertBtcDirRetired();
   const usde = runGate(USDE_PRED, { ...GOOD_PARAMS, intent: 0 });
@@ -410,7 +410,7 @@ test("gate_committed_classes_unchanged_without_calibration", () => {
 // CM-2b (ADR-CM B-2): the USDe key's nMin is now imposed (50 <= 613), so its "nMin > n_committed" under_calib path is
 // no longer served: nMin 10000 is a 400 policy_nmin_mismatch. The positive control reads the hikae default directly
 // (btc-dir is retired, ADR-CM B-5).
-// killer: apps/harness/src/tools/gate.ts:595 SDL "assertPolicy(USDE_POLICY, params);" -> ""
+// killer: apps/harness/src/tools/gate.ts:632 SDL "assertPolicy(USDE_POLICY, params);" -> ""
 test("numeric_under_calib_region_is_not_directional", () => {
   const numericUnderCalib: { name: string; d: GateDecision }[] = [
     // committed cascade: cascadeVerdict -> conformInterval({calib:[]}) -> interval-conformer underCalib helper
@@ -667,7 +667,7 @@ const MSUSD_LIKE_SCORES: number[] = [...Array.from({ length: 190 }, () => 0), 1.
 // pinned α=0.10) ⇒ under_calib, never a fabricated width-0 commit. This is the ONLY test that traverses the
 // real repro path (harness byoVerdict). Mutant M1 (region.ts guard removed) ⇒ verdict `covered`/q̂=0 ⇒ red.
 // Since B-16 (lot CM-3c-4b) the abstention reason is region_degenerate, in the verdict and at L3.
-// killer: apps/harness/src/tools/gate.ts:476 CONST "noRegionVerdict(ir.reason, {" -> "underCalibVerdict({"
+// killer: apps/harness/src/tools/gate.ts:513 CONST "noRegionVerdict(ir.reason, {" -> "underCalibVerdict({"
 test("gate_byo_interval_degenerate_calibration_is_region_degenerate_M011", () => {
   assert.equal(GOOD_PARAMS.alpha, 0.1, "GOOD_PARAMS.alpha is 0.10 (the degenerate-at-α=0.10 case)");
   assert.equal(MSUSD_LIKE_SCORES.length, 191, "n=191 (<= CALIBRATE_MAX_N=10000 ⇒ passes the cap)");

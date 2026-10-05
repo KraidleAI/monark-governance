@@ -38,7 +38,7 @@ const HONEST = ["acme-model-1", "my_model", "cascade-v2", "liquidity-model", "et
 
 // Test C-1 (F2P): MONARK's ASCII look-alike class names (E1 to E10, E17) are refused with the new code; realistic
 // honest names keep deciding.
-// killer: apps/harness/src/tools/gate.ts:752 CONST ".replace(/rn/g, \"m\")" -> ".replace(/rn/g, \"rn\")"
+// killer: apps/harness/src/tools/gate.ts:789 CONST ".replace(/rn/g, \"m\")" -> ".replace(/rn/g, \"rn\")"
 test("byo_confusable_class_names_refused", () => {
   const lookAlikes = [
     "cascade-liquidabIe-24h", "cascade-liquidab1e-24h", "liquidation-eIigible-coverage", "Iiquidation-eligible-coverage",
@@ -50,7 +50,7 @@ test("byo_confusable_class_names_refused", () => {
 });
 
 // Test C-2 (F2P): look-alike kata class names (E11 to E13) and kata keys (E14, E15) are refused; near names decide.
-// killer: apps/harness/src/tools/gate.ts:775 CONST ".replace(/4/g, \"a\")" -> ".replace(/4/g, \"4\")"
+// killer: apps/harness/src/tools/gate.ts:812 CONST ".replace(/4/g, \"a\")" -> ".replace(/4/g, \"4\")"
 test("byo_confusable_kata_names_and_keys_refused", () => {
   // sol_mae_up_4h: the mae-up family; btc-dlr-1h: i folds to l (precision (4) of B-10, ADR-CM amendment 2026-10-04).
   for (const c of ["btc-dir-lh", "bnb-dir-Ih", "eth_range_4h", "sol-mae-down-l h", "sol_mae_up_4h", "btc-dlr-1h"]) {
@@ -67,7 +67,7 @@ test("byo_confusable_kata_names_and_keys_refused", () => {
 
 // Test T-6 (pin, B-14 C-2 condition 2): without a calibration, a wide name keeps its class answer: btc-dir-15m stays
 // retired, an unregistered wide name stays unknown. Green at the base of lot D-1 (declared; killer fired by hand).
-// killer: apps/harness/src/tools/gate.ts:927 CONST "\"task_class_retired\"" -> "\"byo_reserved_kata\""
+// killer: apps/harness/src/tools/gate.ts:966 CONST "\"task_class_retired\"" -> "\"byo_reserved_kata\""
 test("wide_kata_names_keep_their_class_answer", () => {
   const noCal = (taskClass: string): unknown => {
     const params: HarnessParams = { remainingBudget: 0.1, bFloor: 0, tau: 1, tauInterval: 1, alpha: 0.1, nMin: 5, intent: 0, tool: "perps_order_preview", clockOpen: true };
@@ -85,7 +85,7 @@ test("wide_kata_names_keep_their_class_answer", () => {
 // Test C-3 (F2P): a (class, key) pair whose reduction is a committed pair (E16, the USDe key with O for 0) is refused;
 // another population keeps deciding; B-1 names keep their B-1 codes and messages; the HTTP body carries the new code
 // and the exact message.
-// killer: apps/harness/src/tools/gate.ts:754 CONST ".replace(/0/g, \"o\")" -> ".replace(/0/g, \"0\")"
+// killer: apps/harness/src/tools/gate.ts:791 CONST ".replace(/0/g, \"o\")" -> ".replace(/0/g, \"0\")"
 test("byo_confusable_committed_pair_refused", async () => {
   const usdeO = USDE_STABLE_RUN_PREDICTOR_ID.replace("0x4c9", "Ox4c9");
   assert.notEqual(usdeO, USDE_STABLE_RUN_PREDICTOR_ID, "the probe key differs");

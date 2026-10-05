@@ -10,14 +10,15 @@ import { createHash } from "node:crypto";
 import { readdirSync, readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
-import { canonicalJson, COVERAGE_REASONS, TOOL_ERROR_CODES, type ClassEntry, type PolicyRow, type PolicyTable, type Prediction } from "@monark/contracts";
+import { canonicalJson, TOOL_ERROR_CODES, type ClassEntry, type PolicyRow, type PolicyTable, type Prediction } from "@monark/contracts";
 import { UKEMI_LIQ_COMMITTED } from "../src/calibration.ts";
-import { assertKataRequest, KATA_REASONS, kataPath, kataVerdictFields, servedPolicyTables, type ServedTableTexts } from "../src/kata-path.ts";
+import { assertKataRequest, kataPath, kataVerdictFields, servedPolicyTables, type ServedTableTexts } from "../src/kata-path.ts";
 import { kataClassEntries } from "../src/policy-classes.ts";
 import { guardKataRow, guardKataTable, type GuardPins } from "../src/policy-guard.ts";
 import { projectCell, readRegistry } from "../src/policy-projection.ts";
 import { buildPolicyTable } from "../src/policy-table-file.ts";
 import { toolErrorCode, type HarnessParams } from "../src/tools/gate.ts";
+import * as gate from "../src/tools/gate.ts";
 import { codeLines } from "./helpers/code-lines.ts";
 import { syntheticRegistry } from "./helpers/synthetic-registry.ts";
 
@@ -68,7 +69,7 @@ const next = (x: number, d: 1 | -1): number => {
   return v.getFloat64(0);
 };
 
-// killer: apps/harness/src/kata-path.ts:50 CONST "at % (cls.h_ms ?? NaN)" -> "at % 3_600_000"
+// killer: apps/harness/src/kata-path.ts:46 CONST "at % (cls.h_ms ?? NaN)" -> "at % 3_600_000"
 test("kata_grid_on_string_fields", () => {
   const D4 = table("btc-dir-4h");
   for (const at of ["2026-10-04T04:00:00Z", "2026-10-04T05:00:00Z", "2026-10-04T04:00:00.000Z", "2026-10-04T09:00:00+05:00"]) assert.equal(req(DIR, pr(DIR, 0.5, at)), "ok", at);
@@ -81,7 +82,7 @@ test("kata_grid_on_string_fields", () => {
   assert.equal(req(DIR, pr(DIR, 0.5, "2026-10-04T04:00:00")), "produced_at_invalid");
 });
 
-// killer: apps/harness/src/kata-path.ts:51 ROR "nowMs - at > PRODUCED_AT_FUTURE_TOLERANCE_MS" -> "nowMs - at >= PRODUCED_AT_FUTURE_TOLERANCE_MS"
+// killer: apps/harness/src/kata-path.ts:47 ROR "nowMs - at > PRODUCED_AT_FUTURE_TOLERANCE_MS" -> "nowMs - at >= PRODUCED_AT_FUTURE_TOLERANCE_MS"
 test("kata_stale_bound_is_300_s", () => {
   const t = Date.parse("2026-10-04T04:00:00Z");
   assert.equal(req(DIR, pr(DIR, 0.5), P, t + 300_000), "ok");
@@ -125,7 +126,7 @@ test("kata_key_predicate_is_shared_with_the_guard", () => {
   }
 });
 
-// killer: apps/harness/src/kata-path.ts:63 ROR "y <= 1" -> "y <= 2"
+// killer: apps/harness/src/kata-path.ts:59 ROR "y <= 1" -> "y <= 2"
 test("kata_yhat_domain_and_zero_lean", () => {
   for (const y of [1, -1, 0.5, 0, -0]) assert.equal(req(DIR, pr(DIR, y)), "ok", String(y));
   for (const y of [1 + 2 ** -52, -1 - 2 ** -52, 1.5, NaN, Infinity, -Infinity]) assert.equal(req(DIR, pr(DIR, y)), "kata_yhat_domain", String(y));
@@ -141,7 +142,7 @@ test("kata_yhat_domain_and_zero_lean", () => {
   }
 });
 
-// killer: apps/harness/src/kata-path.ts:106 SDL "assertKataRequest(p, params, table.class, nowMs);" -> ""
+// killer: apps/harness/src/kata-path.ts:102 SDL "assertKataRequest(p, params, table.class, nowMs);" -> ""
 test("kata_zero_lean_answers_after_every_400", () => {
   const zero = (params: HarnessParams, over: Partial<Prediction> = {}, at?: string): string => code(() => kataPath(pr(DIR, 0, at, over), params, DIR));
   assert.equal(zero(P), "ok");
@@ -153,7 +154,7 @@ test("kata_zero_lean_answers_after_every_400", () => {
   assert.equal(zero(P, {}, "2026-10-04T04:00:01Z"), "produced_at_off_grid");
 });
 
-// killer: apps/harness/src/kata-path.ts:64 SDL "if (params.alpha !== Number(cls.alpha)) refuse(" -> ""
+// killer: apps/harness/src/kata-path.ts:60 SDL "if (params.alpha !== Number(cls.alpha)) refuse(" -> ""
 test("kata_imposed_params_without_row", () => {
   const served = servedPolicyTables({ classText: (c) => `class text of ${c}`, marginal: () => ({ registry_file: "r", registry_sha256: "ab".repeat(32), generator: "g", text: "t" }) });
   const empty = served.find((s) => s.task_class === "btc-dir-1h")?.table ?? assert.fail("no table");
@@ -168,7 +169,7 @@ test("kata_imposed_params_without_row", () => {
   assert.equal(call(band, PB), "ok");
 });
 
-// killer: apps/harness/src/kata-path.ts:66 ROR "!(params.tau <= 1)" -> "!(params.tau <= 2)"
+// killer: apps/harness/src/kata-path.ts:62 ROR "!(params.tau <= 1)" -> "!(params.tau <= 2)"
 test("kata_tau_cap_on_set_classes", () => {
   assert.equal(req(DIR, pr(DIR, 0.5), { ...P, tau: 1 }), "ok");
   assert.equal(req(DIR, pr(DIR, 0.5), { ...P, tau: 0 }), "ok");
@@ -178,7 +179,7 @@ test("kata_tau_cap_on_set_classes", () => {
   assert.equal(req(BAND, pr(BAND, 0.01), { ...PB, tau: 5 }), "ok");
 });
 
-// killer: apps/harness/src/kata-path.ts:60 SDL "if (p.features_digest === undefined) refuse(" -> ""
+// killer: apps/harness/src/kata-path.ts:56 SDL "if (p.features_digest === undefined) refuse(" -> ""
 test("kata_features_digest_required", () => {
   assert.equal(req(DIR, bare(pr(DIR, 0.5))), "features_digest_required");
   assert.equal(req(BAND, bare(pr(BAND, 0.01))), "features_digest_required");
@@ -186,7 +187,7 @@ test("kata_features_digest_required", () => {
   assert.equal(req(DIR, { ...pr(DIR, 0.5), features_digest: "x" }), "ok");
 });
 
-// killer: apps/harness/src/kata-path.ts:79 ROR "m <= Number(thr.t1)" -> "m < Number(thr.t1)"
+// killer: apps/harness/src/kata-path.ts:75 ROR "m <= Number(thr.t1)" -> "m < Number(thr.t1)"
 test("kata_bucket_edges_compare_the_double", () => {
   // C-6: 0.1 and 0.2 are shortest round-trip writings whose doubles lie above their decimals.
   const t = table("btc-dir-1h", (cells) => {
@@ -204,7 +205,7 @@ test("kata_bucket_edges_compare_the_double", () => {
   assert.deepEqual(Object.entries(kataVerdictFields(e4, pr(e4, -0.5), 1)).filter(([k]) => ["cell_key", "reason", "policy_row_sha256", "n_calib"].includes(k)), [["n_calib", 0], ["reason", "under_calib"], ["cell_key", `${pidOf(e4)}/down`], ["policy_row_sha256", null]]);
 });
 
-// killer: apps/harness/src/kata-path.ts:85 CONST "current.find((r) => r.cell_key === key)" -> "table.rows.find((r) => r.cell_key === key)"
+// killer: apps/harness/src/kata-path.ts:81 CONST "current.find((r) => r.cell_key === key)" -> "table.rows.find((r) => r.cell_key === key)"
 test("kata_lookup_reads_current_rows_only", () => {
   // Spec section 11 point 4: a replaced row (current false) sorts before its replacement (same cell_key, lower calib_attempt);
   // neither its thresholds nor the row itself are read. Hand-built table, not guarded.
@@ -215,7 +216,7 @@ test("kata_lookup_reads_current_rows_only", () => {
   assert.deepEqual([v.cell_key, v.policy_row_sha256, v.n_calib], [b1.cell_key, sha(canonicalJson(b1)), b1.n]);
 });
 
-// killer: apps/harness/src/kata-path.ts:82 CONST "sha256Canonical([])" -> "sha256Canonical([0])"
+// killer: apps/harness/src/kata-path.ts:78 CONST "sha256Canonical([])" -> "sha256Canonical([0])"
 test("kata_no_row_verdict_fields", () => {
   // Spec section 11 point 4, recomputed field by field on the served (empty) tables: direction and scale.
   const served = servedPolicyTables({ classText: (c) => `class text of ${c}`, marginal: () => ({ registry_file: "r", registry_sha256: "ab".repeat(32), generator: "g", text: "t" }) });
@@ -230,7 +231,7 @@ test("kata_no_row_verdict_fields", () => {
   }
 });
 
-// killer: apps/harness/src/kata-path.ts:91 CONST "qhat: 1, abstain: true, reason: calib" -> "qhat: 1, abstain: false, reason: calib"
+// killer: apps/harness/src/kata-path.ts:87 CONST "qhat: 1, abstain: true, reason: calib" -> "qhat: 1, abstain: false, reason: calib"
 test("kata_row_statuses_map_to_regions", () => {
   const lean = (r: PolicyRow): number => {
     const [t1, t2] = [Number(r.thresholds?.t1), Number(r.thresholds?.t2)];
@@ -289,8 +290,14 @@ test("kata_served_tables_digests", () => {
     assert.equal(s.table.rows.length > 0, s.task_class === "stable-run-velocity-24h" || s.task_class === "liquidation-eligible-coverage", s.task_class);
   }
   assert.deepEqual(servedPolicyTables(texts), served, "deterministic");
-  // Pinned on synthetic texts only (C-10 condition 1): no digest of a real table is pinned before F-5a.
-  assert.equal(sha(canonicalJson(served.map((s) => [s.task_class, s.policy_table_sha256]))), "d32cf528acbf0f77a01848d89f0132487621ebd9def64ac04204653778e469e9");
+  // Block D (ADR-CM dated line (11), founder's go Q-D1): the pin follows the REAL served tables, published = served. The
+  // 35 [class, policy_table_sha256] pairs of SERVED_POLICY_TABLES, digested; the per-class values are in
+  // docs/G0-bloc-d-2-empreintes.md (Z-3 line of block D).
+  const real = (gate as Record<string, unknown>)["SERVED_POLICY_TABLES"] as readonly { task_class: string; policy_table_sha256: string }[] | undefined;
+  assert.ok(real !== undefined, "gate.ts serves SERVED_POLICY_TABLES");
+  assert.equal(real.length, 35);
+  assert.equal(sha(canonicalJson(real.map((s) => [s.task_class, s.policy_table_sha256]))), "8da5dd421260d96e4b3dafa48733185b377df64261480aa92cdbeec9b462d2eb");
+  assert.equal(real.find((s) => s.task_class === "btc-dir-1h")?.policy_table_sha256, "c04ae2921430968857350fd2fa663d0931f92c1a9bfeb595a7d341d3a02cc6e1", "btc-dir-1h, empty, its class text");
   // Spec section 10: the table of one class does not depend on another class.
   const moved = servedPolicyTables({ ...texts, classText: (c) => (c === "eth-range-1h" ? "other text" : texts.classText(c)) });
   assert.deepEqual(served.filter((s, i) => s.policy_table_sha256 !== moved[i]?.policy_table_sha256).map((s) => s.task_class), ["eth-range-1h"]);
@@ -320,32 +327,28 @@ function servedModules(): Set<string> {
   return seen;
 }
 
-// killer: apps/harness/src/server.ts:31 CONST "./http.ts" -> "./kata-path.ts"
-test("kata_path_is_not_served", () => {
+// Block D (lot D-2): tools/gate.ts imports the kata path, so kata-path.ts and policy-classes.ts are served; the import
+// guard (policy-guard.ts) stays outside the served graph.
+// killer: apps/harness/src/tools/gate.ts:62 SDL "import { kataPath, kataVerdict, servedPolicyTables } from \"../kata-path.ts\";" -> ""
+test("kata_path_is_served", () => {
   const seen = servedModules();
   assert.ok(seen.size > 6 && seen.has(join(SRC, "tools/gate.ts")));
-  for (const f of ["kata-path.ts", "policy-classes.ts", "policy-guard.ts"]) assert.ok(!seen.has(join(SRC, f)), f);
+  for (const f of ["kata-path.ts", "policy-classes.ts", "policy-served.ts"]) assert.ok(seen.has(join(SRC, f)), `${f} is served`);
+  assert.ok(!seen.has(join(SRC, "policy-guard.ts")), "policy-guard.ts is not served");
 });
 
-// Q-3a-2: every reason a kata verdict can carry is a frozen coverage reason of contract 1.1.0 (block D drops KATA_REASONS).
-// killer: apps/harness/src/kata-path.ts:18 CONST "\"region_degenerate\"] as const" -> "\"region_degenerate\", \"kata_only\"] as const"
-test("kata_reasons_within_coverage_reasons", () => {
-  const coverage: readonly string[] = COVERAGE_REASONS;
-  for (const r of KATA_REASONS) assert.ok(coverage.includes(r), `${r} is a coverage reason`);
-  assert.equal(new Set(KATA_REASONS).size, KATA_REASONS.length, "no reason twice");
-});
+/** C-3 (delegated decision CM-4b): the codes with no served thrower yet, exact; none since block D (lot D-2), whose served
+ *  kata path throws the 6 kata codes together. */
+const PENDING: readonly string[] = [];
 
-/** C-3 (delegated decision CM-4b): the codes with no served thrower yet, exact; since C' (lot CM-3c-4a) the 6 kata codes. */
-const PENDING = ["kata_key_invalid", "kata_yhat_domain", "features_digest_required", "policy_tau_cap", "produced_at_off_grid", "produced_at_stale"];
-
-// killer: apps/harness/src/tools/gate.ts:927 CONST "\"task_class_retired\"" -> "\"task_class_unknown\""
+// killer: apps/harness/src/tools/gate.ts:966 CONST "\"task_class_retired\"" -> "\"task_class_unknown\""
 test("every_listed_code_has_a_served_thrower_or_is_pending", () => {
-  // Static at this lot: a code has a thrower when its literal is in a served module (default codes of the other tools
-  // included); output_invalid has its 500 path. The G7 of the last lot of block D makes it dynamic, PENDING empty.
+  // Static: a code has a thrower when its literal is in a served module (default codes of the other tools included);
+  // output_invalid has its 500 path. The G7 of the last lot of block D adds the dynamic form (a served request per code).
   const text = [...servedModules()].map((f) => codeLines(readFileSync(f, "utf8"))).join("\n");
   const unthrown = TOOL_ERROR_CODES.filter((c) => c !== "output_invalid" && !text.includes(`"${c}"`));
   assert.deepEqual(unthrown, PENDING);
-  assert.ok(readFileSync(join(SRC, "kata-path.ts"), "utf8").includes("\"kata_key_invalid\""), "a thrower outside the served graph does not count");
+  assert.ok(servedModules().has(join(SRC, "kata-path.ts")) && readFileSync(join(SRC, "kata-path.ts"), "utf8").includes("\"kata_key_invalid\""), "the kata codes are thrown in the served graph");
 });
 
 // killer: apps/harness/test/helpers/code-lines.ts:5 CONST "!COMMENT_LINE.test(l)" -> "true"

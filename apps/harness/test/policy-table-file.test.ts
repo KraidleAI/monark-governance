@@ -116,7 +116,8 @@ test("served_policy_modules_are_the_four_marginal_ones", () => {
   };
   for (const f of ["server.ts", "http.ts", "openapi.ts", "schema-projection.ts", ...readdirSync(join(src, "tools")).map((t) => `tools/${t}`)]) walk(join(src, f));
   assert.ok(seen.size > 6 && seen.has(join(src, "class-policy.ts")));
-  // Q-C3 (contract 1.1.0): exactly the four modules of the marginal tables are served, never a kata module (G2 m-4).
+  // Q-C3 (contract 1.1.0): the four modules of the marginal tables are served; since block D (lot D-2) also the kata class
+  // entries (policy-classes.ts, with kata-path.ts), never the import guard (policy-guard.ts) nor wave 2 (policy-wave2.ts).
   const policy = [...seen].map((f) => f.slice(src.length + 1)).filter((f) => f.startsWith("policy-")).sort();
-  assert.deepEqual(policy, ["policy-marginal.ts", "policy-projection.ts", "policy-served.ts", "policy-table-file.ts"]);
+  assert.deepEqual(policy, ["policy-classes.ts", "policy-marginal.ts", "policy-projection.ts", "policy-served.ts", "policy-table-file.ts"]);
 });
