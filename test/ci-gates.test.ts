@@ -336,6 +336,35 @@ test("ci_gates_blocking_no_continue_on_error — blocking and pinned workflow (t
   );
 });
 
+// Lot R25-INTEGRATION-RULE-1 (ADR-M003 D9 nonies): the r25 job hands its two written counts to scripts/lot-size-integration.mjs,
+// the single implementation the oracle's r25 gate runs too. Pinned: the proof then the count, after both metrics and
+// before any print; the `|| R25I="written ..."` fallback; the two case guards (only mode `integration` with numeric counts
+// replaces a count); the API token in this one step; no head branch name interpolated anywhere. Named mutants (G7):
+// fallback removed, a guard removed, the count moved after the prints, `--base "origin/${{ github.head_ref }}"`.
+// killer: .github/workflows/ci.yml:99 CONST " || R25I=\"written $CHANGED $CONTENT_CHANGED\"" -> ""
+test("ci_r25_integration_rule_is_wired_fail_closed - proof then count after both metrics and before any print, written counts on a module error or a non-numeric answer, the token in the r25 step only, no head branch name interpolated (ADR-M003 D9 nonies)", () => {
+  const at = LINES.findIndex((l) => /^  r25-taille-de-lot\s*:/.test(l)), code: string[] = [];
+  for (let i = at + 1; i < LINES.length && !/^ {0,2}\S/.test(LINES[i] ?? ""); i++) if (!/^\s*#/.test(LINES[i] ?? "") && (LINES[i] ?? "").trim() !== "") code.push((LINES[i] ?? "").trim());
+  const ix = [
+    code.findIndex((l) => l.startsWith("CONTENT_CHANGED=$(printf")),
+    code.indexOf(`node scripts/lot-size-integration.mjs proof --event "$GITHUB_EVENT_PATH" --out "$RUNNER_TEMP/lot-size-proof.json" || echo '::warning::R-25 integration proof not obtained: every line counts (fail-closed).'`),
+    code.indexOf('R25I=$(node scripts/lot-size-integration.mjs count --ci .github/workflows/ci.yml --base "origin/${{ github.base_ref }}" --proof "$RUNNER_TEMP/lot-size-proof.json" --written "$CHANGED" "$CONTENT_CHANGED") || R25I="written $CHANGED $CONTENT_CHANGED"'),
+    code.indexOf('read -r R25_MODE NEW_CHANGED NEW_CONTENT <<< "$R25I"'),
+    code.indexOf('case "$R25_MODE/$NEW_CHANGED/$NEW_CONTENT" in'),
+    code.indexOf("integration/[0-9]*/[0-9]*) ;;"),
+    code.indexOf("*) R25_MODE=written; NEW_CHANGED=$CHANGED; NEW_CONTENT=$CONTENT_CHANGED ;;"),
+    code.indexOf('case "$NEW_CHANGED$NEW_CONTENT" in'),
+    code.indexOf("''|*[!0-9]*) R25_MODE=written; NEW_CHANGED=$CHANGED; NEW_CONTENT=$CONTENT_CHANGED ;;"),
+    code.indexOf("CHANGED=$NEW_CHANGED"),
+    code.indexOf("CONTENT_CHANGED=$NEW_CONTENT"),
+    code.findIndex((l) => l.startsWith('echo "Changed lines: ')),
+    code.findIndex((l) => l.startsWith("if [ ")),
+  ];
+  assert.ok(ix.every((v, i) => v !== -1 && (i === 0 || v > (ix[i - 1] ?? -1))), `the integration lines are missing or out of order: ${ix.join(" ")}`);
+  assert.deepEqual(LINES.filter((l) => l.includes("R25_READ_TOKEN:")).map((l) => l.trim()), [code.find((l) => l.startsWith("R25_READ_TOKEN: ${{ github.token }} #"))], "the read token is set once, in the r25 step");
+  assert.deepEqual(LINES.filter((l) => /\$\{\{\s*github\.(head_ref|event\.pull_request\.head\.ref)\b/.test(l)), [], "no head branch name is interpolated (injection by branch name)");
+});
+
 // ────────────────────────────────────────────────────────────────────────────────────────────────
 // Lot CI-EXPORT-CHECK (item "export:check absent from CI"; docs/G7-lot-export-clean.md / CHANTIERS:221;
 // ADR-M004 D7 septies "Branchement / dettes") — the public-mirror export hygiene gate `export:check` runs in
@@ -1719,7 +1748,7 @@ function expandTestGlob(glob: string): string[] {
   const last = new RegExp(`^${segs[segs.length - 1]!.replace(/[.]/g, "\\.").replace(/\*/g, "[^/]*")}$`);
   return dirs.flatMap((d) => readdirSync(join(ROOT, d)).filter((n) => last.test(n)).map((n) => `${d}/${n}`));
 }
-// killer: .github/workflows/ci.yml:164 CONST "npm run test:export" -> "npm run test:main"
+// killer: .github/workflows/ci.yml:183 CONST "npm run test:export" -> "npm run test:main"
 test("ci_g3_export_runs_test_42_alone_and_g3_main_skips_only_it - the suite is split in two CI jobs with no test lost (CI-G3-DURATION-1)", () => {
   const scripts = (JSON.parse(readFileSync(join(ROOT, "package.json"), "utf8")) as { scripts: Record<string, string> }).scripts;
   const full = scripts.test ?? "";
