@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://monark.local/schemas/tool-error.schema.json",
   "title": "ToolError",
-  "description": "The 400 body of the HTTP/JSON mirror (contract 1.1.0, spec section 13), one branch per error: tool_error carries a code of the closed catalogue; invalid_input (the input schema refused the body) carries input_invalid and the validator issues, whose element shape is not part of the contract; invalid_json (the body is not JSON) carries json_invalid. $defs/InternalError is the 500 body (output_invalid when the tool output broke its frozen contract). Not described here: MCP errors, the 404 and 405 bodies. A consumer that validates with an older copy treats an unknown code as a refusal.",
+  "description": "The 400 body of the HTTP/JSON mirror (contract 1.1.0, spec section 13), one branch per error: tool_error carries a code of the closed catalogue; invalid_input (the input schema refused the body) carries input_invalid and the validator issues, whose element shape is not part of the contract; invalid_json (the body is not JSON) carries json_invalid. $defs/InternalError is the 500 body (output_invalid when the tool output broke its frozen contract). Not described here: MCP errors, the 403 (invalid_origin), 404, 405 and 413 (payload_too_large) bodies, and a transport-level 500 without operation ({\"error\":\"internal_error\"}). A consumer that validates with an older copy treats an unknown code as a refusal.",
   "oneOf": [
     {
       "type": "object", "additionalProperties": false, "required": ["error", "operation", "message", "code"],

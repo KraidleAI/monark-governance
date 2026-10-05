@@ -116,6 +116,7 @@ test("policy_row_schema_parity_key_by_key_with_a_closed_list_of_gaps", () => {
   for (const row of [MARGINAL, DIR, BAND, RETIRED]) disagreements(row, def("#/$defs/PolicyRow"), (v) => { assertClosedPolicyRow(v); }, "row", out);
   for (const c of [KATA_CLASS, LIQ_CLASS]) disagreements(c, def("#/$defs/ClassEntry"), (v) => { assertClosedClassEntry(v); }, "class", out);
   assert.deepEqual([...out].sort(), [...GAPS].sort());
+  for (const d of ["0.10", "+1", "1E+5", "01", "1.", "1e5", "1e+05", ".5"]) assert.equal(def("#/$defs/Dec")(d), false, `the decimal pattern refuses ${d}`);
   for (const d of ["-0", "0.10000000000000001"]) assert.equal(def("#/$defs/ClassEntry")({ ...KATA_CLASS, test_delta: d }), admits(assertClosedClassEntry, { ...KATA_CLASS, test_delta: d }) !== "admitted");
   assert.ok(def("#/$defs/PolicyRow")({ ...DIR, text: "\ud800" }) && admits((v) => canonicalJson(v as CanonicalValue), { ...DIR, text: "\ud800" }) !== "admitted", "gap: a lone surrogate, refused by the canonical writing");
 });

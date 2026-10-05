@@ -34,6 +34,7 @@ test("tool_error_schema_branches_by_error", () => {
     { error: "tool_error", ...op, code: "input_invalid" }, { error: "tool_error", ...op, code: "output_invalid" }, { error: "tool_error", ...op, code: "unknown" },
     { error: "invalid_input", ...op, code: "input_invalid" }, { error: "invalid_json", ...op, code: "json_invalid", issues: [] }, { error: "tool_error", ...op, code: "param_invalid", x: 1 },
     { error: "tool_error", operation: "", message: "m", code: "param_invalid" }, { error: "internal_error", operation: "gate" }, { error: "not_found", path: "/x" }, { error: "method_not_allowed", method: "PUT" },
+    { error: "tool_error", operation: "gate", code: "param_invalid" }, { error: "invalid_json", operation: "gate", code: "json_invalid" }, { error: "invalid_input", ...op, message: 1, code: "input_invalid", issues: [] }, { error: "tool_error", ...op, message: 1, code: "param_invalid" }, { error: "invalid_json", ...op, message: 1, code: "json_invalid" }, { error: "invalid_input", ...op, code: "input_invalid", issues: {} },
   ]) assert.equal(root(bad), false, JSON.stringify(bad));
-  assert.deepEqual([undefined, "output_invalid", "param_invalid"].map((code) => internal({ error: "internal_error", operation: "gate", code })), [true, true, false]);
+  assert.deepEqual([...[undefined, "output_invalid", "param_invalid"].map((code) => internal({ error: "internal_error", operation: "gate", code })), internal({ error: "internal_error" }), internal({ error: "internal_error", operation: "gate", x: 1 })], [true, true, false, false, false]);
 });
