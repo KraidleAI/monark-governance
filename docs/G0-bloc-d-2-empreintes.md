@@ -1,7 +1,7 @@
 # G0 court du lot D-2 (bloc D, contrat 1.1.0) : empreintes des textes servis kata, pour la ligne Z-3 du bloc D
 
 - **Plan** : `docs/G0-bloc-d.md` (`77d770ee`), §2.1 (lignes « textes kata (Z-3) » et « clause kata »), §4.2, §6 ; pièce de RECHERCHES `recherches:coordination/pieces/2026-10-05-bloc-d-textes-kata/TEXTES-kata-D2.md` (textes approuvés tels quels par MONARK : `recherches` `d6b26c0`, avec deux conditions : valeurs de la clause interpolées depuis les constantes ; `honestyText` lit les tables kata, T-13) ; go du fondateur Q-D1, ligne datée (11) de l'ADR-CM (base `c01b87d7`).
-- **Base du lot** : `recherches/bloc-d` après la fusion de la base `c01b87d7` (commit de fusion `d811e65c`, sur D-1 `e38511a4`). Tests rouges : `0b069d34` (poussé). Le gel n'est pas encore commité sur cette branche ; ces empreintes sont mesurées **sur l'arbre du gel**, à la place exacte de la clause et dans l'état liq du gel (`committed`, celui de la base).
+- **Base du lot** : `recherches/bloc-d` après la fusion de la base `c01b87d7` (commit de fusion `d811e65c`, sur D-1 `e38511a4`). Tests rouges : `0b069d34` (poussé). **Mise à jour** : la base a avancé à `a8ae38c0` (#168, TRANSPORT-500-SCHEMA-1), fusionnée par `2deaf7e8` ; les épingles de `/openapi.json` et de l'instantané en attente y sont recalculées (§5). Les empreintes des §2 et §3 sont remesurées sur le gel refait au-dessus de `a8ae38c0` : identiques, octet pour octet. Le gel n'est pas encore commité sur cette branche ; ces empreintes sont mesurées **sur l'arbre du gel**, à la place exacte de la clause et dans l'état liq du gel (`committed`, celui de la base).
 - **Statut** : G0 court écrit avant le gel, pour que MONARK recalcule depuis notre tête et écrive sa ligne datée Z-3 du bloc D avant le gel. Auteur : RECHERCHES.
 
 ## 1. Mesure
@@ -81,10 +81,10 @@ Rejoué ici sur l'arbre de la tête (code de la base) : `3971 dd7287793b229a3e08
 
 ## 5. Ce que le gel ré-épingle (rappel, détail au G7 de D-2)
 
-- `/openapi.json` en processus : `ccae5fc0…844f` → `466b56d9850c5456ce4b4339df3892f3cb284211fcacd90c625cbd677e1df4d6` (`PENDING_BODIES_SHA256["/openapi.json"]`) ; les corps `/gate`, `/gate liquidation-eligible-coverage` et `/calibrate` ne bougent pas.
-- `node scripts/sync-harness-served.mjs --pending` : `harness-pending.json`, seuls `written_at` et `openapi_sha256` changent ; `harness-served.json` inchangé (`30afbec2…`) ; entrée du manifeste et `PINNED` : `f874bb44…2fb3` → `bed8a6add1317e856aac83621ad4d390e1022ad2af5849b99e68da57e9048429`.
+- `/openapi.json` en processus, contre la base `a8ae38c0` : `de635be9…7ba1` (après #168) → **`61c9df97a254a863a68fdc2c493799803397bfa190b85db3ca97673d2a8ccbf0`** (`PENDING_BODIES_SHA256["/openapi.json"]`) ; les corps `/gate`, `/gate liquidation-eligible-coverage` et `/calibrate` ne bougent pas. (Contre `c01b87d7`, avant #168, c'était `ccae5fc0…844f` → `466b56d9…df4d6`, valeurs du commit `0b069d34`, remplacées par la fusion `2deaf7e8`.)
+- `node scripts/sync-harness-served.mjs --pending` : `harness-pending.json`, seuls `written_at` et `openapi_sha256` changent ; `harness-served.json` inchangé (`30afbec2…`) ; entrée du manifeste et `PINNED`, contre `a8ae38c0` : `cee3c6a0…f91e` → **`57cc4eae9b93fff342d0bcd1be4118443bad78cf1c571fb3969faf4211d67894`** (avant #168 : `f874bb44…` → `bed8a6ad…`).
 - `node scripts/sync-ukemi-served.mjs --pending` lancé puis annulé : seul `written_at` bougeait ; `ukemi-pending.json` et son entrée restent `220c14c9…`.
-- Si la PR #168 (TRANSPORT-500-SCHEMA-1) entre dans la base avant le gel final, la base est fusionnée et ces trois épingles sont refaites par-dessus ; les empreintes des §2 et §3 ne dépendent pas de #168.
+- #168 est entrée dans la base (`a8ae38c0`) : fusion `2deaf7e8`, ces épingles refaites par-dessus ; les empreintes des §2 et §3 ne dépendent pas de #168 (remesurées : aucun écart).
 
 ## 6. Correction au G0 du bloc (N-6 de la G2 de D-1)
 
