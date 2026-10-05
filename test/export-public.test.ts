@@ -60,6 +60,7 @@ import { tmpdir } from "node:os";
 import { join, relative, dirname } from "node:path";
 import { createHash } from "node:crypto";
 import { collectFiles, derivePublicWorkflow } from "../scripts/export-public.mjs";
+import { innerFailures } from "./helpers/inner-failures.ts";
 
 const ROOT = join(import.meta.dirname, "..");
 
@@ -372,8 +373,9 @@ test("export_public_no_governance_no_french — clean public export (test 42)", 
     const nFail = summaryCount(output, "fail");
     const summary =
       nTests === null ? output.split(/\r?\n/).slice(-30).join("\n") : `tests ${nTests} / pass ${nPass} / fail ${nFail}`;
-    // EXPORT-TEST42-INNER-NAMES-1: name the failing inner tests (spec reporter lines), so an intermittent failure is attributable.
-    const failing = [...new Set(output.split(/\r?\n/).map((l) => l.trim()).filter((l) => /^(✖|not ok)(\s|$)/.test(l)))].slice(0, 10);
+    // EXPORT-TEST42-INNER-NAMES-1, EXPORT-HARNESS-413-LOAD-1: name the failing inner tests, each with the text of its failing
+    // assertion (test/helpers/inner-failures.ts), so an intermittent failure is attributable from this report alone.
+    const failing = innerFailures(output);
     assert.ok(
       !run.error && run.status === 0,
       `exported CI (npm run ci) failed (status=${run.status}, error=${run.error?.message ?? "none"}): ${summary}`
@@ -416,18 +418,25 @@ function jobBodies(text: string): Map<string, string[]> {
   return out;
 }
 
-// -- L-4 / C-3 : the derived public workflow keeps every RETAINED job body byte-identical (test 42(f'); D7 ter)
+// -- L-4 / C-3 : the derived public workflow keeps every RETAINED job body byte-identical (test 42(f'); D7 ter). The dropped jobs
+// are a CLOSED list (CI-G3-DURATION-1 adds g3-export, which runs the never-exported root test/): each must exist in the source.
+// killer: scripts/export-public.mjs:427 CONST ", \"g3-export\"]" -> "]"
 test("export_public_derived_jobs_are_byte_identical — every retained job body survives derivation unchanged (test 42(f'), ADR-M004 D7 ter amended)", () => {
   const governance = readFileSync(join(ROOT, ".github", "workflows", "ci.yml"), "utf8");
   const eol = governance.includes("\r\n") ? "\r\n" : "\n";
   const derived = derivePublicWorkflow(governance);
   const R25 = "r25-taille-de-lot";
+  const INTERNAL = new Set([R25, "g3-export"]); // the closed list derivePublicWorkflow drops (CI-G3-DURATION-1)
+  for (const name of INTERNAL) {
+    assert.ok(jobBodies(governance).has(name), `internal job '${name}' missing from the source workflow (non-vacuity of the dropped list)`);
+    assert.ok(!jobBodies(derived).has(name), `internal job '${name}' must be dropped from the derived public workflow`);
+  }
 
   // Mismatches between the retained governance job bodies and the derived job bodies (job set + line-by-line).
   const mismatches = (govText: string, derText: string): string[] => {
     const gov = jobBodies(govText);
     const der = jobBodies(derText);
-    const retained = [...gov.keys()].filter((k) => k !== R25).sort();
+    const retained = [...gov.keys()].filter((k) => !INTERNAL.has(k)).sort();
     const out: string[] = [];
     if (JSON.stringify([...der.keys()].sort()) !== JSON.stringify(retained))
       out.push(`job set: derived {${[...der.keys()].sort().join(",")}} != retained {${retained.join(",")}}`);
@@ -437,7 +446,7 @@ test("export_public_derived_jobs_are_byte_identical — every retained job body 
 
   // Non-vacuity: >= 5 retained jobs (g1, g3-verification, g4, g6, g3-site) — the "job set == {…}" invariant of
   // 42 is too weak; D7 ter (amended: ALL retained bodies, not just g1/g3/g4/g6) demands byte-identity.
-  const retainedCount = [...jobBodies(governance).keys()].filter((k) => k !== R25).length;
+  const retainedCount = [...jobBodies(governance).keys()].filter((k) => !INTERNAL.has(k)).length;
   assert.ok(retainedCount >= 5, `expected >= 5 retained jobs, saw ${retainedCount}`);
 
   // (f') the real derivation preserves every retained job body byte-for-byte (modulo EOL, which derive keeps).

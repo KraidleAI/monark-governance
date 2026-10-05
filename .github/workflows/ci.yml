@@ -18,9 +18,10 @@ name: gates
 on:
   pull_request:
 
-# Least-privilege GITHUB_TOKEN (ADR-CODEQL-ALERTS-1 D1; CodeQL actions/missing-workflow-permissions): every job reads
-# the repository contents and nothing more. Widening it, here or per job, is an ADR decision; the root test
-# ci_workflow_declares_least_privilege_permissions pins this block (one block, after on:, no write scope).
+# Least-privilege GITHUB_TOKEN (ADR-CODEQL-ALERTS-1 D1; CodeQL actions/missing-workflow-permissions): this block gives
+# every job read access to the repository contents and nothing more; a job reads more only through its own job-level
+# block, which only the dated lines under D1 admit. Any other widening, here or per job, is an ADR decision; the root
+# test ci_workflow_declares_least_privilege_permissions pins this block and admits no write scope.
 permissions:
   contents: read
 
@@ -40,14 +41,21 @@ jobs:
   r25-taille-de-lot:
     runs-on: ubuntu-latest
     timeout-minutes: 5
+    # The only job-level block (ADR-CODEQL-ALERTS-1 D1, dated line of 2026-10-05): the integration proof reads the PR and its checks.
+    permissions:
+      contents: read
+      pull-requests: read
+      checks: read
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           fetch-depth: 0
+          persist-credentials: false # every later git call is local; the proof reads the API with R25_READ_TOKEN
       - name: Bounded lot size (R-25 — DORA 2024 pp. 39-40, lot inflation degrades stability)
         env:
           VIBEGATES_PR_LIMIT: "1205" # ADR-M003 D9 (R-23: measured median of the 3 Phase 1 lots)
           VIBEGATES_CONTENT_LIMIT: "8000" # ADR-M013 amendment 2026-09-24 (investor decision 207; R-23: sourced there)
+          R25_READ_TOKEN: ${{ github.token }} # ADR-M003 D9 nonies: read-only API reads of the integration proof, this step only
         run: |
           case "$VIBEGATES_PR_LIMIT" in
             ''|*[!0-9]*)
@@ -89,6 +97,24 @@ jobs:
           }
           CHANGED=$(printf '%s\n' "$STAT" | awk '{ins=0; del=0; for(i=1;i<=NF;i++){ if($i ~ /insertion/) ins=$(i-1); if($i ~ /deletion/) del=$(i-1) } print ins+del+0}')
           CONTENT_CHANGED=$(printf '%s\n' "$CONTENT_STAT" | awk '{ins=0; del=0; for(i=1;i<=NF;i++){ if($i ~ /insertion/) ins=$(i-1); if($i ~ /deletion/) del=$(i-1) } print ins+del+0}')
+          # Integration rule (ADR-M003 D9 nonies, lot R25-INTEGRATION-RULE-1): on a CANDIDATE PR (head and target in the
+          # closed list of scripts/lot-size-integration.mjs, read from the event payload, never from a name) whose proof the
+          # API gave complete, only the commits no proving merged PR carries count, at most the two counts above. Fail-closed:
+          # no proof (API error or deadline, a 403), a module error, a non-numeric answer or 10+ digits (a bash overflow; such
+          # a count is red anyway) keep the two counts above. The target comes from $GITHUB_BASE_REF, never an expression.
+          node scripts/lot-size-integration.mjs proof --event "$GITHUB_EVENT_PATH" --out "$RUNNER_TEMP/lot-size-proof.json" || echo '::warning::R-25 integration proof not obtained: every line counts (fail-closed).'
+          R25I=$(node scripts/lot-size-integration.mjs count --ci .github/workflows/ci.yml --base "origin/$GITHUB_BASE_REF" --proof "$RUNNER_TEMP/lot-size-proof.json" --written "$CHANGED" "$CONTENT_CHANGED") || R25I="written $CHANGED $CONTENT_CHANGED"
+          read -r R25_MODE NEW_CHANGED NEW_CONTENT <<< "$R25I"
+          case "$R25_MODE/$NEW_CHANGED/$NEW_CONTENT" in
+            integration/[0-9]*/[0-9]*) ;;
+            *) R25_MODE=written; NEW_CHANGED=$CHANGED; NEW_CONTENT=$CONTENT_CHANGED ;;
+          esac
+          case "$NEW_CHANGED$NEW_CONTENT" in
+            ''|*[!0-9]*|??????????*) R25_MODE=written; NEW_CHANGED=$CHANGED; NEW_CONTENT=$CONTENT_CHANGED ;;
+          esac
+          CHANGED=$NEW_CHANGED
+          CONTENT_CHANGED=$NEW_CONTENT
+          echo "R-25 mode: $R25_MODE"
           echo "Changed lines: $CHANGED (ADR bound: $VIBEGATES_PR_LIMIT)"
           echo "Content changed lines: $CONTENT_CHANGED (ADR bound: $VIBEGATES_CONTENT_LIMIT)"
           if [ "$CHANGED" -gt "$VIBEGATES_PR_LIMIT" ]; then
@@ -141,7 +167,27 @@ jobs:
       - name: Install (lockfile must be present and consistent)
         run: npm ci
       - name: Vocabulary gate + strict typecheck + tests (contracts_frozen, fixtures, tests 1-41)
-        run: npm run gate:vocab && npm run typecheck && npm test
+        run: npm run gate:vocab && npm run typecheck && npm run test:main
+
+  g3-export:
+    runs-on: ubuntu-latest
+    # Test 42 alone (CI-G3-DURATION-1, docs/G0-lot-ci-g3-duration-1.md). export_public_no_governance_no_french runs a nested
+    # `npm ci && npm run ci` of the public export: 151 s on the runner of PR 126, about ten times the next test. It leaves
+    # g3-verification, whose test:main is the same suite with only this test skipped (pinned by ci-gates.test.ts), so every
+    # PR still runs every test. Bound = measured job wall-time x3, capped <= 20: (npm ci ~15 s + 151 s) x3 ~= 8.3 min => 10,
+    # above the 5-min --test-timeout, so a slow test 42 reds by name first. Internal job: the root test/ is never exported,
+    # so derivePublicWorkflow drops it from the public workflow.
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: "24"
+          cache: npm
+      - name: Install (lockfile must be present and consistent)
+        run: npm ci
+      - name: Test 42 alone (clean public export, and its own CI green; ADR-M004 D7)
+        run: npm run test:export
 
   g4-architecture:
     runs-on: ubuntu-latest

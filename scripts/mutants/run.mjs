@@ -23,16 +23,16 @@
 // at once (D-3, D-5); memory is read again once the lock is taken: short, the lock is released at once and the bounded wait goes on, never with the
 // lock held (corrections D-4); a bound passed stops the campaign by name (exit 4, record stop with the ids not run); node --test in TAP ("(test 42)" skipped: it
 // runs once, in the oracle's suite, ADR D3), the file restored in a finally and its sha256 checked (a mismatch, or a file changed since the start,
-// stops the campaign: exit 3). VERDICT: tue iff a top-level entry fails by assertion (classify of red-proof.mjs: ERR_ASSERTION), survit iff every
-// entry is ok, non conclu otherwise (dead or timed-out child, signal, exit 134, no entry, failures without assertion); never "equivalent". A row
-// marked typecheck (D-2) runs tsc --noEmit -p tsconfig.json of the clone's node_modules/typescript instead: tue iff an error falls in a target file;
+// stops the campaign: exit 3). VERDICT: tue iff a top-level entry fails by assertion (classify of red-proof.mjs: ERR_ASSERTION) and the child exits
+// non-zero, survit iff every entry is ok and it exits 0, non conclu otherwise (dead or timed-out child, signal, exit 134, failures without assertion;
+// noted, on the line of RESULTS.txt too (a mutant, its replay, a baseline): no entry, an exit code that contradicts the entries, MUTANTS-RUN-EXIT-CODE-1; "TAP cut" without its
+// closing # duration_ms, G2 m-4); never "equivalent". A row marked typecheck (D-2) runs tsc --noEmit -p tsconfig.json of the clone's node_modules/typescript instead: tue iff an error falls in a target file;
 // non conclu if tsc dies, if every error falls outside the targets (corrections D-2, note "N error(s) outside the targets") or if tsc exits non-zero
 // without a diagnostic line "file(l,c): error TSn:" (corrections D-3, note "tsc exit N without a diagnostic line"); survit otherwise. Such rows run
 // iff the unmutated tsc exits 0 (baseline_typecheck: vert, rouge on a non-zero exit, non conclu if tsc dies). Children: childEnv of
 // oracle/run.mjs over the DENY list of red-proof.mjs. RECORD monark.mutants.v1 <out>/RESULTS.json (tool_sha256: the bytes that run; tool_tree,
 // tool_dirty: HEAD and dirty recipe of the tool's repository; fields only added since, D-6), one line per mutant in <out>/RESULTS.txt, TAP in <out>/tap/;
-// last stdout line: mutants-result {"exit","record","sha256"}. Exit 0 iff every mutant is killed, 1 otherwise, 2 refused, 3 restore, 4 stopped by a
-// bound (D-3, D-5). Main guard: import.meta.main.
+// last stdout line: mutants-result {"exit","record","sha256"}. Exit 0 iff every mutant is killed, 1 otherwise, 2 refused, 3 restore, 4 stopped by a bound (D-3, D-5). Main guard: import.meta.main.
 import { spawnSync } from "node:child_process";
 import { createHash } from "node:crypto";
 import { copyFileSync, existsSync, globSync, mkdirSync, readdirSync, readFileSync, realpathSync, renameSync, rmSync, statSync, symlinkSync,
@@ -132,7 +132,7 @@ const malformed = (m) => !(m !== null && typeof m === "object" && typeof m.id ==
 
 const lineOf = (r) => `${r.id} l.${r.line} ${r.op} ${r.status} (${r.fails.length} rouge(s), ${r.oks} vert(s), ${r.ms} ms) restaure ${r.sha_before === r.sha_after ? "OK" : "ECHEC"} ; ${r.why}` +
   (r.fails.length > 0 ? ` ; rouges : ${r.fails.map((f) => f.slice(0, 60)).join(" | ")}` : "") + (r.note ? ` ; ${r.note}` : "") +
-  (r.replay ? ` ; rejeu ${r.replay.files.join(",")} : ${r.replay.status} (${r.replay.fails.length} rouge(s), ${r.replay.oks} vert(s))` : "") +
+  (r.replay ? ` ; rejeu ${r.replay.files.join(",")} : ${r.replay.status} (${r.replay.fails.length} rouge(s), ${r.replay.oks} vert(s)${r.replay.note ? `, ${r.replay.note}` : ""})` : "") +
   (r.edits.length > 1 ? ` ; edits l.${r.edits.map((e) => e.line).join(",l.")}` : "") + (r.typecheck ? " ; typecheck" : "");
 
 export async function main(argv) {
@@ -210,12 +210,12 @@ export async function main(argv) {
     if (pattern !== undefined) args.push(`--test-name-pattern=^${pattern.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}$`);
     const t0 = Date.now(), r = spawnSync(process.execPath, [...args, ...files], { cwd: clone, env: envOf(tmp), encoding: "utf8", timeout: o.timeout * 10, maxBuffer: 1 << 28, stdio: ["ignore", "pipe", "pipe"] });
     const tap = r.stdout ?? "", es = parseTap(tap).filter((e) => !e.skip), bad = es.filter((e) => !e.ok), codes = [...tap.matchAll(/^\s*code: '?([A-Z_]+)'?\s*$/gm)].map((x) => x[1]);
-    writeFileSync(join(taps, `${name}.tap`), tap);
-    const dead = r.error !== undefined || r.signal !== null || r.status === 134, late = r.error?.code === "ETIMEDOUT" || /^\s*failureType: 'testTimeoutFailure'\s*$/m.test(tap);
-    return { files, status: dead || es.length === 0 ? "non conclu" : bad.length === 0 ? "survit" : bad.some((e) => classify(e) === "assert-fail") ? "tue" : "non conclu",
+    writeFileSync(join(taps, `${name}.tap`), tap); const cut = !/^# duration_ms \S+$/.test(tap.trimEnd().split(/\r?\n/).at(-1) ?? ""); // truncation() of red-proof.mjs, its first test (G2 m-4)
+    const dead = r.error !== undefined || r.signal !== null || r.status === 134, late = r.error?.code === "ETIMEDOUT" || /^\s*failureType: 'testTimeoutFailure'\s*$/m.test(tap), lost = bad.length === 0 && r.status !== 0, odd = bad.length > 0 && r.status === 0;
+    return { files, status: dead || es.length === 0 || lost || odd ? "non conclu" : bad.length === 0 ? "survit" : bad.some((e) => classify(e) === "assert-fail") ? "tue" : "non conclu",
       strict: codes.length === 1 && codes[0] === "ERR_ASSERTION", fails: bad.map((e) => e.name), oks: es.length - bad.length, exit: r.status, signal: r.signal, ms: Date.now() - t0, tap_sha256: sha(tap),
-      timed_out: late }; // corrections D-5: a run past its bound (spawnSync ETIMEDOUT) or a test past --timeout-ms (TAP testTimeoutFailure)
-  };
+      timed_out: late, note: dead ? null : es.length === 0 || lost || odd ? `exit ${String(r.status)} ${es.length === 0 ? "without a test entry" : lost ? "without a failing entry" : `with ${bad.length} failing entr${bad.length === 1 ? "y" : "ies"}`}${cut ? " (TAP cut: no closing summary)" : ""}` : null };
+  }; // late (corrections D-5): a run past its bound (spawnSync ETIMEDOUT) or a test past --timeout-ms (TAP testTimeoutFailure); lost, odd: the exit code contradicts the entries (MUTANTS-RUN-EXIT-CODE-1)
   const tsc = (files, name) => { // TYPECHECK (D-2): the typecheck gate of the clone under its own TypeScript; tue iff an error falls in a target file
     const t0 = Date.now(), r = spawnSync(process.execPath, [join(clone, "node_modules", "typescript", "lib", "tsc.js"), "--noEmit", "-p", "tsconfig.json"],
       { cwd: clone, env: envOf(tmp), encoding: "utf8", timeout: o.timeout * 10, maxBuffer: 1 << 28, stdio: ["ignore", "pipe", "pipe"] });
@@ -244,7 +244,7 @@ export async function main(argv) {
     if (g?.stop) stop = { reason: g.stop, at: name, waited_ms: g.waited_ms };
     if (g === null || g.stop) return null;
     g.status = g.typecheck ? (g.status === "non conclu" ? g.status : g.exit === 0 ? "vert" : "rouge") : ({ survit: "vert", tue: "rouge" }[g.status] ?? g.status);
-    say(`${name} l.0 - ${g.status} (${g.fails.length} rouge(s), ${g.oks} vert(s), ${g.ms} ms) restaure OK ; unmutated`);
+    say(`${name} l.0 - ${g.status} (${g.fails.length} rouge(s), ${g.oks} vert(s), ${g.ms} ms) restaure OK ; unmutated${g.note ? ` ; ${g.note}` : ""}`);
     return g;
   };
   const b = await baseline(all, "BASELINE", () => runSet(all, undefined, "BASELINE")), bt = await baseline(typed, "BASELINE-TYPECHECK", () => tsc(typed, "BASELINE-TYPECHECK"));
@@ -271,7 +271,7 @@ export async function main(argv) {
         const f = g.first, unjudged = m.typecheck && f.status === "survit" && f.exit !== 0; // corrections D-2, D-3: tsc out non-zero (any error), none in a target
         row.sha_after = sha(readFileSync(p));
         Object.assign(row, { status: unjudged ? "non conclu" : f.status, strict: f.strict, fails: f.fails, oks: f.oks, exit: f.exit, ms: f.ms, tap_sha256: f.tap_sha256, replay: g.replay,
-          note: f.outside > 0 ? `${f.outside} error(s) outside the targets` : unjudged ? `tsc exit ${String(f.exit)} without a diagnostic line` : null, memory_wait_ms: g.memory_wait_ms, lock_wait_ms: g.lock_wait_ms });
+          note: f.outside > 0 ? `${f.outside} error(s) outside the targets` : unjudged ? `tsc exit ${String(f.exit)} without a diagnostic line` : f.note ?? null, memory_wait_ms: g.memory_wait_ms, lock_wait_ms: g.lock_wait_ms });
         if (row.sha_after !== row.sha_before) [row.note, code] = ["the file was not restored", 3];
       }
     }

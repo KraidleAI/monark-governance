@@ -41,6 +41,7 @@ Responsible = the maintainer for every row (one maintainer today).
 | `scripts/usde-full-pull.mjs` | yes | git mirror | maintainer |
 | `scripts/record-usde-calib.mjs` | yes | git mirror | maintainer |
 | `scripts/assert-fleet-html.mjs` | yes | CI | maintainer |
+| `test/helpers/blocking-stdout.cjs` | yes | git mirror, CI (loaded by the test scripts of `package.json`) | maintainer |
 | `packages/atelier/index.html` | yes | git mirror | maintainer |
 | `packages/atelier/main.js` | yes | git mirror | maintainer |
 | `packages/atelier/style.css` | yes | git mirror | maintainer |

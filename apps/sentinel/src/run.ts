@@ -332,15 +332,16 @@ async function main(): Promise<void> {
   const { dryRun, day, dir } = parseArgs(process.argv.slice(2));
   const budgetMs = budgetMsFromEnv(process.env); // fail-closed at start-up: a mis-set budget throws before any network.
   const srcDir = dirname(fileURLToPath(import.meta.url));
-  // NARABI-OPS-1d: open the ONE paid leg (Chainstack) through @monark/rpc-guard (ledgered + capped); the 7
-  // public endpoints stay keyless. D-degrade: openChainstackLeg NEVER throws — a failure yields status != "ok"
-  // and a keyless-only pool (ADR-NARABI-OPS-1 D3). D-lock (i): the cycle lock is released in `finally` AND on
-  // SIGTERM (a TimeoutStartSec kill); on win32 process.kill is a hard kill with no handler, so the SIGTERM path
-  // is Linux-only (the RUNBOOK unlock covers a SIGKILL, C-7).
-  const leg = openChainstackLeg(dir);
-  const onSigterm = (): void => { leg.release(); process.exit(1); };
-  if (leg.status === "ok") process.on("SIGTERM", onSigterm);
+  // NARABI-OPS-1d: ONE paid leg (Chainstack) via @monark/rpc-guard; 7 keyless endpoints. D-degrade: openChainstackLeg NEVER
+  // throws (status != "ok" => keyless pool, ADR-NARABI-OPS-1 D3). D-lock (i): the lock is released in `finally` AND on SIGTERM;
+  // SENTINEL-SIGTERM-STARTUP-WINDOW-1: the handler is installed on EVERY run BEFORE the lock is taken (the open is synchronous,
+  // so a SIGTERM during it is queued and handled after, `leg` set); kept to the finally (a removed listener may drop a caught
+  // signal). win32: process.kill is a hard kill, no handler (the RUNBOOK unlock covers a SIGKILL, C-7).
+  let leg: ChainstackLeg | undefined;
+  const onSigterm = (): void => { leg?.release(); process.exit(1); };
+  process.on("SIGTERM", onSigterm);
   try {
+    leg = openChainstackLeg(dir);
     const hasChain = leg.status === "ok";
     const endpoints = hasChain ? [...PUBLIC_ENDPOINTS, CHAINSTACK_LABEL] : [...PUBLIC_ENDPOINTS];
     // C-6 (provenance): the Chainstack ORIGIN (non-secret scheme+host) is published ONLY when the guarded leg
@@ -388,8 +389,8 @@ async function main(): Promise<void> {
     }
     process.exitCode = exitCode;
   } finally {
-    leg.release();
-    if (leg.status === "ok") process.removeListener("SIGTERM", onSigterm);
+    leg?.release();
+    process.removeListener("SIGTERM", onSigterm);
   }
 }
 

@@ -673,3 +673,9 @@ l outil du tronc, oracle G1 vert (2 085 tests, 0 échec), R-25 460. Les huit que
   le rejeu Windows réel de C-1 est l oracle du tronc à cette fusion.
 - **P1-B1-BIS** (§8.1, solde 7 < 10 ; RECHERCHES) : C-3, C-4 avec m-1, C-5, les survivants restants de C-6 et C-7, m-2, m-3, m-4, H11.
   Déclencheur : avant le G1 de c5, au plus tard avant M-1.
+  Ligne datée de MONARK (2026-10-04 20:3x UTC, Q-3 du G7 de #129) : P1-B1-BIS fusionné au tronc (`318a3238`, PR #129, tête
+  `237353fc`) après b2 (`92530343`), avant c5 et M-1 ; B-2 de la G2 de partie levé (pair TLS attribué à sa seule connexion) ;
+  L2-TLS-PEER-UNATTESTED-1 formé au G7 du lot (déclencheur M-1 puis c5). Reste de la partie : a4, puis c1 à c6, puis la G2 finale.
+  Ligne datée de MONARK (2026-10-04 22:4x UTC) : a4 fusionné au tronc (`9fc9115e`, PR #139, oracle vert) ; Q-A4-1 à Q-A4-3 confirmées
+  (flux `/market` en minuscules, FAITS avant M-1 ; `serverShutdown` traité de même sur `/market` ; c5 appelle `switched(cid)` après
+  `switchTo` et pose le crochet, contrainte du G0 de c5). Reste de la partie : c1 à c6, puis la G2 finale.
