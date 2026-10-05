@@ -27,6 +27,7 @@ import * as L from "../scripts/l2/links.mjs";
 import type * as RecordM from "../scripts/record-binance-l2.mjs";
 import type * as SealM from "../scripts/l2/seal.mjs";
 import { keepCause } from "./helpers/keep-cause.ts";
+import { startLoopback } from "./helpers/loopback.ts";
 keepCause("test/l2-loop.test.ts"); // a crash of this file names its cause on stdout, which the runner keeps (L2-LINKS-FILE-CRASH-1)
 let ROOT = "", made = 0;
 before(() => { ROOT = mkdtempSync(join(tmpdir(), "l2-loop-")); });
@@ -1069,10 +1070,10 @@ test("l2_seal_apart_root_closed", { skip: APART }, async () => {
 
 // killer: scripts/l2/seal-child.mjs:20 CONST "(anon_inode|pipe):" -> "(anon_inode|pipe|socket):"
 test("l2_seal_child_no_socket", { skip: process.platform === "linux" ? false : "the child lists /proc/self/fd, Linux only: no inherited socket to name elsewhere" }, async () => {
-  // r-3 (L8): a socket past fd 3 (a server listening on the loopback, nothing connects) is refused, named, as a file is.
-  const out = fresh(), server = createServer();
+  // r-3 (L8): a socket past fd 3 (a server listening on a drawn loopback port, nothing connects) is refused, named, as a file is.
+  const out = fresh();
   await day(out);
-  await new Promise<void>((r) => { server.listen(0, "127.0.0.1", r); });
+  const server = await startLoopback((port) => createServer().listen(port, "127.0.0.1"));
   const fd = openSync(out, "r"), sock = (server as unknown as { _handle: { fd: number } })._handle.fd;
   try { assert.deepEqual(pinnedChild({ ...specOf(out), root: idOf(out) }, [fd, sock]), [1, { stop: "out_not_l2", detail: { extra: [4], why: UNPINNED } }]); } finally { closeSync(fd); server.close(); }
 });
