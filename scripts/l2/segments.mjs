@@ -62,7 +62,7 @@ export function openWriter(out, cid, io) {
   async function begin(us) { // the segment of the hour of `us`, never one already closed; both files exist before any byte is written
     const start = Math.max(us - (us % PERIOD_US), last), seg = segmentOf(start);
     cur = { seg, end: start + PERIOD_US, rank: 0, offset: 0, frames: null, index: null };
-    await mkdir(dir, { recursive: true });
+    if (await mkdir(dir, { recursive: true }) !== undefined) await syncDir(join(out, "conn")); // conn/ synced once <cid>/ is made in it (n-15)
     cur.frames = await open(join(dir, `${seg}.frames`));
     cur.index = await open(join(dir, `${seg}.index.jsonl`)); await syncDir(dir); // their entries synced (n-6 of the G2 of c5-bis-a)
   }

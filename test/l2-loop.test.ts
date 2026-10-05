@@ -440,7 +440,7 @@ test("l2_walk_vanished_entry_absent", async () => {
   try { assert.deepEqual([codeOf(() => m.bytesUnder(dir)), existsSync(tmp)], [10, false]); } finally { fs.lstatSync = real; syncBuiltinESMExports(); }
 });
 
-// killer: scripts/l2/links.mjs:181 CONST "fed(io, note, e.data, cid)" -> "0"
+// killer: scripts/l2/links.mjs:181 CONST "fed(io, note, e.data, c)" -> "0"
 test("l2_link_feeds_its_hook", async () => {
   // Q-A4-3: each text message reaches the loop's hook with its <cid>, once its writer has it; a binary one never.
   const out = fresh(), h = handLink(out);
@@ -691,7 +691,7 @@ test("l2_link_cut_in_an_overlap", async () => {
   await h.link.stop();
 });
 
-// killer: scripts/l2/links.mjs:181 CONST "c.w.push(e.data); fed(io, note, e.data, cid);" -> "fed(io, note, e.data, cid); c.w.push(e.data);"
+// killer: scripts/l2/links.mjs:181 CONST "c.w.push(e.data); fed(io, note, e.data, c);" -> "fed(io, note, e.data, c); c.w.push(e.data);"
 test("l2_link_hook_after_the_writer", async () => {
   // m-3: the hook runs once the writer has the message: a hook that stops the link loses nothing of it.
   const held: { stop?: Promise<void> } = {}, out = fresh(), h = handLink(out, () => { held.stop ??= h.link.stop(); });
