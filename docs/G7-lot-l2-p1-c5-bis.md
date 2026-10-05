@@ -2,7 +2,8 @@
 
 Base `f330ab1c` (tête de `recherches/l2-p1-c5`, PR #153 empilée sur #151, toutes deux ouvertes ; `origin/lot/etude-suite` relu avant le
 push : toujours `ab8084fb`, #151 et #153 non fusionnées, aucune fusion) ; branche `recherches/l2-p1-c5-bis` ; commits `958ebe9f` (G0), `93c7ee40` (tests rouges et `.d.mts`), `1f6be714` (gel),
-`dc679b7d` (pli des mutants du lot : un cas de test ajouté), puis ce commit (G7). Poussé sur `origin/recherches/l2-p1-c5-bis`, aucune PR.
+`dc679b7d` (pli des mutants du lot : un cas de test ajouté), `b141e87c` (G7) ; puis le pli de la G2 (BLOQUE) : `155058dd` (tests rouges),
+`6e3cff6a` (gel), et le commit qui complète ce G7 (section « Pli de la G2 »). Poussé sur `origin/recherches/l2-p1-c5-bis`, aucune PR.
 Node v24.21.0. Aucun réseau vers une place : sockets menées à la main, place factice de la boucle locale pour la mesure ; sorties sous le
 dossier temporaire du système, hors de tout arbre git ; trames synthétiques seules, aucune série de marché au dépôt.
 `packages/rpc-guard/bin/rpc-guard.mjs` non touché.
@@ -104,4 +105,72 @@ après M-1).
   `sealApart(spec, { env })` après la fin du jour plus la grâce, un symbole à la fois, `open` = les `cid/seg` de la fenêtre que
   `closed()` d'une liaison dit tenus ; un échec (`failed`) journalisé, le jour laissé au rejeu ; `check()` à son rythme (n-3 de c4).
 - Arrêt propre : liaisons arrêtées, attente bornée des écrivains (Q-8 de a3), carnets fermés, REST fermé, enfant de scellé attendu puis
-  arrêté au-delà de la borne.
+  arrêté au-delà de la borne : `signal` de `sealApart` (un `AbortController` de l'arrêt), qui tue l'enfant et rend `seal_aborted`.
+- Contrat de `sealApart` après le pli de la G2 (B-1, m-2, n-2, n-3) :
+  `sealApart(spec: ApartSpec, io?: { env?: Record<string, string>; heapMb?: number; timeoutMs?: number; signal?: AbortSignal }): Promise<ApartResult>`,
+  `env` vide par défaut, `heapMb` = `SEAL_HEAP_MB` (128), `timeoutMs` = `SEAL_TIMEOUT_MS` (900 000). `spec.out` est la racine `at`
+  d'`adopt` : ouverte une fois par le parent, passée à l'enfant comme son fd 3, jamais un chemin re-résolu. Échecs nommés dans
+  `failed.stop` : arrêt de l'enfant (`out_not_l2`, `proxy_refused`, `env_refused`, arrêts de `sealDay`), `root_refused`, `spec_refused`,
+  `spawn_failed`, `seal_timeout`, `seal_aborted`, ou `null` à sa mort (`signal`, et `detail.stderr`, queue de 4 Kio) ; ne rejette jamais.
+- Q-C5B-4 (avis de la G2) : c5-bis-b ajoute `scripts/l2/seal-child.mjs` au `script_sha256` du jour, des deux côtés (à part ou non).
+- n-4 de la G2 : un enfant orphelin (parent tué) peut chevaucher le scellé du même jour au passage suivant. Sous systemd,
+  `KillMode=control-group` (défaut, P3) l'évite ; hors systemd, c5-bis-b pose un verrou par jour (`wx` sous `days/<SYMBOLE>/`) avant
+  `sealApart`. n-5 : la boucle marque la queue d'un écrivain arrêté sur `write_failed` à sa fermeture, ou le déclare.
+
+## Pli de la G2 (verdict BLOQUE, `recherches/coordination/pieces/2026-10-04-G2-recherches/G2-l2-p1-c5-bis-a.md`)
+
+Tests rouges `155058dd`, gel `6e3cff6a`. Douze tests neufs à la fin de `test/l2-loop.test.ts`, un tueur chacun ; un test resserré
+(`l2_seal_apart_heap_named`) ; lignes des tueurs renumérotées en place pour `l2_seal_apart_as_in_process`, `l2_seal_child_flags_closed`,
+`l2_seal_child_env_closed`, `l2_seal_apart_heap_named` (`seal-child.mjs` et `seal.mjs` grandis) et `l2_link_feeds_its_hook` (texte de la
+ligne 181 changé). Les lignes portant les tueurs de a2, a3, a4, c4 et c5 ne bougent pas : `fed` et `syncDir` vont à la fin de leur fichier,
+les deux appels changent leur ligne en place.
+
+| Constat | Suite | Preuve (tueur) |
+|---|---|---|
+| **B-1** racine fixée hors de l'enfant ; promesse pendante | `sealApart` ouvre `spec.out` (la racine `at`) une fois en dossier et la passe en `stdio[3]` ; la spécification porte son `dev` et son `ino`. L'enfant, après ses gardes et avant toute donnée, vérifie fd 3 par `fstat` (dossier, `dev`, `ino`) et qu'aucun fichier, dossier ni socket n'est hérité au-delà (`/proc/self/fd` : seuls les descripteurs propres de node, `anon_inode:`, `pipe:`, `/dev/null`), sinon `out_not_l2` ; il scelle par `/proc/self/fd/3`, `dir` rendu sous `spec.out`. Échéance `SEAL_TIMEOUT_MS` (900 000 ms, environ quatre fois le plus lent mesuré, 216 s) et `signal` : l'enfant tué, `seal_timeout` ou `seal_aborted`, rendus tout de suite | `l2_seal_apart_through_the_pinned_root` (`seal.mjs:69` `, fd]`), `l2_seal_child_root_checked` (`seal-child.mjs:26` `ino`), `l2_seal_child_root_alone` (`seal-child.mjs:26` `extra.length === 0`), `l2_seal_apart_deadline` (`seal.mjs:71`), `l2_seal_apart_aborted` (`seal.mjs:72`) |
+| reproducteur de B-1 (`/proc/self/fd/999`, aucun fd 3) | refusé à l'instant, nommé (`out_not_l2`) ; par l'API, scellé par `at` en quelques millisecondes | `l2_seal_child_root_checked`, `l2_seal_apart_through_the_pinned_root` |
+| **m-1** note pour P3 sur `memory.peak` | G0 corrigé : `anon` de `memory.stat`, échantillonné, et `oom_kill` de `memory.events` (v2) | — (texte) |
+| **m-2** `sealApart` rejette (`E2BIG`, spécification non JSON) | un seul `try` autour de l'ouverture, de la sérialisation et du `spawn` : `root_refused`, `spec_refused`, `spawn_failed`, détail `error` (code ou nom) | `l2_seal_apart_never_rejects` (`seal.mjs:70`) |
+| **m-3** MA (`.sort()` de `markTails`) | test : `readdirSync` enveloppé rend l'ordre inverse des noms | `l2_tails_of_the_last_segment_by_name` (`record-binance-l2.mjs:257`), tueur appliqué à la main |
+| **m-3** MD (`await` du fsync) | test : un `sync` qui se résout un tour plus tard ; `close` après sa résolution | `l2_segment_closed_once_synced` (`segments.mjs:70`), à la main |
+| **m-3** MK (`cut()` en recouvrement) | test : deux écrivains tenus (renouvellement sur `serverShutdown`), les deux segments clos | `l2_link_cut_in_an_overlap` (`links.mjs:204`), à la main |
+| **m-3** MC (`onText` avant `push`) | test : un crochet qui arrête la liaison ne perd pas le message | `l2_link_hook_after_the_writer` (`links.mjs:181`), à la main |
+| **m-3** signal non épinglé | `l2_seal_apart_heap_named` épingle `failed.signal === "SIGABRT"`, `code` nul, et la queue de l'erreur standard (`/heap/`) | même test, F2P contre `b141e87c` |
+| **m-4** crochet qui lève | `fed(io, note, text, cid)` (fin de `links.mjs`) : l'exception est prise, journalisée `hook_failed` (`error` : son nom), l'écrivain a déjà le message, le suivant est donné ; `.d.mts` le dit | `l2_link_hook_failure_named` (`links.mjs:212`) |
+| n-1 | rien ; l'en-tête de l'enfant dit « avant toute donnée », les modules étant chargés : l'environnement explicite du parent est la première défense | — |
+| n-2 | erreur standard de l'enfant en tube, queue de 4 096 caractères dans `failed.detail.stderr` quand l'enfant meurt sans ligne | `l2_seal_apart_heap_named` |
+| n-3 | `env` vide par défaut | `l2_seal_apart_through_the_pinned_root` (appel sans `io`) |
+| n-4 | `signal` et échéance livrés ici : l'arrêt propre de c5-bis-b tue l'enfant. Un parent tué net laisse l'enfant vivre : `KillMode=control-group` à P3, verrou par jour à c5-bis-b (notes ci-dessus) | `l2_seal_apart_aborted` |
+| n-5 | c5-bis-b (notes ci-dessus) | — |
+| n-6 | `syncDir(dir)` après la création des deux fichiers d'un segment (fin de `segments.mjs`, `r+` sous win32 comme `sealDay`) | `l2_segment_dir_synced` (`segments.mjs:67`) |
+| n-7 | P3 : `OOMScoreAdjust=` de l'unité ne vise pas l'enfant seul ; l'enfant relèvera son `oom_score_adj` (une écriture, permise à la hausse) dans P3 avec la clôture de L2-MINUTES-SIZE-1, mesurée sous l'unité | — |
+| n-8 | levé par B-1 : une racine absente n'est pas ouverte, `root_refused`, rien créé | `l2_seal_apart_never_rejects` |
+| Q-C5B-4 | c5-bis-b ajoute `seal-child.mjs` au `script_sha256` (notes ci-dessus) | — |
+| rouges sentinelle du G7 | cause précisée par la G2 : `node_modules` lié en bloc, liens `@monark/*` résolus dans un autre clone ; rien à signaler à MONARK | `npm test` ci-dessous |
+
+Réserve déclarée : la vérification « rien d'hérité au-delà de fd 3 » ne distingue pas un tube ou `/dev/null` hérités des descripteurs
+propres de node (même nature) ; un fichier, un dossier ou un socket sont refusés. Le parent ne passe que `["ignore", "pipe", "pipe", fd]`,
+et libuv ouvre tout en `O_CLOEXEC`.
+
+Survivants de la G2 sans suite : MF (`HEAP` relâché, le parent seul choisit la valeur), ME (`code === 0 &&`), MT (`symbol` forcé, un seul
+symbole aux tests). MS (erreur standard héritée) est désormais tué par l'épingle `/heap/` de `l2_seal_apart_heap_named`.
+
+### Preuves du pli
+
+- `node scripts/red-proof.mjs --base b141e87c --gel 6e3cff6a --repo /home/user/monark-governance-c5b --draw 9 --seed 37` : 13 jugés,
+  33 inchangés ; neuf F2P (`l2_seal_apart_heap_named`, `_through_the_pinned_root`, `l2_seal_child_root_checked`, `_root_alone`,
+  `l2_seal_apart_deadline`, `_aborted`, `_never_rejects`, `l2_segment_dir_synced`, `l2_link_hook_failure_named`), leurs neuf tueurs tirés
+  et tués ; quatre refusés « green at base » (les tests resserrants de m-3, attendus). Verdict de l'outil : REFUSED pour ces quatre seuls ;
+  `RED-PROOF.json` sha256 `58dc8fe2a74d1325…`.
+- Tueurs appliqués à la main au gel, un à la fois, le test seul rejoué, fichier restauré et sha256 vérifié : les quatre de m-3 et les
+  quatre dont la ligne a été renumérotée (`l2_seal_child_flags_closed`, `_env_closed`, `l2_seal_apart_as_in_process`,
+  `l2_link_feeds_its_hook`) rougissent par assertion (`ERR_ASSERTION`).
+- Ancres : `verifie-ancres.mjs . --touched f330ab1c HEAD` : 67 tueurs, 67 ANCRE, 0 DERIVE, 0 PERDU ; `--files` sur les quatorze fichiers
+  `test/l2-*.test.ts` : 162, 162 ANCRE.
+- `node --test test/l2-*.test.ts` : 162 sur 162. `npm test` complet, une fois, au gel `6e3cff6a`, avec `node_modules/@monark/*` refaits en liens propres
+  au worktree (vers ses `packages/` et `apps/`) : 2 368 tests, 2 346 réussis, 0 échec, 22 ignorés, sortie 0 (les trois rouges sentinelle
+  du premier G7 ont disparu avec le montage, comme la G2 l'a montré).
+- `tsc` 0 ; `lint` 0 ; `lint:ratchet` 69/69 ; `gate:vocab` OK (335 fichiers) ; `lang:gate` OK.
+- **R-25** du lot entier (`r25()`, `ci.yml`, base `f330ab1c`) : `STAT` 519 (499 insertions, 20 suppressions), `CONTENT_STAT` 0, GREEN ;
+  borne du lot 547, marge 28 (le pli seul : 254 insertions, 38 suppressions contre `b141e87c`, dont des lignes déjà comptées au lot).
+  c5-bis-b, estimé 365 à 440, tient seul sous 547.

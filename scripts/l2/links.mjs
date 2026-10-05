@@ -178,7 +178,7 @@ export function openLink({ symbol, url, out, kind = "spot" }, io) {
       arm(c);
       if (typeof e.data !== "string") return end(c, "binary_message"); // a text frame is all the place sends (D-7): never written
       c.got = true;
-      c.w.push(e.data); io.onText?.(e.data, cid); // the message as the client delivers it, unread (D-7, Q-P1-5); then the loop's hook (Q-A4-3)
+      c.w.push(e.data); fed(io, note, e.data, cid); // the message as the client delivers it, unread (D-7, Q-P1-5); then the loop's hook (Q-A4-3)
       if (isShutdown(e.data)) renew(c, "server_shutdown"); // read after the writer has it
     };
     c.ws.onclose = (e) => { end(c, "closed", { code: e.code, reason: e.reason, clean: e.wasClean }); };
@@ -204,4 +204,10 @@ export function openLink({ symbol, url, out, kind = "spot" }, io) {
     cut() { for (const w of live.values()) w.cut(); }, // P1-c5-bis-a: the loop cuts each writer on the hour (D24-3)
     closed: (cid, seg) => !live.has(cid) || live.get(cid).closed.includes(seg), // Q-C1-5: a segment no writer of this link holds open
   };
+}
+
+/** The loop's hook fed one message (Q-A4-3): a throw is caught, named hook_failed, never left to the socket's dispatch, where it would
+ *  end the recorder as an uncaughtException (m-4 of the G2 of c5-bis-a); the writer already has the message, the next one is fed. */
+function fed(io, note, text, cid) {
+  try { io.onText?.(text, cid); } catch (x) { note(cid, "hook_failed", { error: x?.name ?? null }); }
 }

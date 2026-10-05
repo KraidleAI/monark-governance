@@ -189,4 +189,6 @@ n'a rien de cela, rougit par assertion (vérifié au brouillon : onze rouges par
 ## Note pour P3
 
 - `OOMPolicy=continue` dans l'unité de l'enregistreur : sinon une mort de l'enfant de scellé par le noyau (budget dépassé au pire de
-  D24-4 et d'`INDEX_BOUND` à la fois) arrête toute l'unité ; mesure de clôture de L2-MINUTES-SIZE-1 sous l'unité, `memory.peak` (v2).
+  D24-4 et d'`INDEX_BOUND` à la fois) arrête toute l'unité ; mesure de clôture de L2-MINUTES-SIZE-1 sous l'unité (cgroup v2), sur la
+  mémoire anonyme : `anon` de `memory.stat`, échantillonné, et `oom_kill` de `memory.events` ; jamais `memory.peak`, qui compte le cache
+  de pages comme `max_usage_in_bytes` sous v1 et lirait `MemoryMax` dès que le jour est lu (m-1 de la G2 de c5-bis-a, corrigé au pli).

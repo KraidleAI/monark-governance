@@ -14,7 +14,7 @@ import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
 import { spawnSync } from "node:child_process";
 import { createRequire, syncBuiltinESMExports } from "node:module";
-import { closeSync, constants, existsSync, linkSync, mkdirSync, mkdtempSync, openSync, readdirSync, readFileSync, realpathSync, renameSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
+import { closeSync, constants, existsSync, linkSync, mkdirSync, mkdtempSync, openSync, readdirSync, readFileSync, realpathSync, renameSync, rmSync, statSync, symlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -371,16 +371,17 @@ function child(out: string, flags: string[], env: Record<string, string>): [numb
 /** f() once true, polled for 5 s at most (the writer's loop runs on the file system). */
 const twice = async (f: () => boolean): Promise<boolean> => { for (let i = 0; i < 1_000 && !f(); i += 1) await new Promise((r) => setTimeout(r, 5)); return f(); };
 /** A spot link of BTCUSDT on a socket driven by hand, its clock at `now` (us), each message's hook recorded. */
-function handLink(out: string): { link: L.Link; ws: { onopen: () => void; onmessage: (e: { data: unknown }) => void }; texts: [string, string][]; clock: { now: number }; cid: () => string } {
-  const clock = { now: START + 10 * 3_600 * S }, texts: [string, string][] = [], socks: { onopen: () => void; onmessage: (e: { data: unknown }) => void }[] = [];
-  const io: L.LinkIo = { webSocket: () => { const w = { close: () => undefined, extensions: "" } as unknown as (typeof socks)[0]; socks.push(w); return w as unknown as WebSocket; },
-    wallUs: () => clock.now, monoNs: () => BigInt(clock.now) * 1000n, setTimer: () => 0, clearTimer: () => undefined, gate: L.openingGate(), onText: (t, c) => { texts.push([t, c]); } };
+type Sock = { onopen: () => void; onmessage: (e: { data: unknown }) => void };
+function handLink(out: string, hook?: (text: string, cid: string) => void): { link: L.Link; ws: Sock; socks: Sock[]; texts: [string, string][]; clock: { now: number }; cid: () => string } {
+  const clock = { now: START + 10 * 3_600 * S }, texts: [string, string][] = [], socks: Sock[] = [];
+  const io: L.LinkIo = { webSocket: () => { const w = { close: () => undefined, extensions: "" } as unknown as Sock; socks.push(w); return w as unknown as WebSocket; },
+    wallUs: () => clock.now, monoNs: () => BigInt(clock.now) * 1000n, setTimer: () => 0, clearTimer: () => undefined, gate: L.openingGate(), onText: hook ?? ((t, c) => { texts.push([t, c]); }) };
   const link = L.openLink({ symbol: "BTCUSDT", url: L.spotUrl("BTCUSDT"), out }, io), ws = socks[0]!;
   ws.onopen();
-  return { link, ws, texts, clock, cid: () => cidOf("spot", "BTCUSDT", START + 10 * 3_600 * S) };
+  return { link, ws, socks, texts, clock, cid: () => cidOf("spot", "BTCUSDT", START + 10 * 3_600 * S) };
 }
 
-// killer: scripts/l2/seal-child.mjs:22 CONST "!open.includes(" -> "open.includes("
+// killer: scripts/l2/seal-child.mjs:36 CONST "!open.includes(" -> "open.includes("
 test("l2_seal_apart_as_in_process", { skip: APART }, async () => {
   // Q-5 of a2, Q-C1-9, m-5 of the G2 of c5: the loop seals in a child process; its day is the in-process seal's, byte for byte, and it
   // waits while a writer holds a segment open (closed(cid, seg) from the loop's "cid/seg").
@@ -392,7 +393,7 @@ test("l2_seal_apart_as_in_process", { skip: APART }, async () => {
   assert.equal(readFileSync(join(dayDir(a), "SHA256SUMS"), "utf8"), readFileSync(join(dayDir(b), "SHA256SUMS"), "utf8"), "the same bytes, apart or not");
 });
 
-// killer: scripts/l2/seal-child.mjs:19 CONST "execArgv.length !== 1 || " -> ""
+// killer: scripts/l2/seal-child.mjs:32 CONST "execArgv.length !== 1 || " -> ""
 test("l2_seal_child_flags_closed", { skip: APART }, async () => {
   // The child's own guard (c4's execArgv guard, for the one flag it is spawned with): the heap cap alone, else proxy_refused, nothing read.
   const out = fresh(), cap = "--max-old-space-size=64", refused = { stop: "proxy_refused", detail: { why: "the heap cap alone" } };
@@ -403,7 +404,7 @@ test("l2_seal_child_flags_closed", { skip: APART }, async () => {
   assert.equal(existsSync(join(dayDir(out), "SHA256SUMS")), false);
 });
 
-// killer: scripts/l2/seal-child.mjs:20 SDL "  guardEnv(env, []);" -> ""
+// killer: scripts/l2/seal-child.mjs:33 SDL "  guardEnv(env, []);" -> ""
 test("l2_seal_child_env_closed", { skip: APART }, async () => {
   // SERIES-ENV-ALLOWLIST-1 in the child: the closed list of the platform (empty on Linux), names only, never a value.
   const out = fresh(), cap = "--max-old-space-size=64";
@@ -413,14 +414,15 @@ test("l2_seal_child_env_closed", { skip: APART }, async () => {
   assert.equal(existsSync(join(dayDir(out), "SHA256SUMS")), false);
 });
 
-// killer: scripts/l2/seal.mjs:52 CONST "`--max-old-space-size=${heapMb}`, CHILD" -> "CHILD"
+// killer: scripts/l2/seal.mjs:69 CONST "`--max-old-space-size=${heapMb}`, CHILD" -> "CHILD"
 test("l2_seal_apart_heap_named", { skip: APART }, async () => {
   // m-5 of the G2 of c5: a heap past the cap kills the child alone; the day stays unsealed, the failure named, this process lives on.
   const m = await seal(), out = fresh(), big = (i: number): [number, string] => [START + S + i * 1000, JSON.stringify({ stream: "btcusdt@trade", data: { e: "trade", E: START + S + i * 1000, s: "BTCUSDT", t: i, x: "y".repeat(4_000_000) } })];
   assert.equal(typeof m.sealApart, "function", "sealApart is absent");
   for (const i of [0, 1, 2, 3]) await conn(out, [big(i)]); // one connection each: a queue holds 8 MiB at most
-  const r = await m.sealApart(specOf(out), { env: {}, heapMb: 8 }), failed = (r as { failed?: { code: number | null; stop: unknown } }).failed;
-  assert.deepEqual([r.sealed, failed?.stop, failed?.code === 0, existsSync(join(dayDir(out), "SHA256SUMS"))], [false, null, false, false]);
+  const r = await m.sealApart(specOf(out), { env: {}, heapMb: 8 }), failed = (r as { failed?: { code: number | null; signal: string | null; stop: unknown; detail: unknown } }).failed;
+  assert.deepEqual([r.sealed, failed?.stop, failed?.code, failed?.signal, existsSync(join(dayDir(out), "SHA256SUMS"))], [false, null, null, "SIGABRT", false]);
+  assert.match(String((failed?.detail as { stderr?: string } | null)?.stderr), /heap/, "the tail of the child's stderr says why (n-2)");
   assert.equal(m.SEAL_HEAP_MB, 128, "the cap measured in the lot plan");
 });
 
@@ -436,7 +438,7 @@ test("l2_walk_vanished_entry_absent", async () => {
   try { assert.deepEqual([codeOf(() => m.bytesUnder(dir)), existsSync(tmp)], [10, false]); } finally { fs.lstatSync = real; syncBuiltinESMExports(); }
 });
 
-// killer: scripts/l2/links.mjs:181 CONST "io.onText?.(e.data, cid)" -> "0"
+// killer: scripts/l2/links.mjs:181 CONST "fed(io, note, e.data, cid)" -> "0"
 test("l2_link_feeds_its_hook", async () => {
   // Q-A4-3: each text message reaches the loop's hook with its <cid>, once its writer has it; a binary one never.
   const out = fresh(), h = handLink(out);
@@ -521,6 +523,168 @@ test("l2_tails_of_the_last_run_with_links", async () => {
   assert.deepEqual([m.markTails(c.at, clocks).length, c.tails().length], [1, 1]);
 });
 
+// ---- P1-c5-bis-a, fold of its G2 ----
+/** dev and ino of a directory, as the parent of the seal child passes them (B-1 of the G2 of c5-bis-a). */
+const idOf = (dir: string): { dev: string; ino: string } => { const s = statSync(dir, { bigint: true }); return { dev: String(s.dev), ino: String(s.ino) }; };
+const UNPINNED = "fd 3 alone, the pinned root";
+/** The child spawned by hand with its one flag, env {} and `fds` from fd 3: [exit code, its JSON line or null]; 30 s at most. */
+function pinnedChild(spec: unknown, fds: number[]): [number | null, unknown] {
+  const r = spawnSync(process.execPath, ["--max-old-space-size=64", CHILD, JSON.stringify(spec)], { env: {}, encoding: "utf8", timeout: 30_000, stdio: ["ignore", "pipe", "pipe", ...fds] });
+  try { return [r.status, JSON.parse(r.stdout) as unknown]; } catch { return [r.status, null]; }
+}
+/** An output adopted (its root pinned, `at`), a day of D under it. */
+async function adopted(m: typeof RecordM): Promise<{ at: string; real: string }> {
+  const c = await crashed(m, 0);
+  await day(c.real);
+  return c;
+}
+
+// killer: scripts/l2/seal.mjs:69 CONST ", fd]" -> "]"
+test("l2_seal_apart_through_the_pinned_root", { skip: APART }, async () => {
+  // B-1 of the G2 of c5-bis-a: adopt's root, /proc/self/fd/<n>, is close-on-exec, absent in the child (whose mkdir spun there without end):
+  // the parent passes it as the child's fd 3. The day sealed apart through it is the in-process seal's through the same kind of root,
+  // byte for byte, and the call ends; env defaults to none (n-3).
+  const m = await seal(), r = await command(), [a, b] = [await adopted(r), await adopted(r)];
+  assert.equal(typeof m.SEAL_TIMEOUT_MS, "number", "the deadline of sealApart is absent");
+  const inProcess = m.sealOf({ out: b.at, symbol: "BTCUSDT", day: D, nowUs: END + 121 * S, closed: () => true, scale: 2 });
+  assert.deepEqual([await m.sealApart(specOf(a.at)), inProcess], [{ sealed: true, dir: dayDir(a.at), frames: 4 }, { sealed: true, dir: dayDir(b.at), frames: 4 }]);
+  assert.equal(readFileSync(join(dayDir(a.real), "SHA256SUMS"), "utf8"), readFileSync(join(dayDir(b.real), "SHA256SUMS"), "utf8"), "the same bytes, apart or not");
+});
+
+// killer: scripts/l2/seal-child.mjs:26 CONST "String(st.ino) === root?.ino" -> "true"
+test("l2_seal_child_root_checked", { skip: APART }, async () => {
+  // B-1: the child writes through its fd 3 alone, checked first (a directory of the dev and ino its parent names): another directory is
+  // refused, named, nothing written; no fd 3 (the reproducer of the G2: a spec naming /proc/self/fd/999) is refused at once, never a spin.
+  const out = fresh(), other = fresh();
+  await day(out);
+  mkdirSync(other);
+  const spec = { ...specOf(out), root: idOf(out) };
+  const fd = openSync(other, "r");
+  try {
+    assert.deepEqual([pinnedChild(spec, [fd]), pinnedChild({ ...spec, out: "/proc/self/fd/999" }, [])],
+      [[1, { stop: "out_not_l2", detail: { extra: [], why: UNPINNED } }], [1, { stop: "out_not_l2", detail: { extra: [], why: UNPINNED } }]]); // no fd 3: node's own there
+  } finally { closeSync(fd); }
+  assert.deepEqual([existsSync(join(dayDir(out), "SHA256SUMS")), existsSync(join(other, "days"))], [false, false]);
+});
+
+// killer: scripts/l2/seal-child.mjs:26 CONST "extra.length === 0" -> "true"
+test("l2_seal_child_root_alone", { skip: APART }, async () => {
+  // B-1: fd 3 is the one descriptor the child takes from its parent; a file, a directory or a socket past it is refused, named.
+  const out = fresh();
+  await day(out);
+  const fd = openSync(out, "r"), file = openSync(CHILD, "r"), spec = { ...specOf(out), root: idOf(out) };
+  try {
+    assert.deepEqual(pinnedChild(spec, [fd, file]), [1, { stop: "out_not_l2", detail: { extra: [4], why: UNPINNED } }]);
+    assert.deepEqual(pinnedChild(spec, [fd]), [0, { result: { sealed: true, dir: dayDir(out), frames: 4 } }]);
+  } finally { closeSync(fd); closeSync(file); }
+});
+
+// killer: scripts/l2/seal.mjs:71 CONST "timer = setTimeout(" -> "timer = Math.max("
+test("l2_seal_apart_deadline", { skip: APART }, async () => {
+  // B-1: past its deadline the child is killed and the call ends, a named failure; never a promise left pending.
+  const m = await seal(), out = fresh();
+  await day(out);
+  assert.equal(typeof m.SEAL_TIMEOUT_MS, "number", "the deadline of sealApart is absent");
+  assert.deepEqual(await m.sealApart(specOf(out), { env: {}, timeoutMs: 1 }), { sealed: false, failed: { code: null, signal: null, stop: "seal_timeout", detail: { timeout_ms: 1 } } });
+});
+
+// killer: scripts/l2/seal.mjs:72 CONST "signal?.addEventListener(" -> "void ("
+test("l2_seal_apart_aborted", { skip: APART }, async () => {
+  // B-1: the loop's clean stop aborts a seal under way (the child killed), or one not begun (no child): seal_aborted, named.
+  const m = await seal(), out = fresh(), ac = new AbortController(), aborted = { sealed: false, failed: { code: null, signal: null, stop: "seal_aborted", detail: null } };
+  await day(out);
+  assert.equal(typeof m.SEAL_TIMEOUT_MS, "number", "the deadline of sealApart is absent");
+  const under = m.sealApart(specOf(out), { env: {}, signal: ac.signal });
+  ac.abort();
+  assert.deepEqual([await under, await m.sealApart(specOf(out), { env: {}, signal: AbortSignal.abort() })], [aborted, aborted]);
+});
+
+// killer: scripts/l2/seal.mjs:70 CONST "catch (e) { return finish(" -> "catch (e) { throw e; return finish("
+test("l2_seal_apart_never_rejects", { skip: APART }, async () => {
+  // m-2 of the G2 of c5-bis-a: a spec past what one argument holds (E2BIG), one that is not JSON, a root absent (n-8: never an empty day
+  // sealed): a named failure each, never a rejection.
+  const m = await seal(), out = fresh();
+  await day(out);
+  const of = (s: unknown): Promise<unknown> => m.sealApart(s as SealM.ApartSpec, { env: {} }).then((r) => (r as { failed?: unknown }).failed, (e: unknown) => ({ rejected: String(e) }));
+  const named = (stop: string, error: string): unknown => ({ code: null, signal: null, stop, detail: { error } });
+  assert.deepEqual(await Promise.all([of({ ...specOf(out), config: "x".repeat(200_000) }), of({ ...specOf(out), nowUs: 1n }), of(specOf(join(out, "none")))]),
+    [named("spawn_failed", "E2BIG"), named("spec_refused", "TypeError"), named("root_refused", "ENOENT")]);
+  assert.equal(existsSync(join(out, "none")), false);
+});
+
+// killer: scripts/record-binance-l2.mjs:257 CONST ".sort()" -> ""
+test("l2_tails_of_the_last_segment_by_name", async () => {
+  // m-3 of the G2 of c5-bis-a: the last segment of a connection is the last by name, whatever order its directory lists them in.
+  const m = await command(), c = await crashed(m, 1), real = fs.readdirSync;
+  fs.readdirSync = ((...a: Parameters<typeof real>) => (real(...a) as unknown as string[]).sort().reverse()) as unknown as typeof real;
+  syncBuiltinESMExports();
+  try { assert.equal(m.markTails(c.at, clocks).length, 1); } finally { fs.readdirSync = real; syncBuiltinESMExports(); }
+});
+
+// killer: scripts/l2/segments.mjs:70 CONST "await f.sync?.()" -> "f.sync?.()"
+test("l2_segment_closed_once_synced", async () => {
+  // m-3: a file of a segment closes once its fsync has ended, never once it was asked.
+  const ops: string[] = [], file = (name: string): SegmentFile => ({ appendFile: () => Promise.resolve(), close: () => { ops.push(`${name} close`); return Promise.resolve(); },
+    sync: () => new Promise<void>((r) => { setTimeout(() => { ops.push(`${name} synced`); r(); }, 5); }) });
+  const w = openWriter(fresh(), cidOf("spot", "BTCUSDT", START), { wallUs: () => START, monoNs: () => 1n, open: (p) => Promise.resolve(file(p.endsWith(".frames") ? "frames" : "index")) });
+  w.push("a");
+  await w.close();
+  assert.deepEqual(["frames", "index"].map((n) => ops.filter((o) => o.startsWith(n))), [["frames synced", "frames close"], ["index synced", "index close"]]);
+});
+
+// killer: scripts/l2/segments.mjs:67 CONST "; await syncDir(dir);" -> ";"
+test("l2_segment_dir_synced", async () => {
+  // n-6 of the G2 of c5-bis-a: once a segment's two files exist, conn/<cid>/ is synced, as sealDay syncs the day's directory.
+  const p = createRequire(import.meta.url)("node:fs/promises") as { open: typeof import("node:fs/promises").open }, real = p.open, out = fresh(), cid = cidOf("spot", "BTCUSDT", START), synced: string[] = [];
+  p.open = (async (...a: Parameters<typeof real>) => { const h = await real(...a), s = h.sync.bind(h); h.sync = async () => { synced.push(String(a[0])); await s(); }; return h; });
+  syncBuiltinESMExports();
+  try {
+    const w = openWriter(out, cid, { wallUs: () => START, monoNs: () => 1n });
+    w.push("a");
+    await w.close();
+  } finally { p.open = real; syncBuiltinESMExports(); }
+  assert.ok(synced.includes(join(out, "conn", cid)), "conn/<cid>/ synced");
+});
+
+// killer: scripts/l2/links.mjs:204 CONST "for (const w of live.values()) w.cut();" -> "cur?.w.cut();"
+test("l2_link_cut_in_an_overlap", async () => {
+  // m-3: cut() reaches each writer the link holds, the old connection's during an overlap too.
+  const out = fresh(), h = handLink(out), seg = segmentOf(h.clock.now), first = h.cid();
+  h.ws.onmessage({ data: "a" });
+  h.clock.now += 1_000; // a millisecond on: the new connection's <cid>
+  h.ws.onmessage({ data: JSON.stringify({ e: "serverShutdown" }) });
+  const second = cidOf("spot", "BTCUSDT", h.clock.now);
+  assert.equal(h.socks.length, 2, "a new connection opened");
+  h.socks[1]!.onopen();
+  h.socks[1]!.onmessage({ data: "b" });
+  h.clock.now += 3_600 * S;
+  h.link.cut();
+  assert.ok(await twice(() => h.link.closed(first, seg) && h.link.closed(second, seg)), "both segments closed");
+  await h.link.stop();
+});
+
+// killer: scripts/l2/links.mjs:181 CONST "c.w.push(e.data); fed(io, note, e.data, cid);" -> "fed(io, note, e.data, cid); c.w.push(e.data);"
+test("l2_link_hook_after_the_writer", async () => {
+  // m-3: the hook runs once the writer has the message: a hook that stops the link loses nothing of it.
+  const held: { stop?: Promise<void> } = {}, out = fresh(), h = handLink(out, () => { held.stop ??= h.link.stop(); });
+  h.ws.onmessage({ data: "a" });
+  await held.stop;
+  assert.equal(codeOf(() => readFileSync(join(out, "conn", h.cid(), `${segmentOf(h.clock.now)}.frames`), "utf8")), "a" + LF);
+});
+
+// killer: scripts/l2/links.mjs:212 CONST "catch (x) {" -> "catch (x) { throw x;"
+test("l2_link_hook_failure_named", async () => {
+  // m-4 of the G2 of c5-bis-a: a hook that throws never reaches the socket's dispatch (an uncaughtException ends the recorder): named
+  // hook_failed in the journal, the message kept by its writer, the next one fed.
+  let n = 0;
+  const out = fresh(), h = handLink(out, () => { n += 1; if (n === 1) throw new TypeError("x"); });
+  assert.doesNotThrow(() => { h.ws.onmessage({ data: "a" }); });
+  h.ws.onmessage({ data: "b" });
+  await h.link.stop();
+  assert.deepEqual([n, (journal(out) as Line[]).filter((l) => l.event === "hook_failed").map((l) => [l.cid, l.error])], [2, [[h.cid(), "TypeError"]]]);
+  assert.equal(readFileSync(join(out, "conn", h.cid(), `${segmentOf(h.clock.now)}.frames`), "utf8"), "a" + LF + "b" + LF);
+});
+
 // ---- P1-c5-bis-b ----
 const H = 3_600 * S, TIME = "/api/v3/time", ex = (s: string): string => `/api/v3/exchangeInfo?symbol=${s}`, dp = (s: string): string => `/api/v3/depth?symbol=${s}&limit=5000`;
 /** Host microseconds of day D + d at h:m:s. */
@@ -532,12 +696,12 @@ const limits = (limit: number): Line[] => [{ rateLimitType: "REQUEST_WEIGHT", in
 const place = (ahead: number, limit: (now: number) => number = () => 6_000, tick: (now: number) => string = () => "0.01000000") => (path: string, now: number): [number, unknown] =>
   path === TIME ? [200, { serverTime: (now + ahead) / 1000 }] : path.startsWith("/api/v3/depth") ? [200, JSON.parse(BOOK) as unknown]
     : [200, { symbols: [{ filters: [{ filterType: "PRICE_FILTER", tickSize: tick(now) }] }], rateLimits: limits(limit(now)) }];
-type Sock = { url: string; opened: boolean; closed: boolean; onopen?: () => void; onmessage?: (e: { data: unknown }) => void; onclose?: (e: { code: number; reason: string; wasClean: boolean }) => void };
+type HandSock = { url: string; opened: boolean; closed: boolean; onopen?: () => void; onmessage?: (e: { data: unknown }) => void; onclose?: (e: { code: number; reason: string; wasClean: boolean }) => void };
 /** A recording on a host driven by hand: its clock and timers, fetch answered by `answer` (never the network), sockets by hand that hear
  *  "{}" (spot every 20 s from 7 s, /market every 8 min from 4 min 7 s: no watchdog fires, and hour 23 of /market is silent from 23:56:07 to
  *  00:04:07), the seal given; until(us) runs the timers due in time order; send() a text on the live BTCUSDT socket. */
 function host(t0: number, answer: (path: string, now: number) => [number, unknown], seal: RecordM.RecorderIo["seal"] = () => Promise.resolve({ sealed: true, dir: "", frames: 0 })) {
-  const t = { now: t0 }, timers: { at: number; fn: () => void }[] = [], fetched: [number, string][] = [], socks: Sock[] = [], ac = new AbortController();
+  const t = { now: t0 }, timers: { at: number; fn: () => void }[] = [], fetched: [number, string][] = [], socks: HandSock[] = [], ac = new AbortController();
   const pulses = [{ next: t0 + 7 * S, every: 20 * S, spot: true }, { next: t0 + 247 * S, every: 480 * S, spot: false }];
   const io: RecordM.RecorderIo = { env: {}, execArgv: [], freeBytes: () => 1e12, wallUs: () => t.now, monoNs: () => BigInt(t.now) * 1000n, signal: ac.signal, seal,
     setTimer: (fn, ms) => { const h = { at: t.now + Math.round(ms * 1000), fn }; timers.push(h); return h; },
@@ -545,7 +709,7 @@ function host(t0: number, answer: (path: string, now: number) => [number, unknow
     sleep: (ms) => new Promise((r) => { io.setTimer!(r, ms); }), // segment files made on disk, their bytes nowhere: the writers keep pace with the host's clock
     open: (path) => { writeFileSync(path, "", { flag: "wx" }); return Promise.resolve({ appendFile: () => Promise.resolve(), sync: () => Promise.resolve(), close: () => Promise.resolve() }); },
     fetch: (url) => { const p = new URL(url), path = p.pathname + p.search, [status, body] = answer(path, t.now); fetched.push([t.now, path]); return Promise.resolve(new Response(JSON.stringify(body), { status })); },
-    webSocket: (url) => { const s: Sock = { url, opened: false, closed: false }; socks.push(s); return Object.assign(s, { close: () => { s.closed = true; }, extensions: "" }) as unknown as WebSocket; } };
+    webSocket: (url) => { const s: HandSock = { url, opened: false, closed: false }; socks.push(s); return Object.assign(s, { close: () => { s.closed = true; }, extensions: "" }) as unknown as WebSocket; } };
   const settle = async (): Promise<void> => { await new Promise((r) => setTimeout(r, 5)); for (const s of socks) if (!s.opened && s.onopen) { s.opened = true; s.onopen(); } };
   const until = async (us: number): Promise<void> => {
     for (;;) {
@@ -561,7 +725,7 @@ function host(t0: number, answer: (path: string, now: number) => [number, unknow
     t.now = us;
     await settle();
   };
-  const live = (): Sock => socks.filter((s) => s.url.includes("btcusdt@depth") && !s.closed).at(-1)!;
+  const live = (): HandSock => socks.filter((s) => s.url.includes("btcusdt@depth") && !s.closed).at(-1)!;
   return { io, fetched, until, live, stop: () => { ac.abort(); }, send: (text: string) => { live().onmessage!({ data: text }); } };
 }
 const argv = (out: string): string[] => ["--out", out, "--quota-bytes", "1000000000"];
@@ -667,3 +831,4 @@ test("l2_record_rest_stop_ends_all", async () => {
   assert.equal(c.tails().length, 1, "the tail marked at the start");
   assert.deepEqual(events(out, ["schedule_failed", "stopped"]).map((l) => [l.event, l.code ?? l.cause]).slice(0, 1).concat(events(out, ["stopped"]).map((l) => [l.event, l.cause])), [["schedule_failed", "restricted_location"], ["stopped", "rest_stopped"]]);
 });
+
