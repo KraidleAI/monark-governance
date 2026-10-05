@@ -302,3 +302,35 @@ c5-bis-a renvoyait à c5-bis-b (`docs/G7-lot-l2-p1-c5-bis.md`, section « Renvoy
   `CONTENT_STAT` 0, GREEN, marge 1 (le pli de la delta : +6 nettes, r-1 +4, r-2 +2). Contre `dadc049c` : 550 (la fusion de c5 y compte ses
   4 lignes de test). Contre `c6cf927a` : 616 (le pli de la delta de c5-bis-a y compte aussi) ; ni l'une ni l'autre n'est plus la base de
   cette PR.
+
+## Blocage de l'oracle (#157 rouge, 2026-10-05)
+
+- **Constat (MONARK).** Tête `f8bedc17` : dans `npm run test:main` de l'oracle Windows (2 411 tests, sous charge),
+  `l2_record_stopped_line_last` dépasse 300 000 ms ; isolé, il passe en 310 ms.
+- **Cause : le test, pas l'enregistreur.**
+  - L'arrêt propre arme deux bornes sur l'horloge de l'hôte, l'une après l'autre (Q-8 de a3) : celle des liens à l'arrêt, puis celle du
+    scellé une fois les liens fermés.
+  - Un lien se ferme quand ses écrivains ont fini. Leur travail disque est réel : le dossier d'un segment créé puis synchronisé
+    (`mkdir`, `syncDir` de `scripts/l2/segments.mjs`).
+  - Le harnais `host()` n'avance l'horloge simulée qu'à la demande. Entre deux pas, il ne laisse passer que 5 ms réelles.
+  - Le test menait l'horloge jusqu'à 00:03:41, soit 31 s après l'arrêt, puis attendait la course (`await run`). Il supposait donc les
+    liens fermés à 00:03:10.
+  - Sous charge, la fermeture arrive plus tard. La borne des liens part alors à 00:03:40 et celle du scellé est armée à cet instant,
+    échéance 00:04:10. Le faux scellé ne se résout qu'à l'annulation, que plus rien ne déclenche : l'attente ne se résout jamais.
+  - En production, `setTimer` est l'horloge réelle : les deux bornes partent seules, l'arrêt reste borné à 2 × `STOP_BOUND_MS`. Aucun
+    risque pour l'enregistreur sous Linux ni sous Windows.
+- **Preuves de la cause.**
+  - Diagnostic temporaire (non versé) sur `setTimer` après l'arrêt.
+  - Ouvertures de segment retardées de 200 ms réelles : la borne des liens tombe à 00:03:40, la seconde est armée à 00:03:40 pour
+    00:04:10, et la course reste pendante après 00:03:41.
+  - Les étapes du test à `f8bedc17`, disque tenu dès la coupure de l'heure : course non résolue après 10 s réelles (rouge borné).
+- **Correctif (test).**
+  - `test/helpers/host-clock.ts` : `settles(run, advance, steps)` fait avancer l'horloge pas à pas jusqu'à ce que la course se termine.
+    Le plafond est de 600 pas d'une seconde ; au-delà, l'échec est une assertion, jamais un blocage.
+  - `l2_record_stopped_line_last` n'attend plus la course à un instant fixe. Il garde son tueur (n-1).
+- **Régression** `l2_record_stop_bound_armed_late`.
+  - Le disque ne répond plus dès la coupure de l'heure : c'est le retard de la charge, rendu déterministe.
+  - Il asserte la course encore pendante à 00:03:41, puis, menée, terminée avec la ligne `stopped` dernière à 00:04:10
+    (`links_closed` et `seal_done` faux).
+  - Tueur : `test/helpers/host-clock.ts:8 CONST "i < steps && !done" -> "false"`. Le mutant, qui ne mène plus l'horloge après l'instant
+    fixe, rougit les deux tests par assertion en moins de 120 ms.
