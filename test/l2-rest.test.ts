@@ -308,7 +308,8 @@ test("l2_rest_aborted_writes_nothing", async () => {
 /** A fetch that honours its signal (as the embedded client does: an AbortError) and never answers otherwise; the signals it got. */
 const abortable = (signals: (AbortSignal | null | undefined)[]) => (_url: string, init: RequestInit): Promise<Response> => new Promise((_, no) => {
   signals.push(init.signal);
-  if (init.signal?.aborted) no(init.signal.reason); else init.signal?.addEventListener("abort", () => { no(init.signal?.reason); });
+  const why = (): Error => init.signal?.reason as Error;
+  if (init.signal?.aborted) no(why()); else init.signal?.addEventListener("abort", () => { no(why()); });
 });
 
 // killer: scripts/l2/rest.mjs:125 CONST "if (io.signal?.aborted) stop(\"stopped\", { kind, symbol }); stop(\"network_error\"" -> "stop(\"network_error\""
@@ -324,12 +325,12 @@ test("l2_rest_aborted_fetch_named", async () => {
 // killer: scripts/l2/rest.mjs:123 CONST "AbortSignal.timeout(TIMEOUT_MS), " -> ""
 test("l2_rest_fetch_deadline", async () => {
   // m-3 of the G2 of c5-bis-c: the fetch's signal holds its 30 s deadline beside the loop's: a place that never answers ends at it.
-  const R = await load(), out = tmp(), real = AbortSignal.timeout, asked: number[] = [], signals: (AbortSignal | null | undefined)[] = [];
+  const R = await load(), out = tmp(), real = Object.getOwnPropertyDescriptor(AbortSignal, "timeout")!, asked: number[] = [], signals: (AbortSignal | null | undefined)[] = [];
   AbortSignal.timeout = (ms: number): AbortSignal => { asked.push(ms); return AbortSignal.abort(new DOMException("deadline", "TimeoutError")); };
   try {
     const c = R.createRest({ fetch: abortable(signals), nowUs: () => T0, out, signal: new AbortController().signal });
     assert.deepEqual([await code(c.request("time", null)), asked, signals[0]?.aborted], ["network_error", [R.TIMEOUT_MS], true]);
-  } finally { AbortSignal.timeout = real; }
+  } finally { Object.defineProperty(AbortSignal, "timeout", real); }
 });
 
 // killer: scripts/l2/rest.mjs:129 CONST "} if (io.signal?.aborted) stop(" -> "} if (false) stop("
