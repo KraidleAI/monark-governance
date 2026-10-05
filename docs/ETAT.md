@@ -72,13 +72,15 @@ Tronc `lot/etude-suite`. Dernier oracle complet : 1 779 tests, dont 1 776 verts,
 - **Moteur 1.1.0 (base `base/chantier-moteur-2026-10-03`)** : blocs A, B1, B2, C (C1, C2), C' (3c-4a, 3c-4b) et D (D-1 #169, D-2 #171,
   D-3 #172) fusionnés ; base `21a379fc` puis la ligne (12) d ADR-CM de MONARK. Dernier oracle Windows : 2 571 tests, 0 échec (record
   `f5eaf514`). Le bloc E (CM-4c, vague 2, environ 300 lignes) est prévu **après** T0 (plan r3 §8.3).
-- **Tronc `lot/etude-suite` `e4aac057`** : gardes R-25 #162, #166, #170, #173 ; PR #177 (R25-ASSET-STRUCTURE-1) verte, en attente.
+- **Tronc `lot/etude-suite` `74120213`** : gardes R-25 #162, #166, #170, #173 et #177 (R25-ASSET-STRUCTURE-1, fusionnée le 2026-10-05 ;
+  oracle Windows 2 495 tests, 0 échec). Synchro tronc → base en cours (branche `base/sync-tronc-2026-10-05-soir`).
   Garde CodeQL du tronc : l analyse de `e4aac057` a été annulée (incident GitHub Actions) ; elle se ferme à la prochaine analyse aboutie.
 - **Miroir public `KraidleAI/Monark`** : dernière release v0.8.0 (2026-10-04 14:39 UTC). Deux chemins pour la suivante :
   (a) **depuis le tronc**, possible avant T0 (arbre sans instantané en attente) ; contenu : les gardes R-25, la suite L2 P1, les correctifs
   d aléas ; ne porte pas le contrat 1.1.0 ; (b) **depuis la base, à T0 seulement** (garde `export-public --out`, RUNBOOK) : le contrat 1.1.0.
 - **Reste avant T0 (chemin b)** : SCHEMA-PROJECTION-FAIL-CLOSED-1 et RELEASE-PREFLIGHT-SEND-GUARD-1 (en construction) ;
-  CI-PERMS-JUDGE-YAML-1 et CI-WORKFLOWS-SET-1 (tronc) ; NOTICE-1-1-0 finalisée (cellule V-1 à V-8 faite ; N-5 à ajouter : noms BYO
+  CI-WORKFLOWS-SET-1 (tronc, garde de CI) ; CI-PERMS-JUDGE-YAML-1 passe après T0 (accord de MONARK : garde de CI, pas un contrat
+  servi ; contrôle par diff des fichiers de la gate par MONARK d ici là ; déclencheur : la première semaine après T0) ; NOTICE-1-1-0 finalisée (cellule V-1 à V-8 faite ; N-5 à ajouter : noms BYO
   génériques réservés ; empreinte OpenAPI `61c9df97…`) ; acte de porte de MONARK (genre « avis », `{SPEC_URL}`, date de T0) ; synchro
   tronc → base ; liste de T0 de MONARK (CONTRACT-1-1-0 plus bas).
 - **Décision du fondateur (2026-10-05 22:1x UTC, verbatim : « oui, on fait tout en un seul release, ensuite on continue le prochain
@@ -569,11 +571,11 @@ Tronc `lot/etude-suite`. Dernier oracle complet : 1 779 tests, dont 1 776 verts,
     (R25-REFUSAL-NAMES-1 : fermé par #173, `named()` échappe `[` et tout au-delà de U+007E.)
   - R25-ASSET-STRUCTURE-1 (durcissement de R25-ASSET-POLYGLOT-1, Q-c de la cellule : (c) réduit) : un actif déclaré qui passe son nombre
     magique doit aussi passer sa structure (PNG, JPEG, TTF, OTS, CBOR), sinon refus `asset-structure`. 0 des 45 actifs du tronc refusé.
-    Porteur : RECHERCHES ; état : PR #177 vers le tronc (tête `a4ce1fc6`, G2 fraîche approuvée, CI 10/10 verte), fusion par MONARK.
+    Porteur : RECHERCHES ; état : fermé le 2026-10-05 (#177 `74120213`, G2 fraîche approuvée, CI 10/10, oracle Windows vert).
     Restes formés au G7 du lot (§8, options et prix) : R25-ASSET-FREE-FIELD-1, R25-ASSET-PNG-DEFLATE-1, R25-ASSET-ICCP-1,
     R25-ASSET-TTF-TABLES-1, R25-ASSET-OTS-PENDING-1, R25-ASSET-CBOR-1, R25-ASSET-STRIP-1 ; et, de la G2 : R25-ASSET-FIXED-CHUNK-SIZE-1
     (taille exacte des morceaux PNG de taille fixe, environ 4 lignes) et R25-ASSET-INFLATE-CAP-1 (plafond absolu de décompression,
-    environ 1 ligne ; un en-tête 16384×16384 alloue 268 Mo, échec fermé par OOM). Recommandation : ces deux-là en un petit lot après #177.
+    environ 1 ligne ; un en-tête 16384×16384 alloue 268 Mo, échec fermé par OOM). Accord de MONARK : ces deux-là en un petit lot au tronc.
     R25-ASSET-POLYGLOT-1 (a) reste différé (déclencheur : un actif devient entrée exécutée, ou la revue d après T0).
   - L2-BOOK-LOAD-1 : le premier oracle de #172 (record `6b7b6571`) a vu `test/l2-book.test.ts` tomber au chargement, cause perdue ; course
     des dossiers temporaires réfutée, cause non prouvée. Témoin `keepCause` en place (#174 `89d40d7f`) ; oracles suivants verts (2 563 et
