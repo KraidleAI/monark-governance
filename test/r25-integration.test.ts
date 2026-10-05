@@ -845,11 +845,11 @@ test("r25h_ci_refuses_a_gitlink_hidden_by_gitmodules_ignore - G2 B-1: vendor/sub
 }, REAL_CI));
 
 // killer: scripts/lot-size-integration.mjs:228 CONST "fffe|feff|0000feff" -> "0000feff"
-test("r25h_ci_refuses_a_utf16_or_utf32_bom - G2 R-1: four text paths whose blob opens with a UTF-16 LE (ff fe), UTF-16 BE (fe ff), UTF-32 LE (ff fe 00 00) or UTF-32 BE (00 00 fe ff) byte order mark are refused utf16-bom: their U+2028 separators are not UTF-8 bytes (Changed 4, green, before the fold)", () => withFx((fx) => {
+test("r25h_ci_refuses_a_utf16_or_utf32_bom - G2 R-1: four text paths whose blob opens with a UTF-16 little-endian (ff fe), UTF-16 big-endian (fe ff), UTF-32 little-endian (ff fe 00 00) or UTF-32 big-endian (00 00 fe ff) byte order mark are refused utf16-bom: their U+2028 separators are not UTF-8 bytes (Changed 4, green, before the fold)", () => withFx((fx) => {
   fx.g("checkout", "-q", "-b", "pr", TARGET);
-  const boms: Record<string, string> = { "src/le16.ts": "fffe", "src/be16.ts": "feff", "src/le32.ts": "fffe0000", "src/be32.ts": "0000feff" };
-  for (const [p, h] of Object.entries(boms)) stage(fx, p, "100644", Buffer.concat([Buffer.from(h, "hex"), Buffer.from("let n = 1;\u2028n++;\n", "utf16le")]));
+  const boms: Record<string, string> = { "src/little16.ts": "fffe", "src/big16.ts": "feff", "src/little32.ts": "fffe0000", "src/big32.ts": "0000feff" };
+  for (const [p, h] of Object.entries(boms)) stage(fx, p, "100644", Buffer.concat([Buffer.from(h, "hex"), Buffer.from("let n = 1;\u2028n++;\n", "ucs2")]));
   fx.g("commit", "-qm", "boms");
   const out = ciRun(fx);
-  assert.deepEqual([changed(out), refusedIn(out), exitOf(out)], ["none", ["utf16-bom src/be16.ts", "utf16-bom src/be32.ts", "utf16-bom src/le16.ts", "utf16-bom src/le32.ts"], "1"], out);
+  assert.deepEqual([changed(out), refusedIn(out), exitOf(out)], ["none", ["utf16-bom src/big16.ts", "utf16-bom src/big32.ts", "utf16-bom src/little16.ts", "utf16-bom src/little32.ts"], "1"], out);
 }, REAL_CI));
