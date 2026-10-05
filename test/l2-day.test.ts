@@ -9,6 +9,7 @@ import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
 import { appendFileSync, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
+import { createRequire, syncBuiltinESMExports } from "node:module";
 import { join } from "node:path";
 import { checkTail, cidOf, openWriter } from "../scripts/l2/segments.mjs";
 import type * as DayM from "../scripts/l2/day.mjs";
@@ -99,7 +100,7 @@ test("l2_day_late_frame_marked", async () => {
     at(b, "20261005T01", 1, TRADE, { mark: "late", of: D }), at(b, "20261005T02", 0, TRADE)]);
   assert.deepEqual((JSON.parse(read(out, "BTCUSDT", D1, "manifest.json")) as Line).counts, { streams: { [DEPTH]: 1, [TRADE]: 3 }, late: 2, early: 0, recv_day: 0 });
   assert.deepEqual((JSON.parse(read(out, "BTCUSDT", D1, "missing.json")) as Line).holes, [{ link: "BTCUSDT", cid: null, cause: "process_restart",
-    from_us: END + 2 * HOUR, to_us: null }]); // G2 bis m-1: a and b dead at the start (D-8 overlap); b's last frame, in its last segment
+    from_us: END + 2 * HOUR, from_src: "frame", to_us: null, to_src: null }]); // G2 bis m-1: a and b dead at the start (D-8 overlap); b's last frame, in its last segment
 });
 
 // killer: scripts/l2/day.mjs:182 ROR "!(nowUs > end + GRACE_US)" -> "!(nowUs >= end + GRACE_US)"
@@ -155,8 +156,10 @@ test("l2_day_missing_from_journal_and_chain", async () => {
   writeFileSync(join(out, "journal.jsonl"), lines.map((l) => JSON.stringify(l) + LF).join(""));
   assert.deepEqual(await seal(out), { sealed: true, dir: dir(out, "BTCUSDT", D), frames: 1 });
   assert.deepEqual(JSON.parse(read(out, "BTCUSDT", D, "missing.json")), { // c open at the start (Q-C1-10): a hole, and d's after it
-    holes: [{ link: "BTCUSDT", cid: "b", cause: "watchdog", from_us: h(2), to_us: h(2) + S }, { link: "ALL", cid: "m", cause: "closed", from_us: h(4), to_us: null },
-      { link: "BTCUSDT", cid: null, cause: "process_restart", from_us: h(3) + 1, to_us: h(6) + S }, { link: "BTCUSDT", cid: "d", cause: "watchdog", from_us: h(7), to_us: h(8) }],
+    holes: [{ link: "BTCUSDT", cid: "b", cause: "watchdog", from_us: h(2), from_src: "journal", to_us: h(2) + S, to_src: "journal" },
+      { link: "ALL", cid: "m", cause: "closed", from_us: h(4), from_src: "journal", to_us: null, to_src: null },
+      { link: "BTCUSDT", cid: null, cause: "process_restart", from_us: h(3) + 1, from_src: "journal", to_us: h(6) + S, to_src: "journal" },
+      { link: "BTCUSDT", cid: "d", cause: "watchdog", from_us: h(7), from_src: "journal", to_us: h(8), to_src: "journal" }],
     events: [lines[11], lines[12], lines[16], lines[21]] });
 });
 
@@ -169,8 +172,8 @@ test("l2_day_hole_bounds_from_frames", async () => {
     j(t + HOUR + S, "g", "open")]; // ADR "watchdog": from the last frame received to the first of the new connection
   writeFileSync(join(out, "journal.jsonl"), lines.map((l) => JSON.stringify(l) + LF).join(""));
   assert.deepEqual(await seal(out), { sealed: true, dir: dir(out, "BTCUSDT", D), frames: 4 });
-  assert.deepEqual((JSON.parse(read(out, "BTCUSDT", D, "missing.json")) as Line).holes, [{ link: "BTCUSDT", cid: x, cause: "watchdog", from_us: t + 10 * S, to_us: t + 80 * S },
-    { link: "BTCUSDT", cid: null, cause: "process_restart", from_us: t + 90 * S, to_us: t + HOUR + S }]);
+  assert.deepEqual((JSON.parse(read(out, "BTCUSDT", D, "missing.json")) as Line).holes, [{ link: "BTCUSDT", cid: x, cause: "watchdog", from_us: t + 10 * S, from_src: "frame", to_us: t + 80 * S,
+    to_src: "frame" }, { link: "BTCUSDT", cid: null, cause: "process_restart", from_us: t + 90 * S, from_src: "frame", to_us: t + HOUR + S, to_src: "journal" }]);
 });
 
 // killer: scripts/l2/day.mjs:165 CONST "const us = data?.E;" -> "const us = data?.E < 1e14 ? data?.E * 1000 : data?.E;"
@@ -225,8 +228,53 @@ test("l2_day_index_bound_named_stop", async () => { // G2 B-2: past the bound, a
     assert.equal(r[0], sha(readFileSync(join(dir(out, "BTCUSDT", D), r[1]!))), r[1]);
   }
   assert.deepEqual((JSON.parse(read(out, "BTCUSDT", D, "missing.json")) as Line).holes, [{ link: "BTCUSDT", cid: a, cause: "watchdog",
-    from_us: START + HOUR + (n - 1) * 1000, to_us: START + 3 * HOUR }]);
+    from_us: START + HOUR + (n - 1) * 1000, from_src: "frame", to_us: START + 3 * HOUR, to_src: "journal" }]);
   const o = fresh(); // G2 bis R-2: bookTickers pending on their connection (here for J+1) count in the bound
   await conn(o, "spot", "BTCUSDT", [[END + S, ticker(1)], [END + 2 * S, ticker(2)]]);
   assert.throws(() => M.sealDay({ ...spec, out: o, bound: 1 }), (e: unknown) => e instanceof M.DayStop && e.code === "index_bound");
+});
+
+// killer: scripts/l2/day.mjs:106 CONST "us === null ? \"journal\" : \"frame\"" -> "\"frame\""
+test("l2_day_hole_bound_source_named", async () => { // Q-G2-4 (condition of MONARK): each bound of a hole names its source, frame or journal
+  const out = fresh(), t = START + HOUR, j = (us: number, cid: string, event: string, f: Line = {}): Line => ({ host_us: us, mono_ns: "1", symbol: "BTCUSDT", cid, event, ...f });
+  const x = await conn(out, "spot", "BTCUSDT", [[t, depth(1, 1, t)], [t + 10 * S, depth(2, 2, t)]]);
+  const y = await conn(out, "spot", "BTCUSDT", [[t + 90 * S, depth(3, 3, t)], [t + 100 * S, depth(4, 4, t)]]);
+  const z = await conn(out, "spot", "BTCUSDT", [[t + 3 * HOUR + 10 * S, depth(5, 5, t + 3 * HOUR)]]); // "g", "h" and "k": no frame on disk
+  const all = (us: number): Line => ({ host_us: us, mono_ns: "1", symbol: "ALL", cid: null, event: "start" });
+  const lines = [j(t - S, x, "open"), j(t + 70 * S, x, "close", { cause: "watchdog" }), j(t + 75 * S, "g", "open"), j(t + 80 * S, "g", "close", { cause: "watchdog" }),
+    j(t + 85 * S, y, "open"), all(t + HOUR), j(t + HOUR + S, "h", "open"), j(t + 2 * HOUR, "k", "open"), all(t + 3 * HOUR), j(t + 3 * HOUR + S, z, "open")];
+  writeFileSync(join(out, "journal.jsonl"), lines.map((l) => JSON.stringify(l) + LF).join(""));
+  assert.deepEqual(await seal(out), { sealed: true, dir: dir(out, "BTCUSDT", D), frames: 5 });
+  assert.deepEqual((JSON.parse(read(out, "BTCUSDT", D, "missing.json")) as Line).holes, [
+    { link: "BTCUSDT", cid: x, cause: "watchdog", from_us: t + 10 * S, from_src: "frame", to_us: t + 75 * S, to_src: "journal" },
+    { link: "BTCUSDT", cid: "g", cause: "watchdog", from_us: t + 80 * S, from_src: "journal", to_us: t + 90 * S, to_src: "frame" },
+    { link: "BTCUSDT", cid: null, cause: "process_restart", from_us: t + 100 * S, from_src: "frame", to_us: t + HOUR + S, to_src: "journal" },
+    { link: "BTCUSDT", cid: null, cause: "process_restart", from_us: t + 2 * HOUR, from_src: "journal", to_us: t + 3 * HOUR + 10 * S, to_src: "frame" }]);
+});
+
+// killer: scripts/l2/day.mjs:211 SDL "sync();" -> ""
+test("l2_day_folder_fsync_per_platform", async () => { // the day folder is synced twice, opened "r" (POSIX) or "r+" (win32: "r" fails EPERM, measured)
+  const M = await load(), fs = createRequire(import.meta.url)("node:fs") as typeof import("node:fs"), real = { open: fs.openSync, fsync: fs.fsyncSync };
+  const host = process.platform, desc = Object.getOwnPropertyDescriptor(process, "platform")!;
+  const run = async (platform: string): Promise<unknown[]> => { // the folder's opens, by flag, that were fsynced; "r+" on a POSIX host opened "r"
+    const out = fresh(), d = dir(out, "BTCUSDT", D), fds = new Map<number, string>(), synced: string[] = [];
+    await conn(out, "spot", "BTCUSDT", [[START + HOUR, depth(1, 1, START + HOUR)]]);
+    fs.openSync = ((p: string, f: string, m?: number) => {
+      const fd = real.open(p, p === d && f === "r+" && host !== "win32" ? "r" : f, m);
+      if (p === d) fds.set(fd, f); else fds.delete(fd);
+      return fd;
+    }) as typeof fs.openSync;
+    fs.fsyncSync = (fd: number) => { real.fsync(fd); const f = fds.get(fd); fds.delete(fd); if (f !== undefined) synced.push(f); };
+    Object.defineProperty(process, "platform", { ...desc, value: platform });
+    syncBuiltinESMExports();
+    try { return [M.sealDay({ out, symbol: "BTCUSDT", day: D, nowUs: END + GRACE + 1, closed: () => true }), ...synced]; } finally {
+      Object.defineProperty(process, "platform", desc);
+      [fs.openSync, fs.fsyncSync] = [real.open, real.fsync];
+      syncBuiltinESMExports();
+    }
+  };
+  const sealed = (out: unknown[]): unknown => (out[0] as { sealed: boolean }).sealed;
+  const flag = host === "win32" ? "r+" : "r", own = await run(host);
+  assert.deepEqual([sealed(own), ...own.slice(1)], [true, flag, flag]); // the host's own path, unchanged on Linux
+  if (host !== "win32") { const win = await run("win32"); assert.deepEqual([sealed(win), ...win.slice(1)], [true, "r+", "r+"]); }
 });
