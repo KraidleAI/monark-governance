@@ -734,8 +734,8 @@ export function gateVerdictSummary(d: GateDecision): string {
 
 /** A leading or trailing blank (Unicode `\s`, which covers space, tab and no-break space). */
 const EDGE_BLANK = /^\s|\s$/u;
-/** The reserved kata class names (ADR 0005 D3; widened for wave 2 by its own ADR). */
-const KATA_CLASS_RE = /^(btc|eth|bnb|sol)-(dir|range|mae-down|mae-up)-(1h|4h)$/;
+/** The reserved kata class names (ADR 0005 D3, widened by ADR-CM B-14: any 2 to 10 symbol; 15m, 1h, 4h and 24h). */
+export const KATA_CLASS_RE = /^[a-z0-9]{2,10}-(dir|range|mae-down|mae-up)-(15m|1h|4h|24h)$/;
 /** The reserved kata key prefix. */
 const KATA_KEY_PREFIX = "kata:";
 /** The classes committed on the CLASS (any key), as in the exact guard of `runGate`. */
@@ -757,12 +757,12 @@ export function confusableReduce(s: string): string {
     .replace(/^-+|-+$/g, "");
 }
 
-/** The 32 reserved kata class names, reduced (exact set, no reduced regex). */
-const KATA_CLASSES_REDUCED: ReadonlySet<string> = new Set(
-  ["btc", "eth", "bnb", "sol"].flatMap((a) =>
-    ["dir", "range", "mae-down", "mae-up"].flatMap((f) => ["1h", "4h"].map((h) => confusableReduce(`${a}-${f}-${h}`))),
-  ),
-);
+/** The reserved kata class names, reduced (ADR-CM B-14; delegated decision CM-4b C-2): the exact image of KATA_CLASS_RE
+ *  under confusableReduce. A reduced string never holds "rn", so "m" (from "rn") is its one symbol of a single letter. */
+export const KATA_CLASS_REDUCED_RE = /^(?:m|[a-hj-km-z2-9ol]{2,10})-(dlr|range|mae-down|mae-up)-(l5m|lh|4h|24h)$/;
+// Safety and exactness are tested on reduced strings (gate-byo-kata-wide.test.ts): every wide name, reduced, matches
+// it, and every reduced string that matches it has a wide antecedent. No finite set any more: the wide pattern names
+// unboundedly many classes, so B-10 compares a reduced BYO class to this reduced pattern.
 
 /**
  * BYO confusable rule (ADR-CM B-10). Runs after the B-1 rule, so a name B-1 refuses keeps its B-1 message and code.
@@ -771,7 +771,7 @@ const KATA_CLASSES_REDUCED: ReadonlySet<string> = new Set(
  * look-alike outside this closed reduction still passes: a declared residual class (BYO-LOOKALIKE-RESIDUAL-1). */
 function byoConfusable(taskClass: string, predictorId: string): string | undefined {
   const cls = confusableReduce(taskClass);
-  const lockedOrKata = CLASS_LOCKED.some((c) => confusableReduce(c) === cls) || KATA_CLASSES_REDUCED.has(cls);
+  const lockedOrKata = CLASS_LOCKED.some((c) => confusableReduce(c) === cls) || KATA_CLASS_REDUCED_RE.test(cls);
   const kataKey = confusableReduce(predictorId).replace(/4/g, "a").startsWith(KATA_KEY_PREFIX);
   if (lockedOrKata || kataKey || matchesCommittedKeyWith(confusableReduce, taskClass, predictorId)) {
     return `task_class '${taskClass}' / predictor_id '${predictorId}' reduces to a committed or reserved name once ASCII confusables are folded (l, I, 1; rn, m; 0, o; _ and . as -; repeated -; blanks): use a distinct caller-owned name for BYO (ADR-CM B-10)`;
