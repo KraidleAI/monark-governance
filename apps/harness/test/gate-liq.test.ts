@@ -200,7 +200,7 @@ test("u4b_liq_description_makes_no_probability_claim", () => {
 // S-8 (ADR-CM B-8, lot CM-3c-4b; inverts u4b_liq_committed_text_is_honest of 2a-3): the honesty text follows the RESOLVED
 // cell, the stratum key the server derives from yhat (the client key stays ignored): the calibrated sentence on s0 only;
 // s1 to s3 (under_calib) and a key that names no stratum read the class text of the served table.
-// killer: apps/harness/src/tools/gate.ts:708 CONST "r.current && r.cell_key === cellKey" -> "r.current && hasCommittedCalibrationForClass(taskClass)"
+// killer: apps/harness/src/tools/gate.ts:745 CONST "r.current && r.cell_key === cellKey" -> "r.current && hasCommittedCalibrationForClass(taskClass)"
 test("liq_honesty_text_follows_the_resolved_cell", () => {
   assert.equal(hasCommittedCalibrationForClass(TASK_LIQ_ELIGIBLE), true, "the registry holds the liq class (s0)");
   const keys = ["ukemi:client-supplied-key/whatever", ...[0, 1, 2, 3].map((k) => `${UKEMI_LIQ_PREDICTOR_BASE}/s${String(k)}`)];
@@ -310,7 +310,8 @@ const COMMITTED_ONLY_WORDS = ["upper bound", "calibrated", "H-3", "no coverage i
 /** The liq clause of a gate description: from the class lead to the BYO clause (both anchors asserted, in order). */
 function liqSlice(description: string): string {
   const i = description.indexOf(LIQ_LEAD);
-  const j = description.indexOf("When the caller instead");
+  // Block D (lot D-2): the kata clause follows the liq clause, before the BYO sentence.
+  const j = description.indexOf("The 32 kata classes");
   assert.ok(i > -1 && j > i, "the liq clause is delimited in the description (non-vacuous slice)");
   return description.slice(i, j);
 }
@@ -353,7 +354,8 @@ async function servedToolsList(): Promise<Obj> {
 // CM-2b (ADR-CM B-5, B-2, B-7): the served description moves (btc-dir retired, USDe alpha/nMin declared, the USDe band
 // edge stated); the sha256 pin moves 55744504... -> cb4029d2... (recorded in docs/G0-lot-cm-2b.md). The liq clause is unchanged.
 // CM-2a-suite (C-2 of MONARK's diff check of CM-2b): the sentence that no served class takes `attested`; cb4029d2... -> 4279a54d...
-// killer: apps/harness/src/tools/gate.ts:213 CONST "refusal. For" -> "refusal; for"
+// Block D, lot D-2 (Z-3 line of block D): the kata clause after the liq clause; bfb474f3... -> dd728779... (3 971 bytes).
+// killer: apps/harness/src/tools/gate.ts:249 CONST "refusal. For" -> "refusal; for"
 test("hdesc_served_gate_description_is_the_committed_clause", async () => {
   assert.equal(hasCommittedCalibrationForClass(TASK_LIQ_ELIGIBLE), true, "the delivered registry holds the liq class");
   const list = await servedToolsList();
@@ -373,8 +375,8 @@ test("hdesc_served_gate_description_is_the_committed_clause", async () => {
   assert.equal(listed, describeGate(true), "the served text is the committed-state description (describeGate(false) hard-coded reds here)");
   assert.equal(
     createHash("sha256").update(listed, "utf8").digest("hex"),
-    "bfb474f36957ea2390c4f4b99dbbebbea128724d7a7e3b58c1bbe81553016443",
-    "the served description is byte for byte the committed text (ADR-CM B-5, B-2, C-2 of CM-2b, B-7 withdrawn by B-13; was 4279a54d..., cb4029d2...)",
+    "dd7287793b229a3e083286ac1a7333f646d3cc3a323071d129bff702c4551ef3",
+    "the served description is byte for byte the committed text (ADR-CM B-5, B-2, C-2 of CM-2b, B-7 withdrawn by B-13, the kata clause of block D; was bfb474f3..., 4279a54d..., cb4029d2...)",
   );
   const slice = liqSlice(listed);
   assert.equal(slice, EXPECTED_COMMITTED_CLAUSE, "the served liq clause is EXACTLY the committed clause");

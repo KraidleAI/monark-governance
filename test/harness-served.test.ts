@@ -48,9 +48,9 @@ const read = (rel: string): string => readFileSync(join(ROOT, rel), "utf8");
 // traces re-recorded in contract 1.1.0 (the SAME pins as test/byo-demo-probe.test.ts and test/h5-e2e-probe.test.ts).
 const PINNED: Record<string, string> = {
   [HARNESS_SERVED_REL]: "30afbec29cabf11713d3072098c17397ff6dcd2ecd3377c9ca7c5a4a17acf0da",
-  "apps/site/data/harness-pending.json": "cee3c6a02716e376a583b093cfeec9451a19d07ef56f7da49d348caac4ecf91e",
+  "apps/site/data/harness-pending.json": "57cc4eae9b93fff342d0bcd1be4118443bad78cf1c571fb3969faf4211d67894",
   [BYO_TRACE_REL]: "5c9b03e62bd88703a1ecfe381cf8288cab62aee9d096b03b2302338d49883dfc",
-  [H5_TRACE_REL]: "6242f7d0e30703b0973516f37eaca2c84582f44015819a573b55c76126d8fa05",
+  [H5_TRACE_REL]: "57d38c1907bfea4d7cb746186f9bada86bd210358c0a7902a61392957567fc19",
 };
 
 interface Schema { required?: string[]; properties?: Record<string, Schema>; type?: string | string[]; description?: string; maxItems?: number; items?: Schema; additionalProperties?: unknown }
@@ -661,12 +661,12 @@ test("harness_served_budget_note_carries_the_served_clause", () => {
 // sha256 of the bodies the in-process harness answers to the deploy check's own requests, under the served snapshot's keys:
 // the bodies the pending snapshot announces, which the deploy check records at T0.
 const PENDING_BODIES_SHA256: Record<string, string> = {
-  "/openapi.json": "de635be9d7708036add1b85427749539f0aa4190db63203ffac96d7a0a857ba1",
+  "/openapi.json": "61c9df97a254a863a68fdc2c493799803397bfa190b85db3ca97673d2a8ccbf0",
   "/gate": "701e9b068944aca7a9c49bb5415fa2af21006b4ba696c916108c4d326445a08c",
   "/gate liquidation-eligible-coverage": "e2bfb18be056b2ed6f0d1cdae681d9b9e38ede054c79509898243d327a105fe7",
   "/calibrate": "f169e9f6e333374a9d47a2010674ca789aba45bd126ef8764df2f0fb86a2cb90",
 };
-// killer: apps/harness/src/tools/gate.ts:732 CONST "scores_sha256=${digest}`" -> "scores_sha256=${digest} `"
+// killer: apps/harness/src/tools/gate.ts:769 CONST "scores_sha256=${digest}`" -> "scores_sha256=${digest} `"
 test("pending_bodies_are_pinned_byte_for_byte", async () => {
   const { handleJsonMirror } = await import("../apps/harness/src/http.ts");
   const { GATE_LIQ_BODY } = await import("../scripts/sync-ukemi-served.mjs");

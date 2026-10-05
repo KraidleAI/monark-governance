@@ -56,7 +56,11 @@ import { LIQ_POLICY, USDE_POLICY, type ClassPolicyRow } from "../class-policy.ts
 // sibling module at src/ (no I/O, imports nothing from the tools), so the K-8 tools scan stays meaningful
 // and there is no import cycle (attestation-binding.ts never imports gate.ts).
 import { checkAttestedConsistency, NO_SERVED_ATTESTATION_SUBJECT_SENTENCE } from "../attestation-binding.ts";
-import { servedMarginalTables, type ServedTableTexts } from "../policy-served.ts";
+import type { ServedTable, ServedTableTexts } from "../policy-served.ts";
+// (block D, lot D-2): the served kata path. kata-path.ts reads the exports of this file at call time only, so the import
+// cycle is safe; servedPolicyTables reads none of them while this file loads.
+import { kataPath, kataVerdict, servedPolicyTables } from "../kata-path.ts";
+import { kataClassEntries } from "../policy-classes.ts";
 
 /** Server-fixed contract version (K-4c), the one constant of @monark/contracts — NOT carried by the caller. */
 export { SCHEMA_VERSION };
@@ -203,6 +207,38 @@ export const GATE_NON_REVERIFICATION_SENTENCE =
  * registry (U-4b-2b): the committed clause, byte-identical to the pre-HARNESS-DESC-1 text. Every other clause is
  * the same in both states.
  */
+/** "Not in the future" tolerance at the HTTP and MCP entry points (ADR-CM section 5 B-4): 300 s of clock skew. Also the
+ *  lateness bound of a kata call (LATE-CALL-WINDOW-1: one constant of the version), and read by the kata clause below. */
+export const PRODUCED_AT_FUTURE_TOLERANCE_MS = 300_000;
+
+/** The class text of a kata table (block D, Z-3 line of MONARK): one template, the class name substituted. It is served
+ *  when no current row holds the resolved cell, so it speaks of the cell, never of the class as a whole. */
+export function kataClassText(taskClass: string): string {
+  return `no ${taskClass} calibration is committed for this cell_key; the gate abstains and serves no region`;
+}
+
+/** The kata clause of the gate description (block D; state: no kata row committed, item KATA-CLAUSE-COMMITTED-STATE-1).
+ *  Its values are read from the kata class entries (alpha, nMin per family) and from B-4 (300 s), never typed. */
+export function kataClause(): string {
+  const entries = kataClassEntries(kataClassText);
+  const [dir, band] = [entries.filter((e) => e.region_rule === "sign-set"), entries.filter((e) => e.region_rule !== "sign-set")];
+  const one = (es: typeof entries): { alpha: string; nMin: string } => {
+    const vals = new Set(es.map((e) => `${e.alpha ?? ""} ${String(e.n_min)}`));
+    if (es.length === 0 || vals.size !== 1) throw new Error(`kata clause: alpha and nMin are not uniform on a family (${[...vals].join("; ")})`);
+    return { alpha: es[0]?.alpha ?? "", nMin: String(es[0]?.n_min) };
+  };
+  const [d, b] = [one(dir), one(band)];
+  return (
+    `The ${String(entries.length)} kata classes \`{btc,eth,bnb,sol}-{dir,range,mae-down,mae-up}-{1h,4h}\` are served from their policy tables, ` +
+    "which hold no committed calibration row: every well-formed kata call abstains with no region (under_calib, or non_evaluable on a dir " +
+    "lean of exactly 0), and no kata class has an attestation subject. A kata call carries a `predictor_id` of the form " +
+    "`kata:<kataId>@<venue>/<SYMBOL>/<h>` (no bucket, <h> the class horizon), a `features_digest`, " +
+    `alpha = ${d.alpha}, nMin = ${d.nMin} on dir classes and alpha = ${b.alpha}, nMin = ${b.nMin} on the others, tau at most 1 on dir classes, ` +
+    `and a \`produced_at\` on the class horizon grid, received at most ${String(PRODUCED_AT_FUTURE_TOLERANCE_MS / 1000)} s after it; ` +
+    "the full request rules are in section 9 of the contract 1.1.0 specification."
+  );
+}
+
 export function describeGate(registryHasLiq: boolean): string {
   const liqClause = registryHasLiq
     ? `the served region is ${LIQ_UPPER_BOUND_SENTENCE}; ${LIQ_REQUIREMENTS_SENTENCE}; ${LIQ_H3_SENTENCE}; ${LIQ_CONDITIONAL_SENTENCE}`
@@ -215,6 +251,7 @@ export function describeGate(registryHasLiq: boolean): string {
     `${STABLE_RUN_REQUIREMENTS_SENTENCE}; ` +
     `for any other population, ${STABLE_RUN_UNCALIBRATED_SENTENCE}. ` +
     `For '${TASK_LIQ_ELIGIBLE}' (Ukemi: a per-account liquidable-amount class, class A only) ${liqClause}. ` +
+    `${kataClause()} ` +
     "When the caller instead supplies a `calibration` (its own nonconformity scores plus a `mode`: `interval` " +
     "⇒ region [yhat - q̂, yhat + q̂], or `set` ⇒ a conformal set over caller `candidates`), the gate " +
     `conformalizes against THOSE caller-supplied scores (BYO): ${CALIBRATE_LABEL} ` +
@@ -270,11 +307,11 @@ export interface HarnessParams {
  * CM-2b (ADR-CM B-5). A code is never renamed nor reused for another refusal.
  * Since contract 1.1.0 block A (lot CM-3c-1, spec section 13) the list is TOOL_ERROR_CODES of @monark/contracts,
  * re-exported here: the 24 codes above in their order, then 8 codes added by 1.1.0: input_invalid and json_invalid,
- * served by the 400 bodies of http.ts since C' (lot CM-3c-4a), and 6 reserved for block D and thrown by nothing yet
+ * served by the 400 bodies of http.ts since C' (lot CM-3c-4a), and 6 thrown by the served kata path since block D
  * (kata_key_invalid, kata_yhat_domain, features_digest_required, policy_tau_cap, produced_at_off_grid, produced_at_stale).
- * /openapi.json projects them from schemas/tool-error.schema.json. Before T0 (at the latest at the G7 of CM-4b) a test
- * requires a thrower for each code but output_invalid, which has its 500 path.
- * The block is kept at its former line count, so that the killer addresses below this line stay valid.
+ * /openapi.json projects them from schemas/tool-error.schema.json. Since block D every code but output_invalid (its 500
+ * path) has a served thrower; the G7 of the last lot of block D checks each one by a served request (C-3 condition 2).
+ * The block is kept at its former line count.
  */
 export const HARNESS_ERROR_CODES = TOOL_ERROR_CODES;
 export type HarnessErrorCode = (typeof HARNESS_ERROR_CODES)[number];
@@ -700,7 +737,7 @@ function liqEligibleVerdict(prediction: Prediction, params: HarnessParams): Cove
  */
 export function honestyText(taskClass: string, cellKey: string, isByo: boolean): string {
   if (isByo) return `${CALIBRATE_LABEL} B_t is caller-carried.`;
-  const served = SERVED_MARGINAL_TABLES.find((t) => t.task_class === taskClass);
+  const served = SERVED_POLICY_TABLES.find((t) => t.task_class === taskClass);
   if (served === undefined) return `${CASCADE_UNCALIBRATED_SENTENCE}; B_t is caller-carried.`;
   // The current row of the resolved key (USDe key; liq s0), else the class text (other population; liq s1 to s3;
   // cascade, whose table has no row). One lookup for every served class: the Z-3 composition holds by construction,
@@ -799,9 +836,6 @@ function byoLookAlike(taskClass: string, predictorId: string): { readonly messag
   return undefined;
 }
 
-/** "Not in the future" tolerance at the HTTP and MCP entry points (ADR-CM section 5 B-4): 300 s of clock skew. */
-export const PRODUCED_AT_FUTURE_TOLERANCE_MS = 300_000;
-
 /** RFC 3339 section 5.6 date-time: full-date "T" full-time, fraction optional, offset Z or +-hh:mm (T and Z in either case). */
 const RFC3339_DATE_TIME = /^(\d{4})-(\d{2})-(\d{2})[Tt](\d{2}):(\d{2}):(\d{2})(?:\.(\d+))?(?:[Zz]|([+-])(\d{2}):(\d{2}))$/;
 
@@ -836,6 +870,9 @@ export function rfc3339Instant(text: string): number | undefined {
  *  (K-8: no clock under src/tools/). Absent (a direct call) => only the RFC 3339 check runs (declared, B-4). */
 export interface RunGateOptions {
   readonly nowMs?: number;
+  /** TEST ONLY (block D, Q-D5): the tables a kata class is looked up in, in place of SERVED_POLICY_TABLES. The HTTP and MCP
+   *  entry points never pass it (test entry_points_never_pass_policy_tables). */
+  readonly policyTables?: readonly ServedTable[];
 }
 
 /** `produced_at` (ADR-CM B-4): strict RFC 3339, else 400 `produced_at_invalid`; with `nowMs`, at most
@@ -918,6 +955,8 @@ export function runGate(prediction: Prediction, params: HarnessParams, attested?
 
   let verdict: CoverageVerdict;
   let nCalib: number;
+  // Block D (B-9 precisee, B-15): a kata class is a class of the served class registry whose cell rule is kata-bucket.
+  const kataTable = (options.policyTables ?? SERVED_POLICY_TABLES).find((t) => t.task_class === taskClass && t.table.class.cell_key_rule === "kata-bucket")?.table;
 
   if (calibration !== undefined) {
     verdict = byoVerdict(prediction, params, calibration);
@@ -943,6 +982,11 @@ export function runGate(prediction: Prediction, params: HarnessParams, attested?
     }
     verdict = liqEligibleVerdict(prediction, params);
     nCalib = verdict.n_calib; // 170 for the committed stratum s0; 0 for s1 to s3 (under_calib)
+  } else if (kataTable !== undefined) {
+    // The kata request contract (grid and lateness first, spec section 9), then the cell lookup; the verdict is assembled
+    // here from the row's fields (Q-D9), and its n_calib is the row's n (0 with no row: under_calib).
+    verdict = kataVerdict(kataPath(prediction, params, kataTable, options.nowMs), prediction, SCHEMA_VERSION);
+    nCalib = verdict.n_calib;
   } else {
     // delta D-4: an unknown class (e.g. the class-B name, decision 108 keeps B out of service) ⇒ a
     // HarnessToolError (⇒ 400 via http.ts), NEVER `under_calib`. The `known:` list carries no class-B name
@@ -988,14 +1032,16 @@ export function runGate(prediction: Prediction, params: HarnessParams, attested?
 
 /** The texts and sources of the three served tables (Z-3 line of MONARK, 2026-10-05): the served sentences, byte for byte. */
 export const SERVED_TABLE_TEXTS: ServedTableTexts = {
-  classText: (c) => (c === TASK_STABLE_RUN ? STABLE_RUN_UNCALIBRATED_SENTENCE : c === TASK_LIQ_ELIGIBLE ? LIQ_EMPTY_REGISTRY_SENTENCE : CASCADE_UNCALIBRATED_SENTENCE),
+  classText: (c) => (c === TASK_STABLE_RUN ? STABLE_RUN_UNCALIBRATED_SENTENCE : c === TASK_LIQ_ELIGIBLE ? LIQ_EMPTY_REGISTRY_SENTENCE : c === TASK_CASCADE ? CASCADE_UNCALIBRATED_SENTENCE : kataClassText(c)),
   marginal: (c) => c === TASK_LIQ_ELIGIBLE
     ? { registry_file: "sha256:fd6fab7ebf5d2779b904494accab8916fac8293587ed24d21fb052cb024074a4", registry_sha256: "fd6fab7ebf5d2779b904494accab8916fac8293587ed24d21fb052cb024074a4", generator: "scripts/record-u4b-calib.mjs", text: LIQ_COMMITTED_SENTENCE }
     : { registry_file: "fixtures/usde-calib-scores.json", registry_sha256: "e44a68b6b697a32f3f198770e740ab206393dc3425e8cc59e4b0e1e4e65cfd28", generator: "scripts/record-usde-calib.mjs", text: STABLE_RUN_COMMITTED_SENTENCE },
 };
 
-/** The served tables, built once at load, fail-closed (Q-C3). */
-export const SERVED_MARGINAL_TABLES = servedMarginalTables(SERVED_TABLE_TEXTS);
+/** The served tables (block D: the 32 kata tables and the three marginal ones), built once at load, fail-closed (Q-C3). */
+export const SERVED_POLICY_TABLES = servedPolicyTables(SERVED_TABLE_TEXTS);
+/** The three marginal tables (USDe, liq, cascade): a view of SERVED_POLICY_TABLES, not a second build. */
+export const SERVED_MARGINAL_TABLES = SERVED_POLICY_TABLES.filter((t) => t.table.class.cell_key_rule !== "kata-bucket");
 
 /** The cell of a served class (contract 1.1.0): its key, its current row if any, and its table, read from the served tables. */
 function servedCell(taskClass: string, cellKey: string): VerdictCell {

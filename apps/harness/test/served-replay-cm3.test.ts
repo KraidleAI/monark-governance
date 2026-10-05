@@ -87,7 +87,7 @@ test("served_replay_identical_and_nan_never_commits_in_the_served_gate", () => {
 // pinned (whole GateDecision; a refusal by its code and message), so a served field the projection ignores (method,
 // residual, schema_version, cell fields...) cannot move unseen. Any lot that changes served bytes updates this pin in a
 // declared line (G7). Second mutant fired by hand: gate.ts:619 "residual: []," -> "residual: [\"x\"],".
-// killer: apps/harness/src/tools/gate.ts:617 CONST "method: \"split\"" -> "method: \"hac-cp\""
+// killer: apps/harness/src/tools/gate.ts:654 CONST "method: \"split\"" -> "method: \"hac-cp\""
 test("served_replay_full_bytes_are_pinned_at_1_1_0", () => {
   const lines = replaySet().map(([p, params]) => {
     try {
@@ -103,7 +103,7 @@ test("served_replay_full_bytes_are_pinned_at_1_1_0", () => {
 // G2 m-6 of 3c-3a (spec r3 section 5, constraints the closed check does not hold): on every served verdict of the replay,
 // (c) n_calib is the length of scores when scores is carried; (d) scores is carried on a caller-supplied calibration only
 // (cell_key null); (e) a caller-supplied calibration (cell_key null) never has qhat_unit "scale", and scale is null.
-// killer: apps/harness/src/tools/gate.ts:619 CONST "schemaVersion: SCHEMA_VERSION, cell," -> "schemaVersion: SCHEMA_VERSION, cell, includeScores: true,"
+// killer: apps/harness/src/tools/gate.ts:656 CONST "schemaVersion: SCHEMA_VERSION, cell," -> "schemaVersion: SCHEMA_VERSION, cell, includeScores: true,"
 test("served_replay_verdicts_hold_the_implicit_constraints_c_d_e", () => {
   const seen = { byo: 0, committed: 0 };
   for (const [p, params] of replaySet()) {

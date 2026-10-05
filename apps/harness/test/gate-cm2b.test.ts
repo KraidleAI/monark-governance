@@ -65,7 +65,7 @@ async function http(body: unknown): Promise<{ status: number; text: string }> {
 
 // Test R-1 (F2P, B-5): btc-dir-15m without BYO is a 400 task_class_retired (direct, HTTP, MCP); its BYO refusals are
 // unchanged byte for byte; the known: list and the description no longer serve it.
-// killer: apps/harness/src/tools/gate.ts:927 SDL "throw new HarnessToolError(BTC_DIR_RETIRED_MESSAGE, \"task_class_retired\");" -> ""
+// killer: apps/harness/src/tools/gate.ts:966 SDL "throw new HarnessToolError(BTC_DIR_RETIRED_MESSAGE, \"task_class_retired\");" -> ""
 test("btc_dir_is_retired_with_a_named_400", async () => {
   const btc = pred("btc-dir-15m", "up", "internal:momentum-4c");
   for (const p of [PARAMS, { ...PARAMS, alpha: 0.0464, intent: "up" }]) {
@@ -165,7 +165,7 @@ test("interval_edges_follow_the_score_test", () => {
 // G2 B-1 of 3c-3b2: next to the version-independent projection of the USDe band, the full 1.1.0 served bytes of the same
 // grid are pinned (whole GateDecision), so a served field the projection ignores cannot move unseen. Any lot that changes
 // served bytes updates this pin in a declared line (G7). Second mutant fired by hand: gate.ts:619 residual ["x"].
-// killer: apps/harness/src/tools/gate.ts:617 CONST "method: \"split\"" -> "method: \"hac-cp\""
+// killer: apps/harness/src/tools/gate.ts:654 CONST "method: \"split\"" -> "method: \"hac-cp\""
 test("usde_band_full_bytes_are_pinned_at_1_1_0", () => {
   const grid = [0, 1e-12, 1e-6, 0.0000416, 0.0001, 0.00123, -0.0003, 0.1, 1, 12345.678, 3e-4, 7.5e-5];
   const replay = grid.map((yhat) => JSON.stringify(runGate(pred(USDE, yhat, USDE_STABLE_RUN_PREDICTOR_ID), { ...PARAMS, tool: "t" }))).join("\n");
@@ -177,7 +177,7 @@ test("usde_band_full_bytes_are_pinned_at_1_1_0", () => {
 // passes the consistency guard (no attested_inconsistent) and meets the retirement (400 task_class_retired), through the
 // registry run(). No served class has a committed subject, so the residual seam is not reached on the served surface
 // (dormant chain, ADR-CM amendment "nuit, 3"). The witness pin stays; the registry still threads env.attested.
-// killer: apps/harness/src/tools/gate.ts:927 CONST "\"task_class_retired\"" -> "\"task_class_unknown\""
+// killer: apps/harness/src/tools/gate.ts:966 CONST "\"task_class_retired\"" -> "\"task_class_unknown\""
 test("attested_concordant_meets_the_btc_dir_retirement", () => {
   const gateTool = HARNESS_TOOLS.find((t) => t.name === "gate");
   assert.ok(gateTool, "the gate tool is registered");

@@ -55,7 +55,7 @@ export interface HarnessToolDescriptor {
 }
 
 /** What an entry point injects into a tool run (ADR-CM B-4): the current instant, read in src/, never under src/tools/. */
-export type ToolRunContext = RunGateOptions;
+export type ToolRunContext = Pick<RunGateOptions, "nowMs">;
 
 /** The tools registered by THIS lot's cumulative state (H1: `gate`; H2: `cascade`; H3: `attest`; C1:
  *  `calibrate` — the terminal set {attest,gate,cascade,calibrate}, ADR-M007). */

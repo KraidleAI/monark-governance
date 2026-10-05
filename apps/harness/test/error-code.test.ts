@@ -135,7 +135,7 @@ function callArgs(src: string, open: number): string[] {
 }
 
 // Test E-2 (F2P): every `new HarnessToolError(` in apps/harness/src names a code; a literal code is in the list.
-// killer: apps/harness/src/tools/gate.ts:316 CONST "\"param_invalid\");" -> ");"
+// killer: apps/harness/src/tools/gate.ts:353 CONST "\"param_invalid\");" -> ");"
 test("every_harness_tool_error_names_a_code", () => {
   const SRC = fileURLToPath(new URL("../src", import.meta.url));
   const walk = (dir: string): string[] =>
@@ -162,7 +162,7 @@ test("every_harness_tool_error_names_a_code", () => {
 // the gate speaks and the specification repository, on the thrown error and on the HTTP 400 body. Exact text: MONARK's dated
 // line (10) of the ADR-CM (0fcc18f2), "the gate" and not "the harness" (lot CM-3c-4a). The specification URL stays pinned
 // by the same literal (its former killer, "; specification: ..." -> "", is drawn by hand).
-// killer: apps/harness/src/tools/gate.ts:865 CONST "the gate speaks" -> "the harness speaks"
+// killer: apps/harness/src/tools/gate.ts:902 CONST "the gate speaks" -> "the harness speaks"
 test("schema_version_refusal_names_the_spoken_version_and_the_spec_repository", async () => {
   const text = "unsupported prediction.schema_version '1.0.0': the gate speaks '1.1.0'; specification: https://github.com/KraidleAI/monark-kata-spec";
   assert.equal(SCHEMA_VERSION, "1.1.0");
@@ -174,7 +174,7 @@ test("schema_version_refusal_names_the_spoken_version_and_the_spec_repository", 
 });
 
 // Test E-3 (F2P): each refusal path of runGate carries its code; the four liq messages stay byte-identical.
-// killer: apps/harness/src/tools/gate.ts:797 CONST "code: \"byo_reserved_kata\"" -> "code: \"byo_lookalike_committed\""
+// killer: apps/harness/src/tools/gate.ts:834 CONST "code: \"byo_reserved_kata\"" -> "code: \"byo_lookalike_committed\""
 test("gate_refusals_carry_their_code", () => {
   const cases: [string, () => unknown, string][] = [
     ["nMin 0", () => runGate(pred("btc-dir-15m", "up"), { ...PARAMS, nMin: 0 }), "param_invalid"],

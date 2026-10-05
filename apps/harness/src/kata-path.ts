@@ -1,11 +1,11 @@
 /**
- * The pure kata path of contract 1.1.0, not served (lot CM-4b-a; docs/G0-lot-cm-4b.md; spec sections 9 and 11; plan r3
- * section 5.4; delegated decision CM-4b C-1 to C-11). The kata request contract, the served table files built in
- * process, and the cell lookup with the fields of a kata verdict. No served module imports this file before block D
- * (test kata_path_is_not_served). It uses the exports of tools/gate.ts at call time only, never while loading, so
- * gate.ts can import it in block D. The verdict fields stay in a local type until block C adds them to CoverageVerdict.
+ * The kata path of contract 1.1.0 (lot CM-4b-a, pure; served since block D, lot D-2: docs/G0-bloc-d.md; spec sections 9
+ * and 11; plan r3 section 5.4; delegated decision CM-4b C-1 to C-11). The kata request contract, the served table files
+ * built in process, the cell lookup with the fields of a kata verdict, and the verdict itself, assembled here from the
+ * row's fields (Q-D9: the harness holds no kata scores). tools/gate.ts imports this file (test kata_path_is_served); this
+ * file uses the exports of tools/gate.ts at call time only, never while loading, so the import cycle is safe.
  */
-import { sha256Canonical, type ClassEntry, type PolicyTable, type Prediction } from "@monark/contracts";
+import { sha256Canonical, type ClassEntry, type CoverageReason, type CoverageVerdict, type PolicyTable, type Prediction, type PredictionRegion } from "@monark/contracts";
 export type { ServedTable, ServedTableTexts };
 import { bandEdge } from "@monark/hikae";
 import { kataClassEntries, kataKeyProblem } from "./policy-classes.ts";
@@ -14,22 +14,18 @@ import type { ServedTable, ServedTableTexts } from "./policy-served.ts";
 import { buildPolicyTable, policyTableSha256 } from "./policy-table-file.ts";
 import { HarnessToolError, PRODUCED_AT_FUTURE_TOLERANCE_MS, rfc3339Instant, type HarnessErrorCode, type HarnessParams } from "./tools/gate.ts";
 
-/** The reasons a kata verdict can carry (spec section 6); block C checks KATA_REASONS within COVERAGE_REASONS, block D drops it. */
-export const KATA_REASONS = ["covered", "set_too_large", "non_evaluable", "under_calib", "calib_silence", "calib_vetoed", "calib_retired", "out_of_support", "region_degenerate"] as const;
-export type KataReason = (typeof KATA_REASONS)[number];
-export type KataRegion = { readonly kind: "set"; readonly labels: readonly string[]; readonly label_schema: string } | { readonly kind: "interval"; readonly lo: number; readonly hi: number };
 
 /** The fields of a kata verdict (spec section 5) that the class's table file determines. */
 export interface KataVerdictFields {
   readonly method: "risk-control" | "split";
   readonly alpha: number;
   readonly n_calib: number;
-  readonly region: KataRegion | null;
+  readonly region: PredictionRegion | null;
   readonly qhat: number | null;
   readonly qhat_unit: ClassEntry["qhat_unit"];
   readonly scale: number | null;
   readonly abstain: boolean;
-  readonly reason: KataReason;
+  readonly reason: CoverageReason;
   readonly scores_sha256: string;
   readonly cell_key: string;
   readonly policy_row_sha256: string | null;
@@ -39,7 +35,7 @@ export interface KataVerdictFields {
 const refuse = (code: HarnessErrorCode, what: string): never => {
   throw new HarnessToolError(`${what} (contract 1.1.0, spec section 9)`, code);
 };
-const CALIB_REASONS: Partial<Record<string, KataReason>> = { silence: "calib_silence", vetoed: "calib_vetoed", retired: "calib_retired" };
+const CALIB_REASONS: Partial<Record<string, CoverageReason>> = { silence: "calib_silence", vetoed: "calib_vetoed", retired: "calib_retired" };
 const TIME_FIELDS = /[Tt]\d{2}:\d{2}:(\d{2})(?:\.(\d+))?(?:[Zz]|[+-]\d{2}:\d{2})$/;
 
 /** produced_at on a kata class, after the grammar and future checks: the grid on the string's fields (seconds 00, every
@@ -105,6 +101,15 @@ export function kataVerdictFields(table: PolicyTable, p: Prediction, tau: number
 export function kataPath(p: Prediction, params: HarnessParams, table: PolicyTable, nowMs?: number): KataVerdictFields {
   assertKataRequest(p, params, table.class, nowMs);
   return kataVerdictFields(table, p, params.tau);
+}
+
+/** The served kata verdict (block D, Q-D9): the cell's fields, with the request's class and produced_at, no residual. */
+export function kataVerdict(f: KataVerdictFields, p: Prediction, schemaVersion: string): CoverageVerdict {
+  return {
+    schema_version: schemaVersion, task_class: p.task_class, method: f.method, alpha: f.alpha, n_calib: f.n_calib, region: f.region, qhat: f.qhat, qhat_unit: f.qhat_unit,
+    scale: f.scale, abstain: f.abstain, reason: f.reason, residual: [], scores_sha256: f.scores_sha256, cell_key: f.cell_key, policy_row_sha256: f.policy_row_sha256,
+    policy_table_sha256: f.policy_table_sha256, produced_at: p.produced_at,
+  };
 }
 
 /** The served table files (C-10), built in process: the 32 wave 1 kata classes with no row (B-9), then the three marginal

@@ -262,7 +262,7 @@ test("calibrate_tool_name_is_calibrate", () => {
 
 // B-12 (ADR-CM): BYO and calibrate serve the exact split rank of String(alpha): (24; 0.44) -> rank 14 where the float rank
 // gave 15, the same q-hat in both answers (the audit loop). Second killer fired by hand: calibrate.ts:166, the float rank.
-// killer: apps/harness/src/tools/gate.ts:454 CONST "splitQuantileShortest(cal.scores, params.alpha, params.nMin)" -> "splitQuantile(cal.scores, params.alpha, params.nMin)"
+// killer: apps/harness/src/tools/gate.ts:491 CONST "splitQuantileShortest(cal.scores, params.alpha, params.nMin)" -> "splitQuantile(cal.scores, params.alpha, params.nMin)"
 test("gate_byo_and_calibrate_use_the_exact_rank", () => {
   const scores = Array.from({ length: 24 }, (_, i) => 24 - i);
   const params = { remainingBudget: 0.1, bFloor: 0, tau: 1, tauInterval: 100, alpha: 0.44, nMin: 5, intent: 0, tool: "t", clockOpen: true, calibration: { scores, mode: "interval" as const } };
