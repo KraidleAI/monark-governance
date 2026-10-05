@@ -566,13 +566,19 @@ Tronc `lot/etude-suite`. Dernier oracle complet : 1 779 tests, dont 1 776 verts,
     `/openapi.json`. Porteur : RECHERCHES ; déclencheur : avant la NOTICE de T−7 (le contrat publié doit dire vrai) ; état : fermé le
     2026-10-05 dans la base (#168 `a8ae38c0`) ; arrive au tronc à T0, avec la base.
   - SCHEMA-PROJECTION-FAIL-CLOSED-1 (N-2 de la même G2) : `inlineDefs` perd les mots-clés voisins d un `$ref` et boucle sur une
-    définition récursive ; la projection doit échouer fermé. Porteur : RECHERCHES ; déclencheur : avant T0 ; état : PR #180 vers
-    la base (tête `eac3b03e`, G2 neuve pliée N-1 à N-6, dont DEREF-VERDICT-FAIL-CLOSED-1 ; aucun octet servi ne bouge, OpenAPI `61c9df97…`).
+    définition récursive ; la projection doit échouer fermé. Porteur : RECHERCHES ; déclencheur : avant T0 ; état : fusionné le
+    2026-10-05 dans la base (#180 `45e5c8df`, oracle Windows 2 679 tests, 0 échec ; tête du lot `eac3b03e`, G2 neuve pliée N-1 à N-6, dont DEREF-VERDICT-FAIL-CLOSED-1 ; aucun octet servi ne bouge, OpenAPI `61c9df97…`).
     Restes au G7 du lot : DYNAMIC-ELSEWHERE-1, NESTED-ID-ELSEWHERE-1, DEFINITIONS-KEYWORD-1, UNKNOWN-KEYWORD-OBJECTS-1 (défaut : laisser).
   - RELEASE-PREFLIGHT-SEND-GUARD-1 (Q-CPA-1 de C' 3c-4a) : `release-public` refuse dès son pré-vol, avant les portes locales, tant
     qu un instantané en attente existe (la garde de l export reste l autorité). Porteur : RECHERCHES ; déclencheur : avant T0 ; état :
     PR #181 vers la base (tête `d87c808c`, G2 neuve pliée N-1 à N-5). Reste pour MONARK : RPG-RUNBOOK-1, `docs/RUNBOOK-vitrine.md:34-35`
-    dit encore que le refus tombe après les portes complètes (~15 min) ; après fusion, il tombe au pré-vol.
+    dit encore que le refus tombe après les portes complètes (~15 min) ; après fusion, il tombe au pré-vol. Fusionnée le 2026-10-05
+    (base `ec0e023d`, oracle Windows 2 680 tests, 0 échec) : fermé.
+  - RPG-FLOW-DECLARED-KILLERS-1 (reste de la G2 de RELEASE-PREFLIGHT-SEND-GUARD-1, hors du chemin de T0) : le test de flux
+    `release_public_flow` ne déclare qu un tueur (`release-public.mjs:211`, export refusé) ; le refus au pré-vol (`:175`) et la ligne
+    RELEASE ABORTED d une liste d exclusion illisible (`:112`) ne sont tués qu à la main. Options : (a) scinder le test de flux en un
+    banc partagé et trois tests, un tueur déclaré chacun (environ 40 lignes de test) ; (b) laisser, tirs à la main consignés au G7.
+    Porteur : RECHERCHES ; déclencheur : le prochain lot qui touche `scripts/release-public.mjs` ; état : ouvert.
   - R25-JSON-STRING-CODE-1, R25-TOOL-RUN-JSON-1, R25-LINE-CAP-2000-1, R25-WIN32-CONTROL-PATH-1 (restes de la G2 de R25-MINIFIED-LINE-1,
     #173 `e4aac057`, refus `long-line` au-delà de 2 000 octets, exemption JSON fermée) : du code dans une chaîne d un `.json` exempté ;
     les JSON lus par un outil (liste fermée par nom) ; le seuil de 2 000 octets ; les chemins win32 à caractère de contrôle. Options et prix
