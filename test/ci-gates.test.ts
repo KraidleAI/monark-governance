@@ -1907,6 +1907,8 @@ test("ci_workflow_declares_least_privilege_permissions - root contents: read aft
     "job block write-all": edit(jobAt, 4, "    permissions: write-all"),
     "job block moved to g1": (() => { const c = edit(jobAt, 4); c.splice(g1At + 1, 0, ...blk); return c; })(),
     "second job block on g3": edit(g3At + 1, 0, ...blk),
+    "escaped double-quoted key on g3": edit(g3At + 1, 0, '    "perm\\x69ssions": {contents: "wr\\x69te"}'),
+    "explicit ? key on g3": edit(g3At + 1, 0, "    ? permissions", "    : read-all"),
   };
   for (const [name, m] of Object.entries(mutants)) assert.ok(problems(m).length > 0, `mutant "${name}" must be refused`);
   const derived = derivePublicWorkflow(WF).split(/\r?\n/);
