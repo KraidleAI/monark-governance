@@ -275,6 +275,16 @@ test("kata_clause_reads_its_names_and_tau_cap", () => {
   assert.equal((classes as Obj)["KATA_DIR_TAU_CAP"], 1, "the cap of dir classes");
 });
 
+// G2 N-2 of D-3: the product check of the kata clause compares sets, not counts: a duplicate class in place of another (32
+// entries, eth-dir-1h twice, no btc-dir-1h) is refused, never rendered as the full product.
+// killer: apps/harness/src/tools/gate.ts:230 CONST "new Set(entries.map((e) => e.task_class)).size !== entries.length || " -> ""
+test("kata_clause_refuses_duplicate_classes", () => {
+  const render = (gate as Obj)["kataClause"] as (entries?: readonly ClassEntry[]) => string;
+  const all = kataClassEntries(() => "");
+  const twin = all.find((e) => e.task_class === "eth-dir-1h") ?? assert.fail("eth-dir-1h");
+  assert.throws(() => render(all.map((e) => (e.task_class === "btc-dir-1h" ? twin : e))), /not the product/);
+});
+
 // Test (block D, lot D-3; G2 N-3 of D-2): the cycle gate.ts <-> kata-path.ts loads cold from either side. Each module is
 // imported first in a fresh child process: kata-path.ts (the risky side: gate.ts then runs first and calls servedPolicyTables
 // while it loads), then server.ts; both load and serve the 35 tables. This file loads gate.ts first, so its own load holds

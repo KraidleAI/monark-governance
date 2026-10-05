@@ -19,7 +19,8 @@ import { runGate, HarnessToolError, type HarnessParams } from "../src/tools/gate
 import { SCHEMA_VERSION } from "../src/tools/gate.ts";
 import { handleJsonMirror } from "../src/http.ts";
 import { createHarnessHandler } from "../src/server.ts";
-import { HARNESS_TOOLS } from "../src/tools/registry.ts";
+import { HARNESS_TOOLS, REGISTERED_TOOL_NAMES } from "../src/tools/registry.ts";
+import { ATTEST_INPUT_SCHEMA } from "../src/schema-projection.ts";
 import { projectShogen } from "../src/tools/attest.ts";
 import { SHOGEN_LOT_BYTES, SHOGEN_VERDICT_TEXT, SHOGEN_CONSTAT } from "../src/shogen-fixture.ts";
 import { USDE_STABLE_RUN_PREDICTOR_ID } from "../src/calibration.ts";
@@ -406,4 +407,12 @@ test("every_code_but_output_invalid_is_thrown_by_a_served_request", async () => 
     const r = await mcp(path.slice(1), JSON.parse(body));
     assert.deepEqual([r["isError"], r["_meta"]], [true, { "monarkgate.tech/error_code": code }], `${code}: MCP`);
   }
+});
+
+// G2 N-1 of D-3: the reasons of NO_SERVED_REQUEST are facts the test checks, so an exemption reddens when its reason falls (at
+// U-5b, ukemi-predict is registered and its code needs a served request in T-15). Green at its base (declared; killer by hand).
+// killer: apps/harness/src/schema-projection.ts:266 CONST "additionalProperties: false" -> "additionalProperties: true"
+test("no_served_request_reasons_hold", () => {
+  assert.ok(!REGISTERED_TOOL_NAMES.includes("ukemi-predict"), "ukemi-predict is not registered");
+  assert.deepEqual([ATTEST_INPUT_SCHEMA["properties"], ATTEST_INPUT_SCHEMA["additionalProperties"]], [{}, false], "attest takes no input");
 });
