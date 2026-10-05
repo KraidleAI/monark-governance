@@ -5,7 +5,7 @@
 - **Relecture delta pliée** : `G2-r25-integration-rule-1-delta.md` (G2 neuve de RECHERCHES, pièce de coordination du 2026-10-04), verdict APPROUVE SOUS RÉSERVE, un nouveau bloquant B-4, trois mineurs m-a à m-c et une observation hors lot O-1. Tous sont pliés dans 1a, puis 1a est fusionnée dans 1b (section 10).
 - **Découpe** : le lot plié mesure 619 lignes R-25 (borne du lot 547). Il est coupé selon le G0 (section 9) :
   - **1a** `recherches/r25-integration-rule-1a`, depuis le tronc : G0 `bbf6582c` (repris tel quel de `94de83b8`), tests rouges `4d7d2b75`, gel `11e45dac`, docs `99edbc33` ; **pli delta** : tests rouges `fc1dd1c8`, gel `2e23d9fc`, docs (ce G7 et le G0, commit suivant) ;
-  - **1b** `recherches/r25-integration-rule-1b`, depuis la tête de 1a `99edbc33` : tests rouges `a0bcc3c0`, gel `0b0c96ac`, docs `0778c31b` ; **pli delta** : 1a (`c640558c`) fusionnée dans 1b par un commit de fusion, puis tests rouges, gel et docs de 1b (section 6.2).
+  - **1b** `recherches/r25-integration-rule-1b`, depuis la tête de 1a `99edbc33` : tests rouges `a0bcc3c0`, gel `0b0c96ac`, docs `0778c31b` ; **pli delta** : 1a (`c640558c`) fusionnée dans 1b par le commit de fusion `b2c31e26` (aucun rebase, aucune poussée forcée), puis test rouge `abb65057`, gel `a3992699`, docs (section 6.2, commit suivant).
 - **Branche d origine** `recherches/r25-integration-rule-1` (tête `2475e8e5`, celle relue par la G2) : laissée telle quelle, remplacée par 1a puis 1b. Le G7 d origine y reste lisible ; celui-ci le remplace.
 - **Statut** : gel complet des deux lots. Aucune PR ouverte. Deux PR écrites vers le tronc, 1a puis 1b (E-7). La règle ne vit qu après la fusion de 1b.
 
@@ -18,11 +18,11 @@
 | 1a | `test/r25-integration.test.ts` (neuf) | T-1 à T-9 (T-4 sur les comptes du module), B-1, B-2, `buildProof` (m-1, m-3) ; pli delta : B-4, m-a, m-c | 320 |
 | | **Total 1a** (contre le tronc) | | **513** |
 | 1b | `.github/workflows/ci.yml` | job `r25-taille-de-lot` seul : jeton, ligne `proof`, ligne `count` (cible lue dans `$GITHUB_BASE_REF`), repli, deux gardes `case` (la seconde borne la longueur), réassignation, mode | 19 |
-| 1b | `scripts/oracle/r25.mjs` | `r25(clone, ciText, base, proofFile)` exécute **le module de l oracle**, seulement si le clone porte les mêmes octets | 26 |
+| 1b | `scripts/oracle/r25.mjs` | `r25(clone, ciText, base, proofFile)` exécute **le module de l oracle**, seulement si le clone porte les mêmes octets ; `W` sans attributs utilisateur (pli delta m-a) | 28 |
 | 1b | `scripts/oracle/run.mjs` | `--r25-proof`, part `r25_proof` de la clé D4, module dans la part `script`, champs `r25_mode` et `r25_proof` | 16 |
-| 1b | `test/r25-integration.test.ts` | T-10 (parité CI / oracle), test B-3, T-4 repassé par le `r25()` de l oracle (sous une configuration git hostile) | 100 |
+| 1b | `test/r25-integration.test.ts` | T-10 (parité CI / oracle), test B-3, T-4 repassé par le `r25()` de l oracle (sous une configuration git hostile, et sous un fichier d attributs utilisateur `* -diff`, pli delta m-a) | 102 |
 | 1b | `test/oracle-run.test.ts`, `test/ci-gates.test.ts` | T-11 (et la part `script` de la clé), test de câblage (m-4, m-5) ; tueurs ré-ancrés | 26 + 35 |
-| | **Total 1b** (contre la tête de 1a `99edbc33`, avant le pli delta ; voir 6.2) | | **222** |
+| | **Total 1b** (contre la tête de 1a `c640558c` ; 1a + 1b contre le tronc : 715) | | **226** |
 
 Mesure : `r25()` **du tronc** (`git show ab8084fb:scripts/oracle/r25.mjs`), pathspec CODE de `ci.yml`, docs hors pathspec. 1a au gel `11e45dac` : 421. **1a au gel delta `2e23d9fc`** : `STAT 513 insertions, 0 deletions, changed 513` ; `CONTENT_STAT 0` ; GREEN, sous 547.
 
@@ -114,7 +114,18 @@ Le juge pris sur la cible en CI (Q-9) fermerait R-1 ; il reste une suite possibl
 
 ### 6.2 Lot 1b
 
-Gel `0b0c96ac`, mêmes outils.
+**Pli delta** (gel `a3992699`, après la fusion `b2c31e26` de 1a, mêmes outils, `TMPDIR=/tmp/r25f2-1`) :
+
+- **R-25** (`r25()` du tronc) : contre la tête de 1a `c640558c`, `STAT 199 insertions, 27 deletions, changed 226`, `CONTENT_STAT 0`, GREEN, sous 547. 1a + 1b contre le tronc : 715 (700 + / 15 −).
+- **red-proof** : `node scripts/red-proof.mjs --base c640558c --gel a3992699 --repo <worktree> --draw 12 --seed 37` -> **OK** : 5 tests jugés, 62 inchangés, **5 tueurs tirés, 5 tués**. `RED-PROOF.json` sha256 `189670ca9bd9f6ad164212395032e63b731b5ccfe664ec1e9c5f7abc1c02a313`, digest `afe81f25f7bb2d732dc61b79e140ed695a77f134ebdc30aaeeb8ab5ec79c8064`.
+- **Rouge du pli 1b** : au commit de test `abb65057` (sans le gel), T-4 par l oracle échoue par assertion sous le fichier d attributs utilisateur (`W` tombe à 0).
+- **Tueurs à la main** : les 38 tueurs des trois fichiers du lot (`r25-integration`, `ci-gates`, `oracle-run`), dont le neuf `scripts/oracle/r25.mjs:27` (m-a) : **38 tués sur 38**.
+- **Ancres** : `--touched ab8084fb HEAD` et `--touched c640558c HEAD` : 61 tueurs, 59 ANCRE, 2 PERDU, les deux déjà PERDU au tronc (`oracle-run.test.ts:129`, `:182`).
+- **npm test** complet depuis le worktree, au gel `a3992699` (proxy retiré) : **2 320 tests, 2 298 verts, 0 rouge, 0 annulé, 22 sautés**, exit 0.
+- `r25-integration`, `ci-gates`, `oracle-run` : 67/67 ; `tsc --noEmit` 0 ; `npm run lint` 0 ; `lint:ratchet` OK ; `gate:vocab` OK ; `lang:gate` OK ; `export:check` OK.
+- Le module de 1b est octet pour octet celui de 1a (`c640558c`) : les mesures réelles de la section 4 valent pour 1b.
+
+**Premier pli** (gel `0b0c96ac`) :
 
 - **R-25** (`r25()` du tronc) : contre la tête de 1a `99edbc33`, `STAT 196 insertions, 26 deletions, changed 222`, `CONTENT_STAT 0`, GREEN, sous 547. Après la fusion de 1a, la PR de 1b mesure ces 222 lignes contre le tronc.
 - **red-proof** : `node scripts/red-proof.mjs --base 99edbc33 --gel 0b0c96ac --repo <worktree> --draw 12 --seed 37` -> **OK** : 5 tests jugés, tous F2P (test de câblage, T-11, T-4 par l oracle, test B-3, T-10), 59 inchangés, **5 tueurs tirés (toute la population), 5 tués**. `RED-PROOF.json` sha256 `de4ee0b37cd30b883656b51622b63707b8b2b1a38d18ee78684dab7ff67e559e`.
