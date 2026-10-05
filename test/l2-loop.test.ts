@@ -634,12 +634,25 @@ test("l2_seal_apart_io_refused", { skip: APART }, async () => {
 });
 
 // killer: scripts/l2/seal.mjs:60 CONST "child?.kill(\"SIGKILL\")" -> "0"
-test("l2_seal_apart_child_killed", { skip: APART }, async () => {
+test("l2_seal_apart_child_killed", { skip: APART || (process.platform === "win32" ? "no FIFO on win32" : false) }, async () => {
   // r-3 (M4) of the G2 delta of c5-bis-a: past the deadline or on abort the child is dead, not left to seal: no day sealed after a seal's time.
-  const m = await seal(), [a, b] = [fresh(), fresh()], ac = new AbortController();
+  // L2-SEAL-APART-FLAKE-1: each journal.jsonl a FIFO no one writes holds its child before its first write, so a deadline that fires late (a
+  // parent held past the child's whole seal) never lets it seal first; 3 s after both calls end a writer finds no reader there (ENXIO): the
+  // child gone. L2-SEAL-APART-TRUNK-PORT-1: sealApart resolves on the child's close (n-12), so a live child (killer) would hold both calls:
+  // their wait is bounded ("pending" past 10 s) and the finally opens and closes each FIFO, the child reading EOF: red in bounded time, no orphan.
+  const m = await seal(), [a, b] = [fresh(), fresh()], ac = new AbortController(), fifo = (o: string): string => join(o, "journal.jsonl");
   await day(a); await day(b);
-  const ends = [m.sealApart(specOf(a), { timeoutMs: 1 }), m.sealApart(specOf(b), { signal: ac.signal })], slept = new Promise((r) => { ac.abort(); setTimeout(r, 3_000); });
-  assert.deepEqual([...(await Promise.all(ends)).map((r) => r.sealed), await slept, ...[a, b].map((o) => existsSync(join(dayDir(o), "SHA256SUMS")))], [false, false, undefined, false, false]);
+  for (const o of [a, b]) assert.equal(spawnSync("mkfifo", [fifo(o)]).status, 0);
+  const reader = (o: string): unknown => codeOf(() => { closeSync(openSync(fifo(o), constants.O_WRONLY | constants.O_NONBLOCK)); return "a reader"; });
+  const ends = Promise.all([m.sealApart(specOf(a), { timeoutMs: 1 }), m.sealApart(specOf(b), { signal: ac.signal })]);
+  let bound: ReturnType<typeof setTimeout> | undefined;
+  ac.abort();
+  try {
+    const sealed = await Promise.race([ends.then((rs) => rs.map((r) => r.sealed)), new Promise<unknown[]>((r) => { bound = setTimeout(r, 10_000, ["pending", "pending"]); })]);
+    const slept = await new Promise((r) => { setTimeout(r, 3_000); });
+    assert.deepEqual([...sealed, slept, ...[a, b].map(reader), ...[a, b].map((o) => existsSync(join(dayDir(o), "SHA256SUMS")))],
+      [false, false, undefined, "ENXIO", "ENXIO", false, false]);
+  } finally { clearTimeout(bound); for (const o of [a, b]) reader(o); }
 });
 
 // killer: scripts/record-binance-l2.mjs:257 CONST ".sort()" -> ""
