@@ -17,7 +17,7 @@
 // logs none and names why, from the closed list TLS_NOTES (fail closed: never a fingerprint in doubt). The requests of a client are
 // chained. A stop carries an error code or name, never an error message (no address).
 // Test seam: createRest(io) takes fetch, the wall clock in microseconds, the output directory and, for a loopback TLS test only, the
-// TLS name and port of the place's own connection (io.peer, servername localhost only, else host_refused; PEER otherwise) from its caller.
+// TLS name and port of the place's own connection (io.peer, servername localhost only, else host_refused; PEER otherwise) from its caller, and the loop's signal (io.signal, c5-bis-c): once aborted, no request starts, an answer in flight writes nothing (stopped).
 import { createHash } from "node:crypto";
 import { subscribe, unsubscribe } from "node:diagnostics_channel";
 import { appendFileSync, mkdirSync, writeFileSync } from "node:fs";
@@ -112,7 +112,7 @@ export function createRest(io) {
     return `${dir}/${name}`;
   });
   async function once(kind, symbol) {
-    if (state.stopped) stop("stopped", { kind, symbol });
+    if (state.stopped || io.signal?.aborted) stop("stopped", { kind, symbol });
     const url = guardUrl(urlOf(kind, symbol)), sentUs = io.nowUs();
     if (sentUs < state.suspendedUntilUs) stop("suspended", { kind, symbol, until_us: state.suspendedUntilUs });
     let res, got, failed = null;
@@ -120,13 +120,13 @@ export function createRest(io) {
     const w = { own: 0, foreign: 0, plain: 0, fp: null, resumed: false };
     state.w = w;
     try {
-      res = await io.fetch(url, { redirect: "manual", signal: AbortSignal.timeout(TIMEOUT_MS) });
+      res = await io.fetch(url, { redirect: "manual", signal: AbortSignal.any([AbortSignal.timeout(TIMEOUT_MS), ...(io.signal ? [io.signal] : [])]) });
     } catch (e) {
-      stop("network_error", { url, error: errorName(e) });
+      if (io.signal?.aborted) stop("stopped", { kind, symbol }); stop("network_error", { url, error: errorName(e) }); // m-2 of the G2 of c5-bis-c: an aborted fetch is no network error
     } finally {
       state.w = null;
     }
-    try { got = await boundedBody(res, seen); } catch (e) { failed = errorName(e); got = { over: true, bytes: seen.n }; }
+    try { got = await boundedBody(res, seen); } catch (e) { failed = errorName(e); got = { over: true, bytes: seen.n }; } if (io.signal?.aborted) stop("stopped", { kind, symbol });
     const receivedUs = io.nowUs(), header = (name) => res.headers.get(name), status = res.status, limited = status === 429 || status === 418;
     const ra = header("retry-after"), readable = /^[0-9]+$/.test(ra ?? ""), s = readable ? Number(ra) : RETRY_AFTER_DEFAULT_S;
     const halted = status === 451 ? "restricted_location" : !limited ? null : status === 418 && !readable ? "ip_banned_no_retry_after"

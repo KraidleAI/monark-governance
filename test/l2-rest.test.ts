@@ -290,3 +290,59 @@ test("l2_rest_failures_named_without_address_and_symbols_closed", async () => {
   assert.equal((await stopOf(fixed.request("time", null))).code, "disk_error", "an existing file is never overwritten");
   for (const x of [c, gone, fixed]) x.close();
 });
+
+// killer: scripts/l2/rest.mjs:129 CONST "} if (io.signal?.aborted) stop(" -> "} if (false) stop("
+test("l2_rest_aborted_writes_nothing", async () => {
+  // r-2 of the G2 delta of c5-bis-b (lot c5-bis-c): the loop's signal aborted while a request is in flight: its late answer writes neither
+  // requests.jsonl nor rest/, the request stops (stopped); a request asked after it never reaches fetch.
+  const R = await load(), out = tmp(), ac = new AbortController(), sent: string[] = [], signals: (AbortSignal | null | undefined)[] = [];
+  let answer = (): void => undefined;
+  const fetch = (url: string, init: RequestInit): Promise<Response> => { sent.push(url); signals.push(init.signal); return sent.length > 1 ? Promise.resolve(new Response("{}")) : new Promise((r) => { answer = () => { r(new Response("{}")); }; }); };
+  const c = R.createRest({ fetch, nowUs: () => T0, out, signal: ac.signal }), a = code(c.request("time", null)), b = code(c.request("depth", "BTCUSDT"));
+  await new Promise((r) => setTimeout(r, 5));
+  ac.abort();
+  answer();
+  assert.deepEqual([await a, await b, sent.length, readdirSync(out), signals[0]?.aborted], ["stopped", "stopped", 1, [], true], "the fetch aborted too");
+});
+
+/** A fetch that honours its signal (as the embedded client does: an AbortError) and never answers otherwise; the signals it got. */
+const abortable = (signals: (AbortSignal | null | undefined)[]) => (_url: string, init: RequestInit): Promise<Response> => new Promise((_, no) => {
+  signals.push(init.signal);
+  const why = (): Error => init.signal?.reason as Error;
+  if (init.signal?.aborted) no(why()); else init.signal?.addEventListener("abort", () => { no(why()); });
+});
+
+// killer: scripts/l2/rest.mjs:125 CONST "if (io.signal?.aborted) stop(\"stopped\", { kind, symbol }); stop(\"network_error\"" -> "stop(\"network_error\""
+test("l2_rest_aborted_fetch_named", async () => {
+  // m-2 of the G2 of c5-bis-c: a fetch aborted by the loop's signal stops the request as stopped, never network_error.
+  const R = await load(), out = tmp(), ac = new AbortController(), c = R.createRest({ fetch: abortable([]), nowUs: () => T0, out, signal: ac.signal });
+  const a = code(c.request("time", null));
+  await new Promise((r) => setTimeout(r, 5));
+  ac.abort();
+  assert.deepEqual([await Promise.race([a, new Promise((r) => { setTimeout(() => { r("pending"); }, 1_000); })]), readdirSync(out)], ["stopped", []]);
+});
+
+// killer: scripts/l2/rest.mjs:123 CONST "AbortSignal.timeout(TIMEOUT_MS), " -> ""
+test("l2_rest_fetch_deadline", async () => {
+  // m-3 of the G2 of c5-bis-c: the fetch's signal holds its 30 s deadline beside the loop's: a place that never answers ends at it.
+  const R = await load(), out = tmp(), real = Object.getOwnPropertyDescriptor(AbortSignal, "timeout")!, asked: number[] = [], signals: (AbortSignal | null | undefined)[] = [];
+  AbortSignal.timeout = (ms: number): AbortSignal => { asked.push(ms); return AbortSignal.abort(new DOMException("deadline", "TimeoutError")); };
+  try {
+    const c = R.createRest({ fetch: abortable(signals), nowUs: () => T0, out, signal: new AbortController().signal });
+    const ended = Promise.race([code(c.request("time", null)), new Promise((r) => { setTimeout(() => { r("pending"); }, 1_000); })]);
+    assert.deepEqual([await ended, asked, signals[0]?.aborted], ["network_error", [R.TIMEOUT_MS], true]);
+  } finally { Object.defineProperty(AbortSignal, "timeout", real); }
+});
+
+// killer: scripts/l2/rest.mjs:129 CONST "} if (io.signal?.aborted) stop(" -> "} if (false) stop("
+test("l2_rest_aborted_during_body", async () => {
+  // m-5 of the G2 of c5-bis-c: the loop's signal aborted while the body is read: nothing written, stopped.
+  const R = await load(), out = tmp(), ac = new AbortController();
+  let more = (): void => undefined;
+  const body = new ReadableStream<Uint8Array>({ start: (ctl) => { ctl.enqueue(new TextEncoder().encode("{")); more = () => { ctl.enqueue(new TextEncoder().encode("}")); ctl.close(); }; } });
+  const c = R.createRest({ fetch: () => Promise.resolve(new Response(body)), nowUs: () => T0, out, signal: ac.signal }), a = code(c.request("time", null));
+  await new Promise((r) => setTimeout(r, 5));
+  ac.abort();
+  more();
+  assert.deepEqual([await a, readdirSync(out)], ["stopped", []]);
+});
