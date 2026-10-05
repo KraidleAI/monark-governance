@@ -20,9 +20,9 @@
 // io) take the clocks, timers, fetch, the WebSocket factory, the environment, execArgv, the free space and print from their caller.
 // Exit 1 on a named stop (closed list STOPS), 2 on usage. The command runs when node starts this very file, compared by real paths
 // (MAIN-GUARD-REALPATH-1). adopt() (P1-c5) takes --out for the loop, markTails() (P1-c5-bis-a) marks tails at its start. The agent never commits (R-20).
-import { closeSync, constants, existsSync, fstatSync, lstatSync, mkdirSync, opendirSync, openSync, readdirSync, readFileSync, readSync, realpathSync, statfsSync, statSync, writeFileSync, writeSync } from "node:fs";
+import { closeSync, constants, existsSync, fstatSync, lstatSync, mkdirSync, opendirSync, openSync, readdirSync, readFileSync, readSync, realpathSync, rmSync, statfsSync, statSync, writeFileSync, writeSync } from "node:fs";
 import { dirname, join, resolve, win32 } from "node:path";
-import { fileURLToPath } from "node:url"; import { createBook } from "./l2/book.mjs"; import { dayOf, DAY_US, GRACE_US } from "./l2/day.mjs"; import { sealApart } from "./l2/seal.mjs";
+import { fileURLToPath } from "node:url"; import { createBook } from "./l2/book.mjs"; import { dayOf, DAY_US, GRACE_US } from "./l2/day.mjs"; import { SEAL_TIMEOUT_MS, sealApart } from "./l2/seal.mjs";
 import { marketUrl, openingGate, openLink, spotUrl, SYMBOLS } from "./l2/links.mjs"; import { checkTail, PERIOD_US, segmentOf } from "./l2/segments.mjs"; import { createRest, exchangeInfoFacts, logTimeOffset, RestStop } from "./l2/rest.mjs";
 
 export const STOPS = Object.freeze(["usage", "bad_quota", "bad_symbol", "bad_day", "proxy_refused", "env_refused", "out_not_l2",
@@ -288,7 +288,7 @@ export function calendar(fromUs, endUs, offsetUs = 0) {
 /** The recording loop once adopt and markTails passed (header): the REST client, the books and the links under adopt's root, the calendar;
  *  on a signal (io.signal) or a named stop, the clean stop: the links stopped, their writers awaited STOP_BOUND_MS at most (Q-8 of a3), the
  *  books and the REST client closed, a seal child awaited as long, then killed; one stopped line. */
-export async function record(plan, { real, at, check }, io) {
+export async function record(plan, { at, check }, io) {
   const { wallUs, monoNs } = io, setTimer = io.setTimer ?? setTimeout, clearTimer = io.clearTimer ?? clearTimeout, env = { ...(io.env ?? process.env) };
   const note = (event, fields, symbol = "ALL") => appendLine(join(at, "journal.jsonl"), { host_us: wallUs(), mono_ns: String(monoNs()), symbol, cid: null, event, ...fields });
   const rest = createRest({ fetch: io.fetch ?? globalThis.fetch, nowUs: wallUs, out: at }), facts = new Map(), due = new Set(), followed = new Map(), abort = new AbortController();
@@ -314,12 +314,18 @@ export async function record(plan, { real, at, check }, io) {
     return (existsSync(conn) ? readdirSync(conn) : []).flatMap((c) => readdirSync(join(conn, c)).filter((n) => n.endsWith(".frames")).map((n) => n.slice(0, -7))
       .filter((g) => g >= from && g <= to && [...links.values()].some((l) => !l.closed(c, g))).map((g) => `${c}/${g}`));
   };
-  const apart = (spec) => (io.seal ?? sealApart)({ ...spec, out: real }, { env, signal: abort.signal }); // the one call of the child (its root: the pinned real path)
+  const apart = (spec) => (io.seal ?? sealApart)({ ...spec, out: at }, { env, signal: abort.signal }); // the one call of the child (its root: adopt's, its fd 3)
   async function seals() { // one symbol at a time
     for (const key of [...due].sort()) {
       const [symbol, day] = key.split("/"), start = Date.parse(`${day}T00:00:00Z`) * 1000, f = facts.get(key);
-      if (finished) continue; // before the end of the day plus the grace, sealDay waits (wait: "grace")
-      const r = f === undefined ? { sealed: false, failed: { stop: "no_scale" } } : await apart({ symbol, day, nowUs: wallUs(), scale: f.scale, config: f, open: openIn(start) });
+      const lock = join(at, "days", symbol, `.${day}.seal.lock`); // n-4 of the G2 of c5-bis-a: one seal of a day at a time, an orphan child's too
+      if (finished || (existsSync(lock) && Date.now() - statSync(lock).mtimeMs < SEAL_TIMEOUT_MS)) continue; // sealDay waits for the grace itself
+      let r = { sealed: false, failed: { stop: "no_scale" } };
+      if (f !== undefined) {
+        mkdirSync(dirname(lock), { recursive: true });
+        writeFileSync(lock, String(process.pid));
+        try { r = await apart({ symbol, day, nowUs: wallUs(), scale: f.scale, config: f, open: openIn(start) }); } finally { rmSync(lock, { force: true }); }
+      }
       if (r.wait !== undefined) continue; // a segment still open: the next hour
       due.delete(key); // sealed, or failed and left to the replay (P1-c6), named
       note(r.sealed ? "day_sealed" : "seal_failed", r.sealed ? { day, frames: r.frames } : { day, ...r.failed }, symbol);
