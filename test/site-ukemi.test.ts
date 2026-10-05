@@ -723,6 +723,7 @@ test("site_ukemi_course_view_types_no_digit — the view module and the course p
   assert.ok(!/\bserved\b/.test(typed), "the page types no other 'served' claim");
 });
 
+// killer: scripts/sync-ukemi-served.mjs:244 CONST "return marked;" -> "return JSON.stringify({ ...JSON.parse(text), pending_since: day }, null, 2) + \"\\n\";"
 test("site_ukemi_served_state_bound_to_harness_registry — synced served state = repository registry; clause = gate module text; loader fails closed", async () => {
   const s = await pinTarget(ROOT);
   const committed = hasCommittedCalibrationForClass(TASK_LIQ_ELIGIBLE);
@@ -1282,12 +1283,13 @@ test("site_ukemi_prose_claims_conditional — 'calibrated' and 'coverage holds' 
 // record that answer green; once the committed file carries a verdict (W step 5), its body digest must be the committed
 // CA's gate_liq_call digest. M-3, the tie case (rank below n, largest-score flag true) states no served status. M-5, a
 // served n_calib + 1 or q-hat + 1 is refused by the sync.
+// killer: scripts/sync-ukemi-served.mjs:235 CONST "verdictFactsOf(await call(GATE_PATH, GATE_LIQ_BODY), facts.registry_state)" -> "JSON.parse(await call(GATE_PATH, GATE_LIQ_BODY)).structuredContent.verdict"
 test("site_ukemi_course_served_stratum_status_bound_to_served_verdict — the present-tense status of the committed stratum rides only on an agreeing dated served verdict", async () => {
   const { handleJsonMirror } = await import("../apps/harness/src/http.ts");
   const { startServer } = await import("../apps/harness/src/server.ts");
   const { execFile } = await import("node:child_process");
   const sync = await import("../scripts/sync-ukemi-served.mjs");
-  const { lookupCommittedCalibration, UKEMI_LIQ_PREDICTOR_BASE, USDE_STABLE_RUN_CALIB_DIGEST_PINNED } = await import("../apps/harness/src/calibration.ts");
+  const { USDE_STABLE_RUN_CALIB_DIGEST_PINNED } = await import("../apps/harness/src/calibration.ts");
   interface CaRecord { checks: Array<{ name: string; ok: boolean; sha256: string | null }> }
   const liqShaOf = (ca: CaRecord): string | null | undefined => ca.checks.find((k) => k.name === "gate_liq_call")?.sha256;
   const c = loadUkemiCourse(ROOT);
@@ -1587,6 +1589,7 @@ test("site_ukemi_committed_note_says_conformal_upper_bound — the committed-sta
   assert.ok(loadUkemiCourse(ROOT).unit.startsWith(BOUND_UNIT + " ("), "BOUND_UNIT is the report's unit label up to its decimal count (not rendered)");
 });
 
+// killer: apps/site/lib/ukemi-served-load.ts:213 CONST "loadUkemiPending(rootDir) ?? loadUkemiServed(rootDir)" -> "loadUkemiServed(rootDir)"
 test("site_ukemi_served_figures_read_from_the_two_files — the figures of the committed stratum are fields of the two files, read, never copied; a disagreement throws", async () => {
   const c = loadUkemiCourse(ROOT), s = loadUkemiServed(ROOT), v = s.liq_verdict;
   assert.ok(s.registry_state === "committed" && v !== null && v.bound_margin_base !== null, "a committed served state with its covered verdict (non-vacuous)");
@@ -1749,13 +1752,14 @@ test("site_ukemi_build_check_derives_figures_apart — the build check reads the
   assert.ok(!src.includes("ukemi-served-figures"), "the build check never names the page's figures module (an error common to both would stay green)");
 });
 
+// killer: apps/site/lib/ukemi-served-load.ts:205 ROR "pendingSince > o.written_at" -> "pendingSince < o.written_at"
 test("site_ukemi_digest_note_says_what_the_gate_returns — two answers on the committed stratum carry one calibration digest, the served one", async () => {
   gatePin((await pinTarget(ROOT)).liq_verdict);
   // The digest of the in-process answers is the pending one while it exists (here a --pending of C', a day after C2).
   const t = stagePending(olderServed(), currentPending());
   try {
     await assert.doesNotReject(async () => { gatePin((await pinTarget(t.root)).liq_verdict); }, "the in-process answers carry the pending digest, the served one being older");
-    await assert.rejects(async () => { gatePin(loadUkemiServed(t.root).liq_verdict); }, { code: "ERR_ASSERTION" }, "control: they do not carry the older served one");
+    assert.throws(() => { gatePin(loadUkemiServed(t.root).liq_verdict); }, { code: "ERR_ASSERTION" }, "control: they do not carry the older served one");
   } finally {
     t.cleanup();
   }
@@ -1763,6 +1767,7 @@ test("site_ukemi_digest_note_says_what_the_gate_returns — two answers on the c
 
 /* ─────────── UKEMI-PENDING-SNAPSHOT-1: the pending snapshot of the served state (G0 section 11) ─────────── */
 
+// killer: apps/site/lib/ukemi-served-load.ts:198 SDL "if (pendingSince === undefined) fail(\"a pending snapshot exists but the served file carries no pending_since (fail-closed)\");" -> ""
 test("ukemi_pending_snapshot_is_fail_closed — a pending snapshot loads only beside a served file marked pending_since, listed, closed and coherent", async () => {
   const { loadUkemiPending, loadUkemiInProcess } = await pendingLoader();
   const served = treeServed(), pending = currentPending(), lv = obj(pending.liq_verdict, "pending liq_verdict");
@@ -1801,6 +1806,7 @@ test("ukemi_pending_snapshot_is_fail_closed — a pending snapshot loads only be
   }
 });
 
+// killer: apps/site/lib/ukemi-served-load.ts:194 CONST "!existsSync(join(rootDir, UKEMI_PENDING_REL))" -> "true"
 test("ukemi_in_process_pins_follow_the_pending_snapshot — the five in-process places compare this tree with the pending snapshot while it exists, else with the served one", async () => {
   await pendingLoader();
   const tree = currentPending();
@@ -1824,6 +1830,7 @@ test("ukemi_in_process_pins_follow_the_pending_snapshot — the five in-process 
   await pinsHold(ROOT);
 });
 
+// killer: apps/site/lib/ukemi-served-load.ts:182 CONST "servedFile(rootDir).out" -> "{ ...servedFile(rootDir).out, ...loadUkemiPending(rootDir) }"
 test("ukemi_pages_keep_the_served_snapshot_while_pending — the pages and their figures read the served file alone; a pending snapshot changes only the in-process pins", async () => {
   const { loadUkemiPending } = await pendingLoader();
   const pages = loadUkemiServed(ROOT), c = loadUkemiCourse(ROOT), next = otherDigest(otherClause(currentPending()));
@@ -1844,6 +1851,7 @@ test("ukemi_pages_keep_the_served_snapshot_while_pending — the pages and their
   }
 });
 
+// killer: scripts/sync-ukemi-served.mjs:220 CONST "UKEMI_PENDING_SHARED.filter" -> "Object.keys(pending).filter"
 test("ukemi_pending_sync_writes_in_process_facts — --pending writes the in-process facts; the promotion compares the fixed shared fields; the manifest edits change one line", async () => {
   const sync = await pendingSync();
   const { UKEMI_PENDING_SHARED } = await pendingLoader();
@@ -1888,6 +1896,7 @@ test("ukemi_pending_sync_writes_in_process_facts — --pending writes the in-pro
   }
 });
 
+// killer: scripts/sync-ukemi-served.mjs:249 CONST "existsSync(join(root, HARNESS_PENDING_REL))" -> "false"
 test("ukemi_promotion_waits_for_the_harness_promotion — the ukemi promotion is refused while the harness pending snapshot exists (T0 order: deploy check, harness sync, ukemi sync)", async () => {
   const sync = await pendingSync();
   const t = tmpRoot();
