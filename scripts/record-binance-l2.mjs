@@ -349,22 +349,22 @@ export async function record(plan, { at, check }, io) {
       if (task === "cut") for (const l of links.values()) l.cut();
       else if (task === "check") check();
       else if (task === "seal") { if (dayOf(t - PERIOD_US) !== dayOf(t)) for (const s of SYMBOLS) due.add(`${s}/${dayOf(t - PERIOD_US)}`); sealing ??= seals().catch((e) => { failed("seal", e); }).finally(() => { sealing = null; }); } // the day before, at 00:03
-      else if (task === "time") { const r = await rest.request("time", null), e = logTimeOffset(at, r.body, r.sentUs, r.receivedUs, { wallUs, monoNs }); offset = e.offset_us ?? offset; }
+      else if (task === "time") { const r = await rest.request("time", null); if (finished) return; const e = logTimeOffset(at, r.body, r.sentUs, r.receivedUs, { wallUs, monoNs }); offset = e.offset_us ?? offset; }
       else if (task === "exchangeInfo") {
-        const f = exchangeInfoFacts((await rest.request("exchangeInfo", symbol)).body), was = low;
+        const f = exchangeInfoFacts((await rest.request("exchangeInfo", symbol)).body), was = low; if (finished) return; // r-2 of the G2 delta: an answer after the stop writes nothing to the journal or days/
         for (const d of days) facts.set(`${symbol}/${d}`, { tickSize: f.tickSize, scale: f.scale, rateLimits: f.rateLimits });
         low = f.requestWeightPerMinute < WEIGHT_FLOOR ? f.requestWeightPerMinute : null;
         if (low !== null) lowUntil = calendar(wallUs(), wallUs() + DAY_US, offset).filter((e) => e.task === "exchangeInfo").at(-1).at + 1_000_000; // past the next round
         if ((was === null) !== (low === null)) note(low === null ? "weight_resumed" : "weight_suspended", { limit: f.requestWeightPerMinute, floor: WEIGHT_FLOOR });
       } else { // anchor: the bytes kept by the REST client, as anchor-close.json of its day and anchor-open.json of the next (D-9)
-        const { body } = await rest.request("depth", symbol);
+        const { body } = await rest.request("depth", symbol); if (finished) return; // r-2
         for (const [d, name] of [[dayOf(t + offset), "anchor-close.json"], [dayOf(t + offset + PERIOD_US), "anchor-open.json"]]) {
           mkdirSync(join(at, "days", symbol, d), { recursive: true });
           writeFileSync(join(at, "days", symbol, d, name), body, { flag: "wx" });
         }
       }
     } catch (e) {
-      if (e instanceof RecorderStop) { finish(e); return; }
+      if (finished || e instanceof RecorderStop) { finish(e); return; } // r-2: a failure after the stop is not journaled
       failed(task, e, symbol ?? "ALL");
       try { if (rest.stopped) stop("rest_stopped", { task, code: String(e?.code ?? null) }); } catch (s) { finish(s); } // 451 and the others: everything stops
     }
