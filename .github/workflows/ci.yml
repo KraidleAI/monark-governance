@@ -18,14 +18,12 @@ name: gates
 on:
   pull_request:
 
-# Least-privilege GITHUB_TOKEN (ADR-CODEQL-ALERTS-1 D1 and its dated line of 2026-10-05; CodeQL
-# actions/missing-workflow-permissions): every job reads the repository contents, the pull requests and the checks
-# (the r25 job's integration proof, ADR-M003 D9 nonies), and writes nothing. Widening it, here or per job, is an ADR
-# decision; the root test ci_workflow_declares_least_privilege_permissions pins this one block (after on:, no job block).
+# Least-privilege GITHUB_TOKEN (ADR-CODEQL-ALERTS-1 D1; CodeQL actions/missing-workflow-permissions): every job reads
+# the repository contents and nothing more, except the one job-level block of the lot-size job (dated line of 2026-10-05
+# under D1: pull-requests and checks read, for its integration proof). Any other widening, here or per job, is an ADR
+# decision; the root test ci_workflow_declares_least_privilege_permissions pins both blocks (no write scope).
 permissions:
   contents: read
-  pull-requests: read
-  checks: read
 
 jobs:
   g1-controle-generation:
@@ -43,6 +41,11 @@ jobs:
   r25-taille-de-lot:
     runs-on: ubuntu-latest
     timeout-minutes: 5
+    # The only job-level block (ADR-CODEQL-ALERTS-1 D1, dated line of 2026-10-05): the integration proof reads the PR and its checks.
+    permissions:
+      contents: read
+      pull-requests: read
+      checks: read
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
