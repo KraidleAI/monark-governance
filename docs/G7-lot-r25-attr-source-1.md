@@ -1,6 +1,7 @@
 # G7 - lot R25-ATTR-SOURCE-1 (le `W` de la CI lu sous la lecture épinglée du module : O-1 fermé côté CI)
 
 - **Session** : RECHERCHES, 2026-10-05. Branche `recherches/r25-attr-source-1`, depuis la tête de 1b `76cd1a9a` ; tronc `lot/etude-suite` fusionné à `023801ec` (#155 et #153), commit de fusion, aucun rebase. Aucune PR ouverte (à la main de MONARK).
+- **G2 pliée** : `G2-r25-attr-source-1.md` (G2 neuve de RECHERCHES, pièce de coordination du 2026-10-04), verdict APPROUVE SOUS RÉSERVE, aucun bloquant, trois mineurs m-1 à m-3, deux observations O-a et O-b, avis sur Q-1 à Q-3. Pli : section 9. Tronc fusionné à nouveau à `171d6b2f`.
 - **Plan** : G0 `docs/G0-lot-r25-attr-source-1.md` (commit `240b0904`). Contexte : G7 `docs/G7-lot-r25-integration-rule-1.md`, sections 8 (O-1, m-h), 12 et 13.4.
 - **Intention tenue** : les deux comptes `W` du job `r25-taille-de-lot` sont lus sous le `PIN`, le `GIT_ENV` du module et les attributs de l arbre vide. Une seule source : `scripts/lot-size-integration.mjs`.
 
@@ -12,7 +13,10 @@
 | `0b736d3e` | tests rouges (quatre) |
 | `5ac483ed` | fusion du tronc `023801ec` (#155 1b, #153 L2-P1-C5), aucun conflit, aucun fichier du lot touché par le tronc |
 | `ad1baff9` | gel |
-| ce commit | G7 et ligne d ADR D9 undecies |
+| `e1f4b1aa` | G7 et ligne d ADR D9 undecies |
+| `96f77186` | tests du pli de la G2 (m-1, m-2), resserrements : verts au gel, tueurs tirés à la main |
+| `ab93ac77` | fusion du tronc `171d6b2f` (#156, #159, docs), commit de fusion ; seul fichier commun : `test/ci-gates.test.ts`, fusion automatique sans conflit |
+| ce commit | G7 : pli de la G2 (section 9) |
 
 ## 2. Ce que livre le gel
 
@@ -74,8 +78,37 @@ Lettre libre après `decies` : `undecies` (aucune `D9 undecies` dans `docs/adr`)
 
 ## 8. Questions ouvertes pour MONARK
 
-- **Q-1** (G0) : une lecture en CI (défaut) ou le plus grand des deux comme l oracle ; ou retirer la seconde lecture de l oracle pour l égalité stricte.
-- **Q-2** (G0) : `eval` d une sortie du module de l arbre mesuré. Même confiance que `count` et `ci.yml` (`GATE_FILES`, garde de l oracle, contrôle par diff). Défaut : accepté.
-- **Q-3** (G0) : un `info/attributes` non vide sur le runner rendrait toute PR rouge. Défaut : accepté (fail-closed).
-- **O-a** (hors lot) : un fichier qui commence par un octet NUL compte 0 ligne, avant comme après le lot (détection binaire de git, sans attribut). À former en item si MONARK le juge utile.
+- **Q-1** (G0) : une lecture en CI (défaut) ou le plus grand des deux comme l oracle ; ou retirer la seconde lecture de l oracle pour l égalité stricte. **Avis de la G2** : une lecture, d accord avec le défaut ; garder le maximum côté oracle pour l instant (gratuit, jamais sous la CI), puis le retirer quand O-a sera traité, pour une égalité stricte CI = oracle, plus simple à auditer.
+- **Q-2** (G0) : `eval` d une sortie du module de l arbre mesuré. Même confiance que `count` et `ci.yml` (`GATE_FILES`, garde de l oracle, contrôle par diff). Défaut : accepté. **Avis de la G2** : accepté ; même confiance que `count` (déjà capable de rendre vert, voir O-b) et que `ci.yml` sous `pull_request` ; quoting mesuré étanche ; m-1 et m-2 pliés pour que cette étanchéité soit gardée par un test.
+- **Q-3** (G0) : un `info/attributes` non vide sur le runner rendrait toute PR rouge. Défaut : accepté (fail-closed). **Avis de la G2** : accepté ; `actions/checkout` n en écrit pas, un fichier vide passe, la cause est imprimée sur stderr ; rouge pour toute PR est visible tout de suite, jamais un vert silencieux.
+- **O-a** et **O-b** : items proposés à MONARK, section 9.2.
 - **Rejeu Windows** : `pin` n est appelé que par le job (Linux) ; l oracle Windows (git 2.55.0) ne l exécute pas. Le rejeu des tests du lot y lance `bash` et un `git` factice en script `sh` (T-2) : à vérifier par MONARK, un saut de plateforme pourrait être nécessaire.
+
+## 9. Pli de la G2 (`G2-r25-attr-source-1.md`, APPROUVE SOUS RÉSERVE)
+
+### 9.1 Mineurs
+
+| Point | Devenu | Test | Tueur (tiré à la main au gel, et par red-proof contre `171d6b2f`) |
+|---|---|---|---|
+| **m-1** sortie de `pin` non épinglée en entier (mutant `GIT_ENV({})` -> `GIT_ENV()` survivant : tout l environnement du runner, `R25_READ_TOKEN` compris, imprimé puis réexporté) | **plié** : la liste exacte et ordonnée des noms imprimés est épinglée ; chaque ligne est un `unset` ou un `export` de l un d eux ; le jeton n apparaît pas. Test à part de T-3, pour garder un tueur par test | `r25a_pin_prints_exactly_the_pinned_names` (environnement avec `R25_READ_TOKEN` et une variable de runner) | `scripts/lot-size-integration.mjs:180 CONST "GIT_ENV({})" -> "GIT_ENV()"` : **tué** (assertion) |
+| **m-2** quoting non testé contre une valeur hostile | **plié** : le reproducteur de la G2 à l identique (une entrée `PIN` `x.y=` avec `'`, `"`, `$( )`, apostrophe inverse, saut de ligne, `'\''`, `${IFS}*? !!`), sortie de `pinShell` évaluée sous `bash -e`, relue par `git config --get x.y` à l octet, aucun fichier créé | `r25a_pin_quotes_any_value` | `scripts/lot-size-integration.mjs:181 CONST "x.replaceAll(\"'\", \"'\\\\''\")" -> "x"` : **tué** (assertion) |
+| **m-3** git du runner non mesuré (lot mesuré sous 2.43) | **noté** : `GIT_ATTR_SOURCE` existe depuis 2.40, et un arbre source introuvable donne « aucun attribut » (mesuré par la G2), donc sens sûr. Le premier run réel de la PR vaut preuve : MONARK y lit `Changed lines: 142` (`R-25 mode: written` ou `unproven`). C est le compte de `r25()` contre le tronc `171d6b2f`, et le même que la lecture épinglée faite ici (`eval "$(node scripts/lot-size-integration.mjs pin)"` puis la ligne `STAT=` : 131 + / 11 −). Le 120 de la G2 était mesuré avant m-1 et m-2 (+22) | - | - |
+
+Ces deux tests sont des resserrements : verts au gel dès leur commit (`96f77186`), sans changement de code, donc sans gel nouveau. Contre le tronc `171d6b2f`, qui n a pas `pin`, ils sont F2P (sortie vide : assertion).
+
+### 9.2 Items proposés à MONARK (hors de ce lot)
+
+- **R25-NUL-BINARY-1 (O-a)**, devenu le principal contournement restant de `W` maintenant qu O-1 est fermé. Mesuré par la G2 : un `code.mjs` exécutable de 3 002 lignes dont la première est `// <NUL>` s exécute et compte **0** (`Bin 0 -> 72829 bytes`), avant comme après le lot (détection binaire de git, sans attribut). Les sous-modules (gitlink) sont à traiter dans le même item. Pistes : compter un fichier binaire changé sous le pathspec CODE comme ses lignes (lecture `--numstat --text`), ou le refuser hors d une liste d extensions binaires déclarées. Le retrait de la seconde lecture de l oracle (Q-1) suivrait.
+- **R25-COUNT-CAP-1 (O-b)** : le bash du job ne borne pas la sortie de `count` par `W`. Il accepte `integration/<n>/<m>` pour tout `n`, `m` numériques, et seul le module applique `min(…, W)`. Un module modifié par la PR peut donc imprimer `integration 0 0`. Un `[ "$NEW_CHANGED" -le "$CHANGED" ]` en bash (et de même pour CONTENT) rendrait le job robuste à ce cas. Coût : le test 38 / le test de câblage et la forme lue par l oracle. Hors de ce lot.
+
+### 9.3 Vérifications du pli (tête `ab93ac77` + ce commit de docs ; Node 24.21.0, proxy retiré pour les tests)
+
+| Vérification | Résultat |
+|---|---|
+| red-proof `--base 171d6b2f --gel ab93ac77 --draw 6 --seed 37` | **OK** : 6 jugés, tous F2P ; 67 inchangés ; les 6 tueurs du lot tirés, 6 tués. `RED-PROOF.json` sha256 `1fbb240c55636bfc27a0f941d935ebeb806117fa523085fd2a3eac779961521f` |
+| tueurs m-1 et m-2, à la main au commit `96f77186` | 2 sur 2 tués, par assertion ; fichier restauré (`cmp`) |
+| ancres `--touched 76cd1a9a HEAD` ; `--touched 171d6b2f HEAD` | 143/143 ANCRE ; 73/73 ANCRE ; 0 DERIVE, 0 PERDU |
+| tests du lot (`r25-integration`, `ci-gates`, `oracle-run`, `dojo-render`) | 89/89 |
+| `npm run test:export` | vert (1/1) |
+| `tsc --noEmit` ; `lint` | 0 ; 0 |
+| R-25, `r25()` contre `171d6b2f` | `STAT 131 insertions, 11 deletions, changed 142`, `CONTENT_STAT 0`, GREEN, sous 547 |
