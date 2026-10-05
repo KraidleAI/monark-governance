@@ -4,7 +4,7 @@
 // its <cid>, snapshots served by its REST to the client of P1-b1, an injected clock and sleep. The module is loaded by a dynamic import that each test asserts, so the base, which has no
 // scripts/l2/book.mjs, reddens by assertion. Each test names, on the line above it, the mutation of scripts/l2/book.mjs that reddens it.
 // Synthetic data only.
-import { after, test } from "node:test";
+import { after, before, test } from "node:test";
 import assert from "node:assert/strict";
 import { existsSync, mkdtempSync, readFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
@@ -14,9 +14,9 @@ import * as Links from "../scripts/l2/links.mjs";
 import * as Rest from "../scripts/l2/rest.mjs";
 import { cidOf, readSegment, segmentOf } from "../scripts/l2/segments.mjs";
 import type * as BookM from "../scripts/l2/book.mjs";
-
-trap();
-const places: Place[] = [], outs: string[] = [];
+import { keepCause } from "./helpers/keep-cause.ts";
+keepCause("test/l2-book.test.ts"); // a crash of this file names its cause on stdout, which the runner keeps (L2-BOOK-KEEP-CAUSE-1)
+const places: Place[] = [], outs: string[] = []; before(() => { trap(); }); // fails: 6 named reds, not a silent file
 const tmp = (): string => { const d = mkdtempSync(join(tmpdir(), "l2-book-")); outs.push(d); return d; };
 after(async () => { for (const p of places) await p.stop(); for (const d of outs) rmSync(d, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 }); });
 const T0 = 1_760_000_000_000_000; // a synthetic wall clock in microseconds
