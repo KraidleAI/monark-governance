@@ -87,6 +87,14 @@ jobs:
           # below under VIBEGATES_CONTENT_LIMIT, with the same range, :(glob) magic and ins+del metric. Both counts are
           # printed BEFORE either bound is evaluated, so a CODE overflow never hides the CONTENT count. Test 38
           # (3bis)/(4quater) pins the bound, the two exact pathspec lists and their equality with the ADR list.
+          # Both counts read W under the module's pinned read (lot R25-ATTR-SOURCE-1, ADR-M003 D9 undecies): its PIN, GIT_ENV and its
+          # attribute tree (every path text but the declared binary assets, D9 duodecies), as the module and the oracle read, so neither a
+          # .gitattributes of the measured tree (-diff, binary, a diff driver) nor a NUL byte lowers W. No pinned read (git < 2.40, a non-empty info/attributes, a module error), or a changed path the module refuses first (a gitlink, a symlink, a declared asset without its magic number, a bare CR or a JS line separator; D9 terdecies): fail-closed.
+          R25_PIN=$(node scripts/lot-size-integration.mjs pin --ci .github/workflows/ci.yml --base "origin/$GITHUB_BASE_REF") || {
+            echo '::error::Gate R-25: pinned git read not obtained, or a changed path refused (see the lines above). Fail-closed.'
+            exit 1
+          }
+          eval "$R25_PIN"
           STAT=$(git diff --shortstat "origin/${{ github.base_ref }}...HEAD" -- . ':(exclude)packages/*/docs/S2-*' ':(exclude)docs/G1-lot-*.md' ':(exclude)docs/G2-lot-*.md' ':(exclude,glob)docs/**/*.md' ':(exclude)package-lock.json' ':(exclude,glob)fixtures/**/*.json' ':(exclude,glob)fixtures/**/*.jsonl' ':(exclude,glob)fixtures/**/*.csv' ':(exclude,glob)apps/sentinel/test/fixtures/**/*.json' ':(exclude,glob)apps/sentinel/test/fixtures/**/*.jsonl' ':(exclude,glob)apps/sentinel/test/fixtures/**/*.csv' ':(exclude,glob)apps/bell/test/fixtures/series/**/*.json' ':(exclude,glob)apps/bell/test/fixtures/series/**/*.jsonl' ':(exclude,glob)apps/bell/test/fixtures/series/**/*.csv' ':(exclude,glob)apps/site/app/docs/**' ':(exclude,glob)apps/site/components/docs/**' ':(exclude,glob)apps/site/lib/docs-*.ts' ':(exclude,glob)apps/site/data/docs-*.json' ':(exclude,glob)apps/site/app/roadmap/**') || {
             echo '::error::Gate R-25: diff not computable (no merge base?). Fail-closed.'
             exit 1
@@ -112,6 +120,11 @@ jobs:
           case "$NEW_CHANGED$NEW_CONTENT" in
             ''|*[!0-9]*|??????????*) R25_MODE=written; NEW_CHANGED=$CHANGED; NEW_CONTENT=$CONTENT_CHANGED ;;
           esac
+          # Item R25-COUNT-CAP-1 (ADR-M003 D9 duodecies): the module never raises a count; one above the written count is red here too.
+          [ "$NEW_CHANGED" -le "$CHANGED" ] && [ "$NEW_CONTENT" -le "$CONTENT_CHANGED" ] || {
+            echo '::error::Gate R-25: integration count above the written count. Fail-closed.'
+            exit 1
+          }
           CHANGED=$NEW_CHANGED
           CONTENT_CHANGED=$NEW_CONTENT
           echo "R-25 mode: $R25_MODE"

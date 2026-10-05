@@ -1,0 +1,336 @@
+# G7 du lot L2-P1-c5-bis-b (la boucle d'enregistrement), par RECHERCHES
+
+Base `b141e87c` (c5-bis-a à l'ouverture), puis `c6cf927a` (tête de `recherches/l2-p1-c5-bis` après le pli de sa G2 BLOQUE, fusionnée ici
+par le commit de fusion `e46ad8d4`, aucun rebase) ; branche `recherches/l2-p1-c5-bis-b` ; commits `b5ada9cc` (G0), `c07226e2` (tests
+rouges et `.d.mts`), `559a85bc` (gel), `0cab77fb` (pli de la preuve rouge), `32af72a2` (pli des portes), `b9eef86d` (pli du `npm test`
+complet), `e46ad8d4` (fusion), `c9479b9f` (test rouge du verrou), `dd9561c3` (adaptation au `sealApart` plié et verrou par jour), `0d3dc619`
+(pli des tueurs à la main : le verrou tenu pendant chaque scellé), puis ce commit (G7). Poussé sur `origin/recherches/l2-p1-c5-bis-b`, aucune PR. Node v24.21.0. Aucun réseau vers une place : `fetch` répondu en mémoire,
+sockets menées à la main ; sorties sous le dossier temporaire du système, hors de tout arbre git ; trames synthétiques seules.
+`packages/rpc-guard/bin/rpc-guard.mjs` non touché.
+
+## Périmètre livré
+
+- `scripts/record-binance-l2.mjs` : `run` en enregistrement (`prepare`, `adopt`, `markTails`, `record`) ; le rejeu s'arrête encore
+  `not_built` (c6). `record()` : REST, carnets, cinq liaisons sous la racine fixée ; `onText` vers `book.feed` et la règle de bascule
+  (`switchTo` puis `switched`) ; `SCHEDULE` et `calendar()` (coupe à l'heure, scellés à HH:03, heure de la place à la minute 30,
+  `check()` toutes les 10 min à la minute 5, `exchangeInfo` à 23:58:00 + 10 s × rang et ancres à 23:59:10 + 10 s × rang sur l'horloge
+  corrigée) ; ancres en `anchor-close.json` et `anchor-open.json` (mêmes octets, `wx`) ; scellés un symbole à la fois par un seul appel
+  enveloppé (`apart`) de `sealApart`, `open` lu sur `conn/` et `closed()`, échelle et `config` de la veille ; suspension de poids sous
+  4 000 (Q-P1-6) ; `rest_stopped` ; arrêt propre borné (30 s pour les écrivains, 30 s pour l'enfant, puis tué) ; ligne `stopped`. En-tête,
+  imports et `STOPS` changés en place ; code neuf entre `markTails` et `run`.
+- `scripts/record-binance-l2.d.mts` : couture (`fetch`, `webSocket`, minuteurs, `sleep`, `open`, `seal`, `signal`), `Stopped`,
+  `WEIGHT_FLOOR`, `STOP_BOUND_MS`, `SCHEDULE`, `calendar`, `record`.
+- `scripts/l2/seal.mjs` : `seal-child` au `script_sha256` (Q-C5B-4 révisée par la G2 de c5-bis-a) ; le `signal` ajouté à `sealApart` au
+  gel est remplacé, à la fusion, par celui du pli (racine en fd 3, échéance `SEAL_TIMEOUT_MS`, abandon nommé `seal_aborted`).
+- Verrou par jour (n-4 de la G2 de c5-bis-a) : `days/<SYMBOLE>/.<jour>.seal.lock` écrit avant l'appel, retiré après (`finally`) ; un
+  verrou plus jeune que `SEAL_TIMEOUT_MS` (900 s, horloge réelle, `mtime`) fait attendre le scellé à l'heure suivante ; plus vieux, il est
+  repris (risques déclarés plus bas). Un jour sans échelle (`no_scale`) ne prend pas de verrou.
+- `test/l2-loop.test.ts` : six tests ajoutés (hôte mené à la main, dont `l2_record_seal_locked_per_day`),
+  `l2_seal_hashes_the_command` resserré, `l2_record_loop_schedules` voit le verrou tenu pendant chaque appel du scellé ; `test/l2-record.test.ts` :
+  `l2_main_runs_by_real_path` fait tourner la boucle jusqu'à son signal (sortie 0), tueur renuméroté `:287` → `:404`.
+
+La commande ne s'arrête plus `not_built` en enregistrement.
+
+## Points renvoyés à c5-bis-b
+
+| Point | Suite | Preuve |
+|---|---|---|
+| FM-1.1, horaires de §3 (points 13 à 15), D24-3, D24-5 | calendrier, ancres, scellés | `l2_record_loop_schedules` |
+| Q-8 de a3 | arrêt propre borné, enfant tué | `l2_record_loop_clean_stop` |
+| Q-P1-6, Q-B1-3 | suspension nommée sous 4 000 | `l2_record_weight_suspended` |
+| Q-A4-3, D-8 | bascule et `switched` | `l2_record_switch_rule` |
+| §4.3 (451 arrête tout), Q-C1-4 au départ de `run` | `rest_stopped` ; `markTails` appelé | `l2_record_rest_stop_ends_all` |
+| n-3 de c4 | `check()` toutes les 10 min à la minute 5 | `l2_record_loop_schedules` (arrêt à 02:15) |
+| Q-C5B-4 (G2 de c5-bis-a) | `seal-child.mjs` au `script_sha256` | `l2_seal_hashes_the_command` |
+| B-1 de la G2 de c5-bis-a | pli fusionné (`e46ad8d4`) ; l'unique appel `apart` passe la racine `at` d'`adopt` (fd 3 de l'enfant), le signal de l'arrêt propre ; Q-C5BB-4 close | tests du pli (`l2_seal_apart_through_the_pinned_root`…) |
+| n-4 de la G2 de c5-bis-a (enfant orphelin) | verrou par jour `days/<SYMBOLE>/.<jour>.seal.lock` (`wx` non : écrit, retiré après le scellé ; plus jeune que `SEAL_TIMEOUT_MS` : le scellé attend l'heure suivante) | `l2_record_seal_locked_per_day` ; `l2_record_loop_schedules` (verrou présent pendant chaque appel) |
+| n-5 de la G2 de c5-bis-a (`write_failed`) | déclaré, non construit : le jour échoue nommé (`tail_unmarked` dans `seal_failed`), laissé au rejeu (c6) ; marquage de la queue d'un écrivain arrêté en cours de route renvoyé à M-1 | — |
+
+## Preuves
+
+- **Paire du verrou** (test rouge `c9479b9f` sur le code de la fusion, correction `dd9561c3`) : `node scripts/red-proof.mjs --base
+  e46ad8d4 --gel dd9561c3 --repo /home/user/monark-governance-c5bb --draw 1 --seed 37` : « red-proof OK: 1 judged, 72 unchanged, 1
+  killer(s) drawn » ; F2P `l2_record_seal_locked_per_day`, tueur `scripts/record-binance-l2.mjs:322 CONST` tué ; `RED-PROOF.json` sha256
+  `3c0d48ec4b1ad521…`.
+- **Tueurs à la main du verrou** (`test/l2-loop.test.ts`, fichier restauré à chaque fois) : condition d'âge retirée, `<` en `>` sur
+  `SEAL_TIMEOUT_MS`, verrou hors de `days/<SYMBOLE>/` : rouges par `l2_record_seal_locked_per_day` ; `rmSync` du `finally` retiré : rouge par
+  `l2_record_loop_schedules`. Le verrou jamais écrit (`writeFileSync` retiré) survivait aux deux tests : trou fermé en `0d3dc619`
+  (`l2_record_loop_schedules` lit le verrou à chaque appel du scellé injecté) ; après ce pli, « jamais écrit », « retiré avant l'appel » et
+  « jamais retiré » sont rouges par ce test.
+- **Lot entier** contre la tête fusionnée de c5-bis-a (base de mesure du lot) : `node scripts/red-proof.mjs --base c6cf927a --gel 0d3dc619
+  --repo /home/user/monark-governance-c5bb --draw 8 --seed 37` : « red-proof OK: 8 judged, 65 unchanged, 8 killer(s) drawn » ; huit F2P
+  (`l2_seal_hashes_the_command`, `l2_record_loop_schedules`, `l2_record_loop_clean_stop`, `l2_record_weight_suspended`,
+  `l2_record_switch_rule`, `l2_record_rest_stop_ends_all`, `l2_record_seal_locked_per_day`, `l2_main_runs_by_real_path`), les huit tueurs
+  tués ; `RED-PROOF.json` sha256 `b988d0b4e20d7f77…`. Avant la fusion, contre `b141e87c` (gel `b9eef86d`) : « 7 judged, 53 unchanged, 7
+  killer(s) drawn », sha256 `b85a34b058886326…`. Au premier gel `559a85bc`, l'outil refusait deux points, pliés en `0cab77fb` : le tueur
+  du test de poids était équivalent dans ce test (« stillborn » : `lowUntil` tenait encore le carnet), retargeté sur la borne de la
+  suspension ; `l2_main_runs_by_real_path`, changé en rejeu, était vert à la base (« self-confirming ») : il fait désormais tourner la
+  boucle jusqu'à son signal, rouge à la base qui s'arrêtait `not_built`.
+- Base : les tests au commit `c07226e2` contre le code de `b141e87c` : six rouges par assertion (`ERR_ASSERTION`) ; le test du verrou au
+  commit `c9479b9f` contre le code de la fusion : rouge par assertion.
+- **Ancres** (`verifie-ancres.mjs`) : `. --touched c6cf927a HEAD` et `. --touched b141e87c HEAD` : 73 tueurs, 73 ANCRE, 0 DERIVE, 0 PERDU ;
+  `--files` sur les douze fichiers `test/l2-*.test.ts` : 168 tueurs, 168 ANCRE, 0 DERIVE, 0 PERDU.
+- `node_modules/@monark` vérifié avant la suite complète : dossier réel de liens relatifs vers `packages/` et `apps/` de cet arbre.
+
+| Vérification (tête `0d3dc619`, Node v24.21.0) | Résultat |
+|---|---|
+| `node --test test/l2-*.test.ts` | 168 sur 168, 0 échec, 0 sauté |
+| `npm test` complet | 2 374 tests : 2 352 verts, 0 échec, 22 sautés (raisons nommées), sortie 0 |
+| `tsc --noEmit` (`typecheck`) | 0 |
+| `lint` | 0 |
+| `lint:ratchet` | 69/69 |
+| `gate:vocab` | OK (335 fichiers) |
+| `lang:gate` | OK (0 occurrence hors exemption) |
+| preuve rouge, paire du verrou | OK, 1 jugé, 1 tueur tué |
+| preuve rouge, lot entier contre `c6cf927a` | OK, 8 jugés, 8 tueurs tués |
+| ancres | 73/73 (touchés), 168/168 (`l2-*`) |
+| R-25 contre `c6cf927a` | 348, GREEN, borne du lot 547 |
+
+- **R-25** (`r25()` de `scripts/oracle/r25.mjs`, `.github/workflows/ci.yml`) : contre `c6cf927a` (tête fusionnée de c5-bis-a, la base
+  de mesure du lot) `STAT` 348 (331 insertions, 17 suppressions), `CONTENT_STAT` 0, GREEN ; borne du lot 547, marge 199 : aucune scission
+  à proposer. Estimation du G0 : environ 327, plus le verrou et ses tests.
+- Un échec isolé de `l2_record_loop_schedules` sous la charge du `npm test` complet (les écrivains réels sur disque prenaient du
+  retard sur l'horloge menée à la main) est plié en `b9eef86d` : l'hôte des tests crée les fichiers de segments sur le disque sans y
+  écrire ; six exécutions parallèles sous quatre cœurs chargés : vertes ; le `npm test` complet de la tête est vert.
+
+## Mutants du lot (au-delà des tueurs)
+
+Rejoués sur les tests de la boucle, fichier restauré à chaque fois.
+
+- Tués (26, sur deux passes ; deux visaient des lignes changées avant le gel) : coupe retirée ; phases du scellé, de l'heure de la place, de `check()` ; `exchangeInfo` hors de l'horloge corrigée ;
+  écart non gardé ; jour de l'ancre d'ouverture ; `U <= id + 1` en `<` ; `switched` retiré ; `<` en `<=` sur 4 000 ; `WEIGHT_FLOOR`
+  3 000 ; fin de la suspension (`+ 1 s` retiré, première lecture au lieu de la dernière) ; attente des segments ignorée ; jour d'avant
+  ajouté à chaque heure ou jamais ; jour scellé non retiré ; fenêtre de `open` retirée ; signal non passé au scellé ; `STOP_BOUND_MS`
+  20 s ; `markTails` retiré de `run` ; `config` retirée ; arrêt nommé d'un horaire ignoré ; `seal-child` hors du `script_sha256`.
+- Trous trouvés et fermés avant le gel : jour d'avant au calendrier (le jour de départ seul était scellé : la boucle ajoute désormais le
+  jour d'avant à 00:03, test prolongé jusqu'à 02:15) ; jour scellé deux fois (test prolongé) ; `config` et échelle de la veille (le
+  `tickSize` change à 23:57 dans le test) ; `<=` sur 4 000 (limites 3 999 puis 4 000) ; `markTails` au départ de `run`.
+- Survivants déclarés : `book.id === null ||` retiré (renouvellement pendant une synchronisation : la bascule attend la fin de
+  l'ancienne, rupture nommée ; non construit en test) ; `followed.set` après bascule retiré (effet seulement à un second renouvellement) ;
+  `rest.close()`, `b.close()`, `clearTimer(timer)` à l'arrêt (sans effet observable ici ; le dernier laisserait un tic au plus après
+  l'arrêt) ; `signal.aborted` déjà vrai ; refus des instantanés pendant la suspension (le carnet attend déjà sa fin) ; `Math.max` du
+  dernier tic (horloge qui recule) ; jour suivant lu au départ ; `wx` en `w` des ancres ; `no_scale` ; `if (finished)` dans les
+  scellés ; `signal` passé par `sealApart` à `spawn` (le scellé des tests de la boucle est injecté ; le pli de B-1 apporte son propre
+  arrêt et ses tests) ; `out: at` en `out: real` (le scellé des tests de la boucle est injecté ; `sealApart` ouvre l'un comme l'autre, seule la fixation diffère).
+
+## Questions pour la cellule (défauts appliqués, aucune bloquante ; texte au G0)
+
+Q-C5BB-1 (pas de nouvelle scission ; point c5-bis-c déclaré pour le cas du pli de B-1), Q-C5BB-2 (couture étendue), Q-C5BB-3 (constantes
+neuves : HH:03, 10 min à la minute 5, 30 s, 4 000 strict), Q-C5BB-4 (close par la fusion du pli de B-1 : l'enfant reçoit la racine `at`, son fd 3),
+Q-C5BB-5 (suspension des seules reprises), Q-C5BB-6 (jour scellé seulement si la boucle tourne à 00:03 du lendemain ; sinon c6),
+Q-C5BB-7 (`closed(from, "")`), Q-C5BB-8 (lignes neuves hors `MISSING_EVENTS`), Q-C5BB-9 (`l2_main_runs_by_real_path` en boucle).
+
+## Risques déclarés
+
+- Verrou par jour sans `wx` : vérifier puis écrire n'est pas atomique. Deux boucles vivantes sur la même racine ne sont pas un cas du
+  service (une unité systemd) ; le verrou vise l'enfant orphelin d'une boucle morte, dont le verrou reste plus jeune que `SEAL_TIMEOUT_MS`.
+- Un enfant orphelin qui dépasserait `SEAL_TIMEOUT_MS` (900 s ; le plus lent mesuré, boucle vivante : 216 s) verrait son verrou repris par
+  la boucle suivante : l'enfant n'a pas d'échéance propre (seul le parent le tue). Sous systemd, `KillMode=control-group` l'arrête avec
+  son parent (P3).
+- Le verrou lit l'horloge réelle (`Date.now()` contre `mtime`), non l'horloge menée par `io` : voulu (l'âge d'un fichier sur le disque),
+  mais un saut de l'horloge du système fausse l'âge dans un sens ou l'autre.
+- n-5 (ci-dessous) : un jour peut échouer `tail_unmarked` après un `write_failed` en cours de passage ; nommé, laissé au rejeu.
+- Survivants des mutants listés plus haut.
+
+## Notes pour la suite
+
+- **Pli de B-1 fusionné** (`e46ad8d4`) ; si la relecture delta de c5-bis-a ajoute un pli, il est fusionné de même, l'appel `apart`
+  revu.
+- n-5 de la G2 de c5-bis-a : un segment déchiré par `write_failed` est refusé au scellé (`tail_unmarked`) jusqu'au départ suivant : la
+  boucle ne relance pas `markTails` en cours de route ; le jour échoue nommé (`seal_failed`), laissé au rejeu. À trancher en M-1.
+- c6 : rejeu `--from-raw` ; il scelle aussi les jours que la boucle n'a pas scellés (Q-C5BB-6).
+- P3 : `OOMPolicy=continue` (note du G0 de c5-bis) ; `TimeoutStopSec` au moins 60 s plus marge (deux bornes de 30 s) ;
+  `KillMode=control-group` gardé (n-4 : l'enfant meurt avec la boucle) ; n-7 (`oom_score_adj` de l'enfant) reste à P3.
+- MONARK : rien de bloquant. Pour les relectures : `node_modules/@monark` d'un arbre de travail doit être un dossier de liens relatifs vers
+  ses propres `packages/` et `apps/` (un lien vers un autre clone fait échouer les tests du sentinel sans rapport avec le lot).
+
+## Pli de la G2 (BLOQUE, 2026-10-05)
+
+G2 lue : `recherches/coordination/pieces/2026-10-04-G2-recherches/G2-l2-p1-c5-bis-b.md` (tête relue `ca900bc3`). Commits du pli :
+`b1487864` (tests rouges et `.d.mts`, lignes de tueurs de la boucle renumérotées), `a9f49b33` (gel), `bf7c7864` (pli des contrôles :
+les tests qui suivent une course l'attendent par pas bornés de l'horloge de l'hôte, rouges seulement sous la charge du lancement
+parallèle ; le mot « peer » retiré d'un commentaire de la commande, que `l2_rest_peer_seam_loopback_only` refuse), puis ce commit (G7). Base du pli
+`ca900bc3` ; base de mesure du lot inchangée (`c6cf927a`). c5-bis-a (`recherches/l2-p1-c5-bis`, `c6cf927a`) est en relecture delta : un
+pli de plus y serait fusionné ici plus tard par un commit de fusion (avec le correctif Windows de c4 qu'il porterait), pas maintenant.
+
+| Point de la G2 | Suite | Preuve (test ; tueur) |
+|---|---|---|
+| B-1 (levée dans `seals()`) | `seals().catch(...)` : la levée est journalisée `schedule_failed` (`task: "seal"`, code), le jour reste dû (repris à l'heure suivante, nommé à chaque fois) ; la boucle continue, l'arrêt propre écrit `stopped`. `fire` et ses `catch` passent par un journal qui ne lève plus (`tell`) ; `within` rattrape un rejet | `l2_record_seal_throw_named` (reproducteur S1 : `conn/stray`, 00:03:05 ; aucun rejet non géré) ; `:349 CONST` `.catch` retiré |
+| B-1 (filet du processus) | `unhandledRejection` écouté par la commande (le `process` de la ligne de commande, ou `io.process` aux tests) : ligne `unhandled_rejection` (code), arrêt nommé `unhandled_rejection` (nouveau code de `STOPS`) après l'arrêt propre ; écouteur retiré à la fin | `l2_record_unhandled_rejection_stops` ; `:303 CONST` écouteur non posé |
+| B-2 (451 sur un instantané) | le client vu par les carnets (`bookRest`) arrête tout dès qu'une de ses requêtes laisse le client REST arrêté : `rest_stopped`, détail `{ task: "snapshot", symbol, code }` (code d'origine `restricted_location` gardé dans la ligne d'arrêt) | `l2_record_snapshot_451_ends_all` (reproducteur S2 : arrêt dans la seconde) ; `:305 CONST` |
+| m-1 (a) (fenêtre du départ) | signal testé entre les requêtes du départ, chacune en course avec la fin (`Promise.race([fire(e), ended])`) ; aucune liaison ouverte après un arrêt au départ | `l2_record_stop_during_start` (place muette, sonde S3) ; `:385 CONST` |
+| m-1 (b) (sortie du processus) | `leave(code)` : code de sortie posé, puis `process.exit(code)` au plus tard après `EXIT_GRACE_MS` = 5 s (minuteur `unref`) ; la ligne de commande seule l'appelle. Une socket qui ne répond pas au CLOSE n'est pas terminée une à une : la sortie bornée la coupe | `l2_command_exit_bounded` (enfant Node avec un descripteur qui traîne : sortie 3 sous 15 s) ; `:430 CONST` |
+| m-2 (saut d'horloge) | un événement daté (`exchangeInfo`, `anchor`) en retard de plus de `OVERDUE_US` = 20 s est sauté, nommé (`event_skipped`, `late_us`) ; aucune ancre d'un jour passé écrite d'un `depth` neuf ; le jour laissé au rejeu (c6) | `l2_record_overdue_skipped` (sonde S5 : saut de 20 min à 23:52) ; `:376 CONST` |
+| m-3 (liaisons avant le départ) | liaisons ouvertes après l'heure de la place et les quatre `exchangeInfo` (G0 point 2) : la limite de poids est connue avant tout instantané | `l2_record_links_after_start` (aucune socket à chaque requête du départ, cinq après) ; `:387 CONST` |
+| m-4 (M8) | test « neuve en avance » : pas de bascule tant que `U` > id + 1, bascule sans `chain_gap` une fois rejointe | `l2_record_switch_waits_to_join` ; `:316 CONST` (`... <= book.id + 1` en `true`), à la main |
+| m-4 (M12) | test d'une heure non sûre (`offset_us` nul) : l'écart précédent gardé | `l2_record_unsafe_time_keeps_offset` ; `:350 CONST` (`?? offset` retiré), à la main |
+| n-1 (ordre `seal_failed` / `stopped`) | un scellé abandonné par l'arrêt propre n'écrit plus rien après `stopped` (son `seal_done` faux le dit) | `l2_record_stopped_line_last` ; `:339 SDL` |
+| n-2 (verrou laissé) | déclaré pour c6 (ci-dessous) | — |
+| n-3 (plafond de `setTimeout`) | délai de `arm()` borné à une heure (`PERIOD_US`) | non testé (la couture de minuteurs ne modélise pas le plafond) |
+| n-4 (signal avant les liaisons) | `signals()` installé en tête de `record`, avant le client REST et les liaisons | non testé (`io.signal` aux tests) |
+| n-5 | sans enjeu (G2) | — |
+| n-6 (sortie 1 sous `Restart=on-failure`) | déclaré pour P3 (ci-dessous) | — |
+| n-7 | risques du G7 jugés suffisants | — |
+
+### Preuves du pli
+
+- **Preuve rouge** : `node scripts/red-proof.mjs --base ca900bc3 --gel bf7c7864 --repo /home/user/monark-governance-c5bb --draw 10 --seed
+  37` : « red-proof REFUSED: 10 judged, 73 unchanged, 8 killer(s) drawn » ; `RED-PROOF.json` sha256 `242d3eba8ae5c19f…`. Huit F2P (rouges
+  par assertion à `ca900bc3`, verts au gel) : `l2_record_seal_throw_named`, `l2_record_unhandled_rejection_stops`,
+  `l2_record_snapshot_451_ends_all`, `l2_record_stop_during_start`, `l2_command_exit_bounded`, `l2_record_links_after_start`,
+  `l2_record_overdue_skipped`, `l2_record_stopped_line_last` ; leurs huit tueurs tirés et tués. Les deux refus sont les deux tests
+  resserrés de m-4, verts à la base par nature (« self-confirming ») : leurs tueurs appliqués à la main au gel, fichier restauré, sont
+  rouges par assertion (`:316` et `:350`). Les dix tueurs neufs ont aussi été appliqués à la main un par un : dix tués par assertion.
+- Le test de B-1 met de côté, le temps du test, les écouteurs `unhandledRejection` du processus (ceux du lanceur) et compte les rejets
+  laissés : à la base, le rejet `ENOTDIR` est compté et le test rougit par assertion, non par une chute du fichier.
+- **Ancres** : `verifie-ancres.mjs . --touched c6cf927a HEAD` et `--touched ca900bc3 HEAD` : 83 tueurs, 83 ANCRE, 0 DERIVE, 0 PERDU ;
+  `--files` sur les douze `test/l2-*.test.ts` : 178, 178 ANCRE. Tueurs de la boucle renumérotés (`:276` → `:278`, `:298` → `:309`,
+  `:305` → `:316`, `:322` → `:332`, `:356` → `:367`, `:378` → `:395`, `l2-record` `:410` → `:428`) ; ceux de c4, c5 et c5-bis-a inchangés.
+- Chemins des tests neufs bâtis par `join` (aucun chemin POSIX écrit en dur dans une attente), pour le rejeu Windows de MONARK.
+
+| Vérification (tête `bf7c7864`, Node v24.21.0) | Résultat |
+|---|---|
+| `node --test test/l2-*.test.ts` | 178 sur 178, 0 échec, 0 sauté |
+| `npm test` complet | 2 384 tests : 2 362 verts, 0 échec, 22 sautés (raisons nommées), sortie 0 |
+| `tsc --noEmit` (`typecheck`) | 0 |
+| `lint` | 0 |
+| `lint:ratchet` | 69/69 |
+| `gate:vocab` | OK (335 fichiers) |
+| `lang:gate` | OK (0 occurrence hors exemption) |
+| preuve rouge contre `ca900bc3` | 10 jugés : 8 F2P, 8 tueurs tirés tués ; 2 resserrés refusés, tueurs à la main tués |
+| ancres | 83/83 (touchés), 178/178 (`l2-*`) |
+| R-25 contre `c6cf927a` | 540, GREEN, borne du lot 547 |
+
+- **R-25** (`r25()` de `scripts/oracle/r25.mjs` contre `c6cf927a`) : `STAT` 540 (522 insertions, 18 suppressions), `CONTENT_STAT` 0,
+  GREEN ; borne du lot 547, marge 7. Pas de scission. Le prochain pli qui ajouterait plus de 7 lignes hors `docs/**/*.md` déclare le
+  point de scission du G0 (suspension de poids et règle de bascule vers c5-bis-c).
+
+### Déclaré par le pli
+
+- B-1 : un jour dont le scellé lève reste dû ; la levée est reprise à chaque HH:03 (une ligne `schedule_failed` par heure) tant que sa
+  cause reste (un fichier ordinaire sous `conn/` n'est pas filtré par `guardOut`, qui ne lit que le premier niveau). Le rejeu (c6) le
+  scelle. Un rejet du scellé abandonné par l'arrêt propre serait encore journalisé après `stopped` (cas sans chemin connu : `sealApart`
+  résout `seal_aborted`).
+- Filet du processus : posé seulement quand la commande tient le processus (pas de `io.signal`) ou par `io.process` ; un rejet non géré
+  pendant l'arrêt propre lui-même n'en relance pas un autre (`finish` déjà fait), il est seulement journalisé.
+- m-1 (b) : les sockets ne sont pas terminées une à une (la `WebSocket` native n'a pas de `terminate`) ; `process.exit` après 5 s les
+  coupe. Pire cas de l'arrêt : 30 s + 30 s + 5 s, sous les 90 s de `TimeoutStopSec`.
+- m-2 : la tolérance de 20 s vaut pour les seuls événements datés ; les coupes, scellés, heure de la place et `check()` en retard partent
+  encore au rattrapage (sans dommage : une coupe ou un `check()` de plus).
+- n-2 (pour c6) : le verrou `days/<SYMBOLE>/.<jour>.seal.lock` reste après une chute (`SIGKILL`) ; c6 et tout lecteur de
+  `days/<SYMBOLE>/` l'ignorent comme entrée et respectent son âge (`SEAL_TIMEOUT_MS`).
+- n-6 (pour P3) : un arrêt nommé sort 1 ; sous `Restart=on-failure`, un `quota_stop` ou un `rest_stopped` (451) relancerait l'unité en
+  boucle : `RestartPreventExitStatus` ou un code de sortie distinct à trancher en P3.
+
+## Pli de la delta (APPROUVE SOUS RESERVE, 2026-10-05)
+
+Delta lue : `recherches/coordination/pieces/2026-10-04-G2-recherches/G2-l2-p1-c5-bis-b-delta.md` (delta relu `ca900bc3..b84df6d7`,
+aucun bloquant ; r-1 à r-4, notes n-a à n-f). Commits, sans rebase :
+- `7a546ab8` : fusion de `recherches/l2-p1-c5-bis` à `dadc049c` (pli de la delta de c5-bis-a, PR #156). L'appel `apart` passe déjà un vrai
+  `AbortSignal` et un `env` objet : rien à adapter au `sealApart` qui lit son `io` dans son `try` ; `if (abort.signal.aborted) return;`
+  gardé après l'appel (n-d). Tests L2 181 sur 181 après la fusion.
+- `c489d389` (test rouge de r-1), `3662e147` (gel de r-1).
+- `5056a343` : fusion de `recherches/l2-p1-c5-bis` à `3d464be5` (c5 `85211233` : deux sauts win32 nommés des tests d'échange de lien).
+  Base de la PR désormais `3d464be5` ; R-25 du lot mesuré contre elle.
+- `a970a8be` (test rouge de r-2), `fe18cf81` (gel de r-2), `2a3724cb` (le test de m-1 (a) garde son seul tueur de preuve rouge, celui de
+  r-2 est appliqué à la main), puis ce commit (G7).
+
+| Point de la delta | Suite | Preuve (test ; tueur) |
+|---|---|---|
+| **r-1** (une clé de `seals()` affame les suivantes) | un `try` par clé (symbole, jour) dans `seals()` : sa levée est journalisée `schedule_failed` avec le symbole et le jour (`{ task: "seal", day, code }`), la clé reste due (l'heure suivante), les clés suivantes passent. Le `.catch` de l'appel reste en filet | `l2_record_seal_throw_named`, corps repris sur le reproducteur STARVE de la delta : verrou de `BTCUSDT` en dossier daté de 1970 (`EISDIR`) ; `BNBUSDT`, `ETHUSDT` et `SOLUSDT` `day_sealed`, `BTCUSDT` `schedule_failed` (jour D), `stopped`, aucun rejet non géré. Tueur `// killer: scripts/record-binance-l2.mjs:344 CONST "catch (e) { failed(\"seal\", e, symbol, { day }); }" -> "catch (e) { throw e; }"` |
+| **r-2** (écritures après `stopped`) | plié pour la boucle : après chaque réponse REST de `fire` (`time`, `exchangeInfo`, ancre), `if (finished) return;` ; un échec après l'arrêt n'est plus journalisé (`if (finished \|\| e instanceof RecorderStop)`). Ni `clock_offset`, ni `weight_*`, ni `anchor-*.json`, ni `schedule_failed` après `stopped`. Reste (à c5-bis-c) : `requests.jsonl` et `rest/` sont écrits par le client REST lui-même pour une requête en vol | `l2_record_stop_during_start`, étendu au reproducteur AFTERSTOP : la réponse du départ rendue après l'arrêt, la dernière ligne reste `stopped`, aucune `clock_offset`. Tueur à la main (un seul tueur par test pour la preuve rouge, celui de m-1 (a) gardé) : `// killer: scripts/record-binance-l2.mjs:352 CONST "if (finished) return; const e" -> "const e"`, rouge par assertion (`["clock_offset", 1]`) |
+| r-3 (`note("stopped")` nu) | non plié (budget) : à c5-bis-c, liste ci-dessous | — |
+| r-4 (trois survivants) | non plié (budget) : à c5-bis-c, liste ci-dessous | — |
+| n-a (départ lent près de minuit) | déclaré, à c5-bis-c ; le rejeu (c6) couvre les ancres perdues | — |
+| n-b (rejet après le retrait du filet) | déclaré pour P3, avec n-6 | — |
+| n-c (Windows) | à vérifier au rejeu Windows de MONARK : `l2_command_exit_bounded` (`env: {}`) et désormais `EISDIR` d'un `writeFileSync` sur un dossier dans `l2_record_seal_throw_named` (libuv le rend sous win32, à confirmer). Les tests touchés n'utilisent ni `/proc`, ni FIFO, ni `O_NOFOLLOW`, ni renommage sur un lien de dossier : aucun saut win32 requis | — |
+| n-d | gardé à la fusion (ci-dessus) | — |
+| **n-e** (418 sans `Retry-After`) | dit ici : un 418 sans `Retry-After` (ou avec un `Retry-After` de plus de 3 jours) laisse le client REST arrêté ; sur un instantané comme sur `time`, `exchangeInfo` ou une ancre, la course s'arrête aussitôt `rest_stopped` avec son code (`ip_banned_no_retry_after`), comme un 451, conformément au G0 (« les arrêts de b1 »). Un 429 suspend seulement | — |
+| n-f (levée synchrone) | déclaré pour c6 : le filet ne couvre que `unhandledRejection` ; aucun chemin synchrone connu dans la boucle | — |
+
+### Renvoyés à c5-bis-c (liste fermée)
+
+Le budget R-25 de c5-bis-b est pris (546 sur 547 contre `3d464be5`) : ce qui suit va à c5-bis-c, avec les **13 points** que le G7 de
+c5-bis-a renvoyait à c5-bis-b (`docs/G7-lot-l2-p1-c5-bis.md`, section « Renvoyés à c5-bis-b », points 1 à 13 : r-3 M3, L8, L4, M10, M17,
+`timeoutMs` de `_through_the_pinned_root`, r-4 `hook_failed`, n-10 à n-15), non traités ici.
+
+14. **r-2 (reste)** : une requête REST en vol à l'arrêt écrit encore `requests.jsonl` et `rest/` après `stopped`, dans la fenêtre de
+    sortie (`EXIT_GRACE_MS`) ; un `AbortController` de la boucle passé au client REST et abandonné à l'arrêt. Les gardes `if (finished)`
+    de `exchangeInfo`, de l'ancre et du `catch` ne sont pas épinglées par un test (seule celle de `time` l'est, à la main).
+15. **r-3** : `note("stopped")` en `tell("stopped", ...)` (ou le risque déclaré), avec un test au reproducteur JOURNAL : la course sort
+    sur l'arrêt nommé, pas sur `EISDIR` brut.
+16. **r-4 (a)** : la tolérance `OVERDUE_US` épinglée : saut de 19 s, rien sauté ; saut de 21 s, `event_skipped` (sonde JITTER) ; tueur
+    `now - e.at > OVERDUE_US` en `now - e.at > 0`.
+17. **r-4 (b)** : `tell` sans `try` : un test d'un journal en panne sur un chemin d'erreur.
+18. **r-4 (c)** : la branche de rejet de `within` : un test d'un `stop()` de liaison qui rejette.
+19. **n-a** : critère « jour corrigé changé, ou retard au-delà de la tolérance » pour les ancres d'un départ lent près de minuit (sonde
+    SLOWSTART), ou le risque gardé déclaré.
+20. **filet du `.catch` de `seals()`** : depuis r-1, aucune levée connue ne l'atteint ; son retrait ne rougit aucun test (survivant
+    déclaré).
+
+### Preuves du pli de la delta
+
+- **Preuve rouge de r-1** : `node scripts/red-proof.mjs --base 7a546ab8 --gel 3662e147 --repo /home/user/monark-governance-c5bb --draw 10
+  --seed 37` : « red-proof OK: 1 judged, 85 unchanged, 1 killer(s) drawn » ; F2P `l2_record_seal_throw_named` (à la base : trois lignes au
+  lieu de cinq, `ETHUSDT` et `SOLUSDT` jamais scellés), tueur `:344` tiré et tué ; `RED-PROOF.json` sha256 `12f8e0d462b792be…`.
+- **Preuve rouge de r-2** : `--base 5056a343 --gel 2a3724cb --draw 10 --seed 37` : « red-proof OK: 1 judged, 64 unchanged, 1 killer(s)
+  drawn » ; F2P `l2_record_stop_during_start`, tueur `:387` (m-1 (a)) tiré et tué ; sha256 `77c5b7b4acd58733…`. Tueur `:352` de r-2 à la
+  main au gel, fichier restauré : rouge par assertion.
+- **Preuve rouge du pli entier** : `--base 7a546ab8 --gel 2a3724cb --draw 10 --seed 37` : « REFUSED: 4 judged, 82 unchanged, 2 killer(s)
+  drawn » ; les deux F2P du pli et leurs deux tueurs tués ; les deux refus « green at base » (`l2_check_walk_pinned`,
+  `l2_check_alarm_pinned`) sont les sauts win32 de c5 apportés par la fusion `5056a343`, pas des tests du pli ; sha256 `f72e1d856d31380e…`.
+- **Ancres** : `verifie-ancres.mjs . --touched dadc049c HEAD` et `--touched 3d464be5 HEAD` : 86 tueurs, 86 ANCRE, 0 DERIVE, 0 PERDU.
+  Tueurs de la boucle renumérotés (`:332` → `:333`, `:339` → `:340` avec son indentation, `:350` → `:352`, `:367` → `:369`, `:376` →
+  `:378`, `:385` → `:387`, `:387` → `:389`, `:395` → `:397`, `:430` → `:432`, `l2-record` `:428` → `:430`) ; `:349` (`.catch`) remplacé
+  par `:344`.
+- Chemins du test de r-1 bâtis par `join` ; aucun chemin POSIX écrit en dur dans une attente.
+
+| Vérification (tête `2a3724cb`, Node v24.21.0) | Résultat |
+|---|---|
+| `node --test test/l2-*.test.ts` | 181 sur 181, 0 échec, 0 sauté |
+| `npm test` complet | 2 387 tests : 2 365 verts, 0 échec, 22 sautés (raisons nommées), sortie 0 |
+| `tsc --noEmit` (`typecheck`) | 0 |
+| `lint` | 0 |
+| `lint:ratchet` | 69/69 |
+| `gate:vocab` | OK (335 fichiers) |
+| `lang:gate` | OK |
+| preuves rouges | r-1 OK, r-2 OK ; pli entier : 2 F2P, 2 tueurs tués, 2 refus hérités de la fusion de c5 |
+| ancres | 86/86 (touchés depuis `dadc049c` et depuis `3d464be5`) |
+| R-25 contre `3d464be5` (base de la PR) | 546, GREEN, borne du lot 547 |
+
+- **R-25** (`r25()` de `scripts/oracle/r25.mjs`, `ci.yml` du worktree) : contre `3d464be5`, `STAT` 546 (528 insertions, 18 suppressions),
+  `CONTENT_STAT` 0, GREEN, marge 1 (le pli de la delta : +6 nettes, r-1 +4, r-2 +2). Contre `dadc049c` : 550 (la fusion de c5 y compte ses
+  4 lignes de test). Contre `c6cf927a` : 616 (le pli de la delta de c5-bis-a y compte aussi) ; ni l'une ni l'autre n'est plus la base de
+  cette PR.
+
+## Blocage de l'oracle (#157 rouge, 2026-10-05)
+
+- **Constat (MONARK).** Tête `f8bedc17` : dans `npm run test:main` de l'oracle Windows (2 411 tests, sous charge),
+  `l2_record_stopped_line_last` dépasse 300 000 ms ; isolé, il passe en 310 ms.
+- **Cause : le test, pas l'enregistreur.**
+  - L'arrêt propre arme deux bornes sur l'horloge de l'hôte, l'une après l'autre (Q-8 de a3) : celle des liens à l'arrêt, puis celle du
+    scellé une fois les liens fermés.
+  - Un lien se ferme quand ses écrivains ont fini. Leur travail disque est réel : le dossier d'un segment créé puis synchronisé
+    (`mkdir`, `syncDir` de `scripts/l2/segments.mjs`).
+  - Le harnais `host()` n'avance l'horloge simulée qu'à la demande. Entre deux pas, il ne laisse passer que 5 ms réelles.
+  - Le test menait l'horloge jusqu'à 00:03:41, soit 31 s après l'arrêt, puis attendait la course (`await run`). Il supposait donc les
+    liens fermés à 00:03:10.
+  - Sous charge, la fermeture arrive plus tard. La borne des liens part alors à 00:03:40 et celle du scellé est armée à cet instant,
+    échéance 00:04:10. Le faux scellé ne se résout qu'à l'annulation, que plus rien ne déclenche : l'attente ne se résout jamais.
+  - En production, `setTimer` est l'horloge réelle : les deux bornes partent seules, l'arrêt reste borné à 2 × `STOP_BOUND_MS`. Aucun
+    risque pour l'enregistreur sous Linux ni sous Windows.
+- **Preuves de la cause.**
+  - Diagnostic temporaire (non versé) sur `setTimer` après l'arrêt.
+  - Ouvertures de segment retardées de 200 ms réelles : la borne des liens tombe à 00:03:40, la seconde est armée à 00:03:40 pour
+    00:04:10, et la course reste pendante après 00:03:41.
+  - Les étapes du test à `f8bedc17`, disque tenu dès la coupure de l'heure : course non résolue après 10 s réelles (rouge borné).
+- **Correctif (test).**
+  - `test/helpers/host-clock.ts` : `settles(run, advance, steps)` fait avancer l'horloge pas à pas jusqu'à ce que la course se termine.
+    Le plafond est de 600 pas d'une seconde ; au-delà, l'échec est une assertion, jamais un blocage.
+  - `l2_record_stopped_line_last` n'attend plus la course à un instant fixe. Il garde son tueur (n-1).
+- **Régression** `l2_record_stop_bound_armed_late`.
+  - Le disque ne répond plus dès la coupure de l'heure : c'est le retard de la charge, rendu déterministe.
+  - Il asserte la course encore pendante à 00:03:41, puis, menée, terminée avec la ligne `stopped` dernière à 00:04:10
+    (`links_closed` et `seal_done` faux).
+  - Tueur : `test/helpers/host-clock.ts:8 CONST "i < steps && !done" -> "false"`. Le mutant, qui ne mène plus l'horloge après l'instant
+    fixe, rougit les deux tests par assertion en moins de 120 ms.
