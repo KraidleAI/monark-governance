@@ -12,5 +12,7 @@ export const ATTRIBUTES: string;
 export function specsOf(ciText: string): string[][];
 export const ASSET_MAGIC: Record<string, string[]>;
 export function refusals(cwd: string, base: string, specs: string[][]): string[];
+export const LINE_MAX: number;
+export const LONG_LINE_PATHS: Record<string, string>;
 export function effective(a: { cwd: string; ciText: string; base: string; proof: unknown; written: number[] }): { mode: Mode; code: number; content: number; detail: string[] };
 export function buildProof(a: { api: (path: string, deadline: number) => Promise<unknown>; cwd: string; pr: unknown; base?: string; deadline?: number }): Promise<Proof>;
