@@ -73,6 +73,7 @@ export const WHITELIST_FILES = [
   // absent file (root test derived_workflow_run_paths_are_exported). Its .d.mts is governance-only (no exported
   // .ts imports it, so the exported tsc never needs it) and is NOT whitelisted. English, built-ins only.
   "scripts/assert-fleet-html.mjs",
+  "test/helpers/blocking-stdout.cjs",
   // The Narabi F2-B out-of-tool method (ADR-M008 Amendement bis, C-18): publish HOW the USDe series was
   // acquired and how the committed scores/digest are reproduced, so PROVENANCE-usde.md §6 "Reproduce" is not
   // hollow in public. Read-only public RPC, no key; English, no forbidden vocab (lang:gate + gate:vocab clean).
