@@ -27,11 +27,11 @@ export const BOUND_KEYS = ["VIBEGATES_PR_LIMIT", "VIBEGATES_CONTENT_LIMIT"]; // 
 const CHECK = "r25-taille-de-lot", SHA = /^[0-9a-f]{40}$/, EMPTY_TREE = "4b825dc642cb6eb9a060e54bf8d69288fbee4904";
 // Options that change a count, pinned over any user or system config so the CI and the oracle cannot diverge (G2 m-2): no user
 // attributes file (G2 m-a) nor system one (GIT_ATTR_NOSYSTEM, delta3 m-f); messages in English (counts and conflict headers are
-// parsed); GIT_DIFF_OPTS dropped (G2 B-4); git's default bigFileThreshold (delta2 m-d); attributes of the empty tree (delta2 B-6).
+// parsed); GIT_DIFF_OPTS dropped (G2 B-4); git's default bigFileThreshold (delta2 m-d); attributes of attrTree, not the tree's (B-6).
 // The oracle's W read takes the same PIN and env (delta3 m-g), and so do the r25 job's two W counts, through `pin` (O-1). A non-empty $GIT_DIR/info/attributes, that --attr-source does not replace, is an error: W (delta3 m-f).
 export const infoAttributes = (cwd) => (statSync(execFileSync("git", ["-C", cwd, "rev-parse", "--path-format=absolute", "--git-path", "info/attributes"], { encoding: "utf8", env: GIT_ENV() }).trim(), { throwIfNoEntry: false })?.size ?? 0) > 0;
 export const PIN = ["-c", "merge.conflictStyle=merge", "-c", "diff.algorithm=myers", "-c", "diff.renames=true", "-c", "merge.renames=true", "-c", "merge.directoryRenames=conflict", "-c", "diff.suppressBlankEmpty=false", "-c", "core.attributesFile=", "-c", "core.bigFileThreshold=512m"];
-export const GIT_ENV = (base = process.env) => ({ ...base, GIT_DIFF_OPTS: undefined, LC_ALL: "C", GIT_ATTR_NOSYSTEM: "1" }); const gitIn = (cwd, raw = false) => (...a) => { const o = execFileSync("git", ["-C", cwd, `--attr-source=${EMPTY_TREE}`, ...PIN, ...a], { encoding: "utf8", maxBuffer: 1 << 30, stdio: ["ignore", "pipe", "pipe"], env: GIT_ENV() }); return raw ? o : o.trim(); };
+export const GIT_ENV = (base = process.env) => ({ ...base, GIT_DIFF_OPTS: undefined, LC_ALL: "C", GIT_ATTR_NOSYSTEM: "1" }); const gitIn = (cwd, raw = false, src = attrTree(cwd)) => (...a) => { const o = execFileSync("git", ["-C", cwd, `--attr-source=${src}`, ...PIN, ...a], { encoding: "utf8", maxBuffer: 1 << 30, stdio: ["ignore", "pipe", "pipe"], env: GIT_ENV() }); return raw ? o : o.trim(); };
 const rows = (s) => s.split("\n").filter((l) => l !== "");
 
 /** Candidate (G0 2.2): head and target in L, both in this repository, distinct; read from GitHub's PR object only. */
@@ -169,7 +169,7 @@ const ghApi = async (path) => JSON.parse(execFileSync("gh", ["api", path.slice(1
 
 /** The r25 job's two `git diff --shortstat` counts (W, the lines R25_DIFF_RE reads) under the read of the module and the oracle (lot
  * R25-ATTR-SOURCE-1, G7 O-1, ADR-M003 D9 undecies): shell lines the job evaluates first. PIN as command-scope config (GIT_CONFIG_COUNT;
- * GIT_CONFIG_PARAMETERS, read after it, dropped), GIT_ENV, and the attributes of the empty tree (GIT_ATTR_SOURCE, git >= 2.40): a
+ * GIT_CONFIG_PARAMETERS, read after it, dropped), GIT_ENV, and the attributes of attrTree (GIT_ATTR_SOURCE, git >= 2.40): a
  * .gitattributes of the measured tree (-diff, binary, a diff driver) no longer lowers W. Refused (W unread, the job red): git < 2.40, a
  * non-empty $GIT_DIR/info/attributes, that GIT_ATTR_SOURCE does not replace. */
 export function pinShell(cwd) {
@@ -177,8 +177,19 @@ export function pinShell(cwd) {
   if (Number(v[1]) * 1000 + Number(v[2]) < 2040) throw new Error(`git ${v[0]} is older than 2.40: no GIT_ATTR_SOURCE`);
   if (infoAttributes(cwd)) throw new Error("$GIT_DIR/info/attributes is not empty: GIT_ATTR_SOURCE does not replace it");
   const kv = PIN.filter((_, i) => PIN[i - 1] === "-c").map((a) => [a.slice(0, a.indexOf("=")), a.slice(a.indexOf("=") + 1)]);
-  const env = { ...GIT_ENV({}), GIT_CONFIG_PARAMETERS: undefined, GIT_ATTR_SOURCE: EMPTY_TREE, GIT_CONFIG_COUNT: String(kv.length), ...Object.fromEntries(kv.flatMap(([k, x], i) => [[`GIT_CONFIG_KEY_${i}`, k], [`GIT_CONFIG_VALUE_${i}`, x]])) };
+  const env = { ...GIT_ENV({}), GIT_CONFIG_PARAMETERS: undefined, GIT_ATTR_SOURCE: attrTree(cwd), GIT_CONFIG_COUNT: String(kv.length), ...Object.fromEntries(kv.flatMap(([k, x], i) => [[`GIT_CONFIG_KEY_${i}`, k], [`GIT_CONFIG_VALUE_${i}`, x]])) };
   return Object.entries(env).map(([k, x]) => (x === undefined ? `unset ${k}` : `export ${k}='${x.replaceAll("'", "'\\''")}'`)).join("\n");
+}
+
+/** The attributes every count reads, in place of the empty tree's (lot R25-GUARDS-1, item R25-NUL-BINARY-1, ADR-M003 D9 duodecies). A
+ * content git detects as binary (a NUL byte in its first 8 000) counted 0 lines; every path is now text for diff and counts its lines,
+ * under both pathspecs, but the closed list of binary assets the repository holds, left to git's detection. The tree is written to the
+ * object store of `cwd` (two objects, the same bytes each time); its id is the GIT_ATTR_SOURCE of `pin` and the --attr-source of gitIn. */
+export const BINARY_ASSETS = ["cbor", "jpg", "ots", "pdf", "png", "ttf"];
+export const ATTRIBUTES = `* diff\n${BINARY_ASSETS.map((e) => `*.${e} !diff\n`).join("")}`;
+export function attrTree(cwd) {
+  const g = (a, input) => execFileSync("git", ["-C", cwd, ...a], { input, encoding: "utf8", env: GIT_ENV() }).trim();
+  return g(["mktree"], `100644 blob ${g(["hash-object", "-w", "--no-filters", "--stdin"], ATTRIBUTES)}\t.gitattributes\n`);
 }
 
 if (process.argv[1] !== undefined && import.meta.url === pathToFileURL(process.argv[1]).href) {
