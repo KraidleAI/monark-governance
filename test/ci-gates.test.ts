@@ -1891,7 +1891,7 @@ test("ci_workflow_declares_least_privilege_permissions - root contents: read aft
   };
   assert.deepEqual(problems(LINES), [], "the workflow keeps the root contents: read block and the one r25 job block (G0 Q-2), nothing wider");
   const at = (re: RegExp): number => LINES.findIndex((l) => re.test(l));
-  const rootAt = at(/^permissions:\s*$/), jobAt = at(/^ {4}permissions:\s*$/), g1At = at(/^ {2}g1-controle-generation\s*:/), g3At = at(/^ {2}g3-verification\s*:/);
+  const r25At = at(/^ {2}r25-taille-de-lot\s*:/), rootAt = at(/^permissions:\s*$/), jobAt = at(/^ {4}permissions:\s*$/), g1At = at(/^ {2}g1-controle-generation\s*:/), g3At = at(/^ {2}g3-verification\s*:/);
   assert.ok(rootAt !== -1 && jobAt !== -1 && g1At !== -1 && g1At < jobAt && jobAt < g3At, "the mutants' anchors are present (root block, r25 job block, g1 before it, g3 after it)");
   const edit = (i: number, del: number, ...add: string[]): string[] => { const c = [...LINES]; c.splice(i, del, ...add); return c; };
   const blk = LINES.slice(jobAt, jobAt + 4);
@@ -1911,6 +1911,13 @@ test("ci_workflow_declares_least_privilege_permissions - root contents: read aft
     "explicit ? key on g3": edit(g3At + 1, 0, "    ? permissions", "    : read-all"),
   };
   for (const [name, m] of Object.entries(mutants)) assert.ok(problems(m).length > 0, `mutant "${name}" must be refused`);
+  // G2 of the Q-2 fold, m-2: the job token carries pull-requests and checks read, so the r25 checkout does not persist
+  // it in .git/config; every later git call of the job is local (diff, rev-list, rev-parse, show) and the proof reads
+  // the API with R25_READ_TOKEN.
+  const r25Body: string[] = [];
+  for (let i = r25At + 1; i < LINES.length && !/^ {0,2}\S/.test(LINES[i]!); i++) if (isCode(LINES[i]!)) r25Body.push(LINES[i]!.trim());
+  const co = r25Body.findIndex((l) => l.startsWith("- uses: actions/checkout@"));
+  assert.deepEqual(r25Body.slice(co + 1, co + 4), ["with:", "fetch-depth: 0", "persist-credentials: false"], "the r25 checkout keeps full history and does not persist the job token (m-2)");
   const derived = derivePublicWorkflow(WF).split(/\r?\n/);
   assert.deepEqual(derived.filter((l) => isCode(l) && KEY_RE.test(l)), ["permissions:"], "the DERIVED public workflow (r25 job stripped) keeps the root block alone");
   const dIdx = derived.indexOf("permissions:");
