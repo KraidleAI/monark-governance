@@ -15,12 +15,12 @@
 // --out lies under no git tree, as given and as resolved on disk, no dangling link on its path, and is absent, empty, or an L2 output to
 // resume (its entries of OUT_ENTRIES alone, each of its type, journal.jsonl among them; a link anywhere under it stops); quota (Q-11, point 16): the bytes of --out, counted at the start and on
 // each check, journal a quota_alarm once at ALARM_PCT % of --quota-bytes and stop at STOP_PCT % (quota_stop); at the start the free
-// space of the file system holds the rest of the quota, else disk_short. The loop (P1-c5) and the replay (P1-c6) are not built: after
+// space of the file system holds the rest of the quota, else disk_short. The loop (P1-c5-bis) and the replay (P1-c6) are not built: after
 // its guards the command stops, named (not_built). Test seam (point 22): run(argv, io) and main(argv, io) take the clocks, the
 // environment, execArgv, the reading of the free space and print from their caller, never from the command line nor the environment.
 // Exit 1 on a named stop (closed list STOPS), 2 on usage. The command runs when node starts this very file, compared by real paths
-// (MAIN-GUARD-REALPATH-1). The agent never commits (R-20).
-import { appendFileSync, constants, existsSync, lstatSync, opendirSync, realpathSync, statfsSync, statSync } from "node:fs";
+// (MAIN-GUARD-REALPATH-1). adopt() (P1-c5) takes --out for the loop. The agent never commits (R-20).
+import { closeSync, constants, existsSync, fstatSync, lstatSync, mkdirSync, opendirSync, openSync, readSync, realpathSync, statfsSync, statSync, writeSync } from "node:fs";
 import { dirname, join, resolve, win32 } from "node:path";
 import { fileURLToPath } from "node:url";
 import { SYMBOLS } from "./l2/links.mjs";
@@ -101,7 +101,7 @@ export function guardOut(out, { exists = existsSync, real = realpathSync.native 
       if (dirname(dir) === dir) break;
     }
   }
-  if (!exists(out)) return false;
+  if (!exists(out)) return exists(near) && !statSync(near).isDirectory() ? stop("out_not_l2", { out, entry: near, why: "not a directory" }) : false; // m-8
   if (!statSync(out).isDirectory()) stop("out_not_l2", { out, why: "not a directory" });
   const d = opendirSync(out);
   let journal = false, count = 0;
@@ -146,7 +146,7 @@ export function createQuota({ out, quota }, io) {
     if (100 * used >= ALARM_PCT * quota && !alarmed) {
       alarmed = true;
       const line = { host_us: io.wallUs(), mono_ns: String(io.monoNs()), symbol: "ALL", cid: null, event: "quota_alarm", used, quota };
-      appendFileSync(join(out, "journal.jsonl"), JSON.stringify(line) + LF, { flag: APPEND }); // no link followed (win32: no O_NOFOLLOW)
+      appendLine(join(out, "journal.jsonl"), line); // no link followed (win32: no O_NOFOLLOW), one link alone (P1-c5)
     }
     return used;
   };
@@ -171,6 +171,50 @@ export function prepare(argv, io = {}) {
   const check = createQuota({ out: args.out, quota: args.quota }, clocks), used = check(), free = (io.freeBytes ?? freeBytes)(args.out);
   if (free < args.quota - used) stop("disk_short", { free, quota: args.quota, used });
   return { ...args, resume, used, free, check };
+}
+
+/** The recorder that the start line of its journal names (n-5 of the G2 of c4); bytes of journal.jsonl read for its first line. */
+export const RECORDER = "scripts/record-binance-l2.mjs";
+const HEAD = 4096;
+
+/** One JSON line appended to a file of --out by one write: never through a link (O_NOFOLLOW: out_not_l2, not ELOOP, n-8 of the delta G2
+ *  of c4), to a file of one link alone (fstat nlink 1, else out_not_l2, nothing written: n-5bis). */
+export function appendLine(path, line) {
+  let fd = null;
+  try {
+    fd = openSync(path, APPEND, 0o644);
+    if (fstatSync(fd).nlink !== 1) stop("out_not_l2", { entry: path, why: "hard link" });
+    writeSync(fd, JSON.stringify(line) + LF);
+  } catch (e) {
+    if (e.code === "ELOOP") stop("out_not_l2", { entry: path, why: "a link" });
+    throw e;
+  } finally { if (fd !== null) closeSync(fd); }
+}
+
+/** A resumed --out is this recorder's: the first line of its journal.jsonl, read in its first HEAD bytes, is a start of RECORDER (n-5). */
+function ownJournal(out) {
+  const fd = openSync(join(out, "journal.jsonl"), constants.O_RDONLY | (constants.O_NOFOLLOW ?? 0)), head = Buffer.alloc(HEAD);
+  let first = null;
+  try { first = JSON.parse(head.toString("utf8", 0, readSync(fd, head, 0, HEAD, 0)).split(LF)[0]); } catch { first = null; } finally { closeSync(fd); }
+  if (first?.event !== "start" || first.recorder !== RECORDER) stop("out_not_l2", { out, why: "journal.jsonl not of this recorder" });
+}
+
+/** A recording takes --out once prepare passed, before anything is opened: a resumed output is this recorder's (n-5); --out is made, its
+ *  real path pinned (n-7 of the delta G2 of c4), the start line journaled (Q-C1-10). check(), at the pace of the loop: the real path
+ *  unchanged, else out_not_l2; the guards of --out again, no .git above it as given and as resolved (n-2); journal.jsonl and requests.jsonl of one link each
+ *  (n-5bis); then the quota (its bytes). io: wallUs (host wall clock, us), monoNs (bigint). */
+export function adopt(plan, io) {
+  if (plan.resume) ownJournal(plan.out);
+  mkdirSync(plan.out, { recursive: true });
+  const real = realpathSync.native(plan.out);
+  appendLine(join(real, "journal.jsonl"), { host_us: io.wallUs(), mono_ns: String(io.monoNs()), symbol: "ALL", cid: null, event: "start", recorder: RECORDER });
+  const check = () => {
+    if ((existsSync(plan.out) ? realpathSync.native(plan.out) : null) !== real) stop("out_not_l2", { out: plan.out, real, why: "real path changed" });
+    guardOut(plan.out);
+    for (const name of ["journal.jsonl", "requests.jsonl"]) if (existsSync(join(real, name)) && lstatSync(join(real, name)).nlink !== 1) stop("out_not_l2", { entry: name, why: "hard link" });
+    return plan.check();
+  };
+  return { real, check };
 }
 
 /** One run: its guards, then a named stop until the loop (P1-c5) and the replay (P1-c6) are built. */

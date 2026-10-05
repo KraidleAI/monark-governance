@@ -10,7 +10,7 @@
 // set to the snapshot (S6) and the event applied (S7); with one, u < id is ignored, U > id + 1 or an unreadable diff is a rupture, the
 // book dropped; quantities set as received, zero removes (A2); id = u (A3). The diffs of
 // the day before after the anchor (the amorce) are so replayed in place; every segment with a diff frame read is referenced (G2 m-5).
-// Kept snapshots are parsed once for their lastUpdateId, read again when the book is set (G2 m-9). Prices are integers at the day's
+// Kept snapshots are parsed once for their lastUpdateId, read again when the book is set (G2 m-9); read again with another one, or unreadable, snapshot_reload (P1-c5). Prices are integers at the day's
 // scale (BigInt; a non-zero digit past it: off_scale, nothing written). Minute t, 00:00 to 23:59: the book after the events of place
 // time strictly before t, written at the first chained event at or after t: levels within +-100 bp (100 |2p - b - a| <= b + a), their
 // count, the distance of the deepest level of the snapshot synced on, floored; else absent, named. Chain holes (m-5 of c1) go to
@@ -103,7 +103,7 @@ export function deriveDay({ out, symbol, day, start, end, segs, marks, dir, scal
         while (k < snaps.length && snaps[k].lid < ev.U - 1) k += 1; // S4, chain reading: U = lastUpdateId + 1 continues
         const s = snaps[k];
         if (s === undefined || s.lid >= ev.u) continue; // none yet; or S5, the event is not after the snapshot
-        const full = s.load(), bids = side(full.bids), asks = side(full.asks);
+        const full = s.load(); if (full?.lid !== s.lid) throw new DayStop("snapshot_reload", { symbol, day, ref: s.ref, lid: s.lid }); const bids = side(full.bids), asks = side(full.asks); // L2-SNAPSHOT-RELOAD-1
         book = { id: s.lid, since: s.lid, bids, asks, floor: [range(bids)?.[0] ?? null, range(asks)?.[1] ?? null] }; // S6
         [k, how] = [k + 1, how ?? (s.ref === null ? "anchor" : "snapshot")];
         hole(E);
