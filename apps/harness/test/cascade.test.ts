@@ -28,6 +28,7 @@ import {
 } from "../src/tools/cascade.ts";
 import { CASCADE_INPUT_SCHEMA, CASCADE_OUTPUT_SCHEMA, cascadeInputStandardSchema, type Json } from "../src/schema-projection.ts";
 import { CASCADE_UNCALIBRATED_SENTENCE } from "../src/tools/gate.ts";
+import { SCHEMA_VERSION } from "../src/tools/gate.ts";
 
 const CONTAGION: CascadeInput = { L: [[0, 100], [50, 0]], e: [40, 20], shock: 0, producedAt: "2026-09-04T00:00:00Z" };
 
@@ -63,7 +64,7 @@ test("cascade_returns_frozen_prediction", () => {
   const p = runCascade({ L: [[0, 100], [50, 0]], e: [40, 20], shock: 0.2, producedAt: "2026-09-04T00:00:00Z" });
   assertClosedPrediction(p);
   assertNoForbiddenKey(p);
-  assert.equal(p.schema_version, "1.0.0");
+  assert.equal(p.schema_version, SCHEMA_VERSION);
   assert.equal(p.task_class, "cascade-liquidable-24h");
   assert.equal(p.predictor_id, CASCADE_PREDICTOR_ID);
   assert.equal(p.produced_at, "2026-09-04T00:00:00Z");

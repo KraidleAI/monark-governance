@@ -10,6 +10,7 @@ import assert from "node:assert/strict";
 import { assertClosedGateDecision } from "@monark/contracts";
 import type { Prediction } from "@monark/contracts";
 import { runGate, HarnessToolError, type HarnessParams } from "../src/tools/gate.ts";
+import { SCHEMA_VERSION } from "../src/tools/gate.ts";
 
 const PARAMS: HarnessParams = {
   remainingBudget: 0.1,
@@ -32,7 +33,7 @@ const USDE_KEY = "narabi:persistence-v2@eip155:1/erc20:0x4c9edd5852cd905f086c759
 const USDE_KEY_CHECKSUM = "narabi:persistence-v2@eip155:1/erc20:0x4c9EDD5852cd905f086C759E8383e09bff1E68B3";
 
 function pred(taskClass: string, predictorId: string, yhat: string | number): Prediction {
-  return { schema_version: "1.0.0", task_class: taskClass, yhat, predictor_id: predictorId, produced_at: "2026-09-04T00:00:00Z" };
+  return { schema_version: SCHEMA_VERSION, task_class: taskClass, yhat, predictor_id: predictorId, produced_at: "2026-09-04T00:00:00Z" };
 }
 
 function decided(p: Prediction, cal: NonNullable<HarnessParams["calibration"]>, at: string): ReturnType<typeof runGate> {

@@ -16,5 +16,7 @@
   "schemas/coverage-verdict.schema.json": "203591de14994dfbc1076a5af888accd147cfb832a22feb2e284432b68c18d88",
   "schemas/forbidden-keys.json": "a4e93fd14c1dbd51d6bbffbdc289e8bcba08c1a94dd306c2729d0849d25e2990",
   "schemas/gate-decision.schema.json": "ed725b73e346eda43c67376286d9a653cdbc1686ceb09d2e93d1bc3280a5fea9",
-  "schemas/prediction.schema.json": "f304e0726f06aa5158a5c023c8236b3cad535ba3d7507d249667a856118fd3cc"
+  "schemas/policy-row.schema.json": "b828d858b458a2c8c3a7e9f58040822c0d399d70e8ea06972ef503f2810120de",
+  "schemas/prediction.schema.json": "f304e0726f06aa5158a5c023c8236b3cad535ba3d7507d249667a856118fd3cc",
+  "schemas/tool-error.schema.json": "ce9c5ca1e74497fc5ebd3b60ec57604c4dd5ce4c3d2046bbc67e9dd3502f0010"
 }

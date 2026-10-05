@@ -13,12 +13,13 @@ import { HARNESS_TOOLS, REGISTERED_TOOL_NAMES } from "../src/tools/registry.ts";
 import { CALIBRATE_MAX_N } from "../src/tools/calibrate.ts";
 import { startServer } from "../src/server.ts";
 import { startLoopback } from "./helpers/loopback.ts";
+import { SCHEMA_VERSION } from "../src/tools/gate.ts";
 
 const API_HOST = "api.monarkgate.tech";
 
 const GATE_BODY = {
   // CM-2b (ADR-CM B-5): btc-dir-15m is retired; the committed USDe key (F-7 alpha 0.1, nMin 50) is the served gate body.
-  prediction: { schema_version: "1.0.0", task_class: "stable-run-velocity-24h", yhat: 0.0001, predictor_id: "narabi:persistence-v2@eip155:1/erc20:0x4c9edd5852cd905f086c759e8383e09bff1e68b3", produced_at: "2026-09-04T00:00:00Z" },
+  prediction: { schema_version: SCHEMA_VERSION, task_class: "stable-run-velocity-24h", yhat: 0.0001, predictor_id: "narabi:persistence-v2@eip155:1/erc20:0x4c9edd5852cd905f086c759e8383e09bff1e68b3", produced_at: "2026-09-04T00:00:00Z" },
   params: { remainingBudget: 0.1, bFloor: 0, tau: 1, tauInterval: 1, alpha: 0.1, nMin: 50, intent: 0, tool: "perps_order_preview", clockOpen: true },
 } as const;
 const CASCADE_BODY = { L: [[0, 100], [50, 0]], e: [40, 20], shock: 0, producedAt: "2026-09-04T00:00:00Z" } as const;
@@ -190,7 +191,7 @@ test("http_calibrate_errors_are_400_never_500", async () => {
 
 /** A BYO gate body: a caller-owned task_class + params.calibration (interval mode, scores ≥ 0). */
 const GATE_BYO_BODY = {
-  prediction: { schema_version: "1.0.0", task_class: "byo-demo", yhat: 0, predictor_id: "caller:model", produced_at: "2026-09-04T00:00:00Z" },
+  prediction: { schema_version: SCHEMA_VERSION, task_class: "byo-demo", yhat: 0, predictor_id: "caller:model", produced_at: "2026-09-04T00:00:00Z" },
   params: { remainingBudget: 0.1, bFloor: 0, tau: 1, tauInterval: 2, alpha: 0.1, nMin: 5, intent: 0, tool: "perps_order_preview", clockOpen: true, calibration: { scores: [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0], mode: "interval" } },
 } as const;
 

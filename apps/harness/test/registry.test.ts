@@ -13,6 +13,7 @@ import type { CompiledRule } from "../../../scripts/grep-forbidden.mjs";
 import { ALLOWED_TOOL_NAMES, REGISTERED_TOOL_NAMES, HARNESS_TOOLS } from "../src/tools/registry.ts";
 import { createHarnessHandler } from "../src/server.ts";
 import { honestyText, TASK_BTC_DIR, TASK_CASCADE, TASK_STABLE_RUN, TASK_LIQ_ELIGIBLE, LIQ_ALPHA, LIQ_NMIN } from "../src/tools/gate.ts";
+import { SCHEMA_VERSION } from "../src/tools/gate.ts";
 import { cascadeHonestyText, CASCADE_PREDICTOR_ID } from "../src/tools/cascade.ts";
 import { attestHonestyText } from "../src/tools/attest.ts";
 import { calibrateHonestyText } from "../src/tools/calibrate.ts";
@@ -198,7 +199,7 @@ test("harness_served_honesty_carriers_pass_vocab", async () => {
   const patterns = [...compilePatterns(config.banned), ...compilePatterns(config.scan.harness.banned)];
   const AT = "2026-09-04T00:00:00Z";
   const P: Obj = { remainingBudget: 1, bFloor: 0, tau: 1, tauInterval: 1, alpha: 0.1, nMin: 5, intent: 0, tool: "demo_tool", clockOpen: true };
-  const pred = (task_class: string, yhat: string | number, predictor_id: string): Obj => ({ schema_version: "1.0.0", task_class, yhat, predictor_id, produced_at: AT });
+  const pred = (task_class: string, yhat: string | number, predictor_id: string): Obj => ({ schema_version: SCHEMA_VERSION, task_class, yhat, predictor_id, produced_at: AT });
   const TEN = [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1];
   const BYO = "byo:demo-class";
   const CALLS: { label: string; tool: string; args: Obj; carrier: string }[] = [

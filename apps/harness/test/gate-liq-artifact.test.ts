@@ -22,6 +22,7 @@ import { fileURLToPath } from "node:url";
 import { assertClosedGateDecision, calibDigest } from "@monark/contracts";
 import type { Prediction, GateDecision } from "@monark/contracts";
 import { TASK_LIQ_ELIGIBLE, LIQ_ALPHA, LIQ_NMIN, LIQ_COMMITTED_SENTENCE, LIQ_EMPTY_REGISTRY_SENTENCE, type HarnessParams } from "../src/tools/gate.ts";
+import { SCHEMA_VERSION } from "../src/tools/gate.ts";
 import { HARNESS_TOOLS, type GateEnvelope } from "../src/tools/registry.ts";
 import { handleJsonMirror } from "../src/http.ts";
 import { strateOf } from "../src/ukemi-strata.ts";
@@ -45,7 +46,7 @@ const GATE_TOOL = HARNESS_TOOLS.find((t) => t.name === "gate");
 if (GATE_TOOL === undefined) throw new Error("gate tool missing from HARNESS_TOOLS");
 
 function pred(yhat: number, predictorId: string): Prediction {
-  return { schema_version: "1.0.0", task_class: TASK_LIQ_ELIGIBLE, yhat, predictor_id: predictorId, produced_at: "2026-09-04T00:00:00Z" };
+  return { schema_version: SCHEMA_VERSION, task_class: TASK_LIQ_ELIGIBLE, yhat, predictor_id: predictorId, produced_at: "2026-09-04T00:00:00Z" };
 }
 
 /** The expected served verdict of the committed stratum, recomputed from the series (split conformal, alpha = 1/100). */

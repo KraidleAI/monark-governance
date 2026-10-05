@@ -32,6 +32,7 @@ import {
   LIQ_CONDITIONAL_SENTENCE,
   describeGate,
   type HarnessParams,
+  SCHEMA_VERSION,
 } from "../src/tools/gate.ts";
 import { hasCommittedCalibrationForClass, lookupCommittedCalibration, UKEMI_LIQ_PREDICTOR_BASE } from "../src/calibration.ts";
 import { strateOf, STRATA_CUTS_SERVED } from "../src/ukemi-strata.ts";
@@ -58,7 +59,7 @@ const LIQ_PARAMS: HarnessParams = {
 
 function liqPred(yhat: number, predictorId = "ukemi:client-supplied-key/whatever"): Prediction {
   return {
-    schema_version: "1.0.0",
+    schema_version: SCHEMA_VERSION,
     task_class: TASK_LIQ_ELIGIBLE,
     yhat,
     predictor_id: predictorId,
@@ -233,7 +234,7 @@ test("u4b_liq_class_text_says_upper_bound_never_interval", () => {
 // HTTP mirror), NEVER under_calib; the `known:` list carries no class-B name but DOES carry the liq class.
 // Mutant (g): map the unknown branch to under_calib ⇒ the throw stops ⇒ red.
 test("u4b_class_b_is_unknown_task_class_400", async () => {
-  const bPred: Prediction = { schema_version: "1.0.0", task_class: CLASS_B, yhat: 12345, predictor_id: "x", produced_at: "2026-09-04T00:00:00Z" };
+  const bPred: Prediction = { schema_version: SCHEMA_VERSION, task_class: CLASS_B, yhat: 12345, predictor_id: "x", produced_at: "2026-09-04T00:00:00Z" };
   let known = "";
   assert.throws(
     () => runGate(bPred, LIQ_PARAMS),

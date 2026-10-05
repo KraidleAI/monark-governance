@@ -13,6 +13,7 @@ import { createHash } from "node:crypto";
 import type { Prediction } from "@monark/contracts";
 import { splitQuantile } from "@monark/hikae";
 import { runGate, HarnessToolError, GATE_TOOL_DESCRIPTION, STABLE_RUN_COMMITTED_SENTENCE, type HarnessParams } from "../src/tools/gate.ts";
+import { SCHEMA_VERSION } from "../src/tools/gate.ts";
 import { handleJsonMirror } from "../src/http.ts";
 import { createHarnessHandler } from "../src/server.ts";
 import { USDE_STABLE_RUN_CALIB, USDE_STABLE_RUN_PREDICTOR_ID } from "../src/calibration.ts";
@@ -29,7 +30,7 @@ const RETIRED_MESSAGE =
   "task_class 'btc-dir-15m' is retired (ADR 0005, decided 2026-09-30): it is no longer served; the name stays reserved against BYO";
 
 function pred(taskClass: string, yhat: string | number, predictorId: string): Prediction {
-  return { schema_version: "1.0.0", task_class: taskClass, yhat, predictor_id: predictorId, produced_at: AT };
+  return { schema_version: SCHEMA_VERSION, task_class: taskClass, yhat, predictor_id: predictorId, produced_at: AT };
 }
 
 function refused(fn: () => unknown, at: string): { code: unknown; message: string } {

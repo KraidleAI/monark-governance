@@ -10,6 +10,7 @@ import assert from "node:assert/strict";
 import { assertClosedGateDecision } from "@monark/contracts";
 import type { GateDecision, Prediction } from "@monark/contracts";
 import { runGate, HarnessToolError, type HarnessParams } from "../src/tools/gate.ts";
+import { SCHEMA_VERSION } from "../src/tools/gate.ts";
 
 const PARAMS: HarnessParams = {
   remainingBudget: 0.1,
@@ -27,7 +28,7 @@ const PARAMS: HarnessParams = {
 const SCORES = [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0];
 
 const SET_PRED: Prediction = {
-  schema_version: "1.0.0",
+  schema_version: SCHEMA_VERSION,
   task_class: "byo-set-demo",
   yhat: "A",
   predictor_id: "caller:model",
@@ -35,7 +36,7 @@ const SET_PRED: Prediction = {
 };
 
 const INTERVAL_PRED: Prediction = {
-  schema_version: "1.0.0",
+  schema_version: SCHEMA_VERSION,
   task_class: "byo-interval-demo",
   yhat: 0,
   predictor_id: "caller:model",
