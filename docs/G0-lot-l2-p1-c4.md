@@ -39,11 +39,11 @@ le plan), `run(argv, io)` (le plan, puis un arrêt nommé `not_built` tant que l
    la sortie d'erreur (`{ ok: false, stop, detail }`), comme [K].
 3. **Drapeaux fermés** (point 23) : enregistrement `--out`, `--quota-bytes` ; rejeu `--from-raw`, `--symbol`, `--day`, `--out`
    (`--from-raw` choisit le mode). Chaque drapeau de son mode une fois, avec une valeur ; un drapeau absent, en double, sans valeur,
-   inconnu ou de l'autre mode : `usage`. `--quota-bytes` : entier décimal positif sans zéro de tête, au plus `QUOTA_MAX` = 2^46 (64 Tio :
+   inconnu ou de l'autre mode : `usage` ; une valeur vide (`--out ""`) aussi (repli du G2, m-3). `--quota-bytes` : entier décimal positif sans zéro de tête, au plus `QUOTA_MAX` = 2^46 (64 Tio :
    cent fois le quota reste un entier sûr), sinon `bad_quota`. `--symbol` dans la liste fermée de `links.mjs` (`bad_symbol`) ; `--day`
    `AAAA-MM-JJ`, date réelle (`bad_day`). Le rejeu lui-même est c6.
 4. **Environnement** (point 17 ; SERIES-ENV-ALLOWLIST-1, SERIES-PROXY-GUARD-1) : `ADMITTED_ENV` = `{ win32: [SYSTEMROOT, TEMP, TMP] }`,
-   noms en toute casse sous win32 ; toute autre plateforme : liste vide. Un drapeau de node dans `execArgv`, ou une variable de
+   noms en toute casse ASCII sous win32 (expression régulière `/i` sans `u` : `ſ`, U+017F, n'est pas `S` ; repli du G2, m-6) ; toute autre plateforme : liste vide. Un drapeau de node dans `execArgv`, ou une variable de
    mandataire (`*_PROXY`, `NODE_OPTIONS`, `NODE_USE_ENV_PROXY`, toute casse) : `proxy_refused` ; tout autre nom hors liste :
    `env_refused` (dont `NODE_TLS_REJECT_UNAUTHORIZED` : la liste fermée le refuse par construction). Le détail nomme les variables,
    triées, et compte les drapeaux ; jamais une valeur. Valeurs admises : chemins absolus win32, sinon `env_refused` (forme fermée,
@@ -53,12 +53,16 @@ le plan), `run(argv, io)` (le plan, puis un arrêt nommé `not_built` tant que l
    - aucun ancêtre de `--out`, tel que donné puis tel que résolu sur le disque (chemin réel de l'ancêtre existant le plus proche), ne
      porte `.git` (dossier ou fichier) : sinon `out_in_git_tree` ; la remontée finit à une racine, même absente (lecteur win32 sans
      disque : aucun chemin réel n'est alors demandé) ; `exists` et `real` sont ceux de l'appelant pour le seul test de la racine absente ;
+   - un lien pendant sur le chemin de `--out` (présent en `lstat`, absent en `stat`) arrête, `out_not_l2` (repli du G2, m-1) ;
    - puis `--out` absent ou vide (sortie neuve), ou sortie L2 à reprendre : chacune de ses entrées dans `OUT_ENTRIES` (`conn`, `days`,
-     `journal.jsonl`, `requests.jsonl`, `rest` : ce qu'écrivent a2 à c3), `journal.jsonl` parmi elles (c5 en écrit une ligne `start` à
+     `journal.jsonl`, `requests.jsonl`, `rest` : ce qu'écrivent a2 à c3), chacune de son type par son `Dirent` (`conn`, `days`, `rest` :
+     dossiers ; les deux `.jsonl` : fichiers ; un lien n'est ni l'un ni l'autre ; repli du G2, B-1 (b)), `journal.jsonl` parmi elles (c5 en écrit une ligne `start` à
      chaque lancement, Q-C1-10). Sinon `out_not_l2`, première entrée étrangère nommée. Lecture par `opendirSync`, une entrée à la fois :
      arrêt à la première étrangère, mémoire constante quel que soit le dossier donné.
 6. **Quota** (point 16 ; Q-11) :
-   - octets de `--out` = somme des tailles des fichiers (`lstat` : un lien compte sa propre taille, jamais suivi), parcours par
+   - octets de `--out` = somme des tailles des fichiers ; un lien, à toute profondeur, arrête (`out_not_l2` : une entrée qui n'est ni
+     fichier ni dossier par son type de `Dirent`, qui ne suit pas les liens ; repli du G2, B-1 (a) et (c), au lieu de « un lien compte
+     sa propre taille ») ; l'ajout au journal s'ouvre avec `O_NOFOLLOW` là où il existe (pas sous win32) ; parcours par
      `opendirSync`, une entrée à la fois ; un dossier plus profond que `WALK_DEPTH` = 3 sous `--out` (la forme la plus profonde est
      `days/<SYMBOLE>/<jour>/`) arrête, `out_too_deep` : au plus quatre dossiers ouverts ;
    - `createQuota({ out, quota }, io).check()` : arrêt `quota_stop` dès `100 × octets ≥ 85 × quota` (entiers) ; dès `100 × octets ≥
@@ -103,13 +107,17 @@ dynamique qu'il affirme : la base, sans la commande, rougit par assertion. Les l
 - `l2_quota_free_space_at_start` : libre égal au reste du quota, admis ; un octet de moins, `disk_short` ; sortie neuve et sortie
   reprise ; rien écrit. Tueur : `// killer: scripts/record-binance-l2.mjs:154 ROR "free < args.quota - used" -> "free <= args.quota -
   used"`.
-- `l2_quota_walk_depth_bound` : octets de la forme à trois niveaux, un lien compté à sa taille ; un quatrième niveau, `out_too_deep`.
+- `l2_quota_walk_depth_bound` : octets de la forme à trois niveaux (sans lien depuis le repli du G2) ; un quatrième niveau,
+  `out_too_deep`.
   Tueur : `// killer: scripts/record-binance-l2.mjs:119 ROR "depth === WALK_DEPTH" -> "depth > WALK_DEPTH"`.
 - `l2_args_closed_flags` : les deux modes ; absent, étranger, en double, sans valeur, inconnu, de l'autre mode : `usage` ; `bad_quota`,
   `bad_symbol`, `bad_day`. Tueur : `// killer: scripts/record-binance-l2.mjs:60 CONST "foreign.length > 0" -> "false"`.
 - **`l2_main_runs_by_real_path`** (MAIN-GUARD-REALPATH-1) : le dossier `scripts` derrière un lien, la commande sans argument : `usage`,
   sortie 2 ; importée : rien ; `main` en processus : `not_built`, sortie 1. Tueur : `// killer: scripts/record-binance-l2.mjs:179 CONST
   "realpathSync(argv1) === realpathSync(SCRIPT)" -> "resolve(argv1) === resolve(SCRIPT)"`.
+
+Repli du G2 (2026-10-05) : neuf tests de plus, un tueur chacun, et les lignes des douze tueurs ci-dessus renumérotées au nouveau gel ;
+liste et tueurs au G7, section « G2 ».
 
 Les quatre tests du plan (en gras) gardent leur nom ; les huit autres portent chacun un tueur que le plan range dans ces quatre (liste
 admise, seuils de 70 et 85 %, garde d'arbre git), plus la racine absente, la reprise, la profondeur et les drapeaux.
