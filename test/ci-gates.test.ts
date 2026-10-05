@@ -373,19 +373,19 @@ test("ci_r25_integration_rule_is_wired_fail_closed - proof then count after both
 // `pin` command right before the first count, its fail-closed branch (no count is read without it), its output evaluated once and
 // nowhere else, no git call of the job before it, and the two count lines unchanged (the shape R25_DIFF_RE and test 38 read).
 // killer: .github/workflows/ci.yml:97 CONST "eval \"$R25_PIN\"" -> "true"
-test("ci_r25_counts_read_under_the_module_pin - the r25 job evaluates `node scripts/lot-size-integration.mjs pin` right before its two `git diff --shortstat` counts, fail-closed, once (ADR-M003 D9 undecies)", () => {
+test("ci_r25_counts_read_under_the_module_pin - the r25 job evaluates `node scripts/lot-size-integration.mjs pin --ci <workflow> --base origin/$GITHUB_BASE_REF` (the changed paths refused first, D9 terdecies) right before its two `git diff --shortstat` counts, fail-closed, once (ADR-M003 D9 undecies)", () => {
   const at = LINES.findIndex((l) => /^  r25-taille-de-lot\s*:/.test(l)), code: string[] = [];
   for (let i = at + 1; i < LINES.length && !/^ {0,2}\S/.test(LINES[i] ?? ""); i++) if (!/^\s*#/.test(LINES[i] ?? "") && (LINES[i] ?? "").trim() !== "") code.push((LINES[i] ?? "").trim());
-  const pin = code.indexOf("R25_PIN=$(node scripts/lot-size-integration.mjs pin) || {"), stat = code.findIndex((l) => l.startsWith("STAT=$(git diff --shortstat "));
+  const pin = code.indexOf("R25_PIN=$(node scripts/lot-size-integration.mjs pin --ci .github/workflows/ci.yml --base \"origin/$GITHUB_BASE_REF\") || {"), stat = code.findIndex((l) => l.startsWith("STAT=$(git diff --shortstat "));
   assert.deepEqual(
     code.slice(pin, pin + 6),
-    ["R25_PIN=$(node scripts/lot-size-integration.mjs pin) || {", "echo '::error::Gate R-25: pinned git read not obtained. Fail-closed.'", "exit 1", "}", 'eval "$R25_PIN"', code[stat]],
+    ["R25_PIN=$(node scripts/lot-size-integration.mjs pin --ci .github/workflows/ci.yml --base \"origin/$GITHUB_BASE_REF\") || {", "echo '::error::Gate R-25: pinned git read not obtained, or a changed path refused (see the lines above). Fail-closed.'", "exit 1", "}", 'eval "$R25_PIN"', code[stat]],
     "the pinned read must be evaluated right before the STAT count, and a failed `pin` must red the job",
   );
   assert.ok(pin !== -1 && stat === pin + 5, `the pin lines are missing or not right before the STAT count: ${pin} ${stat}`);
   assert.deepEqual(code.slice(0, pin).map((l) => l.replace(/\s#\s.*$/, "")).filter((l) => /\bgit\b/.test(l) && !l.startsWith("- uses:")), [], "no git call of the r25 job before the pinned read");
   assert.deepEqual(LINES.filter((l) => /\beval\b/.test(l) && !/^\s*#/.test(l)).map((l) => l.trim()), ['eval "$R25_PIN"'], "one eval in the workflow, of the pinned read only");
-  assert.deepEqual(code.filter((l) => /\bR25_PIN=/.test(l)), ["R25_PIN=$(node scripts/lot-size-integration.mjs pin) || {"], "R25_PIN is set once, by the module");
+  assert.deepEqual(code.filter((l) => /\bR25_PIN=/.test(l)), ["R25_PIN=$(node scripts/lot-size-integration.mjs pin --ci .github/workflows/ci.yml --base \"origin/$GITHUB_BASE_REF\") || {"], "R25_PIN is set once, by the module");
 });
 
 // ────────────────────────────────────────────────────────────────────────────────────────────────

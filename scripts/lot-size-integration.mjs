@@ -11,7 +11,7 @@
 // included, G2 B-1; whole files under a content conflict, its largest diff to a parent under a structural one, G2 B-4;
 // at least its combined diff without renames, delta2 B-5); at most the written count W. A PR whose contribution M^1..M exceeds a bound proves nothing (G2 B-2).
 // Anything else (no or foreign proof, a non-candidate PR, an unproven commit touching the gate, git < 2.40,
-// an error) returns W: the module is never a source of green.
+// an error) returns W: the module is never a source of green. `pin --ci <ci.yml> --base <ref>` prints the pinned read of the job's W, or refuses (refusals).
 import { execFileSync } from "node:child_process";
 import { readFileSync, rmSync, statSync, writeFileSync } from "node:fs";
 import { pathToFileURL } from "node:url";
@@ -197,6 +197,40 @@ export function attrTree(cwd) {
   return id;
 }
 
+/** The paths R-25 refuses before any count (lot R25-GUARDS-2, items R25-ASSET-DIR-MAGIC-1, R25-CR-ONLY-LINES-1 and R25-GITLINK-SYMLINK-1,
+ * ADR-M003 D9 terdecies), each `<reason> <path>`, sorted. On the range of the two counts, `<base>...HEAD`, under either pathspec of `specs`:
+ * a gitlink (its code lives in another repository) or a symlink (it counts its target); a declared binary asset (a path attrTree leaves to
+ * git's detection) whose first bytes are not one of the magic numbers of its format, measured on the trunk; any other path holding a CR not
+ * followed by LF, or a JS line separator (U+2028, U+2029): JS ends a line there, git does not. Read from objects only (no work tree, no
+ * autocrlf, no filesystem symlink, no .gitmodules `ignore`); deletions pass; a UTF-16/32 byte order mark is refused. Residual, said as is: a polyglot passes. */
+export const ASSET_MAGIC = { cbor: Array.from({ length: 32 }, (_, i) => (0xa0 + i).toString(16)), jpg: ["ffd8ff"], ots: ["004f70656e54696d657374616d7073000050726f6f6600bf89e2e884e8929401"], png: ["89504e470d0a1a0a"], ttf: ["00010000"] };
+export function refusals(cwd, base, specs) {
+  const g = (a, input, env = GIT_ENV()) => execFileSync("git", ["-C", cwd, ...PIN, ...a], { input, env, maxBuffer: 1 << 30, stdio: ["pipe", "pipe", "pipe"] });
+  const bare = BINARY_ASSETS.map((p) => p.slice(p.lastIndexOf(".") + 1)).filter((x) => !Object.hasOwn(ASSET_MAGIC, x));
+  if (bare.length > 0) throw new Error(`no magic number for the declared assets ${bare.join(", ")}`);
+  const to = new Map(), out = [], files = [];
+  for (const s of specs) { // paths as latin1 strings: their bytes, whatever their encoding
+    const f = g(["diff", "--raw", "-z", "--no-renames", "--no-abbrev", "--ignore-submodules=none", `${base}...HEAD`, "--", ...s]).toString("latin1").split("\0");
+    for (let i = 0; i + 1 < f.length; i += 2) { const m = /^:\d{6} (\d{6}) [0-9a-f]+ ([0-9a-f]+) [A-Z]$/.exec(f[i]); if (m === null) throw new Error(`unread --raw entry ${f[i]}`); to.set(f[i + 1], [m[1], m[2]]); }
+  }
+  for (const [p, [mode, id]] of to) if (mode === "160000") out.push(`gitlink ${p}`); else if (mode === "120000") out.push(`symlink ${p}`); else if (mode !== "000000") files.push([p, id]);
+  if (files.length > 0) {
+    const a = g(["check-attr", "-z", "--stdin", "diff"], Buffer.from(files.map(([p]) => `${p}\0`).join(""), "latin1"), { ...GIT_ENV(), GIT_ATTR_SOURCE: attrTree(cwd) }).toString("latin1").split("\0");
+    const asset = new Set(a.filter((_, i) => i % 3 === 0 && a[i + 2] === "unspecified")), batch = g(["cat-file", "--batch"], files.map(([, id]) => `${id}\n`).join(""));
+    let at = 0;
+    for (const [p, id] of files) {
+      const nl = batch.indexOf(10, at), [got, type, size] = batch.subarray(at, nl).toString("latin1").split(" ");
+      if (got !== id || type !== "blob") throw new Error(`blob ${id} of ${p} unread`);
+      const b = batch.subarray(nl + 1, nl + 1 + Number(size));
+      at = nl + 2 + b.length;
+      if (asset.has(p)) { if (!(ASSET_MAGIC[p.slice(p.lastIndexOf(".") + 1)] ?? []).some((h) => b.subarray(0, h.length / 2).toString("hex") === h)) out.push(`asset-magic ${p}`); continue; }
+      for (let i = b.indexOf(13); i >= 0; i = b.indexOf(13, i + 1)) if (b[i + 1] !== 10) { out.push(`bare-cr ${p}`); break; }
+      if (b.includes("\u2028") || b.includes("\u2029")) out.push(`line-separator ${p}`); if (/^(fffe|feff|0000feff)/.test(b.subarray(0, 4).toString("hex"))) out.push(`utf16-bom ${p}`);
+    }
+  }
+  return out.map((r) => Buffer.from(r, "latin1").toString("utf8")).sort();
+}
+
 if (process.argv[1] !== undefined && import.meta.url === pathToFileURL(process.argv[1]).href) {
   const [cmd, ...argv] = process.argv.slice(2), opt = (k, n = 1) => (argv.includes(k) ? argv.slice(argv.indexOf(k) + 1, argv.indexOf(k) + 1 + n) : []);
   try {
@@ -217,7 +251,14 @@ if (process.argv[1] !== undefined && import.meta.url === pathToFileURL(process.a
       const r = effective({ cwd: process.cwd(), ciText: readFileSync(ci, "utf8"), base, proof, written: w.map(Number) });
       for (const d of [`mode ${r.mode}`, ...r.detail]) console.error(`r25-integration: ${d}`);
       console.log(`${r.mode} ${r.code} ${r.content}`);
-    } else if (cmd === "pin") console.log(pinShell(process.cwd()));
+    } else if (cmd === "pin") {
+      const [ci] = opt("--ci"), [base] = opt("--base");
+      if (!ci || !base) throw new Error("usage: pin --ci <ci.yml> --base <ref>: the changed paths are checked before the read is printed");
+      const shell = pinShell(process.cwd()), refused = refusals(process.cwd(), base, specsOf(readFileSync(ci, "utf8")));
+      for (const r of refused) console.error(`r25-integration: refused ${r}`);
+      if (refused.length > 0) throw new Error(`${refused.length} changed path(s) refused before the count (ADR-M003 D9 terdecies): no pinned read`);
+      console.log(shell);
+    }
     else throw new Error("usage: lot-size-integration.mjs proof|count|pin ...");
-  } catch (e) { console.error(`r25-integration: ${String(e.message).split("\n")[0]}`); process.exitCode = 2; }
+  } catch (e) { const why = String(e.stderr ?? "").trim().split("\n").at(-1); console.error(`r25-integration: ${String(e.message).split("\n")[0]}${why ? ` (${why})` : ""}`); process.exitCode = 2; }
 }
