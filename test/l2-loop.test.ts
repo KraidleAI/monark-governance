@@ -756,7 +756,7 @@ test("l2_record_loop_schedules", async () => {
   assert.deepEqual((journal(out) as Line[]).at(-1), { host_us: at(1, 2, 15), mono_ns: String(at(1, 2, 15) * 1000), symbol: "ALL", cid: null, event: "stopped", cause: "out_not_l2", links_closed: true, seal_done: true });
 });
 
-// killer: scripts/record-binance-l2.mjs:372 SDL "  if (!sealDone) abort.abort();" -> ""
+// killer: scripts/record-binance-l2.mjs:378 SDL "  if (!sealDone) abort.abort();" -> ""
 test("l2_record_loop_clean_stop", async () => {
   // Q-8 of a3: on its signal, the links stop (each connection closed, named), their writers on a stalled disk awaited STOP_BOUND_MS, the
   // books and the REST client closed, a seal child awaited as long, then killed; one stopped line, then the run resolves.
@@ -816,7 +816,7 @@ test("l2_record_switch_rule", async () => {
     [["chain_switched", cids[0], cids[1]], ["close", cids[0], "renewed"], ["close", cids[1], "closed"], ["chain_switched", cids[1], cids[2]], ["chain_gap", cids[2], "gap"]]);
 });
 
-// killer: scripts/record-binance-l2.mjs:350 CONST "if (rest.stopped) stop(" -> "if (false) stop("
+// killer: scripts/record-binance-l2.mjs:356 CONST "if (rest.stopped) stop(" -> "if (false) stop("
 test("l2_record_rest_stop_ends_all", async () => {
   // Plan section 4.3: a 451 stops the REST client, and the loop with it, named after its clean stop; the run marked the tail of the
   // output it resumed first (Q-C1-4).
@@ -832,3 +832,19 @@ test("l2_record_rest_stop_ends_all", async () => {
   assert.deepEqual(events(out, ["schedule_failed", "stopped"]).map((l) => [l.event, l.code ?? l.cause]).slice(0, 1).concat(events(out, ["stopped"]).map((l) => [l.event, l.cause])), [["schedule_failed", "restricted_location"], ["stopped", "rest_stopped"]]);
 });
 
+// killer: scripts/record-binance-l2.mjs:322 CONST "Date.now() - statSync(lock).mtimeMs < SEAL_TIMEOUT_MS" -> "false"
+test("l2_record_seal_locked_per_day", async () => {
+  // n-4 of the G2 of c5-bis-a: a day whose lock is younger than SEAL_TIMEOUT_MS (another run's seal, or its orphan child) waits for the
+  // next hour; a day without its scale (this run started after it) fails, named, and leaves no lock.
+  const m = await command(), out = fresh(), lock = (s: string): string => join(out, "days", s, `.${D}.seal.lock`), h = host(at(1, 0, 2), place(0));
+  assert.equal(typeof m.calendar, "function", "the loop is absent");
+  mkdirSync(dirname(lock("BTCUSDT")), { recursive: true });
+  writeFileSync(lock("BTCUSDT"), "1");
+  writeFileSync(join(out, "journal.jsonl"), JSON.stringify(START_LINE) + LF);
+  const run = m.run(argv(out), h.io);
+  await h.until(at(1, 0, 3, 1));
+  h.stop();
+  await run;
+  assert.deepEqual([events(out, ["seal_failed", "day_sealed"]).map((l) => [l.symbol, l.event, l.stop]), L.SYMBOLS.map((s) => existsSync(lock(s)))],
+    [[["BNBUSDT", "seal_failed", "no_scale"], ["ETHUSDT", "seal_failed", "no_scale"], ["SOLUSDT", "seal_failed", "no_scale"]], [true, false, false, false]]);
+});
