@@ -14,3 +14,15 @@ export function mergeDerived(symbol: string, day: string, parts: Derived[]): Req
 /** bestTap, then deriveDay with its tap, then canonDay with its result, at one scale; this module and the command hashed. */
 export function hookOf(scale: number, bounds?: SealBounds): (ctx: DeriveContext) => Derived;
 export function sealOf(spec: Omit<SealSpec, "derive"> & { scale: number; bounds?: SealBounds }): SealResult;
+
+/** The cap of the heap of the child that seals for the loop, in MiB (P1-c5-bis-a, measured in its lot plan). */
+export const SEAL_HEAP_MB: number;
+/** What sealApart takes: sealOf's spec but its function, `open` the "cid/seg" held open by the loop's writers. */
+export type ApartSpec = Omit<SealSpec, "derive" | "closed"> & { scale: number; bounds?: SealBounds; open?: string[] };
+export type ApartResult = SealResult | { sealed: false; failed: { code: number | null; signal: string | null; stop: string | null; detail: unknown } };
+/** The deadline of one seal apart, in ms (B-1 of the G2 of c5-bis-a). */
+export const SEAL_TIMEOUT_MS: number;
+/** sealOf in a child process (node --max-old-space-size=<heapMb> scripts/l2/seal-child.mjs) spawned with `env` alone (none by default),
+ *  written through spec.out (adopt's `at`) opened once and passed as the child's fd 3, never a path; past timeoutMs or on `signal`, the
+ *  child killed and failed.stop seal_timeout or seal_aborted; root_refused, spec_refused, spawn_failed named; never rejects. */
+export function sealApart(spec: ApartSpec, io?: { env?: Record<string, string>; heapMb?: number; timeoutMs?: number; signal?: AbortSignal }): Promise<ApartResult>;

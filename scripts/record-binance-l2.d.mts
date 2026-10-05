@@ -57,4 +57,6 @@ export function appendLine(path: string, line: Record<string, unknown>, entry?: 
 /** A recording takes --out after prepare (P1-c5): guards again; a resumed output must be this recorder's; --out made, its real path and
  *  directory pinned (Linux: written through /proc/self/fd), guards again, the start line journaled, a first check. check(): the pin, guards
  *  of --out again, journal.jsonl and requests.jsonl of one link each, then the quota; a path changed on the way: out_not_l2. */
-export function adopt(plan: Extract<Plan, { mode: "record" }>, io: { wallUs: () => number; monoNs: () => bigint }): { real: string; check: () => number };
+export function adopt(plan: Extract<Plan, { mode: "record" }>, io: { wallUs: () => number; monoNs: () => bigint }): { real: string; at: string; check: () => number };
+/** At a start (Q-C1-4, P1-c5-bis-a): the tails of the last segments of the last run's connections, each journaled once (tail_marked). */
+export function markTails(at: string, io: { wallUs: () => number; monoNs: () => bigint }): import("./l2/segments.mjs").Tail[];
