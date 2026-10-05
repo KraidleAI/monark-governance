@@ -37,11 +37,43 @@ t.result() }); … }` (clés de manifeste disjointes : `replay`, `parity` ; `can
 4. **Deux empreintes par flux** : `raw_sha256` sur la suite des charges distinctes par octets, ordonnées par (clé, octets), un LF après
    chacune ; `fields_sha256` sur les formes re-sérialisées distinctes (JSON aux clés triées, chaînes intactes ; hors JSON, le texte),
    ordonnées par (clé, forme). Calcul par morceaux (une trame à la fois dans le haché), jamais une chaîne du flux entier.
+   - **Définition de la forme (pli du G2, n-4)**, pour un recalcul en P3 dans un autre outil : `formOf` lit la charge en UTF-8
+     (une séquence invalide devient U+FFFD), la parse en JSON, trie les clés de chaque objet, garde les chaînes intactes et
+     re-sérialise les nombres par `JSON.stringify` (`1.0` devient `1` ; un entier au-delà de 2^53 perd sa précision) ; une clé JSON
+     en double est fondue (la dernière gagne). Les formes sont ordonnées par unités UTF-16, non par octets. Les charges de la place
+     sont ASCII et leurs entiers sûrs : sans effet aujourd'hui, mais c'est la définition.
 5. **Nommage, jamais fusion** : même clé et octets différents, `same_key` ; même forme et octets différents, `same_fields` ; comptés
    tous, listés au plus `NAMED_BOUND` = 16 groupes (`named` : flux, motif, clé, `[cid, seg, rank]` de chaque charge).
 6. **Borne nommée** : une suite de même clé est tenue entière pour être ordonnée par octets ; au-delà de `RUN_BOUND` = 64 Mio, arrêt
    `canon_bound`, rien d'écrit (le crochet passe avant `mkdirSync`). `@forceOrder` est un seul passage : échantillonné à une trame par
    seconde et par symbole (`SAMPLING`), environ 86 400 trames de quelques centaines d'octets par connexion, soit environ 30 Mo.
+   - **Pli du G2 (m-1, réserve)** : la borne porte sur ce que le passage tient vraiment. Le passage tient ses octets (les `Buffer`
+     relus, hors tas), puis ses formes re-sérialisées (sur le tas, autant d'octets pour une charge ASCII) : `canon.mjs:97` arrête
+     dès que `2 * held > bound`, donc au plus 32 Mio d'octets bruts par passage. Choix contre les deux passes du G2 (octets triés et
+     haché brut, puis formes relues une à une par `bytesOf`) : les deux passes ne baissent que le pic d'un des deux termes, les
+     formes doivent de toute façon être tenues ensemble pour être triées, et elles coûtent une seconde relecture par trame du passage ;
+     le double compte est d'une ligne changée en place et sa mesure suit. Hors du compte : environ 350 o d'objets par trame du passage
+     (`{ x, b }`, `{ x, b, f }`), et les déchets de `JSON.parse`, repris à la pression.
+   - **Mesures du pli** (Node v24.21.0, jours synthétiques au format de a2 sous le dossier temporaire, effacés ; RSS maximal lu à
+     `VmHWM`) :
+     - index au ras de `INDEX_BOUND` (4,1 M trames, 95 % `bookTicker`, 5 % différences, 24 segments) : `sealDay` sans crochet,
+       RSS max **324 Mo**, 39 s ; avec `canonDay`, **439 Mo**, 99 s (≈ 28 o de RSS en plus par trame ; durée × 2,5) ;
+     - passage de `@forceOrder` de 62 Mo (155 000 trames de 400 o) : sans crochet, 80 Mo ; au gel du lot (`62ec6c63`), 413 Mo avec le
+       tas par défaut, **OOM fatal de V8** (sortie 134, non nommée) avec `--max-old-space-size=120` ; au pli, **`canon_bound`** nommé
+       avant toute relecture du passage, RSS max 96 à 97 Mo, tas par défaut ou plafonné à 120 Mo ;
+     - passage de 33 Mo (83 000 trames de 400 o, juste sous la nouvelle borne : `2 * held` = 66,4 Mo) : scellé, RSS max 310 Mo (tas
+       par défaut) et 302 Mo (tas plafonné à 120 Mo), contre 75 Mo sans crochet ; mémoire vivante après `gc` : 33 Mo hors tas
+       (octets) et 64 Mo de tas (formes et objets), soit 2,9 fois les octets tenus. Le facteur en RSS (≈ 7 avec le tas par défaut)
+       vient des déchets repris tard.
+     - Le pire réel d'un jour (≈ 30 Mo de `@forceOrder` par connexion) reste sous la borne (`2 * held` ≈ 60 Mo), avec peu de marge :
+       un chevauchement de deux connexions `/market` au-delà s'arrête, nommé (`canon_bound`), jamais en OOM.
+   - **Somme des bornes** : index au ras de sa borne avec `canonDay` (439 Mo) plus le rendu des minutes de c2 au ras de
+     `MINUTES_BOUND` (131 Mo vivants, re-revue de c2, m-b) dépasse `MemoryMax=512M` ; un passage près de `RUN_BOUND` (≈ 230 Mo de RSS
+     en plus) sur un index moyen le dépasse aussi. Les trois bornes (`INDEX_BOUND`, `MINUTES_BOUND`, `RUN_BOUND`) ne tiennent donc pas
+     ensemble sous 512 Mio : item L2-MINUTES-SIZE-1 étendu (Q-C3-5).
+   - **Relecture entière (pli du G2, n-2)** : chaque entrée de l'index du jour doit être relue ; sinon (segment changé entre
+     `indexOf` et le crochet, hors contrat), arrêt nommé `canon_reread` (`canon.mjs:87`, ajouté aux `STOPS` à `day.mjs:35`, même
+     ligne), rien d'écrit.
 7. **Sauts de `t`** : entre `t` distincts consécutifs de la suite canonique (union des connexions) ; `jumps` = `{ count, max }` au
    manifeste, observation ; jamais une entrée de `missing.json`.
 8. **Recoupement (i)** : chaque `u` distinct de `@bookTicker` du jour dans l'union des `[U;u]` des différences du jour ; `outside`
@@ -75,10 +107,29 @@ dynamique qu'il affirme : la base, sans le module, rougit par assertion.
   `// killer: scripts/l2/canon.mjs:120 ROR "k1 <= his[at]" -> "k1 < his[at]"`.
 - `l2_best_tap_net_change` : meilleur niveau retiré (relecture du côté), puis sa quantité ; quantité égale ; événement de J+1 ignoré.
   Tueur : `// killer: scripts/l2/canon.mjs:42 SDL "if (prev !== null && !m.has(prev)) return top(m, hi);" -> ""`.
-- `l2_canon_run_bound_named` : borne égale aux octets tenus, scellé ; un octet de moins, `canon_bound`, rien d'écrit. Tueur :
-  `// killer: scripts/l2/canon.mjs:97 ROR "held > bound" -> "held >= bound"`.
+- `l2_canon_run_bound_named` (recalé au pli du G2, m-1) : borne égale au double des octets tenus, scellé ; un octet de moins,
+  `canon_bound`, rien d'écrit. Tueur : `// killer: scripts/l2/canon.mjs:97 CONST "2 * held > bound" -> "held > bound"`.
 - `l2_canon_day_frames_only` : une transaction tardive de la veille, à l'index du jour, hors de sa suite. Tueur : `// killer:
   scripts/l2/canon.mjs:75 ROR "(st.a[3 * p + 2] & 3) >= 2" -> "(st.a[3 * p + 2] & 3) > 2"`.
+
+Tests du pli du G2 (un tueur chacun, en forme close) :
+
+- `l2_crosscheck_nested_interval` (m-2) : `[100;110]` sur une connexion, `[101;104]` emboîté sur une autre, `u` 107 dedans. Tueur :
+  `// killer: scripts/l2/canon.mjs:118 CONST "Math.max(his[last], k2)" -> "k2"`.
+- `l2_canonical_diff_key_both_parts` (m-3) : même `U`, deux `u`, `[101;103]` lu d'abord ; deux entrées dans l'ordre `(U,u)`, aucune
+  nommée. Tueur : `// killer: scripts/l2/canon.mjs:96 CONST "st.k2[perm[j]] === st.k2[perm[i]]" -> "true"`.
+- `l2_forceorder_forms_sorted` (m-4) : quatre charges dont les formes égales ne sont pas voisines par octets ; deux formes, deux
+  `same_fields`, `fields_sha256` à sa forme close. Tueur : `// killer: scripts/l2/canon.mjs:107 CONST "cmp(p.f, q.f)" -> "0"`.
+- `l2_trade_id_largest_jump_first` (m-5) : `t` 1, 2, 3, 15, 16, 20 ; le plus grand saut vient en premier. Tueur : `// killer:
+  scripts/l2/canon.mjs:116 CONST "Math.max(max ?? 0, k1 - prev)" -> "k1 - prev"`.
+- `l2_crosscheck_floor_low_edge` (m-6) : `u` 110 au bord bas de `[110;112]` (i) ; `[106;106]` sans `u` de `@bookTicker`, un ticker à
+  105 seulement (ii). Tueur : `// killer: scripts/l2/canon.mjs:34 ROR "a[mid] <= x" -> "a[mid] < x"`.
+- `l2_best_tap_fresh_book_edges` (m-7) : carnet posé à E = fin, non compté ; deux niveaux d'ask, le second change seul. Tueur :
+  `// killer: scripts/l2/canon.mjs:51 CONST "day ? 1 : 0" -> "1"`.
+- `l2_canonical_named_bound` (m-7) : 17 groupes `same_key`, 16 listés ; 17 différences sans `u`, 16 listées. Tueur : `// killer:
+  scripts/l2/canon.mjs:103 ROR "named.length < NAMED_BOUND" -> "named.length <= NAMED_BOUND"`.
+- `l2_canon_index_all_read` (n-2) : une entrée d'index qu'aucun segment ne porte ; `canon_reread`, rien d'écrit. Tueur : `// killer:
+  scripts/l2/canon.mjs:87 CONST "x.at !== x.n" -> "false"`.
 
 ## Preuve rouge, contrôles, taille
 
@@ -99,10 +150,23 @@ dynamique qu'il affirme : la base, sans le module, rougit par assertion.
 - **Q-C3-3** : trame sans clé lisible rangée en tête, par octets, comptée `keyless` ; jamais un arrêt. (défaut : oui)
 - **Q-C3-4** : (ii) par un `tap` du rejeu de c2 (deux lignes de `derive.mjs` changées en place) plutôt qu'un second rejeu ; le premier
   événement d'un carnet posé n'est pas jugé. c5 compose dans cet ordre. (défaut : oui)
-- **Q-C3-5** : mémoire : par flux, 36 octets par trame tenue (clés, offset, longueur, position, permutation), bornée par
-  `INDEX_BOUND` (au pire environ 150 Mo pour un flux seul), plus un passage borné par `RUN_BOUND`. Elle s'ajoute à l'index et au corps
-  de `minutes.jsonl` (128 Mio au plus) quand c5 compose c2 puis c3. Item proposé : L2-MINUTES-SIZE-1 étendu à la mesure conjointe
-  (index, minutes, empreintes) sous `MemoryMax=512M`, dans le processus de c5. (défaut : oui)
+- **Q-C3-5** (corrigée au pli du G2, m-1) : mémoire tenue pour tout le jour :
+  - par trame des quatre flux : 32 o (`k1`, `k2`, `off` en Float64 ; `len`, `pos` en Int32), plus 4 o de `perm`, transitoire, par
+    flux : 36 o ; bornée par `INDEX_BOUND` (au pire environ 150 Mo pour un flux seul) ;
+  - par `@bookTicker` : 8 o de plus (`tickers`, Float64) ;
+  - par intervalle `[U;u]` fusionné : 16 o (`los` et `his`, deux tableaux JS de doubles ; au pire un intervalle par différence si la
+    chaîne est trouée) ;
+  - par changement du meilleur niveau (`bestTap`) : 16 o, 32 o au doublement de `events` ;
+  - l'index de c1 (12 o par trame) reste vivant ;
+  - mesuré à 4,1 M trames : RSS max 439 Mo avec `canonDay`, contre 324 Mo sans (point 6) ;
+  - plus un passage, borné par `RUN_BOUND` sur le double de ses octets : 2,9 fois les octets tenus en mémoire vivante, et environ
+    7 fois en RSS avec le tas par défaut (point 6).
+  Elle s'ajoute à l'index et au corps de `minutes.jsonl` (128 Mio au plus) quand c5 compose c2 puis c3 : la somme des trois bornes
+  dépasse `MemoryMax=512M` (point 6). Item : **L2-MINUTES-SIZE-1 étendu** à la mesure conjointe (index au ras de `INDEX_BOUND`,
+  minutes de c2 au ras de `MINUTES_BOUND`, empreintes de c3 avec un passage au ras de `RUN_BOUND`), dans le processus de c5 et sous
+  cgroup `MemoryMax=512M` ; **déclencheur : avant le premier scellé sous l'unité dans c5**. À défaut de cette mesure, c5 scelle avec
+  des bornes provisoires abaissées : `MINUTES_BOUND` 64 Mio (re-revue de c2) et `bound` de `canonDay` à 32 Mio (16 Mio d'octets
+  par passage ; un jour lourd en liquidations s'arrête alors, nommé). (défaut : oui)
 - **Q-C3-6** : `NAMED_BOUND` = 16 groupes listés, tous comptés. (défaut : oui)
 - **Q-C3-7** : sauts de `t` comptés sur l'union des connexions ; la mesure par connexion reste à M-1 (L2-TRADE-ID-CONSEC-1). (défaut :
   oui)
