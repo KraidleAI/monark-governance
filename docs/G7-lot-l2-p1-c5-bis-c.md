@@ -1,0 +1,117 @@
+# G7 du lot L2-P1-c5-bis-c (reliquats fermés de c5-bis-a et c5-bis-b), par RECHERCHES
+
+Base `7d45fa54` (tête de `recherches/l2-p1-c5-bis-b`, PR #157) ; branche `recherches/l2-p1-c5-bis-c` ; commits `89651d18` (G0), `3f894ef0`
+(tests rouges et `.d.mts`), `62bca0a8` (gel), `9f2d792c` (pli des contrôles : texte d'un tueur, `tsc`, `lint`), `9e4a11b4` (pli des
+mutants : le signal propre du `fetch` épinglé), `fa78b937` (pli de la suite complète : la socket du point 2 écoute sur un port tiré par
+`test/helpers/loopback.ts`, jamais le port 0, que `loopback_guard_every_bind_of_a_test_file_goes_through_the_helper` refusait), puis ce
+commit (G7). Poussé sur `origin/recherches/l2-p1-c5-bis-c`, aucune PR. Les PR #156
+et #157 n'ont reçu aucun commit depuis `3d464be5` et `7d45fa54` (vérifié par `git fetch` à refspecs explicites) : aucune fusion. Node
+v24.21.0. Aucun réseau vers une place : `fetch` répondu en mémoire, sockets menées à la main ; la seule socket d'un test écoute sur
+`127.0.0.1`, rien ne s'y connecte ; sorties sous le dossier temporaire du système ; trames synthétiques seules.
+`packages/rpc-guard/bin/rpc-guard.mjs` non touché.
+
+## Périmètre livré, point par point (liste fermée du G7 de c5-bis-b)
+
+| # | Point | Suite | Test ; tueur |
+|---|---|---|---|
+| 1 | r-3 M3 | test seul : `openSync` et `closeSync` enveloppés ; les deux racines ouvertes (un scellé, un `spawn_failed` `E2BIG`) sont fermées | `l2_seal_apart_root_closed` ; `seal.mjs:74 CONST "finally { if (fd !== null) closeSync(fd); }" -> "finally { }"`, à la main |
+| 2 | r-3 L8 | test seul : un serveur TCP écoutant sur `127.0.0.1` en fd 4 de l'enfant : `out_not_l2`, `extra: [4]` ; saut nommé hors Linux | `l2_seal_child_no_socket` ; `seal-child.mjs:20 CONST "(anon_inode\|pipe):" -> "(anon_inode\|pipe\|socket):"`, à la main |
+| 3 | r-3 L4 | test seul : ordre `frames`, `index.jsonl`, puis `syncDir(conn/<cid>/)` | `l2_segment_dir_synced_after_its_files` ; `segments.mjs:67`, `syncDir` avant l'index, à la main |
+| 4 | r-3 M10 | test seul : un drapeau de tas de 6 000 caractères fait sortir l'enfant en 9 avec plus de 4 Kio d'erreur : queue de 4 096 | `l2_seal_apart_stderr_tail_bounded` ; `seal.mjs:76 CONST ".slice(-TAIL)" -> ""`, à la main |
+| 5 | r-3 M17 | test seul : deux scellés sur un même `signal` : aucun écouteur `abort` restant (`getEventListeners`) | `l2_seal_apart_listener_removed` ; `seal.mjs:59`, `removeEventListener` retiré, à la main |
+| 6 | `timeoutMs` court | `l2_seal_apart_through_the_pinned_root` passe `timeoutMs: 30_000` | son tueur `seal.mjs:71 CONST ", fd]" -> "]"`, à la main : rouge par assertion en 0,4 s |
+| 7 | r-4 `hook_failed` | une ligne à la 1re, 10e, 100e… levée d'une connexion, avec `count` (1 000 levées : 4 lignes) | `l2_link_hook_failures_counted` ; `links.mjs:212 CONST "/^10*$/.test(String(c.hooks))" -> "true"` |
+| 8 | n-10 | `nameOf` : nom lu dans un `try`, chaîne seule, 64 caractères au plus, sinon `null` (accesseur qui lève, `BigInt`, un million de caractères) | `l2_link_hook_exotic_failure_named` ; `links.mjs:214`, le `try` en `return x?.name ?? null;` |
+| 9 | n-11 | `spec_refused` (`TypeError`) pour `timeoutMs` 0, -1, `Infinity`, 2³¹, `NaN`, `"5"` et pour `env: null`, avant toute ouverture | `l2_seal_apart_deadline_and_env_refused` ; `seal.mjs:64`, la condition retirée |
+| 10 | n-12 | à l'échéance et à l'abandon, l'échec est gardé (`killed`) et la promesse se résout sur le `close` de l'enfant tué : relevé, plus de zombie à la résolution | `l2_seal_apart_resolved_once_reaped` (`signalCode` `SIGKILL` à la résolution) ; `seal.mjs:60 CONST "killed ??= failed(stop, detail);" -> "finish(failed(stop, detail));"` |
+| 11 | n-13 | `adopt` rend `root` (`dev`, `ino` fixés) ; `record` le passe dans l'unique appel `apart` ; `sealApart` compare `spec.root` au dossier qu'il ouvre : autre dossier, `root_refused` (`root_moved`), rien scellé ; sans `root`, inchangé | `l2_seal_apart_root_identity` ; `seal.mjs:67 CONST "spec.root !== undefined && " -> "false && "` ; `l2_record_seal_root_of_adopt` ; `record-binance-l2.mjs:327 CONST ", root }" -> " }"` |
+| 12 | n-14 | rien à corriger : noté dans l'en-tête de `seal-child.mjs` (un descripteur hérité sans `O_CLOEXEC` n'atteint pas l'enfant : `spawn` ne passe que son `stdio`) | — |
+| 13 | n-15 | `conn/` synchronisé quand `mkdir` y crée `conn/<cid>/` (première connexion) | `l2_segment_conn_synced` ; `segments.mjs:65 CONST "!== undefined) await syncDir(" -> "=== null) await syncDir("` |
+| 14 | r-2 (reste) | `quit`, `AbortController` de la boucle, passé au client REST (`io.signal`) et abandonné par `finish` ; le client : aucune requête ne part une fois abandonné, le `fetch` reçoit le signal joint à son échéance de 30 s (`AbortSignal.any`), une réponse lue après l'abandon n'écrit ni `requests.jsonl` ni `rest/` (`stopped`) | `l2_record_rest_aborted_at_stop` (`exchangeInfo` en vol à 23:58:01, réponse après l'arrêt) ; `record-binance-l2.mjs:299 CONST "quit.abort(); " -> ""` ; `l2_rest_aborted_writes_nothing` ; `rest.mjs:129 CONST "} if (io.signal?.aborted) stop(" -> "} if (false) stop("` |
+| 15 | r-3 `note("stopped")` | `tell("stopped", …)` : la course sort sur l'arrêt nommé (sonde JOURNAL : `unhandled_rejection`, `{ code: "EIO" }`), plus sur `EISDIR` brut | `l2_record_broken_journal_named` ; `record-binance-l2.mjs:399 CONST "tell(\"stopped\"" -> "note(\"stopped\""` |
+| 16 | r-4 (a) | test seul, sonde JITTER : `exchangeInfo` en retard de 19 s part, de 21 s est sautée (`late_us` 21 000 000) | `l2_record_overdue_tolerance` ; `record-binance-l2.mjs:378 CONST "now - e.at > OVERDUE_US" -> "now - e.at > 0"`, à la main |
+| 17 | r-4 (b) | test : journal en panne, `time` répondu 500 à 10:30 : `schedule_failed` perdu en silence, aucun rejet non géré, la course finit au signal | `l2_record_broken_journal_failure` ; `record-binance-l2.mjs:300`, le `try` de `tell` retiré |
+| 18 | r-4 (c) | test : journal en panne, le `stop()` des liaisons rejette (leurs lignes `close`) : l'arrêt propre continue aussitôt, `links_closed: false` | `l2_record_broken_journal_links` ; `record-binance-l2.mjs:391 CONST ", () => { clearTimer(t); r(false); }" -> ", () => undefined"` |
+| 19 | n-a | critère par tâche : une ancre est sautée si le jour corrigé a changé (jamais écrite d'un `depth` d'un autre jour), `exchangeInfo` au-delà de `OVERDUE_US` ; sonde SLOWSTART : les quatre ancres de D prises | `l2_record_slow_start_anchors` ; `record-binance-l2.mjs:378 CONST "dayOf(now + offset) !== dayOf(e.at + offset)" -> "now - e.at > OVERDUE_US"` |
+| 20 | `.catch` de `seals()` | retiré (code mort depuis le `try` par clé) : une levée hors des clés, aucune connue, deviendrait un rejet non géré que le filet du processus arrête nommé | — (déclaré, Q-C5BC-5) |
+
+Les lignes de tueurs existantes ne bougent pas (code changé en place) ; deux lignes de tueurs suivent l'appel `fed(io, note, e.data, c)`
+(`l2_link_feeds_its_hook`, `l2_link_hook_after_the_writer`), corps inchangés.
+
+## Preuves
+
+- **Preuve rouge** : `node scripts/red-proof.mjs --base 7d45fa54 --gel fa78b937 --repo /home/user/monark-governance-c5bc --draw 20 --seed
+  37` : « red-proof REFUSED: 20 judged, 73 unchanged, 13 killer(s) drawn » ; `RED-PROOF.json` sha256 `e9dcf7d280c08d72…` (même verdict à `9f2d792c`). Treize F2P (rouges par assertion à la base, verts au gel) :
+  `l2_link_hook_failures_counted`, `l2_link_hook_exotic_failure_named`, `l2_seal_apart_deadline_and_env_refused`,
+  `l2_seal_apart_resolved_once_reaped`, `l2_seal_apart_root_identity`, `l2_record_seal_root_of_adopt`, `l2_segment_conn_synced`,
+  `l2_record_rest_aborted_at_stop`, `l2_record_broken_journal_named`, `l2_record_broken_journal_failure`,
+  `l2_record_broken_journal_links`, `l2_record_slow_start_anchors`, `l2_rest_aborted_writes_nothing` ; leurs treize tueurs tirés et tués.
+  Sept refus « green at base », déclarés au G0 (resserrements des points 1 à 6 et 16) : `l2_seal_apart_through_the_pinned_root`,
+  `l2_seal_apart_root_closed`, `l2_seal_child_no_socket`, `l2_segment_dir_synced_after_its_files`, `l2_seal_apart_stderr_tail_bounded`,
+  `l2_seal_apart_listener_removed`, `l2_record_overdue_tolerance`.
+- **Tueurs à la main** (au gel, un à la fois, le test seul rejoué, fichier restauré et sha256 vérifié) : les sept tueurs des refus, tous
+  rouges par assertion (0,3 à 0,5 s, aucun ne pend ; celui du point 2 rejoué après `fa78b937`). Plus, hors des lignes de tueurs : `rest.mjs:115` (`|| io.signal?.aborted` retiré),
+  `rest.mjs:123` (signal de la boucle non joint au `fetch`), `record-binance-l2.mjs:297` (`signal: quit.signal` retiré) et `:367` (garde
+  `finished ||` du `catch` de `fire` retirée : un `schedule_failed` suit `stopped`) : rouges par `l2_rest_aborted_writes_nothing` et
+  `l2_record_rest_aborted_at_stop`.
+- **Mutants du lot** (rejoués sur leur test, fichier restauré) : tués : `killed ??` du `close` (`l2_seal_apart_deadline`), `env === null`
+  retiré, identité d'`adopt` faussée (`ino` `"0"`), `count` figé à 1, `syncDir(dir)` au lieu de `conn/`, filtre `exchangeInfo` du saut
+  retiré (`l2_record_overdue_skipped` : la coupe et le scellé seraient sautés), `.slice(0, 64)` retiré.
+- **Ancres** (`verifie-ancres.mjs`) : `. --touched 7d45fa54 HEAD` : 93 tueurs, 93 ANCRE, 0 DERIVE, 0 PERDU ; `--files` sur les douze
+  `test/l2-*.test.ts` : 200, 200 ANCRE.
+- Un premier `npm test` complet (tête `9e4a11b4`) avait un échec, hors L2 : `loopback_guard_every_bind_of_a_test_file_goes_through_the_helper`
+  refusait le `listen(0, …)` du test du point 2 ; plié en `fa78b937` (`startLoopback`), suite complète verte ensuite.
+- `node_modules/@monark` vérifié avant la suite complète : dossier réel de liens relatifs vers `packages/` et `apps/` de cet arbre ; les
+  autres dépendances liées depuis `/home/user/monark-governance-c5bb/node_modules`.
+
+| Vérification (tête `fa78b937`, Node v24.21.0) | Résultat |
+|---|---|
+| `node --test test/l2-*.test.ts` | 200 sur 200, 0 échec, 0 sauté |
+| `npm test` complet | 2 406 tests : 2 384 verts, 0 échec, 22 sautés (raisons nommées), sortie 0 |
+| `tsc --noEmit` (`typecheck`) | 0 |
+| `lint` | 0 |
+| `lint:ratchet` | 69/69 |
+| `gate:vocab` | OK (335 fichiers) |
+| `lang:gate` | OK (0 occurrence hors exemption) |
+| preuve rouge contre `7d45fa54` | 20 jugés : 13 F2P, 13 tueurs tirés tués ; 7 resserrements refusés, tueurs à la main tués |
+| ancres | 93/93 (touchés), 200/200 (`l2-*`) |
+| R-25 contre `7d45fa54` | 313, GREEN, borne du lot 547 |
+
+- **R-25** (`r25()` de `scripts/oracle/r25.mjs`, `ci.yml` du worktree) : contre `7d45fa54`, `STAT` 313 (274 insertions, 39 suppressions),
+  `CONTENT_STAT` 0, GREEN ; borne du lot 547, marge 234. Code 72 (dont `.d.mts` 13), tests 241. Pas de scission (estimation du G0 : environ
+  320).
+
+## Survivants déclarés
+
+- Les gardes `if (finished) return;` après chaque réponse REST de `fire` (`time` `:352`, `exchangeInfo` `:354`, ancre `:360`) : depuis le
+  point 14, une réponse arrivée après l'arrêt est refusée par le client lui-même (`stopped`) avant d'atteindre la garde ; leur retrait ne
+  rougit plus aucun test (le tueur `:352` du G7 de c5-bis-b, rouge à la main par `l2_record_stop_during_start`, survit désormais). Gardées en
+  second filet : une réponse lue entièrement avant l'abandon, dont la suite s'exécuterait après lui, reste couverte.
+- `killed ??` dans l'écouteur `error` de l'enfant (`seal.mjs:77`) : une erreur d'`spawn` après un `kill` n'a pas de chemin de test.
+- Point 20 : le filet retiré n'a pas de test (aucune levée connue ne l'atteignait).
+
+## Risques déclarés
+
+- Point 10 (Q-C5BC-2) : un enfant tué mais bloqué en `D` (un `fsync` lent) retient la promesse jusqu'à sa relève. La boucle borne cette
+  attente à son arrêt propre (`STOP_BOUND_MS`, puis sortie bornée `EXIT_GRACE_MS`) ; en cours de route, le scellé suivant attend (un seul
+  à la fois), ce qui est le but de n-12. Le contrat écrit devient : « jamais pendante au-delà de `timeoutMs`, sauf la relève de l'enfant tué ».
+- Point 7 : les levées entre deux puissances de dix ne sont que comptées ; le nom de la levée journalisée est celui de la 1re, 10e, 100e…
+- Point 19 : une ancre en retard dans son jour est prise même très tard (un saut d'horloge en avant à l'intérieur du jour D) : c'est encore le
+  carnet de D ; l'`exchangeInfo` garde la tolérance de 20 s.
+- Point 11 : sous Linux, `at` est le descripteur fixé, l'identité ne peut différer ; la comparaison ferme la fenêtre ailleurs (chemin réel
+  re-résolu) et tout appel direct de `sealApart` avec `root`.
+- n-c (Windows, MONARK) : les tests du journal en panne (15, 17, 18) remplacent `journal.jsonl` par un dossier ; sous Linux l'ajout lève
+  `EISDIR` ; aucun test n'affirme ce code, seulement que la course finit nommée ou au signal. À confirmer au rejeu Windows, avec
+  `l2_segment_dir_synced_after_its_files` et `l2_segment_conn_synced` (`syncDir` d'un dossier en `r+` sous win32, déjà le cas de
+  `l2_segment_dir_synced`). `l2_seal_child_no_socket` porte un saut nommé hors Linux ; les autres tests du scellé à part gardent `APART`.
+
+## Questions pour la cellule (défauts appliqués, aucune bloquante ; texte au G0)
+
+Q-C5BC-1 (compte en puissances de dix), Q-C5BC-2 (résolution à la relève de l'enfant tué), Q-C5BC-3 (identité fixée rendue par `adopt`),
+Q-C5BC-4 (critère du saut par tâche), Q-C5BC-5 (filet de `seals()` retiré).
+
+## Notes pour la suite
+
+- c6 : le rejeu reprend toujours les jours non scellés ; le verrou par jour (n-2 de c5-bis-b) et `root_moved` sont des arrêts nommés qu'il
+  lit comme tels.
+- P3 : n-6 et n-b de c5-bis-b inchangés ; la résolution à la relève (point 10) ne change pas les bornes de l'arrêt (30 s + 30 s + 5 s).
