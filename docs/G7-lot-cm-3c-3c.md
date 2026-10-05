@@ -1,14 +1,15 @@
 # G7 du lot CM-3c-3c (contrat 1.1.0, bloc C, second et dernier lot de la PR C2b) : surfaces, épingles, instantanés
 
 - **Plan** : `docs/G0-lot-cm-3c-3c.md`, sous `docs/G0-bloc-c-cm-3c-2.md` (section 3.4, P-4 à P-11) et `docs/G7-lot-cm-3c-3b2.md` (37 rouges par nom).
-- **Bases** : partie de `662618d5` (tête de 3c-3b2) ; `base/c2-integration` (`689daea1`, #150) fusionnée par `c9a9704e` (arbre inchangé). **Base de mesure du lot : `662618d5`** ; de C2b : `ab732540`.
+- **Bases** : partie de `662618d5` (tête de 3c-3b2) ; `base/c2-integration` (`689daea1`, #150) fusionnée par `c9a9704e` (arbre inchangé). **Base de mesure du lot : `662618d5`** ; de C2b : `ab732540`. Au pli de la G2 : `origin/recherches/cm-3c-3b2` à `4521598f` (pli de la G2 de 3c-3b2) fusionné par un commit de fusion, sans conflit ; `base/c2-integration` n'a pas bougé (`689daea1`). La base de mesure du lot devient la tête de 3c-3b2 repliée, `4521598f` (voir « R-25 »).
 - **Commits** (branche `recherches/cm-3c-3c`, aucune PR) :
   - `c9a9704e` fusion de la base ;
   - `3cf57d6e` G0 ;
   - `f87a2f30` tests (rouges avant le gel) ;
   - **`3ca4fe7b` gel** (sources, données, traces, instantanés) ;
   - `47fccfed` et `aa6e44d9` : lignes de tueurs seules (ré-ancrage, voir « Tueurs ») ;
-  - ce commit (G7).
+  - `3aa50b9c` G7 ;
+  - pli de la G2 : fusion de `4521598f`, `e831f5d5` (B-1, deux `.md` de `fixtures/`), puis le commit du pli de ce G7.
 - Aucun `git add -A` ; `packages/rpc-guard/bin/rpc-guard.mjs` jamais indexé.
 
 ## Ce que le lot écrit
@@ -80,14 +81,17 @@ Node 24.21.0, variables de proxy retirées pour les tests, TMPDIR `/tmp/c3c-1`.
 
 ## R-25
 
-`r25()` de `scripts/oracle/r25.mjs` à la tête :
-- **lot contre `662618d5`** : **STAT 546** (+399 / −147) ≤ 547 ; CONTENT_STAT 19 (pages et gloses de `/docs`). Données 157 (`harness-pending.json` 126, `ukemi-pending.json` 19, manifeste 10, deux `pending_since`), tests 266 (`harness-served` 90, `byo-demo-probe` 37, `site-ukemi` 27), sources 123.
-- **C2b (3c-3b2 + 3c-3c) contre `ab732540`** : **STAT 971** ≤ 1 205.
-- **Intégration (C2a + C2b) contre `418a421f`** : **2 001** (+1 460 / −541). R25-INTEGRATION-RULE-1 est désormais précondition de fusion de la PR d'intégration (message de la cellule) ; aucun test n'est coupé.
+**Correction (B-1 de la G2).** Les chiffres de la première version de ce G7 (lot 546, C2b 971, intégration 2 001) étaient mesurés à `47fccfed`, avant le commit de tueurs `aa6e44d9` (+1/−1 de plus) : à `3aa50b9c`, le lot était à **548 > 547**, C2b à 973, l'intégration à 2 003. Le pli ramène le lot sous la borne sans ligne de code : `fixtures/PROVENANCE-fixtures-root.md` (ligne d'empreinte du manifeste sur une ligne) et `fixtures/PROVENANCE-byo-demo.md` (digest et nombre d'octets seuls) ; leur texte part à T0. `byo-demo-probe` et `fixtures-root` : 4/4 verts. La ligne « Byte-reproducible » de `PROVENANCE-byo-demo.md` est gardée (pas nécessaire sous la borne).
+
+`r25()` de `scripts/oracle/r25.mjs`, mesuré à `e831f5d5` (arbre propre ; le commit du pli de ce G7 ne touche que `docs/**.md`, exclu du compte, et la mesure y est identique) :
+- **lot contre `4521598f`** (tête de 3c-3b2 repliée, nouvelle base de mesure, Q-3c-3) : **STAT 546** (+398 / −148) ≤ 547 ; CONTENT_STAT 19 (pages et gloses de `/docs`).
+- Pour mémoire, contre `662618d5` (ancienne base) : 596, soit 546 plus les 50 lignes de tests du pli de 3c-3b2 (`46a3bacf`), qui relèvent de ce lot-là.
+- **C2b (3c-3b2 repliée + 3c-3c) contre `ab732540`** : **STAT 1 009** (+739 / −270) ≤ 1 205.
+- **Intégration (C2a + C2b) contre `418a421f`** : **2 039** (+1 498 / −541). R25-INTEGRATION-RULE-1 est précondition de fusion de la PR d'intégration (message de la cellule) ; aucun test n'est coupé.
 
 ## Écarts au G0 du lot
 
-1. **Pages qui lisent `ByoLoop`** (`/integrators`, `/docs/integrators`, `ByoLoopSchema`) : le nom des champs suit la trace 1.1.0 (`scores_sha256`), sans quoi le build du site rougit. Les pages gardent le servi pour tout fait servi (Q-SP1-2) ; elles rendent la trace enregistrée en processus, comme avant. La garde d'envoi du site (aucun envoi tant que `harness-pending.json` existe) couvre la fenêtre jusqu'à T0.
+1. **Pages qui lisent `ByoLoop`** (`/integrators`, `/docs/integrators`, `ByoLoopSchema`) : le nom des champs suit la trace 1.1.0 (`scores_sha256`), sans quoi le build du site rougit. Les pages gardent le servi pour tout fait servi (Q-SP1-2) ; elles rendent la trace enregistrée en processus, comme avant. La garde d'envoi du site (aucun envoi tant que `harness-pending.json` existe) couvre la fenêtre jusqu'à T0, **à condition d'être sur `main`** (m-2 de la G2, précondition ci-dessous).
 2. **Gloses des cinq raisons neuves** (site, texte anglais neuf, chiffres et tirets exclus) : exigées par trois tests et par la grille rendue depuis l'énumération gelée. Texte à relire par MONARK (Q-3c-1).
 3. **`DEMO.md` et deux PROVENANCE** : seules les lignes d'empreinte bougent (tests de citation) ; leur texte, qui nomme encore `calib_digest` et `set_digest`, va à T0 avec le README du harnais.
 4. **Épingle d'octets** gardée malgré le pli de 3c-3b2 (contrôle de l'instantané, 25 lignes).
@@ -97,4 +101,28 @@ Node 24.21.0, variables de proxy retirées pour les tests, TMPDIR `/tmp/c3c-1`.
 
 - **Q-3c-1** (écart 2) : accepter les cinq gloses (`how-copy.ts`, `docs-gate.ts`) et la chambre `calibrate` des cinq raisons (`sas-model.ts`) ? Défaut : oui, texte relu à la fusion.
 - **Q-3c-2** (Q-F2) : la ligne datée qui fixe le texte du refus 1.0.0 ; proposition : le texte ci-dessus. Précondition de fusion de C2b.
-- **Q-3c-3** (R-25) : le lot est à 546 pour 547 ; tout pli de la G2 qui ajoute des lignes hors docs dépasse la borne du lot. Défaut : un pli se mesure contre la tête de 3c-3b2 repliée, et R25-INTEGRATION-RULE-1 couvre l'intégration.
+- **Q-3c-3** (R-25) : le lot est à 546 pour 547 (après B-1) ; tout pli qui ajoute des lignes hors docs dépasse la borne du lot. Défaut : un pli se mesure contre la tête de 3c-3b2 repliée, et R25-INTEGRATION-RULE-1 couvre l'intégration.
+
+## Pli de la G2 (`G2-cm-3c-3c`, APPROUVE SOUS RÉSERVE)
+
+- **B-1** (R-25 du lot à 548 > 547) : plié, voir « R-25 ». Documentation seule, aucune ligne de code.
+- **Pli de 3c-3b2 fusionné** (`4521598f`) : les épingles `served_replay_full_bytes_are_pinned_at_1_1_0` et `usde_band_full_bytes_are_pinned_at_1_1_0` sont **vertes sans changement** à la tête. Le seul octet servi que change ce lot (message Q-F2, `gate.ts:865`) n'entre pas dans le rejeu de 111 appels, aucun appel n'y étant en 1.0.0. **Aucune épingle ne bouge**, rien à nommer au titre de la règle du G7 de 3c-3b2.
+- **m-1** et **m-2** : préconditions de fusion, ci-dessous.
+- **m-3** (pour C', trou antérieur au lot) : le mutant `scripts/verify-harness.mjs:365` (retrait de `&& digest === calibrateScoresSha256`) survit ; son équivalent à `418a421f` (`digest === calibrateSetDigest`) survivait déjà. À faire en C' : un vecteur de plus dans `verify_harness_ca_liq_checks_red_on_overclaiming_surfaces`, une surface dont le `scores_sha256` du verdict BYO diffère de celui de `calibrate`, qui tue ce mutant.
+- **Test 42** (item d'outillage hors lot) : la G2 a fait un passage complet seul, machine au repos (charge 0,67, 4 cœurs), à `3aa50b9c` : **2 339 tests, 2 317 verts, 0 rouge, 22 sautés, exit 0**, test 42 **vert** (111 s). Le rouge noté plus haut ne se reproduit pas au repos. Mécanisme probable, non prouvé : le `npm run ci` imbriqué tourne sous `--test-force-exit` avec la sortie en tube ; sous charge, il sort 0 avant que le rapporteur ait vidé son résumé, et `summaryCount` lit `null`. Correction possible, hors lot : lire le résumé depuis un fichier (`--test-reporter-destination`). Le compte de tests varie d'un passage complet à l'autre (déjà noté au G7 d'UKEMI-PENDING-SNAPSHOT-1).
+- **Avis de la G2 sur les questions** :
+  - **Q-3c-1** : oui. Une raison sans glose rendrait une carte vide ; les cinq gloses ne revendiquent rien (0 hit de vocabulaire). « holds its calibration silent », « vetoes » et « retires » reprennent le vocabulaire des lignes de politique : à relire par MONARK pour un lecteur extérieur, non bloquant. Publication à T0 seulement, ce qui suppose m-2.
+  - **Q-3c-2** : le texte proposé suit le go (version parlée et dépôt de la spécification) et passe la porte de vocabulaire ; la ligne datée de MONARK est absente de `HEAD`, `origin/base/c2-integration`, `origin/lot/etude-suite` et `origin/main` : précondition de fusion confirmée.
+  - **Q-3c-3** : le défaut ne tenait pas à 548 ; une fois B-1 plié (546), il est acceptable. Tout pli de la G2 passe par la documentation ou par les `.md` de `fixtures/` qui partent à T0 ; aucun pli en code dans ce lot.
+
+## Préconditions de fusion (ajoutées au pli de la G2)
+
+- **m-1, CA de la tête rouge contre l'hôte servi jusqu'à T0.** `scripts/verify-harness.mjs` (`CA_SCHEMA_VERSION` 1.1.0) est rouge contre l'hôte servi en 1.0.0 : **6/15 rouges**, mesuré par la G2 (`gate_call`, `gate_retired_call`, `gate_future_call`, `gate_liq_call`, `gate_liq_uncommitted_call`, `gate_byo_call` ; 400 `schema_version_unsupported` côté 1.0.0 et `scores_sha256` absent du fil). C'est voulu (la CA suit l'arbre), et aucun job de CI ne lance la CA contre l'hôte vivant. **Règle** : de la fusion de C2 à T0, toute revérification ou tout redéploiement se fait à partir du **SHA déployé** (archive et `verify-harness.mjs` compris), **jamais depuis `main` ni depuis la tête**. Le RUNBOOK §6 construit l'archive « from HEAD » : un redéploiement depuis `main` dans la fenêtre servirait la 1.1.0 et serait un T0 de fait.
+- **m-2, garde d'envoi du site absente de la base.** La ligne de `docs/RUNBOOK-vitrine.md` (« aucun envoi du site tant que `harness-pending.json` existe », commit `d1cf7a1b`) n'est que sur `origin/lot/etude-suite` ; elle manque à `main`, à `base/c2-integration` et à la tête. Ce lot est le premier où les pages changent (cinq gloses neuves sur `/how`, `/`, `/token` et `/docs` ; `scores_sha256` sur `/integrators` et `/docs/integrators`) et le build est vert avec l'instantané présent : un envoi du site depuis `main` avant T0 publierait du texte 1.1.0 face à un hôte 1.0.0. **Précondition** : cette ligne est sur `main` avant la fusion de la PR d'intégration. Une garde mécanique (build rouge si l'instantané existe, hors T0) relève de C' ou de MONARK ; elle coûterait des lignes, donc pas dans ce lot.
+- Rappel : la ligne datée de MONARK de Q-3c-2 et R25-INTEGRATION-RULE-1 restent préconditions de fusion.
+
+## Pour la liste de T0 (MONARK)
+
+- **m-1** : jusqu'à T0, revérification et redéploiement depuis le SHA déployé seulement ; à T0, la CA de la tête (1.1.0) devient la CA de l'hôte (simulation de la G2 : 15/15 verts contre le harnais de la tête).
+- Après C' et la montée de `HARNESS_VERSION` (acte de MONARK à T0), relancer `--pending` (harnais puis ukemi) avant la promotion : `version` et `openapi_sha256` sont des champs comparés, sinon la promotion échoue fermé (§3.4 du bloc).
+- Note pour le G0 de C' : tout octet servi changé en C' se ré-épingle à quatre endroits (rejeu de 111 appels, bande USDe, `PENDING_BODIES_SHA256`, `--pending`).
