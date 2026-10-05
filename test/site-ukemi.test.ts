@@ -329,7 +329,8 @@ const list = (v: unknown, where: string): unknown[] => {
   return v as unknown[];
 };
 const rawCourse = (): Json => obj(JSON.parse(read(UKEMI_COURSE_REL)) as unknown, "course file");
-const rawServed = (): Json => obj(JSON.parse(read(UKEMI_SERVED_REL)) as unknown, "served file");
+/** The committed served file, without pending_since (the base of every variant a test writes; v1 refuses the key). */
+const rawServed = (): Json => Object.fromEntries(Object.entries(obj(JSON.parse(read(UKEMI_SERVED_REL)) as unknown, "served file")).filter(([k]) => k !== "pending_since"));
 const sha256 = (s: string): string => createHash("sha256").update(s, "utf8").digest("hex");
 /** Independent re-implementation of the course tool's canonical JSON (keys sorted, no whitespace). */
 function canon(v: unknown): string {
@@ -358,7 +359,7 @@ function tmpRoot(): { root: string; write: (rel: string, value: Json) => void; d
     writeFileSync(join(root, ...manifestRel.split("/")), JSON.stringify(manifest, null, 2) + "\n");
   };
   write(UKEMI_COURSE_REL, rawCourse());
-  write(UKEMI_SERVED_REL, rawServed());
+  write(UKEMI_SERVED_REL, obj(JSON.parse(read(UKEMI_SERVED_REL)) as unknown, "served file"));
   if (existsSync(join(ROOT, PENDING_REL))) write(PENDING_REL, obj(JSON.parse(read(PENDING_REL)) as unknown, "pending file"));
   const drop = (rel: string): void => {
     rmSync(join(root, ...rel.split("/")), { force: true });
@@ -390,20 +391,18 @@ async function pendingSync(): Promise<Sync> {
 const pinTarget = async (root: string): Promise<Pinned> => (await pendingLoader()).loadUkemiInProcess(root);
 /** A verdict without the served-only body digest (the pending snapshot's eight keys). */
 const bareVerdict = (v: unknown): Json => Object.fromEntries(Object.entries(obj(v, "liq_verdict")).filter(([k]) => k !== "body_sha256"));
-/** The committed served file, without pending_since. */
-const servedBare = (): Json => Object.fromEntries(Object.entries(rawServed()).filter(([k]) => k !== "pending_since"));
 /** The pending snapshot a served file implies: its shared fields, the verdict without body_sha256, written a day after C2. */
 const pendingOf = (served: Json): Json => ({
   $comment: "staged", schema: "monark-site-ukemi-pending-v1", written_at: "2026-10-05T12:00:00.000Z", served_class: served.served_class, registry_state: served.registry_state,
   liq_clause: served.liq_clause, cascade_uncalibrated_sentence_served: served.cascade_uncalibrated_sentence_served, liq_verdict: bareVerdict(served.liq_verdict),
 });
 /** The facts of this tree's harness: the committed pending snapshot while one exists, else the ones the served file implies. */
-const currentPending = (): Json => (existsSync(join(ROOT, PENDING_REL)) ? obj(JSON.parse(read(PENDING_REL)) as unknown, "pending file") : pendingOf(servedBare()));
+const currentPending = (): Json => (existsSync(join(ROOT, PENDING_REL)) ? obj(JSON.parse(read(PENDING_REL)) as unknown, "pending file") : pendingOf(rawServed()));
 /** A served file carrying pending_since: the day C2 marks it (a --pending of C', a day later, keeps it). */
 const marked = (served: Json): Json => ({ ...served, pending_since: "2026-10-04" });
 /** A served file equal to this tree on every shared field (body digests and read_at of the committed one). */
 const treeServed = (): Json => {
-  const s = servedBare(), p = currentPending();
+  const s = rawServed(), p = currentPending();
   return { ...s, liq_clause: p.liq_clause, registry_state: p.registry_state, cascade_uncalibrated_sentence_served: p.cascade_uncalibrated_sentence_served, liq_verdict: { ...obj(p.liq_verdict, "pending liq_verdict"), body_sha256: obj(s.liq_verdict, "liq_verdict").body_sha256 } };
 };
 /** Another tree's facts on a snapshot: another clause (well formed) and another calibration digest. */
@@ -1771,7 +1770,7 @@ test("site_ukemi_digest_note_says_what_the_gate_returns — two answers on the c
 test("ukemi_pending_snapshot_is_fail_closed — a pending snapshot loads only beside a served file marked pending_since, listed, closed and coherent", async () => {
   const { loadUkemiPending, loadUkemiInProcess } = await pendingLoader();
   const served = treeServed(), pending = currentPending(), lv = obj(pending.liq_verdict, "pending liq_verdict");
-  const v1: Json = { ...servedBare(), schema: "monark-site-ukemi-served-v1" };
+  const v1: Json = { ...rawServed(), schema: "monark-site-ukemi-served-v1" };
   delete v1.liq_verdict;
   const cases: Array<[Json, Json | null, boolean, RegExp, string]> = [
     [served, pending, true, /carries no pending_since/, "a pending snapshot beside a served file without pending_since reds"],
@@ -1834,16 +1833,11 @@ test("ukemi_in_process_pins_follow_the_pending_snapshot — the five in-process 
 test("ukemi_pages_keep_the_served_snapshot_while_pending — the pages and their figures read the served file alone; a pending snapshot changes only the in-process pins", async () => {
   const { loadUkemiPending } = await pendingLoader();
   const pages = loadUkemiServed(ROOT), c = loadUkemiCourse(ROOT), next = otherDigest(otherClause(currentPending()));
-  const t = stagePending(marked(treeServed()), next);
+  const t = stagePending(marked(rawServed()), next);
   try {
     const got = loadUkemiServed(t.root);
     assert.deepEqual([got.liq_clause, got.liq_verdict?.calibration_digest], [pages.liq_clause, pages.liq_verdict?.calibration_digest], "the pages keep the served clause and digest while a pending snapshot exists");
-    const bare = stagePending(treeServed(), null);
-    try {
-      assert.deepEqual(got, loadUkemiServed(bare.root), "the pages read the same served projection as without a pending snapshot");
-    } finally {
-      bare.cleanup();
-    }
+    assert.deepEqual(got, pages, "the pages read the committed served projection");
     assert.equal(servedFiguresOf(got, c)?.digest, pages.liq_verdict?.calibration_digest, "the rendered digest figure is the served one");
     assert.deepEqual([loadUkemiPending(t.root)?.liq_clause, loadUkemiPending(t.root)?.liq_verdict.calibration_digest], [next.liq_clause, obj(next.liq_verdict, "next").calibration_digest], "control: the staged pending snapshot carries the other clause and digest");
   } finally {
