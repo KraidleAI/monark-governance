@@ -33,7 +33,7 @@ import {
   USDE_STABLE_RUN_TASK_CLASS,
   USDE_STABLE_RUN_SCORES_SHA256_PINNED,
 } from "../src/calibration.ts";
-import { splitQuantile, buildIntervalRegion, underCalibVerdict, NUMERIC_LABEL_SCHEMA, BTC_DIR_LABEL_SCHEMA } from "@monark/hikae"; // ADR-M011: anti-circularity — L1 q̂ + NDG-1 region before runGate; E9: label_schema constants
+import { splitQuantile, buildIntervalRegion, scoreTestBand, underCalibVerdict, NUMERIC_LABEL_SCHEMA, BTC_DIR_LABEL_SCHEMA } from "@monark/hikae"; // ADR-M011: anti-circularity — L1 q̂ + NDG-1 region before runGate; E9: label_schema constants
 import { fromAttestedFlow, isNarabiError } from "@monark/monark"; // A7: real flows via the adapter
 
 const GOOD_PARAMS: HarnessParams = {
@@ -712,6 +712,28 @@ test("gate_byo_interval_float_absorption_is_region_degenerate_M011", () => {
   assert.equal(d.verdict.abstain, true);
   assert.equal(d.action, "abstain");
   assert.equal(d.reason, "region_degenerate");
+});
+
+// G2 R-2 of lot CM-3c-4b, Q-CP4B-3: an additive edge outside binary64 (yhat + qhat overflows) stays under_calib as
+// before B-13, never a served band clamped at Number.MAX_VALUE. BYO yhat = 1.7e308, scores 1e307 (q̂ = 1e307): without
+// the guard the score-test band is [~1.6e308, MAX_VALUE] and the gate commits; with it, abstain / under_calib.
+// killer: packages/hikae/src/region.ts:122 SDL "|| !Number.isFinite(yhat + qhat)" -> ""
+test("gate_byo_interval_additive_overflow_is_under_calib_QCP4B3", () => {
+  assert.equal(1.7e308 + 1e307, Infinity, "the additive upper edge overflows binary64");
+  assert.ok(Number.isFinite(1.7e308 - 1e307), "the additive lower edge is finite");
+  assert.deepEqual(scoreTestBand(1.7e308, 1e307), { abstain: true, reason: "under_calib" }, "the band itself is under_calib");
+  const scores: number[] = Array.from({ length: 10 }, () => 1e307);
+  assert.deepEqual(splitQuantile(scores, 0.1, 5), { qhat: 1e307 }, "L1 q̂ = 1e307 (not under_calib)");
+  const d = runGate(
+    { ...BYO_INTERVAL_PRED, yhat: 1.7e308 },
+    { ...GOOD_PARAMS, intent: 1.7e308, tauInterval: Number.MAX_VALUE, nMin: 5, alpha: 0.1, calibration: { scores, mode: "interval" } },
+  );
+  assert.equal(d.verdict.reason, "under_calib", "overflow ⇒ verdict under_calib (Q-CP4B-3)");
+  assert.equal(d.verdict.qhat, null);
+  assert.equal(d.verdict.abstain, true);
+  assert.equal(d.action, "abstain", "never a silent commit");
+  assert.equal(d.allow, false);
+  assert.equal(d.reason, "under_calib");
 });
 
 // ---------------------------------------------------------------------------- ADR-M017 (attested in the gate)

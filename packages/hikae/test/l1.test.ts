@@ -68,3 +68,14 @@ test("split_rank_shortest_four_killers", async () => {
   assert.deepEqual(m.splitQuantileShortest?.(ranked(10), 1e-7, 1), { reason: "under_calib" }, "p = 11 > n: under_calib, not a refusal");
   assert.deepEqual(m.splitQuantileShortest?.(ranked(10), 0.1, 11), { reason: "under_calib" }, "n < nMin");
 });
+
+// G2 N-3 of lot CM-3c-4b: the exact rank reads every decimal of String(alpha), so a reader that truncates to four
+// decimals is killed: (50; 0.01961) -> ceil(51 * 0.98039) = 50, where 0.0196 gives ceil(51 * 0.9804) = 51 > n, under_calib.
+// killer: packages/hikae/src/l1-split.ts:228 CONST "const frac = m[3] ?? \"\";" -> "const frac = (m[3] ?? \"\").slice(0, 4);"
+test("split_rank_shortest_reads_past_four_decimals", async () => {
+  const m = (await import("../src/index.ts")) as unknown as Record<string, (...a: unknown[]) => unknown>;
+  assert.equal(m.splitRankShortest?.(50, 0.01961), 50, "(50; 0.01961) -> 50");
+  assert.equal(m.splitRankShortest?.(50, 0.0196), 51, "control: (50; 0.0196) -> 51 > n");
+  const ranked = Array.from({ length: 50 }, (_, i) => i + 1);
+  assert.deepEqual(m.splitQuantileShortest?.(ranked, 0.01961, 50), { qhat: 50 }, "0.01961 is read whole, never under_calib");
+});
