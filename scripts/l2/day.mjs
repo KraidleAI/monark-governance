@@ -8,17 +8,18 @@
 // nothing (the raw is never touched). @bookTicker carries no time (FAITS-L2-ACCESS-2 (d)): the day of the diff of the same connection
 // whose [U;u] holds its u, else its reception day, marked recv_day (Q-9). /market: FAITS-L2-ACCESS-3 (e) is not established
 // (FAITS-L2-ACCESS-3-E-1), E is neither read nor converted: reception day, marked recv_day (Q-C1-1). A frame received more than GRACE_US
-// after the end of its day is late: it goes to the index of its reception day, marked with its own. A frame whose segment lies before the
-// window of its day (E more than 1 h after its reception) is early: the same, mirrored (G2 B-3). missing.json: the holes of the symbol's
+// after the end of its day, or whose segment lies after its day's window (a host clock stepped back on a live connection), is late: it
+// goes to the index of its segment's day, marked with its own. A frame whose segment lies before the window of its day (E more than 1 h
+// after its reception) is early: the same, mirrored (G2 B-3, R-1 of the second G2). missing.json: the holes of the symbol's
 // link and of /market (from a close that leaves the link without an open connection, or a start of c5 that finds connections never
 // closed, Q-C1-10; from the last frame received to the first of the next connection, ADR "watchdog", else the journal's times) and the
 // named events of MISSING_EVENTS in the day, from journal.jsonl. The seal waits for the end of the day plus the grace and for each
 // segment read to be closed (closed(cid, seg), from c5); a frame is held as three int32 in a bucket of its stream, at most `bound` of
 // them (index_bound); it writes index.jsonl by chunks, missing.json, manifest.json, each synced, then SHA256SUMS last (sha256sum -c
-// format, every file of the day folder, a closed list, and each segment referenced, by relative path, hashed by chunks); a sealed day is
-// never rewritten. The agent never commits (R-20).
+// format, every file of the day folder, a closed list, and each segment used, by relative path, hashed by chunks; written whole beside
+// the folder, then linked in); a sealed day is never rewritten. The agent never commits (R-20).
 import { createHash } from "node:crypto";
-import { closeSync, existsSync, fstatSync, fsyncSync, mkdirSync, openSync, readdirSync, readFileSync, readSync, writeSync } from "node:fs";
+import { closeSync, existsSync, fstatSync, fsyncSync, linkSync, mkdirSync, openSync, readdirSync, readFileSync, readSync, unlinkSync, writeSync } from "node:fs";
 import { join } from "node:path";
 import { SYMBOLS } from "./links.mjs";
 import { PERIOD_US, readSegment, segmentOf } from "./segments.mjs";
@@ -32,7 +33,8 @@ export const KEYS = Object.freeze({ "depth@100ms": "U,u", bookTicker: "u", trade
 export const MISSING_EVENTS = Object.freeze(["writer_stop", "overlap_break", "chain_gap", "sync_try_vain", "sync_suspended",
   "chain_stopped", "buffer_trimmed", "tail_marked"]);
 export const STOPS = Object.freeze(["bad_symbol", "bad_day", "place_time_unsafe", "day_sealed", "index_bound", "stray_file"]);
-export const INDEX_BOUND = 8_388_608; // G2 B-2: frames held at a seal (12 bytes each in the index, 32 for a pending bookTicker)
+export const INDEX_BOUND = 4_194_304; // G2 B-2: frames held at a seal (12 bytes each in the index, 32 for a pending bookTicker); R-2 of the
+// second G2: halved from 8 388 608, so a day of 99.9 % bookTicker at the bound stays under MemoryMax=512M of D24-4 (measures in the G7)
 export const DAY_FILES = Object.freeze(["index.jsonl", "missing.json", "manifest.json", "anchor-open.json", "anchor-close.json", "minutes.jsonl"]);
 const LF = String.fromCharCode(10), MODULES = ["book", "day", "links", "rest", "segments"], CHUNK = 65_536, MARKS = [null, "recv_day", "late", "early"];
 
@@ -127,10 +129,11 @@ function indexOf(out, symbol, segs, marks, dn0, bound) {
   const lower = symbol.toLowerCase(), buckets = new Map(), used = new Set(), counts = { streams: {}, late: 0, early: 0, recv_day: 0 };
   let held = 0, cid = null, diffs = null, tickers = null; // per connection: its diffs [U, u, dn], its bookTickers [s, rank, recv, u]
   const hold = (n) => { if (held + n > bound) stop("index_bound", { symbol, bound }); };
+  const hours = segs.map(([, g]) => Date.parse(`${g.slice(0, 4)}-${g.slice(4, 6)}-${g.slice(6, 8)}T${g.slice(9)}:00:00Z`) * 1000); // segment starts
   const place = (stream, s, rank, recv, dn, kind) => { // kind 0: by its place time, 1: recv_day
-    const late = kind === 0 && recv > (dn + 1) * DAY_US + GRACE_US; // D24-5: at the end plus the grace, still in its day
-    const k = late ? 2 : kind === 0 && segs[s][1] < segmentOf(dn * DAY_US - PERIOD_US) ? 3 : kind; // early: out of its day's window
-    if ((k >= 2 ? Math.floor(recv / DAY_US) : dn) !== dn0) return; // late and early go to their reception day
+    const end = (dn + 1) * DAY_US + GRACE_US; // D24-5: at the end plus the grace, still in its day; a segment past it is not read for it
+    const k = (kind === 0 && recv > end) || hours[s] > end ? 2 : hours[s] < dn * DAY_US - PERIOD_US ? 3 : kind; // late; early: before the window
+    if ((k >= 2 ? Math.floor(hours[s] / DAY_US) : dn) !== dn0) return; // late and early go to their segment's day (G2 bis R-1), read for it only
     hold(1);
     held += 1;
     const key = String(stream);
@@ -208,7 +211,10 @@ export function sealDay({ out, symbol, day, nowUs, closed, config = {}, bound = 
   sync();
   const paths = [...readdirSync(dir).filter((n) => n !== "SHA256SUMS"),
     ...[...used].sort((x, y) => x - y).flatMap((s) => [".frames", ".index.jsonl"].map((x) => `../../../conn/${segs[s][0]}/${segs[s][1]}${x}`))].sort();
-  write("SHA256SUMS", (fd) => writeSync(fd, paths.map((p) => `${shaOf(join(dir, p))}  ${p}${LF}`).join("")), "wx");
+  const tmp = `../.${day}.SHA256SUMS.tmp`; // G2 bis m-4: out of the folder, written whole, then linked (EEXIST, as wx): never empty when sealed
+  write(tmp, (fd) => writeSync(fd, paths.map((p) => `${shaOf(join(dir, p))}  ${p}${LF}`).join("")));
+  linkSync(join(dir, tmp), join(dir, "SHA256SUMS"));
+  unlinkSync(join(dir, tmp));
   sync();
   return { sealed: true, dir, frames: Object.values(counts.streams).reduce((x, y) => x + y, 0) };
 }

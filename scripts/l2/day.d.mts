@@ -20,8 +20,8 @@ export class DayStop extends Error {
 }
 
 /** One line of days/<SYMBOL>/<YYYY-MM-DD>/index.jsonl: the frame's stream (null when none is read), its segment and rank; mark
- *  recv_day = indexed by its reception day (Q-9 fallback, /market); late = received past its day plus the grace, early = its segment
- *  before its day's window: both at their reception day, `of` their day. */
+ *  recv_day = indexed by its reception day (Q-9 fallback, /market); late = received past its day plus the grace or its segment after its
+ *  day's window, early = its segment before that window: both at their segment's day, `of` their day. */
 export interface DayLine {
   stream: string | null;
   cid: string;
