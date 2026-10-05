@@ -174,3 +174,64 @@ symbole aux tests). MS (erreur standard héritée) est désormais tué par l'ép
 - **R-25** du lot entier (`r25()`, `ci.yml`, base `f330ab1c`) : `STAT` 519 (499 insertions, 20 suppressions), `CONTENT_STAT` 0, GREEN ;
   borne du lot 547, marge 28 (le pli seul : 254 insertions, 38 suppressions contre `b141e87c`, dont des lignes déjà comptées au lot).
   c5-bis-b, estimé 365 à 440, tient seul sous 547.
+
+## Pli de la G2 delta (verdict APPROUVE SOUS RESERVE, `recherches/coordination/pieces/2026-10-04-G2-recherches/G2-l2-p1-c5-bis-a-delta.md`)
+
+Tests rouges `34435a3f`, gel `66be6dd1`. Trois tests neufs à la fin de la partie c5-bis-a de `test/l2-loop.test.ts`, un tueur chacun ;
+aucun test existant modifié dans son corps ; lignes des tueurs de `seal.mjs` renumérotées en place (`l2_seal_apart_heap_named` et
+`_through_the_pinned_root` 69 vers 71, `_deadline` 71 vers 72, `_aborted` 72 vers 73, `_never_rejects` 70 vers 74). Budget R-25 : 28
+lignes, toutes prises (547 sur 547) ; le reste va à c5-bis-b, liste fermée ci-dessous.
+
+| Constat | Suite | Preuve (tueur) |
+|---|---|---|
+| **r-1** racine fixée supprimée : l'enfant tourne à vide jusqu'à l'échéance | `unpinned` de l'enfant exige `st.nlink > 0n` : un dossier supprimé depuis son ouverture (`nlink` 0) est refusé à l'instant, `out_not_l2`, sortie 1 | `l2_seal_apart_root_deleted` (`seal-child.mjs:26` `st.nlink > 0n && `) : racine ouverte, supprimée, `sealApart` par `/proc/self/fd/<n>` refusé en environ 70 ms ; à la base, `seal_timeout` après 5 s |
+| **r-2** `signal` non conforme : `sealApart` rejette, l'enfant sans observateur | `io` lu dans le `try` ; un `signal` qui n'est ni `undefined` ni `instanceof AbortSignal` lève avant toute ouverture : `spec_refused`, détail `TypeError`, aucun enfant, aucune minuterie. L'échéance et l'écouteur sont posés dans le `try`, après le `spawn` | `l2_seal_apart_io_refused` (`seal.mjs:64` `given === undefined ? undefined : null`) : le reproducteur `{}` et un `EventTarget` ; à la base, rejet (`removeEventListener is not a function`) et racine ouverte |
+| **n-9** `io` nul ou accesseur qui lève : levée synchrone | `io ?? {}` : un `io` nul vaut aucun (défauts) ; un accesseur qui lève donne `spec_refused` (détail : nom de l'erreur) | même test : `null` donne `root_refused` sur une racine absente (défauts appliqués), un `get env()` qui lève `spec_refused`/`RangeError` |
+| **r-3** M4 (`kill` retiré de `halt`) | test : un scellé à l'échéance (1 ms) et un scellé arrêté ; 3 s plus tard, aucun `SHA256SUMS` dans les deux jours | `l2_seal_apart_child_killed` (`seal.mjs:60` `child?.kill("SIGKILL")`) ; vert à la base (test resserrant, comme ceux de m-3), tueur appliqué à la main : rouge par assertion en 3 s, sans pendre (r-1 levé, l'enfant non tué ne boucle plus sous la racine supprimée) |
+| r-3 M3, L8, L4, M10, M17 ; ajout de `timeoutMs` à `_through_the_pinned_root` | renvoyés à c5-bis-b (liste ci-dessous) | — |
+| r-4 inondation `hook_failed` | renvoyé à c5-bis-b (liste ci-dessous) | — |
+| n-10 à n-15 | renvoyés à c5-bis-b (liste ci-dessous) | — |
+
+### Renvoyés à c5-bis-b (qui fusionne cette branche, marge d'environ 199 lignes)
+
+1. **r-3 M3** : un test qui affirme que le parent ferme le descripteur de la racine après le `spawn` et sur échec (par exemple, compter
+   `/proc/self/fd` avant et après N scellés, ou envelopper `closeSync`) ; tueur `seal.mjs:74` `finally { if (fd !== null) closeSync(fd); }`.
+2. **r-3 L8** : un test qui passe un socket (par exemple un `net.Server` écoutant, ou une paire `socketpair` via un tube nommé) au-delà
+   de fd 3 et attend `out_not_l2` ; tueur `seal-child.mjs:20`, `socket:` admis dans `OWN`.
+3. **r-3 L4** : prouver l'ordre de `syncDir(dir)` dans `segments.mjs` (après la création des deux fichiers, pas après `mkdir`), par un
+   `fs` enveloppé qui journalise l'ordre des appels.
+4. **r-3 M10** : borner la queue de l'erreur standard (`TAIL` = 4 096) par un test (enfant qui écrit plus de 4 Kio sur l'erreur standard
+   puis meurt) ; tueur `.slice(-TAIL)` retiré.
+5. **r-3 M17** : `removeEventListener` dans `finish` affirmé (un `signal` partagé par N scellés n'accumule pas d'écouteur, par exemple via
+   `getEventListeners` de `node:events`).
+6. **r-3** : `timeoutMs` court dans `l2_seal_apart_through_the_pinned_root`, pour qu'une régression de la racine rougisse au lieu de
+   pendre (non fait ici : modifier ce corps le ferait juger « green at base » par la preuve rouge).
+7. **r-4** : un crochet qui lève toujours écrit une ligne `hook_failed` par message (10 000 messages, 1,59 Mo). Journaliser la première
+   exception par `<cid>` puis compter les suivantes, ou ne plus nourrir ce `<cid>` ; la boucle de c5-bis-b réagit à `hook_failed`.
+8. **n-10** : exception exotique d'un crochet (accesseur `name` qui lève, `name` en `BigInt`, `Proxy`) qui sort du `catch` de `fed` ;
+   prendre `typeof x?.name === "string" ? x.name.slice(0, 64) : null` dans un `try` (borne aussi la longueur du nom).
+9. **n-11** : `timeoutMs` non fini, négatif, nul, au-delà de 2^31-1 ou non numérique (échéance de 1 ms, `TimeoutOverflowWarning`) et
+   `env: null` (hérite de tout l'environnement à `spawn`) : `spec_refused` dans le même `try`.
+10. **n-12** : à l'échéance, la promesse se résout avant que l'enfant soit relevé (zombie bref) ; le verrou par jour de c5-bis-b (n-4)
+    couvre le recouvrement, à défaut résoudre sur `close` après le `kill`.
+11. **n-13** : la comparaison `dev`/`ino` de l'enfant est auto-référente ; passer l'identité d'`adopt` à `sealApart`, ou refuser sous Linux
+    un `spec.out` qui n'est pas `/proc/self/fd/<n>`.
+12. **n-14** : un descripteur hérité sans `O_CLOEXEC` par l'enregistreur n'atteint pas l'enfant (sonde verte) : rien à corriger, à noter
+    dans l'en-tête de `seal-child.mjs`.
+13. **n-15** : `fsync` de `conn/` après la création de `conn/<cid>/` (première connexion), à rattacher à n-6.
+
+### Preuves du pli delta
+
+- `node scripts/red-proof.mjs --base c6cf927a --gel 66be6dd1 --repo /home/user/monark-governance-c5b --draw 3 --seed 37` : 3 jugés,
+  46 inchangés ; deux F2P (`l2_seal_apart_root_deleted`, `_io_refused`), leurs deux tueurs tirés et tués ; un refusé « green at base »
+  (`l2_seal_apart_child_killed`, resserrant, attendu). Verdict de l'outil : REFUSED pour ce seul test ; `RED-PROOF.json` sha256
+  `eec79e7813647f96…`.
+- Les trois tueurs appliqués à la main au gel, un à la fois, le test seul rejoué, fichier restauré et sha256 vérifié : les trois
+  rougissent (`root_deleted` en 5 s, `io_refused` à l'instant, `child_killed` en 3 s), aucun ne pend.
+- Ancres : `verifie-ancres.mjs . --touched f330ab1c HEAD` : 70 tueurs, 70 ANCRE, 0 DERIVE, 0 PERDU.
+- `node --test test/l2-*.test.ts` : 165 sur 165.
+- `npm test` complet, une fois, au gel `66be6dd1`, `node_modules/@monark/*` en liens relatifs propres au worktree : 2 371 tests, 2 349
+  réussis, 0 échec, 22 ignorés, sortie 0.
+- `tsc` 0 ; `lint` 0 ; `lint:ratchet` 69/69 ; `gate:vocab` OK (335 fichiers) ; `lang:gate` OK.
+- **R-25** du lot entier (`r25()`, `ci.yml`, base `f330ab1c`) : `STAT` 547 (527 insertions, 20 suppressions), `CONTENT_STAT` 0, GREEN ;
+  borne du lot 547, marge 0 (le pli delta : +28 nettes). Toute ligne de code de plus va à c5-bis-b.
