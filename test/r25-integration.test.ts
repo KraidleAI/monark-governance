@@ -739,7 +739,7 @@ test("r25h_ci_refuses_code_under_an_asset_name_in_an_asset_directory - R25-ASSET
   fx.g("add", "-A");
   fx.g("commit", "-qm", "tool");
   const out = ciRun(fx);
-  assert.deepEqual([changed(out), refusedIn(out), out.includes(PIN_ERROR), exitOf(out)], ["none", ["asset-magic out/tool.png"], true, "1"], out);
+  assert.deepEqual([changed(out), refusedIn(out), out.includes(PIN_ERROR), exitOf(out)], ["none", ['asset-magic "out/tool.png"'], true, "1"], out);
 }, REAL_CI));
 
 // killer: scripts/lot-size-integration.mjs:206 CONST "ttf: [\"00010000\"]" -> "ttf: [\"4f54544f\"]"
@@ -772,7 +772,7 @@ test("r25h_ci_refuses_a_bare_cr_and_keeps_crlf - R25-CR-ONLY-LINES-1: src/cr-onl
   stage(fx, "docs/notes-cr.md", "100644", "a\rb\r");
   fx.g("commit", "-qm", "cr");
   const out = ciRun(fx);
-  assert.deepEqual([changed(out), refusedIn(out), exitOf(out)], ["none", ["bare-cr src/cr-only.cjs"], "1"], out);
+  assert.deepEqual([changed(out), refusedIn(out), exitOf(out)], ["none", ['bare-cr "src/cr-only.cjs"'], "1"], out);
 }, REAL_CI));
 
 // killer: scripts/lot-size-integration.mjs:228 CONST " || b.includes(\"\\u2029\")" -> ""
@@ -782,7 +782,7 @@ test("r25h_ci_refuses_the_js_line_separators - R25-CR-ONLY-LINES-1, Q-4: src/ls-
   stage(fx, "src/ps-sep.cjs", "100644", statements(300, "\u2029"));
   fx.g("commit", "-qm", "separators");
   const out = ciRun(fx);
-  assert.deepEqual([changed(out), refusedIn(out), exitOf(out)], ["none", ["line-separator src/ls-sep.cjs", "line-separator src/ps-sep.cjs"], "1"], out);
+  assert.deepEqual([changed(out), refusedIn(out), exitOf(out)], ["none", ['line-separator "src/ls-sep.cjs"', 'line-separator "src/ps-sep.cjs"'], "1"], out);
 }, REAL_CI));
 
 // killer: scripts/lot-size-integration.mjs:216 CONST "mode === \"160000\"" -> "mode === \"169999\""
@@ -797,7 +797,7 @@ test("r25h_ci_refuses_a_gitlink_under_both_pathspecs - R25-GITLINK-SYMLINK-1: a 
   stage(fx, "apps/site/app/docs/subrepo", "160000", sub);
   fx.g("commit", "-qm", "gitlinks");
   const out = ciRun(fx);
-  assert.deepEqual([changed(out), contentChanged(out), refusedIn(out), exitOf(out)], ["none", "none", ["gitlink apps/site/app/docs/subrepo", "gitlink vendor/subrepo"], "1"], out);
+  assert.deepEqual([changed(out), contentChanged(out), refusedIn(out), exitOf(out)], ["none", "none", ['gitlink "apps/site/app/docs/subrepo"', 'gitlink "vendor/subrepo"'], "1"], out);
 }, REAL_CI));
 
 // killer: scripts/lot-size-integration.mjs:216 CONST "mode === \"120000\"" -> "mode === \"129999\""
@@ -806,10 +806,10 @@ test("r25h_ci_refuses_a_symlink - R25-GITLINK-SYMLINK-1, Q-6: src/link.mjs, a sy
   stage(fx, "src/link.mjs", "120000", "../docs/payload.md");
   fx.g("commit", "-qm", "link");
   const out = ciRun(fx);
-  assert.deepEqual([changed(out), refusedIn(out), exitOf(out)], ["none", ["symlink src/link.mjs"], "1"], out);
+  assert.deepEqual([changed(out), refusedIn(out), exitOf(out)], ["none", ['symlink "src/link.mjs"'], "1"], out);
 }, REAL_CI));
 
-// killer: scripts/lot-size-integration.mjs:255 CONST "[base] = opt(\"--base\")" -> "[base = \"origin/lot/etude-suite\"] = opt(\"--base\")"
+// killer: scripts/lot-size-integration.mjs:266 CONST "[base] = opt(\"--base\")" -> "[base = \"origin/lot/etude-suite\"] = opt(\"--base\")"
 test("r25h_pin_requires_the_workflow_and_the_base - Q-7: `pin` alone, or with --ci and no --base, prints nothing and exits 2, even where origin/lot/etude-suite exists: the changed paths are never left unchecked by a default (exit 0, the pinned read printed, before the lot)", () => withFx((fx) => {
   fx.g("update-ref", "refs/remotes/origin/lot/etude-suite", "HEAD");
   const run = (...a: string[]): string => { const r = spawnSync(process.execPath, ["scripts/lot-size-integration.mjs", "pin", ...a], { cwd: fx.dir, encoding: "utf8" }); return `${String(r.status)} ${String(r.stdout.length)}`; };
@@ -826,7 +826,7 @@ test("oracle_r25_refuses_what_the_job_refuses - the oracle's r25(), through its 
   stage(fx, "src/link.mjs", "120000", "../docs/payload.md");
   fx.g("commit", "-qm", "four");
   const r = oracle(fx, base, null) as OracleR25 & { log?: string };
-  assert.deepEqual([r.mode, (r.log ?? "").split("\n").filter((l) => l.startsWith("refused ")), r.exit], ["refused", ["refused asset-magic out/tool.png", "refused bare-cr src/cr-only.cjs", "refused gitlink vendor/subrepo", "refused symlink src/link.mjs"], 1]);
+  assert.deepEqual([r.mode, (r.log ?? "").split("\n").filter((l) => l.startsWith("refused ")), r.exit], ["refused", ['refused asset-magic "out/tool.png"', 'refused bare-cr "src/cr-only.cjs"', 'refused gitlink "vendor/subrepo"', 'refused symlink "src/link.mjs"'], 1]);
 }, REAL_CI));
 
 // Fold of the G2 of R25-GUARDS-2 (B-1, R-1). A .gitmodules of the PR with `ignore = all` hid an added gitlink from `git diff --raw`
@@ -841,7 +841,7 @@ test("r25h_ci_refuses_a_gitlink_hidden_by_gitmodules_ignore - G2 B-1: vendor/sub
   stage(fx, "vendor/subrepo", "160000", base);
   fx.g("commit", "-qm", "hidden gitlink");
   const out = ciRun(fx), r = oracle(fx, base, null) as OracleR25 & { log?: string };
-  assert.deepEqual([changed(out), refusedIn(out), exitOf(out), r.mode, r.exit], ["none", ["gitlink vendor/subrepo"], "1", "refused", 1], out);
+  assert.deepEqual([changed(out), refusedIn(out), exitOf(out), r.mode, r.exit], ["none", ['gitlink "vendor/subrepo"'], "1", "refused", 1], out);
 }, REAL_CI));
 
 // killer: scripts/lot-size-integration.mjs:228 CONST "fffe|feff|0000feff" -> "0000feff"
@@ -851,5 +851,81 @@ test("r25h_ci_refuses_a_utf16_or_utf32_bom - G2 R-1: four text paths whose blob 
   for (const [p, h] of Object.entries(boms)) stage(fx, p, "100644", Buffer.concat([Buffer.from(h, "hex"), Buffer.from("let n = 1;\u2028n++;\n", "ucs2")]));
   fx.g("commit", "-qm", "boms");
   const out = ciRun(fx);
-  assert.deepEqual([changed(out), refusedIn(out), exitOf(out)], ["none", ["utf16-bom src/big16.ts", "utf16-bom src/big32.ts", "utf16-bom src/little16.ts", "utf16-bom src/little32.ts"], "1"], out);
+  assert.deepEqual([changed(out), refusedIn(out), exitOf(out)], ["none", ['utf16-bom "src/big16.ts"', 'utf16-bom "src/big32.ts"', 'utf16-bom "src/little16.ts"', 'utf16-bom "src/little32.ts"'], "1"], out);
+}, REAL_CI));
+
+// Lot R25-MINIFIED-LINE-1 (ADR-M003 D9 quaterdecies). R-25 counts LF-ended lines: code on one long line counted 1 and runs. Before any
+// count, a text path whose blob holds a line longer than LINE_MAX bytes is refused `long-line`, but a `.json` path (data Node never runs)
+// and the exact blobs of LONG_LINE_PATHS, measured on the trunk. Each refused path is named as a JSON string (G2 N-1 of R25-GUARDS-2).
+const TRADEXYZ = "docs/biblio/procurements-M015/_raw/tradexyz_llms_full.txt", TRADEXYZ_BLOB = "3989315d68addc8ea3bb6e5cd0ee7dcd6f8bf326";
+const refusedHere = (fx: Fx): string[] => lsi.refusals(fx.dir, TARGET, specsOf(REAL_CI));
+
+// killer: scripts/lot-size-integration.mjs:229 CONST "&& overlong(b)) out.push" -> "&& false) out.push"
+test("r25m_ci_refuses_code_on_one_long_line - R25-MINIFIED-LINE-1: src/one.cjs (3 000 statements on one line: 1 line for git, run by node) and apps/site/app/docs/one.tsx (CONTENT, the same) are refused long-line: `pin` names both, the job prints no count and is red, and so is the oracle (Changed 1, Content 1, green, before the lot)", () => withFx((fx) => {
+  fx.g("checkout", "-q", "-b", "pr", TARGET);
+  stage(fx, "src/one.cjs", "100644", `${statements(3000, " ")}\n`);
+  stage(fx, "apps/site/app/docs/one.tsx", "100644", `${statements(3000, " ")}\n`);
+  fx.g("commit", "-qm", "one line");
+  const out = ciRun(fx), r = oracle(fx, TARGET, null);
+  assert.deepEqual([changed(out), contentChanged(out), refusedIn(out), out.includes(PIN_ERROR), exitOf(out), r.mode, r.exit], ["none", "none", ['long-line "apps/site/app/docs/one.tsx"', 'long-line "src/one.cjs"'], true, "1", "refused", 1], out);
+}, REAL_CI));
+
+// killer: scripts/lot-size-integration.mjs:241 CONST "nl - at > LINE_MAX" -> "nl - at >= LINE_MAX"
+// killer: scripts/lot-size-integration.mjs:241 CONST "if (nl < 0) nl = b.length;" -> "if (nl < 0) break;"
+test("r25m_line_length_is_bytes_between_line_feeds - Q-2: a line of 2 000 bytes passes, of 2 001 is refused, first, in the middle or last without a final LF; 1 001 U+00E9 (2 002 UTF-8 bytes) are refused; 1 999 bytes then CR LF (2 000 with the CR) pass; an empty file and 5 000 short lines pass (nothing refused before the lot)", () => withFx((fx) => {
+  fx.g("checkout", "-q", "-b", "pr", TARGET);
+  const x = (n: number): string => "x".repeat(n);
+  const files: Record<string, string> = { "src/at-limit.cjs": `${x(2000)}\n`, "src/crlf-at-limit.cjs": `${x(1999)}\r\n`, "src/empty.cjs": "", "src/short.cjs": lines("short", 5000),
+    "src/over-limit.cjs": `${x(2001)}\n`, "src/middle.cjs": `a\n${x(2001)}\nb\n`, "src/last-no-lf.cjs": `a\n${x(2001)}`, "src/utf8-bytes.ts": `${"\u00e9".repeat(1001)}\n` };
+  for (const [p, t] of Object.entries(files)) stage(fx, p, "100644", t);
+  fx.g("commit", "-qm", "lengths");
+  assert.deepEqual(refusedHere(fx), ['long-line "src/last-no-lf.cjs"', 'long-line "src/middle.cjs"', 'long-line "src/over-limit.cjs"', 'long-line "src/utf8-bytes.ts"']);
+}, REAL_CI));
+
+// killer: scripts/lot-size-integration.mjs:229 CONST "!p.endsWith(\".json\")" -> "!/\\.(json|jsonl|csv)$/i.test(p)"
+// killer: scripts/lot-size-integration.mjs:229 CONST "LONG_LINE_PATHS[p] !== id" -> "!Object.hasOwn(LONG_LINE_PATHS, p)"
+test("r25m_only_json_and_the_measured_blob_keep_a_long_line - Q-1, Q-3: src/data.json (a 3 890-byte line) passes; the same bytes as src/upper.JSON, src/rows.jsonl and src/rows.csv (run by node as CommonJS) are refused; the trunk blob of the measured .txt passes at its path, and one byte more at that path is refused (nothing refused before the lot)", () => withFx((fx) => {
+  fx.g("checkout", "-q", "-b", "pr", TARGET);
+  const data = `[${Array.from({ length: 1000 }, (_, i) => String(i)).join(",")}]\n`, trunkBlob = execFileSync("git", ["-C", ROOT, "cat-file", "blob", TRADEXYZ_BLOB]);
+  for (const p of ["src/data.json", "src/upper.JSON", "src/rows.jsonl", "src/rows.csv"]) stage(fx, p, "100644", data);
+  stage(fx, TRADEXYZ, "100644", trunkBlob);
+  fx.g("commit", "-qm", "data");
+  const first = refusedHere(fx);
+  stage(fx, TRADEXYZ, "100644", Buffer.concat([Buffer.from("x"), trunkBlob]));
+  fx.g("commit", "-qm", "one byte more");
+  const kept = ['long-line "src/rows.csv"', 'long-line "src/rows.jsonl"', 'long-line "src/upper.JSON"'];
+  assert.deepEqual([first, refusedHere(fx)], [kept, [`long-line ${JSON.stringify(TRADEXYZ)}`, ...kept]]);
+}, REAL_CI));
+
+// killer: scripts/lot-size-integration.mjs:239 CONST "LINE_MAX = 2000" -> "LINE_MAX = 4000"
+test("r25m_long_line_cap_is_the_measured_list - Q-3: the cap is 2 000 bytes and the closed list holds one exact blob, the procurement capture measured on the trunk", () => {
+  assert.deepEqual([lsi.LINE_MAX, lsi.LONG_LINE_PATHS], [2000, { [TRADEXYZ]: TRADEXYZ_BLOB }]);
+});
+
+// killer: scripts/lot-size-integration.mjs:229 CONST "!p.endsWith(\".json\") && " -> ""
+test("r25m_the_repository_itself_passes_the_long_line_cap - its tree at HEAD, added whole onto an empty commit, refuses nothing; read apart (bytes as latin1 characters), the only non-.json text paths under the two pathspecs with a line over 2 000 bytes are the list, at its blobs (the list absent before the lot)", () => {
+  const d = mkdtempSync(join(tmpdir(), "r25m-tree-")), g = (...a: string[]): string => execFileSync("git", ["-C", d, "-c", "user.name=fx", "-c", "user.email=fx@localhost", ...a], { encoding: "utf8" }).trim();
+  try {
+    g("init", "-q");
+    const common = execFileSync("git", ["-C", ROOT, "rev-parse", "--path-format=absolute", "--git-common-dir"], { encoding: "utf8" }).trim();
+    writeFileSync(join(d, ".git", "objects", "info", "alternates"), `${join(common, "objects")}\n`);
+    const empty = g("commit-tree", "4b825dc642cb6eb9a060e54bf8d69288fbee4904", "-m", "empty"), tree = execFileSync("git", ["-C", ROOT, "rev-parse", "HEAD^{tree}"], { encoding: "utf8" }).trim();
+    g("update-ref", "HEAD", g("commit-tree", tree, "-p", empty, "-m", "tree"));
+    const asset = (p: string): boolean => BINARY_ASSETS.some((a) => p.startsWith(a.slice(0, a.indexOf("*"))) && !p.slice(a.indexOf("*")).includes("/") && p.endsWith(a.slice(a.indexOf("*") + 1)));
+    const paths = [...new Set(specsOf(REAL_CI).flatMap((s) => g("diff", "--name-only", "-z", empty, "HEAD", "--", ...s).split("\0")))].filter((p) => p !== "" && !asset(p) && !p.endsWith(".json")).sort();
+    const batch = execFileSync("git", ["-C", d, "cat-file", "--batch"], { input: paths.map((p) => `HEAD:${p}\n`).join(""), maxBuffer: 1 << 30 }).toString("latin1");
+    let at = 0;
+    const long = paths.filter(() => { const nl = batch.indexOf("\n", at), size = Number(batch.slice(at, nl).split(" ")[2]), body = batch.slice(nl + 1, nl + 1 + size); at = nl + 2 + size; return body.split("\n").some((l) => l.length > 2000); });
+    assert.deepEqual([lsi.refusals(d, empty, specsOf(REAL_CI)), Object.fromEntries(long.map((p) => [p, g("rev-parse", `HEAD:${p}`)]))], [[], lsi.LONG_LINE_PATHS]);
+  } finally { rmSync(d, { recursive: true, force: true, maxRetries: 3 }); }
+});
+
+// killer: scripts/lot-size-integration.mjs:232 CONST "JSON.stringify(Buffer.from(r.slice(r.indexOf(\" \") + 1), \"latin1\").toString(\"utf8\"))" -> "Buffer.from(r.slice(r.indexOf(\" \") + 1), \"latin1\").toString(\"utf8\")"
+test("r25m_a_refused_path_is_named_as_a_json_string - G2 N-1 of R25-GUARDS-2: a refused path holding a LF, a quote and a U+00E9 is named on ONE line, as a JSON string, by `pin` and by the oracle's log: the job's log gets no line of the author's (a `::warning::` workflow command, read by the runner, before the lot)", { skip: process.platform === "win32" ? "the runner of the job is Linux; git for Windows refuses a control character in a path name (core.protectNTFS)" : false }, () => withFx((fx) => {
+  fx.g("checkout", "-q", "-b", "pr", TARGET);
+  const evil = 'src/new\n::warning::forged "q" \u00e9.cjs';
+  stage(fx, evil, "100644", "a\rb\n");
+  fx.g("commit", "-qm", "path");
+  const out = ciRun(fx), log = (oracle(fx, TARGET, null) as OracleR25 & { log?: string }).log ?? "";
+  assert.deepEqual([refusedIn(out), out.split("\n").some((l) => l.startsWith("::warning::")), log.split("\n").filter((l) => l.startsWith("refused ")), exitOf(out)], [[`bare-cr ${JSON.stringify(evil)}`], false, [`refused bare-cr ${JSON.stringify(evil)}`], "1"], out);
 }, REAL_CI));
