@@ -43,6 +43,8 @@ export interface LinkIo {
   clearTimer(handle: unknown): void;
   gate: Gate;
   open?: (path: string) => Promise<SegmentFile>;
+  /** Each text message once its writer has it, with its <cid> (the loop feeds its book: Q-A4-3, P1-c5-bis-a); a throw is journaled hook_failed. */
+  onText?: (text: string, cid: string) => void;
 }
 
 /** symbol: one of SYMBOLS for a spot link, "ALL" for /market, named in each <cid>; url: spotUrl(symbol) or marketUrl(), on the origin
@@ -62,6 +64,10 @@ export interface LinkSpec {
 export interface Link {
   stop(): Promise<void>;
   switched(cid: string): boolean;
+  /** Each writer of the link cuts its open segment once its hour is over (D24-3; the loop calls it on the hour). */
+  cut(): void;
+  /** Q-C1-5: true unless a writer of this link still holds <cid>/<seg> open (a <cid> it no longer holds: true). */
+  closed(cid: string, seg: string): boolean;
 }
 
 export function spotUrl(symbol: string): string;

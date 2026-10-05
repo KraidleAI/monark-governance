@@ -537,6 +537,12 @@ pm) ; item MK-NM-GUARD-1 (refuser Tree = F:/Monark dans mk-nm.ps1).
   les lots écrits gardent 547 et 1 205 ; une PR d intégration (commits tous issus de PR fusionnées et relues) ne compte que le neuf
   (résolutions de conflit, commits non relus), contre 1 205, fail-closed sans preuve. Lot R25-INTEGRATION-RULE-1 confié à RECHERCHES
   (recherches#189), G0 d abord ; la ligne (9) de l ADR-CM (exception bornée à 1 400) reste le repli pour l intégration de C2.
+- 2026-10-05 10:42 UTC : DÉCISIONS de l investisseur (verbatim), questions du G0 de R25-INTEGRATION-RULE-1 : Q-7 « Oui, désactiver
+  (Recommandé) » : fusion par rebase désactivée sur le dépôt de gouvernance (acte 10:43 UTC ; squash et commit de fusion restent) ;
+  Q-8 « Exception unique (Recommandé) » : la PR qui avance `main` jusqu au tronc à T0 est exemptée une seule fois de R-25 (ADR-M003
+  D9 decies, liée à `207f021f` et à la tête du tronc à T0, sha écrit par MONARK à T0). Règle livrée : #154 (1a) et #155 (1b, `023801ec`).
+- 2026-10-05 12:3x UTC : erratum de la bascule de la branche par défaut : l analyse CodeQL suit la branche par défaut ; sa première
+  analyse du tronc (04:17 UTC) a ouvert 5 alertes de test (#41 à #45) ; #159 (CODEQL-42) et lot CODEQL-ALERTS-2 (journal, ETAT).
 - 2026-10-04 00:5x UTC : fusions au tronc : CM-2a (`4a1b4844`, PR #105 `98e3779a`), COINBASE-PASS-EDGES-1 (`44d8892d`), BINANCE-PRE153-1
   (`328be484`). Leurs oracles G7 (`569c91c6…`, `bba0b720…`, `2ce4d71c…`) portent seulement deux rouges venus de la CA de l étape 3
   committée sans resynchronisation du site (error_origin de l orchestrateur) ; correction `0c8f8177`, oracle vert : 2 060 tests,

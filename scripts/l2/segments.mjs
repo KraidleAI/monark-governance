@@ -64,10 +64,10 @@ export function openWriter(out, cid, io) {
     cur = { seg, end: start + PERIOD_US, rank: 0, offset: 0, frames: null, index: null };
     await mkdir(dir, { recursive: true });
     cur.frames = await open(join(dir, `${seg}.frames`));
-    cur.index = await open(join(dir, `${seg}.index.jsonl`));
+    cur.index = await open(join(dir, `${seg}.index.jsonl`)); await syncDir(dir); // their entries synced (n-6 of the G2 of c5-bis-a)
   }
   async function shut() {
-    await Promise.all([cur.frames.close(), cur.index.close()]);
+    await Promise.all([cur.frames, cur.index].map(async (f) => { await f.sync?.(); await f.close(); })); // synced before closed (m-7 of c1)
     closed.push(cur.seg);
     last = cur.end;
     cur = null;
@@ -204,4 +204,10 @@ export function* readSegment(out, cid, seg, mark = null) {
   if (tail !== null && mark === null) stop("tail_unmarked", { cid, seg, tail });
   if (mark !== null && markOf(mark) !== markOf(tail)) stop("tail_mark_mismatch", { cid, seg, tail, mark });
   yield* walk(out, cid, seg, true);
+}
+
+/** conn/<cid>/ synced once a segment's files exist (n-6 of the G2 of c5-bis-a), as sealDay syncs the day's (win32: "r" fails EPERM). */
+async function syncDir(dir) {
+  const d = await openFile(dir, process.platform === "win32" ? "r+" : "r");
+  try { await d.sync(); } finally { await d.close(); }
 }

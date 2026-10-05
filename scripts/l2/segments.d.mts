@@ -37,6 +37,8 @@ export interface Tail {
 export interface SegmentFile {
   appendFile(data: string | Uint8Array): Promise<void>;
   close(): Promise<void>;
+  /** Called, when present, before close (m-7 of the G7 of c1): a FileHandle's fsync. */
+  sync?(): Promise<void>;
 }
 
 /** What a writer takes from its caller (the test seam): both clocks; the file opener (default: flag ax) and onStop, called once with

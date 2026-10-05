@@ -17,8 +17,8 @@
 // RENEW_AGE_MS + rank x RENEW_STAGGER_MS of age, or at once on serverShutdown (read after the writer has the frame), a new connection
 // opens; the old one closes (renewed) once the new one has been open OVERLAP_MS and the book has switched to it (switched(cid) of that
 // <cid>, from c5; /market feeds no book), else stays open until the place cuts it, then a named overlap_break: no failover, never reopened.
-// One overlap at a time, a renewal asked during one waits (renew_deferred) for its end. Test seam: factory, clocks, timers, gate and file
-// opener come from the caller, never from the command line nor the environment. The agent never commits (R-20).
+// One overlap at a time, a renewal asked during one waits (renew_deferred) for its end. Test seam: factory, clocks, timers, gate, file
+// opener and onText (each message's hook, P1-c5-bis-a) come from the caller, never from the command line nor the environment. cut() and closed() serve the loop. The agent never commits (R-20).
 import { subscribe } from "node:diagnostics_channel";
 import { appendFileSync, mkdirSync } from "node:fs";
 import { join } from "node:path";
@@ -106,7 +106,7 @@ export function openLink({ symbol, url, out, kind = "spot" }, io) {
   const u = admitted(url, KINDS[kind].route), href = u?.href; // the factory opens the URL checked here, never the string given
   if (u === null || (kind === "market" && u.searchParams.has("timeUnit"))) stop("host_refused", { url }); // (e): no timeUnit on /market
   mkdirSync(out, { recursive: true });
-  const journal = join(out, "journal.jsonl"), query = u.searchParams, closing = new Set();
+  const journal = join(out, "journal.jsonl"), query = u.searchParams, closing = new Set(), live = new Map(); // live: <cid> -> its writer until closed
   const streams = query.get("streams"), timeUnit = query.get("timeUnit"), ping = KINDS[kind].ping;
   const age = RENEW_AGE_MS + (kind === "spot" ? SYMBOLS.indexOf(symbol) : SYMBOLS.length) * RENEW_STAGGER_MS;
   let cur = null, old = null, switchedTo = null, timer = null, failures = 0, stopped = false;
@@ -143,7 +143,7 @@ export function openLink({ symbol, url, out, kind = "spot" }, io) {
     const followed = c === cur;
     if (followed) failures = c.got ? 1 : failures + 1; // one connection followed at a time: nothing else changes it before the reopening
     const done = c.w.close().then(() => { // no new connection while this writer still holds frames (a stalled disk waits here)
-      closing.delete(done);
+      closing.delete(done); live.delete(c.cid);
       if (stopped || !followed) return;
       const delay = Math.min(RETRY_FIRST_MS * 2 ** (failures - 1), RETRY_CAP_MS);
       note(c.cid, "retry", { delay_ms: delay });
@@ -164,7 +164,7 @@ export function openLink({ symbol, url, out, kind = "spot" }, io) {
       note(cid, "writer_stop", { cause: s.code, ...s.detail });
       end(c, s.code); // a live connection closes on it, named
     };
-    c.w = openWriter(out, cid, { wallUs: io.wallUs, monoNs: io.monoNs, open: io.open, onStop });
+    live.set(cid, c.w = openWriter(out, cid, { wallUs: io.wallUs, monoNs: io.monoNs, open: io.open, onStop }));
     c.ws = io.webSocket(href);
     c.ws.binaryType = "arraybuffer";
     c.ws.onopen = () => {
@@ -178,7 +178,7 @@ export function openLink({ symbol, url, out, kind = "spot" }, io) {
       arm(c);
       if (typeof e.data !== "string") return end(c, "binary_message"); // a text frame is all the place sends (D-7): never written
       c.got = true;
-      c.w.push(e.data); // the message as the client delivers it, unread (D-7 as read by Q-P1-5)
+      c.w.push(e.data); fed(io, note, e.data, cid); // the message as the client delivers it, unread (D-7, Q-P1-5); then the loop's hook (Q-A4-3)
       if (isShutdown(e.data)) renew(c, "server_shutdown"); // read after the writer has it
     };
     c.ws.onclose = (e) => { end(c, "closed", { code: e.code, reason: e.reason, clean: e.wasClean }); };
@@ -201,5 +201,13 @@ export function openLink({ symbol, url, out, kind = "spot" }, io) {
       for (const c of [cur, old]) if (c !== null) end(c, "stopped");
       await Promise.all(closing);
     },
+    cut() { for (const w of live.values()) w.cut(); }, // P1-c5-bis-a: the loop cuts each writer on the hour (D24-3)
+    closed: (cid, seg) => !live.has(cid) || live.get(cid).closed.includes(seg), // Q-C1-5: a segment no writer of this link holds open
   };
+}
+
+/** The loop's hook fed one message (Q-A4-3): a throw is caught, named hook_failed, never left to the socket's dispatch, where it would
+ *  end the recorder as an uncaughtException (m-4 of the G2 of c5-bis-a); the writer already has the message, the next one is fed. */
+function fed(io, note, text, cid) {
+  try { io.onText?.(text, cid); } catch (x) { note(cid, "hook_failed", { error: x?.name ?? null }); }
 }
