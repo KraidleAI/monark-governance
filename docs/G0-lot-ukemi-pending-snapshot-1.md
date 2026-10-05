@@ -158,3 +158,36 @@ A → B1 → B2 → W2E-TAIL-1 → SERVED-PENDING-1 → UKEMI-PENDING-1 → #141
 ## 10. Suite
 
 Commits prévus : ce G0 ; G0 avec décisions ; tests rouges ; code (gel) ; G7. Jamais `git add -A` ; `packages/rpc-guard/bin/rpc-guard.mjs` n'est jamais indexé. Arrêt ici jusqu'aux réponses.
+
+## 11. Décisions (2026-10-05)
+
+- **Sources** : décision déléguée `recherches` `coordination/pieces/2026-10-05-ukemi-snapshot-avis/DECISION-UPS-C1-C6.md`, sur l avis `AVIS-advisor-UPS-C1-C6.md` (même dossier) ; réponses de MONARK `coordination/messages/2026-10-05-MONARK-vers-RECHERCHES-UPS-M1-M4.md` (M1 à M4 : oui) et `2026-10-05-MONARK-vers-RECHERCHES-am9-UPS.md` (`6afb800` : garde de M3 **dans ce lot**).
+- **Q-UPS-C1 à C5** : les défauts du §9, retenus. Précisions :
+  - C1 : le test 1 refuse aussi `openapi_sha256`, et `scores_sha256` (clé du fil, C3 condition 2) ;
+  - C4 : tout est calculé avant toute écriture ; ordre `--pending` : en attente, servi, manifeste ; promotion : servi, manifeste, retrait de l en attente. `removeManifestEntry` change exactement une ligne, refuse un manifeste non canonique et une entrée absente ; aller-retour `setManifestEntry` puis `removeManifestEntry` = manifeste d origine, à l octet ;
+  - C5 : `pending_since` admis en schéma v2 seulement ; `markPendingSince` ancrée sur `^ {2}"read_at": `.
+- **Q-UPS-C6, corrigée** : cinq lieux suivent la cible `loadUkemiPending(ROOT) ?? loadUkemiServed(ROOT)`, le **test neuf 4** compris, qui compare `inProcessUkemiPending` à la cible sur toute `UKEMI_PENDING_SHARED`, verdict à huit clés. Notes de ligne :
+  - l.623 : la cible garde le nom `s` (le piège de l.1439 cherche `assert.equal(s.registry_state, committed ? "committed" : "empty"`) ;
+  - l.1175 partie (1) : l assertion l.1204 lit la cible ; l.1192-1199 restent sur le servi ;
+  - l.1480 : l épingle l.1488 devient une assertion distincte sur la cible ; les figures de la page (l.1486-1489) restent comparées au servi ;
+  - l.1633 : l assertion l.1640 lit la cible.
+- **Q-UPS-M3, garde d ordre** : la promotion d ukemi (synchro par défaut, `main()`) refuse tant que `apps/site/data/harness-pending.json` existe (ordre de T0 : CA, synchro du harnais, synchro d ukemi). Fonction pure, testée, avec son tueur.
+- **Où vit la cible.** Un tueur de `red-proof` mute du code de production, jamais un `*.test.ts`. La cible est donc une fonction du chargeur, `loadUkemiInProcess(root)` = `loadUkemiPending(root) ?? loadUkemiServed(root)`, que seuls les tests du dépôt source lisent (les pages lisent `loadUkemiServed`). Le tueur neuf de C6 devient `CONST "loadUkemiPending(root) ?? loadUkemiServed(root)" -> "loadUkemiServed(root)"` sur cette ligne du chargeur.
+- **Tests jugés et tueurs.** `red-proof` juge tout test dont le corps change, et exige de chacun un rouge par assertion à la base et **un** tueur sur la ligne qui le précède. Les quatre tests existants (l.623, l.1175, l.1480, l.1633) changent : ils sont jugés. La garde de M3 prend un test neuf, le cinquième. D où **9 tests jugés (9 F2P attendus) et 9 tueurs**, un par test :
+
+  | Test | Tueur (mutant) |
+  |---|---|
+  | 1 `ukemi_pending_snapshot_is_fail_closed` | `SDL` du contrôle « si et seulement si » (en attente sans `pending_since`) |
+  | 2 `ukemi_in_process_pins_follow_the_pending_snapshot` | `loadUkemiPending` ignore le fichier (`CONST "!existsSync(...)" -> "true"`) |
+  | 3 `ukemi_pages_keep_the_served_snapshot_while_pending` | `loadUkemiServed` rend la projection fusionnée avec l en attente (`CONST`) |
+  | 4 `ukemi_pending_sync_writes_in_process_facts` | la promotion compare les clés ouvertes au lieu de `UKEMI_PENDING_SHARED` (`CONST`) |
+  | 5 `ukemi_promotion_waits_for_the_harness_promotion` | la garde de M3 ne voit pas `harness-pending.json` (`CONST`) |
+  | l.623 | `markPendingSince` réécrit l objet entier (`CONST`) ; l.623 prend la preuve « aucun autre octet du servi, même projection » |
+  | l.1175 | `inProcessUkemiPending` lit le verdict sans `verdictFactsOf` (`CONST`) ; la partie (2) compare le verdict en attente à celui de la synchro |
+  | l.1480 | la cible ne lit que le servi (`CONST`, le tueur neuf de C6) |
+  | l.1633 | `ROR` de `pending_since` contre `written_at` ; les arbres temporaires portent le cas réel de C' (`pending_since` de C2, `written_at` d un jour plus tard) |
+
+  Chaque tueur est aussi tué par les autres tests qui le couvrent (le test 4 par les quatre tueurs de la synchro, le test 1 par les deux du contrôle fermé, les lieux par les deux de la cible). `--draw 9 --seed 37`.
+- **Rejeu des simulations** : simulation 1 au gel, avec `--pending` : zéro rouge de `site-ukemi` ; sans : les trois rouges du §2 plus le test 4 (voulu). Simulation 2 : l.623 vert avec `--pending`, l.152 rouge (Q-UPS-M4).
+- **R-25** : estimation ~460 (les ~435 de la décision, plus la garde et son test) ; borne 547 ; coupe nommée inchangée.
+- **`$comment` de `ukemi-pending.json`** : calqué sur celui de `harness-pending.json`, sans mot neuf ; il passe la porte de vocabulaire (MONARK, `6afb800`).
