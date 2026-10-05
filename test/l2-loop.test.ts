@@ -414,7 +414,7 @@ test("l2_seal_child_env_closed", { skip: APART }, async () => {
   assert.equal(existsSync(join(dayDir(out), "SHA256SUMS")), false);
 });
 
-// killer: scripts/l2/seal.mjs:69 CONST "`--max-old-space-size=${heapMb}`, CHILD" -> "CHILD"
+// killer: scripts/l2/seal.mjs:71 CONST "`--max-old-space-size=${heapMb}`, CHILD" -> "CHILD"
 test("l2_seal_apart_heap_named", { skip: APART }, async () => {
   // m-5 of the G2 of c5: a heap past the cap kills the child alone; the day stays unsealed, the failure named, this process lives on.
   const m = await seal(), out = fresh(), big = (i: number): [number, string] => [START + S + i * 1000, JSON.stringify({ stream: "btcusdt@trade", data: { e: "trade", E: START + S + i * 1000, s: "BTCUSDT", t: i, x: "y".repeat(4_000_000) } })];
@@ -539,7 +539,7 @@ async function adopted(m: typeof RecordM): Promise<{ at: string; real: string }>
   return c;
 }
 
-// killer: scripts/l2/seal.mjs:69 CONST ", fd]" -> "]"
+// killer: scripts/l2/seal.mjs:71 CONST ", fd]" -> "]"
 test("l2_seal_apart_through_the_pinned_root", { skip: APART }, async () => {
   // B-1 of the G2 of c5-bis-a: adopt's root, /proc/self/fd/<n>, is close-on-exec, absent in the child (whose mkdir spun there without end):
   // the parent passes it as the child's fd 3. The day sealed apart through it is the in-process seal's through the same kind of root,
@@ -579,7 +579,7 @@ test("l2_seal_child_root_alone", { skip: APART }, async () => {
   } finally { closeSync(fd); closeSync(file); }
 });
 
-// killer: scripts/l2/seal.mjs:71 CONST "timer = setTimeout(" -> "timer = Math.max("
+// killer: scripts/l2/seal.mjs:72 CONST "timer = setTimeout(" -> "timer = Math.max("
 test("l2_seal_apart_deadline", { skip: APART }, async () => {
   // B-1: past its deadline the child is killed and the call ends, a named failure; never a promise left pending.
   const m = await seal(), out = fresh();
@@ -588,7 +588,7 @@ test("l2_seal_apart_deadline", { skip: APART }, async () => {
   assert.deepEqual(await m.sealApart(specOf(out), { env: {}, timeoutMs: 1 }), { sealed: false, failed: { code: null, signal: null, stop: "seal_timeout", detail: { timeout_ms: 1 } } });
 });
 
-// killer: scripts/l2/seal.mjs:72 CONST "signal?.addEventListener(" -> "void ("
+// killer: scripts/l2/seal.mjs:73 CONST "signal?.addEventListener(" -> "void ("
 test("l2_seal_apart_aborted", { skip: APART }, async () => {
   // B-1: the loop's clean stop aborts a seal under way (the child killed), or one not begun (no child): seal_aborted, named.
   const m = await seal(), out = fresh(), ac = new AbortController(), aborted = { sealed: false, failed: { code: null, signal: null, stop: "seal_aborted", detail: null } };
@@ -599,7 +599,7 @@ test("l2_seal_apart_aborted", { skip: APART }, async () => {
   assert.deepEqual([await under, await m.sealApart(specOf(out), { env: {}, signal: AbortSignal.abort() })], [aborted, aborted]);
 });
 
-// killer: scripts/l2/seal.mjs:70 CONST "catch (e) { return finish(" -> "catch (e) { throw e; return finish("
+// killer: scripts/l2/seal.mjs:74 CONST "catch (e) { return finish(" -> "catch (e) { throw e; return finish("
 test("l2_seal_apart_never_rejects", { skip: APART }, async () => {
   // m-2 of the G2 of c5-bis-a: a spec past what one argument holds (E2BIG), one that is not JSON, a root absent (n-8: never an empty day
   // sealed): a named failure each, never a rejection.
@@ -610,6 +610,32 @@ test("l2_seal_apart_never_rejects", { skip: APART }, async () => {
   assert.deepEqual(await Promise.all([of({ ...specOf(out), config: "x".repeat(200_000) }), of({ ...specOf(out), nowUs: 1n }), of(specOf(join(out, "none")))]),
     [named("spawn_failed", "E2BIG"), named("spec_refused", "TypeError"), named("root_refused", "ENOENT")]);
   assert.equal(existsSync(join(out, "none")), false);
+});
+
+// killer: scripts/l2/seal-child.mjs:26 CONST "st.nlink > 0n && " -> ""
+test("l2_seal_apart_root_deleted", { skip: APART }, async () => {
+  // r-1 of the G2 delta of c5-bis-a: a pinned root deleted since it was opened (nlink 0; the child's mkdir spun there to the deadline) is refused at once.
+  const m = await seal(), out = fresh(), fd = openSync(mkdirSync(out, { recursive: true }) ?? out, "r");
+  rmSync(out, { recursive: true });
+  assert.deepEqual(await m.sealApart(specOf(`/proc/self/fd/${String(fd)}`), { timeoutMs: 5_000 }).finally(() => { closeSync(fd); }), { sealed: false, failed: { code: 1, signal: null, stop: "out_not_l2", detail: { extra: [], why: UNPINNED } } });
+});
+
+// killer: scripts/l2/seal.mjs:64 CONST "given === undefined ? undefined : null" -> "given"
+test("l2_seal_apart_io_refused", { skip: APART }, async () => {
+  // r-2 and n-9 of the G2 delta of c5-bis-a: a signal no AbortSignal, an io getter that throws: spec_refused before the root is opened; a null io is none.
+  const m = await seal(), none = join(fresh(), "none"), named = (stop: string, error: string): unknown => ({ code: null, signal: null, stop, detail: { error } });
+  const of = (io: unknown): Promise<unknown> => Promise.resolve().then(async () => await m.sealApart(specOf(none), io as never)).then((r) => (r as { failed?: unknown }).failed, (e: unknown) => ({ rejected: String(e) }));
+  assert.deepEqual(await Promise.all([of({ signal: {} }), of({ signal: new EventTarget() }), of({ get env(): never { throw new RangeError("io"); } }), of(null)]),
+    [named("spec_refused", "TypeError"), named("spec_refused", "TypeError"), named("spec_refused", "RangeError"), named("root_refused", "ENOENT")]);
+});
+
+// killer: scripts/l2/seal.mjs:60 CONST "child?.kill(\"SIGKILL\")" -> "0"
+test("l2_seal_apart_child_killed", { skip: APART }, async () => {
+  // r-3 (M4) of the G2 delta of c5-bis-a: past the deadline or on abort the child is dead, not left to seal: no day sealed after a seal's time.
+  const m = await seal(), [a, b] = [fresh(), fresh()], ac = new AbortController();
+  await day(a); await day(b);
+  const ends = [m.sealApart(specOf(a), { timeoutMs: 1 }), m.sealApart(specOf(b), { signal: ac.signal })], slept = new Promise((r) => { ac.abort(); setTimeout(r, 3_000); });
+  assert.deepEqual([...(await Promise.all(ends)).map((r) => r.sealed), await slept, ...[a, b].map((o) => existsSync(join(dayDir(o), "SHA256SUMS")))], [false, false, undefined, false, false]);
 });
 
 // killer: scripts/record-binance-l2.mjs:257 CONST ".sort()" -> ""
