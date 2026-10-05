@@ -542,7 +542,8 @@ function host(t0: number, answer: (path: string, now: number) => [number, unknow
   const io: RecordM.RecorderIo = { env: {}, execArgv: [], freeBytes: () => 1e12, wallUs: () => t.now, monoNs: () => BigInt(t.now) * 1000n, signal: ac.signal, seal,
     setTimer: (fn, ms) => { const h = { at: t.now + Math.round(ms * 1000), fn }; timers.push(h); return h; },
     clearTimer: (h) => { if (timers.includes(h as never)) timers.splice(timers.indexOf(h as never), 1); },
-    sleep: (ms) => new Promise((r) => { io.setTimer!(r, ms); }),
+    sleep: (ms) => new Promise((r) => { io.setTimer!(r, ms); }), // segment files made on disk, their bytes nowhere: the writers keep pace with the host's clock
+    open: (path) => { writeFileSync(path, "", { flag: "wx" }); return Promise.resolve({ appendFile: () => Promise.resolve(), sync: () => Promise.resolve(), close: () => Promise.resolve() }); },
     fetch: (url) => { const p = new URL(url), path = p.pathname + p.search, [status, body] = answer(path, t.now); fetched.push([t.now, path]); return Promise.resolve(new Response(JSON.stringify(body), { status })); },
     webSocket: (url) => { const s: Sock = { url, opened: false, closed: false }; socks.push(s); return Object.assign(s, { close: () => { s.closed = true; }, extensions: "" }) as unknown as WebSocket; } };
   const settle = async (): Promise<void> => { await new Promise((r) => setTimeout(r, 5)); for (const s of socks) if (!s.opened && s.onopen) { s.opened = true; s.onopen(); } };
