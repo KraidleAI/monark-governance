@@ -639,8 +639,9 @@ test("l2_seal_apart_child_killed", { skip: APART || (process.platform === "win32
   // L2-SEAL-APART-FLAKE-1: each journal.jsonl a FIFO no one writes holds its child before its first write, so a deadline that fires late (a
   // parent held past the child's whole seal) never lets it seal first; 3 s after both calls end a writer finds no reader there (ENXIO): the
   // child gone. L2-SEAL-APART-TRUNK-PORT-1: sealApart resolves on the child's close (n-12), so a live child (killer) would hold both calls:
-  // their wait is bounded ("pending" past 10 s) and the finally opens and closes each FIFO, the child reading EOF: red in bounded time. Each
-  // call's stop is asserted (seal_timeout, seal_aborted: a child held on its FIFO is killed, not one that never started).
+  // their wait is bounded ("pending" past 10 s) and the finally opens and closes each FIFO, the child reading EOF, then awaits its close (5 s
+  // at most): red in bounded time, the released child not left behind. Each call's stop is asserted (seal_timeout, seal_aborted: a child held on
+  // its FIFO is killed, not one that never started).
   const m = await seal(), [a, b] = [fresh(), fresh()], ac = new AbortController(), fifo = (o: string): string => join(o, "journal.jsonl");
   await day(a); await day(b);
   for (const o of [a, b]) assert.equal(spawnSync("mkfifo", [fifo(o)]).status, 0);
@@ -653,7 +654,11 @@ test("l2_seal_apart_child_killed", { skip: APART || (process.platform === "win32
     const slept = await new Promise((r) => { setTimeout(r, 3_000); });
     assert.deepEqual([...sealed, slept, ...[a, b].map(reader), ...[a, b].map((o) => existsSync(join(dayDir(o), "SHA256SUMS")))],
       ["seal_timeout", "seal_aborted", undefined, "ENXIO", "ENXIO", false, false]);
-  } finally { clearTimeout(bound); for (const o of [a, b]) reader(o); }
+  } finally { // a released child ends before after() removes its out: recursive mkdir under a gone /proc/self/fd/<n> spins (G2 c1)
+    clearTimeout(bound); for (const o of [a, b]) reader(o);
+    let rest: ReturnType<typeof setTimeout> | undefined;
+    await Promise.race([ends.catch(() => undefined), new Promise((r) => { rest = setTimeout(r, 5_000); })]); clearTimeout(rest);
+  }
 });
 
 // killer: scripts/record-binance-l2.mjs:257 CONST ".sort()" -> ""
