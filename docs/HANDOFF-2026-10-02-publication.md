@@ -521,6 +521,16 @@ pm) ; item MK-NM-GUARD-1 (refuser Tree = F:/Monark dans mk-nm.ps1).
   2 250 / 0, `cmd.exe` vert) ; #143 rouge à l oracle Windows (`EPERM` au fsync du dossier, `day.mjs:196`), fusion retirée. Réponses :
   G7 de c1, bloc C Q-M1 à Q-M16, hors délégation, UKEMI-PENDING-SNAPSHOT-1 M1 à M4 ; amendement 9 de l ADR-CM contrôlé.
   `sentinel_sha` de la ligne du 2026-10-04 égal au pré-enregistré (JOURNAL-PROVENANCE).
+- 2026-10-05 01:4x UTC : DÉLÉGATION du fondateur, donnée à RECHERCHES et relayée verbatim (message `2205793`) : « tu peux décider
+  seul, pour tout, coté technique, demande aux advisor et a monark aussi ainsi que ton avis propre. formez une cellule de décisions
+  comme un groupe de devs seniors. enchainez tout le chantier restant, go pour les deploiement et les push vers le github publique
+  quand il le faut ». CONFIRMÉE directement par l investisseur dans la session MONARK, choix verbatim : « Oui, les deux » (go de
+  déploiement et de push vers les dépôts publics `KraidleAI/Monark`, `monark-kata-spec`, `monark-precommitments` donnés par la
+  cellule, sans go à chaque acte ; MONARK exécute, annonce avant, journal après) et « Oui, la cellule fixe T0 » (F-5a, F-5b :
+  spécification 1.1.0 et NOTICE-1-1-0 à T − 7 jours, puis bascule T0). Cellule : advisor, RECHERCHES, MONARK ; accord de trois, ou
+  de deux dont le porteur de zone (pièce `2026-10-05-delegation-fondateur/DELEGATION-ET-CELLULE.md`). Restent hors délégation : la
+  visibilité des dépôts, l argent, les clés et comptes de l investisseur, les suppressions définitives, X, DNS, domaine et
+  certificat. Inchangés : G2 neuve par lot, contrôle par diff et fusions de MONARK, oracles, R-25, règles d hôte.
 - 2026-10-04 00:5x UTC : fusions au tronc : CM-2a (`4a1b4844`, PR #105 `98e3779a`), COINBASE-PASS-EDGES-1 (`44d8892d`), BINANCE-PRE153-1
   (`328be484`). Leurs oracles G7 (`569c91c6…`, `bba0b720…`, `2ce4d71c…`) portent seulement deux rouges venus de la CA de l étape 3
   committée sans resynchronisation du site (error_origin de l orchestrateur) ; correction `0c8f8177`, oracle vert : 2 060 tests,
