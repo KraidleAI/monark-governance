@@ -1654,7 +1654,7 @@ test("series_pinned_are_declared_and_hashed — every R-25-excluded data file is
 // so a step-level (8-space) timeout-minutes cannot masquerade as the job backstop. CI-G3-DURATION-1 (c): the workflow runs
 // its tests through package.json scripts only (no bare `node --test`), exactly test:main and test:export, each carrying the
 // same two guards; a new test job adds its script here, so its guards are locked too.
-// killer: package.json:18 CONST "--test-force-exit --test-name-pattern" -> "--test-name-pattern"
+// killer: package.json:18 CONST "--test-timeout=300000 --test-force-exit " -> "--test-timeout=300000 "
 test("ci_jobs_have_timeout_and_test_flags_locked — per-job timeout-minutes <= 20 + test guards (checkpoint-2 V-1(b)/V-3)", () => {
   const jobsIdx = LINES.findIndex((l) => /^jobs\s*:/.test(l));
   assert.notEqual(jobsIdx, -1, "top-level key 'jobs:' missing from the workflow");
@@ -1723,12 +1723,13 @@ function expandTestGlob(glob: string): string[] {
 test("ci_g3_export_runs_test_42_alone_and_g3_main_skips_only_it - the suite is split in two CI jobs with no test lost (CI-G3-DURATION-1)", () => {
   const scripts = (JSON.parse(readFileSync(join(ROOT, "package.json"), "utf8")) as { scripts: Record<string, string> }).scripts;
   const full = scripts.test ?? "";
-  const guards = /^node --test (--test-timeout=\d+ --test-force-exit) /.exec(full)?.[1];
-  assert.ok(guards !== undefined, "scripts.test starts with `node --test --test-timeout=<ms> --test-force-exit ` (the locked guards)");
+  // TEST-FORCE-EXIT-REPORT-LOSS-1: the launcher's blocking stdout (-r) and the per-file report preload are guards too.
+  const [, head, guards] = /^(node -r \.\/test\/helpers\/blocking-stdout\.cjs --test) (--test-timeout=\d+ --test-force-exit "--import=[^"]+") /.exec(full) ?? [];
+  assert.ok(head !== undefined && guards !== undefined, "scripts.test starts with `node -r ./test/helpers/blocking-stdout.cjs --test --test-timeout=<ms> --test-force-exit \"--import=<report preload>\" ` (the locked guards)");
   // (a) test:main = scripts.test + the skip flag, nothing else.
   assert.equal(scripts["test:main"], full.replace(guards, `${guards} --test-skip-pattern="${TEST42_PATTERN}"`), "(a) test:main must be scripts.test plus --test-skip-pattern only (same globs, same guards)");
   // (b) test:export = the same guards, the same pattern as a name filter, the one file.
-  assert.equal(scripts["test:export"], `node --test ${guards} --test-name-pattern="${TEST42_PATTERN}" "test/export-public.test.ts"`, "(b) test:export must run test 42 alone with the same guards");
+  assert.equal(scripts["test:export"], `${head} ${guards} --test-name-pattern="${TEST42_PATTERN}" "test/export-public.test.ts"`, "(b) test:export must run test 42 alone with the same guards");
   // (c) the pattern names exactly one test declaration (a line opening with test/it/describe/suite) of the npm test globs: test 42.
   const files = [...full.matchAll(/"([^"]+\.test\.ts)"/g)].flatMap((m) => expandTestGlob(m[1]!));
   assert.ok(files.includes("test/export-public.test.ts") && files.length >= 100, `the npm test globs reach the suite (saw ${files.length} files)`);

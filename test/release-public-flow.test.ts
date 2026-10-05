@@ -28,7 +28,7 @@ test("release_public_flow — message gate, refusals before any gate, export:che
     // The source: this tree without installed deps (junctions), VCS data, build output, governance docs, root tests and the
     // sentinel test data (23 MB): none is read by the tool, none is a required export entry. Keeps the load test 42 (e) shares low.
     const src = join(tmp, "src");
-    cpSync(ROOT, src, { recursive: true, filter: (from: string): boolean => !/(^|\/)(node_modules|\.git|dist)(\/|$)|^(docs|test|apps\/sentinel\/test)(\/|$)/.test(relative(ROOT, from).replace(/\\/g, "/")) });
+    cpSync(ROOT, src, { recursive: true, filter: (from: string): boolean => ((r: string): boolean => /^test(\/helpers(\/blocking-stdout\.cjs)?)?$/.test(r) || !/(^|\/)(node_modules|\.git|dist)(\/|$)|^(docs|test|apps\/sentinel\/test)(\/|$)/.test(r))(relative(ROOT, from).replace(/\\/g, "/")) });
     for (const a of [["init", "-q", "-b", "main"], ["config", "core.autocrlf", "false"], ["config", "user.name", "Flow Test"], ["add", "-A"]]) git(src, ...a);
     git(src, "-c", "user.email=flow@users.noreply.github.com", "commit", "-q", "-m", "seed");
     const seed = join(tmp, "seed");
