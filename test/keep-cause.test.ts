@@ -96,7 +96,7 @@ const named = (name: string, n: number): [number, string[], boolean] => [1, [`te
 
 // killer: test/helpers/keep-cause.ts:31 CONST "ended = 0" -> "ended = 1"
 test("keep_cause_l2_rest_a_throw_of_trap_is_named_on_stdout", () => {
-  assert.deepEqual(seen("l2-rest", TRAP, "INJECTED at trap"), named("l2-rest", 9), "nine named reds carrying the cause, then the exit line");
+  assert.deepEqual(seen("l2-rest", TRAP, "INJECTED at trap"), named("l2-rest", 13), "thirteen named reds carrying the cause, then the exit line");
 });
 
 // killer: test/helpers/keep-cause.ts:38 CONST "ended ${String(ended)}" -> "ended ${String(begun)}"
