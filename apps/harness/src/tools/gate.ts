@@ -718,7 +718,7 @@ export function honestyText(taskClass: string, predictorId: string, isByo: boole
  * `content` text to the model and DROP `structuredContent` (measured on Hermes v0.21), so a `commit` and
  * an `under_calib` would read identically in the prose channel. This line surfaces the DECISION — action,
  * the coverage `reason` (how `under_calib` becomes visibly distinct from `covered`), the region, q̂,
- * n_calib, and a TRUNCATED calib_digest (8 leading + 6 trailing; the full value stays in
+ * n_calib, and a TRUNCATED scores_sha256 (8 leading + 6 trailing; the full value stays in
  * `structuredContent`). DERIVED from the same closed `GateDecision` (single source, no drift), it restates
  * only fields already on the wire and asserts NO probability of being right.
  */
@@ -990,7 +990,7 @@ export function runGate(prediction: Prediction, params: HarnessParams, attested?
 export const SERVED_TABLE_TEXTS: ServedTableTexts = {
   classText: (c) => (c === TASK_STABLE_RUN ? STABLE_RUN_UNCALIBRATED_SENTENCE : c === TASK_LIQ_ELIGIBLE ? LIQ_EMPTY_REGISTRY_SENTENCE : CASCADE_UNCALIBRATED_SENTENCE),
   marginal: (c) => c === TASK_LIQ_ELIGIBLE
-    ? { registry_file: "apps/sentinel/test/fixtures/ukemi/u4b/U4b-scores-weth-2025-09-22.jsonl", registry_sha256: "fd6fab7ebf5d2779b904494accab8916fac8293587ed24d21fb052cb024074a4", generator: "scripts/record-u4b-calib.mjs", text: LIQ_COMMITTED_SENTENCE }
+    ? { registry_file: "sha256:fd6fab7ebf5d2779b904494accab8916fac8293587ed24d21fb052cb024074a4", registry_sha256: "fd6fab7ebf5d2779b904494accab8916fac8293587ed24d21fb052cb024074a4", generator: "scripts/record-u4b-calib.mjs", text: LIQ_COMMITTED_SENTENCE }
     : { registry_file: "fixtures/usde-calib-scores.json", registry_sha256: "e44a68b6b697a32f3f198770e740ab206393dc3425e8cc59e4b0e1e4e65cfd28", generator: "scripts/record-usde-calib.mjs", text: STABLE_RUN_COMMITTED_SENTENCE },
 };
 

@@ -23,6 +23,7 @@ import {
   USDE_STABLE_RUN_SCORES_SHA256_PINNED,
   USDE_STABLE_RUN_TASK_CLASS,
 } from "../src/calibration.ts";
+import { SERVED_MARGINAL_TABLES, SERVED_TABLE_TEXTS, TASK_LIQ_ELIGIBLE } from "../src/tools/gate.ts";
 
 const USDE_PIN = "e44a68b6b697a32f3f198770e740ab206393dc3425e8cc59e4b0e1e4e65cfd28";
 const LIQ_S0_PIN = "a927722276941a4f8f677bab3625b8ee3128ecf84d2d078da0a316b42a6ee3c8";
@@ -52,4 +53,19 @@ test("committed_scores_sha256_load_guard_against_the_new_pins", () => {
   const s0 = UKEMI_LIQ_COMMITTED[0] ?? assert.fail("liq s0 is committed");
   const unpinned = { ...s0, predictorId: `${UKEMI_LIQ_PREDICTOR_BASE}/s1` };
   assert.throws(() => { assertCommittedScores(unpinned); }, /scores drift for .*\/s1: .* != pinned undefined/, "an entry with no pin throws");
+});
+
+// Q-3b1-1 (dated re-reading of Q-3b-4): the liq table source names the fresh scores series by its sha256 only, with the
+// frozen generator; no path, no file name (the series is export-excluded data). No liq table digest is pinned here.
+// killer: apps/harness/src/tools/gate.ts:993 CONST "registry_file: \"sha256:" -> "registry_file: \"apps/sentinel/test/fixtures/sha256:"
+test("liq_table_source_names_the_series_by_sha256_only", () => {
+  const series = "fd6fab7ebf5d2779b904494accab8916fac8293587ed24d21fb052cb024074a4";
+  const inp = SERVED_TABLE_TEXTS.marginal(TASK_LIQ_ELIGIBLE);
+  assert.deepEqual({ ...inp, text: "" }, { registry_file: `sha256:${series}`, registry_sha256: series, generator: "scripts/record-u4b-calib.mjs", text: "" });
+  const liq = SERVED_MARGINAL_TABLES.find((t) => t.task_class === TASK_LIQ_ELIGIBLE) ?? assert.fail("the liq table is served");
+  assert.ok(liq.table.rows.length >= 1, "the liq table has its committed row");
+  for (const r of liq.table.rows) {
+    assert.doesNotMatch(r.source.registry_file, /[/\\]|\.jsonl?$/, "no path and no file name in the served source");
+    assert.equal(r.source.registry_sha256, series);
+  }
 });
