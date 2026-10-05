@@ -8,7 +8,7 @@
 // R-25 integration rule (ADR-M003 D9 nonies, lot R25-INTEGRATION-RULE-1): with a declared proof (run.mjs --r25-proof),
 // the ORACLE's own scripts/lot-size-integration.mjs runs its `count` command on the clone exactly as the CI job does, and
 // only if the clone holds the same bytes (else W, mode gate-files: a measured tree never judges itself, G2 B-3); only its
-// mode `integration` with two numeric counts lowers a count, never above the count of today.
+// mode `integration` with two numeric counts lowers a count, never above the count of today. W ignores user git attributes (G2 delta m-a).
 import { execFileSync } from "node:child_process";
 import { createHash } from "node:crypto";
 import { readFileSync } from "node:fs";
@@ -24,7 +24,7 @@ export function r25(clone, ciText, base, proofFile = null) {
   const hit = (re, i, v) => lines.map((l) => re.exec(l)).find((m) => m !== null && m[i] === v);
   const counts = lines.map((l) => R25_DIFF_RE.exec(l)).filter((m) => m !== null).map(([, name, specs]) => {
     const pathspecs = specs.split(/\s+/).map((t) => t.replace(/^'(.*)'$/, "$1"));
-    const stat = execFileSync("git", ["-C", clone, "diff", "--shortstat", `${base}...HEAD`, "--", ...pathspecs], { encoding: "utf8" });
+    const stat = execFileSync("git", ["-C", clone, "-c", "core.attributesFile=", "diff", "--shortstat", `${base}...HEAD`, "--", ...pathspecs], { encoding: "utf8" });
     const [ins, del] = ["insertion", "deletion"].map((w) => Number(new RegExp(`(\\d+) ${w}`).exec(stat)?.[1] ?? 0));
     const bound = hit(BOUND_RE, 1, hit(METRIC_RE, 2, name)?.[1])?.[2] ?? null;
     const limit = lines.map((l) => new RegExp(`^\\s*${bound}:\\s*["']?(\\d+)["']?\\s*(#.*)?$`).exec(l)).find((m) => m !== null)?.[1];
