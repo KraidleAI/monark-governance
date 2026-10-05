@@ -942,10 +942,9 @@ test("l2_record_snapshot_451_ends_all", async () => {
 });
 
 // killer: scripts/record-binance-l2.mjs:387 CONST "await Promise.race([fire(e), ended]);" -> "await fire(e);"
-// killer: scripts/record-binance-l2.mjs:352 CONST "if (finished) return; const e" -> "const e"
 test("l2_record_stop_during_start", async () => {
   // m-1 (a) of the G2 of c5-bis-b (Q-8 of a3): a place silent at the start (its requests unanswered) holds no clean stop: the signal ends
-  // the run at once, no link opened. r-2 of its delta: the answer that comes after the stop writes no line after the stopped line.
+  // the run at once, no link opened. r-2 of its delta: a late answer writes no line after the stopped line (its killer by hand, G7).
   const m = await command(), out = fresh(), h = host(at(0, 10, 0), place(0)), answer = h.io.fetch!, late: (() => void)[] = [];
   h.io.fetch = (url, i) => { h.fetched.push([h.io.wallUs!(), new URL(url).pathname]); return new Promise((r) => { late.push(() => { r(answer(url, i)); }); }); };
   const w = watch(m.run(argv(out), h.io));
