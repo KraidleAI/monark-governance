@@ -33,7 +33,7 @@ test("keep_cause_a_throw_at_load_reaches_stdout", () => {
 
 // killer: test/helpers/keep-cause.ts:32 CONST "begun += 1" -> "begun += 0"
 test("keep_cause_names_the_test_and_counts", () => {
-  const r = run([`test("a", () => {});`, `test("b", async () => { setImmediate(() => { throw new Error("boom in b"); }); await new Promise((ok) => { setTimeout(ok, 50); }); });`].join("\n"));
+  const r = run([`test("a", () => {});`, `test("b", async () => { await new Promise((ok) => { setImmediate(() => { setImmediate(ok); throw new Error("boom in b"); }); }); });`].join("\n")); // b ends only after its throw: no race
   assert.deepEqual([r.status, r.lines], [1, ['fixture: uncaughtException during test "b": Error: boom in b',
     "fixture: exit code 1 during between tests, tests begun 2, ended 2"]]);
 });
