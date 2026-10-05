@@ -80,8 +80,16 @@ Tronc `lot/etude-suite`. Dernier oracle complet : 1 779 tests, dont 1 776 verts,
 - **Reste avant T0 (chemin b)** : SCHEMA-PROJECTION-FAIL-CLOSED-1 et RELEASE-PREFLIGHT-SEND-GUARD-1 (en construction) ;
   CI-PERMS-JUDGE-YAML-1 et CI-WORKFLOWS-SET-1 (tronc) ; NOTICE-1-1-0 finalisée (cellule V-1 à V-8 faite ; N-5 à ajouter : noms BYO
   génériques réservés ; empreinte OpenAPI `61c9df97…`) ; acte de porte de MONARK (genre « avis », `{SPEC_URL}`, date de T0) ; synchro
-  tronc → base ; liste de T0 de MONARK (CONTRACT-1-1-0 plus bas). Décisions de l investisseur nécessaires : **la date de T0** (la NOTICE
-  part à T − 7 j) et **le lieu de la spécification** (`monark-kata-spec`, dépôt à créer, ou une adresse sous `monarkgate.tech`).
+  tronc → base ; liste de T0 de MONARK (CONTRACT-1-1-0 plus bas).
+- **Décision du fondateur (2026-10-05 22:1x UTC, verbatim : « oui, on fait tout en un seul release, ensuite on continue le prochain
+  chantier. donc demain on mets a jour tout. »)**, en réponse à la proposition D = 0 de RECHERCHES (personne n utilise le moteur 1.0.0 ;
+  mesure : 4 `POST /gate` de 2 clients sur les 7 jours avant le 2026-10-03). Conséquences :
+  - **D = 0** : plus de préavis de 7 jours (« actes 2 et 3 (T − D, D = 7 jours) » du G0 du bloc C) ; la NOTICE-1-1-0 devient la note de
+    version du 1.1.0, publiée le jour de T0 ;
+  - **une seule release** du miroir, à T0, depuis la base fusionnée au tronc ; pas de v0.9.0 séparée avant ;
+  - **T0 visé : 2026-10-06**, quand la liste « avant T0 » ci-dessus est fusionnée ; ensuite, le chantier suivant ;
+  - **lieu de la spécification** : défaut de la cellule, une adresse sous `monarkgate.tech` (déjà admise par `public-text-deny`, aucun
+    dépôt neuf) ; un dépôt public `monark-kata-spec` resterait une décision du fondateur.
 
 ## Points connus (à traiter, non bloquants sauf mention)
 
