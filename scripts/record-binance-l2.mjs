@@ -34,7 +34,7 @@ export const ALARM_PCT = 70; // Q-11 of the ADR: alarm at 70 % of the quota, jou
 export const STOP_PCT = 85; // a named stop at 85 % (thresholds of the ADR, quota fixed on M-1: L2-DISK-QUOTA-1)
 export const QUOTA_MAX = 2 ** 46; // 64 TiB: 100 x a quota stays a safe integer
 export const WALK_DEPTH = 3; // directories below --out: days/<SYMBOL>/<day>; one Dir handle open per level at most
-const APPEND = constants.O_WRONLY | constants.O_CREAT | constants.O_APPEND | (constants.O_NOFOLLOW ?? 0);
+const APPEND = constants.O_WRONLY | constants.O_CREAT | constants.O_APPEND | (constants.O_NOFOLLOW ?? 0) | (constants.O_NONBLOCK ?? 0);
 const PROXY_ENV = /^(NODE_OPTIONS|NODE_USE_ENV_PROXY)$|_PROXY$/i, LF = String.fromCharCode(10), SCRIPT = fileURLToPath(import.meta.url);
 const FLAGS = Object.freeze({ record: ["--out", "--quota-bytes"], replay: ["--from-raw", "--symbol", "--day", "--out"] });
 
@@ -137,16 +137,19 @@ export function bytesUnder(dir, depth = 0) {
 }
 
 /** The quota of --out (point 16): check() counts its bytes, stops at STOP_PCT % of the quota (quota_stop), journals one quota_alarm line
- *  at ALARM_PCT % (once per process), and returns the bytes counted. io: wallUs (host wall clock, us), monoNs (bigint). */
+ *  at ALARM_PCT % (once per process), and returns the bytes counted. io: wallUs (host wall clock, us), monoNs (bigint). check({ at, journal,
+ *  pin }): the bytes counted and the alarm written under `at` (adopt: the pinned --out, m-2 of the G2 of c5), `pin` run right before the
+ *  append; journal false (prepare) counts and stops, never writes (n-4). */
 export function createQuota({ out, quota }, io) {
   let alarmed = false;
-  return function check() {
-    const used = bytesUnder(out);
+  return function check({ at = out, journal = true, pin = () => {} } = {}) {
+    const used = bytesUnder(at);
     if (100 * used >= STOP_PCT * quota) stop("quota_stop", { used, quota, pct: STOP_PCT });
-    if (100 * used >= ALARM_PCT * quota && !alarmed) {
+    if (100 * used >= ALARM_PCT * quota && !alarmed && journal) {
       alarmed = true;
       const line = { host_us: io.wallUs(), mono_ns: String(io.monoNs()), symbol: "ALL", cid: null, event: "quota_alarm", used, quota };
-      appendLine(join(out, "journal.jsonl"), line); // no link followed (win32: no O_NOFOLLOW), one link alone (P1-c5)
+      pin();
+      appendLine(join(at, "journal.jsonl"), line); // no link followed (win32: no O_NOFOLLOW), one link alone (P1-c5)
     }
     return used;
   };
@@ -168,7 +171,7 @@ export function prepare(argv, io = {}) {
   const resume = guardOut(args.out);
   if (args.mode === "replay") return { ...args, resume };
   const clocks = { wallUs: io.wallUs ?? (() => Date.now() * 1000), monoNs: io.monoNs ?? process.hrtime.bigint };
-  const check = createQuota({ out: args.out, quota: args.quota }, clocks), used = check(), free = (io.freeBytes ?? freeBytes)(args.out);
+  const check = createQuota({ out: args.out, quota: args.quota }, clocks), used = check({ journal: false }), free = (io.freeBytes ?? freeBytes)(args.out);
   if (free < args.quota - used) stop("disk_short", { free, quota: args.quota, used });
   return { ...args, resume, used, free, check };
 }
@@ -176,44 +179,69 @@ export function prepare(argv, io = {}) {
 /** The recorder that the start line of its journal names (n-5 of the G2 of c4); bytes of journal.jsonl read for its first line. */
 export const RECORDER = "scripts/record-binance-l2.mjs";
 const HEAD = 4096;
+const LINUX = process.platform === "linux", RACED = Object.freeze(["ENOENT", "ENOTDIR", "ELOOP"]); // m-3: a path changed under check()
+const DIR_OPEN = constants.O_RDONLY | (constants.O_DIRECTORY ?? 0) | (constants.O_NOFOLLOW ?? 0); // --out opened once (Linux), never through a link
 
 /** One JSON line appended to a file of --out by one write: never through a link (O_NOFOLLOW: out_not_l2, not ELOOP, n-8 of the delta G2
- *  of c4), to a file of one link alone (fstat nlink 1, else out_not_l2, nothing written: n-5bis). */
-export function appendLine(path, line) {
+ *  of c4), to a regular file (O_NONBLOCK: a FIFO never blocks, n-3 of the G2 of c5) of one link alone (fstat nlink 1, else out_not_l2,
+ *  nothing written: n-5bis). `entry` names the file in a stop (adopt: its real path, not the descriptor's). */
+export function appendLine(path, line, entry = path) {
   let fd = null;
   try {
     fd = openSync(path, APPEND, 0o644);
-    if (fstatSync(fd).nlink !== 1) stop("out_not_l2", { entry: path, why: "hard link" });
+    if (!fstatSync(fd).isFile()) stop("out_not_l2", { entry, why: "not a regular file" });
+    if (fstatSync(fd).nlink !== 1) stop("out_not_l2", { entry, why: "hard link" });
     writeSync(fd, JSON.stringify(line) + LF);
   } catch (e) {
-    if (e.code === "ELOOP") stop("out_not_l2", { entry: path, why: "a link" });
+    if (e.code === "ELOOP") stop("out_not_l2", { entry, why: "a link" });
+    if (e.code === "ENXIO") stop("out_not_l2", { entry, why: "not a regular file" }); // a FIFO without a reader
     throw e;
   } finally { if (fd !== null) closeSync(fd); }
 }
 
 /** A resumed --out is this recorder's: the first line of its journal.jsonl, read in its first HEAD bytes, is a start of RECORDER (n-5). */
 function ownJournal(out) {
-  const fd = openSync(join(out, "journal.jsonl"), constants.O_RDONLY | (constants.O_NOFOLLOW ?? 0)), head = Buffer.alloc(HEAD);
+  const fd = openSync(join(out, "journal.jsonl"), constants.O_RDONLY | (constants.O_NOFOLLOW ?? 0) | (constants.O_NONBLOCK ?? 0)), head = Buffer.alloc(HEAD);
   let first = null;
   try { first = JSON.parse(head.toString("utf8", 0, readSync(fd, head, 0, HEAD, 0)).split(LF)[0]); } catch { first = null; } finally { closeSync(fd); }
   if (first?.event !== "start" || first.recorder !== RECORDER) stop("out_not_l2", { out, why: "journal.jsonl not of this recorder" });
 }
 
-/** A recording takes --out once prepare passed, before anything is opened: a resumed output is this recorder's (n-5); --out is made, its
- *  real path pinned (n-7 of the delta G2 of c4), the start line journaled (Q-C1-10). check(), at the pace of the loop: the real path
- *  unchanged, else out_not_l2; the guards of --out again, no .git above it as given and as resolved (n-2); journal.jsonl and requests.jsonl of one link each
- *  (n-5bis); then the quota (its bytes). io: wallUs (host wall clock, us), monoNs (bigint). */
+/** A recording takes --out once prepare passed, before anything is opened: the guards of --out again (m-1 of the G2 of c5); a resumed
+ *  output is this recorder's (n-5); --out is made, its real path and its directory (dev, ino: n-2) pinned (n-7 of the delta G2 of c4); on
+ *  Linux --out is opened once and every walk and write of the command goes through /proc/self/fd/<fd>, the equivalent of openat (m-2,
+ *  Q-C5-6), elsewhere through the real path (a window remains, declared); the guards again and the pin right before the start line
+ *  (Q-C1-10); then a first check(), which journals the quota alarm (n-4). check(), at the pace of the loop: the pin, else out_not_l2; the
+ *  guards of --out again, no .git above it as given and as resolved (n-2); journal.jsonl and requests.jsonl of one link each (n-5bis);
+ *  then the quota (its bytes), the pin again right before its append. ENOENT, ENOTDIR or ELOOP met on the way: out_not_l2 (m-3). io:
+ *  wallUs (host wall clock, us), monoNs (bigint). */
 export function adopt(plan, io) {
+  guardOut(plan.out);
   if (plan.resume) ownJournal(plan.out);
   mkdirSync(plan.out, { recursive: true });
-  const real = realpathSync.native(plan.out);
-  appendLine(join(real, "journal.jsonl"), { host_us: io.wallUs(), mono_ns: String(io.monoNs()), symbol: "ALL", cid: null, event: "start", recorder: RECORDER });
-  const check = () => {
+  const real = realpathSync.native(plan.out), fd = LINUX ? openSync(real, DIR_OPEN) : null, at = fd === null ? real : `/proc/self/fd/${fd}`;
+  const id = fd === null ? statSync(real, { bigint: true }) : fstatSync(fd, { bigint: true });
+  const pin = () => {
     if ((existsSync(plan.out) ? realpathSync.native(plan.out) : null) !== real) stop("out_not_l2", { out: plan.out, real, why: "real path changed" });
-    guardOut(plan.out);
-    for (const name of ["journal.jsonl", "requests.jsonl"]) if (existsSync(join(real, name)) && lstatSync(join(real, name)).nlink !== 1) stop("out_not_l2", { entry: name, why: "hard link" });
-    return plan.check();
+    const now = statSync(plan.out, { bigint: true });
+    if (now.dev !== id.dev || now.ino !== id.ino) stop("out_not_l2", { out: plan.out, real, why: "another directory" });
   };
+  const named = (f) => {
+    try { return f(); } catch (e) {
+      if (RACED.includes(e?.code)) stop("out_not_l2", { out: plan.out, real, why: "real path changed", error: e.code });
+      throw e;
+    }
+  };
+  const start = { host_us: io.wallUs(), mono_ns: String(io.monoNs()), symbol: "ALL", cid: null, event: "start", recorder: RECORDER };
+  guardOut(plan.out);
+  named(() => { pin(); appendLine(join(at, "journal.jsonl"), start, join(real, "journal.jsonl")); });
+  const check = () => named(() => {
+    pin();
+    guardOut(plan.out);
+    for (const name of ["journal.jsonl", "requests.jsonl"]) if (existsSync(join(at, name)) && lstatSync(join(at, name)).nlink !== 1) stop("out_not_l2", { entry: name, why: "hard link" });
+    return plan.check({ at, pin });
+  });
+  check();
   return { real, check };
 }
 
