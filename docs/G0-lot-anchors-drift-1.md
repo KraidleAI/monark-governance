@@ -12,7 +12,7 @@ red-proof: test-only
   - `packages/hikae/src/l1-split.ts` : +2 ;
   - `.github/workflows/ci.yml` : +1, +8 ou +1, selon le bloc.
 - **2 tueurs morts réécrits** (`test/oracle-run.test.ts:129` et `:182`) : leur texte n'existe plus dans `scripts/oracle/run.mjs`. Ils visent désormais les lignes actuelles, toujours en forme fermée :
-  - `:46` SDL : la boucle qui retire de l'environnement les noms d'identifiants ;
+  - `:46` COR : la boucle ne retire plus les noms d'identifiants (`DENY.test(k) || ` ôté). Un SDL de toute la ligne survit : `childEnv` filtre aussi `DENY` pour les portes, et l'effacement de la ligne entière ne laisse pas de nom visible au test ;
   - `:83` SDL : le saut d'un enregistrement rouge de même clé.
 - **But** : `verifie-ancres.mjs` sur tout le dépôt, 0 PERDU.
 
@@ -30,7 +30,7 @@ red-proof: test-only
 - `.github/workflows/ci.yml:98 CONST "eval \"$R25_PIN\"" -> "true"`
 - `.github/workflows/ci.yml:211 CONST "npm run test:export" -> "npm run test:main"`
 - `.github/workflows/ci.yml:273 CONST "run: npm run build" -> "run: MONARK_DOJO_LOCAL_BUILD_ROOT=/tmp npm run build"`
-- `scripts/oracle/run.mjs:46 SDL "delete process.env[k];" -> ""`
+- `scripts/oracle/run.mjs:46 COR "DENY.test(k) || " -> ""`
 - `scripts/oracle/run.mjs:83 SDL "if (r.exit !== 0) { console.error(`oracle: same-key record ${f} is red (exit ${r.exit})" -> ""`
 - `.github/workflows/ci.yml:125 CONST "[ \"$NEW_CHANGED\" -le \"$CHANGED\" ] && " -> ""`
 - `.github/workflows/ci.yml:125 CONST " && [ \"$NEW_CONTENT\" -le \"$CONTENT_CHANGED\" ]" -> ""`

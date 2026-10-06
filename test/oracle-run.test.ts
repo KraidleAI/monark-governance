@@ -126,7 +126,7 @@ test("oracle_gates_are_the_run_lines_of_ci_yml — derived at launch, CI-only li
 }));
 
 test("oracle_gates_see_no_foreign_credential — no credential NAME reaches a gate of either lane (static lint, locked test) and npm runs offline (C-G2-1, X1)", () => withFx((fx) => {
-  // killer: scripts/oracle/run.mjs:46 SDL "delete process.env[k];" -> ""
+  // killer: scripts/oracle/run.mjs:46 COR "DENY.test(k) || " -> ""
   // killer: scripts/oracle/run.mjs:136 SDL "npm_config_offline: \"true\", " -> ""
   // killer: scripts/oracle/run.mjs:46 COR " || /^npm_config_(offline|logs_dir)$/i.test(k)" -> ""
   const fake = ["FX_API_KEY_1", "FX_PRIVATE_KEY", "FX_TOKEN_1", "fx_secret_1", "GH_FX", "GITHUB_FX", "CHAINSTACK_FX", "MONARK_PUBLIC_MIRROR"]; // lowercase name: DENY must be case-insensitive (Windows env names, O1); a synthetic FX_ name, never MONARK_PUBLIC_MIRROR itself (that exact name is real in this session's own environment, C-G2-1 §0: a lowercase fake of it collides and is overridden by Windows' case-insensitive env merge, not by DENY)
