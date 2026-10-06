@@ -43,3 +43,14 @@ test("adr_m003_d9_suffixes_are_unique - each D9 suffix of ADR-M003 is carried on
   assert.deepEqual(refusals([], 16, row(["sedecies", "2026-10-06"])), ['l.17: suffix "sedecies" is not in LATIN_ORDINALS (ends at octodecies)']);
   assert.deepEqual(refusals([], 16, row(["sexdecies", "2026-10-06"], "\u{2013}")), ["l.17: heading does not parse (**Addendum D9 <suffix> \u{2014} <date>)"]);
 });
+
+// reddened by: a heading that leaves the check instead of being refused, a suffix glued to D9 or a heading set off by markup (G2 B-1
+// of #207: "\b" after D9 skipped "**Addendum D9bis", the column-0 "**" skipped "### Addendum D9"); a citation after other words stays out
+// killer: scripts/adr-suffixes.mjs:20 CONST "/^\\W*Addendum D9/u" -> "/^\\*\\*Addendum D9\\b/"
+test("adr_m003_d9_headings_never_escape_the_check - a D9 heading glued, shifted or set off by markup is refused, never skipped", () => {
+  const unparsed = (l: number): string => `l.${String(l)}: heading does not parse (**Addendum D9 <suffix> \u{2014} <date>)`;
+  assert.deepEqual(refusals(["**Addendum D9bis \u{2014} 2026-10-07 (synthetic)** : text"]), [unparsed(18)], "a suffix glued to D9");
+  assert.deepEqual(refusals(["### Addendum D9 octodecies \u{2014} 2026-10-07 (synthetic)"]), [unparsed(18)], "a heading set off as a title");
+  assert.deepEqual(refusals(["- **Addendum D9 septdecies \u{2014} 2026-10-07 (synthetic)** : text"]), [unparsed(18)], "a heading shifted into a list");
+  assert.deepEqual(refusals(["See the **Addendum D9 octies \u{2014} 2026-09-24** above."]), [], "a citation after other words is no heading");
+});

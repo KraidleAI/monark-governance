@@ -1,7 +1,7 @@
 // scripts/adr-suffixes.mjs -- lot ADR-M003-SUFFIX-DUP-1 (2026-10-06; item ADR-M003-SUFFIX-DUP-1, opened by the erratum of
 // docs/JOURNAL-PROVENANCE.md of 2026-10-06 07:4x UTC): the suffixes of the addenda of decision D9 of
-// docs/adr/ADR-M003-phase2-integration.md. A heading is a line that opens, at column 0, with "**Addendum D9"; it reads
-// "**Addendum D9 <suffix> — <date> (...)**", the suffix a Latin ordinal adverb (none for the first addendum, then bis, ter,
+// docs/adr/ADR-M003-phase2-integration.md. A heading is a line that opens with "Addendum D9" after markup or none (G2 B-1 of #207);
+// it parses only as "**Addendum D9 <suffix> — <date> (...)**" at column 0, the suffix a Latin ordinal adverb (none first, then bis, ter,
 // quater, ...), the date YYYY-MM-DD (bis alone has none: its heading names its subject). d9SuffixProblems refuses: a heading that does
 // not parse; a suffix outside LATIN_ORDINALS; a suffix that, at its first heading in file order, is not the term of LATIN_ORDINALS
 // that comes next (a gap or a disorder); a suffix that two headings or more carry, except the closed list HISTORICAL_DUPLICATES:
@@ -17,7 +17,7 @@ export const LATIN_ORDINALS = Object.freeze(["", "bis", "ter", "quater", "quinqu
 /** The closed list of the suffixes that may repeat, each with the dates of its headings in file order. */
 export const HISTORICAL_DUPLICATES = Object.freeze([Object.freeze({ suffix: "octies", dates: Object.freeze(["2026-09-20", "2026-09-24"]) })]);
 
-const OPENS = /^\*\*Addendum D9\b/; // every line that opens so is a heading: parsed, or refused
+const OPENS = /^\W*Addendum D9/u; // every line that opens so is a heading, parsed or refused: "**Addendum D9bis", "### Addendum D9" too
 const HEADING = /^\*\*Addendum D9(?: ([a-z]+))? \u{2014} (?:(\d{4}-\d{2}-\d{2})\b)?/u; // U+2014, the em dash: an en dash or a hyphen does not parse
 const shown = (s) => (s === "" ? "(none)" : `"${s}"`);
 
