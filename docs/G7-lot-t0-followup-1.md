@@ -117,6 +117,6 @@ G2 non bloquante sur `61ab3567`. Elle reproduit T-8 (A-1), et A-3 durcit un test
 - **red-proof** (`--draw 6 --seed 37`) : OK, 15 jugés (15 F2P), 6 tueurs tirés, 6 tués, dont le tueur T-8.
 - **Tueurs tirés à la main**, fichier restauré (sha256) : les 22 de `test/spec-publish.test.ts`, tous tués par assertion.
 - **Ancres** : 64 sur 64 sur les fichiers touchés. Sur tout le dépôt, les 8 PERDU antérieurs restent (ANCHORS-DRIFT-1 les ferme).
-- **R-25** contre `82cf6980` : STAT 303+/60- = 363 (≤ 547), CONTENT 0, GREEN.
+- **R-25** contre `82cf6980` : STAT 275+/59- = 334 (≤ 547), CONTENT 0, GREEN.
 - **Portes** : `tsc` 0, `eslint .` 0, `lint:ratchet` 69/69, `gate:vocab`, `lang:gate` et `export:check` OK.
 - **Tests ciblés** (`spec-publish`, `public-text-deny`, `spec-1-1-0-release`, `release-public-flow`, `release-public`) : 74 sur 74.
