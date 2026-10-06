@@ -33,7 +33,7 @@ function settled(server: Server): Promise<boolean> {
 }
 
 /** The servers returned by startLoopback, by port: a port whose server no longer listens is never drawn again (lot
- *  COINBASE-LOOPBACK-FLAKE-1). */
+ *  COINBASE-LOOPBACK-FLAKE-1). The map holds each returned server for the life of the process: a few per test file. */
 const started = new Map<number, Server>();
 
 /** Starts a server by `start(port)`, which calls listen, on drawn ports until one listens (another port on any listen error); the
