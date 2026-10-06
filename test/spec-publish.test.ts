@@ -277,43 +277,62 @@ test("previous_entries_are_read_from_the_pinned_commit_not_the_working_tree", as
   assert.deepEqual(published(), lf, "a working-tree edit is ignored");
   const ghost = at(w.head, [...(w.inputs.releases.v?.entries ?? []), { out: "reports/ghost.md", root: "previous", path: "reports/ghost.md", kind: "text", sha256: sha(NOTE) }]);
   assert.ok(published(ghost).problems.includes("previous_blob_missing"), "a path absent from the commit is named");
-  const detail = m.plan({ inputs: ghost, release: "v", date: "2026-10-02", roots: w.roots }).problems.find((x) => x.code === "previous_blob_missing")?.detail ?? "";
-  assert.match(detail, /reports\/ghost\.md.*does not exist/, "the refusal carries git's own reason (G2 F-4)");
 });
 
-// G2 of T0-FOLLOWUP-1 (F-1, F-2, F-3): a published contract-*/ file is compared with its committed object. A carried file stays
-// equal on a CRLF checkout and under a working-tree edit hidden from status; a replace object (refs/replace) does not hide a
-// rewrite; an object git cannot read as a blob (a gitlink) is refused by name, never compared with empty bytes.
+// G2 F-4 of T0-FOLLOWUP-1: a previous entry git cannot read is refused with git's own first stderr line, not a bare "is not in".
+// killer: scripts/spec-publish.mjs:180 CONST ": ${got.why}" -> ""
+test("a_refused_previous_entry_carries_the_reason_git_gives", async () => {
+  const m = await api(), w = world();
+  const ghost = at(w.head, [...(w.inputs.releases.v?.entries ?? []), { out: "reports/ghost.md", root: "previous", path: "reports/ghost.md", kind: "text", sha256: sha(NOTE) }]);
+  const detail = m.plan({ inputs: ghost, release: "v", date: "2026-10-02", roots: w.roots }).problems.find((x) => x.code === "previous_blob_missing")?.detail ?? "";
+  assert.match(detail, /reports\/ghost\.md.*does not exist/, "the refusal carries git's own reason");
+});
+
+// G2 of T0-FOLLOWUP-1 (F-1, F-2, F-3): a published contract-*/ file is compared with its committed object. contractWorld gives a
+// previous tree holding contract-1.0.0/t.md and a release that carries it (from "previous") or publishes other bytes there.
+type Contract = { w: ReturnType<typeof world>; inputs: Inputs };
+function contractWorld(from: "previous" | "recherches"): Contract {
+  const w = world(), p = w.roots.previous, T = "# T\n", T2 = "# T2\n";
+  put(p, "contract-1.0.0/t.md", T); put(w.roots.recherches, "kata/t2.md", T2);
+  const head = commit(p), entry = from === "previous" ? { out: "contract-1.0.0/t.md", root: "previous" as const, path: "contract-1.0.0/t.md", kind: "text" as const, sha256: sha(T) }
+    : { out: "contract-1.0.0/t.md", root: "recherches" as const, path: "kata/t2.md", kind: "text" as const, sha256: sha(T2) };
+  return { w, inputs: at(head, [...(w.inputs.releases.v?.entries ?? []), entry]) };
+}
+const contractCodes = async (c: Contract, inputs: Inputs = c.inputs): Promise<string[]> =>
+  codes((await api()).plan({ inputs, release: "v", date: "2026-10-02", roots: c.w.roots }).problems);
+
+// G2 F-3: a carried contract file stays equal on a CRLF checkout and under a working-tree edit hidden from status.
 // killer: scripts/spec-publish.mjs:205 CONST "blob(prev, rel.previous_commit, p)" -> "{ bytes: readFileSync(join(prev, p)), why: \"\" }"
 test("a_published_contract_file_is_compared_with_its_committed_object", async () => {
-  const m = await api(), T = "# T\n", T2 = "# T2\n";
-  const plan = (w: ReturnType<typeof world>, inputs: Inputs): string[] => codes(m.plan({ inputs, release: "v", date: "2026-10-02", roots: w.roots }).problems);
-  const withContract = (from: "previous" | "recherches"): { w: ReturnType<typeof world>; inputs: Inputs } => {
-    const w = world(), p = w.roots.previous;
-    put(p, "contract-1.0.0/t.md", T); put(w.roots.recherches, "kata/t2.md", T2);
-    const head = commit(p), entry = from === "previous" ? { out: "contract-1.0.0/t.md", root: "previous" as const, path: "contract-1.0.0/t.md", kind: "text" as const, sha256: sha(T) }
-      : { out: "contract-1.0.0/t.md", root: "recherches" as const, path: "kata/t2.md", kind: "text" as const, sha256: sha(T2) };
-    return { w, inputs: at(head, [...(w.inputs.releases.v?.entries ?? []), entry]) };
-  };
-  const carried = withContract("previous"), p = carried.w.roots.previous;
+  const carried = contractWorld("previous"), p = carried.w.roots.previous;
   git(p, "config", "core.autocrlf", "true");
   rmSync(join(p, "contract-1.0.0/t.md")); git(p, "checkout", "--", ".");
   assert.ok(readFileSync(join(p, "contract-1.0.0/t.md"), "utf8").includes("\r\n") && git(p, "status", "--porcelain") === "", "premise: a clean CRLF checkout");
-  assert.deepEqual(plan(carried.w, carried.inputs), [], "a carried contract file on a CRLF checkout is not rewritten");
+  assert.deepEqual(await contractCodes(carried), [], "a carried contract file on a CRLF checkout is not rewritten");
   git(p, "update-index", "--assume-unchanged", "contract-1.0.0/t.md"); writeFileSync(join(p, "contract-1.0.0/t.md"), "# Edited\n");
-  assert.deepEqual(plan(carried.w, carried.inputs), [], "a hidden working-tree edit is ignored");
-  const changed = withContract("recherches"), q = changed.w.roots.previous;
-  assert.deepEqual(plan(changed.w, changed.inputs), ["rewritten"], "premise: a new content is a rewrite");
-  const old = git(q, "rev-parse", "HEAD:contract-1.0.0/t.md"), now = git(changed.w.roots.recherches, "hash-object", "kata/t2.md");
-  git(q, "hash-object", "-w", join(changed.w.roots.recherches, "kata/t2.md")); git(q, "replace", old, now);
-  assert.equal(git(q, "cat-file", "blob", "HEAD:contract-1.0.0/t.md"), T2.trim(), "premise: git honours the replace object");
-  assert.deepEqual(plan(changed.w, changed.inputs), ["rewritten"], "a replace object does not hide the rewrite");
-  const linked = withContract("recherches"), r = linked.w.roots.previous;
+  assert.deepEqual(await contractCodes(carried), [], "a hidden working-tree edit is ignored");
+});
+
+// G2 F-1: a replace object (refs/replace) in the previous clone does not hide a rewrite.
+// killer: scripts/spec-publish.mjs:159 CONST "{ ...process.env, GIT_NO_REPLACE_OBJECTS: \"1\" }" -> "{ ...process.env }"
+test("a_replace_object_does_not_hide_a_rewrite", async () => {
+  const changed = contractWorld("recherches"), q = changed.w.roots.previous, rech = changed.w.roots.recherches;
+  assert.deepEqual(await contractCodes(changed), ["rewritten"], "premise: a new content is a rewrite");
+  const old = git(q, "rev-parse", "HEAD:contract-1.0.0/t.md"), now = git(rech, "hash-object", "kata/t2.md");
+  git(q, "hash-object", "-w", join(rech, "kata/t2.md")); git(q, "replace", old, now);
+  assert.equal(git(q, "cat-file", "blob", "HEAD:contract-1.0.0/t.md"), "# T2", "premise: git honours the replace object");
+  assert.deepEqual(await contractCodes(changed), ["rewritten"], "a replace object does not hide the rewrite");
+});
+
+// G2 F-2: an object git cannot read as a blob (a gitlink) is refused by name, never compared with empty bytes.
+// killer: scripts/spec-publish.mjs:164 CONST "bytes: null" -> "bytes: Buffer.alloc(0)"
+test("an_unreadable_published_object_is_refused_never_read_as_empty", async () => {
+  const linked = contractWorld("recherches"), r = linked.w.roots.previous;
   git(r, "rm", "-q", "--cached", "contract-1.0.0/t.md"); rmSync(join(r, "contract-1.0.0/t.md"));
   git(r, "update-index", "--add", "--cacheinfo", `160000,${git(r, "rev-parse", "HEAD")},contract-1.0.0/t.md`); git(r, "commit", "-qm", "gitlink");
   mkdirSync(join(r, "contract-1.0.0/t.md")); // an unpopulated submodule: an empty directory, a clean status
   const head = git(r, "rev-parse", "HEAD");
   put(linked.w.roots.recherches, "kata/t2.md", ""); // an empty file where the published tree holds a gitlink
   const inputs = at(head, (linked.inputs.releases.v?.entries ?? []).map((e) => (e.out === "contract-1.0.0/t.md" ? { ...e, sha256: sha("") } : e)));
-  assert.ok(plan(linked.w, inputs).includes("previous_blob_missing"), "an unreadable published object is refused by name, never read as empty");
+  assert.deepEqual(await contractCodes(linked, inputs), ["previous_blob_missing"], "an unreadable published object is refused by name");
 });
