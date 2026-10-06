@@ -520,6 +520,13 @@ Tronc `lot/etude-suite`. Dernier oracle complet : 1 779 tests, dont 1 776 verts,
     pas des fichiers de table, et la porte ne les lit pas comme tels (seule la valeur racine d un fichier compte). Aucun fichier de table
     de cette version ne porte `recompute`. Depuis la même G2, une table déclarée `json` ou `text` est refusée (`policy_table_kind`) : la
     garde ne dépend plus du `kind` choisi.
+    Précision (2026-10-06 03:29 UTC, G2 delta b2 de SPEC-1-1-0-RELEASE, N-1) : la phrase précédente ne valait que pour une table à la racine
+    d un fichier, `row_format` exact, chemin en minuscules. Désormais, `spec-publish` reconnaît une table à sa forme (un objet avec un
+    tableau `rows` et une entrée `class` qui nomme un `task_class`), à toute profondeur et quel que soit son `row_format`. Tout fichier qui
+    en contient une, et tout chemin qui a un segment `policy/` (toute casse), doit être une entrée `policy-table` au chemin exact
+    `[contract-<x.y.z>/]policy/<classe>.json`. Seul le fichier de vecteurs `contract-<v>/vectors-<v>.json` peut en contenir sans l être :
+    chacune de ses tables passe `tableRowProblems`, et seules les tables de `synthetic_kata`, fixtures de recalcul, sont dispensées de
+    `recompute_held` et de la règle des empreintes de suite ; `n` et `p_served` ≤ 30 restent refusés partout.
   - SHORT-DIGEST-INVERSION-1 (constat F-1 de la vérification de la spécification 1.1.0, §10 « Short 0/1 sequences ») : gardé depuis le
     2026-10-06 par la porte de `scripts/spec-publish.mjs` (`tableRowProblems`, code `short_digest`), que l écrivain appelle aussi : elle
     refuse toute ligne de n ≤ 30 ou de `p_served` ≤ 30, et toute ligne dont `aux_sha256` ou `series_sha256` est non nul (le nombre de
