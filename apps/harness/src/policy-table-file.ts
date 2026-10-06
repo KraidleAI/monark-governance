@@ -5,7 +5,7 @@
  */
 import { createHash } from "node:crypto";
 import { assertClosedPolicyTable, canonicalJson, sha256Canonical, type ClassEntry, type PolicyRow, type PolicyTable } from "@monark/contracts";
-import { projectCell, readRegistry, type ProjectionInputs } from "./policy-projection.ts";
+import { projectCell, readRegistry, retireOverlay, type ProjectionInputs, type RetiredCell } from "./policy-projection.ts";
 
 const fail = (what: string): never => {
   throw new Error(`MONARK policy table: ${what}.`);
@@ -38,10 +38,10 @@ export const policyTableSha256 = (table: PolicyTable): string => sha256Canonical
 
 /**
  * A-2 section 2.2 point 1: the class entry equals the expected one; the registry bytes have the pinned sha256; each
- * row equals, in canonical writing, the projection of its cell; each projectable cell of the class has exactly one row;
- * no row without a cell. Throws on the first difference, naming the class, the cell key and the column.
+ * row equals, in canonical writing, the projection of its cell, overlaid by its retire list entry (R-a, pinned by the guard);
+ * each projectable cell of the class has exactly one row; no row without a cell. Throws on the first difference, naming the class, the cell key and the column.
  */
-export function assertTableMatchesRegistry(table: PolicyTable, registryBytes: Uint8Array, inp: ProjectionInputs, expected: ClassEntry): void {
+export function assertTableMatchesRegistry(table: PolicyTable, registryBytes: Uint8Array, inp: ProjectionInputs, expected: ClassEntry, retired: readonly RetiredCell[] = []): void {
   const cls = table.class.task_class;
   assertPolicyTableFile(table);
   if (canonicalJson(table.class) !== canonicalJson(expected)) fail(`${cls}: the class entry differs from the expected class entry`);
@@ -49,7 +49,7 @@ export function assertTableMatchesRegistry(table: PolicyTable, registryBytes: Ui
   const want = new Map<string, PolicyRow>();
   for (const cell of readRegistry(registryBytes)) {
     const row = cell.taskClass === cls ? projectCell(cell, inp) : null;
-    if (row !== null) want.set(row.cell_key, row);
+    if (row !== null) want.set(row.cell_key, retireOverlay(row, retired.find((e) => e.task_class === cls && e.cell_key === row.cell_key)));
   }
   for (const row of table.rows) {
     const exp = want.get(row.cell_key) ?? fail(`${cls} ${row.cell_key}: a row without a registry cell`);
@@ -57,4 +57,9 @@ export function assertTableMatchesRegistry(table: PolicyTable, registryBytes: Ui
     want.delete(row.cell_key);
   }
   for (const key of want.keys()) fail(`${cls} ${key}: a projectable cell without its row`);
+}
+
+/** The registry pin alone, the refusal of assertTableMatchesRegistry above word for word: the import guard runs it before a retire list reads the registry bytes (R-a, m-2 of its verification). */
+export function assertRegistryPinned(cls: string, registryBytes: Uint8Array, inp: ProjectionInputs): void {
+  if (createHash("sha256").update(registryBytes).digest("hex") !== inp.registrySha256) fail(`${cls}: the registry bytes do not have the pinned sha256`);
 }

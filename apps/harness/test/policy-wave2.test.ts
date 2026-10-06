@@ -98,7 +98,7 @@ test("w2_guard_admits_a_wave2_row", () => {
   refuse({ ...w2(), fit_sha256: "ab".repeat(32) }, /wave 2 core band rows only/);
 });
 
-// killer: apps/harness/src/policy-wave2.ts:39 CONST "canonicalJson([...strings(t), ...strings(c)])" -> "canonicalJson([r.tail_tail_num, r.tail_tail_den, r.miss_adj_tail_num, r.miss_adj_tail_den])"
+// killer: apps/harness/src/policy-wave2.ts:41 CONST "canonicalJson([...strings(t), ...strings(c)])" -> "canonicalJson([r.tail_tail_num, r.tail_tail_den, r.miss_adj_tail_num, r.miss_adj_tail_den])"
 test("w2_guard_refuses_a_reduced_tail", () => {
   const r = w2();
   const [num, den] = [BigInt(r.tail_tail_num ?? 0), BigInt(r.tail_tail_den ?? 1)];
@@ -123,7 +123,7 @@ test("w2_guard_refuses_region_with_empty_or_low_tail", () => {
   check(w2({ misses: 0, miss_adj_a: 0 })); // an empty check 1 is not a refusal (D2)
 });
 
-// killer: apps/harness/src/policy-wave2.ts:34 ROR "<= r.n - rank" -> "< r.n - rank"
+// killer: apps/harness/src/policy-wave2.ts:36 ROR "<= r.n - rank" -> "< r.n - rank"
 test("w2_guard_tail_m_and_support", () => {
   check(w2({ tail_m: 37 }));
   refuse(w2({ tail_m: 38, tail_a: 1 }), /tail_m above n - r \(r 703\)/);
@@ -164,7 +164,7 @@ test("w2_guard_spend_and_causes", () => {
   refuse({ ...w2(), calib_attempt: 5 }, /calib_attempt/);
 });
 
-// killer: apps/harness/src/policy-wave2.ts:58 CONST "r.calib_parent === sha256Canonical(p)" -> "true"
+// killer: apps/harness/src/policy-wave2.ts:60 CONST "r.calib_parent === sha256Canonical(p)" -> "true"
 test("w2_guard_calib_parent_chain", () => {
   guardCalibChain([w2(), PARENT]);
   const chain = (rows: PolicyRow[]): void => assert.throws(() => guardCalibChain(rows), /breaks the calib_parent chain/);
@@ -204,7 +204,7 @@ test("w2_guard_attempt_2_only_on_wave_2", () => {
   refuse(atAttempt(4, "0.00625"), /A-1 spend \(attempt 1 on wave 1, 2 on wave 2/);
 });
 
-// killer: apps/harness/src/policy-wave2.ts:58 CONST "(r.source.wave === 2 ? 2 : 1)" -> "r.calib_attempt"
+// killer: apps/harness/src/policy-wave2.ts:60 CONST "(r.source.wave === 2 ? 2 : 1)" -> "r.calib_attempt"
 test("w2_chain_attempt_2_only_on_wave_2", () => {
   const two = { ...w2(), current: false };
   guardCalibChain([PARENT, w2()]);
