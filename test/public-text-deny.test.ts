@@ -236,7 +236,10 @@ test("template_markers_follow_the_committed_template", async () => {
 });
 
 // killer: docs/public-notes/TEMPLATE.md:5 CONST "is at {SPEC_URL}." -> "is at the spec repository."
-test("public_text_gate_ph_refuses_a_template_variable_spec_url — ${SPEC_URL} is the specification marker (G2 F-6)", () => {
+test("public_text_gate_ph_refuses_a_template_variable_spec_url — ${SPEC_URL} is the specification marker (G2 F-6)", async () => {
+  const derive = ((await import("../scripts/public-text-deny.mjs")) as Record<string, unknown>)["templateMarkers"] as ((text: string) => string[]) | undefined;
+  assert.equal(typeof derive, "function", "scripts/public-text-deny.mjs exports templateMarkers");
+  assert.ok(derive?.(readFileSync(join(ROOT, "docs/public-notes/TEMPLATE.md"), "utf8")).includes("SPEC_URL"), "SPEC_URL is a marker of the committed template");
   assert.deepEqual(phWords("The specification is at ${SPEC_URL}, home ${HOME}"), each(["${SPEC_URL}"]));
 });
 
@@ -244,7 +247,9 @@ test("public_text_gate_ph_refuses_a_template_variable_spec_url — ${SPEC_URL} i
 // template with no marker is refused by name, at import, instead of silently emptying the variable form.
 // killer: scripts/public-text-deny.mjs:132 SDL "  if (names.length === 0) throw new Error(`${TEMPLATE_REL} has no marker`);" -> ""
 test("template_markers_take_the_placeholder_shape_and_never_come_out_empty", async () => {
-  const derive = ((await import("../scripts/public-text-deny.mjs")) as Record<string, unknown>)["templateMarkers"] as (text: string) => string[];
+  const derive = ((await import("../scripts/public-text-deny.mjs")) as Record<string, unknown>)["templateMarkers"] as ((text: string) => string[]) | undefined;
+  assert.equal(typeof derive, "function", "scripts/public-text-deny.mjs exports templateMarkers");
+  if (derive === undefined) return;
   assert.deepEqual(derive("Since { T0 }, document {OPENAPI-SHA256}, again {T0}."), ["T0", "OPENAPI-SHA256"], "the placeholder shape derives");
   assert.throws(() => derive("A template with no marker.\n"), /docs\/public-notes\/TEMPLATE\.md has no marker/, "an empty list is refused by name");
 });
