@@ -14,12 +14,13 @@ red-proof: test-only
 | Fichier | Tests | À la base (chargement) | Au gel |
 |---|---|---|---|
 | `test/l2-rest.test.ts` | 13 | `trap()`, ligne 15 | ligne 14 : import du témoin ; ligne 15 : `keepCause(…); before(() => { trap(); });` |
-| `test/l2-rest-tls.test.ts` | 3 | `REAL` ligne 20, `trap()` ligne 21 | ligne 19 : import ; ligne 20 : `keepCause(…); before(() => { trap(); });` ; ligne 21 : `REAL`, toujours lu au chargement, donc avant le piège |
+| `test/l2-rest-tls.test.ts` | 3 | `REAL` ligne 20, `trap()` ligne 21 | ligne 19 : import ; ligne 20 : `keepCause(…)` ; ligne 21 : `REAL`, lu **avant** l enregistrement du crochet ; ligne 22 : `before(() => { trap(); })` en fin de la ligne de `outs` |
 | `test/l2-fake-place.test.ts` | 8 | `trap()`, ligne 10 | ligne 9 : import ; ligne 10 : `keepCause(…); before(() => { trap(); });` |
 | `test/l2-segments.test.ts` | 6 | `mkdtempSync` du `ROOT` ligne 17, `rmSync(…, maxRetries: 3)` ligne 18 | ligne 14 : import ; ligne 16 : `keepCause(…)` ; ligne 17 : `let ROOT = ""; before(() => { ROOT = mkdtempSync(…); });` ; ligne 18 : `after` gardé par `ROOT !== ""`, `maxRetries: 5, retryDelay: 100` comme les autres fichiers L2 |
 
-3. **Aucune ligne déplacée après l en-tête** : chaque fichier garde son nombre de lignes (348, 140, 130, 207). Les lignes `// killer:` de ces fichiers gardent leur numéro ; leurs cibles (`scripts/l2/rest.mjs`, `scripts/l2/segments.mjs`, `test/l2-fake-place.ts`) ne changent pas. Les tests de ces fichiers sont inchangés.
-4. **Tests d abord** : quatre tests de `test/keep-cause.test.ts` lancent chaque fichier comme le lanceur lance son enfant (`NODE_TEST_CONTEXT=child-v8`), une faute préchargée par `--import`, **stderr jeté**. La faute fait lever `trap()` (l affectation de `globalThis.fetch` lève `INJECTED at trap`) ou le `mkdtempSync` d un `l2-segments-` (`INJECTED at mkdtemp`). Ils sont rouges par assertion avant le changement des 4 fichiers : `[1, [], false]`, sortie 1, aucune ligne, la cause absente de stdout.
+3. **Un `before()` racine enregistré au chargement s exécute aussitôt** sous Node 24.21.0 (mesuré, G7) : il ne retarde pas le travail, il le fait passer par la machinerie des crochets, qui rend une erreur en rouges nommés. Tout ce qui doit être lu avant le piège (le `REAL` de `l2-rest-tls`) est donc lu **avant** l appel de `before`.
+4. **Aucune ligne déplacée après l en-tête** : chaque fichier garde son nombre de lignes (348, 140, 130, 207). Les lignes `// killer:` de ces fichiers gardent leur numéro ; leurs cibles (`scripts/l2/rest.mjs`, `scripts/l2/segments.mjs`, `test/l2-fake-place.ts`) ne changent pas. Les tests de ces fichiers sont inchangés.
+5. **Tests d abord** : quatre tests de `test/keep-cause.test.ts` lancent chaque fichier comme le lanceur lance son enfant (`NODE_TEST_CONTEXT=child-v8`), une faute préchargée par `--import`, **stderr jeté**. La faute fait lever `trap()` (l affectation de `globalThis.fetch` lève `INJECTED at trap`) ou le `mkdtempSync` d un `l2-segments-` (`INJECTED at mkdtemp`). Ils sont rouges par assertion avant le changement des 4 fichiers : `[1, [], false]`, sortie 1, aucune ligne, la cause absente de stdout.
 
 ## Tueurs (listés pour `--test-only`)
 
