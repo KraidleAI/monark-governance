@@ -219,7 +219,7 @@ test("public_text_gate_ph_passes_home — ${HOME} is a command, the marker besid
 // docs/public-notes/TEMPLATE.md, derived, never typed: a marker added to a copy of the template joins the list. The template is not a
 // public text (kindForPath gives it no kind; docs/ is never exported): it passes every rule of the notes gate but ph, and ph names
 // exactly its markers.
-// killer: scripts/public-text-deny.mjs:130 CONST "[...new Set(" -> "[...(["
+// killer: scripts/public-text-deny.mjs:130 CONST ".map((m) => m[1])" -> ".map((m) => m[0])"
 test("template_markers_follow_the_committed_template", async () => {
   const gate = (await import("../scripts/public-text-deny.mjs")) as Record<string, unknown>;
   const derive = gate["templateMarkers"] as ((text: string) => string[]) | undefined;
