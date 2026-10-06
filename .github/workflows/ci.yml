@@ -82,6 +82,8 @@ jobs:
 
           # Bell data series root apps/bell/test/fixtures/series/**/*.{json,jsonl,csv} (ADR-T1aii C-14, D9 sexies) is
           # excluded too; each pinned file is declared+hashed same-dir (root test `series_pinned_are_declared_and_hashed`).
+          # The wave registries the harness reads byte for byte, apps/harness/data/kata/registry/wave<k>.json (ADR-M003 D9 septdecies),
+          # are excluded too: one closed root, .json only, each declared+hashed same-dir (root test `kata_registry_root_is_wave_registries_only`).
           # Storefront CONTENT paths (ADR-M013 amendment 2026-09-24, investor decision 207; a CLOSED list held by the ADR)
           # are excluded from this CODE count, whose bound stays VIBEGATES_PR_LIMIT, and counted apart by CONTENT_STAT
           # below under VIBEGATES_CONTENT_LIMIT, with the same range, :(glob) magic and ins+del metric. Both counts are
@@ -95,7 +97,7 @@ jobs:
             exit 1
           }
           eval "$R25_PIN"
-          STAT=$(git diff --shortstat "origin/${{ github.base_ref }}...HEAD" -- . ':(exclude)packages/*/docs/S2-*' ':(exclude)docs/G1-lot-*.md' ':(exclude)docs/G2-lot-*.md' ':(exclude,glob)docs/**/*.md' ':(exclude)package-lock.json' ':(exclude,glob)fixtures/**/*.json' ':(exclude,glob)fixtures/**/*.jsonl' ':(exclude,glob)fixtures/**/*.csv' ':(exclude,glob)apps/sentinel/test/fixtures/**/*.json' ':(exclude,glob)apps/sentinel/test/fixtures/**/*.jsonl' ':(exclude,glob)apps/sentinel/test/fixtures/**/*.csv' ':(exclude,glob)apps/bell/test/fixtures/series/**/*.json' ':(exclude,glob)apps/bell/test/fixtures/series/**/*.jsonl' ':(exclude,glob)apps/bell/test/fixtures/series/**/*.csv' ':(exclude,glob)apps/site/app/docs/**' ':(exclude,glob)apps/site/components/docs/**' ':(exclude,glob)apps/site/lib/docs-*.ts' ':(exclude,glob)apps/site/data/docs-*.json' ':(exclude,glob)apps/site/app/roadmap/**') || {
+          STAT=$(git diff --shortstat "origin/${{ github.base_ref }}...HEAD" -- . ':(exclude)packages/*/docs/S2-*' ':(exclude)docs/G1-lot-*.md' ':(exclude)docs/G2-lot-*.md' ':(exclude,glob)docs/**/*.md' ':(exclude)package-lock.json' ':(exclude,glob)fixtures/**/*.json' ':(exclude,glob)fixtures/**/*.jsonl' ':(exclude,glob)fixtures/**/*.csv' ':(exclude,glob)apps/sentinel/test/fixtures/**/*.json' ':(exclude,glob)apps/sentinel/test/fixtures/**/*.jsonl' ':(exclude,glob)apps/sentinel/test/fixtures/**/*.csv' ':(exclude,glob)apps/bell/test/fixtures/series/**/*.json' ':(exclude,glob)apps/bell/test/fixtures/series/**/*.jsonl' ':(exclude,glob)apps/bell/test/fixtures/series/**/*.csv' ':(exclude,glob)apps/harness/data/kata/registry/**/*.json' ':(exclude,glob)apps/site/app/docs/**' ':(exclude,glob)apps/site/components/docs/**' ':(exclude,glob)apps/site/lib/docs-*.ts' ':(exclude,glob)apps/site/data/docs-*.json' ':(exclude,glob)apps/site/app/roadmap/**') || {
             echo '::error::Gate R-25: diff not computable (no merge base?). Fail-closed.'
             exit 1
           }
