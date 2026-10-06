@@ -69,7 +69,7 @@ test("inputs_pin_the_four_files_published_at_ddfee9e", async () => {
   ]);
 });
 
-// killer: scripts/spec-publish.mjs:61 SDL "if (!/^[0-9a-f]{64}$/.test(String(e.sha256)))" -> ""
+// killer: scripts/spec-publish.mjs:63 SDL "if (!/^[0-9a-f]{64}$/.test(String(e.sha256)))" -> ""
 test("parse_inputs_refuses_any_departure_from_the_closed_format", async () => {
   const m = await api(), head = "a".repeat(40);
   const make = (e: Record<string, unknown>, rel: Record<string, unknown> = {}, format = "spec-inputs-v1"): unknown => ({ format, releases: { v: {
@@ -87,7 +87,7 @@ test("parse_inputs_refuses_any_departure_from_the_closed_format", async () => {
   assert.throws(() => m.parseInputs(make({}, {}, "spec-inputs-v2")), (x: unknown) => x instanceof m.SpecPublishError && x.code === "inputs_invalid");
 });
 
-// killer: scripts/spec-publish.mjs:140 CONST "}  ${f.path}" -> "} ${f.path}"
+// killer: scripts/spec-publish.mjs:161 CONST "}  ${f.path}" -> "} ${f.path}"
 test("produce_copies_each_input_byte_for_byte_with_version_and_manifest", async () => {
   const m = await api(), w = world(), out = fresh(), mask = process.umask(0o077); // the modes must not follow the umask
   const r = (() => { try { return m.produce({ inputs: w.inputs, release: "v", date: "2026-10-02", roots: w.roots, out }); } finally { process.umask(mask); } })();
@@ -101,7 +101,7 @@ test("produce_copies_each_input_byte_for_byte_with_version_and_manifest", async 
   assert.deepEqual(m.listTree(out), ["KATA-SPEC.md", "MANIFEST.sha256", "VERSION", "policy/btc-dir-1h.json", "reports/README.md", "reports/wave1-report.md", "schemas/x.schema.json"]);
 });
 
-// killer: scripts/spec-publish.mjs:204 SDL "rmSync(tmp, { recursive: true, force: true });" -> ""
+// killer: scripts/spec-publish.mjs:234 SDL "rmSync(tmp, { recursive: true, force: true });" -> ""
 test("a_failed_write_leaves_out_absent_and_no_temporary_tree", async () => {
   const m = await api(), w = world(), entries = w.inputs.releases.v?.entries ?? [], parent = fresh();
   mkdirSync(parent);
@@ -116,7 +116,7 @@ test("a_failed_write_leaves_out_absent_and_no_temporary_tree", async () => {
   assert.deepEqual([existsSync(join(w.roots.previous, "o3")), readdirSync(parent)], [false, []]);
 });
 
-// killer: scripts/spec-publish.mjs:186 CONST "else r.differ.push(p);" -> "else r.equal.push(p);"
+// killer: scripts/spec-publish.mjs:216 CONST "else r.differ.push(p);" -> "else r.equal.push(p);"
 test("composition_replay_gives_the_same_bytes_and_only_the_date_moves_them", async () => {
   const m = await api(), w = world(), [a, b, c] = [fresh(), fresh(), fresh()];
   for (const [out, date] of [[a, "2026-10-02"], [b, "2026-10-02"], [c, "2026-10-03"]] as const) m.produce({ inputs: w.inputs, release: "v", date, roots: w.roots, out });
@@ -125,7 +125,7 @@ test("composition_replay_gives_the_same_bytes_and_only_the_date_moves_them", asy
   assert.deepEqual([moved.equal.length, moved.differ], [5, ["MANIFEST.sha256", "VERSION"]]);
 });
 
-// killer: scripts/spec-publish.mjs:235 ROR "diff === 0 ? 0 : 1" -> "diff !== 0 ? 0 : 1"
+// killer: scripts/spec-publish.mjs:265 ROR "diff === 0 ? 0 : 1" -> "diff !== 0 ? 0 : 1"
 test("cli_verify_compares_a_published_tree_path_by_path", async () => {
   await api();
   const w = world(), file = join(fresh(), "inputs.json"), first = fresh();
@@ -147,7 +147,7 @@ test("cli_verify_compares_a_published_tree_path_by_path", async () => {
   assert.deepEqual([r.status, /input_missing {2}reports\/wave1-report\.md/.test(r.stderr), existsSync(refused)], [1, true, false]);
 });
 
-// killer: scripts/spec-publish.mjs:156 SDL "if (sha(bytes) !== e.sha256)" -> ""
+// killer: scripts/spec-publish.mjs:177 SDL "if (sha(bytes) !== e.sha256)" -> ""
 test("a_missing_tampered_escaping_or_blacklisted_input_or_root_refuses_and_writes_nothing", async () => {
   const m = await api(), w = world(), out = fresh(), entry = (out: string, path: string): Inputs["releases"][string]["entries"][number] =>
     ({ out, root: "governance", path, kind: "text", sha256: sha(NOTE) });
@@ -168,7 +168,7 @@ test("a_missing_tampered_escaping_or_blacklisted_input_or_root_refuses_and_write
   assert.throws(() => m.produce({ inputs: clean.inputs, release: "v", date: "2026-10-02", roots: clean.roots, out }), (x: unknown) => x instanceof m.SpecPublishError && x.code === "out_not_empty");
 });
 
-// killer: scripts/spec-publish.mjs:167 COR "!outs.has(p)" -> "outs.has(p)"
+// killer: scripts/spec-publish.mjs:194 COR "!outs.has(p)" -> "outs.has(p)"
 test("the_previous_tree_must_be_the_clean_top_of_its_commit_and_nothing_published_is_withdrawn", async () => {
   const m = await api(), w = world(), p = w.roots.previous, entries = w.inputs.releases.v?.entries ?? [];
   const problems = (inputs: Inputs, roots: Roots = w.roots): Problem[] => m.plan({ inputs, release: "v", date: "2026-10-02", roots }).problems;
@@ -182,7 +182,7 @@ test("the_previous_tree_must_be_the_clean_top_of_its_commit_and_nothing_publishe
   assert.deepEqual(codes(problems(at(head, entries))), ["previous_dirty"]);
 });
 
-// killer: scripts/spec-publish.mjs:93 CONST "/^G[0-7]$/" -> "/^G[1-7]$/"
+// killer: scripts/spec-publish.mjs:95 CONST "/^G[0-7]$/" -> "/^G[1-7]$/"
 test("vocabulary_gate_is_the_public_free_text_gate_with_closed_exceptions", async () => {
   const m = await api(), rules = (t: string, withheld?: { length: number; sha256: string }[]): string[] => [...new Set(m.vocabularyHits(t, withheld).map((h) => h.rule))];
   const e = String.fromCharCode(0xe9), wide = (s: string): string => [...s].map((ch) => String.fromCharCode(ch.charCodeAt(0) + 0xfee0)).join("");
@@ -201,7 +201,7 @@ test("vocabulary_gate_is_the_public_free_text_gate_with_closed_exceptions", asyn
   assert.deepEqual(codes(m.contentProblems("v.json", "json", Buffer.from('{"k":"\\u0052ECHERCHES"}'))), ["vocabulary"]);
 });
 
-// killer: scripts/spec-publish.mjs:132 ROR "canonicalJson(v) !== text" -> "canonicalJson(v) === text"
+// killer: scripts/spec-publish.mjs:153 ROR "canonicalJson(v) !== text" -> "canonicalJson(v) === text"
 test("each_output_kind_is_checked_and_a_policy_table_must_be_canonical", async () => {
   const m = await api(), c = (out: string, kind: Kind, body: string | Buffer): string[] => codes(m.contentProblems(out, kind, typeof body === "string" ? Buffer.from(body) : body));
   assert.deepEqual(c("policy/btc-dir-1h.json", "policy-table", TABLE), []);
@@ -213,7 +213,7 @@ test("each_output_kind_is_checked_and_a_policy_table_must_be_canonical", async (
   assert.deepEqual([c("a.json", "json", "{"), c("s.json", "schema", "{}"), c("s.json", "schema", SCHEMA)], [["json_invalid"], ["schema_invalid"], []]);
 });
 
-// killer: scripts/spec-publish.mjs:80 CONST "? \"0\" :" -> "? \"-0\" :"
+// killer: scripts/spec-publish.mjs:82 CONST "? \"0\" :" -> "? \"-0\" :"
 test("canonical_writing_follows_section_2_of_the_draft", async () => {
   const m = await api();
   assert.equal(m.canonicalJson(JSON.parse('{"b":1,"a":[0.1,1e-7,-0]}')), '{"a":[0.1,1e-7,0],"b":1}');
@@ -223,7 +223,7 @@ test("canonical_writing_follows_section_2_of_the_draft", async () => {
   }
 });
 
-// killer: scripts/spec-publish.mjs:44 SDL "return false;" -> ""
+// killer: scripts/spec-publish.mjs:46 SDL "return false;" -> ""
 test("the_version_date_is_a_calendar_day_and_no_clock_is_read", async () => {
   const m = await api(), w = world();
   for (const [s, ok] of [["2026-10-02", true], ["2024-02-29", true], ["2026-02-29", false], ["2026-10-2", false], ["2026-13-01", false], ["2026-10-02T00:00:00Z", false]] as const) {
@@ -233,16 +233,16 @@ test("the_version_date_is_a_calendar_day_and_no_clock_is_read", async () => {
   assert.ok(!/Date\.now\(|new Date\(\)|process\.hrtime|performance\.now|toISOString/.test(readFileSync(SCRIPT, "utf8")), "no clock read in the producer");
 });
 
-// killer: scripts/spec-publish.mjs:164 CONST "[\"rev-parse\", \"--show-toplevel\", \"HEAD\"]" -> "[\"push\", \"--show-toplevel\", \"HEAD\"]"
+// killer: scripts/spec-publish.mjs:186 CONST "[\"rev-parse\", \"--show-toplevel\", \"HEAD\"]" -> "[\"push\", \"--show-toplevel\", \"HEAD\"]"
 test("the_producer_never_publishes_its_git_commands_are_reads_only_and_it_writes_once", async () => {
   await api();
   const src = readFileSync(SCRIPT, "utf8");
-  assert.deepEqual([...src.matchAll(/git\(\w+, \["([\w-]+)"/g)].map((x) => x[1]), ["rev-parse", "status", "ls-files", "rev-parse"]);
+  assert.deepEqual([...src.matchAll(/git\(\w+, \["([\w-]+)"/g)].map((x) => x[1]), ["show", "rev-parse", "status", "ls-files", "rev-parse"]);
   assert.deepEqual([src.match(/spawnSync\("git"/g)?.length, src.match(/spawnSync\(/g)?.length, src.match(/writeFileSync\(/g)?.length], [1, 1, 1]);
   assert.ok(!/fetch\(|node:https?"|node:net"/.test(src), "no network");
 });
 
-// killer: scripts/spec-publish.mjs:225 CONST "return 2; }" -> "return 1; }"
+// killer: scripts/spec-publish.mjs:255 CONST "return 2; }" -> "return 1; }"
 test("cli_usage_errors_exit_2", async () => {
   await api();
   const out = fresh(), ok = ["--release", "v", "--date", "2026-10-02", "--out", out];

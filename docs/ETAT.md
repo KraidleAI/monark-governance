@@ -508,6 +508,31 @@ Tronc `lot/etude-suite`. Dernier oracle complet : 1 779 tests, dont 1 776 verts,
     accords avec la doublure ; tests et tueurs W2-E au lot b de CM-4a-ii (RECHERCHES).
   - VERIFIERS-LIST-F5A-1 (Q-2 de CM-4a-ii) : la liste publiée des vérificateurs listés (identité lue avant « @ », minuscules ASCII)
     est due par MONARK avant F-5a. Porteur : MONARK ; état : ouvert.
+    Amendement (2026-10-06 02:39 UTC, G2 de SPEC-1-1-0-RELEASE partie a, N-3 ; décision de MONARK) : déclencheur changé. L item devient
+    bloquant à la première table publiée dont une ligne porte `recompute` non nul (toute ligne kata qui le porte, pas la seule vague 2), et
+    non plus seulement « avant F-5a ». Fil : la porte de `scripts/spec-publish.mjs` (`tableRowProblems`, code `recompute_held`) refuse
+    une telle table, même réépinglée à la main, et l écrivain `scripts/spec-policy-tables.mjs` appelle la même fonction ; tests
+    `no_table_with_a_recompute_row_is_published_before_the_verifier_list` et `spec_publish_refuses_a_hand_edited_table_even_pinned_again`.
+    La version `contract-1.1.0` n en publie aucune.
+    Précision (2026-10-06 03:16 UTC, G2 delta de SPEC-1-1-0-RELEASE partie b, M-1) : « table publiée » se lit **fichier de table** publié
+    (`policy/*.json`, sorte `policy-table`). Le fichier de vecteurs `contract-1.1.0/vectors-1.1.0.json` publie deux tables synthétiques
+    (`synthetic_kata.tables`) dont des lignes portent `recompute`, `aux_sha256` et `series_sha256` : ce sont des vecteurs de recalcul,
+    pas des fichiers de table, et la porte ne les lit pas comme tels (seule la valeur racine d un fichier compte). Aucun fichier de table
+    de cette version ne porte `recompute`. Depuis la même G2, une table déclarée `json` ou `text` est refusée (`policy_table_kind`) : la
+    garde ne dépend plus du `kind` choisi.
+    Précision (2026-10-06 03:29 UTC, G2 delta b2 de SPEC-1-1-0-RELEASE, N-1) : la phrase précédente ne valait que pour une table à la racine
+    d un fichier, `row_format` exact, chemin en minuscules. Désormais, `spec-publish` reconnaît une table à sa forme (un objet avec un
+    tableau `rows` et une entrée `class` qui nomme un `task_class`), à toute profondeur et quel que soit son `row_format`. Tout fichier qui
+    en contient une, et tout chemin qui a un segment `policy/` (toute casse), doit être une entrée `policy-table` au chemin exact
+    `[contract-<x.y.z>/]policy/<classe>.json`. Seul le fichier de vecteurs `contract-<v>/vectors-<v>.json` peut en contenir sans l être :
+    chacune de ses tables passe `tableRowProblems`, et seules les tables de `synthetic_kata`, fixtures de recalcul, sont dispensées de
+    `recompute_held` et de la règle des empreintes de suite ; `n` et `p_served` ≤ 30 restent refusés partout.
+  - SHORT-DIGEST-INVERSION-1 (constat F-1 de la vérification de la spécification 1.1.0, §10 « Short 0/1 sequences ») : gardé depuis le
+    2026-10-06 par la porte de `scripts/spec-publish.mjs` (`tableRowProblems`, code `short_digest`), que l écrivain appelle aussi : elle
+    refuse toute ligne de n ≤ 30 ou de `p_served` ≤ 30, et toute ligne dont `aux_sha256` ou `series_sha256` est non nul (le nombre de
+    points de ces empreintes n est pas écrit dans la ligne) ; tests `no_table_publishes_the_digest_of_a_sequence_of_30_points_or_fewer`
+    et `spec_publish_refuses_a_hand_edited_table_even_pinned_again`. Reste ouvert pour la révision qui publiera des lignes kata (elle dit
+    comment elle tient la règle). Porteur : RECHERCHES ; état : gardé (G2 de SPEC-1-1-0-RELEASE b, N-1 et M-1, 2026-10-06).
   - RPC-GUARD-LOCK-WRITE-LEAK-1 (H-1 de RECHERCHES, G2 de #137) : si l écriture ou le fsync du verrou échoue après un `openSync "wx"`
     réussi, le fichier reste hors de `acquired` (`guarded.ts:43-46`) et la garde répond `lock_held` jusqu à l acte du RUNBOOK.
     Construction : retirer le fichier sur échec d écriture, test et tueur d abord. Porteur : RECHERCHES (zone `packages/rpc-guard/`
