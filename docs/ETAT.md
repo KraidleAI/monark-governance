@@ -601,6 +601,10 @@ Tronc `lot/etude-suite`. Dernier oracle complet : 1 779 tests, dont 1 776 verts,
     après ses lots en cours (recherches#154) ; état : ouvert.
   - MUTANTS-REPLAY-PROMOTE-1 (proposé au G7 de MUTANTS-RUN-EXIT-CODE-1, #144) : une ligne dont le rejeu est « tue » prend le statut
     du rejeu. Porteur : RECHERCHES ; déclencheur : le prochain lot qui touche `scripts/mutants/` ; état : ouvert.
+  - DEP-RELEASE-AGE-RULE-1 (résidu du G7 de DEP-SOURCE-MAP-JS-1 ; déclencheur atteint par DEP-SHARP-1, #205, le 2026-10-06) : option (a)
+    décidée par la cellule le 2026-10-06 (proposition de MONARK, vote de RECHERCHES `e9de455`) : une règle écrite de 7 jours avant d adopter
+    une version neuve d une dépendance, avec une dérogation nommée pour un correctif de sécurité lu au G2. Porteur : MONARK, un lot de
+    documentation ; état : ouvert.
   - R25-INTEGRATION-RULE-1 (décision de l investisseur, 2026-10-05 04:2x UTC) : R-25 ne compte, sur une PR d intégration, que le neuf
     (résolutions de conflit par remerge-diff, commits hors de toute PR fusionnée et relue), contre la borne de 1 205 ; définition fermée
     de la PR d intégration et preuve d appartenance, fail-closed ; une seule source pour le job CI et la porte r25 de l oracle ; ligne
