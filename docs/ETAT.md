@@ -1,6 +1,6 @@
 # ÉTAT — page snapshot du Dōjō (repartir du code)
 
-Écrit le 2026-09-30 à 23:5x UTC, après vérification du code, des branches et des tests ; mis à jour le 2026-10-02 à 02:2x UTC.
+Écrit le 2026-09-30 à 23:5x UTC, après vérification du code, des branches et des tests ; mis à jour le 2026-10-02 à 02:2x UTC ; points de RECHERCHES du 2026-10-05 à 22:1x UTC (section « Point du 2026-10-05 au soir » et items).
 
 ## Règle
 
@@ -66,6 +66,37 @@ Tronc `lot/etude-suite`. Dernier oracle complet : 1 779 tests, dont 1 776 verts,
   - le grand livre `rpc-guard` neuf, le corps borné pour le collecteur (chaîne et relais), les relevés entiers ;
   - corrections d'assemblage : mode d'emploi des refus de l'historique, de l'acte `--history`, de `lock_held` et de `--unlock` ; 31 tueurs réancrés ; imports des tests ; test de composition collecte vers publication aligné sur les relais par le garde.
   - Tests du Dōjō, de la page et de `rpc-guard` sur la branche réunie : 342, dont 340 verts, 0 rouge et 2 ignorés (la clé du serveur ; la variante par vrai signal sous Windows). Typecheck et lint à 0.
+
+## Point du 2026-10-05 au soir (RECHERCHES, 22:1x UTC)
+
+- **Moteur 1.1.0 (base `base/chantier-moteur-2026-10-03`)** : blocs A, B1, B2, C (C1, C2), C' (3c-4a, 3c-4b) et D (D-1 #169, D-2 #171,
+  D-3 #172) fusionnés ; base `21a379fc` puis la ligne (12) d ADR-CM de MONARK. Dernier oracle Windows : 2 571 tests, 0 échec (record
+  `f5eaf514`). Le bloc E (CM-4c, vague 2, environ 300 lignes) est prévu **après** T0 (plan r3 §8.3).
+- **Tronc `lot/etude-suite` `74120213`** : gardes R-25 #162, #166, #170, #173 et #177 (R25-ASSET-STRUCTURE-1, fusionnée le 2026-10-05 ;
+  oracle Windows 2 495 tests, 0 échec). Synchro tronc → base en cours (branche `base/sync-tronc-2026-10-05-soir`).
+  Garde CodeQL du tronc : l analyse de `e4aac057` a été annulée (incident GitHub Actions) ; elle se ferme à la prochaine analyse aboutie.
+- **Miroir public `KraidleAI/Monark`** : dernière release v0.8.0 (2026-10-04 14:39 UTC). Deux chemins pour la suivante :
+  (a) **depuis le tronc**, possible avant T0 (arbre sans instantané en attente) ; contenu : les gardes R-25, la suite L2 P1, les correctifs
+  d aléas ; ne porte pas le contrat 1.1.0 ; (b) **depuis la base, à T0 seulement** (garde `export-public --out`, RUNBOOK) : le contrat 1.1.0.
+- **Reste avant T0 (chemin b)** : SCHEMA-PROJECTION-FAIL-CLOSED-1 (PR #180) et RELEASE-PREFLIGHT-SEND-GUARD-1 (PR #181), vers la
+  base, G2 neuves pliées, CI vertes ; synchro tronc → base faite (#179, base `789f6511`) ; CI-WORKFLOWS-SET-1 passe après T0 (PR #182,
+  accord de MONARK : garde de CI) ; CI-PERMS-JUDGE-YAML-1 passe après T0 (accord de MONARK : garde de CI, pas un contrat
+  servi ; contrôle par diff des fichiers de la gate par MONARK d ici là ; déclencheur : la première semaine après T0) ; NOTICE-1-1-0 finalisée (cellule V-1 à V-8 faite ; N-5 à ajouter : noms BYO
+  génériques réservés ; empreinte OpenAPI `61c9df97…`) ; acte de porte de MONARK (genre « avis », `{SPEC_URL}`, date de T0) ; synchro
+  tronc → base ; liste de T0 de MONARK (CONTRACT-1-1-0 plus bas).
+- **Décision du fondateur (2026-10-05 22:1x UTC, verbatim : « oui, on fait tout en un seul release, ensuite on continue le prochain
+  chantier. donc demain on mets a jour tout. »)**, en réponse à la proposition D = 0 de RECHERCHES (personne n utilise le moteur 1.0.0 ;
+  mesure : 4 `POST /gate` de 2 clients sur les 7 jours avant le 2026-10-03). Conséquences :
+  - **D = 0** : plus de préavis de 7 jours (« actes 2 et 3 (T − D, D = 7 jours) » du G0 du bloc C) ; la NOTICE-1-1-0 devient la note de
+    version du 1.1.0, publiée le jour de T0 ;
+  - **une seule release** du miroir, à T0, depuis la base fusionnée au tronc ; pas de v0.9.0 séparée avant ;
+  - **T0 visé : 2026-10-06**, quand la liste « avant T0 » ci-dessus est fusionnée ; ensuite, le chantier suivant ;
+  - **lieu de la spécification** : décision du fondateur (2026-10-05 22:3x UTC, option retenue verbatim : « Créer monark-kata-spec
+    (Recommandé) ») : le dépôt public `KraidleAI/monark-kata-spec`, que vise déjà `scripts/spec-publish.mjs` (SPEC-PUBLISH-PIPELINE-1)
+    et que nomme le message servi `gate.ts:902` ; rien à recoder. Le dépôt existe déjà (public depuis le 2026-10-01 : `KATA-SPEC.md`,
+    vecteurs et rapport de la vague 1 ; vérifié par MONARK à 23:01 UTC) : aucun dépôt n est créé. D = 0 confirmé par l investisseur
+    dans le fil de MONARK (23:0x UTC). MONARK étend la liste d autorisation de `public-text-deny` (V-1) avec son test.
+- **Garde CodeQL du tronc** : fermée (analyse de `74120213`, 0 alerte ouverte).
 
 ## Points connus (à traiter, non bloquants sauf mention)
 
@@ -504,14 +535,16 @@ Tronc `lot/etude-suite`. Dernier oracle complet : 1 779 tests, dont 1 776 verts,
     `023801ec`, oracles Windows verts, CI verte) ; restes formés : R25-ATTR-SOURCE-1, CI-PERMS-JUDGE-YAML-1, CI-WORKFLOWS-SET-1.
   - R25-ATTR-SOURCE-1 (O-1 de la G2 de R25-INTEGRATION-RULE-1) : le compte d aujourd hui (`W`) du job r25 lu sous le même épinglage
     d attributs que le module et l oracle (un `.gitattributes` mesuré ne doit pas le baisser). Porteur : RECHERCHES (lot en cours) ;
-    contrôle par diff et oracle : MONARK ; déclencheur : après 1b ; état : ouvert.
+    contrôle par diff et oracle : MONARK ; déclencheur : après 1b ; état : fermé le 2026-10-05 (#162 `d6b63e76`).
   - CI-PERMS-JUDGE-YAML-1 (PAROXYSME ; R-2 de la G2 du pli Q-2 de 1b) : le juge `problems()` des permissions de `ci.yml` est lexical ;
     il refuse les clés `? ` et les clés doubles échappées, mais ne lit ni ancres, ni alias, ni fusions `<<:`, ni étiquettes, ni scalaires
     multilignes. Construction visée : une lecture YAML réelle (dépendance vérifiée au registre d abord, R-8) ou les permissions
     effectives du jeton du run. Porteur : RECHERCHES ; d ici là, contrôle par diff des fichiers de la gate par MONARK ; déclencheur :
     avant T0 ; état : ouvert.
   - CI-WORKFLOWS-SET-1 (m-1 de la même G2) : aucun test ne lit un second fichier sous `.github/workflows/` ; l ensemble des workflows
-    est `{ci.yml}`, à épingler par une égalité d ensemble. Porteur : RECHERCHES, lot à part ; déclencheur : avant T0 ; état : ouvert.
+    est `{ci.yml}`, à épingler par une égalité d ensemble. Porteur : RECHERCHES, lot à part ; déclencheur : après T0 (accord de MONARK,
+    garde de CI) ; état : PR #182 vers le tronc (tête `20c645a2`, G2 pliée ; aussi : aucun `uses:` vers ce dépôt). À la fusion de T0
+    (base → tronc) : réancrer le tueur de `test/ci-gates.test.ts:1962` de `scripts/export-public.mjs:425` à `:447`.
   - R25-NUL-BINARY-1 (O-a de la G2 de R25-ATTR-SOURCE-1) : un fichier dont la première ligne porte un octet NUL est lu binaire par
     git et compte 0 sous R-25, comme un sous-module ; construction visée : le compter (ou le refuser) sous les deux pathspecs. Porteur :
     RECHERCHES ; déclencheur : avant T0 ; état : fermé le 2026-10-05 (#166 `e74d39ea`, lot R25-GUARDS-1, ADR-M003 D9 duodecies :
@@ -521,17 +554,68 @@ Tronc `lot/etude-suite`. Dernier oracle complet : 1 779 tests, dont 1 776 verts,
     2026-10-05 (#166 `e74d39ea` : le job et l oracle refusent un compte d intégration au-dessus de `W`, mode `above-written`).
   - R25-ASSET-DIR-MAGIC-1 (PAROXYSME ; reste de R-1 de la G2 de R25-GUARDS-1) : dans un répertoire d actifs déclaré, un fichier à octet
     NUL d extension déclarée compte encore 0, même s il porte du code. Construction visée : refuser sous les deux pathspecs un tel chemin
-    changé dont les premiers octets ne sont pas le nombre magique de son format. Porteur : RECHERCHES ; déclencheur : avant T0 ; ouvert.
+    changé dont les premiers octets ne sont pas le nombre magique de son format. Porteur : RECHERCHES ; déclencheur : avant T0 ; état :
+    fermé le 2026-10-05 (#170 `c1460fd6`, lot R25-GUARDS-2, refus `asset-magic`).
   - R25-CR-ONLY-LINES-1 (PAROXYSME ; R-2 de la même G2) : R-25 compte des `\n` ; 3 001 instructions séparées par `\r` seul comptent 1
-    ligne. Construction visée : compter un `\r` isolé comme une fin de ligne. Porteur : RECHERCHES ; déclencheur : avant T0 ; ouvert.
+    ligne. Construction visée : compter un `\r` isolé comme une fin de ligne. Porteur : RECHERCHES ; déclencheur : avant T0 ; état :
+    fermé le 2026-10-05 (#170 `c1460fd6`, refus `bare-cr`, plus `line-separator` et `utf16-bom`).
   - R25-GITLINK-SYMLINK-1 (Q-3 et N-8 de la même G2) : un sous-module (`160000`) ou un lien symbolique (`120000`) compte 1 ligne ;
-    refuser le premier sous les deux pathspecs, décider du second. Porteur : RECHERCHES ; déclencheur : avant T0 ; état : ouvert.
+    refuser le premier sous les deux pathspecs, décider du second. Porteur : RECHERCHES ; déclencheur : avant T0 ; état : fermé le
+    2026-10-05 (#170 `c1460fd6` : les deux sont refusés, `--ignore-submodules=none`).
   - TRANSPORT-500-SCHEMA-1 (N-4 de la G2 de C' 3c-4a) : le 500 de transport sans `operation` contredit le schéma 500 publié de
-    `/openapi.json`. Porteur : RECHERCHES ; déclencheur : avant la NOTICE de T−7 (le contrat publié doit dire vrai) ; état : ouvert.
+    `/openapi.json`. Porteur : RECHERCHES ; déclencheur : avant la NOTICE de T−7 (le contrat publié doit dire vrai) ; état : fermé le
+    2026-10-05 dans la base (#168 `a8ae38c0`) ; arrive au tronc à T0, avec la base.
   - SCHEMA-PROJECTION-FAIL-CLOSED-1 (N-2 de la même G2) : `inlineDefs` perd les mots-clés voisins d un `$ref` et boucle sur une
-    définition récursive ; la projection doit échouer fermé. Porteur : RECHERCHES ; déclencheur : avant T0 ; état : ouvert.
+    définition récursive ; la projection doit échouer fermé. Porteur : RECHERCHES ; déclencheur : avant T0 ; état : fusionné le
+    2026-10-05 dans la base (#180 `45e5c8df`, oracle Windows 2 679 tests, 0 échec ; tête du lot `eac3b03e`, G2 neuve pliée N-1 à N-6, dont DEREF-VERDICT-FAIL-CLOSED-1 ; aucun octet servi ne bouge, OpenAPI `61c9df97…`).
+    Restes au G7 du lot : DYNAMIC-ELSEWHERE-1, NESTED-ID-ELSEWHERE-1, DEFINITIONS-KEYWORD-1, UNKNOWN-KEYWORD-OBJECTS-1 (défaut : laisser).
   - RELEASE-PREFLIGHT-SEND-GUARD-1 (Q-CPA-1 de C' 3c-4a) : `release-public` refuse dès son pré-vol, avant les portes locales, tant
-    qu un instantané en attente existe (la garde de l export reste l autorité). Porteur : RECHERCHES ; déclencheur : avant T0 ; ouvert.
+    qu un instantané en attente existe (la garde de l export reste l autorité). Porteur : RECHERCHES ; déclencheur : avant T0 ; état :
+    PR #181 vers la base (tête `d87c808c`, G2 neuve pliée N-1 à N-5). Reste pour MONARK : RPG-RUNBOOK-1, `docs/RUNBOOK-vitrine.md:34-35`
+    dit encore que le refus tombe après les portes complètes (~15 min) ; après fusion, il tombe au pré-vol. Fusionnée le 2026-10-05
+    (base `ec0e023d`, oracle Windows 2 680 tests, 0 échec) : fermé.
+  - RPG-FLOW-DECLARED-KILLERS-1 (reste de la G2 de RELEASE-PREFLIGHT-SEND-GUARD-1, hors du chemin de T0) : le test de flux
+    `release_public_flow` ne déclare qu un tueur (`release-public.mjs:211`, export refusé) ; le refus au pré-vol (`:175`) et la ligne
+    RELEASE ABORTED d une liste d exclusion illisible (`:112`) ne sont tués qu à la main. Options : (a) scinder le test de flux en un
+    banc partagé et trois tests, un tueur déclaré chacun (environ 40 lignes de test) ; (b) laisser, tirs à la main consignés au G7.
+    Porteur : RECHERCHES ; déclencheur : le prochain lot qui touche `scripts/release-public.mjs` ; état : ouvert.
+  - R25-JSON-STRING-CODE-1, R25-TOOL-RUN-JSON-1, R25-LINE-CAP-2000-1, R25-WIN32-CONTROL-PATH-1 (restes de la G2 de R25-MINIFIED-LINE-1,
+    #173 `e4aac057`, refus `long-line` au-delà de 2 000 octets, exemption JSON fermée) : du code dans une chaîne d un `.json` exempté ;
+    les JSON lus par un outil (liste fermée par nom) ; le seuil de 2 000 octets ; les chemins win32 à caractère de contrôle. Options et prix
+    au G7 du lot. Porteur : RECHERCHES ; déclencheur : la revue d après T0, ou un JSON exempté qui devient entrée exécutée ; état : ouvert.
+    (R25-REFUSAL-NAMES-1 : fermé par #173, `named()` échappe `[` et tout au-delà de U+007E.)
+  - R25-ASSET-STRUCTURE-1 (durcissement de R25-ASSET-POLYGLOT-1, Q-c de la cellule : (c) réduit) : un actif déclaré qui passe son nombre
+    magique doit aussi passer sa structure (PNG, JPEG, TTF, OTS, CBOR), sinon refus `asset-structure`. 0 des 45 actifs du tronc refusé.
+    Porteur : RECHERCHES ; état : fermé le 2026-10-05 (#177 `74120213`, G2 fraîche approuvée, CI 10/10, oracle Windows vert).
+    Restes formés au G7 du lot (§8, options et prix) : R25-ASSET-FREE-FIELD-1, R25-ASSET-PNG-DEFLATE-1, R25-ASSET-ICCP-1,
+    R25-ASSET-TTF-TABLES-1, R25-ASSET-OTS-PENDING-1, R25-ASSET-CBOR-1, R25-ASSET-STRIP-1 ; et, de la G2 : R25-ASSET-FIXED-CHUNK-SIZE-1
+    (taille exacte des morceaux PNG de taille fixe, environ 4 lignes) et R25-ASSET-INFLATE-CAP-1 (plafond absolu de décompression,
+    environ 1 ligne ; un en-tête 16384×16384 alloue 268 Mo, échec fermé par OOM). Accord de MONARK : ces deux-là en un petit lot au tronc,
+    après T0.
+    R25-ASSET-POLYGLOT-1 (a) reste différé (déclencheur : un actif devient entrée exécutée, ou la revue d après T0).
+  - L2-BOOK-LOAD-1 : le premier oracle de #172 (record `6b7b6571`) a vu `test/l2-book.test.ts` tomber au chargement, cause perdue ; course
+    des dossiers temporaires réfutée, cause non prouvée. Témoin `keepCause` en place (#174 `89d40d7f`) ; oracles suivants verts (2 563 et
+    2 571 tests). Porteur : RECHERCHES ; déclencheur : un nouvel échec (le témoin donne la cause) ; état : ouvert.
+  - L2-KEEP-CAUSE-REST-1 (reste de #174) : 8 des 12 fichiers `test/l2-*.test.ts` portent le témoin `keepCause` ; les 4 autres
+    (`l2-rest`, `l2-rest-tls`, `l2-fake-place`, `l2-segments`) travaillent au chargement sans lui ; environ 40 lignes, tests seuls.
+    Porteur : RECHERCHES ; déclencheur : avant c6 ; état : ouvert.
+  - L2-SEAL-APART-TRUNK-PORT-1 (reste de #175) : au tronc, borner l attente et libérer les FIFO dans un `finally`, comme #175 dans la
+    base ; environ 12 lignes.
+    Porteur : RECHERCHES ; déclencheur : la prochaine synchro tronc → base, ou avant ; état : construit (branche
+    `recherches/l2-seal-apart-trunk-port-1`, `b672c5bb`, tests seuls), G2 neuve en cours. Conflit attendu sur
+    `test/l2-loop.test.ts` avec #175 à la fusion de T0 : résolution donnée par la G2.
+  - L2-SEAL-APART-ROOT-DELETED-FLAKE-1 (vu en construisant le port) : `l2_seal_apart_root_deleted` (`test/l2-loop.test.ts:620`) rougit
+    1 fois sur 112 sous charge au tronc (`seal_timeout` après 5 s). Porteur : RECHERCHES ; déclencheur : lot c6 ; état : ouvert.
+  - L2-SEAL-APART-FD-LEAK-1 (même source) : `l2_seal_apart_as_in_process` (`:389`) rougit 1 fois sur 112 sous charge (un fd 22 de trop
+    chez l enfant). Porteur : RECHERCHES ; déclencheur : lot c6 ; état : ouvert.
+  - L2-SEAL-APART-LATE-DEADLINE-1 (G2 de #175) : un `seal_timeout` ou un `seal_aborted` peut couvrir un jour déjà scellé par l enfant ;
+    l en-tête `seal.mjs:42-43` dit plus que le code ne tient. Quand la boucle câblera `sealApart`, elle lira `day_sealed` au nouvel essai
+    (`day.mjs:180`) comme un succès ; corriger l en-tête et la doc. Porteur : RECHERCHES ; déclencheur : lot c6 ; état : ouvert.
+  - ORACLE-CHILD-EXIT-TRACE-1 : l oracle Windows perd la cause quand un enfant de test sort non nul au chargement (`:1:1 'test failed'`).
+    Porteur : MONARK ; déclencheur : une deuxième cause perdue ; état : ouvert.
+  - BELL-COURSE-TSLAX-DRIFT-1 : `docs/course-bell/mint_resume-TSLAx-manifest.txt` réécrit (`34ba9798`) sans réhorodatage ; sa preuve
+    `.ots` couvre l ancien contenu (blob `a2db06d5`, la copie servie). Options : restaurer ce blob (0 code) ou réhorodater. Porteur :
+    MONARK (exploitation de Bell) ; état : ouvert.
   - CANONICAL-ROW-REEXPORT-1 (coupe nommée Q-CP-8, appliquée au G0 de C' 3c-4b) : `canonicalRow` réexporte `canonicalJson` (clé non
     ASCII refusée) ; sorti du chantier 1.1.0, aucun octet servi. Porteur : RECHERCHES ; déclencheur : après T0 ; état : ouvert.
   - L2-HARNESS-FIXED-UNTIL-1 (note de l agent de #157) : des tests du harnais L2 assertent juste après un `until` à instant fixe ; sous
@@ -551,13 +635,14 @@ Tronc `lot/etude-suite`. Dernier oracle complet : 1 779 tests, dont 1 776 verts,
     analyse CodeQL du tronc `11b301a9` : 0 alerte ouverte à 13:31 UTC).
   - SITE-SEND-GUARD-MECH-1 (demande de MONARK pour C') : `export-public.mjs --out` refuse tant qu un instantané en attente existe, sans drapeau de
     contournement ; la promotion à T0 lève la garde. Porteur : RECHERCHES (C', lot 3c-4a, G0 `8f554390`) ; d ici là, la règle du
-    RUNBOOK, tenue par MONARK : aucun envoi du site ni release du miroir depuis la base avant C' ; état : ouvert.
+    RUNBOOK, tenue par MONARK : aucun envoi du site ni release du miroir depuis la base avant C' ; état : fermé le 2026-10-05 dans la
+    base (#164 `094eab83`) ; la garde arrive au tronc à T0.
   - HOST-REDEPLOY-GUARD-1 (PAROXYSME ; Q-CP-5 du G0 de C') : la règle m-1 (redéployer l hôte depuis le SHA déployé seulement, jusqu à
     T0) est une règle de procédure ; construction visée : une garde mécanique dans le script de déploiement de MONARK. Porteur :
     MONARK ; déclencheur : avant le prochain redéploiement de l hôte ; état : ouvert.
   - MUTANTS-RUN-EXIT-CODE-1 (signalé par RECHERCHES, 2026-10-04) : `scripts/mutants/run.mjs` juge un mutant sur la sortie, pas sur le
     code de sortie ; un rapport d échec perdu donne « survit » au lieu de « tué » (sens sûr, mesure fausse). Construction : juger sur le
-    code, tests et tueur d abord. Porteur : RECHERCHES (zone `scripts/mutants/` ouverte, recherches#154) ; état : ouvert.
+    code, tests et tueur d abord. Porteur : RECHERCHES (zone `scripts/mutants/` ouverte, recherches#154) ; état : fermé (#144 `16860fdd`).
   - L2-MARKET-STREAMS-CASE-FAITS-1 (Q-A4-1 du G0 de L2 P1-a4) : les flux `/market` sont en minuscules ; la ligne FAITS qui le prouve
     sur la page primaire est due avant M-1. Porteur : RECHERCHES ; déclencheur : M-1 ; état : ouvert.
   - L2-RECV-US-RESOLUTION-1 (PAROXYSME ; Q-4 du G1 de L2-P1-a2) : Node n offre aucune horloge murale à la microseconde ; `recv_us`
