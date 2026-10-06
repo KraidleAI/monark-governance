@@ -98,6 +98,7 @@ test("public_text_kind_for_path — docs/public-notes/** maps to a kind by path,
   for (const [rel, kind] of cases) assert.equal(kindForPath(rel), kind, rel);
 });
 
+// killer: docs/public-notes/v0.8.0.md:1 CONST "v0.8.0 - a retired" -> "v0.8.0 - a Polygon retired"
 test("public_notes_pass_the_gate — every file under docs/public-notes/** has a kind and passes the gate (CA-1.6, CA-5.1)", () => {
   const files: string[] = [];
   const walk = (rel: string): void => {
@@ -108,6 +109,8 @@ test("public_notes_pass_the_gate — every file under docs/public-notes/** has a
     }
   };
   walk("docs/public-notes");
+  assert.ok(files.includes("docs/public-notes/TEMPLATE.md"), "the notes template is committed beside the notes (TEMPLATE-MARKERS-SOURCE-1)");
+  files.splice(files.indexOf("docs/public-notes/TEMPLATE.md"), 1); // not a public text: checked by template_markers_follow_the_committed_template
   assert.ok(files.filter((f) => kindForPath(f) === "issue").length >= 2, `the issue texts are found (false-green guard): ${files.join(", ")}`);
   for (const f of files) {
     const kind = kindForPath(f);
@@ -117,7 +120,7 @@ test("public_notes_pass_the_gate — every file under docs/public-notes/** has a
   }
 });
 
-// killer: scripts/public-text-deny.mjs:120 CONST "|^https:\/\/github\.com\/KraidleAI\/monark-kata-spec(?:[/?#]|$)" -> ""
+// killer: scripts/public-text-deny.mjs:121 CONST "|^https:\/\/github\.com\/KraidleAI\/monark-kata-spec(?:[/?#]|$)" -> ""
 test("public_text_gate_admits_the_spec_repository — the third public origin, exact name only", () => {
   const spec = "https://github.com/KraidleAI/monark-kata-spec";
   for (const u of [spec, `${spec}/blob/main/KATA-SPEC.md`, `${spec}#x`, `${spec}?y`, "https://github.com/kraidleai/MONARK-KATA-SPEC"]) {
@@ -130,7 +133,7 @@ test("public_text_gate_admits_the_spec_repository — the third public origin, e
   }
 });
 
-// killer: scripts/public-text-deny.mjs:123 CONST "return URL_ALLOW.test(url) && URL_ALLOW.test(href);" -> "return URL_ALLOW.test(url);"
+// killer: scripts/public-text-deny.mjs:124 CONST "return URL_ALLOW.test(url) && URL_ALLOW.test(href);" -> "return URL_ALLOW.test(url);"
 test("public_text_gate_resolves_dot_segments — an allowed origin cannot lead elsewhere", () => {
   for (const base of ["https://github.com/KraidleAI/Monark", "https://github.com/KraidleAI/monark-kata-spec"]) {
     for (const u of [`${base}/../recherches`, `${base}/%2e%2e/recherches`, `${base}/../../evil/x`]) {
@@ -140,7 +143,7 @@ test("public_text_gate_resolves_dot_segments — an allowed origin cannot lead e
   }
 });
 
-// killer: scripts/public-text-deny.mjs:122 CONST "if (url.indexOf(\"://\") !== url.lastIndexOf(\"://\")) return false; " -> ""
+// killer: scripts/public-text-deny.mjs:123 CONST "if (url.indexOf(\"://\") !== url.lastIndexOf(\"://\")) return false; " -> ""
 test("public_text_gate_refuses_a_url_nested_in_an_allowed_one — one scheme separator per URL", () => {
   for (const u of ["https://github.com/KraidleAI/monark-kata-spec?u=https://example.org/x", "https://monarkgate.tech/#next=http://example.org"]) {
     assert.ok(rules(`See ${u} now`, "notes").includes("g"), `${u} must be refused by rule g`);
@@ -150,7 +153,7 @@ test("public_text_gate_refuses_a_url_nested_in_an_allowed_one — one scheme sep
 // T0-TOOLING-1 (review M-d; gate act V-2 of MONARK, widened by its G2): every unfilled template marker of a line is named, an
 // upper-case identifier in braces, inner spaces and hyphens included; lower-case braces and brace lists (the kata pattern of
 // the skill) pass. Measured: 0 refusal on docs/public-notes/** (public_notes_pass_the_gate above).
-// killer: scripts/public-text-deny.mjs:127 CONST "\\{\\s*[A-Z][A-Z0-9_-]*\\s*\\}" -> "\\{[A-Z][A-Z0-9_]*\\}"
+// killer: scripts/public-text-deny.mjs:128 CONST "\\{\\s*[A-Z][A-Z0-9_-]*\\s*\\}" -> "\\{[A-Z][A-Z0-9_]*\\}"
 test("public_text_gate_refuses_an_unfilled_marker — {T0} and {OPENAPI_SHA256} red, {btc,eth} and {dir} green", () => {
   for (const kind of PUBLIC_TEXT_KINDS) {
     for (const marker of ["{T0}", "{OPENAPI_SHA256}", "{ T0 }", "{OPENAPI-SHA256}"]) {
@@ -170,44 +173,93 @@ test("public_text_gate_refuses_an_unfilled_marker — {T0} and {OPENAPI_SHA256} 
 const phWords = (line: string): string[][] => PUBLIC_TEXT_KINDS.map((kind) => checkPublicText(`${line}\n`, kind).violations.filter((v) => v.rule === "ph").map((v) => v.word));
 const each = (words: string[]): string[][] => PUBLIC_TEXT_KINDS.map(() => words);
 
-// killer: scripts/public-text-deny.mjs:127 CONST "\\{\\s*[A-Z]" -> "\\{[A-Z]"
+// killer: scripts/public-text-deny.mjs:128 CONST "\\{\\s*[A-Z]" -> "\\{[A-Z]"
 test("public_text_gate_ph_refuses_a_spaced_marker — { T0 } is an unfilled marker", () => {
   assert.deepEqual(phWords("Served on { T0 } for the {btc,eth} classes, mirror ${MIRROR}"), each(["{ T0 }"]));
 });
 
-// killer: scripts/public-text-deny.mjs:127 CONST "[A-Z0-9_-]*" -> "[A-Z0-9_]*"
+// killer: scripts/public-text-deny.mjs:128 CONST "[A-Z0-9_-]*" -> "[A-Z0-9_]*"
 test("public_text_gate_ph_refuses_a_hyphenated_marker — {OPENAPI-SHA256} is an unfilled marker", () => {
   assert.deepEqual(phWords("The document {OPENAPI-SHA256} per {dir} class, mirror ${MIRROR}"), each(["{OPENAPI-SHA256}"]));
 });
 
-// killer: scripts/public-text-deny.mjs:127 CONST "[A-Z][A-Z0-9_-]*" -> "[A-Za-z][A-Za-z0-9_,-]*"
+// killer: scripts/public-text-deny.mjs:128 CONST "[A-Z][A-Z0-9_-]*" -> "[A-Za-z][A-Za-z0-9_,-]*"
 test("public_text_gate_ph_passes_a_lowercase_list — {btc,eth} is prose, the marker beside it is not", () => {
   assert.deepEqual(phWords("The {btc,eth} classes on { T0 } from ${MIRROR}"), each(["{ T0 }"]));
 });
 
-// killer: scripts/public-text-deny.mjs:127 CONST "[A-Z][A-Z0-9_-]*" -> "[a-zA-Z][a-zA-Z0-9_-]*"
+// killer: scripts/public-text-deny.mjs:128 CONST "[A-Z][A-Z0-9_-]*" -> "[a-zA-Z][a-zA-Z0-9_-]*"
 test("public_text_gate_ph_passes_a_lowercase_word — {dir} is prose, the marker beside it is not", () => {
   assert.deepEqual(phWords("One class per {dir} since {OPENAPI-SHA256} from ${MIRROR}"), each(["{OPENAPI-SHA256}"]));
 });
 
-// killer: scripts/public-text-deny.mjs:127 CONST "(?<!\\$)" -> ""
+// killer: scripts/public-text-deny.mjs:128 CONST "(?<!\\$)" -> ""
 test("public_text_gate_ph_passes_a_shell_variable — ${HOME} is a command, {HOME} is a marker (delta G2 D-7)", () => {
   assert.deepEqual(phWords("Set ${MONARK_PUBLIC_MIRROR} then fill {HOME}"), each(["{HOME}"]));
 });
 
 // E-2 of the delta2 G2 (agreed by MONARK): a shell-variable form of a TEMPLATE marker, ${T0}, is still an unfilled marker; any
 // other variable, ${HOME}, stays a command. The template markers are the gate's closed list (TEMPLATE_MARKERS), one case each.
-// killer: scripts/public-text-deny.mjs:128 CONST "\"T0\", " -> ""
+// killer: docs/public-notes/TEMPLATE.md:3 CONST "since {T0}:" -> "since the switch:"
 test("public_text_gate_ph_refuses_a_template_variable_t0 — ${T0} is the T0 marker", () => {
   assert.deepEqual(phWords("Served on ${T0} from ${HOME}"), each(["${T0}"]));
 });
 
-// killer: scripts/public-text-deny.mjs:128 CONST "\"OPENAPI_SHA256\", " -> ""
+// killer: docs/public-notes/TEMPLATE.md:5 CONST "`{OPENAPI_SHA256}`" -> "`its digest`"
 test("public_text_gate_ph_refuses_a_template_variable_openapi — ${OPENAPI_SHA256} is the document marker", () => {
   assert.deepEqual(phWords("The document ${ OPENAPI_SHA256 } read from ${HOME}"), each(["${ OPENAPI_SHA256 }"]));
 });
 
-// killer: scripts/public-text-deny.mjs:127 CONST "(?<!\\$)" -> ""
+// killer: scripts/public-text-deny.mjs:128 CONST "(?<!\\$)" -> ""
 test("public_text_gate_ph_passes_home — ${HOME} is a command, the marker beside it is not", () => {
   assert.deepEqual(phWords("Set ${HOME}, then fill {T0}"), each(["{T0}"]));
+});
+
+// TEMPLATE-MARKERS-SOURCE-1 (lot T0-FOLLOWUP-1, option A of MONARK): the template markers are those of the committed notes template
+// docs/public-notes/TEMPLATE.md, derived, never typed: a marker added to a copy of the template joins the list. The template is not a
+// public text (kindForPath gives it no kind; docs/ is never exported): it passes every rule of the notes gate but ph, and ph names
+// exactly its markers.
+// killer: scripts/public-text-deny.mjs:130 CONST ".map((m) => m[1])" -> ".map((m) => m[0])"
+test("template_markers_follow_the_committed_template", async () => {
+  const gate = (await import("../scripts/public-text-deny.mjs")) as Record<string, unknown>;
+  const derive = gate["templateMarkers"] as ((text: string) => string[]) | undefined;
+  assert.equal(typeof derive, "function", "scripts/public-text-deny.mjs exports templateMarkers");
+  if (derive === undefined) return;
+  const template = readFileSync(join(ROOT, "docs/public-notes/TEMPLATE.md"), "utf8");
+  assert.deepEqual([...(gate["TEMPLATE_MARKERS"] as string[])], derive(template), "TEMPLATE_MARKERS is the template's marker list");
+  assert.deepEqual(derive(template), ["T0", "SPEC_URL", "OPENAPI_SHA256"], "the template carries {T0}, {SPEC_URL} and {OPENAPI_SHA256}, each once in the list");
+  assert.deepEqual(derive(`${template}\nFilled by hand: {NEW_MARK}.\n`), [...derive(template), "NEW_MARK"], "a marker added to a copy joins the list");
+  assert.equal(kindForPath("docs/public-notes/TEMPLATE.md"), null, "the template is not a public text");
+  const v = checkPublicText(template, "notes").violations;
+  assert.deepEqual(v.filter((x) => x.rule !== "ph"), [], "the template passes every other rule of the notes gate");
+  assert.deepEqual([...new Set(v.map((x) => x.word))].sort(), ["{OPENAPI_SHA256}", "{SPEC_URL}", "{T0}"], "ph names exactly its markers");
+});
+
+// killer: docs/public-notes/TEMPLATE.md:5 CONST "is at {SPEC_URL}." -> "is at the spec repository."
+test("public_text_gate_ph_refuses_a_template_variable_spec_url — ${SPEC_URL} is the specification marker (G2 F-6)", async () => {
+  const derive = ((await import("../scripts/public-text-deny.mjs")) as Record<string, unknown>)["templateMarkers"] as ((text: string) => string[]) | undefined;
+  assert.equal(typeof derive, "function", "scripts/public-text-deny.mjs exports templateMarkers");
+  assert.ok(derive?.(readFileSync(join(ROOT, "docs/public-notes/TEMPLATE.md"), "utf8")).includes("SPEC_URL"), "SPEC_URL is a marker of the committed template");
+  assert.deepEqual(phWords("The specification is at ${SPEC_URL}, home ${HOME}"), each(["${SPEC_URL}"]));
+});
+
+// G2 F-5 of T0-FOLLOWUP-1: the derivation reads markers with the placeholder rule's own shape (inner spaces, hyphens), and a
+// template with no marker is refused by name, at import, instead of silently emptying the variable form.
+// killer: scripts/public-text-deny.mjs:131 SDL "  if (names.length === 0) throw new Error(`${TEMPLATE_REL} has no marker`);" -> ""
+test("template_markers_take_the_placeholder_shape_and_never_come_out_empty", async () => {
+  const derive = ((await import("../scripts/public-text-deny.mjs")) as Record<string, unknown>)["templateMarkers"] as ((text: string) => string[]) | undefined;
+  assert.equal(typeof derive, "function", "scripts/public-text-deny.mjs exports templateMarkers");
+  if (derive === undefined) return;
+  assert.deepEqual(derive("Since { T0 }, document {OPENAPI-SHA256}, again {T0}."), ["T0", "OPENAPI-SHA256"], "the placeholder shape derives");
+  assert.throws(() => derive("A template with no marker.\n"), /docs\/public-notes\/TEMPLATE\.md has no marker/, "an empty list is refused by name");
+});
+
+// G2 T-1 of T0-FOLLOWUP-1: a shell variable written in the template ("${HOME}") is not a marker. Were it one, MARKER_VARIABLE would
+// refuse every public text naming ${HOME}, contrary to the header: the lookbehind of the derivation is pinned here.
+// killer: scripts/public-text-deny.mjs:130 CONST "(?<!\\$)" -> ""
+test("template_markers_skip_a_shell_variable_of_the_template", async () => {
+  const derive = ((await import("../scripts/public-text-deny.mjs")) as Record<string, unknown>)["templateMarkers"] as ((text: string) => string[]) | undefined;
+  assert.equal(typeof derive, "function", "scripts/public-text-deny.mjs exports templateMarkers");
+  if (derive === undefined) return;
+  assert.deepEqual(derive("Since {T0}, run it with ${HOME} and ${ PATH }."), ["T0"], "a ${NAME} of the template is a shell variable, not a marker");
 });
