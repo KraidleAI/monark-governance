@@ -1046,7 +1046,7 @@ test("r25s_ci_refuses_an_asset_with_a_payload_after_its_end - R25-ASSET-POLYGLOT
 
 // killer: scripts/lot-size-integration.mjs:268 CONST "if (o !== b.length) return" -> "if (false) return"
 // killer: scripts/lot-size-integration.mjs:264 CONST " || crc32(b.subarray(o + 4, o + 8 + n)) !== b.readUInt32BE(o + 8 + n)" -> ""
-// killer: scripts/lot-size-integration.mjs:265 CONST " || (t !== \"IDAT\" && seen.has(t))" -> ""
+// killer: scripts/lot-size-integration.mjs:265 CONST " || (!PNG_REPEAT.includes(t) && seen.has(t))" -> ""
 test("r25s_png_ends_at_iend_with_sound_chunks - the trunk logo passes; a zip archive or one byte after IEND, a chunk whose CRC is wrong, a length running past the file, no IEND, a second IHDR are refused (nothing refused before the lot: the trunk logo fails too)", () => {
   const logo = blobOf("out/logo.png"), crc = Buffer.from(logo), over = Buffer.from(logo);
   crc[50] = (crc[50] ?? 0) ^ 1; // a byte of the iCCP profile
@@ -1169,28 +1169,47 @@ test("r25s_png_fixed_size_chunks_have_their_spec_length - in the trunk logo, gAM
   }), { gAMA: true, cHRM: true, sRGB: true, pHYs: true, gAMAText: false, gAMA5: false, cHRM33: false, sRGB2: false, pHYs10: false, iendByte: false });
 });
 
-// killer: scripts/lot-size-integration.mjs:265 CONST " || (t !== \"IDAT\" && seen.has(t))" -> ""
-// killer: scripts/lot-size-integration.mjs:265 CONST "t !== \"IDAT\" && " -> ""
+// killer: scripts/lot-size-integration.mjs:265 CONST " || (!PNG_REPEAT.includes(t) && seen.has(t))" -> ""
+// killer: scripts/lot-size-integration.mjs:265 CONST "!PNG_REPEAT.includes(t) && " -> ""
 // killer: scripts/lot-size-integration.mjs:266 CONST "Math.min(n, seen.get(\"PLTE\") / 3)" -> "n"
 // killer: scripts/lot-size-integration.mjs:254 CONST "sBIT: [1, null, 3, 3, 2, null, 4]" -> "sBIT: [1, null, 3, 3, 2, null, 3]"
 // killer: scripts/lot-size-integration.mjs:254 CONST "tRNS: [2, null, 6]" -> "tRNS: [2, null, 6, null, null, null, 6]"
 // killer: scripts/lot-size-integration.mjs:254 CONST "bKGD: [2, null, 6, 1, 2, null, 6]" -> "bKGD: [2, null, 6, 2, 2, null, 6]"
-test("r25s_png_colour_chunks_fit_the_colour_type_once_each - sBIT, bKGD and tRNS pass at the size of their colour type (greyscale 1, 2, 2; truecolour 3, 6, 6; palette bKGD 1 and tRNS up to one byte per PLTE entry; truecolour with alpha sBIT 4, bKGD 6) and are refused at another size, tRNS in an image with alpha, tRNS longer than the palette or before it; a second gAMA is refused, two IDAT chunks pass (a second gAMA passes before the lot)", () => {
+// killer: scripts/lot-size-integration.mjs:254 CONST "sBIT: [1, null, 3, 3, 2, null, 4]" -> "sBIT: [1, null, 3, 3, 3, null, 4]"
+// killer: scripts/lot-size-integration.mjs:254 CONST "sBIT: [1, null, 3, 3, 2, null, 4]" -> "sBIT: [1, null, 3, 9, 2, null, 4]"
+// killer: scripts/lot-size-integration.mjs:254 CONST "bKGD: [2, null, 6, 1, 2, null, 6]" -> "bKGD: [2, null, 6, 1, 9, null, 6]"
+// killer: scripts/lot-size-integration.mjs:254 CONST "tRNS: [2, null, 6]" -> "tRNS: [2, null, 6, null, 2]"
+// killer: scripts/lot-size-integration.mjs:265 CONST "n === 0 || " -> ""
+// killer: scripts/lot-size-integration.mjs:265 CONST "n % 3 !== 0 || " -> ""
+// killer: scripts/lot-size-integration.mjs:265 CONST "n > 768" -> "n > 65535"
+test("r25s_png_colour_chunks_fit_the_colour_type_once_each - sBIT, bKGD and tRNS pass at the size of their colour type (greyscale 1, 2, 2; truecolour 3, 6, 6; palette sBIT 3, bKGD 1 and tRNS up to one byte per PLTE entry; greyscale with alpha sBIT 2, bKGD 2; truecolour with alpha sBIT 4, bKGD 6) and are refused at another size, tRNS in an image with alpha (types 4 and 6), tRNS longer than the palette or before it; PLTE passes at 768 bytes and is refused empty, at 4 bytes or at 771; a second gAMA or iCCP is refused, two IDAT chunks pass (a second gAMA passes before the lot)", () => {
   const logo = blobOf("out/logo.png"), at = (t: string, h: string): Buffer => beforeIend(logo, pngChunk(t, Buffer.from(h, "hex"))), plte = pngChunk("PLTE", Buffer.from("000000ffffff", "hex"));
   const c = (t: string, h: string): Buffer => pngChunk(t, Buffer.from(h, "hex")), pal = (...more: Buffer[]): Buffer => pngOf(2, 1, 3, 0, Buffer.from([0, 0, 1]), more);
   assert.deepEqual(passes("png", {
     sBIT4: at("sBIT", "08080808"), bKGD6: at("bKGD", "000000000000"), sBIT3: at("sBIT", "080808"), bKGD2: at("bKGD", "0000"), tRNSAlpha: at("tRNS", "000000000000"),
     grey: pngOf(2, 1, 0, 0, Buffer.from([0, 0, 0]), [c("sBIT", "08"), c("bKGD", "0000"), c("tRNS", "0000")]), greyTRNS6: pngOf(2, 1, 0, 0, Buffer.from([0, 0, 0]), [c("tRNS", "000000000000")]),
     rgb: pngOf(1, 1, 2, 0, Buffer.from([0, 0, 0, 0]), [c("sBIT", "080808"), c("bKGD", "000000000000"), c("tRNS", "000000000000")]),
-    palette: pal(plte, c("tRNS", "00ff"), c("bKGD", "01")), paletteTRNS3: pal(plte, c("tRNS", "00ff00")), tRNSFirst: pal(c("tRNS", "00"), plte),
+    palette: pal(c("sBIT", "080808"), plte, c("tRNS", "00ff"), c("bKGD", "01")), ga: pngOf(1, 1, 4, 0, Buffer.alloc(3), [c("sBIT", "0808"), c("bKGD", "0000")]), gaTRNS: pngOf(1, 1, 4, 0, Buffer.alloc(3), [c("tRNS", "0000")]),
+    plte768: pal(pngChunk("PLTE", Buffer.alloc(768))), plte0: pal(pngChunk("PLTE", "")), plte4: pal(pngChunk("PLTE", Buffer.alloc(4))), plte771: pal(pngChunk("PLTE", Buffer.alloc(771))), iccpTwice: beforeIend(logo, logo.subarray(33, 45 + logo.readUInt32BE(33))), paletteTRNS3: pal(plte, c("tRNS", "00ff00")), tRNSFirst: pal(c("tRNS", "00"), plte),
     twice: beforeIend(logo, c("gAMA", "0000b18f"), c("gAMA", "0000b18f")), twoIdat: splitIdat(pngOf(4, 3, 6, 0, Buffer.alloc(51, 1))),
-  }), { sBIT4: true, bKGD6: true, sBIT3: false, bKGD2: false, tRNSAlpha: false, grey: true, greyTRNS6: false, rgb: true, palette: true, paletteTRNS3: false, tRNSFirst: false, twice: false, twoIdat: true });
+  }), { sBIT4: true, bKGD6: true, sBIT3: false, bKGD2: false, tRNSAlpha: false, grey: true, greyTRNS6: false, rgb: true, palette: true, ga: true, gaTRNS: false, plte768: true, plte0: false, plte4: false, plte771: false, iccpTwice: false, paletteTRNS3: false, tRNSFirst: false, twice: false, twoIdat: true });
 });
 
 // killer: scripts/lot-size-integration.mjs:254 CONST "PNG_INFLATE_MAX = 2 ** 26" -> "PNG_INFLATE_MAX = 2 ** 27"
 // killer: scripts/lot-size-integration.mjs:271 CONST "size <= PNG_INFLATE_MAX" -> "size < PNG_INFLATE_MAX"
-test("r25s_png_pixel_data_is_capped_before_inflating - a greyscale image of 8191 x 8192 (64 MiB of pixel data with its filter bytes, the cap) passes; one row more is refused `pixel data size` before inflating, and so is a 16384 x 16384 header (256 MiB declared) with a short stream (one row more passes before the lot)", () => {
+// killer: scripts/lot-size-integration.mjs:271 CONST " if (!(size <= PNG_INFLATE_MAX)) return \"pixel data size\";" -> ""
+test("r25s_png_pixel_data_is_capped_before_inflating - a greyscale image of 8191 x 8192 (64 MiB of pixel data with its filter bytes, the cap) passes; one row more is refused `pixel data size`; a 16384 x 16384 header (256 MiB declared) over an invalid, non-stored deflate stream is refused `pixel data size`, not `pixel data`: the cap is read before inflating (one row more passes before the lot)", () => {
   const zeros = Buffer.alloc(8192 * 8193), png = (lsi.ASSET_STRUCTURE as Record<string, Structure> | undefined)?.png;
-  const cap = pngOf(8191, 8192, 0, 0, zeros.subarray(0, 8192 * 8192)), over = pngOf(8191, 8193, 0, 0, zeros), header = pngOf(16384, 16384, 0, 0, zeros.subarray(0, 16385));
-  assert.deepEqual([png?.(cap), png?.(over), png?.(header)], [null, "pixel data size", "pixel data size"]);
+  const cap = pngOf(8191, 8192, 0, 0, zeros.subarray(0, 8192 * 8192)), over = pngOf(8191, 8193, 0, 0, zeros), ihdr = pngOf(16384, 16384, 0, 0, zeros.subarray(0, 1)).subarray(0, 33);
+  const header = Buffer.concat([ihdr, pngChunk("IDAT", Buffer.from("789c0700000000", "hex")), pngChunk("IEND", "")]), small = Buffer.concat([pngOf(4, 4, 0, 0, zeros.subarray(0, 20)).subarray(0, 33), pngChunk("IDAT", Buffer.from("789c0700000000", "hex")), pngChunk("IEND", "")]);
+  assert.deepEqual([png?.(cap), png?.(over), png?.(header), png?.(small)], [null, "pixel data size", "pixel data size", "pixel data"]);
+});
+
+// killer: scripts/lot-size-integration.mjs:265 CONST " || (t === \"IDAT\" && color === 3 && !seen.has(\"PLTE\"))" -> ""
+// killer: scripts/lot-size-integration.mjs:259 CONST "b.readUInt32BE(16) === 0 || " -> ""
+// killer: scripts/lot-size-integration.mjs:259 CONST " || b.readUInt32BE(20) === 0" -> ""
+test("r25s_png_header_declares_a_drawable_image - G2 fold M-1: a palette image without PLTE, an image 0 pixels wide or 0 pixels high are refused; the palette image with its PLTE passes (all pass before the fold)", () => {
+  const plte = pngChunk("PLTE", Buffer.from("000000ffffff", "hex"));
+  assert.deepEqual(passes("png", { palette: pngOf(2, 1, 3, 0, Buffer.from([0, 0, 1]), [plte]), noPlte: pngOf(2, 1, 3, 0, Buffer.from([0, 0, 1])), w0: pngOf(0, 5, 0, 0, Buffer.alloc(5)), h0: pngOf(5, 0, 0, 0, Buffer.alloc(0)) }),
+    { palette: true, noPlte: false, w0: false, h0: false });
 });
