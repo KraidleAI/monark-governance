@@ -9,6 +9,8 @@
 - **Base** : `597a986d` (`base/chantier-moteur-2026-10-03`). Branche : `recherches/spec-1-1-0-release`. Auteur : RECHERCHES.
 - **Hors périmètre** : toute publication, tout envoi, toute poussée. `spec-publish` n'est lancé qu'en `plan` (lecture seule) ou vers un `--out` du répertoire de travail temporaire. Aucun octet servi par le harnais ne change. `schemas/` et `packages/contracts/src/` sont gelés et ne sont pas touchés.
 
+
+> **Lecture** : les §0 à §6 et l'annexe A sont le G0 initial (`c3e52972`). Les blocs datés §7 et §8 les remplacent là où ils diffèrent (sorties versionnées `contract-1.1.0/…`, `$id` en `raw/main/contract-1.1.0/…`, texte `contract-1.1.0/CONTRACT.md`, empreintes des schémas). Les valeurs courantes de la version sont au G7, section « État courant ».
 ## 0. Résultat du G0 : arrêt sur une question bloquante
 
 **Aucun texte publiable de la spécification 1.1.0 n'existe.**

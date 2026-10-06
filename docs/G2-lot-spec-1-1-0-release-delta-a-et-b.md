@@ -1,5 +1,7 @@
 # G2 de SPEC-1-1-0-RELEASE : delta de la partie a, et G2 neuve de la partie b
 
+> Rapport daté du 2026-10-06, tel que rendu par la revue : ses empreintes, comptes et têtes sont ceux de son moment. Les valeurs courantes sont dans `docs/G7-lot-spec-1-1-0-release.md`, section « État courant ».
+
 - **Objets** :
   - a : `git diff c85f352e..4ff932be` (tête `4ff932be`) ;
   - b : `git diff faed7218..f9290ecc` et tout le lot `-b` (`4ff932be..f9290ecc`).

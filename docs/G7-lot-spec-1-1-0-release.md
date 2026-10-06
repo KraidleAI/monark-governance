@@ -7,6 +7,25 @@
 - **Scission R-25** : la mesure entière vaut 568, au-delà de 547. Le lot passe donc en deux branches empilées, comme au §7 du G0.
 - **En attente** : l'entrée du texte `CONTRACT-1.1.0.md` (racine `recherches`), dernier pas, quand son chemin et son sha256 sont donnés.
 
+
+## État courant (2026-10-06, 03:2x UTC ; seule source des valeurs courantes)
+
+Les sections qui suivent sont des relevés datés, dans l'ordre du lot : leurs empreintes, leurs comptes et leurs têtes sont ceux de leur moment. Les valeurs courantes sont celles-ci :
+
+| Élément | Valeur |
+|---|---|
+| tête de `-a` | `4ff932be` (inchangée depuis le repli de sa G2) |
+| tête de `-b` | `4f647297` (réépinglage), puis le commit qui porte ce G7 |
+| recherches | `1107e12` (contient `3712fc8` et `54fd670`) |
+| `contract-1.1.0/CONTRACT.md` | `ac8187fa76626256d3e4c16bb484257b5247a9faf1a40ed1dc1247f7374332aa` |
+| `contract-1.1.0/vectors-1.1.0.json` | `190b9fd8f48815c10db2ff62be2961e601388f20b1d4a6e8dfb44ca139214d53` |
+| `README.md` (racine) | `71f64c8af6c47bb4c1b9f532de9d38845824abf68e580bfccdbcd2f15bed4ecd` |
+| rejeu hors ligne (`previous` = clone propre de `ddfee9e`) | **49 fichiers** ; `sha256sum -c --strict` vert ; aucun `withdrawn` ni `rewritten` |
+| `MANIFEST.sha256` | `66d31d82122587a9da8725f3e19b39b43f371de826c1e9f311ea6a1755d4eb16` |
+| R-25 | `-a` 537 contre `8aea2299` ; `-b` 392 contre `-a` |
+| tests touchés | 41/41 ; ancres 29/29 |
+| b M-2 | réglé dans le texte à `1107e12` (l.441, 449, 587) |
+
 ## Commits
 
 | Branche | Commits |
@@ -54,7 +73,7 @@
 
 ## Rejeu hors ligne
 
-`--release contract-1.1.0 --date 2026-10-06` produit **46 fichiers** dans le répertoire de travail temporaire, avec `previous` le clone local propre de `ddfee9e` et `recherches` le clone local.
+Relevé daté du premier gel (`9d19e842`), remplacé par l'« État courant » : `--release contract-1.1.0 --date 2026-10-06` produit **46 fichiers** dans le répertoire de travail temporaire, avec `previous` le clone local propre de `ddfee9e` et `recherches` le clone local.
 - `MANIFEST.sha256` vaut `e39372ca…1df3` ;
 - `sha256sum -c --strict` est vert ;
 - aucun `withdrawn`.
@@ -98,8 +117,8 @@ Rapport : `docs/G2-lot-spec-1-1-0-release-a.md`. Verdict **non bloquant**. Tout 
 ### Texte 1.1.0
 
 Il est déclaré par deux entrées de racine `recherches`, toutes deux épinglées et à 0 problème :
-- `contract-1.1.0/CONTRACT.md`, source `kata/spec/CONTRACT-1.1.0.md`, sha256 `642ac97e…bfbca0` ;
-- `contract-1.1.0/vectors-1.1.0.json`, source `kata/spec/vectors-1.1.0.json`, sha256 `1210637f…c347`.
+- (relevé daté, remplacé : voir l'« État courant ») `contract-1.1.0/CONTRACT.md`, source `kata/spec/CONTRACT-1.1.0.md`, sha256 `642ac97e…bfbca0` ;
+- (relevé daté, remplacé) `contract-1.1.0/vectors-1.1.0.json`, source `kata/spec/vectors-1.1.0.json`, sha256 `1210637f…c347`.
 
 Si la G2 du texte change un octet, seuls ces deux sha256 et le test bougent.
 
@@ -122,7 +141,7 @@ Si la G2 du texte change un octet, seuls ces deux sha256 et le test bougent.
 - **Contrôles statiques** : `tsc`, eslint du test, `lint:ratchet` 69/69, `gate:vocab`, `lang:gate` et `export:check` verts.
 - **Tests touchés** : `spec-1-1-0-release`, `spec-publish`, `contracts-frozen`, `export-public` hors test 42 et `public-text-deny` : 36/36.
 - **Octets servis** : `buildOpenApi()` vaut `61c9df97…8ccbf0`, inchangé. Hors `spec/`, `docs/`, le test du lot et `scripts/spec-*`, rien n'est touché.
-- **Rejeu hors ligne** (`previous` = clone propre de `ddfee9e`, `recherches` = clone local, `--out` temporaire) : **48 fichiers** ; `MANIFEST.sha256` `ec5c4fa8…0bb9` ; `sha256sum -c --strict` vert ; aucun `withdrawn`.
+- **Rejeu hors ligne**, relevé daté du repli de la G2 de a, remplacé par l'« État courant » (`previous` = clone propre de `ddfee9e`, `recherches` = clone local, `--out` temporaire) : **48 fichiers** ; `MANIFEST.sha256` `ec5c4fa8…0bb9` ; `sha256sum -c --strict` vert ; aucun `withdrawn`.
 
 ## Repli des G2 (delta a, b)
 
@@ -152,12 +171,12 @@ Rapport : `docs/G2-lot-spec-1-1-0-release-delta-a-et-b.md`. Les deux parties son
 | a N-2 | Nouveau code `rewritten` dans `plan` : un fichier de l'arbre `previous` rangé sous `contract-*/` et republié avec d'autres octets est refusé. `KATA-SPEC.md`, à la racine, reste révisable. Test sur un arbre `previous` fabriqué. |
 | a M-1 | `--write` écrit tous les temporaires, puis renomme. Si un renommage échoue, il rend leurs octets précédents aux fichiers déjà remplacés. Le test injecte un échec au dernier renommage (le 40e) : les 39 fichiers remplacés reviennent à leurs octets d'avant. |
 | b M-4 | `okPath` refuse tout segment fait de points seuls (`...`, `....`). |
-| b N-3 | Le texte, les vecteurs et le README racine sont commités dans le dépôt de recherche, à `3712fc8`, et la déclaration les épingle : `b02b0599…`, `190b9fd8…` (vecteurs sur une ligne) et `71f64c8a…` (sortie `README.md`). |
+| b N-3 | Le texte, les vecteurs et le README racine sont commités dans le dépôt de recherche, à `3712fc8`, et la déclaration les épingle (relevé daté ; `CONTRACT.md` est réépinglé depuis à `ac8187fa…`, recherches `1107e12`) : `b02b0599…`, `190b9fd8…` (vecteurs sur une ligne) et `71f64c8a…` (sortie `README.md`). |
 | M-3 b | Tout dans `-b`. `-a` doit être fusionnée par un vrai commit de fusion avant que `-b` soit ouverte contre le tronc. |
 
 ### b M-2 : lignes du texte à aligner (dépôt de recherche, non modifié ici)
 
-À `3712fc8`, `kata/spec/CONTRACT-1.1.0.md` :
+Relevé daté, à `3712fc8` (réglé depuis à `1107e12`, voir l'« État courant ») ; `kata/spec/CONTRACT-1.1.0.md` :
 - l.22 et §10 l.350 disent déjà « in this directory » : alignés.
 - l.441 « Rows are added, superseded and retired only by new table files. » et §15 l.587 « add, supersede or retire policy table rows, and add classes, by new table files; » contredisent a N-2 : un fichier `contract-1.1.0/policy/<classe>.json` n'est plus jamais réécrit.
 
@@ -187,4 +206,4 @@ Rapport : `docs/G2-lot-spec-1-1-0-release-delta-a-et-b.md`. Les deux parties son
 - **Contrôles statiques** : `tsc`, eslint (les deux tests), `lint:ratchet` 69/69, `gate:vocab`, `lang:gate` et `export:check` verts.
 - **Tests touchés** : `spec-1-1-0-release`, `spec-publish`, `contracts-frozen`, `export-public` hors test 42 et `public-text-deny` : 41/41.
 - **Octets servis** : `/openapi.json` en processus vaut `61c9df97…8ccbf0`. Hors `spec/`, `docs/`, `test/spec-*` et `scripts/spec-*`, rien n'est touché.
-- **Rejeu hors ligne** (`previous` = clone propre de `ddfee9e`, `recherches` = clone local à `54fd670`, qui contient `3712fc8`) : **49 fichiers** ; `MANIFEST.sha256` `509283bd1189d0b79614a9aa1da4b2a921a4abc7883af793f2bac244ccfe8b6f` ; `sha256sum -c --strict` vert ; aucun `withdrawn` ni `rewritten`.
+- **Rejeu hors ligne**, relevé daté du repli des G2 (delta a, b), avant le réglage de b M-2, remplacé par l'« État courant » (`previous` = clone propre de `ddfee9e`, `recherches` = clone local à `54fd670`, qui contient `3712fc8`) : **49 fichiers** ; `MANIFEST.sha256` `509283bd1189d0b79614a9aa1da4b2a921a4abc7883af793f2bac244ccfe8b6f` ; `sha256sum -c --strict` vert ; aucun `withdrawn` ni `rewritten`.
