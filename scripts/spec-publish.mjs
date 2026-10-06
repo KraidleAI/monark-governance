@@ -156,9 +156,12 @@ export function contentProblems(out, kind, bytes, release, carried = false) {
   return p;
 }
 
-const git = (dir, args) => { const r = spawnSync("git", ["-C", dir, ...args], { encoding: "utf8" }); return r.status === 0 ? r.stdout : null; };
-/** The bytes of <path> in the git object of <commit> under <dir> (no filter, no shell: CRLF of a checkout never reaches them), or null. */
-const blob = (dir, commit, path) => { try { return execFileSync("git", ["-C", dir, "cat-file", "blob", `${commit}:${path}`], { stdio: ["ignore", "pipe", "ignore"], maxBuffer: 1 << 28 }); } catch { return null; } };
+const GIT_ENV = { ...process.env, GIT_NO_REPLACE_OBJECTS: "1" }; // refs/replace never stands in for a committed object (G2 F-1)
+const git = (dir, args) => { const r = spawnSync("git", ["-C", dir, ...args], { encoding: "utf8", env: GIT_ENV }); return r.status === 0 ? r.stdout : null; };
+/** {bytes} of <path> in the git object of <commit> under <dir> (no filter, no shell: CRLF of a checkout never reaches them), or
+ *  {bytes: null, why}: git's first stderr line, kept for the refusal (G2 F-4). */
+const blob = (dir, commit, path) => { try { return { bytes: execFileSync("git", ["-C", dir, "cat-file", "blob", `${commit}:${path}`], { stdio: ["ignore", "pipe", "pipe"], maxBuffer: 1 << 28, env: GIT_ENV }), why: "" }; }
+  catch (e) { return { bytes: null, why: (String(e?.stderr ?? "").trim().split("\n")[0] || String(e?.code ?? e?.message ?? e)).trim() }; } };
 
 /** manifestText(files): "<sha256>  <path>" lines for [{path, bytes}], sorted by path, LF ended. */
 export const manifestText = (files) => [...files].sort(byPath).map((f) => `${sha(f.bytes)}  ${f.path}\n`).join("");
@@ -173,14 +176,15 @@ export function plan({ inputs, release, date, roots }) {
     const dir = roots[e.root], abs = dir === undefined ? null : join(dir, e.path), at = `${e.out} <- ${e.root}:${e.path}`;
     if (abs === null) { add("root_missing", `${e.out}: root ${e.root} not given`); continue; }
     // SPEC-PUBLISH-PREVIOUS-BLOBS-1: a previous entry is the committed object of previous_commit, never the working tree.
-    if (e.root === "previous" && blob(dir, rel.previous_commit, e.path) === null) { add("previous_blob_missing", `${at} is not in ${rel.previous_commit}`); continue; }
+    const got = e.root === "previous" ? blob(dir, rel.previous_commit, e.path) : null; // read once
+    if (got !== null && got.bytes === null) { add("previous_blob_missing", `${at} is not readable in ${rel.previous_commit}: ${got.why}`); continue; }
     if (e.root === "governance" && STRUCTURAL_BLACKLIST.some((re) => re.test(e.path))) { add("input_blacklisted", at); continue; }
     if (e.root !== "previous" && !existsSync(abs)) { add("input_missing", at); continue; }
     if (e.root !== "previous" && !realpathSync(abs).startsWith(realpathSync(dir) + sep)) { add("input_escapes", `${at} resolves out of its root`); continue; }
     if (e.root !== "previous" && !statSync(abs).isFile()) { add("input_not_file", at); continue; }
-    const bytes = e.root === "previous" ? blob(dir, rel.previous_commit, e.path) : readFileSync(abs);
+    const bytes = got !== null ? got.bytes : readFileSync(abs);
     if (sha(bytes) !== e.sha256) { add("input_digest", `${at} is ${sha(bytes)}, pinned ${e.sha256}`); continue; }
-    const prior = roots.previous, was = prior === undefined || rel.previous_commit === null ? null : blob(prior, rel.previous_commit, e.out); // carried: committed, same bytes
+    const prior = roots.previous, was = prior === undefined || rel.previous_commit === null ? null : blob(prior, rel.previous_commit, e.out).bytes; // carried: committed, same bytes
     problems.push(...contentProblems(e.out, e.kind, bytes, release, was !== null && was.equals(bytes)));
     files.push({ path: e.out, bytes });
   }
@@ -198,7 +202,9 @@ export function plan({ inputs, release, date, roots }) {
       return ls; })()) {
       if (p !== "" && !outs.has(p)) add("withdrawn", `${p} is published, the release drops it`);
       const now = files.find((f) => f.path === p); // a file under a version directory is never rewritten: one $id, one content
-      if (/^contract-[^/]*\//i.test(p) && now !== undefined && !now.bytes.equals(blob(prev, rel.previous_commit, p) ?? Buffer.alloc(0))) add("rewritten", `${p} is published with other bytes, the release changes it`);
+      const old = /^contract-[^/]*\//i.test(p) && now !== undefined ? blob(prev, rel.previous_commit, p) : null; // never compared with empty bytes (G2 F-2)
+      if (old !== null && old.bytes === null) add("previous_blob_missing", `${p} is published, its object is not readable in ${rel.previous_commit}: ${old.why}`);
+      else if (old !== null && !now.bytes.equals(old.bytes)) add("rewritten", `${p} is published with other bytes, the release changes it`);
     }
   }
   if (problems.length > 0) return { files: [], problems };

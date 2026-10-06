@@ -126,11 +126,13 @@ const urlAllowed = (url) => { if (url.indexOf("://") !== url.lastIndexOf("://"))
 export const SECRET_SHAPES = Object.freeze(KEY_SHAPES.filter((re) => re.source !== ":\\/\\/"));
 const INTERNAL_WORDS = /\b(?:budget|credit|lock)(?:s|ed|ing)?\b/i;
 const PLACEHOLDER = /(?<!\$)\{\s*[A-Z][A-Z0-9_-]*\s*\}/g;
-/** The upper-case {NAME} markers of a notes template, in order of first use (pure). */
-export const templateMarkers = (text) => [...new Set([...text.matchAll(/\{([A-Z][A-Z0-9_]*)\}/g)].map((m) => m[1]))];
+const TEMPLATE_REL = "docs/public-notes/TEMPLATE.md"; // the notes template; markers read with PLACEHOLDER's shape, refused empty
+export const templateMarkers = (text) => { const names = [...new Set([...text.matchAll(/(?<!\$)\{\s*([A-Z][A-Z0-9_-]*)\s*\}/g)].map((m) => m[1]))];
+  if (names.length === 0) throw new Error(`${TEMPLATE_REL} has no marker`);
+  return names; };
 // TEMPLATE-MARKERS-SOURCE-1: derived from the committed notes template, never typed (a missing template fails the import, by name).
-export const TEMPLATE_MARKERS = Object.freeze(templateMarkers(readFileSync(join(SRC, "docs", "public-notes", "TEMPLATE.md"), "utf8")));
-const MARKER_VARIABLE = new RegExp(`\\$\\{\\s*(?:${TEMPLATE_MARKERS.join("|")})\\s*\\}`, "g"); // ${T0}: still a marker (E-2)
+export const TEMPLATE_MARKERS = Object.freeze(templateMarkers(readFileSync(join(SRC, ...TEMPLATE_REL.split("/")), "utf8")));
+const MARKER_VARIABLE = new RegExp(`\\$\\{\\s*(?:${TEMPLATE_MARKERS.map((n) => n.replace(/-/g, "\\-")).join("|")})\\s*\\}`, "g"); // ${T0}: still a marker (E-2)
 // The year form also catches an ISO date; month names are capitalised whole words, so the verb "may" stays green.
 const DATE_FORMS = Object.freeze([/\b(?:19|20)\d\d\b/, /\b(?:January|February|March|April|May|June|July|August|September|October|November|December)\b/,
   /\bQ[1-4]\b/, /\bsoon\b|\bnext\s+(?:week|month|quarter|year)\b/i]);
