@@ -18,7 +18,7 @@
 // policy_table_kind, version_dir_invalid, previous_commit, previous_dirty, previous_blob_missing (a previous entry is read from the git
 // object of previous_commit, never the working tree: a CRLF checkout cannot change it), withdrawn (a file of the previous tree the release drops),
 // rewritten (a file under contract-*/ of the previous tree the release changes), added_to_published (a new file under it),
-// foreign_version_dir (a new version directory other than the release's own); then out_not_empty, out_parent_missing, out_in_git_tree, write_failed. --verify
+// foreign_version_dir (a new version directory other than the release's own), retire_list_missing, retire_list_invalid (F-1, at the end); then out_not_empty, out_parent_missing, out_in_git_tree, write_failed. --verify
 // <dir> then compares --out with <dir> (.git ignored): exit 0 iff the same paths with the same bytes. Exit 2: usage.
 import { execFileSync, spawnSync } from "node:child_process";
 import { createHash } from "node:crypto";
@@ -207,7 +207,7 @@ export function plan({ inputs, release, date, roots }) {
       else if (old !== null && !now.bytes.equals(old.bytes)) add("rewritten", `${p} is published with other bytes, the release changes it`);
     }
   }
-  if (problems.length > 0) return { files: [], problems };
+  problems.push(...retireProblems(files)); if (problems.length > 0) return { files: [], problems };
   files.push({ path: "VERSION", bytes: Buffer.from(date + "\n") });
   return { files: [...files.sort(byPath), { path: "MANIFEST.sha256", bytes: Buffer.from(manifestText(files)) }], problems };
 }
@@ -299,3 +299,23 @@ export function tableRowProblems(table, fixture = false) {
 
 const real = (p) => { try { const r = realpathSync(p); return process.platform === "win32" ? r.toLowerCase() : r; } catch { return null; } }; // a link or a junction too
 if (process.argv[1] && real(process.argv[1]) !== null && real(process.argv[1]) === real(fileURLToPath(import.meta.url))) process.exitCode = main(process.argv.slice(2));
+
+// F-1 of ENGINE-ROW-RETIRE-PATH-1 (lot R-b; MONARK's review of its G0, section 5; M-1 of its G2): a table file of the release, under any
+// policy/ segment, that publishes a retired row (status "retired") lies in a dated table version, contract-<x.y.z>-tables-<date>/policy/,
+// and the release holds that directory's retire list, <dir>/retire/retire-<date>.json, its own or carried from the previous release
+// (retire_list_missing); a retire list lies at <dated directory>/retire/retire-<its date>.json only (retire_list_invalid), as its own
+// canonical writing (not_canonical), never rewritten after (rewritten). Its entries are R-a's to read, not this gate's. A function
+// declaration, hoisted, kept last so that no line above moves (scripts/red-proof.mjs precedent); main runs above, so no const out here.
+function retireProblems(files) {
+  const p = [], text = (f) => f.bytes.toString("utf8"), dated = /^(contract-(?:0|[1-9]\d*)\.(?:0|[1-9]\d*)\.(?:0|[1-9]\d*)-tables-(\d{4}-\d{2}-\d{2}))\/policy\/[^/]+$/;
+  const list = (f) => { const m = dated.exec(f.path); return m !== null && validDate(m[2]) ? `${m[1]}/retire/retire-${m[2]}.json` : null; }; // its directory's list: a dated one only
+  const retired = files.filter((f) => /(^|\/)policy\//i.test(f.path) && (() => { try { return JSON.parse(text(f)).rows.some((r) => r?.status === "retired"); } catch { return false; } })());
+  const off = retired.filter((f) => !files.some((x) => x.path === list(f))); // its own list or a carried one: both are files of the release
+  if (off.length > 0) p.push({ code: "retire_list_missing", detail: `${off.map((f) => f.path).join(", ")}: a retired row is published from a dated table version only, contract-<x.y.z>-tables-<date>/policy/, with the retire list of its directory, <dir>/retire/retire-<date>.json (F-1)` });
+  for (const f of files.filter((x) => /(^|\/)retire\//i.test(x.path))) {
+    const m = /^contract-(?:0|[1-9]\d*)\.(?:0|[1-9]\d*)\.(?:0|[1-9]\d*)-tables-(\d{4}-\d{2}-\d{2})\/retire\/retire-(\d{4}-\d{2}-\d{2})\.json$/.exec(f.path);
+    if (m === null || m[1] !== m[2]) p.push({ code: "retire_list_invalid", detail: `${f.path}: a retire list lies at <dated directory>/retire/retire-<its date>.json` });
+    else if ((() => { try { return canonicalJson(JSON.parse(text(f))) !== text(f); } catch { return true; } })()) p.push({ code: "not_canonical", detail: `${f.path}: a retire list is its own canonical writing` });
+  }
+  return p;
+}
