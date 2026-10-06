@@ -9,16 +9,16 @@
 //   exactly once, everything else is kept byte for byte;
 // - contract-1.1.0/policy/<task_class>.json: the canonical writing of each table the harness serves (SERVED_POLICY_TABLES of tools/gate.ts,
 //   the value the service builds at load, not a second build), so the file's sha256 is the served policy_table_sha256; no final LF. A table
-//   with a row whose recompute is not null is refused until the published list of verifiers exists (VERIFIERS-LIST-F5A-1), and so is a
-//   row of n <= SHORT_N points: the contract's section 10 promises that no published file carries the digest of a 0/1 sequence of 30
-//   points or fewer, and a digest does not show whether its points are 0/1 (SHORT-DIGEST-INVERSION-1).
+//   whose rows tableRowProblems of spec-publish.mjs refuses (a recompute, SHORT_N points or fewer) is refused here too: one rule, the
+//   publication gate's (VERIFIERS-LIST-F5A-1, SHORT-DIGEST-INVERSION-1).
 // --check compares every file under <root>/spec/contract-1.1.0/ (this repository by default) and exits 1 on any difference, missing or
-// extra file; --write writes each file to a temporary file beside it, then renames them all into place (nothing half written).
+// extra file; --write writes every file to a temporary file beside it, then renames them into place, and on a failed rename puts back the
+// previous bytes of the files already replaced: the set is replaced whole or not at all.
 // It reads no clock and no network, and writes only under <root>/spec/contract-1.1.0/.
 import { existsSync, mkdirSync, readdirSync, readFileSync, realpathSync, renameSync, rmSync, statSync, writeFileSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
-import { canonicalJson } from "./spec-publish.mjs";
+import { canonicalJson, tableRowProblems } from "./spec-publish.mjs";
 
 export const REPO_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 export const VERSION_DIR = "contract-1.1.0";
@@ -43,24 +43,22 @@ export function schemaCopy(name, text) {
   }, text);
 }
 
-export const SHORT_N = 30;
+export { SHORT_N } from "./spec-publish.mjs";
 
-/** tableText(table) -> the canonical writing of a served table; refused while a row carries a recompute (VERIFIERS-LIST-F5A-1) or the
- *  digests of a sequence of SHORT_N points or fewer (SHORT-DIGEST-INVERSION-1). */
+/** tableText(table) -> the canonical writing of a table; refused, by the first rule of tableRowProblems it breaks, like spec-publish. */
 export function tableText(table) {
-  const held = table.rows.filter((r) => r.recompute !== null).map((r) => r.cell_key);
-  if (held.length > 0) throw new Error(`VERIFIERS-LIST-F5A-1: ${table.class.task_class} has a row with a recompute (${held.join(", ")}); the published list of verifiers comes first`);
-  const short = table.rows.filter((r) => r.n <= SHORT_N).map((r) => `${r.cell_key} (n ${String(r.n)})`);
-  if (short.length > 0) throw new Error(`SHORT-DIGEST-INVERSION-1: ${table.class.task_class} has a row whose digests cover ${String(SHORT_N)} points or fewer: ${short.join(", ")}`);
+  const [no] = tableRowProblems(table);
+  if (no !== undefined) throw new Error(no.detail);
   return canonicalJson(table);
 }
 
-/** expectedFiles(root) -> [{path, text}] under OUT_DIR, sorted by path: the 5 schema copies and one table file per served class. */
-export async function expectedFiles(root = REPO_ROOT) {
-  const { SERVED_POLICY_TABLES } = await import("../apps/harness/src/tools/gate.ts");
+/** expectedFiles(root, tables) -> [{path, text}] under OUT_DIR, sorted by path: the 5 schema copies and one table file per table
+ *  ([{task_class, table}], the served tables by default). */
+export async function expectedFiles(root = REPO_ROOT, tables = undefined) {
+  const served = tables ?? (await import("../apps/harness/src/tools/gate.ts")).SERVED_POLICY_TABLES;
   const schemas = SCHEMA_NAMES.map((n) => ({ path: `${OUT_DIR}/schemas/${n}.schema.json`, text: schemaCopy(n, readFileSync(join(root, "schemas", `${n}.schema.json`), "utf8")) }));
-  const tables = SERVED_POLICY_TABLES.map((t) => ({ path: `${OUT_DIR}/policy/${t.task_class}.json`, text: tableText(t.table) }));
-  return [...schemas, ...tables].sort((a, b) => (a.path < b.path ? -1 : 1));
+  const files = served.map((t) => ({ path: `${OUT_DIR}/policy/${t.task_class}.json`, text: tableText(t.table) }));
+  return [...schemas, ...files].sort((a, b) => (a.path < b.path ? -1 : 1));
 }
 
 const tree = (root, rel) => (statSync(join(root, rel)).isDirectory() ? readdirSync(join(root, rel)).flatMap((n) => tree(root, `${rel}/${n}`)) : [rel]);
@@ -71,18 +69,24 @@ export function differences(root, files) {
   for (const f of files) {
     const p = join(root, f.path);
     if (!existsSync(p)) out.push(`missing ${f.path}`);
-    else if (!readFileSync(p).equals(Buffer.from(f.text, "utf8"))) out.push(`differ ${f.path}`);
+    else if (!statSync(p).isFile() || !readFileSync(p).equals(Buffer.from(f.text, "utf8"))) out.push(`differ ${f.path}`);
   }
   for (const p of existsSync(join(root, OUT_DIR)) ? tree(root, OUT_DIR) : []) if (!want.has(p)) out.push(`extra ${p}`);
   return out;
 }
 
-/** writeAll(root, files): every file to a temporary sibling first, then each renamed into place; on a failure the temporaries are removed. */
+/** writeAll(root, files): every file to a temporary sibling first, then each renamed into place; on a failed rename the files already
+ *  replaced get their previous bytes back (or are removed when they did not exist), and the error is thrown; the temporaries are removed. */
 export function writeAll(root, files) {
-  const tmp = files.map((f) => ({ ...f, at: join(root, f.path), tmp: join(root, `${f.path}.tmp-spec-policy-tables`) }));
+  const tmp = files.map((f) => ({ ...f, at: join(root, f.path), tmp: join(root, `${f.path}.tmp-spec-policy-tables`) })), done = [];
   try {
     for (const f of tmp) { mkdirSync(dirname(f.at), { recursive: true }); writeFileSync(f.tmp, f.text); }
-    for (const f of tmp) renameSync(f.tmp, f.at);
+    try {
+      for (const f of tmp) { const old = existsSync(f.at) && statSync(f.at).isFile() ? readFileSync(f.at) : null; renameSync(f.tmp, f.at); done.push({ at: f.at, old }); }
+    } catch (e) {
+      for (const d of done.reverse()) if (d.old === null) rmSync(d.at, { force: true }); else writeFileSync(d.at, d.old);
+      throw e;
+    }
   } finally {
     for (const f of tmp) rmSync(f.tmp, { force: true });
   }

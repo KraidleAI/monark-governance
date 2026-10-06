@@ -8,8 +8,8 @@ export const EDITS: Readonly<Record<string, readonly (readonly [string, string])
 export function publicId(name: string): string;
 export function schemaCopy(name: string, text: string): string;
 export const SHORT_N: number;
-export function tableText(table: { class: { task_class: string }; rows: readonly { cell_key: string; recompute: unknown; n: number }[] }): string;
-export function expectedFiles(root?: string): Promise<{ path: string; text: string }[]>;
+export function tableText(table: unknown): string;
+export function expectedFiles(root?: string, tables?: readonly { task_class: string; table: unknown }[]): Promise<{ path: string; text: string }[]>;
 export function differences(root: string, files: readonly { path: string; text: string }[]): string[];
 export function writeAll(root: string, files: readonly { path: string; text: string }[]): void;
 export function isMain(argv1: string | undefined, self: string): boolean;
