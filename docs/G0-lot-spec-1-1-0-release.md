@@ -193,3 +193,20 @@ Schémas publiés, avec la transformation du §3 :
 | `schemas/gate-decision.schema.json` | `695faf5d2130c001ca2bf9d6b477897a7f55cb80ba10121512dee48069c969dc` |
 | `schemas/policy-row.schema.json` | `0a8c22c228dc142879e487b427a7a410965a0fd754e72ebf21e4471f05e8fec0` |
 | `schemas/tool-error.schema.json` | `c2b1983a037e185f57c79483fa3341409968c8f45cd55e9c5fc8d0127d1b1ab6` |
+
+## 7. Bloc daté 2026-10-06 02:17 UTC : réponses de MONARK, reprise du lot (avant les tests rouges)
+
+- **Q-1** : RECHERCHES écrit le texte 1.1.0 (`recherches` `kata/spec/CONTRACT-1.1.0.md`), publié à la racine sous `CONTRACT-1.1.0.md`, racine `recherches`. Son entrée est ajoutée en dernier, quand son chemin et son sha256 sont donnés. Elle remplace l'entrée `GATE-CONTRACT.md` du §1. Le lot se construit d'ici là sans elle. `KATA-SPEC.md` est reporté depuis `previous`. Un `vectors-1.1.0.json` pourra suivre de la même façon.
+- **Q-2** : la tête publiée est toujours `ddfee9e076d979081fa7b21ec27940e3556bacf7` (lue par MONARK).
+- **Q-3** : go pour les sources sous `spec/`. La cellule a la délégation du fondateur, et « Tout ensemble, plus tard » de l'investisseur vaut une seule release complète, spécification comprise.
+  - VERIFIERS-LIST-F5A-1 n'est pas touché par cette version.
+  - Mesuré : l'item porte la liste fermée des identités de vérificateur, que la garde lit dans `recompute.verifier` des lignes kata (`apps/harness/src/policy-guard.ts:16-24`, `docs/G0-lot-cm-4a-ii.md:134`).
+  - Les 35 tables de cette version n'ont aucune ligne kata, et leurs deux lignes marginales ont `recompute: null` : aucun vérificateur n'est publié.
+  - Nuance pour MONARK : l'item vaut pour toute ligne kata qui porte `recompute`, pas pour la seule vague 2. Il redevient bloquant avec la première ligne kata publiée.
+- **Q-4** : les noms de `source.generator` et `source.registry_file` sont publiés tels quels.
+- **Q-5** : M-3 sort du lot (lot T0-TOOLING-1). Ce lot ne touche ni `scripts/sync-ukemi-served.mjs`, ni `scripts/verify-harness.mjs`, ni `scripts/sync-harness-served.mjs`, ni `scripts/public-text-deny.mjs`, ni `docs/RUNBOOK-*`.
+- **R-25** : au-delà de 547, la scission se fait en deux branches empilées :
+  - `-a` : l'écrivain, les copies des schémas et leurs tests ;
+  - `-b` : les tables et la déclaration.
+
+  Les copies des schémas restent lisibles, jamais en une ligne.
