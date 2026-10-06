@@ -140,7 +140,8 @@ test("srf_skill_names_the_kata_classes_and_the_reserved_pattern — the skill sa
   const skill = read("skills", "monark", "SKILL.md");
   assert.ok(!skill.includes("Two other `task_class`es are served."), "the 1.0.0 list of served classes is gone");
   assert.ok(skill.includes("Two other `task_class`es are served with a committed calibration."), "the two calibrated classes are named as such");
-  assert.ok(skill.includes("The 32 kata classes `{btc,eth,bnb,sol}-{dir,range,mae-down,mae-up}-{1h,4h}` are also served"), "the kata classes are served");
+  assert.ok(skill.includes("The 32 kata classes `{btc,eth,bnb,sol}-{dir,range,mae-down,mae-up}-{1h,4h}` are also served, without calibration: the gate abstains on every well-formed call (`under_calib`, or `non_evaluable` for a lean of exactly 0 on a `dir` class)"), "the kata classes are served without calibration and the gate abstains");
+  assert.doesNotMatch(skill.slice(skill.indexOf("The 32 kata classes")).split("\n")[0] ?? "", /\bregion\b|\bband\b/, "no region or band is promised on the kata classes");
   assert.ok(skill.includes(`\`${KATA_CLASS_RE.source}\` (compared without ASCII case): it is refused (\`byo_reserved_kata\`).`), "the reserved pattern is the served one, with its code");
 });
 
@@ -159,7 +160,7 @@ test("srf_contributing_closes_the_loop_on_scores_sha256 — the exported contrib
   assert.ok(text.includes("the verdict's `scores_sha256`, `alpha` and `qhat` equal\n   those the calibrate step returned"), "the loop closes on scores_sha256, alpha and qhat");
 });
 
-// killer: docs/RUNBOOK-harness.md:195 CONST "15 checks today" -> "13 checks today"
+// killer: docs/RUNBOOK-harness.md:195 CONST "15 of 15 checks" -> "13 of 13 checks"
 test("srf_runbook_harness_green_gate_quotes_the_script — the message and the count are those of scripts/verify-harness.mjs", () => {
   const script = read("scripts", "verify-harness.mjs");
   const named = [...script.matchAll(/(?:wiredCheck|httpCheck)\("(\w+)"/g)].map((m) => m[1]);
@@ -168,5 +169,5 @@ test("srf_runbook_harness_green_gate_quotes_the_script — the message and the c
   assert.equal(new Set([...named, ...looped]).size, count, "premise: distinct check names");
   assert.ok(script.includes('"VERIFY OK — all checks passed."'), "premise: the message the script prints");
   const runbook = read("docs", "RUNBOOK-harness.md");
-  assert.ok(runbook.includes(`its stderr prints \`VERIFY OK — all checks passed\` (${String(count)} checks today;`), `the runbook quotes the message and the ${String(count)} checks`);
+  assert.ok(runbook.includes(`its stderr prints \`VERIFY OK — all checks passed\` (${String(count)} of ${String(count)} checks;`), `the runbook quotes the message and the ${String(count)} checks`);
 });
