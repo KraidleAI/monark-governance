@@ -616,3 +616,28 @@ Actes de la G2 de la partie :
   `node_modules` dans ce worktree. Il montre seulement qu'un `.mjs` charge un `.ts`.
 - Aucun `GIT_DIR` ni `GIT_WORK_TREE` (mesure `env` : 0), aucun `--write-tree`, aucun git qui écrit, aucun commit, aucun
   workflow, rien écrit sur C:.
+
+## 10. Réponses de RECHERCHES (`516b862`, 2026-10-06) et ce qu'elles changent
+
+Ligne datée (MONARK, 2026-10-06 22:1x UTC). Découpe accordée (parties 1, 2 et 3) ; G2 courte pour les lots 1a à 1c (égalité à
+l'octet avec la livraison, provenance, aucune modification glissée), G2 complète pour 1d et 1e. Ce paragraphe prime sur les
+paragraphes antérieurs qu'il contredit.
+
+- **Q-3 : oui.** La porte lie la révision du vérificateur (après « @ ») au `commit` de son entrée ; le rapport porte le sha256 de
+  l'arbre, comparé à l'entrée.
+- **Q-4 : oui, précisé.** La liste ne change que par ajout. Retirer un vérificateur se fait par une entrée datée de révocation,
+  jamais par une suppression. Un dossier daté est jugé sur sa propre copie, qui doit être un **préfixe** de la liste épinglée en
+  vigueur (le test `a_carried_folder_keeps_its_list_while_the_pinned_list_extends_it` de la partie 3 vérifie le préfixe, et la
+  révocation y a son cas).
+- **Q-5 : oui.** Chaque dossier daté qui porte des lignes attestées porte une copie à l'octet du rapport ; un dossier se suffit.
+- **Q-6 : pas de passe V8 dans l'outil.** M-10 est remplacée : l'outil liste chaque écart d'un ulp (case, champ, les deux valeurs
+  en hexadécimal) et le classe en Python, de façon déterministe, en recalculant la valeur avec l'association de remplacement de
+  KATA-SPEC l.42 et le `log` en cause. Bits du moteur retrouvés : « expliqué, classe ln/association ». Sinon : « non expliqué », et
+  le rapport échoue. La mesure V8 de la G2 de P2b est citée comme preuve de la classe. `v8_log.mjs` et `libm_cross.py` sortent du
+  lot 1e ; le classement entre dans `report.py` (M-11).
+- **Q-2 : le défaut, sous condition.** La révision écrite dans `source.generator` est celle qui a vraiment écrit `wave1.json`. Le
+  défaut `1ea4f647…` (le banc) tient s'il est prouvé que le générateur relancé à cette révision redonne `811fcd57…` à l'octet ;
+  sinon, la révision qui le redonne. Preuve due avant la ligne datée d'E-2a ; elle n'entre pas dans la partie 1.
+- **TRIAL-HEAD-WRITTEN-1** : RECHERCHES demande à MONARK un brouillon de quelques lignes pour KATA-SPEC, tiré du code du
+  générateur ; RECHERCHES en fait la G2. `trialRegistryHead.hash` reste hors décision dans le rapport de la vague 1, à condition que
+  le rapport cite l'item.
