@@ -55,8 +55,7 @@ const read = (rel: string): string => readFileSync(join(ROOT, rel), "utf8");
 // TYPED BY DESIGN (T0-TOOLING-1): the syncs write the manifest themselves, so a changed byte of these files must show as a test
 // diff. Written by node scripts/repin-served.mjs only (the pending line goes with its file at the T0 promotion).
 const PINNED: Record<string, string> = {
-  "apps/site/data/harness-served.json": "30afbec29cabf11713d3072098c17397ff6dcd2ecd3377c9ca7c5a4a17acf0da",
-  "apps/site/data/harness-pending.json": "57cc4eae9b93fff342d0bcd1be4118443bad78cf1c571fb3969faf4211d67894",
+  "apps/site/data/harness-served.json": "f47ed82f98bdcdb0738cf466442d2b78e841c34b21b23d0038f626584ba75c47",
   "fixtures/byo-demo-trace.json": "5c9b03e62bd88703a1ecfe381cf8288cab62aee9d096b03b2302338d49883dfc",
   "fixtures/h5-e2e-trace.json": "57d38c1907bfea4d7cb746186f9bada86bd210358c0a7902a61392957567fc19",
 };
