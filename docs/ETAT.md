@@ -633,6 +633,21 @@ Tronc `lot/etude-suite`. Dernier oracle complet : 1 779 tests, dont 1 776 verts,
     mesure publiée du délai entre la publication d une version malveillante et son retrait du registre). Aujourd hui, les 7 jours sont
     une décision de la cellule, sans efficacité revendiquée. Porteur : la cellule ; déclencheur : avant DEP-RELEASE-AGE-CI-1 ; état :
     ouvert.
+  - ADR-M003-SUFFIX-DUP-1 (erratum du journal du 2026-10-06 07:4x UTC) : le doublon « D9 octies » d ADR-M003 (2026-09-20 et 2026-09-24).
+    État : clos le 2026-10-06 par #207 (tronc `76a8c3ca`) : aucun renommage, une note de registre datée, et la garde
+    `scripts/adr-suffixes.mjs` (test `adr_m003_d9_suffixes_are_unique`, `adr_m003_d9_headings_never_escape_the_check`) : tout titre D9
+    lu ou refusé, suffixes dans l ordre latin sans saut, aucun doublon hors de la paire octies fermée par ses dates
+    (`docs/G7-lot-adr-m003-suffix-dup-1.md`).
+  - ADR-M003-SUFFIX-LIST-1 (procurement, G7 de ADR-M003-SUFFIX-DUP-1) : `LATIN_ORDINALS` s arrête à octodecies, sans source primaire lue.
+    Demande de procurement formée : *Guide de légistique* (Secrétariat général du Gouvernement et Conseil d État), édition en ligne sur
+    legifrance.gouv.fr, fiche sur la numérotation des articles insérés (bis, ter, quater…) ; ISBN de l édition imprimée et numéro de la
+    fiche à relever ; tentative : aucune ; usage : lire [lu] les termes de la liste et leurs suivants. Porteur : MONARK ; déclencheur :
+    avant le premier addendum D9 au-delà d octodecies (20ᵉ titre en comptant la paire octies ; 18 aujourd hui) ; état : ouvert.
+  - HARNESS-UNICODE-ESCAPE-1 (G7 de ADR-M003-SUFFIX-DUP-1) : dans l outil d écriture du harnais (Write, Edit, Bash), un échappement
+    `\u` à quatre chiffres arrive dans le fichier comme le caractère brut (sonde `F:/tmp/dojo/suffixdup/escape-probe.txt`, `od -c`) ;
+    la forme à accolades `\u{XXXX}` (drapeau `u` pour une expression régulière) ou `String.fromCharCode` passe. Construction : une
+    ligne datée de `docs/methode/REGLES-MISSION.md` qui le dit, pour que chaque mission générée le porte. Porteur : MONARK ;
+    déclencheur : le prochain lot qui touche `REGLES-MISSION.md` ; état : ouvert.
   - R25-REGISTRY-ROOT-1, PR 2 (ADR-M003 D9 septdecies, décision de l investisseur du 2026-10-06) : copie à l octet de `wave1.json` (`recherches`
     `a43ad70`, 26 202 lignes, sha256 `811fcd57…`) et de sa déclaration `PROVENANCE-kata-registry.md` sous `apps/harness/data/kata/registry/`,
     sous la porte de la PR 1 ; l ancre (g) du test racine devient inconditionnelle (le saut est retiré). Porteur : MONARK ; déclencheur : la
