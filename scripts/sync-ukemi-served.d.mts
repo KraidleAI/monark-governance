@@ -52,3 +52,9 @@ export function writeUkemiPending(root: string, writtenAt: string): Promise<stri
 export function markPendingSince(text: string, day: string): string;
 /** Why the ukemi promotion may not run yet under `root` (the harness pending snapshot still exists), or null. */
 export function promotionBlocked(root: string): string | null;
+/** G2 N-4 of T0-TOOLING-1: the file operations of the syncs, swappable by a test to inject a failure. */
+export const IO: { write: (abs: string, text: string) => void; remove: (abs: string) => void };
+/** Apply the writes in order, each atomic, then the removal; a failure names what was written and what was not. */
+export function applyWrites(root: string, writes: [string, string][], remove: string | null): void;
+/** The manifest of a promotion, resumable after an interruption between the manifest write and the pending file's removal. */
+export function promotedManifest(root: string, manifestText: string, servedRel: string, sha: string, pendingRel: string): string;

@@ -19,12 +19,12 @@
 // the CRLF->LF sha256 in apps/site/data/manifest.sha256.json (canonical form, before either write). The site reads the file through
 // apps/site/lib/narabi-served-load.ts (manifest check, closed shape, fail-closed); test/narabi-live.test.ts binds every
 // value again to its producer (the systemd units, the probe, the harness calibration and the served description).
-import { readFileSync, writeFileSync, existsSync } from "node:fs";
+import { readFileSync, existsSync } from "node:fs";
 import { join, dirname } from "node:path";
 import { createHash } from "node:crypto";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { DEADLINE_UTC } from "./probe-narabi.mjs";
-import { setManifestEntry, MANIFEST_REL } from "./sync-ukemi-served.mjs";
+import { setManifestEntry, applyWrites, MANIFEST_REL } from "./sync-ukemi-served.mjs";
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..");
 export const API_HOST = "https://api.monarkgate.tech";
@@ -36,7 +36,7 @@ const PROBE_TIMER_REL = "deploy/monark-probe.timer";
 const MAX_BYTES = 1024 * 1024; // the served document is ~20 kB
 const sha256 = (b) => createHash("sha256").update(b).digest("hex");
 const fail = (why) => {
-  console.error(`sync-narabi-served: FAIL-CLOSED — ${why}; nothing written.`);
+  console.error(`sync-narabi-served: FAIL-CLOSED — ${why}${why.includes("; written: ") ? "" : "; nothing written"}.`);
   process.exit(1);
 };
 
@@ -133,7 +133,7 @@ export function repairNarabiEntry(root) {
   const sha = sha256(Buffer.from(readFileSync(join(root, OUT_REL), "utf8").replace(/\r\n/g, "\n"), "utf8"));
   const text = readFileSync(join(root, MANIFEST_REL), "utf8"), next = setManifestEntry(text, OUT_REL, sha);
   if (next === text) return false;
-  writeFileSync(join(root, MANIFEST_REL), next);
+  applyWrites(root, [[MANIFEST_REL, next]], null);
   return true;
 }
 
@@ -142,8 +142,7 @@ export function writeNarabiServed(root, facts, readAt) {
   const text = JSON.stringify({ $comment: COMMENT, schema: "monark-site-narabi-served-v1", read_at: readAt, ...facts }, null, 2) + "\n";
   const sha = sha256(Buffer.from(text.replace(/\r\n/g, "\n"), "utf8"));
   const manifest = setManifestEntry(readFileSync(join(root, MANIFEST_REL), "utf8"), OUT_REL, sha);
-  writeFileSync(join(root, OUT_REL), text);
-  writeFileSync(join(root, MANIFEST_REL), manifest);
+  applyWrites(root, [[OUT_REL, text], [MANIFEST_REL, manifest]], null);
   return sha;
 }
 
