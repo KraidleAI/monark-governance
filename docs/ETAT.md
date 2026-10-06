@@ -534,6 +534,11 @@ Tronc `lot/etude-suite`. Dernier oracle complet : 1 779 tests, dont 1 776 verts,
     points de ces empreintes n est pas écrit dans la ligne) ; tests `no_table_publishes_the_digest_of_a_sequence_of_30_points_or_fewer`
     et `spec_publish_refuses_a_hand_edited_table_even_pinned_again`. Reste ouvert pour la révision qui publiera des lignes kata (elle dit
     comment elle tient la règle). Porteur : RECHERCHES ; état : gardé (G2 de SPEC-1-1-0-RELEASE b, N-1 et M-1, 2026-10-06).
+  - TEMPLATE-MARKERS-SOURCE-1 (E-2 de la contre-G2 de T0-TOOLING-1, 2026-10-06) : la règle `ph` de `scripts/public-text-deny.mjs`
+    refuse `${NOM}` quand NOM est dans `TEMPLATE_MARKERS` (`T0`, `OPENAPI_SHA256`, `SPEC_URL`), liste écrite à la main : le seul modèle
+    qui les porte (la NOTICE) vit dans recherches. Effet aujourd hui : aucun. Option A retenue par MONARK : engager le modèle de notes
+    dans governance (`docs/public-notes/TEMPLATE.md`) et dériver `TEMPLATE_MARKERS` de ce fichier, avec son test (~60 lignes).
+    Déclencheur : après T0 (2026-10-06), ou plus tôt si un modèle ajoute un marqueur. Porteur : RECHERCHES ; état : ouvert.
   - RPC-GUARD-LOCK-WRITE-LEAK-1 (H-1 de RECHERCHES, G2 de #137) : si l écriture ou le fsync du verrou échoue après un `openSync "wx"`
     réussi, le fichier reste hors de `acquired` (`guarded.ts:43-46`) et la garde répond `lock_held` jusqu à l acte du RUNBOOK.
     Construction : retirer le fichier sur échec d écriture, test et tueur d abord. Porteur : RECHERCHES (zone `packages/rpc-guard/`
