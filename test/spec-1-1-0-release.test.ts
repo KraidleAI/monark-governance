@@ -334,7 +334,7 @@ test("the_vectors_file_may_hold_tables_and_only_its_synthetic_fixtures_skip_reco
     [[], ["short_digest"], ["short_digest"], ["recompute_held", "short_digest"], ["policy_table_kind"]]);
 });
 
-// killer: scripts/spec-publish.mjs:179 CONST "Buffer.from(was, \"utf8\").equals(bytes)" -> "true"
+// killer: scripts/spec-publish.mjs:179 CONST "was !== null && Buffer.from(was, \"utf8\").equals(bytes)" -> "true"
 test("a_carried_table_is_read_from_the_previous_commit_not_its_working_tree", () => {
   const btc = bytes(ROOT, "spec/contract-1.1.0/policy/btc-dir-1h.json"), prev = previousTree({ ".gitignore": "contract-0.9.0/\n", "contract-0.9.0/policy/btc-dir-1h.json": btc });
   assert.ok(over(prev, "contract-1.2.0", [["contract-0.9.0/policy/btc-dir-1h.json", "spec/contract-1.1.0/policy/btc-dir-1h.json", "policy-table"]]).includes("policy_table_invalid"),
