@@ -251,3 +251,27 @@ test("cli_usage_errors_exit_2", async () => {
   }
   assert.equal(existsSync(out), false);
 });
+
+// SPEC-PUBLISH-PREVIOUS-BLOBS-1 (lot T0-FOLLOWUP-1; T0 act 8 on win32 with core.autocrlf=true): a root:"previous" entry is read from
+// the git object of previous_commit, never from the working tree. A previous clone checked out with CRLF (status clean) gives the same
+// output and MANIFEST.sha256 as an LF clone; a working-tree edit hidden from status is ignored; a path absent from the commit is named.
+// killer: scripts/spec-publish.mjs:174 CONST "e.root === \"previous\" ? blob(dir, rel.previous_commit, e.path) : readFileSync(abs)" -> "readFileSync(abs)"
+test("previous_entries_are_read_from_the_pinned_commit_not_the_working_tree", async () => {
+  const m = await api(), w = world(), p = w.roots.previous;
+  const published = (inputs: Inputs = w.inputs): { problems: string[]; files: Record<string, string> } => {
+    const r = m.plan({ inputs, release: "v", date: "2026-10-02", roots: w.roots });
+    return { problems: codes(r.problems), files: Object.fromEntries(r.files.map((f) => [f.path, f.bytes.toString("utf8")])) };
+  };
+  const lf = published();
+  assert.deepEqual(lf.problems, [], "premise: the LF clone publishes");
+  git(p, "config", "core.autocrlf", "true");
+  for (const f of ["KATA-SPEC.md", "reports/README.md"]) rmSync(join(p, f));
+  git(p, "checkout", "--", ".");
+  assert.ok(readFileSync(join(p, "reports/README.md"), "utf8").includes("\r\n") && git(p, "status", "--porcelain") === "", "premise: a clean CRLF checkout");
+  assert.deepEqual(published(), lf, "the CRLF clone gives the LF clone's files and MANIFEST.sha256");
+  git(p, "update-index", "--assume-unchanged", "reports/README.md");
+  writeFileSync(join(p, "reports/README.md"), "# Edited\n");
+  assert.deepEqual(published(), lf, "a working-tree edit is ignored");
+  const ghost = at(w.head, [...(w.inputs.releases.v?.entries ?? []), { out: "reports/ghost.md", root: "previous", path: "reports/ghost.md", kind: "text", sha256: sha(NOTE) }]);
+  assert.ok(published(ghost).problems.includes("previous_blob_missing"), "a path absent from the commit is named");
+});
