@@ -192,7 +192,7 @@ to the `--out` file and exits **1** on any failure (it sets `process.exitCode` a
 discriminating under win32 too, item O-1b-G2-1). Keep that file as the CA.
 
 **Deploy reserves — the green gate (Lot H6).** The deploy is GREEN only when BOTH hold:
-- the command **exits 0** AND its stderr prints `VERIFY OK` (13 of 13 checks). Treat ANY non-zero exit as RED and
+- the command **exits 0** AND its stderr prints `VERIFY OK — all checks passed` (15 checks today; the CA's `checks` array lists them all, each `ok: true`). Treat ANY non-zero exit as RED and
   read the JSON `checks` array to find the failing check (on Windows an unavailable interpreter can surface as exit
   `127` — still RED, never a pass); and
 - on the first real **https** run, the CA's `tls.authorized === true` (a genuine handshake to the live

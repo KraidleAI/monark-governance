@@ -31,5 +31,6 @@ Ligne datée 2026-10-03 09:1x UTC (orchestrateur, item RUNBOOK-VITRINE-TAR-ORDER
 - (2026-10-05 14:3x UTC, SITE-SEND-GUARD-MECH-1, lot CM-3c-4a de C', #164) Ces deux règles sont aussi mécaniques depuis C' :
   `node scripts/export-public.mjs --out` refuse avant toute écriture tant qu un `*-pending.json` est dans l arbre ou qu un fichier servi
   porte `pending_since` (échec fermé sur un fichier illisible ; aucun drapeau de contournement ; `--check` n est pas gardé).
-  `release-public` passe par `--out` : de C2 à T0, il est bloqué aussi en `--dry-run` ; depuis #181 (RELEASE-PREFLIGHT-SEND-GUARD-1), son
-  refus tombe au pré-vol, avant toute porte locale (`scripts/release-public.mjs`, `preflight`). La promotion à T0 lève la garde d elle-même.
+  `release-public` passe par `--out` : de C2 à T0, il est bloqué aussi en `--dry-run`, et son refus ne tombe qu après les portes locales
+  complètes (environ 15 min). La promotion à T0 lève la garde d elle-même.
+- (2026-10-06, SURFACES-1-1-0) Depuis #181 (RELEASE-PREFLIGHT-SEND-GUARD-1), le refus de `release-public`, `--dry-run` compris, tombe au pré-vol, avant toute porte locale (`scripts/release-public.mjs`, `preflight`) : la durée de l entrée précédente ne vaut plus.
