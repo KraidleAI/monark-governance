@@ -1,8 +1,8 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://github.com/KraidleAI/monark-kata-spec/blob/main/schemas/coverage-verdict.schema.json",
+  "$id": "https://github.com/KraidleAI/monark-kata-spec/raw/main/contract-1.1.0/schemas/coverage-verdict.schema.json",
   "title": "CoverageVerdict",
-  "description": "HIKAE conformal coverage verdict, contract 1.1.0. POLYMORPHIC region set|interval, or null when no region is served (set = classification btc-dir/pm-yesno; interval = regression cascade-VaR UKEMI). No p_correct. alpha is the target MISCOVERAGE, so the target coverage is one minus alpha (never a probability of correctness, never a 'coverage level alpha'). Couplings checked by the server before it sends, outside this schema (spec section 5): region is null exactly when qhat is null, and then abstain is true and reason is a no-region reason; abstain is true for every calib_* reason; scale is not null exactly when qhat_unit is scale; a non-null policy_row_sha256 implies a non-null cell_key; cell_key is null exactly when policy_table_sha256 is null; when scores is present, scores_sha256 is its digest.",
+  "description": "HIKAE conformal coverage verdict, contract 1.1.0. POLYMORPHIC region set|interval, or null when no region is served (set = classification btc-dir/pm-yesno; interval = regression cascade-VaR UKEMI). No p_correct. alpha is the target MISCOVERAGE, so the target coverage is one minus alpha (never a probability of correctness, never a 'coverage level alpha'). Couplings checked by the server before it sends, outside this schema (contract-1.1.0/CONTRACT.md section 5): region is null exactly when qhat is null, and then abstain is true and reason is a no-region reason; abstain is true for every calib_* reason; scale is not null exactly when qhat_unit is scale; a non-null policy_row_sha256 implies a non-null cell_key; cell_key is null exactly when policy_table_sha256 is null; when scores is present, scores_sha256 is its digest.",
   "type": "object",
   "additionalProperties": false,
   "required": [
