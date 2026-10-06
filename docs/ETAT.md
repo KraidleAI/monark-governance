@@ -648,6 +648,28 @@ Tronc `lot/etude-suite`. Dernier oracle complet : 1 779 tests, dont 1 776 verts,
     la forme à accolades `\u{XXXX}` (drapeau `u` pour une expression régulière) ou `String.fromCharCode` passe. Construction : une
     ligne datée de `docs/methode/REGLES-MISSION.md` qui le dit, pour que chaque mission générée le porte. Porteur : MONARK ;
     déclencheur : le prochain lot qui touche `REGLES-MISSION.md` ; état : ouvert.
+  - RETIRE-LISTS-E2A-PIPE-1 (tuyau absent de R-a, Q-R7 de son G0) : le chargeur d E-2a appelle `guardKataTable` avec `retireLists`, lues
+    dans `apps/harness/data/kata/retire/` seulement, toutes, par ordre de date, sous leur nom nu ; chaque sha256 d épingle vient d une
+    épingle versée, jamais du hachage des octets qu elle contrôle ; test d intégration du chemin servi ; le pas de CI de Q-E4 garde les
+    tables engagées de même. Porteur : MONARK ; déclencheur : le G0 d E-2a ; état : ouvert.
+  - RETIRE-CHILD-ROW-1 (Q-R8 du G0 de R-a) : trois cas d une ligne enfant (`calib_attempt` 2), impossibles aujourd hui
+    (`calibAttempt` vaut 1) : la clé de tri d un enfant retiré à son tour ; l entrée de l essai 1 reprise après qu un enfant existe, qui
+    heurte le contrôle d essai courant (`policy-retire.ts` l.75) ; l addendum 9 point 2 (un enfant compté à partir du premier trimestre
+    dont S_k suit la fin de ses données), non contrôlé par le lecteur. Porteur : MONARK ; déclencheur : la généralisation de E-1c ;
+    état : ouvert.
+  - RETIRE-EVIDENCE-BIND-1 (Q-R9 du G0 de R-a ; point connu de la G2 de RECHERCHES, `8437a42`) : `evidence_sha256` d une entrée de
+    liste n a que sa forme ; sa liaison au relevé des comptes LIVE est à CM-5-PLAN-1. Porteur : MONARK ; déclencheur : le premier retrait
+    `live:`, pas avant le 2027-01-01 ; état : ouvert.
+  - RETIRE-ADR-CAUSE-FILE-1 (point connu de la G2 de RECHERCHES, `8437a42`) : une cause `adr:decisions/<fichier>.md` est contrôlée
+    dans sa forme seule ; rien ne relie la cause à un fichier qui existe, ni à son sha256. Construction : la liste publiée porte le sha256
+    du fichier de décision cité, et la porte de publication (R-b) ou le chargeur d E-2a le vérifie. Porteur : MONARK ; déclencheur : la
+    première liste qui porte une cause `adr:` ; état : ouvert.
+  - RETIRE-HEADER-WORDING-1 (N-1 de la G2 de RECHERCHES, `8437a42`, mineure, sans nouvelle G2) : l en-tête de `readRetireList`
+    (`apps/harness/src/policy-retire.ts`) se lit « E_k = S_1 plus 3k calendar months, S_1 = 2026-10-01T00:00Z ». Porteur : MONARK ;
+    déclencheur : le prochain lot qui touche `policy-retire.ts` ; état : ouvert.
+  - KILLER-ASSERT-KILL-1 (Q-R11 du G0 de R-a) : deux tueurs anciens tuent hors assertion (`guard_adr_cause_under_decisions_only`,
+    `w2_guard_tail_m_and_support`), comptés « non conclu » par `scripts/mutants/run.mjs` ; un lot `red-proof: test-only` passe leurs
+    admissions par une assertion. Porteur : MONARK ; déclencheur : après la fusion de R-b ; état : ouvert.
   - R25-REGISTRY-ROOT-1, PR 2 (ADR-M003 D9 septdecies, décision de l investisseur du 2026-10-06) : copie à l octet de `wave1.json` (`recherches`
     `a43ad70`, 26 202 lignes, sha256 `811fcd57…`) et de sa déclaration `PROVENANCE-kata-registry.md` sous `apps/harness/data/kata/registry/`,
     sous la porte de la PR 1 ; l ancre (g) du test racine devient inconditionnelle (le saut est retiré). Porteur : MONARK ; déclencheur : la
@@ -1263,6 +1285,10 @@ Tronc `lot/etude-suite`. Dernier oracle complet : 1 779 tests, dont 1 776 verts,
   recherches `coordination/pieces/2026-10-06-G0-retire-path/`), à coder avant E-1, en parallèle de FORMAT-W2 ; repli accordé par MONARK
   (`034a528`) : si sa partie harnais n est pas fusionnée quand part le G0 court de E-1a, E-1 passe d abord, et le retrait s écrit après
   E-1b, sur la fonction à deux registres ;
+  ENGINE-ROW-RETIRE-PATH-1, R-a fusionnée le 2026-10-06 (#209, fusion `f2152918`, oracle G7 `ad0e1bf9…`,
+  `docs/G7-lot-retire-path-ra.md`) : liste de retrait datée, chaîne lue par la garde, recouvrement de la projection, borne `LIVE_N_MAX` ;
+  non servie avant le chargeur d E-2a (RETIRE-LISTS-E2A-PIPE-1). Restent R-b (publication datée), puis la répétition chronométrée
+  (D6 : « livré et mesuré ») ;
   SERIES-FULL-HISTORY-1 FAIT le 2026-10-02 (19:19 UTC) : 914 courses, 762 dossiers scellés sous `F:/PRODUITS/marche/history/` (symbole × mois ×
   intervalle), empreintes postées (recherches, pièces `2026-10-02-series-full-history`), rien transféré ; 153 arrêts `close_time` (bougies
   tronquées 2017-2021, et la panne du 2023-03-24 12:39Z sur les 15m et 1h de 2023-03, WARM-2) ; blocs 2022-09 → 2024-09 : 292/300, 0 manquante.
