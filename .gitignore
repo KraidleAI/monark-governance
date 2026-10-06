@@ -24,5 +24,8 @@ sbom.cdx.json
 # Project agents (French prompts, session config, never exported ; lang:gate)
 .claude/agents/
 
-# T0-TOOLING-1: a red deploy check (scripts/verify-harness.mjs --out FILE) writes FILE.failed; never committed
-*.failed
+# T0-TOOLING-1: the side records of the deploy check (scripts/verify-harness.mjs --out docs/deploy-CA-harness.json): a red run
+# writes .failed, a green run without TLS .local, the atomic write passes through .tmp; never committed
+docs/deploy-CA-harness.json.failed
+docs/deploy-CA-harness.json.local
+docs/deploy-CA-harness.json.tmp

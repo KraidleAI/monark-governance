@@ -197,20 +197,26 @@ Against a process that still serves the EMPTY liq registry (any SHA before the U
 `gate_liq_call` and `mcp_gate_description_liq` are RED by design: that surface is exactly vector alpha-2b of
 `test/verify-harness-liq.test.ts` (its response body hashes to the `gate_liq_call` sha256 of the CA recorded at
 `bb41b6d`). Against a process older than U-4b-2a, both liq calls are a 400 (unknown task_class). And the TLS
-certificate (issuer, expiry). It prints the **conformity attestation** (URL, timestamp, per-check sha256, TLS cert)
-and writes it to the `--out` file **only when every check passed** (T0-TOOLING-1): on any failure it exits **1**, leaves
-the `--out` file as it was (the last green CA) and writes the failing record to `<out>.failed` (ignored by git; removed
-by the next green run). It sets `process.exitCode` and returns; since U-4b-2b the exit is discriminating under win32
-too, item O-1b-G2-1. An unknown option, or an option without its value (`--output`, a bare `--out`), is refused by name
-with exit **2** before any request. Keep the `--out` file as the CA.
+certificate (issuer, expiry) of **every host it contacts**: `tls` for the `api.` host and `tls_mcp` for the `mcp.` host,
+each a real handshake on its own port (G2 of T0-TOOLING-1, review m-f: the MCP checks reach `mcp.` by its own name, so
+its certificate is checked too). It prints the **conformity attestation** (URL, timestamp, per-check sha256, TLS
+blocks) and writes it to the `--out` file **only when every check passed AND both hosts passed an authorized
+handshake** (T0-TOOLING-1), through `<out>.tmp` and a rename (an interruption never leaves a torn CA). Otherwise the
+`--out` file stays as it was (the last green CA): a red run exits **1** and writes `<out>.failed`; a green run on an
+`http` target (TLS not checked, a local pass) exits 0 and writes `<out>.local`. Both side records are ignored by git at
+the CA path, refused by the public export anywhere, and removed by the next green run. Every request and handshake is
+bounded by `--timeout <ms>` (default 10000); a timeout is a failed check. It sets `process.exitCode` and returns; since
+U-4b-2b the exit is discriminating under win32 too, item O-1b-G2-1. An unknown, repeated or empty option, or an option
+without its value (`--output`, a bare `--out`, `--out ""`, `--out` twice), is refused by name with exit **2** before
+any request. Keep the `--out` file as the CA.
 
 **Deploy reserves — the green gate (Lot H6).** The deploy is GREEN only when BOTH hold:
 - the command **exits 0** AND its stderr prints `VERIFY OK — all checks passed` (15 of 15 checks; the CA's `checks` array lists them all, each `ok: true`). Treat ANY non-zero exit as RED and
   read the JSON `checks` array to find the failing check (on Windows an unavailable interpreter can surface as exit
   `127` — still RED, never a pass); and
-- on the first real **https** run, the CA's `tls.authorized === true` (a genuine handshake to the live
-  cert, not merely "fetch didn't throw"). An http/local target reports `tls.skipped` and does NOT satisfy
-  the go-live gate.
+- on the first real **https** run, the CA's `tls.authorized === true` and `tls_mcp.authorized === true` (genuine
+  handshakes to the live certs, not merely "fetch didn't throw"). An http/local target reports `skipped`, never writes
+  `--out` and does NOT satisfy the go-live gate.
 
 After a GREEN deploy, record the CA in the provenance journal — compute its sha256 and log that digest with
 today's date to `docs/JOURNAL-PROVENANCE.md`, alongside the artifact `docs/deploy-CA-harness.json`:
