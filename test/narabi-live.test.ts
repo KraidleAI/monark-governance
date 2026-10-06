@@ -1154,3 +1154,31 @@ test("narabi_committed_records_fail_closed — the served-facts record and the c
   assert.ok(/loadNarabiCapture\(root\)/.test(readPage()) && /loadNarabiServed\(root\)/.test(readPage()), "the page reads both records through their loaders");
   assert.ok(!existsSync(join(SITE, "lib", "narabi-snapshot.ts")) && !existsSync(join(SITE, "lib", "narabi-served.ts")), "no typed-value module remains");
 });
+
+// T0-TOOLING-1 (review B-3, c bis): the Narabi sync sets its own manifest entry (canonical form) instead of printing it for a
+// hand edit. Replayed on a copy of the committed record: the same facts and read_at give back the committed bytes and entry;
+// new facts move the entry to the new file, and the site loader accepts it. No network: the sync's write step only.
+// killer: scripts/sync-narabi-served.mjs:134 SDL "  writeFileSync(join(root, MANIFEST_REL), manifest);" -> ""
+test("narabi_sync_sets_its_manifest_entry", async () => {
+  const sync = (await import(new URL("../scripts/sync-narabi-served.mjs", import.meta.url).href)) as Record<string, unknown>;
+  const write = sync["writeNarabiServed"] as ((root: string, facts: unknown, readAt: string) => string) | undefined;
+  assert.equal(typeof write, "function", "scripts/sync-narabi-served.mjs exports writeNarabiServed");
+  if (write === undefined) return;
+  const manifestRel = "apps/site/data/manifest.sha256.json";
+  const tmp = mkdtempSync(join(tmpdir(), "narabi-sync-"));
+  try {
+    mkdirSync(join(tmp, "apps", "site", "data"), { recursive: true });
+    for (const rel of [manifestRel, NARABI_SERVED_REL]) writeFileSync(join(tmp, rel), readFileSync(join(ROOT, rel), "utf8"));
+    const committed = JSON.parse(readFileSync(join(ROOT, NARABI_SERVED_REL), "utf8")) as { read_at: string; gate: Record<string, unknown>; sentinel_timer: unknown; probe: unknown };
+    const facts = { gate: committed.gate, sentinel_timer: committed.sentinel_timer, probe: committed.probe };
+    write(tmp, facts, committed.read_at);
+    assert.deepEqual([manifestRel, NARABI_SERVED_REL].map((rel) => readFileSync(join(tmp, rel), "utf8")), [manifestRel, NARABI_SERVED_REL].map((rel) => readFileSync(join(ROOT, rel), "utf8")), "the committed facts give back the committed bytes and entry");
+    const sha = write(tmp, { ...facts, gate: { ...committed.gate, openapi_sha256: "0".repeat(64) } }, "2026-10-06T12:00:00.000Z");
+    const files = (JSON.parse(readFileSync(join(tmp, manifestRel), "utf8")) as { files: Record<string, string> }).files;
+    assert.equal(files[NARABI_SERVED_REL], sha256(readFileSync(join(tmp, NARABI_SERVED_REL), "utf8").replace(/\r\n/g, "\n")), "the entry is the new file's CRLF->LF sha256");
+    assert.equal(sha, files[NARABI_SERVED_REL]);
+    assert.equal(loadNarabiServed(tmp).gate.openapi_sha256, "0".repeat(64), "the site loader accepts the new record");
+  } finally {
+    rmSync(tmp, { recursive: true, force: true });
+  }
+});

@@ -6,7 +6,7 @@
  */
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { readFileSync, readdirSync } from "node:fs";
+import { existsSync, readFileSync, readdirSync } from "node:fs";
 import { createHash } from "node:crypto";
 import { join, relative, sep } from "node:path";
 import { SCHEMA_VERSION } from "../packages/contracts/src/index.ts";
@@ -192,3 +192,25 @@ test("srf_runbook_harness_names_every_check — the 15 checks of the script, eac
   assert.deepEqual(names.filter((n) => !runbook.includes(`\`${n}\``)), [], "a check the runbook does not name");
 });
 
+// T0-TOOLING-1 (review B-3, m-g): the T0 section of the storefront runbook names the nine acts in order, each by its command,
+// and every script it names exists. The section is French (internal runbook): only commands and paths are read here.
+// killer: docs/RUNBOOK-vitrine.md:45 CONST "`node scripts/sync-narabi-served.mjs`" -> "`node scripts/sync-narabi-capture.mjs`"
+test("srf_runbook_vitrine_t0_order — deploy, green CA, harness, Narabi and ukemi syncs, re-pin, site, spec, release", () => {
+  const text = read("docs", "RUNBOOK-vitrine.md");
+  const at = text.indexOf("\n## Ordre de T0");
+  assert.ok(at > 0, "the runbook carries the T0 section");
+  const steps = text.slice(at).split("\n").filter((l) => /^\d+\. /.test(l));
+  const want: string[][] = [
+    ["git archive --format=tar.gz HEAD apps packages schemas fixtures package.json package-lock.json deploy scripts/verify-harness.mjs", "systemctl restart monark-harness"],
+    ["`node scripts/verify-harness.mjs --out docs/deploy-CA-harness.json`"], ["`node scripts/sync-harness-served.mjs`"],
+    ["`node scripts/sync-narabi-served.mjs`"], ["`node scripts/sync-ukemi-served.mjs`"], ["`node scripts/repin-served.mjs`", "`npm run ci`"],
+    ["`node scripts/export-public.mjs --out <scratch>/site-<sha>`"], ["`node scripts/spec-publish.mjs --release <id> --date <YYYY-MM-DD> --out <dir>`"],
+    ["`docs/public-notes/v0.9.0.md`", "`docs/public-notes/v0.9.0.commit.md`", "`node scripts/release-public.mjs --message docs/public-notes/v0.9.0.commit.md`"],
+  ];
+  assert.equal(steps.length, want.length, "nine numbered acts");
+  want.forEach((needles, i) => {
+    assert.ok(steps[i]?.startsWith(`${String(i + 1)}. `), `act ${String(i + 1)} is numbered in order`);
+    for (const n of needles) assert.ok(steps[i]?.includes(n), `act ${String(i + 1)} names ${n}`);
+  });
+  for (const m of text.slice(at).matchAll(/node (scripts\/[\w-]+\.mjs)/g)) assert.ok(existsSync(join(ROOT, m[1] ?? "")), `${m[1] ?? ""} exists`);
+});

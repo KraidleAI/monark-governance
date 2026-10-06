@@ -76,9 +76,9 @@ test("verify_harness_ca_schema_version_equals_the_harness_schema_version", async
 });
 
 // (1c) the four literal CA bodies (GATE_BODY, GATE_RETIRED_BODY, GATE_BYO_BODY, GATE_LIQ_BODY; the future and uncommitted
-// bodies derive) read the constant, no body types a version, and the copy of GATE_LIQ_BODY in scripts/sync-harness-served.mjs
-// follows it through the imported GATE_BODY (its one line, e9cd32b Q-UP-1). A literal left in either script => red.
-// killer: scripts/sync-harness-served.mjs:68 CONST "GATE_BODY.prediction.schema_version" -> "\"1.0.0\""
+// bodies derive) read the constant, no body types a version, and scripts/sync-harness-served.mjs imports the deploy check's
+// bodies, never a copy (T0-TOOLING-1, review m-e). A literal left in either script, or a copied body => red.
+// killer: scripts/sync-harness-served.mjs:50 CONST "GATE_LIQ_BODY, CALIBRATE_BODY, CASCADE_BODY" -> "GATE_LIQ_BODY"
 test("verify_harness_ca_bodies_read_the_ca_schema_version", () => {
   const text = readFileSync(SCRIPT, "utf8");
   for (const body of ["GATE_BODY", "GATE_RETIRED_BODY", "GATE_BYO_BODY", "GATE_LIQ_BODY"]) {
@@ -86,8 +86,9 @@ test("verify_harness_ca_bodies_read_the_ca_schema_version", () => {
   }
   assert.equal(text.split("schema_version: ").length - 1, 4, "the CA writes schema_version in its four literal bodies only");
   const sync = readFileSync(fileURLToPath(new URL("../scripts/sync-harness-served.mjs", import.meta.url)), "utf8");
-  assert.ok(sync.includes("const GATE_LIQ_BODY = {\n  prediction: { schema_version: GATE_BODY.prediction.schema_version, task_class: \"liquidation-eligible-coverage\", "), "the copied liq body follows the CA version");
-  assert.equal(sync.split("schema_version: ").length - 1, 1, "the harness sync writes schema_version in that copy only");
+  assert.ok(sync.includes('import { GATE_BODY, GATE_LIQ_BODY, CALIBRATE_BODY, CASCADE_BODY } from "./verify-harness.mjs";'), "the harness sync imports the four bodies it posts");
+  for (const body of ["GATE_LIQ_BODY", "CALIBRATE_BODY", "CASCADE_BODY"]) assert.ok(!sync.includes(`const ${body} =`), `the harness sync keeps no copy of ${body}`);
+  assert.equal(sync.split("schema_version: ").length - 1, 0, "the harness sync writes no schema_version");
 });
 
 interface CaCheck { name: string; ok: boolean; status: number; detail?: string }
