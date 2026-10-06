@@ -700,3 +700,11 @@ Worker `claude-opus-5-5` (effort max), le 2026-10-06, horloge lue de 22:10 à 22
 - L épingle passe dans le corps du test : `scripts/red-proof.mjs` ne juge un test que sur une ligne changée dans son corps, et le premier
   essai de red-proof sur 1b, épingle hors du corps, a été refusé (« 0 judged, 1 unchanged »).
 - `test/kata-recalc.test.ts` et `test/byte-guard.test.ts` : 17/17. `grep-forbidden`, `lang-gate` et `export-public --check` : OK.
+
+## 13. Lot 1c : mesures (MONARK, 2026-10-06 23:1x UTC)
+
+- `tools/kata-recalc/recalc_p2.py` (451 lignes, `7a7ee0e5…`, `DELIVERED.sha256` l.62), `compare_p2.py` (226 lignes, `6f00b36c…`, l.60),
+  `compare_check.py` (111 lignes, `635e0f5b…`, l.59) : copies à l'octet, `cmp` identiques ; ASCII, 0 TAB, 0 CR, sans BOM, LF final,
+  ligne la plus longue 159 octets.
+- L'épingle du test d'arbre couvre les sept fichiers : `bca9ee5251a43126fe3e052eee1974a91d6352811caa24077889c4c4e60a5231`, égale à
+  l'empreinte de l'arbre livré mesurée au §2.3. Les lots 1d et 1e se lisent en diff contre cet arbre.

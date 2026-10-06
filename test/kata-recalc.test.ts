@@ -35,10 +35,10 @@ function indexEntries(): { mode: string; object: string; stage: string; path: st
 // removed or renamed under tools/kata-recalc/, a mode other than 100644, or an unmerged entry
 // killer: tools/kata-recalc/kata_lib.py:265 CONST "_EWMA_W[nret - j] * (r * r)" -> "(_EWMA_W[nret - j] * r) * r"
 test("kata_recalc_tree_is_the_pinned_manifest - the index holds the tool as 100644 blobs whose manifest digest is the pin of the lot, and the working tree carries them", () => {
-  /** Lot 1b: the manifest of binom_check.py 036a5f5f..., binom_exact.py c83d971a..., kata_lib.py 11656b35... and vectors_check.py
-   *  d96f4fab..., the bytes of the delivery (its DELIVERED.sha256, l.57, l.58, l.61, l.63). In the body, so that each lot that moves
+  /** Lot 1c: the manifest of the seven files of the delivery, byte for byte (its DELIVERED.sha256, l.57 to l.63): the tree that the
+   *  review of P2b saw, bca9ee52... (G0 section 2.3), against which lots 1d and 1e are read as diffs. In the body, so that each lot that moves
    *  the pin is judged by scripts/red-proof.mjs (a changed line judges a test only inside its body). */
-  const PIN = "23cf6c82c661d94adf5d185db939334ae6836fc6ddc208e7dfcdc3595eee0d4b";
+  const PIN = "bca9ee5251a43126fe3e052eee1974a91d6352811caa24077889c4c4e60a5231";
   const entries = indexEntries();
   assert.deepEqual(entries.filter((e) => e.mode !== "100644" || e.stage !== "0" || !e.path.startsWith(`${TOOL_ROOT}/`)).map((e) => `${e.mode} ${e.stage} ${e.path}`), [],
     "every entry a merged regular file (100644) under tools/kata-recalc/: no link, gitlink or executable");
