@@ -97,3 +97,27 @@ Clone de `842a15d3` sur `main` ; harnais local ; aucun hôte réel ; `fetch` des
 - **Ancres** (`--touched 597a986d`) : 61 sur 61.
 - `tsc` 0, `eslint .` 0, `lint:ratchet` 69/69, `gate:vocab`, `lang:gate` et `export:check` OK. `/openapi.json` reste `61c9df97…`.
 - `test:main` sur `-c` (`842a15d3`) : 2 709 tests, 2 684 verts, 22 sautés, 3 rouges connus de l'hôte (`sentinel_sigterm_*` ×2, `ukemi_guard_record_skipped_the_platter_flush_nonvacuous`).
+
+## 6. Repli de la G2 delta (2026-10-06)
+
+Ligne datée 2026-10-06 (RECHERCHES, D-8 de la G2 delta) : les têtes et la répétition du §5 sont dépassées. Repli de D-1 à D-8, chacun sur la partie la plus basse qui le permet, puis porté vers le haut par fusions seulement :
+- `-a` : D-5 (fichiers temporaires des annexes de la CA ignorés et refusés par l'export ; `writeAtomic` retire son temporaire si l'écriture échoue) et D-6 (`--api` ou `--mcp` qui n'est pas une URL http(s), `--timeout` au-delà de 2 147 483 647 : refus nommé, sortie 2). Le vecteur de plantage devient un enregistrement impossible à écrire.
+- `-b` : D-1. L'acte 8 est la commande entière, `--release contract-1.1.0` et les deux racines. Le test tire l'identifiant et le commit précédent de `scripts/spec-publish-inputs.json` et passe l'empan par le `parseArgs` de `spec-publish`.
+- `-c` :
+  - D-2 : la section ne porte que ses actes numérotés ; deux vecteurs en ligne indentée ; les deux mutants survivants de la G2 delta, rejoués, sont tués ;
+  - D-3 : `--check` de Narabi sort en 1 sur une entrée périmée ;
+  - D-4 : le servi retouché à la main est refusé, et le tueur K2 est tué ;
+  - D-7 : `ph` laisse passer `${VAR}` ; un test par cas de l'acte V-2 élargi ;
+  - les actes 3 et 5 disent qu'une coupure se reprend en relançant la commande.
+  - D-7 et les tests `ph` sont dans `-c` et non dans `-b` : `-b` aurait passé la borne R-25 (594 lignes). La règle `ph` élargie vit dans `-b` ; `-c` la porte.
+  - D-5 côté synchros : `writeAtomic` est importé de `verify-harness.mjs`, donc le nettoyage de `-a` vaut aussi pour les trois synchros.
+- **Acte 8 répété sur `contract-1.1.0`** : `spec-publish.mjs --release contract-1.1.0 --date 2026-10-06 --out <scratch> --root recherches=<recherches> --root previous=<monark-kata-spec à ddfee9e>` sort en 0, **49 fichiers**, `MANIFEST.sha256` **`66d31d82122587a9da8725f3e19b39b43f371de826c1e9f311ea6a1755d4eb16`**, l'attendu écrit à l'acte 8.
+- **R-25** :
+  - `-a` 371 contre `636d3d33` ;
+  - `-b` 538 contre `-a` ;
+  - `-c` 258 contre `-b`.
+- **red-proof** (`--seed 37`) :
+  - `-a` contre `636d3d33` : OK, 9 jugés, 8 tueurs tirés, 8 tués ;
+  - `-b` contre la tête de `-a` : OK, 13 jugés, 6 tirés, 6 tués ;
+  - `-c` contre la tête de `-b` : OK, 11 jugés (11 F2P), 8 tirés, 8 tués.
+- **Tueurs tirés à la main**, chaque fichier restauré (sha256) : 34 sur 34 tués, plus les deux mutants de runbook de D-2.
