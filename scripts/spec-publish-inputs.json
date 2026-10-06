@@ -13,11 +13,11 @@
     },
     "contract-1.1.0": {
       "previous_commit": "ddfee9e076d979081fa7b21ec27940e3556bacf7",
-      "note": "contract 1.1.0: the specification text and its vectors and the root README (recherches 3712fc8), the four files published at ddfee9e carried from it, the five published schema copies and the policy table files of every served class (scripts/spec-policy-tables.mjs), plus VERSION and MANIFEST.sha256",
+      "note": "contract 1.1.0: the specification text and its vectors and the root README (recherches 1107e12), the four files published at ddfee9e carried from it, the five published schema copies and the policy table files of every served class (scripts/spec-policy-tables.mjs), plus VERSION and MANIFEST.sha256",
       "entries": [
         {"out": "KATA-SPEC.md", "root": "previous", "path": "KATA-SPEC.md", "kind": "text", "sha256": "b32a4062794d32292fd37f340061c3b5e61b5d40d077bfbb7fdf6b38548cc39d"},
         {"out": "README.md", "root": "recherches", "path": "kata/spec/README-spec-root.md", "kind": "text", "sha256": "71f64c8af6c47bb4c1b9f532de9d38845824abf68e580bfccdbcd2f15bed4ecd"},
-        {"out": "contract-1.1.0/CONTRACT.md", "root": "recherches", "path": "kata/spec/CONTRACT-1.1.0.md", "kind": "text", "sha256": "b02b0599b3d00ae02aba8428ad712c4a3d52922dd7c55fb9da96b811bda68e1d"},
+        {"out": "contract-1.1.0/CONTRACT.md", "root": "recherches", "path": "kata/spec/CONTRACT-1.1.0.md", "kind": "text", "sha256": "ac8187fa76626256d3e4c16bb484257b5247a9faf1a40ed1dc1247f7374332aa"},
         {"out": "contract-1.1.0/policy/bnb-dir-1h.json", "root": "governance", "path": "spec/contract-1.1.0/policy/bnb-dir-1h.json", "kind": "policy-table", "sha256": "91e4751e629d6d168251446577d23b00af208aefa39ae6b8bb590963b2f38057"},
         {"out": "contract-1.1.0/policy/bnb-dir-4h.json", "root": "governance", "path": "spec/contract-1.1.0/policy/bnb-dir-4h.json", "kind": "policy-table", "sha256": "36996ea2394f84c55fdbfbfb8cbd5299507b2cd05ec96515b2a2e503959925c0"},
         {"out": "contract-1.1.0/policy/bnb-mae-down-1h.json", "root": "governance", "path": "spec/contract-1.1.0/policy/bnb-mae-down-1h.json", "kind": "policy-table", "sha256": "22b452121e6842560a472912ddcf419100479f7aac4deca1e88068cb80be7a54"},

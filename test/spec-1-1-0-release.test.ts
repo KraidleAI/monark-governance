@@ -31,10 +31,10 @@ const ROOT = fileURLToPath(new URL("..", import.meta.url));
 const WRITER = join(ROOT, "scripts", "spec-policy-tables.mjs");
 const OUT = join(ROOT, "spec", "contract-1.1.0");
 const PREVIOUS = "ddfee9e076d979081fa7b21ec27940e3556bacf7";
-/** The 1.1.0 specification text, its vectors and the root README, from the recherches root at 3712fc8, pinned. */
+/** The 1.1.0 specification text, its vectors and the root README, from the recherches root at 1107e12, pinned. */
 const SPEC_TEXT: [string, string, string, string][] = [
   ["README.md", "kata/spec/README-spec-root.md", "text", "71f64c8af6c47bb4c1b9f532de9d38845824abf68e580bfccdbcd2f15bed4ecd"],
-  ["contract-1.1.0/CONTRACT.md", "kata/spec/CONTRACT-1.1.0.md", "text", "b02b0599b3d00ae02aba8428ad712c4a3d52922dd7c55fb9da96b811bda68e1d"],
+  ["contract-1.1.0/CONTRACT.md", "kata/spec/CONTRACT-1.1.0.md", "text", "ac8187fa76626256d3e4c16bb484257b5247a9faf1a40ed1dc1247f7374332aa"],
   ["contract-1.1.0/vectors-1.1.0.json", "kata/spec/vectors-1.1.0.json", "json", "190b9fd8f48815c10db2ff62be2961e601388f20b1d4a6e8dfb44ca139214d53"],
 ];
 const NAMES = ["coverage-verdict", "gate-decision", "policy-row", "prediction", "tool-error"];
