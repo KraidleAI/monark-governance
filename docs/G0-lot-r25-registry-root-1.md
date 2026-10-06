@@ -7,7 +7,8 @@
 - **Base** : `lot/etude-suite` = `a43b0126` (après #182, #186 et #187). **Branche** : `monark/r25-registry-root-1`. Runtime : Node 24.21.0.
 - **Zone** :
   - `.github/workflows/ci.yml` : la ligne `STAT=` du job `r25-taille-de-lot`, et son commentaire ;
-  - `scripts/registry-root.mjs` et ses types `scripts/registry-root.d.mts` : la racine, la déclaration et les refus (a) à (f) ;
+  - `scripts/registry-root.mjs` et ses types `scripts/registry-root.d.mts` : la racine, la déclaration et les refus (a) à (f), entrées lues
+    par `lstat`, jamais à travers un lien ;
   - `test/ci-gates.test.ts` : le pathspec dérivé de la racine, le test racine et le test des refus ;
   - `docs/adr/ADR-M003-phase2-integration.md` : l'addendum D9 septdecies, après D9 sexdecies ;
   - `docs/ETAT.md` : l'item de la PR 2.
@@ -31,7 +32,11 @@ l'addendum entre à la l.209. Le doublon ancien `octies` (l.116 et l.189) reste 
   registres n'a que `.json`. L'égalité d'ensembles avec `ci.yml` et la liste exacte du test 38 (4quater) suivent.
 - **Test racine** `kata_registry_root_is_wave_registries_only` : le job porte le pathspec dérivé de la racine ; si la racine existe, elle passe
   les refus (a) à (f) et contient `wave1.json` (g). **Test des refus** `kata_registry_root_problems_name_each_refusal` : chaque refus sur une
-  racine construite dans un dossier temporaire.
+  racine construite dans un dossier temporaire, dont des octets qui ne sont pas de l'UTF-8 (G2 B-2 de #206).
+- **Liens symboliques** (G2 B-1 de #206) : git compte le lien, pas sa cible ; un registre lié échapperait à la racine fermée et au compte.
+  Refus (a) d'une racine atteinte par un lien et de toute entrée qui est un lien, fichier ou dossier. Tests
+  `kata_registry_root_refuses_a_linked_root_or_directory` (jonctions, sans droit sous win32) et `kata_registry_root_refuses_a_linked_registry`
+  (lien de fichier ; sauté seulement si l'hôte refuse le droit, mesuré présent sur l'hôte de travail).
   - **Choix de MONARK** : (c) refuse le CR, et aussi U+2028 et U+2029.
   - **Choix de MONARK, voie (A)** : deux PR. Cette PR 1 porte la porte, le test et l'addendum. L'ancre (g) se lit « si la racine existe,
     `wave1.json` est atteint ».
@@ -44,25 +49,29 @@ l'addendum entre à la l.209. Le doublon ancien `octies` (l.116 et l.189) reste 
 
 ## Preuve rouge
 
-- **`scripts/red-proof.mjs --base a43b0126 --draw 2 --seed 7`** : sortie 0, « 2 judged, 40 unchanged ». Les deux tests neufs sont
-  « new-module » à la base (le script n'y existe pas) ; les deux tueurs déclarés sont tués.
+- **`scripts/red-proof.mjs --base a43b0126 --draw 4 --seed 7`** : sortie 0, « 4 judged, 40 unchanged ». Les quatre tests neufs sont
+  « new-module » à la base (le script n'y existe pas) ; les quatre tueurs déclarés sont tués.
 - **Avec le `ci.yml` de la base**, le script et les tests du lot : 3 tests rouges par assertion, 39 verts :
   - `series_pinned_are_declared_and_hashed` (« r25 job is missing exclusion pathspec(s) ») ;
   - le test 38 (4quater) ;
   - le test racine.
-- **Après le lot** : `test/ci-gates.test.ts` 42 tests, 42 verts ; typecheck et lint à 0.
+- **Après le lot** : `test/ci-gates.test.ts` 44 tests, 44 verts ; typecheck et lint à 0.
 
 ## Tueurs
 
-Tueurs déclarés (un par test, tirés et tués par `red-proof`) : `scripts/registry-root.mjs:14` (racine élargie) et `:37` (sha256 accepté
-n'importe où sur une ligne). Mutants à la main, chacun appliqué seul à une copie, mesurés (script hors dépôt
+Tueurs déclarés (un par test, tirés et tués par `red-proof`) : `scripts/registry-root.mjs:16` (racine élargie), `:30` (racine liée admise),
+`:35` (entrée liée lue à travers) et `:45` (sha256 accepté n'importe où sur une ligne). Mutants à la main, chacun appliqué seul à une copie, mesurés (script hors dépôt
 `F:/tmp/dojo/mutants-registry.cjs`) :
 
 | Mutant | Rouge |
 |---|---|
 | M-a : sous-dossier admis (K-7) | `kata_registry_root_problems_name_each_refusal` |
+| M-a2 : entrée liée lue à travers (B-1) | les deux tests des liens |
+| M-a3 : racine liée admise (B-1) | `kata_registry_root_refuses_a_linked_root_or_directory` |
 | M-b : autre fichier admis (K-1, K-2, K-10) | idem |
-| M-c : CR, U+2028 et U+2029 admis (K-5) | idem |
+| M-c : CR, U+2028 et U+2029 admis (K-5) | `kata_registry_root_problems_name_each_refusal` |
+| M-c2 : refus « not UTF-8 » retiré (B-2) | idem |
+| M-c3 : décodeur non strict (B-2) | idem |
 | M-d : sha256 accepté n'importe où sur une ligne (K-4, K-6) | idem |
 | M-e : déclaration orpheline admise (K-11) | idem |
 | M-f : `wave2.json` admis sans lecteur | idem |

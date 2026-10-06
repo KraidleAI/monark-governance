@@ -29,7 +29,7 @@
  */
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { readFileSync, readdirSync, statSync, existsSync, mkdtempSync, mkdirSync, writeFileSync, rmSync } from "node:fs";
+import { readFileSync, readdirSync, statSync, existsSync, mkdtempSync, mkdirSync, writeFileSync, rmSync, symlinkSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { createHash } from "node:crypto";
 import { spawnSync } from "node:child_process";
@@ -1708,7 +1708,7 @@ test("series_pinned_are_declared_and_hashed — every R-25-excluded data file is
 // the wave registries of the harness by ONE pathspec, derived from REGISTRY_ROOT, .json only; the root holds nothing but declared,
 // hashed, readable wave registries (the refusals (a) to (f) of scripts/registry-root.mjs, one by one in the next test).
 // reddened by: the registry pathspec of the r25 job off the derived one, or a registry root with a refusal
-// killer: scripts/registry-root.mjs:14 CONST "data/kata/registry" -> "data/kata"
+// killer: scripts/registry-root.mjs:16 CONST "data/kata/registry" -> "data/kata"
 test("kata_registry_root_is_wave_registries_only — the R-25-excluded registry root holds only declared, hashed, readable wave registries (ADR-M003 D9 septdecies)", () => {
   assert.ok(WF.includes(`':(exclude,glob)${REGISTRY_ROOT}/**/*.json'`), "the r25 job excludes the registry root, .json only (ADR-M003 D9 septdecies)");
   const root = join(ROOT, REGISTRY_ROOT);
@@ -1719,14 +1719,15 @@ test("kata_registry_root_is_wave_registries_only — the R-25-excluded registry 
   assert.ok(registries.includes("wave1.json"), "(g) the walk reaches wave1.json");
 });
 
-// reddened by: a refusal (a) to (f) of registryRootProblems removed or loosened (each root built below names its own refusal)
-// killer: scripts/registry-root.mjs:37 CONST "r.includes(sha) && declaredWaves(r).join() === n" -> "r.includes(sha)"
+// reddened by: a refusal (a) to (f) of registryRootProblems removed or loosened (each root built below names its own refusal); the
+// not-UTF-8 branch of (c) by raw bytes that no UTF-8 decoder accepts (G2 B-2 of #206: a decoder made lenient, or its refusal dropped)
+// killer: scripts/registry-root.mjs:45 CONST "r.includes(sha) && declaredWaves(r).join() === n" -> "r.includes(sha)"
 test("kata_registry_root_problems_name_each_refusal (ADR-M003 D9 septdecies)", () => {
   const reg = (plan: string): string => JSON.stringify({ plan, engine: "e", trialRegistryHead: { length: 0, hash: "0".repeat(64) }, rows: [] });
   const empty = reg("p");
-  const sha = (text: string): string => createHash("sha256").update(text, "utf8").digest("hex");
-  const row = (n: string, text: string): string => `| \`${n}\` | \`${sha(text)}\` | recherches |`;
-  const codes = (files: Record<string, string>, decl: string): string[] => {
+  const sha = (text: string | Uint8Array): string => createHash("sha256").update(text).digest("hex");
+  const row = (n: string, text: string | Uint8Array): string => `| \`${n}\` | \`${sha(text)}\` | recherches |`;
+  const codes = (files: Record<string, string | Uint8Array>, decl: string): string[] => {
     const dir = mkdtempSync(join(tmpdir(), "registry-root-"));
     try {
       for (const [n, text] of Object.entries(files)) {
@@ -1749,7 +1750,51 @@ test("kata_registry_root_problems_name_each_refusal (ADR-M003 D9 septdecies)", (
   assert.deepEqual(codes(good, `${decl1} wave3.json`), ["(d)", "(e)"], "a row naming two registries binds neither");
   assert.deepEqual(codes(good, [decl1, row("wave2.json", empty)].join("\n")), ["(e)"], "a declared registry that is absent");
   assert.deepEqual(codes({ "wave1.json": "{}" }, row("wave1.json", "{}")), ["(f)"], "a registry readRegistry refuses");
+  const notUtf8 = Uint8Array.from([0x7b, 0xff, 0x7d]);
+  assert.deepEqual(codes({ "wave1.json": notUtf8 }, row("wave1.json", notUtf8)), ["(c)"], "a registry that is not UTF-8 (G2 B-2)");
   assert.deepEqual(codes({ ...good, "wave2.json": empty }, [decl1, row("wave2.json", empty)].join("\n")), ["(f)"], "no reader for wave2.json yet");
+});
+
+/** A registry root under `base` holding a declared, hashed, readable wave1.json (the refusal tests on links). */
+const builtRegistryRoot = (base: string, name: string): string => {
+  const root = join(base, name), wave = JSON.stringify({ plan: "p", engine: "e", trialRegistryHead: { length: 0, hash: "0".repeat(64) }, rows: [] });
+  mkdirSync(root);
+  writeFileSync(join(root, "wave1.json"), wave);
+  writeFileSync(join(root, REGISTRY_DECL), `| \`wave1.json\` | \`${createHash("sha256").update(wave).digest("hex")}\` | recherches |`);
+  return root;
+};
+
+// reddened by: a root reached through a symbolic link read as a closed root, or a linked subdirectory admitted (G2 B-1 of #206: git
+// counts a link, not its target). Junctions on win32: no right needed (measured on this host).
+// killer: scripts/registry-root.mjs:30 CONST "lstatSync(absRoot).isSymbolicLink()" -> "false"
+test("kata_registry_root_refuses_a_linked_root_or_directory (ADR-M003 D9 septdecies)", () => {
+  const base = mkdtempSync(join(tmpdir(), "registry-link-"));
+  try {
+    const plain = builtRegistryRoot(base, "plain");
+    assert.deepEqual(registryRootProblems(plain).problems, [], "a plain root passes");
+    const withDir = builtRegistryRoot(base, "with-dir");
+    symlinkSync(join(base, "plain"), join(withDir, "sub"), "junction");
+    assert.deepEqual(registryRootProblems(withDir).problems.map((p) => p.slice(0, 3)), ["(a)"], "a linked directory in the root");
+    symlinkSync(plain, join(base, "linked-root"), "junction");
+    assert.deepEqual(registryRootProblems(join(base, "linked-root")).problems, ["(a) the root is a symbolic link"], "a root reached through a link");
+  } finally { rmSync(base, { recursive: true, force: true }); }
+});
+
+// reddened by: a registry read through its symbolic link, whose target lies outside the closed root and outside the R-25 count (G2
+// B-1 of #206). A file link needs a right that some win32 hosts lack: then skipped, never green by accident.
+// killer: scripts/registry-root.mjs:35 CONST "st.isSymbolicLink()" -> "false"
+test("kata_registry_root_refuses_a_linked_registry (ADR-M003 D9 septdecies)", (t) => {
+  const base = mkdtempSync(join(tmpdir(), "registry-link-"));
+  try {
+    const outside = builtRegistryRoot(base, "outside"), root = join(base, "root");
+    mkdirSync(root);
+    writeFileSync(join(root, REGISTRY_DECL), readFileSync(join(outside, REGISTRY_DECL)));
+    try { symlinkSync(join(outside, "wave1.json"), join(root, "wave1.json"), "file"); } catch (e) {
+      if ((e as NodeJS.ErrnoException).code === "EPERM") { t.skip("no right to create a file symbolic link on this host"); return; }
+      throw e;
+    }
+    assert.deepEqual(registryRootProblems(root).problems.map((p) => p.slice(0, 3)), ["(a)"], "a wave1.json that is a link to a valid registry outside the root");
+  } finally { rmSync(base, { recursive: true, force: true }); }
 });
 
 // (checkpoint-2 V-1(b)/V-3, 2026-09-19) The CI hang backstops are LOCKED, not merely present by inspection: (a) EVERY
