@@ -96,3 +96,12 @@ Lignes ajoutées par le lot, fichier par fichier : **ok** sur `SKILL.md`, `DEMO.
 - **Octets servis**, `git archive 647e078a` contre `git archive HEAD` : identiques (`/openapi.json` `61c9df97…`, 400 `75dc6b17…`, 500 `072a23ce…`, `TOOL_OUTPUT_SCHEMA` `3b7c685e…`, clause `022756c3…`, description `dd728779…`, exportations `830680b3…`).
 - **Portes** : `tsc` 0, `eslint` 0, `lint:ratchet` 69/69, `gate:vocab`, `lang:gate`, `export:check` OK. Tests des fichiers touchés (`surfaces-1-1-0`, `skills`, `narabi-live`, `site-ukemi`, `byo-demo-probe`, `site-build-fleet`, `public-surfaces-honesty`, `export-public`, `cra-b`, `public-text-deny`) : 137/137.
 - **`checkPublicText`** (notes) sur les lignes ajoutées du pli : `SKILL.md` et `CONTRIBUTING.md` ok ; `README.md:94` porte « budget » (q3) et le README du harnais des renvois d'ADR, tous deux **préexistants** sur la ligne modifiée ; nombres de violations des fichiers entiers inchangés entre base et gel. Aucun texte ne cite l'URL de la spécification.
+
+## Repli de la G2 delta (`docs/G2-delta-lot-surfaces-1-1-0.md`, non bloquante)
+
+- **D-1, fait** : `README.md`, le titre « Six frozen contracts » devient « Eight frozen contracts ». Le tableau gagne `PolicyTable` et `ToolError`, avec le texte de la G2 delta. Faits vérifiés au code :
+  - `policy_table_sha256` et `policy_row_sha256` sont des champs du verdict (`packages/contracts/src/closed-check.ts:45`) ;
+  - le corps `ToolError` porte `{error, operation, message, code}` (`schemas/tool-error.schema.json:8`).
+
+  `checkPublicText` (notes) : 0 violation sur le titre et les deux lignes. Aucun test n'épingle ce titre, aucun octet servi ne bouge.
+- **D-2, laissé, avec un item** : `btc-dir-15m` entre dans le motif réservé cité à `SKILL.md:72`, mais garde son propre refus (`byo_overrides_committed`, et `byo_lookalike_committed` en capitales). La phrase reste vraie : le nom est refusé. La compléter toucherait la sous-chaîne qu'épingle le test de B-1. Item SKILL-KATA-15M-NOTE-1, après T0 : une demi-phrase et l'épingle à étendre, environ 2 lignes.

@@ -242,7 +242,7 @@ change to the engine meets the same maturity criteria.
    wire. No confidence score exists to be misread.
 4. Read Bell and Narabi as files: they are published to be consumed by programs, not only by people.
 
-## Six frozen contracts
+## Eight frozen contracts
 
 The interface is frozen and language-neutral (source of truth: `schemas/*.json`):
 
@@ -254,6 +254,8 @@ The interface is frozen and language-neutral (source of truth: `schemas/*.json`)
 | `CoverageVerdict` | Hikae | Conformal region — **polymorphic** `set` (classification) \| `interval` (regression, so Ukemi plugs in). No `p_correct` field. |
 | `GateDecision` | Hikae L3 | `commit \| defer \| abstain` + `remaining_budget` = `B_t`, the depletable conformal authorization capacity that attaches to MONARK (never a return). |
 | `AttestedBook` | Ukemi (recorder) | A **self-declared** reading of a liquidation book at an archive block under a keyless RPC quorum: the digests (book, holders) with block/provider/quorum context — upcoming until served. |
+| `PolicyTable` | MONARK (policy tables) | A class's policy table: one class entry and its rows (cell key, alpha, n, the served rank and q̂, `scores_sha256`). The verdict carries the digest of the table (`policy_table_sha256`) and of the row it used (`policy_row_sha256`). |
+| `ToolError` | the harness | The body of an HTTP 400 or 500 answer: `{error, operation, message, code}`, the `code` from the closed catalogue of the specification. Read the `code`, not the message. |
 
 ## The token
 
