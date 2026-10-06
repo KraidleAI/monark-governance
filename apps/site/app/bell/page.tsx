@@ -2,7 +2,8 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { BellScene } from "@/components/bell-scene";
 import { PRODUCTS } from "@/lib/fleet";
-import { loadAnchors, ANCHORS_ROUTE } from "@/lib/bell-anchors-load";
+import { loadAnchors, loadPublications, ANCHORS_ROUTE } from "@/lib/bell-anchors-load";
+import { publicationAnchorState, publicationAnchorSentence } from "@/lib/bell-anchors";
 import { AnchorsTable } from "@/components/bell/anchors-table";
 import { BellContact } from "@/components/bell/contact";
 import { BellRequestSection } from "@/components/bell/request-section";
@@ -232,8 +233,9 @@ function RunCard({ run, seq, publishedAt, readAt }: { run: BellServedRun; seq: n
 // the status is read from the register (lib/fleet.ts); every fact about the served host and its records (host paths,
 // key, first record, latest publication and every run in it, residual counts, deploy check) is READ from
 // apps/site/data/bell-served.json (lib/bell-served-load.ts, hashed, written from the served files by
-// scripts/sync-bell-served.mjs), never typed; the anchors table, its statuses and the digests its manifests list are READ
-// from the served anchor files at build time (lib/bell-anchors-load.ts). Figures that are not served stay NAMED
+// scripts/sync-bell-served.mjs), never typed; the anchors table and its statuses are READ from the served anchor files at build
+// time (lib/bell-anchors-load.ts), and the latest record's timestamp state from the bound publication rows (publicationAnchorState,
+// worded once by publicationAnchorSentence in lib/bell-anchors.ts). Figures that are not served stay NAMED
 // placeholders; sentences about a path that is not served are in the future tense. The volume-ratio values are served by
 // the host but not rendered here (their display is suspended); the record has no closing-price or consolidated-volume field.
 // Served facts are dated by the instant they were read (read_at); wording about closes branches on the served abstentions.
@@ -252,7 +254,7 @@ export default function BellPage() {
   const abstentions = abstentionsOf(sessions).join(", ");
   const symbols = [...new Set(runs.flatMap((r) => r.records.map((x) => x.symbol)))];
   const key = served.keyring.keys.find((k) => k.key_id === head.key_id);
-  const anchored = [head.state_sha256, ...runs.map((r) => r.bell_sha)].some((d) => anchors.listedDigests.includes(d));
+  const anchorState = publicationAnchorState(served.head, served.lines, loadPublications(served.lines).bound);
   const sameLine = head.seq === first.seq;
   const codes = Object.keys(runs[0]?.residuals ?? {}).length;
   const servedThresholds = [...new Set(sessions.flatMap((s) => s.exceed.map((e) => e.threshold)))].sort((a, b) => a - b);
@@ -360,11 +362,7 @@ export default function BellPage() {
                 {head.prev_line_hash === BELL_GENESIS ? " (the genesis value: no line before it)" : ""}
               </dd>
               <dt>timestamp anchor</dt>
-              <dd>
-                {anchored
-                  ? "an anchor manifest lists the latest record's digests (anchors, below)"
-                  : "none: no anchor manifest lists the latest record's digests; it is signed and chained, not timestamp-anchored"}
-              </dd>
+              <dd>{publicationAnchorSentence(anchorState)}</dd>
             </dl>
             <p className="c-muted c-small" style={{ marginTop: 10, overflowWrap: "anywhere" }}>
               Read from the served files at {served.read_at} (UTC), when this page&rsquo;s data was last written: timeline
@@ -549,10 +547,8 @@ export default function BellPage() {
             <p>
               Each published record is signed and carries the hash of the line before it; a later edit is detectable by
               recomputation. The logs of the counter-verification run of the multiplier history are chained by SHA-256, and at
-              each start, end and resumption a manifest of their digests is submitted to a public timestamp.{" "}
-              {anchored
-                ? "The latest record's digests are listed in an anchor manifest."
-                : "No anchor manifest lists the latest record's digests: it is signed and chained, not timestamp-anchored."}{" "}
+              each start, end and resumption a manifest of their digests is submitted to a public timestamp. The latest record&rsquo;s
+              timestamp status is stated under served, above; it is read from the proof file when one is served.{" "}
               An anchor shows a log head existed before a Bitcoin block, not where its pages came from.
             </p>
           </div>
@@ -581,8 +577,8 @@ export default function BellPage() {
         <p className="c-muted c-small" style={{ marginTop: 10 }}>
           Read from the anchors register; dates, digests and commit identifiers are the register&rsquo;s own, sorted by time.
           Each manifest and each proof is served with the full register at{" "}
-          <Link href={ANCHORS_ROUTE}>{ANCHORS_ROUTE}</Link>. These anchors timestamp the logs of that counter-verification run;{" "}
-          {anchored ? "an anchor manifest lists the latest published record's digests." : "no anchor manifest lists the latest published record's digests."}{" "}
+          <Link href={ANCHORS_ROUTE}>{ANCHORS_ROUTE}</Link>. These anchors timestamp the logs of that counter-verification run; the published
+          records have their own register at <Link href={ANCHORS_ROUTE}>{ANCHORS_ROUTE}</Link>.{" "}
           The status column is what each proof file contains when this page was built, not a check against a Bitcoin node. An
           anchor shows that a log head existed before a Bitcoin block; it does not show where the pages came from, nor that the
           scan ran. The commit is a second, weaker witness (server date, same operator).
@@ -638,7 +634,7 @@ export default function BellPage() {
                 </tr>
                 <tr>
                   <td>anchors · manifests and proofs</td>
-                  <td>one manifest and one timestamp proof per boundary of the counter-verification run of the multiplier history, the register rendered, the status read from each proof file</td>
+                  <td>one manifest and one timestamp proof per boundary of the counter-verification run of the multiplier history, and one per timestamped line of the published timeline; the registers rendered, the status read from each proof file</td>
                   <td><span className="c-pill c-pill--built">served</span></td>
                   <td><Link href={ANCHORS_ROUTE}>{ANCHORS_ROUTE}</Link></td>
                 </tr>
@@ -691,8 +687,9 @@ export default function BellPage() {
               <span>·</span>
               <span>
                 <b>A signature attests origin, not truth.</b> Each record is signed and chained to the one before it, so that
-                any change after publication is detectable. The signature proves who published the record and when. It does
-                not prove that the underlying fact is correct — recomputing it from the public inputs is how you check that.
+                any change after publication is detectable. The signature shows who published the record and that it is intact;
+                the publication time it carries is the publishing host&rsquo;s clock. It does not show that the underlying fact is
+                correct — recomputing it from the public inputs is how you check that.
               </span>
             </li>
             <li>

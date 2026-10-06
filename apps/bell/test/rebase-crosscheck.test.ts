@@ -1335,6 +1335,11 @@ const attemptedOf = (path: string, method?: string): Array<{ method: string; cre
     const key = Object.keys(o.by_op_method ?? {})[0] ?? ""; // "<op>|<method>"
     return { method: key.split("|")[1] ?? "", credits_derived: o.credits_derived };
   }) : []).filter((l) => method === undefined || l.method === method);
+/** RPC-GUARD-RECONCILE-1b (ADR D-2, Q-O2): the helius CREDITS = the sum of credits_derived over the `attempted` (reservations) and
+ *  `settled` (signed deltas to the rendered count) lines; attemptedOf stays the COUNT of attempted lines. */
+const creditsOf = (path: string): number => (existsSync(path) ? readFileSync(path, "utf8").split(/\r?\n/)
+  .filter((l) => l.includes('"outcome":"attempted"') || l.includes('"outcome":"settled"'))
+  .reduce((a, l) => a + (JSON.parse(l) as { credits_derived: number }).credits_derived, 0) : 0);
 const hasRefused = (path: string): boolean => existsSync(path) && readFileSync(path, "utf8").includes('"outcome":"refused"');
 /** runMain --rebase-crosscheck via the REAL guard; callStub served over globalThis.fetch (no fake client/transport). */
 async function runGuardXc(argv: readonly string[], callStub: JsonRpcCall, ledgerDir: string): Promise<void> {
@@ -1361,7 +1366,7 @@ test("crosscheck_credits_derived_from_ledger", async () => {
   const cc = readCC(od);
   assert.equal(cc.comparator_verdict.verdict, "equal", "the guarded crosscheck completed (verdict equal)");
   const heliusAtt = attemptedOf(join(dir, "cyc", "helius.jsonl"));
-  const ledgerHelius = heliusAtt.reduce((a, l) => a + l.credits_derived, 0);
+  const ledgerHelius = creditsOf(join(dir, "cyc", "helius.jsonl"));
   const gtfa = heliusAtt.filter((l) => l.method === "getTransactionsForAddress").length;
   assert.ok(gtfa > 0 && ledgerHelius === gtfa * 10, "helius ledger credits = gTfA×10 (getTransaction on the keyless solana-foundation => 0 helius credit)");
   assert.equal(cc.credits_recomputed, ledgerHelius, "credits_recomputed == Σ helius credits_derived of the cycle ledger (CREDITS DERIVED FROM THE LEDGER)");
@@ -1380,9 +1385,9 @@ test("bell_crosscheck_guarded_resume_without_loss_after_budget_stop", async () =
   const sd = mkdtempSync(join(tmpdir(), "bell-reps-")), od = mkdtempSync(join(tmpdir(), "bell-repo-"));
   writeFileSync(join(sd, "rebase-SPYx.json"), b1aSeries([eInitB, eAB, eBB, eCB]));
   const lf = join(od, "ledger-SPYx.jsonl"), hf = join(dir, "cyc", "helius.jsonl");
-  // RUN 1: --max-credits 15 => helius runCap 15 => asc gTfA p1 (10) OK, asc gTfA p2 (10+10=20>15) REFUSED => 1 committed
+  // RUN 1: --max-credits 105 => helius runCap 105 => asc gTfA p1 reserves 100 then settles 10, asc gTfA p2 (10+100=110>105) REFUSED => 1 committed
   // page, STOP (the desc end-anchor is never reached — budget_exhausted returns before it).
-  await runGuardXc(b1aArgs(sd, od, 50, 15), b1aStub([{ data: [cinitB], paginationToken: "p2" }, { data: [cAB], paginationToken: "p3" }, { data: [cBB, cCB], paginationToken: null }]), dir);
+  await runGuardXc(b1aArgs(sd, od, 50, 105), b1aStub([{ data: [cinitB], paginationToken: "p2" }, { data: [cAB], paginationToken: "p3" }, { data: [cBB, cCB], paginationToken: null }]), dir);
   const run1Pages = readFileSync(lf, "utf8").trim().split("\n").filter((l) => l.trim() !== "").length;
   // EXACTLY 1: the gTfA p2 refusal is a CANONICAL BudgetExceededError re-thrown FIRST by withRetry/quorum2 (C-1), so the
   // scan STOPs — never retried 4x nor benched as a fault (a swallow would commit p2/p3 => run1Pages > 1). This is C-1
@@ -1554,19 +1559,19 @@ test("bell_shortpage_budget_bites_during_probe_or_anchor_commits_nothing - a Bud
   }
 });
 
-test("bell_shortpage_probe_metered_on_the_guarded_cycle_ledger - THROUGH the real guard (only globalThis.fetch stubbed): the probe is ONE attempted helius gTfA line (+10 cr): 4 lines, credits_recomputed 40; a tokenless short last page (Helius-conformant control) makes NO probe: 3 lines, 30 cr, provenance null (D-3; mission c)", async () => {
+test("bell_shortpage_probe_metered_on_the_guarded_cycle_ledger - THROUGH the real guard (only globalThis.fetch stubbed): the probe is ONE attempted helius gTfA line (+10 cr): 4 lines, credits_recomputed 140; a tokenless short last page (Helius-conformant control) makes NO probe: 3 lines, 130 cr, provenance null (D-3; mission c)", async () => {
   const run = async (token: string | null): Promise<{ cc: SpArtifact; gtfa: number; credits: number }> => {
     const dir = mkdtempSync(join(tmpdir(), "bell-sp-g-")), sd = sdNf(), od = mkdtempSync(join(tmpdir(), "bell-sp-g-o-"));
     await runGuardXc(b1aArgsStrict(sd, od, 50), spStub([{ data: NF_P1, token: "p2" }, { data: SP2, token }, { data: [], token: null }], SP2_LAST), dir);
     const att = attemptedOf(join(dir, "cyc", "helius.jsonl"));
-    return { cc: readSP(od), gtfa: att.filter((l) => l.method === "getTransactionsForAddress").length, credits: att.reduce((a, l) => a + l.credits_derived, 0) };
+    return { cc: readSP(od), gtfa: att.filter((l) => l.method === "getTransactionsForAddress").length, credits: creditsOf(join(dir, "cyc", "helius.jsonl")) };
   };
   const probed = await run("p3"), control = await run(null);
   assert.ok(probed.cc.comparator_verdict.verdict === "equal" && control.cc.comparator_verdict.verdict === "equal", "both complete to equal through the guard");
   assert.equal(probed.gtfa, 4, "the helius cycle ledger holds EXACTLY 4 gTfA lines: P1, SP2, the probe, the anchor (mutant: probe routed off the paid operator => 3 => reds)");
-  assert.ok(probed.credits === 40 && probed.cc.credits_recomputed === 40, "credits_recomputed = sum of the helius credits_derived = 40: the probe is billed +10 cr");
+  assert.ok(probed.credits === 140 && probed.cc.credits_recomputed === 140, "credits_recomputed = sum of the helius credits_derived = 140: the probe is billed +10 cr");
   assert.deepEqual(probed.cc.short_final_page_probe, probeOf(2, SP2.length, true, true, true), "the guarded artifact carries the provenance");
-  assert.ok(control.gtfa === 3 && control.credits === 30 && control.cc.short_final_page_probe === null, "control: a tokenless short last page is final WITHOUT a probe (mutant: probe on a tokenless page => 4 lines => reds)");
+  assert.ok(control.gtfa === 3 && control.credits === 130 && control.cc.short_final_page_probe === null, "control: a tokenless short last page is final WITHOUT a probe (mutant: probe on a tokenless page => 4 lines => reds)");
 });
 
 test("bell_shortpage_probe_transient_error_is_retried - the probe goes through the injected retry: an HTTP 429 on its first attempt is retried ONCE (metered under getTransactionsForAddress), then the empty probe + the equal anchor complete (checkpoint-1 C-1: the probe under retry)", async () => {

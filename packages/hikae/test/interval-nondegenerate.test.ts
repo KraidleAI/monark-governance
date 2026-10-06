@@ -13,7 +13,7 @@ import type { CalibPair, GateInput } from "../src/index.ts";
 import type { PredictionRegion } from "@monark/contracts";
 
 // ADR-M011 — interval non-degeneracy (NDG-1). A zero-width `interval` region (`lo === hi`, whether
-// q̂=0 or float absorption) is NOT a `covered` verdict: it is a fail-closed `under_calib` abstention.
+// q̂=0 or float absorption) is NOT a `covered` verdict: it is a fail-closed abstention, `region_degenerate` since B-16.
 // Anti-circularity: the vectors here are built by hand / by fed scores, and every `under_calib` is
 // proven to come from the region guard (NDG-1), NOT from L1's `n<nMin`/`p>n` path.
 
@@ -31,10 +31,12 @@ const COMMON = {
   residual: [] as string[],
   producedAt: "2026-09-17T00:00:00Z",
   schemaVersion: "1.0.0",
+  cell: { qhatUnit: "label" as const, scale: null, cellKey: null, policyRowSha256: null, policyTableSha256: null },
 };
 
 // §3.1 — conformer, msUSD-like degenerate calibration (190 residuals=0 + 1 dust) at α=0.10 PINNED.
-test("interval_nondegenerate_conformer_msusd_like_under_calib", () => {
+// killer: packages/hikae/src/interval-conformer.ts:88 CONST "underCalib(params, ir.reason)" -> "underCalib(params)"
+test("interval_nondegenerate_conformer_msusd_like_region_degenerate", () => {
   // 190 pairs with residual 0 (yhat===y) + 1 pair with residual DUST. n=191.
   const calib: CalibPair[] = [
     ...Array.from({ length: 190 }, () => ({ yhat: 0, y: 0 })),
@@ -50,7 +52,7 @@ test("interval_nondegenerate_conformer_msusd_like_under_calib", () => {
   assert.deepEqual(splitQuantile(scores, 0.1, NMIN), { qhat: 0 }, "L1 q̂=0 at α=0.10 (not under_calib)");
 
   const r = conformInterval({ ...COMMON, calib, yhat: 1000 });
-  assert.equal(r.verdict.reason, "under_calib", "zero-width region ⇒ under_calib (NDG-1)");
+  assert.equal(r.verdict.reason, "region_degenerate", "zero-width region ⇒ region_degenerate (NDG-1, B-16)");
   assert.equal(r.verdict.abstain, true);
   assert.equal(r.qhat, null, "q̂ null on abstention (never clamped, never a width-0 covered)");
   assert.equal(r.region, null, "no interval region emitted");
@@ -65,11 +67,12 @@ test("interval_nondegenerate_conformer_msusd_like_under_calib", () => {
 });
 
 // §3.1 (pure) — all-zeros calibration (191 zeros): α-INDEPENDENT degeneracy ⇒ q̂=0 at any α ⇒ under_calib.
-test("interval_nondegenerate_conformer_all_zeros_under_calib", () => {
+// killer: packages/hikae/src/interval-conformer.ts:88 CONST "underCalib(params, ir.reason)" -> "underCalib(params)"
+test("interval_nondegenerate_conformer_all_zeros_region_degenerate", () => {
   const calib: CalibPair[] = Array.from({ length: 191 }, () => ({ yhat: 5, y: 5 }));
   for (const alpha of [0.1, 0.01, 0.2]) {
     const r = conformInterval({ ...COMMON, alpha, calib, yhat: 5 });
-    assert.equal(r.verdict.reason, "under_calib", `all-zeros ⇒ under_calib at α=${String(alpha)}`);
+    assert.equal(r.verdict.reason, "region_degenerate", `all-zeros ⇒ region_degenerate at α=${String(alpha)}`);
     assert.equal(r.verdict.abstain, true);
     assert.equal(r.qhat, null);
     assert.equal(r.region, null);
@@ -77,7 +80,8 @@ test("interval_nondegenerate_conformer_all_zeros_under_calib", () => {
 });
 
 // §3.2 — a hand-built zero-width `interval` region (bypassing buildIntervalRegion) carried by a `covered`
-// verdict reaching L3 ⇒ decideInterval NDG-1 guard (D3(b)) abstains under_calib, NEVER commits.
+// verdict reaching L3 ⇒ decideInterval NDG-1 guard (D3(b)) abstains region_degenerate (B-16), NEVER commits.
+// killer: packages/hikae/src/l3-gate.ts:128 CONST "reason: \"region_degenerate\"" -> "reason: \"under_calib\""
 test("interval_nondegenerate_l3_handbuilt_zero_width_abstains", () => {
   const region: PredictionRegion = { kind: "interval", lo: 100, hi: 100 };
   const verdict = buildVerdict({
@@ -92,6 +96,7 @@ test("interval_nondegenerate_l3_handbuilt_zero_width_abstains", () => {
     residual: [],
     producedAt: "2026-09-17T00:00:00Z",
     schemaVersion: "1.0.0",
+    cell: { qhatUnit: "label", scale: null, cellKey: null, policyRowSha256: null, policyTableSha256: null },
   });
   const input: GateInput = {
     intent: 100, // intent ∈ [100,100] ⇒ WITHOUT the guard (mutant M2) this COMMITs
@@ -107,18 +112,20 @@ test("interval_nondegenerate_l3_handbuilt_zero_width_abstains", () => {
     evaluable: true,
     tool: "perps_order_preview",
     schemaVersion: "1.0.0",
+    requestSha256: "e".repeat(64),
   };
   const d = gate(input);
   assert.equal(d.action, "abstain", "zero-width interval region ⇒ ABSTAIN (NDG-1 D3(b)), never COMMIT");
   assert.equal(d.allow, false);
-  assert.equal(d.reason, "under_calib");
+  assert.equal(d.reason, "region_degenerate");
 });
 
-// §3.3 (unit) — the structural NDG-1 guard on the SOLE constructor: equal bounds ⇒ abstain under_calib.
+// §3.3 (unit) — the structural NDG-1 guard on the SOLE constructor: equal bounds ⇒ abstain region_degenerate (B-16).
+// killer: packages/hikae/src/region.ts:75 CONST "reason: \"region_degenerate\"" -> "reason: \"under_calib\""
 test("interval_nondegenerate_buildIntervalRegion_equal_bounds", () => {
   const r = buildIntervalRegion(1e6, 1e6);
   assert.equal(r.abstain, true, "buildIntervalRegion(1e6,1e6) ⇒ abstain (NDG-1)");
-  if (r.abstain) assert.equal(r.reason, "under_calib");
+  if (r.abstain) assert.equal(r.reason, "region_degenerate");
 });
 
 // §3.4(a) — non-regression: a `set` singleton q̂=0 (C={ŷ}) is a LEGITIMATE calibrated silence (D5), NOT
@@ -137,6 +144,7 @@ test("interval_nondegenerate_set_singleton_qhat0_still_commits", () => {
     residual: [],
     producedAt: "2026-09-17T00:00:00Z",
     schemaVersion: "1.0.0",
+    cell: { qhatUnit: "score", scale: null, cellKey: null, policyRowSha256: null, policyTableSha256: null },
   });
   const d = gate({
     intent: "up",
@@ -152,6 +160,7 @@ test("interval_nondegenerate_set_singleton_qhat0_still_commits", () => {
     evaluable: true,
     tool: "perps_order_preview",
     schemaVersion: "1.0.0",
+    requestSha256: "e".repeat(64),
   });
   assert.equal(d.action, "commit", "set singleton q̂=0, intent ∈ {up} ⇒ COMMIT (D5, not degenerate)");
   assert.equal(d.reason, "covered");
@@ -179,6 +188,7 @@ test("interval_nondegenerate_real_interval_still_commits", () => {
     evaluable: true,
     tool: "perps_order_preview",
     schemaVersion: "1.0.0",
+    requestSha256: "e".repeat(64),
   });
   assert.equal(d.action, "commit", "width 198 <= τ 250, intent ∈ [901,1099] ⇒ COMMIT");
   assert.equal(d.reason, "covered");

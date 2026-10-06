@@ -1,21 +1,19 @@
 {
-  "schema_version": "1.0.0",
+  "schema_version": "1.1.0",
   "action": "abstain",
   "allow": false,
   "tool": "perps_order_preview",
   "intent": "up",
   "verdict": {
-    "schema_version": "1.0.0",
+    "schema_version": "1.1.0",
     "task_class": "btc-dir-15m",
     "method": "hac-cp",
     "alpha": 0.1,
     "n_calib": 10,
-    "region": {
-      "kind": "set",
-      "labels": [],
-      "label_schema": "up|down"
-    },
+    "region": null,
     "qhat": null,
+    "qhat_unit": "score",
+    "scale": null,
     "abstain": true,
     "reason": "under_calib",
     "residual": [
@@ -34,9 +32,13 @@
       0,
       1
     ],
-    "calib_digest": "6e49f37fbe89e867152585cdb4246daca3b46f4c1c7931fccedce71e3564f102",
+    "scores_sha256": "7208078fc683ac985c46377b47890e994386024568a0141a9c113b8d6f331a0c",
+    "cell_key": null,
+    "policy_row_sha256": null,
+    "policy_table_sha256": null,
     "produced_at": "2026-09-04T12:00:00Z"
   },
   "remaining_budget": 0.1,
+  "request_sha256": "764a62cd04b92fd74902e1a03a166508296752d5abfb959acb25b5c96c8a7409",
   "reason": "under_calib"
 }

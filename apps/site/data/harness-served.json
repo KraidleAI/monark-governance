@@ -1,7 +1,7 @@
 {
   "$comment": "Committed, hashed facts about the SERVED MONARK harness, rendered by /integrators and /console through apps/site/lib/harness-served-load.ts after a sha256 check against apps/site/data/manifest.sha256.json. Written by the source repository's sync tool (not part of this export) from the served bodies (api /health, /openapi.json, /gate, /calibrate, /attest, /cascade; mcp initialize and tools/list; the MCP registry entry), each body hashing to the sha256 the committed deploy check recorded. Text is copied as served, as closed clauses only; the one rule applied: internal reference tokens in parentheses are removed. No market value, no data-source name.",
   "schema": "monark-site-harness-served-v1",
-  "read_at": "2026-09-24T03:39:46.604Z",
+  "read_at": "2026-10-06T05:43:05.904Z",
   "version": "0.4.0",
   "api": {
     "url": "https://api.monarkgate.tech",
@@ -66,7 +66,7 @@
   },
   "calibrate_contract": {
     "request": { "required": [ "scores", "alpha", "nMin" ], "optional": [] },
-    "result": { "required": [ "qhat", "n", "alpha", "method", "set_digest", "label", "reason" ], "optional": [] }
+    "result": { "required": [ "qhat", "n", "alpha", "method", "scores_sha256", "label", "reason" ], "optional": [] }
   },
   "response_required": [ "structuredContent", "content" ],
   "bounds": { "calibrate_scores": 10000, "gate_scores": 10000, "gate_candidates": 10000, "cascade_nodes": 64 },
@@ -83,15 +83,11 @@
     "attested": [
       "the attestation is carried by the caller",
       "the verifier is not executed here",
-      "BYO classes do not accept `attested`"
+      "BYO classes do not accept `attested`",
+      "No served class has a committed attestation subject (the retired 'btc-dir-15m' held the only one), so any `attested` is refused."
     ]
   },
   "classes": [
-    {
-      "class_id": "btc-dir-15m",
-      "state": "synthetic",
-      "clauses": [ "declared synthetic — a plumbing fixture, not a measured predictor" ]
-    },
     {
       "class_id": "cascade-liquidable-24h",
       "state": "none",
@@ -110,10 +106,12 @@
     },
     {
       "class_id": "liquidation-eligible-coverage",
-      "state": "none",
+      "state": "committed",
       "clauses": [
-        "no liquidation-eligible-coverage calibration is committed yet; the gate abstains (under_calib) by construction",
-        "this class requires alpha = 0.01, nMin = 100"
+        "a conformal upper bound on the liquidable amount for the calibrated class; the lower edge is 0 by construction, not a calibrated bound; abstains (under_calib) outside it",
+        "this class requires alpha = 0.01, nMin = 100",
+        "calibrated on one recorded episode; no coverage is claimed on any other event; the H-3 exchangeability check is a report, a YES licenses nothing more",
+        "the bound holds only if yhat was produced by the frozen close-factor rule on a mono-collateral WETH account at the first crossing, which the gate does not check"
       ]
     }
   ],
@@ -133,20 +131,20 @@
     "repository_url": "https://github.com/KraidleAI/monark"
   },
   "deploy_check": {
-    "checked_at": "2026-09-23T00:54:20.288Z",
-    "count": 12,
-    "ok_count": 12,
+    "checked_at": "2026-10-06T05:42:44.278Z",
+    "count": 15,
+    "ok_count": 15,
     "tls_host": "api.monarkgate.tech",
     "tls_valid_to": "Dec 10 04:57:46 2026 GMT"
   },
   "bodies_sha256": {
     "/health": "d754b2feb82a3c45588e379d4d343c140ee8229d63f6771c940c27121c90f441",
-    "/openapi.json": "ad4371217ba87b261e682d428ea58825be5f740e9082484914c9036daa3fe2ba",
-    "tools/list": "8d3743c74f58c33d9b1bc13ce1653f8c8e97e9a35585d8446e62357e8f295b76",
-    "/gate": "793e0df9ec43b214747eea703f3d183b7e09a5fdcf0631f0f391a0b8a35bb8a9",
-    "/gate liquidation-eligible-coverage": "db85941e2845029e4c6d1c3e49636265bad1f734448fb2ac5110d0a702389dcd",
-    "/calibrate": "5a67ff502aaef51050048955cf7ca8e17011401235c6f7afaaf2b376f7a05e88",
+    "/openapi.json": "61c9df97a254a863a68fdc2c493799803397bfa190b85db3ca97673d2a8ccbf0",
+    "tools/list": "b634e7e142bb90558a0768801505c3d5ab7c7fd7203b89f8070b2a86729a1580",
+    "/gate": "701e9b068944aca7a9c49bb5415fa2af21006b4ba696c916108c4d326445a08c",
+    "/gate liquidation-eligible-coverage": "e2bfb18be056b2ed6f0d1cdae681d9b9e38ede054c79509898243d327a105fe7",
+    "/calibrate": "f169e9f6e333374a9d47a2010674ca789aba45bd126ef8764df2f0fb86a2cb90",
     "/attest": "aeeb34e020d93b21e31c676552d260ceffae1e79c69b56ba2b5c911079d6ad69",
-    "/cascade": "dc4ede52dc5b35efc2b3fdb0a82638454e6dbe27545387c79941292b7fa16576"
+    "/cascade": "145b49754eeeaae9e644fe2b285ce2e3f04841473faf93479dbddeb7978444c5"
   }
 }

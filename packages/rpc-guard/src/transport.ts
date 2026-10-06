@@ -13,18 +13,35 @@
 // issuer public API (an HTTP GET witness, 1b-0 C-7), all resolved LABELS (0 cost, counted). The two cash-leg data sources stay
 // FORMED items (request caps land at their trigger, never guessed). This is the SOLE reader of a paid endpoint key
 // (HELIUS_API_KEY, CHAINSTACK_ETH_URL / CHAINSTACK_SOLANA_URL) and the SOLE fetch site.
+// DRAND-RELAY-GET-1a (ADR-RPC-GUARD-DRAND-1): + the two drand relays, keyless HTTP GET witnesses, one host and ONE closed path each.
 import type { OperatorLabel, Transport, OperatorClass } from "./client.ts";
-import { heliusCredits, chainstackRu } from "./tariff.ts";
+import { heliusCredits, heliusSettle, chainstackRu } from "./tariff.ts";
 import { TransportError, RpcError } from "./errors.ts";
 import { closedHint } from "./classify.ts";
 
 /** Cycle caps live in ONE place (decisions 112/115). Helius in CREDITS; Chainstack in RU. */
 export const HELIUS_CYCLE_CAP_CREDITS = 8_000_000;
 export const CHAINSTACK_CYCLE_CAP_RU = 16_000_000;
+/** RPC-GUARD-HELIUS-HOST-1 (ADR-RPC-GUARD-RECONCILE-1 D-3): the CLOSED list of exact hosts the helius key may travel to (production,
+ *  apps/bell/ops/launch-q6.sh:45), never a domain suffix; tests use the reserved `.invalid` TLD (RFC 6761 6.4, FAITS-RFC6761-INVALID-1). */
+const HELIUS_ADMITTED_HOSTS: readonly string[] = ["mainnet.helius-rpc.com"];
+/** D-3: the first BELL_SOLANA_RPC element parsed ONCE, returned iff https without userinfo, query, fragment or port, with a lower-case
+ *  hostname in HELIUS_ADMITTED_HOSTS or ending with `.invalid` (free path). Never throws nor echoes; the key is set on THIS checked record. */
+function admittedHeliusUrl(base: string): URL | undefined {
+  let u: URL;
+  try { u = new URL(base); } catch { return undefined; }
+  if (u.protocol !== "https:" || u.username !== "" || u.password !== "" || u.search !== "" || u.hash !== "" || u.port !== "") return undefined;
+  const host = u.hostname.toLowerCase();
+  return HELIUS_ADMITTED_HOSTS.includes(host) || host.endsWith(".invalid") ? u : undefined;
+}
 
 /** Default per-attempt transport timeout (C-5): an AbortController fires at this deadline so a hung endpoint cannot
- *  wedge a course. Tests inject a tiny value; the live default matches the recorder's record.ts:83 (30 s). */
+ *  wedge a course. Tests inject a tiny value; the live default matches the recorder's record.ts:83 (30 s). It bounds the
+ *  response head; for a bounded-body client (TransportOpts below) the SAME deadline bounds the head AND the body. */
 export const DEFAULT_TIMEOUT_MS = 30_000;
+/** RPC-GUARD-BODY-TIMEOUT-1 (D-3): the byte cap of a bounded body, 8 MiB (precedent scripts/probe-narabi.mjs l.62-63; the Dojo
+ *  getProgramAccounts answer measured 674 641 bytes for 1 144 accounts, docs/dojo/FAITS-probe-12-2026-09-27.md). NOT in index.ts. */
+export const DEFAULT_MAX_BODY_BYTES = 8 * 1024 * 1024;
 
 /** D6 C-1(c-bis): the DECLARED upper bound on a reprised revert `.data` (in hex characters). Revert data is bounded by
  *  its form (an ABI-encoded reason / custom-error selector), never a free-text channel; anything longer is dropped. */
@@ -58,12 +75,33 @@ export type NetworkLabel = "ethereum-mainnet" | "solana-mainnet";
 /** Transport options threaded from openGuardedClient (C-5). `onTransportError` is the injected error hook: it is
  *  called with the operator LABEL + the error NAME + the CODE (HTTP status or JSON-RPC code, undefined for a bare
  *  network fault), NEVER the URL (the 5%-rule monitor of the recorder re-binds ITS OWN sink onto this in 2b). */
-export interface TransportOpts { readonly timeoutMs?: number; readonly network?: NetworkLabel; readonly onTransportError?: (op: string, errorName: string, code: number | undefined) => void; }
+export interface TransportOpts {
+  readonly timeoutMs?: number;
+  readonly network?: NetworkLabel;
+  readonly onTransportError?: (op: string, errorName: string, code: number | undefined) => void;
+  /** RPC-GUARD-BODY-TIMEOUT-1 (D-3, Q-1 opt-in): the body is BOUNDED iff boundBody === true or maxBodyBytes is set. A bounded
+   *  attempt holds ONE deadline (timeoutMs, head AND body) and a byte cap (maxBodyBytes, default DEFAULT_MAX_BODY_BYTES): 2xx =>
+   *  AbortError (code = the status received) or BodyTooLarge, its reservation kept; non-2xx => HttpError, empty detail. Unset:
+   *  the legacy read, unchanged (the deadline bounds the head only, no cap). maxBodyBytes: a safe integer >= 1, before any lock. */
+  readonly boundBody?: true;
+  readonly maxBodyBytes?: number;
+}
 
 /** GARDE-HELIUS-1b-0 (C-7 beta): the xStocks issuer public API host (a KEYLESS HTTP GET witness). The label
  *  `xstocks-issuer` resolves ONLY this host; assertHostAllowed is STRUCTURAL (label -> one host, a pathAndQuery can
  *  never escape it). Calque of apps/bell/src/universe.ts:36 ISSUER_HOST (PLI / CONF-SRC-4). */
 export const XSTOCKS_ISSUER_HOST = "api.xstocks.fi";
+
+/** DRAND-RELAY-GET-1a (ADR-RPC-GUARD-DRAND-1 D-1): the two KEYLESS drand relay labels, dot-free (the BARE_LABEL vocabulary of
+ *  Bell), each resolving ONE host (the xstocks-issuer motif). Only the labels are public (index.ts); this table stays here. */
+const DRAND_RELAY_HOSTS: ReadonlyMap<string, string> = new Map([["drand-pl", "api.drand.sh"], ["drand-cf", "drand.cloudflare.com"]]);
+export const DRAND_RELAY_LABELS: readonly string[] = [...DRAND_RELAY_HOSTS.keys()];
+/** The quicknet chain hash, PINNED (docs/dojo/FAITS-drand-relays-terms-2026-09-27.md l.21, l.26): a chain rotation is an
+ *  amendment of the lot, never a read by the guard. NOT exported by index.ts. */
+export const DRAND_QUICKNET_HASH = "52db9ba70e0cc0f6eaf7803dd07447a1f5477735fd3f661792ba94600c84e971";
+/** The ONE admitted drand request: a v1 round (>= 1, at most 16 digits) of the pinned chain, matched on the RAW pathAndQuery
+ *  BEFORE any URL resolution, so no query, fragment, dot segment, backslash or blank survives a URL normalization. */
+export const DRAND_ROUND_PATH = new RegExp(`^/${DRAND_QUICKNET_HASH}/public/[1-9][0-9]{0,15}$`);
 
 /** Parse a Retry-After header (delta-seconds or an HTTP-date) to ms, bounded by capMs (never a negative wait). Pure;
  *  calque of apps/bell/src/universe.ts:103 retryAfterMs. Returns undefined for an absent/unparseable header (C-3b). */
@@ -76,9 +114,41 @@ export function parseRetryAfterMs(header: string | null | undefined, nowMs: numb
   return undefined;
 }
 
+/** RPC-GUARD-BODY-TIMEOUT-1 (D-3 (b)): a bounded read gives the decoded body, or the NAME of the stop that ended it. */
+export type BodyRead = { readonly text: string } | { readonly stop: string };
+/** Read `res.body` under the attempt's deadline `due` (epoch ms) and a byte cap. Each read() races the abort event of the attempt's
+ *  signal (never trusting fetch to end the stream); bytes are counted per chunk; a stop cancels the reader and aborts the attempt,
+ *  neither awaited, their rejections caught. The stop is NAMED before the abort: AbortError (the deadline), BodyTooLarge (over the
+ *  cap), else the read error's name, never its message. TextDecoder (utf-8, BOM removed, U+FFFD): held equal to Response.text()
+ *  by a differential test, never assumed. Internal: NOT exported by index.ts. */
+export async function readBoundedBody(res: Response, ctl: AbortController, maxBytes: number, due: number): Promise<BodyRead> {
+  if (res.body === null) return { text: "" };
+  const reader = (res.body as ReadableStream<Uint8Array>).getReader(), dec = new TextDecoder(); // Response types its body untyped
+  let onAbort = (): void => undefined;
+  const aborted = new Promise<"abort">((resolve) => { onAbort = () => { resolve("abort"); }; });
+  ctl.signal.addEventListener("abort", onAbort);
+  const timer = setTimeout(() => { ctl.abort(); }, Math.max(0, due - Date.now())); // the body part of the attempt's ONE deadline
+  const stop = (name: string): BodyRead => { reader.cancel().catch(() => undefined); ctl.abort(); return { stop: name }; };
+  let bytes = 0, text = "";
+  try {
+    for (;;) {
+      if (ctl.signal.aborted) return stop("AbortError");
+      const r = await Promise.race([reader.read(), aborted]).catch((e: unknown) => ({ failed: e }));
+      if (r === "abort") return stop("AbortError");
+      if ("failed" in r) return stop(ctl.signal.aborted ? "AbortError" : r.failed instanceof Error ? r.failed.name : "NetworkError");
+      if (r.done) return { text: text + dec.decode() };
+      bytes += r.value.byteLength;
+      if (bytes > maxBytes) return stop("BodyTooLarge");
+      text += dec.decode(r.value, { stream: true });
+    }
+  } finally { clearTimeout(timer); ctl.signal.removeEventListener("abort", onAbort); }
+}
+
 export interface Resolved {
   readonly classes: Readonly<Record<string, OperatorClass>>;
   readonly transport: Transport;
+  /** D-3: label -> why its endpoint was REFUSED (a fixed reason, never the url); openGuardedClient raises it before any lock. */
+  readonly refused: Readonly<Record<string, string>>;
 }
 
 /** Resolve paid endpoints from `env` INTERNALLY: returns the LABELS + metering classes; the URLs stay captured
@@ -86,16 +156,24 @@ export interface Resolved {
 export function resolveOperators(env: Record<string, string | undefined>, opts: TransportOpts = {}): Resolved {
   const urls = new Map<string, string>();
   const classes: Record<string, OperatorClass> = {};
+  const refused: Record<string, string> = {};
   // GARDE-HELIUS-1b-0 (C-7 beta): operators whose transport is an HTTP GET (method="GET", params=[pathAndQuery]) rather
   // than a JSON-RPC POST. Keyless, one admitted host each; assertHostAllowed is STRUCTURAL (in the transport below).
   const getOps = new Set<string>();
 
   const solana = (env.BELL_SOLANA_RPC ?? "").split(",").map((s) => s.trim()).filter((s) => s.length > 0);
   const heliusBase = solana[0];
-  if (heliusBase !== undefined) {
+  // RPC-GUARD-HELIUS-HOST-1 (D-3): the host is checked BEFORE any key is attached, with or without HELIUS_API_KEY. Refused => helius stays
+  // UNRESOLVED (no url, no class), named in `refused`. Admitted => `api-key` set by the URL API (production base: the former string).
+  const heliusUrl = heliusBase === undefined ? undefined : admittedHeliusUrl(heliusBase);
+  if (heliusBase !== undefined && heliusUrl === undefined) refused["helius"] = "BELL_SOLANA_RPC host not admitted (fail-closed, RPC-GUARD-HELIUS-HOST-1)";
+  if (heliusUrl !== undefined) {
     const key = env.HELIUS_API_KEY;
-    urls.set("helius", key ? `${heliusBase}?api-key=${key}` : heliusBase);
-    classes["helius"] = { unit: "credits", credits: heliusCredits, cycleCap: HELIUS_CYCLE_CAP_CREDITS };
+    if (key) heliusUrl.searchParams.set("api-key", key);
+    urls.set("helius", heliusUrl.href);
+    // D-2: helius reserves heliusCredits(method, params) and settles on the RENDERED count = result.data.length of the value
+    // this transport returns (unchanged, heliusSettle).
+    classes["helius"] = { unit: "credits", credits: heliusCredits, settle: heliusSettle, cycleCap: HELIUS_CYCLE_CAP_CREDITS };
   }
   // Chainstack: the SECOND paid operator (RU), ONE operator PER ACCOUNT (decision 121). The key lives ONLY here.
   // opts.network resolves CHAINSTACK_<network>_URL: "solana-mainnet" => CHAINSTACK_SOLANA_URL (a Bell Solana course),
@@ -120,8 +198,15 @@ export function resolveOperators(env: Record<string, string | undefined>, opts: 
   urls.set("xstocks-issuer", `https://${XSTOCKS_ISSUER_HOST}`);
   classes["xstocks-issuer"] = { unit: "keyless" };
   getOps.add("xstocks-issuer");
+  // DRAND-RELAY-GET-1a (D-1): the two drand relays, KEYLESS HTTP GET witnesses (0 cost, counted), one host each (the motif
+  // above); resolveGetUrl closes the path to DRAND_ROUND_PATH (/info, /v2/, latest, another chain: refused).
+  for (const [label, host] of DRAND_RELAY_HOSTS) { urls.set(label, `https://${host}`); classes[label] = { unit: "keyless" }; getOps.add(label); }
 
   const timeoutMs = opts.timeoutMs ?? DEFAULT_TIMEOUT_MS;
+  // RPC-GUARD-BODY-TIMEOUT-1 (Q-1): the cap of a BOUNDED body, undefined for the legacy read; checked here, before any lock (guarded.ts)
+  const maxBody = opts.boundBody === true || opts.maxBodyBytes !== undefined ? opts.maxBodyBytes ?? DEFAULT_MAX_BODY_BYTES : undefined;
+  if (maxBody !== undefined && !(Number.isSafeInteger(maxBody) && maxBody >= 1))
+    throw new Error("rpc-guard: maxBodyBytes must be a safe integer >= 1 (fail-closed)");
   const onErr = opts.onTransportError;
   // D6 (GARDE-HELIUS-2b): for a PAID operator, the raised message reprises ONLY a CLOSED-vocabulary hint of the body
   // (closedHint, classify.ts) - never a raw body byte - so a server-transformed key (C-GD-2, base64/hex) or a key
@@ -197,6 +282,9 @@ export function resolveOperators(env: Record<string, string | undefined>, opts: 
   // or an absolute "https://evil" pathAndQuery => a different host => throw). https only, no userinfo. No URL leaks.
   const resolveGetUrl = (op: string, base: string, params: readonly unknown[]): string => {
     const pathAndQuery = typeof params[0] === "string" ? params[0] : "";
+    // DRAND-RELAY-GET-1a (D-1, D-3 TY-4/TY-5): a drand label admits ONLY DRAND_ROUND_PATH, tested on the RAW string, fail-closed
+    // before any fetch; a Bell JSON-RPC call on a drand label (an address, or a non-string params[0] read as "") is refused here.
+    if (DRAND_RELAY_HOSTS.has(op) && !DRAND_ROUND_PATH.test(pathAndQuery)) throw new Error(`rpc-guard: request path for operator '${op}' is off the closed drand round path (fail-closed, D-1)`);
     const admitted = new URL(base);
     let u: URL;
     try { u = new URL(pathAndQuery, base); } catch { throw new Error(`rpc-guard: request path for operator '${op}' is not resolvable (fail-closed)`); }
@@ -209,7 +297,7 @@ export function resolveOperators(env: Record<string, string | undefined>, opts: 
     if (url === undefined) throw new Error(`rpc-guard: no endpoint for operator '${op}' (fail-closed)`);
     const isGet = getOps.has(op);
     const target = isGet ? resolveGetUrl(op, url, params) : url;
-    const ctl = new AbortController();
+    const ctl = new AbortController(), due = Date.now() + timeoutMs; // a bounded body reads under the SAME deadline (D-3 (a))
     const to = setTimeout(() => { ctl.abort(); }, timeoutMs); // C-5: bound a hung endpoint; cleared on every exit path
     let res: Response;
     try {
@@ -231,10 +319,13 @@ export function resolveOperators(env: Record<string, string | undefined>, opts: 
       //     range on an HTTP 400; the hook gets the status. C-3b: parse Retry-After (ms) so the CALLER can honour a
       //     429/503 backoff. C-2 (1b-0 fold): a FATAL 403 is NEVER retried, so it STRUCTURALLY carries no retryAfterMs
       //     (the explicit `res.status === 403` guard, never the incidence of a header-less test 403). Raw body never leaves.
-      const body = await res.text().catch(() => "");
+      const errRead = maxBody === undefined ? { text: await res.text().catch(() => "") } : await readBoundedBody(res, ctl, maxBody, due);
+      const body = "text" in errRead ? errRead.text : ""; // D-3 (c): a stopped error body gives an EMPTY detail, never a partial one
       return raise(op, "HttpError", res.status, body, undefined, res.status === 403 ? undefined : parseRetryAfterMs(res.headers.get("retry-after")));
     }
-    const text = await res.text();
+    const read = maxBody === undefined ? { text: await res.text() } : await readBoundedBody(res, ctl, maxBody, due);
+    if (!("text" in read)) return raise(op, read.stop, res.status, ""); // D-3 (c): AbortError or BodyTooLarge, code = the status received
+    const text = read.text;
     // (3) non-JSON body (a mis-routed HTML error page): a typed fault, not a silent value; NO hint at all (C-2). Both a
     //     GET operator and a JSON-RPC POST parse here; only the SHAPE past this point differs (a GET body IS the payload).
     let parsed: unknown;
@@ -252,7 +343,7 @@ export function resolveOperators(env: Record<string, string | undefined>, opts: 
     return json.result;
   };
 
-  return { classes, transport };
+  return { classes, transport, refused };
 }
 
 /** The labels a resolved env exposes - LABELS only, never a URL. INTERNAL (used by openGuardedClient + tests). */

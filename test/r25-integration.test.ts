@@ -1,0 +1,1151 @@
+/**
+ * Root test `r25_integration` (lot R25-INTEGRATION-RULE-1, ADR-M003 D9 nonies, G0 docs/G0-lot-r25-integration-rule-1.md
+ * section 7, T-1..T-10; T-11 is in test/oracle-run.test.ts, the wiring pin in test/ci-gates.test.ts). Fixtures are
+ * throwaway git repositories under the OS temp dir whose PRs are real merge commits; proofs are written by the test;
+ * T-10 serves the GitHub API from a local HTTP server. No network. The four E-5 killers: T-1, T-3, T-4, T-5.
+ */
+import { test } from "node:test";
+import assert from "node:assert/strict";
+import { execFileSync, spawn, spawnSync } from "node:child_process";
+import { createHash } from "node:crypto";
+import { appendFileSync, copyFileSync, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { createServer, type IncomingMessage, type Server, type ServerResponse } from "node:http";
+import { tmpdir } from "node:os";
+import { dirname, join } from "node:path";
+import { pathToFileURL } from "node:url";
+import { crc32 as zlibCrc32, deflateSync } from "node:zlib";
+import type { AddressInfo } from "node:net";
+import { startLoopback } from "./helpers/loopback.ts";
+import { ATTRIBUTES, BINARY_ASSETS, buildProof, effective, R25_DIFF_RE, REPO, SCHEMA, specsOf } from "../scripts/lot-size-integration.mjs";
+import * as lsi from "../scripts/lot-size-integration.mjs"; // lot R25-GUARDS-2: its new exports, read through the namespace (absent at the base: an assertion, not a load error)
+
+const ROOT = join(import.meta.dirname, "..");
+const REAL_CI = readFileSync(join(ROOT, ".github", "workflows", "ci.yml"), "utf8");
+const TARGET = "base/c2-integration";
+const ciOf = (bound: number): string => `jobs:
+  r25:
+    steps:
+      - env:
+          VIBEGATES_PR_LIMIT: "${bound}"
+          VIBEGATES_CONTENT_LIMIT: "8000"
+        run: |
+          STAT=$(git diff --shortstat "origin/\${{ github.base_ref }}...HEAD" -- . ':(exclude)site/**') || {
+            exit 1
+          }
+          CONTENT_STAT=$(git diff --shortstat "origin/\${{ github.base_ref }}...HEAD" -- 'site/**') || {
+            exit 1
+          }
+          CHANGED=$(printf '%s\\n' "$STAT" | awk '{print 0}')
+          CONTENT_CHANGED=$(printf '%s\\n' "$CONTENT_STAT" | awk '{print 0}')
+          if [ "$CHANGED" -gt "$VIBEGATES_PR_LIMIT" ]; then
+            exit 1
+          fi
+          if [ "$CONTENT_CHANGED" -gt "$VIBEGATES_CONTENT_LIMIT" ]; then
+            exit 1
+          fi
+`;
+const metric = (s: string): number => ["insertion", "deletion"].reduce((n, w) => n + Number(new RegExp(`(\\d+) ${w}`).exec(s)?.[1] ?? 0), 0);
+
+/** A throwaway repo: trunk `lot/etude-suite` at t0 (workflow + module), target TARGET branched at t0. */
+class Fx {
+  readonly dir = mkdtempSync(join(tmpdir(), "r25i-"));
+  readonly ci: string;
+  constructor(ci = ciOf(1205)) {
+    this.ci = ci;
+    this.g("init", "-q", "-b", "lot/etude-suite");
+    this.put(".github/workflows/ci.yml", ci);
+    mkdirSync(join(this.dir, "scripts"));
+    copyFileSync(join(ROOT, "scripts", "lot-size-integration.mjs"), join(this.dir, "scripts", "lot-size-integration.mjs"));
+    this.commit("t0", "a.txt", 1);
+    this.g("branch", TARGET);
+  }
+  g(...a: string[]): string {
+    return execFileSync("git", ["-C", this.dir, "-c", "user.name=fx", "-c", "user.email=fx@localhost", "-c", "core.autocrlf=false", ...a], { encoding: "utf8" }).trim();
+  }
+  put(file: string, text: string): void { mkdirSync(dirname(join(this.dir, file)), { recursive: true }); appendFileSync(join(this.dir, file), text); }
+  commit(msg: string, file: string, n: number): string {
+    this.put(file, Array.from({ length: n }, (_, i) => `${msg} ${i}\n`).join(""));
+    this.g("add", "-A");
+    this.g("commit", "-qm", msg);
+    return this.g("rev-parse", "HEAD");
+  }
+  merge(ref: string, msg: string): string { this.g("merge", "-q", "--no-ff", "-m", msg, ref); return this.g("rev-parse", "HEAD"); }
+  written(base = TARGET): number[] { return specsOf(this.ci).map((s) => metric(this.g("diff", "--shortstat", `${base}...HEAD`, "--", ...s))); }
+  count(proof: unknown, base = TARGET): ReturnType<typeof effective> & { w: number[] } {
+    const w = this.written(base);
+    return { ...effective({ cwd: this.dir, ciText: this.ci, base, proof, written: w }), w };
+  }
+  done(): void { rmSync(this.dir, { recursive: true, force: true, maxRetries: 3 }); }
+}
+const withFx = (fn: (fx: Fx) => void, ci?: string): void => { const fx = new Fx(ci); try { fn(fx); } finally { fx.done(); } };
+
+/** Trunk = PR #1 (feat, 5 + 35 lines, merged --no-ff: M1) + a direct push U (7) + an amended copy A' of x (5, same message). */
+function trunk(fx: Fx): { m1: string; h1: string; x: string } {
+  fx.g("checkout", "-q", "-b", "feat");
+  const x = fx.commit("p1 part", "src/p1.txt", 5), h1 = fx.commit("p1 rest", "src/p1.txt", 35);
+  fx.g("checkout", "-q", "lot/etude-suite");
+  const m1 = fx.merge("feat", "Merge pull request #1");
+  fx.commit("direct push", "src/u.txt", 7);
+  fx.commit("p1 part", "src/amended.txt", 5);
+  return { m1, h1, x };
+}
+const pr = (number: number, merge_commit_sha: string, head_sha: string, over: object = {}): object =>
+  ({ number, base_ref: "lot/etude-suite", merged_at: "2026-10-05T00:00:00Z", merge_commit_sha, head_sha, r25: "success", ...over });
+const proofOf = (fx: Fx, merged: object[], id: object = {}): object => ({
+  schema: SCHEMA, repo: REPO, base_sha: null, head_sha: fx.g("rev-parse", "HEAD"), complete: true, merged,
+  pr: { number: 7, head_ref: "lot/etude-suite", head_repo: REPO, base_ref: TARGET, base_repo: REPO, head_sha: fx.g("rev-parse", "HEAD"), ...id },
+});
+const sha256 = (b: Buffer): string => createHash("sha256").update(b).digest("hex");
+interface OracleR25 { exit: number; mode: string; proof: { file: string; sha256: string } | null; counts: { name: string; changed: number; limit: number | null }[] }
+/** r25() of the oracle, imported in a child (the module has no type surface), on the fixture's own workflow. */
+const oracle = (fx: Fx, base: string, proofFile: string | null, env: object = {}, root = ROOT): OracleR25 => JSON.parse(execFileSync(process.execPath, ["--input-type=module", "-e",
+  `import { r25 } from ${JSON.stringify(pathToFileURL(join(root, "scripts", "oracle", "r25.mjs")).href)}; import { readFileSync } from "node:fs";
+  const [d, b, p] = process.argv.slice(1); console.log(JSON.stringify(r25(d, readFileSync(d + "/.github/workflows/ci.yml", "utf8"), b, p === "-" ? null : p)));`,
+  fx.dir, base, proofFile ?? "-"], { encoding: "utf8", env: { ...process.env, ...env } })) as OracleR25;
+
+// killer: scripts/lot-size-integration.mjs:121 CONST "if (proven.has(c)) continue;" -> "if (proven.has(c) || ps.length === 1) continue;"
+test("r25i_hidden_unreviewed_commit_is_counted - E-5 (1): a direct push and an amended copy of a reviewed commit count, the proven PR does not (A-1, A-2)", () => withFx((fx) => {
+  const { m1, h1 } = trunk(fx);
+  const r = fx.count(proofOf(fx, [pr(1, m1, h1)]));
+  assert.deepEqual([r.mode, r.code, r.content, r.w], ["integration", 12, 0, [52, 0]], r.detail.join("\n"));
+}));
+
+// killer: scripts/lot-size-integration.mjs:56 CONST "ps.length === 2 && ps[1] === p.head_sha" -> "ps.length === 2"
+test("r25i_merged_head_must_be_the_reviewed_head - a proof whose head is not M^2 proves nothing; a commit pushed after the merge and merged locally counts (A-7, A-8)", () => withFx((fx) => {
+  const { m1, h1, x } = trunk(fx);
+  assert.deepEqual([fx.count(proofOf(fx, [pr(1, m1, x)])).code, fx.written()[0]], [52, 52]);
+  fx.g("checkout", "-q", "feat");
+  fx.commit("late", "src/late.txt", 3);
+  fx.g("checkout", "-q", "lot/etude-suite");
+  fx.merge("feat", "local merge");
+  assert.equal(fx.count(proofOf(fx, [pr(1, m1, h1)])).code, 15);
+}));
+
+// killer: scripts/lot-size-integration.mjs:39 CONST "id?.head_repo === REPO && " -> ""
+test("r25i_fake_branch_name_bypasses_nothing - E-5 (2): a fork named lot/etude-suite and lot/etude-suite-x are written PRs; base/fake without a proving PR counts all (A-9)", () => withFx((fx) => {
+  const { m1, h1 } = trunk(fx);
+  const modes = [{ head_repo: "fork/monark-governance" }, { head_ref: "lot/etude-suite-x" }, { base_repo: "fork/monark-governance" }].map((id) => fx.count(proofOf(fx, [pr(1, m1, h1)], id)));
+  assert.deepEqual(modes.map((r) => [r.mode, r.code]), [["written", 52], ["written", 52], ["written", 52]]);
+  const fake = fx.count(proofOf(fx, [], { head_ref: "base/fake" }));
+  assert.deepEqual([fake.mode, fake.code], ["integration", 52]);
+}));
+
+// killer: scripts/lot-size-integration.mjs:33 CONST "\"-c\", \"merge.conflictStyle=merge\", " -> ""
+// killer: scripts/lot-size-integration.mjs:86 CONST "\"--remerge-diff\", \"--unified" -> "\"--no-diff-merges\", \"--unified"
+// killer: scripts/oracle/r25.mjs:27 CONST "\"-C\", clone, ...PIN, " -> "\"-C\", clone, "
+// killer: scripts/oracle/r25.mjs:27 CONST "[`--attr-source=${attrTree(clone)}`], " -> "[], "
+test("r25i_conflict_resolution_above_bound_is_red - E-5 (3): through the oracle's r25() with bound 20, a 25-line resolution is red, a 10-line one green, under a hostile git config, user attributes, a machine bigFileThreshold of 1 or a measured .gitattributes * -diff (one line more); 3 lines slipped into a clean merge count 3 (A-3)", () => {
+  for (const [n, exit, changed] of [[25, 1, 31], [10, 0, 16]] as const) withFx((fx) => {
+    fx.g("checkout", "-q", "-b", "feat");
+    const h1 = fx.commit("p1", "src/p1.txt", 15); // under the bound 20: PR #1 proves (G2 B-2)
+    fx.g("checkout", "-q", "lot/etude-suite");
+    const m1 = fx.merge("feat", "Merge pull request #1");
+    fx.g("checkout", "-q", TARGET);
+    fx.commit("y", "c.txt", 1);
+    fx.g("checkout", "-q", "lot/etude-suite");
+    fx.commit("z", "c.txt", 1);
+    assert.throws(() => fx.g("merge", "-q", TARGET, "-m", "sync"));
+    writeFileSync(join(fx.dir, "c.txt"), Array.from({ length: n }, (_, i) => `r${i}\n`).join(""));
+    fx.g("commit", "-qam", "sync, resolved");
+    const file = join(fx.dir, ".git", "proof.json");
+    writeFileSync(file, JSON.stringify(proofOf(fx, [pr(1, m1, h1)])));
+    fx.put(".git/xdg/git/attributes", "* -diff\n"); // G2 delta m-a: a user attributes file lowers neither W nor the module's count
+    const [r, z, a, b] = [{}, { GIT_CONFIG_PARAMETERS: "'merge.conflictstyle=zdiff3' 'diff.algorithm=patience'" }, { XDG_CONFIG_HOME: join(fx.dir, ".git", "xdg") }, { GIT_CONFIG_PARAMETERS: "'core.bigfilethreshold'='1'" }].map((env) => oracle(fx, TARGET, file, env));
+    assert.deepEqual([r?.mode, r?.counts[0]?.changed, r?.exit, z?.counts[0]?.changed, a?.counts[0]?.changed, b?.counts[0]?.changed], ["integration", changed, exit, changed, changed, changed], JSON.stringify([r, z, a, b]));
+    fx.commit("* -diff", ".gitattributes", 1); // G2 delta2 O-1, oracle side: a measured -diff lowers neither the oracle's W nor the module's count
+    writeFileSync(file, JSON.stringify(proofOf(fx, [pr(1, m1, h1)])));
+    const t = oracle(fx, TARGET, file);
+    assert.deepEqual([t.mode, t.counts[0]?.changed, t.exit], ["integration", changed + 1, exit], JSON.stringify(t));
+  }, ciOf(20));
+  withFx((fx) => {
+    fx.g("checkout", "-q", TARGET);
+    fx.commit("d", "d.txt", 4);
+    fx.g("checkout", "-q", "lot/etude-suite");
+    fx.g("merge", "-q", "--no-ff", "--no-commit", TARGET);
+    fx.put("src/e.txt", "s1\ns2\ns3\n");
+    fx.g("add", "-A");
+    fx.g("commit", "-qm", "clean merge plus three lines");
+    assert.deepEqual([fx.count(proofOf(fx, [])).mode, fx.count(proofOf(fx, [])).code], ["integration", 3]);
+  });
+});
+
+// killer: scripts/lot-size-integration.mjs:117 CONST "proof.complete === true && " -> ""
+test("r25i_missing_proof_counts_all - E-5 (4): no file, unreadable, incomplete, another repository, another head, another schema: unproven, the count of today (A-10, A-11)", () => withFx((fx) => {
+  const { m1, h1, x } = trunk(fx);
+  const good = proofOf(fx, [pr(1, m1, h1)]);
+  const bad = [null, "{", { ...good, complete: false }, { ...good, repo: "fork/monark-governance" }, proofOf(fx, [pr(1, m1, h1)], { head_sha: x }), { ...good, schema: "v0" }];
+  assert.deepEqual(bad.map((p) => [fx.count(p).mode, fx.count(p).code]), bad.map(() => ["unproven", 52]));
+  const cli = execFileSync(process.execPath, [join(fx.dir, "scripts", "lot-size-integration.mjs"), "count", "--ci", ".github/workflows/ci.yml", "--base", TARGET, "--proof", join(fx.dir, "absent.json"), "--written", "52", "0"], { cwd: fx.dir, encoding: "utf8", stdio: ["ignore", "pipe", "ignore"] });
+  assert.equal(cli, "unproven 52 0\n");
+}));
+
+// killer: scripts/lot-size-integration.mjs:118 CONST "if (!isCandidate(proof.pr)) return out(\"written\");" -> ""
+test("r25i_written_pr_is_unchanged - E-1: a PR recherches/x -> trunk keeps the count of today; a module error returns it too (A-16)", () => withFx((fx) => {
+  const { m1, h1 } = trunk(fx);
+  const r = fx.count(proofOf(fx, [pr(1, m1, h1)], { head_ref: "recherches/x", base_ref: "lot/etude-suite" }));
+  assert.deepEqual([r.mode, r.code, r.content], ["written", ...r.w]);
+  const e = effective({ cwd: fx.dir, ciText: fx.ci, base: "no/such/ref", proof: proofOf(fx, [pr(1, m1, h1)]), written: [52, 0] });
+  assert.deepEqual([e.mode, e.code, e.content], ["error", 52, 0]);
+  assert.deepEqual(effective({ cwd: fx.dir, ciText: "jobs: {}", base: TARGET, proof: proofOf(fx, [pr(1, m1, h1)]), written: [52, 0] }).mode, "error");
+}));
+
+// killer: scripts/lot-size-integration.mjs:127 CONST "if (gate) return" -> "if (false) return"
+// killer: scripts/lot-size-integration.mjs:126 CONST ", \"-z\").split(" -> ").split("
+// killer: scripts/lot-size-integration.mjs:25 CONST "\".github/workflows/\", " -> ""
+test("r25i_unproven_change_to_gate_files_counts_all - one unproven line in the module itself or in a workflow (a non-ASCII name, quoted by git without -z, included): gate-files, every line counts (A-12)", () => withFx((fx) => {
+  const { m1, h1 } = trunk(fx);
+  fx.commit("tweak the judge", "scripts/lot-size-integration.mjs", 1);
+  const r = fx.count(proofOf(fx, [pr(1, m1, h1)]));
+  assert.deepEqual([r.mode, r.code], ["gate-files", 53]);
+  const t = fx.g("rev-parse", "HEAD^");
+  for (const f of [".github/workflows/x.yml", ".github/workflows/\u00e9.yml"]) {
+    fx.g("reset", "-q", "--hard", t);
+    fx.commit("tweak a workflow", f, 1);
+    assert.deepEqual([fx.count(proofOf(fx, [pr(1, m1, h1)])).mode, f], ["gate-files", f]);
+  }
+}));
+
+// killer: scripts/lot-size-integration.mjs:43 CONST "inL(p.base_ref) && " -> ""
+test("r25i_only_closed_list_measured_merged_prs_prove - merged outside L, PR #89, r25 failure, r25 absent, not merged: each proves nothing (A-6, A-17)", () => withFx((fx) => {
+  const { m1, h1 } = trunk(fx);
+  const bad = [{ base_ref: "lot/np-2-scripts" }, { number: 89 }, { r25: "not-success" }, { r25: null }, { merged_at: null }];
+  assert.deepEqual(bad.map((o) => fx.count(proofOf(fx, [pr(1, m1, h1, o)])).code), [52, 52, 52, 52, 52]);
+}));
+
+// killer: scripts/lot-size-integration.mjs:57 CONST "else if (ps.length === 1) s.add(m);" -> ""
+test("r25i_squash_proves_its_commit_rebase_proves_the_last - a squash counts 0; of 3 rebased commits the first 2 count (A-4, A-5)", () => withFx((fx) => {
+  const { m1, h1, x } = trunk(fx);
+  fx.g("reset", "-q", "--hard", m1);
+  const s = fx.commit("squash #2", "src/s.txt", 10);
+  const [, , r3] = [1, 2, 3].map((i) => fx.commit(`rebased ${i}`, "src/r.txt", 3));
+  const r = fx.count(proofOf(fx, [pr(1, m1, h1), pr(2, s, x), pr(3, r3 ?? "", x)]));
+  assert.deepEqual([r.mode, r.code, r.w[0]], ["integration", 6, 59]);
+}));
+
+const lines = (tag: string, n: number): string => Array.from({ length: n }, (_, i) => `${tag} ${i}\n`).join("");
+
+// killer: scripts/lot-size-integration.mjs:56 CONST "for (const c of rows(git(\"rev-list\", ps[1], `^${ps[0]}`)))" -> "for (const c of [m, ...rows(git(\"rev-list\", ps[1], `^${ps[0]}`))])"
+test("r25i_local_merge_of_a_proven_pr_counts_its_remerge_diff - G2 B-1: a proving PR merged LOCALLY (#88, #91, #92, #113..#124) with 300 lines slipped into its clean merge: the merge is not proven, its remerge-diff counts 300 (E-2 a, A-3)", () => withFx((fx) => {
+  fx.g("checkout", "-q", "-b", "feat");
+  const h1 = fx.commit("p1", "src/p1.txt", 10);
+  fx.g("checkout", "-q", "lot/etude-suite");
+  fx.g("merge", "-q", "--no-ff", "--no-commit", "feat");
+  fx.put("src/slipped.txt", lines("slipped", 300));
+  fx.g("add", "-A");
+  fx.g("commit", "-qm", "local merge of PR #1 into the trunk");
+  const r = fx.count(proofOf(fx, [pr(1, fx.g("rev-parse", "HEAD"), h1)]));
+  assert.deepEqual([r.mode, r.code, r.w[0]], ["integration", 300, 310], r.detail.join("\n"));
+}));
+
+// killer: scripts/lot-size-integration.mjs:55 CONST "if (specs.some((sp, i) => metric(git(\"diff\", \"--shortstat\", ps[0] ?? EMPTY_TREE, m, \"--\", ...sp)) > bounds[i])) continue;" -> ""
+test("r25i_proving_pr_contribution_is_remeasured - G2 B-2: a PR green against an old target (retargeted, target pushed back, old run re-run) brings 2 000 unmeasured lines: its contribution M^1..M exceeds the bound, it proves nothing, 2 005 count", () => withFx((fx) => {
+  fx.g("checkout", "-q", "-b", "base/y");
+  fx.commit("direct push", "src/u.txt", 2000);
+  fx.g("checkout", "-q", "-b", "feat");
+  const h2 = fx.commit("s", "src/s.txt", 5);
+  fx.g("checkout", "-q", "lot/etude-suite");
+  const m2 = fx.merge("feat", "Merge pull request #2");
+  const r = fx.count(proofOf(fx, [pr(2, m2, h2)]));
+  assert.deepEqual([r.mode, r.code, r.w[0]], ["integration", 2005, 2005], r.detail.join("\n"));
+}));
+
+// killer: scripts/oracle/r25.mjs:20 CONST "join(import.meta.dirname, \"..\", \"lot-size-integration.mjs\")" -> "join(clone, \"scripts\", \"lot-size-integration.mjs\")"
+// killer: scripts/oracle/r25.mjs:44 CONST "if (!readFileSync(JUDGE).equals(readFileSync(join(clone, \"scripts\", \"lot-size-integration.mjs\")))) return" -> "if (false) return"
+test("oracle_r25_runs_its_own_module_and_refuses_a_foreign_one - G2 B-3: a line makes the measured tree's module answer `integration 0 0`, in an unproven commit or inside a proving PR; the oracle runs its own module, sees foreign bytes and keeps the count of today: red", () => {
+  for (const proven of [false, true]) withFx((fx) => {
+    const { m1, h1 } = trunk(fx), merged = [pr(1, m1, h1)], mod = join(fx.dir, "scripts", "lot-size-integration.mjs");
+    if (proven) fx.g("checkout", "-q", "-b", "judge");
+    writeFileSync(mod, `if (process.argv[2] === "count") { console.log("integration 0 0"); process.exit(0); }\n${readFileSync(mod, "utf8")}`);
+    fx.g("commit", "-qam", "a judge that always agrees");
+    if (proven) { const h2 = fx.g("rev-parse", "HEAD"); fx.g("checkout", "-q", "lot/etude-suite"); merged.push(pr(2, fx.merge("judge", "Merge pull request #2"), h2)); }
+    const file = join(fx.dir, ".git", "proof.json");
+    writeFileSync(file, JSON.stringify(proofOf(fx, merged)));
+    const r = oracle(fx, TARGET, file);
+    assert.deepEqual([proven, r.mode, r.counts[0]?.changed, r.exit], [proven, "gate-files", 53, 1], JSON.stringify(r));
+  }, ciOf(20));
+});
+
+// killer: scripts/lot-size-integration.mjs:94 SDL "if (kinds.some((k) => k !== \"content\" && k !== \"add/add\") || (kinds.length > 0 && at < 0)) return null;" -> ""
+// killer: scripts/lot-size-integration.mjs:95 CONST "(kinds.length > 0 && !l.startsWith(" -> "(false && !l.startsWith("
+// killer: scripts/lot-size-integration.mjs:34 CONST "GIT_DIFF_OPTS: undefined, " -> ""
+// killer: scripts/lot-size-integration.mjs:34 CONST "`--attr-source=${src}`, " -> ""
+test("r25i_conflict_kept_material_of_a_proven_pr_counts - G2 B-4: PR #5 adds 3 000 lines then removes them (net 5: it proves); a branch from the middle renames the file (rename/delete, resolved on the trunk or on the branch) or edits one line of it (content conflict): the 3 000 kept lines count (A-3)", () => {
+  for (const side of ["trunk", "branch", "content"] as const) withFx((fx) => {
+    fx.g("checkout", "-q", "-b", "feat");
+    const c1 = fx.commit("big", "src/big.txt", 3000);
+    if (side === "content") writeFileSync(join(fx.dir, "src", "big.txt"), "head\n");
+    else fx.g("rm", "-q", "src/big.txt");
+    fx.g("commit", "-qam", "drop big");
+    const h5 = fx.commit("s", "src/s.txt", 5);
+    fx.g("checkout", "-q", "lot/etude-suite");
+    const m5 = fx.merge("feat", "Merge pull request #5");
+    fx.g("checkout", "-q", "-b", "g", c1);
+    if (side === "content") writeFileSync(join(fx.dir, "src", "big.txt"), lines("big", 3000).replace("big 1500\n", "edited\n"));
+    else fx.g("mv", "src/big.txt", "src/big2.txt");
+    fx.g("commit", "-qam", "rename or edit");
+    fx.g("checkout", "-q", side === "branch" ? "g" : "lot/etude-suite");
+    assert.throws(() => fx.g("merge", "-q", side === "branch" ? "lot/etude-suite" : "g", "-m", "conflict"));
+    if (side === "content") fx.g("checkout", "--theirs", "src/big.txt");
+    fx.g("add", "-A");
+    fx.g("commit", "-qm", "conflict resolved, the 3 000 lines kept");
+    if (side === "branch") { fx.g("checkout", "-q", "lot/etude-suite"); fx.merge("g", "clean merge of g"); }
+    process.env.GIT_DIFF_OPTS = "--unified=0"; // a user's diff options cannot shrink the whole-file context
+    try {
+      const r = fx.count(proofOf(fx, [pr(5, m5, h5)]));
+      assert.deepEqual([side, r.mode, r.code, r.w[0]], [side, "integration", side === "content" ? 3005 : 3000, 3005], r.detail.join("\n"));
+      if (side === "content") { fx.commit("* merge=union", ".gitattributes", 1); assert.deepEqual([fx.count(proofOf(fx, [pr(5, m5, h5)])).code, fx.written()[0]], [3006, 3006], "delta2 B-6: a measured merge driver"); }
+    } finally { delete process.env.GIT_DIFF_OPTS; }
+  });
+});
+
+// killer: scripts/lot-size-integration.mjs:124 CONST "both(remerged(" -> "((x) => x)(remerged("
+// killer: scripts/lot-size-integration.mjs:101 CONST "Math.max(r, k)" -> "r"
+test("r25i_merge_time_rename_into_the_code_spec_counts - G2 delta2 B-5: a merge's rename detection carries uncounted lines into CODE: (a) 3 000 lines added to docs/x.md (outside CODE) land in src/x.md renamed on the trunk; (b) docs/d/new.md (3 000) in docs/d moved to src/d; (c) site/d/new.md (7 000, CONTENT) in site/d moved to src/d; merged on the trunk or on the branch: each counts", () => {
+  for (const [from, to, file, n, moved] of [["docs/x.md", "src/x.md", "docs/x.md", 3000, 40], ["docs/d", "src/d", "docs/d/new.md", 3000, 2], ["site/d", "src/d", "site/d/new.md", 7000, 2]] as const) for (const side of ["trunk", "branch"]) withFx((fx) => {
+    fx.commit("pre", from.endsWith(".md") ? from : `${from}/a.md`, moved); // outside CODE: counts 0
+    fx.g("checkout", "-q", "-b", "g");
+    fx.commit("add", file, n); // outside CODE: counts 0
+    fx.g("checkout", "-q", "lot/etude-suite");
+    mkdirSync(join(fx.dir, "src"));
+    fx.g("mv", from, to); fx.g("commit", "-qm", "move into CODE"); // counts `moved`
+    const join2 = (ref: string): void => { try { fx.g("merge", "-q", "--no-ff", "-m", "merge", ref); } catch { fx.g("add", "-A"); fx.g("commit", "-qm", "file location kept"); } };
+    if (side === "branch") { fx.g("checkout", "-q", "g"); join2("lot/etude-suite"); fx.g("checkout", "-q", "lot/etude-suite"); }
+    join2("g");
+    const r = fx.count(proofOf(fx, []));
+    assert.deepEqual([from, side, r.mode, r.code, r.w[0]], [from, side, "integration", moved + n, moved + n], r.detail.join("\n"));
+  }, ciOf(1205).replace("':(exclude)site/**'", "':(exclude)site/**' ':(exclude)docs/**'"));
+});
+
+// killer: scripts/lot-size-integration.mjs:33 CONST ", \"-c\", \"core.attributesFile=\"" -> ""
+// killer: scripts/lot-size-integration.mjs:33 CONST ", \"-c\", \"core.bigFileThreshold=512m\"" -> ""
+test("r25i_user_git_attributes_do_not_lower_counts - G2 m-a, delta2 m-d: a user attributes file marking every path -diff (XDG default or core.attributesFile), or a machine core.bigFileThreshold of 1, leaves the 300 slipped lines of B-1 and a 7-line commit at 307", () => withFx((fx) => {
+  fx.g("checkout", "-q", "-b", "feat");
+  const h1 = fx.commit("p1", "src/p1.txt", 10);
+  fx.g("checkout", "-q", "lot/etude-suite");
+  fx.g("merge", "-q", "--no-ff", "--no-commit", "feat");
+  fx.put("src/slipped.txt", lines("slipped", 300));
+  fx.g("add", "-A");
+  fx.g("commit", "-qm", "local merge of PR #1 into the trunk");
+  fx.commit("u", "src/u.txt", 7); // a plain commit: its --shortstat, not only the merge's combined diff (delta2 m-d)
+  const proof = proofOf(fx, [pr(1, fx.g("rev-parse", "HEAD^"), h1)]), written = fx.written(), xdg = join(fx.dir, ".git", "xdg");
+  fx.put(".git/xdg/git/attributes", "* -diff\n");
+  const env = [{ XDG_CONFIG_HOME: xdg }, { GIT_CONFIG_PARAMETERS: `'core.attributesfile=${join(xdg, "git", "attributes")}'` }, { GIT_CONFIG_PARAMETERS: "'core.bigfilethreshold'='1'" }];
+  const codes = env.map((e) => {
+    Object.assign(process.env, e);
+    try { return effective({ cwd: fx.dir, ciText: fx.ci, base: TARGET, proof, written }).code; }
+    finally { for (const k of Object.keys(e)) Reflect.deleteProperty(process.env, k); }
+  });
+  assert.deepEqual([written[0], codes], [317, [307, 307, 307]]);
+}));
+
+/** The content side of B-4: PR #5 adds src/big.txt (3 000 lines) then drops it; a branch from the middle edits one line of
+ * it, the merge conflicts on content and keeps the 3 000 lines. Returns the proof naming PR #5. */
+function keptByConflict(fx: Fx): object {
+  fx.g("checkout", "-q", "-b", "feat");
+  const c1 = fx.commit("big", "src/big.txt", 3000);
+  writeFileSync(join(fx.dir, "src", "big.txt"), "head\n");
+  fx.g("commit", "-qam", "drop big");
+  const h5 = fx.commit("s", "src/s.txt", 5);
+  fx.g("checkout", "-q", "lot/etude-suite");
+  const m5 = fx.merge("feat", "Merge pull request #5");
+  fx.g("checkout", "-q", "-b", "g", c1);
+  writeFileSync(join(fx.dir, "src", "big.txt"), lines("big", 3000).replace("big 1500\n", "edited\n"));
+  fx.g("commit", "-qam", "edit");
+  fx.g("checkout", "-q", "lot/etude-suite");
+  assert.throws(() => fx.g("merge", "-q", "g", "-m", "conflict"));
+  fx.g("checkout", "--theirs", "src/big.txt");
+  fx.g("add", "-A");
+  fx.g("commit", "-qm", "conflict resolved, the 3 000 lines kept");
+  return proofOf(fx, [pr(5, m5, h5)]);
+}
+
+// killer: scripts/lot-size-integration.mjs:114 CONST "if (infoAttributes(cwd)) throw" -> "if (false) throw"
+test("r25i_machine_attributes_return_the_written_count - G2 delta3 m-f: a $GIT_DIR/info/attributes, which --attr-source does not replace, marking every path merge=union (the conflict of B-4 merges clean: 3) or -diff (0): the module returns W, 3 005", () => {
+  for (const attr of ["* merge=union\n", "* -diff\n"]) withFx((fx) => {
+    const proof = keptByConflict(fx), written = fx.written(), before = effective({ cwd: fx.dir, ciText: fx.ci, base: TARGET, proof, written });
+    fx.put(".git/info/attributes", attr);
+    const r = effective({ cwd: fx.dir, ciText: fx.ci, base: TARGET, proof, written });
+    assert.deepEqual([attr, before.mode, before.code, r.code, r.content], [attr, "integration", 3005, 3005, 0], r.detail.join("\n"));
+  });
+});
+
+// killer: scripts/oracle/r25.mjs:23 CONST "if (infoAttributes(clone)) throw" -> "if (false) throw"
+test("oracle_r25_refuses_machine_attributes - G2 delta3 m-f: a $GIT_DIR/info/attributes `* -diff` in the clone: the oracle's r25() throws (run.mjs writes RED, fail-closed) instead of reading W 0 for 3 000 lines", () => withFx((fx) => {
+  fx.commit("c", "src/c.txt", 3000);
+  assert.equal(oracle(fx, TARGET, null).counts[0]?.changed, 3000);
+  fx.put(".git/info/attributes", "* -diff\n");
+  assert.throws(() => oracle(fx, TARGET, null), /info\/attributes/);
+}));
+
+// killer: scripts/lot-size-integration.mjs:33 CONST "\"-c\", \"diff.renames=true\", " -> ""
+test("oracle_r25_w_reads_under_the_module_pin - G2 delta3 m-g: a commit edits one line of src/a.txt (3 000 lines) and copies the old a.txt to src/b.txt; a user's diff.renames=copies (~/.gitconfig through HOME, GIT_CONFIG_GLOBAL, GIT_CONFIG_PARAMETERS) reads 2 unpinned; the oracle's W stays 3 002, as the CI reads it", () => withFx((fx) => {
+  const base = fx.commit("a", "src/a.txt", 3000), home = join(fx.dir, ".git", "home");
+  copyFileSync(join(fx.dir, "src", "a.txt"), join(fx.dir, "src", "b.txt"));
+  writeFileSync(join(fx.dir, "src", "a.txt"), lines("a", 3000).replace("a 0\n", "edited\n"));
+  fx.g("add", "-A");
+  fx.g("commit", "-qm", "edit and copy");
+  fx.put(".git/home/.gitconfig", "[diff]\n\trenames = copies\n");
+  const envs = [{ HOME: home, XDG_CONFIG_HOME: join(home, ".config") }, { GIT_CONFIG_GLOBAL: join(home, ".gitconfig") }, { GIT_CONFIG_PARAMETERS: "'diff.renames'='copies'" }];
+  const plain = envs.map((e) => metric(execFileSync("git", ["-C", fx.dir, "diff", "--shortstat", `${base}...HEAD`, "--", "src"], { encoding: "utf8", env: { ...process.env, ...e } })));
+  assert.deepEqual([plain, envs.map((e) => oracle(fx, base, null, e).counts[0]?.changed)], [[2, 2, 2], [3002, 3002, 3002]]);
+}));
+
+// killer: scripts/oracle/r25.mjs:27 CONST ", []]" -> "]"
+test("oracle_r25_w_is_never_below_the_ci_read - G2 delta3 m-h: a measured .gitattributes `*.ttf diff` makes apps/site/app/fonts/blob.ttf (a NUL byte, then 3 000 lines; a declared binary asset in its directory, which attrTree leaves to git's detection) count 3 001 in the measured tree's read; the oracle's W reads 3 001 too (the larger of its attrTree read and that read), not 0", () => withFx((fx) => {
+  fx.put(".gitattributes", "*.ttf diff\n");
+  const base = fx.commit("attributes", "x.txt", 1);
+  fx.put("apps/site/app/fonts/blob.ttf", `\0\n${lines("blob", 3000)}`);
+  fx.g("add", "-A");
+  fx.g("commit", "-qm", "blob");
+  assert.deepEqual([fx.written(base)[0], oracle(fx, base, null).counts[0]?.changed], [3001, 3001]);
+}));
+
+// killer: scripts/lot-size-integration.mjs:74 CONST "lines.slice(from," -> "lines.slice(0,"
+// killer: scripts/lot-size-integration.mjs:77 CONST "if (v.length !== 1) throw" -> "if (v.length === 0) throw"
+test("r25i_bound_is_read_once_from_the_r25_job - G2 m-c: a decoy bound 999 999 in another job does not let the PR of B-2 prove (2 005 count); a second declaration in the r25 job is an error: the count of today", () => {
+  const decoy = ciOf(1205).replace("jobs:\n", 'jobs:\n  decoy:\n    env:\n      VIBEGATES_PR_LIMIT: "999999"\n');
+  const twice = ciOf(1205).replace("        run: |\n", '          VIBEGATES_PR_LIMIT: "999999"\n        run: |\n');
+  for (const [ci, mode] of [[decoy, "integration"], [twice, "error"]] as const) withFx((fx) => {
+    fx.g("checkout", "-q", "-b", "base/y");
+    fx.commit("direct push", "src/u.txt", 2000);
+    fx.g("checkout", "-q", "-b", "feat");
+    const h2 = fx.commit("s", "src/s.txt", 5);
+    fx.g("checkout", "-q", "lot/etude-suite");
+    const m2 = fx.merge("feat", "Merge pull request #2");
+    const r = fx.count(proofOf(fx, [pr(2, m2, h2)]));
+    assert.deepEqual([r.mode, r.code, r.w[0]], [mode, 2005, 2005], r.detail.join("\n"));
+  }, ci);
+});
+
+// killer: scripts/lot-size-integration.mjs:157 CONST "runs.length > 0 && " -> ""
+// killer: scripts/lot-size-integration.mjs:156 CONST " && c.app?.slug === \"github-actions\"" -> ""
+// killer: scripts/lot-size-integration.mjs:155 CONST " || r.total_count !== r.check_runs.length" -> ""
+// killer: scripts/lot-size-integration.mjs:143 CONST "if (!isCandidate(id)) return proof;" -> ""
+// killer: scripts/lot-size-integration.mjs:140 CONST "if (Date.now() > deadline) throw" -> "if (false) throw"
+test("r25i_build_proof_needs_a_measured_head_and_reads_nothing_for_a_written_pr - G2 m-1, m-3: no r25 run, a run of another app: not proven; paginated runs or a passed deadline: no proof; a written PR: zero API call (E-1)", async () => {
+  const fx = new Fx();
+  try {
+    const { m1, h1 } = trunk(fx), head = fx.g("rev-parse", "HEAD"), calls: string[] = [];
+    const ev = (ref: string): object => ({ number: 7, head: { ref, sha: head, repo: { full_name: REPO } }, base: { ref: TARGET, repo: { full_name: REPO } } });
+    const run = (slug: string): object => ({ name: "r25-taille-de-lot", app: { slug }, conclusion: "success" });
+    const api = (runs: object[], total = runs.length) => (path: string): Promise<unknown> => {
+      calls.push(path);
+      return Promise.resolve(path.includes("/pulls?") ? [{ number: 1, merged_at: "2026-10-05T00:00:00Z", merge_commit_sha: m1, head: { sha: h1 }, base: { ref: "lot/etude-suite" } }] : { total_count: total, check_runs: runs });
+    };
+    const r25Of = async (runs: object[]): Promise<unknown> => (await buildProof({ api: api(runs), cwd: fx.dir, pr: ev("lot/etude-suite"), base: TARGET })).merged.map((m) => m.r25);
+    assert.deepEqual([await r25Of([run("github-actions")]), await r25Of([]), await r25Of([run("other-app")])], [["success"], ["not-success"], ["not-success"]]);
+    await assert.rejects(buildProof({ api: api([run("github-actions")], 2), cwd: fx.dir, pr: ev("lot/etude-suite"), base: TARGET }), /paginated/);
+    calls.length = 0;
+    await assert.rejects(buildProof({ api: api([]), cwd: fx.dir, pr: ev("lot/etude-suite"), base: TARGET, deadline: Date.now() - 1 }), /deadline/);
+    const written = await buildProof({ api: () => Promise.reject(new Error("no API call for a written PR")), cwd: fx.dir, pr: ev("recherches/x"), base: TARGET });
+    assert.deepEqual([written.merged, calls], [[], []]);
+  } finally { fx.done(); }
+});
+
+/** The `run:` block of the r25 step of the REAL workflow, dedented, `${{ github.base_ref }}` substituted as GitHub does. */
+function ciBlock(base: string): string {
+  const lines = REAL_CI.split(/\r?\n/), at = lines.findIndex((l) => /^ {8}run: \|\s*$/.test(l) && lines.slice(0, lines.indexOf(l)).some((p) => /^ {2}r25-taille-de-lot:/.test(p)));
+  const body: string[] = [];
+  for (let i = at + 1; i < lines.length && (lines[i]?.trim() === "" || /^ {10}/.test(lines[i] ?? "")); i++) body.push((lines[i] ?? "").slice(10));
+  return body.join("\n").replaceAll("${{ github.base_ref }}", base);
+}
+
+// killer: scripts/oracle/r25.mjs:49 CONST "counts: n.map((x, i) => Math.min(Number(x), written[i]))" -> "counts: written"
+test("r25i_ci_block_and_oracle_agree - E-4: the real run: block of ci.yml under bash, on the synthetic merge with a local API, and the oracle's r25() on the PR head print the same mode and counts from the same proof file; one R25_DIFF_RE", async () => {
+  const re = (f: string): string | undefined => /const R25_DIFF_RE = (\/.+\/);/.exec(readFileSync(join(ROOT, f), "utf8"))?.[1];
+  assert.deepEqual([re("scripts/oracle/r25.mjs"), re("test/ci-gates.test.ts")], [String(R25_DIFF_RE), String(R25_DIFF_RE)], "R25_DIFF_RE drifted");
+  const fx = new Fx(REAL_CI);
+  let server: Server | undefined;
+  try {
+    const { m1, h1 } = trunk(fx), head = fx.g("rev-parse", "HEAD");
+    fx.g("update-ref", `refs/remotes/origin/${TARGET}`, TARGET);
+    fx.g("checkout", "-q", "--detach", TARGET);
+    fx.merge(head, "synthetic refs/pull/7/merge");
+    const runs = { total_count: 1, check_runs: [{ name: "r25-taille-de-lot", app: { slug: "github-actions" }, conclusion: "success" }] };
+    const serve = (q: IncomingMessage, s: ServerResponse): void => {
+      const u = q.url ?? "", ok = q.headers.authorization === "Bearer fx-token";
+      const body = !ok ? null : u.startsWith(`/repos/${REPO}/pulls?state=closed`) ? [{ number: 1, merged_at: "2026-10-05T00:00:00Z", merge_commit_sha: m1, head: { sha: h1 }, base: { ref: "lot/etude-suite" } }] : u.startsWith(`/repos/${REPO}/commits/${h1}/check-runs?`) ? runs : null;
+      s.writeHead(body === null ? 404 : 200, { "content-type": "application/json" }).end(JSON.stringify(body));
+    };
+    const http = createServer(serve);
+    server = await startLoopback((port) => http.listen(port, "127.0.0.1"));
+    const port = (server.address() as AddressInfo).port;
+    const tmp = join(fx.dir, ".git", "runner"), event = join(fx.dir, ".git", "event.json");
+    mkdirSync(tmp);
+    writeFileSync(event, JSON.stringify({ pull_request: { number: 7, head: { ref: "lot/etude-suite", sha: head, repo: { full_name: REPO } }, base: { ref: TARGET, repo: { full_name: REPO } } } }));
+    const env = { PATH: process.env.PATH ?? "", HOME: process.env.HOME ?? fx.dir, VIBEGATES_PR_LIMIT: "1205", VIBEGATES_CONTENT_LIMIT: "8000", GITHUB_EVENT_PATH: event, GITHUB_BASE_REF: TARGET, RUNNER_TEMP: tmp, GITHUB_API_URL: `http://127.0.0.1:${String(port)}`, R25_READ_TOKEN: "fx-token" };
+    const out = await new Promise<string>((res) => {
+      const c = spawn("bash", ["--noprofile", "--norc", "-eo", "pipefail", "-c", ciBlock(TARGET)], { cwd: fx.dir, env });
+      let o = "";
+      c.stdout.on("data", (d: Buffer) => { o += d.toString(); });
+      c.stderr.on("data", (d: Buffer) => { o += d.toString(); });
+      c.on("close", (code) => res(`${o}exit ${String(code)}\n`));
+    });
+    assert.match(out, /^R-25 mode: integration\nChanged lines: 12 \(ADR bound: 1205\)\nContent changed lines: 0 \(ADR bound: 8000\)\nexit 0$/m, out);
+    fx.g("checkout", "-q", "--detach", head);
+    const proofFile = join(tmp, "lot-size-proof.json"), r = oracle(fx, `origin/${TARGET}`, proofFile);
+    assert.deepEqual([r.mode, r.counts.map((c) => c.changed), r.exit, r.proof?.sha256], ["integration", [12, 0], 0, sha256(readFileSync(proofFile))]);
+  } finally { server?.close(); fx.done(); }
+});
+
+// Lot R25-ATTR-SOURCE-1 (G7 O-1, ADR-M003 D9 undecies): W, the count of today, is the job's own `git diff --shortstat`. It read the
+// attributes of the measured tree, so a PR's own .gitattributes could make its lines count 0. The real r25 block runs under bash on the
+// PR head with no proof (no event payload: the count stays W) and prints W.
+function ciRun(fx: Fx, env: Record<string, string> = {}): string {
+  fx.g("update-ref", `refs/remotes/origin/${TARGET}`, TARGET);
+  const tmp = mkdtempSync(join(fx.dir, ".git", "runner-"));
+  const r = spawnSync("bash", ["--noprofile", "--norc", "-eo", "pipefail", "-c", ciBlock(TARGET)], { cwd: fx.dir, encoding: "utf8", env: { PATH: process.env.PATH ?? "", HOME: process.env.HOME ?? fx.dir, VIBEGATES_PR_LIMIT: "1205", VIBEGATES_CONTENT_LIMIT: "8000", GITHUB_EVENT_PATH: join(tmp, "none.json"), GITHUB_BASE_REF: TARGET, RUNNER_TEMP: tmp, ...env } });
+  return `${r.stdout}${r.stderr}exit ${String(r.status)}\n`;
+}
+const changed = (out: string): string => /^Changed lines: (\d+) \(ADR bound: 1205\)$/m.exec(out)?.[1] ?? "none";
+const PIN_ERROR = "::error::Gate R-25: pinned git read not obtained, or a changed path refused (see the lines above). Fail-closed.";
+
+// killer: scripts/lot-size-integration.mjs:180 CONST "GIT_ATTR_SOURCE: attrTree(cwd), " -> ""
+test("r25a_ci_w_counts_the_real_lines_under_measured_attributes - O-1: a PR adds .gitattributes (`* -diff`, `* binary`, `*.x diff=foo` with a machine driver: textconv and binary, `* -text`, `* text eol=crlf`) and 3 000 lines: the job's W reads 3 001 each time and the job is red (W 0 or 1 before the lot)", () => {
+  const seen: string[] = [];
+  for (const attributes of ["* -diff\n", "* binary\n", "*.x diff=foo\n", "* -text\n", "* text eol=crlf\n"]) withFx((fx) => {
+    fx.g("config", "diff.foo.textconv", "head -1");
+    fx.g("config", "diff.foo.binary", "true");
+    fx.g("checkout", "-q", "-b", "pr", TARGET);
+    fx.put(".gitattributes", attributes);
+    fx.commit("pr", "src/big.x", 3000);
+    const out = ciRun(fx);
+    seen.push(`${attributes.trim()}: ${changed(out)} ${/^exit (\d+)$/m.exec(out)?.[1] ?? "?"}`);
+  }, REAL_CI);
+  assert.deepEqual(seen, ["* -diff: 3001 1", "* binary: 3001 1", "*.x diff=foo: 3001 1", "* -text: 3001 1", "* text eol=crlf: 3001 1"]);
+});
+
+// killer: scripts/lot-size-integration.mjs:177 CONST "< 2040) throw" -> "< 0) throw"
+// killer: scripts/lot-size-integration.mjs:178 CONST "if (infoAttributes(cwd)) throw" -> "if (false) throw"
+test("r25a_ci_w_fails_closed_without_the_pinned_read - O-1: a machine $GIT_DIR/info/attributes `* -diff`, or `*.cjs -diff` that spares the probes of attrTree (G2 R-2 of R25-GUARDS-2: only the info/attributes check stops it), that GIT_ATTR_SOURCE does not replace, or a git older than 2.40 (no GIT_ATTR_SOURCE): the job prints no count, says why and is red (W 0, green, before the lot)", () => {
+  const real = execFileSync("bash", ["-c", "command -v git"], { encoding: "utf8" }).trim(), seen: string[] = [];
+  // win32: the fake git is a sh script without extension on a ':'-joined PATH, which execFileSync never runs there (PATHEXT, ';'):
+  // the real git answers. That case is named and skipped there only; the two info/attributes cases run everywhere.
+  const kinds = process.platform === "win32" ? ["info/attributes", "info/attributes *.cjs"] : ["info/attributes", "info/attributes *.cjs", "git 2.39.5"];
+  for (const kind of kinds) withFx((fx) => {
+    fx.g("checkout", "-q", "-b", "pr", TARGET);
+    fx.commit("pr", kind === "info/attributes *.cjs" ? "src/a.cjs" : "src/c.txt", kind === "info/attributes *.cjs" ? 300 : 3000);
+    const bin = join(fx.dir, ".git", "bin");
+    mkdirSync(bin);
+    writeFileSync(join(bin, "git"), `#!/bin/sh\nif [ "$1" = "--version" ]; then echo "git version 2.39.5"; exit 0; fi\nexec ${real} "$@"\n`, { mode: 0o755 });
+    if (kind.startsWith("info/attributes")) fx.put(".git/info/attributes", kind === "info/attributes" ? "* -diff\n" : "*.cjs -diff\n");
+    const out = ciRun(fx, kind.startsWith("info/attributes") ? {} : { PATH: `${bin}:${process.env.PATH ?? ""}` });
+    seen.push(`${kind}: ${changed(out)} ${String(out.includes(PIN_ERROR))} ${/^exit (\d+)$/m.exec(out)?.[1] ?? "?"}`);
+  }, REAL_CI);
+  assert.deepEqual(seen, ["info/attributes: none true 1", "info/attributes *.cjs: none true 1", "git 2.39.5: none true 1"].slice(0, kinds.length));
+});
+
+// killer: scripts/lot-size-integration.mjs:180 CONST "GIT_CONFIG_PARAMETERS: undefined, " -> ""
+test("r25a_ci_w_reads_under_the_module_pin - O-1, delta3 m-g on the CI side: a PR edits one line of src/a.txt (3 000 lines) and copies the old a.txt to src/b.txt; a GIT_CONFIG_PARAMETERS diff.renames=copies in the job's env reads 2 unpinned, the job reads 3 002, and every PIN option is in force at command scope", () => withFx((fx) => {
+  fx.g("checkout", "-q", TARGET);
+  fx.commit("a", "src/a.txt", 3000);
+  fx.g("checkout", "-q", "-b", "pr");
+  copyFileSync(join(fx.dir, "src", "a.txt"), join(fx.dir, "src", "b.txt"));
+  writeFileSync(join(fx.dir, "src", "a.txt"), lines("a", 3000).replace("a 0\n", "edited\n"));
+  fx.g("add", "-A");
+  fx.g("commit", "-qm", "edit and copy");
+  const hostile = { GIT_CONFIG_PARAMETERS: "'diff.renames'='copies'" };
+  assert.equal(changed(ciRun(fx, hostile)), "3002");
+  const pin = spawnSync("bash", ["--noprofile", "--norc", "-c", `eval "$(node scripts/lot-size-integration.mjs pin --ci .github/workflows/ci.yml --base origin/${TARGET})" && git config --show-scope --get-regexp "^(merge|diff|core)\\." && echo "$LC_ALL $GIT_ATTR_NOSYSTEM $GIT_ATTR_SOURCE \${GIT_DIFF_OPTS-unset}"`], { cwd: fx.dir, encoding: "utf8", env: { ...process.env, ...hostile, GIT_DIFF_OPTS: "--unified=0", LC_ALL: "fr_FR.UTF-8" } });
+  const command = pin.stdout.split("\n").filter((l) => l.startsWith("command\t")).map((l) => l.slice(8).replace(" ", "="));
+  assert.deepEqual([command.sort(), pin.stdout.trim().split("\n").at(-1)], [["core.attributesfile=", "core.bigfilethreshold=512m", "core.ignorecase=false", "diff.algorithm=myers", "diff.renames=true", "diff.suppressblankempty=false", "merge.conflictstyle=merge", "merge.directoryrenames=conflict", "merge.renames=true"], "C 1 2336999e05d634b0d4c084c82db609f08edb0089 unset"]);
+}, REAL_CI));
+
+
+
+// killer: scripts/lot-size-integration.mjs:180 CONST "GIT_ENV({})" -> "GIT_ENV()"
+test("r25a_pin_prints_exactly_the_pinned_names - G2 m-1: `pin` unsets or exports exactly GIT_DIFF_OPTS, LC_ALL, GIT_ATTR_NOSYSTEM, GIT_CONFIG_PARAMETERS, GIT_ATTR_SOURCE, GIT_CONFIG_COUNT and the nine PIN pairs, in that order, every line one of them: no variable of the runner (R25_READ_TOKEN) is printed or re-exported", () => withFx((fx) => {
+  fx.g("update-ref", `refs/remotes/origin/${TARGET}`, TARGET);
+  const out = spawnSync(process.execPath, ["scripts/lot-size-integration.mjs", "pin", "--ci", ".github/workflows/ci.yml", "--base", `origin/${TARGET}`], { cwd: fx.dir, encoding: "utf8", env: { ...process.env, R25_READ_TOKEN: "fx-token", MY_RUNNER_VAR: "x" } }).stdout;
+  const names = out.trim().split("\n").map((l) => /^(?:unset ([A-Z0-9_]+)|export ([A-Z0-9_]+)=')/.exec(l)).map((m) => m?.[1] ?? m?.[2] ?? "unparsed");
+  const pairs = Array.from({ length: 9 }, (_, i) => [`GIT_CONFIG_KEY_${String(i)}`, `GIT_CONFIG_VALUE_${String(i)}`]).flat();
+  assert.deepEqual(names, ["GIT_DIFF_OPTS", "LC_ALL", "GIT_ATTR_NOSYSTEM", "GIT_CONFIG_PARAMETERS", "GIT_ATTR_SOURCE", "GIT_CONFIG_COUNT", ...pairs], out);
+  assert.ok(!out.includes("fx-token"), "the runner's token is never printed");
+}));
+
+// killer: scripts/lot-size-integration.mjs:181 CONST "x.replaceAll(\"'\", \"'\\\\''\")" -> "x"
+test("r25a_pin_quotes_any_value - G2 m-2: a PIN entry whose value holds an apostrophe, a $( ), a backtick and a newline, evaluated by bash -e from pinShell, runs nothing and reads back byte for byte from git config", () => withFx((fx) => {
+  const hostile = "a'b\"$(touch pwn1)\n;`touch pwn2`'\\'' ${IFS}*? !! end";
+  const mod = pathToFileURL(join(fx.dir, "scripts", "lot-size-integration.mjs")).href;
+  const shell = spawnSync(process.execPath, ["--input-type=module", "-e", `import * as m from ${JSON.stringify(mod)}; m.PIN.push("-c", "x.y=" + ${JSON.stringify(hostile)}); process.stdout.write(m.pinShell?.(process.cwd()) ?? "");`], { cwd: fx.dir, encoding: "utf8" }).stdout;
+  const r = spawnSync("bash", ["--noprofile", "--norc", "-ec", `${shell}\ngit config --get x.y`], { cwd: fx.dir, encoding: "utf8" });
+  assert.deepEqual([r.stdout, r.status, ["pwn1", "pwn2"].filter((f) => existsSync(join(fx.dir, f)))], [`${hostile}\n`, 0, []], r.stderr);
+}));
+
+// Lot R25-GUARDS-1 (items R25-NUL-BINARY-1 and R25-COUNT-CAP-1, ADR-M003 D9 duodecies). A content git detects as binary (a NUL byte in
+// its first 8 000 bytes, `// <NUL>` on a first line included) counted 0 lines under both pathspecs; it now counts its lines everywhere
+// a count is read (the job, the module, the oracle), but the closed list of binary assets the repository holds. And the job caps the
+// module's integration counts at the written ones itself: a module that answers above them makes the job red.
+const nul = (tag: string, n: number): string => `// \0\n${lines(tag, n)}`;
+const PNG = Buffer.from("89504e470d0a1a0a", "hex"); // the PNG signature (lot R25-GUARDS-2: an asset carries its format's magic)
+const exitOf = (out: string): string => /^exit (\d+)$/m.exec(out)?.[1] ?? "?";
+const contentChanged = (out: string): string => /^Content changed lines: (\d+) \(ADR bound: 8000\)$/m.exec(out)?.[1] ?? "none";
+
+// killer: scripts/lot-size-integration.mjs:189 CONST "`* diff\\n${" -> "`${"
+test("r25g_ci_w_counts_a_nul_first_line_under_both_pathspecs - R25-NUL-BINARY-1: a PR adds an executable src/code.mjs whose first line is `// <NUL>` (3 000 lines more) and a docs page of the site (CONTENT) shaped the same: the job's W reads 3 001 and 3 001 and the job is red (0 and 0, green, before the lot)", () => withFx((fx) => {
+  fx.g("checkout", "-q", "-b", "pr", TARGET);
+  fx.put("src/code.mjs", nul("code", 3000));
+  fx.put("apps/site/app/docs/nul-first.ts", nul("page", 3000));
+  fx.g("add", "-A");
+  fx.g("commit", "-qm", "nul");
+  const out = ciRun(fx);
+  assert.deepEqual([changed(out), contentChanged(out), exitOf(out)], ["3001", "3001", "1"], out);
+}, REAL_CI));
+
+// killer: scripts/lot-size-integration.mjs:188 CONST "\"apps/site/app/fonts/*.ttf\", " -> ""
+test("r25g_ci_w_leaves_only_the_declared_binary_assets_to_detection - R25-NUL-BINARY-1: a binary font in the fonts directory (apps/site/app/fonts/f.ttf, NUL then 2 000 lines) still counts 0, a text file named src/run.png (300 lines) counts 300, an undeclared binary src/f.woff2 (NUL then 40 lines) counts 41: W 341 (300 before the lot)", () => withFx((fx) => {
+  fx.g("checkout", "-q", "-b", "pr", TARGET);
+  const name = Buffer.from(`\0\n${lines("font", 2000)}`), font = Buffer.alloc(28); // a TrueType font whose one table, name, holds the lines (lot R25-ASSET-STRUCTURE-1)
+  font.writeUInt32BE(0x00010000, 0);
+  font.writeUInt16BE(1, 4);
+  font.write("name", 12, "latin1");
+  font.writeUInt32BE(28, 20);
+  font.writeUInt32BE(name.length, 24);
+  mkdirSync(join(fx.dir, "apps", "site", "app", "fonts"), { recursive: true });
+  writeFileSync(join(fx.dir, "apps", "site", "app", "fonts", "f.ttf"), Buffer.concat([font, name, Buffer.alloc((4 - (name.length % 4)) % 4)]));
+  fx.put("src/run.png", lines("echo", 300));
+  fx.put("src/f.woff2", `\0\n${lines("woff", 40)}`);
+  fx.g("add", "-A");
+  fx.g("commit", "-qm", "assets");
+  const out = ciRun(fx);
+  stage(fx, "apps/site/app/fonts/g.ttf", "100644", `\0\x01\0\0\n${lines("font", 2000)}`); // the fixture of R25-GUARDS-2, the magic then text: no table directory
+  fx.g("commit", "-qm", "magic then text");
+  const old = ciRun(fx);
+  assert.deepEqual([changed(out), exitOf(out), refusedIn(old), exitOf(old)], ["341", "0", ['asset-structure "apps/site/app/fonts/g.ttf"'], "1"], `${out}${old}`);
+}, REAL_CI));
+
+// killer: scripts/lot-size-integration.mjs:34 CONST "src = attrTree(cwd)" -> "src = EMPTY_TREE"
+test("r25g_integration_counts_a_nul_first_line - R25-NUL-BINARY-1 in the module: an unproven commit of a candidate PR adds src/code.mjs (`// <NUL>`, then 3 000 lines) and site/n.ts (the same, 10 lines): mode integration counts 3 001 and 11, not 0 and 0", () => withFx((fx) => {
+  fx.put("src/code.mjs", nul("code", 3000));
+  fx.put("site/n.ts", nul("page", 10));
+  fx.g("add", "-A");
+  fx.g("commit", "-qm", "nul");
+  const r = effective({ cwd: fx.dir, ciText: fx.ci, base: TARGET, proof: proofOf(fx, []), written: [5000, 50] });
+  assert.deepEqual([r.mode, r.code, r.content], ["integration", 3001, 11], r.detail.join("\n"));
+}));
+
+// killer: scripts/oracle/r25.mjs:27 CONST "${attrTree(clone)}" -> "4b825dc642cb6eb9a060e54bf8d69288fbee4904"
+test("oracle_r25_w_counts_a_nul_first_line - R25-NUL-BINARY-1 in the oracle: src/code.mjs (`// <NUL>`, then 3 000 lines) and site/n.ts (the same, 10 lines): the oracle's r25() reads 3 001 and 11, red, as the job does (0 and 0, green, before the lot)", () => withFx((fx) => {
+  const base = fx.g("rev-parse", "HEAD");
+  fx.put("src/code.mjs", nul("code", 3000));
+  fx.put("site/n.ts", nul("page", 10));
+  fx.g("add", "-A");
+  fx.g("commit", "-qm", "nul");
+  const r = oracle(fx, base, null);
+  assert.deepEqual([r.counts.map((c) => c.changed), r.exit], [[3001, 11], 1]);
+}));
+
+/** The measured tree's module, made to answer `integration` with the counts `print` builds from the written ones `w`. */
+function raising(fx: Fx, print: string): void {
+  const f = join(fx.dir, "scripts", "lot-size-integration.mjs"), src = readFileSync(f, "utf8"), line = "console.log(`${r.mode} ${r.code} ${r.content}`);";
+  assert.ok(src.includes(line), "the count line of the module moved");
+  writeFileSync(f, src.replace(line, () => `console.log(\`integration ${print}\`);`));
+}
+const CAP = "::error::Gate R-25: integration count above the written count. Fail-closed.";
+
+// killer: .github/workflows/ci.yml:124 CONST "[ \"$NEW_CHANGED\" -le \"$CHANGED\" ] && " -> ""
+test("r25g_ci_refuses_an_integration_code_count_above_w - R25-COUNT-CAP-1: the measured tree's module answers `integration` with the CODE count one above W (3 lines): the job prints no count, says why and is red (4, green, before the lot)", () => withFx((fx) => {
+  fx.g("checkout", "-q", "-b", "pr", TARGET);
+  fx.commit("pr", "src/c.txt", 3);
+  raising(fx, "${Number(w[0]) + 1} ${w[1]}");
+  const out = ciRun(fx);
+  assert.deepEqual([changed(out), out.includes(CAP), exitOf(out)], ["none", true, "1"], out);
+}, REAL_CI));
+
+// killer: .github/workflows/ci.yml:124 CONST " && [ \"$NEW_CONTENT\" -le \"$CONTENT_CHANGED\" ]" -> ""
+test("r25g_ci_refuses_an_integration_content_count_above_w - R25-COUNT-CAP-1: the measured tree's module answers `integration` with the CONTENT count one above W (0): the job prints no count, says why and is red (1, green, before the lot)", () => withFx((fx) => {
+  fx.g("checkout", "-q", "-b", "pr", TARGET);
+  fx.commit("pr", "src/c.txt", 3);
+  raising(fx, "${w[0]} ${Number(w[1]) + 1}");
+  const out = ciRun(fx);
+  assert.deepEqual([contentChanged(out), out.includes(CAP), exitOf(out)], ["none", true, "1"], out);
+}, REAL_CI));
+
+// killer: scripts/oracle/r25.mjs:48 CONST "if (n.some((x, i) => Number(x) > written[i])) return" -> "if (false) return"
+test("oracle_r25_is_red_on_an_integration_count_above_w - R25-COUNT-CAP-1 in the oracle: its own module (here one that answers `integration` one above W, the same bytes in the clone) above the written count: mode above-written, W kept, red, as the job (integration 3, green, before the lot)", () => withFx((fx) => {
+  const o = mkdtempSync(join(tmpdir(), "r25g-oracle-"));
+  try {
+    const base = fx.g("rev-parse", "HEAD");
+    fx.commit("pr", "src/c.txt", 3);
+    raising(fx, "${Number(w[0]) + 1} ${w[1]}");
+    mkdirSync(join(o, "scripts", "oracle"), { recursive: true });
+    copyFileSync(join(ROOT, "scripts", "oracle", "r25.mjs"), join(o, "scripts", "oracle", "r25.mjs"));
+    copyFileSync(join(fx.dir, "scripts", "lot-size-integration.mjs"), join(o, "scripts", "lot-size-integration.mjs"));
+    const proofFile = join(fx.dir, ".git", "proof.json");
+    writeFileSync(proofFile, "{}\n");
+    const r = oracle(fx, base, proofFile, {}, o);
+    assert.deepEqual([r.mode, r.counts.map((c) => c.changed), r.exit], ["above-written", [3, 0], 1]);
+  } finally { rmSync(o, { recursive: true, force: true, maxRetries: 3 }); }
+}));
+
+// Fold of the G2 of R25-GUARDS-1 (R-1, R-3, N-1, N-2). The binary assets are left to git's detection only in the directories that hold
+// them, under a case-sensitive match whatever the clone's core.ignorecase, and the attribute tree is proven in force before any count.
+
+// killer: scripts/lot-size-integration.mjs:188 CONST "\"out/*.png\"" -> "\"*.png\""
+test("r25g_ci_w_counts_code_named_as_an_asset_outside_the_asset_directories - G2 R-1: src/tool.png, executable code whose first line is `// <NUL>` (300 lines more), counts 301; a real binary image out/real.png (NUL then 50 lines) in its directory still counts 0: W 301 (0 before the fold)", () => withFx((fx) => {
+  fx.g("checkout", "-q", "-b", "pr", TARGET);
+  fx.put("src/tool.png", nul("tool", 300));
+  mkdirSync(join(fx.dir, "out"));
+  const palette = Buffer.from(`\0\n${lines("png", 50)}`), plte = Buffer.concat([palette, Buffer.alloc((3 - (palette.length % 3)) % 3)]); // a palette image whose PLTE holds the lines (lot R25-ASSET-STRUCTURE-1)
+  writeFileSync(join(fx.dir, "out", "real.png"), pngOf(1, 1, 3, 0, Buffer.from([0, 0]), [pngChunk("PLTE", plte)]));
+  fx.g("add", "-A");
+  fx.g("commit", "-qm", "assets");
+  const out = ciRun(fx);
+  stage(fx, "out/old.png", "100644", Buffer.concat([PNG, Buffer.from(`\0\n${lines("png", 50)}`)])); // the fixture of R25-GUARDS-2, the magic then text: no IHDR
+  fx.g("commit", "-qm", "magic then text");
+  const old = ciRun(fx);
+  assert.deepEqual([changed(out), refusedIn(old), exitOf(old)], ["301", ['asset-structure "out/old.png"'], "1"], `${out}${old}`);
+}, REAL_CI));
+
+// killer: scripts/lot-size-integration.mjs:33 CONST ", \"-c\", \"core.ignorecase=false\"" -> ""
+test("r25g_upper_case_extension_counts_under_core_ignorecase - G2 R-3: in a clone with core.ignorecase=true (as on NTFS), out/RUN.PNG (`// <NUL>`, then 300 lines) does not match out/*.png: the job and the oracle both read 301, not 0", () => withFx((fx) => {
+  fx.g("config", "core.ignorecase", "true");
+  fx.g("checkout", "-q", "-b", "pr", TARGET);
+  const base = fx.g("rev-parse", "HEAD");
+  fx.put("out/RUN.PNG", nul("run", 300));
+  fx.g("add", "-A");
+  fx.g("commit", "-qm", "upper");
+  assert.deepEqual([changed(ciRun(fx)), oracle(fx, base, null).counts[0]?.changed], ["301", 301]);
+}, REAL_CI));
+
+// killer: scripts/lot-size-integration.mjs:196 CONST "if (read !== PROBES) throw" -> "if (false) throw"
+test("r25g_attribute_tree_must_be_in_force - G2 N-1: a module whose attribute tree id is absent from the object store (git reads no attribute then, silently): `pin` refuses (the job prints no count and is red), the module returns W (mode error) and the oracle's r25() throws, instead of reading 0 for src/code.mjs (`// <NUL>`, then 3 000 lines)", () => withFx((fx) => {
+  const o = mkdtempSync(join(tmpdir(), "r25g-oracle-"));
+  try {
+    const f = join(fx.dir, "scripts", "lot-size-integration.mjs"), src = readFileSync(f, "utf8"), at = 'g(["mktree"], ';
+    assert.equal(src.split(at).length, 2, "the mktree call of attrTree moved");
+    writeFileSync(f, src.replace(at, () => `"${"1".repeat(40)}" || ${at}`));
+    fx.g("checkout", "-q", "-b", "pr", TARGET);
+    const base = fx.g("rev-parse", "HEAD");
+    fx.put("src/code.mjs", nul("code", 3000));
+    fx.g("add", "src/code.mjs");
+    fx.g("commit", "-qm", "nul");
+    const out = ciRun(fx);
+    const mod = spawnSync(process.execPath, ["--input-type=module", "-e", `import { effective } from ${JSON.stringify(pathToFileURL(f).href)}; const r = effective({ cwd: process.cwd(), ciText: ${JSON.stringify(REAL_CI)}, base: ${JSON.stringify(base)}, proof: null, written: [9, 9] }); console.log(r.mode, r.code, r.content);`], { cwd: fx.dir, encoding: "utf8" }).stdout.trim();
+    mkdirSync(join(o, "scripts", "oracle"), { recursive: true });
+    copyFileSync(join(ROOT, "scripts", "oracle", "r25.mjs"), join(o, "scripts", "oracle", "r25.mjs"));
+    copyFileSync(f, join(o, "scripts", "lot-size-integration.mjs"));
+    let threw = false;
+    try { oracle(fx, base, null, {}, o); } catch { threw = true; }
+    assert.deepEqual([changed(out), out.includes(PIN_ERROR), exitOf(out), mod, threw], ["none", true, "1", "error 9 9", true], out);
+  } finally { rmSync(o, { recursive: true, force: true, maxRetries: 3 }); }
+}, REAL_CI));
+
+// killer: scripts/lot-size-integration.mjs:188 CONST "\"fixtures/*.cbor\", " -> ""
+test("r25g_binary_assets_are_the_measured_list - G2 N-2: the closed list of (directory, extension) left to git's detection, measured on the trunk (45 binary files, 9 pairs), and the exact attributes written from it", () => {
+  const list = ["apps/site/app/fonts/*.ttf", "apps/site/public/bell/anchors/*.ots", "docs/bell-publications/*.ots", "docs/course-bell/*.ots", "docs/dojo-publications/*.ots", "fixtures/*.cbor", "out/*.jpg", "out/*.png", "test/fixtures/*.ots"];
+  assert.deepEqual([BINARY_ASSETS, ATTRIBUTES], [list, `* diff\n${list.map((p) => `${p} !diff\n`).join("")}`]);
+});
+
+// Lot R25-GUARDS-2 (items R25-ASSET-DIR-MAGIC-1, R25-CR-ONLY-LINES-1, R25-GITLINK-SYMLINK-1, ADR-M003 D9 terdecies). Before any count, `pin`
+// (and the oracle's r25(), through its own module) refuses a changed path, under either pathspec of the range of the counts, that is a
+// gitlink or a symlink, a declared binary asset without the magic number of its format, or text holding a bare CR or a JS line separator.
+// Entries are staged by plumbing (exact bytes, any mode, nothing on disk): no autocrlf, no filesystem symlink, the same on win32.
+function stage(fx: Fx, path: string, mode: string, bytes: Buffer | string): void {
+  const id = mode === "160000" ? String(bytes) : execFileSync("git", ["-C", fx.dir, "hash-object", "-w", "--no-filters", "--stdin"], { input: bytes, encoding: "utf8" }).trim();
+  fx.g("update-index", "--add", "--cacheinfo", `${mode},${id},${path}`);
+}
+const refusedIn = (out: string): string[] => [...out.matchAll(/^r25-integration: refused (.+)$/gm)].map((m) => m[1] ?? "");
+const statements = (n: number, sep: string): string => Array.from({ length: n }, (_, i) => `globalThis.n${String(i)} = ${String(i)};${sep}`).join("");
+
+// killer: scripts/lot-size-integration.mjs:226 CONST ".some((h) => b.subarray(0, h.length / 2).toString(\"hex\") === h)" -> ".some(() => true)"
+test("r25h_ci_refuses_code_under_an_asset_name_in_an_asset_directory - R25-ASSET-DIR-MAGIC-1: out/tool.png (an asset pair of the trunk), executable code whose first line is `// <NUL>` (300 lines more), has no PNG magic: `pin` names it, the job prints no count and is red (Changed 0, green, before the lot)", () => withFx((fx) => {
+  fx.g("checkout", "-q", "-b", "pr", TARGET);
+  fx.put("out/tool.png", nul("tool", 300));
+  fx.g("add", "-A");
+  fx.g("commit", "-qm", "tool");
+  const out = ciRun(fx);
+  assert.deepEqual([changed(out), refusedIn(out), out.includes(PIN_ERROR), exitOf(out)], ["none", ['asset-magic "out/tool.png"'], true, "1"], out);
+}, REAL_CI));
+
+// killer: scripts/lot-size-integration.mjs:206 CONST "ttf: [\"00010000\"]" -> "ttf: [\"4f54544f\"]"
+test("r25h_asset_magics_are_the_measured_list - R25-ASSET-DIR-MAGIC-1, Q-3: the magic numbers admitted per declared extension, measured on the trunk (ttf 00 01 00 00 only: OTTO and true are JS prefixes; the 32 bytes of the OpenTimestamps header and version; a CBOR map), one entry for each extension of BINARY_ASSETS", () => {
+  const cbor = Array.from({ length: 32 }, (_, i) => (0xa0 + i).toString(16));
+  assert.deepEqual(lsi.ASSET_MAGIC, { cbor, jpg: ["ffd8ff"], ots: ["004f70656e54696d657374616d7073000050726f6f6600bf89e2e884e8929401"], png: ["89504e470d0a1a0a"], ttf: ["00010000"] });
+  assert.deepEqual([...new Set(BINARY_ASSETS.map((p) => p.slice(p.lastIndexOf(".") + 1)))].sort(), Object.keys(lsi.ASSET_MAGIC ?? {}).sort());
+});
+
+// killer: scripts/lot-size-integration.mjs:206 CONST "e2e884e8929401\"]" -> "e2e884e8929402\"]"
+test("r25h_every_trunk_asset_passes_its_magic - R25-ASSET-DIR-MAGIC-1, R25-CR-ONLY-LINES-1, R25-GITLINK-SYMLINK-1 on the repository itself: its tree at HEAD, added whole onto an empty commit (objects shared, nothing copied), refuses nothing under the two pathspecs of its workflow (45 binary assets of 5 extensions on the trunk, no bare CR, no line separator, no gitlink, no symlink)", () => {
+  assert.equal(typeof lsi.refusals, "function", "refusals is not exported");
+  const d = mkdtempSync(join(tmpdir(), "r25h-tree-")), g = (...a: string[]): string => execFileSync("git", ["-C", d, "-c", "user.name=fx", "-c", "user.email=fx@localhost", ...a], { encoding: "utf8" }).trim();
+  try {
+    g("init", "-q");
+    const common = execFileSync("git", ["-C", ROOT, "rev-parse", "--path-format=absolute", "--git-common-dir"], { encoding: "utf8" }).trim();
+    writeFileSync(join(d, ".git", "objects", "info", "alternates"), `${join(common, "objects")}\n`);
+    const empty = g("commit-tree", "4b825dc642cb6eb9a060e54bf8d69288fbee4904", "-m", "empty"), tree = execFileSync("git", ["-C", ROOT, "rev-parse", "HEAD^{tree}"], { encoding: "utf8" }).trim();
+    g("update-ref", "HEAD", g("commit-tree", tree, "-p", empty, "-m", "tree"));
+    const assets = g("ls-tree", "-r", "--name-only", "HEAD").split("\n").filter((p) => BINARY_ASSETS.some((a) => p.startsWith(a.slice(0, a.indexOf("*"))) && !p.slice(a.indexOf("*")).includes("/") && p.endsWith(a.slice(a.indexOf("*") + 1))));
+    assert.deepEqual([lsi.refusals(d, empty, specsOf(REAL_CI)), [...new Set(assets.map((p) => p.slice(p.lastIndexOf(".") + 1)))].sort()], [[], ["cbor", "jpg", "ots", "png", "ttf"]]);
+  } finally { rmSync(d, { recursive: true, force: true, maxRetries: 3 }); }
+});
+
+// killer: scripts/lot-size-integration.mjs:227 CONST "if (b[i + 1] !== 10)" -> "if (true)"
+test("r25h_ci_refuses_a_bare_cr_and_keeps_crlf - R25-CR-ONLY-LINES-1: src/cr-only.cjs, 3 001 statements separated by a CR alone (one line for git, 3 001 for node), is refused; src/crlf-ok.cjs (CR LF) and docs/notes-cr.md (a bare CR outside both pathspecs) pass: the job is red on the first alone (Changed 1 + 10, green, before the lot)", () => withFx((fx) => {
+  fx.g("checkout", "-q", "-b", "pr", TARGET);
+  stage(fx, "src/cr-only.cjs", "100644", statements(3001, "\r"));
+  stage(fx, "src/crlf-ok.cjs", "100644", statements(10, "\r\n"));
+  stage(fx, "docs/notes-cr.md", "100644", "a\rb\r");
+  fx.g("commit", "-qm", "cr");
+  const out = ciRun(fx);
+  assert.deepEqual([changed(out), refusedIn(out), exitOf(out)], ["none", ['bare-cr "src/cr-only.cjs"', 'long-line "src/cr-only.cjs"'], "1"], out);
+}, REAL_CI));
+
+// killer: scripts/lot-size-integration.mjs:228 CONST " || b.includes(\"\\u2029\")" -> ""
+test("r25h_ci_refuses_the_js_line_separators - R25-CR-ONLY-LINES-1, Q-4: src/ls-sep.cjs (statements separated by U+2028) and src/ps-sep.cjs (by U+2029), line terminators for JS and not for git, are both refused (Changed 2, green, before the lot)", () => withFx((fx) => {
+  fx.g("checkout", "-q", "-b", "pr", TARGET);
+  stage(fx, "src/ls-sep.cjs", "100644", statements(300, "\u2028"));
+  stage(fx, "src/ps-sep.cjs", "100644", statements(300, "\u2029"));
+  fx.g("commit", "-qm", "separators");
+  const out = ciRun(fx);
+  assert.deepEqual([changed(out), refusedIn(out), exitOf(out)], ["none", ['line-separator "src/ls-sep.cjs"', 'line-separator "src/ps-sep.cjs"', 'long-line "src/ls-sep.cjs"', 'long-line "src/ps-sep.cjs"'], "1"], out);
+}, REAL_CI));
+
+// killer: scripts/lot-size-integration.mjs:216 CONST "mode === \"160000\"" -> "mode === \"169999\""
+test("r25h_ci_refuses_a_gitlink_under_both_pathspecs - R25-GITLINK-SYMLINK-1: a gitlink added under CODE (vendor/subrepo) and under CONTENT (apps/site/app/docs/subrepo) is refused, its code living in another repository; a gitlink of the base the PR removes passes (Changed 1 and Content 1, green, before the lot)", () => withFx((fx) => {
+  const sub = fx.g("rev-parse", "HEAD");
+  fx.g("checkout", "-q", TARGET);
+  stage(fx, "lib/oldrepo", "160000", sub);
+  fx.g("commit", "-qm", "an old gitlink");
+  fx.g("checkout", "-q", "-b", "pr");
+  fx.g("rm", "-q", "--cached", "lib/oldrepo");
+  stage(fx, "vendor/subrepo", "160000", sub);
+  stage(fx, "apps/site/app/docs/subrepo", "160000", sub);
+  fx.g("commit", "-qm", "gitlinks");
+  const out = ciRun(fx);
+  assert.deepEqual([changed(out), contentChanged(out), refusedIn(out), exitOf(out)], ["none", "none", ['gitlink "apps/site/app/docs/subrepo"', 'gitlink "vendor/subrepo"'], "1"], out);
+}, REAL_CI));
+
+// killer: scripts/lot-size-integration.mjs:216 CONST "mode === \"120000\"" -> "mode === \"129999\""
+test("r25h_ci_refuses_a_symlink - R25-GITLINK-SYMLINK-1, Q-6: src/link.mjs, a symlink (mode 120000, staged by plumbing: no filesystem link, the same on win32) to ../docs/payload.md outside the CODE pathspec, is refused (Changed 1, green, before the lot)", () => withFx((fx) => {
+  fx.g("checkout", "-q", "-b", "pr", TARGET);
+  stage(fx, "src/link.mjs", "120000", "../docs/payload.md");
+  fx.g("commit", "-qm", "link");
+  const out = ciRun(fx);
+  assert.deepEqual([changed(out), refusedIn(out), exitOf(out)], ["none", ['symlink "src/link.mjs"'], "1"], out);
+}, REAL_CI));
+
+// killer: scripts/lot-size-integration.mjs:351 CONST "[base] = opt(\"--base\")" -> "[base = \"origin/lot/etude-suite\"] = opt(\"--base\")"
+test("r25h_pin_requires_the_workflow_and_the_base - Q-7: `pin` alone, or with --ci and no --base, prints nothing and exits 2, even where origin/lot/etude-suite exists: the changed paths are never left unchecked by a default (exit 0, the pinned read printed, before the lot)", () => withFx((fx) => {
+  fx.g("update-ref", "refs/remotes/origin/lot/etude-suite", "HEAD");
+  const run = (...a: string[]): string => { const r = spawnSync(process.execPath, ["scripts/lot-size-integration.mjs", "pin", ...a], { cwd: fx.dir, encoding: "utf8" }); return `${String(r.status)} ${String(r.stdout.length)}`; };
+  assert.deepEqual([run(), run("--ci", ".github/workflows/ci.yml")], ["2 0", "2 0"]);
+}, REAL_CI));
+
+// killer: scripts/oracle/r25.mjs:33 CONST "...(refused.length > 0 ?" -> "...(false ?"
+test("oracle_r25_refuses_what_the_job_refuses - the oracle's r25(), through its own module, on out/tool.png (no magic), src/cr-only.cjs (bare CR), vendor/subrepo (gitlink) and src/link.mjs (symlink): mode refused, the four named in its log, W kept, red (unproven and green before the lot)", () => withFx((fx) => {
+  fx.g("checkout", "-q", "-b", "pr", TARGET);
+  const base = fx.g("rev-parse", "HEAD");
+  stage(fx, "out/tool.png", "100644", nul("tool", 300));
+  stage(fx, "src/cr-only.cjs", "100644", statements(30, "\r"));
+  stage(fx, "vendor/subrepo", "160000", base);
+  stage(fx, "src/link.mjs", "120000", "../docs/payload.md");
+  fx.g("commit", "-qm", "four");
+  const r = oracle(fx, base, null) as OracleR25 & { log?: string };
+  assert.deepEqual([r.mode, (r.log ?? "").split("\n").filter((l) => l.startsWith("refused ")), r.exit], ["refused", ['refused asset-magic "out/tool.png"', 'refused bare-cr "src/cr-only.cjs"', 'refused gitlink "vendor/subrepo"', 'refused symlink "src/link.mjs"'], 1]);
+}, REAL_CI));
+
+// Fold of the G2 of R25-GUARDS-2 (B-1, R-1). A .gitmodules of the PR with `ignore = all` hid an added gitlink from `git diff --raw`
+// (`-c diff.ignoreSubmodules=none` does not override it; `--ignore-submodules=none` does). A UTF-16 or UTF-32 text (with a BOM) carries
+// line separators in bytes the UTF-8 search does not see; TypeScript and browsers decode it.
+
+// killer: scripts/lot-size-integration.mjs:213 CONST "\"--ignore-submodules=none\", " -> ""
+test("r25h_ci_refuses_a_gitlink_hidden_by_gitmodules_ignore - G2 B-1: vendor/subrepo (a gitlink) with a 4-line .gitmodules whose `ignore = all` hid it from `git diff --raw`: `pin` names it and exits 2, the job is red, and so is the oracle (pin rc 0, Changed 4, oracle green, before the fold)", () => withFx((fx) => {
+  fx.g("checkout", "-q", "-b", "pr", TARGET);
+  const base = fx.g("rev-parse", "HEAD");
+  stage(fx, ".gitmodules", "100644", '[submodule "sub"]\n\tpath = vendor/subrepo\n\turl = https://example.invalid/x.git\n\tignore = all\n');
+  stage(fx, "vendor/subrepo", "160000", base);
+  fx.g("commit", "-qm", "hidden gitlink");
+  const out = ciRun(fx), r = oracle(fx, base, null) as OracleR25 & { log?: string };
+  assert.deepEqual([changed(out), refusedIn(out), exitOf(out), r.mode, r.exit], ["none", ['gitlink "vendor/subrepo"'], "1", "refused", 1], out);
+}, REAL_CI));
+
+// killer: scripts/lot-size-integration.mjs:228 CONST "fffe|feff|0000feff" -> "0000feff"
+test("r25h_ci_refuses_a_utf16_or_utf32_bom - G2 R-1: four text paths whose blob opens with a UTF-16 little-endian (ff fe), UTF-16 big-endian (fe ff), UTF-32 little-endian (ff fe 00 00) or UTF-32 big-endian (00 00 fe ff) byte order mark are refused utf16-bom: their U+2028 separators are not UTF-8 bytes (Changed 4, green, before the fold)", () => withFx((fx) => {
+  fx.g("checkout", "-q", "-b", "pr", TARGET);
+  const boms: Record<string, string> = { "src/little16.ts": "fffe", "src/big16.ts": "feff", "src/little32.ts": "fffe0000", "src/big32.ts": "0000feff" };
+  for (const [p, h] of Object.entries(boms)) stage(fx, p, "100644", Buffer.concat([Buffer.from(h, "hex"), Buffer.from("let n = 1;\u2028n++;\n", "ucs2")]));
+  fx.g("commit", "-qm", "boms");
+  const out = ciRun(fx);
+  assert.deepEqual([changed(out), refusedIn(out), exitOf(out)], ["none", ['utf16-bom "src/big16.ts"', 'utf16-bom "src/big32.ts"', 'utf16-bom "src/little16.ts"', 'utf16-bom "src/little32.ts"'], "1"], out);
+}, REAL_CI));
+
+// Lot R25-MINIFIED-LINE-1 (ADR-M003 D9 quaterdecies). R-25 counts LF-ended lines: code on one long line counted 1 and runs. Before any
+// count, a text path whose blob holds a line longer than LINE_MAX bytes is refused `long-line`, but a `.json` path (data Node never runs)
+// and the exact blobs of LONG_LINE_PATHS, measured on the trunk. Each refused path is named as a JSON string (G2 N-1 of R25-GUARDS-2).
+const TRADEXYZ = "docs/biblio/procurements-M015/_raw/tradexyz_llms_full.txt", TRADEXYZ_BLOB = "3989315d68addc8ea3bb6e5cd0ee7dcd6f8bf326";
+const refusedHere = (fx: Fx): string[] => lsi.refusals(fx.dir, TARGET, specsOf(REAL_CI));
+
+// killer: scripts/lot-size-integration.mjs:229 CONST "&& overlong(b) &&" -> "&& false &&"
+test("r25m_ci_refuses_code_on_one_long_line - R25-MINIFIED-LINE-1: src/one.cjs (3 000 statements on one line: 1 line for git, run by node) and apps/site/app/docs/one.tsx (CONTENT, the same) are refused long-line: `pin` names both, the job prints no count and is red, and so is the oracle (Changed 1, Content 1, green, before the lot)", () => withFx((fx) => {
+  fx.g("checkout", "-q", "-b", "pr", TARGET);
+  stage(fx, "src/one.cjs", "100644", `${statements(3000, " ")}\n`);
+  stage(fx, "apps/site/app/docs/one.tsx", "100644", `${statements(3000, " ")}\n`);
+  fx.g("commit", "-qm", "one line");
+  const out = ciRun(fx), r = oracle(fx, TARGET, null);
+  assert.deepEqual([changed(out), contentChanged(out), refusedIn(out), out.includes(PIN_ERROR), exitOf(out), r.mode, r.exit], ["none", "none", ['long-line "apps/site/app/docs/one.tsx"', 'long-line "src/one.cjs"'], true, "1", "refused", 1], out);
+}, REAL_CI));
+
+// killer: scripts/lot-size-integration.mjs:241 CONST "nl - at > LINE_MAX" -> "nl - at >= LINE_MAX"
+// killer: scripts/lot-size-integration.mjs:241 CONST "if (nl < 0) nl = b.length;" -> "if (nl < 0) break;"
+// killer: scripts/lot-size-integration.mjs:241 CONST "nl - at > LINE_MAX" -> "nl - at - (b[nl - 1] === 13 ? 1 : 0) > LINE_MAX"
+test("r25m_line_length_is_bytes_between_line_feeds - Q-2: a line of 2 000 bytes passes, of 2 001 is refused, first, in the middle or last without a final LF; 1 001 U+00E9 (2 002 UTF-8 bytes) are refused; 1 999 bytes then CR LF (2 000 with the CR) pass; an empty file and 5 000 short lines pass (nothing refused before the lot)", () => withFx((fx) => {
+  fx.g("checkout", "-q", "-b", "pr", TARGET);
+  const x = (n: number): string => "x".repeat(n);
+  const files: Record<string, string> = { "src/at-limit.cjs": `${x(2000)}\n`, "src/crlf-at-limit.cjs": `${x(1999)}\r\n`, "src/empty.cjs": "", "src/short.cjs": lines("short", 5000),
+    "src/over-limit.cjs": `${x(2001)}\n`, "src/crlf-over.cjs": `${x(2000)}\r\n`, "src/middle.cjs": `a\n${x(2001)}\nb\n`, "src/last-no-lf.cjs": `a\n${x(2001)}`, "src/utf8-bytes.ts": `${"\u00e9".repeat(1001)}\n` };
+  for (const [p, t] of Object.entries(files)) stage(fx, p, "100644", t);
+  fx.g("commit", "-qm", "lengths");
+  assert.deepEqual(refusedHere(fx), ['long-line "src/crlf-over.cjs"', 'long-line "src/last-no-lf.cjs"', 'long-line "src/middle.cjs"', 'long-line "src/over-limit.cjs"', 'long-line "src/utf8-bytes.ts"']);
+}, REAL_CI));
+
+// killer: scripts/lot-size-integration.mjs:229 CONST "p.endsWith(\".json\")" -> "/\\.(json|jsonl|csv)$/i.test(p)"
+// killer: scripts/lot-size-integration.mjs:229 CONST "LONG_LINE_PATHS[p] !== id" -> "!Object.hasOwn(LONG_LINE_PATHS, p)"
+test("r25m_only_json_and_the_measured_blob_keep_a_long_line - Q-1, Q-3: src/data.json (a 3 890-byte line) passes; the same bytes as src/upper.JSON, src/rows.jsonl and src/rows.csv (run by node as CommonJS) are refused; the trunk blob of the measured .txt passes at its path, and one byte more at that path is refused (nothing refused before the lot)", () => withFx((fx) => {
+  fx.g("checkout", "-q", "-b", "pr", TARGET);
+  const data = `[${Array.from({ length: 1000 }, (_, i) => String(i)).join(",")}]\n`, trunkBlob = execFileSync("git", ["-C", ROOT, "cat-file", "blob", `HEAD:${TRADEXYZ}`]); // HEAD, not a historical id: any clone depth
+  for (const p of ["src/data.json", "src/upper.JSON", "src/rows.jsonl", "src/rows.csv"]) stage(fx, p, "100644", data);
+  stage(fx, TRADEXYZ, "100644", trunkBlob);
+  fx.g("commit", "-qm", "data");
+  const first = refusedHere(fx);
+  stage(fx, TRADEXYZ, "100644", Buffer.concat([Buffer.from("x"), trunkBlob]));
+  fx.g("commit", "-qm", "one byte more");
+  const kept = ['long-line "src/rows.csv"', 'long-line "src/rows.jsonl"', 'long-line "src/upper.JSON"'];
+  assert.deepEqual([first, refusedHere(fx)], [kept, [`long-line ${JSON.stringify(TRADEXYZ)}`, ...kept]]);
+}, REAL_CI));
+
+// killer: scripts/lot-size-integration.mjs:239 CONST "LINE_MAX = 2000" -> "LINE_MAX = 4000"
+test("r25m_long_line_cap_is_the_measured_list - Q-3: the cap is 2 000 bytes and the closed list holds one exact blob, the procurement capture measured on the trunk", () => {
+  assert.deepEqual([lsi.LINE_MAX, lsi.LONG_LINE_PATHS], [2000, { [TRADEXYZ]: TRADEXYZ_BLOB }]);
+});
+
+// killer: scripts/lot-size-integration.mjs:229 CONST "p.endsWith(\".json\") && /^" -> "false && /^"
+test("r25m_the_repository_itself_passes_the_long_line_cap - its tree at HEAD, added whole onto an empty commit, refuses nothing; read apart (bytes as latin1 characters), the only non-.json text paths under the two pathspecs with a line over 2 000 bytes are the list, at its blobs (the list absent before the lot)", () => {
+  const d = mkdtempSync(join(tmpdir(), "r25m-tree-")), g = (...a: string[]): string => execFileSync("git", ["-C", d, "-c", "user.name=fx", "-c", "user.email=fx@localhost", ...a], { encoding: "utf8" }).trim();
+  try {
+    g("init", "-q");
+    const common = execFileSync("git", ["-C", ROOT, "rev-parse", "--path-format=absolute", "--git-common-dir"], { encoding: "utf8" }).trim();
+    writeFileSync(join(d, ".git", "objects", "info", "alternates"), `${join(common, "objects")}\n`);
+    const empty = g("commit-tree", "4b825dc642cb6eb9a060e54bf8d69288fbee4904", "-m", "empty"), tree = execFileSync("git", ["-C", ROOT, "rev-parse", "HEAD^{tree}"], { encoding: "utf8" }).trim();
+    g("update-ref", "HEAD", g("commit-tree", tree, "-p", empty, "-m", "tree"));
+    const asset = (p: string): boolean => BINARY_ASSETS.some((a) => p.startsWith(a.slice(0, a.indexOf("*"))) && !p.slice(a.indexOf("*")).includes("/") && p.endsWith(a.slice(a.indexOf("*") + 1)));
+    const paths = [...new Set(specsOf(REAL_CI).flatMap((s) => g("diff", "--name-only", "-z", empty, "HEAD", "--", ...s).split("\0")))].filter((p) => p !== "" && !asset(p) && !p.endsWith(".json")).sort();
+    const batch = execFileSync("git", ["-C", d, "cat-file", "--batch"], { input: paths.map((p) => `HEAD:${p}\n`).join(""), maxBuffer: 1 << 30 }).toString("latin1");
+    let at = 0;
+    const long = paths.filter(() => { const nl = batch.indexOf("\n", at), size = Number(batch.slice(at, nl).split(" ")[2]), body = batch.slice(nl + 1, nl + 1 + size); at = nl + 2 + size; return body.split("\n").some((l) => l.length > 2000); });
+    assert.deepEqual([lsi.refusals(d, empty, specsOf(REAL_CI)), Object.fromEntries(long.map((p) => [p, g("rev-parse", `HEAD:${p}`)]))], [[], lsi.LONG_LINE_PATHS]);
+  } finally { rmSync(d, { recursive: true, force: true, maxRetries: 3 }); }
+});
+
+// killer: scripts/lot-size-integration.mjs:245 CONST "JSON.stringify(s).replace" -> "s.replace"
+// killer: scripts/lot-size-integration.mjs:245 CONST "\\u007f-\\uffff]" -> "\\u0080-\\uffff]"
+test("r25m_a_refused_path_is_named_as_a_json_string - G2 N-1 of R25-GUARDS-2: a refused path holding a LF, a quote and a U+00E9 is named on ONE line, as a JSON string, by `pin` and by the oracle's log: the job's log gets no line of the author's (a `::warning::` workflow command, read by the runner, before the lot)", { skip: process.platform === "win32" ? "the runner of the job is Linux; git for Windows refuses a control character in a path name (core.protectNTFS)" : false }, () => withFx((fx) => {
+  fx.g("checkout", "-q", "-b", "pr", TARGET);
+  const evil = 'src/new\n::warning::forged "q" \u00e9.cjs';
+  stage(fx, evil, "100644", "a\rb\n");
+  stage(fx, "src/del\u007f.cjs", "100644", "a\rb\n"); // G2 delta N-2: DEL escaped too
+  fx.g("commit", "-qm", "path");
+  const out = ciRun(fx), log = (oracle(fx, TARGET, null) as OracleR25 & { log?: string }).log ?? "";
+  assert.deepEqual([refusedIn(out), out.split("\n").some((l) => l.startsWith("::warning::")), log.split("\n").filter((l) => l.startsWith("refused ")), exitOf(out)], [['bare-cr "src/del\\u007f.cjs"', 'bare-cr "src/new\\n::warning::forged \\"q\\" \\u00e9.cjs"'], false, ['refused bare-cr "src/del\\u007f.cjs"', 'refused bare-cr "src/new\\n::warning::forged \\"q\\" \\u00e9.cjs"'], "1"], out);
+}, REAL_CI));
+
+// killer: scripts/lot-size-integration.mjs:229 CONST " && isJson(b))" -> ")"
+test("r25m_a_long_line_json_must_parse - Q-8: src/code.json, 3 000 statements on one line (not JSON: run as CommonJS by require(\"./code.JSON\") on a case-insensitive filesystem, or by eval), is refused long-line; src/data.json (a long line of valid JSON) and src/short.json (invalid, every line short) pass (nothing refused before the lot)", () => withFx((fx) => {
+  fx.g("checkout", "-q", "-b", "pr", TARGET);
+  stage(fx, "src/code.json", "100644", `${statements(3000, " ")}\n`);
+  stage(fx, "src/data.json", "100644", `[${Array.from({ length: 1000 }, (_, i) => String(i)).join(",")}]\n`);
+  stage(fx, "src/short.json", "100644", "{ not json\n");
+  fx.g("commit", "-qm", "json");
+  assert.deepEqual(refusedHere(fx), ['long-line "src/code.json"']);
+}, REAL_CI));
+
+// killer: scripts/lot-size-integration.mjs:229 CONST " && !/(^|\\/)(package|\\.?devcontainer|tasks|deno|turbo|vercel|composer)\\.json$/i.test(p)" -> ""
+// killer: scripts/lot-size-integration.mjs:229 CONST "/^[\\x20-\\x7e]*$/.test(p) && " -> ""
+// killer: scripts/lot-size-integration.mjs:229 CONST "\\.json$/i.test(p)" -> "\\.json$/.test(p)"
+test("r25m_package_json_is_never_exempt - G2 B-1: npm runs the strings of package.json with no call line (pretest before npm test): a root package.json and apps/tool/package.json, valid JSON whose \"pretest\" holds 3 000 statements on one line, are refused long-line; src/notpackage.json (the same bytes) and a short package.json pass (nothing refused before the lot)", () => withFx((fx) => {
+  fx.g("checkout", "-q", "-b", "pr", TARGET);
+  const pkg = `{\n  "name": "x",\n  "scripts": {\n    "pretest": ${JSON.stringify(`node -e '${statements(3000, " ")}'`)},\n    "test": "node --test"\n  }\n}\n`;
+  for (const p of ["package.json", "apps/tool/package.json", "apps/case/Package.json", "apps/upper/PACKAGE.JSON", "apps/kelvin/pac\u212aage.json", "apps/t2/ta\u017fks.json", "apps/t3/package\u200c.json", "src/notpackage.json"]) stage(fx, p, "100644", pkg); // npm reads Package.json as package.json on NTFS, APFS; APFS folds the kelvin sign and the long s, HFS+ ignores U+200C (legal NTFS names); PACKAGE.JSON is refused by its extension
+  stage(fx, "apps/short/package.json", "100644", '{\n  "name": "short",\n  "scripts": { "test": "node --test" }\n}\n');
+  fx.g("commit", "-qm", "package");
+  assert.deepEqual(refusedHere(fx), ['long-line "apps/case/Package.json"', 'long-line "apps/kelvin/pac\\u212aage.json"', 'long-line "apps/t2/ta\\u017fks.json"', 'long-line "apps/t3/package\\u200c.json"', 'long-line "apps/tool/package.json"', 'long-line "apps/upper/PACKAGE.JSON"', 'long-line "package.json"']);
+}, REAL_CI));
+
+// killer: scripts/lot-size-integration.mjs:245 CONST ".replace(/[\\[\\u007f-\\uffff]/g" -> ".replace(/[\\u007f-\\uffff]/g"
+// killer: scripts/lot-size-integration.mjs:245 CONST "-\\uffff]" -> "-\\u00ff]"
+test("r25m_a_refused_path_cannot_form_a_workflow_command - G2 R-2: the runner reads the old hash-hash-bracket form anywhere in a line; two paths opening a hash-hash-bracket command (add-mask, warning) and two holding U+2028 and a C1 control (a bare CR each; legal names on win32 too) are named by `pin` and the oracle in ASCII with `[` and every character above U+007E escaped: no line of the job's log holds that form (both named raw before the lot)", () => withFx((fx) => {
+  fx.g("checkout", "-q", "-b", "pr", TARGET);
+  for (const p of ["src/##[add-mask]refused.cjs", "src/##[warning title=forged]ok \u00e9.cjs", "src/ls\u2028.cjs", "src/nel\u0085.cjs"]) stage(fx, p, "100644", "a\rb\n"); // G2 delta N-2: U+2028, a C1 control
+  fx.g("commit", "-qm", "commands");
+  const out = ciRun(fx), log = (oracle(fx, TARGET, null) as OracleR25 & { log?: string }).log ?? "";
+  const named = ['bare-cr "src/##\\u005badd-mask]refused.cjs"', 'bare-cr "src/##\\u005bwarning title=forged]ok \\u00e9.cjs"', 'bare-cr "src/ls\\u2028.cjs"', 'bare-cr "src/nel\\u0085.cjs"'];
+  assert.deepEqual([refusedIn(out), out.includes("##["), log.includes("##["), /[^\n\x20-\x7e]/.test(log), log.split("\n").filter((l) => l.startsWith("refused ")), exitOf(out)], [named, false, false, false, named.map((n) => `refused ${n}`), "1"], out);
+}, REAL_CI));
+
+// killer: scripts/lot-size-integration.mjs:229 CONST "|\\.?devcontainer|tasks|deno|turbo|vercel|composer)" -> ")"
+test("r25m_tool_run_json_is_never_exempt - G2 delta R-1: other JSON whose strings a tool runs with no call line (.devcontainer/devcontainer.json postCreateCommand, .vscode/Tasks.json on folder open, deno.json tasks, turbo.json, vercel.json buildCommand, composer.json scripts), valid JSON with a long line, any case, are refused long-line; src/data.json passes (nothing refused before the lot)", () => withFx((fx) => {
+  fx.g("checkout", "-q", "-b", "pr", TARGET);
+  const cmd = `{ "command": ${JSON.stringify(`node -e '${statements(3000, " ")}'`)} }\n`;
+  const tools = [".devcontainer/devcontainer.json", ".devcontainer.json", ".vscode/Tasks.json", "deno.json", "apps/web/turbo.json", "VERCEL.json", "composer.json"];
+  for (const p of [...tools, "src/data.json"]) stage(fx, p, "100644", cmd);
+  fx.g("commit", "-qm", "tools");
+  assert.deepEqual(refusedHere(fx), tools.map((p) => `long-line ${JSON.stringify(p)}`).sort());
+}, REAL_CI));
+
+// killer: scripts/lot-size-integration.mjs:223 CONST "named(Buffer.from(p, \"latin1\").toString(\"utf8\"))" -> "p"
+test("r25m_an_unread_blob_names_its_path_escaped - G2 delta N-1: an index entry of mode 100644 pointing at a tree, at a path opening a hash-hash-bracket warning command, makes `refusals` throw; `pin` names the path escaped, the form absent from the job's log, and the job is red (named raw before the fold)", () => withFx((fx) => {
+  fx.g("checkout", "-q", "-b", "pr", TARGET);
+  fx.g("update-index", "--add", "--cacheinfo", `100644,${fx.g("write-tree")},src/##[warning title=forged]x.cjs`);
+  fx.g("commit", "-qm", "a tree as a blob");
+  const out = ciRun(fx);
+  assert.deepEqual([out.includes("##["), out.includes('of "src/##\\u005bwarning title=forged]x.cjs" unread'), exitOf(out)], [false, true, "1"], out);
+}, REAL_CI));
+
+// Lot R25-ASSET-STRUCTURE-1 (item R25-ASSET-POLYGLOT-1, option (c) reduced, ADR-M003 D9 quindecies). A declared asset past its magic is
+// parsed to the end of its format: nothing after PNG IEND, JPEG EOI, the last TrueType table, the OpenTimestamps proof or the CBOR item,
+// and only the chunks, segments, tables, operations and calendars measured on the trunk. Fixtures are trunk assets read by object id and
+// changed in memory, or built in memory: no binary file in the repository, nothing exposed to autocrlf.
+const blobOf = (p: string): Buffer => execFileSync("git", ["-C", ROOT, "cat-file", "blob", `HEAD:${p}`], { maxBuffer: 1 << 30 });
+type Structure = (b: Buffer) => string | null;
+const passes = (x: string, cases: Record<string, Buffer>): Record<string, boolean> => {
+  const f = (lsi.ASSET_STRUCTURE as Record<string, Structure> | undefined)?.[x];
+  return Object.fromEntries(Object.entries(cases).map(([k, b]) => [k, f !== undefined && f(b) === null]));
+};
+const ZIP_END = Buffer.from(`504b0506${"00".repeat(18)}`, "hex"); // an empty zip archive: read from its end, python3 runs the file before it
+const pngChunk = (type: string, data: Buffer | string): Buffer => {
+  const td = Buffer.concat([Buffer.from(type, "latin1"), Buffer.from(data)]), out = Buffer.alloc(8 + td.length);
+  out.writeUInt32BE(td.length - 4, 0);
+  td.copy(out, 4);
+  out.writeUInt32BE(zlibCrc32(td), 4 + td.length);
+  return out;
+};
+const beforeIend = (b: Buffer, ...c: Buffer[]): Buffer => Buffer.concat([b.subarray(0, b.length - 12), ...c, b.subarray(b.length - 12)]);
+const pngOf = (w: number, h: number, color: number, interlace: number, raw: Buffer, more: Buffer[] = [], level = 9): Buffer => {
+  const ihdr = Buffer.alloc(13);
+  ihdr.writeUInt32BE(w, 0);
+  ihdr.writeUInt32BE(h, 4);
+  ihdr.set([8, color, 0, 0, interlace], 8);
+  return Buffer.concat([Buffer.from("89504e470d0a1a0a", "hex"), pngChunk("IHDR", ihdr), ...more, pngChunk("IDAT", deflateSync(raw, { level })), pngChunk("IEND", "")]);
+};
+
+// killer: scripts/lot-size-integration.mjs:226 CONST "else if (ASSET_STRUCTURE[x](b) !== null)" -> "else if (false)"
+test("r25s_ci_refuses_an_asset_with_a_payload_after_its_end - R25-ASSET-POLYGLOT-1: trunk assets under new names in their directories, each followed by a payload (a zip archive after PNG IEND, a byte after the OpenTimestamps proof and the CBOR item, `PK` after the last TrueType table) or carrying a JPEG comment segment, are refused asset-structure by `pin` and by the oracle; the trunk logo under a new name passes (nothing refused, green, before the lot)", () => withFx((fx) => {
+  fx.g("checkout", "-q", "-b", "pr", TARGET);
+  const jpg = blobOf("out/banner.jpg");
+  stage(fx, "out/zip.png", "100644", Buffer.concat([blobOf("out/logo.png"), ZIP_END]));
+  stage(fx, "out/same.png", "100644", blobOf("out/logo.png"));
+  stage(fx, "out/comment.jpg", "100644", Buffer.concat([jpg.subarray(0, 2), Buffer.from("fffe0007", "hex"), Buffer.from("hello"), jpg.subarray(2)]));
+  stage(fx, "apps/site/app/fonts/tail.ttf", "100644", Buffer.concat([blobOf("apps/site/app/fonts/ArchivoBlack-Regular.ttf"), Buffer.from("PK")]));
+  stage(fx, "docs/course-bell/tail.txt.ots", "100644", Buffer.concat([blobOf("test/fixtures/fixture-bell-seq2-pending.ots"), Buffer.from("\n")]));
+  stage(fx, "fixtures/tail.cbor", "100644", Buffer.concat([blobOf("fixtures/s3-binance.lot.cbor"), Buffer.from("\n")]));
+  fx.g("commit", "-qm", "assets");
+  const out = ciRun(fx), log = (oracle(fx, TARGET, null) as OracleR25 & { log?: string }).log ?? "";
+  const named = ['asset-structure "apps/site/app/fonts/tail.ttf"', 'asset-structure "docs/course-bell/tail.txt.ots"', 'asset-structure "fixtures/tail.cbor"', 'asset-structure "out/comment.jpg"', 'asset-structure "out/zip.png"'];
+  assert.deepEqual([refusedIn(out), out.includes(PIN_ERROR), exitOf(out), log.split("\n").filter((l) => l.startsWith("refused "))], [named, true, "1", named.map((n) => `refused ${n}`)], out);
+}, REAL_CI));
+
+// killer: scripts/lot-size-integration.mjs:268 CONST "if (o !== b.length) return" -> "if (false) return"
+// killer: scripts/lot-size-integration.mjs:264 CONST " || crc32(b.subarray(o + 4, o + 8 + n)) !== b.readUInt32BE(o + 8 + n)" -> ""
+// killer: scripts/lot-size-integration.mjs:265 CONST " || (t === \"IHDR\" && o !== 8)" -> ""
+test("r25s_png_ends_at_iend_with_sound_chunks - the trunk logo passes; a zip archive or one byte after IEND, a chunk whose CRC is wrong, a length running past the file, no IEND, a second IHDR are refused (nothing refused before the lot: the trunk logo fails too)", () => {
+  const logo = blobOf("out/logo.png"), crc = Buffer.from(logo), over = Buffer.from(logo);
+  crc[50] = (crc[50] ?? 0) ^ 1; // a byte of the iCCP profile
+  over.writeUInt32BE(1, logo.length - 12);
+  assert.deepEqual(passes("png", { logo, zip: Buffer.concat([logo, ZIP_END]), byte: Buffer.concat([logo, Buffer.from("\n")]), crc, over, noIend: logo.subarray(0, logo.length - 12), ihdr: beforeIend(logo, logo.subarray(8, 33)) }),
+    { logo: true, zip: false, byte: false, crc: false, over: false, noIend: false, ihdr: false });
+});
+
+// killer: scripts/lot-size-integration.mjs:254 CONST "\"sRGB\", " -> ""
+// killer: scripts/lot-size-integration.mjs:254 CONST "\"sBIT\"]" -> "\"sBIT\", \"tEXt\"]"
+// killer: scripts/lot-size-integration.mjs:265 CONST "(t === \"PLTE\" && color !== 3) || " -> ""
+test("r25s_png_chunks_are_a_closed_list - text and metadata chunks (tEXt, zTXt, iTXt, eXIf, tIME), animation (acTL) and a private chunk (caNv), each with a right CRC, are refused in the trunk logo; gAMA, sRGB and pHYs pass; PLTE is refused in the logo (truecolour with alpha) and passes, with tRNS, in a palette image (nothing passes before the lot)", () => {
+  const logo = blobOf("out/logo.png"), meta = ["tEXt", "zTXt", "iTXt", "eXIf", "tIME", "acTL", "caNv"], kept = { gAMA: "0000b18f", sRGB: "00", pHYs: "00000b1300000b1301" };
+  const palette = pngOf(2, 1, 3, 0, Buffer.from([0, 0, 1]), [pngChunk("PLTE", Buffer.from("000000ffffff", "hex")), pngChunk("tRNS", Buffer.from([0]))]);
+  const cases = { ...Object.fromEntries(meta.map((t) => [t, beforeIend(logo, pngChunk(t, "Comment\0run me"))])), ...Object.fromEntries(Object.entries(kept).map(([t, d]) => [t, beforeIend(logo, pngChunk(t, Buffer.from(d, "hex")))])), plteInLogo: beforeIend(logo, pngChunk("PLTE", Buffer.from("000000", "hex"))), palette };
+  assert.deepEqual(passes("png", cases), { ...Object.fromEntries(meta.map((t) => [t, false])), gAMA: true, sRGB: true, pHYs: true, plteInLogo: false, palette: true });
+});
+
+// killer: scripts/lot-size-integration.mjs:271 CONST "if (((z[2] >> 1) & 3) === 0) return" -> "if (false) return"
+// killer: scripts/lot-size-integration.mjs:272 CONST " && engine.bytesWritten === z.length" -> ""
+// killer: scripts/lot-size-integration.mjs:270 CONST "b[28] === 0 ? h * row(w) :" -> "true ? h * row(w) :"
+test("r25s_png_pixel_data_is_one_zlib_stream_of_the_image_size - a 4x3 RGBA image passes compressed; stored (deflate level 0), one row more or one byte less, or a zip archive after the zlib stream inside IDAT, is refused; a 3x3 Adam7 image passes with its 15 bytes of passes and is refused with the 12 of a plain image (nothing passes before the lot)", () => {
+  const rows = (n: number): Buffer => Buffer.alloc(n * 17, 1).fill(0, 0, 1), good = pngOf(4, 3, 6, 0, rows(3)), at = good.indexOf("IDAT") + 4, n = good.readUInt32BE(at - 8);
+  const tail = Buffer.concat([pngChunk("IDAT", Buffer.concat([good.subarray(at, at + n), ZIP_END]))]), trailing = Buffer.concat([good.subarray(0, at - 8), tail, good.subarray(at + n + 4)]);
+  assert.deepEqual(passes("png", { good, stored: pngOf(4, 3, 6, 0, rows(3), [], 0), moreRow: pngOf(4, 3, 6, 0, rows(4)), lessByte: pngOf(4, 3, 6, 0, rows(3).subarray(1)), trailing, adam7: pngOf(3, 3, 0, 1, Buffer.alloc(15)), adam7Plain: pngOf(3, 3, 0, 1, Buffer.alloc(12)) }),
+    { good: true, stored: false, moreRow: false, lessByte: false, trailing: false, adam7: true, adam7Plain: false });
+});
+
+// killer: scripts/lot-size-integration.mjs:278 CONST "o + 2 === b.length ? null" -> "true ? null"
+// killer: scripts/lot-size-integration.mjs:254 CONST "0xdd, 0xda]" -> "0xdd, 0xda, 0xe0, 0xe1, 0xfe]"
+// killer: scripts/lot-size-integration.mjs:254 CONST "0xc4, 0xdb, 0xdd, " -> "0xc4, 0xdb, "
+test("r25s_jpeg_ends_at_eoi_with_closed_segments - the trunk banner passes, and with a restart interval (DRI); a zip archive or one byte after EOI, an APP0 (JFIF), APP1 (Exif) or COM segment, an SOF3 header, no EOI are refused (nothing passes before the lot)", () => {
+  const jpg = blobOf("out/banner.jpg"), after = (seg: string): Buffer => Buffer.concat([jpg.subarray(0, 2), Buffer.from(seg, "hex"), jpg.subarray(2)]);
+  assert.deepEqual(passes("jpg", { jpg, dri: after("ffdd00040000"), zip: Buffer.concat([jpg, ZIP_END]), byte: Buffer.concat([jpg, Buffer.from("\n")]), app0: after("ffe000104a46494600010100000100010000"), app1: after("ffe1000a457869660000ffff"), com: after("fffe0006616c6572"), sof3: after("ffc30004ffff"), noEoi: jpg.subarray(0, jpg.length - 2) }),
+    { jpg: true, dri: true, zip: false, byte: false, app0: false, app1: false, com: false, sof3: false, noEoi: false });
+});
+
+// killer: scripts/lot-size-integration.mjs:292 CONST "b.length - end <= 3" -> "true"
+// killer: scripts/lot-size-integration.mjs:291 CONST " || b.subarray(end, off).some((x) => x !== 0)" -> ""
+// killer: scripts/lot-size-integration.mjs:289 CONST "!TTF_TABLES.includes(t) || " -> ""
+// killer: scripts/lot-size-integration.mjs:292 CONST "end <= b.length && " -> ""
+test("r25s_ttf_tables_cover_the_file - the trunk font passes, and with 3 NUL bytes of padding at its end; 4 NUL bytes, `PK`, a non-NUL padding byte between two tables, a table moved 4 bytes back over its neighbour, a last table running past the file, a tag outside the measured list, a duplicate tag are refused (nothing passes before the lot)", () => {
+  const ttf = blobOf("apps/site/app/fonts/ArchivoBlack-Regular.ttf"), n = ttf.readUInt16BE(4), dir = Array.from({ length: n }, (_, i) => 12 + 16 * i);
+  const byOff = [...dir].sort((x, y) => ttf.readUInt32BE(x + 8) - ttf.readUInt32BE(y + 8)), end = (r: number): number => ttf.readUInt32BE(r + 8) + ttf.readUInt32BE(r + 12);
+  const gap = byOff.findIndex((r, i) => i > 0 && ttf.readUInt32BE(r + 8) > end(byOff[i - 1] ?? 0)), edit = (f: (b: Buffer) => void): Buffer => { const b = Buffer.from(ttf); f(b); return b; };
+  const last = byOff[n - 1] ?? 0, second = byOff[1] ?? 0;
+  assert.deepEqual(passes("ttf", {
+    ttf, pad3: Buffer.concat([ttf, Buffer.alloc(3)]), pad4: Buffer.concat([ttf, Buffer.alloc(4)]), pk: Buffer.concat([ttf, Buffer.from("PK")]),
+    padByte: edit((b) => { b[end(byOff[gap - 1] ?? 0)] = 0x41; }), overlap: edit((b) => { b.writeUInt32BE(b.readUInt32BE(second + 8) - 4, second + 8); }),
+    past: edit((b) => { b.writeUInt32BE(b.readUInt32BE(last + 12) + 8, last + 12); }), unknown: edit((b) => { b.write("zzzz", dir[n - 1] ?? 0, "latin1"); }), duplicate: edit((b) => { b.write("DSIG", dir[1] ?? 0, "latin1"); }),
+  }), { ttf: true, pad3: true, pad4: false, pk: false, padByte: false, overlap: false, past: false, unknown: false, duplicate: false });
+});
+
+const OTS_HEAD = Buffer.from("004f70656e54696d657374616d7073000050726f6f6600bf89e2e884e8929401", "hex");
+const vbytes = (b: Buffer | string): Buffer => Buffer.concat([Buffer.from([Buffer.from(b).length]), Buffer.from(b)]); // lengths under 128: one varuint byte
+const att = (tag: string, payload: Buffer): Buffer => Buffer.concat([Buffer.from(`00${tag}`, "hex"), vbytes(payload)]);
+const pendingAt = (uri: string): Buffer => att("83dfe30d2ef90c8e", vbytes(uri));
+const proofOf8 = (...tree: (Buffer | string)[]): Buffer => Buffer.concat([OTS_HEAD, Buffer.from([0x08]), Buffer.alloc(32, 7), ...tree.map((t) => (typeof t === "string" ? Buffer.from(t, "hex") : t))]);
+
+// killer: scripts/lot-size-integration.mjs:312 CONST "i === b.length ? null" -> "true ? null"
+// killer: scripts/lot-size-integration.mjs:303 CONST "if (!OTS_CALENDARS.some((h) => u === `https://${h}`)) throw" -> "if (false) throw"
+// killer: scripts/lot-size-integration.mjs:304 CONST "else throw new Error(`attestation ${tag}`);" -> ""
+// killer: scripts/lot-size-integration.mjs:306 CONST "varbytes(OTS_OPERAND_MAX, 1)" -> "varbytes(4096, 1)"
+// killer: scripts/lot-size-integration.mjs:308 CONST "else throw new Error(`operation ${t.toString(16)}`);" -> "else tree(d + 1);"
+// killer: scripts/lot-size-integration.mjs:305 CONST "if (i !== at) throw" -> "if (false) throw"
+test("r25s_ots_proof_is_read_whole - the readOtsProof reader in plain JS: two trunk proofs pass; built proofs pass with a pending branch to a listed calendar, a fork to a Bitcoin attestation and an 89-byte operand; a byte after the proof, a truncated proof, a 90-byte operand, an unknown operation, an unknown attestation (Litecoin), a calendar outside the list (another host, http, a path) and a Bitcoin payload with an extra byte (read as a fork marker if the payload were not read whole) are refused (nothing passes before the lot)", () => {
+  const trunkPending = blobOf("test/fixtures/fixture-bell-seq2-pending.ots"), trunkBlock = blobOf("docs/course-bell/mint_end-AAPLx-manifest.txt.ots");
+  const append = (k: number): string => `f0${vbytes(Buffer.alloc(k, 9)).toString("hex")}08`, listed = pendingAt("https://calendar.invalid"), bitcoin = att("0588960d73d71901", Buffer.from("d28d3b", "hex"));
+  assert.deepEqual(passes("ots", {
+    trunkPending, trunkBlock, pending: proofOf8(append(32), listed), fork: proofOf8("ff", append(32), listed, append(4), bitcoin), op89: proofOf8(append(89), listed),
+    after: Buffer.concat([trunkBlock, Buffer.from("\n")]), truncated: trunkBlock.subarray(0, trunkBlock.length - 1), op90: proofOf8(append(90), listed), op99: proofOf8("99", listed),
+    litecoin: proofOf8(append(32), att("06869a0d73d71b45", Buffer.from("01", "hex"))), host: proofOf8(append(32), pendingAt("https://calendar.example")), http: proofOf8(append(32), pendingAt("http://calendar.invalid")),
+    path: proofOf8(append(32), pendingAt("https://calendar.invalid/x")), payload: proofOf8("ff", append(32), att("0588960d73d71901", Buffer.from("d28d3bff", "hex")), append(4), listed, append(8), listed), // the extra byte would read as a fork
+  }), { trunkPending: true, trunkBlock: true, pending: true, fork: true, op89: true, after: false, truncated: false, op90: false, op99: false, litecoin: false, host: false, http: false, path: false, payload: false });
+});
+
+// killer: scripts/lot-size-integration.mjs:326 CONST "i === b.length ? null" -> "true ? null"
+// killer: scripts/lot-size-integration.mjs:318 CONST "ai > 27" -> "ai > 31"
+// killer: scripts/lot-size-integration.mjs:318 CONST "d > 64" -> "d > 65"
+test("r25s_cbor_is_one_item_and_nothing_after - the trunk fixture passes, and a one-entry map nested 64 deep; one byte after the item, an indefinite-length map, a reserved additional information (28), a truncated item, a map nested 65 deep are refused (nothing passes before the lot)", () => {
+  const cbor = blobOf("fixtures/s3-binance.lot.cbor"), nest = (k: number): Buffer => Buffer.concat([Buffer.from("a16161", "hex"), Buffer.alloc(k - 1, 0x81), Buffer.from([0])]);
+  assert.deepEqual(passes("cbor", { cbor, deep64: nest(64), after: Buffer.concat([cbor, Buffer.from("\n")]), indefinite: Buffer.from("bf616101ff", "hex"), reserved: Buffer.from("a161611c", "hex"), truncated: cbor.subarray(0, cbor.length - 1), deep65: nest(65) }),
+    { cbor: true, deep64: true, after: false, indefinite: false, reserved: false, truncated: false, deep65: false });
+});
+
+// killer: scripts/lot-size-integration.mjs:256 CONST "OTS_OPERAND_MAX = 89" -> "OTS_OPERAND_MAX = 4096"
+// killer: scripts/lot-size-integration.mjs:255 CONST "\"prep\"]" -> "\"prep\", \"Silf\"]"
+test("r25s_structure_lists_are_the_measured_ones - the closed lists measured on the trunk (PNG chunks, JPEG segments SOF0-2 DHT DQT DRI SOS, the 23 TrueType tags of the five fonts, the five pending calendars, operands of at most 89 bytes) and one structure check for each extension of BINARY_ASSETS (absent before the lot)", () => {
+  assert.deepEqual([lsi.PNG_CHUNKS, lsi.JPEG_SEGMENTS, lsi.TTF_TABLES, lsi.OTS_CALENDARS, lsi.OTS_OPERAND_MAX, Object.keys(lsi.ASSET_STRUCTURE ?? {}).sort()], [
+    ["IHDR", "PLTE", "IDAT", "IEND", "tRNS", "gAMA", "cHRM", "sRGB", "iCCP", "pHYs", "bKGD", "sBIT"], [0xc0, 0xc1, 0xc2, 0xc4, 0xdb, 0xdd, 0xda],
+    ["DSIG", "GDEF", "GPOS", "GSUB", "HVAR", "OS/2", "STAT", "avar", "cmap", "cvt ", "fpgm", "fvar", "gasp", "glyf", "gvar", "head", "hhea", "hmtx", "loca", "maxp", "name", "post", "prep"],
+    ["alice.btc.calendar.opentimestamps.org", "bob.btc.calendar.opentimestamps.org", "btc.calendar.catallaxy.com", "calendar.invalid", "finney.calendar.eternitywall.com"], 89,
+    [...new Set(BINARY_ASSETS.map((p) => p.slice(p.lastIndexOf(".") + 1)))].sort()]);
+});
+
+// killer: scripts/lot-size-integration.mjs:254 CONST "\"iCCP\", " -> ""
+// killer: scripts/lot-size-integration.mjs:256 CONST "OTS_OPERAND_MAX = 89" -> "OTS_OPERAND_MAX = 88"
+test("r25s_every_trunk_asset_passes_its_structure - each of the 45 declared binary assets of the repository at HEAD (5 fonts, 37 proofs, the CBOR fixture, the banner, the logo with its iCCP profile; 100 operands of 89 bytes) passes the structure check of its format (none before the lot)", () => {
+  const assets = execFileSync("git", ["-C", ROOT, "ls-tree", "-r", "--name-only", "HEAD"], { encoding: "utf8" }).split("\n").filter((p) => BINARY_ASSETS.some((a) => p.startsWith(a.slice(0, a.indexOf("*"))) && !p.slice(a.indexOf("*")).includes("/") && p.endsWith(a.slice(a.indexOf("*") + 1))));
+  const failed = assets.filter((p) => !(passes(p.slice(p.lastIndexOf(".") + 1), { p: blobOf(p) }).p ?? false));
+  assert.deepEqual([assets.length, failed], [45, []]);
+});

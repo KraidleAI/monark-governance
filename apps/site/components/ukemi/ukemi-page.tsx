@@ -9,13 +9,27 @@
 //   - the two SERVED sentences that ride at temps 1 are DIGIT-FREE and rendered each in a SINGLE {X} JSX
 //     child (C-1(b)): {LIQ_EMPTY_REGISTRY_SENTENCE} (the honest empty-registry state) and
 //     {LIQ_CONDITIONAL_SENTENCE} (carries "which the gate does not check").
+//   - the served STATE follows the committed, hashed, dated served-state file (apps/site/data/ukemi-served.json,
+//     read through its fail-closed loader, the record / and /fleet read), never the harness source
+//     (switch of the class): "empty" => {LIQ_EMPTY_REGISTRY_SENTENCE}; "committed" => {LIQ_COMMITTED_STATE_NOTE}, a
+//     digit-free restatement, not the served clause (it carries figures outside the closed list this page may print),
+//     then the figures of the committed stratum. assert-fleet-html checks the built page against the same file: the
+//     state's sentence present, the other state's absent.
+//   - FIGURES, committed branch only: calibration points, bound margin, scores digest and the day they were read,
+//     from lib/ukemi-served-figures.ts over the served-state file and the course report (both fail-closed), each
+//     rendered by property access in its own element, never typed and never in an attribute. assert-fleet-html checks
+//     them against the closed list it reads from the same two files: each exactly once, and no other number.
 //   - LIQ_UPPER_BOUND_SENTENCE / LIQ_H3_SENTENCE are NOT imported here (they carry "0" / "H-3"): the root
-//     test's negative carrier forbids them in this file. They ride at U-4b-2b.
+//     test's negative carrier forbids them in this file, in both states.
 //   - every other line is digit-free explanatory prose read from lib/ukemi-copy.ts by property/identifier
 //     (never a rendered numeric literal); the schematic upper-bound bar is aria-hidden with NO graduation.
-// CHARTER C: charter cards/labels and the fixed Ukemi accent (var(--ukemi)); content unchanged (the mock's SAMPLE values are not ported: fake values, and digits, never ride
+// CHARTER C: charter cards/labels and the fixed Ukemi accent (var(--ukemi)); content unchanged (the mock's SAMPLE values are not ported: a fake value never rides
 // on a served page). The site footer carries the four common phrases.
+import { join } from "node:path";
 import { FLEET_AGENTS } from "@/lib/fleet";
+import { loadUkemiServed } from "@/lib/ukemi-served-load";
+import { loadUkemiCourse } from "@/lib/ukemi-course-load";
+import { servedFiguresOf } from "@/lib/ukemi-served-figures";
 import Link from "next/link";
 import {
   HERO_TITLE,
@@ -26,6 +40,15 @@ import {
   SERVED_LABEL,
   SERVED_STATE_LEAD,
   LIQ_EMPTY_REGISTRY_SENTENCE,
+  SERVED_COMMITTED_LEAD,
+  LIQ_COMMITTED_STATE_NOTE,
+  FIGURES_LEAD,
+  FIGURE_POINTS_LABEL,
+  FIGURE_MARGIN_LABEL,
+  BOUND_UNIT,
+  FIGURE_MARGIN_NOTE,
+  FIGURE_DIGEST_LABEL,
+  DIGEST_NOTE,
   REGION_NOTE,
   CONDITIONAL_LEAD,
   LIQ_CONDITIONAL_SENTENCE,
@@ -46,6 +69,11 @@ import {
 
 const ACCENT = { color: "var(--ukemi)" } as const;
 
+/** No silent fallback: a committed served state without its figures throws (unreachable, servedFiguresOf throws first). */
+function missingFigures(): never {
+  throw new Error("ukemi-page: the committed served state carries no figures; no silent fallback.");
+}
+
 export function UkemiPage() {
   // Single source of the pill: the frozen fleet register (C-6). Read status ONLY; throw if absent.
   const ukemiAgent = FLEET_AGENTS.find((a) => a.name === "Ukemi");
@@ -55,6 +83,10 @@ export function UkemiPage() {
     );
   }
   const status = ukemiAgent.status;
+  // The served state of the class, from the committed, hashed, dated served-state file (fail-closed loader).
+  const served = loadUkemiServed(join(process.cwd(), "..", ".."));
+  // The figures of the committed stratum, from that file and the course report (fail-closed; null while empty).
+  const figures = servedFiguresOf(served, loadUkemiCourse(join(process.cwd(), "..", "..")));
 
   return (
     <main className="c-main" style={{ paddingTop: 32 }}>
@@ -101,12 +133,43 @@ export function UkemiPage() {
         </div>
       </section>
 
-      {/* WHAT IS SERVED — honest empty-registry state (temps 1), schematic bar, conditional clause */}
+      {/* WHAT IS SERVED — the synced served state (empty: the served sentence; committed: its digit-free
+          restatement), schematic bar, conditional clause */}
       <section className="c-section">
         <div className="c-label">{SERVED_LABEL}</div>
         <div className="c-card" style={{ marginTop: 12, borderColor: "var(--ukemi)" }}>
-          <p className="text-sm text-muted-foreground">{SERVED_STATE_LEAD}</p>
-          <p className="mt-3 font-mono text-base text-foreground">{LIQ_EMPTY_REGISTRY_SENTENCE}</p>
+          {served.registry_state === "empty" ? (
+            <>
+              <p className="text-sm text-muted-foreground">{SERVED_STATE_LEAD}</p>
+              <p className="mt-3 font-mono text-base text-foreground">{LIQ_EMPTY_REGISTRY_SENTENCE}</p>
+            </>
+          ) : (
+            <>
+              <p className="text-sm text-muted-foreground">{SERVED_COMMITTED_LEAD}</p>
+              <p className="mt-3 text-base text-foreground">{LIQ_COMMITTED_STATE_NOTE}</p>
+              {figures === null ? (
+                missingFigures()
+              ) : (
+                <>
+                  <p className="mt-3 text-sm text-muted-foreground">
+                    {FIGURES_LEAD} <span className="font-mono">{figures.readDate}</span>:
+                  </p>
+                  <ul className="mt-2 flex flex-col gap-1 text-sm text-foreground">
+                    <li>
+                      <span className="font-mono">{figures.points}</span> {FIGURE_POINTS_LABEL}
+                    </li>
+                    <li>
+                      {FIGURE_MARGIN_LABEL} <span className="font-mono">{figures.boundMargin}</span> {BOUND_UNIT}; {FIGURE_MARGIN_NOTE}
+                    </li>
+                    <li>
+                      {FIGURE_DIGEST_LABEL} <span className="c-mono break-all">{figures.digest}</span>
+                    </li>
+                  </ul>
+                  <p className="mt-2 text-sm text-muted-foreground">{DIGEST_NOTE}</p>
+                </>
+              )}
+            </>
+          )}
           <p className="text-sm text-muted-foreground" style={{ marginTop: 10 }}>
             {COURSE_POINTER_LEAD} <Link href={UKEMI_COURSE_ROUTE}>{COURSE_POINTER_LINK}</Link>
             {COURSE_POINTER_TAIL}

@@ -18,6 +18,7 @@ import { readFileSync, readdirSync, statSync, mkdtempSync, mkdirSync, copyFileSy
 import { join, extname } from "node:path";
 import { tmpdir } from "node:os";
 import { CALIBRATE_LABEL } from "../apps/harness/src/tools/calibrate.ts";
+import { USDE_POLICY } from "../apps/harness/src/class-policy.ts";
 import { compilePatterns, scanText } from "../scripts/grep-forbidden.mjs";
 import { collectFiles, WHITELIST_DIRS } from "../scripts/export-public.mjs";
 
@@ -123,6 +124,7 @@ test("skill_vocab_is_non_vacuous — surclaims redden, honest phrases green, exe
 });
 
 // ─────────────────────────────────────────────────────────────────────────────────────────────────
+// killer: skills/monark/SKILL.md:56 CONST "an internal **plumbing fixture**" -> "an internal fixture"
 test("skill_carries_the_negative_honesty_lines — B_t mechanism / allow≠execute / no price / operational / committed classes (ADR-M006 D2/D9/D11)", () => {
   // The accepted-contract (ADR-M006 D2) wording is asserted verbatim, so a paraphrase or a deletion reds.
   const required: [string, string][] = [
@@ -135,7 +137,7 @@ test("skill_carries_the_negative_honesty_lines — B_t mechanism / allow≠execu
     ["positive: gate never executes", "gate never executes the named tool"],
     ["positive: attest is demonstrative, not probative", "attest is demonstrative, not probative"],
     ["operational line (D11/M-6)", "no availability commitment; bounded: n ≤ 10000 scores, request\nbody ≤ 256 KB"],
-    ["committed classes are plumbing fixtures (D9/C-3)", "internal\n**plumbing fixtures**"],
+    ["the committed fixture class is a plumbing fixture (D9/C-3)", "an internal **plumbing fixture**"],
     ["committed class btc-dir-15m (D9/C-3)", "`btc-dir-15m`"],
     ["committed class cascade-liquidable-24h (D9/C-3)", "`cascade-liquidable-24h`"],
     ["classes are NOT use cases", "They are NOT use cases. The real path is BYO"],
@@ -189,4 +191,16 @@ test("skill_is_mit0 — LICENSE is MIT-0 (MIT No Attribution), not plain MIT (AD
     !/shall be included in all copies/i.test(lic),
     "MIT-0 must NOT carry MIT's 'shall be included in all copies' attribution clause (else it is plain MIT)",
   );
+});
+
+// CM-2b surfaces (G2 of the lot, M4 and M6): the skill says the retired class answers its named 400, and states the USDe
+// key's imposed alpha and nMin, read from the F-7 rows (apps/harness/src/class-policy.ts), never typed twice.
+// C-1 (c) and C-2 of MONARK's diff check of CM-2b: INTEGRATION.md and DEMO.md state the same policy (B-2), and SKILL.md
+// says every attested is refused (no served class has a committed attestation subject).
+// killer: skills/monark/SKILL.md:67 CONST "`nMin = 50`" -> "`nMin = 51`"
+test("skill_states_the_retired_class_and_the_usde_policy", () => {
+  assert.ok(SKILL.includes("`task_class_retired`"), "SKILL.md names the retired class's code");
+  const policy = `\`alpha = ${String(USDE_POLICY.alpha)}\` and \`nMin = ${String(USDE_POLICY.nMin)}\``;
+  for (const f of ["SKILL.md", "INTEGRATION.md", "DEMO.md"]) assert.ok(readFileSync(join(SKILL_DIR, f), "utf8").includes(policy), `${f} states the USDe alpha and nMin of the F-7 row`);
+  assert.ok(SKILL.includes("so **any `attested` is refused** today") && !SKILL.includes("carried through to `verdict.residual`"), "SKILL.md: every attested is refused");
 });

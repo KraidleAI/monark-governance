@@ -1,7 +1,7 @@
 /**
  * Root/CI probe `probe_byo_demo_loop_closes` (ADR-M006 D10). The BYO demo made VENDABLE and
  * REPRODUCIBLE: a third-party caller calibrates on ITS OWN scores → gates ITS OWN prediction → a covered
- * commit, and the audit `calib_digest === set_digest` closes over the same scores.
+ * commit, and the audit `scores_sha256` (verdict) `=== scores_sha256` (calibrate) closes over the same scores.
  *
  * Exercises the harness END-TO-END against an IN-PROCESS `127.0.0.1` server over the REAL MCP
  * `tools/call` wire and verifies the committed demonstration trace `fixtures/byo-demo-trace.json`.
@@ -10,7 +10,7 @@
  * replays canned responses can copy the demo values, so value-equality alone is NOT enough. The probe
  * therefore (a) re-drives the SAME chain in-process and `deepEqual`s it (faithfulness); (b) pins the LF
  * sha256 (tamper-evidence) + proves it is byte-reproducible in-test; (c) closes the audit tie against an
- * INDEPENDENT recompute of `set_digest` (`runCalibrate`) AND a HAND-ROLLED conformal quantile written
+ * INDEPENDENT recompute of `scores_sha256` (`runCalibrate`) AND a HAND-ROLLED conformal quantile written
  * here (≠ production `splitQuantile`); and (d) drives TEST-CHOSEN PERTURBED inputs that are NOT in the
  * committed trace over the SAME wire seam (`byoToolsCall`) — a perturbed α (0.5 ⇒ q̂=0.6), a perturbed ŷ
  * (region shifts and the L3 gate abstains), and a perturbed score set (a DIFFERENT digest that still
@@ -18,7 +18,6 @@
  */
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { once } from "node:events";
 import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import type { Server as HttpServer } from "node:http";
@@ -39,6 +38,7 @@ import {
   CALLER_YHAT,
 } from "./byo-demo-builder.ts";
 import type { ByoTrace } from "./byo-demo-builder.ts";
+import { startLoopback } from "./helpers/loopback.ts";
 
 const TRACE_PATH = fileURLToPath(new URL("../fixtures/byo-demo-trace.json", import.meta.url));
 const VOCAB_PATH = fileURLToPath(new URL("../vocab-banned.json", import.meta.url));
@@ -47,8 +47,9 @@ const VOCAB_PATH = fileURLToPath(new URL("../vocab-banned.json", import.meta.url
  *  Re-pinned for M012-f (serverInfo version source): the `initialize` step's `serverInfo.version` moved from
  *  the misaligned "1.0.0" to the single-source HARNESS_VERSION "0.4.0" — the ONLY drift: a 5-char-for-5-char
  *  swap, so the length is unchanged (9735 bytes) and every decision byte and digest is byte-identical.
- *  (Prior re-pin: the verdict summary appended to the calibrate + gate `content` text, same frozen result.) */
-const TRACE_SHA256_PINNED = "daf8d3eabacbc601e608d01936d02c0f7ba78dfb5a0d6f5741ecea5fb4eef6d2";
+ *  (Prior re-pin: the verdict summary appended to the calibrate + gate `content` text, same frozen result.)
+ *  Re-recorded in contract 1.1.0 (lot CM-3c-3c): 9735 -> 10061 bytes, prior pin daf8d3ea... */
+const TRACE_SHA256_PINNED = "5c9b03e62bd88703a1ecfe381cf8288cab62aee9d096b03b2302338d49883dfc";
 
 /** Genericity guard pattern: the demo names no asset, no market activity, and no maturity overclaim.
  *  (This regex is the ENFORCEMENT mechanism; it necessarily spells the tokens it forbids.) */
@@ -115,14 +116,14 @@ test("probe_byo_demo_loop_closes", async () => {
   assert.equal(calibrate["qhat"], 1, "calibrate q̂ is 1.0");
   assert.equal(calibrate["reason"], null, "calibrate succeeded (reason null)");
 
-  // (4) THE AUDIT TIE (the vendable claim) — the gate verdict's calib_digest equals the calibrate
-  // set_digest over the SAME scores. Shown THREE independent ways so a frozen constant cannot fake it:
-  //   (4a) the committed gate calib_digest == the committed calibrate set_digest (the recorded tie);
-  assert.equal(verdict["calib_digest"], calibrate["set_digest"], "recorded tie: gate calib_digest == calibrate set_digest");
-  //   (4b) both == runCalibrate(scores).set_digest recomputed here from the RAW scores (independent);
-  const recomputed = runCalibrate({ scores: [...CALLER_SCORES], alpha: CALLER_ALPHA, nMin: CALLER_NMIN }).set_digest;
-  assert.equal(verdict["calib_digest"], recomputed, "gate calib_digest == runCalibrate(scores).set_digest (independent oracle)");
-  assert.equal(calibrate["set_digest"], recomputed, "calibrate set_digest == runCalibrate(scores).set_digest");
+  // (4) THE AUDIT TIE (the vendable claim) — the gate verdict's scores_sha256 equals the calibrate
+  // scores_sha256 over the SAME scores. Shown THREE independent ways so a frozen constant cannot fake it:
+  //   (4a) the committed gate scores_sha256 == the committed calibrate scores_sha256 (the recorded tie);
+  assert.equal(verdict["scores_sha256"], calibrate["scores_sha256"], "recorded tie: gate scores_sha256 == calibrate scores_sha256");
+  //   (4b) both == runCalibrate(scores).scores_sha256 recomputed here from the RAW scores (independent);
+  const recomputed = runCalibrate({ scores: [...CALLER_SCORES], alpha: CALLER_ALPHA, nMin: CALLER_NMIN }).scores_sha256;
+  assert.equal(verdict["scores_sha256"], recomputed, "gate scores_sha256 == runCalibrate(scores).scores_sha256 (independent oracle)");
+  assert.equal(calibrate["scores_sha256"], recomputed, "calibrate scores_sha256 == runCalibrate(scores).scores_sha256");
 
   // (5) HAND-ROLLED CONFORMAL ORACLE — q̂ and the region against arithmetic written HERE (≠ splitQuantile).
   const qhatOracle = independentSplitQhat(CALLER_SCORES, CALLER_ALPHA, CALLER_NMIN);
@@ -137,9 +138,8 @@ test("probe_byo_demo_loop_closes", async () => {
   // (6) ANTI-MOCK (LOAD-BEARING) — perturbations NOT present in the committed trace, over the SAME wire
   // seam (byoToolsCall), must track the independent recompute. A frozen/mock trace (which holds only the
   // demo α=0.1/ŷ=0/these scores) returns the wrong value ⇒ these red.
-  const server: HttpServer = startServer(0);
+  const server: HttpServer = await startLoopback((port) => startServer(port));
   try {
-    await once(server, "listening");
     const addr = server.address();
     assert.ok(addr !== null && typeof addr === "object", "address() must be an AddressInfo");
     assert.equal(addr.address, "127.0.0.1", "the harness binds 127.0.0.1 only");
@@ -165,15 +165,15 @@ test("probe_byo_demo_loop_closes", async () => {
     assert.equal(gPertSc["reason"], "intent_not_in_region", "the abstention reason is intent_not_in_region");
     assert.equal(gPertSc["allow"], false, "allow is false on the perturbed abstention");
 
-    // (6c) PERTURBED SCORE SET: a DIFFERENT score set ⇒ a DIFFERENT set_digest that STILL ties to the
-    // gate calib_digest — proving the tie is computed over the caller's scores, not a frozen constant.
+    // (6c) PERTURBED SCORE SET: a DIFFERENT score set ⇒ a DIFFERENT scores_sha256 that STILL ties to the
+    // gate scores_sha256 — proving the tie is computed over the caller's scores, not a frozen constant.
     const scores2 = [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 2.0];
     const c2 = sc(await byoToolsCall(port, 3, "calibrate", calibrateArgs(scores2, CALLER_ALPHA, CALLER_NMIN)));
     const g2 = sc(await byoToolsCall(port, 4, "gate", gateByoArgs(scores2, CALLER_YHAT)));
     assertClosedGateDecision(g2);
-    const digest2 = c2["set_digest"];
-    assert.equal(obj(g2, "verdict")["calib_digest"], digest2, "perturbed-set tie: gate calib_digest == calibrate set_digest for the DIFFERENT scores");
-    assert.notEqual(digest2, calibrate["set_digest"], "a different score set yields a different digest (the tie is not a constant)");
+    const digest2 = c2["scores_sha256"];
+    assert.equal(obj(g2, "verdict")["scores_sha256"], digest2, "perturbed-set tie: gate scores_sha256 == calibrate scores_sha256 for the DIFFERENT scores");
+    assert.notEqual(digest2, calibrate["scores_sha256"], "a different score set yields a different digest (the tie is not a constant)");
   } finally {
     server.closeAllConnections(); // C-G2D-1: server-socket hygiene (destroy before close). Does NOT fix the libuv async.c flake (nodejs/node#56645)
     await new Promise<void>((resolve) => {
@@ -196,4 +196,15 @@ test("probe_byo_demo_loop_closes", async () => {
   assert.equal(NON_GENERIC.test(provenanceText), false, "PROVENANCE-byo-demo.md must stay generic (NON_GENERIC guard)");
   const demoText = readFileSync(DEMO_PATH, "utf8");
   assert.equal(NON_GENERIC.test(demoText), false, "DEMO.md (published in the skill) must stay generic (NON_GENERIC guard: no named asset, trade, or MVP overclaim)");
+});
+
+// DEMO-HASH-STALE-1 (CM-2b surfaces, MONARK's request): the truncated digest DEMO.md cites for the recorded BYO trace is the
+// first 8 hex of the committed trace's LF sha256 (it was a stale `79b54471…`), and the provenance states the full value.
+// killer: skills/monark/DEMO.md:88 CONST "5c9b03e6…" -> "daf8d3ea…"
+test("demo_md_cites_the_current_byo_trace_digest", () => {
+  const sha = sha256Lf(readFileSync(TRACE_PATH, "utf8"));
+  assert.equal(sha, TRACE_SHA256_PINNED, "the committed trace is the pinned one");
+  const cited = [...readFileSync(DEMO_PATH, "utf8").matchAll(/`([0-9a-f]{8})…`/g)].map((m) => m[1]);
+  assert.deepEqual(cited, [sha.slice(0, 8)], "DEMO.md cites exactly the current truncated digest of fixtures/byo-demo-trace.json");
+  assert.ok(readFileSync(PROVENANCE_PATH, "utf8").includes(sha), "the provenance states the full digest");
 });

@@ -14,11 +14,12 @@ const PHRASES: readonly string[] = [
 
 const LINKS: readonly { href: string; label: string }[] = [
   { href: "/fleet", label: "Fleet register" },
-  { href: "/products", label: "Applications" },
+  { href: "/applications", label: "Applications" },
   { href: "/how", label: "How it works" },
-  { href: "/roadmap", label: "Roadmap" },
+  { href: "/roadmap", label: "Building" },
   { href: "/token", label: "Token" },
   { href: "/integrators", label: "For integrators" },
+  { href: "/docs", label: "Docs" },
   { href: "/writing", label: "Writing" },
 ];
 

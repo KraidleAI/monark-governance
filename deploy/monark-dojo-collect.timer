@@ -1,0 +1,23 @@
+# systemd timer for the MONARK Dojo collector (ADR-DOJO-PR-3 D-5, DOJO-COLLECT-TIMER-1; docs/dojo/FAITS-systemd-timer-2026-09-27.md).
+# One idempotent step every 5 minutes: an instant t_i is read at the first step at or after it, at most 300 s + 1 s later, inside its
+# window [t_i, t_i + 600 s]; three steps (00:00, 00:05, 00:10 UTC) precede T_d + 900 s, the last moment of the day's beacon. Every
+# value is written explicitly, none is left to a default (FM-2.2). Enable: RUNBOOK-dojo, act A-7 (rehearsal).
+[Unit]
+Description=MONARK Dojo collector timer - one --tick every 5 minutes (ADR-DOJO-PR-3)
+Documentation=https://github.com/KraidleAI/monark
+
+[Timer]
+# Minutes 0, 5, 10, ... of every hour IN UTC, whatever the host's zone: the repetition value of systemd.time(7) (FAITS-SYSTEMD-TIMER-1
+# l.15, `*:0/5`) written in the full form with the zone suffix of the served monark-sentinel.timer (same FAITS, l.6). Checked on the
+# host by `systemd-analyze calendar` (RUNBOOK section 5).
+OnCalendar=*-*-* *:00/5:00 UTC
+# AccuracySec defaults to 1 min (systemd.timer(5) of systemd 259, read on the site VPS; same package here): pinned to 1 s.
+# No randomized delay (the sentinel's 1800 s is never copied here: it would push a reading out of its window).
+AccuracySec=1s
+RandomizedDelaySec=0
+# A step missed while the timer was inactive runs once at activation; the step is idempotent (ADR-DOJO-PR-2 dated line 08:28Z (6)).
+Persistent=true
+Unit=monark-dojo-collect.service
+
+[Install]
+WantedBy=timers.target

@@ -1,0 +1,10 @@
+{
+  "name": "@monark/dojo",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "MONARK Dojo (ADR-DOJO-SNAPSHOT-1) -- piece 1, hold snapshot. PR-1a: scripts/dojo-core.mjs, the pure core (hold score, owner class by the Ed25519 curve test, Merkle tree of RFC 6962), Node built-ins only: no I/O, no clock, no network, no default value.",
+  "dependencies": {
+    "@monark/rpc-guard": "0.0.0"
+  }
+}

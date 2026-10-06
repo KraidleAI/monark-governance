@@ -1,0 +1,81 @@
+# G0 du lot CM-3c-1 (contrat 1.1.0, bloc A) : écriture canonique, codes d'erreur, unités de q̂, types de la table de politique
+
+- **Sources** : plan r3 `recherches:coordination/pieces/2026-10-04-contrat-1-1-0-r3/PLAN-CM-3c-CM-4.md` (sha256 `3e0da1a617cf5385f6567ec998b33a79fcde00e06d3de3392af47ff9ae07653c`, vérifié par `sha256sum -c SHA256SUMS` du dossier : 6 pièces et 2 décisions OK), §2, §5.2, §5.2.1, §8.3 (ligne A), §8.4 ; `SPEC-1-1-0-brouillon.md` §2, §5, §10, §13 ; `AMENDEMENT-ADR-CM-r3.md` ; `TEXTES-ACTES-MONARK.md` §1 et §2 ; `PLI-r3.md` (R2-G0-3) ; décisions `recherches:decisions/0004-ADR-amendment-A-2-import-guard.md` r3 (§2.1, §2.3), `0005-ADR-addendum-3-contract-1-1-0.md` r3, `0006-ADR-addendum-8-guard-recomputes-from-counts.md` (projet) ; format du registre `recherches:kata/registry/FORMAT.md`. Contrôle de MONARK : `recherches:coordination/messages/2026-10-04-MONARK-vers-RECHERCHES-r3-controle-CM-3c-1.md` (commit `3a8e487` de `recherches`), verdict APPROUVE, §3 « Tu peux lancer son G0 ». Réponses à Q-1 et Q-3 : décision déléguée `recherches:coordination/pieces/2026-10-04-contrat-1-1-0-r3/avis/DECISION-PolicyRow-Q1-Q3.md` (sha256 `117eb289…37ba4`) sur l'avis `AVIS-advisor-PolicyRow-Q1-Q3.md` (sha256 `d54c3443…12b0a`, sa table « colonne | type | obligatoire | source » est la référence du lot), commit `46e9300` de `recherches`, `avis/SHA256SUMS` 4 sur 4 OK ; contrôle de MONARK `recherches:coordination/messages/2026-10-04-MONARK-vers-RECHERCHES-Q1-Q3-controle.md` (commit `3e2fe0c`), verdict APPROUVE, « Écris le code de CM-3c-1 ».
+- **ADR** : ADR-CM, amendement daté « 2026-10-04 (3) » ; ADR-M001 addendum D9-ter et ADR-PUBLIC-CADENCE-1 §17, appliqués par MONARK au tronc dans `43d90ac9` (voir « État de la base »).
+- **Base** : `origin/base/chantier-moteur-2026-10-03` = `43d90ac9` (avance rapide de MONARK depuis `9757f48f` jusqu'à la tête du tronc ; porte D9-ter, le §17 et le temps (ii) `8082f223`). Branche `recherches/cm-3c-1`, arbre `/home/user/monark-governance-c3c1`, ce G0 rebasé sur `43d90ac9`. Les lots 1.1.0 fusionnent sur cette base, pas au tronc, jusqu'à T0 (ADR-PUBLIC-CADENCE-1 §17). Auteur : RECHERCHES. Borne R-25 du lot : 547 lignes comptées contre `43d90ac9` (`scripts/oracle/r25.mjs`, pathspec de `ci.yml:82`).
+- **Statut : repris.** Première version arrêtée après le G0 (commit `c398cd30`, sur `9757f48f`) ; Q-1, Q-2 et Q-3 sont réglées (section « Questions »), le code est écrit sur ce G0.
+
+## État de la base (mesuré le 2026-10-04 sur `9757f48f` ; réglé par Q-2, voir la réponse)
+
+1. **La base ne porte pas les actes d'ADR.** `git merge-base --is-ancestor` : `ad2354df` et `43d90ac9` sont au tronc `origin/lot/etude-suite` (`43d90ac9`), **pas** dans la base `9757f48f`. La base n'a donc ni l'addendum D9-ter de l'ADR-M001 (base d'ADR du ré-épinglage du bloc A) ni le §17 d'ADR-PUBLIC-CADENCE-1. Je n'ai pas fusionné le tronc dans la base (acte de MONARK). La branche part de la base telle quelle.
+2. **La base n'est pas verte.** `npm test` complet sous Node 24.21.0, variables de proxy retirées : 1 948 tests, 1 932 verts, 13 sautés, **3 rouges** :
+   - `bell_served_collector_revision_is_a_collector_commit` (`test/bell-served.test.ts`) : **environnemental**, l'objet `3bda2cad` manquait au clone local ; récupéré par `git fetch origin 3bda2cad…`, il ne rougit plus pour cette raison ;
+   - `harness_served_data_matches_in_process_harness` (`test/harness-served.test.ts:79`) : `openapi.json` servi `9e3176ea…` contre `d605b912…` en processus ;
+   - `narabi_gate_facts_read_from_committed_sources` (`test/narabi-live.test.ts:575`) : même empreinte.
+
+   Les deux derniers sont le temps (ii) de l'étape 4 (déploiement de la pile CM-2), fait **au tronc seulement** par `8082f223` (`apps/site/data/harness-served.json`, `narabi-served.json`, `ukemi-served.json`, `manifest.sha256.json`, `docs/deploy-CA-harness.json`, `test/harness-served.test.ts`). Ce sont des fichiers de la zone MONARK. Le lot ne peut pas tenir « 0 échec » sur cette base sans les toucher.
+
+## Périmètre (plan §8.3, ligne A, exactement)
+
+Tout dans `packages/contracts/src/`, aucun fichier de `schemas/`, aucune différence servie.
+
+1. **`canonical.ts`** (P-2, spec §2) :
+   - `canonicalJson(value)` : JSON minifié ; clés ASCII seulement (refus sinon), triées (ordre JavaScript par défaut = ordre des octets pour l'ASCII) ; nombres finis écrits par `JSON.stringify` (aller-retour le plus court, `0` et `1` sans point, `1e-7`, `1e+21`) ; `-0` écrit `0` ; chaîne ou clé à surrogate isolée refusée ; tableau creux, objet non simple, cycle, `undefined`, fonction, symbole, bigint refusés (`RangeError`), comme `canonicalRow` de `packages/hikae` (CM-3b) ;
+   - `sha256Canonical(value)` ; `scoresSha256(scores)` = sha256 de l'écriture canonique du tableau dans l'ordre donné (`[]` compris) ; `requestSha256(envelope)` = sha256 de l'écriture canonique de l'enveloppe `{prediction, params, attested?}` telle qu'envoyée.
+   - Vecteurs de la spec §2 (dette « TBD (RECHERCHES, CM-3c tests) ») : clé non ASCII refusée ; surrogate isolée refusée ; `{"b":1,"a":[0.1,1e-7,-0]}` → `{"a":[0.1,1e-7,0],"b":1}` et son empreinte, épinglée par `sha256sum` sur le texte littéral ; parité octet pour octet avec `orderedCalibDigest` de `packages/hikae` sur des scores finis (même écriture que le banc P2, `FORMAT.md` « Digests »).
+   - `canonicalRow` (hikae) reste en place jusqu'au bloc C (plan v1 §6 : « réexporté depuis contracts » en CM-3c, avec `hikae`) ; le bloc A ne touche pas `packages/hikae`. Écart déclaré d'ici là : `canonicalRow` accepte une clé non ASCII, `canonicalJson` la refuse.
+2. **`TOOL_ERROR_CODES`** (spec §13, plan §2.4) : liste fermée et ordonnée. Le harnais la réexporte : `HARNESS_ERROR_CODES` de `apps/harness/src/tools/gate.ts:272-279` devient la liste de `@monark/contracts` ; le compte de lignes de `gate.ts` est gardé, pour qu'aucune ancre de tueur (`gate.ts:322`, `:927`, etc.) ne bouge. Le tueur `gate.ts:273` de `error-code.test.ts` est ré-ancré sur le fichier de `contracts`. Octets servis identiques : la liste n'est servie nulle part (ni `openapi.ts` ni `tools/list` ne l'énumèrent) ; seul `toolErrorCode` la lit. Contenu : voir Q-3.
+3. **`QHAT_UNITS`** = `["label", "scale", "score"]` (spec §5) et son type ; énumérations de la table : `REGION_RULES`, `ROW_STATUSES`, `STATEMENTS`, `CELL_KEY_RULES`, `SCORE_ORDERS`, `CHECK_OUTCOMES`.
+4. **`PolicyRow` et `ClassEntry`** (types et contrôle fermé) : `assertClosedClassEntry`, `assertClosedPolicyRow`, `assertClosedPolicyTable` (`{row_format, class, rows}`), sur le modèle de `closed-check.ts` (clé inconnue refusée, clé absente refusée, `null` jamais omis). Contenu fixé par la réponse à Q-1 : les **60 clés** de la table de l'avis, toujours présentes, `null` quand la colonne ne s'applique pas ; les sous-formes (`thresholds`, `scale_table`, `calib_support`, `test`, `bridge`, `fwd`, `vetoes`, `retire`, `source`, `recompute`), **un seul type de bloc** pour `test`, `bridge` et `fwd` ; les énumérations ; les grammaires numériques (`u_test`, `miss_bound` à 7 décimales, `marginal_alpha` à 4, queues en chaînes décimales de comptes non réduits, écriture aller-retour la plus courte d'`alpha`, `test_delta`, `t1`, `t2`, entiers sûrs) ; la liste fermée d'une ligne `marginal` (A-2 §2.3, spec §10) ; les couplages structurels de l'avis §1.5 (`vetoes` et blocs, `retire` et `status`, `*_num` et `*_den`, `side` et `bucket`, `miss_bound` et `bound_on`, colonnes propres à `sign-set`, `scale_table.sha256` = sha256 de l'écriture canonique de `values`). Les grammaires de valeurs (raisons, causes, identifiants d'époque et de calendrier, noms de vérificateurs), la projection, l'arithmétique, les longueurs de `scale_table.values` par `kind` et les couplages avec `source.wave` restent au garde (B1, B2, CM-4c). Les types TypeScript sont dérivés des formes du contrôle (une seule source). Les clés vivent dans une constante à part (`POLICY_ALLOWED_KEYS`), pas dans `ALLOWED_KEYS`, que `contracts.test.ts` compare aux schémas : le schéma `policy-row.schema.json` n'entre qu'au bloc C (plan §8.4), avec le test de parité type ↔ schéma.
+5. **`index.ts`** exporte le tout. `calibDigest` et les types 1.0.0 restent (bloc C).
+6. **Ré-épinglage de `test/contracts-frozen.manifest.json`** dans le même commit que le changement de `packages/contracts/src/` (D9-ter, ré-épinglage 1). Le compte de 7 schémas de `test/contracts-frozen.test.ts` (l.71-75) ne bouge pas (plan §8.4 ; il passe à 9 au bloc C). Zone ouverte par MONARK, par nom, du bloc A à la fusion du bloc C.
+
+## Différences servies
+
+**Aucune.** Le rejeu épinglé de CM-3a (`apps/harness/test/served-replay-cm3.test.ts`) doit rester vert sans changement ; `HARNESS_ERROR_CODES` garde ses 24 premiers codes dans l'ordre.
+
+## Rouges du bloc A (plan §8.4)
+
+- `contracts_frozen — schemas/ and packages/contracts/src/ match the current frozen manifest` rougit dès le premier fichier neuf et reverdit dans le même commit par le ré-épinglage. Rouge à la tête du lot : 0.
+- Rien d'autre : la base `43d90ac9` est verte (Q-2 réglée).
+
+## Tests prévus (F2P contre la base, un tueur en forme fermée chacun)
+
+Tous les tests neufs lisent les noms neufs par l'espace de noms de `@monark/contracts` ou importent un module neuf (« new-module » pour `red-proof`) :
+- `packages/contracts/test/canonical.test.ts` : vecteurs de la spec §2, refus nommés, `-0`, exposants, ordre des clés, `scoresSha256([])` = sha256 de `[]`, ordre significatif (une permutation change l'empreinte), `requestSha256` sur une enveloppe avec et sans `attested`, parité avec `orderedCalibDigest`.
+- `packages/contracts/test/policy-table.test.ts` : une ligne `marginal` (forme USDe), une ligne kata de direction et une de bande, une entrée de classe kata et une liq (`strata_cuts` = `[200000000000, 10000000000000, 100000000000000]`) admises ; clé en trop, clé absente, mauvais type, colonne per-calibration non nulle sur une ligne `marginal`, `p_served` ou `order` nul sur une ligne `marginal`, `order` hors de `time | ascending`, `row_format` autre que `class-policy-v2` refusés.
+- `apps/harness/test/error-code.test.ts` : la liste pinée devient celle de Q-3 (32 codes), et `HARNESS_ERROR_CODES === TOOL_ERROR_CODES`.
+
+Tueurs prévus (exemples) : `CONST` sur un code de `TOOL_ERROR_CODES` ; `ROR` sur le test ASCII des clés (`> 0x7f`) ; `SDL` du remplacement de `-0` ; `CONST` sur une clé de `POLICY_ALLOWED_KEYS` ; `SDL` de la règle « colonne nulle » des lignes `marginal`.
+
+## Oracle
+
+`tsc`, `lint` (fichiers changés), `lint:ratchet`, `gate:vocab`, `lang:gate`, `npm test` complet à 0 échec, `node scripts/red-proof.mjs --base 43d90ac9 --gel <gel> --repo /home/user/monark-governance-c3c1 --draw <n> --seed 37`, R-25 ≤ 547.
+
+## R-25 (estimation)
+
+`canonical.ts` ~70, codes et énumérations ~45, `PolicyRow` / `ClassEntry` et contrôle fermé ~170, `index.ts` ~15, `gate.ts` ~10, manifeste ~10, tests ~200 : **~520**, sous 547 mais avec peu de marge ; la liste exacte des colonnes (Q-1) en est le facteur principal. Le plan estimait ~430.
+
+## Questions
+
+**Réponses (2026-10-04)** :
+- **Q-1 : réglée.** Décision déléguée `DECISION-PolicyRow-Q1-Q3.md` sur l'avis `AVIS-advisor-PolicyRow-Q1-Q3.md`, approuvée par MONARK (`3e2fe0c`). Colonnes `bridge` et `fwd` (pas `fwd2`), même type que `test` ; `vetoes` = `{test, bridge, fwd}` ; pas de bloc TEST-2 séparé ; pas de `retired_at`, mais `retire` = `null` ou `{cause, k_test, n_test, u_test}`, non nul exactement sur le statut `retired` ; types de la table de l'avis (queues en chaînes décimales de comptes non réduits) ; `rank`, `U`, `calib.reason` projetés sur `p_served`, `miss_bound`, `status_reason` ; `drops`, `test.months` et `live1` hors de la ligne. Seule sortie déclarée : si ENGINE-ROW-RETIRE-PATH-1 fixe une autre preuve de retrait avant le G0 du bloc C, `retire` est corrigée au bloc C. Les corrections de la spec §10 et §16, d'A-2 §2.1 et du plan r3 §5.2 vont à la révision suivante des pièces, pas à ce lot.
+- **Q-2 : réglée.** MONARK a avancé `base/chantier-moteur-2026-10-03` jusqu'à `43d90ac9` (tête du tronc, verte, porte D9-ter et le temps (ii)). Le G0 est rebasé dessus ; les deux rouges de la zone MONARK et le rouge environnemental ne se posent plus.
+- **Q-3 : réglée, 32 codes dès le bloc A** (proposition par défaut retenue par la même décision, approuvée par MONARK). Aucun lanceur neuf : `input_invalid` et `json_invalid` sont réservés au bloc C, les 6 codes kata au bloc D ; le G0 du bloc C le rappelle ; au plus tard au G7 de CM-4b, un test exige un lanceur pour chaque code sauf `output_invalid`.
+
+Texte des questions, tel que posé le 2026-10-04 :
+
+**Q-1 (RECHERCHES et MONARK) : la liste exacte des colonnes de `PolicyRow` n'est pas fixée par les sources, alors que le bloc A la fige.**
+- Le plan r3 §8.4 dit « le format de ligne est figé dès le bloc A par le type `PolicyRow` et le contrôle fermé » (NB-4 (d), accepté par MONARK). La spec §10 et §16 disent : « the exact column list, **TBD (RECHERCHES in lot CM-4a, checked by MONARK)** ». D9-ter n'autorise que deux ré-épinglages (bloc A et bloc C) : une colonne fixée en CM-4a (bloc B1) serait un troisième ré-épinglage, non couvert.
+- Points sans nom ni type dans les sources :
+  1. **les blocs du pont et de FWD-2 de la vague 2** : la spec dit « `test` (`{k_test, n_test, u_test}`; the same blocks for the wave 2 bridge and FWD-2 checks) » sans nom de colonne ; le plan v1 donnait `vetoes` = `{test, bridge, fwd}`. Proposition : colonnes `bridge` et `fwd2` de même forme que `test` (`null` en vague 1), et `vetoes` = `{test, bridge, fwd2}` booléens. Faut-il aussi un bloc TEST-2 distinct de `test` (ADR 0006 l.29 : CALIB-2, pont, TEST-2, FWD-2) ? Proposition : non, `test` porte TEST en vague 1 et TEST-2 en vague 2 (une ligne = une vague, `source.wave`) ;
+  2. **`retired_at`** : nommé au plan r3 §5.2, absent de la spec §10. Proposition : colonne `retired_at` (date-heure RFC 3339 ou `null`) ;
+  3. **types** non écrits : `w` (registre `W`, fenêtre en barres : entier), `bucket` (`up-b1` … `down-b3`, `b0` : chaîne), `epoch` (entier ≥ 1), `scale_table.values` (registre : 168 ou 42 facteurs, `null` pour un créneau sans facteur : tableau de nombres ou `null`), `u_test` (registre `UTest` : chaîne, `"1"` ou décimal, ou `null`), `tail_tail_num/den` et `miss_adj_tail_num/den` (grands entiers : chaînes décimales), `qhat` (nombre), `calib_support` (`{min, max}` nombres), `calib_cause` et `calib_parent` (chaînes, grammaire A-1), `bound_on`, `aux_seq` (`label | score`) ;
+  4. **colonnes du registre sans colonne de ligne** : `rank` (= `p_served` ?), `U` (= `miss_bound` ?), `drops`, `test.months`, `calib.reason` (= `status_reason` ?). La projection registre → ligne (A-2 §2.2 point 1) doit être déterministe : dire lesquelles entrent.
+- Réponse demandée : la liste fermée des colonnes avec leurs types (ou un « oui » aux propositions ci-dessus), et la correction de la spec §10 et §16 (« fixed in block A »).
+
+**Q-2 (MONARK) : la base du chantier.** La base `9757f48f` n'a ni `43d90ac9` (actes d'ADR, dont D9-ter qui fonde le ré-épinglage du lot) ni `8082f223` (temps (ii) de l'étape 4, sans lequel deux tests de la zone MONARK rougissent). Le lot exige « 0 échec, aucun rouge admis ». Proposition : MONARK fusionne le tronc (`43d90ac9`) dans `base/chantier-moteur-2026-10-03`, puis le lot repart de cette tête. Sinon, dire quels rouges le lot porte, nommés.
+
+**Q-3 (RECHERCHES, proposition par défaut) : `TOOL_ERROR_CODES` au bloc A porte 24 ou 32 codes ?** Le plan dit « le harnais les réexporte, octets servis identiques », sans compte. Les 6 codes kata naissent en CM-4b (bloc D), qui n'a pas de ré-épinglage : ils doivent donc être dans `contracts` au plus tard au bloc C. Proposition : **32 dès le bloc A** (les 24 de `HARNESS_ERROR_CODES` dans leur ordre, puis `input_invalid`, `json_invalid`, `kata_key_invalid`, `kata_yhat_domain`, `features_digest_required`, `policy_tau_cap`, `produced_at_off_grid`, `produced_at_stale`), aucun lanceur neuf : aucun octet servi ne change, puisque la liste n'est pas servie.
+
+**Q-4 (information)** : deux canonicaliseurs du même domaine (`canonicalRow` de `hikae`, `canonicalJson` de `contracts`) coexistent du bloc A au bloc C ; seul l'écart sur les clés non ASCII les distingue.

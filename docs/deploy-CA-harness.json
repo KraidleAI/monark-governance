@@ -1,7 +1,7 @@
 {
   "url": "https://api.monarkgate.tech",
   "mcp_url": "https://mcp.monarkgate.tech",
-  "checked_at": "2026-09-23T00:54:20.288Z",
+  "checked_at": "2026-10-06T05:42:44.278Z",
   "checks": [
     {
       "name": "health",
@@ -14,7 +14,7 @@
       "name": "openapi",
       "ok": true,
       "status": 200,
-      "sha256": "ad4371217ba87b261e682d428ea58825be5f740e9082484914c9036daa3fe2ba",
+      "sha256": "61c9df97a254a863a68fdc2c493799803397bfa190b85db3ca97673d2a8ccbf0",
       "detail": "paths=/gate,/cascade,/attest,/calibrate"
     },
     {
@@ -35,35 +35,56 @@
       "name": "mcp_tools_list",
       "ok": true,
       "status": 200,
-      "sha256": "8d3743c74f58c33d9b1bc13ce1653f8c8e97e9a35585d8446e62357e8f295b76",
+      "sha256": "b634e7e142bb90558a0768801505c3d5ab7c7fd7203b89f8070b2a86729a1580",
       "detail": "tools=gate,cascade,attest,calibrate"
     },
     {
       "name": "gate_call",
       "ok": true,
       "status": 200,
-      "sha256": "793e0df9ec43b214747eea703f3d183b7e09a5fdcf0631f0f391a0b8a35bb8a9",
+      "sha256": "701e9b068944aca7a9c49bb5415fa2af21006b4ba696c916108c4d326445a08c",
       "detail": "action=commit"
+    },
+    {
+      "name": "gate_retired_call",
+      "ok": true,
+      "status": 400,
+      "sha256": "676f76747ef39d532e0d2a6e4c55876b7f5d97a76b5b3b1f261cd28c843d8442",
+      "detail": "status=400 code=task_class_retired"
+    },
+    {
+      "name": "gate_future_call",
+      "ok": true,
+      "status": 400,
+      "sha256": "05c2ad36b25112fba8e7a8f4c82ef378441a7bbad6a3cfcb97d43a969e62a6c6",
+      "detail": "status=400 code=produced_at_future"
     },
     {
       "name": "gate_liq_call",
       "ok": true,
       "status": 200,
-      "sha256": "db85941e2845029e4c6d1c3e49636265bad1f734448fb2ac5110d0a702389dcd",
-      "detail": "status=200 reason=under_calib empty_registry_text=true"
+      "sha256": "e2bfb18be056b2ed6f0d1cdae681d9b9e38ede054c79509898243d327a105fe7",
+      "detail": "status=200 action=defer reason=interval_too_wide verdict_reason=covered upper_bound=true n_calib=170 digest_s0=true committed_text=true empty_text=false"
+    },
+    {
+      "name": "gate_liq_uncommitted_call",
+      "ok": true,
+      "status": 200,
+      "sha256": "22d12825bdb204cf6ed32ec3311fa232ded7c93ef7ed14ef20e2686247242ae8",
+      "detail": "status=200 action=abstain reason=under_calib verdict_reason=under_calib n_calib=0"
     },
     {
       "name": "mcp_gate_description_liq",
       "ok": true,
       "status": 200,
-      "sha256": "8d3743c74f58c33d9b1bc13ce1653f8c8e97e9a35585d8446e62357e8f295b76",
-      "detail": "status=200 empty_registry_sentence=true h3_sentence=false"
+      "sha256": "b634e7e142bb90558a0768801505c3d5ab7c7fd7203b89f8070b2a86729a1580",
+      "detail": "status=200 committed_clause=true empty_registry_sentence=false"
     },
     {
       "name": "cascade_call",
       "ok": true,
       "status": 200,
-      "sha256": "dc4ede52dc5b35efc2b3fdb0a82638454e6dbe27545387c79941292b7fa16576",
+      "sha256": "145b49754eeeaae9e644fe2b285ce2e3f04841473faf93479dbddeb7978444c5",
       "detail": "yhat=100"
     },
     {
@@ -77,15 +98,15 @@
       "name": "calibrate_call",
       "ok": true,
       "status": 200,
-      "sha256": "5a67ff502aaef51050048955cf7ca8e17011401235c6f7afaaf2b376f7a05e88",
+      "sha256": "f169e9f6e333374a9d47a2010674ca789aba45bd126ef8764df2f0fb86a2cb90",
       "detail": "qhat=1"
     },
     {
       "name": "gate_byo_call",
       "ok": true,
       "status": 200,
-      "sha256": "4641213ade70b3dbbf45c888db51398833252d1e2bbe71c701a22e21a4c6cb1e",
-      "detail": "action=commit calib_digest=4081f7184e42b34e594015191f04720343b8b37691c7e4412c2469efdc43dd3a set_digest=4081f7184e42b34e594015191f04720343b8b37691c7e4412c2469efdc43dd3a"
+      "sha256": "b6d91fd05e06f647e7ddcd210e07c7bd0e9ee1d9061e56428e3a088e34826573",
+      "detail": "action=commit scores_sha256=3e12ae9e2e06bd038abc368fb2c94df3cb3097b8226d57f069874b84c6b54dcb calibrate_scores_sha256=3e12ae9e2e06bd038abc368fb2c94df3cb3097b8226d57f069874b84c6b54dcb"
     }
   ],
   "tls": {
@@ -94,5 +115,12 @@
     "issuer": "Let's Encrypt",
     "subject": "api.monarkgate.tech",
     "valid_to": "Dec 10 04:57:46 2026 GMT"
+  },
+  "tls_mcp": {
+    "host": "mcp.monarkgate.tech",
+    "authorized": true,
+    "issuer": "Let's Encrypt",
+    "subject": "mcp.monarkgate.tech",
+    "valid_to": "Dec 10 04:57:45 2026 GMT"
   }
 }

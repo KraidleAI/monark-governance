@@ -26,7 +26,8 @@
  *   (f) the exported .github/workflows/ci.yml is DERIVED (D7 bis R1): no `r25` at all (bare regex, =
  *       the `grep -c r25 = 0` oracle, subsumes the r25-taille-de-lot job), a `push` trigger under
  *       `on:`, >= 2 SHA-pinned actions, and no continue-on-error DIRECTIVE (YAML key; the prose
- *       "No continue-on-error" comment is allowed — mirrors test 38 in ci-gates.test.ts).
+ *       "No continue-on-error" comment is allowed — mirrors test 38 in ci-gates.test.ts). ADR-PUBLIC-CADENCE-1 adds: no
+ *       `secrets.<name>` in it, and no scripts/public-text-deny.* file in the export.
  *   (h) (Lot F-public) build output (.next/.turbo) and installed deps (node_modules) are NEVER exported
  *       into apps/site (WALK_SKIP_DIRS). Seeded in the source copy, asserted absent from the output.
  *       (Lettered (h), not (g): ADR-M004 D7 bis R4 already names 42(g) for the MINE-B assertion.)
@@ -58,7 +59,9 @@ import { mkdtempSync, rmSync, readFileSync, readdirSync, statSync, existsSync, c
 import { tmpdir } from "node:os";
 import { join, relative, dirname } from "node:path";
 import { createHash } from "node:crypto";
-import { derivePublicWorkflow } from "../scripts/export-public.mjs";
+import { collectFiles, derivePublicWorkflow } from "../scripts/export-public.mjs";
+import { innerFailures } from "./helpers/inner-failures.ts";
+import { dropPendingSnapshot } from "./helpers/pending-snapshot.ts";
 
 const ROOT = join(import.meta.dirname, "..");
 
@@ -79,7 +82,8 @@ interface ExcludeDataConfig {
   data: string[];
 }
 
-// Mirrors scripts/export-public.mjs STRUCTURAL_BLACKLIST (POSIX rel paths).
+// Mirrors scripts/export-public.mjs STRUCTURAL_BLACKLIST (POSIX rel paths), plus a catch-all over docs/ folders that the
+// script does not carry (defense in depth: this mirror is stricter than the script, never looser).
 const BLACKLIST: RegExp[] = [
   /^docs\/adr\//,
   /^docs\/G1-/, /^docs\/G2-/, /^docs\/G7-/,
@@ -87,8 +91,33 @@ const BLACKLIST: RegExp[] = [
   /^docs\/AUDIT-ENTREE\.md$/,
   /^docs\/JOURNAL-PROVENANCE\.md$/,
   /^docs\/R-P1-/,
-  /(^|\/)docs\//, // any docs/ directory, incl. packages/*\/docs (hikae S2)
+  // Any docs/ directory, incl. packages/*\/docs (hikae S2), EXCEPT the two storefront folders of the /docs route: the page
+  // tree apps/site/app/docs/ and its components apps/site/components/docs/ are public site content, exported like every
+  // other route (the script's own STRUCTURAL_BLACKLIST names no catch-all). Any other docs/ folder, under apps/site too,
+  // stays blacklisted. Pinned both ways by export_blacklist_keeps_governance_docs_and_lets_the_docs_route_ship below.
+  /^(?!apps\/site\/(?:app|components)\/docs\/)(?:[^/]+\/)*docs\//,
 ];
+
+test("export_blacklist_keeps_governance_docs_and_lets_the_docs_route_ship", () => {
+  const blocked = (rel: string): boolean => BLACKLIST.some((re) => re.test(rel));
+  // Governance and report folders stay blacklisted, wherever they sit.
+  for (const rel of [
+    "docs/adr/ADR-M001.md",
+    "docs/G1-lot-site-docs-1.md",
+    "docs/RUNBOOK-bell.md",
+    "packages/hikae/docs/S2-RAPPORT.md",
+    "apps/harness/docs/notes.md",
+    "apps/site/docs/notes.md",
+    "apps/site/app/docs-extra/docs/notes.md",
+    "apps/site/lib/docs/notes.md",
+  ]) {
+    assert.ok(blocked(rel), `${rel} must stay blacklisted`);
+  }
+  // The storefront /docs route and its components ship.
+  for (const rel of ["apps/site/app/docs/page.tsx", "apps/site/app/docs/pieces/hikae/page.tsx", "apps/site/app/docs/docs.css", "apps/site/components/docs/svg-kit.tsx", "apps/site/components/docs/schemas/gate.tsx"]) {
+    assert.ok(!blocked(rel), `${rel} is storefront content and must ship`);
+  }
+});
 
 function listFiles(dir: string): string[] {
   const out: string[] = [];
@@ -133,6 +162,8 @@ test("export_public_no_governance_no_french — clean public export (test 42)", 
       join(src, "LICENSE"),
       "MONARK public export test fixture (not a real license). Real license = investor pending Q4, ADR-M004 D7 bis R2.\n",
     );
+    // SITE-SEND-GUARD-MECH-1 (lot CM-3c-4a): --out refuses while a pending snapshot is in the tree; export it as promoted.
+    dropPendingSnapshot(src);
 
     // Lot F-public: seed build-output / installed-deps dirs the export MUST NOT walk into apps/site
     // (WALK_SKIP_DIRS in export-public.mjs). cpSync's own filter skips node_modules, so inject these AFTER
@@ -275,6 +306,10 @@ test("export_public_no_governance_no_french — clean public export (test 42)", 
       if (sha) pinnedShas.add(sha);
     }
     assert.ok(pinnedShas.size >= 2, `exported workflow must keep >= 2 SHA-pinned actions (found ${pinnedShas.size})`);
+    // (f, ADR-PUBLIC-CADENCE-1 PR-A1) the derived workflow references no secret (PUBLIC-WORKFLOW-NO-SECRETS-1, CA-4.2, mutant
+    //     M4-a), and the vendor lists of the public-text gate never ship (CA-1.5, mutant M1-n).
+    assert.ok(!/\bsecrets\.[A-Za-z_]/.test(ciYml), "exported workflow must reference no secrets.<name>");
+    assert.deepEqual(files.filter((f) => f.startsWith("scripts/public-text-deny.")), [], "scripts/public-text-deny.* must not be exported");
 
     // (c) language gate GREEN on root,contracts,schemas,site (throws if it exits 1 — how mutant M2 reds).
     //     The `schemas` scope (ADR-M001 D9-bis) gives the frozen schemas/ English-only teeth: French prose
@@ -313,32 +348,37 @@ test("export_public_no_governance_no_french — clean public export (test 42)", 
     for (const k of Object.keys(childEnv)) if (k.startsWith("NODE_TEST_")) delete childEnv[k];
     // Fixed literal commands passed as a single string (no args array) so shell:true does not trip
     // DEP0190; nothing here is interpolated from untrusted input.
-    const runNpm = (cmd: string): SpawnSyncReturns<string> =>
+    // Per-command bound (EXPORT-CI-TIMEOUT-BOUND-1, decision (a) of 2026-10-01): `npm ci` keeps 600 s; `npm run ci` gets 1800 s,
+    // 1.8x the worst estimated demand. Measurement report sha256 a1330724d64c619139628b7bc83ef31b5117a7844ff63681bd0755457cb6069a
+    // (F:/tmp/dojo/insp1/t42/RAPPORT.md on 2026-10-01): exported CI 175-200 s at rest, ETIMEDOUT at 600 s once under oracle load,
+    // worst demand estimated at 750-1000 s (fsync-bound apps/sentinel/test/ukemi-conc.test.ts under host I/O contention); npm ci 18-23 s.
+    const runNpm = (cmd: string, timeoutMs: number): SpawnSyncReturns<string> =>
       spawnSync(cmd, {
         cwd: out,
         env: childEnv,
         shell: true,
         stdio: "pipe",
         encoding: "utf8",
-        timeout: 600_000,
+        timeout: timeoutMs,
         maxBuffer: 64 * 1024 * 1024,
       });
 
-    const ci = runNpm("npm ci");
+    const ci = runNpm("npm ci", 600_000);
     assert.ok(
       !ci.error && ci.status === 0,
       `npm ci failed in export (status=${ci.status}, error=${ci.error?.message ?? "none"}):\n${String(ci.stderr ?? "").slice(-2000)}`,
     );
 
-    const run = runNpm("npm run ci");
+    const run = runNpm("npm run ci", 1_800_000);
     const output = `${String(run.stdout ?? "")}\n${String(run.stderr ?? "")}`;
     const nTests = summaryCount(output, "tests");
     const nPass = summaryCount(output, "pass");
     const nFail = summaryCount(output, "fail");
     const summary =
       nTests === null ? output.split(/\r?\n/).slice(-30).join("\n") : `tests ${nTests} / pass ${nPass} / fail ${nFail}`;
-    // EXPORT-TEST42-INNER-NAMES-1: name the failing inner tests (spec reporter lines), so an intermittent failure is attributable.
-    const failing = [...new Set(output.split(/\r?\n/).map((l) => l.trim()).filter((l) => /^(✖|not ok)(\s|$)/.test(l)))].slice(0, 10);
+    // EXPORT-TEST42-INNER-NAMES-1, EXPORT-HARNESS-413-LOAD-1: name the failing inner tests, each with the text of its failing
+    // assertion (test/helpers/inner-failures.ts), so an intermittent failure is attributable from this report alone.
+    const failing = innerFailures(output);
     assert.ok(
       !run.error && run.status === 0,
       `exported CI (npm run ci) failed (status=${run.status}, error=${run.error?.message ?? "none"}): ${summary}`
@@ -381,18 +421,25 @@ function jobBodies(text: string): Map<string, string[]> {
   return out;
 }
 
-// -- L-4 / C-3 : the derived public workflow keeps every RETAINED job body byte-identical (test 42(f'); D7 ter)
+// -- L-4 / C-3 : the derived public workflow keeps every RETAINED job body byte-identical (test 42(f'); D7 ter). The dropped jobs
+// are a CLOSED list (CI-G3-DURATION-1 adds g3-export, which runs the never-exported root test/): each must exist in the source.
+// killer: scripts/export-public.mjs:450 CONST ", \"g3-export\"]" -> "]"
 test("export_public_derived_jobs_are_byte_identical — every retained job body survives derivation unchanged (test 42(f'), ADR-M004 D7 ter amended)", () => {
   const governance = readFileSync(join(ROOT, ".github", "workflows", "ci.yml"), "utf8");
   const eol = governance.includes("\r\n") ? "\r\n" : "\n";
   const derived = derivePublicWorkflow(governance);
   const R25 = "r25-taille-de-lot";
+  const INTERNAL = new Set([R25, "g3-export"]); // the closed list derivePublicWorkflow drops (CI-G3-DURATION-1)
+  for (const name of INTERNAL) {
+    assert.ok(jobBodies(governance).has(name), `internal job '${name}' missing from the source workflow (non-vacuity of the dropped list)`);
+    assert.ok(!jobBodies(derived).has(name), `internal job '${name}' must be dropped from the derived public workflow`);
+  }
 
   // Mismatches between the retained governance job bodies and the derived job bodies (job set + line-by-line).
   const mismatches = (govText: string, derText: string): string[] => {
     const gov = jobBodies(govText);
     const der = jobBodies(derText);
-    const retained = [...gov.keys()].filter((k) => k !== R25).sort();
+    const retained = [...gov.keys()].filter((k) => !INTERNAL.has(k)).sort();
     const out: string[] = [];
     if (JSON.stringify([...der.keys()].sort()) !== JSON.stringify(retained))
       out.push(`job set: derived {${[...der.keys()].sort().join(",")}} != retained {${retained.join(",")}}`);
@@ -402,7 +449,7 @@ test("export_public_derived_jobs_are_byte_identical — every retained job body 
 
   // Non-vacuity: >= 5 retained jobs (g1, g3-verification, g4, g6, g3-site) — the "job set == {…}" invariant of
   // 42 is too weak; D7 ter (amended: ALL retained bodies, not just g1/g3/g4/g6) demands byte-identity.
-  const retainedCount = [...jobBodies(governance).keys()].filter((k) => k !== R25).length;
+  const retainedCount = [...jobBodies(governance).keys()].filter((k) => !INTERNAL.has(k)).length;
   assert.ok(retainedCount >= 5, `expected >= 5 retained jobs, saw ${retainedCount}`);
 
   // (f') the real derivation preserves every retained job body byte-for-byte (modulo EOL, which derive keeps).
@@ -423,4 +470,45 @@ test("export_public_derived_jobs_are_byte_identical — every retained job body 
   const corrupted = derived.replace("npm run lint && npm run lint:ratchet", "npm run lint &&  npm run lint:ratchet");
   assert.notEqual(corrupted, derived, "byte-corruption must change the derived text");
   assert.ok(mismatches(governance, corrupted).length > 0, "M-42f' (byte): a single-byte change in a retained job body must red 42(f')");
+});
+
+// -- ADR-M004 D7 nonies (item DOJO-EXPORT-VERIFIER-1): the Dojo ships its reader's verifier FILE BY FILE and nothing else of apps/dojo.
+// The closure is WALKED here from the public command, never typed: static imports (every relative `from`/`import` specifier, plus the
+// .d.mts type surface of each .mjs); any dynamic import or require is refused, fail closed (G2P-1: an `import(`, a `require(` or a
+// `createRequire` in a closure file reds). A new static import of the verifier reds until the whitelist names it, and any other
+// apps/dojo file in the export reds.
+// killer: scripts/export-public.mjs:121 CONST "apps/dojo/keys/dojo-keyring.json" -> "apps/dojo/scripts/dojo-seed.mjs"
+test("export_dojo_ships_the_verifier_closure_only — the export carries the import closure of apps/dojo/scripts/dojo-verify-cli.mjs, its public keyring and its manifest, nothing else of apps/dojo (ADR-M004 D7 nonies)", () => {
+  const kept = new Set(collectFiles(ROOT).kept.map((f) => f.rel));
+  const closure = new Set<string>();
+  const loaders: string[] = []; // run-time loads found in closure files: refused, fail closed (G2P-1)
+  const LOADER = /\bimport\s*\(|\brequire\s*\(|\bcreateRequire\b/g;
+  const stack = ["apps/dojo/scripts/dojo-verify-cli.mjs"];
+  for (let f = stack.pop(); f !== undefined; f = stack.pop()) {
+    if (closure.has(f)) continue;
+    closure.add(f);
+    const text = readFileSync(join(ROOT, f), "utf8");
+    for (const m of text.matchAll(/\b(?:from|import)\s*["'`]([^"'`]+)["'`]/g)) {
+      const spec = m[1] ?? "";
+      if (spec.startsWith(".")) stack.push(toPosix(join(dirname(f), spec)));
+    }
+    for (const m of text.matchAll(LOADER)) loaders.push(`${f}: ${m[0]}`);
+    const side = f.replace(/\.mjs$/, ".d.mts");
+    if (side !== f && existsSync(join(ROOT, side))) stack.push(side);
+  }
+  // Non-vacuity: the walk reaches the verifier's core, the walker, a type surface and Bell's chain (measured closure: 10 files).
+  for (const f of ["apps/dojo/scripts/dojo-verify.mjs", "apps/dojo/scripts/dojo-chain.mjs", "apps/dojo/scripts/dojo-core.d.mts", "apps/bell/scripts/bell-chain.mjs"]) {
+    assert.ok(closure.has(f), `the walk must reach ${f}`);
+  }
+  // (1) every file of the closure ships, Bell's bell-chain included: the exported command loads.
+  assert.deepEqual([...closure].filter((f) => !kept.has(f)).sort(), [], "a file of the verifier's import closure is missing from the export");
+  // (2) apps/dojo ships exactly the closure, the public keyring (--keyring) and the manifest: no collector, publisher, seed tool or test.
+  const expected = [...[...closure].filter((f) => f.startsWith("apps/dojo/")), "apps/dojo/keys/dojo-keyring.json", "apps/dojo/package.json"].sort();
+  assert.deepEqual([...kept].filter((f) => f.startsWith("apps/dojo/")).sort(), expected, "apps/dojo exports exactly the verifier's closure, its keyring and its manifest");
+  // (3) the deployment conformity check and the other governance Dojo scripts stay out (their imports reach unexported files).
+  assert.deepEqual([...kept].filter((f) => /^scripts\/[^/]*dojo/.test(f)), [], "no scripts/*dojo* file is exported");
+  // (4) the walk sees static imports only, so a run-time load in a closure file reds, fail closed (G2P-1; probes ME5 and ME6 of the
+  // part's G2). Non-vacuity: the pattern catches each of the three forms.
+  for (const form of ["import(\"./x.mjs\")", "require(\"./x.cjs\")", "createRequire(import.meta.url)"]) assert.equal([...form.matchAll(LOADER)].length, 1, `the loader pattern must catch ${form}`);
+  assert.deepEqual(loaders, [], "a file of the verifier's closure loads a module at run time (import(), require() or createRequire): refused");
 });

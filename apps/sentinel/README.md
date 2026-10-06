@@ -28,12 +28,17 @@ serve at `/narabi/`. The storefront's `/narabi` board reads those published byte
 snapshot to the site parser). It publishes a timeline and a running statistic only — no price, no
 counterfactual, no early-warning reading (ADR-M012 D8).
 
+`instrument.json`, served at the same path, is not written by the job but by the separate `instrument-replay.ts` entry below:
+Instrument, not the official tracker: tracker replays at alternative parameters, and a one-sided CUSUM in the form Page (1954) introduced and Lorden (1971) presents, on the static misses, assessed by a permutation test of exchangeability as Vovk (2012) defines it. A third way, outside Lorden's i.i.d. theory and the e-detectors of Shin, Ramdas and Rinaldo (2022); no bound is claimed.
+One snapshot, taken once (ADR-M014 D4), never refreshed by the daily job.
+
 ## Run it
 
     node apps/sentinel/src/run.ts --dry-run            # inspect the due days, write nothing
     node apps/sentinel/src/run.ts --day 2026-09-19     # run a single day diagnostically
     MONARK_SENTINEL_DIR=/var/lib/monark-sentinel \
       node apps/sentinel/src/run.ts                    # the daily catch-up run
+    node apps/sentinel/src/instrument-replay.ts --gap <gap.jsonl> --timeline <timeline.jsonl> --out <file>  # --out outside public/
 
 The first run needs `MONARK_SENTINEL_J0` (the first published day); afterwards the job resumes from the
 last recorded day. The state directory holds the private timeline and the `public/` copies the web tier

@@ -11,7 +11,13 @@
  *      allowed. Block-scoped sibling for g3-site in g3_site_builds_then_asserts_fleet_html.
  *   (2) a `uses:` action is not pinned by a 40-hex commit SHA (movable tag);
  *   (3) `VIBEGATES_PR_LIMIT` != "1205" (bound ADR-M003 D9);
+ *   (3bis) `VIBEGATES_CONTENT_LIMIT` != "8000", or the ADR-M013 line that holds the CONTENT list (investor decision
+ *      207) is not unique or does not state that bound;
  *   (4) the exclusion pathspec for generated S2 artefacts is missing from the R-25 count;
+ *   (4quater) the r25 job does not run exactly two one-line counts: CODE = the D9 pathspec PLUS the five ADR-M013
+ *      CONTENT excludes (bound VIBEGATES_PR_LIMIT), CONTENT = those five paths only (bound VIBEGATES_CONTENT_LIMIT),
+ *      each with a numeric guard before any diff, the same ins+del metric, printed before either bound is evaluated,
+ *      and `::error::` + exit 1 on overflow (ADR-M013 amendment 2026-09-24, investor decision 207);
  *   (5) the `on:` trigger does not carry `pull_request` (delivery by PR — ADR-M003 D9 addendum 2026-09-05);
  *   (6) job g4 does not run the ratchet `npm run lint:ratchet` (ADR-M003 D9 ter §3, 2026-09-06).
  *   (4bis) the G1/G2 governance reports are not excluded from the R-25 count (D9 quater);
@@ -33,6 +39,8 @@ import { renderedTexts, scanText as scanNumericText, loadExemptFile, scanAppsSit
 import { FLEET_AGENTS, PRODUCTS } from "../apps/site/lib/fleet.ts";
 import type { FleetStatus, FleetWiring } from "../apps/site/lib/fleet.ts";
 import type { AgentStatus } from "../apps/site/lib/status.ts";
+import { DOJO_REGISTER, holdSnapshotStatus, type DojoRegister, type DojoServedPath } from "../apps/site/lib/dojo-register.ts";
+import { loadDojoServed } from "../apps/site/lib/dojo-served-load.ts";
 import { loadGateEnums } from "../apps/site/lib/gate-enums.ts";
 import { ACTION_COMMIT, ACTION_DEFER, ACTION_ABSTAIN, SENSOR_NODES, AMBIENT, decide, fresh, CAVEAT, gateJson, push } from "../apps/site/lib/sim.ts";
 import { AGENTS_PRESENTATION } from "../apps/site/lib/agents-presentation.ts";
@@ -64,6 +72,42 @@ const COE_DIRECTIVE_RE = /(?:^\s*|[-{,]\s*)["']?continue-on-error["']?\s*:/;
 // quotes `- if: false` to name a mutant never reds. (The g3-site block test strips inline comments separately.)
 const hasDirective = (lines: string[], re: RegExp): boolean =>
   lines.some((l) => !/^\s*#/.test(l) && re.test(l));
+
+// ADR-M013 amendment 2026-09-24 (investor decision 207, lot R25-CONTENT-1): the R-25 bound of 1205 stays the CODE
+// bound; the storefront CONTENT lots are counted apart under VIBEGATES_CONTENT_LIMIT. The CONTENT paths are a CLOSED
+// list held by the ADR itself: read here from its UNIQUE line naming `VIBEGATES_CONTENT_LIMIT` (never a parallel
+// hand-kept list), so the ADR, the five CODE excludes and the five CONTENT pathspecs of the r25 job are coupled (test
+// 38 (4quater)); the same derived list whitelists the CODE excludes from the series set-equality
+// (series_pinned_are_declared_and_hashed). A second ADR line naming the variable (a later revision) makes the source
+// ambiguous: test 38 (3bis) reds until this anchor is updated. Root test/ is never exported (export-public.mjs
+// WHITELIST), so reading docs/adr/ here cannot reach the public mirror.
+const CONTENT_ADR_LINES = readFileSync(join(ROOT, "docs", "adr", "ADR-M013-vitrine-regimes.md"), "utf8")
+  .split(/\r?\n/)
+  .filter((l) => l.includes("`VIBEGATES_CONTENT_LIMIT`"));
+const CONTENT_ADR_LINE = CONTENT_ADR_LINES.length === 1 ? (CONTENT_ADR_LINES[0] ?? "") : "";
+const CONTENT_PATHS = [...CONTENT_ADR_LINE.matchAll(/`(apps\/site\/[^`\s]+)`/g)]
+  .map((m) => m[1])
+  .filter((s): s is string => s !== undefined);
+const CONTENT_CODE_EXCLUDES = CONTENT_PATHS.map((p) => `:(exclude,glob)${p}`);
+const CONTENT_PATHSPECS = CONTENT_PATHS.map((p) => `:(glob)${p}`);
+
+// One r25 count line `NAME=$(git diff --shortstat "origin/${{ github.base_ref }}...HEAD" -- <pathspecs>) || {` ->
+// { name, pathspecs } (single quotes removed); null for any other shape. Test 38 (4quater) also counts every
+// `git diff` code line, so an unparsed shape reds instead of escaping.
+const R25_DIFF_RE = /^\s*([A-Z_]+)=\$\(git diff --shortstat "origin\/\$\{\{ github\.base_ref \}\}\.\.\.HEAD" -- (.+)\) \|\| \{\s*$/;
+function parseR25Diff(line: string): { name: string; pathspecs: string[] } | null {
+  const m = R25_DIFF_RE.exec(line);
+  if (m === null || m[1] === undefined || m[2] === undefined) return null;
+  return { name: m[1], pathspecs: m[2].split(/\s+/).map((t) => t.replace(/^'(.*)'$/, "$1")) };
+}
+// One r25 metric line `NAME=$(printf '%s\n' "$SRC" | awk '<program>')` -> { name, src, program }; null otherwise.
+// `\x5c` is a literal backslash: the workflow carries the two characters backslash + n inside '%s\n'.
+const R25_METRIC_RE = /^\s*([A-Z_]+)=\$\(printf '%s\x5cn' "\$([A-Z_]+)" \| awk '(.+)'\)\s*$/;
+function parseR25Metric(line: string): { name: string; src: string; program: string } | null {
+  const m = R25_METRIC_RE.exec(line);
+  if (m === null || m[1] === undefined || m[2] === undefined || m[3] === undefined) return null;
+  return { name: m[1], src: m[2], program: m[3] };
+}
 
 test("ci_gates_blocking_no_continue_on_error — blocking and pinned workflow (test 38)", () => {
   // (1) template invariant: no continue-on-error DIRECTIVE (a YAML key on a non-comment line). A prose mention
@@ -126,6 +170,23 @@ test("ci_gates_blocking_no_continue_on_error — blocking and pinned workflow (t
   assert.ok(limits.length >= 1, "VIBEGATES_PR_LIMIT missing from the workflow (fail-closed not configured)");
   for (const v of limits) assert.equal(v, "1205", `VIBEGATES_PR_LIMIT = ${v} != 1205 (ADR-M003 D9)`);
 
+  // (3bis) VIBEGATES_CONTENT_LIMIT set to "8000" (ADR-M013 amendment 2026-09-24, investor decision 207) — and to
+  //        nothing else (the (3) idiom). The ADR holds exactly ONE line naming the variable (the coupling source of
+  //        (4quater)) and that line states the same bound (digit groups joined, "8 000" -> 8000), so a bound edited on
+  //        one side only reds (R-23: a revision goes through the ADR). Mutant `"8k"` in the env => this reds.
+  const contentLimits = [...WF.matchAll(/VIBEGATES_CONTENT_LIMIT\s*:\s*["']?([^"'\s#]+)["']?/g)]
+    .map((m) => m[1])
+    .filter((s): s is string => s !== undefined);
+  assert.ok(contentLimits.length >= 1, "VIBEGATES_CONTENT_LIMIT missing from the workflow (content bound not configured, ADR-M013 decision 207)");
+  for (const v of contentLimits) assert.equal(v, "8000", `VIBEGATES_CONTENT_LIMIT = ${v} != 8000 (ADR-M013, investor decision 207)`);
+  assert.equal(
+    CONTENT_ADR_LINES.length,
+    1,
+    "ADR-M013 must hold exactly ONE line naming `VIBEGATES_CONTENT_LIMIT` (the decision 207 amendment, source of the CONTENT list)",
+  );
+  const adrNumbers: readonly string[] = CONTENT_ADR_LINE.replace(/(\d)[ \u00a0\u202f](?=\d{3}(?!\d))/g, "$1").match(/\d+/g) ?? [];
+  assert.ok(adrNumbers.includes("8000"), "the ADR-M013 decision 207 line must state the 8000 bound the workflow carries (R-23)");
+
   // (4) exclusion pathspec for generated S2 artefacts present in the R-25 count (ADR-M003 D9).
   assert.ok(
     WF.includes(":(exclude)packages/*/docs/S2-*"),
@@ -145,6 +206,95 @@ test("ci_gates_blocking_no_continue_on_error — blocking and pinned workflow (t
     WF.includes("':(exclude,glob)docs/**/*.md'"),
     "docs/**/*.md exclusion pathspec missing from the R-25 count (ADR-M003 D9 septies)",
   );
+
+  // (4quater) ADR-M013 amendment 2026-09-24 (investor decision 207, lot R25-CONTENT-1): the r25 job runs exactly TWO
+  //   `git diff --shortstat` counts over the same range, each on ONE line. (a) CODE `STAT=` = the pathspec of (4)/
+  //   (4bis)/(4ter) + the lockfile + the series excludes PLUS the five CONTENT excludes, bound VIBEGATES_PR_LIMIT;
+  //   (b) CONTENT `CONTENT_STAT=` = the five CONTENT paths only, bound VIBEGATES_CONTENT_LIMIT. The token lists are
+  //   EXACT (a dropped, extra or duplicated pathspec reds) and both derive from the ADR list, which must be five
+  //   distinct paths (the decision). Each count: a numeric guard BEFORE any diff, the SAME ins+del awk program, printed
+  //   BEFORE either bound is evaluated (a CODE overflow never hides the CONTENT count), and `::error::` + `exit 1` on
+  //   overflow. Mutants: a CONTENT path dropped from (b), from (a) or from the ADR line => red; `exit 1` removed from
+  //   an overflow branch => red.
+  const r25At = LINES.findIndex((l) => /^  r25-taille-de-lot\s*:/.test(l));
+  assert.notEqual(r25At, -1, "job 'r25-taille-de-lot' missing from the workflow");
+  const r25Code: string[] = []; // non-comment, non-blank lines of the r25 job, trimmed
+  for (let i = r25At + 1; i < LINES.length; i++) {
+    const l = LINES[i] ?? "";
+    if (/^  \S/.test(l) || /^\S/.test(l)) break; // next 2-space job key or a column-0 key
+    if (!/^\s*#/.test(l) && l.trim() !== "") r25Code.push(l.trim());
+  }
+  assert.equal(
+    r25Code.filter((l) => l.includes("git diff")).length,
+    2,
+    "the r25 job must run exactly two `git diff` counts: CODE and CONTENT (ADR-M013 decision 207)",
+  );
+  const diffs = r25Code.map(parseR25Diff).filter((d): d is { name: string; pathspecs: string[] } => d !== null);
+  assert.deepEqual(
+    diffs.map((d) => d.name),
+    ["STAT", "CONTENT_STAT"],
+    "the r25 counts must be, in order, CODE `STAT=` and CONTENT `CONTENT_STAT=`, each on ONE line over origin/<base>...HEAD",
+  );
+  assert.equal(CONTENT_PATHS.length, 5, `ADR-M013 decision 207 names five CONTENT paths; read ${CONTENT_PATHS.length}: ${CONTENT_PATHS.join(", ")}`);
+  assert.equal(new Set(CONTENT_PATHS).size, CONTENT_PATHS.length, "the ADR-M013 CONTENT paths must be distinct");
+  const sorted = (xs: readonly string[]): string[] => [...xs].sort();
+  const codeExpected = [
+    ".",
+    ":(exclude)packages/*/docs/S2-*",
+    ":(exclude)docs/G1-lot-*.md",
+    ":(exclude)docs/G2-lot-*.md",
+    ":(exclude,glob)docs/**/*.md",
+    ":(exclude)package-lock.json",
+    ...SERIES_EXCLUDE_PATHSPECS,
+    ...CONTENT_CODE_EXCLUDES,
+  ];
+  assert.deepEqual(
+    sorted(diffs[0]?.pathspecs ?? []),
+    sorted(codeExpected),
+    "(a) the CODE pathspec must be the D9 pathspec PLUS the five ADR-M013 CONTENT excludes (dropped, extra or duplicated token)",
+  );
+  assert.deepEqual(
+    sorted(diffs[1]?.pathspecs ?? []),
+    sorted(CONTENT_PATHSPECS),
+    "(b) the CONTENT pathspec must be exactly the five ADR-M013 CONTENT paths with :(glob) magic (dropped, extra or duplicated token)",
+  );
+  const metrics = r25Code
+    .map(parseR25Metric)
+    .filter((m): m is { name: string; src: string; program: string } => m !== null);
+  assert.deepEqual(
+    metrics.map((m) => `${m.name}<-${m.src}`),
+    ["CHANGED<-STAT", "CONTENT_CHANGED<-CONTENT_STAT"],
+    "each count must feed its own metric line: CHANGED from STAT, CONTENT_CHANGED from CONTENT_STAT",
+  );
+  assert.ok(metrics[0]?.program.includes("print ins+del+0"), "the CODE metric must stay ins+del (ADR-M003 D9)");
+  assert.equal(metrics[1]?.program, metrics[0]?.program, "both counts must use the SAME ins+del awk program");
+  const statAt = r25Code.findIndex((l) => l.startsWith("STAT=$(git diff"));
+  const firstIfAt = r25Code.findIndex((l) => l.startsWith("if [ "));
+  const between = (open: string, close: string): { at: number; body: string[] } => {
+    const at = r25Code.indexOf(open);
+    const end = at === -1 ? -1 : r25Code.indexOf(close, at + 1);
+    return { at, body: end === -1 ? [] : r25Code.slice(at + 1, end) };
+  };
+  for (const [count, bound] of [
+    ["CHANGED", "VIBEGATES_PR_LIMIT"],
+    ["CONTENT_CHANGED", "VIBEGATES_CONTENT_LIMIT"],
+  ] as const) {
+    const guard = between(`case "$${bound}" in`, "esac");
+    assert.ok(guard.at !== -1 && guard.at < statAt, `${bound}: numeric guard missing or placed after the first diff (fail-closed before any count)`);
+    assert.equal(guard.body[0], "''|*[!0-9]*)", `${bound}: the guard must reject an empty or non-numeric bound`);
+    assert.ok(
+      guard.body.some((l) => l.startsWith("echo '::error::")) && guard.body.includes("exit 1 ;;"),
+      `${bound}: an empty or non-numeric bound must emit ::error:: and exit 1`,
+    );
+    const printAt = r25Code.findIndex((l) => l.startsWith("echo ") && l.includes(`$${count} (ADR bound: $${bound})`));
+    assert.ok(printAt !== -1 && printAt < firstIfAt, `${count}: the count must be printed BEFORE either bound is evaluated`);
+    const overflow = between(`if [ "$${count}" -gt "$${bound}" ]; then`, "fi");
+    assert.notEqual(overflow.at, -1, `${count}: the overflow comparison against ${bound} is missing`);
+    assert.ok(
+      overflow.body.some((l) => l.startsWith('echo "::error::')) && overflow.body.includes("exit 1"),
+      `${count} > ${bound} must emit ::error:: and exit 1 (fail-closed)`,
+    );
+  }
 
   // (5) delivery by PR (ADR-M003 D9 addendum 2026-09-05, option c): the workflow MUST trigger
   //     on pull_request. Block-scoped on the top-level key `on:` (lines indented up to the
@@ -184,6 +334,58 @@ test("ci_gates_blocking_no_continue_on_error — blocking and pinned workflow (t
     g4Block.some((l) => /^\s*run:\s*npm run lint && npm run lint:ratchet\s*$/.test(l)),
     "job g4 must literally contain `run: npm run lint && npm run lint:ratchet` (ADR-M003 D9 quater)",
   );
+});
+
+// Lot R25-INTEGRATION-RULE-1 (ADR-M003 D9 nonies): the r25 job hands its two written counts to scripts/lot-size-integration.mjs,
+// the single implementation the oracle's r25 gate runs too. Pinned: the proof then the count, after both metrics and
+// before any print; the `|| R25I="written ..."` fallback; the two case guards (only mode `integration` with numeric counts
+// replaces a count); the API token in this one step; no head branch name interpolated anywhere. Named mutants (G7):
+// fallback removed, a guard removed, the count moved after the prints, `--base "origin/${{ github.head_ref }}"`. G2 m-4: the
+// target is read from $GITHUB_BASE_REF, never interpolated; m-5: ten digits or more keep the written counts (bash overflow).
+// killer: .github/workflows/ci.yml:114 CONST " || R25I=\"written $CHANGED $CONTENT_CHANGED\"" -> ""
+// killer: .github/workflows/ci.yml:114 CONST "origin/$GITHUB_BASE_REF" -> "origin/${{ github.base_ref }}"
+// killer: .github/workflows/ci.yml:121 CONST "|??????????*" -> ""
+test("ci_r25_integration_rule_is_wired_fail_closed - proof then count after both metrics and before any print, written counts on a module error or a non-numeric answer, the token in the r25 step only, no head branch name interpolated (ADR-M003 D9 nonies)", () => {
+  const at = LINES.findIndex((l) => /^  r25-taille-de-lot\s*:/.test(l)), code: string[] = [];
+  for (let i = at + 1; i < LINES.length && !/^ {0,2}\S/.test(LINES[i] ?? ""); i++) if (!/^\s*#/.test(LINES[i] ?? "") && (LINES[i] ?? "").trim() !== "") code.push((LINES[i] ?? "").trim());
+  const ix = [
+    code.findIndex((l) => l.startsWith("CONTENT_CHANGED=$(printf")),
+    code.indexOf(`node scripts/lot-size-integration.mjs proof --event "$GITHUB_EVENT_PATH" --out "$RUNNER_TEMP/lot-size-proof.json" || echo '::warning::R-25 integration proof not obtained: every line counts (fail-closed).'`),
+    code.indexOf('R25I=$(node scripts/lot-size-integration.mjs count --ci .github/workflows/ci.yml --base "origin/$GITHUB_BASE_REF" --proof "$RUNNER_TEMP/lot-size-proof.json" --written "$CHANGED" "$CONTENT_CHANGED") || R25I="written $CHANGED $CONTENT_CHANGED"'),
+    code.indexOf('read -r R25_MODE NEW_CHANGED NEW_CONTENT <<< "$R25I"'),
+    code.indexOf('case "$R25_MODE/$NEW_CHANGED/$NEW_CONTENT" in'),
+    code.indexOf("integration/[0-9]*/[0-9]*) ;;"),
+    code.indexOf("*) R25_MODE=written; NEW_CHANGED=$CHANGED; NEW_CONTENT=$CONTENT_CHANGED ;;"),
+    code.indexOf('case "$NEW_CHANGED$NEW_CONTENT" in'),
+    code.indexOf("''|*[!0-9]*|??????????*) R25_MODE=written; NEW_CHANGED=$CHANGED; NEW_CONTENT=$CONTENT_CHANGED ;;"),
+    code.indexOf("CHANGED=$NEW_CHANGED"),
+    code.indexOf("CONTENT_CHANGED=$NEW_CONTENT"),
+    code.findIndex((l) => l.startsWith('echo "Changed lines: ')),
+    code.findIndex((l) => l.startsWith("if [ ")),
+  ];
+  assert.ok(ix.every((v, i) => v !== -1 && (i === 0 || v > (ix[i - 1] ?? -1))), `the integration lines are missing or out of order: ${ix.join(" ")}`);
+  assert.deepEqual(LINES.filter((l) => l.includes("R25_READ_TOKEN:")).map((l) => l.trim()), [code.find((l) => l.startsWith("R25_READ_TOKEN: ${{ github.token }} #"))], "the read token is set once, in the r25 step");
+  assert.deepEqual(LINES.filter((l) => /\$\{\{\s*github\.(head_ref|event\.pull_request\.head\.ref)\b/.test(l)), [], "no head branch name is interpolated (injection by branch name)");
+  assert.deepEqual(LINES.filter((l) => l.includes("lot-size-integration.mjs") && l.includes("${{")), [], "no ${{ }} on a line that runs the module (G2 m-4: $GITHUB_BASE_REF)");
+});
+
+// Lot R25-ATTR-SOURCE-1 (G7 O-1, ADR-M003 D9 undecies): the two counts W of the r25 job read under the module's pinned read. Pinned: the
+// `pin` command right before the first count, its fail-closed branch (no count is read without it), its output evaluated once and
+// nowhere else, no git call of the job before it, and the two count lines unchanged (the shape R25_DIFF_RE and test 38 read).
+// killer: .github/workflows/ci.yml:97 CONST "eval \"$R25_PIN\"" -> "true"
+test("ci_r25_counts_read_under_the_module_pin - the r25 job evaluates `node scripts/lot-size-integration.mjs pin --ci <workflow> --base origin/$GITHUB_BASE_REF` (the changed paths refused first, D9 terdecies) right before its two `git diff --shortstat` counts, fail-closed, once (ADR-M003 D9 undecies)", () => {
+  const at = LINES.findIndex((l) => /^  r25-taille-de-lot\s*:/.test(l)), code: string[] = [];
+  for (let i = at + 1; i < LINES.length && !/^ {0,2}\S/.test(LINES[i] ?? ""); i++) if (!/^\s*#/.test(LINES[i] ?? "") && (LINES[i] ?? "").trim() !== "") code.push((LINES[i] ?? "").trim());
+  const pin = code.indexOf("R25_PIN=$(node scripts/lot-size-integration.mjs pin --ci .github/workflows/ci.yml --base \"origin/$GITHUB_BASE_REF\") || {"), stat = code.findIndex((l) => l.startsWith("STAT=$(git diff --shortstat "));
+  assert.deepEqual(
+    code.slice(pin, pin + 6),
+    ["R25_PIN=$(node scripts/lot-size-integration.mjs pin --ci .github/workflows/ci.yml --base \"origin/$GITHUB_BASE_REF\") || {", "echo '::error::Gate R-25: pinned git read not obtained, or a changed path refused (see the lines above). Fail-closed.'", "exit 1", "}", 'eval "$R25_PIN"', code[stat]],
+    "the pinned read must be evaluated right before the STAT count, and a failed `pin` must red the job",
+  );
+  assert.ok(pin !== -1 && stat === pin + 5, `the pin lines are missing or not right before the STAT count: ${pin} ${stat}`);
+  assert.deepEqual(code.slice(0, pin).map((l) => l.replace(/\s#\s.*$/, "")).filter((l) => /\bgit\b/.test(l) && !l.startsWith("- uses:")), [], "no git call of the r25 job before the pinned read");
+  assert.deepEqual(LINES.filter((l) => /\beval\b/.test(l) && !/^\s*#/.test(l)).map((l) => l.trim()), ['eval "$R25_PIN"'], "one eval in the workflow, of the pinned read only");
+  assert.deepEqual(code.filter((l) => /\bR25_PIN=/.test(l)), ["R25_PIN=$(node scripts/lot-size-integration.mjs pin --ci .github/workflows/ci.yml --base \"origin/$GITHUB_BASE_REF\") || {"], "R25_PIN is set once, by the module");
 });
 
 // ────────────────────────────────────────────────────────────────────────────────────────────────
@@ -700,9 +902,9 @@ test("no_generate_metadata_in_apps_site — generateMetadata unused, §6b metada
 test("frozen_contract_fields_stay_dynamic — loaded contracts' required[] never hard-coded in apps/site (F-2b R-D)", () => {
   const contracts: { file: string; count: number }[] = [
     { file: "attested-price.schema.json", count: 9 },
-    { file: "coverage-verdict.schema.json", count: 12 },
+    { file: "coverage-verdict.schema.json", count: 17 },
     { file: "prediction.schema.json", count: 5 },
-    { file: "gate-decision.schema.json", count: 8 },
+    { file: "gate-decision.schema.json", count: 9 },
   ];
   const fields = new Set<string>();
   for (const c of contracts) {
@@ -1018,6 +1220,53 @@ test("wiring_test_roots_exclusion_is_declared — TEST_ROOTS ⇔ a documented li
   }
 });
 
+// Dōjō register (ADR-DOJO-PR-4 D-3; C-V-4 of its checkpoint-1): apart from the fleet register (lib/fleet.ts unchanged), its one
+// piece, the hold snapshot, stays upcoming until the piece's G7. The guard states what "built" needs, on the SAME
+// WIRING_TEST_ROOTS: a served path, its integration tests declared under those roots (the two of the piece's condition among
+// them), a note without digits, a committed record listed in the site manifest (so the committed leg of
+// dojo_served_data_matches_deploy_ca ran on it) and a unit version in force in that record. Named mutants: M-P4, M-P18, M-P21.
+// killer: apps/site/lib/dojo-register.ts:19 CONST "piece.status" -> "'built'"
+test("dojo_register_is_frozen — the hold snapshot is upcoming; built only with a served path, its integration tests under the wiring roots, a committed record in the site manifest and a unit version in force", () => {
+  const corpus = WIRING_TEST_ROOTS.map((r) => join(ROOT, ...r.split("/"))).flatMap((dir) =>
+    existsSync(dir) ? readdirSync(dir).filter((n) => n.endsWith(".test.ts")).map((n) => readFileSync(join(dir, n), "utf8")) : []).join("\n");
+  assert.ok(corpus.length > 0, "no *.test.ts under the wiring roots (false green)");
+  const legs = ["dojo_snapshot_composes_served_lines_to_page_figures", "dojo_served_data_matches_deploy_ca"];
+  /** Why the register may not say built: [] when its piece is upcoming or every condition holds. */
+  const refusals = (register: DojoRegister, record: { head: { price_version: number | null } } | null): string[] =>
+    register.pieces.flatMap((p) => {
+      if (p.status !== "built") return [];
+      const ids = p.served.tests.map((t) => t.trim()), out: string[] = [];
+      if (p.served.path.trim() === "") out.push("no served path");
+      if (ids.length === 0 || new Set(ids).size !== ids.length) out.push("no distinct integration tests");
+      for (const id of ids) if (!/^[A-Za-z0-9_]+$/.test(id) || !new RegExp(`test\\(\\s*["']${id}(?:["']| — )`).test(corpus)) out.push(`no test ${id} under the wiring roots`);
+      for (const id of legs) if (!ids.includes(id)) out.push(`the integration tests omit ${id}`);
+      if (p.served.note.trim() === "" || /\d/.test(p.served.note)) out.push("a blank note or a note with a digit");
+      if (record === null) out.push("no committed record in the site manifest: the committed leg has not run");
+      else if (record.head.price_version === null) out.push("the committed record carries no unit version");
+      return out;
+    });
+  // (1) the register as committed, beside the record the page's loader reads (null before any served snapshot).
+  assert.deepEqual(refusals(DOJO_REGISTER, loadDojoServed(ROOT)), [], "the register says built without its conditions");
+  assert.equal(DOJO_REGISTER.program, "MONARK Dōjō");
+  assert.deepEqual(DOJO_REGISTER.pieces.map((p) => [p.key, p.status]), [["hold-snapshot", "upcoming"]], "the hold snapshot stays upcoming until the piece's G7");
+  assert.equal(holdSnapshotStatus(), "upcoming", "the function the page calls reads the register's status, never another");
+  assert.throws(() => holdSnapshotStatus({ program: "MONARK Dōjō", pieces: [] }), /hold snapshot is missing/, "a register without the piece: no silent fallback");
+  // (2) the guard is live: each condition missing is refused (M-P4, M-P18, M-P21). Since PR-4a-2 the committed leg's test is written,
+  // with the sync that writes the record it reads: every condition met admits built, and a test not written is refused.
+  const built = (served: DojoServedPath): DojoRegister => ({ program: "MONARK Dōjō", pieces: [{ key: "hold-snapshot", name: "hold snapshot", status: "built", served }] });
+  const served: DojoServedPath = { path: "the page /dojo, built from the committed record", tests: legs, note: "the figures of the committed record" };
+  const withVersion = { head: { price_version: 1 } }, noVersion = { head: { price_version: null } };
+  assert.ok(refusals(built({ ...served, path: " " }), withVersion).includes("no served path"), "M-P4: built without a served path");
+  assert.ok(refusals(built(served), null).includes("no committed record in the site manifest: the committed leg has not run"), "M-P18");
+  assert.ok(refusals(built(served), noVersion).includes("the committed record carries no unit version"), "M-P21: built on a record without a unit version");
+  assert.ok(refusals(built({ ...served, note: "read on day 60" }), withVersion).includes("a blank note or a note with a digit"), "a note with a digit");
+  for (const note of ["validated from 2026-11-09", "see ADR-M018", "rule R-25"]) assert.ok(refusals(built({ ...served, note }), withVersion).includes("a blank note or a note with a digit"), note);
+  assert.deepEqual(refusals(built(served), withVersion), [], "every condition met: the register may say built");
+  const unwritten = refusals(built({ ...served, tests: [...legs, "dojo_leg_not_written"] }), withVersion);
+  assert.deepEqual(unwritten, ["no test dojo_leg_not_written under the wiring roots"], "a test not written is refused");
+  assert.ok(existsSync(join(ROOT, "scripts", "sync-dojo-served.mjs")), "the committed leg comes with the sync that writes the record it reads");
+});
+
 // ────────────────────────────────────────────────────────────────────────────────────────────────
 // Lot F-2c (ADR-M004 D14 / PLAN F-2c C-4) — the site-scope vocab gate bans unambiguous third-party
 // platform names so product wiring stays generic on the public storefront. Live end-to-end mutant
@@ -1066,7 +1315,7 @@ test("gate_action_enum_order_is_frozen — action=[commit,defer,abstain]; sim in
   const { actions, reasons } = loadGateEnums(ROOT);
   // The order the client indexes by. A reorder in the schema reds HERE.
   assert.deepEqual(actions, ["commit", "defer", "abstain"], "action enum order changed (schema drift)");
-  assert.equal(reasons.length, 13, "gate-decision reason enum must carry the thirteen closed reasons");
+  assert.equal(reasons.length, 18, "gate-decision reason enum must carry the eighteen closed reasons (contract 1.1.0)");
   // lib/sim.ts resolves each action from the loaded enum by index — the load-bearing link. If the enum is
   // reordered, actions[ACTION_ABSTAIN] stops being the third action and this reds. (The derived type
   // GateAction is `string`; it is THIS test, not the type, that catches a reorder.)
@@ -1096,7 +1345,7 @@ test("gate_action_enum_order_is_frozen — action=[commit,defer,abstain]; sim in
 //   L143 covered               — otherwise
 test("sim_emitted_reason_codes_subset_of_frozen_enum — every reason the sim renders is in the frozen enum (R1)", () => {
   const { reasons } = loadGateEnums(ROOT);
-  assert.equal(reasons.length, 13, "frozen gate-decision reason enum must carry the thirteen closed codes");
+  assert.equal(reasons.length, 18, "frozen gate-decision reason enum must carry the eighteen closed codes (contract 1.1.0)");
   const frozen = new Set(reasons);
 
   const base = fresh();
@@ -1362,8 +1611,10 @@ test("series_pinned_are_declared_and_hashed — every R-25-excluded data file is
   // ADR-M003 D9 septies: docs/**/*.md is a :(glob) exclusion that is NOT a data series — it excludes
   // governance docs from the R-25 count (asserted by test 38 (4ter)), not a fixtures data series. Whitelist it
   // from this series SET EQUALITY so it does not read as an "extra" data pathspec; mutant M11 stays intact for
-  // any OTHER unexpected :(glob) pathspec.
-  const NON_SERIES_GLOB = new Set([":(exclude,glob)docs/**/*.md"]);
+  // any OTHER unexpected :(glob) pathspec. ADR-M013 amendment 2026-09-24 (investor decision 207): the five storefront
+  // CONTENT excludes of the CODE count are not data series either; they are whitelisted from the SAME ADR-derived list
+  // that test 38 (4quater) couples to the workflow (never a hand-kept copy), so M11 stays red for any other one.
+  const NON_SERIES_GLOB = new Set([":(exclude,glob)docs/**/*.md", ...CONTENT_CODE_EXCLUDES]);
   const missing = SERIES_EXCLUDE_PATHSPECS.filter((ps) => !WF.includes("'" + ps + "'"));
   const extra = [...new Set(wfGlobPathspecs)].filter(
     (ps) => !SERIES_EXCLUDE_PATHSPECS.includes(ps) && !NON_SERIES_GLOB.has(ps),
@@ -1452,7 +1703,10 @@ test("series_pinned_are_declared_and_hashed — every R-25-excluded data file is
 // guard) and `--test-force-exit` (exit even if a handle leaks after the tests settle). Mutants (measured in the pli):
 // drop a job's timeout-minutes => red; set one to 30 => red; drop --test-force-exit => red. Job keys are the 2-space
 // entries of the top-level `jobs:` block (not a global regex); the timeout line is anchored at the 4-space (job) column
-// so a step-level (8-space) timeout-minutes cannot masquerade as the job backstop.
+// so a step-level (8-space) timeout-minutes cannot masquerade as the job backstop. CI-G3-DURATION-1 (c): the workflow runs
+// its tests through package.json scripts only (no bare `node --test`), exactly test:main and test:export, each carrying the
+// same two guards; a new test job adds its script here, so its guards are locked too.
+// killer: package.json:18 CONST "--test-timeout=300000 --test-force-exit " -> "--test-timeout=300000 "
 test("ci_jobs_have_timeout_and_test_flags_locked — per-job timeout-minutes <= 20 + test guards (checkpoint-2 V-1(b)/V-3)", () => {
   const jobsIdx = LINES.findIndex((l) => /^jobs\s*:/.test(l));
   assert.notEqual(jobsIdx, -1, "top-level key 'jobs:' missing from the workflow");
@@ -1473,10 +1727,89 @@ test("ci_jobs_have_timeout_and_test_flags_locked — per-job timeout-minutes <= 
     const minutes = Number(tmLine.replace(/\D/g, ""));
     assert.ok(minutes <= 20, `job '${jobs[j]!.name}' timeout-minutes=${minutes} exceeds the 20-minute backstop (checkpoint-2 V-1(b))`);
   }
-  const pkg = JSON.parse(readFileSync(join(ROOT, "package.json"), "utf8")) as { scripts: { test: string } };
-  const testScript = pkg.scripts.test;
+  const pkg = JSON.parse(readFileSync(join(ROOT, "package.json"), "utf8")) as { scripts: Record<string, string> };
+  const testScript = pkg.scripts.test ?? "";
   assert.match(testScript, /--test-timeout=\d+/, "scripts.test must carry --test-timeout=<ms> (the per-test hang guard, checkpoint-2 V-1(b))");
   assert.ok(testScript.includes("--test-force-exit"), "scripts.test must carry --test-force-exit (exit even if a handle leaks after the tests settle)");
+  const code = LINES.filter((l) => !/^\s*#/.test(l));
+  assert.deepEqual(code.filter((l) => /\bnode\s+--test\b/.test(l)), [], "no bare `node --test` in the workflow: a CI test run goes through a locked package.json script");
+  const invoked = [...new Set(code.flatMap((l) => [...l.matchAll(/\bnpm (?:test\b|run (test(?::[\w-]+)?)(?![\w:-]))/g)].map((m) => m[1] ?? "test")))].sort();
+  assert.deepEqual(invoked, ["test:export", "test:main"], "the workflow runs the suite as test:main (g3-verification) + test:export (g3-export), CI-G3-DURATION-1");
+  for (const name of invoked) {
+    const s = pkg.scripts[name] ?? "";
+    assert.match(s, /--test-timeout=\d+/, `scripts["${name}"] must carry --test-timeout=<ms> (run by the workflow)`);
+    assert.ok(s.includes("--test-force-exit"), `scripts["${name}"] must carry --test-force-exit (run by the workflow)`);
+  }
+});
+
+// CI-G3-DURATION-1 (docs/G0-lot-ci-g3-duration-1.md): test 42 (export_public_no_governance_no_french: a nested `npm ci && npm run
+// ci` of the public export; 151 s on the runner of PR 126, about ten times the next test) leaves g3-verification for a job of its
+// own, g3-export. No coverage is lost, and `npm test` still runs everything: (a) test:main is EXACTLY scripts.test plus one skip
+// flag (same globs, same guards); (b) test:export runs the SAME pattern as a name filter over test/export-public.test.ts, with the
+// same guards; (c) in the npm test globs that pattern names exactly one test declaration, test 42 itself, so main + export = the
+// suite; (d) g3-verification runs test:main, g3-export runs `npm ci` then test:export, with no `if:`; (e) the g3-export bound
+// exceeds --test-timeout, so a slow test 42 reds by name before the job is cancelled; (f) the public workflow drops g3-export (the
+// root test/ is never exported: the job would red on the mirror).
+const TEST42_PATTERN = "\\(test 42\\)";
+function jobBlock(name: string): string[] {
+  const idx = LINES.findIndex((l) => new RegExp(`^  ${name}\\s*:\\s*$`).test(l));
+  if (idx === -1) return [];
+  const block: string[] = [];
+  for (let i = idx + 1; i < LINES.length && !/^ {0,2}\S/.test(LINES[i]!); i++) block.push(LINES[i]!.replace(/#.*$/, ""));
+  return block;
+}
+function expandTestGlob(glob: string): string[] {
+  let dirs = [""];
+  const segs = glob.split("/");
+  for (const seg of segs.slice(0, -1)) {
+    dirs = dirs.flatMap((d) => {
+      const abs = join(ROOT, d);
+      if (seg !== "*") return existsSync(join(abs, seg)) ? [d ? `${d}/${seg}` : seg] : [];
+      return readdirSync(abs).filter((n) => statSync(join(abs, n)).isDirectory()).map((n) => (d ? `${d}/${n}` : n));
+    });
+  }
+  const last = new RegExp(`^${segs[segs.length - 1]!.replace(/[\\^$.|?+()[\]{}]/g, "\\$&").replace(/\*/g, "[^/]*")}$`);
+  return dirs.flatMap((d) => readdirSync(join(ROOT, d)).filter((n) => last.test(n)).map((n) => `${d}/${n}`));
+}
+// killer: .github/workflows/ci.yml:203 CONST "npm run test:export" -> "npm run test:main"
+test("ci_g3_export_runs_test_42_alone_and_g3_main_skips_only_it - the suite is split in two CI jobs with no test lost (CI-G3-DURATION-1)", () => {
+  const scripts = (JSON.parse(readFileSync(join(ROOT, "package.json"), "utf8")) as { scripts: Record<string, string> }).scripts;
+  const full = scripts.test ?? "";
+  // TEST-FORCE-EXIT-REPORT-LOSS-1: the launcher's blocking stdout (-r) and the per-file report preload are guards too.
+  const [, head, guards] = /^(node -r \.\/test\/helpers\/blocking-stdout\.cjs --test) (--test-timeout=\d+ --test-force-exit "--import=[^"]+") /.exec(full) ?? [];
+  assert.ok(head !== undefined && guards !== undefined, "scripts.test starts with `node -r ./test/helpers/blocking-stdout.cjs --test --test-timeout=<ms> --test-force-exit \"--import=<report preload>\" ` (the locked guards)");
+  // (a) test:main = scripts.test + the skip flag, nothing else.
+  assert.equal(scripts["test:main"], full.replace(guards, `${guards} --test-skip-pattern="${TEST42_PATTERN}"`), "(a) test:main must be scripts.test plus --test-skip-pattern only (same globs, same guards)");
+  // (b) test:export = the same guards, the same pattern as a name filter, the one file.
+  assert.equal(scripts["test:export"], `${head} ${guards} --test-name-pattern="${TEST42_PATTERN}" "test/export-public.test.ts"`, "(b) test:export must run test 42 alone with the same guards");
+  // (c) the pattern names exactly one test declaration (a line opening with test/it/describe/suite) of the npm test globs: test 42.
+  const files = [...full.matchAll(/"([^"]+\.test\.ts)"/g)].flatMap((m) => expandTestGlob(m[1]!));
+  assert.ok(files.includes("test/export-public.test.ts") && files.length >= 100, `the npm test globs reach the suite (saw ${files.length} files)`);
+  const re = new RegExp(TEST42_PATTERN);
+  const named = files.flatMap((f) =>
+    [...readFileSync(join(ROOT, f), "utf8").matchAll(/^[ \t]*(?:test|it|describe|suite)(?:\.\w+)?\(\s*(["'`])((?:(?!\1)[^\\]|\\.)*)\1/gm)]
+      .map((m) => m[2]!)
+      .filter((n) => re.test(n))
+      .map((n) => `${f}: ${n}`),
+  );
+  assert.deepEqual(named, ["test/export-public.test.ts: export_public_no_governance_no_french — clean public export (test 42)"], "(c) the test 42 pattern must name test 42 and nothing else");
+  // (d) the two jobs run the two halves; g3-export installs first; no `if:` anywhere in either job.
+  const g3 = jobBlock("g3-verification");
+  const ex = jobBlock("g3-export");
+  assert.ok(g3.some((l) => /^\s*run:\s*npm run gate:vocab && npm run typecheck && npm run test:main\s*$/.test(l)), "(d) g3-verification must run gate:vocab, typecheck, then test:main");
+  assert.ok(ex.length > 0, "(d) job 'g3-export' missing from the workflow");
+  const ciAt = ex.findIndex((l) => /^\s*run:\s*npm ci\s*$/.test(l));
+  const runAt = ex.findIndex((l) => /^\s*run:\s*npm run test:export\s*$/.test(l));
+  assert.ok(ciAt !== -1 && runAt > ciAt, "(d) g3-export must run `npm ci` then `npm run test:export`");
+  assert.ok(![...g3, ...ex].some((l) => IF_DIRECTIVE_RE.test(l) || COE_DIRECTIVE_RE.test(l)), "(d) no `if:` or continue-on-error on g3-verification or g3-export");
+  // (e) job bound above the per-test bound.
+  const minutes = Number(ex.find((l) => /^    timeout-minutes\s*:/.test(l))?.replace(/\D/g, "") ?? "0");
+  const perTestMs = Number(/--test-timeout=(\d+)/.exec(guards)?.[1] ?? "0");
+  assert.ok(minutes * 60_000 > perTestMs, `(e) g3-export timeout-minutes (${minutes}) must exceed --test-timeout (${perTestMs} ms)`);
+  // (f) the public workflow drops the internal job.
+  const derived = derivePublicWorkflow(WF);
+  assert.ok(!/^ {2}g3-export\s*:/m.test(derived) && !derived.includes("test:export"), "(f) the derived public workflow must not carry g3-export");
+  assert.ok(derived.includes("npm run test:main"), "(f) the derived public workflow keeps g3-verification and its test:main run");
 });
 
 // Lot CI-site (ADR-M003 D9 octies) — the g3-site job's step order is load-bearing: `next build` must produce
@@ -1523,30 +1856,94 @@ test("sentinel_readme_is_a_kept_export — apps/sentinel/README.md is an English
 });
 
 // Lot CODEQL-ALERTS-1 (ADR-CODEQL-ALERTS-1 D1; CodeQL alerts 7-12, actions/missing-workflow-permissions): the workflow
-// limits the GITHUB_TOKEN to read-only repository contents. ONE `permissions` key in the whole file (a job-level block
-// would override the workflow one), top-level, placed after the `on:` block and before `jobs:` (never between `on:` and
-// its keys: derivePublicWorkflow's on/pull_request needle would break), whose body is exactly `contents: read`; no
-// `write` token on any non-comment line (0 today, measured); and the DERIVED public workflow keeps the same block.
-// Named mutants (G1): block removed => red; `contents: write` => red; a job-level `permissions: write-all` => red; the
-// block moved above `on:` => red.
-test("ci_workflow_declares_least_privilege_permissions - one top-level contents: read block after on:, no write (ADR-CODEQL-ALERTS-1 D1)", () => {
-  const isCode = (l: string): boolean => !/^\s*#/.test(l);
-  const keyIdx = LINES.flatMap((l, i) => (isCode(l) && /^\s*["']?permissions["']?\s*:/.test(l) ? [i] : []));
-  assert.equal(keyIdx.length, 1, `exactly ONE permissions key in the workflow (a job-level block overrides the workflow one), saw ${String(keyIdx.length)}`);
-  const permIdx = keyIdx[0]!;
-  assert.match(LINES[permIdx]!, /^permissions:\s*$/, "the permissions key is TOP-LEVEL (column 0) and opens a block (no inline value such as read-all)");
-  const onIdx = LINES.findIndex((l) => /^on\s*:/.test(l));
-  const jobsIdx = LINES.findIndex((l) => /^jobs\s*:/.test(l));
-  assert.ok(onIdx !== -1 && onIdx < permIdx && permIdx < jobsIdx, `permissions: must sit after the on: block and before jobs: (on=${String(onIdx)}, permissions=${String(permIdx)}, jobs=${String(jobsIdx)})`);
-  const body: string[] = [];
-  for (let i = permIdx + 1; i < LINES.length; i++) {
-    const l = LINES[i]!;
-    if (/^\S/.test(l) && isCode(l)) break; // the next top-level key ends the block (test 38 idiom)
-    if (l.trim() !== "" && isCode(l)) body.push(l);
-  }
-  assert.deepEqual(body, ["  contents: read"], "the permissions block is exactly `contents: read` (read-only repository contents)");
-  assert.deepEqual(LINES.filter((l) => isCode(l) && /\bwrite(?:-all)?\b/.test(l)), [], "no write scope on any non-comment line of the workflow");
+// limits the GITHUB_TOKEN to read-only scopes. The ROOT block, top-level, after the `on:` block and before `jobs:` (never
+// between `on:` and its keys: derivePublicWorkflow's on/pull_request needle would break), is exactly `contents: read`.
+// Lot R25-INTEGRATION-RULE-1 (G0 Q-2, MONARK 2026-10-05; dated line under ADR-CODEQL-ALERTS-1 D1): ONE job-level block,
+// on the job r25-taille-de-lot only, exactly `contents: read`, `pull-requests: read`, `checks: read` (the integration
+// proof's API reads). problems() judges any workflow text; the real one has none, and each named mutant has one: root
+// block removed, widened, written, made inline; the job block removed, an extra scope, a missing scope, a write scope,
+// `write-all`, moved to another job, a second block on another job, an escaped double-quoted key, an explicit `? ` key.
+// The judge is LEXICAL (no YAML parser is a repo dependency): it covers block keys, single- or double-quoted keys and
+// inline mappings, and refuses the two forms it cannot read (a double-quoted key holding a `\`, an explicit `? ` key)
+// anywhere in the file (G2 of the Q-2 fold, R-2). No `write` token on any non-comment line, and the DERIVED public
+// workflow (the r25 job stripped) keeps the root block alone.
+// killer: .github/workflows/ci.yml:48 CONST "checks: read" -> "statuses: read"
+test("ci_workflow_declares_least_privilege_permissions - root contents: read after on:, one job block on r25-taille-de-lot (contents, pull-requests, checks: read), no write (ADR-CODEQL-ALERTS-1 D1)", () => {
+  const isCode = (l: string): boolean => l.trim() !== "" && !/^\s*#/.test(l);
+  const KEY_RE = /(?:^|[\s{,])["']?permissions["']?\s*:/;
+  const ROOT = ["  contents: read"];
+  const R25 = ["      contents: read", "      pull-requests: read", "      checks: read"];
+  const problems = (lines: string[]): string[] => {
+    const out: string[] = [];
+    const keys = lines.flatMap((l, i) => (isCode(l) && KEY_RE.test(l) ? [i] : []));
+    const onIdx = lines.findIndex((l) => /^on\s*:/.test(l));
+    const jobsIdx = lines.findIndex((l) => /^jobs\s*:/.test(l));
+    const body = (at: number, indent: number): string[] => {
+      const b: string[] = [];
+      for (let i = at + 1; i < lines.length; i++) {
+        const l = lines[i]!;
+        if (!isCode(l)) continue;
+        if ((/^ */.exec(l)?.[0].length ?? 0) <= indent) break; // the next key at the block's own column ends it
+        b.push(l.replace(/\s+#.*$/, ""));
+      }
+      return b;
+    };
+    const jobOf = (at: number): string => {
+      for (let i = at; i > jobsIdx; i--) { const m = /^ {2}([\w-]+)\s*:/.exec(lines[i]!); if (m) return m[1]!; }
+      return "(no job)";
+    };
+    const root = keys.filter((i) => /^permissions:\s*$/.test(lines[i]!));
+    if (root.length !== 1) out.push(`expected ONE top-level permissions: block, saw ${String(root.length)}`);
+    else {
+      const r = root[0]!;
+      if (!(onIdx !== -1 && onIdx < r && r < jobsIdx)) out.push(`the root block must sit after on: and before jobs: (on=${String(onIdx)}, permissions=${String(r)}, jobs=${String(jobsIdx)})`);
+      if (JSON.stringify(body(r, 0)) !== JSON.stringify(ROOT)) out.push(`the root block is exactly contents: read, saw ${JSON.stringify(body(r, 0))}`);
+    }
+    const job = keys.filter((i) => !root.includes(i));
+    if (job.length !== 1) out.push(`expected ONE job-level permissions block (r25-taille-de-lot), saw ${String(job.length)}`);
+    else {
+      const j = job[0]!;
+      if (!/^ {4}permissions:\s*$/.test(lines[j]!)) out.push(`the job block is a job-level key (4 spaces) opening a block, saw ${JSON.stringify(lines[j])}`);
+      if (jobsIdx === -1 || j < jobsIdx || jobOf(j) !== "r25-taille-de-lot") out.push(`the job block belongs to r25-taille-de-lot, saw ${jobOf(j)}`);
+      if (JSON.stringify(body(j, 4)) !== JSON.stringify(R25)) out.push(`the r25 job block is exactly contents, pull-requests, checks: read, saw ${JSON.stringify(body(j, 4))}`);
+    }
+    const opaque = lines.filter((l) => isCode(l) && (/^\s*(?:-\s+)?\?(?:\s|$)/.test(l) || /"[^"]*\\[^"]*"\s*:/.test(l)));
+    if (opaque.length > 0) out.push(`no explicit ? key and no escaped double-quoted key (the lexical judge cannot read them), saw ${JSON.stringify(opaque)}`);
+    const writes = lines.filter((l) => isCode(l) && /\bwrite(?:-all)?\b/.test(l));
+    if (writes.length > 0) out.push(`no write scope on any non-comment line, saw ${JSON.stringify(writes)}`);
+    return out;
+  };
+  assert.deepEqual(problems(LINES), [], "the workflow keeps the root contents: read block and the one r25 job block (G0 Q-2), nothing wider");
+  const at = (re: RegExp): number => LINES.findIndex((l) => re.test(l));
+  const r25At = at(/^ {2}r25-taille-de-lot\s*:/), rootAt = at(/^permissions:\s*$/), jobAt = at(/^ {4}permissions:\s*$/), g1At = at(/^ {2}g1-controle-generation\s*:/), g3At = at(/^ {2}g3-verification\s*:/);
+  assert.ok(rootAt !== -1 && jobAt !== -1 && g1At !== -1 && g1At < jobAt && jobAt < g3At, "the mutants' anchors are present (root block, r25 job block, g1 before it, g3 after it)");
+  const edit = (i: number, del: number, ...add: string[]): string[] => { const c = [...LINES]; c.splice(i, del, ...add); return c; };
+  const blk = LINES.slice(jobAt, jobAt + 4);
+  const mutants: Record<string, string[]> = {
+    "root block removed": edit(rootAt, 2),
+    "root block widened": edit(rootAt + 2, 0, "  pull-requests: read"),
+    "root contents: write": edit(rootAt + 1, 1, "  contents: write"),
+    "root inline read-all": edit(rootAt, 2, "permissions: read-all"),
+    "job block removed": edit(jobAt, 4),
+    "job block extra scope": edit(jobAt + 4, 0, "      statuses: read"),
+    "job block missing scope": edit(jobAt + 3, 1),
+    "job block write scope": edit(jobAt + 3, 1, "      checks: write"),
+    "job block write-all": edit(jobAt, 4, "    permissions: write-all"),
+    "job block moved to g1": (() => { const c = edit(jobAt, 4); c.splice(g1At + 1, 0, ...blk); return c; })(),
+    "second job block on g3": edit(g3At + 1, 0, ...blk),
+    "escaped double-quoted key on g3": edit(g3At + 1, 0, '    "perm\\x69ssions": {contents: "wr\\x69te"}'),
+    "explicit ? key on g3": edit(g3At + 1, 0, "    ? permissions", "    : read-all"),
+  };
+  for (const [name, m] of Object.entries(mutants)) assert.ok(problems(m).length > 0, `mutant "${name}" must be refused`);
+  // G2 of the Q-2 fold, m-2: the job token carries pull-requests and checks read, so the r25 checkout does not persist
+  // it in .git/config; every later git call of the job is local (diff, rev-list, rev-parse, show) and the proof reads
+  // the API with R25_READ_TOKEN.
+  const r25Body: string[] = [];
+  for (let i = r25At + 1; i < LINES.length && !/^ {0,2}\S/.test(LINES[i]!); i++) if (isCode(LINES[i]!)) r25Body.push(LINES[i]!.replace(/\s+#.*$/, "").trim());
+  const co = r25Body.findIndex((l) => l.startsWith("- uses: actions/checkout@"));
+  assert.deepEqual(r25Body.slice(co + 1, co + 4), ["with:", "fetch-depth: 0", "persist-credentials: false"], "the r25 checkout keeps full history and does not persist the job token (m-2)");
   const derived = derivePublicWorkflow(WF).split(/\r?\n/);
-  const dIdx = derived.findIndex((l) => /^permissions:\s*$/.test(l));
-  assert.ok(dIdx !== -1 && derived[dIdx + 1] === "  contents: read", "the DERIVED public workflow keeps the least-privilege block (the mirror's CI is read-only too)");
+  assert.deepEqual(derived.filter((l) => isCode(l) && KEY_RE.test(l)), ["permissions:"], "the DERIVED public workflow (r25 job stripped) keeps the root block alone");
+  const dIdx = derived.indexOf("permissions:");
+  assert.ok(derived[dIdx + 1] === "  contents: read", "the DERIVED public workflow keeps the least-privilege block (the mirror's CI is read-only too)");
 });

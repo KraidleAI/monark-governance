@@ -12,18 +12,24 @@
 // we require head == recomputed head (ledger present + head absent, or head != recomputed => throw, fail-closed) -
 // EXCEPT the crash-in-append-window case (1b-0, item i): a head EXACTLY one entry behind (== the durable ledger's
 // penultimate head) is HEALED at open (the last line was durably appended, only the sidecar lagged); a tail truncation
-// (head AHEAD) stays fail-closed. Residual: a crash after the FIRST-ever append presents as head-absent (== a deleted
-// sidecar), which stays fail-closed (recovering it would admit a delete-head+truncate attack) - runbook manual repair.
+// (head AHEAD) stays fail-closed. RPC-GUARD-FIRST-APPEND-HEAD-1: the FIRST append of a new ledger writes the genesis head
+// (64 zeros) durably BEFORE its line, so a crash in that window is the same one-behind heal, and a genesis head without a
+// ledger opens as a new ledger. A ledger beside an ABSENT head stays fail-closed (a deleted sidecar, or a ledger begun
+// before this lot: healing it would admit a delete-head+truncate attack) - runbook manual repair.
 // GARDE-FSYNC-1: every line, head and lock write is DURABLE (DURABLE_FS below); a power-cut NUL tail stays fail-closed
 // here ("malformed") and is repaired by the served `repair-tail` (./repair.ts, docs/RUNBOOK-rpc-guard.md).
 import { createHash } from "node:crypto";
-import { existsSync, mkdirSync, readFileSync, openSync, writeSync, fsyncSync, closeSync, renameSync, ftruncateSync, unlinkSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync, openSync, writeSync, fsyncSync, closeSync, renameSync, ftruncateSync, unlinkSync, fstatSync, lstatSync, type BigIntStats } from "node:fs";
 import { join, basename } from "node:path";
 import type { AttemptRecord, Outcome } from "./client.ts";
 import { tariffVersionOf } from "./tariff.ts";
 
 export const LEDGER_GENESIS = "0".repeat(64);
 export const sha256Hex = (s: string): string => createHash("sha256").update(s, "utf8").digest("hex");
+/** Ledger FORMAT v2 (ADR-RPC-GUARD-RECONCILE-1 D-1): v1 plus the outcome `course_reconciled` (lot 1a; `settled` joins with lot
+ *  1b) and the `course` field on `course_reconciled` lines ONLY; every v1 line kind stays byte-identical. Internal (NOT exported
+ *  by index.ts); pinned by ledger_format_locked_to_rebase_crosscheck: a new outcome or core field reds it (=> v3). */
+export const LEDGER_FORMAT = 2;
 
 /** GARDE-FSYNC-1 (INCIDENT 2026-09-22: a power cut kept 9 460 lines and lost ~420 the process HAD appended - 211 008
  *  NUL bytes at the tail - with the head sidecar AHEAD of the durable chain). A returned write sits in the OS cache until
@@ -39,7 +45,7 @@ export interface DurableFs {
   closeSync: (fd: number) => void;
   renameSync: (from: string, to: string) => void;
   ftruncateSync: (fd: number, len: number) => void;
-  unlinkSync: (path: string) => void;
+  unlinkSync: (path: string) => void; fstatSync: (fd: number) => BigIntStats; lstatSync: (path: string) => BigIntStats; // identity reads (lock.ts sealOwnLock)
   sleepSync: (ms: number) => void;
 }
 export const DURABLE_FS: DurableFs = {
@@ -49,7 +55,7 @@ export const DURABLE_FS: DurableFs = {
   closeSync: (fd) => { closeSync(fd); },
   renameSync: (from, to) => { renameSync(from, to); },
   ftruncateSync: (fd, len) => { ftruncateSync(fd, len); },
-  unlinkSync: (p) => { unlinkSync(p); },
+  unlinkSync: (p) => { unlinkSync(p); }, fstatSync: (fd) => fstatSync(fd, { bigint: true }), lstatSync: (p) => lstatSync(p, { bigint: true }),
   sleepSync: (ms) => { Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, ms); },
 };
 /** open(flags) -> write -> fsync -> close: returns once the bytes were flushed to the device (fault model, ADR). */
@@ -94,6 +100,9 @@ export interface CycleLedgerEntry {
   // pre-121 chainstack line written without opts.network, so those stay byte-identical; verifyCycleLedger recomputes
   // on the PRESENT fields, so a legacy (no-network) line and a network line chain and verify in the SAME ledger.
   readonly network?: string;
+  // ADR-RPC-GUARD-RECONCILE-1 D-1 (format v2), on a `course_reconciled` line ONLY (after network, before reason): `to` = the
+  // entry_sha256 of the course's `unlocked` line (the course id), `from` = the boundary line before it, or LEDGER_GENESIS.
+  readonly course?: { readonly from: string; readonly to: string };
   readonly reason?: string;
   readonly entry_sha256: string;
 }
@@ -144,12 +153,14 @@ export interface CycleLedger {
   readonly op: string;
   entries(): readonly CycleLedgerEntry[];
   priorAtOpen(): number;
+  /** DRAND-RELAY-GET-1a (D-1 (b)): the count of `attempted` lines at open (refused, reconciled and unlocked lines excluded). */
+  priorAttemptsAtOpen(): number;
   append(rec: AttemptRecord): void;
-  appendChained(outcome: Outcome, byOpMethod: Record<string, number>, credits: number, reason?: string): CycleLedgerEntry;
+  appendChained(outcome: Outcome, byOpMethod: Record<string, number>, credits: number, reason?: string, course?: CycleLedgerEntry["course"]): CycleLedgerEntry;
 }
 
 /** Open (create) the PER-OPERATOR ledger under an existing <cycleDir>. prior_cycle is FROZEN at open =
- *  max(floor, Sigma attempted credits) (C-V-1); the head sidecar makes a tail truncation fail-closed (C-V-8). */
+ *  max(floor, Sigma attempted + settled credits) (C-V-1, D-2: net); the head sidecar makes a tail truncation fail-closed (C-V-8). */
 export function openOperatorLedger(cycleDir: string, op: string, floor: number, network?: string): CycleLedger {
   const cycleId = basename(cycleDir);
   const path = join(cycleDir, `${op}.jsonl`);
@@ -180,21 +191,24 @@ export function openOperatorLedger(cycleDir: string, op: string, floor: number, 
         throw new Error(`rpc-guard: head sidecar != recomputed head for '${op}' (tail truncation, fail-closed, C-V-8)`);
       }
     }
-  } else if (hasHead) {
+  } else if (hasHead && readFileSync(headPath, "utf8").trim() !== LEDGER_GENESIS) {
+    // RPC-GUARD-FIRST-APPEND-HEAD-1 (b): a GENESIS head alone is a new ledger whose first append died before its line
     throw new Error(`rpc-guard: head sidecar present but ledger '${op}.jsonl' absent (tamper, fail-closed, C-V-8)`);
   }
   // GARDE-FSYNC-1 C-4: a <op>.head.tmp left by a power cut between its fsync and its rename is an ORPHAN; the <op>.head
   // on disk stays authoritative (at most one entry behind, healed above). Removed only once the pair is verified.
   if (existsSync(`${headPath}.tmp`)) DURABLE_FS.unlinkSync(`${headPath}.tmp`);
-  let head = ledgerHeadSha(entries);
-  const frozenPrior = Math.max(floor, entries.reduce((a, e) => a + (e.outcome === "attempted" ? e.credits_derived : 0), 0));
+  let head = ledgerHeadSha(entries), headOnDisk = hasHead; // FIRST-APPEND-HEAD-1 (a): false for a new ledger until its first append
+  const frozenPrior = Math.max(floor, entries.reduce((a, e) => a + (e.outcome === "attempted" || e.outcome === "settled" ? e.credits_derived : 0), 0));
+  const frozenAttempts = entries.filter((e) => e.outcome === "attempted").length; // D-1 (b): attempts at open, never credits
   const tariffVersion = tariffVersionOf(op); // per-operator (GARDE-HELIUS-2): a chainstack line never carries the helius version
-  const appendChained = (outcome: Outcome, byOpMethod: Record<string, number>, credits: number, reason?: string): CycleLedgerEntry => {
+  const appendChained = (outcome: Outcome, byOpMethod: Record<string, number>, credits: number, reason?: string, course?: CycleLedgerEntry["course"]): CycleLedgerEntry => {
     // GARDE-HELIUS-1b-0 (C-5 / 121): stamp `network` (after credits_derived, before reason) ONLY when this operator
     // ledger was opened FOR a network (chainstack under an explicit opts.network). Omitted otherwise => byte-identical
     // legacy lines; a mixed ledger (legacy + network lines) chains + verifies (verifyCycleLedger recomputes present fields).
-    const core: CycleCore = { cycle_id: cycleId, tariff_version: tariffVersion, by_op_method: byOpMethod, outcome, credits_derived: credits, ...(network !== undefined ? { network } : {}), ...(reason !== undefined ? { reason } : {}) };
+    const core: CycleCore = { cycle_id: cycleId, tariff_version: tariffVersion, by_op_method: byOpMethod, outcome, credits_derived: credits, ...(network !== undefined ? { network } : {}), ...(course !== undefined ? { course } : {}), ...(reason !== undefined ? { reason } : {}) };
     const entry = chainCycleEntry(head, core);
+    if (!headOnDisk) { replaceDurable(headPath, LEDGER_GENESIS); headOnDisk = true; } // (a) the genesis head is durable BEFORE the first line
     writeDurable(path, "a", JSON.stringify(entry) + "\n"); // the LINE is durable BEFORE its head (C-V-8 order)
     entries.push(entry); head = entry.entry_sha256;
     replaceDurable(headPath, head); // head rewritten AFTER the durable append (C-V-8)
@@ -204,6 +218,7 @@ export function openOperatorLedger(cycleDir: string, op: string, floor: number, 
     path, headPath, cycleDir, op,
     entries: () => entries,
     priorAtOpen: () => frozenPrior,
+    priorAttemptsAtOpen: () => frozenAttempts,
     append: (rec: AttemptRecord) => { appendChained(rec.outcome, { [`${rec.op}|${rec.method}`]: 1 }, rec.credits, rec.reason); },
     appendChained,
   };

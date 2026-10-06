@@ -151,11 +151,20 @@ test("keyless_http_error_reprises_redacted_body", async () => {
 
 // C-5 belt: the fixed preamble + code NEVER contains a vocabulary token, for EVERY resolved operator label x EVERY
 // error name x representative codes - so the hint is the SOLE token carrier (a false token would trip a range split).
-test("error_preamble_carries_no_vocabulary_token", () => {
+// killer: packages/rpc-guard/src/transport.ts:141 CONST "BodyTooLarge" -> "Body too large"
+test("error_preamble_carries_no_vocabulary_token", async () => {
   const env = { BELL_SOLANA_RPC: "https://sol.example.invalid", HELIUS_API_KEY: "FAKEKEY-9z", CHAINSTACK_ETH_URL: CS_ENV.CHAINSTACK_ETH_URL };
   const ops = Object.keys(resolveOperators(env).classes);
   assert.ok(ops.length >= 6, "several operators resolved");
-  const names = ["AbortError", "TypeError", "NetworkError", "HttpError", "NonJsonBody", "RpcError"];
+  // RPC-GUARD-BODY-TIMEOUT-1: a bounded body over its cap is raised under the name BodyTooLarge, its whole message free of tokens.
+  const realFetch = globalThis.fetch;
+  globalThis.fetch = () => Promise.resolve(httpResp("x".repeat(64), 200));
+  let over: unknown;
+  try { over = await resolveOperators(env, { maxBodyBytes: 16 }).transport("chainstack" as OperatorLabel, "eth_call", [{}, "0x1"]).then(() => 0); }
+  catch (e) { over = e; } finally { globalThis.fetch = realFetch; }
+  assert.ok(over instanceof TransportError && over.name === "BodyTooLarge" && over.code === 200, `an over-cap body: ${msgOf(over)}`);
+  assert.equal(closedHint(msgOf(over)), "", `the message of an over-cap body carries no vocabulary token: ${msgOf(over)}`);
+  const names = ["AbortError", "TypeError", "NetworkError", "HttpError", "NonJsonBody", "RpcError", "BodyTooLarge"];
   const codes: Array<number | undefined> = [undefined, 3, -32000, 400, 401, 429, 500];
   for (const op of ops) for (const name of names) for (const code of codes) {
     const codeStr = code !== undefined ? ` (code ${String(code)})` : "";

@@ -1,0 +1,105 @@
+{
+  "schema": "dojo-deploy-ca-v1",
+  "url": "https://dojo.monarkgate.tech",
+  "g7": "4ce547b0c2004b18821283aeaed90abaacfa5e5f",
+  "checks": [
+    {
+      "name": "c01_timeline_jsonl",
+      "pass": true,
+      "detail": "checked_at=2026-10-03T04:16:23.117Z status=200 lines=4"
+    },
+    {
+      "name": "c02_pubkey_equals_committed_keyring",
+      "pass": true,
+      "detail": "status=200 served_sha256=8cc6c3dd804391756cdbd490ee75f7ee883886603641f705d1c203dfaa97c324 committed_sha256=8cc6c3dd804391756cdbd490ee75f7ee883886603641f705d1c203dfaa97c324"
+    },
+    {
+      "name": "c03_dojo_verify_keyring_root",
+      "pass": true,
+      "detail": "exit=0 one_line=true status=consistent_with_supplied_keyring trust_root=supplied_keyring detail_null=true stdout_sha256=6f80e980a64092f20ab79df5aabd471b7a647216c3c154c6f614389a0a175c56"
+    },
+    {
+      "name": "c04_acao_star",
+      "pass": true,
+      "detail": "answered=4/4"
+    },
+    {
+      "name": "c05_no_directory_listing",
+      "pass": true,
+      "detail": "status=404,404,404,404"
+    },
+    {
+      "name": "c06_cache_immutable_lines_history_no_cache_timeline",
+      "pass": true,
+      "detail": "immutable=true current_no_cache=true"
+    },
+    {
+      "name": "c07_tls_authorized",
+      "pass": true,
+      "detail": "authorized=true env_families=none exec_argv=none ca_default=145 ca_bundled=145 ca_default_is_bundled=true ca_default_sha256=f7fad114a8d4341eec9c69e34b95e86a69f1bff174e83a4fe6909d630253fd3c"
+    },
+    {
+      "name": "c08_no_private_material_served",
+      "pass": true,
+      "detail": "private_shape=false jwk_public_only=true served_private_paths=none"
+    },
+    {
+      "name": "c09_loaded_config_equals_g7",
+      "pass": true,
+      "detail": "tree_publication=true tree_collect=true units_one_fragment_equal=true need_daemon_reload_no=true imports_bell_dojo=true dojo_extract=true environment_closed=true env_families=none"
+    },
+    {
+      "name": "c10_bell_and_probe_untouched",
+      "pass": true,
+      "detail": "before_sha256=9caa4688605bd4ea93eb5cb7148d36c03d510e987d3ecd079bc64340707d2104 after_sha256=9caa4688605bd4ea93eb5cb7148d36c03d510e987d3ecd079bc64340707d2104 entries=7 required=true"
+    },
+    {
+      "name": "c11_head_and_history_recomputed",
+      "pass": true,
+      "detail": "head=true history=true timeline_sha256=true"
+    },
+    {
+      "name": "c12_immutables_hash_to_their_names",
+      "pass": true,
+      "detail": "named=2 within_files=true malformed_names=0 wrong=0 bytes=600514"
+    }
+  ],
+  "tls": {
+    "authorized": true
+  },
+  "head": {
+    "seq": 4,
+    "day": "2026-10-02",
+    "lines_sha256": "cd443e7c9e6af0359ac51d0233dd6c02a1f08525e20398f255ab4eb19f6329ca",
+    "lines_count": 288,
+    "recomputed_root": "f74af5f32e1f5b2cfcfea0e58a03b551ff74854b8a190251e98f68961b2d1822"
+  },
+  "history": {
+    "history_sha256": "e7dc3537bef95d2dc1371af072efa3a63da90f2d46005d3935f278c53c3ba5ac",
+    "history_lines_count": 4181,
+    "history_root": "e35af0b39fe53442c54cf29e9f6cbaeff61a5348602d50b4b548f123d10273eb"
+  },
+  "bodies_sha256": {
+    "/timeline.jsonl": "f13a39d0cad2515529ea9e94c80c0fe368ef61ca43ea49de0d5e240616793d43",
+    "/dojo/pubkey.json": "8cc6c3dd804391756cdbd490ee75f7ee883886603641f705d1c203dfaa97c324",
+    "/history/e7dc3537bef95d2dc1371af072efa3a63da90f2d46005d3935f278c53c3ba5ac.jsonl": "e7dc3537bef95d2dc1371af072efa3a63da90f2d46005d3935f278c53c3ba5ac",
+    "/lines/cd443e7c9e6af0359ac51d0233dd6c02a1f08525e20398f255ab4eb19f6329ca.jsonl": "cd443e7c9e6af0359ac51d0233dd6c02a1f08525e20398f255ab4eb19f6329ca"
+  },
+  "inputs_sha256": {
+    "keyring": "8cc6c3dd804391756cdbd490ee75f7ee883886603641f705d1c203dfaa97c324",
+    "tree_publication": "a8c0bd216b79facc371fc17a4f2912567a2e8bf1fa02b66d71b6dbe8806e6521",
+    "tree_collect": "61e35121b1e4e62b737db9290847913ae2df9c1519438526dd8155e35d3cd686",
+    "bell_before": "9caa4688605bd4ea93eb5cb7148d36c03d510e987d3ecd079bc64340707d2104",
+    "bell_after": "9caa4688605bd4ea93eb5cb7148d36c03d510e987d3ecd079bc64340707d2104",
+    "dojo_verify": "73195ecdb8691b61ed047cad6dc45cdbac68868b3d541d01b1d2dd15029c038a",
+    "loaded_config/caddyfile-main": "aa06619ff02fcd588f805b70f9cb7624577f097642feba9f6c7256205674321d",
+    "loaded_config/caddyfile-dojo": "67bb93ac4c14f3abd2c457bddd8081b26bdab90bb9e53f09101a13f6ad72f08f",
+    "loaded_config/monark-dojo-collect.service.cat": "fc52755feed388be8882197589654d76867ebb04a0ba5ab9dd125900bf528421",
+    "loaded_config/monark-dojo-collect.timer.cat": "6931899c31a9e1337841bface5e74ae806ef24e9091ba94844c7415c67c0f4a9",
+    "loaded_config/monark-dojo-publish.service.cat": "0c6c4e1eb9fa07f9ee5b8eb660b9ebd7c37f723323f7309a252203892afd0e0c",
+    "loaded_config/monark-dojo-publish.timer.cat": "cb056d69d9229f65fe05a12d593d2e3ac7ee59c9e52d7410fd7100572b16e1fe",
+    "loaded_config/need-daemon-reload.txt": "830f9d056742d136c4d39c1a088957042348d31b644518bf98bea64587adeab8",
+    "loaded_config/manager-env.txt": "3fb8f51e89a5790557871113d86992998f8ec1bc31df9871f9d243bac2df0eba",
+    "loaded_config/unit-env.txt": "8e91de47208a0aeb14f5f336dfa14ccff44a5283c44790b950144f637ac1b142"
+  }
+}

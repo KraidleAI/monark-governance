@@ -81,7 +81,7 @@ test("repair_tail_composition_power_cut_signature_to_unlock_and_reopen", async (
       bak_path: { jsonl: "helius.jsonl.bak", head: "helius.head.bak" }, bak_sha256: { jsonl: sha(damaged), head: sha(headBytes) }, head_action: "none",
     });
     // (5) the ledgered unlock now succeeds, then the guarded client reopens and meters on.
-    assert.deepEqual(cli(dir, "unlock", "cut", ["--reason", "after repair-tail"]), { exitCode: 0 });
+    assert.deepEqual(cli(dir, "unlock", "cut", ["--reason", "after repair-tail"]), { exitCode: 0, unlocked: readFileSync(head, "utf8") }, "D-1: the sha of the `unlocked` line = the new head");
     assert.equal(existsSync(join(cd, "helius.lock")), false);
     const realFetch = globalThis.fetch;
     globalThis.fetch = okFetch;
@@ -289,7 +289,7 @@ test("repair_journal_of_a_real_repair_is_consumed_by_the_served_reconcile", (t) 
     assert.equal(realWriter(led, "w", 3).status, 0);
     appendFileSync(jsonl, Buffer.alloc(4096));
     assert.deepEqual(run("repair-tail", "w", "--reason", "cut 1"), [0, "REPAIRED nul_bytes_removed=4096 head_action=none\n"]);
-    assert.deepEqual(run("unlock", "w", "--reason", "after repair-tail"), [0, ""]);
+    assert.deepEqual(run("unlock", "w", "--reason", "after repair-tail"), [0, `unlocked ${readFileSync(join(cd, "helius.head"), "utf8")}\n`]);
     assert.deepEqual(reconcile("w", gt(0), gt(3)), NO_GO, "the record written by repair-tail flags its window");
     assert.deepEqual(reconcile("w", gt(0), gt(3)), [1, "NO-GO hard:getTransaction\n"], "that NO-GO closed the window: the SAME snapshots meet an EMPTY window (G2 E11)");
     assert.deepEqual(reconcile("w", gt(3), gt(3)), [0, "GO\n"], "chained snapshots: the next window is clean, the flag rolled");
@@ -301,7 +301,7 @@ test("repair_journal_of_a_real_repair_is_consumed_by_the_served_reconcile", (t) 
     for (const f of ["helius.jsonl.bak", "helius.head.bak"]) renameSync(join(cd, f), join(backup, f)); // RUNBOOK: bak_exists
     assert.deepEqual(run("repair-tail", "w", "--reason", "cut 2"), [0, "REPAIRED nul_bytes_removed=512 head_action=none\n"]);
     assert.equal(lastRecord().lines_after, start, "the boundary is exercised: lines_after == the window start");
-    assert.deepEqual(run("unlock", "w", "--reason", "after repair-tail 2"), [0, ""]);
+    assert.deepEqual(run("unlock", "w", "--reason", "after repair-tail 2"), [0, `unlocked ${readFileSync(join(cd, "helius.head"), "utf8")}\n`]);
     assert.deepEqual(reconcile("w", gt(3), gt(3)), NO_GO, "(i) lines_after == window start is IN the window");
     // (3) variant (iii): a parseable record without a NUMERIC lines_after flags EVERY window until it is lifted (RUNBOOK
     //     section 5: the journal is copied to the backup folder, then the line is removed).
@@ -317,7 +317,7 @@ test("repair_journal_of_a_real_repair_is_consumed_by_the_served_reconcile", (t) 
     assert.equal(realWriter(led, "agg", 2).status, 0);
     appendFileSync(join(led, "agg", "helius.jsonl"), Buffer.alloc(64));
     assert.deepEqual(run("repair-tail", "agg", "--reason", "cut"), [0, "REPAIRED nul_bytes_removed=64 head_action=none\n"]);
-    assert.deepEqual(run("unlock", "agg", "--reason", "after repair-tail"), [0, ""]);
+    assert.deepEqual(run("unlock", "agg", "--reason", "after repair-tail"), [0, `unlocked ${readFileSync(join(led, "agg", "helius.head"), "utf8")}\n`]);
     assert.deepEqual(reconcile("agg", ru(0), ru(2), "--mode", "aggregate"), NO_GO, "(ii) aggregate mode");
     assert.deepEqual(reconcile("agg", ru(2), ru(2), "--mode", "aggregate"), [0, "GO\n"]);
   } finally { cleanup(); }

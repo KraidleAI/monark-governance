@@ -38,7 +38,8 @@ const V5 = "verified 95% probability of liquidation within the interval.";
 // prefixes in declaration order. Adding a rule or an exemption = an ADR line AND this table (else red here).
 const O_MACRON = String.fromCharCode(0x14d);
 const CLOSED: ReadonlyArray<readonly [string, readonly string[]]> = [
-  ["the price is verified", ["not re-", `committed Sh${O_MACRON}gen-`, `committed, previously Sh${O_MACRON}gen-`, "committed, previously "]],
+  // IF-1 (ADR-U5a G7 addendum; closed at U-4b-2b): the fourth prefix "committed, previously " is retired (8 -> 7 exemptions).
+  ["the price is verified", ["not re-", `committed Sh${O_MACRON}gen-`, `committed, previously Sh${O_MACRON}gen-`]],
   ["a probability of being right", ["never a ", "not a ", "no "]],
   ["95% of the time", []],
   ["the accuracy is high", ["seed, n, "]],

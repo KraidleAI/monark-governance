@@ -18,12 +18,12 @@ your own nonconformity scores, gate your own prediction under that calibration,
 and check that the audit closes:
 
 1. `calibrate` your score array at a chosen miscoverage α → you get back the
-   split-conformal quantile and a digest over exactly those scores.
+   split-conformal quantile and a `scores_sha256` over exactly those scores, in the order sent.
 2. `gate` your prediction, passing the same scores as the calibration → the gate
    conforms against them and returns **commit / defer / abstain** with a verdict
    digest.
-3. The loop closes when the verdict's calibration digest equals the digest the
-   calibrate step returned — the decision was gated against the exact scores you
+3. The loop closes when the verdict's `scores_sha256`, `alpha` and `qhat` equal
+   those the calibrate step returned — the decision was gated against the exact scores you
    provided, and nothing else.
 
 The full walkthrough, with a recorded byte-for-byte trace, lives in

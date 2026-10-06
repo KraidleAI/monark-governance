@@ -7,7 +7,7 @@
  * per-account liquidable amount yhat by the FROZEN close-factor rule (Aave v3.5.0), and emits the K-1 envelope
  * `{prediction, provenance, label}`. `prediction` alone is the frozen `Prediction` contract; `provenance` and
  * `label` ride OUTSIDE it (motif attest.run / adapter-narabi). The `gate` tool consumes the `prediction`
- * downstream (producer -> gate -> region); at HEAD the liq registry is empty, so the gate abstains under_calib.
+ * downstream (producer -> gate -> region); the liq registry commits stratum s0 only (U-4b-2b): covered there, under_calib on the other strata.
  *
  * NOT REGISTERED in U-5a (decisions 51/123: the endpoint keeps 4 tools). `ukemi-predict` replaces `cascade` in
  * U-5b (registration + route + 4->4 set + skill/MCP/README, same fusion). U-5a delivers the complete module +
@@ -21,16 +21,14 @@
  */
 import { fromRealizedBook, isRealizedError } from "@monark/monark";
 import type { RealizedBookSlice, RealizedOracleParams, RealizedReserve, RealizedAccount, RealizedOracleUpdate } from "@monark/monark";
-import { assertClosedPrediction, assertNoForbiddenKey } from "@monark/contracts";
+import { assertClosedPrediction, assertNoForbiddenKey, SCHEMA_VERSION } from "@monark/contracts";
 import type { Prediction } from "@monark/contracts";
 import { strateOf } from "../ukemi-strata.ts";
 import { UKEMI_LIQ_PREDICTOR_BASE } from "../calibration.ts";
-import { TASK_LIQ_ELIGIBLE } from "./gate.ts";
+import { TASK_LIQ_ELIGIBLE, type HarnessErrorCode } from "./gate.ts";
 
 export const UKEMI_PREDICT_TOOL_NAME = "ukemi-predict";
 
-/** The frozen contract version (ADR-M001) — a constant, never carried by the producer. */
-const SCHEMA_VERSION = "1.0.0";
 
 /** The ONLY close-factor protocol version this producer models (Aave v3.5.0). Any other value fails closed. */
 export const UKEMI_PREDICT_CLOSE_FACTOR_VERSION = "3.5.0";
@@ -67,6 +65,8 @@ export const UKEMI_PREDICT_LABEL =
 /** A tool-level error (K-4a analog): surfaced by the MCP/HTTP seam as a 400 tool error, never a silent output
  *  and never a 500. Registered in `TOOL_ERROR_NAMES` (http.ts) so a refusal is a client error. */
 export class UkemiPredictToolError extends Error {
+  /** Stable error code of this class (ADR-CM B-3, plan docs/G0-lot-cm-2a.md). */
+  readonly code: HarnessErrorCode = "ukemi_predict_input_invalid";
   constructor(message: string) {
     super(message);
     this.name = "UkemiPredictToolError";
@@ -198,8 +198,8 @@ export function runUkemiPredict(rawInput: unknown): UkemiPredictOutput {
     task_class: TASK_LIQ_ELIGIBLE,
     yhat,
     // Provenance only: the gate re-derives `${UKEMI_LIQ_PREDICTOR_BASE}/s${strateOf(yhat)}` SERVER-side and
-    // IGNORES the client predictor_id for this class (checkpoint-1 C-10). The base literal is honest — it says
-    // "uncommitted-until-u4b-2b" (the served region is committed at -2b).
+    // IGNORES the client predictor_id for this class (checkpoint-1 C-10). The base is the committed cell-A key of the
+    // fresh episode (re-pinned at U-4b-2b; until then a placeholder that matched no committed entry).
     predictor_id: `${UKEMI_LIQ_PREDICTOR_BASE}/s${String(strate)}`,
     produced_at: input.produced_at,
     // ECHO of the caller-carried digest (never recomputed, not re-verified; K-8) — a trace, not an attestation.

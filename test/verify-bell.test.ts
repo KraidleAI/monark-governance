@@ -10,7 +10,6 @@
  */
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { once } from "node:events";
 import { execFile, execFileSync } from "node:child_process";
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { createServer } from "node:http";
@@ -22,6 +21,9 @@ import { createHash, generateKeyPairSync } from "node:crypto";
 import { headersFor, parseCaddyfile, realPublication, serveCaddy, type CaddySite } from "./bell-caddy.ts";
 import { BELL_ROOT_REDIRECT, BELL_TREE_PATHS, CHECK_NAMES, UNIT_INSTALLED, gitBlob, runCa, type CaDeps, type CaResult } from "../scripts/verify-bell.mjs";
 import { canonical, keyringOf } from "../apps/bell/scripts/bell-chain.mjs";
+import { CADDY_DEDICATED } from "../scripts/verify-bell.mjs";
+import { DOJO_CADDYFILE_INSTALLED } from "../scripts/dojo-deploy.mjs";
+import { listen } from "./helpers/loopback.ts";
 
 const REPO = fileURLToPath(new URL("../", import.meta.url));
 const sha = (b: string | Uint8Array): string => createHash("sha256").update(b).digest("hex");
@@ -75,10 +77,9 @@ const red = (r: CaResult): string[] => (r.ca === null ? ["usage"] : r.ca.checks.
 async function served<T>(caddyText: string, f: (url: string) => Promise<T>): Promise<T> {
   const site: CaddySite | undefined = parseCaddyfile(caddyText)[0];
   assert.ok(site !== undefined, "one site block");
-  const srv: Server = serveCaddy(site, pub.publicDir).listen(0, "127.0.0.1");
-  await once(srv, "listening");
-  const a = srv.address();
-  try { return await f(`http://127.0.0.1:${String(a !== null && typeof a === "object" ? a.port : 0)}`); } finally {
+  const srv: Server = serveCaddy(site, pub.publicDir);
+  const port = await listen(srv);
+  try { return await f(`http://127.0.0.1:${String(port)}`); } finally {
     srv.closeAllConnections();
     await new Promise<void>((r) => { srv.close(() => { r(); }); });
   }
@@ -93,10 +94,9 @@ async function servedRoot301<T>(f: (url: string) => Promise<T>): Promise<T> {
   const srv: Server = createServer((req, res) => {
     if ((req.url ?? "/").split("?")[0] === "/") { res.writeHead(301, { ...rootHeaders, location: BELL_ROOT_REDIRECT }); res.end(); return; }
     inner.emit("request", req, res);
-  }).listen(0, "127.0.0.1");
-  await once(srv, "listening");
-  const a = srv.address();
-  try { return await f(`http://127.0.0.1:${String(a !== null && typeof a === "object" ? a.port : 0)}`); } finally {
+  });
+  const port = await listen(srv);
+  try { return await f(`http://127.0.0.1:${String(port)}`); } finally {
     srv.closeAllConnections();
     await new Promise<void>((r) => { srv.close(() => { r(); }); });
   }
@@ -233,4 +233,38 @@ test("verify_bell_ca_check5_runs_real_bell_verify", { skip: existsSync(VERIFY) ?
   const tl = readFileSync(join(pub.publicDir, "timeline.jsonl"), "utf8");
   const tampered = await withServedFile("timeline.jsonl", tl.replace(/"seq":1,/, '"seq":1,"x":0,'), () => served(CADDY_TEXT, (u) => runCa(argv(u, { verifier: VERIFY }), deps())));
   assert.equal(c5(tampered), false, "a tampered line is refused");
+});
+
+// Lot BELL-CA-DOJO-1 (ADR-DOJO-PR-3 E-2, act A-6): in import mode, check 11 (b) accepts the main Caddyfile's import lines as {Bell} or
+// {Bell, Dojo} in either order, each at most once, no other line, Bell's dedicated file being the G7 blob; the Dojo file is never read by
+// Bell's CA. One fresh capture per case (RUNBOOK step 11 forms) over the same loopback publication; a refusal is red on c11 ALONE.
+// killer: scripts/verify-bell.mjs:207 CONST "imports.includes(closed[0])" -> "true"
+// killer: scripts/verify-bell.mjs:207 CONST "new Set(imports).size === imports.length" -> "true"
+// killer: scripts/verify-bell.mjs:208 CONST "ded.equals(caddyBlob)" -> "true"
+// killer: scripts/verify-bell.mjs:208 CONST " && importsOk)" -> ")"
+// killer: scripts/verify-bell.mjs:207 CONST "imports.every(" -> "imports.slice(0, 2).every("
+test("verify_bell_ca_check11_accepts_the_closed_import_set", async () => {
+  const LF = String.fromCharCode(10), B = `import ${CADDY_DEDICATED}`, D = `import ${DOJO_CADDYFILE_INSTALLED}`;
+  const X = "import /etc/caddy/other.caddyfile", DIFFERS = CADDY_TEXT.replace("no-cache", "no-store");
+  let n = 0;
+  const main = (lines: string[], dedicated: string) => (d: string): void => {
+    writeFileSync(join(d, "caddyfile-main"), lines.map((l) => l + LF).join(""));
+    writeFileSync(join(d, "caddyfile-dedicated"), dedicated);
+  };
+  const run = (lines: string[], dedicated = CADDY_TEXT): Promise<CaResult> =>
+    served(CADDY_TEXT, (u) => runCa(argv(u, { loaded: capture(`cap-set-${String(n++)}`, main(lines, dedicated)) }), deps()));
+  const c11 = (r: CaResult): string => JSON.stringify(r.ca?.checks.find((c) => c.name === "c11_loaded_config_equals_g7"));
+  for (const lines of [[B, D], [B], [D, B]]) {
+    const r = await run(lines);
+    assert.deepEqual(red(r), [], `accepted, ${lines.join(" + ")}: no red check (${c11(r)})`);
+    assert.equal(r.code, 0, `accepted, ${lines.join(" + ")}: exit 0`);
+  }
+  const refused: [string, string[], string?][] = [["a third import line", [B, D, X]], ["an import of another file", [B, X]],
+    ["another file alone", [X]], ["the Dojo line without Bell's", [D]], ["Bell's line twice", [B, B]], ["the Dojo line twice", [B, D, D]],
+    ["both lines, the dedicated file differs from the G7 blob", [B, D], DIFFERS]];
+  for (const [why, lines, dedicated] of refused) {
+    const r = await run(lines, dedicated);
+    assert.deepEqual(red(r), ["c11_loaded_config_equals_g7"], `refused, ${why}: the red set is exactly c11 (${c11(r)})`);
+    assert.equal(r.code, 1, `refused, ${why}: exit 1`);
+  }
 });

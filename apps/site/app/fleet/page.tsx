@@ -20,7 +20,7 @@ import {
   listNames,
 } from "@/lib/fleet";
 import { insideFor } from "@/lib/fleet-presentation";
-import { LIQ_EMPTY_REGISTRY_SENTENCE } from "@/lib/ukemi-copy";
+import { LIQ_EMPTY_REGISTRY_SENTENCE, LIQ_COMMITTED_STATE_NOTE } from "@/lib/ukemi-copy";
 import { loadUkemiServed } from "@/lib/ukemi-served-load";
 import { agentPages } from "./agent-pages";
 import { NarabiFreshness } from "./narabi-freshness";
@@ -59,11 +59,14 @@ const AGENT_MARKS: Record<string, ComponentType<SVGProps<SVGSVGElement>>> = {
   Genkan: GenkanMark,
 };
 
-// What the SERVED gate says today about a built agent's class, beside its register note — the served sentence itself,
-// read from a module pinned byte-identical to the served description (lib/ukemi-copy.ts), never a paraphrase. The root
-// test registry_notes_track_served_descriptions reds the day the served gate description stops carrying it.
-const SERVED_STATE: Readonly<Record<string, string>> = {
-  Ukemi: LIQ_EMPTY_REGISTRY_SENTENCE,
+// What the SERVED gate says today about a built agent's class, beside its register note, per the state the committed
+// served record (apps/site/data/ukemi-served.json) holds: empty, the served sentence itself, read from a module pinned
+// byte-identical to the served description (lib/ukemi-copy.ts), never a paraphrase; committed, the site's digit-free
+// restatement (the served clause carries figures this page does not print yet). The root test
+// registry_notes_track_served_descriptions reds while that record and the served gate description disagree.
+const SERVED_STATE: Readonly<Record<"empty" | "committed", Readonly<Record<string, string>>>> = {
+  empty: { Ukemi: LIQ_EMPTY_REGISTRY_SENTENCE },
+  committed: { Ukemi: LIQ_COMMITTED_STATE_NOTE },
 };
 
 /** The register status of a named agent (fail-closed: a panel never renders a status the register does not hold). */
@@ -73,11 +76,12 @@ function statusOf(name: string): "built" | "upcoming" {
   return a.status;
 }
 
-// The /fleet route (server component) in charter C (/fleet = the AGENTS, applications stay on /products). It consumes
+// The /fleet route (server component) in charter C (/fleet = the AGENTS, applications stay on /applications). It consumes
 // the fleet register (lib/fleet.ts): the built agents as register cards carrying their digit-free served note
 // (wiring.note — the O-2 header below is asserted on the built HTML by scripts/assert-fleet-html.mjs) and, where the
 // served gate states one, the served sentence of the agent's class (said while the committed served record,
-// apps/site/data/ukemi-served.json, holds the empty registry); Narabi's card carries the freshness line, judged against
+// apps/site/data/ukemi-served.json, holds the empty registry; its digit-free restatement while that record holds a
+// committed one); Narabi's card carries the freshness line, judged against
 // the served schedule; then the built panels (the engines' eight-block panels and the Narabi panel, contracts read
 // server-side from schemas/, the Shōgen, Hikae and Narabi card status handed in from the register); then the upcoming
 // agents, each opening a data-driven PlaceholderPanel. Every status, every agent and application count and every listed
@@ -104,7 +108,8 @@ export default function FleetPage() {
         <div>
           <span className="c-label">fleet · register</span>
           <h1 className="c-h1" style={{ marginTop: 8 }}>
-            A company of agents. {capitalized(countWord(built.length))} built, {countWord(upcoming.length)} on the roadmap.
+            {capitalized(countWord(built.length + upcoming.length))} smart pieces. {capitalized(countWord(built.length))} built,{" "}
+            {countWord(upcoming.length)} on the roadmap.
           </h1>
           <p className="c-lede" style={{ fontSize: 17, marginTop: 12, maxWidth: 720 }}>
             The first vertical is built and served piece by piece and composed on the gate path. Every future act plugs into
@@ -122,7 +127,7 @@ export default function FleetPage() {
           {built.map((a) => {
             const Mark = AGENT_MARKS[a.name];
             const pages = agentPages(a.name);
-            const servedState = ukemiServed.registry_state === "empty" ? SERVED_STATE[a.name] : undefined;
+            const servedState = SERVED_STATE[ukemiServed.registry_state][a.name];
             return (
               <div key={a.name} className="c-card">
                 <h3>
@@ -188,7 +193,7 @@ export default function FleetPage() {
           })}
         </div>
         <p className="c-muted c-small" style={{ marginTop: 10 }}>
-          Applications are listed on the <Link href="/products">applications page</Link>, off the agent count above.
+          Applications are listed on the <Link href="/applications">applications page</Link>, off the agent count above.
           {productsBuilt.length > 0 ? (
             <>
               {" "}

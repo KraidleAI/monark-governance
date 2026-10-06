@@ -20,6 +20,7 @@ import {
 } from "../scripts/probe-narabi.mjs";
 import type { NarabiState, StateCheck } from "../scripts/probe-narabi.mjs";
 import { loadNarabiCapture } from "../apps/site/lib/narabi-capture-load.ts";
+import { listen } from "./helpers/loopback.ts";
 
 const HERE = fileURLToPath(new URL(".", import.meta.url));
 const REPO = join(HERE, "..");
@@ -81,9 +82,6 @@ async function runProbeAsync(args: readonly string[], explicit: Record<string, s
   return { status, state: JSON.parse(readFileSync(out, "utf8")) as NarabiState };
 }
 
-function listen(server: Server): Promise<number> {
-  return new Promise((resolve) => server.listen(0, "127.0.0.1", () => resolve((server.address() as { port: number }).port)));
-}
 function close(server: Server): Promise<void> {
   server.closeAllConnections();
   return new Promise((resolve) => server.close(() => resolve()));

@@ -19,6 +19,10 @@ U="env -u HELIUS_API_KEY -u CHAINSTACK_ETH_URL -u CHAINSTACK_SOLANA_URL -u CHAIN
 | Power loss | only what was flushed (fsync) | the line being appended when the power went (its request was NOT sent: the transport runs only after the append returns) may be a NUL run or a torn line; head equal or ONE behind; an orphan `<op>.head.tmp` | open heals / removes the orphan; a NUL tail is repaired by `repair-tail` (§3); a torn line is manual (§4) |
 | Lying device (acknowledges a flush it does not perform: volatile write cache without power-loss protection) | undefined | anything | out of reach of software: the chain replay and the head sidecar DETECT (fail-closed); lost data is not recoverable; §4 + reconcile against the dashboard |
 
+New ledger (RPC-GUARD-FIRST-APPEND-HEAD-1): its head, the genesis (64 zeros), is written durably BEFORE its first line, so a
+process crash during the FIRST append is the case of the first row (head one entry behind: healed at the next open, then the
+served `unlock`). A genesis head whose ledger was never written opens as a new ledger; an open alone writes nothing.
+
 Before GARDE-FSYNC-1 (code up to `66f75c2`) nothing was flushed: cut #1 (~20:32 UTC) left 211 008 NUL bytes after
 9 460 lines and a head AHEAD of the chain (~420 sent requests lost from the ledger); cut #2 (~21:37 UTC) left
 13 776 NUL bytes and a head of 64 NUL bytes (an in-place rewrite whose size reached the disk, not its data).
@@ -80,16 +84,16 @@ Use it for a ledger written by GARDE-FSYNC-1 code. It changes NO byte when it re
 6. Reconcile: the next `reconcile` of this operator answers `NO-GO repaired_in_window` (its input is the repair journal
    `<op>.repair.jsonl`: a record whose `lines_after` is >= the window start flags the window, before any numeric bound,
    in every mode), UNLESS that `reconcile` is a rollover (a `--before` or `--after` whose `cycle` is not `--cycle`), checked FIRST
-   (`packages/rpc-guard/src/reconcile.ts:73`; the repair flag is `:74`): it then answers `NO-GO rollover`, its
+   (`packages/rpc-guard/src/reconcile.ts:114`; the repair flag is `:115`): it then answers `NO-GO rollover`, its
    `reconciled` line closes the repaired window, and `repaired_in_window` is never written (measured: re-G2 E13).
    Either NO-GO is emitted ONCE for the repaired window: it appends a `reconciled` line, which closes that window at
    once, whatever the orchestrator does next. The tool therefore NEVER computes the numeric bound of the repaired window:
    the orchestrator computes it by hand and journals it — `Delta_dashboard` of that window (its `--after` minus its
-   `--before`) against `Sigma credits_derived` of the `attempted` lines between the previous `reconciled` line and the
+   `--before`) against `Sigma credits_derived` of the `attempted` and `settled` lines (reservation + signed delta, ADR-RPC-GUARD-RECONCILE-1 D-2) between the previous `reconciled` line and the
    `reconciled` line of reason `repaired_in_window`, per method (`per-method` mode) or in total (`aggregate` modes), with
    that mode's criterion (`packages/rpc-guard/src/reconcile.ts` header: hard bound, then soft band). In the rollover
    case there is NO hand computation: one or both of that reconcile's snapshots carry a `cycle` other than `--cycle`
-   (`reconcile.ts:73`, together or separately - measured: re-G2 E13 with a `--before` of another cycle, re-G2-delta
+   (`reconcile.ts:114`, together or separately - measured: re-G2 E13 with a `--before` of another cycle, re-G2-delta
    pli-4 E13e with a `--before` AND an `--after` of the same other cycle, `docs/G2-lot-garde-fsync-1-4.md`), and a
    snapshot of another cycle never subtracts against this ledger
    (`docs/adr/ADR-GARDE-HELIUS-client-budgete-unique.md` D4, C-7); the repaired window is closed by the `reconciled` line
@@ -98,11 +102,18 @@ Use it for a ledger written by GARDE-FSYNC-1 code. It changes NO byte when it re
    with the SAME snapshots, it meets an EMPTY window and answers `NO-GO hard:<method>` (`hard:total` in aggregate mode)
    as soon as that window's delta is positive, with no real overrun (measured: G2 E11 for `hard:<method>`, re-G2 E12 for
    `hard:total`; pinned by the test `repair_journal_of_a_real_repair_is_consumed_by_the_served_reconcile`).
+   COURSE mode (§6, `--course-end`): a numeric `lines_after` L flags the course iff start <= L <= end, where end is the
+   index of the course's `unlocked` line and start the first line after the boundary before it (L <= end: that `unlocked`
+   line was written AFTER the truncation, by an `unlock` after `repair-tail`, so the course lost its tail; L > end, the
+   truncation followed the course; L < start, it preceded it). A course window never closes: every rerun of a repaired
+   course answers `NO-GO repaired_in_window` again (the rollover still first), so its numeric bound is ALWAYS the
+   orchestrator's hand computation, as above, over the lines of that course (pinned by the test
+   `reconcile_course_repair_bound_is_the_course`).
 
 | Token | Meaning | Next step |
 |---|---|---|
 | `ledger_absent` | no `<op>.jsonl` in `<ledger-dir>/<cycle>` | check the path |
-| `head_absent` | `<op>.head` missing (also after a cut on the very FIRST append) | §4 — kept refused by design (a deleted head + a truncation would pass) |
+| `head_absent` | `<op>.head` missing: deleted, or a ledger begun before RPC-GUARD-FIRST-APPEND-HEAD-1 and cut at its first append | §4 — refused by design |
 | `lock_unreadable` | the lock's `{pid}` never reached the disk | make sure no process runs, then §4 |
 | `writer_alive` | a process with the lock's pid exists (EPERM counts as existing) | stop the writer; if the pid was reused after the reboot, §4 |
 | `no_nul_tail` | nothing to strip | the damage is elsewhere: §4 |
@@ -110,6 +121,9 @@ Use it for a ledger written by GARDE-FSYNC-1 code. It changes NO byte when it re
 | `malformed_line` / `chain_broken` | damage INSIDE the durable part | §4 + investigate (not a power-cut signature) |
 | `tail_truncation` | after the strip the head is neither the recomputed head nor its penultimate: a head AHEAD (a truncation signature — never produced by a cut since GARDE-FSYNC-1), a NUL-filled head (pre-lot in-place write), or a head more than one entry behind | §4 + investigation; the served tool NEVER rewrites such a head |
 | `bak_exists` | an earlier repair's `.bak` is present | move both `.bak` files (with their sha) to the backup folder, rerun |
+
+`head_absent` stays refused by design: healing it would let a deleted head plus a truncation pass. A ledger written since
+RPC-GUARD-FIRST-APPEND-HEAD-1 has its genesis head before its first line, so a cut on its first append is never `head_absent`.
 
 Interrupted repair (a `.bak` present and no record in `<op>.repair.jsonl` whose `bak_sha256.jsonl` is the sha of that
 `.bak`): compare `sha256sum <op>.jsonl` with the `.bak`. Equal: nothing was truncated — move the `.bak` files away and
@@ -152,11 +166,11 @@ pre-GARDE-FSYNC-1 ledger may remove lines whose request WAS sent: the ledger und
 `reconcile` sees a repair ONLY through the repair journal `<op>.repair.jsonl`: after §3 the tool writes the record;
 after §4, or after an interrupted §3, only the record the orchestrator appended (§4 step 5; §3 "Interrupted repair").
 The first reconcile whose window contains a recorded repair answers `NO-GO repaired_in_window` exactly ONCE, unless
-that reconcile is a rollover, checked first (`reconcile.ts:73`): it then answers `NO-GO rollover` and
+that reconcile is a rollover, checked first (`reconcile.ts:114`): it then answers `NO-GO rollover` and
 `repaired_in_window` is never written (measured: re-G2 E13). Either way, the `reconciled` line it appends closes that
 window, independently of the orchestrator, and the numeric check of the repaired window is the orchestrator's hand
 computation (§3 step 6) — none in the rollover case: one or both of its snapshots carry a `cycle` other than `--cycle`
-(`reconcile.ts:73`; measured: re-G2 E13, re-G2-delta pli-4 E13e, `docs/G2-lot-garde-fsync-1-4.md`), and a snapshot of
+(`reconcile.ts:114`; measured: re-G2 E13, re-G2-delta pli-4 E13e, `docs/G2-lot-garde-fsync-1-4.md`), and a snapshot of
 another cycle never subtracts against this ledger
 (`docs/adr/ADR-GARDE-HELIUS-client-budgete-unique.md` D4, C-7); the `reconciled` line of reason `rollover` closes the
 repaired window, its `NO-GO rollover` stands, and the computation resumes in the current cycle. A repair-journal
@@ -164,3 +178,52 @@ line that is unreadable, or that
 has no NUMERIC `lines_after` (a free note, a number written as a string), flags EVERY window — fail-closed, it never
 rolls (measured: G2 E8) — until it is lifted: copy `<op>.repair.jsonl` with its sha into the backup folder, then either
 rewrite that line with a numeric `lines_after` (a real repair record) or remove it (not a repair record); journal it.
+
+## 6. Procedure C — reconcile ONE course (`--course-end`, RECONCILE-WINDOW-1)
+
+Source: `docs/adr/ADR-RPC-GUARD-RECONCILE-1.md` D-1 (lot 1a). A course of an operator is the set of lines after its
+last boundary line (`unlocked`, `reconciled` or `course_reconciled`) and before its own `unlocked` line; the course id
+is the `entry_sha256` of that `unlocked` line. On a ledger SHARED by several products (Bell and the Dojo history act on
+`F:/monark-ledger`) the course mode is the ONLY valid one: the since-last-reconciled mode (no `--course-end`) holds only
+when its two snapshots bracket EVERY course of its window (item BELL-COURSE-END-1).
+
+1. The course id: the served `unlock` renders it — the bin prints `unlocked <sha>` (the sha and nothing else), `runCli`
+   returns it as `unlocked`. A collector journals it (for instance `run.json` `unlocked[<op>]`); after a crash, the
+   `unlock` of §3 step 4 renders it the same way. Never take it from anything else (a head read by hand, the ledger of
+   another operator or of another cycle: both answer `course_end_unknown`).
+2. Snapshots: the exact per-method values of the dashboard's "Copy CSV" export, never the rounded interface figure (the
+   act-0 reading "3.69M" does not reconcile per method), written as JSON NUMBERS (`"byMethod": {"<method>": 1234567}`,
+   or `"total_ru": 1234567` in an aggregate mode), never a quoted cell (`"1,234,567"`, `"12"`) nor `null`: a value that
+   is not a safe integer >= 0 (a negative, fractional or over 2^53 - 1 value included) answers `NO-GO snapshot_invalid`
+   (C-G2-1, RG-SNAPSHOT-NONNEG-INT-1); `--before` taken before the course; `--after`
+   taken once TWO equal readings, spaced in time, agree (the dashboard lags 1 to 50 minutes, TY-10).
+3. Run the bin of the MERGED trunk, paid keys removed:
+   ```
+   $U node packages/rpc-guard/bin/rpc-guard.mjs --ledger-dir <ledger-dir> --floor 0 reconcile --cycle <cycle> --op <label> --before <b.json> --after <a.json> --course-end <sha> [--mode aggregate]
+   ```
+   An older pinned tree IGNORES the unknown flag and runs the since-last-reconciled mode (its window also holds the other
+   courses, whose count can hide consumption outside the guard within the soft band: a GO there is NOT a course GO):
+   check that the line it appended is `course_reconciled` with `course.to` = the sha (a `reconciled` line means the flag
+   was ignored: that verdict is not a course verdict). This tree reads `--course-end <sha>` or `--course-end=<sha>` and
+   refuses every other spelling (step 5).
+4. Read: exit 0 = GO, 1 = NO-GO, 2 = error (stderr). Stdout line 1: the verdict and its reason. Line 2, once the bounds
+   were evaluated: the course table `{"methods":{"<method>":{"count":<n>,"delta":<n>,"verdict":"GO|NO-GO"}},"total":{...}}` — count =
+   the guard's credits (RU) over the course window, delta = after - before, a row's verdict = its hard bound, `total`
+   carries the reconcile's verdict (aggregate modes: `total` only). No table for a form refusal: `snapshot_invalid`
+   (step 2) and the mode refusals. A negative delta is a NO-GO WITH its table, never a soft over-count (swapped or reset
+   snapshots): `negative_delta` (aggregate) or `negative_delta:<method>` (per-method, the first such method; a
+   `hard:<method>` of the same run is reported first).
+5. Argument refusals append no line, take no lock and change no byte of an existing ledger (an unseen `--cycle` still
+   gets its empty directory, C-8): `NO-GO course_end_unknown` (the sha is no line of `<cycle>/<op>.jsonl`: another
+   operator or cycle) and `NO-GO course_end_not_unlocked` (the sha names another kind of line), exit 1; a value
+   that is not 64 lowercase hexadecimal characters, or the flag without a value, exit 2; `rpc-guard: unknown option
+   (...)`, exit 2, checked FIRST (before any directory): a flag outside the closed set `--cycle --op --mode --before
+   --after --course-end` (another spelling such as `--course_end` or `--Course-End`, a prefix, a bin flag repeated or
+   written `--floor=<n>`) or a repeated flag - never a fall-back to the since-last-reconciled mode. Fix the argument and rerun.
+   The sha of ANOTHER course of the same `<cycle>/<op>` is a line of this ledger: it is ACCEPTED and reconciles THAT course,
+   not the one meant (cp-2 of lot 1a, C-V-5). Take the sha only from the `unlock` of step 1.
+6. Every run with a valid sha appends ONE `course_reconciled` line (`course: {from, to}`, `from` = the boundary before the
+   course or 64 zeros), a rollover (checked first) and a repaired course (§3 step 6) included. That line never bounds the
+   since-last-reconciled mode, and the course window never moves: a rerun with other snapshots reconciles the SAME lines.
+7. Journal, in the act's FAITS: the sha, the verdict line, the table line, the sha256 of the appended `course_reconciled`
+   line, and both CSV snapshots with their sha256.

@@ -1,12 +1,13 @@
 import { Placeholder } from "@/components/placeholder";
 import { ANCHORS_ROUTE, shortDigest, utcLabel, type AnchorsView } from "@/lib/bell-anchors-load";
+import type { AnchorStatus } from "@/lib/bell-anchors";
 
 // The anchors register table: one line per boundary of the counter-verification run of the multiplier history, read
 // from the served register, with each line's status READ FROM ITS PROOF FILE at build time (lib/bell-anchors-load.ts).
 // Block heights and counts render from that read, never from a literal. Boundaries without a line (a started
 // instrument without its end line, the final anchor) show as hatched lines with a named placeholder for their date;
 // the wording states what the register holds, never an activity it cannot show. Reading a proof is not verifying it:
-// the reader checks it with an open client.
+// the reader checks it with an open client. The status cell is shared with the table of the published records.
 export function AnchorsTable({ view }: { view: AnchorsView }) {
   return (
     <div className="c-board">
@@ -52,36 +53,10 @@ export function AnchorsTable({ view }: { view: AnchorsView }) {
                     <span className="c-muted">none</span>
                   )}
                 </td>
-                <td style={{ whiteSpace: "normal", minWidth: 220 }}>
-                  {r.status === null ? (
-                    <>
-                      <span className="c-abstain">not timestamped</span>
-                      <div className="c-small c-muted" style={{ marginTop: 4 }}>
-                        {r.sameDigestAsLater !== null
-                          ? `the same manifest digest is timestamped on the ${utcLabel(r.sameDigestAsLater)} line`
-                          : "no proof file for this line"}
-                      </div>
-                    </>
-                  ) : r.status.bitcoinHeights.length > 0 ? (
-                    <>
-                      <span className="c-pill c-pill--fact">bitcoin attestation</span>
-                      <div className="c-small c-muted" style={{ marginTop: 4 }}>
-                        earliest block {r.status.bitcoinHeights[0]} · {r.status.bitcoinHeights.length}{" "}
-                        {r.status.bitcoinHeights.length === 1 ? "block record" : "block records"} ·{" "}
-                        {r.status.pendingCalendars.length}{" "}
-                        {r.status.pendingCalendars.length === 1 ? "calendar record pending" : "calendar records pending"}
-                      </div>
-                    </>
-                  ) : (
-                    <>
-                      <span className="c-pill c-pill--upcoming">pending</span>
-                      <div className="c-small c-muted" style={{ marginTop: 4 }}>
-                        {r.status.pendingCalendars.length}{" "}
-                        {r.status.pendingCalendars.length === 1 ? "calendar record, no block yet" : "calendar records, no block yet"}
-                      </div>
-                    </>
-                  )}
-                </td>
+                <AnchorStatusCell
+                  status={r.status}
+                  noProof={r.sameDigestAsLater !== null ? `the same manifest digest is timestamped on the ${utcLabel(r.sameDigestAsLater)} line` : "no proof file for this line"}
+                />
               </tr>
             ))}
             {view.openMints.map((m) => (
@@ -112,5 +87,36 @@ export function AnchorsTable({ view }: { view: AnchorsView }) {
         </table>
       </div>
     </div>
+  );
+}
+
+/** A line's timestamp status as its proof file records it (read when the page was built, never checked against a node); `noProof` is
+ *  said under "not timestamped". Shared by the two anchors tables, the course's wording kept word for word. */
+export function AnchorStatusCell({ status, noProof }: { status: AnchorStatus | null; noProof: string }) {
+  const cal = status?.pendingCalendars.length ?? 0, blocks = status?.bitcoinHeights.length ?? 0;
+  return (
+    <td style={{ whiteSpace: "normal", minWidth: 220 }}>
+      {status === null ? (
+        <>
+          <span className="c-abstain">not timestamped</span>
+          <div className="c-small c-muted" style={{ marginTop: 4 }}>{noProof}</div>
+        </>
+      ) : blocks > 0 ? (
+        <>
+          <span className="c-pill c-pill--fact">bitcoin attestation</span>
+          <div className="c-small c-muted" style={{ marginTop: 4 }}>
+            earliest block {status.bitcoinHeights[0]} · {blocks} {blocks === 1 ? "block record" : "block records"} · {cal}{" "}
+            {cal === 1 ? "calendar record pending" : "calendar records pending"}
+          </div>
+        </>
+      ) : (
+        <>
+          <span className="c-pill c-pill--upcoming">pending</span>
+          <div className="c-small c-muted" style={{ marginTop: 4 }}>
+            {cal} {cal === 1 ? "calendar record, no block yet" : "calendar records, no block yet"}
+          </div>
+        </>
+      )}
+    </td>
   );
 }

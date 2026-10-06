@@ -17,7 +17,7 @@ The blades are the DeFi side: the **on-chain applications it powers**, each one 
 study of on-chain data before it is served. The first is MONARK Bell; the others are research leads.
 
 Single token, single ticker (`MONARK`). The agents are **applications, not tokens**. This repository is the
-MONARK **tokenisation layer**, the **six frozen interface contracts** (the sixth, AttestedBook, upcoming
+MONARK **tokenisation layer**, the **eight frozen interface contracts** (one of them, AttestedBook, upcoming
 until served) and the served pieces that let AI agents and DeFi meet on measured ground.
 
 ## Two sides, one engine — the eleven components
@@ -32,8 +32,8 @@ on the site's diagram; *wired* = declared in the registry today, *can serve* = a
 |---|---|---|
 | `attest`: an attested price testimony (bytes, hash, named residual hypotheses) the agent can cite instead of a scraped number — origin and bytes, never truth. | **Shōgen** — sensor, attested perception · *built* | A price an application can defend when it spends, hedges or de-risks (can serve: Warden, Softlanding, Firebreak, Ballast). |
 | `gate` + `calibrate`: the agent submits a claim and gets `commit \| defer \| abstain`, an auditable region and the budget left — never a probability of being right. | **Hikae** — the gate, coverage-controlled inference · *built* | The decision primitive of every application (wired: Firebreak, Warden, Softlanding, Verdict, Ballast). Bell's gate is its own closed publication check; a gate class for its off-hours gap is planned. |
-| `cascade`: the agent asks what a lending book would liquidate along a price path; today the served class abstains (`under_calib`) until a committed calibration is served — stated on the wire. | **Ukemi** — act, liquidation-cascade survival · *built* | Reads the deleveraging queue or the position before it clears (wired: Firebreak, Softlanding). |
-| A daily, replayable redemption-flow timeline (`state.json`, `timeline.jsonl`) any agent can read, and the served gate class `stable-run-velocity-24h` through `gate`. | **Narabi** — sensor, redemption-run sensing · *built, served daily* | Early sensing of a stablecoin run for a treasury that holds the stable (can serve: Warden, Ballast). |
+| `cascade`: the agent asks what a lending book would liquidate along a price path (a transitional tool; it abstains, `under_calib`). Through `gate`, the class `liquidation-eligible-coverage` returns a conformal upper bound on a caller-carried liquidable amount in its committed stratum, calibrated on one recorded episode; the other strata abstain (`under_calib`) — stated on the wire. | **Ukemi** — act, liquidation-cascade survival · *built* | Reads the deleveraging queue or the position before it clears (wired: Firebreak, Softlanding). |
+| A daily, replayable redemption-flow timeline (`state.json`, `timeline.jsonl`) any agent can read, and the served gate class `stable-run-velocity-24h` through `gate`. | **Narabi** — sensor, redemption-run sensing · *built, served daily* | Redemption-run sensing for a treasury that holds the stable: a daily, replayable reading of the redemption flow, stated after the fact, never ahead of it (can serve: Warden, Ballast). |
 | *planned*: attest a document or an event the agent must act on — bytes and hash, never a verdict on its truth. | **Mokugeki** — sensor, document / event attestation · *named* | The attested event a settled decision starts from (can serve: Verdict). |
 | *planned*: ask, before routing a swap, whether the fill is exposed to LVR / toxic flow. | **Kaihi** — LVR / toxicity avoidance · *named* | The execution leg of a de-risk or a hedge that must not be picked off (can serve: Firebreak, Softlanding, Ballast). |
 | *planned*: execute a swap under transaction-cost analysis, with the gate's decision attached. | **Kessai** — swap execution, TCA · *named* | The act leg — de-risk, ease down, rebalance (can serve: Firebreak, Softlanding, Ballast). |
@@ -64,7 +64,9 @@ Everything below is live, machine-readable, and replayable by a third party with
 |---|---|---|
 | `https://mcp.monarkgate.tech/mcp` · `https://api.monarkgate.tech/openapi.json` | The engine's four tools (`attest · gate · cascade · calibrate`) over MCP and a plain HTTP/JSON mirror; the served OpenAPI document states the served version | Any MCP-capable agent |
 | `https://monarkgate.tech/narabi/state.json` · `timeline.jsonl` | Narabi's tracker state and its append-only, per-line hash-chained daily timeline (one line per window, with the blocks it was read from) | Anyone replaying the tracker; the site's `/narabi` page |
+| `https://monarkgate.tech/narabi/instrument.json` | A diagnostic file beside the tracker, written once from a closed block of days (never by the daily job): tracker replays at alternative parameters and a permutation-assessed CUSUM; it claims no bound | Anyone auditing the tracker; no page reads it |
 | `https://bell.monarkgate.tech/state.json` · `timeline.jsonl` · `provenance.json` · `bell/pubkey.json` | MONARK Bell's signed publications: per-session fills, VWAP and volume for the listed tokenized equities, halt census, supply and proof-of-reserve residuals, the provenance of each run, the active Ed25519 key | Anyone verifying a publication; the site's `/bell` page |
+| `https://dojo.monarkgate.tech/` · `timeline.jsonl` · `dojo/pubkey.json` · `lines/<sha256>.jsonl` · `history/<sha256>.jsonl` | MONARK Dōjō's hold snapshot: a dated, public record of the MONARK token balances held by each address, read from the chain through two distinct operators, with a hold score per address; the signed timeline, the published key, a day's lines file and the history file that a signed line of the timeline names by its SHA-256 | Anyone recomputing it; the site's `/dojo` page |
 | `https://monarkgate.tech` | The vitrine: every number on it is read from a committed, hashed copy of the served files above — never typed | Readers |
 
 A surface that is not in this table is not served. A component that has no served surface is labelled
@@ -89,7 +91,7 @@ The labels are the point: they say what exists today and what is only named.
 
 | Side | Layer | What it is | Status |
 |---|---|---|---|
-| AI | **Backbone** — the gate | Hikae (coverage control) + the MONARK token's budget `B_t`; turns a sensor reading into `commit \| defer \| abstain` | **Built** — six frozen contracts (the sixth, AttestedBook, upcoming until served) |
+| AI | **Backbone** — the gate | Hikae (coverage control) + the MONARK token's budget `B_t`; turns a sensor reading into `commit \| defer \| abstain` | **Built** — eight frozen contracts (AttestedBook upcoming until served) |
 | AI | **Sensors and acts** | the engine's agents: sensors that attest, acts that execute, one token across all of them | **4 built** (Shōgen · Hikae · Ukemi · Narabi) · **7 named** |
 | AI | **Harness** — the door | the same engine made reachable *by other AI agents* over HTTP / MCP | **Built** — public 4-tool MCP endpoint (attest · gate · cascade · calibrate)  |
 | AI | **Adaptation agents** | agents that recalibrate, onboard protocols, track liquidation mechanics and watch data sources | **Roadmap** — named, not shipped |
@@ -102,8 +104,12 @@ The labels are the point: they say what exists today and what is only named.
 - **Shōgen** — attested perception: an attested price testimony — origin and bytes, never truth.
 - **Hikae** — coverage-controlled inference: the gate.
 - **Ukemi** — liquidation-cascade survival: a recorder reads a lending protocol's liquidation book at an
-  archive block under a keyless RPC quorum and digests it (the AttestedBook contract); the served gate class
-  abstains (`under_calib`) until a committed calibration is served — stated plainly, not hidden.
+  archive block under a keyless RPC quorum and digests it (the AttestedBook contract). The served gate class
+  `liquidation-eligible-coverage` holds a committed calibration for one stratum of one recorded episode: for a
+  caller-carried liquidable amount in that stratum it returns a conformal **upper bound** (the lower edge is 0 by
+  construction), and every other stratum abstains (`under_calib`). The bound holds only if the amount was produced by
+  the frozen close-factor rule, which the gate does not check, and no coverage is claimed on any other event — stated
+  plainly on the wire. The `cascade` tool is transitional and abstains by construction.
 - **Narabi** — redemption-run sensing. Its `AttestedFlow` attestation (the fifth frozen contract) and the
   velocity adapter ship in this repo; the public endpoint serves the gate class `stable-run-velocity-24h`
   with **a committed calibration for one population** — USDe — measured on calm onchain redemption-flow
@@ -112,6 +118,7 @@ The labels are the point: they say what exists today and what is only named.
   weights) wording — *no coverage is measured*. **Every other population abstains** (`under_calib`).
   An off-tool **daily** sentinel steps the tracker at block finality and publishes a replayable timeline at
   `https://monarkgate.tech/narabi/` (`state.json`, `timeline.jsonl`, per-line hash-chained).
+  - `instrument.json` — Instrument, not the official tracker: tracker replays at alternative parameters, and a one-sided CUSUM in the form Page (1954) introduced and Lorden (1971) presents, on the static misses, assessed by a permutation test of exchangeability as Vovk (2012) defines it. A third way, outside Lorden's i.i.d. theory and the e-detectors of Shin, Ramdas and Rinaldo (2022); no bound is claimed. One snapshot, taken once, never refreshed by the daily job.
 
 The single public sentence for Narabi, verbatim:
 
@@ -213,6 +220,14 @@ change to the engine meets the same maturity criteria.
   against the active key, recompute `state_sha256` from the served state and `provenance_sha256` from the
   served provenance, and follow `prev_line_hash` back to the genesis line. `scripts/verify-bell.mjs` does
   exactly this with Node alone; the deploy check it produces is committed in this repo.
+- **Dōjō.** `node apps/dojo/scripts/dojo-verify-cli.mjs --url https://dojo.monarkgate.tech --keyring apps/dojo/keys/dojo-keyring.json`
+  reads the served files alone, with the public keyring in this repo as its trust root (the served `dojo/pubkey.json`
+  is cross-checked against it): it walks the signed timeline (Ed25519 signatures, chaining, the validity window of
+  each key), then recomputes every `price_version`, the history file and the lines of every snapshot with their
+  Merkle roots; `--address <address>` adds the inclusion proof of one address, `--day <YYYY-MM-DD>` checks a past
+  day. It prints one JSON line, whose `ok` is true only when every check holds, with Node alone. It does not replay
+  the collection (a signature attests origin, never truth: the readings are what two operators reported), does not
+  read the chain, and does not check the BLS signature of the public randomness beacon.
 - **Narabi.** Recompute every window from its `[from_block, to_block]` via `eth_getLogs` + `totalSupply`,
   then re-derive `q` with the committed `trackerReplay` over the `s` column of `timeline.jsonl`.
 - **The site.** Every figure on `monarkgate.tech` is read from a file under `apps/site/data/` whose hash is
@@ -227,7 +242,7 @@ change to the engine meets the same maturity criteria.
    wire. No confidence score exists to be misread.
 4. Read Bell and Narabi as files: they are published to be consumed by programs, not only by people.
 
-## Six frozen contracts
+## Eight frozen contracts
 
 The interface is frozen and language-neutral (source of truth: `schemas/*.json`):
 
@@ -239,6 +254,8 @@ The interface is frozen and language-neutral (source of truth: `schemas/*.json`)
 | `CoverageVerdict` | Hikae | Conformal region — **polymorphic** `set` (classification) \| `interval` (regression, so Ukemi plugs in). No `p_correct` field. |
 | `GateDecision` | Hikae L3 | `commit \| defer \| abstain` + `remaining_budget` = `B_t`, the depletable conformal authorization capacity that attaches to MONARK (never a return). |
 | `AttestedBook` | Ukemi (recorder) | A **self-declared** reading of a liquidation book at an archive block under a keyless RPC quorum: the digests (book, holders) with block/provider/quorum context — upcoming until served. |
+| `PolicyTable` | MONARK (policy tables) | A class's policy table: one class entry and its rows (cell key, alpha, n, the served rank and q̂, `scores_sha256`). The verdict carries the digest of the table (`policy_table_sha256`) and of the row it used (`policy_row_sha256`). |
+| `ToolError` | the harness | The body of an HTTP 400 or 500 answer: `{error, operation, message, code}`, the `code` from the closed catalogue of the specification. Read the `code`, not the message. |
 
 ## The token
 
@@ -299,7 +316,7 @@ npm run ci   # vocabulary gate → typecheck (tsc strict) → tests (node:test)
   `node:test` (Node ≥ 24 native TS type-stripping). **Key-closedness** is enforced hand-rolled at runtime
   (mirroring Shōgen's zero-dep unknown-key refusal); the **value constraints** (min/unique items, hash
   length, ASCII-printable) are expressed in the JSON Schemas and exercised against `ajv` in tests.
-- **`ajv` is a dev-dependency** (test-only): it compiles the six frozen JSON Schemas, resolves the
+- **`ajv` is a dev-dependency** (test-only): it compiles the frozen JSON Schemas, resolves the
   `$ref`s, and proves they reject the value-constraint violations (empty/duplicate arrays, wrong-length
   hash, control chars) that the TS types alone do not.
 - **Measured before served.** A piece reaches a public surface only with its study artefacts committed
@@ -310,7 +327,7 @@ npm run ci   # vocabulary gate → typecheck (tsc strict) → tests (node:test)
 
 ```
 schemas/            JSON Schema — the language-neutral source of truth (closed)
-packages/contracts  TS binding: types, closed-check, forbidden-keys, calib_digest, serializers, tests
+packages/contracts  TS binding: types, closed-check, forbidden-keys, scores_sha256, serializers, tests
 packages/hikae      HAC-CP engine: L1 split / L2 monitor / L3 gate, interval conformer  (built)
 packages/ukemi      liquidation-cascade survival: clearing, liquidable                  (built)
 packages/monark     integration adapters: Shōgen→AttestedPrice, Narabi AttestedFlow→Prediction; canonical CBOR

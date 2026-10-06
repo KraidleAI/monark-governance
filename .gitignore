@@ -20,3 +20,14 @@ docs/census-2026-09-18/data/
 
 # Lot CRA-B — the CycloneDX SBOM is generated per run (CI artefact / local scripts/sbom.mjs), never committed
 sbom.cdx.json
+
+# Project agents (French prompts, session config, never exported ; lang:gate)
+.claude/agents/
+
+# T0-TOOLING-1: the side records of the deploy check (scripts/verify-harness.mjs --out docs/deploy-CA-harness.json): a red run
+# writes .failed, a green run without TLS .local, the atomic write passes through .tmp; never committed
+docs/deploy-CA-harness.json.failed
+docs/deploy-CA-harness.json.local
+docs/deploy-CA-harness.json.tmp
+docs/deploy-CA-harness.json.failed.tmp
+docs/deploy-CA-harness.json.local.tmp

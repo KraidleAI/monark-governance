@@ -18,7 +18,7 @@
  *   M-C1-runline the build `run:` line drifts from SITE_BUILD_RUN => the run-line test reds.
  *
  * Registry surface (lot site-5j-registry, below the O-2 block): source-level and pure-function oracles that the register
- * pages (/, /fleet, /roadmap, /products, /writing, the footer) read every status, count, name and served fact from the
+ * pages (/, /fleet, /roadmap, /applications, /writing, the footer) read every status, count, name and served fact from the
  * register, schemas/, the served descriptions or committed hashed data — never typed. Each test names its mutant.
  */
 import { test } from "node:test";
@@ -30,6 +30,7 @@ import { derivePublicWorkflow, collectFiles, CI_WORKFLOW_PATH } from "../scripts
 import ts from "typescript";
 import { renderedTexts } from "../apps/site/test/honesty-lint.ts";
 import { compilePatterns, scanText } from "../scripts/grep-forbidden.mjs";
+import { DATA_SOURCE_FORMS, DATA_SOURCE_STEMS, DATA_SOURCE_MENTIONS, OPERATOR_FORMS, KITCHEN_FORMS } from "../scripts/public-text-deny.mjs";
 import { parseTimeline, lagStatus, addDays } from "../apps/site/lib/narabi-live.ts";
 import { loadNarabiServed } from "../apps/site/lib/narabi-served-load.ts";
 import { loadNarabiCapture } from "../apps/site/lib/narabi-capture-load.ts";
@@ -257,23 +258,11 @@ const REGISTER_PAGES = [
   "apps/site/app/page.tsx",
   "apps/site/app/fleet/page.tsx",
   "apps/site/app/roadmap/page.tsx",
-  "apps/site/app/products/page.tsx",
+  "apps/site/app/applications/page.tsx",
 ];
 
-// Data-source name forms (VOCAB-PROVIDERS-SITE-1). These LITERALS live ONLY in this repo-root test/ file, which is never
-// exported — the confinement of decision 69 / C-9 (test/no-cash-provider-name.test.ts): vocab-banned.json is exported,
-// so a rule there would publish the very name it bans. Scanned over every EXPORTED apps/site file by
-// site_names_no_data_source; asserted absent from vocab-banned.json by the vocab test below.
-const DATA_SOURCE_FORMS: { re: RegExp; why: string }[] = [
-  { re: /databento/i, why: "close-source brand (any form, substring)" },
-  { re: /\bmassive\b/i, why: "cash cross-check brand (whole word; conservative over-match on the adjective)" },
-  // Case-SENSITIVE on purpose: the lower-case SVG element <polygon> and the CSS clip-path function polygon() are markup,
-  // not a name (measured: Base UI ships clip-path polygon() in the /fleet and /products chunks); the capitalised word is
-  // the brand — and a chain of the same name, which also reds on the storefront (declared limit).
-  { re: /\bPolygon\b/, why: "cash cross-check former brand (capitalised whole word; a chain of the same name also reds on the storefront)" },
-  { re: /polygon\.io/i, why: "cash cross-check API domain" },
-  { re: /\b(?:POLYGON|DATABENTO)_API_KEY\b/, why: "data-source env-key name" },
-];
+// The vendor name lists (data sources, RPC operators) live in scripts/public-text-deny.mjs, a governance-only module (never
+// exported, CA-1.5): exporting them would publish the very names they ban (decision 69 / C-9).
 
 // Binary exports carry no prose (fonts, images, OpenTimestamps proofs).
 const BINARY_EXPORT = /\.(?:png|jpg|jpeg|gif|ico|webp|woff2?|ttf|otf|ots)$/i;
@@ -299,12 +288,6 @@ const jsonStrings = (v: unknown, out: string[] = []): string[] => {
   }
   return out;
 };
-
-// Data-source STEMS for the exported gate file (vocab-banned.json): matched as SUBSTRINGS, never behind a word boundary
-// (a boundary form is what an escaped rule evades). No legitimate rule, reason or comment of that file needs them.
-const DATA_SOURCE_STEMS: readonly RegExp[] = [/massive/i, /databento/i, /polygon/i];
-// What a rule BANNING a data-source name would match, however the rule is spelled (escapes, character classes).
-const DATA_SOURCE_MENTIONS: readonly string[] = ["Massive", "Databento", "Polygon", "polygon.io", "POLYGON_API_KEY", "DATABENTO_API_KEY"];
 
 /** Data-source leaks in the TEXT of the exported gate file: its raw bytes and every parsed string (escapes neutralized)
  *  scanned for the stems, and every rule of every scope, compiled as the gate compiles it, tried on the mentions (a rule
@@ -384,7 +367,7 @@ test("registry_count_words_are_derived — agent, product and layer counts rende
   // /fleet, "four tools" or "the first four schemas" on /roadmap, "one of three words" on / => red. A tool count may come
   // back only DERIVED (the served tool list, once a committed, hashed copy of it is read by the page).
   const TYPED_COUNT =
-    /\b(?:zero|one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve)\s+(?:built|on the roadmap|named|agents|more named|frozen contracts|layers|engines|tools|schemas|words|upcoming products|artefacts)\b/i;
+    /\b(?:zero|one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve)\s+(?:built|on the roadmap|named|agents|smart pieces|more named|frozen contracts|layers|engines|tools|schemas|words|upcoming products|artefacts)\b/i;
   for (const rel of REGISTER_PAGES) {
     const texts = [...renderedOf(rel), ...metadataDescriptionLiterals(rel)];
     const hits = texts.filter((t) => TYPED_COUNT.test(t.replace(/\s+/g, " ")));
@@ -402,14 +385,14 @@ test("registry_count_words_are_derived — agent, product and layer counts rende
     );
   }
   // The fleet and roadmap metadata descriptions are templates over the register, not typed sentences.
-  for (const rel of ["apps/site/app/fleet/page.tsx", "apps/site/app/roadmap/page.tsx", "apps/site/app/products/page.tsx"]) {
+  for (const rel of ["apps/site/app/fleet/page.tsx", "apps/site/app/roadmap/page.tsx", "apps/site/app/applications/page.tsx"]) {
     assert.match(read(rel), /description: `[^`]*\$\{/, `${rel}: the metadata description must interpolate its derived count/sentence`);
   }
 });
 
-test("products_page_routes_built_products_to_the_server_card — only upcoming products reach UpcomingPanel; a built product renders server-side with its served note and decided-later placeholders (R04, R06, R07, R08, R09, R19)", () => {
-  const PAGE = "apps/site/app/products/page.tsx";
-  const CARD = "apps/site/app/products/built-product-card.tsx";
+test("applications_page_routes_built_products_to_the_server_card — only upcoming products reach UpcomingPanel; a built product renders server-side with its served note and decided-later placeholders (R04, R06, R07, R08, R09, R19)", () => {
+  const PAGE = "apps/site/app/applications/page.tsx";
+  const CARD = "apps/site/app/applications/built-application-card.tsx";
   const page = read(PAGE);
   const card = read(CARD);
 
@@ -417,12 +400,12 @@ test("products_page_routes_built_products_to_the_server_card — only upcoming p
   assert.match(page, /const upcoming = upcomingProducts\(\);/);
   assert.match(page, /upcoming\.map\(\(p\) => \(\s*<UpcomingPanel key=\{p\.key\} product=\{p\} \/>/);
   assert.match(page, /const built = builtProducts\(\);/);
-  assert.match(page, /built\.map\(\(p\) => \(\s*<BuiltProductCard /);
+  assert.match(page, /built\.map\(\(p\) => \(\s*<BuiltApplicationCard /);
   assert.equal((page.match(/<UpcomingPanel\b/g) ?? []).length, 1, "UpcomingPanel is rendered from ONE place: the upcoming list");
   assert.doesNotMatch(page, /PRODUCTS\.map\(/, "the page must not hand every product (built ones included) to a client panel");
 
   // (b) The built card is a SERVER component (its product prop is never serialized) rendering the register fields.
-  assert.doesNotMatch(card, /^\s*["']use client["']/m, "built-product-card.tsx must stay a server component");
+  assert.doesNotMatch(card, /^\s*["']use client["']/m, "built-application-card.tsx must stay a server component");
   assert.match(card, /\{capitalized\(product\.served\.note\)\}/, "the card renders the digit-free served note (ADR-EC E6)");
   assert.match(card, /\{product\.fn\}/);
   assert.match(card, /\{product\.name\}/);
@@ -460,7 +443,7 @@ test("products_page_routes_built_products_to_the_server_card — only upcoming p
   assert.doesNotMatch(card, hardCoded);
 });
 
-test("register_pages_read_served_bell_facts_never_typed — / and /products read the LATEST signed record (head) through loadBellServed; the home no-close clause is conditioned on the head's sessions, never typed (R09, R10, R16; BELL-SERVED-HEAD-1, BELL-NOCLOSE-CLAUSE-1)", () => {
+test("register_pages_read_served_bell_facts_never_typed — / and /applications read the LATEST signed record (head) through loadBellServed; the home no-close clause is conditioned on the head's sessions, never typed (R09, R10, R16; BELL-SERVED-HEAD-1, BELL-NOCLOSE-CLAUSE-1)", () => {
   const served = loadBellServed(ROOT);
   const literals = [
     served.first_record.published_at,
@@ -472,7 +455,7 @@ test("register_pages_read_served_bell_facts_never_typed — / and /products read
     served.bodies_sha256.state,
     served.bodies_sha256.pubkey,
   ];
-  for (const rel of ["apps/site/app/page.tsx", "apps/site/app/products/page.tsx"]) {
+  for (const rel of ["apps/site/app/page.tsx", "apps/site/app/applications/page.tsx"]) {
     const text = read(rel);
     assert.match(text, /loadBellServed\(/, `${rel} must read the served facts through loadBellServed`);
     for (const lit of literals) assert.ok(!text.includes(lit), `${rel} types a served value by hand: ${lit}`);
@@ -482,10 +465,10 @@ test("register_pages_read_served_bell_facts_never_typed — / and /products read
   }
   const home = read("apps/site/app/page.tsx");
   assert.match(home, /\{bellServed\.head\.published_at\}/, "the home Bell card renders the latest signed record's publication instant");
-  const products = read("apps/site/app/products/page.tsx");
+  const products = read("apps/site/app/applications/page.tsx");
   assert.match(products, /const record = loadBellServed\(bellServedRepoRoot\(\)\)\.head;/);
-  assert.match(products, /\$\{record\.published_at\}/, "the /products Bell card renders the latest signed record's publication instant");
-  assert.doesNotMatch(products, /\.runs\b|\.sessions\b/, "/products reads nothing of the served run layout");
+  assert.match(products, /\$\{record\.published_at\}/, "the /applications Bell card renders the latest signed record's publication instant");
+  assert.doesNotMatch(products, /\.runs\b|\.sessions\b/, "/applications reads nothing of the served run layout");
   // The no-close clause of the home sensors card is said exactly while no session of the latest publication carries a
   // gap (a gap needs a closing price): conditioned on the head's own sessions, never typed unconditionally. Mutants:
   // drop the condition, or condition it on the first record => red.
@@ -504,15 +487,15 @@ test("home_cards_read_the_register_and_the_served_text — Bell card = register 
   const texts = renderedOf(HOME);
   assert.match(home, /<p className="c-muted">\{bell\.fn\}<\/p>/, "the Bell card renders the register function, not a typed copy");
   assert.match(home, /\{capitalized\(bell\.served\.note\)\}/, "the Bell card renders the register's served note");
-  // The Ukemi card: the register's tagline, then the served class it is gated on (committed, hashed served record), then
-  // the served gate's own sentence while the served registry is empty (byte-identical, lib/ukemi-copy.ts). Mutants: type
-  // the tagline or the class, or say the sentence unconditionally => red.
+  // The Ukemi card: the register's tagline, the served class it is gated on (committed, hashed served record), then the
+  // served state of that record: the served gate's own sentence while empty (byte-identical, lib/ukemi-copy.ts), its
+  // digit-free restatement while committed. Mutants: type the tagline or the class, or ignore the served state => red.
   assert.match(home, /<p className="c-muted">\{ukemiAgent\.line\}<\/p>/, "the Ukemi card's tagline is the register line");
   assert.match(home, /served class · \{ukemiServed\.served_class\}/, "the served class is read from the committed served record");
   assert.match(
     home,
-    /\{ukemiServed\.registry_state === "empty" \? \(\s*<p className="c-muted c-small">On the served gate today: \{LIQ_EMPTY_REGISTRY_SENTENCE\}\.<\/p>\s*\) : null\}/,
-    "the served gate's own sentence rides while the served registry is empty",
+    /\{ukemiServed\.registry_state === "empty" \? \(\s*<p className="c-muted c-small">On the served gate today: \{LIQ_EMPTY_REGISTRY_SENTENCE\}\.<\/p>\s*\) : \(\s*<p className="c-muted c-small">On the served gate today: \{LIQ_COMMITTED_STATE_NOTE\}\.<\/p>\s*\)\}/,
+    "the Ukemi line follows the served state: the served gate's own sentence while empty, its restatement while committed",
   );
   const ukemi = FLEET_AGENTS.find((a) => a.name === "Ukemi");
   assert.equal(ukemi?.line, "Liquidation coverage, gated.", "the register tagline of Ukemi (decision of the owner, 2026-09-24)");
@@ -641,6 +624,7 @@ test("roadmap_built_list_renders_served_notes_and_links_panels_on_fleet — {a.w
   }
 });
 
+// killer: apps/harness/src/tools/gate.ts:248 CONST "is retired and answers a named" -> "is a plumbing fixture, not a measured predictor and answers a named"
 test("registry_notes_track_served_descriptions — the register notes, the served-state lines of / and /fleet and the Hikae and Shōgen panels restate the served tool descriptions, in both directions (R26, R27, R30, R31)", () => {
   const hikae = builtAgents().find((a) => a.name === "Hikae");
   const ukemi = builtAgents().find((a) => a.name === "Ukemi");
@@ -656,7 +640,7 @@ test("registry_notes_track_served_descriptions — the register notes, the serve
     GATE_TOOL_DESCRIPTION.includes(FIXTURE),
     "Hikae's note must carry the synthetic-fixture clause exactly while the served gate description carries it",
   );
-  assert.ok(GATE_TOOL_DESCRIPTION.includes(FIXTURE), "today the served gate declares its demonstration calibration synthetic");
+  assert.ok(!GATE_TOOL_DESCRIPTION.includes(FIXTURE), "since CM-2b the synthetic demonstration class is retired: the served gate no longer carries its clause");
   const hikaePanel = flat("apps/site/components/hikae-panel.tsx");
   assert.equal(hikaePanel.includes(FIXTURE), GATE_TOOL_DESCRIPTION.includes(FIXTURE), "the Hikae panel carries the fixture clause exactly while the served gate does");
   assert.equal(
@@ -675,20 +659,20 @@ test("registry_notes_track_served_descriptions — the register notes, the serve
   assert.doesNotMatch(ukemi.wiring.note, /\bproducer\b|\bsuccessor\b|\breplaced by\b/i, "no successor is named on the site while the served text names none");
   assert.ok(servedTransitional, "today the served cascade description declares the tool replaced at a later step");
 
-  // Ukemi's served state on / and /fleet: "On the served gate today: <sentence>" is rendered exactly while the served
-  // gate description carries that sentence (the site copy is byte-identical to the harness constant, lib/ukemi-copy.ts).
-  // Mutant: the served description stops carrying it (a liquidation calibration is committed) => red until both pages
-  // change.
+  // Ukemi's served state on / and /fleet follows the synced record (apps/site/data/ukemi-served.json): the served sentence
+  // (byte-identical, lib/ukemi-copy.ts) while it is empty. Trap: that record must say what the served gate description says
+  // (a calibration committed => red until the record is re-synced; both pages follow it). UKEMI-SITE-SWITCH-1.
   const servedLiq = GATE_TOOL_DESCRIPTION.includes(SITE_LIQ_SENTENCE);
   const home = read("apps/site/app/page.tsx");
   const fleet = read("apps/site/app/fleet/page.tsx");
-  assert.equal(/On the served gate today: \{LIQ_EMPTY_REGISTRY_SENTENCE\}\./.test(home), servedLiq, "/ renders the served liquidation sentence exactly while the served gate carries it");
+  const syncedEmpty = (JSON.parse(read("apps/site/data/ukemi-served.json")) as { registry_state?: unknown }).registry_state === "empty";
+  assert.equal(syncedEmpty && /=== "empty" \? \(\s*<p className="c-muted c-small">On the served gate today: \{LIQ_EMPTY_REGISTRY_SENTENCE\}\./.test(home), servedLiq, "/ renders the served liquidation sentence exactly while the served gate carries it");
   assert.equal(
-    /Ukemi: LIQ_EMPTY_REGISTRY_SENTENCE,/.test(fleet) && /On the served gate today: \{servedState\}\./.test(fleet),
+    syncedEmpty && /empty: \{ Ukemi: LIQ_EMPTY_REGISTRY_SENTENCE \},/.test(fleet) && /On the served gate today: \{servedState\}\./.test(fleet),
     servedLiq,
     "/fleet renders the served liquidation sentence exactly while the served gate carries it",
   );
-  assert.ok(servedLiq, "today the served gate description carries the empty-registry sentence");
+  assert.equal(servedLiq, syncedEmpty, "the served gate description carries the empty-registry sentence exactly while the synced record is empty");
 
   // Shōgen's panel (Honest limits): one committed, self-notarized witness — said iff the served attest description says it.
   const shogenPanel = flat("apps/site/components/shogen-panel.tsx");
@@ -700,6 +684,7 @@ test("registry_notes_track_served_descriptions — the register notes, the serve
   );
 });
 
+// killer: apps/site/components/hikae-panel.tsx:77 CONST "decides against committed calibrations." -> "decides against committed calibrations, a plumbing fixture, not a measured predictor."
 test("built_panels_keep_served_facts_in_built_blocks — a served fact sits in a built block; 'Living proof' stays upcoming and says only what is not shown yet (H8 of the review of 2026-09-24)", () => {
   for (const rel of ["apps/site/components/shogen-panel.tsx", "apps/site/components/hikae-panel.tsx"]) {
     const src = read(rel);
@@ -709,7 +694,11 @@ test("built_panels_keep_served_facts_in_built_blocks — a served fact sits in a
     const limits = panelBlock(src, "Honest limits");
     assert.equal(limits.status, "built", `${rel}: Honest limits is a built block`);
   }
-  assert.ok(panelBlock(read("apps/site/components/hikae-panel.tsx"), "Honest limits").inner.includes("a plumbing fixture, not a measured predictor"));
+  // Since the synthetic demonstration class is retired, the Hikae block keeps the served fact (committed calibrations) and
+  // drops the fixture clause.
+  const hikaeLimits = panelBlock(read("apps/site/components/hikae-panel.tsx"), "Honest limits").inner;
+  assert.ok(hikaeLimits.includes("decides against committed calibrations"), "the Hikae block states the served fact");
+  assert.ok(!hikaeLimits.includes("a plumbing fixture, not a measured predictor"), "the retired fixture clause is gone");
   assert.ok(panelBlock(read("apps/site/components/shogen-panel.tsx"), "Honest limits").inner.includes("self-notarized"));
 });
 
@@ -818,10 +807,11 @@ test("vocab_site_scope_bans_operator_and_venue_names — operator and venue name
   assert.deepEqual(hits, [], `apps/site surfaces redden the site vocab scope: ${hits.join(", ")}`);
 });
 
-test("site_names_no_data_source — no data-source name form in ANY exported apps/site file, rendered surface or committed data; the literals stay in this non-exported file (VOCAB-PROVIDERS-SITE-1, R13, R50; decision 69 / C-9)", () => {
+test("site_names_no_data_source — no data-source name form in ANY exported apps/site file, rendered surface or committed data; the literals stay in the non-exported scripts/public-text-deny.mjs (VOCAB-PROVIDERS-SITE-1, R13, R50; decision 69 / C-9)", () => {
   const kept = collectFiles(ROOT).kept;
-  // The literals below must never be exported (else they would publish the names they ban).
-  assert.ok(!kept.some((f) => f.rel.startsWith("test/")), "no repo-root test/ file may be exported");
+  // The name literals (this file, and the module it imports them from) must never be exported (else they would publish the names they ban).
+  assert.ok(!kept.some((f) => f.rel.startsWith("test/") && f.rel !== "test/helpers/blocking-stdout.cjs"), "no repo-root test/ file may be exported");
+  assert.ok(!kept.some((f) => f.rel.startsWith("scripts/public-text-deny.")), "scripts/public-text-deny.* (the vendor lists) is never exported (CA-1.5)");
   const siteFiles = kept.filter((f) => f.rel.startsWith("apps/site/") && !BINARY_EXPORT.test(f.rel));
   assert.ok(siteFiles.length >= 50, `implausibly few exported apps/site text files (${String(siteFiles.length)}) — false green?`);
   // Each file is scanned as written AND with its escapes neutralized: a regex source `\bmassive\b` or an escaped spelling
@@ -886,9 +876,9 @@ test("fleet_page_reads_products_and_served_state — the products sentence is de
   // "live" used bare reads as a real-time promise (the Terms' "Words we do not use"); the page's own copy never uses it,
   // even as a verb. Mutant: "Products live on /products" => red.
   assert.ok(!texts.some((t) => /\blive\b/i.test(t)), "/fleet's own copy says 'live' bare");
-  assert.match(fleet, /Ukemi: LIQ_EMPTY_REGISTRY_SENTENCE,/);
+  assert.match(fleet, /empty: \{ Ukemi: LIQ_EMPTY_REGISTRY_SENTENCE \},\s*committed: \{ Ukemi: LIQ_COMMITTED_STATE_NOTE \},/);
   assert.match(fleet, /On the served gate today: \{servedState\}\./);
-  assert.match(fleet, /const servedState = ukemiServed\.registry_state === "empty" \? SERVED_STATE\[a\.name\] : undefined;/);
+  assert.match(fleet, /const servedState = SERVED_STATE\[ukemiServed\.registry_state\]\[a\.name\];/, "the /fleet line follows the synced served state");
   assert.match(fleet, /<NarabiFreshness schedule=\{narabiFreshness\.schedule\} capture=\{narabiFreshness\.capture\} \/>/);
   // The engines are described as /roadmap describes them, and nothing says how the work was reviewed.
   assert.ok(texts.some((t) => t.includes("Hikae and Ukemi engines complete; interface frozen.")), "/fleet uses /roadmap's engine sentence");
@@ -997,7 +987,10 @@ test("register_bell_fn_and_narabi_note_say_what_is_served — Bell's function en
     assert.doesNotMatch(s, /anchored digest/i, `the register says "anchored digest": ${s}`);
     assert.doesNotMatch(s, /byte-exact/i, `the register says "byte-exact": ${s}`);
   }
-  assert.ok(read("apps/site/app/bell/page.tsx").includes("not timestamp-anchored"), "/bell says signed and chained, not timestamp-anchored");
+  // The state sentences live in lib/bell-anchors.ts (the none sentence word for word); /bell renders the state's sentence through the
+  // function (ADR-BELL-OTS-PRB P-2; the built page is asserted by scripts/assert-fleet-html.mjs, T-3b).
+  assert.ok(read("apps/site/lib/bell-anchors.ts").includes("none: no anchor manifest lists the latest record's digests; it is signed and chained, not timestamp-anchored"), "the none sentence: signed and chained, not timestamp-anchored");
+  assert.match(read("apps/site/app/bell/page.tsx"), /<dd>\{publicationAnchorSentence\(anchorState\)\}<\/dd>/, "/bell renders the state's sentence through the function");
   const narabi = builtAgents().find((a) => a.name === "Narabi");
   assert.ok(narabi?.wiring.note.includes("its committed capture keeps each line's endpoint count only"), "Narabi's note says what the capture keeps");
   // The served Bell files the host serves are all named in the (unrendered) wiring.
@@ -1017,17 +1010,17 @@ test("roadmap_harness_layer_reads_the_served_tools — the tool count and names 
   assert.ok(!renderedOf(ROADMAP).some((t) => /clawhub/i.test(t)), "no skill-hub handle on /roadmap");
 });
 
-test("registry_notes_say_non_llm_once_per_page — 'non-LLM' at most once on /, /products, /roadmap and /fleet: the agent notes never carry it (decision of the owner, 2026-09-24)", () => {
+test("registry_notes_say_non_llm_once_per_page — 'non-LLM' at most once on /, /applications, /roadmap and /fleet: the agent notes never carry it (decision of the owner, 2026-09-24)", () => {
   const count = (s: string): number => (s.match(/non-LLM/gi) ?? []).length;
   for (const a of builtAgents()) assert.equal(count(a.wiring.note), 0, `${a.name}'s note repeats "non-LLM"`);
   const agentNotes = builtAgents().reduce((n, a) => n + count(a.wiring.note), 0);
   const productNotes = builtProducts().reduce((n, p) => n + count(p.served.note), 0);
   const literals = (rel: string): number => renderedOf(rel).reduce((n, t) => n + count(t), 0);
-  // Per page: the page's own rendered literals plus the register notes it renders (the home and /products render the
+  // Per page: the page's own rendered literals plus the register notes it renders (the home and /applications render the
   // built application's served note; /roadmap and /fleet render every built agent's note).
   const perPage: [string, number][] = [
     ["/", literals("apps/site/app/page.tsx") + productNotes],
-    ["/products", literals("apps/site/app/products/page.tsx") + literals("apps/site/app/products/built-product-card.tsx") + productNotes],
+    ["/applications", literals("apps/site/app/applications/page.tsx") + literals("apps/site/app/applications/built-application-card.tsx") + productNotes],
     ["/roadmap", literals("apps/site/app/roadmap/page.tsx") + agentNotes],
     ["/fleet", literals("apps/site/app/fleet/page.tsx") + agentNotes],
   ];
@@ -1076,8 +1069,9 @@ test("owner_decisions_of_2026_09_24_retired_wording_stays_out — B_t caller-car
   }
   assert.ok(!cfg.scan.site.exemptPhrases.some((p) => /guarante/i.test(p)), "no exemption phrase carries the word");
   // The storefront says "applications" (the on-chain applications the engine powers), never "product", in every rendered
-  // literal of its pages and components (dialog contents included, which the static HTML does not show). The route keeps
-  // its /products path (item APPS-ROUTE-1). Mutant: "sell one another's products" back on /roadmap => red.
+  // literal of its pages and components (dialog contents included, which the static HTML does not show). The route is
+  // /applications; the former /products address redirects to it permanently (next.config.mjs; decision 171, items
+  // NAV-PRODUCTS-URL-1 and APPS-ROUTE-1). Mutant: "sell one another's products" back on /roadmap => red.
   const tsxOf = (dir: string): string[] =>
     readdirSync(join(ROOT, dir), { recursive: true }).map(String).filter((n) => n.endsWith(".tsx")).map((n) => `${dir}/${n.replace(/\\/g, "/")}`);
   const productHits: string[] = [];
@@ -1086,7 +1080,7 @@ test("owner_decisions_of_2026_09_24_retired_wording_stays_out — B_t caller-car
   }
   assert.deepEqual(productHits, [], `a rendered literal says "product":\n${productHits.join("\n")}`);
   for (const rel of ["apps/site/components/site-header.tsx", "apps/site/components/site-footer.tsx"]) {
-    assert.match(read(rel), /\{ href: "\/products", label: "Applications" \}/, `${rel}: the nav names the applications page`);
+    assert.match(read(rel), /\{ href: "\/applications", label: "Applications" \}/, `${rel}: the nav names the applications page`);
   }
   // /integrators and /roadmap: the engine is reachable (the fleet keeps its per-piece status on /fleet).
   assert.ok(renderedOf("apps/site/app/integrators/page.tsx").some((t) => t.includes("The engine, reachable by your agent.")));
@@ -1102,23 +1096,11 @@ test("owner_decisions_of_2026_09_24_retired_wording_stays_out — B_t caller-car
 
 // KITCHEN-PUBLIC-1 — the internal work vocabulary never rides on the public storefront. A CLOSED list of forms, scanned
 // over EVERY exported apps/site text file (sources with their comments, committed data with its $comment, public assets),
-// as written and with escapes neutralized; the literals live in this non-exported file (listing them in the exported gate
+// as written and with escapes neutralized; the literals (KITCHEN_FORMS) live in the non-exported public-text-deny.mjs (the exported gate
 // file would publish them). The closed exemptions are exact spans, each tied to a formed item with its trigger; an
 // exemption whose span is gone reds (no stale exemption). DECLARED LIMITS: the bare word "ADR" in a method sentence is
 // not a form here (item KITCHEN-ADR-WORD-1, owner's ruling): it is held to a closed count per file, so a new occurrence
 // reds; "worker" and "checkpoint" redden as plain English words too (none on the storefront when added).
-const KITCHEN_FORMS: readonly { re: RegExp; why: string }[] = [
-  { re: /\bsub-?agents?\b/i, why: "sub-agent" },
-  { re: /\borchestrat(?:or|ors|ion|ed|ing)\b/i, why: "orchestrator" },
-  { re: /\bworkers?\b/i, why: "worker" },
-  { re: /\bcheckpoint(?:s|-\d+)?\b/i, why: "checkpoint" },
-  { re: /\bG[0-7]\b/, why: "gate G0..G7" },
-  { re: /\b[Ll]ots? [A-Z][A-Za-z0-9]*(?:-[A-Za-z0-9]+)+/, why: "lot <NAME>" },
-  { re: /\bdecisions? (?:n°\s*)?\d+/i, why: "decision <n>" },
-  { re: /\bADR-[A-Z0-9]/, why: "ADR identifier" },
-  { re: /vibe-?cod/i, why: "vibecoding" },
-  { re: /\bG2 review\b/i, why: "G2 review" },
-];
 const KITCHEN_EXEMPT: readonly { rel: string; span: string; item: string }[] = [
   {
     rel: "apps/site/data/ukemi-course.json",
@@ -1390,4 +1372,138 @@ test("site_raw_html_injection_points_pinned - dangerouslySetInnerHTML only in ap
   // under public/ is served verbatim, outside the three sinks above; none is allowed (the /bell scene is a native component).
   const rawHtml = files.filter((rel) => rel.startsWith("public/") && rel.endsWith(".html"));
   assert.deepEqual(rawHtml, [], "no raw .html document under apps/site/public");
+});
+
+test("site_names_no_rpc_operator — no operator or vendor name form in ANY exported apps/site file; the literals stay in the non-exported scripts/public-text-deny.mjs", () => {
+  const siteFiles = collectFiles(ROOT).kept.filter((f) => f.rel.startsWith("apps/site/") && !BINARY_EXPORT.test(f.rel));
+  assert.ok(siteFiles.length >= 50, "the exported apps/site files are collected (false-green guard)");
+  const hits: string[] = [];
+  for (const f of siteFiles) {
+    const raw = readFileSync(f.abs, "utf8");
+    const views = [raw, neutralizeEscapes(raw)];
+    for (const form of OPERATOR_FORMS) if (views.some((v) => form.re.test(v))) hits.push(`${f.rel} [${form.why} ${String(form.re)}]`);
+  }
+  assert.deepEqual(hits, [], `an operator or vendor name on an exported apps/site file:\n${hits.join("\n")}`);
+  assert.ok(OPERATOR_FORMS.some((form) => form.re.test("read through drpc")), "control: an operator name reds");
+  assert.ok(!OPERATOR_FORMS.some((form) => form.re.test("Think of a pocket knife.")), "control: the pocket knife stays green");
+});
+
+// NAV-APPLICATIONS-1 (decision 171, item NAV-PRODUCTS-URL-1): the applications page lives at /applications and its
+// former address /products redirects there permanently (Next answers a permanent redirect with 308). (a) The redirect is
+// read from the AST of apps/site/next.config.mjs, so a commented-out copy does not count; (b) no exported apps/site file
+// (the collection of site_names_no_rpc_operator) carries the /products path, except the one exact literal of that
+// redirect: a closed exemption, masked ONCE (a second copy stays visible and reds) and required present exactly once
+// (else stale). Mutants: permanent: false, a dropped or commented-out redirect, a wrong destination, href="/products"
+// back on a page or in the nav, a comment naming /products in the config => red.
+const SITE_CONFIG = "apps/site/next.config.mjs";
+const PRODUCTS_REDIRECT = '{ source: "/products", destination: "/applications", permanent: true }';
+type SiteRedirect = { source: string; destination: string; permanent: boolean | undefined };
+
+/** The redirects `async redirects() { return [...] }` declares in a next.config source, read from its AST (comments are
+ *  not nodes): each object literal of the returned array with a string source and destination. */
+const configRedirects = (src: string): SiteRedirect[] => {
+  const sf = ts.createSourceFile("next.config.mjs", src, ts.ScriptTarget.Latest, true, ts.ScriptKind.JS);
+  const out: SiteRedirect[] = [];
+  const visit = (node: ts.Node): void => {
+    if (ts.isMethodDeclaration(node) && ts.isIdentifier(node.name) && node.name.text === "redirects" && node.body !== undefined) {
+      for (const stmt of node.body.statements) {
+        if (!ts.isReturnStatement(stmt) || stmt.expression === undefined || !ts.isArrayLiteralExpression(stmt.expression)) continue;
+        for (const el of stmt.expression.elements) {
+          if (!ts.isObjectLiteralExpression(el)) continue;
+          const prop = (name: string): ts.Expression | undefined =>
+            el.properties.find((p): p is ts.PropertyAssignment => ts.isPropertyAssignment(p) && ts.isIdentifier(p.name) && p.name.text === name)?.initializer;
+          const source = prop("source");
+          const destination = prop("destination");
+          const permanent = prop("permanent")?.kind;
+          if (source === undefined || destination === undefined || !ts.isStringLiteral(source) || !ts.isStringLiteral(destination)) continue;
+          out.push({
+            source: source.text,
+            destination: destination.text,
+            permanent: permanent === ts.SyntaxKind.TrueKeyword ? true : permanent === ts.SyntaxKind.FalseKeyword ? false : undefined,
+          });
+        }
+      }
+    }
+    ts.forEachChild(node, visit);
+  };
+  visit(sf);
+  return out;
+};
+
+/** What is wrong with the /products redirect of a next.config source; empty = exactly one redirect from /products, to
+ *  /applications, permanent, and no redirect back to /products. */
+const productsRedirectProblems = (src: string): string[] => {
+  const all = configRedirects(src);
+  const from = all.filter((r) => r.source === "/products");
+  const problems: string[] = [];
+  if (from.length !== 1) problems.push(`${String(from.length)} redirect(s) from /products, exactly one expected`);
+  for (const r of from) {
+    if (r.destination !== "/applications") problems.push(`/products redirects to ${r.destination}, not /applications`);
+    if (r.permanent !== true) problems.push(`the /products redirect is not permanent (permanent: ${String(r.permanent)})`);
+  }
+  for (const r of all) if (r.destination === "/products") problems.push(`${r.source} redirects to /products`);
+  return problems;
+};
+
+/** The /products path in one exported apps/site file, as written and with escapes neutralized; in the config, the exempt
+ *  redirect literal is masked once first. Empty = clean. */
+const productsPathHits = (rel: string, text: string): string[] => {
+  const masked = rel === SITE_CONFIG ? text.replace(PRODUCTS_REDIRECT, " ".repeat(PRODUCTS_REDIRECT.length)) : text;
+  const view = [masked, neutralizeEscapes(masked)].find((v) => v.includes("/products"));
+  if (view === undefined) return [];
+  const at = view.indexOf("/products");
+  return [`${rel}: ${JSON.stringify(view.slice(Math.max(0, at - 40), at + 40))}`];
+};
+
+test("applications_route_is_canonical — /products redirects permanently to /applications (next.config.mjs, read from its AST) and no exported apps/site file carries the /products path besides that redirect (NAV-APPLICATIONS-1; decision 171, item NAV-PRODUCTS-URL-1)", () => {
+  // (a) The redirect, as the config declares it; the /building alias is left as it was (temporary).
+  const config = read(SITE_CONFIG);
+  assert.deepEqual(productsRedirectProblems(config), [], `${SITE_CONFIG}: the /products redirect`);
+  assert.deepEqual(
+    configRedirects(config).find((r) => r.source === "/building"),
+    { source: "/building", destination: "/roadmap", permanent: false },
+    "the /building alias stays a temporary redirect to /roadmap",
+  );
+  // Positive controls, in memory: each mutant of the redirect reds.
+  assert.ok(config.includes(PRODUCTS_REDIRECT), "fixture: the redirect literal is present to mutate");
+  const redirectMutants: [string, string][] = [
+    ["permanent: false", config.replace(PRODUCTS_REDIRECT, PRODUCTS_REDIRECT.replace("permanent: true", "permanent: false"))],
+    ["no permanent key", config.replace(PRODUCTS_REDIRECT, PRODUCTS_REDIRECT.replace(", permanent: true", ""))],
+    ["redirect dropped", config.replace(PRODUCTS_REDIRECT, "")],
+    ["redirect commented out", config.replace(PRODUCTS_REDIRECT, `/* ${PRODUCTS_REDIRECT} */`)],
+    ["wrong destination", config.replace(PRODUCTS_REDIRECT, PRODUCTS_REDIRECT.replace('"/applications"', '"/fleet"'))],
+    ["a loop back to /products", config.replace(PRODUCTS_REDIRECT, `${PRODUCTS_REDIRECT}, { source: "/applications", destination: "/products", permanent: true }`)],
+  ];
+  for (const [label, text] of redirectMutants) {
+    assert.notEqual(text, config, `fixture: mutant "${label}" changes the config`);
+    assert.notDeepEqual(productsRedirectProblems(text), [], `mutant "${label}" must red`);
+  }
+
+  // The route itself: the page lives under app/applications; nothing is left under app/products.
+  const appDir = readdirSync(join(ROOT, "apps", "site", "app"));
+  assert.ok(appDir.includes("applications"), "apps/site/app/applications exists");
+  assert.ok(!appDir.includes("products"), "nothing is left under apps/site/app/products");
+  assert.ok(readdirSync(join(ROOT, "apps", "site", "app", "applications")).includes("page.tsx"), "the /applications page exists");
+
+  // (b) No exported apps/site file carries /products, but the one exempt redirect literal.
+  const siteFiles = collectFiles(ROOT).kept.filter((f) => f.rel.startsWith("apps/site/") && !BINARY_EXPORT.test(f.rel));
+  assert.ok(siteFiles.length >= 50, `implausibly few exported apps/site text files (${String(siteFiles.length)}) — false green?`);
+  for (const rel of [SITE_CONFIG, "apps/site/components/site-header.tsx", "apps/site/components/site-footer.tsx", "apps/site/app/how/page.tsx", "apps/site/data/manifest.sha256.json"]) {
+    assert.ok(siteFiles.some((f) => f.rel === rel), `${rel} is among the scanned exported files (false-green guard)`);
+  }
+  assert.equal(config.split(PRODUCTS_REDIRECT).length - 1, 1, "the exempt redirect literal is in the config exactly once (else the exemption is stale)");
+  const hits = siteFiles.flatMap((f) => productsPathHits(f.rel, readFileSync(f.abs, "utf8")));
+  assert.deepEqual(hits, [], `the /products path on an exported apps/site file:\n${hits.join("\n")}`);
+  // Positive controls: href="/products" back on a page or in the nav reds; the exemption masks the redirect literal once
+  // and nothing else of the config.
+  const how = read("apps/site/app/how/page.tsx");
+  const header = read("apps/site/components/site-header.tsx");
+  assert.ok(how.includes('<Link href="/applications"') && header.includes('{ href: "/applications", label: "Applications" }'), "fixture: the mutated spans are present");
+  const pathMutants: [string, string, string][] = [
+    ['href="/products" on /how', "apps/site/app/how/page.tsx", how.replace('<Link href="/applications"', '<Link href="/products"')],
+    ["the nav back on /products", "apps/site/components/site-header.tsx", header.replace('{ href: "/applications", label: "Applications" }', '{ href: "/products", label: "Applications" }')],
+    ["a comment naming /products in the config", SITE_CONFIG, `${config}\n// formerly served at /products\n`],
+    ["a second copy of the redirect literal", SITE_CONFIG, config.replace(PRODUCTS_REDIRECT, `${PRODUCTS_REDIRECT}, /* ${PRODUCTS_REDIRECT} */`)],
+  ];
+  for (const [label, rel, text] of pathMutants) assert.notDeepEqual(productsPathHits(rel, text), [], `mutant "${label}" must red`);
 });

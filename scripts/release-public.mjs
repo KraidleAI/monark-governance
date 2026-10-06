@@ -1,49 +1,40 @@
-// release-public.mjs — fail-closed local gate, then publish the exported tree to KraidleAI/Monark,
-// optionally cutting an annotated tag + GitHub Release (ADR-M010).
+// release-public.mjs — fail-closed local gate, then PREPARE one public commit of the exported tree in the local clone of
+// KraidleAI/Monark and stop before the push (ADR-M010, amended by ADR-PUBLIC-CADENCE-1 D1).
 //
 // This is an INTERNAL release tool. It is deliberately NOT in export-public.mjs's whitelist, so it is
 // never itself exported to the public repo. It codifies the local-only policy: the private source lives
 // in this repo and is never pushed; the ONLY outward push is the exported public tree to KraidleAI/Monark.
 //
 // Usage:
-//   node scripts/release-public.mjs                               plain sync (gates -> export -> sync -> push)
-//   node scripts/release-public.mjs --tag v0.1.0 --notes notes.md sync, then annotated tag + GitHub Release
-//   node scripts/release-public.mjs --dry-run [--tag .. --notes ..] gates + export + diff only (no commit/push)
+//   node scripts/release-public.mjs --message <file>            gates -> export -> sync -> local commit, prints the push
+//   node scripts/release-public.mjs --message <file> --dry-run  gates + export + diff only (no commit)
 //
-// There is NO free-text commit-message argument (ADR-M010 B-3): the sync commit message is fixed/generated
-// ("Public sync <ISO>"). The ONLY human free text is the --notes file, and it passes the English/vocab
-// firewall (checkReleaseText) before it can reach the public repo. --tag / --notes are ALL-OR-NONE (both =
-// a tagged release; neither = a plain sync).
+// The commit message is the --message file (English, written by the orchestrator), passed through checkPublicText
+// (scripts/public-text-deny.mjs, kind "message") before anything else and committed byte for byte: the tool adds nothing.
+// The push, the tag and the GitHub Release are acts of the orchestrator; this tool writes nothing to GitHub (the local
+// tag step, --tag / --notes, belongs to PR-A2 of that lot).
 //
 // Every gate is BLOCKING: any non-zero exit aborts the release before anything is pushed. The public mirror
-// clone lives at $MONARK_PUBLIC_MIRROR (default ~/.monark-public-mirror) and is reset to origin/main on each
+// clone lives at $MONARK_PUBLIC_MIRROR (required, no default) and is reset to origin/main on each
 // run so the diff is exactly the new change set.
 //
-// Three PURE guard functions (isSemverTag, checkReleaseText, branchGuard) are exported at top level for the
-// mutant tests. They perform no writes, no network I/O and no process.exit, and the CLI body lives in a
-// run-guarded main() at the bottom, so importing this module NEVER triggers a release.
+// The PURE guards (isSemverTag and checkReleaseText, re-exported from public-text-deny.mjs; branchGuard; sendGuard) and the pinned
+// gate list LOCAL_GATES are exported for the tests; the CLI body lives in a run-guarded main() at the bottom, so
+// importing this module NEVER triggers a release.
 
 import { execSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
-import { dirname, join, resolve } from "node:path";
+import { basename, dirname, join, resolve } from "node:path";
 import { existsSync, readdirSync, readFileSync, rmSync, cpSync, writeFileSync } from "node:fs";
-import os from "node:os";
-import { scanText as scanLang, loadExempt } from "./lang-gate.mjs";
-import { scanText as scanVocab, compilePatterns } from "./grep-forbidden.mjs";
+import { checkPublicText } from "./public-text-deny.mjs";
+import { collectFiles, pendingSendBlockers, readTextOrNull } from "./export-public.mjs";
+export { isSemverTag, checkReleaseText } from "./public-text-deny.mjs";
 
 const SRC = dirname(dirname(fileURLToPath(import.meta.url)));
-const MIRROR = process.env.MONARK_PUBLIC_MIRROR || join(os.homedir(), ".monark-public-mirror");
-const REMOTE = "https://github.com/KraidleAI/Monark.git";
-const REPO_SLUG = REMOTE.replace(/^https:\/\/github\.com\//, "").replace(/\.git$/, ""); // KraidleAI/Monark
+const PUBLIC_REMOTE = "https://github.com/KraidleAI/Monark.git";
+const GOVERNANCE_SLUG = "KraidleAI/monark-governance"; // its visibility must read 'private' before any preparation (CA-1.7)
 
 // ============================================================ PURE, EXPORTED GUARDS (mutant-tested) =====
-
-/** isSemverTag(tag) -> boolean: true iff `tag` is a v0.MINOR.PATCH tag (0.x only; MAJOR>=1 is a human
- *  decision, ADR-M010 section 2.3). Rejects v1.0.0, v0.1, 0.1.0, v0.1.0-rc and any trailing space/junk.
- *  Pure: no I/O, no process.exit. */
-export function isSemverTag(tag) {
-  return typeof tag === "string" && /^v0\.\d+\.\d+$/.test(tag);
-}
 
 /** branchGuard(headRef, porcelain) -> {ok, reason}: ok iff HEAD is exactly 'main' AND the working tree is
  *  clean (empty `git status --porcelain`). There is NO origin/main variant (ADR-M010 B-2): origin/main is a
@@ -54,39 +45,24 @@ export function branchGuard(headRef, porcelain) {
   return { ok: true, reason: "on main, clean" };
 }
 
-/** checkReleaseText(text) -> {ok, hits}: run the language gate (French detection, lang-exempt maskers) AND
- *  the vocab gate at the STOREFRONT honesty bar over the in-memory string. Empty/whitespace text -> ok:false.
- *  ok iff the text is non-empty AND every hit-list is empty. Reads only the committed gate config
- *  (scripts/lang-exempt.json, vocab-banned.json) — no writes, no network, no process.exit — so it is safe to
- *  import and unit-test. This is the ONLY free text that can reach the public repo, and the GitHub Release
- *  object is public STOREFRONT text, so it meets the same honesty bar as the site — ADR-M010 section 4 m-4
- *  (investisseur 2026-09-16): apply the GLOBAL bans PLUS the `site` AND `skills` scoped honesty bans (brands,
- *  autonomous/predicts/confidence/accuracy, securities vocab, ...), each with the UNION of the two scopes'
- *  closed exemptPhrases masked first, so an honest negation ("no confidence field", "$/token spend cap") that
- *  is exempt on one storefront surface is not falsely reddened by the other's scan. */
-export function checkReleaseText(text) {
-  if (typeof text !== "string" || text.trim() === "") return { ok: false, hits: [] };
-  const { maskers } = loadExempt(SRC);
-  const frenchHits = scanLang(text, maskers);
-  const cfg = JSON.parse(readFileSync(join(SRC, "vocab-banned.json"), "utf8"));
-  const site = cfg.scan?.site ?? {};
-  const skills = cfg.scan?.skills ?? {};
-  // Fail-closed (m-4 F3): the storefront bar REQUIRES both scoped ban sets. A missing/empty scope is a config
-  // defect, never a licence to silently fall back to GLOBAL-only on public text — refuse all text instead.
-  if (!Array.isArray(site.banned) || site.banned.length === 0 || !Array.isArray(skills.banned) || skills.banned.length === 0) {
-    return { ok: false, hits: [{ why: "storefront gate config incomplete: scan.site.banned / scan.skills.banned missing or empty (fail-closed)" }] };
-  }
-  // Union of the honest-negation exemptPhrases across the storefront scopes we apply — masked before every
-  // scoped scan so a phrase exempt on one surface (site) is not reddened by the other (skills), and vice versa.
-  const exemptPhrases = [...(site.exemptPhrases ?? []), ...(skills.exemptPhrases ?? [])];
-  const vocabHits = [
-    ...scanVocab(text, compilePatterns(cfg.banned)), // GLOBAL bans (no exemptPhrases in the config)
-    ...scanVocab(text, compilePatterns(site.banned), exemptPhrases), // site storefront honesty + brands
-    ...scanVocab(text, compilePatterns(skills.banned), exemptPhrases), // skills honesty + securities vocab
-  ];
-  const hits = [...frenchHits, ...vocabHits];
-  return { ok: hits.length === 0, hits };
+/** sendGuard(blockers) -> {ok, reason}: ok iff the kept set carries no pending snapshot, `blockers` being what
+ *  export-public.mjs's pendingSendBlockers names (RELEASE-PREFLIGHT-SEND-GUARD-1). The preflight refuses on it before any
+ *  gate; the export's own guard (SITE-SEND-GUARD-MECH-1) stays the authority and still refuses at the export. Pure. */
+export function sendGuard(blockers) {
+  if (blockers.length > 0) return { ok: false, reason: `a pending snapshot is in the exported tree: ${blockers.join(", ")}` };
+  return { ok: true, reason: "no pending snapshot" };
 }
+
+/** The local gates, in order; export:check last, just before the export (ADR-PUBLIC-CADENCE-1 D1.4). Pinned by
+ *  test/release-public.test.ts (commands and order, C-V-4): the flow test substitutes this list through main()'s second
+ *  parameter, which the command line never reaches, so a substituted list cannot hide a removed gate. */
+export const LOCAL_GATES = Object.freeze([
+  ["vocab + typecheck + tests (npm run ci)", "npm run ci"],
+  ["language gate", "npm run lang:gate"],
+  ["lint ratchet", "node scripts/lint-ratchet.mjs"],
+  ["eslint", "npx eslint ."],
+  ["export check, global scope (npm run export:check)", "npm run export:check"],
+].map((g) => Object.freeze(g)));
 
 // ============================================================ CLI helpers (run-guarded; not exported) ===
 
@@ -111,119 +87,111 @@ function abort(message) {
   console.error(`\nRELEASE ABORTED: ${message}`);
   process.exit(1);
 }
-/** Run `text` through checkReleaseText and abort fail-closed if it reddens (empty/whitespace included). The
- *  SAME guard function is used by --dry-run and the real path (ADR-M010 section 4/5, no divergent path). */
-function gateOrAbort(label, text) {
-  const chk = checkReleaseText(text);
+/** Run `text` through checkPublicText and abort fail-closed on any violation (empty/whitespace included), naming the
+ *  rule and the word (FM-2.4). The SAME guard is used by --dry-run and the real path (ADR-M010 section 4/5). */
+function gateOrAbort(label, text, kind) {
+  const chk = checkPublicText(text, kind);
   if (!chk.ok) {
-    console.error(`\nRELEASE ABORTED: the ${label} did not pass the English/vocab firewall (ADR-M010 section 4).`);
-    if (!text || !text.trim()) console.error("  - (empty / whitespace-only text)");
-    for (const h of chk.hits) console.error(`  - ${JSON.stringify(h)}`);
+    console.error(`\nRELEASE ABORTED: the ${label} did not pass the public-text gate (ADR-PUBLIC-CADENCE-1 D1.3).`);
+    for (const v of chk.violations) console.error(`  - rule ${v.rule}, line ${v.line}: ${JSON.stringify(v.word)}`);
     process.exit(1);
   }
 }
 /** gh is a system dependency (ADR-M010 N-7): refuse fail-closed if it is absent or not authenticated.
- *  `gh auth status` is an auth probe, not a git-remote mutation. */
+ *  `gh auth status` is an auth probe; the only other gh call is the visibility READ of preflight (CA-1.7). */
 function requireGh() {
-  if (!tryCapture("gh --version").ok) abort("gh (GitHub CLI) is not installed — required to cut a Release (ADR-M010 N-7).");
-  if (!tryCapture("gh auth status").ok) abort("gh is not authenticated (`gh auth status` failed) — refuse to cut a Release (ADR-M010 N-7).");
+  if (!tryCapture("gh --version").ok) abort("gh (GitHub CLI) is not installed — required to read the governance visibility (ADR-M010 N-7).");
+  if (!tryCapture("gh auth status").ok) abort("gh is not authenticated (`gh auth status` failed) — refuse (ADR-M010 N-7).");
 }
-function tagExistsLocally(tag) {
-  const r = tryCapture(`git tag -l "${tag}"`, SRC);
-  return r.ok && r.out !== "";
-}
-function tagExistsOnRemote(tag) {
-  const r = tryCapture(`git ls-remote --tags "${REMOTE}" "refs/tags/${tag}"`, SRC);
-  return r.ok && r.out !== "";
+
+/** The pending-snapshot blockers of this tree's kept set, read by export-public.mjs's own functions. Its fail-closed exits
+ *  (an unreadable exclusion list: "export FAILED", exit 1) stay as they are; an exit hook adds the RELEASE ABORTED line
+ *  that names the cause, and a thrown error (an unreadable path) aborts with it (G2 N-3). */
+function readSendBlockers() {
+  const named = (code) => {
+    if (code !== 0) console.error("\nRELEASE ABORTED: RELEASE-PREFLIGHT-SEND-GUARD-1 could not read the exported tree (the export's refusal is above).");
+  };
+  process.once("exit", named);
+  try {
+    return pendingSendBlockers(collectFiles(SRC).kept, readTextOrNull);
+  } catch (e) {
+    process.off("exit", named);
+    return abort(`RELEASE-PREFLIGHT-SEND-GUARD-1 could not read the exported tree: ${e instanceof Error ? e.message : String(e)}`);
+  } finally {
+    process.off("exit", named);
+  }
 }
 
 function parseArgs(argv) {
-  const a = { dryRun: false, tag: null, notes: null };
+  const a = { dryRun: false, message: null };
   for (let i = 0; i < argv.length; i++) {
     const t = argv[i];
     if (t === "--dry-run") {
       a.dryRun = true;
       continue;
     }
-    if (t === "--tag" || t === "--notes") {
+    if (t === "--message") {
       const v = argv[i + 1];
       if (v === undefined || v.startsWith("--")) abort(`${t} requires a value.`);
-      if (t === "--tag") a.tag = v;
-      else a.notes = v;
+      a.message = v;
       i++;
       continue;
     }
-    abort(`unknown argument: ${t} (the free-text message argument was removed — ADR-M010 B-3; use --notes <file>).`);
+    if (t === "--tag" || t === "--notes") abort(`${t}: the local tag step is not in this tool yet (ADR-PUBLIC-CADENCE-1 D2, PR-A2).`);
+    abort(`unknown argument: ${t}`);
   }
   return a;
 }
 
-/** Every fail-closed refusal that must precede ANY remote mutation (ADR-M010 section 4/5), so a bad
- *  invocation — INCLUDING a --dry-run — refuses without touching the git remote. Returns the release plan
- *  ({tagPlan:null} for a plain sync). The tag STRING is validated (isSemverTag) BEFORE it is ever
- *  interpolated into a git command. */
+/** Every fail-closed refusal that must precede ANY preparation (ADR-M010 section 4/5; ADR-PUBLIC-CADENCE-1 D1), so a
+ *  bad invocation — INCLUDING a --dry-run — refuses before any gate runs and before the mirror clone is touched: the
+ *  message gate (CA-1.1), the mirror path and the noreply identity (CA-1.4), the branch guard, gh, the visibility of
+ *  the governance repository (CA-1.7), and the pending snapshot (RELEASE-PREFLIGHT-SEND-GUARD-1). Returns what main()
+ *  consumes. */
 function preflight(opts) {
-  // --tag / --notes are all-or-none.
-  if (!!opts.tag !== !!opts.notes) {
-    abort("--tag and --notes are all-or-none: pass both (a tagged release) or neither (a plain sync).");
-  }
-  // Validate the tag STRING before any interpolation (semver + MAJOR<1, both enforced by isSemverTag).
-  if (opts.tag && !isSemverTag(opts.tag)) {
-    abort(`--tag '${opts.tag}' is not a v0.MINOR.PATCH tag (0.x only; 1.0.0 is a human decision — ADR-M010 section 2.3/5).`);
-  }
-  // Branch guard — publish only from a clean local main (no origin/main variant, B-2). Applies to plain
-  // syncs too. The HEAD ref + porcelain are read from SRC (this repo), never the mirror.
+  if (!opts.message) abort("--message <file> is required: the English commit message (ADR-PUBLIC-CADENCE-1 D1).");
+  if (!existsSync(opts.message)) abort(`--message file not found: ${opts.message}`);
+  const message = readFileSync(opts.message, "utf8");
+  gateOrAbort("commit message", message, "message");
+  if (!process.env.MONARK_PUBLIC_MIRROR) abort("MONARK_PUBLIC_MIRROR is not set: the mirror clone path is required (no default).");
+  const mirror = resolve(process.env.MONARK_PUBLIC_MIRROR);
+  // Branch guard — publish only from a clean local main (no origin/main variant, B-2). The HEAD ref + porcelain are read
+  // from SRC (this repo), never the mirror.
   const headRef = capture("git rev-parse --abbrev-ref HEAD", SRC);
   const porcelain = capture("git status --porcelain", SRC);
   const bg = branchGuard(headRef, porcelain);
   if (!bg.ok) abort(`branch guard: ${bg.reason} (ADR-M010 B-2 — publish only from a clean main).`);
-
-  if (!opts.tag) return { headRef, tagPlan: null };
-
-  // Notes: present, readable, non-empty, and green through the firewall (checkReleaseText).
-  if (!existsSync(opts.notes)) abort(`--notes file not found: ${opts.notes}`);
-  const notesText = readFileSync(opts.notes, "utf8");
-  gateOrAbort("release notes", notesText);
-  // The Release title and the annotated-tag message are derived English text; they pass the SAME firewall.
-  const title = opts.tag;
-  const tagMessage = `MONARK ${opts.tag}`;
-  gateOrAbort("Release title", title);
-  gateOrAbort("annotated-tag message", tagMessage);
-
-  // gh must be present + authenticated BEFORE any remote work (N-7).
+  // Identity guard, before any write: the source repo's committer identity must be a github noreply address (prevents
+  // leaking a personal email into public history); main() copies it into the mirror clone.
+  const gitName = capture("git config user.name", SRC);
+  const gitEmail = capture("git config user.email", SRC);
+  if (!/@users\.noreply\.github\.com$/.test(gitEmail)) abort(`refusing to publish under a non-noreply identity: ${gitEmail}`);
+  // Pending snapshot, before any gh read (review m-c of the T0 acts): the kept set of this tree read as the export reads it, so
+  // a release (or a --dry-run) between C2 and T0 refuses here, before the long gates and the network, not at its export.
+  const sg = sendGuard(readSendBlockers());
+  if (!sg.ok) abort(`RELEASE-PREFLIGHT-SEND-GUARD-1 (SITE-SEND-GUARD-MECH-1): ${sg.reason}; no mirror release before T0. Release from the trunk once promoted at T0 (node scripts/sync-harness-served.mjs, then node scripts/sync-ukemi-served.mjs).`);
   requireGh();
-
-  // No clobber: the tag must exist neither locally (the governance tag) nor on the public remote.
-  if (tagExistsLocally(opts.tag)) abort(`tag ${opts.tag} already exists locally (no clobber — ADR-M010 section 5).`);
-  if (tagExistsOnRemote(opts.tag)) abort(`tag ${opts.tag} already exists on ${REPO_SLUG} (no clobber — ADR-M010 section 5).`);
-
-  return { headRef, tagPlan: { tag: opts.tag, title, tagMessage, notesText, notesPath: opts.notes } };
+  const vis = tryCapture(`gh api repos/${GOVERNANCE_SLUG} --jq .visibility`);
+  if (!vis.ok || vis.out !== "private") abort(`${GOVERNANCE_SLUG} visibility reads '${vis.out}', not 'private' (CA-1.7).`);
+  return { message, mirror, gitName, gitEmail };
 }
 
 // ============================================================================================ main CLI ==
-function main() {
-  const opts = parseArgs(process.argv.slice(2));
+/** `inject` serves test/release-public-flow.test.ts only ({gates, remote}: substitute gates that journal their passage,
+ *  a disposable bare repository). The run-guard below calls main() with no argument, so the production command line never
+ *  reaches it (ADR-PUBLIC-CADENCE-1 C-V-4, mutant M1-p). */
+export function main(argv = process.argv.slice(2), inject = {}) {
+  const opts = parseArgs(argv);
 
-  // 0. Fail-closed preflight (branch guard + tag/notes validation + gh + no-clobber) BEFORE any remote
-  //    mutation, so a bad invocation — including a --dry-run — refuses without touching the remote.
+  // 0. Fail-closed preflight BEFORE any preparation: on a refusal no gate runs and the mirror clone is not touched.
   const plan = preflight(opts);
-
-  if (opts.dryRun && plan.tagPlan) {
-    step("dry-run: release plan");
-    console.log(`  tag           : ${plan.tagPlan.tag}`);
-    console.log(`  Release title : ${plan.tagPlan.title}`);
-    console.log(`  notes file    : ${plan.tagPlan.notesPath}`);
-    console.log("  notes preview :");
-    for (const line of plan.tagPlan.notesText.split(/\r?\n/).slice(0, 12)) console.log(`    | ${line}`);
-  }
+  const MIRROR = plan.mirror;
+  const REMOTE = inject.remote ?? PUBLIC_REMOTE;
+  // An existing clone points at REMOTE, checked before any gate or export: nothing is left beside it (a fresh clone is of REMOTE).
+  if (existsSync(join(MIRROR, ".git")) && capture("git remote get-url origin", MIRROR) !== REMOTE) abort(`mirror at ${MIRROR} points at an unexpected remote`);
 
   // 1. Local gates — the fuller set (the public CI only re-checks the exported subset).
-  const gates = [
-    ["vocab + typecheck + tests (npm run ci)", "npm run ci"],
-    ["language gate", "npm run lang:gate"],
-    ["lint ratchet", "node scripts/lint-ratchet.mjs"],
-    ["eslint", "npx eslint ."],
-  ];
+  const gates = inject.gates ?? LOCAL_GATES;
   for (const [name, cmd] of gates) {
     step(`gate: ${name}`);
     try {
@@ -235,7 +203,7 @@ function main() {
 
   // 2. Export the public tree (export-public.mjs fails closed on any structural/blacklist violation).
   step("export public tree");
-  const stage = join(os.tmpdir(), `monark-export-${process.pid}`);
+  const stage = join(dirname(MIRROR), `${basename(MIRROR)}-stage-${process.pid}`); // beside the clone, never os.tmpdir()
   rmSync(stage, { recursive: true, force: true });
   try {
     run(`node scripts/export-public.mjs --out "${stage}"`);
@@ -246,10 +214,7 @@ function main() {
   // 3. Sync the public mirror from a clean origin/main, then overlay the fresh export.
   step("sync public mirror");
   if (!existsSync(join(MIRROR, ".git"))) {
-    run(`git clone ${REMOTE} "${MIRROR}"`, os.tmpdir());
-  }
-  if (capture("git remote get-url origin", MIRROR) !== REMOTE) {
-    abort(`mirror at ${MIRROR} points at an unexpected remote`);
+    run(`git clone "${REMOTE}" "${MIRROR}"`, dirname(MIRROR));
   }
   run("git fetch origin --quiet", MIRROR);
   run("git checkout -q main", MIRROR);
@@ -264,24 +229,14 @@ function main() {
   for (const entry of readdirSync(stage)) {
     cpSync(join(stage, entry), join(MIRROR, entry), { recursive: true });
   }
+  rmSync(stage, { recursive: true, force: true });
   run("git add -A", MIRROR);
-
-  // Identity guard: copy the source repo's committer identity, and refuse to publish under anything that
-  // is not a github noreply address (prevents leaking a personal email into public history).
-  const gitName = capture("git config user.name", SRC);
-  const gitEmail = capture("git config user.email", SRC);
-  if (!/@users\.noreply\.github\.com$/.test(gitEmail)) {
-    abort(`refusing to publish under a non-noreply identity: ${gitEmail}`);
-  }
-  run(`git config user.name "${gitName}"`, MIRROR);
-  run(`git config user.email "${gitEmail}"`, MIRROR);
+  // The identity checked by preflight (a github noreply address) signs the mirror commit.
+  run(`git config user.name "${plan.gitName}"`, MIRROR);
+  run(`git config user.email "${plan.gitEmail}"`, MIRROR);
 
   const dirty = capture("git status --porcelain", MIRROR);
   if (!dirty) {
-    // N-2: a tag with nothing new to publish is not a release.
-    if (plan.tagPlan) {
-      abort(`nothing to publish, but --tag ${plan.tagPlan.tag} was given — "nothing to publish" is not a release (ADR-M010 N-2). If a PRIOR run already pushed this sync and only the Release step failed, do NOT re-run: recover manually per ADR-M010 N-1 (recreate the tag + gh release create on the already-pushed mirror HEAD).`);
-    }
     console.log("\nNothing to publish (public tree already matches the export).");
     process.exit(0);
   }
@@ -290,82 +245,19 @@ function main() {
 
   if (opts.dryRun) {
     console.log("\n--dry-run: gates + export + diff OK. Nothing committed or pushed.");
-    if (plan.tagPlan) console.log(`--dry-run: would tag ${plan.tagPlan.tag} + create a GitHub Release on ${REPO_SLUG}.`);
     process.exit(0);
   }
 
-  // 4. Commit and push the exported tree. The commit message is fixed/generated (no free-text input,
-  //    ADR-M010 B-3); it is written to a temp file and passed via `git commit -F`, never interpolated.
-  step("commit + push to KraidleAI/Monark main");
-  const message = `Public sync ${new Date().toISOString()}`;
-  const msgFile = join(os.tmpdir(), `monark-commit-${process.pid}.txt`);
-  writeFileSync(msgFile, `${message}\n\nCo-Authored-By: Claude Opus 4.8 <noreply@anthropic.com>\n`);
-  run(`git commit -q -F "${msgFile}"`, MIRROR);
+  // 4. Commit in the LOCAL clone with the gated message, byte for byte (--cleanup=verbatim), from a controlled copy beside
+  //    the clone (never the user-supplied path, never interpolated), then STOP: the push is an act of the orchestrator
+  //    under a go (ADR-PUBLIC-CADENCE-1 D1.6). Nothing is written to GitHub.
+  step("local commit (no push)");
+  const msgFile = join(dirname(MIRROR), `${basename(MIRROR)}-message-${process.pid}.txt`);
+  writeFileSync(msgFile, plan.message);
+  run(`git commit -q --cleanup=verbatim -F "${msgFile}"`, MIRROR);
   rmSync(msgFile, { force: true });
-  const sha = capture("git rev-parse --short HEAD", MIRROR);
-  run("git push origin HEAD:main", MIRROR);
-  console.log(`\nPublished ${sha} to ${REPO_SLUG} main.`);
-
-  // 5. Tagged release (ADR-M010 section 2.1): annotated tag on the mirror sync commit -> GitHub Release ->
-  //    governance tag on THIS repo's HEAD (local-only, never pushed). Atomic with rollback (N-1).
-  if (plan.tagPlan) {
-    const { tag, title, tagMessage, notesText } = plan.tagPlan;
-    step(`tag + GitHub Release ${tag}`);
-
-    // Re-gate the free text right before it reaches the public repo (same guard as --dry-run/preflight).
-    gateOrAbort("release notes", notesText);
-    gateOrAbort("annotated-tag message", tagMessage);
-    gateOrAbort("Release title", title);
-
-    // Annotated tag on the just-pushed sync commit (MIRROR HEAD), pushed so gh can attach to it.
-    const tagMsgFile = join(os.tmpdir(), `monark-tag-${process.pid}.txt`);
-    writeFileSync(tagMsgFile, `${tagMessage}\n`);
-    run(`git tag -a "${tag}" -F "${tagMsgFile}"`, MIRROR);
-    try {
-      run(`git push origin "refs/tags/${tag}"`, MIRROR);
-    } catch {
-      // Tag push failed — the sync commit is already public (pushed above), but no remote tag/Release
-      // exists. Delete the local mirror tag, report the ACTUAL outcome, and route MANUAL recovery (N-1):
-      // a re-run would reset to origin/main, find nothing to publish, and be refused by N-2.
-      const localDel = tryCapture(`git tag -d "${tag}"`, MIRROR);
-      rmSync(tagMsgFile, { force: true });
-      console.error(`\n  rollback — remote tag: not pushed (nothing to delete)`);
-      console.error(`  rollback — local tag:  ${localDel.ok ? "deleted" : `STILL PRESENT; delete by hand: git tag -d ${tag}`}`);
-      abort(`failed to push the release tag ${tag}. Sync commit ${sha} is already public — recover MANUALLY per ADR-M010 N-1 (recreate + push the tag, then gh release create on ${sha}); do NOT re-run.`);
-    }
-
-    // Write the VALIDATED notes to a controlled temp file — never pass the user-supplied path to gh.
-    const notesFile = join(os.tmpdir(), `monark-notes-${process.pid}.md`);
-    writeFileSync(notesFile, notesText.endsWith("\n") ? notesText : `${notesText}\n`);
-    try {
-      run(`gh release create "${tag}" --repo "${REPO_SLUG}" --title "${title}" --notes-file "${notesFile}" --verify-tag`, MIRROR);
-    } catch {
-      // Rollback (N-1): delete the just-created tag(s), and report the ACTUAL outcome. If the remote delete
-      // itself fails (gh just failed; the network may still be down), the remote tag SURVIVES and must be
-      // removed by hand, else the next run trips the no-clobber check. The sync commit is already public, so
-      // gh-failure recovery is MANUAL (ADR-M010 N-1), never a re-run (which N-2 would refuse).
-      const remoteDel = tryCapture(`git push --delete origin "refs/tags/${tag}"`, MIRROR);
-      const localDel = tryCapture(`git tag -d "${tag}"`, MIRROR);
-      rmSync(tagMsgFile, { force: true });
-      rmSync(notesFile, { force: true });
-      console.error(`\n  rollback — remote tag: ${remoteDel.ok ? "deleted" : `STILL PRESENT on ${REPO_SLUG}; delete by hand: git push --delete origin refs/tags/${tag}`}`);
-      console.error(`  rollback — local tag:  ${localDel.ok ? "deleted" : `STILL PRESENT; delete by hand: git tag -d ${tag}`}`);
-      abort(`gh release create failed for ${tag}. Sync commit ${sha} is already public — recover MANUALLY per ADR-M010 N-1 (recreate the tag + gh release create on ${sha}); do NOT re-run.`);
-    }
-    rmSync(notesFile, { force: true });
-    rmSync(tagMsgFile, { force: true });
-
-    // Governance tag on THIS repo's HEAD — private<->public traceability (section 2.1c). LOCAL ONLY, never
-    // pushed. Its message carries the mirror sync SHA so the two histories are cross-referenced.
-    const srcHead = capture("git rev-parse HEAD", SRC);
-    const govMsgFile = join(os.tmpdir(), `monark-govtag-${process.pid}.txt`);
-    writeFileSync(govMsgFile, `MONARK ${tag} — public sync ${sha}\n`);
-    run(`git tag -a "${tag}" -F "${govMsgFile}" "${srcHead}"`, SRC);
-    rmSync(govMsgFile, { force: true });
-
-    console.log(`\nTagged ${tag} on ${REPO_SLUG} (annotated) + created the GitHub Release.`);
-    console.log(`Governance tag ${tag} created locally on ${srcHead.slice(0, 12)} (NOT pushed — B-2).`);
-  }
+  const sha = capture("git rev-parse HEAD", MIRROR);
+  console.log(`\nPrepared ${sha} in ${MIRROR}, NOT pushed. After the go: git -C "${MIRROR}" push origin HEAD:main`);
 }
 
 // Run-guard: execute the CLI only when invoked directly (node scripts/release-public.mjs ...), NOT when

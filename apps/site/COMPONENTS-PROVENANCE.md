@@ -116,6 +116,9 @@ Authored directly or copied byte-for-byte; no CLI, no npm dependency added.
 - `public/bell/anchors/` — written by `scripts/sync-bell-anchors.mjs` from the two anchors registers, the course's and the
   published records' (manifests, OpenTimestamps proofs, `anchors.json`, `publications.json`); pinned by the root tests
   `bell_anchors_served_register_matches_source` and `bell_publication_anchors_served_register_matches_source`.
+- `components/bell/publication-anchors-table.tsx` — authored directly: the anchors table of the published records, one row per
+  timestamped line of the timeline (`publications.json` read through `lib/bell-publications-load.ts`); its status cell is the
+  `AnchorStatusCell` of `components/bell/anchors-table.tsx`, shared with the course table (one wording, not a copy).
 - `public/icons/bell.svg` — the Bell mark (designer favicon) with a dark-scheme rule, the `/icons/narabi.svg` pattern.
 
 ## Bell legal texts (2026-09-23)
@@ -155,3 +158,24 @@ was read after checking that each unpacked file equals its archive entry byte fo
   (`public/scene/blocks-hero.html`, unchanged, still served) and its legend are the hero visual of /bell.
 
 - `components/bell-scene.tsx` (2026-09-24, orchestrateur `claude-fable-5-1`, investor request the same day: text and animation side by side, full size, one block, no frame) — the /bell hero scene rewritten as a native client component from `public/scene/blocks-hero.html` (removed the same day; its drawing, palette and four labels are carried over unchanged). Fixes the lag on scrolling back: the iframe's own loop kept running out of view; the component pauses its loop while out of the viewport (IntersectionObserver) and while the document is hidden, resumes from a wall clock capped at 0.1 s per frame, follows its container with a ResizeObserver, draws one still frame under reduced motion. Layout `.c-hero--bell` (globals.css): two columns on desktop, stacked on mobile (300 px). No library.
+
+## The Dōjō hold snapshot (2026-09-27)
+
+Authored directly (no CLI, no npm dependency added):
+
+- `app/dojo/page.tsx` — the /dojo page, rendered at build time from the committed, hashed record (`data/dojo-served.json`
+  with its entry in `data/manifest.sha256.json`, read by `lib/dojo-served-load.ts`); without a record it is not a page.
+- `components/dojo/dojo-figures.tsx` — the one path by which the page renders a figure (property access, never typed).
+- `lib/dojo-copy.ts` — the closed list of the page's texts and the tier names; `lib/dojo-register.ts` — the program's
+  register, apart from `lib/fleet.ts`. `app/token/page.tsx` links to /dojo only once a record is committed.
+- `components/dojo/dojo-live.tsx` (2026-09-30) — the figures section of /dojo, a client component: its first paint is the committed
+  record's figures (the build); in a browser that runs it, the reread of `lib/dojo-live.ts` over the same-origin prefix `/dojo-served/`
+  (the site's proxy to the Dojo host) with Web Crypto replaces them only when every check holds (`dojoLiveViewOf` of
+  `lib/dojo-served.ts`); every figure goes through `components/dojo/dojo-figures.tsx`. No library, no npm dependency added.
+- `components/dojo/dojo-table.tsx` (2026-09-30) — the table of the lines of the snapshot the figures section shows, a client
+  component mounted by `components/dojo/dojo-live.tsx`: once the reread has an outcome, the lines of that head (bound by
+  `bindDojoLines` of `lib/dojo-live.ts`, put in form by `dojoTableOf` of `lib/dojo-served.ts`), listed by hold score; the look-up of
+  one address among every line bound by `dojoTableLookupOf` of `lib/dojo-lookup.ts`, in the browser only. No library, no npm dependency
+  added. Under a unit version in force, a line (holder or program) whose day value is under its dust threshold is bound and found by
+  the look-up, never listed, and a line without a day value stays listed; `DojoTableBody` renders one state of the table with no hook
+  of its own (a server render shows each state); the figures section keys the table by the head it shows.

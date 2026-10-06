@@ -14,7 +14,7 @@
  * on a binary — it is calibrated silence, not a defect (GROK-DECORTICATION §2).
  */
 
-import { missUpperBound, parseAlpha, parseTestDelta, riskControlMaxExceedances, zeroErrorFloor } from "./binomial.ts";
+import { missUpperBound, parseAlpha, parseTestDelta, riskControlMaxExceedances, spendDelta, zeroErrorFloor } from "./binomial.ts";
 
 /** Indicator score k=1 (D3): 0 if `y === yhat`, 1 otherwise. */
 export function indicatorScore(yhat: string, y: string): 0 | 1 {
@@ -106,4 +106,139 @@ export function indicatorScores(
   const m = new Map<string, number>();
   for (const y of labels) m.set(y, indicatorScore(yhat, y));
   return m;
+}
+
+/*
+ * CM-3a (ADR-CM chantier moteur, audit P3 E-4, E-5, E-6, E-12): additions for the kata path only. splitQuantile and
+ * riskControlQuantile above are unchanged, byte for byte (rule R-2: the served BYO, USDe, liq and cascade paths call
+ * splitQuantile; no served path calls riskControlQuantile).
+ */
+
+/** Score domain of a calibration row (E-4): "finite" refuses NaN and the infinities; "band" also refuses negative scores. */
+export type ScoreDomain = "finite" | "band";
+
+/** E-4: true iff every score is a finite number and, for "band", not below 0 (-0 passes). An empty row passes. */
+export function scoresInDomain(scores: readonly number[], domain: ScoreDomain): boolean {
+  return scores.every((s) => Number.isFinite(s) && (domain === "finite" || s >= 0));
+}
+
+/** Three-way comparator (E-5): -1, 0 or 1, never NaN, unlike `a - b` (Infinity - Infinity). */
+const ascending = (x: number, y: number): number => (x < y ? -1 : x > y ? 1 : 0);
+
+/** E-5: the split rank ceil((n + 1)(1 - alpha)) in integer arithmetic, alpha a decimal string (parseAlpha refusals throw). */
+export function splitRankExact(n: number, alphaDec: string): number {
+  if (!Number.isSafeInteger(n) || n < 0) throw new RangeError(`n must be a non-negative integer, got ${String(n)}`);
+  const a = parseAlpha(alphaDec);
+  return Number((BigInt(n + 1) * (a.den - a.num) + a.den - 1n) / a.den);
+}
+
+/**
+ * E-5: split conformal quantile at the exact integer rank p = ceil((n + 1)(1 - alpha)) (splitRankExact), the scores
+ * sorted by a three-way comparator. FAIL-CLOSED `under_calib`: n < nMin, a nMin that is not an integer, a refused alpha,
+ * a score outside `domain` (default "finite": NaN and the infinities), p > n. splitQuantile (float rank) is unchanged.
+ */
+export function splitQuantileExact(scores: readonly number[], alphaDec: string, nMin: number, domain: ScoreDomain = "finite"): SplitResult {
+  const under: SplitResult = { reason: "under_calib" };
+  const n = scores.length;
+  if (!Number.isSafeInteger(nMin) || n < nMin || !scoresInDomain(scores, domain)) return under;
+  let p: number;
+  try {
+    p = splitRankExact(n, alphaDec);
+  } catch {
+    return under;
+  }
+  const q = [...scores].sort(ascending)[p - 1];
+  return q === undefined ? under : { qhat: q };
+}
+
+/** Options of riskControlRow (E-4, E-6, E-12); every field is optional. */
+export interface RiskControlRowOptions {
+  /** Score domain (E-4), default "finite"; "band" for the scaled bands of the kata path. */
+  readonly domain?: ScoreDomain;
+  /** calib_attempt (E-12), 1 to 4, default 1; returned with the row. */
+  readonly attempt?: number;
+  /**
+   * E-12 under amendment A-1: h + 1, h the count of NON-exempt recalibrations, an integer in 1..attempt, default attempt;
+   * the test delta is spendDelta(base, spendIndex).
+   */
+  readonly spendIndex?: number;
+  /** E-6: the score at which the region is the whole label space (1 for the indicator score of a direction cell). */
+  readonly silenceAt?: number;
+}
+
+/** Fields shared by the served and the silent rows (E-6, E-12). */
+interface RowCore {
+  readonly qhat: number;
+  readonly rank: number;
+  readonly kStar: number;
+  readonly kObs: number;
+  /** CALIB misses: in silence, the scores at silenceAt (a direction cell: its errors); otherwise kObs. */
+  readonly calibMisses: number;
+  readonly attempt: number;
+  readonly spendIndex: number;
+  readonly testDelta: string;
+}
+
+/** riskControlRow result: a row with its bound, a silent row (no missBound, E-6), or fail-closed under-calibration. */
+export type RiskControlRow =
+  | (RowCore & { readonly silence: false; readonly missBound: string })
+  | (RowCore & { readonly silence: true })
+  | { readonly reason: "under_calib" };
+
+/**
+ * Risk-controlling quantile of one calibration row for the kata path: riskControlQuantile at the test delta
+ * spendDelta(baseDelta, spendIndex) (E-12, amendment A-1; returned with spendIndex and the attempt), after the score
+ * domain check (E-4), with the CALIB misses counted apart and a silence flag (E-6): silenceAt is the largest score of the
+ * label space, so no score may exceed it; silence iff qhat >= silenceAt (then qhat = silenceAt and kObs is 0, while
+ * calibMisses counts the scores at silenceAt). A silent row carries no missBound (it would describe a region that is not
+ * served). FAIL-CLOSED `under_calib`: every refusal of riskControlQuantile, a score outside the domain, a refused attempt,
+ * spendIndex or base delta, a non-finite silenceAt, a score above silenceAt.
+ */
+export function riskControlRow(scores: readonly number[], alphaDec: string, baseDeltaDec: string, nMin: number, options: RiskControlRowOptions = {}): RiskControlRow {
+  const under: RiskControlRow = { reason: "under_calib" };
+  const { domain = "finite", attempt = 1, silenceAt } = options;
+  const spendIndex = options.spendIndex ?? attempt;
+  if (!scoresInDomain(scores, domain)) return under;
+  if (silenceAt !== undefined && (!Number.isFinite(silenceAt) || scores.some((s) => s > silenceAt))) return under;
+  let testDelta: string;
+  try {
+    spendDelta(baseDeltaDec, attempt);
+    if (!Number.isSafeInteger(spendIndex) || spendIndex < 1 || spendIndex > attempt) return under;
+    testDelta = spendDelta(baseDeltaDec, spendIndex);
+  } catch {
+    return under;
+  }
+  const r = riskControlQuantile(scores, alphaDec, testDelta, nMin);
+  if ("reason" in r) return under;
+  const calibMisses = silenceAt !== undefined && r.qhat >= silenceAt ? scores.filter((s) => s >= silenceAt).length : r.kObs;
+  const core = { qhat: r.qhat, rank: r.rank, kStar: r.kStar, kObs: r.kObs, calibMisses, attempt, spendIndex, testDelta };
+  return silenceAt !== undefined && r.qhat >= silenceAt ? { ...core, silence: true } : { ...core, silence: false, missBound: r.missBound };
+}
+
+/**
+ * B-12 (ADR-CM, spec section 7): the split rank ceil((n + 1)(1 - a)) in integer arithmetic, where a is the exact rational
+ * of String(alpha), the shortest round-trip writing of the number received (exponent included, no limit on the number of
+ * decimals: 0.12345 is 12345/100000, 1e-7 is 1/10^7). Throws a RangeError on an n that is not a non-negative integer or a
+ * non-finite alpha; the rank of an alpha outside (0, 1) is returned as computed (p > n or p < 1).
+ */
+export function splitRankShortest(n: number, alpha: number): number {
+  if (!Number.isSafeInteger(n) || n < 0) throw new RangeError(`n must be a non-negative integer, got ${String(n)}`);
+  const m = /^(-?)(\d+)(?:\.(\d+))?(?:e([+-]\d+))?$/.exec(String(alpha));
+  if (m === null) throw new RangeError(`alpha must be a finite number, got ${String(alpha)}`);
+  const frac = m[3] ?? "";
+  const shift = Number(m[4] ?? "0") - frac.length;
+  const mant = BigInt(`${m[1] ?? ""}${m[2] ?? ""}${frac}`);
+  const [num, den] = shift >= 0 ? [mant * 10n ** BigInt(shift), 1n] : [mant, 10n ** BigInt(-shift)];
+  const top = BigInt(n + 1) * (den - num);
+  return Number(top >= 0n ? (top + den - 1n) / den : -(-top / den));
+}
+
+/**
+ * B-12: split conformal quantile of the served paths at the rank of splitRankShortest. FAIL-CLOSED `under_calib`, as
+ * splitQuantile and with no new refusal: n < nMin, a non-finite alpha, p > n or p < 1. Scores sorted three-way.
+ */
+export function splitQuantileShortest(scores: readonly number[], alpha: number, nMin: number): SplitResult {
+  if (scores.length < nMin || !Number.isFinite(alpha)) return { reason: "under_calib" };
+  const q = [...scores].sort(ascending)[splitRankShortest(scores.length, alpha) - 1];
+  return q === undefined ? { reason: "under_calib" } : { qhat: q };
 }

@@ -17,6 +17,8 @@
 //      `upcoming` data whose every test-consumer is export-excluded; NON-fatal, REPORTED; NEVER the blacklist.
 //   5. WINDOWS-PATH GUARD (D7 septies (iii)) — the export FAILS HARD (exit 1) if any kept file carries a
 //      reader-local drive path (F: / C: + separator + segment); mirrored in --check, regardless of scope.
+//   6. PENDING-SNAPSHOT GUARD (SITE-SEND-GUARD-MECH-1) — --out FAILS HARD (exit 1, nothing written) while a pending
+//      snapshot of the site data is kept; --check is not guarded (CI stays green from C2 to T0).
 //
 // The first publication of KraidleAI/Monark is a deliberate maintainer decision. This
 // script only writes to a LOCAL --out directory; it never pushes and never touches a
@@ -73,6 +75,7 @@ export const WHITELIST_FILES = [
   // absent file (root test derived_workflow_run_paths_are_exported). Its .d.mts is governance-only (no exported
   // .ts imports it, so the exported tsc never needs it) and is NOT whitelisted. English, built-ins only.
   "scripts/assert-fleet-html.mjs",
+  "test/helpers/blocking-stdout.cjs",
   // The Narabi F2-B out-of-tool method (ADR-M008 Amendement bis, C-18): publish HOW the USDe series was
   // acquired and how the committed scores/digest are reproduced, so PROVENANCE-usde.md §6 "Reproduce" is not
   // hollow in public. Read-only public RPC, no key; English, no forbidden vocab (lang:gate + gate:vocab clean).
@@ -106,6 +109,22 @@ export const WHITELIST_FILES = [
   "apps/bell/scripts/bell-publish.mjs", "apps/bell/scripts/bell-publish.d.mts",
   "apps/bell/scripts/bell-verify.mjs", "apps/bell/scripts/bell-verify.d.mts",
   "scripts/verify-bell.mjs", "scripts/verify-bell.d.mts",
+  // MONARK Dojo, the reader's verifier (ADR-M004 D7 nonies, 2026-10-03; investor go of 2026-10-03; item DOJO-EXPORT-VERIFIER-1): the
+  // public command `node apps/dojo/scripts/dojo-verify-cli.mjs (<served tree> | --url <base>) (--keyring <file> | --self-consistent-only)`
+  // and the TRANSITIVE CLOSURE of its imports (dojo-verify-cli.mjs -> dojo-verify.mjs -> dojo-chain.mjs and dojo-core.mjs, plus Bell's
+  // bell-chain.mjs, already listed above), each with its type surface, listed FILE BY FILE (never a whole-dir or package-style walk: a
+  // new apps/dojo file is NOT exported until an ADR line names it); the committed PUBLIC keyring (the verifier's trust root, --keyring)
+  // and the package manifest (the exported package-lock.json already declares the apps/dojo workspace). All English, node built-ins
+  // only, no secret, no seed. NOT exported, by name, in ADR-M004 D7 nonies: the collector (apps/dojo/src/**), the publisher, seed and
+  // eve tools (dojo-publish.mjs, dojo-seed.mjs, dojo-eve.mjs), apps/dojo/test/**, and the deployment conformity check
+  // scripts/verify-dojo.mjs (its imports reach governance-only scripts). Pinned by the root test export_dojo_ships_the_verifier_closure_only.
+  "apps/dojo/package.json", "apps/dojo/keys/dojo-keyring.json",
+  "apps/dojo/scripts/dojo-verify-cli.mjs", "apps/dojo/scripts/dojo-verify-cli.d.mts",
+  "apps/dojo/scripts/dojo-verify.mjs", "apps/dojo/scripts/dojo-verify.d.mts",
+  "apps/dojo/scripts/dojo-chain.mjs", "apps/dojo/scripts/dojo-chain.d.mts",
+  "apps/dojo/scripts/dojo-core.mjs", "apps/dojo/scripts/dojo-core.d.mts",
+  "scripts/lib/calib-digest-provenance.mjs",
+  "scripts/lib/calib-digest-provenance.d.mts",
 ];
 
 // ADR-M004 D7 bis R2(a): every fixed whitelist entry (dir or file) MUST exist under the export root or
@@ -124,7 +143,7 @@ export const STRUCTURAL_BLACKLIST = [
   /^docs\/CHECKPOINT/,
   /^docs\/AUDIT-ENTREE\.md$/,
   /^docs\/JOURNAL-PROVENANCE\.md$/,
-  /^docs\/R-P1-/,
+  /^docs\/R-P1-/, /\.json\.(?:failed|local|tmp)(?:\.tmp)?$/, // T0-TOOLING-1: a deploy-check side record never ships, wherever --out put it
   /^packages\/[^/]+\/docs\//, // packages/*/docs/ — incl. packages/hikae/docs/S2-* (D7)
 ];
 
@@ -248,6 +267,24 @@ export function windowsPathViolations(kept) {
     const text = readTextOrNull(f.abs);
     if (text === null) continue; // binary kept file — nothing textual to scan
     for (const h of windowsAbsPathHits(text)) out.push({ rel: f.rel, ...h });
+  }
+  return out;
+}
+
+// SITE-SEND-GUARD-MECH-1 (lot CM-3c-4a; MONARK Q-CP-4: no bypass): a pending snapshot (time (i) of a block, sync --pending)
+// describes a harness not yet served, so no site send and no mirror release may carry it before T0. The T0 promotion
+// (sync-harness-served.mjs, then sync-ukemi-served.mjs) removes both files and pending_since: the guard lifts there only.
+export const PENDING_SNAPSHOT_FILES = ["apps/site/data/harness-pending.json", "apps/site/data/ukemi-pending.json"];
+export const PENDING_MARKED_FILES = ["apps/site/data/harness-served.json", "apps/site/data/ukemi-served.json"];
+/** What blocks a send in `kept`: each snapshot file, and each served file carrying pending_since (unreadable: blocks). */
+export function pendingSendBlockers(kept, readText) {
+  const out = [];
+  for (const f of kept) {
+    if (PENDING_SNAPSHOT_FILES.includes(f.rel)) out.push(f.rel);
+    if (!PENDING_MARKED_FILES.includes(f.rel)) continue;
+    let marked = true;
+    try { marked = "pending_since" in JSON.parse(readText(f.abs) ?? "null"); } catch { /* fail closed */ }
+    if (marked) out.push(`${f.rel} (pending_since)`);
   }
   return out;
 }
@@ -397,17 +434,20 @@ function sha256(abs) {
 // size is an internal concern, not a storefront one. So the export DERIVES the public workflow from
 // the internal one by a DETERMINISTIC, dependency-free text rewrite:
 //   (1) add a `push` trigger under `on:` (public pushes run the gates);
-//   (2) remove the whole `r25-taille-de-lot` job (its 2-space key line up to the next 2-space job key);
+//   (2) remove each job of INTERNAL_JOBS, a closed list (its 2-space key line up to the next 2-space job key):
+//       `r25-taille-de-lot`, and `g3-export` (CI-G3-DURATION-1: it runs the root test/export-public.test.ts, and the
+//       root test/ is never exported, so the job would red on the mirror);
 //   (3) prepend a one-line provenance header;
 //   (4) drop the 2-line governance "Delivery flow" comment (it is FALSE in the public workflow and is
 //       the sole other "r25" mention — see the inline note; error_origin = internal).
 // The JOBS stay BYTE-IDENTICAL: the pinned action SHAs and the "every job blocking, no
-// continue-on-error" invariant carry over untouched. FAIL-CLOSED (exit 1) if the `on:` block or the r25
-// job are not found — a silent verbatim copy would ship the governance-only gate and mask the drift,
+// continue-on-error" invariant carry over untouched. FAIL-CLOSED (exit 1) if the `on:` block or an internal
+// job is not found — a silent verbatim copy would ship the governance-only gate and mask the drift,
 // which test 42(f) / mutant M5 (short-circuited derivation) catches.
 export const CI_WORKFLOW_PATH = ".github/workflows/ci.yml";
 export const DERIVED_HEADER =
-  "# Derived by scripts/export-public.mjs from the internal workflow (ADR-M004 D7 bis): lot-size gate removed, push trigger added.";
+  "# Derived by scripts/export-public.mjs from the internal workflow (ADR-M004 D7 bis): lot-size gate and source-only export test job removed, push trigger added.";
+const INTERNAL_JOBS = ["r25-taille-de-lot", "g3-export"];
 
 export function derivePublicWorkflow(raw) {
   const eol = raw.includes("\r\n") ? "\r\n" : "\n";
@@ -418,18 +458,20 @@ export function derivePublicWorkflow(raw) {
     process.exit(1);
   }
   let out = raw.replace(onNeedle, `on:${eol}  push:${eol}  pull_request:`);
-  // (2) remove the `r25-taille-de-lot` job: its 2-space-indented key line up to (not including) the next
-  //     2-space-indented job key. All r25 body lines are >= 4 spaces, so /^ {2}\S/ first re-matches at
-  //     the following job (g3-verification), never inside the job body.
+  // (2) remove each INTERNAL_JOBS job: its 2-space-indented key line up to (not including) the next
+  //     2-space-indented job key. All body lines are >= 4 spaces, so /^ {2}\S/ first re-matches at
+  //     the following job, never inside the job body.
   const lines = out.split(eol);
-  const start = lines.findIndex((l) => l === "  r25-taille-de-lot:");
-  if (start === -1) {
-    console.error(`export FAILED — ${CI_WORKFLOW_PATH}: the internal lot-size gate job was not found (fail-closed, D7 bis R1).`);
-    process.exit(1);
+  for (const job of INTERNAL_JOBS) {
+    const start = lines.findIndex((l) => l === `  ${job}:`);
+    if (start === -1) {
+      console.error(`export FAILED — ${CI_WORKFLOW_PATH}: the internal job ${job} was not found (fail-closed, D7 bis R1).`);
+      process.exit(1);
+    }
+    let end = start + 1;
+    while (end < lines.length && !/^ {2}\S/.test(lines[end])) end++;
+    lines.splice(start, end - start);
   }
-  let end = start + 1;
-  while (end < lines.length && !/^ {2}\S/.test(lines[end])) end++;
-  lines.splice(start, end - start);
   // (4) drop the governance-only "Delivery flow" comment pair (source lines 11-12). It is FALSE in the
   //     public workflow (a push DOES run now; there is no r25) and would contradict the header prepended
   //     below; it is also the sole surviving "r25" mention, so removing it makes `grep -c r25` = 0 (D7 bis
@@ -468,6 +510,14 @@ function doExport(root, outDir) {
   if (pathViolations.length) {
     console.error("export FAILED — exported file(s) carry a reader-local Windows absolute path (D7 septies (iii)):");
     for (const v of pathViolations) console.error(`  ${v.rel}:${v.line}:${v.col}  ${v.snippet}`);
+    process.exit(1);
+  }
+  // SITE-SEND-GUARD-MECH-1: refuse before any write while a pending snapshot is kept (release-public.mjs runs this export).
+  const blockers = pendingSendBlockers(kept, readTextOrNull);
+  if (blockers.length) {
+    console.error("export FAILED — a pending snapshot is in the exported tree (SITE-SEND-GUARD-MECH-1): no site send and no mirror release before T0:");
+    for (const b of blockers) console.error(`  ${b}`);
+    console.error("  Send from the deployed SHA or the trunk, or promote at T0 (node scripts/sync-harness-served.mjs, then node scripts/sync-ukemi-served.mjs).");
     process.exit(1);
   }
   // Derive the public CI workflow up-front so a bad workflow fails CLOSED before anything is written

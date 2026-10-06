@@ -185,3 +185,13 @@ chaque mutant nommé (retrait de garde ; `lo===hi`→`q̂>0`) doit passer ROUGE.
 - **Garde uniquement au recorder / `calibration.ts`** : c'est **C-11** (classe committée F2-B), **DISTINCT** ;
   ne protège pas le chemin **BYO générique** ni le conformeur HIKAE (UKEMI). *(Note 2026-09-17 : F2-B n'a
   finalement posé AUCUNE garde dans `calibration.ts` ; C-11 = NDG-1 réutilisée — C-16 checkpoint-2.)*
+
+## 7. Amendement daté 2026-10-04 — contrat 1.1.0 : la largeur nulle se dit `region_degenerate`
+
+- **Source** : ADR-CM, amendement « 2026-10-04 (3) », ligne B-16 (go du fondateur, verbatim « oui aux deux », 2026-10-04).
+- **D2, D3 (a) et D4** : une région `interval` de largeur nulle (`q̂ = 0` ou absorption flottante) reste un dégénéré bien formé, jamais un COMMIT ; sa raison devient `region_degenerate` au lieu de `under_calib`, avec `region: null` et `qhat: null` dans le verdict 1.1.0. B-6 (score négatif, 400) reste distinct.
+- **D3 (b)** : la première ligne de `decideInterval` devient `if (region.lo >= region.hi) return { action: "abstain", allow: false, reason: "region_degenerate" }`. Sa place ne change pas (avant le budget). Elle n'est atteinte que par une région construite à la main, puisque le constructeur rend déjà `region: null`.
+- **D5** : `splitQuantile` reste exporté et inchangé, mais les chemins servis passent au rang exact (ADR-CM B-12) ; la non-modification de `l1-split.ts` ne vaut plus pour les chemins servis.
+- **D6 (b)** : la garde commune de L3 qui rend `under_calib` sur un verdict `under_calib` est étendue à toute raison « sans région » et à toute raison `calib_*`, avec la raison du verdict.
+
+- **Provenance** : texte proposé par RECHERCHES (`recherches:coordination/pieces/2026-10-04-contrat-1-1-0-r3/TEXTES-ACTES-MONARK.md` §3, sha256 de la pièce dans son `SHA256SUMS`), relu et appliqué par l'orchestrateur MONARK le 2026-10-04 08:0x UTC.

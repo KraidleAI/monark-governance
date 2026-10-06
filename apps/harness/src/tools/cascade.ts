@@ -42,7 +42,7 @@ import {
 import type { FinancialSystem, Position, LiquidableResult } from "@monark/ukemi";
 import { assertClosedPrediction, assertNoForbiddenKey } from "@monark/contracts";
 import type { Prediction } from "@monark/contracts";
-import { CASCADE_UNCALIBRATED_SENTENCE, TASK_CASCADE } from "./gate.ts";
+import { CASCADE_UNCALIBRATED_SENTENCE, TASK_CASCADE, type HarnessErrorCode } from "./gate.ts";
 
 export const CASCADE_TOOL_NAME = "cascade";
 
@@ -109,6 +109,8 @@ export interface CascadeInput {
 
 /** A tool-level error (K-4a analog): surfaced by the MCP seam as a tool error, never a silent output. */
 export class CascadeToolError extends Error {
+  /** Stable error code of this class (ADR-CM B-3, plan docs/G0-lot-cm-2a.md). */
+  readonly code: HarnessErrorCode = "cascade_input_invalid";
   constructor(message: string) {
     super(message);
     this.name = "CascadeToolError";

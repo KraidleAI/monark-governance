@@ -39,7 +39,7 @@ const newsreader = localFont({
   display: "swap",
   adjustFontFallback: "Times New Roman",
   // Not preloaded: from the root layout both files would be preloaded on every route. Measured:
-  // /writing and /products draw it; / also fetches the upright file (its kanji try this face first: no CJK glyph).
+  // /writing and /applications draw it; / also fetches the upright file (its kanji try this face first: no CJK glyph).
   preload: false,
 });
 

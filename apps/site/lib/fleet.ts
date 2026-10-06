@@ -131,14 +131,16 @@ export const FLEET_AGENTS: FleetAgent[] = [
     role: "sensor",
     line: "Attested perception — an attested price testimony.",
     status: "built",
-    // attest → gate on the served wire: the `attested` envelope key files attested.residual into verdict.residual.
-    // gate_attested_concordant_files_residual replays that seam.
+    // Status kept `built` by the founder's decision of 2026-10-03. The served leg is the MCP attest tool; its join into
+    // the gate is dormant since btc-dir-15m, the only class with a committed attestation subject, was retired.
     wiring: {
-      served_by: "MCP attest → gate (the attested envelope key; attested.residual filed into verdict.residual on the served gate)",
-      // One served leg: attest → gate. gate_attested_concordant_files_residual (apps/harness/test/gate.test.ts)
-      // drives it through registry.run() with the real runAttest() price and asserts the seam files attested.residual.
-      integration_test: ["gate_attested_concordant_files_residual"],
-      note: "served through the MCP gate: its attested testimony's residual is carried into the verdict, replayed by an integration test",
+      served_by: "MCP attest (the attested envelope key of the gate stays declared; its join is dormant since the subject class was retired)",
+      // Served leg, first (K-6, MONARK's decision): probe_harness_records_real_decision (test/h5-e2e-probe.test.ts) drives attest over the real
+      // MCP wire and pins the served witness values. Then POST /attest on the HTTP mirror, content equal to the MCP text — http_mirror_matches_mcp_surface
+      // (apps/harness/test/http.test.ts); a real listener under the deploy CA — verify_harness_ca_passes_on_the_in_process_harness. Limit, for those two
+      // only: neither pins the served witness values (ATTEST-KATA-SUBJECT-1). The join, unit level: gate_attested_is_frozen_attested_price, gate_attested_discordant_is_tool_error.
+      integration_test: ["probe_harness_records_real_decision", "http_mirror_matches_mcp_surface", "verify_harness_ca_passes_on_the_in_process_harness", "gate_attested_is_frozen_attested_price", "gate_attested_discordant_is_tool_error"],
+      note: "served through the MCP attest tool, replayed on the real wire by an integration test; its join into the gate is dormant since the class it attested was retired",
     },
   },
   {
@@ -147,10 +149,10 @@ export const FLEET_AGENTS: FleetAgent[] = [
     line: "Coverage-controlled inference — the gate itself.",
     status: "built",
     // The served gate itself. probe_harness_records_real_decision drives it on the real MCP wire
-    // (btc-dir-15m → commit/covered; cascade → abstain); the bring-your-own and stable-run legs follow.
+    // (the committed USDe key → commit/covered; cascade → abstain); the bring-your-own and stable-run legs follow.
     wiring: {
-      served_by: "MCP gate (btc-dir-15m committed decision; stable-run-velocity-24h; BYO calibration)",
-      // Three served legs: the real MCP wire (btc-dir/cascade) — probe_harness_records_real_decision
+      served_by: "MCP gate (stable-run-velocity-24h committed decision; BYO calibration)",
+      // Three served legs: the real MCP wire (committed USDe key/cascade) — probe_harness_records_real_decision
       // (test/h5-e2e-probe.test.ts); the BYO calibration loop — probe_byo_demo_loop_closes (test/byo-demo-probe.test.ts);
       // and the stable-run task class over the served gate tool — gate_stable_run_honesty_text_is_keyed_A2_A7f
       // (apps/harness/test/gate.test.ts, via gateTool.run()).
@@ -159,10 +161,9 @@ export const FLEET_AGENTS: FleetAgent[] = [
         "probe_byo_demo_loop_closes",
         "gate_stable_run_honesty_text_is_keyed_A2_A7f",
       ],
-      // The demonstration-class clause restates, digit-free, the SERVED gate description ("… declared synthetic — a
-      // plumbing fixture, not a measured predictor", GATE_TOOL_DESCRIPTION); both directions are pinned by the root
-      // test registry_notes_track_served_descriptions (test/site-build-fleet.test.ts).
-      note: "the served gate itself: each reading is conformed into a coverage region then decided, replayed on the real wire, on the bring-your-own loop, and on the stable-run class by integration tests; its demonstration class runs on a committed synthetic calibration, a plumbing fixture, not a measured predictor",
+      // The synthetic demonstration class is retired: the served gate description no longer carries its clause,
+      // so neither does the note (both directions pinned by registry_notes_track_served_descriptions).
+      note: "the served gate itself: each reading is conformed into a coverage region then decided, replayed on the real wire, on the bring-your-own loop, and on the stable-run class by integration tests",
     },
   },
   {
@@ -172,20 +173,25 @@ export const FLEET_AGENTS: FleetAgent[] = [
     // from committed, hashed served data (apps/site/data/ukemi-served.json), never typed next to it.
     line: "Liquidation coverage, gated.",
     status: "built",
-    // cascade → gate on the served wire (h5 trace step 4). By construction the gate abstains under_calib
-    // (no cascade calibration committed) and the prediction content does not change the served decision
-    // (measured vacuity). The seam is real; its served effect is a constant abstention.
+    // Two served legs, declared only once the switched deploy CA is green and committed (fleet_ukemi_liq_leg_matches_
+    // deploy_ca binds them). (1) cascade → gate on the served wire (h5 trace step 4): by construction the gate abstains
+    // under_calib there (no cascade calibration committed), a constant abstention. (2) gate / POST /gate on the
+    // liquidation-eligible-coverage class: an upper bound [0, yhat + qhat] on the committed stratum of one recorded
+    // episode, the other strata under_calib; the producer of yhat is not served here.
     wiring: {
-      served_by: "MCP cascade → gate (cascade-liquidable-24h; abstains under_calib by construction)",
-      // One served leg: cascade → gate on the real MCP wire (h5 step 4), replayed by
-      // probe_harness_records_real_decision (test/h5-e2e-probe.test.ts). Its served effect is a constant
-      // abstention (measured vacuity) — the note says so without a number.
-      integration_test: ["probe_harness_records_real_decision"],
+      served_by: "MCP cascade → gate (cascade-liquidable-24h; abstains under_calib by construction) + MCP gate / POST /gate (liquidation-eligible-coverage: upper bound [0, yhat + qhat_k] on the committed stratum; the other strata under_calib)",
+      // One test per served leg: probe_harness_records_real_decision (test/h5-e2e-probe.test.ts) replays leg (1) on the
+      // real MCP wire; u4b_gate_serves_region_from_real_artifact (apps/harness/test/gate-liq-artifact.test.ts) replays
+      // leg (2) over every class-A row of the committed fresh series. fleet_ukemi_liq_leg_matches_deploy_ca
+      // (test/fleet-ukemi-liq-leg.test.ts) binds leg (2) to the committed deploy CA (CA-11 by test).
+      integration_test: ["probe_harness_records_real_decision", "u4b_gate_serves_region_from_real_artifact"],
       // "a transitional tool, to be replaced" restates, digit-free and nothing more, the SERVED cascade description ("This
       // cascade tool is v0, replaced at …", CASCADE_TOOL_DESCRIPTION): no successor is named here while none is served. The
       // exact clause is pinned both ways by registry_notes_track_served_descriptions (test/site-build-fleet.test.ts): the
-      // note carries it exactly while the served text declares the tool replaced.
-      note: "feeds the served gate through the cascade tool, a transitional tool, to be replaced; until a cascade calibration is committed it abstains by construction, replayed by an integration test",
+      // note carries it exactly, its closing semicolon included, while the served text declares the tool replaced.
+      // "calibrated on one recorded episode" restates the served H-3 clause of the class (LIQ_H3_SENTENCE); the note claims
+      // no coverage and names no number.
+      note: "feeds the served gate through the cascade tool, a transitional tool, to be replaced; it abstains by construction, and the gate serves an upper bound on the liquidable amount for the committed stratum of its liquidation class, calibrated on one recorded episode, while the other strata abstain; both legs replayed by integration tests",
     },
   },
   {
@@ -275,11 +281,11 @@ const GATE = "Hikae and the MONARK budget";
 export const SHARED_GATE = GATE;
 
 // The six applications (fingers), each distinct from the engine agent it may use; each upcoming one is cleared by the
-// shared gate. MONARK Bell is built on its own gate. Ordered as the home segment cards. /products renders the built
-// ones in their own section (app/products/built-product-card.tsx, a server component: the served wiring never reaches
+// shared gate. MONARK Bell is built on its own gate. Ordered as the home segment cards. /applications renders the built
+// ones in their own section (app/applications/built-application-card.tsx, a server component: the served wiring never reaches
 // a client component's props nor the page payload; this module itself still ships in a client chunk, because client
 // components such as the home noyau import the register) and each upcoming one as its UpcomingPanel; applications are
-// NOT listed on /roadmap nor /fleet (the agent counts there are about AGENTS; /fleet only points to /products with
+// NOT listed on /roadmap nor /fleet (the agent counts there are about AGENTS; /fleet only points to /applications with
 // counts derived from this array). MONARK Bell's segment and its connections are register values (the agents it
 // connects to are named through registerNames, so a renamed or removed agent fails the build); its wiring names the
 // real pieces (collector reads, publisher checks, signed publication + reader-side verifier).
@@ -351,7 +357,7 @@ export const PRODUCTS: FleetProduct[] = [
     // real reader-side verifier) and the site data read from it.
     served: {
       served_by: "https://bell.monarkgate.tech (timeline.jsonl, state.json, provenance.json, bell/pubkey.json, states/<sha256>.json, provenance/<sha256>.json); deploy check docs/deploy-CA-bell.json by scripts/verify-bell.mjs; site data apps/site/data/bell-served.json",
-      integration_test: ["verify_bell_ca_check5_runs_real_bell_verify", "bell_served_data_matches_deploy_ca"],
+      integration_test: ["verify_bell_ca_check5_runs_real_bell_verify", "bell_served_data_matches_deploy_ca", "bell_publication_anchor_composes_served_head_to_rendered_claim"],
       note: "a signed, hash-chained timeline served on its own host, checked end to end by a non-LLM reader-side verifier against the committed keyring",
     },
   },
@@ -411,7 +417,7 @@ export function upcomingProducts(): UpcomingFleetProduct[] {
 /** The status sentence of the applications, derived from PRODUCTS: which are built, then that every other one is
  *  upcoming — and, only while every upcoming one is cleared by the shared gate, that each is. It says no more than
  *  its predicate: the register backs "cleared by the shared gate" for every upcoming application, not that each wires a
- *  fleet agent besides the gate. Rendered by /products (lede + static metadata) and the home board's aside; pinned by
+ *  fleet agent besides the gate. Rendered by /applications (lede + static metadata) and the home board's aside; pinned by
  *  test/site-build-fleet.test.ts. */
 export function productStatusSentence(): string {
   const built = builtProducts();

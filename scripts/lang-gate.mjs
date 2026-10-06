@@ -34,6 +34,13 @@
 // (never scanned). This is a PATH mechanism, NOT phrase masking: the fixtures stay byte-frozen and
 // removing the entry un-skips the file so its French reddens the root scope (mutant-testable).
 //
+// SESSION FOLDER (ADR-M004 D7, addendum 2026-09-27, lot LANG-GATE-CLAUDE-1): the repo-root `.claude/` directory is the
+// coding tool's session folder (internal agent prompts written in French, the app's worktree copies under
+// `.claude/worktrees/`, local settings). It is never exported (scripts/export-public.mjs ships a closed whitelist that
+// does not name it) and .gitignore ignores `.claude/agents/`. The walk therefore SKIPS it, through the same SKIP_DIRS list
+// and skipDir mechanism as node_modules/.git: an exclusion of SCANNING, not of words. The skip is ROOT-ONLY (relDir ""):
+// a `.claude` directory nested anywhere else is still walked and gated.
+//
 // SCOPE: every run computes hit counts for ALL scopes (root, contracts, schemas, hikae, ukemi,
 // atelier, monark) — free input data for the E-* translation lots. `--scope a,b` only gates the EXIT
 // CODE: exit 1 iff a non-exempt hit falls in a selected scope. No --scope = global. As the E-*
@@ -102,7 +109,8 @@ export const TEXT_EXTS = new Set([
 // `.next`/`.turbo` added for the apps/site scope: Next.js build output and Turbo cache are
 // generated (gitignored) minified JS that would produce spurious hits and slow the scan — skipping them
 // is an exclusion of SCANNING, not of words. A committed working tree never contains them.
-export const SKIP_DIRS = new Set(["node_modules", ".git", "dist", "docs", ".next", ".turbo"]);
+// `.claude` (ADR-M004 D7 addendum 2026-09-27): the tool's session folder, skipped at the repo root only (see skipDir).
+export const SKIP_DIRS = new Set(["node_modules", ".git", "dist", "docs", ".next", ".turbo", ".claude"]);
 export const EXCLUDE_NAMES = new Set(["package-lock.json", "lang-exempt.json", "lang-gate.mjs"]);
 // `site` = apps/site (English-only per ADR-M003 D0.5). Gated by the export --scope site.
 // `harness` = apps/harness (English-only per ADR-M005 D7/D9). Gated by --scope harness.
@@ -228,7 +236,19 @@ export function isFileFrench(abs, maskers) {
   return scanFile(abs, maskers).length > 0;
 }
 
-/** Recursively collect scannable text files under dir, skipping SKIP_DIRS / excluded names. */
+/** True iff the walk skips a directory. `docs` is a governance directory (French reports, ADRs) at the repo root and under
+ *  packages/*, but under apps/site it is a ROUTE of the English storefront (/docs, the documentation section): that one is
+ *  scanned like every other apps/site directory, so a French word in it reddens the site scope. `.claude` is skipped at the
+ *  repo root only (the tool's session folder, ADR-M004 D7 addendum 2026-09-27); a nested `.claude` is walked. `relDir` is the
+ *  POSIX path of the directory that CONTAINS `name`, relative to the scanned root. */
+export function skipDir(name, relDir) {
+  if (!SKIP_DIRS.has(name)) return false;
+  if (name === "docs" && (relDir === "apps/site" || relDir.startsWith("apps/site/"))) return false;
+  if (name === ".claude" && relDir !== "") return false;
+  return true;
+}
+
+/** Recursively collect scannable text files under dir, skipping SKIP_DIRS (see skipDir) / excluded names. */
 export function collectTextFiles(dir) {
   const out = [];
   const walk = (d) => {
@@ -236,7 +256,8 @@ export function collectTextFiles(dir) {
       const abs = join(d, name);
       const st = statSync(abs);
       if (st.isDirectory()) {
-        if (!SKIP_DIRS.has(name)) walk(abs);
+        const relDir = d.slice(dir.length + 1).replace(/\\/g, "/");
+        if (!skipDir(name, relDir)) walk(abs);
       } else {
         const rel = abs.slice(dir.length + 1).replace(/\\/g, "/");
         if (scannable(rel)) out.push({ abs, rel });

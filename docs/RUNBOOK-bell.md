@@ -23,7 +23,8 @@ missing at 23:00Z, the host goes online serving 404s and the publication waits (
 - `apps/bell/scripts/bell-publish.mjs` + `apps/bell/scripts/bell-chain.mjs` -> `/opt/monark-bell/` (the ONLY two files of the
   tree: what the unit runs, ADR D1; the CA's `BELL_TREE_PATHS`);
 - `deploy/monark-bell-publish.service` -> `/etc/systemd/system/monark-bell-publish.service`;
-- `deploy/Caddyfile.monark-bell` -> `/etc/caddy/Caddyfile` (replace mode, ruling C-5; import mode below if ever needed);
+- `deploy/Caddyfile.monark-bell` -> `/etc/caddy/Caddyfile` (replace mode, ruling C-5), then `/etc/caddy/monark-bell.caddyfile`, imported
+  (the REPLACE → IMPORT procedure at the end of step 7, played once before act A-6 of `docs/RUNBOOK-dojo.md`);
 - `scripts/verify-bell.mjs` runs locally (the CA), never on the host.
 
 **Conventions.** Each step gives the command, the expected output and the rollback. Commands are ONE line each (no `\`
@@ -194,10 +195,14 @@ Expected: `Valid configuration`; `active`; the digest equals the local `git cat-
 Rollback: `ssh -i ~/.ssh/monark_vps root@178.16.131.29 'cp -p /etc/caddy/Caddyfile.bak-bell /etc/caddy/Caddyfile && caddy validate --config /etc/caddy/Caddyfile && systemctl reload caddy'`.
 
 IMPORT mode (only if the recorded file serves another site): the dedicated file is installed WHOLE at
-`/etc/caddy/monark-bell.caddyfile` (same pipe, `cat > /etc/caddy/monark-bell.caddyfile`), ONE line
-`import /etc/caddy/monark-bell.caddyfile` is appended to `/etc/caddy/Caddyfile` after the same backup, then
-`caddy validate --config /etc/caddy/Caddyfile` and `systemctl reload caddy`. CA check 11 (b) accepts exactly one `import` line
-targeting that file. Rollback: restore the backup, remove the dedicated file, validate, reload.
+`/etc/caddy/monark-bell.caddyfile` (same pipe, `cat > /etc/caddy/monark-bell.caddyfile`; inert: nothing imports it yet), after the
+same backup; the CANDIDATE `/etc/caddy/Caddyfile.new` is a copy of the file in place plus ONE line `import /etc/caddy/monark-bell.caddyfile`
+(the live file is never edited, "Never"); then `caddy validate --config /etc/caddy/Caddyfile.new --adapter caddyfile`, `mv` onto
+`/etc/caddy/Caddyfile` and `systemctl reload caddy`, as in REPLACE mode. CA check 11 (b), lot BELL-CA-DOJO-1: in import mode the `import`
+lines of the main file are `import /etc/caddy/monark-bell.caddyfile`, alone or with `import /etc/caddy/monark-dojo.caddyfile` (act A-6
+of `docs/RUNBOOK-dojo.md`), each at most once, no other `import` line; the dedicated file equals the G7 blob; the Dojo file is judged by
+the Dojo CA, never by this one. Rollback: the backup copied to a candidate, validated, moved back, reloaded; then the dedicated file
+removed.
 
 **REPLACE replay after a Caddyfile change** (decision 155, lot BELL-HOST-ROOT-1: `/` answers 302 to `https://monarkgate.tech/bell`).
 REPLACE again, only if the file in place is the previous G7 blob (MEASURED below before the act, never assumed). First move
@@ -231,6 +236,78 @@ Expected: `Valid configuration`; `active`; the digest equals the local `git cat-
 then step 11 (fresh capture; CA 12/12 at the new G7). Rollback: `ssh -i ~/.ssh/monark_vps root@178.16.131.29 'cp -p /etc/caddy/Caddyfile.bak-bell-2 /etc/caddy/Caddyfile && caddy validate --config /etc/caddy/Caddyfile && systemctl reload caddy'`, then `cp /f/tmp/bell-dn/G7-1.txt /f/tmp/bell-dn/G7.txt`.
 A later replay (another lot) first removes `G7-1.txt`, once step 11 is 12/12 at the G7 in place, so that the pointer it keeps
 is that G7.
+
+**REPLACE → IMPORT, played ONCE (lot BELL-CA-DOJO-1; ADR-DOJO-PR-3 É-2 and PB-5), before act A-6 of `docs/RUNBOOK-dojo.md`.** Serving
+`dojo.monarkgate.tech` on this host takes a second site in Caddy. Bell's site moves, byte for byte, from `/etc/caddy/Caddyfile` to
+`/etc/caddy/monark-bell.caddyfile`, and the main file becomes `import` lines ONLY: Bell's line alone here, Bell's then the Dojo's at
+A-6 (`docs/RUNBOOK-dojo.md` section 21). Bell's served behaviour does not change: the same blob, the same site block, only its file
+moves. The main file can hold nothing but `import` lines because Bell's blob carries no global options block: in the blob at `224a6bd1`,
+its first line that is neither blank nor a comment (line 11) is the site address `bell.monarkgate.tech {`, the only top-level line that
+opens a block (the same holds for the Dojo blob, line 13); command (1) re-reads it at the G7. `G7.txt` is NOT moved: the tree, the unit
+and the blob are not re-shipped, the blob only changes path. Conventions of this procedure: the commands name the host
+`bell.monarkgate.tech`, only after the host key step of `docs/RUNBOOK-dojo.md` section 15 (0) (C-2 of the G2 of part 3); a
+command longer than 160 characters is broken after `&&`, `||` or `|` (as in `docs/RUNBOOK-dojo.md` section 10), one fenced block
+staying ONE command.
+
+(1) Read-only: Bell's blob at G7 is the file in place, no name of this procedure exists yet, and the blob opens with its site:
+
+```bash
+G7=$(cat /f/tmp/bell-dn/G7.txt) && L=$(git -C /f/Monark cat-file blob "$G7:deploy/Caddyfile.monark-bell" | sha256sum | cut -c1-64) &&
+R=$(ssh -i ~/.ssh/monark_vps root@bell.monarkgate.tech 'sha256sum /etc/caddy/Caddyfile' | cut -c1-64) && [ "$L" = "$R" ] && echo "replace-at-g7 $L" ||
+echo STOP; ssh -i ~/.ssh/monark_vps root@bell.monarkgate.tech 'ls -1 /etc/caddy'; git -C /f/Monark cat-file blob "$G7:deploy/Caddyfile.monark-bell" |
+grep -v -E '^[[:space:]]*(#|$)' | head -1
+```
+
+Expected: `replace-at-g7 <L>` (`<L>`, the digest of Bell's blob at G7: write it to the JOURNAL); a listing of `/etc/caddy` (to the JOURNAL)
+with NONE of `monark-bell.caddyfile`, `monark-dojo.caddyfile`, `Caddyfile.new`, `Caddyfile.bak-import`; then `bell.monarkgate.tech {`.
+**STOP** on `STOP` (the file in place is not Bell's blob at G7: read the host, never a migration on a guess), on any of the four names (a
+migration already started: rollback (a) or (b) below, or read the host), or on another first line (a block before the site would have to
+stay in the main file: this procedure does not apply). Rollback: none (read-only).
+
+(2) The migration: the backup first, the dedicated file (inert: the main file in place imports nothing), the candidate main file,
+`caddy validate` on the candidate BEFORE it is live, the atomic rename, `systemctl reload caddy` (never `restart`):
+
+```bash
+G7=$(cat /f/tmp/bell-dn/G7.txt) && git -C /f/Monark cat-file blob "$G7:deploy/Caddyfile.monark-bell" |
+ssh -i ~/.ssh/monark_vps root@bell.monarkgate.tech 'cd /etc/caddy && test ! -e Caddyfile.bak-import && cp -p Caddyfile Caddyfile.bak-import && umask 022 &&
+cat > monark-bell.caddyfile && cmp Caddyfile monark-bell.caddyfile && echo "import /etc/caddy/monark-bell.caddyfile" > Caddyfile.new &&
+caddy validate --config /etc/caddy/Caddyfile.new --adapter caddyfile && mv Caddyfile.new Caddyfile && systemctl reload caddy &&
+systemctl is-active caddy && sha256sum Caddyfile monark-bell.caddyfile'
+```
+
+Expected: `Valid configuration`; `active`; `d51755c50a15dac943dafdf7ff1bffe4ceb110923660d46723cdcba774faf51f  Caddyfile` (the one line
+`import /etc/caddy/monark-bell.caddyfile` and its LF: `echo "import /etc/caddy/monark-bell.caddyfile" | sha256sum`) and
+`<L>  monark-bell.caddyfile`. `cmp` prints nothing: the dedicated file is, byte for byte, the file Caddy served. Until `caddy validate`
+passes, `/etc/caddy/Caddyfile` is untouched; the candidate goes live by `mv` only. **STOP** on any other output: without
+`Valid configuration`, rollback (a); with it, rollback (b).
+
+(3) Bell served just after: the command of step 8 (`302 0 https://monarkgate.tech/bell`, then `404`); then step 11, a fresh capture (it
+now copies `caddyfile-dedicated`) and the CA, `VERIFY OK - 12/12` (check 11 in import mode, Bell's line alone), committed by step 12;
+the outputs of (1) to (3) to the JOURNAL. Any other result: **STOP**, rollback (b).
+
+Rollback (a), before the `mv` (the output of (2) has no `Valid configuration`: the live file never changed):
+
+```bash
+ssh -i ~/.ssh/monark_vps root@bell.monarkgate.tech 'cd /etc/caddy && cmp Caddyfile Caddyfile.bak-import &&
+rm -f Caddyfile.new monark-bell.caddyfile Caddyfile.bak-import; ls -1 /etc/caddy'
+```
+
+Expected: no `cmp` output (the file in place equals its backup) and none of the three names in the listing; then (1) again before any
+retry. No `Caddyfile.bak-import` at all: (2) stopped before its backup, nothing to remove. A `cmp` difference: **STOP**, rollback (b).
+
+Rollback (b), after the `mv`, complete: REPLACE again (after the rollback of A-6, if A-6 ran; the first test enforces that order):
+
+```bash
+ssh -i ~/.ssh/monark_vps root@bell.monarkgate.tech 'cd /etc/caddy && test ! -e monark-dojo.caddyfile && cp -p Caddyfile.bak-import Caddyfile.new &&
+caddy validate --config /etc/caddy/Caddyfile.new --adapter caddyfile && mv Caddyfile.new Caddyfile && systemctl reload caddy &&
+systemctl is-active caddy && rm monark-bell.caddyfile Caddyfile.bak-import && sha256sum Caddyfile'
+```
+
+Expected: `Valid configuration`; `active`; `<L>  Caddyfile` (Bell's blob in place again); then step 8, and step 11 (the capture has no
+`caddyfile-dedicated` any more: replace mode). After this procedure the REPLACE replay above no longer applies (its measure reads
+`caddy_in_place=unexpected`): a later change of `deploy/Caddyfile.monark-bell` replaces the DEDICATED file under the same discipline
+(candidate, `caddy validate`, `mv`, `reload`), a procedure still to write, item BELL-CADDY-IMPORT-REPLAY-1 (proposed, Q-4 of
+`docs/G1-lot-bell-ca-dojo.md`; trigger: the G1 of the next lot that changes that file).
 
 ## 8. HTTPS constated (automatic certificate)
 
@@ -448,8 +525,9 @@ or `upgrade_exit=1` with "Timestamp not complete": still pending, retry at a lat
 renamed the old proof to `timeline-seq<n>-manifest.txt.ots.bak` before writing the new one: move that `.bak` to
 `/f/PRODUITS/bell-mirror/ots/` (a `.bak` left in place makes the next upgrade fail; never committed, never served), copy the new
 proof there too (digest to the JOURNAL), run the check of point 5, commit the upgraded proof (its git history is the record,
-ruling GO1-D), then `node scripts/sync-bell-anchors.mjs`, the storefront build and upload. Rollback of 13 bis: none that deletes
-a proof (a pending proof may still complete; a new stamp of the same line takes the `-<k>` name).
+ruling GO1-D), then `node scripts/sync-bell-anchors.mjs`, the storefront build and upload. An upgrade keeps the same head: it
+does not re-run `scripts/sync-bell-served.mjs` (the anchors sync binds the upgraded row to the committed `lines[]`). Rollback of
+13 bis: none that deletes a proof (a pending proof may still complete; a new stamp of the same line takes the `-<k>` name).
 
 ---
 
@@ -458,9 +536,12 @@ a proof (a pending proof may still complete; a new stamp of the same line takes 
 Section 8 bis (from seq 2: one day crossed dry, the course of every instrument, `PASS Q6-C14`), then steps 9 and 10 for the new
 bundle (`bundle-<n>`), step 11 (fresh host capture and probe capture) and steps 12-13 (JOURNAL,
 mirror `timeline-seq<n>.jsonl` and the two immutable files of line n), then step 13 bis (the timestamp of line n, in the same
-window; its upgrade at a later window, after the durable copy). The same bundle twice publishes nothing (`nothing_to_publish`, exit 0). Until item
-BELL-SITE-SEQ2-1 lands, the CA of seq >= 2 is written OUT of the repo (`--out /f/tmp/bell-dn/deploy-CA-bell-seq<n>.json`, its
-sha256 in the JOURNAL) and `docs/deploy-CA-bell.json` stays seq 1 (ADR-BELL-CASH-LEG-1 C-1).
+window; its upgrade at a later window, after the durable copy). The same bundle twice publishes nothing (`nothing_to_publish`, exit 0).
+Then the storefront, in this order (ADR-BELL-OTS-PRB D-B3, D-B12): the deploy check of the new bodies committed as
+`docs/deploy-CA-bell.json` (item BELL-SITE-SEQ2-1 landed at upload 16); `node scripts/sync-bell-served.mjs` (v4: it walks the
+whole timeline, writes `lines[]` and sets its own entry of `apps/site/data/manifest.sha256.json`; re-pin `PINNED_FILE_SHA256` in
+`test/bell-served.test.ts` with the sha256 it prints); step 13 bis; `node scripts/sync-bell-anchors.mjs` (it refuses, before any
+write, a register row beyond `lines[]` or not bound to its line); the storefront build and upload.
 
 ## Key incidents (ADR D9, ESC-2)
 

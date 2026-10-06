@@ -8,9 +8,9 @@
  * drives the REAL MCP `tools/call` path over the streamable-HTTP transport (an actual JSON-RPC request
  * over the socket, NOT a `tool.run()` call). The recorded chain is the "bring-your-own" (BYO) loop of
  * `skills/monark/SKILL.md`: a fictitious third-party caller (a) `calibrate`s its OWN nonconformity
- * scores ⇒ a split-conformal quantile q̂ + a `set_digest`, then (b) `gate`s its OWN prediction with
+ * scores ⇒ a split-conformal quantile q̂ + a `scores_sha256`, then (b) `gate`s its OWN prediction with
  * `params.calibration` (the SAME scores, `interval` mode) ⇒ a covered `commit`. The audit closes when
- * the gate verdict's `calib_digest` equals the calibrate `set_digest` over the same scores.
+ * the gate verdict's `scores_sha256` equals the calibrate `scores_sha256` over the same scores.
  *
  * `byoToolsCall` is the LOCAL ANTI-MOCK SEAM (delegates to h5's `mcpToolsCall`): the probe's
  * test-chosen perturbations drive it too, so a mutant that freezes/replays a canned response makes the
@@ -20,12 +20,12 @@
  * Determinism: the tools read no clock (`produced_at` is caller-carried); the ephemeral port is
  * DELIBERATELY not recorded. Re-running the recorder reproduces the file byte-for-byte.
  */
-import { once } from "node:events";
 import type { Server as HttpServer } from "node:http";
 import { startServer } from "../apps/harness/src/server.ts";
 import { CALIBRATE_LABEL } from "../apps/harness/src/tools/calibrate.ts";
 import { mcpSend, mcpToolsCall, sha256Lf, PRODUCED_AT } from "./h5-trace-builder.ts";
 import type { JsonRpcRequest, ToolCallResponse } from "./h5-trace-builder.ts";
+import { startLoopback } from "./helpers/loopback.ts";
 
 export { sha256Lf, PRODUCED_AT };
 
@@ -60,7 +60,7 @@ export const CALLER_TOOL = "caller_downstream_tool";
 
 /** The caller's prediction, valid against the frozen `prediction.schema.json`. */
 export const CALLER_PREDICTION = {
-  schema_version: "1.0.0",
+  schema_version: "1.1.0",
   task_class: CALLER_TASK_CLASS,
   yhat: CALLER_YHAT,
   predictor_id: CALLER_PREDICTOR_ID,
@@ -182,9 +182,8 @@ function objField(o: Record<string, unknown>, k: string): Record<string, unknown
 
 /** Drive the BYO calibrate → gate chain over the wire and return the captured, deterministic trace. */
 export async function buildByoTrace(): Promise<ByoTrace> {
-  const server: HttpServer = startServer(0);
+  const server: HttpServer = await startLoopback((port) => startServer(port));
   try {
-    await once(server, "listening");
     const addr = server.address();
     if (addr === null || typeof addr === "string") throw new Error("startServer did not yield an AddressInfo");
     if (addr.address !== "127.0.0.1") throw new Error(`harness must bind 127.0.0.1, got ${addr.address}`);
@@ -199,7 +198,7 @@ export async function buildByoTrace(): Promise<ByoTrace> {
     };
     const initResult = (await mcpSend(port, initReq)) as { protocolVersion: unknown; serverInfo: unknown };
 
-    // 2) calibrate — the caller's OWN nonconformity scores ⇒ split-conformal q̂ + set_digest.
+    // 2) calibrate — the caller's OWN nonconformity scores ⇒ split-conformal q̂ + scores_sha256.
     const cArgs = calibrateArgs(CALLER_SCORES, CALLER_ALPHA, CALLER_NMIN);
     const calibrate = await byoToolsCall(port, 2, "calibrate", cArgs);
     const calibrateSc = structuredOf(calibrate);
@@ -211,8 +210,8 @@ export async function buildByoTrace(): Promise<ByoTrace> {
     const verdict = objField(gateSc, "verdict");
     const region = objField(verdict, "region");
 
-    const setDigest = field(calibrateSc, "set_digest");
-    const calibDigest = field(verdict, "calib_digest");
+    const calibrateSha = field(calibrateSc, "scores_sha256");
+    const gateSha = field(verdict, "scores_sha256");
 
     const steps: Step[] = [
       { n: 1, surface: "mcp", op: "initialize", request: initReq, result: { protocolVersion: initResult.protocolVersion, serverInfo: initResult.serverInfo } },
@@ -222,7 +221,7 @@ export async function buildByoTrace(): Promise<ByoTrace> {
         op: "tools/call",
         label: "calibrate",
         tool: "calibrate",
-        note: "The caller calibrates its OWN nonconformity scores: MONARK returns the split-conformal quantile qhat and a set_digest over exactly those scores. MONARK does not see, store, or verify the caller's data or model.",
+        note: "The caller calibrates its OWN nonconformity scores: MONARK returns the split-conformal quantile qhat and the scores_sha256 of exactly those scores, in the order sent. MONARK does not see, store, or verify the caller's data or model.",
         request: { jsonrpc: "2.0", id: 2, method: "tools/call", params: { name: "calibrate", arguments: cArgs } },
         response: calibrate,
       },
@@ -275,25 +274,25 @@ export async function buildByoTrace(): Promise<ByoTrace> {
         illustrative: "The scores, the prediction, and the task label are generic and illustrative. MONARK gates the caller's prediction; it does not itself predict, and it names no asset.",
         vocabulary: "This trace states no correctness or coverage claim and uses no forbidden vocabulary.",
       },
-      audit: "The BYO loop closes when the gate verdict's calib_digest equals the calibrate set_digest over the same scores. Both are recorded below and asserted equal by test/byo-demo-probe.test.ts.",
+      audit: "The BYO loop closes when the gate verdict's scores_sha256 equals the calibrate scores_sha256 over the same scores, and their alpha and qhat agree. Both are recorded below and asserted equal by test/byo-demo-probe.test.ts.",
       steps,
       observed: {
         calibrate_qhat: field(calibrateSc, "qhat"),
         calibrate_n: field(calibrateSc, "n"),
         calibrate_reason: field(calibrateSc, "reason"),
-        calibrate_set_digest: setDigest,
+        calibrate_scores_sha256: calibrateSha,
         gate_action: field(gateSc, "action"),
         gate_allow: field(gateSc, "allow"),
         gate_reason: field(gateSc, "reason"),
         gate_tool: field(gateSc, "tool"),
         gate_remaining_budget: field(gateSc, "remaining_budget"),
-        gate_calib_digest: calibDigest,
+        gate_scores_sha256: gateSha,
         gate_n_calib: field(verdict, "n_calib"),
         gate_qhat: field(verdict, "qhat"),
         gate_region_kind: field(region, "kind"),
         gate_region_lo: field(region, "lo"),
         gate_region_hi: field(region, "hi"),
-        audit_calib_digest_equals_set_digest: typeof setDigest === "string" && setDigest === calibDigest,
+        audit_scores_sha256_equal: typeof calibrateSha === "string" && calibrateSha === gateSha,
       },
     };
   } finally {

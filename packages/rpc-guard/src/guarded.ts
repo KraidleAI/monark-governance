@@ -23,13 +23,16 @@ export function openGuardedClient(
   cycles: Readonly<Record<string, string>>,
   opts: TransportOpts = {},
 ): BudgetedClient {
-  const { classes, transport } = resolveOperators(env, opts);
+  const { classes, transport, refused } = resolveOperators(env, opts);
   const requested = Object.keys(cycles);
   if (requested.length === 0) throw new Error("rpc-guard: no operators requested (cycles is empty, fail-closed)");
   // SUBSET: only the requested operators, each of which MUST be resolved from env (fail-closed).
   const selected: Record<string, OperatorClass> = {};
   for (const label of requested) {
-    const cls = classes[label];
+    // RPC-GUARD-HELIUS-HOST-1 (D-3): a REFUSED endpoint is named BEFORE any lock (loop below), by its fixed reason, never its url; own keys only.
+    const why = Object.hasOwn(refused, label) ? refused[label] : undefined;
+    if (why !== undefined) throw new Error(`rpc-guard: operator '${label}' refused: ${why}`);
+    const cls = Object.hasOwn(classes, label) ? classes[label] : undefined;
     if (cls === undefined) throw new Error(`rpc-guard: requested operator '${label}' is not resolved from env (fail-closed)`);
     selected[label] = cls;
   }

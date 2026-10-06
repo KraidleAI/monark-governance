@@ -92,7 +92,7 @@ test("visage_register_is_frozen — three visage upcoming, global upcoming fifte
   // hard-coded status="built"/status="upcoming" (or the JSX-wrapped status={"built"}) attribute. The
   // three built agent panels are out of scope (their block statuses are their own declared truth).
   const NEW_SURFACES = [
-    "apps/site/app/products/page.tsx",
+    "apps/site/app/applications/page.tsx",
     "apps/site/app/fleet/page.tsx",
     "apps/site/components/placeholder-panel.tsx",
     "apps/site/components/what-inside.tsx",

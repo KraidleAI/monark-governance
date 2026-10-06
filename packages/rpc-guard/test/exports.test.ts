@@ -4,8 +4,8 @@ import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 // The SOLE public paid path (C-V-2). resolveOperators / makeClient / InMemorySink are NOT here (proven below).
 import { openGuardedClient, BudgetExceededError } from "@monark/rpc-guard";
-import { HELIUS, tmp } from "./harness.ts";
-import type { RunLimits } from "../src/client.ts";
+import { HELIUS, tmp, GTFA_P100 } from "./harness.ts";
+import type { OperatorLabel, RunLimits } from "../src/client.ts";
 
 const PROBE_ENV = { BELL_SOLANA_RPC: "https://example.invalid/HELIUS", HELIUS_API_KEY: "FAKEKEY-9z9z9z" };
 // GARDE-HELIUS-2: RunLimits is PER OPERATOR (runCaps / cycleFloor keyed by label), and openGuardedClient takes a
@@ -40,8 +40,8 @@ test("public_api_freezes_the_prior_p3_floor", async () => {
   globalThis.fetch = () => { calls++; return Promise.resolve(new Response(JSON.stringify({ result: 1 }), { status: 200, headers: { "content-type": "application/json" } })); };
   try {
     const client = openGuardedClient(PROBE_ENV, { maxCalls: 10, runCaps: { helius: 100_000_000 }, methodCaps: { getTransactionsForAddress: 100 }, cycleFloor: { helius: 7_999_990 } }, dir, { helius: "cycle-p3" });
-    await client.call(HELIUS, "getTransactionsForAddress", ["m"]);
-    await assert.rejects(client.call(HELIUS, "getTransactionsForAddress", ["m"]), (e: unknown) => e instanceof BudgetExceededError);
+    await client.call(HELIUS, "getTransactionsForAddress", GTFA_P100);
+    await assert.rejects(client.call(HELIUS, "getTransactionsForAddress", GTFA_P100), (e: unknown) => e instanceof BudgetExceededError);
     assert.equal(calls, 1, "the frozen prior (max(floor, 0)) is enforced through the PUBLIC API, not just makeClient");
   } finally { globalThis.fetch = realFetch; cleanup(); }
 });
@@ -60,8 +60,10 @@ test("public_export_set_is_closed", async () => {
     // GARDE-HELIUS-1b-0 (C-3c): the closed Bell-Solana method table + its construction-time --method-caps coverage
     // check (Bell imports these at 1b-ii; NOT a paid path - no symbol returns/accepts an endpoint URL).
     "BELL_SOLANA_METHODS", "assertMethodCapsCover",
+    // DRAND-RELAY-GET-1a (ADR-RPC-GUARD-DRAND-1 D-1): the two drand relay LABELS (never a URL, a host, a path or the chain hash).
+    "DRAND_RELAY_LABELS",
   ].sort(), "the public VALUE-export set drifted (no new paid path may be exported)");
-  for (const forbidden of ["makeClient", "resolveOperators", "resolveConfig", "InMemorySink", "openOperatorLedger", "acquireLock", "runUnlock"]) {
+  for (const forbidden of ["makeClient", "resolveOperators", "resolveConfig", "InMemorySink", "openOperatorLedger", "acquireLock", "runUnlock", "DRAND_QUICKNET_HASH"]) {
     assert.ok(!(forbidden in pub), `${forbidden} must NOT be public (C-V-2)`);
   }
 });
@@ -74,10 +76,16 @@ test("exports_map_forbids_deep_import", async () => {
 test("transport_error_never_carries_url_or_key", async () => {
   // An unparseable endpoint => fetch throws a TypeError whose message + `.input` carry the url+key; the client
   // rethrows a FRESH error with only label + error name (C-V-3). Offline: the parse fails before any dispatch.
+  // RPC-GUARD-HELIUS-HOST-1 (ADR-RPC-GUARD-RECONCILE-1 D-3): an unparseable helius endpoint is now refused AT OPEN (named, no echo,
+  // before any lock); the scrubbed-TypeError path is kept on CHAINSTACK_ETH_URL, whose key is a path segment of the url.
   const { dir, cleanup } = tmp();
   try {
-    const client = openGuardedClient({ BELL_SOLANA_RPC: "not-a-url-scheme", HELIUS_API_KEY: "FAKEKEY-9z9z9z" }, PROBE_LIMITS, dir, { helius: "cycle-scrub" });
-    await assert.rejects(client.call(HELIUS, "getTransaction", [1]), (e: unknown) => {
+    assert.throws(() => openGuardedClient({ BELL_SOLANA_RPC: "not-a-url-scheme", HELIUS_API_KEY: "FAKEKEY-9z9z9z" }, PROBE_LIMITS, dir, { helius: "cycle-scrub" }),
+      (e: unknown) => e instanceof Error && e.message.includes("refused: BELL_SOLANA_RPC host not admitted") && !/not-a-url-scheme|FAKEKEY|api-key/i.test(e.message));
+    assert.equal(existsSync(join(dir, "cycle-scrub")), false, "the helius refusal comes before any lock");
+    const csLimits: RunLimits = { maxCalls: 10, runCaps: { chainstack: 1000 }, methodCaps: { eth_blockNumber: 5 }, cycleFloor: { chainstack: 0 } };
+    const client = openGuardedClient({ CHAINSTACK_ETH_URL: "not-a-url-scheme/FAKEKEY-9z9z9z" }, csLimits, dir, { chainstack: "cycle-scrub-cs" });
+    await assert.rejects(client.call("chainstack" as OperatorLabel, "eth_blockNumber", []), (e: unknown) => {
       const msg = e instanceof Error ? e.message : String(e);
       assert.doesNotMatch(msg, /not-a-url-scheme|FAKEKEY|api-key/i, `error message leaks the endpoint: ${msg}`);
       assert.equal((e as { input?: unknown }).input, undefined, "the rethrown error must not carry `.input`");

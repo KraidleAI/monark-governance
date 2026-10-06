@@ -15,11 +15,14 @@ import { FAKE_HELIUS_ENV, HELIUS, ONE_METHOD_LIMITS, childEnv, journal, okFetch,
 const APPEND = ["open:a:helius.jsonl", "write:helius.jsonl", "fsync:helius.jsonl", "close:helius.jsonl",
   "open:w:helius.head.tmp", "write:helius.head.tmp", "fsync:helius.head.tmp", "close:helius.head.tmp", "rename:helius.head.tmp>helius.head"];
 const RENAME = "rename:helius.head.tmp>helius.head";
+/** RPC-GUARD-FIRST-APPEND-HEAD-1: the FIRST append of a new ledger writes the genesis head (tmp, fsync, rename) before its line. */
+const GENESIS = APPEND.slice(4);
 const eperm = (code: string): Error => Object.assign(new Error(`${code}: rename`), { code });
 /** A recording, NON-waiting sleep with a guard: an unbounded retry reds instead of spinning forever. */
 const virtualSleep = (slept: number[]) => (ms: number): void => { slept.push(ms); if (slept.length > 1000) throw new Error("unbounded retry"); };
 const CAP_ERROR = /refused 35 times over 2950 ms \((EPERM|EACCES|EBUSY): another handle holds 'helius\.head'; fail-closed, no in-place fallback\)/;
 
+// killer: packages/rpc-guard/src/ledger.ts:211 COR "if (!headOnDisk)" -> "if (headOnDisk)"
 test("durable_append_writes_the_line_then_the_head_in_order", async () => {
   // Through the REAL openGuardedClient (only globalThis.fetch stubbed): 3 metered calls, then the raw files re-read.
   const { dir, cleanup } = tmp();
@@ -30,7 +33,8 @@ test("durable_append_writes_the_line_then_the_head_in_order", async () => {
     const client = openGuardedClient(FAKE_HELIUS_ENV, ONE_METHOD_LIMITS, dir, { helius: "c-seq" });
     assert.deepEqual(j.ops.splice(0), ["open:wx:helius.lock", "write:helius.lock", "fsync:helius.lock", "close:helius.lock"], "the lock {pid, iso} is fsynced before close, before any ledger write");
     for (let i = 0; i < 3; i++) await client.call(HELIUS, "getTransaction", [i]);
-    assert.deepEqual(j.ops, [...APPEND, ...APPEND, ...APPEND], "per call: the line open(a)-write-fsync-close, THEN head.tmp open(w)-write-fsync-close, THEN rename");
+    assert.deepEqual(j.ops, [...GENESIS, ...APPEND, ...APPEND, ...APPEND],
+      "the genesis head before the FIRST line; per call: the line open(a)-write-fsync-close, THEN head.tmp open(w)-write-fsync-close, THEN rename");
     // The OUTPUT is unchanged (format frozen): 3 chained legacy lines, head == last entry, no tmp left behind.
     const cd = join(dir, "c-seq");
     const lines = readFileSync(join(cd, "helius.jsonl"), "utf8").split("\n").filter(Boolean).map((l) => JSON.parse(l) as CycleLedgerEntry);
@@ -79,18 +83,20 @@ test("durable_orphan_head_tmp_is_removed_once_the_pair_verifies", () => {
   } finally { cleanup(); }
 });
 
+// killer: packages/rpc-guard/src/ledger.ts:211 CONST "replaceDurable(headPath, LEDGER_GENESIS)" -> "writeDurable(headPath, 'w', LEDGER_GENESIS)"
 test("durable_head_rename_retries_a_sharing_violation_with_a_bounded_backoff", () => {
   const { dir, cleanup } = tmp();
   try {
     const cd = ensureCycleDir(dir, "c-eperm");
     const led = openOperatorLedger(cd, "helius", 0);
-    // (1) two sharing violations, then the reader lets go: waits 10 then 20 ms; fsync(tmp) BEFORE the first attempt.
+    // (1) two sharing violations, then the reader lets go: waits 10 then 20 ms; fsync(tmp) BEFORE the first attempt. On this NEW
+    //     ledger the first rename is the genesis head's (RPC-GUARD-FIRST-APPEND-HEAD-1): it retries alike, then the append runs.
     let fails = 2;
     const slept: number[] = [];
     const j = journal({ sleepSync: virtualSleep(slept), renameSync: (a, b) => { if (fails-- > 0) throw eperm("EPERM"); renameSync(a, b); } });
     let e1: CycleLedgerEntry;
     try { e1 = led.appendChained("attempted", { "helius|getTransaction": 1 }, 1); } finally { j.restore(); }
-    assert.deepEqual(j.ops.slice(6), ["fsync:helius.head.tmp", "close:helius.head.tmp", RENAME, "sleep:10", RENAME, "sleep:20", RENAME]);
+    assert.deepEqual(j.ops, [...GENESIS.slice(0, 4), RENAME, "sleep:10", RENAME, "sleep:20", RENAME, ...APPEND]);
     assert.equal(readFileSync(led.headPath, "utf8"), e1.entry_sha256);
     // (2) a PERSISTENT violation: waits min(10k, 100) ms while the total stays <= 3000, then a NAMED fail-closed error;
     //     the line is durable, the head one entry behind - the next open heals it (no loss, no manual step).
@@ -113,7 +119,7 @@ test("durable_head_rename_retries_a_sharing_violation_with_a_bounded_backoff", (
       const jc = journal({ sleepSync: virtualSleep([]), renameSync: (a, b) => { if (left-- > 0) throw eperm(code); renameSync(a, b); } });
       let e: CycleLedgerEntry;
       try { e = l.appendChained("attempted", { "helius|getTransaction": 1 }, 1); } finally { jc.restore(); }
-      assert.deepEqual(jc.ops.slice(6), ["fsync:helius.head.tmp", "close:helius.head.tmp", RENAME, "sleep:10", RENAME, "sleep:20", RENAME], code);
+      assert.deepEqual(jc.ops, [...GENESIS.slice(0, 4), RENAME, "sleep:10", RENAME, "sleep:20", RENAME, ...APPEND], code);
       assert.equal(readFileSync(l.headPath, "utf8"), e.entry_sha256, code);
     }
   } finally { cleanup(); }
@@ -185,11 +191,13 @@ test("durable_head_one_entry_behind_advances_to_the_last_durable_entry_never_bac
   } finally { cleanup(); }
 });
 
+// killer: packages/rpc-guard/src/ledger.ts:201 CONST "headOnDisk = hasHead" -> "headOnDisk = true"
 test("durable_production_path_calls_the_real_node_fsync_and_has_no_off_switch", () => {
   // Ruling I-10 (c). (1) BEHAVIOUR: a FRESH process counts node:fs's OWN fsyncSync (count, then delegate to the real one,
-  // via module.syncBuiltinESMExports), THEN imports the package by its PRODUCTION specifier: 1 lock + 2 appends x (line +
-  // head.tmp) = 5 real flushes. The sequence journal cannot see this: it records `fsync:` before delegating, so a no-op
-  // default flush stayed green under all 15 durability tests (replayed at pli-1, "M27" gap).
+  // via module.syncBuiltinESMExports), THEN imports the package by its PRODUCTION specifier: 1 lock + the genesis head (the
+  // first append of a new ledger) + 2 appends x (line + head.tmp) = 6 real flushes. The sequence journal cannot see this: it
+  // records `fsync:` before delegating, so a no-op default flush stayed green under all 15 durability tests (replayed at pli-1,
+  // "M27" gap).
   const REPO = fileURLToPath(new URL("../../../", import.meta.url));
   const { dir, cleanup } = tmp();
   try {
@@ -202,7 +210,7 @@ for (let i = 0; i < 2; i++) await c.call("helius", "getTransaction", [i]);
 process.stdout.write(String(n));`;
     const r = spawnSync(process.execPath, ["--input-type=module", "-e", code], { cwd: REPO, env: childEnv(), encoding: "utf8" });
     assert.equal(r.status, 0, r.stderr);
-    assert.equal(r.stdout, "5", "the production path flushes through node:fs itself: lock + 2 x (line + head.tmp)");
+    assert.equal(r.stdout, "6", "the production path flushes through node:fs itself: lock + genesis head + 2 x (line + head.tmp)");
   } finally { cleanup(); }
   // (2) STRUCTURE (G2 C-G2-4, re-G2 C-G2b-1, re-G2-delta C-G2c-1): no production source reaches THIS package's
   //     off-switches - the DURABLE_FS seam (src/ledger.ts), the no-fsync test support, an env read. The grammar reads a

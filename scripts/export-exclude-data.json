@@ -1,5 +1,5 @@
 {
-  "reason": "orphan 'upcoming' data whose every test-consumer is export-excluded (ADR-M004 D7 septies, 2026-09-21): the U-4a Ukemi fixtures are read only by apps/sentinel/test/ukemi-u4-scores.test.ts (in export-exclude-tests.json) and by non-whitelisted scripts/census/** ; U4-scores-e2.jsonl is a published artifact with no test consumer; PROVENANCE-u4.md declares the three and would be a dangling reference. Excluded from the public mirror as DATA (a config-driven exclusion in collectFiles, NEVER STRUCTURAL_BLACKLIST). u3 is NOT here: its series is also consumed by the root test/u3-realized.test.ts (live), so u3 stays exported (its reader path is neutralized to <U3_RAWS_DIR>, D7 septies (ii)). Fail-closed: a missing/unparseable file, or a non-array data, aborts the export (exit 1); an empty data array is valid. U-4b -1a fixtures (u4b/, same e2 episode, decision 111, checkpoint-2 U-4b-1a C-V-8, 2026-09-21) are excluded on the same grounds: consumed only by apps/sentinel/test/ukemi-u4b-scores.test.ts (export-excluded) and scripts/census/u4b/**.",
+  "reason": "orphan 'upcoming' data whose every test-consumer is export-excluded (ADR-M004 D7 septies, 2026-09-21): the U-4a Ukemi fixtures are read only by apps/sentinel/test/ukemi-u4-scores.test.ts (in export-exclude-tests.json) and by non-whitelisted scripts/census/** ; U4-scores-e2.jsonl is a published artifact with no test consumer; PROVENANCE-u4.md declares the three and would be a dangling reference. Excluded from the public mirror as DATA (a config-driven exclusion in collectFiles, NEVER STRUCTURAL_BLACKLIST). u3 is NOT here: its series is also consumed by the root test/u3-realized.test.ts (live), so u3 stays exported (its reader path is neutralized to <U3_RAWS_DIR>, D7 septies (ii)). Fail-closed: a missing/unparseable file, or a non-array data, aborts the export (exit 1); an empty data array is valid. U-4b -1a fixtures (u4b/, same e2 episode, decision 111, checkpoint-2 U-4b-1a C-V-8, 2026-09-21) are excluded on the same grounds: consumed only by apps/sentinel/test/ukemi-u4b-scores.test.ts (export-excluded) and scripts/census/u4b/**. U-4b-2b fixtures (u4b/, the FRESH episode weth-2025-09-22: reduced book, oracle path, scores, the episode's realized labels and their PROVENANCE-u4b-weth-2025-09-22.md; ADR-U4b-2b D7, decision 111 until item EXPORT-U4B-111-1 at the switch window) are excluded on the same grounds: consumed only by export-excluded tests (apps/sentinel/test/ukemi-u4b-fresh.test.ts, apps/harness/test/calibration-liq.test.ts, apps/harness/test/gate-liq-artifact.test.ts) and by the non-whitelisted scripts/census/u4b/** and scripts/emit-u4b-calibration.mjs.",
   "data": [
     "apps/sentinel/test/fixtures/ukemi/u4/U4-book-23545087.json",
     "apps/sentinel/test/fixtures/ukemi/u4/U4-oracle-path-e2.jsonl",
@@ -8,6 +8,11 @@
     "apps/sentinel/test/fixtures/ukemi/u4b/U4b-book-23545087.json",
     "apps/sentinel/test/fixtures/ukemi/u4b/U4b-oracle-path-e2.jsonl",
     "apps/sentinel/test/fixtures/ukemi/u4b/U4b-scores-e2.jsonl",
-    "apps/sentinel/test/fixtures/ukemi/u4b/PROVENANCE-u4b.md"
+    "apps/sentinel/test/fixtures/ukemi/u4b/PROVENANCE-u4b.md",
+    "apps/sentinel/test/fixtures/ukemi/u4b/U4b-book-23414968.json",
+    "apps/sentinel/test/fixtures/ukemi/u4b/U4b-oracle-path-weth-2025-09-22.jsonl",
+    "apps/sentinel/test/fixtures/ukemi/u4b/U4b-scores-weth-2025-09-22.jsonl",
+    "apps/sentinel/test/fixtures/ukemi/u4b/U3-realized-weth-2025-09-22.jsonl",
+    "apps/sentinel/test/fixtures/ukemi/u4b/PROVENANCE-u4b-weth-2025-09-22.md"
   ]
 }

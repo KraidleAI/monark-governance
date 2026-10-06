@@ -1,13 +1,31 @@
 {
-  "$comment": "Committed, hashed facts about the SERVED Bell host, rendered by /bell and /bell/method through apps/site/lib/bell-served-load.ts after a sha256 check against apps/site/data/manifest.sha256.json. Written by scripts/sync-bell-served.mjs (source-repo tool) from the files the host serves: /timeline.jsonl walked line by line under the committed keyring (chain, signatures, key schedule), /bell/pubkey.json (byte-identical to the committed keyring), /state.json and /provenance.json (bound by sha256 to the latest signed publication line, the head), the immutable /states/<sha256>.json of the head and of the first record. first_record and head = the facts of those two lines (line_hash = sha256 of the canonical line). head.runs = every run of the latest publication as served: the signed records, the residual counts (every code), the per-session rows, the volume-ratio periods and definitions WITHOUT the ratio values, the supply readout, the proof-of-reserves status only, the wrappers, the halt census and deltas, and per run from the provenance: the start of the collection, the operator counts, the fault statuses (each marked as on a ledger operator or not; no label is kept), the closing-price request digest. keyring = key ids, statuses and first seq of the committed keyring. deploy_check = counts of the committed deploy check, captured on these same bodies. collector_revision = the last commit of the collector source. served_schema = the key lists of the served envelopes and the publisher's closed list of objects. bodies_sha256 = the sha256 of the four bodies as read at read_at.",
-  "schema": "monark-site-bell-served-v3",
+  "$comment": "Committed, hashed facts about the SERVED Bell host, rendered by /bell and /bell/method through apps/site/lib/bell-served-load.ts after a sha256 check against apps/site/data/manifest.sha256.json. Written by scripts/sync-bell-served.mjs (source-repo tool) from the files the host serves: /timeline.jsonl walked line by line under the committed keyring (chain, signatures, key schedule), /bell/pubkey.json (byte-identical to the committed keyring), /state.json and /provenance.json (bound by sha256 to the latest signed publication line, the head), the immutable /states/<sha256>.json of the head and of the first record. first_record and head = the facts of those two lines (line_hash = sha256 of the canonical line). lines = the facts of every walked line, in order: seq, kind, line_hash, prev_line_hash and, for a publication, its state and provenance digests (the anchors sync binds each anchor row to them). head.runs = every run of the latest publication as served: the signed records, the residual counts (every code), the per-session rows, the volume-ratio periods and definitions WITHOUT the ratio values, the supply readout, the proof-of-reserves status only, the wrappers, the halt census and deltas, and per run from the provenance: the start of the collection, the operator counts, the fault statuses (each marked as on a ledger operator or not; no label is kept), the closing-price request digest. keyring = key ids, statuses and first seq of the committed keyring. deploy_check = counts of the committed deploy check, captured on these same bodies. collector_revision = the last commit of the collector source. served_schema = the key lists of the served envelopes and the publisher's closed list of objects. bodies_sha256 = the sha256 of the four bodies as read at read_at.",
+  "schema": "monark-site-bell-served-v4",
   "host": "https://bell.monarkgate.tech",
-  "read_at": "2026-09-24T08:43:45.173Z",
+  "read_at": "2026-10-03T06:10:14.168Z",
   "timeline": {
     "schema": "bell-timeline-v1",
     "lines": 2,
     "publications": 2
   },
+  "lines": [
+    {
+      "seq": 1,
+      "kind": "publication",
+      "line_hash": "4a417cf02289b4968c17e7dc9f61c013bf04d62c77e541993a05a20a6965f47c",
+      "prev_line_hash": "0000000000000000000000000000000000000000000000000000000000000000",
+      "state_sha256": "a828489f64f112c8026b7c38f3710b82af1c97245fdba10b16170e39aed7a240",
+      "provenance_sha256": "4935a259b7d6c2ddd929b4ecd440b6918d103c76b8a42b364df1b505f041ea3b"
+    },
+    {
+      "seq": 2,
+      "kind": "publication",
+      "line_hash": "ef3b06f2ff93951e200a6559b42ab66df5ac4aa38b86d3aa763c118c766f6464",
+      "prev_line_hash": "4a417cf02289b4968c17e7dc9f61c013bf04d62c77e541993a05a20a6965f47c",
+      "state_sha256": "4564701add6e4231a67912ef45c7db640cd76dfe88302a96bc0e7722090508b9",
+      "provenance_sha256": "ad8dd9b023bdfafade328d7ada5d17ae53d0de2133fcdf808237409d136fc39b"
+    }
+  ],
   "first_record": {
     "seq": 1,
     "kind": "publication",
@@ -592,7 +610,7 @@
     ]
   },
   "deploy_check": {
-    "checked_at": "2026-09-24T08:41:49.208Z",
+    "checked_at": "2026-10-03T04:15:56.315Z",
     "checks_total": 12,
     "checks_passed": 12,
     "tls_authorized": true

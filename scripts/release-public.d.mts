@@ -15,9 +15,16 @@ export interface BranchGuardResult {
 /** True iff `tag` is a v0.MINOR.PATCH tag (0.x only; MAJOR>=1 refused). Pure. */
 export function isSemverTag(tag: string): boolean;
 
-/** Run the in-memory text through BOTH the French language gate and the GLOBAL vocab gate;
+/** Re-exported from public-text-deny.mjs: the French language gate and the GLOBAL + site/skills/bell vocab bans;
  *  empty/whitespace -> ok:false. Reads only committed config; no writes, no network, no process.exit. */
 export function checkReleaseText(text: string): ReleaseTextResult;
 
 /** ok iff headRef === 'main' && porcelain === '' (no origin/main variant, ADR-M010 B-2). Pure. */
 export function branchGuard(headRef: string, porcelain: string): BranchGuardResult;
+
+/** ok iff `blockers` (pendingSendBlockers of export-public.mjs on the kept set) is empty; the reason names each blocker.
+ *  Pure (RELEASE-PREFLIGHT-SEND-GUARD-1). */
+export function sendGuard(blockers: readonly string[]): BranchGuardResult;
+
+/** The local gates [name, command], in order, export:check last (ADR-PUBLIC-CADENCE-1 D1.4); frozen, pinned by the tests. */
+export const LOCAL_GATES: ReadonlyArray<readonly [string, string]>;

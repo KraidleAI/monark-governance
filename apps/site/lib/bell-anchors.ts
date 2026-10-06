@@ -253,7 +253,8 @@ export function anchorStatus(proof: OtsProof): AnchorStatus {
 // ── The publications register (docs/bell-publications/ANCHORS.md), served as publications.json by scripts/sync-bell-anchors.mjs;
 // separate from the course register above, whose boundary list stays closed. A row = one OpenTimestamps proof (pending, or recording a
 // Bitcoin block) of a manifest listing `timeline.jsonl#L<n>` (line n without its LF: its line_hash), `timeline.jsonl#L1-L<n>` (lines
-// 1..n with their LF) and, for a publication, the two files line n names. No anchoring state is derived here.
+// 1..n with their LF) and, for a publication, the two files line n names. The timestamp state of the latest published record is
+// derived at the end of this file, from rows already bound (publicationAnchorState), and worded there once (publicationAnchorSentence).
 
 export type PublicationKind = "publication" | "key_rotation" | "key_revocation";
 export const PUBLICATION_COLUMNS = ["date_u", "seq", "kind", "line_hash", "prefix_sha256", "manifest_sha256", "commit", "ots_ref", "note"] as const;
@@ -268,9 +269,9 @@ export interface PublicationAnchorRow {
 export interface PublicationAnchorsRegister { register: string; rows: PublicationAnchorRow[] }
 
 /** Parse the publications register: its header (PUBLICATION_COLUMNS) first, then EVERY table row is a real row (no template row);
- *  a malformed row throws, naming its column. An `ots_ref` that is not a `.ots` name marks the row NOT timestamped (both files
- *  null); a `.ots` name must be the proof name of the row's own seq, named once. Sorted by seq, then date. The files are bound by
- *  bindPublicationAnchor. */
+ *  a malformed row throws, naming its column. An `ots_ref` that is not a `.ots` name must read `not timestamped at <ISO Z>` and marks
+ *  the row NOT timestamped (both files null); a `.ots` name must be the proof name of the row's own seq, named once. Sorted by seq,
+ *  then date. The files are bound by bindPublicationAnchor, the row to the served chain by bindPublicationRowToLines. */
 export function parsePublicationAnchors(markdown: string): PublicationAnchorRow[] {
   const rows: PublicationAnchorRow[] = [];
   let header = false;
@@ -289,6 +290,7 @@ export function parsePublicationAnchors(markdown: string): PublicationAnchorRow[
     if (!SHORT_SHA.test(commit)) no(`malformed commit '${commit}'`);
     if (stamped && PUBLICATION_PROOF.exec(otsRef)?.[1] !== seq) no(`ots_ref '${otsRef}' is not the proof name of line ${seq}`);
     if (stamped && rows.some((r) => r.proof_file === otsRef)) no(`ots_ref '${otsRef}' is named twice`);
+    if (!stamped && !/^not timestamped at \d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z$/.test(otsRef)) no(`ots_ref '${otsRef}' is neither a proof name nor 'not timestamped at <ISO Z>'`);
     rows.push({ date_utc: dateU, seq: Number(seq), kind: kind as PublicationKind, line_hash: lineHash, prefix_sha256: prefix, manifest_sha256: manifest, commit,
       manifest_file: stamped ? otsRef.slice(0, -".ots".length) : null, proof_file: stamped ? otsRef : null });
   }
@@ -326,4 +328,68 @@ export function bindPublicationAnchor(row: PublicationAnchorRow, manifestText: s
   if (digestOf(lineKey) !== row.line_hash) no(`the manifest entry ${lineKey} differs from line_hash`);
   if (digestOf(prefixKey) !== row.prefix_sha256) no(`the manifest entry ${prefixKey} differs from prefix_sha256`);
   if (proof.hashOp !== "sha256" || proof.digestHex !== row.manifest_sha256) no("the proof does not timestamp manifest_sha256");
+}
+
+/** The facts of one line of the served timeline (lines[] of the site data): a publication names its state and provenance files. */
+export interface TimelineLineFacts { seq: number; kind: string; line_hash: string; prev_line_hash: string; state_sha256?: string; provenance_sha256?: string }
+
+/** Bind a register row to the chain the site data walked, one named error per requirement: its seq is a served line, its line_hash and
+ *  its kind are that line's, and for a timestamped row (its manifest entries given; null for a row without proof) the manifest's files
+ *  are exactly the ones the line names: its provenance and state files for a publication, none for a key line. */
+export function bindPublicationRowToLines(row: Pick<PublicationAnchorRow, "seq" | "kind" | "line_hash">, entries: ReadonlyArray<{ relpath: string; digest: string }> | null, lines: readonly TimelineLineFacts[]): void {
+  const n = String(row.seq), line = lines[row.seq - 1], no = (why: string): Error => new Error(`publications register, seq ${n}: ${why}`);
+  if (line === undefined || line.seq !== row.seq) throw no(`seq ${n} is beyond the served lines (run the served-data sync first)`);
+  if (row.line_hash !== line.line_hash) throw no(`line_hash is not that of line ${n}`);
+  if (row.kind !== line.kind) throw no(`kind is not that of line ${n}`);
+  const files = entries?.filter((e) => !e.relpath.startsWith("timeline.jsonl#")).map((e) => `${e.relpath} ${e.digest}`).sort().join("\n");
+  const [p, s] = [line.provenance_sha256 ?? "", line.state_sha256 ?? ""], want = line.kind === "publication" ? `provenance/${p}.json ${p}\nstates/${s}.json ${s}` : "";
+  if (files !== undefined && files !== want) throw no(`the manifest's files are not those line ${n} names`);
+}
+
+/** "2026-09-22T14:07:18Z" -> "2026-09-22 14:07:18" (UTC). */
+export function utcLabel(iso: string): string {
+  return iso.replace("T", " ").replace(/Z$/, "");
+}
+
+/** A register row bound by the loader (bindPublicationAnchor, then bindPublicationRowToLines): its manifest entries and the status read
+ *  from its proof, never checked against a node. */
+export interface BoundPublicationRow { row: PublicationAnchorRow; entries: ReadonlyArray<{ relpath: string; digest: string }>; status: AnchorStatus }
+/** The timestamp state of the latest published record (the head), and the highest line whose own proof records a block. */
+export type PublicationAnchorState = { head_seq: number; latestAnchoredSeq: number | null } & (
+  | { state: "none" }
+  | { state: "pending"; via_seq: number; date_utc: string }
+  | { state: "anchored"; via_seq: number; date_utc: string; earliestHeight: number; blockRecords: number });
+
+/** The state of the head `{seq, line_hash}` (the latest publication line) from rows already bound. A row counts when (i) its seq is the
+ *  head's or later, (ii) lines[] carries the head's line_hash at the head's seq and chains every line from the head to the row, (iii) its
+ *  manifest entry `timeline.jsonl#L<seq>` carries that line's hash (key and value), (iv) its proof timestamps the manifest (held by the
+ *  loader). A line after the head that is not a key line throws (incoherent site data). anchored: a counted row whose proof records a
+ *  block, the earliest height over every counted row (ties: seq, then date); pending: a counted row without one, the oldest (seq, then
+ *  date); none otherwise. latestAnchoredSeq: the highest seq of a row carrying its own line whose proof records a block, or null. */
+export function publicationAnchorState(head: { seq: number; line_hash: string }, lines: readonly TimelineLineFacts[], bound: readonly BoundPublicationRow[]): PublicationAnchorState {
+  if (lines.slice(head.seq).some((l) => l.kind !== "key_rotation" && l.kind !== "key_revocation")) throw new Error(`publication anchor state: a line after the head (seq ${String(head.seq)}) is not a key line`);
+  const carries = (b: BoundPublicationRow): boolean => b.entries.some((e) => e.relpath === `timeline.jsonl#L${String(b.row.seq)}` && e.digest === lines[b.row.seq - 1]?.line_hash);
+  const chained = (to: number): boolean => lines[head.seq - 1]?.line_hash === head.line_hash && lines.length >= to && lines.slice(head.seq, to).every((l, i) => l.prev_line_hash === lines[head.seq - 1 + i]?.line_hash);
+  const order = (a: BoundPublicationRow, b: BoundPublicationRow): number => a.row.seq - b.row.seq || (a.row.date_utc < b.row.date_utc ? -1 : a.row.date_utc > b.row.date_utc ? 1 : 0);
+  const counted = bound.filter((b) => b.row.seq >= head.seq && chained(b.row.seq) && carries(b)).sort(order);
+  const earliest = (b: BoundPublicationRow | undefined): number => b?.status.bitcoinHeights[0] ?? Infinity;
+  const best = counted.reduce<BoundPublicationRow | undefined>((m, b) => (earliest(b) < earliest(m) ? b : m), undefined), first = counted[0];
+  const blocks = bound.filter((b) => carries(b) && b.status.bitcoinHeights.length > 0).map((b) => b.row.seq);
+  const base = { head_seq: head.seq, latestAnchoredSeq: blocks.length > 0 ? Math.max(...blocks) : null };
+  if (best !== undefined) return { ...base, state: "anchored", via_seq: best.row.seq, date_utc: best.row.date_utc, earliestHeight: earliest(best), blockRecords: best.status.bitcoinHeights.length };
+  return first === undefined ? { ...base, state: "none" } : { ...base, state: "pending", via_seq: first.row.seq, date_utc: first.row.date_utc };
+}
+
+/** The one wording of the state, rendered by every page that states it (never typed in a page); numbers and dates come from the state. */
+export function publicationAnchorSentence(s: PublicationAnchorState): string {
+  if (s.state === "none") return "none: no anchor manifest lists the latest record's digests; it is signed and chained, not timestamp-anchored";
+  const later = s.via_seq > s.head_seq ? ` through a later line of the same chain (line ${String(s.via_seq)}), which carries this record's line by its hash` : "";
+  if (s.state === "pending") return `submitted for a timestamp on ${utcLabel(s.date_utc)} UTC${later}; the proof is pending: it records calendars, no Bitcoin block yet`;
+  const block = `the proof file records Bitcoin block ${String(s.earliestHeight)}${s.blockRecords > 1 ? `, the earliest of ${String(s.blockRecords)}` : ""}`;
+  return `anchored${later}: ${block}; the record's line and every line before it existed before that block; read from the file when this page was built, not checked against a node here`;
+}
+
+/** The line /bell/anchors renders for latestAnchoredSeq (never typed). */
+export function latestAnchoredLine(seq: number | null): string {
+  return `latest line whose proof records a Bitcoin block: ${seq === null ? "none yet" : String(seq)}`;
 }

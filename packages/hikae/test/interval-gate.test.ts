@@ -15,6 +15,7 @@ const intervalVerdict: CoverageVerdict = conformInterval({
   residual: ["assume:synthetic-liquidable-24h"],
   producedAt: "2026-09-04T00:00:00Z",
   schemaVersion: "1.0.0",
+  cell: { qhatUnit: "label", scale: null, cellKey: null, policyRowSha256: null, policyTableSha256: null },
 }).verdict;
 
 function input(over: Partial<GateInput>): GateInput {
@@ -32,6 +33,7 @@ function input(over: Partial<GateInput>): GateInput {
     evaluable: true,
     tool: "perps_order_preview",
     schemaVersion: "1.0.0",
+    requestSha256: "e".repeat(64),
     ...over,
   };
 }
@@ -66,6 +68,6 @@ test("interval_gate_commit_defer_abstain", () => {
   assert.equal(clockClosed.reason, "clock_expired");
 
   // The decision carries the verdict's `interval` region (numeric containment, C6).
-  assert.equal(commit.verdict.region.kind, "interval");
+  assert.equal(commit.verdict.region?.kind, "interval");
   assert.equal(commit.intent, 1000);
 });

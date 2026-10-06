@@ -7,11 +7,14 @@
 // HONESTY: no string literal in this module carries a digit outside the site's closed exempt list (the root test scans
 // them with the honesty lint's own scanner; only the algorithm name SHA-256 rides): every number is interpolated
 // from a loaded field. The report's `served` flag reads "meets the floor" (committable), never "served"; the served
-// state of the class comes only from the served gate description. A "yes" is a test outcome at a stated level; the
+// state of the class comes only from the served gate description, and the served status of a committed stratum only
+// from the dated served verdict of the served-state file: it is stated in the present iff that verdict is covered for
+// this stratum AND its calibration points and bound margin are the report's AND the report's quantile rank is n (the
+// largest score); otherwise the conditional sentence stays (fail-closed). A "yes" is a test outcome at a stated level; the
 // zero-scored trials are counted next to each ratio; the report's own statement that no coverage bound across
 // episodes is estimated rides with the outcomes. Never a probability of being right.
 import type { CourseOutcome, UkemiCourse, UkemiStratum } from "./ukemi-course-load.ts";
-import type { UkemiServed } from "./ukemi-served-load.ts";
+import type { UkemiServed, UkemiServedVerdict } from "./ukemi-served-load.ts";
 
 export interface CourseRow {
   key: string;
@@ -113,6 +116,16 @@ function stratumRow(s: UkemiStratum, cuts: readonly string[]): CourseRow {
   };
 }
 
+/** The served verdict iff it states, in the present, the pre-registered status of this committed stratum: the registry
+ *  is committed, the verdict is covered for this very stratum, its calibration points and bound margin are the report's,
+ *  and the report's quantile rank is n (the bound margin is the largest calibration score). Otherwise null. */
+export function servedStatusOf(x: UkemiStratum, s: UkemiServed): UkemiServedVerdict | null {
+  const v = s.liq_verdict;
+  if (s.registry_state !== "committed" || v === null || v.verdict_reason !== "covered") return null;
+  if (v.stratum !== x.stratum || v.calibration_points !== x.n || v.bound_margin_base === null || v.bound_margin_base !== x.bound_margin_base) return null;
+  return x.bound_is_largest_score === true && x.quantile_rank === x.n ? v : null;
+}
+
 export function buildCourseView(c: UkemiCourse, s: UkemiServed): CourseView {
   const committedClass = s.registry_state === "committed";
   const rows = c.strata.map((x) => stratumRow(x, c.strata_cuts));
@@ -136,8 +149,15 @@ export function buildCourseView(c: UkemiCourse, s: UkemiServed): CourseView {
   ];
   for (const x of c.strata) {
     if (!x.meets_floor || x.bound_margin === null) continue;
+    const served = servedStatusOf(x, s);
+    if (served !== null) {
+      reading.push(
+        `Stratum ${String(x.stratum)} is committed and served: the served verdict read at ${s.read_at} carries ${String(served.calibration_points)} calibration points, fewer than the ${String(served.interior_rank_min_n)} an interior quantile rank needs at the served level, so the quantile rank equals the number of calibration points (${String(x.quantile_rank)} of ${String(x.n)}) and the served bound margin, ${x.bound_margin}, is the largest calibration score observed, reported as is. The served upper bound for a prediction in this stratum is the prediction plus this margin; served scores digest ${served.calibration_digest}.`,
+      );
+      continue;
+    }
     reading.push(
-      x.bound_is_largest_score === true
+      x.bound_is_largest_score === true && x.quantile_rank === x.n
         ? `Stratum ${String(x.stratum)}: the quantile rank equals the number of calibration points (${String(x.quantile_rank)} of ${String(x.n)}), so its bound margin, ${x.bound_margin}, is the largest calibration score observed. If the stratum is committed as reported, the upper bound for a prediction in it is the prediction plus this margin.`
         : `Stratum ${String(x.stratum)}: bound margin ${x.bound_margin} (quantile rank ${String(x.quantile_rank)} of ${String(x.n)}). If the stratum is committed as reported, the upper bound for a prediction in it is the prediction plus this margin.`,
     );

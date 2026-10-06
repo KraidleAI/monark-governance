@@ -22,7 +22,7 @@ export const COST = 0.15;
  *  one). Coverage is one minus this level. */
 export const ALPHA = 0.1;
 /** Frozen contract version echoed as a VALUE in the illustrative decision JSON (not a field name). */
-export const SCHEMA_VERSION = "1.0.0";
+export const SCHEMA_VERSION = "1.1.0";
 /** Ellipsis placeholder for a not-yet-decided field in the JSON view. */
 export const ELLIPSIS = "…";
 /** The C-5 illustrative caveat, rendered at EVERY sim mount (board / explainer / token). Kept here in the
@@ -215,7 +215,7 @@ export function gateJson(state: SimState, actions: readonly string[]): string {
     intent: state.intent,
     verdict: region
       ? {
-          task_class: "btc-dir-15m",
+          task_class: "byo-direction",
           alpha: ALPHA,
           region,
           abstain: false,

@@ -85,12 +85,13 @@ export function originGuard(request: Request): Response | undefined {
   });
 }
 
-/** The stateless MCP handler: a fresh `McpServer` with the tools registered, per request (D6). */
-export function createHarnessHandler(): McpHttpHandler {
+/** The stateless MCP handler: a fresh `McpServer` with the tools registered, per request (D6). `clock` is the
+ *  current instant handed to the tools (ADR-CM B-4: `produced_at` not in the future); read here in src/ (K-8). */
+export function createHarnessHandler(clock: () => number = Date.now): McpHttpHandler {
   return createMcpHandler(
     () => {
       const server = new McpServer({ name: SERVER_NAME, version: HARNESS_VERSION });
-      registerTools(server);
+      registerTools(server, clock);
       return server;
     },
     { keepAliveMs: KEEP_ALIVE_MS },

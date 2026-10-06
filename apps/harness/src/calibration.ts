@@ -4,16 +4,16 @@
  * DERIVED from the HIKAE S2 instrument (`generateLabeledSeries` over the committed `S2_DEFAULT.s2a`
  * parameters — `harness_version = "fixtures-synth"`), NOT hand-authored: the first `nCalib` evaluable
  * points of the seeded draw give the 0/1 indicator calibration scores. The result is DIGEST-PINNED:
- * `calibDigest(scores)` is asserted equal to `CALIB_DIGEST_PINNED` at module load — a fail-closed
+ * `scoresSha256(scores)` is asserted equal to `CALIB_DIGEST_PINNED` at module load — a fail-closed
  * guard, so a silent drift in the HIKAE draw (or in this derivation) throws at import time rather than
  * changing the gate's behaviour unnoticed.
  *
- * It is DECLARED synthetic (a plumbing fixture, not a measured predictor): the honesty of the class
- * lives in the tool description and in `BTC_DIR_CALIB_PROVENANCE`, never inside a frozen contract
+ * It is DECLARED synthetic (a plumbing fixture, not a measured predictor). The class is retired (ADR-CM B-5): no longer
+ * served, and the tool description names it only as retired; its honesty lives in `BTC_DIR_CALIB_PROVENANCE`, never inside a frozen contract
  * (K-1). No cascade calibration exists — that class abstains (`under_calib`), by design (D5).
  */
 import { S2_DEFAULT, generateLabeledSeries, indicatorScore, HARNESS_VERSION } from "@monark/hikae";
-import { calibDigest } from "@monark/contracts";
+import { scoresSha256 } from "@monark/contracts";
 import { narabiPredictorId } from "@monark/monark";
 
 const { seed, n, accuracy, nCalib } = S2_DEFAULT.s2a;
@@ -25,11 +25,11 @@ export const BTC_DIR_CALIB: readonly number[] = (() => {
   return evaluable.slice(0, nCalib).map((p) => indicatorScore(p.yhat, p.y));
 })();
 
-/** Committed digest of the calibration (recalculable by reference, ADR-M001 C5). */
-export const CALIB_DIGEST_PINNED = "fcebed27fd3f9607bba94898f5ae4ebba548ced519d1d800b49890235358eda6";
+/** Committed digest of the calibration: scores_sha256 over the derived order (contract 1.1.0). */
+export const CALIB_DIGEST_PINNED = "bb438031be5ca37ab62eedcb8044ea63969fa6314287019b4e68c235c473afd6";
 
 /** Digest computed from the derived scores at load time. */
-export const BTC_DIR_CALIB_DIGEST: string = calibDigest(BTC_DIR_CALIB);
+export const BTC_DIR_CALIB_DIGEST: string = scoresSha256(BTC_DIR_CALIB);
 
 // Fail-closed: a drift in the derivation or in the HIKAE draw is a defect, not a silent re-calibration.
 if (BTC_DIR_CALIB_DIGEST !== CALIB_DIGEST_PINNED) {
@@ -42,7 +42,7 @@ if (BTC_DIR_CALIB_DIGEST !== CALIB_DIGEST_PINNED) {
 /** Honest provenance line (declared `synthetic`); carried outside any frozen contract (K-1). */
 export const BTC_DIR_CALIB_PROVENANCE =
   `synthetic — HIKAE S2a instrument draw (harness_version=${HARNESS_VERSION}, seed=${seed}, n=${n}, ` +
-  `nCalib=${nCalib}); 0/1 indicator scores; calib_digest=${CALIB_DIGEST_PINNED}; declared synthetic, ` +
+  `nCalib=${nCalib}); 0/1 indicator scores; scores_sha256=${CALIB_DIGEST_PINNED}; declared synthetic, ` +
   `a plumbing fixture, not a measured predictor (ADR-M005 D5, C-8).`;
 
 
@@ -154,20 +154,11 @@ export const USDE_STABLE_RUN_CALIB: readonly number[] = [
   5.938196666666666e-7, 0.0000028906441666666664, 0.0000035537783749999998, 5.154214583333334e-7, 5.543449583333334e-7,
 ];
 
-/** Committed digest (ADR-M001 C5): calibDigest(scores) — the SAME value the wire verdict carries. */
+/** Provenance digest (ADR-M001 C5, calibDigest of the provenance tool); since 1.1.0 the wire carries scores_sha256. */
 export const USDE_STABLE_RUN_CALIB_DIGEST_PINNED = "c9793b281167465af88c9e837aaeaf7fb26c709ff4c5e342c68893e759d9e86c";
 
-/** Digest recomputed from the committed scores at load time. */
-export const USDE_STABLE_RUN_CALIB_DIGEST: string = calibDigest(USDE_STABLE_RUN_CALIB);
-
-// Fail-closed (motif BTC): a drift in the committed scores (or a wrong-scale regeneration) is a defect, not a
-// silent re-calibration — it throws at import time rather than shipping a different region unnoticed.
-if (USDE_STABLE_RUN_CALIB_DIGEST !== USDE_STABLE_RUN_CALIB_DIGEST_PINNED) {
-  throw new Error(
-    `calibration: USDe stable-run digest drift — computed ${USDE_STABLE_RUN_CALIB_DIGEST} != pinned ${USDE_STABLE_RUN_CALIB_DIGEST_PINNED} ` +
-      `(ADR-M008 Amendement bis / A1; regenerate via scripts/record-usde-calib.mjs at the adapter 1e12 scale and re-pin, never silently accept).`,
-  );
-}
+/** scores_sha256 of the committed scores in their stored (time) order (contract 1.1.0): the load guard, = sha256 of fixtures/usde-calib-scores.json. */
+export const USDE_STABLE_RUN_SCORES_SHA256_PINNED = "e44a68b6b697a32f3f198770e740ab206393dc3425e8cc59e4b0e1e4e65cfd28";
 
 /** Honest provenance (MEASURED; carried OUTSIDE any frozen contract, K-1). Not synthetic, not a score, not advice. */
 export const USDE_STABLE_RUN_CALIB_PROVENANCE =
@@ -190,8 +181,77 @@ export interface CommittedCalibration {
   readonly provenance: string;
 }
 
+// ─────────────────────────────────────────────────────────────────────────────────────────────────────
+// Ukemi `liquidation-eligible-coverage` (class A, decision 108) — the committed stratum of the FRESH episode
+// (ADR-U4b-2b D1; ADR-U4b D1-D4, decisions 123/126). MEASURED: one-sided exceedance scores max(Y − ŷ, 0) of the
+// frozen scorer, grouped by the a-priori Mondrian strata; ONE CommittedCalibration per committable stratum (n ≥
+// nMin = 100), keyed `${UKEMI_LIQ_PREDICTOR_BASE}/s<k>` (the served key is re-derived server-side from ŷ, gate.ts).
+// The block below is WRITTEN by scripts/emit-u4b-calibration.mjs from the OUTPUT of the frozen generator
+// scripts/record-u4b-calib.mjs (never transcribed by hand; the emitter filters nothing), re-run by:
+//   node scripts/emit-u4b-calibration.mjs --scores <fresh scores series> --book <fresh book> --oracle-path <fresh
+//     oracle path> --labels <fresh realized labels> --report apps/site/data/ukemi-course.json --measured-on 2026-09-23
+//     --write apps/harness/src/calibration.ts
+// (the four fresh series live under apps/sentinel/test/fixtures/ukemi/u4b/, declared in their PROVENANCE file).
+// Strata below nMin are NOT committed (checkpoint-1 C-4): the gate abstains under_calib there with n_calib 0.
+// ─────────────────────────────────────────────────────────────────────────────────────────────────────
+// ---- BEGIN GENERATED by scripts/emit-u4b-calibration.mjs from the frozen generator scripts/record-u4b-calib.mjs; never hand-edit ----
+// Input: the fresh scores series (sha256 LF fd6fab7ebf5d2779b904494accab8916fac8293587ed24d21fb052cb024074a4); 1 of 4 strata committable.
+/** The committed cell-A predictor BASE of the liquidation-eligible-coverage class: the fresh episode's scores meta
+ *  cell_a.predictor_id (ADR-U4b-2b D1). The served lookup key is `${UKEMI_LIQ_PREDICTOR_BASE}/s${strateOf(yhat)}`,
+ *  re-derived SERVER-SIDE (the client predictor_id is ignored for this class). */
+export const UKEMI_LIQ_PREDICTOR_BASE = "ukemi:realized-v2@eip155:1/aave-v3-core/weth-mono/weth-2025-09-22/A";
+
+/** Stratum s0: the 170 committed one-sided exceedance scores max(Y - yhat, 0), base 8-dec at scale 1,
+ *  in generator order (ascending). Order-independent for the digest (calibDigest sorts). */
+export const UKEMI_LIQ_S0_CALIB: readonly number[] = [
+  0, 0, 0, 0, 0, 0, 0, 0,
+  0, 0, 0, 0, 0, 0, 0, 0,
+  0, 0, 0, 0, 0, 0, 0, 0,
+  0, 0, 0, 0, 0, 0, 0, 0,
+  0, 0, 0, 0, 0, 0, 0, 0,
+  0, 0, 0, 0, 0, 0, 0, 0,
+  0, 0, 0, 0, 0, 0, 0, 0,
+  0, 0, 0, 0, 0, 0, 0, 0,
+  0, 0, 0, 0, 0, 0, 0, 0,
+  0, 0, 0, 0, 0, 0, 0, 0,
+  0, 0, 0, 0, 0, 0, 0, 0,
+  0, 0, 0, 0, 0, 0, 0, 0,
+  0, 0, 0, 0, 0, 0, 0, 0,
+  0, 0, 0, 0, 0, 0, 0, 0,
+  0, 0, 0, 0, 0, 0, 0, 0,
+  0, 0, 0, 0, 0, 0, 0, 0,
+  0, 0, 0, 0, 0, 0, 0, 0,
+  0, 0, 0, 0, 0, 0, 0, 0,
+  0, 0, 0, 1300, 1473, 4611, 13095, 14116,
+  25411, 78310, 81471, 227602, 275562, 412656, 498122, 543541,
+  626379, 902102, 1311940, 2541308, 3256830, 3268155, 3560986, 4338176,
+  2090575766, 126184298996,
+];
+/** Committed C5 digest of stratum s0 (ADR-M001 C5, float64_be sorted): the value the wire verdict carries. */
+export const UKEMI_LIQ_S0_CALIB_DIGEST_PINNED = "e7e673664c03e3c5d15956d864f8379b6fe4660ed689be38a85add95d4eff334";
+/** Measured provenance of stratum s0 (English ASCII, exported: no reader path, no amount, no price). */
+export const UKEMI_LIQ_S0_CALIB_PROVENANCE =
+  "measured -- Ukemi liquidation-eligible-coverage class A, stratum s0 of the fresh episode weth-2025-09-22 (Aave v3 core liquidations with WETH collateral; one recorded episode): n=170 one-sided exceedance scores max(Y - yhat, 0) at scale 1; alpha=0.01, nMin=100; quantile rank p=170, equal to n, so q_hat is the stratum maximum (n below 199, pre-registered H-2bis, reported as is); calib_digest=e7e673664c03e3c5d15956d864f8379b6fe4660ed689be38a85add95d4eff334; strata s1, s2 and s3 are not committed (n below nMin 100: under_calib); scores series sha256 fd6fab7ebf5d2779b904494accab8916fac8293587ed24d21fb052cb024074a4, book sha256 4b601785681cb8f6cdbbcc3a99f1cb19424e0a568c703cb9625628526e058341, oracle path sha256 cc7f5cd9b7b93a319044514a1d150a805393e69c575314ff21b1cb9c6ddb0971, realized labels sha256 e2d6c0e48f3503aed4e48d5041d6178ca28b8dc6db36c19ba534ccd4c5611837 (LF); hypothesis report body_digest 8ad53d1a83601045599f1117d69f1675a36112b856074a7902217d3f71e1d44f; frozen generator scripts/record-u4b-calib.mjs, emitted by scripts/emit-u4b-calibration.mjs; measured 2026-09-23.";
+
+/** The committed strata of the class: EXACTLY the committable strata of the frozen generator, in its order; every
+ *  other stratum is absent, so the served gate abstains under_calib there (checkpoint-1 C-4). */
+export const UKEMI_LIQ_COMMITTED: readonly CommittedCalibration[] = [
+  {
+    taskClass: "liquidation-eligible-coverage",
+    predictorId: "ukemi:realized-v2@eip155:1/aave-v3-core/weth-mono/weth-2025-09-22/A/s0",
+    scores: UKEMI_LIQ_S0_CALIB,
+    digestPinned: UKEMI_LIQ_S0_CALIB_DIGEST_PINNED,
+    provenance: UKEMI_LIQ_S0_CALIB_PROVENANCE,
+  },
+];
+// ---- END GENERATED by scripts/emit-u4b-calibration.mjs ----
+
+/** scores_sha256 of each committed liq stratum in its stored (ascending) order (contract 1.1.0): the load guard. */
+export const UKEMI_LIQ_SCORES_SHA256_PINNED: Readonly<Record<string, string>> = { [`${UKEMI_LIQ_PREDICTOR_BASE}/s0`]: "a927722276941a4f8f677bab3625b8ee3128ecf84d2d078da0a316b42a6ee3c8" };
+
 /** The SINGLE committed-calibration registry (ADR-M008 Amendement bis): keyed on (task_class, predictor_id).
- *  A future family member = its own series + tested pooling + a new digest by ADR, never label routing. */
+ *  A future family member = its own series + tested pooling + a new digest by ADR, never label routing. The
+ *  liq class contributes its committed strata (ADR-U4b-2b D1), each under its own stratum key. */
 const COMMITTED_CALIBRATIONS: readonly CommittedCalibration[] = [
   {
     taskClass: USDE_STABLE_RUN_TASK_CLASS,
@@ -200,7 +260,20 @@ const COMMITTED_CALIBRATIONS: readonly CommittedCalibration[] = [
     digestPinned: USDE_STABLE_RUN_CALIB_DIGEST_PINNED,
     provenance: USDE_STABLE_RUN_CALIB_PROVENANCE,
   },
+  ...UKEMI_LIQ_COMMITTED,
 ];
+
+/** The load guard of contract 1.1.0, per committed entry: scores_sha256 of its scores in the stored order equals its pin,
+ *  held outside the generated block (USDe, then liq by stratum key); an entry with no pin throws too. The C5 digestPinned
+ *  stays the provenance pin of each entry, checked by the tests through the provenance tool (decision Q-3b-2). */
+export function assertCommittedScores(c: CommittedCalibration): void {
+  const pinned = c.taskClass === USDE_STABLE_RUN_TASK_CLASS ? USDE_STABLE_RUN_SCORES_SHA256_PINNED : UKEMI_LIQ_SCORES_SHA256_PINNED[c.predictorId];
+  const computed = scoresSha256(c.scores);
+  if (computed !== pinned) throw new Error(`calibration: scores drift for ${c.predictorId}: scores_sha256 ${computed} != pinned ${String(pinned)} (re-record and re-pin, never silently accept).`);
+}
+
+// Fail-closed at import, in every process importing this module (harness, Narabi job): a drift never serves unnoticed.
+for (const c of COMMITTED_CALIBRATIONS) assertCommittedScores(c);
 
 /** Look up the committed calibration for a (task_class, predictor_id) key. Non-match ⇒ undefined ⇒ the
  *  caller abstains `under_calib` (isolation of population on the wire, C-10, fail-closed). */
@@ -208,16 +281,31 @@ export function lookupCommittedCalibration(taskClass: string, predictorId: strin
   return COMMITTED_CALIBRATIONS.find((c) => c.taskClass === taskClass && c.predictorId === predictorId);
 }
 
+/** Lower-case ASCII letters A to Z only (no locale, no Unicode folding): the BYO look-alike fold (ADR-CM B-1). */
+export function asciiLower(s: string): string {
+  return s.replace(/[A-Z]/g, (c) => String.fromCharCode(c.charCodeAt(0) + 32));
+}
+
 /**
- * The committed cell-A predictor BASE for the `liquidation-eligible-coverage` class (task_class,
- * predictor_id base). In U-4b-2a the registry above has NO liquidation-eligible-coverage entry (empty), so
- * this base matches nothing and its exact value is behaviourally inert; U-4b-2b re-pins it to the FRESH
- * episode's `meta.cell_a.predictor_id` literal and commits the K entries. The served lookup key is
- * `${UKEMI_LIQ_PREDICTOR_BASE}/s${strateOf(yhat)}`, re-derived SERVER-SIDE (the CLIENT predictor_id is
- * IGNORED for this class, delta D-3). The e2 DESIGN predictor_id is NEVER served (ADR-U4b D1), so it is
- * deliberately NOT used here: a clearly-marked placeholder stands until -2b commits the fresh episode.
+ * True iff (taskClass, predictorId) equals a committed key after `asciiLower` on both sides (ADR-CM B-1,
+ * audit P3 S-11): a checksum-case address or a case variant of a committed key is the committed key for the
+ * BYO guard. Never used to SERVE a calibration: serving stays on the exact `lookupCommittedCalibration`.
  */
-export const UKEMI_LIQ_PREDICTOR_BASE = "ukemi:liquidation-eligible-coverage-uncommitted-until-u4b-2b";
+export function matchesCommittedKeyFolded(taskClass: string, predictorId: string): boolean {
+  const cls = asciiLower(taskClass);
+  const key = asciiLower(predictorId);
+  return COMMITTED_CALIBRATIONS.some((c) => asciiLower(c.taskClass) === cls && asciiLower(c.predictorId) === key);
+}
+
+/**
+ * True iff (taskClass, predictorId) equals a committed key after `fold` on both sides (ADR-CM B-10: the ASCII
+ * confusable reduction of gate.ts). Like `matchesCommittedKeyFolded`, a BYO guard only, never a serving lookup.
+ */
+export function matchesCommittedKeyWith(fold: (s: string) => string, taskClass: string, predictorId: string): boolean {
+  const cls = fold(taskClass);
+  const key = fold(predictorId);
+  return COMMITTED_CALIBRATIONS.some((c) => fold(c.taskClass) === cls && fold(c.predictorId) === key);
+}
 
 /**
  * True iff at least one committed calibration exists for `taskClass` (REGISTRY level, delta D-3). The served
