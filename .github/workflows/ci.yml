@@ -56,7 +56,6 @@ jobs:
           VIBEGATES_PR_LIMIT: "1205" # ADR-M003 D9 (R-23: measured median of the 3 Phase 1 lots)
           VIBEGATES_CONTENT_LIMIT: "8000" # ADR-M013 amendment 2026-09-24 (investor decision 207; R-23: sourced there)
           R25_READ_TOKEN: ${{ github.token }} # ADR-M003 D9 nonies: read-only API reads of the integration proof, this step only
-          PR_NUMBER: ${{ github.event.pull_request.number }}
         run: |
           case "$VIBEGATES_PR_LIMIT" in
             ''|*[!0-9]*)
@@ -131,13 +130,6 @@ jobs:
           echo "R-25 mode: $R25_MODE"
           echo "Changed lines: $CHANGED (ADR bound: $VIBEGATES_PR_LIMIT)"
           echo "Content changed lines: $CONTENT_CHANGED (ADR bound: $VIBEGATES_CONTENT_LIMIT)"
-          # ADR-M003 D9 (exception of 2026-10-06, investor decision in MONARK's thread): one-off waiver for the T0
-          # integration PR 198 only (trunk into main; integration mode refused by the unproven gate commit 04c97744).
-          # A shell guard, never an `if:` directive (root test 38). Removed in the commit after the merge.
-          if [ "$PR_NUMBER" = "198" ]; then
-            echo "::notice::R-25 bound waived for integration PR 198 only (ADR-M003 D9, exception of 2026-10-06)."
-            exit 0
-          fi
           if [ "$CHANGED" -gt "$VIBEGATES_PR_LIMIT" ]; then
             echo "::error::BLOCKED (VibeGates R-25): $CHANGED changed lines exceed the ADR bound of $VIBEGATES_PR_LIMIT. Split the PR."
             exit 1
