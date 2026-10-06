@@ -194,3 +194,20 @@ test("public_text_gate_ph_passes_a_lowercase_word — {dir} is prose, the marker
 test("public_text_gate_ph_passes_a_shell_variable — ${HOME} is a command, {HOME} is a marker (delta G2 D-7)", () => {
   assert.deepEqual(phWords("Set ${MONARK_PUBLIC_MIRROR} then fill {HOME}"), each(["{HOME}"]));
 });
+
+// E-2 of the delta2 G2 (agreed by MONARK): a shell-variable form of a TEMPLATE marker, ${T0}, is still an unfilled marker; any
+// other variable, ${HOME}, stays a command. The template markers are the gate's closed list (TEMPLATE_MARKERS), one case each.
+// killer: scripts/public-text-deny.mjs:127 CONST "\"T0\", " -> ""
+test("public_text_gate_ph_refuses_a_template_variable_t0 — ${T0} is the T0 marker", () => {
+  assert.deepEqual(phWords("Served on ${T0} from ${HOME}"), each(["${T0}"]));
+});
+
+// killer: scripts/public-text-deny.mjs:127 CONST "\"OPENAPI_SHA256\", " -> ""
+test("public_text_gate_ph_refuses_a_template_variable_openapi — ${OPENAPI_SHA256} is the document marker", () => {
+  assert.deepEqual(phWords("The document ${ OPENAPI_SHA256 } read from ${HOME}"), each(["${ OPENAPI_SHA256 }"]));
+});
+
+// killer: scripts/public-text-deny.mjs:126 CONST "(?<!\\$)" -> ""
+test("public_text_gate_ph_passes_home — ${HOME} is a command, the marker beside it is not", () => {
+  assert.deepEqual(phWords("Set ${HOME}, then fill {T0}"), each(["{T0}"]));
+});
