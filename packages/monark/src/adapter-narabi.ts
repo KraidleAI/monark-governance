@@ -22,8 +22,8 @@ import {
 } from "@monark/contracts";
 import type { AttestedFlow, Prediction, CoverageReason } from "@monark/contracts";
 
-/** The frozen contract version (ADR-M001) — a constant, never carried by the inputs. */
-const SCHEMA_VERSION = "1.0.0";
+/** The Prediction version: the one constant of @monark/contracts (contract 1.1.0; Q-3 of C1); AttestedFlow stays 1.0.0. */
+import { SCHEMA_VERSION } from "@monark/contracts";
 
 /** The committed task_class for the Narabi velocity forecast (ADR-M008 D4). "24h" = the forecast horizon h. */
 export const NARABI_TASK_CLASS = "stable-run-velocity-24h";

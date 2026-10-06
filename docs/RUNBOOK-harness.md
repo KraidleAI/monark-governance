@@ -165,14 +165,14 @@ node scripts/verify-harness.mjs --out docs/deploy-CA-harness.json
 It checks: `/health` and `/openapi.json` live; a present-and-invalid `Origin` → `403` on both hosts; the
 MCP `tools/list` returns the four tools (SET EQUALITY, not subset — B-2); a real `gate`, `cascade`,
 `attest`, and `calibrate` call; a **`gate_byo_call`** (Lot C2, ADR-M007 D7) that reuses the `calibrate`
-call's scores as `params.calibration` and asserts the live decision's `verdict.calib_digest` equals the
-live `calibrate` `set_digest` AND `action === "commit"` — proving the BYO loop end-to-end; three checks of the
+call's scores as `params.calibration` and asserts the live decision's `verdict.scores_sha256` equals the
+live `calibrate` `scores_sha256` AND `action === "commit"` — proving the BYO loop end-to-end; three checks of the
 `liquidation-eligible-coverage` class on the **COMMITTED** liq registry (U-4b-2b, ADR-U4b-2b D4; they replaced the
 two empty-registry checks of HARNESS-DESC-1):
 - **`gate_liq_call`** POSTs a decision whose `yhat` lies in the committed stratum s0 (alpha 0.01, nMin 100, the body
   unchanged since HARNESS-DESC-1) and asserts `200`, `verdict.reason === "covered"`, the upper bound
   `verdict.region = { kind: "interval", lo: 0, hi: yhat + verdict.qhat }` with `verdict.qhat > 0` (read from the
-  verdict, never typed), `verdict.n_calib` = the committed stratum size and `verdict.calib_digest` = its C5 digest
+  verdict, never typed), `verdict.n_calib` = the committed stratum size and `verdict.scores_sha256` = its pinned digest
   (both fixed by value in the script, equal to `apps/harness/src/calibration.ts` by test), and the committed class text
   in `content`, never the empty-registry sentence. The TOP-LEVEL `action` / `reason` are recorded in the detail next to
   `verdict.reason` (under this body's `tauInterval 1` and open clock, L3 answers `defer` / `interval_too_wide`); they
@@ -183,21 +183,40 @@ two empty-registry checks of HARNESS-DESC-1):
   clause ENTIRE ("the served region is" + the upper-bound, requirements, H-3 and conditional sentences) and NOT the
   empty-registry sentence.
 
+The 15 checks, by name, in the script's order: `health`, `openapi`, `origin_403_api`, `origin_403_mcp`,
+`mcp_tools_list`, `gate_call`, `gate_retired_call`, `gate_future_call`, `gate_liq_call`, `gate_liq_uncommitted_call`,
+`mcp_gate_description_liq`, `cascade_call`, `attest_call`, `calibrate_call`, `gate_byo_call`.
+
+Two refusal checks carry their stable `code` (CM-2b, ADR-CM B-5; CM-2a, MONARK C-8):
+- **`gate_retired_call`** POSTs the retired class `btc-dir-15m` and asserts `400`, `error === "tool_error"` and
+  `code === "task_class_retired"`.
+- **`gate_future_call`** POSTs the `gate_call` body with `produced_at` in 2099 and asserts `400`,
+  `error === "tool_error"` and `code === "produced_at_future"`.
+
 Against a process that still serves the EMPTY liq registry (any SHA before the U-4b-2b switch window, e.g. `bb41b6d`),
 `gate_liq_call` and `mcp_gate_description_liq` are RED by design: that surface is exactly vector alpha-2b of
 `test/verify-harness-liq.test.ts` (its response body hashes to the `gate_liq_call` sha256 of the CA recorded at
 `bb41b6d`). Against a process older than U-4b-2a, both liq calls are a 400 (unknown task_class). And the TLS
-certificate (issuer, expiry). It writes the **conformity attestation** (URL, timestamp, per-check sha256, TLS cert)
-to the `--out` file and exits **1** on any failure (it sets `process.exitCode` and returns; since U-4b-2b the exit is
-discriminating under win32 too, item O-1b-G2-1). Keep that file as the CA.
+certificate (issuer, expiry) of **every host it contacts**: `tls` for the `api.` host and `tls_mcp` for the `mcp.` host,
+each a real handshake on its own port (G2 of T0-TOOLING-1, review m-f: the MCP checks reach `mcp.` by its own name, so
+its certificate is checked too). It prints the **conformity attestation** (URL, timestamp, per-check sha256, TLS
+blocks) and writes it to the `--out` file **only when every check passed AND both hosts passed an authorized
+handshake** (T0-TOOLING-1), through `<out>.tmp` and a rename (an interruption never leaves a torn CA). Otherwise the
+`--out` file stays as it was (the last green CA): a red run exits **1** and writes `<out>.failed`; a green run on an
+`http` target (TLS not checked, a local pass) exits 0 and writes `<out>.local`. Both side records are ignored by git at
+the CA path, refused by the public export anywhere, and removed by the next green run. Every request and handshake is
+bounded by `--timeout <ms>` (default 10000); a timeout is a failed check. It sets `process.exitCode` and returns; since
+U-4b-2b the exit is discriminating under win32 too, item O-1b-G2-1. An unknown, repeated or empty option, or an option
+without its value (`--output`, a bare `--out`, `--out ""`, `--out` twice), is refused by name with exit **2** before
+any request. Keep the `--out` file as the CA.
 
 **Deploy reserves — the green gate (Lot H6).** The deploy is GREEN only when BOTH hold:
-- the command **exits 0** AND its stderr prints `VERIFY OK` (13 of 13 checks). Treat ANY non-zero exit as RED and
+- the command **exits 0** AND its stderr prints `VERIFY OK — all checks passed` (15 of 15 checks; the CA's `checks` array lists them all, each `ok: true`). Treat ANY non-zero exit as RED and
   read the JSON `checks` array to find the failing check (on Windows an unavailable interpreter can surface as exit
   `127` — still RED, never a pass); and
-- on the first real **https** run, the CA's `tls.authorized === true` (a genuine handshake to the live
-  cert, not merely "fetch didn't throw"). An http/local target reports `tls.skipped` and does NOT satisfy
-  the go-live gate.
+- on the first real **https** run, the CA's `tls.authorized === true` and `tls_mcp.authorized === true` (genuine
+  handshakes to the live certs, not merely "fetch didn't throw"). An http/local target reports `skipped`, never writes
+  `--out` and does NOT satisfy the go-live gate.
 
 After a GREEN deploy, record the CA in the provenance journal — compute its sha256 and log that digest with
 today's date to `docs/JOURNAL-PROVENANCE.md`, alongside the artifact `docs/deploy-CA-harness.json`:

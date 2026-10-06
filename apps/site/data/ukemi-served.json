@@ -1,14 +1,14 @@
 {
-  "$comment": "Committed, hashed facts about the SERVED liquidation-eligible-coverage class of the MONARK gate, rendered by /ukemi/course through apps/site/lib/ukemi-served-load.ts after a sha256 check against apps/site/data/manifest.sha256.json. Written by the source repository's served-state sync tool (not in the public export) from ONE GET of the harness OpenAPI document and ONE POST of the harness /gate endpoint (the deploy check's liquidation-eligible-coverage body) at read_at: registry_state is empty when the served /gate description carries the empty-registry clause and committed when it carries the upper-bound clause (exactly one must match, composed from the gate module's own sentences); liq_clause is that served clause verbatim; cascade_uncalibrated_sentence_served records whether the served /cascade description carries the cascade class's uncalibrated sentence; body_sha256 is the sha256 of the OpenAPI body as read; liq_verdict holds the served verdict of that /gate call (the probe's stratum, the verdict reason, the served alpha, the calibration points, the bound margin as an exact base-currency integer string or null, the calibration digest, the smallest calibration count for which the conformal rank at that alpha is interior, and the sha256 of the /gate body as read, which is the sha256 the deploy check recorded for that call), checked against the registry state, the source repository's committed calibration and the deploy check record before writing.",
+  "$comment": "Committed, hashed facts about the SERVED liquidation-eligible-coverage class of the MONARK gate, rendered by /ukemi/course through apps/site/lib/ukemi-served-load.ts after a sha256 check against apps/site/data/manifest.sha256.json. Written by the source repository's served-state sync tool (not in the public export) from ONE GET of the harness OpenAPI document and ONE POST of the harness /gate endpoint (the deploy check's liquidation-eligible-coverage body) at read_at: registry_state is empty when the served /gate description carries the empty-registry clause and committed when it carries the upper-bound clause (exactly one must match, composed from the gate module's own sentences); liq_clause is that served clause verbatim; cascade_uncalibrated_sentence_served records whether the served /cascade description carries the cascade class's uncalibrated sentence; body_sha256 is the sha256 of the OpenAPI body as read; liq_verdict holds the served verdict of that /gate call (the probe's stratum, the verdict reason, the served alpha, the calibration points, the bound margin as an exact base-currency integer string or null, the scores digest, the smallest calibration count for which the conformal rank at that alpha is interior, and the sha256 of the /gate body as read, which is the sha256 the deploy check recorded for that call), checked against the registry state, the source repository's committed calibration and the deploy check record before writing.",
   "schema": "monark-site-ukemi-served-v2",
   "host": "https://api.monarkgate.tech",
   "path": "/openapi.json",
-  "read_at": "2026-10-04T07:44:41.521Z",
+  "read_at": "2026-10-06T05:43:07.457Z",
   "served_class": "liquidation-eligible-coverage",
   "registry_state": "committed",
   "liq_clause": "the served region is a conformal upper bound on the liquidable amount for the calibrated class; the lower edge is 0 by construction, not a calibrated bound; abstains (under_calib) outside it; this class requires alpha = 0.01, nMin = 100; calibrated on one recorded episode; no coverage is claimed on any other event; the H-3 exchangeability check is a report, a YES licenses nothing more; the bound holds only if yhat was produced by the frozen close-factor rule on a mono-collateral WETH account at the first crossing, which the gate does not check",
   "cascade_uncalibrated_sentence_served": true,
-  "body_sha256": "d605b912916cc679d4347299bf7d22bb77bf8e1af4c502dd18e2213e6d2a38d7",
+  "body_sha256": "61c9df97a254a863a68fdc2c493799803397bfa190b85db3ca97673d2a8ccbf0",
   "liq_verdict": {
     "path": "/gate",
     "stratum": 0,
@@ -16,8 +16,8 @@
     "served_alpha": 0.01,
     "calibration_points": 170,
     "bound_margin_base": "126184298996",
-    "calibration_digest": "e7e673664c03e3c5d15956d864f8379b6fe4660ed689be38a85add95d4eff334",
+    "calibration_digest": "a927722276941a4f8f677bab3625b8ee3128ecf84d2d078da0a316b42a6ee3c8",
     "interior_rank_min_n": 199,
-    "body_sha256": "7922956678f3336c3d119ee0469ab483f549803d99165d685584e3df5d5a3243"
+    "body_sha256": "e2bfb18be056b2ed6f0d1cdae681d9b9e38ede054c79509898243d327a105fe7"
   }
 }

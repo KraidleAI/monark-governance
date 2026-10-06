@@ -20,7 +20,7 @@ import { readFileSync, writeFileSync } from "node:fs";
 import { createHash } from "node:crypto";
 import { fileURLToPath } from "node:url";
 import { resolve } from "node:path";
-import { calibDigest } from "@monark/contracts";
+import { calibDigest } from "./lib/calib-digest-provenance.mjs";
 import { splitQuantile } from "@monark/hikae";
 import { fromAttestedFlow, isNarabiError, narabiPredictorId } from "@monark/monark";
 

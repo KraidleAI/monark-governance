@@ -96,7 +96,8 @@ import {
   VERIFY_HINT,
 } from "../apps/site/lib/narabi-copy.ts";
 import { loadNarabiServed, NARABI_SERVED_REL } from "../apps/site/lib/narabi-served-load.ts";
-import { loadNarabiCalibration, calibDigestOf, CALIB_SCORES_REL, CALIB_PROVENANCE_REL } from "../apps/site/lib/narabi-calib-load.ts";
+import { loadNarabiCalibration, CALIB_SCORES_REL, CALIB_PROVENANCE_REL } from "../apps/site/lib/narabi-calib-load.ts";
+import { scoresSha256 } from "../packages/contracts/src/index.ts";
 import { MEASURED_CLASS_CLAUSES, MEASURED_CLASS_RESERVE } from "../apps/site/lib/how-copy.ts";
 import { FLEET_AGENTS } from "../apps/site/lib/fleet.ts";
 import {
@@ -114,10 +115,9 @@ import {
 import type { TimelineLine as SentinelLine } from "../apps/sentinel/src/timeline.ts";
 import { PUBLIC_ENDPOINTS, makeRpcPool, QuorumDisagreementError } from "../apps/sentinel/src/rpc.ts";
 import { trackerReplay, trackerDigest, trackerStepSize } from "../packages/hikae/src/index.ts";
-import { calibDigest } from "../packages/contracts/src/index.ts";
 import {
   USDE_STABLE_RUN_CALIB,
-  USDE_STABLE_RUN_CALIB_DIGEST_PINNED,
+  USDE_STABLE_RUN_SCORES_SHA256_PINNED,
   USDE_STABLE_RUN_TASK_CLASS,
   USDE_STABLE_RUN_PREDICTOR_ID,
 } from "../apps/harness/src/calibration.ts";
@@ -536,14 +536,21 @@ test("narabi_live_renders_no_endpoint_url — the parser drops the endpoint URLs
 });
 
 // ── the gate card: size + digest derived at build, class + key bound to the served description ────────────────
-test("narabi_gate_facts_read_from_committed_sources — n_calib and calib_digest are derived from the sha-pinned fixture; class and key equal the served gate description", () => {
+// killer: apps/site/lib/harness-served-load.ts:192 CONST "!existsSync(join(root, HARNESS_PENDING_REL))" -> "true"
+test("narabi_gate_facts_read_from_committed_sources — n_calib and scores_sha256 are derived from the sha-pinned fixture; class and key equal the served gate description", async () => {
   const calib = loadNarabiCalibration(ROOT);
   assert.equal(calib.nCalib, USDE_STABLE_RUN_CALIB.length, "n_calib = the harness's committed calibration length");
-  assert.equal(calib.calibDigest, USDE_STABLE_RUN_CALIB_DIGEST_PINNED, "calib_digest = the harness's pinned digest");
-  // The port equals the producer on the committed scores and on the −0/+0 and order edge cases.
-  assert.equal(calibDigestOf(USDE_STABLE_RUN_CALIB), calibDigest(USDE_STABLE_RUN_CALIB), "calibDigest port = @monark/contracts on the committed scores");
-  for (const xs of [[0, -0], [-0, 0], [1, 0], [3, 1, 2], [1e-9, 5e-7]]) {
-    assert.equal(calibDigestOf(xs), calibDigest(xs), `calibDigest port = producer on ${JSON.stringify(xs)}`);
+  // Contract 1.1.0 (Q-M6): the page shows the digest the served verdict carries, scores_sha256 in the committed order, never the
+  // 1.0.0 sorted digest; the loader keeps no field of that name.
+  assert.equal("calibDigest" in calib, false, "the loader no longer derives the 1.0.0 sorted digest");
+  assert.equal(calib.scoresSha256, USDE_STABLE_RUN_SCORES_SHA256_PINNED, "scores_sha256 = the harness's pinned wire digest");
+  assert.notEqual(calib.scoresSha256, scoresSha256([...USDE_STABLE_RUN_CALIB].sort((a, b) => a - b)), "the committed order, not the sorted one");
+  // The port equals the producer of the contract on the committed scores and on the −0/+0 and order edge cases.
+  const port = (await import("../apps/site/lib/narabi-calib-load.ts") as Record<string, unknown>).scoresSha256Of;
+  assert.equal(typeof port, "function", "the loader exports its scores_sha256 port");
+  const portOf = port as (xs: readonly number[]) => string;
+  for (const xs of [USDE_STABLE_RUN_CALIB, [0, -0], [-0, 0], [1, 0], [3, 1, 2], [1e-9, 5e-7], [1e21, 1e-7]]) {
+    assert.equal(portOf(xs), scoresSha256(xs), `scores_sha256 port = producer on ${JSON.stringify(xs).slice(0, 40)}`);
   }
   // Fail-closed: a tampered fixture or a missing pin reds the build (loader throws).
   const tmp = mkdtempSync(join(tmpdir(), "narabi-calib-"));
@@ -563,16 +570,21 @@ test("narabi_gate_facts_read_from_committed_sources — n_calib and calib_digest
 
   // Class + key: equal to the harness's committed key AND present in the SERVED description. The served
   // /openapi.json is the generator's compact JSON: its sha256 equals the value the committed deployment conformity
-  // record holds for the served document (docs/deploy-CA-harness.json, check "openapi").
+  // record holds for the served document (docs/deploy-CA-harness.json, check "openapi"); while a pending snapshot exists
+  // (SERVED-PENDING-1, time (i) to (ii) of a block that changes a served surface), the in-process sha256 it carries instead.
   assert.equal(NARABI_SERVED.gate.task_class, USDE_STABLE_RUN_TASK_CLASS, "task_class = the committed calibration class");
   assert.equal(NARABI_SERVED.gate.predictor_id, USDE_STABLE_RUN_PREDICTOR_ID, "predictor_id = the committed calibration key");
   assert.ok(GATE_TOOL_DESCRIPTION.includes(`For '${NARABI_SERVED.gate.task_class}'`), "the served gate description names the class");
   assert.ok(GATE_TOOL_DESCRIPTION.includes(`(key ${NARABI_SERVED.gate.predictor_id})`), "the served gate description names the key");
+  const { loadHarnessPending } = await import("../apps/site/lib/harness-served-load.ts");
+  assert.equal(typeof loadHarnessPending, "function", "the openapi check follows the pending snapshot when one exists");
+  const pending = loadHarnessPending(ROOT);
   const openapi = JSON.stringify(buildOpenApi());
   const ca = JSON.parse(readFileSync(join(ROOT, "docs", "deploy-CA-harness.json"), "utf8")) as { checks: { name: string; sha256: string }[] };
   const servedOpenapi = ca.checks.find((c) => c.name === "openapi");
   assert.ok(servedOpenapi, "the deployment conformity record carries the served openapi check");
-  assert.equal(sha256(openapi), servedOpenapi.sha256, "the committed generator reproduces the served /openapi.json byte for byte (CA record)");
+  if (pending === null) assert.equal(sha256(openapi), servedOpenapi.sha256, "the committed generator reproduces the served /openapi.json byte for byte (CA record)");
+  else assert.equal(sha256(openapi), pending.openapi_sha256, "the committed generator reproduces the pending snapshot's /openapi.json (the served one is older until time (ii))");
   assert.ok(openapi.includes(NARABI_SERVED.gate.task_class) && openapi.includes(NARABI_SERVED.gate.predictor_id), "the served document carries class and key");
   assert.equal(NARABI_SERVED.gate.openapi_sha256, servedOpenapi.sha256, "the committed record was read from the served document the deployment record pins");
 
@@ -585,7 +597,7 @@ test("narabi_gate_facts_read_from_committed_sources — n_calib and calib_digest
   assert.equal(gateBody(String(calib.nCalib)), `${GATE_BODY_BEFORE} ${String(calib.nCalib)} ${GATE_BODY_AFTER}`, "the lede splices the derived size");
   // CARRIERS: the component renders the served/derived values, never a literal.
   const comp = readComponent();
-  for (const carrier of ["v={served.gate.task_class}", "v={served.gate.predictor_id}", "v={String(calibration.nCalib)}", "v={shortHash(calibration.calibDigest, 8)}", "lede={gateBody(String(calibration.nCalib))}"]) {
+  for (const carrier of ["v={served.gate.task_class}", "v={served.gate.predictor_id}", "v={String(calibration.nCalib)}", "v={shortHash(calibration.scoresSha256, 8)}", "lede={gateBody(String(calibration.nCalib))}"]) {
     assert.ok(comp.includes(carrier), `the gate card must render ${carrier}`);
   }
   assert.ok(/loadNarabiCalibration\(/.test(readPage()), "the server page derives the calibration at build");
@@ -1141,4 +1153,41 @@ test("narabi_committed_records_fail_closed — the served-facts record and the c
   // CARRIERS: the page reads both records through these loaders, the capture module and the typed facts are gone.
   assert.ok(/loadNarabiCapture\(root\)/.test(readPage()) && /loadNarabiServed\(root\)/.test(readPage()), "the page reads both records through their loaders");
   assert.ok(!existsSync(join(SITE, "lib", "narabi-snapshot.ts")) && !existsSync(join(SITE, "lib", "narabi-served.ts")), "no typed-value module remains");
+});
+
+// T0-TOOLING-1 (review B-3, c bis): the Narabi sync sets its own manifest entry (canonical form) instead of printing it for a
+// hand edit. Replayed on a copy of the committed record: the same facts and read_at give back the committed bytes and entry;
+// new facts move the entry to the new file, and the site loader accepts it. No network: the sync's write step only.
+// killer: scripts/sync-narabi-served.mjs:144 CONST "return next === text ? null : next;" -> "return null;"
+test("narabi_sync_sets_its_manifest_entry", async () => {
+  const sync = (await import(new URL("../scripts/sync-narabi-served.mjs", import.meta.url).href)) as Record<string, unknown>;
+  const write = sync["writeNarabiServed"] as ((root: string, facts: unknown, readAt: string) => string) | undefined;
+  assert.equal(typeof write, "function", "scripts/sync-narabi-served.mjs exports writeNarabiServed");
+  if (write === undefined) return;
+  const manifestRel = "apps/site/data/manifest.sha256.json";
+  const tmp = mkdtempSync(join(tmpdir(), "narabi-sync-"));
+  try {
+    mkdirSync(join(tmp, "apps", "site", "data"), { recursive: true });
+    for (const rel of [manifestRel, NARABI_SERVED_REL]) writeFileSync(join(tmp, rel), readFileSync(join(ROOT, rel), "utf8"));
+    const committed = JSON.parse(readFileSync(join(ROOT, NARABI_SERVED_REL), "utf8")) as { read_at: string; gate: Record<string, unknown>; sentinel_timer: unknown; probe: unknown };
+    const facts = { gate: committed.gate, sentinel_timer: committed.sentinel_timer, probe: committed.probe };
+    write(tmp, facts, committed.read_at);
+    assert.deepEqual([manifestRel, NARABI_SERVED_REL].map((rel) => readFileSync(join(tmp, rel), "utf8")), [manifestRel, NARABI_SERVED_REL].map((rel) => readFileSync(join(ROOT, rel), "utf8")), "the committed facts give back the committed bytes and entry");
+    const sha = write(tmp, { ...facts, gate: { ...committed.gate, openapi_sha256: "0".repeat(64) } }, "2026-10-06T12:00:00.000Z");
+    const files = (JSON.parse(readFileSync(join(tmp, manifestRel), "utf8")) as { files: Record<string, string> }).files;
+    assert.equal(files[NARABI_SERVED_REL], sha256(readFileSync(join(tmp, NARABI_SERVED_REL), "utf8").replace(/\r\n/g, "\n")), "the entry is the new file's CRLF->LF sha256");
+    assert.equal(sha, files[NARABI_SERVED_REL]);
+    assert.equal(loadNarabiServed(tmp).gate.openapi_sha256, "0".repeat(64), "the site loader accepts the new record");
+    // G2 M-5: the "unchanged" path repairs a stale entry (an interrupted or hand-edited manifest), and only then writes.
+    const repair = sync["repairNarabiEntry"] as ((root: string) => boolean) | undefined;
+    assert.equal(typeof repair, "function", "scripts/sync-narabi-served.mjs exports repairNarabiEntry");
+    writeFileSync(join(tmp, manifestRel), readFileSync(join(tmp, manifestRel), "utf8").replace(sha, "1".repeat(64)));
+    const stale = sync["narabiEntryFix"] as ((root: string) => string | null) | undefined;
+    assert.ok(typeof stale === "function" && stale(tmp) !== null, "a stale entry is seen without a write (--check exits 1 on it)");
+    assert.deepEqual([repair?.(tmp), repair?.(tmp)], [true, false], "a stale entry is set again, once");
+    assert.equal(stale?.(tmp), null, "a repaired entry is seen right");
+    assert.equal(loadNarabiServed(tmp).gate.openapi_sha256, "0".repeat(64), "the loader accepts the repaired manifest");
+  } finally {
+    rmSync(tmp, { recursive: true, force: true });
+  }
 });

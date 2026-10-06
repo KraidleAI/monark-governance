@@ -46,7 +46,8 @@ const COMMON = {
   taskClass: LIQUIDABLE_24H_CLASS,
   residual: ["assume:synthetic-liquidable-24h"],
   producedAt: "2026-09-04T00:00:00Z",
-  schemaVersion: "1.0.0",
+  schemaVersion: "1.1.0",
+  cell: { qhatUnit: "label", scale: null, cellKey: null, policyRowSha256: null, policyTableSha256: null },
 } as const;
 
 // Test 34 (ADR-M003 D11) — `interval` conformer: EXACT q̂ and region (deterministic) + MEAN coverage
@@ -59,7 +60,7 @@ test("interval_conformer_coverage", () => {
   const rHand = conformInterval({ ...COMMON, calib: hand, yhat: 1000 });
   assert.equal(rHand.qhat, 99, "q̂ = ⌈(99+1)·0.99⌉-th = 99th sorted residual = 99 (hand constant)");
   assert.deepEqual(rHand.region, { lo: 901, hi: 1099 }, "region = [ŷ−q̂, ŷ+q̂] = [901,1099]");
-  assert.equal(rHand.verdict.region.kind, "interval");
+  assert.equal(rHand.verdict.region?.kind, "interval");
   assert.equal(rHand.verdict.reason, "covered");
   assert.equal(rHand.verdict.abstain, false);
   assert.equal(rHand.verdict.method, "split");

@@ -10,31 +10,30 @@
  * Dispatch (D5):
  *   - `btc-dir-15m`         -> retired (ADR 0005, 2026-09-30; ADR-CM B-5): a named 400 `task_class_retired`; the
  *                             name stays reserved against BYO.
- *   - `cascade-liquidable-24h` → `conformInterval` with NO committed calibration ⇒ empty region ⇒
+ *   - `cascade-liquidable-24h` → `conformInterval` with NO committed calibration ⇒ no region (null) ⇒
  *                             `abstain`/`under_calib`. That is the honest expected result, not a defect.
  *   - `stable-run-velocity-24h` → committed calibration looked up PER KEY (task_class, predictor_id)
- *                             (ADR-M008 Amendement bis): the USDe key ⇒ `splitQuantile` + `buildIntervalRegion`
+ *                             (ADR-M008 Amendement bis): the USDe key ⇒ its admitted row + `scoreTestBand`
  *                             over USDE_STABLE_RUN_CALIB (region `interval`); any other key ⇒ `under_calib`.
  *
- * Server-owned fields (D6/K-4c/K-4d): `schema_version` is fixed here (`"1.0.0"`), `timedOut=false`,
+ * Server-owned fields (D6/K-4c/K-4d): `schema_version` is `SCHEMA_VERSION` of @monark/contracts, `timedOut=false`,
  * `evaluable`/`nCalib` are derived; `clockOpen`, `tau`, `tauInterval`, `alpha`, `nMin`, `bFloor`,
  * `remainingBudget` (B_t), `intent`, `tool` are caller-carried. Invalid params (K-4a) ⇒ a tool error,
  * never a silent gate. The gate ONLY emits a decision; it NEVER calls `params.tool` (D0/D1).
  */
 import {
-  splitQuantile,
+  splitQuantileShortest,
   conformalSet,
   buildSetRegion,
-  buildIntervalRegion,
+  scoreTestBand,
   buildVerdict,
-  underCalibVerdict,
+  underCalibVerdict, noRegionVerdict,
   conformInterval,
   gate,
-  NUMERIC_LABEL_SCHEMA,
 } from "@monark/hikae";
-import type { GateInput } from "@monark/hikae";
-import { assertClosedGateDecision, assertNoForbiddenKey } from "@monark/contracts";
-import type { GateDecision, Prediction, CoverageVerdict, AttestedPrice } from "@monark/contracts";
+import type { GateInput, VerdictCell } from "@monark/hikae";
+import { assertClosedGateDecision, assertNoForbiddenKey, requestSha256, sha256Canonical, SCHEMA_VERSION, TOOL_ERROR_CODES } from "@monark/contracts";
+import type { GateDecision, Prediction, CoverageVerdict, AttestedPrice, ClassEntry } from "@monark/contracts";
 import {
   lookupCommittedCalibration,
   UKEMI_LIQ_PREDICTOR_BASE,
@@ -57,9 +56,14 @@ import { LIQ_POLICY, USDE_POLICY, type ClassPolicyRow } from "../class-policy.ts
 // sibling module at src/ (no I/O, imports nothing from the tools), so the K-8 tools scan stays meaningful
 // and there is no import cycle (attestation-binding.ts never imports gate.ts).
 import { checkAttestedConsistency, NO_SERVED_ATTESTATION_SUBJECT_SENTENCE } from "../attestation-binding.ts";
+import type { ServedTable, ServedTableTexts } from "../policy-served.ts";
+// (block D, lot D-2): the served kata path. kata-path.ts reads the exports of this file at call time only, so the import
+// cycle is safe; servedPolicyTables reads none of them while this file loads.
+import { kataPath, kataTablesHoldNoRow, kataVerdict, servedPolicyTables } from "../kata-path.ts";
+import { KATA_DIR_TAU_CAP, kataClassEntries } from "../policy-classes.ts";
 
-/** Server-fixed contract version (K-4c) — NOT carried by the caller. */
-export const SCHEMA_VERSION = "1.0.0";
+/** Server-fixed contract version (K-4c), the one constant of @monark/contracts — NOT carried by the caller. */
+export { SCHEMA_VERSION };
 
 /** Retired (ADR 0005, decided 2026-09-30; ADR-CM B-5): answered by a named 400, the name reserved against BYO. */
 export const TASK_BTC_DIR = "btc-dir-15m";
@@ -125,9 +129,9 @@ export const STABLE_RUN_COMMITTED_CORE =
   "Tibshirani 2023 (Thm 2, unit weights): at least 1 − α minus the average total-variation gap between " +
   "calibration windows and the next one; that gap is not estimated here and the calibration is measured " +
   "non-stationary across half-years, so 1 − α is the coverage only if that gap is zero (exchangeability), " +
-  "which is not assumed here; no coverage is measured; each band edge is yhat - qhat or yhat + qhat rounded to the " +
-  "nearest double, so it can differ from the exact edge by up to half a unit in the last place of that edge; the " +
-  "band is not widened for it";
+  "which is not assumed here; no coverage is measured";
+// ADR-CM B-13 (lot CM-3c-4b): the band edges come from the score test (scoreTestBand of @monark/hikae), so the B-7 clause
+// on the rounded additive edge is withdrawn (core, description, served content; second Z-3 line of MONARK).
 
 /** The SERVER-imposed params of the committed USDe key, declared in the class description (ADR-CM B-2). */
 export const STABLE_RUN_REQUIREMENTS_SENTENCE = `on that key it requires alpha = ${String(USDE_POLICY.alpha)}, nMin = ${String(USDE_POLICY.nMin)}`;
@@ -203,6 +207,38 @@ export const GATE_NON_REVERIFICATION_SENTENCE =
  * registry (U-4b-2b): the committed clause, byte-identical to the pre-HARNESS-DESC-1 text. Every other clause is
  * the same in both states.
  */
+/** "Not in the future" tolerance at the HTTP and MCP entry points (ADR-CM section 5 B-4): 300 s of clock skew. Also the
+ *  lateness bound of a kata call (LATE-CALL-WINDOW-1: one constant of the version), and read by the kata clause below. */
+export const PRODUCED_AT_FUTURE_TOLERANCE_MS = 300_000;
+
+/** The class text of a kata table (block D, Z-3 line of MONARK): one template, the class name substituted. It is served
+ *  when no current row holds the resolved cell, so it speaks of the cell, never of the class as a whole. */
+export function kataClassText(taskClass: string): string {
+  return `no ${taskClass} calibration is committed for this cell_key; the gate abstains and serves no region`;
+}
+
+/** The kata clause of the gate description (block D; state: no kata row committed, KATA-CLAUSE-COMMITTED-STATE-1, tripwire
+ *  kataTablesHoldNoRow). Every value is read: names, alpha and nMin per family from the entries, the tau cap, B-4 (300 s). */
+export function kataClause(entries: readonly ClassEntry[] = kataClassEntries(kataClassText), tauCap = KATA_DIR_TAU_CAP): string {
+  const parts = (i: 1 | 2 | 3): string[] => [...new Set(entries.map((e) => /^([a-z0-9]+)-(.+)-([a-z0-9]+)$/.exec(e.task_class)?.[i] ?? ""))];
+  const one = (dir: boolean): { alpha: string; nMin: string } => {
+    const es = entries.filter((e) => (e.region_rule === "sign-set") === dir), vals = new Set(es.map((e) => `${e.alpha ?? ""} ${String(e.n_min)}`));
+    if (es.length === 0 || vals.size !== 1) throw new Error(`kata clause: alpha and nMin are not uniform on a family (${[...vals].join("; ")})`);
+    return { alpha: es[0]?.alpha ?? "", nMin: String(es[0]?.n_min) };
+  };
+  const [d, b, names] = [one(true), one(false), ([1, 2, 3] as const).map((i) => `{${parts(i).join(",")}}`)];
+  if (new Set(entries.map((e) => e.task_class)).size !== entries.length || entries.length !== parts(1).length * parts(2).length * parts(3).length) throw new Error("kata clause: the kata classes are not the product of their parts");
+  return (
+    `The ${String(entries.length)} kata classes \`${names.join("-")}\` are served from their policy tables, ` +
+    "which hold no committed calibration row: every well-formed kata call abstains with no region (under_calib, or non_evaluable on a dir " +
+    "lean of exactly 0), and no kata class has an attestation subject. A kata call carries a `predictor_id` of the form " +
+    "`kata:<kataId>@<venue>/<SYMBOL>/<h>` (no bucket, <h> the class horizon), a `features_digest`, " +
+    `alpha = ${d.alpha}, nMin = ${d.nMin} on dir classes and alpha = ${b.alpha}, nMin = ${b.nMin} on the others, tau at most ${String(tauCap)} on dir classes, ` +
+    `and a \`produced_at\` on the class horizon grid, received at most ${String(PRODUCED_AT_FUTURE_TOLERANCE_MS / 1000)} s after it; ` +
+    "the full request rules are in section 9 of the contract 1.1.0 specification."
+  );
+}
+
 export function describeGate(registryHasLiq: boolean): string {
   const liqClause = registryHasLiq
     ? `the served region is ${LIQ_UPPER_BOUND_SENTENCE}; ${LIQ_REQUIREMENTS_SENTENCE}; ${LIQ_H3_SENTENCE}; ${LIQ_CONDITIONAL_SENTENCE}`
@@ -215,6 +251,7 @@ export function describeGate(registryHasLiq: boolean): string {
     `${STABLE_RUN_REQUIREMENTS_SENTENCE}; ` +
     `for any other population, ${STABLE_RUN_UNCALIBRATED_SENTENCE}. ` +
     `For '${TASK_LIQ_ELIGIBLE}' (Ukemi: a per-account liquidable-amount class, class A only) ${liqClause}. ` +
+    `${kataClause()} ` +
     "When the caller instead supplies a `calibration` (its own nonconformity scores plus a `mode`: `interval` " +
     "⇒ region [yhat - q̂, yhat + q̂], or `set` ⇒ a conformal set over caller `candidates`), the gate " +
     `conformalizes against THOSE caller-supplied scores (BYO): ${CALIBRATE_LABEL} ` +
@@ -264,19 +301,19 @@ export interface HarnessParams {
 }
 
 /**
- * Stable error codes (ADR-CM section 5 B-3, audit P3 S-6; plan docs/G0-lot-cm-2a.md): a closed list, outside the frozen
- * contracts. The HTTP mirror carries the code in its error body, MCP in `_meta[ERROR_CODE_META_KEY]`. The four
- * class defaults (attest, calibrate, cascade, ukemi-predict) follow the gate codes; `task_class_retired` is
- * thrown for `btc-dir-15m` since CM-2b (ADR-CM B-5). A code is never renamed nor reused for another refusal.
+ * Stable error codes (ADR-CM section 5 B-3, audit P3 S-6; plan docs/G0-lot-cm-2a.md): a closed list. The HTTP mirror
+ * carries the code in its error body, MCP in `_meta[ERROR_CODE_META_KEY]`. The four class defaults (attest,
+ * calibrate, cascade, ukemi-predict) follow the gate codes; `task_class_retired` is thrown for `btc-dir-15m` since
+ * CM-2b (ADR-CM B-5). A code is never renamed nor reused for another refusal.
+ * Since contract 1.1.0 block A (lot CM-3c-1, spec section 13) the list is TOOL_ERROR_CODES of @monark/contracts,
+ * re-exported here: the 24 codes above in their order, then 8 codes added by 1.1.0: input_invalid and json_invalid,
+ * served by the 400 bodies of http.ts since C' (lot CM-3c-4a), and 6 thrown by the served kata path since block D
+ * (kata_key_invalid, kata_yhat_domain, features_digest_required, policy_tau_cap, produced_at_off_grid, produced_at_stale).
+ * /openapi.json projects them from schemas/tool-error.schema.json. Since block D every code but output_invalid (its 500
+ * path) has a served thrower; the G7 of the last lot of block D checks each one by a served request (C-3 condition 2).
+ * The block is kept at its former line count.
  */
-export const HARNESS_ERROR_CODES = [
-  "param_invalid", "schema_version_unsupported", "byo_calibration_invalid", "byo_yhat_type", "byo_set_tau_cap",
-  "yhat_type_mismatch", "liq_yhat_domain", "attested_inconsistent", "task_class_unknown", "byo_overrides_committed",
-  "byo_edge_blank", "byo_lookalike_committed", "byo_reserved_kata", "byo_lookalike_confusable",
-  "produced_at_invalid", "produced_at_future", "output_invalid",
-  "policy_alpha_mismatch", "policy_nmin_mismatch", "task_class_retired",
-  "attest_refused", "calibrate_input_invalid", "cascade_input_invalid", "ukemi_predict_input_invalid",
-] as const;
+export const HARNESS_ERROR_CODES = TOOL_ERROR_CODES;
 export type HarnessErrorCode = (typeof HARNESS_ERROR_CODES)[number];
 
 /** The MCP `_meta` key of a tool error's code (B-3, amendment "nuit, 2"). */
@@ -448,11 +485,10 @@ function byoVerdict(prediction: Prediction, params: HarnessParams, cal: ByoCalib
   }
   assertByoSetTauCap(params, cal); // D3 order: after the B-3 label checks and the yhat type check
 
-  // label_schema for set mode is DERIVED from the caller's candidates (B-3), joined by `|`; interval mode
-  // is a NUMERIC class, so its empty under_calib region carries NUMERIC_LABEL_SCHEMA, never `up|down` (E9).
-  const labelSchema = cal.mode === "set" ? (cal.candidates ?? []).map((c) => c.label).join("|") : NUMERIC_LABEL_SCHEMA;
+  // Q-C1: a BYO verdict has no class entry; qhat_unit is fixed by the mode, scale and the three table fields are null.
+  const cell: VerdictCell = { qhatUnit: cal.mode === "interval" ? "label" : "score", scale: null, cellKey: null, policyRowSha256: null, policyTableSha256: null };
 
-  const split = splitQuantile(cal.scores, params.alpha, params.nMin);
+  const split = splitQuantileShortest(cal.scores, params.alpha, params.nMin); // B-12: exact rank of String(alpha)
   if ("reason" in split) {
     // Fail-closed under-calibration (n < nMin or p > n): EMPTY set region, qhat null, never clamped.
     return underCalibVerdict({
@@ -463,18 +499,18 @@ function byoVerdict(prediction: Prediction, params: HarnessParams, cal: ByoCalib
       residual: [],
       producedAt: prediction.produced_at,
       schemaVersion: SCHEMA_VERSION,
-      labelSchema,
+      cell,
     });
   }
   const qhat = split.qhat;
 
   if (cal.mode === "interval") {
     const center = yhat as number; // narrowed by the typeof guard above
-    const ir = buildIntervalRegion(center - qhat, center + qhat);
+    const ir = scoreTestBand(center, qhat); // B-13: edges of the score test
     if (ir.abstain) {
-      // Fail-closed under_calib (C-1, mirror interval-conformer.ts:86): a non-finite bound (yhat non-finite),
-      // OR a zero-width region lo===hi (q̂=0 or float absorption `center±q̂===center`, NDG-1 ADR-M011).
-      return underCalibVerdict({
+      // Fail-closed (C-1, mirror interval-conformer.ts:88): under_calib on a non-finite bound (yhat non-finite),
+      // region_degenerate on a zero-width region lo===hi (q̂=0 or float absorption, NDG-1 ADR-M011, B-16).
+      return noRegionVerdict(ir.reason, {
         taskClass,
         method: "split",
         alpha: params.alpha,
@@ -482,7 +518,7 @@ function byoVerdict(prediction: Prediction, params: HarnessParams, cal: ByoCalib
         residual: [],
         producedAt: prediction.produced_at,
         schemaVersion: SCHEMA_VERSION,
-        labelSchema: NUMERIC_LABEL_SCHEMA,
+        cell,
       });
     }
     // residual is NOT an honesty carrier (M-2): frozen semantics inherited from the verdict contract.
@@ -498,6 +534,7 @@ function byoVerdict(prediction: Prediction, params: HarnessParams, cal: ByoCalib
       residual: [],
       producedAt: prediction.produced_at,
       schemaVersion: SCHEMA_VERSION,
+      cell,
     });
   }
 
@@ -506,7 +543,7 @@ function byoVerdict(prediction: Prediction, params: HarnessParams, cal: ByoCalib
   if (candidates === undefined || candidates.length === 0) {
     throw new HarnessToolError("byo 'set' mode requires a non-empty candidate list", "byo_calibration_invalid");
   }
-  const derivedSchema = labelSchema ?? candidates.map((c) => c.label).join("|");
+  const derivedSchema = candidates.map((c) => c.label).join("|");
   const labels = conformalSet(new Map(candidates.map((c) => [c.label, c.score] as const)), qhat);
   // P3 (ADR-M005 D5 K-4(d) amendment 2026-09-30, D8): an EMPTY set holds no intent, so the verdict abstains with
   // intent_not_in_region (qhat stays the number, unlike under_calib); never covered. abstain = 1{|C| > tau or |C| = 0}.
@@ -523,7 +560,7 @@ function byoVerdict(prediction: Prediction, params: HarnessParams, cal: ByoCalib
     reason: empty ? "intent_not_in_region" : abstain ? "set_too_large" : "covered",
     residual: [],
     producedAt: prediction.produced_at,
-    schemaVersion: SCHEMA_VERSION,
+    schemaVersion: SCHEMA_VERSION, cell,
   });
 }
 
@@ -538,7 +575,7 @@ function cascadeVerdict(prediction: Prediction, params: HarnessParams): Coverage
     taskClass: TASK_CASCADE,
     residual: [],
     producedAt: prediction.produced_at,
-    schemaVersion: SCHEMA_VERSION,
+    schemaVersion: SCHEMA_VERSION, cell: servedCell(TASK_CASCADE, prediction.predictor_id),
   }).verdict;
 }
 
@@ -587,35 +624,36 @@ function stableRunVerdict(prediction: Prediction, params: HarnessParams): Covera
       taskClass: TASK_STABLE_RUN,
       residual: [],
       producedAt: prediction.produced_at,
-      schemaVersion: SCHEMA_VERSION,
+      schemaVersion: SCHEMA_VERSION, cell: servedCell(TASK_STABLE_RUN, prediction.predictor_id),
     }).verdict;
   }
   // Committed population (USDe): alpha/nMin are server-imposed (F-7, ADR-CM B-2), then split-conformal over the
   // committed SCORES. Same primitive chain as byoVerdict's interval branch (one quantile implementation, L1).
   assertPolicy(USDE_POLICY, params);
   const scores = committed.scores;
-  const split = splitQuantile(scores, params.alpha, params.nMin);
+  const cell = servedCell(TASK_STABLE_RUN, prediction.predictor_id);
+  const split = admittedSplit(cell); // Q-3b2-2: qhat and alpha read on the admitted row (exact rank, B-12)
   if ("reason" in split) {
-    // Caller demanded more calibration than the committed set holds (n < nMin, or p > n) ⇒ honest under_calib.
+    // No current row for the key (unreachable for the committed key: its row is built at load) ⇒ honest under_calib.
     return underCalibVerdict({
       taskClass: TASK_STABLE_RUN, method: "split", alpha: params.alpha, scores,
       residual: [], producedAt: prediction.produced_at, schemaVersion: SCHEMA_VERSION,
-      labelSchema: NUMERIC_LABEL_SCHEMA,
+      cell,
     });
   }
-  const ir = buildIntervalRegion(yhat - split.qhat, yhat + split.qhat);
+  const ir = scoreTestBand(yhat, split.qhat); // B-13: edges of the score test
   if (ir.abstain) {
-    // NDG-1 (ADR-M011): a zero-width region (q̂=0 or float absorption yhat±q̂===yhat) ⇒ under_calib. REUSED.
-    return underCalibVerdict({
+    // NDG-1 (ADR-M011): a zero-width region (q̂=0 or float absorption) ⇒ region_degenerate (B-16). REUSED.
+    return noRegionVerdict(ir.reason, {
       taskClass: TASK_STABLE_RUN, method: "split", alpha: params.alpha, scores,
       residual: [], producedAt: prediction.produced_at, schemaVersion: SCHEMA_VERSION,
-      labelSchema: NUMERIC_LABEL_SCHEMA,
+      cell,
     });
   }
   return buildVerdict({
-    taskClass: TASK_STABLE_RUN, method: "split", alpha: params.alpha, scores,
+    taskClass: TASK_STABLE_RUN, method: "split", alpha: split.alpha, scores,
     region: ir.region, qhat: split.qhat, abstain: false, reason: "covered",
-    residual: [], producedAt: prediction.produced_at, schemaVersion: SCHEMA_VERSION,
+    residual: [], producedAt: prediction.produced_at, schemaVersion: SCHEMA_VERSION, cell,
   });
 }
 
@@ -644,24 +682,25 @@ function liqEligibleVerdict(prediction: Prediction, params: HarnessParams): Cove
   assertPolicy(LIQ_POLICY, params);
   const k = strateOf(yhat);
   const predictorId = `${UKEMI_LIQ_PREDICTOR_BASE}/s${String(k)}`;
+  const cell = servedCell(TASK_LIQ_ELIGIBLE, predictorId);
   const committed = lookupCommittedCalibration(TASK_LIQ_ELIGIBLE, predictorId);
   if (committed === undefined) {
     // An uncommitted stratum (s1 to s3) => honest abstention (empty scores, n_calib 0).
     return underCalibVerdict({
       taskClass: TASK_LIQ_ELIGIBLE, method: "split", alpha: params.alpha, scores: [],
       residual: [], producedAt: prediction.produced_at, schemaVersion: SCHEMA_VERSION,
-      labelSchema: NUMERIC_LABEL_SCHEMA,
+      cell,
     });
   }
   // Committed stratum (U-4b-2b): split-conformal qhat over the committed scores, then the UPPER-BOUND region.
   const scores = committed.scores;
-  const split = splitQuantile(scores, params.alpha, params.nMin);
+  const split = admittedSplit(cell); // Q-3b2-2: qhat and alpha read on the admitted row (exact rank, B-12)
   if ("reason" in split) {
-    // n < nMin or p > n ⇒ honest under_calib (fail-closed, mirror stableRunVerdict).
+    // No current row for the stratum key ⇒ honest under_calib (fail-closed, mirror stableRunVerdict).
     return underCalibVerdict({
       taskClass: TASK_LIQ_ELIGIBLE, method: "split", alpha: params.alpha, scores,
       residual: [], producedAt: prediction.produced_at, schemaVersion: SCHEMA_VERSION,
-      labelSchema: NUMERIC_LABEL_SCHEMA,
+      cell,
     });
   }
   const region = liqUpperBoundRegion(yhat, split.qhat);
@@ -671,13 +710,13 @@ function liqEligibleVerdict(prediction: Prediction, params: HarnessParams): Cove
     return underCalibVerdict({
       taskClass: TASK_LIQ_ELIGIBLE, method: "split", alpha: params.alpha, scores,
       residual: [], producedAt: prediction.produced_at, schemaVersion: SCHEMA_VERSION,
-      labelSchema: NUMERIC_LABEL_SCHEMA,
+      cell,
     });
   }
   return buildVerdict({
-    taskClass: TASK_LIQ_ELIGIBLE, method: "split", alpha: params.alpha, scores,
+    taskClass: TASK_LIQ_ELIGIBLE, method: "split", alpha: split.alpha, scores,
     region: region.region, qhat: split.qhat, abstain: false, reason: "covered",
-    residual: [], producedAt: prediction.produced_at, schemaVersion: SCHEMA_VERSION,
+    residual: [], producedAt: prediction.produced_at, schemaVersion: SCHEMA_VERSION, cell,
   });
 }
 
@@ -686,29 +725,29 @@ function liqEligibleVerdict(prediction: Prediction, params: HarnessParams): Cove
  * B-1 (CRITICAL): keyed on the PRESENCE of calibration, NOT on `task_class` alone — a BYO decision on a
  * free-string class must NOT fall through to the CASCADE sentence (which would be false on the wire next
  * to a BYO COMMIT). The BYO carrier REUSES `CALIBRATE_LABEL` (B-2: one constant, no paraphrase).
- * A2 (ADR-M008 Amendement bis): the `stable-run-velocity-24h` honesty is keyed on (task_class, predictor_id)
- * — the COMMITTED sentence for the USDe key, the UNCOMMITTED (under_calib) sentence for every other population.
- * A surclaim mutant (returning the committed sentence for a non-committed key) reddens the A7(f) test.
+ * S-8 (ADR-CM B-8, lot CM-3c-4b): a served class reads the RESOLVED cell, `cellKey`, in its served table: the
+ * verdict's cell_key (registry.ts), i.e. the stratum key the server derived for liq and the predictor_id for
+ * the other classes. The text is the one of the current row of that key, else the class text of the table,
+ * then the unchanged suffix (Z-3 rule of MONARK: the table text is the exact prefix of the served sentence).
+ * So the USDe committed sentence rides on the USDe key only and the uncommitted one on every other
+ * population (A2, ADR-M008 Amendement bis); the liq calibrated sentence rides on s0 only, and s1 to s3
+ * (under_calib) read the class text. The old criterion (registry presence of the liq class, delta D-3)
+ * served the calibrated sentence on s1 to s3 as well. An unknown class reads the cascade sentence, as before.
+ * A surclaim mutant (the committed sentence for a key without a row) reddens the A7(f) and S-8 tests.
  */
-export function honestyText(taskClass: string, predictorId: string, isByo: boolean): string {
+export function honestyText(taskClass: string, cellKey: string, isByo: boolean, tables: readonly ServedTable[] = SERVED_POLICY_TABLES): string {
   if (isByo) return `${CALIBRATE_LABEL} B_t is caller-carried.`;
-  if (taskClass === TASK_STABLE_RUN) {
-    const committed = lookupCommittedCalibration(TASK_STABLE_RUN, predictorId);
-    return committed !== undefined
-      ? `${STABLE_RUN_COMMITTED_SENTENCE}; B_t is caller-carried.`
-      : `${STABLE_RUN_UNCALIBRATED_SENTENCE}; B_t is caller-carried.`;
-  }
-  if (taskClass === TASK_LIQ_ELIGIBLE) {
-    // Keyed on REGISTRY presence (delta D-3), NOT on lookupCommittedCalibration(TASK_LIQ, predictorId): the
-    // server ignores the client key for this class, and `honestyText` has no `yhat` to derive the stratum, so
-    // a per-key lookup would either surclaim "committed" for a non-served stratum or read "no calibration" for
-    // every naked id. Since U-4b-2b the registry carries s0 (n 170), so the committed text; an empty registry gives the empty-registry text.
-    return hasCommittedCalibrationForClass(TASK_LIQ_ELIGIBLE)
-      ? `${LIQ_COMMITTED_SENTENCE}; B_t is caller-carried.`
-      : `${LIQ_EMPTY_REGISTRY_SENTENCE}; B_t is caller-carried.`;
-  }
-  return `${CASCADE_UNCALIBRATED_SENTENCE}; B_t is caller-carried.`;
+  const served = tables.find((t) => t.task_class === taskClass);
+  if (served === undefined) return `${CASCADE_UNCALIBRATED_SENTENCE}; B_t is caller-carried.`;
+  // The current row of the resolved key (USDe key; liq s0), else the class text (other population; liq s1 to s3;
+  // cascade, whose table has no row). One lookup for every served class: the Z-3 composition holds by construction,
+  // and a text change in the table (a dated Z-3 line) is a change of the served sentence, never a second copy.
+  const row = served.table.rows.find((r) => r.current && r.cell_key === cellKey);
+  return `${row === undefined ? served.table.class.text : row.text}; B_t is caller-carried.`;
 }
+// (S-8) Before lot CM-3c-4b the liq branch read hasCommittedCalibrationForClass(TASK_LIQ_ELIGIBLE), so every stratum got
+// the calibrated sentence; the USDe branch read lookupCommittedCalibration on the key, the same answer as the current row
+// of the key (rows rebuilt from the same committed calibrations, guardMarginalTable). Line count kept for the killers.
 
 /**
  * A compact, FACTUAL restatement of the frozen decision, carried in the MCP `content` text ALONGSIDE the
@@ -716,26 +755,24 @@ export function honestyText(taskClass: string, predictorId: string, isByo: boole
  * `content` text to the model and DROP `structuredContent` (measured on Hermes v0.21), so a `commit` and
  * an `under_calib` would read identically in the prose channel. This line surfaces the DECISION — action,
  * the coverage `reason` (how `under_calib` becomes visibly distinct from `covered`), the region, q̂,
- * n_calib, and a TRUNCATED calib_digest (8 leading + 6 trailing; the full value stays in
+ * n_calib, and a TRUNCATED scores_sha256 (8 leading + 6 trailing; the full value stays in
  * `structuredContent`). DERIVED from the same closed `GateDecision` (single source, no drift), it restates
  * only fields already on the wire and asserts NO probability of being right.
  */
 export function gateVerdictSummary(d: GateDecision): string {
   const v = d.verdict;
   const region =
-    v.region.kind === "interval"
-      ? `[${String(v.region.lo)}, ${String(v.region.hi)}]`
-      : `{${v.region.labels.join(", ")}}`;
+    v.region === null ? "null"
+      : v.region.kind === "interval" ? `[${String(v.region.lo)}, ${String(v.region.hi)}]` : `{${v.region.labels.join(", ")}}`;
   const qhat = v.qhat === null ? "null" : String(v.qhat);
-  const digest =
-    v.calib_digest.length > 14 ? `${v.calib_digest.slice(0, 8)}...${v.calib_digest.slice(-6)}` : v.calib_digest;
-  return `verdict action=${d.action} reason=${d.reason} region=${region} qhat=${qhat} n_calib=${String(v.n_calib)} calib_digest=${digest}`;
+  const digest = `${v.scores_sha256.slice(0, 8)}...${v.scores_sha256.slice(-6)}`;
+  return `verdict action=${d.action} reason=${d.reason} region=${region} qhat=${qhat} n_calib=${String(v.n_calib)} scores_sha256=${digest}`;
 }
 
 /** A leading or trailing blank (Unicode `\s`, which covers space, tab and no-break space). */
 const EDGE_BLANK = /^\s|\s$/u;
-/** The reserved kata class names (ADR 0005 D3; widened for wave 2 by its own ADR). */
-const KATA_CLASS_RE = /^(btc|eth|bnb|sol)-(dir|range|mae-down|mae-up)-(1h|4h)$/;
+/** The reserved kata class names (ADR 0005 D3, widened by ADR-CM B-14: any 2 to 10 symbol; 15m, 1h, 4h and 24h). */
+export const KATA_CLASS_RE = /^[a-z0-9]{2,10}-(dir|range|mae-down|mae-up)-(15m|1h|4h|24h)$/;
 /** The reserved kata key prefix. */
 const KATA_KEY_PREFIX = "kata:";
 /** The classes committed on the CLASS (any key), as in the exact guard of `runGate`. */
@@ -757,12 +794,12 @@ export function confusableReduce(s: string): string {
     .replace(/^-+|-+$/g, "");
 }
 
-/** The 32 reserved kata class names, reduced (exact set, no reduced regex). */
-const KATA_CLASSES_REDUCED: ReadonlySet<string> = new Set(
-  ["btc", "eth", "bnb", "sol"].flatMap((a) =>
-    ["dir", "range", "mae-down", "mae-up"].flatMap((f) => ["1h", "4h"].map((h) => confusableReduce(`${a}-${f}-${h}`))),
-  ),
-);
+/** The reserved kata class names, reduced (ADR-CM B-14; delegated decision CM-4b C-2): the exact image of KATA_CLASS_RE
+ *  under confusableReduce. A reduced string never holds "rn", so "m" (from "rn") is its one symbol of a single letter. */
+export const KATA_CLASS_REDUCED_RE = /^(?:m|[a-hj-km-z2-9ol]{2,10})-(dlr|range|mae-down|mae-up)-(l5m|lh|4h|24h)$/;
+// Safety and exactness are tested on reduced strings (gate-byo-kata-wide.test.ts): every wide name, reduced, matches
+// it, and every reduced string that matches it has a wide antecedent. No finite set any more: the wide pattern names
+// unboundedly many classes, so B-10 compares a reduced BYO class to this reduced pattern.
 
 /**
  * BYO confusable rule (ADR-CM B-10). Runs after the B-1 rule, so a name B-1 refuses keeps its B-1 message and code.
@@ -771,7 +808,7 @@ const KATA_CLASSES_REDUCED: ReadonlySet<string> = new Set(
  * look-alike outside this closed reduction still passes: a declared residual class (BYO-LOOKALIKE-RESIDUAL-1). */
 function byoConfusable(taskClass: string, predictorId: string): string | undefined {
   const cls = confusableReduce(taskClass);
-  const lockedOrKata = CLASS_LOCKED.some((c) => confusableReduce(c) === cls) || KATA_CLASSES_REDUCED.has(cls);
+  const lockedOrKata = CLASS_LOCKED.some((c) => confusableReduce(c) === cls) || KATA_CLASS_REDUCED_RE.test(cls);
   const kataKey = confusableReduce(predictorId).replace(/4/g, "a").startsWith(KATA_KEY_PREFIX);
   if (lockedOrKata || kataKey || matchesCommittedKeyWith(confusableReduce, taskClass, predictorId)) {
     return `task_class '${taskClass}' / predictor_id '${predictorId}' reduces to a committed or reserved name once ASCII confusables are folded (l, I, 1; rn, m; 0, o; _ and . as -; repeated -; blanks): use a distinct caller-owned name for BYO (ADR-CM B-10)`;
@@ -798,9 +835,6 @@ function byoLookAlike(taskClass: string, predictorId: string): { readonly messag
   }
   return undefined;
 }
-
-/** "Not in the future" tolerance at the HTTP and MCP entry points (ADR-CM section 5 B-4): 300 s of clock skew. */
-export const PRODUCED_AT_FUTURE_TOLERANCE_MS = 300_000;
 
 /** RFC 3339 section 5.6 date-time: full-date "T" full-time, fraction optional, offset Z or +-hh:mm (T and Z in either case). */
 const RFC3339_DATE_TIME = /^(\d{4})-(\d{2})-(\d{2})[Tt](\d{2}):(\d{2}):(\d{2})(?:\.(\d+))?(?:[Zz]|([+-])(\d{2}):(\d{2}))$/;
@@ -836,6 +870,9 @@ export function rfc3339Instant(text: string): number | undefined {
  *  (K-8: no clock under src/tools/). Absent (a direct call) => only the RFC 3339 check runs (declared, B-4). */
 export interface RunGateOptions {
   readonly nowMs?: number;
+  /** TEST ONLY (block D, Q-D5): the tables a kata class is looked up in, in place of SERVED_POLICY_TABLES. The HTTP and MCP
+   *  entry points never pass it (test entry_points_never_pass_policy_tables). */
+  readonly policyTables?: readonly ServedTable[];
 }
 
 /** `produced_at` (ADR-CM B-4): strict RFC 3339, else 400 `produced_at_invalid`; with `nowMs`, at most
@@ -862,7 +899,7 @@ export function runGate(prediction: Prediction, params: HarnessParams, attested?
   validateHarnessParams(params);
   if (prediction.schema_version !== SCHEMA_VERSION) {
     throw new HarnessToolError(
-      `unsupported prediction.schema_version '${prediction.schema_version}': the harness speaks '${SCHEMA_VERSION}'`,
+      `unsupported prediction.schema_version '${prediction.schema_version}': the gate speaks '${SCHEMA_VERSION}'; specification: https://github.com/KraidleAI/monark-kata-spec`,
       "schema_version_unsupported",
     );
   }
@@ -918,6 +955,8 @@ export function runGate(prediction: Prediction, params: HarnessParams, attested?
 
   let verdict: CoverageVerdict;
   let nCalib: number;
+  // Block D (B-9 precisee, B-15): a kata class is a class of the served class registry whose cell rule is kata-bucket.
+  const kataTable = (options.policyTables ?? SERVED_POLICY_TABLES).find((t) => t.task_class === taskClass && t.table.class.cell_key_rule === "kata-bucket")?.table;
 
   if (calibration !== undefined) {
     verdict = byoVerdict(prediction, params, calibration);
@@ -943,6 +982,11 @@ export function runGate(prediction: Prediction, params: HarnessParams, attested?
     }
     verdict = liqEligibleVerdict(prediction, params);
     nCalib = verdict.n_calib; // 170 for the committed stratum s0; 0 for s1 to s3 (under_calib)
+  } else if (kataTable !== undefined) {
+    // The kata request contract (grid and lateness first, spec section 9), then the cell lookup; the verdict is assembled
+    // here from the row's fields (Q-D9), and its n_calib is the row's n (0 with no row: under_calib).
+    verdict = kataVerdict(kataPath(prediction, params, kataTable, options.nowMs), prediction, SCHEMA_VERSION);
+    nCalib = verdict.n_calib;
   } else {
     // delta D-4: an unknown class (e.g. the class-B name, decision 108 keeps B out of service) ⇒ a
     // HarnessToolError (⇒ 400 via http.ts), NEVER `under_calib`. The `known:` list carries no class-B name
@@ -976,6 +1020,7 @@ export function runGate(prediction: Prediction, params: HarnessParams, attested?
     evaluable: deriveEvaluable(taskClass, prediction.yhat, calibration), // K-4d
     tool: params.tool, // NAMED, echoed — NEVER invoked (D0/D1)
     schemaVersion: SCHEMA_VERSION, // K-4c — server-fixed, not caller-carried
+    requestSha256: envelopeSha256(prediction, params, attested), // contract 1.1.0: the envelope as received
   };
 
   const decision = gate(gateInput);
@@ -983,4 +1028,43 @@ export function runGate(prediction: Prediction, params: HarnessParams, attested?
   assertClosedGateDecision(decision);
   assertNoForbiddenKey(decision);
   return decision;
+}
+
+/** The texts and sources of the three served tables (Z-3 line of MONARK, 2026-10-05): the served sentences, byte for byte. */
+export const SERVED_TABLE_TEXTS: ServedTableTexts = {
+  classText: (c) => (c === TASK_STABLE_RUN ? STABLE_RUN_UNCALIBRATED_SENTENCE : c === TASK_LIQ_ELIGIBLE ? LIQ_EMPTY_REGISTRY_SENTENCE : c === TASK_CASCADE ? CASCADE_UNCALIBRATED_SENTENCE : kataClassText(c)),
+  marginal: (c) => c === TASK_LIQ_ELIGIBLE
+    ? { registry_file: "sha256:fd6fab7ebf5d2779b904494accab8916fac8293587ed24d21fb052cb024074a4", registry_sha256: "fd6fab7ebf5d2779b904494accab8916fac8293587ed24d21fb052cb024074a4", generator: "scripts/record-u4b-calib.mjs", text: LIQ_COMMITTED_SENTENCE }
+    : { registry_file: "fixtures/usde-calib-scores.json", registry_sha256: "e44a68b6b697a32f3f198770e740ab206393dc3425e8cc59e4b0e1e4e65cfd28", generator: "scripts/record-usde-calib.mjs", text: STABLE_RUN_COMMITTED_SENTENCE },
+};
+
+/** The served tables (block D: the 32 kata tables and the three marginal ones), built once at load, fail-closed (Q-C3). */
+export const SERVED_POLICY_TABLES = kataTablesHoldNoRow(servedPolicyTables(SERVED_TABLE_TEXTS));
+/** The three marginal tables (USDe, liq, cascade): a view of SERVED_POLICY_TABLES, not a second build. */
+export const SERVED_MARGINAL_TABLES = SERVED_POLICY_TABLES.filter((t) => t.table.class.cell_key_rule !== "kata-bucket");
+
+/** The cell of a served class (contract 1.1.0): its key, its current row if any, and its table, read from the served tables. */
+function servedCell(taskClass: string, cellKey: string): VerdictCell {
+  const t = SERVED_MARGINAL_TABLES.find((x) => x.task_class === taskClass);
+  if (t === undefined) throw new Error(`no served table for '${taskClass}'`);
+  const row = t.table.rows.find((r) => r.current && r.cell_key === cellKey);
+  return { qhatUnit: t.table.class.qhat_unit, scale: null, cellKey, policyRowSha256: row === undefined ? null : sha256Canonical(row), policyTableSha256: t.policy_table_sha256 };
+}
+
+/** `request_sha256` of the envelope as received; one not written canonically (I-JSON: a lone surrogate, a number outside
+ *  binary64) is a named 400 `param_invalid` (Q-C2), after every other check. Only the RangeError of the writer converts. */
+function envelopeSha256(prediction: Prediction, params: HarnessParams, attested: AttestedPrice | undefined): string {
+  try {
+    return requestSha256({ prediction, params, ...(attested === undefined ? {} : { attested }) });
+  } catch (e) {
+    if (e instanceof RangeError) throw new HarnessToolError(`the request is not writable canonically (I-JSON, RFC 7493): ${e.message}`, "param_invalid");
+    throw e;
+  }
+}
+
+/** Q-3b2-2 (lot CM-3c-4b): qhat and alpha of a committed key, read on the current row of its cell in the served table
+ *  (the admitted row, built at load with the exact rank of its alpha, B-12); no current row ⇒ under_calib. */
+function admittedSplit(cell: VerdictCell): { readonly qhat: number; readonly alpha: number } | { readonly reason: "under_calib" } {
+  const row = SERVED_MARGINAL_TABLES.flatMap((t) => t.table.rows).find((r) => r.current && r.cell_key === cell.cellKey);
+  return row === undefined || row.qhat === null ? { reason: "under_calib" } : { qhat: row.qhat, alpha: Number(row.alpha) };
 }

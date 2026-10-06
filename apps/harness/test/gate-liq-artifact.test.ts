@@ -19,9 +19,10 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
-import { assertClosedGateDecision, calibDigest } from "@monark/contracts";
+import { assertClosedGateDecision, scoresSha256 } from "@monark/contracts";
 import type { Prediction, GateDecision } from "@monark/contracts";
 import { TASK_LIQ_ELIGIBLE, LIQ_ALPHA, LIQ_NMIN, LIQ_COMMITTED_SENTENCE, LIQ_EMPTY_REGISTRY_SENTENCE, type HarnessParams } from "../src/tools/gate.ts";
+import { SCHEMA_VERSION } from "../src/tools/gate.ts";
 import { HARNESS_TOOLS, type GateEnvelope } from "../src/tools/registry.ts";
 import { handleJsonMirror } from "../src/http.ts";
 import { strateOf } from "../src/ukemi-strata.ts";
@@ -45,7 +46,7 @@ const GATE_TOOL = HARNESS_TOOLS.find((t) => t.name === "gate");
 if (GATE_TOOL === undefined) throw new Error("gate tool missing from HARNESS_TOOLS");
 
 function pred(yhat: number, predictorId: string): Prediction {
-  return { schema_version: "1.0.0", task_class: TASK_LIQ_ELIGIBLE, yhat, predictor_id: predictorId, produced_at: "2026-09-04T00:00:00Z" };
+  return { schema_version: SCHEMA_VERSION, task_class: TASK_LIQ_ELIGIBLE, yhat, predictor_id: predictorId, produced_at: "2026-09-04T00:00:00Z" };
 }
 
 /** The expected served verdict of the committed stratum, recomputed from the series (split conformal, alpha = 1/100). */
@@ -56,19 +57,19 @@ function committedFromSeries(rows: readonly ScoreARow[]): Committed {
   const p = Math.ceil(((n + 1) * 99) / 100); // rank ceil((n+1)(1 - alpha)), alpha = LIQ_ALPHA = 1/100 (asserted below)
   const q = scores[p - 1];
   if (q === undefined) throw new Error("the committed stratum has fewer points than its conformal rank");
-  return { qhat: Number(q), n, digest: calibDigest(scores.map(Number)) };
+  return { qhat: Number(q), n, digest: scoresSha256(scores.map(Number)) };
 }
 
 function assertBounded(d: GateDecision, yhat: number, c: Committed, where: string): void {
   assertClosedGateDecision(d);
   assert.equal(d.verdict.reason, "covered", `${where}: the committed stratum is covered`);
-  assert.equal(d.verdict.region.kind, "interval", `${where}: the wire kind stays interval (frozen contract)`);
-  if (d.verdict.region.kind !== "interval") return;
+  assert.equal(d.verdict.region?.kind, "interval", `${where}: the wire kind stays interval (frozen contract)`);
+  if (d.verdict.region?.kind !== "interval") return;
   assert.equal(d.verdict.region.lo, 0, `${where}: lower edge 0 (upper bound, never symmetric)`);
   assert.equal(d.verdict.region.hi, yhat + c.qhat, `${where}: upper edge yhat + qhat_0`);
   assert.equal(d.verdict.qhat, c.qhat, `${where}: the served q-hat is the series' conformal q-hat of s0`);
   assert.equal(d.verdict.n_calib, c.n, `${where}: n_calib is the series' s0 size`);
-  assert.equal(d.verdict.calib_digest, c.digest, `${where}: calib_digest is the C5 of the series' s0 scores`);
+  assert.equal(d.verdict.scores_sha256, c.digest, `${where}: scores_sha256 is over the series' s0 scores, ascending`);
 }
 function assertAbstains(d: GateDecision, where: string): void {
   assertClosedGateDecision(d);
@@ -85,6 +86,7 @@ async function mirror(env: GateEnvelope): Promise<{ status: number; decision: Ga
   return { status: res.status, decision: body.structuredContent as GateDecision, text: body.content?.[0]?.text ?? "" };
 }
 
+// killer: apps/harness/src/tools/gate.ts:745 CONST "r.current && r.cell_key === cellKey" -> "r.current"
 test("u4b_gate_serves_region_from_real_artifact", async () => {
   assert.equal(LIQ_ALPHA, 1 / 100, "the class alpha is 1/100 (the rank below uses it exactly)");
   const lines = jsonl(FIXTURE);
@@ -111,7 +113,7 @@ test("u4b_gate_serves_region_from_real_artifact", async () => {
     const d = structured as unknown as GateDecision;
     if (row.strate === 0) assertBounded(d, yhat, c, `run yhat=${row.yhat}`);
     else assertAbstains(d, `run yhat=${row.yhat} (s${String(row.strate)})`);
-    assert.ok(text.includes(LIQ_COMMITTED_SENTENCE) && !text.includes(LIQ_EMPTY_REGISTRY_SENTENCE), "the content text is the committed class text");
+    assert.ok(text.startsWith(`${row.strate === 0 ? LIQ_COMMITTED_SENTENCE : LIQ_EMPTY_REGISTRY_SENTENCE}; `), "S-8: the calibrated sentence on s0, the class text on s1 to s3");
   }
 
   // The SERVER derives the key from yhat: the client key is ignored (observable only on a committed registry).

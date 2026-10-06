@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://monark.local/schemas/prediction.schema.json",
   "title": "Prediction",
-  "description": "The upstream predictor that HIKAE conforms (the fourth interface contract). Pipeline: predictor -> Prediction -> HIKAE conformer -> CoverageVerdict -> GateDecision. ADR-M001 Decision 6.",
+  "description": "The upstream predictor that HIKAE conforms (the fourth interface contract). Pipeline: predictor -> Prediction -> HIKAE conformer -> CoverageVerdict -> GateDecision. Contract 1.1.0: schema_version keeps a version pattern, not a constant, so that a caller on another version gets the named refusal schema_version_unsupported and not a generic validation error; the server accepts 1.1.0 only. ADR-M001 Decision 6.",
   "type": "object",
   "additionalProperties": false,
   "required": ["schema_version", "task_class", "yhat", "predictor_id", "produced_at"],

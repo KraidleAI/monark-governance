@@ -32,8 +32,9 @@ import {
   LIQ_CONDITIONAL_SENTENCE,
   describeGate,
   type HarnessParams,
+  SCHEMA_VERSION,
 } from "../src/tools/gate.ts";
-import { hasCommittedCalibrationForClass, lookupCommittedCalibration, UKEMI_LIQ_PREDICTOR_BASE } from "../src/calibration.ts";
+import { hasCommittedCalibrationForClass, lookupCommittedCalibration, UKEMI_LIQ_PREDICTOR_BASE, UKEMI_LIQ_SCORES_SHA256_PINNED } from "../src/calibration.ts";
 import { strateOf, STRATA_CUTS_SERVED } from "../src/ukemi-strata.ts";
 import { HARNESS_TOOLS, type GateEnvelope } from "../src/tools/registry.ts";
 import { handleJsonMirror } from "../src/http.ts";
@@ -58,7 +59,7 @@ const LIQ_PARAMS: HarnessParams = {
 
 function liqPred(yhat: number, predictorId = "ukemi:client-supplied-key/whatever"): Prediction {
   return {
-    schema_version: "1.0.0",
+    schema_version: SCHEMA_VERSION,
     task_class: TASK_LIQ_ELIGIBLE,
     yhat,
     predictor_id: predictorId,
@@ -117,13 +118,13 @@ test("u4b_gate_liq_serves_committed_stratum_and_abstains_elsewhere", () => {
     const d = runGate(liqPred(yhat), LIQ_PARAMS);
     assertClosedGateDecision(d);
     assert.equal(d.verdict.reason, "covered", `yhat=${String(yhat)}: the committed stratum is covered`);
-    assert.equal(d.verdict.region.kind, "interval", "the wire kind stays interval (frozen contract, delta D-1)");
-    if (d.verdict.region.kind !== "interval") continue;
+    assert.equal(d.verdict.region?.kind, "interval", "the wire kind stays interval (frozen contract, delta D-1)");
+    if (d.verdict.region?.kind !== "interval") continue;
     assert.equal(d.verdict.region.lo, 0, "the lower edge is 0 by construction (upper bound, never symmetric)");
     assert.equal(d.verdict.region.hi, yhat + q.qhat, "the upper edge is yhat + q-hat of the committed stratum");
     assert.equal(d.verdict.qhat, q.qhat, "the verdict carries the committed q-hat");
     assert.equal(d.verdict.n_calib, s0.scores.length, "n_calib is the committed stratum size");
-    assert.equal(d.verdict.calib_digest, s0.digestPinned, "the verdict carries the committed stratum digest");
+    assert.equal(d.verdict.scores_sha256, UKEMI_LIQ_SCORES_SHA256_PINNED[`${UKEMI_LIQ_PREDICTOR_BASE}/s0`], "the verdict carries the pinned stratum digest");
     assert.equal(d.action, "defer", "L3: a covered bound wider than tauInterval defers (clock open)");
     assert.equal(d.reason, "interval_too_wide", "L3 top-level reason (not the coverage reason)");
   }
@@ -136,7 +137,7 @@ test("u4b_gate_liq_serves_committed_stratum_and_abstains_elsewhere", () => {
     assert.equal(d.verdict.reason, "under_calib", "verdict reason under_calib");
     assert.equal(d.verdict.n_calib, 0, "n_calib 0: no committed scores for this stratum");
     assert.equal(d.verdict.qhat, null, "qhat null on an uncommitted stratum");
-    assert.equal(d.verdict.region.kind, "set", "under_calib carries the empty SET region (never a covered bound)");
+    assert.equal(d.verdict.region, null, "under_calib carries no region (never a covered bound)");
   }
 });
 
@@ -196,17 +197,20 @@ test("u4b_liq_description_makes_no_probability_claim", () => {
   assert.ok(LIQ_COMMITTED_SENTENCE.includes("close-factor rule"), "carries the conditional-coverage clause (mutant (h))");
 });
 
-// 2a-3 (delta D-3; re-scoped from u4b_liq_empty_registry_text_is_honest at the registry commit) -- the honesty text is
-// keyed on REGISTRY presence: on the committed -2b registry it is the committed sentence for EVERY client key, a naked
-// one and a key naming an uncommitted stratum alike (the server ignores the client key), never the empty-registry
-// sentence. Mutant (h'): key the honesty on lookupCommittedCalibration(TASK_LIQ, client key) => the naked key and the
-// .../s1 key read the empty sentence => red.
-test("u4b_liq_committed_text_is_honest", () => {
-  assert.equal(hasCommittedCalibrationForClass(TASK_LIQ_ELIGIBLE), true, "the -2b registry holds the liq class");
-  for (const key of ["ukemi:client-supplied-key/whatever", `${UKEMI_LIQ_PREDICTOR_BASE}/s1`, `${UKEMI_LIQ_PREDICTOR_BASE}/s0`]) {
-    const text = honestyText(TASK_LIQ_ELIGIBLE, key, false);
-    assert.equal(text, `${LIQ_COMMITTED_SENTENCE}; B_t is caller-carried.`, `committed text, registry-keyed, for the client key ${key}`);
-    assert.ok(!text.includes(LIQ_EMPTY_REGISTRY_SENTENCE), `no empty-registry sentence next to a committed registry (${key})`);
+// S-8 (ADR-CM B-8, lot CM-3c-4b; inverts u4b_liq_committed_text_is_honest of 2a-3): the honesty text follows the RESOLVED
+// cell, the stratum key the server derives from yhat (the client key stays ignored): the calibrated sentence on s0 only;
+// s1 to s3 (under_calib) and a key that names no stratum read the class text of the served table.
+// killer: apps/harness/src/tools/gate.ts:745 CONST "r.current && r.cell_key === cellKey" -> "r.current && hasCommittedCalibrationForClass(taskClass)"
+test("liq_honesty_text_follows_the_resolved_cell", () => {
+  assert.equal(hasCommittedCalibrationForClass(TASK_LIQ_ELIGIBLE), true, "the registry holds the liq class (s0)");
+  const keys = ["ukemi:client-supplied-key/whatever", ...[0, 1, 2, 3].map((k) => `${UKEMI_LIQ_PREDICTOR_BASE}/s${String(k)}`)];
+  for (const key of keys) {
+    const want = key.endsWith("/s0") ? LIQ_COMMITTED_SENTENCE : LIQ_EMPTY_REGISTRY_SENTENCE;
+    assert.equal(honestyText(TASK_LIQ_ELIGIBLE, key, false), `${want}; B_t is caller-carried.`, key);
+  }
+  for (const [yhat, want] of [[5000, LIQ_COMMITTED_SENTENCE], [5e14, LIQ_EMPTY_REGISTRY_SENTENCE]] as const) {
+    const run = GATE_TOOL.run({ prediction: { schema_version: SCHEMA_VERSION, task_class: TASK_LIQ_ELIGIBLE, yhat, predictor_id: `${UKEMI_LIQ_PREDICTOR_BASE}/s0`, produced_at: "2026-09-04T00:00:00Z" }, params: LIQ_PARAMS });
+    assert.ok(run.text.startsWith(`${want}; B_t is caller-carried. verdict `), `served content at yhat ${String(yhat)}`);
   }
   // The committed text carries its conditions (upper bound, one episode, no other event, H-3 a report, conditional rule).
   for (const s of [LIQ_UPPER_BOUND_SENTENCE, LIQ_H3_SENTENCE, LIQ_CONDITIONAL_SENTENCE]) assert.ok(LIQ_COMMITTED_SENTENCE.includes(s), `committed text carries: "${s}"`);
@@ -233,7 +237,7 @@ test("u4b_liq_class_text_says_upper_bound_never_interval", () => {
 // HTTP mirror), NEVER under_calib; the `known:` list carries no class-B name but DOES carry the liq class.
 // Mutant (g): map the unknown branch to under_calib ⇒ the throw stops ⇒ red.
 test("u4b_class_b_is_unknown_task_class_400", async () => {
-  const bPred: Prediction = { schema_version: "1.0.0", task_class: CLASS_B, yhat: 12345, predictor_id: "x", produced_at: "2026-09-04T00:00:00Z" };
+  const bPred: Prediction = { schema_version: SCHEMA_VERSION, task_class: CLASS_B, yhat: 12345, predictor_id: "x", produced_at: "2026-09-04T00:00:00Z" };
   let known = "";
   assert.throws(
     () => runGate(bPred, LIQ_PARAMS),
@@ -306,7 +310,8 @@ const COMMITTED_ONLY_WORDS = ["upper bound", "calibrated", "H-3", "no coverage i
 /** The liq clause of a gate description: from the class lead to the BYO clause (both anchors asserted, in order). */
 function liqSlice(description: string): string {
   const i = description.indexOf(LIQ_LEAD);
-  const j = description.indexOf("When the caller instead");
+  // Block D (lot D-2): the kata clause follows the liq clause, before the BYO sentence.
+  const j = description.indexOf("The 32 kata classes");
   assert.ok(i > -1 && j > i, "the liq clause is delimited in the description (non-vacuous slice)");
   return description.slice(i, j);
 }
@@ -349,7 +354,8 @@ async function servedToolsList(): Promise<Obj> {
 // CM-2b (ADR-CM B-5, B-2, B-7): the served description moves (btc-dir retired, USDe alpha/nMin declared, the USDe band
 // edge stated); the sha256 pin moves 55744504... -> cb4029d2... (recorded in docs/G0-lot-cm-2b.md). The liq clause is unchanged.
 // CM-2a-suite (C-2 of MONARK's diff check of CM-2b): the sentence that no served class takes `attested`; cb4029d2... -> 4279a54d...
-// killer: apps/harness/src/tools/gate.ts:213 CONST "refusal. For" -> "refusal; for"
+// Block D, lot D-2 (Z-3 line of block D): the kata clause after the liq clause; bfb474f3... -> dd728779... (3 971 bytes).
+// killer: apps/harness/src/tools/gate.ts:249 CONST "refusal. For" -> "refusal; for"
 test("hdesc_served_gate_description_is_the_committed_clause", async () => {
   assert.equal(hasCommittedCalibrationForClass(TASK_LIQ_ELIGIBLE), true, "the delivered registry holds the liq class");
   const list = await servedToolsList();
@@ -369,8 +375,8 @@ test("hdesc_served_gate_description_is_the_committed_clause", async () => {
   assert.equal(listed, describeGate(true), "the served text is the committed-state description (describeGate(false) hard-coded reds here)");
   assert.equal(
     createHash("sha256").update(listed, "utf8").digest("hex"),
-    "4279a54dd880f7f789d452770ff908a0340c479bb94dbd1152296a6023553f38",
-    "the served description is byte for byte the committed text (ADR-CM B-5, B-2, B-7 and C-2 of CM-2b; was cb4029d2..., 55744504...)",
+    "dd7287793b229a3e083286ac1a7333f646d3cc3a323071d129bff702c4551ef3",
+    "the served description is byte for byte the committed text (ADR-CM B-5, B-2, C-2 of CM-2b, B-7 withdrawn by B-13, the kata clause of block D; was bfb474f3..., 4279a54d..., cb4029d2...)",
   );
   const slice = liqSlice(listed);
   assert.equal(slice, EXPECTED_COMMITTED_CLAUSE, "the served liq clause is EXACTLY the committed clause");

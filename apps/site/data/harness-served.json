@@ -1,7 +1,7 @@
 {
   "$comment": "Committed, hashed facts about the SERVED MONARK harness, rendered by /integrators and /console through apps/site/lib/harness-served-load.ts after a sha256 check against apps/site/data/manifest.sha256.json. Written by the source repository's sync tool (not part of this export) from the served bodies (api /health, /openapi.json, /gate, /calibrate, /attest, /cascade; mcp initialize and tools/list; the MCP registry entry), each body hashing to the sha256 the committed deploy check recorded. Text is copied as served, as closed clauses only; the one rule applied: internal reference tokens in parentheses are removed. No market value, no data-source name.",
   "schema": "monark-site-harness-served-v1",
-  "read_at": "2026-10-04T07:44:40.609Z",
+  "read_at": "2026-10-06T05:43:05.904Z",
   "version": "0.4.0",
   "api": {
     "url": "https://api.monarkgate.tech",
@@ -66,7 +66,7 @@
   },
   "calibrate_contract": {
     "request": { "required": [ "scores", "alpha", "nMin" ], "optional": [] },
-    "result": { "required": [ "qhat", "n", "alpha", "method", "set_digest", "label", "reason" ], "optional": [] }
+    "result": { "required": [ "qhat", "n", "alpha", "method", "scores_sha256", "label", "reason" ], "optional": [] }
   },
   "response_required": [ "structuredContent", "content" ],
   "bounds": { "calibrate_scores": 10000, "gate_scores": 10000, "gate_candidates": 10000, "cascade_nodes": 64 },
@@ -131,7 +131,7 @@
     "repository_url": "https://github.com/KraidleAI/monark"
   },
   "deploy_check": {
-    "checked_at": "2026-10-04T07:44:22.821Z",
+    "checked_at": "2026-10-06T05:42:44.278Z",
     "count": 15,
     "ok_count": 15,
     "tls_host": "api.monarkgate.tech",
@@ -139,12 +139,12 @@
   },
   "bodies_sha256": {
     "/health": "d754b2feb82a3c45588e379d4d343c140ee8229d63f6771c940c27121c90f441",
-    "/openapi.json": "d605b912916cc679d4347299bf7d22bb77bf8e1af4c502dd18e2213e6d2a38d7",
-    "tools/list": "7dfcbd9eed4640b86a9b9b362ba4ec8393b18007d1c9516b96158c0500a29eac",
-    "/gate": "9cd5a9189d653b03650ce2dc50cbf1c36887d085eab5e7bb305bf044f8c70416",
-    "/gate liquidation-eligible-coverage": "7922956678f3336c3d119ee0469ab483f549803d99165d685584e3df5d5a3243",
-    "/calibrate": "5a67ff502aaef51050048955cf7ca8e17011401235c6f7afaaf2b376f7a05e88",
+    "/openapi.json": "61c9df97a254a863a68fdc2c493799803397bfa190b85db3ca97673d2a8ccbf0",
+    "tools/list": "b634e7e142bb90558a0768801505c3d5ab7c7fd7203b89f8070b2a86729a1580",
+    "/gate": "701e9b068944aca7a9c49bb5415fa2af21006b4ba696c916108c4d326445a08c",
+    "/gate liquidation-eligible-coverage": "e2bfb18be056b2ed6f0d1cdae681d9b9e38ede054c79509898243d327a105fe7",
+    "/calibrate": "f169e9f6e333374a9d47a2010674ca789aba45bd126ef8764df2f0fb86a2cb90",
     "/attest": "aeeb34e020d93b21e31c676552d260ceffae1e79c69b56ba2b5c911079d6ad69",
-    "/cascade": "dc4ede52dc5b35efc2b3fdb0a82638454e6dbe27545387c79941292b7fa16576"
+    "/cascade": "145b49754eeeaae9e644fe2b285ce2e3f04841473faf93479dbddeb7978444c5"
   }
 }

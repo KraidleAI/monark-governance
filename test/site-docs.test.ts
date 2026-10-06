@@ -31,6 +31,7 @@ import { FLEET_AGENTS, PRODUCTS } from "../apps/site/lib/fleet.ts";
 import { DOCS_SECTIONS, DOCS_PIECES_ROOT, pieceSlug } from "../apps/site/lib/docs-nav.ts";
 import { PIECE_DOCS, ROLE_WORDS } from "../apps/site/lib/docs-pieces.ts";
 import { REASON_DOCS, POLICY_STEPS, CHAMBERS, ACTION_GLOSSES } from "../apps/site/lib/docs-gate.ts";
+import { REASON_GLOSS } from "../apps/site/lib/how-copy.ts";
 import { loadDocsReferences, DOCS_REFERENCES_REL, DOCS_QUOTE_MAX_WORDS } from "../apps/site/lib/docs-references-load.ts";
 import { siteVocabulary } from "../apps/site/lib/docs-vocab.ts";
 import { loadGateEnums } from "../apps/site/lib/gate-enums.ts";
@@ -439,6 +440,21 @@ test("docs_reason_glosses_track_the_frozen_enum — both ways, with a valid answ
   for (const st of POLICY_STEPS) for (const c of st.onNo) assert.ok(reasons.includes(c), `the policy names the unknown code ${c}`);
 });
 
+// ── (7 bis) the three calibration glosses are MONARK's texts (Q-3c-1; lot CM-3c-4a, Q-CP-3) ─────────────────────────────
+// how-copy.ts carries them byte for byte; docs-gate.ts in its table form (lowercase initial, no final period).
+// killer: apps/site/lib/how-copy.ts:73 CONST "missed too often" -> "missed too oft"
+test("calib_reason_glosses_are_monark_texts", () => {
+  const texts: [string, string][] = [
+    ["calib_silence", "This cell's calibration missed too often, or failed a dependence check, so no region is served."],
+    ["calib_vetoed", "A check registered in advance vetoed this cell's calibration, so no region is served."],
+    ["calib_retired", "This cell's calibration was retired by the published monitoring rule, so no region is served."],
+  ];
+  for (const [code, text] of texts) {
+    assert.equal((REASON_GLOSS as Record<string, { gloss: string } | undefined>)[code]?.gloss, text, `${code}: the /how gloss is MONARK's text, byte for byte`);
+    assert.equal((REASON_DOCS as Record<string, { gloss: string } | undefined>)[code]?.gloss, `${text.charAt(0).toLowerCase()}${text.slice(1, -1)}`, `${code}: the /docs gloss is the same text in the table form`);
+  }
+});
+
 // ── (8) the language gate scans the docs route ───────────────────────────────────────────────────────────────────────
 test("lang_gate_scans_the_docs_route — a docs directory under apps/site is walked; the governance docs directories are not", () => {
   assert.equal(skipDir("docs", ""), true, "the repo-root docs/ stays skipped");
@@ -557,6 +573,20 @@ test("docs_policy_steps_follow_the_set_path_of_the_code — the schema's order i
   const codeOrder = order.filter((c, i) => order.indexOf(c) === i && drawn.includes(c));
   assert.deepEqual(drawn.filter((c, i) => drawn.indexOf(c) === i), codeOrder, "the schema's order equals the code's set-path order");
   assert.match(read("apps/site/app/docs/gate/page.tsx"), /for an interval the code declares another order/, "the page says the interval order apart");
+});
+
+// G2 R-1 of lot CM-3c-4b: the interval order the page states opens with the first reason decideInterval returns
+// (B-16: a zero-width interval is region_degenerate, no longer under_calib).
+// killer: apps/site/app/docs/gate/page.tsx:128 CONST "region_degenerate first" -> "under_calib first"
+test("docs_interval_order_opens_with_the_first_reason_of_decideInterval — a zero-width interval abstains with region_degenerate first", () => {
+  const src = read("packages/hikae/src/l3-gate.ts");
+  const start = src.indexOf("function decideInterval(");
+  assert.ok(start >= 0, "decideInterval is found (false-green guard)");
+  const first = /reason: "([a-z_]+)"/.exec(src.slice(start))?.[1];
+  assert.equal(first, "region_degenerate", "the code's first interval reason");
+  const page = read("apps/site/app/docs/gate/page.tsx").replace(/\s+/g, " ");
+  assert.ok(page.includes(`an interval of zero width abstains with ${first} first`), "the page names the code's first interval reason");
+  assert.ok(!page.includes("zero width abstains with under_calib"), "the pre-B-16 reason is gone from the page");
 });
 
 // C-G2-8: the language gate walks the docs components too.

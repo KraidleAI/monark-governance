@@ -37,6 +37,7 @@ function mkInput(region: PredictionRegion, verdictUnderCalib: boolean, over: Par
     residual: [],
     producedAt: "2026-09-04T00:00:00Z",
     schemaVersion: "1.0.0",
+    cell: { qhatUnit: "score", scale: null, cellKey: null, policyRowSha256: null, policyTableSha256: null },
   });
   return {
     intent: null,
@@ -52,6 +53,7 @@ function mkInput(region: PredictionRegion, verdictUnderCalib: boolean, over: Par
     evaluable: true,
     tool: "perps_order_preview",
     schemaVersion: "1.0.0",
+    requestSha256: "e".repeat(64),
     ...over,
   };
 }
@@ -66,7 +68,7 @@ function firstHit(ordered: [boolean, Expected][]): Expected {
 // in packages/hikae/src/l3-gate.ts header, reason priority order: non_evaluable, upstream_timeout,
 // under_calib (n < n_min, or verdict under_calib: D6(b)), intent_not_in_region, budget_exhausted, then
 // |C| > tau (clock open: defer set_too_large, else abstain clock_expired), else commit covered.
-// killer: packages/hikae/src/l3-gate.ts:92 COR "||" -> "&&"
+// killer: packages/hikae/src/l3-gate.ts:94 CONST "input.nCalib < input.nMin" -> "false"
 test("oracle_l3_set_path_reason_order_exhaustive", () => {
   const seen = new Set<string>();
   for (let mask = 0; mask < 128; mask++) {
@@ -110,7 +112,7 @@ test("oracle_l3_set_path_reason_order_exhaustive", () => {
 });
 
 // [D5, interval sub-path of the same header] common guards (non_evaluable, upstream_timeout, under_calib),
-// then lo >= hi gives under_calib (NDG-1, before budget), then budget_exhausted, then width > tauInterval
+// then lo >= hi gives region_degenerate (NDG-1, B-16, before budget), then budget_exhausted, then width > tauInterval
 // (clock open: defer interval_too_wide, else abstain clock_expired), then intent outside [lo, hi], else
 // commit covered. All 2^8 flag combinations times 3 budgets (768 cases), including B_t = B_floor.
 // killer: packages/hikae/src/l3-gate.ts:130 ROR "<" -> "<="
@@ -130,7 +132,7 @@ test("oracle_l3_interval_path_reason_order_exhaustive", () => {
         [notEvaluable, { action: "abstain", reason: "non_evaluable" }],
         [timedOut, { action: "abstain", reason: "upstream_timeout" }],
         [lowCount || verdictUnderCalib, { action: "abstain", reason: "under_calib" }],
-        [degenerate, { action: "abstain", reason: "under_calib" }],
+        [degenerate, { action: "abstain", reason: "region_degenerate" }],
         [remainingBudget < B_FLOOR, { action: "abstain", reason: "budget_exhausted" }],
         [wide && clockOpen, { action: "defer", reason: "interval_too_wide" }],
         [wide, { action: "abstain", reason: "clock_expired" }],
@@ -157,7 +159,7 @@ test("oracle_l3_interval_path_reason_order_exhaustive", () => {
       seen.add(d.reason);
     }
   }
-  assert.equal(seen.size, 8, "every declared reason of the interval path is reached");
+  assert.equal(seen.size, 9, "every declared reason of the interval path is reached (region_degenerate apart since B-16)");
 });
 
 const COMMON = {
@@ -166,11 +168,12 @@ const COMMON = {
   residual: [],
   producedAt: "2026-09-04T00:00:00Z",
   schemaVersion: "1.0.0",
+  cell: { qhatUnit: "label", scale: null, cellKey: null, policyRowSha256: null, policyTableSha256: null },
 } as const;
 
 // [SOA 2.2; Papadopoulos et al. 2002; LEI] the split interval has constant width 2 qhat, independent of the
 // test point: residuals 1..19, alpha = 0.1, p = ceil(20 * 0.9) = 18, qhat = 18.
-// killer: packages/hikae/src/interval-conformer.ts:88 CONST "params.yhat + qhat" -> "params.yhat + 2 * qhat"
+// killer: packages/hikae/src/interval-conformer.ts:87 CONST "scoreTestBand(params.yhat, qhat)" -> "scoreTestBand(params.yhat, 2 * qhat)"
 test("oracle_interval_width_is_two_qhat_for_every_yhat", () => {
   const calib: CalibPair[] = Array.from({ length: 19 }, (_, i) => ({ yhat: 0, y: i + 1 }));
   for (const yhat of [-1e3, 0, 0.5, 1234.5]) {
@@ -196,7 +199,7 @@ function prng(seed: number): () => number {
 // [LEI Thm 2.2; TB Thm 3.2] same oracle as the L1 coverage test, through conformInterval (absolute residual
 // score): pairs yhat = 0, y = u - 0.5 with u uniform, seed 20260931, n = 19, alpha = 0.1, R = 20000:
 // abs(K/R - 18/20) <= t = sqrt(ln(2e6)/(2R)) (Hoeffding, delta = 1e-6). A signed residual gives about 0.80.
-// killer: packages/hikae/src/interval-conformer.ts:56 CONST "Math.abs(c.y - c.yhat)" -> "(c.y - c.yhat)"
+// killer: packages/hikae/src/interval-conformer.ts:57 CONST "Math.abs(c.y - c.yhat)" -> "(c.y - c.yhat)"
 test("oracle_interval_marginal_coverage_seeded_exchangeable", () => {
   assert.equal(prng(20260931)(), 0.5109332276042551, "first draw of seed 20260931 pinned");
   const R = 20000;

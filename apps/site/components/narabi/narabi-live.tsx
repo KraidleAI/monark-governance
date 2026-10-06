@@ -141,7 +141,7 @@ export function NarabiLive({
   initial: NarabiData;
   initialIntegrity: Integrity;
   capture: CaptureRef;
-  calibration: { nCalib: number; calibDigest: string };
+  calibration: { nCalib: number; scoresSha256: string };
   served: NarabiServed;
 }) {
   const [data, setData] = useState<NarabiData>(initial);
@@ -293,7 +293,7 @@ export function NarabiLive({
             <Fact k="task class" v={served.gate.task_class} note={GATE_NOTES.cls} />
             <Fact k="committed key" v={served.gate.predictor_id} note={GATE_NOTES.key} />
             <Fact k="calibration pairs" v={String(calibration.nCalib)} note={GATE_NOTES.nCalib} />
-            <Fact k="calibration digest" v={shortHash(calibration.calibDigest, 8)} note={GATE_NOTES.digest} />
+            <Fact k="scores digest" v={shortHash(calibration.scoresSha256, 8)} note={GATE_NOTES.digest} />
           </dl>
           <p className="mt-3 text-xs text-muted-foreground">{VERIFY_HINT}</p>
         </Card>

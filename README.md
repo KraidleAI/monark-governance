@@ -17,7 +17,7 @@ The blades are the DeFi side: the **on-chain applications it powers**, each one 
 study of on-chain data before it is served. The first is MONARK Bell; the others are research leads.
 
 Single token, single ticker (`MONARK`). The agents are **applications, not tokens**. This repository is the
-MONARK **tokenisation layer**, the **six frozen interface contracts** (the sixth, AttestedBook, upcoming
+MONARK **tokenisation layer**, the **eight frozen interface contracts** (one of them, AttestedBook, upcoming
 until served) and the served pieces that let AI agents and DeFi meet on measured ground.
 
 ## Two sides, one engine — the eleven components
@@ -91,7 +91,7 @@ The labels are the point: they say what exists today and what is only named.
 
 | Side | Layer | What it is | Status |
 |---|---|---|---|
-| AI | **Backbone** — the gate | Hikae (coverage control) + the MONARK token's budget `B_t`; turns a sensor reading into `commit \| defer \| abstain` | **Built** — six frozen contracts (the sixth, AttestedBook, upcoming until served) |
+| AI | **Backbone** — the gate | Hikae (coverage control) + the MONARK token's budget `B_t`; turns a sensor reading into `commit \| defer \| abstain` | **Built** — eight frozen contracts (AttestedBook upcoming until served) |
 | AI | **Sensors and acts** | the engine's agents: sensors that attest, acts that execute, one token across all of them | **4 built** (Shōgen · Hikae · Ukemi · Narabi) · **7 named** |
 | AI | **Harness** — the door | the same engine made reachable *by other AI agents* over HTTP / MCP | **Built** — public 4-tool MCP endpoint (attest · gate · cascade · calibrate)  |
 | AI | **Adaptation agents** | agents that recalibrate, onboard protocols, track liquidation mechanics and watch data sources | **Roadmap** — named, not shipped |
@@ -242,7 +242,7 @@ change to the engine meets the same maturity criteria.
    wire. No confidence score exists to be misread.
 4. Read Bell and Narabi as files: they are published to be consumed by programs, not only by people.
 
-## Six frozen contracts
+## Eight frozen contracts
 
 The interface is frozen and language-neutral (source of truth: `schemas/*.json`):
 
@@ -254,6 +254,8 @@ The interface is frozen and language-neutral (source of truth: `schemas/*.json`)
 | `CoverageVerdict` | Hikae | Conformal region — **polymorphic** `set` (classification) \| `interval` (regression, so Ukemi plugs in). No `p_correct` field. |
 | `GateDecision` | Hikae L3 | `commit \| defer \| abstain` + `remaining_budget` = `B_t`, the depletable conformal authorization capacity that attaches to MONARK (never a return). |
 | `AttestedBook` | Ukemi (recorder) | A **self-declared** reading of a liquidation book at an archive block under a keyless RPC quorum: the digests (book, holders) with block/provider/quorum context — upcoming until served. |
+| `PolicyTable` | MONARK (policy tables) | A class's policy table: one class entry and its rows (cell key, alpha, n, the served rank and q̂, `scores_sha256`). The verdict carries the digest of the table (`policy_table_sha256`) and of the row it used (`policy_row_sha256`). |
+| `ToolError` | the harness | The body of an HTTP 400 or 500 answer: `{error, operation, message, code}`, the `code` from the closed catalogue of the specification. Read the `code`, not the message. |
 
 ## The token
 
@@ -314,7 +316,7 @@ npm run ci   # vocabulary gate → typecheck (tsc strict) → tests (node:test)
   `node:test` (Node ≥ 24 native TS type-stripping). **Key-closedness** is enforced hand-rolled at runtime
   (mirroring Shōgen's zero-dep unknown-key refusal); the **value constraints** (min/unique items, hash
   length, ASCII-printable) are expressed in the JSON Schemas and exercised against `ajv` in tests.
-- **`ajv` is a dev-dependency** (test-only): it compiles the six frozen JSON Schemas, resolves the
+- **`ajv` is a dev-dependency** (test-only): it compiles the frozen JSON Schemas, resolves the
   `$ref`s, and proves they reject the value-constraint violations (empty/duplicate arrays, wrong-length
   hash, control chars) that the TS types alone do not.
 - **Measured before served.** A piece reaches a public surface only with its study artefacts committed
@@ -325,7 +327,7 @@ npm run ci   # vocabulary gate → typecheck (tsc strict) → tests (node:test)
 
 ```
 schemas/            JSON Schema — the language-neutral source of truth (closed)
-packages/contracts  TS binding: types, closed-check, forbidden-keys, calib_digest, serializers, tests
+packages/contracts  TS binding: types, closed-check, forbidden-keys, scores_sha256, serializers, tests
 packages/hikae      HAC-CP engine: L1 split / L2 monitor / L3 gate, interval conformer  (built)
 packages/ukemi      liquidation-cascade survival: clearing, liquidable                  (built)
 packages/monark     integration adapters: Shōgen→AttestedPrice, Narabi AttestedFlow→Prediction; canonical CBOR

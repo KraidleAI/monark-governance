@@ -10,7 +10,7 @@
 import type { Prediction } from "@monark/contracts";
 import { serializePrediction } from "@monark/contracts";
 
-const SCHEMA_VERSION = "1.0.0";
+import { SCHEMA_VERSION } from "@monark/contracts"; // the one Prediction version (contract 1.1.0)
 
 /**
  * Prediction identity carried BY THE CALLER (D1): the package no longer hard-codes a `predictor_id`

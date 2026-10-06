@@ -87,14 +87,14 @@ export async function handleJsonMirror(request: Request, clock: () => number = D
     const text = await request.text();
     body = text.length === 0 ? {} : (JSON.parse(text) as unknown);
   } catch {
-    return json({ error: "invalid_json", operation: name }, 400);
+    return json({ error: "invalid_json", operation: name, message: `the body of POST /${name} is not JSON`, code: "json_invalid" }, 400);
   }
 
   // Validate with the SAME projected standard schema the MCP boundary uses (mirror the boundary): a
   // present-but-invalid body (extra key vs additionalProperties:false, missing/typed field) -> 400.
   const validated = await tool.inputStandardSchema["~standard"].validate(body);
   if (validated.issues !== undefined) {
-    return json({ error: "invalid_input", operation: name, issues: validated.issues }, 400);
+    return json({ error: "invalid_input", operation: name, message: `the body of POST /${name} does not match its input schema`, code: "input_invalid", issues: validated.issues }, 400);
   }
 
   let result: ReturnType<HarnessToolDescriptor["run"]>;

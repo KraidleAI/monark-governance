@@ -17,6 +17,8 @@
 //      `upcoming` data whose every test-consumer is export-excluded; NON-fatal, REPORTED; NEVER the blacklist.
 //   5. WINDOWS-PATH GUARD (D7 septies (iii)) — the export FAILS HARD (exit 1) if any kept file carries a
 //      reader-local drive path (F: / C: + separator + segment); mirrored in --check, regardless of scope.
+//   6. PENDING-SNAPSHOT GUARD (SITE-SEND-GUARD-MECH-1) — --out FAILS HARD (exit 1, nothing written) while a pending
+//      snapshot of the site data is kept; --check is not guarded (CI stays green from C2 to T0).
 //
 // The first publication of KraidleAI/Monark is a deliberate maintainer decision. This
 // script only writes to a LOCAL --out directory; it never pushes and never touches a
@@ -121,6 +123,8 @@ export const WHITELIST_FILES = [
   "apps/dojo/scripts/dojo-verify.mjs", "apps/dojo/scripts/dojo-verify.d.mts",
   "apps/dojo/scripts/dojo-chain.mjs", "apps/dojo/scripts/dojo-chain.d.mts",
   "apps/dojo/scripts/dojo-core.mjs", "apps/dojo/scripts/dojo-core.d.mts",
+  "scripts/lib/calib-digest-provenance.mjs",
+  "scripts/lib/calib-digest-provenance.d.mts",
 ];
 
 // ADR-M004 D7 bis R2(a): every fixed whitelist entry (dir or file) MUST exist under the export root or
@@ -139,7 +143,7 @@ export const STRUCTURAL_BLACKLIST = [
   /^docs\/CHECKPOINT/,
   /^docs\/AUDIT-ENTREE\.md$/,
   /^docs\/JOURNAL-PROVENANCE\.md$/,
-  /^docs\/R-P1-/,
+  /^docs\/R-P1-/, /\.json\.(?:failed|local|tmp)(?:\.tmp)?$/, // T0-TOOLING-1: a deploy-check side record never ships, wherever --out put it
   /^packages\/[^/]+\/docs\//, // packages/*/docs/ — incl. packages/hikae/docs/S2-* (D7)
 ];
 
@@ -263,6 +267,24 @@ export function windowsPathViolations(kept) {
     const text = readTextOrNull(f.abs);
     if (text === null) continue; // binary kept file — nothing textual to scan
     for (const h of windowsAbsPathHits(text)) out.push({ rel: f.rel, ...h });
+  }
+  return out;
+}
+
+// SITE-SEND-GUARD-MECH-1 (lot CM-3c-4a; MONARK Q-CP-4: no bypass): a pending snapshot (time (i) of a block, sync --pending)
+// describes a harness not yet served, so no site send and no mirror release may carry it before T0. The T0 promotion
+// (sync-harness-served.mjs, then sync-ukemi-served.mjs) removes both files and pending_since: the guard lifts there only.
+export const PENDING_SNAPSHOT_FILES = ["apps/site/data/harness-pending.json", "apps/site/data/ukemi-pending.json"];
+export const PENDING_MARKED_FILES = ["apps/site/data/harness-served.json", "apps/site/data/ukemi-served.json"];
+/** What blocks a send in `kept`: each snapshot file, and each served file carrying pending_since (unreadable: blocks). */
+export function pendingSendBlockers(kept, readText) {
+  const out = [];
+  for (const f of kept) {
+    if (PENDING_SNAPSHOT_FILES.includes(f.rel)) out.push(f.rel);
+    if (!PENDING_MARKED_FILES.includes(f.rel)) continue;
+    let marked = true;
+    try { marked = "pending_since" in JSON.parse(readText(f.abs) ?? "null"); } catch { /* fail closed */ }
+    if (marked) out.push(`${f.rel} (pending_since)`);
   }
   return out;
 }
@@ -488,6 +510,14 @@ function doExport(root, outDir) {
   if (pathViolations.length) {
     console.error("export FAILED — exported file(s) carry a reader-local Windows absolute path (D7 septies (iii)):");
     for (const v of pathViolations) console.error(`  ${v.rel}:${v.line}:${v.col}  ${v.snippet}`);
+    process.exit(1);
+  }
+  // SITE-SEND-GUARD-MECH-1: refuse before any write while a pending snapshot is kept (release-public.mjs runs this export).
+  const blockers = pendingSendBlockers(kept, readTextOrNull);
+  if (blockers.length) {
+    console.error("export FAILED — a pending snapshot is in the exported tree (SITE-SEND-GUARD-MECH-1): no site send and no mirror release before T0:");
+    for (const b of blockers) console.error(`  ${b}`);
+    console.error("  Send from the deployed SHA or the trunk, or promote at T0 (node scripts/sync-harness-served.mjs, then node scripts/sync-ukemi-served.mjs).");
     process.exit(1);
   }
   // Derive the public CI workflow up-front so a bad workflow fails CLOSED before anything is written

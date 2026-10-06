@@ -21,7 +21,7 @@
  */
 import { fromRealizedBook, isRealizedError } from "@monark/monark";
 import type { RealizedBookSlice, RealizedOracleParams, RealizedReserve, RealizedAccount, RealizedOracleUpdate } from "@monark/monark";
-import { assertClosedPrediction, assertNoForbiddenKey } from "@monark/contracts";
+import { assertClosedPrediction, assertNoForbiddenKey, SCHEMA_VERSION } from "@monark/contracts";
 import type { Prediction } from "@monark/contracts";
 import { strateOf } from "../ukemi-strata.ts";
 import { UKEMI_LIQ_PREDICTOR_BASE } from "../calibration.ts";
@@ -29,8 +29,6 @@ import { TASK_LIQ_ELIGIBLE, type HarnessErrorCode } from "./gate.ts";
 
 export const UKEMI_PREDICT_TOOL_NAME = "ukemi-predict";
 
-/** The frozen contract version (ADR-M001) — a constant, never carried by the producer. */
-const SCHEMA_VERSION = "1.0.0";
 
 /** The ONLY close-factor protocol version this producer models (Aave v3.5.0). Any other value fails closed. */
 export const UKEMI_PREDICT_CLOSE_FACTOR_VERSION = "3.5.0";

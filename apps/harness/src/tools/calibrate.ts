@@ -5,8 +5,8 @@
  * `@monark/hikae`, NEVER re-implemented) over nonconformity scores APPORTED BY THE CALLER (BYO —
  * Bring Your Own predictor, ADR-M007 D2): the agent owns its nonconformity function and hands MONARK
  * the score array + the target miscoverage `alpha`; MONARK returns the conformal quantile q̂ that a
- * covered decision would use. `set_digest` = `calibDigest(scores)` (imported from `@monark/contracts`,
- * NEVER re-implemented — B-7), so the audit `calibrate` ↔ `verdict.calib_digest` closes.
+ * covered decision would use. `scores_sha256` = `scoresSha256(scores)` (imported from `@monark/contracts`,
+ * NEVER re-implemented — B-7), so the audit `calibrate` ↔ `verdict.scores_sha256` closes.
  *
  * NO side effects (K-8): this file — like everything under `src/tools/` — imports no
  * `node:fs`/`node:net`/`node:child_process`, calls no `fetch`, writes no `process.env`, and reads no
@@ -23,8 +23,8 @@
  * seam as a tool error, never a silent output); `n < nMin` OR `⌈(n+1)(1−alpha)⌉ > n` ⇒ the honest
  * `{ qhat: null, reason: "under_calib" }` (NEVER a silently clamped q̂). No success is invented.
  */
-import { splitQuantile } from "@monark/hikae";
-import { calibDigest } from "@monark/contracts";
+import { splitQuantileShortest } from "@monark/hikae";
+import { scoresSha256 } from "@monark/contracts";
 import type { HarnessErrorCode } from "./gate.ts";
 
 export const CALIBRATE_TOOL_NAME = "calibrate";
@@ -32,7 +32,7 @@ export const CALIBRATE_TOOL_NAME = "calibrate";
 /**
  * Resource cap (motif `CASCADE_MAX_NODES`): the maximum number of caller-supplied scores the
  * tool accepts. The harness is a public, unauthenticated compute surface co-located with the vitrine on
- * one VPS, so `n` must be bounded even though `splitQuantile` (an O(n log n) sort) and `calibDigest` (an
+ * one VPS, so `n` must be bounded even though `splitQuantile` (an O(n log n) sort) and `scoresSha256` (an
  * O(n) hash) are cheap. 10000 is generously above realistic split-conformal calibration sizes (hundreds
  * to low thousands) yet keeps a crafted body bounded; the Caddy 256 KB body cap is the OUTER bound and
  * this constant is the INNER fail-closed guard. Enforced TWICE, fail-closed: the tool-input projection
@@ -72,15 +72,15 @@ export function calibrateHonestyText(): string {
  * A compact, FACTUAL restatement of the calibrate result, carried in the MCP `content` text ALONGSIDE the
  * honesty label (a delivery aid, NOT a 4th K-1 carrier). Motivation: some MCP clients forward only
  * `content` text and DROP `structuredContent` (measured on Hermes v0.21), so q̂ and the digest would never
- * reach the model. This line surfaces q̂, n, alpha, a TRUNCATED set_digest (8 leading + 6 trailing; the
+ * reach the model. This line surfaces q̂, n, alpha, a TRUNCATED scores_sha256 (8 leading + 6 trailing; the
  * full value stays in `structuredContent`), and `reason` when the calibration is insufficient (so
  * `under_calib` is visibly distinct from a real q̂). DERIVED from the same `CalibrateResult` (single
  * source), it restates only fields already on the wire and asserts NO probability of being right.
  */
 export function calibrateVerdictSummary(r: CalibrateResult): string {
   const qhat = r.qhat === null ? "null" : String(r.qhat);
-  const digest = r.set_digest.length > 14 ? `${r.set_digest.slice(0, 8)}...${r.set_digest.slice(-6)}` : r.set_digest;
-  const base = `verdict qhat=${qhat} n=${String(r.n)} alpha=${String(r.alpha)} set_digest=${digest}`;
+  const digest = `${r.scores_sha256.slice(0, 8)}...${r.scores_sha256.slice(-6)}`;
+  const base = `verdict qhat=${qhat} n=${String(r.n)} alpha=${String(r.alpha)} scores_sha256=${digest}`;
   return r.reason === null ? base : `${base} reason=${r.reason}`;
 }
 
@@ -114,8 +114,8 @@ export interface CalibrateResult {
   readonly alpha: number;
   /** The conformal method — always `"split"` (the only quantile the repo implements). */
   readonly method: "split";
-  /** `calibDigest(scores)` — recalculable by reference (B-7), the audit tie to `verdict.calib_digest` (C2). */
-  readonly set_digest: string;
+  /** `scoresSha256(scores)` in the caller's order (B-17) — the audit tie to `verdict.scores_sha256` (C2). */
+  readonly scores_sha256: string;
   /** The K-1 honesty label (carrier 3/3), declaring the exchangeability hypothesis. */
   readonly label: string;
   /** `"under_calib"` when q̂ is null, else `null` on success. IN the schema (M-5) so the closed output validates. */
@@ -124,9 +124,9 @@ export interface CalibrateResult {
 
 /**
  * Compose the real primitive into the `calibrate` result (D3/D4). Fail-closed order (D4): validate
- * `alpha`, `nMin`, and the cap FIRST; validate finiteness of every score BEFORE `calibDigest` (so a
- * non-finite score is a `CalibrateToolError` with a tool message, not `calibDigest`'s bare `Error`);
- * then compute `set_digest` and the split quantile. `n < nMin` or `p > n` ⇒ `{ qhat: null,
+ * `alpha`, `nMin`, and the cap FIRST; validate finiteness of every score BEFORE `scoresSha256` (so a
+ * non-finite score is a `CalibrateToolError` with a tool message, not the bare error of `scoresSha256`);
+ * then compute `scores_sha256` and the split quantile. `n < nMin` or `p > n` ⇒ `{ qhat: null,
  * reason: "under_calib" }` (never a clamped q̂); success ⇒ `{ qhat, reason: null }`.
  */
 export function runCalibrate(input: CalibrateInput): CalibrateResult {
@@ -150,8 +150,8 @@ export function runCalibrate(input: CalibrateInput): CalibrateResult {
       `invalid 'scores': ${String(n)} scores exceeds the cap of ${String(CALIBRATE_MAX_N)} (resource guard, ADR-M007 D2)`,
     );
   }
-  // Finiteness BEFORE calibDigest (D4): a non-finite score is a tool error with a message, not the bare
-  // Error `calibDigest` throws — so the seam surfaces a 400, never a 500.
+  // Finiteness BEFORE scoresSha256 (D4): a non-finite score is a tool error with a message, not the bare
+  // error `scoresSha256` throws — so the seam surfaces a 400, never a 500.
   for (let i = 0; i < n; i++) {
     const s = scores[i];
     if (s === undefined || !Number.isFinite(s)) {
@@ -159,14 +159,14 @@ export function runCalibrate(input: CalibrateInput): CalibrateResult {
     }
   }
 
-  // B-7: the digest is calibDigest, imported from @monark/contracts, NEVER re-implemented.
-  const set_digest = calibDigest(scores);
-  // The quantile is splitQuantile, imported from @monark/hikae, NEVER re-implemented.
-  const split = splitQuantile(scores, alpha, nMin);
+  // B-17: the digest is scoresSha256, imported from @monark/contracts, NEVER re-implemented.
+  const scores_sha256 = scoresSha256(scores);
+  // The quantile is splitQuantileShortest (exact rank of String(alpha), B-12), imported from @monark/hikae, NEVER re-implemented.
+  const split = splitQuantileShortest(scores, alpha, nMin);
 
   if ("reason" in split) {
     // Fail-closed: n < nMin OR p > n ⇒ honest under-calibration, NEVER a clamped q̂ (D4).
-    return { qhat: null, n, alpha, method: "split", set_digest, label: CALIBRATE_LABEL, reason: "under_calib" };
+    return { qhat: null, n, alpha, method: "split", scores_sha256, label: CALIBRATE_LABEL, reason: "under_calib" };
   }
-  return { qhat: split.qhat, n, alpha, method: "split", set_digest, label: CALIBRATE_LABEL, reason: null };
+  return { qhat: split.qhat, n, alpha, method: "split", scores_sha256, label: CALIBRATE_LABEL, reason: null };
 }

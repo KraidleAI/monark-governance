@@ -7,18 +7,19 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { request as httpRequest } from "node:http";
-import { assertClosedGateDecision, assertClosedPrediction, assertClosedAttestedPrice, calibDigest } from "@monark/contracts";
+import { assertClosedGateDecision, assertClosedPrediction, assertClosedAttestedPrice, scoresSha256 } from "@monark/contracts";
 import { handleJsonMirror, MIRROR_OPERATIONS } from "../src/http.ts";
 import { HARNESS_TOOLS, REGISTERED_TOOL_NAMES } from "../src/tools/registry.ts";
 import { CALIBRATE_MAX_N } from "../src/tools/calibrate.ts";
 import { startServer } from "../src/server.ts";
 import { startLoopback } from "./helpers/loopback.ts";
+import { SCHEMA_VERSION } from "../src/tools/gate.ts";
 
 const API_HOST = "api.monarkgate.tech";
 
 const GATE_BODY = {
   // CM-2b (ADR-CM B-5): btc-dir-15m is retired; the committed USDe key (F-7 alpha 0.1, nMin 50) is the served gate body.
-  prediction: { schema_version: "1.0.0", task_class: "stable-run-velocity-24h", yhat: 0.0001, predictor_id: "narabi:persistence-v2@eip155:1/erc20:0x4c9edd5852cd905f086c759e8383e09bff1e68b3", produced_at: "2026-09-04T00:00:00Z" },
+  prediction: { schema_version: SCHEMA_VERSION, task_class: "stable-run-velocity-24h", yhat: 0.0001, predictor_id: "narabi:persistence-v2@eip155:1/erc20:0x4c9edd5852cd905f086c759e8383e09bff1e68b3", produced_at: "2026-09-04T00:00:00Z" },
   params: { remainingBudget: 0.1, bFloor: 0, tau: 1, tauInterval: 1, alpha: 0.1, nMin: 50, intent: 0, tool: "perps_order_preview", clockOpen: true },
 } as const;
 const CASCADE_BODY = { L: [[0, 100], [50, 0]], e: [40, 20], shock: 0, producedAt: "2026-09-04T00:00:00Z" } as const;
@@ -190,12 +191,12 @@ test("http_calibrate_errors_are_400_never_500", async () => {
 
 /** A BYO gate body: a caller-owned task_class + params.calibration (interval mode, scores ≥ 0). */
 const GATE_BYO_BODY = {
-  prediction: { schema_version: "1.0.0", task_class: "byo-demo", yhat: 0, predictor_id: "caller:model", produced_at: "2026-09-04T00:00:00Z" },
+  prediction: { schema_version: SCHEMA_VERSION, task_class: "byo-demo", yhat: 0, predictor_id: "caller:model", produced_at: "2026-09-04T00:00:00Z" },
   params: { remainingBudget: 0.1, bFloor: 0, tau: 1, tauInterval: 2, alpha: 0.1, nMin: 5, intent: 0, tool: "perps_order_preview", clockOpen: true, calibration: { scores: [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0], mode: "interval" } },
 } as const;
 
 // Test — C2 BYO over the HTTP mirror: a /gate body carrying params.calibration returns 200 + a closed
-// GateDecision whose verdict.calib_digest == calibDigest(scores) (the audit tie), and the content text is
+// GateDecision whose verdict.scores_sha256 == scoresSha256(scores) (the audit tie), and the content text is
 // the BYO exchangeability carrier (not the cascade sentence). BYO refusals are 400 (HarnessToolError ∈
 // TOOL_ERROR_NAMES), never 500. Mutants: skip the yhat type check ⇒ interval on a string yhat 500s; drop
 // the negative-score guard ⇒ an all-negative interval 500s ⇒ these reds. Also anti-override ⇒ 400.
@@ -204,8 +205,8 @@ test("http_gate_byo_calibration", async () => {
   const ok = await call(API_HOST, "POST", "/gate", GATE_BYO_BODY);
   assert.equal(ok.status, 200, "a BYO /gate body is served (200)");
   assertClosedGateDecision(ok.body.structuredContent);
-  const sc = ok.body.structuredContent as { verdict: { calib_digest: string }; action: string };
-  assert.equal(sc.verdict.calib_digest, calibDigest(GATE_BYO_BODY.params.calibration.scores), "verdict.calib_digest == calibDigest(caller scores) — the C1↔C2 audit tie");
+  const sc = ok.body.structuredContent as { verdict: { scores_sha256: string }; action: string };
+  assert.equal(sc.verdict.scores_sha256, scoresSha256(GATE_BYO_BODY.params.calibration.scores), "verdict.scores_sha256 == scoresSha256(caller scores) — the C1↔C2 audit tie");
   assert.equal(sc.action, "commit", "width 2 <= tauInterval 2, intent 0 ∈ [−1,1] ⇒ COMMIT");
   // content parity with the MCP tool (K-1): the BYO honesty carrier, not the cascade sentence.
   const gateTool = HARNESS_TOOLS.find((t) => t.name === "gate");
@@ -218,10 +219,10 @@ test("http_gate_byo_calibration", async () => {
   assert.ok(byoPart.text.includes("exchangeable"), "BYO content carries the exchangeability honesty carrier");
   assert.ok(!byoPart.text.includes("no cascade calibration is committed"), "BYO content must NOT carry the cascade under_calib sentence (B-1 wiring, independent of run())");
   // The verdict summary reaches the wire (delivery aid for text-only MCP clients): the decision action and
-  // the truncated calib_digest are in the content text, so a client that drops structuredContent still sees
+  // the truncated scores_sha256 are in the content text, so a client that drops structuredContent still sees
   // the decision. Absolute oracle: a mutant that omits the summary or hardcodes a stale digest reds here.
   assert.ok(byoPart.text.includes("action=commit"), "BYO content carries the verdict summary action (=commit)");
-  assert.ok(byoPart.text.includes(`calib_digest=${calibDigest(GATE_BYO_BODY.params.calibration.scores).slice(0, 8)}`), "BYO content carries the (truncated) calib_digest in the verdict summary");
+  assert.ok(byoPart.text.includes(`scores_sha256=${scoresSha256(GATE_BYO_BODY.params.calibration.scores).slice(0, 8)}`), "BYO content carries the (truncated) scores_sha256 in the verdict summary");
 
   // BYO refusals ⇒ 400 tool_error, never 500.
   const negScores = { ...GATE_BYO_BODY, params: { ...GATE_BYO_BODY.params, calibration: { scores: [-1, -2, -3, -4, -5, -6, -7, -8, -9, -10], mode: "interval" } } };

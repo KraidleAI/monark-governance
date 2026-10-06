@@ -8,6 +8,7 @@ import {
   ATTESTED_FLOW_RESIDUALS,
   ATTESTED_BOOK_RESIDUALS,
   ATTESTED_BOOK_ABSTAIN_REASONS,
+  QHAT_UNITS,
 } from "../src/index.ts";
 
 // Closes G2 reserve M3: the enums are single-sourced in enums.ts; the JSON Schema
@@ -53,4 +54,9 @@ test("attested-book residual enum: schema matches the TS single source (ADR-U1b 
 test("attested-book abstain.reason enum: schema matches the TS single source, null included (ADR-U1b D4)", () => {
   const ab = load("attested-book.schema.json");
   assert.deepEqual(ab.properties!.abstain!.properties!.reason!.enum, [...ATTESTED_BOOK_ABSTAIN_REASONS]);
+});
+
+// killer: schemas/coverage-verdict.schema.json:59 CONST "[\"label\", \"scale\", \"score\"]" -> "[\"label\", \"scale\", \"score\", \"x\"]"
+test("qhat_unit enum: verdict schema matches QHAT_UNITS", () => {
+  assert.deepEqual(load("coverage-verdict.schema.json").properties?.qhat_unit?.enum, [...QHAT_UNITS]);
 });
