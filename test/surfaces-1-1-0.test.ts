@@ -221,6 +221,10 @@ test("srf_runbook_vitrine_t0_order — deploy, green CA, harness, Narabi and uke
     const lines = text.split("\n"), head = lines.indexOf("## Ordre de T0 (contrat 1.1.0, lot T0-TOOLING-1)"), i = lines.findIndex((l, k) => k > head && l.startsWith(`${String(act)}. `));
     assert.notDeepEqual(strayT0Lines([...lines.slice(0, i + 1), extra, ...lines.slice(i + 1)].join("\n")), [], `a command line indented under act ${String(act)} reds`);
   }
+  const all = text.split("\n"), dated = all.findIndex((l) => /^Ligne dat\u00e9e 2026-10-06 \(RECHERCHES, lot T0-TOOLING-1, ordre/.test(l)), four = all.findIndex((l, k) => k > dated && l.startsWith("4. "));
+  const span = "`node scripts/sync-harness-served.mjs --pending`";
+  assert.notDeepEqual(strayT0Lines([...all.slice(0, four), `Ligne dat\u00e9e 2026-10-07: ${span}.`, ...all.slice(four)].join("\n")), [], "a second dated line between two acts reds (delta2 E-1)");
+  assert.notDeepEqual(strayT0Lines(all.map((l, k) => (k === dated ? `${l} ${span}` : l)).join("\n")), [], "a code span on the section's dated line reds (delta2 E-1)");
   const inputs = JSON.parse(read("scripts", "spec-publish-inputs.json")) as { releases: Record<string, { previous_commit: string | null }> };
   const release = Object.keys(inputs.releases).at(-1) ?? "", prev = (inputs.releases[release]?.previous_commit ?? "").slice(0, 7);
   const spec = `node scripts/spec-publish.mjs --release ${release} --date <YYYY-MM-DD> --out <dir> --root recherches=<recherches> --root previous=<monark-kata-spec@${prev}>`;
