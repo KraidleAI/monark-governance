@@ -66,3 +66,33 @@ Lignes ajoutées par le lot, fichier par fichier : **ok** sur `SKILL.md`, `DEMO.
 - **Q-SRF-3** : `docs/RUNBOOK-harness.md:195` dit « 13 of 13 checks » ; le script en fait 15.
 - À T0, chez MONARK : `docs/deploy-CA-harness.json` (CA neuf), synchro du harnais puis d'ukemi (remplace `set_digest` de `harness-served.json` et supprime `ukemi-pending.json`), envoi du site.
 - La ligne du golden de `/ukemi/course` (`test/site-ukemi.test.ts:1034`) est dans une fonction d'aide : non jugée par red-proof, couverte par `site_ukemi_course_view_golden` (vert au gel).
+
+## Repli de la G2
+
+- **G2 neuve** : `docs/G2-lot-surfaces-1-1-0.md`, verdict « bloquant » sur B-1 seul. **Base fusionnée** : `647e078a` (V-1, #185) par le commit de fusion `4c2c2003` (`--no-ff`), **sans conflit**. Commits du pli : `72530dc9` (tests rouges), `fd5bda12` (gel), puis la réponse de MONARK (`b561bc5`) : un commit de tests, un commit de texte.
+
+| Point | Fait | Épingle et tueur |
+|---|---|---|
+| B-1 | `SKILL.md:62` « served with a committed calibration » ; nouveau paragraphe `:72` : les 32 classes kata servies **sans calibration**, le portail s'abstient (`under_calib`, ou `non_evaluable` pour un penchant nul sur `dir`, raisons vérifiées par `runGate` en processus), aucune région ni bande promise ; motif réservé lu de `KATA_CLASS_RE`, `byo_reserved_kata` | `srf_skill_names_the_kata_classes_and_the_reserved_pattern`, `SKILL.md:72 CONST "`byo_reserved_kata`" -> "`byo_overrides_committed`"` |
+| N-1 | la ligne du pré-vol est épinglée par empreinte (`7793735f…`), le test ne cite pas de français | `srf_runbook_vitrine_refusal_falls_at_preflight`, `RUNBOOK-vitrine.md:36 CONST "`preflight`" -> "`main`"` ; la sonde de la G2 (sens 1.0.0 remis) est maintenant tuée |
+| N-2 | `assert.equal` sur tout `DIGEST_NOTE` | `srf_ukemi_digest_note_is_the_1_1_0_note`, `ukemi-copy.ts:144` ; la sonde « sorted ascending » est tuée |
+| N-3 | `CONTRIBUTING.md:20, 25-26` : `scores_sha256`, ordre envoyé, boucle sur `scores_sha256`, `alpha`, `qhat` | `srf_contributing_closes_the_loop_on_scores_sha256`, `CONTRIBUTING.md:25` |
+| N-4 / Q-SRF-3 | `RUNBOOK-harness.md:195` : `VERIFY OK — all checks passed` (15 of 15 checks), compte dérivé du script | `srf_runbook_harness_green_gate_quotes_the_script`, `RUNBOOK-harness.md:195 CONST "15 of 15 checks" -> "13 of 13 checks"` |
+| N-5 | pas de code (voir ci-dessous) | — |
+| M-1, M-2 | ligne kata du README du harnais : type et domaine de `yhat` ; `nCalib` d'une classe kata : `0` | — |
+| M-3 | **à MONARK** : `scripts/sync-ukemi-served.mjs` (`COMMENT`, zone de MONARK) écrit « the calibration digest » dans le `$comment` de `ukemi-served.json` ; correctif proposé : « the scores digest (the verdict's scores_sha256) » | — |
+| M-4 | `README.md:20, 94` : « eight frozen … contracts », `:317` sans chiffre (le site dit « Eight », Q-SRF-1) | aucun test n'épinglait « six » |
+| M-5 | l'entrée datée du 2026-10-05 retrouve ses mots ; la correction 1.1.0 est une nouvelle ligne datée (2026-10-06, SURFACES-1-1-0) en dessous | N-1 |
+
+- **N-5, UKEMI-COURSE-DIGEST-PIN-1** : jusqu'à la synchro ukemi de T0, `apps/site/data/ukemi-served.json` porte `calibration_digest` `e7e67366…`, l'empreinte triée 1.0.0 lue sur le service ; un site construit avant la synchro afficherait sur `/ukemi/course` « served scores digest e7e67366… », faux pour cette valeur. La garde d'envoi (`*-pending.json`) empêche de le publier ; la synchro de MONARK (`sync-ukemi-served.mjs:152`, `calibration_digest: v.scores_sha256`) le remplace par `a9277222…`. Item ouvert UKEMI-COURSE-DIGEST-PIN-1 : un test qui, sans `ukemi-pending.json`, exige `liq_verdict.calibration_digest === UKEMI_LIQ_SCORES_SHA256_PINNED[<clé s0>]`. Options : (a) dans `test/site-ukemi.test.ts`, ~8 lignes de test, rouge par construction tant que l'instantané en attente existe sauf garde `existsSync` ; (b) dans le prochain lot après T0, vert dès la promotion. Recommandé : (b), ~8 lignes, zéro octet servi.
+- **Réponses de MONARK** (`b561bc5`) : Q-SRF-1, garder « Eight » (aucun changement) ; Q-SRF-2, corrigé ici (B-1, sans calibration, abstention) ; Q-SRF-3, corrigé ici, 15 of 15 ; `docs/deploy-CA-harness.json` reste hors lot : MONARK le régénère par `node scripts/verify-harness.mjs --out docs/deploy-CA-harness.json` juste après le déploiement de T0, avant les deux synchros ; il comptera 15 contrôles.
+
+### Mesures du pli
+
+- **red-proof** `--base ec0e023d --gel HEAD --draw 9 --seed 37` : **OK, 16 jugés** (les 13 du lot et les 3 tests de V-1 venus de la base), 9 tueurs tirés, 9 tués. Contre le commit de fusion `4c2c2003`, `srf_ukemi_digest_note_is_the_1_1_0_note` est « vert à la base » (la note y est déjà) : d'où la base `ec0e023d`.
+- **Tueurs neufs tirés à la main** (mutation, test seul, rouge par assertion, sha256 restauré) : les cinq déclarés ci-dessus, plus deux sondes (`RUNBOOK-vitrine.md:36` sens 1.0.0 ; `SKILL.md:72` « with a calibrated band ») : **7/7 tués**.
+- **Ancres** : contre `ec0e023d`, 25 tueurs, 0 dérive, 0 perdu ; contre `4c2c2003`, 12, 0, 0.
+- **R-25** contre la base `647e078a` : **338** (260 +, 78 −), `GREEN`, sous 547.
+- **Octets servis**, `git archive 647e078a` contre `git archive HEAD` : identiques (`/openapi.json` `61c9df97…`, 400 `75dc6b17…`, 500 `072a23ce…`, `TOOL_OUTPUT_SCHEMA` `3b7c685e…`, clause `022756c3…`, description `dd728779…`, exportations `830680b3…`).
+- **Portes** : `tsc` 0, `eslint` 0, `lint:ratchet` 69/69, `gate:vocab`, `lang:gate`, `export:check` OK. Tests des fichiers touchés (`surfaces-1-1-0`, `skills`, `narabi-live`, `site-ukemi`, `byo-demo-probe`, `site-build-fleet`, `public-surfaces-honesty`, `export-public`, `cra-b`, `public-text-deny`) : 137/137.
+- **`checkPublicText`** (notes) sur les lignes ajoutées du pli : `SKILL.md` et `CONTRIBUTING.md` ok ; `README.md:94` porte « budget » (q3) et le README du harnais des renvois d'ADR, tous deux **préexistants** sur la ligne modifiée ; nombres de violations des fichiers entiers inchangés entre base et gel. Aucun texte ne cite l'URL de la spécification.
