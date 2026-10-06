@@ -251,24 +251,24 @@ function named(s) { return JSON.stringify(s).replace(/[\[\u007f-\uffff]/g, (c) =
  * TrueType tables, OpenTimestamps operands of at most OTS_OPERAND_MAX bytes and pending branches, CBOR strings) is not: hardening, not closure. */
 const CRC = Array.from({ length: 256 }, (_, n) => { for (let k = 0; k < 8; k++) n = n & 1 ? 0xedb88320 ^ (n >>> 1) : n >>> 1; return n >>> 0; });
 const crc32 = (b) => { let c = ~0; for (const x of b) c = CRC[(c ^ x) & 255] ^ (c >>> 8); return ~c >>> 0; }; // zlib.crc32 is Node >= 20.15 only
-export const PNG_CHUNKS = ["IHDR", "PLTE", "IDAT", "IEND", "tRNS", "gAMA", "cHRM", "sRGB", "iCCP", "pHYs", "bKGD", "sBIT"], JPEG_SEGMENTS = [0xc0, 0xc1, 0xc2, 0xc4, 0xdb, 0xdd, 0xda];
+export const PNG_CHUNKS = ["IHDR", "PLTE", "IDAT", "IEND", "tRNS", "gAMA", "cHRM", "sRGB", "iCCP", "pHYs", "bKGD", "sBIT"], PNG_SIZES = { IEND: 0, gAMA: 4, cHRM: 32, sRGB: 1, pHYs: 9, sBIT: [1, null, 3, 3, 2, null, 4], bKGD: [2, null, 6, 1, 2, null, 6], tRNS: [2, null, 6] }, PNG_INFLATE_MAX = 2 ** 26, JPEG_SEGMENTS = [0xc0, 0xc1, 0xc2, 0xc4, 0xdb, 0xdd, 0xda];
 export const TTF_TABLES = ["DSIG", "GDEF", "GPOS", "GSUB", "HVAR", "OS/2", "STAT", "avar", "cmap", "cvt ", "fpgm", "fvar", "gasp", "glyf", "gvar", "head", "hhea", "hmtx", "loca", "maxp", "name", "post", "prep"];
 export const OTS_CALENDARS = ["alice.btc.calendar.opentimestamps.org", "bob.btc.calendar.opentimestamps.org", "btc.calendar.catallaxy.com", "calendar.invalid", "finney.calendar.eternitywall.com"], OTS_OPERAND_MAX = 89;
 const ADAM7 = [[0, 0, 8, 8], [4, 0, 8, 8], [0, 4, 4, 8], [2, 0, 4, 4], [0, 2, 2, 4], [1, 0, 2, 2], [0, 1, 1, 2]];
-function png(b) { // chunks with their CRC, IHDR first, IEND last and nothing after it; PLTE on a palette image only; one zlib stream of the exact pixel size
+function png(b) { // chunks with their CRC, each once but IDAT, at their PNG_SIZES size by colour type (tRNS of a palette image: at most one byte per PLTE entry read), IHDR first, IEND last and nothing after it; PLTE on a palette image only; one zlib stream of the exact pixel size, at most PNG_INFLATE_MAX bytes
   if (b.length < 33 || b.readUInt32BE(8) !== 13 || b.toString("latin1", 12, 16) !== "IHDR") return "IHDR first";
-  const w = b.readUInt32BE(16), h = b.readUInt32BE(20), depth = b[24], color = b[25], idat = [], row = (x) => 1 + Math.ceil((x * depth * ({ 0: 1, 2: 3, 3: 1, 4: 2, 6: 4 }[color] ?? NaN)) / 8);
+  const w = b.readUInt32BE(16), h = b.readUInt32BE(20), depth = b[24], color = b[25], idat = [], seen = new Map(), row = (x) => 1 + Math.ceil((x * depth * ({ 0: 1, 2: 3, 3: 1, 4: 2, 6: 4 }[color] ?? NaN)) / 8);
   for (let o = 8; ; ) {
     if (o + 12 > b.length) return "no IEND";
     const n = b.readUInt32BE(o), t = b.toString("latin1", o + 4, o + 8);
     if (n > b.length - o - 12 || crc32(b.subarray(o + 4, o + 8 + n)) !== b.readUInt32BE(o + 8 + n)) return `chunk ${t} overruns or fails its CRC`;
-    if (!PNG_CHUNKS.includes(t) || (t === "PLTE" && color !== 3) || (t === "IHDR" && o !== 8)) return `chunk ${t}`;
-    if (t === "IDAT") idat.push(b.subarray(o + 8, o + 8 + n));
-    o += 12 + n;
+    if (!PNG_CHUNKS.includes(t) || (t === "PLTE" && color !== 3) || (t === "IHDR" && o !== 8) || (t !== "IDAT" && seen.has(t))) return `chunk ${t}`;
+    if (t === "IDAT") idat.push(b.subarray(o + 8, o + 8 + n)); else if (n !== (t === "tRNS" && color === 3 ? Math.min(n, seen.get("PLTE") / 3) : (PNG_SIZES[t]?.[color] ?? PNG_SIZES[t] ?? n))) return `chunk ${t} of ${String(n)} bytes`;
+    seen.set(t, n); o += 12 + n;
     if (t === "IEND") { if (o !== b.length) return `${b.length - o} bytes after IEND`; break; }
   }
   const z = Buffer.concat(idat), size = b[28] === 0 ? h * row(w) : ADAM7.reduce((s, [x, y, dx, dy]) => s + (w > x && h > y ? Math.ceil((h - y) / dy) * row(Math.ceil((w - x) / dx)) : 0), 0);
-  if (((z[2] >> 1) & 3) === 0) return "stored deflate block";
+  if (((z[2] >> 1) & 3) === 0) return "stored deflate block"; if (!(size <= PNG_INFLATE_MAX)) return "pixel data size"; // refused before inflating: no allocation past the cap
   try { const { buffer, engine } = inflateSync(z, { info: true, maxOutputLength: Math.max(1, size) }); return buffer.length === size && engine.bytesWritten === z.length ? null : "pixel data size"; } catch { return "pixel data"; }
 }
 function jpg(b) { // segments of the closed list, entropy data to the next marker but RSTn, EOI and nothing after it

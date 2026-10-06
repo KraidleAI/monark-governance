@@ -14,7 +14,7 @@ export const ASSET_MAGIC: Record<string, string[]>;
 export function refusals(cwd: string, base: string, specs: string[][]): string[];
 export const LINE_MAX: number;
 export const LONG_LINE_PATHS: Record<string, string>;
-export const PNG_CHUNKS: string[], JPEG_SEGMENTS: number[], TTF_TABLES: string[], OTS_CALENDARS: string[], OTS_OPERAND_MAX: number;
+export const PNG_CHUNKS: string[], PNG_SIZES: Record<string, number | (number | null)[]>, PNG_INFLATE_MAX: number, JPEG_SEGMENTS: number[], TTF_TABLES: string[], OTS_CALENDARS: string[], OTS_OPERAND_MAX: number;
 export const ASSET_STRUCTURE: Record<string, (b: Buffer) => string | null>;
 export function effective(a: { cwd: string; ciText: string; base: string; proof: unknown; written: number[] }): { mode: Mode; code: number; content: number; detail: string[] };
 export function buildProof(a: { api: (path: string, deadline: number) => Promise<unknown>; cwd: string; pr: unknown; base?: string; deadline?: number }): Promise<Proof>;
