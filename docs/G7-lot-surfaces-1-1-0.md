@@ -19,7 +19,7 @@
 
 ## Mesures
 
-- **R-25** (contre `ec0e023d`, G7 compris) : voir la ligne finale ci-dessous ; avant ce G7 : **278** (208 +, 70 −), `GREEN`, borne du lot 547 : **une seule PR**, pas de coupe.
+- **R-25** (contre `ec0e023d`, G7 compris)  : **279** (209 +, 70 −) avec ce G7, 278 avant lui, `GREEN`, borne du lot 547 : **une seule PR**, pas de coupe.
 - **Ancres** (`verifie-ancres.mjs . --touched ec0e023d HEAD`) : tueurs 18, ANCRE 18, **DERIVE 0, PERDU 0**.
 - **red-proof** (`--base ec0e023d --gel 72be5ed9 --draw 9 --seed 37`) : **OK, 9 jugés, 9 F2P, 60 inchangés, 9 tueurs tirés, 9 tués**.
 - **Suite complète au gel** (`npm test`) : 2 689 tests, 2 664 verts, 22 sautés, **3 rouges, les mêmes à la base** : `sentinel_sigterm_after_lock_acquired_before_handler_releases_lock`, `sentinel_sigterm_while_lock_acquiring_releases_lock` (« the preload reached the window point … stdout="" ») et `ukemi_guard_record_skipped_the_platter_flush_nonvacuous`. Rejoués sur une extraction `git archive ec0e023d` : 3 rouges, mêmes messages. Fichiers hors du diff : rouges de l'hôte, pas du lot.
