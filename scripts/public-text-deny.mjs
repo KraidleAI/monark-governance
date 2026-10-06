@@ -115,6 +115,9 @@ const PRIVATE_FORMS = Object.freeze([/(?<![\w.+-])(?!noreply@|[\w.+-]+@users\.no
 const PUBLIC_SYNC = /\bpublic\s+sync\b/i;
 const URL_ANY = /[a-z][a-z0-9+.-]*:\/\/[^\s)>`"]+/gi;
 const URL_ALLOW = /^https:\/\/(?:[a-z0-9-]+\.)*monarkgate\.tech(?:[/?#]|$)|^https:\/\/github\.com\/KraidleAI\/Monark(?:[/?#]|$)|^https:\/\/github\.com\/KraidleAI\/monark-kata-spec(?:[/?#]|$)/i;
+// An allowed URL carries one "://" only (no URL nested in its query), and its resolved form ("..", "%2e%2e") is allowed too.
+const urlAllowed = (url) => { if (url.indexOf("://") !== url.lastIndexOf("://")) return false; let href; try { href = new URL(url).href; } catch { return false; }
+  return URL_ALLOW.test(url) && URL_ALLOW.test(href); };
 // KEY_SHAPES carries a bare "://" rule for served strings; free text may carry an allowlisted URL, checked apart (URL_ALLOW).
 export const SECRET_SHAPES = Object.freeze(KEY_SHAPES.filter((re) => re.source !== ":\\/\\/"));
 const INTERNAL_WORDS = /\b(?:budget|credit|lock)(?:s|ed|ing)?\b/i;
@@ -156,7 +159,7 @@ export function checkPublicText(text, kind) {
   lines.forEach((l, i) => {
     for (const m of l.matchAll(URL_ANY)) {
       const url = m[0].replace(/[.,;:!?]+$/, ""); // sentence punctuation after a URL is not part of it
-      if (!URL_ALLOW.test(url)) v.push({ rule: "g", line: i + 1, word: url });
+      if (!urlAllowed(url)) v.push({ rule: "g", line: i + 1, word: url });
     }
   });
   formHits(lines, "q3", [INTERNAL_WORDS], v);
