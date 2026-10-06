@@ -143,7 +143,7 @@ export const STRUCTURAL_BLACKLIST = [
   /^docs\/CHECKPOINT/,
   /^docs\/AUDIT-ENTREE\.md$/,
   /^docs\/JOURNAL-PROVENANCE\.md$/,
-  /^docs\/R-P1-/,
+  /^docs\/R-P1-/, /\.json\.(?:failed|local|tmp)$/, // T0-TOOLING-1: a deploy-check side record never ships, wherever --out put it
   /^packages\/[^/]+\/docs\//, // packages/*/docs/ — incl. packages/hikae/docs/S2-* (D7)
 ];
 

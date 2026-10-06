@@ -160,7 +160,7 @@ test("srf_contributing_closes_the_loop_on_scores_sha256 — the exported contrib
   assert.ok(text.includes("the verdict's `scores_sha256`, `alpha` and `qhat` equal\n   those the calibrate step returned"), "the loop closes on scores_sha256, alpha and qhat");
 });
 
-// killer: docs/RUNBOOK-harness.md:208 CONST "15 of 15 checks" -> "13 of 13 checks"
+// killer: docs/RUNBOOK-harness.md:214 CONST "15 of 15 checks" -> "13 of 13 checks"
 test("srf_runbook_harness_green_gate_quotes_the_script — the message and the count are those of scripts/verify-harness.mjs", () => {
   const script = read("scripts", "verify-harness.mjs");
   const named = [...script.matchAll(/(?:wiredCheck|httpCheck)\("(\w+)"/g)].map((m) => m[1]);
