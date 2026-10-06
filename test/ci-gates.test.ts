@@ -1959,7 +1959,7 @@ test("ci_workflow_declares_least_privilege_permissions - root contents: read aft
 // Recursive on purpose: a subdirectory has no use and is refused too. -z keeps paths unquoted whatever core.quotepath says.
 // CodeQL runs as a GitHub default setup (workflow path dynamic/github-code-scanning/codeql, no file in the repo). The reads
 // (test/helpers/git-tracked.ts) run without the caller's GIT_* variables and deduplicate an unmerged index (G2 fold, N-2, N-3).
-// killer: scripts/export-public.mjs:425 CONST "ci.yml" -> "gates.yml"
+// killer: scripts/export-public.mjs:447 CONST "ci.yml" -> "gates.yml"
 test("ci_workflows_set_is_exactly_ci_yml - the git index and the HEAD tree track one workflow, .github/workflows/ci.yml, the one file every gate test and the export read (CI-WORKFLOWS-SET-1)", () => {
   assert.equal(gitOut(ROOT, ["rev-parse", "--show-prefix"]).trim(), "", "the test root is the repository root, not a subdirectory of a parent repository");
   const { index, tree } = tracked(ROOT, ".github/workflows");
