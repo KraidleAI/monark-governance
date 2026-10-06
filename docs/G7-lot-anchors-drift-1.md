@@ -51,3 +51,15 @@ G2 delta non bloquante sur `32ba9957` ; ses trois constats sont repliés (A-4 co
 ## 4. Reste ouvert
 
 Rien dans le lot. Les quatre rouges de l'hôte sont antérieurs au lot et ne viennent pas de lui.
+
+## 5. Repli de la G2 du repli (2026-10-06, B-1)
+
+G2 non bloquante sur `4bfd77ad`. B-1 est replié : le commentaire du test `oracle_git_children_see_no_foreign_credential` dit le git qu'il demande. `GIT_TRACE2_ENV_VARS` est venu avec git 2.27.0 (notes de version : « Trace2 enhancement to allow logging of the environment variables ») ; le test est vérifié sous 2.43. Un git plus ancien, Git for Windows compris, fait échouer la prémisse : rouge, jamais vert.
+
+**Vérifications** (tronc `82cf6980` fusionné, base `82cf6980`) :
+- **red-proof `--test-only`** : OK, 2 jugés, 2 épinglés, chaque tueur tiré à la gel est tué.
+- **Ancres, tout le dépôt** : 1 411 tueurs, 1 411 ANCRE, 0 DERIVE, **0 PERDU** ; 34 sur 34 sur les fichiers touchés.
+- **Tueurs tirés à la main**, fichier restauré (sha256) : les 34 de `test/oracle-run.test.ts` et de `packages/hikae/test/oracle-l1-split.test.ts`, tous tués par assertion.
+- **R-25** contre `82cf6980` : STAT 33+/10- = 43 (≤ 547), CONTENT 0, GREEN.
+- **Portes** : `tsc` 0, `eslint .` 0, `lint:ratchet` 69/69, `gate:vocab`, `lang:gate` et `export:check` OK.
+- **Tests touchés** : 23 sur 23, sans saut.
