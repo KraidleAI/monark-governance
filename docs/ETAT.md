@@ -665,11 +665,40 @@ Tronc `lot/etude-suite`. Dernier oracle complet : 1 779 tests, dont 1 776 verts,
     du fichier de décision cité, et la porte de publication (R-b) ou le chargeur d E-2a le vérifie. Porteur : MONARK ; déclencheur : la
     première liste qui porte une cause `adr:` ; état : ouvert.
   - RETIRE-HEADER-WORDING-1 (N-1 de la G2 de RECHERCHES, `8437a42`, mineure, sans nouvelle G2) : l en-tête de `readRetireList`
-    (`apps/harness/src/policy-retire.ts`) se lit « E_k = S_1 plus 3k calendar months, S_1 = 2026-10-01T00:00Z ». Porteur : MONARK ;
-    déclencheur : le prochain lot qui touche `policy-retire.ts` ; état : ouvert.
+    (`apps/harness/src/policy-retire.ts`) se lit « E_k = S_1 plus 3k calendar months, S_1 = 2026-10-01T00:00Z ». Avec lui (note de la G2
+    de R-b, `d7a5a13`) : la liste copiée dans un dossier daté porte le nom `retire-<date du dossier>.json` ; la note de version le dit
+    (« the list in force at <date>, a byte copy of retire-<its day>.json »). Porteur : MONARK ; déclencheur : le prochain lot qui touche
+    `policy-retire.ts`, ou la première note de version datée ; état : ouvert.
   - KILLER-ASSERT-KILL-1 (Q-R11 du G0 de R-a) : deux tueurs anciens tuent hors assertion (`guard_adr_cause_under_decisions_only`,
     `w2_guard_tail_m_and_support`), comptés « non conclu » par `scripts/mutants/run.mjs` ; un lot `red-proof: test-only` passe leurs
     admissions par une assertion. Porteur : MONARK ; déclencheur : après la fusion de R-b ; état : ouvert.
+  - SPEC-WRITER-PIN-GUARD-1 (Q-Rb-9 de R-b, accord de RECHERCHES `d7a5a13`) : `writeFlat` n écrit sous `contract-1.1.0/` que les octets
+    que la release `contract-1.1.0` épingle (`scripts/spec-publish-inputs.json`) ; une réécriture à d autres octets est refusée par son
+    nom. Aujourd hui le filet est l épingle de la CI (six tests rougissent par assertion, mesuré au pli). Porteur : MONARK ; déclencheur :
+    au plus tard le G0 court d E-2a ; état : ouvert.
+  - SPEC-DATED-RELEASE-ENTRY-1 (R-b) : l entrée de release datée dans `scripts/spec-publish-inputs.json` (lignes portées `root:
+    "previous"`, `previous_commit`), puis le test d épingles de `contract-1.1.0` étendu à toutes les releases (m-2 de la vérification
+    de R-b). Porteur : MONARK ; déclencheur : le premier `--write --date` réel (E-2a) ; état : ouvert.
+  - SPEC-TABLES-TEST-PER-DIR-1 (Q-Rb-7 de R-b) : `published_tables_are_the_served_tables_byte_for_byte` lit chaque dossier publié par
+    `servedTableDirs`, et non `contract-1.1.0` seul. Porteur : MONARK ; déclencheur : le lot du premier dossier daté (E-2a) ; état :
+    ouvert.
+  - RETIRE-LATENCY-REHEARSAL-1 (Q-Rb-8 de R-b ; ADR 0006 D6 « livré et mesuré ») : la répétition chronométrée du retrait (liste,
+    `--write --date`, release, publication, fusion, déploiement, sonde), mesurée par `scripts/retire-latency.mjs` en jours ouvrés, avec
+    une cause `live:<k>` dès RETIRE-CAUSE-VOCAB-1 tranché. Porteur : orchestrateur MONARK ; déclencheur : maintenant (R-a et R-b
+    fusionnées) ; état : ouvert.
+  - RETIRE-CAUSE-VOCAB-1 (Q-Rb-6 de R-b, mesuré par la vérification) : la porte de vocabulaire refuse « live » en texte public
+    (`live:1` heurte la règle « a ») ; une cause `live:<k>` ne peut donc pas être publiée telle quelle. Porteur : MONARK décide,
+    RECHERCHES relit ; déclencheur : avant le premier dossier daté qui porte `live:`, au plus tôt après 2027-01-01 ; état : ouvert.
+  - RETIRE-RUNBOOK-1 (m-6 de la vérification de R-b) : la procédure d un retrait au RUNBOOK (liste, `--write --date`, entrée de
+    release, publication, fusion, déploiement, sonde, rapport de latence ; un dossier daté à refaire avant publication se retire avec
+    git). Porteur : MONARK ; déclencheur : la fusion de R-b (atteint) ; état : ouvert.
+  - RETIRE-NEXT-CONTRACT-1 (m-4 de la vérification de R-b) : le refus d une ligne retirée hors d un dossier daté est une décision limitée
+    au contrat 1.1.0 ; une version de contrat non datée pourra-t-elle publier une ligne retirée avec sa liste ? Porteur : MONARK décide,
+    RECHERCHES relit ; déclencheur : le G0 de la prochaine version de contrat après 1.1.0 ; état : ouvert.
+  - TEST-GIT-ENV-ISOLATION-1, inventaire (m-10 de la vérification de R-b ; item tenu à `docs/adr/ADR-BELL-OTS-PRB.md` l.263) :
+    `test/spec-retire-path.test.ts` `previousTree` corrigé dans R-b (l enfant git ne reçoit ni `GIT_DIR`, ni `GIT_WORK_TREE`, ni
+    `GIT_INDEX_FILE`) ; restent `test/spec-1-1-0-release.test.ts` l.214 et `test/spec-publish.test.ts` l.31. Porteur et déclencheur :
+    ceux de l item ; état : ouvert.
   - R25-REGISTRY-ROOT-1, PR 2 (ADR-M003 D9 septdecies, décision de l investisseur du 2026-10-06) : copie à l octet de `wave1.json` (`recherches`
     `a43ad70`, 26 202 lignes, sha256 `811fcd57…`) et de sa déclaration `PROVENANCE-kata-registry.md` sous `apps/harness/data/kata/registry/`,
     sous la porte de la PR 1 ; l ancre (g) du test racine devient inconditionnelle (le saut est retiré). Porteur : MONARK ; déclencheur : la
@@ -1289,6 +1318,11 @@ Tronc `lot/etude-suite`. Dernier oracle complet : 1 779 tests, dont 1 776 verts,
   `docs/G7-lot-retire-path-ra.md`) : liste de retrait datée, chaîne lue par la garde, recouvrement de la projection, borne `LIVE_N_MAX` ;
   non servie avant le chargeur d E-2a (RETIRE-LISTS-E2A-PIPE-1). Restent R-b (publication datée), puis la répétition chronométrée
   (D6 : « livré et mesuré ») ;
+  ENGINE-ROW-RETIRE-PATH-1, R-b fusionnée le 2026-10-06 (#211, fusion `5348b9d2`, oracle G7 `b569bd5c…`, `docs/G7-lot-retire-path-rb.md`) :
+  versions datées des tables (`spec/contract-1.1.0-tables-<date>/`), dossier daté jamais réécrit, ligne retirée publiée avec la liste de
+  son dossier. D6 reste ouvert jusqu aux deux mesures de latence au JOURNAL (RETIRE-LATENCY-REHEARSAL-1) ;
+  VERIFIERS-LIST-F5A-1, partie 1, lot 1a fusionné le 2026-10-06 (#210, fusion `0c2e487d`) : trois fichiers de l outil de recalcul à
+  l octet, test d arbre épinglé ; lots 1b et 1c prêts (`9033650d`, `63367732`), 1d en construction ; G7 à la fin de la partie 1 ;
   SERIES-FULL-HISTORY-1 FAIT le 2026-10-02 (19:19 UTC) : 914 courses, 762 dossiers scellés sous `F:/PRODUITS/marche/history/` (symbole × mois ×
   intervalle), empreintes postées (recherches, pièces `2026-10-02-series-full-history`), rien transféré ; 153 arrêts `close_time` (bougies
   tronquées 2017-2021, et la panne du 2023-03-24 12:39Z sur les 15m et 1h de 2023-03, WARM-2) ; blocs 2022-09 → 2024-09 : 292/300, 0 manquante.
