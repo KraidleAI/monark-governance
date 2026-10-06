@@ -7,9 +7,11 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync, readdirSync } from "node:fs";
+import { createHash } from "node:crypto";
 import { join, relative, sep } from "node:path";
 import { SCHEMA_VERSION } from "../packages/contracts/src/index.ts";
 import { USDE_STABLE_RUN_SCORES_SHA256_PINNED } from "../apps/harness/src/calibration.ts";
+import { KATA_CLASS_RE } from "../apps/harness/src/tools/gate.ts";
 import { SCHEMA_VERSION as SIM_SCHEMA_VERSION } from "../apps/site/lib/sim.ts";
 
 const ROOT = join(import.meta.dirname, "..");
@@ -122,11 +124,49 @@ test("srf_site_says_scores_digest — no site source says 'calibration digest' (
   assert.match(copy.DIGEST_NOTE, /^The scores digest identifies the calibration points/, "the note names the scores digest");
 });
 
-// killer: docs/RUNBOOK-vitrine.md:35 CONST "`preflight`" -> "`main`"
+// killer: docs/RUNBOOK-vitrine.md:36 CONST "`preflight`" -> "`main`"
 test("srf_runbook_vitrine_refusal_falls_at_preflight — the runbook says where release-public refuses since the preflight guard", () => {
-  const runbook = read("docs", "RUNBOOK-vitrine.md");
-  assert.ok(!runbook.includes("15 min"), "the stale wait before the refusal (the full local gates) is gone");
-  assert.ok(runbook.includes("#181 (RELEASE-PREFLIGHT-SEND-GUARD-1)"), "the runbook names the guard that moved the refusal");
-  assert.ok(runbook.includes("(`scripts/release-public.mjs`, `preflight`)"), "the refusal is placed in the preflight of release-public");
+  const lines = read("docs", "RUNBOOK-vitrine.md").split("\n");
+  const at = lines.findIndex((l) => l.includes("#181 (RELEASE-PREFLIGHT-SEND-GUARD-1)"));
+  assert.ok(at > 0, "the runbook carries the dated line of the preflight guard");
+  assert.ok(lines[at]?.startsWith("- (2026-10-06, SURFACES-1-1-0) "), "the correction is a new dated line, below the entry it corrects");
+  // The line is French (internal runbook): pinned by digest so that test/ quotes no French text (lang gate).
+  assert.equal(createHash("sha256").update(lines[at] ?? "", "utf8").digest("hex"), "7793735ff9597570f1e1be7c2365dafd15d9be01efc047f84509fd148c368ed5", "the preflight sentence of the runbook, byte for byte");
   assert.match(read("scripts", "release-public.mjs"), /const plan = preflight\(opts\);[\s\S]*for \(const \[name, cmd\] of gates\)/, "premise: the preflight runs before the local gates");
+});
+
+// killer: skills/monark/SKILL.md:72 CONST "`byo_reserved_kata`" -> "`byo_overrides_committed`"
+test("srf_skill_names_the_kata_classes_and_the_reserved_pattern — the skill says the kata classes are served and which BYO class names are refused", () => {
+  const skill = read("skills", "monark", "SKILL.md");
+  assert.ok(!skill.includes("Two other `task_class`es are served."), "the 1.0.0 list of served classes is gone");
+  assert.ok(skill.includes("Two other `task_class`es are served with a committed calibration."), "the two calibrated classes are named as such");
+  assert.ok(skill.includes("The 32 kata classes `{btc,eth,bnb,sol}-{dir,range,mae-down,mae-up}-{1h,4h}` are also served"), "the kata classes are served");
+  assert.ok(skill.includes(`\`${KATA_CLASS_RE.source}\` (compared without ASCII case): it is refused (\`byo_reserved_kata\`).`), "the reserved pattern is the served one, with its code");
+});
+
+// killer: apps/site/lib/ukemi-copy.ts:144 CONST "in the order the class's table" -> "sorted ascending, the class's table"
+test("srf_ukemi_digest_note_is_the_1_1_0_note — the whole note, order clause included", async () => {
+  const copy = await import("../apps/site/lib/ukemi-copy.ts");
+  assert.equal(copy.DIGEST_NOTE, "The scores digest identifies the calibration points this bound is computed from, in the order the class's table lists them; the gate returns it with every answer on this stratum, so an answer can be matched to its calibration.");
+});
+
+// killer: CONTRIBUTING.md:25 CONST "`scores_sha256`, `alpha` and `qhat`" -> "calibration digest"
+test("srf_contributing_closes_the_loop_on_scores_sha256 — the exported contributing guide states the 1.1.0 audit tie", () => {
+  const text = read("CONTRIBUTING.md");
+  assert.doesNotMatch(text, OLD_DIGEST_NAMES, "CONTRIBUTING.md names a 1.0.0 digest field");
+  assert.doesNotMatch(text, /calibration digest/i, "CONTRIBUTING.md uses the 1.0.0 digest name");
+  assert.ok(text.includes("a `scores_sha256` over exactly those scores, in the order sent."), "calibrate returns scores_sha256");
+  assert.ok(text.includes("the verdict's `scores_sha256`, `alpha` and `qhat` equal\n   those the calibrate step returned"), "the loop closes on scores_sha256, alpha and qhat");
+});
+
+// killer: docs/RUNBOOK-harness.md:195 CONST "15 checks today" -> "13 checks today"
+test("srf_runbook_harness_green_gate_quotes_the_script — the message and the count are those of scripts/verify-harness.mjs", () => {
+  const script = read("scripts", "verify-harness.mjs");
+  const named = [...script.matchAll(/(?:wiredCheck|httpCheck)\("(\w+)"/g)].map((m) => m[1]);
+  const looped = [...script.matchAll(/\["(gate_\w+_call)", GATE_\w+_BODY,/g)].map((m) => m[1]);
+  const count = named.length + looped.length;
+  assert.equal(new Set([...named, ...looped]).size, count, "premise: distinct check names");
+  assert.ok(script.includes('"VERIFY OK — all checks passed."'), "premise: the message the script prints");
+  const runbook = read("docs", "RUNBOOK-harness.md");
+  assert.ok(runbook.includes(`its stderr prints \`VERIFY OK — all checks passed\` (${String(count)} checks today;`), `the runbook quotes the message and the ${String(count)} checks`);
 });
