@@ -47,7 +47,7 @@ export const DEMO_REMAINING_BUDGET = 0.1;
 /** The committed USDe key of stable-run-velocity-24h (GATE_PARAMS carries its imposed alpha 0.1 and nMin 50): the
  *  committed decision of the trace since btc-dir-15m is retired (ADR-CM B-5, CM-2b). */
 export const USDE_PREDICTION = {
-  schema_version: "1.0.0",
+  schema_version: "1.1.0",
   task_class: "stable-run-velocity-24h",
   yhat: 0.0001,
   predictor_id: "narabi:persistence-v2@eip155:1/erc20:0x4c9edd5852cd905f086c759e8383e09bff1e68b3",
@@ -56,7 +56,7 @@ export const USDE_PREDICTION = {
 
 /** The retired btc-dir-15m prediction (ADR-CM B-5): carried by step 7 with the attested witness, refused (400). */
 export const BTC_DIR_PREDICTION = {
-  schema_version: "1.0.0",
+  schema_version: "1.1.0",
   task_class: "btc-dir-15m",
   yhat: "up",
   predictor_id: "internal:momentum-4c",
@@ -300,7 +300,7 @@ export async function buildTrace(): Promise<H5Trace> {
         cascade_gate_remaining_budget: field(gc, "remaining_budget"),
         committed_gate_action: field(gb, "action"),
         committed_gate_reason: field(gb, "reason"),
-        committed_gate_calib_digest: gbVerdict !== null && typeof gbVerdict === "object" ? (gbVerdict as Record<string, unknown>)["calib_digest"] : undefined,
+        committed_gate_scores_sha256: gbVerdict !== null && typeof gbVerdict === "object" ? (gbVerdict as Record<string, unknown>)["scores_sha256"] : undefined,
         attest_label: field(at, "label"),
         attest_sens_emis_digest: atPrice !== null && typeof atPrice === "object" ? (atPrice as Record<string, unknown>)["sens_emis_digest"] : undefined,
         attested_gate_is_error: (gateAttested as unknown as { isError?: unknown }).isError,

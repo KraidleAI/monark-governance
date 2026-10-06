@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://monark.local/schemas/coverage-verdict.schema.json",
   "title": "CoverageVerdict",
-  "description": "HIKAE conformal coverage verdict. POLYMORPHIC region set|interval (set = classification btc-dir/pm-yesno; interval = regression cascade-VaR UKEMI). No p_correct. alpha is the target MISCOVERAGE, so the target coverage is one minus alpha (never a probability of correctness, never a 'coverage level alpha'). ADR-M001 Decision 4.",
+  "description": "HIKAE conformal coverage verdict, contract 1.1.0. POLYMORPHIC region set|interval, or null when no region is served (set = classification btc-dir/pm-yesno; interval = regression cascade-VaR UKEMI). No p_correct. alpha is the target MISCOVERAGE, so the target coverage is one minus alpha (never a probability of correctness, never a 'coverage level alpha'). Couplings checked by the server before it sends, outside this schema (spec section 5): region is null exactly when qhat is null, and then abstain is true and reason is a no-region reason; abstain is true for every calib_* reason; scale is not null exactly when qhat_unit is scale; a non-null policy_row_sha256 implies a non-null cell_key; cell_key is null exactly when policy_table_sha256 is null; when scores is present, scores_sha256 is its digest. ADR-M001 Decision 4.",
   "type": "object",
   "additionalProperties": false,
   "required": [
@@ -15,14 +15,19 @@
     "qhat",
     "abstain",
     "reason",
+    "qhat_unit",
+    "scale",
     "residual",
-    "calib_digest",
+    "scores_sha256",
+    "cell_key",
+    "policy_row_sha256",
+    "policy_table_sha256",
     "produced_at"
   ],
   "properties": {
-    "schema_version": { "type": "string", "pattern": "^\\d+\\.\\d+\\.\\d+$" },
+    "schema_version": { "const": "1.1.0" },
     "task_class": { "type": "string", "pattern": "^[ -~]+$", "minLength": 1 },
-    "method": { "enum": ["split", "hac-cp"] },
+    "method": { "enum": ["split", "hac-cp", "risk-control"] },
     "alpha": { "type": "number", "exclusiveMinimum": 0, "exclusiveMaximum": 1 },
     "n_calib": { "type": "integer", "minimum": 0 },
     "region": {
@@ -46,10 +51,13 @@
             "lo": { "type": "number" },
             "hi": { "type": "number" }
           }
-        }
+        },
+        { "type": "null" }
       ]
     },
     "qhat": { "type": ["number", "null"] },
+    "qhat_unit": { "enum": ["label", "scale", "score"] },
+    "scale": { "type": ["number", "null"] },
     "abstain": { "type": "boolean" },
     "reason": {
       "enum": [
@@ -65,12 +73,20 @@
         "attestation_absent",
         "attestation_refused",
         "binding_broken",
-        "non_evaluable"
+        "non_evaluable",
+        "calib_silence",
+        "calib_vetoed",
+        "calib_retired",
+        "out_of_support",
+        "region_degenerate"
       ]
     },
     "residual": { "type": "array", "items": { "type": "string", "pattern": "^[ -~]+$" } },
     "scores": { "type": "array", "items": { "type": "number" } },
-    "calib_digest": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+    "scores_sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+    "cell_key": { "type": ["string", "null"], "pattern": "^[ -~]+$", "minLength": 1 },
+    "policy_row_sha256": { "type": ["string", "null"], "pattern": "^[0-9a-f]{64}$" },
+    "policy_table_sha256": { "type": ["string", "null"], "pattern": "^[0-9a-f]{64}$" },
     "produced_at": { "type": "string", "format": "date-time" }
   }
 }

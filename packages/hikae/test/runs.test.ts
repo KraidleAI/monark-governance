@@ -11,7 +11,7 @@
  */
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { calibDigest } from "@monark/contracts";
+import { calibDigest } from "../../../scripts/lib/calib-digest-provenance.mjs";
 import { runsCount, runsLowerTailLeq } from "../src/runs.ts";
 import type { Balanced, Bits, RunsTail } from "../src/runs.ts";
 import * as runsModule from "../src/runs.ts";

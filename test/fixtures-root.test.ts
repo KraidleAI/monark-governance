@@ -12,7 +12,7 @@ import { createHash } from "node:crypto";
 import { readFileSync, readdirSync } from "node:fs";
 import { join } from "node:path";
 import { createRequire } from "node:module";
-import { serializeGateDecision, calibDigest } from "../packages/contracts/src/index.ts";
+import { serializeGateDecision, scoresSha256 } from "../packages/contracts/src/index.ts";
 import type { GateDecision } from "../packages/contracts/src/index.ts";
 
 const ROOT = join(import.meta.dirname, "..");
@@ -49,7 +49,7 @@ test("fixtures_root_valid — ajv + Phase 0 runtime guards, 3/2/3/1 split", () =
     const d = JSON.parse(readFileSync(join(FIX, f), "utf8")) as GateDecision;
     assert.ok(validate(d), `${f}: ${JSON.stringify(validate.errors)}`);
     assert.doesNotThrow(() => serializeGateDecision(d), `${f}: runtime guard`);
-    if (d.verdict.scores) assert.equal(d.verdict.calib_digest, calibDigest(d.verdict.scores), `${f}: calib_digest`);
+    if (d.verdict.scores) assert.equal(d.verdict.scores_sha256, scoresSha256(d.verdict.scores), `${f}: scores_sha256`);
     // 3/2/3/1: under_calib is counted separately from abstentions (ADR-M002 D11).
     if (d.reason === "under_calib") counts.under_calib += 1;
     else counts[d.action] += 1;

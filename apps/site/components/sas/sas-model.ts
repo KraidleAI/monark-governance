@@ -108,7 +108,7 @@ export function deriveProfiles(profiles: readonly PickerProfile[]): readonly Sas
 
 // Reason -> chamber. Keyed by the reason code (NOT a contract field). The commit code owns no chamber.
 // Consumers resolve BY INDEX against the loaded frozen enum via chamberForReasonIndex, so the table can
-// not drift from the frozen thirteen (the root test pins coverage + uniqueness of the twelve non-commit codes;
+// not drift from the frozen eighteen (the root test pins coverage + uniqueness of the seventeen non-commit codes;
 // a surplus key outside the enum is unreachable by index and is not asserted).
 const REASON_CHAMBER: Readonly<Record<string, ChamberId>> = {
   non_evaluable: "attest",
@@ -117,6 +117,11 @@ const REASON_CHAMBER: Readonly<Record<string, ChamberId>> = {
   binding_broken: "attest",
   under_calib: "calibrate",
   no_label_schema: "calibrate",
+  calib_silence: "calibrate",
+  calib_vetoed: "calibrate",
+  calib_retired: "calibrate",
+  out_of_support: "calibrate",
+  region_degenerate: "calibrate",
   intent_not_in_region: "gate",
   budget_exhausted: "gate",
   set_too_large: "gate",

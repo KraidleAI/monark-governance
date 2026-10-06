@@ -27,6 +27,7 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { pathToFileURL } from "node:url";
 import { isSemverTag, checkReleaseText, branchGuard, LOCAL_GATES } from "../scripts/release-public.mjs";
+import * as releasePublic from "../scripts/release-public.mjs";
 
 const E_ACUTE = String.fromCharCode(0xe9); // e-acute
 const C_CEDILLA = String.fromCharCode(0xe7); // c-cedilla
@@ -160,4 +161,21 @@ test("release_public_injection_is_unreachable_from_the_command_line — run-guar
   const r = spawnSync(process.execPath, [script, "--gates", "x"], { encoding: "utf8", env, timeout: 60_000 });
   assert.notEqual(r.status, 0, "an injection flag must be refused");
   assert.match(r.stderr, /unknown argument: --gates/, "refused as an unknown argument, before anything runs");
+});
+
+// RELEASE-PREFLIGHT-SEND-GUARD-1 (lot C' 3c-4a, Q-CPA-1): the preflight's pure guard over the blockers that export-public.mjs's
+// pendingSendBlockers names. One blocker alone refuses, every blocker is named, none lets the release go. Read through a
+// namespace import, so the base loads this file.
+// killer: scripts/release-public.mjs:52 ROR "blockers.length > 0" -> "blockers.length > 1"
+test("rpg_send_guard_refuses_each_pending_blocker_and_names_it", () => {
+  const guard = (releasePublic as Record<string, unknown>)["sendGuard"] as ((blockers: readonly string[]) => { ok: boolean; reason: string }) | undefined;
+  assert.equal(typeof guard, "function", "release-public.mjs exports sendGuard");
+  if (guard === undefined) return;
+  assert.deepEqual(guard([]), { ok: true, reason: "no pending snapshot" }, "a promoted tree is let through");
+  const all = ["apps/site/data/harness-pending.json", "apps/site/data/harness-served.json (pending_since)", "apps/site/data/ukemi-pending.json", "apps/site/data/ukemi-served.json (pending_since)"];
+  for (const blockers of [...all.map((b) => [b]), all]) {
+    const r = guard(blockers);
+    assert.equal(r.ok, false, `refused on ${blockers.join(", ")}`);
+    for (const b of blockers) assert.ok(r.reason.includes(b), `the reason names ${b}: ${r.reason}`);
+  }
 });

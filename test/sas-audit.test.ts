@@ -1,5 +1,5 @@
 // test/sas-audit.test.ts — root oracle for the audit payload (node --test, nodenext, no @/, no JSX). It
-// proves (a) the reason -> chamber map covers exactly the twelve non-commit codes, once each, resolved BY
+// proves (a) the reason -> chamber map covers exactly the seventeen non-commit codes (contract 1.1.0), once each, resolved BY
 // INDEX against the loaded frozen enum; and (b) the panel labels are the loaded required[] entries picked
 // by index (never hard-coded), values illustrative under caveat. Field names ARE quoted here — this test
 // lives outside apps/site, so frozen_contract_fields_stay_dynamic (which scans apps/site only) does not
@@ -14,10 +14,10 @@ import { AUDIT_CAVEAT, FIELD, ILLUSTRATIVE, buildAuditPayload } from "../apps/si
 
 const ROOT = join(import.meta.dirname, "..");
 
-test("sas_audit_reasons_from_frozen_enum — the twelve non-commit codes each map to exactly one chamber (coverage + uniqueness), by index", () => {
+test("sas_audit_reasons_from_frozen_enum — the seventeen non-commit codes each map to exactly one chamber (coverage + uniqueness), by index", () => {
   const { reasons } = loadGateEnums(ROOT);
-  assert.equal(reasons.length, 13, "the frozen reason enum carries thirteen codes");
-  assert.equal(reasons.filter((r) => r !== COVERED).length, 12, "twelve non-commit codes");
+  assert.equal(reasons.length, 18, "the frozen reason enum carries eighteen codes (contract 1.1.0)");
+  assert.equal(reasons.filter((r) => r !== COVERED).length, 17, "seventeen non-commit codes");
 
   // The commit code owns no chamber, resolved by its index.
   const coveredIndex = reasons.indexOf(COVERED);
@@ -36,16 +36,17 @@ test("sas_audit_reasons_from_frozen_enum — the twelve non-commit codes each ma
     assert.ok(!seen.has(code), `code ${code} mapped twice (uniqueness broken)`);
     seen.add(code);
   }
-  assert.equal(seen.size, 12, "all twelve non-commit codes covered exactly once");
+  assert.equal(seen.size, 17, "all seventeen non-commit codes covered exactly once");
 });
 
+// killer: apps/site/components/sas/sas-audit.ts:14 CONST "SCORES_DIGEST: 12" -> "SCORES_DIGEST: 10"
 test("sas_audit_labels_from_required — row labels are the loaded required[] entries selected by index; values illustrative under caveat", () => {
   const verdict = loadContract(ROOT, "coverage-verdict.schema.json", "Hikae");
   const gate = loadContract(ROOT, "gate-decision.schema.json", "MONARK");
   // Pin the FIELD indices against the loaded required[] (schema order) — non-vacuity, like the C-9 gate.
   assert.equal(verdict.required[FIELD.REASON], "reason");
   assert.equal(verdict.required[FIELD.REGION], "region");
-  assert.equal(verdict.required[FIELD.CALIB_DIGEST], "calib_digest");
+  assert.equal(verdict.required[FIELD.SCORES_DIGEST], "scores_sha256");
   assert.equal(verdict.required[FIELD.PRODUCED_AT], "produced_at");
   assert.equal(gate.required[FIELD.REMAINING_BUDGET], "remaining_budget");
 
@@ -62,7 +63,7 @@ test("sas_audit_labels_from_required — row labels are the loaded required[] en
   // Labels flow FROM required[] (dynamic), selected by index — never hard-coded in apps/site.
   assert.deepEqual(
     payload.rows.map((r) => r.label),
-    ["reason", "region", "calib_digest", "remaining_budget", "produced_at"],
+    ["reason", "region", "scores_sha256", "remaining_budget", "produced_at"],
   );
   // The reason value is the code resolved by index; the other values are illustrative.
   assert.equal(payload.rows[0]?.value, "budget_exhausted");

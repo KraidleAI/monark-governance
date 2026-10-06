@@ -68,9 +68,9 @@ test("contracts_frozen — schemas/ and packages/contracts/src/ match the curren
   }
 });
 
-test("contracts_frozen — the manifest is not empty and covers the 7 schemas", () => {
+test("contracts_frozen — the manifest is not empty and covers the 9 schemas (ADR-M001 D9-ter, re-pin 2, lot CM-3c-2: policy-row and tool-error added)", () => {
   const keys = Object.keys(FROZEN_MANIFEST);
   assert.ok(keys.length >= 10, `manifest too short: ${keys.length}`);
   const schemas = keys.filter((k) => k.startsWith("schemas/")).length;
-  assert.equal(schemas, 7, "expected: 6 schemas (attested-price, attested-flow, attested-book, prediction, coverage-verdict, gate-decision) + forbidden-keys.json");
+  assert.equal(schemas, 9, "expected: 8 schemas (attested-price, attested-flow, attested-book, prediction, coverage-verdict, gate-decision, policy-row, tool-error) + forbidden-keys.json");
 });

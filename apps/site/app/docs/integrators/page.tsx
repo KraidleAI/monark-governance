@@ -91,10 +91,10 @@ export default function DocsIntegratorsPage() {
       <DocSection id="byo" title="Bring your own calibration">
         <p>
           Two stateless calls. You calibrate on your own nonconformity scores, then gate your own prediction under them. The audit
-          closes when the decision&rsquo;s <code>calib_digest</code> equals the calibration&rsquo;s <code>set_digest</code>.
+          closes when the decision&rsquo;s <code>scores_sha256</code> equals the calibration&rsquo;s, with the same miscoverage level and quantile.
         </p>
         <Figure caption={<>The bring-your-own loop, with the digests and the answer read from the loop recorded over the transport.</>}>
-          <ByoLoopSchema setDigest={byo.set_digest} calibDigest={byo.calib_digest} action={byo.decision.action} reason={byo.decision.reason} />
+          <ByoLoopSchema calibrateSha={byo.scores_sha256.calibrate} verdictSha={byo.scores_sha256.verdict} action={byo.decision.action} reason={byo.decision.reason} />
         </Figure>
         <JsonBlock value={byo.calibrate.request} caption={<>first call, calibrate: you send</>} />
         <JsonBlock value={byo.calibrate.result} caption={<>first call, calibrate: you get back (its label field is quoted below)</>} />

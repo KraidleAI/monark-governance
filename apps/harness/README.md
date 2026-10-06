@@ -29,10 +29,11 @@ Free, pure, no persistence, no trading (ADR-M005 D1). Transport: MCP Streamable 
 | `task_class`               | Path                          | Calibration                                   | Typical result |
 |----------------------------|-------------------------------|-----------------------------------------------|----------------|
 | `btc-dir-15m`              | **retired** (ADR 0005, 2026-09-30; ADR-CM B-5) | not served (the synthetic calibration stays committed for the fixtures) | **tool error** `task_class_retired` (400); the name stays reserved against BYO |
-| `cascade-liquidable-24h`   | `conformInterval` (`interval`)| **none committed** ⇒ empty region             | **`abstain` / `under_calib`** (the honest, expected result — not a defect) |
-| `stable-run-velocity-24h`  | `splitQuantile` + `buildIntervalRegion` (`interval`) | committed **per key** `(task_class, predictor_id)`: one **measured** population (USDe, calm-window redemption flow) | the committed key: `alpha = 0.1`, `nMin = 50` imposed (else a tool error, ADR-CM B-2), a real decision under the served wording (no coverage is measured; each band edge is the nearest double of yhat -/+ q̂, at most half an ulp of the edge away); any other key: **`abstain` / `under_calib`** with the caller's `alpha`/`nMin` |
+| `cascade-liquidable-24h`   | `conformInterval` (`interval`)| **none committed** ⇒ no region (`region: null`) | **`abstain` / `under_calib`** (the honest, expected result — not a defect) |
+| `stable-run-velocity-24h`  | `splitQuantile` + `buildIntervalRegion` (`interval`) | committed **per key** `(task_class, predictor_id)`: one **measured** population (USDe, calm-window redemption flow) | the committed key: `alpha = 0.1`, `nMin = 50` imposed (else a tool error, ADR-CM B-2), a real decision under the served wording (no coverage is measured; the band edges are taken from the score test of the specification, section 8); any other key: **`abstain` / `under_calib`** with the caller's `alpha`/`nMin` |
 | `liquidation-eligible-coverage` | `splitQuantile` over the committed stratum, then the upper bound `[0, yhat + q̂]` (wire kind `interval`) | committed **per stratum** of `yhat`, the stratum derived server-side (the client `predictor_id` is ignored): stratum 0 of one recorded episode, **measured**; `alpha = 0.01`, `nMin = 100` imposed (else a tool error) | the committed stratum: a conformal **upper bound** (with a narrow `tauInterval`, `defer` / `interval_too_wide`); every other stratum: **`abstain` / `under_calib`** |
-| any caller-owned class **with `params.calibration`** | BYO — `splitQuantile` over the caller's scores, then `buildIntervalRegion` (`interval` mode) or `conformalSet` over `candidates` (`set` mode) | **caller-supplied** (BYO, ADR-M007 D7) | a real decision on the caller's own model; `verdict.calib_digest = calibDigest(caller scores)` closes the `calibrate`↔`gate` audit |
+| any caller-owned class **with `params.calibration`** | BYO — `splitQuantile` over the caller's scores, then `buildIntervalRegion` (`interval` mode) or `conformalSet` over `candidates` (`set` mode) | **caller-supplied** (BYO, ADR-M007 D7) | a real decision on the caller's own model; `verdict.scores_sha256` (sha256 of the canonical writing of the caller's scores, in the order sent), `alpha` and `qhat` equal those of `calibrate`: the `calibrate`↔`gate` audit closes |
+| the 32 kata classes `{btc,eth,bnb,sol}-{dir,range,mae-down,mae-up}-{1h,4h}` | their policy table files | **no row served** | after the kata request checks (key grammar, `features_digest`, the class's `alpha`/`nMin`, the `tau` cap on `dir`, the `yhat` type and domain, the `produced_at` grid and the 300 s staleness, each a named 400): **`abstain` / `under_calib`**, or `non_evaluable` for a lean of exactly 0 on a `dir` class |
 
 **BYO (`params.calibration`, ADR-M007 D7).** Shape: `{ scores: number[], mode: "interval" \| "set",
 candidates?: { label, score }[] }` (optional ⇒ existing committed-class calls are unchanged). `interval`
@@ -40,7 +41,9 @@ mode requires **every score `>= 0`** (a negative one ⇒ tool error before the r
 requires a non-empty `candidates` list whose labels are printable ASCII, non-empty, unique, and free of
 `|` (the `label_schema` separator; the schema is **derived** from the candidates, B-3). **Anti-override
 guard:** a `calibration` supplied alongside a committed class (`btc-dir-15m`, `cascade-liquidable-24h`,
-`liquidation-eligible-coverage`, or the committed `stable-run-velocity-24h` key) is a **tool error** — never a silent overwrite of a committed calibration. MONARK stores nothing;
+`liquidation-eligible-coverage`, or the committed `stable-run-velocity-24h` key) is a **tool error** — never a silent overwrite of a committed calibration. A caller-owned class name in the reserved kata pattern
+`^[a-z0-9]{2,10}-(dir|range|mae-down|mae-up)-(15m|1h|4h|24h)$` (compared without ASCII case) is refused with `byo_reserved_kata`, and a
+lookalike of one with `byo_lookalike_confusable`. MONARK stores nothing;
 the caller carries `q̂` and `B_t` exactly as before (stateless, D6).
 
 **Output** is the frozen `GateDecision` (`schemas/gate-decision.schema.json`, projected as the tool
@@ -67,17 +70,17 @@ abstention sentence) rides in the tool result **`content` text**, never inside t
 | `calibration`    | **OPTIONAL** BYO calibration (ADR-M007 D7): `{ scores, mode, candidates? }`. Present ⇒ the BYO conformal path (see above). | closed object; `mode ∈ {interval,set}`; `\|scores\| <= CALIBRATE_MAX_N`; interval ⇒ scores `>= 0`; set ⇒ non-empty, well-formed unique candidate labels |
 
 ### Caller-carried (in `prediction`, frozen)
-`schema_version` (must be `1.0.0` — the server speaks one version), `task_class`, `yhat`,
+`schema_version` (must be `1.1.0` — the server speaks one version; `1.0.0` is a 400 `schema_version_unsupported`), `task_class`, `yhat`,
 `predictor_id`, `produced_at`. `produced_at` is the **carried instant** reused for the verdict — the
 server **reads no clock**.
 
 ### Server-fixed / derived (never accepted from the caller)
 | Field         | Value | Rule |
 |---------------|-------|------|
-| `schemaVersion` | fixed `"1.0.0"` | K-4c |
+| `schemaVersion` | fixed `"1.1.0"` | K-4c |
 | `timedOut`      | `false` | K-4d — a pure server never invents an upstream timeout |
 | `evaluable`     | derived from `yhat` | K-4d — right type but non-directional/non-finite `yhat` ⇒ `abstain`/`non_evaluable` (a decision); wrong-typed `yhat` ⇒ tool error |
-| `nCalib`        | derived (cascade: `0`; stable-run: the committed key's size, else `0`; liquidation-eligible-coverage: the committed stratum's size, else `0`; BYO: the caller's `scores.length`) | K-4d |
+| `nCalib`        | derived (cascade: `0`; stable-run: the committed key's size, else `0`; liquidation-eligible-coverage: the committed stratum's size, else `0`; a kata class: `0` (no row served); BYO: the caller's `scores.length`) | K-4d |
 | `verdict`       | built server-side (calibration ⇒ region; BYO ⇒ the caller's scores) | D5 |
 
 Any invalid param, an unknown or retired `task_class` (with no `calibration`), a BYO validation failure, a
@@ -88,7 +91,7 @@ never a silent gate.
 
 The `btc-dir-15m` calibration is **derived** from the HIKAE S2a instrument (`generateLabeledSeries`
 over the committed `S2_DEFAULT.s2a` — `harness_version = "fixtures-synth"`, seed `101`, `n=300`) and
-is **digest-pinned** (`calibDigest` asserted equal to a committed constant at load, fail-closed). It is
+is **digest-pinned** (`scores_sha256` asserted equal to a committed constant at load, fail-closed). It is
 **declared `synthetic`**, a plumbing fixture, not a measured predictor (ADR-M005 D5, C-8); since CM-2b the class is
 retired and this calibration is no longer served (kept for the fixtures and the engine oracles). No cascade
 calibration exists, so that class abstains honestly.

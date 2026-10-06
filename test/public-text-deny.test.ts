@@ -116,3 +116,33 @@ test("public_notes_pass_the_gate — every file under docs/public-notes/** has a
     assert.ok(r.ok, `${f} (${kind}) does not pass the public-text gate: ${JSON.stringify(r.violations)}`);
   }
 });
+
+// killer: scripts/public-text-deny.mjs:117 CONST "|^https:\/\/github\.com\/KraidleAI\/monark-kata-spec(?:[/?#]|$)" -> ""
+test("public_text_gate_admits_the_spec_repository — the third public origin, exact name only", () => {
+  const spec = "https://github.com/KraidleAI/monark-kata-spec";
+  for (const u of [spec, `${spec}/blob/main/KATA-SPEC.md`, `${spec}#x`, `${spec}?y`, "https://github.com/kraidleai/MONARK-KATA-SPEC"]) {
+    const r = checkPublicText(`Spec: ${u} now`, "notes");
+    assert.ok(r.ok, `${u} must pass: ${JSON.stringify(r.violations)}`);
+  }
+  for (const u of [`${spec}-x`, `${spec}s`, "https://github.com/KraidleAI/monark-kata", "http://github.com/KraidleAI/monark-kata-spec", "https://github.com/KraidleAI/recherches", "https://github.com/KraidleAI/monark-governance",
+    `https://example.org/${spec}`, "https://github.com/evil/monark-kata-spec", `${spec}.evil.com`]) {
+    assert.ok(rules(`Spec: ${u} now`, "notes").includes("g"), `${u} must be refused by rule g`);
+  }
+});
+
+// killer: scripts/public-text-deny.mjs:120 CONST "return URL_ALLOW.test(url) && URL_ALLOW.test(href);" -> "return URL_ALLOW.test(url);"
+test("public_text_gate_resolves_dot_segments — an allowed origin cannot lead elsewhere", () => {
+  for (const base of ["https://github.com/KraidleAI/Monark", "https://github.com/KraidleAI/monark-kata-spec"]) {
+    for (const u of [`${base}/../recherches`, `${base}/%2e%2e/recherches`, `${base}/../../evil/x`]) {
+      assert.ok(rules(`See ${u} now`, "notes").includes("g"), `${u} must be refused by rule g`);
+    }
+    assert.ok(checkPublicText(`See ${base}/releases now`, "notes").ok, `${base}/releases still passes`);
+  }
+});
+
+// killer: scripts/public-text-deny.mjs:119 CONST "if (url.indexOf(\"://\") !== url.lastIndexOf(\"://\")) return false; " -> ""
+test("public_text_gate_refuses_a_url_nested_in_an_allowed_one — one scheme separator per URL", () => {
+  for (const u of ["https://github.com/KraidleAI/monark-kata-spec?u=https://example.org/x", "https://monarkgate.tech/#next=http://example.org"]) {
+    assert.ok(rules(`See ${u} now`, "notes").includes("g"), `${u} must be refused by rule g`);
+  }
+});

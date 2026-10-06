@@ -72,8 +72,10 @@ scores are the ADAPTER's (`scripts/record-usde-calib.mjs` rebuilds `AttestedFlow
 and runs `fromAttestedFlow`), so they match exactly what the deployed predictor produces. The pull(1e6) ↔
 adapter(1e12) per-score gap is a truncation artefact: **max |Δ| ≤ 4.11e-8, mean |Δ| ≈ 1.22e-8**. Under the
 adapter scale the PRE-REGISTERED set HELD: q̂ and q99 kept supports 61 and 6 (no re-declaration). The
-committed digest is `calibDigest` (ADR-M001 C5, float64_be sorted) over the adapter scores:
-`c9793b281167465af88c9e837aaeaf7fb26c709ff4c5e342c68893e759d9e86c`.
+provenance digest is `calibDigest` (ADR-M001 C5, float64_be sorted) over the adapter scores:
+`c9793b281167465af88c9e837aaeaf7fb26c709ff4c5e342c68893e759d9e86c`. Since contract 1.1.0 the gate's verdict carries
+`scores_sha256` instead: the sha256 of the canonical writing of the scores in their stored order, equal to the scores
+file pin below.
 
 **File pins (ADR-M003 D9 sexies — R-25 series exclusion; these are plain sha256 of the FILE bytes, LF-normalized,
 NOT the `calibDigest` above, which is a domain digest over the score array):**

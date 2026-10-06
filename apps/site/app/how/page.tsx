@@ -74,7 +74,7 @@ export default function HowItWorksPage() {
     {
       layer: <>gate · calibrate &amp; monitor</>,
       contract: loadContract(root, "coverage-verdict.schema.json", "Hikae"),
-      what: <>The conformal region at target coverage one minus α, the calibration digest it came from, and the residual of an attested call; no served class accepts an attestation today, so none is carried through.</>,
+      what: <>The conformal region at target coverage one minus α, the scores digest it came from, and the residual of an attested call; no served class accepts an attestation today, so none is carried through.</>,
       absent: <>absent by design: no p_correct.</>,
     },
     {

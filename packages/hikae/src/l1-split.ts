@@ -214,3 +214,31 @@ export function riskControlRow(scores: readonly number[], alphaDec: string, base
   const core = { qhat: r.qhat, rank: r.rank, kStar: r.kStar, kObs: r.kObs, calibMisses, attempt, spendIndex, testDelta };
   return silenceAt !== undefined && r.qhat >= silenceAt ? { ...core, silence: true } : { ...core, silence: false, missBound: r.missBound };
 }
+
+/**
+ * B-12 (ADR-CM, spec section 7): the split rank ceil((n + 1)(1 - a)) in integer arithmetic, where a is the exact rational
+ * of String(alpha), the shortest round-trip writing of the number received (exponent included, no limit on the number of
+ * decimals: 0.12345 is 12345/100000, 1e-7 is 1/10^7). Throws a RangeError on an n that is not a non-negative integer or a
+ * non-finite alpha; the rank of an alpha outside (0, 1) is returned as computed (p > n or p < 1).
+ */
+export function splitRankShortest(n: number, alpha: number): number {
+  if (!Number.isSafeInteger(n) || n < 0) throw new RangeError(`n must be a non-negative integer, got ${String(n)}`);
+  const m = /^(-?)(\d+)(?:\.(\d+))?(?:e([+-]\d+))?$/.exec(String(alpha));
+  if (m === null) throw new RangeError(`alpha must be a finite number, got ${String(alpha)}`);
+  const frac = m[3] ?? "";
+  const shift = Number(m[4] ?? "0") - frac.length;
+  const mant = BigInt(`${m[1] ?? ""}${m[2] ?? ""}${frac}`);
+  const [num, den] = shift >= 0 ? [mant * 10n ** BigInt(shift), 1n] : [mant, 10n ** BigInt(-shift)];
+  const top = BigInt(n + 1) * (den - num);
+  return Number(top >= 0n ? (top + den - 1n) / den : -(-top / den));
+}
+
+/**
+ * B-12: split conformal quantile of the served paths at the rank of splitRankShortest. FAIL-CLOSED `under_calib`, as
+ * splitQuantile and with no new refusal: n < nMin, a non-finite alpha, p > n or p < 1. Scores sorted three-way.
+ */
+export function splitQuantileShortest(scores: readonly number[], alpha: number, nMin: number): SplitResult {
+  if (scores.length < nMin || !Number.isFinite(alpha)) return { reason: "under_calib" };
+  const q = [...scores].sort(ascending)[splitRankShortest(scores.length, alpha) - 1];
+  return q === undefined ? { reason: "under_calib" } : { qhat: q };
+}

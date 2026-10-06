@@ -21,7 +21,8 @@ import { readFileSync } from "node:fs";
 import { createHash } from "node:crypto";
 import { execFile } from "node:child_process";
 import { fileURLToPath, pathToFileURL } from "node:url";
-import { calibDigest } from "@monark/contracts";
+import { scoresSha256 } from "@monark/contracts";
+import { calibDigest } from "../../../scripts/lib/calib-digest-provenance.mjs";
 import { buildRegistryEntries } from "../../../scripts/record-u4b-calib.mjs";
 import { blockFromFiles, spliceBlock } from "../../../scripts/emit-u4b-calibration.mjs";
 import {
@@ -29,6 +30,7 @@ import {
   hasCommittedCalibrationForClass,
   UKEMI_LIQ_COMMITTED,
   UKEMI_LIQ_PREDICTOR_BASE,
+  UKEMI_LIQ_SCORES_SHA256_PINNED,
 } from "../src/calibration.ts";
 import { TASK_LIQ_ELIGIBLE } from "../src/tools/gate.ts";
 
@@ -37,8 +39,8 @@ const U4B = "../../sentinel/test/fixtures/ukemi/u4b/";
 const SCORES = at(`${U4B}U4b-scores-weth-2025-09-22.jsonl`);
 const CALIBRATION = at("../src/calibration.ts");
 const GENERATOR = at("../../../scripts/record-u4b-calib.mjs");
-/** LF sha256 of the frozen generator (ADR-U4b D4 gel, re-gel decision 126 unchanged for this file; A-6 of the lot). */
-const GENERATOR_SHA256_LF = "5733daeb7c8ee40ab0a657882bbe1a9bd03a00d4ddab99e01cfa052a1fbc31a3";
+/** LF sha256 of the frozen generator (ADR-U4b D4 gel; re-gel of 2026-10-05, lot CM-3c-3a: calibDigest imported from the provenance tool). */
+const GENERATOR_SHA256_LF = "aa81dbca6b24c1b692895642759a392ebeff58f06d05c965aee0524d34a87c41";
 
 const lfSha256 = (path: string): string => createHash("sha256").update(readFileSync(path, "utf8").replace(/\r\n/g, "\n"), "utf8").digest("hex");
 
@@ -92,7 +94,7 @@ test("u4b_committed_registry_equals_generator_output", () => {
 });
 
 // The load hook of the child, as a data: URL (no file written): it rewrites ONLY calibration.ts, dropping the first score
-// of the named array (mode scores) or reversing the named pinned digest (mode digest); mode none passes through.
+// of the named array (mode scores) or reversing its stratum scores_sha256 pin (mode digest); mode none passes through.
 const HOOK = `
 import { registerHooks } from "node:module";
 const target = process.env.U4B_GUARD_TARGET, name = process.env.U4B_GUARD_ARRAY, mode = process.env.U4B_GUARD_MODE;
@@ -109,8 +111,9 @@ registerHooks({
       const hit = open < 0 ? null : re.exec(src);
       if (hit !== null) out = src.slice(0, hit.index) + src.slice(hit.index + hit[0].length);
     } else if (mode === "digest") {
-      const hit = new RegExp(name + '_DIGEST_PINNED = "([0-9a-f]{64})"').exec(src);
-      if (hit !== null) out = src.replace(hit[0], name + '_DIGEST_PINNED = "' + [...hit[1]].reverse().join("") + '"');
+      const key = "/s" + name.replace(/[^0-9]/g, "") + String.fromCharCode(96) + ']: "';
+      const at = src.indexOf(key), hex = src.slice(at + key.length, at + key.length + 64);
+      if (at >= 0) out = src.replace(key + hex, key + [...hex].reverse().join(""));
     }
     if (out === src) throw new Error("u4b guard hook: no drift applied to " + name);
     return { ...r, source: out };
@@ -130,6 +133,7 @@ function importInChild(arrayName: string, mode: "none" | "scores" | "digest"): P
   });
 }
 
+// killer: apps/harness/src/calibration.ts:276 SDL "for (const c of COMMITTED_CALIBRATIONS) assertCommittedScores(c);" -> ""
 test("u4b_calib_registry_digest_guard_per_stratum", async () => {
   assert.ok(UKEMI_LIQ_COMMITTED.length >= 1, "at least one committed stratum to guard (non-vacuous)");
   // The fresh s0 digest pinned by value (C5 of the 170 committed scores; ADR-U4b-2b section 1.3, recomputed independently).
@@ -139,7 +143,8 @@ test("u4b_calib_registry_digest_guard_per_stratum", async () => {
     "the committed s0 digest is the independently recomputed C5",
   );
   for (const c of UKEMI_LIQ_COMMITTED) {
-    assert.equal(calibDigest(c.scores), c.digestPinned, `${c.predictorId}: the guard's invariant holds on the committed bytes`);
+    assert.equal(calibDigest(c.scores), c.digestPinned, `${c.predictorId}: the C5 provenance pin holds on the committed bytes`);
+    assert.equal(scoresSha256(c.scores), UKEMI_LIQ_SCORES_SHA256_PINNED[c.predictorId], `${c.predictorId}: the guard's invariant holds on the committed bytes`);
     const k = /\/s(\d+)$/.exec(c.predictorId)?.[1];
     assert.ok(k !== undefined, `${c.predictorId} ends with its stratum /s<k>`);
     const arrayName = `UKEMI_LIQ_S${k}_CALIB`;
@@ -150,7 +155,7 @@ test("u4b_calib_registry_digest_guard_per_stratum", async () => {
       const drifted = await importInChild(arrayName, mode);
       assert.notEqual(drifted.code, 0, `${c.predictorId}: a ${mode} drift makes the import throw (stdout: ${drifted.stdout})`);
       assert.ok(
-        drifted.stderr.includes(`digest drift for ${c.predictorId}`),
+        drifted.stderr.includes(`scores drift for ${c.predictorId}`),
         `${c.predictorId}: the ${mode} drift is caught by ITS stratum guard: ${drifted.stderr.slice(0, 400)}`,
       );
     }
