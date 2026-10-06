@@ -126,7 +126,7 @@ test("oracle_gates_are_the_run_lines_of_ci_yml — derived at launch, CI-only li
 }));
 
 test("oracle_gates_see_no_foreign_credential — no credential NAME reaches a gate of either lane (static lint, locked test) and npm runs offline (C-G2-1, X1)", () => withFx((fx) => {
-  // killer: scripts/oracle/run.mjs:46 COR "DENY.test(k) || " -> ""
+  // killer: scripts/oracle/run.mjs:39 CONST "^MONARK_PUBLIC_MIRROR$/i" -> "^MONARK_PUBLIC_MIRROR$/"
   // killer: scripts/oracle/run.mjs:136 SDL "npm_config_offline: \"true\", " -> ""
   // killer: scripts/oracle/run.mjs:46 COR " || /^npm_config_(offline|logs_dir)$/i.test(k)" -> ""
   const fake = ["FX_API_KEY_1", "FX_PRIVATE_KEY", "FX_TOKEN_1", "fx_secret_1", "GH_FX", "GITHUB_FX", "CHAINSTACK_FX", "MONARK_PUBLIC_MIRROR"]; // lowercase name: DENY must be case-insensitive (Windows env names, O1); a synthetic FX_ name, never MONARK_PUBLIC_MIRROR itself (that exact name is real in this session's own environment, C-G2-1 §0: a lowercase fake of it collides and is overridden by Windows' case-insensitive env merge, not by DENY)
@@ -140,6 +140,22 @@ test("oracle_gates_see_no_foreign_credential — no credential NAME reaches a ga
     assert.match(log, /offline=true/, `${gate}: npm_config_offline`);
   }
 }));
+
+// ANCHORS-DRIFT-1: the scrub of process.env (run.mjs l.46) is the only guard of the children that inherit it, git first; the gates
+// have childEnv's own filter, so the test above cannot see it. A git wrapper first on PATH logs the names git receives.
+// killer: scripts/oracle/run.mjs:46 COR "DENY.test(k) || " -> ""
+test("oracle_git_children_see_no_foreign_credential — the process.env scrub reaches git, which takes no childEnv", (t) => {
+  if (process.platform === "win32") { t.skip("the git wrapper is a POSIX shell script"); return; }
+  withFx((fx) => {
+    const bin = join(fx.top, "bin"), log = join(fx.top, "git-env.txt"), real = execFileSync("sh", ["-c", "command -v git"], { encoding: "utf8" }).trim();
+    mkdirSync(bin); writeFileSync(join(bin, "git"), `#!/bin/sh\nenv | sed -n 's/^\\([A-Za-z_][A-Za-z0-9_]*\\)=.*/\\1/p' >> "$FX_GITENV"\nexec "${real}" "$@"\n`, { mode: 0o755 });
+    const a = oracle(fx, ["--role", "G1"], { FX_TOKEN_1: "fake", fx_secret_1: "fake", GH_FX: "fake", FX_GITENV: log, PATH: `${bin}:${process.env.PATH ?? ""}` });
+    assert.equal(a.status, 0, a.out);
+    const names = readFileSync(log, "utf8").split("\n");
+    assert.ok(names.includes("FX_GITENV"), "premise: the wrapper ran and sees the environment");
+    assert.deepEqual([...new Set(names.filter((k) => /API_KEY|_KEY$|TOKEN|SECRET|^GH_|^GITHUB_|^CHAINSTACK_|^MONARK_PUBLIC_MIRROR$/i.test(k)))], [], "git: no credential name");
+  });
+});
 
 test("oracle_store_serves_g1_never_g2_cp2_g7 — same key: G1 served (cited by file and sha256, never copied, with its own tree sha), an ignored file leaves the tree clean; independent roles replay (M4, M5, X11)", () => withFx((fx) => {
   // killer: scripts/oracle/run.mjs:55 SDL ", \"--exclude-standard\"" -> ""

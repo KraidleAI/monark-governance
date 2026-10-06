@@ -643,7 +643,7 @@ function raising(fx: Fx, print: string): void {
 }
 const CAP = "::error::Gate R-25: integration count above the written count. Fail-closed.";
 
-// killer: .github/workflows/ci.yml:125 CONST "[ \"$NEW_CHANGED\" -le \"$CHANGED\" ] && " -> ""
+// killer: .github/workflows/ci.yml:124 CONST "[ \"$NEW_CHANGED\" -le \"$CHANGED\" ] && " -> ""
 test("r25g_ci_refuses_an_integration_code_count_above_w - R25-COUNT-CAP-1: the measured tree's module answers `integration` with the CODE count one above W (3 lines): the job prints no count, says why and is red (4, green, before the lot)", () => withFx((fx) => {
   fx.g("checkout", "-q", "-b", "pr", TARGET);
   fx.commit("pr", "src/c.txt", 3);
@@ -652,7 +652,7 @@ test("r25g_ci_refuses_an_integration_code_count_above_w - R25-COUNT-CAP-1: the m
   assert.deepEqual([changed(out), out.includes(CAP), exitOf(out)], ["none", true, "1"], out);
 }, REAL_CI));
 
-// killer: .github/workflows/ci.yml:125 CONST " && [ \"$NEW_CONTENT\" -le \"$CONTENT_CHANGED\" ]" -> ""
+// killer: .github/workflows/ci.yml:124 CONST " && [ \"$NEW_CONTENT\" -le \"$CONTENT_CHANGED\" ]" -> ""
 test("r25g_ci_refuses_an_integration_content_count_above_w - R25-COUNT-CAP-1: the measured tree's module answers `integration` with the CONTENT count one above W (0): the job prints no count, says why and is red (1, green, before the lot)", () => withFx((fx) => {
   fx.g("checkout", "-q", "-b", "pr", TARGET);
   fx.commit("pr", "src/c.txt", 3);
