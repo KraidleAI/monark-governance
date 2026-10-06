@@ -31,6 +31,11 @@ const ROOT = fileURLToPath(new URL("..", import.meta.url));
 const WRITER = join(ROOT, "scripts", "spec-policy-tables.mjs");
 const OUT = join(ROOT, "spec", "contract-1.1.0");
 const PREVIOUS = "ddfee9e076d979081fa7b21ec27940e3556bacf7";
+/** The 1.1.0 specification text and its vectors, from the recherches root, pinned (their G2 may move these two digests). */
+const SPEC_TEXT: [string, string, string, string][] = [
+  ["contract-1.1.0/CONTRACT.md", "kata/spec/CONTRACT-1.1.0.md", "text", "642ac97e4c07d5cc1f8b6d3db6e5ab9f4a78a0f566633f0dc01ae0cd59bfbca0"],
+  ["contract-1.1.0/vectors-1.1.0.json", "kata/spec/vectors-1.1.0.json", "json", "1210637f761e4c470f998566e6bbd4694a29049a7c91f4aeb73f6658da3dc347"],
+];
 const NAMES = ["coverage-verdict", "gate-decision", "policy-row", "prediction", "tool-error"];
 const ID = (n: string): string => `https://github.com/KraidleAI/monark-kata-spec/raw/main/contract-1.1.0/schemas/${n}.schema.json`;
 /** The published copies, byte for byte (G0 annex A, after the G2 of part a). */
@@ -92,14 +97,16 @@ test("the_published_schemas_load_together_and_validate_a_served_decision", async
   for (const f of files.filter((x) => x.path.includes("/policy/"))) assert.equal(table(JSON.parse(f.text)), true, `${f.path} ${JSON.stringify(table.errors)}`);
 });
 
-// killer: scripts/spec-publish-inputs.json:61 CONST "\"root\": \"previous\"" -> "\"root\": \"recherches\""
+// killer: scripts/spec-publish-inputs.json:63 CONST "\"root\": \"previous\"" -> "\"root\": \"recherches\""
 test("contract_1_1_0_declares_every_published_file_pinned", () => {
   const r = release(), wave1 = new Map(loadInputs().releases["kata-wave1"]?.entries.map((e) => [e.out, e]));
   const carried = ["KATA-SPEC.md", "reports/README.md", "reports/wave1-report.md", "vectors.json"];
-  const outs = [...carried, ...NAMES.map((n) => `contract-1.1.0/schemas/${n}.schema.json`), ...SERVED_POLICY_TABLES.map((t) => `contract-1.1.0/policy/${t.task_class}.json`)].sort();
+  const outs = [...carried, ...SPEC_TEXT.map((x) => x[0]), ...NAMES.map((n) => `contract-1.1.0/schemas/${n}.schema.json`), ...SERVED_POLICY_TABLES.map((t) => `contract-1.1.0/policy/${t.task_class}.json`)].sort();
   assert.deepEqual([r.previous_commit, r.entries.map((e) => e.out), SERVED_POLICY_TABLES.length], [PREVIOUS, outs, 35]);
   for (const e of r.entries) {
-    if (carried.includes(e.out)) assert.deepEqual([e.root, e.path, e.kind, e.sha256], ["previous", e.out, wave1.get(e.out)?.kind, wave1.get(e.out)?.sha256], e.out);
+    const text = SPEC_TEXT.find((x) => x[0] === e.out);
+    if (text !== undefined) assert.deepEqual([e.root, e.path, e.kind, e.sha256], ["recherches", text[1], text[2], text[3]], e.out);
+    else if (carried.includes(e.out)) assert.deepEqual([e.root, e.path, e.kind, e.sha256], ["previous", e.out, wave1.get(e.out)?.kind, wave1.get(e.out)?.sha256], e.out);
     else assert.deepEqual([e.root, e.path, e.kind, e.sha256], ["governance", `spec/${e.out}`, e.out.includes("/policy/") ? "policy-table" : "schema", sha(bytes(ROOT, e.path))], e.out);
   }
   for (const e of r.entries.filter((x) => x.kind === "schema")) assert.equal(e.sha256, COPY_SHA256[e.out.slice("contract-1.1.0/schemas/".length, -".schema.json".length)], e.out);
@@ -137,10 +144,10 @@ test("no_table_publishes_the_digest_of_a_sequence_of_30_points_or_fewer", async 
   }
 });
 
-// killer: scripts/spec-publish-inputs.json:55 CONST "\"root\": \"governance\"" -> "\"root\": \"recherches\""
+// killer: scripts/spec-publish-inputs.json:56 CONST "\"root\": \"governance\"" -> "\"root\": \"recherches\""
 test("contract_1_1_0_passes_the_spec_publish_gate_offline", () => {
   const r = release(), problems = plan({ inputs: loadInputs(), release: "contract-1.1.0", date: "2026-10-06", roots: { governance: ROOT } }).problems;
-  assert.deepEqual(problems.map((p) => p.detail), [...r.entries.filter((e) => e.root === "previous").map((e) => `${e.out}: root previous not given`), `previous tree at ${PREVIOUS} not given`]);
+  assert.deepEqual(problems.map((p) => p.detail), [...r.entries.filter((e) => e.root !== "governance").map((e) => `${e.out}: root ${e.root} not given`), `previous tree at ${PREVIOUS} not given`]);
   for (const e of r.entries.filter((x) => x.root === "governance")) assert.deepEqual(contentProblems(e.out, e.kind, bytes(ROOT, e.path)), [], e.out);
   assert.deepEqual([r.entries.filter((e) => e.root === "governance").length, contentProblems("contract-1.1.0/policy/eth-dir-1h.json", "policy-table", bytes(OUT, "policy", "btc-dir-1h.json"))[0]?.code], [40, "policy_table_invalid"]);
 });
