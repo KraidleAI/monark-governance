@@ -12,6 +12,8 @@ export const W2_TAIL_FRAC: Readonly<Record<string, string>> = { "1h": "0.95", "4
 export const W2_CALIB_N_MAX: Readonly<Record<string, number>> = { "1h": 8760, "4h": 2190 };
 /** Points of the bridge (365 days), TEST-2 and FWD-2 (183 days each) blocks of D6 per horizon: the bound on n_test before any bound or veto (G2 of lot b, m-2). */
 export const W2_BLOCK_N_MAX: Readonly<Record<"bridge" | "test" | "fwd", Readonly<Record<string, number>>>> = { bridge: W2_CALIB_N_MAX, test: { "1h": 4392, "4h": 1098 }, fwd: { "1h": 4392, "4h": 1098 } };
+/** Points of the longest UTC civil quarter (92 days) per horizon: the bound on the n_test of a live:<k> retire, refused before any bound or veto (ADR 0006 addendum 9 point 5; R-a of ENGINE-ROW-RETIRE-PATH-1). */
+export const LIVE_N_MAX: Readonly<Record<string, number>> = { "1h": 2208, "4h": 552 };
 
 type Is = (ok: boolean, what: string) => void;
 

@@ -121,3 +121,16 @@ export function projectCell(cell: RegistryCell, inp: ProjectionInputs): PolicyRo
   assertClosedPolicyRow(row, `projection of ${cell.key}`);
   return row;
 }
+
+/** A cell of a pinned retire list (R-a of ENGINE-ROW-RETIRE-PATH-1; read by policy-retire.ts, never here): its keys and the retire block of its row. */
+export type RetiredCell = NonNullable<PolicyRow["retire"]> & { readonly task_class: string; readonly cell_key: string };
+
+/**
+ * Draft G0 of the retire path, section 4.2: the projection of a listed cell is its B1 row with exactly five columns set, status
+ * retired, status_reason "retired: <cause>", retire {cause, k_test, n_test, u_test}, miss_bound and bound_on null; qhat (kept
+ * as an audit record, Q-E6), text and every other column stay the B1 row's. No listed cell: the B1 row itself.
+ */
+export function retireOverlay(row: PolicyRow, c: RetiredCell | undefined): PolicyRow {
+  if (c === undefined) return row;
+  return { ...row, status: "retired", status_reason: `retired: ${c.cause}`, retire: { cause: c.cause, k_test: c.k_test, n_test: c.n_test, u_test: c.u_test }, miss_bound: null, bound_on: null };
+}

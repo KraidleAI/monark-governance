@@ -62,7 +62,7 @@ const reforged = (edit: (rows: Cell[]) => void): { bytes: Uint8Array; pins: Guar
   return { bytes, pins: { ...PINS, registrySha256: createHash("sha256").update(bytes).digest("hex") } };
 };
 
-// killer: apps/harness/src/policy-guard.ts:118 SDL "want(Object.keys(cell.test.months)" -> ""
+// killer: apps/harness/src/policy-guard.ts:122 SDL "want(Object.keys(cell.test.months)" -> ""
 test("guard_admits_every_synthetic_table", () => {
   for (const name of CLASSES) guardKataTable(tableFrom(name, SYN.bytes, PINS), SYN.bytes, PINS, entry(name));
   assert.deepEqual(new Set(ROWS.map((r) => r.status)), new Set(["region", "silence", "vetoed", "under_calib"]));
@@ -130,7 +130,7 @@ test("guard_recompute_and_verifiers", () => {
   refuse({ ...under, recompute: rc }, /under_calib with a calibrated column/);
 });
 
-// killer: apps/harness/src/policy-guard.ts:108 ROR "?? 0) > 0" -> "?? 0) >= 0"
+// killer: apps/harness/src/policy-guard.ts:109 ROR "?? 0) > 0" -> "?? 0) >= 0"
 test("guard_band_edges_and_support", () => {
   check(bandRegion);
   const b = (qhat: number, min: number, max: number): PolicyRow => ({ ...bandRegion, qhat, calib_support: { min, max } });
@@ -198,12 +198,12 @@ test("guard_names_misses_above_n", () => {
   refuse({ ...s, misses: s.n + 3, k_obs: s.n + 3 }, /misses outside 0\.\.n/);
 });
 
-// killer: apps/harness/src/policy-guard.ts:101 SDL "is(pins.verifiers.every(" -> ""
+// killer: apps/harness/src/policy-guard.ts:102 SDL "is(pins.verifiers.every(" -> ""
 test("guard_requires_verifier_pins_as_identities", () => {
   for (const v of ["Verifier-B", "verifier-b@rev"]) refuse(dirRegion, /not an identity/, { ...PINS, verifiers: [v] });
 });
 
-// killer: apps/harness/src/policy-guard.ts:93 CONST "adr:decisions\\/[0-9A-Za-z]" -> "adr:[\\w./-]"
+// killer: apps/harness/src/policy-retire.ts:53 CONST "adr:decisions\\/[0-9A-Za-z]" -> "adr:[\\w./-]"
 test("guard_adr_cause_under_decisions_only", () => {
   check(retired("adr:decisions/0007-retire.md", null, null, null));
   for (const c of ["adr:/x.md", "adr:../../etc.md", "adr:..md", "adr:decisions/../x.md", "adr:other/x.md"]) refuse(retired(c, null, null, null), /retire cause/);

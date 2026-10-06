@@ -4,17 +4,17 @@
  * throws on the first difference. Every value the row's counts determine is recomputed by the exact comparator; what
  * depends on the unpublished scores (qhat on a band, misses, the check outcomes) is bound by the projection of the pinned
  * registry (block B1) and by `recompute`. Wave 2 band rows (lot CM-4a-ii-b, docs/G0-lot-cm-4a-ii-b.md): tails from
- * counts through the one seam policy-wave2.ts, bridge and FWD-2 vetoes, A-1 spend; other waves are refused.
- */
+ * counts through the one seam policy-wave2.ts, bridge and FWD-2 vetoes, A-1 spend; other waves are refused. Retired rows (R-a of
+ * ENGINE-ROW-RETIRE-PATH-1): the pinned retire list of policy-retire.ts overlays the projection; live counts within LIVE_N_MAX. */
 import { assertClosedPolicyRow, type ClassEntry, type PolicyRow, type PolicyTable } from "@monark/contracts";
 import { bandEdge, binomCdfLeq, ceilDecimal4, missUpperBound, parseAlpha, parseTestDelta, riskControlMaxExceedances, spendDelta, splitRankExact, zeroErrorFloor } from "@monark/hikae";
 import { KATA_BASE_DELTA, KATA_H_MS, kataKeyProblem } from "./policy-classes.ts";
 import { readRegistry, type ProjectionInputs } from "./policy-projection.ts";
-import { assertTableMatchesRegistry } from "./policy-table-file.ts";
-import { guardCalibChain, W2_BLOCK_N_MAX, W2_CALIB_N_MAX, W2_TAIL_FRAC, wave2Admission } from "./policy-wave2.ts";
-
-/** The pins of the guard: the projection inputs and the closed list of verifier identities (A-2 section 2.2 point 7). */
-export type GuardPins = ProjectionInputs & { readonly verifiers: readonly string[] };
+import { readRetireList, retireQuarter, type RetireList, type RetirePin } from "./policy-retire.ts";
+import { assertRegistryPinned, assertTableMatchesRegistry } from "./policy-table-file.ts";
+import { guardCalibChain, LIVE_N_MAX, W2_BLOCK_N_MAX, W2_CALIB_N_MAX, W2_TAIL_FRAC, wave2Admission } from "./policy-wave2.ts";
+/** The pins of the guard: the projection inputs, the closed list of verifier identities (A-2 section 2.2 point 7) and, from R-a, the chain of dated retire lists, oldest to newest (absent or empty: no row retired). */
+export type GuardPins = ProjectionInputs & { readonly verifiers: readonly string[]; readonly retireLists?: readonly RetirePin[] };
 
 const want = (ok: boolean, key: string, what: string): void => {
   if (!ok) throw new Error(`MONARK import guard: ${key} ${what}.`);
@@ -89,8 +89,9 @@ export function guardKataRow(r: PolicyRow, cls: ClassEntry, pins: GuardPins): vo
   is(r.status === st && r.status_reason === why, `has status '${r.status}' and reason '${r.status_reason}', not '${st}' and '${why}'`);
   if (r.retire !== null) {
     const c = r.retire;
-    const live = /^live:[1-9][0-9]*$/.test(c.cause);
-    is(status === "region" && (live || (/^adr:decisions\/[0-9A-Za-z][0-9A-Za-z._-]*\.md$/.test(c.cause) && !c.cause.includes(".."))), "has a retire cause outside live:<k> and adr:decisions/<file>.md (epoch:<id> needs the pinned epoch log), or retires a row that serves no region");
+    const k = retireQuarter(c.cause), live = (k ?? 0) > 0;
+    is(status === "region" && k !== undefined, "has a retire cause outside live:<k> and adr:decisions/<file>.md (epoch:<id> needs the pinned epoch log), or retires a row that serves no region");
+    is(!live || (c.n_test ?? 0) <= (LIVE_N_MAX[r.horizon ?? ""] ?? 0), "has a live:<k> n_test above LIVE_N_MAX (2208 at 1h, 552 at 4h, the longest quarter: ADR 0006 addendum 9 point 5), refused before any bound or veto");
     is(live ? c.n_test !== null && c.k_test !== null && c.n_test >= 1 && vetoFires(c.n_test, c.k_test, r.alpha) && c.u_test === uTest(c.k_test, c.n_test) : c.n_test === null && c.k_test === null && c.u_test === null, "has retire counts off its cause or a live block the binomial rule does not fire on");
   }
   const region = r.status === "region";
@@ -108,9 +109,12 @@ export function guardKataRow(r: PolicyRow, cls: ClassEntry, pins: GuardPins): vo
   is((bandEdge(qb, s?.min ?? 1) ?? 0) > 0 && bandEdge(qb, s?.max ?? 1) !== null, "has no positive band edge at calib_support.min or no finite edge at calib_support.max (plan section 4)");
 }
 
-/** G-3: the table matches the pinned registry (block B1) with its expected class entry; each row passes G-2; cell checks. */
+/** G-3: the registry pin, before any retire list reads the registry bytes; the dated retire lists, oldest to newest, each read against its predecessor (R-a: a retire never leaves the chain, draft G0 section 4.1); the table matches the pinned registry (block B1), overlaid by the newest list, with its expected class entry; each row passes G-2; cell checks. */
 export function guardKataTable(table: PolicyTable, registryBytes: Uint8Array, pins: GuardPins, expected: ClassEntry): void {
-  assertTableMatchesRegistry(table, registryBytes, pins, expected);
+  assertRegistryPinned(table.class.task_class, registryBytes, pins);
+  let prev: RetireList | undefined;
+  for (const pin of pins.retireLists ?? []) prev = readRetireList(pin, registryBytes, prev);
+  assertTableMatchesRegistry(table, registryBytes, pins, expected, prev?.entries ?? []);
   for (const row of table.rows) guardKataRow(row, table.class, pins);
   guardCalibChain(table.rows);
   const rows = new Map(table.rows.map((r) => [r.cell_key, r]));
