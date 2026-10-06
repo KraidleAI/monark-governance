@@ -27,9 +27,12 @@ red-proof: test-only
 
 ## Construction
 
-- L'assistant garde l'ensemble des ports de ses serveurs FERMÉS (événement `close` du serveur rendu) et ne les tire plus : un tirage d'un
-  port retiré compte pour un essai et ne démarre rien. Un port encore occupé n'est pas retiré : son erreur d'écoute fait tirer à
-  nouveau, comme avant (`loopback_start_takes_a_fresh_server_per_try` le garde : un port retiré dès l'écoute le rougirait).
+- L'assistant garde les serveurs qu'il a rendus, par port, et ne tire plus le port d'un serveur qui n'écoute plus : un tel tirage compte
+  pour un essai et ne démarre rien. Un port encore occupé n'est pas retiré : son erreur d'écoute fait tirer à nouveau, comme avant
+  (`loopback_start_takes_a_fresh_server_per_try` le garde : un port retiré dès l'écoute le rougirait).
+- Le port est retiré dès l'appel à `close()`, qui le libère aussitôt (`server.listening` faux), et non à l'événement `close`, qui attend la
+  fin des connexions ouvertes (B-1 de la relecture de RECHERCHES sur `7336d0f7` ; le premier envoi retirait à l'événement). L'objet
+  serveur n'est pas modifié : RECHERCHES proposait d'envelopper `close`, la lecture de `listening` couvre aussi toute autre fin d'écoute.
 - La copie du harnais suit à l'octet (`loopback_guard_every_bind_of_a_test_file_goes_through_the_helper`).
 - Le comportement keep-alive des serveurs de test ne change pas (des tests en dépendent, par exemple
   `dojo_verify_url_replays_a_get_once_on_a_closed_socket`) : choix écarté, `Connection: close` sur tous les serveurs de test.
@@ -50,19 +53,22 @@ red-proof: test-only
 
 ## Preuve rouge
 
-- Test neuf `loopback_listen_never_draws_the_port_of_a_closed_server_again` (`test/loopback.test.ts`) : un serveur écoute, ferme ; le
-  tirage suivant offre d'abord son port.
-- À la base (assistant de `6c6c0957`), le test est rouge par assertion (`ERR_ASSERTION`, `notStrictEqual` : « the port of the closed
-  server is not drawn again ») ; 8 tests verts sur 9.
-- Après le lot : 9 sur 9, et 20 passages du fichier sous `--test-force-exit` sans aucun arrêt du processus.
+- Deux tests neufs (`test/loopback.test.ts`) ; dans chacun, le tirage suivant offre d'abord l'ancien port :
+  - `loopback_listen_never_draws_the_port_of_a_closed_server_again` : un serveur écoute, puis ferme ;
+  - `loopback_listen_never_draws_the_port_of_a_server_that_stopped_listening` : un serveur écoute, une connexion TCP reste ouverte,
+    `close()` est appelé ; le tirage a lieu avant l'événement `close`.
+- À la base (assistant de `6c6c0957`), les deux sont rouges par assertion (`ERR_ASSERTION`, `notStrictEqual`) ; avec l'assistant du
+  premier envoi corrigé (`dcb28610`, retrait à l'événement), le second est rouge 5 fois sur 5.
+- Après le lot : 10 tests sur 10, et 20 passages du fichier sous `--test-force-exit` sans aucun arrêt du processus.
 
 ## Tueurs
 
 - L'assistant est du code de test : `scripts/red-proof.mjs` ne peut pas le viser (en-tête de `test/loopback.test.ts`). La ligne
-  « reddened by » du test nomme les changements qui le rougissent ; trois mutants à la main, mesurés :
-  - la ligne `if (retired.has(port)) continue;` retirée : le test neuf rougit ;
-  - aucun port retiré à la fermeture : le test neuf rougit ;
-  - un port retiré dès l'écoute : `loopback_start_takes_a_fresh_server_per_try` rougit.
+  « reddened by » de chaque test nomme les changements qui le rougissent ; quatre mutants à la main, mesurés :
+  - la lecture de `listening` retirée : les deux tests neufs rougissent ;
+  - aucun serveur gardé par port : les deux tests neufs rougissent ;
+  - un port retiré dès l'écoute : `loopback_start_takes_a_fresh_server_per_try` rougit ;
+  - un port retiré à l'événement `close` seulement : `loopback_listen_never_draws_the_port_of_a_server_that_stopped_listening` rougit.
 
 ## Écart du premier envoi (`7336d0f7`)
 

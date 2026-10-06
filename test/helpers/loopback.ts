@@ -6,11 +6,12 @@
 // 10080, and another one on any listen error (in use, or excluded by the OS), with a named failure after TRIES tries: the draw, the
 // bound and the failure of the three copies this file replaces (test/record-binance-klines.test.ts, record-coinbase-candles,
 // probe-narabi-state). Test: test/loopback.test.ts.
-// Lot COINBASE-LOOPBACK-FLAKE-1 (2026-10-06): a port whose server has closed is never drawn again in this process. Fetch keeps an
-// idle keep-alive socket per origin; a closed server (closeAllConnections, close) leaves that socket in its pool until the client sees
-// the close, and a new server drawn on the same port gets its first request sent on the dead socket: ECONNRESET, a network_error of
-// the recorder (the red of g3-verification on #199). Measured on this host: 200 of 200 resets when the port comes back, none once
-// it does not. A port still in use is not retired: its listen error draws again, as before.
+// Lot COINBASE-LOOPBACK-FLAKE-1 (2026-10-06): a port whose server no longer listens is never drawn again in this process. Fetch
+// keeps an idle keep-alive socket per origin; a closed server leaves that socket in its pool until the client sees the close, and a
+// new server drawn on the same port gets its first request sent on the dead socket: ECONNRESET, a network_error of the recorder (an
+// isolated red of the Coinbase recorder test on the CI runner). Measured on this host: 200 of 200 resets when the port comes back,
+// none once it does not. The port retires from the call to close(), which frees it at once, not from the close event, which waits
+// for the open connections. A port still in use is not retired: its listen error draws again, as before.
 import assert from "node:assert/strict";
 import { createServer, type Server } from "node:net";
 
@@ -31,21 +32,22 @@ function settled(server: Server): Promise<boolean> {
   });
 }
 
-/** The ports of this process's loopback servers that have closed: never drawn again (lot COINBASE-LOOPBACK-FLAKE-1). */
-const retired = new Set<number>();
+/** The servers returned by startLoopback, by port: a port whose server no longer listens is never drawn again (lot
+ *  COINBASE-LOOPBACK-FLAKE-1). */
+const started = new Map<number, Server>();
 
 /** Starts a server by `start(port)`, which calls listen, on drawn ports until one listens (another port on any listen error); the
  *  named failure after TRIES tries, or at once when the server listens on another port than the drawn one (a `start` that ignores
  *  its port: that server is closed first). Returns the listening server: a fresh one per try when `start` builds one, as startServer does.
- *  A draw of a retired port counts as a try and starts nothing; the port of the returned server retires when that server closes. */
+ *  A draw of a port whose server no longer listens counts as a try and starts nothing. */
 export async function startLoopback<S extends Server>(start: (port: number) => S, draw: () => number = drawPort): Promise<S> {
   for (let i = 0; i < TRIES; i++) {
     const port = draw();
-    if (retired.has(port)) continue;
+    if (started.get(port)?.listening === false) continue;
     const server = start(port);
     if (!(await settled(server))) continue;
     const a = server.address(), bound = typeof a === "object" && a !== null ? a.port : a;
-    if (bound === port) { server.once("close", () => { retired.add(port); }); return server; }
+    if (bound === port) { started.set(port, server); return server; }
     server.close();
     return assert.fail(`the server listens on port ${String(bound)}, not on the drawn port ${String(port)}`);
   }
