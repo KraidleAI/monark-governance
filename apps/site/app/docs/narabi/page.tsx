@@ -98,7 +98,7 @@ export default function DocsNarabiPage() {
       <DocSection id="gate" title="What the gate reads">
         <p>
           The served gate class <code>{served.gate.task_class}</code> reads a committed static calibration of {calibration.nCalib} calm
-          pairs, digest <span className="c-mono">{calibration.calibDigest}</span>. Every other population abstains, with the reason{" "}
+          pairs, scores digest <span className="c-mono">{calibration.scoresSha256}</span>. Every other population abstains, with the reason{" "}
           <code>under_calib</code>. The committed region moves only when a pre-registered drift criterion fires: the rolling share of
           calm pairs that missed the committed threshold reaching {DRIFT_THRESHOLD}, evaluable once {CALM_WINDOW} calm pairs have
           accumulated. A drift opens a review; it never switches anything automatically.

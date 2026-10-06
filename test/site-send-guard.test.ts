@@ -12,7 +12,7 @@ import { join, relative } from "node:path";
 import { tmpdir } from "node:os";
 import { spawnSync } from "node:child_process";
 import * as exportPublic from "../scripts/export-public.mjs";
-import { dropPendingSnapshot } from "./helpers/pending-snapshot.ts";
+import { dropPendingSnapshot, ensurePendingSnapshot } from "./helpers/pending-snapshot.ts";
 
 const ROOT = join(import.meta.dirname, "..");
 const DATA = "apps/site/data";
@@ -21,7 +21,7 @@ type Blockers = (kept: { abs: string; rel: string }[], readText: (abs: string) =
 // The whole tree as a send would export it: --out refuses and writes nothing while the snapshot is there, --check stays
 // green with it, and once the snapshot is promoted the same --out exports, with no pending file in the export.
 // killer: scripts/export-public.mjs:517 CONST "if (blockers.length)" -> "if (false)"
-test("site_send_refused_while_a_pending_snapshot_exists", () => {
+test("site_send_refused_while_a_pending_snapshot_exists", async () => {
   const tmp = mkdtempSync(join(tmpdir(), "monark-send-guard-"));
   try {
     const src = join(tmp, "src");
@@ -31,7 +31,8 @@ test("site_send_refused_while_a_pending_snapshot_exists", () => {
       const r = spawnSync(process.execPath, [join(src, "scripts", "export-public.mjs"), ...args], { cwd: src, encoding: "utf8", timeout: 240_000 });
       return { status: r.status, out: `${r.stdout}\n${r.stderr}` };
     };
-    assert.ok(existsSync(join(src, DATA, "harness-pending.json")) && existsSync(join(src, DATA, "ukemi-pending.json")), "this tree carries the pending snapshot (C2 to T0)");
+    await ensurePendingSnapshot(src); // the committed one from C2 to T0, else one written by the syncs' --pending (after T0)
+    assert.ok(existsSync(join(src, DATA, "harness-pending.json")) && existsSync(join(src, DATA, "ukemi-pending.json")), "the tree carries a pending snapshot");
     const refused = run("--out", join(tmp, "out-refused"));
     assert.equal(refused.status, 1, `--out refuses while the snapshot exists:\n${refused.out.slice(-1500)}`);
     for (const name of ["harness-pending.json", "ukemi-pending.json", "harness-served.json (pending_since)", "ukemi-served.json (pending_since)", "SITE-SEND-GUARD-MECH-1"]) assert.ok(refused.out.includes(name), `the refusal names ${name}`);
@@ -43,6 +44,9 @@ test("site_send_refused_while_a_pending_snapshot_exists", () => {
     assert.equal(sent.status, 0, `the promoted tree exports:\n${sent.out.slice(-1500)}`);
     const data = readdirSync(join(tmp, "out-sent", DATA));
     assert.ok(data.includes("harness-served.json") && !data.some((f) => f.endsWith("-pending.json")), "the export carries no pending snapshot");
+    await ensurePendingSnapshot(src); // the promoted tree, as after T0: the syncs' --pending writers stage a new snapshot
+    const again = run("--out", join(tmp, "out-again"));
+    assert.ok(again.status === 1 && again.out.includes("harness-pending.json") && !existsSync(join(tmp, "out-again")), "a snapshot written on the promoted tree is refused again");
   } finally {
     rmSync(tmp, { recursive: true, force: true });
   }

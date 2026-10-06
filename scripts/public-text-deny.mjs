@@ -9,13 +9,17 @@
 //   (b) the item-id shape [A-Z]+-[A-Z0-9-]+-digit, a CVE id excepted;   (c) the closed internal set (Q-5, Q-A1-3);
 //   (d) "public sync";   (e) a reader-local drive path;   (f) a vendor name form, in any case (the lists below; Q-4);
 //   (g) a credential shape (bell-publish KEY_SHAPES without its "://" rule; reported as prefix + length, never in clear),
-//   or a URL outside the two public origins;   (k) a kitchen form (KITCHEN_FORMS: G0-G7, ADR-, decision N live there);
+//   or a URL outside the three public origins;   (k) a kitchen form (KITCHEN_FORMS: G0-G7, ADR-, decision N live there);
 //   (p) an email address (a noreply address excepted: commit trailers) or an IPv4 address;   (cf) a format character
 //   (\p{Cf}: zero-width, BOM, bidi), checked on the raw text; every other rule reads the NFKC form of the text;
 //   (q3) the internal words budget, credit, lock and their -s/-ed/-ing forms (Q-3; "test" stays allowed);
+//   (ph) an unfilled template marker, an upper-case identifier in braces such as {T0} or { OPENAPI-SHA256 }, EACH one of a
+//   line named (lower-case brace lists such as {btc,eth} and shell variables such as ${HOME} pass, but not ${T0}, the
+//   variable form of a TEMPLATE_MARKERS name, the markers of docs/public-notes/TEMPLATE.md);
 // plus (h), kind "issue" only: no date or schedule word; and (title), kind "message" only: a first line of at most 50
 // code points (Q-P-4), followed by an empty line when a body follows (git-commit DISCUSSION).
-// kindForPath(rel) maps docs/public-notes/** to a kind (C-V-9), null (= refused) for any other path.
+// kindForPath(rel) maps docs/public-notes/** to a kind (C-V-9), null (= refused) for any other path, and for TEMPLATE.md (the notes
+// template, not a public text; docs/ is never exported).
 import { readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -114,10 +118,21 @@ const INTERNAL_FORMS = Object.freeze([/\bR-\d+\b/, /\bCA-\d+\b/, /\bcheckpoint[-
 const PRIVATE_FORMS = Object.freeze([/(?<![\w.+-])(?!noreply@|[\w.+-]+@users\.noreply\.github\.com(?![\w-]|\.[\w-]))[\w.+-]+@[\w-]+\.[\w.]+/, /\b\d{1,3}(?:\.\d{1,3}){3}\b/]);
 const PUBLIC_SYNC = /\bpublic\s+sync\b/i;
 const URL_ANY = /[a-z][a-z0-9+.-]*:\/\/[^\s)>`"]+/gi;
-const URL_ALLOW = /^https:\/\/(?:[a-z0-9-]+\.)*monarkgate\.tech(?:[/?#]|$)|^https:\/\/github\.com\/KraidleAI\/Monark(?:[/?#]|$)/i;
+const URL_ALLOW = /^https:\/\/(?:[a-z0-9-]+\.)*monarkgate\.tech(?:[/?#]|$)|^https:\/\/github\.com\/KraidleAI\/Monark(?:[/?#]|$)|^https:\/\/github\.com\/KraidleAI\/monark-kata-spec(?:[/?#]|$)/i;
+// An allowed URL carries one "://" only (no URL nested in its query), and its resolved form ("..", "%2e%2e") is allowed too.
+const urlAllowed = (url) => { if (url.indexOf("://") !== url.lastIndexOf("://")) return false; let href; try { href = new URL(url).href; } catch { return false; }
+  return URL_ALLOW.test(url) && URL_ALLOW.test(href); };
 // KEY_SHAPES carries a bare "://" rule for served strings; free text may carry an allowlisted URL, checked apart (URL_ALLOW).
 export const SECRET_SHAPES = Object.freeze(KEY_SHAPES.filter((re) => re.source !== ":\\/\\/"));
 const INTERNAL_WORDS = /\b(?:budget|credit|lock)(?:s|ed|ing)?\b/i;
+const PLACEHOLDER = /(?<!\$)\{\s*[A-Z][A-Z0-9_-]*\s*\}/g;
+const TEMPLATE_REL = "docs/public-notes/TEMPLATE.md"; // the notes template; markers read with PLACEHOLDER's shape, refused empty
+export const templateMarkers = (text) => { const names = [...new Set([...text.matchAll(/(?<!\$)\{\s*([A-Z][A-Z0-9_-]*)\s*\}/g)].map((m) => m[1]))];
+  if (names.length === 0) throw new Error(`${TEMPLATE_REL} has no marker`);
+  return names; };
+// TEMPLATE-MARKERS-SOURCE-1: derived from the committed notes template, never typed (a missing template fails the import, by name).
+export const TEMPLATE_MARKERS = Object.freeze(templateMarkers(readFileSync(join(SRC, ...TEMPLATE_REL.split("/")), "utf8")));
+const MARKER_VARIABLE = new RegExp(`\\$\\{\\s*(?:${TEMPLATE_MARKERS.join("|")})\\s*\\}`, "g"); // ${T0}: still a marker (E-2); a name is [A-Z0-9_-], literal outside a class: no escape (G2 T-2; "\-" breaks under the u flag)
 // The year form also catches an ISO date; month names are capitalised whole words, so the verb "may" stays green.
 const DATE_FORMS = Object.freeze([/\b(?:19|20)\d\d\b/, /\b(?:January|February|March|April|May|June|July|August|September|October|November|December)\b/,
   /\bQ[1-4]\b/, /\bsoon\b|\bnext\s+(?:week|month|quarter|year)\b/i]);
@@ -156,10 +171,11 @@ export function checkPublicText(text, kind) {
   lines.forEach((l, i) => {
     for (const m of l.matchAll(URL_ANY)) {
       const url = m[0].replace(/[.,;:!?]+$/, ""); // sentence punctuation after a URL is not part of it
-      if (!URL_ALLOW.test(url)) v.push({ rule: "g", line: i + 1, word: url });
+      if (!urlAllowed(url)) v.push({ rule: "g", line: i + 1, word: url });
     }
   });
   formHits(lines, "q3", [INTERNAL_WORDS], v);
+  lines.forEach((l, i) => { for (const re of [PLACEHOLDER, MARKER_VARIABLE]) for (const m of l.matchAll(re)) v.push({ rule: "ph", line: i + 1, word: m[0] }); });
   if (kind === "issue") formHits(lines, "h", DATE_FORMS, v);
   if (kind === "message") {
     const title = raw[0] ?? "";

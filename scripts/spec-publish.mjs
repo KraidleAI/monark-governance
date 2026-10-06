@@ -14,10 +14,13 @@
 // checkout of the spec repository at the release's previous_commit). FAIL-CLOSED (exit 1, nothing written), each problem named by its
 // code: release_unknown, date_invalid, root_missing, input_blacklisted, input_missing, input_escapes (a link out of its root),
 // input_not_file, input_digest, not_text, crlf, vocabulary, json_invalid, schema_invalid, policy_table_invalid, not_canonical (a policy
-// table file must be its own canonical writing, so its sha256 is its policy_table_sha256), previous_commit, previous_dirty, withdrawn
-// (a file of the previous tree the release drops); then out_not_empty, out_parent_missing, out_in_git_tree, write_failed. --verify
+// table file must be its own canonical writing, so its sha256 is its policy_table_sha256), recompute_held, short_digest (tableRowProblems),
+// policy_table_kind, version_dir_invalid, previous_commit, previous_dirty, previous_blob_missing (a previous entry is read from the git
+// object of previous_commit, never the working tree: a CRLF checkout cannot change it), withdrawn (a file of the previous tree the release drops),
+// rewritten (a file under contract-*/ of the previous tree the release changes), added_to_published (a new file under it),
+// foreign_version_dir (a new version directory other than the release's own); then out_not_empty, out_parent_missing, out_in_git_tree, write_failed. --verify
 // <dir> then compares --out with <dir> (.git ignored): exit 0 iff the same paths with the same bytes. Exit 2: usage.
-import { spawnSync } from "node:child_process";
+import { execFileSync, spawnSync } from "node:child_process";
 import { createHash } from "node:crypto";
 import { chmodSync, existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, realpathSync, renameSync, rmSync, statSync, writeFileSync } from "node:fs";
 import { dirname, join, resolve, sep } from "node:path";
@@ -31,7 +34,7 @@ export const ROOTS = Object.freeze(["governance", "recherches", "previous"]);
 export const KINDS = Object.freeze(["text", "json", "schema", "policy-table"]);
 export const RESERVED = Object.freeze(["VERSION", "MANIFEST.sha256"]);
 const sha = (b) => createHash("sha256").update(b).digest("hex");
-const okPath = (p) => /^[\w.-]+(\/[\w.-]+)*$/.test(String(p)) && p.split("/").every((s) => s !== "." && s !== "..") && p.split("/")[0] !== ".git";
+const okPath = (p) => /^[\w.-]+(\/[\w.-]+)*$/.test(String(p)) && p.split("/").every((s) => !/^\.+$/.test(s)) && p.split("/")[0] !== ".git";
 const isObj = (v) => v !== null && typeof v === "object" && !Array.isArray(v);
 const byPath = (a, b) => (a.path < b.path ? -1 : 1);
 
@@ -113,48 +116,76 @@ export function vocabularyHits(text, withheld = WITHHELD) {
 
 const strings = (v) => (typeof v === "string" ? [v] : v !== null && typeof v === "object" ? Object.entries(v).flatMap(([k, x]) => [...(Array.isArray(v) ? [] : [k]), ...strings(x)]) : []);
 
-/** contentProblems(out, kind, bytes) -> [{code, detail}]: what keeps one output file out of a version. JSON is also gated decoded. */
-export function contentProblems(out, kind, bytes) {
+/** A version directory: contract-<major>.<minor>.<patch> (no leading zero, lower case), or contract-<x.y.z>-tables-<YYYY-MM-DD> (a real
+ *  calendar day) for a dated table-only revision. */
+export const VERSION_DIR = /^contract-(?:0|[1-9]\d*)\.(?:0|[1-9]\d*)\.(?:0|[1-9]\d*)(?:-tables-(\d{4}-\d{2}-\d{2}))?$/;
+export const versionDir = (name) => { const m = VERSION_DIR.exec(String(name)); return m !== null && (m[1] === undefined || validDate(m[1])); };
+/** A table by its shape (packages/contracts policy-table.ts), not its label: an object with a rows array and a class entry naming a
+ *  task_class. tablesIn(v) -> [{table, path}] at any depth (a table's own content is not searched). */
+const isTable = (o) => isObj(o) && Array.isArray(o.rows) && isObj(o.class) && typeof o.class.task_class === "string";
+export const tablesIn = (v, path = "") => (isTable(v) ? [{ table: v, path }] : isObj(v) || Array.isArray(v) ? Object.entries(v).flatMap(([k, x]) => tablesIn(x, `${path}/${k}`)) : []);
+/** The one file that may hold tables without being a table file: the vectors of a contract version, contract-<v>/vectors-<v>.json. Its
+ *  tables under synthetic_kata are recomputation fixtures: their recompute and sequence digests are not refused; their n and p_served are. */
+const VECTORS = /^contract-(\d+\.\d+\.\d+)\/vectors-\1\.json$/;
+/** contentProblems(out, kind, bytes, release, carried) -> [{code, detail}]: what keeps one output file out of a version. JSON is also gated
+ *  decoded. Any file under a policy/ segment, and any JSON holding a table at any depth (the vectors file excepted), must be a policy-table
+ *  entry; a table carried byte for byte from the previous commit (carried) may lie under an older version directory, rows checked all the same. */
+export function contentProblems(out, kind, bytes, release, carried = false) {
   let text;
   try { text = new TextDecoder("utf-8", { fatal: true }).decode(bytes); } catch { return [{ code: "not_text", detail: `${out}: not UTF-8` }]; }
   if (text.includes("\0")) return [{ code: "not_text", detail: `${out}: a NUL byte` }];
   const p = vocabularyHits(text).map((h) => ({ code: "vocabulary", detail: `${out}:${h.line} [${h.rule}] ${h.word}` }));
   if (text.includes("\r")) p.push({ code: "crlf", detail: `${out}: a CR byte (LF line ends only)` });
+  const top = out.split("/")[0], parsed = (() => { try { return JSON.parse(text); } catch { return undefined; } })();
+  if (/^contract-/i.test(top) && out.includes("/") && !versionDir(top)) p.push({ code: "version_dir_invalid", detail: `${out}: ${top} is not contract-<x.y.z>[-tables-<YYYY-MM-DD>]` });
+  const held = tablesIn(parsed), vectors = kind === "json" && VECTORS.test(out);
+  if (kind !== "policy-table" && (/(^|\/)policy\//i.test(out) || (held.length > 0 && !vectors))) p.push({ code: "policy_table_kind", detail: `${out}: a table file is declared policy-table` });
+  if (vectors) for (const t of held) p.push(...tableRowProblems(t.table, t.path.startsWith("/synthetic_kata/")).map((x) => ({ ...x, detail: `${out}${t.path}: ${x.detail}` })));
   if (kind === "text") return p;
   let v;
   try { v = JSON.parse(text); } catch (e) { return [...p, { code: "json_invalid", detail: `${out}: ${e.message}` }]; }
   p.push(...vocabularyHits(strings(v).join("\n")).map((h) => ({ code: "vocabulary", detail: `${out}: a decoded string [${h.rule}] ${h.word}` })));
   if (kind === "schema" && !(isObj(v) && typeof v.$schema === "string")) p.push({ code: "schema_invalid", detail: `${out}: no $schema` });
   if (kind !== "policy-table") return p;
-  if (!isObj(v) || v.row_format !== "class-policy-v2" || !isObj(v.class) || !Array.isArray(v.rows) || out !== `policy/${String(v.class.task_class)}.json`) {
-    p.push({ code: "policy_table_invalid", detail: `${out}: not a class-policy-v2 table file named policy/<class.task_class>.json` });
-  }
+  const at = /^(?:([^/]+)\/)?policy\/([^/]+)\.json$/.exec(out); // a new table lies under the release's own directory
+  if (!isObj(v) || v.row_format !== "class-policy-v2" || !isObj(v.class) || !Array.isArray(v.rows) || at === null || at[2] !== String(v.class.task_class) || (at[1] !== undefined && (!versionDir(at[1]) || (at[1] !== release && !carried)))) {
+    p.push({ code: "policy_table_invalid", detail: `${out}: not a class-policy-v2 table file named [<release>/]policy/<class.task_class>.json` });
+  } else p.push(...tableRowProblems(v).map((x) => ({ ...x, detail: `${out}: ${x.detail}` })));
   try { if (canonicalJson(v) !== text) p.push({ code: "not_canonical", detail: `${out}: the bytes are not the canonical writing` }); }
   catch (e) { p.push({ code: "not_canonical", detail: `${out}: ${e.message}` }); }
   return p;
 }
-
-const git = (dir, args) => { const r = spawnSync("git", ["-C", dir, ...args], { encoding: "utf8" }); return r.status === 0 ? r.stdout : null; };
+// Each git call names its tree with -C: neither refs/replace (G2 F-1) nor a caller's repository location (the location half of `git rev-parse --local-env-vars`, any case: a hook's GIT_DIR, GIT_INDEX_FILE) stands in for it; GIT_CONFIG_* still reaches git (G2 T-8).
+const GIT_LOCATION = /^GIT_(?:DIR|WORK_TREE|INDEX_FILE|OBJECT_DIRECTORY|ALTERNATE_OBJECT_DIRECTORIES|COMMON_DIR|IMPLICIT_WORK_TREE|PREFIX|INTERNAL_SUPER_PREFIX|SHALLOW_FILE|GRAFT_FILE|REPLACE_REF_BASE|NAMESPACE)$/i, GIT_ENV = { ...Object.fromEntries(Object.entries(process.env).filter(([k]) => !GIT_LOCATION.test(k))), GIT_NO_REPLACE_OBJECTS: "1" }; // G2 F-1, T-8
+const git = (dir, args) => { const r = spawnSync("git", ["-C", dir, ...args], { encoding: "utf8", env: GIT_ENV }); return r.status === 0 ? r.stdout : null; };
+/** {bytes} of <path> in the git object of <commit> under <dir> (no filter, no shell: CRLF of a checkout never reaches them), or
+ *  {bytes: null, why}: git's first stderr line, kept for the refusal (G2 F-4). */
+const blob = (dir, commit, path) => { try { return { bytes: execFileSync("git", ["-C", dir, "cat-file", "blob", `${commit}:${path}`], { stdio: ["ignore", "pipe", "pipe"], maxBuffer: 1 << 28, env: GIT_ENV }), why: "" }; }
+  catch (e) { return { bytes: null, why: (String(e?.stderr ?? "").trim().split("\n")[0] || String(e?.code ?? e?.message ?? e)).trim() }; } };
 
 /** manifestText(files): "<sha256>  <path>" lines for [{path, bytes}], sorted by path, LF ended. */
 export const manifestText = (files) => [...files].sort(byPath).map((f) => `${sha(f.bytes)}  ${f.path}\n`).join("");
 
 /** plan({inputs, release, date, roots}) -> {files, problems}: reads, never writes; VERSION and MANIFEST.sha256 only without problem. */
 export function plan({ inputs, release, date, roots }) {
-  const problems = [], add = (code, detail) => problems.push({ code, detail }), files = [];
+  const problems = [], add = (code, detail) => problems.push({ code, detail }), files = [], objects = new Map(), once = (dir, commit, path) => { const k = [dir, commit, path].join("\0"); if (!objects.has(k)) objects.set(k, blob(dir, commit, path)); return objects.get(k); }; // each object read once (G2 T-3)
   if (!validDate(date)) add("date_invalid", String(date));
   const rel = Object.hasOwn(inputs.releases, release) ? inputs.releases[release] : null;
   if (rel === null) return { files, problems: [...problems, { code: "release_unknown", detail: String(release) }] };
   for (const e of rel.entries) {
     const dir = roots[e.root], abs = dir === undefined ? null : join(dir, e.path), at = `${e.out} <- ${e.root}:${e.path}`;
     if (abs === null) { add("root_missing", `${e.out}: root ${e.root} not given`); continue; }
+    // SPEC-PUBLISH-PREVIOUS-BLOBS-1: a previous entry is the committed object of previous_commit, never the working tree.
+    const got = e.root === "previous" ? once(dir, rel.previous_commit, e.path) : null;
+    if (got !== null && got.bytes === null) { add("previous_blob_missing", `${at} is not readable in ${rel.previous_commit}: ${got.why}`); continue; }
     if (e.root === "governance" && STRUCTURAL_BLACKLIST.some((re) => re.test(e.path))) { add("input_blacklisted", at); continue; }
-    if (!existsSync(abs)) { add("input_missing", at); continue; }
-    if (!realpathSync(abs).startsWith(realpathSync(dir) + sep)) { add("input_escapes", `${at} resolves out of its root`); continue; }
-    if (!statSync(abs).isFile()) { add("input_not_file", at); continue; }
-    const bytes = readFileSync(abs);
+    if (e.root !== "previous" && !existsSync(abs)) { add("input_missing", at); continue; }
+    if (e.root !== "previous" && !realpathSync(abs).startsWith(realpathSync(dir) + sep)) { add("input_escapes", `${at} resolves out of its root`); continue; }
+    if (e.root !== "previous" && !statSync(abs).isFile()) { add("input_not_file", at); continue; }
+    const bytes = got !== null ? got.bytes : readFileSync(abs);
     if (sha(bytes) !== e.sha256) { add("input_digest", `${at} is ${sha(bytes)}, pinned ${e.sha256}`); continue; }
-    problems.push(...contentProblems(e.out, e.kind, bytes));
+    const prior = roots.previous, was = prior === undefined || rel.previous_commit === null ? null : once(prior, rel.previous_commit, e.out).bytes; // carried: committed, same bytes
+    problems.push(...contentProblems(e.out, e.kind, bytes, release, was !== null && was.equals(bytes)));
     files.push({ path: e.out, bytes });
   }
   const prev = roots.previous;
@@ -164,7 +195,17 @@ export function plan({ inputs, release, date, roots }) {
     const [top, head] = (git(prev, ["rev-parse", "--show-toplevel", "HEAD"]) ?? "").split("\n");
     if (!existsSync(prev) || !top || realpathSync(top) !== realpathSync(prev) || head !== rel.previous_commit) add("previous_commit", `${prev} is not the top of a git tree at ${rel.previous_commit}`);
     else if (git(prev, ["status", "--porcelain"]) !== "") add("previous_dirty", `${prev} has local changes`);
-    else for (const p of (git(prev, ["ls-files", "-z"]) ?? "").split("\0")) if (p !== "" && !outs.has(p)) add("withdrawn", `${p} is published, the release drops it`);
+    else for (const p of (() => { const ls = (git(prev, ["ls-files", "-z"]) ?? "").split("\0"), dir = (x) => (/^contract-[^/]*\//i.test(x) ? x.split("/")[0].toLowerCase() : null);
+      const dirs = new Set(ls.map(dir).filter(Boolean));
+      for (const o of outs) if (dirs.has(dir(o)) && !ls.includes(o)) add("added_to_published", `${o} is new under ${o.split("/")[0]}/, which is published: a release adds under a new directory`);
+      else if (dir(o) !== null && !dirs.has(dir(o)) && o.split("/")[0] !== release) add("foreign_version_dir", `${o}: a release creates only its own directory, ${String(release)}/`);
+      return ls; })()) {
+      if (p !== "" && !outs.has(p)) add("withdrawn", `${p} is published, the release drops it`);
+      const now = files.find((f) => f.path === p); // a file under a version directory is never rewritten: one $id, one content
+      const old = /^contract-[^/]*\//i.test(p) && now !== undefined ? once(prev, rel.previous_commit, p) : null; // never compared with empty bytes (G2 F-2)
+      if (old !== null && old.bytes === null) add("previous_blob_missing", `${p} is published, its object is not readable in ${rel.previous_commit}: ${old.why}`);
+      else if (old !== null && !now.bytes.equals(old.bytes)) add("rewritten", `${p} is published with other bytes, the release changes it`);
+    }
   }
   if (problems.length > 0) return { files: [], problems };
   files.push({ path: "VERSION", bytes: Buffer.from(date + "\n") });
@@ -240,4 +281,21 @@ export function main(argv) {
   }
 }
 
-if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) process.exitCode = main(process.argv.slice(2));
+/** The rows a published table file may not carry (contract 1.1.0, section 10): SHORT_N points or fewer (n or p_served), or a sequence
+ *  digest whose number of points the row does not state (aux_sha256, series_sha256), since the digest of a 0/1 sequence of SHORT_N
+ *  points or fewer can be inverted (SHORT-DIGEST-INVERSION-1); and a row with a recompute before the published list of verifiers
+ *  (VERIFIERS-LIST-F5A-1). The writer of the table files calls this same function. */
+export const SHORT_N = 30;
+export function tableRowProblems(table, fixture = false) {
+  const cls = String(table.class?.task_class), all = Array.isArray(table.rows) ? table.rows : [], rows = all.filter(isObj), int = (x) => Number.isSafeInteger(x);
+  if (rows.length !== all.length) return [{ code: "policy_table_invalid", detail: `${cls} has a row that is not an object` }];
+  const held = fixture ? [] : rows.filter((r) => r.recompute !== null).map((r) => String(r.cell_key));
+  const why = (r) => [!int(r.n) || r.n <= SHORT_N ? `n ${String(r.n)}` : null, r.p_served !== null && (!int(r.p_served) || r.p_served <= SHORT_N) ? `p_served ${String(r.p_served)}` : null,
+    ...(fixture ? [] : ["aux_sha256", "series_sha256"]).map((k) => (r[k] !== null && r[k] !== undefined ? k : null))].filter((x) => x !== null);
+  const short = rows.filter((r) => why(r).length > 0).map((r) => `${String(r.cell_key)} (${why(r).join(", ")})`);
+  return [...(held.length > 0 ? [{ code: "recompute_held", detail: `VERIFIERS-LIST-F5A-1: ${cls} has a row with a recompute (${held.join(", ")}); the published list of verifiers comes first` }] : []),
+    ...(short.length > 0 ? [{ code: "short_digest", detail: `SHORT-DIGEST-INVERSION-1: ${cls} has a row whose digests cover ${String(SHORT_N)} points or fewer, or an unstated number: ${short.join(", ")}` }] : [])];
+}
+
+const real = (p) => { try { const r = realpathSync(p); return process.platform === "win32" ? r.toLowerCase() : r; } catch { return null; } }; // a link or a junction too
+if (process.argv[1] && real(process.argv[1]) !== null && real(process.argv[1]) === real(fileURLToPath(import.meta.url))) process.exitCode = main(process.argv.slice(2));

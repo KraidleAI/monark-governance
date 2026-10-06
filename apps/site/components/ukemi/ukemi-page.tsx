@@ -15,7 +15,7 @@
 //     digit-free restatement, not the served clause (it carries figures outside the closed list this page may print),
 //     then the figures of the committed stratum. assert-fleet-html checks the built page against the same file: the
 //     state's sentence present, the other state's absent.
-//   - FIGURES, committed branch only: calibration points, bound margin, calibration digest and the day they were read,
+//   - FIGURES, committed branch only: calibration points, bound margin, scores digest and the day they were read,
 //     from lib/ukemi-served-figures.ts over the served-state file and the course report (both fail-closed), each
 //     rendered by property access in its own element, never typed and never in an attribute. assert-fleet-html checks
 //     them against the closed list it reads from the same two files: each exactly once, and no other number.
