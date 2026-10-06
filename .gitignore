@@ -29,3 +29,5 @@ sbom.cdx.json
 docs/deploy-CA-harness.json.failed
 docs/deploy-CA-harness.json.local
 docs/deploy-CA-harness.json.tmp
+docs/deploy-CA-harness.json.failed.tmp
+docs/deploy-CA-harness.json.local.tmp
