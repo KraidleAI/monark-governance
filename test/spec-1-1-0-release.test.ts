@@ -8,7 +8,7 @@ import { after, test } from "node:test";
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
 import { createHash } from "node:crypto";
-import { cpSync, existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
+import { chmodSync, cpSync, existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, statSync, symlinkSync, writeFileSync } from "node:fs";
 import { createRequire } from "node:module";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -17,7 +17,7 @@ import { sha256Canonical } from "@monark/contracts";
 import { USDE_STABLE_RUN_PREDICTOR_ID } from "../apps/harness/src/calibration.ts";
 import { runGate, SCHEMA_VERSION, SERVED_POLICY_TABLES } from "../apps/harness/src/tools/gate.ts";
 import { canonicalJson, contentProblems, loadInputs, parseInputs, plan } from "../scripts/spec-publish.mjs";
-import type { Inputs } from "../scripts/spec-publish.mjs";
+import type { Inputs, Kind } from "../scripts/spec-publish.mjs";
 
 type Writer = typeof import("../scripts/spec-policy-tables.mjs");
 type Validator = { (v: unknown): boolean; errors?: unknown };
@@ -129,7 +129,7 @@ test("published_tables_are_the_served_tables_byte_for_byte", () => {
   assert.deepEqual(SERVED_POLICY_TABLES.filter((t) => t.table.class.cell_key_rule === "kata-bucket").map((t) => t.table.rows.length), Array<number>(32).fill(0));
 });
 
-// killer: scripts/spec-publish.mjs:256 CONST "r.recompute !== null" -> "r.recompute === undefined"
+// killer: scripts/spec-publish.mjs:267 CONST "r.recompute !== null" -> "r.recompute === undefined"
 test("no_table_with_a_recompute_row_is_published_before_the_verifier_list", async () => {
   const w = await writer(), held = SERVED_POLICY_TABLES.flatMap((t) => t.table.rows.filter((r) => r.recompute !== null).map((r) => `${t.task_class} ${r.cell_key}`));
   assert.deepEqual(held, [], "VERIFIERS-LIST-F5A-1: a published row with a recompute needs the published list of verifiers first");
@@ -141,7 +141,7 @@ test("no_table_with_a_recompute_row_is_published_before_the_verifier_list", asyn
   assert.deepEqual((await rowGate())({ ...t, rows: [{ ...row, recompute }] }).map((p) => p.code), ["recompute_held"]);
 });
 
-// killer: scripts/spec-publish.mjs:257 CONST "r.n <= SHORT_N" -> "r.n < SHORT_N"
+// killer: scripts/spec-publish.mjs:268 CONST "r.n <= SHORT_N" -> "r.n < SHORT_N"
 test("no_table_publishes_the_digest_of_a_sequence_of_30_points_or_fewer", async () => {
   const w = await writer(), t = SERVED_POLICY_TABLES.find((x) => x.task_class === "liquidation-eligible-coverage")?.table, row = t?.rows[0];
   assert.ok(t !== undefined && row !== undefined);
@@ -154,6 +154,8 @@ test("no_table_publishes_the_digest_of_a_sequence_of_30_points_or_fewer", async 
   const key = row.cell_key;
   assert.deepEqual([why({ n: 31, p_served: 31 }), why({ p_served: 30 }), why({ aux_sha256: "a".repeat(64) }), why({ series_sha256: "b".repeat(64), n: 30 })],
     [[], [`${key} (p_served 30)`], [`${key} (aux_sha256)`], [`${key} (n 30, series_sha256)`]]);
+  assert.deepEqual([why({ p_served: "31" }), why({ n: 30.5 }), why({ n: undefined }), why({ p_served: null })], [[`${key} (p_served 31)`], [`${key} (n 30.5)`], [`${key} (n undefined)`], []]);
+  assert.deepEqual(gate({ ...t, rows: [row, [row]] }).map((p) => p.code), ["policy_table_invalid"], "a row that is not an object");
 });
 
 // killer: scripts/spec-policy-tables.mjs:60 CONST "text: tableText(t.table)" -> "text: canonicalJson(t.table)"
@@ -166,7 +168,7 @@ test("the_writer_refuses_through_expected_files_what_the_gate_refuses", async ()
 });
 
 /** A governance root holding one hand-edited table file, and a one-entry release that pins its bytes again (the G2's hack inputs). */
-function repinned(edit: (row: Record<string, unknown>) => void): { gov: string; inputs: Inputs; file: string } {
+function repinned(edit: (row: Record<string, unknown>) => void, kind: Kind = "policy-table"): { gov: string; inputs: Inputs; file: string } {
   const gov = mkdtempSync(join(TMP, "gov-")), rel = "spec/contract-1.1.0/policy/stable-run-velocity-24h.json";
   const table = JSON.parse(bytes(ROOT, rel).toString("utf8")) as { rows: Record<string, unknown>[] };
   edit(table.rows[0] ?? {});
@@ -174,12 +176,12 @@ function repinned(edit: (row: Record<string, unknown>) => void): { gov: string; 
   mkdirSync(join(gov, "spec", "contract-1.1.0", "policy"), { recursive: true });
   writeFileSync(join(gov, rel), text);
   const inputs: Inputs = { format: "spec-inputs-v1", releases: { "contract-1.1.0": { previous_commit: null, entries: [
-    { out: "contract-1.1.0/policy/stable-run-velocity-24h.json", root: "governance", path: rel, kind: "policy-table", sha256: sha(text) }] } } };
+    { out: "contract-1.1.0/policy/stable-run-velocity-24h.json", root: "governance", path: rel, kind, sha256: sha(text) }] } } };
   writeFileSync(file, JSON.stringify(inputs));
   return { gov, inputs, file };
 }
 
-// killer: scripts/spec-publish.mjs:133 CONST "tableRowProblems(v)" -> "tableRowProblems({})"
+// killer: scripts/spec-publish.mjs:140 CONST "tableRowProblems(v)" -> "tableRowProblems({})"
 test("spec_publish_refuses_a_hand_edited_table_even_pinned_again", () => {
   const cases: [(r: Record<string, unknown>) => void, string][] = [[(r) => { r.n = 30; }, "short_digest"],
     [(r) => { r.recompute = { verifier: "someone@1", scores_sha256: "a".repeat(64), report_sha256: "b".repeat(64) }; }, "recompute_held"]];
@@ -191,7 +193,7 @@ test("spec_publish_refuses_a_hand_edited_table_even_pinned_again", () => {
   }
 });
 
-// killer: scripts/spec-publish.mjs:131 CONST "&& at[1] !== release" -> "&& false"
+// killer: scripts/spec-publish.mjs:138 CONST "&& at[1] !== release" -> "&& false"
 test("a_table_file_lies_at_policy_or_under_its_own_release_directory_only", () => {
   const table = bytes(OUT, "policy", "btc-dir-1h.json"), codes = (out: string, rel?: string): string[] => contentProblems(out, "policy-table", table, rel).map((p) => p.code);
   assert.deepEqual([codes("contract-1.1.0/policy/btc-dir-1h.json", "contract-1.1.0"), codes("policy/btc-dir-1h.json", "contract-1.1.0"), codes("policy/btc-dir-1h.json")], [[], [], []]);
@@ -209,7 +211,7 @@ test("an_output_path_has_no_segment_made_of_dots_only", () => {
 });
 
 /** A previous tree (a git repository) that already publishes a versioned file and the root KATA-SPEC.md. */
-function previousTree(): { dir: string; head: string } {
+function previousTree(extra: Record<string, Buffer | string> = {}): { dir: string; head: string } {
   const dir = mkdtempSync(join(TMP, "prev-")), git = (...a: string[]): string => {
     const r = spawnSync("git", ["-c", "user.name=t", "-c", "user.email=t@t.invalid", "-c", "commit.gpgsign=false", ...a], { cwd: dir, encoding: "utf8" });
     assert.equal(r.status, 0, r.stderr);
@@ -218,11 +220,12 @@ function previousTree(): { dir: string; head: string } {
   mkdirSync(join(dir, "contract-1.1.0"));
   writeFileSync(join(dir, "contract-1.1.0", "a.json"), "{}\n");
   writeFileSync(join(dir, "KATA-SPEC.md"), "# Old\n");
+  for (const [p, b] of Object.entries(extra)) { mkdirSync(join(dir, p, ".."), { recursive: true }); writeFileSync(join(dir, p), b); }
   git("init", "-q"); git("add", "-A"); git("commit", "-qm", "v");
   return { dir, head: git("rev-parse", "HEAD") };
 }
 
-// killer: scripts/spec-publish.mjs:172 CONST "!now.bytes.equals(" -> "now.bytes.equals("
+// killer: scripts/spec-publish.mjs:182 CONST "!now.bytes.equals(" -> "now.bytes.equals("
 test("a_file_under_a_version_directory_is_never_rewritten", () => {
   const prev = previousTree(), gov = mkdtempSync(join(TMP, "gov-"));
   writeFileSync(join(gov, "same.json"), "{}\n"); writeFileSync(join(gov, "other.json"), "{\"a\":1}\n"); writeFileSync(join(gov, "spec.md"), "# New\n");
@@ -262,6 +265,59 @@ test("writer_check_reports_any_drift_in_a_copy_and_exits_by_it", async () => {
     "extra spec/contract-1.1.0/policy/x.json", "extra spec/contract-1.1.0/stray.json"], "the replaced files have their previous bytes back");
 });
 
+const TABLE_KIND_HACK = (r: Record<string, unknown>): void => { r.n = 30; };
+// killer: scripts/spec-publish.mjs:130 CONST "if (kind !== \"policy-table\" &&" -> "if (false &&"
+test("a_table_declared_json_or_text_is_refused_by_its_path_or_its_row_format", () => {
+  const table = Buffer.from(canonicalJson({ ...(JSON.parse(bytes(OUT, "policy", "btc-dir-1h.json").toString("utf8")) as object) })), codes = (out: string, kind: Kind, b = table): string[] =>
+    contentProblems(out, kind, b, "contract-1.1.0").map((p) => p.code);
+  assert.deepEqual([codes("contract-1.1.0/policy/btc-dir-1h.json", "json"), codes("contract-1.1.0/policy/btc-dir-1h.json", "text"), codes("contract-1.1.0/other.json", "json")],
+    [["policy_table_kind"], ["policy_table_kind"], ["policy_table_kind"]]);
+  assert.deepEqual(codes("contract-1.1.0/vectors.json", "json", Buffer.from('{"tables":[{"row_format":"class-policy-v2","rows":[]}]}')), [], "a table nested in vectors is data");
+  for (const kind of ["json", "text"] as const) {
+    const { gov, file } = repinned(TABLE_KIND_HACK, kind), out = join(gov, "out");
+    const r = spawnSync(process.execPath, [join(ROOT, "scripts", "spec-publish.mjs"), "--release", "contract-1.1.0", "--date", "2026-10-06", "--out", out, "--inputs", file, "--root", `governance=${gov}`], { encoding: "utf8" });
+    assert.deepEqual([r.status, r.stderr.includes("policy_table_kind"), existsSync(out)], [1, true, false], kind);
+  }
+});
+
+/** A release over a previous tree: one entry per [out, governance path, kind], each pinned, roots governance (ROOT) and previous. */
+function over(prev: { dir: string; head: string }, release: string, entries: [string, string, Kind][]): string[] {
+  const inputs: Inputs = { format: "spec-inputs-v1", releases: { [release]: { previous_commit: prev.head, entries: [["KATA-SPEC.md", "", "text"] as [string, string, Kind], ["contract-1.1.0/a.json", "", "json"] as [string, string, Kind], ...entries]
+    .map(([out, path, kind]) => (path === "" ? { out, root: "previous" as const, path: out, kind, sha256: sha(readFileSync(join(prev.dir, out))) } : { out, root: "governance" as const, path, kind, sha256: sha(bytes(ROOT, path)) })) } } };
+  return plan({ inputs, release, date: "2026-10-06", roots: { governance: ROOT, previous: prev.dir } }).problems.map((p) => p.code);
+}
+
+// killer: scripts/spec-publish.mjs:138 CONST "&& !carried)" -> ")"
+test("a_later_version_carries_the_published_tables_and_still_checks_their_rows", () => {
+  const btc = "spec/contract-1.1.0/policy/btc-dir-1h.json", prev = previousTree({ "contract-1.1.0/policy/btc-dir-1h.json": bytes(ROOT, btc) });
+  assert.deepEqual(over(prev, "contract-1.2.0", [["contract-1.1.0/policy/btc-dir-1h.json", "", "policy-table"]]), []);
+  assert.deepEqual(over(prev, "contract-1.2.0", [["contract-1.1.0/policy/btc-dir-1h.json", "", "policy-table"], ["contract-1.1.0/policy/eth-dir-1h.json", "spec/contract-1.1.0/policy/eth-dir-1h.json", "policy-table"]]),
+    ["policy_table_invalid", "added_to_published"], "a new table lies under the release's own directory");
+  assert.deepEqual(over(prev, "contract-1.2.0", [["contract-1.1.0/policy/btc-dir-1h.json", "", "json"]]), ["policy_table_kind"]);
+});
+
+// killer: scripts/spec-publish.mjs:178 CONST "&& !ls.includes(o)) add(" -> "&& false) add("
+test("a_published_version_directory_is_closed_and_its_name_has_one_form", () => {
+  const prev = previousTree(), sc = "spec/contract-1.1.0/schemas/prediction.schema.json";
+  assert.deepEqual([over(prev, "v", []), over(prev, "v", [["contract-1.1.0/x.schema.json", sc, "schema"]]), over(prev, "v", [["x.schema.json", sc, "schema"]])], [[], ["added_to_published"], []]);
+  const dir = (top: string): string[] => contentProblems(`${top}/x.md`, "text", Buffer.from("# x\n"), "v").map((p) => p.code);
+  assert.deepEqual(["contract-1.2.0", "contract-1.1.0-tables-2026-11-01", "contract-1.1", "contract-1.1.0-r1", "contract-1.1.0-tables-2026-1-1", "contract-v1.2.0"].map(dir),
+    [[], [], ["version_dir_invalid"], ["version_dir_invalid"], ["version_dir_invalid"], ["version_dir_invalid"]]);
+  assert.deepEqual(contentProblems("contract-1.1.0-tables-2026-11-01/policy/btc-dir-1h.json", "policy-table", bytes(OUT, "policy", "btc-dir-1h.json"), "contract-1.1.0-tables-2026-11-01"), []);
+});
+
+// killer: scripts/spec-policy-tables.mjs:89 CONST "chmodSync(d.at, d.mode & 0o7777)" -> "chmodSync(d.at, 0o644)"
+test("a_failed_write_gives_back_the_mode_of_the_files_it_replaced", async (t) => {
+  if (process.platform === "win32") { t.skip("win32: no POSIX file modes"); return; }
+  await writer();
+  const root = join(TMP, "mode"), out = join(root, "spec", "contract-1.1.0"), eth = join(out, "policy", "eth-dir-1h.json");
+  cpSync(join(ROOT, "schemas"), join(root, "schemas"), { recursive: true });
+  assert.equal(run(WRITER, "--write", "--root", root).status, 0);
+  writeFileSync(eth, "stale"); chmodSync(eth, 0o600);
+  rmSync(join(out, "schemas", "tool-error.schema.json")); mkdirSync(join(out, "schemas", "tool-error.schema.json", "x"), { recursive: true });
+  assert.deepEqual([run(WRITER, "--write", "--root", root).status, readFileSync(eth, "utf8"), statSync(eth).mode & 0o777], [1, "stale", 0o600]);
+});
+
 /** Each script run through a symlink in TMP: it must run, not exit 0 having done nothing. A win32 host without the privilege skips, named. */
 function throughLink(t: { skip: (m: string) => void }, script: string, ...a: string[]): { status: number | null; stdout: string } | null {
   const link = join(TMP, `link-${String(Math.random()).slice(2)}.mjs`);
@@ -272,7 +328,7 @@ function throughLink(t: { skip: (m: string) => void }, script: string, ...a: str
   return run(link, ...a);
 }
 
-// killer: scripts/spec-policy-tables.mjs:116 CONST "return realpathSync(p);" -> "return resolve(p);"
+// killer: scripts/spec-policy-tables.mjs:118 CONST "return realpathSync(p);" -> "return resolve(p);"
 test("the_writer_runs_when_called_through_a_link", async (t) => {
   await writer();
   const empty = join(TMP, "empty");
@@ -281,7 +337,7 @@ test("the_writer_runs_when_called_through_a_link", async (t) => {
   if (r !== null) assert.equal(r.status, 1, "main ran and refused the empty root");
 });
 
-// killer: scripts/spec-publish.mjs:264 CONST "const r = realpathSync(p);" -> "const r = resolve(p);"
+// killer: scripts/spec-publish.mjs:275 CONST "const r = realpathSync(p);" -> "const r = resolve(p);"
 test("spec_publish_runs_when_called_through_a_link", (t) => {
   const r = throughLink(t, join(ROOT, "scripts", "spec-publish.mjs"));
   if (r !== null) assert.equal(r.status, 2, "usage error: main ran");
