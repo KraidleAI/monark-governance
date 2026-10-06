@@ -1058,6 +1058,14 @@ Tronc `lot/etude-suite`. Dernier oracle complet : 1 779 tests, dont 1 776 verts,
     jonction (`mk-nm.ps1`), un test qui importe un paquet hors espace de travail rend `ERR_MODULE_NOT_FOUND` et la preuve REFUSED.
     Contournement mesuré : `--repo F:/Monark`. Construction : lier la cible réelle d une jonction hors espace de travail, et un cas
     au test de l outil ; environ 10 lignes. Déclencheur : le prochain lot de l outil (avec MUTANTS-TEST-SUPPORT-1) ; état : ouvert.
+  - DOJO-E2E-DISK-1 (G2 delta de T0-FOLLOWUP-1 et d ANCHORS-DRIFT-1, §3, 2026-10-06) : `dojo_history_collect_to_verify_end_to_end`
+    (`test/dojo-history-e2e.test.ts`) rougit sur un hôte dont le tmpdir a moins d environ 1,27 Go libres. Le collecteur refuse
+    `disk_space` (`apps/dojo/src/history-collect.ts:184-185`, plancher D-10, lu par `statfs`), et il a raison : le test n était pas
+    hermétique. Dette de test, non de produit. Porteur : RECHERCHES.
+    Ligne datée 2026-10-06 (RECHERCHES, lot DOJO-E2E-DISK-1) : clos. Le test remplace `statfsSync` le temps du test, au plancher exact
+    de D-10 recodé, et rétablit la fonction en fin de test. Un octet de moins est refusé `disk_space`, sans rien écrire. Le produit ne
+    change pas, et son refus reste épinglé seul par `dojo_history_disk_rpc_error_and_faulted_body_paths`. Preuve : sous un hôte simulé
+    à 946 Mo libres, le test est rouge à la base (`disk_space`) et vert après le lot.
 
 ## Ce qui reste pour la page
 
