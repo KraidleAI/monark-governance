@@ -33,7 +33,27 @@
 
 - **red-proof** (`--seed 37`, base `b7d0cb84`) : OK, 6 jugés (6 F2P), 6 tueurs tirés, 6 tués.
 - **Tueurs tirés à la main**, fichier restauré (sha256) : 41 sur 41 tués dans les fichiers de test touchés, dont la lecture par blob (`spec-publish.mjs:181`). Le tueur « carried » est gardé dans son sens d'origine.
-- **Ancres** : 53 sur 53.
+- **Ancres** : 54 sur 54 sur les fichiers touchés (`--touched b7d0cb84 HEAD`) ; correction de la G2, F-7 : la version précédente disait 53.
 - **Portes** : `tsc` 0, `eslint .` 0, `lint:ratchet` 69/69, `gate:vocab`, `lang:gate` et `export:check` OK.
 - **`test:main`** : 2 745 tests, 3 rouges connus de l'hôte.
 - **R-25** : voir le rapport.
+
+## 4. Repli de la G2 (2026-10-06)
+
+G2 neuve non bloquante ; tous les constats sont repliés, F-1 à F-7.
+
+- **F-1** : chaque appel git de `spec-publish` (`git()` et `blob()`) tourne avec `GIT_NO_REPLACE_OBJECTS=1`. Un objet de remplacement (`git replace`) ne peut plus masquer une réécriture. Test : un `git replace` dans le clone `previous` donne toujours `rewritten`.
+- **F-2** : un objet publié que git ne lit pas comme blob est refusé par son nom, `previous_blob_missing`, au lieu d'être comparé à des octets vides (`?? Buffer.alloc(0)` retiré). Test : un gitlink sous `contract-1.0.0/`.
+- **F-3** : test `a_published_contract_file_is_compared_with_its_committed_object`, avec un fichier `contract-*/` dans l'arbre précédent. Un fichier reporté reste égal sur une extraction CRLF et sous une retouche cachée. Le tueur qui ramène le contrôle `rewritten` à l'arbre de travail est déclaré et tué.
+- **F-4** : le refus porte la première ligne du stderr de git (par exemple « path … does not exist in … ») ; chaque entrée `previous` est lue une seule fois.
+- **F-5** : les marqueurs sont lus avec la forme de la règle `ph` (espaces internes, trait d'union). Un modèle sans marqueur est refusé par son nom, au chargement.
+- **F-6** : un cas `${SPEC_URL}` refusé, qui vérifie aussi que `SPEC_URL` est bien un marqueur du modèle.
+- **F-7** : décompte des ancres corrigé (§3).
+
+**Vérifications** :
+- **red-proof** (`--seed 37`, base `b7d0cb84`) : OK, 9 jugés (9 F2P), 9 tueurs tirés, 9 tués.
+- **Tueurs tirés à la main** : 45 sur 45 dans les fichiers de test touchés, plus le tueur hors liste « `GIT_NO_REPLACE_OBJECTS` retiré », tué lui aussi. Chaque fichier est restauré (sha256).
+- **Ancres** : 57 sur 57.
+- **Portes** : `tsc` 0, `eslint .` 0, `lint:ratchet` 69/69, `gate:vocab`, `lang:gate` et `export:check` OK.
+- **Tests ciblés** : 87 sur 87.
+- **R-25** : 238 contre `b7d0cb84`.
