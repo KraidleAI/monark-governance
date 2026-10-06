@@ -8,22 +8,22 @@
 - **En attente** : l'entrée du texte `CONTRACT-1.1.0.md` (racine `recherches`), dernier pas, quand son chemin et son sha256 sont donnés.
 
 
-## État courant (2026-10-06, 03:2x UTC ; seule source des valeurs courantes)
+## État courant (2026-10-06, 03:2x UTC, après la G2 delta b ; seule source des valeurs courantes)
 
 Les sections qui suivent sont des relevés datés, dans l'ordre du lot : leurs empreintes, leurs comptes et leurs têtes sont ceux de leur moment. Les valeurs courantes sont celles-ci :
 
 | Élément | Valeur |
 |---|---|
 | tête de `-a` | `4ff932be` (inchangée depuis le repli de sa G2) |
-| tête de `-b` | `4f647297` (réépinglage), puis le commit qui porte ce G7 |
+| tête de `-b` | `7485b648` (repli de la G2 delta b), puis le commit qui porte ce G7 |
 | recherches | `1107e12` (contient `3712fc8` et `54fd670`) |
 | `contract-1.1.0/CONTRACT.md` | `ac8187fa76626256d3e4c16bb484257b5247a9faf1a40ed1dc1247f7374332aa` |
 | `contract-1.1.0/vectors-1.1.0.json` | `190b9fd8f48815c10db2ff62be2961e601388f20b1d4a6e8dfb44ca139214d53` |
 | `README.md` (racine) | `71f64c8af6c47bb4c1b9f532de9d38845824abf68e580bfccdbcd2f15bed4ecd` |
 | rejeu hors ligne (`previous` = clone propre de `ddfee9e`) | **49 fichiers** ; `sha256sum -c --strict` vert ; aucun `withdrawn` ni `rewritten` |
 | `MANIFEST.sha256` | `66d31d82122587a9da8725f3e19b39b43f371de826c1e9f311ea6a1755d4eb16` |
-| R-25 | `-a` 537 contre `8aea2299` ; `-b` 392 contre `-a` |
-| tests touchés | 41/41 ; ancres 29/29 |
+| R-25 | `-a` 537 contre `8aea2299` ; `-b` 466 contre `-a` |
+| tests touchés | 45/45 ; ancres 33/33 ; red-proof `-b` OK (19 jugés, 19 tueurs tués) |
 | b M-2 | réglé dans le texte à `1107e12` (l.441, 449, 587) |
 
 ## Commits
@@ -207,3 +207,48 @@ Relevé daté, à `3712fc8` (réglé depuis à `1107e12`, voir l'« État couran
 - **Tests touchés** : `spec-1-1-0-release`, `spec-publish`, `contracts-frozen`, `export-public` hors test 42 et `public-text-deny` : 41/41.
 - **Octets servis** : `/openapi.json` en processus vaut `61c9df97…8ccbf0`. Hors `spec/`, `docs/`, `test/spec-*` et `scripts/spec-*`, rien n'est touché.
 - **Rejeu hors ligne**, relevé daté du repli des G2 (delta a, b), avant le réglage de b M-2, remplacé par l'« État courant » (`previous` = clone propre de `ddfee9e`, `recherches` = clone local à `54fd670`, qui contient `3712fc8`) : **49 fichiers** ; `MANIFEST.sha256` `509283bd1189d0b79614a9aa1da4b2a921a4abc7883af793f2bac244ccfe8b6f` ; `sha256sum -c --strict` vert ; aucun `withdrawn` ni `rewritten`.
+
+## Repli de la G2 delta b
+
+Rapport : `docs/G2-lot-spec-1-1-0-release-delta-b.md`. Verdict **non bloquant**, et tout est replié.
+- Tous les commits sont sur `-b` : tests `35f4c254`, gel `243ce4b9`, `ETAT.md` et rapport `7485b648`, puis ce G7.
+- `-a` reste à `4ff932be`.
+
+### Constats repliés
+
+| Constat | Repli |
+|---|---|
+| N-1 | `contentProblems` refuse en `policy_table_kind` toute sortie `policy/*.json`, à toute profondeur, et toute valeur dont la **racine** est une table `class-policy-v2`, si elles ne sont pas déclarées `policy-table`. Les tables imbriquées dans un fichier de vecteurs restent des données. Une table reportée à l'octet depuis l'arbre `previous`, au même chemin, peut être rangée sous un répertoire de version plus ancien, et ses lignes passent quand même `tableRowProblems`. Une table neuve reste sous le répertoire de sa propre version. |
+| N-1, contournement | Le contournement de la G2 (`n` 30, entrée en `kind: "json"` puis `"text"`, réépinglée, sur la déclaration réelle avec les trois racines) est rejoué : sortie **1**, un seul problème (`policy_table_kind`), `--out` absent. |
+| M-1 | Ligne datée dans `ETAT.md` : « table publiée » se lit **fichier de table** publié. Les deux tables synthétiques de `vectors-1.1.0.json` portent `recompute`, mais elles ne sont pas des fichiers de table. |
+| M-2 | La restauration de `--write` rend aussi le mode. Test sous POSIX, saut nommé sous win32. |
+| M-3 | Voir la proposition ci-dessous. Une version qui ajoute un fichier sous un répertoire de version déjà publié est refusée (`added_to_published`). Le nom d'un répertoire de version a une forme fermée (`version_dir_invalid`). |
+| M-4 | `tableRowProblems` refuse : une ligne qui n'est pas un objet (`policy_table_invalid`) ; un `n` absent ou qui n'est pas un entier sûr ; un `p_served` non nul qui n'est pas un entier sûr (`short_digest`). |
+
+### M-3 : proposition à MONARK (répertoires de version)
+
+- **Grammaire** :
+  - `contract-<major>.<minor>.<patch>` pour une version du contrat ;
+  - `contract-<x.y.z>-tables-<YYYY-MM-DD>` pour une révision datée qui ne publie que des tables, sans changer `schema_version`. Exemple : `contract-1.1.0-tables-2026-11-01/policy/<classe>.json`.
+
+  Une version (`--release`) qui publie des tables neuves porte comme identifiant le nom de son répertoire.
+- **Pourquoi cette forme** :
+  - la version du contrat reste en tête, si bien que le tri lexical regroupe les révisions de 1.1.0 ;
+  - la date est celle de la note de version, que le texte nomme déjà (l.441 à `1107e12` : « a new directory of this repository that the release notes name ») ;
+  - un compteur `-r<n>` demanderait un registre, et la date est déjà l'unique temps de l'outil (`VERSION`).
+- **Règles tenues par la porte** :
+  - un répertoire publié est fermé : aucun fichier n'y est réécrit (`rewritten`) ni ajouté (`added_to_published`) ;
+  - une version ajoute seulement sous un répertoire neuf, ou à la racine (`KATA-SPEC.md`, `README.md`) ;
+  - les tables 1.1.0 sont reportées à l'octet dans les versions suivantes.
+- **Ce que MONARK décide** : retenir cette forme, ou en nommer une autre (seule `VERSION_DIR` change), avant la première recalibration publiée.
+
+### Oracle
+
+- **red-proof** `-b` `--base 597a986d --gel 7485b648 --draw 20 --seed 37` : **OK**. 19 tests jugés, 19 tueurs tirés, 19 tués. `RED-PROOF.json` `969b2bb83604cac6…`.
+- **Tueurs tirés à la main** (sha256 vérifié avant et après) : **25/25 tués**. Ce sont les 19 tueurs déclarés, plus six : la grammaire de `VERSION_DIR`, la garde des lignes non objets, `n` et `p_served` en entier sûr, la détection par `row_format` et le contrôle `version_dir_invalid`.
+- **R-25** : `-b` contre `-a` vaut **466** (+418/−48), sous 547 ; `-a` reste à 537.
+- **Ancres** : 33/33, 0 DERIVE, 0 PERDU.
+- **Contrôles statiques** : `tsc`, eslint, `lint:ratchet` 69/69, `gate:vocab`, `lang:gate` et `export:check` verts.
+- **Tests touchés** : 45/45.
+- **Octets servis** : `/openapi.json` `61c9df97…`, inchangé.
+- **Rejeu hors ligne** (`previous` = clone propre de `ddfee9e`, recherches `1107e12`) : **49 fichiers** ; `MANIFEST.sha256` `66d31d82122587a9da8725f3e19b39b43f371de826c1e9f311ea6a1755d4eb16`, inchangé, puisque les octets de la version n'ont pas bougé ; `sha256sum -c --strict` vert.
