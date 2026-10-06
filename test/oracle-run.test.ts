@@ -148,6 +148,8 @@ test("oracle_gates_see_no_foreign_credential — no credential NAME reaches a ga
 // have childEnv's own filter, so the test above cannot see it. Git itself logs the variables it receives: GIT_TRACE2_ENV_VARS names
 // them, and each git process writes one "def_param" event per name that is set into GIT_TRACE2_EVENT (JSON lines). No wrapper, no
 // PATH change, no shell parsing: the test runs on every OS, Windows first (G2 delta A-1, A-2).
+// It needs git 2.27 or later, Git for Windows included: GIT_TRACE2_ENV_VARS came with 2.27.0 ("Trace2 enhancement to allow logging of
+// the environment variables", its release notes); verified on 2.43. An older git fails the premise below, red, never green (G2 B-1).
 // killer: scripts/oracle/run.mjs:46 COR "DENY.test(k) || " -> ""
 test("oracle_git_children_see_no_foreign_credential — the process.env scrub reaches git, which takes no childEnv", () => withFx((fx) => {
   const trace = join(fx.top, "trace2.json"), fake = ["FX_TOKEN_1", "fx_secret_1", "GH_FX"];
