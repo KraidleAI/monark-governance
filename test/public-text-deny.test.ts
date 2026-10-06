@@ -253,3 +253,13 @@ test("template_markers_take_the_placeholder_shape_and_never_come_out_empty", asy
   assert.deepEqual(derive("Since { T0 }, document {OPENAPI-SHA256}, again {T0}."), ["T0", "OPENAPI-SHA256"], "the placeholder shape derives");
   assert.throws(() => derive("A template with no marker.\n"), /docs\/public-notes\/TEMPLATE\.md has no marker/, "an empty list is refused by name");
 });
+
+// G2 T-1 of T0-FOLLOWUP-1: a shell variable written in the template ("${HOME}") is not a marker. Were it one, MARKER_VARIABLE would
+// refuse every public text naming ${HOME}, contrary to the header: the lookbehind of the derivation is pinned here.
+// killer: scripts/public-text-deny.mjs:130 CONST "(?<!\\$)" -> ""
+test("template_markers_skip_a_shell_variable_of_the_template", async () => {
+  const derive = ((await import("../scripts/public-text-deny.mjs")) as Record<string, unknown>)["templateMarkers"] as ((text: string) => string[]) | undefined;
+  assert.equal(typeof derive, "function", "scripts/public-text-deny.mjs exports templateMarkers");
+  if (derive === undefined) return;
+  assert.deepEqual(derive("Since {T0}, run it with ${HOME} and ${ PATH }."), ["T0"], "a ${NAME} of the template is a shell variable, not a marker");
+});

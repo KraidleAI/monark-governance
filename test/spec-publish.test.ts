@@ -10,7 +10,7 @@ import { createHash } from "node:crypto";
 import { cpSync, existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, statSync, symlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
-import { fileURLToPath } from "node:url";
+import { fileURLToPath, pathToFileURL } from "node:url";
 import type { Inputs, Kind, Problem } from "../scripts/spec-publish.mjs";
 
 type Api = typeof import("../scripts/spec-publish.mjs");
@@ -302,7 +302,7 @@ const contractCodes = async (c: Contract, inputs: Inputs = c.inputs): Promise<st
   codes((await api()).plan({ inputs, release: "v", date: "2026-10-02", roots: c.w.roots }).problems);
 
 // G2 F-3: a carried contract file stays equal on a CRLF checkout and under a working-tree edit hidden from status.
-// killer: scripts/spec-publish.mjs:205 CONST "blob(prev, rel.previous_commit, p)" -> "{ bytes: readFileSync(join(prev, p)), why: \"\" }"
+// killer: scripts/spec-publish.mjs:205 CONST "once(prev, rel.previous_commit, p)" -> "{ bytes: readFileSync(join(prev, p)), why: \"\" }"
 test("a_published_contract_file_is_compared_with_its_committed_object", async () => {
   const carried = contractWorld("previous"), p = carried.w.roots.previous;
   git(p, "config", "core.autocrlf", "true");
@@ -341,4 +341,23 @@ test("an_unreadable_published_object_is_refused_never_read_as_empty", async () =
   const inputs = at(head, (linked.inputs.releases.v?.entries ?? []).map((e) => (e.out === "contract-1.0.0/t.md" ? { ...e, sha256: sha("") } : e)));
   const got = await contractCodes(linked, inputs).catch((e: unknown) => [`threw ${String((e as { code?: unknown }).code ?? e)}`]);
   assert.deepEqual(got, ["previous_blob_missing"], "an unreadable published object is refused by name, it neither throws nor reads as empty");
+});
+
+// G2 T-3 of T0-FOLLOWUP-1: each object of previous_commit is read once per plan. A previous entry published under its own path is
+// wanted by the entry, by the "carried" check and by the rewritten check: one cat-file, counted in git's own trace2 events (a child
+// process, so that GIT_ENV takes GIT_TRACE2_EVENT at import; no wrapper, any OS).
+// killer: scripts/spec-publish.mjs:171 CONST "if (!objects.has(k)) " -> ""
+test("each_object_of_the_previous_commit_is_read_once", async () => {
+  await api();
+  const c = contractWorld("previous"), trace = join(fresh(), "t2.json"), request = { inputs: c.inputs, release: "v", date: "2026-10-02", roots: c.w.roots };
+  mkdirSync(dirname(trace), { recursive: true });
+  const code = "const m = await import(process.argv[1]); process.stdout.write(JSON.stringify(m.plan(JSON.parse(process.argv[2])).problems));";
+  const r = spawnSync(process.execPath, ["--input-type=module", "-e", code, pathToFileURL(SCRIPT).href, JSON.stringify(request)], { encoding: "utf8", env: { ...process.env, GIT_TRACE2_EVENT: trace } });
+  assert.equal(r.status, 0, r.stderr);
+  assert.equal(r.stdout, "[]", "premise: the release plans");
+  const reads = (existsSync(trace) ? readFileSync(trace, "utf8") : "").split("\n").flatMap((l) => {
+    try { const e = JSON.parse(l) as { event?: unknown; argv?: unknown }; return e.event === "start" && Array.isArray(e.argv) && e.argv.includes("cat-file") ? [String(e.argv.at(-1))] : []; } catch { return []; }
+  });
+  assert.ok(reads.some((x) => x.endsWith(":contract-1.0.0/t.md")), "premise: the trace sees the object reads");
+  assert.deepEqual(reads.filter((x, i) => reads.indexOf(x) !== i), [], "no object of previous_commit is read twice");
 });
