@@ -1871,5 +1871,5 @@ test("ukemi_promotion_waits_for_the_harness_promotion — the ukemi promotion is
   }
   const src = read("scripts/sync-ukemi-served.mjs"), at = src.indexOf("async function main() {"), main = src.slice(at, src.indexOf("\n}\n", at));
   const before = (a: string, b: string): boolean => main.includes(a) && main.indexOf(a) < main.indexOf(b); // killers by hand (G2 m-1): SDL "fail(blocked);", ROR "drift.length > 0" -> "< 0"
-  assert.ok(at > 0 && before("const blocked = promotionBlocked(ROOT);", "if (blocked !== null) fail(blocked);") && before("if (blocked !== null) fail(blocked);", "readBody(") && before("if (drift.length > 0) throw", "writeFileSync("), "the default sync refuses out of order before any read, and a drift before any write");
+  assert.ok(at > 0 && before("const blocked = promotionBlocked(ROOT);", "if (blocked !== null) fail(blocked);") && before("if (blocked !== null) fail(blocked);", "readBody(") && before("if (drift.length > 0) throw", "applyWrites(ROOT, "), "the default sync refuses out of order before any read, and a drift before any write (the writes go through applyWrites)");
 });

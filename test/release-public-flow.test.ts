@@ -102,8 +102,6 @@ test("release_public_flow — message gate, refusals before any gate, export:che
       ["title bound", ["--message", msg("mt.txt", `${"x".repeat(51)}\n`)], {}, "rule title,"],
       ["no MONARK_PUBLIC_MIRROR (CA-1.4)", ["--message", ok], { mirror: null }, "MONARK_PUBLIC_MIRROR is not set"],
       ["non-noreply identity (CA-1.4, M1-m)", ["--message", ok], { email: "flow@example.org" }, "non-noreply identity"],
-      ["visibility public (CA-1.7, M1-q)", ["--message", ok], { vis: "public" }, "visibility reads 'public'"],
-      ["visibility unreadable (CA-1.7, M1-q)", ["--message", ok], { vis: "fail" }, "visibility reads ''"],
       ["--tag (PR-A2)", ["--message", ok, "--tag", "v0.7.0"], {}, "the local tag step is not in this tool yet"],
       ["rule d under --dry-run (FM-3.3)", ["--message", join(tmp, "md.txt"), "--dry-run"], {}, "rule d,"],
       ["dirty source tree (branch guard)", ["--message", ok], { dirty: true }, "working tree is not clean"],
@@ -122,9 +120,12 @@ test("release_public_flow — message gate, refusals before any gate, export:che
 
     // SITE-SEND-GUARD-MECH-1 (lot CM-3c-4a, Q-CP-4) and RELEASE-PREFLIGHT-SEND-GUARD-1 (Q-CPA-1): while the tree carries a
     // pending snapshot, the release and its --dry-run refuse in their preflight, naming each blocker, before any gate and
-    // before the mirror clone is touched; once the snapshot is promoted, they go on. The export's own guard stays.
+    // before the mirror clone is touched, and before any gh read (review m-c of the T0 acts); once the snapshot is promoted,
+    // they go on. The export's own guard stays.
     for (const args of [["--message", ok], ["--message", ok, "--dry-run"]]) {
+      const ghBefore = existsSync(ghLog) ? readFileSync(ghLog, "utf8") : "";
       const pending = run(args);
+      assert.equal(existsSync(ghLog) ? readFileSync(ghLog, "utf8") : "", ghBefore, `${args.join(" ")}: no gh call before the pending refusal`);
       assert.ok(pending.status !== 0 && pending.out.includes("RELEASE ABORTED: RELEASE-PREFLIGHT-SEND-GUARD-1 (SITE-SEND-GUARD-MECH-1)") && !pending.out.includes("export failed"), `a pending snapshot stops the release in its preflight:\n${pending.out.slice(-1500)}`);
       for (const b of ["harness-pending.json", "ukemi-pending.json", "harness-served.json (pending_since)", "ukemi-served.json (pending_since)"]) assert.ok(pending.out.includes(`apps/site/data/${b}`), `the refusal names ${b}`);
       assert.deepEqual(pending.passed, [], `${args.join(" ")}: no gate runs before the pending refusal`);
@@ -132,7 +133,11 @@ test("release_public_flow — message gate, refusals before any gate, export:che
     }
     dropPendingSnapshot(src);
     git(src, "-c", "user.email=flow@users.noreply.github.com", "commit", "-q", "-am", "promote");
-    refuse([["unexpected remote (C-G2-1)", ["--message", ok], { mirror: mirrorX }, "points at an unexpected remote"]]);
+    refuse([
+      ["unexpected remote (C-G2-1)", ["--message", ok], { mirror: mirrorX }, "points at an unexpected remote"],
+      ["visibility public (CA-1.7, M1-q)", ["--message", ok], { vis: "public" }, "visibility reads 'public'"],
+      ["visibility unreadable (CA-1.7, M1-q)", ["--message", ok], { vis: "fail" }, "visibility reads ''"],
+    ]);
 
     // G2 N-1: the export still has the last word. A committed file the preflight lets through but the export refuses (a
     // reader-local Windows path, D7 septies (iii)): every gate runs, then the release stops on its export, mirror untouched.
