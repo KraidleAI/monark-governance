@@ -168,7 +168,7 @@ export const manifestText = (files) => [...files].sort(byPath).map((f) => `${sha
 
 /** plan({inputs, release, date, roots}) -> {files, problems}: reads, never writes; VERSION and MANIFEST.sha256 only without problem. */
 export function plan({ inputs, release, date, roots }) {
-  const problems = [], add = (code, detail) => problems.push({ code, detail }), files = [];
+  const problems = [], add = (code, detail) => problems.push({ code, detail }), files = [], objects = new Map(), once = (dir, commit, path) => { const k = [dir, commit, path].join("\0"); if (!objects.has(k)) objects.set(k, blob(dir, commit, path)); return objects.get(k); }; // each object read once (G2 T-3)
   if (!validDate(date)) add("date_invalid", String(date));
   const rel = Object.hasOwn(inputs.releases, release) ? inputs.releases[release] : null;
   if (rel === null) return { files, problems: [...problems, { code: "release_unknown", detail: String(release) }] };
@@ -176,7 +176,7 @@ export function plan({ inputs, release, date, roots }) {
     const dir = roots[e.root], abs = dir === undefined ? null : join(dir, e.path), at = `${e.out} <- ${e.root}:${e.path}`;
     if (abs === null) { add("root_missing", `${e.out}: root ${e.root} not given`); continue; }
     // SPEC-PUBLISH-PREVIOUS-BLOBS-1: a previous entry is the committed object of previous_commit, never the working tree.
-    const got = e.root === "previous" ? blob(dir, rel.previous_commit, e.path) : null; // read once
+    const got = e.root === "previous" ? once(dir, rel.previous_commit, e.path) : null;
     if (got !== null && got.bytes === null) { add("previous_blob_missing", `${at} is not readable in ${rel.previous_commit}: ${got.why}`); continue; }
     if (e.root === "governance" && STRUCTURAL_BLACKLIST.some((re) => re.test(e.path))) { add("input_blacklisted", at); continue; }
     if (e.root !== "previous" && !existsSync(abs)) { add("input_missing", at); continue; }
@@ -184,7 +184,7 @@ export function plan({ inputs, release, date, roots }) {
     if (e.root !== "previous" && !statSync(abs).isFile()) { add("input_not_file", at); continue; }
     const bytes = got !== null ? got.bytes : readFileSync(abs);
     if (sha(bytes) !== e.sha256) { add("input_digest", `${at} is ${sha(bytes)}, pinned ${e.sha256}`); continue; }
-    const prior = roots.previous, was = prior === undefined || rel.previous_commit === null ? null : blob(prior, rel.previous_commit, e.out).bytes; // carried: committed, same bytes
+    const prior = roots.previous, was = prior === undefined || rel.previous_commit === null ? null : once(prior, rel.previous_commit, e.out).bytes; // carried: committed, same bytes
     problems.push(...contentProblems(e.out, e.kind, bytes, release, was !== null && was.equals(bytes)));
     files.push({ path: e.out, bytes });
   }
@@ -202,7 +202,7 @@ export function plan({ inputs, release, date, roots }) {
       return ls; })()) {
       if (p !== "" && !outs.has(p)) add("withdrawn", `${p} is published, the release drops it`);
       const now = files.find((f) => f.path === p); // a file under a version directory is never rewritten: one $id, one content
-      const old = /^contract-[^/]*\//i.test(p) && now !== undefined ? blob(prev, rel.previous_commit, p) : null; // never compared with empty bytes (G2 F-2)
+      const old = /^contract-[^/]*\//i.test(p) && now !== undefined ? once(prev, rel.previous_commit, p) : null; // never compared with empty bytes (G2 F-2)
       if (old !== null && old.bytes === null) add("previous_blob_missing", `${p} is published, its object is not readable in ${rel.previous_commit}: ${old.why}`);
       else if (old !== null && !now.bytes.equals(old.bytes)) add("rewritten", `${p} is published with other bytes, the release changes it`);
     }

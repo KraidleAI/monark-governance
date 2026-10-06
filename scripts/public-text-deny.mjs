@@ -132,7 +132,7 @@ export const templateMarkers = (text) => { const names = [...new Set([...text.ma
   return names; };
 // TEMPLATE-MARKERS-SOURCE-1: derived from the committed notes template, never typed (a missing template fails the import, by name).
 export const TEMPLATE_MARKERS = Object.freeze(templateMarkers(readFileSync(join(SRC, ...TEMPLATE_REL.split("/")), "utf8")));
-const MARKER_VARIABLE = new RegExp(`\\$\\{\\s*(?:${TEMPLATE_MARKERS.map((n) => n.replace(/-/g, "\\-")).join("|")})\\s*\\}`, "g"); // ${T0}: still a marker (E-2)
+const MARKER_VARIABLE = new RegExp(`\\$\\{\\s*(?:${TEMPLATE_MARKERS.join("|")})\\s*\\}`, "g"); // ${T0}: still a marker (E-2); a name is [A-Z0-9_-], literal outside a class: no escape (G2 T-2; "\-" breaks under the u flag)
 // The year form also catches an ISO date; month names are capitalised whole words, so the verb "may" stays green.
 const DATE_FORMS = Object.freeze([/\b(?:19|20)\d\d\b/, /\b(?:January|February|March|April|May|June|July|August|September|October|November|December)\b/,
   /\bQ[1-4]\b/, /\bsoon\b|\bnext\s+(?:week|month|quarter|year)\b/i]);
