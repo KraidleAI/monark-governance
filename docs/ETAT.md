@@ -618,7 +618,21 @@ Tronc `lot/etude-suite`. Dernier oracle complet : 1 779 tests, dont 1 776 verts,
   - DEP-RELEASE-AGE-RULE-1 (résidu du G7 de DEP-SOURCE-MAP-JS-1 ; déclencheur atteint par DEP-SHARP-1, #205, le 2026-10-06) : option (a)
     décidée par la cellule le 2026-10-06 (proposition de MONARK, vote de RECHERCHES `e9de455`) : une règle écrite de 7 jours avant d adopter
     une version neuve d une dépendance, avec une dérogation nommée pour un correctif de sécurité lu au G2. Porteur : MONARK, un lot de
-    documentation ; état : ouvert.
+    documentation ; état : clos le 2026-10-06 par #208 (tronc `05478bd6`) : la règle est une ligne datée de
+    `docs/methode/REGLES-MISSION.md`, la case 11 de `docs/methode/CHECKLIST-G7.md` la contrôle au G7 (`docs/G7-lot-dep-release-age-rule-1.md`).
+  - DEP-RELEASE-AGE-NPMRC-1 (item (a) du G0 de DEP-RELEASE-AGE-RULE-1) : `min-release-age=7` dans un `.npmrc` à la racine, garde de
+    npm à l écriture du verrou (`npm install`, `npm update`), la dérogation par `--min-release-age-exclude`. npm 11.19.0 de l hôte de
+    travail connaît la clé (mesuré au G0) ; la version de npm du runner de la CI et des hôtes, et la première version qui la connaît,
+    sont à mesurer d abord (une clé inconnue est ignorée sans erreur, remarque de la G2 de RECHERCHES). Porteur : la cellule ;
+    déclencheur : la prochaine montée de dépendance ; état : ouvert.
+  - DEP-RELEASE-AGE-CI-1 (item (b)) : contrôle en ligne dans `g6-compliance` : les `version` du verrou changées entre la base et la tête,
+    `npm view <paquet>@<version> time --json` pour chacune, refus sous 168 h sauf dérogation déclarée sous une forme fermée. Le seuil
+    devient un seuil de CI (ligne datée d ADR-M003 D9, R-23). Porteur : la cellule ; déclencheur : après DEP-RELEASE-AGE-SOURCE-1 ;
+    état : ouvert.
+  - DEP-RELEASE-AGE-SOURCE-1 (item (c)) : une justification sourcée des 7 jours (lecture sur place d une source primaire, par exemple une
+    mesure publiée du délai entre la publication d une version malveillante et son retrait du registre). Aujourd hui, les 7 jours sont
+    une décision de la cellule, sans efficacité revendiquée. Porteur : la cellule ; déclencheur : avant DEP-RELEASE-AGE-CI-1 ; état :
+    ouvert.
   - R25-REGISTRY-ROOT-1, PR 2 (ADR-M003 D9 septdecies, décision de l investisseur du 2026-10-06) : copie à l octet de `wave1.json` (`recherches`
     `a43ad70`, 26 202 lignes, sha256 `811fcd57…`) et de sa déclaration `PROVENANCE-kata-registry.md` sous `apps/harness/data/kata/registry/`,
     sous la porte de la PR 1 ; l ancre (g) du test racine devient inconditionnelle (le saut est retiré). Porteur : MONARK ; déclencheur : la
