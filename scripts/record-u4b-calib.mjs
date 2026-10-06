@@ -10,7 +10,7 @@
 import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { resolve } from "node:path";
-import { calibDigest } from "@monark/contracts";
+import { calibDigest } from "./lib/calib-digest-provenance.mjs";
 import { splitQuantile } from "@monark/hikae";
 
 const NMIN = 100, ALPHA = 0.01;

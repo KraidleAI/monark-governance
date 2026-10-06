@@ -6,9 +6,9 @@
  *   DEFER    if |C|>tau AND clock open
  *   COMMIT   if intent∈C, |C|<=tau, B_t>=B_floor
  *
- * `verdict under_calib` (D6(b), ADR-M011): the common ABSTAIN guard fires on `nCalib < nMin` OR ANY
- * `verdict.reason === "under_calib"` — the count was only an INCOMPLETE proxy for the honest verdict
- * (it missed a `p>n` verdict at `n>=nMin`, and the zero-width `interval` verdict of NDG-1).
+ * Step 4 (contract 1.1.0, spec section 6; replaces the D6(b) `under_calib` guard, ADR-M011, at the same place): the
+ * common ABSTAIN guard fires on `nCalib < nMin`, on a verdict without region, and on every no-region or `calib_*`
+ * reason, with the verdict's reason (`under_calib` when that reason needs a region). A silent cell abstains, never defers.
  *
  * RETAINED clock reading (declared): the clock conditions ONLY the DEFER — an impossible
  * DEFER (clock closed) becomes ABSTAIN `clock_expired`; COMMIT has NO clock
@@ -17,23 +17,23 @@
  * refuses; PnL does not enter π.
  *
  * Reason priority order (declared, deterministic overlap):
- *   non_evaluable → upstream_timeout → non_evaluable (a non-finite numeric field, E-8) → under_calib (n<n_min OR verdict.reason under_calib, D6(b)) →
+ *   non_evaluable → upstream_timeout → non_evaluable (a non-finite numeric field, E-8) → step 4 (n<n_min, no region, no-region or calib_* reason) →
  *   intent_not_in_region → budget_exhausted → [ |C|>tau ? (clock ? DEFER:set_too_large : ABSTAIN:clock_expired)
  *                       : COMMIT:covered ].
- *   `interval` sub-path only: under_calib ALSO on lo>=hi (NDG-1), tested first, before budget.
+ *   `interval` sub-path only: region_degenerate on lo>=hi (NDG-1, ADR-CM B-16), tested first, before budget.
  *
  * D0 (no trading in MONARK; future product = KAIZEN): the gated tools
  * `perps_order_preview` / `perps_order_execute` are NAMED here but NEVER called.
  *
  * `interval` region (UKEMI regression, ADR-M003 D6.1): the Phase 1 throw is LIFTED. Dedicated path —
- *   ABSTAIN  if lo>=hi (zero-width / degenerate region ⇒ under_calib, NDG-1 ADR-M011) — FIRST, before budget
+ *   ABSTAIN  if lo>=hi (zero-width / degenerate region ⇒ region_degenerate, NDG-1 ADR-M011, B-16) — FIRST, before budget
  *   COMMIT   if intent ∈ [lo,hi] AND width (hi−lo) <= τ_interval
  *   DEFER    if width > τ_interval (clock open; otherwise ABSTAIN clock_expired)
  *   ABSTAIN  otherwise (intent ∉ [lo,hi]); + common upstream guards (parse/timeout/calib/budget).
  * `τ_interval` is DECLARED, UNFOUNDED (D6.1; same status as D6 M002; pending ADR-M003 §4).
  */
 import type { CoverageVerdict, GateDecision, GateAction, CoverageReason, PredictionRegion } from "@monark/contracts";
-import { intentInRegion } from "@monark/contracts";
+import { intentInRegion, REASONS_WITHOUT_REGION } from "@monark/contracts";
 
 /** `interval` variant of the frozen region (regression), for the dedicated L3 path. */
 type IntervalRegion = Extract<PredictionRegion, { kind: "interval" }>;
@@ -68,6 +68,8 @@ export interface GateInput {
   /** The targeted gated tool (NAMED, never called — D0). */
   tool: string;
   schemaVersion: string;
+  /** Digest of the request envelope as received (contract 1.1.0), written as `request_sha256`. */
+  requestSha256: string;
 }
 
 interface Verdictum {
@@ -86,12 +88,10 @@ function decide(input: GateInput): Verdictum {
   // reach COMMIT. A non-finite field abstains `non_evaluable` (the decision cannot be evaluated), before every other
   // numeric guard. The served harness already refuses these values upstream (validateHarnessParams, nCalib a length).
   if (!finiteFields(input)) return { action: "abstain", allow: false, reason: "non_evaluable" };
-  // D6(b) (ADR-M011): `nCalib < nMin` was an INCOMPLETE proxy for "verdict under_calib" — also fire on
-  // ANY under_calib verdict (empty `set` region, qhat null) so the gate reason matches the coverage
-  // truth (closes the latent p>n gap at n>=nMin; a `set`-path intent_not_in_region no longer masks it).
-  if (input.nCalib < input.nMin || input.verdict.reason === "under_calib") {
-    return { action: "abstain", allow: false, reason: "under_calib" };
-  }
+  // Step 4 (spec section 6, Q-3a-6): `nCalib < nMin`, a verdict without region, and every no-region or `calib_*` reason
+  // abstain with the verdict's reason (`under_calib` when that reason needs a region); a `calib_*` cell never defers.
+  const noRegionReason = REASONS_WITHOUT_REGION.includes(input.verdict.reason);
+  if (input.nCalib < input.nMin || region === null || noRegionReason) return { action: "abstain", allow: false, reason: noRegionReason ? input.verdict.reason : "under_calib" };
 
   // `interval` path (UKEMI regression) — the Phase 1 throw is LIFTED (ADR-M003 D6.1).
   if (region.kind === "interval") return decideInterval(input, region);
@@ -114,7 +114,7 @@ function decide(input: GateInput): Verdictum {
 }
 
 /**
- * `interval` path (ADR-M003 D6.1; NDG-1 ADR-M011). DECLARED order: NDG-1 (`lo >= hi` ⇒ under_calib, a
+ * `interval` path (ADR-M003 D6.1; NDG-1 ADR-M011). DECLARED order: NDG-1 (`lo >= hi` ⇒ region_degenerate, a
  * zero-width/degenerate region, FIRST) → budget (fail-closed, takes precedence over DEFER — mirror of the
  * `set` path) → WIDTH (the DEFER is driven by the width, independently of the intent: literal reading
  * "DEFER if width > τ_interval, ABSTAIN otherwise") → intent. The DEFER obeys the module's clock
@@ -123,9 +123,9 @@ function decide(input: GateInput): Verdictum {
 function decideInterval(input: GateInput, region: IntervalRegion): Verdictum {
   // NDG-1 (ADR-M011, D3(b)): a zero-width or inverted `interval` region reaching L3 — whatever its
   // provenance, INCLUDING one hand-built past `buildIntervalRegion` — NEVER commits. FIRST, before the
-  // budget (priority under_calib > budget_exhausted, declared order D5). `>=` also captures `lo > hi`.
+  // budget (priority region_degenerate > budget_exhausted, declared order D5). `>=` also captures `lo > hi`.
   if (region.lo >= region.hi) {
-    return { action: "abstain", allow: false, reason: "under_calib" };
+    return { action: "abstain", allow: false, reason: "region_degenerate" };
   }
   if (input.remainingBudget < input.bFloor) {
     return { action: "abstain", allow: false, reason: "budget_exhausted" };
@@ -156,6 +156,7 @@ export function gate(input: GateInput): GateDecision {
     intent: input.intent,
     verdict: input.verdict,
     remaining_budget: input.remainingBudget,
+    request_sha256: input.requestSha256,
     reason,
   };
 }

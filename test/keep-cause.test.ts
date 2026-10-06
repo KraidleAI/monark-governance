@@ -9,7 +9,7 @@ import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describeCause, keepCause } from "./helpers/keep-cause.ts";
-
+import { fileURLToPath, pathToFileURL } from "node:url";
 keepCause("test/keep-cause.test.ts");
 const HELPER = new URL("./helpers/keep-cause.ts", import.meta.url).href;
 let DIR = "", made = 0;
@@ -33,7 +33,7 @@ test("keep_cause_a_throw_at_load_reaches_stdout", () => {
 
 // killer: test/helpers/keep-cause.ts:32 CONST "begun += 1" -> "begun += 0"
 test("keep_cause_names_the_test_and_counts", () => {
-  const r = run([`test("a", () => {});`, `test("b", async () => { setImmediate(() => { throw new Error("boom in b"); }); await new Promise((ok) => { setTimeout(ok, 50); }); });`].join("\n"));
+  const r = run([`test("a", () => {});`, `test("b", async () => { await new Promise((ok) => { setImmediate(() => { setImmediate(ok); throw new Error("boom in b"); }); }); });`].join("\n")); // b ends only after its throw: no race
   assert.deepEqual([r.status, r.lines], [1, ['fixture: uncaughtException during test "b": Error: boom in b',
     "fixture: exit code 1 during between tests, tests begun 2, ended 2"]]);
 });
@@ -55,4 +55,29 @@ test("keep_cause_describes_on_one_line", () => {
   e.stack = ["Error: x", ...Array.from({ length: 8 }, (_, i) => `    at f${String(i)} (synthetic.ts:${String(i + 1)}:1)`)].join("\n");
   const d = describeCause(e);
   assert.deepEqual([d.startsWith("Error: x | at "), d.includes("\n"), d.split(" | ").length, describeCause("plain")], [true, false, 6, "plain"]);
+});
+
+// Lot L2-BOOK-KEEP-CAUSE-1 (2026-10-05): test/l2-book.test.ts itself, run as the runner's child with a fault preloaded (--import) and its
+// stderr dropped. A throw of its trap() and an exit inside its first test must each leave their "# keep-cause" line on stdout.
+const BOOK = fileURLToPath(new URL("./l2-book.test.ts", import.meta.url));
+/** The "# keep-cause" lines, the exit and the whole stdout of test/l2-book.test.ts run with the module `inject` preloaded, stderr dropped. */
+function runBook(inject: string): { lines: string[]; status: number | null; out: string } {
+  const pre = join(DIR, `inject-${String(++made)}.mjs`);
+  writeFileSync(pre, `${inject}\n`);
+  const r = spawnSync(process.execPath, [`--import=${pathToFileURL(pre).href}`, BOOK], { env: { ...process.env, NODE_TEST_CONTEXT: "child-v8" }, stdio: ["ignore", "pipe", "ignore"], timeout: 120_000 });
+  const out = r.stdout.toString("latin1");
+  return { lines: [...out.matchAll(/# keep-cause ([^\n]*)\n/g)].map((m) => String(m[1])), status: r.status, out };
+}
+
+// killer: test/helpers/keep-cause.ts:33 CONST "ended += 1" -> "ended += 2"
+test("keep_cause_l2_book_a_throw_of_trap_is_named_on_stdout", () => {
+  const r = runBook(`const real = globalThis.fetch; Object.defineProperty(globalThis, "fetch", { configurable: true, get: () => real, set: () => { throw new Error("INJECTED at trap"); } });`);
+  assert.deepEqual([r.status, r.lines, r.out.includes("INJECTED at trap")], [1, ["test/l2-book.test.ts: exit code 1 during between tests, tests begun 0, ended 6"], true], "six named reds carrying the cause, then the exit line");
+});
+
+// killer: test/helpers/keep-cause.ts:32 CONST "step = " -> "void "
+test("keep_cause_l2_book_an_exit_in_a_test_is_named_on_stdout", () => {
+  const r = runBook([`import fs from "node:fs";`, `import { syncBuiltinESMExports } from "node:module";`, `const real = fs.mkdtempSync;`,
+    `fs.mkdtempSync = (p, o) => { if (String(p).includes("l2-book-")) process.exit(9); return real(p, o); };`, `syncBuiltinESMExports();`].join("\n"));
+  assert.deepEqual([r.status, r.lines], [9, ['test/l2-book.test.ts: exit code 9 during test "l2_h_steps_table", tests begun 1, ended 0']], "no report of the test, but its name and the code");
 });

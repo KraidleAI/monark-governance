@@ -6,7 +6,7 @@
  *   L2 (l2-monitor) — IM-OCP MONITOR (no guarantee claimed, branch b, D4).
  *   L3 (l3-gate)    — COMMIT/DEFER/ABSTAIN policy, closed predicate (D5). No trading (D0).
  *   region          — buildIntervalRegion (M5 invariant, bounded-or-abstention), buildSetRegion.
- *   verdict         — CoverageVerdict assembly (calib_digest by reference).
+ *   verdict         — CoverageVerdict assembly (scores_sha256 over the declared order; verdict without region).
  *   predictor       — internal:momentum-4c, internal:oracle-didactique ; labelOf (D7/D8).
  *   s2              — S2 instrument (disposable harness ; labelled fixtures).
  *
@@ -14,7 +14,7 @@
  */
 
 // L1 — split conformal.
-export { indicatorScore, indicatorScores, splitQuantile, conformalSet, riskControlQuantile, scoresInDomain, splitRankExact, splitQuantileExact, riskControlRow } from "./l1-split.ts";
+export { indicatorScore, indicatorScores, splitQuantile, conformalSet, riskControlQuantile, scoresInDomain, splitRankExact, splitQuantileExact, riskControlRow, splitRankShortest, splitQuantileShortest } from "./l1-split.ts";
 export type { SplitResult, RiskControlResult, ScoreDomain, RiskControlRow, RiskControlRowOptions } from "./l1-split.ts";
 
 // Binomial core (worksite 2, lot L2-1): exact comparator, k*, n0, the upper bound U, four-decimal rounding, spend.
@@ -32,6 +32,7 @@ export type { GateInput, GatedTool } from "./l3-gate.ts";
 // Region constructors (M5 invariant owner settled, D9/C4).
 export {
   buildIntervalRegion,
+  scoreTestBand,
   buildSetRegion,
   BTC_DIR_LABEL_SCHEMA,
   NUMERIC_LABEL_SCHEMA,
@@ -40,8 +41,8 @@ export {
 export type { SetRegion, IntervalRegion, IntervalRegionResult, BtcDirLabel } from "./region.ts";
 
 // Verdict assembly.
-export { buildVerdict, underCalibVerdict, serialize } from "./verdict.ts";
-export type { VerdictParams } from "./verdict.ts";
+export { buildVerdict, noRegionVerdict, underCalibVerdict, serialize } from "./verdict.ts";
+export type { VerdictParams, VerdictCell, NoRegionParams } from "./verdict.ts";
 
 // Interval conformer (UKEMI regression, ADR-M003 D6.1) + synthetic class ukemi-liquidable-24h (D6.2).
 export { conformInterval, absoluteResidualScores } from "./interval-conformer.ts";
@@ -104,6 +105,10 @@ export type { TrackerParams, TrackerState } from "./tracker.ts";
 // Runs diagnostic (worksite 2, lots L2-1r and L2-1r2): exact one-sided runs test on a time-ordered 0/1 sequence, balanced exceedance; import-guard input.
 export { runsCount, runsLowerTailLeq, balancedExceedance } from "./runs.ts";
 export type { Balanced, Bits, RunsTail } from "./runs.ts";
+
+// W2-E engine (ADR 0006 v8.1 D2, addendum 8): tail indicator, exact adjacency upper tail from bits or from counts; import-guard input.
+export { tailRank, tailExceedance, adjacencyUpperTail, adjacencyTailFromCounts, TailCountsError } from "./tail.ts";
+export type { TailBit, TailCountsErrorCode, AdjacencyCountsTail, TailExceedance, AdjacencyTail } from "./tail.ts";
 
 // Kata path, lot CM-3b (audit P3 S-4/E-1 engine side, E-2, S-13): scaled band [0, h*], F-7 row canonicalizer, ordered digest.
 export { bandEdge, conformScaledBand } from "./scaled-band.ts";

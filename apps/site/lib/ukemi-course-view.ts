@@ -152,7 +152,7 @@ export function buildCourseView(c: UkemiCourse, s: UkemiServed): CourseView {
     const served = servedStatusOf(x, s);
     if (served !== null) {
       reading.push(
-        `Stratum ${String(x.stratum)} is committed and served: the served verdict read at ${s.read_at} carries ${String(served.calibration_points)} calibration points, fewer than the ${String(served.interior_rank_min_n)} an interior quantile rank needs at the served level, so the quantile rank equals the number of calibration points (${String(x.quantile_rank)} of ${String(x.n)}) and the served bound margin, ${x.bound_margin}, is the largest calibration score observed, reported as is. The served upper bound for a prediction in this stratum is the prediction plus this margin; served calibration digest ${served.calibration_digest}.`,
+        `Stratum ${String(x.stratum)} is committed and served: the served verdict read at ${s.read_at} carries ${String(served.calibration_points)} calibration points, fewer than the ${String(served.interior_rank_min_n)} an interior quantile rank needs at the served level, so the quantile rank equals the number of calibration points (${String(x.quantile_rank)} of ${String(x.n)}) and the served bound margin, ${x.bound_margin}, is the largest calibration score observed, reported as is. The served upper bound for a prediction in this stratum is the prediction plus this margin; served scores digest ${served.calibration_digest}.`,
       );
       continue;
     }

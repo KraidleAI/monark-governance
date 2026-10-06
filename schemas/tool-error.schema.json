@@ -1,0 +1,35 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://monark.local/schemas/tool-error.schema.json",
+  "title": "ToolError",
+  "description": "The 400 body of the HTTP/JSON mirror (contract 1.1.0, spec section 13), one branch per error: tool_error carries a code of the closed catalogue; invalid_input (the input schema refused the body) carries input_invalid and the validator issues, whose element shape is not part of the contract; invalid_json (the body is not JSON) carries json_invalid. $defs/InternalError is the 500 body (output_invalid when the tool output broke its frozen contract). Not described here: MCP errors, the 403 (invalid_origin), 404, 405 and 413 (payload_too_large) bodies, and a transport-level 500 without operation ({\"error\":\"internal_error\"}). A consumer that validates with an older copy treats an unknown code as a refusal.",
+  "oneOf": [
+    {
+      "type": "object", "additionalProperties": false, "required": ["error", "operation", "message", "code"],
+      "properties": {
+        "error": { "const": "tool_error" }, "operation": { "$ref": "#/$defs/Operation" }, "message": { "type": "string" },
+        "code": { "enum": ["param_invalid", "schema_version_unsupported", "byo_calibration_invalid", "byo_yhat_type", "byo_set_tau_cap", "yhat_type_mismatch", "liq_yhat_domain", "attested_inconsistent", "task_class_unknown", "byo_overrides_committed", "byo_edge_blank", "byo_lookalike_committed", "byo_reserved_kata", "byo_lookalike_confusable", "produced_at_invalid", "produced_at_future", "policy_alpha_mismatch", "policy_nmin_mismatch", "task_class_retired", "attest_refused", "calibrate_input_invalid", "cascade_input_invalid", "ukemi_predict_input_invalid", "kata_key_invalid", "kata_yhat_domain", "features_digest_required", "policy_tau_cap", "produced_at_off_grid", "produced_at_stale"] }
+      }
+    },
+    {
+      "type": "object", "additionalProperties": false, "required": ["error", "operation", "message", "code", "issues"],
+      "properties": {
+        "error": { "const": "invalid_input" }, "operation": { "$ref": "#/$defs/Operation" }, "message": { "type": "string" }, "code": { "const": "input_invalid" },
+        "issues": { "type": "array" }
+      }
+    },
+    {
+      "type": "object", "additionalProperties": false, "required": ["error", "operation", "message", "code"],
+      "properties": {
+        "error": { "const": "invalid_json" }, "operation": { "$ref": "#/$defs/Operation" }, "message": { "type": "string" }, "code": { "const": "json_invalid" }
+      }
+    }
+  ],
+  "$defs": {
+    "Operation": { "type": "string", "minLength": 1 },
+    "InternalError": {
+      "type": "object", "additionalProperties": false, "required": ["error", "operation"],
+      "properties": { "error": { "const": "internal_error" }, "operation": { "$ref": "#/$defs/Operation" }, "code": { "const": "output_invalid" } }
+    }
+  }
+}

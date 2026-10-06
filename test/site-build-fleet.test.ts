@@ -624,7 +624,7 @@ test("roadmap_built_list_renders_served_notes_and_links_panels_on_fleet — {a.w
   }
 });
 
-// killer: apps/harness/src/tools/gate.ts:212 CONST "is retired and answers a named" -> "is a plumbing fixture, not a measured predictor and answers a named"
+// killer: apps/harness/src/tools/gate.ts:248 CONST "is retired and answers a named" -> "is a plumbing fixture, not a measured predictor and answers a named"
 test("registry_notes_track_served_descriptions — the register notes, the served-state lines of / and /fleet and the Hikae and Shōgen panels restate the served tool descriptions, in both directions (R26, R27, R30, R31)", () => {
   const hikae = builtAgents().find((a) => a.name === "Hikae");
   const ukemi = builtAgents().find((a) => a.name === "Ukemi");

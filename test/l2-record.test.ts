@@ -8,7 +8,8 @@
 import { after, before, test } from "node:test";
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
-import { existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, statfsSync, symlinkSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
+import { createRequire, syncBuiltinESMExports } from "node:module";
 import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
@@ -18,6 +19,8 @@ keepCause("test/l2-record.test.ts"); // a crash of this file names its cause on 
 let ROOT = "", made = 0;
 before(() => { ROOT = mkdtempSync(join(tmpdir(), "l2-record-")); });
 after(() => { if (ROOT !== "") rmSync(ROOT, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 }); });
+// The CommonJS object of node:fs, whose statfsSync l2_free_bytes_default replaces (syncBuiltinESMExports carries it to the command).
+const fs = createRequire(import.meta.url)("node:fs") as { statfsSync: typeof import("node:fs").statfsSync };
 const LF = String.fromCharCode(10), SCRIPTS = join(dirname(fileURLToPath(import.meta.url)), "..", "scripts");
 const WIN = { TEMP: "C:\\T", Tmp: "C:\\T", SystemRoot: "C:\\Windows" };
 
@@ -262,9 +265,14 @@ test("l2_replay_skips_env_guard", async () => {
 
 // killer: scripts/record-binance-l2.mjs:161 SDL "while (!existsSync(p) && dirname(p) !== p) p = dirname(p);" -> ""
 test("l2_free_bytes_default", async () => {
-  const m = await load(), s = statfsSync(ROOT), got = codeOf(() => m.freeBytes(join(ROOT, "absent", "x")));
-  assert.equal(typeof got, "number", "an absent output reads its nearest existing ancestor");
-  assert.ok(Math.abs((got as number) - s.bavail * s.bsize) <= 64 * s.bsize, "bavail x bsize, a few blocks apart");
+  // L2-FREE-BYTES-FLAKE-1: the free space of a file system is shared by every writer on it, so two real readings may differ by any
+  // amount; the path read and the product are checked on a statfsSync that answers fixed values, the real one only for its type.
+  const m = await load(), absent = join(ROOT, "absent", "x"), real = fs.statfsSync, read: unknown[] = [];
+  assert.equal(typeof codeOf(() => m.freeBytes(absent)), "number", "an absent output reads its nearest existing ancestor");
+  fs.statfsSync = ((p: unknown) => { read.push(p); return { ...real(ROOT), bsize: 512, bavail: 7, bfree: 11, blocks: 13 }; }) as typeof real;
+  syncBuiltinESMExports();
+  try { assert.deepEqual([codeOf(() => m.freeBytes(absent)), read], [7 * 512, [ROOT]], "bavail x bsize of the nearest existing ancestor"); }
+  finally { fs.statfsSync = real; syncBuiltinESMExports(); }
 });
 
 // killer: scripts/record-binance-l2.mjs:80 CONST "\"i\"" -> "\"iu\""

@@ -11,6 +11,7 @@ import assert from "node:assert/strict";
 import type { Prediction } from "@monark/contracts";
 import { splitQuantile, conformalSet, indicatorScores, buildIntervalRegion, BTC_DIR_LABELS } from "@monark/hikae";
 import { runGate, HarnessToolError, type HarnessParams } from "../src/tools/gate.ts";
+import { SCHEMA_VERSION } from "../src/tools/gate.ts";
 import { BTC_DIR_CALIB, USDE_STABLE_RUN_CALIB, USDE_STABLE_RUN_PREDICTOR_ID } from "../src/calibration.ts";
 
 const PARAMS: HarnessParams = {
@@ -26,7 +27,7 @@ const PARAMS: HarnessParams = {
 };
 
 const BTC_PRED: Prediction = {
-  schema_version: "1.0.0",
+  schema_version: SCHEMA_VERSION,
   task_class: "btc-dir-15m",
   yhat: "up",
   predictor_id: "internal:momentum-4c",
@@ -99,7 +100,7 @@ test("oracle_usde_fixture_zero_atom_ties", () => {
   assert.deepEqual(band(0.0017), { qhat: largest, abstain: false }, "alpha = 0.0017: rank 613, qhat = largest score");
 
   const pred: Prediction = {
-    schema_version: "1.0.0",
+    schema_version: SCHEMA_VERSION,
     task_class: "stable-run-velocity-24h",
     yhat,
     predictor_id: USDE_STABLE_RUN_PREDICTOR_ID,
@@ -113,5 +114,6 @@ test("oracle_usde_fixture_zero_atom_ties", () => {
   const split = splitQuantile(calib, 0.1, 50);
   assert.ok(!("reason" in split), "alpha 0.1 calibrates");
   assert.equal(served.verdict.qhat, split.qhat, "served at the imposed alpha 0.1: the engine qhat");
-  assert.deepEqual(served.verdict.region, { kind: "interval", lo: yhat - split.qhat, hi: yhat + split.qhat });
+  assert.ok(yhat - split.qhat === -0.00008959228083333333, "fl(yhat - qhat)");
+  assert.deepEqual(served.verdict.region, { kind: "interval", lo: -0.00008959228083333335, hi: yhat + split.qhat }, "B-13: lo of the score test, one ulp below fl(yhat - qhat)");
 });

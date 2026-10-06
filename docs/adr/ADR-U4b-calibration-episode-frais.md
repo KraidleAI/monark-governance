@@ -2509,3 +2509,16 @@ mutant ; la suite complète tourne à l'oracle. `error_origin` : aucun.
 
 > **G7 (2026-09-23, orchestrateur `claude-fable-5-1`)** : fusion `4b4d4b8` ; G2 `docs/G2-lot-prober-exclude-op-1.md` PASS-AVEC-CORRECTIONS (C-G2-1 : trois propriétés déclaratives — `argAll` sur l'`argv` de `run()`, déduplication, défaut en tête pour une étiquette qui trie avant `mevblocker.io` — non prouvées par test : item **PROBER-EXCLUDE-OP-TESTS-1** (propriétaire orchestrateur ; déclencheur : premier lot hors course touchant le prober ; tests (a') `QUORUM GUARD` en processus et (b') `--exclude-operator drpc.org` ×2 + `--with-chainstack` ⇒ `["mevblocker.io","drpc.org"]`) ; C-G2-2 citation `:64-77` corrigée ci-dessus et note RUNBOOK sur la forme `--exclude-operator=<étiquette>` ignorée en silence ; C-G2-3 : le compte « drpc.org 3 = 2 eth_call + 1 getLogs » du §4 a pour sources le ledger `drpc.org.jsonl` (passe 1 : l.141322-141324) et `errors_by_operator` du raw passe 1) ; cp-2 `docs/CHECKPOINT2-lot-prober-exclude-op-1.md` ACCEPTE-AVEC-CORRECTIONS (C2-1..C2-3 appliquées `dab6f91` avant la passe 4 ; C2-4 = cette insertion ; C2-5 provenance : générateur `claude-opus-5-5[1m]`, relecteur `claude-opus-5-5[1m]` instance séparée, validateur `claude-fable-5-1` ; `error_origin` D-1 = plan, « fichier de test identique » = plan ; C2-6 résidu V4 consigné) ; **passe 4 exécutée 18:19:21Z sur `a722035`, exit 0, C-9-ter et C-6 exit 0 — prédiction tenue** (Sidecar 5). Items datés : PROBER-EMODE-FAILCLOSED-1 (code, premier lot hors course), BENCH-PER-METHOD-1 (premier lot hors course touchant `rpc2.ts`), OBS-1 (clôture de la course), R-U-2 (déclenché, borné), HEAD_E3-TESTS-1 **CLOS** (E3 20/20 + oracle 7 × 0), EXPORT-TEST42-EPERM-1 (nettoyage best-effort `99c25cc`/`2482918`).
 
+
+## Amendement daté 2026-10-05 (contrat 1.1.0, lot CM-3c-3a, décision Q-2 de #147) — D4 : re-gel de `scripts/record-u4b-calib.mjs`, import seul changé
+
+- **Objet** : `calibDigest` quitte `@monark/contracts` (ADR-M001 D9-ter, bloc C, lot CM-3c-3a ; `packages/contracts/src/calib-digest.ts` retiré). Le générateur gelé l'importe désormais de l'outil de provenance hors contrat `scripts/lib/calib-digest-provenance.mjs` (lot CM-3c-2, mêmes instructions, parité prouvée en C1 et vecteurs C5 gardés par `test/calib-digest-vectors.test.ts`). **Une seule ligne change** (l.13, l'import) ; aucune instruction, aucune sortie.
+- **D4, sha256 LF avant / après** :
+
+| Fichier | Avant | Après |
+|---|---|---|
+| `scripts/record-u4b-calib.mjs` | `5733daeb7c8ee40ab0a657882bbe1a9bd03a00d4ddab99e01cfa052a1fbc31a3` | `aa81dbca6b24c1b692895642759a392ebeff58f06d05c965aee0524d34a87c41` |
+| `packages/contracts/src/calib-digest.ts` (`contracts_frozen`) | `3603265d…94c42380` | retiré (D9-ter) ; ses instructions vivent dans `scripts/lib/calib-digest-provenance.mjs` |
+
+- Les autres fichiers de l'ensemble gelé sont inchangés. `GENERATOR_SHA256_LF` (`apps/harness/test/calibration-liq.test.ts`) est ré-épinglé **dans le même commit**. Pas de module de réexport dans `@monark/contracts`.
+- **Sortie identique** : prouvée au G7 du lot (`docs/G7-lot-cm-3c-3a.md`) par un lancement direct de `buildRegistryEntries` avant et après sur la série versée, contre le registre versé ; `u4b_committed_registry_equals_generator_output` la rejoue dès que le harnais se recharge (lot 3c-3b).

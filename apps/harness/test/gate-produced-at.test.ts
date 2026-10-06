@@ -10,6 +10,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import type { Prediction } from "@monark/contracts";
 import { runGate, HarnessToolError, type HarnessParams } from "../src/tools/gate.ts";
+import { SCHEMA_VERSION } from "../src/tools/gate.ts";
 import { USDE_STABLE_RUN_PREDICTOR_ID } from "../src/calibration.ts";
 import { handleJsonMirror } from "../src/http.ts";
 import { createHarnessHandler } from "../src/server.ts";
@@ -17,12 +18,12 @@ import { createHarnessHandler } from "../src/server.ts";
 const PARAMS: HarnessParams = { remainingBudget: 0.1, bFloor: 0, tau: 1, tauInterval: 1, alpha: 0.1, nMin: 50, intent: "up", tool: "perps_order_preview", clockOpen: true };
 
 function btcDir(producedAt: string): Prediction {
-  return { schema_version: "1.0.0", task_class: "btc-dir-15m", yhat: "up", predictor_id: "internal:momentum-4c", produced_at: producedAt };
+  return { schema_version: SCHEMA_VERSION, task_class: "btc-dir-15m", yhat: "up", predictor_id: "internal:momentum-4c", produced_at: producedAt };
 }
 
 /** The committed USDe key (PARAMS carries its F-7 alpha 0.1 and nMin 50): the served vehicle since btc-dir is retired. */
 function usde(producedAt: string): Prediction {
-  return { schema_version: "1.0.0", task_class: "stable-run-velocity-24h", yhat: 0.0001, predictor_id: USDE_STABLE_RUN_PREDICTOR_ID, produced_at: producedAt };
+  return { schema_version: SCHEMA_VERSION, task_class: "stable-run-velocity-24h", yhat: 0.0001, predictor_id: USDE_STABLE_RUN_PREDICTOR_ID, produced_at: producedAt };
 }
 
 /** btc-dir-15m (a valid produced_at) is retired: 400 task_class_retired (ADR-CM B-5). */
@@ -34,17 +35,17 @@ function assertBtcDirRetired(): void {
 const OTHER_PATHS: { label: string; prediction: (producedAt: string) => Prediction; params: HarnessParams }[] = [
   {
     label: "byo interval",
-    prediction: (at) => ({ schema_version: "1.0.0", task_class: "byo-demo", yhat: 0, predictor_id: "caller:model", produced_at: at }),
+    prediction: (at) => ({ schema_version: SCHEMA_VERSION, task_class: "byo-demo", yhat: 0, predictor_id: "caller:model", produced_at: at }),
     params: { ...PARAMS, nMin: 5, intent: 0, calibration: { scores: [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0], mode: "interval" } },
   },
   {
     label: "usde",
-    prediction: (at) => ({ schema_version: "1.0.0", task_class: "stable-run-velocity-24h", yhat: 0.0001, predictor_id: USDE_STABLE_RUN_PREDICTOR_ID, produced_at: at }),
+    prediction: (at) => ({ schema_version: SCHEMA_VERSION, task_class: "stable-run-velocity-24h", yhat: 0.0001, predictor_id: USDE_STABLE_RUN_PREDICTOR_ID, produced_at: at }),
     params: { ...PARAMS, intent: 0 },
   },
   {
     label: "liq",
-    prediction: (at) => ({ schema_version: "1.0.0", task_class: "liquidation-eligible-coverage", yhat: 5000, predictor_id: "ukemi:any", produced_at: at }),
+    prediction: (at) => ({ schema_version: SCHEMA_VERSION, task_class: "liquidation-eligible-coverage", yhat: 5000, predictor_id: "ukemi:any", produced_at: at }),
     params: { ...PARAMS, alpha: 0.01, nMin: 100, intent: 1 },
   },
 ];
@@ -62,7 +63,7 @@ function refusedWith(fn: () => unknown, code: string, at: string): string {
 
 // Test P-1 (F2P): a direct runGate refuses every non RFC 3339 produced_at (P5(b)), and accepts the RFC 3339 edge
 // forms (leap years, leap second, offset 23:59 and -00:00, lower-case t and z, a long fraction).
-// killer: apps/harness/src/tools/gate.ts:822 CONST "sec > 60" -> "sec > 61"
+// killer: apps/harness/src/tools/gate.ts:856 CONST "sec > 60" -> "sec > 61"
 test("run_gate_refuses_a_non_rfc3339_produced_at", () => {
   const refused = [
     "yesterday", "", "2026-09-04", "2026-09-04T00:00:00", "2026-09-04T00:00Z", "2026-09-04 00:00:00Z",
@@ -119,7 +120,7 @@ async function mcpGate(producedAt: string, nowMs: number): Promise<Obj> {
 
 // Test P-2 (F2P): at the HTTP and MCP entry points a produced_at more than 300 s after the injected clock is a 400
 // produced_at_future (offsets honoured); 300 s exactly is accepted; a direct runGate without nowMs only checks RFC 3339.
-// killer: apps/harness/src/tools/gate.ts:803 CONST "300_000" -> "301_000"
+// killer: apps/harness/src/tools/gate.ts:212 CONST "300_000" -> "301_000"
 test("produced_at_in_the_future_is_refused_at_http_and_mcp", async () => {
   const NOW = Date.parse("2026-10-03T12:00:00Z");
   const http = async (producedAt: string): Promise<{ status: number; body: Obj }> => {

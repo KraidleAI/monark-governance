@@ -18,6 +18,7 @@
  */
 import { HARNESS_TOOLS } from "./tools/registry.ts";
 import type { Json } from "./schema-projection.ts";
+import { TOOL_ERROR_400_SCHEMA, TOOL_ERROR_500_SCHEMA } from "./schema-projection.ts";
 import { HARNESS_VERSION } from "./version.ts";
 
 type JsonObject = { [k: string]: Json };
@@ -82,9 +83,15 @@ export function buildOpenApi(): JsonObject {
           },
           "400": {
             description: "Input failed the frozen schema, or the tool refused the input (never a silent result).",
+            content: { "application/json": { schema: TOOL_ERROR_400_SCHEMA } },
           },
           "403": {
             description: "Origin present and not a monarkgate.tech origin (K-9).",
+          },
+          "413": { description: "The request body is larger than the harness cap (payload_too_large); the connection is closed." },
+          "500": {
+            description: "The tool output broke its frozen contract, or the tool failed (both name the operation); or the request failed in transport (no operation); never a stack.",
+            content: { "application/json": { schema: TOOL_ERROR_500_SCHEMA } },
           },
         },
       },

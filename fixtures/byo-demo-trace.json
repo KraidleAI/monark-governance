@@ -46,7 +46,7 @@
     "illustrative": "The scores, the prediction, and the task label are generic and illustrative. MONARK gates the caller's prediction; it does not itself predict, and it names no asset.",
     "vocabulary": "This trace states no correctness or coverage claim and uses no forbidden vocabulary."
   },
-  "audit": "The BYO loop closes when the gate verdict's calib_digest equals the calibrate set_digest over the same scores. Both are recorded below and asserted equal by test/byo-demo-probe.test.ts.",
+  "audit": "The BYO loop closes when the gate verdict's scores_sha256 equals the calibrate scores_sha256 over the same scores, and their alpha and qhat agree. Both are recorded below and asserted equal by test/byo-demo-probe.test.ts.",
   "steps": [
     {
       "n": 1,
@@ -79,7 +79,7 @@
       "op": "tools/call",
       "label": "calibrate",
       "tool": "calibrate",
-      "note": "The caller calibrates its OWN nonconformity scores: MONARK returns the split-conformal quantile qhat and a set_digest over exactly those scores. MONARK does not see, store, or verify the caller's data or model.",
+      "note": "The caller calibrates its OWN nonconformity scores: MONARK returns the split-conformal quantile qhat and the scores_sha256 of exactly those scores, in the order sent. MONARK does not see, store, or verify the caller's data or model.",
       "request": {
         "jsonrpc": "2.0",
         "id": 2,
@@ -108,7 +108,7 @@
         "content": [
           {
             "type": "text",
-            "text": "split-conformal quantile at miscoverage α over caller-supplied nonconformity scores. MONARK does not see, store, or verify the caller's data or model, and does not validate that the supplied numbers are nonconformity scores of any model. Marginal 1−α coverage holds ONLY for future points exchangeable with the supplied scores; non-exchangeable data (e.g. distribution-shifted or time-ordered) voids it. Never a probability of being right. verdict qhat=1 n=10 alpha=0.1 set_digest=4081f718...43dd3a"
+            "text": "split-conformal quantile at miscoverage α over caller-supplied nonconformity scores. MONARK does not see, store, or verify the caller's data or model, and does not validate that the supplied numbers are nonconformity scores of any model. Marginal 1−α coverage holds ONLY for future points exchangeable with the supplied scores; non-exchangeable data (e.g. distribution-shifted or time-ordered) voids it. Never a probability of being right. verdict qhat=1 n=10 alpha=0.1 scores_sha256=3e12ae9e...b54dcb"
           }
         ],
         "structuredContent": {
@@ -116,7 +116,7 @@
           "n": 10,
           "alpha": 0.1,
           "method": "split",
-          "set_digest": "4081f7184e42b34e594015191f04720343b8b37691c7e4412c2469efdc43dd3a",
+          "scores_sha256": "3e12ae9e2e06bd038abc368fb2c94df3cb3097b8226d57f069874b84c6b54dcb",
           "label": "split-conformal quantile at miscoverage α over caller-supplied nonconformity scores. MONARK does not see, store, or verify the caller's data or model, and does not validate that the supplied numbers are nonconformity scores of any model. Marginal 1−α coverage holds ONLY for future points exchangeable with the supplied scores; non-exchangeable data (e.g. distribution-shifted or time-ordered) voids it. Never a probability of being right.",
           "reason": null
         }
@@ -137,7 +137,7 @@
           "name": "gate",
           "arguments": {
             "prediction": {
-              "schema_version": "1.0.0",
+              "schema_version": "1.1.0",
               "task_class": "caller-demo-reg",
               "yhat": 0,
               "predictor_id": "caller:own-model",
@@ -176,17 +176,17 @@
         "content": [
           {
             "type": "text",
-            "text": "split-conformal quantile at miscoverage α over caller-supplied nonconformity scores. MONARK does not see, store, or verify the caller's data or model, and does not validate that the supplied numbers are nonconformity scores of any model. Marginal 1−α coverage holds ONLY for future points exchangeable with the supplied scores; non-exchangeable data (e.g. distribution-shifted or time-ordered) voids it. Never a probability of being right. B_t is caller-carried. verdict action=commit reason=covered region=[-1, 1] qhat=1 n_calib=10 calib_digest=4081f718...43dd3a"
+            "text": "split-conformal quantile at miscoverage α over caller-supplied nonconformity scores. MONARK does not see, store, or verify the caller's data or model, and does not validate that the supplied numbers are nonconformity scores of any model. Marginal 1−α coverage holds ONLY for future points exchangeable with the supplied scores; non-exchangeable data (e.g. distribution-shifted or time-ordered) voids it. Never a probability of being right. B_t is caller-carried. verdict action=commit reason=covered region=[-1, 1] qhat=1 n_calib=10 scores_sha256=3e12ae9e...b54dcb"
           }
         ],
         "structuredContent": {
-          "schema_version": "1.0.0",
+          "schema_version": "1.1.0",
           "action": "commit",
           "allow": true,
           "tool": "caller_downstream_tool",
           "intent": 0,
           "verdict": {
-            "schema_version": "1.0.0",
+            "schema_version": "1.1.0",
             "task_class": "caller-demo-reg",
             "method": "split",
             "alpha": 0.1,
@@ -197,13 +197,19 @@
               "hi": 1
             },
             "qhat": 1,
+            "qhat_unit": "label",
+            "scale": null,
             "abstain": false,
             "reason": "covered",
             "residual": [],
-            "calib_digest": "4081f7184e42b34e594015191f04720343b8b37691c7e4412c2469efdc43dd3a",
+            "scores_sha256": "3e12ae9e2e06bd038abc368fb2c94df3cb3097b8226d57f069874b84c6b54dcb",
+            "cell_key": null,
+            "policy_row_sha256": null,
+            "policy_table_sha256": null,
             "produced_at": "2026-09-04T00:00:00Z"
           },
           "remaining_budget": 0.1,
+          "request_sha256": "72534e8d72883b5d24dd8c2cfb9df2c724afbdd88c5b5248b20585997aa606be",
           "reason": "covered"
         }
       }
@@ -213,18 +219,18 @@
     "calibrate_qhat": 1,
     "calibrate_n": 10,
     "calibrate_reason": null,
-    "calibrate_set_digest": "4081f7184e42b34e594015191f04720343b8b37691c7e4412c2469efdc43dd3a",
+    "calibrate_scores_sha256": "3e12ae9e2e06bd038abc368fb2c94df3cb3097b8226d57f069874b84c6b54dcb",
     "gate_action": "commit",
     "gate_allow": true,
     "gate_reason": "covered",
     "gate_tool": "caller_downstream_tool",
     "gate_remaining_budget": 0.1,
-    "gate_calib_digest": "4081f7184e42b34e594015191f04720343b8b37691c7e4412c2469efdc43dd3a",
+    "gate_scores_sha256": "3e12ae9e2e06bd038abc368fb2c94df3cb3097b8226d57f069874b84c6b54dcb",
     "gate_n_calib": 10,
     "gate_qhat": 1,
     "gate_region_kind": "interval",
     "gate_region_lo": -1,
     "gate_region_hi": 1,
-    "audit_calib_digest_equals_set_digest": true
+    "audit_scores_sha256_equal": true
   }
 }

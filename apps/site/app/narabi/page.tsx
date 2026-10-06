@@ -42,7 +42,7 @@ export default async function NarabiPage() {
         initial={initial}
         initialIntegrity={initialIntegrity}
         capture={capture}
-        calibration={{ nCalib: calibration.nCalib, calibDigest: calibration.calibDigest }}
+        calibration={{ nCalib: calibration.nCalib, scoresSha256: calibration.scoresSha256 }}
         served={{
           gate: { task_class: served.gate.task_class, predictor_id: served.gate.predictor_id },
           sentinel_timer: served.sentinel_timer,
