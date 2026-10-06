@@ -17,7 +17,7 @@ outcome. This skill is a reference implementation of a coverage-controlled gate;
 The real path is **bring your own**: you own the predictor and the nonconformity score function.
 `calibrate` turns YOUR nonconformity scores into a split-conformal region; `gate` then returns a
 coverage verdict on YOUR next prediction under that region. MONARK stores nothing between calls, and
-the audit `calibrate` to `gate` closes when the verdict's `calib_digest` equals your score-set digest.
+the audit `calibrate` to `gate` closes when the verdict's `scores_sha256`, `alpha` and `qhat` equal those of `calibrate`.
 
 ### `calibrate` - the honesty label (verbatim)
 
@@ -59,7 +59,7 @@ is retired and not served (a call to it returns a named 400, `task_class_retired
 calibration is no longer served). They are NOT use cases. The real path is BYO: bring your own predictor +
 nonconformity scores.
 
-Two other `task_class`es are served. `liquidation-eligible-coverage` has one committed stratum, s0 (the server imposes `alpha = 0.01` and `nMin = 100`); `stable-run-velocity-24h` (redemption-run velocity, the Narabi sensor) is **served by
+Two other `task_class`es are served with a committed calibration. `liquidation-eligible-coverage` has one committed stratum, s0 (the server imposes `alpha = 0.01` and `nMin = 100`); `stable-run-velocity-24h` (redemption-run velocity, the Narabi sensor) is **served by
 this endpoint** with a **committed calibration for one population** — USDe, key
 `narabi:persistence-v2@eip155:1/erc20:0x4c9edd5852cd905f086c759e8383e09bff1e68b3`, measured on calm onchain
 redemption-flow windows. The calibration is measured non-stationary across half-years, so **no per-window
@@ -68,6 +68,8 @@ On that key the server imposes `alpha = 0.1` and `nMin = 50` (any other value is
 Alongside it, an off-tool **daily** sentinel steps an adaptive quantile tracker on the attested 24h flow and
 publishes a replayable timeline (`state.json`, `timeline.jsonl`) at `monarkgate.tech/narabi/`; the committed
 gate region does not change until a pre-registered drift criterion fires and an ADR says so.
+
+The 32 kata classes `{btc,eth,bnb,sol}-{dir,range,mae-down,mae-up}-{1h,4h}` are also served, without calibration: the gate abstains on every well-formed call (`under_calib`, or `non_evaluable` for a lean of exactly 0 on a `dir` class), and a malformed one is a named 400. Do not bring your own calibration under a class name of the form `^[a-z0-9]{2,10}-(dir|range|mae-down|mae-up)-(15m|1h|4h|24h)$` (compared without ASCII case): it is refused (`byo_reserved_kata`).
 
 ## Endpoint and license
 

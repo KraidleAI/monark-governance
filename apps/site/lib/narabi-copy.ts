@@ -67,7 +67,7 @@ export const GATE_NOTES = {
   cls: "the task class of the served gate description for Narabi's redemption-flow velocity",
   key: "the one (task class, predictor) key the committed region is locked to",
   nCalib: "consecutive calm pairs behind q₁, counted at build from the committed calibration scores",
-  digest: "calibDigest over those scores, recomputed at build: the digest the gate's verdict carries, not the tracker digest below",
+  digest: "the digest of those scores in their committed order, recomputed at build: the scores digest the gate's verdict carries, not the tracker digest below",
 } as const;
 
 export const NOT_LIST: string[] = [

@@ -17,8 +17,10 @@ function mkVerdict(labels: string[], qhat: number, reason: CoverageVerdict["reas
     residual: [],
     producedAt: "2026-09-04T00:00:00Z",
     schemaVersion: "1.0.0",
+    cell: { qhatUnit: "score", scale: null, cellKey: null, policyRowSha256: null, policyTableSha256: null },
   });
 }
+const REQ = "e".repeat(64);
 
 function input(over: Partial<GateInput> & Pick<GateInput, "verdict" | "intent">): GateInput {
   return {
@@ -33,6 +35,7 @@ function input(over: Partial<GateInput> & Pick<GateInput, "verdict" | "intent">)
     evaluable: true,
     tool: "perps_order_preview",
     schemaVersion: "1.0.0",
+    requestSha256: REQ,
     ...over,
   };
 }
@@ -100,4 +103,34 @@ test("deferral_preserves_miscover", () => {
   assert.equal(pi0.commits, piH.commits + 2, "the two policies really differ");
   assert.equal(piH.miscover, pi0.miscover, "Σ 1{y∉C} identical (H3)");
   assert.equal(piH.miscover, 2, "2 miscovers, invariant under deferral");
+});
+
+// C-4 (L3 form) and spec section 6 step 4 (contract 1.1.0, lot CM-3c-3a, Q-3a-6): a calib_* cell abstains with its reason, never
+// defers; a verdict without region abstains with its no-region reason, or under_calib when its reason needs a region (no exception).
+// killer: packages/hikae/src/l3-gate.ts:94 SDL "if (input.nCalib < input.nMin || region === null || noRegionReason) return { action: \"abstain\", allow: false, reason: noRegionReason ? input.verdict.reason : \"under_calib\" };" -> ""
+test("l3_calib_and_regionless_reasons_abstain_with_the_verdict_reason", () => {
+  const silence = mkVerdict(["up", "down"], 1, "calib_silence");
+  const d = gate(input({ verdict: silence, intent: "up", tau: 1, clockOpen: true }));
+  assert.deepEqual([d.action, d.allow, d.reason], ["abstain", false, "calib_silence"], "a silent cell abstains, never defers set_too_large");
+  assert.equal(d.request_sha256, REQ, "the decision carries the request digest it is given");
+  for (const reason of ["calib_vetoed", "calib_retired"] as const) assert.equal(gate(input({ verdict: { ...silence, reason }, intent: "up" })).reason, reason);
+  const none = { ...mkVerdict(["up"], 0, "covered"), region: null, qhat: null, abstain: true };
+  for (const reason of ["out_of_support", "region_degenerate", "calib_silence", "under_calib", "non_evaluable"] as const) {
+    const n = gate(input({ verdict: { ...none, reason }, intent: "up" }));
+    assert.deepEqual([n.action, n.allow, n.reason], ["abstain", false, reason], reason);
+  }
+  assert.equal(gate(input({ verdict: { ...none, reason: "covered" }, intent: "up" })).reason, "under_calib", "no region, served reason: under_calib");
+  assert.equal(gate(input({ verdict: mkVerdict(["up"], 0, "covered"), intent: "up", nCalib: 49 })).reason, "under_calib", "nCalib < nMin");
+});
+
+// killer: packages/contracts/src/enums.ts:33 CONST "\"attestation_absent\", \"attestation_refused\"," -> ""
+test("l3_reserved_reasons_abstain_with_their_reason_on_a_served_region", () => {
+  const served = (reason: CoverageVerdict["reason"]) => gate(input({ verdict: mkVerdict(["up"], 0, reason), intent: "up" }));
+  for (const reason of ["upstream_timeout", "attestation_absent", "attestation_refused", "binding_broken"] as const) assert.deepEqual([served(reason).action, served(reason).reason], ["abstain", reason], reason);
+});
+
+// killer: packages/hikae/src/l3-gate.ts:94 CONST "reason: noRegionReason ? input.verdict.reason : \"under_calib\"" -> "reason: input.nCalib < input.nMin ? \"under_calib\" : noRegionReason ? input.verdict.reason : \"under_calib\""
+test("l3_verdict_reason_wins_over_ncalib_below_nmin", () => {
+  assert.equal(gate(input({ verdict: mkVerdict(["up", "down"], 1, "calib_silence"), intent: "up", nCalib: 10 })).reason, "calib_silence");
+  assert.equal(gate(input({ verdict: { ...mkVerdict(["up"], 0, "out_of_support"), region: null, qhat: null, abstain: true }, intent: "up", nCalib: 10 })).reason, "out_of_support");
 });

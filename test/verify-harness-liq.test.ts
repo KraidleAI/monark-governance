@@ -2,7 +2,7 @@
  * Root test (HARNESS-DESC-1 checkpoint-1 C-5; switched at U-4b-2b, ADR-U4b-2b D4): the deployment CA
  * `scripts/verify-harness.mjs` proves the liquidation-eligible-coverage class on the SERVED surface of the COMMITTED
  * registry -- `gate_liq_call` (POST /gate, yhat of the committed stratum s0: 200, verdict.reason covered, the upper bound
- * [0, yhat + qhat], the committed n_calib and C5 digest, the committed class text in `content`),
+ * [0, yhat + qhat], the committed n_calib and scores_sha256, the committed class text in `content`),
  * `gate_liq_uncommitted_call` (yhat on the first served cut, stratum s1: 200, abstain, verdict.reason under_calib,
  * n_calib 0) and `mcp_gate_description_liq` (the tools/list description of `gate`: the committed clause entire, the
  * empty-registry sentence absent). Private: neither root test/ nor the script is exported. No network: the CA runs
@@ -20,9 +20,9 @@ import { splitQuantile } from "@monark/hikae";
 import { API_HOST_PREFIX, startServer } from "../apps/harness/src/server.ts";
 import {
   describeGate, GATE_TOOL_DESCRIPTION, LIQ_COMMITTED_SENTENCE, LIQ_CONDITIONAL_SENTENCE, LIQ_EMPTY_REGISTRY_SENTENCE, LIQ_H3_SENTENCE,
-  LIQ_REQUIREMENTS_SENTENCE, LIQ_UPPER_BOUND_SENTENCE, LIQ_ALPHA, LIQ_NMIN, TASK_LIQ_ELIGIBLE,
+  LIQ_REQUIREMENTS_SENTENCE, LIQ_UPPER_BOUND_SENTENCE, LIQ_ALPHA, LIQ_NMIN, SCHEMA_VERSION, TASK_LIQ_ELIGIBLE,
 } from "../apps/harness/src/tools/gate.ts";
-import { lookupCommittedCalibration, UKEMI_LIQ_PREDICTOR_BASE, USDE_STABLE_RUN_CALIB_DIGEST_PINNED } from "../apps/harness/src/calibration.ts";
+import { lookupCommittedCalibration, UKEMI_LIQ_PREDICTOR_BASE, UKEMI_LIQ_SCORES_SHA256_PINNED, USDE_STABLE_RUN_SCORES_SHA256_PINNED } from "../apps/harness/src/calibration.ts";
 import { strateOf, STRATA_CUTS_SERVED } from "../apps/harness/src/ukemi-strata.ts";
 import { listen, startLoopback } from "./helpers/loopback.ts";
 
@@ -35,8 +35,9 @@ const COMMITTED_CLAUSE = `the served region is ${LIQ_UPPER_BOUND_SENTENCE}; ${LI
 
 // (1) liage (A-10): every literal the CA compares the served surface against is BYTE-IDENTICAL to its served constant
 // (the script stays zero-dependency; motif site_ukemi_copy_equals_served_liq_text): the five liq sentences of gate.ts,
-// the committed digest and size of s0 in calibration.ts, the first served cut of ukemi-strata.ts; the two compositions
+// the scores_sha256 pin and size of s0 in calibration.ts, the first served cut of ukemi-strata.ts; the two compositions
 // are the gate module's own. Mutant: one character changed in any literal => red.
+// killer: scripts/verify-harness.mjs:94 CONST "a927722276941a4f" -> "e7e673664c03e3c5"
 test("verify_harness_liq_literals_equal_served_constants", () => {
   const text = readFileSync(SCRIPT, "utf8");
   const literals: ReadonlyArray<readonly [string, string]> = [
@@ -45,7 +46,7 @@ test("verify_harness_liq_literals_equal_served_constants", () => {
     ["LIQ_H3_SENTENCE", JSON.stringify(LIQ_H3_SENTENCE)],
     ["LIQ_CONDITIONAL_SENTENCE", JSON.stringify(LIQ_CONDITIONAL_SENTENCE)],
     ["LIQ_EMPTY_REGISTRY_SENTENCE", JSON.stringify(LIQ_EMPTY_REGISTRY_SENTENCE)],
-    ["LIQ_S0_CALIB_DIGEST", JSON.stringify(S0.digestPinned)],
+    ["LIQ_S0_SCORES_SHA256", JSON.stringify(UKEMI_LIQ_SCORES_SHA256_PINNED[`${UKEMI_LIQ_PREDICTOR_BASE}/s0`])],
     ["LIQ_S0_N_CALIB", String(N0)],
     ["LIQ_S1_CUT", String(STRATA_CUTS_SERVED[0])],
   ];
@@ -59,6 +60,32 @@ test("verify_harness_liq_literals_equal_served_constants", () => {
   // Anti-close (ADR-U4b-2b section 5): the CA never types the committed q-hat; it reads it from the served verdict.
   const q = splitQuantile(S0.scores, LIQ_ALPHA, LIQ_NMIN);
   assert.ok("qhat" in q && !text.includes(String(q.qhat)), "the committed q-hat is not typed in the CA script");
+});
+
+// (1b) UKEMI-PENDING-1 (MONARK e9cd32b, Q-UP-2): the CA bodies speak the version of this tree's harness. One constant,
+// CA_SCHEMA_VERSION, equal to SCHEMA_VERSION of gate.ts (the script stays zero-dependency, so this parity is the pin);
+// the two exported bodies carry it. Block C moved both in one line each (lot CM-3c-3c); one moved alone => red.
+// killer: scripts/verify-harness.mjs:41 CONST "1.1.0" -> "1.0.0"
+test("verify_harness_ca_schema_version_equals_the_harness_schema_version", async () => {
+  const ca = (await import(new URL("../scripts/verify-harness.mjs", import.meta.url).href)) as unknown as { CA_SCHEMA_VERSION?: unknown; GATE_BODY: { prediction: { schema_version: unknown } }; GATE_LIQ_BODY: { prediction: { schema_version: unknown } } };
+  assert.equal(ca.CA_SCHEMA_VERSION, SCHEMA_VERSION, "CA_SCHEMA_VERSION of the CA is the SCHEMA_VERSION the harness accepts");
+  assert.equal(ca.GATE_BODY.prediction.schema_version, SCHEMA_VERSION, "GATE_BODY carries it");
+  assert.equal(ca.GATE_LIQ_BODY.prediction.schema_version, SCHEMA_VERSION, "GATE_LIQ_BODY carries it");
+});
+
+// (1c) the four literal CA bodies (GATE_BODY, GATE_RETIRED_BODY, GATE_BYO_BODY, GATE_LIQ_BODY; the future and uncommitted
+// bodies derive) read the constant, no body types a version, and the copy of GATE_LIQ_BODY in scripts/sync-harness-served.mjs
+// follows it through the imported GATE_BODY (its one line, e9cd32b Q-UP-1). A literal left in either script => red.
+// killer: scripts/sync-harness-served.mjs:68 CONST "GATE_BODY.prediction.schema_version" -> "\"1.0.0\""
+test("verify_harness_ca_bodies_read_the_ca_schema_version", () => {
+  const text = readFileSync(SCRIPT, "utf8");
+  for (const body of ["GATE_BODY", "GATE_RETIRED_BODY", "GATE_BYO_BODY", "GATE_LIQ_BODY"]) {
+    assert.ok(text.includes(`const ${body} = {\n  prediction: { schema_version: CA_SCHEMA_VERSION, `), `${body} reads CA_SCHEMA_VERSION`);
+  }
+  assert.equal(text.split("schema_version: ").length - 1, 4, "the CA writes schema_version in its four literal bodies only");
+  const sync = readFileSync(fileURLToPath(new URL("../scripts/sync-harness-served.mjs", import.meta.url)), "utf8");
+  assert.ok(sync.includes("const GATE_LIQ_BODY = {\n  prediction: { schema_version: GATE_BODY.prediction.schema_version, task_class: \"liquidation-eligible-coverage\", "), "the copied liq body follows the CA version");
+  assert.equal(sync.split("schema_version: ").length - 1, 1, "the harness sync writes schema_version in that copy only");
 });
 
 interface CaCheck { name: string; ok: boolean; status: number; detail?: string }
@@ -87,7 +114,7 @@ const GREEN = {
 // uncommitted body put in s0 => red.
 // CM-2b surfaces: 15 checks; the gate body is the committed USDe key, and two 400 checks carry their code (btc-dir-15m
 // retired: task_class_retired; produced_at in 2099: produced_at_future, MONARK C-8).
-// killer: scripts/verify-harness.mjs:271 CONST "got === code" -> "got !== code"
+// killer: scripts/verify-harness.mjs:274 CONST "got === code" -> "got !== code"
 test("verify_harness_ca_passes_on_the_in_process_harness", async () => {
   const server: HttpServer = await startLoopback((port) => startServer(port));
   try {
@@ -147,11 +174,12 @@ interface Vector {
   committed: Rewrite;
   uncommitted: Rewrite;
   committedRequest?: (body: string) => string;
+  byo?: Rewrite;
   red: string[];
   details: string;
 }
 interface Seen { rewrites: number; committed: number; uncommitted: number }
-interface GateBody { content: Array<{ type: string; text: string }>; structuredContent: { action: string; reason: string; verdict: { reason: string; n_calib: number; qhat: number | null; calib_digest: string; region: { kind: string; lo?: number; hi?: number } } } }
+interface GateBody { content: Array<{ type: string; text: string }>; structuredContent: { action: string; reason: string; verdict: { reason: string; n_calib: number; qhat: number | null; scores_sha256: string; region: { kind: string; lo?: number; hi?: number } } } }
 
 const same: Rewrite = (status, body) => ({ status, body });
 const esc = (s: string): string => JSON.stringify(s).slice(1, -1);
@@ -188,6 +216,8 @@ function overclaimingProxy(upstream: number, v: Vector, seen: Seen): HttpServer 
           } else if (liq) {
             seen.uncommitted += 1;
             out = v.uncommitted(out.status, out.body);
+          } else if (api && v.byo !== undefined && text.includes('"task_class":"byo-demo"')) {
+            out = v.byo(out.status, out.body);
           } else if (!api && text.includes(`"method":"tools/list"`)) {
             if (out.body.split(served).length !== 2) out = { status: 500, body: "" }; // fail-closed: the SDK encoding moved
             else { seen.rewrites += 1; out.body = out.body.replace(served, () => JSON.stringify(v.description).slice(1, -1)); }
@@ -212,9 +242,10 @@ const shut = (s: HttpServer): Promise<void> => {
   return new Promise((resolve) => { s.close(() => { resolve(); }); });
 };
 
-// O-1b-G2-2 (duration of this test, G2 HARNESS-DESC-1-1b): 16 CA runs here (15 vectors and the crash run; about 0.2 s each
+// O-1b-G2-2 (duration of this test, G2 HARNESS-DESC-1-1b): 17 CA runs here (16 vectors and the crash run; about 0.2 s each
 // idle, measured up to ~10 s each under a loaded full suite for the former 4); the per-test timeout keeps a margin over
 // the suite's 120 s default.
+// killer: scripts/verify-harness.mjs:365 CONST " && digest === calibrateScoresSha256;" -> ";"
 test("verify_harness_ca_liq_checks_red_on_overclaiming_surfaces", { timeout: 300000 }, async () => {
   // M-4 (second exitCode site, main().catch): an unparsable --api throws in `new URL` before any request (the --mcp is a
   // closed local port, never a public host): no CA on stdout, the crash named on stderr, exit exactly 1.
@@ -237,7 +268,7 @@ test("verify_harness_ca_liq_checks_red_on_overclaiming_surfaces", { timeout: 300
       committed: edit((b) => { const v = b.structuredContent.verdict; v.region.lo = (v.region.hi ?? 0) - 2 * (v.qhat ?? 0); }),
       details: liqPlus(GREEN.description, GREEN.uncommitted, GREEN.liq.replace("upper_bound=true", "upper_bound=false")) },
     { tag: "gamma-2b-foreign-digest", description: GATE_TOOL_DESCRIPTION, uncommitted: same, red: ["gate_liq_call"],
-      committed: edit((b) => { b.structuredContent.verdict.calib_digest = USDE_STABLE_RUN_CALIB_DIGEST_PINNED; }),
+      committed: edit((b) => { b.structuredContent.verdict.scores_sha256 = USDE_STABLE_RUN_SCORES_SHA256_PINNED; }),
       details: liqPlus(GREEN.description, GREEN.uncommitted, GREEN.liq.replace("digest_s0=true", "digest_s0=false")) },
     { tag: "delta-2b", description: GATE_TOOL_DESCRIPTION, committed: same, red: ["gate_liq_uncommitted_call"],
       uncommitted: edit((b) => { b.structuredContent.verdict.reason = "covered"; }),
@@ -268,6 +299,9 @@ test("verify_harness_ca_liq_checks_red_on_overclaiming_surfaces", { timeout: 300
     { tag: "mu-2b", description: GATE_TOOL_DESCRIPTION, uncommitted: same, red: ["gate_liq_call"],
       committed: edit((b) => { const c0 = b.content[0]; if (c0 !== undefined) c0.text = `${c0.text} ${LIQ_EMPTY_REGISTRY_SENTENCE}`; }),
       details: liqPlus(GREEN.description, GREEN.uncommitted, GREEN.liq.replace("empty_text=false", "empty_text=true")) },
+    // m-3 (G2 of 3c-3c, lot CM-3c-4a): a covered BYO answer whose verdict digest is not the calibrate call's reds the loop alone.
+    { tag: "nu-byo-foreign-digest", description: GATE_TOOL_DESCRIPTION, committed: same, uncommitted: same, red: ["gate_byo_call"],
+      byo: edit((b) => { b.structuredContent.verdict.scores_sha256 = USDE_STABLE_RUN_SCORES_SHA256_PINNED; }), details: liqPlus(GREEN.description, GREEN.uncommitted) },
   ];
   const upstream: HttpServer = await startLoopback((port) => startServer(port));
   try {

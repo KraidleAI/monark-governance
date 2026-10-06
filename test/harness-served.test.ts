@@ -17,7 +17,7 @@
  */
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { mkdtempSync, mkdirSync, readFileSync, writeFileSync, rmSync, copyFileSync, readdirSync } from "node:fs";
+import { mkdtempSync, mkdirSync, readFileSync, writeFileSync, rmSync, copyFileSync, readdirSync, existsSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { createHash } from "node:crypto";
@@ -43,12 +43,14 @@ const sha = (s: string | Buffer): string => createHash("sha256").update(s).diges
 const shaLf = (rel: string): string => sha(Buffer.from(readFileSync(join(ROOT, rel), "utf8").replace(/\r\n/g, "\n"), "utf8"));
 const read = (rel: string): string => readFileSync(join(ROOT, rel), "utf8");
 
-// Pins: the snapshot as read on the served harness on 2026-10-04T07:44:40Z (step 4 deploy) by scripts/sync-harness-served.mjs, and the
-// two traces (the SAME pins as test/byo-demo-probe.test.ts and test/h5-e2e-probe.test.ts: a re-record re-pins here too).
+// Pins: the snapshot as read on the served harness on 2026-10-04T07:44:40Z (step 4 deploy) by scripts/sync-harness-served.mjs, with
+// the pending_since line of lot CM-3c-3c (was 77d7b914...); the pending snapshot written in process by its --pending; and the two
+// traces re-recorded in contract 1.1.0 (the SAME pins as test/byo-demo-probe.test.ts and test/h5-e2e-probe.test.ts).
 const PINNED: Record<string, string> = {
-  [HARNESS_SERVED_REL]: "77d7b9143e8b6c03bb9f5670941f2550499fbc7cf687fb8bf76ff5542cf61fb1",
-  [BYO_TRACE_REL]: "daf8d3eabacbc601e608d01936d02c0f7ba78dfb5a0d6f5741ecea5fb4eef6d2",
-  [H5_TRACE_REL]: "b016bf4a4950cff1d39dccd970f7371f4dc8e3bb261d3d14c53b372825eda0a0", // re-pinned after #110 (C-2: tools/list sha only; was e403cf01...)
+  [HARNESS_SERVED_REL]: "30afbec29cabf11713d3072098c17397ff6dcd2ecd3377c9ca7c5a4a17acf0da",
+  "apps/site/data/harness-pending.json": "57cc4eae9b93fff342d0bcd1be4118443bad78cf1c571fb3969faf4211d67894",
+  [BYO_TRACE_REL]: "5c9b03e62bd88703a1ecfe381cf8288cab62aee9d096b03b2302338d49883dfc",
+  [H5_TRACE_REL]: "57d38c1907bfea4d7cb746186f9bada86bd210358c0a7902a61392957567fc19",
 };
 
 interface Schema { required?: string[]; properties?: Record<string, Schema>; type?: string | string[]; description?: string; maxItems?: number; items?: Schema; additionalProperties?: unknown }
@@ -65,6 +67,39 @@ function leaves(v: unknown, strings: string[], numbers: number[]): void {
   else if (v !== null && typeof v === "object") Object.values(v as Record<string, unknown>).forEach((x) => { leaves(x, strings, numbers); });
 }
 
+// SERVED-PENDING-1 (decisions of MONARK, recherches 0058bfe): no pending snapshot is committed before the block that changes
+// a served surface; the tests below stage one in a temporary root, derived from the committed served snapshot.
+type Rec = Record<string, unknown>;
+const PENDING_REL = "apps/site/data/harness-pending.json";
+/** The committed served snapshot, without pending_since. */
+const servedJson = (): Rec => Object.fromEntries(Object.entries(JSON.parse(read(HARNESS_SERVED_REL)) as Rec).filter(([k]) => k !== "pending_since"));
+/** The pending snapshot the served one implies: its shared fields, written_at and the /openapi.json sha256 (no fact read on the server). */
+function pendingOf(served: Rec): Rec {
+  const shared = Object.entries(served).filter(([k]) => !["read_at", "mcp", "registry", "deploy_check", "bodies_sha256", "pending_since"].includes(k));
+  return { ...Object.fromEntries(shared), schema: "monark-site-harness-pending-v1", written_at: "2026-10-04T12:00:00.000Z", openapi_sha256: (served.bodies_sha256 as Rec)["/openapi.json"] };
+}
+/** The shapes of the in-process harness: the committed pending snapshot while one exists, else the ones the served snapshot implies. */
+const currentPending = (): Rec => (existsSync(join(ROOT, PENDING_REL)) ? (JSON.parse(read(PENDING_REL)) as Rec) : pendingOf(servedJson()));
+/** A temporary root with the served snapshot (without pending_since unless given), the manifest, the two traces and
+ *  schemas/; each listed file is written and re-hashed into the staged manifest, each unlisted one written only. */
+function stage(given: Record<string, Rec>, unlisted: Record<string, Rec> = {}): string {
+  const listed = { [HARNESS_SERVED_REL]: servedJson(), ...given };
+  const tmp = mkdtempSync(join(tmpdir(), "harness-pending-"));
+  for (const dir of ["apps/site/data", "fixtures", "schemas"]) mkdirSync(join(tmp, dir), { recursive: true });
+  for (const f of readdirSync(join(ROOT, "schemas"))) copyFileSync(join(ROOT, "schemas", f), join(tmp, "schemas", f));
+  for (const rel of [HARNESS_SERVED_REL, BYO_TRACE_REL, H5_TRACE_REL]) copyFileSync(join(ROOT, rel), join(tmp, rel));
+  const manifest = JSON.parse(read(MANIFEST_REL)) as { files: Record<string, string> };
+  for (const [rel, v] of Object.entries({ ...listed, ...unlisted })) {
+    const text = JSON.stringify(v, null, 2) + "\n";
+    writeFileSync(join(tmp, rel), text);
+    if (rel in listed) manifest.files[rel] = sha(Buffer.from(text, "utf8"));
+    else delete manifest.files[rel];
+  }
+  writeFileSync(join(tmp, MANIFEST_REL), JSON.stringify(manifest));
+  return tmp;
+}
+const unstage = (tmp: string): void => { rmSync(tmp, { recursive: true, force: true, maxRetries: 5 }); };
+
 test("harness_served_data_is_listed_and_hash_pinned", () => {
   const manifest = JSON.parse(read(MANIFEST_REL)) as { files: Record<string, string> };
   for (const [rel, pin] of Object.entries(PINNED)) {
@@ -73,53 +108,77 @@ test("harness_served_data_is_listed_and_hash_pinned", () => {
   }
 });
 
-test("harness_served_data_matches_in_process_harness", () => {
-  const s = loadHarnessServed(ROOT);
-  const doc = buildOpenApi() as unknown as OpenApiDoc;
-  assert.equal(s.bodies_sha256["/openapi.json"], sha(JSON.stringify(buildOpenApi())), "the served openapi body is the in-process document, byte for byte");
-  assert.equal(s.version, HARNESS_VERSION);
-  assert.equal(s.version, doc.info.version);
-  assert.equal(s.api.url, API_SERVER_URL);
-  assert.equal(s.api.openapi_version, doc.openapi);
-  assert.equal(s.api.title, doc.info.title);
-  assert.deepEqual(s.tools.map((t) => t.name), [...ALLOWED_TOOL_NAMES].sort());
-  for (const t of s.tools) {
-    if (t.name === "attest") assert.equal(t.note, runAttest().label, "the attest note is the served label");
-    else assert.ok((HARNESS_TOOLS.find((h) => h.name === t.name)?.description ?? "").includes(t.note), `${t.name}: note must be a served clause`);
+// killer: apps/site/lib/harness-served-load.ts:192 CONST "!existsSync(join(root, HARNESS_PENDING_REL))" -> "true"
+test("harness_served_data_matches_in_process_harness", async () => {
+  const { loadHarnessPending } = await import("../apps/site/lib/harness-served-load.ts");
+  // The in-process harness equals the pending snapshot when one exists (time (i) to (ii) of a block), else the served one.
+  const check = (root: string): void => {
+    const pending = loadHarnessPending(root), s = pending ?? loadHarnessServed(root);
+    const doc = buildOpenApi() as unknown as OpenApiDoc;
+    assert.equal(pending?.openapi_sha256 ?? loadHarnessServed(root).bodies_sha256["/openapi.json"], sha(JSON.stringify(buildOpenApi())), "the served openapi body is the in-process document, byte for byte (the pending snapshot's, when one exists)");
+    assert.equal(s.version, HARNESS_VERSION);
+    assert.equal(s.version, doc.info.version);
+    assert.equal(s.api.url, API_SERVER_URL);
+    assert.equal(s.api.openapi_version, doc.openapi);
+    assert.equal(s.api.title, doc.info.title);
+    assert.deepEqual(s.tools.map((t) => t.name), [...ALLOWED_TOOL_NAMES].sort());
+    for (const t of s.tools) {
+      if (t.name === "attest") assert.equal(t.note, runAttest().label, "the attest note is the served label");
+      else assert.ok((HARNESS_TOOLS.find((h) => h.name === t.name)?.description ?? "").includes(t.note), `${t.name}: note must be a served clause`);
+    }
+    const post = (p: string) => doc.paths[p]?.post;
+    const body = (p: string): Schema => post(p)?.requestBody.content["application/json"]?.schema ?? {};
+    const keySets = (sch: Schema) => ({ required: sch.required ?? [], optional: Object.keys(sch.properties ?? {}).filter((k) => !(sch.required ?? []).includes(k)) });
+    const gate = body("/gate");
+    const params = gate.properties?.params ?? {};
+    assert.deepEqual(s.gate_request.required, gate.required);
+    assert.deepEqual(s.gate_request.optional, Object.keys(gate.properties ?? {}).filter((k) => !(gate.required ?? []).includes(k)));
+    assert.deepEqual(s.gate_request.params, Object.entries(params.properties ?? {}).map(([name, p]) => ({
+      name, type: Array.isArray(p.type) ? p.type.join(" | ") : p.type, required: (params.required ?? []).includes(name), text: stripRefs(p.description ?? ""),
+    })));
+    const byo = Object.entries(params.properties ?? {}).filter(([name, p]) => !(params.required ?? []).includes(name) && p.type === "object");
+    assert.equal(byo.length, 1, "exactly one optional object param (the BYO calibration)");
+    assert.deepEqual(s.gate_request.byo_calibration, { param: byo[0]?.[0], ...keySets(byo[0]?.[1] ?? {}) });
+    const calResult = post("/calibrate")?.responses["200"]?.content?.["application/json"]?.schema.properties?.structuredContent ?? {};
+    assert.deepEqual(s.calibrate_contract, { request: keySets(body("/calibrate")), result: keySets(calResult) });
+    assert.ok(body("/calibrate").additionalProperties === false && calResult.additionalProperties === false, "the /calibrate request and result are closed");
+    assert.deepEqual(s.response_required, post("/gate")?.responses["200"]?.content?.["application/json"]?.schema.required);
+    const cal = params.properties?.calibration?.properties ?? {};
+    assert.deepEqual(s.bounds, {
+      calibrate_scores: body("/calibrate").properties?.scores?.maxItems, gate_scores: cal.scores?.maxItems,
+      gate_candidates: cal.candidates?.maxItems, cascade_nodes: body("/cascade").properties?.L?.maxItems,
+    });
+    const r = post("/gate")?.responses ?? {};
+    assert.equal(s.refusal.invalid_text, stripRefs(r["400"]?.description ?? ""));
+    assert.equal(s.refusal.origin_text, stripRefs(r["403"]?.description ?? ""));
+    assert.equal(s.honesty.calibrate_label, CALIBRATE_LABEL);
+    assert.ok(doc.info.description.includes(s.honesty.never_calls));
+    for (const p of s.honesty.attested) assert.ok(GATE_TOOL_DESCRIPTION.includes(p), `attested clause not served: ${p}`);
+    assert.ok(s.honesty.attested.some((p) => p.startsWith("BYO classes")), "the attested clauses carry the served BYO restriction");
+    for (const p of [s.byo_clause, ...s.classes.flatMap((c) => c.clauses)]) assert.ok(GATE_TOOL_DESCRIPTION.includes(p), `class clause not served: ${p}`);
+    assert.ok(s.classes.find((c) => c.state === "committed")?.clauses.some((p) => p.includes("calm-window")), "the committed stable-run row keeps its served scope qualifier");
+    const price = runAttest().price;
+    assert.deepEqual(s.attest, { label: runAttest().label, hypotheses: price.residual, channel: price.transport, verifier_rev: price.verifier_revision, observed_instant: price.observed_at.instant });
+  };
+  // Staged (killers of plan r3 §8.5, SERVED-PENDING-1): a pending snapshot equal to the harness passes while the served
+  // one is older; a harness that differs from both snapshots reds, and so does one that differs from the pending one alone.
+  const served = servedJson(), pending = currentPending();
+  const off = (snap: Rec, text: string): Rec => ({ ...snap, refusal: { ...(snap.refusal as Rec), invalid_text: text } });
+  const older = off({ ...served, pending_since: "2026-10-04" }, "an older served refusal");
+  for (const [files, red, why] of [
+    [{ [HARNESS_SERVED_REL]: older, [PENDING_REL]: pending }, false, "a pending snapshot equal to the harness passes, the served one being older"],
+    [{ [HARNESS_SERVED_REL]: older, [PENDING_REL]: off(pending, "a refusal the harness does not serve") }, true, "a harness that differs from both snapshots reds"],
+    [{ [HARNESS_SERVED_REL]: { ...served, pending_since: "2026-10-04" }, [PENDING_REL]: off(pending, "a refusal the harness does not serve") }, true, "a harness that differs from the pending snapshot reds, even equal to the served one"],
+  ] as const) {
+    const t = stage(files);
+    try {
+      if (red) assert.throws(() => { check(t); }, { code: "ERR_ASSERTION" }, why);
+      else assert.doesNotThrow(() => { check(t); }, why);
+    } finally {
+      unstage(t);
+    }
   }
-  const post = (p: string) => doc.paths[p]?.post;
-  const body = (p: string): Schema => post(p)?.requestBody.content["application/json"]?.schema ?? {};
-  const keySets = (sch: Schema) => ({ required: sch.required ?? [], optional: Object.keys(sch.properties ?? {}).filter((k) => !(sch.required ?? []).includes(k)) });
-  const gate = body("/gate");
-  const params = gate.properties?.params ?? {};
-  assert.deepEqual(s.gate_request.required, gate.required);
-  assert.deepEqual(s.gate_request.optional, Object.keys(gate.properties ?? {}).filter((k) => !(gate.required ?? []).includes(k)));
-  assert.deepEqual(s.gate_request.params, Object.entries(params.properties ?? {}).map(([name, p]) => ({
-    name, type: Array.isArray(p.type) ? p.type.join(" | ") : p.type, required: (params.required ?? []).includes(name), text: stripRefs(p.description ?? ""),
-  })));
-  const byo = Object.entries(params.properties ?? {}).filter(([name, p]) => !(params.required ?? []).includes(name) && p.type === "object");
-  assert.equal(byo.length, 1, "exactly one optional object param (the BYO calibration)");
-  assert.deepEqual(s.gate_request.byo_calibration, { param: byo[0]?.[0], ...keySets(byo[0]?.[1] ?? {}) });
-  const calResult = post("/calibrate")?.responses["200"]?.content?.["application/json"]?.schema.properties?.structuredContent ?? {};
-  assert.deepEqual(s.calibrate_contract, { request: keySets(body("/calibrate")), result: keySets(calResult) });
-  assert.ok(body("/calibrate").additionalProperties === false && calResult.additionalProperties === false, "the /calibrate request and result are closed");
-  assert.deepEqual(s.response_required, post("/gate")?.responses["200"]?.content?.["application/json"]?.schema.required);
-  const cal = params.properties?.calibration?.properties ?? {};
-  assert.deepEqual(s.bounds, {
-    calibrate_scores: body("/calibrate").properties?.scores?.maxItems, gate_scores: cal.scores?.maxItems,
-    gate_candidates: cal.candidates?.maxItems, cascade_nodes: body("/cascade").properties?.L?.maxItems,
-  });
-  const r = post("/gate")?.responses ?? {};
-  assert.equal(s.refusal.invalid_text, stripRefs(r["400"]?.description ?? ""));
-  assert.equal(s.refusal.origin_text, stripRefs(r["403"]?.description ?? ""));
-  assert.equal(s.honesty.calibrate_label, CALIBRATE_LABEL);
-  assert.ok(doc.info.description.includes(s.honesty.never_calls));
-  for (const p of s.honesty.attested) assert.ok(GATE_TOOL_DESCRIPTION.includes(p), `attested clause not served: ${p}`);
-  assert.ok(s.honesty.attested.some((p) => p.startsWith("BYO classes")), "the attested clauses carry the served BYO restriction");
-  for (const p of [s.byo_clause, ...s.classes.flatMap((c) => c.clauses)]) assert.ok(GATE_TOOL_DESCRIPTION.includes(p), `class clause not served: ${p}`);
-  assert.ok(s.classes.find((c) => c.state === "committed")?.clauses.some((p) => p.includes("calm-window")), "the committed stable-run row keeps its served scope qualifier");
-  const price = runAttest().price;
-  assert.deepEqual(s.attest, { label: runAttest().label, hypotheses: price.residual, channel: price.transport, verifier_rev: price.verifier_revision, observed_instant: price.observed_at.instant });
+  check(ROOT);
 });
 
 test("harness_served_data_matches_deploy_ca", () => {
@@ -193,7 +252,7 @@ test("harness_served_loader_is_fail_closed", () => {
   }
 });
 
-// killer: apps/site/lib/harness-served-load.ts:294 SDL "noForbiddenKey(d, banned, `${where} result`);" -> ""
+// killer: apps/site/lib/harness-served-load.ts:335 SDL "noForbiddenKey(d, banned, `${where} result`);" -> ""
 test("harness_trace_loaders_are_fail_closed", () => {
   // The traces are staged with the snapshot, the manifest and schemas/; each mutant is RE-HASHED into the staged
   // manifest, so only the loader's own checks (shape, forbidden keys, loopback) stand between it and a page.
@@ -202,7 +261,7 @@ test("harness_trace_loaders_are_fail_closed", () => {
     for (const dir of ["apps/site/data", "fixtures", "schemas"]) mkdirSync(join(tmp, dir), { recursive: true });
     for (const f of readdirSync(join(ROOT, "schemas"))) copyFileSync(join(ROOT, "schemas", f), join(tmp, "schemas", f));
     const restore = (): void => {
-      for (const rel of [HARNESS_SERVED_REL, MANIFEST_REL, BYO_TRACE_REL, H5_TRACE_REL]) copyFileSync(join(ROOT, rel), join(tmp, rel));
+      for (const rel of [HARNESS_SERVED_REL, MANIFEST_REL, BYO_TRACE_REL, H5_TRACE_REL, PENDING_REL]) if (existsSync(join(ROOT, rel))) copyFileSync(join(ROOT, rel), join(tmp, rel));
     };
     restore();
     const manifest = JSON.parse(read(MANIFEST_REL)) as { algorithm: string; files: Record<string, string> };
@@ -262,6 +321,15 @@ test("harness_trace_loaders_are_fail_closed", () => {
     b.transport.bind = "203.0.113.7, a public address";
     rehash(BYO_TRACE_REL, b);
     assert.throws(() => loadByoTrace(tmp), /loopback/, "T6: a trace not recorded on the loopback address throws");
+    // T7 — the same checks while a pending snapshot exists (SERVED-PENDING-1): a forbidden key in a rendered result throws.
+    restore();
+    const pending = currentPending(), since = { ...servedJson(), pending_since: "2026-10-04" };
+    for (const [rel, v] of [[PENDING_REL, pending], [HARNESS_SERVED_REL, since]] as const) writeFileSync(join(tmp, rel), JSON.stringify(v));
+    Object.assign(manifest.files, Object.fromEntries([PENDING_REL, HARNESS_SERVED_REL].map((rel) => [rel, sha(readFileSync(join(tmp, rel)))])));
+    t = fresh(H5_TRACE_REL);
+    ((stepOf(t, "committed-gate").response?.structuredContent?.verdict as Rec).region as Rec).confidence = 0.99;
+    rehash(H5_TRACE_REL, t);
+    assert.throws(() => loadH5Trace(tmp), /forbidden key \(confidence\)/, "T7: a forbidden key still throws while a pending snapshot exists");
   } finally {
     rmSync(tmp, { recursive: true, force: true });
   }
@@ -269,7 +337,7 @@ test("harness_trace_loaders_are_fail_closed", () => {
 
 // CM-2b surfaces: the recorded gate decisions are the cascade abstention and the committed USDe key; step 7 (the
 // retired class carrying the attested witness) is a tool error, not a decision, so no page renders it as one.
-// killer: apps/site/lib/harness-served-load.ts:288 CONST "|| sc === undefined" -> "|| false"
+// killer: apps/site/lib/harness-served-load.ts:329 CONST "|| sc === undefined" -> "|| false"
 test("byo_trace_rendered_equals_trace", () => {
   type TraceStep = { label?: string; op?: string; tool?: string; request?: { params?: { arguments?: unknown } }; response?: { structuredContent?: Record<string, unknown> } };
   const steps = (rel: string): TraceStep[] => (JSON.parse(read(rel)) as { steps: TraceStep[] }).steps;
@@ -282,8 +350,8 @@ test("byo_trace_rendered_equals_trace", () => {
   assert.equal(label, s.honesty.calibrate_label, "the recorded calibrate label is the served one");
   assert.deepEqual(byo.gate.request, gate?.request?.params?.arguments);
   assert.deepEqual(byo.gate.result, gate?.response?.structuredContent);
-  assert.equal(byo.set_digest, byo.calib_digest, "the recorded loop closes");
-  assert.deepEqual(Object.keys(byo).sort(), ["accept", "bind", "calib_digest", "calibrate", "decision", "gate", "set_digest"], "closed projection");
+  assert.equal(byo.scores_sha256.calibrate, byo.scores_sha256.verdict, "the recorded loop closes");
+  assert.deepEqual(Object.keys(byo).sort(), ["accept", "bind", "calibrate", "decision", "gate", "scores_sha256"], "closed projection");
   const h5 = loadH5Trace(ROOT);
   assert.equal(byo.bind, "127.0.0.1", "the BYO loop was recorded on the loopback address (an in-process server)");
   assert.equal(h5.bind, "127.0.0.1", "the end-to-end trace was recorded on the loopback address (an in-process server)");
@@ -302,6 +370,165 @@ test("byo_trace_rendered_equals_trace", () => {
   }
 });
 
+// Contract 1.1.0 (lot CM-3c-3c, G0 of the block section 3.4): the BYO loop closes on the scores_sha256, the alpha and the
+// q-hat of the calibrate result and of the gate verdict; each one changed alone in a staged trace (re-hashed) throws.
+// killer: apps/site/lib/harness-served-load.ts:312 CONST " && cal.sc.qhat === verdict.qhat" -> ""
+test("byo_loop_closes_on_scores_sha256_alpha_and_qhat", () => {
+  type Step = { label?: string; response?: { structuredContent?: Rec } };
+  const pending = { [HARNESS_SERVED_REL]: { ...servedJson(), pending_since: "2026-10-05" }, [PENDING_REL]: currentPending() };
+  const mutated = (f: (calibrate: Rec) => void): Rec => {
+    const t = JSON.parse(read(BYO_TRACE_REL)) as Rec & { steps: Step[] };
+    f(t.steps.find((x) => x.label === "calibrate")?.response?.structuredContent ?? {});
+    return t;
+  };
+  const cases: Array<[string, (c: Rec) => void]> = [
+    ["scores_sha256", (c) => { c.scores_sha256 = "0".repeat(64); }],
+    ["alpha", (c) => { c.alpha = 0.2; }],
+    ["qhat", (c) => { c.qhat = 2; }],
+  ];
+  const control = stage({ ...pending, [BYO_TRACE_REL]: mutated(() => undefined) });
+  try {
+    assert.deepEqual(loadByoTrace(control).scores_sha256, loadByoTrace(ROOT).scores_sha256, "control: the staged, re-hashed loop closes");
+  } finally {
+    unstage(control);
+  }
+  for (const [what, f] of cases) {
+    const t = stage({ ...pending, [BYO_TRACE_REL]: mutated(f) });
+    try {
+      assert.throws(() => loadByoTrace(t), /the recorded loop does not close/, `a calibrate ${what} that differs from the verdict's throws`);
+    } finally {
+      unstage(t);
+    }
+  }
+});
+
+// killer: apps/site/lib/harness-served-load.ts:196 SDL "if (pendingSince === undefined) fail(\"a pending snapshot exists but the served snapshot carries no pending_since (fail-closed)\");" -> ""
+test("harness_pending_snapshot_is_fail_closed", async () => {
+  const { loadHarnessPending } = await import("../apps/site/lib/harness-served-load.ts");
+  const served = servedJson(), pending = currentPending(), marked = { ...served, pending_since: "2026-10-04" };
+  const cases: [Record<string, Rec>, Record<string, Rec>, RegExp, string][] = [
+    [{ [PENDING_REL]: pending }, {}, /carries no pending_since/, "killer: a pending snapshot without pending_since on the served one reds"],
+    [{ [HARNESS_SERVED_REL]: marked }, {}, /no pending snapshot exists/, "pending_since without a pending snapshot reds"],
+    [{ [HARNESS_SERVED_REL]: { ...served, pending_since: "9999-12-31" }, [PENDING_REL]: pending }, {}, /later than the day/, "a pending_since later than the pending snapshot reds"],
+    [{ [HARNESS_SERVED_REL]: marked }, { [PENDING_REL]: pending }, /not listed/, "an unlisted pending snapshot reds"],
+    [{ [HARNESS_SERVED_REL]: marked, [PENDING_REL]: { ...pending, schema: "monark-site-harness-served-v1" } }, {}, /schema is not monark-site-harness-pending-v1/, "a pending snapshot under the served schema reds"],
+    // Q-SP1-3 (b): the pending snapshot carries no fact read on the server.
+    ...["read_at", "registry", "deploy_check", "bodies_sha256"].map((k): [Record<string, Rec>, Record<string, Rec>, RegExp, string] =>
+      [{ [HARNESS_SERVED_REL]: marked, [PENDING_REL]: { ...pending, [k]: served[k] } }, {}, /pending file must carry exactly/, `the pending snapshot refuses ${k}`]),
+  ];
+  for (const [listed, unlisted, re, why] of cases) {
+    const t = stage(listed, unlisted);
+    try {
+      assert.throws(() => loadByoTrace(t), re, `${why} (BYO loop)`);
+      assert.throws(() => loadH5Trace(t), re, `${why} (end-to-end trace)`);
+    } finally {
+      unstage(t);
+    }
+  }
+  const t = stage({ [HARNESS_SERVED_REL]: marked, [PENDING_REL]: pending });
+  try {
+    assert.deepEqual(loadHarnessServed(t), loadHarnessServed(ROOT), "pending_since is admitted and never rendered: the pages read the same served projection");
+    assert.equal(loadHarnessPending(t)?.openapi_sha256, pending.openapi_sha256, "control: the staged pending snapshot loads");
+    assert.deepEqual([loadByoTrace(t), loadH5Trace(t)], [loadByoTrace(ROOT), loadH5Trace(ROOT)], "control: the traces follow a pending snapshot equal to the served shapes");
+  } finally {
+    unstage(t);
+  }
+});
+
+/** Two staged next harnesses that differ from the served one: the /calibrate result requires one more key (pending), the
+ *  /gate params require one more param (nextGate); marked = the served snapshot carrying pending_since. */
+function nextShapes(): { served: Rec; marked: Rec; pending: Rec; nextGate: Rec } {
+  const served = servedJson(), base = currentPending();
+  const cal = base.calibrate_contract as { request: Rec; result: { required: string[]; optional: string[] } }; // the in-process contract
+  const g = served.gate_request as { params: Rec[] };
+  return {
+    served, marked: { ...served, pending_since: "2026-10-04" },
+    pending: { ...base, calibrate_contract: { ...cal, result: { ...cal.result, required: [...cal.result.required, "n_scores"] } } },
+    nextGate: { ...base, gate_request: { ...g, params: [...g.params, { name: "lane", type: "string", required: true, text: "a param the next harness requires" }] } },
+  };
+}
+
+// killer: apps/site/lib/harness-served-load.ts:293 CONST "loadHarnessPending(root) ?? loadHarnessServed(root)" -> "loadHarnessServed(root)"
+test("trace_loaders_follow_the_pending_snapshot_only", () => {
+  // Q-SP1-2: while a pending snapshot exists, a recorded payload follows IT alone (a trace still on the served shapes is a
+  // trace not re-recorded). The pending /calibrate result requires one more key; the re-recorded loop carries it.
+  const { marked, pending, nextGate } = nextShapes();
+  const rerecorded = JSON.parse(read(BYO_TRACE_REL)) as { steps: { label?: string; response?: { structuredContent?: Rec } }[] };
+  const sc = rerecorded.steps.find((x) => x.label === "calibrate")?.response?.structuredContent;
+  assert.ok(sc !== undefined, "the BYO loop carries a calibrate result");
+  sc.n_scores = 10;
+  const cases: [Record<string, Rec>, (root: string) => unknown, RegExp | null, string][] = [
+    [{ [HARNESS_SERVED_REL]: marked, [PENDING_REL]: pending }, loadByoTrace, /calibrate (?:request|result) does not match its schema/, "killer: a BYO loop whose calibrate follows the served snapshot and not the pending one reds"],
+    [{ [HARNESS_SERVED_REL]: marked, [PENDING_REL]: pending, [BYO_TRACE_REL]: rerecorded }, loadByoTrace, null, "a BYO loop re-recorded on the pending shapes loads"],
+    [{ [BYO_TRACE_REL]: rerecorded }, loadByoTrace, /calibrate (?:request|result) does not match its schema/, "the re-recorded loop reds without the pending snapshot (it follows neither the served one nor a pending one)"],
+    [{ [HARNESS_SERVED_REL]: marked, [PENDING_REL]: nextGate }, loadH5Trace, /request params does not match its schema/, "an end-to-end gate request that follows the served /gate and not the pending one reds"],
+  ];
+  for (const [listed, loader, re, why] of cases) {
+    const t = stage(listed);
+    try {
+      if (re === null) assert.deepEqual(loadByoTrace(t).calibrate.result.n_scores, 10, why);
+      else assert.throws(() => loader(t), re, why);
+    } finally {
+      unstage(t);
+    }
+  }
+});
+
+// killer: apps/site/lib/harness-served-load.ts:183 CONST "servedFile(root).out" -> "{ ...servedFile(root).out, ...loadHarnessPending(root) }"
+test("harness_pages_keep_the_served_snapshot_while_pending", () => {
+  // Q-SP1-2 (MONARK took the opposite of the letter of plan r3 §8.5; G2 B1): the pages read the served snapshot alone. A
+  // pending snapshot whose /gate request AND /calibrate contract differ from the served ones changes the traces, never them.
+  const { marked, pending, nextGate } = nextShapes(), next: Rec = { ...pending, gate_request: nextGate.gate_request }, pages = loadHarnessServed(ROOT);
+  assert.notDeepEqual([next.gate_request, next.calibrate_contract], [pages.gate_request, pages.calibrate_contract], "staging: the pending /gate request and /calibrate contract differ from the served ones");
+  const t = stage({ [HARNESS_SERVED_REL]: marked, [PENDING_REL]: next });
+  try {
+    let got: ReturnType<typeof loadHarnessServed> | undefined;
+    assert.doesNotThrow(() => { got = loadHarnessServed(t); }, "pending_since is admitted on the served snapshot");
+    assert.deepEqual([got?.gate_request, got?.calibrate_contract], [pages.gate_request, pages.calibrate_contract], "killer: the pages keep the served /gate request and /calibrate contract while a pending snapshot exists");
+    assert.deepEqual(got, pages, "the pages read the same served projection");
+    assert.throws(() => loadH5Trace(t), /request params does not match its schema/, "control: the traces follow the staged pending snapshot");
+  } finally {
+    unstage(t);
+  }
+});
+
+// killer: scripts/sync-harness-served.mjs:260 ROR "=== pending.openapi_sha256" -> "!== pending.openapi_sha256"
+test("harness_pending_sync_writes_in_process_shapes", async () => {
+  // Typed by scripts/sync-harness-served.d.mts (Q-SP1-7, three declarations in C2).
+  const sync = await import("../scripts/sync-harness-served.mjs");
+  assert.equal(typeof sync.inProcessPending, "function", "the sync has a --pending mode (SERVED-PENDING-1)");
+  const served = servedJson(), pending = await sync.inProcessPending("2026-10-04T12:00:00.000Z"), now = currentPending();
+  assert.deepEqual({ ...pending, $comment: now.$comment, written_at: now.written_at }, now, "--pending writes the in-process shapes (the committed pending snapshot, else the served shapes)");
+  // Promotion at time (ii): the default sync writes only a served snapshot equal to the pending one, naming each drift.
+  const next = { ...served, ...pending, bodies_sha256: { ...(served.bodies_sha256 as Rec), "/openapi.json": pending.openapi_sha256 } };
+  assert.deepEqual(sync.pendingDiff(next, pending), [], "a served snapshot equal to the pending one is promoted");
+  assert.deepEqual(sync.pendingDiff(next, { ...pending, byo_clause: "another clause", openapi_sha256: "0".repeat(64) }), ["byo_clause", "openapi_sha256"], "a served snapshot that differs from the pending one is refused");
+  const text = read(HARNESS_SERVED_REL).replace(/^ {2}"pending_since": "[^"]+",\r?\n/m, ""), marked = sync.markPendingSince(text, "2026-10-04");
+  assert.equal(marked.replace('  "pending_since": "2026-10-04",\n', ""), text, "pending_since is inserted, no other byte of the served file touched");
+  assert.equal(sync.markPendingSince(marked, "2026-12-01"), marked, "a second --pending keeps the first pending_since");
+  const t = stage({ [HARNESS_SERVED_REL]: JSON.parse(marked) as Rec, [PENDING_REL]: pending });
+  try {
+    assert.deepEqual(loadByoTrace(t), loadByoTrace(ROOT), "the loader reads what --pending writes");
+  } finally {
+    unstage(t);
+  }
+});
+
+// killer: scripts/sync-harness-served.mjs:259 CONST "SHAPES.filter" -> "Object.keys(pending).filter"
+test("harness_pending_promotion_compares_the_fixed_fields", async () => {
+  // G2 m1: promotion compares the loader's fixed shared-field list (SHAPES), never the pending file's own keys, so a
+  // hand-edited pending snapshot missing a field, carrying a foreign key or under another schema cannot promote.
+  const sync = await import("../scripts/sync-harness-served.mjs");
+  assert.equal(typeof sync.pendingDiff, "function", "the sync compares a promotion with the pending snapshot (SERVED-PENDING-1)");
+  const diff = sync.pendingDiff;
+  const served = servedJson(), pending = pendingOf(served), next = { ...served, gate_request: nextShapes().nextGate.gate_request };
+  const truncated = Object.fromEntries(Object.entries(pending).filter(([k]) => k !== "gate_request" && k !== "calibrate_contract"));
+  assert.deepEqual(diff(served, pending), [], "control: a served snapshot equal to the pending one is promoted");
+  assert.deepEqual(diff(next, truncated), ["gate_request", "calibrate_contract"], "killer: a pending snapshot missing gate_request and calibrate_contract cannot promote a served snapshot whose /gate request changed");
+  assert.deepEqual(diff(served, { ...pending, read_at: served.read_at }), ["read_at"], "a pending snapshot carrying a key it may not carry cannot promote");
+  assert.deepEqual(diff(served, { ...pending, schema: "monark-site-harness-served-v1" }), ["schema"], "a pending snapshot under another schema cannot promote");
+});
+
 /**
  * Every value /integrators and /console could render from the three loaders, as the text a hand would type: the string
  * leaves that are not bare identifiers, the numbers of four or more characters, and the forms the pages derive (date
@@ -318,7 +545,7 @@ function renderableValues(): string[] {
   leaves([s, byo, h5], strings, numbers);
   const derived = [
     s.registry.published_at.slice(0, 10), s.read_at.slice(0, 10), s.deploy_check.checked_at.slice(0, 10), s.attest.verifier_rev.slice(0, 12),
-    byo.set_digest.slice(0, 12), byo.calib_digest.slice(0, 12), `${String(s.deploy_check.ok_count)}/${String(s.deploy_check.count)}`,
+    byo.scores_sha256.calibrate.slice(0, 12), byo.scores_sha256.verdict.slice(0, 12), `${String(s.deploy_check.ok_count)}/${String(s.deploy_check.count)}`,
     new Date(s.attest.observed_instant * 1000).toISOString(),
   ];
   const values = [...strings.filter((x) => !/^[A-Za-z_]+$/.test(x)), ...numbers.map(String).filter((x) => x.length >= 4), ...derived];
@@ -381,7 +608,7 @@ const asWord = (text: string, w: string): boolean => {
 // no longer occurs reds too. Object-literal and code positions stay outside this tier (renderedTexts does not read them).
 const PROSE_WORDS: ReadonlyMap<string, string> = new Map([
   ["attested", "the optional /gate key, named in a <code> element"],
-  ["calibrate", "the operation, named in prose (the calibrate set_digest)"],
+  ["calibrate", "the operation, named in prose (the calibrate one)"],
   ["calibration", "an English noun (your calibration, per gate calibration)"],
   ["candidates", "an English noun (candidates in set mode)"],
   ["cascade", "an English noun (nodes per cascade)"],
@@ -394,7 +621,6 @@ const PROSE_WORDS: ReadonlyMap<string, string> = new Map([
   ["prediction", "the /gate key, named in a <code> element"],
   ["reason", "an English noun (the reason is one of)"],
   ["scores", "an English noun (nonconformity scores)"],
-  ["set_digest", "the calibrate result key, named in a <code> element"],
   ["structuredContent", "the envelope key, named in a <code> element"],
   ["tool", "an English noun (call the gate as a tool)"],
 ]);
@@ -428,6 +654,32 @@ test("harness_served_budget_note_carries_the_served_clause", () => {
   for (const rel of ["apps/site/components/gate-sim/index.tsx", "apps/site/components/gate-sim/board.tsx"]) {
     assert.match(read(rel), /\{BUDGET_NOTE\}/, `${rel} must render the budget note`);
   }
+});
+
+// Byte pin of the 1.1.0 bodies (lot CM-3c-3c): since lot 3c-3b2 the served replay and the USDe band are held by a
+// version-independent projection, so no byte of a 1.1.0 decision body was pinned outside openapi_sha256. These are the
+// sha256 of the bodies the in-process harness answers to the deploy check's own requests, under the served snapshot's keys:
+// the bodies the pending snapshot announces, which the deploy check records at T0.
+const PENDING_BODIES_SHA256: Record<string, string> = {
+  "/openapi.json": "61c9df97a254a863a68fdc2c493799803397bfa190b85db3ca97673d2a8ccbf0",
+  "/gate": "701e9b068944aca7a9c49bb5415fa2af21006b4ba696c916108c4d326445a08c",
+  "/gate liquidation-eligible-coverage": "e2bfb18be056b2ed6f0d1cdae681d9b9e38ede054c79509898243d327a105fe7",
+  "/calibrate": "f169e9f6e333374a9d47a2010674ca789aba45bd126ef8764df2f0fb86a2cb90",
+};
+// killer: apps/harness/src/tools/gate.ts:769 CONST "scores_sha256=${digest}`" -> "scores_sha256=${digest} `"
+test("pending_bodies_are_pinned_byte_for_byte", async () => {
+  const { handleJsonMirror } = await import("../apps/harness/src/http.ts");
+  const { GATE_LIQ_BODY } = await import("../scripts/sync-ukemi-served.mjs");
+  const { GATE_BODY } = (await import(new URL("../scripts/verify-harness.mjs", import.meta.url).href)) as { GATE_BODY: unknown };
+  const call = async (path: string, body?: unknown): Promise<string> => sha(await (await handleJsonMirror(new Request(`${API_SERVER_URL}${path}`, body === undefined ? {} : { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body) }))).text());
+  const got: Record<string, string> = {
+    "/openapi.json": await call("/openapi.json"), "/gate": await call("/gate", GATE_BODY), "/gate liquidation-eligible-coverage": await call("/gate", GATE_LIQ_BODY),
+    "/calibrate": await call("/calibrate", { scores: [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0], alpha: 0.1, nMin: 5 }),
+  };
+  assert.deepEqual(got, PENDING_BODIES_SHA256, "the in-process 1.1.0 bodies are the pinned bytes");
+  assert.equal(got["/openapi.json"], (JSON.parse(read(PENDING_REL)) as Rec).openapi_sha256, "the openapi pin is the pending snapshot's");
+  const served = loadHarnessServed(ROOT).bodies_sha256;
+  for (const k of Object.keys(got)) assert.ok(k in served && served[k] !== got[k], `${k}: a body the served snapshot records, whose bytes change at T0`);
 });
 
 // UKEMI-SITE-SWITCH-1 (ADR-U4b-2b D5 point 3): the sync's liquidation-eligible-coverage row and call check follow the SERVED

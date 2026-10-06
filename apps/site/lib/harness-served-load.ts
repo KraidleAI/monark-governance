@@ -5,6 +5,10 @@
 //     of this export);
 //   - fixtures/byo-demo-trace.json, the bring-your-own loop recorded over the MCP transport of an in-process server;
 //   - fixtures/h5-e2e-trace.json, the end-to-end decisions recorded over the MCP transport of an in-process server.
+// A fourth, apps/site/data/harness-pending.json (schema monark-site-harness-pending-v1), exists only between time (i) and
+// time (ii) of a block that changes a served surface (SERVED-PENDING-1): written IN PROCESS by the sync's --pending, it
+// carries the shapes the next harness will serve and no fact read on the server; while it exists the served snapshot
+// carries pending_since, and the two trace loaders (never the pages) check a recorded payload against it alone.
 // FAIL-CLOSED: an unlisted file, a hash mismatch, an extra or missing key or a malformed value throws, so `next build`
 // reds rather than render an unchecked record. Each loader returns a CLOSED projection: the pages never receive a
 // trace's generator metadata, its notes, or a content text in full. Every recorded payload a page renders is checked
@@ -17,13 +21,14 @@
 // Frozen contract field names are never written as quoted literals here (guard frozen_contract_fields_stay_dynamic).
 // Self-contained (node built-ins only, no alias import): shared by the pages and by the source repository's tests and
 // sync tool (which imports stripRefs), neither of which is part of this export.
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { createHash } from "node:crypto";
 import { join } from "node:path";
 
 export const HARNESS_SERVED_REL = "apps/site/data/harness-served.json";
 export const BYO_TRACE_REL = "fixtures/byo-demo-trace.json";
 export const H5_TRACE_REL = "fixtures/h5-e2e-trace.json";
+export const HARNESS_PENDING_REL = "apps/site/data/harness-pending.json";
 const MANIFEST_REL = "apps/site/data/manifest.sha256.json";
 
 /** The repository root while `next build` runs (cwd = apps/site), as lib/load-committed.ts documents. */
@@ -44,7 +49,7 @@ const fail = (why: string): never => {
 const HEX64 = /^[0-9a-f]{64}$/;
 const ISO_UTC = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{3,6})?Z$/;
 const TEXT = /^[^\n]{1,600}$/;
-const KEY = /^[a-zA-Z_]+$/;
+const KEY = /^[a-zA-Z_][a-zA-Z0-9_]*$/; // a key may carry digits (contract 1.1.0: scores_sha256)
 const HOSTNAME = /^[a-z0-9-]+(?:\.[a-z0-9-]+)+$/;
 
 function readListed(root: string, rel: string): string {
@@ -84,11 +89,10 @@ function keySets(v: unknown, where: string): KeySets {
   return { required: strs(o.required, KEY, `${where}.required`), optional: strs(o.optional, KEY, `${where}.optional`, true) };
 }
 
-export interface HarnessServed {
-  read_at: string;
+/** The fields both snapshots carry: what the in-process harness serves, as the sync derives it from its bodies. */
+export interface HarnessShapes {
   version: string;
   api: { url: string; openapi_path: string; health_path: string; surface: string; openapi_version: string; title: string };
-  mcp: { url: string; remote_type: string; server_name: string };
   tools: { name: string; note: string }[];
   gate_request: {
     required: string[];
@@ -105,17 +109,20 @@ export interface HarnessServed {
   classes: { class_id: string; state: string; clauses: string[] }[];
   byo_clause: string;
   attest: { label: string; hypotheses: string[]; channel: string; verifier_rev: string; observed_instant: number };
+}
+export const SHAPES = ["version", "api", "tools", "gate_request", "calibrate_contract", "response_required", "bounds", "refusal", "honesty", "classes", "byo_clause", "attest"];
+export interface HarnessServed extends HarnessShapes {
+  read_at: string;
+  mcp: { url: string; remote_type: string; server_name: string };
   registry: { name: string; version: string; status: string; published_at: string; repository_url: string };
   deploy_check: { checked_at: string; count: number; ok_count: number; tls_host: string; tls_valid_to: string };
   bodies_sha256: Record<string, string>;
 }
 
-export function loadHarnessServed(root: string): HarnessServed {
-  const d = obj(JSON.parse(readListed(root, HARNESS_SERVED_REL)), ["$comment", "schema", "read_at", "version", "api", "mcp", "tools", "gate_request", "calibrate_contract", "response_required", "bounds", "refusal", "honesty", "classes", "byo_clause", "attest", "registry", "deploy_check", "bodies_sha256"], "file");
-  if (d.schema !== "monark-site-harness-served-v1") fail("schema is not monark-site-harness-served-v1");
-  const SEMVER = /^\d+\.\d+\.\d+$/, NAME = /^[a-z]+$/, HOST = /^https:\/\/[a-z0-9.-]+\.[a-z]+$/;
+const SEMVER = /^\d+\.\d+\.\d+$/, NAME = /^[a-z]+$/;
+/** The shared fields of a snapshot file, checked (fail-closed). */
+function shapesOf(d: Obj): HarnessShapes {
   const a = obj(d.api, ["url", "openapi_path", "health_path", "surface", "openapi_version", "title"], "api");
-  const m = obj(d.mcp, ["url", "remote_type", "server_name"], "mcp");
   const g = obj(d.gate_request, ["required", "optional", "closed", "params", "byo_calibration"], "gate_request");
   const bc = obj(g.byo_calibration, ["param", "required", "optional"], "gate_request.byo_calibration");
   const cc = obj(d.calibrate_contract, ["request", "result"], "calibrate_contract");
@@ -123,14 +130,10 @@ export function loadHarnessServed(root: string): HarnessServed {
   const r = obj(d.refusal, ["invalid_status", "invalid_text", "origin_status", "origin_text"], "refusal");
   const h = obj(d.honesty, ["calibrate_label", "bt_clause", "never_calls", "attested"], "honesty");
   const t = obj(d.attest, ["label", "hypotheses", "channel", "verifier_rev", "observed_instant"], "attest");
-  const reg = obj(d.registry, ["name", "version", "status", "published_at", "repository_url"], "registry");
-  const dc = obj(d.deploy_check, ["checked_at", "count", "ok_count", "tls_host", "tls_valid_to"], "deploy_check");
   if (!Array.isArray(d.tools) || !Array.isArray(g.params) || !Array.isArray(d.classes)) fail("tools, params and classes must be arrays");
-  const out: HarnessServed = {
-    read_at: str(d.read_at, ISO_UTC, "read_at"),
+  const out: HarnessShapes = {
     version: str(d.version, SEMVER, "version"),
-    api: { url: str(a.url, HOST, "api.url"), openapi_path: str(a.openapi_path, /^\/[a-z.]+$/, "api.openapi_path"), health_path: str(a.health_path, /^\/[a-z]+$/, "api.health_path"), surface: str(a.surface, /^[a-z-]+$/, "api.surface"), openapi_version: str(a.openapi_version, SEMVER, "api.openapi_version"), title: str(a.title, TEXT, "api.title") },
-    mcp: { url: str(m.url, /^https:\/\/[a-z0-9.-]+\/mcp$/, "mcp.url"), remote_type: str(m.remote_type, /^[a-z-]+$/, "mcp.remote_type"), server_name: str(m.server_name, NAME, "mcp.server_name") },
+    api: { url: str(a.url, /^https:\/\/[a-z0-9.-]+\.[a-z]+$/, "api.url"), openapi_path: str(a.openapi_path, /^\/[a-z.]+$/, "api.openapi_path"), health_path: str(a.health_path, /^\/[a-z]+$/, "api.health_path"), surface: str(a.surface, /^[a-z-]+$/, "api.surface"), openapi_version: str(a.openapi_version, SEMVER, "api.openapi_version"), title: str(a.title, TEXT, "api.title") },
     tools: (d.tools as unknown[]).map((x, i) => { const o = obj(x, ["name", "note"], `tools[${String(i)}]`); return { name: str(o.name, NAME, "tool name"), note: str(o.note, TEXT, "tool note") }; }),
     gate_request: {
       required: strs(g.required, KEY, "gate_request.required"), optional: strs(g.optional, KEY, "gate_request.optional", true), closed: g.closed === true,
@@ -145,18 +148,56 @@ export function loadHarnessServed(root: string): HarnessServed {
     classes: (d.classes as unknown[]).map((x, i) => { const o = obj(x, ["class_id", "state", "clauses"], `classes[${String(i)}]`); return { class_id: str(o.class_id, /^[a-z0-9-]+$/, "class_id"), state: str(o.state, /^(?:synthetic|none|committed)$/, "class state"), clauses: strs(o.clauses, TEXT, "class clauses") }; }),
     byo_clause: str(d.byo_clause, TEXT, "byo_clause"),
     attest: { label: str(t.label, TEXT, "attest label"), hypotheses: strs(t.hypotheses, /^A\([a-z-]+\)$/, "attest hypotheses"), channel: str(t.channel, /^[a-z0-9./-]+$/, "attest channel"), verifier_rev: str(t.verifier_rev, /^[0-9a-f]{40}$/, "verifier_rev"), observed_instant: int(t.observed_instant, "observed_instant") },
+  };
+  const names = out.tools.map((x) => x.name);
+  if (names.join(",") !== [...new Set(names)].sort().join(",")) fail("tool names must be unique and sorted");
+  if (new Set(out.classes.map((c) => c.class_id)).size !== out.classes.length) fail("class ids must be unique");
+  const byoParam = out.gate_request.params.find((p) => p.name === out.gate_request.byo_calibration.param);
+  if (byoParam === undefined || byoParam.required || byoParam.type !== "object") fail("the BYO calibration is not an optional object param of the served /gate request");
+  return out;
+}
+
+/** The served file, and its pending_since (a day, present iff a pending snapshot exists; never rendered). */
+function servedFile(root: string): { out: HarnessServed; pendingSince: string | undefined } {
+  const raw = JSON.parse(readListed(root, HARNESS_SERVED_REL)) as Obj;
+  const d = obj(raw, ["$comment", "schema", "read_at", ...SHAPES, "mcp", "registry", "deploy_check", "bodies_sha256", ...("pending_since" in raw ? ["pending_since"] : [])], "file");
+  if (d.schema !== "monark-site-harness-served-v1") fail("schema is not monark-site-harness-served-v1");
+  const m = obj(d.mcp, ["url", "remote_type", "server_name"], "mcp");
+  const reg = obj(d.registry, ["name", "version", "status", "published_at", "repository_url"], "registry");
+  const dc = obj(d.deploy_check, ["checked_at", "count", "ok_count", "tls_host", "tls_valid_to"], "deploy_check");
+  const out: HarnessServed = {
+    read_at: str(d.read_at, ISO_UTC, "read_at"),
+    ...shapesOf(d),
+    mcp: { url: str(m.url, /^https:\/\/[a-z0-9.-]+\/mcp$/, "mcp.url"), remote_type: str(m.remote_type, /^[a-z-]+$/, "mcp.remote_type"), server_name: str(m.server_name, NAME, "mcp.server_name") },
     registry: { name: str(reg.name, /^[a-z.]+\/[a-z]+$/, "registry name"), version: str(reg.version, SEMVER, "registry version"), status: str(reg.status, /^active$/, "registry status"), published_at: str(reg.published_at, ISO_UTC, "published_at"), repository_url: str(reg.repository_url, /^https:\/\/github\.com\/[\w.-]+\/[\w.-]+$/, "repository_url") },
     deploy_check: { checked_at: str(dc.checked_at, ISO_UTC, "checked_at"), count: int(dc.count, "count"), ok_count: int(dc.ok_count, "ok_count"), tls_host: str(dc.tls_host, HOSTNAME, "tls_host"), tls_valid_to: str(dc.tls_valid_to, TEXT, "tls_valid_to") },
     bodies_sha256: Object.fromEntries(Object.entries(d.bodies_sha256 !== null && typeof d.bodies_sha256 === "object" ? (d.bodies_sha256 as Obj) : fail("bodies_sha256 must be an object")).map(([k, v]) => [k, str(v, HEX64, `bodies_sha256 ${k}`)])),
   };
-  const names = out.tools.map((x) => x.name);
-  if (names.join(",") !== [...new Set(names)].sort().join(",")) fail("tool names must be unique and sorted");
   if (out.registry.version !== out.version) fail("the registry version must equal the served version");
   if (out.deploy_check.ok_count !== out.deploy_check.count) fail("the deploy check is not green on every control (fail-closed)");
   if (![new URL(out.api.url).host, new URL(out.mcp.url).host].includes(out.deploy_check.tls_host)) fail("the TLS host of the deploy check is neither the api host nor the MCP host");
-  if (new Set(out.classes.map((c) => c.class_id)).size !== out.classes.length) fail("class ids must be unique");
-  const byoParam = out.gate_request.params.find((p) => p.name === out.gate_request.byo_calibration.param);
-  if (byoParam === undefined || byoParam.required || byoParam.type !== "object") fail("the BYO calibration is not an optional object param of the served /gate request");
+  return { out, pendingSince: d.pending_since === undefined ? undefined : str(d.pending_since, /^\d{4}-\d{2}-\d{2}$/, "pending_since") };
+}
+/** The served facts the pages render (pending_since is admitted on the file, never returned; its iff with a pending snapshot is checked by loadHarnessPending, which the trace loaders and the in-process pin call). */
+export function loadHarnessServed(root: string): HarnessServed {
+  return servedFile(root).out;
+}
+
+/** The pending snapshot: the shapes, written_at and the sha256 of the IN-PROCESS /openapi.json (no fact read on the server). */
+export interface HarnessPending extends HarnessShapes { written_at: string; openapi_sha256: string }
+/** The pending snapshot, or null when none exists. FAIL-CLOSED: it exists iff the served snapshot carries pending_since,
+ *  and pending_since is not later than the day it was written. */
+export function loadHarnessPending(root: string): HarnessPending | null {
+  const { pendingSince } = servedFile(root);
+  if (!existsSync(join(root, HARNESS_PENDING_REL))) {
+    if (pendingSince !== undefined) fail("the served snapshot carries pending_since but no pending snapshot exists (fail-closed)");
+    return null;
+  }
+  if (pendingSince === undefined) fail("a pending snapshot exists but the served snapshot carries no pending_since (fail-closed)");
+  const d = obj(JSON.parse(readListed(root, HARNESS_PENDING_REL)), ["$comment", "schema", "written_at", ...SHAPES, "openapi_sha256"], "pending file");
+  if (d.schema !== "monark-site-harness-pending-v1") fail("schema is not monark-site-harness-pending-v1");
+  const out: HarnessPending = { written_at: str(d.written_at, ISO_UTC, "written_at"), ...shapesOf(d), openapi_sha256: str(d.openapi_sha256, HEX64, "openapi_sha256") };
+  if (String(pendingSince) > out.written_at.slice(0, 10)) fail("pending_since is later than the day the pending snapshot was written");
   return out;
 }
 
@@ -217,7 +258,7 @@ function step(steps: Step[], label: string): { s: Step; args: Obj; sc: Obj } {
 }
 /** A recorded gate request, checked against the served /gate request (envelope, params, BYO calibration) and the
  *  frozen Prediction. */
-function gateRequest(args: unknown, served: HarnessServed, prediction: Keys, where: string): Obj {
+function gateRequest(args: unknown, served: HarnessShapes, prediction: Keys, where: string): Obj {
   const g = served.gate_request;
   const req = shaped(args, { required: g.required, properties: [...g.required, ...g.optional] }, `${where} request`);
   shaped(req.prediction, prediction, `${where} request prediction`);
@@ -245,11 +286,11 @@ export interface ByoLoop {
   calibrate: { request: Obj; result: Obj; label: string };
   gate: { request: Obj; result: Obj };
   decision: RecordedDecision;
-  set_digest: string;
-  calib_digest: string;
+  /** The scores_sha256 of the calibrate result and of the gate verdict (contract 1.1.0): equal, with alpha and qhat. */
+  scores_sha256: { calibrate: string; verdict: string };
 }
 export function loadByoTrace(root: string): ByoLoop {
-  const served = loadHarnessServed(root);
+  const served = loadHarnessPending(root) ?? loadHarnessServed(root); // the shapes the recording must follow
   const { t, steps } = traceSteps(readListed(root, BYO_TRACE_REL), "monark-byo-demo-trace/1");
   const cal = step(steps, "calibrate"), gate = step(steps, "gate-byo");
   shaped(cal.args, declared(served.calibrate_contract.request), "calibrate request");
@@ -266,10 +307,10 @@ export function loadByoTrace(root: string): ByoLoop {
     calibrate: { request: cal.args, result: calResult, label: str(label, TEXT, "calibrate label") },
     gate: { request: gate.args, result: decision },
     decision: recorded(gate.s, decision),
-    set_digest: str(cal.sc.set_digest, HEX64, "set_digest"),
-    calib_digest: str(verdict.calib_digest, HEX64, "verdict digest"),
+    scores_sha256: { calibrate: str(cal.sc.scores_sha256, HEX64, "calibrate scores digest"), verdict: str(verdict.scores_sha256, HEX64, "verdict scores digest") },
   };
-  if (out.set_digest !== out.calib_digest) fail("the recorded loop does not close (calib_digest != set_digest)");
+  const same = out.scores_sha256.calibrate === out.scores_sha256.verdict && cal.sc.alpha === verdict.alpha && cal.sc.qhat === verdict.qhat;
+  if (!same) fail("the recorded loop does not close (the scores digest, alpha and qhat of calibrate and of the verdict differ)");
   noForbiddenKey(out, forbiddenKeys(root), "the recorded BYO loop");
   return out;
 }
@@ -278,7 +319,7 @@ export function loadByoTrace(root: string): ByoLoop {
  *  USDe key since btc-dir-15m is retired, CM-2b; the field keeps its name `btcDir` for the pages that read it). */
 export interface H5Trace { decisions: RecordedDecision[]; btcDir: { request: Obj; result: Obj }; bind: string }
 export function loadH5Trace(root: string): H5Trace {
-  const served = loadHarnessServed(root);
+  const served = loadHarnessPending(root) ?? loadHarnessServed(root); // the shapes the recording must follow
   const { t, steps } = traceSteps(readListed(root, H5_TRACE_REL), "monark-h5-e2e-trace/1");
   const gd = schemaKeys(root, "gate-decision.schema.json"), cv = schemaKeys(root, "coverage-verdict.schema.json"), pr = schemaKeys(root, "prediction.schema.json");
   const banned = forbiddenKeys(root);

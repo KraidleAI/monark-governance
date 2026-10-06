@@ -23,7 +23,7 @@ import { readFileSync, writeFileSync } from "node:fs";
 import { createHash } from "node:crypto";
 import { fileURLToPath } from "node:url";
 import { resolve } from "node:path";
-import { calibDigest } from "@monark/contracts";
+import { calibDigest } from "./lib/calib-digest-provenance.mjs";
 import { buildRegistryEntries } from "./record-u4b-calib.mjs";
 import { canonicalJson } from "../apps/site/lib/ukemi-course-load.ts";
 

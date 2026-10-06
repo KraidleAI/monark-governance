@@ -14,7 +14,7 @@
  */
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { calibDigest } from "@monark/contracts";
+import { calibDigest } from "../../../scripts/lib/calib-digest-provenance.mjs";
 import * as l1 from "../src/l1-split.ts";
 import type { RiskControlResult } from "../src/l1-split.ts";
 import * as hikae from "../src/index.ts";

@@ -39,6 +39,7 @@ import {
   windowsAbsPathHits,
   WINDOWS_ABS_PATH_RE,
 } from "../scripts/export-public.mjs";
+import { dropPendingSnapshot } from "./helpers/pending-snapshot.ts";
 
 const ROOT = join(import.meta.dirname, "..");
 const toPosix = (p: string): string => p.replace(/\\/g, "/");
@@ -210,6 +211,9 @@ test("windows_abs_path_matcher — flags reader-local drive paths, spares URLs /
 //    "allowlist restored" mutant (PLI G2 C-G2-1). `--scope root` pins the language gate to the (green) root
 //    scope, so a seeded-path exit 1 is attributable to the PATH GUARD alone — not a language-scope hit; on a
 //    CLEAN copy the check is exit 0 (measured — bare `export:check` is exit 0 too), so the exit 1 is the SEED.
+//    G2 R-1 (lot CM-3c-4a): the copy is promoted (dropPendingSnapshot) so the later send guard cannot exit 1 in the
+//    path guard's place; the `--out` refusal must not name SITE-SEND-GUARD-MECH-1.
+// killer: scripts/export-public.mjs:513 SDL "    process.exit(1);" -> ""
 test("export_windows_path_guard_bites_seeded_text_file — seeding a drive path in a non-allowlist kept text file (.mts + extensionless LICENSE) reds --out AND --check (D7 septies (iii); PLI G2 C-G2-1/C-G2-2)", () => {
   const src = mkdtempSync(join(tmpdir(), "monark-seed-src-"));
   const out = mkdtempSync(join(tmpdir(), "monark-seed-out-"));
@@ -225,6 +229,7 @@ test("export_windows_path_guard_bites_seeded_text_file — seeding a drive path 
         return rel === "" || !rel.split("/").some((seg) => skipSeg.has(seg));
       },
     });
+    dropPendingSnapshot(src); // G2 R-1: without it the send guard exits 1 too and masks a path guard whose exit is gone
     const script = join(src, "scripts", "export-public.mjs");
     const runCheckRoot = (): SpawnSyncReturns<string> =>
       spawnSync(process.execPath, [script, "--check", "--scope", "root"], { cwd: src, encoding: "utf8", timeout: 120_000 });
@@ -254,6 +259,7 @@ test("export_windows_path_guard_bites_seeded_text_file — seeding a drive path 
     assert.notEqual(exp.status, 0, `--out must exit non-zero on the seeded copy: ${expOut}`);
     assert.match(expOut, /grep-forbidden\.d\.mts:\d+:\d+/, "export must flag the seeded .mts before writing");
     assert.match(expOut, /LICENSE:\d+:\d+/, "export must flag the seeded extensionless LICENSE before writing");
+    assert.doesNotMatch(expOut, /SITE-SEND-GUARD-MECH-1/, "the refusal must be the path guard's alone, not the send guard's (G2 R-1)");
     assert.equal(readdirSync(out).length, 0, "a failed export must write nothing to --out (guard is pre-write)");
   } finally {
     rmSync(out, { recursive: true, force: true });

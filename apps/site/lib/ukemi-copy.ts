@@ -22,7 +22,7 @@
 // and are therefore CARRIED here but NEVER RENDERED — a negative carrier in the root test forbids
 // {LIQ_UPPER_BOUND_SENTENCE}/{LIQ_H3_SENTENCE} in the component: their numbers are outside the closed list this page
 // may show. A committed served state renders as LIQ_COMMITTED_STATE_NOTE, a digit-free restatement, then the figures
-// of the committed stratum (calibration points, bound margin, calibration digest, and the day they were read), read
+// of the committed stratum (calibration points, bound margin, scores digest, and the day they were read), read
 // from the two committed, hashed files by lib/ukemi-served-figures.ts, never typed: the labels that frame them here
 // carry no digit.
 
@@ -138,11 +138,11 @@ export const FIGURE_MARGIN_LABEL = "bound margin";
 /** Unit of the bound margin: the course report's unit label without its decimal count (the root test binds the two). */
 export const BOUND_UNIT = "in the lending venue's oracle base currency";
 export const FIGURE_MARGIN_NOTE = "the upper bound for a prediction in this stratum is the prediction plus this margin";
-export const FIGURE_DIGEST_LABEL = "calibration digest";
-/** What the served calibration digest is: only what the gate serves with it (the root test replays two answers). */
+export const FIGURE_DIGEST_LABEL = "scores digest";
+/** What the served scores digest is: only what the gate serves with it (the root test replays two answers). */
 export const DIGEST_NOTE =
-  "The calibration digest identifies the calibration points this bound is computed from; the gate returns it with " +
-  "every answer on this stratum, so an answer can be matched to its calibration.";
+  "The scores digest identifies the calibration points this bound is computed from, in the order the class's table " +
+  "lists them; the gate returns it with every answer on this stratum, so an answer can be matched to its calibration.";
 
 /** Digit-free restatement of the upper-bound method (NOT the served constant, which carries a digit). */
 export const REGION_NOTE =

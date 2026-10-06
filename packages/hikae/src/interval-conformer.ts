@@ -4,11 +4,11 @@
  * Absolute-residual split conformal, for UKEMI's NUMERIC `Prediction` (liquidable amount,
  * class `ukemi-liquidable-24h`): from calibration pairs `(ŷ_i, y_i)`,
  *   - score `s_i = |y_i − ŷ_i|` (absolute residual);
- *   - `q̂` = ⌈(n+1)(1−α)⌉-th smallest score — REUSES `splitQuantile` (L1, l1-split.ts),
+ *   - `q̂` = ⌈(n+1)(1−α)⌉-th smallest score, exact rank — REUSES `splitQuantileShortest` (L1, B-12),
  *     the SOLE conformal-quantile implementation, NEVER rewritten here (shared fail-closed);
  *   - region `C(ŷ) = [ŷ − q̂, ŷ + q̂]` for the test point's prediction `ŷ`, via
  *     `buildIntervalRegion` (M5: `lo > hi` impossible since `q̂ ≥ 0`; NDG-1 ADR-M011: `q̂ = 0` — or
- *     float absorption `ŷ ± q̂ === ŷ` — ⇒ `lo === hi` ⇒ `under_calib` abstention; a valid region is
+ *     float absorption `ŷ ± q̂ === ŷ` — ⇒ `lo === hi` ⇒ `region_degenerate` abstention (B-16; edges of the score test, B-13); a valid region is
  *     `lo < hi` STRICT, this module never emits a zero-width `covered`).
  *
  * DECLARED guarantee (inherited from L1): marginal, finite-sample coverage, UNDER exchangeability
@@ -17,13 +17,13 @@
  * this module produces only the region and the `covered` verdict.
  *
  * Under-calibration (`n < nMin` or `⌈(n+1)(1−α)⌉ > n`): fail-closed via `underCalibVerdict` — the
- * SAME frozen literal as L1 (EMPTY `set` region, `abstain=true`, `qhat=null`, `reason=under_calib`);
- * we invent neither reason nor region, we never silently clamp a `q̂`.
+ * SAME frozen literal as L1 (contract 1.1.0: `region: null`, `abstain=true`, `qhat=null`, `reason=under_calib`);
+ * we invent neither reason nor region, we never silently clamp a `q̂`. The five cell fields are the caller's (`cell`).
  */
 import type { CoverageVerdict } from "@monark/contracts";
-import { splitQuantile } from "./l1-split.ts";
-import { buildIntervalRegion, NUMERIC_LABEL_SCHEMA } from "./region.ts";
-import { buildVerdict, underCalibVerdict } from "./verdict.ts";
+import { splitQuantileShortest } from "./l1-split.ts";
+import { scoreTestBand } from "./region.ts";
+import { buildVerdict, noRegionVerdict, type VerdictCell } from "./verdict.ts";
 
 /** One calibration pair: prediction `ŷ_i` and realization `y_i` (amounts, finite numbers). */
 export interface CalibPair {
@@ -41,7 +41,8 @@ export interface IntervalConformalParams {
   readonly residual: readonly string[];
   readonly producedAt: string;
   readonly schemaVersion: string;
-  /** Carry the scores on the wire (optional payload); off by default (recomputed via calib_digest). */
+  readonly cell: VerdictCell; // the five cell fields of the verdict (spec section 5), copied as given
+  /** Carry the scores on the wire (optional payload); off by default (identified by scores_sha256). */
   readonly includeScores?: boolean;
 }
 
@@ -56,9 +57,9 @@ export function absoluteResidualScores(calib: readonly CalibPair[]): number[] {
   return calib.map((c) => Math.abs(c.y - c.yhat));
 }
 
-function underCalib(params: IntervalConformalParams): IntervalConformalResult {
+function underCalib(params: IntervalConformalParams, reason: "under_calib" | "region_degenerate" = "under_calib"): IntervalConformalResult {
   return {
-    verdict: underCalibVerdict({
+    verdict: noRegionVerdict(reason, {
       taskClass: params.taskClass,
       method: "split",
       alpha: params.alpha,
@@ -66,9 +67,7 @@ function underCalib(params: IntervalConformalParams): IntervalConformalResult {
       residual: params.residual,
       producedAt: params.producedAt,
       schemaVersion: params.schemaVersion,
-      // NUMERIC class (regression conformer): the empty under_calib region names the numeric
-      // nature, never the directional `up|down` default (E9). buildSetRegion still owns the shape.
-      labelSchema: NUMERIC_LABEL_SCHEMA,
+      cell: params.cell,
     }),
     qhat: null,
     region: null,
@@ -81,12 +80,12 @@ function underCalib(params: IntervalConformalParams): IntervalConformalResult {
  */
 export function conformInterval(params: IntervalConformalParams): IntervalConformalResult {
   const scores = absoluteResidualScores(params.calib);
-  const split = splitQuantile(scores, params.alpha, params.nMin); // q̂ = ⌈(n+1)(1−α)⌉-th sorted (L1)
+  const split = splitQuantileShortest(scores, params.alpha, params.nMin); // q̂ at the exact rank ⌈(n+1)(1−α)⌉ (L1, B-12)
   if ("reason" in split) return underCalib(params); // fail-closed: under-calibration
 
   const qhat = split.qhat;
-  const ir = buildIntervalRegion(params.yhat - qhat, params.yhat + qhat); // q̂ ≥ 0 ⇒ lo ≤ hi (M5); lo<hi ⇒ q̂>0 ; converse FALSE under float absorption (M011 D1)
-  if (ir.abstain) return underCalib(params); // non-finite bound (ŷ ±inf/NaN), OR zero-width lo===hi (q̂=0 / absorption, NDG-1 M011)
+  const ir = scoreTestBand(params.yhat, qhat); // edges of the score test (B-13); lo<hi ⇒ q̂>0 ; converse FALSE under float absorption (M011 D1)
+  if (ir.abstain) return underCalib(params, ir.reason); // non-finite bound (under_calib), OR zero width (region_degenerate, NDG-1 M011, B-16)
 
   const verdict = buildVerdict({
     taskClass: params.taskClass,
@@ -100,6 +99,7 @@ export function conformInterval(params: IntervalConformalParams): IntervalConfor
     residual: params.residual,
     producedAt: params.producedAt,
     schemaVersion: params.schemaVersion,
+    cell: params.cell,
     ...(params.includeScores ? { includeScores: true } : {}),
   });
   return { verdict, qhat, region: { lo: ir.region.lo, hi: ir.region.hi } };

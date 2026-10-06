@@ -49,6 +49,7 @@ function commitInput(over: Partial<GateInput>): GateInput {
     residual: [],
     producedAt: "2026-09-04T00:00:00Z",
     schemaVersion: "1.0.0",
+    cell: { qhatUnit: "score", scale: null, cellKey: null, policyRowSha256: null, policyTableSha256: null },
   });
   return {
     intent: "up",
@@ -64,6 +65,7 @@ function commitInput(over: Partial<GateInput>): GateInput {
     evaluable: true,
     tool: "perps_order_preview",
     schemaVersion: "1.0.0",
+    requestSha256: "e".repeat(64),
     ...over,
   };
 }

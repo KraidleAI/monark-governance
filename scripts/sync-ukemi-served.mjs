@@ -16,8 +16,8 @@
 //     are composed from the gate module's own constants, so a deploy whose text differs from this tree reds here;
 //   - the kept clause is ASCII (the site is English and ASCII for this text);
 //   - the /gate answer carries a verdict that AGREES with that state and with THIS tree's registry: empty => under_calib,
-//     n_calib 0, qhat null; committed => covered, with n_calib, calib_digest and qhat equal to the repository's committed
-//     stratum (its size, its C5 digest, its split-conformal quantile at the served alpha / nMin). A deploy of another
+//     n_calib 0, qhat null; committed => covered, with n_calib, scores_sha256 and qhat equal to the repository's committed
+//     stratum (its size, the sha256 of its scores, its split-conformal quantile at the served alpha / nMin). A deploy of another
 //     tree, or a foreign digest, reds here;
 //   - the /gate answer hashes to the sha256 the deploy check record recorded for its gate_liq_call control, and that
 //     control is green (ADR-U4b-2b D5 point 1: the served verdict rides on the body the deploy check attested, as
@@ -26,16 +26,23 @@
 // It writes ONLY: the host and paths, the read time, the served class id, the registry state it derived, the served
 // clause, the cascade flag, the sha256 of the OpenAPI body as read, and the served verdict facts under the site's own
 // key names (the probe's stratum, the verdict reason, served_alpha, calibration_points = n_calib, bound_margin_base =
-// q-hat as an exact integer string or null, calibration_digest = calib_digest, the smallest calibration count for which
+// q-hat as an exact integer string or null, calibration_digest = scores_sha256, the smallest calibration count for which
 // the conformal rank at that alpha is interior (the pre-registered H-2bis threshold, computed here from the served
 // alpha), and the sha256 of the /gate body as read, which is the deploy check's gate_liq_call sha256). No other served
 // text is copied. Output: LF, two-space
 // JSON; it then sets the file's CRLF->LF sha256 under its own key in apps/site/data/manifest.sha256.json.
-import { readFileSync, writeFileSync } from "node:fs";
+// PENDING SNAPSHOT (UKEMI-PENDING-SNAPSHOT-1): --pending, at time (i) of a block, reads NOTHING over the network; the same
+// checks (never the deploy check) on the IN-PROCESS answers to the same two requests, all computed first, then it writes
+// apps/site/data/ukemi-pending.json (written_at and the shared fields only), pending_since (UTC day, kept if set) after
+// read_at in the served file (no other byte) and both manifest entries. The default run at T0 (refused while
+// apps/site/data/harness-pending.json exists) PROMOTES: it writes only a served file equal to the pending snapshot on every
+// shared field, sets its entry, then removes the pending entry and file.
+import { existsSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { join, dirname, resolve } from "node:path";
 import { createHash } from "node:crypto";
 import { fileURLToPath } from "node:url";
 import { splitQuantile } from "@monark/hikae";
+import { scoresSha256 } from "@monark/contracts";
 import {
   TASK_LIQ_ELIGIBLE,
   LIQ_ALPHA,
@@ -50,6 +57,10 @@ import {
 import { strateOf } from "../apps/harness/src/ukemi-strata.ts";
 import { lookupCommittedCalibration, UKEMI_LIQ_PREDICTOR_BASE } from "../apps/harness/src/calibration.ts";
 import { GATE_LIQ_BODY } from "./verify-harness.mjs";
+import { handleJsonMirror } from "../apps/harness/src/http.ts";
+import { API_SERVER_URL } from "../apps/harness/src/openapi.ts";
+import { UKEMI_PENDING_REL, UKEMI_PENDING_SHARED } from "../apps/site/lib/ukemi-served-load.ts";
+import { HARNESS_PENDING_REL } from "../apps/site/lib/harness-served-load.ts";
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..");
 export const API_HOST = "https://api.monarkgate.tech";
@@ -58,6 +69,8 @@ export const GATE_PATH = "/gate";
 export const OUT_REL = "apps/site/data/ukemi-served.json";
 export const MANIFEST_REL = "apps/site/data/manifest.sha256.json";
 export const SCHEMA = "monark-site-ukemi-served-v2";
+export const PENDING_REL = UKEMI_PENDING_REL;
+export const PENDING_SCHEMA = "monark-site-ukemi-pending-v1";
 /** The deploy check record the served verdict is bound to (its gate_liq_call record), read on disk. */
 const CA_REL = "docs/deploy-CA-harness.json";
 const MAX_BYTES = 1024 * 1024;
@@ -106,12 +119,11 @@ export function interiorRankMinN(alpha) {
 }
 
 /**
- * Derive the served verdict facts from the /gate answer (pure), checked against the registry STATE read from the served
- * description, against THIS tree's registry, and against the deploy check record (`caText`, the JSON text of
- * docs/deploy-CA-harness.json as written by the CA: its gate_liq_call record must be green and carry the sha256 of this
- * very answer). Throws on any disagreement (fail-closed).
+ * Derive the verdict facts from a /gate answer (pure), checked against the registry STATE read from the description and
+ * against THIS tree's registry. Throws on any disagreement (fail-closed). The served and the pending verdicts both read
+ * the answer here, so a field of the wire is read in one place.
  */
-export function servedVerdictFacts(gateText, registryState, caText) {
+export function verdictFactsOf(gateText, registryState) {
   const j = JSON.parse(gateText);
   const v = j?.structuredContent?.verdict;
   if (v === null || typeof v !== "object") throw new Error("the /gate answer carries no structuredContent.verdict");
@@ -119,7 +131,7 @@ export function servedVerdictFacts(gateText, registryState, caText) {
   if (v.reason !== "covered" && v.reason !== "under_calib") throw new Error(`unexpected verdict reason ${String(v.reason)}`);
   if (!Number.isSafeInteger(v.n_calib) || v.n_calib < 0) throw new Error("verdict n_calib is not a non-negative integer");
   if (v.alpha !== LIQ_ALPHA) throw new Error(`the served alpha ${String(v.alpha)} is not the class alpha`);
-  if (typeof v.calib_digest !== "string" || !/^[0-9a-f]{64}$/.test(v.calib_digest)) throw new Error("verdict calib_digest is not 64 lowercase hex");
+  if (typeof v.scores_sha256 !== "string" || !/^[0-9a-f]{64}$/.test(v.scores_sha256)) throw new Error("verdict scores_sha256 is not 64 lowercase hex");
   if (v.qhat !== null && !(Number.isSafeInteger(v.qhat) && v.qhat > 0)) throw new Error("verdict qhat is neither null nor a positive safe integer");
   const qhat = v.qhat === null ? null : String(v.qhat);
   if (registryState === "empty") {
@@ -128,11 +140,26 @@ export function servedVerdictFacts(gateText, registryState, caText) {
     const committed = lookupCommittedCalibration(TASK_LIQ_ELIGIBLE, `${UKEMI_LIQ_PREDICTOR_BASE}/s${String(stratum)}`);
     if (committed === undefined) throw new Error(`this tree's registry does not commit stratum s${String(stratum)} of the probe`);
     const q = splitQuantile(committed.scores, LIQ_ALPHA, LIQ_NMIN);
-    const same = v.reason === "covered" && v.n_calib === committed.scores.length && v.calib_digest === committed.digestPinned && "qhat" in q && qhat === String(q.qhat);
-    if (!same) throw new Error("the served verdict is not this tree's committed stratum (reason, n_calib, calib_digest and qhat must all agree)");
+    const same = v.reason === "covered" && v.n_calib === committed.scores.length && v.scores_sha256 === scoresSha256(committed.scores) && "qhat" in q && qhat === String(q.qhat);
+    if (!same) throw new Error("the served verdict is not this tree's committed stratum (reason, n_calib, scores_sha256 and qhat must all agree)");
   } else {
     throw new Error(`unknown registry state ${String(registryState)}`);
   }
+  // The record's keys are the site's own words (never a frozen contract field name spelled in apps/site): served_alpha,
+  // calibration_points (the verdict's n_calib), bound_margin_base (its q-hat, exact integer string), calibration_digest.
+  return {
+    path: GATE_PATH, stratum, verdict_reason: v.reason, served_alpha: v.alpha, calibration_points: v.n_calib, bound_margin_base: qhat,
+    calibration_digest: v.scores_sha256, interior_rank_min_n: interiorRankMinN(v.alpha),
+  };
+}
+
+/**
+ * The served verdict facts (pure): verdictFactsOf, then the deploy check record (`caText`, the JSON text of
+ * docs/deploy-CA-harness.json as written by the CA: its gate_liq_call record must be green and carry the sha256 of this
+ * very answer), whose body digest closes the record. Throws on any disagreement (fail-closed).
+ */
+export function servedVerdictFacts(gateText, registryState, caText) {
+  const facts = verdictFactsOf(gateText, registryState);
   // ADR-U4b-2b D5 point 1 (G2 of U-4b-2b, M-1): the answer the verdict is read from is the answer the deploy check
   // attested for its gate_liq_call control (same request body, one object; same served bytes), and that control is
   // green. Checked last, so every disagreement above keeps its own message.
@@ -142,19 +169,19 @@ export function servedVerdictFacts(gateText, registryState, caText) {
   if (liqCheck === undefined || liqCheck.ok !== true || liqCheck.sha256 !== bodySha) {
     throw new Error("the /gate answer is not the one the deploy check recorded, green, for gate_liq_call in docs/deploy-CA-harness.json (re-run scripts/verify-harness.mjs --out docs/deploy-CA-harness.json first)");
   }
-  // The record's keys are the site's own words (never a frozen contract field name spelled in apps/site): served_alpha,
-  // calibration_points (the verdict's n_calib), bound_margin_base (its q-hat, exact integer string), calibration_digest.
-  return {
-    path: GATE_PATH, stratum, verdict_reason: v.reason, served_alpha: v.alpha, calibration_points: v.n_calib, bound_margin_base: qhat,
-    calibration_digest: v.calib_digest, interior_rank_min_n: interiorRankMinN(v.alpha), body_sha256: bodySha,
-  };
+  return { ...facts, body_sha256: bodySha };
 }
 
-/** Set `rel` -> `sha` in the manifest text, refusing if the JSON round-trip would change any other byte. */
-export function setManifestEntry(manifestText, rel, sha) {
+/** The manifest, refused unless its JSON round-trip gives back every byte (two-space canonical form, sha256 files map). */
+function canonicalManifest(manifestText) {
   const m = JSON.parse(manifestText);
   if (JSON.stringify(m, null, 2) + "\n" !== lf(manifestText)) throw new Error("the manifest is not in its canonical two-space form; refusing to rewrite it");
   if (m.algorithm !== "sha256" || m.files === null || typeof m.files !== "object") throw new Error("the manifest has no sha256 files map");
+  return m;
+}
+/** Set `rel` -> `sha` in the manifest text, refusing if the JSON round-trip would change any other byte. */
+export function setManifestEntry(manifestText, rel, sha) {
+  const m = canonicalManifest(manifestText);
   if (rel in m.files) {
     m.files[rel] = sha;
   } else {
@@ -167,6 +194,54 @@ export function setManifestEntry(manifestText, rel, sha) {
   }
   return JSON.stringify(m, null, 2) + "\n";
 }
+
+/** Remove `rel` from the manifest text: exactly one line goes, else refused (an absent entry, a non-canonical manifest). */
+export function removeManifestEntry(manifestText, rel) {
+  const m = canonicalManifest(manifestText);
+  if (!(rel in m.files)) throw new Error(`${rel} has no entry in the manifest; restore it, or the pending file, before promoting (if the served file no longer carries pending_since, the promotion was interrupted after the manifest: remove ${rel})`);
+  delete m.files[rel];
+  const out = JSON.stringify(m, null, 2) + "\n", lines = lf(manifestText).split("\n");
+  const gone = lines.findIndex((l) => l.startsWith(`    ${JSON.stringify(rel)}: `));
+  if (lines.filter((_, i) => i !== gone).join("\n") !== out) throw new Error(`removing ${rel} would change another line of the manifest (it must not be its last entry)`);
+  return out;
+}
+
+/** The shared fields on which a new served file differs from the pending snapshot (the loader's fixed list; the served
+ *  verdict compared without its body digest), plus a schema or any key a pending snapshot may not carry (pure). */
+export function ukemiPendingDiff(served, pending) {
+  const known = ["$comment", "schema", "written_at", ...UKEMI_PENDING_SHARED];
+  const bare = (k, x) => (k === "liq_verdict" && x !== null && typeof x === "object" ? Object.fromEntries(Object.entries(x).filter(([n]) => n !== "body_sha256")) : x);
+  return [
+    ...(pending.schema === PENDING_SCHEMA ? [] : ["schema"]),
+    ...UKEMI_PENDING_SHARED.filter((k) => JSON.stringify(bare(k, served[k])) !== JSON.stringify(pending[k])),
+    ...Object.keys(pending).filter((k) => !known.includes(k)),
+  ];
+}
+
+/** The pending snapshot --pending writes: the shared fields of the IN-PROCESS harness's answers to the same two requests. */
+export async function inProcessUkemiPending(writtenAt) {
+  const call = async (path, body) => (await handleJsonMirror(new Request(`${API_SERVER_URL}${path}`, body === undefined ? {} : { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body) }))).text();
+  const facts = servedFacts(await call(OPENAPI_PATH));
+  const liqVerdict = verdictFactsOf(await call(GATE_PATH, GATE_LIQ_BODY), facts.registry_state);
+  return { $comment: PENDING_COMMENT, schema: PENDING_SCHEMA, written_at: writtenAt, served_class: TASK_LIQ_ELIGIBLE, ...facts, liq_verdict: liqVerdict };
+}
+
+/** The served file's text with pending_since (a UTC day) after read_at, no other byte touched; kept when already set (pure). */
+export function markPendingSince(text, day) {
+  if (/^ {2}"pending_since": /m.test(text)) return text;
+  const marked = text.replace(/^( {2}"read_at": "[^"]+",)(\r?\n)/m, `$1$2  "pending_since": "${day}",$2`);
+  if (marked === text) throw new Error("the served file carries no read_at line");
+  return marked;
+}
+
+/** Why the promotion may not run yet under `root`, or null: T0 promotes the harness first (its pending snapshot gone). */
+export function promotionBlocked(root) {
+  return existsSync(join(root, HARNESS_PENDING_REL)) ? `${HARNESS_PENDING_REL} still exists: run scripts/sync-harness-served.mjs (its promotion) first` : null;
+}
+
+/** The $comment of the pending snapshot (the harness pending snapshot's wording). */
+export const PENDING_COMMENT =
+  "The served facts of the liquidation-eligible-coverage class the NEXT harness serves, written in process by the source repository's served-state sync tool (--pending) before it is deployed: no fact read on the server. While this file exists, the served snapshot carries pending_since and the source repository's in-process checks follow this file; the deployed harness's sync promotes it.";
 
 /** The $comment of the written file (the site loader requires it to be a string; kept here, one source). */
 export const COMMENT =
@@ -186,6 +261,8 @@ async function readBody(url, init) {
 }
 
 async function main() {
+  const blocked = promotionBlocked(ROOT);
+  if (blocked !== null) fail(blocked); // fail-closed on EVERY default sync, not the promotion alone (G2 m-3, RECHERCHES): no ukemi resync while harness-pending.json exists
   const openapi = await readBody(`${API_HOST}${OPENAPI_PATH}`, { method: "GET" });
   const readAt = new Date().toISOString();
   const gate = await readBody(`${API_HOST}${GATE_PATH}`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(GATE_LIQ_BODY) });
@@ -211,15 +288,40 @@ async function main() {
   };
   const text = JSON.stringify(out, null, 2) + "\n";
   const fileSha = sha256(Buffer.from(lf(text), "utf8"));
+  const promote = existsSync(join(ROOT, PENDING_REL));
   let manifest;
   try {
+    if (promote) {
+      const drift = ukemiPendingDiff(out, JSON.parse(readFileSync(join(ROOT, PENDING_REL), "utf8")));
+      if (drift.length > 0) throw new Error(`the served state differs from the pending snapshot on {${drift.join(", ")}}; nothing promoted`);
+    }
     manifest = setManifestEntry(readFileSync(join(ROOT, MANIFEST_REL), "utf8"), OUT_REL, fileSha);
+    if (promote) manifest = removeManifestEntry(manifest, PENDING_REL);
   } catch (e) {
     fail(e instanceof Error ? e.message : String(e));
   }
   writeFileSync(join(ROOT, OUT_REL), text);
   writeFileSync(join(ROOT, MANIFEST_REL), manifest);
-  console.log(`sync-ukemi-served OK — ${OUT_REL} written (registry_state ${facts.registry_state}, verdict ${verdict.verdict_reason}, read ${readAt}); manifest entry set to ${fileSha}`);
+  if (promote) rmSync(join(ROOT, PENDING_REL));
+  console.log(`sync-ukemi-served OK — ${OUT_REL} written (registry_state ${facts.registry_state}, verdict ${verdict.verdict_reason}, read ${readAt}); manifest entry set to ${fileSha}${promote ? `; the pending snapshot is promoted, ${PENDING_REL} and its manifest entry removed` : ""}`);
 }
 
-if (process.argv[1] !== undefined && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) await main();
+async function pendingMain() {
+  let text, marked, manifest, pendingSha;
+  try {
+    const pending = await inProcessUkemiPending(new Date().toISOString());
+    text = JSON.stringify(pending, null, 2) + "\n";
+    pendingSha = sha256(Buffer.from(lf(text), "utf8"));
+    marked = markPendingSince(readFileSync(join(ROOT, OUT_REL), "utf8"), pending.written_at.slice(0, 10));
+    manifest = setManifestEntry(readFileSync(join(ROOT, MANIFEST_REL), "utf8"), PENDING_REL, pendingSha);
+    manifest = setManifestEntry(manifest, OUT_REL, sha256(Buffer.from(lf(marked), "utf8")));
+  } catch (e) {
+    fail(e instanceof Error ? e.message : String(e));
+  }
+  writeFileSync(join(ROOT, PENDING_REL), text);
+  writeFileSync(join(ROOT, OUT_REL), marked);
+  writeFileSync(join(ROOT, MANIFEST_REL), manifest);
+  console.log(`sync-ukemi-served OK — ${PENDING_REL} written in process (a new written_at on every --pending), pending_since set in ${OUT_REL}; manifest entries set (${PENDING_REL} ${pendingSha})`);
+}
+
+if (process.argv[1] !== undefined && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) await (process.argv.includes("--pending") ? pendingMain() : main());

@@ -1,5 +1,5 @@
 import type { AttestedPrice, AttestedFlow, AttestedBook, Prediction, CoverageVerdict, GateDecision } from "../src/index.ts";
-import { calibDigest } from "../src/index.ts";
+import { scoresSha256 } from "../src/index.ts";
 
 const HASH = "a".repeat(64);
 
@@ -80,18 +80,23 @@ export function validPrediction(): Prediction {
 export function validVerdictSet(): CoverageVerdict {
   const scores = [0, 0, 1, 0, 1];
   return {
-    schema_version: "1.0.0",
+    schema_version: "1.1.0",
     task_class: "btc-dir-15m",
     method: "hac-cp",
     alpha: 0.1,
     n_calib: 5,
     region: { kind: "set", labels: ["up"], label_schema: "up|down" },
     qhat: 1,
+    qhat_unit: "score",
+    scale: null,
     abstain: false,
     reason: "covered",
     residual: ["assume:tls-notary"],
     scores,
-    calib_digest: calibDigest(scores),
+    scores_sha256: scoresSha256(scores),
+    cell_key: null,
+    policy_row_sha256: null,
+    policy_table_sha256: null,
     produced_at: "2026-09-04T06:00:00Z",
   };
 }
@@ -99,30 +104,36 @@ export function validVerdictSet(): CoverageVerdict {
 export function validVerdictInterval(): CoverageVerdict {
   const scores = [0.2, 0.5, 0.1, 0.9];
   return {
-    schema_version: "1.0.0",
+    schema_version: "1.1.0",
     task_class: "cascade-var",
     method: "hac-cp",
     alpha: 0.1,
     n_calib: 4,
     region: { kind: "interval", lo: -0.03, hi: 0.03 },
     qhat: 0.9,
+    qhat_unit: "label",
+    scale: null,
     abstain: false,
     reason: "covered",
     residual: [],
-    calib_digest: calibDigest(scores),
+    scores_sha256: scoresSha256(scores),
+    cell_key: "cascade-var/s0",
+    policy_row_sha256: "b".repeat(64),
+    policy_table_sha256: "c".repeat(64),
     produced_at: "2026-09-04T06:00:00Z",
   };
 }
 
 export function validGateDecision(): GateDecision {
   return {
-    schema_version: "1.0.0",
+    schema_version: "1.1.0",
     action: "commit",
     allow: true,
     tool: "perps_order",
     intent: "up",
     verdict: validVerdictSet(),
     remaining_budget: 0.42,
+    request_sha256: "d".repeat(64),
     reason: "covered",
   };
 }

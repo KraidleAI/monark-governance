@@ -12,6 +12,7 @@ import type { CoverageVerdict, Prediction } from "@monark/contracts";
 import { gate, buildVerdict, buildSetRegion } from "@monark/hikae";
 import type { GateInput } from "@monark/hikae";
 import { runGate, type HarnessParams } from "../src/tools/gate.ts";
+import { SCHEMA_VERSION } from "../src/tools/gate.ts";
 
 const PARAMS: HarnessParams = {
   remainingBudget: 0.1,
@@ -26,7 +27,7 @@ const PARAMS: HarnessParams = {
 };
 
 const BYO_SET_PRED: Prediction = {
-  schema_version: "1.0.0",
+  schema_version: SCHEMA_VERSION,
   task_class: "byo-set-demo",
   yhat: "A",
   predictor_id: "caller:model",
@@ -39,7 +40,7 @@ const SCORES = [0.5, 0.1, 0.9, 0.3, 1.0, 0.7, 0.2, 0.8, 0.4, 0.6];
 // Test E-1 (F2P): candidates A 1.5 and B 2.0 both score above qhat = 1.0, so C is empty. The verdict abstains
 // with intent_not_in_region, qhat stays the number 1, the region is the empty set; the gate decision is
 // ABSTAIN intent_not_in_region for tau 0 and 1.
-// killer: apps/harness/src/tools/gate.ts:513 ROR "labels.length === 0" -> "labels.length < 0"
+// killer: apps/harness/src/tools/gate.ts:550 ROR "labels.length === 0" -> "labels.length < 0"
 test("byo_set_empty_region_abstains_intent_not_in_region", () => {
   for (const tau of [0, 1]) {
     const d = runGate(BYO_SET_PRED, {
@@ -61,7 +62,7 @@ test("byo_set_empty_region_abstains_intent_not_in_region", () => {
 // Test E-3 (pin): a non-empty set keeps abstain = 1{size of C > tau}. Four candidates, the first k score 0.5
 // (inside qhat = 1.0) and the others 1.5, so the size of C is k in {1, 2, 3}; tau in {0..3} (the L4-5 cap:
 // four candidates minus 1), including size = tau. Reasons covered / set_too_large; the intent A is always in C, so the gate COMMITs or DEFERs.
-// killer: apps/harness/src/tools/gate.ts:514 ROR "labels.length > params.tau" -> "labels.length >= params.tau"
+// killer: apps/harness/src/tools/gate.ts:551 ROR "labels.length > params.tau" -> "labels.length >= params.tau"
 test("nonempty_set_verdict_semantics_unchanged", () => {
   const names = ["A", "B", "C", "D"];
   for (const k of [1, 2, 3]) {
@@ -98,7 +99,7 @@ test("empty_set_never_commits_at_l3", () => {
       reason,
       residual: [],
       producedAt: "2026-09-04T00:00:00Z",
-      schemaVersion: "1.0.0",
+      schemaVersion: SCHEMA_VERSION, cell: { qhatUnit: "score", scale: null, cellKey: null, policyRowSha256: null, policyTableSha256: null },
     });
   for (const verdict of [verdictOf(true, "intent_not_in_region"), verdictOf(false, "covered")]) {
     for (const tau of [0, 1, 100]) {
@@ -115,7 +116,7 @@ test("empty_set_never_commits_at_l3", () => {
         timedOut: false,
         evaluable: true,
         tool: "perps_order_preview",
-        schemaVersion: "1.0.0",
+        schemaVersion: SCHEMA_VERSION, requestSha256: "0".repeat(64),
       };
       const d = gate(input);
       const at = `verdict ${verdict.reason}, tau ${String(tau)}`;

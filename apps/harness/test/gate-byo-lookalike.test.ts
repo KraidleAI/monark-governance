@@ -10,6 +10,7 @@ import assert from "node:assert/strict";
 import { assertClosedGateDecision } from "@monark/contracts";
 import type { Prediction } from "@monark/contracts";
 import { runGate, HarnessToolError, type HarnessParams } from "../src/tools/gate.ts";
+import { SCHEMA_VERSION } from "../src/tools/gate.ts";
 
 const PARAMS: HarnessParams = {
   remainingBudget: 0.1,
@@ -32,7 +33,7 @@ const USDE_KEY = "narabi:persistence-v2@eip155:1/erc20:0x4c9edd5852cd905f086c759
 const USDE_KEY_CHECKSUM = "narabi:persistence-v2@eip155:1/erc20:0x4c9EDD5852cd905f086C759E8383e09bff1E68B3";
 
 function pred(taskClass: string, predictorId: string, yhat: string | number): Prediction {
-  return { schema_version: "1.0.0", task_class: taskClass, yhat, predictor_id: predictorId, produced_at: "2026-09-04T00:00:00Z" };
+  return { schema_version: SCHEMA_VERSION, task_class: taskClass, yhat, predictor_id: predictorId, produced_at: "2026-09-04T00:00:00Z" };
 }
 
 function decided(p: Prediction, cal: NonNullable<HarnessParams["calibration"]>, at: string): ReturnType<typeof runGate> {
@@ -56,7 +57,7 @@ function refused(p: Prediction, cal: NonNullable<HarnessParams["calibration"]>, 
 
 // Test T-1 (F2P): the eight look-alike names of MONARK's probe (status of audit P3, priority 1), plus a case variant
 // of the stable-run class with the committed key, are refused.
-// killer: apps/harness/src/tools/gate.ts:791 CONST "asciiLower(taskClass)" -> "taskClass"
+// killer: apps/harness/src/tools/gate.ts:828 CONST "asciiLower(taskClass)" -> "taskClass"
 test("byo_lookalike_probe_names_refused", () => {
   const set: [string, string][] = [
     ["BTC-DIR-15M", "caller:model"],
@@ -95,7 +96,7 @@ test("byo_lookalike_probe_names_refused", () => {
 });
 
 // Test T-1b (F2P): a case variant of the liq class, committed on the CLASS, is refused for any key.
-// killer: apps/harness/src/tools/gate.ts:742 CONST "TASK_CASCADE, TASK_LIQ_ELIGIBLE" -> "TASK_CASCADE"
+// killer: apps/harness/src/tools/gate.ts:779 CONST "TASK_CASCADE, TASK_LIQ_ELIGIBLE" -> "TASK_CASCADE"
 test("byo_lookalike_liq_class_case_refused", () => {
   refused(pred("Liquidation-Eligible-Coverage", "caller:model", "A"), SET_CAL, "liq class, other case");
   refused(pred("LIQUIDATION-ELIGIBLE-COVERAGE", "caller:other", 1), INTERVAL_CAL, "liq class, upper case");
@@ -104,7 +105,7 @@ test("byo_lookalike_liq_class_case_refused", () => {
 // Test T-2 (F2P): a leading or trailing blank (space, tab, no-break space) on the class or on the key is refused
 // on the BYO path, for any name (tab and no-break space reach the guard on a direct runGate call only: the
 // frozen schema refuses them at the served boundary).
-// killer: apps/harness/src/tools/gate.ts:788 CONST "EDGE_BLANK.test(predictorId)" -> "false"
+// killer: apps/harness/src/tools/gate.ts:825 CONST "EDGE_BLANK.test(predictorId)" -> "false"
 test("byo_edge_blank_refused", () => {
   for (const blank of [" ", "\t", "\u00a0"]) {
     refused(pred(`acme-model-x${blank}`, "caller:model", "A"), SET_CAL, `class trailing ${JSON.stringify(blank)}`);
@@ -115,7 +116,7 @@ test("byo_edge_blank_refused", () => {
 });
 
 // Test T-3 (F2P): the kata class pattern is reserved against BYO, in any ASCII case; near names are not.
-// killer: apps/harness/src/tools/gate.ts:796 CONST "KATA_CLASS_RE.test(cls)" -> "false"
+// killer: apps/harness/src/tools/gate.ts:833 CONST "KATA_CLASS_RE.test(cls)" -> "false"
 test("byo_kata_class_names_reserved", () => {
   for (const cls of ["btc-dir-1h", "ETH-RANGE-4H", "sol-mae-down-1h", "Bnb-Mae-Up-4h"]) {
     refused(pred(cls, "caller:model", "A"), SET_CAL, `kata class ${cls}`);
@@ -128,7 +129,7 @@ test("byo_kata_class_names_reserved", () => {
 });
 
 // Test T-3b (F2P): the `kata:` key prefix is reserved against BYO, in any ASCII case; near keys are not.
-// killer: apps/harness/src/tools/gate.ts:796 CONST "key.startsWith(KATA_KEY_PREFIX)" -> "false"
+// killer: apps/harness/src/tools/gate.ts:833 CONST "key.startsWith(KATA_KEY_PREFIX)" -> "false"
 test("byo_kata_key_prefix_reserved", () => {
   for (const key of ["kata:vote4-v1@binance/BTCUSDT/1h/up-b3", "KATA:anything", "KaTa:x"]) {
     refused(pred("acme-model-x", key, "A"), SET_CAL, `kata key ${key}`);

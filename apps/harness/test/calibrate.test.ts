@@ -11,7 +11,8 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
-import { calibDigest } from "@monark/contracts";
+import { scoresSha256 } from "@monark/contracts";
+import { calibDigest } from "../../../scripts/lib/calib-digest-provenance.mjs";
 import { compilePatterns, scanText } from "../../../scripts/grep-forbidden.mjs";
 import {
   runCalibrate,
@@ -25,6 +26,7 @@ import {
   type CalibrateInput,
 } from "../src/tools/calibrate.ts";
 import { HARNESS_TOOLS } from "../src/tools/registry.ts";
+import { runGate, SCHEMA_VERSION } from "../src/tools/gate.ts";
 import {
   CALIBRATE_INPUT_SCHEMA,
   CALIBRATE_OUTPUT_SCHEMA,
@@ -63,7 +65,7 @@ test("calibrate_hand_rolled_split_conformal_oracle", () => {
 
 // Test — verdict summary (a delivery aid for text-only MCP clients, NOT a 4th carrier): the calibrate
 // tool's content text LEADS with the K-1 honesty label (carrier 2/3, unchanged) and then carries a FACTUAL
-// summary DERIVED from the SAME result — q̂ and a truncated set_digest on success (no `reason=`), and
+// summary DERIVED from the SAME result — q̂ and a truncated scores_sha256 on success (no `reason=`), and
 // `reason=under_calib` + `qhat=null` when the calibration is insufficient (so under_calib is visibly
 // distinct in the prose channel). Mutant that hardcodes the summary or drops `reason` on under_calib reds.
 test("calibrate_content_carries_verdict_summary", () => {
@@ -77,10 +79,10 @@ test("calibrate_content_carries_verdict_summary", () => {
   assert.ok(okText.startsWith(CALIBRATE_LABEL), "calibrate content leads with the K-1 honesty label (carrier 2/3)");
   assert.equal(
     calibrateVerdictSummary(okResult),
-    `verdict qhat=0.8 n=9 alpha=0.2 set_digest=${okResult.set_digest.slice(0, 8)}...${okResult.set_digest.slice(-6)}`,
+    `verdict qhat=0.8 n=9 alpha=0.2 scores_sha256=${okResult.scores_sha256.slice(0, 8)}...${okResult.scores_sha256.slice(-6)}`,
     "the summary is derived byte-for-byte from the result (hand value q̂=0.8, truncated digest)",
   );
-  assert.ok(okText.includes(`set_digest=${calibDigest(okScores).slice(0, 8)}`), "the wired content carries the truncated set_digest");
+  assert.ok(okText.includes(`scores_sha256=${scoresSha256(okScores).slice(0, 8)}`), "the wired content carries the truncated scores_sha256");
   assert.ok(!okText.includes("reason="), "a covered calibrate summary carries NO reason= (reason is null)");
 
   // Under-calibration: n=3 < nMin=5 ⇒ q̂=null, reason=under_calib ⇒ both surface in the text.
@@ -89,25 +91,27 @@ test("calibrate_content_carries_verdict_summary", () => {
   assert.ok(underText.includes("reason=under_calib"), "an under-calibrated summary surfaces reason=under_calib (visibly distinct from covered)");
 });
 
-// Test — B-7: `set_digest` IS `calibDigest(scores)` (imported, never re-implemented), and the whole
-// result is deterministic AND permutation-invariant (calibDigest sorts; splitQuantile sorts). Mutant:
-// re-implement the digest in calibrate.ts (or hash the unsorted bytes) ⇒ the equality/permutation reds.
-test("calibrate_set_digest_is_calibDigest_and_deterministic", () => {
+// Test — B-17: `scores_sha256` IS `scoresSha256(scores)` in the order given (imported, never re-implemented), and the
+// result is deterministic; a permutation keeps q̂ (splitQuantile sorts) but CHANGES the digest (contract 1.1.0: the
+// order is part of the identity). Mutant: hash the sorted scores in calibrate.ts ⇒ the permutation assertion reds.
+test("calibrate_scores_sha256_is_ordered_and_deterministic", () => {
   const scores = [0.5, 0.1, 0.9, 0.3, 0.7, 0.2, 0.8, 0.4, 0.6];
   const shuffled = [0.9, 0.8, 0.7, 0.6, 0.5, 0.4, 0.3, 0.2, 0.1];
   const a = runCalibrate({ scores, alpha: 0.2, nMin: 5 });
   const b = runCalibrate({ scores, alpha: 0.2, nMin: 5 });
   const c = runCalibrate({ scores: shuffled, alpha: 0.2, nMin: 5 });
 
-  // B-7 — the digest equals the imported calibDigest of the SAME scores (proves reuse, closes the C2 audit).
-  assert.equal(a.set_digest, calibDigest(scores), "set_digest === calibDigest(scores) (B-7 reuse)");
-  assert.match(a.set_digest, /^[0-9a-f]{64}$/, "set_digest is 64 lowercase hex");
+  // B-17 — the digest equals the imported scoresSha256 of the SAME scores, in the SAME order (closes the C2 audit).
+  assert.equal(a.scores_sha256, scoresSha256(scores), "scores_sha256 === scoresSha256(scores) (B-17 reuse)");
+  assert.match(a.scores_sha256, /^[0-9a-f]{64}$/, "scores_sha256 is 64 lowercase hex");
+  assert.notEqual(a.scores_sha256, calibDigest(scores), "scores_sha256 is not the sorted C5 digest of the provenance tool");
   // Determinism — same input ⇒ same q̂ and digest.
   assert.equal(a.qhat, b.qhat, "same input ⇒ same q̂");
-  assert.equal(a.set_digest, b.set_digest, "same input ⇒ same set_digest");
-  // Permutation-invariance — a shuffle of the SAME multiset ⇒ same q̂ and same digest (both sort).
+  assert.equal(a.scores_sha256, b.scores_sha256, "same input ⇒ same scores_sha256");
+  // Permutation — a shuffle of the SAME multiset ⇒ same q̂, another digest (the order is identified).
   assert.equal(c.qhat, a.qhat, "a permutation of the scores yields the same q̂");
-  assert.equal(c.set_digest, a.set_digest, "a permutation of the scores yields the same set_digest");
+  assert.notEqual(c.scores_sha256, a.scores_sha256, "a permutation of the scores yields another scores_sha256");
+  assert.equal(c.scores_sha256, scoresSha256(shuffled), "the permuted digest is over the permuted order");
 });
 
 // Test — QUANTILE-INFINITE fail-closed (§3): p>n ⇒ under_calib, q̂:null, NEVER a clamped score. n=5,
@@ -119,7 +123,7 @@ test("calibrate_fails_closed_on_insufficient_calibration", () => {
   assert.equal(pOverN.qhat, null, "p>n ⇒ q̂ is null (NEVER clamped to the max score)");
   assert.equal(pOverN.reason, "under_calib", "p>n ⇒ reason under_calib");
   assert.equal(pOverN.n, 5, "n is still echoed on the fail-closed path");
-  assert.match(pOverN.set_digest, /^[0-9a-f]{64}$/, "a digest is still emitted on the fail-closed path");
+  assert.match(pOverN.scores_sha256, /^[0-9a-f]{64}$/, "a digest is still emitted on the fail-closed path");
 
   // n < nMin: also fail-closed under_calib.
   const underMin = runCalibrate({ scores: [0.1, 0.2, 0.3], alpha: 0.1, nMin: 50 });
@@ -194,14 +198,14 @@ test("calibrate_schema_shapes_match_the_adr", () => {
   assert.equal(CALIBRATE_OUTPUT_SCHEMA["additionalProperties"], false, "output is a closed envelope");
   assert.deepEqual(
     CALIBRATE_OUTPUT_SCHEMA["required"],
-    ["qhat", "n", "alpha", "method", "set_digest", "label", "reason"],
+    ["qhat", "n", "alpha", "method", "scores_sha256", "label", "reason"],
     "output requires the 7 D3 fields (reason present, M-5)",
   );
   const outProps = asObj(CALIBRATE_OUTPUT_SCHEMA["properties"], "output.properties");
   assert.deepEqual(asObj(outProps["qhat"], "output.qhat")["type"], ["number", "null"], "qhat is nullable (M-5)");
   assert.deepEqual(asObj(outProps["reason"], "output.reason")["type"], ["string", "null"], "reason is nullable");
   assert.equal(asObj(outProps["method"], "output.method")["const"], "split", "method is the const split");
-  assert.equal(asObj(outProps["set_digest"], "output.set_digest")["pattern"], "^[0-9a-f]{64}$", "set_digest is a 64-hex string");
+  assert.equal(asObj(outProps["scores_sha256"], "output.scores_sha256")["pattern"], "^[0-9a-f]{64}$", "scores_sha256 is a 64-hex string");
 });
 
 // Test — HONESTY (B-3 non-vacuity, §3): the harness vocab gate polices the overclaim verbs
@@ -254,4 +258,15 @@ test("calibrate_honesty_carriers_pass_the_negation_aware_vocab_gate", () => {
 // Test — the tool NAME is the expected literal (a stray rename would drift the registry/route set).
 test("calibrate_tool_name_is_calibrate", () => {
   assert.equal(CALIBRATE_TOOL_NAME, "calibrate", "the tool name is 'calibrate'");
+});
+
+// B-12 (ADR-CM): BYO and calibrate serve the exact split rank of String(alpha): (24; 0.44) -> rank 14 where the float rank
+// gave 15, the same q-hat in both answers (the audit loop). Second killer fired by hand: calibrate.ts:166, the float rank.
+// killer: apps/harness/src/tools/gate.ts:491 CONST "splitQuantileShortest(cal.scores, params.alpha, params.nMin)" -> "splitQuantile(cal.scores, params.alpha, params.nMin)"
+test("gate_byo_and_calibrate_use_the_exact_rank", () => {
+  const scores = Array.from({ length: 24 }, (_, i) => 24 - i);
+  const params = { remainingBudget: 0.1, bFloor: 0, tau: 1, tauInterval: 100, alpha: 0.44, nMin: 5, intent: 0, tool: "t", clockOpen: true, calibration: { scores, mode: "interval" as const } };
+  const d = runGate({ schema_version: SCHEMA_VERSION, task_class: "acme-model-x", yhat: 0, predictor_id: "acme:key", produced_at: "2026-09-04T00:00:00Z" }, params);
+  assert.deepEqual([d.verdict.qhat, d.verdict.region], [14, { kind: "interval", lo: -14, hi: 14 }], "BYO: rank 14");
+  assert.equal(runCalibrate({ scores, alpha: 0.44, nMin: 5 }).qhat, 14, "calibrate: rank 14");
 });
