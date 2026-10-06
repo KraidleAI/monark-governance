@@ -3,7 +3,7 @@
 // git tree, removed after the file) with injected wall and monotonic clocks: no network, no place, synthetic messages. A stop between a
 // frame and its index line is simulated by an injected file opener. Each test names, on the line above it, the production mutation that
 // reddens it (scripts/red-proof.mjs convention); every outcome is compared by assert, a named stop read as its code, never thrown.
-import { after, test } from "node:test";
+import { after, before, test } from "node:test";
 import assert from "node:assert/strict";
 import { existsSync, mkdtempSync, readFileSync, rmSync, statSync, truncateSync, writeFileSync } from "node:fs";
 import { open } from "node:fs/promises";
@@ -11,11 +11,11 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { checkTail, cidOf, INDEX_KEYS, openWriter, QUEUE_BOUND, readSegment, SegmentStop, segmentOf } from "../scripts/l2/segments.mjs";
 import type { SegmentFile, Tail, Writer, WriterIo } from "../scripts/l2/segments.mjs";
-
+import { keepCause } from "./helpers/keep-cause.ts";
 interface Rig { out: string; cid: string; w: Writer; stops: SegmentStop[]; at: (us: number, mono?: bigint) => void }
-
-const ROOT = mkdtempSync(join(tmpdir(), "l2-segments-"));
-after(() => { rmSync(ROOT, { recursive: true, force: true, maxRetries: 3 }); });
+keepCause("test/l2-segments.test.ts"); // a crash of this file names its cause on stdout, which the runner keeps (L2-KEEP-CAUSE-REST-1)
+let ROOT = ""; before(() => { ROOT = mkdtempSync(join(tmpdir(), "l2-segments-")); }); // fails: 6 named reds, not a silent file
+after(() => { if (ROOT !== "") rmSync(ROOT, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 }); });
 const LF = String.fromCharCode(10), HOUR_US = 3_600_000_000, BOUND = 8_388_608; // D24-3 and D24-4, written here, never imported
 const H21 = Date.UTC(2026, 9, 3, 21) * 1000; // 2026-10-03T21:00:00Z in microseconds, a synthetic hour
 const KEYS = ["rank", "offset", "length", "recv_us", "mono_ns"]; // plan section 3 point 18, written here, never imported

@@ -3,11 +3,11 @@
 // the recorder (FM-3.3). The eight cases of section 8.2 keep as assertions the facts that the plan measured on the prototype (L-3). The
 // global fetch and WebSocket of this file are tripwires (trap()): every client goes through an injected factory. Each test names, on
 // the line above it, the mutation of test/l2-fake-place.ts that reddens it (killer form of scripts/red-proof.mjs). Synthetic data only.
-import { after, test } from "node:test";
+import { after, before, test } from "node:test";
 import assert from "node:assert/strict";
 import { OP, startPlace, trap, viaFetch, viaWebSocket, type Peer, type Place } from "./l2-fake-place.ts";
-
-trap();
+import { keepCause } from "./helpers/keep-cause.ts";
+keepCause("test/l2-fake-place.test.ts"); before(() => { trap(); }); // a crash names its cause on stdout; a throw of trap(): 8 named reds (L2-KEEP-CAUSE-REST-1)
 const WS = "wss://stream.place.example", REST = "https://api.place.example"; // synthetic origins, allowed by the tests below
 const PATH = "/stream?streams=a@depth@100ms/a@bookTicker";
 const places: Place[] = [];
