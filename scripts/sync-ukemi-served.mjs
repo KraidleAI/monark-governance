@@ -37,7 +37,7 @@
 // read_at in the served file (no other byte) and both manifest entries. The default run at T0 (refused while
 // apps/site/data/harness-pending.json exists) PROMOTES: it writes only a served file equal to the pending snapshot on every
 // shared field, sets its entry, then removes the pending entry and file.
-import { existsSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, readFileSync, rmSync } from "node:fs";
 import { join, dirname, resolve } from "node:path";
 import { createHash } from "node:crypto";
 import { fileURLToPath } from "node:url";
@@ -56,7 +56,7 @@ import {
 } from "../apps/harness/src/tools/gate.ts";
 import { strateOf } from "../apps/harness/src/ukemi-strata.ts";
 import { lookupCommittedCalibration, UKEMI_LIQ_PREDICTOR_BASE } from "../apps/harness/src/calibration.ts";
-import { GATE_LIQ_BODY } from "./verify-harness.mjs";
+import { GATE_LIQ_BODY, writeAtomic } from "./verify-harness.mjs";
 import { handleJsonMirror } from "../apps/harness/src/http.ts";
 import { API_SERVER_URL } from "../apps/harness/src/openapi.ts";
 import { UKEMI_PENDING_REL, UKEMI_PENDING_SHARED } from "../apps/site/lib/ukemi-served-load.ts";
@@ -88,7 +88,7 @@ export const LIQ_CLAUSES = Object.freeze({
 const sha256 = (b) => createHash("sha256").update(b).digest("hex");
 const lf = (s) => s.replace(/\r\n/g, "\n");
 function fail(why) {
-  console.error(`sync-ukemi-served: FAIL-CLOSED — ${why}; nothing written.`);
+  console.error(`sync-ukemi-served: FAIL-CLOSED — ${why}${why.includes("; written: ") ? "" : "; nothing written"}.`);
   process.exit(1);
 }
 
@@ -295,14 +295,12 @@ async function main() {
       const drift = ukemiPendingDiff(out, JSON.parse(readFileSync(join(ROOT, PENDING_REL), "utf8")));
       if (drift.length > 0) throw new Error(`the served state differs from the pending snapshot on {${drift.join(", ")}}; nothing promoted`);
     }
-    manifest = setManifestEntry(readFileSync(join(ROOT, MANIFEST_REL), "utf8"), OUT_REL, fileSha);
-    if (promote) manifest = removeManifestEntry(manifest, PENDING_REL);
+    const manifestText = readFileSync(join(ROOT, MANIFEST_REL), "utf8");
+    manifest = promote ? promotedManifest(ROOT, manifestText, OUT_REL, fileSha, PENDING_REL) : setManifestEntry(manifestText, OUT_REL, fileSha);
+    applyWrites(ROOT, [[OUT_REL, text], [MANIFEST_REL, manifest]], promote ? PENDING_REL : null);
   } catch (e) {
     fail(e instanceof Error ? e.message : String(e));
   }
-  writeFileSync(join(ROOT, OUT_REL), text);
-  writeFileSync(join(ROOT, MANIFEST_REL), manifest);
-  if (promote) rmSync(join(ROOT, PENDING_REL));
   console.log(`sync-ukemi-served OK — ${OUT_REL} written (registry_state ${facts.registry_state}, verdict ${verdict.verdict_reason}, read ${readAt}); manifest entry set to ${fileSha}${promote ? `; the pending snapshot is promoted, ${PENDING_REL} and its manifest entry removed` : ""}`);
 }
 
@@ -315,9 +313,7 @@ export async function writeUkemiPending(root, writtenAt) {
   const marked = markPendingSince(readFileSync(join(root, OUT_REL), "utf8"), writtenAt.slice(0, 10));
   let manifest = setManifestEntry(readFileSync(join(root, MANIFEST_REL), "utf8"), PENDING_REL, pendingSha);
   manifest = setManifestEntry(manifest, OUT_REL, sha256(Buffer.from(lf(marked), "utf8")));
-  writeFileSync(join(root, PENDING_REL), text);
-  writeFileSync(join(root, OUT_REL), marked);
-  writeFileSync(join(root, MANIFEST_REL), manifest);
+  applyWrites(root, [[PENDING_REL, text], [OUT_REL, marked], [MANIFEST_REL, manifest]], null);
   return pendingSha;
 }
 
@@ -329,6 +325,30 @@ async function pendingMain() {
     fail(e instanceof Error ? e.message : String(e));
   }
   console.log(`sync-ukemi-served OK — ${PENDING_REL} written in process (a new written_at on every --pending), pending_since set in ${OUT_REL}; manifest entries set (${PENDING_REL} ${pendingSha})`);
+}
+
+/** The file operations of the syncs, swappable by a test to inject a failure (G2 N-4 of T0-TOOLING-1). An unlink is one
+ *  atomic operation, so the removal of a pending file needs no temp file. */
+export const IO = { write: writeAtomic, remove: (abs) => { rmSync(abs); } };
+/** Apply `writes` ([rel, text], in order, the manifest last), each through a temp file and a rename, then remove `remove` (a
+ *  rel, or null). A failure throws naming what was written and what was not; a rerun of the same sync resumes from there. */
+export function applyWrites(root, writes, remove) {
+  const steps = [...writes.map(([rel]) => rel), ...(remove ? [`the removal of ${remove}`] : [])], done = [];
+  try {
+    for (const [rel, text] of writes) { IO.write(join(root, rel), text); done.push(rel); }
+    if (remove) IO.remove(join(root, remove));
+  } catch (e) {
+    throw new Error(`${e instanceof Error ? e.message : String(e)}; written: ${done.join(", ") || "nothing"}; not done: ${steps.slice(done.length).join(", ")}; rerun the same command, it resumes`);
+  }
+}
+/** The manifest of a promotion: `servedRel` set to `sha`, the pending entry removed. RESUMABLE: a pending file whose entry is
+ *  already gone, beside a served file that carries no pending_since and matches its own entry, is a promotion interrupted after
+ *  its manifest write; the rerun keeps the manifest and removes the file. Anything else throws (removeManifestEntry names it). */
+export function promotedManifest(root, manifestText, servedRel, sha, pendingRel) {
+  const next = setManifestEntry(manifestText, servedRel, sha), files = JSON.parse(manifestText).files;
+  if (pendingRel in files) return removeManifestEntry(next, pendingRel);
+  const disk = readFileSync(join(root, servedRel), "utf8");
+  return !/"pending_since"/.test(disk) && files[servedRel] === sha256(Buffer.from(lf(disk), "utf8")) ? next : removeManifestEntry(next, pendingRel);
 }
 
 if (process.argv[1] !== undefined && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) await (process.argv.includes("--pending") ? pendingMain() : main());

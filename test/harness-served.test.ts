@@ -37,6 +37,7 @@ import type { VocabRule } from "../scripts/grep-forbidden.mjs";
 import ts from "typescript";
 import { pinsOf, repinText, PIN_TEST_REL, PINNED_FILES } from "../scripts/repin-served.mjs";
 import * as harnessSync from "../scripts/sync-harness-served.mjs";
+import * as ukemiSync from "../scripts/sync-ukemi-served.mjs";
 import { promotionBlocked, removeManifestEntry, setManifestEntry } from "../scripts/sync-ukemi-served.mjs";
 import { TOOL_ERROR_400_SCHEMA, TOOL_ERROR_500_SCHEMA, TOOL_OUTPUT_SCHEMA } from "../apps/harness/src/schema-projection.ts";
 import { renderedTexts } from "../apps/site/test/honesty-lint.ts";
@@ -518,7 +519,7 @@ test("harness_pages_keep_the_served_snapshot_while_pending", () => {
   }
 });
 
-// killer: scripts/sync-harness-served.mjs:267 ROR "=== pending.openapi_sha256" -> "!== pending.openapi_sha256"
+// killer: scripts/sync-harness-served.mjs:265 ROR "=== pending.openapi_sha256" -> "!== pending.openapi_sha256"
 test("harness_pending_sync_writes_in_process_shapes", async () => {
   // Typed by scripts/sync-harness-served.d.mts (Q-SP1-7, three declarations in C2).
   const sync = await import("../scripts/sync-harness-served.mjs");
@@ -540,7 +541,7 @@ test("harness_pending_sync_writes_in_process_shapes", async () => {
   }
 });
 
-// killer: scripts/sync-harness-served.mjs:266 CONST "SHAPES.filter" -> "Object.keys(pending).filter"
+// killer: scripts/sync-harness-served.mjs:264 CONST "SHAPES.filter" -> "Object.keys(pending).filter"
 test("harness_pending_promotion_compares_the_fixed_fields", async () => {
   // G2 m1: promotion compares the loader's fixed shared-field list (SHAPES), never the pending file's own keys, so a
   // hand-edited pending snapshot missing a field, carrying a foreign key or under another schema cannot promote.
@@ -752,7 +753,7 @@ const canonicalIn = (root: string): boolean => { const text = readFileSync(join(
 // T0-TOOLING-1 (review B-4): the promotion writes the manifest itself, in its canonical form: the served entry set to the
 // written file, the pending entry and file removed; the ukemi promotion then accepts that manifest. A served state that
 // drifts from the pending snapshot writes nothing. No network: the sync's write step runs on a staged root.
-// killer: scripts/sync-harness-served.mjs:198 SDL "  if (promoted) manifest = removeManifestEntry(manifest, PENDING_REL);" -> ""
+// killer: scripts/sync-ukemi-served.mjs:349 CONST "return removeManifestEntry(next, pendingRel);" -> "return next;"
 test("harness_sync_promotion_rewrites_the_manifest", () => {
   const writeServed = (harnessSync as Record<string, unknown>)["writeServed"] as typeof harnessSync.writeServed | undefined;
   assert.equal(typeof writeServed, "function", "scripts/sync-harness-served.mjs exports writeServed");
@@ -784,9 +785,82 @@ test("harness_sync_promotion_rewrites_the_manifest", () => {
   }
 });
 
+// G2 N-4 of T0-TOOLING-1: the promotion is crash-safe and resumable. A failure injected at each write (the served file, the
+// manifest, the removal of the pending file) throws naming what was written and what was not; the same call rerun, with no
+// hand edit, completes the promotion. A pending file without its entry beside a served file that still carries pending_since
+// is not an interrupted promotion: refused.
+// killer: scripts/sync-ukemi-served.mjs:351 CONST "!/\"pending_since\"/.test(disk) && " -> "true || "
+test("harness_sync_promotion_resumes_after_an_injected_failure", () => {
+  const sync = harnessSync as Record<string, unknown>, ukemiIo = (ukemiSync as Record<string, unknown>)["IO"] as { write: (a: string, t: string) => void; remove: (a: string) => void } | undefined;
+  assert.ok(ukemiIo !== undefined && typeof sync["writeServed"] === "function", "the syncs expose their file operations");
+  if (ukemiIo === undefined) return;
+  const writeServed = sync["writeServed"] as typeof harnessSync.writeServed, real = { ...ukemiIo };
+  const pending = currentPending(), servedNow = servedJson();
+  const shared = Object.fromEntries(Object.entries(pending).filter(([k]) => !["$comment", "schema", "written_at", "openapi_sha256"].includes(k)));
+  const next: Rec = { ...servedNow, ...shared, read_at: "2026-10-06T12:00:00.000Z", bodies_sha256: { ...(servedNow.bodies_sha256 as Rec), "/openapi.json": pending.openapi_sha256 } };
+  const ukemiPending = "apps/site/data/ukemi-pending.json", listed = (JSON.parse(read(MANIFEST_REL)) as { files: Record<string, string> }).files[ukemiPending] ?? "0".repeat(64);
+  const boom = (): never => { throw new Error("injected"); };
+  for (const [point, inject, written] of [
+    ["the served file", (): void => { ukemiIo.write = (a, t) => { if (a.endsWith("harness-served.json")) boom(); real.write(a, t); }; }, "written: nothing; not done: apps/site/data/harness-served.json, apps/site/data/manifest.sha256.json, the removal of apps/site/data/harness-pending.json"],
+    ["the manifest", (): void => { ukemiIo.write = (a, t) => { if (a.endsWith("manifest.sha256.json")) boom(); real.write(a, t); }; }, "written: apps/site/data/harness-served.json; not done: apps/site/data/manifest.sha256.json, the removal of"],
+    ["the removal", (): void => { ukemiIo.remove = boom; }, "written: apps/site/data/harness-served.json, apps/site/data/manifest.sha256.json; not done: the removal of apps/site/data/harness-pending.json"],
+  ] as const) {
+    const t = stageCanonical({ [HARNESS_SERVED_REL]: { ...servedNow, pending_since: "2026-10-04" }, [PENDING_REL]: pending });
+    try {
+      writeFileSync(join(t, MANIFEST_REL), setManifestEntry(readFileSync(join(t, MANIFEST_REL), "utf8"), ukemiPending, listed));
+      inject();
+      assert.throws(() => writeServed(t, next, null), (e: Error) => e.message.startsWith("injected; ") && e.message.includes(written) && e.message.endsWith("rerun the same command, it resumes"), `${point}: the failure names what was written`);
+      Object.assign(ukemiIo, real);
+      assert.deepEqual(writeServed(t, next, null), { sha: tmpSha(t, HARNESS_SERVED_REL), promoted: true }, `${point}: the rerun completes the promotion`);
+      const files = (JSON.parse(readFileSync(join(t, MANIFEST_REL), "utf8")) as { files: Record<string, string> }).files;
+      assert.ok(!existsSync(join(t, PENDING_REL)) && !(PENDING_REL in files) && files[HARNESS_SERVED_REL] === tmpSha(t, HARNESS_SERVED_REL), `${point}: promoted`);
+      assert.equal(loadHarnessServed(t).read_at, "2026-10-06T12:00:00.000Z", `${point}: the site loader accepts the result`);
+      assert.deepEqual(readdirSync(join(t, "apps/site/data")).filter((f) => f.endsWith(".tmp")), [], `${point}: no temp file left`);
+    } finally {
+      Object.assign(ukemiIo, real);
+      unstage(t);
+    }
+  }
+  const t = stageCanonical({ [HARNESS_SERVED_REL]: { ...servedNow, pending_since: "2026-10-04" }, [PENDING_REL]: pending });
+  try {
+    writeFileSync(join(t, MANIFEST_REL), removeManifestEntry(setManifestEntry(readFileSync(join(t, MANIFEST_REL), "utf8"), ukemiPending, listed), PENDING_REL));
+    assert.throws(() => writeServed(t, next, null), /has no entry in the manifest/, "a pending file without its entry beside an unpromoted served file is refused");
+  } finally {
+    unstage(t);
+  }
+});
+
+// Delta G2 of T0-TOOLING-1 (D-4): a pending file without its entry beside a served file that carries no pending_since but
+// does not match its own entry (a hand edit, not an interrupted promotion) is refused, nothing written; the same tree with
+// the entry matching the served file is taken as interrupted after its manifest write and completes.
+// killer: scripts/sync-ukemi-served.mjs:351 CONST "files[servedRel] === sha256(Buffer.from(lf(disk), \"utf8\"))" -> "true"
+test("harness_sync_promotion_refuses_a_hand_edited_served_file", () => {
+  const writeServed = (harnessSync as Record<string, unknown>)["writeServed"] as typeof harnessSync.writeServed;
+  const pending = currentPending(), servedNow = servedJson();
+  const shared = Object.fromEntries(Object.entries(pending).filter(([k]) => !["$comment", "schema", "written_at", "openapi_sha256"].includes(k)));
+  const next: Rec = { ...servedNow, ...shared, read_at: "2026-10-06T12:00:00.000Z", bodies_sha256: { ...(servedNow.bodies_sha256 as Rec), "/openapi.json": pending.openapi_sha256 } };
+  for (const [entry, refused] of [["0".repeat(64), true], [null, false]] as const) {
+    const t = stageCanonical({ [HARNESS_SERVED_REL]: servedNow, [PENDING_REL]: pending });
+    try {
+      const own = tmpSha(t, HARNESS_SERVED_REL);
+      writeFileSync(join(t, MANIFEST_REL), setManifestEntry(removeManifestEntry(setManifestEntry(readFileSync(join(t, MANIFEST_REL), "utf8"), "apps/site/data/ukemi-pending.json", "0".repeat(64)), PENDING_REL), HARNESS_SERVED_REL, entry ?? own));
+      const before = readFileSync(join(t, MANIFEST_REL), "utf8");
+      if (refused) {
+        assert.throws(() => writeServed(t, next, null), /has no entry in the manifest/, "a hand-edited served file is not an interrupted promotion");
+        assert.ok(readFileSync(join(t, MANIFEST_REL), "utf8") === before && existsSync(join(t, PENDING_REL)), "nothing written");
+      } else {
+        assert.doesNotThrow(() => writeServed(t, next, null), "an interruption after the manifest write completes");
+        assert.ok(!existsSync(join(t, PENDING_REL)), "the pending file goes");
+      }
+    } finally {
+      unstage(t);
+    }
+  }
+});
+
 // T0-TOOLING-1 (review B-4): --pending sets both manifest entries itself (the pending file's, and the served file's with its
 // new pending_since line), and the site loaders accept the result.
-// killer: scripts/sync-harness-served.mjs:298 CONST ", OUT_REL, lfSha(marked))" -> ", OUT_REL, lfSha(text))"
+// killer: scripts/sync-harness-served.mjs:296 CONST ", OUT_REL, lfSha(marked))" -> ", OUT_REL, lfSha(text))"
 test("harness_sync_pending_sets_both_manifest_entries", async () => {
   const writePending = (harnessSync as Record<string, unknown>)["writeHarnessPending"] as typeof harnessSync.writeHarnessPending | undefined;
   assert.equal(typeof writePending, "function", "scripts/sync-harness-served.mjs exports writeHarnessPending");

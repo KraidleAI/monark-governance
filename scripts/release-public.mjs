@@ -166,13 +166,13 @@ function preflight(opts) {
   const gitName = capture("git config user.name", SRC);
   const gitEmail = capture("git config user.email", SRC);
   if (!/@users\.noreply\.github\.com$/.test(gitEmail)) abort(`refusing to publish under a non-noreply identity: ${gitEmail}`);
+  // Pending snapshot, before any gh read (review m-c of the T0 acts): the kept set of this tree read as the export reads it, so
+  // a release (or a --dry-run) between C2 and T0 refuses here, before the long gates and the network, not at its export.
+  const sg = sendGuard(readSendBlockers());
+  if (!sg.ok) abort(`RELEASE-PREFLIGHT-SEND-GUARD-1 (SITE-SEND-GUARD-MECH-1): ${sg.reason}; no mirror release before T0. Release from the trunk once promoted at T0 (node scripts/sync-harness-served.mjs, then node scripts/sync-ukemi-served.mjs).`);
   requireGh();
   const vis = tryCapture(`gh api repos/${GOVERNANCE_SLUG} --jq .visibility`);
   if (!vis.ok || vis.out !== "private") abort(`${GOVERNANCE_SLUG} visibility reads '${vis.out}', not 'private' (CA-1.7).`);
-  // Pending snapshot, last: the kept set of this tree read as the export reads it, so a release (or a --dry-run) between C2
-  // and T0 refuses here, before the long gates, instead of at its export (lot C' 3c-4a, Q-CPA-1).
-  const sg = sendGuard(readSendBlockers());
-  if (!sg.ok) abort(`RELEASE-PREFLIGHT-SEND-GUARD-1 (SITE-SEND-GUARD-MECH-1): ${sg.reason}; no mirror release before T0. Release from the trunk once promoted at T0 (node scripts/sync-harness-served.mjs, then node scripts/sync-ukemi-served.mjs).`);
   return { message, mirror, gitName, gitEmail };
 }
 

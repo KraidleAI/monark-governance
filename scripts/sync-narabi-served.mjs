@@ -19,12 +19,12 @@
 // the CRLF->LF sha256 in apps/site/data/manifest.sha256.json (canonical form, before either write). The site reads the file through
 // apps/site/lib/narabi-served-load.ts (manifest check, closed shape, fail-closed); test/narabi-live.test.ts binds every
 // value again to its producer (the systemd units, the probe, the harness calibration and the served description).
-import { readFileSync, writeFileSync, existsSync } from "node:fs";
+import { readFileSync, existsSync } from "node:fs";
 import { join, dirname } from "node:path";
 import { createHash } from "node:crypto";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { DEADLINE_UTC } from "./probe-narabi.mjs";
-import { setManifestEntry, MANIFEST_REL } from "./sync-ukemi-served.mjs";
+import { setManifestEntry, applyWrites, MANIFEST_REL } from "./sync-ukemi-served.mjs";
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..");
 export const API_HOST = "https://api.monarkgate.tech";
@@ -36,7 +36,7 @@ const PROBE_TIMER_REL = "deploy/monark-probe.timer";
 const MAX_BYTES = 1024 * 1024; // the served document is ~20 kB
 const sha256 = (b) => createHash("sha256").update(b).digest("hex");
 const fail = (why) => {
-  console.error(`sync-narabi-served: FAIL-CLOSED — ${why}; nothing written.`);
+  console.error(`sync-narabi-served: FAIL-CLOSED — ${why}${why.includes("; written: ") ? "" : "; nothing written"}.`);
   process.exit(1);
 };
 
@@ -109,8 +109,8 @@ async function main() {
     old !== null &&
     JSON.stringify({ gate: old.gate, sentinel_timer: old.sentinel_timer, probe: old.probe }) === JSON.stringify(facts);
   if (check) {
-    if (!same) {
-      console.error(`sync-narabi-served --check: ${OUT_REL} no longer says what the sources say now; re-run without --check.`);
+    if (!same || narabiEntryFix(ROOT) !== null) {
+      console.error(`sync-narabi-served --check: ${same ? `the manifest entry of ${OUT_REL} is not its sha256` : `${OUT_REL} no longer says what the sources say now`}; re-run without --check.`);
       process.exit(1);
     }
     console.log(`sync-narabi-served --check OK — ${OUT_REL} equals the sources (served openapi sha256 ${facts.gate.openapi_sha256}).`);
@@ -130,11 +130,18 @@ async function main() {
 /** The manifest entry of the committed record under `root` set to the record's own sha256 when it differs (an interrupted or
  *  hand-edited manifest); true when it wrote. */
 export function repairNarabiEntry(root) {
+  const next = narabiEntryFix(root);
+  if (next === null) return false;
+  applyWrites(root, [[MANIFEST_REL, next]], null);
+  return true;
+}
+
+/** The manifest text with the record's entry set to the record's own sha256, or null when the entry is right (reads only);
+ *  --check exits 1 on a non-null answer (delta G2 D-3). */
+export function narabiEntryFix(root) {
   const sha = sha256(Buffer.from(readFileSync(join(root, OUT_REL), "utf8").replace(/\r\n/g, "\n"), "utf8"));
   const text = readFileSync(join(root, MANIFEST_REL), "utf8"), next = setManifestEntry(text, OUT_REL, sha);
-  if (next === text) return false;
-  writeFileSync(join(root, MANIFEST_REL), next);
-  return true;
+  return next === text ? null : next;
 }
 
 /** Write the record of `facts` under `root` and set its manifest entry, the manifest text computed first (throws, writing nothing). */
@@ -142,8 +149,7 @@ export function writeNarabiServed(root, facts, readAt) {
   const text = JSON.stringify({ $comment: COMMENT, schema: "monark-site-narabi-served-v1", read_at: readAt, ...facts }, null, 2) + "\n";
   const sha = sha256(Buffer.from(text.replace(/\r\n/g, "\n"), "utf8"));
   const manifest = setManifestEntry(readFileSync(join(root, MANIFEST_REL), "utf8"), OUT_REL, sha);
-  writeFileSync(join(root, OUT_REL), text);
-  writeFileSync(join(root, MANIFEST_REL), manifest);
+  applyWrites(root, [[OUT_REL, text], [MANIFEST_REL, manifest]], null);
   return sha;
 }
 

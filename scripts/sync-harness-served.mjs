@@ -32,7 +32,7 @@
 //    refuses to write unless the new served snapshot equals it on every shared field and the /openapi.json sha256, then
 //    writes the served file (no pending_since), sets its manifest entry, removes the pending entry, then the pending file.
 // Every check and the manifest text are computed before the first write. Then: node scripts/repin-served.mjs.
-import { existsSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { join, dirname, resolve } from "node:path";
 import { createHash } from "node:crypto";
 import { fileURLToPath } from "node:url";
@@ -48,7 +48,7 @@ import { SHAPES, stripRefs } from "../apps/site/lib/harness-served-load.ts";
 // The deploy check's request bodies, imported (never a copy), so they cannot drift before deployment (G2 of CM-2b surfaces, M2):
 // each served response hashes to the sha256 the committed check recorded.
 import { GATE_BODY, GATE_LIQ_BODY, CALIBRATE_BODY, CASCADE_BODY } from "./verify-harness.mjs";
-import { setManifestEntry, removeManifestEntry, MANIFEST_REL } from "./sync-ukemi-served.mjs";
+import { setManifestEntry, promotedManifest, applyWrites, MANIFEST_REL } from "./sync-ukemi-served.mjs";
 import { handleJsonMirror } from "../apps/harness/src/http.ts";
 import { HARNESS_TOOLS } from "../apps/harness/src/tools/registry.ts";
 import { API_SERVER_URL } from "../apps/harness/src/openapi.ts";
@@ -61,7 +61,7 @@ const REGISTRY = "https://registry.modelcontextprotocol.io/v0/servers?search=tec
 const MAX_BYTES = 1024 * 1024;
 const sha256 = (s) => createHash("sha256").update(s).digest("hex");
 const lfSha = (text) => sha256(Buffer.from(text.replace(/\r\n/g, "\n"), "utf8"));
-const fail = (why) => { console.error(`sync-harness-served: FAIL-CLOSED — ${why}; nothing written.`); process.exit(1); };
+const fail = (why) => { console.error(`sync-harness-served: FAIL-CLOSED — ${why}${why.includes("; written: ") ? "" : "; nothing written"}.`); process.exit(1); };
 const need = (ok, why) => { if (!ok) fail(why); };
 const sameSet = (a, b) => a.length === b.length && [...a].sort().join(",") === [...b].sort().join(",");
 
@@ -194,11 +194,9 @@ export function writeServed(root, out, exempt) {
     if (drift.length > 0) throw new Error(`the served harness differs from the pending snapshot on {${drift.join(", ")}}; nothing promoted`);
   }
   const text = snapshotText(out, exempt), sha = lfSha(text);
-  let manifest = setManifestEntry(readFileSync(join(root, MANIFEST_REL), "utf8"), OUT_REL, sha);
-  if (promoted) manifest = removeManifestEntry(manifest, PENDING_REL);
-  writeFileSync(join(root, OUT_REL), text);
-  writeFileSync(join(root, MANIFEST_REL), manifest);
-  if (promoted) rmSync(join(root, PENDING_REL));
+  const manifestText = readFileSync(join(root, MANIFEST_REL), "utf8");
+  const manifest = promoted ? promotedManifest(root, manifestText, OUT_REL, sha, PENDING_REL) : setManifestEntry(manifestText, OUT_REL, sha);
+  applyWrites(root, [[OUT_REL, text], [MANIFEST_REL, manifest]], promoted ? PENDING_REL : null);
   return { sha, promoted };
 }
 
@@ -296,9 +294,7 @@ export async function writeHarnessPending(root, writtenAt) {
   const text = snapshotText(await inProcessPending(writtenAt), null);
   const marked = markPendingSince(readFileSync(join(root, OUT_REL), "utf8"), writtenAt.slice(0, 10));
   const manifest = setManifestEntry(setManifestEntry(readFileSync(join(root, MANIFEST_REL), "utf8"), PENDING_REL, lfSha(text)), OUT_REL, lfSha(marked));
-  writeFileSync(join(root, PENDING_REL), text);
-  writeFileSync(join(root, OUT_REL), marked);
-  writeFileSync(join(root, MANIFEST_REL), manifest);
+  applyWrites(root, [[PENDING_REL, text], [OUT_REL, marked], [MANIFEST_REL, manifest]], null);
   return lfSha(text);
 }
 
