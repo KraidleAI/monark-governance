@@ -27,3 +27,5 @@ export function writeServed(root: string, out: Record<string, unknown>, exempt: 
 export function writeHarnessPending(root: string, writtenAt: string): Promise<string>;
 /** The committed deploy check record the sync binds every body to. */
 export const CA_REL: string;
+/** The pending snapshot the default run promotes. */
+export const PENDING_REL: string;

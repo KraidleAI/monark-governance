@@ -199,9 +199,9 @@ test("srf_runbook_harness_names_every_check — the 15 checks of the script, eac
 // killer: docs/RUNBOOK-vitrine.md:47 CONST " docs/JOURNAL-PROVENANCE.md apps/site/data/harness-served.json" -> " apps/site/data/harness-served.json"
 test("srf_runbook_vitrine_t0_order — deploy, green CA, harness, Narabi and ukemi syncs, re-pin, site, spec, release", async () => {
   const harness = await import("../scripts/sync-harness-served.mjs"), ukemi = await import("../scripts/sync-ukemi-served.mjs");
-  const narabi = (await import("../scripts/sync-narabi-served.mjs")) as unknown as { OUT_REL: string };
+  const narabi = (await import(new URL("../scripts/sync-narabi-served.mjs", import.meta.url).href)) as { OUT_REL: string };
   const { PIN_TEST_REL } = await import("../scripts/repin-served.mjs");
-  const { parseArgs } = (await import("../scripts/verify-harness.mjs")) as unknown as { parseArgs: (a: string[]) => { out: string | null } };
+  const { parseArgs } = (await import(new URL("../scripts/verify-harness.mjs", import.meta.url).href)) as { parseArgs: (a: string[]) => { out: string | null } };
   const text = read("docs", "RUNBOOK-vitrine.md");
   const at = text.indexOf("\n## Ordre de T0");
   assert.ok(at > 0, "the runbook carries the T0 section");
