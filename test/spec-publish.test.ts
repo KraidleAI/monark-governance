@@ -240,6 +240,8 @@ test("the_producer_never_publishes_its_git_commands_are_reads_only_and_it_writes
   assert.deepEqual([...src.matchAll(/git\(\w+, \["([\w-]+)"/g)].map((x) => x[1]), ["rev-parse", "status", "ls-files", "rev-parse"]);
   assert.deepEqual([src.match(/spawnSync\("git"/g)?.length, src.match(/spawnSync\(/g)?.length, src.match(/writeFileSync\(/g)?.length], [1, 1, 1]);
   assert.deepEqual([...src.matchAll(/execFileSync\("git", \[([^\]]*)\]/g)].map((x) => x[1]), ['"-C", dir, "cat-file", "blob", `${commit}:${path}`'], "the one object read: cat-file blob, no shell, no filter");
+  assert.deepEqual(src.match(/GIT_NO_REPLACE_OBJECTS: "1"/g)?.length, 1, "one git environment, replace objects ignored (G2 F-1)");
+  assert.equal(src.match(/env: GIT_ENV/g)?.length, 2, "both git runners take it");
   assert.ok(!/fetch\(|node:https?"|node:net"/.test(src), "no network");
 });
 
@@ -275,4 +277,42 @@ test("previous_entries_are_read_from_the_pinned_commit_not_the_working_tree", as
   assert.deepEqual(published(), lf, "a working-tree edit is ignored");
   const ghost = at(w.head, [...(w.inputs.releases.v?.entries ?? []), { out: "reports/ghost.md", root: "previous", path: "reports/ghost.md", kind: "text", sha256: sha(NOTE) }]);
   assert.ok(published(ghost).problems.includes("previous_blob_missing"), "a path absent from the commit is named");
+  const detail = m.plan({ inputs: ghost, release: "v", date: "2026-10-02", roots: w.roots }).problems.find((x) => x.code === "previous_blob_missing")?.detail ?? "";
+  assert.match(detail, /reports\/ghost\.md.*does not exist/, "the refusal carries git's own reason (G2 F-4)");
+});
+
+// G2 of T0-FOLLOWUP-1 (F-1, F-2, F-3): a published contract-*/ file is compared with its committed object. A carried file stays
+// equal on a CRLF checkout and under a working-tree edit hidden from status; a replace object (refs/replace) does not hide a
+// rewrite; an object git cannot read as a blob (a gitlink) is refused by name, never compared with empty bytes.
+// killer: scripts/spec-publish.mjs:206 CONST "blob(prev, rel.previous_commit, p)" -> "{ bytes: readFileSync(join(prev, p)), why: \"\" }"
+test("a_published_contract_file_is_compared_with_its_committed_object", async () => {
+  const m = await api(), T = "# T\n", T2 = "# T2\n";
+  const plan = (w: ReturnType<typeof world>, inputs: Inputs): string[] => codes(m.plan({ inputs, release: "v", date: "2026-10-02", roots: w.roots }).problems);
+  const withContract = (from: "previous" | "recherches"): { w: ReturnType<typeof world>; inputs: Inputs } => {
+    const w = world(), p = w.roots.previous;
+    put(p, "contract-1.0.0/t.md", T); put(w.roots.recherches, "kata/t2.md", T2);
+    const head = commit(p), entry = from === "previous" ? { out: "contract-1.0.0/t.md", root: "previous" as const, path: "contract-1.0.0/t.md", kind: "text" as const, sha256: sha(T) }
+      : { out: "contract-1.0.0/t.md", root: "recherches" as const, path: "kata/t2.md", kind: "text" as const, sha256: sha(T2) };
+    return { w, inputs: at(head, [...(w.inputs.releases.v?.entries ?? []), entry]) };
+  };
+  const carried = withContract("previous"), p = carried.w.roots.previous;
+  git(p, "config", "core.autocrlf", "true");
+  rmSync(join(p, "contract-1.0.0/t.md")); git(p, "checkout", "--", ".");
+  assert.ok(readFileSync(join(p, "contract-1.0.0/t.md"), "utf8").includes("\r\n") && git(p, "status", "--porcelain") === "", "premise: a clean CRLF checkout");
+  assert.deepEqual(plan(carried.w, carried.inputs), [], "a carried contract file on a CRLF checkout is not rewritten");
+  git(p, "update-index", "--assume-unchanged", "contract-1.0.0/t.md"); writeFileSync(join(p, "contract-1.0.0/t.md"), "# Edited\n");
+  assert.deepEqual(plan(carried.w, carried.inputs), [], "a hidden working-tree edit is ignored");
+  const changed = withContract("recherches"), q = changed.w.roots.previous;
+  assert.deepEqual(plan(changed.w, changed.inputs), ["rewritten"], "premise: a new content is a rewrite");
+  const old = git(q, "rev-parse", "HEAD:contract-1.0.0/t.md"), now = git(changed.w.roots.recherches, "hash-object", "kata/t2.md");
+  git(q, "hash-object", "-w", join(changed.w.roots.recherches, "kata/t2.md")); git(q, "replace", old, now);
+  assert.equal(git(q, "cat-file", "blob", "HEAD:contract-1.0.0/t.md"), T2.trim(), "premise: git honours the replace object");
+  assert.deepEqual(plan(changed.w, changed.inputs), ["rewritten"], "a replace object does not hide the rewrite");
+  const linked = withContract("recherches"), r = linked.w.roots.previous;
+  git(r, "rm", "-q", "--cached", "contract-1.0.0/t.md"); rmSync(join(r, "contract-1.0.0/t.md"));
+  git(r, "update-index", "--add", "--cacheinfo", `160000,${git(r, "rev-parse", "HEAD")},contract-1.0.0/t.md`); git(r, "commit", "-qm", "gitlink");
+  const head = git(r, "rev-parse", "HEAD");
+  put(linked.w.roots.recherches, "kata/t2.md", ""); // an empty file where the published tree holds a gitlink
+  const inputs = at(head, (linked.inputs.releases.v?.entries ?? []).map((e) => (e.out === "contract-1.0.0/t.md" ? { ...e, sha256: sha("") } : e)));
+  assert.ok(plan(linked.w, inputs).includes("previous_blob_missing"), "an unreadable published object is refused by name, never read as empty");
 });

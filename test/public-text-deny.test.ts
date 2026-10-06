@@ -234,3 +234,17 @@ test("template_markers_follow_the_committed_template", async () => {
   assert.deepEqual(v.filter((x) => x.rule !== "ph"), [], "the template passes every other rule of the notes gate");
   assert.deepEqual([...new Set(v.map((x) => x.word))].sort(), ["{OPENAPI_SHA256}", "{SPEC_URL}", "{T0}"], "ph names exactly its markers");
 });
+
+// killer: docs/public-notes/TEMPLATE.md:5 CONST "is at {SPEC_URL}." -> "is at the spec repository."
+test("public_text_gate_ph_refuses_a_template_variable_spec_url — ${SPEC_URL} is the specification marker (G2 F-6)", () => {
+  assert.deepEqual(phWords("The specification is at ${SPEC_URL}, home ${HOME}"), each(["${SPEC_URL}"]));
+});
+
+// G2 F-5 of T0-FOLLOWUP-1: the derivation reads markers with the placeholder rule's own shape (inner spaces, hyphens), and a
+// template with no marker is refused by name, at import, instead of silently emptying the variable form.
+// killer: scripts/public-text-deny.mjs:132 SDL "  if (names.length === 0) throw new Error(`${TEMPLATE_REL} has no marker`);" -> ""
+test("template_markers_take_the_placeholder_shape_and_never_come_out_empty", async () => {
+  const derive = ((await import("../scripts/public-text-deny.mjs")) as Record<string, unknown>)["templateMarkers"] as (text: string) => string[];
+  assert.deepEqual(derive("Since { T0 }, document {OPENAPI-SHA256}, again {T0}."), ["T0", "OPENAPI-SHA256"], "the placeholder shape derives");
+  assert.throws(() => derive("A template with no marker.\n"), /docs\/public-notes\/TEMPLATE\.md has no marker/, "an empty list is refused by name");
+});
