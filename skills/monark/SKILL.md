@@ -17,7 +17,7 @@ outcome. This skill is a reference implementation of a coverage-controlled gate;
 The real path is **bring your own**: you own the predictor and the nonconformity score function.
 `calibrate` turns YOUR nonconformity scores into a split-conformal region; `gate` then returns a
 coverage verdict on YOUR next prediction under that region. MONARK stores nothing between calls, and
-the audit `calibrate` to `gate` closes when the verdict's `calib_digest` equals your score-set digest.
+the audit `calibrate` to `gate` closes when the verdict's `scores_sha256`, `alpha` and `qhat` equal those of `calibrate`.
 
 ### `calibrate` - the honesty label (verbatim)
 

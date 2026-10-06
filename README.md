@@ -325,7 +325,7 @@ npm run ci   # vocabulary gate → typecheck (tsc strict) → tests (node:test)
 
 ```
 schemas/            JSON Schema — the language-neutral source of truth (closed)
-packages/contracts  TS binding: types, closed-check, forbidden-keys, calib_digest, serializers, tests
+packages/contracts  TS binding: types, closed-check, forbidden-keys, scores_sha256, serializers, tests
 packages/hikae      HAC-CP engine: L1 split / L2 monitor / L3 gate, interval conformer  (built)
 packages/ukemi      liquidation-cascade survival: clearing, liquidable                  (built)
 packages/monark     integration adapters: Shōgen→AttestedPrice, Narabi AttestedFlow→Prediction; canonical CBOR

@@ -43,7 +43,7 @@ export interface UkemiServedVerdict {
   calibration_points: number;
   /** The served bound margin as an exact base-currency integer string, or null (under_calib). */
   bound_margin_base: string | null;
-  /** The served calibration digest of the stratum. */
+  /** The served scores digest of the stratum. */
   calibration_digest: string;
   /** Smallest calibration count for which the conformal rank at the served alpha is below that count (interior). */
   interior_rank_min_n: number;

@@ -62,7 +62,7 @@ step 7 is the refusal `task_class_retired` (400, MCP `isError`): the attest → 
   the gate abstains. That abstention is the honest, expected result — the demonstration's whole point.
 - **committed USDe key (step 5, `committed-gate`) = `commit` / `covered`.** The `stable-run-velocity-24h`
   calibration of the USDe key is measured (calm-window redemption flow, non-stationary across half-years; no coverage
-  is measured), `calib_digest` `c9793b28…`; alpha and nMin are imposed by the server. Until 2026-10-04 this step was
+  is measured), `scores_sha256` `e44a68b6…`; alpha and nMin are imposed by the server. Until 2026-10-04 this step was
   `btc-dir-15m` over a synthetic plumbing fixture; that class is retired (CM-2b).
 - **attest = demonstrative, not probative.** A projection of ONE committed, previously Shōgen-verified
   witness (Binance BTCUSDT, self-notarised); the verifier is not executed at call time.
@@ -127,7 +127,7 @@ response to equal an INDEPENDENT recompute:
 - `gate` with a perturbed `B_t=0.4242` ⇒ `remaining_budget=0.4242` (echo), so a frozen constant reds;
 - `attest.sens_emis_digest` == the digest read straight from `s3-binance.constat.json`
   (`empreinte_sent_revele_sha256`), so a mock digest reds;
-- the committed `verdict.calib_digest` == the USDe committed calibration digest.
+- the committed `verdict.scores_sha256` == the USDe committed scores digest.
 
 ## Reproduce
 

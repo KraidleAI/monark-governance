@@ -165,14 +165,14 @@ node scripts/verify-harness.mjs --out docs/deploy-CA-harness.json
 It checks: `/health` and `/openapi.json` live; a present-and-invalid `Origin` → `403` on both hosts; the
 MCP `tools/list` returns the four tools (SET EQUALITY, not subset — B-2); a real `gate`, `cascade`,
 `attest`, and `calibrate` call; a **`gate_byo_call`** (Lot C2, ADR-M007 D7) that reuses the `calibrate`
-call's scores as `params.calibration` and asserts the live decision's `verdict.calib_digest` equals the
-live `calibrate` `set_digest` AND `action === "commit"` — proving the BYO loop end-to-end; three checks of the
+call's scores as `params.calibration` and asserts the live decision's `verdict.scores_sha256` equals the
+live `calibrate` `scores_sha256` AND `action === "commit"` — proving the BYO loop end-to-end; three checks of the
 `liquidation-eligible-coverage` class on the **COMMITTED** liq registry (U-4b-2b, ADR-U4b-2b D4; they replaced the
 two empty-registry checks of HARNESS-DESC-1):
 - **`gate_liq_call`** POSTs a decision whose `yhat` lies in the committed stratum s0 (alpha 0.01, nMin 100, the body
   unchanged since HARNESS-DESC-1) and asserts `200`, `verdict.reason === "covered"`, the upper bound
   `verdict.region = { kind: "interval", lo: 0, hi: yhat + verdict.qhat }` with `verdict.qhat > 0` (read from the
-  verdict, never typed), `verdict.n_calib` = the committed stratum size and `verdict.calib_digest` = its C5 digest
+  verdict, never typed), `verdict.n_calib` = the committed stratum size and `verdict.scores_sha256` = its pinned digest
   (both fixed by value in the script, equal to `apps/harness/src/calibration.ts` by test), and the committed class text
   in `content`, never the empty-registry sentence. The TOP-LEVEL `action` / `reason` are recorded in the detail next to
   `verdict.reason` (under this body's `tauInterval 1` and open clock, L3 answers `defer` / `interval_too_wide`); they
