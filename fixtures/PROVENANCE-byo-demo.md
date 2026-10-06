@@ -22,8 +22,8 @@ and drives a real `initialize`, then two `tools/call` JSON-RPC requests over the
 transport (the response is framed as `text/event-stream`), NOT `tool.run()` calls:
 
 1. **`calibrate`** — a fictitious third-party caller's OWN nonconformity scores `[0.1..1.0]` (n=10) at
-   miscoverage α=0.1, nMin=5. MONARK returns the split-conformal quantile `qhat` and a `set_digest`
-   over exactly those scores. The scores are ILLUSTRATIVE (not measured) and name no asset.
+   miscoverage α=0.1, nMin=5. MONARK returns the split-conformal quantile `qhat` and a `scores_sha256`
+   over exactly those scores, in the order sent. The scores are ILLUSTRATIVE (not measured) and name no asset.
 2. **`gate`** — the caller's OWN prediction (ŷ=0, a caller-owned `task_class` `caller-demo-reg`, never
    a committed class) with `params.calibration` = the SAME scores in `interval` mode. The gate
    conformalizes against THOSE caller-supplied scores (BYO) and returns a covered `commit`.
@@ -34,8 +34,8 @@ transport (the response is framed as `text/event-stream`), NOT `tool.run()` call
 - **gate: `commit` / `covered`.** Region `[ŷ−q̂, ŷ+q̂] = [−1, 1]`; width 2 < `tauInterval` 3 and the
   intent 0 lies in `[−1, 1]` ⇒ a clear commit (visible margin). `allow` is a coverage verdict on the
   caller's prediction, NOT permission to execute the named tool; the gate never calls the named tool.
-- **the audit closes.** The gate verdict's `calib_digest` equals the calibrate `set_digest`
-  (`4081f718…`) over the same scores.
+- **the audit closes.** The gate verdict's `scores_sha256` equals the calibrate `scores_sha256`
+  (`3e12ae9e…`) over the same scores, with the same `alpha` and `qhat`.
 - **B_t is caller-carried.** `remainingBudget` (0.1) enters as a gate parameter and the SAME value
   leaves as `remaining_budget`. The stateless server does NOT deplete it, sees no asset, and stores
   nothing between the two calls.
@@ -71,8 +71,8 @@ and are re-asserted by `test/byo-demo-probe.test.ts`.
 demo values — proves the audit tie THREE independent ways and drives TEST-CHOSEN PERTURBED inputs that
 are NOT in this trace over the same wire seam (`byoToolsCall`):
 
-- the audit tie `gate.verdict.calib_digest == calibrate.set_digest` is also checked against
-  `runCalibrate(scores).set_digest` recomputed from the raw scores;
+- the audit tie `gate.verdict.scores_sha256 == calibrate.scores_sha256` is also checked against
+  `runCalibrate(scores).scores_sha256` recomputed from the raw scores;
 - q̂ and the region `[−1, 1]` are checked against a HAND-ROLLED conformal quantile (p-th smallest by
   repeated min-extraction, ≠ production `splitQuantile`);
 - `calibrate` at a perturbed α=0.5 ⇒ q̂=0.6 (the demo holds only q̂=1.0), so a frozen/mock trace reds;

@@ -33,3 +33,4 @@ Ligne datée 2026-10-03 09:1x UTC (orchestrateur, item RUNBOOK-VITRINE-TAR-ORDER
   porte `pending_since` (échec fermé sur un fichier illisible ; aucun drapeau de contournement ; `--check` n est pas gardé).
   `release-public` passe par `--out` : de C2 à T0, il est bloqué aussi en `--dry-run`, et son refus ne tombe qu après les portes locales
   complètes (environ 15 min). La promotion à T0 lève la garde d elle-même.
+- (2026-10-06, SURFACES-1-1-0) Depuis #181 (RELEASE-PREFLIGHT-SEND-GUARD-1), le refus de `release-public`, `--dry-run` compris, tombe au pré-vol, avant toute porte locale (`scripts/release-public.mjs`, `preflight`) : la durée de l entrée précédente ne vaut plus.

@@ -15,7 +15,7 @@ export interface UkemiServedFigures {
   points: string;
   /** The bound margin as the report prints it for the stratum (display.strata_qhat of that stratum). */
   boundMargin: string;
-  /** The served calibration digest of the stratum (liq_verdict.calibration_digest). */
+  /** The served scores digest of the stratum (liq_verdict.calibration_digest). */
   digest: string;
   /** The day the served verdict was read (the ISO date of read_at). */
   readDate: string;

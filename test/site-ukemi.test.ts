@@ -1031,7 +1031,7 @@ function goldenCourseView(raw: Json, served: Json): CourseView {
     if (served.registry_state === "committed" && lv !== null && lv.verdict_reason === "covered" && lv.stratum === s.strate && lv.calibration_points === fresh.n &&
       lv.bound_margin_base === fresh.qhat && fresh.qhat_is_max === true && fresh.p === fresh.n) {
       reading.push(
-        `Stratum ${k} is committed and served: the served verdict read at ${S(served.read_at, "read_at")} carries ${I(lv.calibration_points, "liq_verdict.calibration_points")} calibration points, fewer than the ${I(lv.interior_rank_min_n, "liq_verdict.interior_rank_min_n")} an interior quantile rank needs at the served level, so the quantile rank equals the number of calibration points (${rank} of ${n}) and the served bound margin, ${margin}, is the largest calibration score observed, reported as is. The served upper bound for a prediction in this stratum is the prediction plus this margin; served calibration digest ${S(lv.calibration_digest, "liq_verdict.calibration_digest")}.`,
+        `Stratum ${k} is committed and served: the served verdict read at ${S(served.read_at, "read_at")} carries ${I(lv.calibration_points, "liq_verdict.calibration_points")} calibration points, fewer than the ${I(lv.interior_rank_min_n, "liq_verdict.interior_rank_min_n")} an interior quantile rank needs at the served level, so the quantile rank equals the number of calibration points (${rank} of ${n}) and the served bound margin, ${margin}, is the largest calibration score observed, reported as is. The served upper bound for a prediction in this stratum is the prediction plus this margin; served scores digest ${S(lv.calibration_digest, "liq_verdict.calibration_digest")}.`,
       );
       continue;
     }
