@@ -78,7 +78,7 @@ La convention de `scripts/red-proof.mjs` interdit un tueur dans un `*.test.ts` :
 ### Autres contrôles
 
 - **Ancres** : `verifie-ancres.mjs . --touched ec0e023d HEAD` : **41 tueurs, 41 ANCRE, 0 DERIVE, 0 PERDU**.
-- **R-25** (`scripts/oracle/r25.mjs`, base `origin/base/chantier-moteur-2026-10-03`) : voir le rapport final du lot (tête avec docs) ; sans les docs, tests +51/−19 (70 lignes), sous la borne demandée de 547 et celle de la CI (1205).
+- **R-25** (`scripts/oracle/r25.mjs`, base `origin/base/chantier-moteur-2026-10-03`, tête avec les docs) : STAT +51/−19, **70 lignes** (les docs ne comptent pas), sous la borne demandée de 547 et celle de la CI (1205) ; CONTENT_STAT 0 ; GREEN.
 - **Fichiers L2** : `node --test --test-force-exit test/l2-*.test.ts test/keep-cause.test.ts` : **222 sur 222**, aucune ligne `# keep-cause`, aucun dossier `l2-*` laissé.
 - **Charge** : `keep-cause` et les 4 fichiers, 12 en parallèle, 3 tours : **0 rouge sur 36**.
 - **`npm run test:main`** :
