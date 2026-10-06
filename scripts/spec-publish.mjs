@@ -16,7 +16,8 @@
 // input_not_file, input_digest, not_text, crlf, vocabulary, json_invalid, schema_invalid, policy_table_invalid, not_canonical (a policy
 // table file must be its own canonical writing, so its sha256 is its policy_table_sha256), recompute_held, short_digest (tableRowProblems),
 // policy_table_kind, version_dir_invalid, previous_commit, previous_dirty, withdrawn (a file of the previous tree the release drops),
-// rewritten (a file under contract-*/ of the previous tree the release changes), added_to_published (a new file under it); then out_not_empty, out_parent_missing, out_in_git_tree, write_failed. --verify
+// rewritten (a file under contract-*/ of the previous tree the release changes), added_to_published (a new file under it),
+// foreign_version_dir (a new version directory other than the release's own); then out_not_empty, out_parent_missing, out_in_git_tree, write_failed. --verify
 // <dir> then compares --out with <dir> (.git ignored): exit 0 iff the same paths with the same bytes. Exit 2: usage.
 import { spawnSync } from "node:child_process";
 import { createHash } from "node:crypto";
@@ -114,11 +115,20 @@ export function vocabularyHits(text, withheld = WITHHELD) {
 
 const strings = (v) => (typeof v === "string" ? [v] : v !== null && typeof v === "object" ? Object.entries(v).flatMap(([k, x]) => [...(Array.isArray(v) ? [] : [k]), ...strings(x)]) : []);
 
-/** A version directory: contract-<major>.<minor>.<patch>, or contract-<x.y.z>-tables-<YYYY-MM-DD> for a dated table-only revision. */
-export const VERSION_DIR = /^contract-\d+\.\d+\.\d+(?:-tables-\d{4}-\d{2}-\d{2})?$/;
+/** A version directory: contract-<major>.<minor>.<patch> (no leading zero, lower case), or contract-<x.y.z>-tables-<YYYY-MM-DD> (a real
+ *  calendar day) for a dated table-only revision. */
+export const VERSION_DIR = /^contract-(?:0|[1-9]\d*)\.(?:0|[1-9]\d*)\.(?:0|[1-9]\d*)(?:-tables-(\d{4}-\d{2}-\d{2}))?$/;
+export const versionDir = (name) => { const m = VERSION_DIR.exec(String(name)); return m !== null && (m[1] === undefined || validDate(m[1])); };
+/** A table by its shape (packages/contracts policy-table.ts), not its label: an object with a rows array and a class entry naming a
+ *  task_class. tablesIn(v) -> [{table, path}] at any depth (a table's own content is not searched). */
+const isTable = (o) => isObj(o) && Array.isArray(o.rows) && isObj(o.class) && typeof o.class.task_class === "string";
+export const tablesIn = (v, path = "") => (isTable(v) ? [{ table: v, path }] : isObj(v) || Array.isArray(v) ? Object.entries(v).flatMap(([k, x]) => tablesIn(x, `${path}/${k}`)) : []);
+/** The one file that may hold tables without being a table file: the vectors of a contract version, contract-<v>/vectors-<v>.json. Its
+ *  tables under synthetic_kata are recomputation fixtures: their recompute and sequence digests are not refused; their n and p_served are. */
+const VECTORS = /^contract-(\d+\.\d+\.\d+)\/vectors-\1\.json$/;
 /** contentProblems(out, kind, bytes, release, carried) -> [{code, detail}]: what keeps one output file out of a version. JSON is also gated
- *  decoded. A table must be declared policy-table (by its path or its row_format); a table carried byte for byte from the previous tree
- *  (carried) may lie under an older version directory, and its rows are checked all the same. */
+ *  decoded. Any file under a policy/ segment, and any JSON holding a table at any depth (the vectors file excepted), must be a policy-table
+ *  entry; a table carried byte for byte from the previous commit (carried) may lie under an older version directory, rows checked all the same. */
 export function contentProblems(out, kind, bytes, release, carried = false) {
   let text;
   try { text = new TextDecoder("utf-8", { fatal: true }).decode(bytes); } catch { return [{ code: "not_text", detail: `${out}: not UTF-8` }]; }
@@ -126,16 +136,18 @@ export function contentProblems(out, kind, bytes, release, carried = false) {
   const p = vocabularyHits(text).map((h) => ({ code: "vocabulary", detail: `${out}:${h.line} [${h.rule}] ${h.word}` }));
   if (text.includes("\r")) p.push({ code: "crlf", detail: `${out}: a CR byte (LF line ends only)` });
   const top = out.split("/")[0], parsed = (() => { try { return JSON.parse(text); } catch { return undefined; } })();
-  if (top.startsWith("contract-") && out.includes("/") && !VERSION_DIR.test(top)) p.push({ code: "version_dir_invalid", detail: `${out}: ${top} is not contract-<x.y.z>[-tables-<YYYY-MM-DD>]` });
-  if (kind !== "policy-table" && (/(^|\/)policy\/[^/]+\.json$/.test(out) || (isObj(parsed) && parsed.row_format === "class-policy-v2"))) p.push({ code: "policy_table_kind", detail: `${out}: a table file is declared policy-table` });
+  if (/^contract-/i.test(top) && out.includes("/") && !versionDir(top)) p.push({ code: "version_dir_invalid", detail: `${out}: ${top} is not contract-<x.y.z>[-tables-<YYYY-MM-DD>]` });
+  const held = tablesIn(parsed), vectors = kind === "json" && VECTORS.test(out);
+  if (kind !== "policy-table" && (/(^|\/)policy\//i.test(out) || (held.length > 0 && !vectors))) p.push({ code: "policy_table_kind", detail: `${out}: a table file is declared policy-table` });
+  if (vectors) for (const t of held) p.push(...tableRowProblems(t.table, t.path.startsWith("/synthetic_kata/")).map((x) => ({ ...x, detail: `${out}${t.path}: ${x.detail}` })));
   if (kind === "text") return p;
   let v;
   try { v = JSON.parse(text); } catch (e) { return [...p, { code: "json_invalid", detail: `${out}: ${e.message}` }]; }
   p.push(...vocabularyHits(strings(v).join("\n")).map((h) => ({ code: "vocabulary", detail: `${out}: a decoded string [${h.rule}] ${h.word}` })));
   if (kind === "schema" && !(isObj(v) && typeof v.$schema === "string")) p.push({ code: "schema_invalid", detail: `${out}: no $schema` });
   if (kind !== "policy-table") return p;
-  const at = /^(?:(contract-\d+\.\d+\.\d+(?:-tables-\d{4}-\d{2}-\d{2})?)\/)?policy\/([^/]+)\.json$/.exec(out); // a new table lies under the release's own directory
-  if (!isObj(v) || v.row_format !== "class-policy-v2" || !isObj(v.class) || !Array.isArray(v.rows) || at === null || at[2] !== String(v.class.task_class) || (at[1] !== undefined && at[1] !== release && !carried)) {
+  const at = /^(?:([^/]+)\/)?policy\/([^/]+)\.json$/.exec(out); // a new table lies under the release's own directory
+  if (!isObj(v) || v.row_format !== "class-policy-v2" || !isObj(v.class) || !Array.isArray(v.rows) || at === null || at[2] !== String(v.class.task_class) || (at[1] !== undefined && (!versionDir(at[1]) || (at[1] !== release && !carried)))) {
     p.push({ code: "policy_table_invalid", detail: `${out}: not a class-policy-v2 table file named [<release>/]policy/<class.task_class>.json` });
   } else p.push(...tableRowProblems(v).map((x) => ({ ...x, detail: `${out}: ${x.detail}` })));
   try { if (canonicalJson(v) !== text) p.push({ code: "not_canonical", detail: `${out}: the bytes are not the canonical writing` }); }
@@ -163,8 +175,8 @@ export function plan({ inputs, release, date, roots }) {
     if (!statSync(abs).isFile()) { add("input_not_file", at); continue; }
     const bytes = readFileSync(abs);
     if (sha(bytes) !== e.sha256) { add("input_digest", `${at} is ${sha(bytes)}, pinned ${e.sha256}`); continue; }
-    const was = roots.previous === undefined ? null : join(roots.previous, e.out); // carried: the same bytes at the same path in the previous tree
-    problems.push(...contentProblems(e.out, e.kind, bytes, release, was !== null && existsSync(was) && statSync(was).isFile() && readFileSync(was).equals(bytes)));
+    const prior = roots.previous, was = prior === undefined || rel.previous_commit === null ? null : git(prior, ["show", `${rel.previous_commit}:${e.out}`]); // carried: committed, same bytes
+    problems.push(...contentProblems(e.out, e.kind, bytes, release, was !== null && Buffer.from(was, "utf8").equals(bytes)));
     files.push({ path: e.out, bytes });
   }
   const prev = roots.previous;
@@ -174,12 +186,14 @@ export function plan({ inputs, release, date, roots }) {
     const [top, head] = (git(prev, ["rev-parse", "--show-toplevel", "HEAD"]) ?? "").split("\n");
     if (!existsSync(prev) || !top || realpathSync(top) !== realpathSync(prev) || head !== rel.previous_commit) add("previous_commit", `${prev} is not the top of a git tree at ${rel.previous_commit}`);
     else if (git(prev, ["status", "--porcelain"]) !== "") add("previous_dirty", `${prev} has local changes`);
-    else for (const p of (() => { const ls = (git(prev, ["ls-files", "-z"]) ?? "").split("\0"), dirs = new Set(ls.map((x) => /^(contract-[^/]+)\//.exec(x)?.[1]).filter(Boolean));
-      for (const o of outs) if (dirs.has(/^(contract-[^/]+)\//.exec(o)?.[1]) && !ls.includes(o)) add("added_to_published", `${o} is new under ${o.split("/")[0]}/, which is published: a release adds under a new directory`);
+    else for (const p of (() => { const ls = (git(prev, ["ls-files", "-z"]) ?? "").split("\0"), dir = (x) => (/^contract-[^/]*\//i.test(x) ? x.split("/")[0].toLowerCase() : null);
+      const dirs = new Set(ls.map(dir).filter(Boolean));
+      for (const o of outs) if (dirs.has(dir(o)) && !ls.includes(o)) add("added_to_published", `${o} is new under ${o.split("/")[0]}/, which is published: a release adds under a new directory`);
+      else if (dir(o) !== null && !dirs.has(dir(o)) && o.split("/")[0] !== release) add("foreign_version_dir", `${o}: a release creates only its own directory, ${String(release)}/`);
       return ls; })()) {
       if (p !== "" && !outs.has(p)) add("withdrawn", `${p} is published, the release drops it`);
       const now = files.find((f) => f.path === p); // a file under a version directory is never rewritten: one $id, one content
-      if (/^contract-[^/]+\//.test(p) && now !== undefined && !now.bytes.equals(readFileSync(join(prev, p)))) add("rewritten", `${p} is published with other bytes, the release changes it`);
+      if (/^contract-[^/]*\//i.test(p) && now !== undefined && !now.bytes.equals(readFileSync(join(prev, p)))) add("rewritten", `${p} is published with other bytes, the release changes it`);
     }
   }
   if (problems.length > 0) return { files: [], problems };
@@ -261,12 +275,12 @@ export function main(argv) {
  *  points or fewer can be inverted (SHORT-DIGEST-INVERSION-1); and a row with a recompute before the published list of verifiers
  *  (VERIFIERS-LIST-F5A-1). The writer of the table files calls this same function. */
 export const SHORT_N = 30;
-export function tableRowProblems(table) {
+export function tableRowProblems(table, fixture = false) {
   const cls = String(table.class?.task_class), all = Array.isArray(table.rows) ? table.rows : [], rows = all.filter(isObj), int = (x) => Number.isSafeInteger(x);
   if (rows.length !== all.length) return [{ code: "policy_table_invalid", detail: `${cls} has a row that is not an object` }];
-  const held = rows.filter((r) => r.recompute !== null).map((r) => String(r.cell_key));
+  const held = fixture ? [] : rows.filter((r) => r.recompute !== null).map((r) => String(r.cell_key));
   const why = (r) => [!int(r.n) || r.n <= SHORT_N ? `n ${String(r.n)}` : null, r.p_served !== null && (!int(r.p_served) || r.p_served <= SHORT_N) ? `p_served ${String(r.p_served)}` : null,
-    ...["aux_sha256", "series_sha256"].map((k) => (r[k] !== null && r[k] !== undefined ? k : null))].filter((x) => x !== null);
+    ...(fixture ? [] : ["aux_sha256", "series_sha256"]).map((k) => (r[k] !== null && r[k] !== undefined ? k : null))].filter((x) => x !== null);
   const short = rows.filter((r) => why(r).length > 0).map((r) => `${String(r.cell_key)} (${why(r).join(", ")})`);
   return [...(held.length > 0 ? [{ code: "recompute_held", detail: `VERIFIERS-LIST-F5A-1: ${cls} has a row with a recompute (${held.join(", ")}); the published list of verifiers comes first` }] : []),
     ...(short.length > 0 ? [{ code: "short_digest", detail: `SHORT-DIGEST-INVERSION-1: ${cls} has a row whose digests cover ${String(SHORT_N)} points or fewer, or an unstated number: ${short.join(", ")}` }] : [])];

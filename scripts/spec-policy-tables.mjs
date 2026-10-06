@@ -13,9 +13,9 @@
 //   publication gate's (VERIFIERS-LIST-F5A-1, SHORT-DIGEST-INVERSION-1).
 // --check compares every file under <root>/spec/contract-1.1.0/ (this repository by default) and exits 1 on any difference, missing or
 // extra file; --write writes every file to a temporary file beside it, then renames them into place, and on a failed rename puts back the
-// previous bytes and mode of the files already replaced: the set is replaced whole or not at all.
+// previous bytes and mode of the files already replaced: the set is replaced whole or not at all. A target that is a symbolic link is refused.
 // It reads no clock and no network, and writes only under <root>/spec/contract-1.1.0/.
-import { chmodSync, existsSync, mkdirSync, readdirSync, readFileSync, realpathSync, renameSync, rmSync, statSync, writeFileSync } from "node:fs";
+import { chmodSync, existsSync, lstatSync, mkdirSync, readdirSync, readFileSync, realpathSync, renameSync, rmSync, statSync, writeFileSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { canonicalJson, tableRowProblems } from "./spec-publish.mjs";
@@ -80,6 +80,7 @@ export function differences(root, files) {
  *  removed. */
 export function writeAll(root, files) {
   const tmp = files.map((f) => ({ ...f, at: join(root, f.path), tmp: join(root, `${f.path}.tmp-spec-policy-tables`) })), done = [];
+  for (const f of tmp) if (lstatSync(f.at, { throwIfNoEntry: false })?.isSymbolicLink() === true) throw new Error(`${f.path} is a symbolic link: not written over`);
   try {
     for (const f of tmp) { mkdirSync(dirname(f.at), { recursive: true }); writeFileSync(f.tmp, f.text); }
     try {
