@@ -342,9 +342,9 @@ test("ci_gates_blocking_no_continue_on_error — blocking and pinned workflow (t
 // replaces a count); the API token in this one step; no head branch name interpolated anywhere. Named mutants (G7):
 // fallback removed, a guard removed, the count moved after the prints, `--base "origin/${{ github.head_ref }}"`. G2 m-4: the
 // target is read from $GITHUB_BASE_REF, never interpolated; m-5: ten digits or more keep the written counts (bash overflow).
-// killer: .github/workflows/ci.yml:114 CONST " || R25I=\"written $CHANGED $CONTENT_CHANGED\"" -> ""
-// killer: .github/workflows/ci.yml:114 CONST "origin/$GITHUB_BASE_REF" -> "origin/${{ github.base_ref }}"
-// killer: .github/workflows/ci.yml:121 CONST "|??????????*" -> ""
+// killer: .github/workflows/ci.yml:115 CONST " || R25I=\"written $CHANGED $CONTENT_CHANGED\"" -> ""
+// killer: .github/workflows/ci.yml:115 CONST "origin/$GITHUB_BASE_REF" -> "origin/${{ github.base_ref }}"
+// killer: .github/workflows/ci.yml:122 CONST "|??????????*" -> ""
 test("ci_r25_integration_rule_is_wired_fail_closed - proof then count after both metrics and before any print, written counts on a module error or a non-numeric answer, the token in the r25 step only, no head branch name interpolated (ADR-M003 D9 nonies)", () => {
   const at = LINES.findIndex((l) => /^  r25-taille-de-lot\s*:/.test(l)), code: string[] = [];
   for (let i = at + 1; i < LINES.length && !/^ {0,2}\S/.test(LINES[i] ?? ""); i++) if (!/^\s*#/.test(LINES[i] ?? "") && (LINES[i] ?? "").trim() !== "") code.push((LINES[i] ?? "").trim());
@@ -372,7 +372,7 @@ test("ci_r25_integration_rule_is_wired_fail_closed - proof then count after both
 // Lot R25-ATTR-SOURCE-1 (G7 O-1, ADR-M003 D9 undecies): the two counts W of the r25 job read under the module's pinned read. Pinned: the
 // `pin` command right before the first count, its fail-closed branch (no count is read without it), its output evaluated once and
 // nowhere else, no git call of the job before it, and the two count lines unchanged (the shape R25_DIFF_RE and test 38 read).
-// killer: .github/workflows/ci.yml:97 CONST "eval \"$R25_PIN\"" -> "true"
+// killer: .github/workflows/ci.yml:98 CONST "eval \"$R25_PIN\"" -> "true"
 test("ci_r25_counts_read_under_the_module_pin - the r25 job evaluates `node scripts/lot-size-integration.mjs pin --ci <workflow> --base origin/$GITHUB_BASE_REF` (the changed paths refused first, D9 terdecies) right before its two `git diff --shortstat` counts, fail-closed, once (ADR-M003 D9 undecies)", () => {
   const at = LINES.findIndex((l) => /^  r25-taille-de-lot\s*:/.test(l)), code: string[] = [];
   for (let i = at + 1; i < LINES.length && !/^ {0,2}\S/.test(LINES[i] ?? ""); i++) if (!/^\s*#/.test(LINES[i] ?? "") && (LINES[i] ?? "").trim() !== "") code.push((LINES[i] ?? "").trim());
@@ -1771,7 +1771,7 @@ function expandTestGlob(glob: string): string[] {
   const last = new RegExp(`^${segs[segs.length - 1]!.replace(/[\\^$.|?+()[\]{}]/g, "\\$&").replace(/\*/g, "[^/]*")}$`);
   return dirs.flatMap((d) => readdirSync(join(ROOT, d)).filter((n) => last.test(n)).map((n) => `${d}/${n}`));
 }
-// killer: .github/workflows/ci.yml:203 CONST "npm run test:export" -> "npm run test:main"
+// killer: .github/workflows/ci.yml:211 CONST "npm run test:export" -> "npm run test:main"
 test("ci_g3_export_runs_test_42_alone_and_g3_main_skips_only_it - the suite is split in two CI jobs with no test lost (CI-G3-DURATION-1)", () => {
   const scripts = (JSON.parse(readFileSync(join(ROOT, "package.json"), "utf8")) as { scripts: Record<string, string> }).scripts;
   const full = scripts.test ?? "";

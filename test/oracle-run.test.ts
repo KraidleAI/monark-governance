@@ -126,7 +126,7 @@ test("oracle_gates_are_the_run_lines_of_ci_yml — derived at launch, CI-only li
 }));
 
 test("oracle_gates_see_no_foreign_credential — no credential NAME reaches a gate of either lane (static lint, locked test) and npm runs offline (C-G2-1, X1)", () => withFx((fx) => {
-  // killer: scripts/oracle/run.mjs:46 SDL "for (const k of Object.keys(process.env)) if (DENY.test(k)) delete process.env[k];" -> ""
+  // killer: scripts/oracle/run.mjs:46 SDL "delete process.env[k];" -> ""
   // killer: scripts/oracle/run.mjs:136 SDL "npm_config_offline: \"true\", " -> ""
   // killer: scripts/oracle/run.mjs:46 COR " || /^npm_config_(offline|logs_dir)$/i.test(k)" -> ""
   const fake = ["FX_API_KEY_1", "FX_PRIVATE_KEY", "FX_TOKEN_1", "fx_secret_1", "GH_FX", "GITHUB_FX", "CHAINSTACK_FX", "MONARK_PUBLIC_MIRROR"]; // lowercase name: DENY must be case-insensitive (Windows env names, O1); a synthetic FX_ name, never MONARK_PUBLIC_MIRROR itself (that exact name is real in this session's own environment, C-G2-1 §0: a lowercase fake of it collides and is overridden by Windows' case-insensitive env merge, not by DENY)
@@ -179,7 +179,7 @@ test("oracle_store_serves_only_a_full_clean_replay — a static-only, dirty or s
 }));
 
 test("oracle_red_same_key_record_is_never_served — decision 267 (c): a suite refused by C-V-4, or a red base, is replayed with a mention, never served (X4)", () => withFx((fx) => {
-  // killer: scripts/oracle/run.mjs:83 SDL "if (r.exit !== 0) { console.error(`oracle: same-key record ${f} is red ...`); continue; }" -> ""
+  // killer: scripts/oracle/run.mjs:83 SDL "if (r.exit !== 0) { console.error(`oracle: same-key record ${f} is red (exit ${r.exit})" -> ""
   const a = oracle(fx, ["--role", "G1", "--key", "k"], { ORACLE_MAX_NODE: "0" }), b = oracle(fx, ["--role", "G1", "--key", "k"]);
   assert.deepEqual([a.status, b.status, b.rec?.served_from, ran(fx)], [3, 0, null, 1], b.out);
   assert.match(b.out, /is red \(exit 3\): never served, replayed/);
