@@ -13,9 +13,9 @@
 //   publication gate's (VERIFIERS-LIST-F5A-1, SHORT-DIGEST-INVERSION-1).
 // --check compares every file under <root>/spec/contract-1.1.0/ (this repository by default) and exits 1 on any difference, missing or
 // extra file; --write writes every file to a temporary file beside it, then renames them into place, and on a failed rename puts back the
-// previous bytes of the files already replaced: the set is replaced whole or not at all.
+// previous bytes and mode of the files already replaced: the set is replaced whole or not at all.
 // It reads no clock and no network, and writes only under <root>/spec/contract-1.1.0/.
-import { existsSync, mkdirSync, readdirSync, readFileSync, realpathSync, renameSync, rmSync, statSync, writeFileSync } from "node:fs";
+import { chmodSync, existsSync, mkdirSync, readdirSync, readFileSync, realpathSync, renameSync, rmSync, statSync, writeFileSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { canonicalJson, tableRowProblems } from "./spec-publish.mjs";
@@ -76,15 +76,17 @@ export function differences(root, files) {
 }
 
 /** writeAll(root, files): every file to a temporary sibling first, then each renamed into place; on a failed rename the files already
- *  replaced get their previous bytes back (or are removed when they did not exist), and the error is thrown; the temporaries are removed. */
+ *  replaced get their previous bytes and mode back (or are removed when they did not exist), and the error is thrown; the temporaries are
+ *  removed. */
 export function writeAll(root, files) {
   const tmp = files.map((f) => ({ ...f, at: join(root, f.path), tmp: join(root, `${f.path}.tmp-spec-policy-tables`) })), done = [];
   try {
     for (const f of tmp) { mkdirSync(dirname(f.at), { recursive: true }); writeFileSync(f.tmp, f.text); }
     try {
-      for (const f of tmp) { const old = existsSync(f.at) && statSync(f.at).isFile() ? readFileSync(f.at) : null; renameSync(f.tmp, f.at); done.push({ at: f.at, old }); }
+      for (const f of tmp) { const was = existsSync(f.at) && statSync(f.at).isFile(), old = was ? readFileSync(f.at) : null; done.push({ at: f.at, old, mode: was ? statSync(f.at).mode : 0 }); renameSync(f.tmp, f.at); }
     } catch (e) {
-      for (const d of done.reverse()) if (d.old === null) rmSync(d.at, { force: true }); else writeFileSync(d.at, d.old);
+      done.pop(); // the failed rename replaced nothing
+      for (const d of done.reverse()) if (d.old === null) rmSync(d.at, { force: true }); else { writeFileSync(d.at, d.old); chmodSync(d.at, d.mode & 0o7777); }
       throw e;
     }
   } finally {
