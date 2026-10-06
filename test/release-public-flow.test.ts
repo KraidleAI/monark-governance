@@ -18,20 +18,21 @@ import { delimiter, join, relative } from "node:path";
 import { pathToFileURL } from "node:url";
 import { LOCAL_GATES } from "../scripts/release-public.mjs";
 import { DATA_SOURCE_FORMS } from "../scripts/public-text-deny.mjs";
-import { dropPendingSnapshot } from "./helpers/pending-snapshot.ts";
+import { dropPendingSnapshot, ensurePendingSnapshot } from "./helpers/pending-snapshot.ts";
 
 const ROOT = join(import.meta.dirname, "..");
 const git = (cwd: string, ...args: string[]): string => execFileSync("git", args, { cwd, encoding: "utf8" }).trim();
 interface RunOpts { mirror?: string | null; email?: string; vis?: string; gates?: string[][]; dirty?: boolean }
 
 // killer: scripts/release-public.mjs:211 SDL "    abort(\"export failed\");" -> ""
-test("release_public_flow — message gate, refusals before any gate, export:check before export, one local commit, no push, gh reads only", () => {
+test("release_public_flow — message gate, refusals before any gate, export:check before export, one local commit, no push, gh reads only", async () => {
   const tmp = mkdtempSync(join(tmpdir(), "monark-release-flow-"));
   try {
     // The source: this tree without installed deps (junctions), VCS data, build output, governance docs, root tests and the
     // sentinel test data (23 MB): none is read by the tool, none is a required export entry. Keeps the load test 42 (e) shares low.
     const src = join(tmp, "src");
     cpSync(ROOT, src, { recursive: true, filter: (from: string): boolean => ((r: string): boolean => /^test(\/helpers(\/blocking-stdout\.cjs)?)?$/.test(r) || !/(^|\/)(node_modules|\.git|dist)(\/|$)|^(docs|test|apps\/sentinel\/test)(\/|$)/.test(r))(relative(ROOT, from).replace(/\\/g, "/")) });
+    await ensurePendingSnapshot(src); // T0-TOOLING-1: the pending refusal below holds on either side of T0
     for (const a of [["init", "-q", "-b", "main"], ["config", "core.autocrlf", "false"], ["config", "user.name", "Flow Test"], ["add", "-A"]]) git(src, ...a);
     git(src, "-c", "user.email=flow@users.noreply.github.com", "commit", "-q", "-m", "seed");
     const seed = join(tmp, "seed");

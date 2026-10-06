@@ -84,6 +84,7 @@ Tronc `lot/etude-suite`. Dernier oracle complet : 1 779 tests, dont 1 776 verts,
   servi ; contrôle par diff des fichiers de la gate par MONARK d ici là ; déclencheur : la première semaine après T0) ; NOTICE-1-1-0 finalisée (cellule V-1 à V-8 faite ; N-5 à ajouter : noms BYO
   génériques réservés ; empreinte OpenAPI `61c9df97…`) ; acte de porte de MONARK (genre « avis », `{SPEC_URL}`, date de T0) ; synchro
   tronc → base ; liste de T0 de MONARK (CONTRACT-1-1-0 plus bas).
+  - Ligne datée 2026-10-06 (RECHERCHES, lot T0-TOOLING-1, m-d de la relecture des actes de T0) : RELEASE-PREFLIGHT-SEND-GUARD-1 est livré par #181 (refus au pré-vol de `scripts/release-public.mjs`, avant toute porte ; depuis T0-TOOLING-1, avant toute lecture `gh`) ; il ne reste plus avant T0. SCHEMA-PROJECTION-FAIL-CLOSED-1 (#180) est livré lui aussi.
 - **Décision du fondateur (2026-10-05 22:1x UTC, verbatim : « oui, on fait tout en un seul release, ensuite on continue le prochain
   chantier. donc demain on mets a jour tout. »)**, en réponse à la proposition D = 0 de RECHERCHES (personne n utilise le moteur 1.0.0 ;
   mesure : 4 `POST /gate` de 2 clients sur les 7 jours avant le 2026-10-03). Conséquences :

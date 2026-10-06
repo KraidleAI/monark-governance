@@ -46,6 +46,8 @@ export function removeManifestEntry(manifestText: string, rel: string): string;
 export function ukemiPendingDiff(served: Record<string, unknown>, pending: Record<string, unknown>): string[];
 /** The pending snapshot of the in-process harness's answers to the sync's two requests (no network). */
 export function inProcessUkemiPending(writtenAt: string): Promise<UkemiPendingFile>;
+/** T0-TOOLING-1: --pending under `root` (pending file, pending_since, both manifest entries); returns the pending entry. */
+export function writeUkemiPending(root: string, writtenAt: string): Promise<string>;
 /** The served file's text with pending_since after read_at, no other byte touched; kept when already set. */
 export function markPendingSince(text: string, day: string): string;
 /** Why the ukemi promotion may not run yet under `root` (the harness pending snapshot still exists), or null. */

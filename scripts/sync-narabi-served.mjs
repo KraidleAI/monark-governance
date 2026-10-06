@@ -1,7 +1,8 @@
 // scripts/sync-narabi-served.mjs — write apps/site/data/narabi-served.json: the facts /narabi states that are NOT in the
 // two files the Narabi sentinel publishes (lot NARABI-SERVED-1; model: scripts/sync-bell-served.mjs). Node 24, built-ins
-// + scripts/probe-narabi.mjs only. SOURCE-REPO tool (not exported); run by the orchestrator BEFORE a storefront build:
-//   node scripts/sync-narabi-served.mjs            write the file (only when a fact changed) and print its manifest sha256
+// + scripts/probe-narabi.mjs + the site manifest writer of scripts/sync-ukemi-served.mjs. SOURCE-REPO tool (not exported);
+// run by the orchestrator BEFORE a storefront build:
+//   node scripts/sync-narabi-served.mjs            write the file (only when a fact changed) and set its manifest entry
 //   node scripts/sync-narabi-served.mjs --check    write nothing; exit 1 if the committed file no longer says what the
 //                                                  sources say now (read_at aside)
 //
@@ -14,8 +15,8 @@
 //   - the sentinel's publication schedule: every OnCalendar slot and the RandomizedDelaySec of deploy/monark-sentinel.timer;
 //   - the external probe: DEADLINE_UTC of scripts/probe-narabi.mjs and every OnCalendar shot of deploy/monark-probe.timer
 //     (the first shot must be the deadline itself).
-// It writes ONLY those values, the read instant and the served document's sha256. Output: LF, two-space JSON; it prints
-// the CRLF->LF sha256 to set in apps/site/data/manifest.sha256.json. The site reads the file through
+// It writes ONLY those values, the read instant and the served document's sha256. Output: LF, two-space JSON; it sets
+// the CRLF->LF sha256 in apps/site/data/manifest.sha256.json (canonical form, before either write). The site reads the file through
 // apps/site/lib/narabi-served-load.ts (manifest check, closed shape, fail-closed); test/narabi-live.test.ts binds every
 // value again to its producer (the systemd units, the probe, the harness calibration and the served description).
 import { readFileSync, writeFileSync, existsSync } from "node:fs";
@@ -23,6 +24,7 @@ import { join, dirname } from "node:path";
 import { createHash } from "node:crypto";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { DEADLINE_UTC } from "./probe-narabi.mjs";
+import { setManifestEntry, MANIFEST_REL } from "./sync-ukemi-served.mjs";
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..");
 export const API_HOST = "https://api.monarkgate.tech";
@@ -115,13 +117,34 @@ async function main() {
     return;
   }
   if (same) {
-    console.log(`sync-narabi-served: unchanged — ${OUT_REL} already says what the sources say; nothing written.`);
+    let repaired;
+    try { repaired = repairNarabiEntry(ROOT); } catch (e) { fail(e instanceof Error ? e.message : String(e)); }
+    console.log(`sync-narabi-served: unchanged — ${OUT_REL} already says what the sources say; ${repaired ? "its stale manifest entry is set again" : "nothing written"}.`);
     return;
   }
-  const out = { $comment: COMMENT, schema: "monark-site-narabi-served-v1", read_at: new Date().toISOString(), ...facts };
-  const text = JSON.stringify(out, null, 2) + "\n";
-  writeFileSync(outAbs, text);
-  console.log(`sync-narabi-served OK — ${OUT_REL} written; manifest sha256 (CRLF->LF): ${sha256(Buffer.from(text.replace(/\r\n/g, "\n"), "utf8"))}`);
+  let sha;
+  try { sha = writeNarabiServed(ROOT, facts, new Date().toISOString()); } catch (e) { fail(e instanceof Error ? e.message : String(e)); }
+  console.log(`sync-narabi-served OK — ${OUT_REL} written; manifest entry set to ${sha} (CRLF->LF)`);
+}
+
+/** The manifest entry of the committed record under `root` set to the record's own sha256 when it differs (an interrupted or
+ *  hand-edited manifest); true when it wrote. */
+export function repairNarabiEntry(root) {
+  const sha = sha256(Buffer.from(readFileSync(join(root, OUT_REL), "utf8").replace(/\r\n/g, "\n"), "utf8"));
+  const text = readFileSync(join(root, MANIFEST_REL), "utf8"), next = setManifestEntry(text, OUT_REL, sha);
+  if (next === text) return false;
+  writeFileSync(join(root, MANIFEST_REL), next);
+  return true;
+}
+
+/** Write the record of `facts` under `root` and set its manifest entry, the manifest text computed first (throws, writing nothing). */
+export function writeNarabiServed(root, facts, readAt) {
+  const text = JSON.stringify({ $comment: COMMENT, schema: "monark-site-narabi-served-v1", read_at: readAt, ...facts }, null, 2) + "\n";
+  const sha = sha256(Buffer.from(text.replace(/\r\n/g, "\n"), "utf8"));
+  const manifest = setManifestEntry(readFileSync(join(root, MANIFEST_REL), "utf8"), OUT_REL, sha);
+  writeFileSync(join(root, OUT_REL), text);
+  writeFileSync(join(root, MANIFEST_REL), manifest);
+  return sha;
 }
 
 // Run-guard (mirrors the repo's scripts): the CLI runs only when invoked directly, never on import.

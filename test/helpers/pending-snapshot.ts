@@ -3,8 +3,21 @@
 // For the tests that run a real `export-public.mjs --out` on a whole-tree copy: the guard refuses while a snapshot exists.
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
-import { readFileSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
+import * as harnessSync from "../../scripts/sync-harness-served.mjs";
+import * as ukemiSync from "../../scripts/sync-ukemi-served.mjs";
+
+/** T0-TOOLING-1 (review B-2): the pending snapshot of a copied tree, whatever state it is in. A tree that carries none (after
+ *  T0) gets one from the two syncs' own --pending writers, in process (files, pending_since, manifest entries); a tree that
+ *  carries one keeps it. The guard tests stay meaningful on both sides of T0, with nothing to re-pin. */
+export async function ensurePendingSnapshot(root: string): Promise<void> {
+  const writers = { harness: (harnessSync as Record<string, unknown>)["writeHarnessPending"], ukemi: (ukemiSync as Record<string, unknown>)["writeUkemiPending"] };
+  for (const [name, write] of Object.entries(writers)) {
+    assert.equal(typeof write, "function", `scripts/sync-${name}-served.mjs exports its --pending writer`);
+    if (!existsSync(join(root, `apps/site/data/${name}-pending.json`))) await (write as (r: string, at: string) => Promise<string>)(root, new Date().toISOString());
+  }
+}
 
 export function dropPendingSnapshot(root: string): void {
   const manifestRel = "apps/site/data/manifest.sha256.json";
