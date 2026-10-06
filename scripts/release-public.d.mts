@@ -22,5 +22,9 @@ export function checkReleaseText(text: string): ReleaseTextResult;
 /** ok iff headRef === 'main' && porcelain === '' (no origin/main variant, ADR-M010 B-2). Pure. */
 export function branchGuard(headRef: string, porcelain: string): BranchGuardResult;
 
+/** ok iff `blockers` (pendingSendBlockers of export-public.mjs on the kept set) is empty; the reason names each blocker.
+ *  Pure (RELEASE-PREFLIGHT-SEND-GUARD-1). */
+export function sendGuard(blockers: readonly string[]): BranchGuardResult;
+
 /** The local gates [name, command], in order, export:check last (ADR-PUBLIC-CADENCE-1 D1.4); frozen, pinned by the tests. */
 export const LOCAL_GATES: ReadonlyArray<readonly [string, string]>;

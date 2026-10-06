@@ -134,10 +134,10 @@ test("u5_producer_predicts_then_gate_follows_the_committed_registry", () => {
     if (out.provenance.strate === 0) {
       inS0++;
       assert.equal(v.reason, "covered", `${c.label}: committed stratum s0 => covered`);
-      assert.equal(v.region.kind, "interval", `${c.label}: the wire kind stays interval`);
+      assert.equal(v.region?.kind, "interval", `${c.label}: the wire kind stays interval`);
       const yhat = out.prediction.yhat;
       assert.equal(typeof yhat, "number", `${c.label}: the produced yhat is a number`);
-      if (v.region.kind !== "interval" || v.qhat === null || typeof yhat !== "number") continue;
+      if (v.region?.kind !== "interval" || v.qhat === null || typeof yhat !== "number") continue;
       assert.equal(v.region.lo, 0, `${c.label}: lower edge 0 (upper bound)`);
       assert.equal(v.region.hi, yhat + v.qhat, `${c.label}: upper edge yhat + qhat`);
       assert.equal(v.qhat, q.qhat, `${c.label}: the served qhat is the committed s0 quantile`);

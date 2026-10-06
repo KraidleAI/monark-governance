@@ -5,7 +5,7 @@
  */
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { assertClosedGateDecision, assertNoForbiddenKey, calibDigest } from "@monark/contracts";
+import { assertClosedGateDecision, assertNoForbiddenKey, scoresSha256 } from "@monark/contracts";
 import type { Prediction, AttestedFlow, AttestedPrice, GateDecision } from "@monark/contracts";
 import {
   runGate,
@@ -18,7 +18,9 @@ import {
   STABLE_RUN_UNCALIBRATED_SENTENCE,
   STABLE_RUN_COMMITTED_SENTENCE,
   TASK_STABLE_RUN,
+  gateVerdictSummary,
   type HarnessParams,
+  SCHEMA_VERSION,
 } from "../src/tools/gate.ts";
 import { HARNESS_TOOLS, type GateEnvelope } from "../src/tools/registry.ts";
 import { runCalibrate, CALIBRATE_LABEL } from "../src/tools/calibrate.ts";
@@ -29,9 +31,9 @@ import {
   USDE_STABLE_RUN_CALIB,
   USDE_STABLE_RUN_PREDICTOR_ID,
   USDE_STABLE_RUN_TASK_CLASS,
-  USDE_STABLE_RUN_CALIB_DIGEST_PINNED,
+  USDE_STABLE_RUN_SCORES_SHA256_PINNED,
 } from "../src/calibration.ts";
-import { splitQuantile, buildIntervalRegion, underCalibVerdict, NUMERIC_LABEL_SCHEMA, BTC_DIR_LABEL_SCHEMA } from "@monark/hikae"; // ADR-M011: anti-circularity — L1 q̂ + NDG-1 region before runGate; E9: label_schema constants
+import { splitQuantile, buildIntervalRegion, scoreTestBand, underCalibVerdict, NUMERIC_LABEL_SCHEMA, BTC_DIR_LABEL_SCHEMA } from "@monark/hikae"; // ADR-M011: anti-circularity — L1 q̂ + NDG-1 region before runGate; E9: label_schema constants
 import { fromAttestedFlow, isNarabiError } from "@monark/monark"; // A7: real flows via the adapter
 
 const GOOD_PARAMS: HarnessParams = {
@@ -47,7 +49,7 @@ const GOOD_PARAMS: HarnessParams = {
 };
 
 const BTC_PRED: Prediction = {
-  schema_version: "1.0.0",
+  schema_version: SCHEMA_VERSION,
   task_class: "btc-dir-15m",
   yhat: "up",
   predictor_id: "internal:momentum-4c",
@@ -55,7 +57,7 @@ const BTC_PRED: Prediction = {
 };
 
 const CASCADE_PRED: Prediction = {
-  schema_version: "1.0.0",
+  schema_version: SCHEMA_VERSION,
   task_class: "cascade-liquidable-24h",
   yhat: 12345,
   predictor_id: "internal:ukemi",
@@ -64,7 +66,7 @@ const CASCADE_PRED: Prediction = {
 
 // A Narabi velocity-forecast Prediction (ADR-M008 D4) — the caller-carried output of the Narabi adapter.
 const STABLE_RUN_PRED: Prediction = {
-  schema_version: "1.0.0",
+  schema_version: SCHEMA_VERSION,
   task_class: "stable-run-velocity-24h",
   yhat: 0.0000416, // a per-hour velocity forecast (fraction of supply / hour)
   predictor_id: "narabi:persistence-v1",
@@ -74,7 +76,7 @@ const STABLE_RUN_PRED: Prediction = {
 /** The committed USDe key: the served committed path after the btc-dir retirement (ADR-CM B-5); GOOD_PARAMS
  *  carries its F-7 alpha 0.1 and nMin 50 (ADR-CM B-2). */
 const USDE_PRED: Prediction = {
-  schema_version: "1.0.0",
+  schema_version: SCHEMA_VERSION,
   task_class: "stable-run-velocity-24h",
   yhat: 0.0001,
   predictor_id: USDE_STABLE_RUN_PREDICTOR_ID,
@@ -95,13 +97,13 @@ function assertBtcDirRetired(params: HarnessParams = GOOD_PARAMS): void {
 
 // Test — the tool EMITS the frozen, closed GateDecision; a key outside the contract throws.
 // Mutant: `return { ...decision, p_correct: 0 }` in gate.ts runGate ⇒ red. (CM-2b: on the USDe key; btc-dir retired.)
-// killer: apps/harness/src/tools/gate.ts:927 CONST "\"task_class_retired\"" -> "\"task_class_unknown\""
+// killer: apps/harness/src/tools/gate.ts:966 CONST "\"task_class_retired\"" -> "\"task_class_unknown\""
 test("gate_tool_emits_frozen_gate_decision", () => {
   assertBtcDirRetired();
   const d = runGate(USDE_PRED, { ...GOOD_PARAMS, intent: 0 });
   assertClosedGateDecision(d);
   assertNoForbiddenKey(d);
-  assert.equal(d.schema_version, "1.0.0");
+  assert.equal(d.schema_version, SCHEMA_VERSION);
   assert.equal(d.tool, "perps_order_preview");
   const tampered = { ...d, p_correct: 0.9 };
   assert.throws(() => { assertClosedGateDecision(tampered); }, /unknown key/i);
@@ -109,7 +111,7 @@ test("gate_tool_emits_frozen_gate_decision", () => {
 
 // Test — the gate NEVER calls `params.tool` (invariant D0): it only echoes it.
 // Mutant: invoke `globalThis[input.tool]()` in gate.ts ⇒ red. (CM-2b: on the USDe key; btc-dir retired.)
-// killer: apps/harness/src/tools/gate.ts:927 CONST "\"task_class_retired\"" -> "\"task_class_unknown\""
+// killer: apps/harness/src/tools/gate.ts:966 CONST "\"task_class_retired\"" -> "\"task_class_unknown\""
 test("gate_tool_never_calls_tool", () => {
   const g = globalThis as Record<string, unknown>;
   let called = false;
@@ -126,7 +128,7 @@ test("gate_tool_never_calls_tool", () => {
 
 // Test — dispatch is on task_class; cascade has no committed calibration ⇒ abstain/under_calib (K-4b).
 // Mutant: hard-code one path for every class ⇒ red. (CM-2b: the committed USDe key is the diverging class.)
-// killer: apps/harness/src/tools/gate.ts:927 CONST "\"task_class_retired\"" -> "\"task_class_unknown\""
+// killer: apps/harness/src/tools/gate.ts:966 CONST "\"task_class_retired\"" -> "\"task_class_unknown\""
 test("gate_dispatches_on_task_class", () => {
   const d = runGate(CASCADE_PRED, { ...GOOD_PARAMS, intent: 12345 });
   assert.equal(d.action, "abstain");
@@ -136,6 +138,14 @@ test("gate_dispatches_on_task_class", () => {
   const b = runGate(USDE_PRED, { ...GOOD_PARAMS, intent: 0 });
   assert.notEqual(b.verdict.reason, "under_calib");
   assertBtcDirRetired();
+});
+
+// G2 m-1 of 3c-3b2: the summary line of a cascade gate states the absent region and q-hat as null (1.1.0 wire,
+// region null iff qhat null), not the 1.0.0 empty-set token.
+// killer: apps/harness/src/tools/gate.ts:765 CONST "? \"null\"" -> "? \"{}\""
+test("gate_summary_states_null_region_and_qhat_on_cascade", () => {
+  const d = runGate(CASCADE_PRED, { ...GOOD_PARAMS, intent: 12345 });
+  assert.ok(gateVerdictSummary(d).includes("region=null qhat=null"), gateVerdictSummary(d));
 });
 
 // Test — the description carries the cascade honesty sentence (K-4e).
@@ -163,7 +173,7 @@ test("gate_rejects_invalid_params", () => {
 // Mutant: remove the word `synthetic` from BTC_DIR_CALIB_PROVENANCE ⇒ red.
 // CM-2b (ADR-CM B-5): the synthetic btc-dir calibration stays committed (fixtures, oracle) but is no longer served, so
 // the description drops its synthetic plumbing-fixture sentence and names the retirement instead.
-// killer: apps/harness/src/tools/gate.ts:212 CONST "is retired and answers a named" -> "is a plumbing fixture and answers a named"
+// killer: apps/harness/src/tools/gate.ts:248 CONST "is retired and answers a named" -> "is a plumbing fixture and answers a named"
 test("calibration_declared_synthetic", () => {
   assert.ok(BTC_DIR_CALIB_PROVENANCE.includes("synthetic"), "provenance must declare synthetic");
   assert.ok(!GATE_TOOL_DESCRIPTION.includes("plumbing fixture"), "the served description no longer serves the synthetic btc-dir fixture");
@@ -175,14 +185,14 @@ test("calibration_declared_synthetic", () => {
 
 /** A caller-owned (free-string) task_class ⇒ the BYO path (not the committed btc-dir/cascade classes). */
 const BYO_INTERVAL_PRED: Prediction = {
-  schema_version: "1.0.0",
+  schema_version: SCHEMA_VERSION,
   task_class: "byo-interval-demo",
   yhat: 0,
   predictor_id: "caller:model",
   produced_at: "2026-09-04T00:00:00Z",
 };
 const BYO_SET_PRED: Prediction = {
-  schema_version: "1.0.0",
+  schema_version: SCHEMA_VERSION,
   task_class: "byo-set-demo",
   yhat: "A",
   predictor_id: "caller:model",
@@ -202,7 +212,7 @@ test("gate_byo_interval_hand_rolled_oracle", () => {
   assertClosedGateDecision(commit);
   assertNoForbiddenKey(commit);
   assert.equal(commit.verdict.qhat, 1.0, "q̂ = 10th smallest score = 1.0 (hand-computed)");
-  assert.equal(commit.verdict.region.kind, "interval", "interval mode ⇒ interval region");
+  assert.equal(commit.verdict.region?.kind, "interval", "interval mode ⇒ interval region");
   assert.deepEqual(commit.verdict.region, { kind: "interval", lo: -1, hi: 1 }, "region [ŷ−q̂, ŷ+q̂] = [−1,1]");
   assert.equal(commit.verdict.abstain, false, "a covered interval verdict does not abstain");
   assert.equal(commit.verdict.reason, "covered", "the verdict reason is covered (L3 decides width)");
@@ -227,7 +237,7 @@ test("gate_byo_set_hand_rolled_oracle", () => {
   });
   assertClosedGateDecision(commit);
   assert.equal(commit.verdict.qhat, 0.3, "q̂ = 10th smallest score = 0.3 (hand-computed)");
-  assert.equal(commit.verdict.region.kind, "set", "set mode ⇒ set region");
+  assert.equal(commit.verdict.region?.kind, "set", "set mode ⇒ set region");
   assert.deepEqual(commit.verdict.region, { kind: "set", labels: ["A"], label_schema: "A|B|C" }, "C(x)={A}, label_schema derived from candidates (B-3)");
   assert.equal(commit.verdict.abstain, false, "|C|=1 <= tau=1 ⇒ no abstain");
   assert.equal(commit.action, "commit", "intent A ∈ {A}, |C|=1 <= tau=1 ⇒ COMMIT");
@@ -288,26 +298,27 @@ test("gate_byo_honesty_text_is_wired_on_calibration_presence", () => {
   assert.ok(text.startsWith(`${CALIBRATE_LABEL} B_t is caller-carried.`), "BYO content leads with the CALIBRATE_LABEL honesty carrier (B-2)");
   assert.ok(text.includes("exchangeable"), "the BYO content declares the exchangeability hypothesis");
   assert.ok(!text.includes(CASCADE_UNCALIBRATED_SENTENCE), "the BYO content must NOT carry the CASCADE sentence (B-1)");
-  // The verdict summary is DERIVED from the same decision (single source): action + a truncated calib_digest
+  // The verdict summary is DERIVED from the same decision (single source): action + a truncated scores_sha256
   // appear in the content text, so a text-only client sees the decision. Mutant that hardcodes it ⇒ reds.
   const byoDecision = runGate(byoBody.prediction, byoBody.params);
   assert.ok(text.includes(`action=${byoDecision.action}`), "the verdict summary carries the decision action");
-  assert.ok(text.includes(`calib_digest=${byoDecision.verdict.calib_digest.slice(0, 8)}`), "the verdict summary carries the (truncated) calib_digest");
+  assert.ok(text.includes(`scores_sha256=${byoDecision.verdict.scores_sha256.slice(0, 8)}`), "the verdict summary carries the (truncated) scores_sha256");
   // Non-regression: a committed-class gate still carries its own honesty text (not the BYO label).
   const cascadeText = gateTool.run({ prediction: CASCADE_PRED, params: { ...GOOD_PARAMS, intent: 12345 } }).text;
   assert.ok(cascadeText.includes(CASCADE_UNCALIBRATED_SENTENCE), "a cascade gate still carries the CASCADE sentence");
 });
 
-// Test — audit (D-C2.5): the BYO decision's verdict.calib_digest === calibDigest(scores) ===
-// calibrate.runCalibrate(scores).set_digest. This CLOSES the C1↔C2 loop: a caller that calibrated
-// (calibrate → set_digest) and then gated on the SAME scores gets a decision provably built on ITS
-// calibration. Mutant: build the verdict on a different score array ⇒ the triple equality reds.
-test("gate_byo_audit_calib_digest_closes_the_loop", () => {
-  const scores = [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0];
+// Test — audit (D-C2.5, contract 1.1.0): the BYO decision's verdict.scores_sha256 === scoresSha256(scores) ===
+// calibrate.runCalibrate(scores).scores_sha256, in the caller's order. This CLOSES the C1↔C2 loop: a caller that
+// calibrated (calibrate → scores_sha256) and then gated on the SAME scores gets a decision provably built on ITS
+// calibration. Mutant: build the verdict on a different score array (or a sorted copy) ⇒ the triple equality reds.
+test("gate_byo_audit_scores_sha256_closes_the_loop", () => {
+  const scores = [0.6, 0.2, 0.3, 0.4, 0.5, 0.1, 0.7, 0.8, 0.9, 1.0];
   const decision = runGate(BYO_INTERVAL_PRED, { ...GOOD_PARAMS, intent: 0, nMin: 5, tauInterval: 2, calibration: { scores, mode: "interval" } });
   const calibrate = runCalibrate({ scores, alpha: GOOD_PARAMS.alpha, nMin: 5 });
-  assert.equal(decision.verdict.calib_digest, calibDigest(scores), "verdict.calib_digest === calibDigest(scores)");
-  assert.equal(decision.verdict.calib_digest, calibrate.set_digest, "verdict.calib_digest === calibrate.set_digest (C1↔C2 audit)");
+  assert.equal(decision.verdict.scores_sha256, scoresSha256(scores), "verdict.scores_sha256 === scoresSha256(scores), in the caller's order");
+  assert.equal(calibrate.scores_sha256, scoresSha256(scores), "calibrate.scores_sha256 === scoresSha256(scores)");
+  assert.equal(decision.verdict.scores_sha256, calibrate.scores_sha256, "verdict.scores_sha256 === calibrate.scores_sha256 (C1↔C2 audit)");
   assert.equal(decision.verdict.n_calib, scores.length, "n_calib == the caller's score count");
 });
 
@@ -375,35 +386,31 @@ test("gate_byo_fail_closed", () => {
 // byte-identical to their pre-C2 behaviour (verdicts + digests). These digests are the SAME anchors the
 // H5 trace pins, so a drift here would also move the trace. Mutant: any change to the committed paths ⇒ red.
 // CM-2b: btc-dir is retired (ADR-CM B-5); the committed USDe key takes its place as the covered committed path.
-// killer: apps/harness/src/tools/gate.ts:927 CONST "\"task_class_retired\"" -> "\"task_class_unknown\""
+// killer: apps/harness/src/tools/gate.ts:966 CONST "\"task_class_retired\"" -> "\"task_class_unknown\""
 test("gate_committed_classes_unchanged_without_calibration", () => {
   assertBtcDirRetired();
   const usde = runGate(USDE_PRED, { ...GOOD_PARAMS, intent: 0 });
   assert.equal(usde.verdict.reason, "covered", "the committed USDe key stays covered");
-  assert.equal(usde.verdict.calib_digest, USDE_STABLE_RUN_CALIB_DIGEST_PINNED, "USDe calib_digest is the pinned committed digest");
+  assert.equal(usde.verdict.scores_sha256, USDE_STABLE_RUN_SCORES_SHA256_PINNED, "USDe scores_sha256 is the pinned committed digest");
   assert.equal(usde.verdict.n_calib, 613);
 
   const cascade = runGate(CASCADE_PRED, { ...GOOD_PARAMS, intent: 12345 });
   assert.equal(cascade.action, "abstain", "cascade stays an under_calib abstain");
   assert.equal(cascade.reason, "under_calib");
-  // cascade has NO committed calibration ⇒ calibDigest([]) — the empty-input sha256, written in by hand.
-  assert.equal(cascade.verdict.calib_digest, "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855", "cascade calib_digest == calibDigest([])");
+  // cascade has NO committed calibration ⇒ scoresSha256([]) = sha256("[]"), written in by hand.
+  assert.equal(cascade.verdict.scores_sha256, "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945", "cascade scores_sha256 == scoresSha256([])");
   assert.equal(cascade.verdict.reason, "under_calib");
 });
 
-// Test (E9, the ADR-M018 D4 lot) — a NUMERIC (interval) class under `under_calib` carries an EMPTY `set`
-// region whose label_schema names the numeric nature (NUMERIC_LABEL_SCHEMA), NEVER the directional
-// `up|down` (an inert but dishonest octet on the served wire). The frozen coverage-verdict contract
-// requires a set region's label_schema to be non-empty (minLength 1), so a numeric class cannot OMIT it —
-// hence a class-honest schema rather than an empty one. Every reachable served numeric under_calib path is
-// enumerated; a btc-dir positive control shows the directional default is intact (E9 changed only the
-// numeric callers, not underCalibVerdict's default). Mutant: delete `labelSchema: NUMERIC_LABEL_SCHEMA`
-// in interval-conformer.ts `underCalib` (the `labelSchema: NUMERIC_LABEL_SCHEMA` line) — `npm run typecheck` stays GREEN (the default masks it,
-// exactly as workspace hoisting masked m1), and the cascade case below reds.
+// Test (E9, inverted by contract 1.1.0) — a NUMERIC (interval) class under `under_calib` carries NO region
+// (`region: null`, `qhat: null`), never an empty `set` and never a label_schema, directional (`up|down`) or
+// numeric (NUMERIC_LABEL_SCHEMA): 1.1.0 retires the empty set "without region" (ADR-CM B-11 amended). Every
+// reachable served numeric under_calib path is enumerated, each with qhat_unit "label" and scale null; the
+// default of underCalibVerdict carries no region either (the positive control of E9 is gone with the set).
 // CM-2b (ADR-CM B-2): the USDe key's nMin is now imposed (50 <= 613), so its "nMin > n_committed" under_calib path is
 // no longer served: nMin 10000 is a 400 policy_nmin_mismatch. The positive control reads the hikae default directly
 // (btc-dir is retired, ADR-CM B-5).
-// killer: apps/harness/src/tools/gate.ts:595 SDL "assertPolicy(USDE_POLICY, params);" -> ""
+// killer: apps/harness/src/tools/gate.ts:632 SDL "assertPolicy(USDE_POLICY, params);" -> ""
 test("numeric_under_calib_region_is_not_directional", () => {
   const numericUnderCalib: { name: string; d: GateDecision }[] = [
     // committed cascade: cascadeVerdict -> conformInterval({calib:[]}) -> interval-conformer underCalib helper
@@ -428,13 +435,10 @@ test("numeric_under_calib_region_is_not_directional", () => {
     },
   ];
   for (const { name, d } of numericUnderCalib) {
-    assert.equal(d.verdict.reason, "under_calib", `${name}: expected an under_calib verdict`);
-    // Whole-region deepEqual (exact keys): empty set region, class-honest numeric label_schema.
-    assert.deepEqual(
-      d.verdict.region,
-      { kind: "set", labels: [], label_schema: NUMERIC_LABEL_SCHEMA },
-      `${name}: numeric under_calib region must be the empty set with a numeric label_schema`,
-    );
+    assert.equal(d.verdict.reason, name.includes("NDG") ? "region_degenerate" : "under_calib", `${name}: expected reason (B-16 on zero width)`);
+    // No region at all: neither the empty set of 1.0.0 nor any label_schema on the wire.
+    assert.deepEqual([d.verdict.region, d.verdict.qhat, d.verdict.qhat_unit, d.verdict.scale], [null, null, "label", null], `${name}: no region`);
+    assert.ok(!JSON.stringify(d).includes("label_schema"), `${name}: no label_schema on the wire (${NUMERIC_LABEL_SCHEMA}, ${BTC_DIR_LABEL_SCHEMA})`);
   }
 
   // The USDe "nMin > n_committed" path is no longer reachable: nMin is imposed (ADR-CM B-2).
@@ -443,14 +447,15 @@ test("numeric_under_calib_region_is_not_directional", () => {
     (e: unknown) => e instanceof HarnessToolError && (e as { code?: unknown }).code === "policy_nmin_mismatch",
     "USDe key with nMin 10000 is a 400 policy_nmin_mismatch",
   );
-  // Positive control — the directional default of underCalibVerdict is INTACT (E9 changed only the numeric callers).
-  const dflt = underCalibVerdict({ taskClass: "x", method: "split", alpha: 0.1, scores: [], residual: [], producedAt: "2026-09-04T00:00:00Z", schemaVersion: "1.0.0" });
-  assert.deepEqual(dflt.region, { kind: "set", labels: [], label_schema: BTC_DIR_LABEL_SCHEMA }, "the default stays directional up|down");
+  // The default of underCalibVerdict carries no region either (1.1.0: no empty set, no directional default).
+  const cell = { qhatUnit: "label", scale: null, cellKey: null, policyRowSha256: null, policyTableSha256: null } as const;
+  const dflt = underCalibVerdict({ taskClass: "x", method: "split", alpha: 0.1, scores: [], residual: [], producedAt: "2026-09-04T00:00:00Z", schemaVersion: SCHEMA_VERSION, cell });
+  assert.deepEqual([dflt.region, dflt.qhat], [null, null], "the default carries no region");
 });
 
 // ── Narabi / stable-run-velocity-24h — isolation of POPULATION on the wire (ADR-M008 D4/D5 + Amend. bis, C-10) ──
 
-const EMPTY_CALIB_DIGEST = "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"; // calibDigest([])
+const EMPTY_CALIB_DIGEST = "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"; // scoresSha256([])
 const USDE_TOKEN = "erc20:0x4c9EDD5852cd905f086C759E8383e09bff1E68B3"; // A4 canonical token (mixed case; canonicalized in the key)
 const MSUSD_TOKEN = "erc20:0x4ba01f22827018b4772CD326C7627FB4956A7C00"; // Main Street msUSD v2 — a DIFFERENT population
 
@@ -488,7 +493,7 @@ test("gate_stable_run_noncommitted_key_abstains_under_calib", () => {
   assert.equal(d.verdict.reason, "under_calib");
   assert.equal(d.verdict.qhat, null, "no committed calibration for this key ⇒ q̂ null (never clamped)");
   assert.equal(d.verdict.task_class, "stable-run-velocity-24h", "the verdict carries the velocity class");
-  assert.equal(d.verdict.calib_digest, EMPTY_CALIB_DIGEST, "non-committed key ⇒ calib_digest == calibDigest([])");
+  assert.equal(d.verdict.scores_sha256, EMPTY_CALIB_DIGEST, "non-committed key ⇒ scores_sha256 == scoresSha256([])");
   assert.doesNotThrow(() => { assertClosedGateDecision(d); assertNoForbiddenKey(d); }, "the emitted decision is closed + forbidden-key-free");
 });
 
@@ -509,7 +514,7 @@ test("gate_stable_run_task_class_matches_registry", () => {
 
 // Test — A7(b): a REAL USDe mainnet flow → adapter → gate reaches the COMMITTED region (covered), keyed on
 // (task_class, predictor_id). Anti-circularity: q̂ is proven via splitQuantile BEFORE runGate; the pinned
-// digest is the wire calib_digest. Mutant: unwire the USDe key ⇒ under_calib ⇒ every assertion below reds.
+// digest is the wire scores_sha256. Mutant: unwire the USDe key ⇒ under_calib ⇒ every assertion below reds.
 test("gate_stable_run_usde_committed_region_A7b", () => {
   const pred = adaptToPrediction(narabiFlow("eip155:1", USDE_TOKEN));
   assert.equal(pred.predictor_id, USDE_STABLE_RUN_PREDICTOR_ID, "the USDe flow emits the committed key");
@@ -518,11 +523,11 @@ test("gate_stable_run_usde_committed_region_A7b", () => {
   // COMMIT: intent = the forecast, width 2·q̂ ≪ tauInterval=1, budget ≥ floor.
   const d = runGate(pred, { ...GOOD_PARAMS, intent: pred.yhat, tauInterval: 1 });
   assert.equal(d.verdict.reason, "covered", "the committed USDe region is produced (not under_calib)");
-  assert.equal(d.verdict.region.kind, "interval", "a regression region");
+  assert.equal(d.verdict.region?.kind, "interval", "a regression region");
   assert.equal(d.verdict.qhat, sq.qhat, "the wire q̂ equals the independent splitQuantile of the committed scores");
   assert.equal(d.verdict.n_calib, USDE_STABLE_RUN_CALIB.length, "n_calib = 613 committed scores");
   assert.equal(d.verdict.n_calib, 613);
-  assert.equal(d.verdict.calib_digest, USDE_STABLE_RUN_CALIB_DIGEST_PINNED, "the wire calib_digest is the pinned USDe digest");
+  assert.equal(d.verdict.scores_sha256, USDE_STABLE_RUN_SCORES_SHA256_PINNED, "the wire scores_sha256 is the pinned USDe digest");
   assert.equal(d.action, "commit", "intent ∈ region, width ≤ τ_interval, B_t ≥ floor ⇒ commit/covered");
   assert.doesNotThrow(() => { assertClosedGateDecision(d); assertNoForbiddenKey(d); });
 });
@@ -548,8 +553,8 @@ test("gate_stable_run_family_isolation_fail_closed_A7acde", () => {
     assert.equal(d.reason, "under_calib", `${name} ⇒ under_calib`);
     assert.equal(d.verdict.reason, "under_calib", `${name} ⇒ verdict under_calib`);
     assert.equal(d.verdict.qhat, null, `${name} ⇒ q̂ null (never the committed q̂)`);
-    assert.equal(d.verdict.calib_digest, EMPTY_CALIB_DIGEST, `${name} ⇒ calib_digest == calibDigest([]), NEVER the USDe digest`);
-    assert.notEqual(d.verdict.calib_digest, USDE_STABLE_RUN_CALIB_DIGEST_PINNED, `${name} ⇒ never the USDe committed digest`);
+    assert.equal(d.verdict.scores_sha256, EMPTY_CALIB_DIGEST, `${name} ⇒ scores_sha256 == scoresSha256([]), NEVER the USDe digest`);
+    assert.notEqual(d.verdict.scores_sha256, USDE_STABLE_RUN_SCORES_SHA256_PINNED, `${name} ⇒ never the USDe committed digest`);
   }
 });
 
@@ -602,13 +607,14 @@ test("gate_sentence_barber", () => {
 // conformalization is splitQuantile → buildIntervalRegion. An ALL-ZERO score vector (degenerate calibration)
 // routes to under_calib through THAT chain; the REAL committed USDe scores are non-degenerate (q̂>0, a real
 // region). Mutant (region.ts, ADR-M011): drop the lo===hi guard ⇒ the all-zero case yields a covered width-0
-// region ⇒ the first assertion reds. No second guard is added anywhere in this lot.
-test("gate_stable_run_ndg1_zero_width_is_under_calib_reused", () => {
+// region ⇒ the first assertion reds. No second guard is added anywhere in this lot. Since B-16: region_degenerate.
+// killer: packages/hikae/src/region.ts:75 CONST "reason: \"region_degenerate\"" -> "reason: \"under_calib\""
+test("gate_stable_run_ndg1_zero_width_is_region_degenerate_reused", () => {
   const zeros = Array.from({ length: USDE_STABLE_RUN_CALIB.length }, () => 0);
   const sqZero = splitQuantile(zeros, GOOD_PARAMS.alpha, GOOD_PARAMS.nMin);
   assert.ok("qhat" in sqZero && sqZero.qhat === 0, "all-zero scores ⇒ q̂ = 0 (calibrated, degenerate)");
   const irZero = buildIntervalRegion(0.00005 - 0, 0.00005 + 0); // yhat ± 0 ⇒ lo === hi
-  assert.ok(irZero.abstain && irZero.reason === "under_calib", "NDG-1: a zero-width region ⇒ under_calib (reused)");
+  assert.ok(irZero.abstain && irZero.reason === "region_degenerate", "NDG-1: a zero-width region ⇒ region_degenerate (reused, B-16)");
   // The REAL committed USDe scores are non-degenerate ⇒ a real region.
   const sqReal = splitQuantile(USDE_STABLE_RUN_CALIB, GOOD_PARAMS.alpha, GOOD_PARAMS.nMin);
   assert.ok("qhat" in sqReal && sqReal.qhat > 0, "the committed USDe q̂ is strictly positive (non-degenerate)");
@@ -620,7 +626,7 @@ test("gate_stable_run_ndg1_zero_width_is_under_calib_reused", () => {
 // overwrite the COMMITTED USDe key, but a DIFFERENT population on the same class MAY bring its own scores.
 //   (i)  USDe committed key + calibration ⇒ HarnessToolError (the committed key is locked);
 //   (ii) msUSD (non-committed) key + calibration ⇒ NO throw; the CALLER's scores are used (n_calib=10,
-//        calib_digest = calibDigest(callerScores)), NEVER the USDe 613.
+//        scores_sha256 = scoresSha256(callerScores)), NEVER the USDe 613.
 // Mutants: (a) revert the guard to class-only (`taskClass === TASK_STABLE_RUN`) ⇒ (ii) throws ⇒ red;
 // (b) drop the committed-key lookup term ⇒ (i) no longer throws (a caller silently overrides the committed
 // USDe calibration) ⇒ red. The n_calib===10 assertion proves the BYO path actually RAN (not merely no throw).
@@ -645,8 +651,8 @@ test("gate_stable_run_byo_anti_override_is_key_aware_A6", () => {
   }
   assert.equal(d.verdict.reason, "covered", "the msUSD BYO path RUNS (not locked)");
   assert.equal(d.verdict.n_calib, callerScores.length, "the CALLER's scores are used (n=10), never the USDe 613");
-  assert.equal(d.verdict.calib_digest, calibDigest(callerScores), "calib_digest is over the CALLER's scores, never the USDe digest");
-  assert.notEqual(d.verdict.calib_digest, USDE_STABLE_RUN_CALIB_DIGEST_PINNED, "never the USDe committed digest");
+  assert.equal(d.verdict.scores_sha256, scoresSha256(callerScores), "scores_sha256 is over the CALLER's scores, never the USDe digest");
+  assert.notEqual(d.verdict.scores_sha256, USDE_STABLE_RUN_SCORES_SHA256_PINNED, "never the USDe committed digest");
 });
 
 // ── ADR-M011 — interval non-degeneracy (NDG-1), BYO path (the REAL F2 msUSD repro path) ───────────────
@@ -660,7 +666,9 @@ const MSUSD_LIKE_SCORES: number[] = [...Array.from({ length: 190 }, () => 0), 1.
 // Test — §3.6 (C-1 BLOQUANTE): a BYO `interval` calibration whose region has ZERO WIDTH (q̂=0 at the
 // pinned α=0.10) ⇒ under_calib, never a fabricated width-0 commit. This is the ONLY test that traverses the
 // real repro path (harness byoVerdict). Mutant M1 (region.ts guard removed) ⇒ verdict `covered`/q̂=0 ⇒ red.
-test("gate_byo_interval_degenerate_calibration_is_under_calib_M011", () => {
+// Since B-16 (lot CM-3c-4b) the abstention reason is region_degenerate, in the verdict and at L3.
+// killer: apps/harness/src/tools/gate.ts:513 CONST "noRegionVerdict(ir.reason, {" -> "underCalibVerdict({"
+test("gate_byo_interval_degenerate_calibration_is_region_degenerate_M011", () => {
   assert.equal(GOOD_PARAMS.alpha, 0.1, "GOOD_PARAMS.alpha is 0.10 (the degenerate-at-α=0.10 case)");
   assert.equal(MSUSD_LIKE_SCORES.length, 191, "n=191 (<= CALIBRATE_MAX_N=10000 ⇒ passes the cap)");
   // ANTI-CIRCULARITY: L1 gives q̂=0 (NOT under_calib) at α=0.10 ⇒ the under_calib comes from NDG-1, not L1.
@@ -674,20 +682,21 @@ test("gate_byo_interval_degenerate_calibration_is_under_calib_M011", () => {
     calibration: { scores: MSUSD_LIKE_SCORES, mode: "interval" },
   });
   // Verdict-level (kills M1: with the region.ts guard removed the verdict is `covered`, q̂ 0):
-  assert.equal(d.verdict.reason, "under_calib", "degenerate calibration ⇒ verdict under_calib (NDG-1)");
+  assert.equal(d.verdict.reason, "region_degenerate", "degenerate calibration ⇒ verdict region_degenerate (NDG-1, B-16)");
   assert.equal(d.verdict.qhat, null, "q̂ null on the honest abstention (never a width-0 covered)");
   assert.equal(d.verdict.abstain, true);
   // Gate-level (D3(b) + D6(b)):
   assert.equal(d.action, "abstain");
   assert.equal(d.allow, false);
-  assert.equal(d.reason, "under_calib", "gate reason under_calib (D6(b) — kills M4 ⇒ intent_not_in_region)");
+  assert.equal(d.reason, "region_degenerate", "gate reason region_degenerate (D6(b) — kills M4 ⇒ intent_not_in_region)");
 });
 
 // Test — §3.3 D1 discriminator (structural lo===hi, NOT `q̂>0`): float absorption at q̂>0. The ONLY path
 // where q̂>0 AND lo===hi coexist is BYO fed scores (in the conformer, residuals absorb to 0 BEFORE
 // splitQuantile ⇒ q̂=0, indiscernable). scores=[1e-12 × n], ŷ=1e6 ⇒ q̂=1e-12>0 but 1e6 ± 1e-12 === 1e6.
-// Mutant M3 (replace lo===hi by q̂>0 in the producer) ⇒ verdict `covered` here ⇒ red.
-test("gate_byo_interval_float_absorption_is_under_calib_M011", () => {
+// Mutant M3 (replace lo===hi by q̂>0 in the producer) ⇒ verdict `covered` here ⇒ red. Since B-16: region_degenerate.
+// killer: packages/hikae/src/region.ts:71 ROR "if (lo === hi) {" -> "if (lo > hi + 1) {"
+test("gate_byo_interval_float_absorption_is_region_degenerate_M011", () => {
   const scores: number[] = Array.from({ length: 10 }, () => 1e-12); // n=10 >= nMin 5
   // In-code absorption proof + L1 gives q̂ = 1e-12 > 0 (NOT under_calib, NOT q̂=0): a naive `q̂>0` guard
   // would MISS this — only the STRUCTURAL lo===hi catches it (D1).
@@ -698,10 +707,32 @@ test("gate_byo_interval_float_absorption_is_under_calib_M011", () => {
     { ...BYO_INTERVAL_PRED, yhat: 1e6 },
     { ...GOOD_PARAMS, intent: 1e6, nMin: 5, alpha: 0.1, calibration: { scores, mode: "interval" } },
   );
-  assert.equal(d.verdict.reason, "under_calib", "lo===hi at q̂>0 ⇒ under_calib (structural NDG-1, not q̂>0)");
+  assert.equal(d.verdict.reason, "region_degenerate", "lo===hi at q̂>0 ⇒ region_degenerate (structural NDG-1, not q̂>0)");
   assert.equal(d.verdict.qhat, null);
   assert.equal(d.verdict.abstain, true);
   assert.equal(d.action, "abstain");
+  assert.equal(d.reason, "region_degenerate");
+});
+
+// G2 R-2 of lot CM-3c-4b, Q-CP4B-3: an additive edge outside binary64 (yhat + qhat overflows) stays under_calib as
+// before B-13, never a served band clamped at Number.MAX_VALUE. BYO yhat = 1.7e308, scores 1e307 (q̂ = 1e307): without
+// the guard the score-test band is [~1.6e308, MAX_VALUE] and the gate commits; with it, abstain / under_calib.
+// killer: packages/hikae/src/region.ts:122 SDL "|| !Number.isFinite(yhat + qhat)" -> ""
+test("gate_byo_interval_additive_overflow_is_under_calib_QCP4B3", () => {
+  assert.equal(1.7e308 + 1e307, Infinity, "the additive upper edge overflows binary64");
+  assert.ok(Number.isFinite(1.7e308 - 1e307), "the additive lower edge is finite");
+  assert.deepEqual(scoreTestBand(1.7e308, 1e307), { abstain: true, reason: "under_calib" }, "the band itself is under_calib");
+  const scores: number[] = Array.from({ length: 10 }, () => 1e307);
+  assert.deepEqual(splitQuantile(scores, 0.1, 5), { qhat: 1e307 }, "L1 q̂ = 1e307 (not under_calib)");
+  const d = runGate(
+    { ...BYO_INTERVAL_PRED, yhat: 1.7e308 },
+    { ...GOOD_PARAMS, intent: 1.7e308, tauInterval: Number.MAX_VALUE, nMin: 5, alpha: 0.1, calibration: { scores, mode: "interval" } },
+  );
+  assert.equal(d.verdict.reason, "under_calib", "overflow ⇒ verdict under_calib (Q-CP4B-3)");
+  assert.equal(d.verdict.qhat, null);
+  assert.equal(d.verdict.abstain, true);
+  assert.equal(d.action, "abstain", "never a silent commit");
+  assert.equal(d.allow, false);
   assert.equal(d.reason, "under_calib");
 });
 

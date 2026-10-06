@@ -68,7 +68,7 @@
           "cascade",
           "gate"
         ],
-        "response_sha256": "2ed3e97dadb4c34ed458d774f385f23575078fca64b3829c11d527c847ee34e0"
+        "response_sha256": "b419e4735f6e7c8107a827597add139cd8a4c3c1a97e6ed943ae20eb8f735956"
       }
     },
     {
@@ -112,7 +112,7 @@
           }
         ],
         "structuredContent": {
-          "schema_version": "1.0.0",
+          "schema_version": "1.1.0",
           "task_class": "cascade-liquidable-24h",
           "yhat": 100,
           "predictor_id": "internal:ukemi-cascade-v0",
@@ -135,7 +135,7 @@
           "name": "gate",
           "arguments": {
             "prediction": {
-              "schema_version": "1.0.0",
+              "schema_version": "1.1.0",
               "task_class": "cascade-liquidable-24h",
               "yhat": 100,
               "predictor_id": "internal:ukemi-cascade-v0",
@@ -159,34 +159,36 @@
         "content": [
           {
             "type": "text",
-            "text": "no cascade calibration is committed; the gate abstains (under_calib) on this class; B_t is caller-carried. verdict action=abstain reason=under_calib region={} qhat=null n_calib=0 calib_digest=e3b0c442...52b855"
+            "text": "no cascade calibration is committed; the gate abstains (under_calib) on this class; B_t is caller-carried. verdict action=abstain reason=under_calib region=null qhat=null n_calib=0 scores_sha256=4f53cda1...02b945"
           }
         ],
         "structuredContent": {
-          "schema_version": "1.0.0",
+          "schema_version": "1.1.0",
           "action": "abstain",
           "allow": false,
           "tool": "perps_order_preview",
           "intent": 100,
           "verdict": {
-            "schema_version": "1.0.0",
+            "schema_version": "1.1.0",
             "task_class": "cascade-liquidable-24h",
             "method": "split",
             "alpha": 0.1,
             "n_calib": 0,
-            "region": {
-              "kind": "set",
-              "labels": [],
-              "label_schema": "numeric"
-            },
+            "region": null,
             "qhat": null,
+            "qhat_unit": "label",
+            "scale": null,
             "abstain": true,
             "reason": "under_calib",
             "residual": [],
-            "calib_digest": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "scores_sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+            "cell_key": "internal:ukemi-cascade-v0",
+            "policy_row_sha256": null,
+            "policy_table_sha256": "07bd085b4faafba67c03d2827bc690f5d082c7553b67491b86834345296b2465",
             "produced_at": "2026-09-04T00:00:00Z"
           },
           "remaining_budget": 0.1,
+          "request_sha256": "dbda8b470730b1f5c21f56ba29e4afcb33cef1295d66cbc28e45f0960e88b87c",
           "reason": "under_calib"
         }
       }
@@ -206,7 +208,7 @@
           "name": "gate",
           "arguments": {
             "prediction": {
-              "schema_version": "1.0.0",
+              "schema_version": "1.1.0",
               "task_class": "stable-run-velocity-24h",
               "yhat": 0.0001,
               "predictor_id": "narabi:persistence-v2@eip155:1/erc20:0x4c9edd5852cd905f086c759e8383e09bff1e68b3",
@@ -230,34 +232,40 @@
         "content": [
           {
             "type": "text",
-            "text": "a committed stable-run velocity calibration for the USDe synthetic-dollar-whitelisted-redeem population (key narabi:persistence-v2@eip155:1/erc20:0x4c9edd5852cd905f086c759e8383e09bff1e68b3) over calm-window redemption flow; coverage is stated under the split-conformal bound of Barber, Candes, Ramdas and Tibshirani 2023 (Thm 2, unit weights): at least 1 − α minus the average total-variation gap between calibration windows and the next one; that gap is not estimated here and the calibration is measured non-stationary across half-years, so 1 − α is the coverage only if that gap is zero (exchangeability), which is not assumed here; no coverage is measured; each band edge is yhat - qhat or yhat + qhat rounded to the nearest double, so it can differ from the exact edge by up to half a unit in the last place of that edge; the band is not widened for it; every other (task_class, predictor_id) abstains (under_calib); B_t is caller-carried. verdict action=commit reason=covered region=[-0.000031192280833333336, 0.00023119228083333333] qhat=0.00013119228083333334 n_calib=613 calib_digest=c9793b28...d9e86c"
+            "text": "a committed stable-run velocity calibration for the USDe synthetic-dollar-whitelisted-redeem population (key narabi:persistence-v2@eip155:1/erc20:0x4c9edd5852cd905f086c759e8383e09bff1e68b3) over calm-window redemption flow; coverage is stated under the split-conformal bound of Barber, Candes, Ramdas and Tibshirani 2023 (Thm 2, unit weights): at least 1 − α minus the average total-variation gap between calibration windows and the next one; that gap is not estimated here and the calibration is measured non-stationary across half-years, so 1 − α is the coverage only if that gap is zero (exchangeability), which is not assumed here; no coverage is measured; every other (task_class, predictor_id) abstains (under_calib); B_t is caller-carried. verdict action=commit reason=covered region=[-0.00003119228083333335, 0.00023119228083333336] qhat=0.00013119228083333334 n_calib=613 scores_sha256=e44a68b6...5cfd28"
           }
         ],
         "structuredContent": {
-          "schema_version": "1.0.0",
+          "schema_version": "1.1.0",
           "action": "commit",
           "allow": true,
           "tool": "perps_order_preview",
           "intent": 0.0001,
           "verdict": {
-            "schema_version": "1.0.0",
+            "schema_version": "1.1.0",
             "task_class": "stable-run-velocity-24h",
             "method": "split",
             "alpha": 0.1,
             "n_calib": 613,
             "region": {
               "kind": "interval",
-              "lo": -0.000031192280833333336,
-              "hi": 0.00023119228083333333
+              "lo": -0.00003119228083333335,
+              "hi": 0.00023119228083333336
             },
             "qhat": 0.00013119228083333334,
+            "qhat_unit": "label",
+            "scale": null,
             "abstain": false,
             "reason": "covered",
             "residual": [],
-            "calib_digest": "c9793b281167465af88c9e837aaeaf7fb26c709ff4c5e342c68893e759d9e86c",
+            "scores_sha256": "e44a68b6b697a32f3f198770e740ab206393dc3425e8cc59e4b0e1e4e65cfd28",
+            "cell_key": "narabi:persistence-v2@eip155:1/erc20:0x4c9edd5852cd905f086c759e8383e09bff1e68b3",
+            "policy_row_sha256": "0708a79a7b6e86ecab9a0efa4c303c08c0555bb12d845758336caa79529991e0",
+            "policy_table_sha256": "c7572e084a6765c5a145b54e3a93e1a0ee81b2ad6ccb38630399173454fbf0a8",
             "produced_at": "2026-09-04T00:00:00Z"
           },
           "remaining_budget": 0.1,
+          "request_sha256": "800a18f39dff4a359c5337cf8db00eafab025abd6523daf0ad45b60eec71d1d1",
           "reason": "covered"
         }
       }
@@ -337,7 +345,7 @@
           "name": "gate",
           "arguments": {
             "prediction": {
-              "schema_version": "1.0.0",
+              "schema_version": "1.1.0",
               "task_class": "btc-dir-15m",
               "yhat": "up",
               "predictor_id": "internal:momentum-4c",
@@ -429,7 +437,7 @@
       },
       "response": {
         "structuredContent": {
-          "schema_version": "1.0.0",
+          "schema_version": "1.1.0",
           "task_class": "cascade-liquidable-24h",
           "yhat": 100,
           "predictor_id": "internal:ukemi-cascade-v0",
@@ -451,7 +459,7 @@
     "cascade_gate_remaining_budget": 0.1,
     "committed_gate_action": "commit",
     "committed_gate_reason": "covered",
-    "committed_gate_calib_digest": "c9793b281167465af88c9e837aaeaf7fb26c709ff4c5e342c68893e759d9e86c",
+    "committed_gate_scores_sha256": "e44a68b6b697a32f3f198770e740ab206393dc3425e8cc59e4b0e1e4e65cfd28",
     "attest_label": "real, notary Shōgen, demonstrative, not probative",
     "attest_sens_emis_digest": "4ad0e84b4f078e7ee62482ca86853c09e3c17bf074274168d65c024d1777e24b",
     "attested_gate_is_error": true,

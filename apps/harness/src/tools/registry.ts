@@ -55,7 +55,7 @@ export interface HarnessToolDescriptor {
 }
 
 /** What an entry point injects into a tool run (ADR-CM B-4): the current instant, read in src/, never under src/tools/. */
-export type ToolRunContext = RunGateOptions;
+export type ToolRunContext = Pick<RunGateOptions, "nowMs">;
 
 /** The tools registered by THIS lot's cumulative state (H1: `gate`; H2: `cascade`; H3: `attest`; C1:
  *  `calibrate` — the terminal set {attest,gate,cascade,calibrate}, ADR-M007). */
@@ -71,9 +71,9 @@ export const HARNESS_TOOLS: readonly HarnessToolDescriptor[] = [
       const env = args as GateEnvelope;
       const decision = runGate(env.prediction, env.params, env.attested, ctx);
       // structuredContent = the closed GateDecision ONLY (K-1); honesty prose rides in `content` text.
-      // B-1: the honesty text is keyed on the PRESENCE of a BYO calibration, not task_class alone. The
+      // B-1: the honesty text is keyed on the PRESENCE of a BYO calibration, not task_class alone; S-8: on the resolved cell. The
       // verdict summary (a delivery aid for text-only clients, derived from `decision`) follows the prose.
-      const text = `${honestyText(env.prediction.task_class, env.prediction.predictor_id, env.params.calibration !== undefined)} ${gateVerdictSummary(decision)}`;
+      const text = `${honestyText(env.prediction.task_class, decision.verdict.cell_key ?? env.prediction.predictor_id, env.params.calibration !== undefined)} ${gateVerdictSummary(decision)}`;
       return { text, structured: decision as unknown as Record<string, unknown> };
     },
   },
@@ -116,7 +116,7 @@ export const HARNESS_TOOLS: readonly HarnessToolDescriptor[] = [
     run: (args) => {
       const input = args as CalibrateInput;
       const result = runCalibrate(input);
-      // structuredContent = the calibrate envelope {qhat,n,alpha,method,set_digest,label,reason}; the
+      // structuredContent = the calibrate envelope {qhat,n,alpha,method,scores_sha256,label,reason}; the
       // K-1 honesty label rides IN the output (carrier 3/3, ADR-M007 D3/D5) and ALSO in `content` text,
       // followed by the verdict summary (a delivery aid for text-only clients, derived from `result`).
       const text = `${calibrateHonestyText()} ${calibrateVerdictSummary(result)}`;

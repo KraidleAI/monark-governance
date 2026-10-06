@@ -14,7 +14,7 @@ the `arguments` of a `tools/call`, which is the form the recorded trace captures
 ## 1. `calibrate` YOUR scores
 
 You own the predictor and the nonconformity score function. Hand MONARK your score array and the target
-miscoverage α; it returns the split-conformal quantile q̂ and a `set_digest` over exactly those scores.
+miscoverage α; it returns the split-conformal quantile q̂ and a `scores_sha256` over exactly those scores, in the order sent.
 
 Request (`POST /calibrate`):
 
@@ -25,7 +25,7 @@ Request (`POST /calibrate`):
 Response (fields that matter):
 
 ```json
-{ "qhat": 1.0, "n": 10, "reason": null, "set_digest": "4081f718…" }
+{ "qhat": 1.0, "n": 10, "alpha": 0.1, "reason": null, "scores_sha256": "3e12ae9e…" }
 ```
 
 With n=10 and α=0.1, `p = ceil((n+1)(1−α)) = ceil(9.9) = 10`, so q̂ is the 10th smallest score = 1.0.
@@ -42,7 +42,7 @@ Request (`POST /gate`):
 
 ```json
 {
-  "prediction": { "schema_version": "1.0.0", "task_class": "caller-demo-reg", "yhat": 0, "predictor_id": "caller:own-model", "produced_at": "2026-09-04T00:00:00Z" },
+  "prediction": { "schema_version": "1.1.0", "task_class": "caller-demo-reg", "yhat": 0, "predictor_id": "caller:own-model", "produced_at": "2026-09-04T00:00:00Z" },
   "params": { "remainingBudget": 0.1, "bFloor": 0, "tau": 1, "tauInterval": 3, "alpha": 0.1, "nMin": 5, "intent": 0, "tool": "caller_downstream_tool", "clockOpen": true, "calibration": { "scores": [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0], "mode": "interval" } }
 }
 ```
@@ -51,7 +51,7 @@ Response (fields that matter):
 
 ```json
 { "action": "commit", "allow": true, "reason": "covered", "remaining_budget": 0.1,
-  "verdict": { "region": { "kind": "interval", "lo": -1, "hi": 1 }, "qhat": 1.0, "n_calib": 10, "calib_digest": "4081f718…" } }
+  "verdict": { "region": { "kind": "interval", "lo": -1, "hi": 1 }, "qhat": 1.0, "alpha": 0.1, "n_calib": 10, "scores_sha256": "3e12ae9e…" } }
 ```
 
 The region is `[ŷ−q̂, ŷ+q̂] = [−1, 1]`; its width 2 is below `tauInterval` 3 and the intent 0 lies in
@@ -63,11 +63,11 @@ call that carries an `attested` intake is refused in this phase — see `SKILL.m
 
 ## 3. Audit — the loop closes
 
-The gate verdict carries `calib_digest`; the calibrate call returned `set_digest`. Because both are
-computed over the same scores, they are equal:
+The gate verdict and the calibrate result both carry `scores_sha256`, `alpha` and `qhat`. Because both are
+computed over the same scores in the same order, at the same α, they are equal:
 
 ```
-verdict.calib_digest === calibrate.set_digest      // 4081f718… === 4081f718…
+verdict.scores_sha256 === calibrate.scores_sha256  // 3e12ae9e… === 3e12ae9e… (alpha 0.1 and qhat 1.0 on both)
 ```
 
 That equality is the closing tie: it shows the covered decision was gated against the exact scores you
@@ -85,7 +85,7 @@ calibrated, and nothing else.
 ## Recorded demonstration
 
 This exact loop is recorded, byte-for-byte, in `fixtures/byo-demo-trace.json` (LF sha256
-`daf8d3ea…`), produced by the deterministic recorder `scripts/record-byo-demo.mjs` and re-driven and
+`5c9b03e6…`), produced by the deterministic recorder `scripts/record-byo-demo.mjs` and re-driven and
 verified end-to-end by `test/byo-demo-probe.test.ts`. Its origin, digest, and the mock-discriminating
 checks are documented in `fixtures/PROVENANCE-byo-demo.md`.
 

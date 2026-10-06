@@ -130,8 +130,8 @@ export default function IntegratorsPage() {
         <p className="mt-2 mb-5 max-w-[820px] text-[16px] leading-[1.6] text-muted-foreground">
           Two stateless calls, recorded over the MCP transport of an in-process server on {byo.bind}. You calibrate on
           your own nonconformity scores, then gate your own prediction under them. The audit closes when the
-          gate&rsquo;s <code className={mono13}>calib_digest</code> equals the calibrate{" "}
-          <code className={mono13}>set_digest</code> — the decision was gated against exactly the scores you calibrated.
+          gate&rsquo;s <code className={mono13}>scores_sha256</code> equals the calibrate one, with the same miscoverage
+          level and quantile — the decision was gated against exactly the scores you calibrated, in the order you sent them.
         </p>
         <div className="grid grid-cols-[repeat(auto-fit,minmax(min(100%,320px),1fr))] gap-4">
           <div className={card}>
@@ -151,8 +151,8 @@ export default function IntegratorsPage() {
         </div>
         <p className="mt-4 max-w-[820px] text-[15px] leading-[1.6] text-muted-foreground">
           The gate returns <code className={mono13}>{byo.decision.action}</code> &middot;{" "}
-          <code className={mono13}>{byo.decision.reason}</code>, and <code className={mono13}>calib_digest</code>{" "}
-          {byo.calib_digest.slice(0, 12)}… equals <code className={mono13}>set_digest</code> {byo.set_digest.slice(0, 12)}… —
+          <code className={mono13}>{byo.decision.reason}</code>, and its <code className={mono13}>scores_sha256</code>{" "}
+          {byo.scores_sha256.verdict.slice(0, 12)}… equals the calibrate one {byo.scores_sha256.calibrate.slice(0, 12)}… —
           the loop closes. What the calibration means, as served: {served.honesty.calibrate_label} Full walkthrough:{" "}
           <a href={`${repo}/blob/main/skills/monark/DEMO.md`} className="underline underline-offset-4" target="_blank" rel="noreferrer">
             DEMO.md on GitHub

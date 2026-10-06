@@ -12,7 +12,8 @@
 import { HOSTS, MINT, firstReadDay, key, rowsAt, sim, world, type Tx } from "../apps/dojo/test/helpers/history-chain.ts";
 import { after, test } from "node:test";
 import assert from "node:assert/strict";
-import { copyFileSync, existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync } from "node:fs";
+import fs, { copyFileSync, existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync } from "node:fs";
+import { syncBuiltinESMExports } from "node:module";
 import { createHash } from "node:crypto";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -21,7 +22,7 @@ import { ownerClass, rootOf } from "../apps/dojo/scripts/dojo-core.mjs";
 import { dirSource, verifyDojoServed } from "../apps/dojo/scripts/dojo-verify.mjs";
 import { anchorBody, dateOf, dojoKeyringOf, historyBody, newKey, removeTrees, render, seedChain, writeTree,
   type Step } from "../apps/dojo/test/helpers/dojo-fixture.ts";
-import { DOJO_HISTORY_ENV, main } from "../apps/dojo/src/history-collect.ts";
+import { DOJO_HISTORY_ENV, main, runHistoryCollect } from "../apps/dojo/src/history-collect.ts";
 
 const DAY = 86_400, D1 = 20_706, T22 = "TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb"; // day 1 = 2026-09-10 (mere D-18), days since 1970-01-01
 const ENV = { BELL_SOLANA_RPC: `https://${HOSTS.a}`, CHAINSTACK_SOLANA_URL: `https://${HOSTS.b}`,
@@ -55,7 +56,7 @@ function oracle(txs: readonly Tx[], last: number): string[] {
 }
 
 // killer: apps/dojo/src/history-collect.ts:456 CONST "status: \"complete\", stop_reason: null" -> "status: \"partial\", stop_reason: null"
-test("dojo_history_collect_to_verify_end_to_end", async () => {
+test("dojo_history_collect_to_verify_end_to_end", async (t) => {
   Object.assign(sim, { txs: world(24, 2, 7, { gap: 40_000, mintless: [24], close: [10] }), reqs: [], tick: 0, drop: { a: new Set(), b: new Set() },
     pageDrop: new Set(), diverge: new Set(), override: null }); // days of blockTime, a transfer without the mint, a closed account
   const cut = (sim.txs.at(-1) as Tx).slot, fr = dayOf(sim.txs.at(-1) as Tx) + 2, last = fr - 1, S = 6467 * (fr - D1 + 1); // D_LAST = fr - 1 (D-3 l.230)
@@ -71,6 +72,18 @@ test("dojo_history_collect_to_verify_end_to_end", async () => {
   const deps = { env: ENV, nowMs: () => sim.nowMs, sleep: () => Promise.resolve() };
   const course = async (st: string): Promise<number[]> => [await main(argv("A", st), deps), await main(argv("B", st), deps), await main(argv("C", st), deps)];
   const status = (st: string): unknown => JSON.parse(readFileSync(join(st, "evidence", "status.json"), "utf8"));
+  // DOJO-E2E-DISK-1: the collector reads statfs of --state (D-10 disk floor). The courses see exactly that floor, recoded here, whatever the
+  // host's tmpdir holds (this world needs about 1.27 GB); one byte short is still refused by name. The refusal is also pinned, alone, by
+  // dojo_history_disk_rpc_error_and_faulted_body_paths (apps/dojo/test/dojo-history-collect.test.ts).
+  // killer: apps/dojo/src/history-collect.ts:185 ROR "fs.bavail * fs.bsize < 2" -> "fs.bavail * fs.bsize <= 2"
+  const need = 2 * Math.ceil((2 * S * 36_341) / 5.17), orig = fs.statfsSync; // D-10: 2 x ceil(2 x S x BODY_MAX / GZIP)
+  const free = (bytes?: number): void => { Object.assign(fs, { statfsSync: bytes === undefined ? orig : (q: fs.PathLike): fs.StatsFs => ({ ...orig(q), bsize: 1, bavail: bytes }) }); syncBuiltinESMExports(); };
+  t.after(() => { free(); });
+  free(need - 1);
+  const short = state("short");
+  await assert.rejects(runHistoryCollect(argv("A", short), deps), { code: "disk_space" }, "one byte short of the floor: refused by name");
+  assert.deepEqual([readdirSync(join(short, "ledger")), existsSync(join(short, "evidence"))], [[], false], "a refusal writes nothing");
+  free(need);
   const st = state("state"), pub = join(st, "publish");
   assert.deepEqual(await course(st), [0, 0, 0], "the CLI runs phases A, B and C end to end: exit codes 0");
   assert.deepEqual(status(st), { status: "complete", stop_reason: null });

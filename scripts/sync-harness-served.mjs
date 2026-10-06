@@ -19,9 +19,20 @@
 // BYO calibration object), the /calibrate request and result key sets, the response envelope keys, the served maxItems
 // bounds, the refusal texts, the closed honesty clauses, the class table, the attest label / hypotheses / channel /
 // verifier revision / observation instant (never its subject, bytes or attestor), the registry entry, the deploy check
-// summary (with the host its TLS block probed) and the sha256 of each body read. LF, two-space JSON; prints the
-// CRLF->LF sha256 to set in apps/site/data/manifest.sha256.json.
-import { readFileSync, writeFileSync } from "node:fs";
+// summary (with the host its TLS block probed) and the sha256 of each body read. LF, two-space JSON; it then sets the
+// file's CRLF->LF sha256 in apps/site/data/manifest.sha256.json (canonical form; the ukemi sync's own writer, imported).
+// PENDING SNAPSHOT (SERVED-PENDING-1, decisions of MONARK, recherches 0058bfe):
+//  - node scripts/sync-harness-served.mjs --pending, at time (i) of a block that changes a served surface, reads NOTHING
+//    over the network: it runs the same closed checks on the bodies the IN-PROCESS harness answers to the same requests,
+//    writes apps/site/data/harness-pending.json (schema monark-site-harness-pending-v1: the shared fields, written_at and
+//    the sha256 of the in-process /openapi.json; no read_at, mcp, registry, deploy check nor served body sha256), and
+//    inserts pending_since (UTC day; kept if already set) after read_at in the served file, no other byte touched, and
+//    sets both manifest entries;
+//  - the default run, at time (ii) once the harness is deployed and checked, PROMOTES: while a pending snapshot exists it
+//    refuses to write unless the new served snapshot equals it on every shared field and the /openapi.json sha256, then
+//    writes the served file (no pending_since), sets its manifest entry, removes the pending entry, then the pending file.
+// Every check and the manifest text are computed before the first write. Then: node scripts/repin-served.mjs.
+import { existsSync, readFileSync } from "node:fs";
 import { join, dirname, resolve } from "node:path";
 import { createHash } from "node:crypto";
 import { fileURLToPath } from "node:url";
@@ -33,28 +44,26 @@ import {
 } from "../apps/harness/src/tools/gate.ts";
 import { DEMONSTRATIVE_LABEL } from "../packages/monark/src/adapter-shogen.ts";
 // The one declared text rule (internal reference tokens in parentheses removed), shared with the site loader and its test.
-import { stripRefs } from "../apps/site/lib/harness-served-load.ts";
-// The deploy check's gate body, imported (never a copy), so the two cannot drift before deployment (G2 of CM-2b surfaces, M2).
-import { GATE_BODY } from "./verify-harness.mjs";
+import { SHAPES, stripRefs } from "../apps/site/lib/harness-served-load.ts";
+// The deploy check's request bodies, imported (never a copy), so they cannot drift before deployment (G2 of CM-2b surfaces, M2):
+// each served response hashes to the sha256 the committed check recorded.
+import { GATE_BODY, GATE_LIQ_BODY, CALIBRATE_BODY, CASCADE_BODY } from "./verify-harness.mjs";
+import { setManifestEntry, promotedManifest, applyWrites, MANIFEST_REL } from "./sync-ukemi-served.mjs";
+import { handleJsonMirror } from "../apps/harness/src/http.ts";
+import { HARNESS_TOOLS } from "../apps/harness/src/tools/registry.ts";
+import { API_SERVER_URL } from "../apps/harness/src/openapi.ts";
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..");
 export const OUT_REL = "apps/site/data/harness-served.json";
-const CA_REL = "docs/deploy-CA-harness.json";
+export const PENDING_REL = "apps/site/data/harness-pending.json";
+export const CA_REL = "docs/deploy-CA-harness.json";
 const REGISTRY = "https://registry.modelcontextprotocol.io/v0/servers?search=tech.monarkgate";
 const MAX_BYTES = 1024 * 1024;
 const sha256 = (s) => createHash("sha256").update(s).digest("hex");
-const fail = (why) => { console.error(`sync-harness-served: FAIL-CLOSED — ${why}; nothing written.`); process.exit(1); };
+const lfSha = (text) => sha256(Buffer.from(text.replace(/\r\n/g, "\n"), "utf8"));
+const fail = (why) => { console.error(`sync-harness-served: FAIL-CLOSED — ${why}${why.includes("; written: ") ? "" : "; nothing written"}.`); process.exit(1); };
 const need = (ok, why) => { if (!ok) fail(why); };
 const sameSet = (a, b) => a.length === b.length && [...a].sort().join(",") === [...b].sort().join(",");
-
-// The deploy check's own request bodies (scripts/verify-harness.mjs GATE_BODY / CALIBRATE_BODY / CASCADE_BODY /
-// GATE_LIQ_BODY), byte-identical so each served response hashes to the sha256 the committed check recorded.
-const CALIBRATE_BODY = { scores: [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0], alpha: 0.1, nMin: 5 };
-const CASCADE_BODY = { L: [[0, 100], [50, 0]], e: [40, 20], shock: 0, producedAt: "2026-09-04T00:00:00Z" };
-const GATE_LIQ_BODY = {
-  prediction: { schema_version: "1.0.0", task_class: "liquidation-eligible-coverage", yhat: 5000, predictor_id: "ca:verify-harness", produced_at: "2026-09-04T00:00:00Z" },
-  params: { remainingBudget: 0.1, bFloor: 0, tau: 1, tauInterval: 1, alpha: 0.01, nMin: 100, intent: 1, tool: "perps_order_preview", clockOpen: true },
-};
 
 // CLOSED clause list — exact served phrases, never a paraphrase. Each class row names the phrases that must be served;
 // the stable-run row keeps the scope qualifier of the committed calibration (calm-window redemption flow).
@@ -132,7 +141,7 @@ const keySets = (s, what) => {
 async function main() {
   const ca = JSON.parse(readFileSync(join(ROOT, CA_REL), "utf8"));
   const caSha = Object.fromEntries(ca.checks.map((c) => [c.name, c.sha256]));
-  need(ca.checks.length > 0 && ca.checks.every((c) => c.ok === true) && ca.tls?.authorized === true, `${CA_REL} is not green on every control with an authorized TLS`);
+  need(ca.checks.length > 0 && ca.checks.every((c) => c.ok === true) && ca.tls?.authorized === true && ca.tls_mcp?.authorized === true, `${CA_REL} is not green on every control with an authorized TLS on both hosts`);
   const api = ca.url, mcpHost = ca.mcp_url;
   need([new URL(api).host, new URL(mcpHost).host].includes(ca.tls.host), `${CA_REL} tls.host is neither the api host nor the MCP host`);
   const bodies = {};
@@ -154,10 +163,47 @@ async function main() {
   const calCall = JSON.parse(await got("/calibrate", "calibrate_call", post(`${api}/calibrate`, CALIBRATE_BODY)));
   const attCall = JSON.parse(await got("/attest", "attest_call", post(`${api}/attest`, {})));
   const casCall = JSON.parse(await got("/cascade", "cascade_call", post(`${api}/cascade`, CASCADE_BODY)));
-
-  const version = openapi.info.version;
+  const { version, api: apiFacts, ...shapes } = shapesFrom({ health, openapi, list, gateCall, liqCall, calCall, attCall, casCall });
   need(version === init.result.serverInfo.version && version === entry.version, `version mismatch: openapi ${version}, serverInfo ${init.result.serverInfo.version}, registry ${entry.version}`);
-  need(openapi.servers?.[0]?.url === api && health.status === "ok", "openapi servers[0].url is not the deploy check URL, or /health is not ok");
+  need(apiFacts.url === api, "openapi servers[0].url is not the deploy check URL");
+  const out = {
+    $comment:
+      "Committed, hashed facts about the SERVED MONARK harness, rendered by /integrators and /console through apps/site/lib/harness-served-load.ts after a sha256 check against apps/site/data/manifest.sha256.json. Written by the source repository's sync tool (not part of this export) from the served bodies (api /health, /openapi.json, /gate, /calibrate, /attest, /cascade; mcp initialize and tools/list; the MCP registry entry), each body hashing to the sha256 the committed deploy check recorded. Text is copied as served, as closed clauses only; the one rule applied: internal reference tokens in parentheses are removed. No market value, no data-source name.",
+    schema: "monark-site-harness-served-v1",
+    read_at: new Date().toISOString(),
+    version,
+    api: apiFacts,
+    mcp: { url: remote.url, remote_type: remote.type, server_name: init.result.serverInfo.name },
+    ...shapes,
+    registry: { name: entry.name, version: entry.version, status: meta.status, published_at: meta.publishedAt, repository_url: entry.repository.url },
+    deploy_check: { checked_at: ca.checked_at, count: ca.checks.length, ok_count: ca.checks.filter((c) => c.ok).length, tls_host: ca.tls.host, tls_valid_to: ca.tls.valid_to },
+    bodies_sha256: bodies,
+  };
+  let done;
+  try { done = writeServed(ROOT, out, entry.repository.url); } catch (e) { fail(e instanceof Error ? e.message : String(e)); }
+  console.log(`sync-harness-served OK — ${OUT_REL} written (version ${version}, ${String(out.tools.length)} tools); manifest entry set to ${done.sha}${done.promoted ? `; the pending snapshot is promoted, ${PENDING_REL} and its manifest entry removed` : ""}. Then: node scripts/repin-served.mjs`);
+}
+
+/** Write the served snapshot `out` under `root`, PROMOTING a pending snapshot when one exists: the pending comparison, the
+ *  leak scan and the manifest text first, then the served file, the manifest (its entry set, the pending entry removed) and
+ *  the removal of the pending file (the ukemi sync's order). Throws, writing nothing. */
+export function writeServed(root, out, exempt) {
+  const promoted = existsSync(join(root, PENDING_REL));
+  if (promoted) {
+    const drift = pendingDiff(out, JSON.parse(readFileSync(join(root, PENDING_REL), "utf8")));
+    if (drift.length > 0) throw new Error(`the served harness differs from the pending snapshot on {${drift.join(", ")}}; nothing promoted`);
+  }
+  const text = snapshotText(out, exempt), sha = lfSha(text);
+  const manifestText = readFileSync(join(root, MANIFEST_REL), "utf8");
+  const manifest = promoted ? promotedManifest(root, manifestText, OUT_REL, sha, PENDING_REL) : setManifestEntry(manifestText, OUT_REL, sha);
+  applyWrites(root, [[OUT_REL, text], [MANIFEST_REL, manifest]], promoted ? PENDING_REL : null);
+  return { sha, promoted };
+}
+
+/** The fields both snapshots carry, from the bodies answered (served or in process); every check is fail-closed. */
+export function shapesFrom({ health, openapi, list, gateCall, liqCall, calCall, attCall, casCall }) {
+  const version = openapi.info.version;
+  need(typeof openapi.servers?.[0]?.url === "string" && health.status === "ok", "openapi carries no servers[0].url, or /health is not ok");
   const tools = list.map((t) => t.name);
   need(sameSet(tools, health.operations) && sameSet(tools, Object.keys(openapi.paths).map((p) => p.slice(1))), "the tool set differs between /health, openapi paths and tools/list");
   const desc = Object.fromEntries(list.map((t) => [t.name, t.description]));
@@ -189,17 +235,12 @@ async function main() {
   const casc = bodySchema("/cascade").properties;
   need(casc.L.maxItems === casc.e.maxItems && casc.L.items.maxItems === casc.L.maxItems, "the cascade node bounds are not in lockstep");
   const r = gateOp.responses;
-  need(sameSet(Object.keys(r), ["200", "400", "403"]), "the /gate responses are not exactly 200, 400 and 403");
+  need(sameSet(Object.keys(r), ["200", "400", "403", "413", "500"]), "the /gate responses are not exactly 200, 400, 403, 413 and 500");
   const byoParam = Object.entries(params.properties).filter(([name, s]) => !params.required.includes(name) && s.type === "object");
   need(byoParam.length === 1, "the /gate params do not carry exactly one optional object (the BYO calibration)");
-  const out = {
-    $comment:
-      "Committed, hashed facts about the SERVED MONARK harness, rendered by /integrators and /console through apps/site/lib/harness-served-load.ts after a sha256 check against apps/site/data/manifest.sha256.json. Written by the source repository's sync tool (not part of this export) from the served bodies (api /health, /openapi.json, /gate, /calibrate, /attest, /cascade; mcp initialize and tools/list; the MCP registry entry), each body hashing to the sha256 the committed deploy check recorded. Text is copied as served, as closed clauses only; the one rule applied: internal reference tokens in parentheses are removed. No market value, no data-source name.",
-    schema: "monark-site-harness-served-v1",
-    read_at: new Date().toISOString(),
+  return {
     version,
-    api: { url: api, openapi_path: "/openapi.json", health_path: "/health", surface: health.surface, openapi_version: openapi.openapi, title: openapi.info.title },
-    mcp: { url: remote.url, remote_type: remote.type, server_name: init.result.serverInfo.name },
+    api: { url: openapi.servers[0].url, openapi_path: "/openapi.json", health_path: "/health", surface: health.surface, openapi_version: openapi.openapi, title: openapi.info.title },
     tools: [...tools].sort().map((name) => ({ name, note: name === "attest" ? att.label : TOOL_NOTES[name] })),
     gate_request: {
       required: req.required, optional: Object.keys(req.properties).filter((k) => !req.required.includes(k)), closed: req.additionalProperties === false,
@@ -214,15 +255,62 @@ async function main() {
     classes: CLASSES,
     byo_clause: BYO_CLAUSE,
     attest: { label: att.label, hypotheses: att.price.residual, channel: att.price.transport, verifier_rev: att.price.verifier_revision, observed_instant: att.price.observed_at.instant },
-    registry: { name: entry.name, version: entry.version, status: meta.status, published_at: meta.publishedAt, repository_url: entry.repository.url },
-    deploy_check: { checked_at: ca.checked_at, count: ca.checks.length, ok_count: ca.checks.filter((c) => c.ok).length, tls_host: ca.tls.host, tls_valid_to: ca.tls.valid_to },
-    bodies_sha256: bodies,
   };
+}
+
+/** The shared fields (the loader's fixed SHAPES list, and the /openapi.json sha256) on which a new served snapshot differs from the pending one, plus any key or schema a pending snapshot may not carry (pure). */
+export function pendingDiff(served, pending) {
+  const known = ["$comment", "schema", "written_at", ...SHAPES, "openapi_sha256"], unknown = Object.keys(pending).filter((k) => !known.includes(k));
+  const drift = [...(pending.schema === "monark-site-harness-pending-v1" ? [] : ["schema"]), ...SHAPES.filter((k) => JSON.stringify(served[k]) !== JSON.stringify(pending[k])), ...unknown];
+  return served.bodies_sha256?.["/openapi.json"] === pending.openapi_sha256 ? drift : [...drift, "openapi_sha256"];
+}
+
+/** The snapshot --pending writes: the shapes the IN-PROCESS harness answers to the deploy check's own requests. */
+export async function inProcessPending(writtenAt) {
+  const call = async (path, body) => (await handleJsonMirror(new Request(`${API_SERVER_URL}${path}`, body === undefined ? {} : { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body) }))).text();
+  const openapiText = await call("/openapi.json");
+  const [health, gateCall, liqCall, calCall, attCall, casCall] = (await Promise.all([call("/health"), call("/gate", GATE_BODY), call("/gate", GATE_LIQ_BODY), call("/calibrate", CALIBRATE_BODY), call("/attest", {}), call("/cascade", CASCADE_BODY)])).map((t) => JSON.parse(t));
+  const list = HARNESS_TOOLS.map((t) => ({ name: t.name, description: t.description }));
+  return {
+    $comment: "The shapes the NEXT harness serves, written in process by the source repository's sync tool (--pending) before it is deployed: no fact read on the server. While this file exists, the served snapshot carries pending_since and the recorded traces follow this file; the deployed harness's sync promotes it.",
+    schema: "monark-site-harness-pending-v1",
+    written_at: writtenAt,
+    ...shapesFrom({ health, openapi: JSON.parse(openapiText), list, gateCall, liqCall, calCall, attCall, casCall }),
+    openapi_sha256: sha256(openapiText),
+  };
+}
+
+/** The served file's text with pending_since (a UTC day) after read_at, no other byte touched; kept when already set (pure). */
+export function markPendingSince(text, day) {
+  if (/^ {2}"pending_since": /m.test(text)) return text;
+  const marked = text.replace(/^( {2}"read_at": "[^"]+",)(\r?\n)/m, `$1$2  "pending_since": "${day}",$2`);
+  if (marked === text) throw new Error("the served file carries no read_at line");
+  return marked;
+}
+
+/** --pending under `root`: the in-process snapshot, pending_since on the served file and both manifest entries, all
+ *  computed before the first write (throws, writing nothing). Returns the pending file's manifest sha256. */
+export async function writeHarnessPending(root, writtenAt) {
+  const text = snapshotText(await inProcessPending(writtenAt), null);
+  const marked = markPendingSince(readFileSync(join(root, OUT_REL), "utf8"), writtenAt.slice(0, 10));
+  const manifest = setManifestEntry(setManifestEntry(readFileSync(join(root, MANIFEST_REL), "utf8"), PENDING_REL, lfSha(text)), OUT_REL, lfSha(marked));
+  applyWrites(root, [[PENDING_REL, text], [OUT_REL, marked], [MANIFEST_REL, manifest]], null);
+  return lfSha(text);
+}
+
+async function pendingMain() {
+  let sha;
+  try { sha = await writeHarnessPending(ROOT, new Date().toISOString()); } catch (e) { fail(e instanceof Error ? e.message : String(e)); }
+  console.log(`sync-harness-served OK — ${PENDING_REL} written in process (a new written_at on every --pending), pending_since set in ${OUT_REL}; manifest entries set (${PENDING_REL} ${sha}). Then: node scripts/repin-served.mjs`);
+}
+
+/** One snapshot's text after the leak scan (throws on a leak), in the two-space, 120-column format. */
+function snapshotText(out, exempt) {
   const strings = [];
   const walk = (v) => { if (typeof v === "string") strings.push(v); else if (v !== null && typeof v === "object") Object.values(v).forEach(walk); };
   walk({ ...out, $comment: "" });
-  const leak = strings.filter((s) => INTERNAL.test(s) && s !== entry.repository.url);
-  need(leak.length === 0, `an internal reference, data-source name or banned word would be written: ${JSON.stringify(leak)}`);
+  const leak = strings.filter((s) => INTERNAL.test(s) && s !== exempt);
+  if (leak.length > 0) throw new Error(`an internal reference, data-source name or banned word would be written: ${JSON.stringify(leak)}`);
   // Two-space JSON; a value that fits a 120-column line stays on one line (fewer lines to review, same data).
   const fmt = (v, ind, lead = 0) => {
     const one = JSON.stringify(v, null, 1).replace(/\n\s*/g, " ");
@@ -231,10 +319,8 @@ async function main() {
     const items = arr ? v.map((x) => next + fmt(x, next)) : Object.entries(v).map(([k, x]) => `${next}${JSON.stringify(k)}: ${fmt(x, next, k.length + 4)}`);
     return `${arr ? "[" : "{"}\n${items.join(",\n")}\n${ind}${arr ? "]" : "}"}`;
   };
-  const text = fmt(out, "") + "\n";
-  writeFileSync(join(ROOT, OUT_REL), text);
-  console.log(`sync-harness-served OK — ${OUT_REL} written (version ${version}, ${String(tools.length)} tools); manifest sha256 (CRLF->LF): ${sha256(Buffer.from(text.replace(/\r\n/g, "\n"), "utf8"))}`);
+  return fmt(out, "") + "\n";
 }
 
 // Run-guard: execute only when invoked directly, never on import.
-if (process.argv[1] && resolve(process.argv[1]) === resolve(fileURLToPath(import.meta.url))) await main();
+if (process.argv[1] && resolve(process.argv[1]) === resolve(fileURLToPath(import.meta.url))) await (process.argv.includes("--pending") ? pendingMain() : main());

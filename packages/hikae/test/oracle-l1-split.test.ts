@@ -31,7 +31,7 @@ const ranks = (n: number): number[] => Array.from({ length: n }, (_, i) => i + 1
 // code rank equals the exact rank, except on cells where (n+1)(100-k) is divisible by 100, where the
 // float product may round up by one step (conservative, signal P10): there the rank is exact or exact + 1.
 // Equality holds on every cell for alpha in {0.01, 0.02, 0.05, 0.1, 0.2, 0.25, 0.5} (M-1, G0 section 5).
-// killer: packages/hikae/src/l1-split.ts:37 CONST "(n + 1)" -> "(n + 0)"
+// killer: packages/hikae/src/l1-split.ts:39 CONST "(n + 1)" -> "(n + 0)"
 test("oracle_split_rank_matches_exact_rational_rank", () => {
   for (let n = 1; n <= 200; n++) {
     const scores = ranks(n);
@@ -55,7 +55,7 @@ test("oracle_split_rank_matches_exact_rational_rank", () => {
 });
 
 // [TB Thm 3.2; SOA 2.4] p > n iff alpha < 1/(n+1): probed on both sides of the boundary, asserts unconditional.
-// killer: packages/hikae/src/l1-split.ts:38 ROR "p > n" -> "p >= n"
+// killer: packages/hikae/src/l1-split.ts:40 ROR "p > n" -> "p >= n"
 test("oracle_split_under_calib_iff_alpha_below_one_over_n_plus_1", () => {
   for (const n of [9, 19, 49, 99, 150, 613]) {
     const scores = ranks(n);
@@ -68,7 +68,7 @@ test("oracle_split_under_calib_iff_alpha_below_one_over_n_plus_1", () => {
 });
 
 // Fail-closed rule (l1-split.ts header): alpha outside (0,1) never yields a clamped qhat.
-// killer: packages/hikae/src/l1-split.ts:41 SDL "q === undefined" -> ""
+// killer: packages/hikae/src/l1-split.ts:43 SDL "q === undefined" -> ""
 test("oracle_split_fail_closed_on_alpha_outside_open_unit_interval", () => {
   const scores = ranks(20);
   for (const alpha of [0, -0.1, 1, 1.5, Number.NaN]) {
@@ -80,7 +80,7 @@ test("oracle_split_fail_closed_on_alpha_outside_open_unit_interval", () => {
 
 // [TB Thm 3.2 hypothesis] qhat is the p-th order statistic with ties counted with multiplicity, and a
 // symmetric function of the scores: 20 seeded permutations give the same qhat.
-// killer: packages/hikae/src/l1-split.ts:39 CONST "a - b" -> "b - a"
+// killer: packages/hikae/src/l1-split.ts:41 CONST "a - b" -> "b - a"
 test("oracle_split_ties_and_input_order", () => {
   const cases = [
     { scores: [0, 1, 1, 1, 2, 2, 5, 5, 7], alpha: 0.25, qhat: 5 }, // n=9: p = ceil(7.5) = 8, 8th = 5
@@ -117,7 +117,7 @@ function binomialCdf(n: number, eps: number, t: number): number {
 // [SOA 3(e) table, 2.1] 0/1 score at alpha = 0.1: the largest error count with qhat = 0, found by scan,
 // equals n - ceil((n+1)(1-alpha)); the set is a singleton at qhat = 0 and both labels at qhat = 1; the
 // exact binomial P(qhat = 0) matches the state of the art table to 1e-3.
-// killer: packages/hikae/src/l1-split.ts:37 CONST "(1 - alpha)" -> "(1.01 - alpha)"
+// killer: packages/hikae/src/l1-split.ts:39 CONST "(1 - alpha)" -> "(1.01 - alpha)"
 test("oracle_indicator_commit_threshold_matches_binomial_table", () => {
   const rows: { n: number; threshold: number; table: { eps: number; prob: number }[] }[] = [
     { n: 50, threshold: 4, table: [{ eps: 0.1, prob: 0.431 }, { eps: 0.12, prob: 0.268 }, { eps: 0.15, prob: 0.112 }] },
@@ -149,7 +149,7 @@ test("oracle_indicator_commit_threshold_matches_binomial_table", () => {
 // p/(n+1) exactly, inside [1 - alpha, 1 - alpha + 1/(n+1)]. Uniform draws, seed 20260930, R = 20000:
 // abs(K/R - p/(n+1)) <= t = sqrt(ln(2e6)/(2R)) (Hoeffding, delta = 1e-6). A one-rank shift moves the
 // coverage by 1/(n+1) >= 0.04 > 2t, so the seed was not chosen.
-// killer: packages/hikae/src/l1-split.ts:40 CONST "p - 1" -> "p - 2"
+// killer: packages/hikae/src/l1-split.ts:42 CONST "p - 1" -> "p - 2"
 test("oracle_split_marginal_coverage_seeded_exchangeable", () => {
   assert.equal(prng(20260930)(), 0.7129707557614893, "first draw of seed 20260930 pinned");
   const R = 20000;

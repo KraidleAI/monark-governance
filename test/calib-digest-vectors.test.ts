@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { calibDigest } from "../src/index.ts";
+import { calibDigest } from "../scripts/lib/calib-digest-provenance.mjs";
 
 test("digest is 64 lowercase hex chars", () => {
   assert.match(calibDigest([0, 1, 0, 1]), /^[0-9a-f]{64}$/);

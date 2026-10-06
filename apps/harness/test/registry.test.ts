@@ -13,10 +13,11 @@ import type { CompiledRule } from "../../../scripts/grep-forbidden.mjs";
 import { ALLOWED_TOOL_NAMES, REGISTERED_TOOL_NAMES, HARNESS_TOOLS } from "../src/tools/registry.ts";
 import { createHarnessHandler } from "../src/server.ts";
 import { honestyText, TASK_BTC_DIR, TASK_CASCADE, TASK_STABLE_RUN, TASK_LIQ_ELIGIBLE, LIQ_ALPHA, LIQ_NMIN } from "../src/tools/gate.ts";
+import { SCHEMA_VERSION } from "../src/tools/gate.ts";
 import { cascadeHonestyText, CASCADE_PREDICTOR_ID } from "../src/tools/cascade.ts";
 import { attestHonestyText } from "../src/tools/attest.ts";
 import { calibrateHonestyText } from "../src/tools/calibrate.ts";
-import { USDE_STABLE_RUN_PREDICTOR_ID } from "../src/calibration.ts";
+import { UKEMI_LIQ_PREDICTOR_BASE, USDE_STABLE_RUN_PREDICTOR_ID } from "../src/calibration.ts";
 
 interface VocabRule { re: string; why: string; }
 interface VocabConfig { banned: VocabRule[]; scan: { harness: { banned: VocabRule[] } }; }
@@ -192,20 +193,20 @@ test("harness_tool_descriptions_pass_vocab", async () => {
 // apps/harness/src, invisible to the static CLI) => red here.
 // CM-2b (ADR-CM B-5): btc-dir-15m is retired, so its carrier is no longer served: the call is a tool error with the
 // stable code, and the gate reaches five distinct honesty branches.
-// killer: apps/harness/src/tools/gate.ts:927 CONST "\"task_class_retired\"" -> "\"task_class_unknown\""
+// killer: apps/harness/src/tools/gate.ts:966 CONST "\"task_class_retired\"" -> "\"task_class_unknown\""
 test("harness_served_honesty_carriers_pass_vocab", async () => {
   const config = JSON.parse(readFileSync(VOCAB_PATH, "utf8")) as VocabConfig;
   const patterns = [...compilePatterns(config.banned), ...compilePatterns(config.scan.harness.banned)];
   const AT = "2026-09-04T00:00:00Z";
   const P: Obj = { remainingBudget: 1, bFloor: 0, tau: 1, tauInterval: 1, alpha: 0.1, nMin: 5, intent: 0, tool: "demo_tool", clockOpen: true };
-  const pred = (task_class: string, yhat: string | number, predictor_id: string): Obj => ({ schema_version: "1.0.0", task_class, yhat, predictor_id, produced_at: AT });
+  const pred = (task_class: string, yhat: string | number, predictor_id: string): Obj => ({ schema_version: SCHEMA_VERSION, task_class, yhat, predictor_id, produced_at: AT });
   const TEN = [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1];
   const BYO = "byo:demo-class";
   const CALLS: { label: string; tool: string; args: Obj; carrier: string }[] = [
     { label: "gate cascade class", tool: "gate", args: { prediction: pred(TASK_CASCADE, 100, CASCADE_PREDICTOR_ID), params: P }, carrier: honestyText(TASK_CASCADE, CASCADE_PREDICTOR_ID, false) },
     { label: "gate stable-run committed key", tool: "gate", args: { prediction: pred(TASK_STABLE_RUN, 0.0001, USDE_STABLE_RUN_PREDICTOR_ID), params: { ...P, nMin: 50 } }, carrier: honestyText(TASK_STABLE_RUN, USDE_STABLE_RUN_PREDICTOR_ID, false) },
     { label: "gate stable-run other population", tool: "gate", args: { prediction: pred(TASK_STABLE_RUN, 0.0001, "other:population"), params: P }, carrier: honestyText(TASK_STABLE_RUN, "other:population", false) },
-    { label: "gate liq empty registry", tool: "gate", args: { prediction: pred(TASK_LIQ_ELIGIBLE, 5000, "ukemi:any"), params: { ...P, alpha: LIQ_ALPHA, nMin: LIQ_NMIN } }, carrier: honestyText(TASK_LIQ_ELIGIBLE, "ukemi:any", false) },
+    { label: "gate liq s0", tool: "gate", args: { prediction: pred(TASK_LIQ_ELIGIBLE, 5000, "ukemi:any"), params: { ...P, alpha: LIQ_ALPHA, nMin: LIQ_NMIN } }, carrier: honestyText(TASK_LIQ_ELIGIBLE, `${UKEMI_LIQ_PREDICTOR_BASE}/s0`, false) },
     { label: "gate byo interval", tool: "gate", args: { prediction: pred(BYO, 1, "caller:model"), params: { ...P, calibration: { scores: TEN, mode: "interval" } } }, carrier: honestyText(BYO, "caller:model", true) },
     { label: "gate byo set", tool: "gate", args: { prediction: pred(BYO, "a", "caller:model"), params: { ...P, intent: "a", calibration: { scores: TEN, mode: "set", candidates: [{ label: "a", score: 0.1 }, { label: "b", score: 0.9 }] } } }, carrier: honestyText(BYO, "caller:model", true) },
     { label: "cascade", tool: "cascade", args: { L: [[0, 100], [50, 0]], e: [40, 20], shock: 0, producedAt: AT }, carrier: cascadeHonestyText() },

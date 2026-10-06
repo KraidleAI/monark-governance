@@ -112,7 +112,7 @@ test("launcher_delivers_every_byte_before_force_exit - the node --test launcher 
   }
 });
 
-// killer: scripts/export-public.mjs:76 SDL "  \"test/helpers/blocking-stdout.cjs\"," -> ""
+// killer: scripts/export-public.mjs:78 SDL "  \"test/helpers/blocking-stdout.cjs\"," -> ""
 test("exported_tree_ships_every_preload_its_test_scripts_load - the public mirror runs package.json as is, so each -r file of a script is exported (ADR-M004 D7 undecies)", () => {
   const kept = new Set(collectFiles(ROOT).kept.map((f) => f.rel));
   const loaded = Object.values(scripts()).flatMap((s) => [...s.matchAll(/(?:^| )-r (\S+)/g)].map((m) => m[1]!.replace(/^\.\//, "")));
