@@ -20,13 +20,14 @@
 // `gate` (the committed clause entire, the empty-registry sentence absent). 15 checks (CM-2b adds gate_retired_call and gate_future_call).
 // Then writes the CA
 //   { url, mcp_url, checked_at, checks:[{ name, ok, status, sha256 }], tls:{ issuer, valid_to, authorized } | { skipped } }
-// to stdout (and --out FILE), and exits non-zero on any failure. The per-check sha256 pins the exact
-// response bytes observed at attestation time.
+// to stdout, and to --out FILE ONLY when every check passed (T0-TOOLING-1: a red run never overwrites the last green
+// record; it writes FILE.failed instead), and exits non-zero on any failure. An unknown option, or an option without its
+// value, is refused by name (exit 2) before any request. The per-check sha256 pins the exact response bytes observed.
 import { createHash } from "node:crypto";
 import { connect as tlsConnect } from "node:tls";
 import { request as httpRequest } from "node:http";
 import { request as httpsRequest } from "node:https";
-import { writeFileSync } from "node:fs";
+import { rmSync, writeFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -47,7 +48,7 @@ export const GATE_BODY = {
   prediction: { schema_version: CA_SCHEMA_VERSION, task_class: "stable-run-velocity-24h", yhat: 0.0001, predictor_id: "narabi:persistence-v2@eip155:1/erc20:0x4c9edd5852cd905f086c759e8383e09bff1e68b3", produced_at: "2026-09-04T00:00:00Z" },
   params: { remainingBudget: 0.1, bFloor: 0, tau: 1, tauInterval: 1, alpha: 0.1, nMin: 50, intent: 0.0001, tool: "perps_order_preview", clockOpen: true },
 };
-const CASCADE_BODY = { L: [[0, 100], [50, 0]], e: [40, 20], shock: 0, producedAt: "2026-09-04T00:00:00Z" };
+export const CASCADE_BODY = { L: [[0, 100], [50, 0]], e: [40, 20], shock: 0, producedAt: "2026-09-04T00:00:00Z" };
 // CM-2b (ADR-CM B-5): the retired class answers a named 400 with its stable code (CM-2a, B-3).
 const GATE_RETIRED_BODY = {
   prediction: { schema_version: CA_SCHEMA_VERSION, task_class: "btc-dir-15m", yhat: "up", predictor_id: "internal:momentum-4c", produced_at: "2026-09-04T00:00:00Z" },
@@ -55,7 +56,7 @@ const GATE_RETIRED_BODY = {
 };
 // CM-2a (ADR-CM B-4, MONARK C-8): a produced_at far in the future answers 400 produced_at_future at the entry point.
 const GATE_FUTURE_BODY = { prediction: { ...GATE_BODY.prediction, produced_at: "2099-01-01T00:00:00Z" }, params: GATE_BODY.params };
-const CALIBRATE_BODY = { scores: [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0], alpha: 0.1, nMin: 5 };
+export const CALIBRATE_BODY = { scores: [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0], alpha: 0.1, nMin: 5 };
 // Lot C2 BYO loop: a /gate call that REUSES CALIBRATE_BODY.scores as caller-supplied calibration (interval
 // mode, a caller-owned task_class). Hand-rolled n=10, α=0.1 ⇒ p=⌈11·0.9⌉=10 ⇒ q̂=10th smallest=1.0; ŷ=0 ⇒
 // region [−1,1], width 2 ≤ tauInterval 2, intent 0 ∈ [−1,1] ⇒ COMMIT (written in). The check asserts the
@@ -122,13 +123,16 @@ const mcpToolDescription = (text, name) => {
 };
 const jsonInit = (body) => ({ method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body) });
 
-function parseArgs(argv) {
+const OPTIONS = { "--api": "api", "--mcp": "mcp", "--api-host": "apiHost", "--out": "out" };
+/** The CLI options; an unknown option or an option without its value throws, naming it (a typo never runs unseen). */
+export function parseArgs(argv) {
   const a = { api: DEFAULT_API, mcp: DEFAULT_MCP, apiHost: null, out: null };
   for (let i = 0; i < argv.length; i++) {
-    if (argv[i] === "--api") a.api = argv[++i];
-    else if (argv[i] === "--mcp") a.mcp = argv[++i];
-    else if (argv[i] === "--api-host") a.apiHost = argv[++i];
-    else if (argv[i] === "--out") a.out = argv[++i];
+    const flag = argv[i], value = argv[i + 1];
+    if (!Object.hasOwn(OPTIONS, flag)) throw new Error(`unknown option ${JSON.stringify(flag)} (known: ${Object.keys(OPTIONS).join(", ")})`);
+    if (value === undefined || value.startsWith("--")) throw new Error(`option ${flag} needs a value`);
+    a[OPTIONS[flag]] = value;
+    i++;
   }
   return a;
 }
@@ -220,7 +224,14 @@ function parseJson(text) {
 }
 
 async function main() {
-  const args = parseArgs(process.argv.slice(2));
+  let args;
+  try {
+    args = parseArgs(process.argv.slice(2));
+  } catch (error) {
+    console.error(`verify-harness: ${error.message}; nothing checked, nothing written.`);
+    process.exitCode = 2;
+    return;
+  }
   const { api, mcp } = args;
   const apiUrl = new URL(api);
   const apiHostHeader = args.apiHost ?? apiUrl.hostname; // Host header for the api-surface checks (api.->mirror)
@@ -374,13 +385,16 @@ async function main() {
   const attestation = { url: api, mcp_url: mcp, checked_at: new Date().toISOString(), checks, tls };
   const out = JSON.stringify(attestation, null, 2);
   console.log(out);
-  if (args.out) {
-    writeFileSync(args.out, out + "\n");
-    console.error(`CA written to ${args.out}`);
-  }
-
   const failed = checks.filter((c) => !c.ok).map((c) => c.name);
   if (apiUrl.protocol === "https:" && tls.authorized !== true) failed.push("tls");
+  if (args.out && failed.length === 0) {
+    writeFileSync(args.out, out + "\n");
+    rmSync(`${args.out}.failed`, { force: true });
+    console.error(`CA written to ${args.out}`);
+  } else if (args.out) {
+    writeFileSync(`${args.out}.failed`, out + "\n");
+    console.error(`CA NOT written to ${args.out} (it keeps the last green record); this failing record is in ${args.out}.failed`);
+  }
   if (failed.length) {
     console.error(`VERIFY FAILED: ${failed.join(", ")}`);
     // O-1b-G2-1 (G2 HARNESS-DESC-1-1b, measured): under win32, process.exit() after fetch always ends on the libuv

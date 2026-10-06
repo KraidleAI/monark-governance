@@ -183,13 +183,26 @@ two empty-registry checks of HARNESS-DESC-1):
   clause ENTIRE ("the served region is" + the upper-bound, requirements, H-3 and conditional sentences) and NOT the
   empty-registry sentence.
 
+The 15 checks, by name, in the script's order: `health`, `openapi`, `origin_403_api`, `origin_403_mcp`,
+`mcp_tools_list`, `gate_call`, `gate_retired_call`, `gate_future_call`, `gate_liq_call`, `gate_liq_uncommitted_call`,
+`mcp_gate_description_liq`, `cascade_call`, `attest_call`, `calibrate_call`, `gate_byo_call`.
+
+Two refusal checks carry their stable `code` (CM-2b, ADR-CM B-5; CM-2a, MONARK C-8):
+- **`gate_retired_call`** POSTs the retired class `btc-dir-15m` and asserts `400`, `error === "tool_error"` and
+  `code === "task_class_retired"`.
+- **`gate_future_call`** POSTs the `gate_call` body with `produced_at` in 2099 and asserts `400`,
+  `error === "tool_error"` and `code === "produced_at_future"`.
+
 Against a process that still serves the EMPTY liq registry (any SHA before the U-4b-2b switch window, e.g. `bb41b6d`),
 `gate_liq_call` and `mcp_gate_description_liq` are RED by design: that surface is exactly vector alpha-2b of
 `test/verify-harness-liq.test.ts` (its response body hashes to the `gate_liq_call` sha256 of the CA recorded at
 `bb41b6d`). Against a process older than U-4b-2a, both liq calls are a 400 (unknown task_class). And the TLS
-certificate (issuer, expiry). It writes the **conformity attestation** (URL, timestamp, per-check sha256, TLS cert)
-to the `--out` file and exits **1** on any failure (it sets `process.exitCode` and returns; since U-4b-2b the exit is
-discriminating under win32 too, item O-1b-G2-1). Keep that file as the CA.
+certificate (issuer, expiry). It prints the **conformity attestation** (URL, timestamp, per-check sha256, TLS cert)
+and writes it to the `--out` file **only when every check passed** (T0-TOOLING-1): on any failure it exits **1**, leaves
+the `--out` file as it was (the last green CA) and writes the failing record to `<out>.failed` (ignored by git; removed
+by the next green run). It sets `process.exitCode` and returns; since U-4b-2b the exit is discriminating under win32
+too, item O-1b-G2-1. An unknown option, or an option without its value (`--output`, a bare `--out`), is refused by name
+with exit **2** before any request. Keep the `--out` file as the CA.
 
 **Deploy reserves — the green gate (Lot H6).** The deploy is GREEN only when BOTH hold:
 - the command **exits 0** AND its stderr prints `VERIFY OK — all checks passed` (15 of 15 checks; the CA's `checks` array lists them all, each `ok: true`). Treat ANY non-zero exit as RED and

@@ -23,3 +23,6 @@ sbom.cdx.json
 
 # Project agents (French prompts, session config, never exported ; lang:gate)
 .claude/agents/
+
+# T0-TOOLING-1: a red deploy check (scripts/verify-harness.mjs --out FILE) writes FILE.failed; never committed
+*.failed

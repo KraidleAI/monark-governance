@@ -13,6 +13,7 @@
 //   (p) an email address (a noreply address excepted: commit trailers) or an IPv4 address;   (cf) a format character
 //   (\p{Cf}: zero-width, BOM, bidi), checked on the raw text; every other rule reads the NFKC form of the text;
 //   (q3) the internal words budget, credit, lock and their -s/-ed/-ing forms (Q-3; "test" stays allowed);
+//   (ph) an unfilled template marker, an upper-case identifier in braces such as {T0} (lower-case brace lists pass);
 // plus (h), kind "issue" only: no date or schedule word; and (title), kind "message" only: a first line of at most 50
 // code points (Q-P-4), followed by an empty line when a body follows (git-commit DISCUSSION).
 // kindForPath(rel) maps docs/public-notes/** to a kind (C-V-9), null (= refused) for any other path.
@@ -121,6 +122,7 @@ const urlAllowed = (url) => { if (url.indexOf("://") !== url.lastIndexOf("://"))
 // KEY_SHAPES carries a bare "://" rule for served strings; free text may carry an allowlisted URL, checked apart (URL_ALLOW).
 export const SECRET_SHAPES = Object.freeze(KEY_SHAPES.filter((re) => re.source !== ":\\/\\/"));
 const INTERNAL_WORDS = /\b(?:budget|credit|lock)(?:s|ed|ing)?\b/i;
+const PLACEHOLDER = /\{[A-Z][A-Z0-9_]*\}/;
 // The year form also catches an ISO date; month names are capitalised whole words, so the verb "may" stays green.
 const DATE_FORMS = Object.freeze([/\b(?:19|20)\d\d\b/, /\b(?:January|February|March|April|May|June|July|August|September|October|November|December)\b/,
   /\bQ[1-4]\b/, /\bsoon\b|\bnext\s+(?:week|month|quarter|year)\b/i]);
@@ -163,6 +165,7 @@ export function checkPublicText(text, kind) {
     }
   });
   formHits(lines, "q3", [INTERNAL_WORDS], v);
+  formHits(lines, "ph", [PLACEHOLDER], v);
   if (kind === "issue") formHits(lines, "h", DATE_FORMS, v);
   if (kind === "message") {
     const title = raw[0] ?? "";
