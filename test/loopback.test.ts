@@ -99,3 +99,23 @@ test("loopback_listen_leaves_no_listener_behind", async () => {
     assert.deepEqual([counts(server), counts(refused)], [[0, 0], [0, 0]], "no listener left after a listen, nor after the named failure");
   } finally { await close(server); await close(busy); }
 });
+
+// reddened by: the port of a closed server drawn again (the retired set removed, or no port retired at close). A port retired at its
+// bind instead reddens loopback_start_takes_a_fresh_server_per_try (its busy port, still open, would never be tried).
+test("loopback_listen_never_draws_the_port_of_a_closed_server_again", async () => {
+  // lot COINBASE-LOOPBACK-FLAKE-1: fetch keeps an idle keep-alive socket of a closed server in its pool; a new server on the same port
+  // would get the next request sent on that dead socket (ECONNRESET). The draw offers the old port first: another one is taken, and
+  // fetch reaches the new server.
+  const old = createHttpServer((_req, res) => { res.end("old"); }), port = await listen(old);
+  const first = await fetch(`http://127.0.0.1:${String(port)}/`);
+  assert.deepEqual([first.status, await first.text()], [200, "old"], "a keep-alive socket of the old server in the pool");
+  old.closeAllConnections();
+  await close(old);
+  const fresh = createHttpServer((_req, res) => { res.end("fresh"); }), s = scripted(port, 1), next = await listen(fresh, s.draw);
+  try {
+    assert.notEqual(next, port, "the port of the closed server is not drawn again");
+    assert.ok(s.calls() >= 2, `the old port offered first, then another one: ${String(s.calls())} draws`);
+    const res = await fetch(`http://127.0.0.1:${String(next)}/`);
+    assert.deepEqual([res.status, await res.text()], [200, "fresh"], "fetch reaches the new server");
+  } finally { fresh.closeAllConnections(); await close(fresh); }
+});
