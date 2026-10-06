@@ -1158,7 +1158,7 @@ test("narabi_committed_records_fail_closed — the served-facts record and the c
 // T0-TOOLING-1 (review B-3, c bis): the Narabi sync sets its own manifest entry (canonical form) instead of printing it for a
 // hand edit. Replayed on a copy of the committed record: the same facts and read_at give back the committed bytes and entry;
 // new facts move the entry to the new file, and the site loader accepts it. No network: the sync's write step only.
-// killer: scripts/sync-narabi-served.mjs:134 SDL "  writeFileSync(join(root, MANIFEST_REL), manifest);" -> ""
+// killer: scripts/sync-narabi-served.mjs:146 SDL "  writeFileSync(join(root, MANIFEST_REL), manifest);" -> ""
 test("narabi_sync_sets_its_manifest_entry", async () => {
   const sync = (await import(new URL("../scripts/sync-narabi-served.mjs", import.meta.url).href)) as Record<string, unknown>;
   const write = sync["writeNarabiServed"] as ((root: string, facts: unknown, readAt: string) => string) | undefined;
@@ -1178,6 +1178,12 @@ test("narabi_sync_sets_its_manifest_entry", async () => {
     assert.equal(files[NARABI_SERVED_REL], sha256(readFileSync(join(tmp, NARABI_SERVED_REL), "utf8").replace(/\r\n/g, "\n")), "the entry is the new file's CRLF->LF sha256");
     assert.equal(sha, files[NARABI_SERVED_REL]);
     assert.equal(loadNarabiServed(tmp).gate.openapi_sha256, "0".repeat(64), "the site loader accepts the new record");
+    // G2 M-5: the "unchanged" path repairs a stale entry (an interrupted or hand-edited manifest), and only then writes.
+    const repair = sync["repairNarabiEntry"] as ((root: string) => boolean) | undefined;
+    assert.equal(typeof repair, "function", "scripts/sync-narabi-served.mjs exports repairNarabiEntry");
+    writeFileSync(join(tmp, manifestRel), readFileSync(join(tmp, manifestRel), "utf8").replace(sha, "1".repeat(64)));
+    assert.deepEqual([repair?.(tmp), repair?.(tmp)], [true, false], "a stale entry is set again, once");
+    assert.equal(loadNarabiServed(tmp).gate.openapi_sha256, "0".repeat(64), "the loader accepts the repaired manifest");
   } finally {
     rmSync(tmp, { recursive: true, force: true });
   }

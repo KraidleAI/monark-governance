@@ -117,7 +117,7 @@ test("public_notes_pass_the_gate — every file under docs/public-notes/** has a
   }
 });
 
-// killer: scripts/public-text-deny.mjs:118 CONST "|^https:\/\/github\.com\/KraidleAI\/monark-kata-spec(?:[/?#]|$)" -> ""
+// killer: scripts/public-text-deny.mjs:119 CONST "|^https:\/\/github\.com\/KraidleAI\/monark-kata-spec(?:[/?#]|$)" -> ""
 test("public_text_gate_admits_the_spec_repository — the third public origin, exact name only", () => {
   const spec = "https://github.com/KraidleAI/monark-kata-spec";
   for (const u of [spec, `${spec}/blob/main/KATA-SPEC.md`, `${spec}#x`, `${spec}?y`, "https://github.com/kraidleai/MONARK-KATA-SPEC"]) {
@@ -130,7 +130,7 @@ test("public_text_gate_admits_the_spec_repository — the third public origin, e
   }
 });
 
-// killer: scripts/public-text-deny.mjs:121 CONST "return URL_ALLOW.test(url) && URL_ALLOW.test(href);" -> "return URL_ALLOW.test(url);"
+// killer: scripts/public-text-deny.mjs:122 CONST "return URL_ALLOW.test(url) && URL_ALLOW.test(href);" -> "return URL_ALLOW.test(url);"
 test("public_text_gate_resolves_dot_segments — an allowed origin cannot lead elsewhere", () => {
   for (const base of ["https://github.com/KraidleAI/Monark", "https://github.com/KraidleAI/monark-kata-spec"]) {
     for (const u of [`${base}/../recherches`, `${base}/%2e%2e/recherches`, `${base}/../../evil/x`]) {
@@ -140,23 +140,25 @@ test("public_text_gate_resolves_dot_segments — an allowed origin cannot lead e
   }
 });
 
-// killer: scripts/public-text-deny.mjs:120 CONST "if (url.indexOf(\"://\") !== url.lastIndexOf(\"://\")) return false; " -> ""
+// killer: scripts/public-text-deny.mjs:121 CONST "if (url.indexOf(\"://\") !== url.lastIndexOf(\"://\")) return false; " -> ""
 test("public_text_gate_refuses_a_url_nested_in_an_allowed_one — one scheme separator per URL", () => {
   for (const u of ["https://github.com/KraidleAI/monark-kata-spec?u=https://example.org/x", "https://monarkgate.tech/#next=http://example.org"]) {
     assert.ok(rules(`See ${u} now`, "notes").includes("g"), `${u} must be refused by rule g`);
   }
 });
 
-// T0-TOOLING-1 (review M-d; gate act V-2 of MONARK): an unfilled template marker, an upper-case identifier in braces, is
-// refused in every kind; lower-case braces and brace lists (the kata pattern of the skill) pass. Measured: 0 refusal on
-// docs/public-notes/** (public_notes_pass_the_gate above).
-// killer: scripts/public-text-deny.mjs:125 CONST "/\\{[A-Z][A-Z0-9_]*\\}/" -> "/\\{[A-Z][A-Z0-9_]*\\}(?=x)/"
+// T0-TOOLING-1 (review M-d; gate act V-2 of MONARK, widened by its G2): every unfilled template marker of a line is named, an
+// upper-case identifier in braces, inner spaces and hyphens included; lower-case braces and brace lists (the kata pattern of
+// the skill) pass. Measured: 0 refusal on docs/public-notes/** (public_notes_pass_the_gate above).
+// killer: scripts/public-text-deny.mjs:126 CONST "/\\{\\s*[A-Z][A-Z0-9_-]*\\s*\\}/g" -> "/\\{[A-Z][A-Z0-9_]*\\}/g"
 test("public_text_gate_refuses_an_unfilled_marker — {T0} and {OPENAPI_SHA256} red, {btc,eth} and {dir} green", () => {
   for (const kind of PUBLIC_TEXT_KINDS) {
-    for (const marker of ["{T0}", "{OPENAPI_SHA256}"]) {
+    for (const marker of ["{T0}", "{OPENAPI_SHA256}", "{ T0 }", "{OPENAPI-SHA256}"]) {
       const r = checkPublicText(`Served on ${marker}\n`, kind);
       assert.ok(r.violations.some((v) => v.rule === "ph" && v.word === marker && v.line === 1), `${kind}: ${marker} is refused by rule ph: ${JSON.stringify(r.violations)}`);
     }
+    const both = checkPublicText("Served on {T0}, document {OPENAPI_SHA256}\n", kind).violations.filter((v) => v.rule === "ph").map((v) => v.word);
+    assert.deepEqual(both, ["{T0}", "{OPENAPI_SHA256}"], `${kind}: each marker of a line is named`);
     for (const text of ["The classes {btc,eth}-{dir,range}-{1h,4h} are served\n", "One class per {dir}\n"]) {
       assert.deepEqual(checkPublicText(text, kind).violations.filter((v) => v.rule === "ph"), [], `${kind}: ${text.trim()} passes rule ph`);
     }
