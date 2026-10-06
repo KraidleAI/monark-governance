@@ -14,7 +14,8 @@
 //   (\p{Cf}: zero-width, BOM, bidi), checked on the raw text; every other rule reads the NFKC form of the text;
 //   (q3) the internal words budget, credit, lock and their -s/-ed/-ing forms (Q-3; "test" stays allowed);
 //   (ph) an unfilled template marker, an upper-case identifier in braces such as {T0} or { OPENAPI-SHA256 }, EACH one of a
-//   line named (lower-case brace lists such as {btc,eth} and shell variables such as ${HOME} pass);
+//   line named (lower-case brace lists such as {btc,eth} and shell variables such as ${HOME} pass, but not ${T0}, the
+//   variable form of a TEMPLATE_MARKERS name);
 // plus (h), kind "issue" only: no date or schedule word; and (title), kind "message" only: a first line of at most 50
 // code points (Q-P-4), followed by an empty line when a body follows (git-commit DISCUSSION).
 // kindForPath(rel) maps docs/public-notes/** to a kind (C-V-9), null (= refused) for any other path.
@@ -124,6 +125,8 @@ const urlAllowed = (url) => { if (url.indexOf("://") !== url.lastIndexOf("://"))
 export const SECRET_SHAPES = Object.freeze(KEY_SHAPES.filter((re) => re.source !== ":\\/\\/"));
 const INTERNAL_WORDS = /\b(?:budget|credit|lock)(?:s|ed|ing)?\b/i;
 const PLACEHOLDER = /(?<!\$)\{\s*[A-Z][A-Z0-9_-]*\s*\}/g;
+export const TEMPLATE_MARKERS = Object.freeze(["T0", "OPENAPI_SHA256", "SPEC_URL"]); // the markers the T0 notes and the gate act fill
+const MARKER_VARIABLE = new RegExp(`\\$\\{\\s*(?:${TEMPLATE_MARKERS.join("|")})\\s*\\}`, "g"); // ${T0}: still a marker (E-2)
 // The year form also catches an ISO date; month names are capitalised whole words, so the verb "may" stays green.
 const DATE_FORMS = Object.freeze([/\b(?:19|20)\d\d\b/, /\b(?:January|February|March|April|May|June|July|August|September|October|November|December)\b/,
   /\bQ[1-4]\b/, /\bsoon\b|\bnext\s+(?:week|month|quarter|year)\b/i]);
@@ -166,7 +169,7 @@ export function checkPublicText(text, kind) {
     }
   });
   formHits(lines, "q3", [INTERNAL_WORDS], v);
-  lines.forEach((l, i) => { for (const m of l.matchAll(PLACEHOLDER)) v.push({ rule: "ph", line: i + 1, word: m[0] }); });
+  lines.forEach((l, i) => { for (const re of [PLACEHOLDER, MARKER_VARIABLE]) for (const m of l.matchAll(re)) v.push({ rule: "ph", line: i + 1, word: m[0] }); });
   if (kind === "issue") formHits(lines, "h", DATE_FORMS, v);
   if (kind === "message") {
     const title = raw[0] ?? "";
