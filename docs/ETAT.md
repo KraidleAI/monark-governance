@@ -603,7 +603,9 @@ Tronc `lot/etude-suite`. Dernier oracle complet : 1 779 tests, dont 1 776 verts,
     (`srcwinasync.c:76`) quand `--test-force-exit` tombe pendant une tâche de fond de V8 (ici la montée de niveau du parseur WebAssembly
     de `fetch`) : la cause de l aléa relevé aux G2 de U4b et de T1a-iii-a1. Amont : nodejs/node#56645, corrigé par nodejs/node#61999 dans
     Node 24.20.0 LTS (`docs/methode/FAITS-node-win-exit-abort-2026-10-06.md`). Construction : Node 24.21.0 sur l hôte de travail (accord du
-    fondateur, 2026-10-06), puis la sonde rejouée (attendu : 0 arrêt sur 8). Porteur : MONARK ; état : ouvert.
+    fondateur, 2026-10-06), puis la sonde rejouée (attendu : 0 arrêt sur 8). Porteur : MONARK ; état : clos le 2026-10-06 : Node 24.21.0
+    installé sur l hôte de travail (installeur vérifié : SHA-256 officiel et signature OpenJS) ; sonde : 0 arrêt sur 8 dans ses trois modes,
+    contre 8 sur 8 en 24.15.0 ; ancien test à `fetch` (`7336d0f7`) : 0 sur 10, contre 20 sur 20 ; oracle témoin du tronc vert (`5b8255db…`).
   - COINBASE-LOOPBACK-FLAKE-1 (aléa de `g3-verification` sur #199) : cause nommée, une socket keep-alive du pool de `fetch` restée sur le
     port d un serveur fermé (`ECONNRESET`) ; état : clos le 2026-10-06 par #204 (tronc `1bb5cdb3`) : l assistant de boucle locale ne tire
     plus le port d un serveur qui n écoute plus (`docs/G7-lot-coinbase-loopback-flake-1.md`).
