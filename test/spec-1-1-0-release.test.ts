@@ -168,7 +168,7 @@ test("the_writer_refuses_through_expected_files_what_the_gate_refuses", async ()
 /** A governance root holding one hand-edited table file, and a one-entry release that pins its bytes again (the G2's hack inputs). */
 function repinned(edit: (row: Record<string, unknown>) => void): { gov: string; inputs: Inputs; file: string } {
   const gov = mkdtempSync(join(TMP, "gov-")), rel = "spec/contract-1.1.0/policy/stable-run-velocity-24h.json";
-  const table = JSON.parse(readFileSync(join(ROOT, rel), "utf8")) as { rows: Record<string, unknown>[] };
+  const table = JSON.parse(bytes(ROOT, rel).toString("utf8")) as { rows: Record<string, unknown>[] };
   edit(table.rows[0] ?? {});
   const text = canonicalJson(table), file = join(gov, "inputs.json");
   mkdirSync(join(gov, "spec", "contract-1.1.0", "policy"), { recursive: true });
