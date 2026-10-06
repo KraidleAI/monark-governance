@@ -47,7 +47,7 @@ Plus `VERSION` (la date T0) et `MANIFEST.sha256`, écrits par l'outil.
 - `source` : `fixtures/usde-calib-scores.json` et `scripts/record-usde-calib.mjs` d'une part, déjà dans l'export public mesuré par `collectFiles` ; d'autre part `sha256:fd6fab7e…` et `scripts/record-u4b-calib.mjs`, ce dernier hors export, nommé seulement ;
 - `text`, la phrase servie.
 
-Les 35 octets canoniques passent la porte (0 problème). Rien n'y est donc publié pour la première fois, hormis deux noms de scripts.
+Les 35 octets canoniques donnent 0 problème au sens de `contentProblems` de `spec-publish`. Rien n'y est donc publié pour la première fois, hormis deux noms de scripts.
 
 ## 2. Les tables : un écrivain du dépôt, jamais à la main
 
@@ -80,7 +80,7 @@ Les 35 octets canoniques passent la porte (0 problème). Rien n'y est donc publi
 - Le chemin est celui de la sortie dans le dépôt publié, et un fichier publié n'est jamais retiré : l'identifiant reste stable. La version est portée par `schema_version`, dans le schéma lui-même.
 - Le `$ref` relatif de `gate-decision` (`coverage-verdict.schema.json`) se résout contre ce `$id` vers le `$id` publié de `coverage-verdict`. Aucun `$ref` ne change.
 
-**Remplacements** (mesurés : chaque copie passe ensuite la porte, 0 problème) :
+**Remplacements** (mesurés : chaque copie donne ensuite 0 problème au sens de `contentProblems` ; `checkPublicText` brut n'y voit que l'URL du méta-schéma `https://json-schema.org/draft/2020-12/schema` du `$schema`, que `spec-publish` excepte) :
 
 | Schéma | Avant | Après |
 |---|---|---|
@@ -210,3 +210,32 @@ Schémas publiés, avec la transformation du §3 :
   - `-b` : les tables et la déclaration.
 
   Les copies des schémas restent lisibles, jamais en une ligne.
+
+## 8. Bloc daté 2026-10-06 02:45 UTC : repli de la G2 de la partie a (décisions de MONARK)
+
+Rapport : `docs/G2-lot-spec-1-1-0-release-a.md` (non bloquant ; tout est replié, mineurs compris, règle « pas de dette » du fondateur). Ce bloc remplace le §1 (chemins de sortie), le §3 (`$id`, remplacements) et l'annexe A (sha256 des schémas) là où ils diffèrent.
+
+- **N-1, chemins versionnés et `$id` récupérable.** Chaque version est publiée sous son propre répertoire : `contract-1.1.0/schemas/<nom>.schema.json`, `contract-1.1.0/policy/<task_class>.json`, `contract-1.1.0/CONTRACT.md` (le texte de la spécification) et `contract-1.1.0/vectors-1.1.0.json` (le nom que le texte donne : « next to this file »). Les sources de gouvernance restent `spec/<sortie>`.
+  - `$id` : `https://github.com/KraidleAI/monark-kata-spec/raw/main/contract-1.1.0/schemas/<nom>.schema.json`. Mesuré : il passe `URL_ALLOW` (règle g muette ; seule l'URL du méta-schéma reste, exceptée).
+  - Un fichier publié n'est jamais retiré : le chemin reste valide et unique par version ; un même `$id` ne nomme jamais deux contenus.
+  - Le `$ref` relatif `coverage-verdict.schema.json` de `gate-decision` se résout dans le même répertoire : mesuré par Ajv 2020, les cinq copies chargées ensemble valident une `GateDecision` servie, et refusent un `verdict.alpha` altéré à travers le `$ref`.
+- **N-4** : le remplacement de `gate-decision` devient `, never an investment return or income paid to anyone.` (0 problème au sens de `contentProblems`).
+- **M-4** : `spec section N` devient `contract-1.1.0/CONTRACT.md section N` dans `coverage-verdict` (5), `policy-row` (10) et `tool-error` (13). Les trois sections ont ces titres dans le texte 1.1.0 (5 « Coverage verdict », 10 « Policy table files », 13 « Errors »).
+- **N-2** : le point d'entrée de l'écrivain et de `spec-publish.mjs` est reconnu par chemin réel (lien, jonction ; casse repliée sous win32).
+- **M-2, M-3, M-6** : `--check` voit tout fichier sous `spec/contract-1.1.0/` ; `--write` écrit des temporaires puis renomme ; la partie a n'écrit et ne contrôle que ce qu'elle publie (les schémas), la partie b y ajoute les tables.
+- **N-3 et F-1 (partie b, là où vivent les tables)** :
+  - l'écrivain refuse une table dont une ligne porte `recompute` non nul (VERIFIERS-LIST-F5A-1, déclencheur amendé dans `docs/ETAT.md`) ;
+  - il refuse aussi une ligne de n ≤ 30 (SHORT-DIGEST-INVERSION-1, §10 du texte : « No published table file carries the digest of a 0/1 sequence of 30 points or fewer »). Une empreinte ne dit pas si ses points valent 0/1 : la garde couvre plus que la promesse. Les deux lignes publiées ont n 613 et 170.
+- **`spec-publish`** : une table peut être rangée sous un répertoire de version (`[<version>/]policy/<class.task_class>.json`), même ligne.
+
+Sha256 des copies publiées (remplacent l'annexe A) :
+
+| Sortie | sha256 |
+|---|---|
+| `contract-1.1.0/schemas/coverage-verdict.schema.json` | `90e8fc0d91c760738e56523799c13d6393d5671fdfba1379e7ef2715426047a7` |
+| `contract-1.1.0/schemas/gate-decision.schema.json` | `b6db2d362e7577c119aa47c2b4011eefe9d6955aedfc438a0648cf602637fbcf` |
+| `contract-1.1.0/schemas/policy-row.schema.json` | `2dc64bd6292f4ada2c84f74c9b4cb79b0c54ba2ce94058d46203c50fa5a6e7bb` |
+| `contract-1.1.0/schemas/prediction.schema.json` | `54e9210627090aed365c5b1aa79b2ed7e7180d56a09c656095198983cc1c3a89` |
+| `contract-1.1.0/schemas/tool-error.schema.json` | `8e7177c77688afec4dc837944a65cb8504ae57658a76583a702c837d6750acaf` |
+
+Les 35 tables gardent leurs octets et leurs sha256 (annexe A) ; leur sortie devient `contract-1.1.0/policy/<task_class>.json`.
