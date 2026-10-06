@@ -72,5 +72,29 @@ G2 neuve non bloquante ; tous les constats sont repliés, F-1 à F-7.
 - **Ancres** : 60 sur 60 sur les fichiers touchés (`--touched febf7735 HEAD`). Sur tout le dépôt, 8 PERDU, tous antérieurs et hors du lot : le lot ANCHORS-DRIFT-1 les ferme.
 - **Portes** : `tsc` 0, `eslint .` 0, `lint:ratchet` 69/69, `gate:vocab`, `lang:gate` et `export:check` OK.
 - **Tests ciblés** (`spec-publish`, `spec-1-1-0-release`, `public-text-deny`, `release-public-flow`, `release-public`) : 71 sur 71.
-- **`test:main`** : 2 751 tests, 2 725 verts, 22 ignorés, 4 rouges. Les quatre sont rouges à l'identique à `b7d0cb84` sur cet hôte, qui tourne en root : `sentinel_sigterm_after_lock_acquired_before_handler_releases_lock`, `sentinel_sigterm_while_lock_acquiring_releases_lock`, `ukemi_guard_record_skipped_the_platter_flush_nonvacuous` et `dojo_history_collect_to_verify_end_to_end`. Le §3 en comptait 3 : le compte juste est 4.
+- **`test:main`** : 2 751 tests, 2 725 verts, 22 ignorés, 4 rouges. Les quatre sont rouges à l'identique à `b7d0cb84` sur cet hôte : `sentinel_sigterm_after_lock_acquired_before_handler_releases_lock`, `sentinel_sigterm_while_lock_acquiring_releases_lock`, `ukemi_guard_record_skipped_the_platter_flush_nonvacuous` et `dojo_history_collect_to_verify_end_to_end`. Le §3 en comptait 3 : le compte juste est 4. Cause par test : voir le §6 (correction de la G2, T-7).
 - **R-25** contre `febf7735` : voir le rapport de clôture (STAT ≤ 547).
+
+## 6. Repli de la G2 delta (2026-10-06, T-1 à T-7)
+
+G2 delta non bloquante sur `2827819f` ; ses sept constats sont repliés. T-8 (variables `GIT_DIR` héritées), antérieur au lot et non reproduit, reste hors du lot.
+
+- **T-1** : test `template_markers_skip_a_shell_variable_of_the_template`. Un `${HOME}` écrit dans le modèle n'est pas un marqueur. Tueur déclaré `public-text-deny.mjs:130 CONST "(?<!\\$)" -> ""`, tué par assertion.
+- **T-2** : l'échappement de `-` dans `MARKER_VARIABLE` (`:135`) est retiré. Il était mort : un nom de marqueur est `[A-Z0-9_-]`, et `-` est littéral hors d'une classe. Il serait même nuisible, puisque `\-` est une erreur de syntaxe sous le drapeau `u`. Le mutant inverse (remettre l'échappement) est équivalent : aucun test ne peut le tuer, et le constat ne demande pas de tueur.
+- **T-3** : la G7 disait « chaque entrée `previous` est lue une seule fois », et ce n'était pas vrai. Une entrée publiée sous son propre chemin était lue trois fois : par l'entrée, par le contrôle « carried » et par le contrôle `rewritten`. `plan()` garde maintenant chaque objet lu (`once`, `spec-publish.mjs:171`), si bien que l'affirmation est vraie : chaque objet de `previous_commit` est lu une seule fois par plan.
+  - Test `each_object_of_the_previous_commit_is_read_once` : `plan()` tourne dans un processus enfant avec `GIT_TRACE2_EVENT`. Il compte les `cat-file` dans les événements `start` de git, sans enveloppe, donc sur tout OS. Il est rouge à `2827819f` : `reports/README.md` est lu deux fois, `contract-1.0.0/t.md` trois fois.
+  - Tueur `:171 CONST "if (!objects.has(k)) " -> ""`, tué. Le tueur F-3 (`:205`) vise maintenant `once(prev, …)`. Il reste tué, par les trois tests F-1, F-2 et F-3.
+- **T-4** : la ligne datée de TEMPLATE-MARKERS-SOURCE-1 (`docs/ETAT.md`) note maintenant le repli de F-5, F-6, T-1 et T-2. Celle de SPEC-PUBLISH-PREVIOUS-BLOBS-1 note T-3.
+- **T-5** : la ligne d'écart au plan du mois ne dit plus que le fondateur et l'investisseur ont été prévenus. Elle dit seulement ce que MONARK a écrit (`034a528`) : il prévient l'investisseur des deux dates le 2026-10-06.
+- **T-6** : la ligne d'ENGINE-ROW-RETIRE-PATH-1 porte le repli accordé (plan d'après T0, §4 ; `034a528`). Si la partie harnais n'est pas fusionnée quand part le G0 court de E-1a, E-1 passe d'abord, et le retrait s'écrit après E-1b.
+- **T-7** : les quatre rouges de `test:main` n'ont pas une cause commune « root ».
+  - `dojo_history_collect_to_verify_end_to_end` manque de place libre dans le tmpdir. Le collecteur refuse `disk_space` (`apps/dojo/src/history-collect.ts:184-185`) : il faut ≈ 1,27 Go, et l'hôte en a ≈ 0,95 Go. Le lot DOJO-E2E-DISK-1 rend ce test indépendant du disque de l'hôte.
+  - Les deux rouges SIGTERM de sentinel et le rouge ukemi ont une autre cause, hors de ce lot, qui ne dépend pas de la place disque.
+
+**Vérifications** (base `febf7735`) :
+- **red-proof** (`--draw 6 --seed 37`) : OK, 14 jugés (14 F2P), 6 tueurs tirés, 6 tués.
+- **Tueurs neufs ou changés tirés à la main**, fichier restauré (sha256) : T-1 `:130`, T-3 `:171` et F-3 `:205`, tous tués par assertion. Le mutant T-2 inverse survit, comme attendu : il est équivalent.
+- **Ancres** : 62 sur 62 sur les fichiers touchés. Sur tout le dépôt, les 8 PERDU antérieurs restent (ANCHORS-DRIFT-1 les ferme).
+- **R-25** contre `febf7735` : STAT 238+/58- = 296 (≤ 547), CONTENT 0, GREEN.
+- **Portes** : `tsc` 0, `eslint .` 0, `lint:ratchet` 69/69, `gate:vocab`, `lang:gate` et `export:check` OK.
+- **Tests ciblés** (`spec-publish`, `public-text-deny`, `spec-1-1-0-release`, `release-public-flow`, `release-public`) : 73 sur 73.

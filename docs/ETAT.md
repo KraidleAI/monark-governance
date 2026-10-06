@@ -28,8 +28,8 @@ Toutes les décisions antérieures sont effacées, sur ordre de l'investisseur (
   VERIFIERS-LIST-F5A-1 (MONARK) et SHORT-DIGEST-INVERSION-1 (RECHERCHES) ; visée vers le 2026-10-20. La mise en service de la
   **vague 2** ne tient pas dans le mois : FORMAT-W2, P0-2, la course et la recomputation aveugle la portent au plus tôt vers le
   2026-11-05, et ADR 0006 D6 interdit tout service avant ENGINE-ROW-RETIRE-PATH-1 livré et mesuré. Le mois livre le registre de
-  vague 2 vetoé et son rapport (repli D8, Q-W2-24) ; service visé : 2026-11-16. Information au fondateur et à l'investisseur (Q-E9,
-  prévenus par MONARK le 2026-10-06). Dates accordées par MONARK (vague 1 vers le 2026-10-20, vague 2 visée au 2026-11-16).
+  vague 2 vetoé et son rapport (repli D8, Q-W2-24) ; service visé : 2026-11-16. Dates accordées par MONARK (vague 1 vers le 2026-10-20,
+  vague 2 visée au 2026-11-16) ; MONARK écrit qu'il en prévient l'investisseur le 2026-10-06 (Q-E9, recherches `034a528`).
 - **Décision investisseur (2026-10-02, verbatim : « pas de bloquant chez bonance, on utilise les données a notre guise »)** : la réserve sur
   la Prohibited Use Policy de Binance est levée par l investisseur ; les FAITS des conditions restent tels quels (usage interne).
 
@@ -551,6 +551,9 @@ Tronc `lot/etude-suite`. Dernier oracle complet : 1 779 tests, dont 1 776 verts,
     `{T0}`, `{SPEC_URL}`, `{OPENAPI_SHA256}`) ; `TEMPLATE_MARKERS` en est dérivé (`templateMarkers`), test
     `template_markers_follow_the_committed_template`. Le modèle n est pas un texte public (`kindForPath` ne lui donne aucun genre ; `docs/`
     n est jamais exporté).
+    Ligne datée 2026-10-06 (RECHERCHES, lot T0-FOLLOWUP-1, repli des G2 F-5, F-6, T-1 et T-2) : les marqueurs sont lus avec la forme de
+    la règle `ph` (espaces internes, trait d union), jamais un `${NOM}` du modèle (variable de shell) ; un modèle sans marqueur est refusé
+    par son nom, au chargement ; `${SPEC_URL}` est refusé comme marqueur. Un test et un tueur déclaré par constat.
   - SPEC-PUBLISH-PREVIOUS-BLOBS-1 (acte 8 de T0, 2026-10-06 : sous Windows avec `core.autocrlf=true`, le clone `previous` portait des CRLF
     dans son arbre de travail, et `input_digest` refusait, fermé) : clos par le lot T0-FOLLOWUP-1. Chaque entrée `root: "previous"`, le
     contrôle « carried » et le contrôle `rewritten` lisent l objet git de `previous_commit` (`git cat-file blob`, sans shell ni filtre) ;
@@ -560,6 +563,8 @@ Tronc `lot/etude-suite`. Dernier oracle complet : 1 779 tests, dont 1 776 verts,
     `previous_blob_missing`, jamais comparé à des octets vides ; le refus porte la première ligne du stderr de git. Un test et un tueur
     par constat : `a_published_contract_file_is_compared_with_its_committed_object`, `a_replace_object_does_not_hide_a_rewrite`,
     `an_unreadable_published_object_is_refused_never_read_as_empty`, `a_refused_previous_entry_carries_the_reason_git_gives`.
+    Repli de la G2 T-3 : chaque objet de `previous_commit` est lu une seule fois par plan (test
+    `each_object_of_the_previous_commit_is_read_once`, lectures comptées dans les événements trace2 de git).
   - KATA-CLAUSE-COMMITTED-STATE-1 (G7 de D-2 §6, G7 de D-3 §7) : la clause kata de la description servie dit « which hold no committed
     calibration row » (`gate.ts:233`) ; le fil-piège `kataTablesHoldNoRow` (`kata-path.ts:125-128`, `gate.ts:1042`) fait échouer le
     chargement à la première ligne kata. Construction : la clause de l'état engagé, choisie par la présence au registre, comme
@@ -1191,7 +1196,9 @@ Tronc `lot/etude-suite`. Dernier oracle complet : 1 779 tests, dont 1 776 verts,
   (2020-09 → 2024-10), FAITS-EVENTS-2022-2024-1 (2022-09 → 2024-10, FTX compris), avant P0-2 ; ENGINE-ROW-RETIRE-PATH-1 devient BLOQUANT
   avant tout service d une ligne de la vague 2 (condition 2 de Q-W2-26) ;
   ENGINE-ROW-RETIRE-PATH-1 au 2026-10-06 (RECHERCHES, lot T0-FOLLOWUP-1) : G0 en brouillon remis à MONARK le 2026-10-06 (pièce
-  recherches `coordination/pieces/2026-10-06-G0-retire-path/`), à coder avant E-1, en parallèle de FORMAT-W2 ;
+  recherches `coordination/pieces/2026-10-06-G0-retire-path/`), à coder avant E-1, en parallèle de FORMAT-W2 ; repli accordé par MONARK
+  (`034a528`) : si sa partie harnais n est pas fusionnée quand part le G0 court de E-1a, E-1 passe d abord, et le retrait s écrit après
+  E-1b, sur la fonction à deux registres ;
   SERIES-FULL-HISTORY-1 FAIT le 2026-10-02 (19:19 UTC) : 914 courses, 762 dossiers scellés sous `F:/PRODUITS/marche/history/` (symbole × mois ×
   intervalle), empreintes postées (recherches, pièces `2026-10-02-series-full-history`), rien transféré ; 153 arrêts `close_time` (bougies
   tronquées 2017-2021, et la panne du 2023-03-24 12:39Z sur les 15m et 1h de 2023-03, WARM-2) ; blocs 2022-09 → 2024-09 : 292/300, 0 manquante.
