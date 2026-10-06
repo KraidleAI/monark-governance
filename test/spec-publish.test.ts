@@ -313,15 +313,20 @@ test("a_published_contract_file_is_compared_with_its_committed_object", async ()
   assert.deepEqual(await contractCodes(carried), [], "a hidden working-tree edit is ignored");
 });
 
-// G2 F-1: a replace object (refs/replace) in the previous clone does not hide a rewrite.
+// G2 F-1: a replace object (refs/replace) in the previous clone does not hide a rewrite. On a CRLF clone that also carries a second
+// contract file unchanged, exactly one rewrite is named: the file whose committed object the replace object stands in for.
 // killer: scripts/spec-publish.mjs:159 CONST "{ ...process.env, GIT_NO_REPLACE_OBJECTS: \"1\" }" -> "{ ...process.env }"
 test("a_replace_object_does_not_hide_a_rewrite", async () => {
-  const changed = contractWorld("recherches"), q = changed.w.roots.previous, rech = changed.w.roots.recherches;
-  assert.deepEqual(await contractCodes(changed), ["rewritten"], "premise: a new content is a rewrite");
+  const changed = contractWorld("recherches"), q = changed.w.roots.previous, rech = changed.w.roots.recherches, C = "# C\n";
+  put(q, "contract-1.0.0/c.md", C);
+  const head = commit(q), inputs = at(head, [...(changed.inputs.releases.v?.entries ?? []),
+    { out: "contract-1.0.0/c.md", root: "previous", path: "contract-1.0.0/c.md", kind: "text", sha256: sha(C) }]);
+  git(q, "config", "core.autocrlf", "true"); rmSync(join(q, "contract-1.0.0"), { recursive: true }); git(q, "checkout", "--", ".");
+  assert.ok(readFileSync(join(q, "contract-1.0.0/c.md"), "utf8").includes("\r\n") && git(q, "status", "--porcelain") === "", "premise: a clean CRLF checkout");
   const old = git(q, "rev-parse", "HEAD:contract-1.0.0/t.md"), now = git(rech, "hash-object", "kata/t2.md");
   git(q, "hash-object", "-w", join(rech, "kata/t2.md")); git(q, "replace", old, now);
   assert.equal(git(q, "cat-file", "blob", "HEAD:contract-1.0.0/t.md"), "# T2", "premise: git honours the replace object");
-  assert.deepEqual(await contractCodes(changed), ["rewritten"], "a replace object does not hide the rewrite");
+  assert.deepEqual(await contractCodes(changed, inputs), ["rewritten"], "the replace object does not hide the rewrite, the carried file is not one");
 });
 
 // G2 F-2: an object git cannot read as a blob (a gitlink) is refused by name, never compared with empty bytes.
@@ -334,5 +339,6 @@ test("an_unreadable_published_object_is_refused_never_read_as_empty", async () =
   const head = git(r, "rev-parse", "HEAD");
   put(linked.w.roots.recherches, "kata/t2.md", ""); // an empty file where the published tree holds a gitlink
   const inputs = at(head, (linked.inputs.releases.v?.entries ?? []).map((e) => (e.out === "contract-1.0.0/t.md" ? { ...e, sha256: sha("") } : e)));
-  assert.deepEqual(await contractCodes(linked, inputs), ["previous_blob_missing"], "an unreadable published object is refused by name");
+  const got = await contractCodes(linked, inputs).catch((e: unknown) => [`threw ${String((e as { code?: unknown }).code ?? e)}`]);
+  assert.deepEqual(got, ["previous_blob_missing"], "an unreadable published object is refused by name, it neither throws nor reads as empty");
 });
