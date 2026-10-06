@@ -96,7 +96,8 @@ import {
   VERIFY_HINT,
 } from "../apps/site/lib/narabi-copy.ts";
 import { loadNarabiServed, NARABI_SERVED_REL } from "../apps/site/lib/narabi-served-load.ts";
-import { loadNarabiCalibration, calibDigestOf, CALIB_SCORES_REL, CALIB_PROVENANCE_REL } from "../apps/site/lib/narabi-calib-load.ts";
+import { loadNarabiCalibration, CALIB_SCORES_REL, CALIB_PROVENANCE_REL } from "../apps/site/lib/narabi-calib-load.ts";
+import { scoresSha256 } from "../packages/contracts/src/index.ts";
 import { MEASURED_CLASS_CLAUSES, MEASURED_CLASS_RESERVE } from "../apps/site/lib/how-copy.ts";
 import { FLEET_AGENTS } from "../apps/site/lib/fleet.ts";
 import {
@@ -114,10 +115,9 @@ import {
 import type { TimelineLine as SentinelLine } from "../apps/sentinel/src/timeline.ts";
 import { PUBLIC_ENDPOINTS, makeRpcPool, QuorumDisagreementError } from "../apps/sentinel/src/rpc.ts";
 import { trackerReplay, trackerDigest, trackerStepSize } from "../packages/hikae/src/index.ts";
-import { calibDigest } from "../scripts/lib/calib-digest-provenance.mjs";
 import {
   USDE_STABLE_RUN_CALIB,
-  USDE_STABLE_RUN_CALIB_DIGEST_PINNED,
+  USDE_STABLE_RUN_SCORES_SHA256_PINNED,
   USDE_STABLE_RUN_TASK_CLASS,
   USDE_STABLE_RUN_PREDICTOR_ID,
 } from "../apps/harness/src/calibration.ts";
@@ -537,14 +537,20 @@ test("narabi_live_renders_no_endpoint_url — the parser drops the endpoint URLs
 
 // ── the gate card: size + digest derived at build, class + key bound to the served description ────────────────
 // killer: apps/site/lib/harness-served-load.ts:192 CONST "!existsSync(join(root, HARNESS_PENDING_REL))" -> "true"
-test("narabi_gate_facts_read_from_committed_sources — n_calib and calib_digest are derived from the sha-pinned fixture; class and key equal the served gate description", async () => {
+test("narabi_gate_facts_read_from_committed_sources — n_calib and scores_sha256 are derived from the sha-pinned fixture; class and key equal the served gate description", async () => {
   const calib = loadNarabiCalibration(ROOT);
   assert.equal(calib.nCalib, USDE_STABLE_RUN_CALIB.length, "n_calib = the harness's committed calibration length");
-  assert.equal(calib.calibDigest, USDE_STABLE_RUN_CALIB_DIGEST_PINNED, "calib_digest = the harness's pinned digest");
-  // The port equals the producer on the committed scores and on the −0/+0 and order edge cases.
-  assert.equal(calibDigestOf(USDE_STABLE_RUN_CALIB), calibDigest(USDE_STABLE_RUN_CALIB), "calibDigest port = the provenance tool on the committed scores (calibDigest left @monark/contracts, D9-ter)");
-  for (const xs of [[0, -0], [-0, 0], [1, 0], [3, 1, 2], [1e-9, 5e-7]]) {
-    assert.equal(calibDigestOf(xs), calibDigest(xs), `calibDigest port = producer on ${JSON.stringify(xs)}`);
+  // Contract 1.1.0 (Q-M6): the page shows the digest the served verdict carries, scores_sha256 in the committed order, never the
+  // 1.0.0 sorted digest; the loader keeps no field of that name.
+  assert.equal("calibDigest" in calib, false, "the loader no longer derives the 1.0.0 sorted digest");
+  assert.equal(calib.scoresSha256, USDE_STABLE_RUN_SCORES_SHA256_PINNED, "scores_sha256 = the harness's pinned wire digest");
+  assert.notEqual(calib.scoresSha256, scoresSha256([...USDE_STABLE_RUN_CALIB].sort((a, b) => a - b)), "the committed order, not the sorted one");
+  // The port equals the producer of the contract on the committed scores and on the −0/+0 and order edge cases.
+  const port = (await import("../apps/site/lib/narabi-calib-load.ts") as Record<string, unknown>).scoresSha256Of;
+  assert.equal(typeof port, "function", "the loader exports its scores_sha256 port");
+  const portOf = port as (xs: readonly number[]) => string;
+  for (const xs of [USDE_STABLE_RUN_CALIB, [0, -0], [-0, 0], [1, 0], [3, 1, 2], [1e-9, 5e-7], [1e21, 1e-7]]) {
+    assert.equal(portOf(xs), scoresSha256(xs), `scores_sha256 port = producer on ${JSON.stringify(xs).slice(0, 40)}`);
   }
   // Fail-closed: a tampered fixture or a missing pin reds the build (loader throws).
   const tmp = mkdtempSync(join(tmpdir(), "narabi-calib-"));
@@ -591,7 +597,7 @@ test("narabi_gate_facts_read_from_committed_sources — n_calib and calib_digest
   assert.equal(gateBody(String(calib.nCalib)), `${GATE_BODY_BEFORE} ${String(calib.nCalib)} ${GATE_BODY_AFTER}`, "the lede splices the derived size");
   // CARRIERS: the component renders the served/derived values, never a literal.
   const comp = readComponent();
-  for (const carrier of ["v={served.gate.task_class}", "v={served.gate.predictor_id}", "v={String(calibration.nCalib)}", "v={shortHash(calibration.calibDigest, 8)}", "lede={gateBody(String(calibration.nCalib))}"]) {
+  for (const carrier of ["v={served.gate.task_class}", "v={served.gate.predictor_id}", "v={String(calibration.nCalib)}", "v={shortHash(calibration.scoresSha256, 8)}", "lede={gateBody(String(calibration.nCalib))}"]) {
     assert.ok(comp.includes(carrier), `the gate card must render ${carrier}`);
   }
   assert.ok(/loadNarabiCalibration\(/.test(readPage()), "the server page derives the calibration at build");
