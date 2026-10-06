@@ -315,7 +315,7 @@ test("a_published_contract_file_is_compared_with_its_committed_object", async ()
 
 // G2 F-1: a replace object (refs/replace) in the previous clone does not hide a rewrite. On a CRLF clone that also carries a second
 // contract file unchanged, exactly one rewrite is named: the file whose committed object the replace object stands in for.
-// killer: scripts/spec-publish.mjs:159 CONST "{ ...process.env, GIT_NO_REPLACE_OBJECTS: \"1\" }" -> "{ ...process.env }"
+// killer: scripts/spec-publish.mjs:159 CONST ", GIT_NO_REPLACE_OBJECTS: \"1\" }" -> " }"
 test("a_replace_object_does_not_hide_a_rewrite", async () => {
   const changed = contractWorld("recherches"), q = changed.w.roots.previous, rech = changed.w.roots.recherches, C = "# C\n";
   put(q, "contract-1.0.0/c.md", C);

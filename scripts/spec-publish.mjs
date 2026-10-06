@@ -155,8 +155,8 @@ export function contentProblems(out, kind, bytes, release, carried = false) {
   catch (e) { p.push({ code: "not_canonical", detail: `${out}: ${e.message}` }); }
   return p;
 }
-
-const GIT_ENV = { ...process.env, GIT_NO_REPLACE_OBJECTS: "1" }; // refs/replace never stands in for a committed object (G2 F-1)
+// Each git call names its tree with -C: neither refs/replace (G2 F-1) nor a caller's repository location (the location half of `git rev-parse --local-env-vars`, any case: a hook's GIT_DIR, GIT_INDEX_FILE) stands in for it; GIT_CONFIG_* still reaches git (G2 T-8).
+const GIT_LOCATION = /^GIT_(?:DIR|WORK_TREE|INDEX_FILE|OBJECT_DIRECTORY|ALTERNATE_OBJECT_DIRECTORIES|COMMON_DIR|IMPLICIT_WORK_TREE|PREFIX|INTERNAL_SUPER_PREFIX|SHALLOW_FILE|GRAFT_FILE|REPLACE_REF_BASE|NAMESPACE)$/i, GIT_ENV = { ...Object.fromEntries(Object.entries(process.env).filter(([k]) => !GIT_LOCATION.test(k))), GIT_NO_REPLACE_OBJECTS: "1" }; // G2 F-1, T-8
 const git = (dir, args) => { const r = spawnSync("git", ["-C", dir, ...args], { encoding: "utf8", env: GIT_ENV }); return r.status === 0 ? r.stdout : null; };
 /** {bytes} of <path> in the git object of <commit> under <dir> (no filter, no shell: CRLF of a checkout never reaches them), or
  *  {bytes: null, why}: git's first stderr line, kept for the refusal (G2 F-4). */
