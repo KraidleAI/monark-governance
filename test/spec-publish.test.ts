@@ -392,7 +392,9 @@ test("a_caller_s_git_location_never_stands_in_for_the_previous_tree", async () =
   };
   const got = Object.fromEntries(Object.entries(cases).map(([why, env]) => { const r = planInChild(request, env); return [why, r.status === 0 ? r.stdout : `exit ${String(r.status)}: ${r.stderr}`]; }));
   assert.deepEqual(got, Object.fromEntries(Object.keys(cases).map((why) => [why, "[]"])), "another repository named by the environment is never read in place of -C <previous>");
-  const owner = { GIT_TEST_ASSUME_DIFFERENT_OWNER: "1" }; // git's own switch (2.35.2+): the tree is taken for another user's
+  // git's own switch (2.35.2+): the tree is taken for another user's. The system and global configuration are set aside so a host-wide
+  // safe.directory (a CI runner image sets one) cannot answer for the caller's.
+  const owner = { GIT_TEST_ASSUME_DIFFERENT_OWNER: "1", GIT_CONFIG_NOSYSTEM: "1", GIT_CONFIG_GLOBAL: join(fresh(), "empty.gitconfig") };
   assert.notEqual(planInChild(request, owner).stdout, "[]", "premise: git refuses a tree it takes for another user's");
   const r = planInChild(request, { ...owner, GIT_CONFIG_COUNT: "1", GIT_CONFIG_KEY_0: "safe.directory", GIT_CONFIG_VALUE_0: "*" });
   assert.equal(r.stdout, "[]", `the caller's -c safe.directory (GIT_CONFIG_*) reaches git: ${r.stderr}`);
