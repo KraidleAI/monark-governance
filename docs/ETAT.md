@@ -597,8 +597,20 @@ Tronc `lot/etude-suite`. Dernier oracle complet : 1 779 tests, dont 1 776 verts,
     par l investisseur à la console Chainstack, ou une décision de l investisseur de laisser la jambe noire. Porteur : MONARK ; état :
     ouvert.
   - TEST-FORCE-EXIT-NEED-1 (question de RECHERCHES, 2026-10-04) : `--test-force-exit` est-il encore nécessaire ? Construction : mesurer,
-    fichier par fichier, ce qui ne sortirait pas sans lui, puis le retirer s il n y a plus rien. Porteur : RECHERCHES, priorité basse,
-    après ses lots en cours (recherches#154) ; état : ouvert.
+    fichier par fichier, ce qui ne sortirait pas sans lui, puis le retirer s il n y a plus rien. Porteur : MONARK depuis le 2026-10-06 (relève,
+    Q-2 de RECHERCHES, `e9de455`), avec FORCE-EXIT-WASM-TIERUP-1 (même cause d arrêt sous win32) ; état : ouvert.
+  - FORCE-EXIT-WASM-TIERUP-1 (lot COINBASE-LOOPBACK-FLAKE-1, 2026-10-06) : sous win32, Node 24.15.0 s arrête sur `UV_HANDLE_CLOSING`
+    (`srcwinasync.c:76`) quand `--test-force-exit` tombe pendant une tâche de fond de V8 (ici la montée de niveau du parseur WebAssembly
+    de `fetch`) : la cause de l aléa relevé aux G2 de U4b et de T1a-iii-a1. Amont : nodejs/node#56645, corrigé par nodejs/node#61999 dans
+    Node 24.20.0 LTS (`docs/methode/FAITS-node-win-exit-abort-2026-10-06.md`). Construction : Node 24.21.0 sur l hôte de travail (accord du
+    fondateur, 2026-10-06), puis la sonde rejouée (attendu : 0 arrêt sur 8). Porteur : MONARK ; état : ouvert.
+  - COINBASE-LOOPBACK-FLAKE-1 (aléa de `g3-verification` sur #199) : cause nommée, une socket keep-alive du pool de `fetch` restée sur le
+    port d un serveur fermé (`ECONNRESET`) ; état : clos le 2026-10-06 par #204 (tronc `1bb5cdb3`) : l assistant de boucle locale ne tire
+    plus le port d un serveur qui n écoute plus (`docs/G7-lot-coinbase-loopback-flake-1.md`).
+  - SITE-SEND-PRUNE-1 (ménage de l hôte du site du 2026-10-06 : 30 `.bak` et 4 `.prev-*` accumulés) : chaque envoi du site ajoute un `.bak`
+    et renomme l ancien `.prev` avec sa date (RUNBOOK-vitrine, étapes 2 et 5) ; les déploiements du harnais font de même. Construction :
+    l outil d envoi garde un nombre borné de points de retour (le `.prev` actif et les derniers `.bak`) et nomme le reste ; la suppression
+    reste un acte avec accord du fondateur, ou un accord permanent à demander avec le lot. Porteur : MONARK ; état : ouvert.
   - MUTANTS-REPLAY-PROMOTE-1 (proposé au G7 de MUTANTS-RUN-EXIT-CODE-1, #144) : une ligne dont le rejeu est « tue » prend le statut
     du rejeu. Porteur : RECHERCHES ; déclencheur : le prochain lot qui touche `scripts/mutants/` ; état : ouvert.
   - DEP-RELEASE-AGE-RULE-1 (résidu du G7 de DEP-SOURCE-MAP-JS-1 ; déclencheur atteint par DEP-SHARP-1, #205, le 2026-10-06) : option (a)
