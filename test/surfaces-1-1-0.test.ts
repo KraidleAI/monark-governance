@@ -122,10 +122,11 @@ test("srf_site_says_scores_digest — no site source says 'calibration digest' (
   assert.match(copy.DIGEST_NOTE, /^The scores digest identifies the calibration points/, "the note names the scores digest");
 });
 
-// killer: docs/RUNBOOK-vitrine.md:35 CONST "au pré-vol" -> "après les portes locales complètes"
+// killer: docs/RUNBOOK-vitrine.md:35 CONST "`preflight`" -> "`main`"
 test("srf_runbook_vitrine_refusal_falls_at_preflight — the runbook says where release-public refuses since the preflight guard", () => {
   const runbook = read("docs", "RUNBOOK-vitrine.md");
-  assert.ok(!runbook.includes("ne tombe qu après les portes locales"), "the stale 'after the local gates' sentence is gone");
-  assert.ok(runbook.includes("refus tombe au pré-vol, avant toute porte locale"), "the refusal falls at the preflight");
+  assert.ok(!runbook.includes("15 min"), "the stale wait before the refusal (the full local gates) is gone");
+  assert.ok(runbook.includes("#181 (RELEASE-PREFLIGHT-SEND-GUARD-1)"), "the runbook names the guard that moved the refusal");
+  assert.ok(runbook.includes("(`scripts/release-public.mjs`, `preflight`)"), "the refusal is placed in the preflight of release-public");
   assert.match(read("scripts", "release-public.mjs"), /const plan = preflight\(opts\);[\s\S]*for \(const \[name, cmd\] of gates\)/, "premise: the preflight runs before the local gates");
 });
