@@ -109,8 +109,8 @@ async function main() {
     old !== null &&
     JSON.stringify({ gate: old.gate, sentinel_timer: old.sentinel_timer, probe: old.probe }) === JSON.stringify(facts);
   if (check) {
-    if (!same) {
-      console.error(`sync-narabi-served --check: ${OUT_REL} no longer says what the sources say now; re-run without --check.`);
+    if (!same || narabiEntryFix(ROOT) !== null) {
+      console.error(`sync-narabi-served --check: ${same ? `the manifest entry of ${OUT_REL} is not its sha256` : `${OUT_REL} no longer says what the sources say now`}; re-run without --check.`);
       process.exit(1);
     }
     console.log(`sync-narabi-served --check OK — ${OUT_REL} equals the sources (served openapi sha256 ${facts.gate.openapi_sha256}).`);
@@ -130,11 +130,18 @@ async function main() {
 /** The manifest entry of the committed record under `root` set to the record's own sha256 when it differs (an interrupted or
  *  hand-edited manifest); true when it wrote. */
 export function repairNarabiEntry(root) {
-  const sha = sha256(Buffer.from(readFileSync(join(root, OUT_REL), "utf8").replace(/\r\n/g, "\n"), "utf8"));
-  const text = readFileSync(join(root, MANIFEST_REL), "utf8"), next = setManifestEntry(text, OUT_REL, sha);
-  if (next === text) return false;
+  const next = narabiEntryFix(root);
+  if (next === null) return false;
   applyWrites(root, [[MANIFEST_REL, next]], null);
   return true;
+}
+
+/** The manifest text with the record's entry set to the record's own sha256, or null when the entry is right (reads only);
+ *  --check exits 1 on a non-null answer (delta G2 D-3). */
+export function narabiEntryFix(root) {
+  const sha = sha256(Buffer.from(readFileSync(join(root, OUT_REL), "utf8").replace(/\r\n/g, "\n"), "utf8"));
+  const text = readFileSync(join(root, MANIFEST_REL), "utf8"), next = setManifestEntry(text, OUT_REL, sha);
+  return next === text ? null : next;
 }
 
 /** Write the record of `facts` under `root` and set its manifest entry, the manifest text computed first (throws, writing nothing). */
