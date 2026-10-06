@@ -57,3 +57,20 @@ G2 neuve non bloquante ; tous les constats sont repliés, F-1 à F-7.
 - **Portes** : `tsc` 0, `eslint .` 0, `lint:ratchet` 69/69, `gate:vocab`, `lang:gate` et `export:check` OK.
 - **Tests ciblés** : 87 sur 87.
 - **R-25** : 238 contre `b7d0cb84`.
+
+## 5. Clôture du lot (2026-10-06, après l'arrêt de l'agent précédent)
+
+- **Contrôle du repli** : les constats F-1 à F-7 de la G2 sont repliés dans le code (`e2ce958d`) et les tests. Il manquait un tueur déclaré par constat : un même test portait F-1, F-2 et F-3 sous un seul tueur (F-3), et F-4 n'avait que son assertion.
+  - Le test est coupé en quatre, un tueur chacun : `a_published_contract_file_is_compared_with_its_committed_object` (F-3, `:205`), `a_replace_object_does_not_hide_a_rewrite` (F-1, `:159`, `GIT_NO_REPLACE_OBJECTS` ôté), `an_unreadable_published_object_is_refused_never_read_as_empty` (F-2, `:164`, un objet illisible lu comme vide), `a_refused_previous_entry_carries_the_reason_git_gives` (F-4, `:180`, la raison de git ôtée).
+  - red-proof a refusé la première coupe : le test F-1 était vert à la base (la base lisait l'arbre de travail, qu'un objet de remplacement ne touche pas), et le test F-2 levait une exception à la base. Le test F-1 tourne maintenant sur un clone CRLF qui reporte un second fichier de contrat : une seule réécriture doit être nommée. Le test F-2 change une exception en valeur : une exception et une lecture vide échouent toutes deux par assertion.
+- **Tronc fusionné** : `origin/lot/etude-suite` `febf7735` (actes 7 à 9 de T0), avant l'édition de l'ETAT. Base des mesures : `febf7735`.
+- **ETAT** : trois items avec porteur et déclencheur (KATA-CLAUSE-COMMITTED-STATE-1 ; DECIDED-AT-1, clos par raison écrite ; FORMAT-W2, à figer avant E-1) ; la ligne datée de l'écart au plan du mois, après la l.25 (les l.14-25, consigne verbatim, ne bougent pas ; dates accordées par MONARK : vague 1 vers le 2026-10-20, vague 2 visée au 2026-11-16) ; la ligne du bloc E réécrite ; le repli de la G2 sous SPEC-PUBLISH-PREVIOUS-BLOBS-1 ; l'état du G0 d'ENGINE-ROW-RETIRE-PATH-1 (brouillon remis le 2026-10-06). Textes : annexe A et §5 du message de RECHERCHES du 2026-10-06 (plan d'après T0).
+
+**Vérifications finales** (base `febf7735`) :
+- **red-proof** (`--draw 6 --seed 37`) : OK, 12 jugés (12 F2P), 6 tueurs tirés, 6 tués.
+- **Tueurs tirés à la main** : 60 sur 60 tués dans les quatre fichiers de test touchés, chaque fichier restauré (sha256). 59 par assertion ; `spec-policy-tables.mjs:39` (test `the_published_schemas_load_together_and_validate_a_served_decision`, antérieur au lot) rougit par une erreur de chargement du schéma.
+- **Ancres** : 60 sur 60 sur les fichiers touchés (`--touched febf7735 HEAD`). Sur tout le dépôt, 8 PERDU, tous antérieurs et hors du lot : le lot ANCHORS-DRIFT-1 les ferme.
+- **Portes** : `tsc` 0, `eslint .` 0, `lint:ratchet` 69/69, `gate:vocab`, `lang:gate` et `export:check` OK.
+- **Tests ciblés** (`spec-publish`, `spec-1-1-0-release`, `public-text-deny`, `release-public-flow`, `release-public`) : 71 sur 71.
+- **`test:main`** : 2 751 tests, 2 725 verts, 22 ignorés, 4 rouges. Les quatre sont rouges à l'identique à `b7d0cb84` sur cet hôte, qui tourne en root : `sentinel_sigterm_after_lock_acquired_before_handler_releases_lock`, `sentinel_sigterm_while_lock_acquiring_releases_lock`, `ukemi_guard_record_skipped_the_platter_flush_nonvacuous` et `dojo_history_collect_to_verify_end_to_end`. Le §3 en comptait 3 : le compte juste est 4.
+- **R-25** contre `febf7735` : voir le rapport de clôture (STAT ≤ 547).
