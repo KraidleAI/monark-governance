@@ -514,6 +514,12 @@ Tronc `lot/etude-suite`. Dernier oracle complet : 1 779 tests, dont 1 776 verts,
     une telle table, même réépinglée à la main, et l écrivain `scripts/spec-policy-tables.mjs` appelle la même fonction ; tests
     `no_table_with_a_recompute_row_is_published_before_the_verifier_list` et `spec_publish_refuses_a_hand_edited_table_even_pinned_again`.
     La version `contract-1.1.0` n en publie aucune.
+    Précision (2026-10-06 03:16 UTC, G2 delta de SPEC-1-1-0-RELEASE partie b, M-1) : « table publiée » se lit **fichier de table** publié
+    (`policy/*.json`, sorte `policy-table`). Le fichier de vecteurs `contract-1.1.0/vectors-1.1.0.json` publie deux tables synthétiques
+    (`synthetic_kata.tables`) dont des lignes portent `recompute`, `aux_sha256` et `series_sha256` : ce sont des vecteurs de recalcul,
+    pas des fichiers de table, et la porte ne les lit pas comme tels (seule la valeur racine d un fichier compte). Aucun fichier de table
+    de cette version ne porte `recompute`. Depuis la même G2, une table déclarée `json` ou `text` est refusée (`policy_table_kind`) : la
+    garde ne dépend plus du `kind` choisi.
   - SHORT-DIGEST-INVERSION-1 (constat F-1 de la vérification de la spécification 1.1.0, §10 « Short 0/1 sequences ») : gardé depuis le
     2026-10-06 par la porte de `scripts/spec-publish.mjs` (`tableRowProblems`, code `short_digest`), que l écrivain appelle aussi : elle
     refuse toute ligne de n ≤ 30 ou de `p_served` ≤ 30, et toute ligne dont `aux_sha256` ou `series_sha256` est non nul (le nombre de
