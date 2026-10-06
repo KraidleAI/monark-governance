@@ -87,7 +87,7 @@ test("parse_inputs_refuses_any_departure_from_the_closed_format", async () => {
   assert.throws(() => m.parseInputs(make({}, {}, "spec-inputs-v2")), (x: unknown) => x instanceof m.SpecPublishError && x.code === "inputs_invalid");
 });
 
-// killer: scripts/spec-publish.mjs:164 CONST "}  ${f.path}" -> "} ${f.path}"
+// killer: scripts/spec-publish.mjs:167 CONST "}  ${f.path}" -> "} ${f.path}"
 test("produce_copies_each_input_byte_for_byte_with_version_and_manifest", async () => {
   const m = await api(), w = world(), out = fresh(), mask = process.umask(0o077); // the modes must not follow the umask
   const r = (() => { try { return m.produce({ inputs: w.inputs, release: "v", date: "2026-10-02", roots: w.roots, out }); } finally { process.umask(mask); } })();
@@ -101,7 +101,7 @@ test("produce_copies_each_input_byte_for_byte_with_version_and_manifest", async 
   assert.deepEqual(m.listTree(out), ["KATA-SPEC.md", "MANIFEST.sha256", "VERSION", "policy/btc-dir-1h.json", "reports/README.md", "reports/wave1-report.md", "schemas/x.schema.json"]);
 });
 
-// killer: scripts/spec-publish.mjs:239 SDL "rmSync(tmp, { recursive: true, force: true });" -> ""
+// killer: scripts/spec-publish.mjs:245 SDL "rmSync(tmp, { recursive: true, force: true });" -> ""
 test("a_failed_write_leaves_out_absent_and_no_temporary_tree", async () => {
   const m = await api(), w = world(), entries = w.inputs.releases.v?.entries ?? [], parent = fresh();
   mkdirSync(parent);
@@ -116,7 +116,7 @@ test("a_failed_write_leaves_out_absent_and_no_temporary_tree", async () => {
   assert.deepEqual([existsSync(join(w.roots.previous, "o3")), readdirSync(parent)], [false, []]);
 });
 
-// killer: scripts/spec-publish.mjs:221 CONST "else r.differ.push(p);" -> "else r.equal.push(p);"
+// killer: scripts/spec-publish.mjs:227 CONST "else r.differ.push(p);" -> "else r.equal.push(p);"
 test("composition_replay_gives_the_same_bytes_and_only_the_date_moves_them", async () => {
   const m = await api(), w = world(), [a, b, c] = [fresh(), fresh(), fresh()];
   for (const [out, date] of [[a, "2026-10-02"], [b, "2026-10-02"], [c, "2026-10-03"]] as const) m.produce({ inputs: w.inputs, release: "v", date, roots: w.roots, out });
@@ -125,7 +125,7 @@ test("composition_replay_gives_the_same_bytes_and_only_the_date_moves_them", asy
   assert.deepEqual([moved.equal.length, moved.differ], [5, ["MANIFEST.sha256", "VERSION"]]);
 });
 
-// killer: scripts/spec-publish.mjs:270 ROR "diff === 0 ? 0 : 1" -> "diff !== 0 ? 0 : 1"
+// killer: scripts/spec-publish.mjs:276 ROR "diff === 0 ? 0 : 1" -> "diff !== 0 ? 0 : 1"
 test("cli_verify_compares_a_published_tree_path_by_path", async () => {
   await api();
   const w = world(), file = join(fresh(), "inputs.json"), first = fresh();
@@ -147,7 +147,7 @@ test("cli_verify_compares_a_published_tree_path_by_path", async () => {
   assert.deepEqual([r.status, /input_missing {2}reports\/wave1-report\.md/.test(r.stderr), existsSync(refused)], [1, true, false]);
 });
 
-// killer: scripts/spec-publish.mjs:182 SDL "if (sha(bytes) !== e.sha256)" -> ""
+// killer: scripts/spec-publish.mjs:186 SDL "if (sha(bytes) !== e.sha256)" -> ""
 test("a_missing_tampered_escaping_or_blacklisted_input_or_root_refuses_and_writes_nothing", async () => {
   const m = await api(), w = world(), out = fresh(), entry = (out: string, path: string): Inputs["releases"][string]["entries"][number] =>
     ({ out, root: "governance", path, kind: "text", sha256: sha(NOTE) });
@@ -168,7 +168,7 @@ test("a_missing_tampered_escaping_or_blacklisted_input_or_root_refuses_and_write
   assert.throws(() => m.produce({ inputs: clean.inputs, release: "v", date: "2026-10-02", roots: clean.roots, out }), (x: unknown) => x instanceof m.SpecPublishError && x.code === "out_not_empty");
 });
 
-// killer: scripts/spec-publish.mjs:199 COR "!outs.has(p)" -> "outs.has(p)"
+// killer: scripts/spec-publish.mjs:203 COR "!outs.has(p)" -> "outs.has(p)"
 test("the_previous_tree_must_be_the_clean_top_of_its_commit_and_nothing_published_is_withdrawn", async () => {
   const m = await api(), w = world(), p = w.roots.previous, entries = w.inputs.releases.v?.entries ?? [];
   const problems = (inputs: Inputs, roots: Roots = w.roots): Problem[] => m.plan({ inputs, release: "v", date: "2026-10-02", roots }).problems;
@@ -233,7 +233,7 @@ test("the_version_date_is_a_calendar_day_and_no_clock_is_read", async () => {
   assert.ok(!/Date\.now\(|new Date\(\)|process\.hrtime|performance\.now|toISOString/.test(readFileSync(SCRIPT, "utf8")), "no clock read in the producer");
 });
 
-// killer: scripts/spec-publish.mjs:191 CONST "[\"rev-parse\", \"--show-toplevel\", \"HEAD\"]" -> "[\"push\", \"--show-toplevel\", \"HEAD\"]"
+// killer: scripts/spec-publish.mjs:195 CONST "[\"rev-parse\", \"--show-toplevel\", \"HEAD\"]" -> "[\"push\", \"--show-toplevel\", \"HEAD\"]"
 test("the_producer_never_publishes_its_git_commands_are_reads_only_and_it_writes_once", async () => {
   await api();
   const src = readFileSync(SCRIPT, "utf8");
@@ -245,7 +245,7 @@ test("the_producer_never_publishes_its_git_commands_are_reads_only_and_it_writes
   assert.ok(!/fetch\(|node:https?"|node:net"/.test(src), "no network");
 });
 
-// killer: scripts/spec-publish.mjs:260 CONST "return 2; }" -> "return 1; }"
+// killer: scripts/spec-publish.mjs:266 CONST "return 2; }" -> "return 1; }"
 test("cli_usage_errors_exit_2", async () => {
   await api();
   const out = fresh(), ok = ["--release", "v", "--date", "2026-10-02", "--out", out];
@@ -258,7 +258,7 @@ test("cli_usage_errors_exit_2", async () => {
 // SPEC-PUBLISH-PREVIOUS-BLOBS-1 (lot T0-FOLLOWUP-1; T0 act 8 on win32 with core.autocrlf=true): a root:"previous" entry is read from
 // the git object of previous_commit, never from the working tree. A previous clone checked out with CRLF (status clean) gives the same
 // output and MANIFEST.sha256 as an LF clone; a working-tree edit hidden from status is ignored; a path absent from the commit is named.
-// killer: scripts/spec-publish.mjs:181 CONST "e.root === \"previous\" ? blob(dir, rel.previous_commit, e.path) : readFileSync(abs)" -> "readFileSync(abs)"
+// killer: scripts/spec-publish.mjs:185 CONST "got !== null ? got.bytes : readFileSync(abs)" -> "readFileSync(abs)"
 test("previous_entries_are_read_from_the_pinned_commit_not_the_working_tree", async () => {
   const m = await api(), w = world(), p = w.roots.previous;
   const published = (inputs: Inputs = w.inputs): { problems: string[]; files: Record<string, string> } => {
@@ -284,7 +284,7 @@ test("previous_entries_are_read_from_the_pinned_commit_not_the_working_tree", as
 // G2 of T0-FOLLOWUP-1 (F-1, F-2, F-3): a published contract-*/ file is compared with its committed object. A carried file stays
 // equal on a CRLF checkout and under a working-tree edit hidden from status; a replace object (refs/replace) does not hide a
 // rewrite; an object git cannot read as a blob (a gitlink) is refused by name, never compared with empty bytes.
-// killer: scripts/spec-publish.mjs:206 CONST "blob(prev, rel.previous_commit, p)" -> "{ bytes: readFileSync(join(prev, p)), why: \"\" }"
+// killer: scripts/spec-publish.mjs:205 CONST "blob(prev, rel.previous_commit, p)" -> "{ bytes: readFileSync(join(prev, p)), why: \"\" }"
 test("a_published_contract_file_is_compared_with_its_committed_object", async () => {
   const m = await api(), T = "# T\n", T2 = "# T2\n";
   const plan = (w: ReturnType<typeof world>, inputs: Inputs): string[] => codes(m.plan({ inputs, release: "v", date: "2026-10-02", roots: w.roots }).problems);
@@ -311,6 +311,7 @@ test("a_published_contract_file_is_compared_with_its_committed_object", async ()
   const linked = withContract("recherches"), r = linked.w.roots.previous;
   git(r, "rm", "-q", "--cached", "contract-1.0.0/t.md"); rmSync(join(r, "contract-1.0.0/t.md"));
   git(r, "update-index", "--add", "--cacheinfo", `160000,${git(r, "rev-parse", "HEAD")},contract-1.0.0/t.md`); git(r, "commit", "-qm", "gitlink");
+  mkdirSync(join(r, "contract-1.0.0/t.md")); // an unpopulated submodule: an empty directory, a clean status
   const head = git(r, "rev-parse", "HEAD");
   put(linked.w.roots.recherches, "kata/t2.md", ""); // an empty file where the published tree holds a gitlink
   const inputs = at(head, (linked.inputs.releases.v?.entries ?? []).map((e) => (e.out === "contract-1.0.0/t.md" ? { ...e, sha256: sha("") } : e)));

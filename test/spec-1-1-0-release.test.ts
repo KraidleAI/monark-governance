@@ -129,7 +129,7 @@ test("published_tables_are_the_served_tables_byte_for_byte", () => {
   assert.deepEqual(SERVED_POLICY_TABLES.filter((t) => t.table.class.cell_key_rule === "kata-bucket").map((t) => t.table.rows.length), Array<number>(32).fill(0));
 });
 
-// killer: scripts/spec-publish.mjs:286 CONST "r.recompute !== null" -> "r.recompute === undefined"
+// killer: scripts/spec-publish.mjs:292 CONST "r.recompute !== null" -> "r.recompute === undefined"
 test("no_table_with_a_recompute_row_is_published_before_the_verifier_list", async () => {
   const w = await writer(), held = SERVED_POLICY_TABLES.flatMap((t) => t.table.rows.filter((r) => r.recompute !== null).map((r) => `${t.task_class} ${r.cell_key}`));
   assert.deepEqual(held, [], "VERIFIERS-LIST-F5A-1: a published row with a recompute needs the published list of verifiers first");
@@ -141,7 +141,7 @@ test("no_table_with_a_recompute_row_is_published_before_the_verifier_list", asyn
   assert.deepEqual((await rowGate())({ ...t, rows: [{ ...row, recompute }] }).map((p) => p.code), ["recompute_held"]);
 });
 
-// killer: scripts/spec-publish.mjs:287 CONST "r.n <= SHORT_N" -> "r.n < SHORT_N"
+// killer: scripts/spec-publish.mjs:293 CONST "r.n <= SHORT_N" -> "r.n < SHORT_N"
 test("no_table_publishes_the_digest_of_a_sequence_of_30_points_or_fewer", async () => {
   const w = await writer(), t = SERVED_POLICY_TABLES.find((x) => x.task_class === "liquidation-eligible-coverage")?.table, row = t?.rows[0];
   assert.ok(t !== undefined && row !== undefined);
@@ -225,7 +225,7 @@ function previousTree(extra: Record<string, Buffer | string> = {}): { dir: strin
   return { dir, head: git("rev-parse", "HEAD") };
 }
 
-// killer: scripts/spec-publish.mjs:201 CONST "!now.bytes.equals(" -> "now.bytes.equals("
+// killer: scripts/spec-publish.mjs:207 CONST "!now.bytes.equals(" -> "now.bytes.equals("
 test("a_file_under_a_version_directory_is_never_rewritten", () => {
   const prev = previousTree(), gov = mkdtempSync(join(TMP, "gov-"));
   writeFileSync(join(gov, "same.json"), "{}\n"); writeFileSync(join(gov, "other.json"), "{\"a\":1}\n"); writeFileSync(join(gov, "spec.md"), "# New\n");
@@ -296,7 +296,7 @@ test("a_later_version_carries_the_published_tables_and_still_checks_their_rows",
   assert.deepEqual(over(prev, "contract-1.2.0", [["contract-1.1.0/policy/btc-dir-1h.json", "", "json"]]), ["policy_table_kind"]);
 });
 
-// killer: scripts/spec-publish.mjs:196 CONST "&& !ls.includes(o)) add(" -> "&& false) add("
+// killer: scripts/spec-publish.mjs:200 CONST "&& !ls.includes(o)) add(" -> "&& false) add("
 test("a_published_version_directory_is_closed_and_its_name_has_one_form", () => {
   const prev = previousTree(), sc = "spec/contract-1.1.0/schemas/prediction.schema.json";
   assert.deepEqual([over(prev, "v", []), over(prev, "v", [["contract-1.1.0/x.schema.json", sc, "schema"]]), over(prev, "v", [["x.schema.json", sc, "schema"]])], [[], ["added_to_published"], []]);
@@ -334,7 +334,7 @@ test("the_vectors_file_may_hold_tables_and_only_its_synthetic_fixtures_skip_reco
     [[], ["short_digest"], ["short_digest"], ["recompute_held", "short_digest"], ["policy_table_kind"]]);
 });
 
-// killer: scripts/spec-publish.mjs:184 CONST "was !== null && was.equals(bytes)" -> "true"
+// killer: scripts/spec-publish.mjs:188 CONST "was !== null && was.equals(bytes)" -> "true"
 test("a_carried_table_is_read_from_the_previous_commit_not_its_working_tree", () => {
   const btc = bytes(ROOT, "spec/contract-1.1.0/policy/btc-dir-1h.json"), prev = previousTree({ ".gitignore": "contract-0.9.0/\n", "contract-0.9.0/policy/btc-dir-1h.json": btc });
   assert.ok(over(prev, "contract-1.2.0", [["contract-0.9.0/policy/btc-dir-1h.json", "spec/contract-1.1.0/policy/btc-dir-1h.json", "policy-table"]]).includes("policy_table_invalid"),
@@ -387,7 +387,7 @@ test("the_writer_runs_when_called_through_a_link", async (t) => {
   if (r !== null) assert.equal(r.status, 1, "main ran and refused the empty root");
 });
 
-// killer: scripts/spec-publish.mjs:294 CONST "const r = realpathSync(p);" -> "const r = resolve(p);"
+// killer: scripts/spec-publish.mjs:300 CONST "const r = realpathSync(p);" -> "const r = resolve(p);"
 test("spec_publish_runs_when_called_through_a_link", (t) => {
   const r = throughLink(t, join(ROOT, "scripts", "spec-publish.mjs"));
   if (r !== null) assert.equal(r.status, 2, "usage error: main ran");

@@ -245,7 +245,7 @@ test("public_text_gate_ph_refuses_a_template_variable_spec_url — ${SPEC_URL} i
 
 // G2 F-5 of T0-FOLLOWUP-1: the derivation reads markers with the placeholder rule's own shape (inner spaces, hyphens), and a
 // template with no marker is refused by name, at import, instead of silently emptying the variable form.
-// killer: scripts/public-text-deny.mjs:132 SDL "  if (names.length === 0) throw new Error(`${TEMPLATE_REL} has no marker`);" -> ""
+// killer: scripts/public-text-deny.mjs:131 SDL "  if (names.length === 0) throw new Error(`${TEMPLATE_REL} has no marker`);" -> ""
 test("template_markers_take_the_placeholder_shape_and_never_come_out_empty", async () => {
   const derive = ((await import("../scripts/public-text-deny.mjs")) as Record<string, unknown>)["templateMarkers"] as ((text: string) => string[]) | undefined;
   assert.equal(typeof derive, "function", "scripts/public-text-deny.mjs exports templateMarkers");
