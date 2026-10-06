@@ -191,7 +191,8 @@ test("a_table_file_lies_at_policy_or_under_its_own_release_directory_only", () =
   assert.deepEqual([codes("contract-1.1.0/policy/btc-dir-1h.json", "contract-1.1.0"), codes("policy/btc-dir-1h.json", "contract-1.1.0"), codes("policy/btc-dir-1h.json")], [[], [], []]);
   for (const out of ["policy/policy/btc-dir-1h.json", ".../policy/btc-dir-1h.json", "-/policy/btc-dir-1h.json", "reports/policy/btc-dir-1h.json", "contract-9.9.9/policy/btc-dir-1h.json",
     "../policy/btc-dir-1h.json", "contract-1.1.0/policy/x/btc-dir-1h.json", "contract-1.1.0/policy/btc-dir-4h.json"]) assert.deepEqual(codes(out, "contract-1.1.0"), ["policy_table_invalid"], out);
-  assert.deepEqual(codes("contract-1.1.0/policy/btc-dir-1h.json"), ["policy_table_invalid"], "no release, no version directory");
+  assert.deepEqual([codes("contract-1.1.0/policy/btc-dir-1h.json"), codes("kata-wave1/policy/btc-dir-1h.json", "kata-wave1")], [["policy_table_invalid"], ["policy_table_invalid"]],
+    "no release, no version directory; a release directory is a contract-<x.y.z> one");
 });
 
 // killer: scripts/spec-publish.mjs:35 CONST "!/^\\.+$/.test(s)" -> "!/^\\.\\.?$/.test(s)"
