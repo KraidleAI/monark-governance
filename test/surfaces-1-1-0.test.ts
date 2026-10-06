@@ -192,11 +192,18 @@ test("srf_runbook_harness_names_every_check — the 15 checks of the script, eac
   assert.deepEqual(names.filter((n) => !runbook.includes(`\`${n}\``)), [], "a check the runbook does not name");
 });
 
-// T0-TOOLING-1 (review B-3, m-g; G2 N-5, N-6; delta G2 D-1): the T0 section of the storefront runbook names the nine acts in order, each
+/** The lines of the T0 section, from its dated line to the next heading, that are neither empty nor a numbered act: a
+ *  continuation line or a sub-bullet would carry a command the order test does not pin (delta G2 D-2). */
+function strayT0Lines(text: string): string[] {
+  const from = text.indexOf("\n## Ordre de T0"), next = text.indexOf("\n## ", from + 1);
+  return text.slice(from, next < 0 ? undefined : next).split("\n").slice(2).filter((l) => l.trim() !== "" && !/^\d+\. /.test(l) && !l.startsWith("Ligne datée "));
+}
+
+// T0-TOOLING-1 (review B-3, m-g; G2 N-5, N-6; delta G2 D-1, D-2, D-4 resumption): the T0 section of the storefront runbook names the nine acts in order, each
 // with EXACTLY its code spans (a flag, a path or a target changed anywhere reds); the act 6 commit lists every file the acts
 // write (each path read from its writer, the journal of act 2 included, so the release of act 9 sees a clean tree); the act 2
 // command parses as the deploy check reads it; act 8 publishes the last declared spec release with both roots, and parses as
-// spec-publish reads it. The section is French (internal runbook): only code spans are read here.
+// spec-publish reads it; no line of the section but the acts carries text. French runbook: only code spans are read here.
 // killer: docs/RUNBOOK-vitrine.md:47 CONST " docs/JOURNAL-PROVENANCE.md apps/site/data/harness-served.json" -> " apps/site/data/harness-served.json"
 test("srf_runbook_vitrine_t0_order — deploy, green CA, harness, Narabi and ukemi syncs, re-pin, site, spec, release", async () => {
   const harness = await import("../scripts/sync-harness-served.mjs"), ukemi = await import("../scripts/sync-ukemi-served.mjs");
@@ -209,6 +216,11 @@ test("srf_runbook_vitrine_t0_order — deploy, green CA, harness, Narabi and uke
   const at = text.indexOf("\n## Ordre de T0");
   assert.ok(at > 0, "the runbook carries the T0 section");
   const steps = text.slice(at).split("\n").filter((l) => /^\d+\. /.test(l));
+  assert.deepEqual(strayT0Lines(text), [], "every line of the section is a numbered act");
+  for (const [act, extra] of [[3, "   relancer `node scripts/sync-harness-served.mjs --pending`"], [6, "   - `node scripts/sync-ukemi-served.mjs --pending`"]] as const) {
+    const lines = text.split("\n"), head = lines.indexOf("## Ordre de T0 (contrat 1.1.0, lot T0-TOOLING-1)"), i = lines.findIndex((l, k) => k > head && l.startsWith(`${String(act)}. `));
+    assert.notDeepEqual(strayT0Lines([...lines.slice(0, i + 1), extra, ...lines.slice(i + 1)].join("\n")), [], `a command line indented under act ${String(act)} reds`);
+  }
   const inputs = JSON.parse(read("scripts", "spec-publish-inputs.json")) as { releases: Record<string, { previous_commit: string | null }> };
   const release = Object.keys(inputs.releases).at(-1) ?? "", prev = (inputs.releases[release]?.previous_commit ?? "").slice(0, 7);
   const spec = `node scripts/spec-publish.mjs --release ${release} --date <YYYY-MM-DD> --out <dir> --root recherches=<recherches> --root previous=<monark-kata-spec@${prev}>`;
@@ -220,9 +232,9 @@ test("srf_runbook_vitrine_t0_order — deploy, green CA, harness, Narabi and uke
   assert.deepEqual(spans, [
     ["docs/RUNBOOK-harness.md", "git archive --format=tar.gz HEAD apps packages schemas fixtures package.json package-lock.json deploy scripts/verify-harness.mjs | ssh -i ~/.ssh/monark_vps root@31.97.155.188 \"mkdir -p /opt/monark-harness && tar xzf - -C /opt/monark-harness\"", "cd /opt/monark-harness && npm ci && chown -R monark:monark . && systemctl restart monark-harness"],
     [ca, "VERIFY OK — all checks passed.", "api.", "mcp.", `${harness.CA_REL}.failed`, `sha256sum ${harness.CA_REL}`, "docs/JOURNAL-PROVENANCE.md", "checked_at"],
-    ["node scripts/sync-harness-served.mjs", "harness-pending.json", "harness-served.json", "harness-pending.json"],
+    ["node scripts/sync-harness-served.mjs", "harness-pending.json", "harness-served.json", "harness-pending.json", "node scripts/sync-harness-served.mjs"],
     ["node scripts/sync-narabi-served.mjs", "openapi"],
-    ["node scripts/sync-ukemi-served.mjs", "harness-pending.json", "ukemi-pending.json"],
+    ["node scripts/sync-ukemi-served.mjs", "harness-pending.json", "ukemi-pending.json", "node scripts/sync-ukemi-served.mjs"],
     ["node scripts/repin-served.mjs", "PINNED", PIN_TEST_REL, "harness-pending.json", "npm run ci", `git add ${added.join(" ")}`, "git commit"],
     ["main", "node scripts/export-public.mjs --out <scratch>/site-<sha>"],
     [spec, "<recherches>", "recherches", "1107e12", `<monark-kata-spec@${prev}>`, "monark-kata-spec", "<dir>", "MANIFEST.sha256", "66d31d82122587a9da8725f3e19b39b43f371de826c1e9f311ea6a1755d4eb16", "VERSION"],

@@ -830,6 +830,34 @@ test("harness_sync_promotion_resumes_after_an_injected_failure", () => {
   }
 });
 
+// Delta G2 of T0-TOOLING-1 (D-4): a pending file without its entry beside a served file that carries no pending_since but
+// does not match its own entry (a hand edit, not an interrupted promotion) is refused, nothing written; the same tree with
+// the entry matching the served file is taken as interrupted after its manifest write and completes.
+// killer: scripts/sync-ukemi-served.mjs:351 CONST "files[servedRel] === sha256(Buffer.from(lf(disk), \"utf8\"))" -> "true"
+test("harness_sync_promotion_refuses_a_hand_edited_served_file", () => {
+  const writeServed = (harnessSync as Record<string, unknown>)["writeServed"] as typeof harnessSync.writeServed;
+  const pending = currentPending(), servedNow = servedJson();
+  const shared = Object.fromEntries(Object.entries(pending).filter(([k]) => !["$comment", "schema", "written_at", "openapi_sha256"].includes(k)));
+  const next: Rec = { ...servedNow, ...shared, read_at: "2026-10-06T12:00:00.000Z", bodies_sha256: { ...(servedNow.bodies_sha256 as Rec), "/openapi.json": pending.openapi_sha256 } };
+  for (const [entry, refused] of [["0".repeat(64), true], [null, false]] as const) {
+    const t = stageCanonical({ [HARNESS_SERVED_REL]: servedNow, [PENDING_REL]: pending });
+    try {
+      const own = tmpSha(t, HARNESS_SERVED_REL);
+      writeFileSync(join(t, MANIFEST_REL), setManifestEntry(removeManifestEntry(setManifestEntry(readFileSync(join(t, MANIFEST_REL), "utf8"), "apps/site/data/ukemi-pending.json", "0".repeat(64)), PENDING_REL), HARNESS_SERVED_REL, entry ?? own));
+      const before = readFileSync(join(t, MANIFEST_REL), "utf8");
+      if (refused) {
+        assert.throws(() => writeServed(t, next, null), /has no entry in the manifest/, "a hand-edited served file is not an interrupted promotion");
+        assert.ok(readFileSync(join(t, MANIFEST_REL), "utf8") === before && existsSync(join(t, PENDING_REL)), "nothing written");
+      } else {
+        assert.doesNotThrow(() => writeServed(t, next, null), "an interruption after the manifest write completes");
+        assert.ok(!existsSync(join(t, PENDING_REL)), "the pending file goes");
+      }
+    } finally {
+      unstage(t);
+    }
+  }
+});
+
 // T0-TOOLING-1 (review B-4): --pending sets both manifest entries itself (the pending file's, and the served file's with its
 // new pending_since line), and the site loaders accept the result.
 // killer: scripts/sync-harness-served.mjs:296 CONST ", OUT_REL, lfSha(marked))" -> ", OUT_REL, lfSha(text))"

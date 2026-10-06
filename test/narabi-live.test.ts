@@ -1158,7 +1158,7 @@ test("narabi_committed_records_fail_closed — the served-facts record and the c
 // T0-TOOLING-1 (review B-3, c bis): the Narabi sync sets its own manifest entry (canonical form) instead of printing it for a
 // hand edit. Replayed on a copy of the committed record: the same facts and read_at give back the committed bytes and entry;
 // new facts move the entry to the new file, and the site loader accepts it. No network: the sync's write step only.
-// killer: scripts/sync-narabi-served.mjs:145 CONST ", [MANIFEST_REL, manifest]]" -> "]"
+// killer: scripts/sync-narabi-served.mjs:144 CONST "return next === text ? null : next;" -> "return null;"
 test("narabi_sync_sets_its_manifest_entry", async () => {
   const sync = (await import(new URL("../scripts/sync-narabi-served.mjs", import.meta.url).href)) as Record<string, unknown>;
   const write = sync["writeNarabiServed"] as ((root: string, facts: unknown, readAt: string) => string) | undefined;
@@ -1182,7 +1182,10 @@ test("narabi_sync_sets_its_manifest_entry", async () => {
     const repair = sync["repairNarabiEntry"] as ((root: string) => boolean) | undefined;
     assert.equal(typeof repair, "function", "scripts/sync-narabi-served.mjs exports repairNarabiEntry");
     writeFileSync(join(tmp, manifestRel), readFileSync(join(tmp, manifestRel), "utf8").replace(sha, "1".repeat(64)));
+    const stale = sync["narabiEntryFix"] as ((root: string) => string | null) | undefined;
+    assert.ok(typeof stale === "function" && stale(tmp) !== null, "a stale entry is seen without a write (--check exits 1 on it)");
     assert.deepEqual([repair?.(tmp), repair?.(tmp)], [true, false], "a stale entry is set again, once");
+    assert.equal(stale?.(tmp), null, "a repaired entry is seen right");
     assert.equal(loadNarabiServed(tmp).gate.openapi_sha256, "0".repeat(64), "the loader accepts the repaired manifest");
   } finally {
     rmSync(tmp, { recursive: true, force: true });
