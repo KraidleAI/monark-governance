@@ -24,3 +24,17 @@ Rien d'autre ne change dans la porte. Le fichier n'est pas exporté (liste blanc
 ## Preuve prévue
 
 red-proof (`--draw n`), ancres, R-25 (ordre de 20), `test/public-text-deny.test.ts` et les suites qui importent la porte (`release-public-flow`, `export-public`, `site-build-fleet`, `dojo-page`, `dojo-served`), `test:main`, tsc, eslint, `lint:ratchet`, `gate:vocab`, `lang:gate`. Windows : test pur, sans fichier ni chemin.
+
+## Complément après la G2 (`docs/G2-lot-v1-spec-url-allow.md`, non bloquante)
+
+Le périmètre s'élargit au repli des constats N-1, N-2, M-1 et M-2. N-1 et N-2 existaient déjà sur l'origine `KraidleAI/Monark` ; ils sont repliés ici plutôt que d'ouvrir un item, parce que la troisième origine en héritait.
+
+- **N-1.** Une adresse admise est aussi testée sous sa forme résolue (`new URL(url).href`), ce qui résout `..` et `%2e%2e`. Une adresse que `URL` ne lit pas est refusée (fermé par défaut).
+- **N-2.** Une adresse admise ne porte qu'un seul `://` : aucune adresse ne peut être imbriquée dans la requête ou le fragment.
+- **M-1 et M-2.** Trois vecteurs de refus de plus : `https://example.org/<spec>`, `github.com/evil/monark-kata-spec` et `<spec>.evil.com`.
+
+Deux tests neufs, chacun avec son tueur :
+- `public_text_gate_resolves_dot_segments` ;
+- `public_text_gate_refuses_a_url_nested_in_an_allowed_one`.
+
+Ils sont rouges sur `e0ac3fc1` (commit `3ccc199b`) et verts au repli (`dcaff101`).
