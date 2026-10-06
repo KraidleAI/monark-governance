@@ -1,5 +1,7 @@
 # G2 de SPEC-1-1-0-RELEASE, partie a (`recherches/spec-1-1-0-release-a`)
 
+> Rapport daté du 2026-10-06, tel que rendu par la revue : ses empreintes, comptes et têtes sont ceux de son moment. Les valeurs courantes sont dans `docs/G7-lot-spec-1-1-0-release.md`, section « État courant ».
+
 - **Objet** : `git diff 597a986d..c85f352e`. Les mesures ont été prises sur un arbre de travail jetable au commit `e8fb1a8a` (fusion du tronc `8aea2299`), qui ne modifie pas ces fichiers. Node v24.21.0.
 - **Lus** : le G0 (§0 à §7 et l'annexe A), `scripts/spec-policy-tables.mjs` et son `.d.mts`, `test/spec-1-1-0-release.test.ts`, les cinq copies, `public-text-deny.mjs`, `spec-publish.mjs` (`contentProblems`, `vocabularyHits`), `gate.ts`, `kata-path.ts`, `policy-guard.ts`, `ETAT.md` et `.gitattributes`.
 - **Arbre d'origine** : le worktree du lot n'a pas bougé. Il est toujours sur `recherches/spec-1-1-0-release-b` à `9d19e842`, et `git status` est vide. L'arbre jetable a été retiré par `git worktree remove`.

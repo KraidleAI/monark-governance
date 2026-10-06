@@ -6,13 +6,19 @@
 // It derives, never by hand, the files that the version publishes from this repository, each at spec/<published path>:
 // - contract-1.1.0/schemas/<name>.schema.json: the frozen schemas/<name>.schema.json under a closed list of exact replacements (the public
 //   $id of the versioned path, the internal references of three descriptions, the name of the spec document); each replacement must match
-//   exactly once, everything else is kept byte for byte.
+//   exactly once, everything else is kept byte for byte;
+// - contract-1.1.0/policy/<task_class>.json: the canonical writing of each table the harness serves (SERVED_POLICY_TABLES of tools/gate.ts,
+//   the value the service builds at load, not a second build), so the file's sha256 is the served policy_table_sha256; no final LF. A table
+//   whose rows tableRowProblems of spec-publish.mjs refuses (a recompute, SHORT_N points or fewer) is refused here too: one rule, the
+//   publication gate's (VERIFIERS-LIST-F5A-1, SHORT-DIGEST-INVERSION-1).
 // --check compares every file under <root>/spec/contract-1.1.0/ (this repository by default) and exits 1 on any difference, missing or
-// extra file; --write writes each file to a temporary file beside it, then renames them all into place (nothing half written).
+// extra file; --write writes every file to a temporary file beside it, then renames them into place, and on a failed rename puts back the
+// previous bytes and mode of the files already replaced: the set is replaced whole or not at all. A target that is a symbolic link is refused.
 // It reads no clock and no network, and writes only under <root>/spec/contract-1.1.0/.
-import { existsSync, mkdirSync, readdirSync, readFileSync, realpathSync, renameSync, rmSync, statSync, writeFileSync } from "node:fs";
+import { chmodSync, existsSync, lstatSync, mkdirSync, readdirSync, readFileSync, realpathSync, renameSync, rmSync, statSync, writeFileSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
+import { canonicalJson, tableRowProblems } from "./spec-publish.mjs";
 
 export const REPO_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 export const VERSION_DIR = "contract-1.1.0";
@@ -37,10 +43,22 @@ export function schemaCopy(name, text) {
   }, text);
 }
 
-/** expectedFiles(root) -> [{path, text}] under OUT_DIR, sorted by path: the 5 schema copies. */
-export async function expectedFiles(root = REPO_ROOT) {
+export { SHORT_N } from "./spec-publish.mjs";
+
+/** tableText(table) -> the canonical writing of a table; refused, by the first rule of tableRowProblems it breaks, like spec-publish. */
+export function tableText(table) {
+  const [no] = tableRowProblems(table);
+  if (no !== undefined) throw new Error(no.detail);
+  return canonicalJson(table);
+}
+
+/** expectedFiles(root, tables) -> [{path, text}] under OUT_DIR, sorted by path: the 5 schema copies and one table file per table
+ *  ([{task_class, table}], the served tables by default). */
+export async function expectedFiles(root = REPO_ROOT, tables = undefined) {
+  const served = tables ?? (await import("../apps/harness/src/tools/gate.ts")).SERVED_POLICY_TABLES;
   const schemas = SCHEMA_NAMES.map((n) => ({ path: `${OUT_DIR}/schemas/${n}.schema.json`, text: schemaCopy(n, readFileSync(join(root, "schemas", `${n}.schema.json`), "utf8")) }));
-  return schemas.sort((a, b) => (a.path < b.path ? -1 : 1));
+  const files = served.map((t) => ({ path: `${OUT_DIR}/policy/${t.task_class}.json`, text: tableText(t.table) }));
+  return [...schemas, ...files].sort((a, b) => (a.path < b.path ? -1 : 1));
 }
 
 const tree = (root, rel) => (statSync(join(root, rel)).isDirectory() ? readdirSync(join(root, rel)).flatMap((n) => tree(root, `${rel}/${n}`)) : [rel]);
@@ -51,18 +69,27 @@ export function differences(root, files) {
   for (const f of files) {
     const p = join(root, f.path);
     if (!existsSync(p)) out.push(`missing ${f.path}`);
-    else if (!readFileSync(p).equals(Buffer.from(f.text, "utf8"))) out.push(`differ ${f.path}`);
+    else if (!statSync(p).isFile() || !readFileSync(p).equals(Buffer.from(f.text, "utf8"))) out.push(`differ ${f.path}`);
   }
   for (const p of existsSync(join(root, OUT_DIR)) ? tree(root, OUT_DIR) : []) if (!want.has(p)) out.push(`extra ${p}`);
   return out;
 }
 
-/** writeAll(root, files): every file to a temporary sibling first, then each renamed into place; on a failure the temporaries are removed. */
+/** writeAll(root, files): every file to a temporary sibling first, then each renamed into place; on a failed rename the files already
+ *  replaced get their previous bytes and mode back (or are removed when they did not exist), and the error is thrown; the temporaries are
+ *  removed. */
 export function writeAll(root, files) {
-  const tmp = files.map((f) => ({ ...f, at: join(root, f.path), tmp: join(root, `${f.path}.tmp-spec-policy-tables`) }));
+  const tmp = files.map((f) => ({ ...f, at: join(root, f.path), tmp: join(root, `${f.path}.tmp-spec-policy-tables`) })), done = [];
+  for (const f of tmp) if (lstatSync(f.at, { throwIfNoEntry: false })?.isSymbolicLink() === true) throw new Error(`${f.path} is a symbolic link: not written over`);
   try {
     for (const f of tmp) { mkdirSync(dirname(f.at), { recursive: true }); writeFileSync(f.tmp, f.text); }
-    for (const f of tmp) renameSync(f.tmp, f.at);
+    try {
+      for (const f of tmp) { const was = existsSync(f.at) && statSync(f.at).isFile(), old = was ? readFileSync(f.at) : null; done.push({ at: f.at, old, mode: was ? statSync(f.at).mode : 0 }); renameSync(f.tmp, f.at); }
+    } catch (e) {
+      done.pop(); // the failed rename replaced nothing
+      for (const d of done.reverse()) if (d.old === null) rmSync(d.at, { force: true }); else { writeFileSync(d.at, d.old); chmodSync(d.at, d.mode & 0o7777); }
+      throw e;
+    }
   } finally {
     for (const f of tmp) rmSync(f.tmp, { force: true });
   }
