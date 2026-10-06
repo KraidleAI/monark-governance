@@ -19,7 +19,7 @@ import type * as Rest from "../scripts/l2/rest.mjs";
 import { keepCause } from "./helpers/keep-cause.ts";
 keepCause("test/l2-rest-tls.test.ts"); // a crash of this file names its cause on stdout, which the runner keeps (L2-KEEP-CAUSE-REST-1)
 const REAL = { fetch: globalThis.fetch, WebSocket: globalThis.WebSocket }; // read before the trap below: a root before() runs at once
-const outs: string[] = [], servers: Server[] = [], sockets = new Set<Duplex>(); before(() => { trap(); }); // fails: 3 named reds
+const outs: string[] = [], servers: Server[] = [], sockets = new Set<Duplex>(); before(() => { trap(); }); // after REAL (l. 21): a root before() runs at once; fails: 3 named reds
 after(async () => {
   for (const s of sockets) s.destroy();
   for (const s of servers) { s.closeAllConnections(); await new Promise<void>((done) => { s.close(() => { done(); }); }); }
