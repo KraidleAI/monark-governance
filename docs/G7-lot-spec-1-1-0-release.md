@@ -8,22 +8,22 @@
 - **En attente** : l'entrée du texte `CONTRACT-1.1.0.md` (racine `recherches`), dernier pas, quand son chemin et son sha256 sont donnés.
 
 
-## État courant (2026-10-06, 03:2x UTC, après la G2 delta b ; seule source des valeurs courantes)
+## État courant (2026-10-06, après la G2 delta b2 et la fusion du tronc `f15c2889` ; seule source des valeurs courantes)
 
 Les sections qui suivent sont des relevés datés, dans l'ordre du lot : leurs empreintes, leurs comptes et leurs têtes sont ceux de leur moment. Les valeurs courantes sont celles-ci :
 
 | Élément | Valeur |
 |---|---|
-| tête de `-a` | `4ff932be` (inchangée depuis le repli de sa G2) |
-| tête de `-b` | `7485b648` (repli de la G2 delta b), puis le commit qui porte ce G7 |
+| tête de `-a` | `4ff932be`, fusionnée au tronc `lot/etude-suite` par #193 (`f15c2889`) |
+| tête de `-b` | fusion du tronc `332fe5ec`, puis le commit qui porte ce G7 (PR #194, cible `lot/etude-suite`) |
 | recherches | `1107e12` (contient `3712fc8` et `54fd670`) |
 | `contract-1.1.0/CONTRACT.md` | `ac8187fa76626256d3e4c16bb484257b5247a9faf1a40ed1dc1247f7374332aa` |
 | `contract-1.1.0/vectors-1.1.0.json` | `190b9fd8f48815c10db2ff62be2961e601388f20b1d4a6e8dfb44ca139214d53` |
 | `README.md` (racine) | `71f64c8af6c47bb4c1b9f532de9d38845824abf68e580bfccdbcd2f15bed4ecd` |
 | rejeu hors ligne (`previous` = clone propre de `ddfee9e`) | **49 fichiers** ; `sha256sum -c --strict` vert ; aucun `withdrawn` ni `rewritten` |
 | `MANIFEST.sha256` | `66d31d82122587a9da8725f3e19b39b43f371de826c1e9f311ea6a1755d4eb16` |
-| R-25 | `-a` 537 contre `8aea2299` ; `-b` 466 contre `-a` |
-| tests touchés | 45/45 ; ancres 33/33 ; red-proof `-b` OK (19 jugés, 19 tueurs tués) |
+| R-25 | `-b` **535** contre le tronc `f15c2889` (égal à la mesure contre `-a`), borne 547 ; `-a` 537 contre `8aea2299` |
+| tests touchés | 50/50 ; ancres 38/38 ; red-proof `-b` OK (25 jugés, 25 tueurs tués) |
 | b M-2 | réglé dans le texte à `1107e12` (l.441, 449, 587) |
 
 ## Commits
@@ -252,3 +252,42 @@ Rapport : `docs/G2-lot-spec-1-1-0-release-delta-b.md`. Verdict **non bloquant**,
 - **Tests touchés** : 45/45.
 - **Octets servis** : `/openapi.json` `61c9df97…`, inchangé.
 - **Rejeu hors ligne** (`previous` = clone propre de `ddfee9e`, recherches `1107e12`) : **49 fichiers** ; `MANIFEST.sha256` `66d31d82122587a9da8725f3e19b39b43f371de826c1e9f311ea6a1755d4eb16`, inchangé, puisque les octets de la version n'ont pas bougé ; `sha256sum -c --strict` vert.
+
+## Repli de la G2 delta b2
+
+Rapport : `docs/G2-lot-spec-1-1-0-release-delta-b2.md`. Verdict **non bloquant**, mais il a trouvé de vrais contournements de la porte. Tout est replié, sur `-b` :
+
+| Commit | Contenu |
+|---|---|
+| `97073154` | tests |
+| `e7473daf` | gel |
+| `f3e12c5d` | tueur du report corrigé |
+| `a9177069` | `ETAT.md` et rapport |
+| `332fe5ec` | fusion du tronc `f15c2889` |
+| commit suivant | ce G7 |
+
+### Constats repliés
+
+| Constat | Repli |
+|---|---|
+| 1, forme | `tablesIn` reconnaît une table à sa forme, d'après `policy-table.ts` : un objet avec un tableau `rows` et une entrée `class` qui nomme un `task_class`. La recherche descend à toute profondeur, et ne regarde ni le `row_format` ni l'étiquette. Toute entrée qui en contient une doit être `policy-table`. |
+| 1, vecteurs | La seule exception est `contract-<v>/vectors-<v>.json`, de sorte `json`. Chacune de ses tables passe `tableRowProblems`. Les tables de `synthetic_kata` (fixtures de recalcul, décision de MONARK) sont dispensées de `recompute_held` **et** de la règle des empreintes de suite `aux_sha256` et `series_sha256`. Cette seconde dispense est nécessaire : elles portent toutes deux ces empreintes, et le §10 ne promet que `n` et `p_served`. `n` et `p_served` ≤ 30 restent refusés partout (`short_digest`). |
+| 1, sondes | Les sondes de la G2, rejouées (`probe-d.mjs` et `probe-next.mjs`), sont **toutes refusées** : enveloppes `[t]`, `{tables:[t]}` et `{table:t}` ; `row_format` altéré ou absent ; sortie `.JSON` ou `.json.txt` ; sortes `text` et `schema`. |
+| 2, chemin | Tout chemin qui a un segment `policy/`, en toute casse, doit être `policy-table`. Une table l'est seulement au chemin exact, en minuscules, `[contract-<x.y.z>/]policy/<classe>.json`. |
+| 3, `VERSION_DIR` | Pas de zéro en tête. Date réelle, vérifiée par `validDate`, de sorte que `2026-13-40`, `2026-02-30` et `0000-00-00` sont refusés. Minuscules seulement : `Contract-…` et `CONTRACT-…` sont refusés (`version_dir_invalid`). `added_to_published` et `rewritten` comparent les répertoires sans casse. |
+| 4, répertoire étranger | Une version ne crée que son propre répertoire (`foreign_version_dir`). `contract-9.9.9/x.md` est refusé dans la version 1.2.0. |
+| 5, report | `carried` est lu par `git show <previous_commit>:<out>`, jamais dans l'arbre de travail. Test avec un fichier ignoré par `.gitignore`. Le test épinglé des commandes git de `spec-publish` compte désormais `show` (lecture). |
+| 6, lien symbolique | **Choix : refus.** `--write` refuse, avant toute écriture, une cible qui est un lien symbolique (sortie 1, rien d'écrit). Le lien reste intact. Test sous POSIX, saut nommé sous win32. |
+| 7, tueurs | K2 (garde `policy/*.json` réduite à la racine) est tué par `a/b/policy/c/d.json` et `contract-1.1.0/Policy/x.JSON`. K1 (date sans tirets dans la regex) est désormais un **mutant équivalent** : `validDate` exige `AAAA-MM-JJ` avec ses tirets, si bien que `-tables-20261006` reste refusé. Le tueur déclaré porte donc sur l'appel à `validDate`, et il est tué. |
+| 8, `ETAT.md` | Ligne datée qui donne la portée exacte de la porte. |
+
+### Oracle
+
+- **red-proof** `-b` `--base 597a986d --gel 332fe5ec --draw 25 --seed 37` : **OK**. 25 tests jugés, 25 tueurs tirés, 25 tués. `RED-PROOF.json` `97042a09eb881cae…`.
+- **Tueurs tirés à la main** (sha256 vérifié avant et après) : les 25 tueurs déclarés et 10 de plus sont tous tués, sauf K1, équivalent (voir plus haut). Le tueur du report, d'abord survivant parce qu'il était mal visé, est corrigé (`f3e12c5d`) et tué.
+- **R-25** : `-b` vaut **535** contre `f15c2889`, et autant contre `-a`. Borne 547.
+- **Ancres** : 38/38, 0 DERIVE, 0 PERDU.
+- **Contrôles statiques** : `tsc`, eslint, `lint:ratchet` 69/69, `gate:vocab`, `lang:gate` et `export:check` verts.
+- **Tests touchés** : 50/50.
+- **Octets servis** : `/openapi.json` `61c9df97…`, inchangé.
+- **Rejeu hors ligne** (`previous` = `ddfee9e` ; recherches locale `b06906b`, qui contient `1107e12`, avec les octets épinglés) : **49 fichiers** ; `MANIFEST.sha256` `66d31d82122587a9da8725f3e19b39b43f371de826c1e9f311ea6a1755d4eb16`, inchangé ; `sha256sum -c --strict` vert.
