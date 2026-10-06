@@ -641,3 +641,52 @@ paragraphes antérieurs qu'il contredit.
 - **TRIAL-HEAD-WRITTEN-1** : RECHERCHES demande à MONARK un brouillon de quelques lignes pour KATA-SPEC, tiré du code du
   générateur ; RECHERCHES en fait la G2. `trialRegistryHead.hash` reste hors décision dans le rapport de la vague 1, à condition que
   le rapport cite l'item.
+
+## 11. Lot 1a : mesures
+
+Worker `claude-opus-5-5` (effort max), le 2026-10-06, horloge lue de 22:10 à 22:3x UTC. Worktree `F:/Monark-wt-verifiers`, tête
+`e8800192` ; rien n'est committé ni indexé dans le worktree (R-20). Journaux et script de recensement (`census.mjs`, sha256
+`f0a4eeab…`) sous `F:/tmp/verifiers-1a/`.
+
+| Fichier versé (`cp` depuis la livraison) | Lignes | Octets | sha256 (`DELIVERED.sha256`) | Blob git |
+|---|---|---|---|---|
+| `tools/kata-recalc/kata_lib.py` | 439 | 15 106 | `11656b35…` (l.61) | `23bb9688…` |
+| `tools/kata-recalc/binom_exact.py` | 353 | 11 965 | `c83d971a…` (l.58) | `23e4d8be…` |
+| `tools/kata-recalc/vectors_check.py` | 197 | 10 574 | `d96f4fab…` (l.63) | `1a29468a…` |
+
+- **Égalité à l'octet** : `sha256sum -c --strict` des lignes 58, 61 et 63, réécrites vers le worktree : 3 OK ; `cmp` : 3 identiques.
+  Chaque fichier : ASCII seul, 0 TAB, 0 CR, sans BOM, 0 U+2028 ou U+2029, LF final, ligne la plus longue de 144 octets ; 0 hit des
+  six classes de `byte_guard`, 0 hit de `scanText` (garde de langue), 0 hit des motifs globaux de `grep-forbidden.mjs` (les trois
+  fichiers en cibles). Aucun octet ne fait refuser un fichier. Dans un clone isolé (`git clone --no-local`, sans `alternates`,
+  `F:/tmp/verifiers-1a/clone`, détaché à `e8800192`, `git add` dans ce clone seul) : chaque objet de l'index égale
+  `git hash-object --no-filters` du fichier livré, `git cat-file blob | sha256sum` redonne les trois digests, `--eol` : `i/lf w/lf`.
+- **Épingle du lot** : `72b1c80c6a1e6b18d05abdc8d6589c8245efae8ff8cf051ea96ab9c60e6860b5`, mesurée deux fois : boucle `sha256sum`
+  (règle du §3.2) et `manifestText` (`spec-publish.mjs` l.167, par `node -e`).
+- **`test/byte-guard.test.ts`** : `.py` ajouté à `TEXT_EXT` (l.38) et à `PIN_EXT` (l.127), commentaire l.36 ; trois lignes changées.
+  Aucun `.py` n'est suivi à la base. Sur le clone : un TAB posé l.10 de `vectors_check.py` rougit `byte_guard_tracked_tree_is_clean`
+  (`tools/kata-recalc/vectors_check.py:10:TAB`). Mutant à la main, `.py` retiré de `TEXT_EXT` : seul
+  `byte_guard_tab_licit_types_are_closed` rougit, à la l.181 (`t/x.py` manque). Fichiers restaurés, `sha256sum -c` 6 sur 6.
+- **`test/kata-recalc.test.ts`** (49 lignes) : tueur l.39, `tools/kata-recalc/kata_lib.py:265 CONST "_EWMA_W[nret - j] * (r * r)" ->
+  "(_EWMA_W[nret - j] * r) * r"` (une seule occurrence, l.265 de la copie). Index lu par `git ls-files -s -z` sans variable `GIT_*`
+  (`gitOut`, `test/helpers/git-tracked.ts`) : modes `100644` et étape 0 (l.42) ; blobs par `git --no-replace-objects cat-file blob` ;
+  empreinte par `manifestText` égale à l'épingle (l.46).
+  - **Ajout déclaré, l.47** : l'arbre de travail porte les blobs de l'index. Motif : `fire()` de `scripts/red-proof.mjs` (l.200-208)
+    change le fichier de l'arbre de travail, jamais l'index. Tueur posé sur le clone sans `git add` : l.46 passe, l.47 rougit
+    (`[ 'kata_lib.py' ]`) ; sans l.47, le tueur serait mort-né. Tueur indexé : l.46 rougit (`44e70a50…`). Mode `100755` : l.42 rougit.
+  - Base `d8fe354c` (second clone, test copié) : rouge par assertion (`ERR_ASSERTION`, l.46, `e3b0c442…`, le texte vide).
+- **Hors de la liste du §5, déclaré** : `scripts/spec-publish.d.mts`, une ligne, `export function manifestText(...)`. Sans elle,
+  `tsc --noEmit` sort 2 (`TS2305`, mesuré). Surface de types seule : Node ne lit pas ce fichier, et il n'est pas exporté.
+- **Courses** (`node -r ./test/helpers/blocking-stdout.cjs --test --test-timeout=300000 --test-force-exit test/byte-guard.test.ts
+  test/kata-recalc.test.ts`) : clone indexé, 17 sur 17, sortie 0 ; worktree, 16 sur 17, sortie 1, seul le test d'arbre rougit
+  (`e3b0c442…` : l'outil n'y est pas indexé ; il verdit au commit). Worktree : `tsc --noEmit` 0 ; `eslint` des deux tests 0 ;
+  `lint-ratchet` 69/69 ; `grep-forbidden` 0 (346 fichiers) ; `lang-gate` 0 ; `export-public --check` 0. `collectFiles` garde
+  573 chemins, aucun sous `tools/`, aucun `.py` : l'outil n'est pas exporté.
+- **red-proof** (`--base d8fe354c --gel F:/Monark-wt-verifiers --draw 1 --seed 37 --out F:/tmp/dojo/redproof-verifiers-1a`) :
+  sortie 1, `not green at gel (assert-fail)`, 1 jugé, 16 inchangés, 0 tueur tiré ; `killerProblem` nul. Un gel d'arbre de travail
+  copie les fichiers sans les indexer ; un test qui lit l'index demande un gel commité. Étape arrêtée sans commit (R-20) : à
+  rejouer par l'orchestrateur avec `--gel <commit du lot>`.
+- **R-25** : `git diff --shortstat d8fe354c -- . ':(exclude,glob)docs/**/*.md'` donne 2 fichiers, 4 insertions, 3 suppressions ;
+  non suivis 49 + 353 + 439 + 197 = 1 038 ; total **1 045** (estimé ~1 050 ; borne 1 205). Sur le clone indexé, avec les 21 jetons
+  de la ligne `STAT=` (`ci.yml` l.100) : 6 fichiers, 1 042 insertions, 3 suppressions, 1 045.
+- **Git** : aucun `GIT_DIR`, aucun `GIT_WORK_TREE`, aucun `--write-tree` ; `git add` et `update-index` dans le seul clone ; dans le
+  worktree, lectures (un `git status` a pu rafraîchir le cache de l'index, sans objet ni référence). Rien sur C:.

@@ -20,6 +20,7 @@ export function versionDir(name: string): boolean;
 export function tablesIn(v: unknown, path?: string): { table: unknown; path: string }[];
 export const SHORT_N: number;
 export function tableRowProblems(table: unknown, fixture?: boolean): Problem[];
+export function manifestText(files: readonly { path: string; bytes: Buffer }[]): string;
 export function plan(o: { inputs: Inputs; release: string; date: string; roots: Roots }): { files: { path: string; bytes: Buffer }[]; problems: Problem[] };
 export function listTree(dir: string, rel?: string): string[];
 export function compareTrees(produced: string, published: string): { equal: string[]; differ: string[]; missing: string[]; extra: string[] };

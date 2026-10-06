@@ -33,9 +33,9 @@ const CLASSES: ReadonlyArray<readonly [Cls, RegExp]> = [
 ];
 
 /** Read types (closed): lang-gate's TEXT_EXTS plus the other text types of the tree (.mts type surfaces, .jsonl/.csv/.tsv
- *  series, .svg) and the TAB-licit names. Any other extension is not read (Review Focus of the G1 journal). */
+ *  series, .svg, .py sources) and the TAB-licit names. Any other extension is not read (Review Focus of the G1 journal). */
 const TEXT_EXT = new Set([".ts", ".tsx", ".mts", ".mjs", ".cjs", ".js", ".jsx", ".md", ".mdx", ".yml", ".yaml", ".json", ".jsonl",
-  ".html", ".css", ".svg", ".sh", ".txt", ".csv", ".tsv"]);
+  ".html", ".css", ".svg", ".sh", ".txt", ".csv", ".tsv", ".py"]);
 const TAB_NAMES = new Set(["Makefile", "go.mod"]);
 const isRead = (rel: string): boolean => TEXT_EXT.has(extname(rel).toLowerCase()) || TAB_NAMES.has(basename(rel));
 /** TAB is licit only in these types (closed): Makefile recipes and go.mod are TAB-indented, a TSV separates its fields with it. */
@@ -124,7 +124,7 @@ function fixture(tracked: Record<string, string>, loose: Record<string, string> 
 const LT = "<".repeat(7), EQ = "=".repeat(7), GT = ">".repeat(7);
 /** Every read extension, pinned here: a TAB in t/x<ext> reddens for all of them but .tsv. */
 const PIN_EXT = [".ts", ".tsx", ".mts", ".mjs", ".cjs", ".js", ".jsx", ".md", ".mdx", ".yml", ".yaml", ".json", ".jsonl", ".html",
-  ".css", ".svg", ".sh", ".txt", ".csv", ".tsv"];
+  ".css", ".svg", ".sh", ".txt", ".csv", ".tsv", ".py"];
 const EX_PATH = "docs/G2-delta-lot-t1a-ii-a.md"; // its CONFLICT range 109-115, replayed below with a TAB inside and a marker after
 const STALE_PATH = "docs/G1-lot-narabi-txt-1.md"; // EXEMPT'd TAB at l.23-24; this fixture carries none there => stale (G2-M05)
 const NON_ASCII = `${String.fromCharCode(0xe9)}t${String.fromCharCode(0xe9)}.md`; // non-ASCII name: `git ls-files` without -z octal-quotes and ENOENT-skips it (G2-M07)
