@@ -16,7 +16,7 @@ import { fileURLToPath } from "node:url";
 import { sha256Canonical } from "@monark/contracts";
 import { USDE_STABLE_RUN_PREDICTOR_ID } from "../apps/harness/src/calibration.ts";
 import { runGate, SCHEMA_VERSION, SERVED_POLICY_TABLES } from "../apps/harness/src/tools/gate.ts";
-import { canonicalJson, contentProblems, loadInputs, parseInputs, plan, tableRowProblems } from "../scripts/spec-publish.mjs";
+import { canonicalJson, contentProblems, loadInputs, parseInputs, plan } from "../scripts/spec-publish.mjs";
 import type { Inputs } from "../scripts/spec-publish.mjs";
 
 type Writer = typeof import("../scripts/spec-policy-tables.mjs");
@@ -45,6 +45,12 @@ const COPY_SHA256: Record<string, string> = {
   "policy-row": "2dc64bd6292f4ada2c84f74c9b4cb79b0c54ba2ce94058d46203c50fa5a6e7bb", prediction: "54e9210627090aed365c5b1aa79b2ed7e7180d56a09c656095198983cc1c3a89",
   "tool-error": "8e7177c77688afec4dc837944a65cb8504ae57658a76583a702c837d6750acaf",
 };
+/** tableRowProblems of the publication gate, loaded on demand (the base's spec-publish.mjs lacks it: red by assertion, not by import). */
+async function rowGate(): Promise<NonNullable<Partial<typeof import("../scripts/spec-publish.mjs")>["tableRowProblems"]>> {
+  const m: Partial<typeof import("../scripts/spec-publish.mjs")> = await import("../scripts/spec-publish.mjs");
+  assert.ok(typeof m.tableRowProblems === "function", "scripts/spec-publish.mjs exports tableRowProblems");
+  return m.tableRowProblems;
+}
 let loaded: Writer | null = null;
 async function writer(): Promise<Writer> {
   loaded ??= await import("../scripts/spec-policy-tables.mjs").then((m: Writer) => m, () => null);
@@ -132,7 +138,7 @@ test("no_table_with_a_recompute_row_is_published_before_the_verifier_list", asyn
   const recompute = { verifier: "v@1", scores_sha256: "a".repeat(64), report_sha256: "b".repeat(64) };
   assert.equal(w.tableText(t), canonicalJson(t));
   assert.throws(() => w.tableText({ ...t, rows: [{ ...row, recompute }] }), /^Error: VERIFIERS-LIST-F5A-1: stable-run-velocity-24h has a row with a recompute/);
-  assert.deepEqual(tableRowProblems({ ...t, rows: [{ ...row, recompute }] }).map((p) => p.code), ["recompute_held"]);
+  assert.deepEqual((await rowGate())({ ...t, rows: [{ ...row, recompute }] }).map((p) => p.code), ["recompute_held"]);
 });
 
 // killer: scripts/spec-publish.mjs:257 CONST "r.n <= SHORT_N" -> "r.n < SHORT_N"
@@ -144,7 +150,7 @@ test("no_table_publishes_the_digest_of_a_sequence_of_30_points_or_fewer", async 
   for (const n of [0, 1, 30]) {
     assert.throws(() => w.tableText({ ...t, rows: [{ ...row, n }] }), /^Error: SHORT-DIGEST-INVERSION-1: liquidation-eligible-coverage has a row whose digests cover 30 points or fewer/, String(n));
   }
-  const why = (o: Record<string, unknown>): string[] => tableRowProblems({ ...t, rows: [{ ...row, ...o }] }).map((p) => p.detail.replace(/^.*: /, ""));
+  const gate = await rowGate(), why = (o: Record<string, unknown>): string[] => gate({ ...t, rows: [{ ...row, ...o }] }).map((p) => p.detail.replace(/^.*: /, ""));
   const key = row.cell_key;
   assert.deepEqual([why({ n: 31, p_served: 31 }), why({ p_served: 30 }), why({ aux_sha256: "a".repeat(64) }), why({ series_sha256: "b".repeat(64), n: 30 })],
     [[], [`${key} (p_served 30)`], [`${key} (aux_sha256)`], [`${key} (n 30, series_sha256)`]]);
