@@ -255,14 +255,14 @@ export const PNG_CHUNKS = ["IHDR", "PLTE", "IDAT", "IEND", "tRNS", "gAMA", "cHRM
 export const TTF_TABLES = ["DSIG", "GDEF", "GPOS", "GSUB", "HVAR", "OS/2", "STAT", "avar", "cmap", "cvt ", "fpgm", "fvar", "gasp", "glyf", "gvar", "head", "hhea", "hmtx", "loca", "maxp", "name", "post", "prep"];
 export const OTS_CALENDARS = ["alice.btc.calendar.opentimestamps.org", "bob.btc.calendar.opentimestamps.org", "btc.calendar.catallaxy.com", "calendar.invalid", "finney.calendar.eternitywall.com"], OTS_OPERAND_MAX = 89;
 const ADAM7 = [[0, 0, 8, 8], [4, 0, 8, 8], [0, 4, 4, 8], [2, 0, 4, 4], [0, 2, 2, 4], [1, 0, 2, 2], [0, 1, 1, 2]];
-function png(b) { // chunks with their CRC, each once but IDAT, at their PNG_SIZES size by colour type (tRNS of a palette image: at most one byte per PLTE entry read), IHDR first, IEND last and nothing after it; PLTE on a palette image only; one zlib stream of the exact pixel size, at most PNG_INFLATE_MAX bytes
+function png(b) { // chunks with their CRC, each once but IDAT (a second IHDR included), at their PNG_SIZES size by colour type (tRNS of a palette image: at most one byte per PLTE entry read), IHDR first, IEND last and nothing after it; PLTE on a palette image only; one zlib stream of the exact pixel size, at most PNG_INFLATE_MAX bytes
   if (b.length < 33 || b.readUInt32BE(8) !== 13 || b.toString("latin1", 12, 16) !== "IHDR") return "IHDR first";
   const w = b.readUInt32BE(16), h = b.readUInt32BE(20), depth = b[24], color = b[25], idat = [], seen = new Map(), row = (x) => 1 + Math.ceil((x * depth * ({ 0: 1, 2: 3, 3: 1, 4: 2, 6: 4 }[color] ?? NaN)) / 8);
   for (let o = 8; ; ) {
     if (o + 12 > b.length) return "no IEND";
     const n = b.readUInt32BE(o), t = b.toString("latin1", o + 4, o + 8);
     if (n > b.length - o - 12 || crc32(b.subarray(o + 4, o + 8 + n)) !== b.readUInt32BE(o + 8 + n)) return `chunk ${t} overruns or fails its CRC`;
-    if (!PNG_CHUNKS.includes(t) || (t === "PLTE" && color !== 3) || (t === "IHDR" && o !== 8) || (t !== "IDAT" && seen.has(t))) return `chunk ${t}`;
+    if (!PNG_CHUNKS.includes(t) || (t === "PLTE" && color !== 3) || (t !== "IDAT" && seen.has(t))) return `chunk ${t}`;
     if (t === "IDAT") idat.push(b.subarray(o + 8, o + 8 + n)); else if (n !== (t === "tRNS" && color === 3 ? Math.min(n, seen.get("PLTE") / 3) : (PNG_SIZES[t]?.[color] ?? PNG_SIZES[t] ?? n))) return `chunk ${t} of ${String(n)} bytes`;
     seen.set(t, n); o += 12 + n;
     if (t === "IEND") { if (o !== b.length) return `${b.length - o} bytes after IEND`; break; }

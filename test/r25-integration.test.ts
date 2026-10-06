@@ -1046,7 +1046,7 @@ test("r25s_ci_refuses_an_asset_with_a_payload_after_its_end - R25-ASSET-POLYGLOT
 
 // killer: scripts/lot-size-integration.mjs:268 CONST "if (o !== b.length) return" -> "if (false) return"
 // killer: scripts/lot-size-integration.mjs:264 CONST " || crc32(b.subarray(o + 4, o + 8 + n)) !== b.readUInt32BE(o + 8 + n)" -> ""
-// killer: scripts/lot-size-integration.mjs:265 CONST " || (t === \"IHDR\" && o !== 8)" -> ""
+// killer: scripts/lot-size-integration.mjs:265 CONST " || (t !== \"IDAT\" && seen.has(t))" -> ""
 test("r25s_png_ends_at_iend_with_sound_chunks - the trunk logo passes; a zip archive or one byte after IEND, a chunk whose CRC is wrong, a length running past the file, no IEND, a second IHDR are refused (nothing refused before the lot: the trunk logo fails too)", () => {
   const logo = blobOf("out/logo.png"), crc = Buffer.from(logo), over = Buffer.from(logo);
   crc[50] = (crc[50] ?? 0) ^ 1; // a byte of the iCCP profile
