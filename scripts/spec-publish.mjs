@@ -126,8 +126,8 @@ export function contentProblems(out, kind, bytes) {
   p.push(...vocabularyHits(strings(v).join("\n")).map((h) => ({ code: "vocabulary", detail: `${out}: a decoded string [${h.rule}] ${h.word}` })));
   if (kind === "schema" && !(isObj(v) && typeof v.$schema === "string")) p.push({ code: "schema_invalid", detail: `${out}: no $schema` });
   if (kind !== "policy-table") return p;
-  if (!isObj(v) || v.row_format !== "class-policy-v2" || !isObj(v.class) || !Array.isArray(v.rows) || out !== `policy/${String(v.class.task_class)}.json`) {
-    p.push({ code: "policy_table_invalid", detail: `${out}: not a class-policy-v2 table file named policy/<class.task_class>.json` });
+  if (!isObj(v) || v.row_format !== "class-policy-v2" || !isObj(v.class) || !Array.isArray(v.rows) || out.replace(/^[\w.-]+\/(?=policy\/)/, "") !== `policy/${String(v.class.task_class)}.json`) {
+    p.push({ code: "policy_table_invalid", detail: `${out}: not a class-policy-v2 table file named [<version>/]policy/<class.task_class>.json` });
   }
   try { if (canonicalJson(v) !== text) p.push({ code: "not_canonical", detail: `${out}: the bytes are not the canonical writing` }); }
   catch (e) { p.push({ code: "not_canonical", detail: `${out}: ${e.message}` }); }

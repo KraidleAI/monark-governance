@@ -6,13 +6,19 @@
 // It derives, never by hand, the files that the version publishes from this repository, each at spec/<published path>:
 // - contract-1.1.0/schemas/<name>.schema.json: the frozen schemas/<name>.schema.json under a closed list of exact replacements (the public
 //   $id of the versioned path, the internal references of three descriptions, the name of the spec document); each replacement must match
-//   exactly once, everything else is kept byte for byte.
+//   exactly once, everything else is kept byte for byte;
+// - contract-1.1.0/policy/<task_class>.json: the canonical writing of each table the harness serves (SERVED_POLICY_TABLES of tools/gate.ts,
+//   the value the service builds at load, not a second build), so the file's sha256 is the served policy_table_sha256; no final LF. A table
+//   with a row whose recompute is not null is refused until the published list of verifiers exists (VERIFIERS-LIST-F5A-1), and so is a
+//   row of n <= SHORT_N points: the contract's section 10 promises that no published file carries the digest of a 0/1 sequence of 30
+//   points or fewer, and a digest does not show whether its points are 0/1 (SHORT-DIGEST-INVERSION-1).
 // --check compares every file under <root>/spec/contract-1.1.0/ (this repository by default) and exits 1 on any difference, missing or
 // extra file; --write writes each file to a temporary file beside it, then renames them all into place (nothing half written).
 // It reads no clock and no network, and writes only under <root>/spec/contract-1.1.0/.
 import { existsSync, mkdirSync, readdirSync, readFileSync, realpathSync, renameSync, rmSync, statSync, writeFileSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
+import { canonicalJson } from "./spec-publish.mjs";
 
 export const REPO_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 export const VERSION_DIR = "contract-1.1.0";
@@ -37,10 +43,24 @@ export function schemaCopy(name, text) {
   }, text);
 }
 
-/** expectedFiles(root) -> [{path, text}] under OUT_DIR, sorted by path: the 5 schema copies. */
+export const SHORT_N = 30;
+
+/** tableText(table) -> the canonical writing of a served table; refused while a row carries a recompute (VERIFIERS-LIST-F5A-1) or the
+ *  digests of a sequence of SHORT_N points or fewer (SHORT-DIGEST-INVERSION-1). */
+export function tableText(table) {
+  const held = table.rows.filter((r) => r.recompute !== null).map((r) => r.cell_key);
+  if (held.length > 0) throw new Error(`VERIFIERS-LIST-F5A-1: ${table.class.task_class} has a row with a recompute (${held.join(", ")}); the published list of verifiers comes first`);
+  const short = table.rows.filter((r) => r.n <= SHORT_N).map((r) => `${r.cell_key} (n ${String(r.n)})`);
+  if (short.length > 0) throw new Error(`SHORT-DIGEST-INVERSION-1: ${table.class.task_class} has a row whose digests cover ${String(SHORT_N)} points or fewer: ${short.join(", ")}`);
+  return canonicalJson(table);
+}
+
+/** expectedFiles(root) -> [{path, text}] under OUT_DIR, sorted by path: the 5 schema copies and one table file per served class. */
 export async function expectedFiles(root = REPO_ROOT) {
+  const { SERVED_POLICY_TABLES } = await import("../apps/harness/src/tools/gate.ts");
   const schemas = SCHEMA_NAMES.map((n) => ({ path: `${OUT_DIR}/schemas/${n}.schema.json`, text: schemaCopy(n, readFileSync(join(root, "schemas", `${n}.schema.json`), "utf8")) }));
-  return schemas.sort((a, b) => (a.path < b.path ? -1 : 1));
+  const tables = SERVED_POLICY_TABLES.map((t) => ({ path: `${OUT_DIR}/policy/${t.task_class}.json`, text: tableText(t.table) }));
+  return [...schemas, ...tables].sort((a, b) => (a.path < b.path ? -1 : 1));
 }
 
 const tree = (root, rel) => (statSync(join(root, rel)).isDirectory() ? readdirSync(join(root, rel)).flatMap((n) => tree(root, `${rel}/${n}`)) : [rel]);
