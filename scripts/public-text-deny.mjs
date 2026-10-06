@@ -9,7 +9,7 @@
 //   (b) the item-id shape [A-Z]+-[A-Z0-9-]+-digit, a CVE id excepted;   (c) the closed internal set (Q-5, Q-A1-3);
 //   (d) "public sync";   (e) a reader-local drive path;   (f) a vendor name form, in any case (the lists below; Q-4);
 //   (g) a credential shape (bell-publish KEY_SHAPES without its "://" rule; reported as prefix + length, never in clear),
-//   or a URL outside the two public origins;   (k) a kitchen form (KITCHEN_FORMS: G0-G7, ADR-, decision N live there);
+//   or a URL outside the three public origins;   (k) a kitchen form (KITCHEN_FORMS: G0-G7, ADR-, decision N live there);
 //   (p) an email address (a noreply address excepted: commit trailers) or an IPv4 address;   (cf) a format character
 //   (\p{Cf}: zero-width, BOM, bidi), checked on the raw text; every other rule reads the NFKC form of the text;
 //   (q3) the internal words budget, credit, lock and their -s/-ed/-ing forms (Q-3; "test" stays allowed);
@@ -114,7 +114,7 @@ const INTERNAL_FORMS = Object.freeze([/\bR-\d+\b/, /\bCA-\d+\b/, /\bcheckpoint[-
 const PRIVATE_FORMS = Object.freeze([/(?<![\w.+-])(?!noreply@|[\w.+-]+@users\.noreply\.github\.com(?![\w-]|\.[\w-]))[\w.+-]+@[\w-]+\.[\w.]+/, /\b\d{1,3}(?:\.\d{1,3}){3}\b/]);
 const PUBLIC_SYNC = /\bpublic\s+sync\b/i;
 const URL_ANY = /[a-z][a-z0-9+.-]*:\/\/[^\s)>`"]+/gi;
-const URL_ALLOW = /^https:\/\/(?:[a-z0-9-]+\.)*monarkgate\.tech(?:[/?#]|$)|^https:\/\/github\.com\/KraidleAI\/Monark(?:[/?#]|$)/i;
+const URL_ALLOW = /^https:\/\/(?:[a-z0-9-]+\.)*monarkgate\.tech(?:[/?#]|$)|^https:\/\/github\.com\/KraidleAI\/Monark(?:[/?#]|$)|^https:\/\/github\.com\/KraidleAI\/monark-kata-spec(?:[/?#]|$)/i;
 // KEY_SHAPES carries a bare "://" rule for served strings; free text may carry an allowlisted URL, checked apart (URL_ALLOW).
 export const SECRET_SHAPES = Object.freeze(KEY_SHAPES.filter((re) => re.source !== ":\\/\\/"));
 const INTERNAL_WORDS = /\b(?:budget|credit|lock)(?:s|ed|ing)?\b/i;
