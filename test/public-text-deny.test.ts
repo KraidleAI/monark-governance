@@ -116,3 +116,15 @@ test("public_notes_pass_the_gate — every file under docs/public-notes/** has a
     assert.ok(r.ok, `${f} (${kind}) does not pass the public-text gate: ${JSON.stringify(r.violations)}`);
   }
 });
+
+// killer: scripts/public-text-deny.mjs:117 CONST "|^https:\/\/github\.com\/KraidleAI\/monark-kata-spec(?:[/?#]|$)" -> ""
+test("public_text_gate_admits_the_spec_repository — the third public origin, exact name only", () => {
+  const spec = "https://github.com/KraidleAI/monark-kata-spec";
+  for (const u of [spec, `${spec}/blob/main/KATA-SPEC.md`, `${spec}#x`, `${spec}?y`, "https://github.com/kraidleai/MONARK-KATA-SPEC"]) {
+    const r = checkPublicText(`Spec: ${u} now`, "notes");
+    assert.ok(r.ok, `${u} must pass: ${JSON.stringify(r.violations)}`);
+  }
+  for (const u of [`${spec}-x`, `${spec}s`, "https://github.com/KraidleAI/monark-kata", "http://github.com/KraidleAI/monark-kata-spec", "https://github.com/KraidleAI/recherches", "https://github.com/KraidleAI/monark-governance"]) {
+    assert.ok(rules(`Spec: ${u} now`, "notes").includes("g"), `${u} must be refused by rule g`);
+  }
+});
