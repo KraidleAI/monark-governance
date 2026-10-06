@@ -565,6 +565,11 @@ Tronc `lot/etude-suite`. Dernier oracle complet : 1 779 tests, dont 1 776 verts,
     `an_unreadable_published_object_is_refused_never_read_as_empty`, `a_refused_previous_entry_carries_the_reason_git_gives`.
     Repli de la G2 T-3 : chaque objet de `previous_commit` est lu une seule fois par plan (test
     `each_object_of_the_previous_commit_is_read_once`, lectures comptées dans les événements trace2 de git).
+    Ligne datée 2026-10-06 (RECHERCHES, lot T0-FOLLOWUP-1, repli de la G2 T-8) : lancé depuis un hook `pre-commit` d un worktree lié,
+    `spec-publish` héritait de `GIT_DIR` et d un `GIT_INDEX_FILE` absolu, et l acte 8 refusait à tort un arbre `previous` propre (fermé :
+    `previous_blob_missing`, `previous_commit` ou `previous_dirty`). Chaque appel git perd maintenant les variables de position du dépôt
+    (`git rev-parse --local-env-vars`, sans égard à la casse) et garde `GIT_CONFIG_*`. Test
+    `a_caller_s_git_location_never_stands_in_for_the_previous_tree`.
   - KATA-CLAUSE-COMMITTED-STATE-1 (G7 de D-2 §6, G7 de D-3 §7) : la clause kata de la description servie dit « which hold no committed
     calibration row » (`gate.ts:233`) ; le fil-piège `kataTablesHoldNoRow` (`kata-path.ts:125-128`, `gate.ts:1042`) fait échouer le
     chargement à la première ligne kata. Construction : la clause de l'état engagé, choisie par la présence au registre, comme

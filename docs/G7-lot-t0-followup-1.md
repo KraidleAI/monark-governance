@@ -77,7 +77,7 @@ G2 neuve non bloquante ; tous les constats sont repliés, F-1 à F-7.
 
 ## 6. Repli de la G2 delta (2026-10-06, T-1 à T-7)
 
-G2 delta non bloquante sur `2827819f` ; ses sept constats sont repliés. T-8 (variables `GIT_DIR` héritées), antérieur au lot et non reproduit, reste hors du lot.
+G2 delta non bloquante sur `2827819f` ; ses sept constats sont repliés. T-8 (variables `GIT_DIR` héritées) n'était pas reproduit ici ; la G2 du repli l'a reproduit, et le §7 le corrige.
 
 - **T-1** : test `template_markers_skip_a_shell_variable_of_the_template`. Un `${HOME}` écrit dans le modèle n'est pas un marqueur. Tueur déclaré `public-text-deny.mjs:130 CONST "(?<!\\$)" -> ""`, tué par assertion.
 - **T-2** : l'échappement de `-` dans `MARKER_VARIABLE` (`:135`) est retiré. Il était mort : un nom de marqueur est `[A-Z0-9_-]`, et `-` est littéral hors d'une classe. Il serait même nuisible, puisque `\-` est une erreur de syntaxe sous le drapeau `u`. Le mutant inverse (remettre l'échappement) est équivalent : aucun test ne peut le tuer, et le constat ne demande pas de tueur.
@@ -98,3 +98,25 @@ G2 delta non bloquante sur `2827819f` ; ses sept constats sont repliés. T-8 (va
 - **R-25** contre `febf7735` : STAT 238+/58- = 296 (≤ 547), CONTENT 0, GREEN.
 - **Portes** : `tsc` 0, `eslint .` 0, `lint:ratchet` 69/69, `gate:vocab`, `lang:gate` et `export:check` OK.
 - **Tests ciblés** (`spec-publish`, `public-text-deny`, `spec-1-1-0-release`, `release-public-flow`, `release-public`) : 73 sur 73.
+
+## 7. Repli de la G2 du repli (2026-10-06, T-8 et A-3)
+
+G2 non bloquante sur `61ab3567`. Elle reproduit T-8 (A-1), et A-3 durcit un test. A-2 est un message à MONARK, sans code.
+
+- **T-8, reproduit et corrigé** : lancé depuis un hook `pre-commit` d'un worktree lié, `spec-publish` héritait de `GIT_DIR` et d'un `GIT_INDEX_FILE` absolu. L'acte 8 refusait alors un arbre `previous` propre, avec un message trompeur (`previous_blob_missing … exists on disk, but not in …`). Le refus était fermé : le contenu reste épinglé par `<commit>:<chemin>`.
+  - Test `a_caller_s_git_location_never_stands_in_for_the_previous_tree`, rouge à `61ab3567` par assertion. `plan()` tourne dans un processus enfant, une fois par cas, avec un autre dépôt nommé par l'environnement :
+    - la paire du hook (`GIT_DIR` et `GIT_INDEX_FILE`) et `GIT_DIR` seul donnent `previous_blob_missing` et `previous_commit` ;
+    - `GIT_OBJECT_DIRECTORY` donne `previous_blob_missing` et `previous_dirty` ;
+    - `GIT_WORK_TREE` donne `previous_commit` ;
+    - `GIT_INDEX_FILE` donne `previous_dirty`.
+  - Correction, `spec-publish.mjs:159` : chaque appel git perd les variables de position du dépôt, la moitié « position » de `git rev-parse --local-env-vars`, sans égard à la casse (Windows). `GIT_CONFIG_*` est gardé. Le test le vérifie : sous `GIT_TEST_ASSUME_DIFFERENT_OWNER=1`, git refuse l'arbre (prémisse), et un `safe.directory=*` passé par `GIT_CONFIG_*` le fait accepter. L'explication occupe la ligne vide `:158`, si bien qu'aucune ancre ne bouge.
+  - Tueurs déclarés, tués par assertion : `:159 CONST "!GIT_LOCATION.test(k)" -> "true"` (les cinq cas) et `:159 CONST "^GIT_(?:DIR|" -> "^GIT_(?:CONFIG_COUNT|DIR|"` (le cas `safe.directory`). Le tueur F-1 (`a_replace_object_does_not_hide_a_rewrite`) suit le nouveau texte de la ligne : `", GIT_NO_REPLACE_OBJECTS: \"1\" }" -> " }"`. Il reste tué.
+- **A-3** : `each_object_of_the_previous_commit_is_read_once` ne compte que les processus git de premier niveau (un `sid` sans `/`), et l'enfant ne reçoit pas `GIT_TRACE2_PARENT_SID`. Un lanceur instrumenté par trace2 qui relance git ne compte donc qu'une lecture.
+
+**Vérifications** (tronc `82cf6980` fusionné, base `82cf6980`) :
+- **red-proof** (`--draw 6 --seed 37`) : OK, 15 jugés (15 F2P), 6 tueurs tirés, 6 tués, dont le tueur T-8.
+- **Tueurs tirés à la main**, fichier restauré (sha256) : les 22 de `test/spec-publish.test.ts`, tous tués par assertion.
+- **Ancres** : 64 sur 64 sur les fichiers touchés. Sur tout le dépôt, les 8 PERDU antérieurs restent (ANCHORS-DRIFT-1 les ferme).
+- **R-25** contre `82cf6980` : STAT 303+/60- = 363 (≤ 547), CONTENT 0, GREEN.
+- **Portes** : `tsc` 0, `eslint .` 0, `lint:ratchet` 69/69, `gate:vocab`, `lang:gate` et `export:check` OK.
+- **Tests ciblés** (`spec-publish`, `public-text-deny`, `spec-1-1-0-release`, `release-public-flow`, `release-public`) : 74 sur 74.
