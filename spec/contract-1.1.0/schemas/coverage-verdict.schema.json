@@ -1,0 +1,92 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/KraidleAI/monark-kata-spec/raw/main/contract-1.1.0/schemas/coverage-verdict.schema.json",
+  "title": "CoverageVerdict",
+  "description": "HIKAE conformal coverage verdict, contract 1.1.0. POLYMORPHIC region set|interval, or null when no region is served (set = classification btc-dir/pm-yesno; interval = regression cascade-VaR UKEMI). No p_correct. alpha is the target MISCOVERAGE, so the target coverage is one minus alpha (never a probability of correctness, never a 'coverage level alpha'). Couplings checked by the server before it sends, outside this schema (contract-1.1.0/CONTRACT.md section 5): region is null exactly when qhat is null, and then abstain is true and reason is a no-region reason; abstain is true for every calib_* reason; scale is not null exactly when qhat_unit is scale; a non-null policy_row_sha256 implies a non-null cell_key; cell_key is null exactly when policy_table_sha256 is null; when scores is present, scores_sha256 is its digest.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "task_class",
+    "method",
+    "alpha",
+    "n_calib",
+    "region",
+    "qhat",
+    "abstain",
+    "reason",
+    "qhat_unit",
+    "scale",
+    "residual",
+    "scores_sha256",
+    "cell_key",
+    "policy_row_sha256",
+    "policy_table_sha256",
+    "produced_at"
+  ],
+  "properties": {
+    "schema_version": { "const": "1.1.0" },
+    "task_class": { "type": "string", "pattern": "^[ -~]+$", "minLength": 1 },
+    "method": { "enum": ["split", "hac-cp", "risk-control"] },
+    "alpha": { "type": "number", "exclusiveMinimum": 0, "exclusiveMaximum": 1 },
+    "n_calib": { "type": "integer", "minimum": 0 },
+    "region": {
+      "oneOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["kind", "labels", "label_schema"],
+          "properties": {
+            "kind": { "const": "set" },
+            "labels": { "type": "array", "items": { "type": "string", "pattern": "^[ -~]+$" } },
+            "label_schema": { "type": "string", "pattern": "^[ -~]+$", "minLength": 1 }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["kind", "lo", "hi"],
+          "properties": {
+            "kind": { "const": "interval" },
+            "lo": { "type": "number" },
+            "hi": { "type": "number" }
+          }
+        },
+        { "type": "null" }
+      ]
+    },
+    "qhat": { "type": ["number", "null"] },
+    "qhat_unit": { "enum": ["label", "scale", "score"] },
+    "scale": { "type": ["number", "null"] },
+    "abstain": { "type": "boolean" },
+    "reason": {
+      "enum": [
+        "covered",
+        "set_too_large",
+        "interval_too_wide",
+        "intent_not_in_region",
+        "under_calib",
+        "no_label_schema",
+        "budget_exhausted",
+        "clock_expired",
+        "upstream_timeout",
+        "attestation_absent",
+        "attestation_refused",
+        "binding_broken",
+        "non_evaluable",
+        "calib_silence",
+        "calib_vetoed",
+        "calib_retired",
+        "out_of_support",
+        "region_degenerate"
+      ]
+    },
+    "residual": { "type": "array", "items": { "type": "string", "pattern": "^[ -~]+$" } },
+    "scores": { "type": "array", "items": { "type": "number" } },
+    "scores_sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+    "cell_key": { "type": ["string", "null"], "pattern": "^[ -~]+$", "minLength": 1 },
+    "policy_row_sha256": { "type": ["string", "null"], "pattern": "^[0-9a-f]{64}$" },
+    "policy_table_sha256": { "type": ["string", "null"], "pattern": "^[0-9a-f]{64}$" },
+    "produced_at": { "type": "string", "format": "date-time" }
+  }
+}
