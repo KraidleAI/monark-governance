@@ -185,10 +185,10 @@ export function setManifestEntry(manifestText, rel, sha) {
   if (rel in m.files) {
     m.files[rel] = sha;
   } else {
-    // A new key goes right after the last Ukemi entry (kept next to its sibling), else at the end.
-    const entries = Object.entries(m.files);
+    // A new key goes right after the last entry of its family (<dir>/<name>-, kept next to its sibling), else at the end.
+    const entries = Object.entries(m.files), family = rel.replace(/-[^/]*$/, "-");
     let at = entries.length;
-    entries.forEach(([k], i) => { if (k.startsWith("apps/site/data/ukemi-")) at = i + 1; });
+    entries.forEach(([k], i) => { if (k.startsWith(family) && family !== rel) at = i + 1; });
     entries.splice(at, 0, [rel, sha]);
     m.files = Object.fromEntries(entries);
   }
@@ -306,21 +306,28 @@ async function main() {
   console.log(`sync-ukemi-served OK — ${OUT_REL} written (registry_state ${facts.registry_state}, verdict ${verdict.verdict_reason}, read ${readAt}); manifest entry set to ${fileSha}${promote ? `; the pending snapshot is promoted, ${PENDING_REL} and its manifest entry removed` : ""}`);
 }
 
+/** --pending under `root`: the pending snapshot, pending_since on the served file and both manifest entries, all computed
+ *  before the first write (throws, writing nothing). Returns the pending file's manifest sha256. */
+export async function writeUkemiPending(root, writtenAt) {
+  const pending = await inProcessUkemiPending(writtenAt);
+  const text = JSON.stringify(pending, null, 2) + "\n";
+  const pendingSha = sha256(Buffer.from(lf(text), "utf8"));
+  const marked = markPendingSince(readFileSync(join(root, OUT_REL), "utf8"), writtenAt.slice(0, 10));
+  let manifest = setManifestEntry(readFileSync(join(root, MANIFEST_REL), "utf8"), PENDING_REL, pendingSha);
+  manifest = setManifestEntry(manifest, OUT_REL, sha256(Buffer.from(lf(marked), "utf8")));
+  writeFileSync(join(root, PENDING_REL), text);
+  writeFileSync(join(root, OUT_REL), marked);
+  writeFileSync(join(root, MANIFEST_REL), manifest);
+  return pendingSha;
+}
+
 async function pendingMain() {
-  let text, marked, manifest, pendingSha;
+  let pendingSha;
   try {
-    const pending = await inProcessUkemiPending(new Date().toISOString());
-    text = JSON.stringify(pending, null, 2) + "\n";
-    pendingSha = sha256(Buffer.from(lf(text), "utf8"));
-    marked = markPendingSince(readFileSync(join(ROOT, OUT_REL), "utf8"), pending.written_at.slice(0, 10));
-    manifest = setManifestEntry(readFileSync(join(ROOT, MANIFEST_REL), "utf8"), PENDING_REL, pendingSha);
-    manifest = setManifestEntry(manifest, OUT_REL, sha256(Buffer.from(lf(marked), "utf8")));
+    pendingSha = await writeUkemiPending(ROOT, new Date().toISOString());
   } catch (e) {
     fail(e instanceof Error ? e.message : String(e));
   }
-  writeFileSync(join(ROOT, PENDING_REL), text);
-  writeFileSync(join(ROOT, OUT_REL), marked);
-  writeFileSync(join(ROOT, MANIFEST_REL), manifest);
   console.log(`sync-ukemi-served OK — ${PENDING_REL} written in process (a new written_at on every --pending), pending_since set in ${OUT_REL}; manifest entries set (${PENDING_REL} ${pendingSha})`);
 }
 
