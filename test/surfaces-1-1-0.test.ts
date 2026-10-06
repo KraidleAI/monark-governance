@@ -101,7 +101,7 @@ test("srf_provenance_texts_name_the_recorded_scores_sha256 — the BYO and H5 pr
   assert.ok(h5.includes(`\`${USDE_STABLE_RUN_SCORES_SHA256_PINNED.slice(0, 8)}…\``), "the H5 provenance cites the USDe scores_sha256");
 });
 
-// killer: README.md:328 CONST "scores_sha256" -> "calib_digest"
+// killer: README.md:330 CONST "scores_sha256" -> "calib_digest"
 test("srf_repo_docs_name_scores_sha256 — the README layout and the harness runbook name the 1.1.0 digest", () => {
   assert.doesNotMatch(read("README.md"), OLD_DIGEST_NAMES, "README.md names a 1.0.0 digest");
   assert.match(read("README.md"), /packages\/contracts {2}TS binding: .*scores_sha256/, "the layout names the contract digest");
@@ -160,7 +160,7 @@ test("srf_contributing_closes_the_loop_on_scores_sha256 — the exported contrib
   assert.ok(text.includes("the verdict's `scores_sha256`, `alpha` and `qhat` equal\n   those the calibrate step returned"), "the loop closes on scores_sha256, alpha and qhat");
 });
 
-// killer: docs/RUNBOOK-harness.md:195 CONST "15 of 15 checks" -> "13 of 13 checks"
+// killer: docs/RUNBOOK-harness.md:214 CONST "15 of 15 checks" -> "13 of 13 checks"
 test("srf_runbook_harness_green_gate_quotes_the_script — the message and the count are those of scripts/verify-harness.mjs", () => {
   const script = read("scripts", "verify-harness.mjs");
   const named = [...script.matchAll(/(?:wiredCheck|httpCheck)\("(\w+)"/g)].map((m) => m[1]);
@@ -171,3 +171,24 @@ test("srf_runbook_harness_green_gate_quotes_the_script — the message and the c
   const runbook = read("docs", "RUNBOOK-harness.md");
   assert.ok(runbook.includes(`its stderr prints \`VERIFY OK — all checks passed\` (${String(count)} of ${String(count)} checks;`), `the runbook quotes the message and the ${String(count)} checks`);
 });
+
+// T0-TOOLING-1 (review M-3, section 2.3): the $comment the ukemi sync writes names the scores digest, the 1.1.0 name; the
+// whole text is pinned by digest, so the 1.0.0 wording cannot come back unseen.
+// killer: scripts/sync-ukemi-served.mjs:248 CONST "the scores digest," -> "the calibration digest,"
+test("srf_ukemi_sync_comment_says_scores_digest — the written $comment is the 1.1.0 text, byte for byte", async () => {
+  const { COMMENT } = await import("../scripts/sync-ukemi-served.mjs");
+  assert.ok(COMMENT.includes("the bound margin as an exact base-currency integer string or null, the scores digest, the smallest"), "the comment names the scores digest");
+  assert.doesNotMatch(COMMENT, /calibration digest/i, "the comment never says 'calibration digest'");
+  assert.equal(createHash("sha256").update(COMMENT, "utf8").digest("hex"), "476c008d282ed625a4cdeef3e546af11726703d09b24555cd43390019cb3be85", "the comment, byte for byte");
+});
+
+// T0-TOOLING-1 (review m-a): section 6 of the harness runbook names every check scripts/verify-harness.mjs runs.
+// killer: docs/RUNBOOK-harness.md:186 CONST "`origin_403_api`" -> "`origin_api`"
+test("srf_runbook_harness_names_every_check — the 15 checks of the script, each by its name", () => {
+  const script = read("scripts", "verify-harness.mjs");
+  const names = [...script.matchAll(/(?:wiredCheck|httpCheck)\("(\w+)"/g), ...script.matchAll(/\["(gate_\w+_call)", GATE_\w+_BODY,/g)].map((m) => m[1] ?? "");
+  assert.equal(names.length, 15, "premise: the script runs 15 checks");
+  const runbook = read("docs", "RUNBOOK-harness.md");
+  assert.deepEqual(names.filter((n) => !runbook.includes(`\`${n}\``)), [], "a check the runbook does not name");
+});
+
