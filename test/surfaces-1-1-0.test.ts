@@ -192,11 +192,13 @@ test("srf_runbook_harness_names_every_check — the 15 checks of the script, eac
   assert.deepEqual(names.filter((n) => !runbook.includes(`\`${n}\``)), [], "a check the runbook does not name");
 });
 
-/** The lines of the T0 section, from its dated line to the next heading, that are neither empty nor a numbered act: a
- *  continuation line or a sub-bullet would carry a command the order test does not pin (delta G2 D-2). */
+/** The lines of the T0 section, under its heading, that are neither empty nor a numbered act: a continuation line, a
+ *  sub-bullet or a second dated line would carry a command the order test does not pin (delta G2 D-2). Only the section's
+ *  FIRST line is exempt, and only as a dated line with no code span (delta2 G2 E-1). */
 function strayT0Lines(text: string): string[] {
   const from = text.indexOf("\n## Ordre de T0"), next = text.indexOf("\n## ", from + 1);
-  return text.slice(from, next < 0 ? undefined : next).split("\n").slice(2).filter((l) => l.trim() !== "" && !/^\d+\. /.test(l) && !/^Ligne dat\u00e9e /.test(l));
+  const [first = "", ...rest] = text.slice(from, next < 0 ? undefined : next).split("\n").slice(2).filter((l) => l.trim() !== "");
+  return [...(/^Ligne dat\u00e9e /.test(first) && !first.includes("`") ? [] : [first]), ...rest.filter((l) => !/^\d+\. /.test(l))];
 }
 
 // T0-TOOLING-1 (review B-3, m-g; G2 N-5, N-6; delta G2 D-1, D-2, D-4 resumption): the T0 section of the storefront runbook names the nine acts in order, each
