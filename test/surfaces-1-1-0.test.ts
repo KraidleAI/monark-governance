@@ -200,7 +200,9 @@ test("srf_runbook_harness_names_every_check — the 15 checks of the script, eac
 test("srf_runbook_vitrine_t0_order — deploy, green CA, harness, Narabi and ukemi syncs, re-pin, site, spec, release", async () => {
   const harness = await import("../scripts/sync-harness-served.mjs"), ukemi = await import("../scripts/sync-ukemi-served.mjs");
   const narabi = (await import(new URL("../scripts/sync-narabi-served.mjs", import.meta.url).href)) as { OUT_REL: string };
-  const { PIN_TEST_REL } = await import("../scripts/repin-served.mjs");
+  const repin = await import("../scripts/repin-served.mjs").catch(() => null);
+  assert.ok(repin !== null, "scripts/repin-served.mjs, act 6, exists");
+  const { PIN_TEST_REL } = repin;
   const { parseArgs } = (await import(new URL("../scripts/verify-harness.mjs", import.meta.url).href)) as { parseArgs: (a: string[]) => { out: string | null } };
   const text = read("docs", "RUNBOOK-vitrine.md");
   const at = text.indexOf("\n## Ordre de T0");
