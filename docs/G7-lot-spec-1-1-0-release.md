@@ -65,3 +65,61 @@ Le texte de la spécification n'est pas encore dans la liste : le manifeste chan
 
 - **VERIFIERS-LIST-F5A-1** : non touché par cette version (aucune ligne kata, `recompute` nul sur les lignes marginales). Il vaut toutefois pour toute ligne kata avec `recompute`, pas seulement pour la vague 2 (G0 §7).
 - **Dernier pas** : une entrée `{"out": "CONTRACT-1.1.0.md", "root": "recherches", "path": "kata/spec/CONTRACT-1.1.0.md", "kind": "text", "sha256": …}`, avec son test (R-1 étendu), puis le rejeu.
+
+## Repli de la G2 (partie a)
+
+Rapport : `docs/G2-lot-spec-1-1-0-release-a.md`. Verdict **non bloquant**. Tout est replié, mineurs compris (règle « pas de dette » du fondateur). Les décisions de MONARK sont au bloc daté §8 du G0. Ce bloc remplace, là où ils diffèrent, les chemins, les empreintes et les mesures des sections précédentes.
+
+### Commits (sans réécriture : ni amend, ni rebase)
+
+| Branche | Tête | Commits du repli |
+|---|---|---|
+| `-a` | `4ff932be` | tests `9958d812` ; gel `d526d629` ; G0 §8 et rapport G2 `4ff932be` |
+| `-b` | ce G7, sur la fusion `faed7218` | fusion de `-a` `67cbb7b5` ; tests `2dd90163` ; gel `a3af81d0` ; `ETAT.md` `4d4375b4` ; texte 1.1.0 (test `57f892d2`, entrées `83357af4`) ; fusion de `-a` `faed7218` |
+
+### Constats repliés
+
+| Constat | Repli |
+|---|---|
+| N-1 | Sorties versionnées : `contract-1.1.0/{schemas,policy}/…`, `contract-1.1.0/CONTRACT.md`, `contract-1.1.0/vectors-1.1.0.json`. `$id` en `…/raw/main/contract-1.1.0/schemas/<nom>.schema.json`, qui passe `URL_ALLOW`. Test Ajv 2020 : les 5 copies chargées ensemble valident une `GateDecision` servie (et refusent un `alpha` altéré à travers le `$ref`), et valident les 35 tables. |
+| N-2 | Point d'entrée par chemin réel, casse repliée sous win32, dans l'écrivain et dans `spec-publish.mjs:243`. Deux tests lancent chaque script par un lien symbolique, avec un saut nommé sous win32 sans privilège. |
+| N-3 | `tableText` refuse une ligne dont `recompute` est non nul, en nommant VERIFIERS-LIST-F5A-1. Ligne datée dans `docs/ETAT.md` : le déclencheur devient la première ligne publiée qui porte un `recompute`. |
+| N-4 | `, never an investment return or income paid to anyone.` : 0 problème. |
+| M-1 | Les 5 sha256 des copies sont épinglés dans la partie a. Le tueur K3 de la G2 (texte remplacé, copie régénérée) est tué. |
+| M-2 | `--check` parcourt tout `spec/contract-1.1.0/`. |
+| M-3 | `--write` écrit des temporaires puis renomme ; il les retire en cas d'échec ; une seule ligne `REFUSED` et la sortie 1. |
+| M-4 | `spec section N` devient `contract-1.1.0/CONTRACT.md section N` (5, 10, 13 : titres vérifiés dans le texte). |
+| M-5 | G0 et G7 parlent désormais de « 0 problème au sens de `contentProblems` ». `checkPublicText` brut ne voit, par copie, que l'URL du méta-schéma du `$schema`, que `spec-publish` excepte. |
+| M-6 | La partie a n'écrit et ne contrôle que les schémas (5 fichiers ; LF épinglé). La partie b ajoute les tables (40 fichiers). |
+| F-1 (texte 1.1.0) | `tableText` refuse toute ligne de n ≤ 30 (SHORT-DIGEST-INVERSION-1, §10 du texte). Une empreinte ne dit pas si ses points valent 0/1, donc la garde couvre plus que la promesse. La garde vit en `-b`, avec les tables (M-6). |
+
+`spec-publish.mjs` admet aussi une table rangée sous un répertoire de version : `[<version>/]policy/<class>.json`, sur la même ligne.
+
+### Texte 1.1.0
+
+Il est déclaré par deux entrées de racine `recherches`, toutes deux épinglées et à 0 problème :
+- `contract-1.1.0/CONTRACT.md`, source `kata/spec/CONTRACT-1.1.0.md`, sha256 `642ac97e…bfbca0` ;
+- `contract-1.1.0/vectors-1.1.0.json`, source `kata/spec/vectors-1.1.0.json`, sha256 `1210637f…c347`.
+
+Si la G2 du texte change un octet, seuls ces deux sha256 et le test bougent.
+
+### Oracle
+
+- **red-proof** `--base 597a986d --seed 37` :
+  - `-a` au gel `4ff932be`, `--draw 5` : **OK**. 5 F2P, 5 tués. `RED-PROOF.json` `ee631ca97d2c8a3c…`.
+  - `-b` à `faed7218`, `--draw 10` : **OK**. 10 F2P, 10 tués. `RED-PROOF.json` `82f4db453046e24c…`.
+- **Tueurs tirés à la main**, avec sha256 vérifié avant et après chaque restauration : 6/6 tués sur `-a` (K3 de la G2 compris), 11/11 sur `-b`.
+- **R-25** :
+
+  | Branche | Contre | Mesure |
+  |---|---|---|
+  | `-a` | `8aea2299` | **537** (+536/−1) |
+  | `-b` | `-a` (`4ff932be`) | **212** (+197/−15) |
+  | les deux | `8aea2299` | 723 |
+
+  Chaque branche reste sous 547.
+- **Ancres** : `-a` 5/5, `-b` 10/10 ANCRE ; 0 DERIVE, 0 PERDU.
+- **Contrôles statiques** : `tsc`, eslint du test, `lint:ratchet` 69/69, `gate:vocab`, `lang:gate` et `export:check` verts.
+- **Tests touchés** : `spec-1-1-0-release`, `spec-publish`, `contracts-frozen`, `export-public` hors test 42 et `public-text-deny` : 36/36.
+- **Octets servis** : `buildOpenApi()` vaut `61c9df97…8ccbf0`, inchangé. Hors `spec/`, `docs/`, le test du lot et `scripts/spec-*`, rien n'est touché.
+- **Rejeu hors ligne** (`previous` = clone propre de `ddfee9e`, `recherches` = clone local, `--out` temporaire) : **48 fichiers** ; `MANIFEST.sha256` `ec5c4fa8…0bb9` ; `sha256sum -c --strict` vert ; aucun `withdrawn`.
