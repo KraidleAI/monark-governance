@@ -364,7 +364,8 @@ test("verify_harness_out_is_written_only_when_every_check_passes", { timeout: 30
     const host = ["--api-host", "api.monarkgate.tech", "--out", out], plain = `http://127.0.0.1:${String(portOf(server))}`;
     const local = await runCa(["--api", plain, "--mcp", plain, ...host]);
     assert.equal(local.code, 0, `a green http run exits 0 (stderr: ${local.stderr.slice(0, 200)})`);
-    assert.equal(readFileSync(`${out}.local`, "utf8"), `${local.stdout.trimEnd()}\n`, "a green run with a host not TLS-checked goes to <out>.local");
+    assert.ok(existsSync(`${out}.local`), "a green run with a host not TLS-checked writes <out>.local");
+    assert.equal(readFileSync(`${out}.local`, "utf8"), `${local.stdout.trimEnd()}\n`, "that run's record goes to <out>.local");
     const red = await runCa(["--api", "http://127.0.0.1:1", "--mcp", "http://127.0.0.1:1", "--out", out]);
     assert.equal(red.code, 1, "a red run exits 1");
     assert.equal(readFileSync(`${out}.failed`, "utf8"), `${red.stdout.trimEnd()}\n`, "the failing record goes to <out>.failed");
