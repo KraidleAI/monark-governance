@@ -5,7 +5,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { createServer as createHttpServer } from "node:http";
-import { connect, createServer, type Server } from "node:net";
+import { connect, createServer, type Server, type Socket } from "node:net";
 import { closedPort, drawPort, listen, LOWEST, startLoopback, TRIES } from "./helpers/loopback.ts";
 
 const close = (server: Server): Promise<void> => new Promise<void>((done) => { server.close(() => { done(); }); });
@@ -98,4 +98,37 @@ test("loopback_listen_leaves_no_listener_behind", async () => {
     await assert.rejects(listen(refused, scripted(taken, Infinity).draw), { message: "no free loopback port above 10080 in 50 tries" });
     assert.deepEqual([counts(server), counts(refused)], [[0, 0], [0, 0]], "no listener left after a listen, nor after the named failure");
   } finally { await close(server); await close(busy); }
+});
+
+// reddened by: the port of a closed server drawn again (no port retired, or the listening check removed). A port retired at its bind
+// instead reddens loopback_start_takes_a_fresh_server_per_try (its busy port, still open, would never be tried).
+test("loopback_listen_never_draws_the_port_of_a_closed_server_again", async () => {
+  // lot COINBASE-LOOPBACK-FLAKE-1: fetch keeps an idle keep-alive socket of a closed server in its pool, and a new server on the same
+  // port would get its first request on that dead socket (ECONNRESET; the helper's header). No fetch here: on win32, a forced exit of
+  // the test runner while V8 still tiers up fetch's WebAssembly parser aborts the process (measured, item FORCE-EXIT-WASM-TIERUP-1).
+  const old = createServer(), port = await listen(old);
+  await close(old);
+  const fresh = createServer(), s = scripted(port, 1), next = await listen(fresh, s.draw);
+  try {
+    assert.notEqual(next, port, "the port of the closed server is not drawn again");
+    assert.ok(s.calls() >= 2, `the old port offered first, then another one: ${String(s.calls())} draws`);
+  } finally { await close(fresh); }
+});
+
+// reddened by: a port retired only at the close event of its server, which an open connection holds back, or no port retired
+test("loopback_listen_never_draws_the_port_of_a_server_that_stopped_listening", async () => {
+  // lot COINBASE-LOOPBACK-FLAKE-1, B-1 of its G2: close() frees the port at once, but the close event waits for the open connections.
+  // A connection still open (a keep-alive socket of fetch's pool, here a plain one) must not let the port be drawn again meanwhile.
+  const old = createServer(), port = await listen(old);
+  const accepted = new Promise<Socket>((done) => { old.once("connection", done); }), client = connect(port, "127.0.0.1");
+  const conn = await accepted;
+  old.close();
+  const oldClosed = new Promise<void>((done) => { old.once("close", () => { done(); }); });
+  const fresh = createServer(), s = scripted(port, 1);
+  try {
+    const next = await listen(fresh, s.draw);
+    assert.deepEqual([old.listening, client.destroyed], [false, false], "the old server no longer listens, its connection is still open");
+    assert.notEqual(next, port, "the port of a server that stopped listening is not drawn again before its close event");
+    assert.ok(s.calls() >= 2, `the old port offered first, then another one: ${String(s.calls())} draws`);
+  } finally { client.destroy(); conn.destroy(); await oldClosed; await close(fresh); }
 });
