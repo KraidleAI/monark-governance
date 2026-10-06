@@ -24,7 +24,8 @@
 // AND every host contacted (api and mcp) passed a real, authorized TLS handshake (T0-TOOLING-1 and its G2): a red run
 // writes FILE.failed, a green run on an http target (TLS not checked) writes FILE.local; neither touches FILE, the last
 // green record. Every request and handshake is bounded by --timeout MS (default 10000); a timeout is a failed check. An
-// unknown, repeated or empty option is refused by name (exit 2) before any request. The per-check sha256 pins the bytes.
+// unknown, repeated or empty option, an --api or --mcp that is not an http(s) URL and a timeout above 2^31-1 ms are
+// refused by name (exit 2) before any request. The per-check sha256 pins the bytes.
 import { createHash } from "node:crypto";
 import { connect as tlsConnect } from "node:tls";
 import { request as httpRequest } from "node:http";
@@ -136,10 +137,11 @@ export function parseArgs(argv) {
     if (seen.has(flag)) throw new Error(`option ${flag} given twice`);
     if (value === undefined || value.startsWith("--") || value.trim() === "") throw new Error(`option ${flag} needs a value`);
     seen.add(flag);
+    if (["--api", "--mcp"].includes(flag) && !/^https?:$/.test(URL.canParse(value) ? new URL(value).protocol : "")) throw new Error(`option ${flag} needs an http(s) URL`);
     a[OPTIONS[flag]] = value;
   }
   a.timeout = Number(a.timeout);
-  if (!Number.isSafeInteger(a.timeout) || a.timeout <= 0) throw new Error("option --timeout needs a positive integer of milliseconds");
+  if (!Number.isSafeInteger(a.timeout) || a.timeout <= 0 || a.timeout > 2147483647) throw new Error("option --timeout needs a positive integer of milliseconds, at most 2147483647");
   return a;
 }
 let TIMEOUT_MS = 10000; // set from --timeout by main(): every fetch, wired request and TLS handshake is bounded by it
@@ -152,7 +154,7 @@ export function recordKind(failed, tlsBlocks) {
 }
 /** Write `text` to `path` through `<path>.tmp` and a rename (bounded retry on a win32 EPERM/EBUSY): never a torn record. */
 export function writeAtomic(path, text) {
-  writeFileSync(`${path}.tmp`, text);
+  try { writeFileSync(`${path}.tmp`, text); } catch (error) { rmSync(`${path}.tmp`, { force: true }); throw error; } // no temp left (G2 delta D-5)
   for (let i = 0; ; i++) {
     try {
       renameSync(`${path}.tmp`, path);
