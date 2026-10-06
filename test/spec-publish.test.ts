@@ -343,21 +343,57 @@ test("an_unreadable_published_object_is_refused_never_read_as_empty", async () =
   assert.deepEqual(got, ["previous_blob_missing"], "an unreadable published object is refused by name, it neither throws nor reads as empty");
 });
 
+/** plan(request) in a child node process, whose environment GIT_ENV takes at import: its exit status, the problems as JSON, stderr. */
+const planInChild = (request: unknown, env: NodeJS.ProcessEnv): { status: number | null; stdout: string; stderr: string } => {
+  const code = "const m = await import(process.argv[1]); process.stdout.write(JSON.stringify(m.plan(JSON.parse(process.argv[2])).problems));";
+  return spawnSync(process.execPath, ["--input-type=module", "-e", code, pathToFileURL(SCRIPT).href, JSON.stringify(request)], { encoding: "utf8", env: { ...process.env, ...env } });
+};
+
 // G2 T-3 of T0-FOLLOWUP-1: each object of previous_commit is read once per plan. A previous entry published under its own path is
 // wanted by the entry, by the "carried" check and by the rewritten check: one cat-file, counted in git's own trace2 events (a child
-// process, so that GIT_ENV takes GIT_TRACE2_EVENT at import; no wrapper, any OS).
+// process, so that GIT_ENV takes GIT_TRACE2_EVENT at import; no wrapper, any OS). Only top-level git processes count (a sid without
+// "/": a child's sid carries its parent's as a prefix), so a trace2-instrumented launcher that re-runs git logs one read, not two;
+// GIT_TRACE2_PARENT_SID is dropped so that a caller under trace2 does not make every process a child (G2 A-3).
 // killer: scripts/spec-publish.mjs:171 CONST "if (!objects.has(k)) " -> ""
 test("each_object_of_the_previous_commit_is_read_once", async () => {
   await api();
   const c = contractWorld("previous"), trace = join(fresh(), "t2.json"), request = { inputs: c.inputs, release: "v", date: "2026-10-02", roots: c.w.roots };
   mkdirSync(dirname(trace), { recursive: true });
-  const code = "const m = await import(process.argv[1]); process.stdout.write(JSON.stringify(m.plan(JSON.parse(process.argv[2])).problems));";
-  const r = spawnSync(process.execPath, ["--input-type=module", "-e", code, pathToFileURL(SCRIPT).href, JSON.stringify(request)], { encoding: "utf8", env: { ...process.env, GIT_TRACE2_EVENT: trace } });
+  const r = planInChild(request, { GIT_TRACE2_EVENT: trace, GIT_TRACE2_PARENT_SID: undefined });
   assert.equal(r.status, 0, r.stderr);
   assert.equal(r.stdout, "[]", "premise: the release plans");
   const reads = (existsSync(trace) ? readFileSync(trace, "utf8") : "").split("\n").flatMap((l) => {
-    try { const e = JSON.parse(l) as { event?: unknown; argv?: unknown }; return e.event === "start" && Array.isArray(e.argv) && e.argv.includes("cat-file") ? [String(e.argv.at(-1))] : []; } catch { return []; }
+    try {
+      const e = JSON.parse(l) as { event?: unknown; sid?: unknown; argv?: unknown };
+      return e.event === "start" && typeof e.sid === "string" && !e.sid.includes("/") && Array.isArray(e.argv) && e.argv.includes("cat-file") ? [String(e.argv.at(-1))] : [];
+    } catch { return []; }
   });
   assert.ok(reads.some((x) => x.endsWith(":contract-1.0.0/t.md")), "premise: the trace sees the object reads");
   assert.deepEqual(reads.filter((x, i) => reads.indexOf(x) !== i), [], "no object of previous_commit is read twice");
+});
+
+// G2 T-8 of T0-FOLLOWUP-1: spec-publish run from a pre-commit hook of a linked worktree inherits the hook's GIT_DIR and an absolute
+// GIT_INDEX_FILE. Each git call of the plan names its tree with -C <previous>; a repository-location variable inherited from the
+// caller never stands in for it (before: previous_blob_missing, previous_commit or previous_dirty, a false refusal). The caller's
+// configuration (GIT_CONFIG_*) still reaches git: a -c safe.directory is honoured. A child process each, since GIT_ENV is fixed at import.
+// killer: scripts/spec-publish.mjs:159 CONST "^GIT_(?:DIR|" -> "^GIT_(?:CONFIG_COUNT|DIR|"
+// killer: scripts/spec-publish.mjs:159 CONST "!GIT_LOCATION.test(k)" -> "true"
+test("a_caller_s_git_location_never_stands_in_for_the_previous_tree", async () => {
+  await api();
+  const c = contractWorld("previous"), request = { inputs: c.inputs, release: "v", date: "2026-10-02", roots: c.w.roots };
+  const other = fresh(), dotGit = join(other, ".git"), index = join(dotGit, "index");
+  put(other, "KATA-SPEC.md", "another repository\n"); git(other, "init", "-q"); commit(other);
+  const cases: Record<string, NodeJS.ProcessEnv> = {
+    "a pre-commit hook of a linked worktree": { GIT_DIR: dotGit, GIT_INDEX_FILE: index },
+    GIT_DIR: { GIT_DIR: dotGit },
+    GIT_OBJECT_DIRECTORY: { GIT_OBJECT_DIRECTORY: join(dotGit, "objects") },
+    GIT_WORK_TREE: { GIT_WORK_TREE: other },
+    GIT_INDEX_FILE: { GIT_INDEX_FILE: index },
+  };
+  const got = Object.fromEntries(Object.entries(cases).map(([why, env]) => { const r = planInChild(request, env); return [why, r.status === 0 ? r.stdout : `exit ${String(r.status)}: ${r.stderr}`]; }));
+  assert.deepEqual(got, Object.fromEntries(Object.keys(cases).map((why) => [why, "[]"])), "another repository named by the environment is never read in place of -C <previous>");
+  const owner = { GIT_TEST_ASSUME_DIFFERENT_OWNER: "1" }; // git's own switch (2.35.2+): the tree is taken for another user's
+  assert.notEqual(planInChild(request, owner).stdout, "[]", "premise: git refuses a tree it takes for another user's");
+  const r = planInChild(request, { ...owner, GIT_CONFIG_COUNT: "1", GIT_CONFIG_KEY_0: "safe.directory", GIT_CONFIG_VALUE_0: "*" });
+  assert.equal(r.stdout, "[]", `the caller's -c safe.directory (GIT_CONFIG_*) reaches git: ${r.stderr}`);
 });
