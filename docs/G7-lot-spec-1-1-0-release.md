@@ -123,3 +123,68 @@ Si la G2 du texte change un octet, seuls ces deux sha256 et le test bougent.
 - **Tests touchés** : `spec-1-1-0-release`, `spec-publish`, `contracts-frozen`, `export-public` hors test 42 et `public-text-deny` : 36/36.
 - **Octets servis** : `buildOpenApi()` vaut `61c9df97…8ccbf0`, inchangé. Hors `spec/`, `docs/`, le test du lot et `scripts/spec-*`, rien n'est touché.
 - **Rejeu hors ligne** (`previous` = clone propre de `ddfee9e`, `recherches` = clone local, `--out` temporaire) : **48 fichiers** ; `MANIFEST.sha256` `ec5c4fa8…0bb9` ; `sha256sum -c --strict` vert ; aucun `withdrawn`.
+
+## Repli des G2 (delta a, b)
+
+Rapport : `docs/G2-lot-spec-1-1-0-release-delta-a-et-b.md`. Les deux parties sont **non bloquantes**, et tout est replié (règle « pas de dette »).
+- Tous les commits sont sur `-b`. `-a` reste à `4ff932be`, soit 537 lignes R-25 pour une borne de 547 (M-3 b).
+- Aucune réécriture d'historique.
+
+### Commits
+
+| Commit | Contenu |
+|---|---|
+| `12a7ff7f` | tests rouges |
+| `7872ed0f` | gel : porte, écrivain, déclaration |
+| `4777cfbf` | test du répertoire de version `contract-<x.y.z>` |
+| `921a3dbd`, `4c61e1f2` | tests rendus rouges par assertion à la base, et non par import ou ENOENT ; demandé par red-proof |
+| commit suivant | `ETAT.md` et rapport de G2 |
+| ce commit | ce G7 |
+
+### Constats repliés
+
+| Constat | Repli |
+|---|---|
+| b N-1 | Les deux gardes vivent dans la porte : `tableRowProblems` de `spec-publish.mjs`, codes `short_digest` et `recompute_held`. `contentProblems` l'applique à toute entrée `policy-table`, quelle que soit sa racine, et `tableText` de l'écrivain appelle la même fonction. Les sondes de la G2 (`hack.mjs`, table modifiée à la main puis réépinglée), rejouées sur la déclaration réelle, sont refusées, sortie **1**, avec un seul problème chacune : `short_digest` et `recompute_held`. Un test refait les deux sondes, par `plan` et par la CLI. |
+| b M-1 | La règle « courte » refuse une ligne si `n` ≤ 30, si `p_served` ≤ 30, ou si `aux_sha256` ou `series_sha256` est non nul (la ligne n'écrit pas le nombre de points de ces deux empreintes). Elle tient la promesse du §10 à `3712fc8` : « No published table file carries a row of 30 points or fewer ». |
+| b N-2 | `expectedFiles(root, tables)` : un test passe par `expectedFiles` une table de n 30, puis une table avec un `recompute`. Le tueur Kb2 (`tableText` → `canonicalJson`) est tué. |
+| a N-1 | Appariement fermé `^(?:(contract-\d+\.\d+\.\d+)/)?policy/([^/]+)\.json$`. Le répertoire, s'il est présent, doit égaler l'identifiant de la version. Sont refusés : `policy/policy/…`, `.../policy/…`, `-/policy/…`, `reports/policy/…`, `contract-9.9.9/policy/…`, `../policy/…`, `…/policy/x/…`, une autre classe, et `kata-wave1/policy/…` sur `kata-wave1`. |
+| a N-2 | Nouveau code `rewritten` dans `plan` : un fichier de l'arbre `previous` rangé sous `contract-*/` et republié avec d'autres octets est refusé. `KATA-SPEC.md`, à la racine, reste révisable. Test sur un arbre `previous` fabriqué. |
+| a M-1 | `--write` écrit tous les temporaires, puis renomme. Si un renommage échoue, il rend leurs octets précédents aux fichiers déjà remplacés. Le test injecte un échec au dernier renommage (le 40e) : les 39 fichiers remplacés reviennent à leurs octets d'avant. |
+| b M-4 | `okPath` refuse tout segment fait de points seuls (`...`, `....`). |
+| b N-3 | Le texte, les vecteurs et le README racine sont commités dans le dépôt de recherche, à `3712fc8`, et la déclaration les épingle : `b02b0599…`, `190b9fd8…` (vecteurs sur une ligne) et `71f64c8a…` (sortie `README.md`). |
+| M-3 b | Tout dans `-b`. `-a` doit être fusionnée par un vrai commit de fusion avant que `-b` soit ouverte contre le tronc. |
+
+### b M-2 : lignes du texte à aligner (dépôt de recherche, non modifié ici)
+
+À `3712fc8`, `kata/spec/CONTRACT-1.1.0.md` :
+- l.22 et §10 l.350 disent déjà « in this directory » : alignés.
+- l.441 « Rows are added, superseded and retired only by new table files. » et §15 l.587 « add, supersede or retire policy table rows, and add classes, by new table files; » contredisent a N-2 : un fichier `contract-1.1.0/policy/<classe>.json` n'est plus jamais réécrit.
+
+  Proposition pour l.587 : « …and add classes, by table files published under a new directory of this repository (a file under `contract-1.1.0/` is never rewritten); ». Le texte de l.441 serait à aligner de même.
+
+  La forme du nouveau répertoire (version datée, ou `contract-1.1.0/policy-<date>/`) est à trancher par MONARK. Elle détermine aussi ce que le serveur sert après une recalibration.
+- l.449 « A table file published in this repository is never withdrawn. » : proposition « …is never withdrawn and never rewritten. »
+
+### Oracle
+
+- **red-proof** `-b` `--base 597a986d --gel 4c61e1f2 --draw 16 --seed 37` : **OK**.
+  - 15 tests jugés, 15 tueurs tirés, 15 tués. Les 14 tests de `spec-publish.test.ts`, dont seules les lignes de tueur ont bougé, sont « unchanged ».
+  - `RED-PROOF.json` `7e062077c5ad480e…`.
+  - Deux refus intermédiaires sont corrigés : `tableRowProblems` importé statiquement, et `ENOENT` à la base.
+- **Tueurs tirés à la main** (sha256 vérifié avant et après) : 20/20 tués.
+  - Les 15 tueurs déclarés, plus K3 de la G2 et quatre tueurs supplémentaires : restauration de `--write`, `p_served`, `aux_sha256`, et l'élargissement du groupe de version.
+  - Ce dernier survivait d'abord : il est tué par le test `kata-wave1` (`4777cfbf`).
+- **R-25** :
+
+  | Branche | Contre | Mesure |
+  |---|---|---|
+  | `-b` | `-a` (`4ff932be`) | **392** (+346/−46) |
+  | les deux | `8aea2299` | 885 |
+
+  `-a` reste à 537.
+- **Ancres** : 29 tueurs, ANCRE 29, DERIVE 0, PERDU 0. Les lignes des tueurs de `spec-publish.test.ts` suivent le code déplacé.
+- **Contrôles statiques** : `tsc`, eslint (les deux tests), `lint:ratchet` 69/69, `gate:vocab`, `lang:gate` et `export:check` verts.
+- **Tests touchés** : `spec-1-1-0-release`, `spec-publish`, `contracts-frozen`, `export-public` hors test 42 et `public-text-deny` : 41/41.
+- **Octets servis** : `/openapi.json` en processus vaut `61c9df97…8ccbf0`. Hors `spec/`, `docs/`, `test/spec-*` et `scripts/spec-*`, rien n'est touché.
+- **Rejeu hors ligne** (`previous` = clone propre de `ddfee9e`, `recherches` = clone local à `54fd670`, qui contient `3712fc8`) : **49 fichiers** ; `MANIFEST.sha256` `509283bd1189d0b79614a9aa1da4b2a921a4abc7883af793f2bac244ccfe8b6f` ; `sha256sum -c --strict` vert ; aucun `withdrawn` ni `rewritten`.
