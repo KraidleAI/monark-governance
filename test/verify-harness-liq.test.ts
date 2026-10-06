@@ -12,7 +12,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { execFile } from "node:child_process";
-import { existsSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, mkdtempSync, readdirSync, readFileSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -42,7 +42,7 @@ const COMMITTED_CLAUSE = `the served region is ${LIQ_UPPER_BOUND_SENTENCE}; ${LI
 // (the script stays zero-dependency; motif site_ukemi_copy_equals_served_liq_text): the five liq sentences of gate.ts,
 // the scores_sha256 pin and size of s0 in calibration.ts, the first served cut of ukemi-strata.ts; the two compositions
 // are the gate module's own. Mutant: one character changed in any literal => red.
-// killer: scripts/verify-harness.mjs:97 CONST "a927722276941a4f" -> "e7e673664c03e3c5"
+// killer: scripts/verify-harness.mjs:98 CONST "a927722276941a4f" -> "e7e673664c03e3c5"
 test("verify_harness_liq_literals_equal_served_constants", () => {
   const text = readFileSync(SCRIPT, "utf8");
   const literals: ReadonlyArray<readonly [string, string]> = [
@@ -70,7 +70,7 @@ test("verify_harness_liq_literals_equal_served_constants", () => {
 // (1b) UKEMI-PENDING-1 (MONARK e9cd32b, Q-UP-2): the CA bodies speak the version of this tree's harness. One constant,
 // CA_SCHEMA_VERSION, equal to SCHEMA_VERSION of gate.ts (the script stays zero-dependency, so this parity is the pin);
 // the two exported bodies carry it. Block C moved both in one line each (lot CM-3c-3c); one moved alone => red.
-// killer: scripts/verify-harness.mjs:44 CONST "1.1.0" -> "1.0.0"
+// killer: scripts/verify-harness.mjs:45 CONST "1.1.0" -> "1.0.0"
 test("verify_harness_ca_schema_version_equals_the_harness_schema_version", async () => {
   const ca = (await import(new URL("../scripts/verify-harness.mjs", import.meta.url).href)) as unknown as { CA_SCHEMA_VERSION?: unknown; GATE_BODY: { prediction: { schema_version: unknown } }; GATE_LIQ_BODY: { prediction: { schema_version: unknown } } };
   assert.equal(ca.CA_SCHEMA_VERSION, SCHEMA_VERSION, "CA_SCHEMA_VERSION of the CA is the SCHEMA_VERSION the harness accepts");
@@ -119,7 +119,7 @@ const GREEN = {
 // uncommitted body put in s0 => red.
 // CM-2b surfaces: 15 checks; the gate body is the committed USDe key, and two 400 checks carry their code (btc-dir-15m
 // retired: task_class_retired; produced_at in 2099: produced_at_future, MONARK C-8).
-// killer: scripts/verify-harness.mjs:317 CONST "got === code" -> "got !== code"
+// killer: scripts/verify-harness.mjs:319 CONST "got === code" -> "got !== code"
 test("verify_harness_ca_passes_on_the_in_process_harness", async () => {
   const server: HttpServer = await startLoopback((port) => startServer(port));
   try {
@@ -250,13 +250,16 @@ const shut = (s: HttpServer): Promise<void> => {
 // O-1b-G2-2 (duration of this test, G2 HARNESS-DESC-1-1b): 17 CA runs here (16 vectors and the crash run; about 0.2 s each
 // idle, measured up to ~10 s each under a loaded full suite for the former 4); the per-test timeout keeps a margin over
 // the suite's 120 s default.
-// killer: scripts/verify-harness.mjs:408 CONST " && digest === calibrateScoresSha256;" -> ";"
+// killer: scripts/verify-harness.mjs:410 CONST " && digest === calibrateScoresSha256;" -> ";"
 test("verify_harness_ca_liq_checks_red_on_overclaiming_surfaces", { timeout: 300000 }, async () => {
   // M-4 (second exitCode site, main().catch): an unparsable --api throws in `new URL` before any request (the --mcp is a
   // closed local port, never a public host): no CA on stdout, the crash named on stderr, exit exactly 1.
-  const crash = await runCa(["--api", "not a url", "--mcp", "http://127.0.0.1:1"]);
+  // Since the delta G2 of T0-TOOLING-1 (D-6) a malformed URL is a named refusal (exit 2); the crash vector is a record that
+  // cannot be written (its directory is absent): exit 1, the crash named with the side record's own path.
+  const absent = join(mkdtempSync(join(tmpdir(), "verify-harness-crash-")), "absent", "ca.json");
+  const crash = await runCa(["--api", "http://127.0.0.1:1", "--mcp", "http://127.0.0.1:1", "--out", absent]);
   assert.equal(crash.code, 1, `a crashed CA exits 1 (stderr: ${crash.stderr.slice(0, 200)})`);
-  assert.ok(crash.stdout === "" && crash.stderr.includes("verify-harness crashed:"), "a crashed CA writes no CA and names the crash on stderr");
+  assert.ok(crash.stderr.includes("verify-harness crashed:") && crash.stderr.includes(`${absent}.failed`), "a crashed CA names the crash and the record it could not write on stderr");
   const both = ["gate_liq_call", "mcp_gate_description_liq"];
   const liqPlus = (desc: string, u: string, l = GREEN.liq): string => `${l} | ${u} | ${desc}`;
   const EMPTY_DESC = "status=200 committed_clause=false empty_registry_sentence=true";
@@ -350,7 +353,7 @@ function tlsFront(port: number, pem: { key: string; cert: string }): HttpServer 
 // NODE_EXTRA_CA_CERTS) writes --out and removes both side records, no temp file left; and a run whose mcp host serves an
 // untrusted certificate (the fetches let through by NODE_TLS_REJECT_UNAUTHORIZED=0, the handshake judged on its own) reds
 // on tls_mcp alone and keeps --out.
-// killer: scripts/verify-harness.mjs:151 CONST "tlsBlocks.every((t) => t.authorized === true)" -> "tlsBlocks.every((t) => t.authorized !== false)"
+// killer: scripts/verify-harness.mjs:153 CONST "tlsBlocks.every((t) => t.authorized === true)" -> "tlsBlocks.every((t) => t.authorized !== false)"
 test("verify_harness_out_is_written_only_when_every_check_passes", { timeout: 300000 }, async () => {
   const dir = mkdtempSync(join(tmpdir(), "verify-harness-out-")), out = join(dir, "ca.json"), trusted = selfSigned("api.test"), foreign = selfSigned("mcp.test");
   writeFileSync(join(dir, "trusted.pem"), trusted.cert);
@@ -387,7 +390,7 @@ test("verify_harness_out_is_written_only_when_every_check_passes", { timeout: 30
 
 // (5) T0-TOOLING-1 (review m-b, G2 N-1, N-2): an unknown, repeated or empty option, an option without its value, or a timeout
 // that is not a positive integer, is refused by name with exit 2 before any request. Every target is a closed local port.
-// killer: scripts/verify-harness.mjs:136 SDL "    if (seen.has(flag)) throw new Error(`option ${flag} given twice`);" -> ""
+// killer: scripts/verify-harness.mjs:137 SDL "    if (seen.has(flag)) throw new Error(`option ${flag} given twice`);" -> ""
 test("verify_harness_refuses_an_unknown_option", async () => {
   const dir = mkdtempSync(join(tmpdir(), "verify-harness-args-"));
   try {
@@ -397,6 +400,8 @@ test("verify_harness_refuses_an_unknown_option", async () => {
       [[...closed, "--out", ""], "option --out needs a value"], [[...closed, "--out", " "], "option --out needs a value"],
       [[...closed, "--out", ca, "--out", join(dir, "b.json")], "option --out given twice"], [[...closed, "--api", "http://127.0.0.1:2"], "option --api given twice"],
       [[...closed, "--timeout", "0"], "option --timeout needs a positive integer"],
+      [[...closed, "--timeout", "3000000000"], "at most 2147483647"], [["--api", "notaurl", "--mcp", "http://127.0.0.1:1"], "option --api needs an http(s) URL"],
+      [["--api", "http://127.0.0.1:1", "--mcp", "ftp://127.0.0.1:1"], "option --mcp needs an http(s) URL"],
     ] as const) {
       const r = await runCa([...args]);
       assert.equal(r.code, 2, `${args.join(" ")}: exit 2 (stderr: ${r.stderr.slice(0, 200)})`);
@@ -410,7 +415,7 @@ test("verify_harness_refuses_an_unknown_option", async () => {
 
 // (6) G2 M-3 of T0-TOOLING-1: every request is bounded by --timeout. Against an mcp host that accepts and never answers (the
 // api a closed port), the run ends within its bound, red, with the timed-out checks named and no --out written.
-// killer: scripts/verify-harness.mjs:170 CONST "{ ...init, signal: AbortSignal.timeout(TIMEOUT_MS) }" -> "init"
+// killer: scripts/verify-harness.mjs:172 CONST "{ ...init, signal: AbortSignal.timeout(TIMEOUT_MS) }" -> "init"
 test("verify_harness_bounds_every_request", { timeout: 300000 }, async () => {
   const dir = mkdtempSync(join(tmpdir(), "verify-harness-timeout-")), out = join(dir, "ca.json"), held: Socket[] = [];
   const silent = createTcpServer((socket) => { held.push(socket); });
@@ -436,10 +441,26 @@ test("verify_harness_bounds_every_request", { timeout: 300000 }, async () => {
 test("verify_harness_side_records_never_ship", async () => {
   const { STRUCTURAL_BLACKLIST } = (await import("../scripts/export-public.mjs")) as unknown as { STRUCTURAL_BLACKLIST: RegExp[] };
   const ignore = readFileSync(fileURLToPath(new URL("../.gitignore", import.meta.url)), "utf8").split("\n");
-  for (const side of ["failed", "local", "tmp"]) {
+  for (const side of ["failed", "local", "tmp", "failed.tmp", "local.tmp"]) {
     assert.ok(ignore.includes(`docs/deploy-CA-harness.json.${side}`), `.gitignore lists the CA's .${side} record`);
     for (const rel of [`fixtures/ca.json.${side}`, `schemas/x.json.${side}`]) assert.ok(STRUCTURAL_BLACKLIST.some((re) => re.test(rel)), `the export refuses ${rel}`);
   }
   assert.ok(!ignore.includes("*.failed"), "no global pattern: a .failed file elsewhere stays visible");
   assert.ok(!STRUCTURAL_BLACKLIST.some((re) => re.test("fixtures/manifest.json")), "an ordinary JSON file still ships");
+});
+
+// (8) Delta G2 of T0-TOOLING-1 (D-5): an atomic write whose temp write fails leaves no temp file. The temp path is made a
+// dangling link into an absent directory, so the write fails after the name exists; the link is removed with the failure.
+// killer: scripts/verify-harness.mjs:157 CONST "rmSync(`${path}.tmp`, { force: true }); throw error;" -> "throw error;"
+test("verify_harness_atomic_write_leaves_no_temp", async (t) => {
+  const { writeAtomic } = (await import(new URL("../scripts/verify-harness.mjs", import.meta.url).href)) as { writeAtomic?: (path: string, text: string) => void };
+  assert.equal(typeof writeAtomic, "function", "scripts/verify-harness.mjs exports writeAtomic");
+  const dir = mkdtempSync(join(tmpdir(), "verify-harness-atomic-")), out = join(dir, "ca.json");
+  try {
+    try { symlinkSync(join(dir, "absent", "x"), `${out}.tmp`); } catch { t.skip("no symlink right on this host"); return; }
+    assert.throws(() => writeAtomic?.(out, "x\n"), /ENOENT/, "the temp write fails");
+    assert.deepEqual(readdirSync(dir), [], "no temp file and no record left");
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
 });
