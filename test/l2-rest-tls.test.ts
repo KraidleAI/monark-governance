@@ -17,9 +17,9 @@ import { listen } from "./helpers/loopback.ts";
 import { trap } from "./l2-fake-place.ts";
 import type * as Rest from "../scripts/l2/rest.mjs";
 import { keepCause } from "./helpers/keep-cause.ts";
-keepCause("test/l2-rest-tls.test.ts"); before(() => { trap(); }); // a crash names its cause on stdout; a throw of trap(): 3 named reds (L2-KEEP-CAUSE-REST-1)
-const REAL = { fetch: globalThis.fetch, WebSocket: globalThis.WebSocket }; // read at load, before the trap of before()
-const outs: string[] = [], servers: Server[] = [], sockets = new Set<Duplex>();
+keepCause("test/l2-rest-tls.test.ts"); // a crash of this file names its cause on stdout, which the runner keeps (L2-KEEP-CAUSE-REST-1)
+const REAL = { fetch: globalThis.fetch, WebSocket: globalThis.WebSocket }; // read before the trap below: a root before() runs at once
+const outs: string[] = [], servers: Server[] = [], sockets = new Set<Duplex>(); before(() => { trap(); }); // fails: 3 named reds
 after(async () => {
   for (const s of sockets) s.destroy();
   for (const s of servers) { s.closeAllConnections(); await new Promise<void>((done) => { s.close(() => { done(); }); }); }
