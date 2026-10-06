@@ -117,12 +117,24 @@ async function main() {
     return;
   }
   if (same) {
-    console.log(`sync-narabi-served: unchanged — ${OUT_REL} already says what the sources say; nothing written.`);
+    let repaired;
+    try { repaired = repairNarabiEntry(ROOT); } catch (e) { fail(e instanceof Error ? e.message : String(e)); }
+    console.log(`sync-narabi-served: unchanged — ${OUT_REL} already says what the sources say; ${repaired ? "its stale manifest entry is set again" : "nothing written"}.`);
     return;
   }
   let sha;
   try { sha = writeNarabiServed(ROOT, facts, new Date().toISOString()); } catch (e) { fail(e instanceof Error ? e.message : String(e)); }
   console.log(`sync-narabi-served OK — ${OUT_REL} written; manifest entry set to ${sha} (CRLF->LF)`);
+}
+
+/** The manifest entry of the committed record under `root` set to the record's own sha256 when it differs (an interrupted or
+ *  hand-edited manifest); true when it wrote. */
+export function repairNarabiEntry(root) {
+  const sha = sha256(Buffer.from(readFileSync(join(root, OUT_REL), "utf8").replace(/\r\n/g, "\n"), "utf8"));
+  const text = readFileSync(join(root, MANIFEST_REL), "utf8"), next = setManifestEntry(text, OUT_REL, sha);
+  if (next === text) return false;
+  writeFileSync(join(root, MANIFEST_REL), next);
+  return true;
 }
 
 /** Write the record of `facts` under `root` and set its manifest entry, the manifest text computed first (throws, writing nothing). */

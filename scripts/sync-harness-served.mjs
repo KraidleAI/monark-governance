@@ -56,7 +56,7 @@ import { API_SERVER_URL } from "../apps/harness/src/openapi.ts";
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..");
 export const OUT_REL = "apps/site/data/harness-served.json";
 export const PENDING_REL = "apps/site/data/harness-pending.json";
-const CA_REL = "docs/deploy-CA-harness.json";
+export const CA_REL = "docs/deploy-CA-harness.json";
 const REGISTRY = "https://registry.modelcontextprotocol.io/v0/servers?search=tech.monarkgate";
 const MAX_BYTES = 1024 * 1024;
 const sha256 = (s) => createHash("sha256").update(s).digest("hex");
@@ -141,7 +141,7 @@ const keySets = (s, what) => {
 async function main() {
   const ca = JSON.parse(readFileSync(join(ROOT, CA_REL), "utf8"));
   const caSha = Object.fromEntries(ca.checks.map((c) => [c.name, c.sha256]));
-  need(ca.checks.length > 0 && ca.checks.every((c) => c.ok === true) && ca.tls?.authorized === true, `${CA_REL} is not green on every control with an authorized TLS`);
+  need(ca.checks.length > 0 && ca.checks.every((c) => c.ok === true) && ca.tls?.authorized === true && ca.tls_mcp?.authorized === true, `${CA_REL} is not green on every control with an authorized TLS on both hosts`);
   const api = ca.url, mcpHost = ca.mcp_url;
   need([new URL(api).host, new URL(mcpHost).host].includes(ca.tls.host), `${CA_REL} tls.host is neither the api host nor the MCP host`);
   const bodies = {};

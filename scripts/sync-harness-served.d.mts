@@ -25,3 +25,5 @@ export function markPendingSince(text: string, day: string): string;
 export function writeServed(root: string, out: Record<string, unknown>, exempt: string | null): { sha: string; promoted: boolean };
 /** T0-TOOLING-1: --pending under `root` (pending file, pending_since, both manifest entries); returns the pending entry. */
 export function writeHarnessPending(root: string, writtenAt: string): Promise<string>;
+/** The committed deploy check record the sync binds every body to. */
+export const CA_REL: string;
