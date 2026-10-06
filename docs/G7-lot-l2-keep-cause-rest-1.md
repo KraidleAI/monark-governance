@@ -121,3 +121,26 @@ Ils prouvent donc le support commun, pas le câblage de chaque fichier. **Le câ
 - **Compte de `l2-rest`** : 13 tests, pas 9 comme le disait l item.
 - **`l2-rest-tls`** : le crochet n est pas sur la ligne du `trap()` de la base mais sur celle de `outs` (l. 22), pour lire `REAL` avant lui.
 - **R-25** : environ 40 lignes de tests annoncées ; les tests et en-têtes font +51/−19 (tests un par fichier, plus `seen`/`named`).
+
+## Repli de la G2
+
+G2 adverse fraîche : `docs/G2-lot-l2-keep-cause-rest-1.md` (tête revue `130fa7aa`), verdict **non bloquant**, aucun B.
+
+| Constat | Repli |
+|---|---|
+| **N-1** : les tueurs déclarés rougissent les 4 nouveaux tests, plus des anciens ; ils ne lient aucun test à son fichier | `971e36ec` : dit au G0 (section « Tueurs ») et au G7 (section « Oracle »), avec la table mesurée ; le câblage par fichier est prouvé par les 11 contrôles manuels, listés (les 3 `before(() => {})` sans piège ajoutés et tirés ici : 3/3 rouges, sha256 restauré) |
+| **N-2** : seul un `before` racine s exécute à l enregistrement, pas celui d un `describe` ; un crochet asynchrone, jusqu à son premier `await` | `971e36ec` : règle 3 du G0, « Cause, mesurée et sourcée », « Portée » et « Lecture après le crochet » du G7, avec la source `createHook` |
+| **M-1** : l étape `between tests` figée pour un échec de `before` | laissé tel quel, déjà noté (« Comptes figés ») |
+| **M-2** : le crochet de `l2-rest-tls` en fin de ligne | `390e811b` : commentaire `after REAL (l. 21): a root before() runs at once` sur la l. 22 ; aucune ligne déplacée |
+| **M-3** : `runBook` nommé pour le seul `l2-book` | `390e811b` : renommé `runFile`, doc « default: test/l2-book.test.ts ». Les deux tests `l2_book` sont donc jugés : leurs tueurs de #174 sont listés au G0 |
+| **M-4** : la cause vérifiée par sa présence, pas par test | justifié (section « Oracle », « Présence de la cause ») : compter figerait le format de sérialisation de Node |
+| **Observation hors lot** : `l2-rest` et `l2-rest-tls` ne vérifiaient pas leur propre piège | ligne ajoutée aux résiduels ; les nouveaux tests de `keep-cause` couvrent ce point |
+
+**Contrôles après le repli** (tête `971e36ec`) :
+
+- **Red-proof** `--test-only --base ec0e023d --gel . --repo . --seed 37` : **OK**, exit 0, 6 tests jugés (les 4 nouveaux et les 2 `l2_book`), 35 inchangés, 6 `pinned`, 6 tueurs **tués**, `files.production` vide. `RED-PROOF.json` : sha256 `a0f5be2211eb…`, digest du gel `1f88ba5ff425…`.
+- **Ancres** : 41 tueurs, 41 ANCRE, 0 DERIVE, 0 PERDU (les lignes `// killer:` et `test(` gardent leur numéro).
+- **R-25** (base `ec0e023d`) : STAT +53/−21, **74 lignes** ; CONTENT_STAT 0 ; GREEN.
+- **Fichiers L2 et `keep-cause`** : 222 sur 222, aucune ligne `# keep-cause`, aucun dossier `l2-*` laissé.
+- **`npm run test:main`** : 2 684 tests, 2 662 verts, 0 échec, 22 sautés, exit 0 (326 s), aucune ligne `# keep-cause`.
+- **Outils** : `tsc --noEmit`, `eslint .`, `gate:vocab` verts ; `lint:ratchet` 69/69 ; `lang:gate` OK.
