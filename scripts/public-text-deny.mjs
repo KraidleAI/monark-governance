@@ -15,10 +15,11 @@
 //   (q3) the internal words budget, credit, lock and their -s/-ed/-ing forms (Q-3; "test" stays allowed);
 //   (ph) an unfilled template marker, an upper-case identifier in braces such as {T0} or { OPENAPI-SHA256 }, EACH one of a
 //   line named (lower-case brace lists such as {btc,eth} and shell variables such as ${HOME} pass, but not ${T0}, the
-//   variable form of a TEMPLATE_MARKERS name);
+//   variable form of a TEMPLATE_MARKERS name, the markers of docs/public-notes/TEMPLATE.md);
 // plus (h), kind "issue" only: no date or schedule word; and (title), kind "message" only: a first line of at most 50
 // code points (Q-P-4), followed by an empty line when a body follows (git-commit DISCUSSION).
-// kindForPath(rel) maps docs/public-notes/** to a kind (C-V-9), null (= refused) for any other path.
+// kindForPath(rel) maps docs/public-notes/** to a kind (C-V-9), null (= refused) for any other path, and for TEMPLATE.md (the notes
+// template, not a public text; docs/ is never exported).
 import { readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -125,7 +126,10 @@ const urlAllowed = (url) => { if (url.indexOf("://") !== url.lastIndexOf("://"))
 export const SECRET_SHAPES = Object.freeze(KEY_SHAPES.filter((re) => re.source !== ":\\/\\/"));
 const INTERNAL_WORDS = /\b(?:budget|credit|lock)(?:s|ed|ing)?\b/i;
 const PLACEHOLDER = /(?<!\$)\{\s*[A-Z][A-Z0-9_-]*\s*\}/g;
-export const TEMPLATE_MARKERS = Object.freeze(["T0", "OPENAPI_SHA256", "SPEC_URL"]); // the markers the T0 notes and the gate act fill
+/** The upper-case {NAME} markers of a notes template, in order of first use (pure). */
+export const templateMarkers = (text) => [...new Set([...text.matchAll(/\{([A-Z][A-Z0-9_]*)\}/g)].map((m) => m[1]))];
+// TEMPLATE-MARKERS-SOURCE-1: derived from the committed notes template, never typed (a missing template fails the import, by name).
+export const TEMPLATE_MARKERS = Object.freeze(templateMarkers(readFileSync(join(SRC, "docs", "public-notes", "TEMPLATE.md"), "utf8")));
 const MARKER_VARIABLE = new RegExp(`\\$\\{\\s*(?:${TEMPLATE_MARKERS.join("|")})\\s*\\}`, "g"); // ${T0}: still a marker (E-2)
 // The year form also catches an ISO date; month names are capitalised whole words, so the verb "may" stays green.
 const DATE_FORMS = Object.freeze([/\b(?:19|20)\d\d\b/, /\b(?:January|February|March|April|May|June|July|August|September|October|November|December)\b/,

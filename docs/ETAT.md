@@ -539,6 +539,14 @@ Tronc `lot/etude-suite`. Dernier oracle complet : 1 779 tests, dont 1 776 verts,
     qui les porte (la NOTICE) vit dans recherches. Effet aujourd hui : aucun. Option A retenue par MONARK : engager le modèle de notes
     dans governance (`docs/public-notes/TEMPLATE.md`) et dériver `TEMPLATE_MARKERS` de ce fichier, avec son test (~60 lignes).
     Déclencheur : après T0 (2026-10-06), ou plus tôt si un modèle ajoute un marqueur. Porteur : RECHERCHES ; état : ouvert.
+    Ligne datée 2026-10-06 (RECHERCHES, lot T0-FOLLOWUP-1) : clos. Le modèle est engagé (`docs/public-notes/TEMPLATE.md`, marqueurs
+    `{T0}`, `{SPEC_URL}`, `{OPENAPI_SHA256}`) ; `TEMPLATE_MARKERS` en est dérivé (`templateMarkers`), test
+    `template_markers_follow_the_committed_template`. Le modèle n est pas un texte public (`kindForPath` ne lui donne aucun genre ; `docs/`
+    n est jamais exporté).
+  - SPEC-PUBLISH-PREVIOUS-BLOBS-1 (acte 8 de T0, 2026-10-06 : sous Windows avec `core.autocrlf=true`, le clone `previous` portait des CRLF
+    dans son arbre de travail, et `input_digest` refusait, fermé) : clos par le lot T0-FOLLOWUP-1. Chaque entrée `root: "previous"`, le
+    contrôle « carried » et le contrôle `rewritten` lisent l objet git de `previous_commit` (`git cat-file blob`, sans shell ni filtre) ;
+    un chemin absent du commit est nommé `previous_blob_missing`. Test `previous_entries_are_read_from_the_pinned_commit_not_the_working_tree`.
   - RPC-GUARD-LOCK-WRITE-LEAK-1 (H-1 de RECHERCHES, G2 de #137) : si l écriture ou le fsync du verrou échoue après un `openSync "wx"`
     réussi, le fichier reste hors de `acquired` (`guarded.ts:43-46`) et la garde répond `lock_held` jusqu à l acte du RUNBOOK.
     Construction : retirer le fichier sur échec d écriture, test et tueur d abord. Porteur : RECHERCHES (zone `packages/rpc-guard/`

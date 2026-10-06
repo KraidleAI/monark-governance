@@ -15,11 +15,12 @@
 // code: release_unknown, date_invalid, root_missing, input_blacklisted, input_missing, input_escapes (a link out of its root),
 // input_not_file, input_digest, not_text, crlf, vocabulary, json_invalid, schema_invalid, policy_table_invalid, not_canonical (a policy
 // table file must be its own canonical writing, so its sha256 is its policy_table_sha256), recompute_held, short_digest (tableRowProblems),
-// policy_table_kind, version_dir_invalid, previous_commit, previous_dirty, withdrawn (a file of the previous tree the release drops),
+// policy_table_kind, version_dir_invalid, previous_commit, previous_dirty, previous_blob_missing (a previous entry is read from the git
+// object of previous_commit, never the working tree: a CRLF checkout cannot change it), withdrawn (a file of the previous tree the release drops),
 // rewritten (a file under contract-*/ of the previous tree the release changes), added_to_published (a new file under it),
 // foreign_version_dir (a new version directory other than the release's own); then out_not_empty, out_parent_missing, out_in_git_tree, write_failed. --verify
 // <dir> then compares --out with <dir> (.git ignored): exit 0 iff the same paths with the same bytes. Exit 2: usage.
-import { spawnSync } from "node:child_process";
+import { execFileSync, spawnSync } from "node:child_process";
 import { createHash } from "node:crypto";
 import { chmodSync, existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, realpathSync, renameSync, rmSync, statSync, writeFileSync } from "node:fs";
 import { dirname, join, resolve, sep } from "node:path";
@@ -156,6 +157,8 @@ export function contentProblems(out, kind, bytes, release, carried = false) {
 }
 
 const git = (dir, args) => { const r = spawnSync("git", ["-C", dir, ...args], { encoding: "utf8" }); return r.status === 0 ? r.stdout : null; };
+/** The bytes of <path> in the git object of <commit> under <dir> (no filter, no shell: CRLF of a checkout never reaches them), or null. */
+const blob = (dir, commit, path) => { try { return execFileSync("git", ["-C", dir, "cat-file", "blob", `${commit}:${path}`], { stdio: ["ignore", "pipe", "ignore"], maxBuffer: 1 << 28 }); } catch { return null; } };
 
 /** manifestText(files): "<sha256>  <path>" lines for [{path, bytes}], sorted by path, LF ended. */
 export const manifestText = (files) => [...files].sort(byPath).map((f) => `${sha(f.bytes)}  ${f.path}\n`).join("");
@@ -169,14 +172,16 @@ export function plan({ inputs, release, date, roots }) {
   for (const e of rel.entries) {
     const dir = roots[e.root], abs = dir === undefined ? null : join(dir, e.path), at = `${e.out} <- ${e.root}:${e.path}`;
     if (abs === null) { add("root_missing", `${e.out}: root ${e.root} not given`); continue; }
+    // SPEC-PUBLISH-PREVIOUS-BLOBS-1: a previous entry is the committed object of previous_commit, never the working tree.
+    if (e.root === "previous" && blob(dir, rel.previous_commit, e.path) === null) { add("previous_blob_missing", `${at} is not in ${rel.previous_commit}`); continue; }
     if (e.root === "governance" && STRUCTURAL_BLACKLIST.some((re) => re.test(e.path))) { add("input_blacklisted", at); continue; }
-    if (!existsSync(abs)) { add("input_missing", at); continue; }
-    if (!realpathSync(abs).startsWith(realpathSync(dir) + sep)) { add("input_escapes", `${at} resolves out of its root`); continue; }
-    if (!statSync(abs).isFile()) { add("input_not_file", at); continue; }
-    const bytes = readFileSync(abs);
+    if (e.root !== "previous" && !existsSync(abs)) { add("input_missing", at); continue; }
+    if (e.root !== "previous" && !realpathSync(abs).startsWith(realpathSync(dir) + sep)) { add("input_escapes", `${at} resolves out of its root`); continue; }
+    if (e.root !== "previous" && !statSync(abs).isFile()) { add("input_not_file", at); continue; }
+    const bytes = e.root === "previous" ? blob(dir, rel.previous_commit, e.path) : readFileSync(abs);
     if (sha(bytes) !== e.sha256) { add("input_digest", `${at} is ${sha(bytes)}, pinned ${e.sha256}`); continue; }
-    const prior = roots.previous, was = prior === undefined || rel.previous_commit === null ? null : git(prior, ["show", `${rel.previous_commit}:${e.out}`]); // carried: committed, same bytes
-    problems.push(...contentProblems(e.out, e.kind, bytes, release, was !== null && Buffer.from(was, "utf8").equals(bytes)));
+    const prior = roots.previous, was = prior === undefined || rel.previous_commit === null ? null : blob(prior, rel.previous_commit, e.out); // carried: committed, same bytes
+    problems.push(...contentProblems(e.out, e.kind, bytes, release, was !== null && was.equals(bytes)));
     files.push({ path: e.out, bytes });
   }
   const prev = roots.previous;
@@ -193,7 +198,7 @@ export function plan({ inputs, release, date, roots }) {
       return ls; })()) {
       if (p !== "" && !outs.has(p)) add("withdrawn", `${p} is published, the release drops it`);
       const now = files.find((f) => f.path === p); // a file under a version directory is never rewritten: one $id, one content
-      if (/^contract-[^/]*\//i.test(p) && now !== undefined && !now.bytes.equals(readFileSync(join(prev, p)))) add("rewritten", `${p} is published with other bytes, the release changes it`);
+      if (/^contract-[^/]*\//i.test(p) && now !== undefined && !now.bytes.equals(blob(prev, rel.previous_commit, p) ?? Buffer.alloc(0))) add("rewritten", `${p} is published with other bytes, the release changes it`);
     }
   }
   if (problems.length > 0) return { files: [], problems };
