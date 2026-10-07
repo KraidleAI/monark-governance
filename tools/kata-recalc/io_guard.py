@@ -1,6 +1,8 @@
 # claude-opus-5-5 - 2026-10-06 - lot 1d of VERIFIERS-LIST-F5A-1 (M-7), Python 3.14 standard library only, no network. Changes
 # judged and outputs new since 2026-10-07 (MONARK's decision on lot 1d); every event classed, every path absolute and the busy flag
-# per thread since the G2 of RECHERCHES (3719b88: B-1, B-2, N-1, N-2).
+# per thread since the G2 of RECHERCHES (3719b88: B-1, B-2, N-1, N-2). Lot 1e (2026-10-07, M-11): _wmi.exec_query classed (refused),
+# git_tree, which reads the commit and the blobs of the tool's tree for the report (not an input, not noted), and a bytecode cache
+# refused at import.
 # The input guard of the tool (G0 docs/G0-lot-verifiers-list-f5a-1.md section 3.1; RECHERCHES Q-V1, precision 2: the independence is
 # written, and proved by the list of the inputs read with their sha256). Every entry script imports it FIRST: the import installs an
 # audit hook (sys.addaudithook) before any input is read. EVENTS classes every audit event name, and a name outside it stops the run:
@@ -15,7 +17,9 @@
 # and inputs() lists them. Anything else stops the run at once: one line on stderr, then os._exit(REFUSED_EXIT), which no except clause
 # catches. Limit (G0 section 3.1, item IO-GUARD-NATIVE-READS-1): a C extension module that reads files without Python raises no event;
 # the tool imports the standard library only. Paths are compared after realpath and normcase. The tool runs under python -B: after the
-# hook, a bytecode write is a write outside the outputs, and stops the run like any other.
+# hook, a bytecode write is a write outside the outputs, and stops the run like any other. Before it, the import of io_guard itself
+# writes __pycache__/io_guard.cpython-314.pyc when -B is missing (measured, lot 1e), and a later run would load a cached file whose
+# recorded source time and size match: a cache in the tool's tree, or a cache directory set elsewhere, stops the run at import.
 import hashlib
 import os
 import subprocess
@@ -37,9 +41,10 @@ _CHANGES = {
     "shutil.move": ((("src", 0), ("dst", 1)), ()), "_winapi.CopyFile2": ((("src", 0), ("dst", 1)), ()),
 }
 # Every audit event name, classed (B-1): the 192 names of the Python 3.14 audit events table (docs.python.org, read by MONARK on
-# 2026-10-07 at 01:09 UTC) and the 2 that this host raises outside it (_thread.start_joinable_thread, _winapi.CopyFile2). The admitted
-# and spawn names are those that complete runs of the seven scripts, the smoke tests and the probes raised after the hook under Python
-# 3.14.5 (measured, G0 section 14), and three that MONARK named. Any other name stops the run, whatever its prefix.
+# 2026-10-07 at 01:09 UTC) and the 3 that this host raises outside it (_thread.start_joinable_thread, _winapi.CopyFile2, and
+# _wmi.exec_query, classed by lot 1e). The admitted and spawn names are those that complete runs of the seven scripts, the smoke tests
+# and the probes raised after the hook under Python 3.14.5 (measured, G0 section 14), and three that MONARK named. Any other name
+# stops the run, whatever its prefix.
 _J, _A, _S, _R = "judged", "admitted", "spawn", "refused"
 EVENTS = {
     **dict.fromkeys(("open", "os.listdir", "os.scandir", "subprocess.Popen", *_CHANGES), (_J, "judged by the rules below")),
@@ -85,6 +90,7 @@ EVENTS = {
         "winreg.PyHKEY.Detach", "winreg.QueryInfoKey", "winreg.QueryReflectionKey", "winreg.QueryValue", "winreg.SaveKey",
         "winreg.SetValue",
     ), (_R, "a Windows file, pipe, junction or registry key reached without open")),
+    "_wmi.exec_query": (_R, "a WMI query (platform.uname and win32_ver raise it, measured): report.py reads sys.getwindowsversion()"),
     **dict.fromkeys(("os.walk", "os.fwalk", "glob.glob", "glob.glob/2", "pathlib.Path.glob", "pathlib.Path.rglob", "os.listdrives",
                      "os.listmounts", "os.listvolumes", "tempfile.mkdtemp", "tempfile.mkstemp", "shutil.make_archive",
                      "shutil.unpack_archive"), (_R, "a walk, a pattern, a temporary file or an archive: the tool names each path")),
@@ -299,14 +305,33 @@ def _spawn(argv, **kw):
         _state["spawning"] = None
 
 
+def _git(repo, *args):
+    """git with args in the repository repo, without the caller's GIT_* variables; its standard output."""
+    env = {k: v for k, v in os.environ.items() if not k.upper().startswith("GIT_")}
+    env["GIT_TERMINAL_PROMPT"] = "0"
+    return _spawn(["git", "--no-replace-objects", "-C", os.fsdecode(repo), *args], env=env, timeout=60, check=True).stdout
+
+
 def git_show(role, repo, spec):
     """git show <revision>:<path> in the repository repo, without the caller's GIT_* variables; its output is one noted input."""
     _role(role)
-    env = {k: v for k, v in os.environ.items() if not k.upper().startswith("GIT_")}
-    env["GIT_TERMINAL_PROMPT"] = "0"
-    data = _spawn(["git", "--no-replace-objects", "-C", os.fsdecode(repo), "show", spec], env=env, timeout=60, check=True).stdout
+    data = _git(repo, "show", spec)
     _inputs.add((role, spec.rsplit("/", 1)[-1].rsplit(":", 1)[-1], hashlib.sha256(data).hexdigest(), len(data)))
     return data
+
+
+def git_tree(repo, rel, rev="HEAD"):
+    """The commit that rev names in the repository repo, and the entries under rel at that commit, as (commit, [(mode, path, bytes of
+    a blob or None)]): git rev-parse, ls-tree and cat-file only. They name the tool that runs, for the report (lot 1e; G0 section
+    3.2); they are not inputs of the computation, and they are not noted."""
+    commit = _git(repo, "rev-parse", "--verify", "--end-of-options", f"{rev}^{{commit}}").decode("ascii").strip()
+    entries = []
+    for item in _git(repo, "ls-tree", "-r", "-z", "--full-tree", commit, "--", rel).split(b"\0"):
+        if item:
+            meta, path = item.split(b"\t", 1)
+            mode, kind, obj = meta.decode("ascii").split(" ")
+            entries.append((mode, path.decode("utf-8"), _git(repo, "cat-file", "blob", obj) if kind == "blob" else None))
+    return commit, entries
 
 
 def run_tool(script, args):
@@ -323,4 +348,6 @@ def input_lines():
     return [f"input {d['role']} {d['name']} sha256 {d['sha256']} bytes {d['bytes']}" for d in inputs()]
 
 
+if sys.pycache_prefix is not None or os.path.lexists(os.path.join(_TOOL_DIR, "__pycache__")):  # no event: before the hook
+    _refuse("import", _TOOL_DIR, "a bytecode cache in the tool's tree, or a cache directory: remove it, and run under python -B")
 sys.addaudithook(_hook)

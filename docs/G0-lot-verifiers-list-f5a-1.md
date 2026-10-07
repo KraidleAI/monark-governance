@@ -840,3 +840,221 @@ des événements ; `events/`, `probe/` et `smoke/` portent les sondes.
   section 8. Fermeture : le texte fixe l'ordre (un rejet nommé avant un contrôle 2 vide) et un cas de vecteur le porte.
 - **Mesures** : 57 sondes, 0 échec (`probe/guard_probes.py`, `c681aedc…` : les 37 d'avant, dont P24 sans `rmtree`, les 19 neuves, et
   P58 contre la garde de `ad2a45b6`) ; oracles, comparateur et fumées dans `final3/` ; épingle, Node et R-25 : plus haut.
+
+## 15. Lot 1e : mesures
+
+Worker `claude-opus-5-5` (effort max), horloge lue de 2026-10-07 02:06 à 03:2x UTC (tampons de `now.mjs` : 02:06 au départ, 02:56, 03:12,
+03:20 à la fin), puis de 03:23 à 03:2x UTC pour la correction de licence et les décisions de MONARK (tampons 03:23, 03:27, 03:28).
+Worktree `F:/Monark-wt-verifiers-1e`, tête `2a46eeb8` (lots 1a à 1d fusionnés) ; le worker ne committe ni n'indexe rien dans le worktree
+(R-20). Sorties sous `F:/tmp/verifiers-1e/` : `port/` et `vectors/` (mesures du `log`), `platform/` (sondes), `selftest/` (auto-tests),
+`e2e/` (composition jusqu'au recalcul), `final/` (oracles, Node, gardes), `cache-probe/`, `clone/` et `base-clone/` (clones `--shared`).
+
+| M | Diff (lignes du nouvel arbre) | Source |
+|---|---|---|
+| M-11 | `report.py` (neuf, 453 lignes) : textes fixes `TEXTS` (l.42-55), écriture canonique (l.66-84), plateforme (l.88-116), empreinte du `log` (l.119-124), identité de l'outil (l.127-158), enfants (l.163-209), passes (l.213-299), classes (l.303-339), rapport (l.342-365), course (l.373-425) | §3.3 ; Q-6 du §10 ; RAPPORT l.62-63, l.107-114 |
+| Q-6 | `fdlibm_log.py` (neuf, 207 lignes) : avis de fdlibm et de V8, licence de V8 en entier (l.10-50), `log` porté (l.77-128), entrées de la mesure (l.133-174), sorties de Node épinglées (l.177-191), contrôle (l.194-207) | `ieee754.cc` l.1638-1717 ; `LICENSE.v8` (ci-dessous) |
+| M-11 | `report_check.py` (neuf, 217 lignes) : auto-tests, 39 contrôles | §5, partie 1 |
+| M-7 | `io_guard.py` : `_wmi.exec_query` classé refusé (l.93) ; `_git` et `git_tree` (l.308-334) ; un cache de bytecode arrête la course à l'import (l.351-352) ; en-tête l.1-5, l.20-22, l.43-47 | sondes ci-dessous |
+| M-11 | `recalc_p2.py` : `freezes` (l.206-211) et `registry_text` (l.214-217) partagés avec `report.py`, `seqs` de `calibrate_cell` (l.220, l.256-257), lignes d'entrée imprimées (l.495) ; en-tête l.1-2 | lecture interdite d'un fichier écrit par un autre processus (`io_guard.py` l.172-178) |
+| tests | `test/kata-recalc.test.ts` : épingle (l.46), tueur l.73 déplacé en `recalc_p2.py:12`, deux scripts d'entrée de plus (l.78-79), test neuf `kata_recalc_report_texts_pass_the_spec_gate` (l.85-115) | §5 |
+
+- **Le `log` du générateur, porté** (Q-6 : « le `log` en question » ; mission : le portage seulement si les sources lues sur place le fixent).
+  - Sources lues par le worker entre 02:06 et 02:16 UTC (`curl` en mémoire sur `raw.githubusercontent.com/nodejs/node/v24.21.0/deps/v8/src/`,
+    rien écrit), sha256 :
+    - `base/ieee754.cc` `1bf99980…` : 3 036 lignes ; `double log(double x)` l.1638-1717, macros de mots l.54-95, avis de fdlibm l.3-10 ;
+    - `base/ieee754.h` `d04cd7f7…` : l.65 ; `V8_USE_LIBM_TRIG_FUNCTIONS` ne vise que sin et cos (l.10, l.40-57) ;
+    - `builtins/math.tq` `a877efef…` (l.302-309), `compiler/code-assembler.h` `ad67e4bc…` (l.312) ;
+    - `compiler/backend/instruction-selector.cc` `2cc910e2…` (l.1649-1650), `compiler/backend/x64/code-generator-x64.cc` `8bfa2d74…`
+      (l.1073-1077, l.1930-1931), `codegen/external-reference.cc` `5e348eeb…` (l.1210-1211) ;
+    - `compiler/machine-operator-reducer.cc` `a5d69439…` (l.803-806), `compiler/turboshaft/machine-optimization-reducer.h` `f9f35c29…`
+      (l.479), `maglev/maglev-ir.h` `3b7a83fc…` (l.3421), `maglev/maglev-ir.cc` `ce66e2bf…` (l.502-510).
+
+    Tous les étages de `Math.log` appellent `base::ieee754::log`.
+  - Les onze fichiers ont les mêmes octets dans Node v24.15.0 (relus à 03:12 UTC, onze sha256 égaux). C'est le Node de la mesure de la
+    G2 de P2b (RAPPORT l.7) : le `log` porté est celui de cette mesure. `PROVENANCE-wave1.md` ne nomme pas le Node qui a écrit
+    `wave1.json` ; KATA-SPEC l.74 nomme v24.21.0 pour le code de référence.
+  - Le portage reprend chaque opération dans l'ordre du C (binary64, arrondi au plus près, sans FMA). Ses dix constantes sont égales à
+    leurs commentaires hexadécimaux. `log(-1)` rend les bits que Node rend sur cet hôte (`7ff0000000000001`, mesuré par `node -e`).
+  - Vecteurs : 2 122 614 entrées positives et finies, d'un générateur écrit dans le fichier (splitmix64, jamais le module `random`),
+    `in.bin` `41a801ce…` ; sorties de `Math.log` de Node v24.21.0 (V8 `13.6.233.17-node.53`), `out.bin` `aee206b3…`
+    (`F:/tmp/verifiers-1e/vectors/`, 02:35 UTC ; scripts `write_inputs.py` `54a33d5b…`, `node_log.mjs` `ca3fccba…`,
+    `compare_outputs.py` `ec5a1e95…`). Le portage les redonne au bit, 0 écart.
+  - Le `log` de Python en diffère d'un ulp sur 5 780 entrées, dont douze épinglées (`PINNED`), avec dix cas limites (`SPECIALS`).
+    Première mesure, sur 3 322 499 entrées tirées par `random` : 0 écart du portage, 6 756 du `log` de Python (`port/`, 02:16 UTC).
+    `held_to_vectors` rejoue tout en 6 à 9 s, dans chaque course.
+  - Le `log` de Python est celui de `C:\WINDOWS\System32\ucrtbase.dll` : chemin du module chargé, et 0 écart sur 3 322 493 entrées
+    contre son export `log`, par `ctypes`, hors de l'outil (`port/ucrt_cmp.py`), car `import ctypes` est refusé dans l'outil (§14).
+  - Licence, correction demandée par MONARK le 2026-10-07 à 03:2x UTC, d'après son fichier de faits. `ieee754.cc` est sous la licence
+    BSD à trois clauses de V8, dont une redistribution du source garde la notice, les conditions et l'avertissement. L'en-tête de
+    `fdlibm_log.py` (l.10-50) garde donc, à l'octet après le préfixe de commentaire :
+    - l'avis de fdlibm, `ieee754.cc` l.3-10 ;
+    - l'avis de V8, l.12-14 : « modified significantly by Google Inc. » et « Copyright 2016 the V8 project authors. All rights
+      reserved. » ;
+    - le texte entier de `deps/v8/LICENSE.v8` de Node v24.21.0, lu sur place à 03:2x UTC : 26 lignes, 1 527 octets, sha256
+      `4af93c12062c58058378de2397dc1c92bbff9ddfb1d583a01c84127557ce97ca`.
+
+    Mesuré : en retirant le préfixe, les deux textes redonnent leurs sources à l'octet (`cmp`, `licence/`). ASCII, sans TAB : `scanText`
+    de la garde de langue rend 0, `grep-forbidden` 0, `byte-guard` vert. Le fichier de faits numérote l'avis de V8 l.12-13 sur 3 037
+    lignes. `nl -ba` sur le fichier brut (3 036 lignes, LF final, même sha256) place « modified significantly » en l.13 et la ligne de
+    copyright en l.14 : un écart de numérotation du visualiseur, pas de texte.
+- **Les classes** (Q-6), `report.py` l.213-339.
+  - Trois passes du pipeline de `recalc_p2.py` dans le processus de `report.py`, sur les séries qu'il lit sous le rôle `series` :
+    - la base, qui doit redonner les octets du registre du recalcul (le sha256 imprimé par l'enfant), sinon la course s'arrête ;
+    - `ln` : le `log` porté, mémorisé, à la place de `math.log` dans tout `kata_lib` ;
+    - `association` : ce même `log` avec l'autre ordre du terme EWMA, `w_i * (r_i * r_i)`. Depuis M-1, la base suit déjà l'ordre de l.42.
+      Le générateur tourne son propre `log` : l'ordre seul ne peut donc pas être sa cause.
+  - Les registres des deux variantes sont écrits sous `passes/`, puis comparés à B par `compare_p2.py`, comme le recalcul.
+  - Une différence de valeur ou d'empreinte entre le recalcul et B est « explained, ln » si la comparaison de la passe `ln` avec B ne la
+    liste plus ; sinon « explained, association » si celle de la passe `association` ne la liste plus ; sinon « not explained ».
+  - Une passe n'explique que si elle est égale à B dans chaque décision, sans faute de structure. Une cause qui demanderait autre chose
+    que ces deux passes reste « not explained », et le rapport échoue.
+  - Refus (sortie 1, pas de rapport) : une décision qui diffère, en case ou en tête ; une valeur au-delà de 1e-12 relatif (KATA-SPEC
+    l.71), même expliquée ; une différence non expliquée. Une faute de structure sort en 2.
+  - Pour une empreinte, le rapport donne l'indice du premier terme où la suite du recalcul diffère de la passe qui l'explique (celle dont
+    l'empreinte est celle de B), le nombre de termes et l'écart maximal en ulps. Pour une valeur : les deux doubles en hexadécimal et les ulps.
+  - Le recensement du `log` (entrées distinctes, entrées qui diffèrent, écart maximal) compte aussi les entrées de `tsmom`. Il ne se lit
+    donc pas comme les 327 983 entrées de RAPPORT l.57, qui laissaient `tsmom` au `log` de Python.
+  - La mesure de RAPPORT l.107-114 (sous le `log` de Node, 114 empreintes sur 114) est citée dans le texte de la classe ln, jamais rejouée.
+- **Composition**, `report.py` l.373-425, dans cet ordre :
+  1. plateforme et bibliothèque C (rôle `libm`) ;
+  2. identité de l'outil ;
+  3. vecteurs du `log` ;
+  4. enfants `vectors_check.py`, `binom_check.py`, puis `recalc_p2.py` (porte D-2) ;
+  5. lecture des séries et les trois passes ;
+  6. trois enfants `compare_p2.py` : recalcul, `ln` et `association` contre B.
+
+  B n'est lu que par ces trois enfants, après les passes. Un enfant ne rend que sa sortie standard : la garde refuse au parent la
+  lecture d'un fichier qu'un autre processus a écrit (`io_guard.py` l.172-178), et `recalc_p2.py` imprime donc ses lignes d'entrée.
+  Les entrées de `compare` sont celles des comparateurs, moins les registres de la course (nom et sha256) ; il doit en rester exactement
+  une, de rôle `registry`, sinon la course s'arrête. Toute sortie non nulle écrit `run-log.json` (étapes, durées, dernières lignes de
+  l'enfant en faute, entrées vues par les comparateurs, recouvrement par passe) et aucun `report.json`.
+- **Le rapport** (format fermé `monark-recompute-report-v1`).
+  - Clés : `format`, `verifier`, `tool`, `registry` (nom de base du registre lu, son sha256, `generator_identity`, `cells`), `inputs`
+    (`recompute` et `compare`, triées), `platform`, `oracles` (conformité, seconde écriture, tests de hikae, vecteurs du `log`),
+    `fields` (décisions, `values`, `digests`, `outside_decisions` = `trialRegistryHead.hash` et sa raison en mots, deux règles),
+    `cells` (280, triées), `differences` (triées), `explanation`, `summary`, `replay`.
+  - Écriture canonique, ASCII, sans LF final ; seulement des entiers, des chaînes, des booléens et null (`canonical`, l.66-84). La course
+    refuse un chemin passé en argument, un chemin à lettre de lecteur, un CR ou un LF dans le texte.
+  - Rapport de synthèse de l'auto-test (66 694 octets, `7f5913f7…`, mêmes octets sur trois courses) : `contentProblems` au chemin daté
+    `contract-1.1.0-tables-2026-10-20/recompute/wave1-monark-kata-recalc.json`, sorte `json`, rend 0 problème, et
+    `canonicalJson(JSON.parse(t)) === t` (`node -e`).
+  - `sys.version` porte l'horodatage de construction de l'interpréteur (« May 10 2026, 10:43:50 ») : une constante de la plateforme
+    (§3.3), pas une heure de course.
+- **Plateforme** (point 3 de la mission). Mesure par un crochet de journal, hors de l'outil (`platform/probe_platform.py`).
+  - `platform.machine()`, au premier appel, lève `socket.gethostname` et deux `_wmi.exec_query`. `platform.platform()` lève deux
+    `_wmi.exec_query`. `sys.getwindowsversion()` ne lève rien.
+  - `report.py` compose donc la chaîne depuis `sys.getwindowsversion()[:3]`, la table des versions du module `platform` et
+    `PROCESSOR_ARCHITECTURE`. Mesuré : `Windows-10-10.0.19045-SP0` et `AMD64`, égaux à `platform.platform()` et `platform.machine()`
+    (`platform/probe_compose.py`). `platform_version` donne 19041 : il n'est pas utilisé.
+  - `_wmi.exec_query` n'est pas dans les 192 noms de la table (`documented-192.txt`, `2489be60…`) : il est classé refusé, troisième nom
+    que cet hôte lève hors d'elle. Aucun nom d'hôte n'est lu.
+  - Bibliothèque C : `ucrtbase.dll` lu sous `libm` (1 046 080 octets, `3c600563…`), version `10.0.19041.3636` lue dans
+    `VS_FIXEDFILEINFO`, égale à `FileVersionRaw` de PowerShell. La course refuse une copie de `ucrtbase.dll` à côté de l'interpréteur.
+  - Empreinte : le nombre d'entrées des vecteurs où le `log` qui tourne diffère du portage (`log_vectors_differing`). Avec la bibliothèque
+    de la mesure (`3c600563…`), il doit valoir 5 780, sinon la course s'arrête (`fingerprint`, l.119-124 ; mesuré : 5 780).
+- **Identité de l'outil** (`tool`, §3.2). `git_tree` lit `HEAD` de `--repo`, puis les blobs sous `tools/kata-recalc` (`rev-parse`,
+  `ls-tree`, `cat-file`) ; ce n'est ni une entrée ni une note. L'outil doit tourner depuis `<repo>/tools/kata-recalc`, et ses fichiers
+  doivent être ces blobs, mode `100644`, rien de plus : ni cache, ni lien, ni dossier.
+  - Vecteur : au commit `2a46eeb8`, l'empreinte est `ff72522e…`, l'épingle du lot 1d.
+  - Refus mesuré dans ce worktree non committé : sortie 2, « the files that run are not the tool's tree at its commit ».
+  - La course complète ne part donc que d'un arbre committé, qu'elle nomme. Avant le commit, la G2 de la partie 1 rejoue les pièces
+    (auto-tests, oracles, passes de synthèse) ; la course sur les séries est l'acte de la partie 2.
+  - La branche positive de l'identité n'a pas encore tourné. Étape proposée à l'orchestrateur après le commit du lot, sans aucune série :
+    depuis un clone propre détaché à ce commit, `python -B tools/kata-recalc/report.py --repo <clone> --series <dossier vide>
+    --vectors <vectors.json> --registry <wave1.json> --out <dossier neuf>`. Attendu : identité admise, empreinte 5 780, deux oracles
+    verts (environ 70 s), sortie 2 au recalcul, `run-log.json` seul.
+  - `report_check.py` lit par `git_tree` le commit `2a46eeb8` (vecteur `ff72522e…`) : il lui faut un dépôt qui tient ce commit (un clone
+    `--depth 1` au commit du lot ferait échouer cette lecture).
+- **Cache de bytecode** (trouvé dans ce lot). Sans `-B`, l'import de `io_guard` écrit `__pycache__/io_guard.cpython-314.pyc` avant que le
+  crochet n'existe (mesuré). Une course suivante chargerait un cache dont la date et la taille de source concordent, même sous `-B`, et
+  le test d'arbre de Node, qui lit l'index, ne le voit pas.
+  - `io_guard` refuse donc à l'import un `__pycache__` dans l'arbre de l'outil, ou un `sys.pycache_prefix` (l.351-352, avant le crochet,
+    par `os.path.lexists`).
+  - Sondes sur une copie (`cache-probe/`) : C1, sans `-B` → 4 (le cache de `io_guard` est écrit, puis la course s'arrête) ; C2, sous
+    `-B` avec ce cache → 4 ; C3, sous `-B` avec `-X pycache_prefix` → 4 ; C4, sous `-B`, arbre propre → 0.
+  - Les caches laissés par les courses sans `-B` de ce lot ont été retirés du worktree.
+- **Mesures** (`python -B`, hors ligne).
+  - `report_check.py F:/Monark-wt-verifiers-1e <travail> <sortie>` : 39 contrôles, 0 échec, GREEN, 84 s (`selftest/report-check-4.txt`,
+    `f2e5d594…`). Il couvre :
+    - le portage sur ses vecteurs, et le refus d'une empreinte autre que 5 780 avec la bibliothèque mesurée ;
+    - l'écriture canonique et ses trois refus ; la plateforme ;
+    - l'arbre du lot 1d à `2a46eeb8`, et six refus de la règle d'arbre ;
+    - les trois passes sur quatre marches LCG : 280 lignes ; `ln` : 1 044 entrées sur 425 676 diffèrent, d'un ulp ; `association` :
+      24 lignes séparées de `ln`, toutes du kata EWMA ;
+    - neuf cas par `compare_p2.py` enfant :
+      - B = recalcul → 0 différence ;
+      - B = passe `ln` → 103 différences (88 empreintes, 15 valeurs), toutes ln ;
+      - B = passe `association` → classes ln et association, chaque association dans une case du kata EWMA ;
+      - empreinte de tête posée → hors décision, rapport possible ;
+      - un facteur d'un ulp de plus → non expliqué, sortie 1 ;
+      - `calib.n` + 1, `engine` changé, `qhat` × (1 + 1e-9) → sortie 1 ;
+      - une ligne retirée → sortie 2 ;
+    - l'écriture du rapport : canonique, triée, raison sans nom d'item, aucun chemin ;
+    - `report.py` en enfant : usage → 2 ; sortie non vide → 4 ; course qui ne peut finir → 2, `run-log.json` seul.
+  - Composition jusqu'au recalcul, par un pilote de brouillon qui fixe l'identité, sur une copie de l'outil (`e2e/`). Oracles enfants
+    verts, sorties égales à l'octet à `final3/` du lot 1d : `vectors-check.txt` `43d88e25…`, `binom-check.txt` `63606d4f…`,
+    `hikae-replay.txt` `68e16302…`. Vecteurs du `log` 8,1 s ; oracles binomiaux 59,3 s. Recalcul arrêté sur un dossier de séries vide,
+    aucune série lue ; sortie 2, `run-log.json` seul.
+  - Oracles d'avant, inchangés (`final/oracles.sh`, `run2/`, 03:00-03:02 UTC), chacun en sortie 0 : `vectors_check.py` sur `06ecf069…`,
+    `binom_check.py` (ii)/(iii), `--registry` et `compare_check.py` sur `7eb07d4d…`. Leurs sorties sont égales à l'octet à celles de
+    `final3/`. Sondes de la garde (`guard_probes.py`, `c681aedc…`) : 56 sur 56 ; P58-old vise la garde de `ad2a45b6`, non rejouée.
+    Fumées 0. Sans `-B`, `vectors_check.py` et `report.py` sortent en 4 à l'import de `io_guard`.
+  - Épingle d'arbre, après la correction de licence : `e9e11ccb63a7f5c538f853d2e4773f63cca3cce4a8d7b55fccd1f5d6646cef24` (onze
+    fichiers ; `3ddfabfd…` avant). Mesurée trois fois : boucle `sha256sum` sur l'arbre de travail, boucle sur l'index du clone
+    (`ls-files` et `cat-file`), test de Node.
+  - Après la correction (03:23-03:27 UTC) :
+    - `report_check.py` 39 contrôles, GREEN ; le rapport de synthèse garde ses octets (`7f5913f7…`), car seuls des commentaires changent ;
+    - sur le clone : `byte-guard` et `kata-recalc` 20 sur 20, `lang-gate` 0 ;
+    - worktree : `lang-gate` 0, `grep-forbidden` 0 (359 fichiers) ;
+    - aucune ligne de tueur n'a bougé, et les trois tueurs, retirés, rougissent encore leur test par assertion.
+  - Node :
+    - clone `--shared` à `2a46eeb8`, lot indexé dans le clone seul : `byte-guard` et `kata-recalc` 20 sur 20 ;
+    - fichier de test copié sur un second clone à `2a46eeb8` : les trois tests jugés rougissent par assertion (`ERR_ASSERTION`), le
+      test de langue reste vert ;
+    - tueurs tirés à la main sur le clone, fichiers rendus ensuite ; chacun rougit son test par assertion : `kata_lib.py:265`,
+      `recalc_p2.py:12`, `report.py:50` (le nom d'item dans la raison, règle b de `contentProblems`) ;
+    - worktree : `tsc --noEmit` 0 ; `eslint test/kata-recalc.test.ts` 0 ; `lint-ratchet` 69/69 ; `grep-forbidden` 0 (359 fichiers, les
+      onze `.py` en cibles) ; `lang-gate` 0 ; `export-public --check` 0.
+  - red-proof non joué : il lui faut un gel committé (précédent du §11). L'orchestrateur le rejoue avec `--gel <commit du lot>`.
+- **R-25**, forme de la CI sur l'index du clone contre `2a46eeb8`, après la correction de licence : 6 fichiers, 978 insertions,
+  25 suppressions, soit **1 003** (966 avant ; estimé ~450 ; borne 1 205). L'excédent : `report.py` (453), `report_check.py` (217),
+  `fdlibm_log.py` (207, dont 41 lignes d'avis et de licence), `io_guard.py` (35/8), `recalc_p2.py` (23/9), le test (43/8).
+- **Écarts au G0**.
+  - M-10 sort du lot (Q-6) ; le portage du `log` la remplace.
+  - `platform` ne porte ni Node ni V8 (Q-6), mais l'empreinte du `log` ; `oracles` porte les vecteurs du `log` ; `fields` porte deux
+    règles en mots ; `inputs.recompute` liste aussi les sorties d'oracle, que lit la porte D-2 de `recalc_p2.py`.
+  - Le rapport n'a pas de LF final, comme la liste (§3.2).
+  - La classe « association » s'entend sous le `log` du générateur (voir les classes).
+  - `io_guard.py` change au-delà de M-11 : `_wmi.exec_query`, `git_tree`, le refus d'un cache. `recalc_p2.py` gagne trois points de
+    partage et imprime ses entrées.
+  - Noms privés, voulus : `kata_lib.math` (le global que les passes remplacent), `kata_lib._EWMA_W` (les poids que l'autre ordre relit),
+    `platform._WIN32_CLIENT_RELEASES` et `_WIN32_SERVER_RELEASES` (une seule source du nom de version ; bibliothèque standard épinglée).
+  - La raison `OUTSIDE` de `compare_p2.py` garde le nom de l'item TRIAL-HEAD-WRITTEN-1 : fichier interne, décision de MONARK au §14,
+    l.784-789. Seule la phrase du rapport est sans nom (`report.py` l.50) ; REPORT-TRIAL-HEAD-SENTENCE-1 les retirera.
+  - Sources de V8 lues par le worker (`curl`, et deux appels WebFetch) : le §10 de CLAUDE.md réserve la lecture primaire à
+    l'orchestrateur, avec un fichier de FAITS ; la mission demandait des sources lues sur place. Rien n'a été écrit ni téléchargé sur
+    disque ; aucun compte, aucun formulaire.
+  - Régularisation : MONARK a lu ensuite ces sources sur place, dans le navigateur interne, à 03:2x UTC. Elle les consigne dans
+    `F:/tmp/verifiers-1e/faits/FAITS-v8-ieee754-log-2026-10-07.md` (sha256 `c2d3007d…`) : même sha256 de `ieee754.cc`, et
+    `LICENSE.v8`. Ce fichier régularise l'écart. `error_origin` « worker » au G7 de la partie.
+- **REPORT-LIBM-POSIX-1** (PAROXYSME). Porteur : MONARK. Déclencheur : avant une course du rapport sur un hôte qui n'est pas Windows (une
+  G2 ailleurs, VERIFIER-PUBLIC-REPLAY-1). Limite : hors de Windows, `report.py` sort en 2, la bibliothèque C du `log` n'y étant pas
+  localisée. Construction : localiser sans `ctypes` la bibliothèque qu'appelle `math.log`, lire ses octets sous `libm`, sa version dans
+  ses octets, son empreinte sur les vecteurs comme sur Windows. Prix : environ 30 lignes, une mesure sur un hôte POSIX, une G2.
+- **REPORT-LIBM-FINGERPRINT-1** (PAROXYSME). Porteur : MONARK. Déclencheur : une course dont `ucrtbase.dll` n'a pas le sha256 de la
+  mesure (une mise à jour de Windows suffit). Limite : l'empreinte est alors écrite, pas confrontée à une mesure ; le lien entre le
+  fichier nommé et le `log` appelé repose sur la règle du chargeur (`System32`, aucune copie à côté de l'interpréteur). Construction :
+  rejouer `port/ucrt_cmp.py` (`ctypes`, hors de l'outil) sur la nouvelle bibliothèque, puis ajouter son sha256 et son compte à
+  `fdlibm_log.VECTORS` par un lot avec sa G2. Prix : une mesure d'environ 10 s, deux lignes, une entrée de liste.
+- **Décisions de MONARK** (2026-10-07, 03:2x UTC), sur les quatre questions du lot :
+  - Q-1e-1, décidée : la classe « association » reste sous le `log` du générateur, et toute cause combinée reste « not explained »,
+    comme construit. Q-6 de RECHERCHES écrit « classe ln/association » : MONARK la soumet à RECHERCHES dans la demande de G2.
+  - Q-1e-2, décidée : la course complète ne part que d'un arbre committé (`HEAD` de `--repo`). C'est la commande du §3.3, depuis un
+    clone détaché au commit listé.
+  - Q-1e-3, décidée : le défaut tient. Hors de la bibliothèque mesurée, l'empreinte est écrite, sans refus ; le rapport nomme sa
+    plateforme, et la G2 rejoue sur la même plateforme ou documente l'écart (§3.3). L'item REPORT-LIBM-FINGERPRINT-1 reste formé.
+  - Q-1e-4, décidée : `git_tree` et le refus d'un cache de bytecode entrent dans la G2 de la partie 1.
+- **Git** : aucun `GIT_DIR`, aucun `GIT_WORK_TREE` (mesure `env` : 0 ; seul `GIT_EDITOR`, posé par le harnais), aucun `--write-tree`.
+  `git add` dans `F:/tmp/verifiers-1e/clone` seulement ; `git checkout` de fichiers dans les clones de `F:/tmp` pour rendre les tueurs.
+  Dans le worktree : des lectures, et le `rm` des caches que ce lot a créés. Rien n'est écrit sur C: (`ucrtbase.dll` et la bibliothèque
+  standard y sont lus).
