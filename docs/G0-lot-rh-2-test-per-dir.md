@@ -30,8 +30,9 @@ red-proof: test-only
 1. `published_tables_are_the_served_tables_byte_for_byte` lit `spec/contract-1.1.0/` et chaque `spec/contract-1.1.0-tables-<date>/`
    dont la date est un jour réel (`validDate`, comme `versionDirs` de l'écrivain ; G2, m : un dossier `2026-13-01` masquait un fichier
    daté périmé). Chaque table servie est, à l'octet, le fichier du dernier dossier qui tient sa classe ; `contract-1.1.0/policy/` tient
-   exactement les classes servies ; un dossier daté ne tient que des classes servies, et au moins une. Le test vérifie aussi, sur une
-   arborescence jetable, que lui et l'écrivain (`servedTableDirs`) écartent les mêmes dossiers à date impossible.
+   exactement les classes servies ; un dossier daté ne tient que des classes servies, et au moins une ; `spec/` ne tient que des
+   dossiers de version (un élément de plus au même `deepEqual`, l.130, sans ligne ajoutée : pli de la G2 courte). Le test vérifie
+   aussi, sur une arborescence jetable, que lui et l'écrivain (`servedTableDirs`) écartent les mêmes dossiers à date impossible.
 2. `srf_runbook_vitrine_t0_order` lit la release `contract-1.1.0` par son nom.
 3. `test/spec-retire-path.test.ts` : `copy()` construit une racine de la forme de T0, quel que soit le dossier daté du dépôt :
    `schemas/` et `spec/contract-1.1.0/`, chaque table servie écrite là, canonique. L.97 tire la carte attendue des dossiers présents
@@ -59,9 +60,14 @@ btc-dir-1h : remplacé par celui de `gate.ts:217`, tué à la base propre, avec 
   trop à la racine d'un dossier daté, rouge (`--check` 1) ; dossier daté sans table (`retire/` seul), rouge (`--check` 0) ; doublon daté
   identique, rouge ; dernier fichier daté altéré, rouge.
 - Limite, déclarée : un fichier daté **supplanté** et altéré reste vert, et `--check` aussi (`published()` le garde sans le re-dériver).
-  « Un fichier daté altéré rougit » ne vaut que pour le dernier fichier daté d'une classe. L'épingler au sha256 de son entrée de
-  release datée relève de SPEC-DATED-RELEASE-ENTRY-1, comme le doublon de nom de release dans `scripts/spec-publish-inputs.json`
+  « Un fichier daté altéré rougit » ne vaut que pour le dernier fichier daté d'une classe. `published()` garde de même, sans la
+  re-dériver, la liste de retrait d'un dossier daté : une liste de retrait altérée laisse `differences()` vide, même dans le dernier
+  dossier daté. Épingler l'un et l'autre au sha256 de leur entrée de release datée relève de SPEC-DATED-RELEASE-ENTRY-1, comme le doublon de nom de release dans `scripts/spec-publish-inputs.json`
   (`JSON.parse` garde le dernier bloc ; préexistant, `scripts/spec-publish.mjs` l.53-76) : à lire par clé textuelle à ce lot.
+- Pli de la G2 courte (Node v24.21.0, Linux), élément « `spec/` ne tient que des dossiers de version » : `spec/stray.json`, ou un
+  dossier `contract-1.1.0-tables-2026-13-01` seul aux octets servis, laisse `published_tables…` vert avec le fichier de test d'avant
+  le pli et le rougit en `ERR_ASSERTION` avec celui-ci. Arbre propre : `spec-1-1-0-release`, `spec-retire-path` et `surfaces-1-1-0`,
+  48 sur 48. La même commande red-proof `--test-only`, sous Node 24 : sortie 0, « 4 judged, 44 unchanged », quatre tueurs tués.
 - `node scripts/red-proof.mjs --base b9d327a4 --gel <worktree> --repo <worktree> --test-only` (Node 22.22.2, Linux) : sortie 0,
   « 4 judged, 44 unchanged » ; les quatre tests `pinned`, leurs quatre tueurs tués.
 - tsc, eslint des deux fichiers, lang-gate, grep-forbidden, lint-ratchet (69/69), export-public `--check`, winlint `--base b9d327a4` : 0.
