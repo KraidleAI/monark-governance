@@ -121,12 +121,12 @@ test("contract_1_1_0_declares_every_published_file_pinned", () => {
 
 // killer: spec/contract-1.1.0/policy/btc-dir-1h.json:1 CONST "\"rows\":[]" -> "\"rows\":[ ]"
 test("published_tables_are_the_served_tables_byte_for_byte", () => {
-  for (const t of SERVED_POLICY_TABLES) {
-    const b = bytes(OUT, "policy", `${t.task_class}.json`);
+  const spec = join(ROOT, "spec"), dirs = readdirSync(spec).filter((d) => /^contract-1\.1\.0(?:-tables-\d{4}-\d{2}-\d{2})?$/.test(d)).sort(), held = (d: string): string[] => (existsSync(join(spec, d, "policy")) ? readdirSync(join(spec, d, "policy")).sort() : []);
+  for (const t of SERVED_POLICY_TABLES) { // SPEC-TABLES-TEST-PER-DIR-1: each served table is the file of the last directory that holds its class; an older dated directory is never rewritten
+    const b = bytes(spec, dirs.filter((d) => held(d).includes(`${t.task_class}.json`)).at(-1) ?? "contract-1.1.0", "policy", `${t.task_class}.json`);
     assert.deepEqual([b.toString("utf8") === canonicalJson(t.table), sha(b), sha(b)], [true, t.policy_table_sha256, sha256Canonical(t.table)], t.task_class);
   }
-  assert.deepEqual(existsSync(join(OUT, "policy")) ? readdirSync(join(OUT, "policy")).sort() : [], SERVED_POLICY_TABLES.map((t) => `${t.task_class}.json`).sort());
-  assert.deepEqual(SERVED_POLICY_TABLES.filter((t) => t.table.class.cell_key_rule === "kata-bucket").map((t) => t.table.rows.length), Array<number>(32).fill(0));
+  assert.deepEqual([dirs[0], held("contract-1.1.0"), dirs.flatMap(held).filter((f) => !held("contract-1.1.0").includes(f)), SERVED_POLICY_TABLES.filter((t) => t.table.class.cell_key_rule === "kata-bucket").map((t) => t.table.rows.length)], ["contract-1.1.0", SERVED_POLICY_TABLES.map((t) => `${t.task_class}.json`).sort(), [], Array<number>(32).fill(0)]);
 });
 
 // killer: scripts/spec-publish.mjs:292 CONST "r.recompute !== null" -> "r.recompute === undefined"
