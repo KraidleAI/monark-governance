@@ -127,7 +127,7 @@ const GREEN = {
 // uncommitted body put in s0 => red.
 // CM-2b surfaces: 18 checks (E-2a adds the kata path and version checks); the gate body is the committed USDe key, and two 400 checks carry their code (btc-dir-15m
 // retired: task_class_retired; produced_at in 2099: produced_at_future, MONARK C-8).
-// killer: scripts/verify-harness.mjs:319 CONST "got === code" -> "got !== code"
+// killer: scripts/verify-harness.mjs:330 CONST "got === code" -> "got !== code"
 test("verify_harness_ca_passes_on_the_in_process_harness", async () => {
   const server: HttpServer = await startLoopback((port) => startServer(port, undefined, caServerClock()));
   try {
@@ -258,7 +258,7 @@ const shut = (s: HttpServer): Promise<void> => {
 // O-1b-G2-2 (duration of this test, G2 HARNESS-DESC-1-1b): 17 CA runs here (16 vectors and the crash run; about 0.2 s each
 // idle, measured up to ~10 s each under a loaded full suite for the former 4); the per-test timeout keeps a margin over
 // the suite's 120 s default.
-// killer: scripts/verify-harness.mjs:410 CONST " && digest === calibrateScoresSha256;" -> ";"
+// killer: scripts/verify-harness.mjs:421 CONST " && digest === calibrateScoresSha256;" -> ";"
 test("verify_harness_ca_liq_checks_red_on_overclaiming_surfaces", { timeout: 300000 }, async () => {
   // M-4 (second exitCode site, main().catch): an unparsable --api throws in `new URL` before any request (the --mcp is a
   // closed local port, never a public host): no CA on stdout, the crash named on stderr, exit exactly 1.
@@ -362,7 +362,7 @@ function tlsFront(port: number, pem: { key: string; cert: string }): HttpServer 
 // NODE_EXTRA_CA_CERTS) writes --out and removes both side records, no temp file left; and a run whose mcp host serves an
 // untrusted certificate (the fetches let through by NODE_TLS_REJECT_UNAUTHORIZED=0, the handshake judged on its own) reds
 // on tls_mcp alone and keeps --out.
-// killer: scripts/verify-harness.mjs:153 CONST "tlsBlocks.every((t) => t.authorized === true)" -> "tlsBlocks.every((t) => t.authorized !== false)"
+// killer: scripts/verify-harness.mjs:164 CONST "tlsBlocks.every((t) => t.authorized === true)" -> "tlsBlocks.every((t) => t.authorized !== false)"
 test("verify_harness_out_is_written_only_when_every_check_passes", { timeout: 300000 }, async () => {
   const dir = mkdtempSync(join(tmpdir(), "verify-harness-out-")), out = join(dir, "ca.json"), trusted = selfSigned("api.test"), foreign = selfSigned("mcp.test");
   writeFileSync(join(dir, "trusted.pem"), trusted.cert);
@@ -434,7 +434,7 @@ test("verify_harness_refuses_an_unknown_option", async () => {
 
 // (6) G2 M-3 of T0-TOOLING-1: every request is bounded by --timeout. Against an mcp host that accepts and never answers (the
 // api a closed port), the run ends within its bound, red, with the timed-out checks named and no --out written.
-// killer: scripts/verify-harness.mjs:172 CONST "{ ...init, signal: AbortSignal.timeout(TIMEOUT_MS) }" -> "init"
+// killer: scripts/verify-harness.mjs:183 CONST "{ ...init, signal: AbortSignal.timeout(TIMEOUT_MS) }" -> "init"
 test("verify_harness_bounds_every_request", { timeout: 300000 }, async () => {
   const dir = mkdtempSync(join(tmpdir(), "verify-harness-timeout-")), out = join(dir, "ca.json"), held: Socket[] = [];
   const silent = createTcpServer((socket) => { held.push(socket); });
@@ -470,7 +470,7 @@ test("verify_harness_side_records_never_ship", async () => {
 
 // (8) Delta G2 of T0-TOOLING-1 (D-5): an atomic write whose temp write fails leaves no temp file. The temp path is made a
 // dangling link into an absent directory, so the write fails after the name exists; the link is removed with the failure.
-// killer: scripts/verify-harness.mjs:157 CONST "rmSync(`${path}.tmp`, { force: true }); throw error;" -> "throw error;"
+// killer: scripts/verify-harness.mjs:168 CONST "rmSync(`${path}.tmp`, { force: true }); throw error;" -> "throw error;"
 test("verify_harness_atomic_write_leaves_no_temp", async (t) => {
   const { writeAtomic } = (await import(new URL("../scripts/verify-harness.mjs", import.meta.url).href)) as { writeAtomic?: (path: string, text: string) => void };
   assert.equal(typeof writeAtomic, "function", "scripts/verify-harness.mjs exports writeAtomic");
@@ -493,7 +493,7 @@ interface KataBodies { GATE_BODY: { prediction: Record<string, unknown>; params:
 const KATA_CELL = "kata:ca-probe@ca-probe/BTCUSDT/1h/b0";
 const kataGreen = (producedAt: string, waited: number): string => `status=200 action=abstain verdict_reason=under_calib n_calib=0 region=null cell_key=${KATA_CELL} policy_row_sha256=null produced_at=${producedAt} waited_s=${String(waited)} clock=test`;
 const servedBtcRange1h = (): string => SERVED_POLICY_TABLES.find((t) => t.task_class === "btc-range-1h")?.policy_table_sha256 ?? assert.fail("btc-range-1h is served");
-// killer: scripts/verify-harness.mjs:543 CONST "got === \"schema_version_unsupported\"" -> "got === \"schema_version_invalid\""
+// killer: scripts/verify-harness.mjs:553 CONST "got === \"schema_version_unsupported\"" -> "got === \"schema_version_invalid\""
 test("verify_harness_ca_plays_kata_path_and_refuses_1_0_0", { timeout: 120000 }, async () => {
   const ca = (await import(new URL("../scripts/verify-harness.mjs", import.meta.url).href)) as unknown as KataBodies;
   assert.ok(ca.GATE_KATA_BODY !== undefined && ca.GATE_V100_BODY !== undefined, "the CA exports GATE_KATA_BODY and GATE_V100_BODY");
@@ -538,7 +538,7 @@ const tableEntrySelector = async (): Promise<(inputs: PublishInputs, taskClass: 
 // = the line the producer (manifestText) writes for that entry (published anchor, read 2026-10-07: line 19 of MANIFEST.sha256 of
 // monark-kata-spec at ffb5ea33, file sha256 66d31d82122587a9da8725f3e19b39b43f371de826c1e9f311ea6a1755d4eb16) = the sha256 of the file = the directory
 // servedTableDirs names = the digest the harness serves. A release that changes the table reds here until the constant follows.
-// killer: scripts/verify-harness.mjs:491 CONST "1296c3336a96e230" -> "e7e673664c03e3c5"
+// killer: scripts/verify-harness.mjs:501 CONST "1296c3336a96e230" -> "e7e673664c03e3c5"
 test("verify_harness_ca_pins_policy_table_sha256", async () => {
   const ca = (await import(new URL("../scripts/verify-harness.mjs", import.meta.url).href)) as unknown as KataBodies;
   const pin = ca.KATA_POLICY_TABLE_SHA256;
@@ -592,7 +592,7 @@ const caServer = (startMs: number): Promise<HttpServer> => startLoopback((port) 
 // S seconds, says so on stderr and in the detail, then passes; a run clock more than 60 s ahead of the host's Date header fails
 // (1) and (2) with kata_clock_skew; a host that serves another table digest reds (2) alone. Each run starts on the harness clock
 // (clock()), never on a constant the harness has run past.
-// killer: scripts/verify-harness.mjs:483 CONST "KATA_SKEW_MAX_MS = 60000;" -> "KATA_SKEW_MAX_MS = 600000;"
+// killer: scripts/verify-harness.mjs:493 CONST "KATA_SKEW_MAX_MS = 60000;" -> "KATA_SKEW_MAX_MS = 600000;"
 test("verify_harness_ca_kata_window_fails_closed_and_waits", { timeout: 300000 }, async () => {
   const grid = CA_TEST_CLOCK_MS - 30_000, hour = 3_600_000, clock = caServerClock();
   const now: HttpServer = await startLoopback((port) => startServer(port, undefined, clock));
@@ -640,7 +640,7 @@ test("verify_harness_ca_pin_entry_ignores_a_later_release_of_another_root", asyn
 // (12) The window, pure (kataWindow): the grid instant +-225 s on both sides of it; outside, the wait ends 225 s before the next
 // grid instant (3 600 - 2 x 225 = 3 150 s at most), and that instant only when --kata-wait-max covers the wait. 225 s and 60 s of
 // clock skew leave 15 s under the 300 s the server takes on either side of produced_at (produced_at_stale, produced_at_future).
-// killer: scripts/verify-harness.mjs:482 CONST "KATA_WINDOW_MS = 225000;" -> "KATA_WINDOW_MS = 240000;"
+// killer: scripts/verify-harness.mjs:492 CONST "KATA_WINDOW_MS = 225000;" -> "KATA_WINDOW_MS = 240000;"
 test("verify_harness_ca_kata_window_is_225_s_on_both_sides", async () => {
   const { kataWindow } = (await import(new URL("../scripts/verify-harness.mjs", import.meta.url).href)) as unknown as { kataWindow: (nowMs: number, waitMaxS: number | null) => { at: number | null; waitMs: number } };
   const g = CA_TEST_CLOCK_MS - 30_000, h = 3_600_000;
@@ -651,7 +651,7 @@ test("verify_harness_ca_kata_window_is_225_s_on_both_sides", async () => {
 });
 
 // (13) A run 100 s before the hour calls on the coming grid instant, with no wait (the window is two-sided).
-// killer: scripts/verify-harness.mjs:527 CONST "Math.round(nowMs / KATA_GRID_MS)" -> "Math.floor(nowMs / KATA_GRID_MS)"
+// killer: scripts/verify-harness.mjs:537 CONST "Math.round(nowMs / KATA_GRID_MS)" -> "Math.floor(nowMs / KATA_GRID_MS)"
 test("verify_harness_ca_kata_runs_before_the_hour", { timeout: 120000 }, async () => {
   const server = await caServer(CA_TEST_CLOCK_MS - 30_000 + 3_500_000);
   try {
@@ -663,7 +663,7 @@ test("verify_harness_ca_kata_runs_before_the_hour", { timeout: 120000 }, async (
 });
 
 // (14) A host clock 120 s ahead of the run clock fails (1) and (2) with kata_clock_skew, as a run clock ahead does (11).
-// killer: scripts/verify-harness.mjs:555 CONST "Math.abs(date - clock.now())" -> "(clock.now() - date)"
+// killer: scripts/verify-harness.mjs:565 CONST "Math.abs(date - clock.now())" -> "(clock.now() - date)"
 test("verify_harness_ca_kata_reds_on_a_host_clock_ahead", { timeout: 120000 }, async () => {
   const server = await caServer(CA_TEST_CLOCK_MS + 120_000);
   try {
@@ -676,7 +676,7 @@ test("verify_harness_ca_kata_reds_on_a_host_clock_ahead", { timeout: 120000 }, a
 
 // (15) The window is checked again right before the call: a run that starts 2 s inside it and whose /health answer takes 3 s
 // fails (1) and (2) with kata_window_not_reached, not with an unnamed 400 (the server would still take the call here).
-// killer: scripts/verify-harness.mjs:558 CONST "if (late > KATA_WINDOW_MS)" -> "if (late > 2 * KATA_WINDOW_MS)"
+// killer: scripts/verify-harness.mjs:568 CONST "if (late > KATA_WINDOW_MS)" -> "if (late > 2 * KATA_WINDOW_MS)"
 test("verify_harness_ca_kata_window_is_checked_again_before_the_call", { timeout: 120000 }, async () => {
   const server = await caServer(CA_TEST_CLOCK_MS - 30_000 + 223_000), front = kataFront(portOf(server), (b) => b, 3000);
   try {
@@ -692,7 +692,7 @@ test("verify_harness_ca_kata_window_is_checked_again_before_the_call", { timeout
 // alone ((2) reads the table digest, unchanged): each verdict field, and the status (203, the body unchanged: the verdict is read
 // whatever the status). The verdict is the harness's own, one field rewritten by the front. A 200 without structuredContent reds
 // (1) and (2), with a record printed: the CA never crashes on it.
-// killer: scripts/verify-harness.mjs:565 CONST " && v.policy_row_sha256 === null;" -> ";"
+// killer: scripts/verify-harness.mjs:575 CONST " && v.policy_row_sha256 === null;" -> ";"
 test("verify_harness_ca_kata_call_reds_on_a_served_row_and_on_each_conjunction", { timeout: 300000 }, async () => {
   type Sc = { action: string; verdict: Record<string, unknown> };
   type Answer = { structuredContent?: Sc };
