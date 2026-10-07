@@ -9,7 +9,7 @@
 // spellings) or when LISTED names it for its file, with its reason (a number or a code form shaped like an address, a boundary input
 // of an address test). This file may carry the literals of LISTED, nothing else. Any other is a hit, printed with no digit of it.
 import { execFileSync } from "node:child_process";
-import { readFileSync } from "node:fs";
+import { lstatSync, readFileSync, readlinkSync } from "node:fs";
 import { BlockList, isIPv4, isIPv6 } from "node:net";
 import { join } from "node:path";
 
@@ -117,12 +117,15 @@ const listedAnywhere = (lit) => Object.values(LISTED).some((e) => Object.hasOwn(
 const bareEnv = () => Object.fromEntries(Object.entries(process.env).filter(([k]) => !k.toUpperCase().startsWith("GIT_")));
 
 /** A path with each literal it carries masked, where it is written (each hex run it touches, escapes included) and wherever its text
- * recurs: a hit never prints an address, not even through a file name. */
+ * recurs, each of its characters as written or as an escape (an encoded recurrence glued to a word): a hit never prints an address. */
 function hide(rel) {
   const hid = Array(rel.length).fill(false);
-  for (const [, a, b] of spans(rel)) hid.fill(true, a, b);
-  const s = rel.replace(/[\dA-Fa-f]+/g, (run, i) => (hid.slice(i, i + run.length).includes(true) ? "x" : run));
-  return literals(rel).reduce((t, [lit]) => t.split(lit).join(mask(lit)), s);
+  for (const [lit, a, b] of spans(rel)) {
+    hid.fill(true, a, b);
+    const recurs = new RegExp([...lit].map((c) => `(?:${c === "." ? "\\." : c}|%${c.charCodeAt(0).toString(16)})`).join(""), "gi");
+    for (const m of rel.matchAll(recurs)) hid.fill(true, m.index, m.index + m[0].length);
+  }
+  return rel.replace(/[\dA-Fa-f]+/g, (run, i) => (hid.slice(i, i + run.length).includes(true) ? "x" : run));
 }
 /** Judge the literals of one line of `rel` (line 0: the path itself) into the verdict `v`. */
 function judge(v, rel, line, text) {
@@ -141,7 +144,11 @@ export function scan(root, env = bareEnv()) {
   for (const rel of tracked.filter((f) => f !== "")) {
     judge(v, rel, 0, rel);
     let buf;
-    try { buf = readFileSync(join(root, rel)); } catch (e) { if (e.code === "ENOENT") continue; throw e; } // deleted in the work tree
+    try { // a link is judged by its text, never followed; a gitlink (its submodule's directory) by its path only
+      const p = join(root, rel), st = lstatSync(p);
+      if (!st.isFile() && !st.isSymbolicLink()) continue;
+      buf = st.isSymbolicLink() ? readlinkSync(p, { encoding: "buffer" }) : readFileSync(p);
+    } catch (e) { if (e.code === "ENOENT") continue; throw e; } // deleted in the work tree
     if (buf.includes(0)) { skipped.push(rel); continue; } // a binary file, which .gitattributes must declare (undeclared, below)
     v.read++;
     buf.toString("utf8").split("\n").forEach((text, i) => { judge(v, rel, i + 1, text); });
