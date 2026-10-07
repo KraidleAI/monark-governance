@@ -409,9 +409,9 @@ node scripts/retire-probe.mjs --api <url> --table spec/contract-1.1.0-tables-<YY
 ```
 
 - `scripts/retire-probe.mjs` (item RETIRE-PROBE-1) builds the call from the table file, waits until its clock is within
-  240 s of a grid instant (`--max-wait`, 4 h by default), makes one call, bounded as a whole by `--timeout` (10 000 ms by
+  225 s of a grid instant (`--max-wait`, 4 h by default; with 60 s of clock skew, 15 s under the 300 s of the server), makes one call, bounded as a whole by `--timeout` (10 000 ms by
   default), and prints the record `retire-probe-v1`: it carries the probe's own verdict (`ok`, `problem`), the table file,
-  the api and its Host. `--out <file>` writes that record when the verdict is accepted (and removes a stale
+  the api and its Host, and `tls_authorized` (whether the TLS handshake was authorized; `null` over http). `--out <file>` writes that record when the verdict is accepted (and removes a stale
   `<file>.refused`), `<file>.refused` when the verdict is refused; a refusal before any verdict (`table_invalid`,
   `cell_invalid`, `wait_exceeds_max`, `window_missed`, `transport_failed`) writes nothing. Never redirect stdout into the
   record (Windows PowerShell 5.1 writes `>` in UTF-16). Exit 0 iff the cell has a current row in the file and the verdict

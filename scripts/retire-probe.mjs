@@ -10,9 +10,11 @@
 // The expected digest is the sha256 of the file (scripts/spec-policy-tables.mjs l.10-11). A kata call is accepted with a produced_at on
 // the grid of the horizon, at most 300 s before the server clock (kata-path.ts l.47, produced_at_stale) and at most 300 s after it
 // (apps/harness/src/tools/gate.ts l.885, produced_at_future): the probe waits until its clock is within MARGIN_MS of a grid instant (at
-// most --max-wait, default 4 h), then makes ONE call, POST <api>/gate with Host <api-host> (default: the --api host), bounded as a whole
+// most --max-wait, default 4 h; 225 s, as the window of the kata check of scripts/verify-harness.mjs: with 60 s of clock skew, 15 s
+// under the server's 300 s), then makes ONE call, POST <api>/gate with Host <api-host> (default: the --api host), bounded as a whole
 // by --timeout (default 10 000 ms: headers and body, as scripts/verify-harness.mjs). Stdout: the closed record retire-probe-v1 of the
-// verdict received, with the probe's own verdict (ok, problem), the table file, the api and its Host; received_at is the UTC second it
+// verdict received, with the probe's own verdict (ok, problem), the table file, the api and its Host, and tls_authorized (the
+// res.socket.authorized of the call: true or false over https, null over http); received_at is the UTC second it
 // arrived (T_g), the clock reading of the call plus a monotonic delta (a wall clock stepped back between the two never reorders them).
 // --out <file> writes the record through a temporary file and a rename (writeAtomic of scripts/verify-harness.mjs: no shell redirection,
 // which PowerShell 5.1 writes in UTF-16) when the verdict is accepted (and removes a stale <file>.refused), <file>.refused when it is
@@ -27,17 +29,22 @@ import { request as httpRequest } from "node:http";
 import { request as httpsRequest } from "node:https";
 import { writeAtomic } from "./verify-harness.mjs";
 
-export const FORMAT = "retire-probe-v1", MARGIN_MS = 240_000, MAX_WAIT_MS = 4 * 3_600_000;
+export const FORMAT = "retire-probe-v1", MARGIN_MS = 225_000, MAX_WAIT_MS = 4 * 3_600_000;
 export class ProbeError extends Error {
   constructor(code, detail) { super(`${code}: ${detail}`); this.code = code; }
 }
 const no = (code, detail) => { throw new ProbeError(code, detail); };
 const second = (ms) => new Date(Math.floor(ms / 1000) * 1000).toISOString().replace(".000Z", "Z");
+/** tlsOf(socket) -> whether the TLS handshake of the socket was authorized; null for a socket with no TLS (http). */
+export const tlsOf = (socket) => (typeof socket?.authorized === "boolean" ? socket.authorized : null);
 
-/** plan(nowMs, hMs) -> {producedAtMs, waitMs}: the grid instant to call for, and the wait until the clock is within MARGIN_MS of it. */
+/** plan(nowMs, hMs) -> {producedAtMs, waitMs} (pure, the form of kataWindow of scripts/verify-harness.mjs): within MARGIN_MS of a grid
+ *  instant, that instant and no wait; else the next grid instant and the wait until the clock is within MARGIN_MS of it. */
 export function plan(nowMs, hMs) {
-  const g = Math.floor(nowMs / hMs) * hMs;
-  return nowMs - g <= MARGIN_MS ? { producedAtMs: g, waitMs: 0 } : { producedAtMs: g + hMs, waitMs: Math.max(0, g + hMs - MARGIN_MS - nowMs) };
+  const near = Math.round(nowMs / hMs) * hMs;
+  if (Math.abs(nowMs - near) <= MARGIN_MS) return { producedAtMs: near, waitMs: 0 };
+  const next = Math.ceil(nowMs / hMs) * hMs;
+  return { producedAtMs: next, waitMs: next - MARGIN_MS - nowMs };
 }
 
 /** call(tableBytes, cell, producedAtMs) -> {body, cell, expected, row, hMs}: the gate body, the file's sha256, the cell's current row or null. */
@@ -62,7 +69,7 @@ export function call(tableBytes, cell, producedAtMs) {
 
 /** judge(response, asked, receivedMs, where) -> {record, problem}: the closed record, which carries the probe's verdict (ok, and the code
  *  of the problem or null), and why it is not the verdict awaited (null when it is). */
-export function judge({ status, text }, { body, cell, expected, row }, receivedMs, { table = null, api = null, apiHost = null } = {}) {
+export function judge({ status, text, tls_authorized: tls = null }, { body, cell, expected, row }, receivedMs, { table = null, api = null, apiHost = null } = {}) {
   let v = null;
   try { v = JSON.parse(text)?.structuredContent?.verdict ?? null; } catch { v = null; }
   const p = body.prediction, equal = v?.policy_table_sha256 === expected;
@@ -74,7 +81,7 @@ export function judge({ status, text }, { body, cell, expected, row }, receivedM
     format: FORMAT, task_class: p.task_class, cell_key: cell, table, api, api_host: apiHost, produced_at: p.produced_at, received_at: second(receivedMs),
     received_at_ms: new Date(receivedMs).toISOString(), status, served_cell_key: v?.cell_key ?? null, reason: v?.reason ?? null,
     policy_table_sha256: v?.policy_table_sha256 ?? null, policy_row_sha256: v?.policy_row_sha256 ?? null, expected_sha256: expected, equal,
-    ok: problem === null, problem: problem?.[0] ?? null,
+    ok: problem === null, problem: problem?.[0] ?? null, tls_authorized: tls,
   };
   return { record, problem };
 }
@@ -88,7 +95,8 @@ export function wired(url, body, hostHeader, timeoutMs = 10_000) {
     const req = (https ? httpsRequest : httpRequest)({ hostname: u.hostname, port: u.port || (https ? 443 : 80), path: u.pathname, method: "POST", timeout: timeoutMs, ...(https ? { servername: u.hostname } : {}),
       headers: { host: hostHeader, "content-type": "application/json", "content-length": Buffer.byteLength(body) } }, (res) => {
       let raw = "";
-      res.setEncoding("utf8").on("data", (c) => { raw += c; }).on("end", () => { done({ status: res.statusCode ?? 0, text: raw }); });
+      const tls = tlsOf(res.socket); // read at the response: a socket kept alive goes back to the agent at its end
+      res.setEncoding("utf8").on("data", (c) => { raw += c; }).on("end", () => { done({ status: res.statusCode ?? 0, text: raw, tls_authorized: tls }); });
       res.on("error", (e) => { done({ error: res.complete ? e.message : "truncated" }); }).on("close", () => { if (!res.complete) done({ error: "truncated" }); });
     });
     total = setTimeout(() => { req.destroy(new Error("timeout")); done({ error: "timeout" }); }, timeoutMs);
