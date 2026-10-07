@@ -732,12 +732,45 @@ Tronc `lot/etude-suite`. Dernier oracle complet : 1 779 tests, dont 1 776 verts,
     `--write --date`, release, publication, fusion, déploiement, sonde), mesurée par `scripts/retire-latency.mjs` en jours ouvrés, avec
     une cause `live:<k>` dès RETIRE-CAUSE-VOCAB-1 tranché. Porteur : orchestrateur MONARK ; déclencheur : maintenant (R-a et R-b
     fusionnées) ; état : ouvert.
+    Ligne datée 2026-10-07 (MONARK, #216, fusion `ce3849a4`) : le G0 est écrit (`docs/G0-lot-retire-latency-rehearsal-1.md`), avec
+    les décisions de MONARK (§10) et de RECHERCHES (§11, `ff13e11`).
+    - La répétition porte sur une ligne réelle de la vague 1, en bac à sable, sur la branche du chargeur d E-2a, avec une cause `adr:`.
+    - D6 se prouve en deux segments mesurés : la décision (T_a → T_c), par cette répétition ; la mise en service (T_c → T_g), par le
+      cycle `publication` d E-2a. Leur somme doit tenir sous 14 jours.
+    - Lots RH-1 (la sonde et l assemblage des instants), RH-2 (deux tests), RH-3 (le cycle `publication`), puis l acte.
+
+    Items formés au G0, ci-dessous. État : ouvert.
+  - RETIRE-PROBE-1 (G0 de la répétition §8) : la sonde de T_g, un outil neuf qui attend la fenêtre de grille de la classe. Porteur :
+    MONARK ; déclencheur : lot RH-1, au plus tard au G0 court d E-2a ; prix ~220 lignes ; état : ouvert.
+  - RETIRE-INSTANTS-1 (§8) : l assemblage de l entrée de latence à partir des preuves (commits, CA, sonde). Porteur : MONARK ;
+    déclencheur : avec RETIRE-PROBE-1 (RH-1) ; prix ~150 lignes ; état : ouvert.
+  - T0-ORDER-TEST-RELEASE-NAME-1 (§8 ; mesure M-1) : `srf_runbook_vitrine_t0_order` lit la dernière release de
+    `scripts/spec-publish-inputs.json` (`test/surfaces-1-1-0.test.ts` l.231) et rougit à la première release datée ; il doit la
+    lire par son nom. Porteur : MONARK ; déclencheur : avant la première entrée de release datée (RH-2) ; prix ~4 lignes ; état :
+    ouvert.
+  - RETIRE-LIST-WRITER-1 (§8) : un écrivain et un contrôleur de la liste de retrait (aucune commande ne l écrit aujourd hui).
+    Porteur : MONARK ; déclencheur : le G0 d E-2a, au plus tard le premier retrait réel ; prix ~160 lignes ; état : ouvert.
+  - RETIRE-REDO-MESSAGE-1 (§8) : le refus de `scripts/spec-policy-tables.mjs` l.184 imprime les commandes git qui refont un dossier
+    daté avant sa publication. Porteur : MONARK ; déclencheur : le prochain lot qui touche ce script, avec RETIRE-HEADER-WORDING-1 ;
+    prix ~4 lignes ; état : ouvert.
+  - RETIRE-REAL-CYCLE-SCOPE-1 (§8 et §11 ; Q-RL-2 décidée par RECHERCHES, `ff13e11`) : la valeur de cycle fermée `publication` dans
+    `scripts/retire-latency.mjs`, qui porte T_c à T_g. Porteur : MONARK code ; déclencheur : avant la première publication datée
+    d E-2a ; prix ~45 lignes ; état : ouvert.
+  - RETIRE-LATENCY-FIRST-REAL-1 (PAROXYSME ; §11, condition de RECHERCHES) : le premier retrait réel, au plus tôt `live:1` le
+    2027-01-01 ou une cause `adr:` avant, est mesuré de T_a à T_g d un seul tenant ; au-delà de 14 jours, c est un écart à D6, ouvert
+    en PAROXYSME. Porteur : MONARK ; déclencheur : ce premier retrait réel ; état : ouvert.
+  - RETIRE-REHEARSAL-STAGING-1 (procurement, §8) : un hôte et un dépôt privé de répétition, pour mesurer T_d, T_f et T_g sur un vrai
+    réseau avant le cycle réel. Décision du fondateur ; défaut « non », sans dépense ni compte, le cycle réel d E-2a mesurant ces
+    actes. Prix : un hôte de plus, montant à lire sur place chez l hébergeur ; état : en attente de la décision du fondateur.
   - RETIRE-CAUSE-VOCAB-1 (Q-Rb-6 de R-b, mesuré par la vérification) : la porte de vocabulaire refuse « live » en texte public
     (`live:1` heurte la règle « a ») ; une cause `live:<k>` ne peut donc pas être publiée telle quelle. Porteur : MONARK décide,
     RECHERCHES relit ; déclencheur : avant le premier dossier daté qui porte `live:`, au plus tôt après 2027-01-01 ; état : ouvert.
   - RETIRE-RUNBOOK-1 (m-6 de la vérification de R-b) : la procédure d un retrait au RUNBOOK (liste, `--write --date`, entrée de
     release, publication, fusion, déploiement, sonde, rapport de latence ; un dossier daté à refaire avant publication se retire avec
     git). Porteur : MONARK ; déclencheur : la fusion de R-b (atteint) ; état : ouvert.
+    Ligne datée 2026-10-07 (MONARK, #216, fusion `ce3849a4`) : fait. La section « Retire a kata row » de `docs/RUNBOOK-harness.md`
+    décrit le retrait en neuf étapes, chaque commande citée de son fichier et de sa ligne, T_a, T_b et T_e lus comme dates du
+    committer (`git log -1 --format=%cI`). Test `test/runbook-retire.test.ts`, trois tests. G2 de RECHERCHES : APPROUVE (`ff13e11`).
   - RETIRE-NEXT-CONTRACT-1 (m-4 de la vérification de R-b) : le refus d une ligne retirée hors d un dossier daté est une décision limitée
     au contrat 1.1.0 ; une version de contrat non datée pourra-t-elle publier une ligne retirée avec sa liste ? Porteur : MONARK décide,
     RECHERCHES relit ; déclencheur : le G0 de la prochaine version de contrat après 1.1.0 ; état : ouvert.
