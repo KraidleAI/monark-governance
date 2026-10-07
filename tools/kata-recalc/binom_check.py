@@ -1,18 +1,17 @@
-# claude-opus-5-5 - 2026-10-02 - lot P2-RECALC-TOOL-1 (MONARK G1), Python 3.14 standard library only.
+# claude-opus-5-5 - 2026-10-02 - lot P2-RECALC-TOOL-1 (MONARK G1), Python 3.14 standard library only. Lot 1d (2026-10-06): M-4, M-6, M-7.
 # Oracle D-2 (ii): the exact engine of binom_exact.py (Horner, galloping, bisection) against a second, independent writing:
 #   direct sums of the binomial terms C(n, i) p^i q^(n - i) over den^n as exact rationals (fractions.Fraction), linear scans.
 #   Checked: the comparator P(Bin(n, a) <= k) <= delta, k*, n0, U (by its defining property on the 1e-7 grid), the TEST veto
 #   tail P(Bin(n, alpha) >= k) <= 0.05, and the printed values of ADR l.98.
 # Oracle D-2 (iii): every case of the four hikae test files extracted at 207f021f, expected values read in the tests and
 #   replayed on the Python functions (no node). The arrays USDE and LIQ_S0 come from
-#   `git -C F:/Monark show 207f021f:packages/hikae/test/served-scores.ts` at run time (read only, memory only, Q-1).
+#   `git show 207f021f:packages/hikae/test/served-scores.ts` in <repository> at run time (read only, memory only, Q-1).
 # Registry mode (ADR l.155): every k*, rank and U of a registry against the second writing, plus n0, UTest and the veto.
-# Usage: python -B binom_check.py <out-binom.txt> <out-hikae.txt>
+# Usage: python -B binom_check.py <repository> <out-binom.txt> <out-hikae.txt>   (M-6: the governance repository is an argument)
 #        python -B binom_check.py --registry <wave1.json> <out.txt>
+import io_guard  # the input guard, before any other module (M-7)
 import math
-import os
 import re
-import subprocess
 import sys
 from fractions import Fraction
 
@@ -901,14 +900,9 @@ def replay_l1(rp):
         rp.ok(abs(covered / big_r - exact) <= t, f"n={n} coverage {covered / big_r}")
 
 
-def read_served_scores(lines):
-    env = dict(os.environ)
-    env["GIT_TERMINAL_PROMPT"] = "0"
-    env.pop("GIT_DIR", None)
-    env.pop("GIT_WORK_TREE", None)
-    try:
-        out = subprocess.run(["git", "-C", "F:/Monark", "show", "207f021f:packages/hikae/test/served-scores.ts"],
-                             stdin=subprocess.DEVNULL, capture_output=True, env=env, timeout=60, check=True).stdout.decode("utf-8")
+def read_served_scores(lines, repo):
+    try:  # M-6, M-7: the repository is an argument; io_guard runs git show without the caller's GIT_* variables and notes the input
+        out = io_guard.git_show("engine-test-source", repo, "207f021f:packages/hikae/test/served-scores.ts").decode("utf-8")
     except Exception as e:
         lines.append(f"info served-scores.ts not read: {type(e).__name__}")
         return None
@@ -928,7 +922,9 @@ def oracle_registry(path, out_path):
     """ADR l.155 (P2 verification): every k*, rank and U of a registry equal to the exact binomial oracle (second writing),
     plus n0, UTest by its defining property, and the TEST veto with the row status."""
     import json
-    raw = open(path, "rb").read()
+    io_guard.declare("registry")
+    io_guard.output(out_path)
+    raw = io_guard.read("registry", path)
     import hashlib
     reg = json.loads(raw.decode("utf-8"))
     lines = [MODEL, f"# binom_check.py --registry {path} sha256 {hashlib.sha256(raw).hexdigest()}"]
@@ -966,7 +962,7 @@ def oracle_registry(path, out_path):
             rec(f"{name} U property", u_property(n, kb, c["U"]))
         if t["UTest"] is None:
             rec(f"{name} UTest absent only without points or misses", t["nTest"] == 0 or t["kTest"] is None)
-        elif t["UTest"] == "1.0000000":
+        elif t["UTest"] == "1":  # M-4, FMT l.49 (N-4)
             rec(f"{name} UTest 1", t["kTest"] == t["nTest"] >= 1)
         else:
             rec(f"{name} UTest property", t["kTest"] < t["nTest"] and u_property(t["nTest"], t["kTest"], t["UTest"]))
@@ -974,6 +970,7 @@ def oracle_registry(path, out_path):
         rec(f"{name} veto", t["vetoed"] == want and (r["status"] == "vetoed") == want
             and (r["status"] == c["status"] or r["status"] == "vetoed"))
     lines.append(f"rows {len(reg['rows'])}, checks {ok + fail}, failures {fail}")
+    lines.extend(io_guard.input_lines())
     lines.append(f"VERDICT: {'GREEN' if fail == 0 else 'RED'}")
     text = "\n".join(lines) + "\n"
     open(out_path, "w", encoding="utf-8", newline="\n").write(text)
@@ -981,7 +978,10 @@ def oracle_registry(path, out_path):
     return 0 if fail == 0 else 1
 
 
-def main(out_ii, out_iii):
+def main(repo, out_ii, out_iii):
+    io_guard.declare("engine-test-source")
+    io_guard.output(out_ii)
+    io_guard.output(out_iii)
     lines = [MODEL, "# binom_check.py - oracle D-2 (ii): exact engine against a second writing (Fraction, direct sums)"]
     ok, fail = oracle_ii(lines)
     lines.append(f"checks {ok + fail}, failures {fail}")
@@ -990,7 +990,7 @@ def main(out_ii, out_iii):
     open(out_ii, "w", encoding="utf-8", newline="\n").write(text)
     print(text, end="")
     lines2 = [MODEL, "# binom_check.py - oracle D-2 (iii): replay of the four hikae test files extracted at 207f021f"]
-    arrays = read_served_scores(lines2)
+    arrays = read_served_scores(lines2, repo)
     rp = Replay(lines2)
     replay_binomial(rp)
     replay_risk_control(rp, arrays)
@@ -1001,6 +1001,7 @@ def main(out_ii, out_iii):
         lines2.append(f"test {name}: {o} ok, {f} fail" + (f", {s} not replayed ({why})" if s else ""))
         tot_ok, tot_fail, tot_skip = tot_ok + o, tot_fail + f, tot_skip + s
     lines2.append(f"tests {len(rp.tests)}, assertions replayed {tot_ok + tot_fail}, failures {tot_fail}, not replayed {tot_skip}")
+    lines2.extend(io_guard.input_lines())
     lines2.append(f"VERDICT: {'GREEN' if tot_fail == 0 else 'RED'}")
     text2 = "\n".join(lines2) + "\n"
     open(out_iii, "w", encoding="utf-8", newline="\n").write(text2)
@@ -1011,4 +1012,4 @@ def main(out_ii, out_iii):
 if __name__ == "__main__":
     if sys.argv[1] == "--registry":
         sys.exit(oracle_registry(sys.argv[2], sys.argv[3]))
-    sys.exit(main(sys.argv[1], sys.argv[2]))
+    sys.exit(main(sys.argv[1], sys.argv[2], sys.argv[3]))

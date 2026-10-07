@@ -1,7 +1,9 @@
-# claude-opus-5-5 - 2026-10-02 - lot P2-RECALC-TOOL-1 (MONARK G1), Python 3.14 standard library only.
+# claude-opus-5-5 - 2026-10-02 - lot P2-RECALC-TOOL-1 (MONARK G1), Python 3.14 standard library only. Lot 1d (2026-10-06): M-2, M-7.
 # Oracle D-2 (i): every value of kata/spec/vectors.json recomputed by kata_lib.py and compared under the conformance contract of
-# KATA-SPEC l.68 (relative 1e-12, absolute 1e-15 near zero, strings equal); plus the js_number cases of mission D-4 and the
-# JSON.stringify(x, null, 1) reference writing. Usage: python -B vectors_check.py <vectors.json> <out.txt>
+# KATA-SPEC l.71, version 2026-10-02 (relative 1e-12, absolute 1e-15 near zero, strings equal), its ewma_association cases bit for
+# bit (l.70), 333 checks in all (l.5); plus the js_number cases of mission D-4 and the JSON.stringify(x, null, 1) reference writing.
+# Usage: python -B vectors_check.py <vectors.json> <out.txt>
+import io_guard  # the input guard, before any other module (M-7)
 import json
 import math
 import sys
@@ -9,18 +11,26 @@ import sys
 import kata_lib as K
 
 MODEL = "claude-opus-5-5"
+SPEC_CHECKS = 333  # KATA-SPEC l.5, version 2026-10-02 (317 in the version of 2026-10-01)
 
 
 def within(got, want):
-    """KATA-SPEC l.68: abs(got - want) <= max(1e-12 x abs(want), 1e-15)."""
+    """KATA-SPEC l.71: abs(got - want) <= max(1e-12 x abs(want), 1e-15)."""
     if got == want:
         return True
     return abs(got - want) <= max(1e-12 * abs(want), 1e-15)
 
 
+def bits(x):
+    """The exact double in hexadecimal; anything else (non_evaluable) as itself."""
+    return float.hex(x) if isinstance(x, float) else repr(x)
+
+
 def main(vec_path, out_path):
-    v = json.load(open(vec_path, encoding="utf-8"))
-    lines = [MODEL, "# vectors_check.py - oracle D-2 (i) - conformance contract KATA-SPEC l.68"]
+    io_guard.declare("spec-vectors")
+    io_guard.output(out_path)
+    v = json.loads(io_guard.read("spec-vectors", vec_path).decode("utf-8"))
+    lines = [MODEL, "# vectors_check.py - oracle D-2 (i) - conformance contract KATA-SPEC l.71, version 2026-10-02"]
     sections = {}
 
     def rec(section, name, ok, detail="", conformance=True):
@@ -81,6 +91,26 @@ def main(vec_path, out_path):
         got = K.features_digest(bars[dg["end"] - dg["W"]:dg["end"]])
         rec("digest", f"{dg['case']} end {dg['end']} W {dg['W']}", got == dg["sha256"], f"got {got}")
 
+    # D2. ewma_association (KATA-SPEC l.70): windows on which the two orders of the EWMA term give different doubles; the order of
+    # l.42, which kata_lib.py runs, and the other order are each compared bit for bit, never within the tolerance
+    def ewma_other_order(win):
+        """The order that l.42 does not write, w_i * (r_i * r_i): the term of kata_lib.py l.265 before lot 1d."""
+        c = [b[K.B_CLOSE] for b in win]
+        acc = 0.0
+        for j in range(1, len(c)):
+            r = math.log(c[j] / c[j - 1])
+            acc = acc + K._EWMA_W[len(c) - 1 - j] * (r * r)
+        return K.scale(math.sqrt(acc))
+
+    differ = 0
+    for e in v.get("ewma_association", []):  # absent before the version of 2026-10-02: the count check below fails
+        win = by_name[e["case"]][e["end"] - K.W["ewma-vol-hw-v1"]:e["end"]]
+        for label, got, want in (("value", K.kata_value("ewma-vol-hw-v1", win), e["value"]),
+                                 ("other_association", ewma_other_order(win), e["other_association"])):
+            rec("ewma_association", f"{e['case']} end {e['end']} {label}", bits(got) == bits(want), f"got {bits(got)} want {bits(want)}")
+        differ += bits(e["value"]) != bits(e["other_association"])
+    lines.append(f"info ewma_association: the two orders give different doubles on {differ} of {len(v.get('ewma_association', []))} windows")
+
     # E. buckets (terciles by side on the given leans, then the bucket rule on the published thresholds)
     for bi, b in enumerate(v["buckets"]):
         frozen = K.terciles_by_side(b["leans"])
@@ -102,7 +132,7 @@ def main(vec_path, out_path):
         samples = [(s["t"], s["r"], s["sigmaRaw"]) for s in f["samples"]]
         got = K.factor_table(samples, f["horizon_ms"])
         want = f["factors"]
-        rec(key + "-slot-count", "slot count", len(got) == len(want), f"got {len(got)} want {len(want)}", conformance=False)
+        rec(key + "-slot-count", "slot count", len(got) == len(want), f"got {len(got)} want {len(want)}")  # counted: 317 = 315 + 2 (Q-P2b-2)
         same = 0
         for k, (g, w) in enumerate(zip(got, want)):
             if w is None or g is None:
@@ -181,11 +211,13 @@ def main(vec_path, out_path):
 
     total_conf = sum(s["ok"] + s["fail"] for s in sections.values() if s["conformance"])
     fail_conf = sum(s["fail"] for s in sections.values() if s["conformance"])
+    rec("count", f"{total_conf} conformance checks", total_conf == SPEC_CHECKS, f"KATA-SPEC l.5 counts {SPEC_CHECKS}", conformance=False)
     fail_all = sum(s["fail"] for s in sections.values())
     for name, s in sections.items():
         tag = "vector" if s["conformance"] else "extra"
         lines.append(f"section {name} ({tag}): {s['ok']} ok, {s['fail']} fail")
-    lines.append(f"conformance checks on vectors.json: {total_conf} (the specification announces 317), failures {fail_conf}")
+    lines.append(f"conformance checks on vectors.json: {total_conf} (KATA-SPEC l.5 counts {SPEC_CHECKS}), failures {fail_conf}")
+    lines.extend(io_guard.input_lines())
     lines.append(f"VERDICT: {'GREEN' if fail_all == 0 else 'RED'} ({fail_all} failure(s) over all sections)")
     text = "\n".join(lines) + "\n"
     open(out_path, "w", encoding="utf-8", newline="\n").write(text)
