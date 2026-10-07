@@ -151,7 +151,7 @@ test("retire_instants_takes_an_https_probe_only_outside_a_rehearsal", async () =
 
 // reddened by: a loopback or unspecified address in another spelling taken for a deployed host: the URL parser keeps
 // [::ffff:127.0.0.1] (as [::ffff:7f00:1]), 0.0.0.0, [::] and a trailing dot, and turns 0 into 0.0.0.0; each reaches a local listener
-// killer: scripts/retire-instants.mjs:37 SDL "LOOPBACK.addSubnet(\"::ffff:127.0.0.0\", 104, \"ipv6\");" -> ""
+// killer: scripts/retire-instants.mjs:36 SDL "LOOPBACK.addSubnet(\"::\", 128, \"ipv6\");" -> ""
 test("retire_instants_finds_the_loopback_by_address_not_by_name", async () => {
   const local = ["https://[::ffff:127.0.0.1]:8443", "https://0.0.0.0:8443", "https://0:8443", "https://[::]:8443", "https://localhost.:8443", "https://LOCALHOST:8443", "https://localhost:8443",
     "https://127.0.0.1:8443", "https://127.1:8443", "https://0x7f.1:8443", "https://2130706433:8443", "https://127.255.255.255", "https://0.255.255.255", "https://[::1]:8443",

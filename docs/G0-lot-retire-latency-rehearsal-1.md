@@ -424,7 +424,9 @@ et RH-5 sont des actes de l'orchestrateur, consignés au JOURNAL.
     adresse (décision de MONARK) : crochets et point final ôtés, `net.isIP` contre une `BlockList` (127.0.0.0/8, 0.0.0.0/8,
     ::1/128, ::/128, ::ffff:127.0.0.0/104, ::ffff:0.0.0.0/104), plus `localhost`. Un cas par graphie mesurée, dont
     `[::ffff:127.0.0.1]` (reçu `[::ffff:7f00:1]`), `0.0.0.0`, `0` (reçu `0.0.0.0` du parseur URL), `[::]`, `localhost.` ; neuf
-    hôtes déployés restent pris. En cycle `real` ou `publication`, T_g exige aussi `tls_authorized` vrai, comme T_f exige
+    hôtes déployés restent pris ; tueur SDL de la règle `::/128` tué. Mesuré sous Node 24 : une `BlockList` teste une adresse
+    IPv4 contre les règles IPv4-mapped et l'inverse, si bien que 127.0.0.0/8 et ::ffff:127.0.0.0/104 (de même 0.0.0.0/8 et
+    ::ffff:0.0.0.0/104) se couvrent : ôter l'une des deux est un mutant équivalent ; les six règles restent, comme décidé. En cycle `real` ou `publication`, T_g exige aussi `tls_authorized` vrai, comme T_f exige
     une CA à TLS autorisé (test et tueur). Les tueurs de `retire-instants.mjs` et de `retire-probe.mjs` sont réancrés aux
     lignes de la tête.
 - **T0-ORDER-TEST-RELEASE-NAME-1** (test). Porteur : MONARK.
