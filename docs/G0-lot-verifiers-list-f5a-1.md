@@ -1364,9 +1364,9 @@ celui du worktree, registre copié non suivi), `base-red/` (l'outil de la missio
   refusée par `digestProblems`, une case sans ligne, le `short_digest` de `tableRowProblems` (l.172) ; une liste non triée ou répétée
   (l.173) ; un compte autre que 24 (l.174). Le registre arrive par la PR 2 de R25-REGISTRY-ROOT-1, #228, fusionnée depuis dans
   `lot/etude-suite` (`1cddd2e5`, `wave1.json` `811fcd57…` au commit ; constat 4 de la G2, plus bas). La branche du lot part de `177b5755`,
-  avant cette fusion : le test reste rouge dans le worktree (fichier absent, par assertion) tant que MONARK ne rebase pas la branche sur
-  `lot/etude-suite` avant la PR. Mesuré par la mission 3 : sur un clone à `1cddd2e5` où le lot est appliqué et indexé, registre suivi, 57
-  tests sur 57 (dont ce test) ; dans le clone à `09f49fc2`, registre copié non suivi, il est vert aussi.
+  avant cette fusion : le test reste rouge dans le worktree (fichier absent, par assertion) tant que le tronc `lot/etude-suite` n'est pas
+  fusionné dans la branche (fusion, sans rebase) avant la PR. Mesuré par la mission 3 : sur un clone à `1cddd2e5` où le lot est appliqué
+  et indexé, registre suivi, 57 tests sur 57 (dont ce test) ; dans le clone à `09f49fc2`, registre copié non suivi, il est vert aussi.
 
 **La chaîne des essais (voie 1).**
 - `trial_order` (l.221-225, point 1 de la §8), `trials_of` (l.228-245, point 2) et `trial_chain` (l.248-258, points 3 à 5) ;
@@ -1566,7 +1566,7 @@ au chantier (§5 : chaque PR sous 1 205).
 - La constante `VENUE` de `recalc_p2.py` l.39 reste (voie 1, plus haut). Si « aucune constante de lieu dans l'outil » doit la viser, son
   retrait change les clés et les `trialId` des 280 cases : décision de MONARK demandée.
 - Le test Node neuf lit un fichier que ce lot ne verse pas : #228 l'a versé dans `lot/etude-suite` (`1cddd2e5`) ; rouge dans le worktree tant
-  que MONARK ne rebase pas la branche sur `lot/etude-suite` avant la PR (constat 4 de la G2).
+  que le tronc n'est pas fusionné dans la branche (fusion, sans rebase) avant la PR (constat 4 de la G2).
 - Les points pris de `ab352b0` (portée, `null` sans ligne, `short_digest`, 64 hex, rejeu de la porte) ne figuraient pas dans la mission ;
   ils viennent de la décision de MONARK citée et du G0 v3 de la partie 3.
 - Le test de la porte change de corps (forme du rapport) : pour qu'il reste jugeable par red-proof, il porte une assertion neuve (test
@@ -2141,6 +2141,20 @@ la seule machinerie gelée d'import : la course continue et ses sorties sont cel
    **Conforme à la prédiction.** `sys.stdlib_module_names` est le même sur toute plateforme ; les noms offerts par une installation
    Windows : **rejoués par MONARK sous Windows à la fusion, par script**.
 
+- **Comparaison avec la G2 de RECHERCHES** (instance neuve, distincte de l'auteur ; pièce
+  `coordination/pieces/2026-10-07-g2-recherches/G2-tool-29c53bd5.json`, `6c7523e9…`, commit `1cefc5f` ; CPython 3.14.8, sur ses propres
+  copies, scripts `posed.py` et `posed4.py`) : les six conclusions concordent, **aucun désaccord**. Point 1 : les mêmes entrées, l'arbre
+  en dernier. Point 2 : la même liste de 20 modules chargés depuis un chemin ; la G2 pose un témoin à la fois sous 35 noms (ces 20 et 15
+  de la bibliothèque standard), course `report.py` (usage) : 26 sur 35 tournent sous la forme livrée (les 9 autres sont intégrés ou gelés,
+  ou hors de sa chaîne d'imports), 0 sur 35 sous la candidate ; ici, 47 témoins ensemble sur les courses complètes : 46 sur 47 sous la
+  forme livrée, aucun dans un processus de script d'entrée sous la candidate. Point 3 : le paquet et le cache forgé tournent sous les deux
+  formes, aux deux mesures (ici, en plus, le cache qui reste est refusé après coup, celui qui s'efface passe sans trace). Point 4 : les deux
+  mêmes noms, `msvcrt` (`subprocess`, avant le crochet et avant le contrôle de la forme) et `_wmi` (`platform`, après) ; la G2 a mené
+  `report_check.py` jusqu'à sa section 3 seulement (son dépôt jetable n'avait pas le commit du lot 1d) ; ici, il est mené à son bout sous
+  la forme neuve par un pilote (les deux remplaçants du rejeu, paragraphe suivant), avec ses 49 enfants (39 `compare_p2.py`, 10
+  `report.py`) : les deux mêmes noms, aucun autre. Point 5 : concordant (la G2 dans `lib/python3.14` d'une copie de 3.14.8 ; ici aussi
+  `lib-dynload` et un `python314.zip`). Point 6 : concordant (297 noms, sous 3.14.8 comme sous 3.14.5). Lecture commune : la construction
+  candidate ferme le point 2 seul ; elle laisse les points 3 et 4 et déplace la confiance vers l'installation (point 5).
 - **Pour le prix de la construction** (mesuré sur la copie, non appliqué) : sous elle, toutes les sorties d'oracle (vecteurs, vecteurs du
   2026-10-02, seconde écriture, tests de hikae, `--registry`, comparateur) sont égales à l'octet à celles de la forme livrée ;
   `guard_check.py` a deux cas à réécrire, `child-flags` (son texte) et le lancement `-P`, qui devient la forme (sortie 0 au lieu de 2).
@@ -2150,3 +2164,46 @@ la seule machinerie gelée d'import : la course continue et ses sorties sont cel
 - Scripts (espace de travail de RECHERCHES, hors du dépôt, sha256) : `apply_construction.py` `dfb4f03f…`, `recorder.py` `2d761ccd…`,
   `witness.py` `3369c8e5…`, `driver.py` `f6b86874…`, `posed.sh` `d39fded4…`, `rest.sh` `84cc3591…`, `analyse_rec.py` `6cc4c98a…` ;
   journal de l'enregistreur `66725223…`, son analyse `6507274f…`.
+
+**Clôture du §17 (RECHERCHES, 2026-10-07, 17:1x UTC ; G2 de `1cddd2e5...29c53bd5` : CORRECTIONS, trois constats m, tous de texte,
+aucun sur le code).** Les phrases du paragraphe « Mission 6 » (l.2033-2035, l.2061-2072) restent l'état daté de 13:1x UTC ; ce paragraphe
+les clôt (constat m-1). Après la mission 6, MONARK a posé dans `29c53bd5` (16:17 UTC) ce qu'elles disaient non fait, et la G2 l'a vérifié :
+- la copie du fichier de FAITS, `docs/FAITS-PYTHON-PRESITE-2026-10-07.md`, sha256 `0c94273f…`, le même blob (`8cee253a`) que la pièce de
+  MONARK dans RECHERCHES (`37c29e1`) ;
+- les deux commentaires de `report.py`, portés à lignes égales (l.17-18 et l.132-133), égaux à l'octet aux textes (a) et (b) de la
+  mission 6 ;
+- l'épingle d'arbre `d6c80e9db438fe2fb9ea3ca7fab03dc4cc6902eed23a08ca6863417da2a1b451` (douze fichiers ; `ef31a618…`, celle de la mission 5,
+  n'a jamais été committée ; depuis sa liste, seul `report.py` change, `1f7e91bd…` → `b2e5767f…`), recalculée par la G2 de quatre façons
+  (la règle du test sur l'index, l'arbre committé, l'arbre de travail, `report.tool_identity` sous la forme) ;
+- R-25 en forme de CI, mesuré par la G2 : 1 202 contre `1cddd2e5` (14 fichiers, 1 037 insertions, 165 suppressions ; borne 1 205), 1 135
+  contre `09f49fc2`, et 1 202 contre le tronc `102b44d3` sur une fusion d'essai.
+
+**Rejeux sous Linux**, sur fixtures seules, aucune série lue (RECHERCHES auteur sous CPython 3.14.5, la G2 sous 3.14.8, chacun sous
+`python -E -S -s -B` ; sorties de l'auteur sous son espace de travail) :
+
+| Course | Linux (auteur ; G2) | Référence Windows (ce G0) |
+|---|---|---|
+| `vectors_check.py`, vecteurs de R1 (`7414b2fc…`) | GREEN, 363 contrôles, `8708d1ec…` ; idem | `8708d1ec…`, égal à l'octet |
+| `vectors_check.py`, vecteurs du 2026-10-02 (`06ecf069…`) | RED voulu, `c05f8cc1…` ; non rapporté | `c05f8cc1…`, égal à l'octet |
+| `binom_check.py`, seconde écriture et tests de hikae | GREEN, 16 821 contrôles ; 24 tests, 207 756 assertions, 4 non rejouables ; `63606d4f…` et `68e16302…` ; idem | égaux à l'octet |
+| `binom_check.py --registry`, `wave1.json` (`811fcd57…`) | GREEN, 280 lignes, 1 680 contrôles ; non rapporté | tourné sur `7eb07d4d…` : pas de comparaison à l'octet |
+| `compare_check.py`, même registre | GREEN, 33 cas sur 33 ; idem | tourné sur `7eb07d4d…` |
+| `guard_check.py` | GREEN, 43 cas et les homonymes, 3 sautés (deux cas de module d'extension : ce build les a tous intégrés ; `ntfs-stream`) ; idem | 43 cas, GREEN ; les trois cas sautés : rejoués par MONARK |
+| `report_check.py` tel quel | sortie 1 à la section 3 : `platform_fields` ne nomme la bibliothèque du `log` que sous Windows, par construction | 75 sur 75 |
+| `report_check.py`, pilote hors de l'arbre (`platform_fields` et `LIBMS` remplacés dans son seul processus) | auteur : 73 sur 75, les deux contrôles de la section 3 qui exigent Windows en échec, comme ils le doivent ; G2 : 75 sur 75 avec un faux `ucrtbase.dll` lu sous le rôle `libm` ; le `log` de cet hôte diffère du portage sur 9 070 entrées mesurées, aux deux | la section 3 avec le vrai `ucrtbase.dll` et `LIBMS` : rejouée par MONARK |
+| `recalc_p2.py` et `report.py`, dossier de séries vide | arrêtés avant toute lecture (le premier à son premier fichier de série, absent ; le second à `platform_fields`, sortie 2) | courses complètes sur les séries : rejouées par MONARK |
+
+- Tests Node à `24f50372` (avant la fusion du tronc) : `kata-recalc`, `byte-guard`, `short-digest-floor`, `spec-1-1-0-release` et
+  `apps/harness/test/*.test.ts`, 332 tests, 331 verts ; seul `kata_recalc_release_classes_are_the_published_bands` rougit, par assertion (le
+  registre arrive avec le tronc). La G2, sur une fusion d'essai avec `102b44d3` : `npm test`, 2 903 tests, 2 881 verts, 0 rouge, 22 sautés ;
+  red-proof `--base 102b44d3 --gel dc8054ca --draw 8 --seed 20261007` : 7 jugés, 7 F2P, 7 tueurs tirés, 7 tués ; portes vertes ; winlint :
+  les quatre W1 connus de ce G0 seulement. La fusion du tronc, red-proof et R-25 de la tête de la PR sont consignés après la fusion.
+- **Constat m-2** : la table des sorties de `report.py` (l.16-18) vaut pour un lancement qui importe `io_guard`. Sous `-P` ou `-I`, le
+  dossier du script n'est pas sur `sys.path` : l'import d'`io_guard` échoue (`ModuleNotFoundError`) et la course sort en 1, le code que la
+  table donne au refus par la règle de preuve ; aucun rapport n'est écrit (mission 3, l.1425-1426 ; G2 sous 3.14.8 ; ici sous 3.14.5,
+  `-E -S -s -B -P` et `-I -S -B` : sortie 1 ; la forme : l'usage, sortie 2). Le texte de `report.py` ne change pas ici (l'épingle ne bouge
+  pas). La construction candidate de IO-GUARD-POSED-FILES-1 rendrait la phrase vraie : mesuré sur sa copie, `-I -S -B` y sort en 2
+  (« isolated 1 ») et l'ancienne forme aussi (« safe_path False »). Sinon, la l.18 se réécrit à lignes égales avec le lot qui tranche
+  l'item (R-25 +0, l'épingle bouge).
+- **Constat m-3** : « rebase » est remplacé aux l.1367-1369 et l.1568-1569 par la fusion du tronc dans la branche, sans rebase (la branche
+  est poussée), à nombre de lignes égal.
