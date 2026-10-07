@@ -156,7 +156,7 @@ Cloudflare proxy is in front, so HTTP-01 completes directly (K-7).
 
 ## 6. Verify and record the deployment CA
 
-From the orchestrator's machine (not the VPS), against the live endpoint:
+From the orchestrator's machine (not the VPS), against the live endpoint, within 225 s of a full hour (UTC), or with `--kata-wait-max <s>` (see *Kata path and version checks* at the end of this file):
 
 ```bash
 node scripts/verify-harness.mjs --out docs/deploy-CA-harness.json
@@ -183,9 +183,9 @@ two empty-registry checks of HARNESS-DESC-1):
   clause ENTIRE ("the served region is" + the upper-bound, requirements, H-3 and conditional sentences) and NOT the
   empty-registry sentence.
 
-The 15 checks, by name, in the script's order: `health`, `openapi`, `origin_403_api`, `origin_403_mcp`,
+The 18 checks, by name, in the script's order: `health`, `openapi`, `origin_403_api`, `origin_403_mcp`,
 `mcp_tools_list`, `gate_call`, `gate_retired_call`, `gate_future_call`, `gate_liq_call`, `gate_liq_uncommitted_call`,
-`mcp_gate_description_liq`, `cascade_call`, `attest_call`, `calibrate_call`, `gate_byo_call`.
+`mcp_gate_description_liq`, `cascade_call`, `attest_call`, `calibrate_call`, `gate_byo_call`, `gate_version_1_0_0_call`, `gate_kata_call`, `gate_kata_policy_table` (the last three: *Kata path and version checks* at the end of this file).
 
 Two refusal checks carry their stable `code` (CM-2b, ADR-CM B-5; CM-2a, MONARK C-8):
 - **`gate_retired_call`** POSTs the retired class `btc-dir-15m` and asserts `400`, `error === "tool_error"` and
@@ -211,7 +211,7 @@ without its value (`--output`, a bare `--out`, `--out ""`, `--out` twice), is re
 any request. Keep the `--out` file as the CA.
 
 **Deploy reserves — the green gate (Lot H6).** The deploy is GREEN only when BOTH hold:
-- the command **exits 0** AND its stderr prints `VERIFY OK — all checks passed` (15 of 15 checks; the CA's `checks` array lists them all, each `ok: true`). Treat ANY non-zero exit as RED and
+- the command **exits 0** AND its stderr prints `VERIFY OK — all checks passed` (18 of 18 checks; the CA's `checks` array lists them all, each `ok: true`). Treat ANY non-zero exit as RED and
   read the JSON `checks` array to find the failing check (on Windows an unavailable interpreter can surface as exit
   `127` — still RED, never a pass); and
 - on the first real **https** run, the CA's `tls.authorized === true` and `tls_mcp.authorized === true` (genuine
@@ -352,8 +352,14 @@ node scripts/spec-publish.mjs --release contract-1.1.0-tables-<YYYY-MM-DD> --dat
 
 - `scripts/spec-publish.mjs` l.4, in the shape of act 8 of T0 (`docs/RUNBOOK-vitrine.md` l.49); the `governance` root is
   this repository (l.269). `<dir>` is absent or empty, outside any git tree (l.6, l.236-238). `<spec@previous_commit>` is
-  a clean clone of the spec repository at `previous_commit` (l.196-197), made without line-end conversion: at T0, clones
-  under `core.autocrlf=true` changed the bytes and were refused (`input_digest`, `docs/JOURNAL-PROVENANCE.md` l.446).
+  a clean clone of the spec repository at `previous_commit` (l.196-197).
+- Line ends: the `--verify` clone is read as files and compared byte for byte (`compareTrees`, l.222-226): the spec
+  repository carries no `.gitattributes`, so a clone under `core.autocrlf=true` holds CRLF and `--verify` reads
+  `DIFFERENT`, exit 1 (l.275-276); make it with `git -c core.autocrlf=false clone`. The governance tree is read by
+  `readFileSync` (l.185), but this repository's `.gitattributes` (l.2, `* text=auto eol=lf`) keeps LF whatever
+  `core.autocrlf`. The `previous` clone is read from git objects (l.179, `git cat-file blob` l.163): at T0, before
+  T0-FOLLOWUP-1, its CRLF checkout was read as files and refused, `input_digest` (`docs/JOURNAL-PROVENANCE.md` l.446;
+  `docs/ETAT.md` l.603).
 - Every refusal is named by its code and nothing is written (l.14-21): among them `retire_list_missing` and
   `retire_list_invalid` (a retired row is published from a dated directory, with its own list or a carried one,
   l.303-321), `rewritten`, `withdrawn`, `added_to_published`, `foreign_version_dir` (l.198-207), `vocabulary`,
@@ -368,12 +374,18 @@ node scripts/spec-publish.mjs --release contract-1.1.0-tables-<YYYY-MM-DD> --dat
 - The lot's pull request carries the list (step 2), the dated directory and its release entry (step 3). The orchestrator
   merges it after T_d, never before, under the gates of its part (`docs/methode/REGLES-MISSION.md` l.20). **T_e** = the
   committer date of the merge commit (`git log -1 --format=%cI`), in UTC.
+- Deploy only a merged commit whose CI is green and on which `node scripts/spec-policy-tables.mjs --check` exits 0 (l.14):
+  every served table is then the file of its directory under `spec/`, the one published at step 4 (`--verify` exit 0).
+- If the merge fails after T_d (a conflict, a red CI), the published directory stays as it is: never rewrite nor withdraw
+  it (step 9). Merge the trunk into the lot branch, never rebase it (T_b and T_c are read on its commits), with the dated
+  directory byte for byte as published (the `--verify` of step 4 again, exit 0), then merge; T_e is that merge. A table
+  that must change is a new dated directory at a later date.
 
 ### 6. Deployment (T_f)
 
-- Ship the merged commit and restart, as §1 and *Update* (Operations) say, then run §6:
+- Ship the merged commit of step 5 (green, `--check` exit 0) and restart, as §1 and *Update* (Operations) say, then run §6:
   `node scripts/verify-harness.mjs --out docs/deploy-CA-harness.json` (this file, l.162), green only under the gate of
-  l.213-219. **T_f** = the `checked_at` of that green record (`scripts/verify-harness.mjs` l.421), cut to the second: it
+  l.213-219. **T_f** = the `checked_at` of that green record (`scripts/verify-harness.mjs` l.432), cut to the second: it
   carries milliseconds, and `scripts/retire-latency.mjs` takes none (l.25).
 - The site data is bound to the committed record (`test/harness-served.test.ts` l.212-215): committing the new record
   brings acts 3 to 7 of the order of T0 (`docs/RUNBOOK-vitrine.md` l.44-48), after T_g.
@@ -385,11 +397,29 @@ node scripts/spec-publish.mjs --release contract-1.1.0-tables-<YYYY-MM-DD> --dat
   (`apps/harness/src/kata-path.ts` l.78, l.111), and the file's sha256 is that digest (`scripts/spec-policy-tables.mjs`
   l.10-11). On the retired cell the reason is `calib_retired` (`kata-path.ts` l.38, l.84-94).
 - A kata call is accepted only with a `produced_at` on the grid of the class's horizon (`kata-path.ts` l.46) and within
-  300 s of the server clock, after it (l.47) or before it (`apps/harness/src/tools/gate.ts` l.886; 300 s, l.212): the
-  probe has a window of ten minutes around each grid instant, and may wait up to an hour on a 1h class, four hours on a
-  4h class.
-- No probe command exists in the repository: `scripts/verify-harness.mjs` makes no kata call. Item RETIRE-PROBE-1 of the
-  G0. **T_g** = the UTC instant the probe receives that verdict.
+  300 s of the server clock: a `produced_at` more than 300 s in the past is `produced_at_stale` (`kata-path.ts` l.47), one
+  more than 300 s in the future is `produced_at_future` (the test at `apps/harness/src/tools/gate.ts` l.885; 300 s,
+  l.212). The probe has a window of ten minutes around each grid instant, and may wait up to an hour on a 1h class, four
+  hours on a 4h class.
+- On a scale class the probe's `yhat` lies in the row's `calib_support`: `out_of_support` (`kata-path.ts` l.93) is tested
+  before `calib_retired` (l.94) and would hide it.
+
+```bash
+node scripts/retire-probe.mjs --api <url> --table spec/contract-1.1.0-tables-<YYYY-MM-DD>/policy/<task_class>.json --cell <cell_key> --api-host <api. name> --out <probe.json>
+```
+
+- `scripts/retire-probe.mjs` (item RETIRE-PROBE-1) builds the call from the table file, waits until its clock is within
+  225 s of a grid instant (`--max-wait`, 4 h by default; with 60 s of clock skew, 15 s under the 300 s of the server), makes one call, bounded as a whole by `--timeout` (10 000 ms by
+  default), and prints the record `retire-probe-v1`: it carries the probe's own verdict (`ok`, `problem`), the table file,
+  the api and its Host, and `tls_authorized` (whether the TLS handshake was authorized; `null` over http). `--out <file>` writes that record when the verdict is accepted (and removes a stale
+  `<file>.refused`), `<file>.refused` when the verdict is refused; a refusal before any verdict (`table_invalid`,
+  `cell_invalid`, `wait_exceeds_max`, `window_missed`, `transport_failed`) writes nothing. Never redirect stdout into the
+  record (Windows PowerShell 5.1 writes `>` in UTF-16). Exit 0 iff the cell has a current row in the file and the verdict
+  is a 200 of that cell, with the file's sha256 and, on a retired row, `calib_retired`. Exit 1 names its refusal:
+  `table_invalid`, `cell_invalid`, `wait_exceeds_max`, `window_missed`, `transport_failed`, `not_served`,
+  `cell_mismatch`, `digest_mismatch` or `reason_mismatch`. Exit 2: usage, a `--timeout` of 0 or over 2147483647 ms
+  included. **T_g** = its `received_at`, the UTC second the verdict arrived: the clock reading of the call plus a
+  monotonic delta.
 
 ### 8. The latency report
 
@@ -399,8 +429,20 @@ node scripts/spec-publish.mjs --release contract-1.1.0-tables-<YYYY-MM-DD> --dat
 {"format": "retire-latency-v1", "cycle": "rehearsal", "instants": {"T_a": "YYYY-MM-DDTHH:MM:SSZ", "T_b": "YYYY-MM-DDTHH:MM:SSZ", "T_c": "YYYY-MM-DDTHH:MM:SSZ", "T_d": "YYYY-MM-DDTHH:MM:SSZ", "T_e": "YYYY-MM-DDTHH:MM:SSZ", "T_f": "YYYY-MM-DDTHH:MM:SSZ", "T_g": "YYYY-MM-DDTHH:MM:SSZ"}, "mention": null}
 ```
 
-  `cycle` is `rehearsal` or `real`; `mention` is `null`, or where an overrun of the 14-day ceiling is written down
-  (l.51-52).
+  `cycle` is `rehearsal`, `real` or `publication`; `mention` is `null`, or where an overrun of the 14-day ceiling is
+  written down (l.51-52). A `publication` cycle (RETIRE-REAL-CYCLE-SCOPE-1) holds T_c to T_g only, with no ceiling and
+  `mention` `null` (l.10, l.44, l.56): T_a or T_b in it is refused, `instant_out_of_cycle`; a mention,
+  `mention_out_of_cycle`. Write it as UTF-8 without a byte order mark: the report parses the file as read in UTF-8
+  (l.65), and a BOM or UTF-16 is refused, `format_invalid`. Under Windows PowerShell 5.1, `>` writes UTF-16 and
+  `Out-File -Encoding utf8` writes a BOM; with the JSON in `$text`, at the repository root, write it with
+  `[System.IO.File]::WriteAllText((Join-Path $PWD "<instants.json>"), $text, (New-Object System.Text.UTF8Encoding $false))`.
+- Or assemble it from the evidence: `node scripts/retire-instants.mjs <evidence.json> --out <instants.json>` (item
+  RETIRE-INSTANTS-1). Each instant names its source: a full commit sha and its repository (T_a, T_b, T_e: the committer
+  date; T_e a merge commit), a clock reading (T_c, T_d; T_a of `live:<k>`, the close of its quarter), the record of step 6
+  that `verify-harness` rates green, with its 18 checks (T_f; a local record in a rehearsal only), or the record of an
+  exit-0 probe, the `--out` file of step 7, against an `https` api off the loopback by address, with `tls_authorized` true (T_g; a local probe in a rehearsal
+  only). Exit 1 names its refusal: `evidence_invalid`, `source_unreadable`, `source_not_green`, or one of the report's
+  below.
 - Run it:
 
 ```bash
@@ -408,7 +450,8 @@ node scripts/retire-latency.mjs <instants.json>   # scripts/retire-latency.mjs l
 ```
 
   Exit 0 prints the closed report, then a line `retire-latency OK: …` (l.66-68). Exit 1 names the refusal:
-  `format_invalid`, `instant_missing`, `order_not_monotone` or `ceiling_unmentioned` (l.10-12, l.70-72). Exit 2: usage
+  `format_invalid`, `instant_out_of_cycle`, `mention_out_of_cycle`, `instant_missing`, `order_not_monotone` or
+  `ceiling_unmentioned` (l.10-12, l.70-72). Exit 2: usage
   (l.62). The objective of 3 business days (Monday to Friday, UTC, no holiday calendar) is reported, never blocking
   (l.7-8, l.57).
 - Log a dated line in `docs/JOURNAL-PROVENANCE.md`: the cycle, the seven instants with the source of each, the input file
@@ -422,6 +465,11 @@ publication, remove it with git, then write it again" (`scripts/spec-policy-tabl
 l.210-217). Before T_d only:
 - written, not committed (untracked): `git clean -n -d -- spec/contract-1.1.0-tables-<YYYY-MM-DD>/` lists what goes,
   then `git clean -f -d -- spec/contract-1.1.0-tables-<YYYY-MM-DD>/` removes it;
+- written and staged (`git add`), not committed: `git clean -n -d -- spec/contract-1.1.0-tables-<YYYY-MM-DD>/` lists
+  nothing and `git rm -r -- spec/contract-1.1.0-tables-<YYYY-MM-DD>` refuses ("changes staged in the index"). Unstage
+  it, `git restore --staged -- spec/contract-1.1.0-tables-<YYYY-MM-DD>/`, then treat it as
+  untracked: `git clean -n -d -- spec/contract-1.1.0-tables-<YYYY-MM-DD>/`, then
+  `git clean -f -d -- spec/contract-1.1.0-tables-<YYYY-MM-DD>/`; `git rm -r -f` would remove it with no dry run first;
 - committed on the lot branch, not merged: `git rm -r -- spec/contract-1.1.0-tables-<YYYY-MM-DD>` and the release entry
   of that directory out of `scripts/spec-publish-inputs.json`, in one commit;
 
@@ -429,3 +477,33 @@ then step 3 again, which gives a new T_c. These git commands are the one act of 
 (default of Q-RL-4 of the G0; item RETIRE-REDO-MESSAGE-1). After T_d, never: a published file is never rewritten nor
 withdrawn (`rewritten`, `withdrawn`: `scripts/spec-publish.mjs` l.203, l.207); a correction is a new dated directory at
 a later date (`scripts/spec-policy-tables.mjs` l.168-169).
+
+## Kata path and version checks (deployment CA, section 6)
+
+The specification of the last three checks of `scripts/verify-harness.mjs` (lot E-2a; the same text closes the script's
+comments). Each paragraph below is one line of the text; joined by LF, it is 2 141 bytes and its sha256 is
+`ee274e5505bb4fcdd4f8ff72ad6739933de198b604b4831526224a7507cbb147` (R4 v3, the 225 s window of 2026-10-07; the 240 s text
+was 1 968 bytes, `7e05ee5d8d7b7cd8a056acd2dab20e2efc8c98e72724ca96559e1ca5868a2bae`).
+
+```text
+Kata path and version checks. The deployment check, which runs the reader-side verifier against the served host, plays three more checks after every other check: first (3), which does not depend on the clock, then (1) and (2), which do.
+
+(1) gate_kata_call: one well-formed call on btc-range-1h, with predictor_id kata:ca-probe@ca-probe/BTCUSDT/1h, a key whose kata and venue are reserved for this check, so that no table can hold a row under it; features_digest the sha256 of the empty JSON array; yhat 0.01; alpha 0.01 and nMin 299; and a produced_at on the 1h grid that is at most 225 s before or after the clock of the run. If the run's clock is farther than 225 s from every grid instant, checks (1) and (2) fail with the detail kata_window_not_reached, unless the run was started with --kata-wait-max <s>: the run waits until its clock is within 225 s of the next grid instant, if that wait is at most s seconds, and reports the wait; otherwise the checks fail as above. If the Date header of the host's health answer is absent, unreadable or more than 60 s from the run's clock, checks (1) and (2) fail with the detail kata_clock_skew. Check (1) passes when the host answers HTTP 200 with action abstain, verdict.reason under_calib, verdict.n_calib 0, no region, verdict.cell_key kata:ca-probe@ca-probe/BTCUSDT/1h/b0 and verdict.policy_row_sha256 null.
+
+(2) gate_kata_policy_table: the verdict of check (1) carries a policy_table_sha256 equal to the value written in the check. That value is the sha256 of the btc-range-1h table file that the deployed release serves: the file of the latest directory of the release's input list that holds it (spec/<dir>/policy/btc-range-1h.json), whose MANIFEST.sha256 line carries the same value once the release is published; a release that changes that table changes the written value with it.
+
+(3) gate_version_1_0_0_call: the call of the existing gate check, with schema_version 1.0.0, answers HTTP 400 with error tool_error and code schema_version_unsupported.
+
+The import guard and the loader refuse any row whose kata or venue is ca-probe, so check (1) does not change when kata rows are served.
+```
+
+In practice: run section 6 within 225 s of a full hour (UTC); started earlier, `--kata-wait-max 3150` (the longest wait,
+3 600 - 2 x 225 s) waits until 225 s before the next full hour and prints the wait on stderr. The window is checked again
+right before the call (a slow `/health` answer gives `kata_window_not_reached`, never an unnamed 400). The expected `policy_table_sha256` is written in the script
+(`KATA_POLICY_TABLE_SHA256`); a release that changes `btc-range-1h` changes it in the same commit
+(`test/verify-harness-liq.test.ts`, `verify_harness_ca_pins_policy_table_sha256`). The reservation of `ca-probe` is
+`kataKeyReserved`, defined in `apps/harness/src/policy-classes.ts` (a served module); the import guard
+(`apps/harness/src/policy-guard.ts`) calls it today. The kata loader of E-2a holds it in two halves, both carried by
+RECHERCHES: the served reader (lot a1) calls `kataKeyReserved` directly, under test T-1, with the integration test of the
+served path (item E2A-RESERVED-KEY-SERVED-1); the offline writer (lot b1) reaches it through `guardKataTable` →
+`guardKataRow` → `kataKeyReserved` (item RETIRE-LISTS-E2A-PIPE-1).

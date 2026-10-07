@@ -14,6 +14,7 @@ import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { classify, drawKillers, parseTap, type ProofRow, type RedProof } from "../scripts/red-proof.mjs";
 import * as redProof from "../scripts/red-proof.mjs"; // a namespace: a base without untrackedOf still loads the file, and the tests below go red by assertion
+import { section } from "./helpers/tap-section.ts";
 
 const CLI = join(import.meta.dirname, "..", "scripts", "red-proof.mjs");
 const sha = (b: Buffer): string => createHash("sha256").update(b).digest("hex");
@@ -542,10 +543,8 @@ test("red_proof_test_only_reads_the_declaration_only_on_a_line_of_its_own", () =
   assert.deepEqual([r.status, r.proof.declared, r.proof.refusals], [1, null, ['no G0 of the diff declares "red-proof: test-only"']]);
 });
 
-const section = (tap: string, file: string): string => new RegExp(`# red-proof file: ${file.replace(/[\\^$.*+?()[\]{}|]/g, "\\$&")}\\n((?:(?!# red-proof file:)[^])*)`).exec(tap)?.[1] ?? "";
-
 // CodeQL alert 43: the file name is a literal of the section header, every regex metacharacter escaped, not the dot alone.
-// killer: test/red-proof.test.ts:545 CONST "/[\\\\^$.*+?()[\\]{}|]/g, \"\\\\$&\"" -> "/\\./g, \"\\\\.\""
+// killer: test/helpers/tap-section.ts:6 CONST "/[\\\\^$.*+?()[\\]{}|]/g, \"\\\\$&\"" -> "/\\./g, \"\\\\.\""
 test("red_proof_tap_section_reads_a_file_name_with_regex_metacharacters_literally", () => {
   const tap = ["a+b(1)", "ab1", "[x]", "x"].map((n) => `# red-proof file: test/${n}.test.ts\nok 1 - ${n}\n`).join("");
   assert.deepEqual(["a+b(1)", "ab1", "[x]", "x"].map((n) => section(tap, `test/${n}.test.ts`)), ["ok 1 - a+b(1)\n", "ok 1 - ab1\n", "ok 1 - [x]\n", "ok 1 - x\n"]);

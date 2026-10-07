@@ -17,7 +17,7 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { sha256Canonical } from "@monark/contracts";
 import { SERVED_POLICY_TABLES } from "../apps/harness/src/tools/gate.ts";
-import { canonicalJson, plan } from "../scripts/spec-publish.mjs";
+import { canonicalJson, plan, validDate } from "../scripts/spec-publish.mjs";
 import type { Inputs } from "../scripts/spec-publish.mjs";
 
 type Entry = Inputs["releases"][string]["entries"][number];
@@ -30,10 +30,11 @@ after(() => { rmSync(TMP, { recursive: true, force: true, maxRetries: 3 }); });
 let made = 0;
 const sha = (b: string | Buffer): string => createHash("sha256").update(b).digest("hex");
 const run = (script: string, ...a: string[]): { status: number | null; stdout: string; stderr: string } => spawnSync(process.execPath, [script, ...a], { encoding: "utf8" });
-/** A root holding a copy of this repository's schemas/ and spec/ (contract-1.1.0 as published at T0). */
+/** A root shaped as at T0, whatever dated directory this repository holds (SPEC-TABLES-TEST-PER-DIR-1): its schemas/ and spec/contract-1.1.0/, each served table written there. */
 const copy = (): string => {
-  const r = join(TMP, `r${String(++made)}`);
-  for (const d of ["schemas", "spec"]) cpSync(join(ROOT, d), join(r, d), { recursive: true });
+  const r = join(TMP, `r${String(++made)}`), out = join(r, "spec", "contract-1.1.0");
+  for (const [from, to] of [[join(ROOT, "schemas"), join(r, "schemas")], [join(ROOT, "spec", "contract-1.1.0"), out]] as const) cpSync(from, to, { recursive: true });
+  for (const t of SERVED_POLICY_TABLES) writeFileSync(join(out, "policy", `${t.task_class}.json`), canonicalJson(t.table));
   return r;
 };
 /** Every file under a directory with its sha256, sorted. */
@@ -94,7 +95,8 @@ test("tables_writer_targets_a_dated_dir", async () => {
 // killer: scripts/spec-policy-tables.mjs:60 CONST "dirs[t.task_class]" -> "VERSION_DIR"
 test("served_table_equals_published_table_by_dir", async () => {
   const w = await writer(), r = copy(), tables = withRow("region"), D3 = "contract-1.1.0-tables-2026-11-03";
-  assert.deepEqual(Object.values(w.servedTableDirs(ROOT, SERVED_POLICY_TABLES)), Array<string>(35).fill("contract-1.1.0"), "today every class is served from contract-1.1.0");
+  const spec = join(ROOT, "spec"), held = readdirSync(spec).filter((d) => d === "contract-1.1.0" || (d.startsWith("contract-1.1.0-tables-") && validDate(d.slice(22)))).sort(), last = (c: string): string | undefined => held.filter((d) => existsSync(join(spec, d, "policy", `${c}.json`))).at(-1);
+  assert.deepEqual(w.servedTableDirs(ROOT, SERVED_POLICY_TABLES), Object.fromEntries(SERVED_POLICY_TABLES.map((t) => [t.task_class, last(t.task_class)])), "each class of this repository is served from the last directory that holds it (all contract-1.1.0 at T0)");
   w.writeDated(r, await w.datedFiles(r, D, tables));
   const dirs = w.servedTableDirs(r, tables);
   assert.deepEqual([Object.keys(dirs).length, Object.entries(dirs).filter(([, d]) => d !== "contract-1.1.0")], [35, [["btc-dir-1h", DIR]]]);
@@ -217,4 +219,69 @@ test("retire_latency_report_closed", async () => {
   const ok = run(LATENCY, f), bad = run(LATENCY, g);
   assert.deepEqual([ok.status, (JSON.parse(ok.stdout.split("\nretire-latency OK")[0] ?? "") as { total_ms: number }).total_ms, bad.status, bad.stderr.includes("ceiling_unmentioned"), run(LATENCY).status],
     [0, 132 * H, 1, true, 2], ok.stdout + ok.stderr);
+});
+
+// killer: scripts/retire-latency.mjs:44 CONST "if (pub) for" -> "if (false) for"
+test("retire_latency_publication_cycle_holds_T_c_to_T_g_only", async () => {
+  const l = await latency(), P = { T_c: "2027-01-04T10:00:00Z", T_d: "2027-01-04T15:00:00Z", T_e: "2027-01-05T09:00:00Z", T_f: "2027-01-05T11:00:00Z", T_g: "2027-01-06T12:00:00Z" };
+  const why = (instants: object): string => { try { l.report({ format: "retire-latency-v1", cycle: "publication", instants, mention: null }); return "ok"; } catch (e) { return e instanceof l.LatencyError ? `${e.code} ${e.message.split(" ")[1] ?? ""}` : String(e); } };
+  const without = (k: string): object => Object.fromEntries(Object.entries(P).filter(([n]) => n !== k));
+  const none = ((): string => { try { l.report(null); return "ok"; } catch (e) { return e instanceof l.LatencyError ? e.code : String(e); } })(); // not an object: refused by its code, never a TypeError
+  assert.deepEqual([why(P), why({ T_a: "2027-01-01T00:00:00Z", ...P }), why({ ...P, T_b: "2027-01-04T09:00:00Z" }), why(without("T_c")), why(without("T_e")), why({ ...P, T_d: "2027-01-04T09:00:00Z" }), why({ T_a: null, ...P }), none],
+    ["ok", "instant_out_of_cycle T_a", "instant_out_of_cycle T_b", "instant_missing T_c", "instant_missing T_e", "order_not_monotone T_d", "instant_out_of_cycle T_a", "format_invalid"], "a publication cycle: T_c to T_g in order, T_a and T_b refused, even null");
+});
+
+// killer: scripts/retire-latency.mjs:51 CONST "!pub && total" -> "input.cycle === \"real\" && total"
+test("retire_latency_publication_cycle_skips_the_ceiling_and_says_why", async () => {
+  const l = await latency(), H = 3_600_000, P = { T_c: "2027-01-04T10:00:00Z", T_d: "2027-01-04T15:00:00Z", T_e: "2027-01-05T09:00:00Z", T_f: "2027-01-05T11:00:00Z", T_g: "2027-01-24T10:00:00Z" };
+  const input = { format: "retire-latency-v1", cycle: "publication", instants: P, mention: null }, f = join(TMP, "publication.json");
+  const r = ((): ReturnType<Latency["report"]> | string => { try { return l.report(input); } catch (e) { return String(e); } })();
+  assert.ok(typeof r !== "string", `a publication cycle of 20 days with no mention is reported, not refused: ${typeof r === "string" ? r : ""}`);
+  const reason = "not applicable: a publication cycle has no T_a (Q-RL-2), it is not a retirement";
+  assert.deepEqual([r.cycle, r.instants.map((i) => i.name), r.total_ms / H, r.ceiling, r.objective], ["publication", ["T_c", "T_d", "T_e", "T_f", "T_g"], 480, { days: 14, applies: false, reason, mention: null },
+    { business_days: 3, business_ms: 350 * H, met: false }], "20 days, 350 business hours (Monday 10:00 to Sunday): the objective is reported on T_c to T_g");
+  const late = { T_a: "2027-01-01T00:00:00Z", T_b: "2027-01-01T09:00:00Z", ...P, T_g: "2027-01-15T00:00:01Z" }, met = l.report({ ...input, instants: { ...P, T_g: "2027-01-06T12:00:00Z" } }).objective;
+  const why = (cycle: string): string => { try { l.report({ ...input, cycle, instants: late }); return "ok"; } catch (e) { return e instanceof l.LatencyError ? `${e.code} ${e.message.split(" ")[1] ?? ""}` : String(e); } };
+  assert.deepEqual([met, why("rehearsal"), why("real")], [{ business_days: 3, business_ms: 50 * H, met: true }, "ceiling_unmentioned T_g", "ceiling_unmentioned T_g"], "Monday 10:00 to Wednesday noon is met; the ceiling binds a rehearsal as a real cycle");
+  writeFileSync(f, JSON.stringify(input));
+  const out = run(LATENCY, f);
+  assert.deepEqual([out.status, out.stdout.trimEnd().split("\n").at(-1)], [0, `retire-latency OK: publication cycle, T_g - T_c ${String(480 * H)} ms, ceiling ${reason}, objective not met (reported only)`], out.stderr);
+});
+
+// killer: scripts/retire-latency.mjs:44 CONST "pub && input.mention !== null" -> "false"
+test("retire_latency_publication_cycle_refuses_a_mention", async () => {
+  const l = await latency(), P = { T_c: "2027-01-04T10:00:00Z", T_d: "2027-01-04T15:00:00Z", T_e: "2027-01-05T09:00:00Z", T_f: "2027-01-05T11:00:00Z", T_g: "2027-01-06T12:00:00Z" };
+  const input = (o: object = {}): object => ({ format: "retire-latency-v1", cycle: "publication", instants: P, mention: null, ...o }), f = join(TMP, "publication-mention.json");
+  const why = (i: object): string => { try { l.report(i); return "ok"; } catch (e) { return e instanceof l.LatencyError ? `${e.code} ${e.message.split(" ")[1] ?? ""}` : String(e); } };
+  assert.deepEqual([why(input()), why(input({ mention: "JOURNAL line 12" })), why(input({ instants: { T_a: "2027-01-01T00:00:00Z", ...P }, mention: "JOURNAL line 12" }))],
+    ["ok", "mention_out_of_cycle mention", "instant_out_of_cycle T_a"], "no ceiling applies to a publication (Q-RL-2): a mention of an overrun has no meaning there, and is refused");
+  writeFileSync(f, JSON.stringify(input({ mention: "JOURNAL line 12" })));
+  const out = run(LATENCY, f);
+  assert.deepEqual([out.status, out.stdout, out.stderr.startsWith("retire-latency REFUSED: mention_out_of_cycle: ")], [1, "", true], out.stderr);
+});
+
+// killer: scripts/retire-latency.mjs:45 CONST "pub ? INSTANTS.slice(2) : INSTANTS" -> "input.cycle === \"real\" ? INSTANTS : INSTANTS.slice(2)"
+test("retire_latency_rehearsal_reports_as_real_and_publication_as_its_tail", async () => {
+  const l = await latency(), H = 3_600_000, T: Record<string, string> = { T_a: "2027-01-01T00:00:00Z", T_b: "2027-01-01T09:00:00Z", T_c: "2027-01-04T10:00:00Z", T_d: "2027-01-04T15:00:00Z",
+    T_e: "2027-01-05T09:00:00Z", T_f: "2027-01-05T11:00:00Z", T_g: "2027-01-06T12:00:00Z" };
+  const input = (cycle: string, instants: Record<string, string>): object => ({ format: "retire-latency-v1", cycle, instants, mention: null }), f = join(TMP, "real.json");
+  const report = (cycle: string, instants: Record<string, string>): ReturnType<Latency["report"]> | string => { try { return l.report(input(cycle, instants)); } catch (e) { return String(e); } };
+  const shape = (r: ReturnType<Latency["report"]> | string): unknown => (typeof r === "string" ? r : [r.instants, r.steps_ms, r.total_ms, r.ceiling, r.objective]);
+  const real = report("real", T), pub = report("publication", Object.fromEntries(Object.entries(T).filter(([k]) => k !== "T_a" && k !== "T_b")));
+  assert.ok(typeof real !== "string" && typeof pub !== "string", `the same instants are reported as a real cycle and, from T_c, as a publication: ${JSON.stringify(real)} ${JSON.stringify(pub)}`);
+  assert.deepEqual(shape(report("rehearsal", T)), shape(real), "a rehearsal is reported as a real cycle: the same instants T_a to T_g, steps, total, ceiling and objective (the decision segment of D6)");
+  assert.deepEqual([pub.instants, pub.steps_ms, pub.total_ms / H], [real.instants.slice(2), real.steps_ms.slice(2), 50], "a publication is the tail of the same cycle, T_c to T_g");
+  writeFileSync(f, JSON.stringify(input("real", T)));
+  const out = run(LATENCY, f);
+  assert.deepEqual([out.status, out.stdout.trimEnd().split("\n").at(-1)], [0, `retire-latency OK: real cycle, T_g - T_a ${String(132 * H)} ms, ceiling held, objective not met (reported only)`], out.stderr);
+});
+
+// killer: scripts/retire-latency.mjs:44 CONST "pub && input.mention !== null" -> "input.cycle !== \"real\" && input.mention !== null"
+test("retire_latency_rehearsal_carries_a_mention_as_real", async () => {
+  const l = await latency(), late: Record<string, string> = { T_a: "2027-01-01T00:00:00Z", T_b: "2027-01-01T09:00:00Z", T_c: "2027-01-04T10:00:00Z", T_d: "2027-01-04T15:00:00Z",
+    T_e: "2027-01-05T09:00:00Z", T_f: "2027-01-05T11:00:00Z", T_g: "2027-01-15T00:00:01Z" }, tail = Object.fromEntries(Object.entries(late).filter(([k]) => k !== "T_a" && k !== "T_b"));
+  const ceiling = (cycle: string, instants: object = late): unknown => { try { return l.report({ format: "retire-latency-v1", cycle, instants, mention: "JOURNAL line 12" }).ceiling; } catch (e) { return e instanceof l.LatencyError ? e.code : String(e); } };
+  const exceeded = { days: 14, exceeded: true, mention: "JOURNAL line 12" };
+  assert.deepEqual([ceiling("rehearsal"), ceiling("real"), ceiling("publication", tail)], [exceeded, exceeded, "mention_out_of_cycle"],
+    "14 days and 1 s with a mention: a rehearsal carries the mention of its overrun as a real cycle does; only a publication refuses one");
 });

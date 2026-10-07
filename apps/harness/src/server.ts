@@ -136,7 +136,7 @@ async function readBodyBounded(req: IncomingMessage, limit: number): Promise<Uin
   return new Uint8Array(Buffer.concat(chunks));
 }
 
-async function handleNodeRequest(req: IncomingMessage, res: ServerResponse, handler: McpHttpHandler): Promise<void> {
+async function handleNodeRequest(req: IncomingMessage, res: ServerResponse, handler: McpHttpHandler, clock: () => number = Date.now): Promise<void> {
   try {
     const method = req.method ?? "GET";
     // K-9 Origin guard runs FIRST (both surfaces), on a HEADER-ONLY request: a present-and-invalid Origin
@@ -162,8 +162,8 @@ async function handleNodeRequest(req: IncomingMessage, res: ServerResponse, hand
       body = read;
     }
     const request = toWebRequest(req, body);
-    const response = isJsonMirrorHost(request) ? await handleJsonMirror(request) : await handler.fetch(request);
-    res.writeHead(response.status, Object.fromEntries(response.headers));
+    const response = isJsonMirrorHost(request) ? await handleJsonMirror(request, clock) : await handler.fetch(request);
+    res.writeHead(response.status, { date: new Date(clock()).toUTCString(), ...Object.fromEntries(response.headers) }); // Date: the clock the tools see
     if (response.body !== null) {
       Readable.fromWeb(response.body).pipe(res);
     } else {
@@ -180,10 +180,10 @@ async function handleNodeRequest(req: IncomingMessage, res: ServerResponse, hand
  * caller (or a test) can read `server.address()` and close it. The default host is the security
  * property under test (`harness_binds_localhost_only`): a caller that overrides it does not defeat it.
  */
-export function startServer(port: number = PORT, host: string = HOST): HttpServer {
-  const handler = createHarnessHandler();
+export function startServer(port: number = PORT, host: string = HOST, clock: () => number = Date.now): HttpServer {
+  const handler = createHarnessHandler(clock);
   const server = createServer((req, res) => {
-    void handleNodeRequest(req, res, handler);
+    void handleNodeRequest(req, res, handler, clock);
   });
   server.listen(port, host);
   return server;

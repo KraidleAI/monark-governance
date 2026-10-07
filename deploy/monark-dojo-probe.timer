@@ -1,0 +1,26 @@
+# systemd timer for the MONARK Dojo probe of the served page (DOJO-LIVE-HEALTH-1, ADR-DOJO-PR-4 PL-3). THREE daily UTC shots, calque
+# of monark-probe.timer (the deadline, then +2 h and +6 h, so a transient fault is checked again the same day): 07:30, 09:30, 13:30.
+# 07:30 is the probe's DEADLINE_UTC: the last slot of monark-dojo-publish.timer (06:30) plus the publish unit's TimeoutStartSec (2900 s)
+# ends by 07:18:21. Each start of this unit lasts at most its TimeoutStartSec (3300 s), so no start overlaps a publication start (the
+# four slots from 00:30 to 06:30 UTC and their 2900 s) nor a start of monark-probe (10:30, 12:30, 16:30). monark-dojo-collect starts
+# every 5 minutes and runs beside each probe start: the two CPUQuota of 25 % hold half of one of the host's 2 vCPU. Pinned by
+# dojo_probe_timer_follows_the_publish_deadline and dojo_probe_timer_shares_the_host_with_the_collector. Enable: RUNBOOK-dojo section 25.
+[Unit]
+Description=MONARK Dojo probe timer - three daily UTC shots after the publication deadline (ADR-DOJO-PR-4)
+Documentation=https://github.com/KraidleAI/monark
+
+[Timer]
+# Three separate expressions, each in UTC whatever the host's zone; each checked on the host by systemd-analyze calendar.
+OnCalendar=*-*-* 07:30:00 UTC
+OnCalendar=*-*-* 09:30:00 UTC
+OnCalendar=*-*-* 13:30:00 UTC
+# Every value written (FM-2.2): AccuracySec defaults to 1 min, RandomizedDelaySec to 0 (systemd.timer(5), FAITS-SYSTEMD-TIMER-1).
+AccuracySec=1s
+RandomizedDelaySec=0
+# ONE catch-up start at boot when a shot was missed; it may fall in a publication window: a race is read again (the reread) or reported
+# for that start only (verifier_timeline_differs), never a healthy verdict on two different trees.
+Persistent=true
+Unit=monark-dojo-probe.service
+
+[Install]
+WantedBy=timers.target

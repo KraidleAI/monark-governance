@@ -160,13 +160,14 @@ test("srf_contributing_closes_the_loop_on_scores_sha256 — the exported contrib
   assert.ok(text.includes("the verdict's `scores_sha256`, `alpha` and `qhat` equal\n   those the calibrate step returned"), "the loop closes on scores_sha256, alpha and qhat");
 });
 
-// killer: docs/RUNBOOK-harness.md:214 CONST "15 of 15 checks" -> "13 of 13 checks"
+// killer: docs/RUNBOOK-harness.md:214 CONST "18 of 18 checks" -> "13 of 13 checks"
 test("srf_runbook_harness_green_gate_quotes_the_script — the message and the count are those of scripts/verify-harness.mjs", () => {
   const script = read("scripts", "verify-harness.mjs");
-  const named = [...script.matchAll(/(?:wiredCheck|httpCheck)\("(\w+)"/g)].map((m) => m[1]);
+  const named = [...script.matchAll(/(?:wiredCheck|httpCheck|capturedCheck)\("(\w+)"/g)].map((m) => m[1]);
   const looped = [...script.matchAll(/\["(gate_\w+_call)", GATE_\w+_BODY,/g)].map((m) => m[1]);
   const count = named.length + looped.length;
   assert.equal(new Set([...named, ...looped]).size, count, "premise: distinct check names");
+  assert.equal(count, 18, "premise: the script runs 18 checks (E-2a adds the kata path and version checks)");
   assert.ok(script.includes('"VERIFY OK — all checks passed."'), "premise: the message the script prints");
   const runbook = read("docs", "RUNBOOK-harness.md");
   assert.ok(runbook.includes(`its stderr prints \`VERIFY OK — all checks passed\` (${String(count)} of ${String(count)} checks;`), `the runbook quotes the message and the ${String(count)} checks`);
@@ -184,10 +185,10 @@ test("srf_ukemi_sync_comment_says_scores_digest — the written $comment is the 
 
 // T0-TOOLING-1 (review m-a): section 6 of the harness runbook names every check scripts/verify-harness.mjs runs.
 // killer: docs/RUNBOOK-harness.md:186 CONST "`origin_403_api`" -> "`origin_api`"
-test("srf_runbook_harness_names_every_check — the 15 checks of the script, each by its name", () => {
+test("srf_runbook_harness_names_every_check — the 18 checks of the script, each by its name", () => {
   const script = read("scripts", "verify-harness.mjs");
-  const names = [...script.matchAll(/(?:wiredCheck|httpCheck)\("(\w+)"/g), ...script.matchAll(/\["(gate_\w+_call)", GATE_\w+_BODY,/g)].map((m) => m[1] ?? "");
-  assert.equal(names.length, 15, "premise: the script runs 15 checks");
+  const names = [...script.matchAll(/(?:wiredCheck|httpCheck|capturedCheck)\("(\w+)"/g), ...script.matchAll(/\["(gate_\w+_call)", GATE_\w+_BODY,/g)].map((m) => m[1] ?? "");
+  assert.equal(names.length, 18, "premise: the script runs 18 checks");
   const runbook = read("docs", "RUNBOOK-harness.md");
   assert.deepEqual(names.filter((n) => !runbook.includes(`\`${n}\``)), [], "a check the runbook does not name");
 });
@@ -204,7 +205,7 @@ function strayT0Lines(text: string): string[] {
 // T0-TOOLING-1 (review B-3, m-g; G2 N-5, N-6; delta G2 D-1, D-2, D-4 resumption): the T0 section of the storefront runbook names the nine acts in order, each
 // with EXACTLY its code spans (a flag, a path or a target changed anywhere reds); the act 6 commit lists every file the acts
 // write (each path read from its writer, the journal of act 2 included, so the release of act 9 sees a clean tree); the act 2
-// command parses as the deploy check reads it; act 8 publishes the last declared spec release with both roots, and parses as
+// command parses as the deploy check reads it; act 8 publishes the release contract-1.1.0, by its name, with both roots, and parses as
 // spec-publish reads it; no line of the section but the acts carries text. French runbook: only code spans are read here.
 // killer: docs/RUNBOOK-vitrine.md:47 CONST " docs/JOURNAL-PROVENANCE.md apps/site/data/harness-served.json" -> " apps/site/data/harness-served.json"
 test("srf_runbook_vitrine_t0_order — deploy, green CA, harness, Narabi and ukemi syncs, re-pin, site, spec, release", async () => {
@@ -228,13 +229,13 @@ test("srf_runbook_vitrine_t0_order — deploy, green CA, harness, Narabi and uke
   assert.notDeepEqual(strayT0Lines([...all.slice(0, four), `Ligne dat\u00e9e 2026-10-07: ${span}.`, ...all.slice(four)].join("\n")), [], "a second dated line between two acts reds (delta2 E-1)");
   assert.notDeepEqual(strayT0Lines(all.map((l, k) => (k === dated ? `${l} ${span}` : l)).join("\n")), [], "a code span on the section's dated line reds (delta2 E-1)");
   const inputs = JSON.parse(read("scripts", "spec-publish-inputs.json")) as { releases: Record<string, { previous_commit: string | null }> };
-  const release = Object.keys(inputs.releases).at(-1) ?? "", prev = (inputs.releases[release]?.previous_commit ?? "").slice(0, 7);
+  const release = "contract-1.1.0", prev = (inputs.releases[release]?.previous_commit ?? "").slice(0, 7);
   const spec = `node scripts/spec-publish.mjs --release ${release} --date <YYYY-MM-DD> --out <dir> --root recherches=<recherches> --root previous=<monark-kata-spec@${prev}>`;
   const specArgs = ((await import(new URL("../scripts/spec-publish.mjs", import.meta.url).href)) as { parseArgs: (a: string[]) => { release: string; roots: Record<string, string> } }).parseArgs(spec.split(" ").slice(2));
   assert.deepEqual([specArgs.release, Object.keys(specArgs.roots)], ["contract-1.1.0", ["recherches", "previous"]], "act 8 publishes contract 1.1.0 with both roots");
   const spans = steps.map((l) => [...l.matchAll(/`([^`]+)`/g)].map((m) => m[1] ?? ""));
   const added = [harness.CA_REL, "docs/JOURNAL-PROVENANCE.md", harness.OUT_REL, harness.PENDING_REL, narabi.OUT_REL, ukemi.OUT_REL, ukemi.PENDING_REL, ukemi.MANIFEST_REL, PIN_TEST_REL];
-  const ca = `node scripts/verify-harness.mjs --out ${harness.CA_REL}`;
+  const ca = `node scripts/verify-harness.mjs --out ${harness.CA_REL} --kata-wait-max 3150`;
   assert.deepEqual(spans, [
     ["docs/RUNBOOK-harness.md", "git archive --format=tar.gz HEAD apps packages schemas fixtures package.json package-lock.json deploy scripts/verify-harness.mjs | ssh -i ~/.ssh/monark_vps root@31.97.155.188 \"mkdir -p /opt/monark-harness && tar xzf - -C /opt/monark-harness\"", "cd /opt/monark-harness && npm ci && chown -R monark:monark . && systemctl restart monark-harness"],
     [ca, "VERIFY OK — all checks passed.", "api.", "mcp.", `${harness.CA_REL}.failed`, `sha256sum ${harness.CA_REL}`, "docs/JOURNAL-PROVENANCE.md", "checked_at"],
