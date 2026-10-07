@@ -1,11 +1,14 @@
 # claude-opus-5-5 - 2026-10-07 - lot 1e of VERIFIERS-LIST-F5A-1 (M-11, Q-6 of G0 section 10), Python 3.14 standard library only.
+# Frozen-tool lot (2026-10-07): the platform of the NaN of SPECIALS (N-1 of #217) and the limit of no fused multiply-add (N-2).
 # The natural logarithm of the generator's runtime, ported to Python so that report.py can class a one-ulp difference without
 # running Node (Q-6: no V8 pass in the tool). Source read on 2026-10-07 between 02:06 and 02:16 UTC: deps/v8/src/base/ieee754.cc of
 # Node v24.21.0 (sha256 1bf999809d4c4c1d31ad5ff3578d32614796f159e08b9e7782560d017721a0c2), double log(double x), l.1638-1717, word
 # macros l.54-95. Math.log reaches it in every tier: builtins/math.tq l.302-309 (Float64Log), instruction-selector.cc l.1649-1650 and
 # code-generator-x64.cc l.1073-1077, l.1930-1931 (a call of ieee754_log_function), external-reference.cc l.1210-1211
 # (base::ieee754::log), maglev-ir.h l.3421 and maglev-ir.cc l.502-510, constant folding in machine-operator-reducer.cc l.803-806.
-# Each operation below is the C one, in the same order: binary64, round to nearest even, no fused multiply-add. Held to the
+# Each operation below is the C one, in the same order: binary64, round to nearest even, no fused multiply-add, as Node runs it on x64.
+# On arm64, Node v24.21.0 is not built with -ffp-contract=off (tools/v8_gypfiles/toolchain.gypi l.307, l.328, read by RECHERCHES, N-2
+# of their review of #217; no arm64 host here), so its log may fuse products and sums: this port is the log of Node on x64. Held to the
 # outputs of Node's own Math.log (VECTORS below), never to a correctly rounded logarithm: the error of this algorithm is below one
 # ulp (l.1628-1630), not zero. The notices that the licences of that source ask to keep, verbatim. fdlibm's (ieee754.cc l.3-10):
 #   ====================================================
@@ -63,7 +66,7 @@ LG6 = 1.531383769920937332e-01  # 3FC39A09 D078C69F
 LG7 = 1.479819860511658591e-01  # 3FC2F112 DF3E5244
 CONSTANTS_HEX = ("3fe62e42fee00000", "3dea39ef35793c76", "4350000000000000", "3fe5555555555593", "3fd999999997fa04",
                  "3fd2492494229359", "3fcc71c51d8e78af", "3fc7466496cb03de", "3fc39a09d078c69f", "3fc2f112df3e5244")
-SIGNALING_NAN = 0x7FF0000000000001  # Math.log(-1) of Node v24.21.0 on Windows x64 (measured); the C++ library sets these bits
+SIGNALING_NAN = 0x7FF0000000000001  # Math.log(-1) of Node v24.21.0 on Windows x64 (measured): the bits of MSVC's C++ library; Linux 7ff4...
 
 
 def bits(x):
@@ -177,7 +180,9 @@ def vector_inputs():
 # Measured on 2026-10-07 at 02:35 UTC (lot 1e, Windows 10 x64): the float64 little-endian bytes of vector_inputs(), their sha256, and
 # the sha256 of the bytes of Math.log of Node v24.21.0 on each of them; on 5 780 inputs that Math.log and the log of the C library of
 # Python 3.14.5 on that host (ucrtbase.dll 10.0.19041.3636) differ by one ulp. PINNED: the first twelve of them (input, Node's output).
-# SPECIALS: the edge cases of l.1660-1671, Node's outputs (bits).
+# SPECIALS: the edge cases of l.1660-1671, Node's outputs (bits) on Windows x64. The NaN of a negative input is that platform's: under
+# Linux (libstdc++), Node gives 7ff4000000000000 for log(-1), log(-inf), log(-5e-324) and log(-NaN) (RECHERCHES, N-1 of their review of
+# #217; not measured here). The report counts the log of positive ratios only (report.run_passes), where no NaN arises.
 VECTORS = {"count": 2122614, "inputs_sha256": "41a801ce8cbcf2f88c008d8a91699b98c33515f46cc7a22621473f3c334803c8",
            "outputs_sha256": "aee206b3260bd9aba66f0faa01bc1002f321f3e1b64d28aa02967515910b116c", "differ_from_host_libm": 5780,
            "host_libm_sha256": "3c60056371f82e4744185b6f2fa0c69042b1e78804685944132974dd13f3b6d9"}  # that ucrtbase.dll, 1 046 080 bytes

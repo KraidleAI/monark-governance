@@ -60,17 +60,17 @@ test("clean mission is vert, every count 0 [mutant: any rule firing on clean inp
 test("R-LINE: a line past the end of the file is red [mutants: R-LINE check removed; l.N after a path ignored]", () => {
   assert.deepEqual(red(H("See `docs/ten.md:11`, `docs/ten.md` (l.12) and `docs/ten.md:3-10`.")), ["R-LINE", "R-LINE"]);
   // G01: the LTAIL anchor (^) must stop `l.9` from being lent to an earlier, unrelated path on the same line.
-  // killer: scripts/mission/lint.mjs:37 remove-anchor "LTAIL = /^`?" -> "LTAIL = /`?"
+  // killer: scripts/mission/lint.mjs:58 CONST "LTAIL = /^`?" -> "LTAIL = /`?"
   assert.deepEqual(red(H("See `docs/later.md` and `docs/ten.md` (l.9).")), []);
   // G02: an unparenthesised `path l.N` chain right after a path (no parens) is still an attribution.
-  // killer: scripts/mission/lint.mjs:37 drop-chain "(paren|l.N-chain)" -> "(paren-only)"
+  // killer: scripts/mission/lint.mjs:58 CONST "|l\\.\\d+(?:-\\d+)?(?:\\s*(?:,|\\u00e0|et|-)\\s*l\\.\\d+(?:-\\d+)?)*)/u" -> ")/u"
   assert.deepEqual(red(H("See `docs/ten.md` l.12.")), ["R-LINE"]);
   // G08: a last line without a final newline still counts (a\nb\nc = 3 lines, not 2).
-  // killer: scripts/mission/lint.mjs:53 drop-tail "+ (s.length > 0 && !s.endsWith(\"\n\") ? 1 : 0)" -> "+ 0"
+  // killer: scripts/mission/lint.mjs:87 CONST "+ (s.length > 0 && !s.endsWith(\"\\n\") ? 1 : 0)" -> "+ 0"
   writeFileSync(join(REPO, "docs", "nonl.md"), "a\nb\nc");
   assert.deepEqual(red(H("See `docs/nonl.md:3`.")), []);
   // C-G2-4: a parenthesis that itself quotes another path (a backtick inside) never lends its l.N to the path before it.
-  // killer: scripts/mission/lint.mjs:37 revert-class "[^()`]" -> "[^()]"
+  // killer: scripts/mission/lint.mjs:58 CONST "[^()`]" -> "[^()]"
   assert.deepEqual(red(H("See `docs/later.md:1` (l.9 de `docs/ten.md`).")), []);
 });
 
@@ -81,7 +81,7 @@ test("R-PATH: an absent path is red; declared to-create, lock, outside the roots
   // C-G2-2: a to-create entry written with a final `/` declares its whole subtree; a declared FILE never declares one.
   // The subtree file (`a.md`) is cited OUTSIDE the "a creer" section, on its own, so it is exempt only through the
   // directory's subtree coverage, never by being separately declared itself.
-  // killer: scripts/mission/lint.mjs:78 revert-covers "d.endsWith(\"/\") ? q===d.slice(0,-1)||q.startsWith(d) : q===d" -> "q === d"
+  // killer: scripts/mission/lint.mjs:112 COR "d.endsWith(\"/\") ? q === d.slice(0, -1) || q.startsWith(d) : q === d" -> "q === d"
   assert.deepEqual(red(H(["## \u00c0 cr\u00e9er", "- `docs/newdir/`", "## Suite", "See `docs/newdir/a.md`."].join("\n"))), []);
 });
 
@@ -95,8 +95,8 @@ test("R-BASE: a base absent or unknown to the repository is red [mutants: absent
 });
 
 test("R-BASE: `--base <sha>` alone or `gel <sha>` alone also pins the base; with both present, `base [tronc]` wins by ?? precedence, never one merged regex [mutants: ALT_BASE_RE removed; precedence inverted]", () => {
-  // killer: scripts/mission/lint.mjs:45 disable-alt "const ALT_BASE_RE = new RegExp" -> "const ALT_BASE_RE = /(?!)/"
-  // killer: scripts/mission/lint.mjs:125 invert-precedence "BASE_RE.exec(src) ?? ALT_BASE_RE.exec(src)" -> "ALT_BASE_RE.exec(src) ?? BASE_RE.exec(src)"
+  // killer: scripts/mission/lint.mjs:66 CONST "const ALT_BASE_RE = new RegExp(`(?<![${W}])(?:--base\\\\s+|gel\\\\s*[:=]?\\\\s*)\\`?([0-9a-f]{7,40})(?![${W}])`, \"iu\")" -> "const ALT_BASE_RE = /(?!)/"
+  // killer: scripts/mission/lint.mjs:172 COR "BASE_RE.exec(src) ?? ALT_BASE_RE.exec(src)" -> "ALT_BASE_RE.exec(src) ?? BASE_RE.exec(src)"
   assert.deepEqual(red(H("x").replace(/base tronc `(\w+)`/, "--base $1")), []);
   assert.deepEqual(red(H("x").replace(/base tronc `(\w+)`/, "gel `$1`")), []);
   const head2 = git("rev-parse", "HEAD");
@@ -111,7 +111,7 @@ test("R-TOOL: an absent tool is red; one declared to-create or held by a directo
   assert.deepEqual([red(H("Run `scripts/sub/nested.mjs`, then `nested.mjs`.")), red(H("In `scripts/sub/`, run `nested.mjs`."))], [[], []]);
   if (WIN) assert.deepEqual(red(H(`Run \`${EXT}/tool.ps1\` / \`tool.ps1\`, never \`${EXT}/gone.ps1\`.`)), ["R-TOOL"]);
   // G04: brace expansion checks each alternative path, not the one literal string with braces still in it.
-  // killer: scripts/mission/lint.mjs:52 disable-braces "return m ? m[2].split" -> "return false ? m[2].split"
+  // killer: scripts/mission/lint.mjs:86 COR "return m ? m[2].split" -> "return false ? m[2].split"
   assert.deepEqual(red(H("Run `scripts/{present,sub/nested}.mjs`.")), []);
 });
 
@@ -122,10 +122,10 @@ test("R-MODEL: claude-opus-5, no tier, an unlisted id, Fable as worker are red [
   assert.deepEqual(red(H("x").replace("Worker `claude-opus-5-5`", "Worker `claude-fable-5-1`")), ["R-MODEL"]);
   assert.deepEqual(red(H("Advisor `claude-fable-5-1`, readers `claude-sonnet-5-5`, old `claude-opus-4-8`.")), ["R-MODEL"]);
   // G03: the order "claude-fable-5-1 <role>" (Fable named first, role word after) must be detected too, not only "<role> claude-fable-5-1".
-  // killer: scripts/mission/lint.mjs:48 drop-reversed-order "claude-fable-5-1[^${W}\n]{0,4}${ROLE}" -> "claude-fable-5-1"
+  // killer: scripts/mission/lint.mjs:69 CONST "|claude-fable-5-1[^${W}\\\\n]{0,4}${ROLE}" -> ""
   assert.deepEqual(red(H("`claude-fable-5-1` correcteur.")), ["R-MODEL"]);
   // G10: claude-haiku-* is not in TIERS either (the roster never allows haiku).
-  // killer: scripts/mission/lint.mjs:46 drop-haiku "claude-(?:opus|sonnet|haiku|fable)" -> "claude-(?:opus|sonnet|fable)"
+  // killer: scripts/mission/lint.mjs:67 CONST "claude-(?:opus|sonnet|haiku|fable)" -> "claude-(?:opus|sonnet|fable)"
   assert.deepEqual(red(H("Sub-agents `claude-haiku-4-5`.")), ["R-MODEL"]);
 });
 
@@ -144,7 +144,7 @@ test("R-FOCUS: a MISSION G1 needs a Review Focus of 1 to 5 classes, each tied to
 });
 
 test("R-FOCUS: a class tied only to a lettered or roman sub-task reference, (a) or (iv), is not orphan; one with no tie at all still is [mutant: parenthesised sub-task reference not recognised as a tie]", () => {
-  // killer: scripts/mission/lint.mjs:50 revert-tied "items?|\([a-z]\)|\([ivx]{1,4}\)" -> "items?"
+  // killer: scripts/mission/lint.mjs:71 CONST "items?|\\\\([a-z]\\\\)|\\\\([ivx]{1,4}\\\\)" -> "items?"
   const g1 = (body: string): string[] => red(H(body, "# MISSION G1 fixture"));
   assert.deepEqual(g1("## Review Focus\n- class x (rattach\u00e9 : (c))\n- class y (a)"), []);
   assert.deepEqual(g1("## Review Focus\n- class x (rattach\u00e9 : (iv))\n- class y never removed, KEEP"), ["R-FOCUS"]);
@@ -159,11 +159,11 @@ test("CLI: exit 1 and one line per hit when red, exit 0 when vert; --rev reads t
   assert.equal(r.status, 1);
   assert.match(r.stdout, /^R-PATH .*cli\.md:3 docs\/later\.md absent$/m);
   // G09: --rev reads the tree of a commit; a cited DIRECTORY (trailing `/`) must be found there too, not files only.
-  // killer: scripts/mission/lint.mjs:69 drop-dirs-check " || dirs.has(p.replace(/\/$/, \"\"))" -> ""
+  // killer: scripts/mission/lint.mjs:103 COR " || dirs.has(p.replace(/\\/$/, \"\"))" -> ""
   writeFileSync(f, H("See `scripts/sub/`."));
   assert.equal(cli("--rev", BASE).status, 0);
   // C-G2-8: a --rev that is not a commit of --repo is a usage error (exit 2), not ~10 spurious R-PATH/R-TOOL hits.
-  // killer: scripts/mission/lint.mjs:154 remove-rev-guard "if (o.rev) { try { execFileSync(...) } catch {...} }" -> "(removed)"
+  // killer: scripts/mission/lint.mjs:205 SDL "if (o.rev) { try { execFileSync(" -> ""
   assert.equal(cli("--rev", "deadbee").status, 2);
 });
 
@@ -175,13 +175,13 @@ test("pipe mission -> launch -> receipt -> copied guard -> agent(): vert writes 
   assert.equal(run().status, 0);
   // G07: the receipt is named `<mission without .md>.recu.json`, never `<mission>.md.recu.json`; dies here by
   // assertion (existsSync), not by a TypeError reading `.sha` off an absent file.
-  // killer: scripts/mission/launch.mjs:24 keep-md-suffix "mission.replace(/\.md$/i, \"\")" -> "mission"
+  // killer: scripts/mission/launch.mjs:24 CONST "mission.replace(/\\.md$/i, \"\")" -> "mission"
   assert.ok(existsSync(recu));
   const got = receipt() as { sha: string; verdict: string; date: string; lint: Record<string, number>; base: string; head: string };
   assert.deepEqual([got.sha, got.verdict, got.lint, got.base], [createHash("sha256").update(readFileSync(f)).digest("hex"), "vert", ZERO, git("rev-parse", BASE)]);
   assert.match(got.date, /^\d{4}-\d\d-\d\dT\d\d:\d\d:\d\dZ$/);
   // Q-G2-5: the receipt also carries `head`, the sha of --repo's HEAD at launch time (for a later --rev replay by M-5).
-  // killer: scripts/mission/launch.mjs:35 blank-head "execFileSync(\"git\", [...]).trim()" -> "\"\""
+  // killer: scripts/mission/launch.mjs:35 CONST "execFileSync(\"git\", [\"-C\", repo, \"rev-parse\", \"HEAD\"], { encoding: \"utf8\" }).trim()" -> "\"\""
   assert.equal(got.head, git("rev-parse", "HEAD"));
   assert.deepEqual(workflow({ recu: got, mission: readFileSync(f, "utf8") }), [readFileSync(f, "utf8")]);
   writeFileSync(f, H("Read `docs/ten.md:11`."));

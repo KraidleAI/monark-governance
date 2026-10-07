@@ -38,6 +38,7 @@ import { DOJO_HOST, DOJO_PUBKEY_PATH, DOJO_TIMELINE_PATH, dojoHistoryPathOf, doj
 import { DOJO_LIVE_PREFIX } from "../apps/site/lib/dojo-served.ts";
 import { DOJO_NAME, DOJO_ROUTE, DOJO_TEXT } from "../apps/site/lib/dojo-copy.ts";
 import { urlAllowed } from "../apps/dojo/scripts/dojo-verify-cli.mjs";
+import { bellRowOf } from "./helpers/bell-row.ts";
 
 const ROOT = join(import.meta.dirname, "..");
 
@@ -160,18 +161,7 @@ test("public_surfaces_make_no_probative_claim — scrub is load-bearing (synthet
   assert.equal(mask("exactly what is not verified").match(PROBATIVE), null, "negation stays green");
 });
 
-// CodeQL alert 45: Bell's row of the served table is the one whose surface cell opens on an https URL of Bell's host, exactly (spelled
-// https://<host>/, host equal, no prefix or suffix, no user part; never a substring anywhere in the row), and there is exactly one.
-const BELL_HOST = "bell.monarkgate.tech";
-function bellRowOf(rows: string[]): number {
-  const at = rows.flatMap((l, i) => {
-    const first = /^\s*`([^`]+)`/.exec(l.split(/(?<!\\)\|/)[1] ?? "")?.[1] ?? "", u = URL.canParse(first) ? new URL(first) : null;
-    return u !== null && first.startsWith(`https://${BELL_HOST}/`) && u.protocol === "https:" && u.host === BELL_HOST && u.username === "" && u.password === "" ? [i] : [];
-  });
-  assert.equal(at.length, 1, `one row of the served table is Bell's (${String(at.length)} found)`);
-  return at[0] ?? -1;
-}
-// killer: test/public-surfaces-honesty.test.ts:169 CONST "first.startsWith(`https://${BELL_HOST}/`) && u.protocol === \"https:\" && u.host === BELL_HOST" -> "l.includes(BELL_HOST)"
+// killer: test/helpers/bell-row.ts:11 CONST "first.startsWith(`https://${BELL_HOST}/`) && u.protocol === \"https:\" && u.host === BELL_HOST" -> "l.includes(BELL_HOST)"
 test("readme_bell_row_is_read_by_exact_host_never_by_substring — a row that names Bell's URL elsewhere, or a look-alike host, is never Bell's row (CodeQL alert 45)", () => {
   const bell = "| `https://bell.monarkgate.tech/state.json` · `timeline.jsonl` | Bell's publications | anyone |";
   const decoys = ["| `https://x.example/` | a relay of https://bell.monarkgate.tech/ | the site |", "| `https://x.example/?https://bell.monarkgate.tech/` | x | y |",

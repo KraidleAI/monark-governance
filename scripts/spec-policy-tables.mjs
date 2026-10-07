@@ -131,7 +131,7 @@ if (isMain(process.argv[1], fileURLToPath(import.meta.url))) process.exitCode = 
 // served class to the last version directory that holds its file; two with the same bytes are refused, and a class that no directory holds is refused when a dated version is written (M-2: else it is expected under contract-1.1.0/). A dated directory is written once, never rewritten (B-1).
 
 /** versionDirs(root) -> the version directories under <root>/spec, in order: contract-1.1.0, then contract-1.1.0-tables-<real day> by day. */
-function versionDirs(root) {
+export function versionDirs(root) {
   const s = join(root, "spec"), dated = (n) => n.length === VERSION_DIR.length + 18 && n.startsWith(`${VERSION_DIR}-tables-`) && validDate(n.slice(-10));
   return existsSync(s) ? readdirSync(s).filter((n) => n === VERSION_DIR || dated(n)).sort() : [];
 }
@@ -215,4 +215,12 @@ export function writeFlat(root, files) {
   const changed = files.filter((f) => !f.path.startsWith(`${OUT_DIR}/`) && !same(f));
   if (changed.length > 0) throw new Error(`spec-policy-tables: ${changed.map((f) => f.path).join(", ")}: a dated directory is never rewritten (B-1); a served table that changed is published as a new dated version, --write --date <YYYY-MM-DD>`);
   writeAll(root, files.filter((f) => f.path.startsWith(`${OUT_DIR}/`)));
+}
+
+/** publishedTableEntry(inputs, taskClass) -> the entry, with its release name, that last publishes the policy table of taskClass from this
+ *  repository (root "governance"), in release order of scripts/spec-publish-inputs.json; undefined if none. Entries of other roots (a later
+ *  dated release published from another repository, a liquidation release) are never candidates: the pin of the deployment check
+ *  (KATA_POLICY_TABLE_SHA256 of scripts/verify-harness.mjs) follows the table this repository publishes. */
+export function publishedTableEntry(inputs, taskClass) {
+  return Object.entries(inputs.releases).flatMap(([release, r]) => r.entries.filter((e) => e.root === "governance" && e.out.endsWith(`/policy/${taskClass}.json`)).map((e) => ({ release, ...e }))).at(-1);
 }

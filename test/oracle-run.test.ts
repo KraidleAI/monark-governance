@@ -215,8 +215,8 @@ test("oracle_red_same_key_record_is_never_served — decision 267 (c): a suite r
 }));
 
 test("oracle_modified_tree_is_replayed_on_its_content — same key, dirty tree: never served, the clone carries the untracked file; the record and owner.txt name the frozen dirty tree (M6, M7, X8, X9)", () => withFx((fx) => {
-  // killer: scripts/oracle/run.mjs:104 LVR "rec.tree.object = gitS(clone, \"rev-parse\", \"HEAD^{tree}\")" -> "rec.tree.object = null"
-  // killer: scripts/oracle/run.mjs:149 LVR "sha: dirty ? `${head}+${dirty}` : head" -> "sha: \"x\""
+  // killer: scripts/oracle/run.mjs:104 CONST "rec.tree.object = gitS(clone, \"rev-parse\", \"HEAD^{tree}\")" -> "rec.tree.object = null"
+  // killer: scripts/oracle/run.mjs:149 CONST "sha: dirty ? `${head}+${dirty}` : head" -> "sha: \"x\""
   const a = oracle(fx, ["--role", "G1", "--key", "k"]);
   assert.equal(a.status, 0, a.out);
   writeFileSync(join(fx.repo, "BAD"), "x\n");
@@ -249,7 +249,7 @@ test("oracle_refuses_an_incomplete_same_key_record — a record without pid, or 
 }));
 
 test("oracle_record_not_written_is_a_refusal — a gate turns the record path into a directory (BRK) => exit 2, no oracle-result line, no record (C-G2-7)", () => withFx((fx) => {
-  // killer: scripts/oracle/run.mjs:69 SDL "refuse(`record not written" -> "throw e; refuse(`record not written"
+  // killer: scripts/oracle/run.mjs:69 CONST "refuse(`record not written" -> "throw e; refuse(`record not written"
   writeFileSync(join(fx.repo, "BRK"), "x\n");
   const a = oracle(fx, ["--role", "G1", "--static-only"]);
   assert.deepEqual([a.status, a.file], [2, ""], a.out);
@@ -280,7 +280,7 @@ test("oracle_lock_fifo — a dead pid (queue and owner) is taken over; a live qu
 
 test("oracle_lock_never_takes_a_live_or_unknown_owner — owner.txt JSON of this module with a live pid, free text (older protocol), or JSON of another writer whose pid is dead to Node (MSYS `$$`): waited for, exit 75, owner.txt untouched, no locked gate (C-G2-2, X2, X3, C-C3-1)", () => withFx((fx) => {
   // killer: scripts/oracle/lock.mjs:33 COR "pid !== undefined && !alive(pid)" -> "pid !== undefined"
-  // killer: scripts/oracle/lock.mjs:15 LVR "catch { return undefined; }" -> "catch { return 2147483646; }"
+  // killer: scripts/oracle/lock.mjs:15 CONST "catch { return undefined; }" -> "catch { return 2147483646; }"
   // killer: scripts/oracle/lock.mjs:15 COR "lock === MARK && " -> ""
   const lock = join(fx.root, "oracle-lock"), dead = spawnSync(process.execPath, ["-e", "0"]).pid;
   for (const text of [JSON.stringify({ role: "G1", sha: "x", date: "x", lock: "oracle/lock.mjs", pid: process.pid }), "G1 M-4 2026-09-28T06:32:45Z", JSON.stringify({ role: "cp-2 M-1", sha: "x", date: "x", pid: dead })]) {
@@ -294,7 +294,7 @@ test("oracle_lock_never_takes_a_live_or_unknown_owner — owner.txt JSON of this
 }));
 
 test("oracle_r25_over_the_ci_bound_is_red — insertions + deletions against VIBEGATES_PR_LIMIT 5, equality green (-gt): 3 + 2 = 5 green, 3 + 3 = 6 red, 15 + 3 red (3 committed + 2 tracked-dirty + 10 untracked); same R25_DIFF_RE as test 38 (M11, M13, X6, X7)", () => withFx((fx) => {
-  // killer: scripts/oracle/r25.mjs:31 SDL "changed: ins + del," -> "changed: ins,"
+  // killer: scripts/oracle/r25.mjs:31 CONST "changed: ins + del," -> "changed: ins,"
   // killer: scripts/oracle/r25.mjs:35 ROR "c.changed > c.limit" -> "c.changed >= c.limit"
   for (const [text, del, exit] of [["a\n", 2, 0], ["", 3, 1]] as const) {
     writeFileSync(join(fx.repo, "base.txt"), text);
@@ -344,8 +344,8 @@ test("oracle_clone_takes_no_machine_template - G2 delta3 m-f: a machine git temp
 }));
 
 test("oracle_cv4_refuses_the_suite — free memory or node.exe out of bounds => exit 3, no suite, lock released; defaults 4096 MB free and 40 node.exe (M12, X13)", () => withFx((fx) => {
-  // killer: scripts/oracle/run.mjs:156 LVR "ORACLE_MIN_FREE_MB ?? 4096" -> "ORACLE_MIN_FREE_MB ?? 0"
-  // killer: scripts/oracle/run.mjs:156 LVR "ORACLE_MAX_NODE ?? 40" -> "ORACLE_MAX_NODE ?? 48"
+  // killer: scripts/oracle/run.mjs:156 CONST "ORACLE_MIN_FREE_MB ?? 4096" -> "ORACLE_MIN_FREE_MB ?? 0"
+  // killer: scripts/oracle/run.mjs:156 CONST "ORACLE_MAX_NODE ?? 40" -> "ORACLE_MAX_NODE ?? 48"
   for (const env of [{ ORACLE_MIN_FREE_MB: "1000000000" }, { ORACLE_MAX_NODE: "0" }, { ORACLE_MAX_NODE: "abc" }]) {
     const a = oracle(fx, ["--role", "G1"], env);
     assert.equal(a.status, 3, a.out);

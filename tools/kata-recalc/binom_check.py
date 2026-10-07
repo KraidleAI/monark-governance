@@ -7,8 +7,8 @@
 #   replayed on the Python functions (no node). The arrays USDE and LIQ_S0 come from
 #   `git show 207f021f:packages/hikae/test/served-scores.ts` in <repository> at run time (read only, memory only, Q-1).
 # Registry mode (ADR l.155): every k*, rank and U of a registry against the second writing, plus n0, UTest and the veto.
-# Usage: python -B binom_check.py <repository> <out-binom.txt> <out-hikae.txt>   (M-6: the governance repository is an argument)
-#        python -B binom_check.py --registry <wave1.json> <out.txt>
+# Usage: python -E -S -s -B binom_check.py <repository> <out-binom.txt> <out-hikae.txt>   (M-6: the governance repository is an argument)
+#        python -E -S -s -B binom_check.py --registry <wave1.json> <out.txt>
 import io_guard  # the input guard, before any other module (M-7)
 import math
 import os

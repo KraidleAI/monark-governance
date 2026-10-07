@@ -8,7 +8,7 @@
  * ENGINE-ROW-RETIRE-PATH-1): the pinned retire list of policy-retire.ts overlays the projection; live counts within LIVE_N_MAX. */
 import { assertClosedPolicyRow, type ClassEntry, type PolicyRow, type PolicyTable } from "@monark/contracts";
 import { bandEdge, binomCdfLeq, ceilDecimal4, missUpperBound, parseAlpha, parseTestDelta, riskControlMaxExceedances, spendDelta, splitRankExact, zeroErrorFloor } from "@monark/hikae";
-import { KATA_BASE_DELTA, KATA_H_MS, kataKeyProblem } from "./policy-classes.ts";
+import { KATA_BASE_DELTA, KATA_H_MS, kataKeyProblem, kataKeyReserved } from "./policy-classes.ts";
 import { readRegistry, type ProjectionInputs } from "./policy-projection.ts";
 import { readRetireList, retireQuarter, type RetireList, type RetirePin } from "./policy-retire.ts";
 import { assertRegistryPinned, assertTableMatchesRegistry } from "./policy-table-file.ts";
@@ -48,7 +48,7 @@ export function guardKataRow(r: PolicyRow, cls: ClassEntry, pins: GuardPins): vo
   is(r.statement === "per-calibration" && r.task_class === cls.task_class && r.region_rule === cls.region_rule && r.alpha === cls.alpha && cls.test_delta === KATA_BASE_DELTA, "does not follow its class entry");
   is(KATA_H_MS[r.horizon ?? ""] === cls.h_ms && dir === (r.bucket !== "b0") && dir === (r.thresholds !== null) && r.aux_seq === (dir ? "label" : "score"), "has a horizon, bucket, thresholds or aux_seq off its class and mode");
   is([r.kata_id, r.w, r.venue, r.symbol, r.test, r.vetoes, r.aux_sha256, r.series_sha256].every((v) => v !== null), "misses a kata column");
-  is(r.cell_key === `kata:${String(r.kata_id)}@${String(r.venue)}/${String(r.symbol)}/${String(r.horizon)}/${String(r.bucket)}` && kataKeyProblem(r.cell_key.slice(0, r.cell_key.lastIndexOf("/")), r.task_class) === undefined, "has a cell_key or symbol off its columns and class, or a key off the kata key grammar (C-5)");
+  is(r.cell_key === `kata:${String(r.kata_id)}@${String(r.venue)}/${String(r.symbol)}/${String(r.horizon)}/${String(r.bucket)}` && kataKeyProblem(r.cell_key.slice(0, r.cell_key.lastIndexOf("/")), r.task_class) === undefined, "has a cell_key or symbol off its columns and class, or a key off the kata key grammar (C-5)"); is(!kataKeyReserved(r.kata_id, r.venue), "has a kata or venue reserved for the deployment check (ca-probe): the probe key of the CA never holds a row");
   is(r.source.registry_file === pins.registryFile && r.source.registry_sha256 === pins.registrySha256 && r.source.generator === pins.generator, "has a source off the pins");
   is(r.source.trial_id === [r.task_class, r.kata_id, r.venue, r.symbol, r.horizon, w2 ? "W2-CALIB" : "CALIB"].join("|"), "has a trial_id not recomposed from its columns");
   is(r.order === "time" && (w2 || r.current) && r.runs_level === KATA_BASE_DELTA, "breaks the pinned constants of a wave 1 row (order time, current, runs_level) or of a wave 2 row (order time, runs_level)");
@@ -80,7 +80,7 @@ export function guardKataRow(r: PolicyRow, cls: ClassEntry, pins: GuardPins): vo
   is(m >= 0 && q !== null && r.qhat === q && r.k_obs === (dir && q === 1 ? 0 : m), "has a qhat or k_obs that does not follow from (misses, k_star)");
   is(w2 || (r.runs_miss !== null && r.runs_aux !== null && (r.runs_miss === "empty") === (r.k_obs === 0 || r.k_obs === r.n)), "has check outcomes that do not follow from k_obs");
   const adm = w2 ? wave2Admission(r, is) : { reject: r.runs_miss === "reject" || r.runs_aux === "reject", empty: r.runs_aux === "empty" };
-  const [calib, reason] = adm.reject ? ["silence", "dependence check rejects"] : adm.empty ? ["silence", w2 ? "tail sequence constant (fails closed)" : "auxiliary sequence constant (fails closed)"] : m > ks ? ["silence", `misses ${String(m)} above k* ${String(ks)}`] : ["region", ""];
+  const [calib, reason] = adm.empty ? ["silence", w2 ? "tail sequence constant (fails closed)" : "auxiliary sequence constant (fails closed)"] : adm.reject ? ["silence", "dependence check rejects"] : m > ks ? ["silence", `misses ${String(m)} above k* ${String(ks)}`] : ["region", ""];
   const fire = (b: typeof r.test): boolean => calib === "region" && b !== null && b.n_test >= 1 && b.k_test !== null && vetoFires(b.n_test, b.k_test, r.alpha);
   const first = (["bridge", "test", "fwd"] as const).find((k) => fire(blocks[k]));
   is(r.vetoes?.test === fire(r.test) && (r.vetoes?.bridge ?? false) === fire(r.bridge) && (r.vetoes?.fwd ?? false) === fire(r.fwd), "has vetoes.test, vetoes.bridge or vetoes.fwd off the conditional TEST, bridge or FWD-2 veto");
