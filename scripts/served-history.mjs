@@ -20,12 +20,12 @@
 // - t_e is T_e of retire-instants: the committer date, to the second, of a merge commit of two parents, named by 40 hex (checked before
 //   git) that git reads as its own id (an annotated tag is refused), with no inherited GIT_* variable; it is on the first-parent history
 //   of the HEAD of the tree (the trunk) and brings spec/<release_dir> (there, absent from its first parent). t_f is T_f: the checked_at,
-//   cut to the second, of a deploy check record that verify-harness rates green with its CHECK_NAMES; ca_record_sha256 is the sha256 of
-//   its bytes. t_e <= t_f, and the received_at_ms of each record is at or after the checked_at of the deploy check record, to the ms.
+//   cut to the second, of a deploy check record that verify-harness rates green with its CHECK_NAMES, in its writing (toISOString, l.432;
+//   another: ca_not_green); ca_record_sha256 is the sha256 of its bytes. t_e <= t_f, and each received_at_ms >= that checked_at, in ms.
 // The file is a JSON array, one line per element, sorted by (t_e, task_class); the lines already there must be its canonical writing
 // under the same closed fields (each field a string of its form; t_e and t_f real UTC seconds); a (release_dir, task_class) pair is
 // written once, and the lines of a release_dir share merge_commit, t_e, t_f and ca_record_sha256. Written through writeAtomic of
-// scripts/verify-harness.mjs. Exit 0 written; 1 refused (code first); 2 usage.
+// scripts/verify-harness.mjs. Exit 0 written; 1 refused (code first); 2 usage (an unknown, repeated or empty option, as retire-probe).
 import { createHash } from "node:crypto";
 import { spawnSync } from "node:child_process";
 import { existsSync, mkdirSync, readFileSync, readdirSync, statSync } from "node:fs";
@@ -49,7 +49,7 @@ const HEX = /^[0-9a-f]{64}$/, SECOND = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z$/,
 const str = (v, re) => typeof v === "string" && re.test(v);
 /** A real UTC second, as scripts/retire-latency.mjs l.46-47 reads one: a day that exists, an hour of it. */
 const real = (s) => { const t = str(s, SECOND) ? Date.parse(s) : NaN; return Number.isFinite(t) && new Date(t).toISOString() === s.replace("Z", ".000Z"); };
-/** The instant, in ms, of s written as judge() of scripts/retire-probe.mjs l.82 writes received_at_ms (toISOString); else NaN. */
+/** The instant, in ms, of s in the writing of toISOString: received_at_ms of judge() (scripts/retire-probe.mjs l.82) and checked_at of scripts/verify-harness.mjs l.432; else NaN. */
 const iso = (s) => { const t = Date.parse(s); return Number.isFinite(t) && new Date(t).toISOString() === s ? t : NaN; };
 const parse = (bytes, what) => { try { return JSON.parse(Buffer.from(bytes).toString("utf8")); } catch { return no("input_invalid", `${what} is not JSON`); } };
 
@@ -67,7 +67,8 @@ export function checkLine(l) {
 export function compose({ root, releaseDir, mergeCommit, tE, caBytes, probes, pinned }) {
   const dated = versionDirs(root).filter((d) => d !== VERSION_DIR);
   if (dated.at(-1) !== releaseDir || statSync(join(root, "spec", String(releaseDir)), { throwIfNoEntry: false })?.isDirectory() !== true) no("input_invalid", `release directory ${JSON.stringify(releaseDir)}: not the last dated directory of the tree, or not a directory`);
-  const ca = parse(caBytes, "the deploy check record"), tF = via("ca_not_green", () => instant("T_f", { ca: "the deploy check record" }, { read: () => ca }, "real"));
+  const ca = parse(caBytes, "the deploy check record"), tF = via("ca_not_green", () => instant("T_f", { ca: "the deploy check record" }, { read: () => ca }, "real")), caMs = iso(ca.checked_at);
+  if (Number.isNaN(caMs)) no("ca_not_green", `the checked_at ${JSON.stringify(ca.checked_at)} of the deploy check record is not in the writing of verify-harness (toISOString): t_f is not taken`);
   const api = typeof ca.url === "string" && URL.canParse(ca.url) ? new URL(ca.url) : null; // the api that the record checked: the probes' api
   const kata = dated.flatMap((d) => { const p = join(root, "spec", d, "policy"); return existsSync(p) ? readdirSync(p).filter((f) => f.endsWith(".json") && parse(readFileSync(join(p, f)), f)?.class?.cell_key_rule === "kata-bucket") : []; });
   const served = via("input_invalid", () => servedTableDirs(root, kata.map((f) => ({ task_class: f.slice(0, -5) }))));
@@ -81,7 +82,7 @@ export function compose({ root, releaseDir, mergeCommit, tE, caBytes, probes, pi
     const table = readFileSync(join(root, rel));
     if (parse(table, rel)?.class?.task_class !== cls) no("probe_other_class", `${name} is a ${String(cls)} record, ${rel} holds another class`);
     if (sha(table) !== probe.policy_table_sha256) no("digest_mismatch", `${name} served ${String(probe.policy_table_sha256)}, ${rel} is ${sha(table)}`);
-    if (!(ms >= Date.parse(ca.checked_at))) no("probe_before_ca", `${name} was received at ${String(probe.received_at_ms)}, before the deploy check record (${String(ca.checked_at)})`);
+    if (!(ms >= caMs)) no("probe_before_ca", `${name} was received at ${String(probe.received_at_ms)}, before the deploy check record (${String(ca.checked_at)})`);
     return checkLine({ format: FORMAT, release_dir: releaseDir, task_class: cls, policy_table_sha256: probe.policy_table_sha256, probe_record_sha256: sha(bytes),
       merge_commit: mergeCommit, t_e: tE, t_f: tF, ca_record_sha256: sha(caBytes) });
   });
@@ -117,18 +118,18 @@ export function mergeInstant(root, commit, releaseDir) {
 }
 
 export async function main(argv, io = {}) {
-  const a = { root: ".", probe: [] };
+  const a = {}, probes = []; // the rule of parseArgs of scripts/retire-probe.mjs: an exact name, given once (--probe may repeat), with a value
   for (let i = 0; i < argv.length; i += 2) {
-    const k = argv[i]?.replace(/^--/, ""), v = argv[i + 1];
-    if (!["root", "release-dir", "merge-commit", "ca", "probe"].includes(k ?? "") || v === undefined) { console.error(`usage: ${argv[i]} (see the header of scripts/served-history.mjs)`); return 2; }
-    if (k === "probe") a.probe.push(v); else a[k] = v;
+    const k = ["root", "release-dir", "merge-commit", "ca", "probe"].find((o) => argv[i] === `--${o}`), v = argv[i + 1];
+    if (k === undefined || Object.hasOwn(a, k) || v === undefined || v === "") { console.error(`usage: unknown, repeated or empty option ${String(argv[i])} (see the header of scripts/served-history.mjs)`); return 2; }
+    if (k === "probe") probes.push(v); else a[k] = v;
   }
-  if (!a["release-dir"] || !a["merge-commit"] || !a.ca || a.probe.length === 0) { console.error("usage: --release-dir, --merge-commit, --ca and --probe are required"); return 2; }
+  if (!a["release-dir"] || !a["merge-commit"] || !a.ca || probes.length === 0) { console.error("usage: --release-dir, --merge-commit, --ca and --probe are required"); return 2; }
   try {
-    const pinned = await via("pins_unreadable", async () => Object.keys((await import(io.pins ?? PINS)).COMMITTED_TABLES)); // absent until the loader lands
-    const tE = mergeInstant(a.root, a["merge-commit"], a["release-dir"]);
-    const lines = compose({ root: a.root, releaseDir: a["release-dir"], mergeCommit: a["merge-commit"], tE, caBytes: readFileSync(a.ca), probes: a.probe.map((p) => ({ name: p, bytes: readFileSync(p) })), pinned });
-    const out = join(a.root, HISTORY_REL), text = render(existsSync(out) ? readFileSync(out) : null, lines);
+    const root = a.root ?? ".", pinned = await via("pins_unreadable", async () => Object.keys((await import(io.pins ?? PINS)).COMMITTED_TABLES)); // absent until the loader lands
+    const tE = mergeInstant(root, a["merge-commit"], a["release-dir"]);
+    const lines = compose({ root, releaseDir: a["release-dir"], mergeCommit: a["merge-commit"], tE, caBytes: readFileSync(a.ca), probes: probes.map((p) => ({ name: p, bytes: readFileSync(p) })), pinned });
+    const out = join(root, HISTORY_REL), text = render(existsSync(out) ? readFileSync(out) : null, lines);
     mkdirSync(dirname(out), { recursive: true }); writeAtomic(out, text);
     console.log(`served-history OK: ${lines.length} line(s) for ${a["release-dir"]} -> ${HISTORY_REL}`);
     return 0;

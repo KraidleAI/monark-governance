@@ -58,7 +58,7 @@ const run = (o: Run = {}): HistoryLine[] =>
 const code = (c: string, message = "") => (e: Error & { code?: string }): boolean => e.code === c && e.message.includes(message);
 
 // The composition test: the probe records as retire-probe writes them, and the trial deploy check record as verify-harness wrote it.
-// killer: scripts/served-history.mjs:85 CONST "probe_record_sha256: sha(bytes)" -> "probe_record_sha256: sha(JSON.stringify(probe))"
+// killer: scripts/served-history.mjs:86 CONST "probe_record_sha256: sha(bytes)" -> "probe_record_sha256: sha(JSON.stringify(probe))"
 test("served_history_line_is_closed_and_read_from_a_verdict", () => {
   const probes = KATA.map((c) => probe(c)), lines = run({ probes, caBytes: TRIAL });
   assert.equal(sha(TRIAL), "28aaa41bcf1ed53aac70a218bb43dd607ad4695f580e4b45cad3e9675d21b48d", "premise: the trial record, byte for byte");
@@ -70,7 +70,7 @@ test("served_history_line_is_closed_and_read_from_a_verdict", () => {
   assert.deepEqual(JSON.parse(text), lines);
 });
 
-// killer: scripts/served-history.mjs:72 CONST "dated.flatMap(" -> "[releaseDir].flatMap("
+// killer: scripts/served-history.mjs:73 CONST "dated.flatMap(" -> "[releaseDir].flatMap("
 test("served_history_writes_every_class_served_after_the_deployment", () => {
   const NO_DAY = "contract-1.1.0-tables-2026-02-30", tables = { "btc-dir-1h": "btc-dir-1h", "eth-range-4h": "eth-range-4h", [LIQ]: LIQ };
   const r = rootOf(tables, { [D2]: { "btc-dir-1h": changed("btc-dir-1h"), "sol-dir-1h": "sol-dir-1h" }, [NO_DAY]: { "bnb-dir-1h": "bnb-dir-1h" }, "contract-1.1.0": { "bnb-range-1h": "bnb-range-1h" } });
@@ -78,7 +78,9 @@ test("served_history_writes_every_class_served_after_the_deployment", () => {
     tE: at(27 * DAY), caBytes: caOf({ checked_at: `${at(27 * DAY + 1800).slice(0, -1)}.278Z` }), probes, pinned: ["btc-dir-1h", "eth-range-4h", "sol-dir-1h"] });
   const s = 27 * DAY + 3600, good = (): Rec[] => [probe("btc-dir-1h", { d: D2, bytes: changed("btc-dir-1h"), s }), probe("eth-range-4h", { s }), probe("sol-dir-1h", { d: D2, s })];
   let lines: HistoryLine[] = [];
-  assert.doesNotThrow(() => { lines = second(good()); }, "a class carried from an earlier dated directory is still served");
+  // killer: scripts/served-history.mjs:73 CONST "existsSync(p) ? " -> "true ? "
+  const early = join(r, "spec", "contract-1.1.0-tables-2026-10-19", "retire"); mkdirSync(early, { recursive: true }); writeFileSync(join(early, "retire-2026-10-19.json"), "{}\n"); // as --check passes it (its retire list only)
+  assert.doesNotThrow(() => { lines = second(good()); }, "a class carried from an earlier dated directory is still served; a dated directory that holds its retire list only, no policy/, is passed over");
   assert.deepEqual(lines.map((l) => [l.release_dir, l.task_class]), [[D2, "btc-dir-1h"], [D2, "eth-range-4h"], [D2, "sol-dir-1h"]], "a line for every class served after the deployment, none for an undated directory or one of no real day");
   const refused = (c: string, probes: Rec[], o: { root?: string; releaseDir?: string } = {}): void => { assert.throws(() => second(probes, o), code(c), c); };
   const file = rootOf(tables);
@@ -92,7 +94,7 @@ test("served_history_writes_every_class_served_after_the_deployment", () => {
   refused("probe_other_table", [...good(), probe("bnb-dir-1h", { d: NO_DAY, s })]);
 });
 
-// killer: scripts/served-history.mjs:76 CONST "}, \"real\"));" -> "}, \"rehearsal\"));"
+// killer: scripts/served-history.mjs:77 CONST "}, \"real\"));" -> "}, \"rehearsal\"));"
 test("served_history_refuses_each_departure", () => {
   const refused = (c: string, o: Run, message = ""): void => { assert.throws(() => run(o), code(c, message), c); };
   const btc = (o: Parameters<typeof probe>[1]): Run => ({ probes: [probe("btc-dir-1h", o), probe("eth-range-4h")] });
@@ -120,6 +122,8 @@ test("served_history_refuses_each_departure", () => {
   refused("class_not_once", { probes: [...KATA.map((c) => probe(c)), probe("btc-dir-1h")] });
   for (const over of [{ checks: [] }, { checks: REC.checks.slice(0, 1) }, { checks: [{ ...REC.checks[0], ok: false }, ...REC.checks.slice(1)] }, { tls: { ...REC.tls, authorized: false } },
     { tls_mcp: { ...REC.tls, authorized: false } }, { tls: { host: "127.0.0.1", skipped: true }, tls_mcp: { host: "127.0.0.1", skipped: true } }]) refused("ca_not_green", { caBytes: caOf(over) });
+  // killer: scripts/served-history.mjs:71 CONST "Number.isNaN(caMs)" -> "false"
+  for (const c of [REC.checked_at.slice(0, -1), REC.checked_at.replace("Z", "+00:00")]) refused("ca_not_green", { caBytes: caOf({ checked_at: c }) }, "toISOString"); // no Z, read in the machine's zone; an offset
   refused("line_invalid", { tE: at(1) });
   refused("served_not_pinned", { pinned: ["btc-dir-1h"] });
   refused("served_not_pinned", { pinned: [...KATA, "sol-dir-1h"] });
@@ -133,7 +137,7 @@ test("served_history_refuses_each_departure", () => {
   refused("probe_other_table", { root: rootOf({ [LIQ]: LIQ }), pinned: [] }, "btc-dir-1h.probe.json");
 });
 
-// killer: scripts/served-history.mjs:98 CONST "o.release_dir === l.release_dir && " -> ""
+// killer: scripts/served-history.mjs:99 CONST "o.release_dir === l.release_dir && " -> ""
 test("served_history_file_is_one_line_per_class_sorted_and_closed", () => {
   const first = run(), text = render(null, first), later = { ...first[0]!, release_dir: D2, t_e: at(27 * DAY), t_f: at(27 * DAY + 1800) };
   let next = "";
@@ -155,7 +159,7 @@ test("served_history_file_is_one_line_per_class_sorted_and_closed", () => {
   refused("line_invalid", canon([{ ...l0, release: DIR }]));
 });
 
-// killer: scripts/served-history.mjs:109 CONST "--format=%H %cI %P" -> "--format=%H %aI %P"
+// killer: scripts/served-history.mjs:110 CONST "--format=%H %cI %P" -> "--format=%H %aI %P"
 test("served_history_cli_reads_t_e_from_the_merge_commit", async (t) => {
   const said = t.mock.method(console, "error", () => undefined), last = (): string => String(said.mock.calls.at(-1)?.arguments[0]);
   const r = both(), clean = Object.fromEntries(Object.entries(process.env).filter(([k]) => !k.startsWith("GIT_"))); // no inherited GIT_* variable
@@ -196,7 +200,11 @@ test("served_history_cli_reads_t_e_from_the_merge_commit", async (t) => {
   assert.equal(PINS, pathToFileURL(join(ROOT, "apps", "harness", "src", "policy-committed-pins.ts")).href, "the pins are those of the served module");
   assert.equal(await main(args(m1)), 1);
   assert.match(last(), existsSync(fileURLToPath(PINS)) ? /^served-history refused: served_not_pinned:/ : /^served-history refused: pins_unreadable:/, "the served module's pins by default: unreadable until the loader lands, then none of these classes");
-  for (const argv of [args(m1).slice(0, 8), [...args(m1), "--probe"], ["--bogus", "x", ...args(m1)]]) assert.equal(await main(argv), 2, `usage: ${argv.slice(-2).join(" ")}`); // no record; a flag without its value; an unknown flag
+  // killer: scripts/served-history.mjs:123 CONST "argv[i] === `--${o}`" -> "argv[i]?.replace(/^--/, \"\") === o"
+  // killer: scripts/served-history.mjs:124 CONST "Object.hasOwn(a, k) || " -> ""
+  // killer: scripts/served-history.mjs:124 CONST " || v === \"\"" -> ""
+  for (const argv of [args(m1).slice(0, 8), [...args(m1), "--probe"], ["--bogus", "x", ...args(m1)], args(m1).map((x) => x.replace(/^--/, "")), [...args(m1), "--ca", ca],
+    [...args(m1), "--probe", ""]]) assert.equal(await main(argv), 2, `usage: ${argv.slice(-2).join(" ")}`); // no record; a flag without its value; an unknown flag; names without --; --ca twice; an empty value
   assert.equal(await main(args(m1), pins(KATA)), 0);
   const out = readFileSync(join(r, HISTORY_REL), "utf8");
   assert.deepEqual((JSON.parse(out) as HistoryLine[]).map((l) => [l.task_class, l.t_e, l.merge_commit]), KATA.map((c) => [c, TE, m1]));
