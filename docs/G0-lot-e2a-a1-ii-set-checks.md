@@ -36,7 +36,7 @@ RECHERCHES, 2026-10-07. Base : la tête de a1-i, `15fafa202a60d2fc06a80ab426bec2
 | Test | Ce qu'il tient | Rouge à la base (a1-i) | Tueur |
 |---|---|---|---|
 | `committed_tables_reader_refuses_pinned_held_classes` (l.95) | classe épinglée et retenue (les deux listes réelles) ; classe retenue hors des classes kata ; entrée répétée : refus nommés ; une classe de bande épinglée avec les listes réelles est admise ; les 32 classes contiennent les retenues et l'épinglée | assertion : admis | `apps/harness/src/policy-committed.ts:57 SDL "if (Object.hasOwn(pins.tables, cls))" -> ""` |
-| `committed_tables_reader_refuses_reserved_rows` (l.107) | une ligne sous `kata_id` `ca-probe`, une sous `venue` `ca-probe` : refus nommés avec la clé de case ; un seul spécificateur de `./policy-classes.ts`, lu par l'extracteur de T-1, et l'union des noms de toutes ses lignes `import { … }` est incluse dans {`kataKeyReserved`, `KATA_RESERVED_IDS`} (§6) | assertion : admis | `apps/harness/src/policy-committed.ts:73 CONST "kataKeyReserved(r.kata_id, r.venue)" -> "false"` |
+| `committed_tables_reader_refuses_reserved_rows` (l.107) | une ligne sous `kata_id` `ca-probe`, une sous `venue` `ca-probe` : refus nommés avec la clé de case ; un seul spécificateur de `./policy-classes.ts`, lu par l'extracteur de T-1, et l'union des noms de toutes ses lignes `import { … }` est incluse dans {`kataKeyReserved`, `KATA_RESERVED_IDS`} (§6 ; dans les deux guillemets depuis le §7) | assertion : admis | `apps/harness/src/policy-committed.ts:73 CONST "kataKeyReserved(r.kata_id, r.venue)" -> "false"` |
 
 - Les trois tueurs du lecteur posés par a1-i sont réancrés : avant le pli, l.36 → l.37, l.50 → l.53, l.54 → l.61 ; depuis la fusion
   du pli d'a1-i (§6), ses tueurs neufs, l.11 → l.12 (import de `gate.ts`) et l.50 → l.53 (`in`), et l.54 → l.61. Rejoués : tués.
@@ -101,3 +101,40 @@ RECHERCHES, 2026-10-07. Base : la tête de a1-i, `15fafa202a60d2fc06a80ab426bec2
   Suite du harnais et tests des surfaces servies : 354 tests, 354 verts. `tsc --noEmit` 0 ; `eslint .` 0 ; `gate:vocab` 0 (350
   fichiers) ; `lang:gate` 0 ; `lint:ratchet` 69/69 ; `export:check` 0 ; winlint `--base ea4a2679` : 5 fichiers, aucun risque
   Windows. R-25 (forme de la CI) au §4.
+
+## 7. Fusion de la fermeture des guillemets simples d'a1-i (MONARK `fbadb0d`), 2026-10-07
+
+- **Provenance** : la fusion `99fbe5ed` (13:08 UTC) et le pli `dfe57e2d` (13:11 UTC, `TZ=UTC git log`) sont d'un worker
+  `claude-opus-5-5`, effort: max, arrêté avec le conteneur vers 13:15 UTC avant de les pousser (erratum 26 de l'atelier). Repris,
+  vérifiés et mesurés par un worker `claude-opus-5-5`, effort: max ; horloge lue (`date -u`) à 13:21 UTC au premier passage. Même
+  worktree détaché du scratchpad (`wt-a1ii-g2`, à `dfe57e2d`, sans changement non commité) ; `node_modules` lié en dur
+  (`cp -al`), retiré à la fin. Node 24.21.0, Linux. `dfe57e2d` poussé en avance rapide sur `15642c0a` à 13:33:57 UTC, suite verte.
+- **Base de la demande** : la tête d'a1-i après son §7, `096373ab029ac63f0be3b4a6f20cc2a6b4725f42`, fusionnée sans réécriture :
+  commit de fusion `99fbe5ed` (« Merge the a1 changes »), sans conflit. Refaite à part depuis `15642c0a` dans un worktree jetable :
+  même arbre (`ebc3c5bc`). Elle apporte l'extracteur partagé (`test/helpers/import-specifiers.ts:6`, les deux guillemets),
+  `importsOf` qui le lit (`test/policy-committed.test.ts:22-23`), le cas `import_specifiers_are_read_in_both_quotes` (l.132-136,
+  son tueur sur l'extracteur) et la marche de `servedModules` dans `kata-path.test.ts`. Aucune ligne de production ne bouge : les
+  tueurs de ce fichier gardent leurs ancres (l.57 et l.73, et ceux d'a1-i réancrés au §6, l.12, l.53, l.61).
+- **Pli** (`dfe57e2d`, une ligne) : `committed_tables_reader_refuses_reserved_rows` compte le spécificateur `./policy-classes.ts`
+  par `importsOf`, qui lit les deux guillemets depuis la fusion ; les noms qu'il vérifie n'étaient lus que sur les lignes
+  `import { … } from "./policy-classes.ts"`. Un import permis entre guillemets simples était donc compté mais sans nom, et refusé
+  (`names.length > 0` faux). La regex des noms lit `["']` des deux côtés du chemin (`test/policy-committed.test.ts:114`) ; le
+  compte, lui, reste celui de l'extracteur.
+- **Rouge d'abord et mutants** (un mutant à la fois dans le worktree, le fichier de test rejoué, octets restaurés et vérifiés par
+  sha256 ; l'état « avant » rejoue l'ancienne regex des noms dans le même passage) :
+  - deux formes permises entre guillemets simples, `import { kataKeyReserved } from './policy-classes.ts';` et un import sur quatre
+    lignes de `KATA_RESERVED_IDS` et `kataKeyReserved` avec une virgule finale : **rouges avant le pli** (par assertion, faux
+    refus), **vertes après** ;
+  - huit formes refusées : entre guillemets simples, un nom de plus sur la ligne (`kataClassEntries`), une seconde ligne d'import,
+    un ré-export, `void import(…)`, un import d'espace de noms en plus, une seconde ligne qui n'importe que `KATA_RESERVED_IDS`, un
+    import sur quatre lignes avec `kataClassEntries` ; et le témoin O24 entre guillemets doubles : **toutes rouges, avant comme
+    après**, par assertion, par ce seul test (6 sur 7 verts).
+- **Mesures à `dfe57e2d`** (tête du code ; le commit de ce § ne touche que ce G0) : red-proof `--base
+  096373ab029ac63f0be3b4a6f20cc2a6b4725f42 --gel <worktree> --repo <worktree> --draw 2 --seed 1007` : sortie 0, « 2 judged, 5
+  unchanged, 2 killer(s) drawn », deux F2P (rouges à la base par assertion), deux tueurs tués par assertion (l.73 et l.57) ;
+  `RED-PROOF.json` sha256 `9f61afd88979d28396a5653b84d22bc70ad8c657e9d940c4dd1e6e242b60476f` (digest du gel `ebf1d74f8f2cefa5…`).
+  `verifie-ancres` (`--ref 096373ab --ref 15642c0a`) : 1 526 ancrés, 0 dérive, 0 perdu ; les deux fichiers de test qu'a1 touche :
+  25 sur 25. Suite du harnais et tests des surfaces servies : 355 sur 355 (354 au §6, plus le cas de l'extracteur). `tsc --noEmit`
+  0 ; `eslint .` 0 ; `gate:vocab` 0 (350 fichiers) ; `lang:gate` 0 ; `lint:ratchet` 69/69 ; `export:check` 0 ; winlint `--base
+  096373ab` : 5 fichiers, aucun risque Windows. R-25 (forme de la CI) contre `096373ab` : **56** (50 + 6, inchangé) ; a1 entier
+  contre le tronc `6a1b1d43` (base de fusion `1cddd2e5`) : 263 (259 + 4), sous 547.
