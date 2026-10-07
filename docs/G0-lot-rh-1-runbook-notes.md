@@ -37,8 +37,8 @@ sans amend ni force ; `git merge-tree` contre `998c2e30` (#218), sans écriture 
   (`kata-path.ts` l.47 et `tools/gate.ts` l.885 pour le sens des deux refus d'horloge ; l'ordre `out_of_support` puis
   `calib_retired` de la branche d'échelle de `kata-path.ts` ; `.gitattributes`) et tiennent sur chaque phrase de la section qui
   porte l'affirmation. Le texte de base n'en porte aucune : ils y sont verts, et le lot reste test-only (`red-proof`, verdict
-  « pinned »). Limite déclarée : la suppression pure d'une de ces phrases n'est pas rouge (rien ne l'exige à la base) ; voir
-  les gardes plus bas.
+  « pinned »). Limite déclarée : la suppression pure d'une de ces phrases n'est pas rouge (rien ne l'exige à la base) ; les
+  gardes plus bas ne la ferment pas : item RETIRE-NOTES-PRESENCE-1 (section « Items »).
 - m-2 : le test 2 exige que la liste « Exit 1 » égale l'ensemble des codes `no("…")` du script, et refuse « AFTER #218 » dès que
   le script lève `instant_out_of_cycle`. La phrase « AFTER #218 » reste telle quelle (ordre de fusion : #218 avant #223).
 - m-3 (N-5) : la raison devient « `git rm -r -f` would remove it with no dry run first » (`git rm` imprime chaque chemin) ; le cas
@@ -87,16 +87,20 @@ construction. À la base `022c82d1`, le test 2 est rouge (le RUNBOOK du tronc ne
 Ligne datée 2026-10-07T07:29:06Z (`date -u`), RECHERCHES, modèle `claude-opus-5-5`. G2 courte de MONARK, constat m 2 : quatre
 mutations de lignes neuves survivaient (MY-1 à MY-4), les épingles étant plus étroites que leurs en-têtes. Trois gardes et une
 exigence, test seul, vertes à la tête :
+Numérotation des tests d'avant le test d'encodage ; à la tête, celui-ci est le 3e, et les tests 4, 7 et 8 sont les 5e, 8e et 9e :
+`runbook_retire_redo_removes_the_dated_directory_only`, `runbook_retire_support_precedes_retired_as_kata_path_tests_it` et
+`runbook_retire_line_ends_follow_the_attributes`.
 - test 7 : la phrase d'ordre se lit « is tested before » ou « is tested after », dans les deux sens ; une section qui nomme
   `out_of_support` doit porter une phrase d'ordre lue (MY-1, « before `calib_retired` » → « after », tué) ;
 - test 8 : une section qui dit qu'un clone « holds CRLF » cite au moins un clone, et chaque clone cité porte
-  `core.autocrlf=false` (MY-2, `git -c core.autocrlf=false clone` → `git clone`, tué) ;
-- test 4 : chaque `git clean -f -d -- p` suit immédiatement un `git clean -n -d -- p` (MY-3, l.446 `-n` → `-f`, tué) ; chaque
-  `git restore` cité porte `--staged` (MY-4, l.445 `git restore --staged --` → `git restore --`, tué).
+  `core.autocrlf=false` (MY-2, l.358, `git -c core.autocrlf=false clone` → `git clone`, tué) ;
+- test 4 : chaque `git clean -f -d -- p` suit immédiatement un `git clean -n -d -- p` (MY-3, `-n` → `-f`, tué) ; chaque
+  `git restore` cité porte `--staged` (MY-4, `git restore --staged --` → `git restore --`, tué). Lignes de `819b1a50` : l.446 et
+  l.445 ; à la tête, après les trois lignes de l'encodage : MY-3 à l.449, MY-4 à l.448 (`sed -n '448,449p'`).
 Chaque tir est fait à la main sur l'arbre de la tête (une substitution, sha256 du fichier rendu vérifié) : tué en ERR_ASSERTION
 par le test visé, 8 verts sur 9. Les mêmes quatre tirs survivent au test d'avant (9 sur 9). Un cinquième, « is tested » →
 « is checked » à l.404, est tué lui aussi par la garde du test 7. Limite restante : MY-5 (l.357, un fait externe sur le dépôt de
-spec) n'est pas épinglable hors réseau.
+spec) n'est pas épinglable hors réseau : item SPEC-VERIFY-OBJECTS-1 (section « Items »).
 
 ## Encodage de l'entrée du rapport (2026-10-07)
 
@@ -110,6 +114,36 @@ sans code : l'étape 8 dit que l'entrée est en UTF-8 sans BOM et donne la forme
 `JSON.parse`, et exige la phrase et le `$false` de chaque forme `WriteAllText` citée ; tueur :423 (`$false` → `$true`). Les trois
 lignes ajoutées font passer le tueur du test 4 de :447 à :450. Preuve : ce commit n'est pas test-only au sens de `red-proof`
 (son test est rouge sur le texte d'avant, F2P) ; `red-proof` en mode F2P contre le commit des gardes le juge.
+
+## Chemin de la forme PowerShell (2026-10-07)
+
+Ligne datée 2026-10-07T08:34:08Z (`date -u`), RECHERCHES, modèle `claude-opus-5-5`. G2 courte de MONARK sur `bfaa7265`, constat
+m : sous PowerShell 5.1, .NET résout un chemin relatif contre le répertoire du processus, que `Set-Location` ne change pas ; le
+fichier part hors de `$PWD`, où l'étape 8 lance `node scripts/retire-latency.mjs`. La forme l.423 devient
+`[System.IO.File]::WriteAllText((Join-Path $PWD "<instants.json>"), $text, (New-Object System.Text.UTF8Encoding $false))`, et
+l.422 dit « at the repository root ». La ligne reste l.423 ; le tueur :423 garde son ancre. Le test d'encodage (3e) exige en plus
+que chaque forme `WriteAllText` citée commence par `(Join-Path $PWD ` : rouge sur le texte de `bfaa7265` (« the PowerShell write
+lands in the current location, where node reads it », ERR_ASSERTION), vert après ; 10 sur 10. Commit F2P, comme celui de
+l'encodage ; le tueur :423, tiré à la tête, tue toujours ce test.
+
+## Items
+
+- **SPEC-VERIFY-OBJECTS-1** (outil). Porteur : MONARK.
+  - Déclencheur : le prochain lot qui touche `scripts/spec-publish.mjs`, au plus tard avant le premier `--verify` d'un cycle
+    réel (E-2a).
+  - Limite : MY-5 (RUNBOOK l.357) ; le danger CRLF du clone de `--verify` repose sur un fait externe, l'absence de
+    `.gitattributes` dans le dépôt de spec, que rien n'épingle hors réseau.
+  - Construction : `--verify` lit le clone frais dans ses objets git à HEAD (`git ls-tree -r`, puis `git cat-file blob`, comme
+    `previous` par le helper `blob`), au lieu de `compareTrees` sur l'arbre de travail (l.222-226). Le danger disparaît quel
+    que soit `core.autocrlf`, et la note de l'étape 4 se réduit d'autant.
+  - Prix : ~20 lignes et un test, estimé, non mesuré.
+- **RETIRE-NOTES-PRESENCE-1** (test). Porteur : RECHERCHES.
+  - Déclencheur : le prochain lot qui touche la section « Retire a kata row » du RUNBOOK, au plus tard le G0 court d'E-2a.
+  - Limite : la suppression pure d'une phrase épinglée n'est pas rouge (SDL l.404 et l.357 survivent, 25 sur 25).
+  - Construction : trois assertions de présence dans `test/runbook-retire.test.ts` (les deux refus d'horloge cités, une phrase
+    d'ordre lue, « holds CRLF » présent), avec les tueurs SDL l.400, l.404 et l.357 à la liste du G0. Commit F2P : rouge sur le
+    texte d'avant les notes.
+  - Prix : ~6 lignes.
 
 ## Suite
 

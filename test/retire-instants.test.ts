@@ -143,7 +143,7 @@ const gate = (served: Buffer, nowMs: number) => (_url: string, body: string): Pr
 
 // reddened by: a record written by the probe that the tool does not read as the probe wrote it (an accepted one refused, or a refused
 // one taken)
-// killer: scripts/retire-probe.mjs:77 CONST "ok: problem === null," -> "ok: problem !== null,"
+// killer: scripts/retire-probe.mjs:84 CONST "ok: problem === null," -> "ok: problem !== null,"
 test("retire_instants_composes_with_the_record_of_the_probe", async () => {
   const t = await load(), p = await import("../scripts/retire-probe.mjs"), at = Date.parse("2027-01-04T15:00:01Z");
   const base = SERVED_POLICY_TABLES.find((x) => x.task_class === "btc-range-1h")?.table ?? assert.fail("btc-range-1h");

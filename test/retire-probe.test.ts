@@ -8,6 +8,8 @@ import { after, before, test } from "node:test";
 import assert from "node:assert/strict";
 import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { createServer, type IncomingMessage, type ServerResponse } from "node:http";
+import { Socket } from "node:net";
+import { TLSSocket } from "node:tls";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { canonicalJson, type CanonicalValue, type PolicyTable, type Prediction } from "@monark/contracts";
@@ -68,16 +70,20 @@ after(() => { server.closeAllConnections(); server.close(); rmSync(TMP, { recurs
 const tablePath = (name: string, bytes: Buffer): string => { const f = join(TMP, name); writeFileSync(f, bytes); return f; };
 
 // reddened by: a call sent outside the window of ±300 s around its grid instant (kata-path.ts l.47 stale, tools/gate.ts l.885 future),
-// a wait not bounded by --max-wait, or a call sent to another path or Host
-// killer: scripts/retire-probe.mjs:40 CONST "nowMs - g <= MARGIN_MS" -> "nowMs - g <= 2 * MARGIN_MS"
+// or inside it with less than 15 s to spare once 60 s of clock skew are allowed (±225 s, the window of the CA, verify-harness), a
+// wait not bounded by --max-wait, or a call sent to another path or Host
+// killer: scripts/retire-probe.mjs:45 CONST "Math.abs(nowMs - near) <= MARGIN_MS" -> "Math.abs(nowMs - near) <= 2 * MARGIN_MS"
 test("retire_probe_waits_for_the_grid_window_and_calls_inside_it", async () => {
   const p = await load(), served = file("btc-range-1h", [row("b0", "region")]);
-  assert.deepEqual([p.plan(G + 240_000, H), p.plan(G + 240_001, H), p.plan(G - 240_000, H)],
-    [{ producedAtMs: G, waitMs: 0 }, { producedAtMs: G + H, waitMs: H - 480_001 }, { producedAtMs: G, waitMs: 0 }], "the window is the grid instant ± MARGIN_MS");
+  assert.deepEqual([p.MARGIN_MS, p.MARGIN_MS + 60_000 + 15_000], [225_000, 300_000], "225 s, plus 60 s of skew, leaves 15 s under the server's 300 s");
+  assert.deepEqual([p.plan(G + 225_000, H), p.plan(G + 225_001, H), p.plan(G - 225_000, H), p.plan(G - 225_001, H), p.plan(G, H)],
+    [{ producedAtMs: G, waitMs: 0 }, { producedAtMs: G + H, waitMs: H - 450_001 }, { producedAtMs: G, waitMs: 0 }, { producedAtMs: G, waitMs: 1 }, { producedAtMs: G, waitMs: 0 }],
+    "the window is the grid instant ± 225 s; outside it, the wait ends 225 s before the next grid instant");
+  assert.ok(readFileSync(join(ROOT, "docs", "RUNBOOK-harness.md"), "utf8").replace(/\s+/g, " ").includes("waits until its clock is within 225 s of a grid instant"), "the RUNBOOK says the window");
   let now = G + 301_000;
   const slept: number[] = [], seen: string[] = [];
   const r = await p.probe({ tableBytes: served, cell: `${KEY}/b0`, api: "http://127.0.0.1:3001/", apiHost: "api.monarkgate.tech", clock: () => now, sleep: (ms) => { slept.push(ms); now += ms; return Promise.resolve(); }, transport: gate(served, () => now, seen) });
-  assert.deepEqual([slept, r.record.produced_at, r.record.status, r.problem, seen], [[H - 541_000], "2027-01-04T10:00:00Z", 200, null, ["http://127.0.0.1:3001/gate api.monarkgate.tech"]], "301 s after a grid instant, the probe waits for the next window");
+  assert.deepEqual([slept, r.record.produced_at, r.record.status, r.problem, seen], [[H - 526_000], "2027-01-04T10:00:00Z", 200, null, ["http://127.0.0.1:3001/gate api.monarkgate.tech"]], "301 s after a grid instant, the probe waits for the next window");
   const stale = (await gate(served, () => G + 300_001)("", JSON.stringify(p.call(served, `${KEY}/b0`, G).body), "")).text;
   assert.equal((JSON.parse(stale) as { code: string }).code, "produced_at_stale", "the call it did not send would be refused");
   await assert.rejects(p.probe({ tableBytes: served, cell: `${KEY}/b0`, api: "http://x", clock: () => G + 301_000, maxWaitMs: 60_000, transport: gate(served, Date.now) }), (e: unknown) => (e as { code?: string }).code === "wait_exceeds_max");
@@ -85,7 +91,7 @@ test("retire_probe_waits_for_the_grid_window_and_calls_inside_it", async () => {
 
 // reddened by: a scale yhat outside the row's calib_support (out_of_support, kata-path.ts l.93, would hide calib_retired, l.94), or a
 // dir lean outside the bucket of its cell
-// killer: scripts/retire-probe.mjs:57 CONST "(row.calib_support.min + row.calib_support.max) / 2" -> "1"
+// killer: scripts/retire-probe.mjs:64 CONST "(row.calib_support.min + row.calib_support.max) / 2" -> "1"
 test("retire_probe_yhat_lies_in_the_support_so_the_retired_cell_answers_calib_retired", async () => {
   const p = await load(), clock = (): number => G + 1000;
   const scale = file("btc-range-1h", [row("b0", "retired", { calib_support: { min: 2, max: 3 } })]);
@@ -99,7 +105,7 @@ test("retire_probe_yhat_lies_in_the_support_so_the_retired_cell_answers_calib_re
 });
 
 // reddened by: a verdict of another table taken for the awaited one, or T_g not the UTC second the verdict arrived
-// killer: scripts/retire-probe.mjs:71 CONST "!equal ?" -> "false ?"
+// killer: scripts/retire-probe.mjs:78 CONST "!equal ?" -> "false ?"
 test("retire_probe_refuses_a_verdict_of_the_old_table_and_records_T_g", async () => {
   const p = await load(), now = G + 61_999, dated = file("btc-range-1h", [row("b0", "retired", { calib_support: { min: 2, max: 3 } })]), old = file("btc-range-1h", []);
   const r = await p.probe({ tableBytes: dated, cell: `${KEY}/b0`, api: "http://x", clock: () => now, monotonic: () => 0, transport: gate(old, () => now) });
@@ -110,7 +116,7 @@ test("retire_probe_refuses_a_verdict_of_the_old_table_and_records_T_g", async ()
 
 // reddened by: a call the served JSON mirror refuses (its input schema, the kata contract), or a refusal of the probe that the RUNBOOK
 // does not cite
-// killer: scripts/retire-probe.mjs:58 CONST "features_digest: \"0\".repeat(64)" -> "features_digest: \"0\".repeat(63)"
+// killer: scripts/retire-probe.mjs:65 CONST "features_digest: \"0\".repeat(64)" -> "features_digest: \"0\".repeat(63)"
 test("retire_probe_reads_the_served_file_through_the_json_mirror", async () => {
   const p = await load(), table = readFileSync(join(ROOT, "spec", "contract-1.1.0", "policy", "btc-range-1h.json"));
   listen.at = G + 2000;
@@ -127,7 +133,7 @@ test("retire_probe_reads_the_served_file_through_the_json_mirror", async () => {
 
 // reddened by: a call that does not reach the api host through the default transport (no Host header, so the server's route is the MCP
 // one), or a record without its own verdict and provenance, or an accepted record not written by --out
-// killer: scripts/retire-probe.mjs:89 CONST "host: hostHeader, " -> ""
+// killer: scripts/retire-probe.mjs:96 CONST "host: hostHeader, " -> ""
 test("retire_probe_calls_the_gate_through_the_default_transport", async () => {
   const p = await load(), served = file("btc-range-1h", [row("b0", "region")]), path = tablePath("region.json", served), out = join(TMP, "probe.json");
   [listen.served, listen.at] = [served, G + 1000];
@@ -140,7 +146,7 @@ test("retire_probe_calls_the_gate_through_the_default_transport", async () => {
 
 // reddened by: a verdict served off a 200, of another cell, or a retired cell answered otherwise than calib_retired at the right digest,
 // taken for the awaited one; or a refused record written where an accepted one goes
-// killer: scripts/retire-probe.mjs:69 CONST "status !== 200 || " -> ""
+// killer: scripts/retire-probe.mjs:76 CONST "status !== 200 || " -> ""
 test("retire_probe_refuses_a_served_verdict_off_its_status_cell_or_reason", async () => {
   const p = await load(), served = file("btc-range-1h", [row("b0", "retired", { calib_support: { min: 2, max: 3 } })]), path = tablePath("retired.json", served);
   [listen.served, listen.at] = [served, G + 1000];
@@ -156,7 +162,7 @@ test("retire_probe_refuses_a_served_verdict_off_its_status_cell_or_reason", asyn
 
 // reddened by: a body cut before its Content-Length, or one that drips under the idle timeout, left without an end (the CLI would exit 13
 // on an unsettled await, with no refusal named)
-// killer: scripts/retire-probe.mjs:92 CONST "res.on(\"error\", (e) => { done({ error: res.complete ? e.message : \"truncated\" }); }).on(\"close\", () => { if (!res.complete) done({ error: \"truncated\" }); });" -> "res.on(\"error\", () => undefined);"
+// killer: scripts/retire-probe.mjs:100 CONST "res.on(\"error\", (e) => { done({ error: res.complete ? e.message : \"truncated\" }); }).on(\"close\", () => { if (!res.complete) done({ error: \"truncated\" }); });" -> "res.on(\"error\", () => undefined);"
 test("retire_probe_ends_on_a_truncated_or_dripping_body", async () => {
   const p = await load(), served = file("btc-range-1h", [row("b0", "region")]), path = tablePath("cut.json", served), t0 = Date.now();
   const cut = await p.wired(`${listen.url}/gate`, "{}", "api.truncate.test", 2000), drip = await p.wired(`${listen.url}/gate`, "{}", "api.drip.test", 300);
@@ -167,7 +173,7 @@ test("retire_probe_ends_on_a_truncated_or_dripping_body", async () => {
 
 // reddened by: a total deadline longer than --timeout (the drip outlives the value asked; the RUNBOOK says "bounded as a whole by
 // `--timeout`"), or shorter than it
-// killer: scripts/retire-probe.mjs:94 CONST "}, timeoutMs);" -> "}, 4 * timeoutMs);"
+// killer: scripts/retire-probe.mjs:102 CONST "}, timeoutMs);" -> "}, 4 * timeoutMs);"
 test("retire_probe_bounds_the_exchange_by_the_timeout_value", async () => {
   const p = await load(), t0 = performance.now(), drip = await p.wired(`${listen.url}/gate`, "{}", "api.drip.test", 300), spent = performance.now() - t0;
   assert.deepEqual(drip, { error: "timeout" }, "a dripping body ends on the total deadline");
@@ -176,7 +182,7 @@ test("retire_probe_bounds_the_exchange_by_the_timeout_value", async () => {
 
 // reddened by: a stale <out>.refused left beside an accepted record (two files that disagree on the verdict), or a record written by
 // a refusal before any verdict, which has none
-// killer: scripts/retire-probe.mjs:138 CONST "if (a.out !== undefined && problem === null) rmSync" -> "if (false) rmSync"
+// killer: scripts/retire-probe.mjs:146 CONST "if (a.out !== undefined && problem === null) rmSync" -> "if (false) rmSync"
 test("retire_probe_removes_a_stale_refusal_and_writes_nothing_before_a_verdict", async () => {
   const p = await load(), served = file("btc-range-1h", [row("b0", "region")]), path = tablePath("stale.json", served), out = join(TMP, "stale-probe.json");
   [listen.served, listen.at] = [served, G + 1000];
@@ -191,7 +197,7 @@ test("retire_probe_removes_a_stale_refusal_and_writes_nothing_before_a_verdict",
 
 // reddened by: a --timeout of 0 or over 2147483647 ms taken (a timer clamps it to 1 ms, read as a refusal of the transport) instead of a
 // usage error, exit 2, as scripts/verify-harness.mjs
-// killer: scripts/retire-probe.mjs:124 CONST "Number(a.timeout) > 2147483647" -> "Number(a.timeout) > 2147483648"
+// killer: scripts/retire-probe.mjs:132 CONST "Number(a.timeout) > 2147483647" -> "Number(a.timeout) > 2147483648"
 test("retire_probe_timeout_is_a_positive_integer_of_milliseconds_at_most_2_31_minus_1", async () => {
   const p = await load(), args = ["--api", "http://127.0.0.1:1", "--table", "x.json", "--cell", `${KEY}/b0`, "--timeout"];
   assert.deepEqual(await Promise.all(["0", "2147483648"].map((t) => p.main([...args, t]))), [2, 2], "0 and 2^31 are usage errors, exit 2");
@@ -201,7 +207,7 @@ test("retire_probe_timeout_is_a_positive_integer_of_milliseconds_at_most_2_31_mi
 
 // reddened by: received_at read on a second reading of the wall clock (a step back between the call and the answer would put T_g before
 // produced_at)
-// killer: scripts/retire-probe.mjs:110 CONST "t0 + Math.max(0, monotonic() - m0)" -> "clock()"
+// killer: scripts/retire-probe.mjs:118 CONST "t0 + Math.max(0, monotonic() - m0)" -> "clock()"
 test("retire_probe_takes_received_at_from_the_reading_of_the_call", async () => {
   const p = await load(), served = file("btc-range-1h", [row("b0", "region")]), wall = [G + 1000, G + 1000], mono = [10, 260];
   const r = await p.probe({ tableBytes: served, cell: `${KEY}/b0`, api: "http://x", clock: () => wall.shift() ?? G - H, monotonic: () => mono.shift() ?? 0, transport: gate(served, () => G + 1000) });
@@ -209,8 +215,25 @@ test("retire_probe_takes_received_at_from_the_reading_of_the_call", async () => 
 });
 
 // reddened by: a cell with no current row in the table taken as asked (a mistyped key is served under_calib and skipped the check)
-// killer: scripts/retire-probe.mjs:103 CONST "if (row === null) no(" -> "if (false) no("
+// killer: scripts/retire-probe.mjs:111 CONST "if (row === null) no(" -> "if (false) no("
 test("retire_probe_refuses_a_cell_with_no_current_row", async () => {
   const p = await load(), served = file("btc-range-1h", [row("b0", "retired", { calib_support: { min: 2, max: 3 } })]), typo = "kata:vote5@venue/BTCUSDT/1h/b0";
   await assert.rejects(p.probe({ tableBytes: served, cell: typo, api: "http://x", clock: () => G + 1000, transport: gate(served, () => G + 1000) }), (e: unknown) => (e as { code?: string }).code === "cell_invalid");
+});
+
+// reddened by: a record that does not say whether the TLS handshake of the call was authorized (an https api reached with
+// NODE_TLS_REJECT_UNAUTHORIZED=0 would read as a verified one), or a plain http call recorded as a TLS one
+// killer: scripts/retire-probe.mjs:39 CONST "typeof socket?.authorized === \"boolean\" ? socket.authorized : null" -> "typeof socket?.authorized === \"boolean\" ? true : null"
+test("retire_probe_records_whether_the_tls_handshake_was_authorized", async () => {
+  const p = await load(), served = file("btc-range-1h", [row("b0", "region")]), asked = p.call(served, `${KEY}/b0`, G);
+  assert.equal(typeof p.tlsOf, "function", "the probe reads the TLS handshake of its socket");
+  const unverified = new TLSSocket(new Socket()), plain = new Socket();
+  assert.deepEqual([p.tlsOf(unverified), p.tlsOf({ authorized: true }), p.tlsOf(plain), p.tlsOf(null)], [false, true, null, null], "a TLS socket says authorized or not; a plain one has no TLS");
+  unverified.destroy(); plain.destroy();
+  const text = (await gate(served, () => G + 1000)("", JSON.stringify(asked.body), "")).text;
+  const rated = [true, false, null].map((t) => p.judge({ status: 200, text, tls_authorized: t }, asked, G + 1000).record.tls_authorized);
+  assert.deepEqual([...rated, p.judge({ status: 200, text }, asked, G + 1000).record.tls_authorized], [true, false, null, null], "the record carries the handshake as the transport saw it");
+  [listen.served, listen.at] = [served, G + 1000];
+  const r = await p.probe({ tableBytes: served, cell: `${KEY}/b0`, api: listen.url, apiHost: "api.gate.test", clock: () => G + 1000 });
+  assert.deepEqual([r.problem, r.record.tls_authorized], [null, null], "over http, the default transport records no TLS");
 });

@@ -409,9 +409,9 @@ node scripts/retire-probe.mjs --api <url> --table spec/contract-1.1.0-tables-<YY
 ```
 
 - `scripts/retire-probe.mjs` (item RETIRE-PROBE-1) builds the call from the table file, waits until its clock is within
-  240 s of a grid instant (`--max-wait`, 4 h by default), makes one call, bounded as a whole by `--timeout` (10 000 ms by
+  225 s of a grid instant (`--max-wait`, 4 h by default; with 60 s of clock skew, 15 s under the 300 s of the server), makes one call, bounded as a whole by `--timeout` (10 000 ms by
   default), and prints the record `retire-probe-v1`: it carries the probe's own verdict (`ok`, `problem`), the table file,
-  the api and its Host. `--out <file>` writes that record when the verdict is accepted (and removes a stale
+  the api and its Host, and `tls_authorized` (whether the TLS handshake was authorized; `null` over http). `--out <file>` writes that record when the verdict is accepted (and removes a stale
   `<file>.refused`), `<file>.refused` when the verdict is refused; a refusal before any verdict (`table_invalid`,
   `cell_invalid`, `wait_exceeds_max`, `window_missed`, `transport_failed`) writes nothing. Never redirect stdout into the
   record (Windows PowerShell 5.1 writes `>` in UTF-16). Exit 0 iff the cell has a current row in the file and the verdict
@@ -434,8 +434,8 @@ node scripts/retire-probe.mjs --api <url> --table spec/contract-1.1.0-tables-<YY
   `mention` `null` (l.10, l.44, l.56): T_a or T_b in it is refused, `instant_out_of_cycle`; a mention,
   `mention_out_of_cycle`. Write it as UTF-8 without a byte order mark: the report parses the file as read in UTF-8
   (l.65), and a BOM or UTF-16 is refused, `format_invalid`. Under Windows PowerShell 5.1, `>` writes UTF-16 and
-  `Out-File -Encoding utf8` writes a BOM; with the JSON in `$text`, write it with
-  `[System.IO.File]::WriteAllText("<instants.json>", $text, (New-Object System.Text.UTF8Encoding $false))`.
+  `Out-File -Encoding utf8` writes a BOM; with the JSON in `$text`, at the repository root, write it with
+  `[System.IO.File]::WriteAllText((Join-Path $PWD "<instants.json>"), $text, (New-Object System.Text.UTF8Encoding $false))`.
 - Or assemble it from the evidence: `node scripts/retire-instants.mjs <evidence.json> --out <instants.json>` (item
   RETIRE-INSTANTS-1). Each instant names its source: a full commit sha and its repository (T_a, T_b, T_e: the committer
   date; T_e a merge commit), a clock reading (T_c, T_d; T_a of `live:<k>`, the close of its quarter), the record of step 6
