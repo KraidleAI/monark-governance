@@ -104,6 +104,13 @@ record `760fdd4b…` ; relevé par MONARK, 2026-10-07 09:1x UTC).
   D-3 #172) fusionnés ; base `21a379fc` puis la ligne (12) d ADR-CM de MONARK. Dernier oracle Windows : 2 571 tests, 0 échec (record
   `f5eaf514`). Le bloc E (CM-4c) : E-1 (table mixte, ~505 lignes, coupe E-1a / E-1b, après FORMAT-W2) et E-2 (chargeur des
   lignes engagées, ~235 lignes : E-2a vague 1, E-2b vague 2 sous condition) ; G0 accordé par MONARK le 2026-10-06 (`ff2d4cd`).
+  - Ligne datée (MONARK, 2026-10-07 12:1x UTC) : le G0 court d E-2a est accepté par MONARK, en v6.1 (pièce recherches
+    `coordination/pieces/2026-10-07-e2a-g0-v4/G0-lot-e2a-loader-wave1.md` à `94564c8` ; message `51fe3ee`, 09:25 UTC ; JOURNAL). Les
+    lots de RECHERCHES partent dans l ordre de la chaîne ; 2a part dès 1f ; chaque lot a son G0 et sa PR, et MONARK fait leurs G2.
+    Le G0 porte la précondition (xii) de T_f(c) : `apps/site/data/harness-served.json` compte 15 contrôles au tronc
+    (`deploy_check.count` l.135, `ok_count` l.136), et doit en dire 18, le compte de la CA de #225, avant T_f(c). Le déploiement de
+    la CA le réécrit, celui de la release L le premier ; le contrôle se fait au go de T_f(c). Les lignes d acceptation sont posées
+    sous les items qu elles touchent.
 - **Tronc `lot/etude-suite` `74120213`** : gardes R-25 #162, #166, #170, #173 et #177 (R25-ASSET-STRUCTURE-1, fusionnée le 2026-10-05 ;
   oracle Windows 2 495 tests, 0 échec). Synchro tronc → base en cours (branche `base/sync-tronc-2026-10-05-soir`).
   Garde CodeQL du tronc : l analyse de `e4aac057` a été annulée (incident GitHub Actions) ; elle se ferme à la prochaine analyse aboutie.
@@ -525,11 +532,24 @@ record `760fdd4b…` ; relevé par MONARK, 2026-10-07 09:1x UTC).
     2026-10-05 par #142 (tronc `d305ae15` ; oracle Windows vert, 2 250 tests, 0 échec ; `test:main` et `test:export` verts sous `cmd.exe`).
   - CM-5-PLAN-1 (audit P3, E-11/S-14 : la surveillance par clé kata de CM-5, qu aucun bloc A à E ne porte) : G0 de CM-5 après T0,
     ou raison écrite de ne pas remédier. Porteur : RECHERCHES ; déclencheur : T0 ; état : ouvert.
+    Ligne datée (MONARK, 2026-10-07 12:1x UTC ; Q-CM5-22, accord de MONARK, `51fe3ee`) : c3 et c4 de CM-5 sont à RECHERCHES (code).
+    Tout ce qui lit les séries sur l hôte de MONARK reste à MONARK : les oracles d hôte L-O0 à L-O2, et L-O3 (c3) et L-O4 (c4), que
+    MONARK prend (`ac1cb86`). Les G2, les courses et les oracles de CM-5 sont à MONARK.
   - CM5-MONTHLY-GAP-1 (branche « non » de Q-CM5-9 ; G2 de CM-5 v2, M-3, `676f404` ; G0 de CM-5 §8, pièce recherches `c3bbc2e`) : sans
     série du mois, la lecture mensuelle de D6, condition 2 de Q-W2-26, est inexécutable pendant tout le service de la vague 2 avant le
     2027-01-01. L item ne choisit rien : un addendum daté qui conditionne ou remplace la lecture mensuelle, ou une décision de
     l investisseur. Porteur : MONARK (titulaire de la condition 2) avec RECHERCHES ; déclencheur : un « non » à Q-CM5-9, et au plus tard
     le G0 court d E-2b ; prix à chiffrer à son G0 ; état : ouvert, conditionnel. Inscrit à ETAT (MONARK, 2026-10-07 08:0x UTC).
+  - CM5-ENV-PYTHONPATH-1 (G0 de CM-5 §8, pièce recherches `coordination/pieces/2026-10-07-G0-cm-5/G0-CM-5-PLAN-1.md`, v6.2 à
+    `218c08f`, l.1146-1155 ; sous IO-GUARD-NATIVE-READS-1 (c), item de MONARK au G0 du chantier VERIFIERS, sur `monark/reason-order-1`,
+    non fusionné) : sous `PYTHONPATH`, un `sitecustomize.py` posé dans l arbre de `tools/kata-recalc` tourne avant la première
+    instruction de l entrée de kata-quarter et neutralise io_guard ; `PYTHONHOME` remplacerait la bibliothèque standard. Porteur :
+    MONARK (la forme de lancement de l outil figé) ; RECHERCHES (l entrée de kata-quarter, lot c1d). État : fermé par construction
+    (décision de MONARK, `a246336`, 10:10 UTC). Les deux outils se lancent `python -E -S -s -B`. kata-quarter n a plus de
+    `PYTHONPATH` : son entrée pose l arbre de `tools/kata-recalc` en `sys.path[1]`, chemin calculé depuis son `__file__`, avant
+    d importer io_guard. `-E` ferme à la source toute la classe `PYTHON*`, `PYTHONHOME` compris. io_guard contrôle la forme de
+    lancement à son import (décision de MONARK, `1668ad4`) : il détecte un lancement dévié, il ne le prévient pas. Prix : dans c1d.
+    Inscrit à ETAT (MONARK, 2026-10-07 12:1x UTC).
   - L2-DAY-SCAN-WINDOW-1 (Q-C1-6 du G7 de L2 P1-c1) : une trame dont l heure de place suit sa réception de plus d une heure n est pas
     lue au scellé de son jour ; elle est rangée au jour de son segment, marquée `early` et comptée. Mesure en M-6. Porteur :
     RECHERCHES ; état : ouvert.
@@ -595,6 +615,9 @@ record `760fdd4b…` ; relevé par MONARK, 2026-10-07 09:1x UTC).
     divulguer des suites sous 2^128. Recherche : un engagement salé par les données, ou à clé. Prix : contrat 1.2.0, régénération du
     registre, outil du vérificateur, ligne d A-2. Porteur : RECHERCHES (spécification), puis MONARK (code) ; déclencheur : avant tout
     service d une table dir-4h, ou avant le pré-enregistrement de cellules de direction d une autre vague ; état : ouvert.
+    Ligne datée (MONARK, 2026-10-07 12:1x UTC ; contrôle de Z-3, `612ab96`, point 5) : le prix gagne la clause de l état tout versé.
+    L item vide `FLOOR_HELD_CLASSES` : la clause n a plus alors aucune classe retenue (n = 0), hors du domaine de la ligne Z-3 de la
+    clause (JOURNAL, 11:3x UTC). Il faut donc une nouvelle ligne Z-3 et son état à T-12.
   - E2A-DIGEST-FLOOR-TEST-1 (tuyau ; G0 §8) : le test de composition registre → projection → garde → porte, qui affirme 28 publiables et
     les quatre dir-4h retenues, et la sélection des classes par le chargeur. La garde lève sur une dir-4h : le chargeur la retient avant
     l appel. Porteur : MONARK, au titre d E-2a ; déclencheur : le lot qui verse `wave1.json` dans `apps/harness/data/kata/registry/` ;
@@ -610,6 +633,38 @@ record `760fdd4b…` ; relevé par MONARK, 2026-10-07 09:1x UTC).
   - VERIFIER-REPORT-DIGESTS-1 (G0 §8) : le rapport de recalcul publié ne porte aucun digest d une ligne retenue, ni de digest 0/1 sous le
     plancher ; sa liste `inputs` publie les quatre digests de séries. Porteur : MONARK, partie 2 de VERIFIERS-LIST-F5A-1 ; état :
     ouvert.
+  - VERIFIER-GUARD-PINS-E2A-1 (tuyau P-4 ; G0 de VERIFIERS-LIST-F5A-1 §8, `docs/G0-lot-verifiers-list-f5a-1.md` l.593-596) : la liste
+    épinglée des vérificateurs entre dans la garde. `GuardPins.verifiers` est construit depuis `readVerifiers`, et `attestation` depuis
+    le rapport (cases listées égales) ; test `served_guard_pins_carry_the_pinned_verifiers`. La première release datée réelle passe
+    `plan()` avec la liste et le rapport réels. Écart déclaré au G0 court d E-2a (§9) : « le chargeur » se lit « l écrivain hors
+    ligne », car la garde tourne hors ligne (Q-E4). Porteur : RECHERCHES, code des lots b1-a et b2 d E-2a (§5 du G0 court d E-2a : le
+    code de chaque lot est à RECHERCHES ; le G0 du chantier disait MONARK, avant le partage 80/20) ; déclencheur : le G0 d E-2a,
+    atteint ; se ferme en b1-a (T-5) et en b2 (T-5b) ; état : ouvert.
+    Inscrit à ETAT à l acceptation du G0 court d E-2a (MONARK, 2026-10-07 12:1x UTC).
+  - VERIFIER-GUARD-REPORT-E2A-1 (tuyau P-5 ; partie 3 de VERIFIERS-LIST-F5A-1, G0 v4 §5.4, pièce recherches
+    `coordination/pieces/2026-10-07-G0-verifiers-partie-3/G0-verifiers-part3.md` à `0dee531`, l.794-801 ; Q-P3-3 décidée oui) : la
+    garde lie une ligne attestée au rapport qui l atteste. Forme tranchée par MONARK (`8bb8e5b`) : une table d épingles par release,
+    `{report_sha256 → scope}`. Le chargeur la fournit à la garde, avec les cases de chaque rapport. `guardKataRow` vérifie que
+    `rc.report_sha256` est une clé de la table, que `r.task_class` est dans la portée de ce rapport, et la case listée, avec
+    `decisions_equal` et son `scores_sha256`. À la release 1, la table n a qu une entrée. Porteur : RECHERCHES (lot b2 d E-2a, T-5c) ;
+    déclencheur : le G0 d E-2a, atteint ; se ferme en b2 ; état : ouvert.
+    Inscrit à ETAT à l acceptation du G0 court d E-2a (MONARK, 2026-10-07 12:1x UTC).
+  - VERIFIER-REPORT-DECISION-DIGEST-1 (PAROXYSME ; partie 3, G0 v4 §5.4, `0dee531` l.805-814 ; élargi à la ligne entière) : rien ne
+    lie à la porte la ligne entière d une ligne publiée. Sans lien aujourd hui : les colonnes de décision (`n`, `misses`, `k_star`,
+    `p_served`, `status`, `qhat`, …) et `aux_sha256`, `series_sha256`, `scale_table.sha256`, dont la porte ne lit que la présence ou
+    des comptes (`apps/harness/src/policy-digest-floor.ts` l.105-136). Construction : le rapport porte, pour chaque case publiable de sa
+    portée (forme (a)), un digest de l écriture canonique de la ligne ; une clause A-9 le compare au digest de l écriture canonique de
+    la ligne publiée. Prix : un changement de `report.py`, donc une entrée de liste neuve et un rapport rejoué ; une clause A-9 ; le
+    texte du contrat ; VERIFIER-REPORT-DIGESTS-1 à relire (une empreinte publiée de plus, que (d5) doit admettre au chemin de la
+    case). Porteur : RECHERCHES (spécification) ; le code suit le partage 80/20 (G0 court d E-2a §9 ; la pièce de la partie 3 le
+    donnait à MONARK). Déclencheur : avant une release datée dont les tables ne sortiraient pas de l écrivain, ou avant le rapport de
+    la vague 2 ; d ici là, la limite est couverte par la garde et par SPEC-TABLES-TEST-PER-DIR-1. État : ouvert.
+    Inscrit à ETAT à l acceptation du G0 court d E-2a (MONARK, 2026-10-07 12:1x UTC).
+  - E2A-2A-CODE-1 (G0 court d E-2a §5 et §10.1, lot 2a ; décision de MONARK, `640b819` l.21-22) : le code de 2a,
+    `readRecomputeReport` dans `policy-verifiers.ts` (forme fermée et écriture canonique, `scope` admis), et ses tests de forme sur
+    des rapports de synthèse. Porteur : RECHERCHES (code) ; MONARK (la course réelle et le versement du rapport) ; déclencheur : après
+    1f, avant la course de MONARK ; prix : ~260 lignes attendues (estimation du G0) ; état : ouvert ; le lot est la PR #234 de
+    RECHERCHES. Inscrit à ETAT à l acceptation du G0 court d E-2a (MONARK, 2026-10-07 12:1x UTC).
   - REPORT-HELD-SET-PER-RELEASE-1 (forme (a) de Q-3 et Q-P3-11, RECHERCHES `619fcfe` ; formé par MONARK au G0 de l extension « outil
     figé », `0d71d8f`) : à la release 1, l ensemble publié est une constante fermée de `report.py`, les 24 classes de bande ; les 8
     classes de direction y sont retenues, `scores_sha256` à `null`. À la release des lignes de direction, l ensemble devient une entrée
@@ -679,6 +734,12 @@ record `760fdd4b…` ; relevé par MONARK, 2026-10-07 09:1x UTC).
     chiffre, même estimé, ou un item de chiffrage est dû avant le G7 d E-2a (G2 de R4 v2, `afd074e` l.37-38). Porteur : RECHERCHES,
     par R4 v3, en cours (`7c9c52d`). LEAD-DIR-TEXT-1 est formé plus haut, avec REPORT-HELD-SET-PER-RELEASE-1.
     Inscrits à ETAT (MONARK, 2026-10-07 08:0x UTC).
+    Ligne datée (MONARK, 2026-10-07 12:1x UTC) : R4 v3 est figé (pièce recherches `bbd6f59` ; accord de gel de MONARK à 09:13 UTC,
+    `9c98ffc` ; JOURNAL). Les quatre prix y sont chiffrés en jours, estimations de RECHERCHES (R4 v3 l.380-388) : F-W2-9a, 5 à 8 j,
+    plus une version du contrat (3 à 5 j) si la classe est servie ; le lot de KATA-EXCH-TEST-1, 2 à 3 j après la recherche (2 j) ;
+    LATE-CALL-WINDOW-1, une version de 3 à 5 j si la borne de 300 s change sur une classe servie (la mesure : 0,25 j ; qui mesure et
+    qui écrit : ligne datée (15) de l ADR-CM) ; le remplacement de ligne de NARABI-POLICY-TEXT-REV-1, 0,5 j, en plus des 0,25 j du
+    texte. Le chiffre dû avant le G7 d E-2a est donné pour les quatre.
     - F-K-7 (ADR 0005 l.201 ; S-K8, « does not recompute yhat and does not check those bars ») : le serveur recalcule m ou sigma_hat
       depuis l enregistrement de MONARK, ou contrôle l instantané derrière `features_digest`. Porteur : MONARK ; déclencheur : la
       première ligne kata servie, donc une décision au G0 court d E-2a (« pas à E-2a, limite servie par S-K8 ») ; la construction suit
@@ -748,6 +809,22 @@ record `760fdd4b…` ; relevé par MONARK, 2026-10-07 09:1x UTC).
     chargement à la première ligne kata. Construction : la clause de l'état engagé, choisie par la présence au registre, comme
     `describeGate(registryHasLiq)` (`gate.ts:242-245`), avec ses octets fixés par une ligne datée Z-3. Porteur : RECHERCHES (texte et
     code, lot E-2a) ; MONARK (ligne Z-3). Déclencheur : le premier chargement d'une ligne kata engagée (G0 court de E-2a) ; état : ouvert.
+  - GATE-DESC-CLIENT-CUT-1 (PAROXYSME ; contrôle de Z-3, `612ab96`, pièce recherches
+    `coordination/pieces/2026-10-07-z3-check/z3-check.json`) : Claude Code 2.1.266 coupe chaque description d outil MCP à 2 048
+    unités UTF-16. L instance de contrôle l a lu [lu] dans le binaire ; le ticket public anthropics/claude-code#87650 décrit le même
+    comportement. La description de la porte fait 3 952 unités au tronc `591b3a30` (mesure de la pièce) : la clause kata commence à
+    l unité 1 904, et « Never a probability of being right » (unité 3 291) n est pas vue par ce client. Z-3 n y change rien : c est
+    une question d ordre du texte. Construction : (1) mesurer, sur pièce primaire, les plafonds des clients visés ; (2) placer les
+    phrases d honnêteté communes dans les 2 048 premières unités, et mesurer les autres voies : le texte par classe dans les
+    descriptions d `inputSchema`, si ce client ne les coupe pas, ou une ressource MCP ; (3) réécrire la pièce de Z-3, §7 l.101 :
+    « borne mesurée chez Claude Code 2.1.266 ; item formé ». Les épingles de la description entière
+    (`apps/harness/test/gate-liq.test.ts` l.376-380) bougent avec ce lot. Porteur : MONARK (la décision) ; RECHERCHES (la recherche
+    et la construction) ; déclencheur : avant T_f(c) ; prix à chiffrer à son G0 ; état : ouvert.
+    Inscrit à ETAT (MONARK, 2026-10-07 12:1x UTC).
+  - KATA-CA-PUBLISHED-TABLES-1 (contrôle de Z-3, `612ab96`) : « publié à l octet » n est vérifié par aucun contrôle au service ; la
+    phrase tient par le test du dépôt et par l ordre T_d → T_f. Construction : à T_f, la CA compare le `policy_table_sha256` de chaque
+    table kata servie au fichier du dossier daté publié dans le dépôt public de la spécification. Porteur : RECHERCHES ; déclencheur :
+    avant T_f(c) ; prix à chiffrer à son G0 ; état : ouvert. Inscrit à ETAT (MONARK, 2026-10-07 12:1x UTC).
   - DECIDED-AT-1 (plan r3 §9.4, « avant la vague 2 ») : pas de champ d'instant de décision. `request_sha256` et la borne de 300 s
     suffisent ; un champ `decided_at` sortirait du format 1.1.0 (version 1.2.0). Porteur : RECHERCHES ; déclencheur : avant le G0 court
     de E-1a ; état : **clos par raison écrite** (Q-E3, accord de MONARK `ff2d4cd`). Il se rouvre avec LATE-CALL-WINDOW-1 si la mesure
@@ -871,6 +948,11 @@ record `760fdd4b…` ; relevé par MONARK, 2026-10-07 09:1x UTC).
     dans `apps/harness/data/kata/retire/` seulement, toutes, par ordre de date, sous leur nom nu ; chaque sha256 d épingle vient d une
     épingle versée, jamais du hachage des octets qu elle contrôle ; test d intégration du chemin servi ; le pas de CI de Q-E4 garde les
     tables engagées de même. Porteur : MONARK ; déclencheur : le G0 d E-2a ; état : ouvert.
+    Ligne datée (MONARK, 2026-10-07 12:1x UTC ; acceptation du G0 court d E-2a v6.1, `51fe3ee`) : porteur RECHERCHES ; déclencheur :
+    le lot b1 d E-2a. Défaut de RECHERCHES (`fb2c65d`), pris à l acceptation et redit par MONARK (`e341dbc`). Écart déclaré au G0
+    court d E-2a (§9) : la garde tourne dans l écrivain hors ligne (Q-E4), non au chargement. L item porte aussi la moitié écrivain
+    de la réservation de la clé de sonde de #225 : `guardKataTable` → `guardKataRow` → `kataKeyReserved` (G2 delta de #225,
+    `6a5584a`, point 3). Se ferme en b1 (b1-a, b1-b) et en b2.
   - RETIRE-CHILD-ROW-1 (Q-R8 du G0 de R-a) : trois cas d une ligne enfant (`calib_attempt` 2), impossibles aujourd hui
     (`calibAttempt` vaut 1) : la clé de tri d un enfant retiré à son tour ; l entrée de l essai 1 reprise après qu un enfant existe, qui
     heurte le contrôle d essai courant (`policy-retire.ts` l.75) ; l addendum 9 point 2 (un enfant compté à partir du premier trimestre
@@ -895,6 +977,15 @@ record `760fdd4b…` ; relevé par MONARK, 2026-10-07 09:1x UTC).
     Ligne datée (MONARK, 2026-10-07 09:1x UTC) : re-daté avec RETIRE-REDO-MESSAGE-1. Porteur : RECHERCHES ; déclencheur : le lot b2
     d E-2a (G0 court d E-2a v6, §9, pièce recherches `bf33fc9`). Défaut proposé par RECHERCHES (`35d61ea`, point 3), accepté par
     MONARK par cette ligne.
+    Correction (MONARK, 2026-10-07 12:1x UTC ; acceptation du G0 court d E-2a v6.1, `51fe3ee` ; contrôle du v6, `fd929d3`, m) : la
+    ligne précédente re-datait l item entier en b2. Il a deux moitiés, et son déclencheur propre, « la première note de version
+    datée », est atteint par la note de la release L, avant b2.
+    - La phrase de note (« the list in force at <date>, a byte copy of retire-<its day>.json ») est sans objet à la note de L : L ne
+      copie aucune liste de retrait. `scripts/spec-policy-tables.mjs` ne copie une liste que si une table changée porte une ligne
+      `retired` ; la table liq publiée n en porte aucune, et aucune liste n est sous `apps/harness/data/kata/retire/` (relu à
+      `1cddd2e5` par RECHERCHES, `590b9f0`). La phrase entre dans la note de la première release qui copie une liste.
+    - L en-tête de `readRetireList` (`apps/harness/src/policy-retire.ts` l.57-58) est re-daté en b2, avec RETIRE-REDO-MESSAGE-1.
+    Porteur : RECHERCHES, inchangé.
   - KILLER-ASSERT-KILL-1 (Q-R11 du G0 de R-a) : deux tueurs anciens tuent hors assertion (`guard_adr_cause_under_decisions_only`,
     `w2_guard_tail_m_and_support`), comptés « non conclu » par `scripts/mutants/run.mjs` ; un lot `red-proof: test-only` passe leurs
     admissions par une assertion. Porteur : MONARK ; déclencheur : après la fusion de R-b ; état : ouvert.
@@ -981,6 +1072,16 @@ record `760fdd4b…` ; relevé par MONARK, 2026-10-07 09:1x UTC).
     et non plus par `.at(-1)`.
   - RETIRE-LIST-WRITER-1 (§8) : un écrivain et un contrôleur de la liste de retrait (aucune commande ne l écrit aujourd hui).
     Porteur : MONARK ; déclencheur : le G0 d E-2a, au plus tard le premier retrait réel ; prix ~160 lignes ; état : ouvert.
+  - DATED-DIR-MULTI-REPORT-1 (PAROXYSME ; limite déclarée de la partie 3 de VERIFIERS-LIST-F5A-1 ; décision de MONARK, `c6dbf78`
+    l.43-56 ; G0 de la partie 3 v5, pièce recherches `55447de`, l.876-899) : un dossier daté ne change que des tables dont les lignes
+    citent un seul rapport (`recompute_report_invalid` (3), et l écrivain de 3b). La limite échoue fermée. Après c′, un retrait mixte
+    (une table de bande, rapport 1, et une table de direction, rapport 2) se coupe donc en deux cycles T_c → T_g, ce qui pèse sur D6.
+    Deux voies, estimations de RECHERCHES non mesurées : (a) chaque rapport de `D/recompute/` est cité par une ligne de D, et
+    l écrivain copie chaque rapport cité : ~34 lignes, ou aucun lot de plus si (a) est tranchée avant le gel de 3a-i et de 3b ;
+    (b) garder la limite, et écrire la contrainte et son coût sur D6 dans les G0 d E-2a et de RETIRE-LIST-WRITER-1 : 0 ligne, et un
+    cycle de plus par retrait mixte. MONARK et RECHERCHES penchent pour (a) ; le choix est à MONARK. Porteur : RECHERCHES (code) ;
+    G2 : MONARK ; déclencheur : avant la première liste de retrait après c′, et avant RETIRE-LIST-WRITER-1 ; il ne bloque rien sur c ;
+    état : ouvert. Inscrit à ETAT (MONARK, 2026-10-07 12:1x UTC).
   - RETIRE-REDO-MESSAGE-1 (§8) : le refus de `scripts/spec-policy-tables.mjs` l.184 imprime les commandes git qui refont un dossier
     daté avant sa publication. Porteur : MONARK ; déclencheur : le prochain lot qui touche ce script, avec RETIRE-HEADER-WORDING-1 ;
     prix ~4 lignes ; état : ouvert.
@@ -1021,6 +1122,10 @@ record `760fdd4b…` ; relevé par MONARK, 2026-10-07 09:1x UTC).
     déclencheur : ceux de l item ; état : ouvert.
     Ligne datée (MONARK, 2026-10-07 08:0x UTC ; #219, fusion `022c82d1`) : ancre relevée au tronc `1cddd2e5`. #219 a décalé `previousTree`
     de dix lignes (l.214 avant #219, l.224 après). `test/spec-publish.test.ts` l.31 tient : c est son assistant `git`.
+    Ligne datée (MONARK, 2026-10-07 12:1x UTC ; G2 de #229 et #230, `ca8ee8c`) : un écrivain d objets de plus est nommé. La commande
+    `pin` de `scripts/lot-size-integration.mjs` écrit des objets dans le magasin du dépôt où elle tourne, commun à ses worktrees :
+    `pinShell` (l.175) appelle `attrTree`, qui fait `hash-object -w` puis `mktree` (l.193). Les G2 de MONARK ne lancent `pin` que dans
+    un `git clone --shared` sous `F:/tmp`.
   - R25-REGISTRY-ROOT-1, PR 2 (ADR-M003 D9 septdecies, décision de l investisseur du 2026-10-06) : copie à l octet de `wave1.json` (`recherches`
     `a43ad70`, 26 202 lignes, sha256 `811fcd57…`) et de sa déclaration `PROVENANCE-kata-registry.md` sous `apps/harness/data/kata/registry/`,
     sous la porte de la PR 1 ; l ancre (g) du test racine devient inconditionnelle (le saut est retiré). Porteur : MONARK ; déclencheur : la
@@ -1770,11 +1875,27 @@ record `760fdd4b…` ; relevé par MONARK, 2026-10-07 09:1x UTC).
     - N-4 : le commentaire « one CPU-bound job at a time » du timer, et `monark-dojo-collect` dans le test de non-chevauchement.
     Ligne datée (MONARK, 2026-10-07 09:2x UTC) : porteur RECHERCHES depuis le partage 80/20 (`3b54dd8`, point 5), N-1 d abord ; le
     déploiement sur Bell reste au fondateur. Déclencheur inchangé.
+    Ligne datée (MONARK, 2026-10-07 12:1x UTC ; G2 de #229, M-2, `ca8ee8c` ; libellé, `eee7964`) : #229 (N-1, ouverte) ajoute deux
+    actes à la section 25 de `docs/RUNBOOK-dojo.md`. L acte (1b) écrit le secret dans un fichier `0600` par l analyseur de systemd
+    lui-même (une tâche transitoire `systemd-run`), sans rien afficher. Un acte neuf, écrit d abord (1c) puis renuméroté (4b), vient
+    après l acte (4) et avant le timer (5) : il prouve le chemin du courriel, et envoie un vrai courriel, à la seule adresse d alerte
+    déjà configurée. Ces actes entrent dans l autorisation unique de déploiement que MONARK porte au fondateur avant le 2026-10-10
+    (Q-20 du G0 court d E-2a), avec DOJO-PROBE-UID-BOUNDARY-1.
   - DOJO-PROBE-VANTAGE-1 (G1 de #220 §6) : un second point de vue hors de Bell ; option (a) décidée, la sonde miroir. Porteur : MONARK ;
     état : décidé, construit par DOJO-PROBE-MIRROR-1.
   - DOJO-PROBE-MIRROR-1 (G1 de #220 §6) : la sonde miroir sur le serveur du site, même arbre et mêmes unités, son propre fichier de mail,
     par les actes (1) à (5) de la section 25. Porteur : MONARK ; déclencheur : avant le jour de l annonce, après la mesure de sa charge à
     l acte ; état : ouvert. N-6 de la G2 l appuie : seule cette sonde couvre le silence d une sonde tuée par systemd ou par l OOM.
+  - DOJO-PROBE-UID-BOUNDARY-1 (PAROXYSME ; G2 de #229, m-9, `ca8ee8c` ; pièce recherches
+    `coordination/pieces/2026-10-07-g2-229-230/g2-229-230.json`) : l enfant vérificateur de la sonde du Dōjō tourne sous l uid
+    `probe`, comme son parent. #229 (N-1) retire `SMTP_PASS` de l environnement de `monark-dojo-probe.service`. Mais
+    `monark-probe.service`, la sonde Narabi (`deploy/monark-probe.service` l.23 `EnvironmentFile=/etc/monark/probe.env`, l.33
+    `User=probe`, sans `UnsetEnvironment`), garde le même mot de passe dans un environnement du même uid. Périmètre : les deux unités
+    et l enfant vérificateur. Constructions candidates : une unité de vérification sous un autre uid, ou en `DynamicUser=` ; l envoi
+    du courriel dans une unité qui porte seule le secret par `LoadCredential=`. `LoadCredential=` seul ne ferme pas la limite : la
+    donnée reste lisible par l utilisateur de l unité, donc par l enfant (systemd.exec(5), lu par la G2). Porteur : MONARK (texte) ;
+    le fondateur (acte de déploiement) ; déclencheur : avant DOJO-PROBE-MIRROR-1 ; prix : à chiffrer à son G0, aucune source ne le
+    chiffre ; état : ouvert. Inscrit à ETAT avant le G7 de #229 (MONARK, 2026-10-07 12:1x UTC).
   - à l'envoi, orchestrateur (N-8 de la G2 de la partie 3, 2026-10-02) : SITE-BUILD-LOCAL-ROOT-UNSET-1, la construction de production
     est faite sans `MONARK_DOJO_LOCAL_BUILD_ROOT` (variable absente de l'environnement de la construction, relevé au JOURNAL) ; acte du
     mandataire DOJO-SITE-PROXY-1 au mode d'emploi (tour de corrections de la partie 3) ; validation visuelle C-V-4 et Q-4 du navigateur

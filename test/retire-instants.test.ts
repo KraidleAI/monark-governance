@@ -30,8 +30,8 @@ const SOURCES = {
   T_e: { commit: SHA("e"), repo: "gov" }, T_f: { ca: "ca.json.local" }, T_g: { probe: "probe.json" },
 };
 const DATES: Record<string, string> = { [SHA("a")]: `2027-01-04T10:00:00+01:00 ${SHA("9")}`, [SHA("b")]: `2027-01-04T10:30:00Z ${SHA("a")}`, [SHA("e")]: `2027-01-04T15:00:00+02:00 ${SHA("b")} ${SHA("c")}`, [SHA("f")]: `2027-01-04T15:00:00+02:00 ${SHA("b")}` };
-/** The 15 checks verify-harness makes, read in its source as test/surfaces-1-1-0.test.ts reads them, all ok. */
-const NAMES = ((s: string) => [...s.matchAll(/(?:wiredCheck|httpCheck)\("(\w+)"/g), ...s.matchAll(/\["(gate_\w+_call)", GATE_\w+_BODY,/g)].map((m) => m[1] ?? ""))(readFileSync(join(import.meta.dirname, "..", "scripts", "verify-harness.mjs"), "utf8"));
+/** The 18 checks verify-harness makes, read in its source as test/surfaces-1-1-0.test.ts reads them, all ok. */
+const NAMES = ((s: string) => [...s.matchAll(/(?:wiredCheck|httpCheck|capturedCheck)\("(\w+)"/g), ...s.matchAll(/\["(gate_\w+_call)", GATE_\w+_BODY,/g)].map((m) => m[1] ?? ""))(readFileSync(join(import.meta.dirname, "..", "scripts", "verify-harness.mjs"), "utf8"));
 const ca = (tls: object, names: string[] = NAMES) => ({ checked_at: "2027-01-04T14:00:00.999Z", checks: names.map((name) => ({ name, ok: true })), tls, tls_mcp: tls });
 const LOCAL = { host: "127.0.0.1", skipped: true }, AUTHORIZED = { host: "api.example", authorized: true }, REFUSED = { host: "api.example", authorized: false };
 const ACCEPTED = { format: "retire-probe-v1", api: "https://203.0.113.7", api_host: "api.monarkgate.tech", received_at: "2027-01-04T15:00:01Z", status: 200, equal: true, ok: true, problem: null, tls_authorized: true };
@@ -83,19 +83,19 @@ test("retire_instants_refuses_unreadable_or_red_sources_by_code", async () => {
 });
 
 // reddened by: a CA that verify-harness itself rates failed (TLS refused) or local taken in a real cycle, or a CA that lacks some of the
-// 15 checks of the green gate, or holds one twice (16 entries), or an entry that is no object (null), taken for T_f
+// 18 checks of the green gate, or holds one twice (19 entries), or an entry that is no object (null), taken for T_f
 // killer: scripts/retire-instants.mjs:75 CONST "cycle === \"rehearsal\" ? [\"green\", \"local\"] : [\"green\"]" -> "[\"green\", \"local\"]"
 test("retire_instants_takes_T_f_from_the_overall_verdict_of_verify_harness", async () => {
   const t = await load(), real = { ...SOURCES, T_a: { clock: "2027-01-01T00:00:00Z" }, T_f: { ca: "ca.json" } };
   const code = (ev: object, files: Record<string, unknown>): string => { try { return t.entry(ev, io({ ...FILES, ...files })).instants["T_f"] ?? "none"; } catch (e) { return String((e as { code?: string }).code); } };
   const { CHECK_NAMES } = (await import(new URL("../scripts/verify-harness.mjs", import.meta.url).href)) as { CHECK_NAMES: readonly string[] };
-  assert.deepEqual([NAMES.length, [...CHECK_NAMES].sort()], [15, [...NAMES].sort()], "premise: verify-harness makes 15 checks, and CHECK_NAMES lists them all (a set: a pass makes the retired and future gate calls earlier)");
+  assert.deepEqual([NAMES.length, [...CHECK_NAMES].sort()], [18, [...NAMES].sort()], "premise: verify-harness makes 18 checks, and CHECK_NAMES lists them all (a set: a pass makes the retired and future gate calls earlier)");
   assert.deepEqual([
     code(evidence(real, "real"), {}), code(evidence(real, "real"), { "ca.json": ca(REFUSED) }), code(evidence(real, "real"), { "ca.json": ca(LOCAL) }),
     code(evidence(), {}), code(evidence(), { "ca.json.local": ca(LOCAL, NAMES.slice(1)) }), code(evidence(), { "ca.json.local": { checked_at: "2027-01-04T14:00:00Z", checks: [] } }),
     code(evidence(), { "ca.json.local": ca(LOCAL, [...NAMES.slice(1), NAMES[1] ?? ""]) }), code(evidence(), { "ca.json.local": { ...ca(LOCAL), checks: [null, ...ca(LOCAL).checks] } }),
   ], ["2027-01-04T14:00:00Z", "source_not_green", "source_not_green", "2027-01-04T14:00:00Z", "source_not_green", "source_not_green", "source_not_green", "source_not_green"],
-  "real: green only; rehearsal: green or local; always the 15 checks, and the TLS blocks read");
+  "real: green only; rehearsal: green or local; always the 18 checks, and the TLS blocks read");
 });
 
 // reddened by: the record of a probe that the probe itself refused (here a retired cell answered under_calib at the right digest, so
@@ -107,12 +107,12 @@ test("retire_instants_refuses_a_probe_record_the_probe_refused", async () => {
   assert.deepEqual([code(ACCEPTED), code(refused), code(forged), code({ ...ACCEPTED, ok: false })], ["ok", "source_not_green", "source_not_green", "source_not_green"], "an accepted 200 only, its ok read even with no problem named");
 });
 
-// reddened by: a CA of the 15 checks plus one of them twice (16 entries, all ok) taken for T_f: the length guard alone refuses it, every
+// reddened by: a CA of the 18 checks plus one of them twice (19 entries, all ok) taken for T_f: the length guard alone refuses it, every
 // name being present
 // killer: scripts/retire-instants.mjs:75 COR "names.length !== CHECK_NAMES.length || " -> ""
 test("retire_instants_refuses_a_ca_with_a_check_twice", async () => {
   const t = await load(), code = (names: string[]): string => { try { return t.entry(evidence(), io({ ...FILES, "ca.json.local": ca(LOCAL, names) })).instants["T_f"] ?? "none"; } catch (e) { return String((e as { code?: string }).code); } };
-  assert.deepEqual([code(NAMES), code([...NAMES, "health"]), code([...NAMES, "bogus_call"])], ["2027-01-04T14:00:00Z", "source_not_green", "source_not_green"], "the 15 checks, no more");
+  assert.deepEqual([NAMES.length, code(NAMES), code([...NAMES, "health"]), code([...NAMES, "bogus_call"])], [18, "2027-01-04T14:00:00Z", "source_not_green", "source_not_green"], "the 18 checks, no more");
 });
 
 // reddened by: a probe record that names a problem taken for T_g, whatever its ok (the header reads ok true and problem null)

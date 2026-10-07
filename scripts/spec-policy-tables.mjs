@@ -216,3 +216,11 @@ export function writeFlat(root, files) {
   if (changed.length > 0) throw new Error(`spec-policy-tables: ${changed.map((f) => f.path).join(", ")}: a dated directory is never rewritten (B-1); a served table that changed is published as a new dated version, --write --date <YYYY-MM-DD>`);
   writeAll(root, files.filter((f) => f.path.startsWith(`${OUT_DIR}/`)));
 }
+
+/** publishedTableEntry(inputs, taskClass) -> the entry, with its release name, that last publishes the policy table of taskClass from this
+ *  repository (root "governance"), in release order of scripts/spec-publish-inputs.json; undefined if none. Entries of other roots (a later
+ *  dated release published from another repository, a liquidation release) are never candidates: the pin of the deployment check
+ *  (KATA_POLICY_TABLE_SHA256 of scripts/verify-harness.mjs) follows the table this repository publishes. */
+export function publishedTableEntry(inputs, taskClass) {
+  return Object.entries(inputs.releases).flatMap(([release, r]) => r.entries.filter((e) => e.root === "governance" && e.out.endsWith(`/policy/${taskClass}.json`)).map((e) => ({ release, ...e }))).at(-1);
+}
