@@ -104,7 +104,7 @@ export const FR_WORDS = [
 const DIACRITICS = "àâäáéèêëíîïóôöùûüÿçœæÀÂÄÁÉÈÊËÍÎÏÓÔÖÙÛÜŸÇŒÆ";
 
 export const TEXT_EXTS = new Set([
-  ".ts", ".tsx", ".mjs", ".cjs", ".js", ".jsx", ".md", ".mdx", ".yml", ".yaml", ".json", ".html", ".css", ".sh", ".txt",
+  ".ts", ".tsx", ".mjs", ".cjs", ".js", ".jsx", ".md", ".mdx", ".yml", ".yaml", ".json", ".html", ".css", ".sh", ".txt", ".py",
 ]);
 // `.next`/`.turbo` added for the apps/site scope: Next.js build output and Turbo cache are
 // generated (gitignored) minified JS that would produce spurious hits and slow the scan — skipping them

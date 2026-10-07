@@ -1,4 +1,4 @@
-# claude-opus-5-5 - 2026-10-02 - lot P2-RECALC-TOOL-1 (MONARK G1), Python 3.14 standard library only.
+# claude-opus-5-5 - 2026-10-02 - lot P2-RECALC-TOOL-1 (MONARK G1), Python 3.14 standard library only. Lot 1d (2026-10-06): M-1.
 # Kata library rewritten from the written definitions only (mission D-1); RECHERCHES code never read.
 # Sources (file, line) in `wt` at 1ea4f64: ADR = decisions/0005-ADR-draft-strategy-library-kata.md (v3.1, sha256 b011e4de...),
 # P1 = decisions/0005-G0-part-P1-library.md, P2 = decisions/0005-G0-part-P2-calibration.md, SPEC = kata/spec/KATA-SPEC.md,
@@ -262,7 +262,7 @@ def kata_ewma(bars):
     nret = len(c) - 1  # 100 returns, i = 0 the most recent
     for j in range(1, len(c)):
         r = math.log(c[j] / c[j - 1])
-        acc = acc + _EWMA_W[nret - j] * (r * r)
+        acc = acc + (_EWMA_W[nret - j] * r) * r  # KATA-SPEC l.42 (2026-10-02): (w_i * r_i) * r_i; C-1, IT-G2-1 of the P2b review
     return scale(math.sqrt(acc))
 
 
