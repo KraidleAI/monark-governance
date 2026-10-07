@@ -2,24 +2,38 @@
 # judged and outputs new since 2026-10-07 (MONARK's decision on lot 1d); every event classed, every path absolute and the busy flag
 # per thread since the G2 of RECHERCHES (3719b88: B-1, B-2, N-1, N-2). Lot 1e (2026-10-07, M-11): _wmi.exec_query classed (refused),
 # git_tree, which reads the commit and the blobs of the tool's tree for the report (not an input, not noted), and a bytecode cache
-# refused at import.
+# refused at import. Frozen-tool lot (2026-10-07, RECHERCHES' reviews of #214 and #217, MONARK's decision): the import event judged
+# against the closed list NATIVE (A-1); os.posix_spawn and time.sleep in the spawn class (A-2); the spawning and reading states per
+# thread (N-2); the limits of the events named below (N-4); git_tree held to the tool's tree, its repository and a role (N-5). Its G2:
+# git runs with GIT_NO_LAZY_FETCH (IO-GUARD-PARTIAL-CLONE-1), a named stream of an NTFS file is refused, a spawn starts one process,
+# once, after its judged Popen, on its thread, with its argv under POSIX (unpinned under Windows: IO-GUARD-CREATE-CMDLINE-1), a virtual
+# environment is refused; then MONARK's closed list of two trees (ecace80), the role served-history (26ae460) and the launch form FORM.
 # The input guard of the tool (G0 docs/G0-lot-verifiers-list-f5a-1.md section 3.1; RECHERCHES Q-V1, precision 2: the independence is
 # written, and proved by the list of the inputs read with their sha256). Every entry script imports it FIRST: the import installs an
 # audit hook (sys.addaudithook) before any input is read. EVENTS classes every audit event name, and a name outside it stops the run:
-# judged (open, os.listdir, os.scandir, the changes of _CHANGES, subprocess.Popen), admitted with its reason, admitted only while
-# io_guard itself spawns git or a script of the tool, or refused. Every path judged is absolute (the entry scripts pass their
-# arguments through os.path.abspath), but for a pseudo-file name in angle brackets that no file bears. Admitted without a note: the
-# standard library (stdlib, platstdlib and DLLs under sys.base_prefix, never site-packages), the tool's own tree (read only), the
-# directories of the import path (listing only), and, under an output, the files this run writes; an output is absent or an empty
-# directory when it is declared, so nothing under it holds a byte that this run did not write. A change touches outputs only, and
-# what it moves, links or copies from is a file this run wrote or a directory it made. An input is read only through read() or
-# git_show(), under a role of the closed list ROLES that the entry script declares; each one is noted (role, base name, sha256, bytes)
-# and inputs() lists them. Anything else stops the run at once: one line on stderr, then os._exit(REFUSED_EXIT), which no except clause
-# catches. Limit (G0 section 3.1, item IO-GUARD-NATIVE-READS-1): a C extension module that reads files without Python raises no event;
-# the tool imports the standard library only. Paths are compared after realpath and normcase. The tool runs under python -B: after the
-# hook, a bytecode write is a write outside the outputs, and stops the run like any other. Before it, the import of io_guard itself
+# judged (open, os.listdir, os.scandir, the changes of _CHANGES, subprocess.Popen, the creations of _CREATE, import), admitted with its
+# reason, admitted only on the thread where io_guard itself spawns git or a script of the tool, or refused. Every path judged is
+# absolute (the entry scripts pass their arguments through os.path.abspath), but for a pseudo-file name in angle brackets that no file
+# bears. Admitted without a note: the standard library (stdlib, platstdlib and DLLs under sys.base_prefix, never site-packages), the
+# trees of code TREES (read only; the second may be absent), the directories of the import path (listing only), and, under an output,
+# the files this run writes; an output is absent or an empty directory when it is declared, so nothing under it holds a byte that this
+# run did not write. A change touches outputs only, and what it moves, links or copies from is a file this run wrote or a directory it
+# made. An import is judged: a built-in module by its name, an extension module (.pyd, .so: its load raises import with its file, never
+# open) by its file, under the standard library or the tool's tree, and by its name; NATIVE closes the native modules that may load
+# after the hook. A source or bytecode file is judged by its own open. An input is read only through read() or git_show(), under a role
+# of the closed list ROLES that the entry script declares; each one is noted (role, base name, sha256, bytes) and inputs() lists them.
+# Any other event stops the run at once: one line on stderr, then os._exit(REFUSED_EXIT), which no except clause catches. Limit (G0
+# section 3.1, item IO-GUARD-NATIVE-READS-1, widened by the frozen-tool lot to the writes, spawns and network of native code): native
+# code acts without the events of Python. NATIVE closes the native modules that load after the hook; what remains is the native code
+# admitted, that of NATIVE and of the modules loaded before the hook (the interpreter's start and io_guard's imports; no site under
+# FORM), whose functions outside the table raise no event. Measured or read: the stat family reads the metadata of any path; os.mkfifo
+# and os.mknod (POSIX, absent on Windows, never called by the tool) make a file outside the outputs; importlib.import_module loads a
+# built-in module with no import event; _winapi, loaded before the hook, reads the registry, and os.getlogin the user's name (its G2).
+# Nothing that ran before the hook is judged. Paths are compared after realpath and normcase. The tool runs under FORM (below): after
+# the hook, a bytecode write is a write outside the outputs, and stops the run like any other. Before it, the import of io_guard itself
 # writes __pycache__/io_guard.cpython-314.pyc when -B is missing (measured, lot 1e), and a later run would load a cached file whose
-# recorded source time and size match: a cache in the tool's tree, or a cache directory set elsewhere, stops the run at import.
+# recorded source time and size match: a cache in a tree of TREES, or a cache directory set elsewhere, stops the run at import, as does
+# a module of the second tree that bears the name of one of the first (sys.path[0] would mask it), or a virtual environment.
 import hashlib
 import os
 import subprocess
@@ -27,8 +41,34 @@ import sys
 import sysconfig
 import threading
 
-ROLES = ("series", "recorder", "oracle-output", "spec-vectors", "engine-test-source", "libm", "registry")  # closed, G0 section 3.1
+# MONARK (2026-10-07; CM-5 v6.1): the form of the launch, checked here, before anything is judged or read. Each field of sys.flags
+# that an option sets holds its value under FORM (by position, debug to isolated, then safe_path; None: set only by -X, or by the
+# locale under POSIX); no -W, no -X (so no -X presite), no debug build (the only one where PYTHON_PRESITE acts). Another launch stops
+# here, exit 2, its fields named: it is detected, not prevented (the form itself, written in the replay command, prevents it).
+FORM = ("-E", "-S", "-s", "-B")
+_OFF = [f"{n} {v}" for n, v, w in zip(sys.flags.__match_args__, sys.flags, (0, 0, 0, 0, 1, 1, 1, 1, 0, 0, 0, 1, 0, None, None, None, 0))
+        if w is not None and v != w] + [f"-W {w}" for w in sys.warnoptions] + [f"-X {x}" for x in sys._xoptions]
+if _OFF or hasattr(sys, "gettotalrefcount"):
+    try:
+        sys.stderr.write(f"io_guard: refused, a launch under another form than python {' '.join(FORM)}: "
+                         f"{', '.join(_OFF + ['a debug build'] * hasattr(sys, 'gettotalrefcount'))}\n")
+        sys.stderr.flush()
+    finally:
+        os._exit(2)
+
+ROLES = ("series", "recorder", "oracle-output", "spec-vectors", "engine-test-source", "libm", "registry",  # closed, G0 section 3.1
+         "tool-tree",  # N-5: git_tree, the tool's own blobs read from git (admitted, never noted)
+         "served-history")  # MONARK (26ae460, ecace80): the served history that CM-5 reads, an input noted like any other
 REFUSED_EXIT = 4
+TREES = ("tools/kata-recalc", "tools/kata-quarter")  # MONARK's closed list (ecace80): the tool's tree, then a second, read only
+TREE = TREES[0]  # the tool's tree in its repository (G0 section 3.2)
+# A-1: the native modules (built in, or an extension .pyd or .so) that an import may load after the hook, closed. Measured on this host
+# (Python 3.14.5, Windows): every import event after the hook in complete runs of every entry script and in the trace of an uncaught
+# exception. _ast, _opcode, _suggestions and _tokenize: a trace (ast, dis, tokenize) and inspect; _wmi: platform imports it (its query
+# is refused). The others that the tool uses load before the hook. Read in the 3.14 source, not measured: under POSIX, subprocess
+# loads _posixsubprocess, select and (through selectors) math before the hook, and the modules imported after it import no other
+# native module there (_colorize imports nt on Windows only; platform tries _wmi and goes on without it).
+NATIVE = frozenset(("_ast", "_datetime", "_json", "_opcode", "_sre", "_struct", "_suggestions", "_tokenize", "_wmi", "math"))
 # File-system changes, as Python 3.14.5 raises them on this host (measured): event -> (paths as (kind, position), dir_fd positions).
 # "dst" is a path the event changes; "src" one it moves away, links or copies from. os.replace raises os.rename.
 _CHANGES = {
@@ -43,12 +83,14 @@ _CHANGES = {
 # Every audit event name, classed (B-1): the 192 names of the Python 3.14 audit events table (docs.python.org, read by MONARK on
 # 2026-10-07 at 01:09 UTC) and the 3 that this host raises outside it (_thread.start_joinable_thread, _winapi.CopyFile2, and
 # _wmi.exec_query, classed by lot 1e). The admitted and spawn names are those that complete runs of the seven scripts, the smoke tests
-# and the probes raised after the hook under Python 3.14.5 (measured, G0 section 14), and three that MONARK named. Any other name
-# stops the run, whatever its prefix.
+# and the probes raised after the hook under Python 3.14.5 (measured, G0 section 14), three that MONARK named, and time.sleep, which
+# the spawns of io_guard raise under POSIX (A-2); the creation of a process (_CREATE) is judged. Any other name stops the run,
+# whatever its prefix.
 _J, _A, _S, _R = "judged", "admitted", "spawn", "refused"
+_CREATE = ("_winapi.CreateProcess", "_posixsubprocess.fork_exec", "os.posix_spawn")  # the process that a spawn starts, pinned (its G2)
 EVENTS = {
-    **dict.fromkeys(("open", "os.listdir", "os.scandir", "subprocess.Popen", *_CHANGES), (_J, "judged by the rules below")),
-    "import": (_A, "an import: the module's file is judged by its own open event"),
+    **dict.fromkeys(("open", "os.listdir", "os.scandir", "subprocess.Popen", "import", *_CHANGES, *_CREATE),
+                    (_J, "judged by the rules below")),
     "marshal.loads": (_A, "the bytecode of a standard-library module, read by an import whose file open judged"),
     "compile": (_A, "source compiled by the standard library (namedtuple, the carets of a traceback)"),
     "exec": (_A, "code executed: the modules imported, the classes namedtuple builds"),
@@ -60,10 +102,12 @@ EVENTS = {
     "sys._getframe": (_A, "a caller's frame (warnings); named by MONARK, not seen in the measured runs"),
     "sys.excepthook": (_A, "an uncaught exception printed; the source lines it reads are judged by open"),
     "cpython._PySys_ClearAuditHooks": (_A, "the hooks cleared at exit, after atexit; named by MONARK"),
-    **dict.fromkeys(("_winapi.CreatePipe", "_winapi.CreateProcess", "msvcrt.open_osfhandle", "msvcrt.get_osfhandle",
-                     "_thread.start_joinable_thread"), (_S, "the pipes, process and reader threads of subprocess.run (measured)")),
-    **dict.fromkeys(("_thread.start_new_thread", "_winapi.TerminateProcess", "os.kill", "_posixsubprocess.fork_exec"),
-                    (_S, "the same on another path, not measured: an older thread call, a timed-out child killed, a POSIX spawn")),
+    **dict.fromkeys(("_winapi.CreatePipe", "msvcrt.open_osfhandle", "msvcrt.get_osfhandle", "_thread.start_joinable_thread"),
+                    (_S, "the pipes and reader threads of subprocess.run (measured)")),
+    **dict.fromkeys(("_thread.start_new_thread", "_winapi.TerminateProcess", "os.kill"),
+                    (_S, "the same on another path, not measured: an older thread call, a timed-out child killed")),
+    "time.sleep": (_S, "subprocess under POSIX (A-2, measured by RECHERCHES under Linux, not on this host): the wait for a child "
+                       "under a time limit"),
     **dict.fromkeys((
         "socket.__new__", "socket.bind", "socket.connect", "socket.getaddrinfo", "socket.gethostbyaddr", "socket.gethostbyname",
         "socket.gethostname", "socket.getnameinfo", "socket.getservbyname", "socket.getservbyport", "socket.sendmsg", "socket.sendto",
@@ -77,7 +121,7 @@ EVENTS = {
         "ctypes.string_at", "ctypes.wstring_at", "ctypes.PyObj_FromPtr", "sqlite3.connect", "sqlite3.connect/handle",
         "sqlite3.enable_load_extension", "sqlite3.load_extension", "os.add_dll_directory",
     ), (_R, "native code that reads without the events of Python (a C library, SQLite)")),
-    **dict.fromkeys(("os.exec", "os.spawn", "os.system", "os.startfile", "os.startfile/2", "os.posix_spawn", "os.fork", "os.forkpty",
+    **dict.fromkeys(("os.exec", "os.spawn", "os.system", "os.startfile", "os.startfile/2", "os.fork", "os.forkpty",
                      "pty.spawn", "os.killpg", "signal.pthread_kill", "_winapi.OpenProcess"),
                     (_R, "another program or process: only io_guard starts one")),
     **dict.fromkeys(("os.chflags", "os.chown", "shutil.chown", "os.getxattr", "os.listxattr", "os.setxattr", "os.removexattr",
@@ -105,7 +149,7 @@ EVENTS = {
                      "cpython.run_startup", "cpython.run_stdin", "cpython.PyInterpreterState_New",
                      "cpython.PyInterpreterState_Clear"), (_R, "the start of an interpreter: before the hook only")),
     **dict.fromkeys(("builtins.input", "builtins.input/result", "pickle.find_class", "marshal.dumps", "marshal.load", "code.__new__",
-                     "object.__delattr__", "array.__new__", "ensurepip.bootstrap", "time.sleep", "syslog.closelog", "syslog.openlog",
+                     "object.__delattr__", "array.__new__", "ensurepip.bootstrap", "syslog.closelog", "syslog.openlog",
                      "syslog.setlogmask", "syslog.syslog"), (_R, "not raised by the measured runs, and not needed by the tool")),
 }
 _UNKNOWN = (_R, "a name outside the table of events")
@@ -128,12 +172,15 @@ def _under(p, root):
 
 _TOOL_DIR = os.path.dirname(os.path.realpath(__file__))
 _TOOL = os.path.normcase(_TOOL_DIR)
+_TREE_DIRS = (_TOOL_DIR, os.path.join(os.path.dirname(_TOOL_DIR), TREES[1].rsplit("/", 1)[1]))  # the second beside the first, as is
+_TREES = tuple(os.path.normcase(d) for d in _TREE_DIRS)  # not resolved: a link there leads to paths that realpath puts elsewhere
 _PATHS = sysconfig.get_paths()
 _STDLIB = tuple({_norm(_PATHS["stdlib"]), _norm(_PATHS["platstdlib"]), _norm(os.path.join(sys.base_prefix, "DLLs"))})
 _SITE = tuple({_norm(_PATHS["purelib"]), _norm(_PATHS["platlib"])})
 _SEARCH = frozenset(_norm(p or os.curdir) for p in sys.path)  # the import system may list these directories
-_state = {"roles": None, "reading": None, "spawning": None}
-_local = threading.local()  # N-2: the busy flag marks the judging thread only
+_state = {"roles": None}
+_local = threading.local()  # N-2: the busy flag, the file being read and the spawn under way (armed: its process may start, its G2)
+# belong to the thread that set them
 _outputs = []
 _written = set()
 _made = set()
@@ -167,7 +214,9 @@ def _judge_open(path, mode, flags):
         return  # a pseudo-file (<unknown>) that no file bears: the parser opens it only to quote a line of a traceback (3.14 carets)
     _absolute("open", name)
     p = _norm(name)
-    if _state["reading"] == p and not w:
+    if os.name == "nt" and any(":" in os.path.splitdrive(x)[1] for x in (os.path.normcase(name), p)):  # its G2 (realpath drops ::$DATA)
+        _refuse("open", p, "a named stream of an NTFS file: git keeps none, and the tool reads none")
+    if getattr(_local, "reading", None) == p and not w:
         return
     if any(_under(p, o) for o in _outputs):
         if w:
@@ -178,9 +227,9 @@ def _judge_open(path, mode, flags):
         _refuse("open", p, "a file under an output that this run has not written")
     if w:
         _refuse("open", p, "a write outside the outputs")
-    if _under(p, _TOOL) or (any(_under(p, s) for s in _STDLIB) and not any(_under(p, s) for s in _SITE)):
+    if any(_under(p, t) for t in _TREES) or (any(_under(p, s) for s in _STDLIB) and not any(_under(p, s) for s in _SITE)):
         return
-    _refuse("open", p, "neither the standard library, the tool's tree, a file this run wrote, nor an input read through io_guard")
+    _refuse("open", p, "neither the standard library, the tool's trees, a file this run wrote, nor an input read through io_guard")
 
 
 def _judge_list(event, path):
@@ -189,9 +238,9 @@ def _judge_list(event, path):
     name = os.curdir if path is None else os.fsdecode(path)
     _absolute(event, name)
     p = _norm(name)
-    if p in _SEARCH or _under(p, _TOOL) or any(_under(p, s) for s in _STDLIB) or any(_under(p, o) for o in _outputs):
+    if p in _SEARCH or any(_under(p, t) for t in _TREES) or any(_under(p, s) for s in _STDLIB) or any(_under(p, o) for o in _outputs):
         return
-    _refuse(event, p, "a directory outside the standard library, the tool's tree, the import path and the outputs")
+    _refuse(event, p, "a directory outside the standard library, the tool's trees, the import path and the outputs")
 
 
 def _judge_change(event, args):
@@ -227,23 +276,55 @@ def _judge_change(event, args):
 
 
 def _judge_spawn(executable, argv):
-    want = _state["spawning"]
+    want = getattr(_local, "spawning", None)
     if want is not None and executable in (None, want[0]) and (
             argv == subprocess.list2cmdline(want) if isinstance(argv, str) else list(argv) == want):
+        _local.armed = True  # its G2: the process of this Popen may now start, once
         return
     _refuse("subprocess.Popen", argv, "only io_guard starts a program: git show for an input role, or a script of the tool")
+
+
+def _judge_create(event, args):
+    """Its G2: a process starts only once after the judged Popen of a spawn of io_guard, on the thread that spawns. Under POSIX,
+    subprocess passes its argument list to os.posix_spawn and to _posixsubprocess.fork_exec (subprocess.py, read; not measured here):
+    one argument must be the pinned list. _winapi.CreateProcess gives (application name, command line, directory): the first and the
+    last must be None, as io_guard passes them; its command line cannot be pinned, 3.14.5 giving one character for it (measured)."""
+    want, armed = getattr(_local, "spawning", None), getattr(_local, "armed", False)
+    _local.armed = False
+    if want is not None and armed and (args[0] is None and args[2] is None if event == "_winapi.CreateProcess" else
+                                       any(isinstance(a, (list, tuple)) and all(isinstance(x, (str, bytes)) for x in a)
+                                           and [os.fsdecode(x) for x in a] == want for a in args)):
+        return
+    _refuse(event, args[:2], "admitted only while io_guard spawns, on the thread that spawns, once after its Popen, with its argv")
+
+
+def _judge_import(name, path):
+    """A-1. path is None for the import of a module not yet loaded: a built-in module (no file) is judged by its name here; a source
+    or bytecode file by its own open event; a frozen module is part of the interpreter. path is the file of an extension module that
+    loads (.pyd, .so), which raises no open: under the standard library (never site-packages) or the tool's tree, and in NATIVE."""
+    if path is None:
+        if name in sys.builtin_module_names and name not in NATIVE:
+            _refuse("import", name, "a built-in module outside the closed list NATIVE")
+        return
+    path = os.fsdecode(path)
+    _absolute("import", path)
+    p = _norm(path)
+    if not (_under(p, _TOOL) or (any(_under(p, s) for s in _STDLIB) and not any(_under(p, s) for s in _SITE))):
+        _refuse("import", p, "a native module outside the standard library and the tool's tree")
+    if name not in NATIVE:
+        _refuse("import", name, "a native module outside the closed list NATIVE")
 
 
 def _hook(event, args):
     if getattr(_local, "busy", False):
         return
     cls, why = EVENTS.get(event, _UNKNOWN)
-    if cls == _A or (cls == _S and _state["spawning"] is not None):
+    if cls == _A or (cls == _S and getattr(_local, "spawning", None) is not None):
         return
     _local.busy = True
     try:
         if cls == _S:
-            _refuse(event, args[:1], f"admitted only while io_guard spawns ({why})")
+            _refuse(event, args[:1], f"admitted only while io_guard spawns, on the thread that spawns ({why})")
         elif cls == _R:
             _refuse(event, args[:1], why)
         elif event == "open":
@@ -252,6 +333,10 @@ def _hook(event, args):
             _judge_change(event, args)
         elif event == "subprocess.Popen":
             _judge_spawn(args[0], args[1])
+        elif event in _CREATE:
+            _judge_create(event, args)
+        elif event == "import":
+            _judge_import(*args[:2])
         else:
             _judge_list(event, args[0] if args else None)
     except Exception as e:  # a path the guard cannot judge (not a string, say): the run stops, the caller never catches it
@@ -272,8 +357,8 @@ def output(path):
     tool's tree; the run reads back only the files it wrote there."""
     _absolute("output", os.fsdecode(path))
     p = _norm(path)
-    if _under(p, _TOOL) or _under(_TOOL, p):
-        _refuse("output", p, "an output inside the tool's tree, or holding it")
+    if any(_under(p, t) or _under(t, p) for t in _TREES):
+        _refuse("output", p, "an output inside one of the tool's trees, or holding one")
     _outputs.append(p)
     if os.path.lexists(p) and not (os.path.isdir(p) and not os.listdir(p)):
         _refuse("output", p, "an output that already exists and is not an empty directory")
@@ -287,28 +372,29 @@ def _role(role):
 def read(role, path):
     """The bytes of one input, read under its declared role and noted."""
     _role(role)
-    _state["reading"] = _norm(path)
+    _local.reading = _norm(path)
     try:
         with open(path, "rb") as fh:
             data = fh.read()
     finally:
-        _state["reading"] = None
+        _local.reading = None
     _inputs.add((role, os.path.basename(os.fsdecode(path)), hashlib.sha256(data).hexdigest(), len(data)))
     return data
 
 
 def _spawn(argv, **kw):
-    _state["spawning"] = list(argv)
+    _local.spawning, _local.armed = list(argv), False
     try:  # input=b"": an empty stdin pipe; subprocess.DEVNULL would open os.devnull, a relative path on Windows (nul), B-2
         return subprocess.run(argv, input=b"", capture_output=True, **kw)
     finally:
-        _state["spawning"] = None
+        _local.spawning, _local.armed = None, False
 
 
 def _git(repo, *args):
-    """git with args in the repository repo, without the caller's GIT_* variables; its standard output."""
+    """git with args in the repository repo, without the caller's GIT_* variables and offline; its standard output."""
     env = {k: v for k, v in os.environ.items() if not k.upper().startswith("GIT_")}
     env["GIT_TERMINAL_PROMPT"] = "0"
+    env["GIT_NO_LAZY_FETCH"] = "1"  # its G2: a partial clone never fetches a missing object from its promisor (git.html of 2.55.0)
     return _spawn(["git", "--no-replace-objects", "-C", os.fsdecode(repo), *args], env=env, timeout=60, check=True).stdout
 
 
@@ -320,13 +406,19 @@ def git_show(role, repo, spec):
     return data
 
 
-def git_tree(repo, rel, rev="HEAD"):
-    """The commit that rev names in the repository repo, and the entries under rel at that commit, as (commit, [(mode, path, bytes of
-    a blob or None)]): git rev-parse, ls-tree and cat-file only. They name the tool that runs, for the report (lot 1e; G0 section
-    3.2); they are not inputs of the computation, and they are not noted."""
+def git_tree(repo, rev="HEAD"):
+    """The commit that rev names in repo, the repository that holds the tool (repo/tools/kata-recalc is the directory it runs from),
+    and the entries of the tool's tree TREE at that commit, as (commit, [(mode, path, bytes of a blob or None)]): git rev-parse,
+    ls-tree and cat-file only, under the role tool-tree that the script declares (N-5). They name the tool that runs, for the report
+    (lot 1e; G0 section 3.2); like the tool's files on disk, they are not inputs of the computation, and they are not noted."""
+    _role("tool-tree")
+    repo = os.fsdecode(repo)
+    _absolute("git_tree", repo)
+    if _norm(os.path.join(repo, *TREE.split("/"))) != _TOOL:
+        _refuse("git_tree", repo, f"not the repository that holds the tool's tree: {TREE} under it is not the directory that runs")
     commit = _git(repo, "rev-parse", "--verify", "--end-of-options", f"{rev}^{{commit}}").decode("ascii").strip()
     entries = []
-    for item in _git(repo, "ls-tree", "-r", "-z", "--full-tree", commit, "--", rel).split(b"\0"):
+    for item in _git(repo, "ls-tree", "-r", "-z", "--full-tree", commit, "--", TREE).split(b"\0"):
         if item:
             meta, path = item.split(b"\t", 1)
             mode, kind, obj = meta.decode("ascii").split(" ")
@@ -335,8 +427,10 @@ def git_tree(repo, rel, rev="HEAD"):
 
 
 def run_tool(script, args):
-    """A script of the tool's tree run as a child under python -B; the child imports io_guard first and judges its own reads."""
-    return _spawn([sys.executable, "-B", os.path.join(_TOOL_DIR, script)] + list(args), timeout=300)
+    """A script of the tool's tree run as a child under FORM, the form of the replay command (MONARK, 2026-10-07): no PYTHON*
+    variable, no site and no user site in any child, whatever its parent runs under (measured: under -B alone, a sitecustomize on
+    PYTHONPATH ran in the child before io_guard). The child imports io_guard first, which checks its form, and judges its own reads."""
+    return _spawn([sys.executable, *FORM, os.path.join(_TOOL_DIR, script)] + list(args), timeout=300)
 
 
 def inputs():
@@ -348,6 +442,17 @@ def input_lines():
     return [f"input {d['role']} {d['name']} sha256 {d['sha256']} bytes {d['bytes']}" for d in inputs()]
 
 
-if sys.pycache_prefix is not None or os.path.lexists(os.path.join(_TOOL_DIR, "__pycache__")):  # no event: before the hook
-    _refuse("import", _TOOL_DIR, "a bytecode cache in the tool's tree, or a cache directory: remove it, and run under python -B")
+def homonyms(first, second):
+    """The names that the directory second offers to an import by bare name and that the directory first holds too (ecace80)."""
+    names = [{n.split(".", 1)[0] for n in os.listdir(d)} if os.path.isdir(d) else set() for d in (first, second)]
+    return sorted(names[0] & names[1])
+
+
+_cached = [d for d in _TREE_DIRS if os.path.lexists(os.path.join(d, "__pycache__"))]  # no event below: before the hook
+if sys.prefix != sys.base_prefix:  # its G2: under a virtual environment, sysconfig names the environment's own Lib as the stdlib
+    _refuse("import", sys.prefix, "a virtual environment: run the base interpreter")
+if sys.pycache_prefix is not None or _cached:
+    _refuse("import", _cached or sys.pycache_prefix, "a bytecode cache in a tree of the tool, or a cache directory: remove it, run -B")
+if homonyms(*_TREE_DIRS):
+    _refuse("import", homonyms(*_TREE_DIRS), f"a module of {TREES[1]} named as one of {TREES[0]}, which sys.path[0] would mask")
 sys.addaudithook(_hook)

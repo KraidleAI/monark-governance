@@ -71,6 +71,7 @@ import { scanText, scanSource, renderedTexts, loadExemptFile, exemptValues } fro
 import { FLEET_AGENTS } from "../apps/site/lib/fleet.ts";
 import { insideFor } from "../apps/site/lib/fleet-presentation.ts";
 import { startLoopback } from "./helpers/loopback.ts";
+import { caEnv, caServerClock } from "./helpers/ca-clock.ts";
 
 const ROOT = join(import.meta.dirname, "..");
 const read = (rel: string): string => readFileSync(join(ROOT, ...rel.split("/")), "utf8");
@@ -1312,18 +1313,19 @@ test("site_ukemi_course_served_stratum_status_bound_to_served_verdict — the pr
   }))).text();
   // M-1: the deploy CA, run as deployed (child process) against THIS tree's harness on 127.0.0.1 (no network, TLS skipped),
   // records for gate_liq_call the sha256 of the very answer the sync reads for its body: bound now, not only at W.
-  const server = await startLoopback((port) => startServer(port));
+  const server = await startLoopback((port) => startServer(port, undefined, caServerClock()));
   let caText = "";
   try {
     const addr = server.address();
     assert.ok(addr !== null && typeof addr === "object", "address() must be an AddressInfo");
     const base = `http://127.0.0.1:${String(addr.port)}`;
     const ran = await new Promise<{ code: number | null; stdout: string }>((resolve) => {
-      execFile(process.execPath, [join(ROOT, "scripts", "verify-harness.mjs"), "--api", base, "--mcp", base, "--api-host", "api.monarkgate.tech"], { encoding: "utf8", timeout: 60000 }, (error, stdout) => {
+      execFile(process.execPath, [join(ROOT, "scripts", "verify-harness.mjs"), "--api", base, "--mcp", base, "--api-host", "api.monarkgate.tech"], { encoding: "utf8", timeout: 60000, env: caEnv() }, (error, stdout) => {
         resolve({ code: error === null ? 0 : typeof error.code === "number" ? error.code : null, stdout });
       });
     });
     assert.equal(ran.code, 0, "the deploy CA is green on this tree's in-process harness");
+    assert.equal((JSON.parse(ran.stdout) as CaRecord).checks.length, 18, "all 18 checks, the kata path and version checks under the test clock included");
     caText = ran.stdout;
   } finally {
     server.closeAllConnections();

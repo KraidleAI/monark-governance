@@ -1,0 +1,147 @@
+{
+  "url": "https://api.monarkgate.tech",
+  "mcp_url": "https://mcp.monarkgate.tech",
+  "checked_at": "2026-10-07T12:56:15.514Z",
+  "checks": [
+    {
+      "name": "health",
+      "ok": true,
+      "status": 200,
+      "sha256": "d754b2feb82a3c45588e379d4d343c140ee8229d63f6771c940c27121c90f441",
+      "detail": "operations=gate,cascade,attest,calibrate"
+    },
+    {
+      "name": "openapi",
+      "ok": true,
+      "status": 200,
+      "sha256": "61c9df97a254a863a68fdc2c493799803397bfa190b85db3ca97673d2a8ccbf0",
+      "detail": "paths=/gate,/cascade,/attest,/calibrate"
+    },
+    {
+      "name": "origin_403_api",
+      "ok": true,
+      "status": 403,
+      "sha256": "6223c4e66eafcf69f7b07ef333009e4798be73d028edb16c82ca77892e718ad1",
+      "detail": "status=403"
+    },
+    {
+      "name": "origin_403_mcp",
+      "ok": true,
+      "status": 403,
+      "sha256": "6223c4e66eafcf69f7b07ef333009e4798be73d028edb16c82ca77892e718ad1",
+      "detail": "status=403"
+    },
+    {
+      "name": "mcp_tools_list",
+      "ok": true,
+      "status": 200,
+      "sha256": "b634e7e142bb90558a0768801505c3d5ab7c7fd7203b89f8070b2a86729a1580",
+      "detail": "tools=gate,cascade,attest,calibrate"
+    },
+    {
+      "name": "gate_call",
+      "ok": true,
+      "status": 200,
+      "sha256": "701e9b068944aca7a9c49bb5415fa2af21006b4ba696c916108c4d326445a08c",
+      "detail": "action=commit"
+    },
+    {
+      "name": "gate_retired_call",
+      "ok": true,
+      "status": 400,
+      "sha256": "676f76747ef39d532e0d2a6e4c55876b7f5d97a76b5b3b1f261cd28c843d8442",
+      "detail": "status=400 code=task_class_retired"
+    },
+    {
+      "name": "gate_future_call",
+      "ok": true,
+      "status": 400,
+      "sha256": "05c2ad36b25112fba8e7a8f4c82ef378441a7bbad6a3cfcb97d43a969e62a6c6",
+      "detail": "status=400 code=produced_at_future"
+    },
+    {
+      "name": "gate_liq_call",
+      "ok": true,
+      "status": 200,
+      "sha256": "e2bfb18be056b2ed6f0d1cdae681d9b9e38ede054c79509898243d327a105fe7",
+      "detail": "status=200 action=defer reason=interval_too_wide verdict_reason=covered upper_bound=true n_calib=170 digest_s0=true committed_text=true empty_text=false"
+    },
+    {
+      "name": "gate_liq_uncommitted_call",
+      "ok": true,
+      "status": 200,
+      "sha256": "22d12825bdb204cf6ed32ec3311fa232ded7c93ef7ed14ef20e2686247242ae8",
+      "detail": "status=200 action=abstain reason=under_calib verdict_reason=under_calib n_calib=0"
+    },
+    {
+      "name": "mcp_gate_description_liq",
+      "ok": true,
+      "status": 200,
+      "sha256": "b634e7e142bb90558a0768801505c3d5ab7c7fd7203b89f8070b2a86729a1580",
+      "detail": "status=200 committed_clause=true empty_registry_sentence=false"
+    },
+    {
+      "name": "cascade_call",
+      "ok": true,
+      "status": 200,
+      "sha256": "145b49754eeeaae9e644fe2b285ce2e3f04841473faf93479dbddeb7978444c5",
+      "detail": "yhat=100"
+    },
+    {
+      "name": "attest_call",
+      "ok": true,
+      "status": 200,
+      "sha256": "aeeb34e020d93b21e31c676552d260ceffae1e79c69b56ba2b5c911079d6ad69",
+      "detail": "real, notary Shōgen, demonstrative, not probative"
+    },
+    {
+      "name": "calibrate_call",
+      "ok": true,
+      "status": 200,
+      "sha256": "f169e9f6e333374a9d47a2010674ca789aba45bd126ef8764df2f0fb86a2cb90",
+      "detail": "qhat=1"
+    },
+    {
+      "name": "gate_byo_call",
+      "ok": true,
+      "status": 200,
+      "sha256": "b6d91fd05e06f647e7ddcd210e07c7bd0e9ee1d9061e56428e3a088e34826573",
+      "detail": "action=commit scores_sha256=3e12ae9e2e06bd038abc368fb2c94df3cb3097b8226d57f069874b84c6b54dcb calibrate_scores_sha256=3e12ae9e2e06bd038abc368fb2c94df3cb3097b8226d57f069874b84c6b54dcb"
+    },
+    {
+      "name": "gate_version_1_0_0_call",
+      "ok": true,
+      "status": 400,
+      "sha256": "ee1e67ebe0503e3352935298660de54ecb5b38bb4385f7045887d3e50c5c3177",
+      "detail": "status=400 code=schema_version_unsupported"
+    },
+    {
+      "name": "gate_kata_call",
+      "ok": true,
+      "status": 200,
+      "sha256": "f7744dcf470cf2f13123adcf96c2e7b13a81351ed759ccd3a3065e9d96371374",
+      "detail": "status=200 action=abstain verdict_reason=under_calib n_calib=0 region=null cell_key=kata:ca-probe@ca-probe/BTCUSDT/1h/b0 policy_row_sha256=null produced_at=2026-10-07T13:00:00Z waited_s=338"
+    },
+    {
+      "name": "gate_kata_policy_table",
+      "ok": true,
+      "status": 200,
+      "sha256": "ad9ed0e135dc4c206c0326cf5ff7fbc4d48918455be96abfe73a831515de96eb",
+      "detail": "policy_table_sha256=1296c3336a96e23098f13acaf849f35c8c35970bd33d37d47f18fd26a50f955f expected=1296c3336a96e23098f13acaf849f35c8c35970bd33d37d47f18fd26a50f955f"
+    }
+  ],
+  "tls": {
+    "host": "api.monarkgate.tech",
+    "authorized": true,
+    "issuer": "Let's Encrypt",
+    "subject": "api.monarkgate.tech",
+    "valid_to": "Dec 10 04:57:46 2026 GMT"
+  },
+  "tls_mcp": {
+    "host": "mcp.monarkgate.tech",
+    "authorized": true,
+    "issuer": "Let's Encrypt",
+    "subject": "mcp.monarkgate.tech",
+    "valid_to": "Dec 10 04:57:45 2026 GMT"
+  }
+}
