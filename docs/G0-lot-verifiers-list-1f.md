@@ -16,7 +16,9 @@ RECHERCHES, 2026-10-07. Base `1cddd2e5` (`lot/etude-suite`, `1cddd2e5a4cb54791db
   `…-MONARK-vers-RECHERCHES-g2-chaine-r2.md`, section « 1f (#231) » et décision de doctrine commune ; pièce
   `pieces/2026-10-07-g2-chaine-r2/g2f2-231.json` : un M, deux m) ; §6 et §10. Puis la G2 ciblée du second tour, par une instance
   neuve de RECHERCHES (`recherches:e1c7752`, pièce `pieces/2026-10-07-g2-recherches/G2-231-234-r2.json` : deux m, F1 et F2, aucun M ;
-  verdict CORRECTIONS) ; §11.
+  verdict CORRECTIONS) ; §11. Puis la fusion de l'outil figé au tronc (#241, `6536057c`) : le tronc fusionné dans la branche et la
+  première entrée de liste (consigne du coordinateur, 2026-10-07 ; consigne de MONARK sur le rebase, `…-231-234-239-recus.md`
+  l.16-18) ; §12.
 - **Provenance** : worker `claude-opus-5-5`, effort bas (réglage de la session), horloge lue (`date -u`) à 09:02 UTC au début, 09:12
   pour ce G0. Worktree détaché neuf du scratchpad, branche `recherches/verifiers-list-1f` ; `node_modules` lié en dur depuis un autre
   worktree du scratchpad, retiré à la fin. Aucun `GIT_DIR` ni `GIT_WORK_TREE`, aucun `--write-tree`. Node 24.21.0, Linux.
@@ -42,14 +44,22 @@ RECHERCHES, 2026-10-07. Base `1cddd2e5` (`lot/etude-suite`, `1cddd2e5a4cb54791db
     second (`wt-231f2-gel`), la garde des tueurs du tronc dans un troisième, jetable ; `node_modules` fait de liens vers celui du clone
     principal, `@monark/*` repointés dans chaque worktree, retirés à la fin ; ni `GIT_DIR`, ni `GIT_WORK_TREE`, ni `--write-tree`.
     Node 24.21.0, Linux.
+  - **Fusion du tronc et première entrée** (§12) : worker `claude-opus-5-5`, **effort: max**, déclaré ; même session, même worktree
+    (`wt-231f2`), repris propre à `92b0fdab` ; fusion `669ad472` à 18:20 UTC, commit de liste `fa874ac4` à 18:24 UTC, 18:40 UTC pour ce
+    G0 ; la fusion seule mesurée dans le worktree du gel (`wt-231f2-gel`, remis à `669ad472`) ; mêmes règles. Node 24.21.0, Linux.
 - **Zone** : `apps/harness/data/verifiers.json` (neuf), `apps/harness/src/policy-verifiers.ts` (neuf), `test/verifiers-list.test.ts`
   (neuf), `test/kata-recalc.test.ts` (l'épingle du test d'arbre passe à la liste), `.gitignore` (deux lignes et un blanc),
   `docs/G0-lot-verifiers-list-f5a-1.md` (amendements sur place, nombre de lignes inchangé) ; au second tour,
   `apps/harness/test/helpers/import-specifiers.ts` (neuf : l'aide partagée des chargements, §10) ; au pli de la G2 ciblée, l'aide et
-  `test/verifiers-list.test.ts` seuls (§11).
+  `test/verifiers-list.test.ts` seuls (§11) ; à la première entrée (§12), la fusion du tronc (un conflit, `test/kata-recalc.test.ts`),
+  puis `apps/harness/data/verifiers.json`, `policy-verifiers.ts` l.18 et `test/verifiers-list.test.ts`, rien sous `tools/kata-recalc/`.
 
 ## 1. L'épingle d'arbre attendue n'existe pas encore : un témoin marqué
 
+- **Fait le 2026-10-07 (§12)** : l'outil figé a fusionné au tronc (#241, `6536057c`). Le tronc est **fusionné** dans la branche
+  (`669ad472`, « Merge the trunk », sans rebase, consigne de MONARK), les deux régions en conflit résolues comme ci-dessous, et le
+  commit `fa874ac4` écrit l'entrée réelle (`6536057c`, `d6c80e9d…`), l'épingle, le tueur de la l.38 et le littéral. Le témoin n'est
+  plus ; ce qui suit garde le plan d'avant, où « au rebase » se lit « à la fusion du tronc ».
 - La liste doit épingler le **commit de fusion du lot « outil figé »** sur le tronc et le `tree_sha256` de `tools/kata-recalc/` à ce
   commit (G0 de la partie 3, §5.1 point 1). Ce lot n'est pas fusionné : `monark/reason-order-1` = `09f49fc2` (lu par `git ls-remote`),
   dont l'arbre de l'outil donne `289756d3…` par la règle de ce lot (égal à l'épingle de `test/kata-recalc.test.ts` sur cette branche).
@@ -138,7 +148,7 @@ tel quel dans l'aide, et passe au commit `1d6a7014`, qui le remplace par le parc
 
 | Test | Ce qu'il tient | Tueur |
 |---|---|---|
-| `verifier_list_is_the_pinned_canonical_bytes` | sha256 du fichier = `VERIFIERS_SHA256` ; écriture canonique, sans LF final ; `pinnedVerifiers()` mémorisée, égale au lecteur ; **tableau et éléments gelés** (`Object.isFrozen`), un `push` et une écriture dans un élément lèvent (mode strict) | `apps/harness/src/policy-verifiers.ts:18 CONST "220e9025…" -> "0000…"` (64 caractères) |
+| `verifier_list_is_the_pinned_canonical_bytes` | sha256 du fichier = `VERIFIERS_SHA256` ; écriture canonique, sans LF final ; `pinnedVerifiers()` mémorisée, égale au lecteur ; **tableau et éléments gelés** (`Object.isFrozen`), un `push` et une écriture dans un élément lèvent (mode strict) | `apps/harness/src/policy-verifiers.ts:18 CONST "3a6f304f…" -> "0000…"` (64 caractères ; `"220e9025…"` au témoin, avant le §12) |
 | `verifier_list_reader_refuses_each_departure` | admis : ordre d'ajout, deux révisions d'une identité, révocation après son entrée ; refus nommés : clé de plus, clé absente, mélange, révocation à clé de liste, format, clé de tête, liste vide, non-JSON, majuscule, `a@b`, identité vide, majuscule dans une révocation, **identité `1`**, `commit` majuscule, **non hex (`"g".repeat(40)`), tableau (`[C1]`)** ou court, `tree_sha256` court, **majuscule (`"A".repeat(64)`), non hex (`"g".repeat(64)`) ou tableau (`[T1]`)**, `tree` autre, `repository` autre, paire en double, révocation avant son entrée ou sans entrée, deux révocations, quatre dates fausses, date non chaîne | `apps/harness/src/policy-verifiers.ts:67 CONST "v.identity === identityOf(v.identity)" -> "true"` |
 | `verifier_list_reader_is_closed_on_the_bytes` (neuf, pli 5) | l'écriture canonique est lue, en octets comme en chaîne ; refus « not the canonical writing of the list » : pretty, LF final, CRLF, `verifiers` deux fois au sommet, `commit` deux fois dans une entrée, clés d'une entrée dans un autre ordre, clés du sommet dans un autre ordre, demi-substitut échappé dans une identité ; BOM en octets : « not UTF-8 JSON » ; **second pli** : octet UTF-8 invalide (`0xFF` dans l'identité) et BOM passé en chaîne : « not UTF-8 JSON » ; LF final passé en chaîne, demi-substitut échappé dans une **seconde** entrée, clés d'une **révocation** dans un autre ordre : « not the canonical writing » ; une liste qui porte une révocation est rendue gelée élément par élément | `apps/harness/src/policy-verifiers.ts:84 SDL "fail(\"not the canonical writing of the list\")" -> ""` |
 | `verifier_tool_tree_is_the_listed_tree` | `toolTreeSha256` de l'index sous `tools/kata-recalc/` = règle de `manifestText` = `tree_sha256` de l'entrée de l'outil ; un fichier de plus, un octet changé : écart ; modes `120000`, `160000`, `100755` et chemin voisin : refus nommés | `apps/harness/src/policy-verifiers.ts:113 CONST "p.slice(TOOL_ROOT.length + 1)" -> "p"` |
@@ -148,7 +158,7 @@ tel quel dans l'aide, et passe au commit `1d6a7014`, qui le remplace par le parc
 | `verifier_list_date_rule_is_the_spec_publish_rule` (test de la racine) | `validDate` du module = `validDate` de `scripts/spec-publish.mjs` sur chaque jour de 2023 à 2026, leurs voisins impossibles (jour 00, 29 à 32), et 18 valeurs (bissextiles 1900, 2000, 2024 ; mois 00 et 13 ; formes courtes ; espace ; LF ; chiffre pleine chasse ; non-chaînes) ; **les spécificateurs du module, tels que les liste `importSpecifiers` de l'aide** (`ts.preProcessFile(text, true, true)` : import, import nu, import de type, sur plusieurs lignes, ré-export, `export * from`, `import x = require()`, et `import()` ou `require()` d'un littéral ou d'un gabarit sans substitution ; un commentaire après le mot-clé est sauté), sont exactement `node:crypto`, `node:fs`, `node:url` ; aucun ne nomme `scripts/` ni la garde, et la garde n'est nommée que dans les commentaires (pli 4) ; **second tour** (le contrôle sur le texte du second pli, déplacé puis remplacé) : `forbiddenLoads` de l'aide rend `[]` sur le module, par un parcours de l'AST : aucun `import()` d'un non-littéral, et aucun des noms `require`, `getBuiltinModule`, `createRequire`, `eval`, `Function`, `constructor`, `dlopen`, **`binding`** (pli de `e1c7752`, §11), ni en identifiant ni en chaîne constante (§10) | `apps/harness/src/policy-verifiers.ts:39 CONST "/^\\d{4}-\\d{2}-\\d{2}$/" -> "/^\\d{4}-\\d{1,2}-\\d{2}$/"` |
 | `import_helper_reads_literal_specifiers_and_refuses_computed_loads` (neuf, second tour, en fin de fichier) | `importSpecifiers` lit les neuf formes littérales (import ; guillemets simples ; sur plusieurs lignes ; ré-export et import nu, chacun avec un commentaire avant le spécificateur ; `export * from` ; `import()` d'un gabarit sans substitution ; `import /* lazy */ (…)` ; `require`), dans l'ordre du texte, et ni la prose d'un commentaire de doc ou de ligne ni une chaîne ; `forbiddenLoads` nomme, ligne et forme, quinze cas : G7, G11, E1 à E5, E3 par un gabarit et des parenthèses (avec `eval` par une clé entre parenthèses), G9, `createRequire`, `require`, `eval` et `Function`, R1, `dlopen`, **`process.binding('fs')`** (pli de `e1c7752`, §11) ; et ne nomme rien sur un commentaire de ligne, un commentaire de doc indenté, un commentaire bloc, une chaîne et deux `import()` littéraux | `apps/harness/test/helpers/import-specifiers.ts:51 CONST "ts.isStringLiteralLike(n.arguments[0])" -> "true"` (l.43 avant le pli de `e1c7752`) |
 | `run_log_is_ignored_untracked_and_named_by_no_spec_input` (ex-`no_run_log_is_ever_published`, pli 7) | `git check-ignore --no-index` sur quatre chemins (racine, dossier du rapport, sortie de l'outil, dossier daté) ; aucun fichier suivi de ce nom, sans casse ; aucune entrée de release de `scripts/spec-publish-inputs.json` ne le lit ni ne l'écrit ; `report.py` l'écrit sous ce nom, à côté du rapport. La publication relève de 3a | `.gitignore:36 SDL "run-log.json" -> ""` |
-| `verifier_list_commit_carries_the_listed_tree` | chaque entrée de liste nomme un commit **de l'historique de `HEAD`** (`git merge-base --is-ancestor`, second pli ; pas le témoin) dont l'arbre sous `tools/kata-recalc/` a le `tree_sha256` listé (recette du §3.2) ; **second tour** : chaque lecture git d'un commit listé passe `--no-replace-objects` (`merge-base` l.242, `ls-tree` l.243, comme `cat-file` l.245) : une ref locale `refs/replace` ne greffe plus un commit dans l'historique ni ne change l'arbre d'un commit listé (phrase au commentaire, l.237 ; §10) | `apps/harness/src/policy-verifiers.ts:115 CONST "(a.path < b.path ? -1 : 1)" -> "(a.path < b.path ? 1 : -1)"` |
+| `verifier_list_commit_carries_the_listed_tree` | **à la première entrée** (§12), le corps s'ouvre sur le littéral `[commit, tree_sha256]` de l'entrée de l'outil, `6536057c` et `d6c80e9d…` (l.242) ; chaque entrée de liste nomme un commit **de l'historique de `HEAD`** (`git merge-base --is-ancestor`, second pli ; pas le témoin) dont l'arbre sous `tools/kata-recalc/` a le `tree_sha256` listé (recette du §3.2) ; **second tour** : chaque lecture git d'un commit listé passe `--no-replace-objects` (`merge-base` l.242, `ls-tree` l.243, comme `cat-file` l.245 ; l.245, l.246 et l.248 depuis le §12) : une ref locale `refs/replace` ne greffe plus un commit dans l'historique ni ne change l'arbre d'un commit listé (phrase au commentaire, l.237 ; §10) | `apps/harness/src/policy-verifiers.ts:115 CONST "(a.path < b.path ? -1 : 1)" -> "(a.path < b.path ? 1 : -1)"` |
 | `kata_recalc_tree_is_the_pinned_manifest` (`test/kata-recalc.test.ts`, corps changé) | l'épingle est lue dans la liste | inchangé : `tools/kata-recalc/kata_lib.py:265 CONST "(_EWMA_W[nret - j] * r) * r" -> "_EWMA_W[nret - j] * (r * r)"` |
 
 - **Écart déclaré** : le chantier (§5) voulait les refus de la règle d'arbre « sur un dépôt jetable ». Ils sont jugés sur l'entrée de
@@ -229,10 +239,15 @@ tel quel dans l'aide, et passe au commit `1d6a7014`, qui le remplace par le parc
 - Au pli de la G2 ciblée (§11), même forme (les 21 pathspecs de `ci.yml` l.100, lus dans le fichier, `1cddd2e5...HEAD`) : 6 fichiers,
   467 insertions, 5 suppressions, soit **472** (borne 547 ; borne de la CI 1 205), contre 463 avant (la CI de `e6d13075` lisait 463) ;
   l'aide 58/0 (+8, l'en-tête), `test/verifiers-list.test.ts` 283/0 (+1, le cas neuf).
+- À la première entrée (§12), même forme, contre le tronc (`6536057c...HEAD`, merge-base `6536057c`, la CI lisant
+  `origin/lot/etude-suite...HEAD`) : 6 fichiers, 470 insertions, 1 suppression, soit **471** (borne 547 ; borne de la CI 1 205) ;
+  `test/kata-recalc.test.ts` 6/1 (la fusion du tronc le rapproche : 6/5 contre `1cddd2e5`), `test/verifiers-list.test.ts` 286/0 (le
+  littéral et le commentaire du test d'historique).
 
 ## 6. Ce qui n'est pas fait
 
-- L'épingle d'arbre réelle (§1) : au rebase, après la fusion de l'outil figé.
+- L'épingle d'arbre réelle (§1) : au rebase, après la fusion de l'outil figé. **Faite** le 2026-10-07 (§12), par une fusion du tronc
+  et non un rebase (consigne de MONARK).
 - Aucun consommateur servi de `pinnedVerifiers()` n'est branché (porte, écrivain, garde) : c'est la partie 3 (3a, 3b) et E-2a (§7). Ce
   lot prouve que la lecture épinglée lève, fermée, sur une liste absente ou altérée, sans mémoriser l'échec, et ne lit rien au
   chargement.
@@ -259,6 +274,7 @@ tel quel dans l'aide, et passe au commit `1d6a7014`, qui le remplace par le parc
     d'outil (épingle, tueur l.38 et littéral suivis) ;
   - (e) les commits du lot sont poussés ensemble : seul, le commit d'outil rougit les deux tests d'arbre (règle du chantier l.291-292).
 - **La première entrée** (l'outil figé) ne change pas : il fusionne avant 1f, et 1f, rebasée, nomme son commit de fusion (§1).
+  **Écrite** le 2026-10-07 (§12) : `6536057c`, la branche ayant fusionné le tronc au lieu d'être rebasée.
 - **Mesure d'un lot qui se liste lui-même** (rejouée ici, locale, jamais poussée ; worktree détaché neuf du scratchpad, branches
   jetables `proof-1f-selflist-local` et `proof-1f-selflist-fold-local` ; sur le test de `12588884`, dont le corps du test d'historique
   n'a changé depuis que par `--no-replace-objects`, sans effet hors d'une ref de remplacement, §10) :
@@ -466,4 +482,62 @@ additifs et non bloquants. Ses lignes, lues à `e6d13075` : l'aide l.20 (`NAMES`
 - **La règle du lot qui se liste lui-même** (§6, cinq conditions) : l'aide n'est pas sous `tools/kata-recalc/**`, donc aucun commit de
   liste ; aucun rebase ; les trois commits (`fd63b6f2` le test, `c933d658` l'aide, puis ce G0) sont poussés ensemble. Le témoin reste
   le seul rouge permis.
+- **Non vérifié ici** : le rejeu Windows (MONARK, à la fusion).
+
+## 12. L'outil figé fusionné : le tronc fusionné dans la branche, et la première entrée de liste
+
+Note datée du 2026-10-07, 18:40 UTC. Consigne du coordinateur (reçue vers 18:00 UTC, après le pli du §11) : #241, l'outil figé, est
+fusionné au tronc `lot/etude-suite` par `6536057c9c1f7577ffe5b9bc31960e1e60c9b8a4` (« Merge #241: … », parents `87b821b0` et
+`2a5d0405`, la tête de #241 ; lu par `git fetch +refs/heads/lot/etude-suite:refs/remotes/origin/lot/etude-suite`) ; 1f écrit donc sa
+première entrée (§6, « La première entrée » : l'outil figé fusionne avant 1f, et 1f nomme son commit de fusion). Selon la consigne de
+MONARK (`…-MONARK-vers-RECHERCHES-231-234-239-recus.md` l.16-18 : ne pas rebaser une branche épinglée), le tronc est **fusionné** dans la
+branche, titre « Merge the trunk », au lieu du rebase que prévoyait le §1.
+
+| Étape | Commit | Ce qui change |
+|---|---|---|
+| fusion du tronc, `--no-ff` | `669ad47215f2867cd84999282578b5ebb30bd4ee` (parents `92b0fdab`, `6536057c`) | le tronc (70 fichiers) ; un seul conflit, `test/kata-recalc.test.ts`, en deux régions, résolues comme le §1 le prévoit : (1) la ligne d'import de `policy-verifiers.ts` (1f), puis les trois de l'outil figé, sa ligne de `scripts/spec-publish.mjs` (avec `tableRowProblems`) remplaçant celle de 1f (l.26-29) ; (2) dans le corps de `kata_recalc_tree_is_the_pinned_manifest`, le commentaire de l'outil figé avec sa phrase « In the body, so that each lot that moves the pin is judged by scripts/red-proof.mjs », puis le commentaire « Lot 1f: … », puis la lecture de la liste ; la constante `PIN = "d6c80e9d…"` de l'outil figé sort (l.51-65). Aucun fichier engendré à refaire |
+| commit de liste | `fa874ac48d8f1da32f4876ba09267baa607282b2` | rien sous `tools/kata-recalc/` : `apps/harness/data/verifiers.json` (l'entrée nomme `6536057c` et son arbre ; écrite par `canonicalJson` de `scripts/spec-publish.mjs`, sans LF final) ; `VERIFIERS_SHA256` (`policy-verifiers.ts:18`) ; le texte du tueur de `test/verifiers-list.test.ts:38` ; le littéral en tête du corps de `verifier_list_commit_carries_the_listed_tree` (l.242) et le commentaire du test (l.234-239 : le témoin n'est plus présent ; le littéral nommé) |
+| ce G0 | le commit suivant | `docs/` seul |
+
+- **L'arbre listé, par la règle du test** : `git --no-replace-objects ls-tree -r -z --full-tree 6536057c -- tools/kata-recalc`, chaque
+  blob par `cat-file`, puis `toolTreeSha256` (les lectures de `verifier_list_commit_carries_the_listed_tree`, l.245-250) : 12 fichiers,
+  tous `100644` (arbre git `10e6f04d7c81099ab6271d4521e367471c2ee22c`) ;
+  **`d6c80e9db438fe2fb9ea3ca7fab03dc4cc6902eed23a08ca6863417da2a1b451`**. C'est l'épingle que l'outil figé écrivait dans
+  `kata_recalc_tree_is_the_pinned_manifest` : même règle (`sha256(manifestText(…))` des blobs `100644` sous l'outil, chemins relatifs à
+  `tools/kata-recalc/` ; la recette du §3.2), même valeur ; l'index de la tête, par la règle du test d'arbre, donne la même. L'outil est
+  le même à `6536057c` et à la tête (`git diff --quiet`), et le même qu'à `29c53bd5`, que la G2 ciblée a lu (`e1c7752`).
+- **L'entrée** (seule entrée de la liste) :
+  `{"commit":"6536057c9c1f7577ffe5b9bc31960e1e60c9b8a4","identity":"monark-kata-recalc","repository":"KraidleAI/monark-governance","tree":"tools/kata-recalc","tree_sha256":"d6c80e9db438fe2fb9ea3ca7fab03dc4cc6902eed23a08ca6863417da2a1b451"}` ;
+  sha256 des octets de la liste `3a6f304f3eb592c51c73fb8d13c6a3f752bf0168563f57fc5b8ab966a6975d0d`. Le littéral (l.242) :
+  `assert.deepEqual([toolEntry(pinnedVerifiers())?.commit, toolEntry(pinnedVerifiers())?.tree_sha256], ["6536057c9c1f7577ffe5b9bc31960e1e60c9b8a4", "d6c80e9db438fe2fb9ea3ca7fab03dc4cc6902eed23a08ca6863417da2a1b451"], "the tool's entry: the listed commit and its tree")`.
+- **Le témoin tombe** : à `fa874ac4`, `verifiers-list` et `kata-recalc` : 17 tests, 17 verts (`6536057c` est dans l'historique de
+  `HEAD`, son arbre a le digest listé). À la fusion seule (`669ad472`, la liste encore au témoin, l'outil neuf) : 17 tests, 14 verts,
+  trois rouges, le témoin et les deux tests d'arbre (`kata_recalc_tree_is_the_pinned_manifest`, `verifier_tool_tree_is_the_listed_tree` :
+  la liste nomme encore `e9e11ccb…`) ; d'où la condition (e).
+- **red-proof, `--gel <sha>`** (condition (a)), Node 24.21.0, Linux :
+  - le commit de liste seul : `node scripts/red-proof.mjs --base 669ad47215f2867cd84999282578b5ebb30bd4ee --gel
+    fa874ac48d8f1da32f4876ba09267baa607282b2 --repo <worktree> --out <dossier> --draw 1 --seed 1007` : sortie 0, « red-proof OK: 1
+    judged, 10 unchanged, 1 killer(s) drawn » ; `verifier_list_commit_carries_the_listed_tree` F2P (rouge à la fusion par une assertion,
+    le littéral contre la liste du témoin ; vert au gel) ; son tueur, `policy-verifiers.ts:115`, tiré et tué par assertion ; digest du
+    gel `9643f5039dc5feb31f0ee486218dd499f4516923521f79a469b69144aabe67d2` ; `RED-PROOF.json`
+    `404f47d61aeda9c1ae624915c95391d875cc34deea5976b01b6f981cd028be3a`. Le tueur de la l.38, changé, ne juge aucun test (une ligne de
+    tueur changée ne compte jamais) ;
+  - tout le lot contre le tronc : `--base 6536057c9c1f7577ffe5b9bc31960e1e60c9b8a4 --gel fa874ac48d8f1da32f4876ba09267baa607282b2
+    --draw 12 --seed 1007` : sortie 0, « red-proof OK: 12 judged, 5 unchanged, 12 killer(s) drawn » ; douze `new-module` ; douze tueurs
+    tirés et tués, chacun par une assertion (`assert-fail`), dont l.115, l.18 (épingle neuve) et l'aide l.51 ; digest du gel
+    `c1cc50b426711de12f007efc22aed37574965eef339f06e521a6126f4117f297` ; `RED-PROOF.json`
+    `d51b5722a95110c56c0622c517d373f7050f5aa951f4c9aa495b39d02ea31aa4`. Plus de gel de preuve : la tête porte l'entrée réelle. Le commit
+    suivant ne change que ce G0, hors du digest.
+- **Ancres** : `verifie-ancres.mjs` (`--touched 6536057c HEAD --ref 92b0fdab --ref 6536057c`) : 17 tueurs des fichiers touchés, tous
+  ANCRE ; l'arbre entier : 1 623, aucun PERDU ni DERIVE. **La garde des tueurs du tronc** (`every_killer_line_is_readable`,
+  `test/killer-lines.test.ts`) est maintenant dans la branche : elle passe (dans `test:main`).
+- **`test:main`** (Linux, Node 24.21.0, à `fa874ac4`) : 2 913 tests, 2 891 verts, 22 sautés, aucun rouge ; `every_killer_line_is_readable` y passe ; `test:export` 1 sur 1. Portes : `tsc --noEmit` 0 ; `eslint` du module, de l'aide et des
+  deux fichiers de test 0 ; `eslint .` 0 ; `gate:vocab` 0 (349 fichiers) ; `lang:gate` 0 ; `lint:ratchet` 69/69 ; `export:check` 0 ; winlint
+  `--base 6536057c` : 8 fichiers, aucun risque Windows.
+- **Taille** : §5 (471, contre le tronc).
+- **Les cinq conditions du §6**, pour cette première entrée : (a) red-proof avec `--gel <sha>` (ci-dessus), jamais un dossier ; (b) la
+  fusion du tronc dans la branche est un commit de fusion (`--no-ff`) ; la fusion de #231 au tronc reste `--no-ff` seulement, jamais
+  squash ni rebase-merge ; (c) aucun rebase depuis l'épinglage, et aucun ne doit suivre (la consigne de MONARK le dit aussi) ; (d) aucun
+  pli n'a touché l'outil depuis l'épinglage ; (e) la fusion, le commit de liste et ce G0 sont poussés ensemble (mesuré ci-dessus : la
+  fusion seule rougit les deux tests d'arbre).
 - **Non vérifié ici** : le rejeu Windows (MONARK, à la fusion).

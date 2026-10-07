@@ -627,6 +627,10 @@ printf 'SMTP_HOST=%s\nSMTP_PORT=465\nSMTP_TLS=implicit\nSMTP_USER=%s\nSMTP_PASS=
 #   ssh ... 'sha256sum /etc/monark/probe.env'                           # remote
 ```
 
+**After posting or changing `SMTP_PASS`:** `docs/RUNBOOK-dojo.md` section 25, (1b) then (4b), once that section
+has been played on Bell: the Dojo probe reads its own copy of the password (`/etc/monark/dojo-probe-smtp-pass`,
+written by (1b)), not this file's `SMTP_PASS`, so without them its next due mail fails as `smtp_auth_failed`.
+
 **2. Simulate ONE shot as the `probe` user WITHOUT touching production.** Never `source` the env file in an agent
 shell (that leaks the secret into the shell's env); never point `--out` at the production `narabi.json`. Use
 `systemd-run` so the SAME `EnvironmentFile` is applied by systemd (not the shell), writing a THROWAWAY state file:

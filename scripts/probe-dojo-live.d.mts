@@ -9,6 +9,8 @@ export const DEFAULT_HOST: string;
 export const DEFAULT_OUT: string;
 export const DEFAULT_VERIFIER: string;
 export const DEFAULT_KEYRING: string;
+export const DEFAULT_SMTP_PASS_FILE: string;
+export const SMTP_PASS_MAX_BYTES: number;
 export const DOJO_PROBE_TREE_ROOT: string;
 export const DOJO_PROBE_TREE_PATHS: readonly string[];
 export const DEADLINE_UTC: string;
@@ -23,7 +25,7 @@ export const DOJO_LIVE_KEYS: readonly string[];
 
 /** The closed reasons of dojo-live.json, in their precedence; null = healthy. */
 export type DojoLiveReason =
-  | "probe_error" | "insecure_url" | "bad_port" | "unreachable" | "timeout" | "too_large" | "timeline_malformed"
+  | "probe_error" | "insecure_url" | "bad_port" | "secret_in_environment" | "unreachable" | "timeout" | "too_large" | "timeline_malformed"
   | "proxy_timeline_differs" | "proxy_lines_differs" | "proxy_not_no_store" | "edge_cache_status" | "verifier_timeout"
   | "verifier_refused" | "verifier_timeline_differs" | "lag";
 
@@ -51,15 +53,18 @@ export interface DojoLiveState {
   last_alert_day: string | null;
 }
 
-/** Inputs of one run; the CLI sets the first six (parseArgs), the tests the others (never the environment nor the argv). */
+/** Inputs of one run; the CLI sets the first seven (parseArgs), the tests the others (never the environment nor the argv). */
 export interface DojoProbeOpts {
-  proxy?: string; host?: string; keyring?: string; verifier?: string; out?: string; now?: string;
+  proxy?: string; host?: string; keyring?: string; verifier?: string; out?: string; now?: string; smtpPassFile?: string;
   bounds?: VerifyBounds; verifierTimeoutMs?: number; sleep?: (ms: number) => Promise<void>; env?: Record<string, string | undefined>;
 }
 
 export function expectedDay(nowIso: string): string;
+/** The SMTP password of the file at `path`, or null (absent, its last path component a symbolic link, too large, its size changed under
+ *  the read, not one non-empty line of valid UTF-8 without a BOM, or open to group or others on POSIX). A hard link is not seen. */
+export function readSmtpPass(path: string): string | null;
 export function readPriorAlert(out: string): { alerted: boolean; last_alert_day: string | null };
 export function composeDojoMail(input: { from: string; to: string; kind: "alert" | "reminder" | "recovery"; state: DojoLiveState }):
   { subject: string; message: string };
-export function parseArgs(argv: readonly string[]): Partial<Record<"proxy" | "host" | "keyring" | "verifier" | "out" | "now", string>>;
+export function parseArgs(argv: readonly string[]): Partial<Record<"proxy" | "host" | "keyring" | "verifier" | "out" | "now" | "smtpPassFile", string>>;
 export function probe(opts?: DojoProbeOpts): Promise<{ state: DojoLiveState; exitCode: number }>;
