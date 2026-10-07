@@ -30,7 +30,7 @@ import { compilePatterns, scanText as scanVocab } from "../scripts/grep-forbidde
 
 const ROOT = join(import.meta.dirname, "..");
 const MANIFEST_REL = "apps/site/data/manifest.sha256.json";
-// Verbatim from test/public-surfaces-honesty.test.ts:41 (the same probative oracle).
+// Verbatim from the PROBATIVE constant of test/public-surfaces-honesty.test.ts (the same probative oracle).
 const PROBATIVE = /(?<!\bnot )(?<!\bno )(?<!\bnever )\b(?:verified|proven|certified)\b/gi;
 
 test("bell_legal_loader_checks_the_manifest — sha256-checked, complete, fail-closed", () => {
