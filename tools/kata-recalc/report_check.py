@@ -4,6 +4,8 @@
 # commit of lot 1d, whose tree digest is that lot's pin, and each refusal of the tree rule); the three passes on four synthetic walks;
 # each class and each refusal of the classification, through compare_p2.py run as a child as report.py runs it; the report's bytes;
 # report.py run as a child (usage, an output that is not empty, a failed run that writes no report).
+# REASON-ORDER-GUARD-VERIFIER-1 (2026-10-07): section 9, the reason of a cell through recalc_p2.calibrate_cell (whose rows the passes
+# and the report compare), on hand-built CALIB points of one direction cell: no candle, no series.
 # Usage: python -B report_check.py <repository> <work dir> <out.txt>
 import io_guard  # the input guard, before any other module (M-7): only the C library of log is read, under the role libm
 import copy
@@ -202,6 +204,33 @@ def main(repo, work, out_path):
                "--registry", b_path, "--out", fail_out)
     rec(f"report.py: a run that cannot finish exits 2 and writes run-log.json only (exit {code})",
         code == 2 and os.path.lexists(os.path.join(fail_out, "run-log.json")) and not os.path.lexists(os.path.join(fail_out, "report.json")))
+
+    # 9. the reason of a cell (REASON-ORDER-GUARD-VERIFIER-1), in the order of RECHERCHES' written decision f51322c (piece
+    # short-digest-spec-text section B): under_calib; then a constant auxiliary sequence, whatever check 1 says; then a rejection by
+    # either check; then the misses of a direction cell. Down side of a direction cell: a flat label is a miss and the label sequence
+    # counts the up labels only, so check 1 can reject while check 2 is empty. 40 points (k* 12 at alpha 0.45, n0 6) unless stated
+    kid, h1 = "trend-ema-v1", K.H_MS["1h"]
+    cell = {"kind": "dir", "kata": kid, "side": "down", "bucket": "down-b1", "symbol": "BTCUSDT", "horizon": "1h", "taskClass": "btc-dir-1h",
+            "key": f"kata:{kid}@{R.VENUE}/BTCUSDT/1h/down-b1"}
+    thr = {kid: {"up": {"t1": "0.1", "t2": "0.2"}, "down": {"t1": "0.1", "t2": "0.2"}}}
+
+    def calib_of(labels):
+        pts = [{"t": K.BLOCKS["CALIB"][0] + i * h1, "v": {kid: -0.05}, "y": y, "r": None, "D": None, "U": None} for i, y in enumerate(labels)]
+        c = R.calibrate_cell(cell, {"CALIB": pts, "TEST": []}, thr, {}, h1, "0" * 64)[0]["calib"]
+        return c["check1"], c["check2"], c["qhat"], c["status"], c["reason"]
+
+    constant, rejects = "auxiliary sequence constant (fails closed)", "dependence check rejects"
+    for name, labels, want in (  # name, labels in time order, (check1, check2, qhat, status, reason)
+            ("check 1 rejects, no up label", ["flat"] * 6 + ["down"] * 34, ("reject", "empty", 0, "silence", constant)),
+            ("check 1 rejects, one up label inside", ["flat"] * 6 + ["down"] * 17 + ["up"] + ["down"] * 16, ("reject", "pass", 0, "silence", rejects)),
+            ("check 1 passes, no up label", ["flat" if i % 5 == 0 else "down" for i in range(40)], ("pass", "empty", 0, "silence", constant)),
+            ("check 1 empty, no up label", ["down"] * 40, ("empty", "empty", 0, "silence", constant)),
+            ("qhat 1, check 2 rejects", ["up"] * 20 + ["down"] * 20, ("empty", "reject", 1, "silence", rejects)),
+            ("qhat 1, check 2 passes", ["up" if i % 2 == 0 else "down" for i in range(40)], ("empty", "pass", 1, "silence", "misses 20 above k* 12")),
+            ("qhat 0, both checks pass", ["up" if i % 5 == 0 else "down" for i in range(40)], ("pass", "pass", 0, "region", "")),
+            ("5 points, below n0", ["down"] * 5, ("n/a", "n/a", None, "under_calib", "n 5 below n0 6"))):
+        got = calib_of(labels)
+        rec(f"reason of a down-side direction cell, {name}: {want[4]!r}", got == want, got)
 
     lines.append(f"failures {bad[0]}")
     lines.extend(io_guard.input_lines())

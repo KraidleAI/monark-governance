@@ -222,3 +222,17 @@ test("the_guard_refuses_a_sign_set_row_under_the_digest_floor", () => {
   });
   assert.throws(() => guardKataTable(tableFrom(cls, low.bytes, low.pins), low.bytes, low.pins, entry(cls)), /has a digest that the publication refuses: scores/);
 });
+
+// reddened by: a rejection named before a constant auxiliary sequence on a wave 1 row (the order of guardKataRow before
+// REASON-ORDER-GUARD-VERIFIER-1), where the generator names the constant sequence first, whatever check 1 says (kata/bench/calibrate.ts
+// l.135-136; RECHERCHES decision f51322c). A band row carries the case through every other clause; the generator reaches it on the down
+// side of a direction cell only (a flat label is a miss, the label sequence counts the up labels), where the digest floor refuses the row
+// killer: apps/harness/src/policy-guard.ts:83 COR "adm.empty ? [" -> "adm.empty && (w2 || !adm.reject) ? ["
+test("guard_names_a_constant_auxiliary_sequence_before_a_rejection", () => {
+  const silent = (r: PolicyRow, why: string): PolicyRow => ({ ...r, runs_miss: "reject", runs_aux: "empty", status: "silence", status_reason: why, bound_on: null, miss_bound: null });
+  const band = find((r) => r.side === null && r.status === "region" && (r.k_obs ?? 0) > 0);
+  refuse(silent(band, "dependence check rejects"), /has status 'silence' and reason 'dependence check rejects', not 'silence' and 'auxiliary sequence constant \(fails closed\)'/);
+  check(silent(band, "auxiliary sequence constant (fails closed)"));
+  const down = find((r) => r.side === "down" && r.status === "region" && r.qhat === 0 && (r.k_obs ?? 0) > 0);
+  refuse(silent(down, "auxiliary sequence constant (fails closed)"), /has a digest that the publication refuses: sign-set outcomes that no count of flats/);
+});

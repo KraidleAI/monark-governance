@@ -8,7 +8,8 @@
 // it with the tree_sha256 of the pinned verifier list. git runs without the caller's GIT_* variables (test/helpers/git-tracked.ts).
 // Lot 1d (M-7, M-9) adds two tests: the language gate reads the .py sources of the tool, and each entry script imports io_guard, the
 // input guard, before any other module. Lot 1e (M-11) moves the pin, names report.py and report_check.py among the entry scripts, and
-// gates the fixed texts of the report through contentProblems of scripts/spec-publish.mjs. Reads only.
+// gates the fixed texts of the report through contentProblems of scripts/spec-publish.mjs. REASON-ORDER-GUARD-VERIFIER-1 (2026-10-07)
+// moves the pin: recalc_p2.py names a constant auxiliary sequence before a rejection, and report_check.py tests it. Reads only.
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
@@ -39,11 +40,12 @@ function indexEntries(): { mode: string; object: string; stage: string; path: st
 // removed or renamed under tools/kata-recalc/, a mode other than 100644, or an unmerged entry
 // killer: tools/kata-recalc/kata_lib.py:265 CONST "(_EWMA_W[nret - j] * r) * r" -> "_EWMA_W[nret - j] * (r * r)"
 test("kata_recalc_tree_is_the_pinned_manifest - the index holds the tool as 100644 blobs whose manifest digest is the pin of the lot, and the working tree carries them", () => {
-  /** Lot 1e: the manifest of the eleven files after M-11, the eight of lot 1d (ff72522e..., itself read as a diff against bca9ee52...,
-   *  the tree of the delivery that the review of P2b saw, G0 section 2.3), io_guard.py and recalc_p2.py amended, and fdlibm_log.py,
-   *  report.py and report_check.py. In the body, so that each lot that moves the pin is judged by scripts/red-proof.mjs (a changed line
-   *  judges a test only inside its body). */
-  const PIN = "e9e11ccb63a7f5c538f853d2e4773f63cca3cce4a8d7b55fccd1f5d6646cef24";
+  /** REASON-ORDER-GUARD-VERIFIER-1: the eleven files of lot 1e (e9e11ccb...: the eight of lot 1d, ff72522e..., itself read as a diff
+   *  against bca9ee52..., the tree of the delivery that the review of P2b saw, G0 section 2.3; io_guard.py and recalc_p2.py amended;
+   *  fdlibm_log.py, report.py and report_check.py added), with recalc_p2.py (the order of reason) and report_check.py (its self-test,
+   *  section 9) amended. In the body, so that each lot that moves the pin is judged by scripts/red-proof.mjs (a changed line judges a
+   *  test only inside its body). */
+  const PIN = "289756d342031997b2b051d49b10429c17a5bc1840614f44a5813001c27649e1";
   const entries = indexEntries();
   assert.deepEqual(entries.filter((e) => e.mode !== "100644" || e.stage !== "0" || !e.path.startsWith(`${TOOL_ROOT}/`)).map((e) => `${e.mode} ${e.stage} ${e.path}`), [],
     "every entry a merged regular file (100644) under tools/kata-recalc/: no link, gitlink or executable");

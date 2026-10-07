@@ -837,7 +837,10 @@ des événements ; `events/`, `probe/` et `smoke/` portent les sondes.
   un jugement pendant que le fil principal lit un fichier non listé : sortie 4 ; la même sonde contre la garde de `ad2a45b6` lit le
   fichier (`BYPASS`, sortie 0).
 - **KATA-SPEC-REASON-ORDER-1** (N-3). Porteur : MONARK. Déclencheur : le lot qui publie la révision datée de KATA-SPEC portant la
-  section 8. Fermeture : le texte fixe l'ordre (un rejet nommé avant un contrôle 2 vide) et un cas de vecteur le porte.
+  section 8. Fermeture : le texte fixe l'ordre, celui des deux générateurs (décision de RECHERCHES, `f51322c`) : une suite auxiliaire
+  constante est nommée avant un rejet, quel que soit le contrôle 1 ; un cas de vecteur le porte. Corrigé en place le 2026-10-07 : ce
+  point disait « un rejet nommé avant un contrôle 2 vide », l'ordre de la garde et du vérificateur d'alors, qu'aucun générateur ne
+  suit (§16).
 - **Mesures** : 57 sondes, 0 échec (`probe/guard_probes.py`, `c681aedc…` : les 37 d'avant, dont P24 sans `rmtree`, les 19 neuves, et
   P58 contre la garde de `ad2a45b6`) ; oracles, comparateur et fumées dans `final3/` ; épingle, Node et R-25 : plus haut.
 
@@ -1058,3 +1061,152 @@ Worktree `F:/Monark-wt-verifiers-1e`, tête `2a46eeb8` (lots 1a à 1d fusionnés
   `git add` dans `F:/tmp/verifiers-1e/clone` seulement ; `git checkout` de fichiers dans les clones de `F:/tmp` pour rendre les tueurs.
   Dans le worktree : des lectures, et le `rm` des caches que ce lot a créés. Rien n'est écrit sur C: (`ucrtbase.dll` et la bibliothèque
   standard y sont lus).
+
+## 16. Lot REASON-ORDER-GUARD-VERIFIER-1 : mesures
+
+Worker `claude-opus-5-5` (effort max), horloge lue de 2026-10-07 03:57 à 04:3x UTC (tampons de `now.mjs` : 03:57 au départ, 04:11,
+04:16, 04:20, 04:21, 04:27, 04:29 à l'écriture de ce paragraphe, 04:31 à la relecture de la copie de RECHERCHES). Worktree
+`F:/Monark-wt-reason-order`, branche `monark/reason-order-1`, tête `177b5755` (fusion du lot 1e) ; le worker ne committe ni n'indexe
+rien dans le worktree (R-20). Sorties sous `F:/tmp/reason-order/` : `clone/` (clone `--shared` détaché à `177b5755`, lot indexé dans ce
+clone seul, `node_modules` lié comme celui du worktree, `@monark/*` vers les paquets du clone), `base-clone/` (même base, fichiers de
+test copiés), `base-tool/` (l'outil de la base, par `git archive`), `selftest/`, `oracles/`, `out/`.
+
+- **Sources**, lues en entier : message de RECHERCHES `f51322c` (`74f95562…`, §B) et sa pièce `short-digest-spec-text/TEXT.md`
+  (`ac1e456`, `82a53d67…`, §B) ; réponse de MONARK `fa8fdc1` (le lot pris ; le vecteur reste dans R1) ; R1, `KATA-SPEC-proposed.md` §10
+  (`594028c`, `c8ce9720…` à `dcb7f13`), et sa note (`785c3301…` : FORMAT.md n'est pas touché, l'ordre fin est écrit au §10 de KATA-SPEC).
+
+**L'ordre des générateurs, lu sur place** (copie de RECHERCHES à `dcb7f13`, relue à `c91802c` à 04:31 UTC).
+- Vague 1, `kata/bench/calibrate.ts` (`fc6422b9…`) :
+  - l.122-124 : sans rang, `under_calib`, raison `empty bucket (no thresholds on this side)`, `empty bucket` ou `n <n> below n0 <n0>` ;
+  - l.126 : contrôle 1 sur `1{s > qhat}` ; l.127-132 : contrôle 2 sur les labels up (direction) ou sur l'excédent équilibré des scores
+    (bande, `empty` si l'excédent est vide) ;
+  - l.135-136 : `silence` si le contrôle 1 rejette, si le contrôle 2 rejette ou s'il est vide. La raison est `auxiliary sequence
+    constant (fails closed)` dès que le contrôle 2 est vide, sinon `dependence check rejects` ;
+  - l.138-139 : une direction à `qhat` ≠ 0 donne `misses <m> above k* <k>` ; l.141 : `region`, raison vide ;
+  - contrôle 1 vide et contrôle 2 qui rejette : l.135-136, `dependence check rejects`, comme la garde. Direction à `qhat` 1 : aucun score
+    ne dépasse 1, le contrôle 1 est vide, et `misses …` ne vient que si le contrôle 2 passe (l.138), comme la garde ;
+  - seul écart : le contrôle 1 rejette et le contrôle 2 est vide.
+- Vague 2, `kata/w2c/calibrate2.ts` (`fa0559bd…` ; `c4450022…` depuis `4b4136b`, W2C-N0-REASON-1, qui ne change que la l.95) :
+  l.95 et l.102, `under_calib` (`empty bucket` à n 0 depuis `4b4136b`, `n <n> below n0 <n0>` ou `score refused`) ; l.121, queue vide,
+  `tail sequence constant (fails closed)` ; l.122, queue ou contrôle 1 qui rejette, `dependence check rejects` ; l.123, `region` (un
+  contrôle 1 vide n'est pas un refus). Écart : la queue est vide et le contrôle 1 rejette.
+- Le worker a lu ces lignes parce que la mission le demandait. Le commentaire du vérificateur cite la décision écrite (`f51322c`, pièce
+  §B), pas le générateur : l'en-tête de l'outil dit qu'il s'écrit d'après les définitions (mission D-1).
+
+**Où le cas arrive** (lu dans le code) :
+- bande de vague 1 : l'excédent équilibré est vide si et seulement si les scores sont constants (`binom_exact.py` l.322-342,
+  `runs.ts` l.91-107). `1{s > qhat}` est alors constant, et le contrôle 1 vide : le cas n'arrive pas ;
+- direction, côté up : le score vaut 1 moins le label (calibrate.ts l.71-72), donc un label constant rend le score constant : le cas
+  n'arrive pas ;
+- direction, côté down : un label plat est un manqué, et la suite des labels ne compte que les labels up. Des plats groupés font
+  rejeter le contrôle 1 avec un contrôle 2 vide : le cas arrive ;
+- une telle ligne reste refusée par le plancher de digest, à la porte de publication comme à la garde. Sonde `floor-probe.ts`
+  (`3a9b5ec8…`) : avec m ≤ 34, seul f = m est admis et la borne des labels vaut −4,39 à −6,02 bits (n 40 et m 6, n 400 et m 20, n 800
+  et m 34) ; avec m > 34, aucun f n'est admis. Le lot aligne la raison ; il ne rend pas une telle ligne publiable ;
+- vague 2 : le générateur ne produit jamais ce cas (queue vide, contrôle 1 qui rejette). Sur tout n admis, n − k* ≥ tailRank(n,
+  tail_frac), avec une marge minimale de 18 à 1h et de 36 à 4h, donc `qhat` ≥ tau ; une queue vide donne alors k_obs 0, donc un
+  contrôle 1 vide (`calibrate2.ts` l.106-110, `tail.ts` l.119-121 et l.153 ; sonde `reach-probe.ts` et simulations `w2-sim.ts`,
+  `w2-sim2.ts` du vérificateur, sous `F:/tmp/reason-order-verify/` : 0 cas sur 9 200 calibrations). La ligne du test de vague 2
+  ci-dessous est forgée : elle passe toutes les autres clauses de la garde, et sert à fixer l'ordre de la garde, pas un cas du
+  générateur. (Pli de la G2 du vérificateur, constat 1, MONARK 2026-10-07 05:0x UTC.)
+
+| Point | Diff (lignes du nouvel arbre) | Source |
+|---|---|---|
+| garde | `apps/harness/src/policy-guard.ts` l.83 : `adm.empty` avant `adm.reject`, pour les deux vagues ; un échange pur (284 octets avant et après) : aucune ligne ne bouge, et les tueurs qui épinglent l.24 à l.124 gardent leur ligne | `f51322c` §B ; pièce §B |
+| tests de la garde | `policy-guard.test.ts` l.226-238, `guard_names_a_constant_auxiliary_sequence_before_a_rejection` ; `policy-wave2.test.ts` l.250-258, `w2_guard_names_a_constant_tail_before_a_rejection` | pièce §B (un cas par vague) |
+| vérificateur | `recalc_p2.py` l.291-294 (l'échange), l.280-282 (l'ordre et sa source écrite), l.2 (en-tête) ; 507 lignes, l.12 inchangée | idem |
+| auto-test | `report_check.py` section 9 (l.208-233) et en-tête (l.7-8) ; 246 lignes | mission, point 2 |
+| épingle | `test/kata-recalc.test.ts` l.48 : `289756d3…` ; commentaire l.43-47 ; en-tête l.11-12 | §3.2 |
+| G0 | §14 : KATA-SPEC-REASON-ORDER-1 corrigé en place ; ce §16 | mission, point 3 |
+
+- **L'invariant du vérificateur** (`recalc_p2.py` l.393 : `region` si et seulement si la raison est vide) ne dépend pas de l'ordre. Le
+  statut vaut `silence` dès que `reasons` n'est pas vide (l.269-275) : un contrôle 1 qui rejette, un contrôle 2 qui rejette ou qui est
+  vide, une direction à `qhat` 1. Ce sont exactement les cas d'une raison non vide, sous les deux ordres. Il n'est pas changé.
+- **Pourquoi l'auto-test va dans `report_check.py`** : c'est le seul auto-test de l'outil qui importe `recalc_p2` et fait tourner
+  `calibrate_cell` (section 5, les passes). La raison y est une décision que `compare_p2.py` compare (cas « calib.reason altered » de
+  `compare_check.py`). Les autres ne s'y prêtent pas : `vectors_check.py` lit les vecteurs de KATA-SPEC (le vecteur de l'ordre viendra
+  par R1), `binom_check.py` éprouve le moteur, et `compare_check.py` le comparateur sur un registre. Un auto-test neuf tournerait seul,
+  donc avec un bloc `__main__` : il aurait changé la liste des scripts d'entrée que fige
+  `kata_recalc_entry_scripts_import_the_input_guard_first`.
+  - La section 9 construit à la main les points CALIB d'une case de direction, côté down : 40 points (k* 12 à alpha 0,45 ; n0 6), ni
+    bougie ni série. Elle contrôle `(check1, check2, qhat, status, reason)` sur huit cas.
+  - Un seul cas sépare les deux ordres : « check 1 rejects, no up label » (6 plats en tête, puis 34 labels down).
+  - Les sept autres tiennent les autres branches : un rejet avec un label up au milieu ; un contrôle 1 qui passe, ou vide, avec un
+    contrôle 2 vide ; `qhat` 1 avec un contrôle 2 qui rejette ou qui passe ; une région ; 5 points sous n0.
+
+**Mesures** (`python -B`, hors ligne ; aucune série lue).
+- `wave1.json` (`811fcd57…`, un registre, pas une série), par `wave1_reason_count.py` (`4794e07f…`, sortie `2679796d…`) :
+  - 280 lignes. Contrôle 1 qui rejette et contrôle 2 vide : 0 ; contrôle 2 vide : 0 ;
+  - `check1` : `empty` 239, `pass` 29, `reject` 12 ; `check2` : `pass` 235, `reject` 45 ; statut CALIB : `region` 4, `silence` 276 ;
+  - la raison recalculée depuis les contrôles publiés égale celle du registre sous les deux ordres, sur 280 lignes ; aucune ligne ne
+    change de raison. La vague 1 n'est pas touchée.
+- Auto-test : `report_check.py F:/Monark-wt-reason-order …` donne 47 contrôles, 0 échec, GREEN, en 85 s (`selftest/report-check-new.txt`,
+  `393b36e8…`). Contre la sortie du lot 1e (`report-check-5.txt`, `f2e5d594…`), `diff` ne montre que les huit lignes ajoutées. Le
+  rapport de synthèse garde ses octets (`7f5913f7…`), comme les registres des trois passes de synthèse (`a.json`, `ln.json`,
+  `association.json`) : aucune de leurs 280 lignes n'a un contrôle 2 vide.
+- Rouge à la base : le nouveau `report_check.py` contre l'outil de `177b5755` (`base-tool/`, `recalc_p2.py` `833e8b31…`) donne 1 échec,
+  RED, sortie 1. Seul le cas « check 1 rejects, no up label » échoue : il rend `dependence check rejects`.
+- Oracles d'avant (`oracles.sh`, `oracles/`, de 04:24 à 04:26 UTC), chacun en sortie 0, stderr vide : `vectors_check.py` sur
+  `06ecf069…` ; `binom_check.py` (ii)/(iii) ; `--registry` et `compare_check.py` sur `7eb07d4d…` ; la fumée de `calibrate_cell` du
+  lot 1d (`smoke_calibrate.py`, `12a14a54…`, copiée). Les six sorties sont égales à l'octet à celles de `F:/tmp/verifiers-1e/final/run2/` :
+  `43d88e25…`, `63606d4f…`, `68e16302…`, `bf9412ba…`, `094e6556…`, `92017cbd…`.
+- Épingle d'arbre : `289756d342031997b2b051d49b10429c17a5bc1840614f44a5813001c27649e1` (onze fichiers ; `e9e11ccb…` avant). Mesurée
+  trois fois : boucle `sha256sum` sur l'arbre de travail, `manifestText` (`node -e`), boucle sur l'index du clone (`ls-files` et
+  `cat-file`). Seuls `recalc_p2.py` (`a1671bc9…`) et `report_check.py` (`0324ca52…`) changent ; aucun `__pycache__`.
+- Node :
+  - clone indexé : `apps/harness/test/*.test.ts` (38 fichiers), `test/kata-recalc.test.ts` et `test/byte-guard.test.ts`, 293 sur 293 ;
+  - clone de base, les trois fichiers de test copiés : 290 sur 293. Les trois rouges sont les trois tests jugés, chacun par assertion
+    (`ERR_ASSERTION`) : les deux tests de la garde (« Missing expected exception ») et le test d'arbre (`e9e11ccb…` lu pour `289756d3…`) ;
+  - tueurs tirés à la main sur le clone (`fire-killers.mjs` : lus par `parseKiller` de `red-proof.mjs`, posés dans l'arbre de travail
+    seul, fichiers rendus, sha256 égaux avant et après) :
+    - les deux tueurs neufs, `policy-guard.ts:83` COR : l'un ne vise que la vague 1 (`adm.empty && (w2 || !adm.reject)`), l'autre que la
+      vague 2 (`adm.empty && (!w2 || !adm.reject)`). Chacun rougit son test par assertion ; croisés, chacun laisse vert le test de
+      l'autre vague ;
+    - deux variantes proposées par l'advisor, sur l'entrée du choix : `policy-guard.ts:82` (`empty: … && r.runs_miss !== "reject"`) et
+      `policy-wave2.ts:42` (`empty: t.empty && !c.reject`). Chacune rougit le test de sa vague par assertion ;
+    - le tueur existant de `w2_guard_refuses_region_with_empty_or_low_tail` (`policy-guard.ts:83`) : sa chaîne reste unique sur la ligne,
+      et il rougit encore son test. Il le rougit par l'erreur de la garde (`ERR_TEST_FAILURE`), à la base comme au gel (mesuré sur les
+      deux clones) ;
+    - les quatre tueurs de `test/kata-recalc.test.ts` (`kata_lib.py:265`, `lang-gate.mjs:107`, `recalc_p2.py:12`, `report.py:50`) :
+      chacun rougit son test par assertion ;
+  - worktree : `tsc --noEmit` 0 ; `eslint` des quatre `.ts` touchés 0 ; `lint-ratchet` 69/69 ; `grep-forbidden` 0 (348 fichiers ; 359
+    avec les onze `.py` en cibles ; 362 avec en plus les trois fichiers de test) ; `lang-gate` 0 ; `export-public --check` 0 ;
+  - red-proof non joué : le test d'arbre lit l'index, il lui faut un gel committé (§11). L'orchestrateur le rejoue avec
+    `--gel <commit du lot>`.
+- **R-25**, forme de la CI (`ci.yml` l.100) sur l'index du clone contre `177b5755` : 6 fichiers, 69 insertions, 14 suppressions, soit
+  **83** (borne 1 205). Le G0 n'entre pas dans le compte (`docs/**/*.md` exclus).
+- **Écarts au G0** :
+  - l'écart du §14 sur l'ordre de `reason` (« la liste de FORMAT l.48 (rejet d'abord) ») est clos par ce lot ;
+  - trois énoncés de conception de la garde sont remplacés par ce lot : `docs/G0-lot-cm-4a-ii.md` l.51 (G-2 point 4, vague 1) et
+    `docs/G0-lot-cm-4a-ii-b.md` l.32 et l.41 (vague 2, « Ordre rejet avant vide : celui de FORMAT »). Le texte qui fait foi est le §10
+    de R1 avec `f51322c` §B. Les G0 historiques ne sont pas réécrits (pli de la G2 du vérificateur, constat 2) ;
+  - l'en-tête de `recalc_p2.py` est amendé sur place (l.2, 170 octets, la plus longue ligne du fichier) : aucune ligne ne bouge, ni le
+    tueur `recalc_p2.py:12` ;
+  - le cas de vague 1 de la garde passe par une bande, la seule forme de ligne de vague 1 qui traverse toutes les autres clauses. Le
+    même test pose aussi la forme qui arrive (direction, côté down) : la raison est admise, puis le plancher refuse la ligne.
+- **Fermeture de l'item** (pièce §B : « le texte posé, le code aligné, le vecteur publié »). Ce lot aligne le code. Le texte est au §10
+  de la révision de KATA-SPEC que RECHERCHES propose (R1). Le vecteur reste dans R1 (`fa8fdc1`), avec le déclencheur de
+  KATA-SPEC-REASON-ORDER-1 (§14). Pour ce vecteur, RECHERCHES doit savoir qu'en vague 1 une ligne publiée de ce cas n'arrive que du
+  côté down d'une case de direction, et que le plancher de digest refuse de la publier. Ce refus vise une ligne de table, pas un vecteur
+  de conformité sur des points de synthèse. En vague 2, le cas n'arrive pas du générateur (ci-dessus) : la ligne qui passe la garde
+  est forgée, et le cas ne peut porter qu'un vecteur de ligne pour la garde, jamais un vecteur sur des scores.
+- **G2 du vérificateur** (instance neuve `claude-opus-5-5`, effort max, de 04:37 à 05:02 UTC ; copies sous
+  `F:/tmp/reason-order-verify/`) : CORRECTIONS, quatre constats m, aucun sur le code. Il a rejoué 293 sur 293 au lot et 290 sur 293 à la
+  base (les trois tests jugés), treize tirs de tueurs, l'épingle `289756d3…` par son propre script, les six oracles à l'octet, et la
+  raison du registre 280 sur 280. Plis : constats 1 et 2 ci-dessus ; constat 3 par l'item W2-GUARD-MISSES-TAIL-1 ci-dessous ; constat 4
+  vise le rapport du constructeur, pas ce G0 (la pièce R1 vaut `c8ce9720…` à `9c1b486` et `dcb7f13`, `5a0748be…` à `594028c` ; le §10
+  est identique aux deux).
+- **W2-GUARD-MISSES-TAIL-1** (formé ici, constat 3 du vérificateur, préexistant). Porteur : MONARK. La garde admet une ligne de vague 2
+  dont `misses` dépasse `tail_m` (rien ne les lie dans `wave2Admission`, `policy-wave2.ts` l.26-43, ni à `policy-guard.ts` l.80), alors
+  que toute ligne du générateur a `misses` ≤ `tail_m` (`qhat` ≥ tau). Le refus reste fermé (la ligne admise est une `silence`, liée au
+  registre épinglé). Correctif : une clause `misses ≤ tail_m` dans `wave2Admission` avec son tueur ; le test
+  `w2_guard_names_a_constant_tail_before_a_rejection` devient alors un test de refus, ou la décision de `f51322c` §B est rouverte avec
+  RECHERCHES pour la vague 2. Déclencheur : avant le gel de FORMAT-W2, et au plus tard avant le service de la vague 2.
+- **Scripts de preuve** (sous `F:/tmp/reason-order/`, hors du lot, sha256) : `sync.sh` `734b839b…`, `oracles.sh` `b31c3458…`,
+  `fire-killers.mjs` `e534efe9…`, `fire-one-at-base.mjs` `bb537228…`, `link-node-modules.mjs` `1b5f19ea…`, `proto_reason.py`
+  `ab31b0eb…` (le prototype de la section 9), `gf-targets.mjs` `0444ff49…`, `wave1_reason_count.py` `4794e07f…`, `floor-probe.ts`
+  `3a9b5ec8…`.
+- **Git** : aucun `GIT_DIR`, aucun `GIT_WORK_TREE` (mesure `env` : seul `GIT_EDITOR`, posé par le harnais), aucun `--write-tree`.
+  `git clone --shared`, `checkout --detach` et `git add` dans `F:/tmp/reason-order/clone` et `base-clone` seulement ; dans le worktree,
+  des lectures (`diff`, `status`, `show`, `log`, `archive`). Rien n'est écrit sur C: (`ucrtbase.dll` y est lu par l'auto-test, sous le
+  rôle `libm`).

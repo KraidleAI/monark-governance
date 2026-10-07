@@ -1,5 +1,5 @@
 # claude-opus-5-5 - 2026-10-02 - lot P2-RECALC-TOOL-1 (MONARK G1), Python 3.14 standard library only, no network. Lot 1d (2026-10-06): M-3 to M-7, M-9;
-# lot 1e (2026-10-07, M-11): freezes, registry_text and the seqs of calibrate_cell shared with report.py, the inputs printed.
+# lot 1e (2026-10-07, M-11): freezes, registry_text and the seqs of calibrate_cell shared with report.py, the inputs printed. REASON-ORDER-GUARD-VERIFIER-1: reason order.
 # Independent recomputation of the 280 wave 1 rows from the four sealed series (plan P2 l.84), written from the definitions
 # only (mission D-1), blind to every registry and report of RECHERCHES (D-5). Mission decisions applied: D-2 (refuses to read any
 # series unless the three oracle outputs end GREEN), D-3 (each file hashed in memory before parsing, refused unless its sha256
@@ -277,9 +277,9 @@ def calibrate_cell(cell, recs, thr, tables, h_ms, series_sha, seqs=None):
         misses = sum(1 for s in scores if s == 1)  # FMT l.35
     else:
         misses = kobs  # P2 l.108 (None without qhat)
-    # M-3, FMT l.46-48: the written forms of check1, check2 and reason, from the verdicts above. Order of FMT l.48: under_calib, then
-    # the checks, a rejection named before an empty check 2 (the order of its list, which l.48 does not fix when both hold), then the
-    # misses of a direction cell
+    # M-3, FMT l.46-48: the written forms of check1, check2 and reason, from the verdicts above. Order (REASON-ORDER-GUARD-VERIFIER-1,
+    # 2026-10-07: RECHERCHES' written decision f51322c, piece short-digest-spec-text section B): under_calib; then a constant auxiliary
+    # sequence, whatever check 1 says; then a rejection by either check; then the misses of a direction cell
     if status == "under_calib":
         check1 = check2 = "n/a"
         if kind == "dir" and thr[kid][side] is None:
@@ -288,10 +288,10 @@ def calibrate_cell(cell, recs, thr, tables, h_ms, series_sha, seqs=None):
             reason = "empty bucket" if n == 0 else f"n {n} below n0 {n0}"
     else:
         check1, check2 = ("empty" if c["empty"] else "reject" if c["reject"] else "pass" for c in (c1, c2))
-        if "reject" in (check1, check2):
-            reason = "dependence check rejects"
-        elif check2 == "empty":
+        if check2 == "empty":
             reason = "auxiliary sequence constant (fails closed)"
+        elif "reject" in (check1, check2):
+            reason = "dependence check rejects"
         elif kind == "dir" and qhat == 1:
             reason = f"misses {misses} above k* {kstar}"
         else:
