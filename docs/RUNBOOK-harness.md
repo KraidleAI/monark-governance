@@ -403,8 +403,23 @@ node scripts/spec-publish.mjs --release contract-1.1.0-tables-<YYYY-MM-DD> --dat
   hours on a 4h class.
 - On a scale class the probe's `yhat` lies in the row's `calib_support`: `out_of_support` (`kata-path.ts` l.93) is tested
   before `calib_retired` (l.94) and would hide it.
-- No probe command exists in the repository: `scripts/verify-harness.mjs` makes no kata call. Item RETIRE-PROBE-1 of the
-  G0. **T_g** = the UTC instant the probe receives that verdict.
+
+```bash
+node scripts/retire-probe.mjs --api <url> --table spec/contract-1.1.0-tables-<YYYY-MM-DD>/policy/<task_class>.json --cell <cell_key> --api-host <api. name> --out <probe.json>
+```
+
+- `scripts/retire-probe.mjs` (item RETIRE-PROBE-1) builds the call from the table file, waits until its clock is within
+  225 s of a grid instant (`--max-wait`, 4 h by default; with 60 s of clock skew, 15 s under the 300 s of the server), makes one call, bounded as a whole by `--timeout` (10 000 ms by
+  default), and prints the record `retire-probe-v1`: it carries the probe's own verdict (`ok`, `problem`), the table file,
+  the api and its Host, and `tls_authorized` (whether the TLS handshake was authorized; `null` over http). `--out <file>` writes that record when the verdict is accepted (and removes a stale
+  `<file>.refused`), `<file>.refused` when the verdict is refused; a refusal before any verdict (`table_invalid`,
+  `cell_invalid`, `wait_exceeds_max`, `window_missed`, `transport_failed`) writes nothing. Never redirect stdout into the
+  record (Windows PowerShell 5.1 writes `>` in UTF-16). Exit 0 iff the cell has a current row in the file and the verdict
+  is a 200 of that cell, with the file's sha256 and, on a retired row, `calib_retired`. Exit 1 names its refusal:
+  `table_invalid`, `cell_invalid`, `wait_exceeds_max`, `window_missed`, `transport_failed`, `not_served`,
+  `cell_mismatch`, `digest_mismatch` or `reason_mismatch`. Exit 2: usage, a `--timeout` of 0 or over 2147483647 ms
+  included. **T_g** = its `received_at`, the UTC second the verdict arrived: the clock reading of the call plus a
+  monotonic delta.
 
 ### 8. The latency report
 
