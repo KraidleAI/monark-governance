@@ -156,7 +156,7 @@ Cloudflare proxy is in front, so HTTP-01 completes directly (K-7).
 
 ## 6. Verify and record the deployment CA
 
-From the orchestrator's machine (not the VPS), against the live endpoint, within 4 minutes of a full hour (UTC), or with `--kata-wait-max <s>` (see *Kata path and version checks* at the end of this file):
+From the orchestrator's machine (not the VPS), against the live endpoint, within 225 s of a full hour (UTC), or with `--kata-wait-max <s>` (see *Kata path and version checks* at the end of this file):
 
 ```bash
 node scripts/verify-harness.mjs --out docs/deploy-CA-harness.json
@@ -433,22 +433,27 @@ a later date (`scripts/spec-policy-tables.mjs` l.168-169).
 ## Kata path and version checks (deployment CA, section 6)
 
 The specification of the last three checks of `scripts/verify-harness.mjs` (lot E-2a; the same text closes the script's
-comments). Each paragraph below is one line of the text; joined by LF, its sha256 is
-`7e05ee5d8d7b7cd8a056acd2dab20e2efc8c98e72724ca96559e1ca5868a2bae`.
+comments). Each paragraph below is one line of the text; joined by LF, it is 2 141 bytes and its sha256 is
+`ee274e5505bb4fcdd4f8ff72ad6739933de198b604b4831526224a7507cbb147` (R4 v3, the 225 s window of 2026-10-07; the 240 s text
+was 1 968 bytes, `7e05ee5d8d7b7cd8a056acd2dab20e2efc8c98e72724ca96559e1ca5868a2bae`).
 
+```text
 Kata path and version checks. The deployment check, which runs the reader-side verifier against the served host, plays three more checks after every other check: first (3), which does not depend on the clock, then (1) and (2), which do.
 
-(1) gate_kata_call: one well-formed call on btc-range-1h, with predictor_id kata:ca-probe@ca-probe/BTCUSDT/1h, a key whose kata and venue are reserved for this check, so that no table can hold a row under it; features_digest the sha256 of the empty JSON array; yhat 0.01; alpha 0.01 and nMin 299; and a produced_at on the 1h grid that is at most 240 s before or after the clock of the run. If the run's clock is farther than 240 s from every grid instant, checks (1) and (2) fail with the detail kata_window_not_reached, unless the run was started with --kata-wait-max <s> and the wait to the next grid instant is at most s seconds: the run then waits, and reports the wait. If the Date header of the host's health answer is more than 60 s from the run's clock, checks (1) and (2) fail with the detail kata_clock_skew. Check (1) passes when the host answers HTTP 200 with action abstain, verdict.reason under_calib, verdict.n_calib 0, no region, verdict.cell_key kata:ca-probe@ca-probe/BTCUSDT/1h/b0 and verdict.policy_row_sha256 null.
+(1) gate_kata_call: one well-formed call on btc-range-1h, with predictor_id kata:ca-probe@ca-probe/BTCUSDT/1h, a key whose kata and venue are reserved for this check, so that no table can hold a row under it; features_digest the sha256 of the empty JSON array; yhat 0.01; alpha 0.01 and nMin 299; and a produced_at on the 1h grid that is at most 225 s before or after the clock of the run. If the run's clock is farther than 225 s from every grid instant, checks (1) and (2) fail with the detail kata_window_not_reached, unless the run was started with --kata-wait-max <s>: the run waits until its clock is within 225 s of the next grid instant, if that wait is at most s seconds, and reports the wait; otherwise the checks fail as above. If the Date header of the host's health answer is absent, unreadable or more than 60 s from the run's clock, checks (1) and (2) fail with the detail kata_clock_skew. Check (1) passes when the host answers HTTP 200 with action abstain, verdict.reason under_calib, verdict.n_calib 0, no region, verdict.cell_key kata:ca-probe@ca-probe/BTCUSDT/1h/b0 and verdict.policy_row_sha256 null.
 
-(2) gate_kata_policy_table: the verdict of check (1) carries a policy_table_sha256 equal to the value written in the check. That value is the sha256 of the btc-range-1h table file of the latest published directory that holds that file, as the input list and the MANIFEST.sha256 of the release that published it record it; a release that changes that table changes the written value with it.
+(2) gate_kata_policy_table: the verdict of check (1) carries a policy_table_sha256 equal to the value written in the check. That value is the sha256 of the btc-range-1h table file that the deployed release serves: the file of the latest directory of the release's input list that holds it (spec/<dir>/policy/btc-range-1h.json), whose MANIFEST.sha256 line carries the same value once the release is published; a release that changes that table changes the written value with it.
 
 (3) gate_version_1_0_0_call: the call of the existing gate check, with schema_version 1.0.0, answers HTTP 400 with error tool_error and code schema_version_unsupported.
 
 The import guard and the loader refuse any row whose kata or venue is ca-probe, so check (1) does not change when kata rows are served.
+```
 
-In practice: run section 6 within 4 minutes of a full hour (UTC); started earlier, `--kata-wait-max 3600` waits for the next
-full hour and prints the wait on stderr. The expected `policy_table_sha256` is written in the script
+In practice: run section 6 within 225 s of a full hour (UTC); started earlier, `--kata-wait-max 3150` (the longest wait,
+3 600 - 2 x 225 s) waits until 225 s before the next full hour and prints the wait on stderr. The window is checked again
+right before the call (a slow `/health` answer gives `kata_window_not_reached`, never an unnamed 400). The expected `policy_table_sha256` is written in the script
 (`KATA_POLICY_TABLE_SHA256`); a release that changes `btc-range-1h` changes it in the same commit
 (`test/verify-harness-liq.test.ts`, `verify_harness_ca_pins_policy_table_sha256`). The reservation of `ca-probe` is in the
 import guard (`kataKeyReserved`, defined in `apps/harness/src/policy-classes.ts`, a served module, and called by
-`apps/harness/src/policy-guard.ts`); the kata loader of E-2a, when it lands, calls it too.
+`apps/harness/src/policy-guard.ts`); the kata loader of E-2a, when it lands, calls it through `guardKataTable` (item
+RETIRE-LISTS-E2A-PIPE-1).

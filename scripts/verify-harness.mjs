@@ -443,26 +443,26 @@ async function main() {
 }
 
 // ---- Kata path and version checks (lot E-2a, the CA trio; R4 section (iii), the partner's choices). Written after main(), before
-// the run-guard, so that no line above moves (killers pin them). The specification of the three checks (1 968 bytes, sha256
-// 7e05ee5d8d7b7cd8a056acd2dab20e2efc8c98e72724ca96559e1ca5868a2bae; verbatim in docs/RUNBOOK-harness.md):
+// the run-guard, so that no line above moves (killers pin them). The specification of the three checks (2 141 bytes, sha256
+// ee274e5505bb4fcdd4f8ff72ad6739933de198b604b4831526224a7507cbb147; verbatim in docs/RUNBOOK-harness.md):
 //
 // Kata path and version checks. The deployment check, which runs the reader-side verifier against the served host, plays three
 // more checks after every other check: first (3), which does not depend on the clock, then (1) and (2), which do.
 //
 // (1) gate_kata_call: one well-formed call on btc-range-1h, with predictor_id kata:ca-probe@ca-probe/BTCUSDT/1h, a key whose kata
 // and venue are reserved for this check, so that no table can hold a row under it; features_digest the sha256 of the empty JSON
-// array; yhat 0.01; alpha 0.01 and nMin 299; and a produced_at on the 1h grid that is at most 240 s before or after the clock of
-// the run. If the run's clock is farther than 240 s from every grid instant, checks (1) and (2) fail with the detail
-// kata_window_not_reached, unless the run was started with --kata-wait-max <s> and the wait to the next grid instant is at most s
-// seconds: the run then waits, and reports the wait. If the Date header of the host's health answer is more than 60 s from the
-// run's clock, checks (1) and (2) fail with the detail kata_clock_skew. Check (1) passes when the host answers HTTP 200 with
-// action abstain, verdict.reason under_calib, verdict.n_calib 0, no region, verdict.cell_key kata:ca-probe@ca-probe/BTCUSDT/1h/b0
-// and verdict.policy_row_sha256 null.
+// array; yhat 0.01; alpha 0.01 and nMin 299; and a produced_at on the 1h grid that is at most 225 s before or after the clock of
+// the run. If the run's clock is farther than 225 s from every grid instant, checks (1) and (2) fail with the detail
+// kata_window_not_reached, unless the run was started with --kata-wait-max <s>: the run waits until its clock is within 225 s of
+// the next grid instant, if that wait is at most s seconds, and reports the wait; otherwise the checks fail as above. If the Date
+// header of the host's health answer is absent, unreadable or more than 60 s from the run's clock, checks (1) and (2) fail with
+// the detail kata_clock_skew. Check (1) passes when the host answers HTTP 200 with action abstain, verdict.reason under_calib,
+// verdict.n_calib 0, no region, verdict.cell_key kata:ca-probe@ca-probe/BTCUSDT/1h/b0 and verdict.policy_row_sha256 null.
 //
 // (2) gate_kata_policy_table: the verdict of check (1) carries a policy_table_sha256 equal to the value written in the check. That
-// value is the sha256 of the btc-range-1h table file of the latest published directory that holds that file, as the input list and
-// the MANIFEST.sha256 of the release that published it record it; a release that changes that table changes the written value with
-// it.
+// value is the sha256 of the btc-range-1h table file that the deployed release serves: the file of the latest directory of the
+// release's input list that holds it (spec/<dir>/policy/btc-range-1h.json), whose MANIFEST.sha256 line carries the same value once
+// the release is published; a release that changes that table changes the written value with it.
 //
 // (3) gate_version_1_0_0_call: the call of the existing gate check, with schema_version 1.0.0, answers HTTP 400 with error
 // tool_error and code schema_version_unsupported.
@@ -470,8 +470,8 @@ async function main() {
 // The import guard and the loader refuse any row whose kata or venue is ca-probe, so check (1) does not change when kata rows are
 // served.
 //
-// The loader half of the reservation belongs to the kata loader of E-2a (a later lot); the import guard holds it already
-// (kataKeyReserved, apps/harness/src/policy-classes.ts; policy-guard.ts calls it).
+// The loader half of the reservation belongs to the kata loader of E-2a (a later lot), through guardKataTable (item
+// RETIRE-LISTS-E2A-PIPE-1); the import guard holds it already (kataKeyReserved, apps/harness/src/policy-classes.ts).
 
 /** The one refused version of gate_version_1_0_0_call (contract 1.1.0 refuses 1.0.0 before produced_at is read). */
 export const CA_REFUSED_SCHEMA_VERSION = "1.0.0";
@@ -479,7 +479,7 @@ export const CA_REFUSED_SCHEMA_VERSION = "1.0.0";
 export const KATA_PROBE_KEY = "kata:ca-probe@ca-probe/BTCUSDT/1h";
 const KATA_PROBE_CELL = `${KATA_PROBE_KEY}/b0`;
 const KATA_GRID_MS = 3600000; // the 1h grid of btc-range-1h
-const KATA_WINDOW_MS = 240000; // the server takes 300 s on either side of produced_at; 60 s of it are kept for clock skew
+const KATA_WINDOW_MS = 225000; // the server takes 300 s on either side of produced_at: 225 s, 60 s of clock skew, 15 s spare
 const KATA_SKEW_MAX_MS = 60000;
 const KATA_WAIT_MAX_S = 3600;
 const TEST_CLOCK_ENV = "VERIFY_HARNESS_TEST_CLOCK_MS";
@@ -511,27 +511,28 @@ function kataOptions(a, env = process.env) {
 }
 
 /** The run clock: the machine clock and a real wait; under the test clock, that instant running with real time, and a wait
- *  that moves the clock without sleeping. */
+ *  that moves the clock without sleeping (its details then end with " clock=test": such a record is no deploy record). */
 function runClock(env = process.env) {
   const raw = env[TEST_CLOCK_ENV];
-  if (raw === undefined) return { now: () => Date.now(), wait: (ms) => new Promise((done) => { setTimeout(done, ms); }) };
+  if (raw === undefined) return { now: () => Date.now(), wait: (ms) => new Promise((done) => { setTimeout(done, ms); }), tag: "" };
   const t0 = performance.now();
   let moved = 0;
-  return { now: () => Number(raw) + Math.round(performance.now() - t0) + moved, wait: async (ms) => { moved += ms; } };
+  return { now: () => Number(raw) + Math.round(performance.now() - t0) + moved, wait: async (ms) => { moved += ms; }, tag: " clock=test" };
 }
 
 /** Where `nowMs` stands on the 1h grid (pure): within KATA_WINDOW_MS of a grid instant, that instant and no wait; else the next
- *  grid instant and the wait to it, that instant only when the wait is at most `waitMaxS` seconds. */
+ *  grid instant and the wait until the clock is within KATA_WINDOW_MS of it, that instant only when the wait is at most
+ *  `waitMaxS` seconds (the longest wait is 3 600 - 2 x 225 = 3 150 s). */
 export function kataWindow(nowMs, waitMaxS) {
   const near = Math.round(nowMs / KATA_GRID_MS) * KATA_GRID_MS;
   if (Math.abs(nowMs - near) <= KATA_WINDOW_MS) return { at: near, waitMs: 0 };
-  const next = Math.ceil(nowMs / KATA_GRID_MS) * KATA_GRID_MS, waitMs = next - nowMs;
+  const next = Math.ceil(nowMs / KATA_GRID_MS) * KATA_GRID_MS, waitMs = next - KATA_WINDOW_MS - nowMs;
   return { at: waitMaxS !== null && waitMs <= waitMaxS * 1000 ? next : null, waitMs };
 }
 
 /** A check that reads a value captured by an earlier check (no request): ok iff it equals `expected`. */
-function capturedCheck(name, value, expected) {
-  return { name, ok: value === expected, status: value === null ? 0 : 200, sha256: value === null ? null : sha256(value), detail: `policy_table_sha256=${String(value)} expected=${expected}` };
+function capturedCheck(name, value, expected, tag = "") {
+  return { name, ok: value === expected, status: value === null ? 0 : 200, sha256: value === null ? null : sha256(value), detail: `policy_table_sha256=${String(value)} expected=${expected}${tag}` };
 }
 
 /** The three checks, in their order: (3) gate_version_1_0_0_call, then (1) gate_kata_call and (2) gate_kata_policy_table. */
@@ -541,18 +542,20 @@ async function kataAndVersionChecks(api, hostHeader, waitMaxS, clock = runClock(
     const got = j && typeof j.code === "string" ? j.code : null;
     return { ok: res.status === 400 && j !== null && j.error === "tool_error" && got === "schema_version_unsupported", detail: `status=${res.status} code=${String(got)}` };
   })];
-  const failBoth = (detail) => [...out, ...["gate_kata_call", "gate_kata_policy_table"].map((name) => ({ name, ok: false, status: 0, sha256: null, detail }))];
+  const failBoth = (detail) => [...out, ...["gate_kata_call", "gate_kata_policy_table"].map((name) => ({ name, ok: false, status: 0, sha256: null, detail: detail + clock.tag }))];
   const w = kataWindow(clock.now(), waitMaxS), grid = (ms) => new Date(ms).toISOString().replace(".000Z", "Z");
   if (w.at === null) return failBoth(`kata_window_not_reached: the run clock is more than ${String(KATA_WINDOW_MS / 1000)} s from every grid instant; the next is ${grid(clock.now() + w.waitMs)}, in ${String(Math.round(w.waitMs / 1000))} s (--kata-wait-max ${String(waitMaxS)})`);
   const waited = Math.round(w.waitMs / 1000);
   if (w.waitMs > 0) {
-    console.error(`verify-harness: waiting ${String(waited)} s for the grid instant ${grid(w.at)} (--kata-wait-max ${String(waitMaxS)})`);
+    console.error(`verify-harness: waiting ${String(waited)} s, until ${String(KATA_WINDOW_MS / 1000)} s before the grid instant ${grid(w.at)} (--kata-wait-max ${String(waitMaxS)})`);
     await clock.wait(w.waitMs);
   }
   const health = await wiredRequest(`${api}/health`, { method: "GET", hostHeader });
   const date = health.headers && typeof health.headers.date === "string" ? Date.parse(health.headers.date) : NaN;
   const skew = Math.abs(date - clock.now());
   if (!(skew <= KATA_SKEW_MAX_MS)) return failBoth(`kata_clock_skew: the Date header of /health (${String(health.headers?.date ?? health.error)}) is not within ${String(KATA_SKEW_MAX_MS / 1000)} s of the run clock (${grid(clock.now())})`);
+  const late = Math.abs(clock.now() - w.at); // checked again right before the call: the /health answer may have taken the window
+  if (late > KATA_WINDOW_MS) return failBoth(`kata_window_not_reached: the run clock left the window of ${grid(w.at)} before the call (${String(Math.round(late / 1000))} s from it)`);
   let verdict = null;
   out.push(await wiredCheck("gate_kata_call", `${api}/gate`, jsonInit({ prediction: { ...GATE_KATA_BODY.prediction, produced_at: grid(w.at) }, params: GATE_KATA_BODY.params }), hostHeader, (res, text) => {
     const j = parseJson(text);
@@ -560,9 +563,9 @@ async function kataAndVersionChecks(api, hostHeader, waitMaxS, clock = runClock(
     const v = sc && sc.verdict ? sc.verdict : null;
     if (v !== null) verdict = v;
     const ok = res.status === 200 && v !== null && sc.action === "abstain" && v.reason === "under_calib" && v.n_calib === 0 && v.region === null && v.cell_key === KATA_PROBE_CELL && v.policy_row_sha256 === null;
-    return { ok, detail: `status=${res.status} action=${String(sc ? sc.action : null)} verdict_reason=${String(v ? v.reason : null)} n_calib=${String(v ? v.n_calib : null)} region=${JSON.stringify(v ? v.region : null)} cell_key=${String(v ? v.cell_key : null)} policy_row_sha256=${String(v ? v.policy_row_sha256 : null)} produced_at=${grid(w.at)} waited_s=${String(waited)}` };
+    return { ok, detail: `status=${res.status} action=${String(sc ? sc.action : null)} verdict_reason=${String(v ? v.reason : null)} n_calib=${String(v ? v.n_calib : null)} region=${JSON.stringify(v ? v.region : null)} cell_key=${String(v ? v.cell_key : null)} policy_row_sha256=${String(v ? v.policy_row_sha256 : null)} produced_at=${grid(w.at)} waited_s=${String(waited)}${clock.tag}` };
   }));
-  out.push(capturedCheck("gate_kata_policy_table", verdict !== null && typeof verdict.policy_table_sha256 === "string" ? verdict.policy_table_sha256 : null, KATA_POLICY_TABLE_SHA256));
+  out.push(capturedCheck("gate_kata_policy_table", verdict !== null && typeof verdict.policy_table_sha256 === "string" ? verdict.policy_table_sha256 : null, KATA_POLICY_TABLE_SHA256, clock.tag));
   return out;
 }
 

@@ -69,11 +69,13 @@ ADR-CM l.261) ; borne CI 1 205.
   Sous cette horloge, l'attente avance l'horloge sans dormir.
 - **D-3 (attente)** : le texte dit « the wait to the next grid instant » ; le code attend jusqu'à l'instant de grille lui-même
   (attente maximale 3 360 s, pas 3 120 s comme dans les sources de R4, qui attendaient l'ouverture de la fenêtre). Le texte
-  figé est suivi.
+  figé est suivi. **Close au §8** : la course attend désormais jusqu'à 225 s avant l'instant de grille (attente maximale
+  3 600 − 450 = 3 150 s), texte, code et messages ensemble.
 - **D-4 (écart d'horloge)** : l'en-tête `Date` est lu sur une réponse de `/health` demandée juste avant l'appel (1), après
   l'attente éventuelle, pas sur la réponse du contrôle `health` du début : l'écart est mesuré quand il compte.
 - **Dépendance (E-2a, chargeur)** : la réservation de `ca-probe` dans le chargeur appartient au lot du chargeur d'E-2a, pas
-  écrit. `kataKeyReserved` est exporté pour lui ; ce lot n'invente pas de chargeur. Tant que le chargeur n'existe pas, aucune
+  écrit ; elle passe par `guardKataTable` (qui appelle `guardKataRow` pour chaque ligne, `policy-guard.ts` l.120 → l.51), et
+  son porteur est l'item RETIRE-LISTS-E2A-PIPE-1 (`docs/ETAT.md`, porteur MONARK, déclencheur le G0 d'E-2a), complété au §8. `kataKeyReserved` est exporté pour lui ; ce lot n'invente pas de chargeur. Tant que le chargeur n'existe pas, aucune
   ligne kata n'est servie (`kataTablesHoldNoRow`), et (1) tient par construction.
 - **Hors champ** : le ré-épinglage du dossier servi après déploiement (`harness-served.json` lira 18 contrôles au prochain
   enregistrement vert) ; la révision datée du texte de la spécification (iii-f).
@@ -109,3 +111,49 @@ ADR-CM l.261) ; borne CI 1 205.
   reste ; les lignes retirées étaient les dernières du fichier, aucune ligne épinglée ne bouge. Tueur déplacé :
   `policy-guard.ts:142` → `policy-classes.ts:53` (même mutation, tué). Le test importe le module servi. Commentaire de
   `scripts/verify-harness.mjs` l.474 (en place) et fin de `docs/RUNBOOK-harness.md` mis à jour.
+
+## 8. Pli de la G2 de #225 (2 M, 8 m) et des deux m de R4 v2 qui touchent #225 (2026-10-07)
+
+Tronc `lot/etude-suite` @ `1cddd2e5` fusionné dans la branche (commit de fusion, sans réécriture). Ancres à la nouvelle tête.
+
+| Constat | Pli | Où |
+|---|---|---|
+| M, (1) sans vecteur rouge | test (16) : une ligne servie sur la clé sonde, puis chaque conjonction seule (defer, calib_retired, n_calib 1, une région, `…/b1`, un `policy_row_sha256`) ; chacun rend `gate_kata_call` seul rouge, exit 1 | `test/verify-harness-liq.test.ts`, `verify_harness_ca_kata_call_reds_on_a_served_row_and_on_each_conjunction` ; tueur `verify-harness.mjs:565` |
+| M, lien de session au corps public | corps réécrit (anglais public, sans lien de session), relu en ligne, `prbody.mjs` propre | corps de la PR |
+| m, logique de temps non épinglée | décision de R4 v2 : fenêtre ±225 s (`KATA_WINDOW_MS` 225 000 ; 225 + 60 = 285 s, 15 s sous les 300 s du serveur) ; la course attend jusqu'à 225 s avant l'instant de grille suivant (attente maximale 3 150 s). Cas purs sur `kataWindow` (12), course 100 s avant l'heure (13), hôte 120 s en avance (14) | `verify-harness.mjs:482`, `:527-530` ; tueurs `:482`, `:527`, `:555` |
+| m, fenêtre évaluée une fois | `|clock.now() − w.at|` revérifié juste avant l'appel, sinon `kata_window_not_reached` (« left the window … before the call ») ; test (15) : départ 2 s dans la fenêtre, `/health` retenu 3 s | `verify-harness.mjs:557-558` ; tueur `:558` |
+| m, `<s>` nu au RUNBOOK | le texte figé est dans un bloc ```text ; mesuré : l'emballage seul laisse 1 968 octets et `7e05ee5d…` (le test lit les lignes `at`, `at+2`, …, `at+8`, jointes par LF) | `docs/RUNBOOK-harness.md` |
+| (R4 v3) texte figé (iii) | le 6ᵉ bloc de R4 v3 (`recherches` `bbd6f59`) : **2 141 octets, sha256 `ee274e5505bb4fcdd4f8ff72ad6739933de198b604b4831526224a7507cbb147`**, à l'identique au RUNBOOK et dans le commentaire du script (paragraphes désenroulés égaux) ; épinglé par le test (9) | `RUNBOOK-harness.md`, `verify-harness.mjs` l.448-470 |
+| m, parité du digest | l'assertion dit « la ligne que le producteur écrit pour cette entrée » ; ancre publiée en commentaire : [lu par la G2] `monark-kata-spec` @ `ffb5ea33`, `MANIFEST.sha256` l.19 = `1296c333…f955f`, empreinte du fichier `66d31d82…`. Le point « MANIFEST.sha256 publié non lu » est retiré : lu par la G2, non relu ici | test (10) |
+| m, enregistrement vert sous horloge de test | sous `VERIFY_HARNESS_TEST_CLOCK_MS`, les détails de (1) et (2) finissent par ` clock=test` ; le test (4) l'affirme sur l'enregistrement vert | `verify-harness.mjs` `runClock` |
+| m, moitié chargeur sans item | §5 cite RETIRE-LISTS-E2A-PIPE-1 ; complément de l'item ci-dessous | §5 |
+| m, couplage d'horloge entre courses | chaque course part de l'horloge du harnais (`caEnv(clock())`) dans les tests (2bis surclamant), (4), (11), (16) | `test/verify-harness-liq.test.ts` |
+| m, « 15 checks » périmés | « 18 checks » l.124 et l.128 | idem |
+| R4 v2, attente | code, message stderr (« waiting N s, until 225 s before the grid instant … ») et textes disent la même attente | script, RUNBOOK l.159, l.452 |
+| R4 v2, compte de 18 | `surfaces-1-1-0` l.163-172 et l.190 portaient déjà 18 ; `docs/RUNBOOK-vitrine.md` l.43, l.57, l.66 passent à 18 (l.57 garde la trace : 15 à la T0 du 2026-10-06) | `RUNBOOK-vitrine.md` |
+
+**Item complété (forme d'ETAT)** : RETIRE-LISTS-E2A-PIPE-1 porte aussi la moitié chargeur de la réservation de `ca-probe` : une
+ligne de kata ou de lieu `ca-probe` est refusée au chargement (`guardKataTable` → `guardKataRow` → `kataKeyReserved`), avec un
+test d'intégration du chemin servi. Porteur : MONARK (inchangé) ; déclencheur : le G0 d'E-2a (inchangé) ; état : ouvert. La
+ligne d'ETAT est un acte de MONARK.
+
+Tueurs ajoutés :
+
+```text
+// killer: scripts/verify-harness.mjs:482 CONST "KATA_WINDOW_MS = 225000;" -> "KATA_WINDOW_MS = 240000;"
+// killer: scripts/verify-harness.mjs:527 CONST "Math.round(nowMs / KATA_GRID_MS)" -> "Math.floor(nowMs / KATA_GRID_MS)"
+// killer: scripts/verify-harness.mjs:555 CONST "Math.abs(date - clock.now())" -> "(clock.now() - date)"
+// killer: scripts/verify-harness.mjs:558 CONST "if (late > KATA_WINDOW_MS)" -> "if (late > 2 * KATA_WINDOW_MS)"
+// killer: scripts/verify-harness.mjs:565 CONST " && v.policy_row_sha256 === null;" -> ";"
+```
+
+Le tueur du test (9) passe de l.542 à l.543 (une ligne de commentaire de `kataWindow`) ; les autres ancres ne bougent pas.
+
+**Mesures (Node 24.21.0)** :
+- R-25 (pathspec de `ci.yml:100`, contre `1cddd2e5`) : 10 fichiers, +465 −35 = 500 ≤ 547.
+- red-proof : `node scripts/red-proof.mjs --base 1cddd2e5 --gel <wt> --repo <wt> --out <dir> --draw 24 --seed 20261007` :
+  `red-proof OK`, 18 jugés (tous F2P), 65 inchangés, 18 tueurs tirés (tous ceux des tests admis), 18 tués, dont les cinq
+  ci-dessus et l.543.
+- Tests : `verify-harness-liq` (19), `surfaces-1-1-0`, `site-ukemi`, `harness-served`, `runbook-retire`, `export-public`,
+  `release-public-flow`, `site-send-guard`, `export-hygiene`, `apps/harness` `policy-guard` et `kata-path` : 139 verts, 0 rouge.
+  `tsc --noEmit`, eslint, `lang:gate`, `gate:vocab`, `lint:ratchet` (69/69) verts ; winlint : aucun risque Windows.

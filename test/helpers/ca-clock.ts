@@ -3,7 +3,7 @@
 // the two time-dependent kata checks of scripts/verify-harness.mjs are deterministic in tests. Both clocks start at the
 // instant given and run with real time from there.
 
-/** A grid instant of the 1h class plus 30 s: inside the window of +-240 s that gate_kata_call needs. */
+/** A grid instant of the 1h class plus 30 s: inside the window of +-225 s that gate_kata_call needs. */
 export const CA_TEST_CLOCK_MS = Date.parse("2026-10-07T12:00:30Z");
 
 /** A clock that reads `startMs` now and runs with real time (the in-process harness's clock). */
