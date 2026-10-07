@@ -292,8 +292,8 @@ file (`scripts/spec-policy-tables.mjs` l.10-11), so no table is served before it
   before RETIRE-CAUSE-VOCAB-1: the vocabulary gate of the spec repository refuses the word in the row's
   `retired: live:<k>` (`docs/G0-lot-retire-path-rb.md` l.31-35).
 - **`adr:decisions/<file>.md`**: a dated line of a decision file of `recherches` retires the row; the file is checked by
-  form only (RETIRE-ADR-CAUSE-FILE-1). T_a is the date of that line (l.16), taken as an instant: the commit instant of the
-  line, in UTC (default of Q-RL-3, `docs/G0-lot-retire-latency-rehearsal-1.md`).
+  form only (RETIRE-ADR-CAUSE-FILE-1). T_a is the date of that line (l.16), taken as an instant: the committer date of the
+  commit that adds the line, `git log -1 --format=%cI <commit>`, in UTC, never the author date (Q-RL-3 of the G0).
 
 ### 2. The retire list (T_b)
 
@@ -312,7 +312,7 @@ file (`scripts/spec-policy-tables.mjs` l.10-11), so no table is served before it
   (CONTRACT 1.1.0 l.441, l.446-447). Before the merge, a wrong list on the lot branch is fixed by a new commit there.
 - No command writes or checks a list: its reader runs inside the guard, in tests (RETIRE-LISTS-E2A-PIPE-1; a writer is
   item RETIRE-LIST-WRITER-1 of the G0).
-- Commit the list alone, on the lot branch. **T_b** = the commit instant of that commit, in UTC.
+- Commit the list alone, on the lot branch. **T_b** = the committer date of that commit (`git log -1 --format=%cI`), in UTC.
 
 ### 3. The dated table version and its release entry (T_c)
 
@@ -367,7 +367,7 @@ node scripts/spec-publish.mjs --release contract-1.1.0-tables-<YYYY-MM-DD> --dat
 
 - The lot's pull request carries the list (step 2), the dated directory and its release entry (step 3). The orchestrator
   merges it after T_d, never before, under the gates of its part (`docs/methode/REGLES-MISSION.md` l.20). **T_e** = the
-  commit instant of the merge commit, in UTC.
+  committer date of the merge commit (`git log -1 --format=%cI`), in UTC.
 
 ### 6. Deployment (T_f)
 

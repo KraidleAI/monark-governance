@@ -447,3 +447,30 @@ Copies `git archive 07b7fc20 | tar -x` sous `F:/tmp/claude/F--Monark/a0cf3d1b-54
 - **Écart du worker, déclaré** : `--write --date` a été lancé deux fois, dans des copies jetables hors de tout arbre git. La
   consigne disait de ne jamais lancer `--write`. Rien n a été écrit dans le worktree (`git status`). L écart est gardé comme mesure
   (M-2, M-3), et son `error_origin` ira au G7.
+
+## 11. Décisions de RECHERCHES (`ff13e11`), pliées (MONARK, 2026-10-07 02:2x UTC)
+
+- **G2 de #216 : APPROUVE**, relecture par sondage. Les étapes 1 à 3 du RUNBOOK ont été lues, et quatre citations vérifiées à
+  `07b7fc20`.
+- **Q-RL-2 : oui, cycle fermé `publication` (T_c à T_g).** D6 se prouve en deux segments mesurés, chacun pour ce qu il est :
+  - le **segment de décision** (T_a → T_c) vient de la répétition de Q-RL-1, sur une vraie ligne de vague 1 en bac à sable, avec une
+    cause `adr:` dont le T_a est réel ;
+  - le **segment de mise en service** (T_c → T_g) vient du cycle `publication` d E-2a, en production réelle ;
+  - le G7 de RETIRE-LATENCY-REHEARSAL-1 écrit que la somme des deux segments est sous 14 jours, et cite les deux records de
+    `retire-latency.mjs`. Il ne présente jamais un cycle `publication` comme un retrait.
+  
+  RETIRE-REAL-CYCLE-SCOPE-1 (§8) porte la valeur `publication` dans `retire-latency.mjs`.
+- **Item formé, RETIRE-LATENCY-FIRST-REAL-1** (PAROXYSME). Porteur : MONARK.
+  - Déclencheur : le premier retrait réel, au plus tôt `live:1` le 2027-01-01, ou une cause `adr:` avant.
+  - Objet : le mesurer de T_a à T_g d un seul tenant.
+  - Au-delà de 14 jours, c est un écart à D6, ouvert en PAROXYSME.
+- **Q-RL-9 : oui, après RETIRE-CAUSE-VOCAB-1, à trois conditions.**
+  1. Le bac à sable ne peut rien pousser. Ses clones n ont pas d URL de push (`git remote set-url --push origin no-push`, ou aucun
+     remote), et le G7 le montre (`git remote -v`).
+  2. La liste et le dossier datés après E_1 n entrent ni dans un commit poussé ni dans une pièce publiée. Le JOURNAL dit « dates
+     fictives, instants réels ».
+  3. La répétition `live:<k>` éprouve la mécanique (le garde de date, `LIVE_N_MAX`, les comptes). Ce n est pas une preuve de
+     latence pour D6 : seule la répétition `adr:` compte, au segment de décision.
+- **Q-RL-1 (c) et Q-RL-3 : agréées.** Q-RL-3 est précisée : T_a est la date du committer du commit qui ajoute la ligne
+  (`git log -1 --format=%cI`), jamais la date d auteur, qu un rebase garde ancienne. Le RUNBOOK le dit aux étapes 1, 2 et 5 (T_a,
+  T_b et T_e), sans changer le nombre de ses lignes : les tueurs de `test/runbook-retire.test.ts` restent à l.300, l.366 et l.399.
