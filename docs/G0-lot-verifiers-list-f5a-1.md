@@ -500,7 +500,7 @@ Actes de la G2 de la partie :
       listée ;
     - 280 cases uniques, toutes `decisions_equal` à `true` ;
     - chaque différence a une cause mesurée et une explication ;
-    - `outside_decisions` = `[trialRegistryHead.hash]`.
+    - `fields` a exactement {decisions, digest_rule, digests, value_rule, values}, sans `outside_decisions` (voie 1).
 
     Tueur (lot 2a, sur le lecteur de forme) : `policy-verifiers.ts:156 CONST "typeof v === \"boolean\"" -> "true"`.
   - T2-2 `recompute_report_inputs_are_sealed_series_and_published_files_only` :
