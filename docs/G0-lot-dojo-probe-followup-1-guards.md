@@ -1,10 +1,11 @@
 # G0 du lot DOJO-PROBE-FOLLOWUP-1, partie 2 : un test par garde de champ de `reportOk`, et la borne de la sortie du vérificateur (note N-2 de la G2 de #220)
 
-RECHERCHES, 2026-10-07. Base : la tête de `recherches/dojo-probe-followup-1` (partie 1, N-1, N-3 et N-4, pliée de la G2 de MONARK
-puis de sa G2 ciblée ; `docs/G0-lot-dojo-probe-followup-1.md`), `a9f61225` à ce pli (`6ecf76d1` au premier pli), elle-même sur
-`1cddd2e5`. Empilée sur elle pour que les numéros de ligne des
-tueurs soient ceux de la sonde après la partie 1. Après la fusion de #229, ce lot est reciblé sur le tronc ; red-proof `--test-only`
-est alors rejoué contre la nouvelle base, et cette ligne et le digest ci-dessous sont mis à jour.
+RECHERCHES, 2026-10-07. Base : le tronc `lot/etude-suite`, `6a1b1d43` (la fusion de #229, partie 1 : N-1, N-3 et N-4, pliée de la
+G2 de MONARK puis de sa G2 ciblée ; `docs/G0-lot-dojo-probe-followup-1.md`). Jusqu'à cette fusion, ce lot était empilé sur la tête
+de `recherches/dojo-probe-followup-1` (`6ecf76d1` au premier pli, `a9f61225` au pli de la G2 ciblée), pour que les numéros de ligne
+des tueurs soient ceux de la sonde après la partie 1. #229 fusionnée (`6a1b1d43` ; PR marquée fusionnée à 2026-10-07T13:02:23Z), ce lot est reciblé sur le
+tronc et le tronc y est fusionné ; red-proof `--test-only` est rejoué contre la nouvelle base, et cette ligne et le digest
+ci-dessous sont mis à jour.
 
 red-proof: test-only
 
@@ -21,6 +22,12 @@ red-proof: test-only
   `claude-opus-5-5`, **effort max**, heure lue au départ (`date -u`) 2026-10-07T11:55:38Z. La tête pliée de #229 (`a9f61225`) est
   fusionnée ici (commit de fusion `eb5c73e6`, sans réécriture), puis un commit ordinaire ajoute le test neuf, texte exact de la pièce
   `proposed-null-test.ts` de MONARK (sha256 `325ea7ba…`).
+- Reciblage sur le tronc après la fusion de #229 (demandes de MONARK, commits `543d9ef` et `29f8ea9` de RECHERCHES) :
+  `claude-opus-5-5`, **effort max**, heure lue (`date -u`) 2026-10-07T13:03:47Z. Le tronc `6a1b1d43` est fusionné dans cette
+  branche (commit de fusion `affb2d41`, sans réécriture, sans conflit) : red-proof compare l'arbre au `--base` en deux points
+  (`git diff <base>`), et sans le tronc dans le gel, les 11 fichiers de production que le tronc a changés depuis `a9f61225`
+  (harness, retire, spec) seraient lus comme des changements de ce lot, refusés en `--test-only`. Aucun fichier changé par le tronc
+  n'est lu par le test de la sonde.
 - Worktree existant de la branche aux plis précédents, worktree détaché neuf à ce pli ; `/home/user/monark-governance` n'est pas
   modifié.
 
@@ -97,6 +104,12 @@ donc équivalent tant que la borne vaut 1 Mio ; la borne elle-même est maintena
   passage, avant que ce fichier liste le tueur `:190`, refusait le test neuf (« its killer is not listed in the G0 ») : la règle
   tient. Digest du gel `516bef9b3f6474af…` (les `docs/**/*.md` sont hors du digest, qui ne dépend donc pas de ce fichier) ; le sha256
   de RED-PROOF.json, horodaté, change à chaque rejeu.
+- Reciblage sur le tronc : `node scripts/red-proof.mjs --base 6a1b1d43 --gel <arbre, tronc fusionné> --test-only` : `red-proof OK`,
+  7 tests jugés, 7 épinglés, 15 inchangés ; `refusals`, `production` et `removed` vides ; les seuls fichiers du diff sont le test et
+  ce G0. Digest du gel inchangé, `516bef9b3f6474af…` : le fichier de test est le même qu'au pli de la G2 ciblée.
+  `verifie-ancres` sur l'arbre fusionné : « tueurs 1585 ; ANCRE 1585 ; DERIVE 0 ; PERDU 0 » (fichier : 22 sur 22). winlint
+  `--base 6a1b1d43` : 2 fichiers, aucun danger. `tsc`, eslint, `lang:gate`, `gate:vocab`, `lint:ratchet` (69/69), `export:check` :
+  propres ; la sonde et ses voisins : 158 sur 158. R-25 (forme de la CI) contre le tronc : +60 lignes, contenu 0.
 - `node --test test/probe-dojo-live.test.ts` : 24 sur 24 (22 tests, le sous-test POSIX et le sous-test procfs de la partie 1) ; avec
   les voisins de la partie 1 : 158 sur 158. `tsc --noEmit` : 0. eslint, `lang:gate`, `gate:vocab` (348 fichiers), `lint:ratchet`
   (69/69), `export:check` : propres. winlint : `--base a9f61225` 2 fichiers, `--base 1cddd2e5` 9 fichiers, aucun danger.
