@@ -28,6 +28,8 @@ import { walkDojoTimeline } from "../apps/dojo/scripts/dojo-chain.mjs";
 import { dojoTrustOf, verifyDojoServed } from "../apps/dojo/scripts/dojo-verify.mjs";
 import { rootOf } from "../apps/dojo/scripts/dojo-core.mjs";
 import { canonical, lineHash, type Trust } from "../apps/bell/scripts/bell-chain.mjs";
+import { jsLiteral } from "./helpers/js-literal.ts";
+import { textOf } from "./helpers/markup-text.ts";
 
 type Tree = Map<string, Buffer>;
 type Rec = Record<string, unknown>;
@@ -69,23 +71,17 @@ async function component<P extends object>(rel: string, name: string): Promise<F
   assert.equal(typeof m[name], "function", `${rel} exports ${name}`);
   return m[name] as FunctionComponent<P>;
 }
-/** The text of some markup React wrote: tags dropped, the five entities React writes decoded in one pass. React escapes < > & in text
- *  and attributes: a stray < or >, or a bare &, is markup it never writes, refused (CodeQL alert 41), never read. */
-const ENTITIES: Readonly<Record<string, string>> = { "&#x27;": "'", "&quot;": '"', "&lt;": "<", "&gt;": ">", "&amp;": "&" };
-const textOf = (html: string): string => [...html.matchAll(/<[^<>]*>|[^<>]+|[<>]/g)].map(([t]) => t.startsWith("<") && t.endsWith(">") ? ""
-  : /^[<>]$/.test(t) ? assert.fail(`textOf: a stray ${t} in ${JSON.stringify(html)}`)
-  : t.replace(/&(?:#x27|quot|lt|gt|amp);|&/g, (e) => ENTITIES[e] ?? assert.fail(`textOf: a bare & in ${JSON.stringify(html)}`))).join("");
 /** The cells of each row of the body of the rendered table, in order. */
 const rowsIn = (html: string): string[][] => [...(html.split("<tbody>")[1] ?? "").matchAll(/<tr>(.*?)<[/]tr>/g)]
   .map((m) => [...(m[1] ?? "").matchAll(/<td class="break-all">(.*?)<[/]td>/g)].map((c) => textOf(c[1] ?? "")));
 
 // CodeQL alert 41: one regex pass that drops tags swallows text in silence on malformed markup. React escapes < > & in text and in
 // attributes, so a stray < or >, or a bare &, is markup it never writes: textOf refuses it, never reads it.
-// Not a killer, test code (a *.test.ts is never mutated): test/dojo-render.test.ts:76 SDL ": /^[<>]$/.test(t) ? assert.fail(" -> ""
+// killer: test/helpers/markup-text.ts:9 SDL ": /^[<>]$/.test(t) ? assert.fail(" -> ""
 test("dojo_render_text_of_refuses_markup_react_never_writes", () => {
   for (const bad of ["<td>a<b</td>", "a>b", "<p>x&y</p>"]) assert.throws(() => textOf(bad), /textOf/, bad);
 });
-// Not a killer, test code (a *.test.ts is never mutated): test/dojo-render.test.ts:74 CONST "\"&amp;\": \"&\"" -> "\"&amp;\": \"&amp;\""
+// killer: test/helpers/markup-text.ts:7 CONST "\"&amp;\": \"&\"" -> "\"&amp;\": \"&amp;\""
 test("dojo_render_text_of_reads_back_any_text_react_renders", () => {
   for (const s of [`a<b>&"'`, "&amp;lt;", "</td><script>x</script>", "<!-- c -->", "&#x27;&quot;", ""])
     assert.equal(textOf(renderToStaticMarkup(createElement("td", { title: s }, s))), s, s);
@@ -383,10 +379,7 @@ test("dojo_page_reads_a_local_root_on_the_server_at_build_only", async () => {
   assert.deepEqual(naming, ["apps/site/app/dojo/page.tsx"], "the name in the server page alone");
 });
 
-/** A JavaScript string literal of `s`, each UTF-16 unit written as a \u escape: the module source holds no quote, backslash, angle
- *  bracket or line terminator of `s` (CodeQL alert 44: the literal is built closed, not sanitized after the fact). */
-const jsLiteral = (s: string): string => `"${s.split("").map((c) => `\\u${c.charCodeAt(0).toString(16).padStart(4, "0")}`).join("")}"`;
-// Not a killer, test code (a *.test.ts is never mutated): test/dojo-render.test.ts:388 CONST "c.charCodeAt(0).toString(16).padStart(4, \"0\")" -> "c.charCodeAt(0).toString(16)"
+// killer: test/helpers/js-literal.ts:6 CONST "c.charCodeAt(0).toString(16).padStart(4, \"0\")" -> "c.charCodeAt(0).toString(16)"
 test("dojo_render_header_stub_writes_any_pathname_as_a_closed_literal", async () => {
   const dir = temp("dojo-render-literal-");
   for (const [i, s] of ["/dojo", "/", '"); throw 1; ("', "</script><!--", "a\\b`${x}`", "\u2028\u2029\n\r", "\ud800", "\u00e9/\u6f22"].entries()) {
