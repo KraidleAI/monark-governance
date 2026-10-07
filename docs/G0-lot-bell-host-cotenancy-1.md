@@ -174,3 +174,24 @@ sonde, et l'environnement de `monark-probe` quand elle tourne). Construction chi
 
 Non triviale (deux unités, un passage de rapport, dix tests) : elle n'entre pas dans ce lot, dont l'échéance passe d'abord. Elle
 garde son déclencheur, « avant DOJO-PROBE-MIRROR-1 ».
+
+## 12. Mesures (code à `05b38ce6`, base `885554e5`)
+
+- **Rouge d'abord** : le test neuf seul (commit `10f13ac1`), sur les unités du tronc, échoue par assertion au point 3, sur le
+  collecteur ; les points 1 et 2 passent déjà.
+- **red-proof** `--base 885554e5 --gel 05b38ce6 --draw 4 --seed 20261007` : OK, 4 tests jugés (42 inchangés), chacun F2P ; 4 tueurs
+  tirés, 4 tués (`RED-PROOF.json`, sha256 `d49bd0313fbeaf29…`).
+- **Tueurs des lignes clés** (`scripts/mutants/run.mjs --killers --only K1,…,K7` : les six du test neuf, puis celui du collecteur) :
+  7 tués sur 7 (`RESULTS.json`, sha256 `19f85fd389798fe5…`). L'affectation vide (K2) n'est tuée que parce que le test applique la
+  remise à zéro de systemd.
+- **Ancres** : `verifie-ancres --touched 885554e5 05b38ce6 --ref 885554e5` : 45 tueurs, 45 ANCRE, aucune dérive ; arbre entier :
+  1 650 ANCRE ; `every_killer_line_is_readable` vert.
+- **Suite** : `test:main`, 2 926 tests, 2 904 passés, 0 échec, 22 sautés (sauts conditionnels déjà là : win32, corpus d'hôte ou
+  artefacts absents), 316 s. `tsc --noEmit` : 0. eslint du dépôt : 0. `lint:ratchet` : 69/69. `gate:vocab` (349 fichiers),
+  `lang:gate`, `export:check`, `lint-model-pinning` : propres. winlint `--base 885554e5` : 13 fichiers, aucun danger.
+- **Site** : `npm run build -w @monark/site`, puis `node scripts/assert-fleet-html.mjs` : OK. Les pages construites portent la phrase
+  neuve (`/bell/method`, `/bell`, `/docs/bell`, l'accueil, `/applications`) et plus « dedicated host » ; « on its own host » ne reste
+  qu'aux endroits du §10 (métadonnées de `/bell` l.36, `fleet-presentation.ts` l.130).
+- **R-25** (forme de la CI, `docs/**/*.md` exclus) : 105 + 17 = 122 lignes, pour une borne de 1 205 ; contenu : 0.
+- **Non vérifié ici** : l'hôte (le démarrage après le redéploiement et le relevé `systemctl show`, actes de MONARK, §9). Aucun chemin
+  propre à Windows : des fichiers d'unité et des tests qui les lisent.
