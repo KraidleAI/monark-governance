@@ -1,7 +1,7 @@
 // test/spec-venue-fields.test.ts -- lot VOCAB-VENUE-FIELDS-1 (decision of RECHERCHES, 76ffa25): the vocabulary gate of the public spec
 // repository (contentProblems of scripts/spec-publish.mjs) masks the venue of a table row in the column venue and in the venue segment of
 // source.trial_id ONLY when it is the pinned venue of wave 1 (the one venue of the 280 cells of the registry 811fcd57), never by field
-// name: another value there, the name in any other field or in free text stays refused, in the byte pass and in the decoded pass. Rows are
+// name: another value there, the name written plainly in any other field or in free text stays refused, in the byte pass and in the decoded pass. Rows are
 // real-shaped: the projection of the seeded synthetic registry (apps/harness/test/helpers/synthetic-registry.ts, the venue of wave 1 in
 // every cell) through projectCell and buildPolicyTable; the pin itself is bound to the wave 1 registry this repository holds (its bytes).
 // The new functions are loaded on demand, so the base, which lacks them, reddens by assertion. Each test names on the line above it the
@@ -105,6 +105,10 @@ test("the_decoded_pass_masks_the_same_fields_bound_to_the_pinned_value", () => {
 test("the_byte_pass_masks_only_a_text_that_is_a_plain_writing_of_its_parsed_value", () => {
   const t = named("btc-range-1h");
   assert.deepEqual([vocab(canonicalJson(t), "json", VECTORS_OUT), vocab(`${JSON.stringify(t)}\n`, "json", VECTORS_OUT)], [[], []]);
+  // killer: scripts/spec-publish.mjs:358 CONST "(x) => JSON.stringify(x), " -> ""
+  assert.deepEqual(vocab(`${JSON.stringify(Object.fromEntries(Object.entries(t).reverse()))}\n`, "json", VECTORS_OUT), [], "compact with a LF, keys not sorted: not canonical, a plain writing still");
+  // killer: scripts/spec-publish.mjs:360 CONST "try { if (w(v) + end === text) return w(m.value) + end; } catch { /* not this writing */ }" -> "if (w(v) + end === text) return w(m.value) + end;"
+  assert.doesNotThrow(() => assert.deepEqual(vocab(`${JSON.stringify({ ...t, note: "\ud800" })}\n`, "json", VECTORS_OUT), []), "a lone surrogate member: the canonical writing throws, the compact one is tried next");
   for (const [why, body] of crafted(t)) assert.ok(vocab(body, "json", VECTORS_OUT).some((d) => d.startsWith(`${VECTORS_OUT}:1 [a] `)), why);
 });
 
@@ -113,4 +117,11 @@ test("a_real_shaped_table_file_with_the_pinned_venue_has_no_problem_of_any_code"
   const t = named("btc-range-1h");
   for (const r of t.rows) r.recompute = null; // no attestation: the published list of verifiers comes first (recompute_held)
   assert.deepEqual(contentProblems("contract-1.1.0/policy/btc-range-1h.json", "policy-table", Buffer.from(canonicalJson(t)), "contract-1.1.0"), []);
+});
+
+// killer: scripts/spec-publish.mjs:357 CONST "catch { return text; }" -> "catch { return \"\"; }"
+test("a_name_in_the_free_text_of_a_markdown_file_is_refused", () => {
+  assert.deepEqual(vocab(named("btc-range-1h")), [], "the pinned venue passes in the two row fields of a table file");
+  assert.deepEqual([vocab(`served from ${VENUE}\n`, "text", "contract-1.1.0/notes.md"), vocab("Written by RECHERCHES.\n", "text", "contract-1.1.0/NOTES.md")],
+    [[`contract-1.1.0/notes.md:1 [a] ${VENUE}`], ["contract-1.1.0/NOTES.md:1 [private] RECHERCHES"]], "free text in a markdown file is no JSON: nothing is masked, the byte pass judges it whole");
 });

@@ -328,7 +328,7 @@ import { DIGEST_FLOOR_BITS, digestProblems } from "../apps/harness/src/policy-di
 // in the third segment of source.trial_id (<taskClass>|<kataId>|<venue>|<symbol>|<horizon>|<attempt>, policy-projection.ts). Both are
 // masked like the venue segment of a key, but BOUND TO ONE PINNED VALUE, never exempted by field name: only in a row of a table of a
 // policy-table file or of the vectors file (VECTORS), and only when the value is exactly the pinned venue of wave 1, the one venue of all
-// 280 cells of the registry 811fcd57. Another value in these fields, the name in any other field or in free text stays refused. The
+// 280 cells of the registry 811fcd57. Another value in these fields, the name written plainly in any other field or in free text stays refused. The
 // decoded pass masks a copy of the parsed value; the byte pass masks only a text that is a plain writing of that value (canonical, or
 // JSON.stringify compact or indented, LF end or none), rewritten in it; any other text masks nothing. Function declarations, hoisted, kept last.
 

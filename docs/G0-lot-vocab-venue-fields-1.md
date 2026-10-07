@@ -3,8 +3,11 @@
 RECHERCHES, 2026-10-07. Base `177b5755` (lot/etude-suite). Constat de MONARK, décision de RECHERCHES `76ffa25`.
 
 Auteur : RECHERCHES ; rédaction initiale et pli de la G2 (MONARK, `2026-10-07-MONARK-vers-RECHERCHES-g2-221-222.md`, pièce
-`g2-221-222.json` clé `0`) par un worker `claude-opus-5-5` (effort non exposé au worker), horloge du pli lue à 09:05 UTC. Le pli est
-construit sur le tronc `1cddd2e5` (après #228), fusionné dans la branche.
+`g2-221-222.json` clé `0`) par un worker `claude-opus-5-5`, à l'effort de la session, sans réglage explicite (RECHERCHES,
+`2026-10-07-RECHERCHES-vers-MONARK-pr226-close-erratum-21.md`), horloge du pli lue à 09:05 UTC. Le pli est construit sur le tronc
+`1cddd2e5` (après #228), fusionné dans la branche. Pli du delta G2 (MONARK `e7234bd`,
+`2026-10-07-MONARK-vers-RECHERCHES-tronc-rh1-g2-221-222.md`, pièce `g2-221-222-delta.json` clé `0`) par un worker `claude-opus-5-5`,
+effort `max` passé par l'orchestrateur de RECHERCHES, horloge lue à 10:34 UTC ; le tronc `591b3a30` est fusionné dans la branche.
 
 ## Constat (mesuré à la base)
 
@@ -25,8 +28,9 @@ Masquage par champ **lié à la valeur épinglée**, jamais une exemption par no
 - passe décodée : sur une copie masquée de la valeur lue ; passe octets : seulement un texte qui est une écriture stable de la valeur
   lue (`canonicalJson`, ou `JSON.stringify` compact ou indenté de 2, avec ou sans LF final), réécrit masqué sous la même forme ; tout
   autre texte reste tel quel et la passe octets le juge en entier ;
-- restent refusés : une autre valeur dans ces champs (casse comprise), le nom dans tout autre champ, en texte libre, hors table, et tout
-  fichier dont les octets ne sont pas une écriture stable de sa valeur : membre échappé, répété, ou effacé par une clé dupliquée.
+- restent refusés : une autre valeur dans ces champs (casse comprise), le nom écrit en clair dans tout autre champ, en texte libre, hors
+  table ; un texte qui n'est pas une écriture stable ne masque rien, et la passe octets le juge tel quel. Limite héritée de la porte,
+  base comprise : un membre échappé puis effacé par une clé dupliquée échappe aux deux passes, quel que soit le mot (item ci-dessous).
 
 Pli de la G2 (constat M) : la première passe octets masquait par comptage (autant de motifs dans le texte que de champs masqués dans la
 valeur lue). Un membre de ligne échappé comptait dans la valeur sans correspondre au motif et « payait » un membre égaré hors table, que
@@ -41,6 +45,35 @@ sans item.
 
 Deux réécritures en place (l.137, l.147), le reste en déclarations de fonction ajoutées en fin de fichier : aucun tueur ne bouge.
 
+## Pli du delta G2 (MONARK `e7234bd` : quatre m)
+
+1. Texte seulement : la réserve des l.31-33 remplace l'affirmation que tout texte instable est refusé. Le corps de la PR, le commentaire
+   `scripts/spec-publish.mjs:331` et l'en-tête du test (l.4) disent « le nom écrit en clair » ; l.331 et l.4 sont réécrites en place,
+   aucun tueur n'y est ancré. Le corps ne nomme pas l'item.
+2. Tests seulement, aucune ligne de production : trois mutations des lignes neuves survivaient à tous les tests.
+   - X5 (`:357`, `catch { return text; }` → `""`) : test 8, le nom en texte libre d'un fichier markdown (la venue épinglée, et
+     « RECHERCHES ») est refusé ; tueur `:357` au-dessus du test.
+   - X1 (`:358`, forme compacte retirée) : au test 6, une écriture compacte + LF à clés non triées rend `[]` ; tueur `:358` dans le corps.
+   - X6 (`:360`, `try` retiré) : au test 6, un membre à surrogate isolé, écrit compact + LF, rend `[]` sans lever (l'écriture canonique
+     lève `not_canonical`, la compacte est essayée ensuite) ; tueur `:360` dans le corps.
+   - X10 (SDL de `:359`) est équivalent : sans champ masqué, `m.value` est une copie égale à `v`, et une écriture égale au texte le rend.
+3. Le BOM de tête est ôté avant le contrôle canonique (l.135, présent à la base) : noté, corrigé en lot à part (item ci-dessous), rien
+   ici.
+4. Titres : ceux de `464add3e` (« Merge lot/etude-suite into vocab-venue-fields-1 ») et de `9b7bdc62` (« Record the post-review
+   evidence in the lot notes ») échouent à `prbody` sur « lot ». Décision de MONARK : erratum, sans réécriture d'historique, comme pour
+   `47002407`. Les titres de ce pli sont en anglais simple, la fusion du tronc comprise (« Merge the trunk »).
+
+## Items formés (décision de MONARK `e7234bd`)
+
+Un seul petit lot de durcissement de la porte, porteur RECHERCHES (code), G2 MONARK. Déclencheur : avant la première publication réelle
+par `spec-publish` (release L ou c, la première venue). Ce lot ne passe pas par 3a, déjà à son repli. Rien n'en est fait dans cette PR.
+
+- VOCAB-JSON-DUPKEY-1 : refuser toute clé dupliquée dans les textes JSON des kinds `json` et `schema` (le kind `policy-table` l'est déjà
+  par `not_canonical`) ; ferme la limite héritée des l.31-33. Mesuré par MONARK : 0 doublon sur 42 entrées réelles.
+- SPEC-BOM-CANONICAL-1 : l.135, `{ fatal: true }` → `{ fatal: true, ignoreBOM: true }`. Le BOM reste alors dans le texte : refus `[cf]`
+  (vocabulary), et `json_invalid` pour les kinds JSON. Aujourd'hui, une table précédée de EF BB BF est publiée avec un sha256 qui n'est
+  pas celui de son écriture canonique. Mesuré par MONARK : aucune suite ne change, 0 BOM de tête sur 46 entrées.
+
 ## Tests (`test/spec-venue-fields.test.ts`, lignes réelles de forme : registre synthétique semé)
 
 1. venue épinglée dans `venue` et `trial_id` : acceptée (fichier de table, et table du fichier de vecteurs écrite avec espaces) ;
@@ -50,8 +83,10 @@ Deux réécritures en place (l.137, l.147), le reste en déclarations de fonctio
    refusé ;
 4. rejeu des 32 tables du registre synthétique : 0 problème `vocabulary` ;
 5. passe décodée liée à la même épingle ;
-6. passe octets : les écritures stables (canonique, compacte + LF) passent, P1, P1b et P5 sont refusés par la passe octets ;
-7. une table de forme réelle sans `recompute` n'a aucun problème, tous codes confondus (compose `contentProblems` et le masquage).
+6. passe octets : les écritures stables (canonique, compacte + LF) passent, une compacte + LF à clés non triées aussi, et un membre à
+   surrogate isolé n'y lève pas ; P1, P1b et P5 sont refusés par la passe octets ;
+7. une table de forme réelle sans `recompute` n'a aucun problème, tous codes confondus (compose `contentProblems` et le masquage) ;
+8. le nom en texte libre d'un fichier markdown, la venue épinglée comme « RECHERCHES », est refusé : aucun masquage hors JSON.
 
 ## Tueurs
 
@@ -62,6 +97,10 @@ Deux réécritures en place (l.137, l.147), le reste en déclarations de fonctio
 - scripts/spec-publish.mjs:147 CONST "strings(venueMasked(v, out, kind).value)" -> "strings(v)"
 - scripts/spec-publish.mjs:360 CONST "w(v) + end === text" -> "true"
 - scripts/spec-publish.mjs:343 CONST "structuredClone(v)" -> "v"
+- scripts/spec-publish.mjs:357 CONST "catch { return text; }" -> "catch { return \"\"; }"
+- dans le corps du test 6, deux lignes :
+  - scripts/spec-publish.mjs:358 CONST "(x) => JSON.stringify(x), " -> ""
+  - scripts/spec-publish.mjs:360 CONST "try { if (w(v) + end === text) return w(m.value) + end; } catch { /* not this writing */ }" -> "if (w(v) + end === text) return w(m.value) + end;"
 
 ## Preuves
 
