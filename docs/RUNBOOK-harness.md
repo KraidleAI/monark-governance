@@ -429,6 +429,12 @@ node scripts/retire-probe.mjs --api <url> --table spec/contract-1.1.0-tables-<YY
   `cycle` is `rehearsal` or `real`; `mention` is `null`, or where an overrun of the 14-day ceiling is written down
   (l.51-52). AFTER #218 (RETIRE-REAL-CYCLE-SCOPE-1, not merged at the base of this text): `cycle` may be `publication`,
   T_c to T_g only, no ceiling; T_a or T_b in it is refused, `instant_out_of_cycle`.
+- Or assemble it from the evidence: `node scripts/retire-instants.mjs <evidence.json> --out <instants.json>` (item
+  RETIRE-INSTANTS-1). Each instant names its source: a full commit sha and its repository (T_a, T_b, T_e: the committer
+  date; T_e a merge commit), a clock reading (T_c, T_d; T_a of `live:<k>`, the close of its quarter), the record of step 6
+  that `verify-harness` rates green, with its 15 checks (T_f; a local record in a rehearsal only), or the record of an
+  exit-0 probe, the `--out` file of step 7 (T_g). Exit 1 names its refusal: `evidence_invalid`, `source_unreadable`,
+  `source_not_green`, or one of the report's below.
 - Run it:
 
 ```bash
