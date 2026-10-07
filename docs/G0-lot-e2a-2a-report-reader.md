@@ -1,9 +1,10 @@
 # G0 du lot 2a de VERIFIERS-LIST-F5A-1 (E-2a) : le lecteur fermé du rapport de recalcul, `readRecomputeReport`, sur des rapports de synthèse de forme neuve
 
-RECHERCHES, 2026-10-07. Base `6c53e0a1` (tête du lot 1f au pli de sa G2, `recherches/verifiers-list-1f`, PR #231, brouillon ;
-`6c53e0a13cf9f1eaddf3d177b0fbfd186d6c48e6`, lue par `git fetch +refs/heads/recherches/verifiers-list-1f:refs/remotes/origin/recherches/verifiers-list-1f`),
-fusionnée sans conflit par `20e2f213` à 10:53 UTC (base d'avant : `b894a587`). Ce lot est **empilé sur 1f** et sera rebasé avec lui
-quand l'outil figé de MONARK fusionnera. Chantier : `docs/G0-lot-verifiers-list-f5a-1.md` §3.3 et §5 partie 2 (amendée ici, §2).
+RECHERCHES, 2026-10-07. Base `12588884` (tête du lot 1f au pli de sa seconde G2, `recherches/verifiers-list-1f`, PR #231, brouillon ;
+`12588884d6a7f7d259ff3bd3ec86d1ddc636e85b`, lue par `git fetch +refs/heads/recherches/verifiers-list-1f:refs/remotes/origin/recherches/verifiers-list-1f`),
+fusionnée sans conflit par `6fea7076` à 12:46 UTC (même arbre qu'une première fusion de 12:29 UTC, refaite avant tout envoi pour porter
+la ligne d'attribution ; bases d'avant : `6c53e0a1`, fusionnée par `20e2f213` à 10:53 UTC ; `b894a587`).
+Ce lot est **empilé sur 1f** et sera rebasé avec lui quand l'outil figé de MONARK fusionnera. Chantier : `docs/G0-lot-verifiers-list-f5a-1.md` §3.3 et §5 partie 2 (amendée ici, §2).
 
 - **Demande** : G0 court d'E-2a v6.1 (`recherches:coordination/pieces/2026-10-07-e2a-g0-v4/G0-lot-e2a-loader-wave1.md`), §5 ligne 2a,
   §6 ligne T-RR, §8 Q-M5 ; accepté par MONARK (`recherches` `51fe3ee` : « Tes lots peuvent partir sur cette base, dans l ordre de la
@@ -12,6 +13,10 @@ quand l'outil figé de MONARK fusionnera. Chantier : `docs/G0-lot-verifiers-list
 - **Provenance** : worker `claude-opus-5-5`, horloge lue (`date -u`) à 09:38 UTC au début de l'écriture, 09:41 pour ce G0. Worktree
   détaché neuf du scratchpad, branche `recherches/e2a-2a-report-reader` ; `node_modules` lié en dur depuis un autre worktree du
   scratchpad, retiré à la fin. Node 24.21.0, Linux ; CPython 3.14.8 autonome (sans venv) pour la seule mesure croisée du §4.
+  - **Fusion du second pli de 1f** : worker `claude-opus-5-5`, **effort: max**, déclaré ; horloge lue (`date -u`) à 12:29 UTC à la
+    première fusion, 12:46 UTC à la fusion gardée, 12:48 UTC pour ce G0. Même worktree, repris propre à `5c984244` ; mêmes règles (`node_modules` lié en dur puis retiré, ni
+    `GIT_DIR`, ni `GIT_WORK_TREE`, ni `--write-tree`). Node 24.21.0, Linux. La fusion n'apporte que le test de 1f et son G0 : aucune
+    ligne de `policy-verifiers.ts` ne bouge, donc ni tueur ni citation de ce G0 (l.124, l.139-183, l.156) ne se déplace (§6).
 - **Zone** : `apps/harness/src/policy-verifiers.ts` (ajout en fin de fichier, aucune ligne de 1f déplacée : les tueurs de 1f, l.18 à
   l.115, restent à leur ligne), `test/recompute-report.test.ts` (neuf), `docs/G0-lot-verifiers-list-f5a-1.md` (amendement sur place,
   nombre de lignes inchangé), ce G0. Pli N-6 (MONARK, `recherches` `8ac6bd6`) : `registry` sans `file`.
@@ -54,7 +59,8 @@ quand l'outil figé de MONARK fusionnera. Chantier : `docs/G0-lot-verifiers-list
     écrite ; la clause (d5) de la porte juge toute empreinte où qu'elle soit) ; `replay` : chaîne.
 - **L'écriture canonique** (l.170-173) : celle de `report.py` (`canonical`) : clés triées, sans espace, entiers sûrs seuls (une
   fraction est refusée, `-0` n'est pas canonique), chaînes de `JSON.stringify`, ASCII, sans LF final. Le module n'importe toujours que
-  `node:crypto`, `node:fs`, `node:url` (le test de 1f qui le tient passe) : l'écriture est locale, sans `@monark/contracts` ni `scripts/`.
+  `node:crypto`, `node:fs`, `node:url` (le test de 1f qui le tient passe, y compris le contrôle du texte de son second pli : aucun
+  `import(`, `require(` ni `getBuiltinModule` dans le code ajouté ici) : l'écriture est locale, sans `@monark/contracts` ni `scripts/`.
 - **`REPORT_NON_ROW_DIGESTS`** (l.124) : la liste fermée de (d5), exportée pour la porte de 3a : `inputs.compare[].sha256`,
   `inputs.recompute[].sha256`, `platform.libm.sha256`, `registry.sha256`, `tool.tree_sha256` ; `cells[].scores_sha256` à part (jugé par
   (d1) et (d2)). Mesurée au §4.
@@ -124,7 +130,20 @@ a1) porte trois contrôles sur le rapport réel ; la G2 de RECHERCHES les relit.
 
 ## 6. Preuves
 
-- **red-proof**, après la fusion de `6c53e0a1` (gel `4b8ebfa9`, tueurs déplacés) contre la tête de 1f : `node scripts/red-proof.mjs --base
+- **red-proof, après la fusion du second pli de 1f** (gel `6fea707667188f1b144afde18fdf07143828d422`, tueurs inchangés) contre la
+  tête de 1f : `node scripts/red-proof.mjs --base 12588884d6a7f7d259ff3bd3ec86d1ddc636e85b --gel HEAD --repo <worktree> --out
+  <dossier> --draw 4 --seed 1007`, Node 24.21.0, Linux : sortie 0, « red-proof OK: 4 judged, 0 unchanged, 4 killer(s) drawn » ;
+  quatre F2P (rouges à la base par assertion, verts au gel) ; quatre tueurs tués, `scripts/spec-publish.mjs:113`, l.124 et l.156
+  par assertion, l.156 `v === true` par le refus du lecteur lui-même (`other-fail`, comme à chaque passe précédente) ; digest du gel
+  `6555087149cf5ad0d0cf5c2c87051a9955d15daccce4f255360a73f52fe31331` ; `RED-PROOF.json` sha256
+  `815947eda376933a98de47149917ec32af3ad73a7e1a961bc2ffd6e474af5b38`. Le commit suivant ne change que ce G0, hors du digest.
+- **Voisins après cette fusion** (mesurés sur l'arbre de la première fusion, le même ; mêmes fichiers que ci-dessous, Node 24.21.0, `(test 42)` filtré) : 172 tests, 171 verts ; seul
+  rouge, le témoin de 1f. `test:main` : la CI de la PR la court.
+- **Portes après cette fusion** : `tsc --noEmit` 0 ; `eslint` des trois fichiers TypeScript (module, `recompute-report`,
+  `verifiers-list`) 0 ; `lang:gate` 0 ; `gate:vocab` 0 (349 fichiers) ; `lint:ratchet` 69/69 ; `export:check` 0 ; winlint `--base
+  12588884` : 4 fichiers, aucun risque Windows ; `verifie-ancres.mjs` (`--ref 5c984244 --ref 12588884`) : 4 tueurs de ce lot, 18 dans
+  les fichiers de test de la pile, 1 533 dans l'arbre, aucun PERDU ni DERIVE.
+- **red-proof, première fusion** : après la fusion de `6c53e0a1` (gel `4b8ebfa9`, tueurs déplacés) contre la tête de 1f : `node scripts/red-proof.mjs --base
   6c53e0a13cf9f1eaddf3d177b0fbfd186d6c48e6 --gel HEAD --repo <worktree> --out <dossier> --draw 4 --seed 1007`, Node 24.21.0, Linux :
   sortie 0, « red-proof OK: 4 judged, 0 unchanged, 4 killer(s) drawn » ; quatre F2P (rouges à la base par l'assertion d'import, verts au
   gel), quatre tueurs tués, dont l.124 et l.156 ; `RED-PROOF.json` sha256 `b9ec8e957ae45fc8877a8c4b86381a5a5d032ae6cec43cb9164214ce122d295f` (au pli N-6 : `16c44a48…`).
@@ -139,6 +158,9 @@ a1) porte trois contrôles sur le rapport réel ; la G2 de RECHERCHES les relit.
 
 - R-25, forme de la CI (`git diff --shortstat 6c53e0a1...HEAD`, `docs/**/*.md` exclus) : **2 fichiers, 217 insertions**, soit 217
   (borne de lot 547 ; attendu au G0 d'E-2a : ~260 ; inchangé par la fusion). Un seul lot, sans coupe.
+- Après la fusion du second pli de 1f, même forme (les 21 pathspecs de `.github/workflows/ci.yml`, environnement épinglé de
+  `scripts/lot-size-integration.mjs pin`, `origin/recherches/verifiers-list-1f...HEAD`, base `12588884`) : **2 fichiers, 217
+  insertions** (`policy-verifiers.ts` 67, `test/recompute-report.test.ts` 150), soit 217, inchangé.
 
 ## 8. Ce qui n'est pas fait
 
