@@ -112,3 +112,15 @@ par `spec-publish` (release L ou c, la première venue). Ce lot ne passe pas par
 - red-proof après le pli, `--base 1cddd2e5 --draw 7 --seed 1` : 7 tests F2P, 7 tueurs tirés, 7 tués (dont l.360 et l.343).
 - Tests touchés et lecteurs (`spec-venue-fields`, `spec-publish`, `spec-1-1-0-release`, `spec-retire-path`, `short-digest-floor`,
   `kata-recalc`, `runbook-retire`, `surfaces-1-1-0`) : 101/101 sous Node 24.
+- Après le pli du delta. Le tronc `591b3a30` est fusionné par `cbfb5f7f` (« Merge the trunk ») ; la fusion est pure : même patch-id
+  (`2ce7dcf1…`) pour `1cddd2e5`→`9b7bdc62` et pour `591b3a30`→`cbfb5f7f`.
+  - Rejeu du registre du dépôt (`811fcd57…`) : 32 tables, 280 lignes, `{recompute_held: 32, short_digest: 4}`, **0** `vocabulary`
+    (592 au tronc `591b3a30`).
+  - red-proof `--base 591b3a30 --draw 8 --seed 1` : OK. 8 tests F2P (base `assert-fail`, gel `pass`) ; 8 tueurs tirés, 8 tués par
+    assertion, dont `:357`. `RED-PROOF.json` : sha256 `abd4d065…`.
+  - Mutants de la G2 delta, tirés seuls (fichier de test entier, restauration vérifiée par sha256 `d0bf16aa…`) : X5, X1 et X6
+    survivent au fichier de test de `9b7bdc62` (7/7 verts) ; au gel, `ERR_ASSERTION` les tue (test 8, test 6, test 6). X10 survit aux
+    deux : équivalent (ci-dessus). Les dix tueurs du fichier sont tués par assertion.
+  - Tests touchés et lecteurs : les huit fichiers ci-dessus et `packages/contracts/test/policy-table.test.ts`, 118/118 sous Node 24.
+  - `tsc --noEmit`, eslint, lang-gate, gate:vocab, lint-ratchet (69/69), export-public `--check` et winlint : propres.
+  - Taille, forme de la CI (`591b3a30...HEAD`) : 3 fichiers, +173 −6, soit 179 lignes, sous 547.
