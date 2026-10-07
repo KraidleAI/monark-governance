@@ -2207,3 +2207,20 @@ les clôt (constat m-1). Après la mission 6, MONARK a posé dans `29c53bd5` (16
   l'item (R-25 +0, l'épingle bouge).
 - **Constat m-3** : « rebase » est remplacé aux l.1367-1369 et l.1568-1569 par la fusion du tronc dans la branche, sans rebase (la branche
   est poussée), à nombre de lignes égal.
+
+**Fusion du tronc, red-proof et R-25 de la tête de la PR (RECHERCHES, 2026-10-07, 17:2x UTC).**
+- Fusion `54d7976c` (« Merge the trunk ») du tronc `87b821b0` (Merge #239) dans la branche, sans rebase et sans conflit (`policy-guard.ts`
+  et son test fusionnés seuls) ; les commits revus, `09f49fc2` et `29c53bd5`, sont inchangés. L'arbre de l'outil est le même à l'octet de
+  part et d'autre : l'épingle reste `d6c80e9d…` (douze fichiers, 271 000 octets), recalculée par `manifestText` sur l'index de la fusion ;
+  aucune épingle neuve.
+- Sur la fusion (Node v24.21.0, Linux) : `npm test`, 2 903 tests, 2 881 verts, 0 rouge, 22 sautés ; les trois fichiers de test touchés, 42
+  sur 42 ; ancres : 42 sur 42 dans les fichiers touchés (référence `29c53bd5`), 1 612 sur 1 612 dans l'arbre ; `tsc --noEmit` 0, `eslint`
+  des quatre fichiers TypeScript touchés 0, `gate:vocab` 0 (348 fichiers ; 362 avec les douze `.py`, le test et le fichier de FAITS en
+  cibles), `lang:gate` 0, `lint-ratchet` 69/69, `export-public --check` 0, winlint (les 14 fichiers de code, puis le mode diff contre
+  `87b821b0`) aucun risque, `git diff --check` 0.
+- red-proof `--base 87b821b0 --gel 54d7976c --draw 8 --seed 37` : OK, 7 jugés, 7 F2P (les cinq tests de `test/kata-recalc.test.ts`, dont
+  l'épingle, et les deux de la garde), 35 inchangés, 7 tueurs tirés, 7 tués ; `gel.digest`
+  `dae387bb2ffc5c6d5d27bf9399961aa56ef38ce1ef96a7c68edb87a6a4223eeb` (ce digest exclut `docs/**/*.md` : ce commit de documents ne le change
+  pas) ; `RED-PROOF.json` `58baf752…` (dépend des chemins et de l'heure).
+- R-25 en forme de CI contre la base de fusion avec le tronc (`87b821b0`) : 14 fichiers, 1 037 insertions, 165 suppressions, **1 202**
+  (borne 1 205), contenu 0 ; égal à la mesure de la G2.
