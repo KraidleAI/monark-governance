@@ -11,12 +11,17 @@
   contrôle par diff, fusion et ligne d'ETAT : MONARK. Versé par #242, fusion `1df4e44f` (ETAT l.181-186 à `5437cd0d`) ;
   décisions de MONARK pliées le 2026-10-07 (PR `paroxysme/registres-decisions-1007`), par un worker de PAROXYSME (`claude-opus-5-5`,
   effort max) à partir de 19:56 UTC (`date -u`), sur ETAT à `5437cd0d` et le message de MONARK `d6331f6` (MSG ; §8).
+  Constats 4, 5 et 14 de la G2 de ce pli (instance neuve) pliés le 2026-10-07 de 21:01 UTC (naissance du répertoire de travail du pli,
+  `stat`) à 21:16 UTC (`date -u`) par un worker de PAROXYSME (`claude-opus-5-5`, effort max, contexte de sa mission) : N7, N9, N22,
+  §7 (doutes 5, 13, 17), §8. Trois constats d'un vérificateur adverse de ce pli corrigés à partir de 22:36 UTC (`date -u`) par un
+  worker de PAROXYSME (`claude-opus-5-5`, effort max, contexte de sa mission) : en-tête, N6, N22, §7 (doute 5).
 - **Bases** : inventaire mesuré à `d8fe354c` ; il lit ETAT, `apps/harness/src/policy-guard.ts` et `docs/G7-lot-retire-path-ra.md` à
   `57a131fc` (INV l.9-13 ; §7, doute 6).
   Toutes les ancres de ce registre sont à la tête `87b821b0` de `lot/etude-suite`, reportées par l'outil `reanchor.mjs` (pièce de la
   boîte, `d2332e2` ; aucune hors bornes, §7 doute 15) : les 17 plages d'ETAT que cite l'inventaire se reportent avec un texte identique, onze à un autre
   numéro ; hors d'ETAT, aucune ancre de l'inventaire ne tombe dans un hunk changé et deux se déplacent au même texte.
-  Font exception les décisions pliées le 2026-10-07, citées « ETAT l.N à `5437cd0d` » et « MSG l.N » (empreintes au §8).
+  Font exception les décisions pliées le 2026-10-07, citées « ETAT l.N à `5437cd0d` » et « MSG l.N », et deux renvois du doute 17 :
+  la demande `6698269` et ce registre à `5437cd0d`, cités par leurs lignes (empreintes au §8).
 - **Préséance** : `docs/ETAT.md` l.7-11 ; ETAT prime. Un item nommé hors d'ETAT et du code (ADR, plan, inventaire, fiche du 2026-09-27)
   n'est pas compté comme formé : il est écrit « à former » et porté par son chantier.
 - **Labels** : aucun ne change (`built` de Hikae, `apps/site/lib/fleet.ts:150`) ; `apps/site/lib/fleet.ts` n'est pas touché par ce versement.
@@ -237,16 +242,19 @@
 - **N6** · « Aucun énoncé de famille entre cellules servies ; la divulgation « échecs attendus ≤ test_delta × T » reste à imprimer. »
   source : 0004 l.81-87, l.123, l.196 ; W1R l.760 · touche : README et notes de version à venir · nature : T
   item : PXC-09 partie 3 (famille et divulgation) ; PXC-01 partie 2 (F-W2-4 et F-W2-8, hors d'ETAT : à re-former à ETAT) · porteur :
-    PAROXYSME (chantier) ; MONARK (ligne d'ETAT) · déclencheur : partie 3 de PXC-09 (F4) ; partie 2 de PXC-01 (F3)
+    PAROXYSME (chantier) ; MONARK (ligne d'ETAT) ; le fondateur (décision sur le déclencheur de F-W2-4, CC l.334-335 ; par MONARK)
+    · déclencheur : partie 3 de PXC-09 (F4) ; partie 2 de PXC-01 (F3)
   état : ouvert · suite : même limite que MK-L05 du registre du Harnais ; déclencheur de F-W2-4 : la lecture tranchée, écrite à sa
     re-formation par PXC-01 p2 (ETAT l.260-261 à `5437cd0d` ; §7, doute 17)
 - **N7** · « Recalcul par un tiers impossible sur une ligne kata : q̂, k_obs et misses reposent sur des scores ni publiés ni tenus par le serveur. »
   source : C l.490-497 ; ETAT l.567-590 ; FC l.43-44, l.57-61 · touche : `README.md:61` (« replayable by a third party »), `:65` · nature : C/Dr
-  item : VERIFIERS-LIST-F5A-1 (ETAT l.567-590 : la liste) ; PXC-11 THIRD-PARTY-1, partie 3 (KATA-THIRD-PARTY-RECALC-1, à former, nommé
-    KATA-ROW-PUBLIC-RECOMPUTE-1 par CC l.375 : §7, doute 13) · porteur : VERIFIERS : partie 1 (lot 1f) RECHERCHES, partie 2 MONARK (course)
+  item : VERIFIERS-LIST-F5A-1 (ETAT l.567-590 : la liste) ; PXC-11 THIRD-PARTY-1, partie 3 (formée à ETAT l.231-234 à `5437cd0d` pour
+    l'attaquant « A » ; KATA-THIRD-PARTY-RECALC-1, à former, CC l.394 ; nommé KATA-ROW-PUBLIC-RECOMPUTE-1 par CC l.375 : §7, doute 13)
+    · porteur : VERIFIERS : partie 1 (lot 1f) RECHERCHES, partie 2 MONARK (course)
     et RECHERCHES (code de 2a), partie 3 RECHERCHES (l.588-590) ; PAROXYSME (PXC-11 p3) · déclencheur : VERIFIERS : bloquant à la première
     table publiée dont une ligne porte `recompute` non nul (l.569-571) ; partie 3 de PXC-11 (F3), le droit d'abord
-  état : ouvert · suite : Q-B (v) (« oui », 2026-10-07, JOURNAL de la boîte l.13 à `150c997`) couvre le service public d'un étalonnage,
+  état : ouvert · suite : Q-B (v) (« oui », 2026-10-07, ETAT l.55-57 à `5437cd0d` ;
+    JOURNAL de la boîte l.13 à `150c997`) couvre le service public d'un étalonnage,
     pas la redistribution des séries ni la publication des scores (PLAN l.893) ; au plus, une attente de PXC-11 p3 levée (PLAN l.625) ;
     même limite que MK-L11 et PX-Harness-19 du registre du Harnais ; P-INV-H-4 (lecture sur place : MONARK) et droit de publication des
     scores dérivés (fondateur) : PLAN §7.3
@@ -262,8 +270,9 @@
 - **N9** · « Le digest d'une suite 0/1 de 30 points ou moins est inversible. »
   source : C l.361 ; ETAT l.599-613 ; `docs/G0-lot-short-digest-inversion-1.md:245-251` (attaquant « A ») · touche : aucune · nature : C/T
   item : SHORT-DIGEST-INVERSION-1 (ETAT l.599-613) ; E2A-DIGEST-FLOOR-TEST-1 (tuyau, l.621-632) ; SHORT-DIGEST-SPEC-TEXT-1 (l.696-703) ;
-    pour l'attaquant « A », PXC-11 THIRD-PARTY-1, partie 3 (formée par MONARK : engagement à clé des empreintes de suite publiées,
-    option (e), G0 l.379, qui généralise DIR-4H-DIGEST-COMMIT-1, ETAT l.614-620 ; prix à chiffrer à son G0 ; ETAT l.231-234 à `5437cd0d`)
+    pour l'attaquant « A », PXC-11 THIRD-PARTY-1, partie 3 (item formé sous le nom de la partie à ETAT l.231-234 à `5437cd0d` :
+    engagement à clé des empreintes de suite publiées, option (e), G0 l.379, qui généralise DIR-4H-DIGEST-COMMIT-1, ETAT l.614-620 ;
+    prix à chiffrer à son G0 ; la même partie porte KATA-THIRD-PARTY-RECALC-1 (CC l.375, l.394 ; §7, doute 13), à former)
     · porteur : RECHERCHES (l.604 ; code du tuyau au partage 80/20, l.629-630 ; texte, l.702) ; MONARK (brouillon
     du texte, l.702) ; PAROXYSME (PXC-11 p3) · déclencheur : SHORT-DIGEST : la révision qui publiera des lignes kata (l.603-604) ; TUYAU :
     atteint (`wave1.json` versé, l.631-632), le test reste à construire avec E-2a ; SPEC-TEXT : avant la première publication datée de
@@ -347,11 +356,12 @@
   état : ouvert · suite : même limite que PX-Harness-16 du registre du Harnais
 - **N22** · « Droit des séries : le service public d'un étalonnage dérivé des séries Binance n'est pas couvert clairement par la licence (usage interne). »
   source : FC l.43-44, l.57-61, l.66-67 ; ETAT l.33-34, l.246-247 · touche : service public des lignes kata (vague 1) · nature : Dr
-  item : PXC-18 JURISTE-DROIT-1, partie 1 (dossier juriste ; DATA-LICENCE-KATA-1, à former) ; DATA-ACCORDS-TEXTS-1 (PLAN §7.3, hors
-    d'ETAT) · porteur : le fondateur (DATA-ACCORDS-TEXTS-1 ; DATA-LICENCE-KATA-1, accord écrit ou licence ; par MONARK) ; PAROXYSME
+  item : PXC-18 JURISTE-DROIT-1, partie 1 (dossier juriste ; DATA-LICENCE-KATA-1, à former) ; DATA-ACCORDS-TEXTS-1 (PLAN §7.3 ;
+    sans son identifiant à ETAT à `87b821b0`, l.246-247 ; nommé sans être formé à ETAT l.55-57 à `5437cd0d` : « reste ouverte »)
+    · porteur : le fondateur (DATA-ACCORDS-TEXTS-1 ; DATA-LICENCE-KATA-1, accord écrit ou licence ; par MONARK) ; PAROXYSME
     (dossier) · déclencheur : avant le service public des lignes kata (PLAN §7.3) ; partie 1 de PXC-18 (F3)
-  état : changé (Q-B (v) tranchée « oui » le 2026-10-07, JOURNAL de la boîte l.13 à `150c997` ; doute 11 de l'inventaire levé, §7 doute 5)
-    · suite : même limite que MK-L28 du registre du Harnais
+  état : changé (Q-B (v) tranchée « oui » le 2026-10-07 : ETAT l.55-57 à `5437cd0d` ; JOURNAL de la boîte l.13 à `150c997` ; doute 11
+    de l'inventaire levé, §7 doute 5) · suite : même limite que MK-L28 du registre du Harnais
 
 ## 4. Limites closes ou obsolètes (avec preuve)
 
@@ -467,8 +477,13 @@ les mêmes que HT-01 à HT-07 du registre du Harnais.
    la même phrase est en HOW:289, que l'inventaire ne cite qu'en L1. L'ADR de PXC-02 (tâche 2 du TABLEAU, l.34) les place.
 5. **N22 et doute 11 de l'inventaire.** Le fondateur a répondu « oui » à Q-B (v) le 2026-10-07 (JOURNAL de la boîte, l.13 à `150c997`,
    l.12 à `07d99e2` : le JOURNAL s'écrit par le haut) ; la question est celle du doute 11 (service public d'un étalonnage tiré des
-   séries). La demande des textes des accords, DATA-ACCORDS-TEXTS-1, reste ouverte et n'est pas à ETAT ; ETAT l.33-34 garde « usage
-   interne » pour les FAITS.
+   séries). La demande des textes des accords, DATA-ACCORDS-TEXTS-1, reste ouverte. La réponse et la demande ouverte sont écrites à
+   ETAT l.55-57 à `5437cd0d`, sans porteur ni déclencheur pour la demande ; à `87b821b0`, ni Q-B (v) ni l'identifiant
+   DATA-ACCORDS-TEXTS-1 ne sont à ETAT (`git show <tête>:docs/ETAT.md | grep -c`, motifs `DATA-ACCORDS-TEXTS-1` et `Q-B (v)` : 0 à
+   `87b821b0`, 1 à `5437cd0d`). La demande y est déjà écrite, sans identifiant, porteur ni déclencheur : « textes des accords
+   attendus » (ETAT l.246-247 à `87b821b0` ; même texte à ETAT l.383-384 à `5437cd0d`), la ligne que le PLAN donne à l'item (PLAN
+   l.193, l.893 : « ETAT l.215-216 », à la tête qu'il lit, l.53-55) ; à `5437cd0d`, ETAT en parle donc deux fois (l.55-57 et l.383-384).
+   ETAT l.33-34 garde « usage interne » pour les FAITS (texte identique aux deux têtes).
 6. **Ancres qui ont bougé à la tête.** ETAT (`57a131fc` → `87b821b0`, 17 plages, texte identique) : l.82 → 106, l.86 → 117, l.502-503 →
    533-534, l.518-531 → 567-580, l.539-545 → 599-779, l.573-577 → 807-811, l.578-581 → 828-831, l.651-654 → 947-950, l.651-667 →
    947-972, l.1288-1291 → 1760-1763, l.1376 → 1853 ; deux plages s'élargissent par des lignes insérées (les entrées citent l'item à ses
@@ -496,7 +511,8 @@ les mêmes que HT-01 à HT-07 du registre du Harnais.
     (PLAN §4.2, porteur orchestrateur).
 13. **Nom de l'item de N7.** KATA-THIRD-PARTY-RECALC-1, le nom du registre du Harnais (PX-Harness-19, MK-L11) ; le même item est nommé
     KATA-ROW-THIRD-PARTY-RECOMPUTE-1 (INV l.208) et KATA-ROW-PUBLIC-RECOMPUTE-1 (CC l.375) : un seul item, un seul propriétaire, fixé au
-    versement (CC l.658), formé par la partie 3 de PXC-11.
+    versement (CC l.658), porté par PXC-11 partie 3 (formée à ETAT l.231-234 à `5437cd0d` pour l'attaquant « A » ;
+    KATA-THIRD-PARTY-RECALC-1, à former, CC l.394).
 14. **Plancher d'empreinte et attaquant qui recalcule.** Le cas que le G0 laisse sans item (l'attaquant « A »,
     `docs/G0-lot-short-digest-inversion-1.md:245-246`) est entré dans N9 (§3). Tranché par MONARK le 2026-10-07 : il a formé PXC-11
     partie 3, l'engagement à clé, prix à chiffrer à son G0 (ETAT l.231-234 à `5437cd0d` ; doute 18).
@@ -515,8 +531,10 @@ les mêmes que HT-01 à HT-07 du registre du Harnais.
     « until a cell reaches calib_attempt 2 », « lu comme un déclencheur atteint à la vague 2 », à confirmer par RECHERCHES
     (`INVENTAIRE-Moteur.md` l.337). Le CC attend une décision de l'investisseur sur ce déclencheur (CC l.334-335). F-W2-4 n'est pas à
     ETAT (doute 2) : sa re-formation par PXC-01 partie 2 (F3) écrit le déclencheur tranché. Tranché : MONARK l'a retenu le 2026-10-07
-    (ETAT l.260-261 à `5437cd0d` ; à cette tête, `grep -n F-W2-4` ne rend que l.260) ; la ligne ne dit pas qui tranche la lecture,
-    que le CC attend de l'investisseur. La question du §1 en sort.
+    (ETAT l.260-261 à `5437cd0d` ; à cette tête, `grep -n F-W2-4` ne rend que l.260). Selon la proposition retenue (MSG l.44-45,
+    « retenu » ; MSG l.4 : réponse à la demande `6698269`, dont l.135-136 porte la proposition et l.132 renvoie au §1 de ce registre,
+    l.63-64 à `5437cd0d`) : la lecture par RECHERCHES, la décision de l'investisseur (CC l.334-335) portée par MONARK (§0), à la
+    re-formation par PXC-01 p2. La question du §1 en sort.
 18. **Proposé à MONARK dans la demande de fusion, tranché le 2026-10-07** (MONARK écrit ETAT ; message `d6331f6`, ETAT à `5437cd0d`) :
     les lignes d'attente datées (P-25) des parties placées après le 2026-12-31 (PLAN l.617-618), L2 (PXC-09 p5), L15, L16 et L17
     (PXC-08 p3), L21 (PXC-17 p3), N16 (PXC-09 p4), sont écrites : ETAT l.270-273 à `5437cd0d` ; N9 : MONARK a formé PXC-11 partie 3
@@ -589,11 +607,13 @@ et N16 écrites. PX-Hikae-1 à -11 restent à re-former à ETAT par PXC-01 p2 (N
 | `docs/PAROXYSME-Shogen.md` à `376225c` (même branche) | 605 | `d44aa38b73cc6cd13f41551134d0d53c8bdc68ef98228ee75d5c12c073e70bea` |
 | `docs/PAROXYSME-Narabi.md` à `ea0d2de4` (même branche) | 531 | `0b658e226be5b9f4530fad08847fb21f3dd158a099a35c95dc2d9a4374237ea7` |
 | `docs/PAROXYSME-Bell.md` à `5b4d962d` (même branche) | 504 | `f7def06dc938afddb0d4fb42603f941af992ecf51a21d4ae1316c67aa4830a33` |
+| `docs/PAROXYSME-Hikae.md` à `5437cd0d` (base de ce pli) | 599 | `38ca29f85d6684caa6bcfafb1c91865d3c0b042a049e054eecae47c7be18c003` |
 | INV, boîte PAROXYSME, `dossier/etude-2026-10-06/inventaire/INVENTAIRE-Hikae.md` | 309 | `80b092d90f8c709e966906455eb015d7c5bb1ea459dfc7b1b706e83be8186ed5` |
 | `INVENTAIRE-Moteur.md`, même dossier | 350 | `d724157e6f458e9dbc9fbd807bd364a825060b476e95526a51520fdf6ebf99ed` |
 | `INVENTAIRE-Shogen.md`, même dossier | 291 | `c7cd6f49f362e8b9a4ffc63aacdc86fc078c2363b3216db9931c39c92d5ff533` |
 | message de MONARK `07d99e2`, boîte PAROXYSME `coordination/messages/` | 23 | `ef1cded000da48460b4d5cf84793cd47a4e19f704a554887fba0ce491ed2672d` |
 | MSG, message de MONARK `d6331f6`, boîte PAROXYSME `coordination/messages/` | 90 | `03f305908703f119cc82c7b9f0a29684f720c0eab0997514c019fe068b64306a` |
+| demande de PAROXYSME `6698269`, boîte PAROXYSME `coordination/messages/` | 227 | `6486d6da494d82312549e087cc8afea18cff7aefcfc5579a37adc4a9dc818473` |
 | CC, boîte PAROXYSME `dossier/etude-2026-10-06/CHANTIERS-CANDIDATS.md` | 1 260 | `86ed73a23b0bfd8e2da5ea40de3818ae8a105a7d406c6bc0607fb8914c5dcc60` |
 | PLAN, même dossier, `PLAN-DE-ROUTE-PAROXYSME-2026-10-06.md` | 1 195 | `96b5b01858886906930f8be6e76094294dd71a9878a34b9b71804a160a645714` |
 | JOURNAL, boîte PAROXYSME `coordination/JOURNAL.md` à `150c997` | 18 | `3e2a9572843ac3fbffe3f0a2fd26249fc0780d69c03e9ab2bcfa6c43f6d1ae4e` |
