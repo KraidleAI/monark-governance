@@ -1404,7 +1404,7 @@ against the deadline (07:30 UTC), writes `/var/lib/monark-probe/dojo-live.json` 
 transition with the mail file of the Narabi probe (`/etc/monark/probe.env`, `docs/RUNBOOK-sentinel.md`, the probe's deployment on
 Bell) but its `SMTP_PASS`, which the unit unsets: the probe reads the password when it sends, after the verifier's child has ended,
 from its own file `/etc/monark/dojo-probe-smtp-pass` (owner `probe`, mode 0600, act (1b)); the child runs as `probe` and could read a
-password held in the probe's environment; act (1c) proves the mail path once, before the timer. The user `probe`, its state directory
+password held in the probe's environment; act (4b) proves the mail path once, before the timer. The user `probe`, its state directory
 and the mail file exist since that deployment; this section writes none of them, only the password file of (1b). The
 probe's tree lies in `/opt/monark-dojo-probe`, outside `/opt/monark-probe`, which check 12 of Bell's CA and `c10` hash (section 15 (1)).
 
@@ -1499,7 +1499,7 @@ Expected: `sim_exit=0`, then the record: `"status": "healthy"`, `"reason": null`
 (no edge, DOJO-EDGE-CACHE-1), `"verifier_exit": 0`, `"head_day"` the day of the served head (JOURNAL: the record). **STOP** on any
 other output: its `reason`, `side` and `verifier_reason` name the fault (the header of the probe); escalation, no timer.
 
-(1c) The mail path, proven once before the timer (the form of section 2 of the probe's deployment in `docs/RUNBOOK-sentinel.md`): one
+(4b) The mail path, proven once before the timer (the form of section 2 of the probe's deployment in `docs/RUNBOOK-sentinel.md`): one
 start simulated as in (4), forced unhealthy (`--now` two days ahead: `lag`), its record a scratch file, WITH the mail file applied by
 systemd and `SMTP_PASS` unset as the unit does, so the password comes from the file of (1b). It needs the tree of (2), hence its place
 after (4). It sends ONE real mail, to the alert address already configured in the mail file (`ALERT_TO`) and to no other; it is part of
@@ -1584,4 +1584,4 @@ read, or from the provisional course (18: it writes no packet).
 Probe (section 25): `cat`/`head`/`tail`/`less`/`xxd`/`od`/`base64` on `/etc/monark/dojo-probe-smtp-pass`, or a digest of it
 displayed (act (1b) prints `size-ok` only); `--out /var/lib/monark-probe/dojo-live.json` in a simulated start (the production record); `source
 /etc/monark/probe.env` in any shell; the probe's tree under `/opt/monark-probe` (Bell's check 12 and `c10` hash it); a timer enabled before the simulated start of (4) and
-the mail proof of (1c); a keyring copied from anywhere but a commit of the trunk.
+the mail proof of (4b); a keyring copied from anywhere but a commit of the trunk.
