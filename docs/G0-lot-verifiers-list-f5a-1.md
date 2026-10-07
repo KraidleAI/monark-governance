@@ -2080,3 +2080,73 @@ instantané `F:/tmp/frozen-tool/m5v/snap/`, `snap.sha256` `a9153320…`, égal a
 - **Git** : aucun `GIT_DIR` ni `GIT_WORK_TREE` posé (mesure `env` non faite dans cette mission), aucun `--write-tree`. Dans le
   worktree, des lectures (`rev-parse`, `branch --show-current`, `status`, `diff --stat`, `diff -U0`, `ls-files`) ; aucun clone, aucune
   copie : `F:/tmp/frozen-tool/m6/` n'existe pas. Rien n'est écrit sur C:.
+
+**Mesure de IO-GUARD-POSED-FILES-1 (RECHERCHES, 2026-10-07, de 16:31 à 16:53 UTC ; Linux).** Instance `claude-opus-5-5` (effort max) de
+RECHERCHES, auteur de la branche `recherches/kata-recalc-frozen`, prise de `29c53bd5` (passation de MONARK, point 5). Hôte : Linux x86_64,
+CPython 3.14.5 (build `python-build-standalone`, liée statiquement : `_hashlib`, `_struct` ou `_json` y sont intégrés), git 2.43.0. La
+construction n'est pas appliquée à l'outil : elle l'est à une copie, pour la mesure seule. Copies : trois clones `--shared` creux (`tools/`
+seul), détachés à `29c53bd5`, hors du dépôt : `base` (l'outil tel quel), `cand` (la construction candidate : `-P` dans `FORM`, le poids de
+`safe_path` à 1, et dans chacun des huit scripts d'entrée, avant `import io_guard`, la ligne `import os, sys;
+sys.path.append(os.path.dirname(os.path.realpath(__file__)))` ; `git diff --stat` : 10 insertions, 2 suppressions) et `rec` (la même, plus
+un enregistreur). Prédictions : celles des l.2008-2018, copiées et horodatées avant toute mesure (`00-predictions.txt`, `c0afc2e3…`,
+16:31:53Z). Courses complètes sur fixtures seules, sous `python -E -S -s -B -P` (`cand`, `rec`) et sous la forme livrée (`base`, contraste) :
+`vectors_check.py` sur les vecteurs de R1 (`7414b2fc…`) et sur ceux du 2026-10-02 (`06ecf069…`, RED voulu), `binom_check.py` (le dépôt, puis
+`--registry` sur `wave1.json`, `811fcd57…`), `compare_check.py` (le même registre), `report_check.py`, `guard_check.py`, `recalc_p2.py` et
+`report.py` ; ces deux derniers reçoivent un dossier de séries vide et s'arrêtent avant toute lecture : aucune série n'est lue. Témoins : un
+fichier qui s'annonce sur stderr (`os.write`) et laisse une marque (une FIFO, `os.mkfifo` ; ni l'un ni l'autre ne lève d'événement d'audit,
+la marque vaut donc dans tout processus, avant comme après le crochet), puis rend la main au module que l'import aurait trouvé sans lui, par
+la seule machinerie gelée d'import : la course continue et ses sorties sont celles d'une course sans témoin.
+
+1. **`sys.path` d'un script d'entrée** (enregistreur, chaque processus, au départ du script puis au crochet d'`io_guard`) : au départ,
+   `[…/lib/python314.zip, …/lib/python3.14, …/lib/python3.14/lib-dynload]`, aucune entrée de l'arbre (73 processus sur 73, enfants
+   compris) ; au crochet, l'arbre est la dernière entrée (indice 3 sur 4) ; `safe_path` vaut `True`. Sous la forme livrée, `sys.path[0]`
+   est le dossier du script (mesuré). **Conforme à la prédiction.** Les entrées d'une installation Windows (`python314.zip`, `DLLs`,
+   `Lib`, le dossier de l'installation) : **rejouées par MONARK sous Windows à la fusion, par script**.
+2. **Un témoin sous chaque nom** : `import io_guard` charge ici 38 modules (`io_guard` compris), dont 21 depuis un chemin : `io_guard` et
+   `_py_warnings`, `_sysconfigdata__linux_x86_64-linux-gnu`, `_weakrefset`, `collections`, `contextlib`, `enum`, `functools`, `hashlib`,
+   `importlib`, `keyword`, `locale`, `operator`, `reprlib`, `selectors`, `signal`, `subprocess`, `sysconfig`, `threading`, `types`,
+   `warnings`, soit les 18 de Windows moins `_hashlib` (intégré ici), plus trois. Après le crochet, les courses importent 36 modules de
+   premier niveau de la bibliothèque standard : 26 sources (`__future__`, `_colorize`, `_opcode_metadata`, `annotationlib`, `ast`,
+   `calendar`, `codeop`, `copy`, `copyreg`, `dataclasses`, `datetime`, `dis`, `fractions`, `inspect`, `json`, `linecache`, `numbers`,
+   `opcode`, `platform`, `re`, `struct`, `textwrap`, `token`, `tokenize`, `traceback`, `weakref`), 9 intégrés (jamais cherchés sur un
+   chemin, sous aucune forme) et `_wmi`, absent (point 4). Les 47 témoins posés ensemble dans l'arbre (les 20, `_hashlib`, les 26) : sous
+   la forme neuve, **aucun ne tourne dans un processus de script d'entrée**, et les sorties des oracles sont égales à l'octet à celles de
+   la course sans témoin. Les seules marques (234, dans 13 processus) viennent des 13 lancements `-c` de `guard_check.py` sous une autre
+   forme : le cas y pose lui-même la copie de l'arbre en tête de `sys.path` (`_launch`), et le contrôle de la forme les refuse ensuite,
+   en sortie 2 (détecté, non prévenu : B8, B9). Contraste, sous la forme livrée : 46 des 47 tournent (tous sauf `_hashlib`), 1 939
+   marques, sorties inchangées. **Conforme à la prédiction.** La liste des modules chargés depuis un chemin sous Windows (les 18) :
+   **rejouée par MONARK sous Windows à la fusion, par script**.
+3. **Le paquet `io_guard/` et un cache forgé** : le paquet tourne sous la forme neuve (marque, sortie 0, `vectors-check.txt` `8708d1ec…`
+   inchangé : aucune trace), comme sous la forme livrée. Un cache forgé (`__pycache__/io_guard.cpython-314.pyc`, son en-tête à la date et
+   à la taille de la source) tourne aussi : s'il reste, le contrôle du cache d'`io_guard` refuse ensuite, après coup (sortie 4) ; s'il
+   s'efface avant de rendre la main, sortie 0 et sortie inchangée, sous les deux formes. **Conforme à la prédiction** : la construction ne
+   les atteint pas.
+4. **Les noms cherchés sans être trouvés** (un chercheur posé en dernier dans `sys.meta_path`, 73 processus) : deux noms de premier
+   niveau, et deux seulement. `msvcrt`, avant le crochet, dans chaque script d'entrée (`subprocess` l'essaie pour savoir s'il tourne
+   sous Windows) ; `_wmi`, après le crochet, par `platform` (`report.py`, `report_check.py`, le cas `import-listed` de `guard_check.py`).
+   Un témoin « absent » (sa marque, puis `ModuleNotFoundError`) posé dans l'arbre sous ces deux noms tourne sous la forme neuve (courses
+   de `vectors_check.py`, `report_check.py`, `guard_check.py` et `report.py` : 48 processus pour `msvcrt`, 3 pour `_wmi`), sorties
+   inchangées ; de même sous la forme livrée. **Conforme à la prédiction** : sur cet hôte,
+   la construction réduit les noms exposés, de tout module chargé depuis un chemin à ces deux-là. Les noms qu'une installation Windows ne
+   trouve pas (des imports facultatifs de POSIX) : **rejoués par MONARK sous Windows à la fusion, par script**.
+5. **Les entrées de l'installation passent avant l'arbre** (une copie de l'interpréteur, `cp -a`, hors du dépôt ; forme neuve) : un
+   `io_guard.py` posé dans `lib/python3.14` tourne à la place de celui de l'outil (sortie 0, sortie inchangée : le témoin a rendu la main) ;
+   de même dans `lib-dynload` et dans un `python314.zip` posé ; un `kata_lib.py` posé dans `lib/python3.14` tourne après le crochet (lu
+   comme un fichier de la bibliothèque standard, admis) ; posé dans le `python314.zip`, il est refusé en sortie 4 sans tourner (l'archive
+   n'est pas sous `_STDLIB`). Sous la forme livrée, les mêmes `io_guard.py` et `kata_lib.py` ne tournent pas : l'arbre passe d'abord.
+   **Conforme à la prédiction** : la confiance passe à l'installation (point (d)). Les entrées d'une installation Windows : **rejouées
+   par MONARK sous Windows à la fusion, par script**.
+6. **Aucun module de l'outil sous un nom de la bibliothèque standard** : sous 3.14.5, aucun des douze n'est dans
+   `sys.stdlib_module_names` (297 noms), ni dans `sys.builtin_module_names`, ni offert par une entrée de `sys.path` de cette installation.
+   **Conforme à la prédiction.** `sys.stdlib_module_names` est le même sur toute plateforme ; les noms offerts par une installation
+   Windows : **rejoués par MONARK sous Windows à la fusion, par script**.
+
+- **Pour le prix de la construction** (mesuré sur la copie, non appliqué) : sous elle, toutes les sorties d'oracle (vecteurs, vecteurs du
+  2026-10-02, seconde écriture, tests de hikae, `--registry`, comparateur) sont égales à l'octet à celles de la forme livrée ;
+  `guard_check.py` a deux cas à réécrire, `child-flags` (son texte) et le lancement `-P`, qui devient la forme (sortie 0 au lieu de 2).
+  La ligne ajoutée se rejoue quand un script d'entrée en importe un autre (`recalc_p2` par `vectors_check`, `report` par
+  `report_check`) : elle remet l'arbre en fin de `sys.path` une fois de plus, sans effet mesuré ; la construction réelle l'écrirait
+  idempotente. `tools/kata-quarter` n'est pas dans cet arbre : la pose de ses deux arbres n'est pas mesurée.
+- Scripts (espace de travail de RECHERCHES, hors du dépôt, sha256) : `apply_construction.py` `dfb4f03f…`, `recorder.py` `2d761ccd…`,
+  `witness.py` `3369c8e5…`, `driver.py` `f6b86874…`, `posed.sh` `d39fded4…`, `rest.sh` `84cc3591…`, `analyse_rec.py` `6cc4c98a…` ;
+  journal de l'enregistreur `66725223…`, son analyse `6507274f…`.
