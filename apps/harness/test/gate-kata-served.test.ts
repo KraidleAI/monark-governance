@@ -267,8 +267,8 @@ test("served_calib_row_abstains_never_defers", () => {
 
 // Test (E-2a; block D, lot D-3, G2 N-6 of D-2): the tripwire of KATA-CLAUSE-COMMITTED-STATE-1 follows the pins. The kata tables
 // that hold rows are exactly the pinned classes, each at its pinned sha256, and no held class holds a row: the served tables pass
-// with the served pins (empty), a marginal table with rows passes, and a kata row outside the pins, a pinned class with no row
-// or another sha256, or a held class with a row (even pinned), fails the load. The served build passes through it, at line 1042.
+// with the served pins (none, the bands, then the directions), a marginal table with rows passes, and a kata row outside the pins, a
+// pinned class with no row or another sha256, or a held class with a row (even pinned), fails the load. Line 1042 and its imports are pinned.
 // killer: apps/harness/src/kata-path.ts:125 CONST "held.some((c) => rows(c) > 0)" -> "false"
 test("kata_tables_match_the_pins", () => {
   const trip = (kataPathModule as Obj)["kataTablesMatchPins"];
@@ -276,17 +276,16 @@ test("kata_tables_match_the_pins", () => {
   const check = trip as (t: readonly ServedTable[], committed: Readonly<Record<string, string>>, held: readonly string[]) => readonly ServedTable[];
   const all = ((gate as Obj)["SERVED_POLICY_TABLES"] as readonly ServedTable[] | undefined) ?? [];
   const HELD = [...PINS.FLOOR_HELD_CLASSES, ...PINS.ORDER_HELD_CLASSES];
-  assert.deepEqual(PINS.COMMITTED_TABLES, {}, "no table is pinned before the release of the bands: no kata row is served");
-  assert.ok(all.every((t) => t.table.class.cell_key_rule !== "kata-bucket" || t.table.rows.length === 0), "every served kata table is empty");
+  assert.deepEqual(all.filter((t) => t.table.class.cell_key_rule === "kata-bucket" && t.table.rows.length > 0).map((t) => t.task_class), Object.keys(PINS.COMMITTED_TABLES).sort(), "the kata tables with rows are exactly the keys of COMMITTED_TABLES");
   assert.equal(check(all, PINS.COMMITTED_TABLES, HELD), all, "the served tables pass, unchanged");
   assert.ok(all.some((t) => t.table.class.cell_key_rule !== "kata-bucket" && t.table.rows.length > 0), "a marginal table with rows passes");
   const seam = [...all.filter((t) => t.task_class !== "btc-dir-1h"), ...withRow("region")];
-  const pin = { "btc-dir-1h": withRow("region")[0]?.policy_table_sha256 ?? "" };
-  assert.equal(check(seam, pin, ["eth-dir-1h"]), seam, "a pinned class at its sha256 passes");
-  assert.throws(() => check(seam, {}, []), /KATA-CLAUSE-COMMITTED-STATE-1: the kata tables with rows are not the pinned tables: btc-dir-1h$/, "a row outside the pins");
-  assert.throws(() => check(seam, { "btc-dir-1h": withRow("silence")[0]?.policy_table_sha256 ?? "" }, []), /not the pinned tables: btc-dir-1h$/, "another sha256");
-  const empty = all.find((t) => t.task_class === "eth-dir-1h") ?? assert.fail("eth-dir-1h is served");
-  assert.throws(() => check(seam, { ...pin, "eth-dir-1h": empty.policy_table_sha256 }, []), /not the pinned tables: eth-dir-1h$/, "a pinned class with no row, even at its sha256");
+  const pin = { ...PINS.COMMITTED_TABLES, "btc-dir-1h": withRow("region")[0]?.policy_table_sha256 ?? "" };
+  assert.equal(check(seam, pin, ["eth-dir-4h"]), seam, "a pinned class at its sha256 passes");
+  assert.throws(() => check(seam, PINS.COMMITTED_TABLES, []), /KATA-CLAUSE-COMMITTED-STATE-1: the kata tables with rows are not the pinned tables: btc-dir-1h$/, "a row outside the pins");
+  assert.throws(() => check(seam, { ...pin, "btc-dir-1h": withRow("silence")[0]?.policy_table_sha256 ?? "" }, []), /not the pinned tables: btc-dir-1h$/, "another sha256");
+  const empty = all.find((t) => t.task_class === "eth-dir-4h") ?? assert.fail("eth-dir-4h is served");
+  assert.throws(() => check(seam, { ...pin, "eth-dir-4h": empty.policy_table_sha256 }, []), /not the pinned tables: eth-dir-4h$/, "a pinned class with no row, even at its sha256");
   assert.throws(() => check(seam, { ...pin, "btc-dir-2h": "ab".repeat(32) }, []), /not the pinned tables: btc-dir-2h$/, "a pin that is no served kata class");
   assert.throws(() => check(seam, pin, ["btc-dir-1h"]), /KATA-CLAUSE-COMMITTED-STATE-1: a held class holds rows: btc-dir-1h$/, "a held class with a row, though pinned");
   const d = runGate(pred(), P_DIR, undefined, { nowMs: T + 1000, policyTables: check(seam, pin, []) });
@@ -294,6 +293,7 @@ test("kata_tables_match_the_pins", () => {
   assert.deepEqual([d.verdict.policy_table_sha256, d.verdict.policy_row_sha256], [pin["btc-dir-1h"], sha256Canonical(row)], "the verdict carries the pinned table and its row");
   const HELD_TEXT = "[...FLOOR_HELD_CLASSES, ...ORDER_HELD_CLASSES]", line1042 = readFileSync(join(SRC, "tools/gate.ts"), "utf8").split("\n")[1041];
   assert.equal(line1042, `export const SERVED_POLICY_TABLES = kataTablesMatchPins(servedPolicyTables(SERVED_TABLE_TEXTS, readCommittedTables(COMMITTED_FILES, kataClassEntries(kataClassText), { tables: COMMITTED_TABLES, held: ${HELD_TEXT} })), COMMITTED_TABLES, ${HELD_TEXT});`, "line 1042: the served build reads the committed tables against the pins and both held lists, then passes the tripwire");
+  assert.deepEqual(readFileSync(join(SRC, "tools/gate.ts"), "utf8").split("\n").slice(1073, 1075), [`import { COMMITTED_FILES, readCommittedTables } from "../policy-committed.ts";`, `import { COMMITTED_TABLES, FLOOR_HELD_CLASSES, ORDER_HELD_CLASSES } from "../policy-committed-pins.ts";`], "lines 1074-1075: each name that line 1042 reads is imported as itself");
 });
 
 // Test (E-2a; the invariant "no kata row is served before the release of the bands"): while no table is pinned
