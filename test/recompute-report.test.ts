@@ -66,7 +66,7 @@ const refuses = (bytes: Uint8Array | string, why: RegExp, what: string): void =>
 // differences, a malformed hex, commit, double, class or verifier, a count that is not a non-negative integer, a decision that is not a
 // boolean, cells or scope unsorted or repeated) or a writing other than the canonical one (spaces, key order, a final newline, -0, a
 // fraction, a byte beyond ASCII), or the reader's writing parting from the contract's on the synthetic report
-// killer: apps/harness/src/policy-verifiers.ts:151 CONST "typeof v === \"boolean\"" -> "true"
+// killer: apps/harness/src/policy-verifiers.ts:156 CONST "typeof v === \"boolean\"" -> "true"
 test("recompute_report_reader_judges_the_closed_form - readRecomputeReport admits a synthetic report of the new form (scope included) and refuses each departure of the closed form and of the canonical writing", () => {
   const { readRecomputeReport } = lot(), text = canonicalJson(BASE);
   assert.deepEqual(readRecomputeReport(text), BASE, "the synthetic report, written by the contract's canonicalJson");
@@ -114,7 +114,7 @@ test("recompute_report_reader_judges_the_closed_form - readRecomputeReport admit
 
 // reddened by: the reader binding what the gate and the guard bind (the registry, the list entry, the decisions, the scope against the
 // cells): a report of another registry, tree or verifier must read here and be a mismatch at the gate, never an invalid report (Q-P3-2)
-// killer: apps/harness/src/policy-verifiers.ts:151 CONST "typeof v === \"boolean\"" -> "v === true"
+// killer: apps/harness/src/policy-verifiers.ts:156 CONST "typeof v === \"boolean\"" -> "v === true"
 test("recompute_report_reader_binds_nothing_the_gate_binds - a report of another registry, tree or verifier, a cell not equal, a digest outside the scope or a scope class without a cell reads", () => {
   const { readRecomputeReport } = lot(), held = cellsOf(BASE).findIndex((c) => HELD.test(String(c.task_class)));
   const cases: [string, unknown][] = [["registry.sha256", hex("e")], ["inputs.compare.0.name", "wave2.json"], ["registry.cells", 0], ["verifier", `someone-else@${"2".repeat(40)}`],
@@ -125,7 +125,7 @@ test("recompute_report_reader_binds_nothing_the_gate_binds - a report of another
 
 // reddened by: a 64-hex digest at a path of the synthetic report outside the closed list and the cells' digests (one under differences
 // above all), or the closed list exported for the gate's digest rule parting from the paths the new form carries
-// killer: apps/harness/src/policy-verifiers.ts:119 CONST "\"platform.libm.sha256\", " -> ""
+// killer: apps/harness/src/policy-verifiers.ts:124 CONST "\"platform.libm.sha256\", " -> ""
 test("recompute_report_non_row_digests_are_a_closed_list - on the synthetic report of the new form, every 64-hex digest is at a path of REPORT_NON_ROW_DIGESTS or is a cell's scores_sha256, and none is under differences", () => {
   const { REPORT_NON_ROW_DIGESTS } = lot();
   const paths = (v: unknown, at: string, out: Set<string>): Set<string> => {

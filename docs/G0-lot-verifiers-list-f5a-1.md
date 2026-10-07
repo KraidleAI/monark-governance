@@ -502,7 +502,7 @@ Actes de la G2 de la partie :
     - chaque différence a une cause mesurée et une explication ;
     - `outside_decisions` = `[trialRegistryHead.hash]`.
 
-    Tueur (lot 2a, sur le lecteur de forme) : `policy-verifiers.ts:151 CONST "typeof v === \"boolean\"" -> "true"`.
+    Tueur (lot 2a, sur le lecteur de forme) : `policy-verifiers.ts:156 CONST "typeof v === \"boolean\"" -> "true"`.
   - T2-2 `recompute_report_inputs_are_sealed_series_and_published_files_only` :
     - rôles pris dans la liste fermée ;
     - les quatre sha256 de séries sont ceux du plan P2 (l.11-14) ;

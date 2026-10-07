@@ -13,7 +13,7 @@ Ce lot est **empilé sur 1f** et sera rebasé avec lui quand l'outil figé de MO
   détaché neuf du scratchpad, branche `recherches/e2a-2a-report-reader` ; `node_modules` lié en dur depuis un autre worktree du
   scratchpad, retiré à la fin. Node 24.21.0, Linux ; CPython 3.14.8 autonome (sans venv) pour la seule mesure croisée du §4.
 - **Zone** : `apps/harness/src/policy-verifiers.ts` (ajout en fin de fichier, aucune ligne de 1f déplacée : les tueurs de 1f, l.18 à
-  l.110, restent à leur ligne), `test/recompute-report.test.ts` (neuf), `docs/G0-lot-verifiers-list-f5a-1.md` (amendement sur place,
+  l.115, restent à leur ligne), `test/recompute-report.test.ts` (neuf), `docs/G0-lot-verifiers-list-f5a-1.md` (amendement sur place,
   nombre de lignes inchangé), ce G0. Pli N-6 (MONARK, `recherches` `8ac6bd6`) : `registry` sans `file`.
 
 ## 1. Le contrat, cité
@@ -36,10 +36,10 @@ Ce lot est **empilé sur 1f** et sera rebasé avec lui quand l'outil figé de MO
 
 ## 2. Construction
 
-- **`readRecomputeReport(bytes)`** (`policy-verifiers.ts` l.171-178), sur octets ou texte : UTF-8 strict et JSON, sinon « not UTF-8
+- **`readRecomputeReport(bytes)`** (`policy-verifiers.ts` l.176-183), sur octets ou texte : UTF-8 strict et JSON, sinon « not UTF-8
   JSON » ; ASCII seul ; forme fermée ; puis égalité des octets à l'écriture canonique, sinon « not its canonical writing ». Chaque refus
   est nommé (`MONARK recompute report: <chemin> …`), le chemin du champ fautif compris (`report.cells[0].scores_sha256 is off the form`).
-- **La forme fermée** (l.134-164), clés exactes à chaque niveau typé :
+- **La forme fermée** (l.139-169), clés exactes à chaque niveau typé :
   - premier niveau : les 13 clés d'`assemble` de `report.py` **et `scope`** (14) ;
   - `format` = `monark-recompute-report-v1` ; `verifier` = `<identité>@<40 hex>`, l'identité égale à `identityOf` (règle de 1f) ;
   - `tool` = `{commit: 40 hex, tree, tree_sha256: 64 hex}` ; `registry` = `{cells: entier ≥ 0, generator_identity, sha256: 64 hex}`, sans `file` (N-6) ;
@@ -52,17 +52,17 @@ Ce lot est **empilé sur 1f** et sera rebasé avec lui quand l'outil figé de MO
     ni `b` ; `class` ∈ {`explained, ln`, `explained, association`} ;
   - `platform`, `oracles`, `fields`, `explanation`, `summary` : objets, contenu libre (la plateforme Linux de la course n'est pas encore
     écrite ; la clause (d5) de la porte juge toute empreinte où qu'elle soit) ; `replay` : chaîne.
-- **L'écriture canonique** (l.165-168) : celle de `report.py` (`canonical`) : clés triées, sans espace, entiers sûrs seuls (une
+- **L'écriture canonique** (l.170-173) : celle de `report.py` (`canonical`) : clés triées, sans espace, entiers sûrs seuls (une
   fraction est refusée, `-0` n'est pas canonique), chaînes de `JSON.stringify`, ASCII, sans LF final. Le module n'importe toujours que
   `node:crypto`, `node:fs`, `node:url` (le test de 1f qui le tient passe) : l'écriture est locale, sans `@monark/contracts` ni `scripts/`.
-- **`REPORT_NON_ROW_DIGESTS`** (l.119) : la liste fermée de (d5), exportée pour la porte de 3a : `inputs.compare[].sha256`,
+- **`REPORT_NON_ROW_DIGESTS`** (l.124) : la liste fermée de (d5), exportée pour la porte de 3a : `inputs.compare[].sha256`,
   `inputs.recompute[].sha256`, `platform.libm.sha256`, `registry.sha256`, `tool.tree_sha256` ; `cells[].scores_sha256` à part (jugé par
   (d1) et (d2)). Mesurée au §4.
 - **Ce que le lecteur ne fait pas** (contrat) : aucune liaison à la liste, au registre, aux cases ni à la portée ; aucun tri imposé à
   `inputs` ni à `differences` (T2-2 et la porte) ; aucun contrôle de 64 hex hors des champs typés (la porte, (d4) et (d5)).
 - **Amendement du chantier l.493-505** (sur place, 13 lignes pour 13) : le lot 2a teste dans un fichier neuf ; T2-1 garde ses
   liaisons comme **assertions sur le rapport réel**, portées par le commit de versement ; son tueur passe sur le lecteur de forme
-  (`typeof v === "boolean"`, l.151). Le texte proposé au tueur par le G0 d'E-2a (`typeof c.decisions_equal === \"boolean\"`) est écrit
+  (`typeof v === "boolean"`, l.156). Le texte proposé au tueur par le G0 d'E-2a (`typeof c.decisions_equal === \"boolean\"`) est écrit
   `typeof v === "boolean"` : la colonne est un prédicat de la table `CELL`.
 
 ## 3. Tests rouges et tueurs
@@ -73,9 +73,9 @@ non par un échec de chargement (red-proof refuse un import rouge sur un fichier
 
 | Test | Ce qu'il tient | Tueur |
 |---|---|---|
-| **T-RR** `recompute_report_reader_judges_the_closed_form` | admis : le rapport de synthèse de forme neuve, en texte et en octets, écrit par `canonicalJson` du contrat ; 24 classes dans `scope`. Refus nommés : forme ancienne sans `scope`, clé de plus au premier niveau, `format` autre, cinq `verifier` faux, `commit` majuscule, `tree_sha256` court, clé de plus dans `tool`, `registry.sha256` majuscule, `registry.cells` à -1, 1,5 ou chaîne, `registry.file` présent (forme d'avant N-6), taille négative, clé de plus dans une entrée, quatre `scores_sha256` faux, trois `decisions_equal` non booléens, second digest par case (forme ancienne), classe hors forme, cases non triées ou répétées, quatre `scope` faux, digest sous `differences` (forme ancienne), trois flottants mal écrits, différence non expliquée, genre autre, `platform` liste, `summary` nul, fraction, `-0`, clés dans l'ordre d'insertion, espaces, LF final, LF, CR ou CR LF brut entre jetons, octet non ASCII, non-JSON, non-UTF-8 | `apps/harness/src/policy-verifiers.ts:151 CONST "typeof v === \"boolean\"" -> "true"` |
-| `recompute_report_reader_binds_nothing_the_gate_binds` | se lisent (Q-P3-2) : registre autre (sha256, 0 case), nom d'entrée `compare` autre, vérificateur autre, arbre autre (chemin, digest), case à `decisions_equal` faux, digest d'une classe retenue (hors portée), classe de portée sans case, portée vide, sans différence, sans entrée `compare` | `apps/harness/src/policy-verifiers.ts:151 CONST "typeof v === \"boolean\"" -> "v === true"` (l'ancienne règle de T2-1 dans le lecteur) |
-| `recompute_report_non_row_digests_are_a_closed_list` | mesure (d5) sur synthèse : les chemins des sous-chaînes de 64 hex (valeurs et clés) = `REPORT_NON_ROW_DIGESTS` ∪ `cells[].scores_sha256` ; aucun sous `differences` ; digest pour chaque case de la portée, `null` pour chaque classe retenue | `apps/harness/src/policy-verifiers.ts:119 CONST "\"platform.libm.sha256\", " -> ""` |
+| **T-RR** `recompute_report_reader_judges_the_closed_form` | admis : le rapport de synthèse de forme neuve, en texte et en octets, écrit par `canonicalJson` du contrat ; 24 classes dans `scope`. Refus nommés : forme ancienne sans `scope`, clé de plus au premier niveau, `format` autre, cinq `verifier` faux, `commit` majuscule, `tree_sha256` court, clé de plus dans `tool`, `registry.sha256` majuscule, `registry.cells` à -1, 1,5 ou chaîne, `registry.file` présent (forme d'avant N-6), taille négative, clé de plus dans une entrée, quatre `scores_sha256` faux, trois `decisions_equal` non booléens, second digest par case (forme ancienne), classe hors forme, cases non triées ou répétées, quatre `scope` faux, digest sous `differences` (forme ancienne), trois flottants mal écrits, différence non expliquée, genre autre, `platform` liste, `summary` nul, fraction, `-0`, clés dans l'ordre d'insertion, espaces, LF final, LF, CR ou CR LF brut entre jetons, octet non ASCII, non-JSON, non-UTF-8 | `apps/harness/src/policy-verifiers.ts:156 CONST "typeof v === \"boolean\"" -> "true"` |
+| `recompute_report_reader_binds_nothing_the_gate_binds` | se lisent (Q-P3-2) : registre autre (sha256, 0 case), nom d'entrée `compare` autre, vérificateur autre, arbre autre (chemin, digest), case à `decisions_equal` faux, digest d'une classe retenue (hors portée), classe de portée sans case, portée vide, sans différence, sans entrée `compare` | `apps/harness/src/policy-verifiers.ts:156 CONST "typeof v === \"boolean\"" -> "v === true"` (l'ancienne règle de T2-1 dans le lecteur) |
+| `recompute_report_non_row_digests_are_a_closed_list` | mesure (d5) sur synthèse : les chemins des sous-chaînes de 64 hex (valeurs et clés) = `REPORT_NON_ROW_DIGESTS` ∪ `cells[].scores_sha256` ; aucun sous `differences` ; digest pour chaque case de la portée, `null` pour chaque classe retenue | `apps/harness/src/policy-verifiers.ts:124 CONST "\"platform.libm.sha256\", " -> ""` |
 | `recompute_report_synthetic_passes_the_spec_gate` | les octets admis par le lecteur passent `contentProblems` en sorte `json` au chemin `contract-1.1.0-tables-2026-10-20/recompute/wave1-monark-kata-recalc.json` (textes fixes de `report.py`, clés de case du registre) | `scripts/spec-publish.mjs:113 CONST "k.replace(VENUE, \"@$1KEY/\")" -> "k"` |
 
 - **Le rapport de synthèse** : les 280 cases de `wave1.json` (`811fcd57…`), triées ; `scores_sha256` = `calib.scoresSha256` de la ligne
@@ -83,7 +83,7 @@ non par un échec de chargement (red-proof refuse un import rouge sur un fichier
   `report.py` ; une différence de chaque genre ; plateforme Linux inventée. 42 168 octets, sha256 `e5ef12a4…` (§4).
 - **Mutants équivalents** (mesurés, 22 mutants à la main sur le lecteur, chacun seul, fichier de test rejoué) : un seul vivant au premier
   tour, `|| rfail(…)` dans `each`, mort-né parce que chaque élément de liste est un objet fermé qui lève lui-même. La branche est
-  retirée (l.149) ; au second tour, 21 sur 21 tués (clés exactes, ordre des cases sur les deux champs, ordre de la portée, ASCII,
+  retirée (l.154) ; au second tour, 21 sur 21 tués (clés exactes, ordre des cases sur les deux champs, ordre de la portée, ASCII,
   canonique, entier sûr, identité du vérificateur, compte ≥ 0, flottant, classe, `class`, choix du genre, `scores_sha256`, objets libres,
   `format`, forme du vérificateur, et les quatre tueurs) ; au pli N-6, trois de plus, tués : `file` rendu à `registry`, `registry` libre, CR et LF ignorés à l'égalité canonique.
 
@@ -112,7 +112,7 @@ a1) porte trois contrôles sur le rapport réel ; la G2 de RECHERCHES les relit.
   `registry.cells` = 280 ; `registry.generator_identity` = `kata/bench/write-p2.ts`, distincte de l'identité listée ; 280 cases,
   toutes `decisions_equal` à `true` ; `scope` = les 24 classes de bande ; chaque classe de `FLOOR_HELD_CLASSES` et
   d'`ORDER_HELD_CLASSES` a `scores_sha256` à `null` ; chaque différence a sa classe d'explication ; `fields.outside_decisions` =
-  `[trialRegistryHead.hash]`. Tueur : `policy-verifiers.ts:151 CONST "typeof v === \"boolean\"" -> "true"` n'y suffit plus (le fichier
+  `[trialRegistryHead.hash]`. Tueur : `policy-verifiers.ts:156 CONST "typeof v === \"boolean\"" -> "true"` n'y suffit plus (le fichier
   réel n'a que des booléens) : celui du versement vise l'épingle du rapport dans `COMMITTED_REPORTS` (a1).
 - **T2-3** `recompute_report_is_canonical_and_passes_the_spec_gate` : `contentProblems` au chemin daté est vide sur les octets réels
   (même forme que `recompute_report_synthetic_passes_the_spec_gate`, sur le fichier). Tueur : `scripts/spec-publish.mjs:113`, comme ici.
