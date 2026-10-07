@@ -125,7 +125,7 @@ export type ReportDifference = Explained & ({ readonly kind: "value"; readonly a
 type Free = Readonly<Record<string, unknown>>;
 export type RecomputeReport = {
   readonly format: typeof REPORT_FORMAT; readonly verifier: string; readonly tool: { readonly commit: string; readonly tree: string; readonly tree_sha256: string };
-  readonly registry: { readonly file: string; readonly sha256: string; readonly generator_identity: string; readonly cells: number };
+  readonly registry: { readonly sha256: string; readonly generator_identity: string; readonly cells: number };
   readonly inputs: { readonly recompute: readonly ReportInput[]; readonly compare: readonly ReportInput[] }; readonly scope: readonly string[];
   readonly cells: readonly ReportCell[]; readonly differences: readonly ReportDifference[]; readonly replay: string;
   readonly platform: Free; readonly oracles: Free; readonly fields: Free; readonly explanation: Free; readonly summary: Free;
@@ -157,7 +157,7 @@ const REPORT: Cols = {
   cells: (v, at) => each(nest(CELL))(v, at) && ((v as ReportCell[]).every((c, i, cs) => i === 0 || before(cs[i - 1] as ReportCell, c)) || rfail("cells are not unique and sorted by (task_class, cell_key)")),
   differences: each((v, at) => closed(v, isObj(v) && v.kind === "digest" ? DIGEST : VALUE, at) !== undefined), explanation: free, fields: free,
   format: (v) => v === REPORT_FORMAT, inputs: nest({ compare: each(nest(INPUT)), recompute: each(nest(INPUT)) }), oracles: free, platform: free,
-  registry: nest({ cells: count, file: text, generator_identity: text, sha256: fits(HEX64) }), replay: text,
+  registry: nest({ cells: count, generator_identity: text, sha256: fits(HEX64) }), replay: text, // no file (N-6): the input name is inputs.compare[].name
   scope: (v) => Array.isArray(v) && v.every((c, i) => fits(CLASS)(c) && (i === 0 || (v[i - 1] as string) < (c as string))), summary: free,
   tool: nest({ commit: fits(COMMIT), tree: text, tree_sha256: fits(HEX64) }),
   verifier: (v) => typeof v === "string" && /^[^@]+@[0-9a-f]{40}$/.test(v) && v.split("@")[0] === identityOf(v),

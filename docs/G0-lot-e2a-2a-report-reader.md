@@ -14,7 +14,7 @@ Ce lot est **empilé sur 1f** et sera rebasé avec lui quand l'outil figé de MO
   scratchpad, retiré à la fin. Node 24.21.0, Linux ; CPython 3.14.8 autonome (sans venv) pour la seule mesure croisée du §4.
 - **Zone** : `apps/harness/src/policy-verifiers.ts` (ajout en fin de fichier, aucune ligne de 1f déplacée : les tueurs de 1f, l.18 à
   l.110, restent à leur ligne), `test/recompute-report.test.ts` (neuf), `docs/G0-lot-verifiers-list-f5a-1.md` (amendement sur place,
-  nombre de lignes inchangé), ce G0.
+  nombre de lignes inchangé), ce G0. Pli N-6 (MONARK, `recherches` `8ac6bd6`) : `registry` sans `file`.
 
 ## 1. Le contrat, cité
 
@@ -42,7 +42,7 @@ Ce lot est **empilé sur 1f** et sera rebasé avec lui quand l'outil figé de MO
 - **La forme fermée** (l.134-164), clés exactes à chaque niveau typé :
   - premier niveau : les 13 clés d'`assemble` de `report.py` **et `scope`** (14) ;
   - `format` = `monark-recompute-report-v1` ; `verifier` = `<identité>@<40 hex>`, l'identité égale à `identityOf` (règle de 1f) ;
-  - `tool` = `{commit: 40 hex, tree, tree_sha256: 64 hex}` ; `registry` = `{cells: entier ≥ 0, file, generator_identity, sha256: 64 hex}` ;
+  - `tool` = `{commit: 40 hex, tree, tree_sha256: 64 hex}` ; `registry` = `{cells: entier ≥ 0, generator_identity, sha256: 64 hex}`, sans `file` (N-6) ;
   - `inputs` = `{compare, recompute}`, listes de `{bytes: entier ≥ 0, name, role, sha256: 64 hex}` ;
   - `scope` : liste strictement croissante de classes (`^[a-z0-9]+(-[a-z0-9]+)*$`), donc triée et sans doublon ;
   - `cells` : `{cell_key, decisions_equal: booléen, scores_sha256: 64 hex ou null, task_class: classe}`, strictement croissantes par
@@ -73,25 +73,25 @@ non par un échec de chargement (red-proof refuse un import rouge sur un fichier
 
 | Test | Ce qu'il tient | Tueur |
 |---|---|---|
-| **T-RR** `recompute_report_reader_judges_the_closed_form` | admis : le rapport de synthèse de forme neuve, en texte et en octets, écrit par `canonicalJson` du contrat ; 24 classes dans `scope`. Refus nommés : forme ancienne sans `scope`, clé de plus au premier niveau, `format` autre, cinq `verifier` faux, `commit` majuscule, `tree_sha256` court, clé de plus dans `tool`, `registry.sha256` majuscule, `registry.cells` à -1, 1,5 ou chaîne, taille négative, clé de plus dans une entrée, quatre `scores_sha256` faux, trois `decisions_equal` non booléens, second digest par case (forme ancienne), classe hors forme, cases non triées ou répétées, quatre `scope` faux, digest sous `differences` (forme ancienne), trois flottants mal écrits, différence non expliquée, genre autre, `platform` liste, `summary` nul, fraction, `-0`, clés dans l'ordre d'insertion, espaces, LF final, octet non ASCII, non-JSON, non-UTF-8 | `apps/harness/src/policy-verifiers.ts:151 CONST "typeof v === \"boolean\"" -> "true"` |
-| `recompute_report_reader_binds_nothing_the_gate_binds` | se lisent (Q-P3-2) : registre autre (sha256, fichier, 0 case), vérificateur autre, arbre autre (chemin, digest), case à `decisions_equal` faux, digest d'une classe retenue (hors portée), classe de portée sans case, portée vide, sans différence, sans entrée `compare` | `apps/harness/src/policy-verifiers.ts:151 CONST "typeof v === \"boolean\"" -> "v === true"` (l'ancienne règle de T2-1 dans le lecteur) |
+| **T-RR** `recompute_report_reader_judges_the_closed_form` | admis : le rapport de synthèse de forme neuve, en texte et en octets, écrit par `canonicalJson` du contrat ; 24 classes dans `scope`. Refus nommés : forme ancienne sans `scope`, clé de plus au premier niveau, `format` autre, cinq `verifier` faux, `commit` majuscule, `tree_sha256` court, clé de plus dans `tool`, `registry.sha256` majuscule, `registry.cells` à -1, 1,5 ou chaîne, `registry.file` présent (forme d'avant N-6), taille négative, clé de plus dans une entrée, quatre `scores_sha256` faux, trois `decisions_equal` non booléens, second digest par case (forme ancienne), classe hors forme, cases non triées ou répétées, quatre `scope` faux, digest sous `differences` (forme ancienne), trois flottants mal écrits, différence non expliquée, genre autre, `platform` liste, `summary` nul, fraction, `-0`, clés dans l'ordre d'insertion, espaces, LF final, LF, CR ou CR LF brut entre jetons, octet non ASCII, non-JSON, non-UTF-8 | `apps/harness/src/policy-verifiers.ts:151 CONST "typeof v === \"boolean\"" -> "true"` |
+| `recompute_report_reader_binds_nothing_the_gate_binds` | se lisent (Q-P3-2) : registre autre (sha256, 0 case), nom d'entrée `compare` autre, vérificateur autre, arbre autre (chemin, digest), case à `decisions_equal` faux, digest d'une classe retenue (hors portée), classe de portée sans case, portée vide, sans différence, sans entrée `compare` | `apps/harness/src/policy-verifiers.ts:151 CONST "typeof v === \"boolean\"" -> "v === true"` (l'ancienne règle de T2-1 dans le lecteur) |
 | `recompute_report_non_row_digests_are_a_closed_list` | mesure (d5) sur synthèse : les chemins des sous-chaînes de 64 hex (valeurs et clés) = `REPORT_NON_ROW_DIGESTS` ∪ `cells[].scores_sha256` ; aucun sous `differences` ; digest pour chaque case de la portée, `null` pour chaque classe retenue | `apps/harness/src/policy-verifiers.ts:119 CONST "\"platform.libm.sha256\", " -> ""` |
 | `recompute_report_synthetic_passes_the_spec_gate` | les octets admis par le lecteur passent `contentProblems` en sorte `json` au chemin `contract-1.1.0-tables-2026-10-20/recompute/wave1-monark-kata-recalc.json` (textes fixes de `report.py`, clés de case du registre) | `scripts/spec-publish.mjs:113 CONST "k.replace(VENUE, \"@$1KEY/\")" -> "k"` |
 
 - **Le rapport de synthèse** : les 280 cases de `wave1.json` (`811fcd57…`), triées ; `scores_sha256` = `calib.scoresSha256` de la ligne
   pour une classe de bande, `null` pour les 8 classes `*-dir-1h` et `*-dir-4h` ; les textes fixes lus dans le bloc `TEXTS` de
-  `report.py` ; une différence de chaque genre ; plateforme Linux inventée. 42 188 octets, sha256 `0db5cfed…` (§4).
+  `report.py` ; une différence de chaque genre ; plateforme Linux inventée. 42 168 octets, sha256 `e5ef12a4…` (§4).
 - **Mutants équivalents** (mesurés, 22 mutants à la main sur le lecteur, chacun seul, fichier de test rejoué) : un seul vivant au premier
   tour, `|| rfail(…)` dans `each`, mort-né parce que chaque élément de liste est un objet fermé qui lève lui-même. La branche est
   retirée (l.149) ; au second tour, 21 sur 21 tués (clés exactes, ordre des cases sur les deux champs, ordre de la portée, ASCII,
   canonique, entier sûr, identité du vérificateur, compte ≥ 0, flottant, classe, `class`, choix du genre, `scores_sha256`, objets libres,
-  `format`, forme du vérificateur, et les quatre tueurs).
+  `format`, forme du vérificateur, et les quatre tueurs) ; au pli N-6, trois de plus, tués : `file` rendu à `registry`, `registry` libre, CR et LF ignorés à l'égalité canonique.
 
 ## 4. Mesures
 
 - **Écriture canonique croisée avec l'outil** : `canonical` de `report.py` à `09f49fc2` (arbre extrait par `git archive`, importé tel
   quel, `io_guard` compris, sous `python3.14 -I -E -s -B`) rend, sur le rapport de synthèse relu, **les mêmes octets** (sha256
-  `0db5cfedd12be51480b636bbb7e483af63efa453cc8f9d5fe449b2e00bc75904`) que `canonicalJson` du contrat, que le lecteur admet.
+  `e5ef12a4bb0734445144e4dcd3cfcdb5b57f7c97ff569ac87d1c93816d92b4b6`) que `canonicalJson` du contrat, que le lecteur admet (remesuré au pli N-6, CPython 3.14.0rc2).
 - **Forme d'`assemble` à `09f49fc2`**, sur des entrées inventées (une case, une différence de chaque genre) : 13 clés de premier
   niveau, **sans `scope`** ; cases `{cell_key, decisions_equal, task_class}` sans `scores_sha256` ; différence de genre digest avec `a`
   et `b`. Chemins de 64 hex : `differences[].a`, `differences[].b`, plus les cinq de `REPORT_NON_ROW_DIGESTS`. La forme neuve retire les
@@ -108,7 +108,7 @@ a1) porte trois contrôles sur le rapport réel ; la G2 de RECHERCHES les relit.
 
 - **T2-1** `recompute_report_is_closed_and_bound_to_the_list` : `readRecomputeReport(bytes)` admet le fichier ; `verifier` =
   `monark-kata-recalc@<commit>` et `tool.tree_sha256` = l'entrée de liste de `pinnedVerifiers()` à ce commit ; `tool.commit` = ce
-  commit ; `registry.sha256` = `811fcd574e182f33e24e19795b18139adb1917cf392a02810705c6adda1dd9cb`, `registry.file` = `wave1.json`,
+  commit ; `registry.sha256` = `811fcd574e182f33e24e19795b18139adb1917cf392a02810705c6adda1dd9cb`, `inputs.compare[0].name` = `wave1.json`,
   `registry.cells` = 280 ; `registry.generator_identity` = `kata/bench/write-p2.ts`, distincte de l'identité listée ; 280 cases,
   toutes `decisions_equal` à `true` ; `scope` = les 24 classes de bande ; chaque classe de `FLOOR_HELD_CLASSES` et
   d'`ORDER_HELD_CLASSES` a `scores_sha256` à `null` ; chaque différence a sa classe d'explication ; `fields.outside_decisions` =

@@ -27,7 +27,7 @@ function synthetic(): J {
   const at = { task_class: one.taskClass, cell_key: one.key };
   return {
     format: "monark-recompute-report-v1", verifier: `monark-kata-recalc@${C1}`, tool: { commit: C1, tree: "tools/kata-recalc", tree_sha256: hex("a") },
-    registry: { file: "wave1.json", sha256: sha256(REGISTRY), generator_identity: TEXTS.generator_identity, cells: ROWS.length },
+    registry: { sha256: sha256(REGISTRY), generator_identity: TEXTS.generator_identity, cells: ROWS.length },
     inputs: { recompute: [{ role: "series", name: "BTCUSDT-1h.csv", sha256: hex("b"), bytes: 1000 }, { role: "vectors", name: "vectors.json", sha256: hex("c"), bytes: 2000 }],
       compare: [{ role: "registry", name: "wave1.json", sha256: sha256(REGISTRY), bytes: REGISTRY.length }] },
     platform: { python: "3.14.8", system: "Linux-6.18-x86_64", machine: "x86_64", libm: { name: "libm.so.6", version: "2.39", sha256: hex("d"), log_vectors_differing: 0 } },
@@ -81,6 +81,7 @@ test("recompute_report_reader_judges_the_closed_form - readRecomputeReport admit
   form(variant("tool.tree_sha256", hex("a").slice(1)), /report\.tool\.tree_sha256 is off the form/, "a short tree digest");
   form(variant("tool.path", "x"), /report\.tool has the keys/, "a tool key more");
   form(variant("registry.sha256", hex("A")), /report\.registry\.sha256 is off the form/, "an upper-case registry digest");
+  form(variant("registry.file", "wave1.json"), /^MONARK recompute report: report\.registry has the keys \[cells, file, generator_identity, sha256\], not exactly \[cells, generator_identity, sha256\]\.$/, "registry.file present (the form before N-6)");
   for (const n of [-1, 1.5, "280"]) form(variant("registry.cells", n), /report\.registry\.cells is off the form/, `registry cells ${String(n)}`);
   form(variant("inputs.recompute.0.bytes", -2), /report\.inputs\.recompute\[0\]\.bytes is off the form/, "a negative size");
   form(variant("inputs.compare.0.path", "x"), /report\.inputs\.compare\[0\] has the keys/, "an input key more");
@@ -105,6 +106,7 @@ test("recompute_report_reader_judges_the_closed_form - readRecomputeReport admit
   refuses(JSON.stringify(BASE), /not its canonical writing/, "keys in insertion order");
   refuses(JSON.stringify(JSON.parse(text), null, 1), /not its canonical writing/, "spaces");
   refuses(`${text}\n`, /not its canonical writing/, "a final newline");
+  for (const brk of ["\n", "\r", "\r\n"]) refuses(text.replace(',"differences":', `,${brk}"differences":`), /not its canonical writing/, `a raw ${JSON.stringify(brk)} between tokens`);
   refuses(canonicalJson(variant("replay", `${String(BASE.replay)} \u2603`)), /not ASCII/, "a byte beyond ASCII");
   refuses("{", /not UTF-8 JSON/, "not JSON");
   refuses(Buffer.from([0x7b, 0xff, 0x7d]), /not UTF-8 JSON/, "not UTF-8");
@@ -115,7 +117,7 @@ test("recompute_report_reader_judges_the_closed_form - readRecomputeReport admit
 // killer: apps/harness/src/policy-verifiers.ts:151 CONST "typeof v === \"boolean\"" -> "v === true"
 test("recompute_report_reader_binds_nothing_the_gate_binds - a report of another registry, tree or verifier, a cell not equal, a digest outside the scope or a scope class without a cell reads", () => {
   const { readRecomputeReport } = lot(), held = cellsOf(BASE).findIndex((c) => HELD.test(String(c.task_class)));
-  const cases: [string, unknown][] = [["registry.sha256", hex("e")], ["registry.file", "wave2.json"], ["registry.cells", 0], ["verifier", `someone-else@${"2".repeat(40)}`],
+  const cases: [string, unknown][] = [["registry.sha256", hex("e")], ["inputs.compare.0.name", "wave2.json"], ["registry.cells", 0], ["verifier", `someone-else@${"2".repeat(40)}`],
     ["tool.tree", "tools/other"], ["tool.tree_sha256", hex("f")], ["cells.0.decisions_equal", false], [`cells.${held}.scores_sha256`, hex("9")],
     ["scope", [...(BASE.scope as string[]), "zzz-range-1h"]], ["scope", []], ["differences", []], ["inputs.compare", []]];
   for (const [path, value] of cases) assert.deepEqual(readRecomputeReport(canonicalJson(variant(path, value))), variant(path, value), `${path} = ${JSON.stringify(value)} reads`);
