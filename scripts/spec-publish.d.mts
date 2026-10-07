@@ -25,3 +25,6 @@ export function plan(o: { inputs: Inputs; release: string; date: string; roots: 
 export function listTree(dir: string, rel?: string): string[];
 export function compareTrees(produced: string, published: string): { equal: string[]; differ: string[]; missing: string[]; extra: string[] };
 export function produce(o: { inputs: Inputs; release: string; date: string; roots: Roots; out: string }): { files: { path: string; sha256: string; bytes: number }[]; manifest_sha256: string };
+export function waveVenue(): Readonly<{ venue: string; registry_sha256: string; cells: number }>;
+export function venueMasked(v: unknown, out: string, kind: Kind): { value: unknown; venues: number; trials: number };
+export function venueMaskedText(text: string, out: string, kind: Kind): string;

@@ -1,4 +1,6 @@
 # claude-opus-5-5 - 2026-10-02 - lot P2-RECALC-TOOL-1 (MONARK G1), Python 3.14 standard library only. Lot 1d (2026-10-06): M-7, M-8.
+# Frozen-tool lot (2026-10-07): N-5 and N-6 of RECHERCHES' review of #214 (the writings of a double; an integer beyond the doubles);
+# path 1 of KATA-SPEC section 8 (RECHERCHES 76ffa25): trialRegistryHead.hash, which recalc_p2.py now computes, is a decision.
 # Comparator of mission D-7. Registry mode: two registry JSON files (shape of kata/registry/FORMAT.md), parsed, rows paired by
 # (taskClass, key), exactly 280 pairs required. Since lot 1d (M-8; G0 section 3.3; RECHERCHES Q-V3; A-2 l.97) a field has one class:
 #   DECISION: every field not named below, by strict equality (a boolean never equals a number; a key present on one side only is
@@ -6,15 +8,17 @@
 #   VALUE: calib.qhat, calibSupport.min and .max, hourOfWeekFactors[i], thresholds.t1 and .t2 (JavaScript writings of doubles):
 #     listed whenever the two doubles differ in a bit, both in hexadecimal with their distance in ulps, and marked "beyond 1e-12"
 #     outside the conformance contract of KATA-SPEC l.71, made symmetric: abs(a - b) <= max(1e-12 x max(abs(a), abs(b)), 1e-15);
-#     one double under two writings is a DECISION difference;
+#     in a field written as a string (thresholds), one double under two writings is a DECISION difference; a JSON number keeps no
+#     writing once json.loads has read it (1.5 and 1.50 are one float), so qhat, calibSupport and the factors compare their doubles;
 #   DIGEST: calib.scoresSha256, calib.auxSha256, factorTableSha256, listed when they differ;
-#   OUTSIDE: trialRegistryHead.hash, named and never compared (G0 section 3.3).
+#   OUTSIDE: none since the frozen-tool lot (G0 section 3.3 named trialRegistryHead.hash here until KATA-SPEC wrote its chain).
 # Output: one line per difference (class, cell, field, both values), one COUNT per class and field, a SUMMARY per class, the inputs
-# read. Exit 0 only with 280 pairs and no difference; 1 on a difference; 2 on a structural fault (pairs, duplicates, unreadable).
+# read. Exit 0 only with 280 pairs and no difference; 1 on a difference; 2 on a structural fault (pairs, duplicates, unreadable, an
+# integer beyond every double in a VALUE field, which float() cannot read: N-6).
 # The --ignore list is empty unless given (M-3), and printed.
 # Census mode (--census MINE THEIRS): MONARK's sealed census against kata/registry/census.json, on the fields both define.
-# Usage: python -B compare_p2.py A.json B.json [--ignore f1,f2,...] [--out report.txt]
-#        python -B compare_p2.py --census census-monark.json census.json [--out report.txt]
+# Usage: python -E -S -s -B compare_p2.py A.json B.json [--ignore f1,f2,...] [--out report.txt]
+#        python -E -S -s -B compare_p2.py --census census-monark.json census.json [--out report.txt]
 import io_guard  # the input guard, before any other module (M-7): both files are read under the role registry
 import hashlib
 import json
@@ -27,8 +31,7 @@ MODEL = "claude-opus-5-5"
 PAIRS = 280
 VALUES = {"calib.qhat", "calibSupport.min", "calibSupport.max", "hourOfWeekFactors", "thresholds.t1", "thresholds.t2"}
 DIGESTS = {"calib.scoresSha256", "calib.auxSha256", "factorTableSha256"}
-OUTSIDE = {"trialRegistryHead.hash": "not compared: FORMAT l.44 builds the trial chain in the generator's code only; "
-                                     "item TRIAL-HEAD-WRITTEN-1 brings it into the decisions once the chain is written"}
+OUTSIDE = {}  # path 1: no field outside the decisions; report.py refuses a report if a name is ever put back here
 
 
 def _is_num(x):
@@ -64,6 +67,8 @@ def leaf_diff(path, a, b):
             x, y = float(a), float(b)
         except ValueError:
             x = y = None
+        except OverflowError:  # N-6: an integer beyond every double, which no writing of a double gives: a fault of structure
+            return "STRUCTURE", "an integer beyond the range of a double"
         if x is not None and math.isfinite(x) and math.isfinite(y):
             if struct.pack("<d", x) == struct.pack("<d", y):
                 return None if (a == b or not isinstance(a, str)) else ("DECISION", f"A={show(a)} B={show(b)}: one double, two writings")
@@ -189,7 +194,8 @@ def compare_registries(pa, pb, ignore):
                  f"unpaired A {len(only_a)}, unpaired B {len(only_b)}, differing cells {differing}, top-level differences {len(top)}")
     lines.append(f"SUMMARY decisions {per['DECISION']}, values {per['VALUE']} (beyond 1e-12: {beyond}), digests {per['DIGEST']}, "
                  f"outside {len(OUTSIDE)} (not compared)")
-    if code == 0 and (len(pairs) != PAIRS or only_a or only_b or len(a["rows"]) != PAIRS or len(b["rows"]) != PAIRS):
+    if code == 0 and (len(pairs) != PAIRS or only_a or only_b or len(a["rows"]) != PAIRS or len(b["rows"]) != PAIRS
+                      or any(c == "STRUCTURE" for c, _ in counts)):  # N-6: a fault of structure inside a pair or the top level
         code = 2
     if code == 0 and (differing or top):
         code = 1

@@ -15,12 +15,14 @@ import { COMMITTED_FILES, readCommittedTables, readTablesDir, TABLES_DIR, type C
 import * as PINS from "../src/policy-committed-pins.ts";
 import { projectCell, readRegistry, type ProjectionInputs } from "../src/policy-projection.ts";
 import { buildPolicyTable } from "../src/policy-table-file.ts";
-import { importSpecifiers } from "./helpers/import-specifiers.ts";
+import { forbiddenLoads, importSpecifiers } from "./helpers/import-specifiers.ts";
 import { syntheticRegistry } from "./helpers/synthetic-registry.ts";
 
 const SRC = join(dirname(fileURLToPath(import.meta.url)), "..", "src");
-/** The module specifiers of a source file, in every form and quote that importSpecifiers reads (servedModules reads the same). */
+/** What a source file loads, read by the shared helper: its specifiers as importSpecifiers lists them (ts.preProcessFile; servedModules
+ *  follows the same), and the loads that no specifier shows, as forbiddenLoads finds them on the syntax tree (both named in its header). */
 const importsOf = (file: string): string[] => importSpecifiers(readFileSync(join(SRC, file), "utf8"));
+const loadsOf = (file: string): string[] => forbiddenLoads(readFileSync(join(SRC, file), "utf8"));
 const ENTRIES = kataClassEntries((c) => `class text of ${c}`);
 const SYN = syntheticRegistry();
 const INP: ProjectionInputs = {
@@ -89,6 +91,7 @@ test("committed_tables_folder_is_absent_and_read_once", () => {
   const imports = importsOf("policy-committed.ts");
   const allowed = ["node:fs", "node:crypto", "node:url", "@monark/contracts", "./policy-table-file.ts", "./policy-committed-pins.ts", "./policy-classes.ts"];
   assert.ok(imports.length > 0 && imports.every((i) => allowed.includes(i)), imports.join(", "));
+  assert.deepEqual(loadsOf("policy-committed.ts"), [], "no load that no specifier shows");
 });
 
 // killer: apps/harness/src/policy-committed.ts:57 SDL "if (Object.hasOwn(pins.tables, cls))" -> ""
@@ -125,11 +128,11 @@ test("committed_pins_start_empty_with_two_closed_held_lists", () => {
   const [above, block] = text.split("// BEGIN committed tables");
   assert.deepEqual([...(above ?? "").matchAll(/^export const (\w+)/gm)].map((m) => m[1]), ["FLOOR_HELD_CLASSES", "ORDER_HELD_CLASSES", "COMMITTED_RETIRE_LISTS", "COMMITTED_REPORTS"]);
   assert.deepEqual([...(block ?? "").matchAll(/^export const (\w+)/gm)].map((m) => m[1]), ["COMMITTED_TABLES", "COMMITTED_REGISTRY"]);
-  assert.deepEqual(importsOf("policy-committed-pins.ts"), []);
+  assert.deepEqual([importsOf("policy-committed-pins.ts"), loadsOf("policy-committed-pins.ts")], [[], []]);
   assert.ok((block ?? "").trimEnd().endsWith("// END committed tables"));
 });
 
-// killer: apps/harness/test/helpers/import-specifiers.ts:6 CONST "[\"']([^\"']+)[\"']" -> "\"([^\"]+)\""
+// killer: apps/harness/test/helpers/import-specifiers.ts:26 CONST ".importedFiles.map(" -> ".importedFiles.filter((f) => text[f.pos] === '\"').map("
 test("import_specifiers_are_read_in_both_quotes", () => {
   const text = ["import './a.ts';", "export { b } from '../b.ts';", "void import('./c.ts');", "import { readFileSync } from 'node:fs';", "import {", "  d,", '} from "./d.ts";', "const u = import.meta.url; // read from the tables folder"].join("\n");
   assert.deepEqual(importSpecifiers(text), ["./a.ts", "../b.ts", "./c.ts", "node:fs", "./d.ts"]);

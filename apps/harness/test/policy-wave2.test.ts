@@ -246,3 +246,13 @@ test("w2_guard_veto_order_test_before_fwd", () => {
   check(both);
   refuse({ ...both, status_reason: "vetoed: fwd" }, /not 'vetoed' and 'vetoed: test'/);
 });
+
+// reddened by: a rejection of check 1 named before a constant tail sequence on a wave 2 row (the order of guardKataRow before
+// REASON-ORDER-GUARD-VERIFIER-1), where the generator names the constant tail first (kata/w2c/calibrate2.ts l.121-122; RECHERCHES
+// decision f51322c)
+// killer: apps/harness/src/policy-guard.ts:83 COR "adm.empty ? [" -> "adm.empty && (!w2 || !adm.reject) ? ["
+test("w2_guard_names_a_constant_tail_before_a_rejection", () => {
+  const c: Partial<Counts> = { tail_m: 0, tail_a: 0, misses: 2, miss_adj_a: 1 }; // the tail empty, check 1 rejecting (w2_guard_refuses_region_with_empty_or_low_tail)
+  refuse(w2(c, ["silence", "dependence check rejects"]), /has status 'silence' and reason 'dependence check rejects', not 'silence' and 'tail sequence constant \(fails closed\)'/);
+  check(w2(c, ["silence", "tail sequence constant (fails closed)"]));
+});

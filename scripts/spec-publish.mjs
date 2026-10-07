@@ -90,8 +90,8 @@ export function canonicalJson(v) {
 }
 
 // ---- The vocabulary gate of the public spec repository: the public free-text gate (checkPublicText, kind "notes") on the NFKC text,
-// with a closed list of exceptions: G0..G7 and monark-governance, which the published files cite, the json-schema.org URL, and a venue named inside a cell key
-// written in its grammar (kata:<id>@<venue>/..., ukemi:...@.../aave-v3-core/...). Plus private names, home paths and withheld words.
+// with a closed list of exceptions: G0..G7 and monark-governance, which the published files cite, the json-schema.org URL, a venue named inside a cell key
+// written in its grammar (kata:<id>@<venue>/..., ukemi:...@.../aave-v3-core/...), and the pinned wave 1 venue in two row fields (VOCAB-VENUE-FIELDS-1, at the end). Plus private names, home paths and withheld words.
 const KEY_TOKEN = /\b(?:kata|ukemi):[\w.-]+@[\w:.-]+(?:\/[\w.-]+)+/g, VENUE = /@(eip155:\d+\/)?[a-z0-9-]+\//; // only the venue segment is masked
 const EXCEPTED = (v) => (v.rule === "k" && /^G[0-7]$/.test(v.word)) || (v.rule === "c" && /^monark-governance$/i.test(v.word))
   || (v.rule === "g" && /^https:\/\/json-schema\.org\/draft\//.test(v.word)); // and the meta-schema URL a JSON Schema names in $schema
@@ -100,8 +100,8 @@ const EXTRA = [["private", /recherches/i], ["home", /(?<![\w.-])(?:\/var\/home|\
  *  substring of that length (glued to letters or digits too), so that the word is never written. */
 export const WITHHELD = Object.freeze([{ length: 6, sha256: "e8522fd87f748c388684c3eff07de12ac2f77d5c8f5f0222d50c7e819e26ca91" }]);
 
-/** vocabularyHits(text, withheld) -> [{rule, line, word}]: every hit of the spec repository's gate, empty when the text is clean. The
- *  private, home and withheld checks read the whole NFKC text; the public free-text gate reads it with the venue of each key masked. */
+/** vocabularyHits(text, withheld) -> [{rule, line, word}]: every hit of the spec repository's gate, empty when the text is clean. It reads the
+ *  text it is given (contentProblems gives it the text masked by venueMaskedText); the public free-text gate also masks the venue of each key. */
 export function vocabularyHits(text, withheld = WITHHELD) {
   const t = text.normalize("NFKC"), hits = [];
   if (t.trim() === "") return [];
@@ -134,7 +134,7 @@ export function contentProblems(out, kind, bytes, release, carried = false) {
   let text;
   try { text = new TextDecoder("utf-8", { fatal: true }).decode(bytes); } catch { return [{ code: "not_text", detail: `${out}: not UTF-8` }]; }
   if (text.includes("\0")) return [{ code: "not_text", detail: `${out}: a NUL byte` }];
-  const p = vocabularyHits(text).map((h) => ({ code: "vocabulary", detail: `${out}:${h.line} [${h.rule}] ${h.word}` }));
+  const p = vocabularyHits(venueMaskedText(text, out, kind)).map((h) => ({ code: "vocabulary", detail: `${out}:${h.line} [${h.rule}] ${h.word}` }));
   if (text.includes("\r")) p.push({ code: "crlf", detail: `${out}: a CR byte (LF line ends only)` });
   const top = out.split("/")[0], parsed = (() => { try { return JSON.parse(text); } catch { return undefined; } })();
   if (/^contract-/i.test(top) && out.includes("/") && !versionDir(top)) p.push({ code: "version_dir_invalid", detail: `${out}: ${top} is not contract-<x.y.z>[-tables-<YYYY-MM-DD>]` });
@@ -144,7 +144,7 @@ export function contentProblems(out, kind, bytes, release, carried = false) {
   if (kind === "text") return p;
   let v;
   try { v = JSON.parse(text); } catch (e) { return [...p, { code: "json_invalid", detail: `${out}: ${e.message}` }]; }
-  p.push(...vocabularyHits(strings(v).join("\n")).map((h) => ({ code: "vocabulary", detail: `${out}: a decoded string [${h.rule}] ${h.word}` })));
+  p.push(...vocabularyHits(strings(venueMasked(v, out, kind).value).join("\n")).map((h) => ({ code: "vocabulary", detail: `${out}: a decoded string [${h.rule}] ${h.word}` })));
   if (kind === "schema" && !(isObj(v) && typeof v.$schema === "string")) p.push({ code: "schema_invalid", detail: `${out}: no $schema` });
   if (kind !== "policy-table") return p;
   const at = /^(?:([^/]+)\/)?policy\/([^/]+)\.json$/.exec(out); // a new table lies under the release's own directory
@@ -323,3 +323,40 @@ function retireProblems(files) {
 // SHORT-DIGEST-INVERSION-1: the digest rule of tableRowProblems, shared with the import guard (guardKataRow). Imported last, not at the
 // top, so that the import moves no line (killers pin them; the retireProblems precedent above); imports are hoisted.
 import { DIGEST_FLOOR_BITS, digestProblems } from "../apps/harness/src/policy-digest-floor.ts";
+
+// VOCAB-VENUE-FIELDS-1 (RECHERCHES, 76ffa25): a row of a table carries the venue of its cell twice outside its key, in the column venue and
+// in the third segment of source.trial_id (<taskClass>|<kataId>|<venue>|<symbol>|<horizon>|<attempt>, policy-projection.ts). Both are
+// masked like the venue segment of a key, but BOUND TO ONE PINNED VALUE, never exempted by field name: only in a row of a table of a
+// policy-table file or of the vectors file (VECTORS), and only when the value is exactly the pinned venue of wave 1, the one venue of all
+// 280 cells of the registry 811fcd57. Another value in these fields, the name written plainly in any other field or in free text stays refused. The
+// decoded pass masks a copy of the parsed value; the byte pass masks only a text that is a plain writing of that value (canonical, or
+// JSON.stringify compact or indented, LF end or none), rewritten in it; any other text masks nothing. Function declarations, hoisted, kept last.
+
+/** waveVenue() -> the pin: the venue of every cell of the wave 1 registry, by that registry's sha256 and size. */
+export function waveVenue() {
+  return Object.freeze({ venue: "binance", registry_sha256: "811fcd574e182f33e24e19795b18139adb1917cf392a02810705c6adda1dd9cb", cells: 280 });
+}
+
+/** venueMasked(v, out, kind) -> {value, venues, trials}: a copy of v with the pinned venue masked in the two fields of each row of the
+ *  tables it may hold (none outside a policy-table file and the vectors file), and the number of fields masked. */
+export function venueMasked(v, out, kind) {
+  const value = structuredClone(v), pin = waveVenue().venue, r = { value, venues: 0, trials: 0 };
+  if (kind !== "policy-table" && !(kind === "json" && VECTORS.test(out))) return r;
+  for (const { table } of tablesIn(value)) for (const row of table.rows.filter(isObj)) {
+    if (row.venue === pin) { row.venue = "KEY"; r.venues++; }
+    const t = isObj(row.source) && typeof row.source.trial_id === "string" ? row.source.trial_id.split("|") : [];
+    if (t.length === 6 && t[2] === pin) { row.source.trial_id = [...t.slice(0, 2), "KEY", ...t.slice(3)].join("|"); r.trials++; }
+  }
+  return r;
+}
+
+/** venueMaskedText(text, out, kind) -> the text rewritten with the fields masked by venueMasked, when the text is a plain writing of its
+ *  parsed value (canonical, or JSON.stringify compact or indented, LF end or none); else the text unchanged. */
+export function venueMaskedText(text, out, kind) {
+  let v;
+  try { v = JSON.parse(text); } catch { return text; }
+  const m = venueMasked(v, out, kind), forms = [canonicalJson, (x) => JSON.stringify(x), (x) => JSON.stringify(x, null, 2)];
+  if (m.venues === 0 && m.trials === 0) return text;
+  for (const w of forms) for (const end of ["", "\n"]) { try { if (w(v) + end === text) return w(m.value) + end; } catch { /* not this writing */ } }
+  return text;
+}
