@@ -133,11 +133,43 @@ precondition runs no check. setup-python fails the job if it cannot install the 
 
 ### 7.1 The step against mutated copies of the tool
 
-(Filled at the freeze, §11.)
+Each run: `node scripts/verifier-tool-ci.mjs` with `VERIFIER_TOOL_PYTHON=3.14.8`, under the runner's build of 3.14.8 (installed here
+from the tarball setup-python downloads, `LD_LIBRARY_PATH` set as setup-python sets it), in a scratch clone (`git clone --shared`) at
+the trunk `5437cd0d` with the three files of the driver of this branch (the tool there is this branch's: it is not changed). One
+change per clone, applied by a script that requires the old text once on its line and prints both digests; never committed.
+
+| Clone | Change | Exit | The job's first `::error::` lines |
+|---|---|---|---|
+| m0 | none (control) | 0 | none: `GREEN`, 293 s (four runs side by side) |
+| m1 | `io_guard.py:314` `if name not in NATIVE:` -> `if False:` | 1 | `guard_check.py: FAIL import-extension-outside-list: exit 0 (want 4): LOADED _ctypes` |
+| m2 | `report.py:88` `if not v.isascii():` -> `if False:` | 1 | `report_check.py: FAIL canonical refuses a non-ASCII string` |
+| m3 | `compare_p2.py:75` `1e-12 *` -> `1e-9 *` | **0** | none: survives (finding below) |
+| m3b | `compare_p2.py:75` `1e-12 *` -> `1e-8 *` | 1 | `compare_check.py: FAIL case 03 float calib.qhat x (1 + 1e-9), beyond the contract`; `report_check.py: FAIL case 08 …` |
+| m4 | `binom_exact.py:113` `return k` -> `return k + 1` | 1 | `binom_check.py: FAIL k* n 6 alpha 0.45 delta 0.05 A 1 B 0`; `report_check.py: FAIL reason of a down-side direction cell …` |
+| m5 | `guard_check.py:344` the case `residual-stat` added to the skipped ones | 1 | `guard_check.py: skipped [ntfs-stream, residual-stat], [ntfs-stream] wanted` (the tool alone: `skipped 2, failures 0`, `VERDICT: GREEN`) |
+| m6 | none; `VERIFIER_TOOL_PYTHON=3.14.5` | 1 | `CPython 3.14.8, not the pinned 3.14.5` (no check runs) |
+| m7 | `tools/kata-quarter/quarter_counts.py` posed | 1 | `tools/kata-quarter: a tree of the tool that this job does not run` (no check runs) |
+| m8 | `io_guard.py:48` `FORM` gains `"-P"` (the prologue of IO-GUARD-POSED-FILES-1 absent) | 1 | every run red: the entry scripts `ModuleNotFoundError: io_guard`, the stand-in refused by the guard (`safe_path True`) |
+
+Logs (sha256, first 16): m0 `627122fe…`, m1 `3d446656…`, m2 `c8e0c36f…`, m3 `30663783…`, m3b `c44a17bd…`, m4 `e2f735e6…`, m5
+`787bb2a2…`, m6 `b1427629…`, m7 `aa93ed34…`, m8 `fcecd223…` (they carry local paths).
+
+**Finding, on the frozen tool (not this lot's to change):** its comparator's contract, relative 1e-12 (`compare_p2.py` l.75), is held
+from outside by changes of 1e-9 at the closest (`compare_check.py` l.68-69, case 03, and `report_check.py` l.183-184, case 08; the
+others are at 1e-6, l.89-94), and from inside by 1e-13 (l.70-71). A contract widened to 1e-9 passes them all: `fl(1 + 1e-9)` exceeds
+1 + 1e-9 by about 8e-17, so the 1e-9 change still lands just beyond a 1e-9 bound (m3). A widening to 1e-8 reds (m3b). A case at
+1e-11 would pin the contract within a factor of ten; it would be a new revision of the tool, so a new list entry. For MONARK.
 
 ### 7.2 red-proof
 
-(Filled at the freeze, §11.)
+`node scripts/red-proof.mjs --base 5437cd0d --gel 5d03eea5 --draw 5 --seed 20261007`: OK, 5 judged, 3 unchanged, 5 killers drawn,
+5 killed. Judged: the four tests of `test/verifier-tool-ci.test.ts`, new-module at the base (`import-fail`: the driver is absent),
+green at the gel; `export_public_derived_jobs_are_byte_identical`, F2P (red at the base by assertion: "internal job
+'g3-verifier-tool' missing from the source workflow"). `RED-PROOF.json` sha256 `fa46c230…` (it carries paths and the hour).
+Red first, by hand: at the commit of the tests alone (`49ab28db`), in a clean clone, the same two files: the new file cannot load
+(`ERR_MODULE_NOT_FOUND … scripts/verifier-tool-ci.mjs`), and the export test fails on the assertion above. The killer that this lot
+leaves second above the export test (`", \"g3-export\"]" -> "]"`, DERIVE for `verifie-ancres.mjs`) still kills it at the head: "internal
+job 'g3-export' must be dropped from the derived public workflow".
 
 ## 8. IO-GUARD-INSTALL-MASK-1
 
@@ -159,12 +191,25 @@ in a public text or a report, as proof that a recompute run is intact. Nothing h
 
 ## 10. Size
 
-(Measured at the freeze in the CI form, §11.) Estimate: ~300 lines, under 547 and 1 205; above the ~55 of the item, by the driver's
-fail-closed accounting, the Linux stand-in and the tests that make the step judgeable.
+In the CI form (`node scripts/lot-size-integration.mjs pin --ci .github/workflows/ci.yml --base origin/lot/etude-suite`, evaluated,
+then `git diff --shortstat 5437cd0d...HEAD` on the pathspec of `ci.yml` l.100): **299** changed lines, 7 files, 293 insertions and
+6 deletions; the content count 0. Under 547 (the bound of a lot) and 1 205 (the bound of the CI). Above the ~55 of the item: the
+job is 27 lines, and the driver (107), its types (11), the stand-in (46) and the tests (100) make the step fail closed and
+judgeable. This plan, under `docs/`, is not counted.
 
 ## 11. At the freeze
 
-(Filled at the freeze: heads, gates, red proofs, R-25, the PR's run.)
+- **Heads**: trunk `5437cd0d`; branch `recherches/verifier-tool-ci-1`: `e96f9ba8` (this plan), `49ab28db` (the tests, red),
+  `5d03eea5` (the job, the driver, the stand-in, the export), then the commit that writes these results into this plan;
+  recherches `6156194`.
+- **Gates at `5d03eea5`** (Linux, Node 24.21.0): `npx tsc --noEmit` 0; `eslint` on `test/verifier-tool-ci.test.ts` and
+  `test/export-public.test.ts` 0; `gate:vocab` OK (349 files); `lang:gate` OK; `lint:ratchet` 69/69; `export:check` OK; winlint, the
+  seven files, no hazard; `npm run test:main`: 2 929 tests, 2 907 pass, 0 fail, 22 skipped (547 s); `every_killer_line_is_readable`
+  green; `verifie-ancres.mjs . --ref origin/lot/etude-suite`: 1 644 killers, 1 643 ANCRE, 1 DERIVE (§9), 0 PERDU.
+- **The list of 1f**: nothing under `tools/kata-recalc/`, nor `apps/harness/data/verifiers.json`, nor
+  `apps/harness/src/policy-verifiers.ts` changes (`git diff --stat 5437cd0d..HEAD` on these paths, empty); the tree tests
+  `kata_recalc_tree_is_the_pinned_manifest` and `verifier_tool_tree_is_the_listed_tree` are green: no list commit.
+- **The PR's run**: read online, in the PR.
 
 ## 12. Questions for MONARK (default in brackets)
 
