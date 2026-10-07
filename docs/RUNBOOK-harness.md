@@ -400,8 +400,17 @@ node scripts/spec-publish.mjs --release contract-1.1.0-tables-<YYYY-MM-DD> --dat
   hours on a 4h class.
 - On a scale class the probe's `yhat` lies in the row's `calib_support`: `out_of_support` (`kata-path.ts` l.93) is tested
   before `calib_retired` (l.94) and would hide it.
-- No probe command exists in the repository: `scripts/verify-harness.mjs` makes no kata call. Item RETIRE-PROBE-1 of the
-  G0. **T_g** = the UTC instant the probe receives that verdict.
+
+```bash
+node scripts/retire-probe.mjs --api <url> --table spec/contract-1.1.0-tables-<YYYY-MM-DD>/policy/<task_class>.json --cell <cell_key> --api-host <api. name>
+```
+
+- `scripts/retire-probe.mjs` (item RETIRE-PROBE-1) builds the call from the table file, waits until its clock is within
+  240 s of a grid instant (`--max-wait`, 4 h by default), makes one call and prints the record `retire-probe-v1`. Exit 0
+  iff the verdict is a 200 of that cell, with the file's sha256 and, on a retired row, `calib_retired`. Exit 1 names the
+  refusal: `table_invalid`, `cell_invalid`, `wait_exceeds_max`, `window_missed`, `transport_failed`, `not_served`,
+  `cell_mismatch`, `digest_mismatch` or `reason_mismatch`. Exit 2: usage. **T_g** = its `received_at`, the UTC second the
+  verdict arrived.
 
 ### 8. The latency report
 
@@ -414,6 +423,10 @@ node scripts/spec-publish.mjs --release contract-1.1.0-tables-<YYYY-MM-DD> --dat
   `cycle` is `rehearsal` or `real`; `mention` is `null`, or where an overrun of the 14-day ceiling is written down
   (l.51-52). AFTER #218 (RETIRE-REAL-CYCLE-SCOPE-1, not merged at the base of this text): `cycle` may be `publication`,
   T_c to T_g only, no ceiling; T_a or T_b in it is refused, `instant_out_of_cycle`.
+- Or assemble it from the evidence: `node scripts/retire-instants.mjs <evidence.json> > <instants.json>` (item
+  RETIRE-INSTANTS-1). Each instant names its source: a full commit sha and its repository (T_a, T_b, T_e: the committer
+  date), a clock reading (T_c, T_d; T_a of `live:<k>`), the green record of step 6 (T_f) or the probe's record (T_g).
+  Exit 1 names the refusal: `evidence_invalid`, `source_unreadable`, `source_not_green`, or one of the report's below.
 - Run it:
 
 ```bash

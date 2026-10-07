@@ -46,7 +46,7 @@ test("runbook_retire_steps_carry_the_seven_instants_in_order", () => {
 
 // reddened by: the input shown off the closed format retire-latency-v1 (its format, a key, the cycle, an instant name or their
 // order), or a second input shown, or a refusal of the report or its exit codes cited otherwise than the script names and returns them
-// killer: docs/RUNBOOK-harness.md:411 CONST "\"format\": \"retire-latency-v1\"" -> "\"format\": \"retire-latency-v2\""
+// killer: docs/RUNBOOK-harness.md:420 CONST "\"format\": \"retire-latency-v1\"" -> "\"format\": \"retire-latency-v2\""
 test("runbook_retire_shows_the_closed_latency_input", () => {
   const blocks = [...section().matchAll(/```json\n([\s\S]*?)```/g)].map((m) => admit(() => JSON.parse(m[1] ?? "") as { instants: Record<string, string> }, "the input shown parses"));
   assert.equal(blocks.length, 1, "one input is shown");
@@ -71,7 +71,7 @@ test("runbook_retire_quotes_the_writer_the_report_and_the_publication_gate", asy
   assert.ok(writer.includes("--write --date <YYYY-MM-DD>") && text.includes("node scripts/spec-policy-tables.mjs --write --date <YYYY-MM-DD>"), "the writer runs as its usage reads");
   assert.ok(latency.includes("usage: retire-latency.mjs <instants.json>") && text.includes("node scripts/retire-latency.mjs <instants.json>"), "the report runs as its usage reads");
   const run = [...text.matchAll(/node (scripts\/[\w/-]+\.mjs)/g)].map((m) => m[1] ?? "");
-  assert.deepEqual([...new Set(run)].sort(), ["scripts/retire-latency.mjs", "scripts/spec-policy-tables.mjs", "scripts/spec-publish.mjs", "scripts/verify-harness.mjs"], "the scripts the section runs");
+  assert.deepEqual([...new Set(run)].sort(), ["scripts/retire-instants.mjs", "scripts/retire-latency.mjs", "scripts/retire-probe.mjs", "scripts/spec-policy-tables.mjs", "scripts/spec-publish.mjs", "scripts/verify-harness.mjs"], "the scripts the section runs");
   for (const s of run) assert.ok(existsSync(join(ROOT, s)), `${s} exists`);
   const line = /node scripts\/spec-publish\.mjs (--release [^`#]*?) ?(?:```|$)/.exec(text)?.[1] ?? "";
   const { parseArgs } = (await import(new URL("../scripts/spec-publish.mjs", import.meta.url).href)) as { parseArgs: (a: string[]) => { release: string; date: string; out: string; roots: Record<string, string> } };
@@ -83,7 +83,7 @@ test("runbook_retire_quotes_the_writer_the_report_and_the_publication_gate", asy
 });
 
 // reddened by: a redo command whose path is not the dated directory (a wider scope, spec/ or the tree), or a second git rm -r
-// killer: docs/RUNBOOK-harness.md:441 CONST "git rm -r -- spec/contract-1.1.0-tables-<YYYY-MM-DD>`" -> "git rm -r -- spec/`"
+// killer: docs/RUNBOOK-harness.md:454 CONST "git rm -r -- spec/contract-1.1.0-tables-<YYYY-MM-DD>`" -> "git rm -r -- spec/`"
 test("runbook_retire_redo_removes_the_dated_directory_only", () => {
   const dir = `spec/${datedDir("2027-01-04").replace("2027-01-04", "<YYYY-MM-DD>")}`, text = section().replace(/\s+/g, " ");
   const scoped = [...text.matchAll(/`(git [a-z]+ [^`]*?) -- ([^`]*)`/g)].map((m): [string, string] => [m[1] ?? "", m[2] ?? ""]);
