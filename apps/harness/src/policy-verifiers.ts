@@ -5,8 +5,8 @@
  * the digest rule of a tool tree, the prefix rule of a carried copy and the date rule of a revocation.
  * Two closed entry forms, in the order they were appended (never sorted): a list entry {commit, identity, repository, tree, tree_sha256}
  * and a revocation {commit, identity, revoked: <YYYY-MM-DD>}. A (identity, commit) pair is unique among the list entries; a revocation
- * names a list entry above it, at most once. The date is a record for a reader and commands nothing: a revocation takes effect by its
- * presence. Only list entries attest a row (A-1, the guard); a revocation never does.
+ * names a list entry above it, at most once; its date is a record and commands nothing. Only list entries attest a row (A-1, the guard).
+ * The reader is closed on the bytes as on the form (a text that is not the canonical writing of its list is refused); it renders frozen.
  * Imports: node:crypto, and node:fs and node:url for pinnedVerifiers() alone, which reads the file lazily, on its first call, never at
  * load (apps/harness/src is exported, apps/harness/data is not). Nothing from scripts/ and nothing from policy-guard.ts: no cycle.
  */
@@ -48,16 +48,19 @@ export const isListEntry = (v: Verifier): v is ListEntry => !Object.hasOwn(v, "r
 /** The list entries alone: what A-1 and the guard retain (a revocation never attests). */
 export const listEntries = (vs: readonly Verifier[]): readonly ListEntry[] => vs.filter(isListEntry);
 
-/** The closed reader: the elements of the list in file order, or a named refusal. */
+/** The closed reader: the elements of the list in file order, each in its closed form (keys sorted) and frozen, in a frozen array; or a
+ *  named refusal. Closed on the bytes too: the decoder keeps a BOM, and after the checks of form the text must be the canonical writing
+ *  of what it renders (sorted keys, no space, no final newline, each key once, every string well formed: canonicalJson of spec-publish). */
 export function readVerifiers(bytes: Uint8Array | string): readonly Verifier[] {
-  let doc: unknown;
-  try { doc = JSON.parse(typeof bytes === "string" ? bytes : new TextDecoder("utf-8", { fatal: true }).decode(bytes)); } catch { return fail("not UTF-8 JSON"); }
+  let text: string, doc: unknown;
+  try { text = typeof bytes === "string" ? bytes : new TextDecoder("utf-8", { fatal: true, ignoreBOM: true }).decode(bytes); doc = JSON.parse(text); } catch { return fail("not UTF-8 JSON"); }
   if (doc === null || typeof doc !== "object" || Array.isArray(doc) || !exactly(doc, ["format", "verifiers"])) return fail("the top level is not exactly {format, verifiers}");
   const { format, verifiers } = doc as { format: unknown; verifiers: unknown };
   if (format !== VERIFIERS_FORMAT) fail(`format is not ${VERIFIERS_FORMAT}`);
   if (!Array.isArray(verifiers) || verifiers.length === 0) return fail("verifiers is not a non-empty array");
   const listed = new Set<string>(), revoked = new Set<string>();
-  return verifiers.map((x: unknown, i): Verifier => {
+  const closed = (v: Record<string, unknown>): Verifier => Object.freeze(Object.fromEntries(Object.keys(v).sort().map((k) => [k, v[k]])) as Verifier);
+  const out = verifiers.map((x: unknown, i): Verifier => {
     const at = `entry ${i}`, v = (x !== null && typeof x === "object" && !Array.isArray(x) ? x : fail(`${at} is not an object`)) as Record<string, unknown>;
     const list = exactly(v, LIST_KEYS), revoke = exactly(v, REVOKE_KEYS);
     if (!list && !revoke) fail(`${at} is of neither form (keys ${Object.keys(v).sort().join(", ")})`);
@@ -69,15 +72,17 @@ export function readVerifiers(bytes: Uint8Array | string): readonly Verifier[] {
       if (!listed.has(pair)) fail(`${at}: a revocation of ${pair}, which no list entry above it names`);
       if (revoked.has(pair)) fail(`${at}: a second revocation of ${pair}`);
       revoked.add(pair);
-      return v as Revocation;
+      return closed(v);
     }
     if (v.repository !== REPOSITORY) fail(`${at}: repository is not ${REPOSITORY}`);
     if (v.tree !== TOOL_ROOT) fail(`${at}: tree is not ${TOOL_ROOT}`);
     if (typeof v.tree_sha256 !== "string" || !HEX64.test(v.tree_sha256)) fail(`${at}: tree_sha256 is not 64 lower-case hex`);
     if (listed.has(pair)) fail(`${at}: ${pair} is listed twice`);
     listed.add(pair);
-    return v as ListEntry;
+    return closed(v);
   });
+  if (JSON.stringify({ format: VERIFIERS_FORMAT, verifiers: out }) !== text || !out.every((v) => Object.values(v).every((s: string) => s.isWellFormed()))) fail("not the canonical writing of the list");
+  return Object.freeze(out);
 }
 
 /** The list of these bytes, which must have the sha256 `pin`; an altered list is refused, closed. */
