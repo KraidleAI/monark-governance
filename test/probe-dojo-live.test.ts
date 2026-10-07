@@ -439,8 +439,8 @@ test("dojo_live_probe_reads_the_smtp_password_from_its_file_after_the_verifier",
     "systemd-run --wait --collect --quiet -p EnvironmentFile=/etc/monark/probe.env", `printf "%s\\n" "$$SMTP_PASS" > ${P.DEFAULT_SMTP_PASS_FILE}`,
     "-p EnvironmentFile=/etc/monark/probe.env -p UnsetEnvironment=SMTP_PASS", '"alert_error": null']) assert.ok(s.includes(x), `section 25: ${x}`);
   assert.ok(!s.includes('stat -c "%U %a %s"') && !s.includes(`sed -n "s/^SMTP_PASS=//p"`), "(1b): the file's size never printed, never a copy of the raw line");
-  const b1 = s.indexOf("\n(1b) "), c1 = s.indexOf("\n(1c) "), timer = s.indexOf("systemctl enable --now monark-dojo-probe.timer");
-  assert.ok(b1 > 0 && c1 > b1 && timer > c1, "(1b), then (1c), then the timer");
+  const b1 = s.indexOf("\n(1b) "), four = s.indexOf("\n(4) "), b4 = s.indexOf("\n(4b) "), five = s.indexOf("\n(5) "), timer = s.indexOf("systemctl enable --now monark-dojo-probe.timer");
+  assert.ok(b1 > 0 && four > b1 && b4 > four && five > b4 && timer > five, "(1b), then (4), then (4b), then the timer at (5)");
   const never = text.slice(text.indexOf("\nProbe (section 25): "));
   assert.ok(never.slice(0, 600).includes(P.DEFAULT_SMTP_PASS_FILE), "the probe's Never list names the password file");
 });

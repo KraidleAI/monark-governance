@@ -10,6 +10,9 @@ un secret : du code, des tests et le texte du RUNBOOK que le fondateur jouera.
 - Modèle : `claude-opus-5-5`, effort non consigné à la rédaction. Heure lue au départ (`date -u`) : 2026-10-07T09:06:07Z.
 - Pli de la G2 de MONARK (message `2026-10-07-MONARK-vers-RECHERCHES-g2-229-230`, trois M et six m) : `claude-opus-5-5`, effort low
   (réglage de la session de pli), heure lue 2026-10-07T10:15:30Z. Commits de fusion seuls, sans réécriture.
+- Pli de la décision de MONARK (message `2026-10-07-MONARK-vers-RECHERCHES-229-230-plis-recus`, question 1) : l'acte du courriel de
+  la §25 prend le libellé (4b), après (4) et avant le timer, qui garde (5). Texte et épingles du test seuls, sans effet sur le code ;
+  `claude-opus-5-5`, heure lue 2026-10-07T10:49:50Z.
 - Worktree détaché neuf, branche `recherches/dojo-probe-followup-1` ; `/home/user/monark-governance` n'est pas modifié. Node v24.21.0.
 - Sémantique de `UnsetEnvironment=` lue dans systemd.exec(5) : « applied as final step when the environment list passed to executed
   processes is compiled. That means it may undo assignments from any configuration source, including [...] EnvironmentFile= ».
@@ -50,13 +53,13 @@ Changement :
    développe les variables d'une commande transitoire et rend `$$` en `$`, systemd-run(1) [lu, source XML de systemd, branche main,
    2026-10-07], donc le shell de la tâche reçoit `"$SMTP_PASS"`). La valeur est donc celle que systemd donne à `monark-probe` (guillemets et échappements défaits, dernière
    affectation gagnante), non le texte brut de la ligne. Le `stat` de (1b) lit le propriétaire et le mode (`probe 600`) ; la taille
-   n'est jamais imprimée, (1b) n'affiche que `size-ok`. Un acte (1c), avant le timer, prouve le chemin du courriel sur la forme du §2
+   n'est jamais imprimée, (1b) n'affiche que `size-ok`. Un acte (4b), avant le timer, prouve le chemin du courriel sur la forme du §2
    du déploiement de la sonde dans RUNBOOK-sentinel : départ simulé forcé malsain (`--now` à +2 j, `--out` jetable), fichier de mail
    appliqué par systemd, `-p UnsetEnvironment=SMTP_PASS` ; attendu `"alert_error": null`. Il envoie UN vrai courriel, à l'adresse
    d'alerte déjà configurée et à nulle autre, et entre dans l'autorisation de déploiement unique (Q-20). Il demande l'arbre de (2) :
-   il se place donc après (4), avant (5). La liste « Never » de la sonde nomme `/etc/monark/dojo-probe-smtp-pass` (cat, head, tail,
-   less, xxd, od, base64, tout digest affiché). Le test de la §25 épingle (1b), (1c), leur ordre et la liste. Tout le §25 reste au
-   fondateur.
+   il se place donc après (4) et avant le timer, qui garde (5) ; d'où son libellé (4b). La liste « Never » de la sonde nomme
+   `/etc/monark/dojo-probe-smtp-pass` (cat, head, tail, less, xxd, od, base64, tout digest affiché). Le test de la §25 épingle (1b),
+   (4b), leur ordre ((1b), (4), (4b), puis le timer en (5)) et la liste. Tout le §25 reste au fondateur.
 
 Ce que N-1 ne fait pas : le fichier reste lisible par l'uid `probe`, donc par un enfant compromis qui l'ouvrirait lui-même. Une
 frontière vraie demande l'enfant sous un autre uid (un acte de déploiement, hors de ce lot) : item DOJO-PROBE-UID-BOUNDARY-1, que
