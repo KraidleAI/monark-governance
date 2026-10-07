@@ -47,7 +47,8 @@ Node 24, no dependency). The driver launches each check of the tool as `python <
   `tools/kata-quarter` (c1d of CM-5) adds them in the same lot. A new `*_check.py` in the tool reds the job the same way until it
   joins `steps()` or `NOT_RUN`.
 - **Duration** (measured here, Ubuntu 24.04.4, glibc 2.39, the runner's own build of 3.14.8): guard 6 s, report 98 s, compare 8 s,
-  registry 29 s, binom 73 s; 213 s for the driver.
+  registry 29 s, binom 73 s; 213 s for the driver. On the runner (PR 247, first run): guard 3 s, report 48 s, compare 3 s, registry
+  15 s, binom 39 s; 108 s for the step, 116 s for the job.
 
 ## 2. The pinned Python
 
@@ -100,7 +101,8 @@ Node 24, no dependency). The driver launches each check of the tool as `python <
 - Steps: `checkout` (`fetch-depth: 0`: `git show 207f021f`, the tree at the commit of lot 1d, the partial clone of `guard_check`;
   `persist-credentials: false`: every git call of the tool is local), `setup-node` (`"24"`, the pinned SHA of the other jobs),
   `setup-python` (§2), the run step. No job-level token block (the root `contents: read`), no `if:`, no `continue-on-error`;
-  `timeout-minutes: 15` (measured wall time x3, §1; remeasured on the PR's run).
+  `timeout-minutes: 6`: the job's first run, on PR 247, took 116 s (the step 108 s), x3 is 348 s (15 at first, from the local 213 s,
+  then measured on the runner, §11).
 - **R-25**: `ci.yml`, `scripts/` and `test/` count; this G0 (`docs/**/*.md`) does not. Size in §10.
 - **Required check**: a new job reds without blocking until MONARK adds `g3-verifier-tool` to the required status checks, as for
   `g3-site`. Q-4.
@@ -209,7 +211,16 @@ judgeable. This plan, under `docs/`, is not counted.
 - **The list of 1f**: nothing under `tools/kata-recalc/`, nor `apps/harness/data/verifiers.json`, nor
   `apps/harness/src/policy-verifiers.ts` changes (`git diff --stat 5437cd0d..HEAD` on these paths, empty); the tree tests
   `kata_recalc_tree_is_the_pinned_manifest` and `verifier_tool_tree_is_the_listed_tree` are green: no list commit.
-- **The PR's run**: read online, in the PR.
+- **The PR's run** (PR 247, head `d1022a35`, run 37704705811, read online): the eight jobs green. `g3-verifier-tool` (job
+  113076186570): setup-python "Successfully set up CPython (3.14.8)" from the image's tool cache; the driver printed `python: 3.14.8
+  (main, Oct  1 2026, 02:38:33) [GCC 13.3.0] at /opt/hostedtoolcache/Python/3.14.8/x64/bin/python; pinned by the job: 3.14.8` (the
+  build measured here); `guard_check.py` "cases 43 and the homonyms, skipped 1, failures 0" (the two extension cases ran,
+  `ntfs-stream` skipped); `report_check.py` 75 green through the stand-in, its output `409e589e…` equal to the local one;
+  `compare_check.py` 33 cases; `binom_check.py --registry` 1 680 checks; `binom_check.py` 16 821 checks, 207 756 assertions, its
+  outputs `63606d4f…` and `68e16302…`; the three notices (skipped, stood in, not run); "verifier tool checks under python -E -S -s -B:
+  GREEN". `g3-verification`: 2 929 tests, 2 907 pass, 0 fail, 22 skipped. `r25-taille-de-lot`: "Changed lines: 299 (ADR bound:
+  1205)", content 0, mode written. `g3-export` green: the public export, its own CI included, with the job dropped. Then the bound
+  of §5 set from that run (the next commit), and its run read again in the PR.
 
 ## 12. Questions for MONARK (default in brackets)
 
