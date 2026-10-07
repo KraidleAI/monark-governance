@@ -93,19 +93,19 @@ test("ukemi_conc_pool_bounds_in_flight_and_keeps_input_order", async () => {
 // (e)/(v) at the pool - the FIRST error stops dispatch (no item started after it), in-flight tasks are DRAINED before the
 // rethrow, later faults are reported (a PoolStoppedError is not). Mutants "stop ignored" and "no drain" red here.
 // killer: apps/sentinel/src/ukemi/pool.ts:29 COR "!signal.stopped && " -> ""
-test("ukemi_conc_pool_first_error_stops_dispatch_and_drains_before_rethrow", async () => {
+test("ukemi_conc_pool_first_error_stops_dispatch_and_drains_before_rethrow", { timeout: 10_000 }, async () => {
   const started: number[] = [], settled: number[] = [];
   const report: PoolReport = { suppressed: [] };
   let settledAtReject = -1;
-  // Gates set the order, not timer lengths (timers armed across a millisecond boundary fire 1 ms apart): item 5 fails once
-  // 4..7 are all in flight, and 4, 6, 7 settle one macrotask after that failure, so a rethrow that skips the drain shows.
+  // Gates set the order, not timer lengths: item 5 fails once 4..7 are all in flight (fewer starts: the timeout fails it).
+  // Its 50 ms timer orders nothing (5 has failed): 4, 6, 7 stay in flight 50 ms after the failure, so an early rethrow shows.
   const allIn = Promise.withResolvers<void>(), failed = Promise.withResolvers<void>();
   const p = runBounded(Array.from({ length: 30 }, (_, i) => i), 4, async (i, _k, signal) => {
     started.push(i);
     if (started.length === 8) allIn.resolve();
     await (i === 5 ? allIn.promise : i > 3 ? failed.promise : Promise.resolve());
     settled.push(i);
-    if (i === 5) { setImmediate(() => { failed.resolve(); }); throw new BudgetExceededError("ukemi-conc: budget"); }
+    if (i === 5) { setTimeout(() => { failed.resolve(); }, 50); throw new BudgetExceededError("ukemi-conc: budget"); }
     if (i === 6) throw new Error("a later fault");
     if (signal.stopped) throw new PoolStoppedError();
     return i;
