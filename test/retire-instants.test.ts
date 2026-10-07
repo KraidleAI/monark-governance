@@ -112,7 +112,7 @@ test("retire_instants_refuses_a_probe_record_the_probe_refused", async () => {
 // killer: scripts/retire-instants.mjs:75 COR "names.length !== CHECK_NAMES.length || " -> ""
 test("retire_instants_refuses_a_ca_with_a_check_twice", async () => {
   const t = await load(), code = (names: string[]): string => { try { return t.entry(evidence(), io({ ...FILES, "ca.json.local": ca(LOCAL, names) })).instants["T_f"] ?? "none"; } catch (e) { return String((e as { code?: string }).code); } };
-  assert.deepEqual([code(NAMES), code([...NAMES, "health"]), code([...NAMES, "bogus_call"])], ["2027-01-04T14:00:00Z", "source_not_green", "source_not_green"], "the 18 checks, no more");
+  assert.deepEqual([NAMES.length, code(NAMES), code([...NAMES, "health"]), code([...NAMES, "bogus_call"])], [18, "2027-01-04T14:00:00Z", "source_not_green", "source_not_green"], "the 18 checks, no more");
 });
 
 // reddened by: a probe record that names a problem taken for T_g, whatever its ok (the header reads ok true and problem null)
