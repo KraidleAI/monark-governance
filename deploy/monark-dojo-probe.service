@@ -35,6 +35,7 @@ ProtectSystem=strict
 ProtectHome=true
 PrivateTmp=true
 ReadWritePaths=/var/lib/monark-probe
+# Bell's key directory (made on this host by RUNBOOK-bell step 3), inaccessible with all below. No leading `-`: without it, no start.
 InaccessiblePaths=/etc/monark/bell
 # Resource caps on the shared Bell host: a quarter of ONE CPU, as both units it composes. Memory: the probe process holds one timeline
 # line at a time (monark-probe.service's 128M) and its verifier child the publish unit's envelope (512M, heap 448): 640M.

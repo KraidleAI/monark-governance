@@ -42,9 +42,9 @@ ProtectHome=true
 PrivateTmp=true
 ReadWritePaths=/var/lib/monark-dojo
 # The collect side: bundles/ read-only (the handoff, TU-4), the rest of it inaccessible with everything below it: its credential
-# sources, its EnvironmentFile (the Helius key) and its ledger (symmetric of the collect unit's InaccessiblePaths=/etc/monark/dojo).
-# No leading `-`: each path must exist (acts A-2 and A-4, collect side), else the start fails. Under ProtectSystem=strict /opt is
-# already read-only, so the tree needs no ReadOnlyPaths= (the variant of FAITS F-5, redundant, is not taken).
+# sources, its EnvironmentFile (the Helius key) and its ledger (symmetric of the collect unit's mask of /etc/monark/dojo); then Bell's
+# key directory (the host is Bell's). No leading `-`: each path must exist (acts A-2 and A-4, collect side; RUNBOOK-bell step 3), else
+# the start fails. /opt is read-only under ProtectSystem=strict: the tree needs no ReadOnlyPaths= (FAITS F-5's variant, redundant).
 ReadOnlyPaths=/var/lib/monark-dojo-collect/bundles
 InaccessiblePaths=/etc/monark/dojo-collect /etc/monark/dojo-collect.env /var/lib/monark-dojo-collect/ledger /etc/monark/bell
 # Offline by construction: a private network namespace with loopback only (systemd.exec(5)); second lock in code: the publisher's

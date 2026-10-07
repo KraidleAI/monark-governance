@@ -46,7 +46,7 @@ ProtectSystem=strict
 ProtectHome=true
 PrivateTmp=true
 ReadWritePaths=/var/lib/monark-dojo-collect
-# The publication's key directory, inaccessible with everything below it (systemd.exec(5); Q-G2-3). No leading `-`: A-2 creates it.
+# The publication's key directory and Bell's, inaccessible with all below (Q-G2-3). No leading `-`: A-2 and RUNBOOK-bell step 3 make them.
 InaccessiblePaths=/etc/monark/dojo /etc/monark/bell
 # Directories 0750, files 0640: the publication reads a closed day through the group of bundles/ (setgid, act A-2), never more.
 UMask=0027

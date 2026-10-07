@@ -29,7 +29,7 @@ ExecStart=/usr/bin/env node /opt/monark-probe/probe-narabi.mjs
 # 50 s + 10 s + 30 s + 10 s = 100 s < 120 (four terms: the state.json GET2 of -1b-ii-b is 5 s x (1+1) = 10 s), so a
 # hung/mis-configured run can never pend the job mid-write (probe_timer_multiple_shots).
 TimeoutStartSec=120
-# Least privilege (R-8): a dedicated non-login `probe` user whose ONLY writable path is its state dir.
+# Least privilege (R-8): a non-login `probe` user, ONLY its state dir writable, Bell's key dir masked (no `-`: it exists here).
 User=probe
 Group=probe
 NoNewPrivileges=true

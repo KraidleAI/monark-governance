@@ -4,9 +4,10 @@
  * InaccessiblePaths= (systemd.exec(5) of systemd 259, section SANDBOXING: such paths "will be made inaccessible for processes inside
  * the namespace along with everything below them"). The directory is read from Bell's own unit, the source of its one credential.
  * In each of the four units it is one entry of the [Service] lists, read in order as systemd reads them (an empty assignment resets
- * the list), with no "-" (systemd would skip a missing path without a word; the directory exists on the host) and no "+". No other
- * directive of these units, and no code file of the tree each one runs, names a path under it. Every committed service is classed by
- * host, so a new unit on Bell's host is classed here before it ships. Governance-only: deploy/ is not exported.
+ * the list), with no "-" (systemd would skip a missing path without a word; the directory exists on the host, and these units start
+ * on no host without it) and no "+". No other directive of these units, and no code file of the tree each one runs, names a path
+ * under it. Every committed service is classed by host, so a new committed unit on Bell's host is classed here before it ships; a
+ * unit the repository does not carry (Caddy's, from its package) is out of its sight. Governance-only: deploy/ is not exported.
  */
 import { test } from "node:test";
 import assert from "node:assert/strict";
