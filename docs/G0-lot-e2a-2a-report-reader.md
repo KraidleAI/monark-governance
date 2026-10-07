@@ -1,9 +1,9 @@
 # G0 du lot 2a de VERIFIERS-LIST-F5A-1 (E-2a) : le lecteur fermé du rapport de recalcul, `readRecomputeReport`, sur des rapports de synthèse de forme neuve
 
-RECHERCHES, 2026-10-07. Base `b894a587` (tête du lot 1f, `recherches/verifiers-list-1f`, PR #231, brouillon ;
-`b894a587048f162e77d16e0936446a6885c1c966`, lue par `git fetch +refs/heads/recherches/verifiers-list-1f:refs/remotes/origin/recherches/verifiers-list-1f`).
-Ce lot est **empilé sur 1f** et sera rebasé avec lui quand l'outil figé de MONARK fusionnera. Chantier :
-`docs/G0-lot-verifiers-list-f5a-1.md` §3.3 et §5 partie 2 (amendée ici, §2).
+RECHERCHES, 2026-10-07. Base `6c53e0a1` (tête du lot 1f au pli de sa G2, `recherches/verifiers-list-1f`, PR #231, brouillon ;
+`6c53e0a13cf9f1eaddf3d177b0fbfd186d6c48e6`, lue par `git fetch +refs/heads/recherches/verifiers-list-1f:refs/remotes/origin/recherches/verifiers-list-1f`),
+fusionnée sans conflit par `20e2f213` à 10:53 UTC (base d'avant : `b894a587`). Ce lot est **empilé sur 1f** et sera rebasé avec lui
+quand l'outil figé de MONARK fusionnera. Chantier : `docs/G0-lot-verifiers-list-f5a-1.md` §3.3 et §5 partie 2 (amendée ici, §2).
 
 - **Demande** : G0 court d'E-2a v6.1 (`recherches:coordination/pieces/2026-10-07-e2a-g0-v4/G0-lot-e2a-loader-wave1.md`), §5 ligne 2a,
   §6 ligne T-RR, §8 Q-M5 ; accepté par MONARK (`recherches` `51fe3ee` : « Tes lots peuvent partir sur cette base, dans l ordre de la
@@ -110,10 +110,10 @@ a1) porte trois contrôles sur le rapport réel ; la G2 de RECHERCHES les relit.
   `monark-kata-recalc@<commit>` et `tool.tree_sha256` = l'entrée de liste de `pinnedVerifiers()` à ce commit ; `tool.commit` = ce
   commit ; `registry.sha256` = `811fcd574e182f33e24e19795b18139adb1917cf392a02810705c6adda1dd9cb`, `inputs.compare[0].name` = `wave1.json`,
   `registry.cells` = 280 ; `registry.generator_identity` = `kata/bench/write-p2.ts`, distincte de l'identité listée ; 280 cases,
-  toutes `decisions_equal` à `true` ; `scope` = les 24 classes de bande ; chaque classe de `FLOOR_HELD_CLASSES` et
-  d'`ORDER_HELD_CLASSES` a `scores_sha256` à `null` ; chaque différence a sa classe d'explication ; `fields.outside_decisions` =
-  `[trialRegistryHead.hash]`. Tueur : `policy-verifiers.ts:156 CONST "typeof v === \"boolean\"" -> "true"` n'y suffit plus (le fichier
-  réel n'a que des booléens) : celui du versement vise l'épingle du rapport dans `COMMITTED_REPORTS` (a1).
+  toutes avec `decisions_equal === true` : **cette exigence est celle de T2-1 ; le lecteur n'exige qu'un booléen** (MONARK, `recherches` `274cdac`) ;
+  `scope` = les 24 classes de bande ; chaque classe de `FLOOR_HELD_CLASSES` et d'`ORDER_HELD_CLASSES` a `scores_sha256` à `null` ; chaque différence a sa
+  classe d'explication ; `fields.outside_decisions` = `[trialRegistryHead.hash]`. Tueur : `policy-verifiers.ts:156 CONST "typeof v === \"boolean\"" -> "true"`
+  n'y suffit plus (le fichier réel n'a que des booléens) : celui du versement vise l'épingle du rapport dans `COMMITTED_REPORTS` (a1).
 - **T2-3** `recompute_report_is_canonical_and_passes_the_spec_gate` : `contentProblems` au chemin daté est vide sur les octets réels
   (même forme que `recompute_report_synthetic_passes_the_spec_gate`, sur le fichier). Tueur : `scripts/spec-publish.mjs:113`, comme ici.
 - **Remesure de (d5)** : la fonction `paths` de `recompute_report_non_row_digests_are_a_closed_list`, sur le rapport réel, rend
@@ -124,21 +124,21 @@ a1) porte trois contrôles sur le rapport réel ; la G2 de RECHERCHES les relit.
 
 ## 6. Preuves
 
-- **red-proof**, tête du lot au pli N-6 (`a17d11d5`) contre la tête de 1f : `node scripts/red-proof.mjs --base
-  b894a587048f162e77d16e0936446a6885c1c966 --gel HEAD --repo <worktree> --out <dossier> --draw 4 --seed 1007`, Node 24.21.0, Linux :
+- **red-proof**, après la fusion de `6c53e0a1` (gel `4b8ebfa9`, tueurs déplacés) contre la tête de 1f : `node scripts/red-proof.mjs --base
+  6c53e0a13cf9f1eaddf3d177b0fbfd186d6c48e6 --gel HEAD --repo <worktree> --out <dossier> --draw 4 --seed 1007`, Node 24.21.0, Linux :
   sortie 0, « red-proof OK: 4 judged, 0 unchanged, 4 killer(s) drawn » ; quatre F2P (rouges à la base par l'assertion d'import, verts au
-  gel), quatre tueurs tués ; `RED-PROOF.json` sha256 `16c44a482797897874a2d4dda21f3afe02eddfdcc464c2c65fbd8c4cf3d30776` (à `d33e40df` : `91fb19ea…`).
-- **Voisins** (Node 24.21.0) : `recompute-report`, `verifiers-list`, `kata-recalc`, `spec-*`, `byte-guard`, `ci-gates`,
-  `export-public`, `lang-gate*`, `short-digest-floor`, `policy-guard` : 172 tests, 171 verts au pli N-6 ; le seul rouge est le témoin hérité de 1f.
-  Suite `test:main` complète (Linux, à `d33e40df` ; au pli, la CI) : 2 844 tests, 2 821 verts, 22 sautés, un rouge, le même témoin.
-- `tsc --noEmit` 0 ; `eslint` des deux fichiers TypeScript 0 ; `lang:gate` 0 (un « é » de test, premier jet, écrit `\u2603`) ;
-  `gate:vocab` 0 (349 fichiers) ; `lint:ratchet` 69/69 ; `export:check` 0 ; winlint (atelier de RECHERCHES) `--base b894a587` :
-  4 fichiers, aucun risque Windows.
+  gel), quatre tueurs tués, dont l.124 et l.156 ; `RED-PROOF.json` sha256 `b9ec8e957ae45fc8877a8c4b86381a5a5d032ae6cec43cb9164214ce122d295f` (au pli N-6 : `16c44a48…`).
+- **Voisins** (Node 24.21.0, `(test 42)` filtré) : `recompute-report`, `verifiers-list`, `kata-recalc`, `spec-*`, `byte-guard`, `ci-gates`,
+  `export-public`, `lang-gate*`, `short-digest-floor`, `policy-guard` : 172 tests, 171 verts après la fusion (remesuré à `63b554fe` : 171 et 170,
+  non 172 ; 1f ajoute un test) ; `test:main` complète (Linux, à `4b8ebfa9`) : 2 845 tests, 2 822 verts, 22 sautés ; seul rouge, dans les deux : le témoin de 1f.
+- `tsc --noEmit` 0 ; `eslint` des deux fichiers TypeScript 0 ; `lang:gate` 0 (un « é » de test, premier jet, écrit `\u2603`) ; `gate:vocab` 0
+  (349 fichiers) ; `lint:ratchet` 69/69 ; `export:check` 0 ; winlint (atelier de RECHERCHES) `--base 6c53e0a1` : 4 fichiers, aucun risque Windows ;
+  `verifie-ancres.mjs` (recherches, CM-2) sur l'arbre fusionné : 1 533 tueurs, aucun PERDU ni DERIVE.
 
 ## 7. Taille
 
-- R-25, forme de la CI (`git diff --shortstat b894a587...HEAD`, `docs/**/*.md` exclus) : **2 fichiers, 217 insertions**, soit 217
-  (borne de lot 547 ; attendu au G0 d'E-2a : ~260). Un seul lot, sans coupe.
+- R-25, forme de la CI (`git diff --shortstat 6c53e0a1...HEAD`, `docs/**/*.md` exclus) : **2 fichiers, 217 insertions**, soit 217
+  (borne de lot 547 ; attendu au G0 d'E-2a : ~260 ; inchangé par la fusion). Un seul lot, sans coupe.
 
 ## 8. Ce qui n'est pas fait
 
