@@ -9,7 +9,7 @@ import { createHash } from "node:crypto";
 import { copyFileSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { fileURLToPath } from "node:url";
+import { fileURLToPath, pathToFileURL } from "node:url";
 import { verifierIdentity } from "../apps/harness/src/policy-guard.ts";
 import { checkedVerifiers, identityOf, isListEntry, isPrefix, listEntries, pinnedVerifiers, readVerifiers, toolTreeSha256, validDate as listDate,
   VERIFIERS_SHA256, type ListEntry, type Verifier } from "../apps/harness/src/policy-verifiers.ts";
@@ -136,7 +136,7 @@ test("pinned_list_is_read_lazily_and_an_altered_list_stops_closed - loading the 
     mkdirSync(join(dir, "src")); mkdirSync(join(dir, "data"));
     copyFileSync(MODULE, join(dir, "src/policy-verifiers.ts"));
     const run = (): string => {
-      const r = spawnSync(process.execPath, ["--input-type=module", "-e", `import * as m from ${JSON.stringify(join(dir, "src/policy-verifiers.ts"))};
+      const r = spawnSync(process.execPath, ["--input-type=module", "-e", `import * as m from ${JSON.stringify(pathToFileURL(join(dir, "src/policy-verifiers.ts")).href)};
         const out = ["loaded"]; for (let i = 0; i < 2; i++) { try { out.push(m.pinnedVerifiers().length); } catch (e) { out.push(e.code ?? String(e.message).slice(0, 40)); } }
         console.log(out.join("|"));`], { encoding: "utf8" });
       assert.equal(r.status, 0, r.stderr);

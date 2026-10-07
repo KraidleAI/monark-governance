@@ -79,22 +79,45 @@ Tous dans `test/verifiers-list.test.ts`, sauf le dernier point. Rouges à la bas
 | `verifier_identity_rule_is_the_guard_rule_and_not_the_generator` | sur neuf noms (casse, « @ » multiples, chaîne vide, « @ » en tête, non-ASCII : É, ß, ǅ), `identityOf` donne l'identité attendue et égale `verifierIdentity` de `policy-guard.ts` ; l'outil listé n'est pas le générateur `kata/bench/write-p2.ts` | `apps/harness/src/policy-verifiers.ts:35 CONST "/[A-Z]/g" -> "/[A-Y]/g"` |
 | `verifier_list_copy_passes_the_spec_gate` | `contentProblems("contract-1.1.0-tables-2026-10-20/verifiers.json", "json", …)` vide | `scripts/spec-publish.mjs:96 CONST "/^monark-governance$/i.test(v.word)" -> "false"` |
 | `pinned_list_is_read_lazily_and_an_altered_list_stops_closed` | copie du module seule dans un dossier jetable, enfant Node : le chargement ne lit rien ; sans liste, deux appels lèvent `ENOENT` ; liste altérée, deux appels lèvent ; octets épinglés, deux appels rendent ; `checkedVerifiers` refuse une liste altérée ; `isPrefix` | `apps/harness/src/policy-verifiers.ts:85 CONST "sha256(bytes) !== pin" -> "false"` |
-| `verifier_list_date_rule_is_the_spec_publish_rule` (test de la racine) | `validDate` du module = `validDate` de `scripts/spec-publish.mjs` sur chaque jour de 2023 à 2026, leurs voisins impossibles (jour 00, 29 à 32), et 18 valeurs (bissextiles 1900, 2000, 2024 ; mois 00 et 13 ; formes courtes ; espace ; LF ; chiffre pleine chasse ; non-chaînes) ; le module n'importe que `node:crypto`, `node:fs`, `node:url` | `apps/harness/src/policy-verifiers.ts:41 CONST "t.getUTCDate() === d" -> "true"` |
+| `verifier_list_date_rule_is_the_spec_publish_rule` (test de la racine) | `validDate` du module = `validDate` de `scripts/spec-publish.mjs` sur chaque jour de 2023 à 2026, leurs voisins impossibles (jour 00, 29 à 32), et 18 valeurs (bissextiles 1900, 2000, 2024 ; mois 00 et 13 ; formes courtes ; espace ; LF ; chiffre pleine chasse ; non-chaînes) ; le module n'importe que `node:crypto`, `node:fs`, `node:url` | `apps/harness/src/policy-verifiers.ts:39 CONST "/^\\d{4}-\\d{2}-\\d{2}$/" -> "/^\\d{4}-\\d{1,2}-\\d{2}$/"` |
 | `no_run_log_is_ever_published` | `git check-ignore --no-index` sur quatre chemins (racine, dossier du rapport, sortie de l'outil, dossier daté) ; aucun fichier suivi de ce nom, sans casse ; aucune entrée de release de `scripts/spec-publish-inputs.json` ne le lit ni ne l'écrit ; `report.py` l'écrit sous ce nom, à côté du rapport | `.gitignore:36 SDL "run-log.json" -> ""` |
 | `verifier_list_commit_carries_the_listed_tree` | chaque entrée de liste nomme un commit de l'historique (pas le témoin) dont l'arbre sous `tools/kata-recalc/` a le `tree_sha256` listé (recette du §3.2) | `apps/harness/src/policy-verifiers.ts:110 CONST "(a.path < b.path ? -1 : 1)" -> "(a.path < b.path ? 1 : -1)"` |
 | `kata_recalc_tree_is_the_pinned_manifest` (`test/kata-recalc.test.ts`, corps changé) | l'épingle est lue dans la liste | inchangé : `tools/kata-recalc/kata_lib.py:265 CONST "(_EWMA_W[nret - j] * r) * r" -> "_EWMA_W[nret - j] * (r * r)"` |
 
 - **Écart déclaré** : le chantier (§5) voulait les refus de la règle d'arbre « sur un dépôt jetable ». Ils sont jugés sur l'entrée de
   `toolTreeSha256` (les blobs avec leur mode) ; la lecture git, de l'index comme d'un commit, est exercée par deux tests sur le dépôt.
+- **Mutants équivalents** (mesurés) : le premier tueur prévu du test de la date, `CONST "t.getUTCDate() === d" -> "true"`, est
+  mort-né au red-proof, et à raison : pour un jour de deux chiffres, `Date.UTC` qui déborde change toujours de mois (ou d'année pour un
+  mois 00 ou 13), si bien que deux des trois contrôles du calendrier suffisent ; chacun des trois, pris seul, est un mutant équivalent.
+  Ils restent, pour que la règle soit l'expression même de `spec-publish.mjs`. Le tueur vise le contrôle de forme (`2026-1-01` admis).
 - **Témoin et red-proof** : au témoin, `verifier_list_commit_carries_the_listed_tree` est rouge au gel. La preuve se joue donc sur un
   gel local, non poussé, qui remplace le témoin par `177b5755` (fusion de #217 : son arbre est `e9e11ccb…`), et réécrit l'épingle
   et le tueur de la l.18 en conséquence (§4).
 
 ## 4. Preuves
 
-- (à remplir au gel)
+- **red-proof, gel de preuve** (local, non poussé : la tête du lot plus un commit qui remplace le témoin par `177b5755`, réécrit
+  `VERIFIERS_SHA256` et le texte du tueur de la l.18) : `node scripts/red-proof.mjs --base 1cddd2e5a4cb54791db16e704beae8e7af41152a
+  --gel <gel de preuve> --repo <worktree> --out <dossier> --draw 10 --seed 1007`, Node 24.21.0, Linux : sortie 0, « 10 judged,
+  3 unchanged, 10 killer(s) drawn », dix tests `new-module`, dix tueurs tués (les têtes et le sha256 du `RED-PROOF.json` sont dans le
+  message qui ouvre la demande de G2).
+- **red-proof, tête du lot** (témoin en place), même commande sans `--draw` : sortie 1, « 10 judged » ; neuf `new-module`,
+  `verifier_list_commit_carries_the_listed_tree` refusé (rouge au gel) : c'est le témoin qui parle.
+- **Voisins** (Node 24.21.0) : `byte-guard`, `spec-*`, `kata-recalc`, `verifiers-list`, `policy-guard`, `export-public` (hors test 42),
+  `lang-gate*`, `short-digest-floor`, `ci-gates` : 167 tests, 166 verts, le seul rouge est le témoin. Suite `test:main` complète
+  (Linux) : 2 840 tests, 2 817 verts, 22 sautés, un rouge, le témoin.
+- `tsc --noEmit` 0 ; `eslint` des trois fichiers TypeScript 0 ; `lang:gate` 0 ; `gate:vocab` 0 (349 fichiers) ; `lint:ratchet`
+  69/69 ; `export:check` 0 ; winlint (atelier de RECHERCHES) `--base 1cddd2e5` : 7 fichiers, aucun risque Windows. Le test du chargement
+  paresseux importe la copie du module par `pathToFileURL`, pour l'oracle Windows.
 
 ## 5. Taille
 
 - R-25, forme de la CI (`git diff --shortstat` contre la base, `docs/**/*.md` exclus) : 5 fichiers, 317 insertions, 5 suppressions,
-  soit **322** (borne de lot 547).
+  soit **322** (borne de lot 547). Un seul lot.
+
+## 6. Ce qui n'est pas fait
+
+- L'épingle d'arbre réelle (§1) : au rebase, après la fusion de l'outil figé.
+- Aucun consommateur de `pinnedVerifiers()` n'est branché (porte, écrivain, garde) : c'est la partie 3 (3a, 3b) et E-2a. Ce lot prouve
+  que la lecture épinglée lève, fermée, sur une liste absente ou altérée, et ne lit rien au chargement.
+- Aucune course de l'outil ; aucune série lue.
