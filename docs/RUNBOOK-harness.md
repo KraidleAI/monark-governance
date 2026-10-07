@@ -353,11 +353,13 @@ node scripts/spec-publish.mjs --release contract-1.1.0-tables-<YYYY-MM-DD> --dat
 - `scripts/spec-publish.mjs` l.4, in the shape of act 8 of T0 (`docs/RUNBOOK-vitrine.md` l.49); the `governance` root is
   this repository (l.269). `<dir>` is absent or empty, outside any git tree (l.6, l.236-238). `<spec@previous_commit>` is
   a clean clone of the spec repository at `previous_commit` (l.196-197).
-- Line ends: two trees are read as files, so a checkout under `core.autocrlf=true` changes their bytes. The governance tree
-  (this repository) is read by `readFileSync` (l.185): at T0 such a checkout was refused, `input_digest`
-  (`docs/JOURNAL-PROVENANCE.md` l.446). The `--verify` clone is compared byte for byte by `compareTrees` (l.222-226): it
-  reads `DIFFERENT`, exit 1. Make both with `git -c core.autocrlf=false`. The `previous` clone is read from git objects
-  (l.178), never from its files: line-end conversion does not reach it.
+- Line ends: the `--verify` clone is read as files and compared byte for byte (`compareTrees`, l.222-226): the spec
+  repository carries no `.gitattributes`, so a clone under `core.autocrlf=true` holds CRLF and `--verify` reads
+  `DIFFERENT`, exit 1 (l.275-276); make it with `git -c core.autocrlf=false clone`. The governance tree is read by
+  `readFileSync` (l.185), but this repository's `.gitattributes` (l.2, `* text=auto eol=lf`) keeps LF whatever
+  `core.autocrlf`. The `previous` clone is read from git objects (l.179, `git cat-file blob` l.163): at T0, before
+  T0-FOLLOWUP-1, its CRLF checkout was read as files and refused, `input_digest` (`docs/JOURNAL-PROVENANCE.md` l.446;
+  `docs/ETAT.md` l.603).
 - Every refusal is named by its code and nothing is written (l.14-21): among them `retire_list_missing` and
   `retire_list_invalid` (a retired row is published from a dated directory, with its own list or a carried one,
   l.303-321), `rewritten`, `withdrawn`, `added_to_published`, `foreign_version_dir` (l.198-207), `vocabulary`,
@@ -373,10 +375,11 @@ node scripts/spec-publish.mjs --release contract-1.1.0-tables-<YYYY-MM-DD> --dat
   merges it after T_d, never before, under the gates of its part (`docs/methode/REGLES-MISSION.md` l.20). **T_e** = the
   committer date of the merge commit (`git log -1 --format=%cI`), in UTC.
 - Deploy only a merged commit whose CI is green and on which `node scripts/spec-policy-tables.mjs --check` exits 0 (l.14):
-  every served table is then the file of its published directory.
+  every served table is then the file of its directory under `spec/`, the one published at step 4 (`--verify` exit 0).
 - If the merge fails after T_d (a conflict, a red CI), the published directory stays as it is: never rewrite nor withdraw
-  it (step 9). Fix the lot branch on the trunk with the dated directory byte for byte as published (the `--verify` of
-  step 4 again, exit 0), then merge; T_e is that merge. A table that must change is a new dated directory at a later date.
+  it (step 9). Merge the trunk into the lot branch, never rebase it (T_b and T_c are read on its commits), with the dated
+  directory byte for byte as published (the `--verify` of step 4 again, exit 0), then merge; T_e is that merge. A table
+  that must change is a new dated directory at a later date.
 
 ### 6. Deployment (T_f)
 
@@ -448,9 +451,11 @@ publication, remove it with git, then write it again" (`scripts/spec-policy-tabl
 l.210-217). Before T_d only:
 - written, not committed (untracked): `git clean -n -d -- spec/contract-1.1.0-tables-<YYYY-MM-DD>/` lists what goes,
   then `git clean -f -d -- spec/contract-1.1.0-tables-<YYYY-MM-DD>/` removes it;
-- written and staged (`git add`), not committed: `git clean` lists nothing and `git rm -r` refuses ("changes staged in
-  the index"). Unstage it, `git restore --staged -- spec/contract-1.1.0-tables-<YYYY-MM-DD>/`, then treat it as
-  untracked (`git clean -n`, then `-f`), which lists what goes before it goes; `git rm -r -f` would delete it unlisted;
+- written and staged (`git add`), not committed: `git clean -n -d -- spec/contract-1.1.0-tables-<YYYY-MM-DD>/` lists
+  nothing and `git rm -r -- spec/contract-1.1.0-tables-<YYYY-MM-DD>` refuses ("changes staged in the index"). Unstage
+  it, `git restore --staged -- spec/contract-1.1.0-tables-<YYYY-MM-DD>/`, then treat it as
+  untracked: `git clean -n -d -- spec/contract-1.1.0-tables-<YYYY-MM-DD>/`, then
+  `git clean -f -d -- spec/contract-1.1.0-tables-<YYYY-MM-DD>/`; `git rm -r -f` would remove it with no dry run first;
 - committed on the lot branch, not merged: `git rm -r -- spec/contract-1.1.0-tables-<YYYY-MM-DD>` and the release entry
   of that directory out of `scripts/spec-publish-inputs.json`, in one commit;
 
