@@ -77,3 +77,18 @@ ADR-CM l.261) ; borne CI 1 205.
   ligne kata n'est servie (`kataTablesHoldNoRow`), et (1) tient par construction.
 - **Hors champ** : le ré-épinglage du dossier servi après déploiement (`harness-served.json` lira 18 contrôles au prochain
   enregistrement vert) ; la révision datée du texte de la spécification (iii-f).
+
+## 6. Mesures au gel (2026-10-07T06:24:22Z, Node 24.21.0)
+
+- **R-25** (`git diff --shortstat acbaeb52...HEAD` sur le pathspec de `ci.yml:100`) : 8 fichiers, **344** ascendantes, 32
+  descendantes (≤ 547, ≤ 1 205).
+- **red-proof** (`--base acbaeb52 --gel <wt> --repo <wt> --draw 12 --seed 20261007`) : `red-proof OK`, 12 tests jugés, tous
+  F2P (rouges à la base par assertion), 65 inchangés ; 12 tueurs tirés, 12 tués : `verify-harness.mjs` l.483, 491, 542 (nouveaux),
+  l.137, 153, 319, 410, `RUNBOOK-harness.md` l.186, 214, `policy-guard.ts` l.142 (nouveau), `sync-ukemi-served.mjs` l.225,
+  `sync-harness-served.mjs` l.50.
+- **Suite** : `npm run test:main` 2 807 verts, 0 rouge, 22 ignorés ; tsc, eslint, `gate:vocab`, `lang:gate`, `lint:ratchet`
+  (69/69) verts ; winlint : 10 fichiers, aucun risque Windows.
+- **Collisions** (`git merge-tree --write-tree`) : sans conflit contre `recherches/vocab-venue-fields-1` (`f405cae3`, PR #221)
+  et `monark/reason-order-1` (`09f49fc2`). Le test de réservation est placé avant le dernier test de `policy-guard.test.ts`
+  (et non en fin de fichier, où reason-order-1 ajoute le sien). Aucune ligne de `policy-guard.ts` que leurs tueurs épinglent
+  ne bouge (l.51 éditée en place, ajout après l.136). La partie 3 prévue n'a pas de branche distante : non vérifiée.
