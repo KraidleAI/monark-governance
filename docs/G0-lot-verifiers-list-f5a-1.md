@@ -690,3 +690,13 @@ Worker `claude-opus-5-5` (effort max), le 2026-10-06, horloge lue de 22:10 à 22
   de la ligne `STAT=` (`ci.yml` l.100) : 6 fichiers, 1 042 insertions, 3 suppressions, 1 045.
 - **Git** : aucun `GIT_DIR`, aucun `GIT_WORK_TREE`, aucun `--write-tree` ; `git add` et `update-index` dans le seul clone ; dans le
   worktree, lectures (un `git status` a pu rafraîchir le cache de l'index, sans objet ni référence). Rien sur C:.
+
+## 12. Lot 1b : mesures (MONARK, 2026-10-06 23:0x UTC)
+
+- `tools/kata-recalc/binom_check.py` : copie à l'octet de la livraison, sha256 `036a5f5f34abe8d7e44bb58c20907eb8ae970523a2f11ae097f9e84098487f2e`
+  (`DELIVERED.sha256` l.57), `cmp` identique ; 1 014 lignes, ASCII, 0 TAB, 0 CR, sans BOM, LF final, ligne la plus longue 135 octets.
+- Épingle du test d'arbre déplacée sur les quatre fichiers de l'index : `23cf6c82c661d94adf5d185db939334ae6836fc6ddc208e7dfcdc3595eee0d4b`
+  (manifeste par `manifestText`, blobs lus par `git cat-file`).
+- L épingle passe dans le corps du test : `scripts/red-proof.mjs` ne juge un test que sur une ligne changée dans son corps, et le premier
+  essai de red-proof sur 1b, épingle hors du corps, a été refusé (« 0 judged, 1 unchanged »).
+- `test/kata-recalc.test.ts` et `test/byte-guard.test.ts` : 17/17. `grep-forbidden`, `lang-gate` et `export-public --check` : OK.
