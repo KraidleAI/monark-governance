@@ -256,3 +256,176 @@ caddy validate --config /etc/caddy/Caddyfile && systemctl reload caddy
   `cd /opt/monark-harness && npm ci && chown -R monark:monark . && systemctl restart monark-harness`. The
   orchestrator writes a VPS-side `/opt/monark-harness-redeploy.sh` wrapping these steps during the initial
   deploy (same redeploy motif as the vitrine's `/opt/monark-redeploy.sh`); later updates just run it.
+
+## Retire a kata row (ENGINE-ROW-RETIRE-PATH-1)
+
+A served kata row is retired "at the next table version" (ADR 0006 D6, `recherches:decisions/0006-ADR-draft-wave2.md`
+l.189): a new dated directory of the public spec repository carries the whole table of the row's class, the row
+`retired`, and the retire list in force; no published file is ever rewritten or withdrawn. This section is the procedure
+of record (item RETIRE-RUNBOOK-1, written 2026-10-07). Each command is quoted from the file and line cited next to it; a
+step that has no command in the repository says so and names its item. The instants T_a to T_g are those of
+`scripts/retire-latency.mjs` (l.15-23): each is a UTC instant to the second, `YYYY-MM-DDTHH:MM:SSZ` (l.25, l.47), read
+where its step says, with `date -u` unless the step names another source.
+
+**State at `07b7fc20`, unchanged at `c318aa54` (read it before acting).** No step can retire a served row yet; until the
+loader of E-2a is merged, this section is the procedure of the rehearsal (RETIRE-LATENCY-REHEARSAL-1, in a sandbox) and of
+the first cycle of E-2a.
+- The 32 kata tables are served with no row (`apps/harness/src/kata-path.ts` l.115-120), behind a tripwire that fails the
+  load on the first kata row (l.122-129, called at `apps/harness/src/tools/gate.ts` l.1042); the HTTP and MCP entry points
+  never pass other tables (`tools/gate.ts` l.873-875).
+- No served path reads a retire list: `guardKataTable` (`apps/harness/src/policy-guard.ts`) reads the chain of lists in
+  tests only (item RETIRE-LISTS-E2A-PIPE-1).
+- `recompute_held` refuses every row that carries a recompute until the list of verifiers is published
+  (`scripts/spec-publish.mjs` l.288-297; VERIFIERS-LIST-F5A-1): no calibrated kata row is publishable yet.
+- While no served table changes, the writer of step 3 refuses: "every served table is the file of its directory: no dated
+  version to write" (`scripts/spec-policy-tables.mjs` l.173, exit 1).
+
+**Order.** Each step starts once the previous one succeeded. The dated directory is published (step 4, T_d) before the
+harness pull request is merged (step 5, T_e): the served `policy_table_sha256` of a class is the sha256 of its published
+file (`scripts/spec-policy-tables.mjs` l.10-11), so no table is served before it is published.
+
+### 1. Trigger (T_a)
+
+- **`live:<k>`**: the binomial rule fired on the closed quarter Q_k (ADR 0006 addendum 9, points 1 to 6). T_a is the close
+  of the quarter, 00:00 UTC of the first day after it (`scripts/retire-latency.mjs` l.16): `2027-01-01T00:00:00Z` for
+  `live:1`. No list names `live:<k>` before that day (`apps/harness/src/policy-retire.ts` l.80), and none is publishable
+  before RETIRE-CAUSE-VOCAB-1: the vocabulary gate of the spec repository refuses the word in the row's
+  `retired: live:<k>` (`docs/G0-lot-retire-path-rb.md` l.31-35).
+- **`adr:decisions/<file>.md`**: a dated line of a decision file of `recherches` retires the row; the file is checked by
+  form only (RETIRE-ADR-CAUSE-FILE-1). T_a is the date of that line (l.16), taken as an instant: the committer date of the
+  commit that adds the line, `git log -1 --format=%cI <commit>`, in UTC, never the author date (Q-RL-3 of the G0).
+
+### 2. The retire list (T_b)
+
+- **Where**: `apps/harness/data/kata/retire/retire-<YYYY-MM-DD>.json`, the list's date in its bare name
+  (`scripts/spec-policy-tables.mjs` l.25; `apps/harness/src/policy-retire.ts` l.4, l.62-64).
+- **Format `kata-retire-v1`**: one canonical JSON line, sorted keys, no space, UTF-8, no final newline (`policy-retire.ts`
+  l.40-49; `canonicalJson` of `scripts/spec-publish.mjs` l.80-90 writes it); top keys `entries` and `format` (l.65); entries
+  sorted by (`task_class`, `cell_key`), no cell twice (l.67-70); each entry holds exactly `calib_attempt`, `cause`,
+  `cell_key`, `evidence_sha256`, `k_test`, `n_test`, `task_class` and `u_test` (l.27-30).
+- **Rules** (l.71-81): the entry names a cell of the registry, at its current attempt, with status `region`; a `live:<k>`
+  entry carries `n_test` >= 1, `k_test` <= `n_test`, `u_test`, `n_test` within `LIVE_N_MAX` (2 208 at 1h, 552 at 4h:
+  `apps/harness/src/policy-wave2.ts` l.16) and a quarter that ends at or before the list's date; an `adr:` entry carries no
+  count. `evidence_sha256` is checked by form only (RETIRE-EVIDENCE-BIND-1).
+- **Cumulative**: a list is dated after the previous one and carries each of its entries unchanged (l.82-83). Once a list
+  is merged its entries are permanent: a retired row stays current until a child row (`calib_attempt` + 1) supersedes it
+  (CONTRACT 1.1.0 l.441, l.446-447). Before the merge, a wrong list on the lot branch is fixed by a new commit there.
+- No command writes or checks a list: its reader runs inside the guard, in tests (RETIRE-LISTS-E2A-PIPE-1; a writer is
+  item RETIRE-LIST-WRITER-1 of the G0).
+- Commit the list alone, on the lot branch. **T_b** = the committer date of that commit (`git log -1 --format=%cI`), in UTC.
+
+### 3. The dated table version and its release entry (T_c)
+
+```bash
+node scripts/spec-policy-tables.mjs --write --date <YYYY-MM-DD>   # scripts/spec-policy-tables.mjs l.4, l.101, l.127-131
+node scripts/spec-policy-tables.mjs --check                       # l.4, l.14: exit 1 on any difference of the whole tree
+```
+
+- The date is the UTC day of the release; it names `spec/contract-1.1.0-tables-<date>/` (`datedDir`, l.152-156).
+- The writer writes, whole and canonical, `policy/<task_class>.json` for each served table that differs from the file of
+  its directory (l.165-171), and `retire/retire-<date>.json`, a canonical copy of the list in force (the last
+  `retire-<day>.json` with a day at or before the date, l.158-163), when a written table holds a retired row (l.172-175).
+  The copy takes the directory's date even when the list in force is older (l.175; RETIRE-HEADER-WORDING-1).
+- It prints the `governance` entries of the release, one line each, pinned by sha256 (l.188-193), then checks the whole
+  tree: exit 0 iff no difference (l.107-110).
+- Refused, exit 1, nothing written: a date that is no real day (l.153-154); a later dated directory (l.168-169); no
+  served table changed (l.173); a retired row with no list in force (l.174); a dated directory that exists already
+  (l.183-184). `--check --date` is a usage error, exit 2 (l.100-102); `--write` without a date never writes into a dated
+  directory (l.210-217).
+- **Release entry**, in `scripts/spec-publish-inputs.json` (format `spec-inputs-v1`, `scripts/spec-publish.mjs`
+  l.52-71): a release named as its directory, `contract-1.1.0-tables-<date>` (a release writes under its own directory
+  only, l.150-152, l.201), holding `previous_commit`, the full head of the spec repository as published (40 hex, l.59); the
+  `governance` lines printed above, verbatim; and one `"root": "previous"` line per file of the previous release, its path
+  equal to its output, with its kind and sha256 (a file left out is `withdrawn`, l.203). `VERSION` and `MANIFEST.sha256`
+  are produced, never declared (l.35, l.62). No command writes the carried lines yet (SPEC-DATED-RELEASE-ENTRY-1).
+- Commit the dated directory and the release entry together. **T_c** = the UTC instant the CI of the lot is green on
+  that commit. Until their items land, two tests redden by construction on the first dated directory and its release:
+  `published_tables_are_the_served_tables_byte_for_byte` reads `contract-1.1.0/` only (SPEC-TABLES-TEST-PER-DIR-1), and
+  `srf_runbook_vitrine_t0_order` takes the last release of `scripts/spec-publish-inputs.json` for the release of T0
+  (`test/surfaces-1-1-0.test.ts` l.231, l.234; item T0-ORDER-TEST-RELEASE-NAME-1 of the G0).
+
+### 4. Publication of the dated directory (T_d)
+
+```bash
+node scripts/spec-publish.mjs --release contract-1.1.0-tables-<YYYY-MM-DD> --date <YYYY-MM-DD> --out <dir> --root previous=<spec@previous_commit>
+```
+
+- `scripts/spec-publish.mjs` l.4, in the shape of act 8 of T0 (`docs/RUNBOOK-vitrine.md` l.49); the `governance` root is
+  this repository (l.269). `<dir>` is absent or empty, outside any git tree (l.6, l.236-238). `<spec@previous_commit>` is
+  a clean clone of the spec repository at `previous_commit` (l.196-197), made without line-end conversion: at T0, clones
+  under `core.autocrlf=true` changed the bytes and were refused (`input_digest`, `docs/JOURNAL-PROVENANCE.md` l.446).
+- Every refusal is named by its code and nothing is written (l.14-21): among them `retire_list_missing` and
+  `retire_list_invalid` (a retired row is published from a dated directory, with its own list or a carried one,
+  l.303-321), `rewritten`, `withdrawn`, `added_to_published`, `foreign_version_dir` (l.198-207), `vocabulary`,
+  `recompute_held` and `short_digest`.
+- The script never publishes (l.11). MONARK copies `<dir>` into a clean clone of the spec repository, commits and pushes,
+  as at act 8 of T0 (`docs/JOURNAL-PROVENANCE.md` l.446). **T_d** = the UTC instant the push returns. Then the same
+  command, with a new empty `--out` and `--verify <fresh clone>`, exits 0 iff the published tree holds the same paths with
+  the same bytes (l.22, l.272-276).
+
+### 5. The harness pull request, merged (T_e)
+
+- The lot's pull request carries the list (step 2), the dated directory and its release entry (step 3). The orchestrator
+  merges it after T_d, never before, under the gates of its part (`docs/methode/REGLES-MISSION.md` l.20). **T_e** = the
+  committer date of the merge commit (`git log -1 --format=%cI`), in UTC.
+
+### 6. Deployment (T_f)
+
+- Ship the merged commit and restart, as §1 and *Update* (Operations) say, then run §6:
+  `node scripts/verify-harness.mjs --out docs/deploy-CA-harness.json` (this file, l.162), green only under the gate of
+  l.213-219. **T_f** = the `checked_at` of that green record (`scripts/verify-harness.mjs` l.421), cut to the second: it
+  carries milliseconds, and `scripts/retire-latency.mjs` takes none (l.25).
+- The site data is bound to the committed record (`test/harness-served.test.ts` l.212-215): committing the new record
+  brings acts 3 to 7 of the order of T0 (`docs/RUNBOOK-vitrine.md` l.44-48), after T_g.
+
+### 7. Probe of the first served verdict (T_g)
+
+- The probe shows a `gate` call on the class answered with a verdict whose `policy_table_sha256` is the sha256 of
+  `spec/contract-1.1.0-tables-<date>/policy/<task_class>.json`: every kata verdict carries the digest of its class's table
+  (`apps/harness/src/kata-path.ts` l.78, l.111), and the file's sha256 is that digest (`scripts/spec-policy-tables.mjs`
+  l.10-11). On the retired cell the reason is `calib_retired` (`kata-path.ts` l.38, l.84-94).
+- A kata call is accepted only with a `produced_at` on the grid of the class's horizon (`kata-path.ts` l.46) and within
+  300 s of the server clock, after it (l.47) or before it (`apps/harness/src/tools/gate.ts` l.886; 300 s, l.212): the
+  probe has a window of ten minutes around each grid instant, and may wait up to an hour on a 1h class, four hours on a
+  4h class.
+- No probe command exists in the repository: `scripts/verify-harness.mjs` makes no kata call. Item RETIRE-PROBE-1 of the
+  G0. **T_g** = the UTC instant the probe receives that verdict.
+
+### 8. The latency report
+
+- Write the input, in the closed format `retire-latency-v1` (`scripts/retire-latency.mjs` l.9-10, l.41-44):
+
+```json
+{"format": "retire-latency-v1", "cycle": "rehearsal", "instants": {"T_a": "YYYY-MM-DDTHH:MM:SSZ", "T_b": "YYYY-MM-DDTHH:MM:SSZ", "T_c": "YYYY-MM-DDTHH:MM:SSZ", "T_d": "YYYY-MM-DDTHH:MM:SSZ", "T_e": "YYYY-MM-DDTHH:MM:SSZ", "T_f": "YYYY-MM-DDTHH:MM:SSZ", "T_g": "YYYY-MM-DDTHH:MM:SSZ"}, "mention": null}
+```
+
+  `cycle` is `rehearsal` or `real`; `mention` is `null`, or where an overrun of the 14-day ceiling is written down
+  (l.51-52).
+- Run it:
+
+```bash
+node scripts/retire-latency.mjs <instants.json>   # scripts/retire-latency.mjs l.4
+```
+
+  Exit 0 prints the closed report, then a line `retire-latency OK: …` (l.66-68). Exit 1 names the refusal:
+  `format_invalid`, `instant_missing`, `order_not_monotone` or `ceiling_unmentioned` (l.10-12, l.70-72). Exit 2: usage
+  (l.62). The objective of 3 business days (Monday to Friday, UTC, no holiday calendar) is reported, never blocking
+  (l.7-8, l.57).
+- Log a dated line in `docs/JOURNAL-PROVENANCE.md`: the cycle, the seven instants with the source of each, the input file
+  and its sha256, the report's `total_ms`, ceiling and objective. ADR 0006 D6 stays open until a rehearsal and a real
+  cycle are both in the journal (`docs/G0-lot-retire-path-rb.md` l.71; `docs/G7-lot-retire-path-rb.md` l.46).
+
+### 9. Redo a dated directory before its publication
+
+The writer never rewrites a dated directory, whatever the option, its own date included: "to redo it before its
+publication, remove it with git, then write it again" (`scripts/spec-policy-tables.mjs` l.184; without a date,
+l.210-217). Before T_d only:
+- written, not committed (untracked): `git clean -n -d -- spec/contract-1.1.0-tables-<YYYY-MM-DD>/` lists what goes,
+  then `git clean -f -d -- spec/contract-1.1.0-tables-<YYYY-MM-DD>/` removes it;
+- committed on the lot branch, not merged: `git rm -r -- spec/contract-1.1.0-tables-<YYYY-MM-DD>` and the release entry
+  of that directory out of `scripts/spec-publish-inputs.json`, in one commit;
+
+then step 3 again, which gives a new T_c. These git commands are the one act of this section that no script prints
+(default of Q-RL-4 of the G0; item RETIRE-REDO-MESSAGE-1). After T_d, never: a published file is never rewritten nor
+withdrawn (`rewritten`, `withdrawn`: `scripts/spec-publish.mjs` l.203, l.207); a correction is a new dated directory at
+a later date (`scripts/spec-policy-tables.mjs` l.168-169).
