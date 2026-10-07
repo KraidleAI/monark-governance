@@ -88,7 +88,7 @@ test("runbook_retire_quotes_the_writer_the_report_and_the_publication_gate", asy
   assert.ok(writer.includes("--write --date <YYYY-MM-DD>") && text.includes("node scripts/spec-policy-tables.mjs --write --date <YYYY-MM-DD>"), "the writer runs as its usage reads");
   assert.ok(latency.includes("usage: retire-latency.mjs <instants.json>") && text.includes("node scripts/retire-latency.mjs <instants.json>"), "the report runs as its usage reads");
   const run = [...text.matchAll(/node (scripts\/[\w/-]+\.mjs)/g)].map((m) => m[1] ?? "");
-  assert.deepEqual([...new Set(run)].sort(), ["scripts/retire-latency.mjs", "scripts/retire-probe.mjs", "scripts/spec-policy-tables.mjs", "scripts/spec-publish.mjs", "scripts/verify-harness.mjs"], "the scripts the section runs");
+  assert.deepEqual([...new Set(run)].sort(), ["scripts/retire-instants.mjs", "scripts/retire-latency.mjs", "scripts/retire-probe.mjs", "scripts/spec-policy-tables.mjs", "scripts/spec-publish.mjs", "scripts/verify-harness.mjs"], "the scripts the section runs");
   for (const s of run) assert.ok(existsSync(join(ROOT, s)), `${s} exists`);
   const line = /node scripts\/spec-publish\.mjs (--release [^`#]*?) ?(?:```|$)/.exec(text)?.[1] ?? "";
   const { parseArgs } = (await import(new URL("../scripts/spec-publish.mjs", import.meta.url).href)) as { parseArgs: (a: string[]) => { release: string; date: string; out: string; roots: Record<string, string> } };
@@ -103,7 +103,7 @@ test("runbook_retire_quotes_the_writer_the_report_and_the_publication_gate", asy
 // written with no scope at all (the counter-example `git rm -r -f` alone excepted, by name), a git clean without -d, or a second form
 // of git rm (G2 of #223, m-3); a git clean -f not right after its git clean -n dry run on the same path, or a git restore that does
 // not unstage (--staged), which leaves a staged directory staged
-// killer: docs/RUNBOOK-harness.md:465 CONST "`git clean -f -d -- spec/contract-1.1.0-tables-<YYYY-MM-DD>/`" -> "`git clean -f -d`"
+// killer: docs/RUNBOOK-harness.md:472 CONST "`git clean -f -d -- spec/contract-1.1.0-tables-<YYYY-MM-DD>/`" -> "`git clean -f -d`"
 test("runbook_retire_redo_removes_the_dated_directory_only", () => {
   const dir = `spec/${datedDir("2027-01-04").replace("2027-01-04", "<YYYY-MM-DD>")}`, text = section().replace(/\s+/g, " ");
   const scoped = [...text.matchAll(/`(git [a-z]+ [^`]*?) -- ([^`]*)`/g)].map((m): [string, string] => [m[1] ?? "", m[2] ?? ""]);
