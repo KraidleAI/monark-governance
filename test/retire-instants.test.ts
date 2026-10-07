@@ -34,14 +34,14 @@ const DATES: Record<string, string> = { [SHA("a")]: `2027-01-04T10:00:00+01:00 $
 const NAMES = ((s: string) => [...s.matchAll(/(?:wiredCheck|httpCheck)\("(\w+)"/g), ...s.matchAll(/\["(gate_\w+_call)", GATE_\w+_BODY,/g)].map((m) => m[1] ?? ""))(readFileSync(join(import.meta.dirname, "..", "scripts", "verify-harness.mjs"), "utf8"));
 const ca = (tls: object, names: string[] = NAMES) => ({ checked_at: "2027-01-04T14:00:00.999Z", checks: names.map((name) => ({ name, ok: true })), tls, tls_mcp: tls });
 const LOCAL = { host: "127.0.0.1", skipped: true }, AUTHORIZED = { host: "api.example", authorized: true }, REFUSED = { host: "api.example", authorized: false };
-const ACCEPTED = { format: "retire-probe-v1", api: "https://203.0.113.7", api_host: "api.monarkgate.tech", received_at: "2027-01-04T15:00:01Z", status: 200, equal: true, ok: true, problem: null };
+const ACCEPTED = { format: "retire-probe-v1", api: "https://203.0.113.7", api_host: "api.monarkgate.tech", received_at: "2027-01-04T15:00:01Z", status: 200, equal: true, ok: true, problem: null, tls_authorized: true };
 const FILES: Record<string, unknown> = { "ca.json.local": ca(LOCAL), "ca.json": ca(AUTHORIZED), "probe.json": ACCEPTED };
 const io = (files = FILES) => ({ git: (_repo: string, sha: string): string => DATES[sha] ?? assert.fail(sha), read: (f: string): unknown => files[f] ?? assert.fail(f) });
 const evidence = (sources: object = SOURCES, cycle = "rehearsal") => ({ format: "retire-evidence-v1", cycle, sources, mention: null });
 
 // reddened by: an instant read from another source than its kind, a commit date or a CA instant not brought to the UTC second, or an
 // entry that the report refuses
-// killer: scripts/retire-instants.mjs:27 CONST "Math.floor(ms / 1000)" -> "Math.round(ms / 1000)"
+// killer: scripts/retire-instants.mjs:29 CONST "Math.floor(ms / 1000)" -> "Math.round(ms / 1000)"
 test("retire_instants_reads_each_source_into_the_entry", async () => {
   const t = await load(), e = t.entry(evidence(), io());
   assert.deepEqual(e, { format: "retire-latency-v1", cycle: "rehearsal", mention: null, instants: {
@@ -52,7 +52,7 @@ test("retire_instants_reads_each_source_into_the_entry", async () => {
 });
 
 // reddened by: the author date read in place of the committer date (a rebase keeps the author date old), or a GIT_* variable obeyed
-// killer: scripts/retire-instants.mjs:35 CONST "--format=%cI" -> "--format=%aI"
+// killer: scripts/retire-instants.mjs:48 CONST "--format=%cI" -> "--format=%aI"
 test("retire_instants_takes_the_committer_date_not_the_author_date", async () => {
   const t = await load(), repo = join(TMP, "repo"), env = { ...Object.fromEntries(Object.entries(process.env).filter(([k]) => !k.startsWith("GIT_"))), GIT_CONFIG_NOSYSTEM: "1", GIT_CONFIG_GLOBAL: "", GIT_AUTHOR_NAME: "F", GIT_AUTHOR_EMAIL: "f@example.invalid", GIT_COMMITTER_NAME: "F", GIT_COMMITTER_EMAIL: "f@example.invalid" };
   const git = (...a: string[]): string => { const r = spawnSync("git", ["-C", TMP, ...a], { encoding: "utf8", env: { ...env, GIT_AUTHOR_DATE: "2026-01-01T00:00:00+02:00", GIT_COMMITTER_DATE: "2027-01-04T10:05:04+02:00" } }); assert.equal(r.status, 0, r.stderr); return r.stdout.trim(); };
@@ -67,7 +67,7 @@ test("retire_instants_takes_the_committer_date_not_the_author_date", async () =>
 
 // reddened by: a red record (CA not green, probe of another digest) or a source of the wrong kind taken as an instant, or a refusal
 // that the RUNBOOK does not cite
-// killer: scripts/retire-instants.mjs:68 CONST "r.equal !== true ||" -> ""
+// killer: scripts/retire-instants.mjs:81 CONST "r.equal !== true ||" -> ""
 test("retire_instants_refuses_unreadable_or_red_sources_by_code", async () => {
   const t = await load(), code = (ev: object, files = FILES): string => { try { t.entry(ev, io(files)); return "ok"; } catch (e) { return String((e as { code?: string }).code); } };
   const noProbe = Object.fromEntries(Object.entries(SOURCES).filter(([k]) => k !== "T_g"));
@@ -84,7 +84,7 @@ test("retire_instants_refuses_unreadable_or_red_sources_by_code", async () => {
 
 // reddened by: a CA that verify-harness itself rates failed (TLS refused) or local taken in a real cycle, or a CA that lacks some of the
 // 15 checks of the green gate, or holds one twice (16 entries), or an entry that is no object (null), taken for T_f
-// killer: scripts/retire-instants.mjs:62 CONST "cycle === \"rehearsal\" ? [\"green\", \"local\"] : [\"green\"]" -> "[\"green\", \"local\"]"
+// killer: scripts/retire-instants.mjs:75 CONST "cycle === \"rehearsal\" ? [\"green\", \"local\"] : [\"green\"]" -> "[\"green\", \"local\"]"
 test("retire_instants_takes_T_f_from_the_overall_verdict_of_verify_harness", async () => {
   const t = await load(), real = { ...SOURCES, T_a: { clock: "2027-01-01T00:00:00Z" }, T_f: { ca: "ca.json" } };
   const code = (ev: object, files: Record<string, unknown>): string => { try { return t.entry(ev, io({ ...FILES, ...files })).instants["T_f"] ?? "none"; } catch (e) { return String((e as { code?: string }).code); } };
@@ -100,7 +100,7 @@ test("retire_instants_takes_T_f_from_the_overall_verdict_of_verify_harness", asy
 
 // reddened by: the record of a probe that the probe itself refused (here a retired cell answered under_calib at the right digest, so
 // equal is true) taken for T_g
-// killer: scripts/retire-instants.mjs:68 CONST "r.ok !== true || " -> ""
+// killer: scripts/retire-instants.mjs:81 CONST "r.ok !== true || " -> ""
 test("retire_instants_refuses_a_probe_record_the_probe_refused", async () => {
   const t = await load(), refused = { ...ACCEPTED, status: 200, equal: true, ok: false, problem: "reason_mismatch" }, forged = { ...ACCEPTED, status: 500 };
   const code = (record: object): string => { try { t.entry(evidence(), io({ ...FILES, "probe.json": record })); return "ok"; } catch (e) { return String((e as { code?: string }).code); } };
@@ -109,14 +109,14 @@ test("retire_instants_refuses_a_probe_record_the_probe_refused", async () => {
 
 // reddened by: a CA of the 15 checks plus one of them twice (16 entries, all ok) taken for T_f: the length guard alone refuses it, every
 // name being present
-// killer: scripts/retire-instants.mjs:62 COR "names.length !== CHECK_NAMES.length || " -> ""
+// killer: scripts/retire-instants.mjs:75 COR "names.length !== CHECK_NAMES.length || " -> ""
 test("retire_instants_refuses_a_ca_with_a_check_twice", async () => {
   const t = await load(), code = (names: string[]): string => { try { return t.entry(evidence(), io({ ...FILES, "ca.json.local": ca(LOCAL, names) })).instants["T_f"] ?? "none"; } catch (e) { return String((e as { code?: string }).code); } };
   assert.deepEqual([code(NAMES), code([...NAMES, "health"]), code([...NAMES, "bogus_call"])], ["2027-01-04T14:00:00Z", "source_not_green", "source_not_green"], "the 15 checks, no more");
 });
 
 // reddened by: a probe record that names a problem taken for T_g, whatever its ok (the header reads ok true and problem null)
-// killer: scripts/retire-instants.mjs:68 CONST "r.problem !== null || " -> ""
+// killer: scripts/retire-instants.mjs:81 CONST "r.problem !== null || " -> ""
 test("retire_instants_reads_the_problem_of_the_probe_record", async () => {
   const t = await load(), code = (record: object): string => { try { return t.entry(evidence(), io({ ...FILES, "probe.json": record })).instants["T_g"] ?? "none"; } catch (e) { return String((e as { code?: string }).code); } };
   assert.deepEqual([code(ACCEPTED), code({ ...ACCEPTED, problem: "reason_mismatch" })], ["2027-01-04T15:00:01Z", "source_not_green"], "problem null only");
@@ -124,7 +124,7 @@ test("retire_instants_reads_the_problem_of_the_probe_record", async () => {
 
 // reddened by: a probe of a local listener (http, or the loopback) taken for T_g in a real or publication cycle, while a local CA is
 // refused there (T_f): the rehearsal takes it, as it takes a local CA
-// killer: scripts/retire-instants.mjs:71 CONST "cycle !== \"rehearsal\" && " -> "false && "
+// killer: scripts/retire-instants.mjs:84 CONST "cycle !== \"rehearsal\" && " -> "false && "
 test("retire_instants_refuses_a_local_probe_outside_a_rehearsal", async () => {
   const t = await load(), real = { ...SOURCES, T_a: { clock: "2027-01-01T00:00:00Z" }, T_f: { ca: "ca.json" } }, publication = { T_c: SOURCES.T_c, T_d: SOURCES.T_d, T_e: SOURCES.T_e, T_f: { ca: "ca.json" }, T_g: SOURCES.T_g };
   const code = (ev: object, record: object): string => { try { return t.entry(ev, io({ ...FILES, "probe.json": record })).instants["T_g"] ?? "none"; } catch (e) { return String((e as { code?: string }).code); } };
@@ -132,6 +132,46 @@ test("retire_instants_refuses_a_local_probe_outside_a_rehearsal", async () => {
   assert.deepEqual([code(evidence(real, "real"), ACCEPTED), code(evidence(real, "real"), http), code(evidence(real, "real"), loop), code(evidence(real, "real"), noHost), code(evidence(publication, "publication"), http)],
     ["2027-01-04T15:00:01Z", "source_not_green", "source_not_green", "source_not_green", "source_not_green"], "real and publication: an https api off the loopback, with its Host");
   assert.equal(code(evidence(), http), "2027-01-04T15:00:01Z", "a rehearsal takes a local probe");
+});
+
+/** T_g of a probe record in a real cycle (T_a a quarter close, T_f a green CA), or the code of its refusal. */
+const realTg = async (record: object): Promise<string> => {
+  const t = await load(), real = { ...SOURCES, T_a: { clock: "2027-01-01T00:00:00Z" }, T_f: { ca: "ca.json" } };
+  try { return t.entry(evidence(real, "real"), io({ ...FILES, "probe.json": record })).instants["T_g"] ?? "none"; } catch (e) { return String((e as { code?: string }).code); }
+};
+
+// reddened by: an http probe taken for T_g in a real cycle when its host is off the loopback (the loopback refuses the http cases of
+// the test above by name before the protocol counts), or a probe of an https api on the loopback, or one with an empty Host
+// killer: scripts/retire-instants.mjs:43 CONST "u.protocol === \"https:\" && " -> ""
+test("retire_instants_takes_an_https_probe_only_outside_a_rehearsal", async () => {
+  const got = await Promise.all([ACCEPTED, { ...ACCEPTED, api: "http://203.0.113.7" }, { ...ACCEPTED, api: "https://127.0.0.1:8443" }, { ...ACCEPTED, api: "https://127.3.4.5:8443" },
+    { ...ACCEPTED, api: "https://[::1]:8443" }, { ...ACCEPTED, api_host: "" }].map(realTg));
+  assert.deepEqual(got, ["2027-01-04T15:00:01Z", "source_not_green", "source_not_green", "source_not_green", "source_not_green", "source_not_green"], "https, off the loopback, with a Host");
+});
+
+// reddened by: a loopback or unspecified address in another spelling taken for a deployed host: the URL parser keeps
+// [::ffff:127.0.0.1] (as [::ffff:7f00:1]), 0.0.0.0, [::] and a trailing dot, and turns 0 into 0.0.0.0; each reaches a local listener
+// killer: scripts/retire-instants.mjs:37 SDL "LOOPBACK.addSubnet(\"::ffff:127.0.0.0\", 104, \"ipv6\");" -> ""
+test("retire_instants_finds_the_loopback_by_address_not_by_name", async () => {
+  const local = ["https://[::ffff:127.0.0.1]:8443", "https://0.0.0.0:8443", "https://0:8443", "https://[::]:8443", "https://localhost.:8443", "https://LOCALHOST:8443", "https://localhost:8443",
+    "https://127.0.0.1:8443", "https://127.1:8443", "https://0x7f.1:8443", "https://2130706433:8443", "https://127.255.255.255", "https://0.255.255.255", "https://[::1]:8443",
+    "https://[0:0:0:0:0:0:0:1]:8443", "https://[::ffff:0.0.0.0]:8443"];
+  const deployed = ["https://203.0.113.7", "https://api.monarkgate.tech", "https://api.monarkgate.tech.", "https://128.0.0.1", "https://126.255.255.255", "https://1.0.0.0",
+    "https://[::2]", "https://[::ffff:128.0.0.1]", "https://[2001:db8::1]"];
+  assert.deepEqual([new URL(local[2] ?? "").hostname, new URL(local[0] ?? "").hostname], ["0.0.0.0", "[::ffff:7f00:1]"], "what the tool receives from the URL parser");
+  const got = await Promise.all([...local, ...deployed].map((api) => realTg({ ...ACCEPTED, api })));
+  assert.deepEqual(got, [...local.map(() => "source_not_green"), ...deployed.map(() => "2027-01-04T15:00:01Z")], "loopback and unspecified addresses by address, in every spelling measured");
+});
+
+// reddened by: a probe record whose TLS handshake was not authorized (NODE_TLS_REJECT_UNAUTHORIZED=0), or that does not say, taken for T_g
+// in a real cycle, while the CA of T_f must carry an authorized handshake
+// killer: scripts/retire-instants.mjs:84 CONST "r.tls_authorized === true && " -> ""
+test("retire_instants_takes_a_probe_whose_tls_was_authorized_outside_a_rehearsal", async () => {
+  const unsaid: Record<string, unknown> = { ...ACCEPTED }, t = await load();
+  delete unsaid["tls_authorized"];
+  assert.deepEqual(await Promise.all([ACCEPTED, { ...ACCEPTED, tls_authorized: false }, { ...ACCEPTED, tls_authorized: null }, unsaid].map(realTg)),
+    ["2027-01-04T15:00:01Z", "source_not_green", "source_not_green", "source_not_green"], "a real cycle takes an authorized TLS handshake only");
+  assert.equal(t.entry(evidence(), io({ ...FILES, "probe.json": { ...ACCEPTED, api: "http://127.0.0.1:39424", tls_authorized: null } })).instants["T_g"], "2027-01-04T15:00:01Z", "a rehearsal takes a local probe over http");
 });
 
 /** The served gate in process for one table, as test/retire-probe.test.ts serves it. */
@@ -156,7 +196,7 @@ test("retire_instants_composes_with_the_record_of_the_probe", async () => {
 
 // reddened by: a T_a clock that is not the close of a quarter (an adr: trigger is a commit), a T_e that is not a merge commit, or a git
 // that does not start read through an undefined stderr (a TypeError in place of its cause)
-// killer: scripts/retire-instants.mjs:55 CONST "if (name === \"T_e\" && parents.length !== 2) no(" -> "if (false) no("
+// killer: scripts/retire-instants.mjs:68 CONST "if (name === \"T_e\" && parents.length !== 2) no(" -> "if (false) no("
 test("retire_instants_checks_the_kind_of_T_a_and_T_e", async () => {
   const t = await load(), code = (sources: object, cycle = "real"): string => { try { t.entry(evidence(sources, cycle), io()); return "ok"; } catch (e) { return String((e as { code?: string }).code); } };
   const live = { ...SOURCES, T_a: { clock: "2027-01-01T00:00:00Z" }, T_f: { ca: "ca.json" } };

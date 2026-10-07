@@ -11,13 +11,15 @@
 // commit); T_e is a merge commit (two parents). A CA {"ca": <file>} is the checked_at, cut to the second, of a record of
 // scripts/verify-harness.mjs that the script itself rates (recordKind, failedOf) "green", or "local" in a rehearsal only, with its 15
 // checks by name (CHECK_NAMES), each an object, no more (T_f). A probe {"probe": <file>} is the received_at of a retire-probe-v1 record
-// that the probe accepted (ok true, problem null, status 200, the expected digest), made against an https api off the loopback, or any
+// that the probe accepted (ok true, problem null, status 200, the expected digest), made against an https api off the loopback (by
+// address: no loopback or unspecified address, in any spelling, nor localhost) with an authorized TLS handshake (tls_authorized), or any
 // api in a rehearsal only, as a local CA (T_g). Which instants a cycle holds, and their order, is the report's: the
 // entry is printed, one line on stdout, only once report() accepts it; --out also writes it, through a temporary file and a rename
 // (writeAtomic of scripts/verify-harness.mjs: no shell redirection, which PowerShell 5.1 writes in UTF-16).
 // Refused (exit 1) by code: evidence_invalid, source_unreadable, source_not_green, or the report's own; exit 2: usage.
 import { spawnSync } from "node:child_process";
 import { readFileSync } from "node:fs";
+import { BlockList, isIP } from "node:net";
 import { LatencyError, report } from "./retire-latency.mjs";
 import { CHECK_NAMES, failedOf, recordKind, writeAtomic } from "./verify-harness.mjs";
 
@@ -26,8 +28,19 @@ const KEYS = { commit: ["commit", "repo"], clock: ["clock"], ca: ["ca"], probe: 
 const no = (code, detail) => { throw new LatencyError(code, detail); };
 const second = (ms) => new Date(Math.floor(ms / 1000) * 1000).toISOString().replace(".000Z", "Z");
 const obj = (v) => v !== null && typeof v === "object" && !Array.isArray(v);
+/** The loopback and unspecified addresses, IPv4, IPv6 and IPv4-mapped: each reaches a local listener. */
+const LOOPBACK = new BlockList();
+LOOPBACK.addSubnet("127.0.0.0", 8, "ipv4");
+LOOPBACK.addSubnet("0.0.0.0", 8, "ipv4");
+LOOPBACK.addSubnet("::1", 128, "ipv6");
+LOOPBACK.addSubnet("::", 128, "ipv6");
+LOOPBACK.addSubnet("::ffff:127.0.0.0", 104, "ipv6");
+LOOPBACK.addSubnet("::ffff:0.0.0.0", 104, "ipv6");
+/** A host of the loopback, by address: the URL parser has normalised an IPv4 (0 and 127.1 to 0.0.0.0 and 127.0.0.1) and an IPv6 in
+ *  brackets; the brackets and a trailing dot are taken off, then an IP is tested against LOOPBACK, and a name is localhost or not. */
+const loopbackHost = (hostname) => { const h = hostname.replace(/^\[(.*)\]$/, "$1").replace(/\.+$/, "").toLowerCase(), v = isIP(h); return h === "localhost" || (v !== 0 && LOOPBACK.check(h, v === 6 ? "ipv6" : "ipv4")); };
 /** The api of a probe record is a deployed one: https (an http target is never a deployment record, as recordKind) off the loopback. */
-const deployedApi = (api) => { const u = typeof api === "string" && URL.canParse(api) ? new URL(api) : null; return u !== null && u.protocol === "https:" && !/^(localhost|127(\.\d+){3}|\[::1\])$/i.test(u.hostname); };
+const deployedApi = (api) => { const u = typeof api === "string" && URL.canParse(api) ? new URL(api) : null; return u !== null && u.protocol === "https:" && !loopbackHost(u.hostname); };
 
 /** The default reader of a commit: "<committer date> <parent sha>...", git -C <repo>, no inherited GIT_* variable (TEST-GIT-ENV-ISOLATION-1). */
 export function committerDate(repo, sha) {
@@ -68,8 +81,8 @@ export function instant(name, source, { git = committerDate, read = readJson } =
   if (r?.format !== "retire-probe-v1" || r.ok !== true || r.problem !== null || r.status !== 200 || r.equal !== true || typeof r.received_at !== "string") {
     no("source_not_green", `${name}: ${source.probe} is no retire-probe-v1 record that the probe accepted (ok, problem null, status 200, the expected digest)`);
   }
-  if (cycle !== "rehearsal" && !(deployedApi(r.api) && typeof r.api_host === "string" && r.api_host !== "")) {
-    no("source_not_green", `${name}: ${source.probe} probed ${String(r.api)} (Host ${String(r.api_host)}); a ${String(cycle)} cycle takes a probe of an https api off the loopback, a local one in a rehearsal only`);
+  if (cycle !== "rehearsal" && !(r.tls_authorized === true && deployedApi(r.api) && typeof r.api_host === "string" && r.api_host !== "")) {
+    no("source_not_green", `${name}: ${source.probe} probed ${String(r.api)} (Host ${String(r.api_host)}, TLS authorized ${String(r.tls_authorized)}); a ${String(cycle)} cycle takes a probe of an https api off the loopback with an authorized TLS handshake, a local one in a rehearsal only`);
   }
   return r.received_at;
 }
