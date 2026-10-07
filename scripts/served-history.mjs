@@ -13,14 +13,15 @@
 //   pinned in COMMITTED_TABLES of the served module PINS (main reads it, else pins_unreadable; a test gives another module).
 // - probe: each served class has exactly one retire-probe-v1 record, and no record names another table. A record must be one that a real
 //   cycle of scripts/retire-instants.mjs takes for T_g (instant: accepted, status 200, an https api off the loopback, an authorized TLS,
-//   its Host), with a real UTC second for received_at and an instant of it for received_at_ms, made against the api of the deploy check
-//   record (the origin of its url, that host for api_host); its table is the served file of its class, a table of that class, and its
-//   policy_table_sha256 that file's sha256 (read, never typed in); probe_record_sha256 is the sha256 of the record's bytes.
+//   its Host), with a real UTC second for received_at and an instant of that second for received_at_ms, in the writing of judge() of
+//   scripts/retire-probe.mjs, made against the api of the deploy check record (the origin of its url, a string, and that host for
+//   api_host); its table is the served file of its class, a table of that class, and its policy_table_sha256 that file's sha256 (read,
+//   never typed in); probe_record_sha256 is the sha256 of the record's bytes.
 // - t_e is T_e of retire-instants: the committer date, to the second, of a merge commit of two parents, named by 40 hex (checked before
 //   git) that git reads as its own id (an annotated tag is refused), with no inherited GIT_* variable; it is on the first-parent history
 //   of the HEAD of the tree (the trunk) and brings spec/<release_dir> (there, absent from its first parent). t_f is T_f: the checked_at,
 //   cut to the second, of a deploy check record that verify-harness rates green with its CHECK_NAMES; ca_record_sha256 is the sha256 of
-//   its bytes. t_e <= t_f, and each record is received at its checked_at or later, to the millisecond.
+//   its bytes. t_e <= t_f, and the received_at_ms of each record is at or after the checked_at of the deploy check record, to the ms.
 // The file is a JSON array, one line per element, sorted by (t_e, task_class); the lines already there must be its canonical writing
 // under the same closed fields (each field a string of its form; t_e and t_f real UTC seconds); a (release_dir, task_class) pair is
 // written once, and the lines of a release_dir share merge_commit, t_e, t_f and ca_record_sha256. Written through writeAtomic of
@@ -48,6 +49,8 @@ const HEX = /^[0-9a-f]{64}$/, SECOND = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z$/,
 const str = (v, re) => typeof v === "string" && re.test(v);
 /** A real UTC second, as scripts/retire-latency.mjs l.46-47 reads one: a day that exists, an hour of it. */
 const real = (s) => { const t = str(s, SECOND) ? Date.parse(s) : NaN; return Number.isFinite(t) && new Date(t).toISOString() === s.replace("Z", ".000Z"); };
+/** The instant, in ms, of s written as judge() of scripts/retire-probe.mjs l.82 writes received_at_ms (toISOString); else NaN. */
+const iso = (s) => { const t = Date.parse(s); return Number.isFinite(t) && new Date(t).toISOString() === s ? t : NaN; };
 const parse = (bytes, what) => { try { return JSON.parse(Buffer.from(bytes).toString("utf8")); } catch { return no("input_invalid", `${what} is not JSON`); } };
 
 /** checkLine(l) -> l when it is a closed kata-served-history-v1 line (one class, each field a string of its form); else line_invalid. */
@@ -65,14 +68,14 @@ export function compose({ root, releaseDir, mergeCommit, tE, caBytes, probes, pi
   const dated = versionDirs(root).filter((d) => d !== VERSION_DIR);
   if (dated.at(-1) !== releaseDir || statSync(join(root, "spec", String(releaseDir)), { throwIfNoEntry: false })?.isDirectory() !== true) no("input_invalid", `release directory ${JSON.stringify(releaseDir)}: not the last dated directory of the tree, or not a directory`);
   const ca = parse(caBytes, "the deploy check record"), tF = via("ca_not_green", () => instant("T_f", { ca: "the deploy check record" }, { read: () => ca }, "real"));
-  const api = URL.canParse(ca.url) ? new URL(ca.url) : null; // the api that the record checked: the probes' api
+  const api = typeof ca.url === "string" && URL.canParse(ca.url) ? new URL(ca.url) : null; // the api that the record checked: the probes' api
   const kata = dated.flatMap((d) => { const p = join(root, "spec", d, "policy"); return existsSync(p) ? readdirSync(p).filter((f) => f.endsWith(".json") && parse(readFileSync(join(p, f)), f)?.class?.cell_key_rule === "kata-bucket") : []; });
   const served = via("input_invalid", () => servedTableDirs(root, kata.map((f) => ({ task_class: f.slice(0, -5) }))));
   const lines = probes.map(({ bytes, name }) => {
     const probe = parse(bytes, name), cls = probe?.task_class, rel = `spec/${served[cls]}/policy/${cls}.json`;
     via("probe_not_accepted", () => instant("T_g", { probe: name }, { read: () => probe }, "real"));
-    const sec = Date.parse(probe.received_at), ms = Date.parse(probe.received_at_ms); // the second of T_g, and the probe's reading of it
-    if (!real(probe.received_at) || !(ms >= sec && ms < sec + 1000)) no("probe_not_accepted", `${name}: received_at is no real UTC second, or received_at_ms no instant of it`);
+    const sec = Date.parse(probe.received_at), ms = iso(probe.received_at_ms); // the second of T_g, and the probe's reading of it, in ms
+    if (!real(probe.received_at) || !(ms >= sec && ms < sec + 1000)) no("probe_not_accepted", `${name}: received_at is no real UTC second, or received_at_ms no instant of it in the writing of judge()`);
     if (new URL(probe.api).origin !== api?.origin || probe.api_host !== api?.host) no("probe_other_host", `${name} probed ${String(probe.api)} (Host ${String(probe.api_host)}), not the api ${String(ca.url)} of the deploy check record`);
     if (!Object.hasOwn(served, cls) || typeof probe.table !== "string" || probe.table.replaceAll("\\", "/").replace(/^\.\//, "") !== rel) no("probe_other_table", `${name} probed ${String(probe.table)}, not a kata table served after ${releaseDir}`);
     const table = readFileSync(join(root, rel));

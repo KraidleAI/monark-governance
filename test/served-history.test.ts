@@ -27,7 +27,7 @@ const changed = (c: string): Buffer => Buffer.concat([committed(c), Buffer.from(
 // (test/fixtures/ca-trial-18.json, byte for byte; MONARK e6d5517). The other tests take its fields with a green check per name of the
 // CHECK_NAMES of the base branch, so that a change of that list reddens the composition test only. Instants count from its checked_at.
 const { CHECK_NAMES } = (await import(new URL("../scripts/verify-harness.mjs", import.meta.url).href)) as { CHECK_NAMES: readonly string[] };
-const TRIAL = readFileSync(join(ROOT, "test", "fixtures", "ca-trial-18.json")), REC = { ...(JSON.parse(TRIAL.toString("utf8")) as { checked_at: string; tls: object }),
+const TRIAL = readFileSync(join(ROOT, "test", "fixtures", "ca-trial-18.json")), REC = { ...(JSON.parse(TRIAL.toString("utf8")) as { url: string; checked_at: string; tls: object }),
   checks: CHECK_NAMES.map((name) => ({ name, ok: true, status: 200, sha256: sha(name), detail: "ok" })) };
 /** The UTC second s seconds after T_f, the checked_at of the record cut to the second. */
 const at = (s: number): string => new Date(Math.floor(Date.parse(REC.checked_at) / 1000) * 1000 + s * 1000).toISOString().replace(".000Z", "Z");
@@ -51,14 +51,14 @@ const probe = (c: string, o: { d?: string; bytes?: Buffer; s?: number; over?: Re
   return { name: `${c}.probe.json`, bytes: Buffer.from(`${JSON.stringify({ ...record, ...o.over })}\n`) };
 };
 const caOf = (over: Record<string, unknown> = {}): Buffer => Buffer.from(`${JSON.stringify({ ...REC, ...over }, null, 2)}\n`);
-const both = (): string => rootOf({ "btc-dir-1h": "btc-dir-1h", "eth-range-4h": "eth-range-4h", [LIQ]: LIQ });
+const both = (more: Record<string, Record<string, string | Buffer>> = {}): string => rootOf({ "btc-dir-1h": "btc-dir-1h", "eth-range-4h": "eth-range-4h", [LIQ]: LIQ }, more);
 type Run = { root?: string; probes?: Rec[]; caBytes?: Buffer; tE?: string; pinned?: string[] };
 const run = (o: Run = {}): HistoryLine[] =>
   compose({ root: o.root ?? both(), releaseDir: DIR, mergeCommit: "a".repeat(40), tE: o.tE ?? TE, caBytes: o.caBytes ?? caOf(), probes: o.probes ?? KATA.map((c) => probe(c)), pinned: o.pinned ?? KATA });
 const code = (c: string, message = "") => (e: Error & { code?: string }): boolean => e.code === c && e.message.includes(message);
 
 // The composition test: the probe records as retire-probe writes them, and the trial deploy check record as verify-harness wrote it.
-// killer: scripts/served-history.mjs:82 CONST "probe_record_sha256: sha(bytes)" -> "probe_record_sha256: sha(JSON.stringify(probe))"
+// killer: scripts/served-history.mjs:85 CONST "probe_record_sha256: sha(bytes)" -> "probe_record_sha256: sha(JSON.stringify(probe))"
 test("served_history_line_is_closed_and_read_from_a_verdict", () => {
   const probes = KATA.map((c) => probe(c)), lines = run({ probes, caBytes: TRIAL });
   assert.equal(sha(TRIAL), "28aaa41bcf1ed53aac70a218bb43dd607ad4695f580e4b45cad3e9675d21b48d", "premise: the trial record, byte for byte");
@@ -70,7 +70,7 @@ test("served_history_line_is_closed_and_read_from_a_verdict", () => {
   assert.deepEqual(JSON.parse(text), lines);
 });
 
-// killer: scripts/served-history.mjs:69 CONST "dated.flatMap(" -> "[releaseDir].flatMap("
+// killer: scripts/served-history.mjs:72 CONST "dated.flatMap(" -> "[releaseDir].flatMap("
 test("served_history_writes_every_class_served_after_the_deployment", () => {
   const NO_DAY = "contract-1.1.0-tables-2026-02-30", tables = { "btc-dir-1h": "btc-dir-1h", "eth-range-4h": "eth-range-4h", [LIQ]: LIQ };
   const r = rootOf(tables, { [D2]: { "btc-dir-1h": changed("btc-dir-1h"), "sol-dir-1h": "sol-dir-1h" }, [NO_DAY]: { "bnb-dir-1h": "bnb-dir-1h" }, "contract-1.1.0": { "bnb-range-1h": "bnb-range-1h" } });
@@ -92,18 +92,27 @@ test("served_history_writes_every_class_served_after_the_deployment", () => {
   refused("probe_other_table", [...good(), probe("bnb-dir-1h", { d: NO_DAY, s })]);
 });
 
-// killer: scripts/served-history.mjs:73 CONST "}, \"real\"));" -> "}, \"rehearsal\"));"
+// killer: scripts/served-history.mjs:76 CONST "}, \"real\"));" -> "}, \"rehearsal\"));"
 test("served_history_refuses_each_departure", () => {
   const refused = (c: string, o: Run, message = ""): void => { assert.throws(() => run(o), code(c, message), c); };
   const btc = (o: Parameters<typeof probe>[1]): Run => ({ probes: [probe("btc-dir-1h", o), probe("eth-range-4h")] });
   for (const over of [{ ok: false }, { problem: "digest_mismatch" }, { equal: false }, { format: "retire-probe-v2" }, { status: 500 }, { tls_authorized: false },
-    { api: "http://127.0.0.1:3001", tls_authorized: null }, { api: "https://localhost" }, { api_host: "" }, { received_at: "not a date" }, { received_at: `${at(3600).slice(0, -1)}+00:00` },
-    { received_at: at(3599) }, { received_at: at(3601) }, { received_at_ms: "not a date" }]) refused("probe_not_accepted", btc({ over }));
+    { api: "http://127.0.0.1:3001", tls_authorized: null }, { api: "https://localhost" }, { api_host: "" }]) refused("probe_not_accepted", btc({ over }));
+  // received_at a real UTC second (unreadable, an offset, no Z, which Date.parse reads in the machine's zone), received_at_ms an instant of
+  // that second in the writing of judge() (unreadable, an offset, another second): both are read before any comparison.
+  const sec = at(3600), ms = new Date(Date.parse(REC.checked_at) + 3_600_000).toISOString(); // the record's received_at and received_at_ms
+  for (const over of [{ received_at: "not a date" }, { received_at: `${sec.slice(0, -1)}+00:00` }, { received_at: sec.slice(0, -1) }, { received_at: at(3599) }, { received_at: at(3601) },
+    { received_at_ms: "not a date" }, { received_at_ms: ms.replace("Z", "+00:00") }]) refused("probe_not_accepted", btc({ over }));
   for (const over of [{ api: "https://staging.monarkgate.tech" }, { api_host: "staging.monarkgate.tech" }]) refused("probe_other_host", btc({ over }));
-  refused("probe_other_host", { caBytes: caOf({ url: "https://staging.monarkgate.tech" }) });
+  for (const url of ["https://staging.monarkgate.tech", [REC.url]]) refused("probe_other_host", { caBytes: caOf({ url }) }); // another host; a url not a string
   refused("probe_other_table", btc({ over: { table: `spec/${DIR}/policy/eth-range-4h.json` } }));
   refused("probe_other_table", btc({ over: { table: [`spec/${DIR}/policy/btc-dir-1h.json`] } }));
-  for (const [c, d] of [["xyz-range-1h", "undefined"], ["constructor", String(Object)]]) refused("probe_other_table", btc({ over: { task_class: c, table: `spec/${d}/policy/${c}.json` } }));
+  // A record of a class that is not served, with its table forged where a lookup of that class lands (spec/undefined/..., and for the
+  // inherited key constructor spec/function Object() { [native code] }/...): refused by name; without the served-class check, three lines.
+  for (const [c, d] of [["xyz-range-1h", "undefined"], ["constructor", String(Object)]] as const) {
+    const bytes = Buffer.from(committed("eth-range-4h").toString("utf8").replaceAll("eth-range-4h", c));
+    refused("probe_other_table", { root: both({ [d]: { [c]: bytes } }), probes: [...KATA.map((k) => probe(k)), probe(c, { d, bytes })] });
+  }
   refused("probe_other_class", { root: rootOf({ "btc-dir-1h": "btc-dir-1h", "eth-range-4h": "btc-dir-4h" }), probes: [probe("btc-dir-1h"), probe("btc-dir-4h", { over: { task_class: "eth-range-4h", table: `spec/${DIR}/policy/eth-range-4h.json` } })] });
   refused("digest_mismatch", btc({ over: { policy_table_sha256: sha(committed("btc-dir-4h")) } }));
   for (const s of [-1, -0.2]) refused("probe_before_ca", btc({ s })); // a second, then 200 ms, before checked_at
@@ -124,7 +133,7 @@ test("served_history_refuses_each_departure", () => {
   refused("probe_other_table", { root: rootOf({ [LIQ]: LIQ }), pinned: [] }, "btc-dir-1h.probe.json");
 });
 
-// killer: scripts/served-history.mjs:95 CONST "o.release_dir === l.release_dir && " -> ""
+// killer: scripts/served-history.mjs:98 CONST "o.release_dir === l.release_dir && " -> ""
 test("served_history_file_is_one_line_per_class_sorted_and_closed", () => {
   const first = run(), text = render(null, first), later = { ...first[0]!, release_dir: D2, t_e: at(27 * DAY), t_f: at(27 * DAY + 1800) };
   let next = "";
@@ -146,7 +155,7 @@ test("served_history_file_is_one_line_per_class_sorted_and_closed", () => {
   refused("line_invalid", canon([{ ...l0, release: DIR }]));
 });
 
-// killer: scripts/served-history.mjs:106 CONST "--format=%H %cI %P" -> "--format=%H %aI %P"
+// killer: scripts/served-history.mjs:109 CONST "--format=%H %cI %P" -> "--format=%H %aI %P"
 test("served_history_cli_reads_t_e_from_the_merge_commit", async (t) => {
   const said = t.mock.method(console, "error", () => undefined), last = (): string => String(said.mock.calls.at(-1)?.arguments[0]);
   const r = both(), clean = Object.fromEntries(Object.entries(process.env).filter(([k]) => !k.startsWith("GIT_"))); // no inherited GIT_* variable
