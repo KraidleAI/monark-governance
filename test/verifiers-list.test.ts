@@ -155,7 +155,7 @@ test("pinned_list_is_read_lazily_and_an_altered_list_stops_closed - loading the 
 
 // reddened by: the date rule of the list parting from validDate of scripts/spec-publish.mjs on a string or a value, over every day of
 // four years (a leap year among them) and their impossible neighbours
-// killer: apps/harness/src/policy-verifiers.ts:41 CONST "t.getUTCDate() === d" -> "true"
+// killer: apps/harness/src/policy-verifiers.ts:39 CONST "/^\\d{4}-\\d{2}-\\d{2}$/" -> "/^\\d{4}-\\d{1,2}-\\d{2}$/"
 test("verifier_list_date_rule_is_the_spec_publish_rule - validDate of policy-verifiers.ts agrees with validDate of scripts/spec-publish.mjs, without importing scripts/", () => {
   const samples: unknown[] = ["2026-10-07", "2024-02-29", "2026-02-29", "1900-02-29", "2000-02-29", "2026-00-10", "2026-13-01", "2026-04-31", "2026-1-01", "26-10-07", " 2026-10-07",
     "2026-10-07\n", "\uff12026-10-07", "", null, undefined, 20261007, ["2026-10-07"]];
