@@ -542,6 +542,52 @@ Tronc `lot/etude-suite`. Dernier oracle complet : 1 779 tests, dont 1 776 verts,
     points de ces empreintes n est pas écrit dans la ligne) ; tests `no_table_publishes_the_digest_of_a_sequence_of_30_points_or_fewer`
     et `spec_publish_refuses_a_hand_edited_table_even_pinned_again`. Reste ouvert pour la révision qui publiera des lignes kata (elle dit
     comment elle tient la règle). Porteur : RECHERCHES ; état : gardé (G2 de SPEC-1-1-0-RELEASE b, N-1 et M-1, 2026-10-06).
+    Ligne datée 2026-10-07 (MONARK, #215, fusion `c318aa54`, `docs/G7-lot-short-digest-floor.md`) : le plancher exact remplace le refus
+    en bloc.
+    - Une ligne `sign-set` ne publie ses digests 0/1 que si au moins 2^128 suites sont compatibles avec ce qu elle dit. Le compte est
+      exact, en entiers, dans `apps/harness/src/policy-digest-floor.ts`.
+    - Une bande publie `aux_sha256` égal à ses scores. Toute autre empreinte d une suite non dite est refusée.
+    - La porte (`tableRowProblems`) et la garde (`guardKataRow`) appliquent la même règle.
+    - Vague 1, mesurée sur `811fcd57…` : 28 tables publiables ; les quatre dir-4h sont retenues (29 lignes sous le plancher).
+    
+    État : construit, « upcoming » jusqu au chargeur d E-2a (E2A-DIGEST-FLOOR-TEST-1). Items formés au G7, ci-dessous.
+  - DIR-4H-DIGEST-COMMIT-1 (PAROXYSME ; G0 de SHORT-DIGEST-INVERSION-1 §8) : les quatre tables dir-4h ne peuvent être servies sans
+    divulguer des suites sous 2^128. Recherche : un engagement salé par les données, ou à clé. Prix : contrat 1.2.0, régénération du
+    registre, outil du vérificateur, ligne d A-2. Porteur : RECHERCHES (spécification), puis MONARK (code) ; déclencheur : avant tout
+    service d une table dir-4h, ou avant le pré-enregistrement de cellules de direction d une autre vague ; état : ouvert.
+  - E2A-DIGEST-FLOOR-TEST-1 (tuyau ; G0 §8) : le test de composition registre → projection → garde → porte, qui affirme 28 publiables et
+    les quatre dir-4h retenues, et la sélection des classes par le chargeur. La garde lève sur une dir-4h : le chargeur la retient avant
+    l appel. Porteur : MONARK, au titre d E-2a ; déclencheur : le lot qui verse `wave1.json` dans `apps/harness/data/kata/registry/` ;
+    état : ouvert.
+  - VERIFIER-REPORT-DIGESTS-1 (G0 §8) : le rapport de recalcul publié ne porte aucun digest d une ligne retenue, ni de digest 0/1 sous le
+    plancher ; sa liste `inputs` publie les quatre digests de séries. Porteur : MONARK, partie 2 de VERIFIERS-LIST-F5A-1 ; état :
+    ouvert.
+  - FLAT-CAP-NEXT-WAVE-1 (G0 §8) : la borne de 34 plats est une mesure de la vague 1, pas une loi. Une ligne `sign-set` d une autre vague
+    est refusée, fermée, tant que la borne de sa vague n est pas mesurée et épinglée. Porteur : RECHERCHES ; déclencheur : une vague
+    autre que la 1 avec des lignes `sign-set` ; état : ouvert.
+  - DIGEST-FLOOR-ATTACKER-COST-1 (recherche ; G0 §8) : lire sur place une source primaire de débit SHA-256 sur matériel parallèle, et la
+    citer [lu]. Aucun chiffre de seconde main d ici là. Porteur : MONARK ; déclencheur : avant tout texte public qui chiffre le coût
+    d une inversion ; état : ouvert.
+  - DIGEST-FLOOR-FLAT-EXACT-1 (PAROXYSME ; G0 §10.6) : les bornes du double comptage et de l union sont des minorants. Elles peuvent
+    retenir une ligne dont le compte exact atteint 2^128 (mesuré : 2^127,88 contre 2^128,35). Recherche : une preuve de la monotonie
+    mesurée jusqu à n = 14, ou un compte exact des suites compatibles. Prix : une preuve combinatoire, ou un algorithme de comptage
+    et son oracle d énumération. Porteur : MONARK, avec RECHERCHES pour la preuve ; déclencheur : une ligne `sign-set` d une vague future
+    entre la borne et le compte f = 0, ou un texte qui écrirait « exact » sans réserve ; état : ouvert. Vague 1 : sans effet (marge
+    d au moins 210 bits sur les dir-1h).
+  - BAND-AUX-DIGEST-W2-1 (Q-11 de RECHERCHES, `82e61e8`) : la règle des bandes (`aux_sha256` = `scores_sha256`) n est mesurée que sur la
+    vague 1. Une bande de vague 2 dont l `aux_sha256` diffère est refusée par la porte et par la garde. FORMAT-W2 doit dire ce que digère
+    l `aux_sha256` d une bande de vague 2. Porteur : RECHERCHES ; déclencheur : FORMAT-W2 ; état : ouvert.
+  - SHORT-DIGEST-SPEC-TEXT-1 (Q-8 et Q-12 de RECHERCHES) : la révision datée du texte de la spécification. Elle écrit :
+    - la règle du plancher (F = 128, la borne de 34 plats, le sort des fixtures) ;
+    - la borne des scores sur chaque f, avec N à trois arguments, `N(n, misses − f, runs_aux)` ;
+    - la borne de l union à qhat 0.
+    
+    Elle sort avec la section 8 de KATA-SPEC (TRIAL-HEAD-WRITTEN-1) et l ordre des motifs (KATA-SPEC-REASON-ORDER-1). Porteur :
+    RECHERCHES (texte), MONARK (brouillon) ; déclencheur : avant la première publication datée de lignes kata (E-2a), avec sa ligne
+    P0 ; état : ouvert.
+  - SHORT-DIGEST-RELEASE-NOTE-1 (Q-7 de RECHERCHES) : la phrase de la note de version qui dit que les quatre dir-4h sont retenues, et
+    pourquoi, sans nom d item. Porteur : MONARK ; déclencheur : la note de version de la première release datée qui publie des tables
+    kata (E-2a) ; état : ouvert.
   - TEMPLATE-MARKERS-SOURCE-1 (E-2 de la contre-G2 de T0-TOOLING-1, 2026-10-06) : la règle `ph` de `scripts/public-text-deny.mjs`
     refuse `${NOM}` quand NOM est dans `TEMPLATE_MARKERS` (`T0`, `OPENAPI_SHA256`, `SPEC_URL`), liste écrite à la main : le seul modèle
     qui les porte (la NOTICE) vit dans recherches. Effet aujourd hui : aucun. Option A retenue par MONARK : engager le modèle de notes
