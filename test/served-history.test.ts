@@ -1,10 +1,10 @@
 // test/served-history.test.ts -- the writer of the served history (scripts/served-history.mjs, format kata-served-history-v1): one closed
 // line per (deployment, kata class), whose table digest is read from that class's retire-probe-v1 record; a marginal table has no line.
 // Offline: every root is a copy under the OS temp directory, built from the committed tables of spec/contract-1.1.0/policy/. The records
-// are their producers' bytes: a probe record is judge() of scripts/retire-probe.mjs and a line feed, as its --out writes it; the deploy
-// check record is docs/deploy-CA-harness.json, as committed or with fields changed, in the writing of scripts/verify-harness.mjs
-// (JSON.stringify(record, null, 2) and a line feed); every instant is counted from its checked_at. Each test names on the line above it
-// the production mutation that reddens it (scripts/red-proof.mjs).
+// are in their producers' writing: a probe record is judge() of scripts/retire-probe.mjs and a line feed, as its --out writes it; the
+// deploy check record is synthetic, in the shape of docs/deploy-CA-harness.json and the writing of scripts/verify-harness.mjs
+// (JSON.stringify(record, null, 2) and a line feed), green on each of its CHECK_NAMES; every instant is counted from its checked_at.
+// Each test names on the line above it the production mutation that reddens it (scripts/red-proof.mjs).
 import { after, test } from "node:test";
 import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
@@ -24,8 +24,14 @@ after(() => rmSync(TMP, { recursive: true, force: true }));
 const sha = (b: string | Uint8Array): string => createHash("sha256").update(b).digest("hex");
 const committed = (c: string): Buffer => readFileSync(join(ROOT, "spec", "contract-1.1.0", "policy", `${c}.json`));
 const changed = (c: string): Buffer => Buffer.concat([committed(c), Buffer.from("\n")]); // a later table of the class: other bytes
-const CA = readFileSync(join(ROOT, "docs", "deploy-CA-harness.json")), REC = JSON.parse(CA.toString("utf8")) as Record<string, unknown> & { checked_at: string; checks: object[]; tls: object };
-/** The UTC second s seconds after T_f, the checked_at of the committed record cut to the second. */
+// The deploy check record, built as verify-harness writes docs/deploy-CA-harness.json (l.432-438): its fields, a check object per name of
+// CHECK_NAMES, all ok, and an authorized TLS on both hosts. The committed record is not read: it keeps the checks of the deployed server
+// until the next deployment (MONARK 543d9ef), while the rule that H takes counts the checks of the trunk.
+const { CHECK_NAMES } = (await import(new URL("../scripts/verify-harness.mjs", import.meta.url).href)) as { CHECK_NAMES: readonly string[] };
+const tlsBlock = (host: string): object => ({ host, authorized: true, issuer: "Let's Encrypt", subject: host, valid_to: "Dec 10 04:57:46 2026 GMT" });
+const REC = { url: "https://api.monarkgate.tech", mcp_url: "https://mcp.monarkgate.tech", checked_at: "2026-10-06T05:42:44.278Z",
+  checks: CHECK_NAMES.map((name) => ({ name, ok: true, status: 200, sha256: sha(name), detail: "ok" })), tls: tlsBlock("api.monarkgate.tech"), tls_mcp: tlsBlock("mcp.monarkgate.tech") };
+/** The UTC second s seconds after T_f, the checked_at of the record cut to the second. */
 const at = (s: number): string => new Date(Math.floor(Date.parse(REC.checked_at) / 1000) * 1000 + s * 1000).toISOString().replace(".000Z", "Z");
 const TE = at(-3600), TF = at(0), DAY = 86_400;
 let n = 0;
@@ -46,18 +52,17 @@ const probe = (c: string, o: { d?: string; bytes?: Buffer; s?: number; over?: Re
   const { record } = judge({ status: 200, text: JSON.stringify({ structuredContent: { verdict } }), tls_authorized: true }, asked, Date.parse(at(o.s ?? 3600)), { table: `spec/${o.d ?? DIR}/policy/${c}.json`, api: "https://api.monarkgate.tech", apiHost: "api.monarkgate.tech" });
   return { name: `${c}.probe.json`, bytes: Buffer.from(`${JSON.stringify({ ...record, ...o.over })}\n`) };
 };
-const caOf = (over: Record<string, unknown> = {}): Buffer => Buffer.from(`${JSON.stringify({ ...REC, ...over }, null, 2)}\n`);
+const caOf = (over: Record<string, unknown> = {}): Buffer => Buffer.from(`${JSON.stringify({ ...REC, ...over }, null, 2)}\n`), CA = caOf();
 const both = (): string => rootOf({ "btc-dir-1h": "btc-dir-1h", "eth-range-4h": "eth-range-4h", [LIQ]: LIQ });
 type Run = { root?: string; probes?: Rec[]; caBytes?: Buffer; tE?: string; pinned?: string[] };
 const run = (o: Run = {}): HistoryLine[] =>
   compose({ root: o.root ?? both(), releaseDir: DIR, mergeCommit: "a".repeat(40), tE: o.tE ?? TE, caBytes: o.caBytes ?? caOf(), probes: o.probes ?? KATA.map((c) => probe(c)), pinned: o.pinned ?? KATA });
 const code = (c: string, message = "") => (e: Error & { code?: string }): boolean => e.code === c && e.message.includes(message);
 
-// The composition test: the probe records as retire-probe writes them, and the deploy check record as committed.
+// The composition test: the probe records as retire-probe writes them, and a deploy check record as verify-harness writes it.
 // killer: scripts/served-history.mjs:76 CONST "probe_record_sha256: sha(bytes)" -> "probe_record_sha256: sha(JSON.stringify(probe))"
 test("served_history_line_is_closed_and_read_from_a_verdict", () => {
   const probes = KATA.map((c) => probe(c)), lines = run({ probes });
-  assert.ok(caOf().equals(CA), "premise: the deploy check record as committed, verify-harness's writing");
   assert.deepEqual(lines, KATA.map((c, i) => ({ format: "kata-served-history-v1", release_dir: DIR, task_class: c, policy_table_sha256: sha(committed(c)),
     probe_record_sha256: sha(probes[i]!.bytes), merge_commit: "a".repeat(40), t_e: TE, t_f: TF, ca_record_sha256: sha(CA) })), "one line per kata class, none for the marginal table; t_f cut to the second");
   assert.deepEqual(lines.map((l) => Object.keys(l).sort()), lines.map(() => [...FIELDS].sort()), "the closed field set");
