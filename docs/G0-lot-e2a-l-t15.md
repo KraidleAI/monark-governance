@@ -33,5 +33,8 @@ red-proof: test-only
 - Mutants de contrôle de la seconde assertion, tirés à la main : une clé `kata:trend-ema-v1@binance/BTCUSDT/1h/up-b1` ajoutée à la
   l.1 de `apps/sentinel/src/run.ts`, rouge (« names a kata key ») ; `KATA:x` ajouté à une fixture JSON, rouge. Aucun mutant
   équivalent : chaque assertion a un mutant qui la seule fait rougir.
-- `node scripts/red-proof.mjs --base 1cddd2e5 --gel <worktree> --repo <worktree> --test-only` : voir le corps de la PR.
+- `node scripts/red-proof.mjs --base 1cddd2e5 --gel <worktree> --repo <worktree> --test-only` (Node v24.21.0, Linux) : sortie 0,
+  « 1 judged, 0 unchanged » ; le test `pinned`, son tueur tué.
+- Voisin `apps/sentinel/test/sentinel.test.ts` : 34 sur 34. tsc, eslint, lang-gate, grep-forbidden, lint-ratchet, export-public
+  `--check`, winlint : 0.
 - R-25 : 1 fichier, +20 hors `docs/**/*.md`.
