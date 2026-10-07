@@ -102,6 +102,8 @@ export function guardKataRow(r: PolicyRow, cls: ClassEntry, pins: GuardPins): vo
   is(pins.verifiers.every((v) => v === verifierIdentity(v)), "pins a verifier that is not an identity (lower case, no revision)");
   is(pins.verifiers.includes(id), "has a verifier outside the pinned list");
   is(id !== verifierIdentity(r.source.generator), "has a verifier equal to the generator");
+  const digests = digestProblems(r); // SHORT-DIGEST-INVERSION-1 (RECHERCHES Q-4): the server refuses what the publication refuses, one module
+  is(digests.length === 0, `has a digest that the publication refuses: ${digests.join(", ")} (fewer than 2^128 compatible sequences, or an unstated sequence)`);
   if (dir) return;
   const s = r.calib_support;
   const qb = q ?? NaN;
@@ -128,3 +130,7 @@ export function guardKataTable(table: PolicyTable, registryBytes: Uint8Array, pi
     want(new Set(rs.map((r) => r.bucket)).size === 3 && rs.every((r) => r.thresholds?.t1 === rs[0]?.thresholds?.t1 && r.thresholds?.t2 === rs[0]?.thresholds?.t2), side, "is a direction side without its three buckets or with thresholds that differ between its rows (C-8)");
   }
 }
+
+// SHORT-DIGEST-INVERSION-1: imported last, not at the top, so that the import moves no line (killers pin them; scripts/spec-publish.mjs
+// does the same); imports are hoisted.
+import { digestProblems } from "./policy-digest-floor.ts";

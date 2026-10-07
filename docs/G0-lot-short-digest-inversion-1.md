@@ -637,3 +637,202 @@ Depuis `F:/tmp/claude/F--Monark/a0cf3d1b-5446-43e6-b228-3b1feff36069/scratchpad/
 | `auxcap.mjs` (+ `ladder-lib.mjs` `06bd740d…`) | `82f9e288…` | `node auxcap.mjs R` | `auxcap.out` `e6f1ed52…` |
 | `vectors.mjs` | `8d12edca…` | `node vectors.mjs R/kata/spec/vectors-1.1.0.json` | (console) |
 | `rate.mjs` | `7e83d9c5…` | `node rate.mjs` (suites de synthèse) | `rate.out` `67e70c2e…` |
+
+## 10. Pli des décisions de RECHERCHES et construction
+
+- **Rédaction** : worker `claude-opus-5-5` (effort max) ; horloge lue à 23:32 UTC le 2026-10-06 au début de la partie, et à 00:26 UTC le
+  2026-10-07 avant d'écrire cette section. Worktree `F:/Monark-wt-digestfloor`, branche `monark/short-digest-floor-1`, base `5348b9d2`
+  (R-a et R-b d'ENGINE-ROW-RETIRE-PATH-1 fusionnés). Aucun commit (R-20), aucun `GIT_DIR` ni `GIT_WORK_TREE`, aucun `--write-tree`,
+  rien écrit sur C: (`os.tmpdir()` = `F:\tmp`). Scripts sous
+  `F:/tmp/claude/F--Monark/a0cf3d1b-5446-43e6-b228-3b1feff36069/scratchpad/digestfloor/` (annexe B). Reprise à la demande de
+  l'orchestrateur (§10.7), horloge `now.mjs` de 00:36 à 00:4x UTC le 2026-10-07.
+- **Décisions** : `recherches:coordination/messages/2026-10-06-RECHERCHES-vers-MONARK-short-digest-decisions.md` (sha256
+  `9da1fc2d…`), lu en entier. Q-1 : (c), plancher exact. Q-2 : F = 128. Q-3 : les quatre dir-4h retenues, sans ligne. Q-4 : la garde
+  applique la même règle. Q-5 : borne de 34 plats. Q-6 : suffisant si le G0 montre en une ligne qu'ignorer les plats ne fait que
+  sous-estimer N ; sinon la borne de 34 le couvre explicitement. Q-7 : oui (la phrase de la note de version est un lot ultérieur).
+  Q-8 : révision datée du texte de la spécification, lot ultérieur. Q-9 : fixtures dispensées. Q-10 : `p_served` ≤ 30 gardé.
+- **Source des deux suites, lue dans cette partie** [lu], à 00:31 UTC : `recherches:kata/bench/calibrate.ts`, sha256 `fc6422b9…` (=
+  l'épingle du §1 ; clone du scratchpad à `7d100eef`, dernier commit du fichier `522f897`). l.71 : « `s = (v > 0 && p.labels.dir ===
+  "up") || (v < 0 && p.labels.dir === "down") ? 0 : 1; // flat is a miss` » ; l.72 : `aux.push(p.labels.dir === "up" ? 1 : 0)` ;
+  l.82 (bandes) : `aux.push(s)` ; l.17 : digest = sha256 de `JSON.stringify`. D'où : côté `up`, labels = 1 − scores ; côté `down`,
+  labels = scores − 1{plat} ; bande, suite auxiliaire = scores ; deux suites égales ont le même digest.
+
+### 10.1 Q-6 : la monotonie n'est pas montrée, le cap couvre chaque nombre de plats
+
+- **La ligne demandée ne tient pas seule.** « f = 0 est admis, donc l'ensemble compté sans plat est inclus dans les candidats »
+  vaut contre un attaquant qui ignore f. Or la ligne publiée le dit : sur un côté `down`, les deux digests sont égaux exactement
+  quand la case n'a aucun plat (§2.3). Quand ils diffèrent, f ≥ 1 est su et cet ensemble n'est plus inclus.
+- **Mesure** (énumération complète, chaque issue jugée par `runsLowerTailLeq`, `q6-enum.mjs`) : à n ≤ 14 et aux niveaux 0,05, 0,2 et
+  0,3, quand l'issue déclarée est possible à f plats, les suites de scores compatibles sont toujours au moins N(n, m, issue) (728
+  cas sur 728 à chaque niveau). Rien ne le prouve pour n de 20 à 1 254. Si f n'est su que ≥ 1, 7 cas (0,05) restent sous N, tous où
+  l'issue déclarée est impossible pour tout f ≥ 1 (par exemple n de 10 à 14, m = 2, `reject` : 2 suites sans plat, aucune avec).
+  La condition de Q-6 n'est donc pas remplie par une preuve : sa seconde branche s'applique.
+- **Construction, en une ligne** : avec f plats, chaque couple (s, F) d'une suite de scores et de f de ses uns donne une suite de
+  labels à m − f uns ; il y a C(n, m)·C(m, f) = C(n, m − f)·C(n − m + f, f) couples ; chaque suite de labels en reçoit
+  C(n − m + f, f) et chaque suite de scores en donne C(m, f) ; donc au moins C(n, m)·N(n, m − f, `runs_aux`)/C(n, m − f) suites de
+  scores sont compatibles, et c'est N(n, m, `runs_aux`) à f = 0. La règle prend le plus petit de ces nombres sur les f admis :
+  f = 0 seul quand les deux digests sont égaux ; f de 1 à min(34, m) quand ils diffèrent (deux suites égales ont le même digest,
+  `calibrate.ts` l.17 : des digests différents prouvent un plat au moins, §10.7) ; f de 0 à min(34, m) quand le digest des labels
+  n'est pas publié (la ligne ne dit alors rien de f).
+- **Contrôle mesuré, dans la CI** : `the_flat_bounds_hold_against_every_sequence_of_up_to_12_points` (5 448 cas, toutes issues,
+  `runs_miss` donné ou non) : aucune borne au-dessus du compte énuméré, aucun f écarté qui cache une suite compatible.
+- **Prix, sur une ligne de synthèse** (n 162, 118 manqués, `down`, `runs_aux` `reject`, digests différents) : N(n, m) = 2^128,35,
+  admise par la règle du §4.1 ; la borne à f = 1 vaut 2^127,88 : refusée. Aucun effet sur la vague 1 (§10.4). Item
+  DIGEST-FLOOR-FLAT-EXACT-1 (§10.6).
+- **Deux points que Q-6 ne posait pas, réglés dans le même sens** :
+  1. un f sous lequel l'issue déclarée est impossible (N(n, m − f, `runs_aux`) = 0, ou f = 0 avec `runs_miss` ≠ `runs_aux` à
+     `qhat` 0) n'est pas celui de la case : il est écarté, et une ligne qu'aucun f n'admet est refusée. Sans cela, « u de
+     `misses` − 34 à `misses` » (§4.1) refuserait toute ligne `down` à 34 manqués ou moins : N(n, 0, `pass`) = 0 ;
+  2. `qhat` 0 sur un côté `down` à digests différents : `runs_miss` porte sur les scores, `runs_aux` sur les labels, et les deux
+     suites diffèrent aux plats. N(n, m, `runs_miss`) seul n'y borne rien par en dessous. La règle joint les deux par la borne de
+     l'union : x = C(n, m)·N(n, m − f, `runs_aux`) − (C(n, m) − N(n, m, `runs_miss`))·C(n, m − f) ; scores ≥ x/C(n, m − f),
+     labels ≥ x/C(n, m). Même énumération. La vague 1 n'a aucune telle ligne : son seul `qhat` 0 de direction est un côté `up` (§2.2).
+
+### 10.2 Où vit le module, et pourquoi
+
+- `apps/harness/src/policy-digest-floor.ts` (neuf, 136 lignes, sans import, syntaxe effaçable) : `DIGEST_FLOOR_BITS` = 128,
+  `LABEL_FLAT_CAP` = 34 (provenance : `census.json` `95e5b984…`, CALIB SOLUSDT 1h), `runsOutcomeCount`, `flatBounds`,
+  `digestProblems`.
+- Importé par `apps/harness/src/policy-guard.ts`, hors du graphe servi (`guard_modules_are_not_served` et
+  `served_policy_modules_are_the_four_marginal_ones` verts : la liste servie ne change pas), et par `scripts/spec-publish.mjs`
+  (précédent : `scripts/registry-root.mjs` l.13 importe un `.ts` de `apps/harness/src/`). Aucun module servi ne l'importe.
+- **Réemploi de `runs.ts`** : il n'expose que le test sur une suite (`runsLowerTailLeq`) ; une entrée par comptes y demanderait une
+  exception de zone (en-tête de `tail.ts`). Une dichotomie de r* par `runsLowerTailLeq` coûterait ~20 ms par compte (1,8 ms par
+  appel à n 1 254, `perf.mjs`), soit ~0,7 s par ligne `down` : inutilisable dans la garde. Le module porte donc la forme close de
+  `runs.ts` l.60-62 et la décision de l.77, sommées en une passe ; les tests la tiennent à `runsLowerTailLeq` (énumération complète
+  n ≤ 14 ; frontière de rejet sur des suites construites à n 60, 132, 150, 200, 377 et 1 254). Accord avec `ladder-lib.mjs` du G0 :
+  3 540 cas, 0 différence (`check-module.mjs`), et les nombres du §2.3 et du §5 retrouvés (10,74 ; 36,24 ; 140,51 ; 28,6 bits).
+- **Coût mesuré** : une ligne `down` à digests différents (35 comptes) : 7 ms à n 377, 33 ms à n 1 254 ; 0,2 s pour les 60 lignes
+  calibrées du registre de synthèse.
+- **Lignes des tueurs** : les deux imports sont posés en fin de fichier (hissés), le commentaire de `tableRowProblems` garde ses
+  quatre lignes, et la clause de la garde décale l.105 et suivantes de 2. Les quatre tueurs touchés sont recalés
+  (`policy-guard.test.ts` l.65 et l.133, `policy-retire.test.ts` l.149, `kata-path.test.ts` l.306) ; les 136 tueurs des neuf
+  fichiers de test qui visent ces fichiers, le nouveau compris, sont relus sur leur ligne à l'état final (`killers.mjs` : 0 hors
+  ligne).
+
+### 10.3 Ce qui a changé
+
+| Fichier | Changement | R-25 (ins. + suppr.) |
+|---|---|---|
+| `apps/harness/src/policy-digest-floor.ts` (neuf) | le module (§10.2) ; l.111-112 : la plage des f (§10.7) | 136 |
+| `scripts/spec-publish.mjs` | l.284-287 (commentaire, 4 lignes), l.294 (`digestProblems`, fixtures dispensées), l.297 (texte du refus), import l.323-325 | 10 + 6 |
+| `apps/harness/src/policy-guard.ts` | l.105-106 : la clause, avant `if (dir) return;` ; import l.134-136 | 6 + 0 |
+| `test/short-digest-floor.test.ts` (neuf) | 13 tests | 203 |
+| `apps/harness/test/policy-guard.test.ts` | `the_guard_refuses_a_sign_set_row_under_the_digest_floor` ; deux tueurs recalés | 16 + 2 |
+| `apps/harness/test/policy-retire.test.ts`, `kata-path.test.ts` | un tueur recalé chacun | 2 + 2 |
+| `apps/harness/test/helpers/synthetic-registry.ts` | l.53, l.56, l.75 réécrites en place (§10.6, écart E-1) | 3 + 3 |
+| **Total** (forme de la CI : les 21 pathspecs de `ci.yml`, `r25.mjs`) | G0 : ~285 (±30 %) ; borne 1 205 | **389** |
+
+- Détail d'un refus : `<cell_key> (scores <log2> bits, labels <log2> bits)`, deux décimales ; refus fermés : `sign-set off wave 1
+  or runs_level 0.05, no flat cap pinned (FLAT-CAP-NEXT-WAVE-1)`, `sign-set counts unreadable (...)`, `sign-set outcomes that no
+  count of flats up to 34 admits`. La garde refuse avec le même détail.
+- Non touchés : `scripts/spec-publish.d.mts` (aucun export neuf) et `test/spec-1-1-0-release.test.ts` (la ligne marginale de
+  l.155-156 est `upper-bound` : ses refus `aux_sha256` et `series_sha256` gardent leur texte ; le test reste vert).
+
+### 10.4 Effet sur la vague 1, mesuré (2026-10-07, 00:36 et 00:39 UTC)
+
+- **Commande** : `node wave1-floor.mjs F:/tmp/claude/F--Monark/a0cf3d1b-5446-43e6-b228-3b1feff36069/scratchpad/recherches/kata/registry/wave1.json`,
+  depuis le dossier des scripts (annexe B). Le registre est lu seul, jamais copié dans le dépôt ; sha256 contrôlé `811fcd57…`
+  (565 462 octets). Chaîne du harness : `readRegistry` → `projectCell` → `digestProblems`. Pour chaque ligne `sign-set`, la plus
+  petite borne est recalculée par `flatBounds` sur la plage des f du module, et son verdict confronté à celui de `digestProblems` :
+  aucun désaccord. Sortie : comptes et bits par classe, jamais une valeur par décision (`wave1-floor-after.out`, `8b1cf6ab…`).
+- **Résultat** : 280 lignes, 32 classes ; **28 publiables** (4 dir-1h, 24 bandes) ; **retenues : bnb-dir-4h, btc-dir-4h, eth-dir-4h,
+  sol-dir-4h**.
+- **Plus petite borne par classe** : dir-1h : bnb 399,68, btc 398,07, eth 416,24, sol 343,25 bits ; dir-4h : bnb 39,49 (6 lignes
+  refusées), btc 52,71 (9), eth 16,91 (7), sol 16,91 (7), soit 29 lignes refusées, comme le compte du §2.3 avec l'issue de runs ;
+  les 24 bandes n'ont aucune empreinte 0/1 et aucun refus.
+- **Avant et après le point 1 du §10.7** : la même commande avec `--f0-when-differ` (f compté dès 0 malgré des digests
+  différents) donne la même sortie à l'octet près, hors la mention du drapeau (`wave1-floor-before.out`, `6f2f2f21…`, 00:36 UTC).
+- **Concordance avec l'argument d'avant la mesure** : l'enveloppe sans registre (`envelope.mjs`, 256 150 couples (n, u) des plages
+  1h de `measure.out` ; part minimale 2^−0,0740 pour `pass`, 2^−4,9292 pour `reject`) donnait des scores 1h ≥ 338,39 bits ; mesuré :
+  343,25 au plus bas. Le test de composition reste à E-2a (E2A-DIGEST-FLOOR-TEST-1) ; le chargeur doit retenir les quatre classes
+  avant la garde, qui lève sur elles.
+
+### 10.5 Contrôles, sur l'état final (2026-10-07, de 00:40 à 00:43 UTC ; premier passage de 00:10 à 00:26 UTC)
+
+- `node -r ./test/helpers/blocking-stdout.cjs --test --test-timeout=300000 --test-force-exit test/short-digest-floor.test.ts
+  "test/spec-*.test.ts" "apps/harness/test/*.test.ts"` : 337 tests, 336 verts, 0 rouge, 1 sauté (modes POSIX sur win32, déjà
+  sauté à la base), exit 0. `test/surfaces-1-1-0.test.ts` : 15 sur 15, exit 0. `test/ci-gates.test.ts`, `export-hygiene`,
+  `deps-hygiene`, `red-proof-support` (`--test-skip-pattern="\(test 42\)"`) : 51 sur 51, exit 0.
+- `npx --no-install tsc --noEmit` : exit 0. ESLint sur les sept `.ts` touchés : exit 0. `node scripts/lint-ratchet.mjs` : 69/69,
+  exit 0. `node scripts/grep-forbidden.mjs` : 348 fichiers, exit 0. `node scripts/lang-gate.mjs` : exit 0.
+  `node scripts/export-public.mjs --check` : exit 0.
+- `node scripts/red-proof.mjs --base 5348b9d2 --gel F:/Monark-wt-digestfloor --draw 14 --seed 47 --out
+  F:/tmp/dojo/redproof-digestfloor` (tous les tueurs admis : 14) : OK, 14 jugés (1 F2P, 13 new-module), 43 inchangés, 14 tueurs
+  tirés, 14 tués ; exit 0 ; `RED-PROOF.json` sha256 `c9e2fe0f…`, digest des changements `f54e11b3…`, recalculé à l'identique sur
+  l'arbre final (`digest.mjs`). La première preuve (13 sur 13, `72fe2303…`) est gardée sous `RED-PROOF-first.json`.
+- Mutants à la main (`node hand-mutants.mjs`, fichier remis et sha256 contrôlé après chacun), tous tués par assertion ; entre
+  parenthèses, le nombre de tests rouges : plancher 128 → 127 (5) et 128 → 52 (6) ; cap 34 → 33 (5) ; issue de runs ignorée (10) ;
+  clause de la garde supprimée (1) ; dispense des fixtures élargie à toute table, l.294 (10) ; plage de plats réduite à f = 0 (5) ;
+  égalité des digests ignorée (3) ; f impossible gardé (1) ; appel de la règle retiré de la porte (10) ; dispense élargie à toute
+  table du fichier de vecteurs, l.143 → `true` (1) ; point 1 : f = 0 compté de nouveau à digests différents (1) ; digest des labels
+  non publié lu comme différent (1).
+- R-25 dans la forme de la CI (`node r25.mjs 5348b9d2` : les 21 pathspecs lus dans `ci.yml`, insertions + suppressions, plus les
+  lignes des fichiers non suivis qu'un commit ajouterait) : 37 + 13 + 339 = **389**, borne 1 205.
+
+### 10.6 Écarts, questions et items
+
+- **E-1, registre de synthèse** (hors de la zone du §5). Avec la clause de garde (Q-4), toutes les tables de direction du registre
+  de synthèse avaient une ligne sous 2^128, et ses 24 lignes de bande un `aux_sha256` ≠ `scores_sha256` (`syn-floor.mjs`) : sept
+  fichiers de test tombaient. Les trois lignes sont réécrites en place, sans déplacer ses tueurs (l.58 et l.76 de
+  `policy-table-file.test.ts`) : n de direction de 400 à 800, `misses` dès k*/2 (au-dessus de k* sur une ligne refusée par les runs),
+  `aux_sha256` d'une bande égal à ses scores, comme l'écrit la vague 1. Chaque `between` consomme un tirage : les bandes (dont P1,
+  n 740, de `policy-wave2.test.ts`) ne changent pas. Les 60 lignes calibrées passent le plancher (`syn-module.mjs`).
+- **E-2, règle renforcée par rapport au §4.1** : §10.1 (borne des scores sur chaque f, f impossibles écartés, borne de l'union à
+  `qhat` 0, f = 0 seul à digests égaux, f ≥ 1 à digests différents : §10.7).
+- **E-3, noms** : `digestProblems` (une liste, lue par la porte et par la garde) et `flatBounds` remplacent `digestFloorProblem`.
+- **Q-11 pour RECHERCHES** : la règle des bandes (`aux_sha256` = `scores_sha256`) n'est mesurée que sur la vague 1 ; la porte et la
+  garde l'appliquent aussi aux bandes de la vague 2. FORMAT-W2 doit dire ce que digère `aux_sha256` d'une bande de vague 2 ;
+  d'ici là, une telle ligne à `aux_sha256` ≠ `scores_sha256` est refusée par les deux (fermé).
+- **Q-12 pour RECHERCHES (texte du §4.3)** : ajouter, pour la révision datée (Q-8) : « On a `down` side with f flat labels (f
+  unknown, at most 34; f = 0 when the two digests are equal, f ≥ 1 when they differ), at least C(n, misses) N(n, misses − f) / C(n, misses − f) score
+  sequences are compatible, and the rule requires this number and N(n, misses − f) to reach 2^128 for each f that the stated
+  outcomes admit. When qhat is 0, runs_miss bears on the scores themselves and is joined to runs_aux by the union bound. »
+- **DIGEST-FLOOR-FLAT-EXACT-1** (PAROXYSME, recherche). Porteur : MONARK, avec RECHERCHES pour la preuve.
+  - Limite : la borne du double comptage et celle de l'union sont des minorants ; elles peuvent retenir une ligne dont le compte
+    exact atteint 2^128 (exemple mesuré au §10.1 : 2^127,88 contre 2^128,35).
+  - Recherche : une preuve de la monotonie mesurée à n ≤ 14 (alors f = 0 suffit pour les scores), ou un compte exact des suites
+    compatibles. Prix : une preuve combinatoire, ou un algorithme de comptage et son oracle d'énumération.
+  - Déclencheur : une ligne `sign-set` d'une vague future entre la borne et le compte f = 0, ou la révision du texte du §10 si
+    RECHERCHES veut y écrire « exact » sans réserve. Vague 1 : sans effet (marge ≥ 210 bits sur les dir-1h).
+- Items inchangés : DIR-4H-DIGEST-COMMIT-1, E2A-DIGEST-FLOOR-TEST-1, VERIFIER-REPORT-DIGESTS-1, FLAT-CAP-NEXT-WAVE-1,
+  DIGEST-FLOOR-ATTACKER-COST-1.
+- **Non fait** : aucune série lue (`wave1.json`, le registre, est lu seul à la demande de l'orchestrateur, §10.4) ; la note de
+  version (Q-7) et la révision du texte (Q-8) sont des lots ultérieurs ; aucun commit, aucune G2.
+
+### 10.7 Reprise du 2026-10-07 (demande de l'orchestrateur, deux points)
+
+- **Point 1, f = 0 à digests différents.** Deux suites égales ont le même digest (`calibrate.ts` l.17) : sur un côté `down`, des
+  digests différents prouvent f ≥ 1, et compter f = 0 contredisait le principe du module (« un f sous lequel les issues déclarées
+  ne peuvent pas tenir n'est pas celui de la case »). Plage des f : f = 0 seul à digests égaux, **f de 1 à min(34, m) à digests
+  différents**, f de 0 à min(34, m) quand le digest des labels n'est pas publié (lecture : « différents » demande deux digests
+  publiés ; un digest absent ne dit rien de f). Code : `policy-digest-floor.ts` l.111-112 et l'en-tête l.11-18.
+  - Une ligne `down` à 0 manqué et digests différents est désormais refusée par `sign-set outcomes that no count of flats up to 34
+    admits` (avant : `scores 0.00 bits, labels 0.00 bits`).
+  - Ligne qui épingle le point (test `differing_digests_on_a_down_side_count_one_flat_at_least`, tueur l.111) : n 548, 525
+    manqués, `down`, `runs_aux` `reject`, digests différents. Avant : refusée, la borne à f = 0 (N(548, 525, `reject`) = 2^127,98)
+    était la plus petite ; après : publiable (2^128,16 au moins pour f ≥ 1). À digests égaux, refusée (127,98) ; sans digest des
+    labels, refusée par ses scores (127,98). Trouvée par `scan-f0b.mjs`.
+  - **Chiffres déplacés : aucun** dans les attendus des tests existants. Le 115,63 de la fixture down-b2 ne bouge pas : à `qhat` 0,
+    la borne de l'union rend f = 1 plus petit que f = 0 (115,635 contre 115,705 bits, `fixture-terms.mjs`). Les plus petites bornes
+    par classe de la vague 1 ne bougent pas non plus (§10.4). Les tueurs du fichier de test suivent les lignes du module (+2 dans
+    l'en-tête, +1 après la ligne de `fMin`).
+- **Point 2, la vague 1 mesurée** : §10.4 (28 publiables, les quatre dir-4h retenues).
+
+## Annexe B. Scripts de la partie (sha256)
+
+| Script | sha256 | Rôle |
+|---|---|---|
+| `q6-enum.mjs` | `4b413dce…` | Q-6, énumération sans le module (n ≤ 14, trois niveaux) |
+| `q6-module.mjs` | `970dd6b3…` | Q-6, bornes du module contre l'énumération (n ≤ 12) |
+| `check-module.mjs` | `1ef8b3f6…` | module contre `ladder-lib.mjs` ; coûts |
+| `perf.mjs` | `7522b6a6…` | coût de `runsLowerTailLeq` |
+| `scan.mjs`, `rows.mjs`, `digits.mjs` | `d823dc3c…`, `9d43570b…`, `d4bb30c7…` | lignes frontières des tests et des mutants |
+| `syn-floor.mjs`, `syn-module.mjs` | `eac49d2c…`, `ee042c51…` | registre de synthèse avant et après E-1 |
+| `envelope.mjs` | `b734e9dd…` | enveloppe des parts d'issue sur les plages 1h (§10.4) |
+| `wave1-floor.mjs`, `syn-bytes.mjs` | `20defe1b…`, `b6d486ac…` | rejeu de la vague 1 (§10.4), et ses registres d'essai |
+| `wave1-floor-before.out`, `wave1-floor-after.out` | `6f2f2f21…`, `8b1cf6ab…` | sorties du rejeu, avant et après le point 1 |
+| `hand-mutants.mjs`, `killers.mjs` | `d7968682…`, `5561d2a2…` | mutants à la main (13) ; tueurs relus sur leur ligne |
+| `scan-f0.mjs`, `scan-f0b.mjs`, `fixture-terms.mjs` | `59a7ec34…`, `74610f8b…`, `0b341232…` | point 1 : ligne épingle, termes de la fixture |
+| `digest.mjs`, `r25.mjs` | `c307514f…`, `560c74c4…` | digest de red-proof recalculé ; R-25 dans la forme de la CI |
+| `RED-PROOF-first.json` | `72fe2303…` | la première preuve (13 sur 13), gardée |

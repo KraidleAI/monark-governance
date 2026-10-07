@@ -50,10 +50,10 @@ export function syntheticRegistry(seed = 37): { readonly registry: { rows: Recor
       const drawn = PLANS[p++ % PLANS.length];
       const plan = noThresholds ? "empty" : !dir && drawn === "silence-misses" ? "silence-runs" : drawn;
       const key = `kata:${kataId}@binance/${symbol}/${h}/${bucket}`;
-      const n = plan === "empty" ? 0 : plan === "under" ? between(1, n0 - 1) : between(n0 + 20, dir ? 400 : 1500);
+      const n = plan === "empty" ? 0 : plan === "under" ? between(1, n0 - 1) : between(dir ? 400 : n0 + 20, dir ? 800 : 1500); // direction n and misses: every calibrated row clears the digest floor (SHORT-DIGEST-INVERSION-1)
       const calibrated = plan !== "empty" && plan !== "under";
       const kStar = calibrated ? riskControlMaxExceedances(n, alpha, DELTA) : null;
-      const misses = kStar === null ? null : plan === "silence-misses" ? kStar + between(1, 30) : between(0, kStar);
+      const misses = kStar === null ? null : plan === "silence-misses" || (dir && plan === "silence-runs") ? kStar + between(1, 30) : between(dir ? Math.ceil(kStar / 2) : 0, kStar);
       const calibStatus = calibrated ? (plan === "silence-misses" || plan === "silence-runs" ? "silence" : "region") : "under_calib";
       const qhat = misses === null ? null : dir ? (misses > (kStar ?? 0) ? 1 : 0) : 1.5 + rnd() * 3;
       const nTest = plan === "empty" ? 0 : between(n0, dir ? 400 : 1500);
@@ -72,7 +72,7 @@ export function syntheticRegistry(seed = 37): { readonly registry: { rows: Recor
         calibSupport: dir ? null : { min: 0.001 + rnd() * 0.002, max: 0.02 + rnd() * 0.01 }, seriesSha256: digest(`${symbol}:series`), epoch: 1,
         drops: { calib: between(0, 2), test: 0 },
         calib: {
-          n, scoresSha256: n === 0 ? sha256Canonical([]) : digest(`${tag}:scores`), auxSha256: n === 0 ? sha256Canonical([]) : digest(`${tag}:second`),
+          n, scoresSha256: n === 0 ? sha256Canonical([]) : digest(`${tag}:scores`), auxSha256: n === 0 ? sha256Canonical([]) : digest(`${tag}:${dir ? "second" : "scores"}`), // a band auxiliary digest is its scores digest, as wave 1 writes it
           qhat, rank: kStar === null ? null : n - kStar, kStar, kObs, misses,
           U: kStar === null ? null : missUpperBound(n, kStar, DELTA), check1, check2: !calibrated ? "n/a" : plan === "silence-runs" ? "reject" : "pass", status: calibStatus, reason,
         },
