@@ -20,6 +20,7 @@ import { buildPolicyTable } from "../src/policy-table-file.ts";
 import { toolErrorCode, type HarnessParams } from "../src/tools/gate.ts";
 import * as gate from "../src/tools/gate.ts";
 import { codeLines } from "./helpers/code-lines.ts";
+import { importSpecifiers } from "./helpers/import-specifiers.ts";
 import { syntheticRegistry } from "./helpers/synthetic-registry.ts";
 
 const SYN = syntheticRegistry();
@@ -315,13 +316,13 @@ test("guard_thresholds_agree_per_side", () => {
 });
 
 const SRC = join(dirname(fileURLToPath(import.meta.url)), "..", "src");
-/** The served import graph: the modules reached by a relative import from the entry points and the tools. */
+/** The served import graph: the modules reached by a relative import from the entry points and the tools, in either quote. */
 function servedModules(): Set<string> {
   const seen = new Set<string>();
   const walk = (file: string): void => {
     if (seen.has(file)) return;
     seen.add(file);
-    for (const m of readFileSync(file, "utf8").matchAll(/(?:from|import)\s*\(?\s*"(\.{1,2}\/[^"]+)"/g)) walk(join(dirname(file), m[1] as string));
+    for (const s of importSpecifiers(readFileSync(file, "utf8"))) if (/^\.{1,2}\//.test(s)) walk(join(dirname(file), s));
   };
   for (const f of ["server.ts", "http.ts", "openapi.ts", "schema-projection.ts", ...readdirSync(join(SRC, "tools")).map((t) => `tools/${t}`)]) walk(join(SRC, f));
   return seen;

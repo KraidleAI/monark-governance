@@ -12,7 +12,8 @@ RECHERCHES, 2026-10-07. Base `1cddd2e5` (`lot/etude-suite`, `1cddd2e5a4cb54791db
   du scratchpad, branche `recherches/e2a-a1-i-committed-pins` ; `node_modules` lié en dur depuis un autre worktree du scratchpad,
   retiré à la fin. Node 24.21.0, Linux.
 - **Zone** : `apps/harness/src/policy-committed-pins.ts` (neuf), `apps/harness/src/policy-committed.ts` (neuf),
-  `apps/harness/test/policy-committed.test.ts` (neuf). Aucun fichier existant n'est touché.
+  `apps/harness/test/policy-committed.test.ts` (neuf). Aucun fichier existant n'est touché, sauf depuis le §7
+  `apps/harness/test/kata-path.test.ts` (deux lignes) ; le §7 ajoute aussi `apps/harness/test/helpers/import-specifiers.ts` (neuf).
 - **Ordre de fusion** (plan §4, §5) : a1 fusionne après 1f et 2a, dans l'ordre de la chaîne ; d'où une demande en brouillon. Le lot
   ne dépend d'aucun des deux (il ne lit ni la liste ni un rapport) : il se construit et se prouve sur le tronc.
 
@@ -52,6 +53,7 @@ de table de synthèse : entrées de `kataClassEntries`, lignes projetées du reg
 | `committed_tables_reader_pairs_each_pin_with_its_file` (T-1) | fichier sans épingle ; fichier `constructor` sans épingle (§6) ; épingle sans fichier ; dossier absent avec épingles ; dossier absent sans épingle : carte vide | `apps/harness/src/policy-committed.ts:50 CONST "!Object.hasOwn(pins.tables, cls)" -> "!(cls in pins.tables)"` |
 | `committed_tables_folder_is_absent_and_read_once` (T-1, dossier absent ⇔ épingles vides) | `TABLES_DIR` est `apps/harness/data/kata/tables/` et n'existe pas ; `COMMITTED_FILES` vide ; le lecteur rend une carte vide sur les épingles réelles ; `readTablesDir` sur un dossier jetable (absent, deux fichiers, un `.txt` refusé) ; les spécificateurs du module, lus comme `servedModules` les lit (§6), sont dans la liste fermée du plan §3.1 | `apps/harness/src/policy-committed.ts:11 CONST "import { assertPolicyTableFile" -> "import \"./tools/gate.ts\"; import { assertPolicyTableFile"` |
 | `committed_pins_start_empty_with_two_closed_held_lists` | les deux listes retenues exactes, `COMMITTED_RETIRE_LISTS`, `COMMITTED_REPORTS`, `COMMITTED_TABLES` vides, `COMMITTED_REGISTRY` nul ; les quatre constantes hors bloc sont au-dessus du bloc marqué, qui ne porte que les deux autres ; le même extracteur rend `[]` (§6) | `apps/harness/src/policy-committed-pins.ts:11 CONST "\"bnb-dir-1h\"" -> "\"bnb-range-1h\""` |
+| `import_specifiers_are_read_in_both_quotes` (§7) | l'extracteur partagé lit un texte en guillemets simples et doubles : import à effet de bord, ré-export, `import()`, spécificateur non relatif, import sur trois lignes ; ni `import.meta.url` ni « from » dans un commentaire ne comptent | `apps/harness/test/helpers/import-specifiers.ts:6 CONST "[\"']([^\"']+)[\"']" -> "\"([^\"]+)\""` |
 
 - **Mutants équivalents** (balayage à la main, chaque ligne de contrôle des deux modules mutée seule, le fichier de test rejoué) :
   douze mutants du lecteur et six des épingles, **tous tués sauf un** : `names.sort()` → `names` dans `readTablesDir` (l.36) survit.
@@ -68,17 +70,20 @@ de table de synthèse : entrées de `kataClassEntries`, lignes projetées du reg
   - a1-i, première tête du code `2ac15118` : `1a4bb21db5bebc472b1d8d16b45109e31e8df0a3958cf75bc406b84b65de6072` ;
   - a1-ii (#236), `--base 15fafa20 --draw 2`, tête du code `3c6ce86f` :
     `92d2afdc4521efabdfd6743c4793e3f5b16e7ce0b71af18e3e8507c0c53f5333` (G0 d'a1-ii, §3) ;
-  - a1-i après le pli, tête du code `eb42ae4d` : `f2d52698152e11d92d91eee5afcdab54c7a1e10f2d9d627321fb2f026128d180` (§6).
+  - a1-i après le pli, tête du code `eb42ae4d` : `f2d52698152e11d92d91eee5afcdab54c7a1e10f2d9d627321fb2f026128d180` (§6) ;
+  - a1-i après la fermeture du §7, tête du code `7631cf81`, `--draw 5` :
+    `b6cf8ac72d1b4f21a51c74ee5abda0b98da08d8614873f05e2ef769f40584200`.
 - **Octets servis inchangés** : suite du harnais (`apps/harness/test/*.test.ts`) et `test/harness-served.test.ts`,
   `test/spec-1-1-0-release.test.ts` (dont `published_tables_are_the_served_tables_byte_for_byte`), `test/surfaces-1-1-0.test.ts`,
-  `test/export-public.test.ts` (hors test 42), `test/public-surfaces-honesty.test.ts`, `test/cra-b.test.ts` : 352 tests, 352 verts.
+  `test/export-public.test.ts` (hors test 42), `test/public-surfaces-honesty.test.ts`, `test/cra-b.test.ts` : 352 tests, 352 verts
+  (353 sur 353 depuis le §7).
 - `tsc --noEmit` 0 ; `eslint .` 0 ; `gate:vocab` 0 ; `lang:gate` 0 ; `lint:ratchet` 69/69 ; `export:check` 0 ; winlint (atelier de
   RECHERCHES) `--base 1cddd2e5` : 3 fichiers, aucun risque Windows (4 après le pli, ce G0 compris : aucun risque).
 
 ## 4. Taille
 
 - R-25, forme de la CI (`docs/**/*.md` exclus) : 3 fichiers, **187** insertions (borne de lot 547 ; plan : ~290 attendues) ; **198**
-  après le pli du §6.
+  après le pli du §6 ; **215** après le §7 (5 fichiers, 213 insertions, 2 suppressions).
 
 ## 5. Ce qui n'est pas fait
 
@@ -120,11 +125,50 @@ de table de synthèse : entrées de `kataClassEntries`, lignes projetées du reg
     l'erreur ; `catch` qui lève une `SyntaxError`) : tous tués, sauf l'équivalent déjà déclaré (`names.sort()` → `names`). Deux
     rougissent par une erreur levée et non par assertion : `code === "ENOENT"` → `"EACCES"` (le chargement du module lève) et
     `COMMITTED_TABLES` non vide (le lecteur lève dans T-1, le test des épingles rougit par assertion).
-- **Limite nommée** : l'extracteur lit les spécificateurs entre guillemets doubles, comme `servedModules` ; un spécificateur calculé
-  (`import(n)`) ou entre apostrophes n'est pas vu. `apps/harness/src` n'a aucun spécificateur entre apostrophes (`git grep` sans
-  résultat), mais aucune règle de lint ne l'impose.
+- **Guillemets simples** : fermé au §7 ; l'extracteur lit les deux guillemets, et `servedModules` aussi.
 - **Mesures à `eb42ae4d`** : red-proof `--base 1cddd2e5 --draw 4 --seed 1007` : sortie 0, quatre `new-module`, quatre tueurs tués,
   dont les deux neufs (`:11` et `:50`) ; `RED-PROOF.json` au §3. Suite du harnais et tests des surfaces servies : 352 tests, 352
   verts. `tsc --noEmit` 0 ; `eslint .` 0 ; `gate:vocab` 0 (350 fichiers) ; `lang:gate` 0 ; `lint:ratchet` 69/69 ;
   `export:check` 0 ; winlint `--base 1cddd2e5` : 4 fichiers, aucun risque Windows. R-25 (forme de la CI) : 3 fichiers, 198
   insertions.
+
+## 7. Fermeture de la limite des guillemets simples (MONARK `fbadb0d`), 2026-10-07
+
+- **Provenance** : worker `claude-opus-5-5`, effort: max ; horloge lue (`date -u`) à 12:51 UTC au début. Même worktree détaché du
+  scratchpad (`wt-a1i-g2`, à `ea4a2679`) ; `node_modules` lié en dur (`cp -al`), retiré à la fin. Node 24.21.0, Linux. Commit
+  `7631cf81`, ancres à cette tête.
+- **Décision suivie** : MONARK ferme la limite que le §6 nommait (« elle coûte un caractère de classe »), pour l'extracteur de ce lot
+  et pour `servedModules` ; RECHERCHES met les deux dans a1, qui a la place (246 sur 547 avant ce §).
+- **Ce qui change** :
+  - extracteur partagé, neuf : `apps/harness/test/helpers/import-specifiers.ts:6`, `/(?:\bfrom|\bimport)\s*\(?\s*["']([^"']+)["']/g`,
+    la regex de la décision. `importsOf` le lit (`test/policy-committed.test.ts:22-23`) : T-1, le test des épingles et, à #236, le
+    compte du spécificateur de `policy-classes.ts` lisent donc les deux guillemets ;
+  - `servedModules` (`apps/harness/test/kata-path.test.ts:325`, import l.23) suit les spécificateurs relatifs (`/^\.{1,2}\//`) de ce
+    même extracteur, au lieu de sa regex à guillemets doubles. **`kata-path.test.ts` n'a aucun lien avec les fichiers de ce lot** : il
+    est changé ici sur la décision, et ses tests ne bougent pas ;
+  - le cas : test neuf `import_specifiers_are_read_in_both_quotes` (`test/policy-committed.test.ts:107-111`), avec son tueur, le
+    retour aux guillemets doubles dans l'extracteur (module d'appui sous `test/`, importé statiquement : MUTANTS-TEST-SUPPORT-1).
+- **Pourquoi le cas n'est pas dans `kata-path.test.ts`** : un cas ajouté au corps d'un de ses tests y est vert à la base, et red-proof
+  le refuse. Mesuré, sonde non commitée avec le cas dans `kata_path_is_served` : « refused … kata_path_is_served -- green at base: a
+  self-confirming test », sortie 1 (`RED-PROOF.json` sha256 `b3e95d8cb09aa916…`). Le cas va dans le fichier neuf, `new-module` à la
+  base ; les deux lecteurs partagent l'extracteur qu'il tient.
+- **Rouge d'abord et mutants** (règles du §6) :
+  - avant (extracteurs à guillemets doubles, arbre de #236 à `15642c0a`), tous survivent : dans le lecteur, `import './tools/gate.ts';`,
+    `import { guardKataTable } from './policy-guard.ts';`, son ré-export, `void import('./policy-guard.ts');`, un import sur trois
+    lignes, `import '../../../scripts/registry-root.mjs';` ; dans les épingles, `import`, ré-export et `import()` de
+    `./policy-classes.ts` ; dans `kata-path.ts`, servi, `import './policy-guard.ts';`, `import { guardKataRow } from
+    './policy-guard.ts';`, son ré-export, `void import('./policy-guard.ts');`, un import sur trois lignes. Les témoins à guillemets
+    doubles sont tués ;
+  - après (`7631cf81`) : les 14 tués, tous par assertion (T-1, le test des épingles, `kata_path_is_served`), et les deux témoins
+    aussi ; le tueur du cas rend le cas seul rouge ;
+  - pas de faux positif : sur les 28 fichiers de `apps/harness/src`, l'ancien et le nouvel extracteur rendent les mêmes
+    spécificateurs, et le graphe servi est le même (22 modules, les mêmes 5 `policy-*`), à `7631cf81` comme à `15642c0a`.
+- **Observation, hors de la demande** : quatre autres marches du graphe servi gardent la regex à guillemets doubles, dans le corps de
+  leur test : `apps/harness/test/gate-kata-served.test.ts:216`, `policy-guard.test.ts:175`, `policy-table-file.test.ts:115`,
+  `policy-wave2.test.ts:187`. Les changer ici les ferait juger, vertes à la base : red-proof les refuserait, comme la sonde. #237 touche
+  aussi `gate-kata-served.test.ts` et `policy-table-file.test.ts`. À la décision de MONARK.
+- **Mesures à `7631cf81`** : red-proof `--base 1cddd2e5 --draw 5 --seed 1007` : sortie 0, cinq `new-module`, 18 inchangés (ceux de
+  `kata-path.test.ts`), cinq tueurs tués, dont celui de l'extracteur ; `RED-PROOF.json` au §3. Suite du harnais et tests des surfaces
+  servies : 353 sur 353. `tsc --noEmit` 0 ; `eslint .` 0 ; `gate:vocab` 0 ; `lang:gate` 0 ; `lint:ratchet` 69/69 ;
+  `export:check` 0 ; winlint `--base 1cddd2e5` : 6 fichiers, aucun risque Windows. `verifie-ancres` (`--ref ea4a2679`) : 1 524
+  ancrés, 0 perdu. R-25 (forme de la CI) : 215.

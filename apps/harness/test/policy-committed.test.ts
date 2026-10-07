@@ -15,12 +15,12 @@ import { COMMITTED_FILES, readCommittedTables, readTablesDir, TABLES_DIR, type C
 import * as PINS from "../src/policy-committed-pins.ts";
 import { projectCell, readRegistry, type ProjectionInputs } from "../src/policy-projection.ts";
 import { buildPolicyTable } from "../src/policy-table-file.ts";
+import { importSpecifiers } from "./helpers/import-specifiers.ts";
 import { syntheticRegistry } from "./helpers/synthetic-registry.ts";
 
 const SRC = join(dirname(fileURLToPath(import.meta.url)), "..", "src");
-/** The module specifiers of a source file, read as servedModules (kata-path.test.ts) reads them: import, side-effect import,
- *  re-export, an import over several lines, import(). */
-const importsOf = (file: string): string[] => [...readFileSync(join(SRC, file), "utf8").matchAll(/(?:\bfrom|\bimport)\s*\(?\s*"([^"]+)"/g)].map((m) => m[1] as string);
+/** The module specifiers of a source file, in every form and quote that importSpecifiers reads (servedModules reads the same). */
+const importsOf = (file: string): string[] => importSpecifiers(readFileSync(join(SRC, file), "utf8"));
 const ENTRIES = kataClassEntries((c) => `class text of ${c}`);
 const SYN = syntheticRegistry();
 const INP: ProjectionInputs = {
@@ -127,4 +127,10 @@ test("committed_pins_start_empty_with_two_closed_held_lists", () => {
   assert.deepEqual([...(block ?? "").matchAll(/^export const (\w+)/gm)].map((m) => m[1]), ["COMMITTED_TABLES", "COMMITTED_REGISTRY"]);
   assert.deepEqual(importsOf("policy-committed-pins.ts"), []);
   assert.ok((block ?? "").trimEnd().endsWith("// END committed tables"));
+});
+
+// killer: apps/harness/test/helpers/import-specifiers.ts:6 CONST "[\"']([^\"']+)[\"']" -> "\"([^\"]+)\""
+test("import_specifiers_are_read_in_both_quotes", () => {
+  const text = ["import './a.ts';", "export { b } from '../b.ts';", "void import('./c.ts');", "import { readFileSync } from 'node:fs';", "import {", "  d,", '} from "./d.ts";', "const u = import.meta.url; // read from the tables folder"].join("\n");
+  assert.deepEqual(importSpecifiers(text), ["./a.ts", "../b.ts", "./c.ts", "node:fs", "./d.ts"]);
 });
