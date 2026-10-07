@@ -434,8 +434,8 @@ node scripts/retire-probe.mjs --api <url> --table spec/contract-1.1.0-tables-<YY
   `mention` `null` (l.10, l.44, l.56): T_a or T_b in it is refused, `instant_out_of_cycle`; a mention,
   `mention_out_of_cycle`. Write it as UTF-8 without a byte order mark: the report parses the file as read in UTF-8
   (l.65), and a BOM or UTF-16 is refused, `format_invalid`. Under Windows PowerShell 5.1, `>` writes UTF-16 and
-  `Out-File -Encoding utf8` writes a BOM; with the JSON in `$text`, write it with
-  `[System.IO.File]::WriteAllText("<instants.json>", $text, (New-Object System.Text.UTF8Encoding $false))`.
+  `Out-File -Encoding utf8` writes a BOM; with the JSON in `$text`, at the repository root, write it with
+  `[System.IO.File]::WriteAllText((Join-Path $PWD "<instants.json>"), $text, (New-Object System.Text.UTF8Encoding $false))`.
 - Run it:
 
 ```bash
