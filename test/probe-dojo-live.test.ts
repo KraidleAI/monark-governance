@@ -247,6 +247,13 @@ test("dojo_live_probe_refuses_a_report_off_its_closed_keys", async () => {
   assert.deepEqual(await refusedBy({ extra: null }), ["verifier_refused", 0, null, 1]);
 });
 
+// reddened by: a verifier exit 0 printing the JSON null read as a probe error, not as a refused report (the null guard of reportOk)
+// killer: scripts/probe-dojo-live.mjs:190 CONST "r !== null && " -> ""
+test("dojo_live_probe_refuses_a_null_report", async () => {
+  const out = await probeOn({ opts: { verifier: file("null.mjs", "process.stdout.write(\"null\\n\");\n") } });
+  assert.deepEqual([out.state.reason, out.state.verifier_exit, out.state.verifier_reason, out.exitCode], ["verifier_refused", 0, null, 1]);
+});
+
 // reddened by: a verifier stdout past MAX_LINE_BYTES read whole (the child's maxBuffer widened)
 // killer: scripts/probe-dojo-live.mjs:184 CONST "maxBuffer: VERIFY_BOUNDS.MAX_LINE_BYTES" -> "maxBuffer: 4 * VERIFY_BOUNDS.MAX_LINE_BYTES"
 test("dojo_live_probe_bounds_the_verifier_stdout", async () => {
