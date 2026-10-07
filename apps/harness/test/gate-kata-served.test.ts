@@ -383,6 +383,8 @@ test("kata_clause_refuses_duplicate_classes", () => {
 // at least 2 of each, it renders the committed state: it counts both sides, names exactly the held classes, in entry order whatever
 // the order of the held list, and takes no `For '...'` form. Out of that domain it throws, after the product check, one message per
 // case: a class neither pinned nor held, a class both, a name that is no kata class, fewer than 2 held classes, fewer than 2 pinned.
+// Two conditions broken at once throw the first in that order, with the whole message to its suffix. The defaults of line 222 and
+// the call of line 254 are pinned byte for byte.
 // killer: apps/harness/src/tools/gate.ts:239 CONST "committed.length === 0" -> "true"
 test("kata_clause_follows_the_committed_pins", () => {
   const render = (gate as Obj)["kataClause"] as Render;
@@ -405,9 +407,11 @@ test("kata_clause_follows_the_committed_pins", () => {
   refused(rest(["btc-dir-4h"]), ["btc-dir-4h"], /kata clause: fewer than 2 held classes: 1; /, "n < 2");
   refused(all, [], /kata clause: fewer than 2 held classes: 0; /, "n = 0, as when the digest floor is emptied after the release of the directions");
   refused(["btc-range-1h"], rest(["btc-range-1h"]), /kata clause: fewer than 2 pinned classes: 1; /, "m < 2");
+  refused([...bands, "btc-dir-15m", "btc-dir-1h"], dir, /^Error: kata clause: not a kata class: btc-dir-15m; the committed state is written for pinned and held classes that partition the kata classes, at least 2 of each$/, "two conditions: the first in order throws, the whole message to its suffix");
   assert.throws(() => render(some.slice(1), undefined, bands, dir), /not the product/, "the product check comes first");
-  const line222 = readFileSync(join(SRC, "tools/gate.ts"), "utf8").split("\n")[221] ?? "";
+  const lines = readFileSync(join(SRC, "tools/gate.ts"), "utf8").split("\n"), line222 = lines[221] ?? "";
   assert.ok(line222.endsWith(", committed: readonly string[] = Object.keys(COMMITTED_TABLES), held: readonly string[] = [...FLOOR_HELD_CLASSES, ...ORDER_HELD_CLASSES]): string {"), "line 222: by default, the served pins and both held lists, as line 1042 reads them");
+  assert.equal(lines[253], "    `${kataClause()} ` +", "line 254: the served description calls the clause with its defaults, so it follows the served pins");
 });
 
 // Test (block D, lot D-3; G2 N-3 of D-2): the cycle gate.ts <-> kata-path.ts loads cold from either side. Each module is
