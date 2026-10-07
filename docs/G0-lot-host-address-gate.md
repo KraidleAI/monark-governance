@@ -82,15 +82,23 @@ La porte refuse toute adresse hors de la liste. Hors des 35, l'arbre en porte en
   test, pour que red-proof juge les tests (module neuf à la base) et tire leurs tueurs.
 - `test/no-host-address.test.ts`, test racine : il tourne en CI dans `g3-verification` (`npm run test:main`, glob `test/*.test.ts`).
 - Ni le script ni le test ne sont exportés (`WHITELIST_FILES` de `scripts/export-public.mjs` ; le `test/` racine n'est jamais exporté).
-- **Lecture** : la liste des fichiers vient de l'index (`git ls-files -z`), leurs octets de l'arbre de travail (un fichier suivi que
-  l'arbre de travail n'a plus est sauté). Chaque fichier suivi sans octet NUL est lu comme texte, quelle que soit son extension
-  (`deploy/*.service` et les Caddyfile en sont). Un fichier qui porte un octet NUL n'est pas lu, et doit être un binaire que
-  `.gitattributes` déclare (`git check-attr binary`, sans fichier d'attributs global) : sinon le verdict le nomme (`undeclared`, chemin
-  masqué) et le test de l'arbre rougit. Le chemin de chaque fichier suivi est jugé aussi (ligne 0), et un littéral d'un chemin est
-  masqué dans la sortie, chaque suite hex qu'il touche comprise.
-- **Littéral** : chaque ligne, et chaque chemin, est lue telle qu'écrite puis dans une copie où chaque `%XX` est décodé par un simple
-  remplacement (`decodeURIComponent` lève sur un `%` isolé) ; un littéral que seule la copie montre est rapporté à sa colonne dans la
-  ligne écrite, jamais deux fois.
+- **Lecture** : la liste des fichiers vient de l'index (`git ls-files -z`), leurs octets de l'arbre de travail, lus par `lstat` (un
+  fichier suivi que l'arbre de travail n'a plus est sauté). Chaque fichier suivi sans octet NUL est lu comme texte, quelle que soit son
+  extension (`deploy/*.service` et les Caddyfile en sont). Un lien symbolique est jugé par son texte (`readlink`, comme une ligne 1),
+  jamais suivi : un lien pendant est lu, un fichier hors de l'arbre qu'un lien nomme ne l'est pas ; sous Windows avec
+  `core.symlinks=false`, git extrait le lien comme un texte de sa cible, lu de même. Un gitlink (le dossier d'un sous-module extrait),
+  ou tout chemin qui n'est ni un fichier ni un lien, n'est jugé que par son chemin, sans lever. Un fichier qui porte un octet NUL n'est
+  pas lu, et doit être un binaire que `.gitattributes` déclare (`git check-attr binary`, sans fichier d'attributs global) : sinon le
+  verdict le nomme (`undeclared`, chemin masqué) et le test de l'arbre rougit. Le chemin de chaque fichier suivi est jugé aussi
+  (ligne 0), et un littéral d'un chemin est masqué dans la sortie : chaque suite hex qu'il touche là où il est écrit, échappements
+  compris, et partout où son texte revient, chaque caractère écrit ou échappé (`%XX`, un niveau, l'une ou l'autre casse).
+- **Littéral** : chaque ligne, et chaque chemin, est lue telle qu'écrite puis dans une copie où chaque `%XX`, en majuscules ou en
+  minuscules, est décodé par un simple remplacement (`decodeURIComponent` lève sur un `%` isolé) ; un littéral que seule la copie
+  montre est rapporté à sa colonne dans la ligne écrite. Le même littéral à la même colonne n'est jamais rapporté deux fois. Mais quand
+  les chiffres hex d'un échappement, ou le caractère qu'il décode, se collent à un littéral, chaque passe lit le sien et les deux se
+  chevauchent : une adresse écrite donne alors deux occurrences (suivie de `%35` : l'adresse, et l'adresse au dernier octet allongé
+  d'un chiffre, en même colonne), chacune masquée, rouge de toute façon. Les deux sont gardées : n'en garder qu'une ferait passer une
+  ligne dont une lecture est exemptée et l'autre non.
   - IPv4 : quatre octets décimaux (`net.isIPv4`), bornés (avant : ni lettre, ni chiffre, ni `_`, ni `.` ; après : ni lettre, ni
     chiffre, ni `_`, ni `.chiffre`) ;
   - IPv6 : suite maximale de chiffres hexadécimaux, de `:` et de `.` qui porte au moins deux `:` ; un mot collé à un `::` n'en est pas
@@ -100,14 +108,16 @@ La porte refuse toute adresse hors de la liste. Hors des 35, l'arbre en porte en
     de points qui ne la termine pas : 1,3 s pour 40 000 points) ; une boucle les ôte. Mesuré sur neuf formes pathologiques à 40 000
     et 80 000 caractères (points dans ou en fin de suite, deux-points, hex et deux-points, chiffres hex, chiffres pointés,
     échappements, deux-points échappés, étiquettes) : le temps double quand la taille double, 4 ms au plus à 40 000.
-- **Portée** : la porte lit les littéraux écrits sous leur forme décimale pointée ou hex canonique, bornés comme dit, et un niveau
-  d'échappement `%XX`. Elle ne lit pas : un octet à zéro de tête (`net.isIPv4` le refuse) ; un littéral collé à une lettre, un chiffre
-  ou un `_` d'un côté ou de l'autre, ou précédé d'un point (l'italique `_…_` du Markdown compris) ; une IPv6 pleine (huit groupes)
-  derrière une étiquette en lettres hex (`cafe:`), ou suivie d'une lettre (`.txt` compris) ; un littéral coupé par un saut de ligne ;
-  les autres encodages (pourcent double, entités HTML, base64 et URL `data:`, échappements JSON `\u`, entier, hex, octal, noms tirés
-  de l'adresse comme `ip-a-b-c-d`, caractères de largeur nulle ou pleine chasse). Sonde de 28 formes construites à l'exécution dans la
-  plage de banc d'essai : toutes comme dit ici. Les zéros de tête restent hors de la porte : les vecteurs SSRF octaux du bouclage de
-  l'arbre demanderaient des entrées, sans gain pour nos hôtes.
+- **Portée** : la porte lit les littéraux écrits sous leur forme décimale pointée ou hexadécimale (IPv6 compressée ou pleine, l'une
+  ou l'autre casse, zéros de tête dans un groupe compris), bornés comme dit, un niveau d'échappement `%XX`, et le texte d'un lien.
+  Elle ne lit pas : un octet à zéro de tête (`net.isIPv4` le refuse) ; un littéral collé à une lettre, un chiffre ou un `_` d'un côté
+  ou de l'autre, ou précédé d'un point (l'italique `_…_` du Markdown compris) ; une IPv6 pleine (huit groupes) derrière une étiquette
+  en lettres hex (`cafe:`), ou suivie d'une lettre (`.txt` compris) ; un littéral coupé par un saut de ligne ; les autres encodages
+  (pourcent double, entités HTML, base64 et URL `data:`, échappements JSON `\u`, entier, hex, octal, noms tirés de l'adresse comme
+  `ip-a-b-c-d`, caractères de largeur nulle ou pleine chasse) ; la cible d'un lien ; les fichiers d'un sous-module, ceux d'un autre
+  dépôt. Sonde de 28 formes construites à l'exécution dans la plage de banc d'essai, au premier pli : toutes comme dit ici. Les zéros
+  de tête restent hors de la porte : les vecteurs SSRF octaux du bouclage de l'arbre demanderaient des entrées, sans gain pour nos
+  hôtes.
 - **Liste close d'exceptions, chacune avec sa raison** :
   - (a) **plages**, par `BlockList` de Node, qui couvre toute graphie (IPv4-mapped, forme longue, mesuré sous Node 24) :
     - bouclage : 127.0.0.0/8 et `::1` ;
@@ -224,6 +234,61 @@ les runbooks (`c8168d03`) et cette note.
   CI) ; contenu : 0.
 - **Non vérifié ici** : Windows (MONARK rejoue à la fusion) : `core.attributesFile=/dev/null` sous Git for Windows, les noms de
   fichiers à `%` des fixtures, la borne de 250 ms.
+
+## 8. Pli du G2 delta (verdict CORRECTIONS, cinq constats m)
+
+Pièce : `recherches:coordination/pieces/2026-10-07-g2-recherches/G2-243-delta.json` (tête lue `fb9bad40`). Worker
+`claude-opus-5-5`, effort max, worktree neuf détaché du scratchpad ; `git add` par chemins ; poussé sans force. Le tronc n'a pas
+bougé (`5437cd0d`, base de fusion de la tête) : pas de fusion. Les tests rouges seuls (`e19f2e6d`), la correction (`ddc28160`),
+le runbook (`f69e6aa3`) et cette note.
+
+- **m-6, masque des chemins** : `hide()` marque, pour chaque littéral d'un chemin, l'empan où il est écrit et chaque récurrence de
+  son texte, chaque caractère écrit ou échappé (`%XX`, un niveau, l'une ou l'autre casse) ; la passe des suites hex masque ces
+  empans. Une récurrence échappée et collée à un mot, qu'aucune passe ne lit comme littéral, n'imprime plus les chiffres de
+  l'adresse, que le littéral soit lu dans la copie décodée ou tel qu'écrit. Les chemins de `undeclared` passent par le même
+  `hide()`.
+- **m-7, double rapport** : §3 « Littéral » dit le vrai comportement (jamais deux fois le même littéral à la même colonne ; deux
+  lectures qui se chevauchent, deux occurrences masquées). Épinglé : une adresse suivie de `%35` donne deux occurrences en
+  colonne 1 ; le mutant qui écarte une lecture de la copie chevauchant une lecture brute meurt. Rien n'est dédoublonné, à dessein.
+- **m-8, échappements en minuscules** : `h%5b` devant une IPv6, et des points `%2e` dans un chemin ; `ESCAPE` réduit aux hex
+  majuscules meurt.
+- **m-9, RUNBOOK-vitrine** l.42 (acte 1 de T0), en place, en texte simple hors des spans de code : avant cette commande par le nom,
+  la clé d'hôte de `monarkgate.tech` copiée sous ce nom une fois, RUNBOOK-harness §0 (l.23, qui renvoie à RUNBOOK-dojo §15 (0)).
+  `srf_runbook_vitrine_t0_order` ne lit que les spans, inchangés.
+- **m-10, liens et gitlinks**, plié ici, la taille le permettant (496 lignes, ci-dessous) : `scan()` lit chaque chemin par
+  `lstat` ; un lien est jugé par son texte, jamais suivi ; un gitlink, ou tout chemin qui n'est ni un fichier ni un lien, n'est jugé
+  que par son chemin, sans lever. §3 « Lecture » et « Portée » le disent. Le test bâtit un lien pendant dont le texte porte une
+  adresse, un lien vers un fichier hors de l'arbre qui en porte une, un lien interne et un gitlink à dossier ; sous win32, la fixture
+  écrit un texte de la cible, comme git avec `core.symlinks=false`.
+- **Rouge d'abord** : au commit `e19f2e6d`, le script de `fb9bad40`, 2 tests rouges, tous deux par `ERR_ASSERTION` :
+  `address_literals_mask_a_path_wherever_its_address_recurs_escaped` (les chemins imprimés avec les chiffres de l'adresse) et
+  `address_literals_judge_a_link_by_its_text_never_followed_and_a_gitlink_by_its_path` (le fichier hors de l'arbre lu, le lien
+  pendant sauté) ; les 10 autres verts. `every_killer_line_is_readable` y rougit aussi : les tueurs neufs visent les lignes de la
+  correction. À `ddc28160` : 12/12.
+- **Tueurs** : un au-dessus de chaque test, et trois dans les corps neufs, chacun au-dessus de son cas : 15, tous ANCRE
+  (`verifie-ancres` : 15 sur le fichier touché, 100 depuis la base `eb1beb01`, 1 659 dans l'arbre ; 0 DERIVE, 0 PERDU). Neufs :
+  `:125 CONST` (l'alternative échappée ôtée de la récurrence) et `:150 CONST` (le lien suivi) ; dans les corps, `:74 CONST`
+  (`ESCAPE` aux hex majuscules), `:106 CONST` (une lecture de la copie qui chevauche une lecture brute, écartée) et `:149 SDL` (le
+  gitlink lu comme un fichier). Renumérotés : `:134 CONST` (ex-`:131`), `:152 CONST` (ex-`:145`), `:167 ROR` (ex-`:160`).
+  Chacun tiré seul, fichier rendu et sha256 vérifié : 15 tués par assertion, chacun au cas qu'il précède.
+- **Mutants à la main** : 15 sur les lignes neuves, chacun seul, fichier rendu et sha256 vérifié. 12 tués : 11 par assertion, 1 par
+  l'`EINVAL` d'un `readlink` sur un fichier (branches du lien et du fichier inversées). 3 survivent : sans le marquage de l'empan
+  lui-même, la récurrence le marque aussi (équivalent sur tous les vecteurs ; gardé comme garde) ; un point non échappé dans la regex
+  de récurrence (masque seulement plus large) ; ne sauter que les dossiers (équivalent hors d'un FIFO ou d'une socket à un chemin
+  suivi, qu'une extraction ne crée jamais ; non testable de façon portable). Un vecteur du test neuf (deux littéraux dans un chemin)
+  tue le mutant qui ne masquait que le premier.
+- **red-proof** `--base fb9bad40 --gel ddc28160 --draw 2 --seed 1` : 2 jugés, 2 F2P, 10 inchangés, aucun refus ; 2 tueurs tirés
+  (`:125`, `:150`), 2 tués ; `RED-PROOF.json` sha256 `43d2c939…`, digest du gel `b650cd8c…`.
+- **Mesures** (gel `ddc28160`, Node v24.21.0, Linux) : `tsc --noEmit` 0 ; eslint du test touché : 0 erreur ; `gate:vocab`,
+  `lang:gate`, `lint:ratchet` (69/69) et `export:check` verts ; winlint : 49 fichiers contre le tronc, 3 contre `fb9bad40`, aucun
+  risque Windows ; tests lecteurs de RUNBOOK-vitrine (`surfaces-1-1-0`, `site-send-guard`) : 17/17. `npm run test:main` (à
+  `f69e6aa3`) : 2 937 tests, 2 915 verts, 22 sautés (préexistants), 0 rouge, 550 s ; test 42 (l'export public et son
+  `npm ci && npm run ci` imbriqué) : vert, 275 s. Porte sur l'arbre : 0 occurrence, 0 entrée périmée, 0 non déclaré, 2 408
+  fichiers lus, 62 paires dans 27 fichiers, toutes trouvées.
+- **Taille, forme de la CI** : 12 fichiers comptés, +448 −48, soit **496 lignes**, sous 547 (borne du lot) et sous 1 205 (borne de
+  la CI) ; contenu : 0.
+- **Non vérifié ici** : Windows (MONARK rejoue à la fusion) : la branche win32 de la fixture des liens, `lstat` et `readlink` d'un
+  lien sous Windows, et les points de §7.
 
 ## Points pour MONARK
 
