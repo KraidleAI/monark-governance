@@ -8,13 +8,13 @@ import { after, before, test } from "node:test";
 import assert from "node:assert/strict";
 import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { createServer, type IncomingMessage, type ServerResponse } from "node:http";
-import type { AddressInfo } from "node:net";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { canonicalJson, type CanonicalValue, type PolicyTable, type Prediction } from "@monark/contracts";
 import { runGate, SERVED_POLICY_TABLES, toolErrorCode, type HarnessParams } from "../apps/harness/src/tools/gate.ts";
 import { handleJsonMirror } from "../apps/harness/src/http.ts";
 import { isJsonMirrorHost } from "../apps/harness/src/server.ts";
+import { listen as bindLoopback } from "./helpers/loopback.ts";
 import { policyTableSha256 } from "../apps/harness/src/policy-table-file.ts";
 
 type Probe = typeof import("../scripts/retire-probe.mjs");
@@ -63,7 +63,7 @@ async function answer(req: IncomingMessage, body: Buffer, res: ServerResponse): 
   send(mode === "status500" ? 500 : r.status, JSON.stringify(out));
 }
 const server = createServer((req, res) => { const chunks: Buffer[] = []; req.on("data", (c: Buffer) => { chunks.push(c); }).on("end", () => { void answer(req, Buffer.concat(chunks), res); }); });
-before(async () => { await new Promise<void>((r) => { server.listen(0, "127.0.0.1", r); }); listen.url = `http://127.0.0.1:${String((server.address() as AddressInfo).port)}`; });
+before(async () => { listen.url = `http://127.0.0.1:${String(await bindLoopback(server))}`; }); // a drawn port on 127.0.0.1, test/helpers/loopback.ts
 after(() => { server.closeAllConnections(); server.close(); rmSync(TMP, { recursive: true, force: true, maxRetries: 3 }); });
 const tablePath = (name: string, bytes: Buffer): string => { const f = join(TMP, name); writeFileSync(f, bytes); return f; };
 
