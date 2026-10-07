@@ -134,7 +134,7 @@ export function contentProblems(out, kind, bytes, release, carried = false) {
   let text;
   try { text = new TextDecoder("utf-8", { fatal: true }).decode(bytes); } catch { return [{ code: "not_text", detail: `${out}: not UTF-8` }]; }
   if (text.includes("\0")) return [{ code: "not_text", detail: `${out}: a NUL byte` }];
-  const p = vocabularyHits(text).map((h) => ({ code: "vocabulary", detail: `${out}:${h.line} [${h.rule}] ${h.word}` }));
+  const p = vocabularyHits(venueMaskedText(text, out, kind)).map((h) => ({ code: "vocabulary", detail: `${out}:${h.line} [${h.rule}] ${h.word}` }));
   if (text.includes("\r")) p.push({ code: "crlf", detail: `${out}: a CR byte (LF line ends only)` });
   const top = out.split("/")[0], parsed = (() => { try { return JSON.parse(text); } catch { return undefined; } })();
   if (/^contract-/i.test(top) && out.includes("/") && !versionDir(top)) p.push({ code: "version_dir_invalid", detail: `${out}: ${top} is not contract-<x.y.z>[-tables-<YYYY-MM-DD>]` });
@@ -144,7 +144,7 @@ export function contentProblems(out, kind, bytes, release, carried = false) {
   if (kind === "text") return p;
   let v;
   try { v = JSON.parse(text); } catch (e) { return [...p, { code: "json_invalid", detail: `${out}: ${e.message}` }]; }
-  p.push(...vocabularyHits(strings(v).join("\n")).map((h) => ({ code: "vocabulary", detail: `${out}: a decoded string [${h.rule}] ${h.word}` })));
+  p.push(...vocabularyHits(strings(venueMasked(v, out, kind).value).join("\n")).map((h) => ({ code: "vocabulary", detail: `${out}: a decoded string [${h.rule}] ${h.word}` })));
   if (kind === "schema" && !(isObj(v) && typeof v.$schema === "string")) p.push({ code: "schema_invalid", detail: `${out}: no $schema` });
   if (kind !== "policy-table") return p;
   const at = /^(?:([^/]+)\/)?policy\/([^/]+)\.json$/.exec(out); // a new table lies under the release's own directory
@@ -323,3 +323,40 @@ function retireProblems(files) {
 // SHORT-DIGEST-INVERSION-1: the digest rule of tableRowProblems, shared with the import guard (guardKataRow). Imported last, not at the
 // top, so that the import moves no line (killers pin them; the retireProblems precedent above); imports are hoisted.
 import { DIGEST_FLOOR_BITS, digestProblems } from "../apps/harness/src/policy-digest-floor.ts";
+
+// VOCAB-VENUE-FIELDS-1 (RECHERCHES, 76ffa25): a row of a table carries the venue of its cell twice outside its key, in the column venue and
+// in the third segment of source.trial_id (<taskClass>|<kataId>|<venue>|<symbol>|<horizon>|<attempt>, policy-projection.ts). Both are
+// masked like the venue segment of a key, but BOUND TO ONE PINNED VALUE, never exempted by field name: only in a row of a table of a
+// policy-table file or of the vectors file (VECTORS), and only when the value is exactly the pinned venue of wave 1, the one venue of all
+// 280 cells of the registry 811fcd57. Another value in these fields, the name in any other field or in free text stays refused. The
+// decoded pass masks a copy of the parsed value; the byte pass masks the same members in the text only when it finds exactly as many as
+// the parsed value holds (an escaped, repeated or stray member masks nothing). Function declarations, hoisted, kept last (retireProblems).
+
+/** waveVenue() -> the pin: the venue of every cell of the wave 1 registry, by that registry's sha256 and size. */
+export function waveVenue() {
+  return Object.freeze({ venue: "binance", registry_sha256: "811fcd574e182f33e24e19795b18139adb1917cf392a02810705c6adda1dd9cb", cells: 280 });
+}
+
+/** venueMasked(v, out, kind) -> {value, venues, trials}: a copy of v with the pinned venue masked in the two fields of each row of the
+ *  tables it may hold (none outside a policy-table file and the vectors file), and the number of fields masked. */
+export function venueMasked(v, out, kind) {
+  const value = structuredClone(v), pin = waveVenue().venue, r = { value, venues: 0, trials: 0 };
+  if (kind !== "policy-table" && !(kind === "json" && VECTORS.test(out))) return r;
+  for (const { table } of tablesIn(value)) for (const row of table.rows.filter(isObj)) {
+    if (row.venue === pin) { row.venue = "KEY"; r.venues++; }
+    const t = isObj(row.source) && typeof row.source.trial_id === "string" ? row.source.trial_id.split("|") : [];
+    if (t.length === 6 && t[2] === pin) { row.source.trial_id = [...t.slice(0, 2), "KEY", ...t.slice(3)].join("|"); r.trials++; }
+  }
+  return r;
+}
+
+/** venueMaskedText(text, out, kind) -> the text with the members masked by venueMasked replaced, when the text holds exactly as many
+ *  members "venue":"<pin>" and "trial_id":"…|…|<pin>|…|…|…" as the parsed value masks; else the text unchanged. */
+export function venueMaskedText(text, out, kind) {
+  let v;
+  try { v = JSON.parse(text); } catch { return text; }
+  const m = venueMasked(v, out, kind), pin = waveVenue().venue, seg = '[^"\\|]*';
+  const venue = new RegExp(`"venue"(\\s*):(\\s*)"${pin}"`, "g"), trial = new RegExp(`"trial_id"(\\s*):(\\s*)"(${seg}\\|${seg})\\|${pin}\\|(${seg}\\|${seg}\\|${seg})"`, "g");
+  if ((m.venues === 0 && m.trials === 0) || (text.match(venue) ?? []).length !== m.venues || (text.match(trial) ?? []).length !== m.trials) return text;
+  return text.replace(venue, '"venue"$1:$2"KEY"').replace(trial, '"trial_id"$1:$2"$3|KEY|$4"');
+}
