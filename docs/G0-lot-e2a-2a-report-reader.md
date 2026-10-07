@@ -124,20 +124,20 @@ a1) porte trois contrôles sur le rapport réel ; la G2 de RECHERCHES les relit.
 
 ## 6. Preuves
 
-- **red-proof**, tête du lot (`d33e40df`) contre la tête de 1f : `node scripts/red-proof.mjs --base
+- **red-proof**, tête du lot au pli N-6 (`a17d11d5`) contre la tête de 1f : `node scripts/red-proof.mjs --base
   b894a587048f162e77d16e0936446a6885c1c966 --gel HEAD --repo <worktree> --out <dossier> --draw 4 --seed 1007`, Node 24.21.0, Linux :
   sortie 0, « red-proof OK: 4 judged, 0 unchanged, 4 killer(s) drawn » ; quatre F2P (rouges à la base par l'assertion d'import, verts au
-  gel), quatre tueurs tués ; `RED-PROOF.json` sha256 `91fb19eaed2b5425777dce400b76242340d6d8750fe44c6230736bc0a71b8772`.
+  gel), quatre tueurs tués ; `RED-PROOF.json` sha256 `16c44a482797897874a2d4dda21f3afe02eddfdcc464c2c65fbd8c4cf3d30776` (à `d33e40df` : `91fb19ea…`).
 - **Voisins** (Node 24.21.0) : `recompute-report`, `verifiers-list`, `kata-recalc`, `spec-*`, `byte-guard`, `ci-gates`,
-  `export-public`, `lang-gate*`, `short-digest-floor`, `policy-guard` : 171 tests, 170 verts ; le seul rouge est le témoin hérité de 1f.
-  Suite `test:main` complète (Linux) : 2 844 tests, 2 821 verts, 22 sautés, un rouge, le même témoin.
+  `export-public`, `lang-gate*`, `short-digest-floor`, `policy-guard` : 172 tests, 171 verts au pli N-6 ; le seul rouge est le témoin hérité de 1f.
+  Suite `test:main` complète (Linux, à `d33e40df` ; au pli, la CI) : 2 844 tests, 2 821 verts, 22 sautés, un rouge, le même témoin.
 - `tsc --noEmit` 0 ; `eslint` des deux fichiers TypeScript 0 ; `lang:gate` 0 (un « é » de test, premier jet, écrit `\u2603`) ;
   `gate:vocab` 0 (349 fichiers) ; `lint:ratchet` 69/69 ; `export:check` 0 ; winlint (atelier de RECHERCHES) `--base b894a587` :
   4 fichiers, aucun risque Windows.
 
 ## 7. Taille
 
-- R-25, forme de la CI (`git diff --shortstat b894a587...HEAD`, `docs/**/*.md` exclus) : **2 fichiers, 215 insertions**, soit 215
+- R-25, forme de la CI (`git diff --shortstat b894a587...HEAD`, `docs/**/*.md` exclus) : **2 fichiers, 217 insertions**, soit 217
   (borne de lot 547 ; attendu au G0 d'E-2a : ~260). Un seul lot, sans coupe.
 
 ## 8. Ce qui n'est pas fait
