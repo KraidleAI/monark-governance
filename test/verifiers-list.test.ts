@@ -1,7 +1,8 @@
 // test/verifiers-list.test.ts -- lot 1f of VERIFIERS-LIST-F5A-1 (2026-10-07; G0 docs/G0-lot-verifiers-list-1f.md, and the chantier G0
-// docs/G0-lot-verifiers-list-f5a-1.md section 3.2 and part 1 as amended there): the pinned list of verifiers, its closed reader, its
-// lazy pinned read (Q-P3-7), the one identity rule, the tree digest of the listed tool, the date rule of a revocation and the run log of
-// the report writer, never published. Reads only; a child process and a throwaway copy of the module under the OS temporary directory.
+// docs/G0-lot-verifiers-list-f5a-1.md section 3.2 and part 1 as amended there): the pinned list of verifiers, its closed reader (closed
+// on the bytes too, and rendering frozen), its lazy pinned read (Q-P3-7), the one identity rule, the tree digest of the listed tool, the
+// date rule of a revocation and the run log of the report writer, ignored and untracked. Reads only; a child process and a throwaway copy
+// of the module under the OS temporary directory.
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { execFileSync, spawnSync } from "node:child_process";
@@ -10,6 +11,7 @@ import { copyFileSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSy
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
+import ts from "typescript";
 import { verifierIdentity } from "../apps/harness/src/policy-guard.ts";
 import { checkedVerifiers, identityOf, isListEntry, isPrefix, listEntries, pinnedVerifiers, readVerifiers, toolTreeSha256, validDate as listDate,
   VERIFIERS_SHA256, type ListEntry, type Verifier } from "../apps/harness/src/policy-verifiers.ts";
@@ -32,9 +34,9 @@ const toolEntry = (vs: readonly Verifier[]): ListEntry | undefined =>
   listEntries(vs).filter((e) => e.identity === "monark-kata-recalc" && !vs.some((r) => !isListEntry(r) && r.identity === e.identity && r.commit === e.commit)).at(-1);
 
 // reddened by: a byte of verifiers.json changed without its pin, a pin that is not the sha256 of the file, a non-canonical writing or a
-// final newline, or a pinned read that is not memoised (two calls, two arrays)
+// final newline, a pinned read that is not memoised (two calls, two arrays), or a list or an element that a caller can change (not frozen)
 // killer: apps/harness/src/policy-verifiers.ts:18 CONST "220e9025654dac553b62d6ae7aeb8c5247c59cc70947baf379a67674163f5ecb" -> "0000000000000000000000000000000000000000000000000000000000000000"
-test("verifier_list_is_the_pinned_canonical_bytes - the list file has the sha256 VERIFIERS_SHA256, is its own canonical writing with no final newline, and the pinned read is memoised", () => {
+test("verifier_list_is_the_pinned_canonical_bytes - the list file has the sha256 VERIFIERS_SHA256, is its own canonical writing with no final newline, and the pinned read is memoised and frozen", () => {
   const bytes = readFileSync(LIST), text = bytes.toString("utf8");
   assert.equal(sha256(bytes), VERIFIERS_SHA256, "the sha256 of apps/harness/data/verifiers.json is the pin");
   assert.equal(canonicalJson(JSON.parse(text)), text, "the canonical writing of the 1.1.0 draft, section 2");
@@ -43,12 +45,16 @@ test("verifier_list_is_the_pinned_canonical_bytes - the list file has the sha256
   assert.equal(pinnedVerifiers(), first, "memoised: the second call returns the same array");
   assert.deepEqual(first, readVerifiers(bytes), "the pinned read is the reader on the file's bytes");
   assert.ok(toolEntry(first) !== undefined, "the list holds a list entry of monark-kata-recalc that no revocation names");
+  assert.ok(Object.isFrozen(first) && first.every((v) => Object.isFrozen(v)), "the array and each of its elements frozen: one list for the whole process");
+  assert.throws(() => (first as Verifier[]).push({ ...first[0] } as Verifier), TypeError, "a push on the pinned list throws (strict mode)");
+  assert.throws(() => { (first[0] as { identity: string }).identity = "x"; }, TypeError, "a write in an element throws (strict mode)");
+  assert.deepEqual(pinnedVerifiers(), readVerifiers(bytes), "the pinned list is unchanged");
 });
 
 // reddened by: a departure of the two closed entry forms accepted (a key more or less, a mixed form, a revision or a capital in an
-// identity, a malformed commit, tree_sha256 or date, another tree or repository, a pair listed twice, a revocation before its entry or
-// twice), a refusal unnamed, or a revocation retained as an attesting entry
-// killer: apps/harness/src/policy-verifiers.ts:64 CONST "v.identity === identityOf(v.identity)" -> "true"
+// identity, a malformed commit, tree_sha256 or date: upper case, not hex, short, or not a string; another tree or repository, a pair
+// listed twice, a revocation before its entry or twice), a refusal unnamed, or a revocation retained as an attesting entry
+// killer: apps/harness/src/policy-verifiers.ts:67 CONST "v.identity === identityOf(v.identity)" -> "true"
 test("verifier_list_reader_refuses_each_departure - two closed forms, unique (identity, commit) list entries in append order, at most one revocation per entry and after it, each refusal named", () => {
   const revoke = (over: Record<string, unknown> = {}): Record<string, unknown> => ({ commit: C1, identity: "monark-kata-recalc", revoked: "2026-10-07", ...over });
   const refuses = (text: string, why: RegExp, what: string): void => assert.throws(() => readVerifiers(text), (e: unknown) => e instanceof Error && why.test(e.message), what);
@@ -69,9 +75,15 @@ test("verifier_list_reader_refuses_each_departure - two closed forms, unique (id
   refuses(listOf(entry({ identity: "a@b" })), /entry 0: identity is not an identity/, "a revision in the identity");
   refuses(listOf(entry({ identity: "" })), /entry 0: identity is not an identity/, "an empty identity");
   refuses(listOf(entry(), revoke({ identity: "Monark-Kata-Recalc" })), /entry 1: identity is not an identity/, "a capital in a revocation");
+  refuses(listOf(entry({ identity: 1 })), /entry 0: identity is not an identity/, "an identity that is not a string");
   refuses(listOf(entry({ commit: C1.toUpperCase().replace(/1/g, "A") })), /entry 0: commit is not 40/, "an upper-case commit");
+  refuses(listOf(entry({ commit: "g".repeat(40) })), /entry 0: commit is not 40/, "a commit that is not hex");
+  refuses(listOf(entry({ commit: [C1] })), /entry 0: commit is not 40/, "a commit that is not a string");
   refuses(listOf(entry({ commit: "1".repeat(39) })), /entry 0: commit is not 40/, "a short commit");
   refuses(listOf(entry({ tree_sha256: "a".repeat(63) })), /entry 0: tree_sha256 is not 64/, "a short tree_sha256");
+  refuses(listOf(entry({ tree_sha256: "A".repeat(64) })), /entry 0: tree_sha256 is not 64/, "an upper-case tree_sha256");
+  refuses(listOf(entry({ tree_sha256: "g".repeat(64) })), /entry 0: tree_sha256 is not 64/, "a tree_sha256 that is not hex");
+  refuses(listOf(entry({ tree_sha256: [T1] })), /entry 0: tree_sha256 is not 64/, "a tree_sha256 that is not a string");
   refuses(listOf(entry({ tree: "tools" })), /entry 0: tree is not tools\/kata-recalc/, "another tree");
   refuses(listOf(entry({ repository: "KraidleAI/other" })), /entry 0: repository is not/, "another repository");
   refuses(listOf(entry(), entry({ tree_sha256: "b".repeat(64) })), /entry 1: monark-kata-recalc@1{40} is listed twice/, "a pair listed twice");
@@ -82,10 +94,28 @@ test("verifier_list_reader_refuses_each_departure - two closed forms, unique (id
   refuses(listOf(entry(), revoke({ revoked: 20261007 })), /entry 1: revoked is not a real/, "a date that is not a string");
 });
 
+// reddened by: a writing of a well-formed list other than its canonical writing accepted (pretty-printed, a final LF, a CRLF, a BOM in
+// the bytes, a key twice at the top level or in an entry, keys in another order, an escaped lone surrogate), or such a refusal unnamed
+// killer: apps/harness/src/policy-verifiers.ts:84 SDL "fail(\"not the canonical writing of the list\")" -> ""
+test("verifier_list_reader_is_closed_on_the_bytes - the reader renders a text only if it is the canonical writing of what it renders; each other writing is refused, named", () => {
+  const text = listOf(entry()), canonical = /^MONARK verifier list: not the canonical writing of the list\.$/;
+  const refuses = (bytes: Uint8Array | string, why: RegExp, what: string): void => assert.throws(() => readVerifiers(bytes), (e: unknown) => e instanceof Error && why.test(e.message), what);
+  assert.deepEqual(readVerifiers(Buffer.from(text)), readVerifiers(text), "the canonical writing is read, as bytes or as a string");
+  refuses(JSON.stringify(JSON.parse(text), null, 2), canonical, "pretty-printed");
+  refuses(Buffer.from(`${text}\n`), canonical, "a final LF");
+  refuses(Buffer.from(text.replace(",", ",\r\n")), canonical, "a CRLF");
+  refuses(Buffer.concat([Buffer.from([0xef, 0xbb, 0xbf]), Buffer.from(text)]), /^MONARK verifier list: not UTF-8 JSON\.$/, "a BOM in the bytes: the decoder keeps it, so JSON.parse refuses it");
+  refuses(text.replace('"verifiers":', `"verifiers":[${JSON.stringify(entry({ commit: C2 }))}],"verifiers":`), canonical, "verifiers twice at the top level (the last wins in JSON.parse)");
+  refuses(text.replace('"commit":', `"commit":"${C2}","commit":`), canonical, "commit twice in an entry (the last wins in JSON.parse)");
+  refuses(text.replace(`"commit":"${C1}","identity":"monark-kata-recalc"`, `"identity":"monark-kata-recalc","commit":"${C1}"`), canonical, "the keys of an entry in another order");
+  refuses(JSON.stringify({ verifiers: [entry()], format: "monark-verifiers-v1" }), canonical, "the top-level keys in another order");
+  refuses(listOf(entry({ identity: "\ud800" })), canonical, "an escaped lone surrogate, an identity by the rule of identityOf");
+});
+
 // reddened by: the digest of the index under tools/kata-recalc/ other than the listed tree_sha256 (a byte of the tool changed or a file
 // added, removed or renamed without a new list entry), a digest rule other than manifestText, or a link, gitlink, executable or path
 // outside the tool accepted
-// killer: apps/harness/src/policy-verifiers.ts:108 CONST "p.slice(TOOL_ROOT.length + 1)" -> "p"
+// killer: apps/harness/src/policy-verifiers.ts:113 CONST "p.slice(TOOL_ROOT.length + 1)" -> "p"
 test("verifier_tool_tree_is_the_listed_tree - toolTreeSha256 of the index under tools/kata-recalc/ is the tree_sha256 of the tool's list entry, by the manifestText rule", () => {
   const index = gitOut(REPO, ["ls-files", "-s", "-z", "--", TOOL_ROOT]).split("\0").filter((l) => l !== "").map((l) => {
     const [, mode = "", object = "", path = ""] = /^(\d{6}) ([0-9a-f]+) \d\t(.+)$/s.exec(l) ?? [];
@@ -103,18 +133,22 @@ test("verifier_tool_tree_is_the_listed_tree - toolTreeSha256 of the index under 
 });
 
 // reddened by: identityOf and the rule of policy-guard.ts l.24 parting on a name (case, several "@", the empty string, a non-ASCII
-// letter), an expected identity other than the sample's, or the listed identity equal to the generator's
+// letter), an expected identity other than the sample's, a listed tool other than the identity report.py writes, or the listed identity
+// equal to the identity of the generator that report.py names (its TEXTS block, read as test/kata-recalc.test.ts reads it)
 // killer: apps/harness/src/policy-verifiers.ts:35 CONST "/[A-Z]/g" -> "/[A-Y]/g"
-test("verifier_identity_rule_is_the_guard_rule_and_not_the_generator - identityOf is the rule of verifierIdentity on a sample, gives the expected identities, and the listed tool is not the generator", () => {
+test("verifier_identity_rule_is_the_guard_rule_and_not_the_generator - identityOf is the rule of verifierIdentity on a sample, gives the expected identities, and the listed tool is the identity report.py writes, not the generator it names", () => {
   const expected: Record<string, string> = { "Monark-Kata-Recalc@1ea4f64": "monark-kata-recalc", "a@b@c": "a", "": "", "@x": "", "ZYX-Tool": "zyx-tool",
     "kata/bench/write-p2.ts@1ea4f64738625d918b9e177e1657207c330a5261": "kata/bench/write-p2.ts", "\u00c9tool-Z@1": "\u00c9tool-z", "\u00dftool": "\u00dftool", "\u01c5@Z": "\u01c5" };
   for (const [name, id] of Object.entries(expected)) {
     assert.equal(identityOf(name), id, `identityOf(${JSON.stringify(name)})`);
     assert.equal(verifierIdentity(name), identityOf(name), `the guard's rule on ${JSON.stringify(name)}`);
   }
+  const block = /^TEXTS = (\{\n[\s\S]*?\n\})$/m.exec(readFileSync(join(REPO, TOOL_ROOT, "report.py"), "utf8"));
+  const texts = JSON.parse(block?.[1] ?? "{}") as Record<string, unknown>, generator = texts.generator_identity;
+  assert.ok(typeof generator === "string" && generator !== "", "report.py names the generator's identity in its TEXTS block");
   const tool = toolEntry(pinnedVerifiers());
-  assert.equal(tool?.identity, "monark-kata-recalc", "the listed tool");
-  assert.notEqual(tool?.identity, identityOf("kata/bench/write-p2.ts@1ea4f64738625d918b9e177e1657207c330a5261"), "a verifier is never the generator (A-2)");
+  assert.equal(tool?.identity, texts.identity, "the listed tool is the identity that report.py writes in a report's verifier");
+  assert.notEqual(tool?.identity, identityOf(generator), "a verifier is never the generator that report.py names (A-2)");
 });
 
 // reddened by: a byte of the list that the gate of the spec repository refuses at the path of a dated folder's copy (a name of this
@@ -125,28 +159,32 @@ test("verifier_list_copy_passes_the_spec_gate - the list's bytes pass contentPro
 });
 
 // reddened by: the list read when the module loads (the public export carries apps/harness/src, not apps/harness/data), an altered or
-// missing list accepted, or a refusal that a second call forgets (memoised as a success only)
-// killer: apps/harness/src/policy-verifiers.ts:85 CONST "sha256(bytes) !== pin" -> "false"
-test("pinned_list_is_read_lazily_and_an_altered_list_stops_closed - loading the module reads nothing; a missing or altered list throws on every call; the pinned bytes pass", () => {
+// missing list accepted, a refusal that a second call forgets (memoised as a success only), or a failure memoised (a third call, once
+// the pinned bytes are written, still throws)
+// killer: apps/harness/src/policy-verifiers.ts:90 CONST "sha256(bytes) !== pin" -> "false"
+test("pinned_list_is_read_lazily_and_an_altered_list_stops_closed - loading the module reads nothing; a missing or altered list throws on every call, and a failure is not memoised; the pinned bytes pass", () => {
   const bytes = readFileSync(LIST), altered = Buffer.from(bytes.toString("utf8").replace("monark-kata-recalc", "monark-kata-recalx"));
   assert.throws(() => checkedVerifiers(altered), /the bytes have sha256 [0-9a-f]{64}, the pin is /, "an altered list, closed");
   assert.deepEqual(checkedVerifiers(bytes), readVerifiers(bytes));
-  const dir = mkdtempSync(join(tmpdir(), "verifiers-1f-"));
+  const dir = mkdtempSync(join(tmpdir(), "verifiers-1f-")), n = readVerifiers(bytes).length;
   try {
     mkdirSync(join(dir, "src")); mkdirSync(join(dir, "data"));
     copyFileSync(MODULE, join(dir, "src/policy-verifiers.ts"));
+    // two calls, then the pinned bytes written in place and a third call, in the same process
     const run = (): string => {
       const r = spawnSync(process.execPath, ["--input-type=module", "-e", `import * as m from ${JSON.stringify(pathToFileURL(join(dir, "src/policy-verifiers.ts")).href)};
-        const out = ["loaded"]; for (let i = 0; i < 2; i++) { try { out.push(m.pinnedVerifiers().length); } catch (e) { out.push(e.code ?? String(e.message).slice(0, 40)); } }
+        import { copyFileSync } from "node:fs";
+        const out = ["loaded"], call = () => { try { out.push(m.pinnedVerifiers().length); } catch (e) { out.push(e.code ?? String(e.message).slice(0, 40)); } };
+        call(); call(); copyFileSync(${JSON.stringify(LIST)}, ${JSON.stringify(join(dir, "data/verifiers.json"))}); call();
         console.log(out.join("|"));`], { encoding: "utf8" });
       assert.equal(r.status, 0, r.stderr);
       return r.stdout.trim();
     };
-    assert.equal(run(), "loaded|ENOENT|ENOENT", "no list: the module loads, each call throws");
+    assert.equal(run(), `loaded|ENOENT|ENOENT|${n}`, "no list: the module loads, each call throws, and the third call reads the pinned bytes");
     writeFileSync(join(dir, "data/verifiers.json"), altered);
-    assert.equal(run(), "loaded|MONARK verifier list: the bytes have sha|MONARK verifier list: the bytes have sha", "an altered list: each call throws");
+    assert.equal(run(), `loaded|MONARK verifier list: the bytes have sha|MONARK verifier list: the bytes have sha|${n}`, "an altered list: each call throws, then the pinned bytes are read");
     writeFileSync(join(dir, "data/verifiers.json"), bytes);
-    assert.equal(run(), `loaded|${readVerifiers(bytes).length}|${readVerifiers(bytes).length}`, "the pinned bytes");
+    assert.equal(run(), `loaded|${n}|${n}|${n}`, "the pinned bytes");
   } finally { rmSync(dir, { recursive: true, force: true }); }
   assert.ok(isPrefix([], pinnedVerifiers()) && isPrefix(pinnedVerifiers(), pinnedVerifiers()), "a carried copy: a prefix of the list");
   const two = readVerifiers(listOf(entry(), entry({ commit: C2 })));
@@ -154,7 +192,8 @@ test("pinned_list_is_read_lazily_and_an_altered_list_stops_closed - loading the 
 });
 
 // reddened by: the date rule of the list parting from validDate of scripts/spec-publish.mjs on a string or a value, over every day of
-// four years (a leap year among them) and their impossible neighbours
+// four years (a leap year among them) and their impossible neighbours; or a module specifier other than node:crypto, node:fs and node:url
+// in any form (static on one line or several, re-exported, bare, dynamic or required: ts.preProcessFile), scripts/ or the guard above all
 // killer: apps/harness/src/policy-verifiers.ts:39 CONST "/^\\d{4}-\\d{2}-\\d{2}$/" -> "/^\\d{4}-\\d{1,2}-\\d{2}$/"
 test("verifier_list_date_rule_is_the_spec_publish_rule - validDate of policy-verifiers.ts agrees with validDate of scripts/spec-publish.mjs, without importing scripts/", () => {
   const samples: unknown[] = ["2026-10-07", "2024-02-29", "2026-02-29", "1900-02-29", "2000-02-29", "2026-00-10", "2026-13-01", "2026-04-31", "2026-1-01", "26-10-07", " 2026-10-07",
@@ -162,14 +201,16 @@ test("verifier_list_date_rule_is_the_spec_publish_rule - validDate of policy-ver
   for (let y = 2023; y <= 2026; y++) for (let m = 1; m <= 12; m++) for (let d = 0; d <= 32; d++) samples.push(`${y}-${String(m).padStart(2, "0")}-${String(d).padStart(2, "0")}`);
   assert.deepEqual(samples.filter((s) => listDate(s) !== validDate(s)), [], "the two rules agree");
   assert.equal(samples.filter((s) => listDate(s)).length, 4 * 365 + 1 + 3, "every real day of 2023 to 2026, plus 2026-10-07, 2024-02-29 and 2000-02-29");
-  assert.ok(!/from "[./]*scripts\//.test(readFileSync(MODULE, "utf8")) && !/policy-guard/.test(readFileSync(MODULE, "utf8").replace(/^ \*.*$/gm, "")), "the module imports nothing from scripts/ nor the guard");
-  assert.deepEqual([...readFileSync(MODULE, "utf8").matchAll(/^import .* from "([^"]+)";$/gm)].map((m) => m[1]), ["node:crypto", "node:fs", "node:url"], "the module's imports");
+  const text = readFileSync(MODULE, "utf8"), specifiers = ts.preProcessFile(text, true, true).importedFiles.map((f) => f.fileName);
+  assert.deepEqual(specifiers.filter((s) => /(^|\/)scripts\/|policy-guard/.test(s)), [], "the module imports nothing from scripts/ nor the guard");
+  assert.ok(!/policy-guard/.test(text.replace(/^ \*.*$/gm, "")), "nor names the guard outside its doc comments");
+  assert.deepEqual(specifiers, ["node:crypto", "node:fs", "node:url"], "the module's specifiers, in any form (ts.preProcessFile)");
 });
 
 // reddened by: run-log.json no longer ignored by git (anywhere in the tree, any folder), a tracked file of that name, or a release entry of
-// scripts/spec-publish-inputs.json that reads or writes one
+// scripts/spec-publish-inputs.json that reads or writes one. It proves no more: refusing a run log in a release is the gate's (part 3, 3a)
 // killer: .gitignore:36 SDL "run-log.json" -> ""
-test("no_run_log_is_ever_published - git ignores run-log.json at every depth, none is tracked, and no release of the spec inputs reads or writes one", () => {
+test("run_log_is_ignored_untracked_and_named_by_no_spec_input - git ignores run-log.json at every depth, none is tracked, and no release of the spec inputs reads or writes one", () => {
   const where = ["run-log.json", "apps/harness/data/kata/recompute/run-log.json", "tools/kata-recalc/out/run-log.json", "spec/contract-1.1.0-tables-2026-10-20/recompute/run-log.json"];
   assert.deepEqual(where.filter((p) => gitStatus(["check-ignore", "-q", "--no-index", p]) !== 0), [], "each path ignored by git");
   assert.deepEqual(gitOut(REPO, ["ls-files", "-z"]).split("\0").filter((p) => /(^|\/)run-log\.json$/i.test(p)), [], "no tracked run-log.json");
@@ -182,7 +223,7 @@ test("no_run_log_is_ever_published - git ignores run-log.json at every depth, no
 
 // reddened by: a list entry whose commit is not in the repository's history (the placeholder of 40 zeros included: lot 1f is built on
 // the trunk before the frozen tool merges), or whose commit does not carry the listed tree under tools/kata-recalc/ (section 3.2 recipe)
-// killer: apps/harness/src/policy-verifiers.ts:110 CONST "(a.path < b.path ? -1 : 1)" -> "(a.path < b.path ? 1 : -1)"
+// killer: apps/harness/src/policy-verifiers.ts:115 CONST "(a.path < b.path ? -1 : 1)" -> "(a.path < b.path ? 1 : -1)"
 test("verifier_list_commit_carries_the_listed_tree - each list entry names a commit of this repository whose tree under tools/kata-recalc/ has the listed digest", () => {
   for (const e of listEntries(pinnedVerifiers())) {
     assert.notEqual(e.commit, "0".repeat(40), "a placeholder: the entry must name the merge commit of the frozen tool on the trunk, and its tree, before this merges");
