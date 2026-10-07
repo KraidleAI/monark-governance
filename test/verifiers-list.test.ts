@@ -1,8 +1,8 @@
 // test/verifiers-list.test.ts -- lot 1f of VERIFIERS-LIST-F5A-1 (2026-10-07; G0 docs/G0-lot-verifiers-list-1f.md, and the chantier G0
 // docs/G0-lot-verifiers-list-f5a-1.md section 3.2 and part 1 as amended there): the pinned list of verifiers, its closed reader (closed
 // on the bytes too, and rendering frozen), its lazy pinned read (Q-P3-7), the one identity rule, the tree digest of the listed tool, the
-// date rule of a revocation and the run log of the report writer, ignored and untracked. Reads only; a child process and a throwaway copy
-// of the module under the OS temporary directory.
+// date rule of a revocation, the run log of the report writer (ignored and untracked) and the shared reader of module loads. Reads only;
+// a child process and a throwaway copy of the module under the OS temporary directory.
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { execFileSync, spawnSync } from "node:child_process";
@@ -11,7 +11,7 @@ import { copyFileSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSy
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
-import ts from "typescript";
+import { forbiddenLoads, importSpecifiers } from "../apps/harness/test/helpers/import-specifiers.ts";
 import { verifierIdentity } from "../apps/harness/src/policy-guard.ts";
 import { checkedVerifiers, identityOf, isListEntry, isPrefix, listEntries, pinnedVerifiers, readVerifiers, toolTreeSha256, validDate as listDate,
   VERIFIERS_SHA256, type ListEntry, type Verifier } from "../apps/harness/src/policy-verifiers.ts";
@@ -200,9 +200,9 @@ test("pinned_list_is_read_lazily_and_an_altered_list_stops_closed - loading the 
 });
 
 // reddened by: the date rule of the list parting from validDate of scripts/spec-publish.mjs on a string or a value, over every day of
-// four years (a leap year among them) and their impossible neighbours; or a module specifier other than node:crypto, node:fs and node:url
-// in any form (static on one line or several, re-exported, bare, dynamic or required: ts.preProcessFile), scripts/ or the guard above all,
-// or a computed one (an import( or require( call, or getBuiltinModule, in the code: read on the text, doc comments stripped)
+// four years (a leap year among them) and their impossible neighbours; or a specifier other than node:crypto, node:fs and node:url, as
+// importSpecifiers (ts.preProcessFile) lists them, scripts/ or the guard above all; or what forbiddenLoads reads on the syntax tree: an
+// import() of a non-literal, or require, getBuiltinModule, createRequire, eval, Function, constructor or dlopen, named or as a constant string
 // killer: apps/harness/src/policy-verifiers.ts:39 CONST "/^\\d{4}-\\d{2}-\\d{2}$/" -> "/^\\d{4}-\\d{1,2}-\\d{2}$/"
 test("verifier_list_date_rule_is_the_spec_publish_rule - validDate of policy-verifiers.ts agrees with validDate of scripts/spec-publish.mjs, without importing scripts/", () => {
   const samples: unknown[] = ["2026-10-07", "2024-02-29", "2026-02-29", "1900-02-29", "2000-02-29", "2026-00-10", "2026-13-01", "2026-04-31", "2026-1-01", "26-10-07", " 2026-10-07",
@@ -210,12 +210,11 @@ test("verifier_list_date_rule_is_the_spec_publish_rule - validDate of policy-ver
   for (let y = 2023; y <= 2026; y++) for (let m = 1; m <= 12; m++) for (let d = 0; d <= 32; d++) samples.push(`${y}-${String(m).padStart(2, "0")}-${String(d).padStart(2, "0")}`);
   assert.deepEqual(samples.filter((s) => listDate(s) !== validDate(s)), [], "the two rules agree");
   assert.equal(samples.filter((s) => listDate(s)).length, 4 * 365 + 1 + 3, "every real day of 2023 to 2026, plus 2026-10-07, 2024-02-29 and 2000-02-29");
-  const text = readFileSync(MODULE, "utf8"), specifiers = ts.preProcessFile(text, true, true).importedFiles.map((f) => f.fileName);
+  const text = readFileSync(MODULE, "utf8"), specifiers = importSpecifiers(text);
   assert.deepEqual(specifiers.filter((s) => /(^|\/)scripts\/|policy-guard/.test(s)), [], "the module imports nothing from scripts/ nor the guard");
   assert.ok(!/policy-guard/.test(text.replace(/^ \*.*$/gm, "")), "nor names the guard outside its doc comments");
-  assert.deepEqual(specifiers, ["node:crypto", "node:fs", "node:url"], "the module's specifiers, in any form (ts.preProcessFile)");
-  const code = text.replace(/^ \*.*$/gm, "").replace(/^\/\*\*.*$/gm, "");
-  assert.deepEqual([/\bimport\s*\(/, /\brequire\s*\(/, /getBuiltinModule/].filter((r) => r.test(code)).map(String), [], "nor a computed specifier, which ts.preProcessFile cannot list: no import( call, no require( call, no getBuiltinModule in the code");
+  assert.deepEqual(specifiers, ["node:crypto", "node:fs", "node:url"], "the module's specifiers, as ts.preProcessFile lists them (importSpecifiers)");
+  assert.deepEqual(forbiddenLoads(text), [], "nor a load that no specifier shows, as forbiddenLoads reads it");
 });
 
 // reddened by: run-log.json no longer ignored by git (anywhere in the tree, any folder), a tracked file of that name, or a release entry of
@@ -234,16 +233,50 @@ test("run_log_is_ignored_untracked_and_named_by_no_spec_input - git ignores run-
 
 // reddened by: a list entry whose commit is not in the history of HEAD (git merge-base --is-ancestor: an object of the repository outside
 // it, such as the head of an unmerged branch or a head from before a rebase, is refused; so is the placeholder of 40 zeros: lot 1f is built
-// on the trunk before the frozen tool merges), or whose commit does not carry the listed tree under tools/kata-recalc/ (section 3.2 recipe)
+// on the trunk before the frozen tool merges), or whose commit does not carry the listed tree under tools/kata-recalc/ (section 3.2 recipe).
+// Each git read of a listed commit runs with --no-replace-objects, as the blob reads do: no refs/replace can graft it or swap its tree
 // killer: apps/harness/src/policy-verifiers.ts:115 CONST "(a.path < b.path ? -1 : 1)" -> "(a.path < b.path ? 1 : -1)"
 test("verifier_list_commit_carries_the_listed_tree - each list entry names a commit in the history of HEAD whose tree under tools/kata-recalc/ has the listed digest", () => {
   for (const e of listEntries(pinnedVerifiers())) {
     assert.notEqual(e.commit, "0".repeat(40), "a placeholder: the entry must name the merge commit of the frozen tool on the trunk, and its tree, before this merges");
-    assert.equal(gitStatus(["merge-base", "--is-ancestor", e.commit, "HEAD"]), 0, `${e.commit} is in the history of HEAD`);
-    const blobs = gitOut(REPO, ["ls-tree", "-r", "-z", "--full-tree", e.commit, "--", TOOL_ROOT]).split("\0").filter((l) => l !== "").map((l) => {
+    assert.equal(gitStatus(["--no-replace-objects", "merge-base", "--is-ancestor", e.commit, "HEAD"]), 0, `${e.commit} is in the history of HEAD`);
+    const blobs = gitOut(REPO, ["--no-replace-objects", "ls-tree", "-r", "-z", "--full-tree", e.commit, "--", TOOL_ROOT]).split("\0").filter((l) => l !== "").map((l) => {
       const [, mode = "", object = "", path = ""] = /^(\d{6}) \w+ ([0-9a-f]+)\t(.+)$/s.exec(l) ?? [];
       return { mode, path, bytes: execFileSync("git", ["--no-replace-objects", "-C", REPO, "cat-file", "blob", object], { env: BARE, maxBuffer: 1 << 26 }) };
     });
     assert.equal(toolTreeSha256(blobs), e.tree_sha256, `the tree of ${TOOL_ROOT} at ${e.commit}`);
   }
+});
+
+// reddened by: a literal specifier left out of importSpecifiers (an import, a side-effect import, an import over several lines, a re-export,
+// export * from, import() or require(), in single quotes, as a template without substitution, or after a comment that follows the keyword)
+// or prose read as one; or a load left out of forbiddenLoads: an import() of a computed specifier (a name, a template with a substitution, E1
+// to E5 of the review), require, getBuiltinModule (E3: by a computed key), createRequire, eval, Function, constructor (R1) or dlopen; or a
+// comment, a string or a literal import() read as a forbidden load
+// killer: apps/harness/test/helpers/import-specifiers.ts:43 CONST "ts.isStringLiteralLike(n.arguments[0])" -> "true"
+test("import_helper_reads_literal_specifiers_and_refuses_computed_loads - importSpecifiers lists each literal form and no prose; forbiddenLoads names each load that no specifier shows, and no comment, string or literal import()", () => {
+  const NOT_LITERAL = "import() of a specifier that is not a literal";
+  const forms = ['import { a } from "./a.ts";', "import './b.ts';", 'import {\n  c,\n} from "./c.ts";', 'export { d } from /* reviewed */ "./d.ts";', 'import /* reviewed */ "./e.ts";',
+    'export * from "./f.ts";', "void import(`./g.ts`);", 'void import /* lazy */ ("./h.ts");', 'require("./i.ts");', '/** read from "./j.ts" */ // import "./k.ts"', 'const s = "import(\'./l.ts\')";'];
+  assert.deepEqual(importSpecifiers(forms.join("\n")), ["./a.ts", "./b.ts", "./c.ts", "./d.ts", "./e.ts", "./f.ts", "./g.ts", "./h.ts", "./i.ts"], "the literal specifiers in source order, and no prose");
+  const refused: [string, string, string[]][] = [
+    ["a computed specifier (G7)", "export const g7 = (n: string) => import(n);", [`l.1: ${NOT_LITERAL}`]],
+    ["a template with a substitution (G11)", 'export const g11 = () => import(`../../../scripts/${"spec-publish"}.mjs`);', [`l.1: ${NOT_LITERAL}`]],
+    ["E1: a doc comment before it on its line", "/** @internal */ export const e1 = (n: string) => import(n);", [`l.1: ${NOT_LITERAL}`]],
+    ["E2: a comment between import and (", "export const e2 = (n: string) => import /* lazy */ (n);", [`l.1: ${NOT_LITERAL}`]],
+    ["E3: getBuiltinModule by a computed key", 'export const e3 = () => process["getBuiltin" + "Module"]("node:path");', ['l.1: "getBuiltinModule", a constant string']],
+    ["E3 by a template and parentheses", 'process[`${("getBuiltin")}Module`]("node:path");\nglobalThis[("eval")]("1");', ['l.1: "getBuiltinModule", a constant string', 'l.2: "eval", a constant string']],
+    ["E4: on a line that begins with *", "export const e4 = async (n: string) => 2\n * (await import(n)).x;", [`l.2: ${NOT_LITERAL}`]],
+    ["E5: G11 behind a doc comment", '/** lazy */ export const e5 = () => import(`../../../scripts/${"spec-publish"}.mjs`);', [`l.1: ${NOT_LITERAL}`]],
+    ["getBuiltinModule (G9)", 'export const g9 = () => process.getBuiltinModule("node:path");', ["l.1: getBuiltinModule"]],
+    ["createRequire", 'import { createRequire } from "node:module";\nexport const c = createRequire(import.meta.url)("./x.ts");', ["l.1: createRequire", "l.2: createRequire"]],
+    ["require", 'export const q = require("./x.ts");', ["l.1: require"]],
+    ["eval and Function", 'eval("1");\nnew Function("return 1")();', ["l.1: eval", "l.2: Function"]],
+    ["R1: the constructor of a function", 'export const r1 = () => Reflect.get(Object.getPrototypeOf(async () => {}), "constr" + "uctor")("return imp" + "ort(\'node:path\')")();', ['l.1: "constructor", a constant string']],
+    ["dlopen", 'process.dlopen({ exports: {} }, "./x.node");', ["l.1: dlopen"]],
+  ];
+  for (const [what, text, want] of refused) assert.deepEqual(forbiddenLoads(text), want, what);
+  const prose = ["// import(n) require( getBuiltinModule", "  /** import(n), require(x), createRequire, eval(), Function() */", "/* getBuiltinModule(x) */", 'const s = "import(n) require( eval(";',
+    'void import("./x.ts");', "void import(`./y.ts`);"];
+  assert.deepEqual(forbiddenLoads(prose.join("\n")), [], "a comment, a string and a literal import() name no forbidden load");
 });
