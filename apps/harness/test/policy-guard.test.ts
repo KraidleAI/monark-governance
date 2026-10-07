@@ -210,19 +210,6 @@ test("guard_adr_cause_under_decisions_only", () => {
 });
 
 // reddened by: the digest clause of guardKataRow removed, so that the server admits a row the publication refuses (SHORT-DIGEST-INVERSION-1, RECHERCHES Q-4)
-// killer: apps/harness/src/policy-guard.ts:106 SDL "is(digests.length === 0" -> ""
-test("the_guard_refuses_a_sign_set_row_under_the_digest_floor", () => {
-  const up = find((r) => r.side === "up" && r.status === "region" && r.qhat === 0);
-  check(up);
-  refuse({ ...up, misses: 2, k_obs: 2 }, /has a digest that the publication refuses: scores \d+\.\d\d bits, labels \d+\.\d\d bits \(fewer than 2\^128 compatible sequences/);
-  refuse({ ...bandRegion, aux_sha256: "ab".repeat(32) }, /has a digest that the publication refuses: aux_sha256 \(/);
-  const cls = up.task_class, low = reforged((rows) => {
-    const c = rows.find((x) => x.key === up.cell_key && x.taskClass === cls) ?? assert.fail("no cell");
-    c.calib = { ...c.calib, misses: 2, kObs: 2 };
-  });
-  assert.throws(() => guardKataTable(tableFrom(cls, low.bytes, low.pins), low.bytes, low.pins, entry(cls)), /has a digest that the publication refuses: scores/);
-});
-
 // Lot E-2a, CA trio (R4 (iii), conflict 7): kata and venue ca-probe are reserved for the probe key of the deployment check, so
 // no table can ever hold a row under it. The reservation is its own predicate, called by the import guard (and by the loader of
 // E-2a, a later lot), never by the request check: kataKeyProblem still admits the probe key, so the probe call is answered.
@@ -240,4 +227,17 @@ test("the_import_guard_refuses_the_reserved_probe_kata_and_venue", async () => {
   refuse(as(bandRegion, "ca-probe-2", v), /has a trial_id not recomposed/);
   assert.deepEqual([mod.kataKeyReserved?.("ca-probe", v), mod.kataKeyReserved?.(k, "ca-probe"), mod.kataKeyReserved?.(k, v), mod.kataKeyReserved?.(null, null)], [true, true, false, false]);
   assert.equal(kataKeyProblem("kata:ca-probe@ca-probe/BTCUSDT/1h", "btc-range-1h"), undefined, "the request check admits the probe key: the call is answered, never a 400");
+});
+
+// killer: apps/harness/src/policy-guard.ts:106 SDL "is(digests.length === 0" -> ""
+test("the_guard_refuses_a_sign_set_row_under_the_digest_floor", () => {
+  const up = find((r) => r.side === "up" && r.status === "region" && r.qhat === 0);
+  check(up);
+  refuse({ ...up, misses: 2, k_obs: 2 }, /has a digest that the publication refuses: scores \d+\.\d\d bits, labels \d+\.\d\d bits \(fewer than 2\^128 compatible sequences/);
+  refuse({ ...bandRegion, aux_sha256: "ab".repeat(32) }, /has a digest that the publication refuses: aux_sha256 \(/);
+  const cls = up.task_class, low = reforged((rows) => {
+    const c = rows.find((x) => x.key === up.cell_key && x.taskClass === cls) ?? assert.fail("no cell");
+    c.calib = { ...c.calib, misses: 2, kObs: 2 };
+  });
+  assert.throws(() => guardKataTable(tableFrom(cls, low.bytes, low.pins), low.bytes, low.pins, entry(cls)), /has a digest that the publication refuses: scores/);
 });
