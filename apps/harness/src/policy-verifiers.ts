@@ -147,7 +147,7 @@ function closed(v: unknown, cols: Cols, at: string): Record<string, unknown> {
   for (const k of want) if (!cols[k]?.(o[k], `${at}.${k}`)) rfail(`${at}.${k} is off the form`);
   return o;
 }
-const CLASS = /^[a-z0-9]+(-[a-z0-9]+)*$/, DOUBLE = /^-?0x[01]\.[0-9a-f]+p[+-][0-9]+$/;
+const CLASS = /^[a-z0-9]+(-[a-z0-9]+)*$/, DOUBLE = /^-?0x(?:1\.[0-9a-f]{13}p(?:\+(?:0|[1-9][0-9]{0,2}|10[01][0-9]|102[0-3])|-(?:[1-9][0-9]{0,2}|10[01][0-9]|102[0-2]))|0\.(?!0{13})[0-9a-f]{13}p-1022|0\.0p\+0)$/; // float.hex() of a finite double: a normal (exponent in [-1022, 1023]), a subnormal or zero
 const text = (v: unknown): boolean => typeof v === "string", free = (v: unknown): boolean => isObj(v), count = (v: unknown): boolean => Number.isSafeInteger(v) && (v as number) >= 0;
 const fits = (re: RegExp) => (v: unknown): boolean => typeof v === "string" && re.test(v);
 const nest = (cols: Cols) => (v: unknown, at: string): boolean => closed(v, cols, at) !== undefined;
@@ -161,23 +161,26 @@ const before = (a: ReportCell, b: ReportCell): boolean => a.task_class < b.task_
 const REPORT: Cols = {
   cells: (v, at) => each(nest(CELL))(v, at) && ((v as ReportCell[]).every((c, i, cs) => i === 0 || before(cs[i - 1] as ReportCell, c)) || rfail("cells are not unique and sorted by (task_class, cell_key)")),
   differences: each((v, at) => closed(v, isObj(v) && v.kind === "digest" ? DIGEST : VALUE, at) !== undefined), explanation: free, fields: free,
-  format: (v) => v === REPORT_FORMAT, inputs: nest({ compare: each(nest(INPUT)), recompute: each(nest(INPUT)) }), oracles: free, platform: free,
+  format: (v) => v === REPORT_FORMAT, inputs: nest({ compare: each(nest(INPUT)), recompute: each(nest(INPUT)) }), oracles: free, platform: (v) => isObj(v) && isObj(v.libm) && fits(HEX64)(v.libm.sha256),
   registry: nest({ cells: count, generator_identity: text, sha256: fits(HEX64) }), replay: text, // no file (N-6): the input name is inputs.compare[].name
   scope: (v) => Array.isArray(v) && v.every((c, i) => fits(CLASS)(c) && (i === 0 || (v[i - 1] as string) < (c as string))), summary: free,
   tool: nest({ commit: fits(COMMIT), tree: text, tree_sha256: fits(HEX64) }),
   verifier: (v) => typeof v === "string" && /^[^@]+@[0-9a-f]{40}$/.test(v) && v.split("@")[0] === identityOf(v),
 };
-/** The canonical writing of report.py (sorted keys, no space, integers only, ASCII, no final newline). */
+/** The canonical writing of report.py (sorted keys, no space, integers only, every string and every key ASCII, no final newline). */
 const canon = (v: unknown): string => Array.isArray(v) ? `[${v.map(canon).join(",")}]`
-  : isObj(v) ? `{${Object.keys(v).sort().map((k) => `${JSON.stringify(k)}:${canon(v[k])}`).join(",")}}`
+  : isObj(v) ? `{${Object.keys(v).sort().map((k) => `${canon(k)}:${canon(v[k])}`).join(",")}}`
+  : typeof v === "string" && !/^[\x00-\x7f]*$/.test(v) ? rfail("a string that is not ASCII")
   : typeof v === "number" && !Number.isSafeInteger(v) ? rfail(`${v} is not an integer of the canonical writing`) : JSON.stringify(v);
+/** canon, with a value nested beyond the call stack refused by name (report.py cannot write one: its canonical() stops near 500 levels). */
+const canonOf = (v: unknown): string => { try { return canon(v); } catch (e) { if (e instanceof RangeError) return rfail("not its canonical writing (nested too deep)"); throw e; } };
 
 /** The report of these bytes: its closed form and its canonical writing, or a named refusal. */
 export function readRecomputeReport(bytes: Uint8Array | string): RecomputeReport {
   let t: string, doc: unknown;
-  try { t = typeof bytes === "string" ? bytes : new TextDecoder("utf-8", { fatal: true }).decode(bytes); doc = JSON.parse(t); } catch { return rfail("not UTF-8 JSON"); }
+  try { t = typeof bytes === "string" ? bytes : new TextDecoder("utf-8", { fatal: true, ignoreBOM: true }).decode(bytes); doc = JSON.parse(t); } catch { return rfail("not UTF-8 JSON"); }
   if (/[^\x00-\x7f]/.test(t)) rfail("not ASCII");
   closed(doc, REPORT, "report");
-  if (canon(doc) !== t) rfail("not its canonical writing (sorted keys, no space, no final newline)");
+  if (canonOf(doc) !== t) rfail("not its canonical writing (sorted keys, no space, no final newline)");
   return doc as RecomputeReport;
 }
