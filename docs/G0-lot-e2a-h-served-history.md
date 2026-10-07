@@ -9,7 +9,9 @@ de recherches) ; CM-5 v4 §4.1, Q-CM5-8, Q-CM5-19 ; décisions de MONARK `bb993d
 `2026-10-07-MONARK-vers-RECHERCHES-g2-232-235.md`, section #235 (cinq M, m 6 à 10), pièce `pieces/2026-10-07-g2-232-235/g2-235.json`.
 **Pli de la G2 ciblée de MONARK** : `e6d5517` de recherches, message `2026-10-07-MONARK-vers-RECHERCHES-g2-234-235-222.md`, section
 « #235 (H) » (deux questions tranchées, cinq m), pièce `pieces/2026-10-07-g2-234-235/g2f-235.json` ; avec l'essai de CA à 18 contrôles
-de MONARK, `fd08dc5` de recherches, pièce `pieces/2026-10-07-ca-essai-18/ca-trial-18.json`.
+de MONARK, `fd08dc5` de recherches, pièce `pieces/2026-10-07-ca-essai-18/ca-trial-18.json`. **Pli de la seconde G2 ciblée de MONARK** :
+`fc824a5` de recherches, message `2026-10-07-MONARK-vers-RECHERCHES-235-r2-p3v8.md`, section « #235 » (trois m, trois décisions), pièce
+`pieces/2026-10-07-235-r2-p3v8/g2f2-235.json` (sha256 `81e67988…`).
 
 - **Provenance** : worker `claude-opus-5-5`, effort max ; horloge lue (`date -u`) à 09:41 UTC (premier G0), 10:00 (pli d'`ac1cb86`),
   11:18 (début du pli de la G2), 11:40 (texte de ce pli). Worktree du scratchpad, branche `recherches/e2a-h-served-history` ; fetch par
@@ -24,6 +26,12 @@ de MONARK, `fd08dc5` de recherches, pièce `pieces/2026-10-07-ca-essai-18/ca-tri
   remplace. Repris dans un worktree **détaché** neuf du scratchpad (sur le clone, seuls un fetch par refspecs explicites et un
   `worktree add`) ; ajouts `7f1686dd` (lecture stricte de `received_at_ms` et de l'`url` de la CA, cas forgé du contrôle de classe servie)
   et `3490ad7d` (fusion de `595d2e4b`, arbre vérifié de même), poussés par avance rapide de `8618efa7` à 13:50:54Z ; puis ce texte.
+- **Ligne datée (RECHERCHES, 2026-10-07, 15:03 à 15:33 UTC, `date -u`) : pli de `fc824a5` (section #235).** Worker `claude-opus-5-5`,
+  **effort max**, Node v24.21.0, Linux. Worktree **détaché** neuf du scratchpad à `5ef7a18b` (sur le clone, seuls un fetch par refspecs
+  explicites et un `worktree add`), et un second, détaché à `5ef7a18b` aussi, pour les rouges d'abord ; `node_modules` lié en dur ;
+  `git add` par chemins explicites. `94aca808` (le code et les tests du pli) poussé par avance rapide de `5ef7a18b` à 15:25:57Z ; puis
+  ce texte. Le tronc est passé à `102b44d3` (#230 : deux fichiers, disjoints de H) ; il n'est pas fusionné ici, la base de fusion reste
+  `595d2e4b`.
 - **Ordre** : §5 ligne H, « a1, L-T15 ; avant le go de c ». H ne touche aucun fichier de L-T15 (PR #232). **H dépend d'a1** (m 8) : il lit
   `COMMITTED_TABLES` du module servi `apps/harness/src/policy-committed-pins.ts`, qu'ajoute a1-i (PR #233) ; brouillon jusqu'à la fusion
   d'a1 et d'a2 (décision de MONARK), puis une nouvelle fusion du tronc.
@@ -50,7 +58,8 @@ de MONARK, `fd08dc5` de recherches, pièce `pieces/2026-10-07-ca-essai-18/ca-tri
 
 `scripts/served-history.mjs` (141 lignes, + `.d.mts`), `node scripts/served-history.mjs --release-dir <contract-1.1.0-tables-AAAA-MM-JJ>
 --merge-commit <sha> --ca <enregistrement de CA> --probe <retire-probe-v1> [--probe …] [--root <dir>]`, lancé par MONARK à T_f (c-ii,
-c′-ii). Les règles sont **importées du tronc**, jamais réécrites. Lignes à la tête `3490ad7d` :
+c′-ii). Les règles sont **importées du tronc**, jamais réécrites. Lignes à la tête `3490ad7d` (à `94aca808`, 142 lignes : `compose` gagne
+une ligne à l.71, la garde de forme de `checked_at`, et ses lignes suivantes avancent d'une ; `main` est l.120-140, voir le pli plus bas) :
 
 - **Ensemble servi** (l.68-73) : `versionDirs` (exporté de `scripts/spec-policy-tables.mjs` l.134, le seul changement de ce fichier) donne
   les dossiers de version, un dossier daté ne nommant qu'un jour réel (`validDate`) ; `release_dir` doit être **le dernier** dossier
@@ -68,7 +77,8 @@ c′-ii). Les règles sont **importées du tronc**, jamais réécrites. Lignes �
   l'enregistrement.
 - **CA** (l.70-71) : `instant("T_f", …, "real")` : notée verte par `recordKind(failedOf(…))` avec ses `CHECK_NAMES` ; `t_f` = son
   `checked_at` coupé à la seconde ; son `url`, **une chaîne** que `URL.canParse` lit, donne l'api des sondes ; `ca_record_sha256` =
-  sha256 de ses octets.
+  sha256 de ses octets. **À `94aca808`** : son `checked_at` doit être l'écriture de `verify-harness` (`toISOString`, l.432), lue par
+  `iso()`, avant d'employer `t_f`, sinon `ca_not_green` (l.70-71) ; l'ordre des sondes se lit en ms contre cette valeur (l.85).
 - **`mergeInstant`** (l.106-117) : `instant("T_e", …)` du tronc (40 hex contrôlés avant git, exactement deux parents, date du committer
   à la seconde), lu par un git sans variable `GIT_*` héritée, `--end-of-options`, `%H` égal à l'id donné (un tag annoté est refusé) ;
   la fusion est **sur l'historique de premier parent de HEAD** (`git rev-list --first-parent HEAD` de `--root`, l.114,
@@ -80,7 +90,9 @@ c′-ii). Les règles sont **importées du tronc**, jamais réécrites. Lignes �
   son écriture canonique, et les lignes d'un même `release_dir` partager `merge_commit`, `t_e`, `t_f`, `ca_record_sha256`
   (`history_invalid`) ; un couple (`release_dir`, `task_class`) écrit deux fois, déjà là ou deux fois dans le lot, est refusé
   (`pair_written`).
-- **`main`** (l.119-139) : options fermées, chacune avec sa valeur (sinon sortie 2, l.123) ; les épingles sont lues dans `PINS` (le module
+- **`main`** (l.119-139) : options fermées, chacune avec sa valeur (sinon sortie 2, l.123 ; **à `94aca808`**, la règle de `parseArgs` de
+  `retire-probe` : un nom exact avec `--`, une option à valeur unique donnée une fois, une valeur non vide, l.121-125) ; les épingles
+  sont lues dans `PINS` (le module
   servi ; un test passe un autre module par `io.pins`) par un import **enveloppé dans `via("pins_unreadable", …)`**, que `via` attend
   quand la fonction rend une promesse (l.46, l.128) ; écriture par `writeAtomic` de `scripts/verify-harness.mjs` (l.132).
 - **Forme du fichier** : le tableau JSON à un élément par ligne est **accepté par MONARK** (m 7) ; la lecture est celle du fichier
@@ -115,6 +127,14 @@ c′-ii). Les règles sont **importées du tronc**, jamais réécrites. Lignes �
 | m, CA dans les tests | le test 1 lit l'**enregistrement réel** de l'essai de MONARK, versé à l'octet sous `test/fixtures/ca-trial-18.json` (147 lignes, sha256 `28aaa41b…`, prémisse l.64) ; les tests 2 à 5 bâtissent une CA verte depuis `CHECK_NAMES` (un contrôle `ok` par nom ; `url`, `checked_at` et TLS de l'essai), si bien qu'un changement de la liste ne rougit que le test 1 ; puis le tronc est fusionné | test l.26-31, l.63-66 |
 | m, épingles avant #233 | l'import est enveloppé dans `via("pins_unreadable", …)`, asynchrone ; le test affirme le code sur stderr : `pins_unreadable` avant a1, `served_not_pinned` après | `:46`, `:128` ; test 5, l.160 et l.197-198 |
 
+## Pli de la seconde G2 ciblée de MONARK (`fc824a5`, section #235) : décision → changement → fichier:ligne à `94aca808`
+
+| Point | Changement | Où |
+|---|---|---|
+| m 1, `checked_at` de la CA lu en clair | décision : H exige l'écriture du producteur, `toISOString` (`verify-harness.mjs` l.432), avant d'employer `t_f`. `caMs = iso(ca.checked_at)` (la lecture de `received_at_ms`, l.53) ; une autre forme est refusée en `ca_not_green` (l.71), puis l'ordre des sondes se compare en ms à `caMs` (l.85). `retire-instants.mjs` n'est pas touché (item RETIRE-INSTANTS-TF-FORM-1, porté par MONARK) ; cas : `checked_at` sans Z, et à décalage `+00:00` | `served-history.mjs:70-71`, `:85` ; test 3, l.125-126 |
+| m 2, options mal fermées | décision : la règle de `parseArgs` de `retire-probe.mjs` (l.121-128 au tronc) : un nom exact avec `--`, pris dans la liste fermée par égalité (l.123), une option à valeur unique donnée une fois (`Object.hasOwn`), une valeur non vide, sinon « unknown, repeated or empty option », sortie 2 (l.124) ; `--probe` se répète, ses valeurs à part (`probes`). Cas : chaque nom sans `--`, `--ca` deux fois, `--probe ""` : **trois cas et non deux** (écart déclaré), car un argv est refusé dès sa première faute : avec deux, le mutant de la troisième règle survit | `:121-129` ; test 5, l.203-207 |
+| m 3, X3 non équivalent | décision : un cas d'une ligne au test 2 : un dossier daté antérieur (`2026-10-19`) qui ne tient que sa liste de retrait, sans `policy/`, ce que `--check` passe (G2 : sortie 0) ; l'écrivain le passe et écrit les mêmes lignes ; sous X3, `readdirSync` lève ENOENT, lu par l'assertion (« Got unwanted exception »). Recompte : 6 survivants, dont E2, équivalent sous la précondition du RUNBOOK l.377 (§ Mutants) | test 2, l.81-82 |
+
 ## Tests (T-15, `test/served-history.test.ts`) et tueurs
 
 Les enregistrements sont ceux des producteurs : sonde par `judge()` de `scripts/retire-probe.mjs` plus « \n » ; CA : au test 1,
@@ -124,21 +144,27 @@ sur les deux hôtes), versé à l'octet sous `test/fixtures/ca-trial-18.json` ; 
 champ changé. Les instants sont comptés depuis son `checked_at`.
 
 - `served_history_line_is_closed_and_read_from_a_verdict` (**le test de composition** : sondes par `judge()` et CA réelle de l'essai,
-  deux lignes, `t_f` coupé à la seconde, sha256 des octets lus) — tueur : scripts/served-history.mjs:85 CONST "probe_record_sha256:
+  deux lignes, `t_f` coupé à la seconde, sha256 des octets lus) — tueur : scripts/served-history.mjs:86 CONST "probe_record_sha256:
   sha(bytes)" -> "probe_record_sha256: sha(JSON.stringify(probe))"
 - `served_history_writes_every_class_served_after_the_deployment` (`ac1cb86` ; dossier `2026-02-30`, dossier non daté, refus de
-  `release_dir` absent, non dernier, sans jour réel, fichier, octets identiques) — tueur : scripts/served-history.mjs:72 CONST
-  "dated.flatMap(" -> "[releaseDir].flatMap("
+  `release_dir` absent, non dernier, sans jour réel, fichier, octets identiques ; dossier daté sans `policy/`) — tueur :
+  scripts/served-history.mjs:73 CONST "dated.flatMap(" -> "[releaseDir].flatMap("
 - `served_history_refuses_each_departure` (règles de la sonde et de la CA, `received_at` et `received_at_ms`, même hôte, classe servie,
-  ordre des instants, épingles, voie (b)) — tueur : scripts/served-history.mjs:76 CONST "}, \"real\"));" -> "}, \"rehearsal\"));"
+  ordre des instants, épingles, voie (b) ; forme de `checked_at`) — tueur : scripts/served-history.mjs:77 CONST "}, \"real\"));" ->
+  "}, \"rehearsal\"));"
 - `served_history_file_is_one_line_per_class_sorted_and_closed` (couples, champs communs, `[valeur]` par champ, formes, fichier `{}` ou
-  vide) — tueur : scripts/served-history.mjs:98 CONST "o.release_dir === l.release_dir && " -> ""
+  vide) — tueur : scripts/served-history.mjs:99 CONST "o.release_dir === l.release_dir && " -> ""
 - `served_history_cli_reads_t_e_from_the_merge_commit` (dépôt jetable sans `GIT_*`, date du committer, liaison de la fusion, fusion hors
-  du premier parent, épingles par défaut et leur code, usage, second déploiement) — tueur : scripts/served-history.mjs:109 CONST
-  "--format=%H %cI %P" -> "--format=%H %aI %P"
+  du premier parent, épingles par défaut et leur code, usage et règle des options, second déploiement) — tueur :
+  scripts/served-history.mjs:110 CONST "--format=%H %cI %P" -> "--format=%H %aI %P"
+- **Tueurs des gardes du pli de `fc824a5`**, chacun sur la ligne au-dessus de son cas (convention du dépôt : `every_killer_line_is_readable`
+  les lit, `scripts/mutants/run.mjs --killers` les tire ; `red-proof` ne tire que ceux de la ligne d'un test) : `:71` CONST
+  "Number.isNaN(caMs)" -> "false" (test 3, l.125) ; `:73` CONST "existsSync(p) ? " -> "true ? " (X3, test 2, l.81) ; `:123` CONST
+  "argv[i] === `--${o}`" -> "argv[i]?.replace(/^--/, \"\") === o" (un nom sans `--`), `:124` CONST "Object.hasOwn(a, k) || " -> "" (une
+  option répétée), `:124` CONST " || v === \"\"" -> "" (une valeur vide) (test 5, l.203-205).
 - Rouges d'abord, premier pli : les cinq tests, à la tête d'avant le pli (après la fusion du tronc), sont rouges par assertion (`t_f` à la
-  milliseconde, dossier `2026-02-30` servi, statut 500 admis, paire en double dans le lot, `--no-such-option` passé à git). Second pli :
-  aux Preuves.
+  milliseconde, dossier `2026-02-30` servi, statut 500 admis, paire en double dans le lot, `--no-such-option` passé à git). Second et
+  troisième plis : aux Preuves.
 
 ## Mutants
 
@@ -159,15 +185,31 @@ champ changé. Les instants sont comptés depuis son `checked_at`.
   - **E3** (`:80`, `!Object.hasOwn(served, cls)` retiré) **n'est pas équivalent** : il est **tenu par le cas** de la table forgée (test 3,
     l.110-115), au chemin `spec/undefined/…` d'une classe non servie et au chemin de la clé héritée `constructor` ; l'original refuse
     (`probe_other_table`), le mutant écrit trois lignes (« Missing expected exception »).
-  - Les 7 survivants, **équivalents**, dont deux sous une condition écrite :
+  - Les 7 survivants, écrits **équivalents** à `3490ad7d`, dont deux sous une condition écrite :
     - E1 `:60` `str(l.release_dir, DIR)` → `DIR.test(…)` : `validDate` ne lit qu'une chaîne, `[valeur]` reste refusé ;
     - E2 `:72` `f.endsWith(".json")` retiré : **équivalent sous la précondition du RUNBOOK l.377** (on ne déploie qu'une fusion où
       `spec-policy-tables.mjs --check` sort 0, et `--check` signale tout autre fichier d'un dossier daté, `extra`, l.205), que H ne lance
       pas ; sans elle, le mutant est plus strict : il refuse un fichier non JSON (`input_invalid`) que l'original ignore ;
-    - X3 `:72` `existsSync(p)` retiré : ne diffère que pour un dossier daté sans `policy/`, que `datedFiles` n'écrit jamais ;
+    - X3 `:72` `existsSync(p)` retiré : ne diffère que pour un dossier daté sans `policy/`, que `datedFiles` n'écrit jamais. **Réfuté
+      par la seconde G2 ciblée** : `--check` sort 0 sur un dossier daté qui ne tient que sa liste de retrait, ou vide ; X3 n'est donc
+      pas équivalent, il est **tué à `94aca808`** (ci-dessous) ;
     - E4 `:109` et X31 `:115` `--end-of-options` retiré : les 40 hex sont contrôlés avant git (`retire-instants.mjs` l.66) ;
     - E5 `:110` `r.status !== 0` retiré : un git en échec n'imprime aucun id, et `own !== id` refuse aussi ;
     - X30 `:132` `writeAtomic` → `writeFileSync` : trivial, mêmes octets écrits (classe M14).
+- **Balayage, recompté à `94aca808`** (pli de `fc824a5` ; même outil, un mutant à la fois, `node --test test/served-history.test.ts` seul,
+  fichier restauré et sha256 contrôlé, `58d19c97…` avant et après, 15:19:26Z à 15:21:06Z) : les **66** mutants du balayage ci-dessus,
+  leur texte suivi là où le code a changé (X19 et X20 sur la règle neuve des options, `v === undefined || ` et `k === undefined || ` ;
+  N9 et G24 sur `caMs`), et **5** mutants des gardes neuves : C1 la garde de forme de `checked_at` retirée (`:71`), C2 `iso` → `Date.parse`
+  (`:70`), O1 un nom lu sans `--` (`:123`), O2 une option répétée admise et O3 une valeur vide admise (`:124`). **71 mutants, 65 tués,
+  6 survivants.** Les 14 tirs de la première G2, rejoués de même (M2 au texte `"real"))` de `:70`, M7 et M11 sur `caMs` et `probes`) :
+  14 tués.
+  - **X3 est tué** par le cas du test 2 (« Got unwanted exception » sur ENOENT) ; C1, C2, O1, O2 et O3 sont tués, chacun par son cas.
+  - Les **6 survivants** : E1, E4, X31, E5 et X30, **équivalents** (raisons ci-dessus) ; **E2, équivalent sous la précondition du RUNBOOK
+    l.377** : `--check` sort 1 sur tout autre fichier d'un dossier daté (G2 : un README dans `policy/`, « extra »).
+  - Sous Asia/Kolkata et America/Los_Angeles, les mutants de l'heure (X6, N7, N8, N9, I1, I2, M7, G24, C1, C2) sont tués aussi.
+  - **X6**, écrit : `!real(probe.received_at) || ` retiré (`:79` à `94aca808`), tué. La seconde lecture de la G2, **X6b**
+    (`!(ms >= caMs)` → `ms < caMs`, `:85`), survit sous les trois fuseaux, hors de la table : équivalente, car `ms` est fini après `:79`
+    et `caMs` après `:71`.
 - **Corrections** : la garde `full !== commit` retirée au pli d'`ac1cb86` **n'était pas équivalente** à `checkLine` : l'id d'un tag annoté
   (40 hex) était pelé par `^{commit}` et accepté. Elle revient sous la forme « `%H` égal à l'id donné » (`:110`), tenue par le cas du tag
   annoté. E3, écrit « équivalent » au premier pli, ne l'est pas (ci-dessus). Les mutants triviaux de l'écriture (M14, M15, X30) :
@@ -223,3 +265,41 @@ champ changé. Les instants sont comptés depuis son `checked_at`.
   pathspecs de `ci.yml` ; `docs/**/*.md` exclus, la fixture `test/fixtures/` comptée) : 5 fichiers, +520 −1, soit **521** (borne 547) ;
   la CI de `3490ad7d` lit de même « Changed lines: 521 » (mode written). Avec ce G0, 6 fichiers.
 - **CI** : relancée par la poussée de `3490ad7d`, qui contient `595d2e4b` ; puis par celle de ce texte.
+
+### Pli de `fc824a5` (RECHERCHES, 2026-10-07, mesures à `94aca808`)
+
+- **red-proof** : `node scripts/red-proof.mjs --base 595d2e4b0cab6cf28730e13dbb91992a642eeb33 --gel 94aca808 --repo <worktree> --out
+  <dossier> --draw 5 --seed 235` (Node v24.21.0, Linux, 15:26:27Z à 15:26:42Z) : sortie 0, « 5 judged, 0 unchanged, 5 killer(s) drawn » ;
+  les cinq tests `new-module`, les cinq tueurs tués (`:77`, `:99`, `:110`, `:86`, `:73`), la fixture classée `support` ; fichier
+  restauré (sha256 `58d19c97…` avant et après) ; digest du gel `b82c8ebb…`, `RED-PROOF.json` sha256 `0d8b9576…`. La forme
+  `--test-only` (15:26:09Z à 15:26:21Z) **refuse par construction**, sortie 1, sans test lancé : « production changed:
+  scripts/served-history.d.mts », « … scripts/served-history.mjs », « … scripts/spec-policy-tables.mjs » et « no G0 of the diff declares
+  "red-proof: test-only" » : ce diff change du code de production, sa preuve est la forme F2P ci-dessus.
+- **Rouges d'abord, troisième pli** (15:17:26Z à 15:18:35Z) : le fichier de test de `94aca808` contre le code de `5ef7a18b` (second worktree
+  détaché, sha256 `ca1d3b75…`) : 3 sur 5, les tests 3 et 5 **rouges par assertion** (`ERR_ASSERTION`) sous UTC, Asia/Kolkata et
+  America/Los_Angeles. Chaque cas neuf **seul** (une copie du fichier qui ne garde que ce cas parmi les neufs), sous les trois fuseaux :
+  - `checked_at` sans Z : rouge (UTC : « Missing expected exception: ca_not_green », la tête l'accepte et écrit `t_f` 12:56:15Z ;
+    Asia/Kolkata : la tête le refuse en `line_invalid`, `t_f` 07:26:15Z ; America/Los_Angeles : en `probe_before_ca`) ;
+  - `checked_at` à décalage `+00:00` : rouge sous les trois (la tête l'accepte) ;
+  - chaque nom sans `--`, `--ca` deux fois, `--probe ""` : rouges chacun sous les trois (la tête sort 1, par `pins_unreadable`, et non 2) ;
+  - le dossier qui ne tient que sa liste de retrait : **vert à la tête, comme attendu**, car la tête garde `existsSync(p)` ; rouge sous
+    X3 posé sur la tête (`:72`, « Got unwanted exception » sur ENOENT), quand le fichier sans ce cas passe 5 sur 5 sous X3 (la survie
+    mesurée par la G2) ; fichier restauré, sha256 `ca1d3b75…`.
+  Puis à `94aca808` : chaque copie et le fichier entier, 5 sur 5 sous les trois fuseaux. La mesure de la G2 rejouée à la tête : sous
+  Asia/Kolkata, un `checked_at` sans Z et des sondes reçues 3 h **avant** le vrai `checked_at` (`t_e` 6 h avant) donnent « ACCEPTED 2
+  line(s), t_f 2026-10-07T07:26:15Z » ; à `94aca808`, `ca_not_green` sous les trois fuseaux.
+- **Tueurs tirés** : `node scripts/mutants/run.mjs --repo <worktree> --base 595d2e4b… --killers` (15:22:21Z à 15:22:34Z) : les 10 tueurs
+  du fichier, les 5 des lignes de test et les 5 des gardes de ce pli, **10 tués sur 10** (rouges par assertion), base verte, fichier
+  restauré ; `RESULTS.json` sha256 `0c613401…`.
+- **Ancres** : `verifie-ancres.mjs` sur l'arbre, `--ref origin/lot/etude-suite --ref origin/recherches/e2a-h-served-history` : 1 605
+  tueurs, 1 605 ancrés, 0 dérive, **0 perdu** (les 5 de plus sont les tueurs des gardes de ce pli) ; `every_killer_line_is_readable` : 1
+  sur 1.
+- **Voisins** : les mêmes 13 fichiers : **290 sur 290** (15:24:16Z à 15:25:24Z) ; ce fichier seul, 5 sur 5 sous UTC, Asia/Kolkata et
+  America/Los_Angeles.
+- **Portes** (15:22:44Z à 15:23:57Z) : `tsc --noEmit` 0 ; `eslint test/served-history.test.ts` 0 (les `.mjs` sont hors du champ
+  d'eslint) ; `gate:vocab` OK (348 fichiers) ; `lang:gate` OK ; `lint:ratchet` 69/69 ; `export:check` OK ; winlint `--files` (5 fichiers) :
+  aucun risque Windows.
+- **R-25** (forme de la CI, comme ci-dessus) : 5 fichiers, +529 −1, soit **530** (borne 547) ; la CI de `94aca808` lit de même « Changed
+  lines: 530 » (mode written, fusion de test `9047f965` sur le tronc `102b44d3`). Avec ce G0, 6 fichiers.
+- **CI** : à `94aca808`, **11 sur 11** en succès (check-runs ; `g3-verification` fini à 15:31:01Z) ; relancée ensuite par la poussée de
+  ce texte.
