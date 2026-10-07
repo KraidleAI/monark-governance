@@ -43,9 +43,10 @@ function file(name: string, text: string): string {
   writeFileSync(f, text);
   return f;
 }
-/** The SMTP password file, its mode set (0600 by default: owner only). */
-function passFile(text: string, mode = 0o600): string {
-  const f = file("smtp-pass", text);
+/** The SMTP password file, its bytes as given, its mode set (0600 by default: owner only). */
+function passFile(text: string | Buffer, mode = 0o600): string {
+  const f = join(scratch(), "smtp-pass");
+  writeFileSync(f, text);
   chmodSync(f, mode);
   return f;
 }
@@ -110,7 +111,7 @@ async function probeOn(w: World = {}): Promise<Outcome> {
 // reddened by: a proxy body that differs from the host's accepted (M-H1: the digests not compared, or the lengths alone), the head
 // taken elsewhere than the last snapshot line of the host's timeline, a file of the pair not read on both sides, or a record off its
 // closed keys
-// killer: scripts/probe-dojo-live.mjs:161 CONST "host.sha256 === proxy.sha256 && " -> ""
+// killer: scripts/probe-dojo-live.mjs:168 CONST "host.sha256 === proxy.sha256 && " -> ""
 test("dojo_live_probe_compares_proxy_and_host", async () => {
   const ok = await probeOn();
   assert.deepEqual(Object.keys(ok.state), [...P.DOJO_LIVE_KEYS], "the closed keys, in their order");
@@ -126,7 +127,7 @@ test("dojo_live_probe_compares_proxy_and_host", async () => {
 
 // reddened by: no reread on a difference (M-H2: a publication between the host's GET and the proxy's taken as a fault), a reread
 // without its wait, or the head taken from the first read
-// killer: scripts/probe-dojo-live.mjs:162 CONST "attempt > 0" -> "attempt >= 0"
+// killer: scripts/probe-dojo-live.mjs:169 CONST "attempt > 0" -> "attempt >= 0"
 test("dojo_live_probe_rereads_a_publication_race", async () => {
   const late = (rel: string, n: number): Buffer | undefined => (rel === TL && n === 0 ? OLD.get(rel) : NEW.get(rel));
   const race = await probeOn({ host: { tree: late } });
@@ -139,7 +140,7 @@ test("dojo_live_probe_rereads_a_publication_race", async () => {
 
 // reddened by: a proxy answer without no-store accepted (M-H4), cf-cache-status HIT accepted (M-H3), or MISS, a value off the token
 // form recorded as is, the answer of one of the two files not read, or the verifier run once the headers failed
-// killer: scripts/probe-dojo-live.mjs:68 CONST "[\"DYNAMIC\", \"BYPASS\"]" -> "[\"DYNAMIC\", \"BYPASS\", \"HIT\"]"
+// killer: scripts/probe-dojo-live.mjs:74 CONST "[\"DYNAMIC\", \"BYPASS\"]" -> "[\"DYNAMIC\", \"BYPASS\", \"HIT\"]"
 test("dojo_live_probe_reads_the_proxy_headers", async () => {
   const run = (headers: (rel: string) => OutgoingHttpHeaders): Promise<Outcome> => probeOn({ proxy: { headers } });
   const none = await run(() => ({}));
@@ -156,7 +157,7 @@ test("dojo_live_probe_reads_the_proxy_headers", async () => {
 
 // reddened by: the verifier's timeline_sha256 not compared with the host's of the core (M-H6: a publication between the core and the
 // verifier taken as healthy), a keyring without the signer's key or without the rotated key accepted, the verifier's reason lost
-// killer: scripts/probe-dojo-live.mjs:191 CONST "r.timeline_sha256 === timelineSha" -> "true"
+// killer: scripts/probe-dojo-live.mjs:198 CONST "r.timeline_sha256 === timelineSha" -> "true"
 test("dojo_live_probe_runs_the_real_verifier", async () => {
   const other = await probeOn({ opts: { keyring: file("other.json", JSON.stringify(dojoKeyringOf([[newKey(), 1]]))) } });
   assert.deepEqual([other.state.reason, other.state.verifier_exit, other.state.verifier_reason, other.exitCode], ["verifier_refused", 1, "served_key_not_in_keyring", 1]);
@@ -174,7 +175,7 @@ test("dojo_live_probe_runs_the_real_verifier", async () => {
 
 // reddened by: the verifier's exit read without its report (M-H5: an exit 0 printing a refusal, or a report under the served keyring,
 // taken as healthy), the unit's environment (SMTP_PASS) handed to the child, a child left running past its delay
-// killer: scripts/probe-dojo-live.mjs:190 CONST "v.code === 0 && reportOk(r)" -> "v.code === 0"
+// killer: scripts/probe-dojo-live.mjs:197 CONST "v.code === 0 && reportOk(r)" -> "v.code === 0"
 test("dojo_live_probe_reads_the_verifier_report", async () => {
   const names = join(scratch(), "names.json");
   const stub = (out: string): string => file("stub.mjs", `import { writeFileSync } from "node:fs";\nwriteFileSync(${JSON.stringify(names)}, `
@@ -265,7 +266,7 @@ const DOJO_SVC = "deploy/monark-dojo-probe.service", DOJO_TIMER = "deploy/monark
 // reddened by: the freshness ignored (M-H7: a head older than the day due accepted), the grid read a day off, a deadline before the
 // end of the last publication start, a shot before the deadline, a probe start that can overlap a publication start or a start of
 // monark-probe
-// killer: scripts/probe-dojo-live.mjs:220 CONST "s.lag_days > 0 ? \"lag\" : null" -> "null"
+// killer: scripts/probe-dojo-live.mjs:228 CONST "s.lag_days > 0 ? \"lag\" : null" -> "null"
 test("dojo_probe_timer_follows_the_publish_deadline", async () => {
   const [pt, ps, dt, ds, nt, ns] = ["deploy/monark-dojo-publish.timer", "deploy/monark-dojo-publish.service", DOJO_TIMER, DOJO_SVC,
     "deploy/monark-probe.timer", "deploy/monark-probe.service"].map(unit) as [Directive[], Directive[], Directive[], Directive[], Directive[], Directive[]];
@@ -287,7 +288,7 @@ test("dojo_probe_timer_follows_the_publish_deadline", async () => {
 // reddened by: a GET left to hang past its timer or named unreachable, a body or a line past the verifier's bounds read, a status
 // other than 200 or a redirect taken as served, a closed port, the side not named, an insecure or a bad-port base dialled, a timeline
 // without a snapshot or without its final newline read as a head
-// killer: scripts/probe-dojo-live.mjs:147 CONST "ctl.signal.aborted ? \"timeout\" : " -> ""
+// killer: scripts/probe-dojo-live.mjs:153 CONST "ctl.signal.aborted ? \"timeout\" : " -> ""
 test("dojo_live_probe_names_each_transport_refusal", async () => {
   const quick = { ...VERIFY_BOUNDS, TIMEOUT_MS: 300 }, hang = (on: string) => (rel: string): boolean => rel === on;
   const names = (o: Outcome): [string | null, string | null] => [o.state.reason, o.state.side];
@@ -353,7 +354,7 @@ async function fakeSmtp(): Promise<{ port: number; mails: string[]; auths: strin
 // reddened by: no mail on the transition to unhealthy (M-H8), a second mail the same UTC day, no recovery mail, the alert bit moved
 // without a delivered mail, a mail that carries a URL, an address, the password or a banned word, a password taken from anywhere but
 // its file (the environment holds none)
-// killer: scripts/probe-dojo-live.mjs:282 CONST "readSmtpPass(opts.smtpPassFile ?? DEFAULT_SMTP_PASS_FILE)" -> "env.SMTP_PASS"
+// killer: scripts/probe-dojo-live.mjs:285 CONST "readSmtpPass(opts.smtpPassFile ?? DEFAULT_SMTP_PASS_FILE)" -> "env.SMTP_PASS"
 test("dojo_live_probe_mails_on_the_transition", async () => {
   const smtp = await fakeSmtp(), out = join(scratch(), "dojo-live.json"), smtpPassFile = passFile("secret-x\n");
   const env = { SMTP_HOST: "127.0.0.1", SMTP_PORT: String(smtp.port), SMTP_TLS: "none", SMTP_USER: "probe",
@@ -380,10 +381,12 @@ test("dojo_live_probe_mails_on_the_transition", async () => {
   }
 });
 
-// reddened by: the password read before the verifier's child has ended, or from a file that its group or others may read (POSIX),
-// through a symbolic link (POSIX), empty or of two lines; the section of the RUNBOOK that does not create the file for the probe alone
-// killer: scripts/probe-dojo-live.mjs:249 CONST "(st.mode & 0o077) !== 0" -> "false"
-test("dojo_live_probe_reads_the_smtp_password_from_its_file_after_the_verifier", async () => {
+// reddened by: the password read before the verifier's child has ended, a file past SMTP_PASS_MAX_BYTES, empty, of two lines, with a
+// BOM or invalid UTF-8 accepted, a CRLF line or a file of exactly SMTP_PASS_MAX_BYTES refused, or (POSIX) a file that its group or others
+// may read or reached through a symbolic link accepted; a section 25 of the RUNBOOK that does not create the file through systemd's own
+// parser for the probe alone, prints its size, or does not prove the mail path before the timer
+// killer: scripts/probe-dojo-live.mjs:248 CONST "st.size > SMTP_PASS_MAX_BYTES" -> "false"
+test("dojo_live_probe_reads_the_smtp_password_from_its_file_after_the_verifier", async (t) => {
   const smtp = await fakeSmtp(), late = join(scratch(), "smtp-pass");
   const env = { SMTP_HOST: "127.0.0.1", SMTP_PORT: String(smtp.port), SMTP_TLS: "none", SMTP_USER: "probe", ALERT_FROM: "probe@monark.test", ALERT_TO: "ops@monark.test" };
   const report = `${JSON.stringify({ ...Object.fromEntries(DOJO_VERIFY_REPORT_KEYS.map((k) => [k, null])), ok: true,
@@ -392,21 +395,32 @@ test("dojo_live_probe_reads_the_smtp_password_from_its_file_after_the_verifier",
   const writer = file("writer.mjs", `import { chmodSync, writeFileSync } from "node:fs";\nwriteFileSync(${JSON.stringify(late)}, "late-pass\\n");\n`
     + `chmodSync(${JSON.stringify(late)}, 0o600);\nprocess.stdout.write(${JSON.stringify(report)});\n`);
   const run = (smtpPassFile: string): Promise<Outcome> => probeOn({ opts: { now: LAG, out: join(scratch(), "dojo-live.json"), env, smtpPassFile, verifier: writer } });
+  const long = "x".repeat(P.SMTP_PASS_MAX_BYTES - 1);
   try {
     const after = await run(late);
     assert.deepEqual([after.state.reason, after.state.verifier_exit, after.state.alert_error, smtp.auths], ["lag", 0, null, ["\0probe\0late-pass"]]);
-    const open = await run(passFile("open-pass\n", 0o640));
-    assert.deepEqual([open.state.alert_error, smtp.auths.length], POSIX ? ["smtp_unconfigured", 1] : [null, 2], "group-readable: refused (POSIX); win32 has no mode bits");
-    for (const text of ["", "\n", "two\nlines\n", `${"x".repeat(P.SMTP_PASS_MAX_BYTES)}\n`]) assert.equal((await run(passFile(text))).state.alert_error, "smtp_unconfigured", JSON.stringify(text));
-    if (POSIX) {
+    for (const [text, pass] of [["pw\r\n", "pw"], [`${long}\n`, long]] as const) {
+      assert.deepEqual([(await run(passFile(text))).state.alert_error, smtp.auths.at(-1)], [null, `\0probe\0${pass}`], `accepted: ${JSON.stringify(text.slice(0, 8))}`);
+    }
+    const refused: (string | Buffer)[] = ["", "\n", "two\nlines\n", `${"x".repeat(P.SMTP_PASS_MAX_BYTES)}\n`, "\uFEFFbom-pass\n", Buffer.from("bad-pass\xff\n", "latin1")];
+    for (const text of refused) assert.equal((await run(passFile(text))).state.alert_error, "smtp_unconfigured", JSON.stringify(String(text).slice(0, 16)));
+    await t.test("refused on POSIX: a file its group may read, a symbolic link", { skip: POSIX ? false : "win32: no POSIX mode bits, no O_NOFOLLOW" }, async () => {
+      assert.equal((await run(passFile("open-pass\n", 0o640))).state.alert_error, "smtp_unconfigured", "group-readable");
       const link = join(scratch(), "smtp-pass-link");
       symlinkSync(passFile("linked-pass\n"), link);
       assert.equal((await run(link)).state.alert_error, "smtp_unconfigured", "never through a symbolic link");
-    }
+    });
   } finally { await smtp.close(); }
-  assert.ok(!smtp.auths.some((a) => a.includes("linked-pass")), "the linked password never sent");
+  assert.ok(!smtp.auths.some((a) => /open-pass|linked-pass|bom-pass|bad-pass/.test(a)), "no refused password ever sent");
   const text = read("docs/RUNBOOK-dojo.md"), s = text.slice(text.indexOf("\n## 25. "), text.indexOf("\n## ", text.indexOf("\n## 25. ") + 1));
-  for (const x of [P.DEFAULT_SMTP_PASS_FILE, "install -m 0600 -o probe -g probe", "probe 600"]) assert.ok(s.includes(x), `section 25: ${x}`);
+  for (const x of [P.DEFAULT_SMTP_PASS_FILE, "install -m 0600 -o probe -g probe", "probe 600", "size-ok",
+    "systemd-run --wait --collect --quiet -p EnvironmentFile=/etc/monark/probe.env", `printf "%s\\n" "$$SMTP_PASS" > ${P.DEFAULT_SMTP_PASS_FILE}`,
+    "-p EnvironmentFile=/etc/monark/probe.env -p UnsetEnvironment=SMTP_PASS", '"alert_error": null']) assert.ok(s.includes(x), `section 25: ${x}`);
+  assert.ok(!s.includes('stat -c "%U %a %s"') && !s.includes(`sed -n "s/^SMTP_PASS=//p"`), "(1b): the file's size never printed, never a copy of the raw line");
+  const b1 = s.indexOf("\n(1b) "), c1 = s.indexOf("\n(1c) "), timer = s.indexOf("systemctl enable --now monark-dojo-probe.timer");
+  assert.ok(b1 > 0 && c1 > b1 && timer > c1, "(1b), then (1c), then the timer");
+  const never = text.slice(text.indexOf("\nProbe (section 25): "));
+  assert.ok(never.slice(0, 600).includes(P.DEFAULT_SMTP_PASS_FILE), "the probe's Never list names the password file");
 });
 
 // reddened by: a probe whose environment holds SMTP_PASS (any value) that runs a GET or its verifier child, which runs under the same
@@ -434,7 +448,7 @@ test("dojo_live_probe_judges_the_host_timeline_before_the_proxy", async () => {
 
 // reddened by: a usage error that writes a record or exits other than 2, a run whose exit or printed record differs from its file, or
 // NODE_TLS_REJECT_UNAUTHORIZED=0 not refused before any GET
-// killer: scripts/probe-dojo-live.mjs:306 CONST "process.exitCode = 2" -> "process.exitCode = 0"
+// killer: scripts/probe-dojo-live.mjs:333 CONST "process.exitCode = 2" -> "process.exitCode = 0"
 test("dojo_live_probe_cli_contract", async () => {
   const cli = (args: readonly string[], extra: Record<string, string> = {}): Promise<{ code: number | null; stdout: string; stderr: string }> => {
     const env: Record<string, string> = {};
@@ -499,7 +513,7 @@ test("dojo_probe_units_are_hardened", () => {
 // reddened by: a tree that misses a module the probe or the verifier's CLI loads, holds one more file or not the keyring, a default
 // path (verifier, keyring) outside it, a default base off the site's proxy prefix or off the Dojo host, or a RUNBOOK that ships, runs
 // or enables anything but these files and units, writes the simulated record over the production one, or names a host by address
-// killer: scripts/probe-dojo-live.mjs:48 CONST "\"scripts/probe-narabi.mjs\"" -> "\"scripts/probe-narabi.d.mts\""
+// killer: scripts/probe-dojo-live.mjs:54 CONST "\"scripts/probe-narabi.mjs\"" -> "\"scripts/probe-narabi.d.mts\""
 test("dojo_probe_tree_is_the_import_closure", () => {
   const IMPORT = /^[ ]*(?:import|export)[ ]+(?!type[ ])(?:[^'";]*?[ ]from[ ]*)?["']([^"']+)["']/gm, rel = (p: string): string => relative(REPO, p).split(sep).join("/");
   const out = new Set<string>([rel(P.DEFAULT_KEYRING)]), todo = [rel(PROBE), rel(P.DEFAULT_VERIFIER)];

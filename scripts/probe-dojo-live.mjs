@@ -25,7 +25,7 @@
 // nothing written. No secret and no address in any output: hosts by their public names, closed sets, digests and days only.
 import { createHash, randomBytes } from "node:crypto";
 import { execFile } from "node:child_process";
-import { closeSync, constants, fstatSync, mkdirSync, openSync, readFileSync, realpathSync, renameSync, rmSync, writeFileSync } from "node:fs";
+import { closeSync, constants, fstatSync, mkdirSync, openSync, readFileSync, readSync, realpathSync, renameSync, rmSync, writeFileSync } from "node:fs";
 import { dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 import { DOJO_VERIFY_REFUSALS, DOJO_VERIFY_REPORT_KEYS, VERIFY_BOUNDS, dayOk } from "../apps/dojo/scripts/dojo-verify.mjs";
@@ -65,8 +65,8 @@ export const REREAD_DELAY_MS = 1500;
  *  unit's CPUQuota=25%, x 1.25, up to the hundred: 3 000 s. Covered: N <= 10 000 at D <= 30, N <= 1 144 at D <= 365. */
 export const VERIFIER_HEAP_MIB = 448;
 export const VERIFIER_TIMEOUT_MS = 3_000_000;
-/** The names the verifier child receives, a closed list taken by name (never the unit's environment, which holds SMTP_PASS): those
- *  of the CA's child, DOJO_CA_CHILD_ENV of scripts/verify-dojo.mjs (equality pinned); on the host only PATH is set among them. */
+/** The names the verifier child receives, a closed list taken by name (never the whole environment, which the unit strips of SMTP_PASS):
+ *  those of the CA's child, DOJO_CA_CHILD_ENV of scripts/verify-dojo.mjs (equality pinned); on the host only PATH is set among them. */
 export const VERIFIER_ENV = Object.freeze(["HOMEDRIVE", "HOMEPATH", "LOGONSERVER", "PATH", "SYSTEMDRIVE", "SYSTEMROOT", "TEMP",
   "USERDOMAIN", "USERNAME", "USERPROFILE", "WINDIR"]);
 /** cf-cache-status values admitted on the proxy's responses (PL-2 l.305: DYNAMIC or BYPASS, never HIT); absent is admitted too (no
@@ -237,9 +237,9 @@ export function readPriorAlert(out) {
   } catch { /* absent or corrupt */ }
   return { alerted: false, last_alert_day: null };
 }
-/** The SMTP password at `path`, or null: a regular file reached without a link (O_NOFOLLOW; win32 has none), never waited on (a FIFO),
- *  at most SMTP_PASS_MAX_BYTES, ONE non-empty line (its final newline dropped), that neither its group nor others may read. win32 has no
- *  POSIX mode bits (Node reports 0o666 or 0o444 whatever the ACL): they are not checked there; the probe runs on Linux (the Bell host). */
+/** The SMTP password at `path`, or null: a regular file whose last path component is no symbolic link (O_NOFOLLOW, absent on win32; a
+ *  hard link is not seen), never waited on (a FIFO), at most SMTP_PASS_MAX_BYTES, ONE non-empty line of valid UTF-8 without a BOM (its
+ *  final newline dropped), that neither its group nor others may read (POSIX: win32 has no mode bits; the probe runs on Linux). */
 export function readSmtpPass(path) {
   let fd = null;
   try {
@@ -247,8 +247,11 @@ export function readSmtpPass(path) {
     const st = fstatSync(fd);
     if (!st.isFile() || st.size > SMTP_PASS_MAX_BYTES) return null;
     if (process.platform !== "win32" && (st.mode & 0o077) !== 0) return null;
-    const text = readFileSync(fd, "utf8").replace(/\r?\n$/, "");
-    return /^[^\r\n\0]+$/.test(text) ? text : null;
+    // One bounded read on the same descriptor: a byte count other than fstat's (a file that grew or shrank, a device) is refused.
+    const buf = Buffer.alloc(SMTP_PASS_MAX_BYTES + 1), n = readSync(fd, buf, 0, buf.length, 0);
+    if (n !== st.size) return null;
+    const text = new TextDecoder("utf-8", { fatal: true, ignoreBOM: true }).decode(buf.subarray(0, n)).replace(/\r?\n$/, "");
+    return /^[^\r\n\0\uFEFF]+$/.test(text) ? text : null;
   } catch { return null; } finally { if (fd !== null) closeSync(fd); }
 }
 /** The mail configuration of /etc/monark/probe.env, under the keys and rules of smtpConfig of probe-narabi.mjs but SMTP_PASS, never
