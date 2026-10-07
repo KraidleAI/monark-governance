@@ -62,7 +62,7 @@ const reforged = (edit: (rows: Cell[]) => void): { bytes: Uint8Array; pins: Guar
   return { bytes, pins: { ...PINS, registrySha256: createHash("sha256").update(bytes).digest("hex") } };
 };
 
-// killer: apps/harness/src/policy-guard.ts:122 SDL "want(Object.keys(cell.test.months)" -> ""
+// killer: apps/harness/src/policy-guard.ts:124 SDL "want(Object.keys(cell.test.months)" -> ""
 test("guard_admits_every_synthetic_table", () => {
   for (const name of CLASSES) guardKataTable(tableFrom(name, SYN.bytes, PINS), SYN.bytes, PINS, entry(name));
   assert.deepEqual(new Set(ROWS.map((r) => r.status)), new Set(["region", "silence", "vetoed", "under_calib"]));
@@ -130,7 +130,7 @@ test("guard_recompute_and_verifiers", () => {
   refuse({ ...under, recompute: rc }, /under_calib with a calibrated column/);
 });
 
-// killer: apps/harness/src/policy-guard.ts:109 ROR "?? 0) > 0" -> "?? 0) >= 0"
+// killer: apps/harness/src/policy-guard.ts:111 ROR "?? 0) > 0" -> "?? 0) >= 0"
 test("guard_band_edges_and_support", () => {
   check(bandRegion);
   const b = (qhat: number, min: number, max: number): PolicyRow => ({ ...bandRegion, qhat, calib_support: { min, max } });
@@ -207,4 +207,18 @@ test("guard_requires_verifier_pins_as_identities", () => {
 test("guard_adr_cause_under_decisions_only", () => {
   check(retired("adr:decisions/0007-retire.md", null, null, null));
   for (const c of ["adr:/x.md", "adr:../../etc.md", "adr:..md", "adr:decisions/../x.md", "adr:other/x.md"]) refuse(retired(c, null, null, null), /retire cause/);
+});
+
+// reddened by: the digest clause of guardKataRow removed, so that the server admits a row the publication refuses (SHORT-DIGEST-INVERSION-1, RECHERCHES Q-4)
+// killer: apps/harness/src/policy-guard.ts:106 SDL "is(digests.length === 0" -> ""
+test("the_guard_refuses_a_sign_set_row_under_the_digest_floor", () => {
+  const up = find((r) => r.side === "up" && r.status === "region" && r.qhat === 0);
+  check(up);
+  refuse({ ...up, misses: 2, k_obs: 2 }, /has a digest that the publication refuses: scores \d+\.\d\d bits, labels \d+\.\d\d bits \(fewer than 2\^128 compatible sequences/);
+  refuse({ ...bandRegion, aux_sha256: "ab".repeat(32) }, /has a digest that the publication refuses: aux_sha256 \(/);
+  const cls = up.task_class, low = reforged((rows) => {
+    const c = rows.find((x) => x.key === up.cell_key && x.taskClass === cls) ?? assert.fail("no cell");
+    c.calib = { ...c.calib, misses: 2, kObs: 2 };
+  });
+  assert.throws(() => guardKataTable(tableFrom(cls, low.bytes, low.pins), low.bytes, low.pins, entry(cls)), /has a digest that the publication refuses: scores/);
 });

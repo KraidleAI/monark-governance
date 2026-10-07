@@ -303,7 +303,7 @@ test("kata_served_tables_digests", () => {
   assert.deepEqual(served.filter((s, i) => s.policy_table_sha256 !== moved[i]?.policy_table_sha256).map((s) => s.task_class), ["eth-range-1h"]);
 });
 
-// killer: apps/harness/src/policy-guard.ts:128 SDL "want(new Set(rs.map((r) => r.bucket)).size === 3" -> ""
+// killer: apps/harness/src/policy-guard.ts:130 SDL "want(new Set(rs.map((r) => r.bucket)).size === 3" -> ""
 test("guard_thresholds_agree_per_side", () => {
   const refused = (edit: (cells: Cell[]) => void): string => code(() => table("sol-dir-1h", edit));
   const upB2 = (c: Cell): boolean => c.taskClass === "sol-dir-1h" && String(c.key).endsWith("/up-b2");

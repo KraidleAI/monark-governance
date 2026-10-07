@@ -281,20 +281,20 @@ export function main(argv) {
   }
 }
 
-/** The rows a published table file may not carry (contract 1.1.0, section 10): SHORT_N points or fewer (n or p_served), or a sequence
- *  digest whose number of points the row does not state (aux_sha256, series_sha256), since the digest of a 0/1 sequence of SHORT_N
- *  points or fewer can be inverted (SHORT-DIGEST-INVERSION-1); and a row with a recompute before the published list of verifiers
- *  (VERIFIERS-LIST-F5A-1). The writer of the table files calls this same function. */
+/** The rows a published table file may not carry (contract 1.1.0, section 10): SHORT_N points or fewer (n or p_served); outside the
+ *  synthetic fixtures, a digest that the import guard refuses too (digestProblems of apps/harness/src/policy-digest-floor.ts: a 0/1
+ *  digest with fewer than 2^128 compatible sequences, or the digest of an unstated sequence; SHORT-DIGEST-INVERSION-1); and a row with a
+ *  recompute before the published list of verifiers (VERIFIERS-LIST-F5A-1). The writer of the table files calls this same function. */
 export const SHORT_N = 30;
 export function tableRowProblems(table, fixture = false) {
   const cls = String(table.class?.task_class), all = Array.isArray(table.rows) ? table.rows : [], rows = all.filter(isObj), int = (x) => Number.isSafeInteger(x);
   if (rows.length !== all.length) return [{ code: "policy_table_invalid", detail: `${cls} has a row that is not an object` }];
   const held = fixture ? [] : rows.filter((r) => r.recompute !== null).map((r) => String(r.cell_key));
   const why = (r) => [!int(r.n) || r.n <= SHORT_N ? `n ${String(r.n)}` : null, r.p_served !== null && (!int(r.p_served) || r.p_served <= SHORT_N) ? `p_served ${String(r.p_served)}` : null,
-    ...(fixture ? [] : ["aux_sha256", "series_sha256"]).map((k) => (r[k] !== null && r[k] !== undefined ? k : null))].filter((x) => x !== null);
+    ...(fixture ? [] : digestProblems(r))].filter((x) => x !== null);
   const short = rows.filter((r) => why(r).length > 0).map((r) => `${String(r.cell_key)} (${why(r).join(", ")})`);
   return [...(held.length > 0 ? [{ code: "recompute_held", detail: `VERIFIERS-LIST-F5A-1: ${cls} has a row with a recompute (${held.join(", ")}); the published list of verifiers comes first` }] : []),
-    ...(short.length > 0 ? [{ code: "short_digest", detail: `SHORT-DIGEST-INVERSION-1: ${cls} has a row whose digests cover ${String(SHORT_N)} points or fewer, or an unstated number: ${short.join(", ")}` }] : [])];
+    ...(short.length > 0 ? [{ code: "short_digest", detail: `SHORT-DIGEST-INVERSION-1: ${cls} has a row whose digests cover ${String(SHORT_N)} points or fewer, an unstated sequence, or fewer than 2^${String(DIGEST_FLOOR_BITS)} compatible sequences: ${short.join(", ")}` }] : [])];
 }
 
 const real = (p) => { try { const r = realpathSync(p); return process.platform === "win32" ? r.toLowerCase() : r; } catch { return null; } }; // a link or a junction too
@@ -319,3 +319,7 @@ function retireProblems(files) {
   }
   return p;
 }
+
+// SHORT-DIGEST-INVERSION-1: the digest rule of tableRowProblems, shared with the import guard (guardKataRow). Imported last, not at the
+// top, so that the import moves no line (killers pin them; the retireProblems precedent above); imports are hoisted.
+import { DIGEST_FLOOR_BITS, digestProblems } from "../apps/harness/src/policy-digest-floor.ts";

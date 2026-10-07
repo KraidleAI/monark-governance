@@ -146,7 +146,7 @@ test("retired_row_stays_current_and_is_never_revived", () => {
   assert.throws(() => guard(tableWith(DIR, { ...retireOverlay(DIR, d), current: false }), listOf([d])), /column current differs from the projection/);
 });
 
-// killer: apps/harness/src/policy-guard.ts:116 CONST "readRetireList(pin, registryBytes, prev)" -> "readRetireList(pin, registryBytes)"
+// killer: apps/harness/src/policy-guard.ts:118 CONST "readRetireList(pin, registryBytes, prev)" -> "readRetireList(pin, registryBytes)"
 test("retire_lists_chain_through_the_guard", () => {
   // M-2 of the verification (draft 4.1, R-T5 in the guard): GuardPins.retireLists, oldest to newest, each read against its
   // predecessor; the newest overlays the projection. A later list that drops an earlier retire is refused, whatever the row's
