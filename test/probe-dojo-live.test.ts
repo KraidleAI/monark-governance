@@ -352,8 +352,10 @@ test("dojo_live_probe_mails_on_the_transition", async () => {
 
 // reddened by: the password read before the verifier's child has ended, a file past SMTP_PASS_MAX_BYTES, empty, of two lines, with a
 // BOM or invalid UTF-8 accepted, a CRLF line or a file of exactly SMTP_PASS_MAX_BYTES refused, or (POSIX) a file that its group or others
-// may read or reached through a symbolic link accepted; a section 25 of the RUNBOOK that does not create the file through systemd's own
-// parser for the probe alone, prints its size, or does not prove the mail path before the timer
+// may read or reached through a symbolic link accepted, or (Linux) a procfs file whose fstat size is not its byte count accepted; a section
+// 25 of the RUNBOOK that does not create the file through systemd's own parser for the probe alone, prints its size, or does not prove the
+// mail path before the timer (under the unit's user, forced unhealthy, on a fresh scratch record); a change of SMTP_PASS not followed by
+// (1b) then (4b), in RUNBOOK-sentinel or in section 25
 // killer: scripts/probe-dojo-live.mjs:248 CONST "st.size > SMTP_PASS_MAX_BYTES" -> "false"
 test("dojo_live_probe_reads_the_smtp_password_from_its_file_after_the_verifier", async (t) => {
   const smtp = await fakeSmtp(), late = join(scratch(), "smtp-pass");
@@ -379,6 +381,7 @@ test("dojo_live_probe_reads_the_smtp_password_from_its_file_after_the_verifier",
       symlinkSync(passFile("linked-pass\n"), link);
       assert.equal((await run(link)).state.alert_error, "smtp_unconfigured", "never through a symbolic link");
     });
+    await t.test("refused on Linux: a regular file whose fstat size is not its byte count (procfs)", { skip: process.platform === "linux" ? false : "procfs is Linux only" }, () => { assert.equal(P.readSmtpPass("/proc/self/personality"), null); });
   } finally { await smtp.close(); }
   assert.ok(!smtp.auths.some((a) => /open-pass|linked-pass|bom-pass|bad-pass/.test(a)), "no refused password ever sent");
   const text = read("docs/RUNBOOK-dojo.md"), s = text.slice(text.indexOf("\n## 25. "), text.indexOf("\n## ", text.indexOf("\n## 25. ") + 1));
@@ -388,6 +391,14 @@ test("dojo_live_probe_reads_the_smtp_password_from_its_file_after_the_verifier",
   assert.ok(!s.includes('stat -c "%U %a %s"') && !s.includes(`sed -n "s/^SMTP_PASS=//p"`), "(1b): the file's size never printed, never a copy of the raw line");
   const b1 = s.indexOf("\n(1b) "), four = s.indexOf("\n(4) "), b4 = s.indexOf("\n(4b) "), five = s.indexOf("\n(5) "), timer = s.indexOf("systemctl enable --now monark-dojo-probe.timer");
   assert.ok(b1 > 0 && four > b1 && b4 > four && five > b4 && timer > five, "(1b), then (4), then (4b), then the timer at (5)");
+  const mailAct = s.slice(s.indexOf("\n(4b) "), s.indexOf("\n(5) "));
+  for (const x of ["systemd-run --wait --pipe --collect --uid=probe --gid=probe $S -p EnvironmentFile=/etc/monark/probe.env -p UnsetEnvironment=SMTP_PASS $C",
+    "--now $N", "--out /var/lib/monark-probe/dojo-live-mail.json"]) assert.ok(mailAct.includes(x), `(4b), under the unit's user and forced unhealthy: ${x}`);
+  assert.ok(mailAct.includes("root@bell.monarkgate.tech 'rm -f /var/lib/monark-probe/dojo-live-mail.json && S="), "(4b) opens on the removal of a scratch record left by a cut run");
+  // A change of SMTP_PASS in the mail file (section 1 of the probe's deployment in RUNBOOK-sentinel) replays (1b), then (4b): both texts say so.
+  const sn = read("docs/RUNBOOK-sentinel.md"), p1 = sn.indexOf("\n**1. The SMTP secret is posted by the INVESTOR"), p2 = sn.indexOf("\n**2. Simulate ONE shot", p1 + 1);
+  assert.ok(p1 > 0 && p2 > p1 && sn.slice(p1, p2).includes("**After posting or changing `SMTP_PASS`:** `docs/RUNBOOK-dojo.md` section 25, (1b) then (4b)"), "RUNBOOK-sentinel: (1b) then (4b)");
+  assert.ok(s.includes("\n(9) After posting or changing `SMTP_PASS` (section 1 of the probe's deployment in `docs/RUNBOOK-sentinel.md`): (1b) then (4b)"), "section 25: (1b) then (4b)");
   const never = text.slice(text.indexOf("\nProbe (section 25): "));
   assert.ok(never.slice(0, 600).includes(P.DEFAULT_SMTP_PASS_FILE), "the probe's Never list names the password file");
 });
