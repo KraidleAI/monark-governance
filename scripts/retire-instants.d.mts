@@ -3,6 +3,6 @@
 export interface Io { git?: (repo: string, sha: string) => string; read?: (file: string) => unknown }
 export const KINDS: Readonly<Record<string, readonly string[]>>;
 export function committerDate(repo: string, sha: string): string;
-export function instant(name: string, source: unknown, io?: Io): string;
+export function instant(name: string, source: unknown, io?: Io, cycle?: string): string;
 export function entry(evidence: unknown, io?: Io): { format: "retire-latency-v1"; cycle: string; instants: Record<string, string>; mention: string | null };
 export function main(argv: string[], io?: Io): number;

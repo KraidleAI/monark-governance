@@ -405,15 +405,18 @@ node scripts/spec-publish.mjs --release contract-1.1.0-tables-<YYYY-MM-DD> --dat
   before `calib_retired` (l.94) and would hide it.
 
 ```bash
-node scripts/retire-probe.mjs --api <url> --table spec/contract-1.1.0-tables-<YYYY-MM-DD>/policy/<task_class>.json --cell <cell_key> --api-host <api. name>
+node scripts/retire-probe.mjs --api <url> --table spec/contract-1.1.0-tables-<YYYY-MM-DD>/policy/<task_class>.json --cell <cell_key> --api-host <api. name> --out <probe.json>
 ```
 
 - `scripts/retire-probe.mjs` (item RETIRE-PROBE-1) builds the call from the table file, waits until its clock is within
-  240 s of a grid instant (`--max-wait`, 4 h by default), makes one call and prints the record `retire-probe-v1`. Exit 0
-  iff the verdict is a 200 of that cell, with the file's sha256 and, on a retired row, `calib_retired`. Exit 1 names the
-  refusal: `table_invalid`, `cell_invalid`, `wait_exceeds_max`, `window_missed`, `transport_failed`, `not_served`,
-  `cell_mismatch`, `digest_mismatch` or `reason_mismatch`. Exit 2: usage. **T_g** = its `received_at`, the UTC second the
-  verdict arrived.
+  240 s of a grid instant (`--max-wait`, 4 h by default), makes one call, bounded as a whole by `--timeout` (10 000 ms by
+  default), and prints the record `retire-probe-v1`: it carries the probe's own verdict (`ok`, `problem`), the table file,
+  the api and its Host. `--out <file>` writes that record when it is accepted, `<file>.refused` when it is not; never
+  redirect stdout into the record (Windows PowerShell 5.1 writes `>` in UTF-16). Exit 0 iff the cell has a current row in
+  the file and the verdict is a 200 of that cell, with the file's sha256 and, on a retired row, `calib_retired`. Exit 1
+  names its refusal: `table_invalid`, `cell_invalid`, `wait_exceeds_max`, `window_missed`, `transport_failed`,
+  `not_served`, `cell_mismatch`, `digest_mismatch` or `reason_mismatch`. Exit 2: usage. **T_g** = its `received_at`, the
+  UTC second the verdict arrived: the clock reading of the call plus a monotonic delta.
 
 ### 8. The latency report
 
@@ -426,10 +429,12 @@ node scripts/retire-probe.mjs --api <url> --table spec/contract-1.1.0-tables-<YY
   `cycle` is `rehearsal` or `real`; `mention` is `null`, or where an overrun of the 14-day ceiling is written down
   (l.51-52). AFTER #218 (RETIRE-REAL-CYCLE-SCOPE-1, not merged at the base of this text): `cycle` may be `publication`,
   T_c to T_g only, no ceiling; T_a or T_b in it is refused, `instant_out_of_cycle`.
-- Or assemble it from the evidence: `node scripts/retire-instants.mjs <evidence.json> > <instants.json>` (item
+- Or assemble it from the evidence: `node scripts/retire-instants.mjs <evidence.json> --out <instants.json>` (item
   RETIRE-INSTANTS-1). Each instant names its source: a full commit sha and its repository (T_a, T_b, T_e: the committer
-  date), a clock reading (T_c, T_d; T_a of `live:<k>`), the green record of step 6 (T_f) or the probe's record (T_g).
-  Exit 1 names the refusal: `evidence_invalid`, `source_unreadable`, `source_not_green`, or one of the report's below.
+  date; T_e a merge commit), a clock reading (T_c, T_d; T_a of `live:<k>`, the close of its quarter), the record of step 6
+  that `verify-harness` rates green, with its 15 checks (T_f; a local record in a rehearsal only), or the record of an
+  exit-0 probe, the `--out` file of step 7 (T_g). Exit 1 names its refusal: `evidence_invalid`, `source_unreadable`,
+  `source_not_green`, or one of the report's below.
 - Run it:
 
 ```bash

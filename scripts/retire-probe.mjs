@@ -2,7 +2,7 @@
 // probe of T_g, the first served verdict that carries the policy_table_sha256 of a new table version. Node 24, no dependency.
 //
 //   node scripts/retire-probe.mjs --api <url> --table <spec/<dir>/policy/<task_class>.json> --cell <cell_key> [--api-host <name>]
-//                                 [--max-wait <seconds>] [--timeout <ms>]
+//                                 [--max-wait <seconds>] [--timeout <ms>] [--out <file>]
 //
 // The call comes from the table file alone: its class (task_class, alpha, n_min, h_ms; tau at the cap of a dir class) and the cell. A
 // dir cell takes a lean in its bucket (the thresholds of the first current row of its side, as apps/harness/src/kata-path.ts l.73-75); a
@@ -10,15 +10,20 @@
 // The expected digest is the sha256 of the file (scripts/spec-policy-tables.mjs l.10-11). A kata call is accepted with a produced_at on
 // the grid of the horizon, at most 300 s before the server clock (kata-path.ts l.47, produced_at_stale) and at most 300 s after it
 // (apps/harness/src/tools/gate.ts l.885, produced_at_future): the probe waits until its clock is within MARGIN_MS of a grid instant (at
-// most --max-wait, default 4 h), then makes ONE call, POST <api>/gate with Host <api-host> (default: the --api host). Stdout: the closed
-// record retire-probe-v1 of the verdict received, its received_at the UTC second it arrived (T_g). Exit 0 iff the verdict is a 200 of the
-// cell asked, with the expected digest and, on a retired row, calib_retired; 1 refused by code (table_invalid, cell_invalid,
-// wait_exceeds_max, window_missed, transport_failed, not_served, cell_mismatch, digest_mismatch, reason_mismatch); 2 usage. Clock, sleep
-// and transport are parameters of probe(): the tests make no network call.
+// most --max-wait, default 4 h), then makes ONE call, POST <api>/gate with Host <api-host> (default: the --api host), bounded as a whole
+// by --timeout (default 10 000 ms: headers and body, as scripts/verify-harness.mjs). Stdout: the closed record retire-probe-v1 of the
+// verdict received, with the probe's own verdict (ok, problem), the table file, the api and its Host; received_at is the UTC second it
+// arrived (T_g), the clock reading of the call plus a monotonic delta (a wall clock stepped back between the two never reorders them).
+// --out <file> writes the record through a temporary file and a rename (writeAtomic of scripts/verify-harness.mjs: no shell redirection,
+// which PowerShell 5.1 writes in UTF-16) when it is accepted, <file>.refused when it is not. Exit 0 iff the verdict is a 200 of the cell
+// asked, with the expected digest and, on a retired row, calib_retired; 1 refused by code (table_invalid, cell_invalid, wait_exceeds_max,
+// window_missed, transport_failed, not_served, cell_mismatch, digest_mismatch, reason_mismatch); 2 usage. Clock, monotonic clock, sleep
+// and transport are parameters of probe(); the tests serve the gate on a local listener, never the network.
 import { createHash } from "node:crypto";
-import { readFileSync } from "node:fs";
+import { readFileSync, rmSync } from "node:fs";
 import { request as httpRequest } from "node:http";
 import { request as httpsRequest } from "node:https";
+import { writeAtomic } from "./verify-harness.mjs";
 
 export const FORMAT = "retire-probe-v1", MARGIN_MS = 240_000, MAX_WAIT_MS = 4 * 3_600_000;
 export class ProbeError extends Error {
@@ -53,49 +58,57 @@ export function call(tableBytes, cell, producedAtMs) {
   return { body: { prediction, params }, cell, expected: createHash("sha256").update(tableBytes).digest("hex"), row, hMs: cls.h_ms };
 }
 
-/** judge(response, asked, receivedMs) -> {record, problem}: the closed record, and why it is not the verdict awaited (null when it is). */
-export function judge({ status, text }, { body, cell, expected, row }, receivedMs) {
+/** judge(response, asked, receivedMs, where) -> {record, problem}: the closed record, which carries the probe's verdict (ok, and the code
+ *  of the problem or null), and why it is not the verdict awaited (null when it is). */
+export function judge({ status, text }, { body, cell, expected, row }, receivedMs, { table = null, api = null, apiHost = null } = {}) {
   let v = null;
   try { v = JSON.parse(text)?.structuredContent?.verdict ?? null; } catch { v = null; }
-  const p = body.prediction, record = {
-    format: FORMAT, task_class: p.task_class, cell_key: cell, produced_at: p.produced_at, received_at: second(receivedMs), received_at_ms: new Date(receivedMs).toISOString(),
-    status, served_cell_key: v?.cell_key ?? null, reason: v?.reason ?? null, policy_table_sha256: v?.policy_table_sha256 ?? null, policy_row_sha256: v?.policy_row_sha256 ?? null,
-    expected_sha256: expected, equal: v?.policy_table_sha256 === expected,
-  };
+  const p = body.prediction, equal = v?.policy_table_sha256 === expected;
   const problem = status !== 200 || v === null ? ["not_served", `status ${String(status)}: ${String(text).slice(0, 300)}`]
     : v.cell_key !== cell ? ["cell_mismatch", `served ${String(v.cell_key)}, asked ${cell}`]
-      : !record.equal ? ["digest_mismatch", `served ${String(v.policy_table_sha256)}, the file is ${expected}`]
+      : !equal ? ["digest_mismatch", `served ${String(v.policy_table_sha256)}, the file is ${expected}`]
         : row?.status === "retired" && v.reason !== "calib_retired" ? ["reason_mismatch", `the retired cell answered ${String(v.reason)}, not calib_retired`] : null;
+  const record = {
+    format: FORMAT, task_class: p.task_class, cell_key: cell, table, api, api_host: apiHost, produced_at: p.produced_at, received_at: second(receivedMs),
+    received_at_ms: new Date(receivedMs).toISOString(), status, served_cell_key: v?.cell_key ?? null, reason: v?.reason ?? null,
+    policy_table_sha256: v?.policy_table_sha256 ?? null, policy_row_sha256: v?.policy_row_sha256 ?? null, expected_sha256: expected, equal,
+    ok: problem === null, problem: problem?.[0] ?? null,
+  };
   return { record, problem };
 }
 
-/** The default transport: one HTTP(S) POST with an explicit Host (fetch forbids it), as scripts/verify-harness.mjs; never throws. */
+/** The default transport: one HTTP(S) POST with an explicit Host (fetch forbids it), as scripts/verify-harness.mjs; never throws. It
+ *  always ends: timeoutMs bounds the whole exchange (a body that drips stays bounded), and a body cut before its end is "truncated". */
 export function wired(url, body, hostHeader, timeoutMs = 10_000) {
-  return new Promise((done) => {
-    const u = new URL(url), https = u.protocol === "https:";
+  return new Promise((resolve) => {
+    let total;
+    const done = (r) => { clearTimeout(total); resolve(r); }, u = new URL(url), https = u.protocol === "https:";
     const req = (https ? httpsRequest : httpRequest)({ hostname: u.hostname, port: u.port || (https ? 443 : 80), path: u.pathname, method: "POST", timeout: timeoutMs, ...(https ? { servername: u.hostname } : {}),
       headers: { host: hostHeader, "content-type": "application/json", "content-length": Buffer.byteLength(body) } }, (res) => {
       let raw = "";
       res.setEncoding("utf8").on("data", (c) => { raw += c; }).on("end", () => { done({ status: res.statusCode ?? 0, text: raw }); });
+      res.on("error", (e) => { done({ error: res.complete ? e.message : "truncated" }); }).on("close", () => { if (!res.complete) done({ error: "truncated" }); });
     });
+    total = setTimeout(() => { req.destroy(new Error("timeout")); done({ error: "timeout" }); }, timeoutMs);
     req.on("error", (e) => { done({ error: e.message }); }).on("timeout", () => { req.destroy(new Error("timeout")); });
     req.end(body);
   });
 }
 
 /** probe(o) -> {record, problem}: waits for the grid window, makes one call, judges it. Throws a ProbeError before any verdict. */
-export async function probe({ tableBytes, cell, api, apiHost, maxWaitMs = MAX_WAIT_MS, clock = Date.now, sleep = (ms) => new Promise((r) => { setTimeout(r, ms); }), transport = wired }) {
-  const { hMs } = call(tableBytes, cell, 0), first = plan(clock(), hMs);
+export async function probe({ tableBytes, cell, api, apiHost, table = null, maxWaitMs = MAX_WAIT_MS, clock = Date.now, monotonic = () => performance.now(), sleep = (ms) => new Promise((r) => { setTimeout(r, ms); }), transport = wired }) {
+  const { hMs, row } = call(tableBytes, cell, 0), first = plan(clock(), hMs);
+  if (row === null) no("cell_invalid", `${cell} has no current row in the table file: a mistyped key would be served under_calib and pass for the cell asked`);
   if (first.waitMs > maxWaitMs) no("wait_exceeds_max", `the next grid window opens in ${String(first.waitMs)} ms, over --max-wait ${String(maxWaitMs)} ms`);
   if (first.waitMs > 0) await sleep(first.waitMs);
-  const now = plan(clock(), hMs);
+  const t0 = clock(), m0 = monotonic(), now = plan(t0, hMs), host = apiHost ?? new URL(api).host;
   if (now.waitMs > 0) no("window_missed", "the clock is out of the grid window after the wait");
-  const asked = call(tableBytes, cell, now.producedAtMs), res = await transport(`${api.replace(/\/+$/, "")}/gate`, JSON.stringify(asked.body), apiHost ?? new URL(api).host);
+  const asked = call(tableBytes, cell, now.producedAtMs), res = await transport(`${api.replace(/\/+$/, "")}/gate`, JSON.stringify(asked.body), host);
   if (res.error !== undefined) no("transport_failed", res.error);
-  return judge(res, asked, clock());
+  return judge(res, asked, t0 + Math.max(0, monotonic() - m0), { table, api, apiHost: host });
 }
 
-const OPTIONS = { "--api": "api", "--api-host": "apiHost", "--table": "table", "--cell": "cell", "--max-wait": "maxWait", "--timeout": "timeout" };
+const OPTIONS = { "--api": "api", "--api-host": "apiHost", "--table": "table", "--cell": "cell", "--max-wait": "maxWait", "--timeout": "timeout", "--out": "out" };
 export function parseArgs(argv) {
   const a = {};
   for (let i = 0; i < argv.length; i += 2) {
@@ -111,13 +124,15 @@ export function parseArgs(argv) {
 
 export async function main(argv, io = {}) {
   let a;
-  try { a = parseArgs(argv); } catch (e) { console.error(`usage: retire-probe.mjs --api <url> --table <file> --cell <cell_key> [--api-host <name>] [--max-wait <s>] [--timeout <ms>] (${e.message})`); return 2; }
+  try { a = parseArgs(argv); } catch (e) { console.error(`usage: retire-probe.mjs --api <url> --table <file> --cell <cell_key> [--api-host <name>] [--max-wait <s>] [--timeout <ms>] [--out <file>] (${e.message})`); return 2; }
   try {
     let tableBytes;
     try { tableBytes = readFileSync(a.table); } catch (e) { throw new ProbeError("table_invalid", e instanceof Error ? e.message : String(e)); }
     const timeout = a.timeout === undefined ? undefined : Number(a.timeout), transport = (u, b, h) => wired(u, b, h, timeout);
-    const { record, problem } = await probe({ tableBytes, cell: a.cell, api: a.api, apiHost: a.apiHost, maxWaitMs: a.maxWait === undefined ? MAX_WAIT_MS : Number(a.maxWait) * 1000, transport, ...io });
-    console.log(JSON.stringify(record));
+    const { record, problem } = await probe({ tableBytes, cell: a.cell, api: a.api, apiHost: a.apiHost, table: a.table, maxWaitMs: a.maxWait === undefined ? MAX_WAIT_MS : Number(a.maxWait) * 1000, transport, ...io });
+    console.log(JSON.stringify(record)); // its ok and problem say whether it is accepted: a refused record is printed as refused
+    if (a.out !== undefined) writeAtomic(problem === null ? a.out : `${a.out}.refused`, `${JSON.stringify(record)}\n`);
+    if (a.out !== undefined && problem === null) rmSync(`${a.out}.refused`, { force: true }); // no stale refusal beside an accepted record
     if (problem !== null) throw new ProbeError(...problem);
     console.error(`retire-probe OK: ${record.task_class} ${record.cell_key} served ${record.reason} with ${record.expected_sha256} at ${record.received_at}`);
     return 0;

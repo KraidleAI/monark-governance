@@ -368,6 +368,26 @@ et RH-5 sont des actes de l'orchestrateur, consignés au JOURNAL.
 
     Il écrit l'entrée `retire-latency-v1` et refuse toute source illisible.
   - Prix : ~150 lignes.
+- **Ligne datée 2026-10-07T06:26:56Z (RECHERCHES, modèle `claude-opus-5-5`, lot RH-1 partie 2, repli de la G2 de #224)** : écarts
+  de construction consignés, et repli.
+  - Écart au §8 : la sonde n'a pas d'option `--class`. La classe (alpha, `n_min`, `h_ms`, plafond de tau) est lue dans le
+    fichier de table daté lui-même, une seule source, celle dont le sha256 est attendu. Elle ajoute `--max-wait`, `--timeout`
+    (borne de tout l'échange, en-têtes et corps) et `--out <fichier>` (écriture par fichier temporaire et renommage, sans
+    redirection du shell : PowerShell 5.1 écrit `>` en UTF-16). `retire-instants` reçoit aussi `--out`.
+  - Le record `retire-probe-v1` porte le verdict de la sonde (`ok`, `problem`), le fichier de table, l'api et son Host ;
+    `received_at` est la lecture d'horloge de l'appel plus un delta monotone. Une case sans ligne courante dans le fichier est
+    refusée (`cell_invalid`).
+  - `retire-instants` : T_g exige un record accepté par la sonde (`ok`, statut 200, digest attendu) ; T_f exige le verdict
+    d'ensemble de `verify-harness` (`recordKind` et `failedOf`, exportés, TLS compris) : `green` pour `real` et
+    `publication`, `green` ou `local` pour `rehearsal`, avec les 15 contrôles de `CHECK_NAMES` ; une horloge T_a est une
+    clôture de trimestre E_k ; T_e est un commit de fusion.
+  - Le test sur une écoute locale exigé ci-dessus est écrit : `node:http` sur 127.0.0.1 (port éphémère), routage par
+    `isJsonMirrorHost` du serveur, transport par défaut `wired()`, cas `not_served`, `cell_mismatch`, `reason_mismatch`, corps
+    tronqué et goutte-à-goutte.
+  - Ce que les tests ne vérifient pas, avec son item : aucun `calib_retired` servi par un hôte réel (acte RH-4 de
+    RETIRE-LATENCY-REHEARSAL-1) ; le cycle `publication` (#218, RETIRE-REAL-CYCLE-SCOPE-1) ; HTTPS de bout en bout
+    (RETIRE-REHEARSAL-STAGING-1, ou le cycle réel d'E-2a). eslint ne voit que les tests : la configuration du dépôt ignore
+    `**/*.mjs` et `**/*.d.mts` (règle préexistante, non changée) ; tsc ne voit que les `.d.mts`.
 - **T0-ORDER-TEST-RELEASE-NAME-1** (test). Porteur : MONARK.
   - Déclencheur : avant la première entrée de release datée, celle de la répétition ou celle d'E-2a (RH-2).
   - Limite : M-1, le test de l'ordre de T0 lit la dernière release.

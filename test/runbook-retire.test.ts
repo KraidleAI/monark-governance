@@ -47,7 +47,7 @@ test("runbook_retire_steps_carry_the_seven_instants_in_order", () => {
 // reddened by: the input shown off the closed format retire-latency-v1 (its format, a key, the cycle, an instant name or their
 // order), or a second input shown, or a refusal of the report or its exit codes cited otherwise than the script names and returns them,
 // or an Exit 1 list that is not the set of refusal codes of the script (a code missing, renamed or added; G2 of #223, m-2)
-// killer: docs/RUNBOOK-harness.md:423 CONST "\"format\": \"retire-latency-v1\"" -> "\"format\": \"retire-latency-v2\""
+// killer: docs/RUNBOOK-harness.md:426 CONST "\"format\": \"retire-latency-v1\"" -> "\"format\": \"retire-latency-v2\""
 test("runbook_retire_shows_the_closed_latency_input", () => {
   const blocks = [...section().matchAll(/```json\n([\s\S]*?)```/g)].map((m) => admit(() => JSON.parse(m[1] ?? "") as { instants: Record<string, string> }, "the input shown parses"));
   assert.equal(blocks.length, 1, "one input is shown");
@@ -57,7 +57,7 @@ test("runbook_retire_shows_the_closed_latency_input", () => {
   const text = section().replace(/\s+/g, " "), codes = new Set([...read("scripts", "retire-latency.mjs").matchAll(/no\("(\w+)"/g)].map((m) => m[1] ?? ""));
   assert.deepEqual([...codes].filter((c) => !text.includes(`\`${c}\``)), [], "every refusal of the report is cited by its name");
   assert.ok(text.includes("Exit 1 names the refusal: `format_invalid`") && text.includes("Exit 2: usage (l.62)"), "the exit codes of the report are cited");
-  const from = text.indexOf("Exit 1 names the refusal: `format_invalid`"), exit1 = text.slice(from, text.indexOf(" (l.", from));
+  const from = text.indexOf("Exit 1 names the refusal:"), exit1 = text.slice(from, text.indexOf(" (l.", from));
   assert.deepEqual([...exit1.matchAll(/`(\w+)`/g)].map((m) => m[1] ?? "").sort(), [...codes].sort(), "the Exit 1 list is the set of refusal codes of the script");
   assert.ok(!(codes.has("instant_out_of_cycle") && text.includes("AFTER #218")), "once the script raises instant_out_of_cycle, the note on #218 is no longer in the future tense");
   assert.deepEqual([latencyMain([]), latencyMain([join(ROOT, "docs", "no-such-instants.json")])], [2, 1], "usage exits 2, a refusal 1");
@@ -89,7 +89,7 @@ test("runbook_retire_quotes_the_writer_the_report_and_the_publication_gate", asy
 // reddened by: a redo command whose path is not the dated directory (a wider scope, spec/ or the tree), a git clean, rm or restore
 // written with no scope at all (the counter-example `git rm -r -f` alone excepted, by name), a git clean without -d, or a second form
 // of git rm (G2 of #223, m-3)
-// killer: docs/RUNBOOK-harness.md:458 CONST "`git clean -f -d -- spec/contract-1.1.0-tables-<YYYY-MM-DD>/`" -> "`git clean -f -d`"
+// killer: docs/RUNBOOK-harness.md:463 CONST "`git clean -f -d -- spec/contract-1.1.0-tables-<YYYY-MM-DD>/`" -> "`git clean -f -d`"
 test("runbook_retire_redo_removes_the_dated_directory_only", () => {
   const dir = `spec/${datedDir("2027-01-04").replace("2027-01-04", "<YYYY-MM-DD>")}`, text = section().replace(/\s+/g, " ");
   const scoped = [...text.matchAll(/`(git [a-z]+ [^`]*?) -- ([^`]*)`/g)].map((m): [string, string] => [m[1] ?? "", m[2] ?? ""]);
