@@ -12,6 +12,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { execFile } from "node:child_process";
+import { createHash } from "node:crypto";
 import { existsSync, mkdtempSync, readdirSync, readFileSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -25,14 +26,17 @@ import { API_HOST_PREFIX, startServer } from "../apps/harness/src/server.ts";
 import {
   describeGate, GATE_TOOL_DESCRIPTION, LIQ_COMMITTED_SENTENCE, LIQ_CONDITIONAL_SENTENCE, LIQ_EMPTY_REGISTRY_SENTENCE, LIQ_H3_SENTENCE,
   LIQ_REQUIREMENTS_SENTENCE, LIQ_UPPER_BOUND_SENTENCE, LIQ_ALPHA, LIQ_NMIN, SCHEMA_VERSION, TASK_LIQ_ELIGIBLE,
+  SERVED_POLICY_TABLES,
 } from "../apps/harness/src/tools/gate.ts";
 import { lookupCommittedCalibration, UKEMI_LIQ_PREDICTOR_BASE, UKEMI_LIQ_SCORES_SHA256_PINNED, USDE_STABLE_RUN_SCORES_SHA256_PINNED } from "../apps/harness/src/calibration.ts";
 import { strateOf, STRATA_CUTS_SERVED } from "../apps/harness/src/ukemi-strata.ts";
 import { listen, startLoopback } from "./helpers/loopback.ts";
 import { selfSigned } from "./helpers/self-signed.ts";
+import { CA_TEST_CLOCK_MS, caEnv, caServerClock } from "./helpers/ca-clock.ts";
 
 const SCRIPT = fileURLToPath(new URL("../scripts/verify-harness.mjs", import.meta.url));
 const LIQ_CHECKS = ["gate_liq_call", "gate_liq_uncommitted_call", "mcp_gate_description_liq"] as const;
+const KATA_TRIO = ["gate_version_1_0_0_call", "gate_kata_call", "gate_kata_policy_table"] as const;
 const S0 = lookupCommittedCalibration(TASK_LIQ_ELIGIBLE, `${UKEMI_LIQ_PREDICTOR_BASE}/s0`);
 if (S0 === undefined) throw new Error("the committed stratum s0 is missing from the registry");
 const N0 = S0.scores.length;
@@ -87,7 +91,10 @@ test("verify_harness_ca_bodies_read_the_ca_schema_version", () => {
   for (const body of ["GATE_BODY", "GATE_RETIRED_BODY", "GATE_BYO_BODY", "GATE_LIQ_BODY"]) {
     assert.ok(text.includes(`const ${body} = {\n  prediction: { schema_version: CA_SCHEMA_VERSION, `), `${body} reads CA_SCHEMA_VERSION`);
   }
-  assert.equal(text.split("schema_version: ").length - 1, 4, "the CA writes schema_version in its four literal bodies only");
+  assert.equal(text.split("schema_version: ").length - 1, 5, "the CA writes schema_version in its four literal bodies and in the one named exception only");
+  assert.equal(text.split("schema_version: CA_REFUSED_SCHEMA_VERSION").length - 1, 1, "the one exception: the refused version of gate_version_1_0_0_call, once");
+  assert.ok(text.includes('export const CA_REFUSED_SCHEMA_VERSION = "1.0.0";'), "the refused version is one constant");
+  assert.ok(text.includes("export const GATE_KATA_BODY = {\n  prediction: { ...GATE_BODY.prediction, "), "GATE_KATA_BODY derives from GATE_BODY.prediction: it writes no version");
   const sync = readFileSync(fileURLToPath(new URL("../scripts/sync-harness-served.mjs", import.meta.url)), "utf8");
   assert.ok(sync.includes('import { GATE_BODY, GATE_LIQ_BODY, CALIBRATE_BODY, CASCADE_BODY } from "./verify-harness.mjs";'), "the harness sync imports the four bodies it posts");
   for (const body of ["GATE_LIQ_BODY", "CALIBRATE_BODY", "CASCADE_BODY"]) assert.ok(!sync.includes(`const ${body} =`), `the harness sync keeps no copy of ${body}`);
@@ -122,14 +129,14 @@ const GREEN = {
 // retired: task_class_retired; produced_at in 2099: produced_at_future, MONARK C-8).
 // killer: scripts/verify-harness.mjs:319 CONST "got === code" -> "got !== code"
 test("verify_harness_ca_passes_on_the_in_process_harness", async () => {
-  const server: HttpServer = await startLoopback((port) => startServer(port));
+  const server: HttpServer = await startLoopback((port) => startServer(port, undefined, caServerClock()));
   try {
     const addr = server.address();
     assert.ok(addr !== null && typeof addr === "object", "address() must be an AddressInfo");
     const base = `http://127.0.0.1:${String(addr.port)}`;
-    const r = await runCa(["--api", base, "--mcp", base, "--api-host", "api.monarkgate.tech"]);
+    const r = await runCa(["--api", base, "--mcp", base, "--api-host", "api.monarkgate.tech"], caEnv());
     const ca = JSON.parse(r.stdout) as Ca;
-    assert.equal(ca.checks.length, 15, "the CA carries 15 checks (U-4b-2b adds gate_liq_uncommitted_call; CM-2b adds gate_retired_call and gate_future_call)");
+    assert.equal(ca.checks.length, 18, "the CA carries 18 checks (U-4b-2b adds gate_liq_uncommitted_call; CM-2b adds gate_retired_call and gate_future_call; E-2a adds the kata path and version checks)");
     for (const [name, detail] of [["gate_retired_call", "status=400 code=task_class_retired"], ["gate_future_call", "status=400 code=produced_at_future"], ["gate_call", "action=commit"]]) {
       const c = ca.checks.find((x) => x.name === name);
       assert.ok(c !== undefined && c.ok && c.detail === detail, `CA check ${name} reads ${detail}: ${JSON.stringify(c)}`);
@@ -228,7 +235,7 @@ function overclaimingProxy(upstream: number, v: Vector, seen: Seen): HttpServer 
             if (out.body.split(served).length !== 2) out = { status: 500, body: "" }; // fail-closed: the SDK encoding moved
             else { seen.rewrites += 1; out.body = out.body.replace(served, () => JSON.stringify(v.description).slice(1, -1)); }
           }
-          res.writeHead(out.status, { "content-type": u.headers["content-type"] ?? "application/json" });
+          res.writeHead(out.status, { "content-type": u.headers["content-type"] ?? "application/json", ...(u.headers.date === undefined ? {} : { date: u.headers.date }) });
           res.end(out.body);
         });
       });
@@ -312,7 +319,7 @@ test("verify_harness_ca_liq_checks_red_on_overclaiming_surfaces", { timeout: 300
     { tag: "nu-byo-foreign-digest", description: GATE_TOOL_DESCRIPTION, committed: same, uncommitted: same, red: ["gate_byo_call"],
       byo: edit((b) => { b.structuredContent.verdict.scores_sha256 = USDE_STABLE_RUN_SCORES_SHA256_PINNED; }), details: liqPlus(GREEN.description, GREEN.uncommitted) },
   ];
-  const upstream: HttpServer = await startLoopback((port) => startServer(port));
+  const upstream: HttpServer = await startLoopback((port) => startServer(port, undefined, caServerClock()));
   try {
     for (const v of vectors) {
       const seen: Seen = { rewrites: 0, committed: 0, uncommitted: 0 };
@@ -320,8 +327,9 @@ test("verify_harness_ca_liq_checks_red_on_overclaiming_surfaces", { timeout: 300
       try {
         await listen(proxy);
         const base = `http://127.0.0.1:${String(portOf(proxy))}`;
-        const r = await runCa(["--api", base, "--mcp", base, "--api-host", "api.monarkgate.tech"]);
+        const r = await runCa(["--api", base, "--mcp", base, "--api-host", "api.monarkgate.tech"], caEnv());
         const ca = JSON.parse(r.stdout) as Ca;
+        assert.deepEqual(ca.checks.slice(-3).map((c) => [c.name, c.ok]), KATA_TRIO.map((n) => [n, true]), `(${v.tag}) the kata path and version checks run last, green`);
         assert.deepEqual(ca.checks.filter((c) => !c.ok).map((c) => c.name), v.red, `(${v.tag}) the red CA checks are EXACTLY ${v.red.join(" + ")}`);
         assert.equal(liqDetails(ca), v.details, `(${v.tag}) the CA read the intended vector`);
         assert.deepEqual(seen, { rewrites: 2, committed: 1, uncommitted: 1 }, `(${v.tag}) both tools/list rewritten, each liq call intercepted once`);
@@ -359,13 +367,13 @@ test("verify_harness_out_is_written_only_when_every_check_passes", { timeout: 30
   const dir = mkdtempSync(join(tmpdir(), "verify-harness-out-")), out = join(dir, "ca.json"), trusted = selfSigned("api.test"), foreign = selfSigned("mcp.test");
   writeFileSync(join(dir, "trusted.pem"), trusted.cert);
   writeFileSync(out, "the previous green record\n");
-  const server: HttpServer = await startLoopback((port) => startServer(port));
+  const server: HttpServer = await startLoopback((port) => startServer(port, undefined, caServerClock()));
   const front = tlsFront(portOf(server), trusted), foreignFront = tlsFront(portOf(server), foreign);
   try {
     await listen(front);
     await listen(foreignFront);
     const host = ["--api-host", "api.monarkgate.tech", "--out", out], plain = `http://127.0.0.1:${String(portOf(server))}`;
-    const local = await runCa(["--api", plain, "--mcp", plain, ...host]);
+    const local = await runCa(["--api", plain, "--mcp", plain, ...host], caEnv());
     assert.equal(local.code, 0, `a green http run exits 0 (stderr: ${local.stderr.slice(0, 200)})`);
     assert.ok(existsSync(`${out}.local`), "a green run with a host not TLS-checked writes <out>.local");
     assert.equal(readFileSync(`${out}.local`, "utf8"), `${local.stdout.trimEnd()}\n`, "that run's record goes to <out>.local");
@@ -374,9 +382,10 @@ test("verify_harness_out_is_written_only_when_every_check_passes", { timeout: 30
     assert.equal(readFileSync(`${out}.failed`, "utf8"), `${red.stdout.trimEnd()}\n`, "the failing record goes to <out>.failed");
     assert.equal(readFileSync(out, "utf8"), "the previous green record\n", "neither run touches --out");
     assert.ok(red.stderr.includes(`CA NOT written to ${out}`), "the refusal is named on stderr");
-    const env = { ...process.env, NODE_EXTRA_CA_CERTS: join(dir, "trusted.pem") }, tls = `https://localhost:${String(portOf(front))}`;
+    const env = caEnv(CA_TEST_CLOCK_MS, { ...process.env, NODE_EXTRA_CA_CERTS: join(dir, "trusted.pem") }), tls = `https://localhost:${String(portOf(front))}`;
     const green = await runCa(["--api", tls, "--mcp", tls, ...host], env);
     assert.equal(green.code, 0, `a green run with both hosts TLS-checked exits 0 (stderr: ${green.stderr.slice(0, 300)})`);
+    assert.equal((JSON.parse(green.stdout) as Ca).checks.length, 18, "the green record carries the 18 checks, the kata trio included");
     assert.equal(readFileSync(out, "utf8"), `${green.stdout.trimEnd()}\n`, "it writes --out");
     assert.deepEqual(readdirSync(dir).sort(), ["ca.json", "trusted.pem"], "the side records go, no temp file is left");
     const mcpRed = await runCa(["--api", tls, "--mcp", `https://localhost:${String(portOf(foreignFront))}`, ...host], { ...env, NODE_TLS_REJECT_UNAUTHORIZED: "0" });
@@ -403,10 +412,18 @@ test("verify_harness_refuses_an_unknown_option", async () => {
       [[...closed, "--timeout", "0"], "option --timeout needs a positive integer"],
       [[...closed, "--timeout", "3000000000"], "at most 2147483647"], [["--api", "notaurl", "--mcp", "http://127.0.0.1:1"], "option --api needs an http(s) URL"],
       [["--api", "http://127.0.0.1:1", "--mcp", "ftp://127.0.0.1:1"], "option --mcp needs an http(s) URL"],
+      [[...closed, "--kata-wait-max", "x"], "option --kata-wait-max needs an integer of seconds from 0 to 3600"],
+      [[...closed, "--kata-wait-max", "3601"], "option --kata-wait-max needs an integer of seconds from 0 to 3600"],
+      [[...closed, "--kata-wait-max", "1.5"], "option --kata-wait-max needs an integer of seconds from 0 to 3600"],
     ] as const) {
       const r = await runCa([...args]);
       assert.equal(r.code, 2, `${args.join(" ")}: exit 2 (stderr: ${r.stderr.slice(0, 200)})`);
       assert.ok(r.stderr.includes(named) && r.stdout === "", `${args.join(" ")}: refused by name (${named}), no record printed`);
+    }
+    // The test clock never reaches a deploy target: off a loopback host (the defaults are the public hosts) it is refused by name.
+    for (const [args, env] of [[["--api", "https://api.example.invalid", "--mcp", "https://mcp.example.invalid"], caEnv()], [["--api", "http://127.0.0.1:1", "--mcp", "http://mcp.example.invalid"], caEnv()], [closed, { ...process.env, VERIFY_HARNESS_TEST_CLOCK_MS: "soon" }]] as const) {
+      const r = await runCa([...args], env);
+      assert.ok(r.code === 2 && r.stdout === "" && r.stderr.includes("VERIFY_HARNESS_TEST_CLOCK_MS"), `${args.join(" ")}: the test clock is refused by name (stderr: ${r.stderr.slice(0, 200)})`);
     }
     assert.deepEqual(readdirSync(dir), [], "nothing written");
   } finally {
@@ -463,5 +480,128 @@ test("verify_harness_atomic_write_leaves_no_temp", async (t) => {
     assert.deepEqual(readdirSync(dir), [], "no temp file and no record left");
   } finally {
     rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+// (9) Lot E-2a, the CA trio (R4 section (iii), the partner's choices): after every other check, gate_version_1_0_0_call (the
+// gate_call body with the refused version: 400, tool_error, schema_version_unsupported; no clock), then gate_kata_call (one
+// well-formed call on btc-range-1h under the reserved probe key: 200, abstain, under_calib, n_calib 0, no region, the b0 cell key,
+// no row digest) and gate_kata_policy_table (the verdict of that call carries the pinned digest). The run clock and the harness
+// clock are the test clock, 30 s after a grid instant.
+interface KataBodies { GATE_BODY: { prediction: Record<string, unknown>; params: Record<string, unknown> }; GATE_KATA_BODY?: { prediction: Record<string, unknown>; params: Record<string, unknown> }; GATE_V100_BODY?: { prediction: Record<string, unknown>; params: unknown }; KATA_POLICY_TABLE_SHA256?: string }
+const KATA_CELL = "kata:ca-probe@ca-probe/BTCUSDT/1h/b0";
+const kataGreen = (producedAt: string, waited: number): string => `status=200 action=abstain verdict_reason=under_calib n_calib=0 region=null cell_key=${KATA_CELL} policy_row_sha256=null produced_at=${producedAt} waited_s=${String(waited)}`;
+const servedBtcRange1h = (): string => SERVED_POLICY_TABLES.find((t) => t.task_class === "btc-range-1h")?.policy_table_sha256 ?? assert.fail("btc-range-1h is served");
+// killer: scripts/verify-harness.mjs:542 CONST "got === \"schema_version_unsupported\"" -> "got === \"schema_version_invalid\""
+test("verify_harness_ca_plays_kata_path_and_refuses_1_0_0", { timeout: 120000 }, async () => {
+  const ca = (await import(new URL("../scripts/verify-harness.mjs", import.meta.url).href)) as unknown as KataBodies;
+  assert.ok(ca.GATE_KATA_BODY !== undefined && ca.GATE_V100_BODY !== undefined, "the CA exports GATE_KATA_BODY and GATE_V100_BODY");
+  const probe = { task_class: "btc-range-1h", yhat: 0.01, predictor_id: "kata:ca-probe@ca-probe/BTCUSDT/1h", features_digest: createHash("sha256").update("[]").digest("hex") };
+  assert.deepEqual({ ...ca.GATE_KATA_BODY.prediction, produced_at: null }, { ...ca.GATE_BODY.prediction, ...probe, produced_at: null }, "GATE_KATA_BODY: the gate_call prediction on the probe key of btc-range-1h, features_digest the sha256 of [] (produced_at set at run time)");
+  assert.deepEqual(ca.GATE_KATA_BODY.params, { ...ca.GATE_BODY.params, alpha: 0.01, nMin: 299, intent: 0 }, "GATE_KATA_BODY: the imposed alpha 0.01 and nMin 299 of the class");
+  assert.deepEqual(ca.GATE_V100_BODY, { prediction: { ...ca.GATE_BODY.prediction, schema_version: "1.0.0" }, params: ca.GATE_BODY.params }, "GATE_V100_BODY: the gate_call body with the version 1.0.0");
+  // The frozen specification (R4 (iii), 1 968 bytes) stands verbatim in the runbook, one paragraph per line, "reserved for this check".
+  const runbook = readFileSync(fileURLToPath(new URL("../docs/RUNBOOK-harness.md", import.meta.url)), "utf8").split("\n");
+  const at = runbook.findIndex((l) => l.startsWith("Kata path and version checks. The deployment check"));
+  const spec = [0, 2, 4, 6, 8].map((k) => runbook[at + k] ?? "").join("\n");
+  assert.equal(createHash("sha256").update(spec, "utf8").digest("hex"), "7e05ee5d8d7b7cd8a056acd2dab20e2efc8c98e72724ca96559e1ca5868a2bae", "the runbook carries the frozen text");
+  assert.ok(spec.includes("a key whose kata and venue are reserved for this check"), "the probe key is reserved for this check");
+  const server: HttpServer = await startLoopback((port) => startServer(port, undefined, caServerClock()));
+  try {
+    const base = `http://127.0.0.1:${String(portOf(server))}`;
+    const r = await runCa(["--api", base, "--mcp", base, "--api-host", "api.monarkgate.tech"], caEnv());
+    const rec = JSON.parse(r.stdout) as Ca;
+    assert.deepEqual(rec.checks.slice(-3).map((c) => c.name), [...KATA_TRIO], "the three checks run last, the version check first");
+    assert.deepEqual(KATA_TRIO.map((n) => detailOf(rec, n)), ["status=400 code=schema_version_unsupported", kataGreen("2026-10-07T12:00:00Z", 0),
+      `policy_table_sha256=${servedBtcRange1h()} expected=${servedBtcRange1h()}`], "each check reads what it should");
+    assert.deepEqual(rec.checks.filter((c) => !c.ok).map((c) => c.name), [], "every check is ok");
+    assert.equal(r.code, 0, `the CA exits 0 (stderr: ${r.stderr.slice(0, 200)})`);
+  } finally {
+    await shut(server);
+  }
+});
+
+// (10) The expected digest of gate_kata_policy_table is WRITTEN in the check, anchored in the published entry, never read from the
+// served build it checks: the constant = the sha256 entry of btc-range-1h in the latest release of scripts/spec-publish-inputs.json
+// that publishes it = its line in that release's MANIFEST.sha256 (the producer's own manifestText) = the sha256 of the file = the
+// directory servedTableDirs names = the digest the harness serves. A release that changes the table reds here until the
+// constant follows.
+// killer: scripts/verify-harness.mjs:491 CONST "1296c3336a96e230" -> "e7e673664c03e3c5"
+test("verify_harness_ca_pins_policy_table_sha256", async () => {
+  const ca = (await import(new URL("../scripts/verify-harness.mjs", import.meta.url).href)) as unknown as KataBodies;
+  const pin = ca.KATA_POLICY_TABLE_SHA256;
+  assert.equal(typeof pin, "string", "the CA exports KATA_POLICY_TABLE_SHA256");
+  const inputs = JSON.parse(readFileSync(fileURLToPath(new URL("../scripts/spec-publish-inputs.json", import.meta.url)), "utf8")) as { releases: Record<string, { entries: Array<{ out: string; root: string; path: string; sha256: string }> }> };
+  const latest = Object.entries(inputs.releases).flatMap(([release, r]) => r.entries.filter((e) => e.out.endsWith("/policy/btc-range-1h.json")).map((e) => ({ release, ...e }))).at(-1);
+  assert.ok(latest !== undefined && latest.root === "governance", "a release publishes btc-range-1h from this repository");
+  assert.equal(pin, latest.sha256, `the written value is the entry of release ${latest.release}`);
+  const bytes = readFileSync(fileURLToPath(new URL(`../${latest.path}`, import.meta.url)));
+  assert.equal(createHash("sha256").update(bytes).digest("hex"), pin, "the file's sha256");
+  const { manifestText } = (await import(new URL("../scripts/spec-publish.mjs", import.meta.url).href)) as { manifestText: (f: Array<{ path: string; bytes: Buffer }>) => string };
+  assert.equal(manifestText([{ path: latest.out, bytes }]), `${String(pin)}  ${latest.out}\n`, "its MANIFEST.sha256 line");
+  const { servedTableDirs, REPO_ROOT } = (await import(new URL("../scripts/spec-policy-tables.mjs", import.meta.url).href)) as { servedTableDirs: (root: string, t: Array<{ task_class: string }>) => Record<string, string>; REPO_ROOT: string };
+  assert.equal(`${servedTableDirs(REPO_ROOT, [{ task_class: "btc-range-1h" }])["btc-range-1h"] ?? ""}/policy/btc-range-1h.json`, latest.out, "the latest directory that holds the file is the published one");
+  assert.equal(servedBtcRange1h(), pin, "the digest the harness serves");
+  assert.ok(readFileSync(SCRIPT, "utf8").includes(`export const KATA_POLICY_TABLE_SHA256 = "${String(pin)}";`), "written by value in the zero-dependency script");
+});
+
+/** A front that passes every request to `port` and lets `rewrite` change the answer to the btc-range-1h call. */
+function kataFront(port: number, rewrite: (body: string) => string): HttpServer {
+  return createServer((req, res) => {
+    const chunks: Buffer[] = [];
+    req.on("data", (c: Buffer) => { chunks.push(c); });
+    req.on("end", () => {
+      const raw = Buffer.concat(chunks), kata = raw.toString("utf8").includes('"task_class":"btc-range-1h"');
+      const up = httpRequest({ host: "127.0.0.1", port, path: req.url, method: req.method, headers: req.headers, agent: false }, (u) => {
+        const back: Buffer[] = [];
+        u.on("data", (c: Buffer) => { back.push(c); });
+        u.on("end", () => {
+          const body = Buffer.concat(back).toString("utf8"), out = kata ? rewrite(body) : body;
+          res.writeHead(u.statusCode ?? 502, { "content-type": u.headers["content-type"] ?? "application/json", ...(u.headers.date === undefined ? {} : { date: u.headers.date }) });
+          res.end(out);
+        });
+      });
+      up.on("error", () => { if (!res.headersSent) res.writeHead(502); res.end(); });
+      up.end(raw);
+    });
+  });
+}
+
+// (11) The window and the clock (R4 (iii), the reviewer's form): outside +-240 s of a grid instant, (1) and (2) fail closed
+// with kata_window_not_reached, the rest of the CA unchanged; --kata-wait-max S waits to the next grid instant when that is at
+// most S seconds away, says so on stderr and in the detail, then passes; a Date header more than 60 s from the run clock fails
+// (1) and (2) with kata_clock_skew; a host that serves another table digest reds (2) alone.
+// killer: scripts/verify-harness.mjs:483 CONST "KATA_SKEW_MAX_MS = 60000;" -> "KATA_SKEW_MAX_MS = 600000;"
+test("verify_harness_ca_kata_window_fails_closed_and_waits", { timeout: 300000 }, async () => {
+  const grid = CA_TEST_CLOCK_MS - 30_000, hour = 3_600_000;
+  const now: HttpServer = await startLoopback((port) => startServer(port, undefined, caServerClock()));
+  const later: HttpServer = await startLoopback((port) => startServer(port, undefined, caServerClock(grid + hour)));
+  const other = "0".repeat(64), front = kataFront(portOf(now), (b) => b.split(servedBtcRange1h()).join(other));
+  try {
+    await listen(front);
+    const run = (s: HttpServer, startMs: number, extra: string[] = []): Promise<{ code: number | null; stdout: string; stderr: string }> => {
+      const base = `http://127.0.0.1:${String(portOf(s))}`;
+      return runCa(["--api", base, "--mcp", base, "--api-host", "api.monarkgate.tech", ...extra], caEnv(startMs));
+    };
+    const red = (rec: Ca): string[] => rec.checks.filter((c) => !c.ok).map((c) => c.name);
+    const outside = await run(now, grid + 600_000);
+    const o = JSON.parse(outside.stdout) as Ca;
+    assert.deepEqual([red(o), outside.code], [["gate_kata_call", "gate_kata_policy_table"], 1], "outside the window: (1) and (2) red, (3) and the rest green, exit 1");
+    assert.ok(["gate_kata_call", "gate_kata_policy_table"].every((n) => detailOf(o, n).startsWith("kata_window_not_reached")), `the named detail: ${detailOf(o, "gate_kata_call")}`);
+    const short = JSON.parse((await run(now, grid + 600_000, ["--kata-wait-max", "60"])).stdout) as Ca;
+    assert.ok(detailOf(short, "gate_kata_call").startsWith("kata_window_not_reached"), "a wait above --kata-wait-max is no wait");
+    const waited = await run(later, grid + 600_000, ["--kata-wait-max", "3600"]);
+    const w = JSON.parse(waited.stdout) as Ca;
+    assert.deepEqual([red(w), waited.code], [[], 0], `with --kata-wait-max the run waits to the next grid instant and passes (stderr: ${waited.stderr.slice(0, 300)})`);
+    assert.equal(detailOf(w, "gate_kata_call"), kataGreen("2026-10-07T13:00:00Z", 3000), "the call is made on that grid instant, the wait in the detail");
+    assert.ok(waited.stderr.includes("verify-harness: waiting 3000 s for the grid instant 2026-10-07T13:00:00Z (--kata-wait-max 3600)"), "the wait is printed");
+    const skew = JSON.parse((await run(now, CA_TEST_CLOCK_MS + 120_000)).stdout) as Ca;
+    assert.deepEqual(red(skew), ["gate_kata_call", "gate_kata_policy_table"], "a host clock 120 s off: (1) and (2) red");
+    assert.ok(["gate_kata_call", "gate_kata_policy_table"].every((n) => detailOf(skew, n).startsWith("kata_clock_skew")), `the named detail: ${detailOf(skew, "gate_kata_call")}`);
+    const foreign = JSON.parse((await run(front, CA_TEST_CLOCK_MS)).stdout) as Ca;
+    assert.deepEqual(red(foreign), ["gate_kata_policy_table"], "another table digest served: (2) alone red");
+    assert.equal(detailOf(foreign, "gate_kata_policy_table"), `policy_table_sha256=${other} expected=${servedBtcRange1h()}`, "it names both digests");
+  } finally {
+    for (const s of [front, now, later]) await shut(s);
   }
 });

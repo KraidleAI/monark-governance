@@ -11,7 +11,7 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { assertClosedClassEntry, sha256Canonical, type ClassEntry, type PolicyRow, type PolicyTable } from "@monark/contracts";
 import { missUpperBound } from "@monark/hikae";
-import { kataClassEntries } from "../src/policy-classes.ts";
+import { kataClassEntries, kataKeyProblem } from "../src/policy-classes.ts";
 import { guardKataRow, guardKataTable, type GuardPins } from "../src/policy-guard.ts";
 import { projectCell, readRegistry } from "../src/policy-projection.ts";
 import { buildPolicyTable } from "../src/policy-table-file.ts";
@@ -221,4 +221,23 @@ test("the_guard_refuses_a_sign_set_row_under_the_digest_floor", () => {
     c.calib = { ...c.calib, misses: 2, kObs: 2 };
   });
   assert.throws(() => guardKataTable(tableFrom(cls, low.bytes, low.pins), low.bytes, low.pins, entry(cls)), /has a digest that the publication refuses: scores/);
+});
+
+// Lot E-2a, CA trio (R4 (iii), conflict 7): kata and venue ca-probe are reserved for the probe key of the deployment check, so
+// no table can ever hold a row under it. The reservation is its own predicate, called by the import guard (and by the loader of
+// E-2a, a later lot), never by the request check: kataKeyProblem still admits the probe key, so the probe call is answered.
+// killer: apps/harness/src/policy-guard.ts:142 CONST "[\"ca-probe\"]" -> "[\"ca-probe-x\"]"
+test("the_import_guard_refuses_the_reserved_probe_kata_and_venue", async () => {
+  const mod = (await import("../src/policy-guard.ts")) as unknown as { kataKeyReserved?: (kataId: string | null, venue: string | null) => boolean };
+  assert.equal(typeof mod.kataKeyReserved, "function", "policy-guard.ts exports kataKeyReserved, for the loader too");
+  const as = (r: PolicyRow, kata: string, venue: string): PolicyRow => ({ ...r, kata_id: kata, venue, cell_key: `kata:${kata}@${venue}/${String(r.symbol)}/${String(r.horizon)}/${String(r.bucket)}` });
+  const [k, v] = [String(bandRegion.kata_id), String(bandRegion.venue)];
+  for (const [kata, venue] of [["ca-probe", v], [k, "ca-probe"], ["ca-probe", "ca-probe"]] as const) {
+    refuse(as(bandRegion, kata, venue), /has a kata or venue reserved for the deployment check \(ca-probe\)/);
+    refuse(as(dirRegion, kata, venue), /has a kata or venue reserved for the deployment check \(ca-probe\)/);
+  }
+  // One name, not a pattern: another kata passes the reservation and is refused further on (its trial_id no longer recomposes).
+  refuse(as(bandRegion, "ca-probe-2", v), /has a trial_id not recomposed/);
+  assert.deepEqual([mod.kataKeyReserved?.("ca-probe", v), mod.kataKeyReserved?.(k, "ca-probe"), mod.kataKeyReserved?.(k, v), mod.kataKeyReserved?.(null, null)], [true, true, false, false]);
+  assert.equal(kataKeyProblem("kata:ca-probe@ca-probe/BTCUSDT/1h", "btc-range-1h"), undefined, "the request check admits the probe key: the call is answered, never a 400");
 });

@@ -160,13 +160,14 @@ test("srf_contributing_closes_the_loop_on_scores_sha256 — the exported contrib
   assert.ok(text.includes("the verdict's `scores_sha256`, `alpha` and `qhat` equal\n   those the calibrate step returned"), "the loop closes on scores_sha256, alpha and qhat");
 });
 
-// killer: docs/RUNBOOK-harness.md:214 CONST "15 of 15 checks" -> "13 of 13 checks"
+// killer: docs/RUNBOOK-harness.md:214 CONST "18 of 18 checks" -> "13 of 13 checks"
 test("srf_runbook_harness_green_gate_quotes_the_script — the message and the count are those of scripts/verify-harness.mjs", () => {
   const script = read("scripts", "verify-harness.mjs");
-  const named = [...script.matchAll(/(?:wiredCheck|httpCheck)\("(\w+)"/g)].map((m) => m[1]);
+  const named = [...script.matchAll(/(?:wiredCheck|httpCheck|capturedCheck)\("(\w+)"/g)].map((m) => m[1]);
   const looped = [...script.matchAll(/\["(gate_\w+_call)", GATE_\w+_BODY,/g)].map((m) => m[1]);
   const count = named.length + looped.length;
   assert.equal(new Set([...named, ...looped]).size, count, "premise: distinct check names");
+  assert.equal(count, 18, "premise: the script runs 18 checks (E-2a adds the kata path and version checks)");
   assert.ok(script.includes('"VERIFY OK — all checks passed."'), "premise: the message the script prints");
   const runbook = read("docs", "RUNBOOK-harness.md");
   assert.ok(runbook.includes(`its stderr prints \`VERIFY OK — all checks passed\` (${String(count)} of ${String(count)} checks;`), `the runbook quotes the message and the ${String(count)} checks`);
@@ -184,10 +185,10 @@ test("srf_ukemi_sync_comment_says_scores_digest — the written $comment is the 
 
 // T0-TOOLING-1 (review m-a): section 6 of the harness runbook names every check scripts/verify-harness.mjs runs.
 // killer: docs/RUNBOOK-harness.md:186 CONST "`origin_403_api`" -> "`origin_api`"
-test("srf_runbook_harness_names_every_check — the 15 checks of the script, each by its name", () => {
+test("srf_runbook_harness_names_every_check — the 18 checks of the script, each by its name", () => {
   const script = read("scripts", "verify-harness.mjs");
-  const names = [...script.matchAll(/(?:wiredCheck|httpCheck)\("(\w+)"/g), ...script.matchAll(/\["(gate_\w+_call)", GATE_\w+_BODY,/g)].map((m) => m[1] ?? "");
-  assert.equal(names.length, 15, "premise: the script runs 15 checks");
+  const names = [...script.matchAll(/(?:wiredCheck|httpCheck|capturedCheck)\("(\w+)"/g), ...script.matchAll(/\["(gate_\w+_call)", GATE_\w+_BODY,/g)].map((m) => m[1] ?? "");
+  assert.equal(names.length, 18, "premise: the script runs 18 checks");
   const runbook = read("docs", "RUNBOOK-harness.md");
   assert.deepEqual(names.filter((n) => !runbook.includes(`\`${n}\``)), [], "a check the runbook does not name");
 });

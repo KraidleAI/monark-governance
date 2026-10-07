@@ -156,7 +156,7 @@ Cloudflare proxy is in front, so HTTP-01 completes directly (K-7).
 
 ## 6. Verify and record the deployment CA
 
-From the orchestrator's machine (not the VPS), against the live endpoint:
+From the orchestrator's machine (not the VPS), against the live endpoint, within 4 minutes of a full hour (UTC), or with `--kata-wait-max <s>` (see *Kata path and version checks* at the end of this file):
 
 ```bash
 node scripts/verify-harness.mjs --out docs/deploy-CA-harness.json
@@ -183,9 +183,9 @@ two empty-registry checks of HARNESS-DESC-1):
   clause ENTIRE ("the served region is" + the upper-bound, requirements, H-3 and conditional sentences) and NOT the
   empty-registry sentence.
 
-The 15 checks, by name, in the script's order: `health`, `openapi`, `origin_403_api`, `origin_403_mcp`,
+The 18 checks, by name, in the script's order: `health`, `openapi`, `origin_403_api`, `origin_403_mcp`,
 `mcp_tools_list`, `gate_call`, `gate_retired_call`, `gate_future_call`, `gate_liq_call`, `gate_liq_uncommitted_call`,
-`mcp_gate_description_liq`, `cascade_call`, `attest_call`, `calibrate_call`, `gate_byo_call`.
+`mcp_gate_description_liq`, `cascade_call`, `attest_call`, `calibrate_call`, `gate_byo_call`, `gate_version_1_0_0_call`, `gate_kata_call`, `gate_kata_policy_table` (the last three: *Kata path and version checks* at the end of this file).
 
 Two refusal checks carry their stable `code` (CM-2b, ADR-CM B-5; CM-2a, MONARK C-8):
 - **`gate_retired_call`** POSTs the retired class `btc-dir-15m` and asserts `400`, `error === "tool_error"` and
@@ -211,7 +211,7 @@ without its value (`--output`, a bare `--out`, `--out ""`, `--out` twice), is re
 any request. Keep the `--out` file as the CA.
 
 **Deploy reserves — the green gate (Lot H6).** The deploy is GREEN only when BOTH hold:
-- the command **exits 0** AND its stderr prints `VERIFY OK — all checks passed` (15 of 15 checks; the CA's `checks` array lists them all, each `ok: true`). Treat ANY non-zero exit as RED and
+- the command **exits 0** AND its stderr prints `VERIFY OK — all checks passed` (18 of 18 checks; the CA's `checks` array lists them all, each `ok: true`). Treat ANY non-zero exit as RED and
   read the JSON `checks` array to find the failing check (on Windows an unavailable interpreter can surface as exit
   `127` — still RED, never a pass); and
 - on the first real **https** run, the CA's `tls.authorized === true` and `tls_mcp.authorized === true` (genuine
@@ -388,7 +388,7 @@ node scripts/spec-publish.mjs --release contract-1.1.0-tables-<YYYY-MM-DD> --dat
   300 s of the server clock, after it (l.47) or before it (`apps/harness/src/tools/gate.ts` l.886; 300 s, l.212): the
   probe has a window of ten minutes around each grid instant, and may wait up to an hour on a 1h class, four hours on a
   4h class.
-- No probe command exists in the repository: `scripts/verify-harness.mjs` makes no kata call. Item RETIRE-PROBE-1 of the
+- No probe command exists in the repository: `scripts/verify-harness.mjs` makes one kata call only, on its reserved probe key (`gate_kata_call`), never on a served cell. Item RETIRE-PROBE-1 of the
   G0. **T_g** = the UTC instant the probe receives that verdict.
 
 ### 8. The latency report
@@ -429,3 +429,25 @@ then step 3 again, which gives a new T_c. These git commands are the one act of 
 (default of Q-RL-4 of the G0; item RETIRE-REDO-MESSAGE-1). After T_d, never: a published file is never rewritten nor
 withdrawn (`rewritten`, `withdrawn`: `scripts/spec-publish.mjs` l.203, l.207); a correction is a new dated directory at
 a later date (`scripts/spec-policy-tables.mjs` l.168-169).
+
+## Kata path and version checks (deployment CA, section 6)
+
+The specification of the last three checks of `scripts/verify-harness.mjs` (lot E-2a; the same text closes the script's
+comments). Each paragraph below is one line of the text; joined by LF, its sha256 is
+`7e05ee5d8d7b7cd8a056acd2dab20e2efc8c98e72724ca96559e1ca5868a2bae`.
+
+Kata path and version checks. The deployment check, which runs the reader-side verifier against the served host, plays three more checks after every other check: first (3), which does not depend on the clock, then (1) and (2), which do.
+
+(1) gate_kata_call: one well-formed call on btc-range-1h, with predictor_id kata:ca-probe@ca-probe/BTCUSDT/1h, a key whose kata and venue are reserved for this check, so that no table can hold a row under it; features_digest the sha256 of the empty JSON array; yhat 0.01; alpha 0.01 and nMin 299; and a produced_at on the 1h grid that is at most 240 s before or after the clock of the run. If the run's clock is farther than 240 s from every grid instant, checks (1) and (2) fail with the detail kata_window_not_reached, unless the run was started with --kata-wait-max <s> and the wait to the next grid instant is at most s seconds: the run then waits, and reports the wait. If the Date header of the host's health answer is more than 60 s from the run's clock, checks (1) and (2) fail with the detail kata_clock_skew. Check (1) passes when the host answers HTTP 200 with action abstain, verdict.reason under_calib, verdict.n_calib 0, no region, verdict.cell_key kata:ca-probe@ca-probe/BTCUSDT/1h/b0 and verdict.policy_row_sha256 null.
+
+(2) gate_kata_policy_table: the verdict of check (1) carries a policy_table_sha256 equal to the value written in the check. That value is the sha256 of the btc-range-1h table file of the latest published directory that holds that file, as the input list and the MANIFEST.sha256 of the release that published it record it; a release that changes that table changes the written value with it.
+
+(3) gate_version_1_0_0_call: the call of the existing gate check, with schema_version 1.0.0, answers HTTP 400 with error tool_error and code schema_version_unsupported.
+
+The import guard and the loader refuse any row whose kata or venue is ca-probe, so check (1) does not change when kata rows are served.
+
+In practice: run section 6 within 4 minutes of a full hour (UTC); started earlier, `--kata-wait-max 3600` waits for the next
+full hour and prints the wait on stderr. The expected `policy_table_sha256` is written in the script
+(`KATA_POLICY_TABLE_SHA256`); a release that changes `btc-range-1h` changes it in the same commit
+(`test/verify-harness-liq.test.ts`, `verify_harness_ca_pins_policy_table_sha256`). The reservation of `ca-probe` is in the
+import guard (`kataKeyReserved`, `apps/harness/src/policy-guard.ts`); the kata loader of E-2a, when it lands, calls it too.
