@@ -18,7 +18,8 @@ PR #237, elle-même sur #236 et #233), fusionnée dans cette branche par « Merg
   élément (pièce `z3-check.json` de `612ab96`, `replayed[10]` : « compte servi si la classe est épinglée, 0 sinon », « à écrire en
   expression dans le G0 de a2-ii » : §1) ; G2 second tour de MONARK, `dd734ea` (message `…-g2-chaine-r2.md`, sections « a2-i (#237)
   et a2-ii (#238) : le plan d a3 est re-décidé » et « Les m de #238 » ; pièce `pieces/2026-10-07-g2-chaine-r2/g2-238.json` : un M, quatre
-  m), pliée le 2026-10-07 (§1, §2, §3, §5).
+  m), pliée le 2026-10-07 (§1, §2, §3, §5) ; G2 du pli de MONARK, recherches `619d9c3` (message `…-p3-gel-238-scale-break.md`,
+  section « 2. #238 » : approuvée, deux m ; pièce `pieces/2026-10-07-p3-gel-238-sb/G2-238-fold.json`), pliée le 2026-10-07 (§1 à §4).
 - **Provenance** : worker `claude-opus-5-5`, horloge lue (`date -u`) à 12:12 UTC pour ce G0, puis à 12:46 UTC après la fusion des plis
   de #237 (G2 de MONARK `6fb4653` : épingle des l.1074-1075 dans T-3, l.279-280 de T-3 réécrites). Worktree neuf du scratchpad, branche
   `recherches/e2a-a2-ii` ; `node_modules` lié en dur, retiré à la fin. Node 24.21.0, Linux.
@@ -26,10 +27,15 @@ PR #237, elle-même sur #236 et #233), fusionnée dans cette branche par « Merg
   à 14:22 UTC pour ce G0. #237 n'a pas bougé (`git ls-remote` : `f0933604`), aucune fusion. Worktree détaché du scratchpad, repris
   propre à `10f97f8c` ; `node_modules` lié en dur, retiré à la fin ; mesures des cas d'a3 dans une archive de `c7d56e66`, jamais dans un
   worktree. Node 24.21.0, Linux.
+- **Provenance du pli de la G2 du pli** : worker `claude-opus-5-5`, effort: max ; horloge lue (`date -u`) à 15:38 UTC au début, à
+  15:56 UTC pour ce G0. #237 n'a pas bougé (`git ls-remote` : `f0933604`), aucune fusion. Worktree détaché neuf du scratchpad, pris à
+  `65860b9e` ; `node_modules` lié (liens vers celui du dépôt, `@monark` vers le worktree), retiré à la fin ; la garde des tueurs du tronc
+  lancée dans un clone de travail, jamais poussé. Node 24.21.0, Linux.
 - **Zone** : `apps/harness/src/tools/gate.ts` (l.220-240 et l.1072-1073, sur place, à nombre de lignes constant),
   `apps/harness/test/gate-kata-served.test.ts`, `test/spec-1-1-0-release.test.ts` (un import ajouté l.19, l.131),
   `docs/RUNBOOK-harness.md` (l.270 et l.273-275, sur place).
-- **Ordre de fusion** : après a2-i. Demande en brouillon, base `recherches/e2a-a2-i-seam`.
+- **Ordre de fusion** : après a2-i. Demande en brouillon, base `recherches/e2a-a2-i-seam` ; elle sort du brouillon après le pli de la
+  G2 du pli (décision de MONARK, `619d9c3`, §2).
 
 ## 1. Construction
 
@@ -43,10 +49,12 @@ PR #237, elle-même sur #236 et #233), fusionnée dans cette branche par « Merg
   cet ordre : `not a kata class: <noms>` (un nom de l'une des deux listes hors des entrées), `both pinned and held: <classes>`,
   `neither pinned nor held: <classes>`, `fewer than 2 held classes: <n>`, `fewer than 2 pinned classes: <m>` ; chaque message finit par
   « ; the committed state is written for pinned and held classes that partition the kata classes, at least 2 of each ». L'ordre et le
-  suffixe sont tenus par le cas « deux conditions » de T-2a (l.410 ; pli de la G2 second tour). La clause s'écrit au chargement
-  (`GATE_TOOL_DESCRIPTION`, l.269, par l'appel de la l.254, épinglé à l'octet par T-2a, l.414) : hors domaine, `gate.ts` ne charge pas,
-  avant le lecteur et le fil-piège de la l.1042. Tout autre état demande une nouvelle ligne Z-3 (premier déclencheur connu :
-  DIR-4H-DIGEST-COMMIT-1, `n = 0`).
+  suffixe sont tenus par quatre cas « deux conditions » de T-2a, un par paire adjacente de cet ordre, chacun ancré sur le message
+  entier : `out` et `both` (l.410 ; pli de la G2 second tour), `both` et `neither` (l.411), `neither` et `n < 2` (l.412), `n < 2` et
+  `m < 2` sur le produit 1×2×1 (l.413 ; pli de la G2 du pli). Tout autre ordre inverse au moins une paire adjacente : chaque ordre est
+  tenu. La clause s'écrit au chargement (`GATE_TOOL_DESCRIPTION`, l.269, par l'appel de la l.254, épinglé à l'octet par T-2a, l.417) :
+  hors domaine, `gate.ts` ne charge pas, avant le lecteur et le fil-piège de la l.1042. Tout autre état demande une nouvelle ligne Z-3
+  (premier déclencheur connu : DIR-4H-DIGEST-COMMIT-1, `n = 0`).
 - **Les défauts** lisent les épingles servies (`COMMITTED_TABLES`, vide) et les deux listes retenues, déjà importées en fin de fichier
   par a2-i (l.1074-1075 : liaisons importées, aucune ligne ajoutée, aucun cycle neuf). La description servie ne change pas (3 971
   octets, `dd728779…`) ; `kata_path_and_server_load_cold` reste vert dans les deux ordres de chargement.
@@ -69,7 +77,7 @@ PR #237, elle-même sur #236 et #233), fusionnée dans cette branche par « Merg
 | Test | Ce qu'il tient | Rouge à la base (a2-i) | Tueur |
 |---|---|---|---|
 | T-12 `describe_gate_kata_clause` (l.180) | épingles vides explicites (l.183) : `CLAUSE`, `[723, "022756c3…"]` ; épingles de la release des bandes (les 8 classes dir retenues, les 24 autres épinglées) : `[1465, "db773535…"]` ; la clause aux épingles servies, `kataClause()` (l.189), est dans la description, après la clause liq et avant la phrase BYO ; aucune forme `For '…'` kata | assertion : l'état engagé n'existe pas | inchangé : `apps/harness/src/tools/gate.ts:237 CONST "PRODUCED_AT_FUTURE_TOLERANCE_MS / 1000" -> "PRODUCED_AT_FUTURE_TOLERANCE_MS / 100"` |
-| T-2a `kata_clause_follows_the_committed_pins` (l.389) | trois partitions (2 retenues ; les 8 des listes réelles ; 2 épinglées) : les deux côtés comptés, exactement les retenues nommées, dans l'ordre des entrées, aucune `For '…'` ; listes lues comme des ensembles (ordre et répétitions) ; sur 8 entrées, l'état engagé les compte et les nomme ; hors domaine, une levée par cas, chacune par son message : ni épinglée ni retenue, les deux à la fois, nom hors des entrées (dans chacune des deux listes), `n = 1`, `n = 0`, `m = 1` ; **deux conditions violées à la fois (un nom hors des entrées et une classe épinglée et retenue) : la première dans l'ordre lève, message entier jusqu'au suffixe (l.410)** ; le produit d'abord ; la l.222 à l'octet près de ses défauts ; **la l.254, l'appel de la clause par la description, à l'octet, indentation comprise (l.414)** | assertion : la clause n'a qu'un état | `apps/harness/src/tools/gate.ts:239 CONST "committed.length === 0" -> "true"` |
+| T-2a `kata_clause_follows_the_committed_pins` (l.389) | trois partitions (2 retenues ; les 8 des listes réelles ; 2 épinglées) : les deux côtés comptés, exactement les retenues nommées, dans l'ordre des entrées, aucune `For '…'` ; listes lues comme des ensembles (ordre et répétitions) ; sur 8 entrées, l'état engagé les compte et les nomme ; hors domaine, une levée par cas, chacune par son message : ni épinglée ni retenue, les deux à la fois, nom hors des entrées (dans chacune des deux listes), `n = 1`, `n = 0`, `m = 1` ; **deux conditions violées à la fois, une paire adjacente de l'ordre par cas : la première dans l'ordre lève, message entier jusqu'au suffixe (l.410 : un nom hors des entrées et une classe épinglée et retenue ; l.411 : une classe épinglée et retenue et une ni l'une ni l'autre ; l.412 : sept classes ni l'une ni l'autre et `n = 1` ; l.413 : `n = 1` et `m = 1`, sur le produit 1×2×1 de `btc-dir-1h` et `btc-range-1h`)** ; le produit d'abord ; la l.222 à l'octet près de ses défauts ; **la l.254, l'appel de la clause par la description, à l'octet, indentation comprise (l.417)** | assertion : la clause n'a qu'un état | `apps/harness/src/tools/gate.ts:239 CONST "committed.length === 0" -> "true"` |
 | `kata_clause_reads_its_names_and_tau_cap` (l.361) | `render(some, 0.5, [])` (l.364), `render(undefined, undefined, [])` (l.368), type `Render` à quatre paramètres (l.173, l.362) ; l.367 (`render(some.slice(1))`, « not the product ») inchangée | vert à la base (déclaré) | inchangé : `gate.ts:232`, ligne réécrite sur le même site |
 | `published_tables_are_the_served_tables_byte_for_byte` (`spec-1-1-0-release.test.ts` l.124) | le cinquième élément (§1) | vert à la base (déclaré) | inchangé : `gate.ts:217` |
 
@@ -84,7 +92,14 @@ PR #237, elle-même sur #236 et #233), fusionnée dans cette branche par « Merg
   `RED-PROOF.json` : sha256 `eef1fea9…` (gel `7becd5f6`, digest `86ba00ff…`). Même verdict à la base précédente, `d2285ee2`
   (gel `bcb2cd12`, `RED-PROOF.json` `ec0ed209…`). **Rejoué au pli de la G2 second tour**, `--gel c7d56e66c0f10b036a7e98f02c2396363fd0c606`
   (le commit du test ; les docs sont hors du digest) : même verdict, mêmes F2P, mêmes refus déclarés, `gate.ts:239` et `gate.ts:237`
-  tirés et tués ; digest de gel `46cab374…`, `RED-PROOF.json` `9dd9142d…`.
+  tirés et tués ; digest de gel `46cab374…`, `RED-PROOF.json` `9dd9142d…`. **Rejoué au pli de la G2 du pli**, `--gel 4b957fd6…`
+  (le commit des cas ; les docs hors du digest) : même verdict, « 4 judged, 36 unchanged, 2 killer(s) drawn », T-12 et T-2a F2P, les
+  deux refus déclarés, `gate.ts:239` et `gate.ts:237` tirés et tués par assertion ; digest de gel `c1def685…`, `RED-PROOF.json`
+  `60981f1b…`. `--test-only` ne peut pas juger ce lot : contre la base de la demande (`f0933604`), il refuse sans rien lancer,
+  « production changed: apps/harness/src/tools/gate.ts », et aucun G0 du diff ne le déclare ; contre `65860b9e`, la tête d'avant ce pli,
+  seul le refus de déclaration reste (aucun fichier de production dans le pli). Ce G0 ne le déclare pas, puisque le lot change
+  `gate.ts`. Ce que le mode tiendrait est mesuré à la main : T-2a vert à `65860b9e` et à `4b957fd6`, et son tueur déclaré, tiré à
+  `4b957fd6`, le rougit par assertion.
 - **Mutants faits à la main** sur les lignes neuves (l.222, l.231 à l.234, l.239), rejoués sur `gate-kata-served`, `spec-1-1-0-release`
   et `gate-liq` : 18, tous tués. **Pli de la G2 second tour** : trois mutants de MONARK survivaient à `10f97f8c` (rejoués ici sur
   `gate-kata-served`, `spec-1-1-0-release`, `gate-liq`, `gate`, `gate-cm2b` et `harness-served` : 117 tests, 117 verts sous chacun) :
@@ -98,6 +113,17 @@ PR #237, elle-même sur #236 et #233), fusionnée dans cette branche par « Merg
   `c7d56e66`, épingles et listes retenues écrites par cas, 24 tables de bande de synthèse (graine 53), trois ordres de chargement : la
   tête sert `cf2dde64…` ; sous M15 et M17, l'état 0 (3 971 octets, `dd728779…`) ; M16 lève à la clause (« neither pinned nor held:
   btc-dir-1h, eth-dir-1h, bnb-dir-1h, sol-dir-1h ») ; à l'état 2 (28 épinglées), M16 charge avec les octets de la tête.
+- **Pli de la G2 du pli, l'ordre des levées** : le cas de la l.410 tenait le suffixe et l'ordre de `out` avant `both`, pas l'ordre des
+  trois autres contrôles de la l.233. Quatre ordres de la l.233 passaient les six fichiers à `65860b9e`, rejoués ici (117 tests, 117
+  verts sous chacun) : P1 (`both` et `neither` échangées), P2 (`neither` et `n < 2`), P3 (`n < 2` et `m < 2`), P4 (`both` en dernier).
+  Trois cas s'ajoutent à côté de la l.410 (§1, §2). À `4b957fd6`, la tête est verte (117 sur 117) et chaque P rougit T-2a, 116 verts
+  sur 117, par l'assertion de son cas : P1 et P4 à la l.411 (« neither pinned nor held: btc-range-1h » au lieu de « both pinned and
+  held: btc-dir-1h »), P2 à la l.412 (« fewer than 2 held classes: 1 »), P3 à la l.413 (« fewer than 2 pinned classes: 1 ») ;
+  M9 de la G2 second tour (l.233) et M10 restent tués à la l.410. Les 119 ordres autres que celui de la tête, chacun appliqué seul à la
+  l.233 et T-2a lancé seul : 119 rouges par assertion, chacun au premier cas dont il inverse la paire (60 à la l.410, 40 à la l.411, 15
+  à la l.412, 4 à la l.413). Aucun tueur neuf : ce fichier nomme un tueur par test, au-dessus de lui, et les trois cas sont dans T-2a,
+  dont le tueur (`gate.ts:239`) ne change pas, comme pour le cas de la l.410 au pli précédent. Le commentaire de T-2a (l.384-387) nomme
+  les cinq contrôles dans l'ordre du code, réécrit sur place.
 - **Octets** : les trois rendus de `kataClause` à ce gel, mesurés (`Buffer.from`, `createHash("sha256")`) : 723 `022756c39c3f…`,
   1 465 `db7735357a89…`, 1 409 `5c80d9187fd2…`, égaux aux trois états de la pièce Z-3 v2 et à la ligne de MONARK, en ASCII
   imprimable ; mêmes octets avec `held` inversé. L'état 2 est mesuré ici, épinglé par T-12 au lot c′ (plan, pièce §8.3). La
@@ -105,17 +131,24 @@ PR #237, elle-même sur #236 et #233), fusionnée dans cette branche par « Merg
   `cf2dde644db8…` et 4 657 octets `d769c86b7bcd…`, les valeurs de la pièce pour les lots c et c′, qui ne sont pas épinglées ici.
 - **Suite** : harnais et surfaces servies (`harness-served`, `spec-1-1-0-release`, `surfaces-1-1-0`, `export-public` avec le test 42,
   `public-surfaces-honesty`, `spec-retire-path`, `harness-export`, `cra-b`, `runbook-retire`, `short-digest-floor`) : 388 tests, 388 verts ;
-  rejouée au pli de la G2 second tour (le test de `c7d56e66` et l'en-tête redaté du RUNBOOK) : 388 sur 388.
+  rejouée au pli de la G2 second tour (le test de `c7d56e66` et l'en-tête redaté du RUNBOOK) : 388 sur 388 ; rejouée au pli de la G2
+  du pli (`4b957fd6`) : 388 sur 388.
 - `tsc --noEmit` 0 ; `eslint .` 0 ; `gate:vocab` 0 ; `lang:gate` 0 ; `lint:ratchet` 69/69 ; `export:check` 0 ; winlint `--base f0933604` :
   5 fichiers, aucun risque Windows. `verifie-ancres` : fichiers touchés, 40 tueurs, 40 ancrés ; arbre entier avec `--ref f0933604`, 1 528
   tueurs, 1 527 ancrés, 1 dérivé (`gate.ts:232`, la ligne réécrite sur son site, voulu), 0 perdu. Les mêmes valeurs à `d2285ee2`, et
-  à `c7d56e66` (pli de la G2 second tour ; sans `--ref`, 1 528 sur 1 528 ; winlint, 5 fichiers, aucun risque).
+  à `c7d56e66` (pli de la G2 second tour ; sans `--ref`, 1 528 sur 1 528 ; winlint, 5 fichiers, aucun risque). **Au pli de la G2 du
+  pli** (`4b957fd6`) : `tsc --noEmit` 0 ; `eslint` du test touché 0 ; `gate:vocab`, `lang:gate` et `export:check` 0 ; `lint:ratchet`
+  69/69 ; winlint `--base f0933604`, 5 fichiers, aucun risque. `verifie-ancres` : 40 sur 40 dans les fichiers touchés ; 1 528 sur 1 528
+  dans l'arbre, sans dérivé avec `--ref 65860b9e` ; avec `--ref f0933604`, le seul dérivé voulu (`gate.ts:232`), 0 perdu. La garde
+  `every_killer_line_is_readable` du tronc passe sur la fusion locale de `4b957fd6` dans `102b44d3` (sans conflit, jamais poussée ; 1 611
+  tueurs, 1 611 ancrés).
 
 ## 4. Taille
 
 - R-25, forme de la CI, contre la base de la demande (a2-i, `f0933604`) : 3 fichiers, 61 insertions, 23 suppressions, **84** (plan :
   ~146 à ×2, 190 à +30 %) ; la CI de #238 compte 84 à `d2285ee2`. **Au pli de la G2 second tour** (`c7d56e66`) : 3 fichiers,
-  65 insertions, 23 suppressions, **88**.
+  65 insertions, 23 suppressions, **88**. **Au pli de la G2 du pli** (`4b957fd6`) : 3 fichiers, 68 insertions, 23 suppressions, **91**
+  (le pli seul, contre `65860b9e` : 1 fichier, +6 −3).
 
 ## 5. Ce qui n'est pas fait
 
