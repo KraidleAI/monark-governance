@@ -1491,6 +1491,29 @@ Tronc `lot/etude-suite`. Dernier oracle complet : 1 779 tests, dont 1 776 verts,
   - reportés après la première publication, par l'orchestrateur : DOJO-LIVE-HEALTH-1 (sonde quotidienne ; en attendant, l'orchestrateur
     rejoue `dojo-verify-cli --url` sur l'hôte servi après chaque publication ; déclencheur : avant le jour de l'annonce ou sous 7
     jours), DOJO-HEAD-RULES-ONE-SOURCE-1 et DOJO-LOADER-RULES-AST-1 (au registre PAROXYSME), DOJO-VERIFY-URL-IDLE-MEASURE-1 (avant CA-1).
+    Ligne datée 2026-10-07 (MONARK, #220, fusion `c97d60eb`, oracle G7 `6c0802cb…`) : DOJO-LIVE-HEALTH-1 est construit et fusionné.
+    - La sonde : `scripts/probe-dojo-live.mjs` et `deploy/monark-dojo-probe.*` ; la section 25 de `docs/RUNBOOK-dojo.md` ;
+      `docs/G1-lot-dojo-live-health-1.md`.
+    - G2 de RECHERCHES : APPROUVE (`fecc627`), sept notes.
+    - **Non déployé.** L acte (1) de la section 25, en lecture seule, est fait : Node v24.21.0, l utilisateur `probe` écrit, le fichier
+      de mail est présent, ni arbre ni unité. L acte (2), l envoi de l arbre par SSH, a été refusé à 04:3x UTC par le système de
+      permissions de la session (écriture sur un hôte distant). Rien n a été écrit sur Bell. Le déploiement attend l autorisation du
+      fondateur, avant l échéance du 2026-10-10. D ici là, le filet reste la relecture manuelle par `dojo-verify-cli --url`
+      (JOURNAL du 2026-10-07 02:4x UTC).
+    
+    Items formés, chacun avec porteur, déclencheur et état :
+  - DOJO-PROBE-FOLLOWUP-1 (notes N-1 à N-4 de la G2 de #220, `fecc627`). Porteur : MONARK ; déclencheur : avant le jour de l annonce, et
+    avant DOJO-PROBE-MIRROR-1 ; état : ouvert. Le lot :
+    - N-1 : le parent ne garde pas `SMTP_PASS` dans son environnement, que l enfant vérificateur, sous le même uid, peut lire par
+      `/proc/<ppid>/environ`. Il le lit d un fichier `0600` au moment d envoyer, après la fin de l enfant ;
+    - N-2 : un test par garde de `reportOk` ;
+    - N-3 : la raison d une chronologie d hôte malformée quand le mandataire est aussi injoignable ;
+    - N-4 : le commentaire « one CPU-bound job at a time » du timer, et `monark-dojo-collect` dans le test de non-chevauchement.
+  - DOJO-PROBE-VANTAGE-1 (G1 de #220 §6) : un second point de vue hors de Bell ; option (a) décidée, la sonde miroir. Porteur : MONARK ;
+    état : décidé, construit par DOJO-PROBE-MIRROR-1.
+  - DOJO-PROBE-MIRROR-1 (G1 de #220 §6) : la sonde miroir sur le serveur du site, même arbre et mêmes unités, son propre fichier de mail,
+    par les actes (1) à (5) de la section 25. Porteur : MONARK ; déclencheur : avant le jour de l annonce, après la mesure de sa charge à
+    l acte ; état : ouvert. N-6 de la G2 l appuie : seule cette sonde couvre le silence d une sonde tuée par systemd ou par l OOM.
   - à l'envoi, orchestrateur (N-8 de la G2 de la partie 3, 2026-10-02) : SITE-BUILD-LOCAL-ROOT-UNSET-1, la construction de production
     est faite sans `MONARK_DOJO_LOCAL_BUILD_ROOT` (variable absente de l'environnement de la construction, relevé au JOURNAL) ; acte du
     mandataire DOJO-SITE-PROXY-1 au mode d'emploi (tour de corrections de la partie 3) ; validation visuelle C-V-4 et Q-4 du navigateur
