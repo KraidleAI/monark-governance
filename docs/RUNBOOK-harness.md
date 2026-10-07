@@ -411,12 +411,15 @@ node scripts/retire-probe.mjs --api <url> --table spec/contract-1.1.0-tables-<YY
 - `scripts/retire-probe.mjs` (item RETIRE-PROBE-1) builds the call from the table file, waits until its clock is within
   240 s of a grid instant (`--max-wait`, 4 h by default), makes one call, bounded as a whole by `--timeout` (10 000 ms by
   default), and prints the record `retire-probe-v1`: it carries the probe's own verdict (`ok`, `problem`), the table file,
-  the api and its Host. `--out <file>` writes that record when it is accepted, `<file>.refused` when it is not; never
-  redirect stdout into the record (Windows PowerShell 5.1 writes `>` in UTF-16). Exit 0 iff the cell has a current row in
-  the file and the verdict is a 200 of that cell, with the file's sha256 and, on a retired row, `calib_retired`. Exit 1
-  names its refusal: `table_invalid`, `cell_invalid`, `wait_exceeds_max`, `window_missed`, `transport_failed`,
-  `not_served`, `cell_mismatch`, `digest_mismatch` or `reason_mismatch`. Exit 2: usage. **T_g** = its `received_at`, the
-  UTC second the verdict arrived: the clock reading of the call plus a monotonic delta.
+  the api and its Host. `--out <file>` writes that record when the verdict is accepted (and removes a stale
+  `<file>.refused`), `<file>.refused` when the verdict is refused; a refusal before any verdict (`table_invalid`,
+  `cell_invalid`, `wait_exceeds_max`, `window_missed`, `transport_failed`) writes nothing. Never redirect stdout into the
+  record (Windows PowerShell 5.1 writes `>` in UTF-16). Exit 0 iff the cell has a current row in the file and the verdict
+  is a 200 of that cell, with the file's sha256 and, on a retired row, `calib_retired`. Exit 1 names its refusal:
+  `table_invalid`, `cell_invalid`, `wait_exceeds_max`, `window_missed`, `transport_failed`, `not_served`,
+  `cell_mismatch`, `digest_mismatch` or `reason_mismatch`. Exit 2: usage, a `--timeout` of 0 or over 2147483647 ms
+  included. **T_g** = its `received_at`, the UTC second the verdict arrived: the clock reading of the call plus a
+  monotonic delta.
 
 ### 8. The latency report
 
@@ -426,9 +429,13 @@ node scripts/retire-probe.mjs --api <url> --table spec/contract-1.1.0-tables-<YY
 {"format": "retire-latency-v1", "cycle": "rehearsal", "instants": {"T_a": "YYYY-MM-DDTHH:MM:SSZ", "T_b": "YYYY-MM-DDTHH:MM:SSZ", "T_c": "YYYY-MM-DDTHH:MM:SSZ", "T_d": "YYYY-MM-DDTHH:MM:SSZ", "T_e": "YYYY-MM-DDTHH:MM:SSZ", "T_f": "YYYY-MM-DDTHH:MM:SSZ", "T_g": "YYYY-MM-DDTHH:MM:SSZ"}, "mention": null}
 ```
 
-  `cycle` is `rehearsal` or `real`; `mention` is `null`, or where an overrun of the 14-day ceiling is written down
-  (l.51-52). AFTER #218 (RETIRE-REAL-CYCLE-SCOPE-1, not merged at the base of this text): `cycle` may be `publication`,
-  T_c to T_g only, no ceiling; T_a or T_b in it is refused, `instant_out_of_cycle`.
+  `cycle` is `rehearsal`, `real` or `publication`; `mention` is `null`, or where an overrun of the 14-day ceiling is
+  written down (l.51-52). A `publication` cycle (RETIRE-REAL-CYCLE-SCOPE-1) holds T_c to T_g only, with no ceiling and
+  `mention` `null` (l.10, l.44, l.56): T_a or T_b in it is refused, `instant_out_of_cycle`; a mention,
+  `mention_out_of_cycle`. Write it as UTF-8 without a byte order mark: the report parses the file as read in UTF-8
+  (l.65), and a BOM or UTF-16 is refused, `format_invalid`. Under Windows PowerShell 5.1, `>` writes UTF-16 and
+  `Out-File -Encoding utf8` writes a BOM; with the JSON in `$text`, write it with
+  `[System.IO.File]::WriteAllText("<instants.json>", $text, (New-Object System.Text.UTF8Encoding $false))`.
 - Or assemble it from the evidence: `node scripts/retire-instants.mjs <evidence.json> --out <instants.json>` (item
   RETIRE-INSTANTS-1). Each instant names its source: a full commit sha and its repository (T_a, T_b, T_e: the committer
   date; T_e a merge commit), a clock reading (T_c, T_d; T_a of `live:<k>`, the close of its quarter), the record of step 6
@@ -442,7 +449,8 @@ node scripts/retire-latency.mjs <instants.json>   # scripts/retire-latency.mjs l
 ```
 
   Exit 0 prints the closed report, then a line `retire-latency OK: …` (l.66-68). Exit 1 names the refusal:
-  `format_invalid`, `instant_missing`, `order_not_monotone` or `ceiling_unmentioned` (l.10-12, l.70-72). Exit 2: usage
+  `format_invalid`, `instant_out_of_cycle`, `mention_out_of_cycle`, `instant_missing`, `order_not_monotone` or
+  `ceiling_unmentioned` (l.10-12, l.70-72). Exit 2: usage
   (l.62). The objective of 3 business days (Monday to Friday, UTC, no holiday calendar) is reported, never blocking
   (l.7-8, l.57).
 - Log a dated line in `docs/JOURNAL-PROVENANCE.md`: the cycle, the seven instants with the source of each, the input file
