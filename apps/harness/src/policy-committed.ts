@@ -42,10 +42,10 @@ export const COMMITTED_FILES: ReadonlyMap<string, Uint8Array> = readTablesDir(TA
 
 /**
  * The table of each pinned class, or a throw naming the first departure: a pinned class has its file and a file its pin
- * (no file and no pin when the folder is absent); the bytes have the pinned sha256 and are the canonical writing of their
- * value; the row format is class-policy-v2; the class entry is the expected kata entry; assertPolicyTableFile holds; no row
- * is under a reserved kata id or venue. Across classes: the entries name each class once; every held class is a kata class
- * and none is pinned, so the pinned, held and other classes are exactly the kata classes.
+ * (no file and no pin when the folder is absent); the bytes have the pinned sha256, are JSON and are the canonical writing
+ * of their value; the row format is class-policy-v2; the class entry is the expected kata entry; assertPolicyTableFile holds;
+ * no row is under a reserved kata id or venue. Across classes: the entries name each class once; every held class is a kata
+ * class and none is pinned, so the pinned, held and other classes are exactly the kata classes.
  */
 export function readCommittedTables(files: ReadonlyMap<string, Uint8Array>, entries: readonly ClassEntry[], pins: CommittedPins): ReadonlyMap<string, PolicyTable> {
   const pinned = Object.keys(pins.tables).sort();
@@ -59,7 +59,12 @@ export function readCommittedTables(files: ReadonlyMap<string, Uint8Array>, entr
   for (const cls of pinned) {
     const bytes = files.get(cls) ?? fail(`${cls}: a pinned class without its committed file`);
     if (sha(bytes) !== pins.tables[cls]) fail(`${cls}: the file bytes do not have the pinned sha256`);
-    const table = JSON.parse(new TextDecoder().decode(bytes)) as PolicyTable;
+    let table: PolicyTable;
+    try {
+      table = JSON.parse(new TextDecoder().decode(bytes)) as PolicyTable;
+    } catch {
+      table = fail(`${cls}: the file is not JSON`);
+    }
     if (!Buffer.from(canonicalJson(table)).equals(bytes)) fail(`${cls}: the file is not the canonical writing of its table`);
     if ((table as Partial<PolicyTable> | null)?.row_format !== "class-policy-v2") fail(`${cls}: the row format is not class-policy-v2`);
     const entry = entries.find((e) => e.task_class === cls) ?? fail(`${cls}: no kata class entry for a pinned class`);

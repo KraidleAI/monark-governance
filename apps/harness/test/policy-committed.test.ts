@@ -15,9 +15,14 @@ import { COMMITTED_FILES, readCommittedTables, readTablesDir, TABLES_DIR, type C
 import * as PINS from "../src/policy-committed-pins.ts";
 import { projectCell, readRegistry, type ProjectionInputs } from "../src/policy-projection.ts";
 import { buildPolicyTable } from "../src/policy-table-file.ts";
+import { forbiddenLoads, importSpecifiers } from "./helpers/import-specifiers.ts";
 import { syntheticRegistry } from "./helpers/synthetic-registry.ts";
 
 const SRC = join(dirname(fileURLToPath(import.meta.url)), "..", "src");
+/** What a source file loads, read by the shared helper: its specifiers as importSpecifiers lists them (ts.preProcessFile; servedModules
+ *  follows the same), and the loads that no specifier shows, as forbiddenLoads finds them on the syntax tree (both named in its header). */
+const importsOf = (file: string): string[] => importSpecifiers(readFileSync(join(SRC, file), "utf8"));
+const loadsOf = (file: string): string[] => forbiddenLoads(readFileSync(join(SRC, file), "utf8"));
 const ENTRIES = kataClassEntries((c) => `class text of ${c}`);
 const SYN = syntheticRegistry();
 const INP: ProjectionInputs = {
@@ -42,6 +47,7 @@ test("committed_tables_reader_refuses_each_departure", () => {
   const t = tableOf("btc-dir-1h");
   const swapped = { tables: { ...pinsOf(TWO).tables, "btc-dir-1h": sha(TWO.get("eth-mae-up-4h") as Uint8Array) }, held: [] };
   assert.throws(() => read(TWO, swapped), /btc-dir-1h: the file bytes do not have the pinned sha256/);
+  assert.throws(() => one("btc-dir-1h", bytesOf(t, canonicalJson(t).slice(0, -1))), /btc-dir-1h: the file is not JSON/);
   assert.throws(() => one("btc-dir-1h", bytesOf(t, `${canonicalJson(t)}\n`)), /not the canonical writing/);
   assert.throws(() => one("btc-dir-1h", bytesOf(t, JSON.stringify(t, null, 1))), /not the canonical writing/);
   const bad = bytesOf(t, canonicalJson(t).replace("class text of btc-dir-1h", "class text of btc-dir-1\u00e9"));
@@ -57,16 +63,17 @@ test("committed_tables_reader_refuses_each_departure", () => {
   assert.throws(() => one("btc-dir-2h", bytesOf(t)), /btc-dir-2h: no kata class entry/);
 });
 
-// killer: apps/harness/src/policy-committed.ts:53 SDL "for (const cls of files.keys())" -> ""
+// killer: apps/harness/src/policy-committed.ts:53 CONST "!Object.hasOwn(pins.tables, cls)" -> "!(cls in pins.tables)"
 test("committed_tables_reader_pairs_each_pin_with_its_file", () => {
   const first = filesOf([...TWO].slice(0, 1));
   assert.throws(() => read(TWO, pinsOf(first)), /eth-mae-up-4h: a committed file without its pin/);
+  assert.throws(() => read(filesOf([["constructor", bytesOf(tableOf("btc-dir-1h"))]]), pinsOf(new Map())), /constructor: a committed file without its pin/);
   assert.throws(() => read(first, pinsOf(TWO)), /eth-mae-up-4h: a pinned class without its committed file/);
   assert.throws(() => read(new Map(), pinsOf(TWO)), /the tables folder is absent or empty, but btc-dir-1h, eth-mae-up-4h are pinned/);
   assert.equal(read(new Map(), pinsOf(new Map())).size, 0);
 });
 
-// killer: apps/harness/src/policy-committed.ts:37 CONST "n.endsWith(\".json\")" -> "true"
+// killer: apps/harness/src/policy-committed.ts:12 CONST "import { assertPolicyTableFile" -> "import \"./tools/gate.ts\"; import { assertPolicyTableFile"
 test("committed_tables_folder_is_absent_and_read_once", () => {
   assert.ok(TABLES_DIR.endsWith(`${sep}apps${sep}harness${sep}data${sep}kata${sep}tables${sep}`) && !existsSync(TABLES_DIR));
   assert.equal(COMMITTED_FILES.size, 0);
@@ -81,9 +88,10 @@ test("committed_tables_folder_is_absent_and_read_once", () => {
   } finally {
     rmSync(dir, { recursive: true, force: true });
   }
-  const imports = [...readFileSync(join(SRC, "policy-committed.ts"), "utf8").matchAll(/^import .* from "([^"]+)";$/gm)].map((m) => m[1]);
+  const imports = importsOf("policy-committed.ts");
   const allowed = ["node:fs", "node:crypto", "node:url", "@monark/contracts", "./policy-table-file.ts", "./policy-committed-pins.ts", "./policy-classes.ts"];
-  assert.ok(imports.length > 0 && imports.every((i) => allowed.includes(i as string)), imports.join(", "));
+  assert.ok(imports.length > 0 && imports.every((i) => allowed.includes(i)), imports.join(", "));
+  assert.deepEqual(loadsOf("policy-committed.ts"), [], "no load that no specifier shows");
 });
 
 // killer: apps/harness/src/policy-committed.ts:57 SDL "if (Object.hasOwn(pins.tables, cls))" -> ""
@@ -98,7 +106,7 @@ test("committed_tables_reader_refuses_pinned_held_classes", () => {
   assert.ok(classes.length === 32 && new Set([...classes, ...held, "eth-mae-up-4h"]).size === 32);
 });
 
-// killer: apps/harness/src/policy-committed.ts:68 CONST "kataKeyReserved(r.kata_id, r.venue)" -> "false"
+// killer: apps/harness/src/policy-committed.ts:73 CONST "kataKeyReserved(r.kata_id, r.venue)" -> "false"
 test("committed_tables_reader_refuses_reserved_rows", () => {
   const t = tableOf("btc-dir-1h");
   const first = t.rows[0] as PolicyRow;
@@ -106,8 +114,9 @@ test("committed_tables_reader_refuses_reserved_rows", () => {
     const b = bytesOf({ ...t, rows: [forged, ...t.rows.slice(1)] });
     assert.throws(() => one("btc-dir-1h", b), new RegExp(`btc-dir-1h ${first.cell_key}: a row under a reserved kata id or venue`));
   }
-  const fromClasses = readFileSync(join(SRC, "policy-committed.ts"), "utf8").match(/^import \{ ([^}]+) \} from "\.\/policy-classes\.ts";$/m);
-  assert.ok(fromClasses !== null && (fromClasses[1] ?? "").split(", ").every((n) => ["kataKeyReserved", "KATA_RESERVED_IDS"].includes(n)));
+  const names = [...readFileSync(join(SRC, "policy-committed.ts"), "utf8").matchAll(/^import \{([^}]*)\} from ["']\.\/policy-classes\.ts["']/gm)].flatMap((m) => (m[1] as string).split(",").map((n) => n.trim()).filter((n) => n !== ""));
+  assert.equal(importsOf("policy-committed.ts").filter((i) => i === "./policy-classes.ts").length, 1, "one specifier of policy-classes.ts");
+  assert.ok(names.length > 0 && names.every((n) => ["kataKeyReserved", "KATA_RESERVED_IDS"].includes(n)), names.join(", "));
 });
 
 // killer: apps/harness/src/policy-committed-pins.ts:11 CONST "\"bnb-dir-1h\"" -> "\"bnb-range-1h\""
@@ -119,5 +128,12 @@ test("committed_pins_start_empty_with_two_closed_held_lists", () => {
   const [above, block] = text.split("// BEGIN committed tables");
   assert.deepEqual([...(above ?? "").matchAll(/^export const (\w+)/gm)].map((m) => m[1]), ["FLOOR_HELD_CLASSES", "ORDER_HELD_CLASSES", "COMMITTED_RETIRE_LISTS", "COMMITTED_REPORTS"]);
   assert.deepEqual([...(block ?? "").matchAll(/^export const (\w+)/gm)].map((m) => m[1]), ["COMMITTED_TABLES", "COMMITTED_REGISTRY"]);
-  assert.ok(!/^import /m.test(text) && (block ?? "").trimEnd().endsWith("// END committed tables"));
+  assert.deepEqual([importsOf("policy-committed-pins.ts"), loadsOf("policy-committed-pins.ts")], [[], []]);
+  assert.ok((block ?? "").trimEnd().endsWith("// END committed tables"));
+});
+
+// killer: apps/harness/test/helpers/import-specifiers.ts:26 CONST ".importedFiles.map(" -> ".importedFiles.filter((f) => text[f.pos] === '\"').map("
+test("import_specifiers_are_read_in_both_quotes", () => {
+  const text = ["import './a.ts';", "export { b } from '../b.ts';", "void import('./c.ts');", "import { readFileSync } from 'node:fs';", "import {", "  d,", '} from "./d.ts";', "const u = import.meta.url; // read from the tables folder"].join("\n");
+  assert.deepEqual(importSpecifiers(text), ["./a.ts", "../b.ts", "./c.ts", "node:fs", "./d.ts"]);
 });

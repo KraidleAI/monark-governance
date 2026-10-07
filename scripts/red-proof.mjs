@@ -51,7 +51,7 @@ export function parseKiller(line) {
   return m ? { file: m[1], line: Number(m[2]), op: m[3], before: str(m[4]), after: str(m[5]) } : null;
 }
 
-function killerProblem(k, tree, from) {
+export function killerProblem(k, tree, from) {
   if (!OPS.includes(k.op)) return `operator ${k.op} is not one of ${OPS.join(", ")}`;
   if (!/^[\w.@-]+(\/[\w.@-]+)*$/.test(k.file) || k.file.split("/").includes("..") || !existsSync(join(tree, k.file)) || !realpathSync(join(tree, k.file)).startsWith(realpathSync(tree) + sep)) return `${k.file} is out of scope: not a file inside the gel clone`;
   if (/\.test\.ts$/.test(k.file) || (/(^|\/)test\//.test(k.file) && !supportOf(tree, from).includes(k.file))) return `${k.file} is test code: a killer mutates production code`;

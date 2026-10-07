@@ -1402,7 +1402,11 @@ vitrine's catch-all answers it).
 `DYNAMIC` or `BYPASS`), runs the verifier's public command against the host under the keyring of its tree, checks the head's day
 against the deadline (07:30 UTC), writes `/var/lib/monark-probe/dojo-live.json` (closed keys, no secret, no address) and mails a
 transition with the mail file of the Narabi probe (`/etc/monark/probe.env`, `docs/RUNBOOK-sentinel.md`, the probe's deployment on
-Bell). The user `probe`, its state directory and that file exist since that deployment; this section writes none of them. The
+Bell) but its `SMTP_PASS`, which the unit unsets: the probe reads the password when it sends, after the verifier's child has ended,
+from its own file `/etc/monark/dojo-probe-smtp-pass` (owner `probe`, mode 0600, act (1b)); the child runs as `probe` and could read a
+password held in the probe's environment; act (4b) proves the mail path before the timer, and (9) replays (1b) then (4b) after a
+change of `SMTP_PASS`. The user `probe`, its state directory
+and the mail file exist since that deployment; this section writes none of them, only the password file of (1b). The
 probe's tree lies in `/opt/monark-dojo-probe`, outside `/opt/monark-probe`, which check 12 of Bell's CA and `c10` hash (section 15 (1)).
 
 **When.** After the G7 of PR-4c-1c, by the orchestrator (decision 292); DOJO-SITE-PROXY-1 done (section 24). Conventions of section
@@ -1419,6 +1423,22 @@ test -f /etc/monark/probe.env && echo env-present; ls -d /opt/monark-dojo-probe 
 Expected: `v24.21.0` (the node against which the fetch port list that the probe imports was checked: the dated line of 2026-10-04 of
 `docs/RUNBOOK-sentinel.md`; another version: that check first); the `id` line of `probe`; `probe-writes`; `env-present`; two
 `No such file or directory` (no tree, no unit). **STOP** otherwise (an earlier act: read the host). Rollback: none (read-only).
+
+(1b) The password file, its value given by systemd's own parser of the mail file (systemd.exec(5): quotes and escapes undone, the
+last assignment wins: the value `monark-probe` receives), never printed:
+
+```bash
+ssh -i ~/.ssh/monark_vps root@bell.monarkgate.tech 'install -m 0600 -o probe -g probe /dev/null /etc/monark/dojo-probe-smtp-pass &&
+systemd-run --wait --collect --quiet -p EnvironmentFile=/etc/monark/probe.env /bin/sh -c '\''printf "%s\n" "$$SMTP_PASS" > /etc/monark/dojo-probe-smtp-pass'\'' &&
+stat -c "%U %a" /etc/monark/dojo-probe-smtp-pass && test "$(wc -c < /etc/monark/dojo-probe-smtp-pass)" -ge 2 && echo size-ok'
+```
+
+Expected: `probe 600`, then `size-ok`. The transient job (root, `--collect`: no unit left behind) reads the mail file through systemd
+and writes the value of `SMTP_PASS`, expanded inside the job by its shell, a final newline added, into the file that `install` created
+(owner and mode kept). The command is single-quoted on the caller's side; the manager expands variables in a transient command and
+turns `$$` into `$` (systemd-run(1)), so the job's shell receives `"$SMTP_PASS"`. Nothing is printed: neither the value nor the size. **STOP** on no output, another owner or mode, or no `size-ok` (`SMTP_PASS` absent or empty in
+the mail file: section 1 of `docs/RUNBOOK-sentinel.md` first). A bit for the group or others makes every mail fail as
+`smtp_unconfigured`. Rollback: `ssh -i ~/.ssh/monark_vps root@bell.monarkgate.tech 'rm -f /etc/monark/dojo-probe-smtp-pass'`.
 
 (2) The tree: its list read from the module AT the G7 (never retyped; the working tree equal to the G7 on these paths), shipped, then
 compared on both sides (motif of section 12):
@@ -1480,6 +1500,28 @@ Expected: `sim_exit=0`, then the record: `"status": "healthy"`, `"reason": null`
 (no edge, DOJO-EDGE-CACHE-1), `"verifier_exit": 0`, `"head_day"` the day of the served head (JOURNAL: the record). **STOP** on any
 other output: its `reason`, `side` and `verifier_reason` name the fault (the header of the probe); escalation, no timer.
 
+(4b) The mail path, proven before the timer, and again by (9) after a change of `SMTP_PASS` (the form of section 2 of the probe's
+deployment in `docs/RUNBOOK-sentinel.md`): one start simulated as in (4), forced unhealthy (`--now` two days ahead: `lag`), its record a
+scratch file, removed first (the probe reads its prior alert from `--out`: a record left by a cut run, `"alerted": true` for the same
+day, would print the expected record with no mail sent), WITH the mail file applied by systemd and `SMTP_PASS` unset as the unit does,
+so the password comes from the file of (1b). It needs the tree of (2), hence its place after (4). It sends ONE real mail, to the alert
+address already configured in the mail file (`ALERT_TO`) and to no other; it is part of the single deployment authorization (Q-20):
+
+```bash
+ssh -i ~/.ssh/monark_vps root@bell.monarkgate.tech 'rm -f /var/lib/monark-probe/dojo-live-mail.json && S="-p ProtectSystem=strict -p ProtectHome=true -p PrivateTmp=true -p NoNewPrivileges=true
+-p ReadWritePaths=/var/lib/monark-probe -p CPUQuota=25% -p MemoryMax=640M -p TasksMax=64 -p WorkingDirectory=/opt/monark-dojo-probe" &&
+N=$(date -u -d "+2 days" +%Y-%m-%dT12:00:00Z) &&
+C="/usr/bin/env node /opt/monark-dojo-probe/scripts/probe-dojo-live.mjs --now $N --out /var/lib/monark-probe/dojo-live-mail.json" &&
+systemd-run --wait --pipe --collect --uid=probe --gid=probe $S -p EnvironmentFile=/etc/monark/probe.env -p UnsetEnvironment=SMTP_PASS $C > /dev/null;
+echo mail_exit=$?; cat /var/lib/monark-probe/dojo-live-mail.json; rm -f /var/lib/monark-probe/dojo-live-mail.json'
+```
+
+Expected: `mail_exit=1` (unhealthy by construction), then the record: `"reason": "lag"`, `"alerted": true`, `"alert_error": null`;
+the mail received at the alert address (JOURNAL: the act, its day, the `ALERT_TO` domain, `"alert_error": null`). **STOP** on any other
+record, no timer: `secret_in_environment` (`SMTP_PASS` not unset), or an `alert_error` of the closed set (`smtp_unconfigured`: the file
+of (1b) or the mail file; `smtp_auth_failed`: the password of (1b); `smtp_unreachable`, `smtp_timeout`, `smtp_tls_failed`,
+`smtp_rejected`: the relay). Rollback: none (the scratch record is removed; the mail is sent).
+
 (5) Only then, the timer:
 
 ```bash
@@ -1495,7 +1537,7 @@ Expected: the next elapse at 07:30, 09:30 or 13:30 UTC (JOURNAL: the act, the G7
 ```bash
 ssh -i ~/.ssh/monark_vps root@bell.monarkgate.tech 'systemctl disable --now monark-dojo-probe.timer;
 rm -f /etc/systemd/system/monark-dojo-probe.service /etc/systemd/system/monark-dojo-probe.timer && systemctl daemon-reload &&
-rm -rf /opt/monark-dojo-probe && rm -f /var/lib/monark-probe/dojo-live.json'
+rm -rf /opt/monark-dojo-probe && rm -f /var/lib/monark-probe/dojo-live.json /etc/monark/dojo-probe-smtp-pass'
 ```
 
 (7) Each day, read-only, the record and the last start:
@@ -1522,6 +1564,11 @@ Expected: the digest of `git -C /f/Monark cat-file blob "<sha of the synchro>:ap
 unhealthy, `verifier_refused` with the verifier's keyring refusal (`rotation_key_not_in_keyring` or `served_key_not_in_keyring`), as the
 page falls back (section 20): expected, mailed once per UTC day. Rollback: the previous commit's keyring, the same way.
 
+(9) After posting or changing `SMTP_PASS` (section 1 of the probe's deployment in `docs/RUNBOOK-sentinel.md`): (1b) then (4b), each
+with its expected output; the timer stays enabled, and a STOP is an escalation. The probe reads its own copy of the password, the file
+of (1b), never the mail file's `SMTP_PASS`: without (1b), its next due mail fails as `smtp_auth_failed`, seen only at the daily
+read of (7). JOURNAL: the act, its day, the `"alert_error": null` of (4b).
+
 ## Never
 
 `cat`/`head`/`tail`/`less`/`xxd`/`od`/`base64` on a seed file or on `/etc/monark/dojo-collect.env`, or a digest of them displayed;
@@ -1541,6 +1588,7 @@ state or `public/` by hand (the history packet excepted: its copy is removed by 
 proxy or a redirect of `/` in the Caddy extract; the anchor request left in the state; a `history` line before the close of the first day
 read, or from the provisional course (18: it writes no packet).
 
-Probe (section 25): `--out /var/lib/monark-probe/dojo-live.json` in a simulated start (the production record); `source
-/etc/monark/probe.env` in any shell; the probe's tree under `/opt/monark-probe` (Bell's check 12 and `c10` hash it); a timer enabled
-before the simulated start of (4); a keyring copied from anywhere but a commit of the trunk.
+Probe (section 25): `cat`/`head`/`tail`/`less`/`xxd`/`od`/`base64` on `/etc/monark/dojo-probe-smtp-pass`, or a digest of it
+displayed (act (1b) prints `size-ok` only); `--out /var/lib/monark-probe/dojo-live.json` in a simulated start (the production record); `source
+/etc/monark/probe.env` in any shell; the probe's tree under `/opt/monark-probe` (Bell's check 12 and `c10` hash it); a timer enabled before the simulated start of (4) and
+the mail proof of (4b); a keyring copied from anywhere but a commit of the trunk.

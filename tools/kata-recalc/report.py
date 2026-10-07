@@ -1,5 +1,5 @@
 # claude-opus-5-5 - 2026-10-07 - lot 1e of VERIFIERS-LIST-F5A-1 (M-11; G0 docs/G0-lot-verifiers-list-f5a-1.md sections 3.3, 10 and
-# 15), Python 3.14 standard library only, no network.
+# 15; the frozen-tool lot and its G2, section 17: digests and scope, path 1, N-3, N-4 and N-6 of #217), Python 3.14 stdlib only, no network.
 # The writer of the recompute report. It composes the pieces of the tool: the oracles (vectors_check.py, binom_check.py), the
 # recomputation (recalc_p2.py), three passes of the same pipeline in this process (the base pass, which must give the recomputation's
 # bytes; the pass under the natural logarithm of the generator's runtime, fdlibm_log.py; the pass under that log with the other order
@@ -14,12 +14,13 @@
 # The class ln rests on the measure of the P2b review (RAPPORT l.62-63, l.107-114: under Node's own log, 114 of 114 differing digests
 # equal B; the log differs by one ulp on 444 of 327 983 inputs), cited and never re-run; the port is held to Node's outputs (fdlibm_log.py).
 # Exit: 0 report written; 1 refused by the proof rule (a decision, a value beyond 1e-12, a difference not explained); 2 a step failed
-# (usage, the platform, the tool's identity, an oracle, the recomputation, the base pass, a structural fault of a comparison); 4 the
-# input guard. Usage (G0 section 3.3, options in this order):
-#   python -B report.py --repo <clone> --series <dir> --vectors <vectors.json> --registry <wave1.json> --out <absent or empty dir>
+# (usage, platform, tool identity, an oracle, recomputation, base pass, a comparison's structural fault), or a launch under another form
+# than FORM (refused by io_guard at import); 4 the input guard. Usage (G0 section 3.3; options in order; input names of the replay command):
+#   python -E -S -s -B report.py --repo <clone> --series <dir> --vectors <vectors.json> --registry <wave1.json> --out <absent or empty dir>
 import io_guard  # the input guard, before any other module (M-7): here the series and the C library of log; each child its own
 import contextlib
 import hashlib
+import json
 import math
 import os
 import platform
@@ -46,15 +47,26 @@ TEXTS = {
     "generator_identity": "kata/bench/write-p2.ts",
     "decisions": "every other field of the top level and of each row, by strict equality",
     "values": "doubles within 1e-12 relative of the registry (1e-15 absolute near zero); each one that differs in a bit is listed, both doubles in hexadecimal with their distance in ulps",
-    "digests": "each digest that differs is listed with both digests and the first term at which the recomputed sequence differs from the pass whose digest is the registry's",
-    "outside_reason": "not a decision: the hash chain of the trial registry is written only in the generator's code, not yet in the specification; its length is compared as a decision",
-    "explained, ln": "the registry's bits are recovered by the same computation with the natural logarithm of the generator's runtime, a port of its algorithm held to that runtime's outputs; an earlier replay under that runtime itself recovered every value and digest that differed",
+    "digests": "each digest that differs is listed by its field, never with a digest, with the first term at which the recomputed sequence differs from the pass whose digest is the registry's; a cell of a class that the release publishes carries the scores digest of the registry, recomputed by that pass, and any other cell null",
+    "explained, ln": "the registry's bits are recovered by the same computation with the natural logarithm of the generator's runtime, a port of its algorithm held to the outputs of Node v24.21.0; an earlier replay under the logarithm of Node v24.15.0 itself, whose source is that of v24.21.0, recovered every value and digest that differed",
     "explained, association": "the registry's bits are recovered by the same computation under the natural logarithm of the generator's runtime with the other order of the EWMA term, w_i * (r_i * r_i), and not with the order the specification writes",
-    "engine_log": "the natural logarithm of V8 in Node v24.21.0 (base::ieee754::log, derived from fdlibm), ported to Python",
-    "replay": "python -B tools/kata-recalc/report.py --repo <clone at the listed commit> --series <directory of the four series> --vectors <vectors.json> --registry <wave1.json> --out <absent or empty directory>"
+    "engine_log": "the natural logarithm of V8 in Node v24.21.0 on x64 (base::ieee754::log, derived from fdlibm, with no fused multiply-add), ported to Python",
+    "replay": "python -E -S -s -B tools/kata-recalc/report.py --repo <clone at the listed commit> --series <directory of the four series> --vectors <vectors.json> --registry <wave1.json> --out <absent or empty directory>"
 }
+# Form (a) of RECHERCHES (619fcfe; Q-3: the first dated folder publishes the bands only): the scope of the report, the classes whose
+# rows the first release publishes, the 24 band classes of wave 1 (range, mae-down, mae-up). A cell of any other class (dir-1h, dir-4h)
+# is held, its scores digest null. test/kata-recalc.test.ts holds this list to the versed registry, to digestProblems and to the
+# short_digest of the gate; item REPORT-HELD-SET-PER-RELEASE-1 makes it an entry pinned per release.
+RELEASE_1_CLASSES = (
+    "bnb-mae-down-1h", "bnb-mae-down-4h", "bnb-mae-up-1h", "bnb-mae-up-4h", "bnb-range-1h", "bnb-range-4h",
+    "btc-mae-down-1h", "btc-mae-down-4h", "btc-mae-up-1h", "btc-mae-up-4h", "btc-range-1h", "btc-range-4h",
+    "eth-mae-down-1h", "eth-mae-down-4h", "eth-mae-up-1h", "eth-mae-up-4h", "eth-range-1h", "eth-range-4h",
+    "sol-mae-down-1h", "sol-mae-down-4h", "sol-mae-up-1h", "sol-mae-up-4h", "sol-range-1h", "sol-range-4h",
+)
 INPUT = re.compile(r"^input (\S+) (.+) sha256 ([0-9a-f]{64}) bytes (\d+)$")
 LINE = re.compile(r"^(DECISION|VALUE|DIGEST) (?:top-level (\S+)|(\S+) (\S+) (\S+)): (.*)$")
+# MONARK (2026-10-07), a closed list: sha256 -> (version, inputs of fdlibm_log.VECTORS on which its log differs from the port)
+LIBMS = {L.VECTORS["host_libm_sha256"]: ("10.0.19041.3636", L.VECTORS["differ_from_host_libm"])}  # the host of the measure, lot 1e
 
 
 class Failed(Exception):
@@ -117,10 +129,10 @@ def platform_fields():
 
 
 def fingerprint(libm, differing):
-    """The number of measured inputs on which the log that runs differs from the port. With the C library of the measure it must be
-    the measured number (fdlibm_log.VECTORS): the run uses the library it names, which the measure tied by ctypes, outside the tool."""
-    if libm["sha256"] == L.VECTORS["host_libm_sha256"] and differing != L.VECTORS["differ_from_host_libm"]:
-        raise Failed(2, "the log that runs is not the log of the C library named: its fingerprint is not the measured one")
+    """The count of measured inputs where the log that runs differs from the port; LIBMS must hold it, with the library's version:
+    the library named is a measured one, and the log that runs has its fingerprint (the file loaded is not named: IO-GUARD-LIBM-PATH-1)."""
+    if LIBMS.get(libm["sha256"]) != (libm["version"], differing):
+        raise Failed(2, "the C library of log named is not in the measured list LIBMS, or the log that runs is not its log")
     return differing
 
 
@@ -152,7 +164,7 @@ def tool_identity(repo):
         with open(p, "rb") as fh:
             running[name] = fh.read()
     try:
-        commit, entries = io_guard.git_tree(repo, TEXTS["tree"])
+        commit, entries = io_guard.git_tree(repo)  # io_guard.TREE, the tree that TEXTS names
     except subprocess.CalledProcessError as e:
         raise Failed(2, f"git could not name the tool's commit (exit {e.returncode})")
     return commit, tree_digest(entries, running)
@@ -179,7 +191,7 @@ def inputs_of(text):
 
 
 def oracles_of(vec, binom, port):
-    m1 = re.search(r"^conformance checks on vectors\.json: (\d+) \(KATA-SPEC l\.5 counts \d+\), failures (\d+)$", vec, re.M)
+    m1 = re.search(r"^conformance checks on vectors\.json: (\d+) \(KATA-SPEC section 6 counts \d+\), failures (\d+)$", vec, re.M)
     m2 = re.search(r"^checks (\d+), failures (\d+)$", binom, re.M)
     m3 = re.search(r"^tests (\d+), assertions replayed (\d+), failures (\d+), not replayed (\d+)$", binom, re.M)
     if not (m1 and m2 and m3):
@@ -280,7 +292,6 @@ def run_passes(series):
     from the base pass. Returns (base registry text, base rows, {variant: (registry text, infos)}, census of the log)."""
     memo = {}
     base_rows, base_seqs, base_tables = one_pass(series, "base", memo)
-    trials = len({r["trialId"] for r in base_rows})
     out = {}
     for name in ("ln", "association"):
         rows, seqs, tables = one_pass(series, name, memo)
@@ -291,11 +302,11 @@ def run_passes(series):
                 d = None if a is None and b is None else seq_diff(a or [], b or [])
                 if d is not None:
                     infos[(*key, field)] = d
-        out[name] = (R.registry_text(rows, len({r["trialId"] for r in rows})), infos)
+        out[name] = (R.registry_text(rows), infos)
     host = {x: math.log(x) for x in memo if x > 0 and math.isfinite(x)}  # the ratios of positive prices; anything else is not counted
     differ = [x for x in host if not same_bits(host[x], memo[x])]
     census = {"log_inputs": len(memo), "differing": len(differ), "max_ulps": max((C.ulps(host[x], memo[x]) for x in differ), default=0)}
-    return R.registry_text(base_rows, trials), base_rows, out, census
+    return R.registry_text(base_rows), base_rows, out, census
 
 
 # ---------------------------------------------------------------- classes and the report
@@ -321,8 +332,9 @@ def classify(main, variants):
 
 
 def entries_of(classified, infos):
-    """The differences of the report: a value with both doubles in hexadecimal and its ulps, a digest with both digests and where the
-    recomputed sequence first differs from the pass that explains it."""
+    """The differences of the report: a value with both doubles in hexadecimal and its ulps; a digest by its field and where the
+    recomputed sequence first differs from the pass that explains it, never with a digest (point 1 of RECHERCHES cb00b19: the one
+    recomputed under the log that runs digests a neighbour of the sequence, and B's may belong to a held class)."""
     out = []
     for (tc, key, field), cls, detail, klass in classified:
         e = {"task_class": tc, "cell_key": key, "field": field, "class": klass}
@@ -334,28 +346,51 @@ def entries_of(classified, infos):
             info = infos[{LN: "ln", ASSOC: "association"}[klass]].get((tc, key, field))
             if m is None or info is None:
                 raise Failed(2, f"a digest difference without its two digests or its terms: {tc} {key} {field}")
-            e.update(kind="digest", a=m[1], b=m[2], **info)
+            e.update(kind="digest", **info)
         out.append(e)
     return out
 
 
-def assemble(ident, platform_, oracles, inputs, b_input, base_rows, classified, infos, census):
+def cell_digests(base_rows, classified, pass_rows):
+    """Point 2 of cb00b19 in form (a): for a cell of a class of RELEASE_1_CLASSES that makes a table row (a direction side without
+    thresholds makes none, policy-projection.ts), the scores digest of B, else None. It is the recomputation's own when the comparison
+    lists no difference on it, else that of the pass that explains it, held to the comparator's line: never the digest of the log that
+    runs when it is not B's."""
+    by = {c: {(r["taskClass"], r["key"]): r["calib"]["scoresSha256"] for r in pass_rows[n]} for c, n in ((LN, "ln"), (ASSOC, "association"))}
+    moved = {(tc, key): (klass, detail) for (tc, key, field), cls, detail, klass in classified if field == "calib.scoresSha256"}
+    out = {}
+    for r in base_rows:
+        k, own = (r["taskClass"], r["key"]), r["calib"]["scoresSha256"]
+        held = k[0] not in RELEASE_1_CLASSES or (r["side"] is not None and r["thresholds"] is None)
+        out[k] = None if held else by[moved[k][0]].get(k) if k in moved else own
+        if not held and k in moved and moved[k][1] != f"A={own} B={out[k]}":
+            raise Failed(2, f"the pass that explains {k[0]} {k[1]} does not give the registry's scores digest")
+    return out
+
+
+def assemble(ident, platform_, oracles, inputs, b_input, base_rows, classified, infos, census, pass_rows):
     commit, tree_sha = ident
-    if list(C.OUTSIDE) != ["trialRegistryHead.hash"]:
-        raise Failed(2, "the comparator's fields outside the decisions are not the one this report names")
+    if C.OUTSIDE:  # path 1: the trial head is a decision, and the report names no field outside the decisions
+        raise Failed(2, "the comparator names a field outside the decisions; this report states none")
+    missing = sorted(set(RELEASE_1_CLASSES) - {r["taskClass"] for r in base_rows})
+    if missing:
+        raise Failed(2, f"a class of the scope has no cell: {missing[:3]}")
     diffs = entries_of(classified, infos)
+    if re.search(r"[0-9a-fA-F]{64}", canonical(diffs)):  # refused without condition (MONARK ab352b0, premise V-3 of part 3)
+        raise Failed(2, "64 hexadecimal digits under differences, where no digest is listed")
+    digests = cell_digests(base_rows, classified, pass_rows)
     count = {k: sum(1 for d in diffs if d["kind"] == k) for k in ("value", "digest")}
     return {
         "format": TEXTS["format"], "verifier": f"{TEXTS['identity']}@{commit}",
         "tool": {"commit": commit, "tree": TEXTS["tree"], "tree_sha256": tree_sha},
-        "registry": {"file": b_input[1], "sha256": b_input[2], "generator_identity": TEXTS["generator_identity"], "cells": len(base_rows)},
+        "registry": {"sha256": b_input[2], "generator_identity": TEXTS["generator_identity"], "cells": len(base_rows)},  # N-6: no name
+        "scope": sorted(RELEASE_1_CLASSES),
         "inputs": {"recompute": [dict(zip(("role", "name", "sha256", "bytes"), x)) for x in sorted(inputs)],
                    "compare": [dict(zip(("role", "name", "sha256", "bytes"), b_input))]},
         "platform": platform_, "oracles": oracles,
         "fields": {"decisions": TEXTS["decisions"], "values": sorted(C.VALUES), "digests": sorted(C.DIGESTS),
-                   "outside_decisions": [{"field": "trialRegistryHead.hash", "reason": TEXTS["outside_reason"]}],
                    "value_rule": TEXTS["values"], "digest_rule": TEXTS["digests"]},
-        "cells": [{"task_class": r["taskClass"], "cell_key": r["key"], "decisions_equal": True}
+        "cells": [{"task_class": r["taskClass"], "cell_key": r["key"], "decisions_equal": True, "scores_sha256": digests[(r["taskClass"], r["key"])]}
                   for r in sorted(base_rows, key=lambda r: (r["taskClass"], r["key"]))],
         "differences": diffs,
         "explanation": {"classes": {LN: TEXTS[LN], ASSOC: TEXTS[ASSOC]}, "engine_log": TEXTS["engine_log"], "log": census},
@@ -416,7 +451,7 @@ def run(a, log):
     classified = classify(main_cmp, var_cmp)
     inputs = inputs_of(vec) | inputs_of(binom) | inputs_of(rec) | {tuple(d.values()) for d in io_guard.inputs()}
     report = assemble(ident, plat, oracles_of(vec, binom, port), inputs, next(iter(b_inputs)), base_rows, classified,
-                      {n: v[1] for n, v in variants.items()}, census)
+                      {n: v[1] for n, v in variants.items()}, census, {n: json.loads(v[0])["rows"] for n, v in variants.items()})
     text = canonical(report)
     leak = [p for p in a.values() if p in text or p.replace("\\", "/") in text] + re.findall(r"[A-Za-z]:[\\/]", text)
     if leak or "\r" in text or "\n" in text:
@@ -425,12 +460,22 @@ def run(a, log):
     return hashlib.sha256(text.encode("ascii")).hexdigest()
 
 
+# The base names of the two inputs that the caller names, those of the replay command (TEXTS["replay"]). io_guard notes each input by
+# the base name of its path and the report lists them (inputs): the same bytes under another name gave another report_sha256. A run
+# under any other name is refused before any computation, nothing read or written (MONARK, 2026-10-07).
+NAMES = (("vectors", "vectors.json"), ("registry", "wave1.json"))
+
+
 def main(argv):
     if len(argv) != 10 or tuple(argv[0::2]) != OPTIONS:
-        print("usage: python -B report.py " + " ".join(f"{o} <{o[2:]}>" for o in OPTIONS))
+        print("usage: python -E -S -s -B report.py " + " ".join(f"{o} <{o[2:]}>" for o in OPTIONS))
         return 2
     a = {o[2:]: os.path.abspath(v) for o, v in zip(argv[0::2], argv[1::2])}  # B-2: every path the guard judges is absolute
-    io_guard.declare("series", "libm")
+    named = [f"--{k} is named {os.path.basename(a[k])!a}, not {n!a}" for k, n in NAMES if os.path.basename(a[k]) != n]
+    if named:  # the base name after abspath: the path that each child receives, and the name that its guard notes
+        print(f"REFUSED (exit 2): {'; '.join(named)} (the names of the replay command, which the report lists); nothing read or written")
+        return 2
+    io_guard.declare("series", "libm", "tool-tree")
     io_guard.output(a["out"])
     os.makedirs(a["out"], exist_ok=True)
     t0 = time.time()
