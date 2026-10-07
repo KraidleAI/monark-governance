@@ -553,7 +553,8 @@ test("dojo_probe_units_are_hardened", () => {
 
 // reddened by: a tree that misses a module the probe or the verifier's CLI loads, holds one more file or not the keyring, a default
 // path (verifier, keyring) outside it, a default base off the site's proxy prefix or off the Dojo host, or a RUNBOOK that ships, runs
-// or enables anything but these files and units, writes the simulated record over the production one, or names a host by address
+// or enables anything but these files and units, writes the simulated record over the production one, names a host by address, or
+// simulates a start, (4) or (4b), without one of the unit's pinned properties (Bell's key directory masked among them)
 // killer: scripts/probe-dojo-live.mjs:54 CONST "\"scripts/probe-narabi.mjs\"" -> "\"scripts/probe-narabi.d.mts\""
 test("dojo_probe_tree_is_the_import_closure", () => {
   const IMPORT = /^[ ]*(?:import|export)[ ]+(?!type[ ])(?:[^'";]*?[ ]from[ ]*)?["']([^"']+)["']/gm, rel = (p: string): string => relative(REPO, p).split(sep).join("/");
@@ -573,8 +574,15 @@ test("dojo_probe_tree_is_the_import_closure", () => {
     `${posix.dirname(P.DEFAULT_OUT)}/dojo-live-sim.json`, "--uid=probe --gid=probe", "apps/dojo/keys/dojo-keyring.json", "root@bell.monarkgate.tech"]) {
     assert.ok(s.includes(x), `section 25: ${x}`);
   }
-  for (const [k, v] of [["ProtectSystem", "strict"], ["ReadWritePaths", posix.dirname(P.DEFAULT_OUT)], ["MemoryMax", "640M"], ["CPUQuota", "25%"]]) {
-    assert.ok(s.includes(`-p ${k ?? ""}=${v ?? ""}`) && one(unit(DOJO_SVC), "Service", k ?? "") === v, `the simulated start carries the unit's ${k ?? ""}`);
+  // Each simulated start, (4) then (4b), carries these properties of the unit, Bell's key directory masked among them: a host without
+  // that directory stops at (4), before the timer.
+  // killer: docs/RUNBOOK-dojo.md:1493 CONST " -p InaccessiblePaths=/etc/monark/bell" -> ""
+  // killer: docs/RUNBOOK-dojo.md:1514 CONST " -p InaccessiblePaths=/etc/monark/bell" -> ""
+  const a4 = s.indexOf("\n(4) "), a4b = s.indexOf("\n(4b) "), a5 = s.indexOf("\n(5) "), sims = [s.slice(a4, a4b), s.slice(a4b, a5)];
+  assert.ok(a4 > 0 && a4b > a4 && a5 > a4b && sims.every((x) => x.includes("--uid=probe --gid=probe $S")), "(4) and (4b): one simulated start each");
+  for (const [k, v] of [["ProtectSystem", "strict"], ["ReadWritePaths", posix.dirname(P.DEFAULT_OUT)], ["InaccessiblePaths", "/etc/monark/bell"],
+    ["MemoryMax", "640M"], ["CPUQuota", "25%"]]) {
+    assert.ok(sims.every((x) => x.includes(`-p ${k ?? ""}=${v ?? ""}`)) && one(unit(DOJO_SVC), "Service", k ?? "") === v, `each simulated start carries the unit's ${k ?? ""}`);
   }
   assert.ok(!s.includes(`--out ${P.DEFAULT_OUT}`) && !/[0-9]{1,3}[.][0-9]{1,3}[.][0-9]{1,3}[.][0-9]{1,3}/.test(s), "never the production record, never an address");
   assert.ok(s.indexOf("systemd-run") < s.indexOf("systemctl enable --now monark-dojo-probe.timer"), "the simulated start before the timer");
