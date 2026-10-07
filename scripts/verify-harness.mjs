@@ -146,6 +146,17 @@ export function parseArgs(argv) {
 }
 let TIMEOUT_MS = 10000; // set from --timeout by main(): every fetch, wired request and TLS handshake is bounded by it
 
+/** The names of the 15 checks a run makes, as a set (the RUNBOOK green gate: "15 of 15 checks"); not in the order of a pass, which
+ *  makes the retired and future gate calls earlier. scripts/retire-instants.mjs requires them all in a CA it takes for T_f, and
+ *  test/retire-instants.test.ts pins this set to the calls below. */
+export const CHECK_NAMES = Object.freeze(["health", "openapi", "origin_403_api", "origin_403_mcp", "mcp_tools_list", "gate_call", "gate_liq_call",
+  "gate_liq_uncommitted_call", "mcp_gate_description_liq", "cascade_call", "attest_call", "calibrate_call", "gate_byo_call", "gate_retired_call", "gate_future_call"]);
+/** The failed names of a run (pure): each check not ok, then tls and tls_mcp when checked and not authorized. */
+export function failedOf(checks, tls, tlsMcp) {
+  const failed = checks.filter((c) => !c.ok).map((c) => c.name);
+  for (const [name, t] of [["tls", tls], ["tls_mcp", tlsMcp]]) if (t.skipped !== true && t.authorized !== true) failed.push(name);
+  return failed;
+}
 /** The record a run writes beside stdout: "green" (--out) only when no check failed and every contacted host passed an
  *  authorized TLS handshake; "local" when green with a host whose TLS was not checked (http); "failed" otherwise (pure). */
 export function recordKind(failed, tlsBlocks) {
@@ -421,8 +432,7 @@ async function main() {
   const attestation = { url: api, mcp_url: mcp, checked_at: new Date().toISOString(), checks, tls, tls_mcp: tlsMcp };
   const out = JSON.stringify(attestation, null, 2);
   console.log(out);
-  const failed = checks.filter((c) => !c.ok).map((c) => c.name);
-  for (const [name, t] of [["tls", tls], ["tls_mcp", tlsMcp]]) if (t.skipped !== true && t.authorized !== true) failed.push(name);
+  const failed = failedOf(checks, tls, tlsMcp);
   const kind = recordKind(failed, [tls, tlsMcp]);
   if (args.out && kind === "green") {
     writeAtomic(args.out, out + "\n");
