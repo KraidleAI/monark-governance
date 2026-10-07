@@ -1,7 +1,8 @@
 # G0 du lot E-2a a2-ii : la clause d'état engagé de la description de la porte, qui suit les épingles
 
-RECHERCHES, 2026-10-07. Base : la tête de a2-i, `d2285ee2fd36ffa252efdb508d312544864e229d` (branche `recherches/e2a-a2-i-seam`,
-PR #237, elle-même sur #236 et #233). Plan : G0 court d'E-2a v6.2 (`recherches:coordination/pieces/2026-10-07-e2a-g0-v4/G0-lot-e2a-loader-wave1.md`,
+RECHERCHES, 2026-10-07. Base : la tête de a2-i, `f09336044b711f534632cbcba0b0313d06a159b9` (branche `recherches/e2a-a2-i-seam`,
+PR #237, elle-même sur #236 et #233), fusionnée dans cette branche par « Merge the a2-i changes » (`7becd5f6`, sans conflit) ; le lot a
+été construit sur la tête précédente, `d2285ee2`, et ses preuves sont rejouées sur la nouvelle (§3, §4). Plan : G0 court d'E-2a v6.2 (`recherches:coordination/pieces/2026-10-07-e2a-g0-v4/G0-lot-e2a-loader-wave1.md`,
 `88dbcb3`), accepté par MONARK. Texte : pièce Z-3 v2 (`recherches:coordination/pieces/2026-10-07-z3-committed-clause/Z3-COMMITTED-CLAUSE.md`,
 `88dbcb3`), figé par la ligne Z-3 de MONARK (`recherches` `267e11d`, message `…-z3-ligne.md`).
 
@@ -16,7 +17,8 @@ PR #237, elle-même sur #236 et #233). Plan : G0 court d'E-2a v6.2 (`recherches:
   723 `022756c3…`, 1 465 `db773535…`, 1 409 `5c80d918…` ; « a2-ii peut partir maintenant sur ces octets ») ; lecture du cinquième
   élément (pièce `z3-check.json` de `612ab96`, `replayed[10]` : « compte servi si la classe est épinglée, 0 sinon », « à écrire en
   expression dans le G0 de a2-ii » : §1).
-- **Provenance** : worker `claude-opus-5-5`, horloge lue (`date -u`) à 12:12 UTC pour ce G0. Worktree neuf du scratchpad, branche
+- **Provenance** : worker `claude-opus-5-5`, horloge lue (`date -u`) à 12:12 UTC pour ce G0, puis à 12:46 UTC après la fusion des plis
+  de #237 (G2 de MONARK `6fb4653` : épingle des l.1074-1075 dans T-3, l.279-280 de T-3 réécrites). Worktree neuf du scratchpad, branche
   `recherches/e2a-a2-ii` ; `node_modules` lié en dur, retiré à la fin. Node 24.21.0, Linux.
 - **Zone** : `apps/harness/src/tools/gate.ts` (l.220-240 et l.1072-1073, sur place, à nombre de lignes constant),
   `apps/harness/test/gate-kata-served.test.ts`, `test/spec-1-1-0-release.test.ts` (un import ajouté l.19, l.131),
@@ -61,13 +63,14 @@ PR #237, elle-même sur #236 et #233). Plan : G0 court d'E-2a v6.2 (`recherches:
 
 ## 3. Preuves
 
-- **red-proof** : `node scripts/red-proof.mjs --base d2285ee2fd36ffa252efdb508d312544864e229d --gel HEAD --repo <worktree> --out <dossier>
+- **red-proof** : `node scripts/red-proof.mjs --base f09336044b711f534632cbcba0b0313d06a159b9 --gel HEAD --repo <worktree> --out <dossier>
   --draw 2 --seed 1007`, Node 24.21.0, Linux : « 4 judged, 36 unchanged, 2 killer(s) drawn ». Deux F2P (T-12, T-2a), rouges à la base
   par assertion ; deux tueurs tirés (`gate.ts:239`, `gate.ts:237`), deux tués. **Sortie 1, attendue et déclarée** : les deux tests dont
   le plan change le corps sans changer le comportement sont refusés, « green at base: a self-confirming test »
   (`kata_clause_reads_its_names_and_tau_cap`, `published_tables_are_the_served_tables_byte_for_byte`). Leurs tueurs, rejoués à la main au
   gel, rougissent chacun par assertion, comme ceux de T-12, de T-2a et de `kata_clause_refuses_duplicate_classes` (`gate.ts:230`).
-  `RED-PROOF.json` : sha256 `ec0ed209…` (gel `bcb2cd12`, digest `667af919…`).
+  `RED-PROOF.json` : sha256 `eef1fea9…` (gel `7becd5f6`, digest `86ba00ff…`). Même verdict à la base précédente, `d2285ee2`
+  (gel `bcb2cd12`, `RED-PROOF.json` `ec0ed209…`).
 - **Mutants faits à la main** sur les lignes neuves (l.222, l.231 à l.234, l.239), rejoués sur `gate-kata-served`, `spec-1-1-0-release`
   et `gate-liq` : 18, tous tués. Les deux mutants des défauts de la l.222 (`committed` vide ; `held` réduit à la liste du plancher) ne
   changent aucun octet servi tant que les épingles sont vides : ils ne sont tués ici que par l'épingle de la l.222 dans T-2a, comme ceux
@@ -79,19 +82,20 @@ PR #237, elle-même sur #236 et #233). Plan : G0 court d'E-2a v6.2 (`recherches:
   `cf2dde644db8…` et 4 657 octets `d769c86b7bcd…`, les valeurs de la pièce pour les lots c et c′, qui ne sont pas épinglées ici.
 - **Suite** : harnais et surfaces servies (`harness-served`, `spec-1-1-0-release`, `surfaces-1-1-0`, `export-public` avec le test 42,
   `public-surfaces-honesty`, `spec-retire-path`, `harness-export`, `cra-b`, `runbook-retire`, `short-digest-floor`) : 388 tests, 388 verts.
-- `tsc --noEmit` 0 ; `eslint .` 0 ; `gate:vocab` 0 ; `lang:gate` 0 ; `lint:ratchet` 69/69 ; `export:check` 0 ; winlint `--base d2285ee2` :
-  4 fichiers, aucun risque Windows. `verifie-ancres` : fichiers touchés, 40 tueurs, 40 ancrés ; arbre entier avec `--ref d2285ee2`, 1 528
-  tueurs, 1 527 ancrés, 1 dérivé (`gate.ts:232`, la ligne réécrite sur son site, voulu), 0 perdu.
+- `tsc --noEmit` 0 ; `eslint .` 0 ; `gate:vocab` 0 ; `lang:gate` 0 ; `lint:ratchet` 69/69 ; `export:check` 0 ; winlint `--base f0933604` :
+  5 fichiers, aucun risque Windows. `verifie-ancres` : fichiers touchés, 40 tueurs, 40 ancrés ; arbre entier avec `--ref f0933604`, 1 528
+  tueurs, 1 527 ancrés, 1 dérivé (`gate.ts:232`, la ligne réécrite sur son site, voulu), 0 perdu. Les mêmes valeurs à `d2285ee2`.
 
 ## 4. Taille
 
-- R-25, forme de la CI, contre la base de la demande (a2-i) : 3 fichiers, 61 insertions, 23 suppressions, **84** (plan : ~146 à ×2,
-  190 à +30 %).
+- R-25, forme de la CI, contre la base de la demande (a2-i, `f0933604`) : 3 fichiers, 61 insertions, 23 suppressions, **84** (plan :
+  ~146 à ×2, 190 à +30 %) ; la CI de #238 compte 84 à `d2285ee2`.
 
 ## 5. Ce qui n'est pas fait
 
 - **Lot c′** : T-12 au troisième état (`[1409, "5c80d918…"]`). **Lots c et c′** : `gate-liq.test.ts` l.376-380, sha256 de la
   description entière (`cf2dde64…` puis `d769c86b…`, pièce §8.4) ; GATE-DESC-CLIENT-CUT-1 et KATA-CA-PUBLISHED-TABLES-1 (avant T_f(c)).
 - **Lot a3** : T-2b (processus fils, épingles de synthèse non vides, deux ordres de chargement) et T-4b.
-- Les quatre assertions de a2-i qui rougiront au lot c (`COMMITTED_TABLES` égal à `{}` deux fois, « every served kata table is empty »,
-  `[32, 0]` ; G2 de MONARK `6fb4653`) relèvent de a2-i et du lot c : ce lot ne les touche pas. Les épingles restent vides jusqu'au lot c.
+- Les quatre assertions de a2-i qui rougiraient au lot c (G2 de MONARK `6fb4653`) ne sont pas touchées ici : les deux de T-3 sont pliées
+  par #237 (`41ba62fd`, fusionné ici) ; les deux du test de l'invariant (`COMMITTED_TABLES` égal à `{}`, `[32, 0]`, l.313 et l.316)
+  restent, réécrites au lot c. Les épingles restent vides jusqu'au lot c.
