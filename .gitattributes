@@ -2,6 +2,8 @@
 * text=auto eol=lf
 *.png binary
 *.pdf binary
+*.jpg binary
+# The address-literal gate (scripts/address-literals.mjs) skips a file with a NUL byte only when a line here declares it binary.
 # Canonical CBOR batches are binary (NUL/control bytes); never eol-normalize them,
 # so the sha256 pinned in fixtures/PROVENANCE-s3-binance.md survives commit
 # deterministically instead of relying on git's content auto-detection (Lot I-a).

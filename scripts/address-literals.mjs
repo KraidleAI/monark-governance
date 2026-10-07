@@ -2,12 +2,12 @@
 // leave the current tree, a CI check refuses any IP literal, history is not rewritten; docs/G0-lot-host-address-gate.md). Node 24,
 // zero dependencies. Its root test is test/no-host-address.test.ts (CI job g3-verification).
 //
-// A literal is an IPv4 dotted quad (net.isIPv4) or an IPv6 address (net.isIPv6), bounded as a word, in a path that `git ls-files`
-// lists (line 0) or in its file when that holds no NUL byte, whatever its extension. It passes only when EXEMPT holds it (a closed
-// set of ranges that name no host: loopback, unspecified, documentation; a BlockList also matches their IPv4-mapped and long
-// spellings) or when LISTED names it for its file, with its reason (a number or a code form shaped like an address, or a boundary
-// input of an address test). This file may carry the literals of LISTED and nothing else. Any other literal is a hit: its path,
-// line, column and a mask with no digit (a literal in a path is masked there too).
+// A literal is an IPv4 dotted quad (net.isIPv4) or an IPv6 address (net.isIPv6), bounded as a word, in a line as written or in its
+// copy with each %XX decoded, of a path that `git ls-files` lists (line 0) or of its file, whatever its extension; a file with a NUL
+// byte is not read, and must be a binary that .gitattributes declares (`undeclared` names any other). It passes only when EXEMPT holds
+// it (a closed set of ranges that name no host: loopback, unspecified, documentation; a BlockList matches their IPv4-mapped and long
+// spellings) or when LISTED names it for its file, with its reason (a number or a code form shaped like an address, a boundary input
+// of an address test). This file may carry the literals of LISTED, nothing else. Any other is a hit, printed with no digit of it.
 import { execFileSync } from "node:child_process";
 import { readFileSync } from "node:fs";
 import { BlockList, isIPv4, isIPv6 } from "node:net";
@@ -71,10 +71,11 @@ export const LISTED = Object.freeze({
 const WORD = /\w/;
 const V4 = /(?<![\w.])\d{1,3}(?:\.\d{1,3}){3}(?!\w|\.\d)/g;
 const RUN = /[\dA-Fa-f:.]+/g; // a maximal run of hex digits, colons and dots: linear, an IPv6 is read inside it
-/** The address literals of one line of text, each as [literal, 1-based column, 4 | 6]. */
-export function literals(text) {
+const ESCAPE = /%[\dA-Fa-f]{2}/g;
+/** The literals of one string, each as [literal, start, end, 4 | 6] (offsets from 0, the end excluded). */
+function found(text) {
   const out = [];
-  for (const m of text.matchAll(V4)) if (isIPv4(m[0])) out.push([m[0], m.index + 1, 4]);
+  for (const m of text.matchAll(V4)) if (isIPv4(m[0])) out.push([m[0], m.index, m.index + m[0].length, 4]);
   for (const m of text.matchAll(RUN)) {
     if (m[0].split(":").length < 3) continue;
     let at = m.index, t = m[0];
@@ -82,10 +83,32 @@ export function literals(text) {
     if (glued && cut === null) continue; // a word runs into a "::" (Type::new, ::error::)
     if (WORD.test(text[at + t.length] ?? "")) continue; // a word goes on after it (::before)
     if (cut !== null) { at += cut[0].length; t = t.slice(cut[0].length); } // the label or the word before a single colon
-    t = t.replace(/\.+$/, "").replace(/([^:]):$/, "$1"); // a full stop, or a single colon, after it
-    if (isIPv6(t)) out.push([t, at + 1, 6]);
+    let end = t.length; while (end > 0 && t[end - 1] === ".") end--; // full stops after it, by a loop: /\.+$/ is quadratic on dots
+    t = t.slice(0, end).replace(/([^:]):$/, "$1"); // or a single colon after it
+    if (isIPv6(t)) out.push([t, at, at + t.length, 6]);
   }
   return out;
+}
+/** The literals of one line as written, then those that only its copy with each %XX decoded shows (a URL or a log escapes the
+ * separators of an address), each at its offsets in the line as written. A plain replacement: decodeURIComponent throws on a stray %. */
+function spans(text) {
+  const out = found(text);
+  if (text.search(ESCAPE) < 0) return out; // no escape: the copy is the line
+  const at = []; // at[i]: the offset in the line of the character i of the copy, then the end of the line
+  let copy = "", last = 0;
+  for (const m of text.matchAll(ESCAPE)) {
+    for (let i = last; i <= m.index; i++) at.push(i);
+    copy += text.slice(last, m.index) + String.fromCharCode(Number.parseInt(m[0].slice(1), 16));
+    last = m.index + 3;
+  }
+  for (let i = last; i <= text.length; i++) at.push(i);
+  const seen = new Set(out.map(([lit, a]) => `${String(a)} ${lit}`)), more = found(copy + text.slice(last));
+  for (const [lit, a, b, kind] of more) if (!seen.has(`${String(at[a])} ${lit}`)) out.push([lit, at[a], at[b], kind]);
+  return out;
+}
+/** The address literals of one line of text, each as [literal, 1-based column, 4 | 6]. */
+export function literals(text) {
+  return spans(text).map(([lit, a, , kind]) => [lit, a + 1, kind]);
 }
 
 /** The mask of a refused literal: every run of digits becomes x (a CI log of a public repository is public). */
@@ -93,8 +116,14 @@ export const mask = (literal) => literal.replace(/[\dA-Fa-f]+/g, "x");
 const listedAnywhere = (lit) => Object.values(LISTED).some((e) => Object.hasOwn(e, lit));
 const bareEnv = () => Object.fromEntries(Object.entries(process.env).filter(([k]) => !k.toUpperCase().startsWith("GIT_")));
 
-/** A path with each literal it carries masked: a hit never prints an address, not even through a file name. */
-const hide = (rel) => literals(rel).reduce((s, [lit]) => s.split(lit).join(mask(lit)), rel);
+/** A path with each literal it carries masked, where it is written (each hex run it touches, escapes included) and wherever its text
+ * recurs: a hit never prints an address, not even through a file name. */
+function hide(rel) {
+  const hid = Array(rel.length).fill(false);
+  for (const [, a, b] of spans(rel)) hid.fill(true, a, b);
+  const s = rel.replace(/[\dA-Fa-f]+/g, (run, i) => (hid.slice(i, i + run.length).includes(true) ? "x" : run));
+  return literals(rel).reduce((t, [lit]) => t.split(lit).join(mask(lit)), s);
+}
 /** Judge the literals of one line of `rel` (line 0: the path itself) into the verdict `v`. */
 function judge(v, rel, line, text) {
   for (const [lit, col, kind] of literals(text)) {
@@ -105,19 +134,31 @@ function judge(v, rel, line, text) {
   }
 }
 
-/** The verdict over the tracked files of `root`: the refused literals (masked), the listed pairs met, the files read. */
+/** The verdict over the tracked files of `root`: refused literals (masked), listed pairs met, files read, undeclared binaries. */
 export function scan(root, env = bareEnv()) {
   const tracked = execFileSync("git", ["ls-files", "-z"], { cwd: root, env, maxBuffer: 1 << 26 }).toString("utf8").split("\0");
-  const v = { hits: [], used: new Set(), read: 0 };
+  const v = { hits: [], used: new Set(), read: 0, undeclared: [] }, skipped = [];
   for (const rel of tracked.filter((f) => f !== "")) {
     judge(v, rel, 0, rel);
     let buf;
     try { buf = readFileSync(join(root, rel)); } catch (e) { if (e.code === "ENOENT") continue; throw e; } // deleted in the work tree
-    if (buf.includes(0)) continue; // a binary file
+    if (buf.includes(0)) { skipped.push(rel); continue; } // a binary file, which .gitattributes must declare (undeclared, below)
     v.read++;
     buf.toString("utf8").split("\n").forEach((text, i) => { judge(v, rel, i + 1, text); });
   }
+  v.undeclared = undeclared(root, env, skipped);
   return v;
+}
+
+/** The skipped paths that .gitattributes does not declare binary (git check-attr, a global attributes file left out), each masked as a
+ * hit's path: a text file that takes a NUL byte, or is saved as UTF-16, cannot leave the gate unseen. */
+function undeclared(root, env, paths) {
+  if (paths.length === 0) return [];
+  const out = execFileSync("git", ["-c", "core.attributesFile=/dev/null", "check-attr", "--stdin", "-z", "binary"],
+    { cwd: root, env, input: paths.map((p) => `${p}\0`).join(""), maxBuffer: 1 << 26 }).toString("utf8").split("\0");
+  const bad = [];
+  for (let i = 0; i + 2 < out.length; i += 3) if (out[i + 2] !== "set") bad.push(hide(out[i]));
+  return bad;
 }
 
 /** The pairs of LISTED that the verdict never met: each is stale and must leave the list. */

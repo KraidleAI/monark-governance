@@ -14,6 +14,8 @@ export interface Verdict {
   /** "<file> <literal>" for each pair of LISTED met in the tree. */
   used: Set<string>;
   read: number;
+  /** The tracked files skipped for a NUL byte that .gitattributes does not declare binary, each path masked as a hit's. */
+  undeclared: string[];
 }
 export declare const SELF: string;
 export declare const EXEMPT: BlockList;
