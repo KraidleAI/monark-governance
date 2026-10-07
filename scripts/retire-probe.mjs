@@ -15,9 +15,11 @@
 // verdict received, with the probe's own verdict (ok, problem), the table file, the api and its Host; received_at is the UTC second it
 // arrived (T_g), the clock reading of the call plus a monotonic delta (a wall clock stepped back between the two never reorders them).
 // --out <file> writes the record through a temporary file and a rename (writeAtomic of scripts/verify-harness.mjs: no shell redirection,
-// which PowerShell 5.1 writes in UTF-16) when it is accepted, <file>.refused when it is not. Exit 0 iff the verdict is a 200 of the cell
+// which PowerShell 5.1 writes in UTF-16) when the verdict is accepted (and removes a stale <file>.refused), <file>.refused when it is
+// refused; a refusal before any verdict (table_invalid to transport_failed) writes nothing. Exit 0 iff the verdict is a 200 of the cell
 // asked, with the expected digest and, on a retired row, calib_retired; 1 refused by code (table_invalid, cell_invalid, wait_exceeds_max,
-// window_missed, transport_failed, not_served, cell_mismatch, digest_mismatch, reason_mismatch); 2 usage. Clock, monotonic clock, sleep
+// window_missed, transport_failed, not_served, cell_mismatch, digest_mismatch, reason_mismatch); 2 usage, a --timeout of 0 or over
+// 2147483647 ms included (as scripts/verify-harness.mjs: a timer takes no more). Clock, monotonic clock, sleep
 // and transport are parameters of probe(); the tests serve the gate on a local listener, never the network.
 import { createHash } from "node:crypto";
 import { readFileSync, rmSync } from "node:fs";
@@ -119,6 +121,7 @@ export function parseArgs(argv) {
   if (!a.api || !a.table || !a.cell) throw new Error("--api <url> --table <file> --cell <cell_key> are required");
   if (!/^https?:$/.test(URL.canParse(a.api) ? new URL(a.api).protocol : "")) throw new Error("--api needs an http(s) URL");
   for (const k of ["maxWait", "timeout"]) if (a[k] !== undefined && !/^\d+$/.test(a[k])) throw new Error(`--${k === "maxWait" ? "max-wait" : "timeout"} needs an integer`);
+  if (a.timeout !== undefined && (Number(a.timeout) <= 0 || Number(a.timeout) > 2147483647)) throw new Error("--timeout needs a positive integer of milliseconds, at most 2147483647");
   return a;
 }
 
