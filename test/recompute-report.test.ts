@@ -68,7 +68,7 @@ const offForm = (path: string): RegExp => new RegExp(`^MONARK recompute report: 
 // scope or with digests under differences, a malformed hex, commit, double, class or verifier, a count that is not a non-negative integer, a
 // decision that is not a boolean, a list or a text of another type, a typed object null, cells unsorted, across a class boundary too, scope
 // unsorted, cells or scope repeated, platform.libm.sha256 other than one lower-case digest) or a writing other than the canonical one
-// (spaces, key order, a key twice, a final newline, -0, a fraction, 2^53, a byte beyond ASCII, a value nested too deep), or the reader's
+// (spaces, key order, a key twice, a final newline, -0, a fraction, 2^53, a byte beyond ASCII, a value nested 65 levels deep), or the reader's
 // writing parting from the contract's on the synthetic report, whose fields have the five keys of the frozen tool
 // killer: apps/harness/src/policy-verifiers.ts:156 CONST "typeof v === \"boolean\"" -> "true"
 test("recompute_report_reader_judges_the_closed_form - readRecomputeReport admits a synthetic report of the new form (scope included) and refuses each departure of the closed form and of the canonical writing", () => {
@@ -132,13 +132,13 @@ test("recompute_report_reader_judges_the_closed_form - readRecomputeReport admit
   for (const [l, what] of [[null, "null"], ["libm.so.6", "a text"], [undefined, "absent"]] as const) form(variant("platform.libm", l), offForm("platform"), `platform.libm ${what}`);
   form(variant("platform", null), offForm("platform"), "platform null");
   assert.deepEqual(readRecomputeReport(canonicalJson(variant("platform.os", "x"))), variant("platform.os", "x"), "platform stays free: a key more reads");
-  refuses(once('"values":1}', `"values":1,"z":${"[".repeat(100000)}${"]".repeat(100000)}}`), /^MONARK recompute report: not its canonical writing \(nested too deep\)\.$/, "a value nested 100 000 levels deep in a free object");
+  refuses(once('"values":1}', `"values":1,"z":${"[".repeat(63)}${"]".repeat(63)}}`), /^MONARK recompute report: not its canonical writing \(nested too deep\)\.$/, "a value 65 levels deep in a free object (the report and summary are the first two)");
 });
 
 // reddened by: a writing that report.py never produces admitted: a byte order mark before the canonical bytes, or a lone surrogate escaped
 // in a value or in a key, which stays ASCII as text (report.py writes every string and every key through canonical(), which refuses a
 // string that is not ASCII); or an invalid UTF-8 byte inside a string refused under another name than "not UTF-8 JSON"
-// killer: apps/harness/src/policy-verifiers.ts:173 CONST "!/^[\\x00-\\x7f]*$/.test(v)" -> "false"
+// killer: apps/harness/src/policy-verifiers.ts:177 CONST "!/^[\\x00-\\x7f]*$/.test(v)" -> "false"
 test("recompute_report_reader_is_closed_on_the_bytes_and_the_strings - a byte order mark before the canonical bytes, an invalid UTF-8 byte in a string and a lone surrogate escaped in a value or a key are each refused by name", () => {
   const { readRecomputeReport } = lot(), text = canonicalJson(BASE), parts = text.split('"replay":"'), [pre = "", post = ""] = parts;
   assert.equal(parts.length, 2, "one replay text");
@@ -202,4 +202,18 @@ test("recompute_report_synthetic_passes_the_spec_gate - the synthetic report's b
   const dir = "contract-1.1.0-tables-2026-10-20", bytes = Buffer.from(canonicalJson(BASE), "ascii");
   assert.deepEqual(lot().readRecomputeReport(bytes), BASE, "the reader admits the bytes");
   assert.deepEqual(contentProblems(`${dir}/recompute/wave1-monark-kata-recalc.json`, "json", bytes, dir), []);
+});
+
+// reddened by: a bound on nesting other than 64 levels of lists and objects counted from the report itself (a value 65 levels deep read, or
+// one 64 levels deep refused), in any free object of the report, in lists or in objects; a refusal of depth under another name; or the
+// report form nesting deeper than its 4 levels (the report, inputs, inputs.compare and one input)
+// killer: apps/harness/src/policy-verifiers.ts:172 CONST "64" -> "65"
+test("recompute_report_nesting_is_bounded_at_64_levels - counted from the report itself, a value 64 levels deep reads and one 65 levels deep is refused by name, in lists or objects, in each free object; the report form nests 4 levels", () => {
+  const { readRecomputeReport } = lot(), levels = (v: unknown): number => (v !== null && typeof v === "object" ? 1 + Math.max(0, ...Object.values(v).map(levels)) : 0);
+  const verdict = (r: J): string => { try { readRecomputeReport(canonicalJson(r)); return "reads"; } catch (e) { return e instanceof Error ? e.message : String(e); } };
+  assert.equal(levels(BASE), 4, "the report form nests 4 levels: the report, inputs, inputs.compare and one input");
+  for (const free of ["explanation", "fields", "oracles", "platform", "summary"]) for (const [what, wrap] of [["lists", (x: unknown) => [x]], ["objects", (x: unknown) => ({ z: x })]] as const) {
+    const at = (n: number): J => variant(`${free}.z`, Array.from({ length: n - 2 }).reduce<unknown>((x) => wrap(x), 0)); // the report and the free object: levels 1 and 2
+    assert.deepEqual([64, 65].map((n) => [levels(at(n)), verdict(at(n))]), [[64, "reads"], [65, "MONARK recompute report: not its canonical writing (nested too deep)."]], `${free}.z in ${what}`);
+  }
 });
