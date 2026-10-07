@@ -37,7 +37,8 @@ sans amend ni force ; `git merge-tree` contre `998c2e30` (#218), sans écriture 
   (`kata-path.ts` l.47 et `tools/gate.ts` l.885 pour le sens des deux refus d'horloge ; l'ordre `out_of_support` puis
   `calib_retired` de la branche d'échelle de `kata-path.ts` ; `.gitattributes`) et tiennent sur chaque phrase de la section qui
   porte l'affirmation. Le texte de base n'en porte aucune : ils y sont verts, et le lot reste test-only (`red-proof`, verdict
-  « pinned »). Limite déclarée : la suppression pure d'une de ces phrases n'est pas rouge (rien ne l'exige à la base).
+  « pinned »). Limite déclarée : la suppression pure d'une de ces phrases n'est pas rouge (rien ne l'exige à la base) ; voir
+  les gardes plus bas.
 - m-2 : le test 2 exige que la liste « Exit 1 » égale l'ensemble des codes `no("…")` du script, et refuse « AFTER #218 » dès que
   le script lève `instant_out_of_cycle`. La phrase « AFTER #218 » reste telle quelle (ordre de fusion : #218 avant #223).
 - m-3 (N-5) : la raison devient « `git rm -r -f` would remove it with no dry run first » (`git rm` imprime chaque chemin) ; le cas
@@ -48,7 +49,7 @@ sans amend ni force ; `git merge-tree` contre `998c2e30` (#218), sans écriture 
 - m-4 (N-4) : « Merge the trunk into the lot branch, never rebase it (T_b and T_c are read on its commits) » ; `--check` prouve
   le fichier du dossier sous `spec/`, la publication est prouvée par le `--verify` de l'étape 4.
 
-## Tueurs (les lignes du RUNBOOK bougent au repli de la G2 : 370 devient 372, 411 devient 414, 364 devient 366 ; 300 reste)
+## Tueurs (repli de la G2 : 370 devient 372, 411 devient 414, 364 devient 366, 300 reste ; après #218, 445 devient 447)
 
 - docs/RUNBOOK-harness.md:372 CONST "(T_e)" -> "(T_f)"
 - docs/RUNBOOK-harness.md:414 CONST "\"format\": \"retire-latency-v1\"" -> "\"format\": \"retire-latency-v2\""
@@ -69,6 +70,30 @@ au présent : `cycle` vaut `rehearsal`, `real` ou `publication` ; un cycle `publ
 `null` (`scripts/retire-latency.mjs` l.10, l.44, l.56) ; T_a ou T_b y lève `instant_out_of_cycle`, une mention
 `mention_out_of_cycle`. La liste des refus de l'exit 1 gagne ces deux codes. Le tueur du test 4 suit le texte (+2 lignes) : 445
 devient 447, remesuré sur l'arbre fusionné ; les huit autres ne bougent pas.
+
+Preuve en deux parties (acceptée par MONARK, G2 courte du 2026-10-07) : aucun `red-proof --test-only` ne passe après #218, par
+construction. À la base `022c82d1`, le test 2 est rouge (le RUNBOOK du tronc ne cite pas les deux codes neufs : un F2P légitime) ;
+à la base `177b5755`, la production a changé (`retire-latency.mjs` de #218, fichiers dojo).
+- Corps du lot : `red-proof --test-only --base 177b5755` sur `47002407` : OK, 9 tests épinglés, 9 tueurs tués.
+- Commit d'après #218 : la fusion telle quelle (`c25005e0`) rougit `runbook_retire_shows_the_closed_latency_input` (l.58,
+  `mention_out_of_cycle` non cité, ERR_ASSERTION) ; avec la mise à jour (`21ad597e`) les 9 tests sont verts, et les tueurs :414
+  et :447, tirés sur l'arbre mis à jour, sont tués.
+
+## Gardes des épingles neuves (2026-10-07)
+
+Ligne datée 2026-10-07T07:29:06Z (`date -u`), RECHERCHES, modèle `claude-opus-5-5`. G2 courte de MONARK, constat m 2 : quatre
+mutations de lignes neuves survivaient (MY-1 à MY-4), les épingles étant plus étroites que leurs en-têtes. Trois gardes et une
+exigence, test seul, vertes à la tête :
+- test 7 : la phrase d'ordre se lit « is tested before » ou « is tested after », dans les deux sens ; une section qui nomme
+  `out_of_support` doit porter une phrase d'ordre lue (MY-1, « before `calib_retired` » → « after », tué) ;
+- test 8 : une section qui dit qu'un clone « holds CRLF » cite au moins un clone, et chaque clone cité porte
+  `core.autocrlf=false` (MY-2, `git -c core.autocrlf=false clone` → `git clone`, tué) ;
+- test 4 : chaque `git clean -f -d -- p` suit immédiatement un `git clean -n -d -- p` (MY-3, l.446 `-n` → `-f`, tué) ; chaque
+  `git restore` cité porte `--staged` (MY-4, l.445 `git restore --staged --` → `git restore --`, tué).
+Chaque tir est fait à la main sur l'arbre de la tête (une substitution, sha256 du fichier rendu vérifié) : tué en ERR_ASSERTION
+par le test visé, 8 verts sur 9. Les mêmes quatre tirs survivent au test d'avant (9 sur 9). Un cinquième, « is tested » →
+« is checked » à l.404, est tué lui aussi par la garde du test 7. Limite restante : MY-5 (l.357, un fait externe sur le dépôt de
+spec) n'est pas épinglable hors réseau.
 
 ## Suite
 
