@@ -284,3 +284,24 @@ test("import_helper_reads_literal_specifiers_and_refuses_computed_loads - import
     'void import("./x.ts");', "void import(`./y.ts`);"];
   assert.deepEqual(forbiddenLoads(prose.join("\n")), [], "a comment, a string and a literal import() name no forbidden load");
 });
+
+// reddened by: a specifier that a token scanner misses and the syntax tree holds left out of importSpecifiers: export * as ns from, or an
+// import or an import() that a regular expression holding a quote or a backtick hides (G1 to G8 of the review of a1's adoption, finding M-1;
+// G8 hands vm.runInThisContext to the module), export type * as ns from, import x = require() or an import type; or the text of a regular
+// expression read as a specifier
+// killer: apps/harness/test/helpers/import-specifiers.ts:26 CONST "ts.preProcessFile(text, true, true)" -> "ts.preProcessFile(text, false, true)"
+test("import_helper_reads_specifiers_on_the_syntax_tree - importSpecifiers lists what a token scanner misses (export * as ns from; an import hidden by a regular expression with a quote or a backtick: G1 to G8 of the review), and no regular expression text", () => {
+  const forms: [string, string, string[]][] = [
+    ["G1, in the committed tables reader", 'export * as G from "./policy-guard.ts";', ["./policy-guard.ts"]],
+    ["G2, in the reader", "export const re = /'/; void import(\"./tools/gate.ts\"); //'", ["./tools/gate.ts"]],
+    ["G3, in the reader", 'export const tick = /`/;\nimport "./tools/gate.ts";\nexport const tock = /`/;', ["./tools/gate.ts"]],
+    ["G4, in the committed pins", 'export * as C from "./policy-classes.ts";', ["./policy-classes.ts"]],
+    ["G5, in kata-path.ts, served", 'export * as G from "./policy-guard.ts";', ["./policy-guard.ts"]],
+    ["G6, in the reader, after its import of the classes", 'export * as C from "./policy-classes.ts";', ["./policy-classes.ts"]],
+    ["G7, in kata-path.ts, served", 'export const tick = /`/;\nimport "./policy-guard.ts";\nexport const tock = /`/;', ["./policy-guard.ts"]],
+    ["G8, in the reader", 'export const tick = /`/;\nimport { runInThisContext } from "node:vm";\nexport const tock = /`/;\nexport const run = (code: string): unknown => runInThisContext(code);', ["node:vm"]],
+  ];
+  assert.deepEqual(forms.map(([id, text]) => [id, importSpecifiers(text)]), forms.map(([id, , want]) => [id, want]), "each form of the review, as the syntax tree holds it");
+  const more = ['import j = require("./j.ts");', 'export type T = typeof import("./t.ts");', 'const r = /import "\\.\\/r\\.ts"/;', 'export type * as U from "./u.ts";', "require(`./q.ts`);"];
+  assert.deepEqual(importSpecifiers(more.join("\n")), ["./j.ts", "./t.ts", "./u.ts", "./q.ts"], "import x = require(), an import type, export type * as ns from and require() of a template; a regular expression is no specifier");
+});
