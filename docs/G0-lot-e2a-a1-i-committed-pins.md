@@ -172,3 +172,91 @@ de table de synthèse : entrées de `kataClassEntries`, lignes projetées du reg
   servies : 353 sur 353. `tsc --noEmit` 0 ; `eslint .` 0 ; `gate:vocab` 0 ; `lang:gate` 0 ; `lint:ratchet` 69/69 ;
   `export:check` 0 ; winlint `--base 1cddd2e5` : 6 fichiers, aucun risque Windows. `verifie-ancres` (`--ref ea4a2679`) : 1 524
   ancrés, 0 perdu. R-25 (forme de la CI) : 215.
+
+## 8. Adoption de l'aide partagée de 1f, après la fusion de #231 au tronc (MONARK `dd734ea`), 2026-10-07
+
+- **Provenance** : worker `claude-opus-5-5`, effort: max ; horloge lue (`date -u`) à 19:26 UTC au début, 19:51 UTC pour ce §.
+  Worktree détaché neuf du scratchpad (`wt-a1-adopt-i`, à `096373ab`), `git fetch` à refspecs explicites dans
+  `/home/user/monark-governance` (dont aucun fichier n'est touché) ; `node_modules` lié en dur (`cp -al`), retiré à la fin.
+  Node 24.21.0, Linux.
+- **Décision suivie** : doctrine de MONARK (`dd734ea`) : un seul aide, `apps/harness/test/helpers/import-specifiers.ts`, partagé par
+  1f, a1 et `servedModules` ; spécificateurs lus par `ts.preProcessFile`, chargements interdits par un parcours de l'AST. L'aide est
+  entrée par #231 (RECHERCHES `fe8fb81`) ; a1 prend sa version en fusionnant, puis rejoue R15 à R19, P09-P11, K04, K05, N07 et N08
+  (pièce `g2f2-a1.json`).
+- **Fusion du tronc, sans réécriture** : `lot/etude-suite` lu à `613120db` (fusion de #231), puis à `1df4e44f` (fusions de #234 et
+  #242, poussées pendant ce travail) ; la fusion locale faite sur `613120db` n'a pas été poussée et a été refaite sur `1df4e44f`.
+  Commit `2af5962a` (« Merge the trunk »), parents `096373ab` et `1df4e44f`. **Un seul conflit**, ajout/ajout sur l'aide, résolu
+  en prenant le fichier du tronc (blob `109ef3bc`, identique à `613120db` et à `1df4e44f`) ; le tronc ne touche aucun autre fichier
+  d'a1. La base de fusion neuve est `1df4e44f`.
+- **API** : l'aide de 1f exporte `importSpecifiers(text): string[]`, même nom et même signature que l'extracteur d'a1, et
+  `forbiddenLoads(text): string[]`. Les appels d'a1 (`importsOf`, `servedModules`, le cas de l'extracteur) gardent
+  `importSpecifiers` ; rien n'est ajouté à l'aide.
+- **Réancrage** : le tueur de `import_specifiers_are_read_in_both_quotes` visait `import-specifiers.ts:6`, la regex de l'ancien
+  extracteur ; à la fusion brute, cette ligne est de la prose de l'en-tête de 1f (`verifie-ancres` : 1 641 tueurs, 1 perdu). Il
+  vise maintenant la l.26, où `importSpecifiers` lit la liste de `ts.preProcessFile`, avec la même mutation qu'avant (seuls les
+  spécificateurs entre guillemets doubles restent ; `f.pos` est le guillemet ouvrant du littéral, mesuré) :
+  `apps/harness/test/helpers/import-specifiers.ts:26 CONST ".importedFiles.map(" -> ".importedFiles.filter((f) => text[f.pos] ===
+  '\"').map("` (`test/policy-committed.test.ts:110`). Il est réancré dans le commit de fusion, pour que chaque ligne de tueur de
+  la fusion soit tirable (`killer-lines` 1/1 à `2af5962a`). Les quatre autres tueurs gardent leurs ancres (aucune ligne de
+  production ne bouge) : `policy-committed.ts:54`, `:50`, `:11`, `policy-committed-pins.ts:11`. La phrase du §2 (« ni « from »
+  dans un commentaire ne comptent ») devient vraie : `preProcessFile` saute les commentaires.
+- **Pli** (commit `60df41ad`) : `loadsOf` (`test/policy-committed.test.ts:25`) lit `forbiddenLoads` ; T-1 affirme
+  `loadsOf("policy-committed.ts")` vide (l.94), le test des épingles affirme `[importsOf, loadsOf]` égal à `[[], []]` (l.106). Les
+  commentaires disent ce que l'aide lit, au lieu de « every form » et « either quote » (l.22-23 ; `kata-path.test.ts:319`).
+- **Mutants** (un à la fois, une ligne insérée avant `import { assertPolicyTableFile }` du lecteur, avant la l.8 des épingles ou
+  avant l'import de `./policy-table-file.ts` de `kata-path.ts`, le fichier de test rejoué, octets restaurés et vérifiés par sha256 ;
+  « tué » = rouge par assertion, `ERR_ASSERTION` lu par `classify` de `red-proof.mjs`, sans fichier qui ne charge pas). Trois
+  états : S0 `096373ab` (ancien extracteur), S1 `2af5962a` (la fusion : `importSpecifiers` de 1f, tests d'a1 inchangés), S2
+  `60df41ad` (le pli). Textes de R15 à R19 : ceux de la pièce ; P09-P11, K04 et K05 : la pièce les nomme sans leur texte (son
+  `gen-mutants.mjs` n'est versé nulle part), reconstruits d'après ses mots (gabarit, commentaire) :
+
+| Mutant | Texte | S0 | S1 | S2, tué par |
+|---|---|---|---|---|
+| R15 | ``void import(`./tools/gate.ts`);`` | survit | tué | tué, T-1 (spécificateur) |
+| R16 | `const GATE_MODULE = "./tools/gate.ts"; void import(GATE_MODULE);` | survit | survit | tué, T-1 (`forbiddenLoads`) |
+| R17 | `import /* reviewed */ "./tools/gate.ts";` | survit | tué | tué, T-1 (spécificateur) |
+| R18 | `export { guardKataTable } from /* reviewed */ "./policy-guard.ts";` | survit | tué | tué, T-1 (spécificateur) |
+| R19 | `process.getBuiltinModule("node:module").createRequire(import.meta.url)("./tools/gate.ts");` | survit | survit | tué, T-1 (`forbiddenLoads`) |
+| P09 | ``void import(`./policy-classes.ts`);`` (épingles) | survit | tué | tué, test des épingles |
+| P10 | `import /* reviewed */ "./policy-classes.ts";` (épingles) | survit | tué | tué, test des épingles |
+| P11 | `export { kataClassEntries } from /* reviewed */ "./policy-classes.ts";` (épingles) | survit | tué | tué, test des épingles |
+| K04 | ``void import(`./policy-guard.ts`);`` (`kata-path.ts`) | survit | tué | tué, `kata_path_is_served` |
+| K05 | `import /* reviewed */ "./policy-guard.ts";` (`kata-path.ts`) | survit | tué | tué, `kata_path_is_served` |
+
+  - N07 et N08 visent le test des lignes réservées, qui n'est qu'à #236 : rejoués au G0 d'a1-ii, §8.
+  - Hors de la liste, sept formes de plus : E1 (`/** @internal */ export const e1 = (n: string) => import(n);`), un commentaire
+    entre `import` et `(` sur un littéral, E3 (`process["getBuiltin" + "Module"]`), `constructor` par une chaîne constante et `eval`
+    dans le lecteur ; un spécificateur calculé et `createRequire` dans les épingles. S0 : toutes survivent ; S1 : seul le
+    commentaire est tué ; S2 : toutes tuées par assertion.
+  - Non-régression à S2 : 28 formes à guillemets doubles et simples (14 dans le lecteur, 8 dans les épingles, 6 dans `kata-path.ts`,
+    celles des §6 et §7) : toutes tuées par assertion. 45 tués sur 46 à S2 ; le survivant est ci-dessous.
+  - Pas de faux positif : sur les 29 fichiers de `apps/harness/src`, l'extracteur d'a1 et `importSpecifiers` rendent les mêmes
+    spécificateurs relatifs ; le graphe servi compte 22 modules et les mêmes 5 `policy-*` avec chacun des trois extracteurs ;
+    `forbiddenLoads` est vide sur le lecteur, les épingles et les 22 modules servis.
+  - Sorties : `out-i-s0.json` `7ff02c25…`, `out-i-s1.json` `ff160c4d…`, `out-i-S2.json` `5a5513ba…` ; harnais `mut.mjs` `34aa56a8…`,
+    spécifications `gen-spec.mjs` `ce7af5a4…` (`spec-i.json` `65940a9a…`).
+- **Limite, hors de la demande, à la décision de MONARK** : `servedModules` suit les spécificateurs de `importSpecifiers` et ne lit
+  pas `forbiddenLoads`. Un spécificateur calculé dans un module servi (`const GUARD = "./policy-guard.ts"; void import(GUARD);`
+  dans `kata-path.ts`) survit à S0, S1 et S2, `kata_path_is_served` vert. La fermer tient en une ligne dans `walk` (hors du corps
+  des tests : red-proof ne les jugerait pas), sans faux positif aujourd'hui sur les 22 modules servis ; mais elle interdirait les
+  huit noms (`constructor`, `Function`, `binding`, …) dans tout le code servi, propriétés et types compris, et toucherait les deux
+  tests qui appellent `servedModules` (`kata_path_is_served`, `every_listed_code_has_a_served_thrower_or_is_pending`). Item
+  proposé : SERVED-WALK-LOADS-1. Les quatre autres marches à guillemets doubles du §7 restent à sa décision.
+- **IMPORT-AST-RUNTIME-NAME-1** (ETAT du tronc à `5437cd0d`, ouvert ; déclencheur : le prochain lot qui ajoute un module à la liste
+  scannée) : a1 fait lire par `forbiddenLoads` ses deux modules, le lecteur et les épingles, qui étaient déjà dans l'arbre où
+  `G2-231-234-r2.json` a mesuré le prix (`policy-verifiers.ts`, les 22 modules servis et ces deux-là). Mesuré ici dans le lecteur :
+  un nom bâti par `join`, `process[["getBuiltin", "Module"].join("")]("node:module")`, survit aux tests, mais `tsc` le refuse
+  (TS7053) et eslint aussi (`no-unsafe-call`) ; derrière un cast, `(process as unknown as Record<string, (id: string) =>
+  unknown>)[…]?.("node:module")`, il survit aux tests, à `tsc` et à eslint. La limite vaut pour a1 telle qu'elle est écrite ; l'item
+  reste ouvert (`out-i-rn.json` `4f58f0dc…`).
+- **Tronc au moment de pousser** : `5437cd0d` (statut et provenance : `docs/ETAT.md`, `docs/JOURNAL-PROVENANCE.md`), non fusionné ;
+  il ne touche aucun fichier d'a1.
+- **Mesures à `60df41ad`** (tête du code ; le commit de ce § ne touche que ce G0) : red-proof `--base
+  1df4e44fd3e62aa9291005fe90f91292c5344bc4 --gel 60df41ad934c9087d6e40909932e53dd360af5a6 --repo <worktree> --draw 5 --seed 1007` :
+  sortie 0, « 5 judged, 18 unchanged, 5 killer(s) drawn », cinq `new-module`, cinq tueurs tués par assertion, dont celui de l'aide
+  (l.26) ; `RED-PROOF.json` sha256 `e164ab408f71b250b4f3860c9793cf7a41fe1f8c27ff06d27e06f691341d5a6c`. Suite du harnais et tests
+  des surfaces servies : 356 sur 356 ; avec `test/killer-lines.test.ts`, `test/verifiers-list.test.ts` et
+  `test/recompute-report.test.ts` : 375 sur 375. `tsc --noEmit` 0 ; `eslint .` 0 ; `gate:vocab` 0 (351 fichiers) ; `lang:gate` 0 ;
+  `lint:ratchet` 69/69 ; `export:check` 0 ; winlint `--base 1df4e44f` : 5 fichiers, aucun risque Windows. `verifie-ancres`
+  (`--ref 096373ab --ref 1df4e44f`) : 1 648 ancrés, 0 dérive, 0 perdu ; les deux fichiers de test d'a1 : 23 sur 23. R-25 (forme de
+  la CI) contre `1df4e44f` : **212** (210 + 2 ; 215 avant, l'aide sortant du diff), sous 547.
