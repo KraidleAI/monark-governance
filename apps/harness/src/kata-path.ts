@@ -112,18 +112,18 @@ export function kataVerdict(f: KataVerdictFields, p: Prediction, schemaVersion: 
   };
 }
 
-/** The served table files (C-10), built in process: the 32 wave 1 kata classes with no row (B-9), then the three marginal
- *  tables of policy-served.ts (Q-C3). Pure, deterministic, sorted by task_class. */
-export function servedPolicyTables(texts: ServedTableTexts): readonly ServedTable[] {
-  const kata = kataClassEntries(texts.classText).map((c) => buildPolicyTable(c, [])).map((table) => ({ task_class: table.class.task_class, table, policy_table_sha256: policyTableSha256(table) }));
+/** The served table files (C-10), built in process: each of the 32 wave 1 kata classes from its committed table when one is
+ *  read (policy-committed.ts), else with no row (B-9), then the three marginal tables of policy-served.ts (Q-C3). Pure, sorted. */
+export function servedPolicyTables(texts: ServedTableTexts, committed: ReadonlyMap<string, PolicyTable>): readonly ServedTable[] {
+  const kata = kataClassEntries(texts.classText).map((c) => committed.get(c.task_class) ?? buildPolicyTable(c, [])).map((table) => ({ task_class: table.class.task_class, table, policy_table_sha256: policyTableSha256(table) }));
   return [...kata, ...servedMarginalTables(texts)].sort((a, b) => (a.task_class < b.task_class ? -1 : 1));
 }
 
-/** The tripwire of KATA-CLAUSE-COMMITTED-STATE-1 (block D, lot D-3; G2 N-6 of D-2): the kata clause of the gate description
- *  (kataClause, tools/gate.ts) states that the kata tables hold no committed row. The served build passes through this check,
- *  so the first kata row fails the load until the clause of the committed state, with its dated Z-3 line, replaces it. */
-export function kataTablesHoldNoRow(tables: readonly ServedTable[]): readonly ServedTable[] {
-  const held = tables.filter((t) => t.table.class.cell_key_rule === "kata-bucket" && t.table.rows.length > 0).map((t) => `'${t.task_class}'`);
-  if (held.length > 0) throw new Error(`KATA-CLAUSE-COMMITTED-STATE-1: the kata clause describes kata tables with no row, but ${held.join(", ")} hold rows`);
+/** The tripwire of KATA-CLAUSE-COMMITTED-STATE-1 (E-2a): the kata tables with rows are the pinned ones at their sha256, no held class has a row. */
+export function kataTablesMatchPins(tables: readonly ServedTable[], committed: Readonly<Record<string, string>>, held: readonly string[]): readonly ServedTable[] {
+  const kata = tables.filter((t) => t.table.class.cell_key_rule === "kata-bucket"), rows = (c: string): number => kata.find((t) => t.task_class === c)?.table.rows.length ?? 0;
+  if (held.some((c) => rows(c) > 0)) throw new Error(`KATA-CLAUSE-COMMITTED-STATE-1: a held class holds rows: ${held.filter((c) => rows(c) > 0).join(", ")}`);
+  const off = [...new Set([...kata.filter((t) => t.table.rows.length > 0).map((t) => t.task_class), ...Object.keys(committed)])].filter((c) => !(rows(c) > 0 && kata.find((t) => t.task_class === c)?.policy_table_sha256 === committed[c]));
+  if (off.length > 0) throw new Error(`KATA-CLAUSE-COMMITTED-STATE-1: the kata tables with rows are not the pinned tables: ${off.join(", ")}`);
   return tables;
 }
