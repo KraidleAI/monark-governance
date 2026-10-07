@@ -293,3 +293,29 @@ forme de l'item, sans apostrophes) :
 > ce masque, avec son minuteur (le test `bell_key_directory_is_inaccessible_to_every_unit_sharing_its_host` la force à être classée,
 > avec l hôte du site), ou un retrait committé du masque ; jamais un drop-in posé sur l hôte (l acte (3) attend `DropInPaths=`
 > vide). Le choix revient à son G0. Porteur, déclencheur et état inchangés.
+
+## 14. Mesures du pli (code à `e68d7958`, correctif du RUNBOOK `267d1817`, base `885554e5`)
+
+- **Rouge d'abord** : au commit du test (`fc9be345`), `dojo_probe_tree_is_the_import_closure` échoue par assertion, « each simulated
+  start carries the unit's InaccessiblePaths » (fichier : 24 tests, 23 passés, 1 échec) ; vert au commit du RUNBOOK (`267d1817`,
+  24 sur 24).
+- **red-proof** `--base 885554e5 --gel 267d1817 --draw 4 --seed 20261007` : OK, 5 tests jugés (41 inchangés), chacun F2P ; 4 tueurs
+  tirés (`scripts/probe-dojo-live.mjs:54`, `deploy/monark-dojo-publish.service:48`, `deploy/monark-dojo-collect.service:50`,
+  `deploy/monark-probe.service:40`), 4 tués (`RED-PROOF.json`, sha256 `c193087ea6d6a018…`).
+- **Tous les tueurs des quatre fichiers de test changés** (`scripts/mutants/run.mjs --killers`, file d'attente partagée) : 47 tués sur
+  47, aucun survivant, aucun non conclu, aucune ancre perdue ; les deux neufs (l.1493 et l.1514 du RUNBOOK) tués
+  (`RESULTS.json`, sha256 `d20e2f151ef1f580…`).
+- **Ancres** : `verifie-ancres --touched 885554e5 e68d7958 --ref 885554e5 --ref c09637fb` : 47 ANCRE, aucune dérive ; arbre entier :
+  1 652 ANCRE ; `every_killer_line_is_readable` vert.
+- **Suite** : `test:main`, Node v24.21.0 : 2 926 tests, 2 904 passés, 0 échec, 22 sautés (les sauts conditionnels déjà là), 280 s ;
+  le même compte qu'avant le pli (le test adapté reste un seul test).
+- **Portes** : `tsc --noEmit` 0 ; eslint des dix fichiers de code et de test de la PR : 0 ; `lint:ratchet` 69/69 ; `gate:vocab`
+  (349 fichiers), `lang:gate`, `export:check`, `lint-model-pinning` : propres ; winlint `--base 885554e5` : 16 fichiers, aucun danger.
+  Les seize fichiers de test du site et de Bell (dont `site-build-fleet`) : 211 sur 211.
+- **Site** : `npm run build -w @monark/site`, puis `node scripts/assert-fleet-html.mjs` : OK. Sur les 42 pages construites, aucune ne
+  dit « own host », « dedicated host », ni un serveur ou une machine dédiés ; la formule bornée est sur l'accueil, `/applications`,
+  `/bell`, `/bell/anchors`, `/bell/method` et `/docs/bell` ; « its own web address » sur `/docs/bell` seule.
+- **R-25** (forme de la CI, lecture épinglée) : 128 + 30 = 158 lignes, 13 fichiers, pour une borne de 1 205 ; contenu : 1 + 1 = 2.
+- **Non vérifié ici** : l'hôte (le premier départ de chaque unité redéployée, le relevé `systemctl show`, l'unité réelle de Caddy),
+  actes de MONARK (§9). Aucun chemin propre à Windows : des fichiers d'unité, des tests qui les lisent, un RUNBOOK et du texte de
+  page ; MONARK rejoue les tests sous Windows à la fusion.
