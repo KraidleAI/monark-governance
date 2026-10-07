@@ -94,8 +94,9 @@ test("verifier_list_reader_refuses_each_departure - two closed forms, unique (id
   refuses(listOf(entry(), revoke({ revoked: 20261007 })), /entry 1: revoked is not a real/, "a date that is not a string");
 });
 
-// reddened by: a writing of a well-formed list other than its canonical writing accepted (pretty-printed, a final LF, a CRLF, a BOM in
-// the bytes, a key twice at the top level or in an entry, keys in another order, an escaped lone surrogate), or such a refusal unnamed
+// reddened by: a writing of a well-formed list other than its canonical writing accepted (pretty-printed, a final LF or a BOM, as bytes
+// or as a string, a CRLF, an invalid UTF-8 byte, a key twice at the top level or in an entry, the keys of an entry, of the top level or
+// of a revocation in another order, an escaped lone surrogate in any entry), a revocation rendered unfrozen, or such a refusal unnamed
 // killer: apps/harness/src/policy-verifiers.ts:84 SDL "fail(\"not the canonical writing of the list\")" -> ""
 test("verifier_list_reader_is_closed_on_the_bytes - the reader renders a text only if it is the canonical writing of what it renders; each other writing is refused, named", () => {
   const text = listOf(entry()), canonical = /^MONARK verifier list: not the canonical writing of the list\.$/;
@@ -110,6 +111,13 @@ test("verifier_list_reader_is_closed_on_the_bytes - the reader renders a text on
   refuses(text.replace(`"commit":"${C1}","identity":"monark-kata-recalc"`, `"identity":"monark-kata-recalc","commit":"${C1}"`), canonical, "the keys of an entry in another order");
   refuses(JSON.stringify({ verifiers: [entry()], format: "monark-verifiers-v1" }), canonical, "the top-level keys in another order");
   refuses(listOf(entry({ identity: "\ud800" })), canonical, "an escaped lone surrogate, an identity by the rule of identityOf");
+  const [pre = "", post = ""] = text.split("monark-kata-recalc");
+  refuses(Buffer.concat([Buffer.from(`${pre}monark-`), Buffer.from([0xff]), Buffer.from(post)]), /^MONARK verifier list: not UTF-8 JSON\.$/, "an invalid UTF-8 byte");
+  refuses(`${text}\n`, canonical, "a final LF, as a string");
+  refuses(`\uFEFF${text}`, /^MONARK verifier list: not UTF-8 JSON\.$/, "a BOM, as a string");
+  refuses(listOf(entry(), entry({ commit: C2, identity: "\ud800" })), canonical, "an escaped lone surrogate in a second entry");
+  refuses(`${text.slice(0, -2)},{"revoked":"2026-10-07","commit":"${C1}","identity":"monark-kata-recalc"}]}`, canonical, "the keys of a revocation in another order");
+  assert.ok(readVerifiers(`${text.slice(0, -2)},{"commit":"${C1}","identity":"monark-kata-recalc","revoked":"2026-10-07"}]}`).every((v) => Object.isFrozen(v)), "a revocation is rendered frozen too");
 });
 
 // reddened by: the digest of the index under tools/kata-recalc/ other than the listed tree_sha256 (a byte of the tool changed or a file
@@ -193,7 +201,8 @@ test("pinned_list_is_read_lazily_and_an_altered_list_stops_closed - loading the 
 
 // reddened by: the date rule of the list parting from validDate of scripts/spec-publish.mjs on a string or a value, over every day of
 // four years (a leap year among them) and their impossible neighbours; or a module specifier other than node:crypto, node:fs and node:url
-// in any form (static on one line or several, re-exported, bare, dynamic or required: ts.preProcessFile), scripts/ or the guard above all
+// in any form (static on one line or several, re-exported, bare, dynamic or required: ts.preProcessFile), scripts/ or the guard above all,
+// or a computed one (an import( or require( call, or getBuiltinModule, in the code: read on the text, doc comments stripped)
 // killer: apps/harness/src/policy-verifiers.ts:39 CONST "/^\\d{4}-\\d{2}-\\d{2}$/" -> "/^\\d{4}-\\d{1,2}-\\d{2}$/"
 test("verifier_list_date_rule_is_the_spec_publish_rule - validDate of policy-verifiers.ts agrees with validDate of scripts/spec-publish.mjs, without importing scripts/", () => {
   const samples: unknown[] = ["2026-10-07", "2024-02-29", "2026-02-29", "1900-02-29", "2000-02-29", "2026-00-10", "2026-13-01", "2026-04-31", "2026-1-01", "26-10-07", " 2026-10-07",
@@ -205,6 +214,8 @@ test("verifier_list_date_rule_is_the_spec_publish_rule - validDate of policy-ver
   assert.deepEqual(specifiers.filter((s) => /(^|\/)scripts\/|policy-guard/.test(s)), [], "the module imports nothing from scripts/ nor the guard");
   assert.ok(!/policy-guard/.test(text.replace(/^ \*.*$/gm, "")), "nor names the guard outside its doc comments");
   assert.deepEqual(specifiers, ["node:crypto", "node:fs", "node:url"], "the module's specifiers, in any form (ts.preProcessFile)");
+  const code = text.replace(/^ \*.*$/gm, "").replace(/^\/\*\*.*$/gm, "");
+  assert.deepEqual([/\bimport\s*\(/, /\brequire\s*\(/, /getBuiltinModule/].filter((r) => r.test(code)).map(String), [], "nor a computed specifier, which ts.preProcessFile cannot list: no import( call, no require( call, no getBuiltinModule in the code");
 });
 
 // reddened by: run-log.json no longer ignored by git (anywhere in the tree, any folder), a tracked file of that name, or a release entry of
@@ -221,13 +232,14 @@ test("run_log_is_ignored_untracked_and_named_by_no_spec_input - git ignores run-
   assert.match(readFileSync(join(REPO, TOOL_ROOT, "report.py"), "utf8"), /os\.path\.join\(a\["out"\], "run-log\.json"\)/, "report.py writes its run log by that name, beside the report");
 });
 
-// reddened by: a list entry whose commit is not in the repository's history (the placeholder of 40 zeros included: lot 1f is built on
-// the trunk before the frozen tool merges), or whose commit does not carry the listed tree under tools/kata-recalc/ (section 3.2 recipe)
+// reddened by: a list entry whose commit is not in the history of HEAD (git merge-base --is-ancestor: an object of the repository outside
+// it, such as the head of an unmerged branch or a head from before a rebase, is refused; so is the placeholder of 40 zeros: lot 1f is built
+// on the trunk before the frozen tool merges), or whose commit does not carry the listed tree under tools/kata-recalc/ (section 3.2 recipe)
 // killer: apps/harness/src/policy-verifiers.ts:115 CONST "(a.path < b.path ? -1 : 1)" -> "(a.path < b.path ? 1 : -1)"
-test("verifier_list_commit_carries_the_listed_tree - each list entry names a commit of this repository whose tree under tools/kata-recalc/ has the listed digest", () => {
+test("verifier_list_commit_carries_the_listed_tree - each list entry names a commit in the history of HEAD whose tree under tools/kata-recalc/ has the listed digest", () => {
   for (const e of listEntries(pinnedVerifiers())) {
     assert.notEqual(e.commit, "0".repeat(40), "a placeholder: the entry must name the merge commit of the frozen tool on the trunk, and its tree, before this merges");
-    assert.equal(gitStatus(["cat-file", "-e", `${e.commit}^{commit}`]), 0, `${e.commit} is a commit of this repository`);
+    assert.equal(gitStatus(["merge-base", "--is-ancestor", e.commit, "HEAD"]), 0, `${e.commit} is in the history of HEAD`);
     const blobs = gitOut(REPO, ["ls-tree", "-r", "-z", "--full-tree", e.commit, "--", TOOL_ROOT]).split("\0").filter((l) => l !== "").map((l) => {
       const [, mode = "", object = "", path = ""] = /^(\d{6}) \w+ ([0-9a-f]+)\t(.+)$/s.exec(l) ?? [];
       return { mode, path, bytes: execFileSync("git", ["--no-replace-objects", "-C", REPO, "cat-file", "blob", object], { env: BARE, maxBuffer: 1 << 26 }) };
