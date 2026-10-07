@@ -7,9 +7,10 @@ export interface HistoryLine {
 export const FORMAT: string;
 export const HISTORY_REL: string;
 export const FIELDS: readonly string[];
+export const PINS: string;
 export class HistoryError extends Error { code: string; constructor(code: string, detail: string) }
 export function checkLine(l: unknown): HistoryLine;
-export function compose(o: { root: string; releaseDir: string; mergeCommit: string; tE: string; caBytes: Uint8Array; probes: { name: string; bytes: Uint8Array }[] }): HistoryLine[];
+export function compose(o: { root: string; releaseDir: string; mergeCommit: string; tE: string; caBytes: Uint8Array; probes: { name: string; bytes: Uint8Array }[]; pinned: readonly string[] }): HistoryLine[];
 export function render(existing: Uint8Array | null, lines: HistoryLine[]): string;
-export function mergeInstant(root: string, commit: string): string;
-export function main(argv: string[]): number;
+export function mergeInstant(root: string, commit: string, releaseDir: string): string;
+export function main(argv: string[], io?: { pins?: string }): Promise<number>;

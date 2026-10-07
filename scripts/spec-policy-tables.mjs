@@ -131,7 +131,7 @@ if (isMain(process.argv[1], fileURLToPath(import.meta.url))) process.exitCode = 
 // served class to the last version directory that holds its file; two with the same bytes are refused, and a class that no directory holds is refused when a dated version is written (M-2: else it is expected under contract-1.1.0/). A dated directory is written once, never rewritten (B-1).
 
 /** versionDirs(root) -> the version directories under <root>/spec, in order: contract-1.1.0, then contract-1.1.0-tables-<real day> by day. */
-function versionDirs(root) {
+export function versionDirs(root) {
   const s = join(root, "spec"), dated = (n) => n.length === VERSION_DIR.length + 18 && n.startsWith(`${VERSION_DIR}-tables-`) && validDate(n.slice(-10));
   return existsSync(s) ? readdirSync(s).filter((n) => n === VERSION_DIR || dated(n)).sort() : [];
 }

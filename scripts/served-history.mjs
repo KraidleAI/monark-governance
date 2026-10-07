@@ -6,85 +6,106 @@
 //                                   --probe <retire-probe-v1 record> [--probe <record> ...] [--root <dir>]
 //
 // A line carries one class and its table. Each deployment writes a line for EVERY kata class served after it, not only the classes it
-// serves anew (24 lines for the first kata release, 28 for the second): the classes served after release_dir are the kata tables
-// (cell_key_rule kata-bucket) of the dated directories spec/contract-1.1.0-tables-<date>/ up to release_dir, each class at the last such
-// directory that holds it. task_class and policy_table_sha256 are read from the class's retire-probe-v1 record (an accepted verdict: ok,
-// equal, no problem), never typed in; probe_record_sha256 is the sha256 of that record's bytes. The record's table is the served file
-// of its class, spec/<that directory>/policy/<task_class>.json, a table of that class whose sha256 is the digest served. Every served
-// kata class has exactly one record, and no record names another table. A marginal table has no probe and no line, so a deployment
-// after which no kata table is served writes nothing (refused, no_kata_table). t_e is the commit instant of
-// the merge commit (git, UTC second; a commit with two parents or more); t_f is the checked_at of the deploy check record, green on
-// every check with an authorized TLS on both hosts, and ca_record_sha256 is the sha256 of its bytes. The file is a JSON array, one
-// line per element, sorted by (t_e, task_class); the lines already there must be its canonical writing under the same closed fields,
-// and a (release_dir, task_class) pair already written is refused. Exit 0 written; 1 refused (code first); 2 usage.
+// serves anew (24 lines for the first kata release, 28 for the second). The rules are the trunk's, imported, never rewritten:
+// - served set (scripts/spec-policy-tables.mjs): the version directories of versionDirs (a dated one names a real day), release_dir the
+//   last dated one and a directory; each kata table (cell_key_rule kata-bucket) of a dated directory is served from the directory that
+//   servedTableDirs maps its class to (the last that holds it; two that hold the same bytes are refused). That set must be the classes
+//   pinned in COMMITTED_TABLES of the served module PINS (main reads it; a test gives another module).
+// - probe: each served class has exactly one retire-probe-v1 record, and no record names another table. A record must be one that a real
+//   cycle of scripts/retire-instants.mjs takes for T_g (instant: accepted, status 200, an https api off the loopback, an authorized TLS,
+//   its Host); its table is the served file of its class, a table of that class, and its policy_table_sha256 that file's sha256 (read,
+//   never typed in); probe_record_sha256 is the sha256 of the record's bytes.
+// - t_e is T_e of retire-instants: the committer date, to the second, of a merge commit of two parents, named by 40 hex (checked before
+//   git) that git reads as its own id (an annotated tag is refused), with no inherited GIT_* variable; it brings spec/<release_dir>
+//   (there, absent from its first parent). t_f is T_f: the checked_at, cut to the second, of a deploy check record that verify-harness
+//   rates green with its CHECK_NAMES; ca_record_sha256 is the sha256 of its bytes. t_e <= t_f <= the received_at of each record.
+// The file is a JSON array, one line per element, sorted by (t_e, task_class); the lines already there must be its canonical writing
+// under the same closed fields (each field a string of its form; t_e and t_f real UTC seconds); a (release_dir, task_class) pair is
+// written once, and the lines of a release_dir share merge_commit, t_e, t_f and ca_record_sha256. Written through writeAtomic of
+// scripts/verify-harness.mjs. Exit 0 written; 1 refused (code first); 2 usage.
 import { createHash } from "node:crypto";
-import { execFileSync } from "node:child_process";
-import { existsSync, mkdirSync, readFileSync, readdirSync, renameSync, writeFileSync } from "node:fs";
+import { spawnSync } from "node:child_process";
+import { existsSync, mkdirSync, readFileSync, readdirSync, statSync } from "node:fs";
 import { dirname, join } from "node:path";
-import { canonicalJson } from "./spec-publish.mjs";
+import { instant } from "./retire-instants.mjs";
+import { canonicalJson, validDate } from "./spec-publish.mjs";
+import { servedTableDirs, VERSION_DIR, versionDirs } from "./spec-policy-tables.mjs";
+import { writeAtomic } from "./verify-harness.mjs";
 
 export const FORMAT = "kata-served-history-v1", HISTORY_REL = "apps/harness/data/kata/served/served-history.json";
 export const FIELDS = ["format", "release_dir", "task_class", "policy_table_sha256", "probe_record_sha256", "merge_commit", "t_e", "t_f", "ca_record_sha256"];
+/** The served module that pins the committed kata tables (COMMITTED_TABLES), added by the committed table loader. */
+export const PINS = new URL("../apps/harness/src/policy-committed-pins.ts", import.meta.url).href;
 export class HistoryError extends Error {
   constructor(code, detail) { super(`${code}: ${detail}`); this.code = code; }
 }
 const no = (code, detail) => { throw new HistoryError(code, detail); };
+const via = (code, f) => { try { return f(); } catch (e) { return no(code, e instanceof Error ? e.message : String(e)); } };
 const sha = (b) => createHash("sha256").update(b).digest("hex");
-const HEX = /^[0-9a-f]{64}$/, INSTANT = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d{3})?Z$/, DIR = /^contract-1\.1\.0-tables-\d{4}-\d{2}-\d{2}$/;
+const HEX = /^[0-9a-f]{64}$/, SECOND = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z$/, DIR = /^contract-1\.1\.0-tables-\d{4}-\d{2}-\d{2}$/, COMMON = ["merge_commit", "t_e", "t_f", "ca_record_sha256"];
+const str = (v, re) => typeof v === "string" && re.test(v);
+/** A real UTC second, as scripts/retire-latency.mjs l.46-47 reads one: a day that exists, an hour of it. */
+const real = (s) => { const t = str(s, SECOND) ? Date.parse(s) : NaN; return Number.isFinite(t) && new Date(t).toISOString() === s.replace("Z", ".000Z"); };
 const parse = (bytes, what) => { try { return JSON.parse(Buffer.from(bytes).toString("utf8")); } catch { return no("input_invalid", `${what} is not JSON`); } };
 
-/** checkLine(l) -> l when it is a closed kata-served-history-v1 line (one class, as a string); else refused, line_invalid. */
+/** checkLine(l) -> l when it is a closed kata-served-history-v1 line (one class, each field a string of its form); else line_invalid. */
 export function checkLine(l) {
   const keys = l !== null && typeof l === "object" && !Array.isArray(l) ? Object.keys(l).sort() : [];
   if (keys.join() !== [...FIELDS].sort().join()) no("line_invalid", `fields ${JSON.stringify(keys)} are not the closed set`);
-  const good = l.format === FORMAT && DIR.test(l.release_dir) && typeof l.task_class === "string" && /^[a-z0-9]+(-[a-z0-9]+)*$/.test(l.task_class)
-    && [l.policy_table_sha256, l.probe_record_sha256, l.ca_record_sha256].every((h) => HEX.test(h)) && /^[0-9a-f]{40}$/.test(l.merge_commit)
-    && INSTANT.test(l.t_e) && INSTANT.test(l.t_f) && Date.parse(l.t_e) <= Date.parse(l.t_f);
+  const good = l.format === FORMAT && str(l.release_dir, DIR) && validDate(l.release_dir.slice(-10)) && str(l.task_class, /^[a-z0-9]+(-[a-z0-9]+)*$/)
+    && [l.policy_table_sha256, l.probe_record_sha256, l.ca_record_sha256].every((h) => str(h, HEX)) && str(l.merge_commit, /^[0-9a-f]{40}$/)
+    && real(l.t_e) && real(l.t_f) && Date.parse(l.t_e) <= Date.parse(l.t_f);
   return good ? l : no("line_invalid", `${JSON.stringify(l)} is not a kata-served-history-v1 line`);
 }
 
-/** compose({root, releaseDir, mergeCommit, tE, caBytes, probes}) -> the new lines, one per kata class served after releaseDir. */
-export function compose({ root, releaseDir, mergeCommit, tE, caBytes, probes }) {
-  if (!DIR.test(releaseDir) || !existsSync(join(root, "spec", releaseDir))) no("input_invalid", `release directory ${JSON.stringify(releaseDir)}`);
-  const ca = parse(caBytes, "the deploy check record"), served = new Map();
-  if (!(Array.isArray(ca?.checks) && ca.checks.length > 0 && ca.checks.every((c) => c?.ok === true) && ca.tls?.authorized === true && ca.tls_mcp?.authorized === true)) no("ca_not_green", "a check is red or a TLS is not authorized");
-  for (const d of readdirSync(join(root, "spec")).filter((x) => DIR.test(x) && x <= releaseDir).sort()) {
-    const policy = join(root, "spec", d, "policy");
-    for (const f of existsSync(policy) ? readdirSync(policy).filter((x) => x.endsWith(".json")) : []) if (parse(readFileSync(join(policy, f)), f)?.class?.cell_key_rule === "kata-bucket") served.set(f.slice(0, -5), d);
-  }
-  if (served.size === 0) no("no_kata_table", `no kata table is served after ${releaseDir}: no line`);
+/** compose({root, releaseDir, mergeCommit, tE, caBytes, probes, pinned}) -> the new lines, one per kata class served after releaseDir. */
+export function compose({ root, releaseDir, mergeCommit, tE, caBytes, probes, pinned }) {
+  const dated = versionDirs(root).filter((d) => d !== VERSION_DIR);
+  if (dated.at(-1) !== releaseDir || statSync(join(root, "spec", String(releaseDir)), { throwIfNoEntry: false })?.isDirectory() !== true) no("input_invalid", `release directory ${JSON.stringify(releaseDir)}: not the last dated directory of the tree, or not a directory`);
+  const ca = parse(caBytes, "the deploy check record"), tF = via("ca_not_green", () => instant("T_f", { ca: "the deploy check record" }, { read: () => ca }, "real"));
+  const kata = dated.flatMap((d) => { const p = join(root, "spec", d, "policy"); return existsSync(p) ? readdirSync(p).filter((f) => f.endsWith(".json") && parse(readFileSync(join(p, f)), f)?.class?.cell_key_rule === "kata-bucket") : []; });
+  const served = via("input_invalid", () => servedTableDirs(root, kata.map((f) => ({ task_class: f.slice(0, -5) }))));
   const lines = probes.map(({ bytes, name }) => {
-    const probe = parse(bytes, name), cls = String(probe?.task_class), rel = `spec/${String(served.get(cls))}/policy/${cls}.json`;
-    if (probe?.format !== "retire-probe-v1" || probe.ok !== true || probe.equal !== true || probe.problem !== null) no("probe_not_accepted", `${name} is not an accepted retire-probe-v1 verdict`);
-    if (String(probe.table).replaceAll("\\", "/").replace(/^\.\//, "") !== rel || !served.has(cls)) no("probe_other_table", `${name} probed ${String(probe.table)}, not a kata table served after ${releaseDir}`);
+    const probe = parse(bytes, name), cls = probe?.task_class, rel = `spec/${served[cls]}/policy/${cls}.json`;
+    const received = via("probe_not_accepted", () => instant("T_g", { probe: name }, { read: () => probe }, "real"));
+    if (!Object.hasOwn(served, cls) || typeof probe.table !== "string" || probe.table.replaceAll("\\", "/").replace(/^\.\//, "") !== rel) no("probe_other_table", `${name} probed ${String(probe.table)}, not a kata table served after ${releaseDir}`);
     const table = readFileSync(join(root, rel));
-    if (parse(table, rel).class.task_class !== cls) no("probe_other_class", `${name} is a ${cls} record, ${rel} holds another class`);
+    if (parse(table, rel)?.class?.task_class !== cls) no("probe_other_class", `${name} is a ${String(cls)} record, ${rel} holds another class`);
     if (sha(table) !== probe.policy_table_sha256) no("digest_mismatch", `${name} served ${String(probe.policy_table_sha256)}, ${rel} is ${sha(table)}`);
-    if (!(Date.parse(probe.received_at) >= Date.parse(tE))) no("probe_before_merge", `${name} was received before the merge commit`);
+    if (!(Date.parse(received) >= Date.parse(tF))) no("probe_before_ca", `${name} was received at ${received}, before the deploy check record (${tF})`);
     return checkLine({ format: FORMAT, release_dir: releaseDir, task_class: cls, policy_table_sha256: probe.policy_table_sha256, probe_record_sha256: sha(bytes),
-      merge_commit: mergeCommit, t_e: tE, t_f: ca.checked_at, ca_record_sha256: sha(caBytes) });
+      merge_commit: mergeCommit, t_e: tE, t_f: tF, ca_record_sha256: sha(caBytes) });
   });
-  const missing = [...served.keys()].filter((c) => lines.filter((l) => l.task_class === c).length !== 1);
-  return missing.length === 0 ? lines : no("class_not_once", `served kata classes without exactly one record: ${missing.join(", ")}`);
+  const classes = Object.keys(served).sort(), missing = classes.filter((c) => lines.filter((l) => l.task_class === c).length !== 1);
+  if (missing.length > 0) no("class_not_once", `served kata classes without exactly one record: ${missing.join(", ")}`);
+  if (classes.join() !== [...pinned].sort().join()) no("served_not_pinned", `served after ${releaseDir}: ${classes.join(", ") || "none"}; pinned in COMMITTED_TABLES: ${[...pinned].sort().join(", ") || "none"}`);
+  return lines.length > 0 ? lines : no("no_kata_table", `no kata table is served after ${releaseDir} and no record is given: no line`);
 }
 
 /** render(existing, lines) -> the new file text: existing (bytes or null) re-read, the lines added, sorted by (t_e, task_class). */
 export function render(existing, lines) {
   const order = (a, b) => (a.t_e === b.t_e ? (a.task_class < b.task_class ? -1 : a.task_class > b.task_class ? 1 : 0) : a.t_e < b.t_e ? -1 : 1);
   const text = (all) => `[\n${[...all].sort(order).map(canonicalJson).join(",\n")}\n]\n`, old = existing === null ? [] : parse(existing, HISTORY_REL);
-  if ((!Array.isArray(old) || old.length === 0) ? existing !== null : text(old.map(checkLine)) !== Buffer.from(existing).toString("utf8")) no("history_invalid", `${HISTORY_REL} is not its canonical writing`);
-  const twice = lines.find((l) => old.some((o) => o.release_dir === l.release_dir && o.task_class === l.task_class));
-  return twice ? no("pair_written", `${twice.release_dir} ${twice.task_class} is already in the history`) : text([...old, ...lines]);
+  const clash = (all) => all.find((l, i) => all.findIndex((o) => o.release_dir === l.release_dir && (o.task_class === l.task_class || COMMON.some((k) => o[k] !== l[k]))) !== i);
+  if (existing !== null && (!Array.isArray(old) || old.length === 0 || text(old.map(checkLine)) !== Buffer.from(existing).toString("utf8") || clash(old))) no("history_invalid", `${HISTORY_REL} is not its canonical writing, or a deployment's lines differ`);
+  const twice = clash([...old, ...lines]);
+  return twice ? no("pair_written", `${twice.release_dir} ${twice.task_class} is already in the history, or its deployment has other common fields`) : text([...old, ...lines]);
 }
 
-/** mergeInstant(root, sha) -> the UTC second of the merge commit sha (two parents or more), read from git; checkLine takes a full sha only. */
-export function mergeInstant(root, commit) {
-  const [, at, ...parents] = execFileSync("git", ["-C", root, "show", "-s", "--format=%H %ct %P", `${commit}^{commit}`], { encoding: "utf8" }).trim().split(" ");
-  if (parents.length < 2) no("not_a_merge", `${commit} is not a merge commit`);
-  return new Date(Number(at) * 1000).toISOString().replace(".000Z", "Z");
+/** mergeInstant(root, sha, releaseDir) -> T_e, the committer date (UTC second) of the merge commit sha that brings spec/<releaseDir>. */
+export function mergeInstant(root, commit, releaseDir) {
+  const git = (...a) => spawnSync("git", ["-C", root, ...a], { encoding: "utf8", env: Object.fromEntries(Object.entries(process.env).filter(([k]) => !k.startsWith("GIT_"))) });
+  const read = (_repo, id) => {
+    const r = git("log", "-1", "--format=%H %cI %P", "--end-of-options", `${id}^{commit}`), [own, ...rest] = String(r.stdout).trim().split(" ");
+    if (r.status !== 0 || own !== id) throw new Error(`${id} is not the id of a commit (${String(r.stderr).trim() || `git reads ${String(own)}`})`);
+    return rest.join(" ");
+  };
+  const tE = via("not_a_merge", () => instant("T_e", { commit, repo: root }, { git: read }));
+  const has = (rev) => git("cat-file", "-e", "--end-of-options", `${rev}:spec/${releaseDir}`).status === 0;
+  return has(commit) && !has(`${commit}^1`) ? tE : no("merge_not_release", `${commit} does not bring spec/${releaseDir} (in it, absent from its first parent)`);
 }
 
-export function main(argv) {
+export async function main(argv, io = {}) {
   const a = { root: ".", probe: [] };
   for (let i = 0; i < argv.length; i += 2) {
     const k = argv[i]?.replace(/^--/, ""), v = argv[i + 1];
@@ -93,9 +114,11 @@ export function main(argv) {
   }
   if (!a["release-dir"] || !a["merge-commit"] || !a.ca || a.probe.length === 0) { console.error("usage: --release-dir, --merge-commit, --ca and --probe are required"); return 2; }
   try {
-    const lines = compose({ root: a.root, releaseDir: a["release-dir"], mergeCommit: a["merge-commit"], tE: mergeInstant(a.root, a["merge-commit"]), caBytes: readFileSync(a.ca), probes: a.probe.map((p) => ({ name: p, bytes: readFileSync(p) })) });
+    const pinned = Object.keys((await import(io.pins ?? PINS)).COMMITTED_TABLES); // until the loader lands, PINS is absent: refused
+    const tE = mergeInstant(a.root, a["merge-commit"], a["release-dir"]);
+    const lines = compose({ root: a.root, releaseDir: a["release-dir"], mergeCommit: a["merge-commit"], tE, caBytes: readFileSync(a.ca), probes: a.probe.map((p) => ({ name: p, bytes: readFileSync(p) })), pinned });
     const out = join(a.root, HISTORY_REL), text = render(existsSync(out) ? readFileSync(out) : null, lines);
-    mkdirSync(dirname(out), { recursive: true }); writeFileSync(`${out}.tmp`, text); renameSync(`${out}.tmp`, out);
+    mkdirSync(dirname(out), { recursive: true }); writeAtomic(out, text);
     console.log(`served-history OK: ${lines.length} line(s) for ${a["release-dir"]} -> ${HISTORY_REL}`);
     return 0;
   } catch (e) {
@@ -104,4 +127,4 @@ export function main(argv) {
   }
 }
 
-if (import.meta.main !== false) process.exitCode = main(process.argv.slice(2)); // as scripts/retire-latency.mjs: a launch runs main, an import none
+if (import.meta.main !== false) process.exitCode = await main(process.argv.slice(2)); // as scripts/retire-probe.mjs: a launch runs main, an import none
