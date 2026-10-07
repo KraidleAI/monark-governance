@@ -115,7 +115,11 @@ Les titres de `98062148` (« Merge lot/etude-suite into killer-ops-1 ») et de `
    connexion à zéro ; sans écouteur, le test mourait d'une `ECONNRESET` non interceptée au délai de 60 s de `runCa`. Avec lui, « chacun
    le rougit par `ERR_ASSERTION` » (section « Fusion du tronc ») et « 5 tués par `ERR_ASSERTION` » (preuves), l.85 et l.124 à
    `d7015204`, valent sous les deux plateformes. Mesuré ici sous Linux seulement ; le rejeu Windows est laissé à MONARK (pas d'hôte
-   Windows chez RECHERCHES).
+   Windows chez RECHERCHES). Conséquence pour la preuve rouge-vert : la l.422 est dans le corps de `verify_harness_bounds_every_request`,
+   que red-proof juge donc ; l'écouteur n'ajoute aucune assertion, le test est vert à la base, et red-proof le refuse « green at base ».
+   C'est une épingle déclarée, prouvée selon la règle de MONARK (`docs/G0-lot-conformal-oracle-tests.md`, Q-1) : red-proof refuse
+   exactement ce test-là comme « green at base » et rien d'autre ; son tueur `:183` est tué par assertion sous
+   `scripts/mutants/run.mjs --killers` (voir les preuves).
 
 ## Tueurs
 
@@ -158,3 +162,23 @@ Les titres de `98062148` (« Merge lot/etude-suite into killer-ops-1 ») et de `
     red-proof-support, mutants-run, ci-gates, verify-harness-liq) : 226 tests, 223 verts, 3 sautés (corpus hôte absent), 0 rouge.
   - `tsc --noEmit`, eslint, lang-gate, gate:vocab, lint-ratchet (69/69), export-public `--check` et winlint : propres.
   - Taille, forme de la CI (`591b3a30...HEAD`) : 8 fichiers, +87 −33, soit 120 lignes, sous 547.
+- Après le pli de la G2 ciblée, mesuré à `a171a0a3` (le tronc `dd9ef99d` n'est pas fusionné ; base de fusion `591b3a30`).
+  - Garde verte sur 1 569 lignes `// killer:`. Sur le tronc `dd9ef99d` avec le diff de cette PR posé sans commit : verte sur 1 570, et
+    `test/sentinel-no-kata-key.test.ts` (#232) vert. Sur la tête de #221 (`76f053eb`) avec le même diff : 9/9 verts, 1 579 lignes.
+    `verifie-ancres` (`coordination/pieces/2026-10-04-fusion-sequence-CM-2/verifie-ancres.mjs`) sur l'arbre : 1 569 tueurs, 1 569
+    ANCRE, 0 DERIVE, 0 PERDU.
+  - Mutations tirées seules sur la garde (`fire2.mjs`, restauration vérifiée par sha256 `adb6a6e6…`), avec la ligne où tombe l'échec :
+    `:33` en l.33 ; `:60`, `:56` (`..`) et `:57` en l.43 ; `:56` (regex de chemin) et `:324` (`import type`) en l.57 ; `:61` en l.63 ;
+    l'export retiré en l.30 ; la dérive COR en l.71, le balayage. La retouche de l'en-tête (l.3, « // » → « //  ») laisse la garde
+    verte ; avec `:61` en plus, l'échec tombe en l.63, sur la sonde et non sur le balayage.
+  - `test/verify-harness-liq.test.ts`, l'écouteur posé : les cinq tueurs réancrés, tirés seuls sur leur test, sont tués par
+    `ERR_ASSERTION` sous Linux (`:183` en l.427 : `r.code` vaut `null` au lieu de 1) ; sans mutation, 10/10 verts.
+  - `scripts/mutants/run.mjs --repo <arbre> --base 591b3a30 --killers --only K23,K24,K25,K26,K27,K28,K29,K144,K145,K146,K148,K150` (les
+    sept tueurs de la garde et les cinq réancrés) : 12 tués sur 12 par assertion, témoin vert (219 tests), restaurations OK ; `:183`
+    (K148) en 60,8 s. `RESULTS.json` : sha256 `9f30f85c…`, gel `a171a0a3`, propre.
+  - red-proof `--base 591b3a30 --draw 1 --seed 1` : 2 jugés. La garde est F2P (base `assert-fail`, gel `pass`), son tueur `:33` tiré est
+    tué par assertion ; `verify_harness_bounds_every_request` est refusé « green at base », l'épingle déclarée ci-dessus, et rien
+    d'autre ; 124 inchangés. Sortie 1 pour ce seul refus attendu. `RED-PROOF.json` : sha256 `0a9500ae…`.
+  - Tests touchés et voisins (les 10 fichiers ci-dessus) : 226 tests, 223 verts, 3 sautés (corpus hôte absent), 0 rouge.
+  - `tsc --noEmit`, eslint, lang-gate, gate:vocab, lint-ratchet (69/69), export-public `--check` et winlint : propres.
+  - Taille, forme de la CI (`dd9ef99d...HEAD`, soit depuis la base de fusion `591b3a30`) : 8 fichiers, +106 −34, soit 140 lignes, sous 547.
