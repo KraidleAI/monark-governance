@@ -1484,13 +1484,13 @@ Expected: no `FAILED`; `LoadState=loaded` twice, both `FragmentPath` under `/etc
 accepted, each next elapse at hh:30 UTC. Never `systemctl edit`; the timer is enabled at (5) only. Rollback:
 `ssh -i ~/.ssh/monark_vps root@bell.monarkgate.tech 'rm /etc/systemd/system/monark-dojo-probe.* && systemctl daemon-reload'`.
 
-(4) One start, simulated by a transient job with the unit's user and sandbox and WITHOUT the mail file (a healthy start mails
-nothing), its record a scratch file beside the production one, printed then removed; `--collect` leaves no failed transient unit
-behind (item PROBE-SIM-UNIT-1 of `docs/RUNBOOK-bell.md`):
+(4) One start, simulated by a transient job with the unit's user and sandbox, Bell's key directory masked as in the unit, and
+WITHOUT the mail file (a healthy start mails nothing), its record a scratch file beside the production one, printed then removed;
+`--collect` leaves no failed transient unit behind (item PROBE-SIM-UNIT-1 of `docs/RUNBOOK-bell.md`):
 
 ```bash
 ssh -i ~/.ssh/monark_vps root@bell.monarkgate.tech 'S="-p ProtectSystem=strict -p ProtectHome=true -p PrivateTmp=true -p NoNewPrivileges=true
--p ReadWritePaths=/var/lib/monark-probe -p CPUQuota=25% -p MemoryMax=640M -p TasksMax=64 -p WorkingDirectory=/opt/monark-dojo-probe" &&
+-p ReadWritePaths=/var/lib/monark-probe -p InaccessiblePaths=/etc/monark/bell -p CPUQuota=25% -p MemoryMax=640M -p TasksMax=64 -p WorkingDirectory=/opt/monark-dojo-probe" &&
 C="/usr/bin/env node /opt/monark-dojo-probe/scripts/probe-dojo-live.mjs --out /var/lib/monark-probe/dojo-live-sim.json" &&
 systemd-run --wait --pipe --collect --uid=probe --gid=probe $S $C > /dev/null; echo sim_exit=$?;
 cat /var/lib/monark-probe/dojo-live-sim.json; rm -f /var/lib/monark-probe/dojo-live-sim.json'
@@ -1498,7 +1498,9 @@ cat /var/lib/monark-probe/dojo-live-sim.json; rm -f /var/lib/monark-probe/dojo-l
 
 Expected: `sim_exit=0`, then the record: `"status": "healthy"`, `"reason": null`, `"no_store": true`, both `cf_cache_status_*` `null`
 (no edge, DOJO-EDGE-CACHE-1), `"verifier_exit": 0`, `"head_day"` the day of the served head (JOURNAL: the record). **STOP** on any
-other output: its `reason`, `side` and `verifier_reason` name the fault (the header of the probe); escalation, no timer.
+other output: its `reason`, `side` and `verifier_reason` name the fault (the header of the probe); escalation, no timer. On a host
+without `/etc/monark/bell` (Bell's key directory, made by step 3 of `docs/RUNBOOK-bell.md` on Bell's host), the job fails before the
+probe runs: `sim_exit=226` (`EXIT_NAMESPACE`, systemd.exec(5)) and no record; **STOP**: the committed unit does not run on that host.
 
 (4b) The mail path, proven before the timer, and again by (9) after a change of `SMTP_PASS` (the form of section 2 of the probe's
 deployment in `docs/RUNBOOK-sentinel.md`): one start simulated as in (4), forced unhealthy (`--now` two days ahead: `lag`), its record a
@@ -1509,7 +1511,7 @@ address already configured in the mail file (`ALERT_TO`) and to no other; it is 
 
 ```bash
 ssh -i ~/.ssh/monark_vps root@bell.monarkgate.tech 'rm -f /var/lib/monark-probe/dojo-live-mail.json && S="-p ProtectSystem=strict -p ProtectHome=true -p PrivateTmp=true -p NoNewPrivileges=true
--p ReadWritePaths=/var/lib/monark-probe -p CPUQuota=25% -p MemoryMax=640M -p TasksMax=64 -p WorkingDirectory=/opt/monark-dojo-probe" &&
+-p ReadWritePaths=/var/lib/monark-probe -p InaccessiblePaths=/etc/monark/bell -p CPUQuota=25% -p MemoryMax=640M -p TasksMax=64 -p WorkingDirectory=/opt/monark-dojo-probe" &&
 N=$(date -u -d "+2 days" +%Y-%m-%dT12:00:00Z) &&
 C="/usr/bin/env node /opt/monark-dojo-probe/scripts/probe-dojo-live.mjs --now $N --out /var/lib/monark-probe/dojo-live-mail.json" &&
 systemd-run --wait --pipe --collect --uid=probe --gid=probe $S -p EnvironmentFile=/etc/monark/probe.env -p UnsetEnvironment=SMTP_PASS $C > /dev/null;
