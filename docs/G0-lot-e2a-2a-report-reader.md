@@ -1,9 +1,10 @@
 # G0 du lot 2a de VERIFIERS-LIST-F5A-1 (E-2a) : le lecteur fermé du rapport de recalcul, `readRecomputeReport`, sur des rapports de synthèse de forme neuve
 
-RECHERCHES, 2026-10-07. Base `12588884` (tête du lot 1f au pli de sa seconde G2, `recherches/verifiers-list-1f`, PR #231, brouillon ;
-`12588884d6a7f7d259ff3bd3ec86d1ddc636e85b`, lue par `git fetch +refs/heads/recherches/verifiers-list-1f:refs/remotes/origin/recherches/verifiers-list-1f`),
-fusionnée sans conflit par `6fea7076` à 12:46 UTC (même arbre qu'une première fusion de 12:29 UTC, refaite avant tout envoi pour porter
-la ligne d'attribution ; bases d'avant : `6c53e0a1`, fusionnée par `20e2f213` à 10:53 UTC ; `b894a587`).
+RECHERCHES, 2026-10-07. Base `c601290b` (tête du lot 1f après la réécriture de son §6, `recherches/verifiers-list-1f`, PR #231, brouillon ;
+`c601290b0e2ed283e08a1eda5dff5260182534fc`, lue par `git fetch +refs/heads/recherches/verifiers-list-1f:refs/remotes/origin/recherches/verifiers-list-1f`),
+fusionnée sans conflit par `57bae562` à 14:00 UTC ; bases d'avant : `12588884`, fusionnée par `6fea7076` à 12:46 UTC (même arbre qu'une
+première fusion de 12:29 UTC, refaite avant tout envoi pour porter la ligne d'attribution) ; `6c53e0a1`, fusionnée par `20e2f213` à
+10:53 UTC ; `b894a587`.
 Ce lot est **empilé sur 1f** et sera rebasé avec lui quand l'outil figé de MONARK fusionnera. Chantier : `docs/G0-lot-verifiers-list-f5a-1.md` §3.3 et §5 partie 2 (amendée ici, §2).
 
 - **Demande** : G0 court d'E-2a v6.1 (`recherches:coordination/pieces/2026-10-07-e2a-g0-v4/G0-lot-e2a-loader-wave1.md`), §5 ligne 2a,
@@ -24,6 +25,9 @@ Ce lot est **empilé sur 1f** et sera rebasé avec lui quand l'outil figé de MO
     (`node_modules` lié en dur puis retiré, ni `GIT_DIR`, ni `GIT_WORK_TREE`, ni `--write-tree`). Node 24.21.0, Linux ; CPython 3.14.0rc2
     sous `-E -S -s -B` pour les mesures du §4 (seule version 3.14 ici : le « 3.14.8 » de la première écriture de la l.15 était faux,
     observation 7 de la G2 ; il ne reste que dans la plateforme inventée de la synthèse).
+  - **Fusion de la réécriture du §6 de 1f** (`c601290b`, décision de MONARK `29f8ea9`) : même worker, même session ; horloge lue
+    (`date -u`) à 14:02 UTC après la fusion (`57bae562`, 14:00 UTC), 14:03 UTC pour ce G0. La fusion n'apporte que le G0 de 1f : aucune
+    ligne de code ne bouge, donc ni tueur ni citation de ce G0 ne se déplace, et le digest du gel ne change pas (§6).
 - **Zone** : `apps/harness/src/policy-verifiers.ts` (ajout en fin de fichier, aucune ligne de 1f déplacée : les tueurs de 1f, l.18 à
   l.115, restent à leur ligne), `test/recompute-report.test.ts` (neuf), `docs/G0-lot-verifiers-list-f5a-1.md` (amendement sur place,
   nombre de lignes inchangé), ce G0. Pli N-6 (MONARK, `recherches` `8ac6bd6`) : `registry` sans `file`. Pli de la G2 : les mêmes
@@ -195,6 +199,17 @@ a1) porte trois contrôles sur le rapport réel ; la G2 de RECHERCHES les relit.
   `lang:gate` 0 ; `gate:vocab` 0 (349 fichiers) ; `lint:ratchet` 69/69 ; `export:check` 0 ; winlint `--base 12588884` : 4 fichiers,
   aucun risque Windows ; `verifie-ancres.mjs` (`--ref e0bfe0f4 --ref 12588884`) : 6 tueurs de ce lot, 20 dans les fichiers de test de la
   pile, 1 535 dans l'arbre, aucun PERDU ni DERIVE.
+- **Après la fusion de la réécriture du §6 de 1f** (gel `57bae5628961267e4e5f80b95b2f0f8155ae0df0`) : `node scripts/red-proof.mjs --base
+  c601290b0e2ed283e08a1eda5dff5260182534fc --gel HEAD --repo <worktree> --out <dossier> --draw 6 --seed 1007`, Node 24.21.0, Linux :
+  sortie 0, « red-proof OK: 6 judged, 0 unchanged, 6 killer(s) drawn », les six F2P et les six tueurs tués comme ci-dessus ; digest du gel
+  `a816b71b…`, le même ; `RED-PROOF.json` sha256 `70db0e5a828f47c39123695b9511cc2d5a661fd6c08d66a58d675a6c96bb72db`. Voisins : 174 tests,
+  173 verts, seul rouge le témoin de 1f ; portes : `tsc --noEmit` 0, `eslint` des trois fichiers TypeScript 0, `lang:gate` 0,
+  `gate:vocab` 0, `lint:ratchet` 69/69, `export:check` 0, winlint `--base c601290b` 4 fichiers sans risque Windows, `verifie-ancres.mjs`
+  (`--ref 89e76c44 --ref c601290b`) 6 tueurs de ce lot et 1 535 dans l'arbre, aucun PERDU ni DERIVE ; taille contre `c601290b` : 2
+  fichiers, 275 insertions.
+- **CI du pli** (run `37632575842`, `pull_request`, tête `89e76c44`) : six contrôles sur sept verts ; `g3-verification` rouge par le seul
+  `verifier_list_commit_carries_the_listed_tree` (2 847 tests, 2 824 verts, 22 sautés, un rouge, le témoin de 1f) ; R-25 en mode
+  `written` : 275 (borne 1 205).
 - **red-proof, après la fusion du second pli de 1f** (gel `6fea707667188f1b144afde18fdf07143828d422`, tueurs inchangés) contre la
   tête de 1f : `node scripts/red-proof.mjs --base 12588884d6a7f7d259ff3bd3ec86d1ddc636e85b --gel HEAD --repo <worktree> --out
   <dossier> --draw 4 --seed 1007`, Node 24.21.0, Linux : sortie 0, « red-proof OK: 4 judged, 0 unchanged, 4 killer(s) drawn » ;
