@@ -33,7 +33,7 @@ import {
 export const metadata: Metadata = {
   title: "Bell · MONARK",
   description:
-    "MONARK Bell: a public, signed record of how tokenized U.S. equities trade on a public ledger while U.S. markets are closed, served on its own host. A gap per session when its closing price can be read, a named abstention when it cannot, a signed and hash-chained timeline. Never a score, never a probability of being right.",
+    "MONARK Bell: a public, signed record of how tokenized U.S. equities trade on a public ledger while U.S. markets are closed, served from a MONARK host that also runs the Dōjō and a Narabi probe. A gap per session when its closing price can be read, a named abstention when it cannot, a signed and hash-chained timeline. Never a score, never a probability of being right.",
   icons: { icon: [{ url: "/icons/bell.svg", type: "image/svg+xml" }] },
 };
 
