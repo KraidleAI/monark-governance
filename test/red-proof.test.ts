@@ -545,7 +545,7 @@ test("red_proof_test_only_reads_the_declaration_only_on_a_line_of_its_own", () =
 const section = (tap: string, file: string): string => new RegExp(`# red-proof file: ${file.replace(/[\\^$.*+?()[\]{}|]/g, "\\$&")}\\n((?:(?!# red-proof file:)[^])*)`).exec(tap)?.[1] ?? "";
 
 // CodeQL alert 43: the file name is a literal of the section header, every regex metacharacter escaped, not the dot alone.
-// killer: test/red-proof.test.ts:545 CONST "/[\\\\^$.*+?()[\\]{}|]/g, \"\\\\$&\"" -> "/\\./g, \"\\\\.\""
+// Not a killer, test code (red-proof and mutants mutate production code only): test/red-proof.test.ts:545 CONST "/[\\\\^$.*+?()[\\]{}|]/g, \"\\\\$&\"" -> "/\\./g, \"\\\\.\""
 test("red_proof_tap_section_reads_a_file_name_with_regex_metacharacters_literally", () => {
   const tap = ["a+b(1)", "ab1", "[x]", "x"].map((n) => `# red-proof file: test/${n}.test.ts\nok 1 - ${n}\n`).join("");
   assert.deepEqual(["a+b(1)", "ab1", "[x]", "x"].map((n) => section(tap, `test/${n}.test.ts`)), ["ok 1 - a+b(1)\n", "ok 1 - ab1\n", "ok 1 - [x]\n", "ok 1 - x\n"]);

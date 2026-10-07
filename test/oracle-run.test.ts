@@ -249,7 +249,7 @@ test("oracle_refuses_an_incomplete_same_key_record — a record without pid, or 
 }));
 
 test("oracle_record_not_written_is_a_refusal — a gate turns the record path into a directory (BRK) => exit 2, no oracle-result line, no record (C-G2-7)", () => withFx((fx) => {
-  // killer: scripts/oracle/run.mjs:69 SDL "refuse(`record not written" -> "throw e; refuse(`record not written"
+  // killer: scripts/oracle/run.mjs:69 CONST "refuse(`record not written" -> "throw e; refuse(`record not written"
   writeFileSync(join(fx.repo, "BRK"), "x\n");
   const a = oracle(fx, ["--role", "G1", "--static-only"]);
   assert.deepEqual([a.status, a.file], [2, ""], a.out);
@@ -294,7 +294,7 @@ test("oracle_lock_never_takes_a_live_or_unknown_owner — owner.txt JSON of this
 }));
 
 test("oracle_r25_over_the_ci_bound_is_red — insertions + deletions against VIBEGATES_PR_LIMIT 5, equality green (-gt): 3 + 2 = 5 green, 3 + 3 = 6 red, 15 + 3 red (3 committed + 2 tracked-dirty + 10 untracked); same R25_DIFF_RE as test 38 (M11, M13, X6, X7)", () => withFx((fx) => {
-  // killer: scripts/oracle/r25.mjs:31 SDL "changed: ins + del," -> "changed: ins,"
+  // killer: scripts/oracle/r25.mjs:31 CONST "changed: ins + del," -> "changed: ins,"
   // killer: scripts/oracle/r25.mjs:35 ROR "c.changed > c.limit" -> "c.changed >= c.limit"
   for (const [text, del, exit] of [["a\n", 2, 0], ["", 3, 1]] as const) {
     writeFileSync(join(fx.repo, "base.txt"), text);

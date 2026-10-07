@@ -81,11 +81,11 @@ const rowsIn = (html: string): string[][] => [...(html.split("<tbody>")[1] ?? ""
 
 // CodeQL alert 41: one regex pass that drops tags swallows text in silence on malformed markup. React escapes < > & in text and in
 // attributes, so a stray < or >, or a bare &, is markup it never writes: textOf refuses it, never reads it.
-// killer: test/dojo-render.test.ts:76 SDL ": /^[<>]$/.test(t) ? assert.fail(" -> ""
+// Not a killer, test code (red-proof and mutants mutate production code only): test/dojo-render.test.ts:76 SDL ": /^[<>]$/.test(t) ? assert.fail(" -> ""
 test("dojo_render_text_of_refuses_markup_react_never_writes", () => {
   for (const bad of ["<td>a<b</td>", "a>b", "<p>x&y</p>"]) assert.throws(() => textOf(bad), /textOf/, bad);
 });
-// killer: test/dojo-render.test.ts:74 CONST "\"&amp;\": \"&\"" -> "\"&amp;\": \"&amp;\""
+// Not a killer, test code (red-proof and mutants mutate production code only): test/dojo-render.test.ts:74 CONST "\"&amp;\": \"&\"" -> "\"&amp;\": \"&amp;\""
 test("dojo_render_text_of_reads_back_any_text_react_renders", () => {
   for (const s of [`a<b>&"'`, "&amp;lt;", "</td><script>x</script>", "<!-- c -->", "&#x27;&quot;", ""])
     assert.equal(textOf(renderToStaticMarkup(createElement("td", { title: s }, s))), s, s);
@@ -386,7 +386,7 @@ test("dojo_page_reads_a_local_root_on_the_server_at_build_only", async () => {
 /** A JavaScript string literal of `s`, each UTF-16 unit written as a \u escape: the module source holds no quote, backslash, angle
  *  bracket or line terminator of `s` (CodeQL alert 44: the literal is built closed, not sanitized after the fact). */
 const jsLiteral = (s: string): string => `"${s.split("").map((c) => `\\u${c.charCodeAt(0).toString(16).padStart(4, "0")}`).join("")}"`;
-// killer: test/dojo-render.test.ts:388 CONST "c.charCodeAt(0).toString(16).padStart(4, \"0\")" -> "c.charCodeAt(0).toString(16)"
+// Not a killer, test code (red-proof and mutants mutate production code only): test/dojo-render.test.ts:388 CONST "c.charCodeAt(0).toString(16).padStart(4, \"0\")" -> "c.charCodeAt(0).toString(16)"
 test("dojo_render_header_stub_writes_any_pathname_as_a_closed_literal", async () => {
   const dir = temp("dojo-render-literal-");
   for (const [i, s] of ["/dojo", "/", '"); throw 1; ("', "</script><!--", "a\\b`${x}`", "\u2028\u2029\n\r", "\ud800", "\u00e9/\u6f22"].entries()) {
