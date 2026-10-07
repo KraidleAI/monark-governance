@@ -36,7 +36,7 @@ function admit<T>(f: () => T, what: string): T {
 
 // reddened by: a step heading that names another instant than the script's, a step out of the order of INSTANTS, or one missing, or
 // a merge of the harness pull request not said to follow the publication (T_d before T_e)
-// killer: docs/RUNBOOK-harness.md:370 CONST "(T_e)" -> "(T_f)"
+// killer: docs/RUNBOOK-harness.md:372 CONST "(T_e)" -> "(T_f)"
 test("runbook_retire_steps_carry_the_seven_instants_in_order", () => {
   const steps = [...section().matchAll(/^### (\d+)\. .*\((T_[a-z])\)$/gm)].map((m) => [Number(m[1]), m[2] ?? ""]);
   assert.deepEqual(steps, INSTANTS.map(([name], i) => [i + 1, name]), "steps 1 to 7 carry T_a to T_g, in the order of scripts/retire-latency.mjs");
@@ -45,8 +45,9 @@ test("runbook_retire_steps_carry_the_seven_instants_in_order", () => {
 });
 
 // reddened by: the input shown off the closed format retire-latency-v1 (its format, a key, the cycle, an instant name or their
-// order), or a second input shown, or a refusal of the report or its exit codes cited otherwise than the script names and returns them
-// killer: docs/RUNBOOK-harness.md:411 CONST "\"format\": \"retire-latency-v1\"" -> "\"format\": \"retire-latency-v2\""
+// order), or a second input shown, or a refusal of the report or its exit codes cited otherwise than the script names and returns them,
+// or an Exit 1 list that is not the set of refusal codes of the script (a code missing, renamed or added; G2 of #223, m-2)
+// killer: docs/RUNBOOK-harness.md:414 CONST "\"format\": \"retire-latency-v1\"" -> "\"format\": \"retire-latency-v2\""
 test("runbook_retire_shows_the_closed_latency_input", () => {
   const blocks = [...section().matchAll(/```json\n([\s\S]*?)```/g)].map((m) => admit(() => JSON.parse(m[1] ?? "") as { instants: Record<string, string> }, "the input shown parses"));
   assert.equal(blocks.length, 1, "one input is shown");
@@ -56,6 +57,9 @@ test("runbook_retire_shows_the_closed_latency_input", () => {
   const text = section().replace(/\s+/g, " "), codes = new Set([...read("scripts", "retire-latency.mjs").matchAll(/no\("(\w+)"/g)].map((m) => m[1] ?? ""));
   assert.deepEqual([...codes].filter((c) => !text.includes(`\`${c}\``)), [], "every refusal of the report is cited by its name");
   assert.ok(text.includes("Exit 1 names the refusal: `format_invalid`") && text.includes("Exit 2: usage (l.62)"), "the exit codes of the report are cited");
+  const from = text.indexOf("Exit 1 names the refusal:"), exit1 = text.slice(from, text.indexOf(" (l.", from));
+  assert.deepEqual([...exit1.matchAll(/`(\w+)`/g)].map((m) => m[1] ?? "").sort(), [...codes].sort(), "the Exit 1 list is the set of refusal codes of the script");
+  assert.ok(!(codes.has("instant_out_of_cycle") && text.includes("AFTER #218")), "once the script raises instant_out_of_cycle, the note on #218 is no longer in the future tense");
   assert.deepEqual([latencyMain([]), latencyMain([join(ROOT, "docs", "no-such-instants.json")])], [2, 1], "usage exits 2, a refusal 1");
 });
 
@@ -82,18 +86,23 @@ test("runbook_retire_quotes_the_writer_the_report_and_the_publication_gate", asy
   assert.ok(versionDir(a.release.replace("<YYYY-MM-DD>", "2027-01-04")), "the release names a dated table version as spec-publish reads one");
 });
 
-// reddened by: a redo command whose path is not the dated directory (a wider scope, spec/ or the tree), or a second git rm -r
-// killer: docs/RUNBOOK-harness.md:441 CONST "git rm -r -- spec/contract-1.1.0-tables-<YYYY-MM-DD>`" -> "git rm -r -- spec/`"
+// reddened by: a redo command whose path is not the dated directory (a wider scope, spec/ or the tree), a git clean, rm or restore
+// written with no scope at all (the counter-example `git rm -r -f` alone excepted, by name), a git clean without -d, or a second form
+// of git rm (G2 of #223, m-3)
+// killer: docs/RUNBOOK-harness.md:445 CONST "`git clean -f -d -- spec/contract-1.1.0-tables-<YYYY-MM-DD>/`" -> "`git clean -f -d`"
 test("runbook_retire_redo_removes_the_dated_directory_only", () => {
   const dir = `spec/${datedDir("2027-01-04").replace("2027-01-04", "<YYYY-MM-DD>")}`, text = section().replace(/\s+/g, " ");
   const scoped = [...text.matchAll(/`(git [a-z]+ [^`]*?) -- ([^`]*)`/g)].map((m): [string, string] => [m[1] ?? "", m[2] ?? ""]);
   assert.deepEqual(scoped.filter(([, path]) => path !== dir && path !== `${dir}/`), [], `every redo command is scoped to ${dir}`);
-  assert.deepEqual(scoped.filter(([cmd]) => cmd.startsWith("git rm")).map(([cmd]) => cmd), ["git rm -r"], "one git rm -r, on the dated directory");
+  const redo = [...text.matchAll(/`(git (?:clean|rm|restore)\b[^`]*)`/g)].map((m) => m[1] ?? "").filter((c) => c !== "git rm -r -f");
+  assert.deepEqual(redo.filter((c) => !c.endsWith(` -- ${dir}`) && !c.endsWith(` -- ${dir}/`)), [], "every git clean, rm or restore cited ends on the dated directory");
+  assert.deepEqual(redo.filter((c) => c.startsWith("git clean") && !/ -d\b/.test(c)), [], "every git clean carries -d");
+  assert.deepEqual([...new Set(redo.filter((c) => c.startsWith("git rm")))], [`git rm -r -- ${dir}`], "one form of git rm, on the dated directory");
 });
 
 // reddened by: a refusal of the publication gate cited under a name that scripts/spec-publish.mjs does not raise, or the usage exit of
 // the writer cited otherwise than it returns it
-// killer: docs/RUNBOOK-harness.md:364 CONST "`short_digest`" -> "`short_digests`"
+// killer: docs/RUNBOOK-harness.md:366 CONST "`short_digest`" -> "`short_digests`"
 test("runbook_retire_cites_the_refusals_of_the_gate_and_the_writer", async () => {
   const text = section().replace(/\s+/g, " "), gate = read("scripts", "spec-publish.mjs");
   const from = text.indexOf("Every refusal is named by its code"), cited = text.slice(from, text.indexOf("### 5.", from));
@@ -102,4 +111,50 @@ test("runbook_retire_cites_the_refusals_of_the_gate_and_the_writer", async () =>
   assert.deepEqual(names.filter((n) => !gate.includes(`"${n}"`)), [], "each refusal cited is raised by scripts/spec-publish.mjs");
   assert.ok(text.includes("`--check --date` is a usage error, exit 2"), "the writer's usage exit is cited");
   assert.equal(await writerMain(["--check", "--date", "2027-01-04"]), 2, "--check --date exits 2");
+});
+
+// G2 of #223, m-1: the notes N-1 to N-4 of this lot are pinned against the code they describe. Each test reads its expected value in
+// the code (or in .gitattributes) and holds on every sentence of the section that makes the claim: the base text, which makes none,
+// passes as is; a sentence of the lot turned against the code reddens it.
+
+// reddened by: a clock refusal cited on the wrong side of the server clock, as kata-path.ts (stale) and tools/gate.ts (future) test it,
+// or one of the two cited without the other
+// killer: docs/RUNBOOK-harness.md:400 CONST "in the past is `produced_at_stale`" -> "in the past is `produced_at_future`"
+test("runbook_retire_clock_refusals_face_the_way_the_code_tests_them", () => {
+  const sideOf = (src: string, code: string): string => {
+    const i = src.indexOf(`"${code}"`), cond = i < 0 ? "" : src.slice(src.lastIndexOf("if (", i), i);
+    return /nowMs - at >/.test(cond) ? "past" : /at > nowMs \+/.test(cond) ? "future" : "unread";
+  };
+  const side: Record<string, string> = { produced_at_stale: sideOf(read("apps", "harness", "src", "kata-path.ts"), "produced_at_stale"), produced_at_future: sideOf(read("apps", "harness", "src", "tools", "gate.ts"), "produced_at_future") };
+  assert.deepEqual({ ...side }, { produced_at_stale: "past", produced_at_future: "future" }, "the code tests a stale produced_at in the past, a future one in the future");
+  const text = section().replace(/\s+/g, " "), said = [...text.matchAll(/in the (past|future) is `(produced_at_\w+)`/g)].map((m) => [m[2] ?? "", m[1] ?? ""]);
+  assert.deepEqual(said.filter(([code, s]) => side[code ?? ""] !== s), [], "each clock refusal is cited on the side the code tests");
+  assert.ok(said.length === 0 || said.length === 2, "the two clock refusals are cited together, or neither");
+});
+
+// reddened by: a reason said to be tested before another while kata-path.ts tests it after, or a reason the scale path does not return
+// killer: docs/RUNBOOK-harness.md:404 CONST "`out_of_support` (`kata-path.ts` l.93)" -> "`calib_retired` (`kata-path.ts` l.93)"
+test("runbook_retire_support_precedes_retired_as_kata_path_tests_it", () => {
+  const src = read("apps", "harness", "src", "kata-path.ts"), scale = src.slice(src.indexOf("const s = row.calib_support"));
+  const at: Record<string, number> = { out_of_support: scale.indexOf('reason: "out_of_support"'), calib_retired: scale.indexOf("reason: calib }") };
+  assert.ok(src.includes('retired: "calib_retired"') && at.out_of_support !== undefined && at.calib_retired !== undefined && at.out_of_support >= 0 && at.out_of_support < at.calib_retired, "kata-path tests the support before the retired status on a scale row");
+  const said = [...section().replace(/\s+/g, " ").matchAll(/`(\w+)` \(`kata-path\.ts` l\.\d+\) is tested before `(\w+)`/g)].map((m) => [m[1] ?? "", m[2] ?? ""]);
+  assert.deepEqual(said.filter(([a, b]) => !((at[a ?? ""] ?? -1) >= 0 && (at[a ?? ""] ?? -1) < (at[b ?? ""] ?? -1))), [], "each order cited is the order of kata-path.ts");
+});
+
+// reddened by: a git command of the section that converts line ends, or the governance tree said to keep LF while .gitattributes no
+// longer forces it
+// killer: docs/RUNBOOK-harness.md:358 CONST "`git -c core.autocrlf=false clone`" -> "`git -c core.autocrlf=true clone`"
+test("runbook_retire_line_ends_follow_the_attributes", () => {
+  const text = section().replace(/\s+/g, " "), attrs = read(".gitattributes").split(/\r?\n/);
+  const git = [...text.matchAll(/`(git [^`]*core\.autocrlf[^`]*)`/g)].map((m) => m[1] ?? "");
+  assert.deepEqual(git.filter((c) => !c.includes("core.autocrlf=false")), [], "every git command that names core.autocrlf turns it off");
+  assert.ok(!text.includes("keeps LF whatever `core.autocrlf`") || attrs.includes("* text=auto eol=lf"), "the governance tree keeps LF by its .gitattributes");
+});
+
+// reddened by: a rebase of the lot branch said anywhere but under "never" (a rebase moves the committer dates T_b and T_c are read on)
+// killer: docs/RUNBOOK-harness.md:380 CONST "never rebase it" -> "rebase it"
+test("runbook_retire_lot_branch_is_never_rebased", () => {
+  const text = section().replace(/\s+/g, " ");
+  assert.deepEqual([...text.matchAll(/\brebase/gi)].map((m) => text.slice(Math.max(0, m.index - 12), m.index + 6)).filter((s) => !s.endsWith("never rebase")), [], "a rebase is cited only as never done");
 });
