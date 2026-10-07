@@ -371,6 +371,64 @@ et RH-5 sont des actes de l'orchestrateur, consignés au JOURNAL.
 
     Il écrit l'entrée `retire-latency-v1` et refuse toute source illisible.
   - Prix : ~150 lignes.
+- **Ligne datée 2026-10-07T06:26:56Z (RECHERCHES, modèle `claude-opus-5-5`, lot RH-1 partie 2, repli de la G2 de #224)** : écarts
+  de construction consignés, et repli.
+  - Écart au §8 : la sonde n'a pas d'option `--class`. La classe (alpha, `n_min`, `h_ms`, plafond de tau) est lue dans le
+    fichier de table daté lui-même, une seule source, celle dont le sha256 est attendu. Elle ajoute `--max-wait`, `--timeout`
+    (borne de tout l'échange, en-têtes et corps) et `--out <fichier>` (écriture par fichier temporaire et renommage, sans
+    redirection du shell : PowerShell 5.1 écrit `>` en UTF-16). `retire-instants` reçoit aussi `--out`.
+  - Le record `retire-probe-v1` porte le verdict de la sonde (`ok`, `problem`), le fichier de table, l'api et son Host ;
+    `received_at` est la lecture d'horloge de l'appel plus un delta monotone. Une case sans ligne courante dans le fichier est
+    refusée (`cell_invalid`).
+  - `retire-instants` : T_g exige un record accepté par la sonde (`ok`, statut 200, digest attendu) ; T_f exige le verdict
+    d'ensemble de `verify-harness` (`recordKind` et `failedOf`, exportés, TLS compris) : `green` pour `real` et
+    `publication`, `green` ou `local` pour `rehearsal`, avec les 15 contrôles de `CHECK_NAMES` ; une horloge T_a est une
+    clôture de trimestre E_k ; T_e est un commit de fusion.
+  - Le test sur une écoute locale exigé ci-dessus est écrit : `node:http` sur 127.0.0.1 (port éphémère), routage par
+    `isJsonMirrorHost` du serveur, transport par défaut `wired()`, cas `not_served`, `cell_mismatch`, `reason_mismatch`, corps
+    tronqué et goutte-à-goutte.
+  - Ce que les tests ne vérifient pas, avec son item : aucun `calib_retired` servi par un hôte réel (acte RH-4 de
+    RETIRE-LATENCY-REHEARSAL-1) ; le cycle `publication` (#218, RETIRE-REAL-CYCLE-SCOPE-1) ; HTTPS de bout en bout
+    (RETIRE-REHEARSAL-STAGING-1, ou le cycle réel d'E-2a). eslint ne voit que les tests : la configuration du dépôt ignore
+    `**/*.mjs` et `**/*.d.mts` (règle préexistante, non changée) ; tsc ne voit que les `.d.mts`.
+- **Ligne datée 2026-10-07T07:39:26Z (RECHERCHES, modèle `claude-opus-5-5`, lot RH-1 parties 2a et 2b, G2 courte de #224 par
+  MONARK)** : les huit m pliés, chacun vérifié à la source avant pli, après fusion du tronc `022c82d1` (#218, #219) par les
+  parties empilées.
+  - Partie 2a (`recherches/rh-1-probe`) : `--timeout` 0 ou au-delà de 2147483647 est une erreur d'usage, sortie 2, comme
+    `verify-harness` ; la valeur du délai total est épinglée (goutte-à-goutte à `--timeout` 300 : entre 290 et 600 ms ; tueur
+    `}, timeoutMs);` → `4 * timeoutMs` tué) ; un `<out>.refused` périmé est retiré à côté d'un record accepté (épinglé), et un
+    refus d'avant tout verdict n'écrit rien (épinglé, et dit au RUNBOOK étape 7).
+  - Partie 2b (`recherches/rh-1-instants`) : en cycle `real` ou `publication`, T_g exige une sonde contre une api `https` hors
+    du bouclage, avec son Host ; une sonde locale ne vaut qu'en répétition, comme une CA locale (test et tueur ; RUNBOOK étape
+    8) ; `problem` est lu (`problem` non nul refusé, l'en-tête dit vrai) ; la garde de longueur de `CHECK_NAMES` est épinglée
+    (15 noms plus un en double, ou plus un inconnu : `source_not_green`), et une entrée de `checks` qui n'est pas un objet
+    rend `source_not_green` au lieu d'un TypeError ; `CHECK_NAMES` est dit un ensemble, pas l'ordre d'une passe (les appels
+    `gate_retired_call` et `gate_future_call` viennent en 7e et 8e), et le test compare des ensembles.
+  - La coupe : les tueurs de `runbook-retire` sont remesurés sur l'arbre de chaque partie ; le test 2 (`"format"`) et le test
+    4 (`git clean -f -d`) sont vifs et tués partout (#223 : :414 et :450 ; 2a : :429 et :465 ; 2b : :429 et :472), avec le
+    test d'encodage (:423, :438, :438).
+  - Correction (2026-10-07T08:47:54Z) : « test et tueur » ci-dessus surestimait l'épingle. Le cas http du test était en
+    `127.0.0.1`, refusé par le nom avant le protocole : la condition `https` n'était pas épinglée (G2 courte de #226 et #227,
+    finding 1). Voir la ligne suivante.
+- **Ligne datée 2026-10-07T08:47:54Z (RECHERCHES, modèle `claude-opus-5-5`, lot RH-1 parties 2a et 2b, G2 courtes de #226 et
+  #227 par MONARK)** : quatre m pliés, chacun avec un test rouge d'abord, puis fusion de la tête neuve de #223 (et du tronc
+  `1cddd2e5`) dans 2a, puis de 2a dans 2b, sans rebase.
+  - Partie 2a : la fenêtre de la sonde passe à ±225 s (`MARGIN_MS`, décision de MONARK, `bb993d5` l.46), sous la forme de
+    `kataWindow` de la CA (instant le plus proche, `Math.abs(...) <= MARGIN_MS` ; sinon l'instant suivant, attente jusqu'à
+    225 s avant lui) : 225 s plus 60 s d'écart laissent 15 s sous les 300 s du serveur. Bornes épinglées : ±225 000 ms dans la
+    fenêtre, +225 001 ms attend `H - 450 001`, -225 001 ms attend 1 ms ; tueur `Math.abs(nowMs - near) <= 2 * MARGIN_MS` tué.
+    Le record `retire-probe-v1` porte `tls_authorized` (`res.socket.authorized`, lu à la réponse ; `null` sur http), au lieu
+    d'un item ; test et tueur (`tlsOf`), et RUNBOOK étape 7.
+  - Partie 2b : un test neuf épingle `https` en cycle `real` (http hors bouclage, https sur `127.0.0.1`, `127.3.4.5` et
+    `[::1]`, Host vide : `source_not_green`), tueur `u.protocol === "https:" && ` → `` ; « hors du bouclage » se lit par
+    adresse (décision de MONARK) : crochets et point final ôtés, `net.isIP` contre une `BlockList` (127.0.0.0/8, 0.0.0.0/8,
+    ::1/128, ::/128, ::ffff:127.0.0.0/104, ::ffff:0.0.0.0/104), plus `localhost`. Un cas par graphie mesurée, dont
+    `[::ffff:127.0.0.1]` (reçu `[::ffff:7f00:1]`), `0.0.0.0`, `0` (reçu `0.0.0.0` du parseur URL), `[::]`, `localhost.` ; neuf
+    hôtes déployés restent pris ; tueur SDL de la règle `::/128` tué. Mesuré sous Node 24 : une `BlockList` teste une adresse
+    IPv4 contre les règles IPv4-mapped et l'inverse, si bien que 127.0.0.0/8 et ::ffff:127.0.0.0/104 (de même 0.0.0.0/8 et
+    ::ffff:0.0.0.0/104) se couvrent : ôter l'une des deux est un mutant équivalent ; les six règles restent, comme décidé. En cycle `real` ou `publication`, T_g exige aussi `tls_authorized` vrai, comme T_f exige
+    une CA à TLS autorisé (test et tueur). Les tueurs de `retire-instants.mjs` et de `retire-probe.mjs` sont réancrés aux
+    lignes de la tête.
 - **T0-ORDER-TEST-RELEASE-NAME-1** (test). Porteur : MONARK.
   - Déclencheur : avant la première entrée de release datée, celle de la répétition ou celle d'E-2a (RH-2).
   - Limite : M-1, le test de l'ordre de T0 lit la dernière release.
