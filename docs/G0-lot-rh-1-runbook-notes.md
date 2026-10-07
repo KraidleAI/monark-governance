@@ -49,12 +49,15 @@ sans amend ni force ; `git merge-tree` contre `998c2e30` (#218), sans écriture 
 - m-4 (N-4) : « Merge the trunk into the lot branch, never rebase it (T_b and T_c are read on its commits) » ; `--check` prouve
   le fichier du dossier sous `spec/`, la publication est prouvée par le `--verify` de l'étape 4.
 
-## Tueurs (repli de la G2 : 370 devient 372, 411 devient 414, 364 devient 366, 300 reste ; après #218, 445 devient 447)
+## Tueurs (après #218, 445 devient 447 ; au pli de l'encodage, 447 devient 450)
+
+Au repli de la G2 : 370 devient 372, 411 devient 414, 364 devient 366 ; 300 reste. Le tueur :423 est neuf (encodage).
 
 - docs/RUNBOOK-harness.md:372 CONST "(T_e)" -> "(T_f)"
 - docs/RUNBOOK-harness.md:414 CONST "\"format\": \"retire-latency-v1\"" -> "\"format\": \"retire-latency-v2\""
+- docs/RUNBOOK-harness.md:423 CONST "(New-Object System.Text.UTF8Encoding $false)" -> "(New-Object System.Text.UTF8Encoding $true)"
 - docs/RUNBOOK-harness.md:300 CONST "apps/harness/data/kata/retire/" -> "apps/harness/data/retire/"
-- docs/RUNBOOK-harness.md:447 CONST "`git clean -f -d -- spec/contract-1.1.0-tables-<YYYY-MM-DD>/`" -> "`git clean -f -d`"
+- docs/RUNBOOK-harness.md:450 CONST "`git clean -f -d -- spec/contract-1.1.0-tables-<YYYY-MM-DD>/`" -> "`git clean -f -d`"
 - docs/RUNBOOK-harness.md:366 CONST "`short_digest`" -> "`short_digests`"
 - docs/RUNBOOK-harness.md:400 CONST "in the past is `produced_at_stale`" -> "in the past is `produced_at_future`"
 - docs/RUNBOOK-harness.md:404 CONST "`out_of_support` (`kata-path.ts` l.93)" -> "`calib_retired` (`kata-path.ts` l.93)"
@@ -94,6 +97,19 @@ Chaque tir est fait à la main sur l'arbre de la tête (une substitution, sha256
 par le test visé, 8 verts sur 9. Les mêmes quatre tirs survivent au test d'avant (9 sur 9). Un cinquième, « is tested » →
 « is checked » à l.404, est tué lui aussi par la garde du test 7. Limite restante : MY-5 (l.357, un fait externe sur le dépôt de
 spec) n'est pas épinglable hors réseau.
+
+## Encodage de l'entrée du rapport (2026-10-07)
+
+Ligne datée 2026-10-07T07:30:14Z (`date -u`), RECHERCHES, modèle `claude-opus-5-5`. G2 courte de MONARK, constat m 3 : sous
+Windows PowerShell 5.1, `>` écrit de l'UTF-16 et `Out-File -Encoding utf8` un BOM ; `retire-latency.mjs` lit le fichier en UTF-8
+et le passe à `JSON.parse` (l.65), donc refuse les deux, `format_invalid`, exit 1 (l'échec est fermé). Rejoué ici sur un même
+JSON de cycle `publication` : sans BOM, exit 0 ; avec BOM (`ef bb bf`), exit 1 ; en UTF-16 (`ff fe 7b 00`), exit 1. Le lot reste
+sans code : l'étape 8 dit que l'entrée est en UTF-8 sans BOM et donne la forme PowerShell qui l'écrit,
+`[System.IO.File]::WriteAllText("<instants.json>", $text, (New-Object System.Text.UTF8Encoding $false))`. Un test neuf,
+`runbook_retire_input_is_written_in_utf8_without_a_bom`, lit dans le script la lecture en UTF-8, constate qu'un BOM fait échouer
+`JSON.parse`, et exige la phrase et le `$false` de chaque forme `WriteAllText` citée ; tueur :423 (`$false` → `$true`). Les trois
+lignes ajoutées font passer le tueur du test 4 de :447 à :450. Preuve : ce commit n'est pas test-only au sens de `red-proof`
+(son test est rouge sur le texte d'avant, F2P) ; `red-proof` en mode F2P contre le commit des gardes le juge.
 
 ## Suite
 

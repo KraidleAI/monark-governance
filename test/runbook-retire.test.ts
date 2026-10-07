@@ -63,6 +63,17 @@ test("runbook_retire_shows_the_closed_latency_input", () => {
   assert.deepEqual([latencyMain([]), latencyMain([join(ROOT, "docs", "no-such-instants.json")])], [2, 1], "usage exits 2, a refusal 1");
 });
 
+// reddened by: the input not said to be UTF-8 without a byte order mark while the report parses the file as read in UTF-8 (a BOM
+// fails JSON.parse, format_invalid), or a PowerShell form of the write that does not turn the BOM off
+// killer: docs/RUNBOOK-harness.md:423 CONST "(New-Object System.Text.UTF8Encoding $false)" -> "(New-Object System.Text.UTF8Encoding $true)"
+test("runbook_retire_input_is_written_in_utf8_without_a_bom", () => {
+  assert.ok(read("scripts", "retire-latency.mjs").includes('JSON.parse(readFileSync(argv[0], "utf8"))'), "the report parses the file as read in UTF-8");
+  assert.throws(() => JSON.parse("\uFEFF{}"), SyntaxError, "a byte order mark read in UTF-8 fails JSON.parse");
+  const text = section().replace(/\s+/g, " "), writes = [...text.matchAll(/`(\[System\.IO\.File\]::WriteAllText\([^`]*)`/g)].map((m) => m[1] ?? "");
+  assert.ok(text.includes("UTF-8 without a byte order mark"), "the input is said to be UTF-8 without a byte order mark");
+  assert.ok(writes.length > 0 && writes.every((w) => w.includes("(New-Object System.Text.UTF8Encoding $false))")), "the PowerShell write turns the byte order mark off");
+});
+
 // reddened by: the list directory off RETIRE_DIR, the redo rule off the refusal the writer prints, a command off the usage of its
 // script, a script run that does not exist, or a publication command that spec-publish does not read as a dated table version
 // with its previous root
@@ -90,7 +101,7 @@ test("runbook_retire_quotes_the_writer_the_report_and_the_publication_gate", asy
 // written with no scope at all (the counter-example `git rm -r -f` alone excepted, by name), a git clean without -d, or a second form
 // of git rm (G2 of #223, m-3); a git clean -f not right after its git clean -n dry run on the same path, or a git restore that does
 // not unstage (--staged), which leaves a staged directory staged
-// killer: docs/RUNBOOK-harness.md:447 CONST "`git clean -f -d -- spec/contract-1.1.0-tables-<YYYY-MM-DD>/`" -> "`git clean -f -d`"
+// killer: docs/RUNBOOK-harness.md:450 CONST "`git clean -f -d -- spec/contract-1.1.0-tables-<YYYY-MM-DD>/`" -> "`git clean -f -d`"
 test("runbook_retire_redo_removes_the_dated_directory_only", () => {
   const dir = `spec/${datedDir("2027-01-04").replace("2027-01-04", "<YYYY-MM-DD>")}`, text = section().replace(/\s+/g, " ");
   const scoped = [...text.matchAll(/`(git [a-z]+ [^`]*?) -- ([^`]*)`/g)].map((m): [string, string] => [m[1] ?? "", m[2] ?? ""]);

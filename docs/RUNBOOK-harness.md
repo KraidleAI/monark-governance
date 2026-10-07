@@ -417,7 +417,10 @@ node scripts/spec-publish.mjs --release contract-1.1.0-tables-<YYYY-MM-DD> --dat
   `cycle` is `rehearsal`, `real` or `publication`; `mention` is `null`, or where an overrun of the 14-day ceiling is
   written down (l.51-52). A `publication` cycle (RETIRE-REAL-CYCLE-SCOPE-1) holds T_c to T_g only, with no ceiling and
   `mention` `null` (l.10, l.44, l.56): T_a or T_b in it is refused, `instant_out_of_cycle`; a mention,
-  `mention_out_of_cycle`.
+  `mention_out_of_cycle`. Write it as UTF-8 without a byte order mark: the report parses the file as read in UTF-8
+  (l.65), and a BOM or UTF-16 is refused, `format_invalid`. Under Windows PowerShell 5.1, `>` writes UTF-16 and
+  `Out-File -Encoding utf8` writes a BOM; with the JSON in `$text`, write it with
+  `[System.IO.File]::WriteAllText("<instants.json>", $text, (New-Object System.Text.UTF8Encoding $false))`.
 - Run it:
 
 ```bash
