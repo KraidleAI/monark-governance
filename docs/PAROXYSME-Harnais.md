@@ -327,13 +327,17 @@
   source : C l.361, l.401 ; `scripts/spec-publish.mjs:284-297` ; `apps/harness/src/policy-digest-floor.ts:28` ;
     `apps/harness/src/policy-guard.ts:105-106` ; ETAT l.599-613 · touche : C §10 l.361 · nature : Dr/T
   item : SHORT-DIGEST-INVERSION-1 (ETAT l.599-613 : plancher exact de 2^128 « construit, « upcoming » jusqu'au chargeur d'E-2a », l.613) ;
-    E2A-DIGEST-FLOOR-TEST-1 (tuyau, l.621-632) ; SHORT-DIGEST-SPEC-TEXT-1 (l.696-703) · porteur : RECHERCHES (SHORT-DIGEST, code du tuyau
-    au partage 80/20, l.629-630 ; texte de la révision datée) ; MONARK (brouillon du texte, l.702) · déclencheur : TUYAU : atteint (wave1.json
-    versé, l.631-632), le test se construit avec E-2a ; SPEC-TEXT : avant la première publication datée de lignes kata (l.702)
+    E2A-DIGEST-FLOOR-TEST-1 (tuyau, l.621-632) ; SHORT-DIGEST-SPEC-TEXT-1 (l.696-703) ; pour l'attaquant « A », PXC-11 partie 3 (à former :
+    engagement à clé des empreintes de suite publiées, option (e) du G0 §3, l.379, qui généralise DIR-4H-DIGEST-COMMIT-1 ; ou raison écrite
+    de MONARK : la règle protège le statut de non-redistribution des séries, G0 l.247-251) · porteur : RECHERCHES (SHORT-DIGEST, code du
+    tuyau au partage 80/20, l.629-630 ; texte de la révision datée) ; MONARK (brouillon du texte, l.702) ; PAROXYSME (PXC-11 p3) ·
+    déclencheur : TUYAU : atteint (wave1.json versé, l.631-632), le test se construit avec E-2a ; SPEC-TEXT : avant la première
+    publication datée de lignes kata (l.702) ; PXC-11 p3 en F3, question à MONARK dans la demande de fusion
   état : changé (construit au code, non servi : G1 et G7 verts, `docs/G7-lot-short-digest-floor.md:49-50` ; mesure des 280 lignes et
     modèle de menace, `docs/G0-lot-short-digest-inversion-1.md:143`, `:237-247`) · suite : restes : HT-01, HT-02, FLAT-CAP-NEXT-WAVE-1
-    (l.681-683), DIGEST-FLOOR-ATTACKER-COST-1 (l.684-686), BAND-AUX-DIGEST-W2-1 (l.693-695) ; le plancher ne protège que l'attaquant qui
-    n'a que les fichiers publiés (G0 l.237-247)
+    (l.681-683), DIGEST-FLOOR-ATTACKER-COST-1 (l.684-686), BAND-AUX-DIGEST-W2-1 (l.693-695) ; pour l'attaquant « A », qui recalcule la
+    suite depuis les données publiques et la spécification, aucune règle de longueur ni de plancher ne change rien ; seule une
+    non-publication ou un engagement à clé le ferait (`docs/G0-lot-short-digest-inversion-1.md:245-246`)
 - **MK-L15** · « K-8 : le serveur ne vérifie ni que `yhat` sort du kata déclaré, ni les barres derrière `features_digest`. »
   source : C l.343 ; `apps/harness/src/kata-path.ts:59`, `:75`, `:96` ; K l.78 · touche : C §9 ; K §7 ; `docs/public-notes/v0.9.0.md:26-31` ·
     nature : T/C
