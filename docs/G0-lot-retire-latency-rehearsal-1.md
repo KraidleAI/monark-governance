@@ -274,7 +274,7 @@ neufs), borne de 1 205 (CI), 1 150 dans la consigne.
 | Lot | Contenu | R-25 | Quand |
 |---|---|---|---|
 | RH-0 (ce lot) | RETIRE-RUNBOOK-1 (section du RUNBOOK, docs exclus) ; `test/runbook-retire.test.ts` (73 lignes, mesuré) ; ce G0 (exclu) | **73** | maintenant |
-| RH-1 | RETIRE-PROBE-1 (outil ~100, type ~12, test ~110) ; RETIRE-INSTANTS-1 (outil ~70, type ~8, test ~70) | **~370** (une PR, ou deux) | maintenant |
+| RH-1 | RETIRE-PROBE-1 (outil ~100, type ~12, test ~110) ; RETIRE-INSTANTS-1 (outil ~70, type ~8, test ~70) ; ajout de la G2 de #218 : le §8 du RUNBOOK pour le cycle `publication` (entrée T_c..T_g, `mention` nulle, refus `instant_out_of_cycle` et `mention_out_of_cycle`, ouverture de l'entrée citée l.8-10) et la forme publication de RETIRE-INSTANTS-1 ; `test/runbook-retire.test.ts` lit `CYCLES` et les codes de refus dans le script | **~370** (une PR, ou deux) | maintenant |
 | RH-2 | SPEC-TABLES-TEST-PER-DIR-1 (~12) ; T0-ORDER-TEST-RELEASE-NAME-1 (~4) | **~20** | maintenant, avant toute release datée |
 | RH-3 | RETIRE-REAL-CYCLE-SCOPE-1, selon la réponse de RECHERCHES à Q-RL-2 (outil ~15, type ~2, test ~25) | **~45** | avant la première publication datée d'E-2a |
 | RH-4 | l'acte de répétition (§3) : l'entrée JSON (1 ligne), la ligne du JOURNAL (exclue) | **~1** | sur la branche du chargeur d'E-2a, après RH-1 et RH-2 |

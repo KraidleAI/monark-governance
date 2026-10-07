@@ -2,7 +2,7 @@
 // imports (spec-publish.d.mts precedent). Node ignores this file.
 export interface Report {
   format: "retire-latency-report-v1"; cycle: "rehearsal" | "real" | "publication"; instants: { name: string; at: string; definition: string }[];
-  steps_ms: { from: string; to: string; ms: number }[]; total_ms: number; ceiling: { days: number; exceeded: boolean; mention: string | null } | { days: number; applies: false; reason: string; mention: string | null };
+  steps_ms: { from: string; to: string; ms: number }[]; total_ms: number; ceiling: { days: number; exceeded: boolean; mention: string | null } | { days: number; applies: false; reason: string; mention: null };
   objective: { business_days: number; business_ms: number; met: boolean };
 }
 export const INSTANTS: readonly (readonly [string, string])[];

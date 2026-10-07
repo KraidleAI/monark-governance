@@ -7,9 +7,9 @@
 // step from each to the next, the span against the ceiling of 14 days (Q-E6 of MONARK's EPOCH reading, Q-R6), and the objective of 3
 // business days (Monday to Friday, UTC; no holiday calendar), reported, never blocking. Closed input: {"format": "retire-latency-v1", "cycle":
 // "rehearsal" | "real" | "publication", "instants": {"T_a": "<YYYY-MM-DDTHH:MM:SSZ>", ..., "T_g": ...}, "mention": null | "<where the overrun is
-// written down>"}. A publication cycle (Q-RL-2) holds T_c to T_g only, no ceiling (no T_a), never a retirement. Refused (exit 1) by code:
-// format_invalid, instant_out_of_cycle (T_a or T_b in a publication), instant_missing (absent, or not a real UTC instant), order_not_monotone
-// (an instant before the one above it), ceiling_unmentioned (over 14 days, no mention). Exit 2: usage. No clock, no network: input only.
+// written down>"}. A publication cycle (Q-RL-2) holds T_c to T_g only and mention null: no ceiling (no T_a), never a retirement. Refused (exit 1) by code:
+// format_invalid, instant_out_of_cycle (T_a or T_b in a publication), mention_out_of_cycle (a mention in a publication), instant_missing (absent, or
+// not a real UTC instant), order_not_monotone (an instant before the one above it), ceiling_unmentioned (over 14 days, no mention). Exit 2: usage. No clock, no network.
 import { readFileSync } from "node:fs";
 
 export const INSTANTS = Object.freeze([
@@ -41,7 +41,7 @@ export function report(input) {
   if (!obj(input) || Object.keys(input).length !== KEYS.length || !KEYS.every((k) => Object.hasOwn(input, k)) || input.format !== "retire-latency-v1" || !CYCLES.includes(input.cycle)
     || !obj(input.instants) || Object.keys(input.instants).some((k) => !INSTANTS.some(([n]) => n === k)) || !(input.mention === null || (typeof input.mention === "string" && input.mention.trim() !== ""))) {
     no("format_invalid", "retire-latency-v1 holds format, cycle (rehearsal, real or publication), instants (T_a to T_g only) and mention (null or a text), nothing else");
-  } if (pub) for (const k of ["T_a", "T_b"]) if (Object.hasOwn(input.instants, k)) no("instant_out_of_cycle", `${k} has no place in a publication cycle, which holds T_c to T_g only`);
+  } if (pub) for (const k of ["T_a", "T_b"]) if (Object.hasOwn(input.instants, k)) no("instant_out_of_cycle", `${k} has no place in a publication cycle, which holds T_c to T_g only`); if (pub && input.mention !== null) no("mention_out_of_cycle", "mention has no place in a publication cycle: no ceiling applies (no T_a), so no overrun to write down");
   const at = (pub ? INSTANTS.slice(2) : INSTANTS).map(([name, definition]) => {
     const s = input.instants[name], t = typeof s === "string" && UTC.test(s) ? Date.parse(s) : NaN;
     if (!Number.isFinite(t) || new Date(t).toISOString() !== s.replace("Z", ".000Z")) no("instant_missing", `${name} (${definition}) is absent or not a real UTC instant YYYY-MM-DDTHH:MM:SSZ`);
@@ -53,7 +53,7 @@ export function report(input) {
   return {
     format: "retire-latency-report-v1", cycle: input.cycle, instants: at.map(({ name, at: s, definition }) => ({ name, at: s, definition })),
     steps_ms: at.slice(1).map((x, i) => ({ from: at[i].name, to: x.name, ms: x.t - at[i].t })), total_ms: total,
-    ceiling: pub ? { days: CEILING_DAYS, applies: false, reason: NO_CEILING, mention: input.mention } : { days: CEILING_DAYS, exceeded, mention: input.mention },
+    ceiling: pub ? { days: CEILING_DAYS, applies: false, reason: NO_CEILING, mention: null } : { days: CEILING_DAYS, exceeded, mention: input.mention },
     objective: { business_days: OBJECTIVE_BUSINESS_DAYS, business_ms: business, met: business <= OBJECTIVE_BUSINESS_DAYS * DAY },
   };
 }
