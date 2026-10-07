@@ -490,19 +490,19 @@ Actes de la G2 de la partie :
 ### Partie 2 : le rapport (avant R-a et R-b ; une G2)
 
 - **Acte** (MONARK, sur l'hôte des séries) : la commande du §3.3, depuis un clone au commit listé.
-- **Lot 2a** : le rapport (1 ligne) ; `readRecomputeReport` dans `policy-verifiers.ts` ; tests ajoutés à
-  `test/verifiers-list.test.ts`. Environ 190 lignes.
+- **Lot 2a** (amendé par le lot 2a, `docs/G0-lot-e2a-2a-report-reader.md`) : `readRecomputeReport` dans `policy-verifiers.ts`, forme
+  fermée et écriture canonique seules ; tests neufs dans `test/recompute-report.test.ts`. Le rapport réel vient au commit de versement.
 - Tests rouges (module ou fichier neuf à la base) :
-  - T2-1 `recompute_report_is_closed_and_bound_to_the_list` :
-    - format fermé ;
+  - T2-1 `recompute_report_is_closed_and_bound_to_the_list` : la forme fermée est jugée par le lecteur (T-RR, lot 2a) ; les liaisons
+    sont des assertions sur le rapport réel, portées par le commit de versement de MONARK (Q-M5 du G0 d'E-2a) :
     - `verifier` et `tool.tree_sha256` égaux à l'entrée de la liste ;
     - `registry.sha256` = `811fcd57…` ; `registry.generator_identity` = `kata/bench/write-p2.ts`, distincte de l'identité
       listée ;
-    - 280 cases uniques, toutes `decisions_equal` ;
+    - 280 cases uniques, toutes `decisions_equal` à `true` ;
     - chaque différence a une cause mesurée et une explication ;
     - `fields` : exactement `decisions`, `digest_rule`, `digests`, `value_rule` et `values` (voie 1 : aucun champ hors des décisions).
 
-    Tueur : `policy-verifiers.ts:<l> CONST "c.decisions_equal === true" -> "true"`.
+    Tueur (lot 2a, sur le lecteur de forme) : `policy-verifiers.ts:156 CONST "typeof v === \"boolean\"" -> "true"`.
   - T2-2 `recompute_report_inputs_are_sealed_series_and_published_files_only` :
     - rôles pris dans la liste fermée ;
     - les quatre sha256 de séries sont ceux du plan P2 (l.11-14) ;
