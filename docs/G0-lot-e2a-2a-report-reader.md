@@ -6,6 +6,8 @@ fusionnée sans conflit par `a525f347` à 14:33 UTC ; bases d'avant : `c601290b`
 première fusion de 12:29 UTC, refaite avant tout envoi pour porter la ligne d'attribution) ; `6c53e0a1`, fusionnée par `20e2f213` à
 10:53 UTC ; `b894a587`.
 Ce lot est **empilé sur 1f** et sera rebasé avec lui quand l'outil figé de MONARK fusionnera. Chantier : `docs/G0-lot-verifiers-list-f5a-1.md` §3.3 et §5 partie 2 (amendée ici, §2).
+**Depuis le 2026-10-07** : l'outil figé a fusionné au tronc (`6536057c`) ; 1f a fusionné le tronc, sans rebase (consigne de MONARK), et
+nomme `6536057c` dans sa liste ; ce lot fusionne 1f (`a38b6e52`), sans rebase non plus (Provenance, dernier point ; §6).
 
 - **Demande** : G0 court d'E-2a v6.1 (`recherches:coordination/pieces/2026-10-07-e2a-g0-v4/G0-lot-e2a-loader-wave1.md`), §5 ligne 2a,
   §6 ligne T-RR, §8 Q-M5 ; accepté par MONARK (`recherches` `51fe3ee` : « Tes lots peuvent partir sur cette base, dans l ordre de la
@@ -48,6 +50,15 @@ Ce lot est **empilé sur 1f** et sera rebasé avec lui quand l'outil figé de MO
     `policy-verifiers.ts` ni de `test/recompute-report.test.ts` ne bouge, donc ni tueur ni citation de ce G0 ne se déplace, et le
     digest du gel ne change pas (§6). Le module que ce lot étend ne nomme pas `binding` (le mot n'y paraît qu'en commentaire, l.120) :
     `forbiddenLoads` y rend toujours `[]`. Rien sous `tools/kata-recalc/` : aucun commit de liste ; aucun rebase.
+  - **Fusion de la première entrée de 1f** (note datée du 2026-10-07 ; `4d662f69` : le tronc fusionné dans 1f par `669ad472`, dont
+    l'outil figé, `6536057c`, puis le commit de liste `fa874ac4`, qui nomme `6536057c` et `d6c80e9d…`, et le G0 de 1f, §12) : worker
+    `claude-opus-5-5`, **effort: max**, déclaré ; fusion `a38b6e52`, `--no-ff`, titre « Merge the base branch », à 18:41 UTC ; 18:55
+    UTC pour ce G0 ; même worktree (`wt-231f2-2a`), mêmes règles. Un conflit, la l.503 du chantier : ce lot et l'outil figé l'avaient
+    amendée chacun à sa façon, au même effet (`fields` aux cinq clés, voie 1) ; l'écriture du tronc (MONARK, avec l'outil figé) est
+    gardée, et ce lot ne change plus cette ligne (le chantier garde ses 2 226 lignes). La fusion apporte le tronc ; aucune ligne de
+    `test/recompute-report.test.ts` ne bouge, et dans `policy-verifiers.ts` seule la l.18 de 1f (l'épingle neuve) : les tueurs de ce
+    lot (l.124 à l.177) et celui de `scripts/spec-publish.mjs:113` restent à leur ligne, ANCRE (§6). Le témoin de 1f tombe : plus aucun
+    rouge, permis ou non. Rien sous `tools/kata-recalc/` ; aucun rebase.
 - **Zone** : `apps/harness/src/policy-verifiers.ts` (ajout en fin de fichier, aucune ligne de 1f déplacée : les tueurs de 1f, l.18 à
   l.115, restent à leur ligne), `test/recompute-report.test.ts` (neuf), `docs/G0-lot-verifiers-list-f5a-1.md` (amendement sur place,
   nombre de lignes inchangé), ce G0. Pli N-6 (MONARK, `recherches` `8ac6bd6`) : `registry` sans `file`. Pli de la G2 : les mêmes
@@ -230,6 +241,20 @@ a1) porte trois contrôles sur le rapport réel ; la G2 de RECHERCHES les relit.
 
 ## 6. Preuves
 
+- **Après la fusion de la première entrée de 1f** (gel `a38b6e5224e3851d991f5990b7287f89cc0dd026`, la fusion ; le commit suivant ne
+  change que ce G0, hors du digest) : `node scripts/red-proof.mjs --base 4d662f695ff12b7f28a47292000ca955e779f790 --gel
+  a38b6e5224e3851d991f5990b7287f89cc0dd026 --repo <worktree> --out <dossier> --draw 7 --seed 1007`, Node 24.21.0, Linux : sortie 0,
+  « red-proof OK: 7 judged, 0 unchanged, 7 killer(s) drawn » ; sept F2P ; les sept tueurs tirés et tués, l.172, l.150, l.177, l.124,
+  l.156 `true` et `scripts/spec-publish.mjs:113` par assertion, l.156 `v === true` par le refus du lecteur lui-même (`other-fail`) ;
+  digest du gel `90e0c7759d768c6117fb30fc7b65c1361fcc6bb15fcb94febd4d82bc03586281` (il change : le module que ce lot étend porte
+  l'épingle neuve de 1f, l.18) ; `RED-PROOF.json` sha256 `15f583d667b6f1c59c050a66eaa3df717e2c1bfcb8914b561dc16d1342b8105b`. Les
+  trois fichiers de la pile : 24 tests, 24 verts (avant le commit de la fusion, le test d'historique rougissait sur la tête d'avant,
+  `590861ca`, dont `6536057c` n'est pas ancêtre : c'est la lecture voulue). `test:main` (Linux, à `a38b6e52`) : 2 920 tests, 2 898
+  verts, 22 sautés, aucun rouge ; `every_killer_line_is_readable` (la garde du tronc, maintenant dans la pile) y passe ;
+  `test:export` 1 sur 1. Portes : `tsc --noEmit` 0 ; `eslint .` 0 ; `gate:vocab` 0 (349 fichiers) ; `lang:gate` 0 ; `lint:ratchet`
+  69/69 ; `export:check` 0 ; winlint `--base 4d662f69` : 4 fichiers, aucun risque Windows. Ancres : `verifie-ancres.mjs` (`--ref
+  590861ca --ref 4d662f69`) : les 7 de ce lot, les 24 des fichiers de test de la pile (contre le tronc) et les 1 630 de l'arbre, tous
+  ANCRE, aucun PERDU ni DERIVE. Taille : §7.
 - **Après la fusion du pli de la G2 ciblée de 1f** (gel `d2eab286ec1599a5548b17336a1493d47fa8c347`, la fusion ; le commit suivant ne
   change que ce G0, hors du digest) : `node scripts/red-proof.mjs --base 92b0fdab886ec58a3df3aedccf96fe7ebdd02413 --gel
   d2eab286ec1599a5548b17336a1493d47fa8c347 --repo <worktree> --out <dossier> --draw 7 --seed 1007`, Node 24.21.0, Linux : sortie 0,
@@ -351,14 +376,19 @@ a1) porte trois contrôles sur le rapport réel ; la G2 de RECHERCHES les relit.
 - **Après la fusion du pli de la G2 ciblée de 1f**, même forme (les 21 pathspecs de `ci.yml` l.100, lus dans le fichier, base
   `92b0fdab`, la tête de 1f) : **2 fichiers, 291 insertions** (`policy-verifiers.ts` 72, `test/recompute-report.test.ts` 219), soit 291,
   inchangé.
+- **Après la fusion de la première entrée de 1f**, même forme (base `4d662f69`, la tête de 1f, qui porte le tronc) : **2 fichiers,
+  291 insertions**, soit 291, inchangé (le chantier, hors du compte, ne change plus que six lignes au lieu de sept).
 
 ## 8. Ce qui n'est pas fait
 
 - Le rapport réel, son entrée `COMMITTED_REPORTS`, T2-1, T2-3 et la remesure de (d5) sur lui : commit de versement de MONARK (§5).
 - Aucun consommateur du lecteur n'est branché : la porte (3a), l'écrivain (b1-a) et la table d'épingles de la garde (b2).
-- La forme réelle de l'outil figé n'est pas lue (§4) ; aucune course, aucune série lue.
+- La forme réelle de l'outil figé n'est pas lue (§4) ; aucune course, aucune série lue. **Depuis le 2026-10-07** : l'outil fusionné
+  (`6536057c`, arbre git `10e6f04d…`) est celui que la G2 ciblée de RECHERCHES a lu à `29c53bd5` (même arbre ; `recherches:e1c7752`) :
+  `canonical()` de son `report.py` écrit les octets du lecteur sur la synthèse (41 939 octets, `b0d03f7e…`), et `assemble()` donne la
+  forme attendue (14 clés de sommet, `fields` aux cinq clés, profondeur 4). Toujours aucune course complète de `report.py`.
 - Le témoin de 1f (commit de 40 zéros) est hérité : `verifier_list_commit_carries_the_listed_tree` reste rouge sur cette pile
-  jusqu'au rebase de 1f.
+  jusqu'au rebase de 1f. **Tombé** le 2026-10-07 : 1f nomme `6536057c` (G0 de 1f, §12), et le test passe sur cette pile.
 - Les mentions d'`outside_decisions` aux l.332, l.603 et l.934 du chantier, hors du bloc amendé ici : MONARK les plie dans l'outil figé
   (`e6d5517`, point 2). La mesure croisée finale contre l'outil figé, sous `-E -S -s -B` : à sa PR (§4).
 
