@@ -108,7 +108,7 @@ Tous les sha256 sont pris sur `git show 07b7fc20:<chemin>` (gouvernance) ou sur 
    définition de T_g (`retire-latency.mjs` l.22), deux commentaires (`spec-policy-tables.mjs` l.11, `spec-publish.mjs` l.17)
    et un champ nul de fixture (`gen-gate-decision-fixtures.mjs` l.25) ; `scripts/verify-harness.mjs` ne fait aucun appel
    kata.
-5. **Deux tests rougissent par construction au premier dossier daté et à sa release** [mesuré] :
+5. **Des tests rougissent par construction au premier dossier daté et à sa release** [mesuré ; recensement complété à la G2 de RH-2] :
    - M-1 : une release datée ajoutée en dernier à `scripts/spec-publish-inputs.json` rougit `srf_runbook_vitrine_t0_order`
      par assertion (« act 8 publishes contract 1.1.0 with both roots », `contract-1.1.0-tables-2026-11-02` lu à la place de
      `contract-1.1.0`) : le test prend la dernière release pour celle de T0 (`test/surfaces-1-1-0.test.ts` l.231, l.234).
@@ -117,6 +117,8 @@ Tous les sha256 sont pris sur `git show 07b7fc20:<chemin>` (gouvernance) ou sur 
      `published_tables_are_the_served_tables_byte_for_byte` rougit par assertion sur `btc-dir-1h` : le test ne lit que
      `contract-1.1.0/` (`test/spec-1-1-0-release.test.ts` l.123-127). Item existant SPEC-TABLES-TEST-PER-DIR-1
      (`docs/ETAT.md` l.682-684 ; Q-Rb-7, `docs/G0-lot-retire-path-rb.md` l.164).
+   - G2 de RH-2 (MONARK, constat M) : le même dossier daté rougit aussi 2 à 5 des 8 tests de `test/spec-retire-path.test.ts`
+     (`copy()` copiait tout `spec/`, l.97 épinglait `contract-1.1.0` ×35). Replié dans RH-2 (`docs/G0-lot-rh-2-test-per-dir.md`).
 6. **Aucun écrivain de liste, aucun écrivain des lignes portées** [lu] : la liste canonique et cumulative s'écrit à la
    main (`policy-retire.ts` l.40-49, l.82-83), son lecteur ne tourne que dans la garde ; les lignes `root: "previous"` de
    l'entrée de release aussi (SPEC-DATED-RELEASE-ENTRY-1, `docs/ETAT.md` l.679-681). La release `contract-1.1.0` compte
@@ -274,7 +276,7 @@ neufs), borne de 1 205 (CI), 1 150 dans la consigne.
 | Lot | Contenu | R-25 | Quand |
 |---|---|---|---|
 | RH-0 (ce lot) | RETIRE-RUNBOOK-1 (section du RUNBOOK, docs exclus) ; `test/runbook-retire.test.ts` (73 lignes, mesuré) ; ce G0 (exclu) | **73** | maintenant |
-| RH-1 | RETIRE-PROBE-1 (outil ~100, type ~12, test ~110) ; RETIRE-INSTANTS-1 (outil ~70, type ~8, test ~70) | **~370** (une PR, ou deux) | maintenant |
+| RH-1 | RETIRE-PROBE-1 (outil ~100, type ~12, test ~110) ; RETIRE-INSTANTS-1 (outil ~70, type ~8, test ~70) ; ajout de la G2 de #218 : le §8 du RUNBOOK pour le cycle `publication` (entrée T_c..T_g, `mention` nulle, refus `instant_out_of_cycle` et `mention_out_of_cycle`, ouverture de l'entrée citée l.8-10) et la forme publication de RETIRE-INSTANTS-1 ; `test/runbook-retire.test.ts` lit `CYCLES` et les codes de refus dans le script | **~370** (une PR, ou deux) | maintenant |
 | RH-2 | SPEC-TABLES-TEST-PER-DIR-1 (~12) ; T0-ORDER-TEST-RELEASE-NAME-1 (~4) | **~20** | maintenant, avant toute release datée |
 | RH-3 | RETIRE-REAL-CYCLE-SCOPE-1, selon la réponse de RECHERCHES à Q-RL-2 (outil ~15, type ~2, test ~25) | **~45** | avant la première publication datée d'E-2a |
 | RH-4 | l'acte de répétition (§3) : l'entrée JSON (1 ligne), la ligne du JOURNAL (exclue) | **~1** | sur la branche du chargeur d'E-2a, après RH-1 et RH-2 |
@@ -325,7 +327,8 @@ et RH-5 sont des actes de l'orchestrateur, consignés au JOURNAL.
   contrôles sont comptés dans deux tests et dans le RUNBOOK (`test/surfaces-1-1-0.test.ts` l.163-193 ; RUNBOOK l.186-188,
   l.214), la CA s'écrit d'un seul passage, et la sonde attend une fenêtre de grille.)
 - **Q-RL-6, MONARK** : faut-il avancer SPEC-TABLES-TEST-PER-DIR-1 et T0-ORDER-TEST-RELEASE-NAME-1 avant la répétition (lot
-  RH-2) ? (Oui : sans eux, l'oracle du bac à sable ne peut être vert, et T_c n'existe pas ; E-2a en a besoin de même.)
+  RH-2) ? (Oui : sans eux, l'oracle du bac à sable ne peut être vert, et T_c n'existe pas ; E-2a en a besoin de même. Les tests de
+  `test/spec-retire-path.test.ts` aussi : repliés dans RH-2 après sa G2.)
 - **Q-RL-7, MONARK** : RETIRE-INSTANTS-1 dans RH-1 ? (Oui : les instants git et la CA se relisent par outil ; l.47 refuse
   un instant mal écrit, pas un instant faux.)
 - **Q-RL-8, MONARK** : où vit l'entrée de `retire-latency` ? (`docs/retire-latency/<cycle>-<YYYY-MM-DD>.json`, une ligne,
@@ -464,6 +467,13 @@ Copies `git archive 07b7fc20 | tar -x` sous `F:/tmp/claude/F--Monark/a0cf3d1b-54
   - Déclencheur : le premier retrait réel, au plus tôt `live:1` le 2027-01-01, ou une cause `adr:` avant.
   - Objet : le mesurer de T_a à T_g d un seul tenant.
   - Au-delà de 14 jours, c est un écart à D6, ouvert en PAROXYSME.
+- **L objectif de 3 jours ouvrés, pour D6 en deux segments (décision de RECHERCHES, 2026-10-07, pli de la G2 courte de #218).**
+  - L objectif se lit seulement au premier retrait réel : un seul cycle `real`, T_a..T_g d un seul tenant (RETIRE-LATENCY-FIRST-REAL-1).
+  - Le mode « somme » est refusé : `businessMs(T_a, T_c)` de la répétition plus le `business_ms` de la publication, contre 72 h.
+    Raison : les deux segments sont mesurés sur des lignes différentes et à des dates différentes. Leur somme n est donc le temps
+    ouvré d aucun retrait.
+  - Ce que couvre la preuve en deux segments, c est le plafond de 14 jours de D6. Le G7 ne cite l objectif d une publication qu avec
+    son segment, T_c..T_g.
 - **Q-RL-9 : oui, après RETIRE-CAUSE-VOCAB-1, à trois conditions.**
   1. Le bac à sable ne peut rien pousser. Ses clones n ont pas d URL de push (`git remote set-url --push origin no-push`, ou aucun
      remote), et le G7 le montre (`git remote -v`).

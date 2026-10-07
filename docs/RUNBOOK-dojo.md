@@ -1121,7 +1121,8 @@ A rotation of the signing key (the publisher's `--rotate`: the new key generated
 and pushed BEFORE the `key_rotation` line, in the order of item KEYRING-COMMIT-AFTER-KEY-LINE-1 of Bell) is a one-off act under go,
 the unit `inactive`. Until the next synchro (TU-7, PR-3b-2b), the page's live reread (PR-4c-1) falls back to the committed figures
 and their day (TXT-14c, TXT-14d): the day shown is the committed one, never hidden. Then a new CA and a new synchro, as after any
-redeployment (DOJO-SYNC-G7-REF-1).
+redeployment (DOJO-SYNC-G7-REF-1). The probe of section 25 is unhealthy from the rotation line until its keyring is redeployed with
+that synchro (section 25 (8)).
 
 ## 21. A-6 — Caddy serves `dojo.monarkgate.tech`: the extract installed WHOLE, then a main file of the two `import` lines alone
 
@@ -1277,7 +1278,8 @@ to the committed CA), the push; the site is sent by `docs/RUNBOOK-vitrine.md`; t
 orchestrator's act after this commit (`docs/ETAT.md`, C-V-5); the investor's visual check is made at this act (ADR-DOJO-PR-4, Q-V-4,
 decision 291). Rollback: before the commit, the two files back as they were (`git checkout -- apps/site/data/manifest.sha256.json`,
 `rm apps/site/data/dojo-served.json`); after it, the revert of the synchro commit (`git revert --no-edit <the synchro commit>`, then the
-oracle and the push: no record, no entry, the register `upcoming`, the coherent absence the committed leg reads).
+oracle and the push: no record, no entry, the register `upcoming`, the coherent absence the committed leg reads). After the commit of
+a synchro, the probe's keyring (section 25 (8)).
 
 ## 24. DOJO-SITE-PROXY-1 — the site's proxy of `/dojo-served/*`, on the site's server (N-9 of the G2 of part 3)
 
@@ -1391,6 +1393,135 @@ systemctl is-active caddy && rm Caddyfile.bak-dojo-site && sha256sum Caddyfile'
 Expected: `Valid configuration`; `active`; the digest of (1) (the file before the act); `/dojo-served/*` no longer relayed (the
 vitrine's catch-all answers it).
 
+## 25. DOJO-LIVE-HEALTH-1 — the daily probe of the served page, on the Bell host (PR-4c-1c)
+
+**What.** `scripts/probe-dojo-live.mjs` runs as `monark-dojo-probe.service`, started by `monark-dojo-probe.timer` at 07:30, 09:30 and
+13:30 UTC (ADR-DOJO-PR-4 PL-3; pins `test/probe-dojo-live.test.ts`; journal `docs/G1-lot-dojo-live-health-1.md`). Each start reads
+`timeline.jsonl` and the head's `lines/<lines_sha256>.jsonl` from `https://dojo.monarkgate.tech` and through the site's proxy
+`https://monarkgate.tech/dojo-served`, requires them equal byte for byte and the proxy's answers `no-store` (`cf-cache-status` absent,
+`DYNAMIC` or `BYPASS`), runs the verifier's public command against the host under the keyring of its tree, checks the head's day
+against the deadline (07:30 UTC), writes `/var/lib/monark-probe/dojo-live.json` (closed keys, no secret, no address) and mails a
+transition with the mail file of the Narabi probe (`/etc/monark/probe.env`, `docs/RUNBOOK-sentinel.md`, the probe's deployment on
+Bell). The user `probe`, its state directory and that file exist since that deployment; this section writes none of them. The
+probe's tree lies in `/opt/monark-dojo-probe`, outside `/opt/monark-probe`, which check 12 of Bell's CA and `c10` hash (section 15 (1)).
+
+**When.** After the G7 of PR-4c-1c, by the orchestrator (decision 292); DOJO-SITE-PROXY-1 done (section 24). Conventions of section
+10; the commands name the host `bell.monarkgate.tech` (its host key: section 15 (0)); the probe's G7 is read from
+`/f/tmp/dojo-dn/probe-G7.txt` (the G7 of this lot; `G7.txt` stays the G7 of the Dōjō's trees). Rollback of the whole section: (6).
+
+(1) Read-only, the state before the act:
+
+```bash
+ssh -i ~/.ssh/monark_vps root@bell.monarkgate.tech 'node -v; id probe; sudo -u probe test -w /var/lib/monark-probe && echo probe-writes;
+test -f /etc/monark/probe.env && echo env-present; ls -d /opt/monark-dojo-probe /etc/systemd/system/monark-dojo-probe.*'
+```
+
+Expected: `v24.21.0` (the node against which the fetch port list that the probe imports was checked: the dated line of 2026-10-04 of
+`docs/RUNBOOK-sentinel.md`; another version: that check first); the `id` line of `probe`; `probe-writes`; `env-present`; two
+`No such file or directory` (no tree, no unit). **STOP** otherwise (an earlier act: read the host). Rollback: none (read-only).
+
+(2) The tree: its list read from the module AT the G7 (never retyped; the working tree equal to the G7 on these paths), shipped, then
+compared on both sides (motif of section 12):
+
+```bash
+G7=$(cat /f/tmp/dojo-dn/probe-G7.txt) && cd /f/Monark && git diff --quiet "$G7" -- scripts apps/dojo apps/bell/scripts &&
+node --input-type=module -e "const m = await import('./scripts/probe-dojo-live.mjs');
+console.log(m.DOJO_PROBE_TREE_PATHS.join(' '));" > /f/tmp/dojo-dn/probe-tree.txt && wc -w < /f/tmp/dojo-dn/probe-tree.txt
+```
+
+```bash
+G7=$(cat /f/tmp/dojo-dn/probe-G7.txt) && git -C /f/Monark archive --format=tar.gz "$G7" $(cat /f/tmp/dojo-dn/probe-tree.txt) |
+tee /f/tmp/dojo-dn/probe-tree.tar.gz | ssh -i ~/.ssh/monark_vps root@bell.monarkgate.tech 'install -d -m 0755 -o root -g root /opt/monark-dojo-probe &&
+tar xzf - -C /opt/monark-dojo-probe --no-same-owner --no-same-permissions && chown -R root:root /opt/monark-dojo-probe &&
+find /opt/monark-dojo-probe -type d -exec chmod 0755 {} + && find /opt/monark-dojo-probe -type f -exec chmod 0644 {} + &&
+cd /opt/monark-dojo-probe && find . -type f -print0 | LC_ALL=C sort -z | xargs -0 sha256sum -t' > /f/tmp/dojo-dn/probe-tree.host.sha
+```
+
+```bash
+rm -rf /f/tmp/dojo-dn/probe-tree && mkdir -p /f/tmp/dojo-dn/probe-tree &&
+tar xzf /f/tmp/dojo-dn/probe-tree.tar.gz -C /f/tmp/dojo-dn/probe-tree && cd /f/tmp/dojo-dn/probe-tree &&
+find . -type f -print0 | LC_ALL=C sort -z | xargs -0 sha256sum -t > /f/tmp/dojo-dn/probe-tree.local.sha && wc -l < /f/tmp/dojo-dn/probe-tree.local.sha &&
+cmp -s /f/tmp/dojo-dn/probe-tree.local.sha /f/tmp/dojo-dn/probe-tree.host.sha && echo TREE-EQUAL || echo TREE-DIFFERENT
+```
+
+Expected: `8` (the words of the list), then `8` and `TREE-EQUAL`. **STOP** on no output at the first command (the working tree is not
+the G7 on these paths) and on `TREE-DIFFERENT`. Rollback: `ssh -i ~/.ssh/monark_vps root@bell.monarkgate.tech 'rm -rf /opt/monark-dojo-probe'`.
+
+(3) The two units from the G7 blobs, then their calendar:
+
+```bash
+G7=$(cat /f/tmp/dojo-dn/probe-G7.txt) && for u in monark-dojo-probe.service monark-dojo-probe.timer; do
+git -C /f/Monark cat-file blob "$G7:deploy/$u" |
+ssh -i ~/.ssh/monark_vps root@bell.monarkgate.tech "umask 022 && cat > /etc/systemd/system/$u" || echo "FAILED $u"; done;
+ssh -i ~/.ssh/monark_vps root@bell.monarkgate.tech 'systemctl daemon-reload &&
+systemctl show -p LoadState -p FragmentPath -p DropInPaths -p NeedDaemonReload monark-dojo-probe.service monark-dojo-probe.timer &&
+sha256sum /etc/systemd/system/monark-dojo-probe.service /etc/systemd/system/monark-dojo-probe.timer &&
+for h in 07 09 13; do systemd-analyze calendar "*-*-* $h:30:00 UTC" | grep -E "Normalized|Next"; done'
+```
+
+Expected: no `FAILED`; `LoadState=loaded` twice, both `FragmentPath` under `/etc/systemd/system`, `DropInPaths=` empty,
+`NeedDaemonReload=no`; each digest equal to `git -C /f/Monark cat-file blob "$G7:deploy/<unit>" | sha256sum`; the three expressions
+accepted, each next elapse at hh:30 UTC. Never `systemctl edit`; the timer is enabled at (5) only. Rollback:
+`ssh -i ~/.ssh/monark_vps root@bell.monarkgate.tech 'rm /etc/systemd/system/monark-dojo-probe.* && systemctl daemon-reload'`.
+
+(4) One start, simulated by a transient job with the unit's user and sandbox and WITHOUT the mail file (a healthy start mails
+nothing), its record a scratch file beside the production one, printed then removed; `--collect` leaves no failed transient unit
+behind (item PROBE-SIM-UNIT-1 of `docs/RUNBOOK-bell.md`):
+
+```bash
+ssh -i ~/.ssh/monark_vps root@bell.monarkgate.tech 'S="-p ProtectSystem=strict -p ProtectHome=true -p PrivateTmp=true -p NoNewPrivileges=true
+-p ReadWritePaths=/var/lib/monark-probe -p CPUQuota=25% -p MemoryMax=640M -p TasksMax=64 -p WorkingDirectory=/opt/monark-dojo-probe" &&
+C="/usr/bin/env node /opt/monark-dojo-probe/scripts/probe-dojo-live.mjs --out /var/lib/monark-probe/dojo-live-sim.json" &&
+systemd-run --wait --pipe --collect --uid=probe --gid=probe $S $C > /dev/null; echo sim_exit=$?;
+cat /var/lib/monark-probe/dojo-live-sim.json; rm -f /var/lib/monark-probe/dojo-live-sim.json'
+```
+
+Expected: `sim_exit=0`, then the record: `"status": "healthy"`, `"reason": null`, `"no_store": true`, both `cf_cache_status_*` `null`
+(no edge, DOJO-EDGE-CACHE-1), `"verifier_exit": 0`, `"head_day"` the day of the served head (JOURNAL: the record). **STOP** on any
+other output: its `reason`, `side` and `verifier_reason` name the fault (the header of the probe); escalation, no timer.
+
+(5) Only then, the timer:
+
+```bash
+ssh -i ~/.ssh/monark_vps root@bell.monarkgate.tech 'systemctl enable --now monark-dojo-probe.timer &&
+systemctl list-timers monark-dojo-probe.timer --no-pager'
+```
+
+Expected: the next elapse at 07:30, 09:30 or 13:30 UTC (JOURNAL: the act, the G7, the tree's digests). Rollback (a stop):
+`ssh -i ~/.ssh/monark_vps root@bell.monarkgate.tech 'systemctl disable --now monark-dojo-probe.timer'`.
+
+(6) Rollback of the section, complete:
+
+```bash
+ssh -i ~/.ssh/monark_vps root@bell.monarkgate.tech 'systemctl disable --now monark-dojo-probe.timer;
+rm -f /etc/systemd/system/monark-dojo-probe.service /etc/systemd/system/monark-dojo-probe.timer && systemctl daemon-reload &&
+rm -rf /opt/monark-dojo-probe && rm -f /var/lib/monark-probe/dojo-live.json'
+```
+
+(7) Each day, read-only, the record and the last start:
+
+```bash
+ssh -i ~/.ssh/monark_vps root@bell.monarkgate.tech 'cat /var/lib/monark-probe/dojo-live.json;
+systemctl show -p ExecMainStartTimestamp -p ExecMainExitTimestamp -p ExecMainStatus monark-dojo-probe.service'
+```
+
+Expected: `"status": "healthy"`; the last start shorter than 80 % of the unit's `TimeoutStartSec` (2 640 s: the rule of the dated
+line of DOJO-VERIFY-SCALE-1, the host's factor being unknown), else **STOP** and DOJO-VERIFY-SCALE-1 with DOJO-PUBLISH-SCALE-1. An
+unhealthy record has mailed already (once per UTC day while it lasts); its `reason` names the check that failed.
+
+(8) At each synchro (section 23) and after a rotation (section 20), the keyring of the synchro's commit into the tree:
+
+```bash
+S=$(git -C /f/Monark rev-parse --verify '<sha of the synchro>^{commit}') && git -C /f/Monark cat-file blob "$S:apps/dojo/keys/dojo-keyring.json" |
+ssh -i ~/.ssh/monark_vps root@bell.monarkgate.tech 'umask 022 && K=/opt/monark-dojo-probe/apps/dojo/keys/dojo-keyring.json &&
+cat > "$K.new" && mv "$K.new" "$K" && sha256sum "$K"'
+```
+
+Expected: the digest of `git -C /f/Monark cat-file blob "<sha of the synchro>:apps/dojo/keys/dojo-keyring.json" | sha256sum`
+(JOURNAL: the commit and the digest; the tree then differs from its G7 by this one file). From a rotation line to this act the probe is
+unhealthy, `verifier_refused` with the verifier's keyring refusal (`rotation_key_not_in_keyring` or `served_key_not_in_keyring`), as the
+page falls back (section 20): expected, mailed once per UTC day. Rollback: the previous commit's keyring, the same way.
+
 ## Never
 
 `cat`/`head`/`tail`/`less`/`xxd`/`od`/`base64` on a seed file or on `/etc/monark/dojo-collect.env`, or a digest of them displayed;
@@ -1409,3 +1540,7 @@ DOJO-ANCHOR-OTS-AFTER-PUBLICATION-1); a rehearsal day on the real path (section 
 state or `public/` by hand (the history packet excepted: its copy is removed by the act of 18 (iii), and by the end of (iv)); a listing, a
 proxy or a redirect of `/` in the Caddy extract; the anchor request left in the state; a `history` line before the close of the first day
 read, or from the provisional course (18: it writes no packet).
+
+Probe (section 25): `--out /var/lib/monark-probe/dojo-live.json` in a simulated start (the production record); `source
+/etc/monark/probe.env` in any shell; the probe's tree under `/opt/monark-probe` (Bell's check 12 and `c10` hash it); a timer enabled
+before the simulated start of (4); a keyring copied from anywhere but a commit of the trunk.

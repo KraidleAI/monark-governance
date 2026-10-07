@@ -426,9 +426,13 @@ node scripts/retire-probe.mjs --api <url> --table spec/contract-1.1.0-tables-<YY
 {"format": "retire-latency-v1", "cycle": "rehearsal", "instants": {"T_a": "YYYY-MM-DDTHH:MM:SSZ", "T_b": "YYYY-MM-DDTHH:MM:SSZ", "T_c": "YYYY-MM-DDTHH:MM:SSZ", "T_d": "YYYY-MM-DDTHH:MM:SSZ", "T_e": "YYYY-MM-DDTHH:MM:SSZ", "T_f": "YYYY-MM-DDTHH:MM:SSZ", "T_g": "YYYY-MM-DDTHH:MM:SSZ"}, "mention": null}
 ```
 
-  `cycle` is `rehearsal` or `real`; `mention` is `null`, or where an overrun of the 14-day ceiling is written down
-  (l.51-52). AFTER #218 (RETIRE-REAL-CYCLE-SCOPE-1, not merged at the base of this text): `cycle` may be `publication`,
-  T_c to T_g only, no ceiling; T_a or T_b in it is refused, `instant_out_of_cycle`.
+  `cycle` is `rehearsal`, `real` or `publication`; `mention` is `null`, or where an overrun of the 14-day ceiling is
+  written down (l.51-52). A `publication` cycle (RETIRE-REAL-CYCLE-SCOPE-1) holds T_c to T_g only, with no ceiling and
+  `mention` `null` (l.10, l.44, l.56): T_a or T_b in it is refused, `instant_out_of_cycle`; a mention,
+  `mention_out_of_cycle`. Write it as UTF-8 without a byte order mark: the report parses the file as read in UTF-8
+  (l.65), and a BOM or UTF-16 is refused, `format_invalid`. Under Windows PowerShell 5.1, `>` writes UTF-16 and
+  `Out-File -Encoding utf8` writes a BOM; with the JSON in `$text`, write it with
+  `[System.IO.File]::WriteAllText("<instants.json>", $text, (New-Object System.Text.UTF8Encoding $false))`.
 - Run it:
 
 ```bash
@@ -436,7 +440,8 @@ node scripts/retire-latency.mjs <instants.json>   # scripts/retire-latency.mjs l
 ```
 
   Exit 0 prints the closed report, then a line `retire-latency OK: …` (l.66-68). Exit 1 names the refusal:
-  `format_invalid`, `instant_missing`, `order_not_monotone` or `ceiling_unmentioned` (l.10-12, l.70-72). Exit 2: usage
+  `format_invalid`, `instant_out_of_cycle`, `mention_out_of_cycle`, `instant_missing`, `order_not_monotone` or
+  `ceiling_unmentioned` (l.10-12, l.70-72). Exit 2: usage
   (l.62). The objective of 3 business days (Monday to Friday, UTC, no holiday calendar) is reported, never blocking
   (l.7-8, l.57).
 - Log a dated line in `docs/JOURNAL-PROVENANCE.md`: the cycle, the seven instants with the source of each, the input file
