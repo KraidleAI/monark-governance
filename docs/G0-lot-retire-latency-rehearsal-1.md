@@ -108,7 +108,7 @@ Tous les sha256 sont pris sur `git show 07b7fc20:<chemin>` (gouvernance) ou sur 
    définition de T_g (`retire-latency.mjs` l.22), deux commentaires (`spec-policy-tables.mjs` l.11, `spec-publish.mjs` l.17)
    et un champ nul de fixture (`gen-gate-decision-fixtures.mjs` l.25) ; `scripts/verify-harness.mjs` ne fait aucun appel
    kata.
-5. **Deux tests rougissent par construction au premier dossier daté et à sa release** [mesuré] :
+5. **Des tests rougissent par construction au premier dossier daté et à sa release** [mesuré ; recensement complété à la G2 de RH-2] :
    - M-1 : une release datée ajoutée en dernier à `scripts/spec-publish-inputs.json` rougit `srf_runbook_vitrine_t0_order`
      par assertion (« act 8 publishes contract 1.1.0 with both roots », `contract-1.1.0-tables-2026-11-02` lu à la place de
      `contract-1.1.0`) : le test prend la dernière release pour celle de T0 (`test/surfaces-1-1-0.test.ts` l.231, l.234).
@@ -117,6 +117,8 @@ Tous les sha256 sont pris sur `git show 07b7fc20:<chemin>` (gouvernance) ou sur 
      `published_tables_are_the_served_tables_byte_for_byte` rougit par assertion sur `btc-dir-1h` : le test ne lit que
      `contract-1.1.0/` (`test/spec-1-1-0-release.test.ts` l.123-127). Item existant SPEC-TABLES-TEST-PER-DIR-1
      (`docs/ETAT.md` l.682-684 ; Q-Rb-7, `docs/G0-lot-retire-path-rb.md` l.164).
+   - G2 de RH-2 (MONARK, constat M) : le même dossier daté rougit aussi 2 à 5 des 8 tests de `test/spec-retire-path.test.ts`
+     (`copy()` copiait tout `spec/`, l.97 épinglait `contract-1.1.0` ×35). Replié dans RH-2 (`docs/G0-lot-rh-2-test-per-dir.md`).
 6. **Aucun écrivain de liste, aucun écrivain des lignes portées** [lu] : la liste canonique et cumulative s'écrit à la
    main (`policy-retire.ts` l.40-49, l.82-83), son lecteur ne tourne que dans la garde ; les lignes `root: "previous"` de
    l'entrée de release aussi (SPEC-DATED-RELEASE-ENTRY-1, `docs/ETAT.md` l.679-681). La release `contract-1.1.0` compte
@@ -325,7 +327,8 @@ et RH-5 sont des actes de l'orchestrateur, consignés au JOURNAL.
   contrôles sont comptés dans deux tests et dans le RUNBOOK (`test/surfaces-1-1-0.test.ts` l.163-193 ; RUNBOOK l.186-188,
   l.214), la CA s'écrit d'un seul passage, et la sonde attend une fenêtre de grille.)
 - **Q-RL-6, MONARK** : faut-il avancer SPEC-TABLES-TEST-PER-DIR-1 et T0-ORDER-TEST-RELEASE-NAME-1 avant la répétition (lot
-  RH-2) ? (Oui : sans eux, l'oracle du bac à sable ne peut être vert, et T_c n'existe pas ; E-2a en a besoin de même.)
+  RH-2) ? (Oui : sans eux, l'oracle du bac à sable ne peut être vert, et T_c n'existe pas ; E-2a en a besoin de même. Les tests de
+  `test/spec-retire-path.test.ts` aussi : repliés dans RH-2 après sa G2.)
 - **Q-RL-7, MONARK** : RETIRE-INSTANTS-1 dans RH-1 ? (Oui : les instants git et la CA se relisent par outil ; l.47 refuse
   un instant mal écrit, pas un instant faux.)
 - **Q-RL-8, MONARK** : où vit l'entrée de `retire-latency` ? (`docs/retire-latency/<cycle>-<YYYY-MM-DD>.json`, une ligne,

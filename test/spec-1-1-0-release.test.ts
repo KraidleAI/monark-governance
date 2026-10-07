@@ -16,7 +16,7 @@ import { fileURLToPath } from "node:url";
 import { sha256Canonical } from "@monark/contracts";
 import { USDE_STABLE_RUN_PREDICTOR_ID } from "../apps/harness/src/calibration.ts";
 import { runGate, SCHEMA_VERSION, SERVED_POLICY_TABLES } from "../apps/harness/src/tools/gate.ts";
-import { canonicalJson, contentProblems, loadInputs, parseInputs, plan } from "../scripts/spec-publish.mjs";
+import { canonicalJson, contentProblems, loadInputs, parseInputs, plan, validDate } from "../scripts/spec-publish.mjs";
 import type { Inputs, Kind } from "../scripts/spec-publish.mjs";
 
 type Writer = typeof import("../scripts/spec-policy-tables.mjs");
@@ -119,14 +119,24 @@ test("contract_1_1_0_declares_every_published_file_pinned", () => {
   for (const e of r.entries.filter((x) => x.kind === "schema")) assert.equal(e.sha256, COPY_SHA256[e.out.slice("contract-1.1.0/schemas/".length, -".schema.json".length)], e.out);
 });
 
-// killer: spec/contract-1.1.0/policy/btc-dir-1h.json:1 CONST "\"rows\":[]" -> "\"rows\":[ ]"
-test("published_tables_are_the_served_tables_byte_for_byte", () => {
-  const spec = join(ROOT, "spec"), dirs = readdirSync(spec).filter((d) => /^contract-1\.1\.0(?:-tables-\d{4}-\d{2}-\d{2})?$/.test(d)).sort(), held = (d: string): string[] => (existsSync(join(spec, d, "policy")) ? readdirSync(join(spec, d, "policy")).sort() : []);
+// killer: apps/harness/src/tools/gate.ts:217 CONST "for this cell_key; the gate" -> "for this cell_key, the gate"
+test("published_tables_are_the_served_tables_byte_for_byte", async () => {
+  const versions = (s: string): string[] => readdirSync(s).filter((d) => d === "contract-1.1.0" || (d.startsWith("contract-1.1.0-tables-") && validDate(d.slice(22)))).sort(); // the writer's versionDirs: a real day only
+  const spec = join(ROOT, "spec"), dirs = versions(spec), held = (d: string): string[] => (existsSync(join(spec, d, "policy")) ? readdirSync(join(spec, d, "policy")).sort() : []);
   for (const t of SERVED_POLICY_TABLES) { // SPEC-TABLES-TEST-PER-DIR-1: each served table is the file of the last directory that holds its class; an older dated directory is never rewritten
     const b = bytes(spec, dirs.filter((d) => held(d).includes(`${t.task_class}.json`)).at(-1) ?? "contract-1.1.0", "policy", `${t.task_class}.json`);
     assert.deepEqual([b.toString("utf8") === canonicalJson(t.table), sha(b), sha(b)], [true, t.policy_table_sha256, sha256Canonical(t.table)], t.task_class);
   }
-  assert.deepEqual([dirs[0], held("contract-1.1.0"), dirs.flatMap(held).filter((f) => !held("contract-1.1.0").includes(f)), SERVED_POLICY_TABLES.filter((t) => t.table.class.cell_key_rule === "kata-bucket").map((t) => t.table.rows.length)], ["contract-1.1.0", SERVED_POLICY_TABLES.map((t) => `${t.task_class}.json`).sort(), [], Array<number>(32).fill(0)]);
+  assert.deepEqual([dirs[0], held("contract-1.1.0"), dirs.flatMap(held).filter((f) => !held("contract-1.1.0").includes(f)), dirs.filter((d) => held(d).length === 0), SERVED_POLICY_TABLES.filter((t) => t.table.class.cell_key_rule === "kata-bucket").map((t) => t.table.rows.length)], ["contract-1.1.0", SERVED_POLICY_TABLES.map((t) => `${t.task_class}.json`).sort(), [], [], Array<number>(32).fill(0)]);
+  const fake = join(TMP, "dirs"), w = await writer(); // a directory that names no real day is no version, for this test as for the writer (it would hide a stale dated file)
+  for (const d of ["contract-1.1.0", "contract-1.1.0-tables-2026-11-02", "contract-1.1.0-tables-2026-13-01", "contract-1.1.0-tables-2026-02-30"]) { mkdirSync(join(fake, "spec", d, "policy"), { recursive: true }); writeFileSync(join(fake, "spec", d, "policy", "btc-dir-1h.json"), d); }
+  assert.deepEqual([versions(join(fake, "spec")), w.servedTableDirs(fake, [{ task_class: "btc-dir-1h" }])], [["contract-1.1.0", "contract-1.1.0-tables-2026-11-02"], { "btc-dir-1h": "contract-1.1.0-tables-2026-11-02" }]);
+});
+
+// killer: spec/contract-1.1.0/schemas/prediction.schema.json:4 CONST "\"title\": \"Prediction\"" -> "\"title\": \"Prediction \""
+test("the_repository_passes_the_writer_check", async () => { // SPEC-CHECK-ROOT-1: --check on this repository, contract-1.1.0/ and every dated directory (a missing, differing, extra or duplicated file reds)
+  const w = await writer();
+  assert.deepEqual(w.differences(ROOT, await w.expectedFiles(ROOT)), []);
 });
 
 // killer: scripts/spec-publish.mjs:292 CONST "r.recompute !== null" -> "r.recompute === undefined"
