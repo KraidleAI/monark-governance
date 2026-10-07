@@ -16,6 +16,7 @@ import { fileURLToPath } from "node:url";
 import { sha256Canonical } from "@monark/contracts";
 import { USDE_STABLE_RUN_PREDICTOR_ID } from "../apps/harness/src/calibration.ts";
 import { runGate, SCHEMA_VERSION, SERVED_POLICY_TABLES } from "../apps/harness/src/tools/gate.ts";
+import { COMMITTED_TABLES } from "../apps/harness/src/policy-committed-pins.ts";
 import { canonicalJson, contentProblems, loadInputs, parseInputs, plan, validDate } from "../scripts/spec-publish.mjs";
 import type { Inputs, Kind } from "../scripts/spec-publish.mjs";
 
@@ -127,7 +128,7 @@ test("published_tables_are_the_served_tables_byte_for_byte", async () => {
     const b = bytes(spec, dirs.filter((d) => held(d).includes(`${t.task_class}.json`)).at(-1) ?? "contract-1.1.0", "policy", `${t.task_class}.json`);
     assert.deepEqual([b.toString("utf8") === canonicalJson(t.table), sha(b), sha(b)], [true, t.policy_table_sha256, sha256Canonical(t.table)], t.task_class);
   }
-  assert.deepEqual([dirs[0], held("contract-1.1.0"), dirs.flatMap(held).filter((f) => !held("contract-1.1.0").includes(f)), dirs.filter((d) => held(d).length === 0), SERVED_POLICY_TABLES.filter((t) => t.table.class.cell_key_rule === "kata-bucket").map((t) => t.table.rows.length), readdirSync(spec).filter((d) => !dirs.includes(d))], ["contract-1.1.0", SERVED_POLICY_TABLES.map((t) => `${t.task_class}.json`).sort(), [], [], Array<number>(32).fill(0), []]);
+  assert.deepEqual([dirs[0], held("contract-1.1.0"), dirs.flatMap(held).filter((f) => !held("contract-1.1.0").includes(f)), dirs.filter((d) => held(d).length === 0), SERVED_POLICY_TABLES.filter((t) => t.table.class.cell_key_rule === "kata-bucket").map((t) => t.table.rows.length), readdirSync(spec).filter((d) => !dirs.includes(d))], ["contract-1.1.0", SERVED_POLICY_TABLES.map((t) => `${t.task_class}.json`).sort(), [], [], SERVED_POLICY_TABLES.filter((t) => t.table.class.cell_key_rule === "kata-bucket").map((t) => (Object.hasOwn(COMMITTED_TABLES, t.task_class) ? t.table.rows.length : 0)), []]);
   const fake = join(TMP, "dirs"), w = await writer(); // a directory that names no real day is no version, for this test as for the writer (it would hide a stale dated file)
   for (const d of ["contract-1.1.0", "contract-1.1.0-tables-2026-11-02", "contract-1.1.0-tables-2026-13-01", "contract-1.1.0-tables-2026-02-30"]) { mkdirSync(join(fake, "spec", d, "policy"), { recursive: true }); writeFileSync(join(fake, "spec", d, "policy", "btc-dir-1h.json"), d); }
   assert.deepEqual([versions(join(fake, "spec")), w.servedTableDirs(fake, [{ task_class: "btc-dir-1h" }])], [["contract-1.1.0", "contract-1.1.0-tables-2026-11-02"], { "btc-dir-1h": "contract-1.1.0-tables-2026-11-02" }]);
