@@ -5,7 +5,8 @@
 // loopback servers (test/probe-dojo-live.test.ts). ONE run checks, in this order; the first fault is the reason (precedence = this
 // order) and every later check is skipped:
 //   1. transport of both bases, before any GET (probe-narabi's urlTransportAllowed): insecure_url, bad_port; and
-//      NODE_TLS_REJECT_UNAUTHORIZED=0 in the environment (it would disable the certificate check of every GET): insecure_url;
+//      NODE_TLS_REJECT_UNAUTHORIZED=0 in the environment (it would disable the certificate check of every GET): insecure_url; and
+//      SMTP_PASS in the environment (the verifier child runs as the same user and could read it in /proc): secret_in_environment;
 //   2. the core: timeline.jsonl read from the host, then through the site's proxy, equal byte for byte (sha256 and length); then
 //      lines/<lines_sha256 of the host's head, its last snapshot line>.jsonl the same way; a difference waits REREAD_DELAY_MS and reads
 //      both once more (a publication between two GETs), only that second read is judged. Every GET is bounded by VERIFY_BOUNDS of the
@@ -18,12 +19,13 @@
 //      verifier_refused with the verifier's own named reason, verifier_timeline_differs);
 //   5. freshness: the head's day is at least the day due at DEADLINE_UTC (lag).
 // CONTRACT: dojo-live.json (keys DOJO_LIVE_KEYS, written atomically) is written by every run whose argv parses; on a transition to
-// unhealthy, then once per UTC day while unhealthy, and on recovery, ONE mail by probe-narabi's sendSmtp (same /etc/monark/probe.env).
+// unhealthy, then once per UTC day while unhealthy, and on recovery, ONE mail by probe-narabi's sendSmtp (the keys of
+// /etc/monark/probe.env but SMTP_PASS, which the probe reads from DEFAULT_SMTP_PASS_FILE when it sends, after the verifier child ended).
 // EXIT: 0 healthy and no failed mail; 1 unhealthy, a failed mail (alert_error), or a fatal (a write the disk refuses); 2 usage error,
 // nothing written. No secret and no address in any output: hosts by their public names, closed sets, digests and days only.
 import { createHash, randomBytes } from "node:crypto";
 import { execFile } from "node:child_process";
-import { mkdirSync, readFileSync, realpathSync, renameSync, rmSync, writeFileSync } from "node:fs";
+import { closeSync, constants, fstatSync, mkdirSync, openSync, readFileSync, realpathSync, renameSync, rmSync, writeFileSync } from "node:fs";
 import { dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 import { DOJO_VERIFY_REFUSALS, DOJO_VERIFY_REPORT_KEYS, VERIFY_BOUNDS, dayOk } from "../apps/dojo/scripts/dojo-verify.mjs";
@@ -36,6 +38,10 @@ export const DEFAULT_PROXY = "https://monarkgate.tech/dojo-served";
 export const DEFAULT_HOST = "https://dojo.monarkgate.tech";
 /** The record, beside narabi.json in the probe's only writable directory. */
 export const DEFAULT_OUT = "/var/lib/monark-probe/dojo-live.json";
+/** The SMTP password of the mail, one line in a file of the probe's user only (mode 0600; RUNBOOK-dojo section 25 (1b)), never in the
+ *  environment: read when a mail is sent, after the verifier child has ended (DOJO-PROBE-FOLLOWUP-1, N-1). */
+export const DEFAULT_SMTP_PASS_FILE = "/etc/monark/dojo-probe-smtp-pass";
+export const SMTP_PASS_MAX_BYTES = 1024;
 /** The verifier's public command and the committed keyring, at their repository paths relative to this file: in the repository, and
  *  in the tree the RUNBOOK ships (the keyring redeployed at each synchro, RUNBOOK-dojo section 25). */
 export const DEFAULT_VERIFIER = fileURLToPath(new URL("../apps/dojo/scripts/dojo-verify-cli.mjs", import.meta.url));
@@ -67,7 +73,7 @@ export const VERIFIER_ENV = Object.freeze(["HOMEDRIVE", "HOMEPATH", "LOGONSERVER
  *  edge in front of the site, DOJO-EDGE-CACHE-1 as found on 2026-10-03). */
 export const EDGE_ADMITTED = Object.freeze(["DYNAMIC", "BYPASS"]);
 /** The closed reasons, by the step that names them (steps 1 to 5 above); in a step, the first fault met (GETs: host before proxy). */
-export const DOJO_LIVE_REASONS = Object.freeze(["probe_error", "insecure_url", "bad_port", "unreachable", "timeout", "too_large",
+export const DOJO_LIVE_REASONS = Object.freeze(["probe_error", "insecure_url", "bad_port", "secret_in_environment", "unreachable", "timeout", "too_large",
   "timeline_malformed", "proxy_timeline_differs", "proxy_lines_differs", "proxy_not_no_store", "edge_cache_status", "verifier_timeout",
   "verifier_refused", "verifier_timeline_differs", "lag"]);
 /** The closed keys of dojo-live.json, in their order. */
@@ -154,10 +160,11 @@ async function pair(rel, run, s, timeline) {
     const hs = timeline ? timelineSink(run.bounds.MAX_LINE_BYTES) : digestSink(), ps = digestSink();
     const h = await get(`${run.host}/${rel}`, hs, run);
     if (!h.ok) return { fault: h.reason, side: "host" };
+    const host = hs.end();
+    if (timeline && host.head === null) return { fault: "timeline_malformed", side: "host" };
     const p = await get(`${run.proxy}/${rel}`, ps, run);
     if (!p.ok) return { fault: p.reason, side: "proxy" };
-    const host = hs.end(), proxy = ps.end();
-    if (timeline && host.head === null) return { fault: "timeline_malformed", side: "host" };
+    const proxy = ps.end();
     if (host.sha256 === proxy.sha256 && host.bytes === proxy.bytes) return { host, headers: p.headers };
     if (attempt > 0) return { fault: timeline ? "proxy_timeline_differs" : "proxy_lines_differs", side: null };
     s.reread = true;
@@ -200,6 +207,7 @@ async function check(s, opts) {
     if (!t.ok) { s.side = side; return t.reason; }
   }
   if (process.env.NODE_TLS_REJECT_UNAUTHORIZED === "0") return "insecure_url";
+  if ((opts.env ?? process.env).SMTP_PASS !== undefined) return "secret_in_environment";
   const tl = await pair("timeline.jsonl", run, s, true);
   if (tl.fault !== undefined) { s.side = tl.side; return tl.fault; }
   const head = tl.host.head;
@@ -229,12 +237,27 @@ export function readPriorAlert(out) {
   } catch { /* absent or corrupt */ }
   return { alerted: false, last_alert_day: null };
 }
-/** The mail configuration of /etc/monark/probe.env, under the keys and rules of smtpConfig of probe-narabi.mjs; null = unconfigured. */
+/** The SMTP password at `path`, or null: a regular file reached without a link (O_NOFOLLOW; win32 has none), never waited on (a FIFO),
+ *  at most SMTP_PASS_MAX_BYTES, ONE non-empty line (its final newline dropped), that neither its group nor others may read. win32 has no
+ *  POSIX mode bits (Node reports 0o666 or 0o444 whatever the ACL): they are not checked there; the probe runs on Linux (the Bell host). */
+export function readSmtpPass(path) {
+  let fd = null;
+  try {
+    fd = openSync(path, constants.O_RDONLY | (constants.O_NOFOLLOW ?? 0) | (constants.O_NONBLOCK ?? 0));
+    const st = fstatSync(fd);
+    if (!st.isFile() || st.size > SMTP_PASS_MAX_BYTES) return null;
+    if (process.platform !== "win32" && (st.mode & 0o077) !== 0) return null;
+    const text = readFileSync(fd, "utf8").replace(/\r?\n$/, "");
+    return /^[^\r\n\0]+$/.test(text) ? text : null;
+  } catch { return null; } finally { if (fd !== null) closeSync(fd); }
+}
+/** The mail configuration of /etc/monark/probe.env, under the keys and rules of smtpConfig of probe-narabi.mjs but SMTP_PASS, never
+ *  read from the environment; null = unconfigured. */
 function mailConfigOf(env) {
-  const host = env.SMTP_HOST, user = env.SMTP_USER, pass = env.SMTP_PASS, from = env.ALERT_FROM, to = env.ALERT_TO, tls = env.SMTP_TLS ?? "implicit";
+  const host = env.SMTP_HOST, user = env.SMTP_USER, from = env.ALERT_FROM, to = env.ALERT_TO, tls = env.SMTP_TLS ?? "implicit";
   const pn = Number(String(env.SMTP_PORT ?? "465").trim()), port = Number.isFinite(pn) && pn > 0 && pn < 65536 ? pn : 465;
-  if (!host || !user || !pass || !isEmailish(from) || !isEmailish(to) || !["implicit", "none"].includes(tls)) return null;
-  return { host, port, tls, user, pass, from, to };
+  if (!host || !user || !isEmailish(from) || !isEmailish(to) || !["implicit", "none"].includes(tls)) return null;
+  return { host, port, tls, user, from, to };
 }
 const SUBJECT = "[MONARK] Dojo probe notice";
 /** The mail: a constant subject, a UTC date, and closed-set facts of the record only (no URL, no address, no server line). */
@@ -249,16 +272,17 @@ export function composeDojoMail({ from, to, kind, state }) {
   return { subject: SUBJECT, message: `${head.join("\n")}\n\n${body.join("\n")}\n` };
 }
 /** The anti-storm machine of probe-narabi.mjs (maybeAlert): an alert on the transition to unhealthy, a reminder on a new UTC day still
- *  unhealthy, a recovery mail when healthy after an alert; the bit moves only after a delivered mail (a failure is retried next run). */
-async function alertOf(s, out, env) {
+ *  unhealthy, a recovery mail when healthy after an alert; the bit moves only after a delivered mail (a failure is retried next run).
+ *  Called after check, so after the verifier child's end: the password is read only then, and only when a mail is due. */
+async function alertOf(s, out, env, opts) {
   let { alerted, last_alert_day } = readPriorAlert(out), alert_error = null;
   const day = s.checked_at.slice(0, 10);
   const kind = s.status === "unhealthy" ? (!alerted ? "alert" : day > (last_alert_day ?? "") ? "reminder" : null) : alerted ? "recovery" : null;
   if (kind !== null) {
-    const cfg = mailConfigOf(env);
+    const cfg = mailConfigOf(env), pass = cfg === null ? null : readSmtpPass(opts.smtpPassFile ?? DEFAULT_SMTP_PASS_FILE);
     let res = { ok: false, error: "smtp_unconfigured" };
-    if (cfg !== null) {
-      try { res = await sendSmtp({ ...cfg, message: composeDojoMail({ from: cfg.from, to: cfg.to, kind, state: s }).message, deadlineMs: smtpDeadlineMs(env), maxBytes: SMTP_MAX_BYTES }); }
+    if (cfg !== null && pass !== null) {
+      try { res = await sendSmtp({ ...cfg, pass, message: composeDojoMail({ from: cfg.from, to: cfg.to, kind, state: s }).message, deadlineMs: smtpDeadlineMs(env), maxBytes: SMTP_MAX_BYTES }); }
       catch (e) { res = { ok: false, error: e?.alertError ?? "smtp_unreachable" }; }
     }
     if (!res.ok) alert_error = res.error;
@@ -278,14 +302,14 @@ export async function probe(opts = {}) {
     alert_error: null, last_alert_day: null };
   try { if (valid) s.reason = await check(s, opts); } catch { s.reason = "probe_error"; }
   s.status = s.reason === null ? "healthy" : "unhealthy";
-  Object.assign(s, await alertOf(s, out, opts.env ?? process.env));
+  Object.assign(s, await alertOf(s, out, opts.env ?? process.env, opts));
   mkdirSync(dirname(out), { recursive: true });
   const tmp = `${out}.tmp-${String(process.pid)}-${randomBytes(8).toString("hex")}`;
   try { writeFileSync(tmp, `${JSON.stringify(s, null, 2)}\n`); renameSync(tmp, out); } catch (e) { rmSync(tmp, { force: true }); throw e; }
   return { state: s, exitCode: s.status === "unhealthy" || s.alert_error !== null ? 1 : 0 };
 }
 
-const FLAGS = { "--proxy": "proxy", "--host": "host", "--keyring": "keyring", "--verifier": "verifier", "--out": "out", "--now": "now" };
+const FLAGS = { "--proxy": "proxy", "--host": "host", "--keyring": "keyring", "--verifier": "verifier", "--out": "out", "--now": "now", "--smtp-pass-file": "smtpPassFile" };
 /** The argv: each flag of FLAGS at most once, each with a value; anything else throws (the run writes nothing: exit 2). */
 export function parseArgs(argv) {
   const a = {};

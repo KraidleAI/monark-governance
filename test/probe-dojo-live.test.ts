@@ -8,7 +8,7 @@ import { after, test } from "node:test";
 import assert from "node:assert/strict";
 import { spawn } from "node:child_process";
 import { createHash } from "node:crypto";
-import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { chmodSync, existsSync, mkdtempSync, readFileSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
 import { createServer, type OutgoingHttpHeaders, type ServerResponse } from "node:http";
 import net from "node:net";
 import { tmpdir } from "node:os";
@@ -43,6 +43,13 @@ function file(name: string, text: string): string {
   writeFileSync(f, text);
   return f;
 }
+/** The SMTP password file, its mode set (0600 by default: owner only). */
+function passFile(text: string, mode = 0o600): string {
+  const f = file("smtp-pass", text);
+  chmodSync(f, mode);
+  return f;
+}
+const POSIX = process.platform !== "win32";
 
 // ---- the served trees: NEW (head 2026-10-10, seq 12), OLD (NEW without its last snapshot: a prefix of it, the same files) ----------
 const FX = dojoFixture(), NEW = render(FX.steps), OLD = render(FX.steps.slice(0, -1)), TL = "timeline.jsonl";
@@ -272,10 +279,23 @@ test("dojo_live_probe_names_each_transport_refusal", async () => {
   }
 });
 
+// reddened by: a timer that claims one CPU-bound job at a time on the host or does not name the collector, a collector off its
+// 5-minute grid, or the quotas of the probe and of the collector, which always run together, above one of the host's 2 vCPU
+// killer: deploy/monark-dojo-collect.service:54 CONST "CPUQuota=25%" -> "CPUQuota=80%"
+test("dojo_probe_timer_shares_the_host_with_the_collector", () => {
+  const ct = unit("deploy/monark-dojo-collect.timer"), cs = unit("deploy/monark-dojo-collect.service"), ds = unit(DOJO_SVC);
+  assert.deepEqual(values(ct, "Timer", "OnCalendar"), ["*-*-* *:00/5:00 UTC"], "a collector start every 5 minutes: each probe start runs beside one");
+  const quota = (u: readonly Directive[]): number => Number(/^([0-9]+)%$/.exec(one(u, "Service", "CPUQuota"))?.[1]);
+  assert.ok(quota(ds) + quota(cs) <= 100, `the probe and the collector within one vCPU: ${String(quota(ds))} % + ${String(quota(cs))} %`);
+  const head = read(DOJO_TIMER).split("\n").filter((l) => l.startsWith("#")).map((l) => l.replace(/^#\s?/, "")).join(" ");
+  assert.ok(!head.includes("one CPU-bound job at a time") && head.includes("monark-dojo-collect"), "the timer's header names the collector beside the probe");
+});
+
 // ---- the mail ---------------------------------------------------------------------------------------------------------------------
-/** A loopback SMTP fake (plaintext, AUTH PLAIN announced on the final EHLO line): each delivered DATA body, as the probe wrote it. */
-async function fakeSmtp(): Promise<{ port: number; mails: string[]; close: () => Promise<void> }> {
-  const mails: string[] = [];
+/** A loopback SMTP fake (plaintext, AUTH PLAIN announced on the final EHLO line): each delivered DATA body, as the probe wrote it, and
+ *  each AUTH PLAIN credential decoded (user and password, NUL-separated). */
+async function fakeSmtp(): Promise<{ port: number; mails: string[]; auths: string[]; close: () => Promise<void> }> {
+  const mails: string[] = [], auths: string[] = [];
   const srv = net.createServer((sock) => {
     sock.on("error", () => undefined);
     let buf = "", data: string | null = null;
@@ -289,31 +309,33 @@ async function fakeSmtp(): Promise<{ port: number; mails: string[]; close: () =>
           if (line !== ".") data += `${line}\n`;
           else { mails.push(data); data = null; sock.write("250 queued\r\n"); }
         } else if (up.startsWith("EHLO")) sock.write("250-fake\r\n250 AUTH PLAIN\r\n");
-        else if (up.startsWith("AUTH")) sock.write("235 ok\r\n");
+        else if (up.startsWith("AUTH")) { auths.push(Buffer.from(line.split(" ")[2] ?? "", "base64").toString("utf8")); sock.write("235 ok\r\n"); }
         else if (up === "DATA") { data = ""; sock.write("354 go\r\n"); }
         else sock.write(up === "QUIT" ? "221 bye\r\n" : "250 ok\r\n");
       }
     });
   });
   const port = await listen(srv);
-  return { port, mails, close: () => new Promise<void>((r) => { srv.close(() => { r(); }); }) };
+  return { port, mails, auths, close: () => new Promise<void>((r) => { srv.close(() => { r(); }); }) };
 }
 
 // reddened by: no mail on the transition to unhealthy (M-H8), a second mail the same UTC day, no recovery mail, the alert bit moved
-// without a delivered mail, a mail that carries a URL, an address, the password or a banned word
-// killer: scripts/probe-dojo-live.mjs:256 CONST "!alerted ? \"alert\"" -> "!alerted ? null"
+// without a delivered mail, a mail that carries a URL, an address, the password or a banned word, a password taken from anywhere but
+// its file (the environment holds none)
+// killer: scripts/probe-dojo-live.mjs:282 CONST "readSmtpPass(opts.smtpPassFile ?? DEFAULT_SMTP_PASS_FILE)" -> "env.SMTP_PASS"
 test("dojo_live_probe_mails_on_the_transition", async () => {
-  const smtp = await fakeSmtp(), out = join(scratch(), "dojo-live.json");
-  const env = { SMTP_HOST: "127.0.0.1", SMTP_PORT: String(smtp.port), SMTP_TLS: "none", SMTP_USER: "probe", SMTP_PASS: "secret-x",
+  const smtp = await fakeSmtp(), out = join(scratch(), "dojo-live.json"), smtpPassFile = passFile("secret-x\n");
+  const env = { SMTP_HOST: "127.0.0.1", SMTP_PORT: String(smtp.port), SMTP_TLS: "none", SMTP_USER: "probe",
     ALERT_FROM: "probe@monark.test", ALERT_TO: "ops@monark.test" };
   try {
-    const unconfigured = await probeOn({ opts: { now: LAG, out } });
+    const unconfigured = await probeOn({ opts: { now: LAG, out, smtpPassFile } });
     assert.deepEqual([unconfigured.state.reason, unconfigured.state.alert_error, unconfigured.state.alerted, unconfigured.exitCode], ["lag", "smtp_unconfigured", false, 1]);
-    const first = await probeOn({ opts: { now: LAG, out, env } });
+    const first = await probeOn({ opts: { now: LAG, out, env, smtpPassFile } });
     assert.deepEqual([first.state.alerted, first.state.last_alert_day, first.state.alert_error, smtp.mails.length], [true, "2026-10-12", null, 1]);
-    const again = await probeOn({ opts: { now: "2026-10-12T13:30:00.000Z", out, env } });
+    assert.deepEqual(smtp.auths, ["\0probe\0secret-x"], "the password of the file, its final newline dropped");
+    const again = await probeOn({ opts: { now: "2026-10-12T13:30:00.000Z", out, env, smtpPassFile } });
     assert.deepEqual([again.state.reason, again.state.alerted, smtp.mails.length], ["lag", true, 1], "no second mail the same UTC day");
-    const healed = await probeOn({ opts: { now: "2026-10-12T07:00:00.000Z", out, env } });
+    const healed = await probeOn({ opts: { now: "2026-10-12T07:00:00.000Z", out, env, smtpPassFile } });
     assert.deepEqual([healed.state.status, healed.state.alerted, healed.state.last_alert_day, healed.exitCode, smtp.mails.length], ["healthy", false, null, 0, 2]);
   } finally { await smtp.close(); }
   const [alert = "", recovery = ""] = smtp.mails;
@@ -325,6 +347,58 @@ test("dojo_live_probe_mails_on_the_transition", async () => {
     assert.doesNotMatch(m, /:\/\/|[0-9]{1,3}[.][0-9]{1,3}[.][0-9]{1,3}[.][0-9]{1,3}|secret-x|partner|autonomous|guarantee|verified|score/i, "no URL, address, password, mail-banned word");
     for (const re of banned) assert.ok(!re.test(m), `banned pattern ${re.source}`);
   }
+});
+
+// reddened by: the password read before the verifier's child has ended, or from a file that its group or others may read (POSIX),
+// through a symbolic link (POSIX), empty or of two lines; the section of the RUNBOOK that does not create the file for the probe alone
+// killer: scripts/probe-dojo-live.mjs:249 CONST "(st.mode & 0o077) !== 0" -> "false"
+test("dojo_live_probe_reads_the_smtp_password_from_its_file_after_the_verifier", async () => {
+  const smtp = await fakeSmtp(), late = join(scratch(), "smtp-pass");
+  const env = { SMTP_HOST: "127.0.0.1", SMTP_PORT: String(smtp.port), SMTP_TLS: "none", SMTP_USER: "probe", ALERT_FROM: "probe@monark.test", ALERT_TO: "ops@monark.test" };
+  const report = `${JSON.stringify({ ...Object.fromEntries(DOJO_VERIFY_REPORT_KEYS.map((k) => [k, null])), ok: true,
+    status: "consistent_with_supplied_keyring", trust_root: "supplied_keyring", timeline_sha256: sha(tl(NEW)) })}\n`;
+  // The verifier's child writes the file as it ends: a password read before the child's end (at start, with the configuration) finds none.
+  const writer = file("writer.mjs", `import { chmodSync, writeFileSync } from "node:fs";\nwriteFileSync(${JSON.stringify(late)}, "late-pass\\n");\n`
+    + `chmodSync(${JSON.stringify(late)}, 0o600);\nprocess.stdout.write(${JSON.stringify(report)});\n`);
+  const run = (smtpPassFile: string): Promise<Outcome> => probeOn({ opts: { now: LAG, out: join(scratch(), "dojo-live.json"), env, smtpPassFile, verifier: writer } });
+  try {
+    const after = await run(late);
+    assert.deepEqual([after.state.reason, after.state.verifier_exit, after.state.alert_error, smtp.auths], ["lag", 0, null, ["\0probe\0late-pass"]]);
+    const open = await run(passFile("open-pass\n", 0o640));
+    assert.deepEqual([open.state.alert_error, smtp.auths.length], POSIX ? ["smtp_unconfigured", 1] : [null, 2], "group-readable: refused (POSIX); win32 has no mode bits");
+    for (const text of ["", "\n", "two\nlines\n", `${"x".repeat(P.SMTP_PASS_MAX_BYTES)}\n`]) assert.equal((await run(passFile(text))).state.alert_error, "smtp_unconfigured", JSON.stringify(text));
+    if (POSIX) {
+      const link = join(scratch(), "smtp-pass-link");
+      symlinkSync(passFile("linked-pass\n"), link);
+      assert.equal((await run(link)).state.alert_error, "smtp_unconfigured", "never through a symbolic link");
+    }
+  } finally { await smtp.close(); }
+  assert.ok(!smtp.auths.some((a) => a.includes("linked-pass")), "the linked password never sent");
+  const text = read("docs/RUNBOOK-dojo.md"), s = text.slice(text.indexOf("\n## 25. "), text.indexOf("\n## ", text.indexOf("\n## 25. ") + 1));
+  for (const x of [P.DEFAULT_SMTP_PASS_FILE, "install -m 0600 -o probe -g probe", "probe 600"]) assert.ok(s.includes(x), `section 25: ${x}`);
+});
+
+// reddened by: a probe whose environment holds SMTP_PASS (any value) that runs a GET or its verifier child, which runs under the same
+// user and could read the parent's environment, or that names another reason or writes the value
+// killer: scripts/probe-dojo-live.mjs:210 CONST "(opts.env ?? process.env).SMTP_PASS !== undefined" -> "false"
+test("dojo_live_probe_refuses_a_password_in_its_environment", async () => {
+  const ran = join(scratch(), "ran.txt"), stub = file("ran.mjs", `import { writeFileSync } from "node:fs";\nwriteFileSync(${JSON.stringify(ran)}, "ran");\n`);
+  for (const value of ["secret-x", ""]) {
+    const r = await probeOn({ opts: { env: { SMTP_PASS: value }, verifier: stub } });
+    assert.deepEqual([r.state.status, r.state.reason, r.state.side, r.exitCode, r.host, r.proxy, existsSync(ran)],
+      ["unhealthy", "secret_in_environment", null, 1, [], [], false], `SMTP_PASS=${JSON.stringify(value)}: refused before any GET`);
+    assert.ok(!JSON.stringify(r.state).includes("secret-x"), "the value is never written");
+  }
+});
+
+// reddened by: a host timeline without a head judged only after the proxy's GET, its reason then the proxy's transport fault
+// killer: scripts/probe-dojo-live.mjs:164 CONST "timeline && host.head === null" -> "false"
+test("dojo_live_probe_judges_the_host_timeline_before_the_proxy", async () => {
+  const bare = render(FX.steps.slice(0, 2)), t = (rel: string): Buffer | undefined => bare.get(rel);
+  const closed = await probeOn({ host: { tree: t }, opts: { proxy: `http://127.0.0.1:${String(await closedPort())}/dojo-served` } });
+  assert.deepEqual([closed.state.reason, closed.state.side, closed.host, closed.exitCode], ["timeline_malformed", "host", [TL], 1]);
+  const served = await probeOn({ host: { tree: t } });
+  assert.deepEqual([served.state.reason, served.state.side, served.proxy], ["timeline_malformed", "host", []], "no GET through the proxy");
 });
 
 // reddened by: a usage error that writes a record or exits other than 2, a run whose exit or printed record differs from its file, or
@@ -366,14 +440,14 @@ test("dojo_live_probe_cli_contract", async () => {
 });
 
 // reddened by: the probe unit off its closed directive set or a pinned value (the user, group and writable path of monark-probe, the
-// required env file, the publish unit's UnsetEnvironment guard), a TimeoutStartSec not strictly above the worst case of one start, a
-// verifier delay under DOJO-VERIFY-SCALE-1 under the unit's CPU quota, a memory cap under the two envelopes it composes
-// killer: deploy/monark-dojo-probe.service:23 CONST "TimeoutStartSec=3300" -> "TimeoutStartSec=3200"
+// required env file, the publish unit's UnsetEnvironment guard then SMTP_PASS), a TimeoutStartSec not strictly above the worst case
+// of one start, a verifier delay under DOJO-VERIFY-SCALE-1 under the unit's CPU quota, a memory cap under the two envelopes it composes
+// killer: deploy/monark-dojo-probe.service:29 CONST " SMTP_PASS" -> ""
 test("dojo_probe_units_are_hardened", () => {
   const ds = unit(DOJO_SVC), ns = unit("deploy/monark-probe.service"), ps = unit("deploy/monark-dojo-publish.service");
   const want: Record<string, string> = { Type: "oneshot", WorkingDirectory: P.DOJO_PROBE_TREE_ROOT, EnvironmentFile: one(ns, "Service", "EnvironmentFile"),
     ExecStart: `/usr/bin/env node ${P.DOJO_PROBE_TREE_ROOT}/scripts/probe-dojo-live.mjs`, TimeoutStartSec: "3300",
-    UnsetEnvironment: one(ps, "Service", "UnsetEnvironment"), User: one(ns, "Service", "User"), Group: one(ns, "Service", "Group"),
+    UnsetEnvironment: `${one(ps, "Service", "UnsetEnvironment")} SMTP_PASS`, User: one(ns, "Service", "User"), Group: one(ns, "Service", "Group"),
     NoNewPrivileges: "true", ProtectSystem: "strict", ProtectHome: "true", PrivateTmp: "true", ReadWritePaths: one(ns, "Service", "ReadWritePaths"),
     CPUQuota: "25%", MemoryMax: "640M", TasksMax: "64" };
   const svc = ds.filter((d) => d.section === "Service");

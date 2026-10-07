@@ -1402,7 +1402,10 @@ vitrine's catch-all answers it).
 `DYNAMIC` or `BYPASS`), runs the verifier's public command against the host under the keyring of its tree, checks the head's day
 against the deadline (07:30 UTC), writes `/var/lib/monark-probe/dojo-live.json` (closed keys, no secret, no address) and mails a
 transition with the mail file of the Narabi probe (`/etc/monark/probe.env`, `docs/RUNBOOK-sentinel.md`, the probe's deployment on
-Bell). The user `probe`, its state directory and that file exist since that deployment; this section writes none of them. The
+Bell) but its `SMTP_PASS`, which the unit unsets: the probe reads the password when it sends, after the verifier's child has ended,
+from its own file `/etc/monark/dojo-probe-smtp-pass` (owner `probe`, mode 0600, act (1b)); the child runs as `probe` and could read a
+password held in the probe's environment. The user `probe`, its state directory and the mail file exist since that deployment; this
+section writes none of them, only the password file of (1b). The
 probe's tree lies in `/opt/monark-dojo-probe`, outside `/opt/monark-probe`, which check 12 of Bell's CA and `c10` hash (section 15 (1)).
 
 **When.** After the G7 of PR-4c-1c, by the orchestrator (decision 292); DOJO-SITE-PROXY-1 done (section 24). Conventions of section
@@ -1419,6 +1422,20 @@ test -f /etc/monark/probe.env && echo env-present; ls -d /opt/monark-dojo-probe 
 Expected: `v24.21.0` (the node against which the fetch port list that the probe imports was checked: the dated line of 2026-10-04 of
 `docs/RUNBOOK-sentinel.md`; another version: that check first); the `id` line of `probe`; `probe-writes`; `env-present`; two
 `No such file or directory` (no tree, no unit). **STOP** otherwise (an earlier act: read the host). Rollback: none (read-only).
+
+(1b) The password file, from the line `SMTP_PASS=` of the mail file, never printed:
+
+```bash
+ssh -i ~/.ssh/monark_vps root@bell.monarkgate.tech 'install -m 0600 -o probe -g probe /dev/null /etc/monark/dojo-probe-smtp-pass &&
+sed -n "s/^SMTP_PASS=//p" /etc/monark/probe.env | head -n 1 > /etc/monark/dojo-probe-smtp-pass &&
+stat -c "%U %a %s" /etc/monark/dojo-probe-smtp-pass; grep -c "^SMTP_PASS=\"" /etc/monark/probe.env'
+```
+
+Expected: `probe 600` and a size of 2 bytes or more, then `0` (the value is not between double quotes in the mail file; nor may it
+be between single quotes). **STOP** on another owner or mode, a size under 2, or a count other than `0` (a quoted value: the file
+written again by hand, without the quotes, never printed). A bit for the group or others makes every mail fail as
+`smtp_unconfigured`. Rollback:
+`ssh -i ~/.ssh/monark_vps root@bell.monarkgate.tech 'rm -f /etc/monark/dojo-probe-smtp-pass'`.
 
 (2) The tree: its list read from the module AT the G7 (never retyped; the working tree equal to the G7 on these paths), shipped, then
 compared on both sides (motif of section 12):
@@ -1495,7 +1512,7 @@ Expected: the next elapse at 07:30, 09:30 or 13:30 UTC (JOURNAL: the act, the G7
 ```bash
 ssh -i ~/.ssh/monark_vps root@bell.monarkgate.tech 'systemctl disable --now monark-dojo-probe.timer;
 rm -f /etc/systemd/system/monark-dojo-probe.service /etc/systemd/system/monark-dojo-probe.timer && systemctl daemon-reload &&
-rm -rf /opt/monark-dojo-probe && rm -f /var/lib/monark-probe/dojo-live.json'
+rm -rf /opt/monark-dojo-probe && rm -f /var/lib/monark-probe/dojo-live.json /etc/monark/dojo-probe-smtp-pass'
 ```
 
 (7) Each day, read-only, the record and the last start:

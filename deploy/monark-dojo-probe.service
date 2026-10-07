@@ -14,7 +14,9 @@ Type=oneshot
 # The tree: DOJO_PROBE_TREE_PATHS of the probe at the G7, root-owned 0644, the keyring redeployed at each synchro (RUNBOOK section 25).
 WorkingDirectory=/opt/monark-dojo-probe
 # The mail configuration of monark-probe.service, the same file (PL-3): required, so a missing file fails the start loudly. The
-# probe hands none of it to the verifier child (VERIFIER_ENV, a closed list by name).
+# probe hands none of it to the verifier child (VERIFIER_ENV, a closed list by name). Its SMTP_PASS is unset below: the child runs as
+# the same user and could read the probe's environment in /proc; the probe reads the password from its own file, mode 0600, when it
+# sends (DEFAULT_SMTP_PASS_FILE, RUNBOOK section 25 (1b)), and refuses to run with SMTP_PASS in its environment (secret_in_environment).
 EnvironmentFile=/etc/monark/probe.env
 ExecStart=/usr/bin/env node /opt/monark-dojo-probe/scripts/probe-dojo-live.mjs
 # Worst case of one start, every term bounded in code: 8 GETs (two files, host and proxy, one reread) x 30 s (VERIFY_BOUNDS) + two
@@ -22,8 +24,9 @@ ExecStart=/usr/bin/env node /opt/monark-dojo-probe/scripts/probe-dojo-live.mjs
 # this backstop stays strictly above it (dojo_probe_units_are_hardened).
 TimeoutStartSec=3300
 # The retained guard of FAITS-SYSTEMD-PUBLISH-1 F-2 (the publish unit's list, verbatim): no name of the manager's block that would load
-# code into the probe or touch the TLS of its GETs; the probe also refuses NODE_TLS_REJECT_UNAUTHORIZED=0 itself (insecure_url).
-UnsetEnvironment=NODE_OPTIONS NODE_TLS_REJECT_UNAUTHORIZED NODE_EXTRA_CA_CERTS SSL_CERT_FILE SSL_CERT_DIR HTTP_PROXY HTTPS_PROXY ALL_PROXY NO_PROXY http_proxy https_proxy all_proxy no_proxy
+# code into the probe or touch the TLS of its GETs; the probe also refuses NODE_TLS_REJECT_UNAUTHORIZED=0 itself (insecure_url). Then
+# SMTP_PASS: systemd.exec(5) applies UnsetEnvironment as the final step, after EnvironmentFile.
+UnsetEnvironment=NODE_OPTIONS NODE_TLS_REJECT_UNAUTHORIZED NODE_EXTRA_CA_CERTS SSL_CERT_FILE SSL_CERT_DIR HTTP_PROXY HTTPS_PROXY ALL_PROXY NO_PROXY http_proxy https_proxy all_proxy no_proxy SMTP_PASS
 # Least privilege: the dedicated non-login user of monark-probe.service, whose ONLY writable path is its state directory.
 User=probe
 Group=probe
