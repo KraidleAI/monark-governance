@@ -31,11 +31,21 @@ Ce lot est **empilé sur 1f** et sera rebasé avec lui quand l'outil figé de MO
   - **Fusion du second tour de 1f** (`e6d13075` : l'aide partagée des chargements, le test qui la tient, `--no-replace-objects` et le G0
     de 1f) : même worker, même session ; fusion `a525f347` à 14:33 UTC, 14:35 UTC pour ce G0. Aucune ligne de `policy-verifiers.ts` ni de
     `test/recompute-report.test.ts` ne bouge : ni tueur ni citation de ce G0 ne se déplace, et le digest du gel ne change pas (§6).
+  - **Pli de la décision de MONARK sur la profondeur de `canon`** (`recherches` `b97d5b1`, 16:18 UTC, message
+    `2026-10-07-MONARK-vers-RECHERCHES-passation-g2.md`, point 3 ; §10) : worker `claude-opus-5-5`, **effort: max**, déclaré ; horloge
+    lue (`date -u`) à 16:29 UTC au début, 16:44 UTC pour ce G0. Worktree détaché neuf du scratchpad (`wt-canon64`) à `306760b3` ;
+    `node_modules` fait de liens vers celui du clone principal, `@monark/*` repointés dans le worktree, retiré à la fin ; ni `GIT_DIR`,
+    ni `GIT_WORK_TREE`, ni `--write-tree`. Node 24.21.0, Linux ; CPython 3.14.0rc2 sous `-E -S -s -B` pour la mesure de `canonical()`
+    (§4). Le pli ne touche rien sous `tools/kata-recalc/` : la règle du lot qui se liste lui-même (G0 de 1f, §6) ne demande pas de
+    commit de liste ; ses commits sont poussés ensemble, sans rebase.
 - **Zone** : `apps/harness/src/policy-verifiers.ts` (ajout en fin de fichier, aucune ligne de 1f déplacée : les tueurs de 1f, l.18 à
   l.115, restent à leur ligne), `test/recompute-report.test.ts` (neuf), `docs/G0-lot-verifiers-list-f5a-1.md` (amendement sur place,
   nombre de lignes inchangé), ce G0. Pli N-6 (MONARK, `recherches` `8ac6bd6`) : `registry` sans `file`. Pli de la G2 : les mêmes
   fichiers ; dans le module, les l.150 et l.164 changent sur place et les lignes ajoutées sont après la l.170, si bien qu'aucun tueur ne
-  bouge (ceux de 1f, l.18 à l.115 ; ceux de ce lot, l.124 et l.156) ; le chantier change à sa l.503, à lignes égales.
+  bouge (ceux de 1f, l.18 à l.115 ; ceux de ce lot, l.124 et l.156) ; le chantier change à sa l.503, à lignes égales. Pli de la
+  profondeur (§10) : dans le module, les l.170-178 (la borne `NESTING` et `canon` ; `canonOf` retiré) et la l.186 (`canon(doc)`), le
+  contrôle ASCII des chaînes passant de la l.173 à la l.177 ; dans le test, la l.71 (commentaire), la l.135 (le cas à 65 niveaux), le
+  tueur de la l.141 réancré (`:173` → `:177`) et un test neuf en fin de fichier (l.207-219). Aucun autre tueur ne bouge.
 
 ## 1. Le contrat, cité
 
@@ -57,11 +67,11 @@ Ce lot est **empilé sur 1f** et sera rebasé avec lui quand l'outil figé de MO
 
 ## 2. Construction
 
-- **`readRecomputeReport(bytes)`** (`policy-verifiers.ts` l.179-186), sur octets ou texte : UTF-8 strict et JSON, sinon « not UTF-8
-  JSON », le décodeur gardant un BOM, qui échoue donc en JSON (`{ fatal: true, ignoreBOM: true }`, l.181, pli 1) ; ASCII seul (« not
+- **`readRecomputeReport(bytes)`** (`policy-verifiers.ts` l.181-188 depuis le pli de la profondeur), sur octets ou texte : UTF-8 strict et JSON, sinon « not UTF-8
+  JSON », le décodeur gardant un BOM, qui échoue donc en JSON (`{ fatal: true, ignoreBOM: true }`, l.183, pli 1) ; ASCII seul (« not
   ASCII », sur le texte, avant la forme) ; forme fermée ; puis égalité des octets à l'écriture canonique, sinon « not its canonical
   writing ». Chaque refus est nommé (`MONARK recompute report: <chemin> …`), le chemin du champ fautif compris
-  (`report.cells[0].scores_sha256 is off the form`) ; une valeur trop imbriquée aussi (pli 6, ci-dessous).
+  (`report.cells[0].scores_sha256 is off the form`) ; une valeur imbriquée au-delà de 64 niveaux aussi (pli 6 et §10, ci-dessous).
 - **La forme fermée** (l.139-169), clés exactes à chaque niveau typé :
   - premier niveau : les 13 clés d'`assemble` de `report.py` **et `scope`** (14) ;
   - `format` = `monark-recompute-report-v1` ; `verifier` = `<identité>@<40 hex>`, l'identité égale à `identityOf` (règle de 1f) ;
@@ -78,11 +88,13 @@ Ce lot est **empilé sur 1f** et sera rebasé avec lui quand l'outil figé de MO
   - `platform` : objet libre, sauf `platform.libm.sha256`, une chaîne de 64 hex minuscules (l.164, pli 5 : `isObj(v.libm)`, un chemin de
     `REPORT_NON_ROW_DIGESTS`) ; `oracles`, `fields`, `explanation`, `summary` : objets, contenu libre (la plateforme Linux de la course
     n'est pas encore écrite ; la clause (d5) de la porte juge toute empreinte où qu'elle soit) ; `replay` : chaîne.
-- **L'écriture canonique** (l.170-176) : celle de `report.py` (`canonical`) : clés triées, sans espace, entiers sûrs seuls (une
+- **L'écriture canonique** (l.173-178) : celle de `report.py` (`canonical`) : clés triées, sans espace, entiers sûrs seuls (une
   fraction est refusée, `-0` n'est pas canonique), chaînes de `JSON.stringify`, **chaque chaîne et chaque clé ASCII** (les clés passent
-  par `canon(k)` ; refus « a string that is not ASCII », le message de `report.py`, l.172-173, pli 1 : un demi-substitut échappé, ASCII
-  en texte, ne se lit plus), sans LF final. Une valeur imbriquée au-delà de la pile d'appel est refusée par nom, « not its canonical
-  writing (nested too deep) » (`canonOf`, l.175-176, qui n'attrape que la `RangeError` ; pli 6). Le module n'importe toujours que
+  par `canon(k)` ; refus « a string that is not ASCII », le message de `report.py`, l.176-177, pli 1 : un demi-substitut échappé, ASCII
+  en texte, ne se lit plus), sans LF final, et **au plus 64 niveaux de listes et d'objets, le rapport lui-même étant le premier**
+  (`NESTING`, l.170-172 ; décision de MONARK, §10) : `canon` porte le niveau, et une liste ou un objet au-delà est refusé par nom, « not
+  its canonical writing (nested too deep) » (l.174). La forme du rapport a 4 niveaux ; la borne ne dépend ni de la pile d'appel ni de
+  l'optimisation du moteur (§4). Le `canonOf` du pli 6, qui attrapait la `RangeError`, est retiré. Le module n'importe toujours que
   `node:crypto`, `node:fs`, `node:url` (le test de 1f qui le tient passe ; depuis le second tour de 1f, `forbiddenLoads` de l'aide
   partagée lit l'AST du module entier, le lecteur compris, et n'y trouve aucun chargement calculé) : l'écriture est locale, sans
   `@monark/contracts` ni `scripts/`.
@@ -102,16 +114,20 @@ Tous dans `test/recompute-report.test.ts` (neuf). Le fichier importe le module p
 se charge et n'a pas le lecteur, et chaque test rougit par une **assertion** (`typeof verifiers.readRecomputeReport === "function"`),
 non par un échec de chargement (red-proof refuse un import rouge sur un fichier qui existe à la base). Au pli de la G2, rouge d'abord :
 le commit des tests (`6e7249e9`) rougit sur le lecteur de `e0bfe0f4` par assertion dans T-RR et dans les deux tests neufs (§6), puis le
-commit du lecteur les rend verts ; un test par tueur, les deux tueurs neufs sur les lignes neuves ou changées (l.150, l.173).
+commit du lecteur les rend verts ; un test par tueur, les deux tueurs neufs sur les lignes neuves ou changées (l.150, l.173). Au pli de
+la profondeur (§10), rouge d'abord de même : le commit des tests (`bc0657f7`) rougit sur le lecteur de `306760b3` par assertion dans
+T-RR et dans le test neuf, une valeur de 65 niveaux s'y lisant ; puis le commit du lecteur (`9eeed44a`) les rend verts. Le tueur neuf
+est sur la borne (l.172) ; celui du test des octets suit le contrôle ASCII à la l.177.
 
 | Test | Ce qu'il tient | Tueur |
 |---|---|---|
-| **T-RR** `recompute_report_reader_judges_the_closed_form` | admis : le rapport de synthèse de forme neuve, en texte et en octets, écrit par `canonicalJson` du contrat ; 24 classes dans `scope`. Refus nommés : forme ancienne sans `scope`, clé de plus au premier niveau, `format` autre, cinq `verifier` faux, `commit` majuscule, `tree_sha256` court, clé de plus dans `tool`, `registry.sha256` majuscule, `registry.cells` à -1, 1,5 ou chaîne, `registry.file` présent (forme d'avant N-6), taille négative, clé de plus dans une entrée, quatre `scores_sha256` faux, trois `decisions_equal` non booléens, second digest par case (forme ancienne), classe hors forme, cases non triées ou répétées, quatre `scope` faux, digest sous `differences` (forme ancienne), trois flottants mal écrits, différence non expliquée, genre autre, `platform` liste, `summary` nul, fraction, `-0`, clés dans l'ordre d'insertion, espaces, LF final, LF, CR ou CR LF brut entre jetons, octet non ASCII (« not ASCII », au nom exact depuis le pli), non-JSON, non-UTF-8. **Pli de la G2** : `fields` aux cinq clés ; 2^53 dans un objet libre ; deux cases inversées à une frontière de classes (classe décroissante, clé croissante) ; `cells`, `differences` et `inputs.compare` en texte ; les huit colonnes texte en nombre (`replay`, `tool.tree`, `registry.generator_identity`, `name` et `role` d'une entrée, `cell_key` d'une case et d'une différence, `field`) ; `tool` et `cells[0]` nuls ; une clé en double au sommet et dans une case ; `platform.libm.sha256` double, majuscule, nombre ou absent, `platform.libm` nul, texte ou absent, `platform` nul, chacun « report.platform is off the form », et `platform` à clé de plus lu ; une valeur imbriquée sur 100 000 niveaux (« nested too deep ») | `apps/harness/src/policy-verifiers.ts:156 CONST "typeof v === \"boolean\"" -> "true"` |
-| `recompute_report_reader_is_closed_on_the_bytes_and_the_strings` (pli 1) | les octets canoniques se lisent ; refus au nom exact : un BOM devant les octets canoniques et un octet UTF-8 invalide dans une chaîne (« not UTF-8 JSON ») ; un demi-substitut échappé en valeur (`replay`) et en clé (la dernière d'un objet libre) (« a string that is not ASCII ») | `apps/harness/src/policy-verifiers.ts:173 CONST "!/^[\\x00-\\x7f]*$/.test(v)" -> "false"` |
+| **T-RR** `recompute_report_reader_judges_the_closed_form` | admis : le rapport de synthèse de forme neuve, en texte et en octets, écrit par `canonicalJson` du contrat ; 24 classes dans `scope`. Refus nommés : forme ancienne sans `scope`, clé de plus au premier niveau, `format` autre, cinq `verifier` faux, `commit` majuscule, `tree_sha256` court, clé de plus dans `tool`, `registry.sha256` majuscule, `registry.cells` à -1, 1,5 ou chaîne, `registry.file` présent (forme d'avant N-6), taille négative, clé de plus dans une entrée, quatre `scores_sha256` faux, trois `decisions_equal` non booléens, second digest par case (forme ancienne), classe hors forme, cases non triées ou répétées, quatre `scope` faux, digest sous `differences` (forme ancienne), trois flottants mal écrits, différence non expliquée, genre autre, `platform` liste, `summary` nul, fraction, `-0`, clés dans l'ordre d'insertion, espaces, LF final, LF, CR ou CR LF brut entre jetons, octet non ASCII (« not ASCII », au nom exact depuis le pli), non-JSON, non-UTF-8. **Pli de la G2** : `fields` aux cinq clés ; 2^53 dans un objet libre ; deux cases inversées à une frontière de classes (classe décroissante, clé croissante) ; `cells`, `differences` et `inputs.compare` en texte ; les huit colonnes texte en nombre (`replay`, `tool.tree`, `registry.generator_identity`, `name` et `role` d'une entrée, `cell_key` d'une case et d'une différence, `field`) ; `tool` et `cells[0]` nuls ; une clé en double au sommet et dans une case ; `platform.libm.sha256` double, majuscule, nombre ou absent, `platform.libm` nul, texte ou absent, `platform` nul, chacun « report.platform is off the form », et `platform` à clé de plus lu ; une valeur imbriquée sur 65 niveaux comptés depuis le rapport, dans `summary` (« nested too deep » ; elle prend la place du cas à 100 000 niveaux, §10) | `apps/harness/src/policy-verifiers.ts:156 CONST "typeof v === \"boolean\"" -> "true"` |
+| `recompute_report_reader_is_closed_on_the_bytes_and_the_strings` (pli 1) | les octets canoniques se lisent ; refus au nom exact : un BOM devant les octets canoniques et un octet UTF-8 invalide dans une chaîne (« not UTF-8 JSON ») ; un demi-substitut échappé en valeur (`replay`) et en clé (la dernière d'un objet libre) (« a string that is not ASCII ») | `apps/harness/src/policy-verifiers.ts:177 CONST "!/^[\\x00-\\x7f]*$/.test(v)" -> "false"` (l.173 avant le pli de la profondeur) |
 | `recompute_report_doubles_are_the_writings_of_float_hex` (pli 3) | se lisent, en `a` et en `b`, dans un seul rapport de 2 103 différences : `2^e` pour chaque exposant d'un normal (-1022 à 1023), chaque puissance de deux des sous-normaux, `-0x1.fffffffffffffp+1023`, `0x1.999999999999ap-4`, le plus grand sous-normal, `0x0.0p+0` et `-0x0.0p+0` ; refusées, chacune nommée au chemin : dix-sept écritures que `float.hex()` ne donne jamais (mantisse courte ou longue, exposant `+01`, `-0`, `+00` ou sans signe, zéro écrit en sous-normal, `0x0.0p-0`, sous-normal à `p+5` ou à `p-1021`, `p+99999`, `p+1024`, `p-1023`, `0x2.…`, majuscule, `+` en tête, `p+1e3`), et une en `b` | `apps/harness/src/policy-verifiers.ts:150 CONST "102[0-3]" -> "102[0-9]"` |
 | `recompute_report_reader_binds_nothing_the_gate_binds` | se lisent (Q-P3-2) : registre autre (sha256, 0 case), nom d'entrée `compare` autre, vérificateur autre, arbre autre (chemin, digest), case à `decisions_equal` faux, digest d'une classe retenue (hors portée), classe de portée sans case, portée vide, sans différence, sans entrée `compare` | `apps/harness/src/policy-verifiers.ts:156 CONST "typeof v === \"boolean\"" -> "v === true"` (l'ancienne règle de T2-1 dans le lecteur) |
 | `recompute_report_non_row_digests_are_a_closed_list` | mesure (d5) sur synthèse : les chemins des sous-chaînes de 64 hex (valeurs et clés) = `REPORT_NON_ROW_DIGESTS` ∪ `cells[].scores_sha256` ; aucun sous `differences` ; digest pour chaque case de la portée, `null` pour chaque classe retenue | `apps/harness/src/policy-verifiers.ts:124 CONST "\"platform.libm.sha256\", " -> ""` |
 | `recompute_report_synthetic_passes_the_spec_gate` | les octets admis par le lecteur passent `contentProblems` en sorte `json` au chemin `contract-1.1.0-tables-2026-10-20/recompute/wave1-monark-kata-recalc.json` (textes fixes de `report.py`, clés de case du registre) | `scripts/spec-publish.mjs:113 CONST "k.replace(VENUE, \"@$1KEY/\")" -> "k"` |
+| `recompute_report_nesting_is_bounded_at_64_levels` (§10) | la forme du rapport de synthèse a 4 niveaux (le rapport, `inputs`, `inputs.compare`, une entrée) ; dans chacun des cinq objets libres (`explanation`, `fields`, `oracles`, `platform`, `summary`), en listes puis en objets, une valeur dont le rapport compte 64 niveaux se lit et une de 65 est refusée au nom exact « not its canonical writing (nested too deep) », le compte de chaque cas vérifié (64, 65) | `apps/harness/src/policy-verifiers.ts:172 CONST "64" -> "65"` |
 
 - **Le rapport de synthèse** : les 280 cases de `wave1.json` (`811fcd57…`), triées ; `scores_sha256` = `calib.scoresSha256` de la ligne
   pour une classe de bande, `null` pour les 8 classes `*-dir-1h` et `*-dir-4h` ; les textes fixes lus dans le bloc `TEXTS` de
@@ -128,6 +144,13 @@ commit du lecteur les rend verts ; un test par tueur, les deux tueurs neufs sur 
   25 sur les clauses du pli, dont 24 tués. Le seul vivant est **équivalent** : la garde `typeof v === "string" &&` de la l.173 retirée,
   le test de l'expression sur un nombre, un booléen ou `null` lit leur texte ASCII et ne refuse rien ; `tsc` refuse ce mutant (TS2345).
   Soit 56 tués et un équivalent. N1 était équivalent avant le pli (`ignoreBOM: false` est le défaut) ; il est tué depuis.
+- **Mutants au pli de la profondeur** (§10 ; même méthode, sur le module de `9eeed44a`) : les deux mutants de la `RangeError` (pli 6)
+  n'ont plus de code ; treize mutants neufs sur la borne, tous tués par assertion : la borne à 65 (le tueur) et à 63 ; `>=` ; le
+  rapport compté 0 ou 2 ; une liste, ou un objet, sans niveau de plus ; la borne sur toute valeur, scalaires compris ; sur les seuls
+  objets ; sur les seules listes ; pas de borne ; un autre nom ; un refus sans son nom (la valeur écrite vide). Trois mutants de
+  `canon` rejoués sur leurs lignes neuves, tués : clés écrites sans `canon`, le tueur de la l.177, `isInteger` pour `isSafeInteger`.
+  Hors ces trois, les 55 mutants restants du pli de la G2 ne sont pas rejoués : aucune ligne qu'ils mutent ne change, sauf le numéro
+  de la l.173, devenue l.177 (l'équivalent y reste). Compte : 68 mutants (55 et 13), 67 tués, un équivalent.
 
 ## 4. Mesures
 
@@ -149,7 +172,22 @@ commit du lecteur les rend verts ; un test par tueur, les deux tueurs neufs sur 
   du lecteur va plus loin, et sa borne dépend de l'optimisation du moteur : sous Node 24.21.0, la plus grande profondeur lue est 3 125
   niveaux sans chauffe et 12 852 après 1 000 à 30 000 lectures, si bien qu'un cas à 10 000 niveaux se lit après chauffe (un premier
   appel à 10 000 niveaux est refusé par nom). Le cas prend donc 100 000 niveaux, refusés par nom dans chaque état mesuré (Node 22.22.2
-  aussi).
+  aussi). **Remplacé par la borne fixe de 64 niveaux** (décision de MONARK, §10), mesurée ainsi :
+  - `canonical()` de `report.py`, remesuré : 499 niveaux au plus, en listes nues comme dans un rapport (le rapport compté premier,
+    `summary` deuxième), pour `report.py` de `09f49fc2` (`30e41c83…`, celui de cet arbre) et de l'outil figé à `29c53bd5` (`b2e5767f…`) ;
+    CPython 3.14.0rc2 sous `-E -S -s -B`, `io_guard` importé, appel depuis le niveau d'un script, recherche par dichotomie, limite de
+    récursion 1 000. Les niveaux 65 à 499 sont donc écrits par l'outil et refusés par le lecteur : la borne est la plus stricte
+    (fail-closed).
+  - **La forme du rapport a 4 niveaux** : le rapport, `inputs`, `inputs.compare` (ou `recompute`), une entrée. Sur la synthèse, le test
+    neuf le mesure. Dans l'outil figé à `29c53bd5`, lu (`assemble`, l.383-400 ; `platform_fields`, l.127-128 ; `oracles_of`,
+    l.199-202 ; `census`, l.308 ; `entries_of`, l.340-349, et ses termes, l.287) : `platform.libm`, `oracles.*`, `fields.values`, `fields.digests`,
+    `explanation.classes`, `explanation.log`, `cells[]` et `differences[]` sont au niveau 3, les entrées de `inputs` au niveau 4, et rien
+    n'est plus profond. La borne est à 60 niveaux de la forme.
+  - **Sonde** (`probe-depth.mjs`, hors dépôt ; une synthèse, `z` dans `summary`), à froid puis après 3 000 lectures des cas à 64 et 65
+    niveaux, Node 24.21.0 : sur le lecteur de `306760b3`, 64, 65 et 3 200 niveaux se lisent, 13 000 et 100 000 sont refusés par nom ;
+    sur celui de `9eeed44a`, 64 se lit, et 65, 3 200, 13 000 et 100 000 sont refusés par nom, dans les deux états. `JSON.parse` lit les
+    100 000 niveaux sans erreur, la forme fermée ne descend pas dans les objets libres, et `canon` s'arrête au niveau 65 : aucun refus ne
+    dépend plus de la pile d'appel.
 - **Forme d'`assemble` à `09f49fc2`**, sur des entrées inventées (une case, une différence de chaque genre) : 13 clés de premier
   niveau, **sans `scope`** ; cases `{cell_key, decisions_equal, task_class}` sans `scores_sha256` ; différence de genre digest avec `a`
   et `b`. Chemins de 64 hex : `differences[].a`, `differences[].b`, plus les cinq de `REPORT_NON_ROW_DIGESTS`. La forme neuve retire les
@@ -182,6 +220,32 @@ a1) porte trois contrôles sur le rapport réel ; la G2 de RECHERCHES les relit.
 
 ## 6. Preuves
 
+- **Pli de la profondeur** (§10 ; gel `9eeed44a1c4d68d004e406f8128ff6375b6e18f0`, la tête de code du pli ; le commit suivant ne
+  change que ce G0, hors du digest) :
+  - **Rouge d'abord** : le fichier de test de `bc0657f7` sur le lecteur de `306760b3` (module sha256 `fa9e9af2…`) : 7 tests, 2 rouges
+    par assertion, T-RR (« Missing expected exception: a value 65 levels deep in a free object ») et le test neuf (65 niveaux : `reads`
+    au lieu du refus ; 64 niveaux : `reads`, comme attendu), 5 verts ; à `9eeed44a`, 7 verts.
+  - **red-proof comme ce G0 le déclare**, contre la tête de 1f : `node scripts/red-proof.mjs --base
+    e6d13075cab9f6611a9e6a0903beed2268c24118 --gel 9eeed44a1c4d68d004e406f8128ff6375b6e18f0 --repo <worktree> --out <dossier> --draw 7
+    --seed 1007`, Node 24.21.0, Linux : sortie 0, « red-proof OK: 7 judged, 0 unchanged, 7 killer(s) drawn » ; sept F2P ; les sept
+    tueurs tirés et tués, l.172, l.150, l.177, l.124, l.156 `true` et `scripts/spec-publish.mjs:113` par assertion, l.156 `v === true`
+    par le refus du lecteur lui-même (`other-fail`, comme à chaque passe) ; digest du gel
+    `121aab69e1ff1b2c1db287369d7d9fcac27bf733eb3626fdf5814ed06eec2941` ; `RED-PROOF.json` sha256
+    `0bdb0ba27143648aa4677542e6585f8182220f45fc862fe07ec0705f806afb42`.
+  - **red-proof du pli seul**, contre `306760b3` : même commande, `--base 306760b3428ae0087f5f271f32f6560efeb15737 --draw 2` : sortie 0,
+    « red-proof OK: 2 judged, 5 unchanged, 2 killer(s) drawn » ; T-RR et le test neuf F2P (rouges à `306760b3` par assertion) ; les
+    tueurs l.172 et l.156 `true` tués par assertion ; digest du gel `8e46b59d7010d66b0fed6b6024e1e1e19f25f49be5d051162049e0c1ec56db1c` ;
+    `RED-PROOF.json` sha256 `880caa4199d8922455d2953ec79aba3a700d7344f7f25570cdff9ba109887023`.
+  - **Voisins** (les douze fichiers du pli de la G2, Node 24.21.0, `(test 42)` filtré) : 176 tests, 175 verts ; seul rouge, le témoin
+    de 1f.
+  - **Portes** : `tsc --noEmit` 0 ; `eslint` du module et de `test/recompute-report.test.ts` 0 ; `gate:vocab` 0 (349 fichiers) ;
+    `lang:gate` 0 ; `lint:ratchet` 69/69 ; `export:check` 0 ; winlint `--base 306760b3` : 2 fichiers, aucun risque Windows.
+  - **Ancres** : `verifie-ancres.mjs` (`--ref 306760b3 --ref e6d13075`) : 1 537 tueurs dans l'arbre, tous ANCRE, aucun PERDU ni
+    DERIVE ; les 7 de `test/recompute-report.test.ts` (`--touched e6d13075 HEAD`), tous ANCRE.
+  - **La garde des tueurs du tronc** (`every_killer_line_is_readable`, `test/killer-lines.test.ts`, absente de cette pile) : `9eeed44a`
+    fusionné en local, `--no-ff`, dans le tronc `377f40cd` (worktree jetable, rien de poussé, retiré) : aucun conflit ; la garde passe,
+    les 7 tests du lecteur passent, ceux de 1f aussi sauf le témoin ; `tsc --noEmit` 0 ; `verifie-ancres.mjs` (`--ref 377f40cd --ref
+    9eeed44a`) : 1 621 tueurs, tous ANCRE.
 - **red-proof du pli de la G2** (gel `bca14f41fe001c01b8062d611b1813408d6717a8`, la tête de code du pli) contre la tête de 1f :
   `node scripts/red-proof.mjs --base 12588884d6a7f7d259ff3bd3ec86d1ddc636e85b --gel HEAD --repo <worktree> --out <dossier> --draw 6
   --seed 1007`, Node 24.21.0, Linux : sortie 0, « red-proof OK: 6 judged, 0 unchanged, 6 killer(s) drawn » ; six F2P (rouges à la base
@@ -257,6 +321,11 @@ a1) porte trois contrôles sur le rapport réel ; la G2 de RECHERCHES les relit.
   insertions** (`policy-verifiers.ts` 70, `test/recompute-report.test.ts` 205), soit 275 (borne de lot 547). Le même compte sous
   l'environnement épinglé de `scripts/lot-size-integration.mjs pin --base 12588884`, lu dans un clone `--shared` jetable où `pin` écrit
   ses objets (aucune variable `GIT_DIR` ni `GIT_WORK_TREE`) : 2 fichiers, 275 insertions.
+- **Au pli de la profondeur** (§10), même forme (les 21 pathspecs de `.github/workflows/ci.yml` l.100, base `e6d13075`, la tête de 1f) :
+  **2 fichiers, 291 insertions** (`policy-verifiers.ts` 72, `test/recompute-report.test.ts` 219), soit 291, contre 275 avant le pli
+  (+16 ; borne de lot 547, borne de la CI 1 205). Le même compte sous l'environnement épinglé de `scripts/lot-size-integration.mjs pin
+  --base e6d13075`, lu dans un clone `--shared` jetable à la tête du pli (retiré ; aucune variable `GIT_DIR` ni `GIT_WORK_TREE`) : 2
+  fichiers, 291 insertions.
 
 ## 8. Ce qui n'est pas fait
 
@@ -281,7 +350,7 @@ la l.89 (la pièce dit l.83) ; la l.503 du chantier est celle de la pièce.
 | 3 (m) | `DOUBLE` admet des écritures que `float.hex()` ne donne jamais | la règle exacte de la pièce, sa borne écrite dans l'expression (mêmes décisions, §4) ; test neuf, ses cas et son tueur sur la l.150 | `policy-verifiers.ts:150` ; `test/recompute-report.test.ts:153-168` |
 | 4 (m) | six refus tenus par aucun cas (N5, N8, N10, N12, N13, N14), clés en double sans cas | les cas de la pièce : 2^53, frontière de classes inversée, `0x2.0000000000000p+0` (au test des flottants), trois listes en texte, huit colonnes texte en nombre, `tool` et `cells[0]` nuls, une clé en double au sommet et dans une case ; mutants recomptés (§3, ci-dessous) | `test/recompute-report.test.ts:118-129`, `:164` |
 | 5 (m) | `platform.libm.sha256` non typé | `platform: (v) => isObj(v) && isObj(v.libm) && fits(HEX64)(v.libm.sha256)`, `platform` restant libre ; huit cas refusés, un lu | `policy-verifiers.ts:164` ; `test/recompute-report.test.ts:130-134` |
-| 6 (m) | une `RangeError` non nommée à 10 000 niveaux | `canonOf` attrape la seule `RangeError` en « not its canonical writing (nested too deep) » ; un cas à 100 000 niveaux (§4 : 10 000 se lisent une fois `canon` optimisé) | `policy-verifiers.ts:175-176`, `:184` ; `test/recompute-report.test.ts:135` |
+| 6 (m) | une `RangeError` non nommée à 10 000 niveaux | `canonOf` attrape la seule `RangeError` en « not its canonical writing (nested too deep) » ; un cas à 100 000 niveaux (§4 : 10 000 se lisent une fois `canon` optimisé). **Remplacé** depuis par la borne fixe de 64 niveaux (décision de MONARK, §10) | `policy-verifiers.ts:175-176`, `:184` ; `test/recompute-report.test.ts:135` (à `bca14f41` ; depuis : §10) |
 | obs. 7 | provenance : « CPython 3.14.8 » ; lancement `-I` au §4 | l.15 corrigée (3.14.0rc2) ; remesures sous `-E -S -s -B` (§4) | en-tête, §4 |
 
 - **Mutants** (chacun seul sur `policy-verifiers.ts` de la tête, ou `scripts/spec-publish.mjs` pour un tueur, tout le fichier de test
@@ -295,3 +364,30 @@ la l.89 (la pièce dit l.83) ; la l.503 du chantier est celle de la pièce.
 | clauses du pli (25) | ASCII des chaînes et des clés (2) ; `RangeError` seule, et toute erreur (2) ; option `ignoreBOM` retirée ; formes et bornes de l'exposant, celui des sous-normaux compris (10) ; les deux longueurs de mantisse (2) ; le zéro (2) ; le signe ; `platform` libre, sa garde, celle de `libm`, le type du digest (4) ; la garde de type de la l.173 | — | 24 tués ; la garde `typeof v === "string" &&` de la l.173 retirée est équivalente (refusée par `tsc`, TS2345) |
 
   Total : 57 mutants, 56 tués, un équivalent.
+
+## 10. Pli de la décision de MONARK sur la profondeur de `canon` (`recherches` `b97d5b1`, point 3)
+
+La décision, citée : « **La profondeur de `canon`** : une borne fixe de **64 niveaux**, refusée en « not its canonical writing (nested
+too deep) ». Un cas à 64 doit passer, un cas à 65 être refusé. La forme du rapport est loin de cette borne. Au-delà, la dépendance au
+JIT disparaît, et le refus reste plus strict que `canonical()` de report.py (499) : c est fail-closed. » Elle répond au point 6 de
+RECHERCHES pour #234 (`recherches` `5922660` : « À ta décision : une borne de profondeur fixe retirerait cette dépendance au JIT »).
+
+| Quoi | Où (tête `9eeed44a`) |
+|---|---|
+| le compte, en niveaux de listes et d'objets, le rapport lui-même étant le premier ; la borne `NESTING = 64` | `policy-verifiers.ts:170-172` |
+| `canon` porte le niveau (1 au rapport, un de plus par liste ou objet) et refuse une liste ou un objet au-delà de la borne, « not its canonical writing (nested too deep) » ; `canonOf` et la prise de la `RangeError` sont retirés, l'appel est `canon(doc)` | `:173-178`, `:186` |
+| T-RR : le cas à 100 000 niveaux devient un cas à 65 niveaux dans `summary` | `test/recompute-report.test.ts:135` (commentaire l.71) |
+| test neuf `recompute_report_nesting_is_bounded_at_64_levels` : la forme a 4 niveaux ; 64 se lisent et 65 sont refusés au nom exact, dans les cinq objets libres, en listes et en objets, le compte de chaque cas vérifié | `test/recompute-report.test.ts:207-219` |
+| tueur neuf `policy-verifiers.ts:172 CONST "64" -> "65"` ; tueur du test des octets réancré, `:173` → `:177` | `test/recompute-report.test.ts:210`, `:141` |
+
+- **Le compte part du rapport** : un objet libre est au niveau 2, si bien qu'une valeur de 62 listes imbriquées dans `summary` fait un
+  rapport de 64 niveaux. C'est le compte du §4, où `canonical()` de `report.py` écrit au plus 499 niveaux, le rapport compté premier.
+- **Où vit `canon`** : dans ce lot seul (`git grep -n canon e6d13075 -- apps/harness/src/policy-verifiers.ts` ne trouve que les
+  commentaires et le contrôle canonique de la liste de 1f, l.84) ; il n'est pas sous `tools/kata-recalc/**`. #231 ne change donc pas,
+  et rien n'est à fusionner dans cette PR.
+- **La règle du lot qui se liste lui-même** (G0 de 1f, §6, cinq conditions) : le pli ne touche pas l'outil, donc aucun commit de liste ;
+  aucun rebase ; ses trois commits (`bc0657f7` les tests, `9eeed44a` le lecteur, puis ce G0) sont poussés ensemble.
+- **Preuves** : §6 (rouge d'abord, deux red-proof, voisins, portes, ancres, garde des tueurs sur une fusion locale avec le tronc) ;
+  mesures : §4 ; mutants : §3 ; taille : §7 (291).
+- **Non vérifié ici** : le rejeu Windows (MONARK, à la fusion) ; la forme réelle de l'outil figé n'est lue que dans son code (§4), sans
+  course.
