@@ -243,3 +243,16 @@ fusionnées). Fusion `5280bff3` (commit de fusion, sans réécriture), puis `3c7
 - Mutants X-status et X-vnull rejoués à la tête (copie isolée, `test/verify-harness-liq.test.ts` entier ; témoin 19 sur 19
   verts) : tous deux tués par (16) seul, 18 verts et 1 rouge, chacun sur son vecteur ; restauration contrôlée par sha256.
 - Texte figé (iii) : égal à l'octet dans les quatre lieux (R4 l.161-165, RUNBOOK l.489-497, script l.459-481, épingle).
+
+**Ligne datée (RECHERCHES, 2026-10-07 11:23 UTC ; MONARK `e341dbc`)** : le mutant `<=` → `<` de la borne d'attente
+(`scripts/verify-harness.mjs` l.540), laissé « non plié » plus haut, est tué. Test neuf (12b),
+`verify_harness_ca_kata_wait_of_exactly_the_max_is_taken` : le cas pur `kataWindow(g − 226 000, 1)` rend
+`{ at: g, waitMs: 1 000 }` (une attente d'exactement `--kata-wait-max` est prise) ; tueur `scripts/verify-harness.mjs:540 ROR
+"waitMs <= waitMaxS * 1000" -> "waitMs < waitMaxS * 1000"`. Mutant rejoué (copie isolée, `test/verify-harness-liq.test.ts`
+entier ; témoin 20 sur 20 verts) : tué par (12b) seul, par assertion (`at: null` au lieu de `g`). Mesures (Node 24.21.0) :
+- R-25 (pathspec de `ci.yml:100`, contre `591b3a30`) : 12 fichiers, +495 −51 = 546 ≤ 547 (quatre lignes de plus).
+- red-proof `--base 591b3a30` (mêmes options) : `red-proof OK`, 22 jugés (tous F2P, dont (12b)), 75 inchangés, 22 tueurs
+  tirés, 22 tués (dont l.540) ; `RED-PROOF.json` sha256 `c1dac226…`.
+- `tsc --noEmit` exit 0 ; eslint 0 erreur ; `lang:gate`, `gate:vocab`, `lint:ratchet` (69/69), `export:check` verts ;
+  `verify-harness-liq`, `surfaces-1-1-0`, `retire-instants`, `site-ukemi`, `runbook-retire` : 90 verts, 0 rouge ; les 1 563
+  lignes `// killer:` de l'arbre sont valides.

@@ -650,6 +650,10 @@ test("verify_harness_ca_kata_window_is_225_s_on_both_sides", async () => {
   assert.deepEqual([kataWindow(g + 225_001, 3150), kataWindow(g + 225_001, 3149), kataWindow(g - 225_001, 1)], [{ at: g + h, waitMs: 3_149_999 }, { at: null, waitMs: 3_149_999 }, { at: g, waitMs: 1 }], "that instant only when the wait is at most --kata-wait-max");
 });
 
+// (12b) The wait bound includes its edge (pure): 226 s before a grid instant, the wait is 1 s, and --kata-wait-max 1 takes it.
+// killer: scripts/verify-harness.mjs:540 ROR "waitMs <= waitMaxS * 1000" -> "waitMs < waitMaxS * 1000"
+test("verify_harness_ca_kata_wait_of_exactly_the_max_is_taken", async () => { const { kataWindow } = (await import(new URL("../scripts/verify-harness.mjs", import.meta.url).href)) as unknown as { kataWindow?: (nowMs: number, waitMaxS: number) => unknown }, g = CA_TEST_CLOCK_MS - 30_000; assert.equal(typeof kataWindow, "function", "the CA exports kataWindow"); assert.deepEqual(kataWindow?.(g - 226_000, 1), { at: g, waitMs: 1000 }, "a wait of exactly --kata-wait-max is taken"); });
+
 // (13) A run 100 s before the hour calls on the coming grid instant, with no wait (the window is two-sided).
 // killer: scripts/verify-harness.mjs:537 CONST "Math.round(nowMs / KATA_GRID_MS)" -> "Math.floor(nowMs / KATA_GRID_MS)"
 test("verify_harness_ca_kata_runs_before_the_hour", { timeout: 120000 }, async () => {
