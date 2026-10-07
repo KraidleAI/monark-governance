@@ -11,6 +11,7 @@
 #        python -B binom_check.py --registry <wave1.json> <out.txt>
 import io_guard  # the input guard, before any other module (M-7)
 import math
+import os
 import re
 import sys
 from fractions import Fraction
@@ -1011,5 +1012,5 @@ def main(repo, out_ii, out_iii):
 
 if __name__ == "__main__":
     if sys.argv[1] == "--registry":
-        sys.exit(oracle_registry(sys.argv[2], sys.argv[3]))
-    sys.exit(main(sys.argv[1], sys.argv[2], sys.argv[3]))
+        sys.exit(oracle_registry(os.path.abspath(sys.argv[2]), os.path.abspath(sys.argv[3])))  # B-2: every path the guard judges is absolute
+    sys.exit(main(*(os.path.abspath(a) for a in sys.argv[1:4])))

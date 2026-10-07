@@ -19,6 +19,7 @@ import io_guard  # the input guard, before any other module (M-7): both files ar
 import hashlib
 import json
 import math
+import os
 import struct
 import sys
 
@@ -249,13 +250,13 @@ def main(argv):
     out = None
     if "--out" in argv:
         i = argv.index("--out")
-        out = argv[i + 1]
+        out = os.path.abspath(argv[i + 1])  # B-2: every path the guard judges is absolute
         argv = argv[:i] + argv[i + 2:]
     io_guard.declare("registry")
     if out:
         io_guard.output(out)
     if argv and argv[0] == "--census":
-        code, lines = compare_census(argv[1], argv[2])
+        code, lines = compare_census(os.path.abspath(argv[1]), os.path.abspath(argv[2]))
     else:
         ignore = set()
         if "--ignore" in argv:
@@ -265,7 +266,7 @@ def main(argv):
         if len(argv) != 2:
             print("usage: compare_p2.py A.json B.json [--ignore f1,f2] [--out file] | --census MINE THEIRS [--out file]")
             return 2
-        code, lines = compare_registries(argv[0], argv[1], ignore)
+        code, lines = compare_registries(os.path.abspath(argv[0]), os.path.abspath(argv[1]), ignore)
     text = "\n".join(lines) + "\n"
     if out:
         with open(out, "w", encoding="utf-8", newline="\n") as fh:

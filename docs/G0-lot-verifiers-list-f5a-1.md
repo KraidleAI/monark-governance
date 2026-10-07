@@ -711,25 +711,26 @@ Worker `claude-opus-5-5` (effort max), le 2026-10-06, horloge lue de 22:10 à 22
 
 ## 14. Lot 1d : mesures
 
-Worker `claude-opus-5-5` (effort max), horloge lue de 2026-10-06 23:16 à 2026-10-07 00:4x UTC (tampons de `now.mjs` : 00:25 au
-départ de la reprise, 00:4x à la fin). Worktree `F:/Monark-wt-verifiers-1d`, tête `63367732` ; rien n'est committé ni indexé dans le
-worktree (R-20). Sorties sous `F:/tmp/verifiers-1d/` :
-`final2/` est la passe sur l'arbre gelé après la décision de MONARK du 2026-10-07, et redonne à l'octet les sorties d'oracle de `run/` et
-de `final/` ; `events/`, `probe/` et `smoke/` portent les sondes.
+Worker `claude-opus-5-5` (effort max), horloge lue de 2026-10-06 23:16 à 2026-10-07 01:4x UTC (tampons de `now.mjs` : 00:25 et 01:10 aux
+départs des deux reprises, 01:4x à la fin). Worktree `F:/Monark-wt-verifiers-1d` : tête `63367732` pour M-1 à M-9, puis `ad2a45b6`, le
+lot committé par MONARK, pour la reprise de la G2 de RECHERCHES ; le worker ne committe ni n'indexe rien (R-20). Sorties sous
+`F:/tmp/verifiers-1d/` : `final3/` est la passe sur l'arbre gelé après la G2 ; elle redonne à l'octet les sorties d'oracle de `final2/`,
+sauf la ligne 2 de `registry-binom-check.txt`, qui écrit le chemin passé par `os.path.abspath` (séparateurs `\`) ; `b1/` porte la mesure
+des événements ; `events/`, `probe/` et `smoke/` portent les sondes.
 
 | M | Diff (lignes du nouvel arbre) | Source |
 |---|---|---|
 | M-1 | `kata_lib.py` l.265 : `(_EWMA_W[nret - j] * r) * r` ; l.1 amendée sur place | KATA-SPEC l.42 ; C-1, IT-G2-1 |
-| M-2 | `vectors_check.py` : section `ewma_association` au bit (`float.hex`), l.94-112 ; les deux longueurs de table comptées (l.135) ; `SPEC_CHECKS = 333` (l.14) exigé (l.214) ; l.68 → l.71 (l.3, l.18, l.33) | KATA-SPEC l.5, l.70-71 ; message du 2026-10-02 l.22 (317 = 315 + 2) |
+| M-2 | `vectors_check.py` : section `ewma_association` au bit (`float.hex`), l.95-113 ; les deux longueurs de table comptées (l.136) ; `SPEC_CHECKS = 333` (l.15) exigé (l.215) ; l.68 → l.71 (l.3, l.19, l.34) | KATA-SPEC l.5, l.70-71 ; message du 2026-10-02 l.22 (317 = 315 + 2) |
 | M-3 | `recalc_p2.py` : `PLAN`, `ENGINE`, `TRIALS` (l.25-31), `check1`, `check2`, `reason` (l.262-280), `trialId` (l.327), tête `{length, hash: null}` avec 80 essais exigés (l.461-467) ; invariant `reason` et statut (l.375-376) | FORMAT l.9, l.43-48 ; plan l.5, l.112 ; `87b57c01…` |
-| M-4 | `recalc_p2.py` l.308 et `binom_check.py` l.965 : `"1"` | FORMAT l.49 ; N-4 |
+| M-4 | `recalc_p2.py` l.308 et `binom_check.py` l.966 : `"1"` | FORMAT l.49 ; N-4 |
 | M-5 | `recalc_p2.py` l.301-302 : `months = {}` sans kTest ; invariant adapté (l.371-374) | FORMAT l.49 ; N-5 |
 | M-6 | `recalc_p2.py <séries> <oracles> <sortie>` ; `binom_check.py <dépôt> …` ; `compare_check.py <registre> <travail> <sortie>` ; 0 chemin de lecteur | N-1, N-2, IT-G2-3 |
-| M-7 | `io_guard.py` (neuf, 247 lignes), premier import des cinq scripts d'entrée ; changements de fichiers jugés (l.29-38, l.116-146) et sorties neuves (l.185-193) depuis la décision du 2026-10-07 | §3.1 ; Q-V1, précision 2 ; décision de MONARK du 2026-10-07 |
+| M-7 | `io_guard.py` (neuf, 326 lignes), premier import des cinq scripts d'entrée ; changements de fichiers jugés (l.30-38, l.191-220) et sorties neuves (l.264-273) depuis la décision du 2026-10-07 ; table fermée des événements (l.44-105) et chemins absolus (l.145-148) depuis la G2 de RECHERCHES | §3.1 ; Q-V1, précision 2 ; décision de MONARK du 2026-10-07 ; G2 de RECHERCHES `3719b88` |
 | M-8 | `compare_p2.py` : classes `DECISION`, `VALUE` (hex, ulps, « beyond 1e-12 »), `DIGEST`, `OUTSIDE` ; `compare_check.py` : 32 cas, sans la liste D-6 (le `--ignore` de `compare_p2.py` était déjà vide par défaut à la livraison, l.208) | §3.3 ; Q-V3 ; A-2 l.97 ; N-6 |
 | M-9 | `aux` → `aux_seq` (8 sites de `recalc_p2.py`) ; `lang-gate.mjs` l.107 : `".py"` | §2.6 |
 
-- **Oracles** (`python -B`, hors ligne ; `final2/`) : vecteurs `06ecf069…` : 333 contrôles de conformité, 0 échec, `ewma_association` 4
+- **Oracles** (`python -B`, hors ligne ; `final3/`) : vecteurs `06ecf069…` : 333 contrôles de conformité, 0 échec, `ewma_association` 4
   sur 4 au bit, valeurs de kata identiques au bit 86 sur 86 (84 avant M-1) ; mutant (l.265 remis à l'ancien ordre, copie sous `F:/tmp`) :
   2 échecs, RED. Seconde écriture : 16 821 contrôles, 0 échec, sortie identique à l'octet à celle de P2b (`63606d4f…`). Tests de hikae :
   24 tests, 207 756 assertions, 0 échec, 4 non rejouables ; seule différence avec P2b, la ligne d'entrée. `--registry` sur le registre
@@ -741,8 +742,8 @@ de `final/` ; `events/`, `probe/` et `smoke/` portent les sondes.
     `os.link`, `os.symlink`, `os.remove`, `os.rmdir`, `os.truncate`, `os.chmod`, `os.utime`, `shutil.copyfile`, `copymode`, `copystat`,
     `copytree`, `rmtree`, `move` et `_winapi.CopyFile2` ; `file.truncate()` ne lève qu'un `open` en `r+`, jugé comme une écriture ;
   - un changement n'est admis que si chaque chemin touché est sous une sortie ; une source (déplacée, liée ou copiée) est en plus un
-    fichier que la course a écrit, un dossier qu'elle a fait, ou une entrée lue par `read()` ; `os.mkdir` fait aussi les dossiers qui
-    mènent à une sortie (`os.makedirs` d'une sortie neuve) ; un descripteur ou un `dir_fd` est refusé ;
+    fichier que la course a écrit ou un dossier qu'elle a fait (N-1 : la clause « entrée lue » était morte) ; `os.mkdir` fait aussi les
+    dossiers qui mènent à une sortie (`os.makedirs` d'une sortie neuve) ; un descripteur ou un `dir_fd` est refusé ;
   - une sortie est absente, ou un dossier vide, quand elle est déclarée. Règle ajoutée en fermant le point 2 : sans elle, une ouverture
     en écriture d'un fichier déjà présent, ratée ou sans troncature, rendait lisibles sans note des octets que la course n'a pas écrits.
     Une relance écrit donc dans des chemins neufs ;
@@ -751,31 +752,35 @@ de `final/` ; `events/`, `probe/` et `smoke/` portent les sondes.
     à `lexists` que `<x>` existe : la lecture tombe sous les règles communes et elle est refusée ;
   - une erreur pendant le jugement arrête la course (P39 : un événement levé à la main avec un chemin illisible) ; un chemin à octet nul
     est refusé par Python avant tout événement (P37 : mesuré) ;
-  - 37 sondes, 0 échec (`probe/guard_probes.py`, `0b4ea369…`) : les 18 d'avant (P7 et P12 visent les règles nouvelles) et 19 neuves.
-    Passent : P24 (`os.makedirs` d'une sortie neuve sous un parent absent, écriture, relecture, renommage, copie `CopyFile2`,
-    suppression, `rmtree`, `chmod` et `utime` dans la sortie), P33 (dossier vide), P36 (lien dur dans la sortie). Refusés : `os.mkdir`,
+  - 37 sondes à cette étape (P1 à P39), 57 après la G2 (`probe/guard_probes.py`, `c681aedc…`, plus bas), toutes à 0 échec. Passent : P24
+    (`os.makedirs` d'une sortie neuve sous un parent absent, écriture, relecture, renommage, copie `CopyFile2`, suppression, `chmod` et
+    `utime` dans la sortie ; sans `rmtree` depuis la G2), P33 (dossier vide), P36 (lien dur dans la sortie). Refusés : `os.mkdir`,
     renommage, `CopyFile2`, `os.link`, `os.remove`, `os.chmod`, `os.utime`, `os.truncate` et `rmtree` hors des sorties ; le renommage
-    d'une entrée vers une sortie ; un lien symbolique vers un fichier non lu ; la copie d'une entrée lue, hors des sorties ; une sortie qui
-    tient déjà un fichier. Les fichiers témoins sont intacts après les sondes ;
-  - sans `-B`, la course s'arrête à sa première écriture de bytecode après le crochet (mesuré) ; une exception non rattrapée d'un script
-    de l'outil garde sa trace, dont les lignes sont lues dans l'arbre de l'outil (mesuré ; un script hors de l'arbre est refusé à la
-    lecture de sa source, comme toute lecture non listée) ; une relance dans une sortie existante est refusée, sortie 4 (mesuré).
+    d'une entrée vers une sortie ; un lien symbolique vers un fichier non lu ; la copie d'une entrée lue, hors des sorties ; une sortie
+    qui tient déjà un fichier. Les fichiers témoins sont intacts après les sondes ;
+  - sans `-B`, la course s'arrête à sa première écriture de bytecode après le crochet, depuis la G2 sur `marshal.dumps`, refusé avant
+    toute ouverture (mesuré) ; une exception non rattrapée d'un script de l'outil garde sa trace, dont les lignes sont lues dans l'arbre
+    de l'outil (mesuré ; un script hors de l'arbre est refusé à la lecture de sa source, comme toute lecture non listée) ; une relance
+    dans une sortie existante est refusée, sortie 4 (mesuré).
 - **Fumée de `calibrate_cell`** sur bougies de synthèse (`smoke/smoke_calibrate.py`, `12a14a54…`, aucune série) : les sept chaînes de
   FORMAT l.48, `UTest` `"1"`, `months` `{}`, 80 `trialId` sur les 280 cellules ; invariants verts.
-- **Épingle d'arbre** : `33363936d77790bddf509a509dd2278b1807741525fa9c3bfbfa38536e87a588`, mesurée par la boucle `sha256sum`, par
-  `manifestText` et sur l'index d'un clone `--shared` (`git add` dans le clone seul).
-- **Node** : clone indexé, `kata-recalc` et `byte-guard` 19 sur 19 ; base `63367732` (second clone, test copié) : les trois tests jugés
-  rouges par assertion ; tueurs tirés à la main sur le clone, chacun rougit son test (`ERR_ASSERTION`), fichiers restaurés. Worktree :
-  fichiers de test de la garde de langue 109 sur 110 (seul rouge, le test d'arbre, qui lit l'index) ; `tsc` 0 ; `eslint` 0 ;
-  `lint-ratchet` 69/69 ; `grep-forbidden` 0 (354 fichiers, les huit `.py` en cibles) ; `lang-gate` 0 ; `export-public --check` 0.
-- **R-25**, forme de la CI sur l'index du clone : 9 fichiers, 610 insertions, 171 suppressions, soit 781 (estimé ~450 ; borne 1 205).
-  L'excédent : `io_guard.py` (247), `compare_check.py` (98/63, les cas réécrits pour les classes de M-8) et `compare_p2.py` (88/36).
+- **Épingle d'arbre** : `ff72522e3abe1b7b311854ef807b25b69f6653fbec3b510be85dfba0fdeda1ac`, mesurée par la boucle `sha256sum`, par
+  `manifestText` et sur l'index d'un clone `--shared` à `ad2a45b6` où le delta est indexé (`git add` dans le clone seul).
+- **Node** : clone indexé (`ad2a45b6` et le delta), `kata-recalc` et `byte-guard` 19 sur 19 ; le fichier de test copié à `ad2a45b6` : le
+  test d'arbre rouge par assertion (son épingle change), les deux autres verts ; à `63367732` : les trois rouges par assertion ; tueurs
+  tirés à la main sur le clone, chacun rougit son test (`ERR_ASSERTION`), fichiers restaurés. Worktree : fichiers de test de la garde de
+  langue 109 sur 110 (seul rouge, le test d'arbre, qui lit l'index) ; `tsc` 0 ; `eslint` 0 ; `lint-ratchet` 69/69 ; `grep-forbidden` 0
+  (354 fichiers, les huit `.py` en cibles) ; `lang-gate` 0 ; `export-public --check` 0.
+- **R-25**, forme de la CI sur l'index du clone, tout le lot contre `63367732` : 9 fichiers, 696 insertions, 175 suppressions, soit 871
+  (estimé ~450 ; borne 1 205) ; le delta de la G2 sur `ad2a45b6` : 7 fichiers, 129 insertions, 47 suppressions. L'excédent :
+  `io_guard.py` (326), `compare_check.py` (98/63, les cas réécrits pour les classes de M-8) et `compare_p2.py` (92/39).
 - **Écarts au G0** : `trialRegistryHead.hash` reste nommé hors décision (TRIAL-HEAD-WRITTEN-1 non versé) ; ordre de `reason` quand
-  check1 rejette et check2 est vide : la liste de FORMAT l.48 (rejet d'abord), non exercé en vague 1 ; `length` compté sur les `trialId`
-  (80 exigés) ; codes de sortie du comparateur gardés (0, 1, 2) ; la garde juge aussi `os.scandir` et les changements de fichiers,
-  refuse les autres lancements de programme, `ctypes` et le réseau, exige des sorties neuves ; pas de refus explicite sans `-B` (le mot
-  `dont` de l'attribut ferait rougir la garde de langue) ; le test de langue passe par `collectTextFiles`, qui applique `scannable` (pas de
-  déclaration de type ajoutée) ; mode recensement du comparateur et recalcul non joués (séries : partie 2).
+  check1 rejette et check2 est vide : la liste de FORMAT l.48 (rejet d'abord), non exercé en vague 1 ; `length` compté sur les
+  `trialId` (80 exigés) ; codes de sortie du comparateur gardés (0, 1, 2) ; la garde juge aussi `os.scandir` et les changements de
+  fichiers, classe tout événement dans une table fermée (refus par défaut), exige des sorties neuves et des chemins absolus ; pas de
+  refus explicite sans `-B` (le mot `dont` de l'attribut ferait rougir la garde de langue) ; le test de langue passe par
+  `collectTextFiles`, qui applique `scannable` (pas de déclaration de type ajoutée) ; mode recensement du comparateur et recalcul non
+  joués (séries : partie 2).
 - **Décision de MONARK (2026-10-07)** : la ligne `OUTSIDE` du comparateur garde le nom de l'item TRIAL-HEAD-WRITTEN-1. La sortie de
   `compare_p2.py` est un fichier de course interne, jamais publié, et les `.py` ne sont pas exportés. Le rapport publié du lot 1e dira la
   raison en mots, sans le nom de l'item (règle de contenu du §3.3) ; la citation de l'item vit dans ce G0 et dans les pièces de G2. MONARK
@@ -794,7 +799,44 @@ de `final/` ; `events/`, `probe/` et `smoke/` portent les sondes.
   `compare_p2.py` compare le champ en classe `DECISION`.
 - **Pour le lot 1e** : `import ctypes` est refusé sur cet hôte (il charge `kernel32`) ; la version de la bibliothèque C du rôle `libm`
   devra se lire dans les octets du fichier (`io_guard.read("libm", …)`), ou le lot 1e admettra `ctypes.dlopen` sous ce rôle.
-  `platform.platform()` lève `socket.gethostname` et `_wmi.exec_query`, que la garde ne juge pas. La sortie de `report.py` sera un
-  dossier neuf (règle des sorties neuves).
+  `platform.platform()` lève `socket.gethostname` (refusé) et `_wmi.exec_query` (hors de la table, donc refusé) : le lot 1e les classera
+  dans `EVENTS`, mesures à l'appui. La sortie de `report.py` sera un dossier neuf (règle des sorties neuves).
 - **Git** : aucun `GIT_DIR`, aucun `GIT_WORK_TREE` (seul `GIT_EDITOR`, posé par le harnais), aucun `--write-tree` ; `git add` et
   `checkout` dans les clones de `F:/tmp` seulement. Rien sur C:.
+
+### G2 de RECHERCHES (3719b88) : B-1, B-2, N-1 à N-3
+
+- **Source** : `coordination/messages/2026-10-07-RECHERCHES-vers-MONARK-G2-214-lot-1d.md` (`004e4afc…`), lu en entier ; leurs sondes
+  tournaient sous Python 3.11.15, rejouées ici sous 3.14.5. Faits de MONARK :
+  `F:/tmp/verifiers-1d/faits/FAITS-audit-events-3-14-2026-10-07.md` (`5b1b4877…`), les 192 noms de la table des événements d'audit de
+  3.14, lue sur docs.python.org à 01:09 UTC.
+- **B-1, refus par défaut** : `EVENTS` (`io_guard.py` l.44-105) classe 194 noms, les 192 de la table (`b1/documented-192.txt`,
+  `2489be60…`) et 2 que cet hôte lève hors d'elle (`_thread.start_joinable_thread`, `_winapi.CopyFile2`) : 20 jugés, 12 admis avec leur
+  raison, 9 admis seulement pendant que io_guard lance git ou un script de l'outil, 153 refusés ; un nom hors de la table arrête la
+  course, quel que soit son préfixe. Provenance : un crochet de journal posé avant la garde (`b1/evlog/sitecustomize.py`, `bc946cae…`),
+  sur 13 courses des scripts dans tous leurs modes, les deux fumées et les sondes (`b1/measure.sh`, `959ab06a…`) : 29 noms levés après
+  le crochet (`b1/measured-after.txt`, `72e79669…`, courses et sondes), dont 19 dans les courses de l'outil ; sous la garde neuve, 18
+  (`b1/measured-after-new-guard.txt`, `66853942…` : `msvcrt.get_osfhandle` est parti avec `DEVNULL`), chacun jugé, admis, ou levé
+  pendant un lancement. `recalc_p2.py` court jusqu'à sa première lecture de série, sur un dossier de séries vide (aucune série lue) ;
+  son calcul et ses écritures sont couverts par les deux fumées (`b1/smoke_writes.py`, `06d47b1f…`). `sys._getframe` et
+  `cpython._PySys_ClearAuditHooks` sont admis sur décision de MONARK, sans avoir été vus. Sondes P40 à P50, chacune en sortie 4 :
+  `socket.__new__` ; `sendto` sans `connect`, le socket créé avant la garde ; `sqlite3.connect` sur un fichier ; `os.setxattr` levé à la
+  main (absent de `os` sous Windows : mesuré) ; un nom inconnu `x.y` ; `os.walk`, donc `shutil.rmtree` même dans une sortie ;
+  `tempfile` ; `glob` ; un fil hors d'un lancement ; `os.chdir` ; `os.putenv`.
+- **B-2, option (a)** : tout chemin jugé est absolu (`_absolute`, l.145-148 : `open`, `os.listdir`, `os.scandir`, changements,
+  `output()`) ; chaque script d'entrée passe ses arguments de chemin par `os.path.abspath`. Mesuré : après le crochet, l'interpréteur
+  n'ouvrait qu'un chemin relatif dans les courses de l'outil, `nul` (`os.devnull`), par `subprocess.DEVNULL` dans les 33 lancements de
+  io_guard ; supprimé par construction (`input=b""`, un tube d'entrée vide), sans exception ajoutée. Imports, traces et `sys.path` :
+  aucun chemin relatif. Leur cas `dir_fd` tel qu'écrit, depuis un dossier courant imbriqué : sur cet hôte, `os.open` d'un dossier lève
+  `PermissionError` et `dir_fd` lève `NotImplementedError` (mesuré) ; P55 sort en 1, rien n'est lu. L'événement que leur appel lève sous
+  POSIX, levé à la main (P56), et `os.open` du même chemin relatif (P57) sortent en 4 ; P51 à P54 (lecture, `listdir`, sortie, `mkdir`
+  relatifs) aussi.
+- **N-1** : la clause `p in _reads` et `_reads` sont retirées ; une source est un fichier que la course a écrit ou un dossier qu'elle a
+  fait ; l'en-tête est corrigé.
+- **N-2** : le drapeau de jugement est propre à chaque fil (`threading.local`, l.130). P58 : un fil créé avant la garde est retenu dans
+  un jugement pendant que le fil principal lit un fichier non listé : sortie 4 ; la même sonde contre la garde de `ad2a45b6` lit le
+  fichier (`BYPASS`, sortie 0).
+- **KATA-SPEC-REASON-ORDER-1** (N-3). Porteur : MONARK. Déclencheur : le lot qui publie la révision datée de KATA-SPEC portant la
+  section 8. Fermeture : le texte fixe l'ordre (un rejet nommé avant un contrôle 2 vide) et un cas de vecteur le porte.
+- **Mesures** : 57 sondes, 0 échec (`probe/guard_probes.py`, `c681aedc…` : les 37 d'avant, dont P24 sans `rmtree`, les 19 neuves, et
+  P58 contre la garde de `ad2a45b6`) ; oracles, comparateur et fumées dans `final3/` ; épingle, Node et R-25 : plus haut.

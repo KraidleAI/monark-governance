@@ -6,6 +6,7 @@
 import io_guard  # the input guard, before any other module (M-7)
 import json
 import math
+import os
 import sys
 
 import kata_lib as K
@@ -226,4 +227,4 @@ def main(vec_path, out_path):
 
 
 if __name__ == "__main__":
-    sys.exit(main(sys.argv[1], sys.argv[2]))
+    sys.exit(main(os.path.abspath(sys.argv[1]), os.path.abspath(sys.argv[2])))  # B-2: every path the guard judges is absolute

@@ -41,7 +41,7 @@ test("kata_recalc_tree_is_the_pinned_manifest - the index holds the tool as 1006
   /** Lot 1d: the manifest of the eight files after M-1 to M-9, the seven files of the delivery modified in place and io_guard.py; it is
    *  read as a diff against bca9ee52..., the tree of the delivery that the review of P2b saw (G0 section 2.3), pinned by lot 1c. In the
    *  body, so that each lot that moves the pin is judged by scripts/red-proof.mjs (a changed line judges a test only inside its body). */
-  const PIN = "33363936d77790bddf509a509dd2278b1807741525fa9c3bfbfa38536e87a588";
+  const PIN = "ff72522e3abe1b7b311854ef807b25b69f6653fbec3b510be85dfba0fdeda1ac";
   const entries = indexEntries();
   assert.deepEqual(entries.filter((e) => e.mode !== "100644" || e.stage !== "0" || !e.path.startsWith(`${TOOL_ROOT}/`)).map((e) => `${e.mode} ${e.stage} ${e.path}`), [],
     "every entry a merged regular file (100644) under tools/kata-recalc/: no link, gitlink or executable");

@@ -487,7 +487,7 @@ if __name__ == "__main__":
         print("usage: python -B recalc_p2.py <series dir> <oracle dir> <out dir>")
         sys.exit(2)
     try:
-        sys.exit(main(*sys.argv[1:]))
+        sys.exit(main(*(os.path.abspath(a) for a in sys.argv[1:])))  # B-2: every path the guard judges is absolute
     except Stop as e:
         print(f"STOP: {e}")
         sys.exit(2)

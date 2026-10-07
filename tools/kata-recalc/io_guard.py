@@ -1,29 +1,30 @@
 # claude-opus-5-5 - 2026-10-06 - lot 1d of VERIFIERS-LIST-F5A-1 (M-7), Python 3.14 standard library only, no network. Changes
-# judged and outputs new since 2026-10-07 (MONARK's decision on lot 1d).
+# judged and outputs new since 2026-10-07 (MONARK's decision on lot 1d); every event classed, every path absolute and the busy flag
+# per thread since the G2 of RECHERCHES (3719b88: B-1, B-2, N-1, N-2).
 # The input guard of the tool (G0 docs/G0-lot-verifiers-list-f5a-1.md section 3.1; RECHERCHES Q-V1, precision 2: the independence is
 # written, and proved by the list of the inputs read with their sha256). Every entry script imports it FIRST: the import installs an
-# audit hook (sys.addaudithook) before any input is read. The hook judges each open, os.listdir, os.scandir and subprocess.Popen event,
-# and each file-system change of _CHANGES. Admitted without a note: the standard library (stdlib, platstdlib and DLLs under
-# sys.base_prefix, never site-packages), the tool's own tree (read only), the directories of the import path (listing only), and,
-# under an output, the files this run writes; an output is absent or an empty directory when it is declared, so nothing under it holds
-# a byte that this run did not write. A change touches outputs only; what it moves, links or copies from is a file this run wrote, a
-# directory it made, or an input it read. An input is read only through read() or git_show(), under a role of the closed list ROLES
-# that the entry script declares; each one is noted (role, base name, sha256, bytes) and inputs() lists them. Anything else stops the
-# run at once: one line on stderr, then os._exit(REFUSED_EXIT), which no except clause catches. The other ways to start a program, to
-# load a C library through ctypes or to open a connection stop it too: the tool uses none of them. Limit (G0 section 3.1, item
-# IO-GUARD-NATIVE-READS-1): a C extension module that reads files without Python raises no event; the tool imports the standard
-# library only. Paths are compared after realpath and normcase. The tool runs under python -B: after the hook, a bytecode write is a
-# write outside the outputs, and stops the run like any other.
+# audit hook (sys.addaudithook) before any input is read. EVENTS classes every audit event name, and a name outside it stops the run:
+# judged (open, os.listdir, os.scandir, the changes of _CHANGES, subprocess.Popen), admitted with its reason, admitted only while
+# io_guard itself spawns git or a script of the tool, or refused. Every path judged is absolute (the entry scripts pass their
+# arguments through os.path.abspath), but for a pseudo-file name in angle brackets that no file bears. Admitted without a note: the
+# standard library (stdlib, platstdlib and DLLs under sys.base_prefix, never site-packages), the tool's own tree (read only), the
+# directories of the import path (listing only), and, under an output, the files this run writes; an output is absent or an empty
+# directory when it is declared, so nothing under it holds a byte that this run did not write. A change touches outputs only, and
+# what it moves, links or copies from is a file this run wrote or a directory it made. An input is read only through read() or
+# git_show(), under a role of the closed list ROLES that the entry script declares; each one is noted (role, base name, sha256, bytes)
+# and inputs() lists them. Anything else stops the run at once: one line on stderr, then os._exit(REFUSED_EXIT), which no except clause
+# catches. Limit (G0 section 3.1, item IO-GUARD-NATIVE-READS-1): a C extension module that reads files without Python raises no event;
+# the tool imports the standard library only. Paths are compared after realpath and normcase. The tool runs under python -B: after the
+# hook, a bytecode write is a write outside the outputs, and stops the run like any other.
 import hashlib
 import os
 import subprocess
 import sys
 import sysconfig
+import threading
 
 ROLES = ("series", "recorder", "oracle-output", "spec-vectors", "engine-test-source", "libm", "registry")  # closed, G0 section 3.1
 REFUSED_EXIT = 4
-_REFUSED = frozenset({"os.system", "os.exec", "os.spawn", "os.posix_spawn", "os.startfile", "ctypes.dlopen", "socket.connect",
-                      "urllib.Request"})
 # File-system changes, as Python 3.14.5 raises them on this host (measured): event -> (paths as (kind, position), dir_fd positions).
 # "dst" is a path the event changes; "src" one it moves away, links or copies from. os.replace raises os.rename.
 _CHANGES = {
@@ -35,7 +36,73 @@ _CHANGES = {
     "shutil.copystat": ((("src", 0), ("dst", 1)), ()), "shutil.copytree": ((("src", 0), ("dst", 1)), ()),
     "shutil.move": ((("src", 0), ("dst", 1)), ()), "_winapi.CopyFile2": ((("src", 0), ("dst", 1)), ()),
 }
-_JUDGED = frozenset({"open", "os.listdir", "os.scandir", "subprocess.Popen"}) | _REFUSED | frozenset(_CHANGES)
+# Every audit event name, classed (B-1): the 192 names of the Python 3.14 audit events table (docs.python.org, read by MONARK on
+# 2026-10-07 at 01:09 UTC) and the 2 that this host raises outside it (_thread.start_joinable_thread, _winapi.CopyFile2). The admitted
+# and spawn names are those that complete runs of the seven scripts, the smoke tests and the probes raised after the hook under Python
+# 3.14.5 (measured, G0 section 14), and three that MONARK named. Any other name stops the run, whatever its prefix.
+_J, _A, _S, _R = "judged", "admitted", "spawn", "refused"
+EVENTS = {
+    **dict.fromkeys(("open", "os.listdir", "os.scandir", "subprocess.Popen", *_CHANGES), (_J, "judged by the rules below")),
+    "import": (_A, "an import: the module's file is judged by its own open event"),
+    "marshal.loads": (_A, "the bytecode of a standard-library module, read by an import whose file open judged"),
+    "compile": (_A, "source compiled by the standard library (namedtuple, the carets of a traceback)"),
+    "exec": (_A, "code executed: the modules imported, the classes namedtuple builds"),
+    "function.__new__": (_A, "a function built at run time by the standard library"),
+    "builtins.id": (_A, "id() of an object (copy.deepcopy): no byte read"),
+    "object.__getattr__": (_A, "a restricted attribute read by the standard library (frames and code of a traceback)"),
+    "object.__setattr__": (_A, "an attribute set on a class that the standard library builds (enum, typing)"),
+    "sys._getframemodulename": (_A, "the module of a caller (namedtuple, enum)"),
+    "sys._getframe": (_A, "a caller's frame (warnings); named by MONARK, not seen in the measured runs"),
+    "sys.excepthook": (_A, "an uncaught exception printed; the source lines it reads are judged by open"),
+    "cpython._PySys_ClearAuditHooks": (_A, "the hooks cleared at exit, after atexit; named by MONARK"),
+    **dict.fromkeys(("_winapi.CreatePipe", "_winapi.CreateProcess", "msvcrt.open_osfhandle", "msvcrt.get_osfhandle",
+                     "_thread.start_joinable_thread"), (_S, "the pipes, process and reader threads of subprocess.run (measured)")),
+    **dict.fromkeys(("_thread.start_new_thread", "_winapi.TerminateProcess", "os.kill", "_posixsubprocess.fork_exec"),
+                    (_S, "the same on another path, not measured: an older thread call, a timed-out child killed, a POSIX spawn")),
+    **dict.fromkeys((
+        "socket.__new__", "socket.bind", "socket.connect", "socket.getaddrinfo", "socket.gethostbyaddr", "socket.gethostbyname",
+        "socket.gethostname", "socket.getnameinfo", "socket.getservbyname", "socket.getservbyport", "socket.sendmsg", "socket.sendto",
+        "socket.sethostname", "http.client.connect", "http.client.send", "ftplib.connect", "ftplib.sendcmd", "imaplib.open",
+        "imaplib.send", "poplib.connect", "poplib.putline", "smtplib.connect", "smtplib.send", "urllib.Request", "webbrowser.open",
+    ), (_R, "the network: the tool opens no connection")),
+    **dict.fromkeys((
+        "ctypes.addressof", "ctypes.call_function", "ctypes.cdata", "ctypes.cdata/buffer", "ctypes.create_string_buffer",
+        "ctypes.create_unicode_buffer", "ctypes.dlopen", "ctypes.dlsym", "ctypes.dlsym/handle", "ctypes.get_errno",
+        "ctypes.get_last_error", "ctypes.memoryview_at", "ctypes.set_errno", "ctypes.set_exception", "ctypes.set_last_error",
+        "ctypes.string_at", "ctypes.wstring_at", "ctypes.PyObj_FromPtr", "sqlite3.connect", "sqlite3.connect/handle",
+        "sqlite3.enable_load_extension", "sqlite3.load_extension", "os.add_dll_directory",
+    ), (_R, "native code that reads without the events of Python (a C library, SQLite)")),
+    **dict.fromkeys(("os.exec", "os.spawn", "os.system", "os.startfile", "os.startfile/2", "os.posix_spawn", "os.fork", "os.forkpty",
+                     "pty.spawn", "os.killpg", "signal.pthread_kill", "_winapi.OpenProcess"),
+                    (_R, "another program or process: only io_guard starts one")),
+    **dict.fromkeys(("os.chflags", "os.chown", "shutil.chown", "os.getxattr", "os.listxattr", "os.setxattr", "os.removexattr",
+                     "os.lockf", "fcntl.fcntl", "fcntl.flock", "fcntl.ioctl", "fcntl.lockf", "msvcrt.locking", "mmap.__new__"),
+                    (_R, "file attributes, locks or mappings that the guard does not judge")),
+    **dict.fromkeys((
+        "_winapi.CreateFile", "_winapi.CreateJunction", "_winapi.CreateNamedPipe", "winreg.ConnectRegistry", "winreg.CreateKey",
+        "winreg.DeleteKey", "winreg.DeleteValue", "winreg.DisableReflectionKey", "winreg.EnableReflectionKey", "winreg.EnumKey",
+        "winreg.EnumValue", "winreg.ExpandEnvironmentStrings", "winreg.LoadKey", "winreg.OpenKey", "winreg.OpenKey/result",
+        "winreg.PyHKEY.Detach", "winreg.QueryInfoKey", "winreg.QueryReflectionKey", "winreg.QueryValue", "winreg.SaveKey",
+        "winreg.SetValue",
+    ), (_R, "a Windows file, pipe, junction or registry key reached without open")),
+    **dict.fromkeys(("os.walk", "os.fwalk", "glob.glob", "glob.glob/2", "pathlib.Path.glob", "pathlib.Path.rglob", "os.listdrives",
+                     "os.listmounts", "os.listvolumes", "tempfile.mkdtemp", "tempfile.mkstemp", "shutil.make_archive",
+                     "shutil.unpack_archive"), (_R, "a walk, a pattern, a temporary file or an archive: the tool names each path")),
+    **dict.fromkeys(("os.chdir", "os.putenv", "os.unsetenv", "resource.prlimit", "resource.setrlimit", "cpython.PyConfig_Set",
+                     "setopencodehook", "sys.addaudithook"), (_R, "the directory, environment, limits or hooks of the process")),
+    **dict.fromkeys((
+        "sys.settrace", "sys.setprofile", "sys.monitoring.register_callback", "sys._current_frames", "sys._current_exceptions",
+        "sys.remote_exec", "cpython.remote_debugger_script", "builtins.breakpoint", "pdb.Pdb", "gc.get_objects", "gc.get_referents",
+        "gc.get_referrers", "sys.set_asyncgen_hooks_firstiter", "sys.set_asyncgen_hooks_finalizer", "sys.unraisablehook",
+    ), (_R, "tracing, debugging or introspection, not used by the tool")),
+    **dict.fromkeys(("cpython.run_command", "cpython.run_file", "cpython.run_interactivehook", "cpython.run_module",
+                     "cpython.run_startup", "cpython.run_stdin", "cpython.PyInterpreterState_New",
+                     "cpython.PyInterpreterState_Clear"), (_R, "the start of an interpreter: before the hook only")),
+    **dict.fromkeys(("builtins.input", "builtins.input/result", "pickle.find_class", "marshal.dumps", "marshal.load", "code.__new__",
+                     "object.__delattr__", "array.__new__", "ensurepip.bootstrap", "time.sleep", "syslog.closelog", "syslog.openlog",
+                     "syslog.setlogmask", "syslog.syslog"), (_R, "not raised by the measured runs, and not needed by the tool")),
+}
+_UNKNOWN = (_R, "a name outside the table of events")
 _WRITE_FLAGS = os.O_WRONLY | os.O_RDWR | os.O_APPEND | os.O_CREAT | os.O_TRUNC
 
 
@@ -59,12 +126,11 @@ _PATHS = sysconfig.get_paths()
 _STDLIB = tuple({_norm(_PATHS["stdlib"]), _norm(_PATHS["platstdlib"]), _norm(os.path.join(sys.base_prefix, "DLLs"))})
 _SITE = tuple({_norm(_PATHS["purelib"]), _norm(_PATHS["platlib"])})
 _SEARCH = frozenset(_norm(p or os.curdir) for p in sys.path)  # the import system may list these directories
-_DEVNULL = _norm(os.devnull)  # subprocess.DEVNULL opens it read and write: it holds no byte
-_state = {"roles": None, "reading": None, "spawning": None, "busy": False}
+_state = {"roles": None, "reading": None, "spawning": None}
+_local = threading.local()  # N-2: the busy flag marks the judging thread only
 _outputs = []
 _written = set()
 _made = set()
-_reads = set()
 _inputs = set()
 
 
@@ -74,6 +140,12 @@ def _refuse(event, detail, why):
         sys.stderr.flush()
     finally:
         os._exit(REFUSED_EXIT)
+
+
+def _absolute(event, path):
+    """B-2: a path relative to an unknown directory (the working one, or a dir_fd that the open event does not carry) is refused."""
+    if not os.path.isabs(path):
+        _refuse(event, path, "a relative path: every path judged is absolute")
 
 
 def _writes(mode, flags):
@@ -87,8 +159,9 @@ def _judge_open(path, mode, flags):
     name = os.fsdecode(path)
     if not w and name.startswith("<") and name.endswith(">") and not os.path.lexists(name):
         return  # a pseudo-file (<unknown>) that no file bears: the parser opens it only to quote a line of a traceback (3.14 carets)
-    p = _norm(path)
-    if (_state["reading"] == p and not w) or p == _DEVNULL:
+    _absolute("open", name)
+    p = _norm(name)
+    if _state["reading"] == p and not w:
         return
     if any(_under(p, o) for o in _outputs):
         if w:
@@ -107,7 +180,9 @@ def _judge_open(path, mode, flags):
 def _judge_list(event, path):
     if isinstance(path, int):
         return
-    p = _norm(os.curdir if path is None else path)
+    name = os.curdir if path is None else os.fsdecode(path)
+    _absolute(event, name)
+    p = _norm(name)
     if p in _SEARCH or _under(p, _TOOL) or any(_under(p, s) for s in _STDLIB) or any(_under(p, o) for o in _outputs):
         return
     _refuse(event, p, "a directory outside the standard library, the tool's tree, the import path and the outputs")
@@ -123,13 +198,12 @@ def _judge_change(event, args):
         if a is None or isinstance(a, int):
             _refuse(event, a, "a descriptor: the path it changes is unknown")
         a = os.fsdecode(a)
-        if event == "os.symlink" and kind == "src" and not os.path.isabs(a):
-            a = os.path.join(os.path.dirname(os.path.abspath(os.fsdecode(args[1]))), a)  # a link target is relative to the link
+        _absolute(event, a)
         p = _entry(a)
         if not any(_under(p, o) for o in _outputs) and not (event == "os.mkdir" and any(_under(o, p) for o in _outputs)):
             _refuse(event, p, "a change outside the outputs (os.mkdir may also make the directories that lead to an output)")
-        if kind == "src" and not (p in _written or p in _made or p in _reads):
-            _refuse(event, p, "a source that this run neither wrote, made, nor read through io_guard")
+        if kind == "src" and not (p in _written or p in _made):
+            _refuse(event, p, "a source that this run neither wrote nor made")
         seen[kind] = p
     if event == "os.mkdir":
         _made.add(seen["dst"])
@@ -139,7 +213,7 @@ def _judge_change(event, args):
             bag.difference_update(moved)
             bag.update(seen["dst"] + x[len(seen["src"]):] for x in moved)
     elif event in ("os.link", "_winapi.CopyFile2"):
-        _written.add(seen["dst"])  # the bytes of a file this run wrote, or of an input it noted
+        _written.add(seen["dst"])  # the bytes of a file this run wrote
     elif event == "os.remove":
         _written.discard(seen["dst"])
     elif event == "os.rmdir":
@@ -155,12 +229,17 @@ def _judge_spawn(executable, argv):
 
 
 def _hook(event, args):
-    if _state["busy"] or event not in _JUDGED:
+    if getattr(_local, "busy", False):
         return
-    _state["busy"] = True
+    cls, why = EVENTS.get(event, _UNKNOWN)
+    if cls == _A or (cls == _S and _state["spawning"] is not None):
+        return
+    _local.busy = True
     try:
-        if event in _REFUSED:
-            _refuse(event, args[:1], "the tool starts no program this way, loads no C library and opens no connection")
+        if cls == _S:
+            _refuse(event, args[:1], f"admitted only while io_guard spawns ({why})")
+        elif cls == _R:
+            _refuse(event, args[:1], why)
         elif event == "open":
             _judge_open(*args[:3])
         elif event in _CHANGES:
@@ -169,10 +248,10 @@ def _hook(event, args):
             _judge_spawn(args[0], args[1])
         else:
             _judge_list(event, args[0] if args else None)
-    except Exception as e:  # a path the guard cannot judge (a NUL byte, say): the run stops, the caller never catches it
+    except Exception as e:  # a path the guard cannot judge (not a string, say): the run stops, the caller never catches it
         _refuse(event, args[:2], f"not judged ({type(e).__name__})")
     finally:
-        _state["busy"] = False
+        _local.busy = False
 
 
 def declare(*roles):
@@ -183,8 +262,9 @@ def declare(*roles):
 
 
 def output(path):
-    """A file or a directory that this run writes, absent or an empty directory when declared, never in the tool's tree; the run reads
-    back only the files it wrote there."""
+    """A file or a directory that this run writes, given as an absolute path, absent or an empty directory when declared, never in the
+    tool's tree; the run reads back only the files it wrote there."""
+    _absolute("output", os.fsdecode(path))
     p = _norm(path)
     if _under(p, _TOOL) or _under(_TOOL, p):
         _refuse("output", p, "an output inside the tool's tree, or holding it")
@@ -207,15 +287,14 @@ def read(role, path):
             data = fh.read()
     finally:
         _state["reading"] = None
-    _reads.add(_norm(path))
     _inputs.add((role, os.path.basename(os.fsdecode(path)), hashlib.sha256(data).hexdigest(), len(data)))
     return data
 
 
 def _spawn(argv, **kw):
     _state["spawning"] = list(argv)
-    try:
-        return subprocess.run(argv, stdin=subprocess.DEVNULL, capture_output=True, **kw)
+    try:  # input=b"": an empty stdin pipe; subprocess.DEVNULL would open os.devnull, a relative path on Windows (nul), B-2
+        return subprocess.run(argv, input=b"", capture_output=True, **kw)
     finally:
         _state["spawning"] = None
 
