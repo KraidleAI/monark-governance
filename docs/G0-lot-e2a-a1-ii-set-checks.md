@@ -53,7 +53,7 @@ RECHERCHES, 2026-10-07. Base : la tête de a1-i, `15fafa202a60d2fc06a80ab426bec2
 ## 4. Taille
 
 - R-25, forme de la CI, contre la base de la demande (a1-i) : 4 fichiers, 49 insertions, 6 suppressions, **55** (plan : ~168). a1
-  entier (a1-i + a1-ii) contre le tronc : 236.
+  entier (a1-i + a1-ii) contre le tronc : 234 (232 insertions, 2 suppressions).
 
 ## 5. Ce qui n'est pas fait
 
