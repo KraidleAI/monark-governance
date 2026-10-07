@@ -384,8 +384,9 @@ test("dojo_render_header_stub_writes_any_pathname_as_a_closed_literal", async ()
   const dir = temp("dojo-render-literal-");
   for (const [i, s] of ["/dojo", "/", '"); throw 1; ("', "</script><!--", "a\\b`${x}`", "\u2028\u2029\n\r", "\ud800", "\u00e9/\u6f22"].entries()) {
     const lit = jsLiteral(s), file = join(dir, `l${String(i)}.mjs`);
+    assert.match(lit, /^"(?:\\u[0-9a-f]{4})*"$/, JSON.stringify(s));
     writeFileSync(file, `export default ${lit};${NL}`);
-    assert.deepEqual([/^"(?:\\u[0-9a-f]{4})*"$/.test(lit), JSON.parse(lit), ((await import(urlOf(file))) as Rec).default], [true, s, s], JSON.stringify(s));
+    assert.deepEqual([JSON.parse(lit), ((await import(urlOf(file))) as Rec).default], [s, s], JSON.stringify(s));
   }
 });
 
