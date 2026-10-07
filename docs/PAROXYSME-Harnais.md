@@ -525,6 +525,11 @@ DOJO-PROBE-UID-BOUNDARY-1 (ETAT l.1889) touche la sonde Narabi et celle du Dōj�
    de la boîte PAROXYSME avec sa sortie ; il est provisoire jusqu'à `scripts/paroxysme/registry.mjs` (PXC-01 partie 1).
 6. **Essai de CA de MONARK.** La preuve partielle de PX-Harness-09 (pièce `ca-trial-18.json`, sortie sha256 `28aaa41b…`) est dans la
    boîte de RECHERCHES ; elle n'est pas relue ici.
+7. **Ancres qui ont bougé à la tête** (ordre de mission : « ligne qui a bougé à la tête » va en doute). Texte changé : `docs/RUNBOOK-harness.md`
+   l.159, l.186, l.214 (15 → 18 contrôles, `4c16ea0`) et `scripts/spec-publish.mjs` l.284-297 (plancher 2^128, `c4dbfc5`), d'où
+   l'état changé de PX-Harness-09, la preuve de C-15 et la clôture de MK-L14. Même texte, autre numéro : les 44 plages d'ETAT
+   (`57a131fc` → `87b821b0`) et `apps/harness/src/policy-guard.ts` l.108-109 → l.110-111. Commande : `node reanchor.mjs --repo <clone>
+   --base <57a131fc | d8fe354c> --head 87b821b0 <fichier>:<ligne>…` (sortie `same`, `unchanged-file` ou `CHANGED`).
 
 ## 8. Ligne PAROXYSME et sources
 
