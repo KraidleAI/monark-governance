@@ -88,9 +88,9 @@ PR #237, elle-même sur #236 et #233), fusionnée dans cette branche par « Merg
 - **Mutants faits à la main** sur les lignes neuves (l.222, l.231 à l.234, l.239), rejoués sur `gate-kata-served`, `spec-1-1-0-release`
   et `gate-liq` : 18, tous tués. **Pli de la G2 second tour** : trois mutants de MONARK survivaient à `10f97f8c` (rejoués ici sur
   `gate-kata-served`, `spec-1-1-0-release`, `gate-liq`, `gate`, `gate-cm2b` et `harness-served` : 117 tests, 117 verts sous chacun) :
-  M9 (entrées `out` et `both` de la l.233 échangées), M10 (« the committed state is written for » → « the state is written for ») et
+  M9 de la G2 second tour (l.233), qui échange les entrées `out` et `both`, M10 (« the committed state is written for » → « the state is written for ») et
   M17 (l.254, `${kataClause()} ` → `${kataClause(undefined, undefined, [])} `). À `c7d56e66`, chacun rougit T-2a, 116 verts sur 117, par
-  l'assertion neuve qui le vise : le cas « deux conditions » (l.410) pour M9 et M10, l'épingle de la l.254 (l.414) pour M17. Les mutants
+  l'assertion neuve qui le vise : le cas « deux conditions » (l.410) pour ces M9 et M10, l'épingle de la l.254 (l.414) pour M17. Les mutants
   des défauts de la l.222 (M15 : `committed` vide ; M16 : `held` réduit à la liste du plancher) et M17 ne changent aucun octet servi
   tant que les épingles sont vides : ils ne sont tués ici que par les épingles à l'octet des l.222 et l.254 dans T-2a, comme ceux de la
   l.1042 par T-3 (a2-i). **Leur preuve de comportement est au lot a3, sous une partition complète des 32** (décision de MONARK, §5) :
@@ -137,10 +137,10 @@ PR #237, elle-même sur #236 et #233), fusionnée dans cette branche par « Merg
   « classe retenue épinglée » attend la levée de la clause, « kata clause: both pinned and held: btc-dir-1h », qui tue X1 ; (4) pour tuer
   M8 par comportement, un cas enfant à épingles vides, avec un nom non kata dans une liste retenue, que le lecteur refuse en l.56 ; (5) §3
   et le « Not verified » de la demande en tirent la conséquence. Rejoué ici dans une archive de `c7d56e66` (neuf cas, dont l'état
-  d'aujourd'hui ; la tête, M7, M8, M9, X1 et le miroir, puis M15, M16 et M17 sur trois cas ; trois ordres de chargement, chaque fois
+  d'aujourd'hui ; la tête, M7, M8, M9 d'a2-i (l.1042, G0 a2-i l.94), X1 et le miroir, puis M15, M16 et M17 sur trois cas ; trois ordres de chargement, chaque fois
   égaux) : (1) la tête sert 4 713 octets `cf2dde64…` (état 1) et 4 657 octets `d769c86b…` (état 2) ; M7 lève au fil-piège
   (`kata-path.ts` l.127) ; (3) la tête lève « kata clause: both pinned and held: btc-dir-1h; the committed state is written for … » à la
-  l.233, comme M7, M8, M9 et le miroir des l.1074-1075 ; X1 lève « neither pinned nor held: eth-dir-1h, bnb-dir-1h, sol-dir-1h » ;
+  l.233, comme M7, M8, M9 d'a2-i (l.1042, G0 a2-i l.94) et le miroir des l.1074-1075 ; X1 lève « neither pinned nor held: eth-dir-1h, bnb-dir-1h, sol-dir-1h » ;
   (4) épingles vides et `btc-dir-15m` dans une liste retenue : la tête lève au lecteur (« MONARK committed tables: btc-dir-15m: a held
   class that is not a kata class. »), M7 et M8 chargent (`dd728779…`). En option (G2 de #237, `g2f2-237.json`), au plan seulement : un
   second cas sur `eth-dir-4h`, retenue par le plancher, qui tue le miroir.
