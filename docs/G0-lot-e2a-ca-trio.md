@@ -147,15 +147,13 @@ ligne de kata ou de lieu `ca-probe` est refusée au chargement (`guardKataTable`
 test d'intégration du chemin servi. Porteur : MONARK (inchangé) ; déclencheur : le G0 d'E-2a (inchangé) ; état : ouvert. La
 ligne d'ETAT est un acte de MONARK.
 
-Tueurs ajoutés :
+Tueurs ajoutés (citation historique, aux lignes de la tête `eebbe4f0` avant la fusion du tronc ; les tueurs vivants sont dans `test/verify-harness-liq.test.ts`) :
 
-```text
-// killer: scripts/verify-harness.mjs:482 CONST "KATA_WINDOW_MS = 225000;" -> "KATA_WINDOW_MS = 240000;"
-// killer: scripts/verify-harness.mjs:527 CONST "Math.round(nowMs / KATA_GRID_MS)" -> "Math.floor(nowMs / KATA_GRID_MS)"
-// killer: scripts/verify-harness.mjs:555 CONST "Math.abs(date - clock.now())" -> "(clock.now() - date)"
-// killer: scripts/verify-harness.mjs:558 CONST "if (late > KATA_WINDOW_MS)" -> "if (late > 2 * KATA_WINDOW_MS)"
-// killer: scripts/verify-harness.mjs:565 CONST " && v.policy_row_sha256 === null;" -> ";"
-```
+- `scripts/verify-harness.mjs`, la fenêtre : `KATA_WINDOW_MS = 225000;` devient `KATA_WINDOW_MS = 240000;` ;
+- l instant de grille : `Math.round(nowMs / KATA_GRID_MS)` devient `Math.floor(nowMs / KATA_GRID_MS)` ;
+- l écart absolu : `Math.abs(date - clock.now())` devient `(clock.now() - date)` ;
+- la revérification : `if (late > KATA_WINDOW_MS)` devient `if (late > 2 * KATA_WINDOW_MS)` ;
+- le contrôle (1) : ` && v.policy_row_sha256 === null;` devient `;`.
 
 Le tueur du test (9) passe de l.542 à l.543 (une ligne de commentaire de `kataWindow`) ; les autres ancres ne bougent pas.
 
@@ -256,3 +254,7 @@ entier ; témoin 20 sur 20 verts) : tué par (12b) seul, par assertion (`at: nul
 - `tsc --noEmit` exit 0 ; eslint 0 erreur ; `lang:gate`, `gate:vocab`, `lint:ratchet` (69/69), `export:check` verts ;
   `verify-harness-liq`, `surfaces-1-1-0`, `retire-instants`, `site-ukemi`, `runbook-retire` : 90 verts, 0 rouge ; les 1 563
   lignes `// killer:` de l'arbre sont valides.
+- Ligne datée (MONARK, 2026-10-07 12:4x UTC ; G2 ciblée des plis, constat m) : après la fusion du tronc `5280bff3`, les cinq tueurs
+  cités au §8 sous le préfixe `// killer:` visaient d autres lignes (+10). Le bloc devient une citation historique en puces, sans ce
+  préfixe. Les comptes « valides » ci-dessus étaient ceux des ancrés, non du total. Au tronc `bdc0ff41` plus ce pli, `verifie-ancres`
+  sur tout l arbre rend 1 574 tueurs, 1 574 ancrés, 0 dérivé, 0 perdu.
