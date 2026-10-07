@@ -35,7 +35,7 @@ const toolEntry = (vs: readonly Verifier[]): ListEntry | undefined =>
 
 // reddened by: a byte of verifiers.json changed without its pin, a pin that is not the sha256 of the file, a non-canonical writing or a
 // final newline, a pinned read that is not memoised (two calls, two arrays), or a list or an element that a caller can change (not frozen)
-// killer: apps/harness/src/policy-verifiers.ts:18 CONST "220e9025654dac553b62d6ae7aeb8c5247c59cc70947baf379a67674163f5ecb" -> "0000000000000000000000000000000000000000000000000000000000000000"
+// killer: apps/harness/src/policy-verifiers.ts:18 CONST "3a6f304f3eb592c51c73fb8d13c6a3f752bf0168563f57fc5b8ab966a6975d0d" -> "0000000000000000000000000000000000000000000000000000000000000000"
 test("verifier_list_is_the_pinned_canonical_bytes - the list file has the sha256 VERIFIERS_SHA256, is its own canonical writing with no final newline, and the pinned read is memoised and frozen", () => {
   const bytes = readFileSync(LIST), text = bytes.toString("utf8");
   assert.equal(sha256(bytes), VERIFIERS_SHA256, "the sha256 of apps/harness/data/verifiers.json is the pin");
@@ -232,11 +232,14 @@ test("run_log_is_ignored_untracked_and_named_by_no_spec_input - git ignores run-
 });
 
 // reddened by: a list entry whose commit is not in the history of HEAD (git merge-base --is-ancestor: an object of the repository outside
-// it, such as the head of an unmerged branch or a head from before a rebase, is refused; so is the placeholder of 40 zeros: lot 1f is built
-// on the trunk before the frozen tool merges), or whose commit does not carry the listed tree under tools/kata-recalc/ (section 3.2 recipe).
-// Each git read of a listed commit runs with --no-replace-objects, as the blob reads do: no refs/replace can graft it or swap its tree
+// it, such as the head of an unmerged branch or a head from before a rebase, is refused; so is the placeholder of 40 zeros that the list
+// carried until the frozen tool merged), or whose commit does not carry the listed tree under tools/kata-recalc/ (section 3.2 recipe); or a
+// tool entry other than the commit and tree written at the head of the body (the trunk merge of the frozen tool, 6536057c, and its tree: a
+// change that moves the tool writes its own there, so red-proof judges this test). Each git read of a listed commit runs with
+// --no-replace-objects, as the blob reads do: no refs/replace can graft it or swap its tree
 // killer: apps/harness/src/policy-verifiers.ts:115 CONST "(a.path < b.path ? -1 : 1)" -> "(a.path < b.path ? 1 : -1)"
 test("verifier_list_commit_carries_the_listed_tree - each list entry names a commit in the history of HEAD whose tree under tools/kata-recalc/ has the listed digest", () => {
+  assert.deepEqual([toolEntry(pinnedVerifiers())?.commit, toolEntry(pinnedVerifiers())?.tree_sha256], ["6536057c9c1f7577ffe5b9bc31960e1e60c9b8a4", "d6c80e9db438fe2fb9ea3ca7fab03dc4cc6902eed23a08ca6863417da2a1b451"], "the tool's entry: the listed commit and its tree");
   for (const e of listEntries(pinnedVerifiers())) {
     assert.notEqual(e.commit, "0".repeat(40), "a placeholder: the entry must name the merge commit of the frozen tool on the trunk, and its tree, before this merges");
     assert.equal(gitStatus(["--no-replace-objects", "merge-base", "--is-ancestor", e.commit, "HEAD"]), 0, `${e.commit} is in the history of HEAD`);
