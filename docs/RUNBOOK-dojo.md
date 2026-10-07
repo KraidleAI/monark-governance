@@ -1404,7 +1404,8 @@ against the deadline (07:30 UTC), writes `/var/lib/monark-probe/dojo-live.json` 
 transition with the mail file of the Narabi probe (`/etc/monark/probe.env`, `docs/RUNBOOK-sentinel.md`, the probe's deployment on
 Bell) but its `SMTP_PASS`, which the unit unsets: the probe reads the password when it sends, after the verifier's child has ended,
 from its own file `/etc/monark/dojo-probe-smtp-pass` (owner `probe`, mode 0600, act (1b)); the child runs as `probe` and could read a
-password held in the probe's environment; act (4b) proves the mail path once, before the timer. The user `probe`, its state directory
+password held in the probe's environment; act (4b) proves the mail path before the timer, and (9) replays (1b) then (4b) after a
+change of `SMTP_PASS`. The user `probe`, its state directory
 and the mail file exist since that deployment; this section writes none of them, only the password file of (1b). The
 probe's tree lies in `/opt/monark-dojo-probe`, outside `/opt/monark-probe`, which check 12 of Bell's CA and `c10` hash (section 15 (1)).
 
@@ -1499,14 +1500,15 @@ Expected: `sim_exit=0`, then the record: `"status": "healthy"`, `"reason": null`
 (no edge, DOJO-EDGE-CACHE-1), `"verifier_exit": 0`, `"head_day"` the day of the served head (JOURNAL: the record). **STOP** on any
 other output: its `reason`, `side` and `verifier_reason` name the fault (the header of the probe); escalation, no timer.
 
-(4b) The mail path, proven once before the timer (the form of section 2 of the probe's deployment in `docs/RUNBOOK-sentinel.md`): one
-start simulated as in (4), forced unhealthy (`--now` two days ahead: `lag`), its record a scratch file, WITH the mail file applied by
-systemd and `SMTP_PASS` unset as the unit does, so the password comes from the file of (1b). It needs the tree of (2), hence its place
-after (4). It sends ONE real mail, to the alert address already configured in the mail file (`ALERT_TO`) and to no other; it is part of
-the single deployment authorization (Q-20):
+(4b) The mail path, proven before the timer, and again by (9) after a change of `SMTP_PASS` (the form of section 2 of the probe's
+deployment in `docs/RUNBOOK-sentinel.md`): one start simulated as in (4), forced unhealthy (`--now` two days ahead: `lag`), its record a
+scratch file, removed first (the probe reads its prior alert from `--out`: a record left by a cut run, `"alerted": true` for the same
+day, would print the expected record with no mail sent), WITH the mail file applied by systemd and `SMTP_PASS` unset as the unit does,
+so the password comes from the file of (1b). It needs the tree of (2), hence its place after (4). It sends ONE real mail, to the alert
+address already configured in the mail file (`ALERT_TO`) and to no other; it is part of the single deployment authorization (Q-20):
 
 ```bash
-ssh -i ~/.ssh/monark_vps root@bell.monarkgate.tech 'S="-p ProtectSystem=strict -p ProtectHome=true -p PrivateTmp=true -p NoNewPrivileges=true
+ssh -i ~/.ssh/monark_vps root@bell.monarkgate.tech 'rm -f /var/lib/monark-probe/dojo-live-mail.json && S="-p ProtectSystem=strict -p ProtectHome=true -p PrivateTmp=true -p NoNewPrivileges=true
 -p ReadWritePaths=/var/lib/monark-probe -p CPUQuota=25% -p MemoryMax=640M -p TasksMax=64 -p WorkingDirectory=/opt/monark-dojo-probe" &&
 N=$(date -u -d "+2 days" +%Y-%m-%dT12:00:00Z) &&
 C="/usr/bin/env node /opt/monark-dojo-probe/scripts/probe-dojo-live.mjs --now $N --out /var/lib/monark-probe/dojo-live-mail.json" &&
@@ -1561,6 +1563,11 @@ Expected: the digest of `git -C /f/Monark cat-file blob "<sha of the synchro>:ap
 (JOURNAL: the commit and the digest; the tree then differs from its G7 by this one file). From a rotation line to this act the probe is
 unhealthy, `verifier_refused` with the verifier's keyring refusal (`rotation_key_not_in_keyring` or `served_key_not_in_keyring`), as the
 page falls back (section 20): expected, mailed once per UTC day. Rollback: the previous commit's keyring, the same way.
+
+(9) After posting or changing `SMTP_PASS` (section 1 of the probe's deployment in `docs/RUNBOOK-sentinel.md`): (1b) then (4b), each
+with its expected output; the timer stays enabled, and a STOP is an escalation. The probe reads its own copy of the password, the file
+of (1b), never the mail file's `SMTP_PASS`: without (1b), its next due mail fails as `smtp_auth_failed`, seen only at the daily
+read of (7). JOURNAL: the act, its day, the `"alert_error": null` of (4b).
 
 ## Never
 
