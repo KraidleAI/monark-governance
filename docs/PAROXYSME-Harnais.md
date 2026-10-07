@@ -160,9 +160,10 @@
   source : `docs/G7-lot-d-3.md:94-96` ; ADR-CM l.182 (B-10), l.231-232 ; ETAT l.1538-1542, l.1553-1555 · touche : `skills/monark/SKILL.md:72` ;
     codes `byo_*` (C §13) · nature : C/T
   item : BYO-LOOKALIKE-RESIDUAL-1 et BYO-HOMOGLYPH-1 (ADR-CM l.231-232 ; nommés à ETAT l.1542, l.1555) · porteur : RECHERCHES (ADR-CM
-    l.231-232 ; ETAT l.1538-1542) · déclencheur : RESIDUAL : une imitation résiduelle observée dans un appel BYO réel ou rapportée par un tiers
-    (non tiré) ; HOMOGLYPH : tout élargissement du motif `^[ -~]+$` de `schemas/prediction.schema.json`, ou tout consommateur de `runGate`
-    hors des points d'entrée HTTP et MCP (ADR-CM l.232)
+    l.231-232 ; ETAT l.1538-1542) · déclencheur : RESIDUAL : (a) le plan de CM-4 (B-14 élargit le motif kata réservé), (b) plus tôt, une
+    imitation résiduelle observée dans un appel BYO réel ou rapportée par un tiers (non tiré) (ADR-CM l.231) ; HOMOGLYPH : tout
+    élargissement du motif `^[ -~]+$` de `schemas/prediction.schema.json`, ou tout consommateur de `runGate` hors des points d'entrée
+    HTTP et MCP (ADR-CM l.232)
   état : ouvert · suite : prix de HOMOGLYPH : ≈ 60 lignes de code et 80 de test, une ligne B neuve, go du fondateur (ADR-CM l.232) ;
     BYO-ASCII-LOOKALIKE-1 est construit (B-10, ADR-CM l.182) ; PXC-16 en porte la lecture de UTS #39 (F2) ; même limite que MK-L31
 - **PX-Harness-17** · « Le chemin kata est servi sans aucune ligne : 32 classes s'abstiennent toujours. »
@@ -597,11 +598,13 @@ du Dōjō : registre Narabi. Les sept autres sont ici.
 4. **Items neufs non marqués PAROXYSME.** ETAT gagne d'autres items depuis `57a131fc` (par exemple RETIRE-CAUSE-VOCAB-1,
    RETIRE-REHEARSAL-STAGING-1) ; ils ne sont pas des limites des inventaires et ne sont repris ici que là où une entrée les cite. La
    recartographie de PXC-01 partie 2 les prendra.
-5. **Contrôle mécanique.** `verify-registres.mjs` (pièce de la boîte PAROXYSME, commit `1fd31ee`) vérifie : chaque id d'inventaire est une
-   entrée, une seule fois, ou un doute nommé ; aucun champ item, porteur ou déclencheur vide ou « aucun » ; chaque entrée close a sa
+5. **Contrôle mécanique.** `verify-registres.mjs` (pièce de la boîte PAROXYSME, commit `d97d838`) vérifie : chaque id d'inventaire est une
+   entrée, une seule fois, ou un doute nommé et épinglé dans l'outil ; aucun champ item, porteur ou déclencheur vide ou « aucun » ; chaque entrée close a sa
    preuve ; aucune ligne de plus de 160 caractères, aucune adresse ; le diff porte exactement les six fichiers ; chaque item marqué
    PAROXYSME ajouté à ETAT est cité dans un champ item. Il sortait en code 1 sur une tête partielle (`788fba1`, un seul registre) et sort
-   en code 0 sur la tête qui porte les six (`6e6c878`). Il est provisoire jusqu'à `scripts/paroxysme/registry.mjs` (PXC-01 partie 1).
+   en code 0 sur la tête qui porte les six (`6e6c878`). Sa version `1fd31ee` prenait 7 lignes par entrée : elle sortait 1 sur `0967bef`
+   (MK-L14, plus longue) ; `d97d838` prend les entrées entières (cas rouges puis verts, pièce de la boîte) et sort 0 sur la branche. Il est
+   provisoire jusqu'à `scripts/paroxysme/registry.mjs` (PXC-01 partie 1).
 6. **Essai de CA de MONARK.** La preuve partielle de PX-Harness-09 (pièce `ca-trial-18.json`, sortie sha256 `28aaa41b…`, tronc
    `8411a2d4`) est dans la boîte de RECHERCHES ; elle n'est pas relue ici.
 7. **Ancres qui ont bougé à la tête** (ordre de mission : « ligne qui a bougé à la tête » va en doute).
@@ -703,4 +706,4 @@ Sources hors du tronc (boîte PAROXYSME) :
 | PLAN, même dossier, `PLAN-DE-ROUTE-PAROXYSME-2026-10-06.md` | 1 195 | `96b5b01858886906930f8be6e76094294dd71a9878a34b9b71804a160a645714` |
 | `coordination/pieces/2026-10-07-registres/reanchor.mjs`, commit `a55a62d` | 69 | `2edae6398e35a39d750cca2951cf4349380971066acb23bd1dbe965d9f88ca4b` |
 | `coordination/pieces/2026-10-07-registres/reanchor-cases.mjs`, commit `a55a62d` | 34 | `8290f603765cb9c5399293e40ed15178097909147a333c37a48cff3788c8b9da` |
-| `coordination/pieces/2026-10-07-registres/verify-registres.mjs`, commit `1fd31ee` | 121 | `284a5ceda26073d5c46f0f5465b9410d221a1f9f475722eda3507e4cba17531e` |
+| `coordination/pieces/2026-10-07-registres/verify-registres.mjs`, commit `d97d838` | 127 | `6d71141222d2c32b995cd30e11335501e7021f4b2c7a38fb25053a61efe8712b` |
