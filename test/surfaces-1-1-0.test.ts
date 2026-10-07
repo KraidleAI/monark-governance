@@ -204,7 +204,7 @@ function strayT0Lines(text: string): string[] {
 // T0-TOOLING-1 (review B-3, m-g; G2 N-5, N-6; delta G2 D-1, D-2, D-4 resumption): the T0 section of the storefront runbook names the nine acts in order, each
 // with EXACTLY its code spans (a flag, a path or a target changed anywhere reds); the act 6 commit lists every file the acts
 // write (each path read from its writer, the journal of act 2 included, so the release of act 9 sees a clean tree); the act 2
-// command parses as the deploy check reads it; act 8 publishes the last declared spec release with both roots, and parses as
+// command parses as the deploy check reads it; act 8 publishes the release contract-1.1.0, by its name, with both roots, and parses as
 // spec-publish reads it; no line of the section but the acts carries text. French runbook: only code spans are read here.
 // killer: docs/RUNBOOK-vitrine.md:47 CONST " docs/JOURNAL-PROVENANCE.md apps/site/data/harness-served.json" -> " apps/site/data/harness-served.json"
 test("srf_runbook_vitrine_t0_order — deploy, green CA, harness, Narabi and ukemi syncs, re-pin, site, spec, release", async () => {
@@ -228,7 +228,7 @@ test("srf_runbook_vitrine_t0_order — deploy, green CA, harness, Narabi and uke
   assert.notDeepEqual(strayT0Lines([...all.slice(0, four), `Ligne dat\u00e9e 2026-10-07: ${span}.`, ...all.slice(four)].join("\n")), [], "a second dated line between two acts reds (delta2 E-1)");
   assert.notDeepEqual(strayT0Lines(all.map((l, k) => (k === dated ? `${l} ${span}` : l)).join("\n")), [], "a code span on the section's dated line reds (delta2 E-1)");
   const inputs = JSON.parse(read("scripts", "spec-publish-inputs.json")) as { releases: Record<string, { previous_commit: string | null }> };
-  const release = Object.keys(inputs.releases).at(-1) ?? "", prev = (inputs.releases[release]?.previous_commit ?? "").slice(0, 7);
+  const release = "contract-1.1.0", prev = (inputs.releases[release]?.previous_commit ?? "").slice(0, 7);
   const spec = `node scripts/spec-publish.mjs --release ${release} --date <YYYY-MM-DD> --out <dir> --root recherches=<recherches> --root previous=<monark-kata-spec@${prev}>`;
   const specArgs = ((await import(new URL("../scripts/spec-publish.mjs", import.meta.url).href)) as { parseArgs: (a: string[]) => { release: string; roots: Record<string, string> } }).parseArgs(spec.split(" ").slice(2));
   assert.deepEqual([specArgs.release, Object.keys(specArgs.roots)], ["contract-1.1.0", ["recherches", "previous"]], "act 8 publishes contract 1.1.0 with both roots");

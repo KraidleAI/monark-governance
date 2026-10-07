@@ -17,7 +17,7 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { sha256Canonical } from "@monark/contracts";
 import { SERVED_POLICY_TABLES } from "../apps/harness/src/tools/gate.ts";
-import { canonicalJson, plan } from "../scripts/spec-publish.mjs";
+import { canonicalJson, plan, validDate } from "../scripts/spec-publish.mjs";
 import type { Inputs } from "../scripts/spec-publish.mjs";
 
 type Entry = Inputs["releases"][string]["entries"][number];
@@ -30,10 +30,11 @@ after(() => { rmSync(TMP, { recursive: true, force: true, maxRetries: 3 }); });
 let made = 0;
 const sha = (b: string | Buffer): string => createHash("sha256").update(b).digest("hex");
 const run = (script: string, ...a: string[]): { status: number | null; stdout: string; stderr: string } => spawnSync(process.execPath, [script, ...a], { encoding: "utf8" });
-/** A root holding a copy of this repository's schemas/ and spec/ (contract-1.1.0 as published at T0). */
+/** A root shaped as at T0, whatever dated directory this repository holds (SPEC-TABLES-TEST-PER-DIR-1): its schemas/ and spec/contract-1.1.0/, each served table written there. */
 const copy = (): string => {
-  const r = join(TMP, `r${String(++made)}`);
-  for (const d of ["schemas", "spec"]) cpSync(join(ROOT, d), join(r, d), { recursive: true });
+  const r = join(TMP, `r${String(++made)}`), out = join(r, "spec", "contract-1.1.0");
+  for (const [from, to] of [[join(ROOT, "schemas"), join(r, "schemas")], [join(ROOT, "spec", "contract-1.1.0"), out]] as const) cpSync(from, to, { recursive: true });
+  for (const t of SERVED_POLICY_TABLES) writeFileSync(join(out, "policy", `${t.task_class}.json`), canonicalJson(t.table));
   return r;
 };
 /** Every file under a directory with its sha256, sorted. */
@@ -94,7 +95,8 @@ test("tables_writer_targets_a_dated_dir", async () => {
 // killer: scripts/spec-policy-tables.mjs:60 CONST "dirs[t.task_class]" -> "VERSION_DIR"
 test("served_table_equals_published_table_by_dir", async () => {
   const w = await writer(), r = copy(), tables = withRow("region"), D3 = "contract-1.1.0-tables-2026-11-03";
-  assert.deepEqual(Object.values(w.servedTableDirs(ROOT, SERVED_POLICY_TABLES)), Array<string>(35).fill("contract-1.1.0"), "today every class is served from contract-1.1.0");
+  const spec = join(ROOT, "spec"), held = readdirSync(spec).filter((d) => d === "contract-1.1.0" || (d.startsWith("contract-1.1.0-tables-") && validDate(d.slice(22)))).sort(), last = (c: string): string | undefined => held.filter((d) => existsSync(join(spec, d, "policy", `${c}.json`))).at(-1);
+  assert.deepEqual(w.servedTableDirs(ROOT, SERVED_POLICY_TABLES), Object.fromEntries(SERVED_POLICY_TABLES.map((t) => [t.task_class, last(t.task_class)])), "each class of this repository is served from the last directory that holds it (all contract-1.1.0 at T0)");
   w.writeDated(r, await w.datedFiles(r, D, tables));
   const dirs = w.servedTableDirs(r, tables);
   assert.deepEqual([Object.keys(dirs).length, Object.entries(dirs).filter(([, d]) => d !== "contract-1.1.0")], [35, [["btc-dir-1h", DIR]]]);
