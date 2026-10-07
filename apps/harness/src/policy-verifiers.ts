@@ -167,13 +167,15 @@ const REPORT: Cols = {
   tool: nest({ commit: fits(COMMIT), tree: text, tree_sha256: fits(HEX64) }),
   verifier: (v) => typeof v === "string" && /^[^@]+@[0-9a-f]{40}$/.test(v) && v.split("@")[0] === identityOf(v),
 };
-/** The canonical writing of report.py (sorted keys, no space, integers only, every string and every key ASCII, no final newline). */
-const canon = (v: unknown): string => Array.isArray(v) ? `[${v.map(canon).join(",")}]`
-  : isObj(v) ? `{${Object.keys(v).sort().map((k) => `${canon(k)}:${canon(v[k])}`).join(",")}}`
+/** The deepest a report nests, in levels of lists and objects, the report itself the first: the form has 4 (inputs.compare[0]), report.py's
+ *  canonical() stops near 500 (its recursion limit). A fixed bound, the stricter (fail-closed), so that no refusal hangs on the call stack. */
+const NESTING = 64;
+/** The canonical writing of report.py (sorted keys, no space, integers only, every string and every key ASCII, no final newline), at most NESTING levels deep. */
+const canon = (v: unknown, level = 1): string => (Array.isArray(v) || isObj(v)) && level > NESTING ? rfail("not its canonical writing (nested too deep)")
+  : Array.isArray(v) ? `[${v.map((x) => canon(x, level + 1)).join(",")}]`
+  : isObj(v) ? `{${Object.keys(v).sort().map((k) => `${canon(k)}:${canon(v[k], level + 1)}`).join(",")}}`
   : typeof v === "string" && !/^[\x00-\x7f]*$/.test(v) ? rfail("a string that is not ASCII")
   : typeof v === "number" && !Number.isSafeInteger(v) ? rfail(`${v} is not an integer of the canonical writing`) : JSON.stringify(v);
-/** canon, with a value nested beyond the call stack refused by name (report.py cannot write one: its canonical() stops near 500 levels). */
-const canonOf = (v: unknown): string => { try { return canon(v); } catch (e) { if (e instanceof RangeError) return rfail("not its canonical writing (nested too deep)"); throw e; } };
 
 /** The report of these bytes: its closed form and its canonical writing, or a named refusal. */
 export function readRecomputeReport(bytes: Uint8Array | string): RecomputeReport {
@@ -181,6 +183,6 @@ export function readRecomputeReport(bytes: Uint8Array | string): RecomputeReport
   try { t = typeof bytes === "string" ? bytes : new TextDecoder("utf-8", { fatal: true, ignoreBOM: true }).decode(bytes); doc = JSON.parse(t); } catch { return rfail("not UTF-8 JSON"); }
   if (/[^\x00-\x7f]/.test(t)) rfail("not ASCII");
   closed(doc, REPORT, "report");
-  if (canonOf(doc) !== t) rfail("not its canonical writing (sorted keys, no space, no final newline)");
+  if (canon(doc) !== t) rfail("not its canonical writing (sorted keys, no space, no final newline)");
   return doc as RecomputeReport;
 }
