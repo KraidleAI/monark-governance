@@ -26,7 +26,7 @@ const committed = (c: string): Buffer => readFileSync(join(ROOT, "spec", "contra
 const changed = (c: string): Buffer => Buffer.concat([committed(c), Buffer.from("\n")]); // a later table of the class: other bytes
 // The deploy check record, built as verify-harness writes docs/deploy-CA-harness.json (l.432-438): its fields, a check object per name of
 // CHECK_NAMES, all ok, and an authorized TLS on both hosts. The committed record is not read: it keeps the checks of the deployed server
-// until the next deployment (MONARK 543d9ef), while the rule that H takes counts the checks of the trunk.
+// until the next deployment (MONARK 543d9ef), while the rule the writer takes counts the checks of the base branch.
 const { CHECK_NAMES } = (await import(new URL("../scripts/verify-harness.mjs", import.meta.url).href)) as { CHECK_NAMES: readonly string[] };
 const tlsBlock = (host: string): object => ({ host, authorized: true, issuer: "Let's Encrypt", subject: host, valid_to: "Dec 10 04:57:46 2026 GMT" });
 const REC = { url: "https://api.monarkgate.tech", mcp_url: "https://mcp.monarkgate.tech", checked_at: "2026-10-06T05:42:44.278Z",
