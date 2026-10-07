@@ -120,7 +120,7 @@ const GREEN = {
 // uncommitted body put in s0 => red.
 // CM-2b surfaces: 15 checks; the gate body is the committed USDe key, and two 400 checks carry their code (btc-dir-15m
 // retired: task_class_retired; produced_at in 2099: produced_at_future, MONARK C-8).
-// killer: scripts/verify-harness.mjs:319 CONST "got === code" -> "got !== code"
+// killer: scripts/verify-harness.mjs:330 CONST "got === code" -> "got !== code"
 test("verify_harness_ca_passes_on_the_in_process_harness", async () => {
   const server: HttpServer = await startLoopback((port) => startServer(port));
   try {
@@ -251,7 +251,7 @@ const shut = (s: HttpServer): Promise<void> => {
 // O-1b-G2-2 (duration of this test, G2 HARNESS-DESC-1-1b): 17 CA runs here (16 vectors and the crash run; about 0.2 s each
 // idle, measured up to ~10 s each under a loaded full suite for the former 4); the per-test timeout keeps a margin over
 // the suite's 120 s default.
-// killer: scripts/verify-harness.mjs:410 CONST " && digest === calibrateScoresSha256;" -> ";"
+// killer: scripts/verify-harness.mjs:421 CONST " && digest === calibrateScoresSha256;" -> ";"
 test("verify_harness_ca_liq_checks_red_on_overclaiming_surfaces", { timeout: 300000 }, async () => {
   // M-4 (second exitCode site, main().catch): an unparsable --api throws in `new URL` before any request (the --mcp is a
   // closed local port, never a public host): no CA on stdout, the crash named on stderr, exit exactly 1.
@@ -354,7 +354,7 @@ function tlsFront(port: number, pem: { key: string; cert: string }): HttpServer 
 // NODE_EXTRA_CA_CERTS) writes --out and removes both side records, no temp file left; and a run whose mcp host serves an
 // untrusted certificate (the fetches let through by NODE_TLS_REJECT_UNAUTHORIZED=0, the handshake judged on its own) reds
 // on tls_mcp alone and keeps --out.
-// killer: scripts/verify-harness.mjs:153 CONST "tlsBlocks.every((t) => t.authorized === true)" -> "tlsBlocks.every((t) => t.authorized !== false)"
+// killer: scripts/verify-harness.mjs:164 CONST "tlsBlocks.every((t) => t.authorized === true)" -> "tlsBlocks.every((t) => t.authorized !== false)"
 test("verify_harness_out_is_written_only_when_every_check_passes", { timeout: 300000 }, async () => {
   const dir = mkdtempSync(join(tmpdir(), "verify-harness-out-")), out = join(dir, "ca.json"), trusted = selfSigned("api.test"), foreign = selfSigned("mcp.test");
   writeFileSync(join(dir, "trusted.pem"), trusted.cert);
@@ -416,7 +416,7 @@ test("verify_harness_refuses_an_unknown_option", async () => {
 
 // (6) G2 M-3 of T0-TOOLING-1: every request is bounded by --timeout. Against an mcp host that accepts and never answers (the
 // api a closed port), the run ends within its bound, red, with the timed-out checks named and no --out written.
-// killer: scripts/verify-harness.mjs:172 CONST "{ ...init, signal: AbortSignal.timeout(TIMEOUT_MS) }" -> "init"
+// killer: scripts/verify-harness.mjs:183 CONST "{ ...init, signal: AbortSignal.timeout(TIMEOUT_MS) }" -> "init"
 test("verify_harness_bounds_every_request", { timeout: 300000 }, async () => {
   const dir = mkdtempSync(join(tmpdir(), "verify-harness-timeout-")), out = join(dir, "ca.json"), held: Socket[] = [];
   const silent = createTcpServer((socket) => { held.push(socket); });
@@ -452,7 +452,7 @@ test("verify_harness_side_records_never_ship", async () => {
 
 // (8) Delta G2 of T0-TOOLING-1 (D-5): an atomic write whose temp write fails leaves no temp file. The temp path is made a
 // dangling link into an absent directory, so the write fails after the name exists; the link is removed with the failure.
-// killer: scripts/verify-harness.mjs:157 CONST "rmSync(`${path}.tmp`, { force: true }); throw error;" -> "throw error;"
+// killer: scripts/verify-harness.mjs:168 CONST "rmSync(`${path}.tmp`, { force: true }); throw error;" -> "throw error;"
 test("verify_harness_atomic_write_leaves_no_temp", async (t) => {
   const { writeAtomic } = (await import(new URL("../scripts/verify-harness.mjs", import.meta.url).href)) as { writeAtomic?: (path: string, text: string) => void };
   assert.equal(typeof writeAtomic, "function", "scripts/verify-harness.mjs exports writeAtomic");

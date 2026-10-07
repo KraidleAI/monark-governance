@@ -3,11 +3,16 @@
 RECHERCHES, 2026-10-07. Base `177b5755` (lot/etude-suite). Constat du vérificateur de MONARK sur le transfert de `wave1.json`.
 
 Auteur : RECHERCHES ; rédaction initiale et pli de la G2 (MONARK, `2026-10-07-MONARK-vers-RECHERCHES-g2-221-222.md`, pièce
-`g2-221-222.json` clé `1`, voie (a)) par un worker `claude-opus-5-5` (effort non exposé au worker), horloge du pli lue à 09:15 UTC. Le
-pli est construit après la fusion de la PR 2 du registre (#228) : le tronc `1cddd2e5` est fusionné dans la branche, et ses 8 tueurs de
-`ci.yml` réancrés y sont verts sans que ce lot les touche.
+`g2-221-222.json` clé `1`, voie (a)) par un worker `claude-opus-5-5`, à l'effort de la session, sans réglage explicite (RECHERCHES,
+`2026-10-07-RECHERCHES-vers-MONARK-pr226-close-erratum-21.md`), horloge du pli lue à 09:15 UTC. Le pli est construit après la fusion de
+la PR 2 du registre (#228) : le tronc `1cddd2e5` est fusionné dans la branche, et ses 8 tueurs de `ci.yml` réancrés y sont verts sans
+que ce lot les touche. Pli du delta G2 (MONARK `e7234bd`, `2026-10-07-MONARK-vers-RECHERCHES-tronc-rh1-g2-221-222.md`, pièce
+`g2-221-222-delta.json` clé `1`) par un worker `claude-opus-5-5`, effort `max` passé par l'orchestrateur de RECHERCHES, horloge lue à
+10:48 UTC ; le tronc `591b3a30` est fusionné dans la branche.
 
-red-proof: test-only
+Preuve rouge-vert : F2P, le mode par défaut de `scripts/red-proof.mjs`. Depuis le pli du delta, la PR touche une ligne de production,
+l'export de `killerProblem` (`scripts/red-proof.mjs:54`) : la porte `--test-only` la refuserait, et la garde rougit au tronc par
+assertion.
 
 ## Constat (mesuré à la base, `parseKiller` de `scripts/red-proof.mjs` l.49 sur chaque ligne `// killer:` du code, docs/ hors)
 
@@ -38,30 +43,60 @@ red-proof: test-only
   intention de mutation. Aucune autre ligne ne bouge.
 - Les 2 SDL à `<after>` non vide : réécrits en `CONST`, même fichier, ligne, avant et après (la mutation déclarée est un remplacement).
   Tirés à la main : chacun rougit son test porteur par `ERR_ASSERTION` (l.251 et l.296).
-- Les 5 tueurs sur du code de test : retirés en place, avec leur raison sur la ligne (« Not a killer, test code (red-proof and mutants
-  mutate production code only) »), la mutation gardée en texte ; aucune ligne ne bouge. Il n'y a pas de code de production à leur place :
-  ils éprouvent les décodeurs du test lui-même.
+- Les 5 tueurs sur du code de test : retirés en place, avec leur raison sur la ligne (« Not a killer, test code (a *.test.ts is never
+  mutated) »), la mutation gardée en texte ; aucune ligne ne bouge. La construction qui les rend tirables existe : un module d'appui
+  sous `test/`, importé par le test, que les deux outils admettent. Elle est confiée à KILLER-TEST-HELPERS-SUPPORT-1 (ci-dessous).
 
 ## Garde (neuve)
 
-`test/killer-lines.test.ts`, `every_killer_line_is_readable` : toute ligne `// killer:` du code passe le prédicat complet de
-`killerProblem`, recopié dans le test (la fonction n'est pas exportée, et le lot ne touche aucun fichier hors `test/`) : lue par
-`parseKiller`, opérateur de `OPS` (lu dans `red-proof.mjs`, identique dans `mutants/run.mjs`), fichier dans l'arbre, code de production
-ou module d'appui importé par le test (`supportOf`), ligne existante, SDL ⇒ `<after>` vide, `<before>` exactement une fois sur la ligne.
-Une ancre périmée (une ligne insérée en tête de `scripts/mission/lint.mjs`) rougit la garde. Le prédicat est épinglé dans le même test
-par neuf lignes synthétiques (valide, opérateur à trait d'union, `LVR`, ligne périmée, `<before>` ambigu, hors de la fin, SDL avec
-`<after>`, fichier absent, code de test), chacune nommée par son contrôle. `git grep` passe par `gitOut` de
-`test/helpers/git-tracked.ts` (sans les `GIT_*` de l'appelant). Rouge au tronc `1cddd2e5` par assertion, vert au gel.
+`test/killer-lines.test.ts`, `every_killer_line_is_readable` : toute ligne `// killer:` du code est lue par `parseKiller`, puis jugée
+par `killerProblem` de `scripts/red-proof.mjs` elle-même, exportée pour la garde et appelée telle quelle (pli du delta : la copie
+`problem()` du test est ôtée, une dérive de la fonction ne peut plus laisser la garde verte ; `main` reste derrière `import.meta.main`,
+l'import ne lance rien). Contrôles : opérateur de `OPS` (lu dans `red-proof.mjs`, identique dans `mutants/run.mjs`), fichier dans
+l'arbre sans segment `..`, code de production ou module d'appui importé par le test (`supportOf`), jamais un `*.test.ts`, ligne
+existante, SDL ⇒ `<after>` vide et tout autre opérateur change le texte, `<before>` exactement une fois sur la ligne. Une ancre
+périmée rougit la garde. Treize lignes synthétiques épinglent chaque issue, pas chaque clause (« pin each outcome ») : neuf issues
+(valide, opérateur à trait d'union, `LVR`, ligne périmée, `<before>` ambigu, hors de la fin, SDL avec `<after>`, fichier absent, code de
+test), plus quatre clauses qu'une sonde seule distingue, chacune avec son tueur dans le corps du test (CONST sans changement ;
+`<before>` vide sur la l.3 de `red-proof.mjs`, « // », deux caractères ; chemin avec `..` ; aide de `test/helpers/` que le test
+n'importe pas). `git grep` passe par `gitOut` de `test/helpers/git-tracked.ts` (sans les `GIT_*` de l'appelant). Rouge au tronc
+`591b3a30` par assertion (`killerProblem` n'y est pas exportée), vert au gel.
 
-## Item formé
+`lostOf` de `scripts/mutants/run.mjs` n'applique qu'une partie de ces contrôles : ni « SDL ⇒ `<after>` vide » ni « sans changement »,
+et pour lui un module d'appui est un fichier qu'un test des globs importe directement (`targetsOf`), pas forcément le test porteur.
 
-- KILLER-SDL-AFTER-PARITY-1 : `lostOf` de `scripts/mutants/run.mjs` n'exige pas « SDL ⇒ `<after>` vide », `killerProblem` l'exige.
-  Déclencheur : le prochain lot outil sur `scripts/mutants/run.mjs` ; hors de ce lot test seul. La garde ferme déjà la porte côté
-  tueurs (aucune ligne SDL à `<after>` non vide au gel).
+## Items formés
+
+- KILLER-SDL-AFTER-PARITY-1, étendu au pli du delta : `lostOf` de `scripts/mutants/run.mjs` n'exige ni « SDL ⇒ `<after>` vide » ni
+  `before !== after` (un CONST sans changement) ; `killerProblem` exige les deux. Prix : une condition dans `lostOf` et deux cas dans
+  `test/mutants-run.test.ts`. Déclencheur : le prochain lot outil sur `scripts/mutants/run.mjs`, hors de cette PR. La garde ferme déjà la
+  porte côté tueurs (aucune ligne SDL à `<after>` non vide, ni sans changement, au gel) ; les lignes `--table` n'y passent pas.
+- KILLER-TEST-HELPERS-SUPPORT-1 (décision de MONARK `e7234bd`, voie (a)) : `textOf`, `jsLiteral`, `bellRowOf` et `section` vont sous
+  `test/helpers/`, importés par leur fichier de test, et les cinq tueurs retirés y sont réancrés ; les cinq mutations tuent déjà
+  (mesuré par MONARK). Lot test seul, porteur RECHERCHES, juste après la fusion de cette PR ; rien n'en est fait ici.
+
+## Fusion du tronc `591b3a30` : cinq ancres périmées
+
+La garde nomme, au tronc fusionné, cinq lignes de `test/verify-harness-liq.test.ts` (l.123, 254, 357, 419, 455) dont le `<before>`
+n'est plus sur la ligne visée : `0f5f3f86` (#227) ajoute `CHECK_NAMES` et `failedOf` en l.149-159 de `scripts/verify-harness.mjs`, et
+les lignes visées descendent de 11. Chaque ligne est réancrée en place : 319→330, 410→421, 153→164, 172→183, 157→168. Pour la
+dernière, le `<before>` figure aussi l.174, le catch du rename ; l.168 est celui de l'écriture du temporaire, que vise le test
+`verify_harness_atomic_write_leaves_no_temp`. Tiré seul sur le test déclaré sous lui, chacun le rougit par `ERR_ASSERTION`.
+
+## Erratum (titres)
+
+Les titres de `98062148` (« Merge lot/etude-suite into killer-ops-1 ») et de `aeab2604` (« Killer guard: … ») échouent à `prbody`
+(« lot », « killer ») ; `434b3cf3` est antérieur à la règle. Comme pour `464add3e` et `9b7bdc62` (#221, décision de MONARK
+`e7234bd`) : erratum, sans réécriture d'historique. Les titres de ce pli sont en anglais simple (la fusion : « Merge the trunk »).
 
 ## Tueurs
 
 - scripts/red-proof.mjs:33 CONST "(\\w+)" -> "(\\w)"
+- dans le corps du test, au-dessus des quatre sondes de clause :
+  - scripts/red-proof.mjs:60 CONST "k.before === k.after" -> "false"
+  - scripts/red-proof.mjs:61 CONST "k.before !== \"\" && " -> ""
+  - scripts/red-proof.mjs:56 CONST "k.file.split(\"/\").includes(\"..\")" -> "false"
+  - scripts/red-proof.mjs:57 CONST "!supportOf(tree, from).includes(k.file)" -> "false"
 
 ## Preuves
 
