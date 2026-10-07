@@ -90,8 +90,8 @@ export function canonicalJson(v) {
 }
 
 // ---- The vocabulary gate of the public spec repository: the public free-text gate (checkPublicText, kind "notes") on the NFKC text,
-// with a closed list of exceptions: G0..G7 and monark-governance, which the published files cite, the json-schema.org URL, and a venue named inside a cell key
-// written in its grammar (kata:<id>@<venue>/..., ukemi:...@.../aave-v3-core/...). Plus private names, home paths and withheld words.
+// with a closed list of exceptions: G0..G7 and monark-governance, which the published files cite, the json-schema.org URL, a venue named inside a cell key
+// written in its grammar (kata:<id>@<venue>/..., ukemi:...@.../aave-v3-core/...), and the pinned wave 1 venue in two row fields (VOCAB-VENUE-FIELDS-1, at the end). Plus private names, home paths and withheld words.
 const KEY_TOKEN = /\b(?:kata|ukemi):[\w.-]+@[\w:.-]+(?:\/[\w.-]+)+/g, VENUE = /@(eip155:\d+\/)?[a-z0-9-]+\//; // only the venue segment is masked
 const EXCEPTED = (v) => (v.rule === "k" && /^G[0-7]$/.test(v.word)) || (v.rule === "c" && /^monark-governance$/i.test(v.word))
   || (v.rule === "g" && /^https:\/\/json-schema\.org\/draft\//.test(v.word)); // and the meta-schema URL a JSON Schema names in $schema
@@ -100,8 +100,8 @@ const EXTRA = [["private", /recherches/i], ["home", /(?<![\w.-])(?:\/var\/home|\
  *  substring of that length (glued to letters or digits too), so that the word is never written. */
 export const WITHHELD = Object.freeze([{ length: 6, sha256: "e8522fd87f748c388684c3eff07de12ac2f77d5c8f5f0222d50c7e819e26ca91" }]);
 
-/** vocabularyHits(text, withheld) -> [{rule, line, word}]: every hit of the spec repository's gate, empty when the text is clean. The
- *  private, home and withheld checks read the whole NFKC text; the public free-text gate reads it with the venue of each key masked. */
+/** vocabularyHits(text, withheld) -> [{rule, line, word}]: every hit of the spec repository's gate, empty when the text is clean. It reads the
+ *  text it is given (contentProblems gives it the text masked by venueMaskedText); the public free-text gate also masks the venue of each key. */
 export function vocabularyHits(text, withheld = WITHHELD) {
   const t = text.normalize("NFKC"), hits = [];
   if (t.trim() === "") return [];
@@ -329,8 +329,8 @@ import { DIGEST_FLOOR_BITS, digestProblems } from "../apps/harness/src/policy-di
 // masked like the venue segment of a key, but BOUND TO ONE PINNED VALUE, never exempted by field name: only in a row of a table of a
 // policy-table file or of the vectors file (VECTORS), and only when the value is exactly the pinned venue of wave 1, the one venue of all
 // 280 cells of the registry 811fcd57. Another value in these fields, the name in any other field or in free text stays refused. The
-// decoded pass masks a copy of the parsed value; the byte pass masks the same members in the text only when it finds exactly as many as
-// the parsed value holds (an escaped, repeated or stray member masks nothing). Function declarations, hoisted, kept last (retireProblems).
+// decoded pass masks a copy of the parsed value; the byte pass masks only a text that is a plain writing of that value (canonical, or
+// JSON.stringify compact or indented, LF end or none), rewritten in it; any other text masks nothing. Function declarations, hoisted, kept last.
 
 /** waveVenue() -> the pin: the venue of every cell of the wave 1 registry, by that registry's sha256 and size. */
 export function waveVenue() {
@@ -350,13 +350,13 @@ export function venueMasked(v, out, kind) {
   return r;
 }
 
-/** venueMaskedText(text, out, kind) -> the text with the members masked by venueMasked replaced, when the text holds exactly as many
- *  members "venue":"<pin>" and "trial_id":"…|…|<pin>|…|…|…" as the parsed value masks; else the text unchanged. */
+/** venueMaskedText(text, out, kind) -> the text rewritten with the fields masked by venueMasked, when the text is a plain writing of its
+ *  parsed value (canonical, or JSON.stringify compact or indented, LF end or none); else the text unchanged. */
 export function venueMaskedText(text, out, kind) {
   let v;
   try { v = JSON.parse(text); } catch { return text; }
-  const m = venueMasked(v, out, kind), pin = waveVenue().venue, seg = '[^"\\|]*';
-  const venue = new RegExp(`"venue"(\\s*):(\\s*)"${pin}"`, "g"), trial = new RegExp(`"trial_id"(\\s*):(\\s*)"(${seg}\\|${seg})\\|${pin}\\|(${seg}\\|${seg}\\|${seg})"`, "g");
-  if ((m.venues === 0 && m.trials === 0) || (text.match(venue) ?? []).length !== m.venues || (text.match(trial) ?? []).length !== m.trials) return text;
-  return text.replace(venue, '"venue"$1:$2"KEY"').replace(trial, '"trial_id"$1:$2"$3|KEY|$4"');
+  const m = venueMasked(v, out, kind), forms = [canonicalJson, (x) => JSON.stringify(x), (x) => JSON.stringify(x, null, 2)];
+  if (m.venues === 0 && m.trials === 0) return text;
+  for (const w of forms) for (const end of ["", "\n"]) { try { if (w(v) + end === text) return w(m.value) + end; } catch { /* not this writing */ } }
+  return text;
 }

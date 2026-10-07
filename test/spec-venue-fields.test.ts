@@ -3,11 +3,13 @@
 // source.trial_id ONLY when it is the pinned venue of wave 1 (the one venue of the 280 cells of the registry 811fcd57), never by field
 // name: another value there, the name in any other field or in free text stays refused, in the byte pass and in the decoded pass. Rows are
 // real-shaped: the projection of the seeded synthetic registry (apps/harness/test/helpers/synthetic-registry.ts, the venue of wave 1 in
-// every cell) through projectCell and buildPolicyTable; the real registry is not in this repository (replayed out of it, see the G0).
+// every cell) through projectCell and buildPolicyTable; the pin itself is bound to the wave 1 registry this repository holds (its bytes).
 // The new functions are loaded on demand, so the base, which lacks them, reddens by assertion. Each test names on the line above it the
 // production mutation that reddens it (scripts/red-proof.mjs convention).
 import { test } from "node:test";
 import assert from "node:assert/strict";
+import { createHash } from "node:crypto";
+import { readFileSync } from "node:fs";
 import { projectCell, readRegistry, type ProjectionInputs } from "../apps/harness/src/policy-projection.ts";
 import { buildPolicyTable } from "../apps/harness/src/policy-table-file.ts";
 import { syntheticClassEntry, syntheticRegistry } from "../apps/harness/test/helpers/synthetic-registry.ts";
@@ -31,13 +33,25 @@ const named = (cls: string): Table => structuredClone(TABLES.find((t) => t.class
 const vocab = (t: Table | string, kind: Kind = "policy-table", out = `contract-1.1.0/policy/${typeof t === "string" ? "btc-range-1h" : t.class.task_class}.json`): string[] =>
   contentProblems(out, kind, Buffer.from(typeof t === "string" ? t : canonicalJson(t)), "contract-1.1.0").filter((p) => p.code === "vocabulary").map((p) => p.detail);
 const at = (t: Table, i: number, edit: (r: Row) => void): Table => { edit(t.rows[i] ?? assert.fail(`row ${String(i)}`)); return t; };
+const VECTORS_OUT = "contract-1.1.0/vectors-1.1.0.json";
+/** Crafted vectors-file texts whose bytes are not a plain writing of the value they parse to: an escaped row member paired with a stray
+ *  member outside any table that a later duplicate key erases from the parsed value (one per field), and a repeated trial_id member. */
+const crafted = (t: Table): [string, string][] => {
+  const c = canonicalJson(t), tid = String(t.rows[0]?.source.trial_id), esc = `\\u00${VENUE.charCodeAt(0).toString(16)}${VENUE.slice(1)}`;
+  return [["an escaped venue member and a stray one erased by a duplicate key", c.replace(`"venue":"${VENUE}"`, `"venue":"${esc}"`).replace('"rows":', `"note":{"venue":"${VENUE}","venue":"x"},"rows":`)],
+    ["an escaped trial_id member and a stray one erased by a duplicate key", c.replace(`|${VENUE}|`, `|${esc}|`).replace('"rows":', `"note":{"trial_id":"${tid}","trial_id":"x"},"rows":`)],
+    ["a repeated trial_id member", c.replace(`"trial_id":"${tid}"`, `"trial_id":"${tid}","trial_id":"${tid}"`)]];
+};
 
 // killer: scripts/spec-publish.mjs:346 CONST "row.venue === pin" -> "row.venue === \"KEY\""
 test("the_pinned_venue_in_the_venue_column_and_the_trial_id_passes_the_vocabulary_gate", async () => {
   const m: { waveVenue?: () => { venue: string; registry_sha256: string; cells: number } } = await import("../scripts/spec-publish.mjs");
   assert.ok(typeof m.waveVenue === "function", "scripts/spec-publish.mjs exports the pin waveVenue");
   const pin = m.waveVenue();
-  assert.deepEqual([pin.venue, pin.registry_sha256.slice(0, 8), pin.cells, new Set(REG.registry.rows.map((r) => r.venue)).size], [VENUE, "811fcd57", 280, 1]);
+  const wave1 = readFileSync(new URL("../apps/harness/data/kata/registry/wave1.json", import.meta.url)), cells = readRegistry(wave1);
+  assert.deepEqual([createHash("sha256").update(wave1).digest("hex"), cells.length, [...new Set(cells.map((c) => c.venue))]], [pin.registry_sha256, pin.cells, [pin.venue]],
+    "the pin is the wave 1 registry held by this repository: its sha256, its number of cells and its one venue");
+  assert.deepEqual([pin.venue, pin.registry_sha256.slice(0, 8), new Set(REG.registry.rows.map((r) => r.venue)).size], [VENUE, "811fcd57", 1]);
   const t = named("btc-range-1h"), row = t.rows[0] ?? assert.fail("a row");
   assert.deepEqual([row.venue, String(row.source.trial_id).split("|")[2], String(row.cell_key).includes(`@${VENUE}/`)], [VENUE, VENUE, true], "a real-shaped row carries the venue three times");
   assert.deepEqual(vocab(t), []);
@@ -69,6 +83,7 @@ test("the_venue_name_outside_the_two_fields_of_a_table_row_is_refused", () => {
     ["the table in a plain json file", canonicalJson(t), "json", "contract-1.1.0/tables.json"],
     ["a repeated member", canonicalJson(t).replace(`"venue":"${VENUE}"`, `"venue":"${VENUE}","venue":"${VENUE}"`)],
     ["an escaped member", canonicalJson(t).replace(`"venue":"${VENUE}"`, `"venue":"\\u00${VENUE.charCodeAt(0).toString(16)}${VENUE.slice(1)}"`)],
+    ...crafted(t).map(([why, body]): [string, string, Kind, string] => [`vectors file, ${why}`, body, "json", VECTORS_OUT]),
   ];
   for (const [why, body, kind, out] of cases) assert.ok(vocab(body, kind, out).length > 0, why);
 });
@@ -84,4 +99,18 @@ test("the_decoded_pass_masks_the_same_fields_bound_to_the_pinned_value", () => {
   const t = named("btc-dir-1h");
   assert.deepEqual(vocab(t), []);
   assert.deepEqual(vocab(JSON.stringify({ synthetic_kata: { tables: [{ table: t }] } }), "json", "contract-1.1.0/vectors-1.1.0.json"), []);
+});
+
+// killer: scripts/spec-publish.mjs:360 CONST "w(v) + end === text" -> "true"
+test("the_byte_pass_masks_only_a_text_that_is_a_plain_writing_of_its_parsed_value", () => {
+  const t = named("btc-range-1h");
+  assert.deepEqual([vocab(canonicalJson(t), "json", VECTORS_OUT), vocab(`${JSON.stringify(t)}\n`, "json", VECTORS_OUT)], [[], []]);
+  for (const [why, body] of crafted(t)) assert.ok(vocab(body, "json", VECTORS_OUT).some((d) => d.startsWith(`${VECTORS_OUT}:1 [a] `)), why);
+});
+
+// killer: scripts/spec-publish.mjs:343 CONST "structuredClone(v)" -> "v"
+test("a_real_shaped_table_file_with_the_pinned_venue_has_no_problem_of_any_code", () => {
+  const t = named("btc-range-1h");
+  for (const r of t.rows) r.recompute = null; // no attestation: the published list of verifiers comes first (recompute_held)
+  assert.deepEqual(contentProblems("contract-1.1.0/policy/btc-range-1h.json", "policy-table", Buffer.from(canonicalJson(t)), "contract-1.1.0"), []);
 });
