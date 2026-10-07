@@ -453,7 +453,9 @@ In practice: run section 6 within 225 s of a full hour (UTC); started earlier, `
 3 600 - 2 x 225 s) waits until 225 s before the next full hour and prints the wait on stderr. The window is checked again
 right before the call (a slow `/health` answer gives `kata_window_not_reached`, never an unnamed 400). The expected `policy_table_sha256` is written in the script
 (`KATA_POLICY_TABLE_SHA256`); a release that changes `btc-range-1h` changes it in the same commit
-(`test/verify-harness-liq.test.ts`, `verify_harness_ca_pins_policy_table_sha256`). The reservation of `ca-probe` is in the
-import guard (`kataKeyReserved`, defined in `apps/harness/src/policy-classes.ts`, a served module, and called by
-`apps/harness/src/policy-guard.ts`); the kata loader of E-2a, when it lands, calls it through `guardKataTable` (item
-RETIRE-LISTS-E2A-PIPE-1).
+(`test/verify-harness-liq.test.ts`, `verify_harness_ca_pins_policy_table_sha256`). The reservation of `ca-probe` is
+`kataKeyReserved`, defined in `apps/harness/src/policy-classes.ts` (a served module); the import guard
+(`apps/harness/src/policy-guard.ts`) calls it today. The kata loader of E-2a holds it in two halves, both carried by
+RECHERCHES: the served reader (lot a1) calls `kataKeyReserved` directly, under test T-1, with the integration test of the
+served path (item E2A-RESERVED-KEY-SERVED-1); the offline writer (lot b1) reaches it through `guardKataTable` →
+`guardKataRow` → `kataKeyReserved` (item RETIRE-LISTS-E2A-PIPE-1).

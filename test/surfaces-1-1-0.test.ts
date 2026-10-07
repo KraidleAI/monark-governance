@@ -235,7 +235,7 @@ test("srf_runbook_vitrine_t0_order — deploy, green CA, harness, Narabi and uke
   assert.deepEqual([specArgs.release, Object.keys(specArgs.roots)], ["contract-1.1.0", ["recherches", "previous"]], "act 8 publishes contract 1.1.0 with both roots");
   const spans = steps.map((l) => [...l.matchAll(/`([^`]+)`/g)].map((m) => m[1] ?? ""));
   const added = [harness.CA_REL, "docs/JOURNAL-PROVENANCE.md", harness.OUT_REL, harness.PENDING_REL, narabi.OUT_REL, ukemi.OUT_REL, ukemi.PENDING_REL, ukemi.MANIFEST_REL, PIN_TEST_REL];
-  const ca = `node scripts/verify-harness.mjs --out ${harness.CA_REL}`;
+  const ca = `node scripts/verify-harness.mjs --out ${harness.CA_REL} --kata-wait-max 3150`;
   assert.deepEqual(spans, [
     ["docs/RUNBOOK-harness.md", "git archive --format=tar.gz HEAD apps packages schemas fixtures package.json package-lock.json deploy scripts/verify-harness.mjs | ssh -i ~/.ssh/monark_vps root@31.97.155.188 \"mkdir -p /opt/monark-harness && tar xzf - -C /opt/monark-harness\"", "cd /opt/monark-harness && npm ci && chown -R monark:monark . && systemctl restart monark-harness"],
     [ca, "VERIFY OK — all checks passed.", "api.", "mcp.", `${harness.CA_REL}.failed`, `sha256sum ${harness.CA_REL}`, "docs/JOURNAL-PROVENANCE.md", "checked_at"],

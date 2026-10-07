@@ -556,8 +556,9 @@ test("verify_harness_ca_pins_policy_table_sha256", async () => {
   assert.ok(readFileSync(SCRIPT, "utf8").includes(`export const KATA_POLICY_TABLE_SHA256 = "${String(pin)}";`), "written by value in the zero-dependency script");
 });
 
-/** A front that passes every request to `port`, lets `rewrite` change the answer to the btc-range-1h call and holds /health `slowMs`. */
-function kataFront(port: number, rewrite: (body: string) => string, slowMs = 0): HttpServer {
+/** A front that passes every request to `port`, lets `rewrite` change the answer to the btc-range-1h call (and `status`, when it
+ *  gives one, replace that answer's status) and holds /health `slowMs`. */
+function kataFront(port: number, rewrite: (body: string) => string, slowMs = 0, status: () => number | undefined = () => undefined): HttpServer {
   return createServer((req, res) => {
     const chunks: Buffer[] = [];
     req.on("data", (c: Buffer) => { chunks.push(c); });
@@ -568,7 +569,7 @@ function kataFront(port: number, rewrite: (body: string) => string, slowMs = 0):
         u.on("data", (c: Buffer) => { back.push(c); });
         u.on("end", () => {
           const body = Buffer.concat(back).toString("utf8"), out = kata ? rewrite(body) : body;
-          res.writeHead(u.statusCode ?? 502, { "content-type": u.headers["content-type"] ?? "application/json", ...(u.headers.date === undefined ? {} : { date: u.headers.date }) });
+          res.writeHead((kata ? status() : undefined) ?? u.statusCode ?? 502, { "content-type": u.headers["content-type"] ?? "application/json", ...(u.headers.date === undefined ? {} : { date: u.headers.date }) });
           res.end(out);
         });
       });
@@ -586,10 +587,11 @@ const reds = (r: CaRun): string[] => (JSON.parse(r.stdout) as Ca).checks.filter(
 const caServer = (startMs: number): Promise<HttpServer> => startLoopback((port) => startServer(port, undefined, caServerClock(startMs)));
 
 // (11) The window and the clock (R4 (iii), the reviewer's form; MONARK's window of 225 s): outside +-225 s of a grid instant, (1)
-// and (2) fail closed with kata_window_not_reached, the rest of the CA unchanged; --kata-wait-max S waits until the clock is
-// within 225 s of the next grid instant when that wait is at most S seconds, says so on stderr and in the detail, then passes; a
-// run clock more than 60 s ahead of the host's Date header fails (1) and (2) with kata_clock_skew; a host that serves another
-// table digest reds (2) alone. Each run starts on the harness clock (clock()), never on a constant the harness has run past.
+// and (2) fail closed with kata_window_not_reached (the exact detail: the next grid instant and when its window opens), the rest
+// of the CA unchanged; --kata-wait-max S waits until the clock is within 225 s of the next grid instant when that wait is at most
+// S seconds, says so on stderr and in the detail, then passes; a run clock more than 60 s ahead of the host's Date header fails
+// (1) and (2) with kata_clock_skew; a host that serves another table digest reds (2) alone. Each run starts on the harness clock
+// (clock()), never on a constant the harness has run past.
 // killer: scripts/verify-harness.mjs:483 CONST "KATA_SKEW_MAX_MS = 60000;" -> "KATA_SKEW_MAX_MS = 600000;"
 test("verify_harness_ca_kata_window_fails_closed_and_waits", { timeout: 300000 }, async () => {
   const grid = CA_TEST_CLOCK_MS - 30_000, hour = 3_600_000, clock = caServerClock();
@@ -601,9 +603,10 @@ test("verify_harness_ca_kata_window_fails_closed_and_waits", { timeout: 300000 }
     const outside = await caRun(now, grid + 600_000);
     const o = JSON.parse(outside.stdout) as Ca;
     assert.deepEqual([reds(outside), outside.code], [["gate_kata_call", "gate_kata_policy_table"], 1], "outside the window: (1) and (2) red, (3) and the rest green, exit 1");
-    assert.ok(["gate_kata_call", "gate_kata_policy_table"].every((n) => detailOf(o, n).startsWith("kata_window_not_reached")), `the named detail: ${detailOf(o, "gate_kata_call")}`);
+    const notReached = (max: string): string => `kata_window_not_reached: the run clock is more than 225 s from every grid instant; the next grid instant is 2026-10-07T13:00:00Z; its window opens in 2775 s (--kata-wait-max ${max}) clock=test`;
+    assert.deepEqual(["gate_kata_call", "gate_kata_policy_table"].map((n) => detailOf(o, n)), [notReached("null"), notReached("null")], "the exact detail: the next grid instant, and when its window opens");
     const short = JSON.parse((await caRun(now, grid + 600_000, ["--kata-wait-max", "2700"])).stdout) as Ca;
-    assert.ok(detailOf(short, "gate_kata_call").startsWith("kata_window_not_reached"), "a wait above --kata-wait-max is no wait");
+    assert.equal(detailOf(short, "gate_kata_call"), notReached("2700"), "a wait above --kata-wait-max is no wait");
     const waited = await caRun(later, grid + 600_000, ["--kata-wait-max", "2775"]);
     assert.deepEqual([reds(waited), waited.code], [[], 0], `with --kata-wait-max the run waits for the window of the next grid instant and passes (stderr: ${waited.stderr.slice(0, 300)})`);
     assert.equal(detailOf(JSON.parse(waited.stdout) as Ca, "gate_kata_call"), kataGreen("2026-10-07T13:00:00Z", 2775), "the call is made on that grid instant, the wait in the detail");
@@ -685,26 +688,33 @@ test("verify_harness_ca_kata_window_is_checked_again_before_the_call", { timeout
   }
 });
 
-// (16) Red vectors of check (1): a served row on the probe key, then each conjunction of check (1) alone, reds gate_kata_call
-// alone ((2) reads the table digest, unchanged). The verdict is the harness's own, one field rewritten by the front.
+// (16) Red vectors of check (1): a served row on the probe key, then each condition of check (1) broken alone, reds gate_kata_call
+// alone ((2) reads the table digest, unchanged): each verdict field, and the status (203, the body unchanged: the verdict is read
+// whatever the status). The verdict is the harness's own, one field rewritten by the front. A 200 without structuredContent reds
+// (1) and (2), with a record printed: the CA never crashes on it.
 // killer: scripts/verify-harness.mjs:565 CONST " && v.policy_row_sha256 === null;" -> ";"
 test("verify_harness_ca_kata_call_reds_on_a_served_row_and_on_each_conjunction", { timeout: 300000 }, async () => {
   type Sc = { action: string; verdict: Record<string, unknown> };
-  const vectors: Array<[string, (sc: Sc) => void]> = [
-    ["a served row", (sc) => { sc.action = "commit"; Object.assign(sc.verdict, { reason: "covered", n_calib: 300, region: { kind: "interval", lo: 0, hi: 0.02 }, policy_row_sha256: "a".repeat(64) }); }],
-    ["action defer", (sc) => { sc.action = "defer"; }], ["reason calib_retired", (sc) => { sc.verdict.reason = "calib_retired"; }],
-    ["n_calib 1", (sc) => { sc.verdict.n_calib = 1; }], ["a region", (sc) => { sc.verdict.region = { kind: "interval", lo: 0, hi: 0.02 }; }],
-    ["cell b1", (sc) => { sc.verdict.cell_key = `${KATA_CELL.slice(0, -1)}1`; }], ["a row digest", (sc) => { sc.verdict.policy_row_sha256 = "a".repeat(64); }],
+  type Answer = { structuredContent?: Sc };
+  const one = ["gate_kata_call"], both = ["gate_kata_call", "gate_kata_policy_table"];
+  const vectors: Array<[string, (sc: Sc, answer: Answer) => void, string[], number?]> = [
+    ["a served row", (sc) => { sc.action = "commit"; Object.assign(sc.verdict, { reason: "covered", n_calib: 300, region: { kind: "interval", lo: 0, hi: 0.02 }, policy_row_sha256: "a".repeat(64) }); }, one],
+    ["action defer", (sc) => { sc.action = "defer"; }, one], ["reason calib_retired", (sc) => { sc.verdict.reason = "calib_retired"; }, one],
+    ["n_calib 1", (sc) => { sc.verdict.n_calib = 1; }, one], ["a region", (sc) => { sc.verdict.region = { kind: "interval", lo: 0, hi: 0.02 }; }, one],
+    ["cell b1", (sc) => { sc.verdict.cell_key = `${KATA_CELL.slice(0, -1)}1`; }, one], ["a row digest", (sc) => { sc.verdict.policy_row_sha256 = "a".repeat(64); }, one],
+    ["status 203, the body unchanged", () => undefined, one, 203], ["200 without structuredContent", (_sc, answer) => { delete answer.structuredContent; }, both],
   ];
-  let edit: (sc: Sc) => void = () => undefined;
+  let edit: (sc: Sc, answer: Answer) => void = () => undefined, status: number | undefined;
   const clock = caServerClock(), server: HttpServer = await startLoopback((port) => startServer(port, undefined, clock));
-  const front = kataFront(portOf(server), (b) => { const j = JSON.parse(b) as { structuredContent: Sc }; edit(j.structuredContent); return JSON.stringify(j); });
+  const front = kataFront(portOf(server), (b) => { const j = JSON.parse(b) as { structuredContent: Sc }; edit(j.structuredContent, j); return JSON.stringify(j); }, 0, () => status);
   try {
     await listen(front);
-    for (const [tag, f] of vectors) {
+    for (const [tag, f, red, s] of vectors) {
       edit = f;
+      status = s;
       const r = await caRun(front, clock());
-      assert.deepEqual([reds(r), r.code], [["gate_kata_call"], 1], `${tag}: gate_kata_call alone red (${detailOf(JSON.parse(r.stdout) as Ca, "gate_kata_call")})`);
+      assert.ok(r.stdout !== "", `${tag}: a record is printed (stderr: ${r.stderr.slice(0, 200)})`);
+      assert.deepEqual([reds(r), r.code], [red, 1], `${tag}: ${red.join(" and ")} red (${detailOf(JSON.parse(r.stdout) as Ca, "gate_kata_call")})`);
     }
   } finally {
     for (const s of [front, server]) await shut(s);

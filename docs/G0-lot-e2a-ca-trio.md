@@ -13,6 +13,16 @@
   (3) `gate_version_1_0_0_call` (400 `schema_version_unsupported`, sans horloge), puis (1) `gate_kata_call` (appel bien formé sur
   la clé sonde réservée `kata:ca-probe@ca-probe/BTCUSDT/1h`, 200 abstain `under_calib`) et (2) `gate_kata_policy_table`
   (`policy_table_sha256` du verdict de (1) = valeur épinglée, ancrée dans l'entrée publiée). 15 → 18 contrôles.
+- **Ligne datée (RECHERCHES, 2026-10-07 10:26 UTC ; G2 delta de #225, MONARK `6a5584a`, constat m n°3 ; acceptation de MONARK
+  `51fe3ee` l.22)** : amende l'en-tête l.9-10, le §5 (« Dépendance (E-2a, chargeur) ») et le §8 (« Item complété »). La
+  spécification suivie est la v3 de R4 (`recherches` `bbd6f59`, section (iii)) : 2 141 octets, sha256 `ee274e55…cbb147`, non
+  plus 1 968 octets et `7e05ee5d…`. La réservation de `ca-probe` dans le chargeur d'E-2a a deux moitiés, portées par RECHERCHES
+  (G0 court d'E-2a v6.1, `94564c8`, §3.1 et §3.2). Le lecteur servi (`apps/harness/src/policy-committed.ts`, lot a1) appelle
+  `kataKeyReserved` directement ; test T-1 ; item E2A-RESERVED-KEY-SERVED-1 ; déclencheur a1. L'écrivain hors ligne
+  (`scripts/kata-tables.mjs`, lot b1) l'atteint par `guardKataTable` → `guardKataRow` → `kataKeyReserved` ; item
+  RETIRE-LISTS-E2A-PIPE-1 ; déclencheur b1. Le test d'intégration du chemin servi de la réservation va avec T-1 (a1), non avec
+  b1, et n'est pas dans ce lot. Le « Porteur : MONARK (inchangé) ; déclencheur : le G0 d'E-2a (inchangé) » du §8 ne vaut plus ;
+  la ligne d'ETAT reste un acte de MONARK. Pli au §9.
 
 ## 1. Mesures faites (base `acbaeb52`, Node 24.21.0)
 

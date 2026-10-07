@@ -470,8 +470,8 @@ async function main() {
 // The import guard and the loader refuse any row whose kata or venue is ca-probe, so check (1) does not change when kata rows are
 // served.
 //
-// The loader half of the reservation belongs to the kata loader of E-2a (a later lot), through guardKataTable (item
-// RETIRE-LISTS-E2A-PIPE-1); the import guard holds it already (kataKeyReserved, apps/harness/src/policy-classes.ts).
+// Two halves of the reservation, carried by RECHERCHES: the served reader of E-2a (lot a1, test T-1, item E2A-RESERVED-KEY-SERVED-1)
+// calls kataKeyReserved directly; the offline writer (lot b1, item RETIRE-LISTS-E2A-PIPE-1) via guardKataTable → guardKataRow → kataKeyReserved.
 
 /** The one refused version of gate_version_1_0_0_call (contract 1.1.0 refuses 1.0.0 before produced_at is read). */
 export const CA_REFUSED_SCHEMA_VERSION = "1.0.0";
@@ -544,7 +544,7 @@ async function kataAndVersionChecks(api, hostHeader, waitMaxS, clock = runClock(
   })];
   const failBoth = (detail) => [...out, ...["gate_kata_call", "gate_kata_policy_table"].map((name) => ({ name, ok: false, status: 0, sha256: null, detail: detail + clock.tag }))];
   const w = kataWindow(clock.now(), waitMaxS), grid = (ms) => new Date(ms).toISOString().replace(".000Z", "Z");
-  if (w.at === null) return failBoth(`kata_window_not_reached: the run clock is more than ${String(KATA_WINDOW_MS / 1000)} s from every grid instant; the next is ${grid(clock.now() + w.waitMs)}, in ${String(Math.round(w.waitMs / 1000))} s (--kata-wait-max ${String(waitMaxS)})`);
+  if (w.at === null) { const next = Math.ceil(clock.now() / KATA_GRID_MS) * KATA_GRID_MS; return failBoth(`kata_window_not_reached: the run clock is more than ${String(KATA_WINDOW_MS / 1000)} s from every grid instant; the next grid instant is ${grid(next)}; its window opens in ${String(Math.round(w.waitMs / 1000))} s (--kata-wait-max ${String(waitMaxS)})`); }
   const waited = Math.round(w.waitMs / 1000);
   if (w.waitMs > 0) {
     console.error(`verify-harness: waiting ${String(waited)} s, until ${String(KATA_WINDOW_MS / 1000)} s before the grid instant ${grid(w.at)} (--kata-wait-max ${String(waitMaxS)})`);
