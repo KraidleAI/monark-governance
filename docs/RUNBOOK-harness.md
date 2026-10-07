@@ -6,7 +6,7 @@ The MONARK harness is a stateless Node service exposing the four real primitives
 listener `127.0.0.1:3001`, fronted by Caddy for TLS.
 
 **Who runs this:** the **orchestrator**, from its own machine, over SSH — the SAME channel it already uses
-for the live vitrine (key `~/.ssh/monark_vps`: `ssh -i ~/.ssh/monark_vps root@31.97.155.188`). Per
+for the live vitrine (key `~/.ssh/monark_vps`: `ssh -i ~/.ssh/monark_vps root@monarkgate.tech`). Per
 **ADR-M005 Addendum D12 (Q2 revised, 2026-09-10)** and **ADR-M004 Addendum D17**, Q2 was revised and the
 orchestrator deploys the harness itself (not the investor). The pattern mirrors the live vitrine (a systemd
 service + Caddy, **not** docker).
@@ -20,15 +20,15 @@ service + Caddy, **not** docker).
 
 ## 0. Preconditions (already true — verify, do not create)
 
-- VPS: Hostinger, Ubuntu, `31.97.155.188`, SSH as `root` with the deploy key: `ssh -i ~/.ssh/monark_vps root@31.97.155.188`.
+- VPS: Hostinger, Ubuntu, `monarkgate.tech` (its A record; its host key under the name once, as RUNBOOK-dojo §15 (0) does for the Bell host), SSH as `root` with the deploy key: `ssh -i ~/.ssh/monark_vps root@monarkgate.tech`.
 - Caddy v2 already live serving the vitrine (`monarkgate.tech` + `www` → `localhost:3000`) via `/etc/caddy/Caddyfile`.
 - Node ≥ 24 installed (the vitrine uses Node v24.21.0).
-- **DNS A records `mcp.monarkgate.tech` and `api.monarkgate.tech` are posed → `31.97.155.188`** (Hostinger).
+- **DNS A records `mcp.monarkgate.tech` and `api.monarkgate.tech` are posed → the VPS address, that of `monarkgate.tech`** (Hostinger).
   Verify they resolve before touching Caddy (TLS via HTTP-01 needs them live). On the VPS:
 
   ```bash
-  dig +short mcp.monarkgate.tech    # expect 31.97.155.188  (or: nslookup mcp.monarkgate.tech)
-  dig +short api.monarkgate.tech    # expect 31.97.155.188  (or: nslookup api.monarkgate.tech)
+  dig +short mcp.monarkgate.tech    # expect the output of: dig +short monarkgate.tech  (or: nslookup mcp.monarkgate.tech)
+  dig +short api.monarkgate.tech    # expect the output of: dig +short monarkgate.tech  (or: nslookup api.monarkgate.tech)
   ```
 
 ## 1. Put the harness tree on the VPS at `/opt/monark-harness`
@@ -64,7 +64,7 @@ orchestrator's machine, in the repo root:
 ```bash
 git archive --format=tar.gz HEAD \
   apps packages schemas fixtures package.json package-lock.json deploy scripts/verify-harness.mjs \
-  | ssh -i ~/.ssh/monark_vps root@31.97.155.188 "mkdir -p /opt/monark-harness && tar xzf - -C /opt/monark-harness"
+  | ssh -i ~/.ssh/monark_vps root@monarkgate.tech "mkdir -p /opt/monark-harness && tar xzf - -C /opt/monark-harness"
 ```
 
 `--format=tar.gz` is REQUIRED: `git archive HEAD …` defaults to an UNcompressed tar on stdout, and the
@@ -78,11 +78,11 @@ populated by an older runbook (rsync/tar/whole-repo) may still carry `docs/`, `t
 `.github/`, etc. Remove them explicitly:
 
 ```bash
-ssh -i ~/.ssh/monark_vps root@31.97.155.188 \
+ssh -i ~/.ssh/monark_vps root@monarkgate.tech \
   'cd /opt/monark-harness && rm -rf docs test enforcement .github README.md tsconfig.json eslint.config.mjs vocab-banned.json lint-ratchet.json'
 ```
 
-Then, on the VPS (`ssh -i ~/.ssh/monark_vps root@31.97.155.188`), confirm the tree carries this lot AND no
+Then, on the VPS (`ssh -i ~/.ssh/monark_vps root@monarkgate.tech`), confirm the tree carries this lot AND no
 governance (it must contain apps/, packages/, schemas/, fixtures/; scripts/ holds only verify-harness.mjs):
 
 ```bash

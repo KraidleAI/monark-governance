@@ -4,7 +4,7 @@ Orchestrateur `claude-fable-5-1`, 2026-09-20. Base : `lot/etude-suite` HEAD ≥ 
 ## Objectif (une phrase)
 Qu'un incident RPC transitoire ne coûte plus une journée d'affichage à Narabi : le run réessaie dans la journée, un opérateur payé (Chainstack) entre dans le quorum, et une sonde indépendante du VPS constate « dernière ligne = J−1 » chaque matin — le tout rejoué en local avant tout déploiement, et hérité par le sentinel Bell.
 
-## Faits mesurés (2026-09-20, VPS `31.97.155.188`, journal systemd)
+## Faits mesurés (2026-09-20, VPS `monarkgate.tech`, journal systemd)
 1. Run 00:44:27 UTC : `stopped: "fetch_error:2026-09-19:supplyAt: quorum needs >= 2 live endpoints from 2 providers (last: HTTP 403 https://ethereum.publicnode.com)"`, `lag: 1`, `processedDays: []` — **et exit status 0** (« Deactivated successfully »). Conséquence : `Restart=on-failure` n'aurait **pas** déclenché ; le retry exige un code de sortie non nul quand `lag > 0` et `stopped != null`.
 2. Relance manuelle 04:58 UTC : ligne 2026-09-19 écrite, T = 2, lag 0 ; données identiques (bloc archive), seul le retard change.
 3. Pool actuel `rpc.ts:20-22` : 8 endpoints gratuits, 7 opérateurs (`providerOf` fusionne les deux publicnode) ; le service tourne sous l'utilisateur `sentinel`, sans variable d'environnement de clé.

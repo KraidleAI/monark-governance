@@ -16,7 +16,7 @@ on this host, `*:0/5`, `AccuracySec` default 1 min; FAITS-SYSTEMD-CRED-1; FAITS-
 (l.417-429, the repair after SIGKILL: the precedent of section 9); constants `scripts/dojo-deploy.mjs`; pins `test/dojo-collect-deploy.test.ts`.
 
 **Who and when.** The orchestrator, from its own machine (Git Bash), over SSH to the Bell host with the deploy key
-(`ssh -i ~/.ssh/monark_vps root@178.16.131.29`), and **only under the investor's grouped go on the closed list A-1 to A-11**
+(`ssh -i ~/.ssh/monark_vps root@bell.monarkgate.tech`), and **only under the investor's grouped go on the closed list A-1 to A-11**
 (ADR D-3, dated line C-V-4). Before the grouped go: FAITS-JOURNALCTL-1 (the message forms of systemd 259 that section 6 counts, read
 on this host; dated line 14:13Z, Q-12). At the first host act: DOJO-UNIT-OFFLINE-ORACLE-1. Before A-4: HELIUS-CREDIT-RECONCILE-1.
 Before A-5: DOJO-COLLECT-SIGTERM-UNLOCK-1 (carried by DRAND-RELAY-GET-1b: on SIGTERM `collect.ts` releases the locks of the course in
@@ -43,7 +43,7 @@ line and the `Eve`.
 ## 1. Read-only controls (before A-2)
 
 ```bash
-ssh -i ~/.ssh/monark_vps root@178.16.131.29 'hostname; systemctl --version | head -1; node -v; id dojo-collect; getent group dojo-handoff; ls -d /opt/monark-dojo-collect /var/lib/monark-dojo-collect /etc/monark/dojo-collect /etc/monark/dojo /etc/monark/dojo-collect.env; systemctl list-units "monark-*" --all --no-pager'
+ssh -i ~/.ssh/monark_vps root@bell.monarkgate.tech 'hostname; systemctl --version | head -1; node -v; id dojo-collect; getent group dojo-handoff; ls -d /opt/monark-dojo-collect /var/lib/monark-dojo-collect /etc/monark/dojo-collect /etc/monark/dojo /etc/monark/dojo-collect.env; systemctl list-units "monark-*" --all --no-pager'
 ```
 
 Expected: `bell`; `systemd 259 (259.5-0ubuntu3.4)` (FAITS 08:14Z); `v24.21.0` (RUNBOOK-bell step 1, 2026-09-23: re-measured here,
@@ -53,7 +53,7 @@ units only (no Dojo unit, FAITS 08:14Z). **STOP** if any Dojo user, group, path 
 ## 2. A-2 (collect side) — user, handoff group, directories
 
 ```bash
-ssh -i ~/.ssh/monark_vps root@178.16.131.29 'useradd --system --no-create-home --shell /usr/sbin/nologin dojo-collect && groupadd --system dojo-handoff && install -d -o dojo-collect -g dojo-handoff -m 0750 /var/lib/monark-dojo-collect && install -d -o dojo-collect -g dojo-handoff -m 2750 /var/lib/monark-dojo-collect/bundles && install -d -o dojo-collect -g dojo-collect -m 0700 /var/lib/monark-dojo-collect/ledger && install -d -o root -g root -m 0700 /etc/monark/dojo-collect /etc/monark/dojo && id dojo-collect && stat -c "%a %U:%G %n" /var/lib/monark-dojo-collect /var/lib/monark-dojo-collect/bundles /var/lib/monark-dojo-collect/ledger /etc/monark/dojo-collect /etc/monark/dojo'
+ssh -i ~/.ssh/monark_vps root@bell.monarkgate.tech 'useradd --system --no-create-home --shell /usr/sbin/nologin dojo-collect && groupadd --system dojo-handoff && install -d -o dojo-collect -g dojo-handoff -m 0750 /var/lib/monark-dojo-collect && install -d -o dojo-collect -g dojo-handoff -m 2750 /var/lib/monark-dojo-collect/bundles && install -d -o dojo-collect -g dojo-collect -m 0700 /var/lib/monark-dojo-collect/ledger && install -d -o root -g root -m 0700 /etc/monark/dojo-collect /etc/monark/dojo && id dojo-collect && stat -c "%a %U:%G %n" /var/lib/monark-dojo-collect /var/lib/monark-dojo-collect/bundles /var/lib/monark-dojo-collect/ledger /etc/monark/dojo-collect /etc/monark/dojo'
 ```
 
 Expected: `uid=... (dojo-collect) gid=... (dojo-collect)`; `750 dojo-collect:dojo-handoff` (the publication, a member of
@@ -66,7 +66,7 @@ outside every path the unit can write); `700 root:root /etc/monark/dojo` (the pu
 PR-3b-2 fills it at A-4: created here because the collect unit makes it inaccessible, `InaccessiblePaths=` without `-`, and
 systemd.exec(5) ignores a missing path only with `-`). No top-level `evidence/`: the evidence lives per day under
 `bundles/<d>/evidence/` (ADR-DOJO-PR-2 dated line 08:28Z (2), which supersedes that part of A-2). Rollback (before A-4 only):
-`ssh -i ~/.ssh/monark_vps root@178.16.131.29 'rm -rf /var/lib/monark-dojo-collect /etc/monark/dojo-collect && rmdir /etc/monark/dojo && userdel dojo-collect && groupdel dojo-handoff'`
+`ssh -i ~/.ssh/monark_vps root@bell.monarkgate.tech 'rm -rf /var/lib/monark-dojo-collect /etc/monark/dojo-collect && rmdir /etc/monark/dojo && userdel dojo-collect && groupdel dojo-handoff'`
 (`rmdir`: the key directory is removed only while empty).
 
 ## 3. A-3 — the collect tree at G7 and its resolution link
@@ -76,7 +76,7 @@ git -C /f/Monark rev-parse --verify '<G7 merge commit>^{commit}' > /f/tmp/dojo-d
 ```
 
 ```bash
-G7=$(cat /f/tmp/dojo-dn/G7.txt) && git -C /f/Monark archive --format=tar.gz "$G7" apps/bell/scripts/bell-chain.mjs apps/dojo/package.json apps/dojo/scripts/dojo-core.mjs apps/dojo/scripts/dojo-eve.mjs apps/dojo/scripts/dojo-seed.mjs apps/dojo/src/bundle.ts apps/dojo/src/collect.ts apps/dojo/src/dojo-methods.ts apps/dojo/src/layout.ts apps/dojo/src/reading.ts out/mint.txt packages/rpc-guard/bin/rpc-guard.mjs packages/rpc-guard/package.json packages/rpc-guard/src/bell-methods.ts packages/rpc-guard/src/classify.ts packages/rpc-guard/src/cli.ts packages/rpc-guard/src/client.ts packages/rpc-guard/src/errors.ts packages/rpc-guard/src/guarded.ts packages/rpc-guard/src/index.ts packages/rpc-guard/src/ledger.ts packages/rpc-guard/src/lock.ts packages/rpc-guard/src/reconcile.ts packages/rpc-guard/src/repair.ts packages/rpc-guard/src/tariff.ts packages/rpc-guard/src/transport.ts | tee /f/tmp/dojo-dn/collect-tree.tar.gz | ssh -i ~/.ssh/monark_vps root@178.16.131.29 'install -d -m 0755 -o root -g root /opt/monark-dojo-collect && tar xzf - -C /opt/monark-dojo-collect --no-same-owner --no-same-permissions && chown -R root:root /opt/monark-dojo-collect && find /opt/monark-dojo-collect -type d -exec chmod 0755 {} + && find /opt/monark-dojo-collect -type f -exec chmod 0644 {} + && cd /opt/monark-dojo-collect && find . -type f -print0 | LC_ALL=C sort -z | xargs -0 sha256sum'
+G7=$(cat /f/tmp/dojo-dn/G7.txt) && git -C /f/Monark archive --format=tar.gz "$G7" apps/bell/scripts/bell-chain.mjs apps/dojo/package.json apps/dojo/scripts/dojo-core.mjs apps/dojo/scripts/dojo-eve.mjs apps/dojo/scripts/dojo-seed.mjs apps/dojo/src/bundle.ts apps/dojo/src/collect.ts apps/dojo/src/dojo-methods.ts apps/dojo/src/layout.ts apps/dojo/src/reading.ts out/mint.txt packages/rpc-guard/bin/rpc-guard.mjs packages/rpc-guard/package.json packages/rpc-guard/src/bell-methods.ts packages/rpc-guard/src/classify.ts packages/rpc-guard/src/cli.ts packages/rpc-guard/src/client.ts packages/rpc-guard/src/errors.ts packages/rpc-guard/src/guarded.ts packages/rpc-guard/src/index.ts packages/rpc-guard/src/ledger.ts packages/rpc-guard/src/lock.ts packages/rpc-guard/src/reconcile.ts packages/rpc-guard/src/repair.ts packages/rpc-guard/src/tariff.ts packages/rpc-guard/src/transport.ts | tee /f/tmp/dojo-dn/collect-tree.tar.gz | ssh -i ~/.ssh/monark_vps root@bell.monarkgate.tech 'install -d -m 0755 -o root -g root /opt/monark-dojo-collect && tar xzf - -C /opt/monark-dojo-collect --no-same-owner --no-same-permissions && chown -R root:root /opt/monark-dojo-collect && find /opt/monark-dojo-collect -type d -exec chmod 0755 {} + && find /opt/monark-dojo-collect -type f -exec chmod 0644 {} + && cd /opt/monark-dojo-collect && find . -type f -print0 | LC_ALL=C sort -z | xargs -0 sha256sum'
 ```
 
 ```bash
@@ -90,10 +90,10 @@ pinned by `dojo_collect_tree_is_the_import_closure`; `.gitattributes` pins `eol=
 on this host: `@monark/rpc-guard` resolves through one relative link (D-3):
 
 ```bash
-ssh -i ~/.ssh/monark_vps root@178.16.131.29 'install -d -m 0755 -o root -g root /opt/monark-dojo-collect/node_modules/@monark && ln -s ../../packages/rpc-guard /opt/monark-dojo-collect/node_modules/@monark/rpc-guard && readlink /opt/monark-dojo-collect/node_modules/@monark/rpc-guard && cd /opt/monark-dojo-collect && node --input-type=module -e "import(\"@monark/rpc-guard\").then((m) => console.log(typeof m.openGuardedClient))"'
+ssh -i ~/.ssh/monark_vps root@bell.monarkgate.tech 'install -d -m 0755 -o root -g root /opt/monark-dojo-collect/node_modules/@monark && ln -s ../../packages/rpc-guard /opt/monark-dojo-collect/node_modules/@monark/rpc-guard && readlink /opt/monark-dojo-collect/node_modules/@monark/rpc-guard && cd /opt/monark-dojo-collect && node --input-type=module -e "import(\"@monark/rpc-guard\").then((m) => console.log(typeof m.openGuardedClient))"'
 ```
 
-Expected: `../../packages/rpc-guard`, then `function`. Rollback: `ssh -i ~/.ssh/monark_vps root@178.16.131.29 'rm -rf /opt/monark-dojo-collect'`.
+Expected: `../../packages/rpc-guard`, then `function`. Rollback: `ssh -i ~/.ssh/monark_vps root@bell.monarkgate.tech 'rm -rf /opt/monark-dojo-collect'`.
 
 ## 4. A-4 (collect side) — seeds and EnvironmentFile
 
@@ -102,7 +102,7 @@ confirmed at the checkpoint-1): `seed` is the credential source the unit loads (
 seed waiting for A-9. `dojo-seed.mjs` refuses an existing file and a path inside a code tree, and prints only the public part:
 
 ```bash
-ssh -i ~/.ssh/monark_vps root@178.16.131.29 'umask 077 && node /opt/monark-dojo-collect/apps/dojo/scripts/dojo-seed.mjs --init /etc/monark/dojo-collect/seed --horizon 365; echo rehearsal_exit=$?; node /opt/monark-dojo-collect/apps/dojo/scripts/dojo-seed.mjs --init /etc/monark/dojo-collect/seed.next --horizon 365; echo real_exit=$?; stat -c "%a %U:%G %s %n" /etc/monark/dojo-collect/seed /etc/monark/dojo-collect/seed.next'
+ssh -i ~/.ssh/monark_vps root@bell.monarkgate.tech 'umask 077 && node /opt/monark-dojo-collect/apps/dojo/scripts/dojo-seed.mjs --init /etc/monark/dojo-collect/seed --horizon 365; echo rehearsal_exit=$?; node /opt/monark-dojo-collect/apps/dojo/scripts/dojo-seed.mjs --init /etc/monark/dojo-collect/seed.next --horizon 365; echo real_exit=$?; stat -c "%a %U:%G %s %n" /etc/monark/dojo-collect/seed /etc/monark/dojo-collect/seed.next'
 ```
 
 Expected: one line `{"seed_anchor":"<64 hex>","horizon":365}` before each `..._exit=0`; write both to the JOURNAL with their role
@@ -113,7 +113,7 @@ Expected: one line `{"seed_anchor":"<64 hex>","horizon":365}` before each `..._e
 **Durable copy of the REAL seed off the host** (DOJO-SEED-ON-HOST-1, FM-1.4; operator mirror, never under `F:/tmp` alone):
 
 ```bash
-mkdir -p /f/PRODUITS/dojo-mirror/seed && scp -i ~/.ssh/monark_vps root@178.16.131.29:/etc/monark/dojo-collect/seed.next '/f/PRODUITS/dojo-mirror/seed/<real seed_anchor>.seed' && [ "$(ssh -i ~/.ssh/monark_vps root@178.16.131.29 'sha256sum < /etc/monark/dojo-collect/seed.next')" = "$(sha256sum < '/f/PRODUITS/dojo-mirror/seed/<real seed_anchor>.seed')" ] && echo COPY-EQUAL || echo COPY-DIFFERENT
+mkdir -p /f/PRODUITS/dojo-mirror/seed && scp -i ~/.ssh/monark_vps root@bell.monarkgate.tech:/etc/monark/dojo-collect/seed.next '/f/PRODUITS/dojo-mirror/seed/<real seed_anchor>.seed' && [ "$(ssh -i ~/.ssh/monark_vps root@bell.monarkgate.tech 'sha256sum < /etc/monark/dojo-collect/seed.next')" = "$(sha256sum < '/f/PRODUITS/dojo-mirror/seed/<real seed_anchor>.seed')" ] && echo COPY-EQUAL || echo COPY-DIFFERENT
 ```
 
 Expected: `COPY-EQUAL`. The copy stays in the mirror, next to the provider's backups risk already declared (TB-3).
@@ -125,20 +125,20 @@ declared for the operator machine), and the key, last. `HELIUS_BASE` is set firs
 in it: the transport appends `?api-key=` from `HELIUS_API_KEY`, `packages/rpc-guard/src/transport.ts:171-172`):
 
 ```bash
-printf 'BELL_SOLANA_RPC=%s\nHELIUS_CYCLE_ID=%s\nHELIUS_CYCLE_FLOOR=%s\nHELIUS_API_KEY=%s\n' "$HELIUS_BASE" '<CYCLE>' '<FLOOR>' "$HELIUS_API_KEY" | ssh -i ~/.ssh/monark_vps root@178.16.131.29 'umask 077 && cat > /etc/monark/dojo-collect.env && chown root:dojo-collect /etc/monark/dojo-collect.env && chmod 0640 /etc/monark/dojo-collect.env && stat -c "%a %U:%G %n" /etc/monark/dojo-collect.env && cut -d= -f1 /etc/monark/dojo-collect.env'
+printf 'BELL_SOLANA_RPC=%s\nHELIUS_CYCLE_ID=%s\nHELIUS_CYCLE_FLOOR=%s\nHELIUS_API_KEY=%s\n' "$HELIUS_BASE" '<CYCLE>' '<FLOOR>' "$HELIUS_API_KEY" | ssh -i ~/.ssh/monark_vps root@bell.monarkgate.tech 'umask 077 && cat > /etc/monark/dojo-collect.env && chown root:dojo-collect /etc/monark/dojo-collect.env && chmod 0640 /etc/monark/dojo-collect.env && stat -c "%a %U:%G %n" /etc/monark/dojo-collect.env && cut -d= -f1 /etc/monark/dojo-collect.env'
 ```
 
 ```bash
-[ "$(printf 'BELL_SOLANA_RPC=%s\nHELIUS_CYCLE_ID=%s\nHELIUS_CYCLE_FLOOR=%s\nHELIUS_API_KEY=%s\n' "$HELIUS_BASE" '<CYCLE>' '<FLOOR>' "$HELIUS_API_KEY" | sha256sum)" = "$(ssh -i ~/.ssh/monark_vps root@178.16.131.29 'sha256sum < /etc/monark/dojo-collect.env')" ] && echo COPY-EQUAL || echo COPY-DIFFERENT
+[ "$(printf 'BELL_SOLANA_RPC=%s\nHELIUS_CYCLE_ID=%s\nHELIUS_CYCLE_FLOOR=%s\nHELIUS_API_KEY=%s\n' "$HELIUS_BASE" '<CYCLE>' '<FLOOR>' "$HELIUS_API_KEY" | sha256sum)" = "$(ssh -i ~/.ssh/monark_vps root@bell.monarkgate.tech 'sha256sum < /etc/monark/dojo-collect.env')" ] && echo COPY-EQUAL || echo COPY-DIFFERENT
 ```
 
 Expected: `640 root:dojo-collect /etc/monark/dojo-collect.env`, then the four NAMES only, then `COPY-EQUAL`. The file is mandatory (no
-leading `-` in the unit): absent, the start fails. Rollback (before A-5): `ssh -i ~/.ssh/monark_vps root@178.16.131.29 'shred -u /etc/monark/dojo-collect.env /etc/monark/dojo-collect/seed /etc/monark/dojo-collect/seed.next'` (no seed is anchored yet).
+leading `-` in the unit): absent, the start fails. Rollback (before A-5): `ssh -i ~/.ssh/monark_vps root@bell.monarkgate.tech 'shred -u /etc/monark/dojo-collect.env /etc/monark/dojo-collect/seed /etc/monark/dojo-collect/seed.next'` (no seed is anchored yet).
 
 ## 5. A-5 (collect side) — the units from the G7 bytes, the rehearsal anchor, one start that proves the credentials
 
 ```bash
-G7=$(cat /f/tmp/dojo-dn/G7.txt) && for u in monark-dojo-collect.service monark-dojo-collect.timer; do git -C /f/Monark cat-file blob "$G7:deploy/$u" | ssh -i ~/.ssh/monark_vps root@178.16.131.29 "umask 022 && cat > /etc/systemd/system/$u" || echo "FAILED $u"; done; ssh -i ~/.ssh/monark_vps root@178.16.131.29 'systemctl daemon-reload && systemctl show -p LoadState -p FragmentPath -p DropInPaths -p NeedDaemonReload monark-dojo-collect.service monark-dojo-collect.timer && sha256sum /etc/systemd/system/monark-dojo-collect.service /etc/systemd/system/monark-dojo-collect.timer && systemd-analyze calendar "*-*-* *:00/5:00 UTC"'
+G7=$(cat /f/tmp/dojo-dn/G7.txt) && for u in monark-dojo-collect.service monark-dojo-collect.timer; do git -C /f/Monark cat-file blob "$G7:deploy/$u" | ssh -i ~/.ssh/monark_vps root@bell.monarkgate.tech "umask 022 && cat > /etc/systemd/system/$u" || echo "FAILED $u"; done; ssh -i ~/.ssh/monark_vps root@bell.monarkgate.tech 'systemctl daemon-reload && systemctl show -p LoadState -p FragmentPath -p DropInPaths -p NeedDaemonReload monark-dojo-collect.service monark-dojo-collect.timer && sha256sum /etc/systemd/system/monark-dojo-collect.service /etc/systemd/system/monark-dojo-collect.timer && systemd-analyze calendar "*-*-* *:00/5:00 UTC"'
 ```
 
 Expected: no `FAILED`; `LoadState=loaded`, the two `FragmentPath` under `/etc/systemd/system`, `DropInPaths=` empty,
@@ -146,7 +146,7 @@ Expected: no `FAILED`; `LoadState=loaded`, the two `FragmentPath` under `/etc/sy
 expression accepted, its normalized form and its next elapse at a minute that is a multiple of 5, in UTC (write the output to the
 JOURNAL: the timer's zone suffix and repetition value are read here on systemd 259). **STOP** on an error. Never `systemctl edit`
 (a drop-in changes the pinned argv); the timer is enabled at A-9 (7) only (A-7 is off the real path).
-Rollback: `ssh -i ~/.ssh/monark_vps root@178.16.131.29 'rm /etc/systemd/system/monark-dojo-collect.service /etc/systemd/system/monark-dojo-collect.timer && systemctl daemon-reload'`.
+Rollback: `ssh -i ~/.ssh/monark_vps root@bell.monarkgate.tech 'rm /etc/systemd/system/monark-dojo-collect.service /etc/systemd/system/monark-dojo-collect.timer && systemctl daemon-reload'`.
 
 **The rehearsal anchor** (the credential `dojo-anchor`, `DOJO_ANCHOR_SOURCE`; dated line 14:13Z, Q-2 (a)): the body of the anchor
 request of A-8 (its closed keys, PR-3a-1) with the REHEARSAL `seed_anchor` and a `published_at` on the day of THIS act (UTC); never
@@ -156,16 +156,16 @@ signed, never served (the publisher refuses its seed chain: M-E6). The collector
 `$CREDENTIALS_DIRECTORY`; the unit cannot replace it:
 
 ```bash
-ssh -i ~/.ssh/monark_vps root@178.16.131.29 'umask 077 && cat > /etc/monark/dojo-collect/anchor.json && chown root:root /etc/monark/dojo-collect/anchor.json && chmod 0600 /etc/monark/dojo-collect/anchor.json && stat -c "%a %U:%G %s %n" /etc/monark/dojo-collect/anchor.json' < '<local rehearsal anchor file>'
+ssh -i ~/.ssh/monark_vps root@bell.monarkgate.tech 'umask 077 && cat > /etc/monark/dojo-collect/anchor.json && chown root:root /etc/monark/dojo-collect/anchor.json && chmod 0600 /etc/monark/dojo-collect/anchor.json && stat -c "%a %U:%G %s %n" /etc/monark/dojo-collect/anchor.json' < '<local rehearsal anchor file>'
 ```
 
-Expected: `600 root:root <size> /etc/monark/dojo-collect/anchor.json`. Rollback: `ssh -i ~/.ssh/monark_vps root@178.16.131.29 'rm /etc/monark/dojo-collect/anchor.json'`.
+Expected: `600 root:root <size> /etc/monark/dojo-collect/anchor.json`. Rollback: `ssh -i ~/.ssh/monark_vps root@bell.monarkgate.tech 'rm /etc/monark/dojo-collect/anchor.json'`.
 
 One start, made on the SAME day (the anchor day): the step has no day to open (it opens only days after the anchor day,
 `collect.ts` tick), so it writes nothing and calls nothing, and the first day the timer opens later is not this one (section 7):
 
 ```bash
-ssh -i ~/.ssh/monark_vps root@178.16.131.29 'date -u +%F; systemctl start monark-dojo-collect.service; echo start_exit=$?; journalctl -u monark-dojo-collect.service -n 5 --no-pager -o cat | grep "dojo/collect"; systemctl reset-failed monark-dojo-collect.service; find /var/lib/monark-dojo-collect -maxdepth 3 | sort'
+ssh -i ~/.ssh/monark_vps root@bell.monarkgate.tech 'date -u +%F; systemctl start monark-dojo-collect.service; echo start_exit=$?; journalctl -u monark-dojo-collect.service -n 5 --no-pager -o cat | grep "dojo/collect"; systemctl reset-failed monark-dojo-collect.service; find /var/lib/monark-dojo-collect -maxdepth 3 | sort'
 ```
 
 Expected: the date of the anchor's `published_at`; `start_exit=0`; no `dojo/collect:` line; exactly three paths (the state root,
@@ -182,7 +182,7 @@ the peak and the effective limit to the JOURNAL; the same command runs again dur
 `bundles/<d>/evidence/plan.json`), the step that opens sockets; a dated line pins the value from these two readings:
 
 ```bash
-ssh -i ~/.ssh/monark_vps root@178.16.131.29 'systemctl start --no-block monark-dojo-collect.service; for i in $(seq 1 200); do systemctl show -p TasksCurrent --value monark-dojo-collect.service; sleep 0.05; done | grep -E "^[0-9]+$" | sort -n | tail -n 1; systemctl show -p EffectiveTasksMax --value monark-dojo-collect.service'
+ssh -i ~/.ssh/monark_vps root@bell.monarkgate.tech 'systemctl start --no-block monark-dojo-collect.service; for i in $(seq 1 200); do systemctl show -p TasksCurrent --value monark-dojo-collect.service; sleep 0.05; done | grep -E "^[0-9]+$" | sort -n | tail -n 1; systemctl show -p EffectiveTasksMax --value monark-dojo-collect.service'
 ```
 
 Expected: a peak (a number under 64) and `64`, both to the JOURNAL; the orchestrator pins `TasksMax` by a dated line from this reading
@@ -203,16 +203,16 @@ the EMPTY one (`{"accounts":[],"addresses":[]}`), made by the tree's `dojo-eve.m
 `dojo-collect:dojo-handoff` 0640 under the setgid `bundles/`, as the collector writes its own `eve.json`), through a temporary name:
 
 ```bash
-ssh -i ~/.ssh/monark_vps root@178.16.131.29 'cd /opt/monark-dojo-collect && sudo -u dojo-collect sh -c "umask 0027 && mkdir -p /var/lib/monark-dojo-collect/bundles/<d> && node /opt/monark-dojo-collect/apps/dojo/scripts/dojo-eve.mjs --empty --day <d> > /var/lib/monark-dojo-collect/bundles/<d>/eve.json.tmp && mv /var/lib/monark-dojo-collect/bundles/<d>/eve.json.tmp /var/lib/monark-dojo-collect/bundles/<d>/eve.json" && stat -c "%a %U:%G %s %n" /var/lib/monark-dojo-collect/bundles/<d> /var/lib/monark-dojo-collect/bundles/<d>/eve.json && cat /var/lib/monark-dojo-collect/bundles/<d>/eve.json'
+ssh -i ~/.ssh/monark_vps root@bell.monarkgate.tech 'cd /opt/monark-dojo-collect && sudo -u dojo-collect sh -c "umask 0027 && mkdir -p /var/lib/monark-dojo-collect/bundles/<d> && node /opt/monark-dojo-collect/apps/dojo/scripts/dojo-eve.mjs --empty --day <d> > /var/lib/monark-dojo-collect/bundles/<d>/eve.json.tmp && mv /var/lib/monark-dojo-collect/bundles/<d>/eve.json.tmp /var/lib/monark-dojo-collect/bundles/<d>/eve.json" && stat -c "%a %U:%G %s %n" /var/lib/monark-dojo-collect/bundles/<d> /var/lib/monark-dojo-collect/bundles/<d>/eve.json && cat /var/lib/monark-dojo-collect/bundles/<d>/eve.json'
 ```
 
 Expected: `2750 dojo-collect:dojo-handoff <size> .../bundles/<d>`, `640 dojo-collect:dojo-handoff 31 .../bundles/<d>/eve.json`, then
 `{"accounts":[],"addresses":[]}` (the bytes `layout.ts` `readEve` accepts, pinned by `dojo_eve_prints_the_canonical_empty_eve`; the
 same tool makes the `Eve` of `dojo_collect_unit_runs_the_real_tick`). **STOP** on `dojo/eve: usage` (d is not a real UTC day).
-Rollback (before the timer): `ssh -i ~/.ssh/monark_vps root@178.16.131.29 'rm -r /var/lib/monark-dojo-collect/bundles/<d>'`. Then:
+Rollback (before the timer): `ssh -i ~/.ssh/monark_vps root@bell.monarkgate.tech 'rm -r /var/lib/monark-dojo-collect/bundles/<d>'`. Then:
 
 ```bash
-ssh -i ~/.ssh/monark_vps root@178.16.131.29 'systemctl enable --now monark-dojo-collect.timer && systemctl list-timers monark-dojo-collect.timer --no-pager'
+ssh -i ~/.ssh/monark_vps root@bell.monarkgate.tech 'systemctl enable --now monark-dojo-collect.timer && systemctl list-timers monark-dojo-collect.timer --no-pager'
 ```
 
 Expected: the next elapse at the next multiple of 5 minutes (UTC); under `Persistent=true` a step may start at once (the step is
@@ -223,13 +223,13 @@ systemd 259 read for FAITS-JOURNALCTL-1); (ii) after the end of its reading day,
 with every reading made:
 
 ```bash
-ssh -i ~/.ssh/monark_vps root@178.16.131.29 'cd /opt/monark-dojo-collect && node --input-type=module -e "import(\"/opt/monark-dojo-collect/apps/dojo/src/layout.ts\").then((m) => { const l = m.readDayLayout(\"/var/lib/monark-dojo-collect/bundles/<d>\"); console.log(l.bundle.status, l.bundle.reason, l.records.length, l.records.filter((r) => r.read.read_at === null).length); })"'
+ssh -i ~/.ssh/monark_vps root@bell.monarkgate.tech 'cd /opt/monark-dojo-collect && node --input-type=module -e "import(\"/opt/monark-dojo-collect/apps/dojo/src/layout.ts\").then((m) => { const l = m.readDayLayout(\"/var/lib/monark-dojo-collect/bundles/<d>\"); console.log(l.bundle.status, l.bundle.reason, l.records.length, l.records.filter((r) => r.read.read_at === null).length); })"'
 ```
 
 Expected: `counted null 4 0`. A day `abstained beacon_unavailable 0 0` is not a rehearsal day. **STOP** on any `dojo/collect:` line
 of the journal: `eve_missing` (the `Eve` is not on the first day the chain opens: deposit it there, as above, never on another day),
 `lock_held` (section 9 before anything else), and every line listed in section 5. Stop (rollback):
-`ssh -i ~/.ssh/monark_vps root@178.16.131.29 'systemctl disable --now monark-dojo-collect.timer'`.
+`ssh -i ~/.ssh/monark_vps root@bell.monarkgate.tech 'systemctl disable --now monark-dojo-collect.timer'`.
 
 **Start timeout** (`TimeoutStartSec=1500`, dated line 15:00Z): the worst course of one reading read in the code is 1210 s (the unit's comment);
 a step still `activating` after 1500 s is ended by systemd with `KillSignal=` (default SIGTERM, to confirm at L-2; the unit `failed`): on SIGTERM
@@ -244,7 +244,7 @@ step runs (on the real path the timer was never enabled: A-7 is off it, section 
 (systemd.service(5): without `RemainAfterExit=` it never enters `active`), and 360 waits of 5 s outlast `TimeoutStartSec`:
 
 ```bash
-ssh -i ~/.ssh/monark_vps root@178.16.131.29 'systemctl disable --now monark-dojo-collect.timer; for i in $(seq 1 360); do [ "$(systemctl is-active monark-dojo-collect.service)" = activating ] || break; sleep 5; done; systemctl is-active monark-dojo-collect.service'
+ssh -i ~/.ssh/monark_vps root@bell.monarkgate.tech 'systemctl disable --now monark-dojo-collect.timer; for i in $(seq 1 360); do [ "$(systemctl is-active monark-dojo-collect.service)" = activating ] || break; sleep 5; done; systemctl is-active monark-dojo-collect.service'
 ```
 
 Expected: `inactive`. **STOP** on `failed` (read the journal; `lock_held` or a killed course: section 9 first) or on anything else.
@@ -254,7 +254,7 @@ the signed anchor line in force as the credential source (the first line of the 
 confirmed at its G7), each only while the unit is `inactive`:
 
 ```bash
-ssh -i ~/.ssh/monark_vps root@178.16.131.29 '[ "$(systemctl is-active monark-dojo-collect.service)" = inactive ] && mv /var/lib/monark-dojo-collect/bundles "/var/lib/monark-dojo-collect/rehearsal-$(date -u +%F)" && install -d -o dojo-collect -g dojo-handoff -m 2750 /var/lib/monark-dojo-collect/bundles && shred -u /etc/monark/dojo-collect/seed && mv /etc/monark/dojo-collect/seed.next /etc/monark/dojo-collect/seed && umask 077 && head -n 1 /var/lib/monark-dojo/timeline.jsonl > /etc/monark/dojo-collect/anchor.json && chown root:root /etc/monark/dojo-collect/anchor.json && chmod 0600 /etc/monark/dojo-collect/anchor.json && stat -c "%a %U:%G %s %n" /etc/monark/dojo-collect/seed /etc/monark/dojo-collect/anchor.json'
+ssh -i ~/.ssh/monark_vps root@bell.monarkgate.tech '[ "$(systemctl is-active monark-dojo-collect.service)" = inactive ] && mv /var/lib/monark-dojo-collect/bundles "/var/lib/monark-dojo-collect/rehearsal-$(date -u +%F)" && install -d -o dojo-collect -g dojo-handoff -m 2750 /var/lib/monark-dojo-collect/bundles && shred -u /etc/monark/dojo-collect/seed && mv /etc/monark/dojo-collect/seed.next /etc/monark/dojo-collect/seed && umask 077 && head -n 1 /var/lib/monark-dojo/timeline.jsonl > /etc/monark/dojo-collect/anchor.json && chown root:root /etc/monark/dojo-collect/anchor.json && chmod 0600 /etc/monark/dojo-collect/anchor.json && stat -c "%a %U:%G %s %n" /etc/monark/dojo-collect/seed /etc/monark/dojo-collect/anchor.json'
 ```
 
 Expected: `600 root:root 65 /etc/monark/dojo-collect/seed`, `600 root:root <size> /etc/monark/dojo-collect/anchor.json`; nothing
@@ -280,7 +280,7 @@ made after J (a provisional course ended after midnight) opens its own day: o is
 The plan of o, read after the step of 00:00 UTC of o, its `beacon` alone (a plan with a beacon holds instants, never printed):
 
 ```bash
-ssh -i ~/.ssh/monark_vps root@178.16.131.29 'grep -c "beacon.:null" /var/lib/monark-dojo-collect/bundles/<o>/evidence/plan.json'
+ssh -i ~/.ssh/monark_vps root@bell.monarkgate.tech 'grep -c "beacon.:null" /var/lib/monark-dojo-collect/bundles/<o>/evidence/plan.json'
 ```
 
 Expected: `0` (o read: d = o = J + 1, the expected case) or `1` (o abstained: d = o + 1); d to the JOURNAL, and section 18 follows that
@@ -301,7 +301,7 @@ close, `readings/SHA256SUMS`) is absorbed by the next write of the same path. Th
 kept refused (`layout_stray_file`, test `dojo_collect_to_verify_end_to_end`) and removed by this procedure, no purge in code (G0 Q-2 (a)).
 
 ```bash
-ssh -i ~/.ssh/monark_vps root@178.16.131.29 'systemctl stop monark-dojo-collect.timer && systemctl is-active monark-dojo-collect.service; find /var/lib/monark-dojo-collect/bundles/<d>/readings -maxdepth 1 -type f -name "*.tmp" -printf "%f %s\n"'
+ssh -i ~/.ssh/monark_vps root@bell.monarkgate.tech 'systemctl stop monark-dojo-collect.timer && systemctl is-active monark-dojo-collect.service; find /var/lib/monark-dojo-collect/bundles/<d>/readings -maxdepth 1 -type f -name "*.tmp" -printf "%f %s\n"'
 ```
 
 Expected: `inactive` (wait and re-run while `activating`: a step is running; `failed`: read the journal first), then the stray names
@@ -309,7 +309,7 @@ and sizes (JOURNAL: day, names, sizes, time; the contents are never displayed: a
 those, nothing else (never a `.json`, never a `SHA256SUMS`, nothing under `publish/` or `evidence/`), then restart:
 
 ```bash
-ssh -i ~/.ssh/monark_vps root@178.16.131.29 'find /var/lib/monark-dojo-collect/bundles/<d>/readings -maxdepth 1 -type f -name "*.tmp" -delete && find /var/lib/monark-dojo-collect/bundles/<d>/readings -maxdepth 1 -name "*.tmp" | wc -l && systemctl start monark-dojo-collect.timer'
+ssh -i ~/.ssh/monark_vps root@bell.monarkgate.tech 'find /var/lib/monark-dojo-collect/bundles/<d>/readings -maxdepth 1 -type f -name "*.tmp" -delete && find /var/lib/monark-dojo-collect/bundles/<d>/readings -maxdepth 1 -name "*.tmp" | wc -l && systemctl start monark-dojo-collect.timer'
 ```
 
 Expected: `0`; if the day is closed, the reader command of section 6 now answers without refusal. Rollback: none (only strays go).
@@ -329,7 +329,7 @@ before its readings: unlocked in time, the next step plans day d; otherwise d is
 the readings of d−1 due meanwhile are written missed. First, the state (read-only; the lock files hold `{pid, iso}`, no secret):
 
 ```bash
-ssh -i ~/.ssh/monark_vps root@178.16.131.29 'systemctl stop monark-dojo-collect.timer; systemctl is-active monark-dojo-collect.service; ls /var/lib/monark-dojo-collect/ledger/*/*.lock; for f in /var/lib/monark-dojo-collect/ledger/*/*.lock; do echo "$f $(cat "$f")"; done'
+ssh -i ~/.ssh/monark_vps root@bell.monarkgate.tech 'systemctl stop monark-dojo-collect.timer; systemctl is-active monark-dojo-collect.service; ls /var/lib/monark-dojo-collect/ledger/*/*.lock; for f in /var/lib/monark-dojo-collect/ledger/*/*.lock; do echo "$f $(cat "$f")"; done'
 ```
 
 Expected: `inactive` or `failed`, NEVER `activating` (a live step: wait and re-run; never unlock a live step); the locks of ONE
@@ -340,7 +340,7 @@ cycles); for each, a pid that no longer exists (check
 (a root-owned ledger file would make the unit's next appends fail), with `--floor 0` (the `unlocked` line carries no credit):
 
 ```bash
-ssh -i ~/.ssh/monark_vps root@178.16.131.29 'cd /opt/monark-dojo-collect && for op in helius solana-foundation drand-pl drand-cf; do L=$(ls /var/lib/monark-dojo-collect/ledger/*/$op.lock 2>/dev/null) || { echo "$op: no lock"; continue; }; C=$(basename "$(dirname "$L")"); sudo -u dojo-collect /usr/bin/env node /opt/monark-dojo-collect/packages/rpc-guard/bin/rpc-guard.mjs --ledger-dir /var/lib/monark-dojo-collect/ledger --floor 0 unlock --cycle "$C" --op "$op" --reason runbook-lock-held-unlock; echo "$op exit=$?"; test ! -e "$L" && echo "$op lock released"; tail -n 1 "/var/lib/monark-dojo-collect/ledger/$C/$op.jsonl"; done'
+ssh -i ~/.ssh/monark_vps root@bell.monarkgate.tech 'cd /opt/monark-dojo-collect && for op in helius solana-foundation drand-pl drand-cf; do L=$(ls /var/lib/monark-dojo-collect/ledger/*/$op.lock 2>/dev/null) || { echo "$op: no lock"; continue; }; C=$(basename "$(dirname "$L")"); sudo -u dojo-collect /usr/bin/env node /opt/monark-dojo-collect/packages/rpc-guard/bin/rpc-guard.mjs --ledger-dir /var/lib/monark-dojo-collect/ledger --floor 0 unlock --cycle "$C" --op "$op" --reason runbook-lock-held-unlock; echo "$op exit=$?"; test ! -e "$L" && echo "$op lock released"; tail -n 1 "/var/lib/monark-dojo-collect/ledger/$C/$op.jsonl"; done'
 ```
 
 Expected, for each operator with a lock (`<op>: no lock` for the others): `exit=0`, `lock released`, and a last ledger line with
@@ -390,7 +390,7 @@ by default (measured on the operator machine, 2026-09-30).
 ## 11. A-2p — user `dojo` and its state
 
 ```bash
-ssh -i ~/.ssh/monark_vps root@178.16.131.29 'useradd --system --no-create-home --shell /usr/sbin/nologin --groups dojo-handoff dojo &&
+ssh -i ~/.ssh/monark_vps root@bell.monarkgate.tech 'useradd --system --no-create-home --shell /usr/sbin/nologin --groups dojo-handoff dojo &&
 install -d -o dojo -g dojo -m 0755 /var/lib/monark-dojo /var/lib/monark-dojo/public && id dojo &&
 stat -c "%a %U:%G %n" /var/lib/monark-dojo /var/lib/monark-dojo/public /etc/monark/dojo &&
 sudo -u caddy test -x /var/lib/monark-dojo/public && echo caddy-traverse-ok'
@@ -402,7 +402,7 @@ state to `public/`; no secret lies under the state); `700 root:root /etc/monark/
 `caddy-traverse-ok`. **STOP** on `useradd: user 'dojo' already exists`, a missing group `dojo-handoff` (A-2 first) or any other
 output. Blockers: the G7 of PR-3b-2a; A-2 (collect side); FAITS-JOURNALCTL-1; DOJO-UNIT-OFFLINE-ORACLE-1 (the first host act);
 FAITS-SYSTEMD-PUBLISH-1. Rollback (before A-4p only):
-`ssh -i ~/.ssh/monark_vps root@178.16.131.29 'rm -r /var/lib/monark-dojo && userdel dojo'`.
+`ssh -i ~/.ssh/monark_vps root@bell.monarkgate.tech 'rm -r /var/lib/monark-dojo && userdel dojo'`.
 
 ## 12. A-3p — the publication tree at G7, and the collect tree compared at the SAME G7
 
@@ -421,7 +421,7 @@ Expected: `10 publish-tree.txt` and `26 collect-tree.txt`. Then the publication 
 
 ```bash
 G7=$(cat /f/tmp/dojo-dn/G7.txt) && git -C /f/Monark archive --format=tar.gz "$G7" $(cat /f/tmp/dojo-dn/publish-tree.txt) |
-tee /f/tmp/dojo-dn/publish-tree.tar.gz | ssh -i ~/.ssh/monark_vps root@178.16.131.29 'install -d -m 0755 -o root -g root /opt/monark-dojo &&
+tee /f/tmp/dojo-dn/publish-tree.tar.gz | ssh -i ~/.ssh/monark_vps root@bell.monarkgate.tech 'install -d -m 0755 -o root -g root /opt/monark-dojo &&
 tar xzf - -C /opt/monark-dojo --no-same-owner --no-same-permissions && chown -R root:root /opt/monark-dojo &&
 find /opt/monark-dojo -type d -exec chmod 0755 {} + && find /opt/monark-dojo -type f -exec chmod 0644 {} + &&
 cd /opt/monark-dojo && find . -type f -print0 | LC_ALL=C sort -z | xargs -0 sha256sum -t' > /f/tmp/dojo-dn/publish-tree.host.sha
@@ -441,7 +441,7 @@ publisher holds no bare specifier. Then the collect tree at the SAME G7, compare
 G7=$(cat /f/tmp/dojo-dn/G7.txt) && rm -rf /f/tmp/dojo-dn/collect-g7 && mkdir -p /f/tmp/dojo-dn/collect-g7 &&
 git -C /f/Monark archive --format=tar "$G7" $(cat /f/tmp/dojo-dn/collect-tree.txt) | tar xf - -C /f/tmp/dojo-dn/collect-g7 &&
 cd /f/tmp/dojo-dn/collect-g7 && find . -type f -print0 | LC_ALL=C sort -z | xargs -0 sha256sum -t > /f/tmp/dojo-dn/collect-g7.local.sha &&
-ssh -i ~/.ssh/monark_vps root@178.16.131.29 'cd /opt/monark-dojo-collect &&
+ssh -i ~/.ssh/monark_vps root@bell.monarkgate.tech 'cd /opt/monark-dojo-collect &&
 find . -type f -print0 | LC_ALL=C sort -z | xargs -0 sha256sum -t' > /f/tmp/dojo-dn/collect-g7.host.sha &&
 cmp -s /f/tmp/dojo-dn/collect-g7.local.sha /f/tmp/dojo-dn/collect-g7.host.sha && echo TREE-EQUAL || echo TREE-DIFFERENT
 ```
@@ -449,12 +449,12 @@ cmp -s /f/tmp/dojo-dn/collect-g7.local.sha /f/tmp/dojo-dn/collect-g7.host.sha &&
 Expected: `TREE-EQUAL` (the 26 files; the link `node_modules/@monark/rpc-guard` is not a file). **STOP** on `TREE-DIFFERENT` (PB-5):
 the collect tree differs at the new G7: A-3 and A-5 (collect side) are redone at this G7 (and a rehearsal on demand, section 6, off
 the real path, restarts its criterion at the next whole day). Blockers: the G7 of PR-1b-5a, PR-1b-5b, PR-3a-1c and PR-3b-2a; DOJO-PUBLISH-TREE-PATHS-1 closed.
-Rollback: `ssh -i ~/.ssh/monark_vps root@178.16.131.29 'rm -rf /opt/monark-dojo'`.
+Rollback: `ssh -i ~/.ssh/monark_vps root@bell.monarkgate.tech 'rm -rf /opt/monark-dojo'`.
 
 ## 13. A-4p — the signing key, generated ON the host, and the committed keyring (DOJO-KEY-1)
 
 ```bash
-ssh -i ~/.ssh/monark_vps root@178.16.131.29 'umask 077 &&
+ssh -i ~/.ssh/monark_vps root@bell.monarkgate.tech 'umask 077 &&
 node /opt/monark-dojo/apps/dojo/scripts/dojo-publish.mjs --generate-key /etc/monark/dojo/signing-key.pem > /root/dojo-pubkey.out;
 echo gen_exit=$?; stat -c "%a %U:%G %s" /etc/monark/dojo/signing-key.pem;
 grep -c PRIVATE /root/dojo-pubkey.out; grep -c -E "[{,] *.d. *:" /root/dojo-pubkey.out; wc -c < /root/dojo-pubkey.out'
@@ -462,12 +462,12 @@ grep -c PRIVATE /root/dojo-pubkey.out; grep -c -E "[{,] *.d. *:" /root/dojo-pubk
 
 Expected: `gen_exit=0`; `600 root:root <size>` (a PKCS#8 PEM file); `0` and `0` (the saved output holds no private material:
 counts only, never contents); a small byte count. Then the PUBLIC output, and nothing else:
-`ssh -i ~/.ssh/monark_vps root@178.16.131.29 'cat /root/dojo-pubkey.out'` prints one line
+`ssh -i ~/.ssh/monark_vps root@bell.monarkgate.tech 'cat /root/dojo-pubkey.out'` prints one line
 `{"key_id":"<64 hex>","public_key":{"kty":"OKP","crv":"Ed25519","x":"<x>"}}`; both values to the JOURNAL. **STOP** if a count is
 not 0 (an exposure before any line):
 
 ```bash
-ssh -i ~/.ssh/monark_vps root@178.16.131.29 'shred -u /etc/monark/dojo/signing-key.pem /root/dojo-pubkey.out'
+ssh -i ~/.ssh/monark_vps root@bell.monarkgate.tech 'shred -u /etc/monark/dojo/signing-key.pem /root/dojo-pubkey.out'
 ```
 
 then record it, and no new key before a fix. **STOP** on `key_file_exists` (never remove a key to make room). The committed
@@ -498,8 +498,8 @@ the local commit dropped; after a signed line, a rotation (section 20), never a 
 ```bash
 G7=$(cat /f/tmp/dojo-dn/G7.txt) && for u in monark-dojo-publish.service monark-dojo-publish.timer; do
 git -C /f/Monark cat-file blob "$G7:deploy/$u" |
-ssh -i ~/.ssh/monark_vps root@178.16.131.29 "umask 022 && cat > /etc/systemd/system/$u" || echo "FAILED $u"; done;
-ssh -i ~/.ssh/monark_vps root@178.16.131.29 'systemctl daemon-reload &&
+ssh -i ~/.ssh/monark_vps root@bell.monarkgate.tech "umask 022 && cat > /etc/systemd/system/$u" || echo "FAILED $u"; done;
+ssh -i ~/.ssh/monark_vps root@bell.monarkgate.tech 'systemctl daemon-reload &&
 systemctl show -p LoadState -p FragmentPath -p DropInPaths -p NeedDaemonReload monark-dojo-publish.service monark-dojo-publish.timer &&
 sha256sum /etc/systemd/system/monark-dojo-publish.service /etc/systemd/system/monark-dojo-publish.timer &&
 for h in 00 01 03 06; do systemd-analyze calendar "*-*-* $h:30:00 UTC" | grep -E "Normalized|Next"; done &&
@@ -517,7 +517,7 @@ drop-in changes the pinned unit), never `systemctl enable` here (the timer is en
 unit's user, sandbox, credential, tree, argv and environment), with nothing to publish yet:
 
 ```bash
-ssh -i ~/.ssh/monark_vps root@178.16.131.29 'systemctl start monark-dojo-publish.service; echo start_exit=$?;
+ssh -i ~/.ssh/monark_vps root@bell.monarkgate.tech 'systemctl start monark-dojo-publish.service; echo start_exit=$?;
 journalctl -u monark-dojo-publish.service -n 10 --no-pager -o cat | grep "dojo/publish";
 systemctl reset-failed monark-dojo-publish.service; find /var/lib/monark-dojo -mindepth 1 | sort'
 ```
@@ -530,7 +530,7 @@ Expected: `start_exit=1`; the journal line `dojo/publish: history_missing: the f
 Blockers: A-3p; A-4p pushed; the dated line of DOJO-VERIFY-SCALE-1 (the unit's `MemoryMax`, heap and `TimeoutStartSec`). Rollback:
 
 ```bash
-ssh -i ~/.ssh/monark_vps root@178.16.131.29 'rm /etc/systemd/system/monark-dojo-publish.service /etc/systemd/system/monark-dojo-publish.timer &&
+ssh -i ~/.ssh/monark_vps root@bell.monarkgate.tech 'rm /etc/systemd/system/monark-dojo-publish.service /etc/systemd/system/monark-dojo-publish.timer &&
 systemctl daemon-reload'
 ```
 
@@ -663,7 +663,7 @@ FAITS-SYSTEMD-CRED-1 was; a property `systemd-run` refuses fails before the job,
 sha256 to the JOURNAL. It holds no secret. Written by root into the state, readable by the job's user, removed after the act:
 
 ```bash
-ssh -i ~/.ssh/monark_vps root@178.16.131.29 'umask 027 && cat > /var/lib/monark-dojo/anchor-request.json &&
+ssh -i ~/.ssh/monark_vps root@bell.monarkgate.tech 'umask 027 && cat > /var/lib/monark-dojo/anchor-request.json &&
 chown dojo:dojo /var/lib/monark-dojo/anchor-request.json && stat -c "%a %U:%G %s %n" /var/lib/monark-dojo/anchor-request.json &&
 sha256sum < /var/lib/monark-dojo/anchor-request.json' < '<local anchor request file>'
 ```
@@ -674,7 +674,7 @@ transient job with the unit's user, sandbox and credential (each property the un
 the unit's `UnsetEnvironment=` (F-2), as ONE argument, `"$U"`: `$S` is split on blanks, a list of names in it would split):
 
 ```bash
-ssh -i ~/.ssh/monark_vps root@178.16.131.29 'systemctl is-active monark-dojo-publish.service | grep -qx -e inactive -e failed &&
+ssh -i ~/.ssh/monark_vps root@bell.monarkgate.tech 'systemctl is-active monark-dojo-publish.service | grep -qx -e inactive -e failed &&
 S="-p PrivateNetwork=yes -p NoNewPrivileges=true -p ProtectSystem=strict -p ProtectHome=true -p PrivateTmp=true
 -p ReadWritePaths=/var/lib/monark-dojo -p UMask=0022" && K="-p LoadCredential=dojo-signing-key:/etc/monark/dojo/signing-key.pem" &&
 U="--property=UnsetEnvironment=NODE_OPTIONS NODE_TLS_REJECT_UNAUTHORIZED NODE_EXTRA_CA_CERTS SSL_CERT_FILE SSL_CERT_DIR" &&
@@ -688,15 +688,15 @@ Expected: one JSON line `{"status":"anchored","seq":1,"published_at":"<ISO>","ke
 (JOURNAL). **STOP** on any other output: `anchor_malformed` (the request; nothing written), `signing_key_missing`,
 `existing_timeline_corrupt`, `anchor_on_published_day`, `line_refused` (section 19); a property that `systemd-run` refuses fails
 before the job (read its error; nothing written). Then the request goes, its digest equal to (1):
-`ssh -i ~/.ssh/monark_vps root@178.16.131.29 'sha256sum < /var/lib/monark-dojo/anchor-request.json && rm /var/lib/monark-dojo/anchor-request.json'`.
+`ssh -i ~/.ssh/monark_vps root@bell.monarkgate.tech 'sha256sum < /var/lib/monark-dojo/anchor-request.json && rm /var/lib/monark-dojo/anchor-request.json'`.
 
 (3) The mirror copy of `public/` (durable, never under `F:/tmp` alone), digests on both sides:
 
 ```bash
 mkdir -p /f/PRODUITS/dojo-mirror/public-seq1 &&
-scp -r -i ~/.ssh/monark_vps 'root@178.16.131.29:/var/lib/monark-dojo/public/*' /f/PRODUITS/dojo-mirror/public-seq1/ &&
+scp -r -i ~/.ssh/monark_vps 'root@bell.monarkgate.tech:/var/lib/monark-dojo/public/*' /f/PRODUITS/dojo-mirror/public-seq1/ &&
 cd /f/PRODUITS/dojo-mirror/public-seq1 && find . -type f -print0 | LC_ALL=C sort -z | xargs -0 sha256sum -t > /f/tmp/dojo-dn/public-seq1.local.sha &&
-ssh -i ~/.ssh/monark_vps root@178.16.131.29 'cd /var/lib/monark-dojo/public &&
+ssh -i ~/.ssh/monark_vps root@bell.monarkgate.tech 'cd /var/lib/monark-dojo/public &&
 find . -type f -print0 | LC_ALL=C sort -z | xargs -0 sha256sum -t' > /f/tmp/dojo-dn/public-seq1.host.sha &&
 cmp -s /f/tmp/dojo-dn/public-seq1.local.sha /f/tmp/dojo-dn/public-seq1.host.sha && echo MIRROR-EQUAL || echo MIRROR-DIFFERENT
 ```
@@ -779,7 +779,7 @@ lot: TB-23); DOJO-PUBLISH-PV-ATOMIC-1
 and DOJO-VERIFY-PV-SCHEDULE-1 (G7 of PR-3a-1c and PR-1b-5a); the dated line of DOJO-VERIFY-SCALE-1; section 19 read.
 
 ```bash
-ssh -i ~/.ssh/monark_vps root@178.16.131.29 'systemctl enable --now monark-dojo-publish.timer &&
+ssh -i ~/.ssh/monark_vps root@bell.monarkgate.tech 'systemctl enable --now monark-dojo-publish.timer &&
 systemctl list-timers monark-dojo-publish.timer --no-pager'
 ```
 
@@ -790,7 +790,7 @@ already); a day closed after 06:30 waits for the next 00:30; after an outage, at
 start, read in the journal:
 
 ```bash
-ssh -i ~/.ssh/monark_vps root@178.16.131.29 'journalctl -u monark-dojo-publish.service --since "<UTC date> 00:00:00 UTC" --no-pager -o cat |
+ssh -i ~/.ssh/monark_vps root@bell.monarkgate.tech 'journalctl -u monark-dojo-publish.service --since "<UTC date> 00:00:00 UTC" --no-pager -o cat |
 grep -E "status|dojo/publish"'
 ```
 
@@ -798,7 +798,7 @@ Expected: `history_missing` at every start until the `history` line (decision 23
 publishes d (`"day":"<d>"`: the day after the history's last day, closed before the line by construction, 18 (iv)); then `published`
 or `nothing_to_publish` (the next day open, or published already). **STOP** on every other refusal (section 19), `day_missing` first
 (the day expected is not closed while a later day is: never waited out, B-1). Never a manual `--inbox` beside the timer (a second writer,
-TB-23). Rollback (a stop): `ssh -i ~/.ssh/monark_vps root@178.16.131.29 'systemctl disable --now monark-dojo-publish.timer'`.
+TB-23). Rollback (a stop): `ssh -i ~/.ssh/monark_vps root@bell.monarkgate.tech 'systemctl disable --now monark-dojo-publish.timer'`.
 
 Until the `history` line, each start exits 1 (`history_missing`, above), so the unit (`Type=oneshot`) stays `failed` between two
 slots: `systemctl is-active` prints `failed` for it (read on the host on 2026-10-02 at 04:34 UTC), its normal state then and never a
@@ -812,7 +812,7 @@ at the act, before 18 (iii), with the target of these commands and `shopt -o pip
 Each day also, read-only, the lock files of the state (DOJO-PUBLISH-SINGLE-WRITER-1; Q-10 and D3-1 below):
 
 ```bash
-ssh -i ~/.ssh/monark_vps root@178.16.131.29 'ls -l /var/lib/monark-dojo/publish.lock*; test ! -e /var/lib/monark-dojo/publish.lock ||
+ssh -i ~/.ssh/monark_vps root@bell.monarkgate.tech 'ls -l /var/lib/monark-dojo/publish.lock*; test ! -e /var/lib/monark-dojo/publish.lock ||
 { cat /var/lib/monark-dojo/publish.lock; echo; ps -o pid=,comm= -p "$(cut -d, -f1 /var/lib/monark-dojo/publish.lock | cut -d: -f2)" ||
 echo OWNER-NOT-RUNNING; }'
 ```
@@ -892,8 +892,8 @@ the restarted collector opens (section 7 (5)), `dojo-collect:dojo-handoff` 0640,
 `eve_missing` and a stop; `<local provisional state>` is the `$S` above):
 
 ```bash
-scp -i ~/.ssh/monark_vps '<local provisional state>/provisional/eve.json' root@178.16.131.29:/root/dojo-eve-first.json &&
-ssh -i ~/.ssh/monark_vps root@178.16.131.29 'cat /root/dojo-eve-first.json | sudo -u dojo-collect sh -c "umask 0027 &&
+scp -i ~/.ssh/monark_vps '<local provisional state>/provisional/eve.json' root@bell.monarkgate.tech:/root/dojo-eve-first.json &&
+ssh -i ~/.ssh/monark_vps root@bell.monarkgate.tech 'cat /root/dojo-eve-first.json | sudo -u dojo-collect sh -c "umask 0027 &&
 mkdir -p /var/lib/monark-dojo-collect/bundles/<o> && cat > /var/lib/monark-dojo-collect/bundles/<o>/eve.json.tmp &&
 mv /var/lib/monark-dojo-collect/bundles/<o>/eve.json.tmp /var/lib/monark-dojo-collect/bundles/<o>/eve.json" &&
 stat -c "%a %U:%G %s %n" /var/lib/monark-dojo-collect/bundles/<o>/eve.json && rm /root/dojo-eve-first.json'
@@ -901,7 +901,7 @@ stat -c "%a %U:%G %s %n" /var/lib/monark-dojo-collect/bundles/<o>/eve.json && rm
 
 ```bash
 A=$(sha256sum < '<local provisional state>/provisional/eve.json' | cut -c1-64) &&
-B=$(ssh -i ~/.ssh/monark_vps root@178.16.131.29 'sha256sum < /var/lib/monark-dojo-collect/bundles/<o>/eve.json | cut -c1-64') &&
+B=$(ssh -i ~/.ssh/monark_vps root@bell.monarkgate.tech 'sha256sum < /var/lib/monark-dojo-collect/bundles/<o>/eve.json | cut -c1-64') &&
 [ "$A" = "$B" ] && echo COPY-EQUAL || echo COPY-DIFFERENT
 ```
 
@@ -909,7 +909,7 @@ Expected: `640 dojo-collect:dojo-handoff <size> .../bundles/<o>/eve.json`, then 
 `D` its directory on the host, `x` its day: d AFTER its close (its `publish/SHA256SUMS` exists), for (iii):
 
 ```bash
-D=/var/lib/monark-dojo-collect/bundles/<x> && L=/f/PRODUITS/dojo-mirror/days/<x> && H=root@178.16.131.29 && mkdir -p "$L" &&
+D=/var/lib/monark-dojo-collect/bundles/<x> && L=/f/PRODUITS/dojo-mirror/days/<x> && H=root@bell.monarkgate.tech && mkdir -p "$L" &&
 scp -r -i ~/.ssh/monark_vps "$H:$D/eve.json" "$H:$D/publish" "$H:$D/readings" "$L/" &&
 cd "$L" && A=$(find eve.json publish readings -type f -print0 | LC_ALL=C sort -z | xargs -0 sha256sum -t) &&
 B=$(ssh -i ~/.ssh/monark_vps "$H" "cd $D && find eve.json publish readings -type f -print0 | LC_ALL=C sort -z | xargs -0 sha256sum -t") &&
@@ -951,13 +951,13 @@ manifest's `first_read_day` is d) → `/var/lib/monark-dojo/history-packet/publi
 which is served), after the close of d and before (iv):
 
 ```bash
-ssh -i ~/.ssh/monark_vps root@178.16.131.29 'if [ -e /var/lib/monark-dojo/history-packet ]; then echo PACKET-EXISTS; exit 1; fi &&
+ssh -i ~/.ssh/monark_vps root@bell.monarkgate.tech 'if [ -e /var/lib/monark-dojo/history-packet ]; then echo PACKET-EXISTS; exit 1; fi &&
 install -d -o dojo -g dojo -m 0750 /var/lib/monark-dojo/history-packet' &&
-scp -r -i ~/.ssh/monark_vps '<local packet>/publish' root@178.16.131.29:/var/lib/monark-dojo/history-packet/ &&
-ssh -i ~/.ssh/monark_vps root@178.16.131.29 'cd /var/lib/monark-dojo/history-packet && chown -R dojo:dojo publish &&
+scp -r -i ~/.ssh/monark_vps '<local packet>/publish' root@bell.monarkgate.tech:/var/lib/monark-dojo/history-packet/ &&
+ssh -i ~/.ssh/monark_vps root@bell.monarkgate.tech 'cd /var/lib/monark-dojo/history-packet && chown -R dojo:dojo publish &&
 find publish -type d -exec chmod 0750 {} + && find publish -type f -exec chmod 0640 {} + && cd publish && sha256sum -c --strict SHA256SUMS' &&
 cd '<local packet>/publish' && A=$(find . -type f -print0 | LC_ALL=C sort -z | xargs -0 sha256sum -t) &&
-B=$(ssh -i ~/.ssh/monark_vps root@178.16.131.29 'cd /var/lib/monark-dojo/history-packet/publish &&
+B=$(ssh -i ~/.ssh/monark_vps root@bell.monarkgate.tech 'cd /var/lib/monark-dojo/history-packet/publish &&
 find . -type f -print0 | LC_ALL=C sort -z | xargs -0 sha256sum -t') && [ "$A" = "$B" ] && echo COPY-EQUAL || echo COPY-DIFFERENT
 ```
 
@@ -967,7 +967,7 @@ the end of (iv)); else the act below removes the copy (never while (iv) runs), t
 state by hand, this packet only (Never):
 
 ```bash
-ssh -i ~/.ssh/monark_vps root@178.16.131.29 'if test ! -e /var/lib/monark-dojo/publish.lock &&
+ssh -i ~/.ssh/monark_vps root@bell.monarkgate.tech 'if test ! -e /var/lib/monark-dojo/publish.lock &&
 systemctl is-active monark-dojo-publish.service | grep -qx -e inactive -e failed; then rm -r /var/lib/monark-dojo/history-packet && echo PACKET-REMOVED;
 else echo PACKET-KEPT; exit 1; fi'
 ```
@@ -1004,7 +1004,7 @@ the `history` line: section 17) and away from its four slots (one writer at a ti
 the job does; nothing written either way):
 
 ```bash
-ssh -i ~/.ssh/monark_vps root@178.16.131.29 'systemctl is-active monark-dojo-publish.service | grep -qx -e inactive -e failed &&
+ssh -i ~/.ssh/monark_vps root@bell.monarkgate.tech 'systemctl is-active monark-dojo-publish.service | grep -qx -e inactive -e failed &&
 S="-p PrivateNetwork=yes -p NoNewPrivileges=true -p ProtectSystem=strict -p ProtectHome=true -p PrivateTmp=true
 -p ReadWritePaths=/var/lib/monark-dojo -p UMask=0022 -p SupplementaryGroups=dojo-handoff -p ReadOnlyPaths=/var/lib/monark-dojo-collect/bundles" &&
 K="-p LoadCredential=dojo-signing-key:/etc/monark/dojo/signing-key.pem" &&
@@ -1040,7 +1040,7 @@ A replay gives `history_exists`: read the served timeline first (its `history` l
 else escalation). Then the packet goes, under the guard of the act of (iii) (Q-14):
 
 ```bash
-ssh -i ~/.ssh/monark_vps root@178.16.131.29 'if test ! -e /var/lib/monark-dojo/publish.lock &&
+ssh -i ~/.ssh/monark_vps root@bell.monarkgate.tech 'if test ! -e /var/lib/monark-dojo/publish.lock &&
 systemctl is-active monark-dojo-publish.service | grep -qx -e inactive -e failed; then rm -r /var/lib/monark-dojo/history-packet && echo PACKET-REMOVED;
 else echo PACKET-KEPT; exit 1; fi'
 ```
@@ -1106,7 +1106,7 @@ the state from the committed timeline); `owner unreadable` (escalation; never re
 unit's user and sandbox, without the credential (`--unlock` reads no key), the unit not running (`inactive` or `failed`):
 
 ```bash
-ssh -i ~/.ssh/monark_vps root@178.16.131.29 'systemctl is-active monark-dojo-publish.service | grep -qx -e inactive -e failed &&
+ssh -i ~/.ssh/monark_vps root@bell.monarkgate.tech 'systemctl is-active monark-dojo-publish.service | grep -qx -e inactive -e failed &&
 S="-p PrivateNetwork=yes -p NoNewPrivileges=true -p ProtectSystem=strict -p ProtectHome=true -p PrivateTmp=true
 -p ReadWritePaths=/var/lib/monark-dojo -p UMask=0022" && C="/usr/bin/env node /opt/monark-dojo/apps/dojo/scripts/dojo-publish.mjs
 --unlock /var/lib/monark-dojo" && systemd-run --wait --pipe --collect --uid=dojo --gid=dojo $S $C'
