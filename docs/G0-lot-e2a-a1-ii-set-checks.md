@@ -23,8 +23,9 @@ RECHERCHES, 2026-10-07. Base : la tête de a1-i, `15fafa202a60d2fc06a80ab426bec2
 - **`policy-committed.ts`** : import de `kataKeyReserved` seul depuis `./policy-classes.ts` (l.11) ; trois règles d'ensemble avant
   la boucle : une entrée de classe kata répétée (l.55), une classe retenue qui n'est pas une classe kata (l.56), une classe à la fois
   épinglée et retenue (l.57). Ainsi épinglées, retenues et autres classes sont exactement les classes kata (les épinglées hors des
-  entrées sont déjà refusées, l.65). Dans la boucle, après `assertPolicyTableFile` : une ligne dont `kata_id` ou `venue` est réservé
-  est refusée (l.68), la moitié chargeur de la réservation de `ca-probe`.
+  entrées sont déjà refusées, l.70). Dans la boucle, après `assertPolicyTableFile` : une ligne dont `kata_id` ou `venue` est réservé
+  est refusée (l.73), la moitié chargeur de la réservation de `ca-probe`. Ancres à la tête du pli du §6 (`e67310c8`) : la fusion
+  d'a1-i y ajoute le refus nommé du JSON (l.62-67), d'où l.65 → l.70 et l.68 → l.73.
 - **`tools/registry.ts` l.15-16**, réécrites sur place, sans ligne ajoutée : `schema-projection.ts` « owns a `node:fs` read at load,
   as `../policy-committed.ts` does for the committed tables » (plan §3.1, constat 17).
 - **Aucun octet servi ne bouge** : le lecteur n'est toujours importé par aucun module servi ; `policy-classes.ts` est servi, mais
@@ -34,18 +35,22 @@ RECHERCHES, 2026-10-07. Base : la tête de a1-i, `15fafa202a60d2fc06a80ab426bec2
 
 | Test | Ce qu'il tient | Rouge à la base (a1-i) | Tueur |
 |---|---|---|---|
-| `committed_tables_reader_refuses_pinned_held_classes` (l.90) | classe épinglée et retenue (les deux listes réelles) ; classe retenue hors des classes kata ; entrée répétée : refus nommés ; une classe de bande épinglée avec les listes réelles est admise ; les 32 classes contiennent les retenues et l'épinglée | assertion : admis | `apps/harness/src/policy-committed.ts:57 SDL "if (Object.hasOwn(pins.tables, cls))" -> ""` |
-| `committed_tables_reader_refuses_reserved_rows` (l.102) | une ligne sous `kata_id` `ca-probe`, une sous `venue` `ca-probe` : refus nommés avec la clé de case ; depuis `policy-classes.ts`, le lecteur n'importe que `kataKeyReserved` ou `KATA_RESERVED_IDS` | assertion : admis | `apps/harness/src/policy-committed.ts:68 CONST "kataKeyReserved(r.kata_id, r.venue)" -> "false"` |
+| `committed_tables_reader_refuses_pinned_held_classes` (l.95) | classe épinglée et retenue (les deux listes réelles) ; classe retenue hors des classes kata ; entrée répétée : refus nommés ; une classe de bande épinglée avec les listes réelles est admise ; les 32 classes contiennent les retenues et l'épinglée | assertion : admis | `apps/harness/src/policy-committed.ts:57 SDL "if (Object.hasOwn(pins.tables, cls))" -> ""` |
+| `committed_tables_reader_refuses_reserved_rows` (l.107) | une ligne sous `kata_id` `ca-probe`, une sous `venue` `ca-probe` : refus nommés avec la clé de case ; un seul spécificateur de `./policy-classes.ts`, lu par l'extracteur de T-1, et l'union des noms de toutes ses lignes `import { … }` est incluse dans {`kataKeyReserved`, `KATA_RESERVED_IDS`} (§6) | assertion : admis | `apps/harness/src/policy-committed.ts:73 CONST "kataKeyReserved(r.kata_id, r.venue)" -> "false"` |
 
-- Les trois tueurs du lecteur posés par a1-i sont réancrés (l.36 → l.37, l.50 → l.53, l.54 → l.61) ; rejoués à la main : tués.
-- **Mutants équivalents** : balayage des lignes neuves (l.55, l.56, l.57, l.68 entière, puis chacun de ses deux arguments mis à
-  `null`) : tous tués, aucun équivalent.
+- Les trois tueurs du lecteur posés par a1-i sont réancrés : avant le pli, l.36 → l.37, l.50 → l.53, l.54 → l.61 ; depuis la fusion
+  du pli d'a1-i (§6), ses tueurs neufs, l.11 → l.12 (import de `gate.ts`) et l.50 → l.53 (`in`), et l.54 → l.61. Rejoués : tués.
+- **Mutants équivalents** : balayage des lignes neuves (l.55, l.56, l.57, l.73 entière, puis chacun de ses deux arguments mis à
+  `null`) : tous tués. `Object.hasOwn` → `in` à l.57 (O5 de la G2) survit : équivalent, l.56 n'admet que des classes kata.
 
 ## 3. Preuves
 
 - **red-proof** : `node scripts/red-proof.mjs --base 15fafa202a60d2fc06a80ab426bec23f5bb2722c --gel <tête du code> --repo <worktree>
   --out <dossier> --draw 2 --seed 1007`, Node 24.21.0, Linux : sortie 0, « 2 judged, 4 unchanged, 2 killer(s) drawn », deux F2P
-  (rouges à la base par assertion), deux tueurs tués.
+  (rouges à la base par assertion), deux tueurs tués. `RED-PROOF.json` à la première tête du code (`3c6ce86f`), sha256
+  `92d2afdc4521efabdfd6743c4793e3f5b16e7ce0b71af18e3e8507c0c53f5333` (celui d'a1-i est au §3 de son G0). Après le pli, contre la
+  nouvelle base (`--base ea4a2679`, tête du code `e67310c8`) : sha256
+  `2a924432cb066433e5d4e61bb142ab96402187b662eb04898e81462daa9c7592` (§6).
 - **Octets servis inchangés** : suite du harnais et tests des surfaces servies (comme a1-i) : 354 tests, 354 verts.
 - `tsc --noEmit` 0 ; `eslint .` 0 ; `gate:vocab` 0 ; `lang:gate` 0 ; `lint:ratchet` 69/69 ; `export:check` 0 ; winlint `--base
   15fafa20` : 4 fichiers, aucun risque Windows.
@@ -53,8 +58,46 @@ RECHERCHES, 2026-10-07. Base : la tête de a1-i, `15fafa202a60d2fc06a80ab426bec2
 ## 4. Taille
 
 - R-25, forme de la CI, contre la base de la demande (a1-i) : 4 fichiers, 49 insertions, 6 suppressions, **55** (plan : ~168). a1
-  entier (a1-i + a1-ii) contre le tronc : 234 (232 insertions, 2 suppressions).
+  entier (a1-i + a1-ii) contre le tronc : 234 (232 insertions, 2 suppressions). Après le pli (§6) : **56** (50 + 6) contre
+  `ea4a2679` ; a1 entier contre `1cddd2e5` : 246 (244 + 2), sous 547.
 
 ## 5. Ce qui n'est pas fait
 
 - La couture et la clause d'état engagé : lots a2 et a3. Les épingles restent vides jusqu'au lot c.
+
+## 6. Pli de la G2 de #233 et #236 (MONARK `6fb4653`, pièce `g2-233-236.json`), 2026-10-07
+
+- **Provenance** : worker `claude-opus-5-5`, effort: max ; horloge lue (`date -u`) à 12:10 UTC au début du pli d'a1, 12:37 UTC pour
+  ce G0 (fusion à 12:26, pli à 12:29, `TZ=UTC git log`). Worktree détaché neuf du scratchpad à `37578328` (`git fetch` à refspecs
+  explicites dans `/home/user/monark-governance`, dont aucun fichier n'est touché) ; `node_modules` lié en dur (`cp -al`), retiré à
+  la fin. Node 24.21.0, Linux.
+- **Base de la demande** : la tête d'a1-i après son pli, `ea4a2679fea922e4e13e853a2e465c8b92a68781` (G0 d'a1-i, §6), fusionnée dans
+  la branche sans réécriture : commit de fusion `81e2a59d` (« Merge the a1 changes »). Deux conflits, chacun résolu en gardant les
+  deux côtés : le commentaire du lecteur nomme le refus du JSON et les règles d'ensemble (quatre lignes, comme avant) ; les deux
+  tueurs changés par a1-i gardent ses mutations neuves, ancrées aux lignes de cette branche (l.12 et l.53). Le tueur des lignes
+  réservées passe de l.68 à l.73. `verifie-ancres` (`--ref ea4a2679 --ref 37578328`) : 6 tueurs du fichier, 6 ancrés ; sur l'arbre,
+  1 525 ancrés, 0 dérive, 0 perdu. Le pli lui-même est au commit `e67310c8` ; les ancres des §1 à §6 sont à cette tête.
+
+| Constat | Pli | Où |
+|---|---|---|
+| m : `.match` sans `g` ne lit que la première ligne d'import de `policy-classes.ts` | `matchAll` avec `/gm` sur chaque `import { … } from "./policy-classes.ts"` : l'union des noms (virgules, espaces et retours à la ligne admis) doit être incluse dans {`kataKeyReserved`, `KATA_RESERVED_IDS`} et non vide ; et un seul spécificateur `./policy-classes.ts`, compté par `importsOf`, l'extracteur de la M d'a1-i | `test/policy-committed.test.ts:114-116` |
+| les cinq constats d'a1-i | pliés au G0 d'a1-i (§6), reçus ici par la fusion | `81e2a59d` |
+
+- **Mutants** (mêmes règles qu'au G0 d'a1-i, §6) :
+  - avant le pli, à la fusion `81e2a59d` : cinq survivent : O24 (seconde ligne `import { kataClassEntries } from
+    "./policy-classes.ts";`), un ré-export de `kataClassEntries`, `void import("./policy-classes.ts")`, un import d'espace de noms
+    en plus, et une seconde ligne qui n'importe qu'un nom permis (`KATA_RESERVED_IDS`). Un import sur plusieurs lignes ou un nom de
+    plus sur la ligne existante étaient déjà tués ;
+  - après le pli : les sept tués, par assertion, par `committed_tables_reader_refuses_reserved_rows` ; les dix-sept mutants d'import
+    et d'`Object.hasOwn` d'a1-i, rejoués ici (O25 avec `KATA_RESERVED_IDS`, le nom de la pièce) : tous tués ;
+  - balayage à la main des deux modules à cette tête, a1-i et a1-ii (24 dans le lecteur et `policy-classes.ts`, 6 dans les
+    épingles) : tous tués, sauf les deux équivalents déclarés (`names.sort()` → `names` ; O5). Deux rougissent par une erreur levée
+    et non par assertion, comme à a1-i (`"ENOENT"` → `"EACCES"` ; `COMMITTED_TABLES` non vide) ;
+  - deux formes permises restent vertes, 6 sur 6 (pas de faux positif) : l'import sur trois lignes avec une virgule finale, et
+    `import { KATA_RESERVED_IDS, kataKeyReserved } from "./policy-classes.ts";`.
+- **Mesures à `e67310c8`** : red-proof `--base ea4a2679 --draw 2 --seed 1007` : sortie 0, « 2 judged, 4 unchanged, 2 killer(s)
+  drawn », deux F2P, deux tueurs tués (l.73 et l.57) ; `RED-PROOF.json` au §3. Sur a1 entier, `--base 1cddd2e5 --draw 6 --seed
+  20261007` : sortie 0, six `new-module`, six tueurs tués ; sha256 `5ca79aa24c787fbf21a872c9f0cc931521e763badfde62ef34de4a916a8da9d3`.
+  Suite du harnais et tests des surfaces servies : 354 tests, 354 verts. `tsc --noEmit` 0 ; `eslint .` 0 ; `gate:vocab` 0 (350
+  fichiers) ; `lang:gate` 0 ; `lint:ratchet` 69/69 ; `export:check` 0 ; winlint `--base ea4a2679` : 5 fichiers, aucun risque
+  Windows. R-25 (forme de la CI) au §4.
