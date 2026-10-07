@@ -267,7 +267,7 @@ step that has no command in the repository says so and names its item. The insta
 `scripts/retire-latency.mjs` (l.15-23): each is a UTC instant to the second, `YYYY-MM-DDTHH:MM:SSZ` (l.25, l.47), read
 where its step says, with `date -u` unless the step names another source.
 
-**State at `07b7fc20`, unchanged at `c318aa54` (read it before acting).** No step can retire a served row yet; until the
+**State at `10f97f8c`, the tripwire on the pins since `f0933604` (read it before acting).** No step can retire a served row yet; until the
 loader of E-2a is merged, this section is the procedure of the rehearsal (RETIRE-LATENCY-REHEARSAL-1, in a sandbox) and of
 the first cycle of E-2a.
 - The 32 kata tables are served with no row (`apps/harness/src/kata-path.ts` l.115-120), behind a tripwire that fails the
