@@ -104,3 +104,26 @@ Les titres de `98062148` (« Merge lot/etude-suite into killer-ops-1 ») et de `
   sur les 20 tueurs réécrits (avant le pli).
 - Après le pli : la garde, avant les 7 réécritures, nomme exactement 7 lignes (5 code de test, 2 SDL) ; après, verte. Mutations du
   prédicat : `OPS.includes(k.op)` neutralisé → rouge (la ligne `LVR`) ; une ligne insérée en tête de `scripts/mission/lint.mjs` → rouge.
+- Après le pli du delta. Le tronc `591b3a30` est fusionné par `b09bf789` (« Merge the trunk ») ; la fusion est pure : même patch-id
+  (`e80c9418…`) pour `1cddd2e5`→`aeab2604` et pour `591b3a30`→`b09bf789`.
+  - Garde : au tronc fusionné, avant les réancrages, rouge par `ERR_ASSERTION`, les cinq lignes de `test/verify-harness-liq.test.ts`
+    nommées ; après, verte sur 1 567 lignes `// killer:`. Export retiré (l.54) : rouge par `ERR_ASSERTION`. Sur les fichiers de test
+    du tronc `591b3a30`, la garde de la tête nomme 32 lignes : 15 illisibles, 5 `LVR`, 2 SDL, 5 code de test, 5 ancres périmées. Avec
+    #221 appliquée en plus (tête `76f053eb`, diff de cette PR posé sans commit) : verte sur 1 577 lignes.
+  - Mutations de `killerProblem`, tirées seules sur la garde (fichier de test entier, restauration vérifiée par sha256 `adb6a6e6…`) :
+    - le tueur `:33` et les quatre du corps : tués par `ERR_ASSERTION` ;
+    - des neuf clauses qui survivaient à la copie (G2) : `..`, sans changement, `<before>` vide et aide non importée sont tués par leur
+      sonde ; la branche `.test.ts$` rougit la garde par l'ancre de `test/red-proof-support.test.ts:56`, qui la vise, et ce test la
+      tue par assertion ; le confinement realpath survit à la garde, `test/red-proof.test.ts` le tue (2 tests) ;
+    - la regex de chemin et l'exclusion `import type` de `supportOf` survivent à la garde, à `red-proof.test.ts` et à
+      `red-proof-support.test.ts` : hors des quatre sondes décidées, notées ici. `--untracked` est du code de test, jamais muté ;
+    - la dérive de la G2 (`|| k.op === "COR"` en l.55) rougit désormais la garde ; OPS neutralisé, `supportOf` qui refuse tout,
+      « SDL ⇒ `<after>` vide » retiré, `=== 2` → `>= 2` ou `<= 2`, ligne décalée d'un : tués par assertion ; `existsSync` retiré et le
+      contrôle hors bornes retiré la rougissent sans assertion (ENOENT, TypeError).
+  - Les cinq tueurs réancrés, tirés seuls sur le test déclaré sous eux : 5 tués par `ERR_ASSERTION`.
+  - red-proof `--base 591b3a30 --draw 1 --seed 1` : OK, mode F2P. 1 test jugé, la garde (base `assert-fail`, gel `pass`), 125
+    inchangés, aucun refus ; le tueur `:33` tiré est tué par assertion. `RED-PROOF.json` : sha256 `93a2d796…`.
+  - Tests touchés et voisins (10 fichiers : killer-lines, mission-lint, oracle-run, dojo-render, public-surfaces-honesty, red-proof,
+    red-proof-support, mutants-run, ci-gates, verify-harness-liq) : 226 tests, 223 verts, 3 sautés (corpus hôte absent), 0 rouge.
+  - `tsc --noEmit`, eslint, lang-gate, gate:vocab, lint-ratchet (69/69), export-public `--check` et winlint : propres.
+  - Taille, forme de la CI (`591b3a30...HEAD`) : 8 fichiers, +87 −33, soit 120 lignes, sous 547.
