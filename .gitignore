@@ -32,5 +32,5 @@ docs/deploy-CA-harness.json.tmp
 docs/deploy-CA-harness.json.failed.tmp
 docs/deploy-CA-harness.json.local.tmp
 
-# VERIFIERS-LIST-F5A-1 lot 1f: the run log of tools/kata-recalc/report.py (times and durations) is never committed, so never published
+# VERIFIERS-LIST-F5A-1 lot 1f: the run log of tools/kata-recalc/report.py (times and durations), ignored so that it is not committed by mistake (refusing one in a release is left to part 3)
 run-log.json
