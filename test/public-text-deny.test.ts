@@ -15,7 +15,7 @@ import {
 
 const ROOT = join(import.meta.dirname, "..");
 const rules = (text: string, kind = "message"): string[] => checkPublicText(text, kind).violations.map((v) => v.rule);
-
+// killer: scripts/public-text-deny.mjs:118 CONST ", /\\b\\d{1,3}(?:\\.\\d{1,3}){3}\\b/" -> ""
 test("public_text_gate_refuses_one_vector_per_rule — (a) to (h), Q-3, the title bound, the kind and the empty text", () => {
   const vectors: [string, string, string][] = [
     ["a", "message", `Mise ${String.fromCharCode(0xe0)} jour du site`], // French (language gate)
