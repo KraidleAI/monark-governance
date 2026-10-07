@@ -8,7 +8,7 @@
  * ENGINE-ROW-RETIRE-PATH-1): the pinned retire list of policy-retire.ts overlays the projection; live counts within LIVE_N_MAX. */
 import { assertClosedPolicyRow, type ClassEntry, type PolicyRow, type PolicyTable } from "@monark/contracts";
 import { bandEdge, binomCdfLeq, ceilDecimal4, missUpperBound, parseAlpha, parseTestDelta, riskControlMaxExceedances, spendDelta, splitRankExact, zeroErrorFloor } from "@monark/hikae";
-import { KATA_BASE_DELTA, KATA_H_MS, kataKeyProblem } from "./policy-classes.ts";
+import { KATA_BASE_DELTA, KATA_H_MS, kataKeyProblem, kataKeyReserved } from "./policy-classes.ts";
 import { readRegistry, type ProjectionInputs } from "./policy-projection.ts";
 import { readRetireList, retireQuarter, type RetireList, type RetirePin } from "./policy-retire.ts";
 import { assertRegistryPinned, assertTableMatchesRegistry } from "./policy-table-file.ts";
@@ -134,13 +134,3 @@ export function guardKataTable(table: PolicyTable, registryBytes: Uint8Array, pi
 // SHORT-DIGEST-INVERSION-1: imported last, not at the top, so that the import moves no line (killers pin them; scripts/spec-publish.mjs
 // does the same); imports are hoisted.
 import { digestProblems } from "./policy-digest-floor.ts";
-
-/** The kata ids and venues reserved for the probe key of the deployment check (scripts/verify-harness.mjs gate_kata_call,
- *  kata:ca-probe@ca-probe/BTCUSDT/1h; lot E-2a, the CA trio): no table may hold a row under them, so that call abstains
- *  before and after kata rows are served. Not part of kataKeyProblem, which the request check shares: the probe call must
- *  be answered, not refused. */
-export const KATA_RESERVED_IDS: readonly string[] = ["ca-probe"];
-/** True when the kata id or the venue is reserved (the import guard calls it; so will the kata loader of E-2a). */
-export function kataKeyReserved(kataId: string | null, venue: string | null): boolean {
-  return KATA_RESERVED_IDS.some((id) => id === kataId || id === venue);
-}

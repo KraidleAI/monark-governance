@@ -212,11 +212,12 @@ test("guard_adr_cause_under_decisions_only", () => {
 // reddened by: the digest clause of guardKataRow removed, so that the server admits a row the publication refuses (SHORT-DIGEST-INVERSION-1, RECHERCHES Q-4)
 // Lot E-2a, CA trio (R4 (iii), conflict 7): kata and venue ca-probe are reserved for the probe key of the deployment check, so
 // no table can ever hold a row under it. The reservation is its own predicate, called by the import guard (and by the loader of
-// E-2a, a later lot), never by the request check: kataKeyProblem still admits the probe key, so the probe call is answered.
-// killer: apps/harness/src/policy-guard.ts:142 CONST "[\"ca-probe\"]" -> "[\"ca-probe-x\"]"
+// E-2a, a later lot, served code: so it lives in policy-classes.ts, which the served graph imports, not in policy-guard.ts),
+// never by the request check: kataKeyProblem still admits the probe key, so the probe call is answered.
+// killer: apps/harness/src/policy-classes.ts:53 CONST "[\"ca-probe\"]" -> "[\"ca-probe-x\"]"
 test("the_import_guard_refuses_the_reserved_probe_kata_and_venue", async () => {
-  const mod = (await import("../src/policy-guard.ts")) as unknown as { kataKeyReserved?: (kataId: string | null, venue: string | null) => boolean };
-  assert.equal(typeof mod.kataKeyReserved, "function", "policy-guard.ts exports kataKeyReserved, for the loader too");
+  const mod = (await import("../src/policy-classes.ts")) as unknown as { kataKeyReserved?: (kataId: string | null, venue: string | null) => boolean };
+  assert.equal(typeof mod.kataKeyReserved, "function", "policy-classes.ts exports kataKeyReserved, for the loader too: a served module (policy-guard.ts is not served)");
   const as = (r: PolicyRow, kata: string, venue: string): PolicyRow => ({ ...r, kata_id: kata, venue, cell_key: `kata:${kata}@${venue}/${String(r.symbol)}/${String(r.horizon)}/${String(r.bucket)}` });
   const [k, v] = [String(bandRegion.kata_id), String(bandRegion.venue)];
   for (const [kata, venue] of [["ca-probe", v], [k, "ca-probe"], ["ca-probe", "ca-probe"]] as const) {

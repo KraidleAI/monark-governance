@@ -450,4 +450,5 @@ In practice: run section 6 within 4 minutes of a full hour (UTC); started earlie
 full hour and prints the wait on stderr. The expected `policy_table_sha256` is written in the script
 (`KATA_POLICY_TABLE_SHA256`); a release that changes `btc-range-1h` changes it in the same commit
 (`test/verify-harness-liq.test.ts`, `verify_harness_ca_pins_policy_table_sha256`). The reservation of `ca-probe` is in the
-import guard (`kataKeyReserved`, `apps/harness/src/policy-guard.ts`); the kata loader of E-2a, when it lands, calls it too.
+import guard (`kataKeyReserved`, defined in `apps/harness/src/policy-classes.ts`, a served module, and called by
+`apps/harness/src/policy-guard.ts`); the kata loader of E-2a, when it lands, calls it too.

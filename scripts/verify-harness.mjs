@@ -471,7 +471,7 @@ async function main() {
 // served.
 //
 // The loader half of the reservation belongs to the kata loader of E-2a (a later lot); the import guard holds it already
-// (kataKeyReserved, apps/harness/src/policy-guard.ts).
+// (kataKeyReserved, apps/harness/src/policy-classes.ts; policy-guard.ts calls it).
 
 /** The one refused version of gate_version_1_0_0_call (contract 1.1.0 refuses 1.0.0 before produced_at is read). */
 export const CA_REFUSED_SCHEMA_VERSION = "1.0.0";

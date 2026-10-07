@@ -92,3 +92,20 @@ ADR-CM l.261) ; borne CI 1 205.
   et `monark/reason-order-1` (`09f49fc2`). Le test de réservation est placé avant le dernier test de `policy-guard.test.ts`
   (et non en fin de fichier, où reason-order-1 ajoute le sien). Aucune ligne de `policy-guard.ts` que leurs tueurs épinglent
   ne bouge (l.51 éditée en place, ajout après l.136). La partie 3 prévue n'a pas de branche distante : non vérifiée.
+
+## 7. Deux corrections après le gel (2026-10-07, trouvées en préparant le chargeur de la vague 1)
+
+- **Sélection de l'entrée épinglée** (`test/verify-harness-liq.test.ts`) : le test de parité de `KATA_POLICY_TABLE_SHA256`
+  prenait la dernière entrée `btc-range-1h` toutes racines confondues et exigeait qu'elle soit de racine `governance` ; une
+  release datée ultérieure publiée depuis une autre racine (une release de liquidation) l'aurait rougi. L'entrée est désormais
+  choisie par filtre (racine `governance` et classe), puis la dernière : `publishedTableEntry(inputs, taskClass)`, ajoutée en
+  fin de `scripts/spec-policy-tables.mjs` (l.220-226), que le test appelle. Test ajouté
+  `verify_harness_ca_pin_entry_ignores_a_later_release_of_another_root` : une release de racine `recherches` ajoutée en fin
+  ne change pas la sélection ; rouge à la base par assertion (export absent) ; tueur `spec-policy-tables.mjs:225` (filtre de
+  racine retiré : l'entrée ajoutée devient la sélection), tué.
+- **Place de la réservation** : `KATA_RESERVED_IDS` et `kataKeyReserved` passent de `policy-guard.ts` (hors du graphe servi,
+  `apps/harness/test/kata-path.test.ts` l.330-337) à `apps/harness/src/policy-classes.ts` (servi, ajoutés en fin de fichier,
+  l.49-58), pour que le chargeur, code servi, puisse l'appeler. `policy-guard.ts` l'importe (l.11, en place) ; l'appel l.51
+  reste ; les lignes retirées étaient les dernières du fichier, aucune ligne épinglée ne bouge. Tueur déplacé :
+  `policy-guard.ts:142` → `policy-classes.ts:53` (même mutation, tué). Le test importe le module servi. Commentaire de
+  `scripts/verify-harness.mjs` l.474 (en place) et fin de `docs/RUNBOOK-harness.md` mis à jour.

@@ -521,19 +521,28 @@ test("verify_harness_ca_plays_kata_path_and_refuses_1_0_0", { timeout: 120000 },
   }
 });
 
+type PublishInputs = { releases: Record<string, { entries: Array<{ out: string; root: string; path: string; sha256: string }> }> };
+type PublishedEntry = { release: string } & PublishInputs["releases"][string]["entries"][number];
+const publishInputs = (): PublishInputs => JSON.parse(readFileSync(fileURLToPath(new URL("../scripts/spec-publish-inputs.json", import.meta.url)), "utf8")) as PublishInputs;
+/** publishedTableEntry of scripts/spec-policy-tables.mjs: the latest entry of a class's table published from this repository (root governance). */
+const tableEntrySelector = async (): Promise<(inputs: PublishInputs, taskClass: string) => PublishedEntry | undefined> => {
+  const mod = (await import(new URL("../scripts/spec-policy-tables.mjs", import.meta.url).href)) as { publishedTableEntry?: (inputs: PublishInputs, taskClass: string) => PublishedEntry | undefined };
+  assert.equal(typeof mod.publishedTableEntry, "function", "scripts/spec-policy-tables.mjs exports publishedTableEntry");
+  return mod.publishedTableEntry as (inputs: PublishInputs, taskClass: string) => PublishedEntry | undefined;
+};
+
 // (10) The expected digest of gate_kata_policy_table is WRITTEN in the check, anchored in the published entry, never read from the
 // served build it checks: the constant = the sha256 entry of btc-range-1h in the latest release of scripts/spec-publish-inputs.json
-// that publishes it = its line in that release's MANIFEST.sha256 (the producer's own manifestText) = the sha256 of the file = the
-// directory servedTableDirs names = the digest the harness serves. A release that changes the table reds here until the
-// constant follows.
+// that publishes it from this repository (root governance, publishedTableEntry; releases of other roots are skipped, see (10b))
+// = its line in that release's MANIFEST.sha256 (the producer's own manifestText) = the sha256 of the file = the directory
+// servedTableDirs names = the digest the harness serves. A release that changes the table reds here until the constant follows.
 // killer: scripts/verify-harness.mjs:491 CONST "1296c3336a96e230" -> "e7e673664c03e3c5"
 test("verify_harness_ca_pins_policy_table_sha256", async () => {
   const ca = (await import(new URL("../scripts/verify-harness.mjs", import.meta.url).href)) as unknown as KataBodies;
   const pin = ca.KATA_POLICY_TABLE_SHA256;
   assert.equal(typeof pin, "string", "the CA exports KATA_POLICY_TABLE_SHA256");
-  const inputs = JSON.parse(readFileSync(fileURLToPath(new URL("../scripts/spec-publish-inputs.json", import.meta.url)), "utf8")) as { releases: Record<string, { entries: Array<{ out: string; root: string; path: string; sha256: string }> }> };
-  const latest = Object.entries(inputs.releases).flatMap(([release, r]) => r.entries.filter((e) => e.out.endsWith("/policy/btc-range-1h.json")).map((e) => ({ release, ...e }))).at(-1);
-  assert.ok(latest !== undefined && latest.root === "governance", "a release publishes btc-range-1h from this repository");
+  const latest = (await tableEntrySelector())(publishInputs(), "btc-range-1h");
+  assert.ok(latest !== undefined, "a release publishes btc-range-1h from this repository");
   assert.equal(pin, latest.sha256, `the written value is the entry of release ${latest.release}`);
   const bytes = readFileSync(fileURLToPath(new URL(`../${latest.path}`, import.meta.url)));
   assert.equal(createHash("sha256").update(bytes).digest("hex"), pin, "the file's sha256");
@@ -604,4 +613,19 @@ test("verify_harness_ca_kata_window_fails_closed_and_waits", { timeout: 300000 }
   } finally {
     for (const s of [front, now, later]) await shut(s);
   }
+});
+
+// (10b) The pin's entry is selected by root and class, not as the latest entry overall: a later dated release published from
+// another root (here a liquidation release of recherches carrying a btc-range-1h table) leaves the selection unchanged.
+// killer: scripts/spec-policy-tables.mjs:225 CONST "e.root === \"governance\" && e.out" -> "e.out"
+test("verify_harness_ca_pin_entry_ignores_a_later_release_of_another_root", async () => {
+  const select = await tableEntrySelector();
+  const inputs = publishInputs();
+  const before = select(inputs, "btc-range-1h");
+  assert.ok(before !== undefined && before.root === "governance", "a release publishes btc-range-1h from this repository");
+  const later: PublishInputs = { releases: { ...inputs.releases, "liq-2026-11-01": { entries: [
+    { out: "liq-2026-11-01/policy/btc-range-1h.json", root: "recherches", path: "liq/policy/btc-range-1h.json", sha256: "0".repeat(64) },
+    { out: "liq-2026-11-01/policy/liq-btc-1h.json", root: "recherches", path: "liq/policy/liq-btc-1h.json", sha256: "1".repeat(64) },
+  ] } } };
+  assert.deepEqual(select(later, "btc-range-1h"), before, "an appended release of another root does not change the selected entry");
 });
