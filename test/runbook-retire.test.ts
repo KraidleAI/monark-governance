@@ -64,7 +64,8 @@ test("runbook_retire_shows_the_closed_latency_input", () => {
 });
 
 // reddened by: the input not said to be UTF-8 without a byte order mark while the report parses the file as read in UTF-8 (a BOM
-// fails JSON.parse, format_invalid), or a PowerShell form of the write that does not turn the BOM off
+// fails JSON.parse, format_invalid), or a PowerShell form of the write that does not turn the BOM off or that resolves a relative
+// name against the process directory, which Set-Location does not change, instead of the current location
 // killer: docs/RUNBOOK-harness.md:423 CONST "(New-Object System.Text.UTF8Encoding $false)" -> "(New-Object System.Text.UTF8Encoding $true)"
 test("runbook_retire_input_is_written_in_utf8_without_a_bom", () => {
   assert.ok(read("scripts", "retire-latency.mjs").includes('JSON.parse(readFileSync(argv[0], "utf8"))'), "the report parses the file as read in UTF-8");
@@ -72,6 +73,7 @@ test("runbook_retire_input_is_written_in_utf8_without_a_bom", () => {
   const text = section().replace(/\s+/g, " "), writes = [...text.matchAll(/`(\[System\.IO\.File\]::WriteAllText\([^`]*)`/g)].map((m) => m[1] ?? "");
   assert.ok(text.includes("UTF-8 without a byte order mark"), "the input is said to be UTF-8 without a byte order mark");
   assert.ok(writes.length > 0 && writes.every((w) => w.includes("(New-Object System.Text.UTF8Encoding $false))")), "the PowerShell write turns the byte order mark off");
+  assert.ok(writes.every((w) => w.startsWith("[System.IO.File]::WriteAllText((Join-Path $PWD ")), "the PowerShell write lands in the current location, where node reads it");
 });
 
 // reddened by: the list directory off RETIRE_DIR, the redo rule off the refusal the writer prints, a command off the usage of its
