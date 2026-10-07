@@ -263,7 +263,7 @@
   - clés exactes **par forme** (amendement du lot 1f) : l'entrée de liste ci-dessus, ou la révocation `{commit, identity, revoked}` ; aucune clé de plus, aucune absente, aucun mélange ;
   - `identity` est une identité : égale à son image par la règle de `policy-guard.ts` l.24, donc en minuscules et sans « @ » ;
   - (lot 1f) paire `(identity, commit)` unique parmi les entrées de liste, en ordre d'ajout, sans tri ; au plus une révocation par entrée, placée après elle ; `revoked` passe le `validDate` de `policy-verifiers.ts` et ne commande rien ; une copie se juge par préfixe ;
-  - `commit` : 40 hex en minuscules ; `tree_sha256` : 64 hex ; `tree` vaut `tools/kata-recalc`.
+  - `commit` : 40 hex en minuscules ; `tree_sha256` : 64 hex ; `tree` vaut `tools/kata-recalc` ; (lot 1f, G2 de #231) le texte lu est l'écriture canonique de ce que le lecteur rend, sinon refus nommé « not the canonical writing of the list ».
 - **Empreinte d'arbre** (`tree_sha256`), pour qu'un relecteur la recalcule :
   1. lire les blobs de l'index ou du commit sous `tools/kata-recalc/`, récursivement, jamais l'arbre de travail. Tout mode
      autre que `100644` est refusé : lien `120000`, gitlink `160000`, exécutable `100755` ;
@@ -285,8 +285,8 @@
   La même règle donne `bca9ee52…` sur l'arbre livré (§2.3).
 - **Séquence** : la liste ne peut pas épingler le commit qui la contient.
   - Elle entre au dernier lot de la partie 1 (1f), après la fusion du lot 1e.
-  - `commit` = le commit de fusion de 1e sur `lot/etude-suite` ; `tree_sha256` = l'empreinte de `tools/kata-recalc/` à ce
-    commit.
+  - `commit` = le commit de fusion du lot « outil figé » sur `lot/etude-suite` (G0 de la partie 3 §5.1 point 1 ; amendement du lot 1f) ;
+    `tree_sha256` = l'empreinte de `tools/kata-recalc/` à ce commit.
   - L'attestation des lignes devient `monark-kata-recalc@<ces 40 hex>`.
   - Toute modification ultérieure de l'outil rougit le test d'arbre (§5) tant qu'un lot, avec sa G2, n'a pas changé la liste
     (Q-V2, point 2).
@@ -316,7 +316,7 @@
 - **Contenu** (format fermé `monark-recompute-report-v1`, canonique, ASCII) :
   - `verifier` = `monark-kata-recalc@<commit>`. `tool` = `{commit, tree, tree_sha256}`, recalculés par l'outil sur son propre
     arbre (règle du §3.2) ;
-  - `registry` = `{file: "wave1.json", sha256: 811fcd57…, generator_identity: "kata/bench/write-p2.ts", cells: 280}`. Seule
+  - `registry` = `{cells: 280, generator_identity: "kata/bench/write-p2.ts", sha256: 811fcd57…}`, sans `file` (N-6 ; le nom d'entrée `wave1.json` est dans `inputs.compare[].name`). Seule
     l'identité du générateur figure, sans révision (constante de `report.py`, source PROVENANCE-wave1 l.8) : le rapport ne
     dépend pas de la réponse à Q-2 ;
   - `inputs` : la liste du crochet, une ligne par fichier lu, `{role, name, sha256, bytes}`, partagée entre `recompute` et
