@@ -201,8 +201,8 @@ test("pinned_list_is_read_lazily_and_an_altered_list_stops_closed - loading the 
 
 // reddened by: the date rule of the list parting from validDate of scripts/spec-publish.mjs on a string or a value, over every day of
 // four years (a leap year among them) and their impossible neighbours; or a specifier other than node:crypto, node:fs and node:url, as
-// importSpecifiers (ts.preProcessFile) lists them, scripts/ or the guard above all; or what forbiddenLoads reads on the syntax tree: an
-// import() of a non-literal, or require, getBuiltinModule, createRequire, eval, Function, constructor or dlopen, named or as a constant string
+// importSpecifiers (ts.preProcessFile) lists them, scripts/ or the guard above all; or what forbiddenLoads reads on the AST: an import() of a
+// non-literal, or require, getBuiltinModule, createRequire, eval, Function, constructor, dlopen or binding, named or as a constant string
 // killer: apps/harness/src/policy-verifiers.ts:39 CONST "/^\\d{4}-\\d{2}-\\d{2}$/" -> "/^\\d{4}-\\d{1,2}-\\d{2}$/"
 test("verifier_list_date_rule_is_the_spec_publish_rule - validDate of policy-verifiers.ts agrees with validDate of scripts/spec-publish.mjs, without importing scripts/", () => {
   const samples: unknown[] = ["2026-10-07", "2024-02-29", "2026-02-29", "1900-02-29", "2000-02-29", "2026-00-10", "2026-13-01", "2026-04-31", "2026-1-01", "26-10-07", " 2026-10-07",
@@ -251,8 +251,8 @@ test("verifier_list_commit_carries_the_listed_tree - each list entry names a com
 // reddened by: a literal specifier left out of importSpecifiers (an import, a side-effect import, an import over several lines, a re-export,
 // export * from, import() or require(), in single quotes, as a template without substitution, or after a comment that follows the keyword)
 // or prose read as one; or a load left out of forbiddenLoads: an import() of a computed specifier (a name, a template with a substitution, E1
-// to E5 of the review), require, getBuiltinModule (E3: by a computed key), createRequire, eval, Function, constructor (R1) or dlopen; or a
-// comment, a string or a literal import() read as a forbidden load
+// to E5 of the review), require, getBuiltinModule (E3: by a computed key), createRequire, eval, Function, constructor (R1), dlopen or
+// binding (process.binding, an internal module of Node); or a comment, a string or a literal import() read as a forbidden load
 // killer: apps/harness/test/helpers/import-specifiers.ts:43 CONST "ts.isStringLiteralLike(n.arguments[0])" -> "true"
 test("import_helper_reads_literal_specifiers_and_refuses_computed_loads - importSpecifiers lists each literal form and no prose; forbiddenLoads names each load that no specifier shows, and no comment, string or literal import()", () => {
   const NOT_LITERAL = "import() of a specifier that is not a literal";
@@ -274,6 +274,7 @@ test("import_helper_reads_literal_specifiers_and_refuses_computed_loads - import
     ["eval and Function", 'eval("1");\nnew Function("return 1")();', ["l.1: eval", "l.2: Function"]],
     ["R1: the constructor of a function", 'export const r1 = () => Reflect.get(Object.getPrototypeOf(async () => {}), "constr" + "uctor")("return imp" + "ort(\'node:path\')")();', ['l.1: "constructor", a constant string']],
     ["dlopen", 'process.dlopen({ exports: {} }, "./x.node");', ["l.1: dlopen"]],
+    ["binding: an internal module of Node with no import, as getBuiltinModule", "process.binding('fs');", ["l.1: binding"]],
   ];
   for (const [what, text, want] of refused) assert.deepEqual(forbiddenLoads(text), want, what);
   const prose = ["// import(n) require( getBuiltinModule", "  /** import(n), require(x), createRequire, eval(), Function() */", "/* getBuiltinModule(x) */", 'const s = "import(n) require( eval(";',
