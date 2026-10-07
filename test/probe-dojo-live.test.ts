@@ -235,6 +235,28 @@ test("dojo_live_probe_refuses_a_report_with_a_detail", async () => {
   assert.deepEqual(await refusedBy({ detail: "timeline.jsonl" }), ["verifier_refused", 0, null, 1]);
 });
 
+// reddened by: a success report taken as healthy whatever its ok field, when its status, trust root and detail hold
+// killer: scripts/probe-dojo-live.mjs:191 CONST "r.ok === true && " -> ""
+test("dojo_live_probe_refuses_a_report_not_ok", async () => {
+  assert.deepEqual(await refusedBy({ ok: false }), ["verifier_refused", 0, null, 1]);
+});
+
+// reddened by: a success report taken as healthy off the closed keys of the verifier's report (a key added)
+// killer: scripts/probe-dojo-live.mjs:190 CONST "Object.keys(r).sort().join() === [...DOJO_VERIFY_REPORT_KEYS].sort().join()" -> "true"
+test("dojo_live_probe_refuses_a_report_off_its_closed_keys", async () => {
+  assert.deepEqual(await refusedBy({ extra: null }), ["verifier_refused", 0, null, 1]);
+});
+
+// reddened by: a verifier stdout past MAX_LINE_BYTES read whole (the child's maxBuffer widened)
+// killer: scripts/probe-dojo-live.mjs:184 CONST "maxBuffer: VERIFY_BOUNDS.MAX_LINE_BYTES" -> "maxBuffer: 4 * VERIFY_BOUNDS.MAX_LINE_BYTES"
+test("dojo_live_probe_bounds_the_verifier_stdout", async () => {
+  const r = { ...Object.fromEntries(DOJO_VERIFY_REPORT_KEYS.map((k) => [k, null])), ok: true, status: "consistent_with_supplied_keyring",
+    trust_root: "supplied_keyring", timeline_sha256: sha(tl(NEW)) };
+  const line = `${JSON.stringify(r)}${" ".repeat(VERIFY_BOUNDS.MAX_LINE_BYTES)}\n`;
+  const out = await probeOn({ opts: { verifier: file("big.mjs", `process.stdout.write(${JSON.stringify(line)});\n`) } });
+  assert.deepEqual([out.state.reason, out.state.verifier_exit, out.exitCode], ["verifier_refused", null, 1]);
+});
+
 // ---- the committed units ----------------------------------------------------------------------------------------------------------
 interface Directive { section: string; key: string; value: string }
 /** A systemd unit's directives in order, comments and blank lines dropped. */
