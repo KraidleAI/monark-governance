@@ -56,7 +56,8 @@
 ## 1. Dettes : limites sans item, sans porteur ou sans déclencheur
 
 - Aucune dette, après le pli de la G2 (porteur de N14, constat 02 ; repli daté de NARABI-L-2, constat 04) : chaque entrée ouverte des §2, §3 et §5 porte un
-  item, un porteur et un déclencheur atteignable ; le contrôle est mécanique (§7, doute 15).
+  item, un porteur et un déclencheur atteignable ; le contrôle est mécanique (§7, doute 15). Sauf N15 : le déclencheur d'ETAT de son item,
+  HOST-HARNESS-PREV-1, est passé à T0 ; la dette est comptée une fois, au registre du Harnais (§1, PX-Harness-22).
 - **Question à MONARK** (G2, constats 04 et 05 ; §7, doutes 5 et 16) : PXC-04 n'a aucune tâche au TABLEAU de la boîte (`grep -c PXC-04` = 0, à `150c997` et à
   `8b4006a`). (a) Sa partie 1 porte NARABI-L-2, échéance 2026-10-18 (M012 l.253 ; L4, L21, N07, N12) : l'attribuer, déployable avant cette date (PLAN §4.2), ou
   écrire avant le 2026-10-18 sa ligne d'attente datée P-25 (PLAN l.529, l.574). (b) Son ADR fixe la partie de L1, L2, L3, L22, L34, N10 et N11 : l'attribuer.
@@ -355,7 +356,8 @@ celle de L15.
 - **N15** · « Hôte du site : fichiers hors dépôt dans l'arbre servi, trois arbres anciens et huit sauvegardes gardés. »
   source : ETAT l.1464-1473 · touche : aucune · nature : C
   item : HOST-HARNESS-PREV-1 (ETAT l.1464-1473) ; PXC-05 SERVED-CONTROL-1, partie 3 (acte) · porteur : MONARK (acte d'hôte ; orchestrateur, propriétaire par
-    défaut, ETAT l.1379-1380) ; le fondateur (accord de suppression) · déclencheur : le prochain déploiement du harnais (ETAT l.1469)
+    défaut, ETAT l.1379-1380) ; le fondateur (accord de suppression) · déclencheur : le prochain déploiement du harnais (ETAT l.1469),
+    passé à T0 sans acte consigné (dette comptée au registre du Harnais, §1) ; proposé : partie 3 de PXC-05 (F3)
   état : ouvert · suite : l'arbre renommé du 2026-10-04 ne se retire qu'après le prochain redémarrage du harnais (ETAT l.1471-1473)
 - **N16** · « La capture du site date du 2026-09-24 ; le test de composition tourne sur elle. »
   source : `apps/site/data/narabi-capture.json` (`captured_at` 2026-09-24) ; `test/narabi-live.test.ts:184` · touche : page `/narabi` ;
@@ -508,8 +510,8 @@ Harnais et cité ici en suite de N11.
 
 **Ligne PAROXYSME (2026-10-07).** Narabi : 52 limites ouvertes ou changées (dont 1 ⚑B : L15) et 7 closes. Limites neuves à ETAT : 2 ici (§5 ; NRT-01 est la même
 limite que N01). Décision du fondateur entrée datée : Q-A.2 (L15), pas encore à ETAT : sa ligne est à MONARK, avec celle de la fusion (§7, doute 10). Échéance :
-NARABI-L-2 le 2026-10-18, toujours absent d'ETAT, partie 1 non attribuée (question à MONARK, §1). Aucune dette : chaque entrée ouverte a son item, son porteur
-et son déclencheur.
+NARABI-L-2 le 2026-10-18, toujours absent d'ETAT, partie 1 non attribuée (question à MONARK, §1). Aucune dette propre : chaque entrée ouverte a son item,
+son porteur et son déclencheur ; celui de N15 est passé à T0, dette comptée au registre du Harnais (§1).
 
 | Source | Lignes | sha256 |
 |---|---|---|

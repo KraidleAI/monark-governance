@@ -52,6 +52,10 @@
 - **Une dette de déclencheur, constatée par la G2** : PX-Harness-28. Son item, LOOPBACK-GUARD-RUNTIME-1, a pour seul déclencheur « après
   CM-3c » (ETAT l.485), atteint (C′ 3c-4a et 3c-4b fusionnés, ETAT l.103-104) sans acte. Une re-formation datée est demandée à MONARK
   (porteur inchangé, RECHERCHES), avec un déclencheur proposé à l'entrée ; jusque-là, elle est comptée ici comme dette.
+- **Deux dettes de déclencheur, dites par PX-Harness-22** : HOST-REDEPLOY-GUARD-1 (« avant le prochain redéploiement de l'hôte », ETAT
+  l.1261) et HOST-HARNESS-PREV-1 (« le prochain déploiement du harnais », ETAT l.1469), atteints par l'acte 1 de T0, le 2026-10-06 à
+  05:42 UTC (`docs/JOURNAL-PROVENANCE.md:445`), sans acte consigné au tronc ; porteur MONARK. Comptées ici jusqu'à leur re-formation
+  datée, ou jusqu'au relevé de l'acte sur l'hôte par MONARK ; déclencheurs proposés à l'entrée (§7, doute 9).
 - Toutes les autres entrées ouvertes des §2, §3 et §5 portent un item, un porteur et un déclencheur atteignable ; le contrôle est
   mécanique (§7, doute 5).
 
@@ -211,7 +215,8 @@
     écrite (PLAN l.478-480) ; HOST-HARNESS-PREV-1 (l.1464-1473) : acte de PXC-05 partie 3 (PLAN l.589-590) ; SITE-SEND-PRUNE-1 (l.902-905) ·
     porteur : MONARK (items d'ETAT, actes d'hôte) ; le fondateur (toute suppression) ; PAROXYSME (parties de PXC-05) · déclencheur :
     REDEPLOY : PXC-05 p1 avant le SHA nommé d'E-2a (F1-F2), p2 (F2-F3) ; PREV : PXC-05 p3 (F3) ; PRUNE : PXC-05 p3 (F3), proposé
-  état : ouvert · suite : les déclencheurs écrits à ETAT pour REDEPLOY (l.1261) et PREV (l.1469) sont passés à T0
+  état : ouvert, **dette de déclencheur** pour REDEPLOY et PREV (§1) · suite : les déclencheurs écrits à ETAT pour REDEPLOY (l.1261)
+    et PREV (l.1469) sont passés à T0
     (`docs/JOURNAL-PROVENANCE.md:445` ; PLAN l.478) ; SITE-SEND-PRUNE-1 n'en a pas à ETAT : déclencheur proposé à MONARK (§7, doute 9)
 - **PX-Harness-23** · « Aucun audit planifié des dépendances de l'arbre servi ; l'audit ne tourne qu'en CI de PR. »
   source : `.github/workflows/ci.yml:18-19`, `:243-244` ; `apps/harness/package.json:12` (SDK 2.0.0 épinglé) · touche : `SECURITY.md:27-30` ·
@@ -629,8 +634,9 @@ du Dōjō : registre Narabi. Les sept autres sont ici.
 ## 8. Ligne PAROXYSME et sources
 
 **Ligne PAROXYSME (2026-10-07).** Harnais : 28 limites ouvertes (dont 2 ⚑B : PX-Harness-04, -26) et 18 closes. Moteur : 40 limites
-ouvertes et 13 closes. Limites neuves à ETAT : 7 ici (§5). Une dette de déclencheur : PX-Harness-28 (§1), re-formation demandée à MONARK ;
-toutes les autres entrées ouvertes ont un item, un porteur et un déclencheur atteignable.
+ouvertes et 13 closes. Limites neuves à ETAT : 7 ici (§5). Trois dettes de déclencheur (§1) : PX-Harness-28 ; HOST-REDEPLOY-GUARD-1 et
+HOST-HARNESS-PREV-1 (PX-Harness-22) ; re-formation demandée à MONARK ; toutes les autres entrées ouvertes ont un item, un porteur et un
+déclencheur atteignable.
 
 Fichiers du tronc cités, à `87b821b0` (lignes, sha256) :
 
