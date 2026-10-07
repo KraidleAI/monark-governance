@@ -167,3 +167,44 @@ Le tueur du test (9) passe de l.542 à l.543 (une ligne de commentaire de `kataW
 - Tests : `verify-harness-liq` (19), `surfaces-1-1-0`, `site-ukemi`, `harness-served`, `runbook-retire`, `export-public`,
   `release-public-flow`, `site-send-guard`, `export-hygiene`, `apps/harness` `policy-guard` et `kata-path` : 139 verts, 0 rouge.
   `tsc --noEmit`, eslint, `lang:gate`, `gate:vocab`, `lint:ratchet` (69/69) verts ; winlint : aucun risque Windows.
+
+## 9. Pli de la G2 delta de #225 (4 m ; MONARK `6a5584a`, 2026-10-07)
+
+Tronc `lot/etude-suite` @ `9090da6d` fusionné dans la branche (commit de fusion `58c5e4c9`, sans réécriture) ; pli au commit
+`d06fbf3b`, ancres à cette tête. `scripts/verify-harness.mjs` garde ses 578 lignes : trois lignes changées en place (l.473-474
+et l.547) ; le bloc figé l.449-471 et les ancres des tueurs (l.482 à l.565) ne bougent pas.
+
+| Constat | Pli | Où |
+|---|---|---|
+| m n°1 : le premier détail de `kata_window_not_reached` nommait l'ouverture de la fenêtre comme un instant de grille, avec des millisecondes | ligne corrigée en place : `next = Math.ceil(clock.now() / KATA_GRID_MS) * KATA_GRID_MS`, puis « the next grid instant is …; its window opens in N s ». (11) épingle le détail exact des deux courses hors fenêtre (sans option, puis `--kata-wait-max 2700`) : « … the next grid instant is 2026-10-07T13:00:00Z; its window opens in 2775 s (--kata-wait-max null) clock=test ». Rouge par assertion avant la correction (« the next is 2026-10-07T12:56:15.001Z, in 2775 s »), vert après | `verify-harness.mjs:547` ; `test/verify-harness-liq.test.ts:606-609` |
+| m n°2 : `res.status === 200` sans vecteur seul ; `v !== null` de même | (16) : « status 203, the body unchanged » rend `gate_kata_call` seul rouge, (2) reste vert (le verdict est lu quel que soit le statut) ; « 200 without structuredContent » rend (1) et (2) rouges avec un enregistrement (assertion `r.stdout !== ""` avant la lecture). `kataFront` reçoit un statut de remplacement optionnel (quatrième argument, lu à chaque réponse de l'appel kata) | `test/verify-harness-liq.test.ts:559-572` (`kataFront`), `:691-722` (16) |
+| m n°3 : la moitié chargeur décrite de deux façons ; porteur contraire à `51fe3ee` | la ligne datée de l'en-tête amende l'en-tête l.9-10, le §5 et le §8 ; `verify-harness.mjs` l.473-474 réécrites en place (deux lignes) ; la fin de `RUNBOOK-harness.md` nomme les deux moitiés. `policy-classes.ts` ne change pas : la PR #236 (lot a1, empilée sur #233) ajoute le même bloc de 11 lignes, dont le commentaire l.54-55 décrit déjà le lecteur servi | en-tête ; `verify-harness.mjs:473-474` ; `RUNBOOK-harness.md:456-461` |
+| m n°4 : l'acte 2 muet sur la fenêtre | la commande porte `--kata-wait-max 3150` ; une phrase en prose, sans span de code (attente jusqu'à 52 min 30 s au plus, renvoi à RUNBOOK-harness §6) ; l'acte reste une seule ligne ; la constante `ca` du test suit | `RUNBOOK-vitrine.md:43` ; `test/surfaces-1-1-0.test.ts:238` |
+
+**Mutants** (copie isolée, `test/verify-harness-liq.test.ts` entier, restauration contrôlée par sha256 ; témoin sans mutation :
+19 sur 19 verts) :
+- les deux survivants de la G2 delta sont tués par (16) seul, chacun sur son vecteur : X-status (`res.status === 200 &&`
+  retiré) sur « status 203 » ; X-vnull (`v !== null &&` retiré) sur « 200 without structuredContent », message « a record is
+  printed (stderr: verify-harness crashed: Cannot read properties of null (reading 'action')) » ;
+- le statut affaibli (`>= 200`, `< 300`) : tués par (16) ;
+- l.547 : `Math.round` ou `Math.floor` au lieu de `Math.ceil`, `grid(next - KATA_WINDOW_MS)`, l'ancien texte, `Math.floor` sur
+  l'attente : tués par (11) ; le retrait du tag de `failBoth` (survivant de la G2 delta) est désormais tué par (11) ;
+- équivalence : `if (v !== null) verdict = v;` → `verdict = v;` survit et est équivalent (un seul appel ; `verdict` part de
+  `null`) ; `<=` → `<` à l.530 survit : la frontière à la milliseconde déjà notée par la G2 delta, qu'un cas pur
+  `kataWindow(g − 226 000, 1)` tuerait ; non plié, hors des décisions de `6a5584a`.
+
+**Mesures (Node 24.21.0)** :
+- R-25 (pathspec de `ci.yml:100`, contre `9090da6d`) : 10 fichiers, +476 −36 = 512 ≤ 547.
+- red-proof : `node scripts/red-proof.mjs --base 9090da6d --gel <wt> --repo <wt> --out <dir> --draw 24 --seed 20261007` :
+  `red-proof OK`, 19 jugés (tous F2P, dont `srf_runbook_vitrine_t0_order`, jugé pour la première fois), 64 inchangés, 19
+  tueurs tirés (tous ceux des tests admis), 19 tués ; `RED-PROOF.json` sha256 `37364efd…`.
+- Tests (drapeaux de `test:main`) : les fichiers touchés et leurs voisins, 20 fichiers (`verify-harness-liq`, `surfaces-1-1-0`,
+  `site-ukemi`, `harness-served`, `runbook-retire`, `site-send-guard`, `export-public`, `release-public-flow`, `export-hygiene`,
+  `apps/harness` `policy-guard` et `kata-path`, et les tests qui lisent `docs/` : `ci-gates`, `journal-index`, `mission-gen`,
+  `mission-lint`, `oracle-run`, `public-text-deny`, `r25-integration`, `site-docs`, `red-proof`) : 460 tests, 457 verts,
+  0 rouge, 3 sautés (corpus d'hôte `F:/tmp` absent).
+- `tsc --noEmit` exit 0 ; eslint 0 erreur (2 avertissements : deux `.mjs` ignorés par la configuration) ; `lang:gate`,
+  `gate:vocab` (348 fichiers), `lint:ratchet` (69/69) et `export:check` verts ; winlint `--base 9090da6d` : 13 fichiers, aucun
+  risque Windows.
+- Texte figé (iii) : 2 141 octets, sha256 `ee274e55…cbb147`, égal à l'octet dans les quatre lieux (R4 `bbd6f59` l.161-165,
+  RUNBOOK l.441-449, commentaire du script l.449-471 désenroulé, épingle du test (9)).
