@@ -8,15 +8,18 @@
 - **Provenance** : écrit par PAROXYSME (worker `claude-opus-5-5`, effort max) le 2026-10-07 à partir de 17:28 UTC, tâche 1 du tableau
   MONARK ↔ PAROXYSME. Sources : l'inventaire validé de Bell (dossier d'étude du 2026-10-06), la couverture de `CHANTIERS-CANDIDATS.md` §4
   et les fenêtres du plan v3 §4 (chemins et empreintes au §8). Relecture : une G2 par une instance neuve ; contrôle par diff, fusion et
-  ligne d'ETAT : MONARK.
+  ligne d'ETAT : MONARK. Versé au tronc par #242, fusion `1df4e44f` (ETAT l.181-186 à `5437cd0d`) ; décisions de MONARK pliées le
+  2026-10-07 (PR `paroxysme/registres-decisions-1007`), par PAROXYSME (worker `claude-opus-5-5`, effort max).
 - **Bases** : inventaire mesuré à `d8fe354c`, ETAT lu à `57a131fc`. Toutes les ancres de ce registre sont à la tête `87b821b0` de
-  `lot/etude-suite`. Elles sont reportées par l'outil `reanchor.mjs` (pièce de la boîte PAROXYSME), puis relues à la tête par lecture
-  bornée (`git show 87b821b0:<fichier> | awk 'NR>=a && NR<=b'`, avec le nombre de lignes du fichier) : la version du commit `d2332e2` ne
-  vérifiait pas qu'une ligne existe ; la version corrigée (commit `a55a62d`) refuse une ligne hors du fichier, et aucune ancre de ce
-  registre ne l'est. Hors d'ETAT, chaque ancre de l'inventaire et chaque ancre ajoutée ici garde son numéro et son texte
-  (`unchanged-file`, sauf `same` pour `docs/RUNBOOK-dojo.md` l.1-5, `docs/adr/ADR-CM-chantier-moteur-audit-P3.md` l.57, l.131 et
-  `docs/JOURNAL-PROVENANCE.md` l.398, l.412) ; les 11 plages d'ETAT citées par l'inventaire gardent leur texte, 7 changent de numéro (§7,
-  doute 2).
+  `lot/etude-suite`, sauf celles du pli des décisions (fin de ce point). Elles sont reportées par l'outil `reanchor.mjs` (pièce de la
+  boîte PAROXYSME), puis relues à la tête par lecture bornée (`git show 87b821b0:<fichier> | awk 'NR>=a && NR<=b'`, avec le nombre de
+  lignes du fichier) : la version du commit `d2332e2` ne vérifiait pas qu'une ligne existe ; la version corrigée (commit `a55a62d`)
+  refuse une ligne hors du fichier, et aucune ancre de ce registre ne l'est. Hors d'ETAT, chaque ancre de l'inventaire et chaque ancre
+  ajoutée ici garde son numéro et son texte (`unchanged-file`, sauf `same` pour `docs/RUNBOOK-dojo.md` l.1-5,
+  `docs/adr/ADR-CM-chantier-moteur-audit-P3.md` l.57, l.131 et `docs/JOURNAL-PROVENANCE.md` l.398, l.412) ; les 11 plages d'ETAT citées
+  par l'inventaire gardent leur texte, 7 changent de numéro (§7, doute 2). Les ancres du pli des décisions s'écrivent « ETAT l.N à
+  `5437cd0d` » ou « MSG l.N » ; MSG est le message de MONARK `d6331f6` (boîte PAROXYSME,
+  `coordination/messages/2026-10-07-MONARK-vers-PAROXYSME-tache1-fusionnee-decisions.md` ; §8).
 - **Préséance** : `docs/ETAT.md` l.7-11 ; ETAT prime. Un item nommé hors d'ETAT et du code n'est pas compté comme formé : il est écrit
   « à former » (« à re-former » s'il est écrit hors d'ETAT, dans un ADR, un RUNBOOK, un FAITS ou un rapport de gate, ou dans le registre
   effacé) et porté par son chantier.
@@ -61,29 +64,13 @@
 
 ## 1. Dettes : limites sans item, sans porteur ou sans déclencheur
 
-- **Une dette de déclencheur, reconnue par MONARK** (message `7041de4` de la boîte, l.11 : « la dette est la mienne ») : N-01. Le
-  déclencheur que l'inventaire proposait à BELL-HOST-COTENANCY-1, « avant la publication seq 3 ou le prochain redéploiement d'une unité de
-  l'hôte » (INV-B l.169), est passé le 2026-10-07 entre 17:4x et 17:5x UTC : la sonde du Dōjō a été déployée sur l'hôte de Bell, sous
-  l'autorisation Q-20 du fondateur, sans le volet (b) (l.6-13). MONARK a décidé la suite (l.15-24) : un lot porté par RECHERCHES, (b)
-  `InaccessiblePaths` vers le répertoire de la clé de Bell sur `monark-dojo-collect`, `monark-dojo-publish`, `monark-dojo-probe` et
-  `monark-probe`, avec un test racine sur les unités committées, rouge d'abord, et (a) la phrase « dedicated host » bornée aux deux
-  endroits de l'item (METHOD l.423, PAGE l.616) ; puis le redéploiement des unités sous Q-20 par MONARK, avec le relevé
-  `systemctl show -p InaccessiblePaths` de chacune ; déclencheur : avant la publication seq 3 de Bell, au plus tard le 2026-10-09 à
-  23:59 UTC. La dette est comptée ici jusqu'à la ligne d'ETAT de MONARK. Questions à MONARK : (1) le porteur et le déclencheur de la note
-  de recherche (c) sur la séparation d'hôte, que le message ne donne pas (l.24 : la dépense est un acte du fondateur, que MONARK lui
-  portera avec la note) ; proposés : MONARK, propriétaire que l'inventaire propose (INV-B l.167), avant la publication seq 3 de Bell ;
-  (2) (a) touche les pages de Bell et (b) son hôte avant le 2026-11-16 : sous D-5 (§0), la décision du fondateur qui les couvre est à
-  nommer (Q-20 couvre le redéploiement, l.22) ; (3) N-01 touche aussi FLEET l.352 et l.361 (« on its own host »), que (a) ne nomme pas
-  (INV-B l.169 ; CC l.127-128) : à rattacher à (a) ou au noyau de PXC-02, ou à juger vrai.
-- **Déclencheur passé, re-porté, à confirmer par MONARK** (constat bloquant de la G2) : L-37. Le déclencheur de C-1b-1 et C-1b-2
-  (« prochaine modification de `apps/bell/test/rebase-crosscheck.test.ts` ») est atteint par `b9186e47` le 2026-09-27, sans C-1b-1 ni
-  C-1b-2 ; il est re-porté par PXC-14 p2 (F4, sous D-5) et PXC-01 p2 (F3), à confirmer par MONARK. Même cas, dit à leur entrée et au §7,
-  doute 10 : N-13 (déclencheur d'ETAT passé, re-porté par le ruling de PXC-05 p3) ; N-04 et L-22 (déclencheurs de documentation franchis
-  pour CARTO-BR-1 et I-G2-5, re-portés par PXC-01 p2 et leur chantier). Sans confirmation de MONARK, chacune devient une dette de
-  déclencheur, comptée ici.
-- Toutes les autres entrées ouvertes des §2 et §3 portent un item, un porteur et un déclencheur atteignable (§5 : aucune entrée). Les huit
-  limites que l'inventaire disait sans aucun item (N-01, N-02, N-07, N-08, N-09, N-10, N-11, L-36) en reçoivent un ici, par leur chantier
-  ou, pour N-01, par la décision de MONARK.
+- **Aucune dette ouverte** (décisions de MONARK du 2026-10-07, pliées). La dette de déclencheur de N-01, que MONARK reconnaissait
+  (message `7041de4` de la boîte, l.11), est re-formée : BELL-HOST-COTENANCY-1 est formé à ETAT avec ses porteurs et ses déclencheurs, et
+  les trois questions qu'elle posait sont tranchées (ETAT l.223-230 à `5437cd0d` ; MSG l.39-41). Les re-ports des déclencheurs passés de
+  L-37, N-13 et N-04 sont confirmés, et L-22 reçoit un nouveau déclencheur (ETAT l.257-259 à `5437cd0d`). Le détail est à leurs entrées.
+- Toutes les entrées ouvertes des §2 et §3 portent un item, un porteur et un déclencheur atteignable (§5 : aucune entrée). Les huit
+  limites que l'inventaire disait sans aucun item (N-01, N-02, N-07, N-08, N-09, N-10, N-11, L-36) en reçoivent un ici, par leur chantier,
+  par l'item que MONARK a formé à ETAT pour N-01, ou par le versement pour N-11, close (§4).
 
 ## 2. Limites de la fiche et du registre du 27/09 : ouvertes ou changées (42, INV-B §4 ; L-38 close, §4)
 
@@ -164,7 +151,7 @@
   source : METHOD l.590-594 ; `test/bell-served.test.ts:127` · touche : METHOD l.592 · nature : D
   item : PXC-17 DOMAINE-PX-2, partie 3 (univers de Bell ; palier 2, `docs/ROADMAP-BELL.md:11`, et décision 82 effacée : à re-former)
     · porteur : PAROXYSME ; le fondateur (périmètre, PLAN §7.3 l.894) · déclencheur : partie 3 de PXC-17 (F5)
-  état : ouvert · suite : ligne d'attente datée au versement ; aucun chantier Bell au plan du mois (ETAT l.14-23)
+  état : ouvert · suite : ligne d'attente datée (P-25) : ETAT l.270-273 à `5437cd0d` ; aucun chantier Bell au plan du mois (ETAT l.14-23)
 - **L-15** · « « assesses compliance with no condition of any order » : doctrine sans force, question Q1 jamais tranchée. »
   source : METHOD l.598 · touche : METHOD l.598 · nature : Dr
   item : PXC-18 partie 1 (avis du juriste ; PX-Bell-11 du 27/09, à re-former) ; décision Q1 en partie 2 · porteur : PAROXYSME (dossier) ;
@@ -191,29 +178,34 @@
   source : PAGE l.185-191 · touche : PAGE l.185-191 · nature : D
   item : PXC-17 partie 3 (univers élargi ; décision 82 et fixture DST, à re-former) · porteur : PAROXYSME ; le fondateur (périmètre)
     · déclencheur : partie 3 de PXC-17 (F5)
-  état : ouvert · suite : ligne d'attente datée au versement ; portée avec L-14 (INV-B l.96, l.209) ; compte servi non relu (§7, doute 11)
+  état : ouvert · suite : ligne d'attente datée (P-25) : ETAT l.270-273 à `5437cd0d` ; portée avec L-14 (INV-B l.96, l.209) ; compte
+    servi non relu (§7, doute 11)
 - **L-20** · « Classe d'écart hors séance : aucune garantie hors échangeabilité ; week-end `under_calib` jusque vers mi-2027. »
   source : B0 l.105 ; `README.md:34` ; 0005 l.120 ; 0006 l.25 · touche : `README.md:34`, `:42` · nature : T
   item : PXC-17 partie 3 (classe propre, ADR R-6, après la vague 2 ; PX-Bell-9 du 27/09, à re-former) · porteur : PAROXYSME ; MONARK
     (décision D-12, INV-B l.208 : tenir la substitution de PXP-01 par la décision 277, ou reformer la demande, INV-B l.191) · déclencheur :
     partie 3 de PXC-17 (F5) ; D-12 : celui de PX-STD-PROC-READ-1, au plus tard en §4.3 (F3 ; PXP-01 parmi les reçus non lus, PLAN l.869, l.904-906)
   état : changé (INV-B §3.2 : route définie par le contrat 1.1.0, non programmée ; à la tête, 35 tables de politique, aucune pour Bell)
-    · suite : ligne d'attente datée au versement ; décision 277 hors du tronc (§7, doute 6)
+    · suite : ligne d'attente datée (P-25) : ETAT l.270-273 à `5437cd0d` ; décision 277 hors du tronc (§7, doute 6)
 - **L-21** · « bStocks hors v1 ; l'« item formé » n'a pas d'identifiant. »
   source : B0 l.105, l.14 · touche : aucune · nature : D
   item : PXC-17 partie 3 (univers ; PX-Bell-13 du 27/09, à re-former) · porteur : PAROXYSME ; lecture sur place NT-09 (prospectus) :
     MONARK · déclencheur : partie 3 de PXC-17 (F5)
-  état : ouvert · suite : ligne d'attente datée au versement
+  état : ouvert · suite : ligne d'attente datée (P-25) : ETAT l.270-273 à `5437cd0d`
 - **L-22** · « Que `v` soit le volume consolidé du SIP n'est pas établi. »
   source : B0 l.241-242 ; `apps/bell/src/volume.ts:13` · touche : METHOD l.563 · nature : D
-  item : I-G2-5 (B0 l.296, absent d'ETAT : à re-former, PXC-01 partie 2) ; PXC-14 partie 2 · porteur : PAROXYSME ; lecture sur place :
-    MONARK · déclencheur : partie 2 de PXC-01 (F3) ; partie 2 de PXC-14 (F4, sous D-5)
-  état : ouvert · suite : la page dit « consolidated daily share volumes » (METHOD l.563)
+  item : I-G2-5 (B0 l.296 ; ETAT n'en écrit que le déclencheur, l.258-259 à `5437cd0d` : à re-former, PXC-01 partie 2) ; PXC-14 partie 2
+    · porteur : PAROXYSME ; lecture sur place : MONARK · déclencheur : le premier de deux, la prochaine modification du texte de
+    `/bell/method` ou la publication seq 3 (ETAT l.258-259 à `5437cd0d`) ; re-formation : partie 2 de PXC-01 (F3) ; partie 2 de PXC-14
+    (F4, sous D-5)
+  état : ouvert · suite : la page dit « consolidated daily share volumes » (METHOD l.563) ; le déclencheur de B0 l.296 est franchi (§7,
+    doute 10)
 - **L-23** · « Le début de la journée SIP est supposé à 04:00 ET. »
   source : B0 l.200-201 · touche : aucune · nature : D/Dr
   item : ADV-SIP-DAY-1 (B0 l.297, absent d'ETAT : à re-former, PXC-01 partie 2) ; PXC-14 partie 2 · porteur : PAROXYSME ; lecture sur
     place des plans CTA et UTP : MONARK · déclencheur : partie 2 de PXC-01 (F3) ; partie 2 de PXC-14 (F4, sous D-5)
-  état : ouvert · suite : aucune
+  état : ouvert · suite : son déclencheur (B0 l.297, « avant que `/bell/method` énonce la règle du jour ») est peut-être franchi, non
+    jugé ici : un constat dans PXC-01 partie 2, que MONARK tranche sur pièce (MSG l.83-84)
 - **L-24** · « Un split pendant la période ADV n'est pas détecté. »
   source : B0 l.298 · touche : aucune · nature : D
   item : ADV-SPLIT-1 (B0 l.298, absent d'ETAT : à re-former, PXC-01 partie 2) ; PXC-14 partie 2 · porteur : PAROXYSME · déclencheur :
@@ -259,21 +251,21 @@
   état : ouvert · suite : prérequis de N-07 et N-08 ; partie non nommée par la fiche (§7, doute 9)
 - **L-32** · « La politique de rotation de la clé est « to be published ». »
   source : METHOD l.432 ; RB l.576 · touche : METHOD l.432 · nature : C
-  item : BELL-KEY-ROTATION-CAL-1 (RB l.576, absent d'ETAT : à re-former, PXC-01 partie 2) ; PXC-14 partie 3 (rotation et politique
-    publiée) · porteur : le fondateur, par MONARK (rotation : clés) ; PAROXYSME (texte de la politique) · déclencheur : avant le
-    2026-12-22 (RB l.576 ; PLAN §4.4 l.612-613), sous D-5 ; re-formation : partie 2 de PXC-01 (F3)
+  item : BELL-KEY-ROTATION-CAL-1 (RB l.576 ; formé à ETAT l.245-247 à `5437cd0d` par BELL-ITEMS-ETAT-CARRY-1, l.235-238, prix à chiffrer à son G0) ; PXC-14
+    partie 3 (rotation et politique publiée) · porteur : le fondateur, par MONARK (rotation : clés) ; PAROXYSME (texte de la politique, PXC-14 p3) ·
+    déclencheur : le 2026-12-22, ou un événement d'exposition s'il vient avant (ETAT l.246-247 à `5437cd0d`), sous D-5
   état : ouvert · suite : même échéance que DJ-L31 du registre Dōjō (§6) ; placement de PXC-14 (§7, doute 4)
 - **L-33** · « Entité légale, licence et droit applicable sont « to be decided ». »
   source : TERMS l.55, l.95, l.188 · touche : TERMS l.55, l.95, l.188 · nature : Dr
-  item : JURISTE-ACTE-NOV-1 (RB l.55, absent d'ETAT : à re-former, PXC-01 partie 2) ; PXC-18 partie 1 (PLAN §4.3 l.601) · porteur : le
-    fondateur, par MONARK (juriste) ; PAROXYSME (dossier) · déclencheur : novembre 2026 (RB l.55 ; PLAN §7.3 l.893) ; partie 1 de PXC-18
-    (F3) ; re-formation : partie 2 de PXC-01 (F3)
+  item : JURISTE-ACTE-NOV-1 (RB l.55 ; formé à ETAT l.252-253 à `5437cd0d` par BELL-ITEMS-ETAT-CARRY-1, l.235-238, prix à chiffrer à son G0) ; PXC-18 partie 1
+    (PLAN §4.3 l.601) · porteur : le fondateur, par MONARK (juriste) ; PAROXYSME (dossier, PXC-18 p1) · déclencheur : novembre 2026 (ETAT l.253 à
+    `5437cd0d`) ; partie 1 de PXC-18 (F3)
   état : ouvert · suite : le texte des Terms suit l'acte (INV-B l.110)
 - **L-34** · « L'acheteur n'est pas démontré. »
   source : B0 l.105 · touche : aucune · nature : D
   item : PXC-17 partie 3 (portée et marché ; lot GTM séparé, `docs/GTM-BELL.md:5`, absent d'ETAT : à re-former) · porteur : PAROXYSME
     · déclencheur : partie 3 de PXC-17 (F5)
-  état : ouvert · suite : ligne d'attente datée au versement ; partie non nommée par la fiche (§7, doute 9)
+  état : ouvert · suite : ligne d'attente datée (P-25) : ETAT l.270-273 à `5437cd0d` ; partie non nommée par la fiche (§7, doute 9)
 - **L-35** · « Le statut FINRA de Securitize est un [2nd] non confirmé. »
   source : `docs/GTM-BELL.md:34` · touche : aucune · nature : D
   item : PR-GTM-10 (`docs/GTM-BELL.md:157`, absent d'ETAT : à re-former, PXC-01 partie 2) ; PXC-17 partie 1 (campagne D2-D4) · porteur :
@@ -287,23 +279,25 @@
   état : ouvert · suite : sans aucun item à l'inventaire (INV-B l.113)
 - **L-37** · « La forme sans attente du retry infini (mutant X02) pend au lieu de rougir. »
   source : T1AII l.536 ; `docs/G2-lot-bell-shortpage-1-1b.md:50-55` · touche : aucune · nature : C
-  item : C-1b-1, C-1b-2 (rapport de gate l.50-55, absents d'ETAT : à re-former, PXC-01 partie 2) ; PXC-14 partie 2 · porteur : PAROXYSME
-    · déclencheur : celui du rapport (l.54, « prochaine modification de `apps/bell/test/rebase-crosscheck.test.ts` »), passé ;
-    re-formation : partie 2 de PXC-01 (F3) ; au plus tard partie 2 de PXC-14 (F4, sous D-5)
-  état : ouvert (déclencheur passé : `b9186e47`, 2026-09-27 20:29 UTC, change ce test sans C-1b-1 ni C-1b-2 ; §1 ; §7, doute 10)
-    · suite : tests seulement, code de production juste (rapport l.50-53) ; partie non nommée par la fiche (§7, doute 9)
+  item : C-1b-1, C-1b-2 (rapport de gate l.50-55 ; ETAT n'en écrit que le re-port, l.257 à `5437cd0d` : à re-former, PXC-01 partie 2) ;
+    PXC-14 partie 2 · porteur : PAROXYSME · déclencheur : celui du rapport (l.54, « prochaine modification de
+    `apps/bell/test/rebase-crosscheck.test.ts` »), passé, re-porté par PXC-14 p2 et PXC-01 p2 (ETAT l.257 à `5437cd0d`) : re-formation :
+    partie 2 de PXC-01 (F3) ; au plus tard partie 2 de PXC-14 (F4, sous D-5)
+  état : ouvert (déclencheur passé : `b9186e47`, 2026-09-27 20:29 UTC, change ce test sans C-1b-1 ni C-1b-2 ; re-port confirmé, ETAT
+    l.257 à `5437cd0d` ; §7, doute 10) · suite : tests seulement, code de production juste (rapport l.50-53) ; partie non nommée par la fiche (§7, doute 9)
 - **L-39** · « TSLAon sans source de multiplicateur ; calendrier arrêté au 2026-12-31 ; `readMintToken2022` rend « 1 ». »
   source : `apps/bell/src/sessions.ts:27-28` ; B0 l.299-301 · touche : METHOD l.183, l.195 · nature : D
-  item : ADV-CAL-2027, SUPPLY-READ-1, TSLAON-MULT-1 (B0 l.299-301, absents d'ETAT : à re-former, PXC-01 partie 2) ; PXC-14 partie 1
-    (calendrier 2027 ; fiche, CC l.472) · porteur : MONARK (lecture sur place du calendrier 2027, PLAN §7.2) ; PAROXYSME (extension du
-    calendrier) · déclencheur : avant le 2027-01-01 (B0 l.299 ; PLAN §4.4 l.613), sous D-5 ; re-formation : partie 2 de PXC-01 (F3)
+  item : ADV-CAL-2027 (B0 l.299 ; formé à ETAT l.248-251 à `5437cd0d` par BELL-ITEMS-ETAT-CARRY-1, l.235-238, prix à chiffrer à son G0) ; SUPPLY-READ-1,
+    TSLAON-MULT-1 (B0 l.300-301, absents d'ETAT : à re-former par le même item, PXC-01 partie 2, l.237) ; PXC-14 partie 1 (calendrier 2027 ; fiche, CC l.472)
+    · porteur : MONARK (lecture sur place du calendrier 2027, ETAT l.250 à `5437cd0d`) ; PAROXYSME (extension du calendrier) · déclencheur : avant le
+    2027-01-01 (ETAT l.250-251 à `5437cd0d`), sous D-5 ; re-formation de SUPPLY-READ-1 et TSLAON-MULT-1 : partie 2 de PXC-01 (F3)
   état : ouvert · suite : échéance datée ; hors du calendrier, aucune session n'est produite (METHOD l.183 ; `sessions.ts:27`) ; le
     plan met ADV-CAL-2027 en partie 2 (§7, doute 4)
 - **L-40** · « Mesure fondatrice non servie : placeholders `window_TSLAx` et `t4_TSLAx_*`. »
   source : PAGE l.473-482 ; METHOD l.300 · touche : PAGE l.473-482 ; METHOD l.300 · nature : D
   item : PXC-17 partie 3 (mesure fondatrice ; chaîne -b1-bis, B0 l.169-176, à re-former) · porteur : le fondateur (course, clés, crédits,
     PLAN §7.3 l.894) ; PAROXYSME · déclencheur : la décision du fondateur ; partie 3 de PXC-17 (F5)
-  état : ouvert · suite : ligne d'attente datée au versement ; partie non nommée par la fiche (§7, doute 9)
+  état : ouvert · suite : ligne d'attente datée (P-25) : ETAT l.270-273 à `5437cd0d` ; partie non nommée par la fiche (§7, doute 9)
 - **L-41** · « Appariement écart-séance par rang : deux sessions du même seau et du même `n` sont appariées sans alerte. »
   source : `docs/adr/ADR-BELL-CASH-LEG-1.md:39` · touche : aucune · nature : C
   item : BELL-GAP-ANCHOR-1 (`docs/adr/ADR-BELL-CASH-LEG-1.md:39`, absent d'ETAT : à re-former, PXC-01 partie 2) ; PXC-14 partie 2
@@ -314,47 +308,51 @@
   item : PXC-07 partie 1 (campagne R3, quorums et indépendance) ; phrase : PXC-02 PUBLIC-SENTENCES-2, partie 3 ; construction : PXC-07
     partie 3 · porteur : PAROXYSME · déclencheur : partie 1 de PXC-07 (F3) ; partie 3 de PXC-02 (F3, sous D-5) ; partie 3 de PXC-07 (F5)
   état : ouvert · suite : valeur servie de `providers_distinct` relevée par l'inventaire, non relue ici (INV-B l.119 ; §7, doute 11) ;
-    ligne d'attente datée pour la partie 3
+    ligne d'attente datée (P-25) pour la partie 3 : ETAT l.270-273 à `5437cd0d`
 - **PX-Bell-18** · « L'équivocation n'est pas nommée sur `/bell/method`. »
   source : METHOD l.584-587 · touche : METHOD l.584-587 · nature : T
   item : PXC-02 partie 3 (phrase bornée ; mécanisme : PXC-15 parties 1-2) · porteur : PAROXYSME · déclencheur : partie 3 de PXC-02 (F3,
     sous D-5)
   état : ouvert · suite : même famille que L-04 et L-05
 
-## 3. Limites nouvelles (14, INV-B §4 : N-01 à N-14)
+## 3. Limites nouvelles (13, INV-B §4 : N-01 à N-14 ; N-11 close, §4)
 
 - **N-01** · « Hôte dit « dédié » : y tournent la sonde Narabi puis, depuis le 01/10, collecteur, éditeur et clé du Dōjō ; rien de servi ne le dit. »
   source : RB l.82 ; `docs/RUNBOOK-dojo.md:1-5` ; ETAT l.1618, l.1836 ; `deploy/monark-dojo-collect.service:50` ;
     `deploy/monark-dojo-publish.service:49` · touche : METHOD l.423 ; PAGE l.616 ; FLEET l.352, l.361 · nature : P/C
-  item : BELL-HOST-COTENANCY-1, décidé par MONARK (`7041de4` l.15-24), pas encore à ETAT : (a) phrase bornée ; (b) `InaccessiblePaths`
-    vers le répertoire de la clé de Bell sur quatre unités, test racine ; (c) note de recherche avec prix · porteur : RECHERCHES ((a),
-    (b)) ; MONARK (redéploiement sous Q-20, ligne d'ETAT) ; le fondateur (dépense de (c)) · déclencheur : avant la publication seq 3
-    de Bell, au plus tard le 2026-10-09 à 23:59 UTC (`7041de4` l.23) ; note (c) : porteur et déclencheur à fixer par MONARK (§1)
-  état : ouvert, **dette de déclencheur** (§1) : la sonde du Dōjō est déployée depuis le 2026-10-07 sans (b) (`7041de4` l.6-13 ; à
-    `87b821b0`, ETAT l.1858-1866 la dit non déployée) · suite : CC la rangeait en PXC-02 p3 et PXC-05 p3 ; §6
+  item : BELL-HOST-COTENANCY-1, formé à ETAT (l.223-230 à `5437cd0d`) : (a) phrase bornée, « dedicated host » sur METHOD l.423 et PAGE
+    l.616, « on its own host » sur FLEET l.352, l.361 (MSG l.41) ; (b) `InaccessiblePaths` vers le répertoire de la clé de Bell sur
+    quatre unités, test racine ; (c) note de recherche avec prix · porteur : RECHERCHES ((a), (b) : lot, recherches #417, #419) ;
+    MONARK (redéploiement des unités, sous Q-20 et la délégation du fondateur, MSG l.39-40 ; note (c)) ; le fondateur (dépense de (c) ;
+    go d'envoi du site pour le texte de (a))
+    · déclencheur : (a), (b) : avant la publication seq 3 de Bell, au plus tard le 2026-10-09 à 23:59 UTC (ETAT l.227-228 à `5437cd0d`),
+    le texte de (a) partant avec la prochaine release du site (MSG l.40) ; (c) : avant la publication seq 3 (ETAT l.228-230 à `5437cd0d`)
+  état : ouvert (déclencheur proposé passé le 2026-10-07 : la sonde du Dōjō, déployée sans (b) entre 17:4x et 17:5x UTC, était le
+    redéploiement qu'il nommait ; dette de MONARK, re-formée : ETAT l.226-227, l.2039-2046 à `5437cd0d`) · suite : CC la rangeait en
+    PXC-02 p3 et PXC-05 p3 ; §6
 - **N-02** · « Le registre dit « Connects: Hikae, Shōgen » sans import ni paire mesurée ; le README dit « derived from the same gate ». »
   source : `apps/bell/package.json:6` ; CARTO l.156-163 · touche : FLEET l.354 (`apps/site/app/applications/built-application-card.tsx:74`) ;
     `README.md:146-147`, `:214`, contre `README.md:34` et FLEET l.280, l.284 · nature : C
-  item : PXC-02 partie 1, noyau (README l.146-147, l.214 : PLAN §5.1 l.659-660) ; FLEET l.354 : PXC-02 partie 1 (BELL-CONNECTS-WITNESS-1,
-    à former ; CC l.144) · porteur : PAROXYSME · déclencheur : tâche 2 du TABLEAU (noyau, F1) ; FLEET l.354 : le prochain lot qui touche
-    `fleet.ts` (INV-B l.170), au plan la PR du noyau (F1, PLAN l.506, l.555)
+  item : PXC-02 partie 1, noyau (README l.146-147, l.214 : PLAN §5.1 l.659-660) ; FLEET l.354 : noyau de PXC-02, listes (a) et (b)
+    (MSG l.81 ; BELL-CONNECTS-WITNESS-1, à former ; CC l.144) · porteur : PAROXYSME · déclencheur : tâche 2 du TABLEAU (noyau, F1) ;
+    FLEET l.354 : le prochain lot qui touche `fleet.ts` (INV-B l.170), au plan la PR du noyau (F1, PLAN l.506, l.555)
   état : ouvert · suite : `apps/bell` n'importe ni Hikae, ni Shōgen, ni le harnais (`git grep` nul sur `apps/bell/src` et `scripts`) ;
-    `fleet.ts:354` manque aux listes du PLAN §5.1 (§7, doute 8)
+    `fleet.ts:354`, absent des listes du PLAN §5.1, y est ajouté (MSG l.81 ; §7, doute 8)
 - **N-03** · « Aucune cadence ni cible de latence publiée ; publication par acte opérateur ; rien publié depuis le 24/09. »
   source : RB l.6-7 ; T1B l.121-129 · touche : FLEET l.346 · nature : C
   item : phrase : PXC-02 partie 3 (BELL-CADENCE-TEXT-1, à former ; T1B l.129) ; minuterie : PXC-14 partie 3 (BELL-COLLECT-TIMER-1, RB l.7,
     absent d'ETAT : à re-former) · porteur : PAROXYSME ; le fondateur (clé ou compte RPC de la collecte, PLAN §7.3 l.890) · déclencheur :
     phrase : partie 3 de PXC-02 (F3, sous D-5) ; minuterie : le déclencheur conjonctif de T1B l.121-126 ; partie 3 de PXC-14 (F5)
   état : ouvert · suite : `apps/site/data/bell-served.json` inchangé depuis `d8fe354c` : aucune publication neuve à la tête ; ligne
-    d'attente datée au versement pour la minuterie (PXC-14 partie 3, F5)
+    d'attente datée (P-25) pour la minuterie (PXC-14 partie 3, F5) : ETAT l.270-273 à `5437cd0d`
 - **N-04** · « La copie immuable de la provenance seq 1 nomme un fournisseur de données, contre les Terms servis. »
   source : CARTO l.342 ; `docs/adr/ADR-BELL-CASH-LEG-1.md:10` · touche : `apps/site/data/bell-legal.json:56` (Terms) · nature : Dr
-  item : CARTO-BR-1 (CARTO l.342 ; ligne de CHANTIERS effacée : à re-former, PXC-01 partie 2) ; ruling et ancrage : PXC-15 partie 2 ;
-    option (a) : PXC-18 partie 1 (dossier juriste, INV-B l.193) · porteur : MONARK (ruling, PLAN l.412-413) ; PAROXYSME ; le fondateur
-    (option (a), juriste) · déclencheur : avant la publication seq 3 (CARTO l.342 ; PLAN §4.3 l.603) ; re-formation : partie 2 de PXC-01
-    (F3) ; partie 2 de PXC-15 (F3, sous D-5) ; option (a) : partie 1 de PXC-18 (F3)
-  état : ouvert · suite : options (a) à (c) de CARTO l.342 ; son premier déclencheur, « avant le G7 de BELL-OTS-ANCHOR-1 », est franchi
-    (§1 ; §7, doute 10)
+  item : CARTO-BR-1 (CARTO l.342 ; formé à ETAT l.239-244 à `5437cd0d` par BELL-ITEMS-ETAT-CARRY-1, l.235-238, prix à chiffrer à son G0) ; ruling : MONARK ;
+    ancrage : PXC-15 partie 2 ; option (a) : PXC-18 partie 1 (dossier juriste, INV-B l.193) · porteur : MONARK, qui rend son ruling (le fondateur si (a) ;
+    ETAT l.240-243 à `5437cd0d`) ; PAROXYSME · déclencheur : ruling au plus tard avant la publication seq 3 (ETAT l.243-244 à `5437cd0d`) ; partie 2 de PXC-15
+    (F3, sous D-5) ; option (a) : partie 1 de PXC-18 (F3)
+  état : ouvert · suite : options (a) à (c) de CARTO l.342 ; son premier déclencheur, « avant le G7 de BELL-OTS-ANCHOR-1 », est franchi,
+    et le re-port est confirmé (ETAT l.243-244, l.257-258 à `5437cd0d` ; §7, doute 10)
 - **N-05** · « Les captures du site viennent d'outils non planifiés, 5 sur 7 sans `--check` ; la CA n'est pas planifiée. »
   source : CARTO l.343, l.163 · touche : fraîcheur des chiffres de `/bell` (`apps/site/data/bell-served.json`) · nature : C
   item : PXC-05 partie 1, PR 1 bis (`--check` de `sync-bell-served` et `sync-bell-anchors`) ; CA planifiée : partie 3 ; CARTO-BR-2 (CARTO
@@ -382,17 +380,12 @@
   source : METHOD l.502 · touche : METHOD l.502 · nature : T
   item : PXC-08 SHOGEN-SEAM-1, partie 3 (BELL-PAGE-ORIGIN-1, à former : transcription TLS des pages RPC) ; construction avec l'énumération
     vérifiable : PXC-14 partie 2 · porteur : PAROXYSME · déclencheur : partie 3 de PXC-08 (F5, après CM-4) ; partie 2 de PXC-14 (F4, sous D-5)
-  état : ouvert · suite : ligne d'attente datée au versement ; TLS-N est libre (INV-B l.174)
+  état : ouvert · suite : ligne d'attente datée (P-25) : ETAT l.270-273 à `5437cd0d` ; TLS-N est libre (INV-B l.174)
 - **N-10** · « Aucun contrat de wrapper ou de pont nommé : `no_wrapper` sur chaque course ; l'inflation d'offre n'est pas contrôlée. »
   source : `apps/bell/src/supply.ts:101-106` ; `docs/bell/FAITS-xstocks-por-api-2026-09-27.md:7` · touche : BM l.65 · nature : D
   item : PXC-14 partie 1 (BELL-WRAPPER-NAMED-1, à former : section « Bridges » de l'API, puis `WRAPPERS` nommés) · porteur : MONARK
     (lecture sur place, après le ToS) ; PAROXYSME · déclencheur : après le ToS xStocks (PLAN §4.1 A l.544) ; partie 1 de PXC-14, sous D-5
   état : ouvert · suite : aucune
-- **N-11** · « Pas de registre `docs/PAROXYSME-Bell.md` au dépôt. »
-  source : `git ls-tree 87b821b0 docs/` (seul `docs/PAROXYSME-Dojo.md`) · touche : aucune (règle §4 de l'investisseur) · nature : C
-  item : versement intérimaire (a′) (PLAN §4.1 A l.540, §7.3 ; tâche 1 du TABLEAU) ; registre définitif : PXC-01 partie 2 (PLAN §6)
-    · porteur : PAROXYSME (versement) ; MONARK (fusion et ligne d'ETAT) · déclencheur : la fusion de ce fichier par MONARK (F1)
-  état : ouvert à la tête · suite : ce fichier le clôt à sa fusion ; la preuve (commit de fusion, ligne d'ETAT) est à écrire par MONARK
 - **N-12** · « `bell-verify.mjs` lit un port refusé par `fetch` comme une panne de réseau. »
   source : ETAT l.445-446 · touche : METHOD l.449 (commande de vérification servie) · nature : C
   item : VERIFY-BADPORT-1 (ETAT l.445-446) ; PXC-05 partie 3 · porteur : MONARK (orchestrateur, ETAT l.289-292) ; PAROXYSME (PXC-05)
@@ -401,7 +394,8 @@
 - **N-13** · « Les retours arrière REPLACE copient la sauvegarde sur le fichier actif ; le déclencheur de l'item est passé. »
   source : ETAT l.223-224 ; RB l.195, l.236 ; `docs/deploy-CA-bell.json:79-81` (`caddy_import=true`) · touche : aucune · nature : C
   item : BELL-RUNBOOK-ROLLBACK-CANDIDATE-1 (ETAT l.223-224) ; PXC-05 partie 3 (ruling) · porteur : MONARK (orchestrateur, ETAT l.211-212)
-    · déclencheur : celui d'ETAT (l.223, « avant le go de la migration de Bell »), passé ; ruling par PXC-05 partie 3 (F3)
+    · déclencheur : celui d'ETAT (l.223, « avant le go de la migration de Bell »), passé ; ruling par PXC-05 partie 3 (F3), re-port
+    confirmé (ETAT l.257 à `5437cd0d`)
   état : ouvert (déclencheur passé : migration faite, CA du 2026-10-03, `docs/deploy-CA-bell.json:5`) · suite : sans objet après IMPORT ?
     (RB l.306-309 ; INV-B doute D-6)
 - **N-14** · « Le remplacement du fichier Caddy dédié après IMPORT n'a pas de procédure écrite. »
@@ -415,6 +409,9 @@
 - **L-38** · « `lstat` d'une jonction Windows non mesuré. » · clos (preuve : `docs/G1-lot-bell-ots-prb.md:168`, mesure win32 du G1 de
   PR-B1, 2026-09-25 (l.43) ; le résidu « preuve CI ubuntu à citer » (l.403) est clos au tronc : `docs/JOURNAL-PROVENANCE.md:412`, run CI
   ubuntu vert sur `0db47fe`, SYNC-LSTAT-PATH-1 B1, B2, B6) · suite : aucune
+- **N-11** · « Pas de registre `docs/PAROXYSME-Bell.md` au dépôt. » · clos (preuve : ETAT l.181-184 à `5437cd0d` : ce registre est versé
+  par #242, fusion `1df4e44f`, G7 `1eb37b87…`, et « Bell N-11 » est parmi les limites « registre absent » closes) · suite : registre
+  définitif : PXC-01 partie 2 (PLAN §6)
 
 ## 5. Limites marquées PAROXYSME apparues à ETAT depuis l'inventaire
 
@@ -444,7 +441,7 @@ nomment Bell sans marque PAROXYSME sont au §7, doute 7.
    = limites ouvertes, changées ou nouvelles », CC l.1160). Dans « 41 + L-20 + 14 » (CC l.1161), 41 compte les anciennes ouvertes (39 `L-`
    et les deux `PX-Bell-`) ; le « 41 » du titre de l'inventaire (l.71) compte L-01 à L-41. L'écart est L-38 : ni L-20, compté une fois de
    chaque côté, ni un identifiant compté deux fois. Les 56 rangées et les 56 lignes du bloc ne sont pas les mêmes 56. Ce registre porte
-   57 entrées : 56 ouvertes (§2, §3) et L-38 close (§4).
+   57 entrées : 55 ouvertes (§2, §3) et deux closes, L-38 et N-11 (§4).
 2. **Ancres qui ont bougé à la tête** (ordre de mission : « ligne qui a bougé à la tête » va en doute). Même texte, autre numéro, toutes
    dans ETAT (`57a131fc` → `87b821b0`) : l.192-193 → 223-224 (N-13) ; l.194-195 → 225-226 (N-14) ; l.414-415 → 445-446 (N-12) ;
    l.763-765 → 1235-1237 (N-06) ; l.1146 → 1618 et l.1359 → 1836 (N-01) ; l.192-195 → 223-226 (INV-B §1.1). Aucune sortie
@@ -458,8 +455,8 @@ nomment Bell sans marque PAROXYSME sont au §7, doute 7.
    ADV-CAL-2027 (avant le 2027-01-01) ; la fiche (CC l.472-474) met la rotation en partie 3, que le plan place après le 2026-12-31
    (l.618), et le calendrier 2027 en partie 1 (CC l.472 : lectures sur place et faits servis), que le plan ne place pas. Ici : les
    échéances datées sont les déclencheurs ; L-39 suit la fiche (partie 1) ; partie 2 en F4, partie 3 en F5 ; partie 1 « sous D-5 », F4 au
-   plus tôt sans décision contraire du fondateur (PLAN l.511-512 ; L-26, L-27), ses lectures sur place au bloc A (PLAN l.544). À trancher
-   par l'ADR de PXC-14 ou par MONARK.
+   plus tôt sans décision contraire du fondateur (PLAN l.511-512 ; L-26, L-27), ses lectures sur place au bloc A (PLAN l.544). Le
+   placement de la partie 1 : un constat dans PXC-01 partie 2, que MONARK tranche sur pièce (MSG l.83-84).
 5. **Limites et items de Bell hors de l'inventaire.** (a) OUTSIDE-REPO-SEGMENT-1, partie Bell : la garde CA-11 de
    `apps/bell/src/collect.ts:535-541` prend `<racine>/..x` pour l'extérieur (`docs/adr/ADR-DOJO-PR-2B.md:739` ; registre Dōjō, DJ-L73) ;
    déclencheur écrit à l'ADR : le prochain lot Bell, au plus tard avant le prochain acte réseau. (b) Cinq items formés aux tables d'items
@@ -471,7 +468,7 @@ nomment Bell sans marque PAROXYSME sont au §7, doute 7.
    registre de course servi sous `/bell/anchors`). Leurs voisines des mêmes tables sont portées par L-22 à L-25 et L-39 (B0 l.296-301,
    l.303), L-08, L-10 et L-09 (OTSA l.305-307). Balayage limité à B0 l.294-304 et OTSA l.303-313 ; déclencheurs écrits aux ADR, non jugés
    ici. L'inventaire ne porte ni (a) ni (b) ; ce registre n'ajoute aucune entrée hors des identifiants de l'inventaire et du §5 : MONARK
-   dit si elles entrent (entrées `BLT-nn` ou recartographie de PXC-01 partie 2).
+   a tranché, elles passent par la recartographie de PXC-01 partie 2, pas par des entrées `BLT-nn` (MSG l.80).
 6. **Sources hors du tronc.** Les lignes de 0005, 0006, de PX-IDENT, de RECEPTION et de FAITS-PXP-01 sont celles que l'inventaire a
    lues ; elles ne sont pas relues ici. INV-B, CC, PLAN, la FICHE et le registre du 27/09 sont lus dans la boîte PAROXYSME, en lecture
    seule, à leur empreinte (§8) ; la FICHE sert à séparer L-04 et L-05 (l.45-46). Le PLAN et le registre du 27/09 de la boîte sont des
@@ -480,19 +477,20 @@ nomment Bell sans marque PAROXYSME sont au §7, doute 7.
    `a5e6f194…` (§8) ; le PLAN, `f6bb5fea…` et `96b5b018…` (§8). INV-B, CC et la FICHE ne figurent pas dans `REDACTIONS.json`. La clôture
    de PXP-01 par substitution (décision 277) n'est consignée que hors du dépôt (INV-B l.208, doute D-12). Le message de MONARK `7041de4`
    (boîte, `coordination/messages/2026-10-07-MONARK-vers-PAROXYSME-point-bell-cotenance.md`, 29 lignes, §8) porte le déploiement de la
-   sonde du Dōjō et la décision sur BELL-HOST-COTENANCY-1 (N-01, §1), que le tronc ne porte pas encore ; il est lu à son commit, et aucun
-   chemin d'hôte n'en est recopié.
+   sonde du Dōjō et la décision sur BELL-HOST-COTENANCY-1 (N-01), que le tronc porte depuis `5437cd0d` (ETAT l.223-230, l.2039-2046) ; il
+   est lu à son commit, et aucun chemin d'hôte n'en est recopié.
 7. **Faits neufs qui touchent l'hôte.** La sonde du Dōjō (`deploy/monark-dojo-probe.service` et `.timer`, neufs depuis `d8fe354c`) n'est
    pas déployée à la tête (ETAT l.1858-1866) ; elle l'est depuis le 2026-10-07, entre 17:4x et 17:5x UTC, sous l'autorisation Q-20
-   (message de MONARK `7041de4`, l.6-9 ; ligne d'ETAT pas encore au tronc), ce qui a passé le déclencheur de N-01 : dette au §1.
+   (ETAT l.2039-2046 à `5437cd0d` ; message de MONARK `7041de4`, l.6-9), ce qui a passé le déclencheur de N-01 : dette de MONARK,
+   re-formée à ETAT (l.223-230 à `5437cd0d` ; N-01).
    DOJO-PROBE-UID-BOUNDARY-1 (ETAT l.1889-1898) est porté par le registre Narabi (entrée NRT-02, `docs/PAROXYSME-Narabi.md`, commit
    `ea0d2de` de la branche). TEST-GIT-ENV-ISOLATION-1 (ETAT l.1119) est tenu à `docs/adr/ADR-BELL-OTS-PRB.md:263` mais porte sur des
    tests de spécification : pas une limite de Bell.
 8. **Deux rattachements du plan.** PLAN l.318-319 rattache les phrases README de N-07 et N-02 à PXC-14 ; CC §4 (l.922, l.927) et PLAN §5.1
    (l.659-660) les mettent au noyau de PXC-02. Ce registre suit CC §4, comme le veut l'ordre de mission. Pour N-02, `fleet.ts:354` (le
    champ `connects`) n'est ni dans la liste (a) du noyau (PLAN l.644-665) ni dans la liste (b) (l.668-672), alors que la fiche range
-   `fleet.ts` en partie 1 (CC l.144) et que la PR du noyau touche `fleet.ts` (PLAN l.506, l.555) : elle atteindra le déclencheur de
-   l'inventaire (INV-B l.170) sans le porter, sauf si l'ADR de PXC-02 l'y met. À trancher par cet ADR ou par MONARK.
+   `fleet.ts` en partie 1 (CC l.144) et que la PR du noyau touche `fleet.ts` (PLAN l.506, l.555). MONARK a tranché : `fleet.ts:354` est
+   ajouté aux listes (a) et (b) du noyau de PXC-02 (MSG l.81), dont la PR porte ainsi le déclencheur de l'inventaire (INV-B l.170).
 9. **Parties non nommées par les fiches.** L-11, L-37, L-41 (PXC-14), L-30, L-31 (PXC-11), L-34, L-35, L-40 (PXC-17) : la fiche nomme la
    limite sans partie ; elles sont placées ici par la nature de la partie, et l'ADR du chantier fixe la partie. Placées aussi dans une partie
    dont la fiche ne les nomme pas : L-01, L-03, N-09 en partie 2 de PXC-14 (CC l.472-474 n'y nomme que quorum, scanners,
@@ -507,10 +505,11 @@ nomment Bell sans marque PAROXYSME sont au §7, doute 7.
     ADV-CAL-2027, SUPPLY-READ-1, BELL-GAP-ANCHOR-1, BELL-HOST-COTENANCY-1, BELL-CONNECTS-WITNESS-1, BELL-COLLECT-TIMER-1,
     BELL-CADENCE-TEXT-1, BELL-README-REPLAY-1, BELL-COLLECTOR-REV-PUBLIC-1, BELL-PAGE-ORIGIN-1, BELL-WRAPPER-NAMED-1,
     PAROXYSME-BELL-FILE-1, BELL-D2BIS-STATUS-1, BELL-ITEMS-ETAT-CARRY-1, PX-Bell. Chaque entrée les porte par son chantier. Leur report à
-    ETAT est l'item BELL-ITEMS-ETAT-CARRY-1 (INV-B l.178, à former ; PXC-01, CC l.94-95 ; ligne d'ETAT : MONARK), et non PX-STD-ORPHAN-1,
-    dont la liste ne porte aucun item de Bell (PLAN l.541, l.897) ; le compte exact est à PXC-01 partie 2 (PLAN §6, l.834). Écarts de
-    l'inventaire à la tête : L-38 avait déjà sa preuve CI ubuntu (§4) ; le déclencheur de N-13 était déjà passé, ce que l'inventaire dit
-    (doute D-6). Déclencheurs écrits dans la documentation et déjà franchis, que l'inventaire ne dit pas (§1) :
+    ETAT est l'item BELL-ITEMS-ETAT-CARRY-1, formé (ETAT l.235-237 à `5437cd0d` ; INV-B l.178 ; PXC-01, CC l.94-95) : les quatre items
+    datés d'abord (l.238-253), les 39 autres en PXC-01 partie 2 (l.237) ; et non PX-STD-ORPHAN-1, dont la liste ne porte aucun item de
+    Bell (PLAN l.541, l.897) ; le compte exact est à PXC-01 partie 2 (PLAN §6, l.834). Écarts de l'inventaire à la tête : L-38 avait déjà
+    sa preuve CI ubuntu (§4) ; le déclencheur de N-13 était déjà passé, ce que l'inventaire dit (doute D-6). Déclencheurs écrits dans la
+    documentation et déjà franchis, que l'inventaire ne dit pas (re-portés : ETAT l.257-259 à `5437cd0d`) :
     - C-1b-1 et C-1b-2 (L-37) : « prochaine modification de `apps/bell/test/rebase-crosscheck.test.ts` »
       (`docs/G2-lot-bell-shortpage-1-1b.md:54`, rapport `f1b9f5d0` du 2026-09-23), atteinte par `b9186e47` (2026-09-27 20:29:02 UTC,
       `TZ=UTC git log`) sans l'un ni l'autre : à la tête, les coutures `renameAttemptSync` comptent les tentatives sans coupe-circuit
@@ -519,33 +518,40 @@ nomment Bell sans marque PAROXYSME sont au §7, doute 7.
       JOURNAL-PROVENANCE l.398) et de PR-B (2026-09-25 06:31 UTC, l.412) ; reste « au plus tard avant la publication seq 3 » ;
     - I-G2-5 (L-22) : « avant `/bell/method` » (B0 l.296), franchi : la page sert « consolidated daily share volumes » (METHOD l.563).
     Le PLAN (l.129-132) consigne une lecture : appliquée comme classe, la clause de cartographie donnerait à CARTO-BR-1 la force « avant
-    toute nouvelle pièce » ; sous cette lecture, le « 0 ⚑B » du §8 serait à relire pour N-04. MONARK tranche cette lecture.
+    toute nouvelle pièce » ; sous cette lecture, le « 0 ⚑B » du §8 serait à relire pour N-04. MONARK tranche cette lecture sur pièce, sur
+    un constat écrit dans PXC-01 partie 2 (MSG l.83-84).
 11. **Valeurs servies non relues.** `apps/site/data/bell-served.json` (comptes `quorum_sampled`, `halt_census`, `providers_distinct`,
     révision du collecteur) porte des séries servies (D6) : il n'est pas lu ici, et aucune de ses valeurs n'est citée. Les entrées renvoient
     aux lignes de l'inventaire qui les relèvent (INV-B l.89-90, l.119, l.128). Le fichier est inchangé depuis `d8fe354c` (`git diff --quiet
     d8fe354c 87b821b0 -- apps/site/data/bell-served.json`, sortie 0).
 12. **Contrôle mécanique.** `verify-registres.mjs` (pièce de la boîte, commit `d97d838` : entrées prises entières, doutes épinglés) lit
-    les registres commités : il sort 0 sur la branche avec ce registre plié (six registres ; Bell : 57 identifiants, 57 entrées, 56
-    ouvertes, 1 close).
+    les registres commités : il sort 0 sur la branche de #242 (tête `dda217c4`, base `87b821b0`) avec ce registre plié (six registres ;
+    Bell : 57 identifiants, 57 entrées, 56 ouvertes, 1 close). Le pli des décisions de MONARK en fait 55 ouvertes et 2 closes (doute 1).
 13. **VERIFY-BADPORT-1 et D-5.** Le déclencheur d'ETAT de N-12, « le prochain lot qui touche leur transport » (ETAT l.446), n'est pas
     atteint (derniers commits de `bell-verify.mjs` le 2026-09-23 et de `dojo-verify.mjs` le 2026-10-01). Il peut venir d'un lot du Dōjō
     sur `apps/dojo/scripts/dojo-verify.mjs` avant le 2026-11-16 : PXC-06 partie 1 (« éditeur, vérificateur ») est au bloc A (PLAN l.547).
     La construction est « la même garde nommée » pour les deux scripts (ETAT l.445-446) : sa moitié Bell toucherait
     `apps/bell/scripts/bell-verify.mjs`, sous D-5 et sous la règle de la boîte (`CLAUDE.md` l.138 : « personne n'y touche en attendant le
-    fondateur »). MONARK tranche : garde du Dōjō seule, ou décision D-5 du fondateur pour la moitié Bell.
+    fondateur »). Un constat dans PXC-01 partie 2, que MONARK tranche sur pièce (MSG l.83-84) : garde du Dōjō seule, ou décision D-5 du
+    fondateur pour la moitié Bell.
 
 ## 8. Ligne PAROXYSME et sources
 
-**Ligne PAROXYSME (2026-10-07).** Bell : 56 limites ouvertes (dont L-20 changée ; 0 ⚑B, sous la lecture du PLAN l.129-132 à trancher,
-§7, doute 10) et 1 close (L-38). Limites neuves à ETAT : 0 (§5). Une dette de déclencheur : N-01 (§1), reconnue par MONARK (message
-`7041de4`), comptée jusqu'à sa ligne d'ETAT. Toutes les autres entrées ouvertes ont leur item, leur porteur et un déclencheur
-atteignable ; le re-port de quatre déclencheurs passés (L-37, N-13, N-04, L-22) est à confirmer par MONARK (§1). Hors de l'inventaire
-(§7, doute 5) : une limite de Bell, dont l'item est au registre Dōjō (DJ-L73), et cinq items formés aux ADR de Bell, absents de
-l'inventaire et des registres ; leur entrée attend la décision de MONARK.
+**Ligne PAROXYSME (2026-10-07, décisions de MONARK pliées).** Bell : 55 limites ouvertes (dont L-20 changée ; 0 ⚑B, sous la lecture du
+PLAN l.129-132, que MONARK tranche sur pièce, §7, doute 10) et 2 closes (L-38 ; N-11, par le versement, ETAT l.181-184 à `5437cd0d`).
+Limites neuves à ETAT : 0 (§5). Aucune dette : la dette de déclencheur de N-01 est re-formée (BELL-HOST-COTENANCY-1, formé à ETAT
+l.223-230 à `5437cd0d`), les re-ports de L-37, N-13 et N-04 sont confirmés et L-22 a un nouveau déclencheur (ETAT l.257-259 à
+`5437cd0d`) ; chaque entrée ouverte a son item, son porteur et un déclencheur atteignable. BELL-ITEMS-ETAT-CARRY-1 est formé (ETAT
+l.235-237 à `5437cd0d`) : les quatre items datés d'abord (l.238-253), les 39 autres en PXC-01 partie 2 (l.237). Hors de l'inventaire
+(§7, doute 5) : une limite de Bell, dont l'item est au registre Dōjō (DJ-L73), et cinq items formés aux ADR de Bell ; ils passent par
+la recartographie de PXC-01 partie 2 (MSG l.80). Quatre constats sont attendus dans PXC-01 partie 2, que MONARK tranche sur pièce (MSG
+l.83-84) : le placement de la partie 1 de PXC-14 (doute 4), la lecture du PLAN l.129-132 (doute 10), la moitié Bell de VERIFY-BADPORT-1
+(doute 13) et le déclencheur d'ADV-SIP-DAY-1 (L-23).
 
 | Source | Lignes | sha256 |
 |---|---|---|
 | `docs/ETAT.md` à `87b821b0` | 1 904 | `3190de5c23507292414418cbb8b24e0f7c9f319dca64a0f5ae8c5009475a5b5a` |
+| `docs/ETAT.md` à `5437cd0d` (lignes du pli des décisions) | 2 089 | `64afc212a18bc683d892c7c7c6362abba46c1a4ed5db11061f4b25b63d07b0a9` |
 | `apps/site/app/bell/method/page.tsx` à `87b821b0` | 613 | `25a6d66e7a3b48fbec44ac2307833630a65d5c3ba4281e066574493ae1a13722` |
 | `apps/site/app/bell/page.tsx` à `87b821b0` | 752 | `d1c5a69fa465b4b681290baeee38fb7e5c337690cf17b89aaff1c96857f2cf6a` |
 | `apps/site/app/bell/terms/page.tsx` à `87b821b0` | 234 | `0449a44604755d63c131852a434b8e6b45bcc642c4c2fe8460c99c3f03262cfc` |
@@ -599,6 +605,7 @@ l'inventaire et des registres ; leur entrée attend la décision de MONARK.
 | FICHE, boîte PAROXYSME, `dossier/etude-2026-09-27/PAROXYSME-Bell.md` | 240 | `523a61561cfc6b43288ce1a4cb33e9cf43a0650005ee0b717fdf8704dbb57462` |
 | Registre du 27/09, même dossier, `PAROXYSME-REGISTRE-2026-09-27.md` | 207 | `a5e6f1944d3ccaf47cfd352f8c1c7972d81c9e597568e44534535f37a60a33d3` |
 | Message de MONARK du 2026-10-07, boîte, commit `7041de4` (chemin au §7, doute 6) | 29 | `9a014f5d777653bae3da717d1357a22c52ea0414eaf196a6713af607b1e9652d` |
+| MSG, message de MONARK du 2026-10-07, boîte, commit `d6331f6` (chemin à l'en-tête) | 90 | `03f305908703f119cc82c7b9f0a29684f720c0eab0997514c019fe068b64306a` |
 | `dossier/README.md` de la boîte PAROXYSME, commit `45276f0` | 139 | `26ff658c30bbfa1caa1f4119303c393e26165d2a1ebb59880d2fb50a69791340` |
 | `dossier/REDACTIONS.json` de la boîte PAROXYSME, commit `45276f0` | 81 | `787173d1eee46adda38246bad5376d333d2fba5f2ae78b97716c14b883364b90` |
 | `reanchor.mjs` à `a55a62d`, boîte, `coordination/pieces/2026-10-07-registres/` | 69 | `2edae6398e35a39d750cca2951cf4349380971066acb23bd1dbe965d9f88ca4b` |
