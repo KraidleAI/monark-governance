@@ -53,12 +53,22 @@ sans amend ni force ; `git merge-tree` contre `998c2e30` (#218), sans écriture 
 - docs/RUNBOOK-harness.md:372 CONST "(T_e)" -> "(T_f)"
 - docs/RUNBOOK-harness.md:414 CONST "\"format\": \"retire-latency-v1\"" -> "\"format\": \"retire-latency-v2\""
 - docs/RUNBOOK-harness.md:300 CONST "apps/harness/data/kata/retire/" -> "apps/harness/data/retire/"
-- docs/RUNBOOK-harness.md:445 CONST "`git clean -f -d -- spec/contract-1.1.0-tables-<YYYY-MM-DD>/`" -> "`git clean -f -d`"
+- docs/RUNBOOK-harness.md:447 CONST "`git clean -f -d -- spec/contract-1.1.0-tables-<YYYY-MM-DD>/`" -> "`git clean -f -d`"
 - docs/RUNBOOK-harness.md:366 CONST "`short_digest`" -> "`short_digests`"
 - docs/RUNBOOK-harness.md:400 CONST "in the past is `produced_at_stale`" -> "in the past is `produced_at_future`"
 - docs/RUNBOOK-harness.md:404 CONST "`out_of_support` (`kata-path.ts` l.93)" -> "`calib_retired` (`kata-path.ts` l.93)"
 - docs/RUNBOOK-harness.md:358 CONST "`git -c core.autocrlf=false clone`" -> "`git -c core.autocrlf=true clone`"
 - docs/RUNBOOK-harness.md:380 CONST "never rebase it" -> "rebase it"
+
+## Après la fusion de #218 et #219 (2026-10-07)
+
+Ligne datée 2026-10-07T07:21:27Z (`date -u`), RECHERCHES, modèle `claude-opus-5-5`. Actes git : `git fetch` à refspecs explicites
+de `lot/etude-suite` (`022c82d1`, #218 et #219 fusionnées) et des trois branches empilées, vérifiés par `git ls-remote` ; fusion
+de `lot/etude-suite` dans `recherches/rh-1-runbook-notes` (`47002407`), sans rebase, amend ni force. La phrase « AFTER #218 » passe
+au présent : `cycle` vaut `rehearsal`, `real` ou `publication` ; un cycle `publication` tient T_c à T_g, sans plafond et `mention`
+`null` (`scripts/retire-latency.mjs` l.10, l.44, l.56) ; T_a ou T_b y lève `instant_out_of_cycle`, une mention
+`mention_out_of_cycle`. La liste des refus de l'exit 1 gagne ces deux codes. Le tueur du test 4 suit le texte (+2 lignes) : 445
+devient 447, remesuré sur l'arbre fusionné ; les huit autres ne bougent pas.
 
 ## Suite
 
