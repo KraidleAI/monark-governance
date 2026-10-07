@@ -138,3 +138,52 @@ RECHERCHES, 2026-10-07. Base : la tête de a1-i, `15fafa202a60d2fc06a80ab426bec2
   0 ; `eslint .` 0 ; `gate:vocab` 0 (350 fichiers) ; `lang:gate` 0 ; `lint:ratchet` 69/69 ; `export:check` 0 ; winlint `--base
   096373ab` : 5 fichiers, aucun risque Windows. R-25 (forme de la CI) contre `096373ab` : **56** (50 + 6, inchangé) ; a1 entier
   contre le tronc `6a1b1d43` (base de fusion `1cddd2e5`) : 263 (259 + 4), sous 547.
+
+## 8. Fusion de l'adoption de l'aide partagée par a1-i (MONARK `dd734ea`), 2026-10-07
+
+- **Provenance** : worker `claude-opus-5-5`, effort: max (le même qu'au G0 d'a1-i, §8) ; horloge lue (`date -u`) à 19:57 UTC au
+  début de ce morceau, 20:05 UTC pour ce §. Worktree détaché neuf du scratchpad (`wt-a1-adopt-ii`, à `b854f727`) ; `node_modules`
+  lié en dur (`cp -al`), retiré à la fin. Node 24.21.0, Linux.
+- **Base de la demande** : la tête d'a1-i après son §8, `7038848d4c7f451169f86f1dcca46e7eca6e3359` (fusion du tronc `1df4e44f`,
+  aide de 1f, `forbiddenLoads` dans T-1 et le test des épingles), fusionnée sans réécriture : commit `dc8ce9c3` (« Merge the base
+  branch »), parents `b854f727` et `7038848d`, **sans conflit**. Cette branche ne changeait pas l'aide, et ses onze lignes de
+  `policy-classes.ts` sont au tronc à l'octet près (blob `3ad24e54`, déjà à `1df4e44f`) : elles sortent du diff de la demande.
+  Aucune ligne de production ne bouge ; les tueurs gardent leurs lignes (l.12, l.53, l.57, l.61, l.73 du lecteur, l.11 des épingles,
+  l.26 de l'aide, réancrée par a1-i). Pas de pli : le compte du spécificateur `./policy-classes.ts`
+  (`test/policy-committed.test.ts:118`) passe par `importsOf`, donc par `importSpecifiers` de l'aide ; la regex des noms (l.117) est
+  propre à ce test et reste.
+- **Ce que lit le test des lignes réservées** (au lieu de « in one import only ») : un seul spécificateur `./policy-classes.ts` parmi
+  ceux que liste `importSpecifiers` (imports, imports à effet de bord, imports de type, ré-exports, `export * from`, `import()` ou
+  `require()` d'un littéral ou d'un gabarit sans substitution, dans les deux guillemets, commentaires sautés) ; et les noms de
+  chaque ligne `import { … } from` de ce module, dans les deux guillemets, inclus dans {`kataKeyReserved`, `KATA_RESERVED_IDS`} et
+  non vides. Côté fermé : un import permis avec un commentaire avant le chemin est compté sans nom, donc refusé (mesuré,
+  `out-ii-w5.json` `6e0a4a1d…`).
+- **Mutants** (règles du G0 d'a1-i, §8 ; S0 `b854f727`, ancien extracteur ; S2 `dc8ce9c3`) :
+
+| Mutant | Texte (après l'import de `./policy-classes.ts` du lecteur) | S0 | S2, tué par |
+|---|---|---|---|
+| N07 | `import { kataClassEntries } from /* reviewed */ "./policy-classes.ts";` | survit | tué, lignes réservées (deux spécificateurs) |
+| N08 | ``void import(`./policy-classes.ts`);`` | survit | tué, lignes réservées (deux spécificateurs) |
+
+  - R15 à R19, P09-P11, K04, K05 (textes du G0 d'a1-i, §8) : S0 survivent tous ; S2 tués par assertion, par T-1, le test des
+    épingles et `kata_path_is_served`, comme à a1-i.
+  - Hors de la liste : un spécificateur calculé de `./policy-classes.ts` dans le lecteur survit à S0 ; à S2 il est tué par
+    assertion par T-1 (`forbiddenLoads`), le compte des lignes réservées ne le voyant pas. Les formes N01 à N05, N09, N10, un
+    `import()` à guillemets simples et une seconde ligne qui n'importe que `KATA_RESERVED_IDS` : tuées par assertion par le test des
+    lignes réservées. Les trois témoins W02 (trois lignes, virgule finale), W03 (les deux noms permis) et W04 (guillemets simples)
+    restent verts, à S0 comme à S2 (pas de faux positif).
+  - 61 mutants à S2 : 57 tués par assertion, 3 témoins verts ; le survivant est le spécificateur calculé dans `kata-path.ts`, la
+    limite nommée au G0 d'a1-i, §8 (item proposé SERVED-WALK-LOADS-1). Sorties : `out-ii-s0.json` `a9c633dd…`, `out-ii-S2.json`
+    `b4043205…` (`spec-ii.json` `0ab0bfcb…`, même harnais).
+- **Mesures à `dc8ce9c3`** (tête du code ; le commit de ce § ne touche que ce G0) : red-proof `--base
+  7038848d4c7f451169f86f1dcca46e7eca6e3359 --gel dc8ce9c3d6cb46861db93291ca468a91d4252c61 --repo <worktree> --draw 2 --seed 1007` :
+  sortie 0, « 2 judged, 5 unchanged, 2 killer(s) drawn », deux F2P (rouges à la base par assertion), deux tueurs tués par assertion
+  (l.73 et l.57) ; `RED-PROOF.json` sha256 `562b51b7808728c22a4e9ae0a5de7bcdb9ee8ffb6fe17ad47fc8ab7e87c731f2`. Sur a1 entier,
+  `--base 1df4e44fd3e62aa9291005fe90f91292c5344bc4` (base de fusion avec le tronc) `--draw 7 --seed 20261007` : sortie 0, sept
+  `new-module`, 18 inchangés, sept tueurs tués par assertion (l.12, l.53, l.57, l.61, l.73, l.11 des épingles, l.26 de l'aide) ;
+  sha256 `9abaf939137cd5c499347a67f207fa7272dd8effe3078b8e1c2b390a09d755fa`. Suite du harnais et tests des surfaces servies : 358 sur
+  358 ; avec `killer-lines`, `verifiers-list` et `recompute-report` : 377 sur 377. `tsc --noEmit` 0 ; `eslint .` 0 ; `gate:vocab` 0
+  (351 fichiers) ; `lang:gate` 0 ; `lint:ratchet` 69/69 ; `export:check` 0 ; winlint `--base 7038848d` : 4 fichiers, aucun risque
+  Windows. `verifie-ancres` (`--ref b854f727 --ref 7038848d`) : 1 650 ancrés, 0 dérive, 0 perdu ; les deux fichiers de test d'a1 :
+  25 sur 25. R-25 (forme de la CI) contre `7038848d` : **45** (39 + 6 ; 56 avant, les onze lignes de `policy-classes.ts` sortant du
+  diff) ; a1 entier contre le tronc (`5437cd0d`, base de fusion `1df4e44f`) : 249 (245 + 4), sous 547.
