@@ -87,8 +87,8 @@ H, ci-dessous).
 
 ## Preuves
 
-- `node scripts/red-proof.mjs --base 1cddd2e5 --gel HEAD --repo <worktree> --draw 4 --seed 15` (Node v24.21.0, Linux) : sortie 0,
-  « 4 judged, 0 unchanged, 4 killer(s) drawn » ; les quatre tests `new-module`, les quatre tueurs tués.
+- `node scripts/red-proof.mjs --base 1cddd2e5 --gel HEAD --repo <worktree> --draw 5 --seed 15` (Node v24.21.0, Linux), au pli
+  d'`ac1cb86` : sortie 0, « 5 judged, 0 unchanged, 5 killer(s) drawn » ; les cinq tests `new-module`, les cinq tueurs tués.
 - Voisins : `ci-gates`, `r25-integration`, `spec-1-1-0-release`, `spec-publish`, `export-public` (hors test 42), `killer-lines` et ce
-  fichier, 171 sur 171. tsc, eslint, lang-gate, grep-forbidden, lint-ratchet (69/69), export-public `--check`, winlint : 0.
-- R-25 : 3 fichiers, +217 hors `docs/**/*.md`.
+  fichier, 172 sur 172. tsc, eslint, lang-gate, grep-forbidden, lint-ratchet (69/69), export-public `--check`, winlint : 0.
+- R-25 : 3 fichiers, +244 hors `docs/**/*.md`.
