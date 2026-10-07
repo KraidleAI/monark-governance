@@ -385,7 +385,7 @@ node scripts/spec-publish.mjs --release contract-1.1.0-tables-<YYYY-MM-DD> --dat
 
 - Ship the merged commit of step 5 (green, `--check` exit 0) and restart, as §1 and *Update* (Operations) say, then run §6:
   `node scripts/verify-harness.mjs --out docs/deploy-CA-harness.json` (this file, l.162), green only under the gate of
-  l.213-219. **T_f** = the `checked_at` of that green record (`scripts/verify-harness.mjs` l.421), cut to the second: it
+  l.213-219. **T_f** = the `checked_at` of that green record (`scripts/verify-harness.mjs` l.432), cut to the second: it
   carries milliseconds, and `scripts/retire-latency.mjs` takes none (l.25).
 - The site data is bound to the committed record (`test/harness-served.test.ts` l.212-215): committing the new record
   brings acts 3 to 7 of the order of T0 (`docs/RUNBOOK-vitrine.md` l.44-48), after T_g.
