@@ -10,7 +10,7 @@
 import { after, test } from "node:test";
 import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { LISTED, SELF, literals, mask, report, scan, stale, type Verdict } from "../scripts/address-literals.mjs";
@@ -24,7 +24,7 @@ const TMP: string[] = [];
 after(() => { for (const d of TMP) rmSync(d, { recursive: true, force: true, maxRetries: 3 }); });
 
 /** A throwaway repository: `tracked` files are written then added (ls-files reads the index), `loose` ones are only written. */
-function fixture(tracked: Record<string, string | Buffer>, loose: Record<string, string> = {}, afterAdd: (root: string) => void = () => undefined): Verdict {
+function fixture(tracked: Record<string, string | Buffer>, loose: Record<string, string> = {}, afterAdd: (root: string, env: NodeJS.ProcessEnv) => void = () => undefined): Verdict {
   const base = mkdtempSync(join(tmpdir(), "address-literals-"));
   TMP.push(base);
   const root = join(base, "repo");
@@ -38,7 +38,7 @@ function fixture(tracked: Record<string, string | Buffer>, loose: Record<string,
     writeFileSync(join(root, rel), body);
   }
   execFileSync("git", ["add", "--", ...Object.keys(tracked)], { cwd: root, env });
-  afterAdd(root);
+  afterAdd(root, env);
   return scan(root, env);
 }
 const at = (v: Verdict, file: string): string[] => v.hits.filter((h) => h.file === file).map((h) => `${String(h.line)}:${String(h.col)} ${String(h.kind)} ${h.mask}`);
@@ -85,7 +85,7 @@ test("address_literals_read_no_address_in_code_or_numbers_that_only_look_like_on
 });
 
 // reddened by: a listed literal admitted in any file, not in its own one only
-// killer: scripts/address-literals.mjs:131 CONST "Object.hasOwn(LISTED, rel) && Object.hasOwn(LISTED[rel], lit)" -> "listedAnywhere(lit)"
+// killer: scripts/address-literals.mjs:134 CONST "Object.hasOwn(LISTED, rel) && Object.hasOwn(LISTED[rel], lit)" -> "listedAnywhere(lit)"
 test("address_literals_admit_a_listed_literal_in_its_own_file_only", () => {
   const file = "docs/G0-lot-verifiers-list-f5a-1.md", lit = Object.keys(LISTED[file] ?? {})[0] ?? "", self = `"${lit}" then ${A}`;
   const v = fixture({ [file]: `V8 ${lit}-node.53\nhost ${A}\n`, "docs/other.md": `V8 ${lit}-node.53\n`, [SELF]: `${self}\n` });
@@ -105,7 +105,7 @@ test("address_literals_report_names_each_hit_without_a_digit_of_it", () => {
 
 // reddened by: a binary file read as text; also pinned: any extension is read, the index is read (not the disk), a non-ASCII name
 // is read (git ls-files -z) and a tracked file deleted in the work tree is skipped
-// killer: scripts/address-literals.mjs:145 CONST "buf.includes(0)" -> "false"
+// killer: scripts/address-literals.mjs:152 CONST "buf.includes(0)" -> "false"
 test("address_literals_read_every_tracked_text_file_and_skip_binaries", () => {
   const name = `${String.fromCharCode(0xe9)}t${String.fromCharCode(0xe9)}.md`;
   const v = fixture({ "deploy/u.service": `# host (${A})\n`, Caddyfile: `${A} {\n`, [name]: `${A}\n`, "bin.dat": Buffer.concat([Buffer.from([0]), Buffer.from(`${A}\n`)]),
@@ -142,7 +142,7 @@ test("address_literals_read_forty_thousand_dots_in_bounded_time", () => {
 });
 
 // reddened by: a skipped file reported whatever its attributes, so a declared binary is refused and an undeclared one passes
-// killer: scripts/address-literals.mjs:160 ROR "!== \"set\"" -> "=== \"set\""
+// killer: scripts/address-literals.mjs:167 ROR "!== \"set\"" -> "=== \"set\""
 test("address_literals_name_each_skipped_file_that_gitattributes_does_not_declare_binary", () => {
   const nul = (s: string): Buffer => Buffer.concat([Buffer.from([0]), Buffer.from(`${s}\n`)]);
   const v = fixture({ ".gitattributes": "*.bin binary\n*.raw -text\n", "a.bin": nul("a"), "b.raw": nul("b"), [`c-${A}.dat`]: nul("c"), "d.md": "d\n" }, {},
@@ -153,4 +153,43 @@ test("address_literals_name_each_skipped_file_that_gitattributes_does_not_declar
     });
   assert.deepEqual(v.undeclared, ["b.raw", "c-x.x.x.x.dat"], "a NUL byte without a binary declaration is named, its path masked; a declared binary is not");
   assert.equal(v.read, 2, "the two text files only");
+});
+
+// reddened by: a path masked where its literal is written and where its text recurs as written only, so a recurrence escaped and
+// glued to a word, which no pass reads, prints the digits of the address; also pinned: a lowercase escape is read, and a decoded
+// digit glued to an address reads a second, longer one at its column (two hits for one address written, both masked)
+// killer: scripts/address-literals.mjs:125 CONST "|%${c.charCodeAt(0).toString(16)}" -> ""
+test("address_literals_mask_a_path_wherever_its_address_recurs_escaped", () => {
+  const esc = (e: string): string => A.split(".").join(e);
+  const v = fixture({ "a.log": `h%5b${B}\n`, "b.log": `${A}%35\n`, [`logs/v${esc("%2e")}/${esc("%2e")}.txt`]: "x\n",
+    [`logs/v${esc("%2E")}/${A}.txt`]: "x\n", [`logs/${C}/${A}.txt`]: "x\n" });
+  // killer: scripts/address-literals.mjs:74 CONST "/%[\\dA-Fa-f]{2}/g" -> "/%[\\dA-F]{2}/g"
+  assert.deepEqual(at(v, "a.log"), ["1:5 6 x:x::x"], "a lowercase escape is read (RFC 3986: either case)");
+  // killer: scripts/address-literals.mjs:106 CONST "!seen.has(`${String(at[a])} ${lit}`)" -> "!out.some(([, s, e]) => s < at[b] && at[a] < e)"
+  assert.deepEqual(at(v, "b.log"), ["1:1 4 x.x.x.x", "1:1 4 x.x.x.x"], "a decoded digit glued to an address: two readings that overlap, two hits, both masked");
+  assert.deepEqual([at(v, "logs/vx%x%x%x/x%x%x%x.txt"), at(v, "logs/vx%x%x%x/x.x.x.x.txt"), at(v, "logs/x.x.x.x/x.x.x.x.txt")],
+    [["0:24 4 x.x.x.x"], ["0:24 4 x.x.x.x"], ["0:6 4 x.x.x.x", "0:17 4 x.x.x.x"]],
+    "an escaped recurrence glued to a word is masked too, whichever pass read the literal, and so is each literal of a path: no digit of an address");
+});
+
+// reddened by: a tracked link followed, so a dangling one passes unread and one to a file outside the tree reads that file, and a
+// gitlink whose directory exists (a checked-out submodule) read as a file (EISDIR): a link is judged by its text, a gitlink by its path
+// killer: scripts/address-literals.mjs:150 CONST "st.isSymbolicLink() ? readlinkSync(p, { encoding: \"buffer\" }) : readFileSync(p)" -> "readFileSync(p)"
+test("address_literals_judge_a_link_by_its_text_never_followed_and_a_gitlink_by_its_path", () => {
+  const link = (root: string, to: string, rel: string): void => { // as git checks a link out: a link, on win32 a text file of its target (core.symlinks=false)
+    if (process.platform === "win32") writeFileSync(join(root, rel), to); else symlinkSync(to, join(root, rel));
+  };
+  const v = fixture({ "x.md": "x\n" }, {}, (root, env) => {
+    writeFileSync(join(dirname(root), "outside.md"), `${C}\n`);
+    link(root, `../logs/0/${A}.txt`, "gone"); link(root, "../outside.md", "out"); link(root, "x.md", "in");
+    execFileSync("git", ["add", "--", "gone", "out", "in"], { cwd: root, env });
+  });
+  assert.deepEqual(v.hits.map((h) => `${h.file}:${String(h.line)}:${String(h.col)}`), ["gone:1:11"],
+    "a dangling link is judged by its text; the file outside the tree that a link names is never read");
+  assert.equal(v.read, 4, "x.md, and each of the three links by its text");
+  // killer: scripts/address-literals.mjs:149 SDL "if (!st.isFile() && !st.isSymbolicLink()) continue;" -> ""
+  assert.doesNotThrow(() => fixture({ "x.md": "x\n" }, {}, (root, env) => {
+    execFileSync("git", ["update-index", "--add", "--cacheinfo", `160000,${"5".repeat(40)},sub`], { cwd: root, env });
+    mkdirSync(join(root, "sub"));
+  }), "a gitlink whose directory exists: its path is judged, nothing in it is read");
 });
