@@ -256,7 +256,7 @@ test("verifier_list_commit_carries_the_listed_tree - each list entry names a com
 // or prose read as one; or a load left out of forbiddenLoads: an import() of a computed specifier (a name, a template with a substitution, E1
 // to E5 of the review), require, getBuiltinModule (E3: by a computed key), createRequire, eval, Function, constructor (R1), dlopen or
 // binding (process.binding, an internal module of Node); or a comment, a string or a literal import() read as a forbidden load
-// killer: apps/harness/test/helpers/import-specifiers.ts:51 CONST "ts.isStringLiteralLike(n.arguments[0])" -> "true"
+// killer: apps/harness/test/helpers/import-specifiers.ts:80 CONST "ts.isStringLiteralLike(n.arguments[0])" -> "true"
 test("import_helper_reads_literal_specifiers_and_refuses_computed_loads - importSpecifiers lists each literal form and no prose; forbiddenLoads names each load that no specifier shows, and no comment, string or literal import()", () => {
   const NOT_LITERAL = "import() of a specifier that is not a literal";
   const forms = ['import { a } from "./a.ts";', "import './b.ts';", 'import {\n  c,\n} from "./c.ts";', 'export { d } from /* reviewed */ "./d.ts";', 'import /* reviewed */ "./e.ts";',
@@ -289,7 +289,7 @@ test("import_helper_reads_literal_specifiers_and_refuses_computed_loads - import
 // import or an import() that a regular expression holding a quote or a backtick hides (G1 to G8 of the review of a1's adoption, finding M-1;
 // G8 hands vm.runInThisContext to the module), export type * as ns from, import x = require() or an import type; or the text of a regular
 // expression read as a specifier
-// killer: apps/harness/test/helpers/import-specifiers.ts:26 CONST "ts.preProcessFile(text, true, true)" -> "ts.preProcessFile(text, false, true)"
+// killer: apps/harness/test/helpers/import-specifiers.ts:53 CONST "visit(treeOf(text));" -> "found.push(...ts.preProcessFile(text, true, true).importedFiles.map((f) => f.fileName));"
 test("import_helper_reads_specifiers_on_the_syntax_tree - importSpecifiers lists what a token scanner misses (export * as ns from; an import hidden by a regular expression with a quote or a backtick: G1 to G8 of the review), and no regular expression text", () => {
   const forms: [string, string, string[]][] = [
     ["G1, in the committed tables reader", 'export * as G from "./policy-guard.ts";', ["./policy-guard.ts"]],
@@ -302,6 +302,17 @@ test("import_helper_reads_specifiers_on_the_syntax_tree - importSpecifiers lists
     ["G8, in the reader", 'export const tick = /`/;\nimport { runInThisContext } from "node:vm";\nexport const tock = /`/;\nexport const run = (code: string): unknown => runInThisContext(code);', ["node:vm"]],
   ];
   assert.deepEqual(forms.map(([id, text]) => [id, importSpecifiers(text)]), forms.map(([id, , want]) => [id, want]), "each form of the review, as the syntax tree holds it");
+  // killer: apps/harness/test/helpers/import-specifiers.ts:36 CONST "ts.createSourceFile(\"module.ts\", text," -> "ts.createSourceFile(\"module.ts\", \"\","
+  // killer: apps/harness/test/helpers/import-specifiers.ts:40 CONST "ts.isImportDeclaration(n) || ts.isExportDeclaration(n)" -> "ts.isImportDeclaration(n)"
+  // killer: apps/harness/test/helpers/import-specifiers.ts:42 CONST "n.expression.kind === ts.SyntaxKind.ImportKeyword || " -> ""
+  // killer: apps/harness/test/helpers/import-specifiers.ts:47 CONST "const found: string[] = [];" -> "const found: string[] = [\"./j.ts\"];"
+  // killer: apps/harness/test/helpers/import-specifiers.ts:49 CONST "specifierNode(n)" -> "undefined"
+  // killer: apps/harness/test/helpers/import-specifiers.ts:51 SDL "ts.forEachChild(n, visit);" -> ""
+  // killer: apps/harness/test/helpers/import-specifiers.ts:54 CONST "return found;" -> "return found.slice(1);"
+  // killer: apps/harness/test/helpers/import-specifiers.ts:41 CONST "ts.isImportEqualsDeclaration(n) && " -> "false && "
+  // killer: apps/harness/test/helpers/import-specifiers.ts:42 CONST "n.expression.text === \"require\"" -> "n.expression.text === \"requires\""
+  // killer: apps/harness/test/helpers/import-specifiers.ts:43 CONST "ts.isImportTypeNode(n) && " -> "false && "
+  // killer: apps/harness/test/helpers/import-specifiers.ts:50 CONST "ts.isStringLiteralLike(s)" -> "ts.isStringLiteral(s)"
   const more = ['import j = require("./j.ts");', 'export type T = typeof import("./t.ts");', 'const r = /import "\\.\\/r\\.ts"/;', 'export type * as U from "./u.ts";', "require(`./q.ts`);"];
   assert.deepEqual(importSpecifiers(more.join("\n")), ["./j.ts", "./t.ts", "./u.ts", "./q.ts"], "import x = require(), an import type, export type * as ns from and require() of a template; a regular expression is no specifier");
 });
