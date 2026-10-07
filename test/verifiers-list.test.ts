@@ -233,13 +233,14 @@ test("run_log_is_ignored_untracked_and_named_by_no_spec_input - git ignores run-
 
 // reddened by: a list entry whose commit is not in the history of HEAD (git merge-base --is-ancestor: an object of the repository outside
 // it, such as the head of an unmerged branch or a head from before a rebase, is refused; so is the placeholder of 40 zeros: lot 1f is built
-// on the trunk before the frozen tool merges), or whose commit does not carry the listed tree under tools/kata-recalc/ (section 3.2 recipe)
+// on the trunk before the frozen tool merges), or whose commit does not carry the listed tree under tools/kata-recalc/ (section 3.2 recipe).
+// Each git read of a listed commit runs with --no-replace-objects, as the blob reads do: no refs/replace can graft it or swap its tree
 // killer: apps/harness/src/policy-verifiers.ts:115 CONST "(a.path < b.path ? -1 : 1)" -> "(a.path < b.path ? 1 : -1)"
 test("verifier_list_commit_carries_the_listed_tree - each list entry names a commit in the history of HEAD whose tree under tools/kata-recalc/ has the listed digest", () => {
   for (const e of listEntries(pinnedVerifiers())) {
     assert.notEqual(e.commit, "0".repeat(40), "a placeholder: the entry must name the merge commit of the frozen tool on the trunk, and its tree, before this merges");
-    assert.equal(gitStatus(["merge-base", "--is-ancestor", e.commit, "HEAD"]), 0, `${e.commit} is in the history of HEAD`);
-    const blobs = gitOut(REPO, ["ls-tree", "-r", "-z", "--full-tree", e.commit, "--", TOOL_ROOT]).split("\0").filter((l) => l !== "").map((l) => {
+    assert.equal(gitStatus(["--no-replace-objects", "merge-base", "--is-ancestor", e.commit, "HEAD"]), 0, `${e.commit} is in the history of HEAD`);
+    const blobs = gitOut(REPO, ["--no-replace-objects", "ls-tree", "-r", "-z", "--full-tree", e.commit, "--", TOOL_ROOT]).split("\0").filter((l) => l !== "").map((l) => {
       const [, mode = "", object = "", path = ""] = /^(\d{6}) \w+ ([0-9a-f]+)\t(.+)$/s.exec(l) ?? [];
       return { mode, path, bytes: execFileSync("git", ["--no-replace-objects", "-C", REPO, "cat-file", "blob", object], { env: BARE, maxBuffer: 1 << 26 }) };
     });
