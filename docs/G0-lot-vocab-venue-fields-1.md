@@ -68,3 +68,8 @@ Deux réécritures en place (l.137, l.147), le reste en déclarations de fonctio
 - Rejeu réel (`811fcd57…`, hors dépôt, script en dossier de travail) : 32 tables, 280 lignes, **0** problème `vocabulary` (592 à la
   base) ; restent, inchangés, `recompute_held` (attestation synthétique du rejeu) et `short_digest` sur les quatre dir-4h.
 - red-proof `--base 177b5755 --draw 5 --seed 1` : 5 tests F2P, 5 tueurs tués (avant le pli).
+- Après le pli, rejeu du registre du dépôt (`apps/harness/data/kata/registry/wave1.json`, `811fcd57…`) par `projectCell`,
+  `buildPolicyTable` et `contentProblems` : 32 tables, 280 lignes, `{recompute_held: 32, short_digest: 4}`, **0** `vocabulary`.
+- red-proof après le pli, `--base 1cddd2e5 --draw 7 --seed 1` : 7 tests F2P, 7 tueurs tirés, 7 tués (dont l.360 et l.343).
+- Tests touchés et lecteurs (`spec-venue-fields`, `spec-publish`, `spec-1-1-0-release`, `spec-retire-path`, `short-digest-floor`,
+  `kata-recalc`, `runbook-retire`, `surfaces-1-1-0`) : 101/101 sous Node 24.
