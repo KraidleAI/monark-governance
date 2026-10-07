@@ -391,6 +391,22 @@ et RH-5 sont des actes de l'orchestrateur, consignés au JOURNAL.
     RETIRE-LATENCY-REHEARSAL-1) ; le cycle `publication` (#218, RETIRE-REAL-CYCLE-SCOPE-1) ; HTTPS de bout en bout
     (RETIRE-REHEARSAL-STAGING-1, ou le cycle réel d'E-2a). eslint ne voit que les tests : la configuration du dépôt ignore
     `**/*.mjs` et `**/*.d.mts` (règle préexistante, non changée) ; tsc ne voit que les `.d.mts`.
+- **Ligne datée 2026-10-07T07:39:26Z (RECHERCHES, modèle `claude-opus-5-5`, lot RH-1 parties 2a et 2b, G2 courte de #224 par
+  MONARK)** : les huit m pliés, chacun vérifié à la source avant pli, après fusion du tronc `022c82d1` (#218, #219) par les
+  parties empilées.
+  - Partie 2a (`recherches/rh-1-probe`) : `--timeout` 0 ou au-delà de 2147483647 est une erreur d'usage, sortie 2, comme
+    `verify-harness` ; la valeur du délai total est épinglée (goutte-à-goutte à `--timeout` 300 : entre 290 et 600 ms ; tueur
+    `}, timeoutMs);` → `4 * timeoutMs` tué) ; un `<out>.refused` périmé est retiré à côté d'un record accepté (épinglé), et un
+    refus d'avant tout verdict n'écrit rien (épinglé, et dit au RUNBOOK étape 7).
+  - Partie 2b (`recherches/rh-1-instants`) : en cycle `real` ou `publication`, T_g exige une sonde contre une api `https` hors
+    du bouclage, avec son Host ; une sonde locale ne vaut qu'en répétition, comme une CA locale (test et tueur ; RUNBOOK étape
+    8) ; `problem` est lu (`problem` non nul refusé, l'en-tête dit vrai) ; la garde de longueur de `CHECK_NAMES` est épinglée
+    (15 noms plus un en double, ou plus un inconnu : `source_not_green`), et une entrée de `checks` qui n'est pas un objet
+    rend `source_not_green` au lieu d'un TypeError ; `CHECK_NAMES` est dit un ensemble, pas l'ordre d'une passe (les appels
+    `gate_retired_call` et `gate_future_call` viennent en 7e et 8e), et le test compare des ensembles.
+  - La coupe : les tueurs de `runbook-retire` sont remesurés sur l'arbre de chaque partie ; le test 2 (`"format"`) et le test
+    4 (`git clean -f -d`) sont vifs et tués partout (#223 : :414 et :450 ; 2a : :429 et :465 ; 2b : :429 et :472), avec le
+    test d'encodage (:423, :438, :438).
 - **T0-ORDER-TEST-RELEASE-NAME-1** (test). Porteur : MONARK.
   - Déclencheur : avant la première entrée de release datée, celle de la répétition ou celle d'E-2a (RH-2).
   - Limite : M-1, le test de l'ordre de T0 lit la dernière release.

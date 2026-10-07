@@ -34,14 +34,14 @@ const DATES: Record<string, string> = { [SHA("a")]: `2027-01-04T10:00:00+01:00 $
 const NAMES = ((s: string) => [...s.matchAll(/(?:wiredCheck|httpCheck)\("(\w+)"/g), ...s.matchAll(/\["(gate_\w+_call)", GATE_\w+_BODY,/g)].map((m) => m[1] ?? ""))(readFileSync(join(import.meta.dirname, "..", "scripts", "verify-harness.mjs"), "utf8"));
 const ca = (tls: object, names: string[] = NAMES) => ({ checked_at: "2027-01-04T14:00:00.999Z", checks: names.map((name) => ({ name, ok: true })), tls, tls_mcp: tls });
 const LOCAL = { host: "127.0.0.1", skipped: true }, AUTHORIZED = { host: "api.example", authorized: true }, REFUSED = { host: "api.example", authorized: false };
-const ACCEPTED = { format: "retire-probe-v1", received_at: "2027-01-04T15:00:01Z", status: 200, equal: true, ok: true, problem: null };
+const ACCEPTED = { format: "retire-probe-v1", api: "https://203.0.113.7", api_host: "api.monarkgate.tech", received_at: "2027-01-04T15:00:01Z", status: 200, equal: true, ok: true, problem: null };
 const FILES: Record<string, unknown> = { "ca.json.local": ca(LOCAL), "ca.json": ca(AUTHORIZED), "probe.json": ACCEPTED };
 const io = (files = FILES) => ({ git: (_repo: string, sha: string): string => DATES[sha] ?? assert.fail(sha), read: (f: string): unknown => files[f] ?? assert.fail(f) });
 const evidence = (sources: object = SOURCES, cycle = "rehearsal") => ({ format: "retire-evidence-v1", cycle, sources, mention: null });
 
 // reddened by: an instant read from another source than its kind, a commit date or a CA instant not brought to the UTC second, or an
 // entry that the report refuses
-// killer: scripts/retire-instants.mjs:26 CONST "Math.floor(ms / 1000)" -> "Math.round(ms / 1000)"
+// killer: scripts/retire-instants.mjs:27 CONST "Math.floor(ms / 1000)" -> "Math.round(ms / 1000)"
 test("retire_instants_reads_each_source_into_the_entry", async () => {
   const t = await load(), e = t.entry(evidence(), io());
   assert.deepEqual(e, { format: "retire-latency-v1", cycle: "rehearsal", mention: null, instants: {
@@ -52,7 +52,7 @@ test("retire_instants_reads_each_source_into_the_entry", async () => {
 });
 
 // reddened by: the author date read in place of the committer date (a rebase keeps the author date old), or a GIT_* variable obeyed
-// killer: scripts/retire-instants.mjs:32 CONST "--format=%cI" -> "--format=%aI"
+// killer: scripts/retire-instants.mjs:35 CONST "--format=%cI" -> "--format=%aI"
 test("retire_instants_takes_the_committer_date_not_the_author_date", async () => {
   const t = await load(), repo = join(TMP, "repo"), env = { ...Object.fromEntries(Object.entries(process.env).filter(([k]) => !k.startsWith("GIT_"))), GIT_CONFIG_NOSYSTEM: "1", GIT_CONFIG_GLOBAL: "", GIT_AUTHOR_NAME: "F", GIT_AUTHOR_EMAIL: "f@example.invalid", GIT_COMMITTER_NAME: "F", GIT_COMMITTER_EMAIL: "f@example.invalid" };
   const git = (...a: string[]): string => { const r = spawnSync("git", ["-C", TMP, ...a], { encoding: "utf8", env: { ...env, GIT_AUTHOR_DATE: "2026-01-01T00:00:00+02:00", GIT_COMMITTER_DATE: "2027-01-04T10:05:04+02:00" } }); assert.equal(r.status, 0, r.stderr); return r.stdout.trim(); };
@@ -67,7 +67,7 @@ test("retire_instants_takes_the_committer_date_not_the_author_date", async () =>
 
 // reddened by: a red record (CA not green, probe of another digest) or a source of the wrong kind taken as an instant, or a refusal
 // that the RUNBOOK does not cite
-// killer: scripts/retire-instants.mjs:65 CONST "r.equal !== true ||" -> ""
+// killer: scripts/retire-instants.mjs:68 CONST "r.equal !== true ||" -> ""
 test("retire_instants_refuses_unreadable_or_red_sources_by_code", async () => {
   const t = await load(), code = (ev: object, files = FILES): string => { try { t.entry(ev, io(files)); return "ok"; } catch (e) { return String((e as { code?: string }).code); } };
   const noProbe = Object.fromEntries(Object.entries(SOURCES).filter(([k]) => k !== "T_g"));
@@ -83,28 +83,55 @@ test("retire_instants_refuses_unreadable_or_red_sources_by_code", async () => {
 });
 
 // reddened by: a CA that verify-harness itself rates failed (TLS refused) or local taken in a real cycle, or a CA that lacks some of the
-// 15 checks of the green gate, taken for T_f
-// killer: scripts/retire-instants.mjs:59 CONST "cycle === \"rehearsal\" ? [\"green\", \"local\"] : [\"green\"]" -> "[\"green\", \"local\"]"
+// 15 checks of the green gate, or holds one twice (16 entries), or an entry that is no object (null), taken for T_f
+// killer: scripts/retire-instants.mjs:62 CONST "cycle === \"rehearsal\" ? [\"green\", \"local\"] : [\"green\"]" -> "[\"green\", \"local\"]"
 test("retire_instants_takes_T_f_from_the_overall_verdict_of_verify_harness", async () => {
   const t = await load(), real = { ...SOURCES, T_a: { clock: "2027-01-01T00:00:00Z" }, T_f: { ca: "ca.json" } };
   const code = (ev: object, files: Record<string, unknown>): string => { try { return t.entry(ev, io({ ...FILES, ...files })).instants["T_f"] ?? "none"; } catch (e) { return String((e as { code?: string }).code); } };
   const { CHECK_NAMES } = (await import(new URL("../scripts/verify-harness.mjs", import.meta.url).href)) as { CHECK_NAMES: readonly string[] };
-  assert.deepEqual([NAMES.length, [...CHECK_NAMES]], [15, NAMES], "premise: verify-harness makes 15 checks, and CHECK_NAMES lists them in their order");
+  assert.deepEqual([NAMES.length, [...CHECK_NAMES].sort()], [15, [...NAMES].sort()], "premise: verify-harness makes 15 checks, and CHECK_NAMES lists them all (a set: a pass makes the retired and future gate calls earlier)");
   assert.deepEqual([
     code(evidence(real, "real"), {}), code(evidence(real, "real"), { "ca.json": ca(REFUSED) }), code(evidence(real, "real"), { "ca.json": ca(LOCAL) }),
     code(evidence(), {}), code(evidence(), { "ca.json.local": ca(LOCAL, NAMES.slice(1)) }), code(evidence(), { "ca.json.local": { checked_at: "2027-01-04T14:00:00Z", checks: [] } }),
-    code(evidence(), { "ca.json.local": ca(LOCAL, [...NAMES.slice(1), NAMES[1] ?? ""]) }),
-  ], ["2027-01-04T14:00:00Z", "source_not_green", "source_not_green", "2027-01-04T14:00:00Z", "source_not_green", "source_not_green", "source_not_green"],
+    code(evidence(), { "ca.json.local": ca(LOCAL, [...NAMES.slice(1), NAMES[1] ?? ""]) }), code(evidence(), { "ca.json.local": { ...ca(LOCAL), checks: [null, ...ca(LOCAL).checks] } }),
+  ], ["2027-01-04T14:00:00Z", "source_not_green", "source_not_green", "2027-01-04T14:00:00Z", "source_not_green", "source_not_green", "source_not_green", "source_not_green"],
   "real: green only; rehearsal: green or local; always the 15 checks, and the TLS blocks read");
 });
 
 // reddened by: the record of a probe that the probe itself refused (here a retired cell answered under_calib at the right digest, so
 // equal is true) taken for T_g
-// killer: scripts/retire-instants.mjs:65 CONST "r.ok !== true || " -> ""
+// killer: scripts/retire-instants.mjs:68 CONST "r.ok !== true || " -> ""
 test("retire_instants_refuses_a_probe_record_the_probe_refused", async () => {
   const t = await load(), refused = { ...ACCEPTED, status: 200, equal: true, ok: false, problem: "reason_mismatch" }, forged = { ...ACCEPTED, status: 500 };
   const code = (record: object): string => { try { t.entry(evidence(), io({ ...FILES, "probe.json": record })); return "ok"; } catch (e) { return String((e as { code?: string }).code); } };
-  assert.deepEqual([code(ACCEPTED), code(refused), code(forged)], ["ok", "source_not_green", "source_not_green"], "an accepted 200 only");
+  assert.deepEqual([code(ACCEPTED), code(refused), code(forged), code({ ...ACCEPTED, ok: false })], ["ok", "source_not_green", "source_not_green", "source_not_green"], "an accepted 200 only, its ok read even with no problem named");
+});
+
+// reddened by: a CA of the 15 checks plus one of them twice (16 entries, all ok) taken for T_f: the length guard alone refuses it, every
+// name being present
+// killer: scripts/retire-instants.mjs:62 COR "names.length !== CHECK_NAMES.length || " -> ""
+test("retire_instants_refuses_a_ca_with_a_check_twice", async () => {
+  const t = await load(), code = (names: string[]): string => { try { return t.entry(evidence(), io({ ...FILES, "ca.json.local": ca(LOCAL, names) })).instants["T_f"] ?? "none"; } catch (e) { return String((e as { code?: string }).code); } };
+  assert.deepEqual([code(NAMES), code([...NAMES, "health"]), code([...NAMES, "bogus_call"])], ["2027-01-04T14:00:00Z", "source_not_green", "source_not_green"], "the 15 checks, no more");
+});
+
+// reddened by: a probe record that names a problem taken for T_g, whatever its ok (the header reads ok true and problem null)
+// killer: scripts/retire-instants.mjs:68 CONST "r.problem !== null || " -> ""
+test("retire_instants_reads_the_problem_of_the_probe_record", async () => {
+  const t = await load(), code = (record: object): string => { try { return t.entry(evidence(), io({ ...FILES, "probe.json": record })).instants["T_g"] ?? "none"; } catch (e) { return String((e as { code?: string }).code); } };
+  assert.deepEqual([code(ACCEPTED), code({ ...ACCEPTED, problem: "reason_mismatch" })], ["2027-01-04T15:00:01Z", "source_not_green"], "problem null only");
+});
+
+// reddened by: a probe of a local listener (http, or the loopback) taken for T_g in a real or publication cycle, while a local CA is
+// refused there (T_f): the rehearsal takes it, as it takes a local CA
+// killer: scripts/retire-instants.mjs:71 CONST "cycle !== \"rehearsal\" && " -> "false && "
+test("retire_instants_refuses_a_local_probe_outside_a_rehearsal", async () => {
+  const t = await load(), real = { ...SOURCES, T_a: { clock: "2027-01-01T00:00:00Z" }, T_f: { ca: "ca.json" } }, publication = { T_c: SOURCES.T_c, T_d: SOURCES.T_d, T_e: SOURCES.T_e, T_f: { ca: "ca.json" }, T_g: SOURCES.T_g };
+  const code = (ev: object, record: object): string => { try { return t.entry(ev, io({ ...FILES, "probe.json": record })).instants["T_g"] ?? "none"; } catch (e) { return String((e as { code?: string }).code); } };
+  const http = { ...ACCEPTED, api: "http://127.0.0.1:39424", api_host: "api.gate.test" }, loop = { ...ACCEPTED, api: "https://localhost:8443" }, noHost = { ...ACCEPTED, api_host: null };
+  assert.deepEqual([code(evidence(real, "real"), ACCEPTED), code(evidence(real, "real"), http), code(evidence(real, "real"), loop), code(evidence(real, "real"), noHost), code(evidence(publication, "publication"), http)],
+    ["2027-01-04T15:00:01Z", "source_not_green", "source_not_green", "source_not_green", "source_not_green"], "real and publication: an https api off the loopback, with its Host");
+  assert.equal(code(evidence(), http), "2027-01-04T15:00:01Z", "a rehearsal takes a local probe");
 });
 
 /** The served gate in process for one table, as test/retire-probe.test.ts serves it. */
@@ -129,7 +156,7 @@ test("retire_instants_composes_with_the_record_of_the_probe", async () => {
 
 // reddened by: a T_a clock that is not the close of a quarter (an adr: trigger is a commit), a T_e that is not a merge commit, or a git
 // that does not start read through an undefined stderr (a TypeError in place of its cause)
-// killer: scripts/retire-instants.mjs:52 CONST "if (name === \"T_e\" && parents.length !== 2) no(" -> "if (false) no("
+// killer: scripts/retire-instants.mjs:55 CONST "if (name === \"T_e\" && parents.length !== 2) no(" -> "if (false) no("
 test("retire_instants_checks_the_kind_of_T_a_and_T_e", async () => {
   const t = await load(), code = (sources: object, cycle = "real"): string => { try { t.entry(evidence(sources, cycle), io()); return "ok"; } catch (e) { return String((e as { code?: string }).code); } };
   const live = { ...SOURCES, T_a: { clock: "2027-01-01T00:00:00Z" }, T_f: { ca: "ca.json" } };

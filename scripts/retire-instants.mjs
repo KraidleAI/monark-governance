@@ -10,8 +10,9 @@
 // of live:<k>, the close of a quarter E_k, 00:00:00Z of its first day after it, apps/harness/src/policy-retire.ts l.80: an adr: T_a is a
 // commit); T_e is a merge commit (two parents). A CA {"ca": <file>} is the checked_at, cut to the second, of a record of
 // scripts/verify-harness.mjs that the script itself rates (recordKind, failedOf) "green", or "local" in a rehearsal only, with its 15
-// checks by name (CHECK_NAMES) (T_f). A probe {"probe": <file>} is the received_at of a retire-probe-v1 record that the probe accepted
-// (ok true, problem null, status 200, the expected digest) (T_g). Which instants a cycle holds, and their order, is the report's: the
+// checks by name (CHECK_NAMES), each an object, no more (T_f). A probe {"probe": <file>} is the received_at of a retire-probe-v1 record
+// that the probe accepted (ok true, problem null, status 200, the expected digest), made against an https api off the loopback, or any
+// api in a rehearsal only, as a local CA (T_g). Which instants a cycle holds, and their order, is the report's: the
 // entry is printed, one line on stdout, only once report() accepts it; --out also writes it, through a temporary file and a rename
 // (writeAtomic of scripts/verify-harness.mjs: no shell redirection, which PowerShell 5.1 writes in UTF-16).
 // Refused (exit 1) by code: evidence_invalid, source_unreadable, source_not_green, or the report's own; exit 2: usage.
@@ -25,6 +26,8 @@ const KEYS = { commit: ["commit", "repo"], clock: ["clock"], ca: ["ca"], probe: 
 const no = (code, detail) => { throw new LatencyError(code, detail); };
 const second = (ms) => new Date(Math.floor(ms / 1000) * 1000).toISOString().replace(".000Z", "Z");
 const obj = (v) => v !== null && typeof v === "object" && !Array.isArray(v);
+/** The api of a probe record is a deployed one: https (an http target is never a deployment record, as recordKind) off the loopback. */
+const deployedApi = (api) => { const u = typeof api === "string" && URL.canParse(api) ? new URL(api) : null; return u !== null && u.protocol === "https:" && !/^(localhost|127(\.\d+){3}|\[::1\])$/i.test(u.hostname); };
 
 /** The default reader of a commit: "<committer date> <parent sha>...", git -C <repo>, no inherited GIT_* variable (TEST-GIT-ENV-ISOLATION-1). */
 export function committerDate(repo, sha) {
@@ -54,7 +57,7 @@ export function instant(name, source, { git = committerDate, read = readJson } =
   }
   const r = at(source[kind], () => read(source[kind]));
   if (kind === "ca") {
-    const checks = Array.isArray(r?.checks) ? r.checks : [], names = checks.map((c) => c?.name);
+    const checks = Array.isArray(r?.checks) && r.checks.every(obj) ? r.checks : [], names = checks.map((c) => c.name); // a non-object entry: no checks
     const rated = obj(r?.tls) && obj(r?.tls_mcp) ? recordKind(failedOf(checks, r.tls, r.tls_mcp), [r.tls, r.tls_mcp]) : "failed";
     if (!(cycle === "rehearsal" ? ["green", "local"] : ["green"]).includes(rated) || names.length !== CHECK_NAMES.length || !CHECK_NAMES.every((n) => names.includes(n))) {
       no("source_not_green", `${name}: ${source.ca} is rated ${rated} by verify-harness with ${String(names.length)} of its ${String(CHECK_NAMES.length)} checks; a ${String(cycle)} cycle takes ${cycle === "rehearsal" ? "green or local" : "green"} with all of them`);
@@ -62,8 +65,11 @@ export function instant(name, source, { git = committerDate, read = readJson } =
     const t = Date.parse(r.checked_at);
     return Number.isFinite(t) ? second(t) : no("source_unreadable", `${name}: ${source.ca} has no checked_at`);
   }
-  if (r?.format !== "retire-probe-v1" || r.ok !== true || r.status !== 200 || r.equal !== true || typeof r.received_at !== "string") {
-    no("source_not_green", `${name}: ${source.probe} is no retire-probe-v1 record that the probe accepted (ok, status 200, the expected digest)`);
+  if (r?.format !== "retire-probe-v1" || r.ok !== true || r.problem !== null || r.status !== 200 || r.equal !== true || typeof r.received_at !== "string") {
+    no("source_not_green", `${name}: ${source.probe} is no retire-probe-v1 record that the probe accepted (ok, problem null, status 200, the expected digest)`);
+  }
+  if (cycle !== "rehearsal" && !(deployedApi(r.api) && typeof r.api_host === "string" && r.api_host !== "")) {
+    no("source_not_green", `${name}: ${source.probe} probed ${String(r.api)} (Host ${String(r.api_host)}); a ${String(cycle)} cycle takes a probe of an https api off the loopback, a local one in a rehearsal only`);
   }
   return r.received_at;
 }
