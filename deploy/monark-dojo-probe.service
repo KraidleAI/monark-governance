@@ -1,0 +1,39 @@
+# systemd unit for the MONARK Dojo probe of the served page (DOJO-LIVE-HEALTH-1, ADR-DOJO-PR-4 PL-3; lot PR-4c-1c). Calque of
+# monark-probe.service: orchestrator-deployed on the Bell host, outside the site's server that holds the proxy (decision 57), by
+# docs/RUNBOOK-dojo.md section 25. A Type=oneshot job driven by monark-dojo-probe.timer: each start runs scripts/probe-dojo-live.mjs
+# once (proxy equal to the Dojo host byte for byte, the proxy's headers, the real verifier under the committed keyring, freshness),
+# writes /var/lib/monark-probe/dojo-live.json, mails on a transition, exits 1 iff unhealthy or a mail failed. 0 new dependency (R-8).
+[Unit]
+Description=MONARK Dojo probe - the served page through the proxy equals the Dojo host and passes the verifier (ADR-DOJO-PR-4)
+Documentation=https://github.com/KraidleAI/monark
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+# The tree: DOJO_PROBE_TREE_PATHS of the probe at the G7, root-owned 0644, the keyring redeployed at each synchro (RUNBOOK section 25).
+WorkingDirectory=/opt/monark-dojo-probe
+# The mail configuration of monark-probe.service, the same file (PL-3): required, so a missing file fails the start loudly. The
+# probe hands none of it to the verifier child (VERIFIER_ENV, a closed list by name).
+EnvironmentFile=/etc/monark/probe.env
+ExecStart=/usr/bin/env node /opt/monark-dojo-probe/scripts/probe-dojo-live.mjs
+# Worst case of one start, every term bounded in code: 8 GETs (two files, host and proxy, one reread) x 30 s (VERIFY_BOUNDS) + two
+# rereads of 1.5 s + the verifier child 3 000 s (DOJO-VERIFY-SCALE-1 under CPUQuota=25%) + the mail 30 s + a 10 s margin = 3 283 s;
+# this backstop stays strictly above it (dojo_probe_units_are_hardened).
+TimeoutStartSec=3300
+# The retained guard of FAITS-SYSTEMD-PUBLISH-1 F-2 (the publish unit's list, verbatim): no name of the manager's block that would load
+# code into the probe or touch the TLS of its GETs; the probe also refuses NODE_TLS_REJECT_UNAUTHORIZED=0 itself (insecure_url).
+UnsetEnvironment=NODE_OPTIONS NODE_TLS_REJECT_UNAUTHORIZED NODE_EXTRA_CA_CERTS SSL_CERT_FILE SSL_CERT_DIR HTTP_PROXY HTTPS_PROXY ALL_PROXY NO_PROXY http_proxy https_proxy all_proxy no_proxy
+# Least privilege: the dedicated non-login user of monark-probe.service, whose ONLY writable path is its state directory.
+User=probe
+Group=probe
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+PrivateTmp=true
+ReadWritePaths=/var/lib/monark-probe
+# Resource caps on the shared Bell host: a quarter of ONE CPU, as both units it composes. Memory: the probe process holds one timeline
+# line at a time (monark-probe.service's 128M) and its verifier child the publish unit's envelope (512M, heap 448): 640M.
+CPUQuota=25%
+MemoryMax=640M
+TasksMax=64
