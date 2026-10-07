@@ -1,4 +1,5 @@
-# claude-opus-5-5 - 2026-10-02 - lot P2-RECALC-TOOL-1 (MONARK G1), Python 3.14 standard library only, no network. Lot 1d (2026-10-06): M-3 to M-7, M-9.
+# claude-opus-5-5 - 2026-10-02 - lot P2-RECALC-TOOL-1 (MONARK G1), Python 3.14 standard library only, no network. Lot 1d (2026-10-06): M-3 to M-7, M-9;
+# lot 1e (2026-10-07, M-11): freezes, registry_text and the seqs of calibrate_cell shared with report.py, the inputs printed.
 # Independent recomputation of the 280 wave 1 rows from the four sealed series (plan P2 l.84), written from the definitions
 # only (mission D-1), blind to every registry and report of RECHERCHES (D-5). Mission decisions applied: D-2 (refuses to read any
 # series unless the three oracle outputs end GREEN), D-3 (each file hashed in memory before parsing, refused unless its sha256
@@ -202,7 +203,22 @@ def run_checks(kind, scores, aux_seq, qhat):
     return c1, c2
 
 
-def calibrate_cell(cell, recs, thr, tables, h_ms, series_sha):
+def freezes(recs, h_ms):
+    """SELECT freezes (P2 l.35-36): buckets on evaluable leans, factors on (t, r, sigma_raw) in time order; shared with report.py."""
+    thr = {kid: K.terciles_by_side([r["v"][kid] for r in recs["SELECT"]]) for kid in K.DIRECTION_KATAS}
+    tables = {kid: K.factor_table([(r["t"], r["r"], r["v"][kid]) for r in recs["SELECT"]
+                                   if r["r"] is not None and r["v"][kid] != K.NE], h_ms) for kid in K.SCALE_KATAS}
+    return thr, tables
+
+
+def registry_text(rows, trials):
+    """The registry as written to wave1-monark.json (D-5; FMT l.43-44: the hash ends the trial chain, built in the generator's code
+    only, item TRIAL-HEAD-WRITTEN-1)."""
+    return K.js_json_pretty({"plan": PLAN, "engine": ENGINE, "trialRegistryHead": {"length": trials, "hash": None}, "rows": rows}) + "\n"
+
+
+def calibrate_cell(cell, recs, thr, tables, h_ms, series_sha, seqs=None):
+    """One row and its check verdicts; seqs, when given, receives the CALIB score and auxiliary sequences of the cell (report.py)."""
     kind, kid, side, bucket = cell["kind"], cell["kata"], cell["side"], cell["bucket"]
     alpha = ALPHA["dir"] if kind == "dir" else ALPHA["scale"]
     table = tables.get("ewma-vol-hw-v1" if kind == "path" else kid)
@@ -237,6 +253,8 @@ def calibrate_cell(cell, recs, thr, tables, h_ms, series_sha):
             if sh is not None:
                 sig.append(sh)
     n = len(scores)
+    if seqs is not None:
+        seqs[(cell["taskClass"], cell["key"])] = (scores, aux_seq)
     n0 = E.zero_error_floor(alpha, DELTA)
     res = E.risk_control_quantile(scores, alpha, DELTA, n0)
     reasons = []
@@ -428,10 +446,7 @@ def main(series_dir, oracle_dir, out_dir):
             for blk, want in (("CALIB", {"1h": 4368, "4h": 1092}), ("TEST", {"1h": 4392, "4h": 1098}), ("SELECT", {"1h": 8760, "4h": 2190})):
                 if len(recs[blk]) != want[h]:
                     raise Stop(f"{sym} {h} {blk}: {len(recs[blk])} decisions, ADR l.81 gives {want[h]}")
-            # SELECT freezes (P2 l.35-36): buckets on evaluable leans, factors on (t, r, sigma_raw) in time order
-            thr = {kid: K.terciles_by_side([r["v"][kid] for r in recs["SELECT"]]) for kid in K.DIRECTION_KATAS}
-            tables = {kid: K.factor_table([(r["t"], r["r"], r["v"][kid]) for r in recs["SELECT"]
-                                           if r["r"] is not None and r["v"][kid] != K.NE], h_ms) for kid in K.SCALE_KATAS}
+            thr, tables = freezes(recs, h_ms)
             ties = sum(1 for kid in K.DIRECTION_KATAS for s in ("up", "down") if thr[kid][s] is not None and thr[kid][s]["t1"] == thr[kid][s]["t2"])
             no_side = sum(1 for kid in K.DIRECTION_KATAS for s in ("up", "down") if thr[kid][s] is None)
             empty_slots = {kid: sum(1 for f in tables[kid] if f is None) for kid in K.SCALE_KATAS}
@@ -463,9 +478,7 @@ def main(series_dir, oracle_dir, out_dir):
         raise Stop(f"{trials} distinct trialId, FMT l.9 gives {TRIALS} wave 1 trials")
     census_sha = write_text(f"{out_dir}/census-monark.json", K.js_json_pretty(census) + "\n")
     checks_sha = write_text(f"{out_dir}/wave1-monark-checks.json", K.js_json_pretty({"model": MODEL, "rows": checks}) + "\n")
-    # M-3, FMT l.43-44: hash ends the trial chain, built in the generator's code only (item TRIAL-HEAD-WRITTEN-1)
-    registry = {"plan": PLAN, "engine": ENGINE, "trialRegistryHead": {"length": trials, "hash": None}, "rows": rows}
-    wave_sha = write_text(f"{out_dir}/wave1-monark.json", K.js_json_pretty(registry) + "\n")
+    wave_sha = write_text(f"{out_dir}/wave1-monark.json", registry_text(rows, trials))  # M-3, FMT l.43-44
     # D-5: the seal, first act after the run
     write_text(f"{out_dir}/SEAL.sha256", f"# {MODEL}\n{wave_sha}  wave1-monark.json\n{checks_sha}  wave1-monark-checks.json\n")
     run = {"model": MODEL, "censusSha256": census_sha, "wave1Sha256": wave_sha, "checksSha256": checks_sha,
@@ -479,6 +492,7 @@ def main(series_dir, oracle_dir, out_dir):
     print(f"wave1-monark-checks.json {checks_sha}")
     print(f"census-monark.json {census_sha}")
     print(json.dumps(run["statusCounts"]), json.dumps(run["calibStatusCounts"]), f"run {run['runSeconds']} s")
+    print("\n".join(io_guard.input_lines()))  # lot 1e: report.py reads them here, it may not read a file that another process wrote
     return 0
 
 
