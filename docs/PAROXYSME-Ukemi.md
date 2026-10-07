@@ -12,7 +12,8 @@
   neuve ; contrôle par diff, fusion et ligne d'ETAT : MONARK. Décisions de MONARK pliées le 2026-10-07 (PR
   `paroxysme/registres-decisions-1007`) par un worker de PAROXYSME (`claude-opus-5-5`, effort max, contexte de sa mission), à partir de
   19:56 UTC (`date -u`) : ETAT à `5437cd0d` et message `d6331f6` de MONARK (MSG), empreintes au §8 ; relecture : PAROXYSME ; contrôle par
-  diff et fusion : MONARK.
+  diff et fusion : MONARK. Constats 7 et 10 de la G2 de ce pli (instance neuve) pliés le 2026-10-07 à partir de 21:18 UTC (`date -u`)
+  par un worker de PAROXYSME (`claude-opus-5-5`, effort max, contexte de sa mission) : §7, doutes 7 et 9 ; §1 et §8 en suivent.
 - **Bases** : inventaire mesuré à `d8fe354c`, ses fichiers d'Ukemi identiques à `57a131fc` (INV-U l.9-13, l.30) ; ETAT lu à `57a131fc`, et à
   `d8fe354c` pour ses l.1179-1180 et l.1350. Toutes les ancres de ce registre sont à la tête `87b821b0` de `lot/etude-suite`, reportées par
   l'outil `reanchor.mjs` (pièce de la boîte PAROXYSME) dans sa version du commit `a55a62d`, qui refuse une ligne hors du fichier (la version
@@ -61,8 +62,12 @@
 
 - **Aucune dette.** Les trois dettes constatées par la G2 (volet U-6 de L38, N8, N1), demandées dans la demande de fusion du versement,
   sont tranchées par MONARK le 2026-10-07 et sortent d'ici ; ce qui est tranché, et où : §7, doute 16.
-- Toutes les entrées ouvertes des §2 et §3 portent un item, un porteur et un déclencheur atteignable (contrôle mécanique : §7,
-  doute 13).
+- Toutes les entrées ouvertes des §2 et §3 portent un item, un porteur et un déclencheur atteignable. De ces trois champs, l'oracle
+  (§7, doute 13) ne contrôle que la présence (non vides, jamais « aucun ») ; l'atteignabilité est jugée à la lecture de chaque entrée,
+  relue le 2026-10-07 au pli de la G2.
+- Deux questions sont posées à MONARK avec la demande de fusion de ce pli (§7, doutes 7 et 9 ; porteur : MONARK ; échéance : la
+  recartographie de PXC-01 partie 2, F3). Ce ne sont pas des dettes : chaque entrée qu'elles touchent garde son item, son porteur et
+  son déclencheur.
 
 ## 2. Ukemi : limites relevées le 2026-09-27, ouvertes ou changées (38, INV-U §3 ; L39 au §4)
 
@@ -342,8 +347,8 @@
   item : versement intérimaire (a′) (PLAN §4.1 A ; tâche 1 du TABLEAU), fait par #242, fusion `1df4e44f` (ETAT l.181-186 à `5437cd0d`) ;
     PXC-01 partie 2 (PAROXYSME-UKEMI-FILE-1, à former) · porteur : PAROXYSME (ce registre) ; MONARK (fusion, ligne d'ETAT) · déclencheur :
     fusion de ce registre (F1), faite le 2026-10-07 ; partie 2 de PXC-01 (F3)
-  état : changé (registre versé ; items à re-former par PXC-01 p2 : ETAT l.184-185 à `5437cd0d`) · suite : ce fichier est le versement
-    (a′) ; les items restent à re-former à ETAT (§7, doute 7)
+  état : changé (registre versé ; items PX-Ukemi à re-former par PXC-01 p2 : ETAT l.184-185 à `5437cd0d`) · suite : ce fichier est le versement
+    (a′) ; U-6 est re-formé (ETAT l.254, l.262-263 à `5437cd0d`) ; voie des autres items couvrants : question à MONARK, échéance F3 (§7, doute 7)
 - **N13** · « La ligne liq s0 n'a pas de chemin de retrait servi : la chaîne de retrait ne vise que les lignes kata. »
   source : `apps/harness/src/policy-retire.ts:1-8` ; `apps/harness/src/policy-marginal.ts:61-68` (ligne reconstruite de `calibration.ts`) ·
     touche : contenu servi s0 · nature : C/P
@@ -449,7 +454,11 @@ huit limites et un bloc (la dixième ligne, ETAT l.1103, continue RETIRE-LATENCY
    REPLAY-INTERVAL-BIND-1) : PX-Ukemi-1 à -23, U-5b, U-6, I-1 de l'ADR-U4b, UKEMI-UPPER-BOUND-1, UKEMI-CHECK-ATTR-SCOPE-1,
    SERVED-PROBE-PER-STRATUM-1, UKEMI-CONC-BOUND-1, R-BORNE-2, CARTO-T1C-4, F-W2-1, F-W2-3, Q-CP4B-1, PAROXYSME-UKEMI-FILE-1,
    NARABI-ROW-SUPERSEDE-1 : écrits « à former » ou « à re-former » et portés par leur chantier ; U-6, qui n'en avait pas (doute 5), est
-   attribué à PXC-12 le 2026-10-07 (ETAT l.262-263 à `5437cd0d`) ; leur re-formation à ETAT est à MONARK (PX-STD-ORPHAN-1, PXC-01 partie 2).
+   attribué à PXC-12 et re-formé à ETAT le 2026-10-07 (ETAT l.254, l.262-263 à `5437cd0d`). Pour les items PX-Ukemi, leur re-formation
+   à ETAT passe par PXC-01 partie 2 (ETAT l.184-185 à `5437cd0d` ; MONARK écrit les lignes), PX-STD-ORPHAN-1 ne les nommant pas (PLAN
+   l.541, l.897-898) et n'étant pas étendu (MSG l.85, dit pour Hikae). Les treize autres, ni PX-Ukemi ni U-6, ne sont nommés par aucune
+   de ces sources : leur voie, PXC-01 partie 2 ou la partie qui les porte (§2, §3), est une question posée à MONARK avec la demande de
+   fusion de ce pli ; porteur : MONARK ; échéance : la recartographie de PXC-01 partie 2 (F3).
 8. **E-14.** Le §6 du registre du Harnais (à `0967bef`, l.582) l'envoie au registre Hikae, N18, « partagé avec Ukemi » ; l'inventaire
    d'Ukemi ne le porte pas, l'inventaire Hikae le porte (N18, `INVENTAIRE-Hikae.md` l.173) : ce registre le laisse au registre Hikae (§6),
    sans entrée, comme la L21 de Hikae (`INVENTAIRE-Hikae.md` l.147). Le registre Hikae les garde : à `11d2a34`, son pli, ses entrées L21
@@ -457,7 +466,11 @@ huit limites et un bloc (la dixième ligne, ETAT l.1103, continue RETIRE-LATENCY
    `0967bef`, il les renvoyait à l'inverse au « registre Ukemi » (§6, l.377-378), écart que relevait la G2 de ce registre.
 9. **`calibrate` et Hikae** (X-SPLIT ; INV-U doute 9) : L20 à L22 sont ici. L'inventaire Hikae cite les mêmes sources pour sa L2
    (`packages/hikae/src/l1-split.ts:4-5`, comme L21) et sa L3 (`apps/harness/src/tools/calibrate.ts:53-58`, comme L20) ; PXC-09 partie 5
-   traite ensemble L21 et la L2 de Hikae (CC l.342). Un seul item par construction : à trancher par MONARK au versement des deux registres.
+   traite ensemble L21 et la L2 de Hikae (CC l.342). Un seul item par construction commune avec Hikae, ou deux, un par registre ?
+   L'échéance d'abord écrite, le versement des deux registres, est passée sans décision : le versement est fait (#242, ETAT l.181-186 à
+   `5437cd0d`) et ni ETAT à `5437cd0d` ni MSG ne nomment X-SPLIT ni `calibrate`. La question est posée à MONARK avec la demande de
+   fusion de ce pli ; porteur : MONARK ; échéance : au plus tard la recartographie de PXC-01 partie 2 (F3). L20 à L22 gardent chacune
+   leur item, leur porteur et leur déclencheur : pas de dette (§1).
 10. **GATE-DESC-CLIENT-CUT-1.** Propriétaire unique : le registre du Harnais. Son effet sur le label K-1 (§6) est un calcul fait ici à partir
     de la mesure d'ETAT l.815-816 au tronc `591b3a30`, où `gate.ts` et `calibrate.ts` sont égaux à la tête (`git diff --stat` vide) ; il n'est
     mesuré sur aucun client.
@@ -506,7 +519,9 @@ tranchées par MONARK le 2026-10-07 (§7, doute 16) : le volet U-6 de L38 est at
 UKEMI-CONC-FSYNC-1 (N8) a son porteur et son déclencheur (ETAT l.1835-1839 à `5437cd0d`) ; E2A-TEXTS-1 (N1) a pour déclencheur la release
 L (ETAT l.264 à `5437cd0d`). Clôture de LIQ-BAND-EXACT-GUARD-1 (N12) écrite à ETAT l.1694-1698 à `5437cd0d`. Lignes d'attente datées
 (P-25) de L7, L17, L18, L20, L21 et L22 : ETAT l.270-273 à `5437cd0d`. Ouvert chez MONARK : la question D7 (e) vers RECHERCHES (N2), qu'il
-forme dans son prochain envoi (MSG l.86). Toutes les entrées ouvertes ont un item, un porteur et un déclencheur atteignable. Procurement
+forme dans son prochain envoi (MSG l.86) ; deux questions posées avec la demande de fusion de ce pli, échéance : la recartographie de
+PXC-01 partie 2 (F3) : la voie de formation ou de re-formation à ETAT des treize items ni PX-Ukemi ni U-6 (§7, doute 7) ; un seul item ou deux pour
+`calibrate` avec Hikae (§7, doute 9). Toutes les entrées ouvertes ont un item, un porteur et un déclencheur atteignable. Procurement
 dû : PXP-12 (Wellek), payant (PLAN l.861). Aucune campagne d'Ukemi en cours (INV-U l.331 ; TABLEAU de la boîte).
 
 Fichiers du tronc cités, à `87b821b0` sauf mention (lignes, sha256) :
