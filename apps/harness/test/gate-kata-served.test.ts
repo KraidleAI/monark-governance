@@ -382,9 +382,9 @@ test("kata_clause_refuses_duplicate_classes", () => {
 // Test T-2a (E-2a, in process): the kata clause follows the pins. Given pinned and held classes that partition the 32 kata classes,
 // at least 2 of each, it renders the committed state: it counts both sides, names exactly the held classes, in entry order whatever
 // the order of the held list, and takes no `For '...'` form. Out of that domain it throws, after the product check, one message per
-// case: a class neither pinned nor held, a class both, a name that is no kata class, fewer than 2 held classes, fewer than 2 pinned.
-// Two conditions broken at once throw the first in that order, with the whole message to its suffix. The defaults of line 222 and
-// the call of line 254 are pinned byte for byte.
+// case, checked in this order: a name that is no kata class, a class both pinned and held, a class neither, fewer than 2 held classes,
+// fewer than 2 pinned. Two conditions broken at once throw the first, with the whole message to its suffix: one case per adjacent pair
+// of that order, so every order is held. The defaults of line 222 and the call of line 254 are pinned byte for byte.
 // killer: apps/harness/src/tools/gate.ts:239 CONST "committed.length === 0" -> "true"
 test("kata_clause_follows_the_committed_pins", () => {
   const render = (gate as Obj)["kataClause"] as Render;
@@ -408,6 +408,9 @@ test("kata_clause_follows_the_committed_pins", () => {
   refused(all, [], /kata clause: fewer than 2 held classes: 0; /, "n = 0, as when the digest floor is emptied after the release of the directions");
   refused(["btc-range-1h"], rest(["btc-range-1h"]), /kata clause: fewer than 2 pinned classes: 1; /, "m < 2");
   refused([...bands, "btc-dir-15m", "btc-dir-1h"], dir, /^Error: kata clause: not a kata class: btc-dir-15m; the committed state is written for pinned and held classes that partition the kata classes, at least 2 of each$/, "two conditions: the first in order throws, the whole message to its suffix");
+  refused([...bands.slice(1), "btc-dir-1h"], dir, /^Error: kata clause: both pinned and held: btc-dir-1h; the committed state is written for pinned and held classes that partition the kata classes, at least 2 of each$/, "two conditions, both and neither: the first in order throws");
+  refused(bands, ["btc-dir-1h"], /^Error: kata clause: neither pinned nor held: btc-dir-4h, eth-dir-1h, eth-dir-4h, bnb-dir-1h, bnb-dir-4h, sol-dir-1h, sol-dir-4h; the committed state is written for pinned and held classes that partition the kata classes, at least 2 of each$/, "two conditions, neither and n < 2: the first in order throws");
+  assert.throws(() => render(some.filter((e) => /^btc-(dir|range)-/.test(e.task_class)), undefined, ["btc-range-1h"], ["btc-dir-1h"]), /^Error: kata clause: fewer than 2 held classes: 1; the committed state is written for pinned and held classes that partition the kata classes, at least 2 of each$/, "two conditions, n < 2 and m < 2, on the product 1x2x1: the first in order throws");
   assert.throws(() => render(some.slice(1), undefined, bands, dir), /not the product/, "the product check comes first");
   const lines = readFileSync(join(SRC, "tools/gate.ts"), "utf8").split("\n"), line222 = lines[221] ?? "";
   assert.ok(line222.endsWith(", committed: readonly string[] = Object.keys(COMMITTED_TABLES), held: readonly string[] = [...FLOOR_HELD_CLASSES, ...ORDER_HELD_CLASSES]): string {"), "line 222: by default, the served pins and both held lists, as line 1042 reads them");
