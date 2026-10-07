@@ -111,7 +111,7 @@ test("committed_tables_reader_refuses_reserved_rows", () => {
     const b = bytesOf({ ...t, rows: [forged, ...t.rows.slice(1)] });
     assert.throws(() => one("btc-dir-1h", b), new RegExp(`btc-dir-1h ${first.cell_key}: a row under a reserved kata id or venue`));
   }
-  const names = [...readFileSync(join(SRC, "policy-committed.ts"), "utf8").matchAll(/^import \{([^}]*)\} from "\.\/policy-classes\.ts"/gm)].flatMap((m) => (m[1] as string).split(",").map((n) => n.trim()).filter((n) => n !== ""));
+  const names = [...readFileSync(join(SRC, "policy-committed.ts"), "utf8").matchAll(/^import \{([^}]*)\} from ["']\.\/policy-classes\.ts["']/gm)].flatMap((m) => (m[1] as string).split(",").map((n) => n.trim()).filter((n) => n !== ""));
   assert.equal(importsOf("policy-committed.ts").filter((i) => i === "./policy-classes.ts").length, 1, "one specifier of policy-classes.ts");
   assert.ok(names.length > 0 && names.every((n) => ["kataKeyReserved", "KATA_RESERVED_IDS"].includes(n)), names.join(", "));
 });
