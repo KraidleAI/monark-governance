@@ -38,6 +38,16 @@ Ce lot est **empilé sur 1f** et sera rebasé avec lui quand l'outil figé de MO
     ni `GIT_WORK_TREE`, ni `--write-tree`. Node 24.21.0, Linux ; CPython 3.14.0rc2 sous `-E -S -s -B` pour la mesure de `canonical()`
     (§4). Le pli ne touche rien sous `tools/kata-recalc/` : la règle du lot qui se liste lui-même (G0 de 1f, §6) ne demande pas de
     commit de liste ; ses commits sont poussés ensemble, sans rebase.
+  - **Fusion du pli de la G2 ciblée de 1f** (note datée du 2026-10-07 ; `92b0fdab`, pli de `recherches:e1c7752`, pièce
+    `pieces/2026-10-07-g2-recherches/G2-231-234-r2.json`, F1 et F2 : `binding` nommé par `forbiddenLoads`, l'en-tête de l'aide qui dit
+    ce qu'elle laisse à la liste des spécificateurs et au `tsc` strict, le cas neuf du test de l'aide et le G0 de 1f, §11) : worker
+    `claude-opus-5-5`, **effort: max**, déclaré ; fusion `d2eab286`, `--no-ff`, titre « Merge the base branch », à 18:11 UTC, sans
+    conflit ; 18:20 UTC pour ce G0. Worktree détaché neuf du scratchpad (`wt-231f2-2a`) à `560d5f59` ; `node_modules` fait de liens
+    vers celui du clone principal, `@monark/*` repointés dans le worktree, retiré à la fin ; ni `GIT_DIR`, ni `GIT_WORK_TREE`, ni
+    `--write-tree`. Node 24.21.0, Linux. La fusion n'apporte que l'aide, le test de 1f et son G0 : aucune ligne de
+    `policy-verifiers.ts` ni de `test/recompute-report.test.ts` ne bouge, donc ni tueur ni citation de ce G0 ne se déplace, et le
+    digest du gel ne change pas (§6). Le module que ce lot étend ne nomme pas `binding` (le mot n'y paraît qu'en commentaire, l.120) :
+    `forbiddenLoads` y rend toujours `[]`. Rien sous `tools/kata-recalc/` : aucun commit de liste ; aucun rebase.
 - **Zone** : `apps/harness/src/policy-verifiers.ts` (ajout en fin de fichier, aucune ligne de 1f déplacée : les tueurs de 1f, l.18 à
   l.115, restent à leur ligne), `test/recompute-report.test.ts` (neuf), `docs/G0-lot-verifiers-list-f5a-1.md` (amendement sur place,
   nombre de lignes inchangé), ce G0. Pli N-6 (MONARK, `recherches` `8ac6bd6`) : `registry` sans `file`. Pli de la G2 : les mêmes
@@ -220,6 +230,18 @@ a1) porte trois contrôles sur le rapport réel ; la G2 de RECHERCHES les relit.
 
 ## 6. Preuves
 
+- **Après la fusion du pli de la G2 ciblée de 1f** (gel `d2eab286ec1599a5548b17336a1493d47fa8c347`, la fusion ; le commit suivant ne
+  change que ce G0, hors du digest) : `node scripts/red-proof.mjs --base 92b0fdab886ec58a3df3aedccf96fe7ebdd02413 --gel
+  d2eab286ec1599a5548b17336a1493d47fa8c347 --repo <worktree> --out <dossier> --draw 7 --seed 1007`, Node 24.21.0, Linux : sortie 0,
+  « red-proof OK: 7 judged, 0 unchanged, 7 killer(s) drawn » ; sept F2P ; les sept tueurs tirés et tués, l.172, l.150, l.177, l.124,
+  l.156 `true` et `scripts/spec-publish.mjs:113` par assertion, l.156 `v === true` par le refus du lecteur lui-même (`other-fail`, comme
+  à chaque passe) ; digest du gel `121aab69…`, le même qu'à `9eeed44a` ; `RED-PROOF.json` sha256
+  `a54dacdcc889764dc862a160c8e8a7129e61ec8ebe107eab31839126c64c5ffe`. Les trois fichiers de la pile : 22 tests, 21 verts. Voisins (les
+  douze fichiers, `(test 42)` filtré) : 176 tests, 175 verts ; seul rouge, le témoin de 1f. Portes : `tsc --noEmit` 0 ; `eslint` des
+  quatre fichiers TypeScript (le module, `recompute-report`, `verifiers-list`, l'aide) 0 ; `gate:vocab` 0 (349 fichiers) ;
+  `lang:gate` 0 ; `lint:ratchet` 69/69 ; `export:check` 0 ; winlint `--base 92b0fdab` : 4 fichiers, aucun risque Windows. Ancres :
+  `verifie-ancres.mjs` (`--ref 560d5f59 --ref 92b0fdab`) : les 7 de ce lot, les 22 des fichiers de test de la pile et les 1 537 de
+  l'arbre, tous ANCRE, aucun PERDU ni DERIVE. Taille : §7.
 - **Pli de la profondeur** (§10 ; gel `9eeed44a1c4d68d004e406f8128ff6375b6e18f0`, la tête de code du pli ; le commit suivant ne
   change que ce G0, hors du digest) :
   - **Rouge d'abord** : le fichier de test de `bc0657f7` sur le lecteur de `306760b3` (module sha256 `fa9e9af2…`) : 7 tests, 2 rouges
@@ -326,6 +348,9 @@ a1) porte trois contrôles sur le rapport réel ; la G2 de RECHERCHES les relit.
   (+16 ; borne de lot 547, borne de la CI 1 205). Le même compte sous l'environnement épinglé de `scripts/lot-size-integration.mjs pin
   --base e6d13075`, lu dans un clone `--shared` jetable à la tête du pli (retiré ; aucune variable `GIT_DIR` ni `GIT_WORK_TREE`) : 2
   fichiers, 291 insertions.
+- **Après la fusion du pli de la G2 ciblée de 1f**, même forme (les 21 pathspecs de `ci.yml` l.100, lus dans le fichier, base
+  `92b0fdab`, la tête de 1f) : **2 fichiers, 291 insertions** (`policy-verifiers.ts` 72, `test/recompute-report.test.ts` 219), soit 291,
+  inchangé.
 
 ## 8. Ce qui n'est pas fait
 
