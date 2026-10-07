@@ -253,7 +253,7 @@ test("verifier_list_commit_carries_the_listed_tree - each list entry names a com
 // or prose read as one; or a load left out of forbiddenLoads: an import() of a computed specifier (a name, a template with a substitution, E1
 // to E5 of the review), require, getBuiltinModule (E3: by a computed key), createRequire, eval, Function, constructor (R1), dlopen or
 // binding (process.binding, an internal module of Node); or a comment, a string or a literal import() read as a forbidden load
-// killer: apps/harness/test/helpers/import-specifiers.ts:43 CONST "ts.isStringLiteralLike(n.arguments[0])" -> "true"
+// killer: apps/harness/test/helpers/import-specifiers.ts:51 CONST "ts.isStringLiteralLike(n.arguments[0])" -> "true"
 test("import_helper_reads_literal_specifiers_and_refuses_computed_loads - importSpecifiers lists each literal form and no prose; forbiddenLoads names each load that no specifier shows, and no comment, string or literal import()", () => {
   const NOT_LITERAL = "import() of a specifier that is not a literal";
   const forms = ['import { a } from "./a.ts";', "import './b.ts';", 'import {\n  c,\n} from "./c.ts";', 'export { d } from /* reviewed */ "./d.ts";', 'import /* reviewed */ "./e.ts";',
