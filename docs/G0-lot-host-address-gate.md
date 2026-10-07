@@ -82,15 +82,32 @@ La porte refuse toute adresse hors de la liste. Hors des 35, l'arbre en porte en
   test, pour que red-proof juge les tests (module neuf à la base) et tire leurs tueurs.
 - `test/no-host-address.test.ts`, test racine : il tourne en CI dans `g3-verification` (`npm run test:main`, glob `test/*.test.ts`).
 - Ni le script ni le test ne sont exportés (`WHITELIST_FILES` de `scripts/export-public.mjs` ; le `test/` racine n'est jamais exporté).
-- **Lecture** : `git ls-files -z`, jamais le disque ; chaque fichier suivi sans octet NUL est lu comme texte, quelle que soit son
-  extension (`deploy/*.service` et les Caddyfile en sont) ; un binaire est sauté. Le chemin de chaque fichier suivi est jugé aussi
-  (ligne 0), et un littéral d'un chemin est masqué dans la sortie.
-- **Littéral** :
+- **Lecture** : la liste des fichiers vient de l'index (`git ls-files -z`), leurs octets de l'arbre de travail (un fichier suivi que
+  l'arbre de travail n'a plus est sauté). Chaque fichier suivi sans octet NUL est lu comme texte, quelle que soit son extension
+  (`deploy/*.service` et les Caddyfile en sont). Un fichier qui porte un octet NUL n'est pas lu, et doit être un binaire que
+  `.gitattributes` déclare (`git check-attr binary`, sans fichier d'attributs global) : sinon le verdict le nomme (`undeclared`, chemin
+  masqué) et le test de l'arbre rougit. Le chemin de chaque fichier suivi est jugé aussi (ligne 0), et un littéral d'un chemin est
+  masqué dans la sortie, chaque suite hex qu'il touche comprise.
+- **Littéral** : chaque ligne, et chaque chemin, est lue telle qu'écrite puis dans une copie où chaque `%XX` est décodé par un simple
+  remplacement (`decodeURIComponent` lève sur un `%` isolé) ; un littéral que seule la copie montre est rapporté à sa colonne dans la
+  ligne écrite, jamais deux fois.
   - IPv4 : quatre octets décimaux (`net.isIPv4`), bornés (avant : ni lettre, ni chiffre, ni `_`, ni `.` ; après : ni lettre, ni
     chiffre, ni `_`, ni `.chiffre`) ;
-  - IPv6 : suite maximale de chiffres hexadécimaux, de `:` et de `.` qui porte au moins deux `:` (lue en temps linéaire) ; un mot
-    collé à un `::` n'en est pas une (`Type::new`, les commandes de workflow) ; devant un `:` seul, l'étiquette ou le mot est ôté
-    (`addr:`, `inet6:`) ; pas de lettre, de chiffre ni de `_` après ; points finaux ôtés ; `net.isIPv6`.
+  - IPv6 : suite maximale de chiffres hexadécimaux, de `:` et de `.` qui porte au moins deux `:` ; un mot collé à un `::` n'en est pas
+    une (`Type::new`, les commandes de workflow) ; devant un `:` seul, l'étiquette ou le mot est ôté (`addr:`, `inet6:`) ; pas de
+    lettre, de chiffre ni de `_` après ; points finaux ôtés par une boucle, puis un `:` final seul ; `net.isIPv6`.
+  - Temps : chaque ligne est lue en temps linéaire. Les points finaux ôtés par `/\.+$/` ne l'étaient pas (quadratique sur une suite
+    de points qui ne la termine pas : 1,3 s pour 40 000 points) ; une boucle les ôte. Mesuré sur neuf formes pathologiques à 40 000
+    et 80 000 caractères (points dans ou en fin de suite, deux-points, hex et deux-points, chiffres hex, chiffres pointés,
+    échappements, deux-points échappés, étiquettes) : le temps double quand la taille double, 4 ms au plus à 40 000.
+- **Portée** : la porte lit les littéraux écrits sous leur forme décimale pointée ou hex canonique, bornés comme dit, et un niveau
+  d'échappement `%XX`. Elle ne lit pas : un octet à zéro de tête (`net.isIPv4` le refuse) ; un littéral collé à une lettre, un chiffre
+  ou un `_` d'un côté ou de l'autre, ou précédé d'un point (l'italique `_…_` du Markdown compris) ; une IPv6 pleine (huit groupes)
+  derrière une étiquette en lettres hex (`cafe:`), ou suivie d'une lettre (`.txt` compris) ; un littéral coupé par un saut de ligne ;
+  les autres encodages (pourcent double, entités HTML, base64 et URL `data:`, échappements JSON `\u`, entier, hex, octal, noms tirés
+  de l'adresse comme `ip-a-b-c-d`, caractères de largeur nulle ou pleine chasse). Sonde de 28 formes construites à l'exécution dans la
+  plage de banc d'essai : toutes comme dit ici. Les zéros de tête restent hors de la porte : les vecteurs SSRF octaux du bouclage de
+  l'arbre demanderaient des entrées, sans gain pour nos hôtes.
 - **Liste close d'exceptions, chacune avec sa raison** :
   - (a) **plages**, par `BlockList` de Node, qui couvre toute graphie (IPv4-mapped, forme longue, mesuré sous Node 24) :
     - bouclage : 127.0.0.0/8 et `::1` ;
@@ -160,6 +177,53 @@ La porte refuse toute adresse hors de la liste. Hors des 35, l'arbre en porte en
   soit **362 lignes**. C'est sous 547 (borne du lot) et sous 1 205 (borne de la CI) ; contenu : 0. Les fichiers `docs/**/*.md` ne
   comptent pas ; `docs/carto/*.json` compte (78 lignes).
 - Non vérifié ici : Windows (MONARK rejoue à la fusion), dont la `BlockList` de Node pour les formes IPv4-mapped.
+
+## 7. Pli du G2 (verdict CORRECTIONS, cinq constats m)
+
+Pièce : `recherches:coordination/pieces/2026-10-07-g2-recherches/G2-243-host-address.json` (tête lue `20653902`). Worker
+`claude-opus-5-5`, effort max, worktree neuf détaché du scratchpad ; `git add` par chemins ; poussé sans force. Le tronc d'abord :
+`ec64c0cd` « Merge the trunk » (`5437cd0d`, sans conflit) ; puis les tests rouges seuls (`1b5ff52e`), la correction (`a73923d3`),
+les runbooks (`c8168d03`) et cette note.
+
+- **m-1, runbooks** (en place, aucune ligne ajoutée ni ôtée) : l'étape (0) de RUNBOOK-dojo §15 précède la première commande par le
+  nom de tout runbook (dès la section 1 ici, et RUNBOOK-bell ; pour `monarkgate.tech`, la même étape avec `N=monarkgate.tech` avant
+  RUNBOOK-harness, -sentinel et -vitrine) ; la clé connue est celle de l'adresse de l'hôte, non plus « de la section 1 », qui n'en
+  porte plus ; `<address>` est l'adresse sous laquelle le `known_hosts` de l'opérateur tient la clé (ses relevés ou le panneau du
+  fournisseur, jamais cet arbre ; fausse ou laissée telle, aucune entrée : `STOP`). RUNBOOK-dojo l.19 et RUNBOOK-sentinel l.9 y
+  renvoient, comme RUNBOOK-bell l.14 et RUNBOOK-harness l.23 ; RUNBOOK-bell l.183 dit d'où vient son `<address>`.
+- **m-2, échappements** : la copie décodée de §3. Test `address_literals_read_an_address_behind_a_percent_escape` : les trois
+  vecteurs du G2, `%40`, une adresse toute encodée, des deux-points encodés, une adresse déjà lue suivie d'un `%20` (une occurrence,
+  pas deux), un `%` isolé, une IPv6 devant un `:` final, et quatre chemins (après `%40`, tout encodé, une IPv6 aux deux-points
+  encodés, une récurrence collée) imprimés masqués.
+- **m-3, portée** : §3 « Lecture » (l'index pour la liste, l'arbre de travail pour les octets) et « Portée ».
+- **m-4, temps** : la boucle de §3. Test `address_literals_read_forty_thousand_dots_in_bounded_time` : le meilleur de trois lectures
+  d'une ligne de 40 000 points sous 250 ms ; 1 288 ms par la regex au rouge, moins de 1 ms par la boucle.
+- **m-5, binaires** : le verdict nomme tout fichier sauté qui n'est pas un binaire déclaré, et le test de l'arbre l'exige vide.
+  `*.jpg binary` est ajouté : `out/banner.jpg` était le seul binaire non déclaré (45 fichiers sautés sur 2 453 suivis :
+  37 .ots, 5 .ttf, 1 .png, 1 .jpg, 1 .cbor ; 2 408 lus). Test
+  `address_literals_name_each_skipped_file_that_gitattributes_does_not_declare_binary` : un binaire déclaré, un `-text` seul,
+  un sans attribut au chemin masqué, et un fichier d'attributs global qui déclare tout, ignoré.
+- **Rouge d'abord** : au commit `1b5ff52e`, la correction mise de côté, 4 tests rouges, tous par `ERR_ASSERTION` (le test de l'arbre,
+  dont le verdict n'a pas encore `undeclared`, et les trois neufs) ; les 6 autres verts. À `a73923d3` : 10/10.
+- **Tueurs** : un au-dessus de chaque test, 10 ANCRE (`verifie-ancres`). À ce gel : `:18 SDL`, `:82 CONST` (ex-`:81`), `:22 CONST`,
+  `:83 SDL` (ex-`:82`), `:131 CONST` (ex-`:102`), `:115 CONST` (ex-`:92`), `:145 CONST` (ex-`:116`), et les neufs `:96 CONST` (pas de
+  copie décodée), `:86 CONST` (la boucle remplacée par la regex) et `:160 ROR` (l'attribut lu à l'envers) ; les numéros de §4 sont
+  ceux du gel `9dd82811`. Chacun tiré seul, fichier rendu et sha256 vérifié : 10 tués par assertion.
+- **Mutants à la main** : 19 sur les lignes neuves, chacun seul, fichier rendu et sha256 vérifié. 17 sont tués par assertion. 2 sont
+  équivalents par construction : sans la sentinelle de fin, `fill` court jusqu'au bout de la ligne, le même empan ; sans le raccourci
+  de liste vide, `git check-attr` ne rend rien. Le deux-points final gardé survivait d'abord (aucun test ne portait une IPv6 devant un
+  `:` final, manque antérieur au pli) : un vecteur du test des échappements le tue.
+- **red-proof** `--base ec64c0cd --gel a73923d3 --draw 4 --seed 1` : 4 jugés, 4 F2P, 6 inchangés, aucun refus ; 4 tueurs tirés,
+  4 tués ; `RED-PROOF.json` sha256 `bc99f06e…`, digest du gel `bedd213a…`.
+- **Mesures** (gel `c8168d03`, Node v24.21.0, Linux) : `tsc --noEmit` 0 ; eslint des fichiers touchés : 0 erreur ; `gate:vocab`,
+  `lang:gate`, `lint:ratchet` (69/69) et `export:check` verts ; winlint : 49 fichiers, aucun risque Windows. Tests lecteurs des
+  runbooks touchés, avec le test de la porte : 159/159. `npm run test:main` : 2 935 tests, 2 913 verts, 22 sautés (préexistants),
+  0 rouge, 269 s ; test 42 (l'export public et son `npm ci && npm run ci` imbriqué) : vert, 91 s. Porte sur l'arbre :
+  0 occurrence, 0 entrée périmée, 62 paires dans 27 fichiers, toutes trouvées.
+- **Taille, forme de la CI** : 12 fichiers comptés, +402 −48, soit **450 lignes**, sous 547 (borne du lot) et sous 1 205 (borne de la
+  CI) ; contenu : 0.
+- **Non vérifié ici** : Windows (MONARK rejoue à la fusion) : `core.attributesFile=/dev/null` sous Git for Windows, les noms de
+  fichiers à `%` des fixtures, la borne de 250 ms.
 
 ## Points pour MONARK
 
