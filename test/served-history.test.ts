@@ -72,7 +72,7 @@ test("served_history_file_is_one_line_per_class_sorted_and_closed", () => {
   let next = "";
   assert.doesNotThrow(() => { next = render(Buffer.from(text), [later]); }, "a later deployment of a class is a new pair");
   assert.deepEqual(JSON.parse(next), [...first, later], "a later deployment of a class adds its line after the earlier ones");
-  assert.deepEqual(JSON.parse(render(Buffer.from(next), [{ ...later, task_class: "aaa-dir-1h" }])).map((l: HistoryLine) => l.task_class), [...KATA, "aaa-dir-1h", "btc-dir-1h"], "sorted by (t_e, task_class)");
+  assert.deepEqual((JSON.parse(render(Buffer.from(next), [{ ...later, task_class: "aaa-dir-1h" }])) as HistoryLine[]).map((l) => l.task_class), [...KATA, "aaa-dir-1h", "btc-dir-1h"], "sorted by (t_e, task_class)");
   const refused = (code: string, existing: string, lines: HistoryLine[] = [later]): void => { assert.throws(() => render(Buffer.from(existing), lines), (e: Error & { code?: string }) => e.code === code, code); };
   refused("pair_written", text, [first[1]!]);
   refused("history_invalid", `[\n${[first[1], first[0]].map((l) => canonicalJson(l)).join(",\n")}\n]\n`);
@@ -95,7 +95,7 @@ test("served_history_cli_reads_t_e_from_the_merge_commit", () => {
   assert.equal(main(args(git("rev-parse", "--short", "HEAD"))), 1, "the merge commit is named by its full sha");
   assert.equal(main(args(git("rev-parse", "HEAD"))), 0);
   const out = readFileSync(join(r, HISTORY_REL), "utf8");
-  assert.deepEqual(JSON.parse(out).map((l: HistoryLine) => [l.task_class, l.t_e, l.merge_commit]), KATA.map((c) => [c, TE, git("rev-parse", "HEAD")]));
+  assert.deepEqual((JSON.parse(out) as HistoryLine[]).map((l) => [l.task_class, l.t_e, l.merge_commit]), KATA.map((c) => [c, TE, git("rev-parse", "HEAD")]));
   assert.equal(main(args(git("rev-parse", "HEAD"))), 1, "the same deployment is never written twice");
   assert.equal(readFileSync(join(r, HISTORY_REL), "utf8"), out, "a refusal leaves the file as it was");
 });
