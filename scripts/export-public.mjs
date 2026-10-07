@@ -435,8 +435,8 @@ function sha256(abs) {
 // the internal one by a DETERMINISTIC, dependency-free text rewrite:
 //   (1) add a `push` trigger under `on:` (public pushes run the gates);
 //   (2) remove each job of INTERNAL_JOBS, a closed list (its 2-space key line up to the next 2-space job key):
-//       `r25-taille-de-lot`, and `g3-export` (CI-G3-DURATION-1: it runs the root test/export-public.test.ts, and the
-//       root test/ is never exported, so the job would red on the mirror);
+//       `r25-taille-de-lot`, `g3-verifier-tool` (VERIFIER-TOOL-CI-1: it runs tools/kata-recalc/, never exported) and `g3-export`
+//       (CI-G3-DURATION-1: it runs the root test/export-public.test.ts; the root test/ is never exported): each would red on the mirror;
 //   (3) prepend a one-line provenance header;
 //   (4) drop the 2-line governance "Delivery flow" comment (it is FALSE in the public workflow and is
 //       the sole other "r25" mention — see the inline note; error_origin = internal).
@@ -446,8 +446,8 @@ function sha256(abs) {
 // which test 42(f) / mutant M5 (short-circuited derivation) catches.
 export const CI_WORKFLOW_PATH = ".github/workflows/ci.yml";
 export const DERIVED_HEADER =
-  "# Derived by scripts/export-public.mjs from the internal workflow (ADR-M004 D7 bis): lot-size gate and source-only export test job removed, push trigger added.";
-const INTERNAL_JOBS = ["r25-taille-de-lot", "g3-export"];
+  "# Derived by scripts/export-public.mjs from the internal workflow (ADR-M004 D7 bis): lot-size gate, verifier tool job and source-only export test job removed, push trigger added.";
+const INTERNAL_JOBS = ["r25-taille-de-lot", "g3-verifier-tool", "g3-export"];
 
 export function derivePublicWorkflow(raw) {
   const eol = raw.includes("\r\n") ? "\r\n" : "\n";
