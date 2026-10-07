@@ -998,7 +998,7 @@ orchestrator; any other output (a packet off its format): **STOP**.
 
 (iv) The `history` line (PR-3a-2), after (iii), before the first `snapshot`: ONE transient job with the unit's user, sandbox, credential,
 `UnsetEnvironment=` (as A-8 (2)), read-only inbox (the unit's `SupplementaryGroups=` and `ReadOnlyPaths=`: `--history` reads d in `bundles/`)
-and `InaccessiblePaths=` (the collect side's credentials, EnvironmentFile and ledger, as ONE argument `"$I"`, a list as `"$U"`), each property
+and `InaccessiblePaths=` (the collect side's credentials, EnvironmentFile and ledger, then Bell's key directory, as ONE argument `"$I"`, a list as `"$U"`), each property
 the unit's own (`dojo_runbook_jobs_carry_the_unit_properties`), the unit not running at that instant (`inactive`, or `failed` until
 the `history` line: section 17) and away from its four slots (one writer at a time: a timer start beside the job refuses `lock_held`, or
 the job does; nothing written either way):
@@ -1010,7 +1010,7 @@ S="-p PrivateNetwork=yes -p NoNewPrivileges=true -p ProtectSystem=strict -p Prot
 K="-p LoadCredential=dojo-signing-key:/etc/monark/dojo/signing-key.pem" &&
 U="--property=UnsetEnvironment=NODE_OPTIONS NODE_TLS_REJECT_UNAUTHORIZED NODE_EXTRA_CA_CERTS SSL_CERT_FILE SSL_CERT_DIR" &&
 U="$U HTTP_PROXY HTTPS_PROXY ALL_PROXY NO_PROXY http_proxy https_proxy all_proxy no_proxy" &&
-I="--property=InaccessiblePaths=/etc/monark/dojo-collect /etc/monark/dojo-collect.env /var/lib/monark-dojo-collect/ledger" &&
+I="--property=InaccessiblePaths=/etc/monark/dojo-collect /etc/monark/dojo-collect.env /var/lib/monark-dojo-collect/ledger /etc/monark/bell" &&
 C="/usr/bin/env node /opt/monark-dojo/apps/dojo/scripts/dojo-publish.mjs --history /var/lib/monark-dojo/history-packet
 --inbox /var/lib/monark-dojo-collect/bundles --state /var/lib/monark-dojo" &&
 systemd-run --wait --pipe --collect --uid=dojo --gid=dojo $S "$U" "$I" $K $C'

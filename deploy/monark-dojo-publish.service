@@ -46,7 +46,7 @@ ReadWritePaths=/var/lib/monark-dojo
 # No leading `-`: each path must exist (acts A-2 and A-4, collect side), else the start fails. Under ProtectSystem=strict /opt is
 # already read-only, so the tree needs no ReadOnlyPaths= (the variant of FAITS F-5, redundant, is not taken).
 ReadOnlyPaths=/var/lib/monark-dojo-collect/bundles
-InaccessiblePaths=/etc/monark/dojo-collect /etc/monark/dojo-collect.env /var/lib/monark-dojo-collect/ledger
+InaccessiblePaths=/etc/monark/dojo-collect /etc/monark/dojo-collect.env /var/lib/monark-dojo-collect/ledger /etc/monark/bell
 # Offline by construction: a private network namespace with loopback only (systemd.exec(5)); second lock in code: the publisher's
 # import closure holds no network module (dojo_publish_imports_no_network_module).
 PrivateNetwork=yes

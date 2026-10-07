@@ -525,8 +525,9 @@ test("dojo_live_probe_cli_contract", async () => {
 });
 
 // reddened by: the probe unit off its closed directive set or a pinned value (the user, group and writable path of monark-probe, the
-// required env file, the publish unit's UnsetEnvironment guard then SMTP_PASS), a TimeoutStartSec not strictly above the worst case
-// of one start, a verifier delay under DOJO-VERIFY-SCALE-1 under the unit's CPU quota, a memory cap under the two envelopes it composes
+// required env file, the publish unit's UnsetEnvironment guard then SMTP_PASS, Bell's key directory masked), a TimeoutStartSec not
+// strictly above the worst case of one start, a verifier delay under DOJO-VERIFY-SCALE-1 under the unit's CPU quota, a memory cap under
+// the two envelopes it composes
 // killer: deploy/monark-dojo-probe.service:29 CONST " SMTP_PASS" -> ""
 test("dojo_probe_units_are_hardened", () => {
   const ds = unit(DOJO_SVC), ns = unit("deploy/monark-probe.service"), ps = unit("deploy/monark-dojo-publish.service");
@@ -534,7 +535,7 @@ test("dojo_probe_units_are_hardened", () => {
     ExecStart: `/usr/bin/env node ${P.DOJO_PROBE_TREE_ROOT}/scripts/probe-dojo-live.mjs`, TimeoutStartSec: "3300",
     UnsetEnvironment: `${one(ps, "Service", "UnsetEnvironment")} SMTP_PASS`, User: one(ns, "Service", "User"), Group: one(ns, "Service", "Group"),
     NoNewPrivileges: "true", ProtectSystem: "strict", ProtectHome: "true", PrivateTmp: "true", ReadWritePaths: one(ns, "Service", "ReadWritePaths"),
-    CPUQuota: "25%", MemoryMax: "640M", TasksMax: "64" };
+    InaccessiblePaths: "/etc/monark/bell", CPUQuota: "25%", MemoryMax: "640M", TasksMax: "64" };
   const svc = ds.filter((d) => d.section === "Service");
   assert.deepEqual(svc.map((d) => d.key).sort(), Object.keys(want).sort(), "the [Service] directives, each once");
   for (const d of svc) assert.equal(d.value, want[d.key], `${d.key}=${d.value}`);

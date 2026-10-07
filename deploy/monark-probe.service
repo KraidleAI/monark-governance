@@ -37,6 +37,7 @@ ProtectSystem=strict
 ProtectHome=true
 PrivateTmp=true
 ReadWritePaths=/var/lib/monark-probe
+InaccessiblePaths=/etc/monark/bell
 
 # Resource caps: a tiny read-only HTTP probe must not disturb anything else on Bell.
 CPUQuota=25%
