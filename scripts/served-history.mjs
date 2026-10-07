@@ -10,15 +10,17 @@
 // - served set (scripts/spec-policy-tables.mjs): the version directories of versionDirs (a dated one names a real day), release_dir the
 //   last dated one and a directory; each kata table (cell_key_rule kata-bucket) of a dated directory is served from the directory that
 //   servedTableDirs maps its class to (the last that holds it; two that hold the same bytes are refused). That set must be the classes
-//   pinned in COMMITTED_TABLES of the served module PINS (main reads it; a test gives another module).
+//   pinned in COMMITTED_TABLES of the served module PINS (main reads it, else pins_unreadable; a test gives another module).
 // - probe: each served class has exactly one retire-probe-v1 record, and no record names another table. A record must be one that a real
 //   cycle of scripts/retire-instants.mjs takes for T_g (instant: accepted, status 200, an https api off the loopback, an authorized TLS,
-//   its Host); its table is the served file of its class, a table of that class, and its policy_table_sha256 that file's sha256 (read,
-//   never typed in); probe_record_sha256 is the sha256 of the record's bytes.
+//   its Host), with a real UTC second for received_at and an instant of it for received_at_ms, made against the api of the deploy check
+//   record (the origin of its url, that host for api_host); its table is the served file of its class, a table of that class, and its
+//   policy_table_sha256 that file's sha256 (read, never typed in); probe_record_sha256 is the sha256 of the record's bytes.
 // - t_e is T_e of retire-instants: the committer date, to the second, of a merge commit of two parents, named by 40 hex (checked before
-//   git) that git reads as its own id (an annotated tag is refused), with no inherited GIT_* variable; it brings spec/<release_dir>
-//   (there, absent from its first parent). t_f is T_f: the checked_at, cut to the second, of a deploy check record that verify-harness
-//   rates green with its CHECK_NAMES; ca_record_sha256 is the sha256 of its bytes. t_e <= t_f <= the received_at of each record.
+//   git) that git reads as its own id (an annotated tag is refused), with no inherited GIT_* variable; it is on the first-parent history
+//   of the HEAD of the tree (the trunk) and brings spec/<release_dir> (there, absent from its first parent). t_f is T_f: the checked_at,
+//   cut to the second, of a deploy check record that verify-harness rates green with its CHECK_NAMES; ca_record_sha256 is the sha256 of
+//   its bytes. t_e <= t_f, and each record is received at its checked_at or later, to the millisecond.
 // The file is a JSON array, one line per element, sorted by (t_e, task_class); the lines already there must be its canonical writing
 // under the same closed fields (each field a string of its form; t_e and t_f real UTC seconds); a (release_dir, task_class) pair is
 // written once, and the lines of a release_dir share merge_commit, t_e, t_f and ca_record_sha256. Written through writeAtomic of
@@ -40,7 +42,7 @@ export class HistoryError extends Error {
   constructor(code, detail) { super(`${code}: ${detail}`); this.code = code; }
 }
 const no = (code, detail) => { throw new HistoryError(code, detail); };
-const via = (code, f) => { try { return f(); } catch (e) { return no(code, e instanceof Error ? e.message : String(e)); } };
+const via = (code, f) => { const fail = (e) => no(code, e instanceof Error ? e.message : String(e)); try { const r = f(); return r instanceof Promise ? r.catch(fail) : r; } catch (e) { return fail(e); } };
 const sha = (b) => createHash("sha256").update(b).digest("hex");
 const HEX = /^[0-9a-f]{64}$/, SECOND = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z$/, DIR = /^contract-1\.1\.0-tables-\d{4}-\d{2}-\d{2}$/, COMMON = ["merge_commit", "t_e", "t_f", "ca_record_sha256"];
 const str = (v, re) => typeof v === "string" && re.test(v);
@@ -63,16 +65,20 @@ export function compose({ root, releaseDir, mergeCommit, tE, caBytes, probes, pi
   const dated = versionDirs(root).filter((d) => d !== VERSION_DIR);
   if (dated.at(-1) !== releaseDir || statSync(join(root, "spec", String(releaseDir)), { throwIfNoEntry: false })?.isDirectory() !== true) no("input_invalid", `release directory ${JSON.stringify(releaseDir)}: not the last dated directory of the tree, or not a directory`);
   const ca = parse(caBytes, "the deploy check record"), tF = via("ca_not_green", () => instant("T_f", { ca: "the deploy check record" }, { read: () => ca }, "real"));
+  const api = URL.canParse(ca.url) ? new URL(ca.url) : null; // the api that the record checked: the probes' api
   const kata = dated.flatMap((d) => { const p = join(root, "spec", d, "policy"); return existsSync(p) ? readdirSync(p).filter((f) => f.endsWith(".json") && parse(readFileSync(join(p, f)), f)?.class?.cell_key_rule === "kata-bucket") : []; });
   const served = via("input_invalid", () => servedTableDirs(root, kata.map((f) => ({ task_class: f.slice(0, -5) }))));
   const lines = probes.map(({ bytes, name }) => {
     const probe = parse(bytes, name), cls = probe?.task_class, rel = `spec/${served[cls]}/policy/${cls}.json`;
-    const received = via("probe_not_accepted", () => instant("T_g", { probe: name }, { read: () => probe }, "real"));
+    via("probe_not_accepted", () => instant("T_g", { probe: name }, { read: () => probe }, "real"));
+    const sec = Date.parse(probe.received_at), ms = Date.parse(probe.received_at_ms); // the second of T_g, and the probe's reading of it
+    if (!real(probe.received_at) || !(ms >= sec && ms < sec + 1000)) no("probe_not_accepted", `${name}: received_at is no real UTC second, or received_at_ms no instant of it`);
+    if (new URL(probe.api).origin !== api?.origin || probe.api_host !== api?.host) no("probe_other_host", `${name} probed ${String(probe.api)} (Host ${String(probe.api_host)}), not the api ${String(ca.url)} of the deploy check record`);
     if (!Object.hasOwn(served, cls) || typeof probe.table !== "string" || probe.table.replaceAll("\\", "/").replace(/^\.\//, "") !== rel) no("probe_other_table", `${name} probed ${String(probe.table)}, not a kata table served after ${releaseDir}`);
     const table = readFileSync(join(root, rel));
     if (parse(table, rel)?.class?.task_class !== cls) no("probe_other_class", `${name} is a ${String(cls)} record, ${rel} holds another class`);
     if (sha(table) !== probe.policy_table_sha256) no("digest_mismatch", `${name} served ${String(probe.policy_table_sha256)}, ${rel} is ${sha(table)}`);
-    if (!(Date.parse(received) >= Date.parse(tF))) no("probe_before_ca", `${name} was received at ${received}, before the deploy check record (${tF})`);
+    if (!(ms >= Date.parse(ca.checked_at))) no("probe_before_ca", `${name} was received at ${String(probe.received_at_ms)}, before the deploy check record (${String(ca.checked_at)})`);
     return checkLine({ format: FORMAT, release_dir: releaseDir, task_class: cls, policy_table_sha256: probe.policy_table_sha256, probe_record_sha256: sha(bytes),
       merge_commit: mergeCommit, t_e: tE, t_f: tF, ca_record_sha256: sha(caBytes) });
   });
@@ -92,7 +98,8 @@ export function render(existing, lines) {
   return twice ? no("pair_written", `${twice.release_dir} ${twice.task_class} is already in the history, or its deployment has other common fields`) : text([...old, ...lines]);
 }
 
-/** mergeInstant(root, sha, releaseDir) -> T_e, the committer date (UTC second) of the merge commit sha that brings spec/<releaseDir>. */
+/** mergeInstant(root, sha, releaseDir) -> T_e, the committer date (UTC second) of the merge commit sha, on the first-parent history of
+ *  the HEAD of root, that brings spec/<releaseDir>. */
 export function mergeInstant(root, commit, releaseDir) {
   const git = (...a) => spawnSync("git", ["-C", root, ...a], { encoding: "utf8", env: Object.fromEntries(Object.entries(process.env).filter(([k]) => !k.startsWith("GIT_"))) });
   const read = (_repo, id) => {
@@ -101,6 +108,7 @@ export function mergeInstant(root, commit, releaseDir) {
     return rest.join(" ");
   };
   const tE = via("not_a_merge", () => instant("T_e", { commit, repo: root }, { git: read }));
+  if (!git("rev-list", "--first-parent", "HEAD").stdout.split("\n").includes(commit)) no("merge_not_on_trunk", `${commit} is not on the first-parent history of the HEAD of ${root}`);
   const has = (rev) => git("cat-file", "-e", "--end-of-options", `${rev}:spec/${releaseDir}`).status === 0;
   return has(commit) && !has(`${commit}^1`) ? tE : no("merge_not_release", `${commit} does not bring spec/${releaseDir} (in it, absent from its first parent)`);
 }
@@ -114,7 +122,7 @@ export async function main(argv, io = {}) {
   }
   if (!a["release-dir"] || !a["merge-commit"] || !a.ca || a.probe.length === 0) { console.error("usage: --release-dir, --merge-commit, --ca and --probe are required"); return 2; }
   try {
-    const pinned = Object.keys((await import(io.pins ?? PINS)).COMMITTED_TABLES); // until the loader lands, PINS is absent: refused
+    const pinned = await via("pins_unreadable", async () => Object.keys((await import(io.pins ?? PINS)).COMMITTED_TABLES)); // absent until the loader lands
     const tE = mergeInstant(a.root, a["merge-commit"], a["release-dir"]);
     const lines = compose({ root: a.root, releaseDir: a["release-dir"], mergeCommit: a["merge-commit"], tE, caBytes: readFileSync(a.ca), probes: a.probe.map((p) => ({ name: p, bytes: readFileSync(p) })), pinned });
     const out = join(a.root, HISTORY_REL), text = render(existsSync(out) ? readFileSync(out) : null, lines);
