@@ -2,17 +2,24 @@
 # Oracle D-2 (i): every value of kata/spec/vectors.json recomputed by kata_lib.py and compared under the conformance contract of
 # KATA-SPEC l.71, version 2026-10-02 (relative 1e-12, absolute 1e-15 near zero, strings equal), its ewma_association cases bit for
 # bit (l.70), 333 checks in all (l.5); plus the js_number cases of mission D-4 and the JSON.stringify(x, null, 1) reference writing.
-# Usage: python -B vectors_check.py <vectors.json> <out.txt>
+# Frozen-tool lot, its G2 (2026-10-07): the revision that MONARK froze (KATA-SPEC-proposed.md ea64d03e, R1 of RECHERCHES; the published
+# KATA-SPEC.md is still the version of 2026-10-02) adds reason_order (section 6 l.71), whose reasons recalc_p2.calibrate_cell computes:
+# 363 checks (l.75); the sections of the file are a closed list, so a section that this oracle does not check refuses the file.
+# Usage: python -E -S -s -B vectors_check.py <vectors.json> <out.txt>
 import io_guard  # the input guard, before any other module (M-7)
 import json
 import math
 import os
 import sys
 
+import binom_exact as E
 import kata_lib as K
+import recalc_p2 as R
 
 MODEL = "claude-opus-5-5"
-SPEC_CHECKS = 333  # KATA-SPEC l.5, version 2026-10-02 (317 in the version of 2026-10-01)
+SPEC_CHECKS = 363  # KATA-SPEC section 6, the revision frozen on 2026-10-07 (333 in the version of 2026-10-02, 317 in that of 2026-10-01)
+SECTIONS = ("spec", "horizon_ms", "bar_fields", "kata_cases", "digests", "buckets", "factors", "factors_4h", "ewma_association",
+            "reason_order")  # the keys of vectors.json in that revision, closed
 
 
 def within(got, want):
@@ -210,14 +217,38 @@ def main(vec_path, out_path):
     rec("grid", "decision counts ADR l.81", [len(K.decision_times(b, K.H_MS[h])) for b in ("CALIB", "TEST") for h in ("1h", "4h")]
         == [4368, 1092, 4392, 1098], conformance=False)
 
+    # H. reason_order (section 6 l.71 of the revision): three direction cases whose reasons fix the order of section 10, recomputed by
+    # recalc_p2.calibrate_cell on hand-built CALIB points (a lean in the bucket <side>-b1, the label of each point), as report_check.py
+    # section 9 builds them. Ten checks per case: n0, n, misses, kStar, p_served, qhat by the engine and by misses <= kStar (section 6:
+    # 0 when misses is at most kStar, else 1), check1, check2 and the reason. Reddened by: the order of the reasons of the tool changed
+    kid, h1 = "trend-ema-v1", K.H_MS["1h"]
+    for c in v.get("reason_order", []):
+        cell = {"kind": "dir", "kata": kid, "side": c["side"], "bucket": f"{c['side']}-b1", "symbol": "BTCUSDT", "horizon": "1h",
+                "taskClass": "btc-dir-1h", "key": c["name"]}
+        pts = [{"t": K.BLOCKS["CALIB"][0] + i * h1, "v": {kid: 0.05 if c["side"] == "up" else -0.05}, "y": y, "r": None, "D": None,
+                "U": None} for i, y in enumerate(c["labels"])]
+        rec("reason_order-inputs", f"{c['name']} alpha and test_delta", (c["alpha"], c["test_delta"]) == (R.ALPHA["dir"], R.DELTA),
+            conformance=False)
+        cal = R.calibrate_cell(cell, {"CALIB": pts, "TEST": []}, {kid: {s: {"t1": "0.1", "t2": "0.2"} for s in ("up", "down")}}, {}, h1,
+                               "0" * 64)[0]["calib"]
+        got = {"n0": E.zero_error_floor(c["alpha"], c["test_delta"]), "n": cal["n"], "misses": cal["misses"], "kStar": cal["kStar"],
+               "p_served": cal["rank"], "qhat": cal["qhat"], "qhat by misses <= kStar": int(cal["misses"] > cal["kStar"]),
+               "check1": cal["check1"], "check2": cal["check2"], "reason": cal["reason"]}
+        for f, g in got.items():
+            w = c["qhat" if f.startswith("qhat") else f]
+            rec("reason_order", f"{c['name']} {f}", g == w and type(g) is type(w), f"got {g!r} want {w!r}")
+    # reddened by: a key of vectors.json outside SECTIONS let through (the oracle before its G2 ignored reason_order and counted 333)
+    unknown = sorted(set(v) - set(SECTIONS))
+    rec("sections", "the keys of vectors.json are the closed list of the revision", unknown == [], f"unknown {unknown}", conformance=False)
+
     total_conf = sum(s["ok"] + s["fail"] for s in sections.values() if s["conformance"])
     fail_conf = sum(s["fail"] for s in sections.values() if s["conformance"])
-    rec("count", f"{total_conf} conformance checks", total_conf == SPEC_CHECKS, f"KATA-SPEC l.5 counts {SPEC_CHECKS}", conformance=False)
+    rec("count", f"{total_conf} conformance checks", total_conf == SPEC_CHECKS, f"KATA-SPEC section 6 counts {SPEC_CHECKS}", conformance=False)
     fail_all = sum(s["fail"] for s in sections.values())
     for name, s in sections.items():
         tag = "vector" if s["conformance"] else "extra"
         lines.append(f"section {name} ({tag}): {s['ok']} ok, {s['fail']} fail")
-    lines.append(f"conformance checks on vectors.json: {total_conf} (KATA-SPEC l.5 counts {SPEC_CHECKS}), failures {fail_conf}")
+    lines.append(f"conformance checks on vectors.json: {total_conf} (KATA-SPEC section 6 counts {SPEC_CHECKS}), failures {fail_conf}")
     lines.extend(io_guard.input_lines())
     lines.append(f"VERDICT: {'GREEN' if fail_all == 0 else 'RED'} ({fail_all} failure(s) over all sections)")
     text = "\n".join(lines) + "\n"

@@ -6,9 +6,9 @@
 # is the pinned one; own census written before census.json is ever opened), D-4 (280 cells, SELECT freezes, scores, engine call,
 # dependence checks, status, TEST and veto, digests), D-5 (registry in the shape of FMT, written as JSON.stringify(x, null, 1)
 # plus a line feed, then SEAL.sha256 as the first act), D-6 (fields without a sufficient written definition are null; since lot 1d,
-# FMT l.41-49 writes them, and only trialRegistryHead.hash, built in the generator's code alone, stays null), D-9 (time).
+# FMT l.41-49 writes them; since the frozen-tool lot (path 1), trialRegistryHead.hash too, chained from the rows' trials as KATA-SPEC section 8 writes it), D-9 (time).
 # Sources: ADR, P1, P2, SPEC, FMT in `wt` at 1ea4f64 (see kata_lib.py), engine in binom_exact.py, CSV layout REC l.34-35.
-# Usage: python -B recalc_p2.py <series dir> <oracle dir> <out dir>   (M-6: every path is an argument)
+# Usage: python -E -S -s -B recalc_p2.py <series dir> <oracle dir> <out dir>   (M-6: every path is an argument)
 import io_guard  # the input guard, before any other module (M-7): series, recorder files and oracle outputs, never a registry
 import datetime
 import hashlib
@@ -211,10 +211,51 @@ def freezes(recs, h_ms):
     return thr, tables
 
 
-def registry_text(rows, trials):
-    """The registry as written to wave1-monark.json (D-5; FMT l.43-44: the hash ends the trial chain, built in the generator's code
-    only, item TRIAL-HEAD-WRITTEN-1)."""
-    return K.js_json_pretty({"plan": PLAN, "engine": ENGINE, "trialRegistryHead": {"length": trials, "hash": None}, "rows": rows}) + "\n"
+def registry_text(rows):
+    """The registry as written to wave1-monark.json (D-5; FMT l.43-44), its head the end of the trial chain of the rows (path 1)."""
+    return K.js_json_pretty({"plan": PLAN, "engine": ENGINE, "trialRegistryHead": trial_chain(trials_of(rows)), "rows": rows}) + "\n"
+
+
+# Path 1 (RECHERCHES 76ffa25; G0 section 17): the chain of the trial registry as KATA-SPEC section 8 writes it, frozen in R1
+# (KATA-SPEC-proposed.md, c8ce9720... at 9c1b486; its section 8 the same bytes at 94cd153), from this tool's own rows, never from B.
+def trial_order():
+    """Point 1: per symbol (BTCUSDT, ETHUSDT, BNBUSDT, SOLUSDT), per horizon (1h, 4h), the five direction katas, the three scale katas,
+    then the EWMA kata of mae-down and of mae-up: the (task class, kata) of the 80 trials, in the order of the chain."""
+    return [(f"{low}-{kind}-{h}", kid) for _, low, _ in SYMBOLS for h in HORIZONS for kind, kids in (
+        ("dir", K.DIRECTION_KATAS), ("range", K.SCALE_KATAS), ("mae-down", ["ewma-vol-hw-v1"]), ("mae-up", ["ewma-vol-hw-v1"])) for kid in kids]
+
+
+def trials_of(rows):
+    """Point 2: one trial per (task class, kata) of trial_order(), its eight keys read from its cells' rows (trialId, symbol, horizon,
+    W and venue: the venue is the rows', no constant of the chain), refused unless the cells of each trial agree, its trialId is
+    <taskClass>|<kataId>|<venue>|<symbol>|<horizon>|CALIB, every row is in a trial, no trialId repeats and one venue serves the wave."""
+    trials, seen = [], 0
+    for tc, kid in trial_order():
+        rs = [r for r in rows if r["taskClass"] == tc and r["kataId"] == kid]
+        own = {(r["trialId"], r["symbol"], r["horizon"], r["W"], r["venue"]) for r in rs}
+        if len(own) != 1:
+            raise Stop(f"trial {tc} {kid}: {len(rs)} cells, {len(own)} sets of (trialId, symbol, horizon, W, venue)")
+        tid, sym, h, w, venue = own.pop()
+        if tid != f"{tc}|{kid}|{venue}|{sym}|{h}|CALIB":
+            raise Stop(f"trial {tc} {kid}: its trialId is not taskClass|kataId|venue|symbol|horizon|CALIB")
+        trials.append({"trialId": tid, "taskClass": tc, "kataId": kid, "symbol": sym, "horizon": h, "W": w, "venue": venue, "block": "CALIB"})
+        seen += len(rs)
+    if seen != len(rows) or len({t["trialId"] for t in trials}) != len(trials) or len({t["venue"] for t in trials}) != 1:
+        raise Stop(f"trials: {len(rows) - seen} row(s) in no trial, a repeated trialId, or more than one venue in the wave")
+    return trials
+
+
+def trial_chain(trials):
+    """Points 3 to 5: each trial in its canonical form (sorted keys, no whitespace; strings of printable ASCII without a quote or a
+    backslash, written as they are; non-negative integers in decimal), the entry hash the SHA-256 of prev, a line feed and that form,
+    from prev = 64 zeros; the head is {length, hash}."""
+    prev = "0" * 64
+    for t in trials:
+        if not all(isinstance(v, str) and v.isascii() and v.isprintable() and '"' not in v and "\\" not in v or type(v) is int and v >= 0
+                   for v in [*t, *t.values()]):
+            raise Stop(f"trial {t.get('trialId')}: a key or a value outside the canonical form of KATA-SPEC section 8 point 3")
+        prev = hashlib.sha256(f"{prev}\n{json.dumps(t, sort_keys=True, separators=(',', ':'))}".encode("utf-8")).hexdigest()
+    return {"length": len(trials), "hash": prev}
 
 
 def calibrate_cell(cell, recs, thr, tables, h_ms, series_sha, seqs=None):
@@ -478,7 +519,7 @@ def main(series_dir, oracle_dir, out_dir):
         raise Stop(f"{trials} distinct trialId, FMT l.9 gives {TRIALS} wave 1 trials")
     census_sha = write_text(f"{out_dir}/census-monark.json", K.js_json_pretty(census) + "\n")
     checks_sha = write_text(f"{out_dir}/wave1-monark-checks.json", K.js_json_pretty({"model": MODEL, "rows": checks}) + "\n")
-    wave_sha = write_text(f"{out_dir}/wave1-monark.json", registry_text(rows, trials))  # M-3, FMT l.43-44
+    wave_sha = write_text(f"{out_dir}/wave1-monark.json", registry_text(rows))  # M-3, FMT l.43-44; path 1, the head of KATA-SPEC section 8
     # D-5: the seal, first act after the run
     write_text(f"{out_dir}/SEAL.sha256", f"# {MODEL}\n{wave_sha}  wave1-monark.json\n{checks_sha}  wave1-monark-checks.json\n")
     run = {"model": MODEL, "censusSha256": census_sha, "wave1Sha256": wave_sha, "checksSha256": checks_sha,
@@ -498,7 +539,7 @@ def main(series_dir, oracle_dir, out_dir):
 
 if __name__ == "__main__":
     if len(sys.argv) != 4:
-        print("usage: python -B recalc_p2.py <series dir> <oracle dir> <out dir>")
+        print("usage: python -E -S -s -B recalc_p2.py <series dir> <oracle dir> <out dir>")
         sys.exit(2)
     try:
         sys.exit(main(*(os.path.abspath(a) for a in sys.argv[1:])))  # B-2: every path the guard judges is absolute

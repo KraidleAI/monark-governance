@@ -329,17 +329,17 @@
   - `oracles` : vecteurs, seconde écriture binomiale, rejeu des tests de hikae, avec leurs comptes et leurs échecs. Le compte
     de la version 2026-10-02 est 333 contrôles (KATA-SPEC l.5). Ancien écart de compte : 317 = 315 + les deux contrôles de
     longueur (`recherches:coordination/messages/2026-10-02-RECHERCHES-vers-MONARK-P2-clos-publication.md` l.22) ;
-  - `fields` : la liste des champs comparés, et `outside_decisions` = `[{field: "trialRegistryHead.hash", reason}]`, seul
-    élément. Les sept champs sautés en P2b ont chacun leur sort :
+  - `fields` : les champs comparés et leurs règles, exactement `decisions`, `digest_rule`, `digests`, `value_rule` et `values`
+    (voie 1, §17 : aucun champ hors des décisions). Les sept champs sautés en P2b ont chacun leur sort :
     - `check1`, `check2` : comparés. Ce sont les issues des contrôles de dépendance, que le point 7 exige ;
     - `reason` : comparé ; c'est l'une des sept chaînes de FORMAT l.48 ;
     - `trialId` : comparé ; forme de FORMAT l.45 ;
     - `plan`, `engine` : comparés. Forme de FORMAT l.43, construite depuis le plan épinglé `87b57c01…` et le moteur porté
       `207f021f` ;
     - `trialRegistryHead.length` (80) : comparé ;
-    - `trialRegistryHead.hash` : hors décision. La chaîne de hachage des essais n'est écrite que dans le code du générateur
-      (FORMAT l.44 nomme `append` et `wave1Trials()` de `kata/src/trials.ts`), et aucune colonne de ligne ne la lit
-      (`readRegistry` la lit comme un objet, `policy-projection.ts` l.68) ;
+    - `trialRegistryHead.hash` : comparé (voie 1, §17). L'outil recalcule la chaîne des essais depuis ses propres lignes (§8 de
+      R1 ; `trial_chain` de `recalc_p2.py`) ; FORMAT l.44 ne la nommait que dans le code du générateur (`append` et `wave1Trials()`
+      de `kata/src/trials.ts`), et `readRegistry` la lit comme un objet (`policy-projection.ts` l.68) ;
   - `cells` : 280 entrées `{task_class, cell_key, decisions_equal}` ;
   - `differences` :
     - chaque valeur non identique au bit (`qhat`, `calibSupport`, `thresholds`, `hourOfWeekFactors[i]`), avec sa distance en
@@ -366,7 +366,7 @@
 - **Commande exacte**, depuis un clone de governance détaché au commit listé (TEMP et TMP sous `F:/tmp`) :
 
   ```
-  python -B tools/kata-recalc/report.py --repo <clone> --series <dossier des quatre séries> --vectors <vectors.json> --registry <wave1.json> --out <dossier vide>
+  python -E -S -s -B tools/kata-recalc/report.py --repo <clone> --series <dossier des quatre séries> --vectors <vectors.json> --registry <wave1.json> --out <dossier vide>
   ```
 
   Elle écrit `report.json`, le rapport haché, et `run-log.json` (heures et durées), qui n'est jamais haché ni publié. Un clone
@@ -500,7 +500,7 @@ Actes de la G2 de la partie :
       listée ;
     - 280 cases uniques, toutes `decisions_equal` ;
     - chaque différence a une cause mesurée et une explication ;
-    - `outside_decisions` = `[trialRegistryHead.hash]`.
+    - `fields` : exactement `decisions`, `digest_rule`, `digests`, `value_rule` et `values` (voie 1 : aucun champ hors des décisions).
 
     Tueur : `policy-verifiers.ts:<l> CONST "c.decisions_equal === true" -> "true"`.
   - T2-2 `recompute_report_inputs_are_sealed_series_and_published_files_only` :
@@ -599,8 +599,8 @@ Actes de la G2 de la partie :
   exporté (§2.6). Recherche : lire sur place les conditions de la source des séries ; la ligne d'ADR qui exporterait l'outil ;
   le prix.
 - **TRIAL-HEAD-WRITTEN-1** (PAROXYSME). Porteur : RECHERCHES, puis MONARK. Déclencheur : la prochaine version de FORMAT, ou le
-  registre de la vague 2. Objet : écrire la construction de la chaîne des essais, pour que `trialRegistryHead.hash` sorte de
-  `outside_decisions`.
+  registre de la vague 2. Objet : écrire la construction de la chaîne des essais (§8 de R1), pour que `trialRegistryHead.hash` soit
+  une décision comparée : fait côté outil par la voie 1 (§17, aucun champ hors des décisions) ; la publication reste à RECHERCHES.
 - **RECALC-FIELDS-2** (ETAT l.1224) : soldé par le rapport de la partie 2, où les sept champs sont comparés ou nommés.
   L'orchestrateur écrit la ligne d'ETAT au G7.
 
@@ -934,7 +934,7 @@ Worktree `F:/Monark-wt-verifiers-1e`, tête `2a46eeb8` (lots 1a à 1d fusionnés
 - **Le rapport** (format fermé `monark-recompute-report-v1`).
   - Clés : `format`, `verifier`, `tool`, `registry` (nom de base du registre lu, son sha256, `generator_identity`, `cells`), `inputs`
     (`recompute` et `compare`, triées), `platform`, `oracles` (conformité, seconde écriture, tests de hikae, vecteurs du `log`),
-    `fields` (décisions, `values`, `digests`, `outside_decisions` = `trialRegistryHead.hash` et sa raison en mots, deux règles),
+    `fields` (exactement `decisions`, `digest_rule`, `digests`, `value_rule`, `values` ; voie 1, aucun champ hors des décisions),
     `cells` (280, triées), `differences` (triées), `explanation`, `summary`, `replay`.
   - Écriture canonique, ASCII, sans LF final ; seulement des entiers, des chaînes, des booléens et null (`canonical`, l.66-84). La course
     refuse un chemin passé en argument, un chemin à lettre de lecteur, un CR ou un LF dans le texte.
@@ -1210,3 +1210,873 @@ test copiés), `base-tool/` (l'outil de la base, par `git archive`), `selftest/`
   `git clone --shared`, `checkout --detach` et `git add` dans `F:/tmp/reason-order/clone` et `base-clone` seulement ; dans le worktree,
   des lectures (`diff`, `status`, `show`, `log`, `archive`). Rien n'est écrit sur C: (`ucrtbase.dll` y est lu par l'auto-test, sous le
   rôle `libm`).
+
+## 17. Lot « outil figé » : mesures
+
+Six workers `claude-opus-5-5` (effort max), en six missions sur le worktree `F:/Monark-wt-reason-order`, branche `monark/reason-order-1`,
+tête `09f49fc2` (REASON-ORDER-GUARD-VERIFIER-1, committé), base du chantier `177b5755`. Mission 1, horloge de 05:14 à 06:06 UTC :
+`io_guard.py` et `guard_check.py`. Mission 2, horloge de 06:07 à 07:08 UTC (tampons de `now.mjs` : 06:07, 06:14, 06:59, 07:00, 07:06,
+07:08) : les autres fichiers de l'outil, `test/kata-recalc.test.ts` et ce paragraphe. Mission 3, de 07:57 à 09:0x UTC : les plis de la G2
+des vérificateurs (paragraphe « G2 des vérificateurs », en fin de section ; sorties sous `F:/tmp/frozen-tool/m3/`). Mission 4, de 09:09 à
+10:1x UTC : REPORT-INPUT-NAMES-1 fermé et la forme `python -E -s -B` (deux décisions de MONARK du 2026-10-07 ; paragraphe « Mission 4 », en
+fin de section ; sorties sous `F:/tmp/frozen-tool/m4/`). Mission 5, de 10:52 à 12:1x UTC : la forme `python -E -S -s -B`, son contrôle
+par `io_guard` à l'import, la liste fermée des bibliothèques du `log` et les constats m du vérificateur de la mission 4 (paragraphe
+« Mission 5 », en fin de section ; sorties sous `F:/tmp/frozen-tool/m5/`). Mission 6, horloge lue à 13:11 UTC : les deux constats m du
+vérificateur de la mission 5, l'item 11 du suivi et le fichier de FAITS de `PYTHON_PRESITE`, dans ce G0 seulement, Bash refusé par le
+harnais en cours de mission (paragraphe « Mission 6 », en fin de section). Les numéros de ligne du tableau ci-dessous et des paragraphes
+des missions 1 et 2 sont ceux de l'arbre de la mission 5, qui les a réancrés ; ceux des paragraphes des missions 3 et 4 restent ceux de
+leurs arbres (déplacements donnés au paragraphe « Mission 5 »). Une seule épingle d'arbre pour tout le lot
+(décision de MONARK, `2f28639f…` l.16). Les workers ne committent ni n'indexent rien dans le worktree (R-20). Sorties de la mission 1 sous
+`F:/tmp/frozen-tool/` ; de la mission 2 sous `F:/tmp/frozen-tool/m2/` : `base-m1/` (l'outil de la mission 1, copié avant toute écriture de
+la mission 2 ; `base-m1.sha256`), `clone/` (clone `--shared` détaché à `09f49fc2`, lot indexé dans ce clone seul, `node_modules` lié comme
+celui du worktree, registre copié non suivi), `base-red/` (l'outil de la mission 1 avec les auto-tests neufs), `node-base-09f49fc2/` et
+`node-base-177b5755/` (fichier de test neuf et registre copiés), `mut1/` à `mut4/` (mutants), `runs/`, `scratch/`.
+
+- **Sources**, lues en entier, copie de RECHERCHES à `f41647a` :
+  - addendum à la G2 de #214, `coordination/messages/2026-10-07-RECHERCHES-vers-MONARK-addendum-214.md` (`69c19514…`) : A-1, A-2, N-2,
+    N-4, N-5, N-6 ;
+  - addendum à la G2 de #217, `…-addendum-217-PR-218-219.md` (`8d91c3d7…`), et sa pièce `pieces/2026-10-07-rattrapage-G2/catchup-217.md`
+    (`f1ddc697…`) : N-1 à N-6 ;
+  - empreintes : la proposition de MONARK, `…-MONARK-vers-RECHERCHES-g2-r3-g0.md` (`90c9474`, `b3d4ddd4…`, l.11-28) ; l'accord de
+    RECHERCHES, `…-empreintes-rapport.md` (`cb00b19`, `1c3dffdd…`, points 1 à 4 et la précision du point 3) ; la forme (a),
+    `…-q3-q-p3-11-forme-a.md` (`619fcfe`, `184b1047…`) ; sa prise par MONARK, `…-forme-a-prise.md` (`0d71d8f`, `c9901835…`) ;
+  - la voie 1 : `…-decisions-e2a.md` (`76ffa25`, `8097ab7d…`, décision 2) ; `…-voie1-deja-agreee.md` (`90185549…`) ; la G2 de la §8,
+    `2026-10-06-RECHERCHES-vers-MONARK-trial-head-G2.md` (`452892b`, `d0715361…`) ; la §8 figée de R1, `KATA-SPEC-proposed.md`, `c8ce9720…`
+    à `9c1b486`. La révision `94cd153` (`cd0b4303…`) la garde à l'octet : `git show` des deux commits, du titre de la §8 à celui de la §9
+    (l.80-101), 22 lignes, 2 509 octets, sha256 `dff6da3e…` aux deux ;
+  - décisions de MONARK : `…-recu-217-218-219-w2.md` (`2f28639f…`) et `…-tronc-220-deploiement.md` (`f1b2fea7…`). Venue après l'écriture
+    de la mission, la deuxième G2 de la partie 3, `…-g2-r3-bis-cm5-v2.md` (`ab352b0`, `7cec3753…`, l.20-23, l.38-41, l.50-52) : MONARK
+    y prend dans ce lot la portée écrite du rapport, `null` pour une case sans ligne, le `short_digest` de la porte dans le test, le refus
+    d'une sous-chaîne de 64 hex sous `differences` et le rejeu de la porte sur le rapport de synthèse. Le G0 v3 de la partie 3
+    (`pieces/2026-10-07-G0-verifiers-partie-3/G0-verifiers-part3.md`, `1538ce3`, `2c763c6f…`, §2.3 points 1 à 5, §3.4, §5.2) les liste
+    comme livrables de ce lot ; ils y sont ;
+  - `kata/registry/wave1.json` de la copie (`811fcd57…`, vérifié par `sha256sum`), lu pour les classes, la projection et le plancher.
+    Aucune série n'est lue.
+
+| Item | Diff (lignes du nouvel arbre) | Source |
+|---|---|---|
+| A-1 (#214) | `io_guard.py` l.65-71 (`NATIVE`), l.92 (`import` jugé), l.301-315 (`_judge_import`), l.338-339 ; en-tête l.5-7, l.21-32 | addendum #214 l.19-27 |
+| A-2 (#214) | `io_guard.py` l.109-110 : `time.sleep` dans la classe « spawn » (`os.posix_spawn` y était ; jugé dans `_CREATE`, l.90, depuis la G2) | addendum #214 l.29-34 |
+| N-2 (#214) | `io_guard.py` l.182, l.219, l.279, l.322, l.375-380, l.386-390 : états de lecture et de lancement propres au fil | addendum #214 l.38 |
+| N-4 (#214) | `io_guard.py` l.25-31 : limites nommées (`stat`, `mkfifo`, `mknod`, `importlib.import_module`) | addendum #214 l.39 |
+| N-5 (#214) | `compare_p2.py` l.11-12 | addendum #214 l.14 |
+| N-6 (#214) | `compare_p2.py` l.70-71, l.197-198, en-tête l.16-17 ; `compare_check.py` l.116-117 (cas 33) | addendum #214 l.15 |
+| N-1 (#217) | `fdlibm_log.py` l.69, l.183-185 | catchup-217 l.33-39 |
+| N-2 (#217) | `fdlibm_log.py` l.9-11 ; `report.py` l.53 (`engine_log`, « on x64 ») | catchup-217 l.41-48 |
+| N-3 (#217) | `report_check.py` l.141-149 (`stage` et ses fichiers de passe), l.170-171, l.186-187 (cas 10) | catchup-217 l.70-76 |
+| N-4 (#217) | `report_check.py` l.334-374 (section 11) ; `report.py` l.373-374 (garde : `OUTSIDE` vide) | catchup-217 l.78-88 |
+| N-5 (#217) | `io_guard.py` l.59-64, l.409-426 ; `report.py` l.167, l.478 ; `report_check.py` l.68, l.109 | catchup-217 l.106-117 |
+| N-6 (#217) | `report.py` l.386 (`registry` sans `file`) | catchup-217 l.134-139 ; `2f28639f…` l.14 |
+| empreintes, point 1 | `report.py` l.334-352 (`entries_of`) ; `report_check.py` l.203-204 | `cb00b19` l.11 |
+| empreintes, point 2 | `report.py` l.354-368 (`cell_digests`), l.393 ; `report_check.py` l.213-245 | `cb00b19` l.12 ; `90c9474` l.21-22 |
+| empreintes, point 3 | `report.py` l.56-65 (`RELEASE_1_CLASSES`), l.375-377, l.387 (`scope`) ; `test/kata-recalc.test.ts` l.144-175 | `619fcfe` l.8-18 ; `0d71d8f` l.8-13 |
+| `ab352b0` | `report.py` l.364 (case sans ligne), l.379-380 (64 hex refusés), l.387 ; test l.167-168 (`short_digest`, case sans ligne) | `ab352b0` l.20-23, l.38-41, l.50-52 |
+| voie 1 | `recalc_p2.py` l.9, l.214-258, l.522 ; `compare_p2.py` l.2-3, l.14, l.34 ; `compare_check.py` l.4-6, l.106-107 ; `report.py` l.43-55 (sans `outside_reason`), l.373-374, l.391-392 ; `report_check.py` l.33-35, l.132-134, l.178-179, l.304-332 | `76ffa25` décision 2 ; §8 de R1 |
+| épingle | `test/kata-recalc.test.ts` l.50-60 ; en-tête l.12-17 ; test de la porte l.110-142 (forme, tueur déplacé, l.121) | §3.2 ; REPORT-TRIAL-HEAD-SENTENCE-1 |
+
+**A-1, A-2, N-2 et N-4 de #214, N-5 de #217 (mission 1).**
+- Forme des événements, sous 3.14.5 (`probe-import/ev_import.py`, `636f99a7…`) : une extension lève deux `import`, `(nom, None)` puis
+  `(nom, chemin du .pyd)` ; un module intégré un seul, sans chemin ; `importlib.import_module` d'un intégré aucun. Règle (`_judge_import`) :
+  chemin `None` et nom intégré hors de `NATIVE`, refus ; chemin présent, fichier sous la bibliothèque standard (jamais `site-packages`) ou
+  sous l'arbre de l'outil, et nom dans `NATIVE` ; une source ou un bytecode reste jugé par son `open`.
+- `NATIVE` mesurée : un journal d'imports posé par `sitecustomize` hors de l'outil (`measure/evlog/sitecustomize.py`, `12e49b78…`), 14
+  courses de tous les scripts dans tous leurs modes sur un clone détaché à `09f49fc2` (`measure/measure.sh`, `c0e90a08…`), analysées par
+  `measure/analyse.py` (`f817279f…`) : 80 processus, 52 noms importés après le crochet, 9 natifs (`_ast`, `_datetime`, `_json`, `_opcode`,
+  `_sre`, `_struct`, `_tokenize` et `math`, intégrés ; `_wmi`, extension importée par `platform`). La trace d'une exception non rattrapée
+  (`measure/crashtool/crash_probe.py`, `81693aae…`) ajoute `_suggestions` : dix noms. Au lot, 76 processus et les mêmes neuf ; la
+  composition de `report.py` jusqu'au recalcul (`measure/measure-extra.sh`, `188ce12f…`) et `measure/analyse_procs.py` (`477ef0a5…`) : hors
+  de `NATIVE`, seuls `_ctypes` et `faulthandler`, dans les enfants négatifs voulus de `guard_check.py`, refusés. 28 modules natifs chargés
+  avant le crochet (`probe-pre/pre.py`, `a90f6c28…`). Sous POSIX, lu dans la source 3.14 de l'hôte et non mesuré : `subprocess` charge
+  `_posixsubprocess`, `select` et `math` avant le crochet.
+- `guard_check.py` (neuf, 265 lignes, script d'entrée : la liste de `kata_recalc_entry_scripts_import_the_input_guard_first` change,
+  test l.92) : 18 cas, rejoués par la mission 2 (`runs/oracles-final1/guard-check.txt`, `73bed479…`, 0 échec). Refusés en sortie 4 : les
+  trois `import` hors de la règle, `time.sleep` et `os.posix_spawn` hors d'un lancement (A-2), un événement de lancement levé par un
+  autre fil et la lecture d'un autre fil (N-2), `git_tree` sans rôle, sur un autre dépôt ou relatif (N-5). Admis : un import de la liste,
+  la trace d'une exception, `time.sleep` et `os.posix_spawn` dans un lancement, `git_tree` limité à l'arbre de l'outil. Trois mesures des
+  limites qui restent : un intégré chargé par `importlib` sans événement, la famille `stat`, `os.mkfifo` absent sous Windows. Contre la
+  garde de `09f49fc2`, les trois cas d'`import` chargent leur module (sortie 0, « LOADED ») ; mutants M1 à M4 tués (rapport de la
+  mission 1). La sortie ne diffère de celle de la mission 1 (`F:/tmp/frozen-tool/oracles/final/`) que par les chemins du dossier de
+  travail dans trois raisons de refus.
+
+**N-5 et N-6 de #214 (`compare_p2.py`).**
+- N-5 : le commentaire (l.11-12) dit que l'écriture d'un double compte pour un champ écrit en chaîne (`thresholds`), et que `json.loads`
+  efface celle d'un nombre JSON.
+- N-6 : `float()` d'un entier au-delà des doubles lève `OverflowError`, que la branche `except ValueError` ne prenait pas ; l'exception
+  remontait, sortie 1 par la trace. La l.70-71 en fait une faute de structure (`STRUCTURE <case> <champ>: an integer beyond the range of a
+  double`) et la l.197-198 donne la sortie 2 à toute faute de structure, dans une paire comme à la tête. `report.py` lit la ligne
+  `STRUCTURE` et sort en 2 (`classify`, l.317-318). Cas 33 de `compare_check.py` : `calib.qhat` = 10^400, sortie 2. Contre le comparateur de
+  `09f49fc2` : sortie 1 par la trace, le cas échoue (`runs/base-red/compare-check.txt`).
+
+**N-1 et N-2 de #217 (`fdlibm_log.py`).**
+- N-1 : `SPECIALS` (l.183-185) et `SIGNALING_NAN` (l.69) nomment leur plateforme, Windows x64. Le motif de Linux, `7ff4000000000000`
+  pour `log(-1)`, `log(-inf)`, `log(-5e-324)` et `log(-NaN)`, est la mesure de RECHERCHES (catchup-217 l.34-39), citée et non rejouée.
+  Aucun effet sur le rapport : le recensement du `log` ne compte que des rapports positifs (`report.py` l.306).
+- N-2 : l.9-11 : « no fused multiply-add » vaut pour Node sur x64. Sur arm64, Node v24.21.0 n'est pas compilé avec `-ffp-contract=off`
+  (`tools/v8_gypfiles/toolchain.gypi` l.307, l.328, lus par RECHERCHES, catchup-217 l.42-44 : [2nd] pour MONARK, demande de lecture
+  formée plus bas). `TEXTS["engine_log"]` (`report.py` l.53) dit « on x64 ». Item REPORT-LOG-PORT-ARM64-1.
+
+**N-3 et N-4 de #217 (`report_check.py`).** Tueurs de mutants : verts contre l'outil de la mission 1, prouvés par les mutants (plus bas).
+- N-3, cas 10 (l.186-187) : B est la passe ln, et les deux fichiers de passe du cas portent `calib.n` + 1 sur une ligne (`stage`,
+  l.141-149). Aucune passe n'est admissible, aucune différence n'est expliquée : sortie 1. Le mutant de RECHERCHES (`ok = {c: v for c, v in
+  variants.items()}`, `report.py` l.325-326) rend la passe ln admissible : sortie 0, le cas échoue.
+- N-4, section 11 (l.334-374) : `report.run()` mené au bout. Plateforme, identité, vecteurs du `log`, oracles, recalcul, séries et passes
+  sont pris des sections 1, 3 et 5 (aucun commit, aucune série) ; les trois comparateurs enfants, le classement, l'assemblage et
+  l'écriture de `report.json` tournent comme dans `report.py`. Trois courses : B = la passe ln, `report.json` écrit, son sha256 celui que
+  rend `run()`, portée et cases comme en section 7 ; B avec `calib.n` + 1, `Failed(1)` et aucun `report.json` ; un `OUTSIDE` non vide
+  (`calib.n`), `Failed(2)` et aucun `report.json`. Le `Failed(1)` avalé à l'appel de `classify` (l.451) fait écrire le rapport à la
+  deuxième course ; la garde `C.OUTSIDE` retirée (l.373-374), à la troisième ; les deux mutants à la fois font échouer les deux.
+
+**N-6 de #217 et son reste.**
+- `registry.file` sort du rapport (`report.py` l.386) : le sha256 nomme le registre (décision de MONARK `2f28639f…` l.14, raison de Q-P3-5).
+- Reste, mesuré : `inputs.compare[0].name` porte encore le nom de base passé à `--registry`, et `inputs.recompute` celui de `--vectors`
+  (rôle `spec-vectors`). Sur le rapport de synthèse, renommer B de `wave1.json` en `B.json` change le sha256 (`5160891e…` → `c3ddb2ae…`,
+  `scratch/report_shape.mjs`, `3bb07860…`) : le même registre sous un autre nom donne encore un autre `report_sha256`. Item
+  REPORT-INPUT-NAMES-1 (plus bas), fermé par la mission 4 : une course sous un autre nom est refusée avant tout calcul.
+
+**Les empreintes du rapport (points 1 à 3 de `cb00b19`, forme (a), `ab352b0`).**
+- Point 1 : une entrée `differences` de genre digest ne porte plus d'empreinte (`report.py` l.349) : le champ, `first_index`, `terms`,
+  `max_ulps` et la classe. `entries_of` vérifie encore que la ligne du comparateur porte les deux empreintes (l.345-348).
+- Point 2 : `cells[].scores_sha256` (l.393), par `cell_digests` (l.354-368). Pour une classe de `RELEASE_1_CLASSES` dont la case fait une
+  ligne de table, l'empreinte de B ; sinon `null`. C'est celle du recalcul quand la comparaison ne liste aucune différence sur la case
+  (alors égale à celle de B) ; sinon celle de la passe qui l'explique, tenue à la ligne du comparateur (`A=<recalcul> B=<passe>`, sinon
+  sortie 2) : jamais l'empreinte du `log` qui tourne quand elle n'est pas celle de B. Une case sans ligne de table (côté de direction sans
+  seuils, `policy-projection.ts` l.85-93) porte `null` (l.364, prémisse V-2).
+- Point 3, forme (a) : `RELEASE_1_CLASSES` (l.56-65), constante fermée et triée des 24 classes de bande (range, mae-down, mae-up) ; les 8
+  classes de direction sont retenues. Le rapport écrit sa portée, `scope` (l.387 ; le nom que le G0 de la partie 3 supposait, Q-P3-12) ;
+  une classe de la portée sans case refuse le rapport (l.375-377).
+- `ab352b0` : une sous-chaîne de 64 hex sous `differences` refuse le rapport sans condition (l.379-380, prémisse V-3).
+- Rapport de synthèse (`report_check.py` section 7, cas 02, B = la passe ln) : 280 cases ; 40 portent l'empreinte de B (les cases des 24
+  classes de bande), dont 39 sont celles de la passe ln et non de la passe de base ; 240 sont `null`. 103 différences (88 empreintes, 15
+  valeurs), sans empreinte. 62 902 octets, sha256 `5160891e…` (66 694 octets, `7f5913f7…`, avant le lot), écriture canonique ;
+  `contentProblems` au chemin daté `contract-1.1.0-tables-2026-10-20/recompute/wave1-monark-kata-recalc.json`, sorte `json` : 0 problème
+  (prémisse V-4, rejouée). Remplacé par la G2 : 62 961 octets, `3cf6a3f1…` (la phrase de la classe ln, le compte 363) ; `contentProblems`
+  0, aller-retour canonique exact, mêmes chemins à 64 hex, 280 cases dont 40 avec empreinte, 103 différences (rejoués par la mission 3).
+  Chemins qui portent 64 hex : `cells[].scores_sha256` (40), `inputs.recompute[].sha256` (5),
+  `inputs.compare[].sha256`, `platform.libm.sha256`, `registry.sha256` et `tool.tree_sha256` (1 chacun) ; c'est la liste fermée de la
+  clause (d5) de la partie 3, plus les cases ; rien sous `differences`.
+- Registre (`scratch/classes.mjs`, `b981d8a8…` : `readRegistry`, `projectCell`, `digestProblems`, `tableRowProblems`) : 280 cases, 32
+  classes, aucune case sans ligne ; 29 lignes refusées par `digestProblems`, toutes dans les quatre dir-4h (bnb 6, btc 9, eth 7, sol 7) ;
+  le `short_digest` de la porte retient exactement ces quatre classes (prémisse V-1) ; les 24 classes de bande passent les deux. La règle
+  du plancher reste celle du G7 du plancher (`docs/G7-lot-short-digest-floor.md` l.40).
+- Test Node neuf, `kata_recalc_release_classes_are_the_published_bands` (test l.144-175). Il lit le bloc `RELEASE_1_CLASSES` de `report.py`
+  et le registre `apps/harness/data/kata/registry/wave1.json`, puis rougit dans chaque sens : une classe absente du registre (l.169) ; une
+  classe qui n'est pas une bande (Q-3, l.170) ; une bande qui manque (l.171) ; une classe que le plancher ou la porte retient : une ligne
+  refusée par `digestProblems`, une case sans ligne, le `short_digest` de `tableRowProblems` (l.172) ; une liste non triée ou répétée
+  (l.173) ; un compte autre que 24 (l.174). Le registre arrive par la PR 2 de R25-REGISTRY-ROOT-1, #228, fusionnée depuis dans
+  `lot/etude-suite` (`1cddd2e5`, `wave1.json` `811fcd57…` au commit ; constat 4 de la G2, plus bas). La branche du lot part de `177b5755`,
+  avant cette fusion : le test reste rouge dans le worktree (fichier absent, par assertion) tant que MONARK ne rebase pas la branche sur
+  `lot/etude-suite` avant la PR. Mesuré par la mission 3 : sur un clone à `1cddd2e5` où le lot est appliqué et indexé, registre suivi, 57
+  tests sur 57 (dont ce test) ; dans le clone à `09f49fc2`, registre copié non suivi, il est vert aussi.
+
+**La chaîne des essais (voie 1).**
+- `trial_order` (l.221-225, point 1 de la §8), `trials_of` (l.228-245, point 2) et `trial_chain` (l.248-258, points 3 à 5) ;
+  `registry_text` (l.214-216) écrit leur tête, pour le recalcul (l.522) comme pour les trois passes de `report.py` (l.305, l.309).
+- L'ordre est celui du point 1, quel que soit celui des lignes ; chaque essai a ses huit clés, lues sur les lignes de ses cases, qui
+  doivent s'accorder ; son `trialId` doit être `<taskClass>|<kataId>|<venue>|<symbol>|<horizon>|CALIB` ; chaque ligne est dans un essai,
+  aucun `trialId` ne se répète, un seul lieu sert la vague. Forme canonique : `json.dumps` à clés triées, sans espace, après le contrôle
+  du point 3 (chaînes ASCII imprimables sans guillemet ni barre oblique inverse, entiers non négatifs). Chaîne : SHA-256 de `prev`, d'un
+  saut de ligne et de la forme, depuis 64 zéros.
+- Le lieu vient des lignes ; la chaîne n'a aucune constante de lieu. La constante `VENUE` de `recalc_p2.py` l.39 (lot 1d, Q-10, ADR l.28),
+  qui écrit `venue`, `key` et `trialId` des cases, est antérieure : ce lot ne l'ajoute ni ne la retire (écart plus bas).
+- Contrôle demandé par RECHERCHES (`76ffa25`) : l'outil recalcule 80 et `648709d0ae8e858e80a527b4b69cf6629f4f9fb7e8b4b5d15752bb7e383caa0e`
+  à partir de ses propres essais. Course : `report_check.py` section 5, sur les quatre marches LCG (aucune série) ; les trois passes portent
+  `{"length": 80, "hash": "648709d0…caa0e"}`. Les essais ne dépendent pas des bougies : la tête des passes synthétiques est celle des séries.
+  Fumée : `scratch/head_smoke.py` (`67097202…`) sur 280 lignes d'identité écrites par `cells_of` : 80, `648709d0…`.
+- Section 10 (l.304-332) : l'ordre du point 1, les huit clés, la même tête depuis les lignes renversées ; deux essais échangés, une clé
+  renommée, une valeur changée donnent une autre empreinte ; refus d'une case d'un essai avec un autre lieu, d'une ligne hors essai, d'un
+  essai sans case, d'une valeur avec un guillemet.
+- En classe DECISION : `OUTSIDE = {}` (`compare_p2.py` l.34) ; `compare_check.py` cas 24 (sortie 1, `DECISION top-level
+  trialRegistryHead.hash`) ; `report_check.py` cas 04 (B dont la tête change : « decision(s) differ », sortie 1).
+- **REPORT-TRIAL-HEAD-SENTENCE-1 : fermé.** `TEXTS["outside_reason"]` et `fields.outside_decisions` sortent du rapport ; la garde
+  d'`assemble` (l.373-374) refuse tout nom dans `OUTSIDE`. Le test de la porte affirme l'absence de la phrase (test l.121), et son tueur
+  passe de `report.py:50` (la phrase retirée) à `report.py:48` (texte `decisions`, même opérateur, un nom d'item injecté).
+
+**VERIFIER-REPORT-DIGESTS-1** (G0 de SHORT-DIGEST-INVERSION-1 §8 ; ETAT l.562-564).
+- Fait côté outil : le rapport ne porte l'empreinte d'aucune case retenue ni d'aucune case sans ligne (`null`), aucune empreinte sous
+  `differences` (refus sans condition), et sa portée ; ses digests de séries restent dans `inputs` (Q-7, publiés par décision).
+- Reste à la partie 3 (G0 v3 de RECHERCHES) : la clause de dossier `recompute_report_digest`, (d1) à (d5), à la porte ;
+  `readRecomputeReport` au contrat fermé, qui admet `scope`, et la remesure de la liste (d5) sur le rapport réel (lot 2a). Mesurée ici
+  sur le rapport de synthèse (plus haut).
+
+**IO-GUARD-NATIVE-READS-1** (PAROXYSME ; élargi par ce lot aux écritures, aux lancements et au réseau du code natif, addendum #214
+l.27). Porteur : MONARK. Déclencheur inchangé : avant que la course de la partie 2 ne lise une série. Texte de la mission 1 :
+- ce que la liste fermée ferme, mesuré : tout module natif chargé après le crochet hors de `NATIVE`, ou depuis un fichier hors de la
+  bibliothèque standard et de l'arbre de l'outil, arrête la course à son import, avant d'agir. Les voies de RECHERCHES (Tcl : lancement,
+  écriture, socket ; `ssl` : lecture ; `dbm` : écriture ; `pwd` : lecture ; un `.so` posé sur `sys.path`) passent toutes par un tel import ;
+- ce qui reste : (a) le code natif admis, les dix modules de `NATIVE` et les 28 chargés avant le crochet, dont les fonctions hors de la
+  table ne lèvent aucun événement. Mesuré : `os.stat`, `os.lstat`, `os.path.exists`, `os.path.getsize`, `os.access`, `os.path.realpath`
+  et `os.readlink` ne lèvent rien (`probe-import/ev_stat.py`, `7b707030…`) ; sous POSIX, `os.mkfifo` et `os.mknod` créent un fichier hors
+  des sorties (RECHERCHES, catchup-214 N-4, sonde g), absents sous Windows (mesuré). (b) Un module intégré chargé par
+  `importlib.import_module` ne lève aucun `import` (mesuré : `xxsubtype`, `faulthandler` ; cas `residual-builtin-through-importlib`).
+  (c) Rien de ce qui tourne avant le crochet n'est jugé : démarrage, `site`, fichiers `.pth`, `sitecustomize`, `PYTHONPATH`, imports
+  d'`io_guard` ;
+- constructions à chiffrer par la recherche, prix non mesurés : (a) une course bornée par le système : sous Linux, Landlock (lectures :
+  entrées et bibliothèque standard ; écritures : sorties) avec seccomp ou un espace de noms réseau vide ; sous Windows, un AppContainer
+  sans capacité réseau ou un objet Job ; à défaut, une liste des fichiers ouverts et des processus tenue par le système (ETW, strace),
+  comparée aux entrées et aux sorties. (b) Une sentinelle posée par `io_guard` dans `sys.modules` pour chaque module intégré hors de la
+  liste (estimation : une dizaine de lignes et un cas). (c) `python -I -S` dans la commande de rejeu, ce qui change `TEXTS["replay"]`,
+  donc les octets du rapport, et le jugement des modules présents à la pose du crochet (estimation : une dizaine de lignes, un cas, une
+  mesure sur un hôte tiers). Aucun contournement. Ce texte est repris du rapport entier de la mission 1, lu dans le journal du workflow
+  (extrait `F:/tmp/frozen-tool/m3/inputs/journal-results.json`, `2ea6be36…`) : la mission 2 et le vérificateur l'avaient reçu tronqué ;
+- ajouts de la G2 (mission 3) :
+  - (a) `_winapi`, chargé avant le crochet, lit le registre de Windows et `os.getlogin` le nom d'utilisateur, sans événement : mesuré par le
+    vérificateur et rejoué ici (`probe_preloaded.py`, `2a04ba23…`, sortie 0 sous la garde du lot). La table refuse les `winreg.*`, mais la
+    même donnée passe par le code natif admis ; l'en-tête d'`io_guard.py` le nomme ;
+  - (c) corrigé par mesure : `-I` implique `-P`, qui retire le dossier du script de `sys.path`, et l'outil ne trouve plus `io_guard`
+    (`ModuleNotFoundError`, sortie 1, sous `-I -B` comme sous `-I -S -B`) ; `-E -s -B` passe (`vectors_check.py` vert). Le vérificateur
+    a mesuré qu'un `sitecustomize` posé par `PYTHONPATH` neutralise la garde sans `-E`, et que `-E` le bloque (sortie 4). La forme viable est
+    donc `-E -s -B` pour `kata-recalc` ; `kata-quarter` trouve `io_guard` par `PYTHONPATH`, ne peut pas prendre `-E`, et sa forme reste à
+    écrire au G0 court de c1a ;
+  - (c) décidé en partie (MONARK, 2026-10-07 ; écrit par la mission 4 à 10:0x UTC) : la commande de rejeu publiée prend la forme
+    `python -E -s -B` (`TEXTS["replay"]`, `report.py` l.54), et chaque enfant d'`io_guard.run_tool` est lancé sous la même forme
+    (`io_guard.py` l.413-417). Ce qu'elle ferme : les variables `PYTHON*` (dont `PYTHONPATH` et le `sitecustomize` qu'il porterait :
+    mesuré) et le site utilisateur (`site.ENABLE_USER_SITE` faux sous `-s` : mesuré ; `usercustomize` n'est alors pas importé : lu dans
+    `site.py` de 3.14.5, `a035d4c8…`, l.270-271 et l.716-717, non planté ici, le site utilisateur n'existant pas sur cet hôte et sa
+    création écrivant sous C:), dans `report.py` et dans chacun de ses enfants (`vectors_check.py`, `binom_check.py`, `recalc_p2.py`,
+    `compare_p2.py`), qui lisent les vecteurs, les séries et le registre. Sans le changement de
+    `run_tool`, l'enfant d'un parent lancé sous `-E -s -B` tournait sous `-B` seul, et un `sitecustomize` posé par `PYTHONPATH` y
+    tournait avant `io_guard` (sonde de la mission 4, avant et après, plus bas). Ce qui reste de (c) : le démarrage de l'interpréteur ;
+    `site` lui-même (aucun `-S`) sur les dossiers de site de l'installation de base, `site.getsitepackages()` = le préfixe et
+    `Lib\site-packages`, dont un fichier `.pth` ou un `sitecustomize` posé là tournerait avant le crochet (aucun sur cet hôte, mesuré) ;
+    les imports d'`io_guard` lui-même ; la forme de `kata-quarter`, toujours à écrire au G0 court de c1a. La course bornée par le système
+    de (a) couvrirait aussi ce reste ;
+  - (c) avancé par la mission 5 (décision de MONARK du 2026-10-07, items 8 et 10 de `F:/tmp/dojo/frozen-tool-followup.md` ; CM-5
+    v6.1) : la forme devient `python -E -S -s -B` (`FORM`, `io_guard.py` l.48), dans `TEXTS["replay"]` et pour chaque enfant de
+    `run_tool` (l.433), et `io_guard` la contrôle à son import (l.44-57 ; paragraphe « Mission 5 »). Ce que `-S` ferme, mesuré sous
+    3.14.5 : `site` n'est pas importé (absent de `sys.modules`), donc rien de ce qu'il ferait ne tourne, ni les `.pth` ni le
+    `sitecustomize` du site-packages de base, ni le site utilisateur et son `usercustomize` ; un `sitecustomize.py` posé à côté des
+    scripts d'une copie de l'arbre, ou dans un dossier que nomme `PYTHONPATH`, ne tourne pas (cas `launch form` ; B9). Ce qui reste : le
+    démarrage de l'interpréteur, ses modules gelés et les modules natifs chargés avant le crochet (28 mesurés par la mission 1, sous
+    l'ancienne forme) ; les
+    imports d'`io_guard` lui-même, cherchés d'abord dans l'arbre de l'entrée (précision de la mission 6, ci-dessous) ; la bibliothèque
+    standard crue telle qu'installée (point (d)) ; un lancement sous une autre forme, que
+    le contrôle détecte sans le prévenir (ce qui tourne avant `io_guard`, un `sitecustomize` sous `PYTHONPATH` sans `-E` ni `-S` ou un
+    module nommé par `PYTHONWARNINGS`, a déjà tourné quand le refus sort : mesuré, B8 et B9) ; les options sans champ de `sys.flags`
+    (`-u`, `-x`, `-R`, `--check-hash-based-pycs`), mesurées sans effet sur les octets. La course bornée par le système de (a) couvrirait
+    ce reste ; la forme de `kata-quarter` (l'entrée pose `sys.path[1]` puis importe `io_guard`, qui fait le contrôle) est écrite au G0
+    de CM-5 (v6, acceptée par MONARK, `…-cm5-v6-234-n6.md` ; v6.2, `…-cm5-v6-2-237.md`).
+  - (c) précisé par la mission 6 (constat m 1 du vérificateur de la mission 5, `F:/tmp/dojo/frozen-m5-verifier.json` ; ses mesures,
+    sous `F:/tmp/frozen-tool/m5v/probes/`, lues et non rejouées : paragraphe « Mission 6 ») : les imports d'`io_guard` sont cherchés
+    d'abord dans l'arbre de l'entrée, `sys.path[0]` étant le dossier du script. Sous la forme, `import io_guard` charge 41 modules,
+    dont 18 depuis un chemin : `_hashlib`, `_py_warnings`, `_weakrefset`, `collections`, `contextlib`, `enum`, `functools`,
+    `hashlib`, `keyword`, `locale`, `operator`, `reprlib`, `signal`, `subprocess`, `sysconfig`, `threading`, `types`, `warnings`
+    (`shadow/preloaded.txt`) ; les modules gelés (`os`, `ntpath`, `stat`, `genericpath`, `abc`, `io`, `codecs`) et les modules
+    intégrés n'y sont pas cherchés. Un fichier posé dans l'arbre de l'entrée sous l'un de ces 18 noms, ou un paquet `io_guard/` à côté
+    d'`io_guard.py` (un paquet passe avant un module du même dossier), tourne donc sous la forme avant le crochet et avant le contrôle
+    de la forme, et peut neutraliser la garde. Mesuré par le vérificateur (`shadow/shadow-runs.txt`, `pkg/PKG-WITNESS.txt`) : un
+    `threading.py` témoin qui rend la main au vrai module laisse `vectors_check.py` sortir en 0, sa sortie égale à `8708d1ec…`, le
+    crochet non posé quand il tourne ; le même fichier, `sys.addaudithook` rendu inerte, laisse passer `time.sleep` hors d'un lancement
+    (`--case sleep-outside-spawn` : sortie 0, « SLEPT » ; 4 au lot) et une ouverture sous un troisième arbre (`--case third-tree-read` :
+    sortie 1 par `FileNotFoundError` ; 4 au lot) ; le paquet `io_guard/` : sortie 0, `8708d1ec…`. Seul `tool_identity` de `report.py`
+    (l.154-170, appelé par `run` avant tout enfant, l.414) le refuse, après coup : une entrée de plus ou un dossier dans l'arbre qui
+    tourne, sortie 2, aucun rapport, sauf si le code qui a tourné se cache ; aucun autre script d'entrée n'appelle `tool_identity`, et
+    une course d'oracle prise seule (mesuré sur `vectors_check.py`) ne le refuse pas. Même chose pour les deux arbres de `kata-quarter` :
+    son entrée pose `sys.path[1]` sur `kata-recalc` puis importe `io_guard` ; les deux arbres passent avant la bibliothèque standard, et
+    `homonyms` (`io_guard.py` l.445-448) ne compare les deux arbres qu'entre eux, jamais à la bibliothèque standard. Un cache forgé
+    (en-tête d'`io_guard.py` l.33-36) est de la même classe : il faut écrire dans l'arbre. Item IO-GUARD-POSED-FILES-1 (paragraphe
+    « Mission 6 »).
+  - (d) neuf : la bibliothèque standard de l'interpréteur de base est crue telle qu'installée, et un fichier posé dans un `platstdlib`
+    inscriptible y serait lu sans note (remarque du constat 5). Construction : la course bornée de (a), ou les fichiers de la bibliothèque
+    lus notés par sha256 ; prix à chiffrer avec (a).
+
+**Items formés ou changés par ce lot** (règle PAROXYSME).
+- **REPORT-HELD-SET-PER-RELEASE-1**. Porteur : MONARK. Déclencheur : la release des lignes de direction. Objet : l'ensemble des classes
+  publiées devient une entrée épinglée par release, lue dans le dossier daté, sous le même test Node appliqué à cette entrée ;
+  `RELEASE_1_CLASSES` vaut l'ensemble de la première release (forme (a), `619fcfe` l.16-18 ; `0d71d8f` l.12-13).
+- **REPORT-INPUT-NAMES-1** (PAROXYSME, reste de N-6). Porteur : MONARK. Limite : les noms de base passés à `--registry` et à `--vectors`
+  entrent dans le rapport (`inputs`), donc dans `report_sha256` (mesuré plus haut). Constructions : refuser une course dont ces noms ne
+  sont pas `wave1.json` et `vectors.json` (ceux de la commande de rejeu), ou retirer `name` de ces deux entrées ; la clause (d5) et
+  `readRecomputeReport` de la partie 3 suivent la forme retenue. Prix : quelques lignes, un cas d'auto-test, une épingle. Déclencheur :
+  avant le lot 1f, qui épingle l'arbre ; sinon une seconde révision de l'outil et son entrée de liste. Décision de MONARK demandée.
+  Confirmé par la G2 (constat 2 du rapport, plus bas) ; la mission 3 ne tranche pas, la forme du rapport étant celle que lit la partie 3.
+  Le détail des deux voies et leur prix sont dans le paragraphe de la G2.
+  **Fermé le 2026-10-07 à 10:0x UTC (mission 4)**, décision de MONARK du même jour, voie (1) « refuser » : `report.py` (`main`, l.472-475)
+  refuse une course dont le nom de base de `--registry` n'est pas exactement `wave1.json`, ou celui de `--vectors` pas exactement
+  `vectors.json` (`NAMES`, l.464 : les noms de `TEXTS["replay"]`), avant tout calcul : sortie 2, la raison nommée, rien de lu ni d'écrit,
+  la sortie jamais créée. La forme du rapport ne change pas (`inputs` garde `name`) : la clause (d5) et `readRecomputeReport` de la
+  partie 3 restent valides. Preuve : avant, le même registre (`a78cc24a…`) sous `B.json` ou `WAVE1.JSON`, et les mêmes vecteurs
+  (`7414b2fc…`) sous `spec-vectors.json`, donnaient par `report.run()` mené au bout trois autres `report_sha256` (`02a3728a…`,
+  `917494da…`, `0d8953d4…`, contre `357682e6…` sous les noms de la commande), chacun égal au premier une fois le nom remis ; maintenant
+  chacune de ces courses est refusée, et quatre contrôles de `report_check.py` le tiennent (paragraphe « Mission 4 »).
+- **REPORT-LOG-PORT-ARM64-1** (PAROXYSME, N-2 de #217). Porteur : MONARK, avec RECHERCHES. Limite : le portage est le `log` de Node sur
+  x64 ; un registre écrit par Node sur arm64, où les produits et les sommes peuvent fusionner, ferait reposer la classe ln sur un `log` qui
+  n'est pas celui du générateur. Constructions : épingler dans la provenance de chaque registre la plateforme du générateur (système,
+  architecture, Node) et refuser la classe ln hors de x64 ; ou mesurer `Math.log` de Node sur arm64 contre les 2 122 614 entrées de
+  `fdlibm_log.VECTORS` et porter une variante fusionnée si elles diffèrent. Prix : une ligne de provenance par registre ; ou un hôte arm64
+  (procurement) et environ 10 s de mesure. Déclencheur : avant la course réelle de la partie 2, la plateforme du générateur de
+  `wave1.json` devant y être nommée (`PROVENANCE-wave1.md` ne nomme pas le Node qui l'a écrit, §15).
+- **Demande de lecture formée** (N-2 de #217, [2nd] pour MONARK) : lire sur place `tools/v8_gypfiles/toolchain.gypi` de Node v24.21.0,
+  l.307 et l.328 (`https://raw.githubusercontent.com/nodejs/node/v24.21.0/tools/v8_gypfiles/toolchain.gypi`), et les consigner dans un
+  fichier de FAITS daté, comme les sources de V8 au §15. Usage : la phrase de `fdlibm_log.py` l.9-11 et l'item ci-dessus. Tentative : aucune
+  par le worker, la lecture primaire revenant à l'orchestrateur (§10 de CLAUDE.md, écart du §15).
+- **IO-GUARD-NATIVE-READS-1** : élargi (plus haut). **REPORT-TRIAL-HEAD-SENTENCE-1** : fermé. **VERIFIER-REPORT-DIGESTS-1** : fait côté outil,
+  reste à la partie 3. **TRIAL-HEAD-WRITTEN-1** : côté outil, la chaîne est calculée et comparée ; la publication de la révision datée de
+  KATA-SPEC qui porte la §8 reste à RECHERCHES.
+
+**Mesures** (`python -B`, hors ligne ; aucune série lue).
+- Oracles et auto-tests sur l'outil du worktree (`scratch/oracles.sh`, `0707da28…` ; `runs/oracles-final1/`, de 06:50 à 06:55 UTC),
+  chacun en sortie 0, stderr vide. Égales à l'octet à celles de la mission 1 (`F:/tmp/frozen-tool/oracles/final/`) : `vectors-check.txt`
+  `43d88e25…`, `binom-check.txt` `63606d4f…`, `hikae-replay.txt` `68e16302…`, `registry-binom-check.txt` `bf9412ba…`, la fumée du lot 1d
+  `92017cbd…`. Différentes, chaque écart expliqué : `compare-check.txt` (`0fd01f9e…`, 33 cas : le cas 24 devient une décision, le cas 33
+  s'ajoute) ; `report-check.txt` (`883a353d…`, 63 contrôles au lieu de 47 : seize lignes ajoutées, deux changées, celles que décrit ce
+  paragraphe ; aucune autre ne bouge) ; `guard-check.txt` (`73bed479…` : les chemins du dossier de travail) ; le rapport de synthèse
+  (`5160891e…`, sa forme).
+- Node, clone indexé : `test/kata-recalc.test.ts` et `test/byte-guard.test.ts`, 21 sur 21 ; avec `apps/harness/test/*.test.ts` (38
+  fichiers), `test/short-digest-floor.test.ts` et `test/spec-1-1-0-release.test.ts` : 331 tests, 330 verts, 1 sauté sous win32
+  (`a_failed_write_gives_back_the_mode_of_the_files_it_replaced`), 0 rouge.
+- Worktree : `tsc --noEmit` 0 ; `eslint test/kata-recalc.test.ts` 0 ; `lint-ratchet` 69/69 ; `grep-forbidden` 0 (348 fichiers ; 361 avec
+  les douze `.py` et le fichier de test en cibles) ; `lang-gate` 0 ; `export-public --check` 0. winlint (`--repo` le clone, `--files`,
+  contenu entier) : les neuf fichiers de code du lot, aucun risque ; ce G0 entier, quatre W1 sur des lignes antérieures (l.232, l.586,
+  l.731, l.828 : deux noms de périphérique de Windows entre accents graves), aucun dans ce §17 (la mission 3 a retiré de cette phrase les
+  deux noms cités, qui y faisaient un cinquième W1) ; en mode diff, winlint ne lit le texte que des fichiers de code.
+  En mode diff (`--base 09f49fc2`), il ne voit rien ici : le lot est indexé, pas committé.
+- Épingle d'arbre : `2fb204ddd563c6a7da479b5053f7a159d1c701816ca8db278f79f0e2f35e91a4` (douze fichiers ; `289756d3…` avant), mesurée par
+  la boucle `sha256sum` sur l'arbre de travail et par le test d'arbre sur l'index du clone. Aucun `__pycache__`. Remplacée par la G2 :
+  `08b00ed1…` (plus bas).
+
+**Rougeur à la base.**
+- Python, contre l'outil de la mission 1 (`base-red/`, le choix de base : le nouveau `report_check.py` déclare le rôle `tool-tree` et
+  appelle `git_tree` sous la signature de la mission 1, que `09f49fc2` refuse) : `report_check.py` sort en 1, RED, six échecs (la tête
+  des passes, le cas 04, `differences` sans empreinte, l'assemblage du rapport, la chaîne des essais, `run()` au bout avec B = la passe ln) ;
+  `compare_check.py` contre le comparateur de `09f49fc2` (identique à celui de la mission 1, `6d989edb…`) : RED, cas 24 et 33.
+- Node, le fichier de test neuf sur deux clones, à `09f49fc2` et à `177b5755`, registre copié : quatre tests rouges par assertion
+  (`ERR_ASSERTION`) aux deux bases, chacun pour sa raison : l'épingle, la liste des scripts d'entrée (`guard_check.py`), la phrase de la tête
+  (test l.121), le bloc `RELEASE_1_CLASSES` absent ; le test de langue reste vert (corps inchangé, non jugé).
+- Tueurs tirés à la main sur le clone (`scratch/fire-killers.mjs`, `29ec125f…` ; fichiers rendus, sha256 égaux avant et après) : les cinq
+  tueurs du fichier (`kata_lib.py:265`, `lang-gate.mjs:107`, `recalc_p2.py:12`, `report.py:48`, `report.py:62`), chacun rouge par assertion ;
+  et cinq tirs de plus sur le test neuf, chacun rouge par assertion : une classe dir-4h ajoutée, une bande retirée, une classe absente du
+  registre, deux classes inversées, et une ligne de bande du registre copié dont `auxSha256` n'est pas ses scores (refusée par
+  `digestProblems`).
+- Mutants (`scratch/mutants.py`, `4df5c75e…`, de 06:49 à 06:58 UTC, quatre clones en parallèle, chaque fichier rendu et vérifié) : 18 sur
+  18 tués. `report_check.py` tue N-3 (cas 10), N-4 (le `Failed(1)` avalé ; la garde `OUTSIDE` retirée ; les deux), les empreintes (une
+  empreinte remise sous `differences` ; le filtre de portée retiré ; l'empreinte de base toujours ; le refus de 64 hex retiré ; le nom du
+  registre remis ; la portée retirée) et la chaîne (deux familles de katas échangées dans l'ordre ; `block` renommé ; `W` + 1 ; `prev`
+  initial changé ; le saut de ligne retiré). `compare_check.py` tue `OUTSIDE` remis (aussi `report_check.py`), `OverflowError` non pris, la
+  faute de structure qui ne sort pas en 2.
+
+**R-25**, forme de la CI (`ci.yml` l.100) sur l'index du clone : contre `177b5755`, 12 fichiers, **847** (borne 1 205) ; contre
+`09f49fc2`, le lot seul, 9 fichiers, 780 (mission 1 : 400) ; après la G2 : 1 067 et 1 000 (plus bas). Le G0 n'entre pas dans le compte
+(`docs/**/*.md` exclus), ni le registre (`apps/harness/data/kata/registry/**/*.json` exclus, et non suivi ici). Aucune autre borne de lot
+au chantier (§5 : chaque PR sous 1 205).
+
+**Écarts au G0.**
+- Le rapport garde le format `monark-recompute-report-v1` alors que ses clés changent (`scope`, `cells[].scores_sha256` ; `registry.file`,
+  `fields.outside_decisions` et les empreintes des différences retirés) : aucun rapport n'est publié et `readRecomputeReport` (lot 2a)
+  n'est pas écrit.
+- La constante `VENUE` de `recalc_p2.py` l.39 reste (voie 1, plus haut). Si « aucune constante de lieu dans l'outil » doit la viser, son
+  retrait change les clés et les `trialId` des 280 cases : décision de MONARK demandée.
+- Le test Node neuf lit un fichier que ce lot ne verse pas : #228 l'a versé dans `lot/etude-suite` (`1cddd2e5`) ; rouge dans le worktree tant
+  que MONARK ne rebase pas la branche sur `lot/etude-suite` avant la PR (constat 4 de la G2).
+- Les points pris de `ab352b0` (portée, `null` sans ligne, `short_digest`, 64 hex, rejeu de la porte) ne figuraient pas dans la mission ;
+  ils viennent de la décision de MONARK citée et du G0 v3 de la partie 3.
+- Le test de la porte change de corps (forme du rapport) : pour qu'il reste jugeable par red-proof, il porte une assertion neuve (test
+  l.121), rouge à la base.
+- Mission 2 : aucune lecture de source en ligne ; les faits de V8 et de Node viennent du §15 et de RECHERCHES, cités.
+
+**Scripts de preuve** (sous `F:/tmp/frozen-tool/m2/scratch/`, hors du lot, sha256) : `sync.sh` `322d3947…`, `oracles.sh` `0707da28…`,
+`r25.sh` `50dc8736…`, `mutants.py` `4df5c75e…`, `fire-killers.mjs` `29ec125f…`, `classes.mjs` `b981d8a8…`, `report_shape.mjs` `3bb07860…`,
+`head_smoke.py` `67097202…` ; de la mission 1, sous `F:/tmp/frozen-tool/` : ceux cités plus haut, et `link-node-modules.mjs`.
+- **Git** : aucun `GIT_DIR`, aucun `GIT_WORK_TREE` (mesure `env` : seul `GIT_EDITOR`, posé par le harnais), aucun `--write-tree`.
+  `git clone --shared`, `checkout --detach` et `git add` dans les clones de `F:/tmp/frozen-tool/m2/` seulement ; dans le worktree, des
+  lectures (`diff`, `status`, `show`, `log`, `rev-parse`). Rien n'est écrit sur C: (`ucrtbase.dll` y est lu par l'auto-test, sous le rôle
+  `libm`).
+
+**G2 des vérificateurs (mission 3).** Deux instances neuves `claude-opus-5-5` (effort max), lentilles « garde » et « rapport » : CORRECTIONS
+chacune ; onze constats, un M et dix m. La mission 3 les a reçus coupés au milieu du constat 4 du rapport ; le reste (fin du 4, constat 5)
+et le rapport entier de la mission 1 viennent du journal du workflow (extrait `F:/tmp/frozen-tool/m3/inputs/journal-results.json`,
+`2ea6be36…`). Worker `claude-opus-5-5` (effort max), horloge de 07:57 à 09:0x UTC (tampons de `now.mjs` : 07:57, 08:37, 08:49, 08:55,
+08:57, 09:02, 09:05). Aucun constat n'est réfuté. Les preuves sont sous `F:/tmp/frozen-tool/m3/` (`runs/`, `scratch/`, `probes/`, `layout/`) ; les sondes
+du vérificateur sont rejouées sans modification (`F:/tmp/frozen-tool-verify/probes/`), contre la garde du lot et contre celle d'avant la
+G2 (`base-lot/`, l'outil du worktree copié avant toute écriture de la mission 3, `base-lot.sha256`).
+
+| Constat | Verdict et pli | Preuve |
+|---|---|---|
+| garde 1 (M) : le git enfant rapatrie un objet manquant d'un clone partiel | plié : `_git` passe `GIT_NO_LAZY_FETCH=1` (`git.html` de git 2.55.0, `8d0eee7d…` : « equivalent to setting the GIT_NO_LAZY_FETCH environment variable to 1 ») ; la variable plutôt que l'option `--no-lazy-fetch`, qu'un git plus ancien refuserait même sur un clone plein | cas `git-no-lazy-fetch` : « NOT FETCHED, STILL MISSING » ; à la base « FETCHED », objet présent après (`--no-lazy-fetch cat-file -e`) ; mutant tué ; `probe_lazy.py` (`c8c1d1bb…`) : objet absent avant et après au lot, rapatrié à la base |
+| garde 2 : un flux NTFS de l'arbre lu sans note | plié : sous Windows, `_judge_open` refuse un chemin qui nomme un flux (deux-points après le lecteur, sur le nom donné et sur le chemin résolu, car `realpath` efface `::$DATA` : `stream_paths.py`, `881bd24d…`) | cas `ntfs-stream` refusé, lu à la base (25 644 octets) ; mutant tué ; `probe_ads.py` (`4d8081c5…`) : sortie 4 au lot, flux lu à la base |
+| garde 3 : la fenêtre de lancement admet toute création de processus | plié : `_CREATE` (`_winapi.CreateProcess`, `_posixsubprocess.fork_exec`, `os.posix_spawn`) passe de « spawn » à « jugé » : une seule création après le Popen jugé du lancement, sur le fil qui lance ; sous POSIX, un argument doit être la liste épinglée (`subprocess.py` de 3.14.5, `a7b6bdf4…`, l.1819 et l.1920, lu, non mesuré ici) ; sous Windows, nom d'application et dossier `None` | quatre cas refusés au lot, admis à la base ; quatre mutants tués ; `probe_spawn_window.py` (`cda634dc…`) : sortie 4 et aucun marqueur au lot, marqueur écrit à la base ; reste : item IO-GUARD-CREATE-CMDLINE-1 |
+| garde 4 : la limite IO-GUARD-NATIVE-READS-1 a d'autres exemples | plié en texte : en-tête d'`io_guard.py` et item (registre par `_winapi`, `os.getlogin`) | `probe_preloaded.py` (`2a04ba23…`) : sortie 0 au lot comme à la base, la limite reste déclarée |
+| garde 5 : `_STDLIB` d'un environnement virtuel | plié : `io_guard` refuse un environnement virtuel à l'import, avant le crochet (premier correctif du constat) | venv `F:/tmp/frozen-tool/m3/venv`, `probe_venv.py` (`4d46a204…`) : sortie 4 à l'import au lot ; à la base, `_STDLIB` tient `venv\lib` et la lecture passe sans note (`runs/venv.txt`, `0e283abc…`) ; aucun cas d'auto-test (un enfant ne change pas son préfixe) |
+| garde 6 : quatre points ne se mesurent que sous Linux | pas un défaut : consignés [2nd] ci-dessous, avec leur mesure de première main formée | course Linux de RECHERCHES à la G2 de la partie 1 (demande `outil-fige-r3` l.22-26, `85cfc37e…` ; accord `recu-outil-fige` l.6-9, `9e8d4d71…`) |
+| rapport 1 : quatre gardes qu'aucun cas n'atteint | plié : quatre contrôles, sections 7 et 10 de `report_check.py` | les mutants du vérificateur (`mutants.py`, `baa55421…`) : 20 sur 20 tués ; les quatre survivants rejoués sur l'arbre final (`runs/rmut-final/`), chacun tué par son contrôle |
+| rapport 2 : REPORT-INPUT-NAMES-1 | confirmé, non tranché : la forme du rapport est celle que lit la partie 3 ; voies et prix ci-dessous ; fermé depuis par la mission 4 (voie 1) | mesure du vérificateur (`names.mjs`, `c6fbe645…`) |
+| rapport 3 : l'épingle est provisoire (contrat de l'outil figé ; `reason_order`) | plié : (a) et (b) ci-dessous | ci-dessous |
+| rapport 4 : §17 périmé et tronqué | plié : registre fusionné (texte du test des classes et écart), IO-GUARD-NATIVE-READS-1 complété | clone à `1cddd2e5`, lot appliqué et indexé : 57 sur 57 |
+| rapport 5 : « an earlier replay under that runtime itself » | plié : `TEXTS["explained, ln"]` dit ce qui a été mesuré, « an earlier replay under the logarithm of Node v24.15.0 itself, whose source is that of v24.21.0 » (RAPPORT de P2b l.7 ; §15, onze fichiers de V8 égaux) | test de la porte vert ; rapport de synthèse 62 961 octets, `3cf6a3f1…` (+59 octets, la phrase) |
+
+- **Rapport 3 (a), le contrat de l'outil figé** (MONARK, `ecace80` l.17-26, et `26ae460` l.6-13, avant la PR) :
+  - `TREES` (`io_guard.py` l.47), liste fermée de deux arbres de code : `tools/kata-recalc`, puis `tools/kata-quarter`, pris à côté du premier
+    sans le résoudre ; lecture et listage admis sous les deux (`_judge_open`, `_judge_list`) ; `output()` refusé dans les deux ; le refus
+    du cache de bytecode étendu aux deux ; un arbre absent admis ; un troisième arbre refusé (aucune règle ne l'admet) ;
+  - un module du second arbre homonyme d'un module du premier est un refus nommé, à l'import, avant le crochet (`homonyms`) ;
+  - le rôle `served-history`, avec un tiret ;
+  - `run_tool` et `git_tree` inchangés, sur `kata-recalc` ;
+  - test neuf `kata_recalc_guard_admits_two_trees_of_code` (« un test rougit sur un troisième arbre ») : la liste lue dans `io_guard.py`,
+    et aucun fichier de l'index sous `tools/` hors des deux arbres ; tueur `io_guard.py:47`, un troisième arbre ajouté ;
+  - mesuré sur des copies (`layout/layout.sh`, `3c8a4b6c…` ; `runs/layout-lot.txt`, `d9dc2ab2…`) : deux modules dans `kata-quarter`, `io_guard`
+    trouvé par `PYTHONPATH`, sortie 0 (à la base, sortie 4 sur le `.pyc` du module frère, le N1 du G0 de CM-5) ; un cache dans le second
+    arbre, sortie 4 à l'import ; un homonyme `kata_lib.py`, sortie 4 à l'import ; le second arbre absent, `vectors_check.py` vert ;
+  - pour CM-5 : `git_tree` reste sur `kata-recalc` (contrat, l.23). L'identité de `kata-quarter` au relevé (G0 de CM-5 v3 §5.2 (D) :
+    « `io_guard.git_tree` sur `tools/kata-recalc` et sur `tools/kata-quarter` ») ne passe donc pas par `io_guard` : à dire à RECHERCHES.
+- **Rapport 3 (b), `reason_order` : voie (i).** R1 est figé (`ea64d03e…`, accord de MONARK `f089150`), et `kata/spec/vectors.json` vaut déjà
+  `7414b2fc…` à la tête de RECHERCHES (depuis `281a27a`), alors que `KATA-SPEC.md` y est encore la version du 2026-10-02 (`b32a4062…`, 333).
+  - `vectors_check.py` lit `reason_order` (R1 §6 l.71) : trois cas de direction, recalculés par `recalc_p2.calibrate_cell` sur des points
+    CALIB construits à la main, comme la section 9 de `report_check.py` ; dix contrôles par cas (n0, n, misses, kStar, p_served, qhat par le
+    moteur et par misses ≤ kStar, check1, check2, raison) ; `SPEC_CHECKS` = 363 (l.75) ; les clés du fichier forment une liste fermée,
+    et une section inconnue le refuse ; la ligne de compte cite « KATA-SPEC section 6 », et l'expression de `report.oracles_of` suit.
+  - Mesures (`runs/oracles-final2/`) : 7414b2fc, 363 contrôles, 0 échec, GREEN ; 06ecf069, RED (333 pour 363) ; la même section contre
+    l'outil de `177b5755`, RED sur la seule raison de `constant_before_reject` (`runs/vc-177.txt`, `0342c766…`) ; une clé en plus, RED
+    (`vectors-extra`, `e282d2a2…`) ; le `vectors_check.py` d'avant la G2 sur 7414b2fc, GREEN « 333 », la mesure du vérificateur rejouée.
+  - Écart : l'outil refuse désormais les vecteurs du 2026-10-02 ; la course réelle de la partie 2 lira ceux de la révision figée. Le vecteur
+    de KATA-SPEC-REASON-ORDER-1 est aussi vérifié par l'outil (30 contrôles).
+- **Rapport 2, REPORT-INPUT-NAMES-1 : les deux voies.** (1) refuser une course dont `--registry` ne s'appelle pas `wave1.json` ou `--vectors`
+  pas `vectors.json` : trois lignes dans `report.run`, `TEXTS["replay"]` qui le dit, deux appels de `report_check.py` à renommer (section 8,
+  `no-vectors.json` ; section 11, le dossier de travail passé en `vectors`) et un contrôle ; la forme du rapport ne bouge pas. (2) retirer
+  `name` de ces deux entrées : la forme change, la clause (d5) et `readRecomputeReport` suivent. Recommandation du worker : (1). Décision
+  de MONARK avant la PR, l'épingle bougeant alors une fois de plus dans le lot. Décidé (MONARK, 2026-10-07) : (1), mais dans `main`, au
+  plus près de la lecture des arguments, et non dans `report.run` ; la section 11 n'est donc pas renommée (paragraphe « Mission 4 »).
+- **Garde 6, les points de Linux, [2nd]** : (1) `os.posix_spawn` et `time.sleep` levés par `subprocess` sous POSIX (A-2, mesure de RECHERCHES) ;
+  (2) `_posixsubprocess`, `select` et `math` chargés avant le crochet sous POSIX (lu dans la source 3.14, non mesuré) ; (3) `os.mkfifo` et
+  `os.mknod` hors des sorties (catchup-214, sonde g) ; (4) le NaN `7ff4000000000000` de `SPECIALS` (catchup-217 l.34-39). Prédictions
+  écrites avant la course Linux, jamais reportées comme des faits : les lancements d'io_guard passent le jugement des créations (la liste
+  d'arguments de `subprocess` est l'argv épinglé) ; `git-no-lazy-fetch` vert si le git de l'hôte connaît la variable ; `ntfs-stream` sauté ;
+  `residual-mkfifo` « MADE WITHOUT AN EVENT » ; `guard_check.py` est à ajouter à la liste de cette course (demande de la mission 1).
+- **Remarque du rapport 1, la 281e ligne** : non pliée ; `trials_of` admet une ligne qui double une case, mais `compare_p2.py` refuse les
+  doublons (faute de structure) et `recalc_p2.main` exige 280 cases distinctes (l.515), avant toute chaîne.
+
+**Items formés ou changés par la G2** (règle PAROXYSME).
+- **IO-GUARD-CREATE-CMDLINE-1** (PAROXYSME, neuf). Porteur : MONARK. Limite : sous Windows, la ligne de commande d'une création de processus
+  ne se lit pas dans l'événement : 3.14.5 donne un seul caractère à sa place (`'\x01'`, `'\x02'`, mesuré par `create_args.py`, `e927edeb…`,
+  cause non lue dans le source C) ; sous POSIX, le chemin du programme de `os.posix_spawn` et de `_posixsubprocess.fork_exec` n'est pas
+  épinglé (non mesuré ici). Une création faite juste après le Popen d'un lancement, avec un autre programme, passerait. Constructions :
+  envelopper `_winapi.CreateProcess` dans `io_guard` (la ligne lue en Python avant l'appel ; environ six lignes, un cas, l'épingle) ;
+  signaler l'événement à CPython et l'épingler une fois corrigé ; sous POSIX, épingler le programme après la mesure de leurs arguments par
+  la course Linux de RECHERCHES. Déclencheur : cette course Linux, et au plus tard avant la course réelle de la partie 2.
+- **IO-GUARD-PARTIAL-CLONE-1** (PAROXYSME, neuf, reste du constat garde 1). Porteur : MONARK. Limite : un git qui ignorerait
+  `GIT_NO_LAZY_FETCH` rapatrierait encore dans un clone partiel ; mesuré ici sur git 2.55.0 seulement, et le cas `git-no-lazy-fetch` le
+  montre sur chaque hôte où `guard_check.py` tourne. Construction : refuser un clone partiel (`remote.<nom>.promisor` ou
+  `extensions.partialclone` à la lecture de `git config`, mesuré sur le clone partiel : `remote.origin.promisor=true`) dans `git_tree` et
+  `git_show` ; environ huit lignes, un cas, l'épingle. Déclencheur : avant un rejeu sur un hôte dont le git n'est pas mesuré
+  (VERIFIER-PUBLIC-REPLAY-1).
+- **IO-GUARD-NATIVE-READS-1** : complété et élargi (plus haut : (a) le registre et `os.getlogin`, (c) corrigé par mesure, (d) neuf) ;
+  (c) décidé en partie par la mission 4 (`-E -s -B`, plus haut).
+- **REPORT-INPUT-NAMES-1** : confirmé, décision de MONARK ; fermé par la mission 4. **KATA-SPEC-REASON-ORDER-1** : le vecteur est aussi
+  vérifié par l'outil.
+
+**Mesures de la G2** (`python -B`, hors ligne ; aucune série lue).
+- Oracles et auto-tests sur l'outil final (`scratch/oracles.sh`, `c32916d8…` ; `runs/oracles-final2/`, de 08:52 à 08:55 UTC), stderr vides :
+  égales à l'octet à celles de la mission 2, `binom-check.txt` `63606d4f…`, `hikae-replay.txt` `68e16302…`, `registry-binom-check.txt`
+  `bf9412ba…`, `compare-check.txt` `0fd01f9e…`, la fumée `92017cbd…`. Différentes, chaque écart expliqué : `vectors-check.txt` (`8708d1ec…`,
+  les vecteurs de R1, trois sections et la ligne de compte) ; `report-check.txt` (`dcce46a2…`, 67 contrôles au lieu de 63, quatre lignes
+  ajoutées et rien d'autre) ; `guard-check.txt` (28 cas et les homonymes, au lieu de 18 ; dix cas et une ligne ajoutés, des chemins) ;
+  rapport de synthèse `3cf6a3f1…`, 62 961 octets, mêmes octets sur deux courses. Après ces courses, une ligne de commentaire
+  (« reddened by: » de la liste fermée) est ajoutée à `vectors_check.py` : relancé sur les trois fichiers de vecteurs, mêmes octets
+  (`runs/vc-final/`) ; épingle, Node du fichier de test, tueurs (`runs/killers2/`, mêmes octets) et R-25 remesurés après elle.
+- Rougeur à la base : `guard_check.py` neuf contre la garde d'avant la G2 (`base-red/`, clone à `09f49fc2` et l'outil de `base-lot/`) : RED,
+  dix échecs, exactement les cas de la G2 (`runs/gc-base.txt`, `d6aaefdc…`) ; `vectors_check.py` neuf contre l'outil de `177b5755` : RED
+  (plus haut). Mutants de la garde (`scratch/guard_mutants.py`, `4bf11f7c…`) : onze sur onze tués, chacun par son cas, fichier rendu.
+- Node, clone à `09f49fc2` (lot indexé, registre copié non suivi) : `kata-recalc` et `byte-guard` 22 sur 22 ; avec `apps/harness/test/*.test.ts`,
+  `short-digest-floor` et `spec-1-1-0-release` : 332 tests, 331 verts, 1 sauté sous win32, 0 rouge (`runs/node-wide.txt`, `9982c091…`).
+  Fichier de test neuf à `09f49fc2` et à `177b5755` : cinq tests rouges par `ERR_ASSERTION` aux deux bases (épingle, scripts d'entrée, liste
+  `TREES` absente, phrase de la tête, bloc `RELEASE_1_CLASSES`) ; le test de langue reste vert. Tueurs tirés sur le clone
+  (`scratch/fire-killers.mjs`, `bd66dacb…`, copie de celui de la mission 2 avec le test neuf ; `runs/killers/killers.txt`, `230e52eb…`) :
+  les six tueurs du fichier et cinq tirs de plus, chacun rouge par assertion, fichiers rendus. Clone à `1cddd2e5` : 57 sur 57.
+- Épingle d'arbre : `08b00ed1e6cf92f3343692e6abf6c85282c185b42f0f340c5b5184a3f08fbf20` (douze fichiers ; `2fb204dd…` avant la G2), mesurée
+  par la boucle `sha256sum` sur l'arbre de travail, sur l'index du clone et par `manifestText` (`scratch/pin.sh`, `b207bf2b…`). Changent :
+  `io_guard.py` (`c6a56b94…`), `guard_check.py` (`e606a098…`), `vectors_check.py` (`bb81674c…`), `report.py` (`f8bf64e1…`),
+  `report_check.py` (`0eed166d…`) ; les lignes des tueurs `report.py:48` et `:62` ne bougent pas. Aucun `__pycache__`. Remplacée par la
+  mission 4 : `ca63fb3c…` (plus bas).
+- **R-25** (`scratch/r25.sh`, celui de la mission 2) : contre `177b5755`, 13 fichiers, 926 insertions, 141 suppressions, **1 067** (borne
+  1 205) ; contre `09f49fc2`, le lot seul, 10 fichiers, 1 000. La G2 en ajoute 220. Après la mission 4 : 1 120 contre `1cddd2e5`, 1 053
+  contre `09f49fc2` (plus bas).
+- Worktree : `tsc --noEmit` 0 ; `eslint test/kata-recalc.test.ts` 0 ; `lint-ratchet` 69/69 ; `grep-forbidden` 0 (348 fichiers ; 361 avec les
+  douze `.py` et le fichier de test en cibles) ; `lang-gate` 0 ; `export-public --check` 0 ; winlint (`--files`, contenu entier, `--repo` le
+  worktree, sous lequel `--files` lit) : les treize fichiers de code, aucun risque ; ce G0, les quatre W1 antérieurs (l.232, l.586, l.731,
+  l.828), aucun dans ce §17.
+- **Git** : aucun `GIT_DIR`, aucun `GIT_WORK_TREE` (mesure `env` : 0), aucun `--write-tree`. `git clone --shared`, `checkout --detach` et
+  `git add` dans les clones de `F:/tmp/frozen-tool/m3/` seulement ; clones partiels de mesure sous `F:/tmp/frozen-tool/m3/` ; dans le
+  worktree, des lectures (`diff`, `status`, `archive`, `rev-parse`, `merge-base --is-ancestor`). Rien n'est écrit sur C: (`ucrtbase.dll` et la
+  bibliothèque standard y sont lus).
+
+**Mission 4 : REPORT-INPUT-NAMES-1 fermé, et la forme `python -E -s -B`.** Worker `claude-opus-5-5` (effort max), horloge de 09:09 à
+10:1x UTC (tampons de `now.mjs` : 09:09, 09:19, 09:26, 09:30, 09:36, 09:39, 09:45, 09:47, 09:56, 09:59, 10:00, 10:03, 10:05, 10:06,
+10:09, 10:10). Deux
+décisions de MONARK du 2026-10-07, reçues dans la mission : la voie « refuser » du constat 2 du rapport (REPORT-INPUT-NAMES-1) ; sous
+IO-GUARD-NATIVE-READS-1 (c), la forme `python -E -s -B` de la commande de rejeu publiée (`-I` écarté : il casse l'import d'`io_guard`,
+mesuré par la mission 3). Lus d'abord : ce §17 (paragraphe de la G2, rapport 2) et la mesure du vérificateur (`names.mjs`, `c6fbe645…`).
+Départ : l'arbre de travail tel que la mission 3 l'a laissé, copié avant toute écriture (`F:/tmp/frozen-tool/m4/base-m3/`,
+`base-m3.sha256`, `649e4f0f…`) ; ses fichiers ont les sha256 donnés plus haut (`report.py` `f8bf64e1…`, `report_check.py` `0eed166d…`,
+`io_guard.py` `c6a56b94…`, `guard_check.py` `e606a098…`) : aucune course antérieure n'avait touché `report.py` ni `report_check.py`.
+Sorties sous `F:/tmp/frozen-tool/m4/` (`runs/`, `scratch/`, `probes/`).
+
+- **Le refus** (`report.py`) : `NAMES` (l.461-464), les deux noms de base de `TEXTS["replay"]` ; dans `main` (l.472-475), après le
+  contrôle d'usage (`--repo` seul donne toujours l'usage) et avant `io_guard.declare`, `io_guard.output` et `os.makedirs` : rien n'est lu
+  ni écrit, la sortie n'est pas créée (le rejeu refusé se relance avec le même `--out`). Message : `REFUSED (exit 2): --registry is named
+  'B.json', not 'wave1.json' (the names of the replay command, which the report lists); nothing read or written`. Le nom comparé est le
+  nom de base après `os.path.abspath` : le chemin que reçoit chaque enfant, et le nom que sa garde note (`io_guard.read`, l.365).
+  Comparaison exacte : sous NTFS, `WAVE1.JSON` ouvre le même fichier que `wave1.json` mais y porterait un autre nom ; un point ou une
+  espace finale est retiré par `abspath` sous Windows (mesuré), et l'enfant reçoit le chemin ainsi normalisé, dont le nom noté est alors
+  `wave1.json`. Placement : `main`, et non `report.run` comme le proposait la G2 ; `report.run()`, appelé par `main` après le contrôle,
+  ne le refait pas, et la section 11 de `report_check.py`, qui l'appelle directement avec ses enfants simulés, reste inchangée.
+- **Qui reçoit ces noms** : `compare_p2.py` (B, le chemin de `--registry`, trois fois) et `vectors_check.py` (`--vectors`), de `report.py`
+  seul, qui refuse désormais avant de les lancer. Ils ne sont pas touchés : chacun est aussi un oracle sur ses propres entrées, et
+  `compare_check.py` lance `compare_p2.py` sur 33 copies, `case01.json` à `case33.json` (un refus y casserait l'oracle). `recalc_p2.py` ne
+  reçoit aucun des deux : ses noms sont fixés par l'outil (`<sym>/<sym>-15m.csv`, `manifest.json`, `missing.json`, les trois fichiers des
+  oracles). Aucun autre nom donné par l'appelant n'entre dans le rapport (toutes les lectures notées, `io_guard.read` et `git_show`,
+  relevées par `grep`).
+- **La forme `-E -s -B`** : `TEXTS["replay"]` (l.54 ; seuls `-E -s` ajoutés, `<vectors.json>` et `<wave1.json>` nommant déjà les deux
+  fichiers), l'en-tête (l.18-19) et l'usage (l.469) de `report.py` ; `io_guard.run_tool` (l.413-417) lance chaque enfant sous la même
+  forme, et l'en-tête d'`io_guard.py` le dit (l.31). La §3.3 (l.369) garde sa commande d'origine ; celle qui vaut est `TEXTS["replay"]`.
+- **Auto-tests** : `report_check.py`, section 8 (l.251-275) : deux appels renommés (la sortie non vide passe `<work>/vectors.json`, la
+  course qui échoue `<work>/no-vectors/vectors.json`) ; un contrôle de la commande (elle commence par `python -E -s -B
+  tools/kata-recalc/report.py`, et `NAMES` vaut les deux noms qu'elle écrit) ; quatre courses refusées (`--registry` nommé `B.json`,
+  puis `WAVE1.JSON`, `--vectors` nommé `spec-vectors.json` : sortie 2, la raison qui nomme l'option et le nom, la sortie jamais créée ;
+  `--registry` `B.json` avec une sortie non vide : sortie 2, et non le 4 de la garde). En-tête l.12-13. `guard_check.py`, cas
+  `child-flags` (l.64-66, l.272-273) : l'enfant, lancé par `run_tool` comme tout cas, imprime ses `-E` et `-s` en vigueur et ses options
+  d'interpréteur (`sys.orig_argv`) : `-E 1 -s 1, options -E -s -B`. Une première écriture lisait le drapeau de `-B` par son attribut,
+  dont le premier mot est un mot français pour la porte de langue (le test `lang_gate_reads_python_sources` rougissait, mesuré) : remplacée.
+- **Mesures, avant et après** :
+  - avant (`scratch/names_before.py`, `843d55ac…`, sur une copie de l'outil d'avant ; `report.run()` mené au bout comme en section 11,
+    mais avec les vrais enfants `vectors_check.py` et `compare_p2.py` ; `runs/names-before.txt`, `81898c1b…`) : B = la passe ln des
+    quatre marches synthétiques (`a78cc24a…`), les vecteurs de R1 (`7414b2fc…`). Sous `wave1.json` et `vectors.json`, `report_sha256`
+    `357682e6…` (62 611 octets) ; B sous `B.json`, `02a3728a…` ; sous `WAVE1.JSON`, `917494da…` ; les vecteurs sous `spec-vectors.json`,
+    `0d8953d4…` ; chaque texte égal au premier une fois le nom remis ;
+  - après (`scratch/names_after.sh`, `38972c51…` ; `runs/names-after2.txt`, `4ffd9057…`) : `report.py` lancé comme la commande de rejeu,
+    sous `python -E -s -B`, sur les mêmes octets ; sous `B.json`, sous `WAVE1.JSON`, sous `spec-vectors.json`, et sous `B.json` avec
+    `spec-vectors.json` : sortie 2 à l'instant, la raison nommée, la sortie jamais créée ; sous les noms de la commande, la course passe
+    le contrôle et s'arrête plus loin, à l'identité de l'outil (le lot n'est pas committé) ;
+  - les enfants (`probes/children/`, `runs/probe-children.txt`, `8d18c05a…` ; un `sitecustomize` posé par `PYTHONPATH`, le parent sous
+    `python -E -s -B`) : avec l'`io_guard` d'avant, l'enfant tourne sous `-E 0, -s 0` et le `sitecustomize` y tourne avant `io_guard` ;
+    avec celui du lot, `-E 1, -s 1`, et rien ne tourne ;
+  - le reste de (c), sous `python -E -s -B -c` : `site.ENABLE_USER_SITE` faux ; `site.getsitepackages()` = le préfixe de l'installation
+    et son `Lib\site-packages`, sans `.pth`, `sitecustomize` ni `usercustomize` ; `sitecustomize` absent de `sys.modules`.
+- **Rougeur à la base** (`base-red/`, clone détaché à `09f49fc2`, l'outil d'avant et les deux auto-tests neufs) : `report_check.py` RED,
+  exactement les cinq contrôles neufs (`runs/rc-red2.txt`, `ea6f1dce…`) : l'outil d'avant crée la sortie et s'arrête à l'identité de
+  l'outil (sortie 2, une autre raison), et sort en 4 sur la sortie non vide ; `guard_check.py` RED, le seul cas `child-flags` (`-E 0 -s 0,
+  options -B` ; `runs/gc-red2.txt`, `d1a5493c…`). Node : le fichier de test neuf à `09f49fc2` et à `177b5755`, registre copié : les cinq
+  mêmes tests rouges par `ERR_ASSERTION` qu'à la mission 3, le test de langue vert.
+- **Mutants** (`scratch/mutants.py`, `0966758c…` ; quatre clones, chaque fichier rendu et son sha256 vérifié ; `runs/mutants.txt`,
+  `44f8c87f…`) : sept sur sept tués, chacun par son contrôle : le refus retiré (quatre contrôles) ; `--vectors` non contrôlé (deux) ; le
+  refus placé après la garde (un : sortie 4) ; le nom comparé sans sa casse (un : `WAVE1.JSON`) ; la commande revenue à `python -B` (un) ;
+  les enfants revenus à `-B` seul, puis sans `-s` (`child-flags`, chaque fois).
+- **Rejeux** (tout sous `python -E -s -B` ; `scratch/oracles.sh`, `7215cdbc…` ; `runs/oracles-final2/`, de 09:47 à 09:51 UTC ; stderr
+  vides). Égaux à l'octet à ceux de la mission 3 : `vectors-check.txt` `8708d1ec…`, celui de `06ecf069` (RED voulu) `c05f8cc1…`,
+  `binom-check.txt` `63606d4f…`, `hikae-replay.txt` `68e16302…`, `registry-binom-check.txt` `bf9412ba…`, `compare-check.txt`
+  `0fd01f9e…`, la fumée `92017cbd…`. Différents, chaque écart expliqué : `report-check.txt` (`af18294c…`, 72 contrôles au lieu de 67 :
+  cinq lignes ajoutées, rien d'autre) ; `guard-check.txt` (`e1c32e4b…` : le cas `child-flags`, la ligne de compte, 29 cas, et des chemins,
+  dont celui, relatif, d'un cas lancé d'un autre dossier de travail) ; le rapport de synthèse, 62 967 octets, `48899a37…` (+6 octets,
+  `-E -s ` dans `replay` ; le texte de la mission 3 une fois retirés), mêmes octets sur deux courses ; au chemin daté, `contentProblems`
+  vide, aller-retour canonique exact, mêmes chemins à 64 hex (40 cases, 5 entrées, et 1 pour chacun des quatre autres), 280 cases dont 40
+  avec empreinte, 103 différences (`runs/inspect-synthetic.txt`, `698a567e…`, script du vérificateur `be8e1938…`).
+- **Node** : clone à `09f49fc2` (lot indexé, registre copié non suivi) : `kata-recalc` et `byte-guard` 22 sur 22 ; avec
+  `apps/harness/test/*.test.ts`, `short-digest-floor` et `spec-1-1-0-release`, 332 tests, 331 verts, 1 sauté sous win32, 0 rouge. Clone à
+  `1cddd2e5` (la branche appliquée et indexée, registre suivi) : `kata-recalc`, `byte-guard`, `policy-guard` et `policy-wave2`, 57 sur 57
+  (les noms de la mission 3) ; le jeu large, 333 tests, 332 verts, 1 sauté, 0 rouge (un test de plus à `1cddd2e5`,
+  `the_repository_passes_the_writer_check`). Tueurs (`scratch/fire-killers.mjs`, celui de la mission 3, `bd66dacb…`) : les six du fichier
+  et cinq tirs de plus, chacun rouge par assertion, fichiers rendus ; `runs/killers/killers.txt` `230e52eb…`, les mêmes octets qu'à la
+  mission 3 : aucune ligne de tueur n'a bougé.
+- **Épingle d'arbre** : `ca63fb3cfe9d53d62a463472981b7f6d229a982618c9fc0b3a277b4786c8d8cd` (douze fichiers ; `08b00ed1…` avant), mesurée
+  par la boucle `sha256sum` sur l'arbre de travail, sur l'index des deux clones et par `manifestText` (`scratch/pin.sh`, copie de celui de
+  la mission 3, `7bbbec52…`). Changent : `io_guard.py` (`799b2cf9…`), `guard_check.py` (`6532df5b…`), `report.py` (`f985ce98…`),
+  `report_check.py` (`6a34321c…`). Aucun `__pycache__`.
+- **R-25** (`scratch/r25.sh`, celui de la mission 2, `50dc8736…` ; la forme de `ci.yml` l.100, la même à `09f49fc2` et à `1cddd2e5`) :
+  contre `1cddd2e5` (clone où la branche est appliquée et indexée), 13 fichiers, 971 insertions, 149 suppressions, **1 120** (borne
+  1 205) ; contre `09f49fc2`, le lot seul, 10 fichiers, 1 053. La mission 4 en ajoute 53.
+- **Worktree** : `tsc --noEmit` 0 ; `eslint test/kata-recalc.test.ts` 0 ; `lint-ratchet` 69/69 ; `grep-forbidden` 0 (348 fichiers ; 361 avec
+  les douze `.py` et le fichier de test en cibles) ; `lang-gate` 0 ; `export-public --check` 0 ; winlint (`--files`, contenu entier,
+  `--repo` le worktree) : les treize fichiers de code, aucun risque ; ce G0, les quatre W1 antérieurs (l.232, l.586, l.731, l.828), aucun
+  dans ce §17.
+- **Lignes déplacées** : `report.py` après l.465, dix de plus (le `declare` de N-5, l.466 au tableau, est l.476) ; `io_guard.py` après
+  l.415, deux ; `guard_check.py` (352 lignes) et `report_check.py` (386 lignes), plus haut. Écart, mesuré : les numéros de ligne du
+  tableau d'en-tête et des paragraphes des missions 1 et 2 sont ceux de leurs arbres, et la G2 en avait déjà déplacé (par exemple `stage`
+  de `report_check.py`, l.139-147 au tableau, est l.141 ; la section 11, l.300-340 au tableau, commence l.333 ; le test des classes,
+  l.128-159 au tableau, commence l.148 du fichier de test). Ils ne sont pas ré-ancrés ici, hors de la mission : décision de MONARK.
+- **Git** : aucun `GIT_DIR`, aucun `GIT_WORK_TREE` (mesure `env` : seul `GIT_EDITOR`), aucun `--write-tree`. `git clone --shared`,
+  `checkout --detach` et `git add` dans les clones de `F:/tmp/frozen-tool/m4/` seulement ; dans le worktree, des lectures (`diff`,
+  `status`, `show`, `rev-parse`, `merge-base --is-ancestor`, `ls-tree`, `log`, `config --get`) : rien n'y est indexé ni committé. Rien
+  n'est écrit sur C: (l'interpréteur, `ucrtbase.dll` et la bibliothèque standard y sont lus ; `TEMP` et `TMP` sous `F:/tmp`, cache npm
+  sous `F:`).
+
+**Mission 5 : la forme `python -E -S -s -B`, son contrôle à l'import, la liste fermée des bibliothèques du `log`.** Worker
+`claude-opus-5-5` (effort max), horloge de 10:52 à 12:1x UTC (tampons de `now.mjs` : 10:52, 11:40, 11:48, 12:00, 12:04, 12:11, 12:12). Entrées
+lues d'abord : le rapport du vérificateur de la mission 4 (`F:/tmp/dojo/frozen-m4-verifier.json`, quatre constats m) ; les décisions de
+MONARK, `F:/tmp/dojo/frozen-tool-followup.md` items 8 et 10, et son message `2026-10-07-MONARK-vers-RECHERCHES-226-cm5-v6-1.md` (CM-5
+v6.1 : le contrôle de la forme passe dans `io_guard`) ; sa mesure `F:/tmp/dojo/sitecustomize-measure` ; ce §17. Départ : l'arbre de la
+mission 4, copié avant toute écriture (`F:/tmp/frozen-tool/m5/base-m4/`, `base-m4.sha256` `f7a06001…`), aux sha256 de l'instantané du
+vérificateur (`io_guard.py` `799b2cf9…`, `report.py` `f985ce98…`, `report_check.py` `6a34321c…`, `guard_check.py` `6532df5b…`, test
+`6060e5e8…`, ce G0 `c8bbb317…`). Sorties sous `F:/tmp/frozen-tool/m5/` (`runs/`, `scratch/`, `probes/`).
+
+- **La forme (item 8 ; constat m 3)** : `python -E -S -s -B` dans `TEXTS["replay"]` (`report.py` l.54), dans l'en-tête et l'usage de
+  chaque script d'entrée (`binom_check.py` l.10-11, `compare_check.py` l.6, `compare_p2.py` l.20-21, `guard_check.py` l.16-17 et l.380,
+  `recalc_p2.py` l.11 et l.542, `report.py` l.19 et l.471, `report_check.py` l.14, `vectors_check.py` l.8), dans la commande de la §3.3
+  (l.369, point ouvert (a) de la mission 4) et dans le texte de l'épingle du test (l.57-58) ; `io_guard.run_tool` lance chaque enfant
+  sous `FORM` (`io_guard.py` l.433). Aucun autre lanceur Python dans le dépôt (`git grep` : la CI ne lance pas l'outil, le test Node n'en
+  lance aucun) ; les lanceurs de preuve de cette mission (oracles, mutants, sondes) prennent la même forme.
+- **Le contrôle à l'import (item 10)** : `io_guard.py` l.44-57, avant tout jugement et toute lecture (après ses propres imports, qui ne
+  lisent aucune entrée). Refus en sortie 2 : la raison sur `sys.stderr`, `flush()`, puis `os._exit(2)` (dans un `finally`), si un champ
+  de `sys.flags` qu'une option pose, de `debug` à `isolated` puis `safe_path`, diffère de sa valeur sous `FORM`, si `sys.warnoptions` ou
+  `sys._xoptions` n'est pas vide, ou si l'interpréteur est un build debug (`hasattr(sys, "gettotalrefcount")`). Écart voulu à la liste de
+  l'item 10, qui nomme sept champs : les sept y sont, avec les six autres qu'une option pose (`debug` par `-d`, `interactive` par `-i`,
+  `verbose` par `-v`, `bytes_warning` par `-b`, `quiet` par `-q`, `isolated` par `-I`) et `hash_randomization` (1 sous `-E`) ; les trois
+  champs que seul `-X` pose passent par `sys._xoptions` (`utf8_mode` vaut aussi 1 sous une locale C de POSIX : non contrôlé). Les champs
+  sont lus par leur position (`sys.flags.__match_args__`) : le nom du champ de `-B` commence par un mot que la porte de langue lit comme
+  français (mesuré par la mission 4). Mesuré option par option (`probes/flags_probe.py` `55b6a541…`, `runs/flags.txt` `9c70af3b…`) :
+  chaque option pose son champ ; `-i` pose `inspect` et `interactive`, `-I` pose `isolated` et `safe_path`, `-b` ajoute
+  `default::BytesWarning` à `sys.warnoptions` ; `-ESsB` égale la forme ; `-R`, `-u`, `-x` et `--check-hash-based-pycs` ne changent aucun
+  champ et ne sont pas détectés, sans effet sur les octets (`-R` : le champ vaut déjà 1 sous `-E` ; `-u` : le tampon des sorties ; `-x` :
+  la première ligne de chaque script d'entrée est un commentaire ; `--check-hash-based-pycs` : les `.pyc` de la bibliothèque standard de
+  l'hôte sont à horodatage, mot de drapeaux 0 mesuré sur `subprocess` et `hashlib`, et l'outil n'en a aucun). C'est une détection, pas une
+  prévention : ce qui tourne avant `io_guard` a déjà tourné quand le refus sort (B8 et B9, plus bas) ; la forme, écrite dans `replay`,
+  prévient ce qu'elle retire (les variables `PYTHON*`, `site` et ce qu'il ferait tourner, le site utilisateur, l'écriture du cache), et
+  non un fichier posé dans l'arbre de l'entrée sous le nom d'un des 18 modules qu'`io_guard` charge depuis un chemin, ni un paquet
+  `io_guard/` : ils tournent sous la forme avant le crochet (précision de la mission 6, sous IO-GUARD-NATIVE-READS-1 (c)).
+- **Les cas de `guard_check.py`** (382 lignes) : quatorze lancements (l.86-92) par `_launch` (l.152-160), sur une copie de l'arbre que fait
+  le parent (l.329-336), avec un `sitecustomize.py` témoin à côté de ses scripts et un autre dans un dossier que nomme `PYTHONPATH`. Sous
+  la forme, un script d'entrée de la copie (`--case site-absent`, l.293-294) : « SITE NOT RUN », ni `site` ni `sitecustomize` dans
+  `sys.modules`. Sous une autre forme, `-c` importe `io_guard` de la copie (sous `-P`, un script d'entrée ne le trouverait pas) :
+  `-S -s -B`, `-E -s -B`, `-E -S -B`, puis `-O`, `-i`, `-P`, `-d`, `-v`, `-q`, `-W error`, `-X presite=sitecustomize` ajoutés à la forme,
+  et un build debug tenu par `sys.gettotalrefcount` posé avant l'import (aucun build debug sur cet hôte) : chacun en sortie 2, son champ
+  nommé ; sans `-B`, en dernier (son import écrit le cache de la copie) : sortie 2. Le cas `child-flags` (l.66, l.290-292) affiche aussi
+  `-S` et `site` : « -E 1 -S 1 -s 1, options -E -S -s -B, site absent ».
+- **L'environnement virtuel sous `-S`, mesuré** (`probes/venv_probe.py` `c37ab74b…`, `runs/venv/`) : un venv jetable,
+  `F:/tmp/frozen-tool/m5/venv`, fait par `python -m venv --without-pip` depuis l'interpréteur de base. Sous `-E -S -s -B`, sans `site`,
+  `sys.prefix` vaut le dossier du venv (posé par `getpath`), différent de `sys.base_prefix`, et `platstdlib` vaut `venv\Lib`. L'outil
+  (`vectors_check.py`) lancé par le `python.exe` du venv sous la forme : sortie 4 à l'import, « a virtual environment: run the base
+  interpreter », aucune sortie écrite ; sous `-E -s -B` : sortie 2 (`no_site 0`). Le prédicat `sys.prefix != sys.base_prefix` tient sous
+  `-S` : inchangé.
+- **Constat m 1** (`report_check.py`, section 8, l.269) : trois courses refusées de plus, `--registry` nommé `wave1.jsonl` puis
+  `wave1.JSON`, `--vectors` nommé `vectors.jsonl`. Les deux mutants du vérificateur (le nom comparé par son début, `startswith` ; par sa
+  racine, `os.path.splitext`) sont tués : `report_check.py` en sortie 1, deux puis trois échecs (`runs/mutants/MA-*`, `MB-*`). À la base,
+  ces trois courses sont vertes (l'égalité exacte de la mission 4 les refuse déjà) : leur preuve rouge, ce sont ces deux mutants.
+- **Constat m 2** (en-tête d'`io_guard.py`) : l.8-10 (git sous `GIT_NO_LAZY_FETCH`, IO-GUARD-PARTIAL-CLONE-1 ; une création de
+  processus, une fois, après son Popen jugé, sur son fil, avec son argv sous POSIX, sa ligne de commande non épinglée sous Windows,
+  IO-GUARD-CREATE-CMDLINE-1), l.14 (les créations de `_CREATE` parmi les événements jugés), l.28-29 (pas de `site` sous la forme),
+  l.32 (l'outil tourne sous `FORM`).
+- **Constat m 4** (la bibliothèque du `log`). (i) Fait : `LIBMS` (`report.py` l.68-69), liste fermée et mesurée, sha256 → (version,
+  nombre d'entrées de `fdlibm_log.VECTORS` où son `log` diffère du portage) ; une entrée, celle de l'hôte de la mesure du lot 1e
+  (`3c600563…`, `10.0.19041.3636`, 5 780 ; 1 046 080 octets). `fingerprint` (l.131-136) refuse en sortie 2 une bibliothèque absente de
+  la liste, d'une autre version ou d'une autre empreinte : l'empreinte s'applique toujours. `report_check.py` section 3 (l.103-106) le
+  tient (une bibliothèque inconnue, une autre version, une autre empreinte : trois refus) ; mutants tués : la liste ouverte, la version non
+  comparée. Rejeu de la course du vérificateur (`scratch/sysroot_runs.sh` `8345ad26…`, son `e2e_v.py` `752f0746…`, `report.main` de
+  l'outil du worktree ; `runs/sysroot.txt` `e2e0d622…`) : sous le `SystemRoot` de l'hôte, rapport écrit, `19ff55c3…`, 62 620 octets ;
+  sous son `SystemRoot` factice (`python3.dll` copié en `ucrtbase.dll`, `f3d0cd26…`), sortie 2, « the C library of log named is not in
+  the measured list LIBMS », aucun `report.json` ; sous un `SystemRoot` dont `System32` porte une copie du `ucrtbase.dll` du système,
+  rapport écrit, les mêmes octets `19ff55c3…` (la bibliothèque nommée a les octets de la chargée). (ii) Non fait, la borne R-25 ne le
+  laissant pas : item IO-GUARD-LIBM-PATH-1 (plus bas), avec la construction mesurée.
+- **Correctif après relecture** (conseil intégré du harnais, 12:0x UTC) : sous `-c`, `sys.path[0]` est le dossier de travail ; la copie
+  passait en second (`sys.path.insert(1, …)`). `guard_check.py` lancé depuis un dossier de travail qui porte `io_guard.py` (le dossier
+  de l'outil) faisait importer l'`io_guard` de ce dossier, et le lancement sans `-B` y écrivait son cache. Mesuré sur le clone, avant :
+  `guard_check.py` vert (`runs/cwd-before/guard-check.txt` `62b3ae77…`), mais `__pycache__/io_guard.cpython-314.pyc` écrit dans son
+  `tools/kata-recalc`, et la course suivante refusée en sortie 4 (« a bytecode cache in a tree of the tool », `vc-after.err`
+  `5ec2e7e2…`) ; cache retiré du clone. Correctif : la copie en tête (`sys.path.insert(0, …)`, `guard_check.py` l.157 ; docstring de
+  `_launch` l.153-155), zéro ligne au compte R-25 (`scratch/step2-fix.py` `db351f00…`). Après : vert, rien d'écrit dans l'outil
+  (`runs/cwd-after/guard-check.txt` `58839fa2…`). Les mutants ont tourné avant ce correctif, depuis `F:/tmp`, qui ne porte aucun
+  `io_guard.py` : leurs lancements importaient déjà la copie, et leurs verdicts tiennent. Écart à « une fois » : l'épingle a été posée
+  deux fois dans le worktree, `7e72e1b0…` avant ce correctif (rejouée dans les clones), puis `ef31a618…`, la seule livrée.
+- **Conséquence de `LIBMS` sur un autre hôte** : avec une seule entrée, la course de `report.py` (sortie 2) et la section 3 de
+  `report_check.py` (RED) sont refusées sur tout hôte Windows dont `ucrtbase.dll` n'est pas `3c600563…` en `10.0.19041.3636` ; avant
+  la mission 5, un autre hôte passait sans empreinte. Procédure : mesurer sa bibliothèque (sha256, version, nombre d'entrées de
+  `fdlibm_log.VECTORS` où son `log` diffère du portage, comme au lot 1e), l'ajouter à `LIBMS` ; l'épingle bouge.
+- **Point ouvert (b) de la mission 4** : le tableau d'en-tête et les paragraphes des missions 1 et 2 sont réancrés sur l'arbre de cette
+  mission (`scratch/reanchor.py` `5d412c5d…` : chaque ligne de l'arbre de la mission 2, `m3/base-lot/`, cherchée par son texte dans
+  l'arbre final ; `scratch/reanchor-g0.py` `49bbdedb…` : 42 réancrages, chacun tenu à un texte unique sur sa ligne ; les plages
+  d'en-tête relues à la main ; deux bornes de fin corrigées à la main, l'épingle l.50-60 et le test de la porte l.110-142). Les références
+  à d'autres documents ne bougent pas. Lignes que cette mission déplace, pour lire les paragraphes des missions 3 et 4, qui gardent les
+  numéros de leurs arbres : `io_guard.py` +1 de l.10 à l.42, +16 au-delà (le contrôle, l.44-57 ; `TREES` passe de l.47 à l.63, et le tueur
+  du test des deux arbres suit : `io_guard.py:63`, test l.101) ; `report.py` +2 après l.67 (`LIBMS`) ; `report_check.py` +1 après l.268 ;
+  `guard_check.py` 382 lignes ; le fichier de test +1 après l.58.
+
+**Items formés ou changés par la mission 5** (règle PAROXYSME).
+- **IO-GUARD-LIBM-PATH-1** (PAROXYSME, neuf, reste du constat m 4 du vérificateur de la mission 4). Porteur : MONARK. Limite :
+  `report.py` lit la bibliothèque C du `log` au chemin que nomme la variable `SystemRoot`, que `-E` ne neutralise pas ; `LIBMS` refuse
+  désormais toute bibliothèque inconnue et l'empreinte s'applique toujours, mais le fichier lu n'est pas forcément celui que le processus
+  a chargé (un autre fichier passe s'il en a les octets, et il est refusé sinon). Construction candidate, mesurée hors de l'outil (`probes/libm/walk.py` `531a5ae1…`,
+  `runs/walk.txt` `620b95d6…`) : parcourir l'espace d'adresses du processus avec `_winapi.VirtualQuerySize` et nommer chaque début de
+  région qui est la base d'un module avec `_winapi.GetModuleFileName` ; `_winapi` est chargé avant le crochet, `ctypes` n'est pas dans
+  `NATIVE`, et `nt` n'offre aucune fonction qui nomme un module chargé (liste de ses fonctions lue). Mesuré : 189 à 212 régions selon le
+  processus, 16 modules, 1 à 2 ms ; un seul `ucrtbase.dll`, `C:\WINDOWS\System32\ucrtbase.dll`, le même sous le `SystemRoot` factice.
+  Pièges mesurés : l'adresse 0 nomme l'exécutable (partir de 0x10000) ; `VirtualQuerySize` au-delà du haut de l'espace utilisateur
+  (0x7FFFFFFF0000 pour un processus 64 bits) rend une valeur avec une exception posée (`SystemError` à l'appel suivant), d'où une borne
+  tenue. Prix mesuré : environ dix lignes dans `platform_fields` (le parcours, un seul `ucrtbase.dll` exigé, sa lecture sous le rôle
+  `libm`), trois dans `report_check.py` (un `SystemRoot` factice ignoré), l'épingle : environ 16 lignes au compte R-25, quand la borne du
+  chantier n'en laisse que 5 après cette mission (1 200 sur 1 205). Déclencheur : avant la première course réelle sur un autre hôte que
+  celui mesuré.
+- **IO-GUARD-NATIVE-READS-1** : (c) avancé par la mission 5 (plus haut, sous l'item).
+- **Demande de lecture formée** ([2nd] pour cette mission) : lire sur place `https://docs.python.org/3.14/using/cmdline.html`,
+  entrées `PYTHON_PRESITE` et `-X presite` (« build debug seulement », cité par le contrôle de CM-5 v4, `cm5-v4-check.json`), et la
+  consigner dans un fichier de FAITS daté. Usage : B8 et le refus du build debug ci-dessus. Tentative : aucune par le worker, la
+  lecture primaire revenant à l'orchestrateur (§10 de CLAUDE.md, écart du §15). **Fermée** : lue sur place par MONARK le 2026-10-07 à
+  13:10 UTC, navigateur interne, page « 1. Command line and environment — Python 3.14.8 documentation » ; fichier de FAITS
+  `docs/FAITS-PYTHON-PRESITE-2026-10-07.md` ([lu] ; copie à l'octet de `F:/tmp/dojo/FAITS-PYTHON-PRESITE-2026-10-07.md`) : `-X presite`
+  et `PYTHON_PRESITE` n'existent que dans un build debug (« Needs Python configured with the --with-pydebug build option. »), et `-E`
+  ignore toute variable `PYTHON*`. La limite « pas de build debug pour mesurer » est fermée par ces deux voies (paragraphe « Mission 6 »).
+
+**La preuve (C′) pour CM-5 : B8 et B9 rejoués contre l'`io_guard` étendu** (`probes/b8b9/b8b9.sh` `8681ba03…`, `runs/b8b9-2.txt`
+`fcd79436…` ; l'oracle des vecteurs, `vectors_check.py`, sur les vecteurs de R1, `7414b2fc…`).
+- B8 : 39 variables `PYTHON*` posées, dont `PYTHON_PRESITE=witness`, `PYTHONPATH` vers un dossier qui porte `sitecustomize.py`,
+  `usercustomize.py` et un module témoin (`probes/b8b9/pp/witness.py` `821413b2…`), `PYTHONWARNINGS=default::witness.W`,
+  `PYTHONSTARTUP`, `PYTHONINSPECT`, `PYTHONOPTIMIZE=2`, `PYTHONSAFEPATH`, `PYTHONPYCACHEPREFIX`, `PYTHONIOENCODING=utf-16`, et
+  `PYTHONHOME` vers un dossier absent. Sous la forme : sortie 0, la sortie de l'oracle égale à l'octet à celle d'une course sans ces
+  variables (`8708d1ec…`, celle de la mission 4), aucun témoin écrit. Sans `-E` (`PYTHONHOME` retiré, sans quoi l'interpréteur ne démarre
+  pas ; `PYTHONSAFEPATH`, `PYTHONINSPECT` et `PYTHONIOENCODING` retirés pour que l'oracle trouve `io_guard`) : les variables agissent, le
+  module témoin est importé au démarrage par `PYTHONWARNINGS`, et `io_guard` refuse en sortie 2 (« optimize 2, ignore_environment 0,
+  verbose 1, hash_randomization 0, -W default… ») ; avec toutes les variables et sans `-E`, `PYTHONSAFEPATH` cache `io_guard`
+  (`ModuleNotFoundError`), aucune sortie. `PYTHON_PRESITE` n'agit que sur un build debug ([lu] : `docs/FAITS-PYTHON-PRESITE-2026-10-07.md`,
+  la page cmdline de 3.14 lue sur place par MONARK le 2026-10-07 à 13:10 UTC, qui remplace le [2nd] du contrôle de CM-5 v4,
+  `cm5-v4-check.json` ; aucun build debug ici), que le contrôle refuse, et `-E` l'ignore (même page) : la limite « pas de build debug »
+  de B8 devient ce refus.
+- B9 : un `sitecustomize.py` témoin posé à côté des scripts d'une copie de `kata-recalc`. Sous la forme, il ne tourne pas et la sortie
+  est la même (`8708d1ec…`) ; sous `-E -s -B`, il ne tourne pas non plus (`sys.path[0]` posé après `site`, la mesure de MONARK) et
+  `io_guard` refuse (`no_site 0`) ; avec `PYTHONPATH` vers la copie, sans `-E` ni `-S`, il tourne (témoin écrit) puis `io_guard` refuse
+  (`no_site 0, ignore_environment 0`). Portée (précision de la mission 6) : B9 vaut pour le nom `sitecustomize`, qu'aucun module
+  chargé sous la forme n'importe (cas `launch form`, « SITE NOT RUN »). Sous la forme, un fichier posé au même endroit sous le nom d'un des 18 modules qu'`io_guard` charge depuis un chemin
+  (`threading.py`, mesuré par le vérificateur de la mission 5), ou un paquet `io_guard/`, tourne avant le crochet : B9 ne prouve rien
+  contre un fichier posé dans l'arbre de l'entrée, ni pour `kata-recalc` ni pour les deux arbres de `kata-quarter` (IO-GUARD-NATIVE-READS-1
+  (c), précision de la mission 6 ; IO-GUARD-POSED-FILES-1).
+
+**Mesures** (`python -E -S -s -B`, hors ligne ; aucune série lue).
+- Oracles et auto-tests sur l'outil du worktree (`scratch/oracles.sh` `6cad8e9a…`, copie de celui de la mission 4 sous la forme neuve ;
+  `runs/oracles-final1/`, de 11:48 à 11:52 UTC, `oracles-final1.log` `ca94e068…` ; stderr vides). Égaux à l'octet à ceux de la mission 4 :
+  `vectors-check.txt` `8708d1ec…`, celui de `06ecf069` (RED voulu) `c05f8cc1…`, `binom-check.txt` `63606d4f…`, `hikae-replay.txt`
+  `68e16302…`, `registry-binom-check.txt` `bf9412ba…`, `compare-check.txt` `0fd01f9e…`, la fumée `92017cbd…`. Différents, chaque écart
+  expliqué : `report-check.txt` (`a38d8832…`, 75 contrôles au lieu de 72 : les deux lignes de la bibliothèque et celle de la commande
+  changées, les trois noms ajoutés, rien d'autre) ; `guard-check.txt` (`46e8fa1d…` : `child-flags`, les quatorze lancements, la ligne de
+  compte, 43 cas, et des chemins ; après le correctif plus bas, `runs/oracles-final2/guard-check.txt` `d57fa18f…`, seuls des chemins
+  changent) ; le rapport de synthèse, 62 970 octets, `0c123b5e…` (+3 octets, `-S ` dans `replay`).
+- Rougeur à la base (`base-red/`, clone détaché à `09f49fc2`, l'outil de la mission 4 et les deux auto-tests neufs ; `runs/gc-red.txt`
+  `43260154…`, `runs/rc-red.txt` `94e7a79d…`) : `guard_check.py` RED, exactement quinze échecs, `child-flags` (« -E 1 -S 0 -s 1, options
+  -E -s -B, site loaded ») et les quatorze lancements (sortie 0 sans contrôle, sortie 4 sous `-i` par `cpython.run_stdin` refusé, sortie 4
+  sans `-B` par le cache) ; `report_check.py` RED, exactement trois échecs (les deux contrôles de la bibliothèque, la forme de la
+  commande), les trois noms neufs verts (plus haut). Node : le fichier de test neuf à `09f49fc2` et à `177b5755`, registre copié : les
+  cinq mêmes tests rouges par `ERR_ASSERTION` qu'aux missions 3 et 4, le test de langue vert (`runs/node-base-*.txt`).
+- Mutants (`scratch/mutants.py` `7c1bb09b…` ; quatre clones `mut1/` à `mut4/` détachés à `09f49fc2`, chaque fichier rendu et son sha256
+  vérifié, aucun `__pycache__` laissé ; `runs/mutants.txt` `29805045…`) : 25 mutants, 21 tués, chacun par son contrôle ou son cas : les
+  deux du vérificateur, la liste des bibliothèques ouverte, la version non comparée, la commande sans `-S`, dix champs de `sys.flags` non
+  contrôlés un par un (`debug`, `inspect`, `optimize`, celui de `-B`, `no_user_site`, `no_site`, `ignore_environment`, `verbose`, `quiet`,
+  `safe_path`), `-W`, `-X` et le build debug non contrôlés, le refus en sortie 0, l'enfant de `run_tool` sans `-S`, `FORM` sans `-S`.
+  Quatre survivent, équivalents : `interactive` (seul `-i` le pose, avec `inspect`), `bytes_warning` (`-b` ajoute aussi un `-W`),
+  `hash_randomization` (sous `-E`, seul `PYTHONHASHSEED` le baisserait, ignoré ; mesuré à 0 sans `-E`, refusé par `ignore_environment`),
+  `isolated` (`-I` pose aussi `safe_path`).
+- Node : clone à `09f49fc2` (lot indexé, registre copié non suivi) : `kata-recalc` et `byte-guard` 22 sur 22 ; avec
+  `apps/harness/test/*.test.ts`, `short-digest-floor` et `spec-1-1-0-release`, 332 tests, 331 verts, 1 sauté sous win32, 0 rouge. Clone à
+  `1cddd2e5` (la branche appliquée et indexée, registre suivi) : `kata-recalc`, `byte-guard`, `policy-guard` et `policy-wave2`, 57 sur 57 ;
+  le jeu large, 333 tests, 332 verts, 1 sauté, 0 rouge. Tueurs (`scratch/fire-killers.mjs`, celui des missions 3 et 4, `bd66dacb…` ;
+  `runs/killers/killers.txt` `a90bfd62…`) : les six du fichier et cinq tirs de plus, chacun rouge par assertion, fichiers rendus ; seul
+  le tueur des deux arbres change de ligne (l.47 → l.63).
+- Épingle d'arbre : `ef31a61893852ce67b998ad0fda437e19501a54743458f0f77ed82fe294c0522` (douze fichiers ; `ca63fb3c…` avant), mesurée par la
+  boucle `sha256sum` sur l'arbre de travail, sur l'index des deux clones et par `manifestText` (`scratch/pin.sh` `2332ab0a…`, copie de
+  celui de la mission 4 ; `runs/pin.txt` `84720d4e…`). Changent : `binom_check.py` (`5a69f466…`), `compare_check.py` (`012b7804…`),
+  `compare_p2.py` (`877dd2fc…`), `guard_check.py` (`0665ab21…`), `io_guard.py` (`a3efa844…`), `recalc_p2.py` (`c2611a3a…`), `report.py`
+  (`1f7e91bd…`), `report_check.py` (`58c74b2e…`), `vectors_check.py` (`713e28a2…`). Aucun `__pycache__`.
+- **R-25** (`scratch/r25.sh`, celui de la mission 2, `50dc8736…` ; la forme de `ci.yml` l.100) : contre `1cddd2e5` (clone où la branche
+  est appliquée et indexée), 14 fichiers, 1 036 insertions, 164 suppressions, **1 200** (borne 1 205) ; contre `09f49fc2`, le lot seul, 11 fichiers, 1 133. La mission 5 en ajoute 80 : la borne laisse 5 lignes.
+- Worktree : `tsc --noEmit` 0 ; `eslint test/kata-recalc.test.ts` 0 ; `lint-ratchet` 69/69 ; `grep-forbidden` 0 (348 fichiers ; 361 avec
+  les douze `.py` et le fichier de test en cibles) ; `lang-gate` 0 ; `export-public --check` 0 ; winlint (`winlint.mjs` de RECHERCHES,
+  `676416fe…`, `--files`, contenu entier, `--repo` le worktree) : les treize fichiers de code, aucun risque ; ce G0, les quatre W1 antérieurs (l.232, l.586, l.731, l.828), aucun dans ce §17.
+- **Git** : aucun `GIT_DIR`, aucun `GIT_WORK_TREE` (mesure `env` : seul `GIT_EDITOR`), aucun `--write-tree`. `git clone --shared`,
+  `checkout --detach` et `git add` dans les clones de `F:/tmp/frozen-tool/m5/` seulement ; dans le worktree, des lectures (`diff`,
+  `status`, `show`, `rev-parse`, `grep`) : rien n'y est indexé ni committé. Rien n'est écrit sur C: (l'interpréteur, `ucrtbase.dll`,
+  `python3.dll` et la bibliothèque standard y sont lus ; `TEMP` et `TMP` sous `F:/tmp` ; le venv sous `F:/tmp`).
+
+**Mission 6 : les constats m du vérificateur de la mission 5, l'item 11 et `PYTHON_PRESITE` ; ce G0 seulement, Bash refusé.** Worker
+`claude-opus-5-5` (effort max). Horloge : une lecture de `now.mjs`, 13:11 UTC (13:11:23Z ; `date -u` 13:12:09), aucune ensuite (plus
+bas, « Arrêt »). Entrées lues d'abord : le rapport du vérificateur de la mission 5 (`F:/tmp/dojo/frozen-m5-verifier.json`, deux
+constats m), l'item 11 de `F:/tmp/dojo/frozen-tool-followup.md`, le fichier de FAITS de MONARK
+(`F:/tmp/dojo/FAITS-PYTHON-PRESITE-2026-10-07.md`), les sondes du vérificateur sous `F:/tmp/frozen-tool/m5v/probes/` (`shadow/` :
+`list_preloaded.py`, `preloaded.txt`, `shadow_runs.sh`, `shadow-runs.txt`, les deux `threading.py` témoins, `WITNESS.txt`,
+`r3-third-tree-read.txt` ; `pkg/PKG-WITNESS.txt`) et ce §17. Décisions de MONARK reçues avec la mission, sur les points ouverts de la
+mission 5 : le contrôle sur 13 champs et `hash_randomization` est gardé (plus strict, sans coût) ; `LIBMS` est gardée avec sa procédure
+d'ajout ; IO-GUARD-LIBM-PATH-1 reste un item formé. Départ : l'arbre de travail de la mission 5, relu par son vérificateur (son
+instantané `F:/tmp/frozen-tool/m5v/snap/`, `snap.sha256` `a9153320…`, égal au worktree à 13:06 UTC selon lui) ; à 13:11 UTC, tête
+`09f49fc2`, branche `monark/reason-order-1`, les douze mêmes entrées de `git status`. Aucune copie avant écriture n'a pu être faite
+(Bash refusé) : ce G0 est le seul fichier écrit, par remplacements de texte, que `git diff` contre l'instantané du vérificateur montre.
+
+- **Constat m 1 (a), fait** : la précision est écrite à quatre endroits de ce §17 : le reste de la mission 5 sous
+  IO-GUARD-NATIVE-READS-1 (c) (l.1450-1452 : « les imports d'`io_guard` lui-même, cherchés d'abord dans l'arbre de l'entrée ») ; le
+  sous-point neuf « (c) précisé par la mission 6 » (l.1458-1477 : les 18 noms, le paquet `io_guard/`, le refus après coup de
+  `tool_identity`, l'oracle pris seul, les deux arbres de `kata-quarter`, le cache forgé) ; le paragraphe du contrôle à l'import
+  (l.1828-1831 : la forme prévient ce qu'elle retire, et non un fichier posé dans l'arbre de l'entrée) ; le paragraphe B9 (l.1930-1934,
+  « Portée »). Les mesures citées sont celles du vérificateur, lues dans ses fichiers et non rejouées ; leurs sha256 sont les siens.
+- **Constat m 1 (b) : IO-GUARD-POSED-FILES-1** (PAROXYSME, neuf). Porteur : MONARK. Limite : sous la forme, un fichier posé dans
+  l'arbre de l'entrée sous le nom d'un des 18 modules qu'`io_guard` charge depuis un chemin, un paquet `io_guard/` ou un cache forgé
+  tourne avant le crochet et avant le contrôle de la forme ; seul `tool_identity` le refuse, après coup, dans `report.py` seulement ;
+  une course d'oracle prise seule ne le refuse pas. Construction candidate (MONARK) : `-P` ajouté à la forme (`safe_path` : le dossier
+  du script n'est plus posé en tête de `sys.path`) et, dans chaque script d'entrée, le dossier de l'outil ajouté en fin de `sys.path`
+  (après la bibliothèque standard) avant `import io_guard` ; `io_guard` attend alors `safe_path` 1 (`FORM`, l.48, et les poids, l.49),
+  `TEXTS["replay"]` et les lignes d'usage prennent `-P`, et l'entrée de `kata-quarter` pose ses deux arbres de la même façon.
+  **Mesure : non faite par la mission 6** (Bash refusé). À mesurer sur une copie sous `F:/tmp/frozen-tool/m6/`, sous
+  `python -E -S -s -B -P` (prédictions écrites avant la mesure, jamais reportées comme des faits) :
+  1. `sys.path` d'un script d'entrée sous la forme neuve (prédit : aucune entrée de l'arbre avant l'ajout) ;
+  2. un témoin posé dans l'arbre sous chacun des 18 noms, puis sous le nom de chaque module de la bibliothèque standard que l'outil
+     importe après le crochet (`json`, `re`, `platform`…) : prédit qu'aucun ne tourne, la bibliothèque standard passant avant l'arbre ;
+  3. le paquet `io_guard/` : prédit qu'il tourne encore (même dossier, un paquet passe avant un module : la construction ne l'atteint
+     pas, comme l'a écrit le vérificateur) ; un cache forgé, de même ;
+  4. les noms qu'un module de la bibliothèque standard cherche sans les trouver (un import facultatif rattrapé) : leur recherche finit
+     dans l'arbre, posé en fin, où un fichier posé sous un tel nom tournerait ; à recenser par un chercheur posé en dernier dans
+     `sys.meta_path`, pour `import io_guard` et pour les courses complètes ;
+  5. les entrées de `sys.path` de l'installation passent toutes avant l'arbre : un fichier posé là sous le nom d'un module de l'outil
+     (`io_guard.py`, `kata_lib.py`) masquerait celui de l'outil, et la confiance passe à l'installation (point (d)) ; à mesurer sur une
+     copie de l'interpréteur sous `F:` ;
+  6. aucun module de l'outil ne porte un nom de `sys.stdlib_module_names` (à vérifier ; sinon la bibliothèque standard le masquerait).
+
+  Prix, estimé et non mesuré : une ligne insérée avant `import io_guard` dans chacun des huit scripts d'entrée (`import os, sys` et
+  l'ajout au chemin), +8, ou deux, +16 ; le test `kata_recalc_entry_scripts_import_the_input_guard_first` (test l.85-97), dont la règle
+  « premier import : `io_guard` » change, et son tueur `recalc_p2.py:12`, qui se déplace (une ligne de la base, +2), environ +4 à +6 ; un
+  cas « shadow » dans `guard_check.py` (fichier neuf : chaque ligne ajoutée compte), environ +3 ; `FORM`, les poids, `replay`, les
+  lignes d'usage et le contrôle de la commande dans `report_check.py` sont des lignes du lot, réécrites à nombre égal, +0 ; l'épingle,
+  +0. Soit environ +15 à +25, au-delà de la marge de 5. Seule construction mesurée à ce jour : la voie (a) du vérificateur
+  (`F:/tmp/frozen-tool/m5v/fix/` : `io_guard` refuse à l'import toute entrée de l'arbre dont le nom est dans
+  `sys.stdlib_module_names` ; cas « launch shadow » vert, rouge contre la garde du lot ; +20 contre `09f49fc2`). Elle n'atteint ni le
+  paquet `io_guard/` ni un cache forgé, que sa voie (b) (un contrôle en ligne dans chaque script d'entrée, avant `import io_guard`,
+  environ 2 à 3 lignes par script, estimée) atteindrait ; à défaut, la course bornée par le système de IO-GUARD-NATIVE-READS-1 (a).
+  Déclencheur : avant le prochain lot qui déplace l'outil, ou avant toute course d'oracle prise seule comme preuve. Non appliquée dans ce
+  lot (marge de 5, décision de MONARK).
+- **Constat m 2 : non porté dans `report.py`.** La règle de MONARK (« si R-25 dépasse 1 205, le texte au G0 seulement ») n'est pas
+  la raison : le calcul ci-dessous tient sous la borne. La raison est l'arrêt : sans Bash, ni épingle reposée de trois façons, ni
+  oracle, ni R-25 mesurée, et un `report.py` changé sans son épingle laisserait `kata_recalc_tree_is_the_pinned_manifest` rouge. Le
+  texte, à lignes égales (caractères comptés à la main ; largeur des commentaires de l'outil : 141 au plus, `report_check.py` l.34,
+  sauf la l.2 de `recalc_p2.py`, 170 ; 140 dans `report.py` ; mesuré par `awk` à 13:1x UTC) :
+  - (a) l.16 inchangée (« … 2 a step failed ») ; l.17, 136 caractères : `# (usage, platform, tool identity, an oracle, recomputation,
+    base pass, a comparison's structural fault), or a launch under another form` ; l.18, 140 : `# than FORM (refused by io_guard at
+    import); 4 the input guard. Usage (G0 section 3.3; options in order; input names of the replay command):` ;
+  - (b) l.132, 130 : `    """The count of measured inputs where the log that runs differs from the port; LIBMS must hold it, with the
+    library's version:` ; l.133, 139 : `    the library named is a measured one, and the log that runs has its fingerprint (the file
+    loaded is not named: IO-GUARD-LIBM-PATH-1)."""` ;
+  - prix, calculé sur les hunks lus de `git diff 09f49fc2 -U0` (13:1x UTC) et non mesuré : les l.16 et l.17 de `report.py` sont des
+    lignes de la base, les l.18 et l.132-135 des lignes du lot (`@@ -18,2 +18,2 @@`, `@@ -120,4 +132,4 @@`), comme la ligne de
+    l'épingle du test (`PIN` `289756d3…` retiré, `ef31a618…` ajouté) ; réécrire une ligne du lot à nombre de lignes égal ne change pas
+    le compte. (a) +2 (l.17), (b) +0, l'épingle +0 : 1 202 contre `1cddd2e5`, 1 135 contre `09f49fc2` (borne 1 205). Variantes : la
+    l.16 réécrite aussi, +4 ; une quatrième ligne, +3, mais chaque référence à `report.py` au-delà de la l.18 bouge (les tueurs
+    `report.py:48` et `report.py:62` du test, ce G0). Le vérificateur estimait +4 (« about 2 changed lines ») : une seule des deux
+    lignes changées est de la base.
+- **Item 11, fait** : `fields.outside_decisions` retiré ou corrigé aux l.332-333 (`fields` : exactement `decisions`,
+  `digest_rule`, `digests`, `value_rule` et `values`), l.602-603 (TRIAL-HEAD-WRITTEN-1 : `trialRegistryHead.hash`, décision comparée,
+  fait côté outil) et l.937 (la l.934 du suivi, où commence le paragraphe du rapport) ; et, trouvés par `grep`, l.503 (le plan de T2-1)
+  et l.340-342 (`trialRegistryHead.hash` « hors décision » devenu « comparé » : hors de la lettre de l'item, même objet). Chaque
+  remplacement garde son nombre de lignes : les quatre W1 de winlint (l.232, l.586, l.731, l.828) ne bougent pas. Après : `outside_decisions`
+  ne reste qu'aux deux lignes qui en notent le retrait (l.1390 et l.1564), `outside_reason` qu'au tableau (l.1274, « sans
+  `outside_reason` ») et à la l.1390 ; `report.py` n'a plus `outside_reason` (`grep` : aucune ligne ; `TEXTS` tient format, identity,
+  tree, generator_identity, decisions, values, digests, explained ln, explained association, engine_log et replay) ; `report_check.py`
+  l.221 et le test l.121 affirment l'absence. « hors décision » reste aux l.231, l.642, l.777, l.797 et l.991, états datés des lots 1a à
+  1e (la l.797 note la décision qui fait entrer le champ dans les décisions) : non touchés, à juger par MONARK.
+- **Fichier de FAITS, fait à moitié** : la demande de lecture formée par la mission 5 est marquée fermée (l.1906-1911) et B8 cite
+  `docs/FAITS-PYTHON-PRESITE-2026-10-07.md` ([lu], au lieu du [2nd] du contrôle de CM-5 v4 ; l.1923-1926). **La copie n'est pas
+  posée** (Bash refusé ; l'outil d'écriture ne garantit pas l'octet, fins de ligne comprises) : ce G0 cite un chemin absent du lot
+  jusqu'à la copie (`cp F:/tmp/dojo/FAITS-PYTHON-PRESITE-2026-10-07.md F:/Monark-wt-reason-order/docs/`, puis les deux sha256 comparés).
+- **Épingle et R-25** : aucun fichier de code ni le test ne sont touchés. L'épingle reste `ef31a618…` (mission 5, rejouée par son
+  vérificateur). R-25 reste 1 200 contre `1cddd2e5` et 1 133 contre `09f49fc2` (mission 5 et son vérificateur ; non remesurée ici) :
+  ce G0 et le fichier de FAITS sont exclus par `:(exclude,glob)docs/**/*.md` (`ci.yml` l.100, lue).
+- **Rejeux : aucun.** Ni oracles ni auto-tests de l'outil, ni `guard_check.py`, ni `report_check.py`, ni tests Node (clone à
+  `09f49fc2`, clone à `1cddd2e5`), ni `tsc`, `eslint`, `lint-ratchet`, `grep-forbidden`, `lang-gate`, `export-public --check`, winlint,
+  ni R-25 : tous restent à rejouer. Par construction seulement : `lang-gate` saute le dossier `docs` de la racine
+  (`scripts/lang-gate.mjs` l.113 et l.239-246, lus), `export-public` ne sélectionne pas `docs/**` (`scripts/export-public.mjs`, lu),
+  et aucun nom de périphérique de Windows n'est écrit ici.
+- **Arrêt** (écart, consigné) : vers 13:1x UTC, une recherche récursive en lecture seule que j'ai lancée pour trouver le chemin de
+  winlint (`grep -r` sous `F:/tmp/frozen-tool/m2`, où sont des clones et leurs jonctions `node_modules`, et sous les `scratch` et `runs`
+  des missions 3 à 5) est passée en arrière-plan (limite de 120 s). Le `kill` de ses deux processus, les miens seuls, a été refusé par
+  le classifieur du harnais (« Interfere With Workloads »), puis toute commande Bash, `now.mjs` compris (deux tentatives). La recherche a
+  fini seule (sortie 0, aucun chemin de winlint trouvé). Aucun processus d'un autre n'a été touché ; aucun argument ne visait
+  `F:/tmp/rech/` ni `F:/PRODUITS/marche/` (où mènent les jonctions des clones de m2 n'est pas vérifié). Le chemin de winlint reste
+  inconnu hors des zones interdites.
+- **Git** : aucun `GIT_DIR` ni `GIT_WORK_TREE` posé (mesure `env` non faite dans cette mission), aucun `--write-tree`. Dans le
+  worktree, des lectures (`rev-parse`, `branch --show-current`, `status`, `diff --stat`, `diff -U0`, `ls-files`) ; aucun clone, aucune
+  copie : `F:/tmp/frozen-tool/m6/` n'existe pas. Rien n'est écrit sur C:.

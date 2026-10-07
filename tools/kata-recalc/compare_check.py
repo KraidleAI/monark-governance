@@ -1,8 +1,9 @@
 # claude-opus-5-5 - 2026-10-02 - lot P2-RECALC-TOOL-1 (MONARK G1), Python 3.14 standard library only. Lot 1d (2026-10-06): M-6 to M-8.
 # Self-tests of compare_p2.py (mission D-7), through its command line, on copies of a registry written under a work directory:
 # identity -> 0; a copy with one altered field -> exit 1 and the field named in a line of its class (DECISION, VALUE with its ulps
-# and "beyond 1e-12" outside the float contract, DIGEST); trialRegistryHead.hash outside the decisions; a named --ignore; structural
-# faults (dropped, duplicated, renamed rows) -> 2. Usage: python -B compare_check.py <registry.json> <work dir> <out.txt>   (M-6)
+# and "beyond 1e-12" outside the float contract, DIGEST); trialRegistryHead.hash a decision since the frozen-tool lot (path 1); a named
+# --ignore; structural faults (dropped, duplicated, renamed rows; an integer beyond the doubles in a VALUE field, N-6) -> 2.
+# Usage: python -E -S -s -B compare_check.py <registry.json> <work dir> <out.txt>   (M-6)
 import io_guard  # the input guard, before any other module (M-7): the registry is read under the role registry
 import copy
 import json
@@ -102,8 +103,8 @@ def main(src, work, out_path):
         ("top-level engine altered", lambda o: o.__setitem__("engine", "x"), None, None, 1, ["DECISION top-level engine:"]),
         ("trialRegistryHead.length differs", lambda o: o["trialRegistryHead"].__setitem__("length", 81), with_head, None, 1,
          ["DECISION top-level trialRegistryHead.length: A=80 B=81"]),
-        ("trialRegistryHead.hash differs, outside the decisions", lambda o: o["trialRegistryHead"].__setitem__("hash", "1" * 64), with_head,
-         None, 0, ["OUTSIDE trialRegistryHead.hash: A=", "TRIAL-HEAD-WRITTEN-1", "differing cells 0, top-level differences 0"]),
+        ("trialRegistryHead.hash differs, a decision (path 1)", lambda o: o["trialRegistryHead"].__setitem__("hash", "1" * 64), with_head,
+         None, 1, ["DECISION top-level trialRegistryHead.hash: A=", "differing cells 0, top-level differences 1", "outside 0"]),
         ("row trialId altered", at(i_dir, lambda r: r.__setitem__("trialId", "x")), None, None, 1, [f"DECISION {c0} trialId:"]),
         ("calib.check1 altered", at(i_dir, lambda r: r["calib"].__setitem__("check1", "x")), None, None, 1, [f"DECISION {c0} calib.check1:"]),
         ("calib.check2 altered", at(i_dir, lambda r: r["calib"].__setitem__("check2", "x")), None, None, 1, [f"DECISION {c0} calib.check2:"]),
@@ -112,6 +113,8 @@ def main(src, work, out_path):
         ("row duplicated", lambda o: o["rows"].append(copy.deepcopy(o["rows"][0])), None, None, 2, ["STRUCTURE duplicate cell in B"]),
         ("row key renamed", at(i_dir, lambda r: r.__setitem__("key", r["key"] + "x")), None, None, 2, ["STRUCTURE unpaired in A"]),
         ("rows reversed, same cells", lambda o: o["rows"].reverse(), None, None, 0, ["differing cells 0"]),
+        ("calib.qhat an integer beyond the doubles (N-6)", at(i_scale, lambda r: r["calib"].__setitem__("qhat", 10 ** 400)), None, None, 2,
+         [f"STRUCTURE {cs} calib.qhat: an integer beyond the range of a double", "EXIT 2"]),
     ]
     lines = [MODEL, "# compare_check.py - self-tests of compare_p2.py (mission D-7, classes of lot 1d) on copies of a registry"]
     bad = 0
