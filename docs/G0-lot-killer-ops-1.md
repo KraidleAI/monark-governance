@@ -8,7 +8,10 @@ Auteur : RECHERCHES ; rédaction initiale et pli de la G2 (MONARK, `2026-10-07-M
 la PR 2 du registre (#228) : le tronc `1cddd2e5` est fusionné dans la branche, et ses 8 tueurs de `ci.yml` réancrés y sont verts sans
 que ce lot les touche. Pli du delta G2 (MONARK `e7234bd`, `2026-10-07-MONARK-vers-RECHERCHES-tronc-rh1-g2-221-222.md`, pièce
 `g2-221-222-delta.json` clé `1`) par un worker `claude-opus-5-5`, effort `max` passé par l'orchestrateur de RECHERCHES, horloge lue à
-10:48 UTC ; le tronc `591b3a30` est fusionné dans la branche.
+10:48 UTC ; le tronc `591b3a30` est fusionné dans la branche. Pli de la G2 ciblée (MONARK `3b91f1d`,
+`2026-10-07-MONARK-vers-RECHERCHES-g2f-221-222.md`, pièces `g2f-221-222.json` et `g2f-222-probes.test.ts`) par un worker
+`claude-opus-5-5`, effort `max` passé par l'orchestrateur de RECHERCHES, horloge lue à 12:28 UTC. Le tronc a avancé à `dd9ef99d` (#232
+et un commit de docs) ; il n'est pas fusionné : il ne touche aucun fichier de la PR, et la garde reste verte sur le tronc plus la PR.
 
 Preuve rouge-vert : F2P, le mode par défaut de `scripts/red-proof.mjs`. Depuis le pli du delta, la PR touche une ligne de production,
 l'export de `killerProblem` (`scripts/red-proof.mjs:54`) : la porte `--test-only` la refuserait, et la garde rougit au tronc par
@@ -56,22 +59,29 @@ par `killerProblem` de `scripts/red-proof.mjs` elle-même, exportée pour la gar
 l'import ne lance rien). Contrôles : opérateur de `OPS` (lu dans `red-proof.mjs`, identique dans `mutants/run.mjs`), fichier dans
 l'arbre sans segment `..`, code de production ou module d'appui importé par le test (`supportOf`), jamais un `*.test.ts`, ligne
 existante, SDL ⇒ `<after>` vide et tout autre opérateur change le texte, `<before>` exactement une fois sur la ligne. Une ancre
-périmée rougit la garde. Treize lignes synthétiques épinglent chaque issue, pas chaque clause (« pin each outcome ») : neuf issues
+périmée rougit la garde. Des lignes synthétiques épinglent chaque issue, pas chaque clause (« pin each outcome ») : neuf issues
 (valide, opérateur à trait d'union, `LVR`, ligne périmée, `<before>` ambigu, hors de la fin, SDL avec `<after>`, fichier absent, code de
-test), plus quatre clauses qu'une sonde seule distingue, chacune avec son tueur dans le corps du test (CONST sans changement ;
-`<before>` vide sur la l.3 de `red-proof.mjs`, « // », deux caractères ; chemin avec `..` ; aide de `test/helpers/` que le test
-n'importe pas). `git grep` passe par `gitOut` de `test/helpers/git-tracked.ts` (sans les `GIT_*` de l'appelant). Rouge au tronc
-`591b3a30` par assertion (`killerProblem` n'y est pas exportée), vert au gel.
+test), plus six clauses qu'une sonde seule distingue, chacune avec son tueur dans le corps du test : CONST sans changement, chemin avec
+`..`, aide de `test/helpers/` que le test n'importe pas, sur l'arbre du dépôt ; chemin hors forme (un `/` de tête, que `join` résout
+pourtant dans l'arbre) ; puis, sur un arbre `mkdtemp`, un module d'appui importé par `import type` seul puis par valeur, et un
+`<before>` vide sur une ligne de deux caractères (pli de la G2 ciblée : la sonde ne dépend plus de l'en-tête de `red-proof.mjs`).
+`git grep` passe par `gitOut` de `test/helpers/git-tracked.ts` (sans les `GIT_*` de l'appelant). Rouge au tronc `591b3a30` par
+assertion (`killerProblem` n'y est pas exportée), vert au gel.
 
 `lostOf` de `scripts/mutants/run.mjs` n'applique qu'une partie de ces contrôles : ni « SDL ⇒ `<after>` vide » ni « sans changement »,
-et pour lui un module d'appui est un fichier qu'un test des globs importe directement (`targetsOf`), pas forcément le test porteur.
+ni le confinement realpath (« no realpath confinement (inTree, scripts/mutants/run.mjs:60) » : un fichier atteint par une jonction ou
+un lien qui sort de l'arbre y passe) ; et pour lui un module d'appui est un fichier qu'un test des globs importe directement
+(`targetsOf`), pas forcément le test porteur.
 
 ## Items formés
 
-- KILLER-SDL-AFTER-PARITY-1, étendu au pli du delta : `lostOf` de `scripts/mutants/run.mjs` n'exige ni « SDL ⇒ `<after>` vide » ni
-  `before !== after` (un CONST sans changement) ; `killerProblem` exige les deux. Prix : une condition dans `lostOf` et deux cas dans
-  `test/mutants-run.test.ts`. Déclencheur : le prochain lot outil sur `scripts/mutants/run.mjs`, hors de cette PR. La garde ferme déjà la
-  porte côté tueurs (aucune ligne SDL à `<after>` non vide, ni sans changement, au gel) ; les lignes `--table` n'y passent pas.
+- KILLER-SDL-AFTER-PARITY-1, étendu au pli du delta puis au pli de la G2 ciblée : `lostOf` de `scripts/mutants/run.mjs` n'exige ni
+  « SDL ⇒ `<after>` vide » ni `before !== after` (un CONST sans changement), et `inTree` (`scripts/mutants/run.mjs:60`) n'a pas le
+  confinement realpath de `killerProblem` (`scripts/red-proof.mjs:56`) ; `killerProblem` exige les trois. Prix : une condition dans
+  `lostOf` et deux cas dans `test/mutants-run.test.ts` ; une condition realpath dans `inTree` et un cas de jonction hors de l'arbre dans
+  `test/mutants-run.test.ts`. Déclencheur : le prochain lot outil sur `scripts/mutants/run.mjs`, hors de cette PR (formé, non fait). La
+  garde ferme déjà la porte côté tueurs (aucune ligne SDL à `<after>` non vide, ni sans changement, ni hors de l'arbre, au gel) ; les
+  lignes `--table` n'y passent pas.
 - KILLER-TEST-HELPERS-SUPPORT-1 (décision de MONARK `e7234bd`, voie (a)) : `textOf`, `jsLiteral`, `bellRowOf` et `section` vont sous
   `test/helpers/`, importés par leur fichier de test, et les cinq tueurs retirés y sont réancrés ; les cinq mutations tuent déjà
   (mesuré par MONARK). Lot test seul, porteur RECHERCHES, juste après la fusion de cette PR ; rien n'en est fait ici.
@@ -90,14 +100,34 @@ Les titres de `98062148` (« Merge lot/etude-suite into killer-ops-1 ») et de `
 (« lot », « killer ») ; `434b3cf3` est antérieur à la règle. Comme pour `464add3e` et `9b7bdc62` (#221, décision de MONARK
 `e7234bd`) : erratum, sans réécriture d'historique. Les titres de ce pli sont en anglais simple (la fusion : « Merge the trunk »).
 
+## Pli de la G2 ciblée (MONARK `3b91f1d` : quatre m, tous dans la PR)
+
+1. La sonde du `<before>` vide, voie (b) : elle passe sur un arbre `mkdtemp` (`src/two.mjs`, « ab »), plus sur la l.3 de
+   `red-proof.mjs`. Une retouche de cette ligne d'en-tête (« // » → « //  ») laisse la sonde entière ; son tueur `:61` est déplacé
+   au-dessus d'elle.
+2. Le confinement realpath manque à `lostOf` : dit dans l'en-tête du test (l.7-8), au Summary et ci-dessus ; KILLER-SDL-AFTER-PARITY-1
+   l'inclut, avec son prix (formé, non fait).
+3. Les deux clauses de `killerProblem` sans sonde (la regex de chemin, l.56 ; l'exclusion `import type` de `supportOf`, l.324) : le corps
+   de la pièce `g2f-222-probes.test.ts` (l.18-30) est posé dans la garde après l'ancienne l.47, avec ses deux lignes de tueur ; `problem`
+   prend un troisième paramètre `tree = ROOT`.
+4. Le tueur `:183` sous Windows : `test/verify-harness-liq.test.ts:422` pose un écouteur `error` sur chaque socket retenue
+   (`createTcpServer((socket) => { socket.on("error", () => {}); held.push(socket); })`). Sous win32, la fin de l'enfant remet la
+   connexion à zéro ; sans écouteur, le test mourait d'une `ECONNRESET` non interceptée au délai de 60 s de `runCa`. Avec lui, « chacun
+   le rougit par `ERR_ASSERTION` » (section « Fusion du tronc ») et « 5 tués par `ERR_ASSERTION` » (preuves), l.85 et l.124 à
+   `d7015204`, valent sous les deux plateformes. Mesuré ici sous Linux seulement ; le rejeu Windows est laissé à MONARK (pas d'hôte
+   Windows chez RECHERCHES).
+
 ## Tueurs
 
 - scripts/red-proof.mjs:33 CONST "(\\w+)" -> "(\\w)"
-- dans le corps du test, au-dessus des quatre sondes de clause :
+- dans le corps du test, au-dessus des trois sondes de clause sur l'arbre du dépôt :
   - scripts/red-proof.mjs:60 CONST "k.before === k.after" -> "false"
-  - scripts/red-proof.mjs:61 CONST "k.before !== \"\" && " -> ""
   - scripts/red-proof.mjs:56 CONST "k.file.split(\"/\").includes(\"..\")" -> "false"
   - scripts/red-proof.mjs:57 CONST "!supportOf(tree, from).includes(k.file)" -> "false"
+- dans le corps du test, au-dessus des sondes du chemin hors forme et de l'arbre `mkdtemp` (pli de la G2 ciblée) :
+  - scripts/red-proof.mjs:56 CONST "!/^[\\w.@-]+(\\/[\\w.@-]+)*$/.test(k.file) || " -> ""
+  - scripts/red-proof.mjs:324 CONST "(?!type\\s)" -> ""
+  - scripts/red-proof.mjs:61 CONST "k.before !== \"\" && " -> "" (au-dessus de la sonde du `<before>` vide)
 
 ## Preuves
 
