@@ -73,7 +73,8 @@ La porte refuse toute adresse hors de la liste. Hors des 35, l'arbre en porte en
 - **Tests, entrées d'adresse privée (RFC 1918) passées en adresses de documentation (RFC 5737)** : `test/l2-book.test.ts`,
   `test/public-text-deny.test.ts` et `test/spec-publish.test.ts`. Les règles visées refusent tout quadruplet pointé
   (`PRIVATE_FORMS`, `scripts/public-text-deny.mjs:118`), ou tout point et tout deux-points (`PLAIN`, `scripts/l2/book.mjs:27`) : le
-  comportement est le même.
+  comportement est le même. Le test de `public-text-deny` n'avait pas de tueur : sa ligne vide l.18 porte désormais celui de la forme
+  IPv4 de `PRIVATE_FORMS` (aucune ligne ne bouge).
 
 ## 3. La porte
 
@@ -82,12 +83,14 @@ La porte refuse toute adresse hors de la liste. Hors des 35, l'arbre en porte en
 - `test/no-host-address.test.ts`, test racine : il tourne en CI dans `g3-verification` (`npm run test:main`, glob `test/*.test.ts`).
 - Ni le script ni le test ne sont exportés (`WHITELIST_FILES` de `scripts/export-public.mjs` ; le `test/` racine n'est jamais exporté).
 - **Lecture** : `git ls-files -z`, jamais le disque ; chaque fichier suivi sans octet NUL est lu comme texte, quelle que soit son
-  extension (`deploy/*.service` et les Caddyfile en sont) ; un binaire est sauté.
+  extension (`deploy/*.service` et les Caddyfile en sont) ; un binaire est sauté. Le chemin de chaque fichier suivi est jugé aussi
+  (ligne 0), et un littéral d'un chemin est masqué dans la sortie.
 - **Littéral** :
   - IPv4 : quatre octets décimaux (`net.isIPv4`), bornés (avant : ni lettre, ni chiffre, ni `_`, ni `.` ; après : ni lettre, ni
     chiffre, ni `_`, ni `.chiffre`) ;
-  - IPv6 : suite maximale de chiffres hexadécimaux, de `:` et de `.` qui porte au moins deux `:` ; même borne de mot (un `:` seul en
-    tête, séparateur d'étiquette, est ôté) ; points finaux ôtés ; `net.isIPv6`.
+  - IPv6 : suite maximale de chiffres hexadécimaux, de `:` et de `.` qui porte au moins deux `:` (lue en temps linéaire) ; un mot
+    collé à un `::` n'en est pas une (`Type::new`, les commandes de workflow) ; devant un `:` seul, l'étiquette ou le mot est ôté
+    (`addr:`, `inet6:`) ; pas de lettre, de chiffre ni de `_` après ; points finaux ôtés ; `net.isIPv6`.
 - **Liste close d'exceptions, chacune avec sa raison** :
   - (a) **plages**, par `BlockList` de Node, qui couvre toute graphie (IPv4-mapped, forme longue, mesuré sous Node 24) :
     - bouclage : 127.0.0.0/8 et `::1` ;
@@ -108,17 +111,32 @@ La porte refuse toute adresse hors de la liste. Hors des 35, l'arbre en porte en
 
 ## 4. Rouge d'abord, tueurs, preuve rouge
 
-- **Rouge d'abord** : le script et le test du lot, posés dans une copie jetable de l'arbre de la base, rougissent par assertion. La
-  sortie nomme chaque `chemin:ligne:colonne` des adresses A et B et des autres littéraux, masqués. Après le retrait, vert. Comptes
-  mesurés : section 6.
-- **Tueurs** : un par test, sur les lignes clés du script : une plage ôtée ou élargie, la borne de mot IPv6, l'admission par fichier,
-  le masque, le saut des binaires, la lecture par `git ls-files -z`. Ancrés et vérifiés par `verifie-ancres` et
-  `every_killer_line_is_readable` ; liste exacte en section 6.
-- **red-proof** (`--base eb1beb01 --draw n --seed s`) :
-  - les tests de `test/no-host-address.test.ts` sont `new-module` ;
-  - `srf_runbook_vitrine_t0_order` est F2P (l'empan suit le runbook) ;
-  - trois adaptations non F2P sont déclarées : les tests de `l2-book`, `public-text-deny` et `spec-publish` qui portent les entrées
-    changées. Les refus « green at base » sont attendus ; leurs tueurs sont tirés à la main au gel.
+- **Rouge d'abord** : worktree neuf détaché à `eb1beb01`, le script et le test de `a8e66dde` copiés, Node 24.
+  - `address_literals_tracked_tree_is_clean` rougit par `ERR_ASSERTION` ; les six autres tests passent.
+  - La sortie compte **273 occurrences dans 44 fichiers**, toutes masquées (`x.x.x.x`) : 257 dans les 35 fichiers (les 252 adresses
+    A et B, et les cinq du résolveur public), 16 dans les neuf fichiers de la section 2.
+  - Aucune adresse d'hôte dans la sortie (`grep -F` des deux littéraux : 0).
+  - Au gel : 0 occurrence, 0 entrée périmée ; 2 395 fichiers texte lus ; la liste tient 62 paires dans 27 fichiers, toutes trouvées.
+- **Tueurs**, un au-dessus de chaque test. `verifie-ancres` : 7 ANCRE dans le test neuf, 18 dans `public-text-deny`.
+  - `scripts/address-literals.mjs:18 SDL "EXEMPT.addSubnet(\"127.0.0.0\", 8, \"ipv4\");" -> ""` : `address_literals_tracked_tree_is_clean` ;
+  - `:81 CONST`, l'étiquette réduite à un `:` de tête : `address_literals_refuse_an_address_in_each_writing_met` ;
+  - `:22 CONST`, 192.0.2.0/24 élargie à /23 : `address_literals_admit_the_closed_ranges_in_any_writing_and_refuse_their_neighbours` ;
+  - `:82 SDL`, un mot collé à un `::` lu comme adresse : `address_literals_read_no_address_in_code_or_numbers_that_only_look_like_one` ;
+  - `:102 CONST`, un littéral listé admis dans tout fichier : `address_literals_admit_a_listed_literal_in_its_own_file_only` ;
+  - `:92 CONST`, un masque qui garde les chiffres : `address_literals_report_names_each_hit_without_a_digit_of_it` ;
+  - `:116 CONST "buf.includes(0)" -> "false"`, un binaire lu : `address_literals_read_every_tracked_text_file_and_skip_binaries` ;
+  - `scripts/public-text-deny.mjs:118 CONST`, la forme IPv4 ôtée de `PRIVATE_FORMS` : `public_text_gate_refuses_one_vector_per_rule`.
+- **Mutants à la main** : 21, chacun seul, fichier rendu à l'octet et sha256 vérifié (pilote hors dépôt). 20 sont tués par assertion,
+  1 rougit par une erreur levée (le `ENOENT` d'un fichier supprimé rendu fatal). Ils couvrent chaque plage ôtée ou élargie, la règle du
+  fichier de la porte, les deux bornes de l'IPv4, `isIPv4`, le compte des deux-points, la borne après l'IPv6, les points finaux, le
+  chemin jugé et masqué, la famille passée à `BlockList`, l'admission par fichier, `-z` et l'entrée périmée.
+- **red-proof** `--base eb1beb01 --gel 9dd82811 --draw 8 --seed 1` : 11 tests jugés.
+  - 7 `new-module` (le test neuf) et 1 F2P (`srf_runbook_vitrine_t0_order`) ;
+  - 3 refus « green at base », déclarés : `l2_book_guards_named`, `public_text_gate_refuses_one_vector_per_rule` et
+    `vocabulary_gate_is_the_public_free_text_gate_with_closed_exceptions` ;
+  - 8 tueurs tirés, 8 tués ; `RED-PROOF.json` sha256 `d9ec7fc1…`, digest du gel `783c3313…`.
+  - Les tueurs des trois adaptations, tirés à la main au gel, les tuent par assertion. La forme IPv4 ôtée de `PRIVATE_FORMS` rougit
+    aussi le test de `spec-publish` : les adresses de documentation y exercent la même règle.
 
 ## 5. Effets opératoires (déclarés)
 
@@ -127,11 +145,21 @@ La porte refuse toute adresse hors de la liste. Hors des 35, l'arbre en porte en
   hôtes, que SSH n'accepte que les clés.
 - **`deploy/monark-bell-publish.service`** change d'une ligne de commentaire. Un contrôle Bell à un G7 postérieur à cette fusion attend
   l'unité réinstallée (RUNBOOK-bell étape 6). À un G7 antérieur, rien ne change.
+- **`docs/carto/*.json`** : les adresses lues par curl y deviennent « site VPS » et « Bell host ». Le bloc `live` embarqué ne rend
+  plus le sha256 de sa source, ni `graph-2026-09-24.json` celui de `docs/CARTOGRAPHIE-BRANCHEMENT-2026-09-24.md` l.29 et l.422. Ce sont
+  des relevés datés, sans lecteur dans le code ; l'historique garde les octets d'origine.
 
-## 6. Mesures
+## 6. Mesures (gel `9dd82811`, Node v24.21.0, Linux)
 
-À remplir au gel : comptes rouges à la base, tueurs ancrés, red-proof, portes et taille R-25 (forme de la CI, hors `docs/**/*.md` ;
-estimée sous 547, borne du lot, et sous 1 205, borne de la CI).
+- `tsc --noEmit` : 0. eslint des fichiers touchés : 0 (le script est hors du champ d'eslint, comme les autres scripts).
+- `gate:vocab`, `lang:gate`, `lint:ratchet` (69/69) et `export:check` sont verts ; winlint : 48 fichiers, aucun risque Windows.
+- Tests lecteurs des fichiers touchés, avec le test neuf, `killer-lines` et `byte-guard` : 325/325.
+- `npm run test:main` : 2 914 tests, 2 892 verts, 22 sautés (préexistants), 0 rouge.
+- Test 42 (l'export public et son `npm ci && npm run ci` imbriqué) : vert, 96 s.
+- **Taille, forme de la CI** (`origin/lot/etude-suite...HEAD`, pathspecs du job `r25-taille-de-lot`) : 11 fichiers comptés, +314 −48,
+  soit **362 lignes**. C'est sous 547 (borne du lot) et sous 1 205 (borne de la CI) ; contenu : 0. Les fichiers `docs/**/*.md` ne
+  comptent pas ; `docs/carto/*.json` compte (78 lignes).
+- Non vérifié ici : Windows (MONARK rejoue à la fusion), dont la `BlockList` de Node pour les formes IPv4-mapped.
 
 ## Points pour MONARK
 
