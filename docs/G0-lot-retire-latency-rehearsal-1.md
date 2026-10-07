@@ -274,7 +274,7 @@ neufs), borne de 1 205 (CI), 1 150 dans la consigne.
 | Lot | Contenu | R-25 | Quand |
 |---|---|---|---|
 | RH-0 (ce lot) | RETIRE-RUNBOOK-1 (section du RUNBOOK, docs exclus) ; `test/runbook-retire.test.ts` (73 lignes, mesuré) ; ce G0 (exclu) | **73** | maintenant |
-| RH-1 | RETIRE-PROBE-1 (outil ~100, type ~12, test ~110) ; RETIRE-INSTANTS-1 (outil ~70, type ~8, test ~70) | **~370** (une PR, ou deux) | maintenant |
+| RH-1 | RETIRE-PROBE-1 (outil ~100, type ~12, test ~110) ; RETIRE-INSTANTS-1 (outil ~70, type ~8, test ~70) ; ajout de la G2 de #218 : le §8 du RUNBOOK pour le cycle `publication` (entrée T_c..T_g, `mention` nulle, refus `instant_out_of_cycle` et `mention_out_of_cycle`, ouverture de l'entrée citée l.8-10) et la forme publication de RETIRE-INSTANTS-1 ; `test/runbook-retire.test.ts` lit `CYCLES` et les codes de refus dans le script | **~370** (une PR, ou deux) | maintenant |
 | RH-2 | SPEC-TABLES-TEST-PER-DIR-1 (~12) ; T0-ORDER-TEST-RELEASE-NAME-1 (~4) | **~20** | maintenant, avant toute release datée |
 | RH-3 | RETIRE-REAL-CYCLE-SCOPE-1, selon la réponse de RECHERCHES à Q-RL-2 (outil ~15, type ~2, test ~25) | **~45** | avant la première publication datée d'E-2a |
 | RH-4 | l'acte de répétition (§3) : l'entrée JSON (1 ligne), la ligne du JOURNAL (exclue) | **~1** | sur la branche du chargeur d'E-2a, après RH-1 et RH-2 |
@@ -464,6 +464,13 @@ Copies `git archive 07b7fc20 | tar -x` sous `F:/tmp/claude/F--Monark/a0cf3d1b-54
   - Déclencheur : le premier retrait réel, au plus tôt `live:1` le 2027-01-01, ou une cause `adr:` avant.
   - Objet : le mesurer de T_a à T_g d un seul tenant.
   - Au-delà de 14 jours, c est un écart à D6, ouvert en PAROXYSME.
+- **L objectif de 3 jours ouvrés, pour D6 en deux segments (décision de RECHERCHES, 2026-10-07, pli de la G2 courte de #218).**
+  - L objectif se lit seulement au premier retrait réel : un seul cycle `real`, T_a..T_g d un seul tenant (RETIRE-LATENCY-FIRST-REAL-1).
+  - Le mode « somme » est refusé : `businessMs(T_a, T_c)` de la répétition plus le `business_ms` de la publication, contre 72 h.
+    Raison : les deux segments sont mesurés sur des lignes différentes et à des dates différentes. Leur somme n est donc le temps
+    ouvré d aucun retrait.
+  - Ce que couvre la preuve en deux segments, c est le plafond de 14 jours de D6. Le G7 ne cite l objectif d une publication qu avec
+    son segment, T_c..T_g.
 - **Q-RL-9 : oui, après RETIRE-CAUSE-VOCAB-1, à trois conditions.**
   1. Le bac à sable ne peut rien pousser. Ses clones n ont pas d URL de push (`git remote set-url --push origin no-push`, ou aucun
      remote), et le G7 le montre (`git remote -v`).

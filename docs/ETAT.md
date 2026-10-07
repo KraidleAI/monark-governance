@@ -737,7 +737,7 @@ Tronc `lot/etude-suite`. Dernier oracle complet : 1 779 tests, dont 1 776 verts,
     - La répétition porte sur une ligne réelle de la vague 1, en bac à sable, sur la branche du chargeur d E-2a, avec une cause `adr:`.
     - D6 se prouve en deux segments mesurés : la décision (T_a → T_c), par cette répétition ; la mise en service (T_c → T_g), par le
       cycle `publication` d E-2a. Leur somme doit tenir sous 14 jours.
-    - Lots RH-1 (la sonde et l assemblage des instants), RH-2 (deux tests), RH-3 (le cycle `publication`), puis l acte.
+    - Lots RH-1 (la sonde, l assemblage des instants, et le §8 du RUNBOOK pour le cycle `publication`, ajout de la G2 de #218), RH-2 (deux tests), RH-3 (le cycle `publication`), puis l acte.
 
     Items formés au G0, ci-dessous. État : ouvert.
   - RETIRE-PROBE-1 (G0 de la répétition §8) : la sonde de T_g, un outil neuf qui attend la fenêtre de grille de la classe. Porteur :
