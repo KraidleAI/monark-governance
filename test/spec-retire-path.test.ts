@@ -273,3 +273,13 @@ test("retire_latency_rehearsal_reports_as_real_and_publication_as_its_tail", asy
   const out = run(LATENCY, f);
   assert.deepEqual([out.status, out.stdout.trimEnd().split("\n").at(-1)], [0, `retire-latency OK: real cycle, T_g - T_a ${String(132 * H)} ms, ceiling held, objective not met (reported only)`], out.stderr);
 });
+
+// killer: scripts/retire-latency.mjs:44 CONST "pub && input.mention !== null" -> "input.cycle !== \"real\" && input.mention !== null"
+test("retire_latency_rehearsal_carries_a_mention_as_real", async () => {
+  const l = await latency(), late: Record<string, string> = { T_a: "2027-01-01T00:00:00Z", T_b: "2027-01-01T09:00:00Z", T_c: "2027-01-04T10:00:00Z", T_d: "2027-01-04T15:00:00Z",
+    T_e: "2027-01-05T09:00:00Z", T_f: "2027-01-05T11:00:00Z", T_g: "2027-01-15T00:00:01Z" }, tail = Object.fromEntries(Object.entries(late).filter(([k]) => k !== "T_a" && k !== "T_b"));
+  const ceiling = (cycle: string, instants: object = late): unknown => { try { return l.report({ format: "retire-latency-v1", cycle, instants, mention: "JOURNAL line 12" }).ceiling; } catch (e) { return e instanceof l.LatencyError ? e.code : String(e); } };
+  const exceeded = { days: 14, exceeded: true, mention: "JOURNAL line 12" };
+  assert.deepEqual([ceiling("rehearsal"), ceiling("real"), ceiling("publication", tail)], [exceeded, exceeded, "mention_out_of_cycle"],
+    "14 days and 1 s with a mention: a rehearsal carries the mention of its overrun as a real cycle does; only a publication refuses one");
+});

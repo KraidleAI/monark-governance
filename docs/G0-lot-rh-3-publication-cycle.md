@@ -69,16 +69,22 @@ Le script garde ses 76 lignes. Toutes les lignes que cite le RUNBOOK gardent leu
   (MU-7). Il remplace "!pub && " -> "", que ce test tue encore.
 - `retire_latency_publication_cycle_refuses_a_mention` : scripts/retire-latency.mjs:44 CONST "pub && input.mention !== null" -> "false"
 - `retire_latency_rehearsal_reports_as_real_and_publication_as_its_tail` : scripts/retire-latency.mjs:45 CONST "pub ? INSTANTS.slice(2) : INSTANTS" -> "input.cycle === \"real\" ? INSTANTS : INSTANTS.slice(2)" (MU-8)
+- `retire_latency_rehearsal_carries_a_mention_as_real` (pli de la G2 courte, m-1) : scripts/retire-latency.mjs:44 CONST "pub && input.mention !== null" -> "input.cycle !== \"real\" && input.mention !== null"
+  (MINE-A de la relecture). Une répétition `late` avec mention doit donner le même `ceiling` que le cycle `real` :
+  `{ days: 14, exceeded: true, mention: "JOURNAL line 12" }`. La queue T_c..T_g des mêmes instants, en publication, donne
+  `mention_out_of_cycle` : le refus ne vaut que pour une publication. Ce troisième terme rend le test F2P à la base, où `publication`
+  n'existe pas ; sans lui, red-proof le refuse (« green at base: a self-confirming test »).
 
 Ces tueurs sont placés en l.44 et non en l.56 ou l.41-42. Sous (a), la mention d'une publication est toujours nulle à l.56 : un mutant
 y mourrait-né. Le refus se tient donc à côté de `instant_out_of_cycle`.
 
-## Question ouverte (RECHERCHES)
+## Décision Q-RH3-1 (RECHERCHES, 2026-10-07)
 
-- **Q-RH3-1** : l'objectif de 3 jours ouvrés d'une publication peut suivre le plafond (`applies: false`, avec une raison), ou
-  s'étiqueter comme segment T_c..T_g. Défaut : inchangé. L'objectif se calcule sur T_c..T_g, et la ligne OK dit déjà « publication
-  cycle, T_g - T_c ».
-- Option de construction de la relecture : un mode qui lit les deux enregistrements et imprime leur somme. Elle n'est pas prise ici.
+- **Q-RH3-1, décidée** : le comportement reste inchangé. L'objectif de 3 jours ouvrés d'une publication se calcule sur T_c..T_g,
+  et la ligne OK le dit déjà : « publication cycle, T_g - T_c ». Le plafond garde `applies: false`, avec sa raison.
+- La lecture de l'objectif pour D6 en deux segments est écrite au §11 du G0 de la répétition : l'objectif se lit seulement au
+  premier retrait réel (RETIRE-LATENCY-FIRST-REAL-1). Le mode « somme » de la relecture (un mode qui lit les deux enregistrements et
+  imprime leur somme) est refusé, avec sa raison au même endroit.
 
 ## Preuves
 
@@ -89,6 +95,11 @@ y mourrait-né. Le refus se tient donc à côté de `instant_out_of_cycle`.
   - 4 tueurs tirés, 4 tués ;
   - RED-PROOF.json, sha256 `8014c4366737f88e…`.
 - `node --test test/spec-retire-path.test.ts test/runbook-retire.test.ts` : 15 sur 15.
+- Pli de la G2 courte (m-1), sous Node v24.21.0 :
+  - MINE-A tiré à la main sur l.44 : avec le fichier de test d'avant le pli, 15 sur 15 restent verts ; avec le test frère, celui-ci
+    rougit en `ERR_ASSERTION` (la répétition donne `mention_out_of_cycle`). Fichier restauré, sha256 `03fba287…` avant et après ;
+  - après le pli : `node --test test/spec-retire-path.test.ts test/runbook-retire.test.ts`, 16 sur 16 ;
+  - la même commande red-proof donne `red-proof OK` : 5 tests jugés F2P, 8 inchangés ; 4 tueurs tirés, 4 tués, dont MINE-A.
 
 ## Effet sur #223 (RH-1, non touchée)
 

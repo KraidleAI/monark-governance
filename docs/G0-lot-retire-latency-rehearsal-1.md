@@ -464,6 +464,13 @@ Copies `git archive 07b7fc20 | tar -x` sous `F:/tmp/claude/F--Monark/a0cf3d1b-54
   - Déclencheur : le premier retrait réel, au plus tôt `live:1` le 2027-01-01, ou une cause `adr:` avant.
   - Objet : le mesurer de T_a à T_g d un seul tenant.
   - Au-delà de 14 jours, c est un écart à D6, ouvert en PAROXYSME.
+- **L objectif de 3 jours ouvrés, pour D6 en deux segments (décision de RECHERCHES, 2026-10-07, pli de la G2 courte de #218).**
+  - L objectif se lit seulement au premier retrait réel : un seul cycle `real`, T_a..T_g d un seul tenant (RETIRE-LATENCY-FIRST-REAL-1).
+  - Le mode « somme » est refusé : `businessMs(T_a, T_c)` de la répétition plus le `business_ms` de la publication, contre 72 h.
+    Raison : les deux segments sont mesurés sur des lignes différentes et à des dates différentes. Leur somme n est donc le temps
+    ouvré d aucun retrait.
+  - Ce que couvre la preuve en deux segments, c est le plafond de 14 jours de D6. Le G7 ne cite l objectif d une publication qu avec
+    son segment, T_c..T_g.
 - **Q-RL-9 : oui, après RETIRE-CAUSE-VOCAB-1, à trois conditions.**
   1. Le bac à sable ne peut rien pousser. Ses clones n ont pas d URL de push (`git remote set-url --push origin no-push`, ou aucun
      remote), et le G7 le montre (`git remote -v`).
