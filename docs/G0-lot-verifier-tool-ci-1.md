@@ -207,7 +207,8 @@ judgeable. This plan, under `docs/`, is not counted.
 - **Gates at `5d03eea5`** (Linux, Node 24.21.0): `npx tsc --noEmit` 0; `eslint` on `test/verifier-tool-ci.test.ts` and
   `test/export-public.test.ts` 0; `gate:vocab` OK (349 files); `lang:gate` OK; `lint:ratchet` 69/69; `export:check` OK; winlint, the
   seven files, no hazard; `npm run test:main`: 2 929 tests, 2 907 pass, 0 fail, 22 skipped (547 s); `every_killer_line_is_readable`
-  green; `verifie-ancres.mjs . --ref origin/lot/etude-suite`: 1 644 killers, 1 643 ANCRE, 1 DERIVE (§9), 0 PERDU.
+  green; `verifie-ancres.mjs . --ref origin/lot/etude-suite` (it reads tracked files): 1 648 killers, the four of the new test file
+  included, 1 647 ANCRE, 1 DERIVE (§9), 0 PERDU; on the two touched test files, 7 killers, 6 ANCRE, 1 DERIVE.
 - **The list of 1f**: nothing under `tools/kata-recalc/`, nor `apps/harness/data/verifiers.json`, nor
   `apps/harness/src/policy-verifiers.ts` changes (`git diff --stat 5437cd0d..HEAD` on these paths, empty); the tree tests
   `kata_recalc_tree_is_the_pinned_manifest` and `verifier_tool_tree_is_the_listed_tree` are green: no list commit.
