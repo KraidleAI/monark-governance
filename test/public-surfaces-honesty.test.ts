@@ -171,7 +171,7 @@ function bellRowOf(rows: string[]): number {
   assert.equal(at.length, 1, `one row of the served table is Bell's (${String(at.length)} found)`);
   return at[0] ?? -1;
 }
-// killer: test/public-surfaces-honesty.test.ts:169 CONST "first.startsWith(`https://${BELL_HOST}/`) && u.protocol === \"https:\" && u.host === BELL_HOST" -> "l.includes(BELL_HOST)"
+// Not a killer, test code (a *.test.ts is never mutated): test/public-surfaces-honesty.test.ts:169 CONST "first.startsWith(`https://${BELL_HOST}/`) && u.protocol === \"https:\" && u.host === BELL_HOST" -> "l.includes(BELL_HOST)"
 test("readme_bell_row_is_read_by_exact_host_never_by_substring — a row that names Bell's URL elsewhere, or a look-alike host, is never Bell's row (CodeQL alert 45)", () => {
   const bell = "| `https://bell.monarkgate.tech/state.json` · `timeline.jsonl` | Bell's publications | anyone |";
   const decoys = ["| `https://x.example/` | a relay of https://bell.monarkgate.tech/ | the site |", "| `https://x.example/?https://bell.monarkgate.tech/` | x | y |",

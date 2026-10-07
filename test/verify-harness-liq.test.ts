@@ -437,7 +437,7 @@ test("verify_harness_refuses_an_unknown_option", async () => {
 // killer: scripts/verify-harness.mjs:183 CONST "{ ...init, signal: AbortSignal.timeout(TIMEOUT_MS) }" -> "init"
 test("verify_harness_bounds_every_request", { timeout: 300000 }, async () => {
   const dir = mkdtempSync(join(tmpdir(), "verify-harness-timeout-")), out = join(dir, "ca.json"), held: Socket[] = [];
-  const silent = createTcpServer((socket) => { held.push(socket); });
+  const silent = createTcpServer((socket) => { socket.on("error", () => {}); held.push(socket); });
   try {
     await listen(silent);
     const started = Date.now();
