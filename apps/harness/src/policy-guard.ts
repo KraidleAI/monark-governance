@@ -80,7 +80,7 @@ export function guardKataRow(r: PolicyRow, cls: ClassEntry, pins: GuardPins): vo
   is(m >= 0 && q !== null && r.qhat === q && r.k_obs === (dir && q === 1 ? 0 : m), "has a qhat or k_obs that does not follow from (misses, k_star)");
   is(w2 || (r.runs_miss !== null && r.runs_aux !== null && (r.runs_miss === "empty") === (r.k_obs === 0 || r.k_obs === r.n)), "has check outcomes that do not follow from k_obs");
   const adm = w2 ? wave2Admission(r, is) : { reject: r.runs_miss === "reject" || r.runs_aux === "reject", empty: r.runs_aux === "empty" };
-  const [calib, reason] = adm.reject ? ["silence", "dependence check rejects"] : adm.empty ? ["silence", w2 ? "tail sequence constant (fails closed)" : "auxiliary sequence constant (fails closed)"] : m > ks ? ["silence", `misses ${String(m)} above k* ${String(ks)}`] : ["region", ""];
+  const [calib, reason] = adm.empty ? ["silence", w2 ? "tail sequence constant (fails closed)" : "auxiliary sequence constant (fails closed)"] : adm.reject ? ["silence", "dependence check rejects"] : m > ks ? ["silence", `misses ${String(m)} above k* ${String(ks)}`] : ["region", ""];
   const fire = (b: typeof r.test): boolean => calib === "region" && b !== null && b.n_test >= 1 && b.k_test !== null && vetoFires(b.n_test, b.k_test, r.alpha);
   const first = (["bridge", "test", "fwd"] as const).find((k) => fire(blocks[k]));
   is(r.vetoes?.test === fire(r.test) && (r.vetoes?.bridge ?? false) === fire(r.bridge) && (r.vetoes?.fwd ?? false) === fire(r.fwd), "has vetoes.test, vetoes.bridge or vetoes.fwd off the conditional TEST, bridge or FWD-2 veto");
