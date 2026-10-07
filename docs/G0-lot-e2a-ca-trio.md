@@ -208,3 +208,38 @@ et l.547) ; le bloc figé l.449-471 et les ancres des tueurs (l.482 à l.565) ne
   risque Windows.
 - Texte figé (iii) : 2 141 octets, sha256 `ee274e55…cbb147`, égal à l'octet dans les quatre lieux (R4 `bbd6f59` l.161-165,
   RUNBOOK l.441-449, commentaire du script l.449-471 désenroulé, épingle du test (9)).
+
+**Fusion du tronc @ `591b3a30`, après le pli (2026-10-07 10:51 UTC)** : le tronc a bougé pendant le pli (#223, #226 et #227
+fusionnées). Fusion `5280bff3` (commit de fusion, sans réécriture), puis `3c7984e4` et `8aac6cdd`.
+- **Conflit textuel**, un seul : `docs/RUNBOOK-harness.md`, le paragraphe de la sonde de retrait, que #226 réécrit
+  (`scripts/retire-probe.mjs` existe désormais). Résolu côté tronc pour ce seul bloc : la ligne que #225 y corrigeait (« No
+  probe command exists … `scripts/verify-harness.mjs` makes no kata call ») part avec son paragraphe. Contrôle : le fichier
+  résolu ne diffère du tronc que par les éditions de #225 (l.159, l.186, l.188, l.214 et la section finale), et de la branche
+  que par celles du tronc.
+- **Décalage** : #227 ajoute 11 lignes à `scripts/verify-harness.mjs` après l.148 (`CHECK_NAMES`, `failedOf`) et en retire une
+  dans `main()`. Les lignes du trio passent de +10 : bloc figé l.459-481, réservation l.483-484, détail l.557 ; tueurs l.492 à
+  l.575. 13 tueurs de `test/verify-harness-liq.test.ts` sont ré-ancrés à leur texte : les 8 du trio, et 5 du tronc, déjà faux
+  au tronc même (:153, :157, :172, :319, :410 → :164, :168, :183, :330, :421). Les 1 562 lignes `// killer:` de l'arbre sont
+  valides (texte présent une seule fois sur sa ligne).
+- **Conflit sémantique** : au tronc, `CHECK_NAMES` liste 15 noms ; `scripts/retire-instants.mjs` (T_f) ne prend une CA que si
+  ses noms sont exactement ceux-là, et `test/retire-instants.test.ts` épingle `CHECK_NAMES` aux appels du script. Sur la
+  fusion nue, ce fichier de test sort rouge (11 assertions : la CA de ses cas porte 17 noms). Résolution : `CHECK_NAMES` liste
+  les 18 contrôles (« 18 of 18 checks ») ; le test lit aussi `capturedCheck`, comme `surfaces-1-1-0`, et compte 18 (19
+  entrées pour un contrôle en double) ; le cas du doublon affirme ce compte (sans lui, vert au tronc : refusé par red-proof) ;
+  `retire-instants.mjs` l.12 et la ligne T_f du RUNBOOK disent 18. C'est la précondition (xii) de T_f(c) : une CA verte à 18
+  (`51fe3ee` l.13).
+- **Non touché** : `RUNBOOK-harness.md` l.388 cite `scripts/verify-harness.mjs` l.421 pour `checked_at`, qui est l.432 au tronc
+  même ; #225 ne la déplace pas.
+
+**Mesures à la tête `8aac6cdd` (contre `591b3a30`, Node 24.21.0)** :
+- R-25 : 12 fichiers, +491 −51 = 542 ≤ 547 (+30 depuis 512 : 14 de `retire-instants.test.ts`, 2 de `retire-instants.mjs`,
+  4 de `CHECK_NAMES`, 10 des tueurs du tronc ré-ancrés).
+- red-proof `--base 591b3a30` (mêmes options) : `red-proof OK`, 21 jugés (tous F2P, dont deux cas de `retire-instants`),
+  75 inchangés, 21 tueurs tirés (tous ceux des tests admis), 21 tués ; `RED-PROOF.json` sha256 `2e8e9b0f…`.
+- Tests : les 20 fichiers ci-dessus, plus `retire-instants` et `retire-probe` : 493 tests, 490 verts, 0 rouge, 3 sautés
+  (corpus d'hôte `F:/tmp` absent).
+- `tsc --noEmit` exit 0 ; eslint 0 erreur (3 avertissements : trois `.mjs` ignorés) ; `lang:gate`, `gate:vocab` (348
+  fichiers), `lint:ratchet` (69/69) et `export:check` verts ; winlint `--base 591b3a30` : 15 fichiers, aucun risque Windows.
+- Mutants X-status et X-vnull rejoués à la tête (copie isolée, `test/verify-harness-liq.test.ts` entier ; témoin 19 sur 19
+  verts) : tous deux tués par (16) seul, 18 verts et 1 rouge, chacun sur son vecteur ; restauration contrôlée par sha256.
+- Texte figé (iii) : égal à l'octet dans les quatre lieux (R4 l.161-165, RUNBOOK l.489-497, script l.459-481, épingle).
