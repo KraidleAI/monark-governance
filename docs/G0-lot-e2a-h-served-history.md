@@ -151,5 +151,5 @@ sont comptés depuis son `checked_at`.
   tête (G2, m 10).
 - **Portes** : `tsc --noEmit` 0 ; `eslint .` 0 ; `lang:gate` 0 ; `gate:vocab` 0 (348 fichiers) ; `lint:ratchet` 69/69 ; `export:check` 0 ;
   winlint (atelier de RECHERCHES) `--base origin/lot/etude-suite` et `--files` : aucun risque Windows.
-- **R-25** (forme de la CI, `docs/**/*.md` exclus) : 5 fichiers, +335 −1, soit 336 (borne 547).
+- **R-25** (forme de la CI, `docs/**/*.md` exclus) : 4 fichiers, +335 −1, soit 336 (borne 547) ; avec ce G0, 5 fichiers.
 - **CI** : relancée par la poussée de cette tête, qui contient `591b3a30` : la fusion de test de GitHub voit #223, #226 et #227 (G2, m 10).
