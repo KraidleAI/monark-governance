@@ -43,9 +43,10 @@ assertion.
   intention de mutation. Aucune autre ligne ne bouge.
 - Les 2 SDL à `<after>` non vide : réécrits en `CONST`, même fichier, ligne, avant et après (la mutation déclarée est un remplacement).
   Tirés à la main : chacun rougit son test porteur par `ERR_ASSERTION` (l.251 et l.296).
-- Les 5 tueurs sur du code de test : retirés en place, avec leur raison sur la ligne (« Not a killer, test code (a *.test.ts is never
-  mutated) »), la mutation gardée en texte ; aucune ligne ne bouge. La construction qui les rend tirables existe : un module d'appui
-  sous `test/`, importé par le test, que les deux outils admettent. Elle est confiée à KILLER-TEST-HELPERS-SUPPORT-1 (ci-dessous).
+- Les 5 tueurs sur du code de test : retirés en place, avec leur raison sur la ligne, la mutation gardée en texte ; aucune ligne ne
+  bouge. La raison écrite : « Not a killer, test code (a *.test.ts is never mutated) ». La construction qui les rend tirables existe :
+  un module d'appui sous `test/`, importé par le test, que les deux outils admettent. Elle est confiée à KILLER-TEST-HELPERS-SUPPORT-1
+  (ci-dessous).
 
 ## Garde (neuve)
 
