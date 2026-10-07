@@ -4,7 +4,7 @@
 // endpoint (RUNBOOK step 6). ZERO dependency: node:http + node:https + node:crypto + node:tls + node:fs.
 //
 //   node scripts/verify-harness.mjs [--api https://api.monarkgate.tech] [--mcp https://mcp.monarkgate.tech]
-//                                   [--api-host api.monarkgate.tech] [--out FILE]
+//                                   [--api-host api.monarkgate.tech] [--out FILE] [--kata-wait-max S]
 //
 // The api-surface checks connect to `--api` but send `Host: <--api-host>` (default = the --api hostname),
 // so the JSON mirror is reachable against a local `http://127.0.0.1:3001` target too (fetch cannot set the
@@ -17,7 +17,7 @@
 // on the COMMITTED registry -- a gate call in the committed stratum s0 (200, verdict.reason covered, the upper bound
 // [0, yhat + qhat], the committed n_calib and scores_sha256, the committed class text in `content`), a gate call in an
 // UNcommitted stratum (200, abstain, verdict.reason under_calib, n_calib 0), and the served tools/list description of
-// `gate` (the committed clause entire, the empty-registry sentence absent). 15 checks (CM-2b adds gate_retired_call and gate_future_call).
+// `gate` (the committed clause entire, the empty-registry sentence absent). 18 checks (CM-2b adds gate_retired_call and gate_future_call; E-2a adds the kata path and version checks, specified after main()).
 // Then writes the CA
 //   { url, mcp_url, checked_at, checks:[{ name, ok, status, sha256 }], tls:{ issuer, valid_to, authorized } | { skipped } }
 // to stdout, and exits non-zero on any failure. --out FILE is written (temp file, then rename) ONLY when every check passed
@@ -126,11 +126,11 @@ const mcpToolDescription = (text, name) => {
 };
 const jsonInit = (body) => ({ method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body) });
 
-const OPTIONS = { "--api": "api", "--mcp": "mcp", "--api-host": "apiHost", "--out": "out", "--timeout": "timeout" };
+const OPTIONS = { "--api": "api", "--mcp": "mcp", "--api-host": "apiHost", "--out": "out", "--timeout": "timeout", "--kata-wait-max": "kataWaitMax" };
 /** The CLI options; an unknown, repeated or empty option, an option without its value or a timeout that is not a positive
  *  integer of milliseconds throws, naming it (a typo never runs unseen). */
 export function parseArgs(argv) {
-  const a = { api: DEFAULT_API, mcp: DEFAULT_MCP, apiHost: null, out: null, timeout: 10000 }, seen = new Set();
+  const a = { api: DEFAULT_API, mcp: DEFAULT_MCP, apiHost: null, out: null, timeout: 10000, kataWaitMax: null }, seen = new Set();
   for (let i = 0; i < argv.length; i += 2) {
     const flag = argv[i], value = argv[i + 1];
     if (!Object.hasOwn(OPTIONS, flag)) throw new Error(`unknown option ${JSON.stringify(flag)} (known: ${Object.keys(OPTIONS).join(", ")})`);
@@ -142,15 +142,15 @@ export function parseArgs(argv) {
   }
   a.timeout = Number(a.timeout);
   if (!Number.isSafeInteger(a.timeout) || a.timeout <= 0 || a.timeout > 2147483647) throw new Error("option --timeout needs a positive integer of milliseconds, at most 2147483647");
-  return a;
+  return kataOptions(a);
 }
 let TIMEOUT_MS = 10000; // set from --timeout by main(): every fetch, wired request and TLS handshake is bounded by it
 
-/** The names of the 15 checks a run makes, as a set (the RUNBOOK green gate: "15 of 15 checks"); not in the order of a pass, which
+/** The names of the 18 checks a run makes, as a set (the RUNBOOK green gate: "18 of 18 checks"); not in the order of a pass, which
  *  makes the retired and future gate calls earlier. scripts/retire-instants.mjs requires them all in a CA it takes for T_f, and
  *  test/retire-instants.test.ts pins this set to the calls below. */
 export const CHECK_NAMES = Object.freeze(["health", "openapi", "origin_403_api", "origin_403_mcp", "mcp_tools_list", "gate_call", "gate_liq_call",
-  "gate_liq_uncommitted_call", "mcp_gate_description_liq", "cascade_call", "attest_call", "calibrate_call", "gate_byo_call", "gate_retired_call", "gate_future_call"]);
+  "gate_liq_uncommitted_call", "mcp_gate_description_liq", "cascade_call", "attest_call", "calibrate_call", "gate_byo_call", "gate_retired_call", "gate_future_call", "gate_version_1_0_0_call", "gate_kata_call", "gate_kata_policy_table"]);
 /** The failed names of a run (pure): each check not ok, then tls and tls_mcp when checked and not authorized. */
 export function failedOf(checks, tls, tlsMcp) {
   const failed = checks.filter((c) => !c.ok).map((c) => c.name);
@@ -217,7 +217,7 @@ function wiredRequest(url, { method = "GET", headers = {}, body, hostHeader } = 
       let raw = "";
       res.setEncoding("utf8");
       res.on("data", (c) => { raw += c; });
-      res.on("end", () => { done({ status: res.statusCode ?? 0, text: raw }); });
+      res.on("end", () => { done({ status: res.statusCode ?? 0, text: raw, headers: res.headers }); });
     });
     req.on("error", (error) => { done({ error: String(error && error.message ? error.message : error) }); });
     const total = setTimeout(() => { req.destroy(); done({ error: "wired timeout" }); }, TIMEOUT_MS); // bounds the whole exchange
@@ -421,7 +421,7 @@ async function main() {
       && typeof digest === "string" && digest === calibrateScoresSha256;
     return { ok, detail: `action=${String(action)} scores_sha256=${String(digest)} calibrate_scores_sha256=${String(calibrateScoresSha256)}` };
   }));
-
+  checks.push(...(await kataAndVersionChecks(api, apiHostHeader, args.kataWaitMax))); // the kata path and version checks, last (after main())
   // TLS on EVERY host contacted (review m-f): an https host gets a real handshake on its own port; an http host (plain or
   // local) is not checked, so the run is never a green record (recordKind: "local").
   const tlsOf = (u, role) => (u.protocol === "https:"
@@ -450,6 +450,133 @@ async function main() {
     return;
   }
   console.error(kind === "local" ? "VERIFY OK — all checks passed (TLS skipped: http target; not a deploy record)." : "VERIFY OK — all checks passed.");
+}
+
+// ---- Kata path and version checks (lot E-2a, the CA trio; R4 section (iii), the partner's choices). Written after main(), before
+// the run-guard, so that no line above moves (killers pin them). The specification of the three checks (2 141 bytes, sha256
+// ee274e5505bb4fcdd4f8ff72ad6739933de198b604b4831526224a7507cbb147; verbatim in docs/RUNBOOK-harness.md):
+//
+// Kata path and version checks. The deployment check, which runs the reader-side verifier against the served host, plays three
+// more checks after every other check: first (3), which does not depend on the clock, then (1) and (2), which do.
+//
+// (1) gate_kata_call: one well-formed call on btc-range-1h, with predictor_id kata:ca-probe@ca-probe/BTCUSDT/1h, a key whose kata
+// and venue are reserved for this check, so that no table can hold a row under it; features_digest the sha256 of the empty JSON
+// array; yhat 0.01; alpha 0.01 and nMin 299; and a produced_at on the 1h grid that is at most 225 s before or after the clock of
+// the run. If the run's clock is farther than 225 s from every grid instant, checks (1) and (2) fail with the detail
+// kata_window_not_reached, unless the run was started with --kata-wait-max <s>: the run waits until its clock is within 225 s of
+// the next grid instant, if that wait is at most s seconds, and reports the wait; otherwise the checks fail as above. If the Date
+// header of the host's health answer is absent, unreadable or more than 60 s from the run's clock, checks (1) and (2) fail with
+// the detail kata_clock_skew. Check (1) passes when the host answers HTTP 200 with action abstain, verdict.reason under_calib,
+// verdict.n_calib 0, no region, verdict.cell_key kata:ca-probe@ca-probe/BTCUSDT/1h/b0 and verdict.policy_row_sha256 null.
+//
+// (2) gate_kata_policy_table: the verdict of check (1) carries a policy_table_sha256 equal to the value written in the check. That
+// value is the sha256 of the btc-range-1h table file that the deployed release serves: the file of the latest directory of the
+// release's input list that holds it (spec/<dir>/policy/btc-range-1h.json), whose MANIFEST.sha256 line carries the same value once
+// the release is published; a release that changes that table changes the written value with it.
+//
+// (3) gate_version_1_0_0_call: the call of the existing gate check, with schema_version 1.0.0, answers HTTP 400 with error
+// tool_error and code schema_version_unsupported.
+//
+// The import guard and the loader refuse any row whose kata or venue is ca-probe, so check (1) does not change when kata rows are
+// served.
+//
+// Two halves of the reservation, carried by RECHERCHES: the served reader of E-2a (lot a1, test T-1, item E2A-RESERVED-KEY-SERVED-1)
+// calls kataKeyReserved directly; the offline writer (lot b1, item RETIRE-LISTS-E2A-PIPE-1) via guardKataTable → guardKataRow → kataKeyReserved.
+
+/** The one refused version of gate_version_1_0_0_call (contract 1.1.0 refuses 1.0.0 before produced_at is read). */
+export const CA_REFUSED_SCHEMA_VERSION = "1.0.0";
+/** The probe key of gate_kata_call: kata and venue ca-probe are reserved for this check, so no table can hold a row under it. */
+export const KATA_PROBE_KEY = "kata:ca-probe@ca-probe/BTCUSDT/1h";
+const KATA_PROBE_CELL = `${KATA_PROBE_KEY}/b0`;
+const KATA_GRID_MS = 3600000; // the 1h grid of btc-range-1h
+const KATA_WINDOW_MS = 225000; // the server takes 300 s on either side of produced_at: 225 s, 60 s of clock skew, 15 s spare
+const KATA_SKEW_MAX_MS = 60000;
+const KATA_WAIT_MAX_S = 3600;
+const TEST_CLOCK_ENV = "VERIFY_HARNESS_TEST_CLOCK_MS";
+const LOOPBACK_HOSTS = ["127.0.0.1", "localhost", "[::1]"];
+// The expected policy_table_sha256 of btc-range-1h, WRITTEN here (never read from the served build this check checks): the
+// sha256 of contract-1.1.0/policy/btc-range-1h.json as the latest release that publishes that file (contract-1.1.0) records it
+// in scripts/spec-publish-inputs.json and in its MANIFEST.sha256. A release that changes that table changes this value with it
+// (test verify_harness_ca_pins_policy_table_sha256).
+export const KATA_POLICY_TABLE_SHA256 = "1296c3336a96e23098f13acaf849f35c8c35970bd33d37d47f18fd26a50f955f";
+// Derived from GATE_BODY.prediction (it writes no version): the probe key of btc-range-1h, features_digest the sha256 of the
+// empty JSON array, yhat 0.01, and the class's imposed alpha 0.01 and nMin 299. produced_at is set at run time, on the grid.
+export const GATE_KATA_BODY = {
+  prediction: { ...GATE_BODY.prediction, task_class: "btc-range-1h", yhat: 0.01, predictor_id: KATA_PROBE_KEY, features_digest: "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945" },
+  params: { ...GATE_BODY.params, alpha: 0.01, nMin: 299, intent: 0 },
+};
+export const GATE_V100_BODY = { prediction: { ...GATE_BODY.prediction, schema_version: CA_REFUSED_SCHEMA_VERSION }, params: GATE_BODY.params };
+
+/** parseArgs, last step: --kata-wait-max is an integer of seconds from 0 to 3600 (else null), and the test clock is an integer
+ *  of epoch milliseconds that only a loopback target takes (it never reaches a deploy target); each refusal is named. */
+function kataOptions(a, env = process.env) {
+  if (a.kataWaitMax !== null) {
+    if (!/^\d{1,4}$/.test(a.kataWaitMax) || Number(a.kataWaitMax) > KATA_WAIT_MAX_S) throw new Error(`option --kata-wait-max needs an integer of seconds from 0 to ${String(KATA_WAIT_MAX_S)}`);
+    a.kataWaitMax = Number(a.kataWaitMax);
+  }
+  const raw = env[TEST_CLOCK_ENV];
+  if (raw !== undefined && !/^\d{1,15}$/.test(raw)) throw new Error(`${TEST_CLOCK_ENV} needs an integer of epoch milliseconds`);
+  if (raw !== undefined && ![a.api, a.mcp].every((u) => LOOPBACK_HOSTS.includes(new URL(u).hostname))) throw new Error(`${TEST_CLOCK_ENV} is for tests: refused unless --api and --mcp are loopback hosts`);
+  return a;
+}
+
+/** The run clock: the machine clock and a real wait; under the test clock, that instant running with real time, and a wait
+ *  that moves the clock without sleeping (its details then end with " clock=test": such a record is no deploy record). */
+function runClock(env = process.env) {
+  const raw = env[TEST_CLOCK_ENV];
+  if (raw === undefined) return { now: () => Date.now(), wait: (ms) => new Promise((done) => { setTimeout(done, ms); }), tag: "" };
+  const t0 = performance.now();
+  let moved = 0;
+  return { now: () => Number(raw) + Math.round(performance.now() - t0) + moved, wait: async (ms) => { moved += ms; }, tag: " clock=test" };
+}
+
+/** Where `nowMs` stands on the 1h grid (pure): within KATA_WINDOW_MS of a grid instant, that instant and no wait; else the next
+ *  grid instant and the wait until the clock is within KATA_WINDOW_MS of it, that instant only when the wait is at most
+ *  `waitMaxS` seconds (the longest wait is 3 600 - 2 x 225 = 3 150 s). */
+export function kataWindow(nowMs, waitMaxS) {
+  const near = Math.round(nowMs / KATA_GRID_MS) * KATA_GRID_MS;
+  if (Math.abs(nowMs - near) <= KATA_WINDOW_MS) return { at: near, waitMs: 0 };
+  const next = Math.ceil(nowMs / KATA_GRID_MS) * KATA_GRID_MS, waitMs = next - KATA_WINDOW_MS - nowMs;
+  return { at: waitMaxS !== null && waitMs <= waitMaxS * 1000 ? next : null, waitMs };
+}
+
+/** A check that reads a value captured by an earlier check (no request): ok iff it equals `expected`. */
+function capturedCheck(name, value, expected, tag = "") {
+  return { name, ok: value === expected, status: value === null ? 0 : 200, sha256: value === null ? null : sha256(value), detail: `policy_table_sha256=${String(value)} expected=${expected}${tag}` };
+}
+
+/** The three checks, in their order: (3) gate_version_1_0_0_call, then (1) gate_kata_call and (2) gate_kata_policy_table. */
+async function kataAndVersionChecks(api, hostHeader, waitMaxS, clock = runClock()) {
+  const out = [await wiredCheck("gate_version_1_0_0_call", `${api}/gate`, jsonInit(GATE_V100_BODY), hostHeader, (res, text) => {
+    const j = parseJson(text);
+    const got = j && typeof j.code === "string" ? j.code : null;
+    return { ok: res.status === 400 && j !== null && j.error === "tool_error" && got === "schema_version_unsupported", detail: `status=${res.status} code=${String(got)}` };
+  })];
+  const failBoth = (detail) => [...out, ...["gate_kata_call", "gate_kata_policy_table"].map((name) => ({ name, ok: false, status: 0, sha256: null, detail: detail + clock.tag }))];
+  const w = kataWindow(clock.now(), waitMaxS), grid = (ms) => new Date(ms).toISOString().replace(".000Z", "Z");
+  if (w.at === null) { const next = Math.ceil(clock.now() / KATA_GRID_MS) * KATA_GRID_MS; return failBoth(`kata_window_not_reached: the run clock is more than ${String(KATA_WINDOW_MS / 1000)} s from every grid instant; the next grid instant is ${grid(next)}; its window opens in ${String(Math.round(w.waitMs / 1000))} s (--kata-wait-max ${String(waitMaxS)})`); }
+  const waited = Math.round(w.waitMs / 1000);
+  if (w.waitMs > 0) {
+    console.error(`verify-harness: waiting ${String(waited)} s, until ${String(KATA_WINDOW_MS / 1000)} s before the grid instant ${grid(w.at)} (--kata-wait-max ${String(waitMaxS)})`);
+    await clock.wait(w.waitMs);
+  }
+  const health = await wiredRequest(`${api}/health`, { method: "GET", hostHeader });
+  const date = health.headers && typeof health.headers.date === "string" ? Date.parse(health.headers.date) : NaN;
+  const skew = Math.abs(date - clock.now());
+  if (!(skew <= KATA_SKEW_MAX_MS)) return failBoth(`kata_clock_skew: the Date header of /health (${String(health.headers?.date ?? health.error)}) is not within ${String(KATA_SKEW_MAX_MS / 1000)} s of the run clock (${grid(clock.now())})`);
+  const late = Math.abs(clock.now() - w.at); // checked again right before the call: the /health answer may have taken the window
+  if (late > KATA_WINDOW_MS) return failBoth(`kata_window_not_reached: the run clock left the window of ${grid(w.at)} before the call (${String(Math.round(late / 1000))} s from it)`);
+  let verdict = null;
+  out.push(await wiredCheck("gate_kata_call", `${api}/gate`, jsonInit({ prediction: { ...GATE_KATA_BODY.prediction, produced_at: grid(w.at) }, params: GATE_KATA_BODY.params }), hostHeader, (res, text) => {
+    const j = parseJson(text);
+    const sc = j && j.structuredContent ? j.structuredContent : null;
+    const v = sc && sc.verdict ? sc.verdict : null;
+    if (v !== null) verdict = v;
+    const ok = res.status === 200 && v !== null && sc.action === "abstain" && v.reason === "under_calib" && v.n_calib === 0 && v.region === null && v.cell_key === KATA_PROBE_CELL && v.policy_row_sha256 === null;
+    return { ok, detail: `status=${res.status} action=${String(sc ? sc.action : null)} verdict_reason=${String(v ? v.reason : null)} n_calib=${String(v ? v.n_calib : null)} region=${JSON.stringify(v ? v.region : null)} cell_key=${String(v ? v.cell_key : null)} policy_row_sha256=${String(v ? v.policy_row_sha256 : null)} produced_at=${grid(w.at)} waited_s=${String(waited)}${clock.tag}` };
+  }));
+  out.push(capturedCheck("gate_kata_policy_table", verdict !== null && typeof verdict.policy_table_sha256 === "string" ? verdict.policy_table_sha256 : null, KATA_POLICY_TABLE_SHA256, clock.tag));
+  return out;
 }
 
 // Run-guard: execute only when invoked directly (like the other scripts), never on import.

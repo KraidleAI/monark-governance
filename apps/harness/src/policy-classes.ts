@@ -45,3 +45,14 @@ export function kataKeyProblem(key: string, taskClass: string): string | undefin
 /** The tau cap of a kata dir class (spec section 9): a set of one label at most. Read by the policy_tau_cap refusal and by
  *  the kata clause of the gate description (block D, lot D-3; G2 N-5 of D-2). */
 export const KATA_DIR_TAU_CAP = 1;
+
+/** The kata ids and venues reserved for the probe key of the deployment check (scripts/verify-harness.mjs gate_kata_call,
+ *  kata:ca-probe@ca-probe/BTCUSDT/1h; lot E-2a, the CA trio): no table may hold a row under them, so that call abstains
+ *  before and after kata rows are served. Not part of kataKeyProblem, which the request check shares: the probe call must
+ *  be answered, not refused. */
+export const KATA_RESERVED_IDS: readonly string[] = ["ca-probe"];
+/** True when the kata id or the venue is reserved (the import guard calls it; so will the kata loader of E-2a, which
+ *  is served code: it lives here, not in policy-guard.ts, which the served graph may not import). */
+export function kataKeyReserved(kataId: string | null, venue: string | null): boolean {
+  return KATA_RESERVED_IDS.some((id) => id === kataId || id === venue);
+}

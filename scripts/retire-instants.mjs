@@ -9,7 +9,7 @@
 // a clock {"clock": "YYYY-MM-DDTHH:MM:SSZ"} is a reading written down at the act (T_c the CI green on the head, T_d the push returned; T_a
 // of live:<k>, the close of a quarter E_k, 00:00:00Z of its first day after it, apps/harness/src/policy-retire.ts l.80: an adr: T_a is a
 // commit); T_e is a merge commit (two parents). A CA {"ca": <file>} is the checked_at, cut to the second, of a record of
-// scripts/verify-harness.mjs that the script itself rates (recordKind, failedOf) "green", or "local" in a rehearsal only, with its 15
+// scripts/verify-harness.mjs that the script itself rates (recordKind, failedOf) "green", or "local" in a rehearsal only, with its 18
 // checks by name (CHECK_NAMES), each an object, no more (T_f). A probe {"probe": <file>} is the received_at of a retire-probe-v1 record
 // that the probe accepted (ok true, problem null, status 200, the expected digest), made against an https api off the loopback (by
 // address: no loopback or unspecified address, in any spelling, nor localhost) with an authorized TLS handshake (tls_authorized), or any
