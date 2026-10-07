@@ -35,7 +35,7 @@ const read = (files: ReadonlyMap<string, Uint8Array>, pins = pinsOf(files)) => r
 const TWO = filesOf([["btc-dir-1h", bytesOf(tableOf("btc-dir-1h"))], ["eth-mae-up-4h", bytesOf(tableOf("eth-mae-up-4h"))]]);
 const one = (c: string, b: Uint8Array) => read(filesOf([[c, b]]));
 
-// killer: apps/harness/src/policy-committed.ts:54 CONST "sha(bytes) !== pins.tables[cls]" -> "false"
+// killer: apps/harness/src/policy-committed.ts:61 CONST "sha(bytes) !== pins.tables[cls]" -> "false"
 test("committed_tables_reader_refuses_each_departure", () => {
   assert.ok(rowsOf("btc-dir-1h").length > 1 && rowsOf("eth-mae-up-4h").length > 0);
   assert.deepEqual([...read(TWO)], [["btc-dir-1h", tableOf("btc-dir-1h")], ["eth-mae-up-4h", tableOf("eth-mae-up-4h")]]);
@@ -57,7 +57,7 @@ test("committed_tables_reader_refuses_each_departure", () => {
   assert.throws(() => one("btc-dir-2h", bytesOf(t)), /btc-dir-2h: no kata class entry/);
 });
 
-// killer: apps/harness/src/policy-committed.ts:50 SDL "for (const cls of files.keys())" -> ""
+// killer: apps/harness/src/policy-committed.ts:53 SDL "for (const cls of files.keys())" -> ""
 test("committed_tables_reader_pairs_each_pin_with_its_file", () => {
   const first = filesOf([...TWO].slice(0, 1));
   assert.throws(() => read(TWO, pinsOf(first)), /eth-mae-up-4h: a committed file without its pin/);
@@ -66,7 +66,7 @@ test("committed_tables_reader_pairs_each_pin_with_its_file", () => {
   assert.equal(read(new Map(), pinsOf(new Map())).size, 0);
 });
 
-// killer: apps/harness/src/policy-committed.ts:36 CONST "n.endsWith(\".json\")" -> "true"
+// killer: apps/harness/src/policy-committed.ts:37 CONST "n.endsWith(\".json\")" -> "true"
 test("committed_tables_folder_is_absent_and_read_once", () => {
   assert.ok(TABLES_DIR.endsWith(`${sep}apps${sep}harness${sep}data${sep}kata${sep}tables${sep}`) && !existsSync(TABLES_DIR));
   assert.equal(COMMITTED_FILES.size, 0);
@@ -84,6 +84,30 @@ test("committed_tables_folder_is_absent_and_read_once", () => {
   const imports = [...readFileSync(join(SRC, "policy-committed.ts"), "utf8").matchAll(/^import .* from "([^"]+)";$/gm)].map((m) => m[1]);
   const allowed = ["node:fs", "node:crypto", "node:url", "@monark/contracts", "./policy-table-file.ts", "./policy-committed-pins.ts", "./policy-classes.ts"];
   assert.ok(imports.length > 0 && imports.every((i) => allowed.includes(i as string)), imports.join(", "));
+});
+
+// killer: apps/harness/src/policy-committed.ts:57 SDL "if (Object.hasOwn(pins.tables, cls))" -> ""
+test("committed_tables_reader_refuses_pinned_held_classes", () => {
+  const band = filesOf([...TWO].slice(1));
+  const held = [...PINS.FLOOR_HELD_CLASSES, ...PINS.ORDER_HELD_CLASSES];
+  assert.throws(() => read(TWO, { ...pinsOf(TWO), held }), /btc-dir-1h: a class both pinned and held back/);
+  assert.throws(() => read(band, { ...pinsOf(band), held: ["btc-dir-2h"] }), /btc-dir-2h: a held class that is not a kata class/);
+  assert.throws(() => readCommittedTables(band, [...ENTRIES, entry("eth-mae-up-4h")], pinsOf(band)), /a kata class entry is repeated/);
+  assert.deepEqual([...read(band, { ...pinsOf(band), held }).keys()], ["eth-mae-up-4h"]);
+  const classes = ENTRIES.map((e) => e.task_class);
+  assert.ok(classes.length === 32 && new Set([...classes, ...held, "eth-mae-up-4h"]).size === 32);
+});
+
+// killer: apps/harness/src/policy-committed.ts:68 CONST "kataKeyReserved(r.kata_id, r.venue)" -> "false"
+test("committed_tables_reader_refuses_reserved_rows", () => {
+  const t = tableOf("btc-dir-1h");
+  const first = t.rows[0] as PolicyRow;
+  for (const forged of [{ ...first, kata_id: "ca-probe" }, { ...first, venue: "ca-probe" }]) {
+    const b = bytesOf({ ...t, rows: [forged, ...t.rows.slice(1)] });
+    assert.throws(() => one("btc-dir-1h", b), new RegExp(`btc-dir-1h ${first.cell_key}: a row under a reserved kata id or venue`));
+  }
+  const fromClasses = readFileSync(join(SRC, "policy-committed.ts"), "utf8").match(/^import \{ ([^}]+) \} from "\.\/policy-classes\.ts";$/m);
+  assert.ok(fromClasses !== null && (fromClasses[1] ?? "").split(", ").every((n) => ["kataKeyReserved", "KATA_RESERVED_IDS"].includes(n)));
 });
 
 // killer: apps/harness/src/policy-committed-pins.ts:11 CONST "\"bnb-dir-1h\"" -> "\"bnb-range-1h\""

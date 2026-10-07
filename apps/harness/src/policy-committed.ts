@@ -8,6 +8,7 @@ import { createHash } from "node:crypto";
 import { readdirSync, readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { canonicalJson, type ClassEntry, type PolicyTable } from "@monark/contracts";
+import { kataKeyReserved } from "./policy-classes.ts";
 import { assertPolicyTableFile } from "./policy-table-file.ts";
 
 /** What the reader checks the files against: the pinned sha256 of each committed class, and the classes held back. */
@@ -42,12 +43,18 @@ export const COMMITTED_FILES: ReadonlyMap<string, Uint8Array> = readTablesDir(TA
 /**
  * The table of each pinned class, or a throw naming the first departure: a pinned class has its file and a file its pin
  * (no file and no pin when the folder is absent); the bytes have the pinned sha256 and are the canonical writing of their
- * value; the row format is class-policy-v2; the class entry is the expected kata entry; assertPolicyTableFile holds.
+ * value; the row format is class-policy-v2; the class entry is the expected kata entry; assertPolicyTableFile holds; no row
+ * is under a reserved kata id or venue. Across classes: the entries name each class once; every held class is a kata class
+ * and none is pinned, so the pinned, held and other classes are exactly the kata classes.
  */
 export function readCommittedTables(files: ReadonlyMap<string, Uint8Array>, entries: readonly ClassEntry[], pins: CommittedPins): ReadonlyMap<string, PolicyTable> {
   const pinned = Object.keys(pins.tables).sort();
   if (files.size === 0 && pinned.length > 0) fail(`the tables folder is absent or empty, but ${pinned.join(", ")} are pinned`);
   for (const cls of files.keys()) if (!Object.hasOwn(pins.tables, cls)) fail(`${cls}: a committed file without its pin`);
+  const known = new Set(entries.map((e) => e.task_class));
+  if (known.size !== entries.length) fail("a kata class entry is repeated");
+  for (const cls of pins.held) if (!known.has(cls)) fail(`${cls}: a held class that is not a kata class`);
+  for (const cls of pins.held) if (Object.hasOwn(pins.tables, cls)) fail(`${cls}: a class both pinned and held back`);
   const out = new Map<string, PolicyTable>();
   for (const cls of pinned) {
     const bytes = files.get(cls) ?? fail(`${cls}: a pinned class without its committed file`);
@@ -58,6 +65,7 @@ export function readCommittedTables(files: ReadonlyMap<string, Uint8Array>, entr
     const entry = entries.find((e) => e.task_class === cls) ?? fail(`${cls}: no kata class entry for a pinned class`);
     if (canonicalJson(table.class) !== canonicalJson(entry)) fail(`${cls}: the class entry of the file differs from the expected entry`);
     assertPolicyTableFile(table);
+    for (const r of table.rows) if (kataKeyReserved(r.kata_id, r.venue)) fail(`${cls} ${r.cell_key}: a row under a reserved kata id or venue`);
     out.set(cls, table);
   }
   return out;
