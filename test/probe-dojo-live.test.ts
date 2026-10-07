@@ -447,12 +447,12 @@ test("dojo_live_probe_reads_the_smtp_password_from_its_file_after_the_verifier",
   const text = read("docs/RUNBOOK-dojo.md"), s = text.slice(text.indexOf("\n## 25. "), text.indexOf("\n## ", text.indexOf("\n## 25. ") + 1));
   for (const x of [P.DEFAULT_SMTP_PASS_FILE, "install -m 0600 -o probe -g probe", "probe 600", "size-ok",
     "systemd-run --wait --collect --quiet -p EnvironmentFile=/etc/monark/probe.env", `printf "%s\\n" "$$SMTP_PASS" > ${P.DEFAULT_SMTP_PASS_FILE}`,
-    "-p EnvironmentFile=/etc/monark/probe.env -p UnsetEnvironment=SMTP_PASS", '"alert_error": null']) assert.ok(s.includes(x), `section 25: ${x}`);
+    '-p EnvironmentFile=/etc/monark/probe.env "$U"', '"alert_error": null']) assert.ok(s.includes(x), `section 25: ${x}`);
   assert.ok(!s.includes('stat -c "%U %a %s"') && !s.includes(`sed -n "s/^SMTP_PASS=//p"`), "(1b): the file's size never printed, never a copy of the raw line");
   const b1 = s.indexOf("\n(1b) "), four = s.indexOf("\n(4) "), b4 = s.indexOf("\n(4b) "), five = s.indexOf("\n(5) "), timer = s.indexOf("systemctl enable --now monark-dojo-probe.timer");
   assert.ok(b1 > 0 && four > b1 && b4 > four && five > b4 && timer > five, "(1b), then (4), then (4b), then the timer at (5)");
   const mailAct = s.slice(s.indexOf("\n(4b) "), s.indexOf("\n(5) "));
-  for (const x of ["systemd-run --wait --pipe --collect --uid=probe --gid=probe $S -p EnvironmentFile=/etc/monark/probe.env -p UnsetEnvironment=SMTP_PASS $C",
+  for (const x of ['systemd-run --wait --pipe --collect --uid=probe --gid=probe $S -p EnvironmentFile=/etc/monark/probe.env "$U" $C',
     "--now $N", "--out /var/lib/monark-probe/dojo-live-mail.json"]) assert.ok(mailAct.includes(x), `(4b), under the unit's user and forced unhealthy: ${x}`);
   assert.ok(mailAct.includes("root@bell.monarkgate.tech 'rm -f /var/lib/monark-probe/dojo-live-mail.json && S="), "(4b) opens on the removal of a scratch record left by a cut run");
   // A change of SMTP_PASS in the mail file (section 1 of the probe's deployment in RUNBOOK-sentinel) replays (1b), then (4b): both texts say so.
@@ -579,8 +579,13 @@ test("dojo_probe_tree_is_the_import_closure", () => {
   // systemd.service(5): the job runs the unit's command once, with its own arguments, and systemd-run --wait waits for its end) and the
   // mail file, which (4b) alone applies. --uid and --gid are User= and Group= (systemd-run(1)); a list is ONE quoted argument, "$U", as
   // $S is split on blanks. A host without Bell's key directory stops at (4), before the timer.
-  // killer: docs/RUNBOOK-dojo.md:1493 CONST " -p InaccessiblePaths=/etc/monark/bell" -> ""
-  // killer: docs/RUNBOOK-dojo.md:1514 CONST " -p InaccessiblePaths=/etc/monark/bell" -> ""
+  // killer: docs/RUNBOOK-dojo.md:1495 CONST " -p InaccessiblePaths=/etc/monark/bell" -> ""
+  // killer: docs/RUNBOOK-dojo.md:1519 CONST " -p InaccessiblePaths=/etc/monark/bell" -> ""
+  // killer: docs/RUNBOOK-dojo.md:1494 CONST " -p ProtectHome=true" -> ""
+  // killer: docs/RUNBOOK-dojo.md:1499 CONST " \"$U\"" -> ""
+  // killer: docs/RUNBOOK-dojo.md:1521 CONST " SMTP_PASS\"" -> "\""
+  // killer: docs/RUNBOOK-dojo.md:1519 CONST " -p CPUQuota=25%" -> " -p InaccessiblePaths= -p CPUQuota=25%"
+  // killer: docs/RUNBOOK-dojo.md:1499 CONST "$S \"$U\" $C" -> "$S \"$U\" -p EnvironmentFile=/etc/monark/probe.env $C"
   const all = unit(DOJO_SVC).filter((d) => d.section === "Service"), OWN = ["Type", "ExecStart", "TimeoutStartSec"];
   const exec = one(all, "Service", "ExecStart").split(" "), a4 = s.indexOf("\n(4) "), a4b = s.indexOf("\n(4b) "), a5 = s.indexOf("\n(5) ");
   assert.ok(a4 > 0 && a4b > a4 && a5 > a4b, "(4), (4b), then (5)");
