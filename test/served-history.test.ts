@@ -8,13 +8,13 @@ import { after, test } from "node:test";
 import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
 import { createHash } from "node:crypto";
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, statSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { call, judge } from "../scripts/retire-probe.mjs";
 import { canonicalJson } from "../scripts/spec-publish.mjs";
-import { compose, FIELDS, HISTORY_REL, main, mergeInstant, PINS, render } from "../scripts/served-history.mjs";
+import { checkLine, compose, FIELDS, HISTORY_REL, main, mergeInstant, PINS, render } from "../scripts/served-history.mjs";
 import type { HistoryLine } from "../scripts/served-history.mjs";
 
 const ROOT = fileURLToPath(new URL("..", import.meta.url)), DIR = "contract-1.1.0-tables-2026-10-05", D2 = "contract-1.1.0-tables-2026-11-02";
@@ -80,7 +80,9 @@ test("served_history_writes_every_class_served_after_the_deployment", () => {
   let lines: HistoryLine[] = [];
   // killer: scripts/served-history.mjs:73 CONST "existsSync(p) ? " -> "true ? "
   const early = join(r, "spec", "contract-1.1.0-tables-2026-10-19", "retire"); mkdirSync(early, { recursive: true }); writeFileSync(join(early, "retire-2026-10-19.json"), "{}\n"); // as --check passes it (its retire list only)
-  assert.doesNotThrow(() => { lines = second(good()); }, "a class carried from an earlier dated directory is still served; a dated directory that holds its retire list only, no policy/, is passed over");
+  // killer: scripts/served-history.mjs:73 CONST "f.endsWith(\".json\") && " -> ""
+  mkdirSync(join(r, "spec", D2, "policy", "empty")); // an empty subdirectory of policy/, which --check passes too: it lists files only
+  assert.doesNotThrow(() => { lines = second(good()); }, "a class carried from an earlier dated directory is still served; a dated directory that holds its retire list only, no policy/, and an empty subdirectory of policy/ are passed over");
   assert.deepEqual(lines.map((l) => [l.release_dir, l.task_class]), [[D2, "btc-dir-1h"], [D2, "eth-range-4h"], [D2, "sol-dir-1h"]], "a line for every class served after the deployment, none for an undated directory or one of no real day");
   const refused = (c: string, probes: Rec[], o: { root?: string; releaseDir?: string } = {}): void => { assert.throws(() => second(probes, o), code(c), c); };
   const file = rootOf(tables);
@@ -157,6 +159,8 @@ test("served_history_file_is_one_line_per_class_sorted_and_closed", () => {
     refused("line_invalid", canon([{ ...l0, [k!]: v }]));
   }
   refused("line_invalid", canon([{ ...l0, release: DIR }]));
+  // killer: scripts/served-history.mjs:60 CONST "str(l.release_dir, DIR)" -> "DIR.test(l.release_dir)"
+  assert.throws(() => checkLine({ ...l0, release_dir: new String(DIR) }), code("line_invalid"), "a String object is not a string (checkLine is exported: no JSON in between)");
 });
 
 // killer: scripts/served-history.mjs:110 CONST "--format=%H %cI %P" -> "--format=%H %aI %P"
@@ -217,7 +221,10 @@ test("served_history_cli_reads_t_e_from_the_merge_commit", async (t) => {
   const m2 = merge("side2", ["spec"]), s = 27 * DAY + 3600;
   refusedAs("merge_not_release", m2); // spec/DIR is in its first parent already
   const later = [probe("btc-dir-1h", { s }), probe("eth-range-4h", { s }), probe("sol-dir-1h", { d: D2, s })].map((p, i) => record(`later${i}.json`, p.bytes));
+  // killer: scripts/served-history.mjs:133 CONST "writeAtomic(out, text)" -> "(await import(\"node:fs\")).writeFileSync(out, text)"
+  const ino = statSync(join(r, HISTORY_REL), { bigint: true }).ino; // the file the first deployment wrote
   assert.equal(await main(args(m2, D2, record("ca2.json", caOf({ checked_at: `${at(27 * DAY + 1800).slice(0, -1)}.278Z` })), later), pins([...KATA, "sol-dir-1h"])), 0);
+  assert.notEqual(statSync(join(r, HISTORY_REL), { bigint: true }).ino, ino, "the file is replaced by a rename (writeAtomic), never written in place");
   assert.deepEqual((JSON.parse(readFileSync(join(r, HISTORY_REL), "utf8")) as HistoryLine[]).map((l) => [l.release_dir, l.task_class, l.t_e]),
     [...KATA.map((c) => [DIR, c, TE]), ...[...KATA, "sol-dir-1h"].map((c) => [D2, c, at(27 * DAY)])], "the second deployment's lines follow the first's");
 });
