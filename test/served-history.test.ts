@@ -21,11 +21,13 @@ after(() => rmSync(TMP, { recursive: true, force: true }));
 const sha = (b: string | Uint8Array): string => createHash("sha256").update(b).digest("hex");
 const committed = (c: string): Buffer => readFileSync(join(ROOT, "spec", "contract-1.1.0", "policy", `${c}.json`));
 let n = 0;
-/** A root whose dated directory holds the given files (name -> class whose committed bytes it gets). */
-function rootOf(files: Record<string, string>): string {
-  const r = join(TMP, `r${++n}`), p = join(r, "spec", DIR, "policy");
-  mkdirSync(p, { recursive: true });
-  for (const [name, c] of Object.entries(files)) writeFileSync(join(p, `${name}.json`), committed(c));
+/** A root whose dated directories hold the given files (name -> class whose committed bytes it gets); DIR by default. */
+function rootOf(files: Record<string, string>, more: Record<string, Record<string, string>> = {}): string {
+  const r = join(TMP, `r${++n}`);
+  for (const [d, fs] of Object.entries({ [DIR]: files, ...more })) {
+    mkdirSync(join(r, "spec", d, "policy"), { recursive: true });
+    for (const [name, c] of Object.entries(fs)) writeFileSync(join(r, "spec", d, "policy", `${name}.json`), committed(c));
+  }
   return r;
 }
 const probe = (c: string, over: Record<string, unknown> = {}): { name: string; bytes: Buffer } => ({ name: `${c}.probe.json`, bytes: Buffer.from(JSON.stringify({
@@ -36,7 +38,7 @@ const both = (): string => rootOf({ "btc-dir-1h": "btc-dir-1h", "eth-range-4h": 
 const run = (o: { root?: string; probes?: { name: string; bytes: Buffer }[]; caBytes?: Buffer; tE?: string } = {}): HistoryLine[] =>
   compose({ root: o.root ?? both(), releaseDir: DIR, mergeCommit: "a".repeat(40), tE: o.tE ?? TE, caBytes: o.caBytes ?? caOf(), probes: o.probes ?? KATA.map((c) => probe(c)) });
 
-// killer: scripts/served-history.mjs:58 CONST "probe.policy_table_sha256, probe_record_sha256" -> "probe.policy_row_sha256, probe_record_sha256"
+// killer: scripts/served-history.mjs:64 CONST "probe.policy_table_sha256, probe_record_sha256" -> "probe.policy_row_sha256, probe_record_sha256"
 test("served_history_line_is_closed_and_read_from_a_verdict", () => {
   const probes = KATA.map((c) => probe(c)), ca = caOf(), lines = run({ probes, caBytes: ca });
   assert.deepEqual(lines, KATA.map((c, i) => ({ format: "kata-served-history-v1", release_dir: DIR, task_class: c, policy_table_sha256: sha(committed(c)),
@@ -47,7 +49,26 @@ test("served_history_line_is_closed_and_read_from_a_verdict", () => {
   assert.deepEqual(JSON.parse(text), lines);
 });
 
-// killer: scripts/served-history.mjs:52 COR "probe.ok !== true || " -> ""
+// killer: scripts/served-history.mjs:51 ROR "x <= releaseDir" -> "x === releaseDir"
+test("served_history_writes_every_class_served_after_the_deployment", () => {
+  const D2 = "contract-1.1.0-tables-2026-11-02", r = rootOf({ "btc-dir-1h": "btc-dir-1h", "eth-range-4h": "eth-range-4h", [LIQ]: LIQ },
+    { [D2]: { "btc-dir-1h": "btc-dir-1h", "sol-dir-1h": "sol-dir-1h" }, "contract-1.1.0-tables-2026-12-01": { "bnb-dir-1h": "bnb-dir-1h" }, "contract-1.1.0": { "bnb-range-1h": "bnb-range-1h" } });
+  const at = (c: string, d: string): string => `spec/${d}/policy/${c}.json`, tE = "2026-11-02T08:00:00Z";
+  const second = (probes: { name: string; bytes: Buffer }[]): HistoryLine[] => compose({ root: r, releaseDir: D2, mergeCommit: "b".repeat(40), tE, caBytes: caOf({ checked_at: "2026-11-02T08:30:00.000Z" }), probes });
+  const good = (): { name: string; bytes: Buffer }[] => [probe("btc-dir-1h", { table: at("btc-dir-1h", D2), received_at: "2026-11-02T09:00:00Z" }),
+    probe("eth-range-4h", { received_at: "2026-11-02T09:00:00Z" }), probe("sol-dir-1h", { table: at("sol-dir-1h", D2), received_at: "2026-11-02T09:00:00Z" })];
+  let lines: HistoryLine[] = [];
+  assert.doesNotThrow(() => { lines = second(good()); }, "a class carried from an earlier dated directory is still served");
+  assert.deepEqual(lines.map((l) => [l.release_dir, l.task_class]), [[D2, "btc-dir-1h"], [D2, "eth-range-4h"], [D2, "sol-dir-1h"]], "a line for every class served after the deployment, none for a later or undated directory");
+  assert.throws(() => compose({ root: r, releaseDir: "contract-1.1.0-tables-2026-11-03", mergeCommit: "b".repeat(40), tE, caBytes: caOf(), probes: good() }), (e: Error & { code?: string }) => e.code === "input_invalid", "a release directory that is not there");
+  const refused = (code: string, probes: { name: string; bytes: Buffer }[]): void => { assert.throws(() => second(probes), (e: Error & { code?: string }) => e.code === code, code); };
+  refused("class_not_once", good().slice(0, 2));
+  refused("probe_other_table", [good()[0]!, probe("eth-range-4h", { table: at("eth-range-4h", D2), received_at: "2026-11-02T09:00:00Z" }), good()[2]!]);
+  refused("probe_other_table", [probe("btc-dir-1h", { received_at: "2026-11-02T09:00:00Z" }), ...good().slice(1)]);
+  refused("probe_other_table", [...good(), probe("bnb-dir-1h", { table: at("bnb-dir-1h", "contract-1.1.0-tables-2026-12-01"), received_at: "2026-11-02T09:00:00Z" })]);
+});
+
+// killer: scripts/served-history.mjs:58 COR "probe.ok !== true || " -> ""
 test("served_history_refuses_each_departure", () => {
   const refused = (code: string, o: Parameters<typeof run>[0]): void => { assert.throws(() => run(o), (e: Error & { code?: string }) => e.code === code, code); };
   refused("probe_not_accepted", { probes: [probe("btc-dir-1h", { ok: false }), probe("eth-range-4h")] });
@@ -66,7 +87,7 @@ test("served_history_refuses_each_departure", () => {
   refused("no_kata_table", { root: rootOf({ [LIQ]: LIQ }), probes: [probe(LIQ)] });
 });
 
-// killer: scripts/served-history.mjs:70 COR "o.release_dir === l.release_dir && " -> ""
+// killer: scripts/served-history.mjs:76 COR "o.release_dir === l.release_dir && " -> ""
 test("served_history_file_is_one_line_per_class_sorted_and_closed", () => {
   const first = run(), text = render(null, first), later = { ...first[0]!, release_dir: "contract-1.1.0-tables-2026-11-02", t_e: "2026-11-02T08:00:00Z", t_f: "2026-11-02T08:30:00.000Z" };
   let next = "";
@@ -82,7 +103,7 @@ test("served_history_file_is_one_line_per_class_sorted_and_closed", () => {
   refused("line_invalid", `[\n${canonicalJson({ ...first[0]!, release: DIR })}\n]\n`);
 });
 
-// killer: scripts/served-history.mjs:77 ROR "parents.length < 2" -> "parents.length < 1"
+// killer: scripts/served-history.mjs:83 ROR "parents.length < 2" -> "parents.length < 1"
 test("served_history_cli_reads_t_e_from_the_merge_commit", () => {
   const r = both(), env = { ...process.env, GIT_AUTHOR_DATE: TE, GIT_COMMITTER_DATE: TE };
   const git = (...a: string[]): string => execFileSync("git", ["-C", r, "-c", "user.name=t", "-c", "user.email=t@t", "-c", "commit.gpgsign=false", ...a], { encoding: "utf8", env }).trim();

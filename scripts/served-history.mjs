@@ -5,11 +5,14 @@
 //   node scripts/served-history.mjs --release-dir <contract-1.1.0-tables-YYYY-MM-DD> --merge-commit <sha> --ca <deploy check record>
 //                                   --probe <retire-probe-v1 record> [--probe <record> ...] [--root <dir>]
 //
-// A line carries one class and its table. task_class and policy_table_sha256 are read from the class's retire-probe-v1 record (an
-// accepted verdict: ok, equal, no problem), never typed in; probe_record_sha256 is the sha256 of that record's bytes. The record's table
-// is spec/<release_dir>/policy/<task_class>.json, a kata table (cell_key_rule kata-bucket) of that class whose sha256 is the digest
-// served. Every kata table of the release directory has exactly one record, and no record names another table. A marginal table has
-// no probe and no line, so a release that serves no kata table writes nothing (refused, no_kata_table). t_e is the commit instant of
+// A line carries one class and its table. Each deployment writes a line for EVERY kata class served after it, not only the classes it
+// serves anew (24 lines for the first kata release, 28 for the second): the classes served after release_dir are the kata tables
+// (cell_key_rule kata-bucket) of the dated directories spec/contract-1.1.0-tables-<date>/ up to release_dir, each class at the last such
+// directory that holds it. task_class and policy_table_sha256 are read from the class's retire-probe-v1 record (an accepted verdict: ok,
+// equal, no problem), never typed in; probe_record_sha256 is the sha256 of that record's bytes. The record's table is the served file
+// of its class, spec/<that directory>/policy/<task_class>.json, a table of that class whose sha256 is the digest served. Every served
+// kata class has exactly one record, and no record names another table. A marginal table has no probe and no line, so a deployment
+// after which no kata table is served writes nothing (refused, no_kata_table). t_e is the commit instant of
 // the merge commit (git, UTC second; a commit with two parents or more); t_f is the checked_at of the deploy check record, green on
 // every check with an authorized TLS on both hosts, and ca_record_sha256 is the sha256 of its bytes. The file is a JSON array, one
 // line per element, sorted by (t_e, task_class); the lines already there must be its canonical writing under the same closed fields,
@@ -40,17 +43,20 @@ export function checkLine(l) {
   return good ? l : no("line_invalid", `${JSON.stringify(l)} is not a kata-served-history-v1 line`);
 }
 
-/** compose({root, releaseDir, mergeCommit, tE, caBytes, probes}) -> the new lines, one per kata table of spec/<releaseDir>/policy/. */
+/** compose({root, releaseDir, mergeCommit, tE, caBytes, probes}) -> the new lines, one per kata class served after releaseDir. */
 export function compose({ root, releaseDir, mergeCommit, tE, caBytes, probes }) {
-  if (!DIR.test(releaseDir)) no("input_invalid", `release directory ${JSON.stringify(releaseDir)}`);
-  const ca = parse(caBytes, "the deploy check record"), policy = join(root, "spec", releaseDir, "policy");
+  if (!DIR.test(releaseDir) || !existsSync(join(root, "spec", releaseDir))) no("input_invalid", `release directory ${JSON.stringify(releaseDir)}`);
+  const ca = parse(caBytes, "the deploy check record"), served = new Map();
   if (!(Array.isArray(ca?.checks) && ca.checks.length > 0 && ca.checks.every((c) => c?.ok === true) && ca.tls?.authorized === true && ca.tls_mcp?.authorized === true)) no("ca_not_green", "a check is red or a TLS is not authorized");
-  const kata = existsSync(policy) ? readdirSync(policy).filter((f) => f.endsWith(".json") && parse(readFileSync(join(policy, f)), f)?.class?.cell_key_rule === "kata-bucket").map((f) => f.slice(0, -5)) : [];
-  if (kata.length === 0) no("no_kata_table", `spec/${releaseDir}/policy/ serves no kata table: no line`);
+  for (const d of readdirSync(join(root, "spec")).filter((x) => DIR.test(x) && x <= releaseDir).sort()) {
+    const policy = join(root, "spec", d, "policy");
+    for (const f of existsSync(policy) ? readdirSync(policy).filter((x) => x.endsWith(".json")) : []) if (parse(readFileSync(join(policy, f)), f)?.class?.cell_key_rule === "kata-bucket") served.set(f.slice(0, -5), d);
+  }
+  if (served.size === 0) no("no_kata_table", `no kata table is served after ${releaseDir}: no line`);
   const lines = probes.map(({ bytes, name }) => {
-    const probe = parse(bytes, name), cls = String(probe?.task_class), rel = `spec/${releaseDir}/policy/${cls}.json`;
+    const probe = parse(bytes, name), cls = String(probe?.task_class), rel = `spec/${String(served.get(cls))}/policy/${cls}.json`;
     if (probe?.format !== "retire-probe-v1" || probe.ok !== true || probe.equal !== true || probe.problem !== null) no("probe_not_accepted", `${name} is not an accepted retire-probe-v1 verdict`);
-    if (String(probe.table).replaceAll("\\", "/").replace(/^\.\//, "") !== rel || !kata.includes(cls)) no("probe_other_table", `${name} probed ${String(probe.table)}, not a kata table of ${releaseDir}`);
+    if (String(probe.table).replaceAll("\\", "/").replace(/^\.\//, "") !== rel || !served.has(cls)) no("probe_other_table", `${name} probed ${String(probe.table)}, not a kata table served after ${releaseDir}`);
     const table = readFileSync(join(root, rel));
     if (parse(table, rel).class.task_class !== cls) no("probe_other_class", `${name} is a ${cls} record, ${rel} holds another class`);
     if (sha(table) !== probe.policy_table_sha256) no("digest_mismatch", `${name} served ${String(probe.policy_table_sha256)}, ${rel} is ${sha(table)}`);
@@ -58,8 +64,8 @@ export function compose({ root, releaseDir, mergeCommit, tE, caBytes, probes }) 
     return checkLine({ format: FORMAT, release_dir: releaseDir, task_class: cls, policy_table_sha256: probe.policy_table_sha256, probe_record_sha256: sha(bytes),
       merge_commit: mergeCommit, t_e: tE, t_f: ca.checked_at, ca_record_sha256: sha(caBytes) });
   });
-  const missing = kata.filter((c) => lines.filter((l) => l.task_class === c).length !== 1);
-  return missing.length === 0 ? lines : no("class_not_once", `kata tables without exactly one record: ${missing.join(", ")}`);
+  const missing = [...served.keys()].filter((c) => lines.filter((l) => l.task_class === c).length !== 1);
+  return missing.length === 0 ? lines : no("class_not_once", `served kata classes without exactly one record: ${missing.join(", ")}`);
 }
 
 /** render(existing, lines) -> the new file text: existing (bytes or null) re-read, the lines added, sorted by (t_e, task_class). */
