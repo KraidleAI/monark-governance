@@ -613,7 +613,7 @@ export default function BellPage() {
                 </tr>
                 <tr>
                   <td>public key (Ed25519)</td>
-                  <td>the public half of the signing key, generated on the dedicated host</td>
+                  <td>the public half of the signing key, generated on the host that publishes the records, a MONARK host that also runs the Dōjō and a Narabi probe</td>
                   <td><span className="c-pill c-pill--built">served</span></td>
                   <td><a href={BELL_HOST + BELL_PUBKEY_PATH}>{BELL_PUBKEY_PATH}</a></td>
                 </tr>
