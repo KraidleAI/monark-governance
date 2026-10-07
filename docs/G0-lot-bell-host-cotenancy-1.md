@@ -9,6 +9,9 @@
   aucun fichier du lot n'ayant changé entre les deux). **Branche** : `recherches/bell-key-isolation`. PR brouillon vers le tronc.
 - **Statut** : G0 court, écrit avant le test rouge. Auteur : RECHERCHES, `claude-opus-5-5`, effort max ; heure lue (`date -u`)
   2026-10-07T19:29:38Z. La G2 est faite par une instance neuve, distincte de l'auteur.
+- **Pli de la G2** (pièce recherches `coordination/pieces/2026-10-07-g2-recherches/G2-244-bell-key.json`, tête lue `c09637fb`,
+  verdict CORRECTIONS : deux M, quatre m) et de la décision de MONARK `1887f64` §2 : les six constats sont pris, au §13 ; mesures
+  au §14. Même auteur, `claude-opus-5-5`, effort max ; heure lue (`date -u`) 2026-10-07T21:29:03Z, écrit avant le test rouge du pli.
 
 ## 1. Constat
 
@@ -29,11 +32,21 @@ mode est élargi, ou si un fichier plus ouvert arrive dans le dossier (la clé n
 | `test/dojo-collect-deploy.test.ts`, `test/dojo-publish-deploy.test.ts`, `test/probe-dojo-live.test.ts` | leurs ensembles fermés de directives prennent le chemin (§5) |
 | `docs/RUNBOOK-dojo.md` §18 (iv), l.1001 et l.1013 | la tâche transitoire passe le même chemin dans `"$I"`, et la phrase le dit : `dojo_runbook_jobs_carry_the_unit_properties` veut chaque propriété de la tâche égale à celle de l'unité |
 | `apps/site/app/bell/method/page.tsx` l.423, `apps/site/app/bell/page.tsx` l.616, `apps/site/lib/fleet.ts` l.352 et l.361 | volet (a), §8 |
+| **Pli** : `apps/site/lib/fleet-presentation.ts` l.130, `apps/site/app/bell/page.tsx` l.36, `apps/site/app/bell/anchors/page.tsx` l.39-41, `apps/site/app/docs/bell/page.tsx` l.60 | volet (a), les quatre « own host » restants (MONARK, `1887f64` §2.1 ; M-2), §8 |
+| **Pli** : `docs/RUNBOOK-dojo.md` §25, actes (4) et (4b), l.1487-1489, l.1493, l.1501-1503, l.1514 | le départ simulé et la preuve du courriel passent `-p InaccessiblePaths=/etc/monark/bell`, et (4) dit l'arrêt sur un hôte sans ce dossier (m-1, M-1) |
+| **Pli** : `test/probe-dojo-live.test.ts`, `dojo_probe_tree_is_the_import_closure` | chacun des deux départs simulés porte les propriétés épinglées de l'unité, le masque compris : rouge d'abord (m-1, §5) |
+| **Pli** : `deploy/monark-dojo-collect.service` l.49, `deploy/monark-dojo-publish.service` l.44-47, `deploy/monark-dojo-probe.service` l.38, `deploy/monark-probe.service` l.32 | les commentaires disent ce que chaque masque couvre et pourquoi il n'a pas de `-` (m-3) |
+| **Pli** : `test/bell-key-isolation.test.ts`, en-tête | « committed unit » ; une unité que le dépôt ne porte pas (Caddy) est hors de sa vue (m-2) |
 
-Sans `-` en tête : le dossier existe sur l'hôte. Dans `deploy/`, seules les lignes `InaccessiblePaths=` changent (consigne de MONARK,
-pour une fusion triviale avec le lot `recherches/host-address-gate`, qui touche d'autres fichiers de ce dossier). Les commentaires des
-unités ne sont donc pas repris : celui de la l.49 du collecteur ne nomme encore que le dossier de l'éditeur. Le motif est ici et dans
-l'en-tête du test.
+Sans `-` en tête : le dossier existe sur l'hôte (`docs/RUNBOOK-bell.md`, étape 3) ; ce que cela coûte sur tout autre hôte : §10.
+La première version de ce G0 ne changeait dans `deploy/` que les lignes `InaccessiblePaths=`, et en donnait pour raison une consigne
+de MONARK, pour une fusion triviale avec `recherches/host-address-gate`. Cette consigne n'existe pas (G2, m-3) : `0c3f24c` (b) dit
+seulement que, pour les deux premières unités, le chemin s'ajoute à la ligne existante ; et `recherches/host-address-gate`
+(`20653902`) ne touche, dans `deploy/`, que `Caddyfile.monark-harness` et `monark-bell-publish.service`, aucune des quatre unités.
+Le pli réécrit donc les commentaires pour qu'ils décrivent les lignes : en place, au même nombre de lignes, là où une ligne ajoutée
+déplacerait une ancre de tueur (collecteur l.50, l.52 et l.54 ; éditeur l.48, l.49 et l.52 ; sonde Narabi l.40, le masque même,
+dont le commentaire devient un membre de la phrase l.32) ; une ligne neuve au-dessus du masque de la sonde du Dōjō, dont les ancres
+(l.20, l.29) sont plus haut : le masque y passe à la l.39.
 
 ## 3. systemd.exec(5) à la version de l'hôte
 
@@ -63,7 +76,8 @@ Pour les quatre unités :
 2. `ProtectHome=true` masque `/home/`, `/root` et `/run/user` : rien de commun avec `/etc/monark/bell`.
 3. Ajouter le chemin à la ligne existante ou écrire une seconde ligne donne la même liste. Une affectation vide la viderait : le test
    lit les lignes dans l'ordre et applique cette remise à zéro.
-4. Sans `-`, un dossier absent fait échouer le démarrage (226), jamais une course sans masque.
+4. Sans `-`, un dossier absent fait échouer le démarrage (226), jamais une course sans masque. La contrepartie : les quatre unités,
+   telles que committées, ne démarrent que sur un hôte qui porte ce dossier (§10, M-1).
 5. La réserve sur les processus privilégiés ne joue pas : les quatre unités tournent sous `dojo-collect`, `dojo` et `probe`, non root,
    avec `NoNewPrivileges=true`. `CapabilityBoundingSet=~CAP_SYS_ADMIN` et `SystemCallFilter=~@mount`, que la page recommande, restent
    hors du lot.
@@ -96,6 +110,10 @@ directive des quatre unités ne nomme un chemin sous `/etc/monark/bell`. Le test
 - **Adaptés** (ils épinglent des ensembles fermés) : `dojo_collect_unit_never_loads_the_signing_key` (l.91, un tueur neuf au-dessus) et
   le `SERVICE` du collecteur ; `dojo_two_units_share_no_writable_path` (l.183 et l.188) et le `SERVICE()` de l'éditeur ; le `want` de
   `dojo_probe_units_are_hardened`. Les trois tests jugés sont rouges sur l'arbre du tronc.
+- **Adapté au pli, rouge d'abord** (m-1) : `dojo_probe_tree_is_the_import_closure` lisait les propriétés du départ simulé dans toute
+  la §25, si bien qu'un seul des deux départs pouvait les porter. Il lit désormais chaque départ simulé, (4) puis (4b), qui doit
+  porter chacune des propriétés épinglées de l'unité ; la paire `InaccessiblePaths=/etc/monark/bell` entre dans la liste. Rouge sur
+  la tête `c09637fb` par assertion, sur cette paire ; vert avec le RUNBOOK plié.
 
 ## 6. Tueurs
 
@@ -105,12 +123,21 @@ collecteur), le fichier d'environnement de la sonde du Dōjō placé sous le dos
 Au-dessus de `dojo_collect_unit_never_loads_the_signing_key` : le chemin ôté du collecteur. Les deux autres tests jugés gardent leur
 tueur, toujours ancré (les lignes visées ne bougent pas). Ancres : `verifie-ancres` et `every_killer_line_is_readable`.
 
+Au pli, deux tueurs dans le corps de `dojo_probe_tree_is_the_import_closure` :
+`// killer: docs/RUNBOOK-dojo.md:1493 CONST " -p InaccessiblePaths=/etc/monark/bell" -> ""` et le même à la l.1514. Chacun ôte le
+masque d'un seul des deux départs simulés : la lecture par départ le voit, la lecture de toute la section ne l'aurait pas vu. Les
+commentaires réécrits des unités ne déplacent aucune ancre (§2).
+
 ## 7. Preuve prévue
 
 `node scripts/red-proof.mjs --base 885554e5 --gel <tête> --draw 4 --seed 20261007` : quatre tests jugés, chacun F2P, quatre tueurs
 tirés et tués. Puis `verifie-ancres`, `test:main`, `tsc --noEmit`, eslint des fichiers touchés, `gate:vocab`, `lang:gate`,
 `lint:ratchet`, `export:check`, winlint, la construction du site et `scripts/assert-fleet-html.mjs`. R-25 sous la forme de la CI :
 de l'ordre de 110 lignes, pour une borne de 1 205.
+
+Au pli : `red-proof --base 885554e5 --gel <commit du RUNBOOK plié> --draw 4 --seed 20261007`, cinq tests jugés attendus (les quatre
+du lot, puis `dojo_probe_tree_is_the_import_closure`) ; `scripts/mutants/run.mjs --killers` sur tous les tueurs des quatre fichiers
+de test changés (47) ; puis les mêmes contrôles et portes, la construction du site et `assert-fleet-html`. R-25 : environ 135.
 
 ## 8. Volet (a) : l'hôte « dédié » borné
 
@@ -124,6 +151,24 @@ Le sens : l'hôte est un hôte de MONARK qui fait aussi tourner le Dōjō et une
   l.361 (`served.note`, rendu sur `/bell`, `/docs/bell`, l'accueil et `/applications`) : « served on its own host » devient « served
   from a MONARK host that also runs the Dōjō and a Narabi probe ».
 
+Au pli, les quatre « own host » restants (G2, M-2 ; MONARK, `1887f64` §2.1 : « La phrase doit être bornée partout dans le même lot,
+sinon le site se contredit ») :
+
+- `fleet-presentation.ts` l.130, le « What's inside » de Bell, rendu sur la même carte de `/applications` que l'act et la served note :
+  « A public timeline served on its own host, … » devient « A public timeline served from a MONARK host that also runs the Dōjō and a
+  Narabi probe, … ».
+- `/bell`, description des métadonnées (l.36) : « …, served on its own host. » devient « …, served from a MONARK host that also runs
+  the Dōjō and a Narabi probe. ».
+- `/bell/anchors` (l.39-41) : « a published Bell record is signed and chained on its own host » devient « … signed and chained on the
+  host that publishes it, a MONARK host that also runs the Dōjō and a Narabi probe », avant le lien vers `/bell#served`.
+- `/docs/bell` (l.60) : « it publishes from its own host, <a>…</a> » devient « it publishes at its own web address, <a>…</a> ». Le
+  nom servi (`https://bell.monarkgate.tech`) est bien propre à Bell, et le mot « host » n'y prend plus un autre sens qu'à la phrase
+  suivante, qui rend la served note. La G2 proposait « its own address » : « web address » écarte la lecture d'une adresse de
+  réseau, que Bell partage avec le Dōjō.
+
+Aucun test n'épingle ces phrases par leur texte ; `test/site-build-fleet.test.ts` n'est pas touché (la question de MONARK,
+`1887f64` §2.2 : le noyau de PXC-02 y change ensuite l.1092-1093).
+
 Anglais public, sans code interne, sans chiffre (porte d'honnêteté, chaînes du registre), sans nom de fournisseur. Portes :
 `gate:vocab`, `lang:gate`, `bell-method`, `bell-served`, `bell-anchors`, `ci-gates`, `site-build-fleet`, `public-surfaces-honesty`,
 `public-text-deny`, `site-honesty`, la construction du site.
@@ -135,15 +180,42 @@ MONARK redéploie les quatre unités sous Q-20 (fichiers installés depuis le G7
 en est la preuve empirique (sans `-`, un dossier absent l'aurait fait échouer). Le contrôle `c09` de `scripts/verify-dojo.mjs`
 compare les unités installées aux blobs du G7 qu'on lui donne : il se joue désormais avec le G7 de ce redéploiement.
 
-## 10. Volet (c) et hors périmètre
+## 10. Volet (c), le lien du masque à l'hôte, et hors périmètre
 
+- **Le masque lie les quatre unités à un hôte qui porte `/etc/monark/bell`** (G2, M-1). Sans `-`, une unité posée sur un hôte sans
+  ce dossier ne démarre pas : `src/core/namespace.c` de systemd v259.5 l.1853-1867 (`lstat()` en `ENOENT` sans `m->ignore` rend une
+  erreur), code 226 `EXIT_NAMESPACE` (systemd.exec(5) l.4886-4888), avant que le programme ne tourne, donc sans relevé ni courriel.
+  `docs/RUNBOOK-bell.md` ne crée ce dossier qu'à son étape 3, sur l'hôte de Bell. Or DOJO-PROBE-MIRROR-1 (item ouvert de MONARK ;
+  `docs/G1-lot-dojo-live-health-1.md` §6) pose la sonde miroir sur le serveur du site avec « le même arbre et les mêmes unités », par
+  les actes (1) à (5) de la §25, pour « aucune ligne de code ». Telle quelle, `monark-dojo-probe.service` y échouerait à chaque départ
+  du minuteur. Depuis le pli, les actes (4) et (4b) portent le même masque (m-1) : sur un tel hôte, l'acte (4) s'arrête
+  (`sim_exit=226`, aucun relevé), avant le minuteur de l'acte (5). La sonde miroir prend donc sa propre unité committée, sans ce
+  masque (le test neuf la force à être classée, avec l'hôte du site), ou un retrait du masque par un autre fichier committé ; jamais
+  un drop-in posé sur l'hôte : l'acte (3) attend `DropInPaths=` vide (`docs/RUNBOOK-dojo.md` l.1482) et proscrit `systemctl edit`.
+  Le choix revient au G0 de DOJO-PROBE-MIRROR-1. Porteur : MONARK ; déclencheur : avant DOJO-PROBE-MIRROR-1. Son prix change : la
+  ligne datée proposée pour ETAT est au §13.
 - **(c) La séparation d'hôte est une dépense** : MONARK la porte au fondateur, avec la note de recherche qui la chiffre. Elle ôtera la
-  ligne de ces unités (sans `-`, une unité posée sur un hôte sans ce dossier ne démarre pas) et la liste du test.
-- Les autres tâches transitoires des RUNBOOK (A-8 §16, `--unlock` §19, départ simulé et (4b) de la §25) ne portent pas le masque ;
-  elles tournent à la main, sous le go de l'opérateur. Non changées.
-- « its own host » reste ailleurs sur le site, hors de l'item : `apps/site/app/bell/anchors/page.tsx` l.39 (« signed and chained on its
-  own host », le plus proche du même excès), `apps/site/app/bell/page.tsx` l.36, `apps/site/app/docs/bell/page.tsx` l.60 (où l'hôte
-  est le nom servi), `apps/site/lib/fleet-presentation.ts` l.130. À juger par MONARK.
+  ligne de ces unités, qui sinon ne démarreraient pas sur un hôte sans ce dossier (ci-dessus), et la liste du test.
+- **Tâches transitoires** : A-8 (§16) et `--unlock` (§19) ne portent aucun masque, déjà avant ce lot ; elles tournent à la main, sous
+  le go de l'opérateur : non changées. Le départ simulé (4) et la preuve du courriel (4b) de la §25 portent le masque depuis le pli
+  (m-1) : l'acte (4) est la preuve du départ de l'unité avant le minuteur.
+- **Deux résidus de la co-location, hors de la lettre de l'item** (G2, m-2), chacun porté par MONARK :
+  - **Caddy** tourne sur l'hôte de Bell, exposé à Internet (il sert `bell.monarkgate.tech` et `dojo.monarkgate.tech` :
+    `deploy/Caddyfile.monark-bell` l.1-4, `deploy/Caddyfile.monark-dojo` l.1-3), par l'unité de son paquet, que le dépôt ne porte
+    pas (`docs/RUNBOOK-bell.md` l.73-80). Rien ne lui donne `InaccessiblePaths=/etc/monark/bell`, et le test, qui ne classe que les
+    unités committées, ne peut pas la voir (son en-tête le dit). Les modes protègent (dossier `700 root:root`) tant que Caddy tourne
+    sous l'utilisateur `caddy`, comme le disent les unités de publication (`deploy/monark-bell-publish.service` l.44) ; l'unité
+    réelle du paquet n'est relevée nulle part (non vérifié par la G2). Constructions : un drop-in committé de `caddy.service`, posé
+    par un acte d'hôte sous Q-20, après le relevé `systemctl cat caddy` ; ou rien jusqu'à (c). Déclencheur proposé : avec le
+    redéploiement des quatre unités (§9).
+  - **Le sens inverse** : l'unité de Bell ne masque aucun secret des autres unités (`/etc/monark/dojo`, `/etc/monark/dojo-collect`,
+    `/etc/monark/dojo-collect.env`, `/etc/monark/probe.env`, `/etc/monark/dojo-probe-smtp-pass`), alors que le collecteur et
+    l'éditeur se masquent l'un l'autre (D-5). Les modes protègent (`bell` n'est pas root). Le faire change l'ensemble fermé de
+    l'unité de Bell (`test/bell-deploy-config.test.ts` l.59 : une ligne ajoutée y rougit
+    `bell_deploy_config_publish_unit_least_privilege_offline`, H18 de la G2), ce test et les contrôles qui relèvent cette unité
+    (contrôle 11 de `scripts/verify-bell.mjs`, `c10` de `scripts/verify-dojo.mjs`). Déclencheur proposé : le prochain lot qui
+    touche l'unité de Bell, ou (c).
+- « its own host » ne reste plus nulle part sur le site après le pli (M-2, §8 ; relevé au §14).
 
 ## 11. DOJO-PROBE-UID-BOUNDARY-1 : chiffrée ici, non construite
 
@@ -156,7 +228,8 @@ sonde, et l'environnement de `monark-probe` quand elle tourne). Construction chi
   ouvert (le vérificateur lit l'hôte du Dōjō) ; `ExecStart=` la commande que la sonde lance aujourd'hui en enfant
   (`scripts/probe-dojo-live.mjs` l.183) ; le rapport dans un `RuntimeDirectory=` en `RuntimeDirectoryPreserve=yes` (sinon « always
   removed when the service stops », xml l.1727), lisible par `probe` ; l'enveloppe du vérificateur (512M, tas de 448 MiB) passe à
-  cette unité.
+  cette unité. Sur l'hôte de Bell, elle porte aussi `InaccessiblePaths=/etc/monark/bell` : le test neuf la force à être classée,
+  puis à porter le masque (pli, M-1).
 - **La sonde** : `Wants=` et `After=` vers elle, jamais `Requires=` (systemd.unit(5) v259.5 : l'unité requise en échec, avec `After=`,
   « this unit will not be started » ; un refus du vérificateur couperait alors le courriel). L'étape 4 (`runVerifier`, l.178-200,
   appelée l.221) lit le rapport, borné et récent, au lieu de lancer l'enfant ; `VERIFIER_ENV` et `VERIFIER_TIMEOUT_MS` passent à
@@ -170,12 +243,12 @@ sonde, et l'environnement de `monark-probe` quand elle tourne). Construction chi
   publication est en `Persistent=true`) ; (r3) l'uid recyclé (la page le dit) : rien ne reste hors de
   `/run` ; (r4) le secret reste sous l'uid `probe`, seul le vérificateur, qui lit des données distantes, en sort : c'est la limite que
   l'item demande ; (r5) une unité neuve entre dans l'autorisation unique du fondateur (Q-20), et la sonde miroir
-  (DOJO-PROBE-MIRROR-1) reprend les mêmes unités.
+  (DOJO-PROBE-MIRROR-1) ne reprend pas ces unités telles quelles : le masque de Bell les lie à l'hôte de Bell (§10, M-1).
 
 Non triviale (deux unités, un passage de rapport, dix tests) : elle n'entre pas dans ce lot, dont l'échéance passe d'abord. Elle
 garde son déclencheur, « avant DOJO-PROBE-MIRROR-1 ».
 
-## 12. Mesures (code à `05b38ce6`, base `885554e5`)
+## 12. Mesures avant le pli (code à `05b38ce6`, base `885554e5` ; celles du pli : §14)
 
 - **Rouge d'abord** : le test neuf seul (commit `10f13ac1`), sur les unités du tronc, échoue par assertion au point 3, sur le
   collecteur ; les points 1 et 2 passent déjà.
@@ -195,3 +268,28 @@ garde son déclencheur, « avant DOJO-PROBE-MIRROR-1 ».
 - **R-25** (forme de la CI, `docs/**/*.md` exclus) : 105 + 17 = 122 lignes, pour une borne de 1 205 ; contenu : 0.
 - **Non vérifié ici** : l'hôte (le démarrage après le redéploiement et le relevé `systemctl show`, actes de MONARK, §9). Aucun chemin
   propre à Windows : des fichiers d'unité et des tests qui les lisent.
+
+## 13. Pli de la G2 (CORRECTIONS, tête lue `c09637fb`)
+
+| Constat | Pli |
+|---|---|
+| **M-1** : sans `-`, la sonde du Dōjō ne démarre que sur un hôte qui porte `/etc/monark/bell` ; DOJO-PROBE-MIRROR-1 pose la même unité sur le serveur du site | §10 (ligne neuve, avec porteur et déclencheur), §3 point 4, §11 (unité neuve, r5) ; la §25 (4) dit l'arrêt sur un hôte sans le dossier ; ligne datée proposée ci-dessous |
+| **M-2** : quatre « own host » restent, le site se contredit | les quatre lieux, avec les formules de la G2 (§8 ; `/docs/bell` : « web address ») ; site construit, `assert-fleet-html`, relevé des pages au §14 ; `test/site-build-fleet.test.ts` non touché |
+| **m-1** : les actes (4) et (4b) se disent faits avec le bac à sable de l'unité, sans son masque | `-p InaccessiblePaths=/etc/monark/bell` aux deux `$S` (l.1493, l.1514) ; `dojo_probe_tree_is_the_import_closure` lit chaque départ simulé et porte la paire, rouge d'abord (§5) ; deux tueurs (§6) |
+| **m-2** : Caddy et le sens inverse ne sont pas nommés | §10, deux résidus, chacun avec son porteur (MONARK) et un déclencheur proposé ; l'en-tête du test dit « committed unit » et nomme l'unité de Caddy hors de sa vue |
+| **m-3** : les commentaires décrivent mal les lignes ; le §2 cite une consigne de MONARK qui n'existe pas | commentaires réécrits (collecteur l.49, éditeur l.44-47, sonde du Dōjō l.38, sonde Narabi l.32), au même nombre de lignes là où une ancre bougerait ; §2 corrigé |
+| **m-4** : le corps de la PR tait les quatre phrases et porte deux puces périmées | Summary et « Public wording » nomment les huit lieux ; « Not verified here » dit la CI lue et la revue faite, ses constats pris ; une puce dit qu'un hôte sans le dossier ne fait pas tourner ces unités telles quelles ; `prbody.mjs` jusqu'à propre |
+
+**Ligne datée proposée pour DOJO-PROBE-MIRROR-1** (à verser à `docs/ETAT.md`, fichier de MONARK : RECHERCHES ne l'écrit pas ;
+forme de l'item, sans apostrophes) :
+
+> Ligne datée (RECHERCHES, 2026-10-07 21:3x UTC ; G2 de #244, M-1, pièce recherches
+> `coordination/pieces/2026-10-07-g2-recherches/G2-244-bell-key.json` ; pli de #244, `docs/G0-lot-bell-host-cotenancy-1.md` §10) :
+> BELL-HOST-COTENANCY-1 (b) donne à `deploy/monark-dojo-probe.service` la ligne `InaccessiblePaths=/etc/monark/bell`, sans `-`, et
+> le même masque aux actes (4) et (4b) de la section 25. Sur le serveur du site, où ce dossier n existe pas (`docs/RUNBOOK-bell.md`
+> ne le crée qu à son étape 3, sur l hôte de Bell), l unité telle quelle ne démarre pas (226, `EXIT_NAMESPACE`) : chaque départ du
+> minuteur y échouerait avant la sonde, sans relevé ni courriel ; l acte (4) s y arrête avant le minuteur (`sim_exit=226`). La sonde
+> miroir ne reprend donc pas les mêmes unités, et son prix n est plus « aucune ligne de code » : une unité propre et committée, sans
+> ce masque, avec son minuteur (le test `bell_key_directory_is_inaccessible_to_every_unit_sharing_its_host` la force à être classée,
+> avec l hôte du site), ou un retrait committé du masque ; jamais un drop-in posé sur l hôte (l acte (3) attend `DropInPaths=`
+> vide). Le choix revient à son G0. Porteur, déclencheur et état inchangés.
