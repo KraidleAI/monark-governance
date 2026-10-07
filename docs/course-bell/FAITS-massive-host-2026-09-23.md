@@ -11,10 +11,10 @@ Contexte : le code de la jambe cash interroge `https://api.polygon.io` (`apps/be
 
 | hôte | HTTP | redirection | IP distante | corps |
 |---|---|---|---|---|
-| `api.polygon.io` | **401** | aucune | 198.44.194.51 | `{"status":"ERROR","request_id":"…","error":"API Key was not provided"}` |
-| `api.massive.com` | **401** | aucune | 198.44.194.211 | `{"status":"ERROR","request_id":"…","error":"API Key was not provided"}` |
+| `api.polygon.io` | **401** | aucune | adresse du fournisseur | `{"status":"ERROR","request_id":"…","error":"API Key was not provided"}` |
+| `api.massive.com` | **401** | aucune | adresse du fournisseur | `{"status":"ERROR","request_id":"…","error":"API Key was not provided"}` |
 
-Lecture : les deux hôtes servent l'endpoint (même forme d'erreur, même réseau 198.44.194.0/24) ; `api.polygon.io` n'est ni redirigé ni refusé au 2026-09-23. Aucune clé envoyée, aucune donnée de marché lue.
+Lecture : les deux hôtes servent l'endpoint (même forme d'erreur, même réseau /24) ; `api.polygon.io` n'est ni redirigé ni refusé au 2026-09-23. Aucune clé envoyée, aucune donnée de marché lue.
 
 ## 3. Ruling (décision 143)
 

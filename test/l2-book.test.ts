@@ -291,10 +291,10 @@ test("l2_book_guards_named", async () => {
   const rest = { stopped: false, suspendedUntilUs: 0, request: (): Promise<never> => {
     calls += 1;
     rest.stopped = calls === 2;
-    return Promise.reject(calls === 1 ? Object.assign(new Error("e"), { code: "via 10.0.0.1:9443" }) : new Error("e"));
+    return Promise.reject(calls === 1 ? Object.assign(new Error("e"), { code: "via 192.0.2.1:9443" }) : new Error("e"));
   } };
   const g = M.createBook({ symbol: "BTCUSDT", rest, wallUs: () => T0, monoNs: () => 0n, sleep: () => Promise.resolve(), out });
-  assert.deepEqual([g.feed(diff(1, 1), "10.0.0.1:9443"), g.switchTo("10.0.0.1:9443"), existsSync(file)], [false, false, false]);
+  assert.deepEqual([g.feed(diff(1, 1), "192.0.2.1:9443"), g.switchTo("192.0.2.1:9443"), existsSync(file)], [false, false, false]);
   g.feed(diff(1, 1), A);
   await g.idle();
   const lines = readFileSync(file, "utf8").trim().split("\n").map((l) => JSON.parse(l) as BookM.ChainEntry);
