@@ -6,7 +6,7 @@ redemption flow at finality, steps the M009 tracker, and publishes a replayable 
 and writes ONLY its state dir. This runbook **mirrors `RUNBOOK-harness.md`**; only the deltas are here.
 
 **Who runs this:** the **orchestrator**, over the same SSH channel as the harness/vitrine
-(`ssh -i ~/.ssh/monark_vps root@monarkgate.tech`). Deploy order (ADR-M012 D5): (a) harness redeploy from HEAD;
+(`ssh -i ~/.ssh/monark_vps root@monarkgate.tech`; its host key under the name once, as RUNBOOK-dojo §15 (0) does for the Bell host). Deploy order (ADR-M012 D5): (a) harness redeploy from HEAD;
 (b) sentinel; (c) **J0 = the first published window** (non_evaluable, no predecessor); the first tracker step
 is J0+1; T counts live steps.
 

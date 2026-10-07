@@ -180,7 +180,7 @@ DNS replay (G-d), then the Caddyfile in place recorded BEFORE the act (digest + 
 nslookup bell.monarkgate.tech one.one.one.one; ssh -i ~/.ssh/monark_vps root@bell.monarkgate.tech 'getent hosts bell.monarkgate.tech; sha256sum /etc/caddy/Caddyfile; cat /etc/caddy/Caddyfile' > /f/tmp/bell-dn/caddyfile-before.txt; echo exit=$?; head -1 /f/tmp/bell-dn/caddyfile-before.txt
 ```
 
-Expected: `Address: <address>` from one.one.one.one and `<address> bell.monarkgate.tech` on the host, `<address>` the Bell host's (else **STOP**: no ACME
+Expected: `Address: <address>` from one.one.one.one and `<address> bell.monarkgate.tech` on the host, `<address>` the Bell host's address, from the operator's own records or the provider panel, never from this tree (else **STOP**: no ACME
 without the A record); the recorded file. **Classification on this piece**: the package default only (one `:80` block with
 `root * /usr/share/caddy` and `file_server`, comments otherwise; measured 17:0x UTC: 21 lines, no other site) => **REPLACE mode**
 (below). Any other site in the file => IMPORT mode (at the end of this step), never an edit of those sites.

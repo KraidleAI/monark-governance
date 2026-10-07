@@ -16,7 +16,7 @@ on this host, `*:0/5`, `AccuracySec` default 1 min; FAITS-SYSTEMD-CRED-1; FAITS-
 (l.417-429, the repair after SIGKILL: the precedent of section 9); constants `scripts/dojo-deploy.mjs`; pins `test/dojo-collect-deploy.test.ts`.
 
 **Who and when.** The orchestrator, from its own machine (Git Bash), over SSH to the Bell host with the deploy key
-(`ssh -i ~/.ssh/monark_vps root@bell.monarkgate.tech`), and **only under the investor's grouped go on the closed list A-1 to A-11**
+(`ssh -i ~/.ssh/monark_vps root@bell.monarkgate.tech`; its host key under the name once, section 15 (0)), and **only under the investor's grouped go on the closed list A-1 to A-11**
 (ADR D-3, dated line C-V-4). Before the grouped go: FAITS-JOURNALCTL-1 (the message forms of systemd 259 that section 6 counts, read
 on this host; dated line 14:13Z, Q-12). At the first host act: DOJO-UNIT-OFFLINE-ORACLE-1. Before A-4: HELIUS-CREDIT-RECONCILE-1.
 Before A-5: DOJO-COLLECT-SIGTERM-UNLOCK-1 (carried by DRAND-RELAY-GET-1b: on SIGTERM `collect.ts` releases the locks of the course in
@@ -543,11 +543,11 @@ the first publication. Rollback: none (read-only; the capture directory on the h
 The host is named `bell.monarkgate.tech` here (its A record, RUNBOOK-bell step 7), never by its address, and only once (0) has put its
 SSH host key under that name (C-2 of the G2 of part 3; open question Q-5 of the G1 journal of PR-3b-2b-1).
 
-(0) The SSH host key under the name, ONCE, before the first command that names the host (this section, section 21, section 22 (3), the
-REPLACE → IMPORT procedure of RUNBOOK-bell step 7): the ED25519 key the name answers with, read by `ssh-keyscan`, is compared to the key
-already known for the address of section 1, and that KNOWN entry is copied under the name only if the two fingerprints are equal; never
-`StrictHostKeyChecking=no` nor `accept-new`, never a key taken from the scan. `<address>` is the host address of the target of section 1,
-written in its place before the command runs (left as is, no entry is found and the command prints `STOP`):
+(0) The SSH host key under the name, ONCE, before the first command by the name in any runbook (from section 1 here, and RUNBOOK-bell; for `monarkgate.tech`, the same
+step with `N=monarkgate.tech` comes before RUNBOOK-harness, -sentinel and -vitrine): the ED25519 key the name answers with, read by `ssh-keyscan`, is compared to the
+key already known for the host's address, and that KNOWN entry is copied under the name only if the two fingerprints are equal; never `StrictHostKeyChecking=no` nor
+`accept-new`, never a key taken from the scan. `<address>` is the address under which the operator's own `known_hosts` holds that key (the operator's records or the
+provider panel, never this tree), written in its place before the command runs (left as is, or wrong, no entry is found and the command prints `STOP`):
 
 ```bash
 K=~/.ssh/known_hosts && N=bell.monarkgate.tech && ! ssh-keygen -F "$N" -f "$K" > /dev/null &&
