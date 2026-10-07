@@ -13,7 +13,7 @@ import { createHash } from "node:crypto";
 import { readdirSync, readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
-import { sha256Canonical, type ClassEntry, type PolicyRow, type Prediction } from "@monark/contracts";
+import { canonicalJson, sha256Canonical, type ClassEntry, type PolicyRow, type PolicyTable, type Prediction } from "@monark/contracts";
 import * as gate from "../src/tools/gate.ts";
 import { CASCADE_UNCALIBRATED_SENTENCE, GATE_TOOL_DESCRIPTION, honestyText, runGate, toolErrorCode, type HarnessParams } from "../src/tools/gate.ts";
 import { handleJsonMirror } from "../src/http.ts";
@@ -22,6 +22,12 @@ import { kataClassEntries } from "../src/policy-classes.ts";
 import * as classes from "../src/policy-classes.ts";
 import * as kataPathModule from "../src/kata-path.ts";
 import type { ServedTable } from "../src/policy-served.ts";
+import { readCommittedTables } from "../src/policy-committed.ts";
+import * as PINS from "../src/policy-committed-pins.ts";
+import { guardKataTable } from "../src/policy-guard.ts";
+import { projectCell, readRegistry, type ProjectionInputs } from "../src/policy-projection.ts";
+import { buildPolicyTable, policyTableSha256 } from "../src/policy-table-file.ts";
+import { syntheticRegistry } from "./helpers/synthetic-registry.ts";
 
 type Obj = Record<string, unknown>;
 const T = Date.parse("2026-10-04T04:00:00Z");
@@ -39,6 +45,13 @@ const bare = (p: Prediction): Prediction => {
 };
 const sha = (s: string): string => createHash("sha256").update(Buffer.from(s, "utf8")).digest("hex");
 const SUFFIX = "; B_t is caller-carried.";
+const SYN = syntheticRegistry();
+const INP: ProjectionInputs = {
+  registryFile: "synthetic.json", registrySha256: SYN.sha256, generator: "synthetic-generator",
+  attestation: () => ({ verifier: "verifier-b", report_sha256: "cd".repeat(32) }), text: (rule) => `text of ${rule}`,
+};
+/** The rows of a class projected from the synthetic registry (closed rows, as the writer projects them). */
+const rowsOf = (c: string): PolicyRow[] => readRegistry(SYN.bytes).filter((x) => x.taskClass === c).map((x) => projectCell(x, INP)).filter((r) => r !== null);
 
 async function http(prediction: Prediction, params: HarnessParams, now = T + 1000): Promise<{ status: number; body: Obj }> {
   const res = await handleJsonMirror(new Request("http://api.monarkgate.tech/gate", { method: "POST", body: JSON.stringify({ prediction, params }) }), () => now);
@@ -220,11 +233,18 @@ test("entry_points_never_pass_policy_tables", () => {
   assert.deepEqual(naming, ["tools/gate.ts"], "only tools/gate.ts names the seam");
 });
 
-/** A served kata table with one current row on DIR_KEY/up-b1 (the cell of pred(), lean 0.3), through the test seam. */
+/** A served kata table with one current row on DIR_KEY/up-b1 (the cell of pred(), lean 0.3), through the test seam: a closed
+ *  row (a projected synthetic row, rekeyed), its table built by buildPolicyTable, and its policy_table_sha256 read from it. */
 function withRow(status: string): ServedTable[] {
   const base = (((gate as Obj)["SERVED_POLICY_TABLES"] as readonly ServedTable[] | undefined) ?? []).find((t) => t.task_class === "btc-dir-1h") ?? assert.fail("btc-dir-1h is served");
-  const row = { current: true, cell_key: `${DIR_KEY}/up-b1`, thresholds: { t1: "0.5", t2: "0.8" }, status, statement: "per-calibration", alpha: "0.45", n: 20, scores_sha256: "cd".repeat(32), side: "up", text: `row text of ${status}` } as unknown as PolicyRow;
-  return [{ ...base, table: { ...base.table, rows: [row] } }];
+  const syn = rowsOf("btc-dir-1h").find((r) => r.bucket === "up-b1") ?? assert.fail("a synthetic btc-dir-1h up-b1 row");
+  const row: PolicyRow = {
+    ...syn, cell_key: `${DIR_KEY}/up-b1`, kata_id: "vote4", venue: "venue", thresholds: { t1: "0.5", t2: "0.8" }, status, statement: "per-calibration", alpha: "0.45", n: 20,
+    scores_sha256: "cd".repeat(32), text: `row text of ${status}`, ...(status === "region" ? {} : { miss_bound: null, bound_on: null }),
+    retire: status === "retired" ? { cause: "test", k_test: null, n_test: null, u_test: null } : null,
+  } as PolicyRow;
+  const table = buildPolicyTable(base.table.class, [row]);
+  return [{ task_class: "btc-dir-1h", table, policy_table_sha256: policyTableSha256(table) }];
 }
 
 // Test T-16 (block D, lot D-3; C-4 condition 3, the end-to-end form): through the seam, a calib_* row of a dir class (silence,
@@ -245,19 +265,87 @@ test("served_calib_row_abstains_never_defers", () => {
   assert.equal(text("btc-dir-1h", `${DIR_KEY}/up-b1`, false), `no btc-dir-1h calibration is committed for this cell_key; the gate abstains and serves no region${SUFFIX}`, "served: the class text");
 });
 
-// Test (block D, lot D-3; G2 N-6 of D-2): the tripwire of KATA-CLAUSE-COMMITTED-STATE-1. The kata clause describes kata tables
-// with no row, so the served table build fails on a kata table that holds a row; the served tables pass, unchanged, and so
-// does a marginal table with rows (USDe).
-// killer: apps/harness/src/kata-path.ts:126 CONST "t.table.rows.length > 0" -> "false"
-test("kata_tables_hold_no_row_tripwire", () => {
-  const trip = (kataPathModule as Obj)["kataTablesHoldNoRow"];
+// Test (E-2a; block D, lot D-3, G2 N-6 of D-2): the tripwire of KATA-CLAUSE-COMMITTED-STATE-1 follows the pins. The kata tables
+// that hold rows are exactly the pinned classes, each at its pinned sha256, and no held class holds a row: the served tables pass
+// with the served pins (empty), a marginal table with rows passes, and a kata row outside the pins, a pinned class with no row
+// or another sha256, or a held class with a row (even pinned), fails the load. The served build passes through it, at line 1042.
+// killer: apps/harness/src/kata-path.ts:125 CONST "held.some((c) => rows(c) > 0)" -> "false"
+test("kata_tables_match_the_pins", () => {
+  const trip = (kataPathModule as Obj)["kataTablesMatchPins"];
   assert.ok(typeof trip === "function", "kata-path.ts exports the tripwire");
-  const check = trip as (t: readonly ServedTable[]) => readonly ServedTable[];
+  const check = trip as (t: readonly ServedTable[], committed: Readonly<Record<string, string>>, held: readonly string[]) => readonly ServedTable[];
   const all = ((gate as Obj)["SERVED_POLICY_TABLES"] as readonly ServedTable[] | undefined) ?? [];
-  assert.equal(check(all), all, "the served tables pass, unchanged");
+  const HELD = [...PINS.FLOOR_HELD_CLASSES, ...PINS.ORDER_HELD_CLASSES];
+  assert.deepEqual(PINS.COMMITTED_TABLES, {}, "no table is pinned before the release of the bands: no kata row is served");
+  assert.ok(all.every((t) => t.table.class.cell_key_rule !== "kata-bucket" || t.table.rows.length === 0), "every served kata table is empty");
+  assert.equal(check(all, PINS.COMMITTED_TABLES, HELD), all, "the served tables pass, unchanged");
   assert.ok(all.some((t) => t.table.class.cell_key_rule !== "kata-bucket" && t.table.rows.length > 0), "a marginal table with rows passes");
-  assert.throws(() => check([...all.filter((t) => t.task_class !== "btc-dir-1h"), ...withRow("region")]), /KATA-CLAUSE-COMMITTED-STATE-1.*'btc-dir-1h'/);
-  assert.ok(readFileSync(join(SRC, "tools/gate.ts"), "utf8").includes("= kataTablesHoldNoRow(servedPolicyTables(SERVED_TABLE_TEXTS));"), "the served build passes the tripwire");
+  const seam = [...all.filter((t) => t.task_class !== "btc-dir-1h"), ...withRow("region")];
+  const pin = { "btc-dir-1h": withRow("region")[0]?.policy_table_sha256 ?? "" };
+  assert.equal(check(seam, pin, ["eth-dir-1h"]), seam, "a pinned class at its sha256 passes");
+  assert.throws(() => check(seam, {}, []), /KATA-CLAUSE-COMMITTED-STATE-1: the kata tables with rows are not the pinned tables: btc-dir-1h$/, "a row outside the pins");
+  assert.throws(() => check(seam, { "btc-dir-1h": withRow("silence")[0]?.policy_table_sha256 ?? "" }, []), /not the pinned tables: btc-dir-1h$/, "another sha256");
+  const empty = all.find((t) => t.task_class === "eth-dir-1h") ?? assert.fail("eth-dir-1h is served");
+  assert.throws(() => check(seam, { ...pin, "eth-dir-1h": empty.policy_table_sha256 }, []), /not the pinned tables: eth-dir-1h$/, "a pinned class with no row, even at its sha256");
+  assert.throws(() => check(seam, { ...pin, "btc-dir-2h": "ab".repeat(32) }, []), /not the pinned tables: btc-dir-2h$/, "a pin that is no served kata class");
+  assert.throws(() => check(seam, pin, ["btc-dir-1h"]), /KATA-CLAUSE-COMMITTED-STATE-1: a held class holds rows: btc-dir-1h$/, "a held class with a row, though pinned");
+  const d = runGate(pred(), P_DIR, undefined, { nowMs: T + 1000, policyTables: check(seam, pin, []) });
+  const row = withRow("region")[0]?.table.rows[0] ?? assert.fail("the pinned row");
+  assert.deepEqual([d.verdict.policy_table_sha256, d.verdict.policy_row_sha256], [pin["btc-dir-1h"], sha256Canonical(row)], "the verdict carries the pinned table and its row");
+  const HELD_TEXT = "[...FLOOR_HELD_CLASSES, ...ORDER_HELD_CLASSES]", line1042 = readFileSync(join(SRC, "tools/gate.ts"), "utf8").split("\n")[1041];
+  assert.equal(line1042, `export const SERVED_POLICY_TABLES = kataTablesMatchPins(servedPolicyTables(SERVED_TABLE_TEXTS, readCommittedTables(COMMITTED_FILES, kataClassEntries(kataClassText), { tables: COMMITTED_TABLES, held: ${HELD_TEXT} })), COMMITTED_TABLES, ${HELD_TEXT});`, "line 1042: the served build reads the committed tables against the pins and both held lists, then passes the tripwire");
+});
+
+// Test (E-2a; the invariant "no kata row is served before the release of the bands"): while no table is pinned
+// (COMMITTED_TABLES empty, until that release), the tripwire refuses every kata table that holds a row, whatever its class or
+// rule and whether or not it is held, so the served kata tables are all empty.
+// killer: apps/harness/src/kata-path.ts:127 CONST "off.length > 0" -> "false"
+test("no_kata_row_is_served_while_no_table_is_pinned", () => {
+  const trip = (kataPathModule as Obj)["kataTablesMatchPins"];
+  assert.ok(typeof trip === "function", "kata-path.ts exports the tripwire on the pins");
+  const check = trip as (t: readonly ServedTable[], committed: Readonly<Record<string, string>>, held: readonly string[]) => readonly ServedTable[];
+  assert.deepEqual(PINS.COMMITTED_TABLES, {}, "no table is pinned");
+  const all = ((gate as Obj)["SERVED_POLICY_TABLES"] as readonly ServedTable[] | undefined) ?? [];
+  const kata = all.filter((t) => t.table.class.cell_key_rule === "kata-bucket");
+  assert.deepEqual([kata.length, kata.filter((t) => t.table.rows.length > 0).length], [32, 0], "the 32 served kata tables are empty");
+  for (const c of ["btc-range-1h", "btc-mae-down-1h"]) {
+    const e = kata.find((t) => t.task_class === c) ?? assert.fail(c);
+    const table = buildPolicyTable(e.table.class, rowsOf(c));
+    const one: ServedTable = { task_class: c, table, policy_table_sha256: policyTableSha256(table) };
+    assert.throws(() => check([...all.filter((t) => t.task_class !== c), one], PINS.COMMITTED_TABLES, []), new RegExp(`not the pinned tables: ${c}$`), `${c}: a band row, no pin`);
+  }
+  assert.throws(() => check([...all.filter((t) => t.task_class !== "btc-dir-1h"), ...withRow("region")], PINS.COMMITTED_TABLES, []), /not the pinned tables: btc-dir-1h$/, "a direction row, not held, no pin");
+});
+
+// Test T-4 (E-2a): committed tables reach the gate through the seam. Two synthetic band tables (btc-range-1h, btc-mae-down-1h),
+// projected, admitted by the import guard, written canonically and pinned beside the real held lists, are read by
+// readCommittedTables and served by servedPolicyTables: a silence cell abstains calib_silence with no region, a region cell
+// commits with its band, each verdict carries its row and the sha256 of its file, and the honesty text is the row text.
+// killer: apps/harness/src/kata-path.ts:118 CONST "committed.get(c.task_class) ?? buildPolicyTable(c, [])" -> "buildPolicyTable(c, [])"
+test("committed_tables_reach_the_gate_through_the_seam", () => {
+  const entries = kataClassEntries(gate.kataClassText);
+  const files = new Map(["btc-range-1h", "btc-mae-down-1h"].map((c) => {
+    const e = entries.find((x) => x.task_class === c) ?? assert.fail(c);
+    const t = buildPolicyTable(e, rowsOf(c));
+    guardKataTable(t, SYN.bytes, { ...INP, verifiers: ["verifier-b", "synthetic-generator"] }, e);
+    return [c, new TextEncoder().encode(canonicalJson(t))] as const;
+  }));
+  const pins = { tables: Object.fromEntries([...files].map(([c, b]) => [c, createHash("sha256").update(b).digest("hex")])), held: [...PINS.FLOOR_HELD_CLASSES, ...PINS.ORDER_HELD_CLASSES] };
+  const serve: (texts: typeof gate.SERVED_TABLE_TEXTS, committed: ReadonlyMap<string, PolicyTable>) => readonly ServedTable[] = kataPathModule.servedPolicyTables;
+  const match = (kataPathModule as Obj)["kataTablesMatchPins"];
+  assert.ok(typeof match === "function", "kata-path.ts exports the tripwire on the pins");
+  const tables = (match as (t: readonly ServedTable[], c: Readonly<Record<string, string>>, h: readonly string[]) => readonly ServedTable[])(serve(gate.SERVED_TABLE_TEXTS, readCommittedTables(files, entries, pins)), pins.tables, pins.held);
+  const decide = (c: string, key: string): unknown[] => {
+    const row = rowsOf(c).find((r) => r.cell_key === `${key}/b0`) ?? assert.fail(key);
+    const d = runGate(band({ task_class: c, predictor_id: key, produced_at: "2026-10-04T04:00:00Z", yhat: 0.01 }), P_BAND, undefined, { nowMs: T + 1000, policyTables: tables });
+    return [d.action, d.verdict.reason, d.verdict.region?.kind ?? null, d.verdict.qhat, d.verdict.policy_row_sha256 === sha256Canonical(row), d.verdict.policy_table_sha256 === pins.tables[c]];
+  };
+  const RANGE = "kata:realized-vol-hw-v1@binance/BTCUSDT/1h", MAE = "kata:parkinson-hw-v1@binance/BTCUSDT/1h";
+  assert.deepEqual(decide("btc-range-1h", RANGE), ["abstain", "calib_silence", null, null, true, true]);
+  const region = rowsOf("btc-mae-down-1h").find((r) => r.status === "region") ?? assert.fail("a region row");
+  assert.deepEqual(decide("btc-mae-down-1h", MAE), ["commit", "covered", "interval", region.qhat, true, true]);
+  const text: (c: string, k: string, byo: boolean, tables?: readonly ServedTable[]) => string = honestyText;
+  assert.equal(text("btc-mae-down-1h", `${MAE}/b0`, false, tables), `${region.text}${SUFFIX}`, "the row text, from the committed file");
 });
 
 // Test (block D, lot D-3; G2 N-5 of D-2): the kata clause reads every value it states: the class names from the entries (a
