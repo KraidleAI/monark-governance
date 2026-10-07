@@ -69,5 +69,8 @@ décisions de MONARK `bb993d5` (E-2a, items 2 et 4 : voie (b), une classe et sa 
 
 ## Preuves
 
-- `node scripts/red-proof.mjs --base 1cddd2e5 --gel <worktree> --repo <worktree> --draw 4 --seed 15` : voir le corps de la PR.
-- R-25 : 3 fichiers hors `docs/**/*.md`, voir le corps de la PR.
+- `node scripts/red-proof.mjs --base 1cddd2e5 --gel HEAD --repo <worktree> --draw 4 --seed 15` (Node v24.21.0, Linux) : sortie 0,
+  « 4 judged, 0 unchanged, 4 killer(s) drawn » ; les quatre tests `new-module`, les quatre tueurs tués.
+- Voisins : `ci-gates`, `r25-integration`, `spec-1-1-0-release`, `spec-publish`, `export-public` (hors test 42), `killer-lines` et ce
+  fichier, 171 sur 171. tsc, eslint, lang-gate, grep-forbidden, lint-ratchet (69/69), export-public `--check`, winlint : 0.
+- R-25 : 3 fichiers, +217 hors `docs/**/*.md`.
