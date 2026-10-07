@@ -11,6 +11,8 @@
   neuve ; contrôle par diff, fusion et ligne d'ETAT : MONARK. Versé au tronc par #242, fusion `1df4e44f` (ETAT l.181-186 à `5437cd0d`) ;
   décisions de MONARK pliées le 2026-10-07 (PR `paroxysme/registres-decisions-1007`), à partir de 19:56 UTC, par un worker de
   PAROXYSME (`claude-opus-5-5`, effort max), sur ETAT à `5437cd0d` et le message `d6331f6` (MSG) (§8) ; relecture : PAROXYSME, puis MONARK.
+  Constat 9 de la G2 de ce pli (instance neuve) plié le 2026-10-07 à partir de 21:41 UTC (`date -u`) par un worker de PAROXYSME
+  (`claude-opus-5-5`, effort max, contexte de sa mission), avec le message `8eb9a46` de MONARK (MSG2) (§8) : §1, N-06 à N-08, doute 15, §8.
 - **Bases** : inventaire mesuré à `d8fe354c`, qui y lit aussi ETAT (empreinte `2ef6f107…`, INV-S l.19), et non à `57a131fc` comme ceux
   du Harnais et du Moteur. Toutes les ancres du tronc sont à la base `87b821b0` de `lot/etude-suite` (tête relue par `git ls-remote` le
   2026-10-07 à 17:07 UTC, message `d4b3d07` l.16-17). Le tronc a avancé depuis par les fusions #241 et #235, jusqu'à `eb1beb01`
@@ -86,6 +88,10 @@
 
 - Aucune dette : toutes les entrées ouvertes des §2 et §3 portent un item, un porteur et un déclencheur ; le contrôle est mécanique
   (§7, doute 10).
+- **À dater** (porteur : MONARK) : le port au fondateur des échéances de N-06, N-07 et N-08 (ETAT l.274-276 à `5437cd0d` ;
+  MSG l.77-78) est écrit sans date (§7, doute 15). Échéance demandée avec la demande de fusion de ce pli (PR
+  `paroxysme/registres-decisions-1007`), sur le modèle de MSG2 l.6-7 : le prochain point d'étape de MONARK avec le fondateur. N-06,
+  N-07 et N-08 gardent leur item, leur porteur et leur déclencheur.
 - Les six limites côté MONARK que l'inventaire compte « sans item » (part MONARK de N-03, N-05, N-12, N-13, N-14, N-15 ; INV-S l.236)
   ont un chantier : PXC-08, PXC-01, PXC-05, PXC-08 et PXC-16, PXC-02, PXC-01. Les douze côté Shōgen (L-37, L-38, L-40, L-42, L-43, L-45,
   L-47, L-48, L-49, L-52, L-53, S-05 ; INV-S l.237) ont pour item une demande au mainteneur, à former par PXC-01 partie 2 (F3) et
@@ -335,20 +341,20 @@
     touche : aucune · nature : C/P
   item : PXC-08 SHOGEN-SEAM-1, volet sous acte (manifeste de release, CC l.292) ; MONARK-SHOGEN-FIXTURE-MANIFESTE-1 (ANB l.147) · porteur :
     PAROXYSME ; visibilité du dépôt Shōgen : le fondateur · déclencheur : la clôture de S3 et le passage public du dépôt Shōgen (PLAN l.892) ;
-    échéance à porter au fondateur par MONARK (ETAT l.274-276 à `5437cd0d` ; PLAN l.882, l.892 ; §7, doute 15)
+    échéance à porter au fondateur par MONARK (ETAT l.274-276 à `5437cd0d` ; PLAN l.882, l.892 ; §7, doute 15 ; port à dater : §1)
   état : ouvert (nouvelle : lot E1, T-04) · suite : l'acte n'a pas d'échéance écrite ; voisin de L-53
 - **N-07** · « Identifiants de résidus servis non résolus dans un registre publié : le 08 vit dans un dépôt privé. »
   source : `apps/site/data/harness-served.json:121` ; CARTO §4 G8 · touche : `README.md:251` ; `apps/site/components/shogen-panel.tsx:66-68` · nature : C/Dr
   item : PXC-08 SHOGEN-SEAM-1, volet sous acte (registre des résidus, ou glossaire, CC l.292-293) ; MONARK-SHOGEN-REGISTRE-1 (ANB l.149)
     · porteur : PAROXYSME ; visibilité : le fondateur · déclencheur : passage public du dépôt Shōgen (PLAN l.892), ou réponse sur le glossaire ;
-    échéance à porter au fondateur par MONARK (ETAT l.274-276 à `5437cd0d` ; PLAN l.882, l.892 ; §7, doute 15)
+    échéance à porter au fondateur par MONARK (ETAT l.274-276 à `5437cd0d` ; PLAN l.882, l.892 ; §7, doute 15 ; port à dater : §1)
   état : ouvert (nouvelle : CARTO-MK-10) · suite : un glossaire côté MONARK serait-il une revendication neuve ? (INV-S l.278)
 - **N-08** · « Aucune sortie S2 servie : l'arête G9 (`docs/11` de Shōgen vers MONARK) est absente. »
   source : ADR-0028 l.238-248 (« État du tuyau : absent ») ; PASS l.15 (S2 à la partie 2) · touche : `apps/site/lib/shogen-copy.ts:9-10` ;
     `README.md:104` · nature : C/D
   item : PXC-08 SHOGEN-SEAM-1, volet G9 (test `shogen_s2_report_offline_recompute_matches_published`) ; SHOGEN-S2-TUYAU-MONARK-1 (ANB l.59)
     · porteur : PAROXYSME ; S2 : mainteneur Shōgen ; J14/J28 : le fondateur · déclencheur : G0 du lot G9, après S2 parties 2 à 4 et la
-    publication (PLAN l.892) ; échéance à porter au fondateur par MONARK (ETAT l.274-276 à `5437cd0d` ; PLAN l.882, l.892 ; §7, doute 15)
+    publication (PLAN l.892) ; échéance à porter au fondateur par MONARK (ETAT l.274-276 à `5437cd0d` ; PLAN l.882, l.892 ; §7, doute 15 ; port à dater : §1)
   état : ouvert (nouvelle, ADR-0028 §3) · suite : G9 est l'autre jalon de fin de l'exception (N-16)
 - **N-09** · « Lecture intermédiaire de statistiques S2 par MONARK (`measure-m009a`, instantané du 18/09) non mesurée. »
   source : `scripts/measure-m009a.mjs` ; `docs/measure-M009a.md:5-7` ; `docs/adr/ADR-M002-phase1-moteurs-hikae-ukemi.md:161` ; ANNEXE-D
@@ -651,11 +657,14 @@ hors `tls_unattested` et `source_unattested`). Aucune limite neuve à la tête p
    G9, l'un des deux jalons de fin de l'exception) n'ont pas d'échéance : PLAN l.892 n'en donne qu'à Q-7 et au Dōjō, alors que PLAN l.882
    en exige une par ligne (CX-24 (c)). **Décision de MONARK** : il porte ces échéances au fondateur (ETAT l.274-276 à `5437cd0d`), la
    visibilité d'un dépôt étant hors de sa délégation (MSG l.77-78) ; elles restent sans date tant que le fondateur ne les a pas fixées.
+   Le port lui-même est écrit sans date (ETAT l.274-276 à `5437cd0d` ; MSG l.77-78), alors que HOST-HARNESS-PREV-1, du même bloc
+   (ETAT l.274-275 à `5437cd0d`), a reçu la sienne (MSG2 l.6-7) : il est au §1, à dater par MONARK (échéance demandée avec la demande
+   de fusion de ce pli : son prochain point d'étape avec le fondateur).
 
 ## 8. Ligne PAROXYSME et sources
 
-**Ligne PAROXYSME (2026-10-07, décisions de MONARK pliées, 20:1x UTC).** Shōgen : 74 limites ouvertes (35 du 2026-09-27, dont 3 changées
-au sens de l'inventaire ; 15 nouvelles côté MONARK ; 24 nouvelles côté Shōgen) et 2 closes (L-36 ; N-11, par le versement, ETAT l.184 à
+**Ligne PAROXYSME (2026-10-07, décisions de MONARK pliées, 20:1x UTC ; constat 9 de la G2 plié, 21:4x UTC).** Shōgen : 74 limites ouvertes (35 du 2026-09-27,
+dont 3 changées au sens de l'inventaire ; 15 nouvelles côté MONARK ; 24 nouvelles côté Shōgen) et 2 closes (L-36 ; N-11, par le versement, ETAT l.184 à
 `5437cd0d`). ⚑B : aucune marquée par l'inventaire ; l'écart de branchement de la pièce est l'exception datée en cours (N-16 ; fin au
 premier de G2 et de G9). Limites neuves à ETAT : 0 (§5). Aucune dette : le déclencheur de L-41 et du volet G4 de L-03 est re-formé (ETAT
 l.256 à `5437cd0d`). Douze limites côté Shōgen n'ont pour item qu'une demande au mainteneur, à former par PXC-01 partie 2 (F3) et
@@ -663,11 +672,12 @@ envoyée par MONARK (MSG l.72) : aucune dette au sens de la convention CC §4.1,
 mainteneur n'en forme pas. Campagnes : C3 à C8 non lancées, C7 après l'exécution unique S2 (INV-S l.203-207). Procurement attendu :
 Agresti, 3ᵉ éd., ISBN 978-0-470-46363-5 (L-23). Toutes les entrées ouvertes ont leur item, leur porteur et leur déclencheur. Restent
 ouverts : à la G2 de PXC-01 partie 2, la lecture de CC pour C7 et C8 et le routage de L-50 (MSG l.75 ; §7, doute 14) ; au fondateur,
-par MONARK, la décision de forme G5 et les échéances de N-06, N-07 et N-08 (ETAT l.274-276 à `5437cd0d` ; §7, doutes 13 et 15).
+par MONARK, la décision de forme G5 et les échéances de N-06, N-07 et N-08 (ETAT l.274-276 à `5437cd0d` ; §7, doutes 13 et 15) ;
+à MONARK, la date de ce port pour N-06, N-07 et N-08, demandée avec la demande de fusion de ce pli (§1).
 
 Fichiers du tronc lus à `87b821b0` (`git show 87b821b0:<f> | sha256sum`) ; fichiers de la boîte PAROXYSME lus à son commit `150c997`
 (`sha256sum`). Pour le pli des décisions : ETAT lu aussi à `5437cd0d` (`git show 5437cd0d:docs/ETAT.md | sha256sum`), MSG à son
-commit `d6331f6` (`git show d6331f6:<f> | sha256sum`).
+commit `d6331f6` (`git show d6331f6:<f> | sha256sum`). Pour le constat 9 de la G2 : MSG2 à son commit `8eb9a46` (même commande).
 
 | Source | Lignes | sha256 |
 |---|---|---|
@@ -714,6 +724,7 @@ commit `d6331f6` (`git show d6331f6:<f> | sha256sum`).
 | accusé `4bbf3ed`, même dossier, `…-accuse-de-lecture.md` | 165 | `14bd79df013cd37460f88becd27f78138a3b5a75d97bfabd869fba9729429dbb` |
 | message `da72328`, même dossier, `…-reponses-accuse.md` | 47 | `71401dcd0f0230d8af79c90596b4f10a49ff2be91551b1e87885519bdd2b0448` |
 | MSG, message `d6331f6`, même dossier, `…-tache1-fusionnee-decisions.md` | 90 | `03f305908703f119cc82c7b9f0a29684f720c0eab0997514c019fe068b64306a` |
+| MSG2, message `8eb9a46`, même dossier, `…-host-prev-date.md` | 11 | `620ac327b3acf49cd472a5340e4ea53a4b287d265dac9489ea639e58ad2c30e4` |
 | ordre de mission n° 1, même dossier, `…-ordre-de-mission-1.md` | 95 | `2e8cfd33c12de9d27b673c377e72a9a43da5dcb05c24e0094e744b7f3933c102` |
 | `reanchor.mjs` à `a55a62d`, `coordination/pieces/2026-10-07-registres/` | 69 | `2edae6398e35a39d750cca2951cf4349380971066acb23bd1dbe965d9f88ca4b` |
 | `verify-registres.mjs` à `d97d838`, même dossier | 127 | `6d71141222d2c32b995cd30e11335501e7021f4b2c7a38fb25053a61efe8712b` |
