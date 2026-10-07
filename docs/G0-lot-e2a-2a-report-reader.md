@@ -124,18 +124,21 @@ a1) porte trois contrôles sur le rapport réel ; la G2 de RECHERCHES les relit.
 
 ## 6. Preuves
 
-- **red-proof**, tête du lot contre la tête de 1f : `node scripts/red-proof.mjs --base b894a587048f162e77d16e0936446a6885c1c966
-  --gel <worktree> --repo <worktree> --out <dossier> --draw 4 --seed 1007`, Node 24.21.0, Linux : sortie 0, « red-proof OK: 4 judged,
-  0 unchanged, 4 killer(s) drawn » ; quatre F2P (rouges à la base par l'assertion d'import, verts au gel), quatre tueurs tués.
-  `RED-PROOF.json` sha256 `2097d83eea6681809d25f1a24a3ef5fd28becd6520e4a96fc79b6b79f3901e23` (sur l'arbre de travail avant ce G0 ; les
-  `docs/**/*.md` sont hors du digest).
-- **Voisins** et portes : §6.1, rempli au gel.
+- **red-proof**, tête du lot (`d33e40df`) contre la tête de 1f : `node scripts/red-proof.mjs --base
+  b894a587048f162e77d16e0936446a6885c1c966 --gel HEAD --repo <worktree> --out <dossier> --draw 4 --seed 1007`, Node 24.21.0, Linux :
+  sortie 0, « red-proof OK: 4 judged, 0 unchanged, 4 killer(s) drawn » ; quatre F2P (rouges à la base par l'assertion d'import, verts au
+  gel), quatre tueurs tués ; `RED-PROOF.json` sha256 `91fb19eaed2b5425777dce400b76242340d6d8750fe44c6230736bc0a71b8772`.
+- **Voisins** (Node 24.21.0) : `recompute-report`, `verifiers-list`, `kata-recalc`, `spec-*`, `byte-guard`, `ci-gates`,
+  `export-public`, `lang-gate*`, `short-digest-floor`, `policy-guard` : 171 tests, 170 verts ; le seul rouge est le témoin hérité de 1f.
+  Suite `test:main` complète (Linux) : 2 844 tests, 2 821 verts, 22 sautés, un rouge, le même témoin.
+- `tsc --noEmit` 0 ; `eslint` des deux fichiers TypeScript 0 ; `lang:gate` 0 (un « é » de test, premier jet, écrit `\u2603`) ;
+  `gate:vocab` 0 (349 fichiers) ; `lint:ratchet` 69/69 ; `export:check` 0 ; winlint (atelier de RECHERCHES) `--base b894a587` :
+  4 fichiers, aucun risque Windows.
 
 ## 7. Taille
 
-- R-25, forme de la CI (`git diff --shortstat` contre la base, `docs/**/*.md` exclus) : 2 fichiers, 221 insertions, 6 suppressions avant
-  ce G0 (les 6 sont l'amendement du chantier, exclu de la CI) ; voir §6.1 pour la mesure au gel. Attendu au G0 d'E-2a : ~260 (borne
-  547). Un seul lot, sans coupe.
+- R-25, forme de la CI (`git diff --shortstat b894a587...HEAD`, `docs/**/*.md` exclus) : **2 fichiers, 215 insertions**, soit 215
+  (borne de lot 547 ; attendu au G0 d'E-2a : ~260). Un seul lot, sans coupe.
 
 ## 8. Ce qui n'est pas fait
 
