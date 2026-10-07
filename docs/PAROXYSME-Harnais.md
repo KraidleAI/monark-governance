@@ -10,7 +10,8 @@
   `CHANTIERS-CANDIDATS.md` §4 et les fenêtres du plan v3 §4 (chemins et empreintes au §8). Relecture : une G2 par une instance neuve ;
   contrôle par diff, fusion et ligne d'ETAT : MONARK. Versé au tronc par #242, fusion `1df4e44f` (ETAT l.181-186 à `5437cd0d`).
   Décisions de MONARK pliées le 2026-10-07 (PR `paroxysme/registres-decisions-1007`), à partir de 20:0x UTC, par un worker de
-  PAROXYSME (`claude-opus-5-5`, effort max) ; sources du pli : ETAT à `5437cd0d`, MSG et MSG2 (§8).
+  PAROXYSME (`claude-opus-5-5`, effort max) ; sources du pli : ETAT à `5437cd0d`, MSG et MSG2 (§8). Constats de la G2 de ce pli
+  (instance neuve) pliés le 2026-10-07 à partir de 21:0x UTC par un worker de PAROXYSME (`claude-opus-5-5`, effort max).
 - **Bases** : l'inventaire du Harnais est mesuré à `d8fe354c` et lit ETAT à `57a131fc` (INV-H l.9) ; celui du Moteur prend tout à
   `57a131fc` (INV-M l.12). Toutes les ancres du versement sont à la tête `87b821b0` de `lot/etude-suite` (relue par `git ls-remote`
   le 2026-10-07 à 17:1x UTC). Elles sont reportées par l'outil `reanchor.mjs` (pièce de la boîte PAROXYSME), puis relues à la tête par
@@ -54,9 +55,12 @@
 ## 1. Dettes : limites sans item, sans porteur ou sans déclencheur
 
 - **Aucune.** Les trois dettes de déclencheur du versement (PX-Harness-28 ; HOST-REDEPLOY-GUARD-1 et HOST-HARNESS-PREV-1, dites par
-  PX-Harness-22) sont re-formées par MONARK, avec porteur et déclencheur (entrées du §2).
-- Toutes les entrées ouvertes des §2, §3 et §5 portent un item, un porteur et un déclencheur atteignable ; le contrôle est
-  mécanique (§7, doute 5).
+  PX-Harness-22) sont re-formées par MONARK, avec porteur et déclencheur (entrées du §2). Le déclencheur de F-K-7 (MK-L15) attendait
+  une décision au G0 court d'E-2a, accepté sans qu'elle soit consignée à ETAT ; non compté au versement, il est re-porté par MONARK (ETAT l.260
+  à `5437cd0d` ; §7, doute 9).
+- Toutes les entrées ouvertes des §2, §3 et §5 portent un item, un porteur et un déclencheur atteignable, jugé à la lecture de chaque
+  entrée. De ces trois champs, l'oracle (§7, doute 5) ne contrôle que la présence : non vides et non « aucun » (`verify-registres.mjs`
+  l.6, commit `d97d838`) ; il ne juge pas qu'un déclencheur est atteignable : MK-L15 lui avait échappé.
 
 ## 2. Harness : limites ouvertes, changées ou nouvelles (28, INV-H §3)
 
@@ -188,11 +192,12 @@
   état : changé (item formé à ETAT depuis l'inventaire) · suite : prix écrit à ETAT : une version du contrat, 3 à 5 j
 - **PX-Harness-19** · « Les lignes kata ne sont pas recomputables par un tiers : scores ni publiés ni tenus ; séries non redistribuables. »
   source : C l.490-495 ; A-2 l.135 ; ETAT l.242-245 · touche : C §11 ; `apps/site/app/docs/verify/page.tsx:67` · nature : D/Dr
-  item : PXC-11 partie 3 (KATA-THIRD-PARTY-RECALC-1, à former, nommé KATA-ROW-PUBLIC-RECOMPUTE-1 par INV-H l.52 : un seul item, un seul
-    propriétaire au versement, CC l.658) ; partiel : VERIFIERS-LIST-F5A-1 (ETAT l.567-590) · porteur : PAROXYSME ; droit de publication des
-    scores dérivés : le fondateur (PLAN §7.3) · déclencheur : partie 3 de PXC-11 (F3), le droit d'abord
-  état : ouvert · suite : Q-B (v) (« oui », 2026-10-07) couvre le service public d'un étalonnage, pas la redistribution des séries ni la
-    publication des scores (PLAN l.893) ; même construction que MK-L11
+  item : PXC-11 partie 3 (formée à ETAT l.231-234 à `5437cd0d` pour l'attaquant « A » ; KATA-THIRD-PARTY-RECALC-1, à former, CC l.375,
+    l.394, nommé KATA-ROW-PUBLIC-RECOMPUTE-1 par INV-H l.52 : un seul item, un seul propriétaire au versement, CC l.658) ; partiel :
+    VERIFIERS-LIST-F5A-1 (ETAT l.567-590) · porteur : PAROXYSME ; droit de publication des scores dérivés : le fondateur (PLAN §7.3) ·
+    déclencheur : partie 3 de PXC-11 (F3), le droit d'abord
+  état : ouvert · suite : Q-B (v) (« oui », 2026-10-07, ETAT l.55-56 à `5437cd0d`) couvre le service public d'un étalonnage, pas la
+    redistribution des séries ni la publication des scores (PLAN l.893) ; même construction que MK-L11
 - **PX-Harness-20** · « Le retrait d'une ligne servie attend la clôture du trimestre ; premier retrait `live:` après le 2027-01-01. »
   source : addendum 9 §6-§7 ; ETAT l.533-542, l.956-971 · touche : aucune aujourd'hui ; bornera la vague 1 servie · nature : T/M
   item : PXC-10 CM-5-RETIRE-1, partie 2 (KATA-ANYTIME-RETIRE-1, à former, nommé ANYTIME-RETIRE-1 par INV-H l.53 : un seul item) ; à ETAT :
@@ -216,9 +221,9 @@
     datée, ETAT l.1625-1627 à `5437cd0d`) : la suppression, acte du fondateur porté par MONARK (ETAT l.274-275 à `5437cd0d`), et la suite
     (garde de nettoyage) en PXC-05 partie 3 ; SITE-SEND-PRUNE-1 (l.902-905) : PXC-05 partie 3 (ETAT l.255 à `5437cd0d`) · porteur : MONARK
     (items d'ETAT, runbook, actes d'hôte, question au fondateur) ; le fondateur (toute suppression) ; PAROXYSME (parties de PXC-05) ·
-    déclencheur : REDEPLOY : le prochain déploiement du harnais, la release L (Q-20, ETAT l.64-66 à `5437cd0d`) ; garde mécanique : p2
-    (F2-F3) ; PREV : la question, que MONARK pose au fondateur à son prochain point d'étape avec lui, au plus tard avant le déploiement
-    de la release L, message `8eb9a46` l.6-8 (MSG2) ; garde de nettoyage : p3 (F3) ; PRUNE : PXC-05 p3 (F3)
+    déclencheur : REDEPLOY : le prochain déploiement du harnais, la release L (ETAT l.1403 à `5437cd0d`), sous l'autorisation Q-20
+    (ETAT l.64-66 à `5437cd0d`) ; garde mécanique : p2 (F2-F3) ; PREV : la question, que MONARK pose au fondateur à son prochain point
+    d'étape avec lui, au plus tard avant le déploiement de la release L (MSG2 l.6-8) ; garde de nettoyage : p3 (F3) ; PRUNE : PXC-05 p3 (F3)
   état : changé (REDEPLOY et PREV : déclencheurs d'ETAT, l.1261 et l.1469, passés à T0 sans acte, `docs/JOURNAL-PROVENANCE.md:445` ;
     pour REDEPLOY, dette de MONARK, ETAT l.1401-1402 à `5437cd0d` ; tous deux re-formés par ligne datée de MONARK) · suite : avant tout
     acte, le SHA servi est relu et comparé à la base attendue (ETAT l.1403-1404 à `5437cd0d`) ; PLAN l.478-479 plaçait la garde de
@@ -290,7 +295,9 @@
   source : 0005 l.101, l.112 ; 0006 l.27 ; add2 l.26 · touche : pied de page de la note de version (0005 l.101) · nature : T
   item : PXC-09 partie 3 (famille) ; F-W2-4 à re-former à ETAT par PXC-01 (CC l.96-99) · porteur : PAROXYSME · déclencheur : partie 3 de
     PXC-09 (F4) ; re-formation : PXC-01 partie 2 (F3)
-  état : ouvert · suite : lecture de son déclencheur (« calib_attempt 2 ») à confirmer par RECHERCHES (INV-M l.337)
+  état : ouvert · suite : déclencheur de F-W2-4 (deux lectures : « K ≥ 20 cellules », CC l.334-335 ; « calib_attempt 2 », INV-M
+    l.337) : la lecture tranchée, écrite à sa re-formation par PXC-01 p2 (F3) (ETAT l.260-261 à `5437cd0d`) ; lecture par RECHERCHES
+    (INV-M l.337), décision de l'investisseur (CC l.334-335) portée par MONARK, selon la proposition retenue (MSG l.44-45)
 - **MK-L06** · « Position tenue : l'énoncé vaut par fenêtre ; sur cent fenêtres renouvelées ou plus, la borne de Boole est vide. »
   source : 0006 l.229 ; 0005 l.131 ; F9 l.84, l.102 · touche : textes des tampons à P4 · nature : T
   item : F-W2-9a (ETAT l.753-755) ; PXC-09 partie 2 · porteur : RECHERCHES (ETAT l.754) ; PAROXYSME (PXC-09 p2) · déclencheur : une demande
@@ -318,8 +325,9 @@
   état : ouvert · suite : aucune
 - **MK-L11** · « Recalcul par un tiers impossible : séries privées et non redistribuables ; scores ni publiés ni tenus. »
   source : ETAT l.242-245 ; C l.490-494 ; A-2 l.158-162 ; 0005 l.32 · touche : C §11 (l.451, bornée par l.490) · nature : D/Dr
-  item : PXC-11 partie 3 (KATA-THIRD-PARTY-RECALC-1, à former : recette publique de reconstitution, ou preuve vérifiable du calcul) ·
-    porteur : PAROXYSME ; droit de publication des scores dérivés : le fondateur (PLAN §7.3) · déclencheur : partie 3 de PXC-11 (F3), le droit d'abord
+  item : PXC-11 partie 3 (formée à ETAT l.231-234 à `5437cd0d` pour l'attaquant « A » ; KATA-THIRD-PARTY-RECALC-1, à former (CC l.375,
+    l.394 ; INV-M l.148 : recette publique de reconstitution, ou preuve vérifiable du calcul)) · porteur : PAROXYSME ; droit de publication des scores
+    dérivés : le fondateur (PLAN §7.3) · déclencheur : partie 3 de PXC-11 (F3), le droit d'abord
   état : ouvert · suite : Q-B (v) ne couvre que le service public d'un étalonnage (PLAN l.893) ; même item que PX-Harness-19
 - **MK-L12** · « Un seul vérificateur, dans la même organisation que le générateur ; identité sans signature. »
   source : `apps/harness/src/policy-guard.ts:24`, `:100-104` ; K l.74 · touche : C §11 l.493 · nature : P/T
@@ -331,17 +339,21 @@
     partie placée après le 2026-12-31 (PLAN l.617-618)
 - **MK-L13** · « La garde d'import ne recalcule pas `qhat`, `misses`, `k_obs` des bandes ; CALIB-SEQ-IMPORT-1 chiffré puis non adopté. »
   source : A-2 l.100, l.158-164 ; add8 l.13, l.23 · touche : C §11 l.490-494 · nature : T/C
-  item : CALIB-SEQ-IMPORT-1, à re-former à ETAT par PXC-01 (CC l.96-99 : suites scellées hors dépôt, ou raison écrite datée) ; PXC-11 ·
-    porteur : PAROXYSME (PXC-01 p2 ; PXC-11) ; MONARK (ligne d'ETAT) · déclencheur : PXC-01 partie 2 (F3) ; construction : partie fixée par
-    l'ADR de PXC-11 (F3, §7, doute 8)
-  état : ouvert · suite : compatibilité avec 0006 l.196 à trancher
+  item : CALIB-SEQ-IMPORT-1, à re-former à ETAT par PXC-01 (CC l.98-99 ; deux formes, INV-M l.231 : suites scellées hors dépôt, ou raison
+    écrite datée) ; PXC-11 · porteur : PAROXYSME (PXC-01 p2 ; PXC-11) ; MONARK (ligne d'ETAT) · déclencheur : PXC-01 partie 2 (F3) ;
+    construction : partie fixée par l'ADR de PXC-11 (F3, §7, doute 8)
+  état : ouvert · suite : compatibilité avec 0006 l.196 (blocage « Choix » de l'item, INV-M l.150 ; l'item a deux formes, INV-M l.231) :
+    à trancher par l'ADR de PXC-11, qui couvre cette limite par « CALIB-SEQ-IMPORT-1 réformé » (CC l.377-378) ; porteur : PAROXYSME ;
+    échéance : cette ADR, avant le code de la partie 2 de PXC-11 (F3, PLAN l.603) ; PXC-01 p2 réinscrit l'item avec son déclencheur
+    (CC l.98-99)
 - **MK-L14** · « Empreintes 0/1 inversibles : la règle « 30 points au plus » ignorait `misses` ; modèle de menace non écrit ; pas de contrôle au serveur. »
   source : C l.361, l.401 ; `scripts/spec-publish.mjs:284-297` ; `apps/harness/src/policy-digest-floor.ts:28` ;
     `apps/harness/src/policy-guard.ts:105-106` ; ETAT l.599-613 · touche : C §10 l.361 · nature : Dr/T
   item : SHORT-DIGEST-INVERSION-1 (ETAT l.599-613 : plancher exact de 2^128 « construit, « upcoming » jusqu'au chargeur d'E-2a », l.613) ;
-    E2A-DIGEST-FLOOR-TEST-1 (tuyau, l.621-632) ; SHORT-DIGEST-SPEC-TEXT-1 (l.696-703) ; pour l'attaquant « A », PXC-11 partie 3 (formée,
-    ETAT l.231-234 à `5437cd0d` : engagement à clé des empreintes de suite publiées, option (e) du G0 §3, l.379, qui généralise
-    DIR-4H-DIGEST-COMMIT-1 ; prix à chiffrer à son G0) · porteur : RECHERCHES (SHORT-DIGEST, code du tuyau au partage 80/20, l.629-630 ;
+    E2A-DIGEST-FLOOR-TEST-1 (tuyau, l.621-632) ; SHORT-DIGEST-SPEC-TEXT-1 (l.696-703) ; pour l'attaquant « A », l'item formé à ETAT
+    sous le nom de la partie, PXC-11 partie 3 (ETAT l.231-234 à `5437cd0d` : engagement à clé des empreintes de suite publiées, option (e)
+    du G0 §3, l.379, qui généralise DIR-4H-DIGEST-COMMIT-1 ; prix à chiffrer à son G0) ; la même partie porte KATA-THIRD-PARTY-RECALC-1
+    (CC l.375, l.394), à former · porteur : RECHERCHES (SHORT-DIGEST, code du tuyau au partage 80/20, l.629-630 ;
     texte de la révision datée) ; MONARK (brouillon du texte, l.702) ; PAROXYSME (PXC-11 p3) · déclencheur : TUYAU : atteint (wave1.json
     versé, l.631-632), le test se construit avec E-2a ; SPEC-TEXT : avant la première publication datée de lignes kata (l.702) ; PXC-11 p3
     en F3
@@ -354,9 +366,11 @@
   source : C l.343 ; `apps/harness/src/kata-path.ts:59`, `:75`, `:96` ; K l.78 · touche : C §9 ; K §7 ; `docs/public-notes/v0.9.0.md:26-31` ·
     nature : T/C
   item : F-K-7 (ETAT l.743-746) ; PXC-13 partie 1 (décision F-K-7 et phrase K-8 du texte de ligne) · porteur : MONARK (ETAT l.744) ;
-    PAROXYSME (PXC-13 p1) · déclencheur : la première ligne kata servie, décision au G0 court d'E-2a (ETAT l.744-745) ; PXC-13 p1 avant la
-    vague 1 servie (F2)
-  état : changé (formé à ETAT) · suite : la construction suit KATA-INPUT-RECOMPUTE-1 (PX-Harness-18) ; prix de la décision : 0,1 j (l.746)
+    PAROXYSME (PXC-13 p1) · déclencheur : F-K-7 : une ligne datée sous l'item avant le service de la vague 1 (ETAT l.260 à `5437cd0d`) ;
+    PXC-13 p1 avant la vague 1 servie (F2)
+  état : changé (formé à ETAT ; décision F-K-7, « pas à E-2a, limite servie par S-K8 » (l.744-745), attendue au G0 court d'E-2a,
+    accepté (ETAT l.107), non consignée à ETAT ; déclencheur re-porté par MONARK, §7 doute 9) · suite : la construction suit
+    KATA-INPUT-RECOMPUTE-1 (PX-Harness-18) ; prix de la décision : 0,1 j (l.746)
 - **MK-L16** · « Fenêtre de retard ]t, t + 300 s] : un appel tardif n'est dans l'énoncé que fait sans information. »
   source : ADR-CM l.328, l.331 ; `apps/harness/src/kata-path.ts:47` · touche : C §9 l.312 ; `apps/harness/src/tools/gate.ts:237` · nature : T
   item : LATE-CALL-WINDOW-1 (ETAT l.775-778) ; PXC-13 partie 2 (ADR K-8) · porteur : MONARK (mesure) ; RECHERCHES (texte) (ADR-CM l.331) ;
@@ -428,7 +442,9 @@
   source : ETAT l.246-247, l.33-34, l.136-137 · touche : rapport public de la vague 1 · nature : Dr
   item : PXC-18 partie 1 ; DATA-ACCORDS-TEXTS-1 et DATA-LICENCE-KATA-1 (items du plan et des chantiers, PLAN l.893 ; CC l.581-582) ·
     porteur : le fondateur (textes, accord écrit) ; PAROXYSME (dossier) · déclencheur : avant le service public des lignes kata (PLAN l.893)
-  état : changé (Q-B (v) : « oui », le 2026-10-07) · suite : ni DATA-ACCORDS-TEXTS-1 ni DATA-LICENCE-KATA-1 ne sont à ETAT (§7, doute 3)
+  état : changé (Q-B (v) : « oui », le 2026-10-07, ETAT l.55-56 à `5437cd0d`) · suite : à `87b821b0`, ni DATA-ACCORDS-TEXTS-1 ni
+    DATA-LICENCE-KATA-1 ne sont à ETAT ; à `5437cd0d`, DATA-ACCORDS-TEXTS-1 y est nommé, sa demande « reste ouverte » (ETAT l.56-57 à
+    `5437cd0d`), sans porteur ni déclencheur écrits, et DATA-LICENCE-KATA-1 reste absent (§7, doute 3)
 - **MK-L29** · « Contre-vérification USDT/USD retirée (API payante) ; Kraken ne vérifie que dans un sens. »
   source : add6 l.8, l.14-18 · touche : rapport de la vague 2 · nature : D/P
   item : PXC-18 partie 2 (décision de dépense, format P-26) · porteur : le fondateur (dépense) ; PAROXYSME (question fermée) · déclencheur :
@@ -513,7 +529,7 @@
 - **C-14** · « LOOPBACK-PORT0-HELPER-ONLY-1, LOOPBACK-CLOSEDPORT-RACE-1. » · clos (preuve : ETAT l.467-474) ; reste PX-Harness-28
 - **C-15** · « Skill sans classes kata ; RUNBOOK « 13 of 13 ». » · clos (preuve : `skills/monark/SKILL.md:72` ; à la tête,
   `docs/RUNBOOK-harness.md:186` et `:214` disent 18 contrôles)
-- **C-16** · « DEMO-HASH-STALE-1. » · clos (preuve : `skills/monark/DEMO.md:86-87`, test `demo_md_cites_the_current_byo_trace_digest`,
+- **C-16** · « DEMO-HASH-STALE-1. » · clos (preuve : `skills/monark/DEMO.md:87-88`, test `demo_md_cites_the_current_byo_trace_digest`,
   `test/byo-demo-probe.test.ts:204` ; à ETAT, ligne datée de MONARK, « clos au code », ETAT l.1758-1760 à `5437cd0d`)
 - **C-17** · « Actes de T0 : CONTRACT-1-1-0, NOTICE-1-1-0, SPEC-1-1-0-RELEASE. » · clos (preuve : `docs/JOURNAL-PROVENANCE.md:444-447` ;
   `docs/public-notes/v0.9.0.md:3`, `:62`)
@@ -599,12 +615,15 @@ du Dōjō : registre Narabi. Les sept autres sont ici.
    et de PX-IDENT sont celles que les inventaires ont lues ; elles ne sont pas relues ici. Les enregistrements d'oracle G1 et G7 du
    plancher (`5463028a…`, `ef3ef079…`, message `07d99e2` l.15) sont sur l'hôte de MONARK : non revérifiables ici.
 2. **DEMO-HASH-STALE-1.** Levé : MONARK a écrit la clôture à ETAT (ETAT l.1758-1760 à `5437cd0d`) ; C-16.
-3. **Items absents d'ETAT à la tête** (`grep -c` nul), et qui les re-forme :
+3. **Items absents d'ETAT à la tête `87b821b0`** (`grep -c` nul), et qui les re-forme :
    - PX-STD-ORPHAN-1 (MONARK, prochain point d'étape, PLAN §4.1 A) : SENTINEL-DEPLOY-GUARD-1, SYNC-CHECK-MODE-1 ;
    - PXC-01 partie 2 (CC l.96-99, F3) : F-W2-4, F-K-2, F-K-4, F-K-5, F-K-6, F-K-8, F-K-9, CALIB-SEQ-IMPORT-1, ATTEST-KATA-SUBJECT-1,
      R-11, SKILL-KATA-15M-NOTE-1, HARNESS-TRANSPORT-CATCH-1, HARNESS-DEMAND-J30-1 ;
    - le fondateur : DATA-ACCORDS-TEXTS-1 et DATA-LICENCE-KATA-1 (PLAN l.893) ;
-   - MONARK, ligne de RUNBOOK : RUNBOOK-HARNESS-SENTINEL-DIFF-1 (PLAN §4.1 A, avant le déploiement de la vague 1).
+   - MONARK, ligne de RUNBOOK : RUNBOOK-HARNESS-SENTINEL-DIFF-1 (PLAN §4.1 A, avant le déploiement de la vague 1) ;
+   - à `5437cd0d`, le même `grep -c` reste nul, sauf pour F-W2-4 (ETAT l.260-261 à `5437cd0d` : sa re-formation par PXC-01 p2, décision
+     de MONARK) et DATA-ACCORDS-TEXTS-1 (ETAT l.55-57 à `5437cd0d` : Q-B (v) « oui », la demande des textes « reste ouverte », sans
+     porteur ni déclencheur écrits).
 4. **Items neufs non marqués PAROXYSME.** ETAT gagne d'autres items depuis `57a131fc` (par exemple RETIRE-CAUSE-VOCAB-1,
    RETIRE-REHEARSAL-STAGING-1) ; ils ne sont pas des limites des inventaires et ne sont repris ici que là où une entrée les cite. La
    recartographie de PXC-01 partie 2 les prendra.
@@ -634,15 +653,20 @@ du Dōjō : registre Narabi. Les sept autres sont ici.
 9. **Déclencheurs proposés à MONARK.** Levé : tous tranchés par MONARK. LOOPBACK-GUARD-RUNTIME-1 : ETAT l.623-624 à `5437cd0d`
    (PX-Harness-28) ; HOST-REDEPLOY-GUARD-1 : ETAT l.1401-1404 à `5437cd0d` ; HOST-HARNESS-PREV-1 : ETAT l.1625-1627 à `5437cd0d`, la
    question au fondateur datée par MSG2 l.6-8 ; SITE-SEND-PRUNE-1 : ETAT l.255 à `5437cd0d` (les trois, PX-Harness-22) ; lignes
-   d'attente datées (P-25) de MK-L12, MK-L26, MK-L27, MK-L30, MK-L38 : ETAT l.270-273 à `5437cd0d`.
+   d'attente datées (P-25) de MK-L12, MK-L26, MK-L27, MK-L30, MK-L38 : ETAT l.270-273 à `5437cd0d` ; F-K-7 (MK-L15 ; même item que N8
+   du registre de Hikae, sous lequel MONARK a retenu ce déclencheur, MSG l.44) : une ligne datée sous l'item avant le service de la
+   vague 1, ETAT l.260 à `5437cd0d`, encore à écrire (porteur : MONARK, ETAT l.744) ; à `5437cd0d`, `grep -n F-K-7` rend l.260, l.392
+   et l.882, et l'item (ETAT l.882-885 à `5437cd0d`) n'a pas de ligne datée.
 
 ## 8. Ligne PAROXYSME et sources
 
-**Ligne PAROXYSME (2026-10-07, décisions de MONARK pliées).** Harnais : 28 limites ouvertes (dont 2 ⚑B : PX-Harness-04, -26) et
-18 closes. Moteur : 40 limites ouvertes et 13 closes. Limites neuves à ETAT : 7 ici (§5, mesurées à `87b821b0`). Aucune dette (§1) : les
-trois dettes de déclencheur du versement sont re-formées par MONARK (PX-Harness-28 : ETAT l.623-624 à `5437cd0d` ; PX-Harness-22 : ETAT
-l.1401-1404 à `5437cd0d`, ETAT l.1625-1627 à `5437cd0d` et MSG2 l.6-8) ; toutes les entrées ouvertes ont un item, un porteur et un
-déclencheur atteignable. Doutes 2 et 9 levés (§7).
+**Ligne PAROXYSME (2026-10-07, décisions de MONARK pliées, puis la G2 du pli).** Harnais : 28 limites ouvertes (dont 2 ⚑B :
+PX-Harness-04, -26) et 18 closes. Moteur : 40 limites ouvertes et 13 closes. Limites neuves à ETAT : 7 ici (§5, mesurées à `87b821b0`).
+Aucune dette (§1) : les trois dettes de déclencheur du versement sont re-formées par MONARK (PX-Harness-28 : ETAT l.623-624 à
+`5437cd0d` ; PX-Harness-22 : ETAT l.1401-1404 à `5437cd0d`, ETAT l.1625-1627 à `5437cd0d` et MSG2 l.6-8), et le déclencheur de F-K-7
+(MK-L15), dont la décision attendue au G0 court d'E-2a n'est pas consignée à ETAT, est re-porté (ETAT l.260 à `5437cd0d`) ; toutes les entrées
+ouvertes ont un item, un porteur et un déclencheur atteignable, jugé à la lecture (l'oracle n'en contrôle que la présence, §1). Doutes 2
+et 9 levés (§7).
 
 Fichiers du tronc cités, à `87b821b0` (lignes, sha256) :
 
