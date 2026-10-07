@@ -43,17 +43,19 @@ function fixture(tracked: Record<string, string | Buffer>, loose: Record<string,
 }
 const at = (v: Verdict, file: string): string[] => v.hits.filter((h) => h.file === file).map((h) => `${String(h.line)}:${String(h.col)} ${String(h.kind)} ${h.mask}`);
 
-// The tracked tree, red on the base eb1beb01 (the two host addresses in 35 files, and the other literals), green once they are gone.
+// The tracked tree, red on the base eb1beb01 (the two host addresses in 35 files, and the other literals), green once they are gone;
+// each file it skips for a NUL byte is a binary that .gitattributes declares (red until *.jpg was declared: out/banner.jpg).
 // killer: scripts/address-literals.mjs:18 SDL "EXEMPT.addSubnet(\"127.0.0.0\", 8, \"ipv4\");" -> ""
 test("address_literals_tracked_tree_is_clean", () => {
   const v = scan(REPO);
   assert.ok(v.read > 1000, `implausibly few tracked text files read (${String(v.read)})`);
   assert.deepEqual(stale(v), [], "a listed literal that its file no longer carries: the entry leaves LISTED");
   assert.equal(v.hits.length, 0, report(v));
+  assert.deepEqual(v.undeclared, [], "a tracked file with a NUL byte that .gitattributes does not declare binary: the gate never reads it");
 });
 
 // reddened by: a label cut only when it is a lone colon, so a word that ends with a hex digit hides the address glued after it
-// killer: scripts/address-literals.mjs:81 CONST "/^[^:]*:(?!:)/" -> "/^:(?!:)/"
+// killer: scripts/address-literals.mjs:82 CONST "/^[^:]*:(?!:)/" -> "/^:(?!:)/"
 test("address_literals_refuse_an_address_in_each_writing_met", () => {
   const v = fixture({ "deploy/x.service": [`ssh -i ~/.ssh/k root@${A} 'id'`, `# dedicated host (${A}, decision 57)`, `"remote_ip": "${A}",`,
     `${A}:443 and ${C}/24.`, `https://[${B}]:8443/x`, `addr:${B} inet6:${B}.`, `${six("", "", "ffff")}:${A}`, `${six("fe80", "", "1")}%eth0`].join("\n") });
@@ -74,7 +76,7 @@ test("address_literals_admit_the_closed_ranges_in_any_writing_and_refuse_their_n
 });
 
 // reddened by: a word glued to a "::" read as an address (the quoted Rust path below ends in a hex digit before its colons)
-// killer: scripts/address-literals.mjs:82 SDL "if (glued && cut === null) continue;" -> ""
+// killer: scripts/address-literals.mjs:83 SDL "if (glued && cut === null) continue;" -> ""
 test("address_literals_read_no_address_in_code_or_numbers_that_only_look_like_one", () => {
   const lines = ["::error::R-25 not configured", "echo '::warning::proof'", ".c-pill::before { content: \"\"; }", ".d-main a::after { content: none; }",
     "AuthorityType::ScaledUiAmount", "only `AuthorityType::` paths", "std::vector<int>", "five8::decode_32", "CompressedEdwardsY::decompress()",
@@ -83,7 +85,7 @@ test("address_literals_read_no_address_in_code_or_numbers_that_only_look_like_on
 });
 
 // reddened by: a listed literal admitted in any file, not in its own one only
-// killer: scripts/address-literals.mjs:102 CONST "Object.hasOwn(LISTED, rel) && Object.hasOwn(LISTED[rel], lit)" -> "listedAnywhere(lit)"
+// killer: scripts/address-literals.mjs:131 CONST "Object.hasOwn(LISTED, rel) && Object.hasOwn(LISTED[rel], lit)" -> "listedAnywhere(lit)"
 test("address_literals_admit_a_listed_literal_in_its_own_file_only", () => {
   const file = "docs/G0-lot-verifiers-list-f5a-1.md", lit = Object.keys(LISTED[file] ?? {})[0] ?? "", self = `"${lit}" then ${A}`;
   const v = fixture({ [file]: `V8 ${lit}-node.53\nhost ${A}\n`, "docs/other.md": `V8 ${lit}-node.53\n`, [SELF]: `${self}\n` });
@@ -94,7 +96,7 @@ test("address_literals_admit_a_listed_literal_in_its_own_file_only", () => {
 });
 
 // reddened by: a mask that keeps the digits (the report would print the address, in a line and in a file name)
-// killer: scripts/address-literals.mjs:92 CONST "literal.replace(/[\\dA-Fa-f]+/g, \"x\")" -> "literal"
+// killer: scripts/address-literals.mjs:115 CONST "literal.replace(/[\\dA-Fa-f]+/g, \"x\")" -> "literal"
 test("address_literals_report_names_each_hit_without_a_digit_of_it", () => {
   const r = report(fixture({ "a.md": `see ${A}\n`, "b.md": `x\n[${B}]\n`, [`logs/${C}.txt`]: "clean\n" }));
   assert.deepEqual(r.split("\n"), ["address literals: 3 hit(s) in 3 file(s)", "a.md:1:5 IPv4 x.x.x.x", "b.md:2:2 IPv6 x:x::x", "logs/x.x.x.x.txt:0:6 IPv4 x.x.x.x"]);
@@ -103,11 +105,52 @@ test("address_literals_report_names_each_hit_without_a_digit_of_it", () => {
 
 // reddened by: a binary file read as text; also pinned: any extension is read, the index is read (not the disk), a non-ASCII name
 // is read (git ls-files -z) and a tracked file deleted in the work tree is skipped
-// killer: scripts/address-literals.mjs:116 CONST "buf.includes(0)" -> "false"
+// killer: scripts/address-literals.mjs:145 CONST "buf.includes(0)" -> "false"
 test("address_literals_read_every_tracked_text_file_and_skip_binaries", () => {
   const name = `${String.fromCharCode(0xe9)}t${String.fromCharCode(0xe9)}.md`;
   const v = fixture({ "deploy/u.service": `# host (${A})\n`, Caddyfile: `${A} {\n`, [name]: `${A}\n`, "bin.dat": Buffer.concat([Buffer.from([0]), Buffer.from(`${A}\n`)]),
     "gone.md": `${A}\n` }, { "loose.md": `${A}\n` }, (root) => { rmSync(join(root, "gone.md")); });
   assert.deepEqual(v.hits.map((h) => `${h.file}:${String(h.line)}`).sort(), ["Caddyfile:1", "deploy/u.service:1", `${name}:1`].sort());
   assert.equal(v.read, 3, "three text files read: the binary, the loose and the deleted ones are not");
+});
+
+// reddened by: no copy of the line with its %XX decoded, so a literal right after an escape (a URL parameter, a log line) is never read
+// killer: scripts/address-literals.mjs:96 CONST "text.search(ESCAPE) < 0" -> "true"
+test("address_literals_read_an_address_behind_a_percent_escape", () => {
+  const pct = (s: string): string => [...s].map((c) => `%${c.charCodeAt(0).toString(16).toUpperCase()}`).join("");
+  const v = fixture({ "a.log": [`url=http%3A%2F%2F${A}%2Fx`, `h%3A${B}`, `%5B${B}%5D`, `ssh%20root%40${A}`, `see ${A}%20now`, pct(A),
+    B.split(":").join("%3A"), `100% of ${A}%zz`, `connect%20${B}:%20refused`].join("\n"), [`logs/%40${A}.txt`]: "x\n", [`logs/${pct(C)}.txt`]: "x\n",
+    [`logs/v${A}/${A}.txt`]: "x\n", [`logs/${B.split(":").join("%3A")}/x`]: "x\n" });
+  assert.deepEqual(at(v, "a.log"), ["1:18 4 x.x.x.x", "2:5 6 x:x::x", "3:4 6 x:x::x", "4:14 4 x.x.x.x", "5:5 4 x.x.x.x", "6:1 4 x.x.x.x",
+    "7:1 6 x:x::x", "8:9 4 x.x.x.x", "9:11 6 x:x::x"], "one hit per address, at its column in the line as written; a stray % is no escape and never throws");
+  assert.deepEqual([at(v, "logs/%x.x.x.x.txt"), at(v, `logs/${"%x".repeat(10)}.txt`), at(v, "logs/vx.x.x.x/x.x.x.x.txt"), at(v, "logs/x%x%x%x/x")],
+    [["0:9 4 x.x.x.x"], ["0:6 4 x.x.x.x"], ["0:18 4 x.x.x.x"], ["0:6 6 x:x::x"]],
+    "a path is read decoded too, printed with each hex run of a literal masked (escapes included) and with its text masked where it recurs");
+});
+
+// reddened by: the full stops after a run stripped by /\.+$/, quadratic on dots that do not end the run (about 1.4 s for these, here)
+// killer: scripts/address-literals.mjs:86 CONST "while (end > 0 && t[end - 1] === \".\") end--;" -> "end = t.replace(/\\.+$/, \"\").length;"
+test("address_literals_read_forty_thousand_dots_in_bounded_time", () => {
+  const line = `1:2:${".".repeat(40_000)}3`;
+  let best = Number.POSITIVE_INFINITY;
+  for (let i = 0; i < 3; i++) {
+    const t0 = performance.now(), got = literals(line);
+    best = Math.min(best, performance.now() - t0);
+    assert.deepEqual(got, [], "colons and dots, no address");
+  }
+  assert.ok(best < 250, `the best of three reads of 40,000 dots took ${best.toFixed(0)} ms, over the 250 ms bound (a linear read takes under 1 ms)`);
+});
+
+// reddened by: a skipped file reported whatever its attributes, so a declared binary is refused and an undeclared one passes
+// killer: scripts/address-literals.mjs:160 ROR "!== \"set\"" -> "=== \"set\""
+test("address_literals_name_each_skipped_file_that_gitattributes_does_not_declare_binary", () => {
+  const nul = (s: string): Buffer => Buffer.concat([Buffer.from([0]), Buffer.from(`${s}\n`)]);
+  const v = fixture({ ".gitattributes": "*.bin binary\n*.raw -text\n", "a.bin": nul("a"), "b.raw": nul("b"), [`c-${A}.dat`]: nul("c"), "d.md": "d\n" }, {},
+    (root) => { // a global attributes file that declares every path binary: the gate reads the attributes of the tree only
+      const attributes = join(dirname(root), "attributes");
+      writeFileSync(attributes, "* binary\n");
+      writeFileSync(join(dirname(root), "gitconfig"), `[core]\n\tattributesFile = "${attributes.split("\\").join("/")}"\n`);
+    });
+  assert.deepEqual(v.undeclared, ["b.raw", "c-x.x.x.x.dat"], "a NUL byte without a binary declaration is named, its path masked; a declared binary is not");
+  assert.equal(v.read, 2, "the two text files only");
 });
