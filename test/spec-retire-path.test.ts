@@ -218,3 +218,25 @@ test("retire_latency_report_closed", async () => {
   assert.deepEqual([ok.status, (JSON.parse(ok.stdout.split("\nretire-latency OK")[0] ?? "") as { total_ms: number }).total_ms, bad.status, bad.stderr.includes("ceiling_unmentioned"), run(LATENCY).status],
     [0, 132 * H, 1, true, 2], ok.stdout + ok.stderr);
 });
+
+// killer: scripts/retire-latency.mjs:44 CONST "if (pub) for" -> "if (false) for"
+test("retire_latency_publication_cycle_holds_T_c_to_T_g_only", async () => {
+  const l = await latency(), P = { T_c: "2027-01-04T10:00:00Z", T_d: "2027-01-04T15:00:00Z", T_e: "2027-01-05T09:00:00Z", T_f: "2027-01-05T11:00:00Z", T_g: "2027-01-06T12:00:00Z" };
+  const why = (instants: object): string => { try { l.report({ format: "retire-latency-v1", cycle: "publication", instants, mention: null }); return "ok"; } catch (e) { return e instanceof l.LatencyError ? `${e.code} ${e.message.split(" ")[1] ?? ""}` : String(e); } };
+  const without = (k: string): object => Object.fromEntries(Object.entries(P).filter(([n]) => n !== k));
+  assert.deepEqual([why(P), why({ T_a: "2027-01-01T00:00:00Z", ...P }), why({ ...P, T_b: "2027-01-04T09:00:00Z" }), why(without("T_c")), why(without("T_e")), why({ ...P, T_d: "2027-01-04T09:00:00Z" })],
+    ["ok", "instant_out_of_cycle T_a", "instant_out_of_cycle T_b", "instant_missing T_c", "instant_missing T_e", "order_not_monotone T_d"], "a publication cycle: T_c to T_g in order, T_a and T_b refused");
+});
+
+// killer: scripts/retire-latency.mjs:51 CONST "!pub && " -> ""
+test("retire_latency_publication_cycle_skips_the_ceiling_and_says_why", async () => {
+  const l = await latency(), H = 3_600_000, P = { T_c: "2027-01-04T10:00:00Z", T_d: "2027-01-04T15:00:00Z", T_e: "2027-01-05T09:00:00Z", T_f: "2027-01-05T11:00:00Z", T_g: "2027-01-24T10:00:00Z" };
+  const input = { format: "retire-latency-v1", cycle: "publication", instants: P, mention: null }, f = join(TMP, "publication.json");
+  const r = ((): ReturnType<Latency["report"]> | string => { try { return l.report(input); } catch (e) { return String(e); } })();
+  assert.ok(typeof r !== "string", `a publication cycle of 20 days with no mention is reported, not refused: ${typeof r === "string" ? r : ""}`);
+  const reason = "not applicable: a publication cycle has no T_a (Q-RL-2), it is not a retirement";
+  assert.deepEqual([r.cycle, r.instants.map((i) => i.name), r.total_ms / H, r.ceiling], ["publication", ["T_c", "T_d", "T_e", "T_f", "T_g"], 480, { days: 14, applies: false, reason, mention: null }]);
+  writeFileSync(f, JSON.stringify(input));
+  const out = run(LATENCY, f);
+  assert.deepEqual([out.status, out.stdout.trimEnd().split("\n").at(-1)], [0, `retire-latency OK: publication cycle, T_g - T_c ${String(480 * H)} ms, ceiling ${reason}, objective not met (reported only)`], out.stderr);
+});
