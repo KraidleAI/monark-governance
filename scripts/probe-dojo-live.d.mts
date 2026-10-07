@@ -60,7 +60,8 @@ export interface DojoProbeOpts {
 }
 
 export function expectedDay(nowIso: string): string;
-/** The SMTP password of the file at `path`, or null (absent, a link, too large, not one non-empty line, or open to group or others). */
+/** The SMTP password of the file at `path`, or null (absent, its last path component a symbolic link, too large, its size changed under
+ *  the read, not one non-empty line of valid UTF-8 without a BOM, or open to group or others on POSIX). A hard link is not seen. */
 export function readSmtpPass(path: string): string | null;
 export function readPriorAlert(out: string): { alerted: boolean; last_alert_day: string | null };
 export function composeDojoMail(input: { from: string; to: string; kind: "alert" | "reminder" | "recovery"; state: DojoLiveState }):
