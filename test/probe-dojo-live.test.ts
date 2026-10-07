@@ -204,6 +204,66 @@ test("dojo_live_probe_reads_the_verifier_report", async () => {
   assert.deepEqual([slow.state.reason, slow.exitCode, Date.now() - t0 < 10_000], ["verifier_timeout", 1, true], "killed at its delay, not waited out");
 });
 
+/** A verifier stub that prints a success report under the supplied keyring for NEW, `fields` written over it: one guard at a time. */
+function reportStub(fields: Record<string, unknown>): string {
+  const r = { ...Object.fromEntries(DOJO_VERIFY_REPORT_KEYS.map((k) => [k, null])), ok: true, status: "consistent_with_supplied_keyring",
+    trust_root: "supplied_keyring", timeline_sha256: sha(tl(NEW)), ...fields };
+  return file("report.mjs", `process.stdout.write(${JSON.stringify(`${JSON.stringify(r)}\n`)});\n`);
+}
+const refusedBy = async (fields: Record<string, unknown>): Promise<unknown[]> => {
+  const r = await probeOn({ opts: { verifier: reportStub(fields) } });
+  return [r.state.reason, r.state.verifier_exit, r.state.verifier_reason, r.exitCode];
+};
+
+// reddened by: a success report taken as healthy whatever its status, when its trust root is the supplied keyring (each guard of the
+// report is held alone, not only with the trust root's)
+// killer: scripts/probe-dojo-live.mjs:191 CONST "r.status === \"consistent_with_supplied_keyring\" && " -> ""
+test("dojo_live_probe_refuses_a_report_off_the_supplied_status", async () => {
+  assert.deepEqual((await probeOn({ opts: { verifier: reportStub({}) } })).state.status, "healthy", "the stub's report, untouched");
+  assert.deepEqual(await refusedBy({ status: "self_consistent_only" }), ["verifier_refused", 0, null, 1]);
+});
+
+// reddened by: a success report taken as healthy whatever its trust root, when its status is the supplied keyring's
+// killer: scripts/probe-dojo-live.mjs:191 CONST "r.trust_root === \"supplied_keyring\" && " -> ""
+test("dojo_live_probe_refuses_a_report_off_the_supplied_trust_root", async () => {
+  assert.deepEqual(await refusedBy({ trust_root: "served_keyring" }), ["verifier_refused", 0, null, 1]);
+});
+
+// reddened by: a success report that carries a detail taken as healthy
+// killer: scripts/probe-dojo-live.mjs:191 CONST " && r.detail === null" -> ""
+test("dojo_live_probe_refuses_a_report_with_a_detail", async () => {
+  assert.deepEqual(await refusedBy({ detail: "timeline.jsonl" }), ["verifier_refused", 0, null, 1]);
+});
+
+// reddened by: a success report taken as healthy whatever its ok field, when its status, trust root and detail hold
+// killer: scripts/probe-dojo-live.mjs:191 CONST "r.ok === true && " -> ""
+test("dojo_live_probe_refuses_a_report_not_ok", async () => {
+  assert.deepEqual(await refusedBy({ ok: false }), ["verifier_refused", 0, null, 1]);
+});
+
+// reddened by: a success report taken as healthy off the closed keys of the verifier's report (a key added)
+// killer: scripts/probe-dojo-live.mjs:190 CONST "Object.keys(r).sort().join() === [...DOJO_VERIFY_REPORT_KEYS].sort().join()" -> "true"
+test("dojo_live_probe_refuses_a_report_off_its_closed_keys", async () => {
+  assert.deepEqual(await refusedBy({ extra: null }), ["verifier_refused", 0, null, 1]);
+});
+
+// reddened by: a verifier exit 0 printing the JSON null read as a probe error, not as a refused report (the null guard of reportOk)
+// killer: scripts/probe-dojo-live.mjs:190 CONST "r !== null && " -> ""
+test("dojo_live_probe_refuses_a_null_report", async () => {
+  const out = await probeOn({ opts: { verifier: file("null.mjs", "process.stdout.write(\"null\\n\");\n") } });
+  assert.deepEqual([out.state.reason, out.state.verifier_exit, out.state.verifier_reason, out.exitCode], ["verifier_refused", 0, null, 1]);
+});
+
+// reddened by: a verifier stdout past MAX_LINE_BYTES read whole (the child's maxBuffer widened)
+// killer: scripts/probe-dojo-live.mjs:184 CONST "maxBuffer: VERIFY_BOUNDS.MAX_LINE_BYTES" -> "maxBuffer: 4 * VERIFY_BOUNDS.MAX_LINE_BYTES"
+test("dojo_live_probe_bounds_the_verifier_stdout", async () => {
+  const r = { ...Object.fromEntries(DOJO_VERIFY_REPORT_KEYS.map((k) => [k, null])), ok: true, status: "consistent_with_supplied_keyring",
+    trust_root: "supplied_keyring", timeline_sha256: sha(tl(NEW)) };
+  const line = `${JSON.stringify(r)}${" ".repeat(VERIFY_BOUNDS.MAX_LINE_BYTES)}\n`;
+  const out = await probeOn({ opts: { verifier: file("big.mjs", `process.stdout.write(${JSON.stringify(line)});\n`) } });
+  assert.deepEqual([out.state.reason, out.state.verifier_exit, out.exitCode], ["verifier_refused", null, 1]);
+});
+
 // ---- the committed units ----------------------------------------------------------------------------------------------------------
 interface Directive { section: string; key: string; value: string }
 /** A systemd unit's directives in order, comments and blank lines dropped. */
