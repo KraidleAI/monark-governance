@@ -352,8 +352,12 @@ node scripts/spec-publish.mjs --release contract-1.1.0-tables-<YYYY-MM-DD> --dat
 
 - `scripts/spec-publish.mjs` l.4, in the shape of act 8 of T0 (`docs/RUNBOOK-vitrine.md` l.49); the `governance` root is
   this repository (l.269). `<dir>` is absent or empty, outside any git tree (l.6, l.236-238). `<spec@previous_commit>` is
-  a clean clone of the spec repository at `previous_commit` (l.196-197), made without line-end conversion: at T0, clones
-  under `core.autocrlf=true` changed the bytes and were refused (`input_digest`, `docs/JOURNAL-PROVENANCE.md` l.446).
+  a clean clone of the spec repository at `previous_commit` (l.196-197).
+- Line ends: two trees are read as files, so a checkout under `core.autocrlf=true` changes their bytes. The governance tree
+  (this repository) is read by `readFileSync` (l.185): at T0 such a checkout was refused, `input_digest`
+  (`docs/JOURNAL-PROVENANCE.md` l.446). The `--verify` clone is compared byte for byte by `compareTrees` (l.222-226): it
+  reads `DIFFERENT`, exit 1. Make both with `git -c core.autocrlf=false`. The `previous` clone is read from git objects
+  (l.178), never from its files: line-end conversion does not reach it.
 - Every refusal is named by its code and nothing is written (l.14-21): among them `retire_list_missing` and
   `retire_list_invalid` (a retired row is published from a dated directory, with its own list or a carried one,
   l.303-321), `rewritten`, `withdrawn`, `added_to_published`, `foreign_version_dir` (l.198-207), `vocabulary`,
@@ -368,10 +372,15 @@ node scripts/spec-publish.mjs --release contract-1.1.0-tables-<YYYY-MM-DD> --dat
 - The lot's pull request carries the list (step 2), the dated directory and its release entry (step 3). The orchestrator
   merges it after T_d, never before, under the gates of its part (`docs/methode/REGLES-MISSION.md` l.20). **T_e** = the
   committer date of the merge commit (`git log -1 --format=%cI`), in UTC.
+- Deploy only a merged commit whose CI is green and on which `node scripts/spec-policy-tables.mjs --check` exits 0 (l.14):
+  every served table is then the file of its published directory.
+- If the merge fails after T_d (a conflict, a red CI), the published directory stays as it is: never rewrite nor withdraw
+  it (step 9). Fix the lot branch on the trunk with the dated directory byte for byte as published (the `--verify` of
+  step 4 again, exit 0), then merge; T_e is that merge. A table that must change is a new dated directory at a later date.
 
 ### 6. Deployment (T_f)
 
-- Ship the merged commit and restart, as §1 and *Update* (Operations) say, then run §6:
+- Ship the merged commit of step 5 (green, `--check` exit 0) and restart, as §1 and *Update* (Operations) say, then run §6:
   `node scripts/verify-harness.mjs --out docs/deploy-CA-harness.json` (this file, l.162), green only under the gate of
   l.213-219. **T_f** = the `checked_at` of that green record (`scripts/verify-harness.mjs` l.421), cut to the second: it
   carries milliseconds, and `scripts/retire-latency.mjs` takes none (l.25).
@@ -385,9 +394,12 @@ node scripts/spec-publish.mjs --release contract-1.1.0-tables-<YYYY-MM-DD> --dat
   (`apps/harness/src/kata-path.ts` l.78, l.111), and the file's sha256 is that digest (`scripts/spec-policy-tables.mjs`
   l.10-11). On the retired cell the reason is `calib_retired` (`kata-path.ts` l.38, l.84-94).
 - A kata call is accepted only with a `produced_at` on the grid of the class's horizon (`kata-path.ts` l.46) and within
-  300 s of the server clock, after it (l.47) or before it (`apps/harness/src/tools/gate.ts` l.886; 300 s, l.212): the
-  probe has a window of ten minutes around each grid instant, and may wait up to an hour on a 1h class, four hours on a
-  4h class.
+  300 s of the server clock: a `produced_at` more than 300 s in the past is `produced_at_stale` (`kata-path.ts` l.47), one
+  more than 300 s in the future is `produced_at_future` (the test at `apps/harness/src/tools/gate.ts` l.885; 300 s,
+  l.212). The probe has a window of ten minutes around each grid instant, and may wait up to an hour on a 1h class, four
+  hours on a 4h class.
+- On a scale class the probe's `yhat` lies in the row's `calib_support`: `out_of_support` (`kata-path.ts` l.93) is tested
+  before `calib_retired` (l.94) and would hide it.
 - No probe command exists in the repository: `scripts/verify-harness.mjs` makes no kata call. Item RETIRE-PROBE-1 of the
   G0. **T_g** = the UTC instant the probe receives that verdict.
 
@@ -400,7 +412,8 @@ node scripts/spec-publish.mjs --release contract-1.1.0-tables-<YYYY-MM-DD> --dat
 ```
 
   `cycle` is `rehearsal` or `real`; `mention` is `null`, or where an overrun of the 14-day ceiling is written down
-  (l.51-52).
+  (l.51-52). AFTER #218 (RETIRE-REAL-CYCLE-SCOPE-1, not merged at the base of this text): `cycle` may be `publication`,
+  T_c to T_g only, no ceiling; T_a or T_b in it is refused, `instant_out_of_cycle`.
 - Run it:
 
 ```bash
@@ -422,6 +435,9 @@ publication, remove it with git, then write it again" (`scripts/spec-policy-tabl
 l.210-217). Before T_d only:
 - written, not committed (untracked): `git clean -n -d -- spec/contract-1.1.0-tables-<YYYY-MM-DD>/` lists what goes,
   then `git clean -f -d -- spec/contract-1.1.0-tables-<YYYY-MM-DD>/` removes it;
+- written and staged (`git add`), not committed: `git clean` lists nothing and `git rm -r` refuses ("changes staged in
+  the index"). Unstage it, `git restore --staged -- spec/contract-1.1.0-tables-<YYYY-MM-DD>/`, then treat it as
+  untracked (`git clean -n`, then `-f`), which lists what goes before it goes; `git rm -r -f` would delete it unlisted;
 - committed on the lot branch, not merged: `git rm -r -- spec/contract-1.1.0-tables-<YYYY-MM-DD>` and the release entry
   of that directory out of `scripts/spec-publish-inputs.json`, in one commit;
 
