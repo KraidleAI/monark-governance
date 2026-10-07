@@ -1,7 +1,8 @@
 // test/recompute-report.test.ts -- lot 2a of VERIFIERS-LIST-F5A-1 (2026-10-07; G0 docs/G0-lot-e2a-2a-report-reader.md): the closed reader of
 // the recompute report, readRecomputeReport of apps/harness/src/policy-verifiers.ts, on a synthetic report of the new form (scope, a digest
-// per cell of the release's classes, null elsewhere, no digest under differences). The real report is not here: its bindings (registry,
-// list entry, every cell equal, the spec gate on its bytes, the remeasure of the non-row digests) are asserted by the commit that adds it.
+// per cell of the release's classes, null elsewhere, no digest under differences, fields with the five keys the frozen tool writes). The
+// real report is not here: its bindings (registry, list entry, every cell equal, the spec gate on its bytes, the remeasure of the non-row
+// digests) are asserted by the commit that adds it.
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
@@ -32,8 +33,7 @@ function synthetic(): J {
       compare: [{ role: "registry", name: "wave1.json", sha256: sha256(REGISTRY), bytes: REGISTRY.length }] },
     platform: { python: "3.14.8", system: "Linux-6.18-x86_64", machine: "x86_64", libm: { name: "libm.so.6", version: "2.39", sha256: hex("d"), log_vectors_differing: 0 } },
     oracles: { conformance_vectors: { checks: 363, failures: 0 }, second_writing: { checks: 40, failures: 0 }, log_port: { checks: 9, failures: 0, measured_outputs: 9 } },
-    fields: { decisions: TEXTS.decisions, values: ["calib.qhat"], digests: ["calib.scoresSha256"], value_rule: TEXTS.values, digest_rule: TEXTS.digests,
-      outside_decisions: [{ field: "trialRegistryHead.hash", reason: TEXTS.outside_reason }] },
+    fields: { decisions: TEXTS.decisions, values: ["calib.qhat"], digests: ["calib.scoresSha256"], value_rule: TEXTS.values, digest_rule: TEXTS.digests },
     scope: [...new Set(ROWS.map((r) => r.taskClass))].filter((c) => !HELD.test(c)).sort(),
     cells: ROWS.map((r) => ({ task_class: r.taskClass, cell_key: r.key, decisions_equal: true, scores_sha256: HELD.test(r.taskClass) ? null : r.calib.scoresSha256 }))
       .sort((a, b) => (a.task_class < b.task_class || (a.task_class === b.task_class && a.cell_key < b.cell_key) ? -1 : 1)),
@@ -61,11 +61,15 @@ const lot = (): typeof verifiers => {
 };
 const refuses = (bytes: Uint8Array | string, why: RegExp, what: string): void =>
   assert.throws(() => lot().readRecomputeReport(bytes), (e: unknown) => e instanceof Error && e.message.startsWith("MONARK recompute report: ") && why.test(e.message), what);
+/** The whole refusal of the field at a dotted path: "inputs.recompute.0.name" gives the one of report.inputs.recompute[0].name. */
+const offForm = (path: string): RegExp => new RegExp(`^MONARK recompute report: report\\.${path.replace(/\.(\d+)/g, "[$1]").replace(/[.[\]]/g, "\\$&")} is off the form\\.$`);
 
-// reddened by: a departure of the closed form admitted (a key more or less at any level, the old form without scope or with digests under
-// differences, a malformed hex, commit, double, class or verifier, a count that is not a non-negative integer, a decision that is not a
-// boolean, cells or scope unsorted or repeated) or a writing other than the canonical one (spaces, key order, a final newline, -0, a
-// fraction, a byte beyond ASCII), or the reader's writing parting from the contract's on the synthetic report
+// reddened by: a departure of the closed form admitted or refused without its name (a key more or less at any level, the old form without
+// scope or with digests under differences, a malformed hex, commit, double, class or verifier, a count that is not a non-negative integer, a
+// decision that is not a boolean, a list or a text of another type, a typed object null, cells unsorted, across a class boundary too, scope
+// unsorted, cells or scope repeated, platform.libm.sha256 other than one lower-case digest) or a writing other than the canonical one
+// (spaces, key order, a key twice, a final newline, -0, a fraction, 2^53, a byte beyond ASCII, a value nested too deep), or the reader's
+// writing parting from the contract's on the synthetic report, whose fields have the five keys of the frozen tool
 // killer: apps/harness/src/policy-verifiers.ts:156 CONST "typeof v === \"boolean\"" -> "true"
 test("recompute_report_reader_judges_the_closed_form - readRecomputeReport admits a synthetic report of the new form (scope included) and refuses each departure of the closed form and of the canonical writing", () => {
   const { readRecomputeReport } = lot(), text = canonicalJson(BASE);
@@ -107,9 +111,60 @@ test("recompute_report_reader_judges_the_closed_form - readRecomputeReport admit
   refuses(JSON.stringify(JSON.parse(text), null, 1), /not its canonical writing/, "spaces");
   refuses(`${text}\n`, /not its canonical writing/, "a final newline");
   for (const brk of ["\n", "\r", "\r\n"]) refuses(text.replace(',"differences":', `,${brk}"differences":`), /not its canonical writing/, `a raw ${JSON.stringify(brk)} between tokens`);
-  refuses(canonicalJson(variant("replay", `${String(BASE.replay)} \u2603`)), /not ASCII/, "a byte beyond ASCII");
+  refuses(canonicalJson(variant("replay", `${String(BASE.replay)} \u2603`)), /^MONARK recompute report: not ASCII\.$/, "a byte beyond ASCII, refused on the text before the form");
   refuses("{", /not UTF-8 JSON/, "not JSON");
   refuses(Buffer.from([0x7b, 0xff, 0x7d]), /not UTF-8 JSON/, "not UTF-8");
+  assert.deepEqual(Object.keys(BASE.fields as J).sort(), ["decisions", "digest_rule", "digests", "value_rule", "values"], "fields: the five keys of the frozen tool, no outside_decisions");
+  const once = (from: string, to: string): string => { assert.equal(text.split(from).length, 2, `${from} once in the canonical text`); return text.replace(from, to); };
+  refuses(once('"values":1}', '"values":9007199254740992}'), /^MONARK recompute report: 9007199254740992 is not an integer of the canonical writing\.$/, "2^53 in a free object (report.py writes at most 2^53 - 1)");
+  const cs = cellsOf(BASE), b = cs.findIndex((c, i) => i + 1 < cs.length && c.task_class !== cs[i + 1]?.task_class && String(cs[i + 1]?.cell_key) < String(c.cell_key));
+  assert.ok(b >= 0, "a class boundary where the cell key decreases");
+  form(variant("cells", [...cs.slice(0, b), cs[b + 1], cs[b], ...cs.slice(b + 2)]), /cells are not unique and sorted by \(task_class, cell_key\)/, "two cells inverted at a class boundary: the class decreasing, the key increasing");
+  for (const p of ["cells", "differences", "inputs.compare"]) form(variant(p, "x"), offForm(p), `${p} a text, not a list`);
+  for (const p of ["replay", "tool.tree", "registry.generator_identity", "inputs.recompute.0.name", "inputs.recompute.0.role", "cells.0.cell_key", "differences.0.cell_key", "differences.1.field"])
+    form(variant(p, 1), offForm(p), `${p} a number, not a text`);
+  form(variant("tool", null), /^MONARK recompute report: report\.tool is not an object\.$/, "tool null");
+  form(variant("cells.0", null), /^MONARK recompute report: report\.cells\[0\] is not an object\.$/, "a cell null");
+  refuses(once('{"cells":[', '{"cells":[],"cells":['), /not its canonical writing/, "a key twice at the top level (JSON.parse keeps the last)");
+  refuses(once('"cells":[{', '"cells":[{"cell_key":"x",'), /not its canonical writing/, "a key twice in a cell");
+  for (const [s, what] of [[hex("d").repeat(2), "two digests"], [hex("D"), "upper case"], [7, "a number"], [undefined, "absent"]] as const)
+    form(variant("platform.libm.sha256", s), offForm("platform"), `platform.libm.sha256 ${what}`);
+  for (const [l, what] of [[null, "null"], ["libm.so.6", "a text"], [undefined, "absent"]] as const) form(variant("platform.libm", l), offForm("platform"), `platform.libm ${what}`);
+  form(variant("platform", null), offForm("platform"), "platform null");
+  assert.deepEqual(readRecomputeReport(canonicalJson(variant("platform.os", "x"))), variant("platform.os", "x"), "platform stays free: a key more reads");
+  refuses(once('"values":1}', `"values":1,"z":${"[".repeat(100000)}${"]".repeat(100000)}}`), /^MONARK recompute report: not its canonical writing \(nested too deep\)\.$/, "a value nested 100 000 levels deep in a free object");
+});
+
+// reddened by: a writing that report.py never produces admitted: a byte order mark before the canonical bytes, or a lone surrogate escaped
+// in a value or in a key, which stays ASCII as text (report.py writes every string and every key through canonical(), which refuses a
+// string that is not ASCII); or an invalid UTF-8 byte inside a string refused under another name than "not UTF-8 JSON"
+// killer: apps/harness/src/policy-verifiers.ts:173 CONST "!/^[\\x00-\\x7f]*$/.test(v)" -> "false"
+test("recompute_report_reader_is_closed_on_the_bytes_and_the_strings - a byte order mark before the canonical bytes, an invalid UTF-8 byte in a string and a lone surrogate escaped in a value or a key are each refused by name", () => {
+  const { readRecomputeReport } = lot(), text = canonicalJson(BASE), parts = text.split('"replay":"'), [pre = "", post = ""] = parts;
+  assert.equal(parts.length, 2, "one replay text");
+  assert.deepEqual(readRecomputeReport(Buffer.from(text, "ascii")), BASE, "the canonical bytes read");
+  refuses(Buffer.concat([Buffer.from([0xef, 0xbb, 0xbf]), Buffer.from(text, "ascii")]), /^MONARK recompute report: not UTF-8 JSON\.$/, "a byte order mark before the canonical bytes");
+  refuses(Buffer.concat([Buffer.from(`${pre}"replay":"`, "ascii"), Buffer.from([0xff]), Buffer.from(post, "ascii")]), /^MONARK recompute report: not UTF-8 JSON\.$/, "an invalid UTF-8 byte inside a string");
+  refuses(`${pre}"replay":"\\ud800${post}`, /^MONARK recompute report: a string that is not ASCII\.$/, "a lone surrogate escaped in a value");
+  assert.equal(text.split('"values":1}').length, 2, "summary.values once");
+  refuses(text.replace('"values":1}', '"values":1,"\\ud800":0}'), /^MONARK recompute report: a string that is not ASCII\.$/, "a lone surrogate escaped in a key, the last of a free object");
+});
+
+// reddened by: a double of a difference admitted in a writing that Python's float.hex() never gives a finite double (a mantissa of another
+// length, a leading digit other than 0 or 1, an exponent with a sign or a zero that float.hex() never writes or out of [-1022, 1023], a
+// zero written as a subnormal, a subnormal at another exponent, upper-case digits, a sign before 0x), or a writing of float.hex() refused
+// killer: apps/harness/src/policy-verifiers.ts:150 CONST "102[0-3]" -> "102[0-9]"
+test("recompute_report_doubles_are_the_writings_of_float_hex - the a and b of a difference read only as float.hex() writes a finite double: 13 hex digits, the exponent of a normal in [-1022, 1023], zero and the subnormals", () => {
+  const { readRecomputeReport } = lot(), [d0] = BASE.differences as J[], exp = (e: number): string => (e < 0 ? `${e}` : `+${e}`);
+  const writings = [...Array.from({ length: 2046 }, (_, i) => `0x1.0000000000000p${exp(i - 1022)}`), ...Array.from({ length: 52 }, (_, k) => `0x0.${(2 ** k).toString(16).padStart(13, "0")}p-1022`),
+    "-0x1.fffffffffffffp+1023", "0x1.999999999999ap-4", "0x0.fffffffffffffp-1022", "0x0.0p+0", "-0x0.0p+0"];
+  const all = variant("differences", writings.map((a, i) => ({ ...d0, a, b: writings[writings.length - 1 - i] })));
+  assert.deepEqual(readRecomputeReport(canonicalJson(all)), all, "2^e for each exponent of a normal, each power of two among the subnormals, the largest and a negative double, zero and -0");
+  for (const a of ["0x1.0p+0", "0x1.00000000000000p+0", "0x1.8p+01", "0x1.0000000000000p-0", "0x1.0000000000000p+00", "0x1.0000000000000p0", "0x0.0000000000000p-1022", "0x0.0p-0",
+    "0x0.0000000000001p+5", "0x0.0000000000001p-1021", "0x1.0000000000000p+99999", "0x1.0000000000000p+1024", "0x1.0000000000000p-1023", "0x2.0000000000000p+0", "0x1.000000000000Ap+0",
+    "+0x1.0000000000000p+0", "0x1.0000000000000p+1e3"])
+    refuses(canonicalJson(variant("differences.0.a", a)), offForm("differences.0.a"), `${a}: never a writing of float.hex()`);
+  refuses(canonicalJson(variant("differences.0.b", "0x1.0p+0")), offForm("differences.0.b"), "b as well");
 });
 
 // reddened by: the reader binding what the gate and the guard bind (the registry, the list entry, the decisions, the scope against the
