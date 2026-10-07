@@ -271,8 +271,8 @@ where its step says, with `date -u` unless the step names another source.
 loader of E-2a is merged, this section is the procedure of the rehearsal (RETIRE-LATENCY-REHEARSAL-1, in a sandbox) and of
 the first cycle of E-2a.
 - The 32 kata tables are served with no row (`apps/harness/src/kata-path.ts` l.115-120), behind a tripwire that fails the
-  load on the first kata row (l.122-129, called at `apps/harness/src/tools/gate.ts` l.1042); the HTTP and MCP entry points
-  never pass other tables (`tools/gate.ts` l.873-875).
+  load on any kata row outside the pins, hence on the first one while no table is pinned (l.122-129, called at
+  `apps/harness/src/tools/gate.ts` l.1042); the HTTP and MCP entry points never pass other tables (`tools/gate.ts` l.873-875).
 - No served path reads a retire list: `guardKataTable` (`apps/harness/src/policy-guard.ts`) reads the chain of lists in
   tests only (item RETIRE-LISTS-E2A-PIPE-1).
 - `recompute_held` refuses every row that carries a recompute until the list of verifiers is published
