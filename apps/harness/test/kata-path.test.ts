@@ -316,7 +316,7 @@ test("guard_thresholds_agree_per_side", () => {
 });
 
 const SRC = join(dirname(fileURLToPath(import.meta.url)), "..", "src");
-/** The served import graph: the modules reached by a relative import from the entry points and the tools, in either quote. */
+/** The served import graph: the modules reached from the entry points and the tools by a relative specifier, as importSpecifiers lists it. */
 function servedModules(): Set<string> {
   const seen = new Set<string>();
   const walk = (file: string): void => {
