@@ -155,7 +155,8 @@ RECHERCHES, 2026-10-07. Base : la tête de a1-i, `15fafa202a60d2fc06a80ab426bec2
 - **Ce que lit le test des lignes réservées** (au lieu de « in one import only ») : un seul spécificateur `./policy-classes.ts` parmi
   ceux que liste `importSpecifiers` (imports, imports à effet de bord, imports de type, ré-exports — sauf `export * as ns from`, que
   `ts.preProcessFile` ne lisait pas : §9 —, `export * from`, `import()` ou `require()` d'un littéral ou d'un gabarit sans
-  substitution, dans les deux guillemets, commentaires sautés) ; et les noms de
+  substitution, dans les deux guillemets, commentaires sautés — sauf un import que cachait à `ts.preProcessFile` une expression
+  régulière tenant un guillemet ou un accent grave : §9 —) ; et les noms de
   chaque ligne `import { … } from` de ce module, dans les deux guillemets, inclus dans {`kataKeyReserved`, `KATA_RESERVED_IDS`} et
   non vides. Côté fermé : un import permis avec un commentaire avant le chemin est compté sans nom, donc refusé (mesuré,
   `out-ii-w5.json` `6e0a4a1d…`).
@@ -211,8 +212,14 @@ RECHERCHES, 2026-10-07. Base : la tête de a1-i, `15fafa202a60d2fc06a80ab426bec2
   `export * as ns from` n'était pas lu (sonde du §9 du G0 d'a1-i) : un ré-export d'espace de noms du module des classes, ajouté au
   lecteur, échappait au compte d'un seul spécificateur de `./policy-classes.ts`. Depuis la fusion du tronc, l'arbre le lit : G6
   (`export * as C from "./policy-classes.ts";` après l'import des classes dans le lecteur) est tué par assertion par
-  `committed_tables_reader_refuses_reserved_rows` (ci-dessous). Le §8 est annoté sur place ; le corps de la PR nomme
-  `export * as ns from` et dit les spécificateurs lus sur l'arbre syntaxique.
+  `committed_tables_reader_refuses_reserved_rows` (ci-dessous). De même pour un second import du module des classes que cachait à
+  `ts.preProcessFile` une expression régulière tenant un guillemet ou un accent grave (note 3 de la G2 de l'adoption, par a1, du
+  lecteur de #246 ; rejoué le 2026-10-08) : chacune des deux lignes
+  ``export const tick = /`/; import "./policy-classes.ts"; export const tock = /`/;`` et
+  `export const re = /'/; void import("./policy-classes.ts"); //'`, posée seule après l'import des classes du lecteur
+  (`policy-committed.ts:11`), passe 7/7 à `0e31950b` (l'ancienne aide) et rougit `committed_tables_reader_refuses_reserved_rows`
+  par assertion à `8980121b` (6/7 : « one specifier of policy-classes.ts », 2 !== 1). Le §8 est annoté sur place ; le corps de la
+  PR nomme `export * as ns from` et cet import, et dit les spécificateurs lus sur l'arbre syntaxique.
 - **Mutants** : `scripts/mutants/run.mjs --killers --table forms-ii.json --base 49851b0f` (verrou d'hôte partagé, Node 24.21.0, de
   06:07:15Z à 06:10:45Z ; `tool_sha256` `13b2b11f…`) : base 476 verts sur 55 fichiers cibles ; **29 tués sur 29**, chacun à son
   premier lancement et par assertion (`RESULTS.json` `beafeb3a…`). Ce sont les 7 tueurs du seul fichier de test que cette demande
