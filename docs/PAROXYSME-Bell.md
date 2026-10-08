@@ -11,7 +11,11 @@
   ligne d'ETAT : MONARK. Versé au tronc par #242, fusion `1df4e44f` (ETAT l.181-186 à `5437cd0d`) ; décisions de MONARK pliées le
   2026-10-07 (PR `paroxysme/registres-decisions-1007`), par PAROXYSME (worker `claude-opus-5-5`, effort max). Constats 3, 6 et 12 de la
   G2 de ce pli (instance neuve) pliés le 2026-10-07 à partir de 21:34 UTC (`date -u`) par un worker de PAROXYSME (`claude-opus-5-5`,
-  effort max, contexte de sa mission) : L-23, §1, §7 (doutes 6 et 10), §8 ; renvois neufs à ETAT suffixés « à `5437cd0d` ».
+  effort max, contexte de sa mission) : L-23, §1, §7 (doutes 6 et 10), §8 ; renvois neufs à ETAT suffixés « à `5437cd0d` ». Après un
+  vérificateur adverse, réparation le 2026-10-07 à partir de 22:55 UTC (`date -u`) par un worker de PAROXYSME (`claude-opus-5-5`,
+  effort max) : touches de L-23 et L-39 ; déclencheurs, états et suites de L-25 et L-39 ; §1, §7 (doute 10), §8. Après un nouveau
+  vérificateur adverse, ce point est complété le 2026-10-08 à partir de 00:23 UTC (`date -u`) par un worker de PAROXYSME
+  (`claude-opus-5-5`, effort max).
 - **Bases** : inventaire mesuré à `d8fe354c`, ETAT lu à `57a131fc`. Toutes les ancres de ce registre sont à la tête `87b821b0` de
   `lot/etude-suite`, sauf celles du pli des décisions (fin de ce point). Elles sont reportées par l'outil `reanchor.mjs` (pièce de la
   boîte PAROXYSME), puis relues à la tête par lecture bornée (`git show 87b821b0:<fichier> | awk 'NR>=a && NR<=b'`, avec le nombre de
