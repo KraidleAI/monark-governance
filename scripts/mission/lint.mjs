@@ -90,7 +90,7 @@ const isDir = (p) => { try { return statSync(p).isDirectory(); } catch { return 
 const nums = (s) => [...s.matchAll(/\d+/g)].map((x) => Number(x[0]));
 
 /** Lint a mission text against --repo (its worktree on disk, or the git tree of `rev`). Pure apart from reads and git. */
-export function lintMission({ text, missionPath, repo, rev = null }) {
+export function lintMission({ text, missionPath, repo, rev = null, host = true }) { // host false: no host read (JOURNAL-LINT-FREEZE-HOST-1)
   const git = (...a) => { try { return execFileSync("git", ["-C", repo, ...a], { encoding: "utf8", stdio: ["ignore", "pipe", "ignore"], maxBuffer: 1 << 28 }); } catch { return null; } };
   const src = text.replace(/^\ufeff/, "");
   const lines = src.split(/\r?\n/);
@@ -102,7 +102,7 @@ export function lintMission({ text, missionPath, repo, rev = null }) {
   const roots = new Set(["docs", "scripts", "test", "apps", "packages", ...(git("ls-tree", "-d", "--name-only", rev ?? "HEAD") ?? "").split("\n").filter(Boolean)]);
   const inRepo = (p) => (tree ? tree.has(p.replace(/\/$/, "")) || dirs.has(p.replace(/\/$/, "")) : existsSync(join(repo, p)));
   const readRepo = (p) => (tree ? git("show", `${rev}:${p}`) : read(join(repo, p)));
-  const branches = new Set((git("branch", "--list", "--format=%(refname:short)") ?? "").split("\n").map((s) => s.trim()).filter(Boolean));
+  const branches = !host ? null : new Set((git("branch", "--list", "--format=%(refname:short)") ?? "").split("\n").map((s) => s.trim()).filter(Boolean));
   const missionDir = dirname(resolve(missionPath));
   const toolDirs = new Set([missionDir]);
   const repoDirs = new Set(["scripts"]);
@@ -137,23 +137,23 @@ export function lintMission({ text, missionPath, repo, rev = null }) {
     for (const [rawPath, suffix, after] of found) {
       for (const p of expand(rawPath.replace(/\\/g, "/"))) {
         const abs = /^[A-Za-z]:\//.test(p);
-        if (!abs && !roots.has(p.split("/")[0])) { const q = resolve(missionDir, p); if (existsSync(q)) toolDirs.add(isDir(q) ? q : dirname(q)); continue; }
+        if (!abs && !roots.has(p.split("/")[0])) { const q = resolve(missionDir, p); if (host && existsSync(q)) toolDirs.add(isDir(q) ? q : dirname(q)); continue; }
         if (create) declared.add(p);
-        if (!(abs ? existsSync(p) : inRepo(p))) {
+        if (!(abs ? !host || existsSync(p) : inRepo(p))) {
           if (!(abs && LOCK.test(p))) absent.push([SCRIPT.test(p) && (abs || /(^|\/)scripts\//.test(p)) ? "R-TOOL" : "R-PATH", ln, p]);
           continue;
         }
-        if (abs) toolDirs.add(isDir(p) ? p : dirname(p));
+        if (abs && host) toolDirs.add(isDir(p) ? p : dirname(p));
         else repoDirs.add(p.replace(/\/$/, "")).add(p.replace(/\/[^/]*\/?$/, ""));
         const tail = LTAIL.exec(after)?.[1] ?? "";
         const want = Math.max(0, ...nums(suffix ?? ""), ...[...tail.matchAll(/(?<![\p{L}\p{N}_])l\.\d+(?:-\d+)?/gu)].flatMap((x) => nums(x[0])));
-        const n = want > 0 ? count(abs ? read(p) : readRepo(p)) : null;
+        const n = want > 0 && (host || !abs) ? count(abs ? read(p) : readRepo(p)) : null;
         if (n !== null && want > n) hit("R-LINE", ln, `${p}:${want} past the end (${n} lines)`);
       }
     }
     for (const b of line.matchAll(BRANCH_RE)) {
       const name = b[0].replace(/[./-]+$/, "");
-      if ((quoted(b.index) || /branche?\s+$/i.test(line.slice(0, b.index))) && !branches.has(name)) hit("R-BRANCH", ln, `${name} absent from git branch --list`);
+      if ((quoted(b.index) || /branche?\s+$/i.test(line.slice(0, b.index))) && branches !== null && !branches.has(name)) hit("R-BRANCH", ln, `${name} absent from git branch --list`);
     }
     for (const m of prose.matchAll(PLACEHOLDER)) hit("R-PLACEHOLDER", ln, m[0]);
     for (const m of prose.matchAll(VAGUE)) hit("R-VAGUE", ln, m[0]);
@@ -165,7 +165,7 @@ export function lintMission({ text, missionPath, repo, rev = null }) {
   closeStep();
   for (const [code, ln, p] of absent) if (!covers(p)) hit(code, ln, `${p} absent`);
   for (const [name, ln] of bare)
-    if (!declared.has(name) && ![...toolDirs].some((d) => existsSync(join(d, name))) && !inRepo(name) && ![...repoDirs].some((d) => inRepo(`${d}/${name}`))) hit("R-TOOL", ln, `${name} held by no directory the mission names`);
+    if (host && !declared.has(name) && ![...toolDirs].some((d) => existsSync(join(d, name))) && !inRepo(name) && ![...repoDirs].some((d) => inRepo(`${d}/${name}`))) hit("R-TOOL", ln, `${name} held by no directory the mission names`);
   const want = [...new Set(syms.map(([s]) => s))].filter((s) => !declared.has(s) && !GLOBALS.includes(s));
   const defs = want.length === 0 ? "" : git("grep", "-I", "-h", "-w", "-F", ...(rev === null ? ["--untracked"] : []), ...want.flatMap((s) => ["-e", s]), ...(rev === null ? [] : [rev]), "--", "*.ts", "*.mts", "*.mjs", "*.js", "*.cjs") ?? "";
   for (const [s, ln] of syms) if (!declared.has(s) && !GLOBALS.includes(s) && !DEF(s).test(defs)) hit("R-SYMBOL", ln, `${s} is defined nowhere in the tree`);
