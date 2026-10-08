@@ -301,14 +301,15 @@ test("definition form export default (G11B, Q-M2B-11): a name exported as defaul
 // killer: scripts/mission/lint.mjs:162 CONST "`|^\\s*```/.test(raw)" -> "`/.test(raw)"
 test("steps, fenced code block (G16): a fence under a step is its code; a step with none stays red", () => assert.deepEqual([red(H("## Steps\n1. Run:\n```\nnpm test\n```")), red(H("## Steps\n1. Think hard."))], [[], ["R-STEP"]]));
 // killer: scripts/mission/lint.mjs:142 CONST "!host || existsSync(p)" -> "existsSync(p)"
-test("host false (JOURNAL-LINT-FREEZE-HOST-1): a drive path, its line, a lot branch and a bare tool are never read on the host; the default reads them", () => {
-  const text = H("Read `Z:/fh-absent/x.md:3`. Branch `lot/fh-none`. Run `fh-none.mjs`."), codes = (host: boolean): string[] => lintMission({ text, missionPath: join(T, "m.md"), repo: REPO, rev: null, host }).hits.map((h) => h.code);
+test("host false: a drive path, its line, a lot branch and a bare tool are never read on the host; the default reads them", () => {
+  const text = H("Read `Z:/fh-absent/x.md:3`. Branch `lot/fh-none`. Run `fh-none.mjs`.");
+  const codes = (host: boolean): string[] => lintMission({ text, missionPath: join(T, "m.md"), repo: REPO, rev: null, host }).hits.map((h) => h.code);
   // killer: scripts/mission/lint.mjs:105 CONST "!host ? null : " -> ""
   // killer: scripts/mission/lint.mjs:168 CONST "if (host && " -> "if ("
   assert.deepEqual([codes(false), codes(true)], [[], ["R-BRANCH", "R-PATH", "R-TOOL"]]);
 });
 // killer: scripts/mission/lint.mjs:150 CONST "want > 0 && (host || !abs)" -> "want > 0"
-test("host false (JOURNAL-LINT-FREEZE-HOST-1): a drive path present on the host, cited past its end, is not read; the default reads it", () => {
+test("host false: a drive path present on the host, cited past its end, is not read; the default reads it", () => {
   const dir = WIN ? join(T, "fh") : join(T, "Z:", "fh"), cwd = process.cwd(); // off Windows, a relative "Z:" directory makes a drive path present
   mkdirSync(dir, { recursive: true });
   writeFileSync(join(dir, "x.md"), "one line\n");
@@ -320,7 +321,7 @@ test("host false (JOURNAL-LINT-FREEZE-HOST-1): a drive path present on the host,
   } finally { process.chdir(cwd); }
 });
 // killer: scripts/mission/lint.mjs:140 CONST "if (host && existsSync(q))" -> "if (existsSync(q))"
-test("host false (JOURNAL-LINT-FREEZE-HOST-1): no existsSync or statSync of a tool path or a drive path present on the host", () => {
+test("host false: no existsSync or statSync of a tool path or a drive path present on the host", () => {
   const fsc = createRequire(import.meta.url)("node:fs") as typeof import("node:fs"), { existsSync: ex, statSync: st } = fsc, seen: string[] = [];
   const dir = WIN ? join(T, "fs2") : join(T, "Z:", "fs2"), cwd = process.cwd(); // off Windows, a relative "Z:" directory makes a drive path present
   for (const d of [dir, join(T, "fsx")]) mkdirSync(d, { recursive: true });

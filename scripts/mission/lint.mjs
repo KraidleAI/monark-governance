@@ -136,8 +136,8 @@ export function lintMission({ text, missionPath, repo, rev = null, host = true }
     }
     for (const [rawPath, suffix, after] of found) {
       for (const p of expand(rawPath.replace(/\\/g, "/"))) {
-        const abs = /^[A-Za-z]:\//.test(p);
-        if (!abs && !roots.has(p.split("/")[0])) { const q = resolve(missionDir, p); if (host && existsSync(q)) toolDirs.add(isDir(q) ? q : dirname(q)); continue; }
+        const abs = /^[A-Za-z]:\//.test(p), rel = !abs && !roots.has(p.split("/")[0]);
+        if (rel) { const q = resolve(missionDir, p); if (host && existsSync(q)) toolDirs.add(isDir(q) ? q : dirname(q)); continue; }
         if (create) declared.add(p);
         if (!(abs ? !host || existsSync(p) : inRepo(p))) {
           if (!(abs && LOCK.test(p))) absent.push([SCRIPT.test(p) && (abs || /(^|\/)scripts\//.test(p)) ? "R-TOOL" : "R-PATH", ln, p]);

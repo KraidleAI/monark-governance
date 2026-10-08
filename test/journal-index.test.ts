@@ -14,7 +14,7 @@ import { execFileSync, spawn, spawnSync } from "node:child_process";
 import { createHash } from "node:crypto";
 import { copyFileSync, cpSync, existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { basename, join } from "node:path";
 import { once } from "node:events";
 import { pathToFileURL } from "node:url";
 
@@ -123,7 +123,7 @@ function proof(name: string, head: string, rows: string[][], outcomes: string[] 
 /** A throwaway repo (`pre` run on it first), the fixture mission plus `extra` (line ends `eol`) launched on it by launch.mjs, and `at`:
  * add in it, lot M-Z, model and tier claude-opus-5-5, at G1 (recu_head C2) or at cp-2 (--commit C2 and oracle-cp-2.json, head C2). */
 function v2(extra = "", eol = NL, pre?: (r: string) => void): { r: string; mission: string; name: string; at: (gate: string, ...more: string[]) => Entry | string } {
-  const r = repo(), name = `v${r.split(/[\\/]/).at(-1) ?? ""}.md`, [mission] = file(name, `${readFileSync(join(FX, "mission.md"), "utf8")}${extra}`.split(NL).join(eol));
+  const r = repo(), name = `v${basename(r)}.md`, [mission] = file(name, `${readFileSync(join(FX, "mission.md"), "utf8")}${extra}`.split(NL).join(eol));
   pre?.(r);
   spawnSync(process.execPath, [join(ROOT, "scripts", "mission", "launch.mjs"), mission, "--repo", r], { env: ENV });
   return { r, mission, name, at: (gate, ...more) => added(r, "--lot", "M-Z", "--gate", gate, "--from-recu", mission.replace(/\.md$/, ".recu.json"), "--model", "claude-opus-5-5", "--tier", "claude-opus-5-5",
@@ -482,12 +482,13 @@ test("redproof_roundtrip: add --from-redproof copies base, head, digest and deri
   const bad = at("cp-2", "--from-redproof", join(r, "test", "fixtures", "journal", "oracle-G7.json")), rp = (e as Entry).redproof as Entry, v0 = readFileSync(String(rp.record), "utf8").replace("red-proof-v1", "red-proof-v0");
   graft(r, sha(v0), v0);
   const rows = lines(r), forged = [{ ...rows[0], redproof: { ...rp, f2p: 10 } }, { ...rows[0], redproof: { ...rp, sha256: sha(v0) } }];
-  const refused = typeof bad === "string" && bad.endsWith(": not a red-proof-v1 record nor a red-proof-v2 of mode f2p"), same = rp.sha256 === sha(readFileSync(String(rp.record)));
+  const refused = typeof bad === "string" && bad.endsWith("--from-redproof: not a red-proof-v1 record, nor a v2 one of mode f2p");
+  const same = rp.sha256 === sha(readFileSync(String(rp.record)));
   assert.deepEqual([{ ...rp, record: 0, sha256: 0 }, same, refused], [{ record: 0, sha256: 0, base: C1, head: C2, digest: "d".repeat(64), judged: 11, f2p: 9,
     pins: 2, population: 9, drawn: 3, killed: 3, ok: false }, true, true]);
   // killer: scripts/journal/index.mjs:305 CONST "d.drawn !== cap" -> "false"
   assert.deepEqual(build({ "M-Z": [...forged, ...rows] }, r).hits, ["J-REDPROOF M-Z:1 a field copied != its derivation (f2p)",
-    "J-REDPROOF M-Z:2 RED-PROOF not JSON or schema red-proof-v0 != red-proof-v1",
+    "J-REDPROOF M-Z:2 RED-PROOF red-proof-v0: not v1, nor v2 of mode f2p",
     "J-REDPROOF M-Z:4 f2p 1 + pins 0 != judged 2", "J-REDPROOF M-Z:5 killed 2 != drawn 3", "J-REDPROOF M-Z:6 ok false with 0 pin(s)",
     `J-REDPROOF M-Z:7 head ${c12(C1)} != commit ${c12(C2)}: a proof of another tree`,
     `J-REDPROOF M-Z:8 base ${c12(C3)} is not an ancestor of head ${c12(C2)} in --repo`,
@@ -614,7 +615,7 @@ test("served_record_archived: add --from-oracle at G1 archives the record and th
 });
 
 // killer: scripts/journal/index.mjs:209 CONST "repo, rev, host: false" -> "repo, rev"
-test("JOURNAL-LINT-FREEZE-HOST-1: a branch and a bare tool present at the launch, gone before add: J-LINT of the v2 line reads no host at add, green; a receipt green with a count above 0 exits 2", () => {
+test("add reads no host: a branch and a bare tool present at the launch, gone before add, leave J-LINT green; a receipt with a count above 0 exits 2", () => {
   writeFileSync(join(T, "probe-fh.mjs"), "// a bare tool held by the mission directory at the launch\n");
   const { r, mission, at } = v2("Branch `lot/x`. Tool `probe-fh.mjs`.\n", NL, (d) => gd(d, ["branch", "lot/x", C1]));
   gd(r, ["branch", "-D", "lot/x"]); rmSync(join(T, "probe-fh.mjs")); // the host changes between the launch and add (ADR-METHODE-2 l.60)
@@ -623,13 +624,14 @@ test("JOURNAL-LINT-FREEZE-HOST-1: a branch and a bare tool present at the launch
   assert.deepEqual(build({ "M-Z": [e as Entry] }, r).hits, []);
   // killer: scripts/journal/index.mjs:182 CONST " || Object.values(r.lint ?? {}).some((n) => n !== 0)" -> ""
   writeFileSync(mission.replace(/\.md$/, ".recu.json"), JSON.stringify({ ...rc, lint: { ...(rc.lint as Entry), "R-PATH": 1 } }));
-  assert.match(String(at("G1")), /^exit 2 .*not a green launch receipt/);
+  assert.match(at("G1") as string, /^exit 2 .*not a green launch receipt/);
 });
 
 // killer: scripts/journal/index.mjs:201 CONST " || r?.schema === \"red-proof-v2\" && r.mode === \"f2p\"" -> ""
-test("JOURNAL-REDPROOF-V2: a red-proof-v2 record of mode f2p, the form of the trunk's red-proof, is read as a v1 one at cp-2; a test-only one exits 2 at add", () => {
-  const { r, at } = v2(), cp2 = (n: string, patch: Entry): Entry | string => at("cp-2", "--from-redproof", proof(`${n}.json`, C2, [["F2P"], ["F2P"], ["F2P"]], KILL3, patch));
+test("red-proof v2: a record of mode f2p, as the trunk's red-proof writes it, is read as a v1 one at cp-2; a test-only one exits 2 at add", () => {
+  const { r, at } = v2(), cp2 = (n: string, patch: Entry) => at("cp-2", "--from-redproof", proof(`${n}.json`, C2, [["F2P"], ["F2P"], ["F2P"]], KILL3, patch));
   assert.equal(typeof cp2("v2f", { schema: "red-proof-v2", mode: "f2p" }), "object");
   // killer: scripts/journal/index.mjs:293 CONST " || r.schema === \"red-proof-v2\" && r.mode === \"f2p\"" -> ""
-  assert.deepEqual([build({}, r).hits.filter((h) => h.startsWith("J-REDPROOF")), String(cp2("v2t", { schema: "red-proof-v2", mode: "test-only" })).slice(0, 7)], [[], "exit 2 "]);
+  const hits = build({}, r).hits.filter((h) => h.startsWith("J-REDPROOF"));
+  assert.deepEqual([hits, String(cp2("v2t", { schema: "red-proof-v2", mode: "test-only" }) as string).slice(0, 7)], [[], "exit 2 "]);
 });

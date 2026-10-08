@@ -10,7 +10,7 @@
 // --from-recu fills `mission` from a green receipt of scripts/mission/launch.mjs (recu_head = its head) and the sha256 of the
 // mission bytes read now, and `tier` from the Palier field of that mission (generated or hand-written; M-5b): --tier given
 // and different, or no field and no --tier, exits 2 (TIER-FROM-HEADER); --from-oracle fills `oracle` (and tree_head) from a
-// record of scripts/oracle/run.mjs and its sha256; --from-redproof fills `redproof` from a red-proof-v1 record (deriveRedproof).
+// record of scripts/oracle/run.mjs and its sha256; --from-redproof fills `redproof` from a red-proof-v1 record, or a v2 one of mode f2p (deriveRedproof).
 // FACTS (M-5c): add archives the bytes of every fact the entry cites (mission, receipt, oracle record and its served record,
 // RED-PROOF, and the lint record it freezes, monark.lint.v1) in the git objects of --repo OUT OF THE TREE, under refs/journal/facts
 // (archiveFacts: never a branch, R-25 and git status unchanged), and sets `facts` {commit, origin, recu, lint}; no fact, no commit.
@@ -47,8 +47,8 @@
 //            are read at that revision, never on disk; absolute paths, branches and tool directories on the host now (C-G2-8; v1 only);
 //            an R-PATH hit on a path that the generated header lists "(non suivi)" is removed, whatever the revision replayed
 //            (LINT-UNTRACKED, M-5b; lint.mjs untouched): any other hit stays, R-TOOL on an untracked script included
-//            (v2: FROZEN, computed once by add and archived, never recalculated, its host part the launch's, attested by a receipt green with every count 0, never read at add, JOURNAL-LINT-FREEZE-HOST-1: its mission_sha != mission.sha, its rev != commit
-//            ?? recu_head, or its verdict not vert: red; a branch deleted after add changes nothing)
+//            (v2: FROZEN, computed once by add, archived, never recalculated; its host part is the launch's, never read at add, attested
+//            by a receipt with every count 0: its mission_sha != mission.sha, its rev != commit ?? recu_head, or its verdict not vert: red)
 //   J-MODEL  an entry with a mission, a tier or a model: tier outside TIERS, or the model is not the tier (token boundary)
 //   J-ADJ    a G7 without a non-empty adjudication (its presence, never its nature)
 // J-ORDER and J-VERDICT read only a lot file holding a G2 or cp-2 line (a file of retro G7 lines alone is not read):
@@ -65,7 +65,7 @@
 //   J-FACTS  a v2 line with facts: refs/journal/facts absent ("archive absent"; build prints the fetch line on stderr), or
 //            facts.commit neither its tip nor an ancestor ("archive rewritten"); a fact absent, or whose sha256 != its name,
 //            reddens the control that reads it ("archive absent", "archive corrupt"), never replaced by a host path
-//   J-REDPROOF a v2 line: redproof null at G2 or cp-2 of origin add; else the record archived not JSON or not red-proof-v1, a
+//   J-REDPROOF a v2 line: redproof null at G2 or cp-2 of origin add; else the record archived not JSON, nor v1, nor v2 of mode f2p, a
 //            copied field != deriveRedproof, head != commit (G2, cp-2) or mission.recu_head (G1, corr) ("a proof of another tree"),
 //            base not an ancestor of head or != the Base tronc line of the mission, f2p + pins != judged, killed != drawn, ok false
 //            with no pin (PIN-1 vocabulary: ok false at all), a draw whose population != f2p, drawn != min(requested, population)
@@ -178,8 +178,8 @@ function add(o) {
   for (const [k, [field, parse = (s) => s]] of Object.entries(OPTS)) if (o[k] !== undefined) e[field] = parse(o[k]);
   let text = null, recu = null; // the mission text (J-LINT frozen below) and the sha256 of the receipt bytes
   if (o["from-recu"] !== undefined) {
-    const rb = bytesOf(o["from-recu"], "receipt"), r = jsonOf(rb);
-    if (r?.verdict !== "vert" || typeof r.mission !== "string" || Object.values(r.lint ?? {}).some((n) => n !== 0)) throw new Usage(`--from-recu ${o["from-recu"]}: not a green launch receipt`);
+    const rb = bytesOf(o["from-recu"], "receipt"), r = jsonOf(rb), named = typeof r?.mission === "string";
+    if (r?.verdict !== "vert" || !named || Object.values(r.lint ?? {}).some((n) => n !== 0)) throw new Usage("--from-recu: not a green launch receipt");
     const mb = bytesOf(r.mission, "mission"), tier = PALIER.exec(mb.toString("utf8"))?.[1].trim().toLowerCase(); // TIER-FROM-HEADER (M-5b)
     if (tier === undefined ? o.tier === undefined : o.tier !== undefined && o.tier !== tier) throw new Usage(`--from-recu: Palier ${tier ?? "absent"} of the mission, --tier ${o.tier ?? "absent"}: ${tier === undefined ? "no tier" : "they differ"} (TIER-FROM-HEADER)`);
     e.tier = tier ?? o.tier;
@@ -197,8 +197,8 @@ function add(o) {
     facts.push(b, ...(sp !== null && existsSync(sp) ? [readFileSync(sp)] : [])); // a served record absent here is absent from the archive
   }
   if (o["from-redproof"] !== undefined) {
-    const b = bytesOf(o["from-redproof"], "red-proof record"), r = jsonOf(b), d = deriveRedproof(r);
-    if (!(r?.schema === "red-proof-v1" || r?.schema === "red-proof-v2" && r.mode === "f2p")) throw new Usage(`--from-redproof ${o["from-redproof"]}: not a red-proof-v1 record nor a red-proof-v2 of mode f2p`);
+    const b = bytesOf(o["from-redproof"], "red-proof record"), r = jsonOf(b), d = deriveRedproof(r), v1 = r?.schema === "red-proof-v1";
+    if (!(v1 || r?.schema === "red-proof-v2" && r.mode === "f2p")) throw new Usage("--from-redproof: not a red-proof-v1 record, nor a v2 one of mode f2p");
     e.redproof = { record: abs(o["from-redproof"]), sha256: hash(b), ...Object.fromEntries(COPIED.map((k) => [k, d[k]])) };
     facts.push(b);
   }
@@ -289,8 +289,8 @@ function build(o) {
   const proofWhy = (e, mb) => { // J-REDPROOF (M-5c): the first reason the archived red-proof does not back the entry, or null
     const p = e.redproof, x = p === null ? null : fact(p.sha256), r = x?.bytes ? jsonOf(x.bytes) : null, d = deriveRedproof(r), rev = REVIEWED.includes(e.gate), byAdd = e.facts?.origin === "add";
     if (p === null) return rev && byAdd ? `no red-proof at ${e.gate} of origin add (F2P proof absent)` : null;
-    if (x.why !== null) return `RED-PROOF ${x.why}`;
-    if (r === null || typeof r !== "object" || !(r.schema === "red-proof-v1" || r.schema === "red-proof-v2" && r.mode === "f2p")) return `RED-PROOF not JSON or schema ${String(r?.schema)} != red-proof-v1`;
+    if (x.why !== null || r === null || typeof r !== "object") return `RED-PROOF ${x.why ?? "not JSON"}`;
+    if (!(r.schema === "red-proof-v1" || r.schema === "red-proof-v2" && r.mode === "f2p")) return `RED-PROOF ${String(r.schema)}: not v1, nor v2 of mode f2p`;
     const off = COPIED.filter((k) => p[k] !== d[k]), want = rev ? e.commit : PRE_GEL.includes(e.gate) ? e.mission?.recu_head ?? null : p.head;
     const bt = mb === null ? null : /^Base tronc `[0-9a-f]{8}` \(([0-9a-f]{40}(?:[0-9a-f]{24})?)\)$/mu.exec(mb.toString("utf8"))?.[1] ?? null;
     if (off.length > 0) return `a field copied != its derivation (${off.join(", ")})`;
@@ -412,7 +412,7 @@ export function readFact(repo, sha256) {
   if (H64.test(String(sha256))) try { b = execFileSync("git", ["-C", repo, "cat-file", "-p", `${FACTS_REF}:${sha256}`], { stdio: ["ignore", "pipe", "ignore"], maxBuffer: 1 << 28 }); } catch { b = null; }
   return b === null ? { bytes: null, why: "archive absent" } : hash(b) === sha256 ? { bytes: b, why: null } : { bytes: null, why: "archive corrupt" };
 }
-/** (B) M-5c: the fields `redproof` copies or derives from a red-proof-v1 record, never throwing (`draw` null or not an object: 0 drawn,
+/** (B) M-5c: the fields `redproof` copies or derives from a red-proof-v1 record (or v2, mode f2p), never throwing (`draw` null or not an object: 0 drawn,
  * 0 killed, 0 requested, 0 population, drew false); population is draw.population, copied (Q-V-3: the F2P and new-module rows a draw
  * picks among; J-REDPROOF requires it = f2p). pins = the rows at verdict "pin" once the record speaks the PIN-1 vocabulary of lot M-4b
  * (a pin row, a `pinned` field or a `pins` count: `strict`, ok true then required); before it (TRANSITION, dated line of ADR-METHODE-2
