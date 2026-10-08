@@ -2,14 +2,17 @@
  * VERIFIER-TOOL-CI-1 (docs/G0-lot-verifier-tool-ci-1.md): the job g3-verifier-tool of .github/workflows/ci.yml holds the frozen verifier
  * tool, tools/kata-recalc/, by its own Python checks, run by scripts/verifier-tool-ci.mjs under one pinned CPython. These tests read the
  * workflow and the stand-in as text and judge the driver's rules on fixtures; no Python runs here (the job runs it). The red of the
- * job itself is shown in the G0 by the same command run against a mutated copy of the tool.
+ * job itself is shown in the G0 by the same command run against a mutated copy of the tool. VERIFIER-TOOL-CI-VECTORS-1
+ * (docs/G0-lot-verifier-tool-ci-vectors-1.md) adds vectors_check.py, run on the spec vectors that the job checks out at a pinned commit.
  */
 import { test } from "node:test";
 import assert from "node:assert/strict";
+import { createHash } from "node:crypto";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { derivePublicWorkflow } from "../scripts/export-public.mjs";
 import { NOT_RUN, TOOL, WINDOWS_ONLY, accountProblems, formOf, interpreterProblems, outputProblems, steps, treesOf } from "../scripts/verifier-tool-ci.mjs";
+import * as ci from "../scripts/verifier-tool-ci.mjs"; // the names of VERIFIER-TOOL-CI-VECTORS-1, read so that this file loads before them
 
 const ROOT = join(import.meta.dirname, "..");
 const read = (p: string): string => readFileSync(join(ROOT, p), "utf8");
@@ -37,6 +40,10 @@ test("verifier_tool_job_runs_the_driver_under_one_pinned_cpython - g3-verifier-t
   assert.ok(body[py + 1] === "with:" && version?.startsWith("3.14."), `python-version is one exact CPython 3.14 release, no range: ${body[py + 2]}`);
   assert.deepEqual(body.slice(run - 2, run), ["env:", `VERIFIER_TOOL_PYTHON: "${version ?? ""}"`], "the run step names the same version, which the driver requires");
   assert.equal(run, body.length - 1, "the driver is the last step of the job");
+  const spec = body.findIndex((l, i) => i > co && /^- uses: actions\/checkout@/.test(l)), v = ci.VECTORS;
+  assert.ok(py < spec && spec < run && body[spec] === body[co], `the spec vectors checked out by the same pinned action, after setup-python, before the driver: ${spec}`);
+  assert.deepEqual(body.slice(spec + 1, spec + 6), ["with:", `repository: ${v?.repository}`, `ref: ${v?.commit}`, `path: ${v?.path.split("/")[0]}`, "persist-credentials: false"],
+    "the public spec repository at the commit that the driver pins, into the folder it reads; no token kept");
   assert.ok(!body.some((l) => /(?:^|[-{,]\s*)["']?(?:if|continue-on-error)["']?\s*:/.test(l)), "no if: and no continue-on-error in the job");
   const all = code(LINES);
   assert.deepEqual(all.filter((l) => l.includes("setup-python")), [`- uses: ${SETUP_PYTHON}`], "one Python setup in the workflow, this one");
@@ -57,7 +64,7 @@ test("verifier_tool_driver_follows_io_guard_and_refuses_what_it_does_not_hold - 
   assert.deepEqual(accountProblems(trees, { [TOOL]: true, "tools/kata-quarter": true }, checks), ["tools/kata-quarter: a tree of the tool that this job does not run"]);
   assert.deepEqual(accountProblems(trees, { [TOOL]: false, "tools/kata-quarter": false }, checks), [`${TOOL}: the tool's tree is absent`]);
   assert.deepEqual(accountProblems(trees, { [TOOL]: true, "tools/kata-quarter": false }, [...checks, "new_check.py"]), [`${TOOL}/new_check.py: a check that this job neither runs nor names`]);
-  assert.deepEqual(Object.keys(NOT_RUN), ["vectors_check.py"], "one check named as not run, with its reason");
+  assert.deepEqual(Object.keys(NOT_RUN), [], "every check of the tool is run, vectors_check.py on the pinned spec vectors");
   assert.deepEqual([false, true].map((win) => steps("r", "w", win).map((s) => `${s[0]} ${s[1]}`)[1]), ["report_check.py scripts/verifier-tool-ci-report-check.py", `report_check.py ${TOOL}/report_check.py`], "off Windows, report_check through its stand-in");
   const at = (implementation: string, version: string, releaselevel = "final") => ({ implementation, version, releaselevel });
   assert.deepEqual([interpreterProblems(at("cpython", "3.14.8"), "3.14.8"), interpreterProblems(at("cpython", "3.14.5"), undefined)], [[], []]);
@@ -72,7 +79,7 @@ test("verifier_tool_driver_owes_each_run_of_each_check - each check of the tool 
   const trees = [TOOL, "tools/kata-quarter"], today = { [TOOL]: true, "tools/kata-quarter": false }, runs = steps("r", "w", false);
   const owe = (rs: Run[]): string[] => accountProblems(trees, today, ["binom_check.py", "compare_check.py", "guard_check.py", "report_check.py", "vectors_check.py"], rs);
   const owed = (run: string, times: number): string => `${run}: a run that this job owes once, run ${times} time(s)`;
-  assert.deepEqual(owe(runs.slice(0, 4)), [owed("binom_check.py (2 VERDICT: GREEN)", 0)], "D-2 (ii) and (iii) dropped: binom_check.py is still run, by --registry");
+  assert.deepEqual(owe(runs.filter((s) => s[3] !== 2)), [owed("binom_check.py (2 VERDICT: GREEN)", 0)], "D-2 (ii) and (iii) dropped: binom_check.py is still run, by --registry");
   assert.deepEqual(owe(runs.filter((s) => s[2][0] !== "--registry")), [owed("binom_check.py --registry (1 VERDICT: GREEN)", 0)], "the registry run dropped");
   // killer: scripts/verifier-tool-ci.mjs:71 CONST "times(o) !== 1" -> "times(o) === 0"
   assert.deepEqual(owe([...runs, ...runs.slice(0, 1)]), [owed("guard_check.py (1 VERDICT: GREEN)", 2)], "a run doubled");
@@ -82,8 +89,10 @@ test("verifier_tool_driver_owes_each_run_of_each_check - each check of the tool 
   assert.deepEqual([false, true].map((win) => owe(steps("r", "w", win))), [[], []], "today, on both systems: each owed run once, and no other");
   assert.deepEqual([false, true].map((win) => steps("r", "w", win).map(([check, script, args, want]) => [check, script, args.filter((a) => a.startsWith("--")), want])),
     [false, true].map((win) => [["guard_check.py", `${TOOL}/guard_check.py`, [], 1], ["report_check.py", win ? `${TOOL}/report_check.py` : "scripts/verifier-tool-ci-report-check.py", [], 1],
-      ["compare_check.py", `${TOOL}/compare_check.py`, [], 1], ["binom_check.py", `${TOOL}/binom_check.py`, ["--registry"], 1], ["binom_check.py", `${TOOL}/binom_check.py`, [], 2]]),
-    "the five runs of steps(), in order, on both systems");
+      ["compare_check.py", `${TOOL}/compare_check.py`, [], 1], ["binom_check.py", `${TOOL}/binom_check.py`, ["--registry"], 1], ["binom_check.py", `${TOOL}/binom_check.py`, [], 2],
+      ["vectors_check.py", `${TOOL}/vectors_check.py`, [], 0]]),
+    "the six runs of steps(), in order, on both systems");
+  assert.deepEqual(runs[5]?.[2], [join("r", ci.VECTORS?.path ?? "?"), join("w", "vectors.txt")], "vectors_check.py reads the pinned spec vectors, its output in the work folder");
 });
 
 const GUARD_OUT = ["OK   import-listed: exit 0 (want 0): IMPORTED; NATIVE IS THE MEASURED LIST", "SKIP ntfs-stream: no subject here (none of the modules that the case names, or the working directory on another drive)",
@@ -130,4 +139,41 @@ test("verifier_tool_driver_wants_the_end_of_report_check_main - the run of repor
   assert.deepEqual([report("VERDICT: GREEN", true), report(REPORT_OUT, true)], [[FAILURES, LIBM], []], "on Windows report_check.py runs as written and ends with the same two lines");
   assert.deepEqual(["guard_check.py", "compare_check.py", "binom_check.py"].map((c) => outputProblems(c, "VERDICT: GREEN", 0, 1, true).problems), [[], [], []],
     "nothing more from the four runs of the tool's own files, whose tree its tree tests pin");
+});
+
+test("verifier_tool_driver_runs_vectors_check_on_the_pinned_spec_vectors - vectors_check.py runs on vectors.json of the public spec repository at one pinned commit, and no check runs unless those bytes are the pinned ones; until R1 is published there, the run on its version of 2026-10-02 must end exactly on the tool's own refusal of the count: another exit, FAIL or VERDICT line, or input is refused", () => {
+  const v = ci.VECTORS, bytesOf = ci.vectorsProblems;
+  assert.ok(v !== undefined && typeof bytesOf === "function", "the driver pins the spec vectors and checks their bytes");
+  assert.deepEqual([v.repository, /^[0-9a-f]{40}$/.test(v.commit), /^[0-9a-f]{64}$/.test(v.sha256)], ["KraidleAI/monark-kata-spec", true, true], "one public repository, one commit, one digest");
+  const count = "FAIL [count] 333 conformance checks KATA-SPEC section 6 counts 363", conf = "conformance checks on vectors.json: 333 (KATA-SPEC section 6 counts 363), failures 0";
+  const input = `input spec-vectors vectors.json sha256 ${v.sha256} bytes ${v.bytes}`, red = "VERDICT: RED (1 failure(s) over all sections)";
+  assert.deepEqual([v.exit, v.end], [1, [count, conf, input, red]], "the version of 2026-10-02: its 333 checks pass, the tool refuses the count, the pinned bytes are read");
+  // The run's whole output on the version of 2026-10-02 (counts only, no vector value), as the job's log shows it.
+  const OUT = ["claude-opus-5-5", "# vectors_check.py - oracle D-2 (i) - conformance contract KATA-SPEC l.71, version 2026-10-02",
+    "info EWMA normalizer 16.632418753824588 (P1 l.107 writes 16.632418753824588): equal", "info kata values bit-identical 86, not bit-identical 0, worst relative gap 0.000e+00", "info ewma_association: the two orders give different doubles on 2 of 2 windows",
+    "info factors: 168 slots, 9 without factor, 159 non-null slots bit-identical", "info factors_4h: 42 slots, 0 without factor, 42 non-null slots bit-identical", count,
+    "section js_number (extra): 2020 ok, 0 fail", "section js_json (extra): 2 ok, 0 fail", "section kata (vector): 94 ok, 0 fail", "section digest-example (extra): 1 ok, 0 fail", "section digest (vector): 3 ok, 0 fail", "section ewma_association (vector): 4 ok, 0 fail",
+    "section bucket-frozen (vector): 7 ok, 0 fail", "section bucket-probe (vector): 13 ok, 0 fail", "section factors-slot-count (vector): 1 ok, 0 fail", "section factors (vector): 168 ok, 0 fail", "section factors_4h-slot-count (vector): 1 ok, 0 fail", "section factors_4h (vector): 42 ok, 0 fail",
+    "section lookahead (extra): 14 ok, 0 fail", "section slot (extra): 6 ok, 0 fail", "section grid (extra): 1 ok, 0 fail", "section sections (extra): 1 ok, 0 fail", "section count (extra): 0 ok, 1 fail", conf, input, red, ""].join("\n");
+  const sha = (o: string): string => createHash("sha256").update(o).digest("hex"), bytesNot = (o: string): string => `vectors_check.py: output sha256 ${sha(o)}, not the pinned ${v.stdout}: the whole run on the pinned spec vectors`;
+  assert.equal(sha(OUT), v.stdout, "the fixture is the run's whole output, whose sha256 the driver pins");
+  const judge = (out: string, status: number): string[] => outputProblems("vectors_check.py", out, status, 0, false).problems;
+  const once = (l: string, n: number): string => `vectors_check.py: the line "${l}" ${n} time(s), once wanted: the end of the run on the pinned spec vectors`;
+  assert.deepEqual(judge(OUT, 1), [], "the end of the run on the pinned vectors, as the job's log shows it");
+  assert.deepEqual(judge(OUT, 0), ["vectors_check.py: exit 0, not 1"], "a run that no longer refuses the count");
+  const off = "FAIL [factors] slot 3 got 1.0 want 1.5";
+  const withOff = OUT.replace(count, `${off}\n${count}`), noCount = OUT.replace(`${count}\n`, ""), twice = `${OUT}${count}\n`;
+  assert.deepEqual(judge(withOff, 1), [`vectors_check.py: ${off}`, bytesNot(withOff)], "any other FAIL line");
+  assert.deepEqual(judge(noCount, 1), [once(count, 0), bytesNot(noCount)], "the count refused no more");
+  assert.deepEqual(judge(twice, 1), [once(count, 2), bytesNot(twice)], "a line of the end twice");
+  const zero = OUT.replace(v.sha256, "0".repeat(64)), green = OUT.replace(red, "VERDICT: GREEN (0 failure(s) over all sections)");
+  assert.deepEqual(judge(zero, 1), [once(input, 0), bytesNot(zero)], "other bytes read");
+  assert.deepEqual(judge(green, 1), [once(red, 0), bytesNot(green)], "another verdict");
+  const fewer = OUT.replace("section js_number (extra): 2020 ok, 0 fail", "section js_number (extra): 20 ok, 0 fail");
+  assert.deepEqual(judge(fewer, 1), [bytesNot(fewer)], "checks of the tool dropped, outside the end: the round trips of js_number");
+  assert.deepEqual(bytesOf(null), [`${v.path}: absent; the job checks out ${v.repository} at ${v.commit} there`], "no spec vectors: no check runs");
+  const other = Buffer.from("{}\n"), digest = createHash("sha256").update(other).digest("hex");
+  assert.deepEqual(bytesOf(other), [`${v.path}: sha256 ${digest} bytes 3, not the pinned ${v.sha256} bytes ${v.bytes}`], "other bytes: no check runs");
+  assert.deepEqual(["guard_check.py", "compare_check.py", "binom_check.py"].map((c) => outputProblems(c, OUT, 1, 1, true).problems.length), [4, 4, 4],
+    "the end of vectors_check.py is admitted in no other check: its exit, the missing VERDICT: GREEN, its FAIL line and its verdict refused");
 });
