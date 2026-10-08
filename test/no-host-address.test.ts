@@ -3,9 +3,9 @@
  * carries an IPv4 or IPv6 literal outside the closed list of scripts/address-literals.mjs (the EXEMPT ranges, the LISTED pairs).
  * A hit prints as path:line:column and a mask, never the literal: a CI log of a public repository is public. The fixtures are
  * throwaway git repositories under os.tmpdir() (index only, every GIT_* variable removed, no system or global config), and each
- * refused address is built at run time from its parts (q, six), so this file needs no entry of its own. The samples come from
- * ranges that name no host on the internet: benchmarking (RFC 2544, RFC 5180) and shared address space (RFC 6598). The line above
- * each test is the mutation of the script that reddens it (killer convention of scripts/red-proof.mjs).
+ * refused address is built at run time from its parts (q, six), so this file needs no entry of its own. The samples come from ranges
+ * that name no host on the internet (benchmarking, RFC 2544 and RFC 5180; shared address space, RFC 6598; one link-local), but for the
+ * neighbours of the exempt ranges, compared by position only. The line above each test is the mutation that reddens it (scripts/red-proof.mjs).
  */
 import { after, test } from "node:test";
 import assert from "node:assert/strict";
@@ -184,7 +184,7 @@ test("address_literals_mask_a_path_wherever_its_address_recurs_escaped", () => {
     [`logs/pin${d(8, 80).split(".").map((o) => o.padStart(3, "0")).join(".")}.txt`]: `${d(8, 80)}\n`, [`logs/two${d(1, 2)}.txt`]: `${d(1, 1)}\n${d(1, 2)}\n`,
     [`logs/short${["2001", "2", "0", "0", "0", "0", "a", "", ""].join("%3a")}.txt`]: `[${six(...z, "000A", "0000")}]\n`, "z.txt": `${d(4, 4)}\n${d(10, 10)}\n`,
     [`logs/tail${[...z, q(100, 127, 255, 255)].join("%3A")}.txt`]: `[${six("2001", "2", "", "647f", "ffff")}]\n`, [`zon-${["2001", "2", "", "9"].join("%3A")}%25eth0.txt`]: "x\n",
-    [`logs/v${q(198, 18, 198, 18, 198, 18)}.txt`]: `${q(198, 18, 198, 18)}\n`, "logs/exp198.19e0.6.6.txt": `${d(6, 6)}\n`, "logs/dot198.19.9.txt": `${d(9, 0)}\n` });
+    [`logs/v${q(100, 100, 100, 100, 100, 100)}.txt`]: `${q(100, 100, 100, 100)}\n`, "logs/exp198.19e0.6.6.txt": `${d(6, 6)}\n`, "logs/dot198.19.9.txt": `${d(9, 0)}\n` });
   // killer: scripts/address-literals.mjs:143 CONST "seen.add(canon(lit, kind))" -> "kind === 4 && seen.add(canon(lit, kind))"
   // killer: scripts/address-literals.mjs:133 CONST "t.split(\".\").map(Number).join(\".\")" -> "t"
   // killer: scripts/address-literals.mjs:168 SDL "for (const h of v.hits) h.file = show(h.file);" -> ""
