@@ -14,7 +14,10 @@
 // gate test (no field outside the decisions, scope, a scores digest per cell, no digest under differences; its killer moves from the
 // removed sentence on the trial head to the text of the decisions) and holds the scope of the report, RELEASE_1_CLASSES, to the
 // versed registry of wave 1, to digestProblems and to the short_digest of the gate (form (a)). Its G2 holds the trees of code that
-// io_guard admits to MONARK's closed list of two (ecace80). Reads only.
+// io_guard admits to MONARK's closed list of two (ecace80). IO-GUARD-POSED-FILES-1 (2026-10-08) rewrites the body of the test of the
+// guard first (each entry script opens with the prologue that runs io_guard.py by its path, then imports io_guard) and holds FILES, the
+// closed list of the tool's folder that io_guard checks before any other import, to the index and the working tree; its tree moves the
+// pin through the list entry that the lot writes, with the revocation of the entry of the frozen tool. Reads only.
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
@@ -87,18 +90,43 @@ test("lang_gate_reads_python_sources - the walk of the language gate collects ev
     "no French word in the .py sources of the tool");
 });
 
-// reddened by: an entry script of the tool (a .py file with a __main__ block) whose first import is not io_guard, an entry script added
-// or removed, or io_guard.py absent. A tripwire only: the proof of what a run read is its list of inputs (G0 section 3.1, part 2)
-// killer: tools/kata-recalc/recalc_p2.py:12 CONST "import io_guard" -> "import os"
+// reddened by: an entry script of the tool (a .py file with a __main__ block) whose code, after its comments, does not open with the five
+// lines of the prologue and then import io_guard (a module looked up by name before the guard, io_guard found by name, the tool's folder
+// first in sys.path, or the guard run twice), an entry script added or removed, or io_guard.py absent. A tripwire only: the proof of what
+// a run read is its list of inputs (G0 section 3.1, part 2), and guard_check.py runs what the prologue closes (IO-GUARD-POSED-FILES-1)
+// killer: tools/kata-recalc/recalc_p2.py:12 CONST "import os, sys" -> "import os, sys, json"
 test("kata_recalc_entry_scripts_import_the_input_guard_first - every .py file of the tool that runs as a program imports io_guard before any other module", () => {
   const dir = join(REPO, TOOL_ROOT);
   const text = (f: string): string => readFileSync(join(dir, f), "utf8");
   const entries = readdirSync(dir).filter((f) => f.endsWith(".py") && /^if __name__ == "__main__":$/m.test(text(f))).sort();
   assert.deepEqual(entries, ["binom_check.py", "compare_check.py", "compare_p2.py", "guard_check.py", "recalc_p2.py", "report.py", "report_check.py", "vectors_check.py"],
     "the entry scripts of the tool (lot 1e: the report writer and its self-tests; the frozen-tool lot: the self-tests of the guard)");
-  assert.deepEqual(entries.map((f) => `${f}: ${/^(?:import|from) ([\w.]+)/m.exec(text(f))?.[1] ?? "(no import)"}`), entries.map((f) => `${f}: io_guard`),
-    "the first import of each entry script");
+  const prologue = [ // IO-GUARD-POSED-FILES-1: io_guard.py run by its path, never found by name, once per process, the tool's folder last
+    "import os, sys  # sys built in, os frozen: no file is looked up by name before io_guard has checked its folder (IO-GUARD-POSED-FILES-1)",
+    "if \"io_guard\" not in sys.modules:  # io_guard.py run by its path, never found by name: nothing posed or installed stands in for it",
+    "    sys.path.append(_d := os.path.dirname(os.path.realpath(__file__)))  # the tool's folder, last in sys.path: -P is in FORM",
+    "    _g = sys.modules[\"io_guard\"] = type(sys)(\"io_guard\"); _g.__file__ = os.path.join(_d, \"io_guard.py\")",
+    "    exec(compile(open(_g.__file__, \"rb\").read(), _g.__file__, \"exec\"), vars(_g))",
+    "import io_guard"].join("\n");
+  const escaped = prologue.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), opens = new RegExp(`^${escaped}\\b`);
+  const code = (f: string): string => text(f).replace(/^(?:#.*\n)*/, ""); // its code, after its comments
+  assert.deepEqual(entries.filter((f) => !opens.test(code(f))).map((f) => `${f}: ${code(f).split("\n").slice(0, 6).join(" | ")}`), [],
+    "after its comments, each entry script opens with the prologue (io_guard.py run by its path, once, the tool's folder last), then imports io_guard");
   assert.ok(existsSync(join(dir, "io_guard.py")), "the guard lives in the tool's tree");
+});
+
+// reddened by: a name of the tool's folder, in the index or in the working tree, outside FILES of io_guard.py, the closed list that io_guard
+// checks before any other import (a file added to the tool without its name there: IO-GUARD-POSED-FILES-1), a name of FILES without its
+// file, FILES unsorted, or FILES not one tuple of the names
+// killer: tools/kata-recalc/io_guard.py:60 CONST "\"vectors_check.py\")" -> "\"vectors_check.py\", \"notes.txt\")"
+test("kata_recalc_guard_lists_the_files_of_its_folder - FILES of io_guard.py, sorted, is the list of the names of the tool's folder, in the index and in the working tree", () => {
+  const block = /^FILES = \(([^)]*)\)/m.exec(readFileSync(join(REPO, TOOL_ROOT, "io_guard.py"), "utf8"));
+  assert.ok(block !== null, "io_guard.py names the files of its folder in one FILES tuple (IO-GUARD-POSED-FILES-1)");
+  const files = [...(block[1] ?? "").matchAll(/"([^"]*)"/g)].map((m) => m[1] ?? "");
+  const index = gitOut(REPO, ["ls-files", "-z", "--", TOOL_ROOT]).split("\0").filter((p) => p !== "").map((p) => p.slice(TOOL_ROOT.length + 1));
+  assert.deepEqual(files, [...files].sort(), "FILES is sorted");
+  assert.deepEqual([...index].sort(), files, "the entries of the index under tools/kata-recalc/ are the names of FILES, none in a folder");
+  assert.deepEqual(readdirSync(join(REPO, TOOL_ROOT)).sort(), files, "the folder of the working tree, from which the tool runs, holds the names of FILES and no other");
 });
 
 // reddened by: a third tree of code in the TREES list of io_guard.py (MONARK's closed list, ecace80: tools/kata-recalc, then
