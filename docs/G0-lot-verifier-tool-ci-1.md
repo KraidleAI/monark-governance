@@ -15,6 +15,12 @@
   CORRECTIONS) and MONARK's decisions `cc80585` (`…-MONARK-vers-RECHERCHES-247-decisions.md`, merged at `1a732d2`): m-1 and m-4 in
   this plan (§1); m-2 and m-3 in the driver, tests first (§6, §7.3); m-5, m-6 and Q-2 to Q-4 written as decided (§2, §5, §7.1,
   §12). The tool does not change.
+- **Second fold** (2026-10-08, from 03:10 UTC): the delta G2 of #247 (recherches `6725ec4`, `G2-247-delta.json`, sha256
+  `cc36bd7d…`, one minor finding, CORRECTIONS) and MONARK's decisions `3c5b01f` (`…-MONARK-vers-RECHERCHES-g2-deltas-decisions.md`,
+  sha256 `348e68f2…`): m-7 by way (a), in the driver, tests first (§6, §7.4); n-8 is MONARK's own, the `CI_ONLY` entry before
+  the G7 (§5, §12); of the optional notes, n-9, n-12 and n-13 are taken, n-10 and n-11 left (§7.4). The trunk moved to `e13cfff7`
+  (#244, no file in common with this lot) and is merged in. Bases: trunk `e13cfff7`, recherches `8903074` (explicit refspecs). The
+  tool does not change.
 - **Bases read**: trunk `lot/etude-suite` = `5437cd0d` (explicit refspec); the tool's tree `tools/kata-recalc/` there is E1's
   (`d6c80e9d…`, twelve files); recherches `76b3121`, then `6156194`. The IO-GUARD plan v2
   (`coordination/pieces/2026-10-07-G0-io-guard-posed-files/G0-IO-GUARD-POSED-FILES-1.md`, sha256 `d2c44eae…`, 726 lines) and its
@@ -47,9 +53,11 @@ Node 24, no dependency). The driver launches each check of the tool as `python <
   one function and adds one entry to `report.LIBMS`: a 48-byte library made by the run (a `VS_VERSION_INFO` resource, file version
   0.0.0.1, sha256 `349a0de7…`), read under the role `libm` as `ucrtbase.dll`, with the count of measured inputs where the host's log
   differs from the port (9 070 under glibc 2.39, as the G2 of the tool measured). The log names it: `platform: Windows-standin-0.0.0-
-  SP0, standin`. Every other section runs as written: 75 checks, 75 green, as the G2's Linux pilot (`G2-tool-29c53bd5.json`). Section
-  3 itself is held on Windows only, by MONARK's replay by hand (§5). Because the stand-in sits outside the tool's tree, the driver
-  wants the end of `report_check.main` in that run (§6): a stand-in that printed a verdict and exited before it would be refused.
+  SP0, standin`. Every other section runs as written; with the five checks of section 3, which read the stand-in's values, the run
+  counts 75 checks, 75 green, as the G2's Linux pilot (`G2-tool-29c53bd5.json`; worded so since n-9 of the delta G2). Section 3
+  itself is held on Windows only, by MONARK's replay by hand (§5). Because the stand-in sits outside the tool's tree, the driver
+  wants the end of `report_check.main` in that run, by the check's name (§6): a stand-in that printed a verdict and exited before it
+  would be refused.
 - **One case of section 8 passes off Windows for another reason** (m-4 of the G2). "A run that cannot finish exits 2 and writes
   run-log.json only" launches `report.py` itself, which the stand-in does not reach: as written, it stops at its platform check,
   Windows only, before the missing series and vectors that the case names. Measured here (FORM, the runner's 3.14.8, the case's
@@ -123,12 +131,16 @@ Node 24, no dependency). The driver launches each check of the tool as `python <
 - **Required check** (**decided**, `cc80585` §5, Q-4): `g3-verifier-tool` joins the required checks of `lot/etude-suite`. Branch
   protection is a lasting setting of the repository: MONARK sets it at the merge of #247, after the founder's approval. Until then a
   red of this job does not block.
-- **The local oracle** (**decided**, `cc80585` §4, Q-3): the run line goes on the closed `CI_ONLY` list of MONARK's oracle
-  (`scripts/oracle/run.mjs` l.25-31; his file, whose killers anchor below that list, not changed here), so the oracle does not replay
-  the driver on Windows. MONARK's Windows replays of `guard_check.py` and of `report_check.py` (section 3 on the real `ucrtbase.dll`)
-  stay by hand, under the tool's form, at each merge that touches the tool. In the job the driver refuses any interpreter but 3.14.8;
-  the oracle reads `run:` lines only, so that pin would not reach it, and the driver would take the host's 3.14.5 there: the
-  `CI_ONLY` entry keeps the driver out of the oracle either way.
+- **The local oracle** (**decided**, `cc80585` §4, Q-3; by whom and when, `3c5b01f`): the run line goes on the closed `CI_ONLY` list
+  of MONARK's oracle (`scripts/oracle/run.mjs` l.25-31: five entries at `e13cfff7`, none for this line), so the oracle does not
+  replay the driver on Windows. MONARK adds that entry himself, by a commit of his own on `lot/etude-suite`, **before the G7 of
+  #247**, at the merge check and not after the merge, and he recounts and re-anchors himself the killers of `run.mjs` that it moves
+  (they all sit below the list); this lot does not change that file. Before, because the oracle derives its gates from the `run:`
+  lines of the tree it judges (`run.mjs` l.3): from the G7 of #247 on, that tree carries this run line, and an oracle without the
+  entry would launch the driver on Windows without the pin (n-8 of the delta G2). MONARK's Windows replays of `guard_check.py` and of
+  `report_check.py` (section 3 on the real `ucrtbase.dll`) stay by hand, under the tool's form, at each merge that touches the tool.
+  In the job the driver refuses any interpreter but 3.14.8; the oracle reads `run:` lines only, so that pin would not reach it, and
+  the driver would take the host's 3.14.5 there: the `CI_ONLY` entry keeps the driver out of the oracle either way.
 
 ## 6. Fail closed
 
@@ -140,9 +152,11 @@ with an exit other than 0 (a signal or the 300 s bound per run included), fewer 
 or `VERDICT: RED` line, or a `SKIP` set other than the one named; a run of `report_check.py` without the two lines that only
 `report_check.main` writes after its checks, `failures 0` and the input line of the C library of log that its section 3 read through
 `io_guard` (`input libm ucrtbase.dll sha256 <64 hex> bytes <n>`: the stand-in's library off Windows, the system's on Windows), so
-a stand-in that prints `VERDICT: GREEN` and exits before that main is red (m-3: it was green, the G2 measured it). A failed
-precondition runs no check. setup-python fails the job if it cannot install the exact version. The job carries no `if:` and no
-`continue-on-error`; each run prints the check's own output and the sha256 of each output file.
+a stand-in that prints `VERDICT: GREEN` and exits before that main is red (m-3: it was green, the G2 measured it). Those two lines,
+like the closed list of skips, are wanted by the check's name inside `outputProblems`, never handed to it by its caller: passed
+along by `main()`, which no test runs, they could be lost by the deletion of one word, and that red turned green again (m-7 of the
+delta G2, §7.4). A failed precondition runs no check. setup-python fails the job if it cannot install the exact version. The job
+carries no `if:` and no `continue-on-error`; each run prints the check's own output and the sha256 of each output file.
 
 ## 7. Red proof
 
@@ -158,6 +172,9 @@ precondition runs no check. setup-python fails the job if it cannot install the 
 - **The fold** (m-2, m-3) adds two tests to that file, in a commit of their own, red there by assertion: the driver of `4158c0ff`
   ignores the runs it is given and the lines it is asked for. Then the driver. red-proof with `--base 4158c0ff`, and the step's own
   command against two more mutants (the stand-in that exits before `report_check.main`; a run deleted from `steps()`): §7.3.
+- **The second fold** (m-7) rewrites two tests of that file first, each red by assertion against the driver of `bef77851`, then moves
+  the end of `report_check.main` into `outputProblems`. red-proof with the merge of the trunk as its base, the mutation campaign on
+  the file's killers, mutants by hand, and `main()` driven end to end under the delta G2's stand-in `python`: §7.4.
 
 ### 7.1 The step against mutated copies of the tool
 
@@ -240,6 +257,59 @@ Results (Linux, Node 24.21.0, the runner's build of 3.14.8):
 Logs (sha256, first 16): c0 `e38a1693…`, b-m9 `b3dd9487…`, a-m9 `2934554e…`, b-m10 `52ce38f2…`, a-m10 `952ceb2b…` (they carry
 local paths). The runs of b-m9, b-m10 and c0 overlapped in part, on four cores.
 
+### 7.4 The second fold: the end of `report_check.main` by the check's name
+
+m-7 of the delta G2 (`6725ec4`): the rule of §6 reached the run of `report_check.py` only through `main()`, which took `REPORT_END`
+from a fifth field of `steps()` and passed it on to `outputProblems` (l.107 and l.109 at `bef77851`). The tests judged
+`outputProblems` on fixtures with that list in hand, and no test runs `main()`: deleting `, ends` from the call kept the six tests
+green and gave the job back the green that m-3 had measured (the G2's H1 and E2). Way (a), decided (`3c5b01f`): `outputProblems`
+derives the list from the check's name, `const ends = check === "report_check.py" ? REPORT_END : [];` (l.87), as it derives the
+skips (l.85); `steps()` loses its fifth field, `main()` its argument, `verifier-tool-ci.d.mts` both. No wire is left to lose: `main()`
+hands `outputProblems` the check's name from `steps()`, the name that the accounting (`OWED`) and tests 2 and 3 already pin. Lines 1
+to 86 of the driver keep their place, so no other killer moves.
+
+- **Tests first, in two commits.** `6272a26d`: test 6 calls `outputProblems` with the arguments that `main()` passes and nothing
+  more, on both systems, and wants nothing more of the three other checks. `f303691e`: in test 4, a skip in `report_check.py` is
+  refused beside the two lines that its fixture lacks. Against the driver of `bef77851` each fails on its first changed assertion by
+  `ERR_ASSERTION` (that driver returns `[]` for the two lines: it wants them only when its caller passes them), the four other tests
+  pass, and `every_killer_line_is_readable` stays green: the killers of test 6 move with the driver, in `a44aa80d`. TAP `42f84cd8…`
+  (at `6272a26d`: 5 pass, 1 fail) and `6bc49cfe…` (at `f303691e`: 4 pass, 2 fail); at `a44aa80d`, this file, `export-public` and
+  `killer-lines`: 11 tests, 11 pass (`2c2d11e9…`).
+- **red-proof**: `node scripts/red-proof.mjs --base d489b09d --gel a44aa80d --draw 2 --seed 20261008` (its base the merge of the
+  trunk, so that this fold alone is judged), 03:33:16Z to 03:33:28Z: OK, 2 judged (tests 4 and 6, F2P: `assert-fail` at the base,
+  `pass` at the gel), 4 unchanged, 2 killers drawn (`:86 CONST`, `:87 CONST`), 2 killed. `RED-PROOF.json` `2e429b3d…` (it carries
+  paths and the hour).
+- **Mutation campaign**: `node scripts/mutants/run.mjs --killers --base d489b09d`, on the shared lock `F:/tmp`, to 03:33:54Z: the 10
+  killers of the test file, 10 killed by assertion, no survivor, no inconclusive, no anchor lost; `:88` and `:31`, in the body of
+  test 6, now red tests 4 and 6. `RESULTS.json` `f8ad7c97…`.
+- **By hand**, each mutant alone against the whole test file (the G2's `mutate.mjs`, `240e8527…`: the old text once on its line, else
+  refused), restored by `git checkout`, the tree checked clean; then `main()` driven under the G2's stand-in `python` (`fakepy/python`,
+  Node, `518d75a8…`: no Python runs, each check gets a fixed output, the report run `VERDICT: GREEN` alone), with
+  `VERIFIER_TOOL_PYTHON=3.14.8`:
+
+| Mutant | Change | Tests | `main()`, the report run ending early |
+|---|---|---|---|
+| none | | 6 of 6 | `RED, 2 problem(s)`, the two lines named, exit 1 (E1, `6e00370f…`); with the full end of the main, `GREEN` (E0, `c0dbabf8…`): both byte-equal to the G2's E1 and E0 |
+| N1 | l.87 `check === "report_check.py" ? REPORT_END : []` -> `[]` (the killer) | tests 4 and 6 red, by assertion | `GREEN` (`b416ee0a…`, byte-equal to the G2's E2 under H1): the job alone still cannot see it; the tests now do |
+| N2 | l.87 `? REPORT_END : []` -> `? [] : REPORT_END` | 4 and 6 | `RED, 8 problem(s)` |
+| N3 | l.87 `check === "report_check.py"` -> `true` | 4 and 6 | `RED, 10 problem(s)` |
+| N4 | l.87 `"report_check.py"` -> `"report_check"` | 4 and 6 | `GREEN` |
+| N5 | l.36, the run's name in `steps()`, `"report_check.py"` -> `"report_check"` | 2 and 3 | `RED, 3 problem(s)` before any run: the accounting |
+| N6 | the G2's H1, `, ends` out of `main()`'s call (l.109 then, l.110 now), and its H2, out of the loop (l.107 then, l.108 now) | refused: the text is gone | |
+| N7 | `, win` out of `main()`'s call (l.110) | 6 of 6 | `RED, 2 problem(s)`, byte-equal to E1: `win` is false off Windows, so the mutant is inert on Linux, the one system where the driver runs (§5) |
+
+TAP (sha256, first 16) of N1 to N5 and N7: `0e5d1b40…`, `8926ba89…`, `ccc793b6…`, `d24d0b00…`, `95797ce1…`, `bf183991…`; the
+drives of N2, N3, N4, N5: `1cee6687…`, `78a1bbb9…`, `b416ee0a…`, `2641275d…`. The drives carry no path and no time.
+
+- **The optional notes of the delta G2.** n-9 taken: §1 and the PR body say that the 75 checks include the five of section 3, which
+  read the stand-in's values. n-12 taken: the anchors of this fold are read on the two touched test files against `e13cfff7` and
+  `bef77851`, the trunk and the previous head, never the head under judgment (§11). n-13 taken: `d489b09d` merges the trunk
+  `e13cfff7` into the branch, so the CI of this push runs on the merged tree. n-10 left: a stand-in that forges the two lines itself
+  stays visible in its 46 lines, and a textual ban of `print`, `sys.exit` and `os._exit` before its last line would leave other exits
+  open (`raise SystemExit`, `os.write`): a partial rule, not a closure. n-11 left: it predates the delta; the scripts of the runs are
+  pinned whole by test 3, and a test of the accounting's call in `main()` (l.103 now) needs `main()`'s judgment exported, way (b),
+  which the decision did not take; the job itself holds the tree and check cases (§7.1, m7). n-8 is MONARK's (§5).
+
 ## 8. IO-GUARD-INSTALL-MASK-1
 
 Decided by MONARK (`6c268ee`): the job is a gate. It runs the tool and its cases under a pinned Python, on a clean install of the
@@ -257,9 +327,11 @@ in a public text or a report, as proof that a recompute run is intact. Nothing h
   same text, moved down by `OWED`, `REPORT_END` and the accounting of runs.
 - The fold's two tests: `scripts/verifier-tool-ci.mjs:39 SDL "join(w, \"hikae.txt\")" -> ""` (the D-2 run dropped from `steps()`)
   above the first, and in its body `:71 CONST "times(o) !== 1" -> "times(o) === 0"` (a doubled run admitted) and `:72 SDL "a run
-  that this job does not owe" -> ""` (another count admitted); `scripts/verifier-tool-ci.mjs:36 CONST ", 1, REPORT_END]" -> ", 1]"`
-  (the end of `report_check.main` no longer wanted) above the second, and in its body `:87 CONST "!lines.some(" -> "lines.some("` and
-  `:31 CONST "/^failures 0$/, " -> ""`. red-proof draws the line above each test; the others are fired by hand (§7.3).
+  that this job does not owe" -> ""` (another count admitted); above the second, since the second fold,
+  `scripts/verifier-tool-ci.mjs:87 CONST "check === \"report_check.py\" ? REPORT_END : []" -> "[]"` (the end of `report_check.main`
+  no longer wanted of that check; it replaces `:36 CONST ", 1, REPORT_END]" -> ", 1]"`, whose field is gone), and in its body
+  `:88 CONST "!lines.some(" -> "lines.some("` (`:87` before the new line) and `:31 CONST "/^failures 0$/, " -> ""`. red-proof draws
+  the line above each test; the others are fired by hand (§7.3) and by the mutation campaign (§7.4).
 - `test/export-public.test.ts`: `scripts/export-public.mjs:450 CONST "\"g3-verifier-tool\", " -> ""` (the job kept in the public
   workflow), right above the test; the earlier killer of that line (`", \"g3-export\"]" -> "]"`) stays above it, its text on the line
   once: `verifie-ancres.mjs` reads it DERIVE (its line is the one this lot rewrites), anchored for red-proof.
@@ -270,7 +342,10 @@ In the CI form (`node scripts/lot-size-integration.mjs pin --ci .github/workflow
 then `git diff --shortstat 5437cd0d...HEAD` on the pathspec of `ci.yml` l.100): **353** changed lines at the fold, 7 files, 347
 insertions and 6 deletions (299 before it: the fold adds 100 changed lines, 54 net); the content count 0. Under 547 (the bound of a
 lot) and 1 205 (the bound of the CI). Above the ~55 of the item: the job is 27 lines, and the driver (124), its types (11), the
-stand-in (46) and the tests (131) make the step fail closed and judgeable. This plan, under `docs/`, is not counted.
+stand-in (46) and the tests (131) make the step fail closed and judgeable. This plan, under `docs/`, is not counted. At the second
+fold, against `origin/lot/etude-suite` = `e13cfff7` (the merge base after `d489b09d`), by the G2's `r25.mjs` (the pin's lines parsed
+in Node, the pathspec read from `ci.yml`): **356** changed lines, 7 files, 350 insertions and 6 deletions (the driver 125 lines, one
+more; the tests 133, two more); the content count 0.
 
 ## 11. At the freeze
 
@@ -314,8 +389,19 @@ stand-in (46) and the tests (131) make the step fail closed and judgeable. This 
   rows, 1 680 checks), binom 62 s (16 821 checks; 24 tests, 207 756 assertions; `63606d4f…`, `68e16302…`); the three notices;
   "verifier tool checks under python -E -S -s -B: GREEN". `g3-verification`: 2 931 tests, 2 909 pass, 0 fail, 22 skipped.
   `r25-taille-de-lot`: "R-25 mode: written", "Changed lines: 353 (ADR bound: 1205)", "Content changed lines: 0".
+- **At the second fold** (2026-10-08): branch `recherches/verifier-tool-ci-1` at `bef77851`, then `d489b09d` (the merge of the trunk
+  `e13cfff7`, a merge commit, its tree `ddb1d571` the one the delta G2 posed), `6272a26d` and `f303691e` (the tests, red),
+  `a44aa80d` (the driver, its types, the killers that move), then the commit that writes this; recherches `8903074`. Gates at
+  `a44aa80d` (Linux, Node 24.21.0): `npx tsc --noEmit` 0; `eslint` on the test file and the two driver files, 0 errors (the
+  `scripts/` files ignored by its configuration); `gate:vocab` OK (349 files); `lang:gate` OK; `lint:ratchet` 69/69; `export:check`
+  OK; winlint `--base e13cfff7`, 8 files, no hazard; `npm run test:main` (a second worktree at `a44aa80d`): 2 932 tests (one more
+  from #244), 2 910 pass, 0 fail, 22 skipped, 261 s; `every_killer_line_is_readable` green at each of the four commits;
+  `verifie-ancres.mjs . --ref e13cfff7`: 1 669 killers (the 15 of #244 included), 1 668 ANCRE, the one DERIVE of §9, 0 PERDU; on the
+  two touched test files against `e13cfff7` and `bef77851` alone (n-12), 13 killers, 13 ANCRE. Nothing under `tools/kata-recalc/`,
+  nor `apps/harness/data/verifiers.json`, nor `apps/harness/src/policy-verifiers.ts` changes (by git object, the same at `5437cd0d`,
+  `e13cfff7`, `bef77851` and `a44aa80d`: the tool's tree `10e6f04d`, `verifiers.json` `918b0713`, `policy-verifiers.ts` `00fdced6`).
 
-## 12. Decided by MONARK (`cc80585`, 2026-10-08)
+## 12. Decided by MONARK (`cc80585`, then `3c5b01f`, 2026-10-08)
 
 - **m-5, Q-1 `vectors_check.py`: item VERIFIER-TOOL-CI-VECTORS-1, formed**, carrier RECHERCHES. Trigger: the publication of R1 in
   the public spec repository (`KraidleAI/monark-kata-spec`), or the list commit L of IO-GUARD-POSED-FILES-1, whichever comes first:
@@ -330,14 +416,19 @@ stand-in (46) and the tests (131) make the step fail closed and judgeable. This 
   exit 1. All its code runs and its 333 conformance checks pass; stdout sha256 `c05f8cc19bcbd3e3…`, the G2's byte for byte.
 - **m-6** the tolerance case: in IO-GUARD-POSED-FILES-1 (§7.1).
 - **Q-2** the version: 3.14.8 (§2).
-- **Q-3** the oracle: `g3-verifier-tool` on the `CI_ONLY` list of MONARK's oracle; the Windows replays of `guard_check.py` and
-  `report_check.py` by hand (§5).
+- **Q-3** the oracle: `g3-verifier-tool` on the `CI_ONLY` list of MONARK's oracle, the entry added by MONARK's own commit on the
+  trunk before the G7 of #247, the killers of `run.mjs` that it moves recounted and re-anchored by him (`3c5b01f`, n-8 of the delta
+  G2); the Windows replays of `guard_check.py` and `report_check.py` by hand (§5).
 - **Q-4** the required checks: `g3-verifier-tool` required on `lot/etude-suite`, set by MONARK at the merge after the founder's
   approval (§5).
+- **m-7 of the delta G2** (`3c5b01f`): way (a), folded before the merge request, with its killer (§6, §7.4); n-9 to n-13 at the
+  author's choice (§7.4).
 
 ## 13. Not verified here
 
 The Windows side, which MONARK replays by hand (§5): `report_check.py` section 3 on the real `ucrtbase.dll`, the failed-run case of
 section 8 reaching its own refusals (§1), `guard_check.py` with nothing skipped; the driver itself on Windows (CI only, §5: its
 `win32` branch, the cleanup of its work directory under a read-only pack of the partial clone) is never run. `vectors_check.py`
-(VERIFIER-TOOL-CI-VECTORS-1, §12). The required-check registration (MONARK, at the merge).
+(VERIFIER-TOOL-CI-VECTORS-1, §12). The `CI_ONLY` entry of MONARK's oracle (MONARK, by his own commit before the G7 of #247, §5)
+and the required-check registration (MONARK, at the merge). Off Windows, `main()` of the driver is run end to end only under the
+delta G2's stand-in `python` (§7.4) and by the job itself; no test runs it.
