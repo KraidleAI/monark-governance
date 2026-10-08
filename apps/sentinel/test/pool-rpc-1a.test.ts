@@ -141,7 +141,7 @@ test("pool_rpc_1a_l1_pocket_through_unchanged_anchor — makeRpcPool windowFlow 
     const p = (params as ReadonlyArray<{ fromBlock: string; toBlock: string }>)[0]!;
     const from = parseInt(p.fromBlock, 16), to = parseInt(p.toBlock, 16), span = to - from + 1;
     if (url.includes("pocket")) {
-      if (span > 5000) return Promise.reject(new Error("query block range exceeds server limit, narrow your filter: 5000")); // rpc.ts:86 'block range' matches ⇒ split
+      if (span > 5000) return Promise.reject(new Error("query block range exceeds server limit, narrow your filter: 5000")); // rpc.ts isResultLimit 'block range' matches ⇒ split
       served.push(span);
     }
     return Promise.resolve(from <= 1_000_000 && 1_000_000 <= to ? [burn] : []);

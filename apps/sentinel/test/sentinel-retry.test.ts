@@ -215,7 +215,7 @@ test("sentinel_retry_replays_incident_and_exit_codes — no_quorum exits 1 (0 li
 // killer: apps/sentinel/src/keyless-transport.ts:28 CONST "${redactEndpoint(url)}" -> "${url}"
 test("sentinel_never_prints_endpoint_url — an endpoint's key-bearing path never reaches an error, a written line, or stdout (C-1; ADR-NARABI-OPS-1)", () => {
   // (unit) redaction keeps host, drops path/query (C-1). The served endpoints list is bound verbatim on the served path by the
-  // subprocess tests (sentinel_chainstack_url_alone_degrades_to_keyless below, sentinel-chainstack-guard.test.ts): C-G2D-1.
+  // subprocess tests (sentinel_chainstack_url_alone_degrades_to_keyless below, sentinel-chainstack-guard.test.ts): C-G2D-1; the written-line and stdout checks of C-1 now live in that URL-alone test, l.253 and l.251.
   assert.equal(redactEndpoint(FAKE_KEY_URL), "https://rpc.example.test", "redactEndpoint keeps the origin only");
   assert.ok(!redactEndpoint(FAKE_KEY_URL).includes(SECRET_MARK), "the redacted form carries no path");
 

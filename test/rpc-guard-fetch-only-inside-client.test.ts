@@ -16,7 +16,7 @@
  *   - scripts/census/u4-*.mjs (the course scripts) is a root too (grep FOLDED here from guard-scripts-u4.test.ts).
  * KEY form is an ACCESS (dot, optional-chain dot, bracket, optional-chain bracket, template-literal bracket, `in`,
  * destructuring, Reflect.get, Object.hasOwn - C-R-b4). In the PACKAGES/BELL scopes the bare name is NOT refused (it
- * appears in comments: rpc.ts:5-8, universe.ts:43, ...) and would red by construction; on the UKEMI + u4 scopes the bare
+ * appears in comments: rpc.ts:5-8, universe.ts:43, ...) and would red by construction; on the SENTINEL + u4 scopes the bare
  * name IS refused too, killing the alias evasion `const e = env; e.KEY` (an allowlisted file is exempt).
  *
  * MEASURED HITS after 1b-iii (apps/bell/src, base 6114ce9, this scanner): 1b-iii migrated 5 of the 14 (ethereum.ts:64
@@ -37,7 +37,7 @@ const NET: ReadonlyArray<RegExp> = [/\bfetch\s*\(/, /node:https?/, /\bundici\b/,
 // The 6 paid endpoint keys. A read is REFUSED in EVERY access form (C-1(c), M-16, GARDE-HELIUS-2b-ii-c C-R-b4): a
 // `\benv\.KEY\b`-only motif MISSED env["KEY"], "KEY" in env, {KEY}=env AND the six evasions the validator's p7 probe
 // found - env?.KEY, env?.["KEY"], env[`KEY`], Reflect.get(env,"KEY"), Object.hasOwn(env,"KEY") (all regex-caught below),
-// plus the ALIAS form (`const e = env; e.KEY`) that no access regex can track (a bare-key-name scan on the ukemi scope
+// plus the ALIAS form (`const e = env; e.KEY`) that no access regex can track (a bare-key-name scan on the sentinel scope
 // kills it). One mutant per form (injected into record.ts) reds sentinel_src_clean_and_allowlist_load_bearing.
 const KEY_NAMES = "CHAINSTACK_SOLANA_URL|BELL_SOLANA_RPC|CHAINSTACK_ETH_URL|HELIUS_API_KEY|POLYGON_API_KEY|DATABENTO_API_KEY";
 const BT = String.fromCharCode(96); // a backtick, kept OUT of these template strings
@@ -50,7 +50,7 @@ const KEY: ReadonlyArray<RegExp> = [
   new RegExp(`(?:Reflect\\.get|Object\\.hasOwn)\\(\\s*[\\w$.]*\\benv\\b\\s*,\\s*${Q}(?:${KEY_NAMES})${Q}`), // Reflect.get(env,"KEY") / Object.hasOwn(env,"KEY")
 ];
 // The ALIAS evasion (`const e = deps.env; e.CHAINSTACK_ETH_URL`) reads the key through a local alias no access regex can
-// track. Defence: on the ukemi scope (0 bare key-name occurrence today, comments included - measured), the BARE name is
+// track. Defence: on the sentinel scope (0 bare key-name occurrence today, comments included - measured), the BARE name is
 // itself refused. Kept OUT of the packages/Bell scopes, whose comments legitimately name the keys (would false-positive).
 const KEY_BARE = new RegExp(`\\b(?:${KEY_NAMES})\\b`);
 
@@ -89,7 +89,7 @@ function scan(files: ReadonlyArray<[string, string]>, allow: ReadonlySet<string>
     readFileSync(abs, "utf8").split(/\r?\n/).forEach((ln, i) => {
       for (const re of NET) if (re.test(ln)) hits.push(`${rel}:${String(i + 1)} [net]`);
       for (const re of KEY) if (re.test(ln)) hits.push(`${rel}:${String(i + 1)} [key]`);
-      if (bareKeys && KEY_BARE.test(ln)) hits.push(`${rel}:${String(i + 1)} [key-bare]`); // C-R-b4: the ALIAS evasion, ukemi scope only
+      if (bareKeys && KEY_BARE.test(ln)) hits.push(`${rel}:${String(i + 1)} [key-bare]`); // C-R-b4: the ALIAS evasion, sentinel scope only
     });
   }
   return hits;
@@ -178,12 +178,12 @@ test("sentinel_src_clean_and_allowlist_load_bearing", () => {
   }
   // Belt (C-1(c) + C-R-b4): the KEY regexes catch every ACCESS form - dot / optional-chain dot / bracket / optional-chain
   // bracket / template-literal bracket / `in` / destructuring / Reflect.get / Object.hasOwn. These are the 5 regex-able
-  // evasions the validator probe p7 found; the 6th (the ALIAS form) is caught by the ukemi-scope bare-name scan (KEY_BARE).
+  // evasions the validator probe p7 found; the 6th (the ALIAS form) is caught by the sentinel-scope bare-name scan (KEY_BARE).
   const accessForms = ['deps.env.CHAINSTACK_ETH_URL', 'deps.env?.CHAINSTACK_ETH_URL', 'deps.env["CHAINSTACK_ETH_URL"]', 'deps.env?.["CHAINSTACK_ETH_URL"]', `deps.env[${BT}CHAINSTACK_ETH_URL${BT}]`, '"CHAINSTACK_ETH_URL" in deps.env', 'const {CHAINSTACK_ETH_URL} = deps.env', 'Reflect.get(deps.env, "CHAINSTACK_ETH_URL")', 'Object.hasOwn(deps.env, "CHAINSTACK_ETH_URL")'];
   for (const f of accessForms) assert.ok(KEY.some((re) => re.test(f)), `the KEY regex must catch the access form: ${f}`);
   const alias = 'const e = deps.env; const u = e.CHAINSTACK_ETH_URL;';
   assert.ok(!KEY.some((re) => re.test(alias)), "the alias form evades every access regex (a regex cannot track a local env alias)");
-  assert.ok(KEY_BARE.test(alias), "the ukemi-scope bare-name scan (KEY_BARE) refuses the alias form's bare key name - the 6th evasion");
+  assert.ok(KEY_BARE.test(alias), "the sentinel-scope bare-name scan (KEY_BARE) refuses the alias form's bare key name - the 6th evasion");
 });
 
 // GARDE-HELIUS-1b-iii — the u4 course-scripts grep, FOLDED here from guard-scripts-u4.test.ts (unification; removed
@@ -208,7 +208,7 @@ test("u4_scripts_clean_and_import_sources_closed", () => {
   for (const f of ["u4-oracle-path.mjs", "u4-redraw.mjs", "u4-guard.mjs"]) {
     const specs = [...readFileSync(join(CENSUS, f), "utf8").matchAll(/\bfrom\s*["'`]([^"'`]+)["'`]/g)].map((m) => m[1]!);
     assert.ok(specs.length >= 3, `${f}: import scan is vacuous (${String(specs.length)})`);
-    for (const spec of specs) assert.ok(ALLOWED_IMPORTS.has(spec), `${f} imports '${spec}', NOT in the closed allowed set (a direct paid-key/fetch module import is forbidden)`);
+    for (const spec of specs) assert.ok(ALLOWED_IMPORTS.has(spec), `${f} imports '${spec}', NOT in the closed allowed set (an import outside the closed list is forbidden)`);
   }
 });
 
@@ -239,7 +239,7 @@ test("collect_ts_clean_of_paid_key_reads", () => {
   assert.deepEqual(scan(col, new Set()).filter((h) => h.endsWith("[key]")), [], "collect.ts carries no env.<paid-key> read (moved to close.ts; a 'cash keys read back in collect.ts' mutant reds)");
 });
 
-// GARDE-HELIUS-1b-iii — the DE-SKIPPED full guarantee, UNIFIED over the roots list (packages + apps/bell/src + ukemi +
+// GARDE-HELIUS-1b-iii — the DE-SKIPPED full guarantee, UNIFIED over the roots list (packages + apps/bell/src + apps/sentinel/src +
 // scripts/census/u4). RED in a DISJOINT 1b-iii worktree at 6114ce9: the universe-cli.ts hits (1b-i) and the
 // collect.ts:284/rpc.ts hits (1b-ii) remain until those sub-lots merge — a DECLARED cross-lot dependency (0 residual is
 // in 1b-iii's OWN files: ethereum.ts migrated, close.ts allowlisted, collect.ts key reads moved). GREEN only on the
