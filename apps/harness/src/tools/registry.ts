@@ -12,8 +12,8 @@
  * now `=== {attest,gate,cascade,calibrate}`, the ADR-M007 TERMINAL state (each earlier stage asserted its
  * own exact set on the way here). Plus a static side-effect scan of `src/tools/**`.
  *
- * Like everything under `src/tools/`, this file does no I/O: it imports the frozen-schema PROJECTION
- * (`../schema-projection.ts`, which owns the one `node:fs` read at load) and the pure gate logic; it
+ * Like everything under `src/tools/`, this file does no I/O: it imports the frozen-schema PROJECTION (`../schema-projection.ts`,
+ * which owns a `node:fs` read at load, as `../policy-committed.ts` does for the committed tables) and the pure gate logic; it
  * never touches `node:fs`/`node:net`/`node:child_process`/`fetch`/`process.env`.
  */
 import type { McpServer, StandardSchemaWithJSON } from "@modelcontextprotocol/server";

@@ -323,10 +323,10 @@ const SRC = join(dirname(fileURLToPath(import.meta.url)), "..", "src");
  *  the change that needs it, with its reason written in that change's G0. */
 const SERVED_IMPORTS = new Set(["node:crypto", "node:fs", "node:http", "node:path", "node:stream", "node:url", "@modelcontextprotocol/server",
   "@monark/contracts", "@monark/hikae", "@monark/monark", "@monark/ukemi"]);
-/** The served import graph: the modules reached by a relative import from the entry points and the tools, each text given by read (the
- *  file itself, or a copy that a test hands in). The walk stops by assertion on a relative specifier that names no file (a query suffix
- *  such as ?served names none, and Node 24 evaluates that file again as a second module instance), on a served module in which
- *  forbiddenLoads names a load (SERVED-WALK-LOADS-1) and on one that imports a module outside SERVED_IMPORTS. */
+/** The served import graph: the modules reached from the entry points and the tools by a relative specifier, as importSpecifiers lists it,
+ *  each text given by read (the file itself, or a copy that a test hands in). The walk stops by assertion on a relative specifier that
+ *  names no file (a query suffix such as ?served names none, and Node 24 evaluates that file again as a second module instance), on a
+ *  served module in which forbiddenLoads names a load (SERVED-WALK-LOADS-1) and on one that imports a module outside SERVED_IMPORTS. */
 function servedModules(read = (file: string): string => readFileSync(file, "utf8")): Set<string> {
   const seen = new Set<string>();
   const walk = (file: string): void => {
@@ -336,7 +336,7 @@ function servedModules(read = (file: string): string => readFileSync(file, "utf8
     const text = read(file);
     assert.deepEqual(forbiddenLoads(text), [], `${file}: a load that no specifier shows, as forbiddenLoads reads it`);
     assert.deepEqual(importSpecifiers(text).filter((s) => !/^\.{1,2}\//.test(s) && !SERVED_IMPORTS.has(s)), [], `${file}: an import outside SERVED_IMPORTS`);
-    for (const m of text.matchAll(/(?:from|import)\s*\(?\s*"(\.{1,2}\/[^"]+)"/g)) walk(join(dirname(file), m[1] as string));
+    for (const s of importSpecifiers(text)) if (/^\.{1,2}\//.test(s)) walk(join(dirname(file), s));
   };
   for (const f of ["server.ts", "http.ts", "openapi.ts", "schema-projection.ts", ...readdirSync(join(SRC, "tools")).map((t) => `tools/${t}`)]) walk(join(SRC, f));
   return seen;
