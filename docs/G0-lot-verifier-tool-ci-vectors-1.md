@@ -149,7 +149,7 @@ publish them. Hence the rule of §2.4: the job launches the tool only on public 
   l.31): nothing changes in the oracle. The job stays internal (`INTERNAL_JOBS`, `scripts/export-public.mjs` l.450): the public
   workflow does not change (`export-public`, 4 of 4).
 - `timeout-minutes: 11` unchanged: `vectors_check.py` takes 0.34 s; the checkout of one commit of a tree of about 400 KB (49 blobs,
-  414 706 bytes), a few seconds (on the runner: §13).
+  414 706 bytes), a few seconds (on the runner: read in the pull request's CI).
 - **The first job of this CI that checks out a second repository**: no other `repository:` line in the workflows (`git grep`). MONARK
   writes the dated line under ADR-M003 D9 himself, before the merge (Q-4).
 
@@ -223,7 +223,7 @@ Sixteen killers, each fired by hand, alone, the file restored and its sha256 che
 `7a48e0db…`). `verifie-ancres.mjs --files test/verifier-tool-ci.test.ts --ref 5e976a1a`: 16 killers, 16 ANCRE; on all the tracked
 files: 1 696, 1 696 ANCRE, 0 DERIVE, 0 PERDU. The lines aimed at are the prototype's, which are the lot's (§13).
 
-| Line of the test | Killer | Reds test | State |
+| Line of the test (at C, `56617597`) | Killer | Reds test | State |
 |---|---|---|---|
 | l.28, above test 1 | `.github/workflows/ci.yml:292 CONST "python-version: \"3.14.8\"" -> "python-version: \"3.14\""` | 1 | unchanged |
 | l.43, body of test 1 | `.github/workflows/ci.yml:298 CONST "ref: ffb5ea33fcdcde2bd497cb25fba184ae2c4bbfa8" -> "ref: main"` | 1 | new |
@@ -382,7 +382,7 @@ this note and l.416 of #247's G0, under `docs/`. Nothing else: neither `package.
 - **A Python warning on stderr** would change the digest: red, closed; stderr is empty under FORM (M1, M4).
 - **The published form of R1** (another path, other bytes): the switch measures again; nothing private is copied.
 - **Confidentiality**: held by `vectorsProblems` (no run on bytes not pinned) and by §2.4.
-- **CodeQL** on the changed workflow: not run here; it runs on the pull request (§13).
+- **CodeQL** on the changed workflow: not run here; it runs on the pull request, read in its CI.
 
 ## 11. Decided by MONARK (`44764dc`, 2026-10-08)
 
@@ -406,10 +406,82 @@ this note and l.416 of #247's G0, under `docs/`. Nothing else: neither `package.
 ## 12. Not verified
 
 - The job on a GitHub runner before the pull request: the checkout by the action itself, its duration, the nested path; emulated here
-  by a local clone at the commit (the pull request's run: §13).
+  by a local clone at the commit (the pull request's run is read in its CI).
 - CodeQL's analyses of the changed workflow, before the pull request.
 - Windows: the driver never runs there; MONARK's replays do not change (Q-3 adds `vectors_check.py` on R1's vectors at the merge of
   E2).
 - The published form of R1 (path, bytes, commit) and the price of the switch (estimated).
 - The bound's mutant on R1's file.
 - That the governance CI logs read without an account: deduced from the repository's public visibility, not read on a log page.
+
+## 13. At the freeze: the lot's own measures
+
+- **Heads**: trunk `565c7065` when T and C were written (explicit refspec and `git ls-remote`, 07:47 UTC); at 08:57 UTC, before this
+  section was committed, the trunk is `52d1e0b7`, the merge of #248, which changes `docs/G0-lot-mutants-mem-lock-window-flake-1.md`
+  and `test/mutants-run.test.ts` only: no file of this lot nor of its guard (`git diff --stat 565c7065 52d1e0b7` on them, empty). The
+  branch is not merged with it; the pull request's CI runs on the merge. The measures below take `565c7065` as their base. Branch
+  `recherches/verifier-tool-ci-vectors-1`: `13604c5c` (this note, and l.416 of #247's G0 corrected), `1790af16` (T, the test file
+  alone), `56617597` (C: the driver, its types, `ci.yml`, and the test file's new and moved killer lines), then the commit that writes
+  this section; the spec `ffb5ea33`; recherches `4fe89cb` at reading. Linux, Node 24.21.0, the CI's build of CPython 3.14.8 (`3.14.8
+  (main, Oct  1 2026, 02:38:33) [GCC 13.3.0]`) first on `PATH`, with `LD_LIBRARY_PATH` as setup-python sets it.
+- **The code is the prototype's, byte for byte.** At `56617597` the four files have the sha256 of §4 (`ci.yml` `de391ba360bdecad…`,
+  `verifier-tool-ci.d.mts` `330d843e01bb04c7…`, `verifier-tool-ci.mjs` `e252885ff9198336…`, `verifier-tool-ci.test.ts`
+  `6e49186781092e9e…`), and `git diff -U0 565c7065 56617597` on them is the plan's annex A, byte for byte (188 lines, `c2c35ec6…`).
+  T is that test file with its ten killer lines as at the trunk (the six new ones absent, the eight moved ones at their trunk lines),
+  checked by script: same killer lines as the trunk's, same other lines as C's.
+- **T, red first** (`1790af16`; the driver, its types and `ci.yml` at the trunk): `node --test test/verifier-tool-ci.test.ts`, 7 tests,
+  3 pass (4, 5, 6), 4 fail (1, 2, 3, 7), each by `ERR_ASSERTION` on its first changed assertion: test 1 "the spec vectors checked out
+  by the same pinned action, after setup-python, before the driver: -1", test 2 "every check of the tool is run, vectors_check.py on
+  the pinned spec vectors", test 3 "the six runs of steps(), in order, on both systems", test 7 "the driver pins the spec vectors and
+  checks their bytes" (TAP `4f0b45d7…`). `every_killer_line_is_readable` green at T (TAP `5c08d2a1…`). No CI run judged T alone: T
+  and C were pushed together, before the pull request.
+- **C**: the test file, 7 of 7, and `every_killer_line_is_readable`, green (TAP of both `0b971d4a…`).
+- **red-proof** `node scripts/red-proof.mjs --base 565c7065 --gel 56617597 --repo <worktree> --draw 4 --seed 20261008`, 08:14:54 to
+  08:15:17 UTC: OK, 4 judged (tests 1, 2, 3 and 7, F2P: `assert-fail` at the base, `pass` at the gel), 3 unchanged, 4 killers drawn
+  (`:103 CONST`, `:53 SDL`, `:91 CONST`, `ci.yml:292 CONST`), 4 killed; `RED-PROOF.json` `750acbe9…` (mode `f2p`; it carries paths and
+  the hour). The same as the plan's on the prototype (§4.1).
+- **Mutation campaign**: `node scripts/mutants/run.mjs --repo <worktree> --base 565c7065 --out <dir> --killers --lock-root <the
+  shared lock>`, 08:16:06Z to 08:55:54Z (each mutant waiting its turn on the host lock behind other runs): the 16 killers of the test
+  file, 16 killed by assertion, no survivor, no inconclusive, no anchor lost; `RESULTS.json` `dd5a547b…`. Each reds the test or tests
+  of §4.2: `ci.yml:292` and `:298` test 1; `:91` test 2; `:53`, `:93` and `:94` test 3 (`:53` run alone with the test below it);
+  `:54` tests 2 and 3; `:110` test 4; `verifier-tool-ci-report-check.py:45` test 5; `:111` test 6 (run alone); `:112` and `:45` tests
+  4 and 6; `:103`, `:114`, `:116` and `:82` test 7.
+- **Anchors**: `verifie-ancres.mjs <worktree> --files test/verifier-tool-ci.test.ts --ref 565c7065`: 16 killers, 16 ANCRE; `--touched
+  565c7065 56617597`: the same 16; on all the tracked files, `--ref 565c7065`: 1 696, 1 696 ANCRE, 0 DERIVE, 0 PERDU.
+- **The job end to end**, by §4.3's command in a scratch clone at `56617597` (`git clone --shared`, the spec cloned at `ffb5ea33` into
+  `kata-spec-vectors/`), each change alone, restored, its sha256 checked again; the host's load was 12 to 16 from other runs:
+
+| Run | Change | Exit | What the job writes |
+|---|---|---|---|
+| m0 | none | 0 | `GREEN`, 349 s: guard 7 s, report 172 s, compare 14 s, registry 50 s, binom 108 s, vectors 0 s (exit 1, judged green); `vectors.txt` `c05f8cc1…`, and `report.txt` `409e589e…`, `compare.txt` `e8dc7928…`, `binom.txt` `63606d4f…`, `hikae.txt` `68e16302…`, the CI's (`registry.txt` and `guard.txt` carry paths); three notices (the Windows case skipped, section 3 stood in, the spec vectors), no "not run" notice |
+| m20 | `vectors_check.py:20` `SPEC_CHECKS = 363` -> `333` (the count admitted) | 1 | `RED, 5 problem(s)`, 266 s: "exit 0, not 1", the three end lines that the tool no longer writes ("0 time(s), once wanted"), and the output's sha256, `635e5e93…`; the five other runs green |
+| m58 | `vectors_check.py:58` `range(1, 2001)` -> `range(1, 1)` (the round trips of `js_number` dropped) | 1 | `RED, 1 problem(s)`, 239 s: "output sha256 c5cef01f…, not the pinned c05f8cc1…"; the five other runs green |
+| p1 | the checkout absent (the folder moved aside) | 1 | `RED, 1 problem(s)`, no check run: "kata-spec-vectors/vectors.json: absent; the job checks out KraidleAI/monark-kata-spec at ffb5ea33… there" |
+| p2 | `contract-1.1.0/vectors-1.1.0.json` of the same commit posed at the path (`190b9fd8…`, 72 796 bytes) | 1 | `RED, 1 problem(s)`, no check run: its sha256 and size, then the pinned ones |
+
+  In p1 and p2 the two notices of the job's set-up still print (section 3 stood in, the spec vectors), as the one of section 3 did
+  before this lot when no check ran: they name what the job is set to run, and the `::error::` line says that nothing ran.
+- **The tool's mutants judged alone** (`vectors_check.py` under FORM in the scratch clone at `565c7065`, whose tool is C's, its output
+  judged by `outputProblems` of `56617597`): the control, judged green (`c05f8cc1…`); `:20`, red, 5 (`635e5e93…`); `:58`, red, 1
+  (`c5cef01f…`); `:100` (`got == dg["sha256"]` -> `got != dg["sha256"]`), red, 7 (three `FAIL [digest]` lines, the verdict, two end
+  lines, the digest); `kata_lib.py:421` (`-b3` -> `-b2`), red, 7 (three `FAIL [bucket-probe]` lines, the same four); `:29` (1e-12 ->
+  1e-9), judged green, its output byte-equal (`c05f8cc1…`): the survivor of §4.3, VECTORS-WITHIN-BOUND-1 (§11).
+- **The sentinels of l.416**: §1.
+- **Gates at `56617597`**: `npx tsc --noEmit` 0; `eslint` on the test file and the two driver files, 0 errors (the `scripts/` files are
+  ignored by its configuration: 2 warnings); `gate:vocab` OK (349 files); `lang:gate` OK; `lint:ratchet` 69/69; `export:check` OK;
+  winlint (`676416fe…`, `--base 565c7065`), 6 files, no hazard; `git diff --check 565c7065 56617597` clean; no TODO or FIXME added.
+- **The test files that read the workflow, and the tree tests**, at `56617597`: `verifier-tool-ci`, `killer-lines`, `export-public`,
+  `ci-gates`, `oracle-run`, `r25-integration`, `cra-b`, `dojo-render`, `site-build-fleet`, `spec-publish`, `kata-recalc` and
+  `verifiers-list` (`kata_recalc_tree_is_the_pinned_manifest`, `verifier_tool_tree_is_the_listed_tree`): 239 tests, 239 pass, 0 fail,
+  102 s (TAP `9755c9bd…`).
+- **The main suite** (`npm run -s test:main`, the worktree at `56617597`, 08:37 to 08:45 UTC): 2 936 tests, 2 914 pass, 0 fail, 22
+  skipped (the conditional skips that were already there), 507 s. One test more than the trunk: the lot adds test 7 and changes no
+  other test file.
+- **Size** (R-25 in CI form: `scripts/oracle/r25.mjs` of the tree, on the worktree at `56617597`, base `565c7065`): `STAT` 117
+  insertions, 25 deletions, **142** changed lines (bound 1 205); `CONTENT_STAT` 0; mode `unproven` (no integration proof), GREEN. Under
+  547 and 1 205; the plan's count (§5).
+- **The guard**: `git diff --stat 565c7065 56617597 -- tools/kata-recalc apps/harness/data/verifiers.json
+  apps/harness/src/policy-verifiers.ts` empty (the tool's tree `10e6f04d`, `verifiers.json` `918b0713`, at both); the two tree tests
+  green (above); no list commit.
+- **This note's addresses**: `cites.mjs` (the atelier of RECHERCHES) on this note, the trunk and `56617597` (the killer table): 46
+  references ok, 0 failed; each line of the killer table shows the text its killer names.
