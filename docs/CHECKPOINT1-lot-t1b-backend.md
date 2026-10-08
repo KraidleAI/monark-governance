@@ -25,7 +25,7 @@ Fichiers du depot lus (lecture seule) : apps/bell/src/collect.ts (sha 67d7091f..
 
 **Concordance des citations** : toutes les lignes citees par l'ADR que j'ai rejouees disent ce que l'ADR leur fait dire (chaine par run depuis GENESIS collect.ts:80-93 ; sorties :806-811 ; assertOutsideRepo :489-495 ; earliest_publish_utc sur l'entree gT :159,178,185 ; canonical digest.ts:23-31 ; CLOSE_KEY :32 ; « T-1b export whitelist » :79 ; « published too » :106 ; ADR-B0 D2/D4/D8/alternatives/ESC-2 ; decisions 54, 57, 62, 69, 78, 79, 80, 101, 117, 137, 143, 146 ; copyFileSync run.ts:360-361 ; deadbeef flow.ts:52 ; export : apps/bell, deploy/, test/ NON exportes aujourd'hui, scripts/* seulement par fichier nomme). Aucune citation fausse trouvee.
 
-**Fait nouveau integre** : DNS A bell.monarkgate.tech -> 178.16.131.29 (TTL 300) cree 13:49Z sur instruction de l'investisseur (CHANTIERS.md:1157-1158) ; **constate par moi** : nslookup bell.monarkgate.tech 1.1.1.1 -> 178.16.131.29. La porte DNS (D-n etape 8) est levee ; le controle dig +short du RUNBOOK reste a rejouer au D-n.
+**Fait nouveau integre** : DNS A bell.monarkgate.tech -> adresse de l'hote Bell (TTL 300) cree 13:49Z sur instruction de l'investisseur (CHANTIERS.md:1157-1158) ; **constate par moi** : nslookup bell.monarkgate.tech one.one.one.one -> adresse de l'hote Bell. La porte DNS (D-n etape 8) est levee ; le controle dig +short du RUNBOOK reste a rejouer au D-n.
 
 ## 2. Checklist fermee, regle par regle
 

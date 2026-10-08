@@ -15,7 +15,7 @@ Contexte frais : seuls les artefacts ci-dessous ont été lus, jamais le fil du 
   l.1064-1206 (`series_pinned_are_declared_and_hashed`, racines exclues R-25), `.github/workflows/ci.yml` l.65 (pathspec R-25),
   `scripts/export-public.mjs` l.60-70 (liste blanche).
 - Déploiement/doc : `deploy/monark-sentinel.service`, `deploy/monark-sentinel.timer`, `docs/RUNBOOK-sentinel.md`, `docs/CHANTIERS.md` §E l.69-70
-  (incident) et l.114-118 (décisions 54, 55, 56, 57 ; VPS Bell provisionné `178.16.131.29`), `docs/adr/ADR-M012-narabi-live-sentinel.md` l.60-99
+  (incident) et l.114-118 (décisions 54, 55, 56, 57 ; VPS Bell provisionné `bell.monarkgate.tech`), `docs/adr/ADR-M012-narabi-live-sentinel.md` l.60-99
   (D4/D5), `docs/adr/ADR-M018-regle-branchement.md` D3, `docs/adr/ADR-B0-programme-bell.md` D8.
 - Sources externes (2026-09-20 ; **extraits obtenus via l'outil de fetch, qui résume par un modèle : cités [abs], non lecture directe ; aucune conclusion ne dépend de la lettre exacte** ; XML source du dépôt systemd sur raw.githubusercontent.com — freedesktop.org répond 403 à l'outil) :
   `man/systemd.timer.xml` (Persistent=, OnCalendar= répété), `man/systemd.time.xml` (listes par composante), `man/systemd.exec.xml`
@@ -73,7 +73,7 @@ n'épingle que `prev` (`ec4ce67e…`). Il faut une **fixture nommée** `apps/sen
 Le stub de run 1 doit être **méthode-consciente** : `finalized()` et `blockTs` réussissent, seul `eth_call` tombe sous 2 opérateurs — sinon
 `finalized()` lève, `main().catch` prend le relais (exit 1 pré-existant) et L-1 n'est jamais exercé. → C-6.
 
-**(5) L-5 sonde.** Dépendance de déploiement **satisfaite** : VPS Bell provisionné et configuré (CHANTIERS l.117, décision 54 : `178.16.131.29`,
+**(5) L-5 sonde.** Dépendance de déploiement **satisfaite** : VPS Bell provisionné et configuré (CHANTIERS l.117, décision 54 : `bell.monarkgate.tech`,
 Node v24.21.0) ; décision 57 l'autorise explicitement (« n'accueille que Bell et la sonde externe »). `line_hash` exportable ? **Non** :
 `@monark/sentinel` est `private: true`, `timeline.ts` importe `@monark/hikae` et `@monark/harness/calibration` — rien d'importable depuis un `.mjs`
 nu sur le VPS Bell avant T-1b. La duplication de l'ordre des 31 champs de `hashedFields` est inévitable ⇒ exiger un **test d'identité** contre les

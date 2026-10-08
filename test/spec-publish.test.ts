@@ -190,8 +190,8 @@ test("vocabulary_gate_is_the_public_free_text_gate_with_closed_exceptions", asyn
     ["a", "Kraidle"], ["a", "Hyperliquid"], ["a", "listed on binance"], ["f", "Data" + "bento"], ["f", wide("Databento")], ["k", "the orchestrator ruling"],
     ["private", "RECHERCHES"], ["private", "recherches"], ["private", "KraidleAI/recherches"], ["private", wide("RECHERCHES")], ["home", "/home/user/x"],
     ["home", "/Users/x/y"], ["home", "~/notes"], ["home", "/var/home/u/x"], ["home", "$HOME/x"], ["private", "kata:x@KraidleAI/recherches"],
-    ["a", "ukemi:Helius@Chainstack/Tenderly"], ["b", "kata:x@a/BLQ-DEP-7"], ["p", "kata:x@a/192.168.1.4"], ["g", `ghp_${"a".repeat(36)}`], ["e", "F:" + "\\tmp\\x"], ["cf", `a${String.fromCharCode(0x200b)}b`],
-    ["p", "write to someone@example.org"], ["b", "BLQ-DEP-7"], ["c", "R-25"], ["p", "at 10.0.0.1"], ["g", "https://example.org/x"], ["d", "public sync"]];
+    ["a", "ukemi:Helius@Chainstack/Tenderly"], ["b", "kata:x@a/BLQ-DEP-7"], ["p", "kata:x@a/198.51.100.4"], ["g", `ghp_${"a".repeat(36)}`], ["e", "F:" + "\\tmp\\x"], ["cf", `a${String.fromCharCode(0x200b)}b`],
+    ["p", "write to someone@example.org"], ["b", "BLQ-DEP-7"], ["c", "R-25"], ["p", "at 192.0.2.1"], ["g", "https://example.org/x"], ["d", "public sync"]];
   for (const [rule, text] of samples) assert.deepEqual(rules(text), [rule], text);
   const zorblax = [{ length: 7, sha256: sha("zorblax") }];
   assert.deepEqual([m.WITHHELD.length, m.WITHHELD.every((d) => /^[0-9a-f]{64}$/.test(d.sha256) && d.length > 0), rules("a Zorblax word", zorblax)], [1, true, ["withheld"]]);
