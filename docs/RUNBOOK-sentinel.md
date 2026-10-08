@@ -187,7 +187,7 @@ then verified with the `systemctl show` line in step (8).
 
 | At `journalctl -u monark-sentinel` | Mode | `tail -1 timeline.jsonl` | Repair |
 |---|---|---|---|
-| systemd `start operation timed out`, unit `failed`, **NO** `wrote N line(s)`, **NO** `sentinel FATAL`; RECURS every slot with **NO new end-JSON** (the run is killed inside `runDue` and never reaches the end-JSON `run.ts:180`, so `processedDays` is never printed at all — an ABSENT observable, not a seen-but-unchanging one) | **A. Catch-up livelock** (kill during the multi-day RPC loop) | PARSES as JSON (no torn line) **and its `day` never advances slot after slot** | raise the timeout for ONE supervised run (A) |
+| systemd `start operation timed out`, unit `failed`, **NO** `wrote N line(s)`, **NO** `sentinel FATAL`; RECURS every slot with **NO new end-JSON** (the run is killed inside `runDue` and never reaches the end-JSON `run.ts:374`, so `processedDays` is never printed at all — an ABSENT observable, not a seen-but-unchanging one) | **A. Catch-up livelock** (kill during the multi-day RPC loop) | PARSES as JSON (no torn line) **and its `day` never advances slot after slot** | raise the timeout for ONE supervised run (A) |
 | `sentinel FATAL` + a `SyntaxError`/`JSON.parse` error at **EVERY** subsequent run, exit 1, nothing published | **B. Torn last line** (kill inside the ~ms append) | does **NOT** parse (partial JSON, no trailing newline) | remove the torn line (B) |
 
 #### Mode A — the catch-up livelock (a slow run turned into a PERMANENT outage)
@@ -209,10 +209,10 @@ then verified with the `systemctl show` line in step (8).
 > with `max_day_ms > 60000`, OR systemd wall-clock duration minus `elapsed_ms` > 30000 ms, triggers a dated
 > amendment re-deriving the default budget (an amendment, not a rollback).
 
-`run.ts` processes EVERY due day (`dueDays` `:167`) inside ONE RPC-heavy loop (`runDue` `:75`-`:92`) and appends
-the whole batch ONLY after the loop, in one write (`:182`-`:191`) — there is **no per-day checkpoint**. So a
+`run.ts` processes EVERY due day (`dueDays` `:359`) inside ONE RPC-heavy loop (`runDue` `:126`-`:150`) and appends
+the whole batch ONLY after the loop, in one write (`:376`-`:385`) — there is **no per-day checkpoint**. So a
 `TimeoutStartSec` kill DURING the loop writes NOTHING (not even a torn line): `timeline.jsonl` is untouched, the
-resume point is unchanged, and the NEXT run recomputes the SAME due list (`:167`) and is killed at the same
+resume point is unchanged, and the NEXT run recomputes the SAME due list (`:359`) and is killed at the same
 point. **While the catch-up itself takes longer than `T_s`, every slot re-attempts the same doomed run and the
 sentinel never publishes** — the four daily slots + `Persistent=true` all retry it; there is deliberately no
 `Restart=`. This mode is more probable than Mode B (it needs only a run > `T_s`, not a kill in the ~ms append).
@@ -220,7 +220,7 @@ sentinel never publishes** — the four daily slots + `Persistent=true` all retr
 *Threshold (measured on the code + the D anchor; a LOWER bound).* The cost per run is dominated by the RPC
 (`fetchWindow` per day); the fixed overhead is negligible (node startup + module load measured at ~0.15 s
 offline; `loadState`'s fold is milliseconds). With D = 25.481 s for a ONE-day run, a linear model gives
-`N_days x D > T_s = 300 s` at `N >= ceil(300 / 25.481) = 12` days. This is a **lower bound**: `run.ts:72` resets
+`N_days x D > T_s = 300 s` at `N >= ceil(300 / 25.481) = 12` days. This is a **lower bound**: `run.ts:120` resets
 the window search lower bound to `DEPLOY_BLOCK` on EVERY run and only tightens it WITHIN a run, so D already
 carries the widest block search and later days in a catch-up search a narrower range — the true per-day cost
 falls, so the real threshold is **>= ~12 days of backlog**. Not "never", not "always": it takes about a dozen
@@ -250,14 +250,14 @@ systemctl show -p TimeoutStartUSec monark-sentinel.service   # MUST print 5min (
 ```
 
 *Repair A.2 — catch up ONE day at a time (if raising the timeout is not an option).* A non-dry `--day` must be
-EXACTLY the next day after the last published one (`run.ts:165`: `--day === nextDay(prevDay)`, else it throws;
+EXACTLY the next day after the last published one (`run.ts:357`: `--day === nextDay(prevDay)`, else it throws;
 `prevDay` = the `day` of the last line of `timeline.jsonl`). Each run pays ~D and re-starts its block search
-from `DEPLOY_BLOCK` (`:72`), so budget ~D per day and repeat, advancing the date each time:
+from `DEPLOY_BLOCK` (`:120`), so budget ~D per day and repeat, advancing the date each time:
 
 ```bash
 # PRECONDITION: the last timeline line must PARSE. If the journal shows Mode B (a torn last line), do Mode B
 # FIRST — A.2 reads the last line's `day` as the resume point; a torn last line makes LAST empty and `--day`
-# garbage (run.ts:165 then rejects it, fail-closed, but check first).
+# garbage (run.ts:357 then rejects it, fail-closed, but check first).
 LAST=$(tail -1 /var/lib/monark-sentinel/timeline.jsonl | node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>process.stdout.write(JSON.parse(s).day))')
 NEXT=$(node -e 'const d=new Date(process.argv[1]+"T00:00:00Z");d.setUTCDate(d.getUTCDate()+1);process.stdout.write(d.toISOString().slice(0,10))' "$LAST")
 # Load the EnvironmentFile to KEEP the optional Chainstack key (the RUNBOOK-harness `sudo -u sentinel ... node`
@@ -272,22 +272,22 @@ systemd-run --uid=sentinel --pipe --wait \
 
 #### Mode B — a torn last line (kill inside the ~ms append)
 
-If the kill lands inside `run.ts:188` `appendFileSync` (the timeline write), the private `timeline.jsonl` last
+If the kill lands inside `run.ts:382` `appendFileSync` (the timeline write), the private `timeline.jsonl` last
 line can be TORN (partial JSON, no trailing newline). What bounds it, MEASURED on the code:
 
-- **D (25 s) << T_s (300 s)** and the four byte-writes `:188`-`:191` take milliseconds, so a kill lands inside
+- **D (25 s) << T_s (300 s)** and the four byte-writes `:382`-`:385` take milliseconds, so a kill lands inside
   the append window with negligible probability — far rarer than Mode A, which needs only a run > `T_s`.
-- **A torn line is NEVER served — proven by the write ORDER.** The public copies are `copyFileSync` at `:190`
-  (timeline) and `:191` (`state.json`), AFTER the private append `:188` and the private `state.json` write
-  `:189`. A kill DURING `:188` means `:189`/`:190`/`:191` never ran, so the private `state.json` and BOTH public
+- **A torn line is NEVER served — proven by the write ORDER.** The public copies are `copyFileSync` at `:384`
+  (timeline) and `:385` (`state.json`), AFTER the private append `:382` and the private `state.json` write
+  `:383`. A kill DURING `:382` means `:383`/`:384`/`:385` never ran, so the private `state.json` and BOTH public
   copies are all still at the last good state (three-way consistent) — the torn line lives ONLY in the private
   `timeline.jsonl`, never on the wire.
-- **It fails CLOSED and self-announces.** `loadState` (`:104`-`:120`) recomputes the tracker by folding EVERY
-  line through `step`, `JSON.parse` per line (`:111`) with NO try/catch. The torn line throws, bubbling to the
-  run guard (`:201`, `sentinel FATAL`, exit 1). **Precision (C-G2-2): EVERY subsequent run FATALs in `loadState`
-  (`:111`) on the torn line UNTIL it is removed** — not merely "the next run". The probe sees `lag` and alerts.
+- **It fails CLOSED and self-announces.** `loadState` (`:163`-`:179`) recomputes the tracker by folding EVERY
+  line through `step`, `JSON.parse` per line (`:170`) with NO try/catch. The torn line throws, bubbling to the
+  run guard (`:399`, `sentinel FATAL`, exit 1). **Precision (C-G2-2): EVERY subsequent run FATALs in `loadState`
+  (`:170`) on the torn line UNTIL it is removed** — not merely "the next run". The probe sees `lag` and alerts.
 - **`state.json` is DERIVED** (recomputed from the timeline), so a stale/missing one **self-heals on the next
-  run THAT WRITES A LINE** (C-G2-2): a `nothing due` exit-0 run does NOT refresh the public copies (`:182`
+  run THAT WRITES A LINE** (C-G2-2): a `nothing due` exit-0 run does NOT refresh the public copies (`:376`
   guards them on `report.lines.length > 0`), so a run must actually process a due day to republish.
 
 *Repair B.* Back up first, then remove ONLY the torn trailing line and verify the chain re-folds BEFORE
@@ -300,9 +300,9 @@ tail -1 /var/lib/monark-sentinel/timeline.jsonl | node -e 'let s="";process.stdi
 # (2) Remove the torn trailing line = truncate to the last newline (a torn line has no trailing newline, so this
 #     drops exactly it and keeps every complete line):
 node -e 'const fs=require("node:fs"),p="/var/lib/monark-sentinel/timeline.jsonl",s=fs.readFileSync(p,"utf8"),i=s.lastIndexOf("\n");fs.writeFileSync(p,i>=0?s.slice(0,i+1):"")'
-# (3) Verify: --dry-run runs loadState FIRST (run.ts:162, network-free, BEFORE any RPC :166 and the dry-run
-#     branch :181) and writes NOTHING. Read the outcome — TWO exit-1 cases, do NOT conflate them:
-#       * `sentinel FATAL` with a SyntaxError/JSON.parse error = loadState still hits a bad line (:111/:201):
+# (3) Verify: --dry-run runs loadState FIRST (run.ts:354, network-free, BEFORE any RPC :358 and the dry-run
+#     branch :375) and writes NOTHING. Read the outcome — TWO exit-1 cases, do NOT conflate them:
+#       * `sentinel FATAL` with a SyntaxError/JSON.parse error = loadState still hits a bad line (:170/:399):
 #         repeat step 2, or restore the .bak;
 #       * a clean end-JSON, OR exit 1 with `stopped: fetch_error:...`/`quorum_...` (or a network/RPC error) =
 #         loadState PASSED, the CHAIN IS FINE; that exit-1 is the RPC/network being down (the outage itself —
@@ -313,7 +313,7 @@ systemctl start monark-sentinel.service
 journalctl -u monark-sentinel -n 20 --no-pager     # expect "wrote N line(s); T=..."
 ```
 
-A kill that lands BETWEEN `:188` and `:191` (a COMPLETE append, but a stale private/public `state.json`) needs
+A kill that lands BETWEEN `:382` and `:385` (a COMPLETE append, but a stale private/public `state.json`) needs
 NO action: the last timeline line parses, `loadState` succeeds, and the next run THAT WRITES A LINE refreshes the
 copies — the precise C-G2-2 "self-heals on the next run that writes a line".
 
@@ -332,7 +332,7 @@ healthy run is a STOP-and-investigate. Then record the FIRST run of **each** of 
 Pré-enregistré au G7 de NARABI-OPS-1d (2026-09-22) ; implémente le G1 §13 et la correction C-5 du checkpoint-1 de -1d ; calque de l'E-5 (`docs/JOURNAL-PROVENANCE.md:353-357`) et du §6. **Ne pas exécuter avant P-1..P-4.** Tout se fait depuis le poste de l'orchestrateur, canal SSH habituel (`ssh -i ~/.ssh/monark_vps root@monarkgate.tech`).
 
 ### Préconditions (toutes vraies, sinon STOP)
-- **P-1** — Le pli §11-1 est fusionné (ADR-NARABI-OPS-1, amendement -1d, A.8-1) avec G2-delta PASS, re-checkpoint-2 ACCEPTE et G7 ; son **SHA de fusion NOMMÉ** est consigné dans `docs/JOURNAL-PROVENANCE.md` AVANT l'archive (décision 72). Jamais le SHA de fusion de -1d seul : UN seul second redéploiement (décision 118 ; option (b), C-V-0). Go permanent : décision 137 (`docs/CHANTIERS.md:858`, « 2e redeploiement VPS sentinelle (apres pli §11-1) ») — aucun go supplémentaire à demander.
+- **P-1** — Le pli §11-1 est fusionné (ADR-NARABI-OPS-1, amendement -1d, A.8-1) avec G2-delta PASS, re-checkpoint-2 ACCEPTE et G7 ; son **SHA de fusion NOMMÉ** est consigné dans `docs/JOURNAL-PROVENANCE.md` AVANT l'archive (décision 72). Jamais le SHA de fusion de -1d seul : UN seul second redéploiement (décision 118 ; option (b), C-V-0). Go permanent : décision 137 (`dda06abe:docs/CHANTIERS.md:863` ; historique, fichier retiré à `a21a65bf` ; = l. 858 à `36591815` ; « 2e redeploiement VPS sentinelle (apres pli §11-1) » ; la décision en vigueur est celle du fondateur, ETAT « on réarme la jambe payante ») — aucun go supplémentaire à demander.
 - **P-2** — Clôture du temps 1 et de la course U-4b-1b (G1 -1d §4 ; décision 118).
 - **P-3** — Valeurs lues, jamais devinées : `<CYCLE>` = le `cycle_id` Chainstack du compte pour la période de facturation courante, le MÊME que le `--cycle` des courses Ukemi (ruling 2026-09-22 04:3x UTC, option 1) ; `<FLOOR>` = total RU du COMPTE (somme des réseaux) lu SUR PLACE à la console Chainstack le jour même, entier sans séparateur (`run.ts:256` refuse tout autre format ⇒ `config_error`) et ≤ 16 000 000.
 - **P-4** — Hors créneau : `systemctl is-active monark-sentinel.service` affiche `inactive`, et l'heure n'est dans aucune fenêtre [créneau ; créneau + 35 min] (00:30 / 03:30 / 06:30 / 09:30 UTC, `RandomizedDelaySec=1800`, `TimeoutStartSec=300`).
@@ -406,8 +406,8 @@ tail -1 /var/lib/monark-sentinel/ledger/<CYCLE>/chainstack.jsonl   # "outcome":"
 - **(7) Armement** : `systemctl restart monark-sentinel.timer` puis `systemctl list-timers monark-sentinel.timer --no-pager`. Sous `Persistent=true` un run peut partir aussitôt (§6 (7)) : le consigner comme premier run.
 
 ### Acceptation (critères pré-enregistrés ; `journalctl -u monark-sentinel -n 40 --no-pager`)
-- **(a) Tout run post-déploiement**, y compris « nothing due » : `exit_code 0`, `stopped null`, `chainstack true`, **`chainstack_guard "ok"`**, `elapsed_ms`/`max_day_ms` présents (`max_day_ms > 60000` ⇒ amendement -1c) ; unité `Deactivated successfully` ; **aucun `chainstack.lock`** après la désactivation ; dernière ligne du ledger `unlocked` / `sentinel-daily-end`. Un run « nothing due » ne tire en général pas la jambe : 0 ligne `attempted` y est normal (le `finalized()` d'un pool sain prend les deux premiers fournisseurs publics ; `rpc.ts:175-201`, ordre `run.ts:324`).
-- **(b) Premier run PUBLIANT** (en général le créneau 00:30 UTC suivant) : la nouvelle ligne de `timeline.jsonl` porte `endpoints` = les 7 URLs publiques dans l'ordre de `rpc.ts:19-24`, puis en 8ᵉ la valeur `ORIGIN` postée à l'étape (4) (égale au 8ᵉ endpoint relevé à l'étape (2)) ; le ledger gagne **≥ 1 ligne `attempted` portant `"network":"ethereum-mainnet"`** (la rotation de `one()`, `rpc.ts:155-170`, atteint l'entrée `chainstack` au plus tard au 6ᵉ `blockTs` d'un pool sain ; un jour publié en fait des dizaines, `windows.ts:50-58`) ; le tir suivant de la sonde Bell rend `healthy`, `chain_ok`, `state_checked: true`, **`chainstack_present: true`**.
+- **(a) Tout run post-déploiement**, y compris « nothing due » : `exit_code 0`, `stopped null`, `chainstack true`, **`chainstack_guard "ok"`**, `elapsed_ms`/`max_day_ms` présents (`max_day_ms > 60000` ⇒ amendement -1c) ; unité `Deactivated successfully` ; **aucun `chainstack.lock`** après la désactivation ; dernière ligne du ledger `unlocked` / `sentinel-daily-end`. Un run « nothing due » ne tire en général pas la jambe : 0 ligne `attempted` y est normal (le `finalized()` d'un pool sain prend les deux premiers fournisseurs publics ; `rpc.ts:131-157`, ordre `run.ts:346`).
+- **(b) Premier run PUBLIANT** (en général le créneau 00:30 UTC suivant) : la nouvelle ligne de `timeline.jsonl` porte `endpoints` = les 7 URLs publiques dans l'ordre de `rpc.ts:19-24`, puis en 8ᵉ la valeur `ORIGIN` postée à l'étape (4) (égale au 8ᵉ endpoint relevé à l'étape (2)) ; le ledger gagne **≥ 1 ligne `attempted` portant `"network":"ethereum-mainnet"`** (la rotation de `one()`, `rpc.ts:111-126`, atteint l'entrée `chainstack` au plus tard au 6ᵉ `blockTs` d'un pool sain ; un jour publié en fait des dizaines, `windows.ts:50-58`) ; le tir suivant de la sonde Bell rend `healthy`, `chain_ok`, `state_checked: true`, **`chainstack_present: true`**.
 - **Consigner** dans `docs/JOURNAL-PROVENANCE.md` l'entrée (a), puis l'entrée (b) : cette dernière fait passer la jambe gardée `upcoming → built` (ADR-NARABI-OPS-1, amendement -1d, A.4), retire le chemin « env → `rpc.ts` pool », et la cartographie cesse de déclarer le résiduel 118.
 - **STOP + rollback** : `sentinel FATAL` ; `chainstack_guard` ≠ `ok` non corrigeable ; `.lock` résiduel après `Deactivated` sans SIGKILL ; 8ᵉ endpoint ≠ `ORIGIN`. **STOP et enquête, sans rollback automatique** : run PUBLIANT à 0 ligne `attempted`.
 
@@ -448,24 +448,24 @@ Si l'EnvironmentFile porte les clés de cycle, créer aussi le parent du ledger 
 ### Correspondance des lignes `run.ts` citées par les Modes A/B (§6)
 Les références `run.ts:NNN` des l. 187-313 visent une version antérieure à -1c : elles ne correspondent ni au code déployé (`c4981d0`) ni à celui de -1d. Correspondance mesurée (`git show <c>:apps/sentinel/src/run.ts | grep -n`) :
 
-| RUNBOOK (l.) | Cité | Énoncé visé | `c4981d0` (déployé) | `7daf8e5` (2ᵉ redéploiement) |
-|---|---|---|---|---|
-| 187 | `run.ts:180` | JSON de fin | :233 | :350 |
-| 209, 212 | `:167` | `dueDays` | :220 | :335 |
-| 209 | `:75`-`:92` | boucle de `runDue` | :119-143 | :126-150 |
-| 210 | `:182`-`:191` | bloc d'écriture | :235-244 | :352-361 |
-| 220, 252 | `run.ts:72`, `:72` | `let lo = DEPLOY_BLOCK` | :113 | :120 |
-| 250, 257 | `run.ts:165` | contrôle `--day` = jour suivant | :218 | :333 |
-| 272, 275, 278, 279, 313 | `:188` | `appendFileSync` (timeline privée) | :241 | :358 |
-| 278, 279 | `:189` | écriture du `state.json` privé | :242 | :359 |
-| 277, 279, 313 | `:190`, `:191` | copies publiques | :243, :244 | :360, :361 |
-| 282 | `:104`-`:120` | `loadState` | :156-172 | :163-179 |
-| 283, 285, 302 | `:111` | `JSON.parse` par ligne | :163 | :170 |
-| 284, 302 | `:201` | garde de run (`sentinel FATAL`) | :254 | :375 |
-| 287 | `:182` | garde `report.lines.length > 0` | :235 | :352 |
-| 300-301 | `run.ts:162`, `:166`, `:181` | appel de `loadState`, 1ᵉʳ RPC `finalized()`, branche `--dry-run` | :215, :219, :234 | :330, :334, :351 |
+| RUNBOOK (l.) | Cité | Énoncé visé | `c4981d0` (déployé) | `7daf8e5` (2ᵉ redéploiement) | `6cfd8abd` (re-pointé le 2026-10-08) |
+|---|---|---|---|---|---|
+| 187 | `run.ts:180` | JSON de fin | :233 | :350 | :374 |
+| 209, 212 | `:167` | `dueDays` | :220 | :335 | :359 |
+| 209 | `:75`-`:92` | boucle de `runDue` | :119-143 | :126-150 | :126-150 |
+| 210 | `:182`-`:191` | bloc d'écriture | :235-244 | :352-361 | :376-385 |
+| 220, 252 | `run.ts:72`, `:72` | `let lo = DEPLOY_BLOCK` | :113 | :120 | :120 |
+| 250, 257 | `run.ts:165` | contrôle `--day` = jour suivant | :218 | :333 | :357 |
+| 272, 275, 278, 279, 313 | `:188` | `appendFileSync` (timeline privée) | :241 | :358 | :382 |
+| 278, 279 | `:189` | écriture du `state.json` privé | :242 | :359 | :383 |
+| 277, 279, 313 | `:190`, `:191` | copies publiques | :243, :244 | :360, :361 | :384, :385 |
+| 282 | `:104`-`:120` | `loadState` | :156-172 | :163-179 | :163-179 |
+| 283, 285, 302 | `:111` | `JSON.parse` par ligne | :163 | :170 | :170 |
+| 284, 302 | `:201` | garde de run (`sentinel FATAL`) | :254 | :375 | :399 |
+| 287 | `:182` | garde `report.lines.length > 0` | :235 | :352 | :376 |
+| 300-301 | `run.ts:162`, `:166`, `:181` | appel de `loadState`, 1ᵉʳ RPC `finalized()`, branche `--dry-run` | :215, :219, :234 | :330, :334, :351 | :354, :358, :375 |
 
-Avec -1d, `openChainstackLeg` (`:319`) s'exécute AVANT `loadState` ; il n'appelle aucun RPC (lecture de l'env, fichiers, verrou) et, dans la forme de vérification du Mode B (`sudo -u sentinel … --dry-run`, sans EnvironmentFile), rend `unconfigured` sans toucher au ledger : le « network-free » de la l. 300 reste vrai. Re-pointage en place des l. 187-313 : item formé (propriétaire orchestrateur ; déclencheur : prochaine édition du RUNBOOK, au plus tard le 2ᵉ redéploiement).
+Avec -1d, `openChainstackLeg` (`:319`) s'exécute AVANT `loadState` ; il n'appelle aucun RPC (lecture de l'env, fichiers, verrou) et, dans la forme de vérification du Mode B (`sudo -u sentinel … --dry-run`, sans EnvironmentFile), rend `unconfigured` sans toucher au ledger : le « network-free » de la l. 300 reste vrai. Re-pointage en place des l. 187-313 : item formé (propriétaire orchestrateur ; déclencheur : prochaine édition du RUNBOOK, au plus tard le 2ᵉ redéploiement). **Fait le 2026-10-08 (17:5x UTC), G7 de #252 (fusion `6cfd8abd`)** : les ancres `run.ts` des Modes A/B (aujourd'hui l. 190-316) sont re-pointées en place sur `run.ts` à `6cfd8abd` (sha256 `b3b10703…`, fichier que #252 ne touche pas), dernière colonne ci-dessus ; les numéros de la 1ʳᵉ colonne sont ceux du RUNBOOK d'avant le G7 de -1d (+3 depuis `36591815`) ; `openChainstackLeg` est défini à `run.ts:279` et appelé à `:344`, avant `loadState` (`:354`).
 
 ## 7. After T >= 7 — publish the labelled instrument at `/narabi/instrument.json` (ADR-M012 item (l))
 

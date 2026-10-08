@@ -823,6 +823,62 @@ fournisseur RPC (plan, période, consommation, quota) restent hors du dépôt pu
   partie 2) ; items formés ce jour : CIG-WIRING-COMMENT-1, VECTORS-WITHIN-BOUND-1, TEST-COUNT-SKIP-EXPORT-1, FIXTURE-CASE-FOLD-1,
   NARABI-POW-PORTABLE-1 ; chantier candidat PXC-19 ; aucune limite relevée sans item ce jour.
 
+## G7 de #252 NARABI-OPS-1-FOLD-11-1 (MONARK, 2026-10-08 17:5x UTC)
+
+Écrit au tronc après `6cfd8abd` (fusion de #252). Actes de Q-3 de MONARK (recherches `b76eaa4`) et corrections C-2 à C-7 du
+re-checkpoint-2 du validateur-humain (rapport sha256 `57404b5a…`, ACCEPTE-AVEC-CORRECTIONS ; C-1 plié sur la branche, `a60d4911`).
+
+- #252 NARABI-OPS-1-FOLD-11-1 fusionnée (6cfd8abd, base b44c3890, tête a60d4911 ; G2 de RECHERCHES 0b12c225 CORRECTIONS, 3 m pliés ; pli
+  d après la G2 sans G2-delta, ratifié : des commentaires et deux messages d assertion) : rejeu Windows des quatre fichiers de test
+  touchés et de ci-gates, 83 tests, 79 verts, 0 rouge, 4 sautés (SIGTERM, saut win32 déclaré) ; G7 `F:/tmp/oracle-results/6cfd8abd85ead97a8d6679d9d78f3fa94dfdf74c-G7-20261008T173130Z-68136.json` sha256 `79645879d4b60bcc7d161343e8690c1d36d5b30f3cf10fb483d7b1709b09ec2c` ;
+  C-7 : fait, ligne ci-dessous ; tronc poussé `b44c3890..6cfd8abd` vers 17:4x UTC, PR MERGED. `apps/sentinel/src/rpc.ts` 0e232519… → 0a5a8c3b… ; run.ts, timeline.ts, flow.ts à l octet ; le
+  run.ts servi (arbre c9aebb44, JOURNAL du 2026-10-04) est celui de la fusion (b3b10703…).
+- Actes de documents de ce commit (Q-3, C-5, C-6) : amendement D4 daté d ADR-U4b (O-1 jugé : le gel de la course close tient, ligne D4 tardive de `l1-split.ts`, item U4B-FREEZE-D4-GUARD-1) ; rétractations datées d A.3
+  (l.217) et d A.6 (l.243) d ADR-NARABI-OPS-1, ses références à `docs/CHANTIERS.md` re-pointées en historique (l.253, l.257) ;
+  RUNBOOK-sentinel : ancres run.ts des Modes A/B re-pointées sur 6cfd8abd (F-8 ; l item de la l.468 est fermé) et ancres rpc.ts de
+  §6-bis que #252 a déplacées (l.409-410) ; entrée du JOURNAL avec le SHA de fusion nommé (P-1). SENTINEL-SIGTERM-LOAD-1 : déjà
+  fermée au commit 2c3f51a8 ; rien à faire.
+- ITEM FORMÉ U4B-FREEZE-D4-GUARD-1 (jugement d O-1, ce G7) : quatre commits de `packages/hikae/src/l1-split.ts`, fichier du gel du
+  prereg §2 d ADR-U4b, sont passés sans ligne D4 (badd66a2, 4e726c45, 24c6a274, a61a483e) ; la sortie gelée est inchangée
+  (`u4b_committed_registry_equals_generator_output` vert). Construction : un test qui lit les neuf chemins du prereg §2 et leurs
+  sha à la dernière ligne D4 datée d ADR-U4b, et rougit quand un fichier change sans ligne D4 neuve. Porteur : MONARK (méthode) ;
+  déclencheur : le prochain lot qui touche un fichier du gel ; état : ouvert.
+- ITEM FORMÉ SENTINEL-UNIT-ANCHORS-1 (constat du brouillon du G7 de #252) : `deploy/monark-sentinel.service` l.42-43 cite `run.ts:188`
+  et `:190/:191`, ancres périmées (aujourd hui l.382 à l.385). Construction : commentaires re-pointés. Porteur : MONARK ;
+  déclencheur : le redéploiement §6-bis, qui relit l unité ; état : ouvert.
+- ITEM FORMÉ BELL-QUORUM-COMMENT-1 (C-2 du re-checkpoint-2 de #252 ; n-5 de la G2) : `apps/bell/src/quorum.ts:13` dit que `rpc.ts:84`
+  ajoute l URL à l erreur HTTP ; depuis #252, aucune ligne de `apps/sentinel/src/rpc.ts` ne construit d erreur HTTP (la l.84 est dans
+  `sumFlow`), et le jumeau servi, `apps/sentinel/src/keyless-transport.ts:28`, ajoute l origine expurgée. Construction : la ligne de
+  commentaire récrite (le transport keyless et l origine expurgée), commentaire seul. Porteur : MONARK ; déclencheur : le prochain lot
+  qui touche `apps/bell/src/quorum.ts` ; état : ouvert.
+- ITEM FORMÉ MUTANTS-SKIPPED-NOT-KILLED-1 (C-3 du re-checkpoint-2 de #252) : `scripts/mutants/run.mjs --killers` compte « tue » un
+  tueur dont le test nommé est sauté sous win32 quand le crochet `after()` du fichier rougit ensuite (`hookFailed`, `ERR_ASSERTION`) ;
+  mesuré sur K7 à K10 de #252 (`mut-killers/tap/K7.tap` du validateur, sha256 `e5d0ae7b…`). Sans effet sur #252 : tueurs SIGTERM
+  préexistants, prouvés sous Linux (`docs/traces/narabi-ops-1-fold-11-1/`). Construction : le verdict lit l entrée du test nommé
+  seule, « tue » s il est `not ok` par assertion, « non conclu » sinon, avec sa cause ; un test rejoue K7 sous win32 et attend « non
+  conclu ». Porteur : PAROXYSME, branche `paroxysme/mutants-skipped-not-killed` (forme acceptée par MONARK) ; un seul lot à la fois sur
+  `scripts/mutants/` : RECHERCHES passe son item MUTANTS-BASELINE-UNREPORTED-1 à PAROXYSME par la boîte, et il vient juste après si les
+  deux ensemble dépassent une PR propre ; déclencheur : la PR de PAROXYSME sur cette branche ; état : en cours.
+- C-7 (F-p partiel de la liste fermée, `docs/ADR-AMENDEMENTS-narabi-ops-1d-G7-source.md:408`) : les 12 mutants du harnais -1d, hors
+  dépôt (`F:\tmp\nops1d\mutants.mjs`), ni rejoués par la G2 ni nommés par le G0 : rejoués par MONARK sur un worktree jetable à 6cfd8abd (clés payantes
+  retirées de l environnement des enfants) : 12 sur 12 tués par leur test nommé. 11 par le harnais tel quel, tous restaurés à
+  l octet ; le douzième, `no_lock_release_in_finally`, ne trouvait plus son texte (bloc finally de run.ts récrit par
+  SENTINEL-SIGTERM-STARTUP-WINDOW-1, 0dc87996, avant #252) : reciblé sur le texte courant, même intention, tué par
+  `sentinel_run_re_acquires_lock_after_clean_exit` (F:/tmp/c7-252/run.log sha256 8d219bf8… ; retarget-k4.mjs 915d2d8e…). F-p tenu.
+- SENTINEL-GUARD-ARMING-1 (l.1567-1575 à 6cfd8abd), décision de MONARK : P-1 tenu en substance, pas mot pour mot (la G2
+  entière par une instance neuve tient lieu de G2-delta, le pli d après elle est ratifié, le re-checkpoint-2 accepte avec
+  corrections et elles sont faites) ; l item reste ouvert jusqu à P-4 et §6-bis (1) à (7), le redéploiement de la sentinelle, que
+  MONARK conduit dans sa délégation. Faits : P-1 de §6-bis demande le
+  pli §11-1 fusionné « avec G2-delta PASS, re-checkpoint-2 ACCEPTE et G7 », et son SHA de fusion nommé au JOURNAL. Ce G7 donne la
+  fusion 6cfd8abd, une G2 entière par une instance neuve (CORRECTIONS, 3 m pliés, pas de G2-delta), un re-checkpoint-2
+  ACCEPTE-AVEC-CORRECTIONS (C-1 plié, C-2 à C-7 portés par ce commit), le G7 `F:/tmp/oracle-results/6cfd8abd85ead97a8d6679d9d78f3fa94dfdf74c-G7-20261008T173130Z-68136.json` et le SHA au JOURNAL : les mots des
+  verdicts ne sont pas ceux de P-1. P-2 est acquise (l.692-693), P-3 lu et posé par MONARK (l.814-816). Le déclencheur de l item (A.8
+  item 10 : le G7 du pli) est atteint ; restent P-4 et §6-bis (1) à (7). Le go cité par P-1 (décision 137) appartient aux registres
+  effacés (l.7-9) ; la décision en vigueur est celle du fondateur, « on réarme la jambe payante » (l.583-585).
+- Registre PAROXYSME, point d étape : limite Narabi L26 (A.6, liage verbatim perdu, « résiduel ACTIF jusqu au pli §11-1 ») : le liage
+  est déplacé sur la ligne servie par #252 et la rétractation d A.6 est datée par ce commit ; L27 et L28 restent sur
+  SENTINEL-GUARD-ARMING-1 ; le pli du registre est à PAROXYSME ; reste du point : MONARK demande à PAROXYSME le pli de PAROXYSME-Narabi (L26 changé par #252, L27 et L28 inchangés) dans son message de G7.
+
 ## Points connus (à traiter, non bloquants sauf mention)
 
 - **Charge mesurée de la publication** : 80 s pour 1 144 adresses sur 30 jours, 559 s sur 365 jours, 562 s pour 10 000 adresses sur 30 jours. Limites de l'unité : `TimeoutStartSec=2900`, `MemoryMax=512M`. Au-delà d'environ 10 000 adresses sur un an, il faudra revoir la vérification avant écriture.
