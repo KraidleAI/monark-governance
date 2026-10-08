@@ -3,7 +3,7 @@
 # -> localhost:3000) is ALREADY live in that file; replacing it takes the site down.
 #
 # Caddy (v2.11.4 on this VPS) obtains a certificate via ACME HTTP-01 automatically, once the A records for
-# mcp./api. resolve. They ARE posed -> 31.97.155.188 (Hostinger DNS; K-7). No Cloudflare proxy sits in
+# mcp./api. resolve. They ARE posed -> this VPS, the host of monarkgate.tech (Hostinger DNS; K-7). No Cloudflare proxy sits in
 # front (K-7 correction), so HTTP-01 completes directly. Both sub-domains reverse-proxy to the ONE loopback
 # harness listener on 127.0.0.1:3001; the harness routes MCP vs JSON by the Host header internally.
 mcp.monarkgate.tech, api.monarkgate.tech {

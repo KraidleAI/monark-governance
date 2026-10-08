@@ -9,17 +9,17 @@
 # once, after its judged Popen, on its thread, with its argv under POSIX (unpinned under Windows: IO-GUARD-CREATE-CMDLINE-1), a virtual
 # environment is refused; then MONARK's closed list of two trees (ecace80), the role served-history (26ae460) and the launch form FORM.
 # The input guard of the tool (G0 docs/G0-lot-verifiers-list-f5a-1.md section 3.1; RECHERCHES Q-V1, precision 2: the independence is
-# written, and proved by the list of the inputs read with their sha256). Every entry script imports it FIRST: the import installs an
+# written, and proved by the list of the inputs read with their sha256). Every entry script runs it FIRST, by its path: it installs an
 # audit hook (sys.addaudithook) before any input is read. EVENTS classes every audit event name, and a name outside it stops the run:
 # judged (open, os.listdir, os.scandir, the changes of _CHANGES, subprocess.Popen, the creations of _CREATE, import), admitted with its
 # reason, admitted only on the thread where io_guard itself spawns git or a script of the tool, or refused. Every path judged is
 # absolute (the entry scripts pass their arguments through os.path.abspath), but for a pseudo-file name in angle brackets that no file
 # bears. Admitted without a note: the standard library (stdlib, platstdlib and DLLs under sys.base_prefix, never site-packages), the
-# trees of code TREES (read only; the second may be absent), the directories of the import path (listing only), and, under an output,
+# trees of code TREES (read only, a listed file or an absent path), the directories of the import path (listing only), and, under an output,
 # the files this run writes; an output is absent or an empty directory when it is declared, so nothing under it holds a byte that this
 # run did not write. A change touches outputs only, and what it moves, links or copies from is a file this run wrote or a directory it
 # made. An import is judged: a built-in module by its name, an extension module (.pyd, .so: its load raises import with its file, never
-# open) by its file, under the standard library or the tool's tree, and by its name; NATIVE closes the native modules that may load
+# open) by its file, under the standard library only, and by its name; NATIVE closes the native modules that may load
 # after the hook. A source or bytecode file is judged by its own open. An input is read only through read() or git_show(), under a role
 # of the closed list ROLES that the entry script declares; each one is noted (role, base name, sha256, bytes) and inputs() lists them.
 # Any other event stops the run at once: one line on stderr, then os._exit(REFUSED_EXIT), which no except clause catches. Limit (G0
@@ -29,24 +29,20 @@
 # FORM), whose functions outside the table raise no event. Measured or read: the stat family reads the metadata of any path; os.mkfifo
 # and os.mknod (POSIX, absent on Windows, never called by the tool) make a file outside the outputs; importlib.import_module loads a
 # built-in module with no import event; _winapi, loaded before the hook, reads the registry, and os.getlogin the user's name (its G2).
-# Nothing that ran before the hook is judged. Paths are compared after realpath and normcase. The tool runs under FORM (below): after
-# the hook, a bytecode write is a write outside the outputs, and stops the run like any other. Before it, the import of io_guard itself
-# writes __pycache__/io_guard.cpython-314.pyc when -B is missing (measured, lot 1e), and a later run would load a cached file whose
-# recorded source time and size match: a cache in a tree of TREES, or a cache directory set elsewhere, stops the run at import, as does
-# a module of the second tree that bears the name of one of the first (sys.path[0] would mask it), or a virtual environment.
-import hashlib
+# Nothing that ran before the hook is judged, but the form and the closed lists (FILES), checked first. Paths are compared after realpath
+# and normcase. The tool runs under FORM (below), -P in it: the tool's folder last in sys.path. After the hook, a bytecode write is a
+# write outside the outputs, and stops the run like any other. An import of io_guard by name writes its cache without -B (lot 1e), which
+# a later import would load: a cache in a tree of TREES, or a cache directory set elsewhere, stops the run at import, as does a module of
+# the second tree named as one of the first (the first, earlier in sys.path, would mask it), or a virtual environment.
 import os
-import subprocess
 import sys
-import sysconfig
-import threading
 
 # MONARK (2026-10-07; CM-5 v6.1): the form of the launch, checked here, before anything is judged or read. Each field of sys.flags
 # that an option sets holds its value under FORM (by position, debug to isolated, then safe_path; None: set only by -X, or by the
 # locale under POSIX); no -W, no -X (so no -X presite), no debug build (the only one where PYTHON_PRESITE acts). Another launch stops
 # here, exit 2, its fields named: it is detected, not prevented (the form itself, written in the replay command, prevents it).
-FORM = ("-E", "-S", "-s", "-B")
-_OFF = [f"{n} {v}" for n, v, w in zip(sys.flags.__match_args__, sys.flags, (0, 0, 0, 0, 1, 1, 1, 1, 0, 0, 0, 1, 0, None, None, None, 0))
+FORM = ("-E", "-S", "-s", "-B", "-P")
+_OFF = [f"{n} {v}" for n, v, w in zip(sys.flags.__match_args__, sys.flags, (0, 0, 0, 0, 1, 1, 1, 1, 0, 0, 0, 1, 0, None, None, None, 1))
         if w is not None and v != w] + [f"-W {w}" for w in sys.warnoptions] + [f"-X {x}" for x in sys._xoptions]
 if _OFF or hasattr(sys, "gettotalrefcount"):
     try:
@@ -55,6 +51,50 @@ if _OFF or hasattr(sys, "gettotalrefcount"):
         sys.stderr.flush()
     finally:
         os._exit(2)
+
+# IO-GUARD-POSED-FILES-1 (MONARK, 2026-10-07): the closed list FILES of the tool's folder, the list file of the second tree when it
+# exists, and route 3a, checked after the form and before any other import: a name outside a list (a file, a folder, a link, a cache in
+# any case), a listed name not a regular file, or a module of FILES offered by an entry of sys.path before the tool's folder stops the
+# launch, exit 4. One folder for them and the guard: that of __file__, resolved, its name not (as _entry), which each prologue appends.
+FILES = ("binom_check.py", "binom_exact.py", "compare_check.py", "compare_p2.py", "fdlibm_log.py", "guard_check.py", "io_guard.py",
+         "kata_lib.py", "recalc_p2.py", "report.py", "report_check.py", "vectors_check.py")
+_HERE = os.path.realpath(os.path.dirname(os.path.abspath(__file__)))
+_QUARTER, _NAMES = os.path.join(os.path.dirname(_HERE), "kata-quarter"), ()  # TREES[1] (below) and its list: absent, it needs none
+
+
+def _closed(names, why):  # names refused before any other import, written on stderr, exit 4 (REFUSED_EXIT, below); none: no refusal
+    if names:
+        try:
+            sys.stderr.write(f"io_guard: refused import {names!r}: {why}\n")
+            sys.stderr.flush()
+        finally:
+            os._exit(4)
+
+
+_closed(os.path.islink(__file__) and ["io_guard.py"], "a link: io_guard.py is a regular file of the tool's folder, never a link")
+_POSED = sorted(set(os.listdir(_HERE)) - set(FILES)) + [
+    n for n in FILES if os.path.islink(_p := os.path.join(_HERE, n)) or not os.path.isfile(_p)]
+_closed(_POSED, "a name of the tool's folder outside its closed list FILES, or a listed name that is not a regular file")
+if os.path.lexists(_QUARTER):  # a dead link there is a link (refusal 2), not an absent tree
+    _LIST = os.path.join(_QUARTER, "FILES")
+    _closed((os.path.islink(_QUARTER) or not os.path.isdir(_QUARTER)) and _QUARTER, "a second tree that is not a folder (a file or a link)")
+    _closed(not os.path.lexists(_LIST) and _LIST, "a second tree without its list file")
+    _closed((os.path.islink(_LIST) or not os.path.isfile(_LIST)) and _LIST, "a list file of the second tree that is not a regular file")
+    with open(_LIST, "rb") as _fh:
+        _raw = _fh.read()
+    _NAMES = tuple(_raw.decode("ascii").split("\n")[:-1]) if _raw.isascii() and _raw.endswith(b"\n") else None
+    _closed((_NAMES is None or list(_NAMES) != sorted(set(_NAMES)) or any(os.path.basename(n) != n for n in _NAMES)) and _LIST,
+            "a list file of the second tree out of its form (ASCII, one name per line ended by LF, sorted, each once)")
+    _closed(sorted(set(os.listdir(_QUARTER)) - set(_NAMES)), "a name of the second tree outside its list file (that file named in it too)")
+    _closed([n for n in _NAMES if os.path.islink(_p := os.path.join(_QUARTER, n)) or not os.path.isfile(_p)],
+            "a name of the second tree's list that is not a regular file")
+_ELSEWHERE = [n for n in FILES if n != "io_guard.py" and sys.modules["_frozen_importlib_external"].PathFinder.find_spec(
+    n[:-3], [p for p in sys.path if os.path.normcase(os.path.realpath(p or os.curdir)) != os.path.normcase(_HERE)])]
+_closed(_ELSEWHERE, "offered by an entry of sys.path before the tool's folder")  # route 3a: in an installation, which comes first
+import hashlib  # the other imports, after the checks above
+import subprocess
+import sysconfig
+import threading
 
 ROLES = ("series", "recorder", "oracle-output", "spec-vectors", "engine-test-source", "libm", "registry",  # closed, G0 section 3.1
          "tool-tree",  # N-5: git_tree, the tool's own blobs read from git (admitted, never noted)
@@ -170,10 +210,11 @@ def _under(p, root):
     return p == root or p.startswith(root.rstrip(os.sep) + os.sep)
 
 
-_TOOL_DIR = os.path.dirname(os.path.realpath(__file__))
+_TOOL_DIR = _HERE  # the one folder (IO-GUARD-POSED-FILES-1, above)
 _TOOL = os.path.normcase(_TOOL_DIR)
 _TREE_DIRS = (_TOOL_DIR, os.path.join(os.path.dirname(_TOOL_DIR), TREES[1].rsplit("/", 1)[1]))  # the second beside the first, as is
 _TREES = tuple(os.path.normcase(d) for d in _TREE_DIRS)  # not resolved: a link there leads to paths that realpath puts elsewhere
+_LISTED = frozenset(os.path.normcase(os.path.join(d, n)) for d, ns in zip(_TREE_DIRS, (FILES, _NAMES)) for n in ns)  # each its own list
 _PATHS = sysconfig.get_paths()
 _STDLIB = tuple({_norm(_PATHS["stdlib"]), _norm(_PATHS["platstdlib"]), _norm(os.path.join(sys.base_prefix, "DLLs"))})
 _SITE = tuple({_norm(_PATHS["purelib"]), _norm(_PATHS["platlib"])})
@@ -227,9 +268,11 @@ def _judge_open(path, mode, flags):
         _refuse("open", p, "a file under an output that this run has not written")
     if w:
         _refuse("open", p, "a write outside the outputs")
-    if any(_under(p, t) for t in _TREES) or (any(_under(p, s) for s in _STDLIB) and not any(_under(p, s) for s in _SITE)):
+    if p in _LISTED or (any(_under(p, t) for t in _TREES) and not os.path.lexists(p)) or (  # absent: an import's probe of a cache
+            any(_under(p, s) for s in _STDLIB) and not any(_under(p, s) for s in _SITE)):
         return
-    _refuse("open", p, "neither the standard library, the tool's trees, a file this run wrote, nor an input read through io_guard")
+    _refuse("open", p, "neither the standard library, a listed file of the tool's trees or a path absent there, a file this run wrote, "
+                       "nor an input read through io_guard")
 
 
 def _judge_list(event, path):
@@ -301,7 +344,7 @@ def _judge_create(event, args):
 def _judge_import(name, path):
     """A-1. path is None for the import of a module not yet loaded: a built-in module (no file) is judged by its name here; a source
     or bytecode file by its own open event; a frozen module is part of the interpreter. path is the file of an extension module that
-    loads (.pyd, .so), which raises no open: under the standard library (never site-packages) or the tool's tree, and in NATIVE."""
+    loads (.pyd, .so), which raises no open: under the standard library (never site-packages), and in NATIVE (FILES: .py files only)."""
     if path is None:
         if name in sys.builtin_module_names and name not in NATIVE:
             _refuse("import", name, "a built-in module outside the closed list NATIVE")
@@ -309,8 +352,8 @@ def _judge_import(name, path):
     path = os.fsdecode(path)
     _absolute("import", path)
     p = _norm(path)
-    if not (_under(p, _TOOL) or (any(_under(p, s) for s in _STDLIB) and not any(_under(p, s) for s in _SITE))):
-        _refuse("import", p, "a native module outside the standard library and the tool's tree")
+    if not (any(_under(p, s) for s in _STDLIB) and not any(_under(p, s) for s in _SITE)):
+        _refuse("import", p, "a native module outside the standard library")
     if name not in NATIVE:
         _refuse("import", name, "a native module outside the closed list NATIVE")
 
@@ -454,5 +497,5 @@ if sys.prefix != sys.base_prefix:  # its G2: under a virtual environment, syscon
 if sys.pycache_prefix is not None or _cached:
     _refuse("import", _cached or sys.pycache_prefix, "a bytecode cache in a tree of the tool, or a cache directory: remove it, run -B")
 if homonyms(*_TREE_DIRS):
-    _refuse("import", homonyms(*_TREE_DIRS), f"a module of {TREES[1]} named as one of {TREES[0]}, which sys.path[0] would mask")
+    _refuse("import", homonyms(*_TREE_DIRS), f"a module of {TREES[1]} named as one of {TREES[0]}, which the first tree would mask")
 sys.addaudithook(_hook)

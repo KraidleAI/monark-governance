@@ -17,7 +17,7 @@ Rapport : `G2-spec-publish.md` (sondes `g2-sp/`). Plis :
 ## Re-revue de la G2 : B1, B2, B3 clos ; N1 bloquante, pliée
 
 Rapport : `G2-spec-publish-rr.md` (sondes `g2-rr/`).
-- **N1** : le masque des clés effaçait toute la clé avant les contrôles. Désormais les contrôles `private`, `home` et des mots retenus lisent le texte NFKC entier avant tout masque, et la porte des textes publics ne voit masqué que le segment du lieu (`@<lieu>/`, ou `@eip155:<n>/<lieu>/`). Tests : `kata:x@KraidleAI/recherches`, `ukemi:Helius@Chainstack/Tenderly`, `kata:x@a/BLQ-DEP-7`, `kata:x@a/192.168.1.4`, et un mot retenu de synthèse dans une clé.
+- **N1** : le masque des clés effaçait toute la clé avant les contrôles. Désormais les contrôles `private`, `home` et des mots retenus lisent le texte NFKC entier avant tout masque, et la porte des textes publics ne voit masqué que le segment du lieu (`@<lieu>/`, ou `@eip155:<n>/<lieu>/`). Tests : `kata:x@KraidleAI/recherches`, `ukemi:Helius@Chainstack/Tenderly`, `kata:x@a/BLQ-DEP-7`, `kata:x@a/` suivi d'une adresse IPv4, et un mot retenu de synthèse dans une clé.
 - **N2** : un mot retenu est cherché par empreinte sur chaque sous-chaîne de sa longueur (`WITHHELD` porte la longueur et l'empreinte) : collé à des lettres ou des chiffres, il est pris ; testé sur un mot de synthèse, le vrai mot n'est écrit nulle part.
 - **N3** : `/var/home/…` et `$HOME/…` pris.
 - **N4** : heure exacte du bloc daté §7 du G0 écrite (03:41:07 UTC, `e15fbab6`) ; ce bloc a suivi les tests et le code de 03:28 : au prochain lot, le bloc daté précède les tests rouges.

@@ -36,13 +36,13 @@ userinfo ET `isLoopbackHost(u.hostname)` ET `isLoopbackHost(rawUrlHost(url))`**.
   `u.hostname` seul normaliserait en 127.0.0.1 **refusés par `rawUrlHost`** : `127.1`, `0x7f.0.0.1`, `2130706433`,
   `0177.0.0.1`, `127.00.0.1`. Vecteurs mission tous couverts : casse (`HTTP://`, `LOCALHOST` → admis, dialLoopback=true),
   point final (`localhost.`, `127.0.0.1.` → refusés, over-restrictif sûr), IPv6 (`[::1]` admis ; `[0:0:0:0:0:0:0:1]`,
-  `[::ffff:127.0.0.1]`, `[fe80::1]`, zone-id → refusés), `%`-encodage (`%31%32%37.0.0.1`, `127.0.0.1%2f@evil.com` →
+  `[::ffff:127.0.0.1]`, une IPv6 de lien local entre crochets, zone-id → refusés), `%`-encodage (`%31%32%37.0.0.1`, `127.0.0.1%2f@evil.com` →
   refusés), Unicode/IDN (`127。0。0。1`, fullwidth, homographe `locał` → refusés), tab/CR (`127.0.0.1\t.evil.com` →
   WHATWG le NETTOIE en `127.0.0.1.evil.com` ⇒ **refusé par le contrôle `u.hostname`**), backslash (`127.0.0.1\@evil.com`
   → `\` = séparateur de chemin WHATWG ⇒ compose 127.0.0.1, admis & sûr ; `evil.com\@127.0.0.1` → hostname evil.com,
   refusé), double `@` (hostname=evil.com, refusé), port vide (`127.0.0.1:` admis, compose loopback), `http:/127.0.0.1`
   (refusé par `rawUrlHost`, fail-safe), espaces (`127.0.0.1 @evil.com` → hostname evil.com, refusé ; `  http://…` →
-  refusé). **SSRF-métadonnées `169.254.169.254`, `192.168.*`, `10.*`, `0.0.0.0`, `file://`, `ftp://`, `gopher://`,
+  refusé). **SSRF-métadonnées (l'adresse de métadonnées en nuage, de lien local), `192.168.*`, `10.*`, `0.0.0.0`, `file://`, `ftp://`, `gopher://`,
   `data:` tous refusés.** `https://` vers n'importe quel hôte reste admis (prévu). `PROBE_URL` vient de
   `opts.url(--url) ?? process.env.PROBE_URL ?? DEFAULT_URL` — env/CLI/défaut seulement.
 - **Mutant annoncé M-G2-1** (`if(!m) return false` → `/^127\./.test(h)`) ⇒ **RED**. **Inventés RED** : **N-G2-a**

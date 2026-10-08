@@ -159,7 +159,7 @@ Pas de modification de l'ADR (A-r2, numéros de ligne : réservé à l'orchestra
 **Artefact réel** (`next build` hors réseau, sur l'arbre PLIÉ)
 - Moniteur réseau `pli\netmon.ps1` (sondage 0,5 s des connexions TCP non-loopback des processus node dont la ligne de
   commande désigne le worktree ou Next). Auto-test : il a vu une connexion TLS tenue 3 s vers le registre npm
-  (`104.16.8.34:443`, `pli\netmon-selftest.log`), seul réseau autorisé. Un premier auto-test par `npm ping` n'avait rien
+  (son adresse, port 443, `pli\netmon-selftest.log`), seul réseau autorisé. Un premier auto-test par `npm ping` n'avait rien
   vu (connexions plus brèves que le sondage) : limite déclarée de l'instrument.
 - Build `npm run build -w @monark/site` sous `pli\ev-build.sh` (= `ev.sh` + `NEXT_TELEMETRY_DISABLED=1`) :
   - exit 0 de 05:00:38Z à 05:01:07Z, 19 routes ;
@@ -263,7 +263,7 @@ l'identique par LOT-V1, GEL et PLI2 (préexistants depuis LOT-V1), les 2 autres 
 
 **Artefact réel** (arbre du pli avant D-11 ; identité de comportement ci-dessus)
 - Moniteur `pli\netmon.ps1` (inchangé) auto-testé sans réseau externe par la sonde locale du relecteur (serveur et client
-  node sur l'adresse non-loopback `192.168.100.2`, connexion tenue 3 s) : 2 connexions vues (`pli2\build\netmon-selftest.log`).
+  node sur une adresse non-loopback du poste, connexion tenue 3 s) : 2 connexions vues (`pli2\build\netmon-selftest.log`).
 - `npm run build -w @monark/site` sous `pli\ev-build.sh` : exit 0 de 07:26:39Z à 07:27:17Z, 19 routes ; moniteur : **0
   connexion**, jusqu'à 24 processus node du build ; 6/6 configurations suivies inchangées ; `.next` et `next-env.d.ts`
   (créé à 07:27:04Z, ignoré par git) retirés ensuite.

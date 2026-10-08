@@ -15,7 +15,7 @@ import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 
 /** The sha256 of the bytes of apps/harness/data/verifiers.json. */
-export const VERIFIERS_SHA256 = "3a6f304f3eb592c51c73fb8d13c6a3f752bf0168563f57fc5b8ab966a6975d0d";
+export const VERIFIERS_SHA256 = "6e033c9d098170777dc3fc39f6c1c86cf58ef440ad1410f911b2c8553a594dc1";
 export const VERIFIERS_FORMAT = "monark-verifiers-v1";
 /** The repository and the tree that every list entry names: the recomputation tool of this repository. */
 export const REPOSITORY = "KraidleAI/monark-governance";

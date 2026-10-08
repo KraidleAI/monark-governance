@@ -74,7 +74,7 @@ export const WHITELIST_FILES = [
   // runs in job g3-site (`node scripts/assert-fleet-html.mjs`), so it MUST ship or the public CI reds on an
   // absent file (root test derived_workflow_run_paths_are_exported). Its .d.mts is governance-only (no exported
   // .ts imports it, so the exported tsc never needs it) and is NOT whitelisted. English, built-ins only.
-  "scripts/assert-fleet-html.mjs",
+  "scripts/assert-fleet-html.mjs", "scripts/test-counts-reporter.mjs", // the reporter that test:main loads (TEST-COUNT-FLOOR-1, ADR-M004 D7 terdecies)
   "test/helpers/blocking-stdout.cjs",
   // The Narabi F2-B out-of-tool method (ADR-M008 Amendement bis, C-18): publish HOW the USDe series was
   // acquired and how the committed scores/digest are reproduced, so PROVENANCE-usde.md §6 "Reproduce" is not
@@ -435,8 +435,8 @@ function sha256(abs) {
 // the internal one by a DETERMINISTIC, dependency-free text rewrite:
 //   (1) add a `push` trigger under `on:` (public pushes run the gates);
 //   (2) remove each job of INTERNAL_JOBS, a closed list (its 2-space key line up to the next 2-space job key):
-//       `r25-taille-de-lot`, `g3-verifier-tool` (VERIFIER-TOOL-CI-1: it runs tools/kata-recalc/, never exported) and `g3-export`
-//       (CI-G3-DURATION-1: it runs the root test/export-public.test.ts; the root test/ is never exported): each would red on the mirror;
+//       `r25-taille-de-lot`, `g3-verifier-tool` (VERIFIER-TOOL-CI-1: it runs tools/kata-recalc/, never exported), `g3-export` and
+//       `g3-test-count` (CI-G3-DURATION-1, TEST-COUNT-FLOOR-1: they read the root test/, never exported): each would red on the mirror;
 //   (3) prepend a one-line provenance header;
 //   (4) drop the 2-line governance "Delivery flow" comment (it is FALSE in the public workflow and is
 //       the sole other "r25" mention — see the inline note; error_origin = internal).
@@ -446,8 +446,8 @@ function sha256(abs) {
 // which test 42(f) / mutant M5 (short-circuited derivation) catches.
 export const CI_WORKFLOW_PATH = ".github/workflows/ci.yml";
 export const DERIVED_HEADER =
-  "# Derived by scripts/export-public.mjs from the internal workflow (ADR-M004 D7 bis): lot-size gate, verifier tool job and source-only export test job removed, push trigger added.";
-const INTERNAL_JOBS = ["r25-taille-de-lot", "g3-verifier-tool", "g3-export"];
+  "# Derived by scripts/export-public.mjs from the internal workflow (ADR-M004 D7 bis): lot-size gate, verifier tool job, source-only export test job and test count job removed, push trigger added.";
+const INTERNAL_JOBS = ["r25-taille-de-lot", "g3-verifier-tool", "g3-export", "g3-test-count"];
 
 export function derivePublicWorkflow(raw) {
   const eol = raw.includes("\r\n") ? "\r\n" : "\n";

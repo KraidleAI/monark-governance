@@ -211,7 +211,7 @@ Valeur complète du sha #7 (AVANT == APRÈS) :
 ~~~~markdown
 ## 6-bis. Second redéploiement (lot NARABI-OPS-1d, décision 118) — jambe Chainstack gardée, sur le timer VIVANT
 
-Pré-enregistré au G7 de NARABI-OPS-1d (2026-09-22) ; implémente le G1 §13 et la correction C-5 du checkpoint-1 de -1d ; calque de l'E-5 (`docs/JOURNAL-PROVENANCE.md:353-357`) et du §6. **Ne pas exécuter avant P-1..P-4.** Tout se fait depuis le poste de l'orchestrateur, canal SSH habituel (`ssh -i ~/.ssh/monark_vps root@31.97.155.188`).
+Pré-enregistré au G7 de NARABI-OPS-1d (2026-09-22) ; implémente le G1 §13 et la correction C-5 du checkpoint-1 de -1d ; calque de l'E-5 (`docs/JOURNAL-PROVENANCE.md:353-357`) et du §6. **Ne pas exécuter avant P-1..P-4.** Tout se fait depuis le poste de l'orchestrateur, canal SSH habituel (`ssh -i ~/.ssh/monark_vps root@monarkgate.tech`).
 
 ### Préconditions (toutes vraies, sinon STOP)
 - **P-1** — Le pli §11-1 est fusionné (ADR-NARABI-OPS-1, amendement -1d, A.8-1) avec G2-delta PASS, re-checkpoint-2 ACCEPTE et G7 ; son **SHA de fusion NOMMÉ** est consigné dans `docs/JOURNAL-PROVENANCE.md` AVANT l'archive (décision 72). Jamais le SHA de fusion de -1d seul : UN seul second redéploiement (décision 118 ; option (b), C-V-0). Go permanent : décision 137 (`docs/CHANTIERS.md:858`, « 2e redeploiement VPS sentinelle (apres pli §11-1) ») — aucun go supplémentaire à demander.
@@ -252,17 +252,17 @@ ORIGIN=$(node -e 'process.stdout.write(new URL(process.env.CHAINSTACK_ETH_URL).o
 printf '%s\n' "$ORIGIN"      # SEULE valeur affichée (non secrète) ; doit égaler le 8e endpoint relevé en (2)
 printf 'CHAINSTACK_ETH_URL=%s\nCHAINSTACK_CYCLE_ID=%s\nCHAINSTACK_ETH_ORIGIN=%s\nCHAINSTACK_CYCLE_FLOOR=%s\n' \
   "$CHAINSTACK_ETH_URL" "<CYCLE>" "$ORIGIN" "<FLOOR>" \
-  | ssh -i ~/.ssh/monark_vps root@31.97.155.188 \
+  | ssh -i ~/.ssh/monark_vps root@monarkgate.tech \
       'umask 077; install -d -m 0750 -o root -g sentinel /etc/monark; cat > /etc/monark/sentinel.env; chown root:sentinel /etc/monark/sentinel.env; chmod 0640 /etc/monark/sentinel.env'
 # Empreintes des DEUX côtés (même printf localement) — les deux hachés DOIVENT être identiques :
 printf 'CHAINSTACK_ETH_URL=%s\nCHAINSTACK_CYCLE_ID=%s\nCHAINSTACK_ETH_ORIGIN=%s\nCHAINSTACK_CYCLE_FLOOR=%s\n' "$CHAINSTACK_ETH_URL" "<CYCLE>" "$ORIGIN" "<FLOOR>" | sha256sum
-ssh -i ~/.ssh/monark_vps root@31.97.155.188 'sha256sum /etc/monark/sentinel.env'
+ssh -i ~/.ssh/monark_vps root@monarkgate.tech 'sha256sum /etc/monark/sentinel.env'
 ```
 - **(5) Expédition, `npm ci`, contrôle des hachés, unités** (calque §6 (1)-(3), (6), (8)) :
 ```bash
 git archive --format=tar.gz "$SHA" apps packages schemas fixtures package.json package-lock.json deploy scripts/verify-harness.mjs \
-  | ssh -i ~/.ssh/monark_vps root@31.97.155.188 "mkdir -p /opt/monark-harness && tar xzf - -C /opt/monark-harness"
-ssh -i ~/.ssh/monark_vps root@31.97.155.188 'cat > /root/expected-nops1d.sha256' < expected-nops1d.sha256
+  | ssh -i ~/.ssh/monark_vps root@monarkgate.tech "mkdir -p /opt/monark-harness && tar xzf - -C /opt/monark-harness"
+ssh -i ~/.ssh/monark_vps root@monarkgate.tech 'cat > /root/expected-nops1d.sha256' < expected-nops1d.sha256
 # sur le VPS :
 cd /opt/monark-harness && npm ci && chown -R monark:monark .
 sha256sum -c /root/expected-nops1d.sha256            # TOUT « OK », sinon STOP (ré-expédier)
@@ -313,10 +313,10 @@ En `sentinel`, jamais root (un fichier de ledger appartenant à root ferait éch
 ### Lecture du ledger pour le rapprochement A-4 (SSH, LECTURE SEULE ; ADR-GARDE-HELIUS, amendement -1d, -1d-C)
 Aux MÊMES instants que les lectures before/after du tableau de bord :
 ```bash
-ssh -i ~/.ssh/monark_vps root@31.97.155.188 'd=/var/lib/monark-sentinel/ledger/<CYCLE>; if [ -e $d/chainstack.lock ]; then echo "RUN EN COURS: relire plus tard"; else wc -l < $d/chainstack.jsonl; cat $d/chainstack.head; echo; fi'
+ssh -i ~/.ssh/monark_vps root@monarkgate.tech 'd=/var/lib/monark-sentinel/ledger/<CYCLE>; if [ -e $d/chainstack.lock ]; then echo "RUN EN COURS: relire plus tard"; else wc -l < $d/chainstack.jsonl; cat $d/chainstack.head; echo; fi'
 #   épingle = (N lignes, tête). Contrôle de chaîne : la ligne N porte "entry_sha256" == la tête relevée.
 #   Compte entre deux épingles N1 < N2 (lignes attempted + network ethereum-mainnet) :
-ssh -i ~/.ssh/monark_vps root@31.97.155.188 "sed -n '$((N1+1)),${N2}p' /var/lib/monark-sentinel/ledger/<CYCLE>/chainstack.jsonl" \
+ssh -i ~/.ssh/monark_vps root@monarkgate.tech "sed -n '$((N1+1)),${N2}p' /var/lib/monark-sentinel/ledger/<CYCLE>/chainstack.jsonl" \
   | node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>{const L=s.split("\n").filter(Boolean).map(l=>JSON.parse(l));console.log(L.filter(e=>e.outcome==="attempted"&&e.network==="ethereum-mainnet").length)})'
 ```
 Résiduel A-4 (iv) = ce compte × 1 RU, **sous l'hypothèse H-FACT** (non établie : tant qu'elle ne l'est pas, 0 RU, et la contrainte « aucune fenêtre chevauchant un créneau » reste la règle) ; jamais `credits_derived`.

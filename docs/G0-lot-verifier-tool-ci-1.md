@@ -413,7 +413,7 @@ more; the tests 133, two more); the content count 0.
   spec repository's head by `git ls-remote`; `vectors.json` sha256 `06ecf06909e39d67…`, 127 681 bytes, extracted from git into a
   fresh folder, its bytes never shown): "conformance checks on vectors.json: 333 (KATA-SPEC section 6 counts 363), failures 0", then
   one `FAIL` line, the expected refusal on the count (`[count] 333 conformance checks KATA-SPEC section 6 counts 363`), `VERDICT: RED`,
-  exit 1. All its code runs and its 333 conformance checks pass; stdout sha256 `c05f8cc19bcbd3e3…`, the G2's byte for byte.
+  exit 1. Its 333 conformance checks pass, but not all its code runs: on this file section H (`reason_order`), the tolerance test of `within` and the branch of a kata value not bit-identical run zero times (corrected by VERIFIER-TOOL-CI-VECTORS-1, `docs/G0-lot-verifier-tool-ci-vectors-1.md` §1; this sentence read "All its code runs"); stdout sha256 `c05f8cc19bcbd3e3…`, the G2's byte for byte.
 - **m-6** the tolerance case: in IO-GUARD-POSED-FILES-1 (§7.1).
 - **Q-2** the version: 3.14.8 (§2).
 - **Q-3** the oracle: `g3-verifier-tool` on the `CI_ONLY` list of MONARK's oracle, the entry added by MONARK's own commit on the
