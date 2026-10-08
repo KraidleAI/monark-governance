@@ -27,7 +27,13 @@
   MSG3 et MSG4 (Bases, §8) ; parties touchées : en-tête, §1, L20, L21, L38, N2, N10, §6, §7 (doutes 7, 9, 12 et 16), §8.
   Réparation n° 1 de ce pli, après deux vérificateurs adverses neufs, le 2026-10-08 à partir de 09:25 UTC (`date -u`), par un worker de
   PAROXYSME (`claude-opus-5-5`, effort max) : sources : ETAT à `565c7065` et à `20fffe9f`, MSG2 à MSG5, pièce `11ecff4` (Bases, §8) ;
-  parties touchées : en-tête, L1 à L5, L12, L17, L22, L38, N2, N3, §6, §7 (doutes 6, 7 et 12), §8.
+  parties touchées : en-tête, L1 à L5, L12, L17, L22, L38, N2, N3, §6, §7 (doutes 6, 7 et 12), §8 ; pliés : la route unique de F-W2-1 et F-W2-3, nommés à ETAT
+  (L12, L22, N2, doute 7) ; le go d'envoi du site (N3) ; les dépenses sans plafond, lectures d'Ukemi comprises, et le fournisseur RPC ouvert sans plafond (L1 à
+  L5, L12, L17, N3) ; la place de la description de `cascade`, laissée à l'ADR de PXC-02 (L38, doute 6) ; la preuve du renvoi de `sync-ukemi-served.mjs` (§6) ;
+  la phrase du doute 12, rendue exacte. Réparation n° 2 de ce pli, après un vérificateur adverse neuf de la réparation n° 1, le 2026-10-08 à partir de 10:32 UTC
+  (`date -u`), par un worker de PAROXYSME (`claude-opus-5-5`, effort max) : sources : ETAT à `565c7065` et à `20fffe9f`, MSG6 et MSG7 (Bases, §8) ; pliés : la
+  phrase de la réparation n° 1, complétée ; la tête du renvoi d'ETAT du doute 7 ; les trois outils du `--check` de la PR 1 (§6) ; l'usage U3, que MONARK tranche
+  après le cp-1 de PXC-02 (N3) ; parties touchées : en-tête, N3, §6, §7 (doute 7), §8.
 - **Bases** : inventaire mesuré à `d8fe354c`, ses fichiers d'Ukemi identiques à `57a131fc` (INV-U l.9-13, l.30) ; ETAT lu à `57a131fc`, et à
   `d8fe354c` pour ses l.1179-1180 et l.1350. Toutes les ancres de ce registre sont à la tête `87b821b0` de `lot/etude-suite`, reportées par
   l'outil `reanchor.mjs` (pièce de la boîte PAROXYSME) dans sa version du commit `a55a62d`, qui refuse une ligne hors du fichier (la version
@@ -38,7 +44,9 @@
   celles du pli de l'après-#245, citées « ETAT l.N à `565c7065` » (relu par `git show 565c7065:docs/ETAT.md | sed -n`), « MSG2 l.N »,
   « MSG3 l.N » et « MSG4 l.N » : messages de MONARK `32cf23d`, `d40ab57` et `d5553e7`, et pièce de la tâche 2 bis (§8). Sa réparation
   n° 1 cite aussi « ETAT l.N à `20fffe9f` » (tronc avancé, relu par `git show 20fffe9f:docs/ETAT.md | sed -n`), « MSG5 l.N » (message
-  de MONARK `b2f0890`) et la pièce des faits d'hôte de Bell et d'Ukemi, lue à `11ecff4` (§8).
+  de MONARK `b2f0890`) et la pièce des faits d'hôte de Bell et d'Ukemi, lue à `11ecff4` (§8). Sa réparation n° 2 cite aussi MSG6 (« MSG6 l.N », message de
+  PAROXYSME `a7a0b4d`, `…-usages-rpc.md`, les usages proposés du fournisseur payant) et MSG7 (« MSG7 l.N », message de MONARK `8e5bea2`, `…-qv-reponses.md`),
+  même boîte (§8).
 - **Préséance** : `docs/ETAT.md` l.7-11 ; ETAT prime. Un item nommé hors d'ETAT et du code n'est pas compté comme formé : il est écrit
   « à former » (ou « à re-former » s'il vivait dans un registre effacé le 2026-10-01) et porté par son chantier.
 - **Statut public** : aucun label ne change (`built` d'Ukemi, `apps/site/lib/fleet.ts:175` ; AttestedBook `upcoming until served`, `README.md:94`,
@@ -360,7 +368,10 @@
     miroir : le fondateur · déclencheur : noyau, tâche 2 du TABLEAU (F1) ; bascule 1.2.0 (F4)
   état : ouvert · suite : CARTO-T1C-4 orphelin ; texte du noyau : « keyless public quorum plus one optional paid operator » (PLAN l.658) ;
     le fournisseur RPC de la jambe payante, payé pour douze mois, est ouvert sans plafond de budget : décision du fondateur du 2026-10-08,
-    relayée par MONARK `b2f0890` (MSG5 l.16-17, l.24-25) ; tout autre usage se propose à MONARK (MSG5 l.28-29)
+    relayée par MONARK `b2f0890` (MSG5 l.16-17, l.24-25) ; tout autre usage se propose à MONARK (MSG5 l.28-29) ; PAROXYSME en propose
+    sept (MSG6 l.29-44), dont U3 : mettre en tête de l'enregistreur la jambe payante, ajoutée en dernier et tirée seulement en réserve
+    (`apps/sentinel/src/ukemi/record.ts:326-327` ; MSG6 l.33, l.48) ; MONARK accepte leur classement, U3 d'abord, et tranche U3 après le
+    cp-1 de PXC-02, sans acte de compte aujourd'hui (MSG7 l.30-32 ; ETAT l.631-634 à `20fffe9f`)
 - **N4** · « AttestedBook : lecture auto-déclarée, « no third-party verification » ; le résidu `no_third_party_verifier` est toujours émis. »
   source : `schemas/attested-book.schema.json:5`, `:126-130` ; `docs/adr/ADR-U1b-contrat-attestedbook.md:49`, `:51` · touche : `README.md:256`,
     `:106-107` · nature : P/T
@@ -459,7 +470,8 @@ huit limites et un bloc (la dixième ligne, ETAT l.1103, continue RETIRE-LATENCY
 - Mêmes clôtures vues depuis la porte : C-09 du registre du Harnais et N11 (S-8) ; MK-C13 du même registre et N12 (LIQ-BAND-EXACT-GUARD-1).
 - `scripts/sync-ukemi-served.mjs` sans `--check` : PX-Harness-26 (SYNC-CHECK-MODE-1), registre du Harnais ; l'inventaire d'Ukemi ne la porte pas.
   Cette limite du Harnais couvre ce script : son inventaire l'y nomme (`INVENTAIRE-Harness.md` l.59), la fiche de PXC-05 la dit « harnais et
-  ukemi » (CC l.202) et la PR 1 de PXC-05 partie 1 met le mode `--check` dans les deux outils (PLAN l.739-740). L'item est re-porté
+  ukemi » (CC l.202) et la PR 1 de PXC-05 partie 1 met le mode `--check` dans trois outils, dont ce script et `sync-harness-served.mjs`
+  (PLAN l.739-741). L'item est re-porté
   par MONARK à PXC-05 partie 1, dans O-2 (étape E10 du relevé d'Ukemi), déclencheur le G0 de PXC-05 partie 1 (ETAT l.571-572 à
   `565c7065` ; MSG4 l.32-33).
 
@@ -526,7 +538,8 @@ huit limites et un bloc (la dixième ligne, ETAT l.1103, continue RETIRE-LATENCY
    fusion de ce pli ; porteur : MONARK ; échéance : la recartographie de PXC-01 partie 2 (F3). **Tranchée par MONARK le 2026-10-08** :
    les douze sont formés à ETAT par la recartographie de PXC-01 partie 2, comme les PX-Ukemi ; une seule route (ETAT l.564-566 à
    `565c7065` ; MSG4 l.28). La ligne qui le tranche les nomme tous les douze (ETAT l.564-566 à `565c7065`), sans les former ; ce registre,
-   qui disait F-W2-1 et F-W2-3 hors d'ETAT, les écrit depuis nommés à ETAT l.565, à re-former par cette recartographie (L12, L22, N2).
+   qui disait F-W2-1 et F-W2-3 hors d'ETAT, les écrit depuis nommés à ETAT l.565 à `565c7065`, à re-former par cette recartographie (L12,
+   L22, N2).
 8. **E-14.** Le §6 du registre du Harnais (à `0967bef`, l.582) l'envoie au registre Hikae, N18, « partagé avec Ukemi » ; l'inventaire
    d'Ukemi ne le porte pas, l'inventaire Hikae le porte (N18, `INVENTAIRE-Hikae.md` l.173) : ce registre le laisse au registre Hikae (§6),
    sans entrée, comme la L21 de Hikae (`INVENTAIRE-Hikae.md` l.147). Le registre Hikae les garde : à `11d2a34`, son pli, ses entrées L21
@@ -721,3 +734,11 @@ Sources de la réparation n° 1 de ce pli (2026-10-08) : ETAT à `20fffe9f` (tro
 | `docs/ETAT.md` à `20fffe9f` | 2 478 | `8d42a39af43b4674bd55f0a4672ec1d3c5ef8dae07785e643b6fdd814046b614` |
 | MSG5, message de MONARK du 2026-10-08, commit `b2f0890` | 34 | `004c64761f1aaed9da16c8c5833a37ccc4f6e42224f43ef699e4009db67a886f` |
 | `FAITS-HOTE-Bell-Ukemi-2026-10-08.md`, pièce des faits d'hôte | 32 | `c55852238d4ae1f7ffe8e47e05c71a640b19e4582697119210c933a0416d1788` |
+
+Sources de la réparation n° 2 de ce pli (2026-10-08) : MSG6 et MSG7, messages de la boîte PAROXYSME (`coordination/messages/`), lus chacun à son
+commit (`git show <commit>:<f> | wc -l`, puis `| sha256sum`) :
+
+| Source | Lignes | sha256 |
+|---|---|---|
+| MSG6, message de PAROXYSME `a7a0b4d`, `…-usages-rpc.md` | 54 | `c96ec0c6f6beedd75b7011229ff61d232882b7c9ce288b50c793d9bafb518d68` |
+| MSG7, message de MONARK `8e5bea2`, `…-qv-reponses.md` | 32 | `6709473d025a332e92403378feeeacab42c3a5d8dd294bfe9a388b03e4b40e6a` |

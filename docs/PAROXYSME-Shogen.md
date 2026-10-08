@@ -27,7 +27,11 @@
   l.546-551 à `565c7065`), le 2026-10-08 à partir de 07:41 UTC (`date -u`), par un worker de PAROXYSME (`claude-opus-5-5`, effort max) : sources : ETAT à
   `565c7065` et MSG3 (Bases, §8) ; parties touchées : en-tête, §1, N-06, N-07, N-08, §5, §7 (doute 15), §8.
   Réparation n° 1 de ce pli, après deux vérificateurs adverses neufs, le 2026-10-08 à partir de 09:25 UTC (`date -u`), par un worker de
-  PAROXYSME (`claude-opus-5-5`, effort max) : source : ETAT à `565c7065` ; parties touchées : en-tête, L-01, N-14.
+  PAROXYSME (`claude-opus-5-5`, effort max) : source : ETAT à `565c7065` ; parties touchées : en-tête, L-01, N-14 ; plié : le go d'envoi du site, donné par le
+  fondateur le 2026-10-08 pour l'envoi qui suit O-1, la release du miroir lui restant (L-01, N-14). Réparation n° 2 de ce pli, après un vérificateur adverse
+  neuf de la réparation n° 1, le 2026-10-08 à partir de 10:32 UTC (`date -u`), par un worker de PAROXYSME (`claude-opus-5-5`, effort max) : sources : MSG4 et
+  MSG5 (Bases, §8) ; pliés : la phrase de la réparation n° 1, complétée ; Q-V2 tranchée (b) par le fondateur pour la phrase du capteur (N-04) ; parties
+  touchées : en-tête, N-04, §8.
 - **Bases** : inventaire mesuré à `d8fe354c`, qui y lit aussi ETAT (empreinte `2ef6f107…`, INV-S l.19), et non à `57a131fc` comme ceux
   du Harnais et du Moteur. Toutes les ancres du tronc sont à la base `87b821b0` de `lot/etude-suite` (tête relue par `git ls-remote` le
   2026-10-07 à 17:07 UTC, message `d4b3d07` l.16-17). Le tronc a avancé depuis par les fusions #241 et #235, jusqu'à `eb1beb01`
@@ -36,7 +40,8 @@
   §7, doute 9), 55 sont dans des fichiers inchangés, 2 gardent leur numéro, 3 se déplacent à texte égal et 1 ligne d'ETAT change de
   texte, sans qu'aucune entrée en dépende. Exception : une ligne d'ETAT des décisions pliées se cite « ETAT l.N à `5437cd0d` », et, au pli
   de l'après-#245, « ETAT l.N à `565c7065` » (relu par `git show 565c7065:docs/ETAT.md | sed -n`) ; MSG3 (« MSG3 l.N ») y est le message
-  de MONARK `d5553e7` (§8).
+  de MONARK `d5553e7` (§8). Sa réparation n° 2 cite aussi MSG4 (« MSG4 l.N ») et MSG5 (« MSG5 l.N ») : le message de MONARK `8e5bea2` et le message de PAROXYSME
+  `eb01d45`, qui pose les questions du fondateur pour PXC-02, même boîte (§8).
 - **Préséance** : `docs/ETAT.md` l.7-11 ; ETAT prime. Un item nommé hors d'ETAT et du code n'est pas compté comme formé : il est écrit
   « à former » et porté par son chantier ; un item du dépôt Shōgen ne vaut item formé que pour une limite dont Shōgen est propriétaire
   (CC l.34-37).
@@ -349,7 +354,10 @@
     · touche : les mêmes lignes · nature : Dr/T
   item : PXC-02 PUBLIC-SENTENCES-2, partie 1, hors de la liste (a) du noyau (CC l.121-122) ; SHOGEN-VITRINE-MONARK-1 (ANB l.62, partiel)
     · porteur : PAROXYSME ; la phrase de l'investisseur : le fondateur · déclencheur : l'ADR de PXC-02 (tâche 2, F1) ; au plus tard la fin de l'exception
-  état : ouvert (nouvelle : CARTO-MK-04 et -05) · suite : G15 et G8 sans déclencheur côté MONARK (ADR-0028 l.222) ; le tweet reprend la phrase
+  état : ouvert (nouvelle : CARTO-MK-04 et -05) · suite : G15 et G8 sans déclencheur côté MONARK (ADR-0028 l.222) ; le tweet reprend la phrase ; la phrase du
+    capteur (« continuous testimonies across sources ») est tranchée par le fondateur le 2026-10-08, Q-V2 (b) : « Le capteur de Shōgen est dit conçu pour cela,
+    à l essai, pas encore en service » (MSG4 l.11-12 ; question : MSG5 l.23-30) ; aucune option ne touche le tweet, qui reste un acte du fondateur après une
+    lecture de MONARK (MSG5 l.32) ; l'autre phrase n'est pas tranchée
 - **N-05** · « Tuyau de registre Shōgen → MONARK absent : les items transmis par Shōgen n'ont aucune ligne au dépôt MONARK. »
   source : `git grep` nul à `87b821b0` (§7, doute 3) ; ETAT l.7-11 ; TR · touche : aucune · nature : C
   item : PXC-01 PAROXYSME-STANDARD-1, partie 2 (SHOGEN-TRANSMIS-ETAT-1, à former : transcrire à ETAT les items transmis et
@@ -792,3 +800,11 @@ Pour le pli de l'après-#245 : ETAT lu à `565c7065` (`git show 565c7065:docs/ET
 |---|---|---|
 | `docs/ETAT.md` à `565c7065` | 2 401 | `73ebf0597d9aa5030fd03b5ed3ccae3d08070fe00d50b1f89488ac7d79a0abd1` |
 | MSG3, message `d5553e7`, `coordination/messages/`, `…-245-decisions.md` | 44 | `8c3eade5c93ffd6af7283a0c724a9367566d3d8d668b184c23626e863cc7a7d8` |
+
+Sources de la réparation n° 2 de ce pli (2026-10-08) : MSG4 et MSG5, messages de la boîte PAROXYSME (`coordination/messages/`), lus chacun à son
+commit (`git show <commit>:<f> | wc -l`, puis `| sha256sum`) :
+
+| Source | Lignes | sha256 |
+|---|---|---|
+| MSG4, message de MONARK `8e5bea2`, `…-qv-reponses.md` | 32 | `6709473d025a332e92403378feeeacab42c3a5d8dd294bfe9a388b03e4b40e6a` |
+| MSG5, message de PAROXYSME `eb01d45`, `…-questions-fondateur-pxc02.md` | 79 | `d1a1868f965551d69d0b68031bafcf29bc67bad5b1a4ab959054893976e4e523` |

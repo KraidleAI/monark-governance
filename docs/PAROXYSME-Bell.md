@@ -31,7 +31,14 @@
   en-tête (Bases, Frontière), §0 (D-5), §1, L-22, L-23, L-25, L-28, L-32, L-39, N-01, N-02, N-03, N-08, N-12, §6, §7 (doutes 10 et 13), §8.
   Réparation n° 1 de ce pli, après deux vérificateurs adverses neufs, le 2026-10-08 à partir de 09:25 UTC (`date -u`), par un worker de
   PAROXYSME (`claude-opus-5-5`, effort max) : sources : ETAT à `565c7065` et à `20fffe9f`, MSG2, MSG8, MSG10 et MSG11 (Bases, §8) ;
-  parties touchées : en-tête (Bases), §0 (D-5), L-02, L-03, L-28, L-29, N-01, N-02, N-03, §7 (doute 8), §8.
+  parties touchées : en-tête (Bases), §0 (D-5), L-02, L-03, L-28, L-29, N-01, N-02, N-03, §7 (doute 8), §8 ; pliés : les crédits sans plafond de budget et le
+  fournisseur RPC ouvert sans plafond (L-02, L-03, L-29, N-03) ; LIC-DBN-1 et BELL-COLLECT-TIMER-1 nommés à ETAT depuis `565c7065` (L-28, N-03) ; la phrase M5,
+  non écrite sous le gel (N-03) ; L-22 dans la liste du §0 (D-5) ; la première course de la sonde du Dōjō sous les masques, au tronc à `20fffe9f` (N-01, §8) ;
+  la ligne d'ETAT de N-02, encore absente à `20fffe9f` (N-02, §8) ; la décision du fondateur sur le vrai lien de Bell (N-02, doute 8, §8). Réparation n° 2 de ce
+  pli, après un vérificateur adverse neuf de la réparation n° 1, le 2026-10-08 à partir de 10:32 UTC (`date -u`), par un worker de PAROXYSME (`claude-opus-5-5`,
+  effort max) : sources : ETAT à `565c7065` et à `20fffe9f`, MSG10, MSG12 et MSG13 (Bases, §8) ; pliés : la phrase de la réparation n° 1, complétée ;
+  SUPPLY-READ-1 nommé à ETAT depuis `565c7065` (L-39) ; les crédits sans plafond de budget (L-40) ; Q-V1 acquise et Q-V4 tranchée (N-02) ; la règle de la boîte
+  sur Bell, que MONARK tranche après le cp-1 de PXC-02 (Frontière) ; parties touchées : en-tête (Frontière, Bases), L-39, L-40, N-02, §8.
 - **Bases** : inventaire mesuré à `d8fe354c`, ETAT lu à `57a131fc`. Toutes les ancres de ce registre sont à `87b821b0`, tête de
   `lot/etude-suite` dont part #242 (« à la tête », dans ce registre, veut dire « à `87b821b0` »), sauf celles du pli des décisions
   (fin de ce point). Elles sont reportées par l'outil `reanchor.mjs` (pièce de la
@@ -57,7 +64,8 @@
   (`…-decisions-0535.md`) et `d5553e7` (`…-245-decisions.md`), et la pièce de la tâche 2 bis (`RELEVE-Bell.md`, `SYNTHESE-ORDRE.md`,
   §8) ; il relit les lignes « à relire » de L-22, L-28 et N-01 (§6 aussi). Sa réparation n° 1 cite aussi ETAT à `20fffe9f`, tronc avancé
   (« ETAT l.N à `20fffe9f` », relu par `git show 20fffe9f:docs/ETAT.md | sed -n`), MSG10 et MSG11 (« MSGn l.N ») : les messages de MONARK
-  `b2f0890` et `2ed67d1` (`…-qv1-bell.md`), même boîte (§8).
+  `b2f0890` et `2ed67d1` (`…-qv1-bell.md`), même boîte (§8). Sa réparation n° 2 cite aussi MSG12 et MSG13 (« MSGn l.N ») : le message de MONARK `8e5bea2`
+  (`…-qv-reponses.md`) et le message de PAROXYSME `eb01d45` (`…-questions-fondateur-pxc02.md`), qui pose au fondateur les questions de PXC-02, même boîte (§8).
 - **Préséance** : `docs/ETAT.md` l.7-11 ; ETAT prime. Un item nommé hors d'ETAT et du code n'est pas compté comme formé : il est écrit
   « à former » (« à re-former » s'il est écrit hors d'ETAT, dans un ADR, un RUNBOOK, un FAITS ou un rapport de gate, ou dans le registre
   effacé) et porté par son chantier.
@@ -66,7 +74,8 @@
   décision D6 de MONARK). Ce registre n'écrit que des documents et ne propose aucun acte sur l'hôte ; les actes datés y sont des
   déclencheurs, portés par le fondateur quand ils sont hors délégation. Aucune clé, aucun chemin de clé, aucune adresse d'hôte n'y figure.
   Depuis le 2026-10-08, le fondateur a levé D-5 pour la collecte, dont le code (O-3) peut partir en parallèle de O-2, et MONARK décide
-  du texte de Bell (§0, D-5 ; MSG8 l.12-14 ; MSG2 l.18-20) ; ce pli ne change pas la règle de la session.
+  du texte de Bell (§0, D-5 ; MSG8 l.12-14 ; MSG2 l.18-20) ; ce pli ne change pas la règle de la session, que MONARK tranche après le
+  cp-1 de PXC-02 (MSG12 l.30-31 ; ETAT l.631-634 à `20fffe9f`).
 
 ## 0. Comment lire ce registre
 
@@ -384,7 +393,8 @@
   source : `apps/bell/src/sessions.ts:27-28` ; B0 l.299-301 · touche : METHOD l.183, l.195 ; PAGE l.155 (multiplicateur servi, absent
     de l'inventaire, INV-B l.116) · nature : D
   item : ADV-CAL-2027 (B0 l.299 ; formé à ETAT l.248-251 à `5437cd0d` par BELL-ITEMS-ETAT-CARRY-1, l.235-237 à `5437cd0d`, prix à chiffrer
-    à son G0) ; SUPPLY-READ-1, TSLAON-MULT-1 (B0 l.300-301, absents d'ETAT : à re-former par le même item, PXC-01 partie 2, ETAT l.237 à
+    à son G0) ; SUPPLY-READ-1, TSLAON-MULT-1 (B0 l.300-301, absents d'ETAT jusqu'à `5437cd0d`, SUPPLY-READ-1 nommé depuis à ETAT l.574 à
+    `565c7065` : à re-former par le même item, PXC-01 partie 2, ETAT l.237 à
     `5437cd0d`) ; PXC-14 partie 1 (calendrier 2027 ; fiche, CC l.472) · porteur : MONARK (lecture sur place du calendrier 2027, ETAT
     l.250 à `5437cd0d`) ; PAROXYSME (extension du calendrier) · déclencheur : avant le 2027-01-01 (ETAT l.250-251 à `5437cd0d`), sous
     D-5 ; celui de SUPPLY-READ-1 à B0 l.300 (« prochain lot touchant `supply.ts`, ou T-1b (supply rendue) »), passé, re-porté par MONARK
@@ -399,7 +409,9 @@
 - **L-40** · « Mesure fondatrice non servie : placeholders `window_TSLAx` et `t4_TSLAx_*`. »
   source : PAGE l.473-482 ; METHOD l.300 · touche : PAGE l.473-482 ; METHOD l.300 · nature : D
   item : PXC-17 partie 3 (mesure fondatrice ; chaîne -b1-bis, B0 l.169-176, à re-former) · porteur : le fondateur (course, clés, crédits,
-    PLAN §7.3 l.894) ; PAROXYSME · déclencheur : la décision du fondateur ; partie 3 de PXC-17 (F5)
+    PLAN §7.3 l.894 ; les crédits sans plafond de budget, fournisseur RPC compris : ETAT l.90-94 à `565c7065` ; décision du fondateur du
+    2026-10-08, relayée par MONARK `b2f0890`, MSG10 l.16-17, l.24-25) ; PAROXYSME · déclencheur : la décision du fondateur ; partie 3 de
+    PXC-17 (F5)
   état : ouvert · suite : ligne d'attente datée (P-25) : ETAT l.270-273 à `5437cd0d` ; partie non nommée par la fiche (§7, doute 9)
 - **L-41** · « Appariement écart-séance par rang : deux sessions du même seau et du même `n` sont appariées sans alerte. »
   source : `docs/adr/ADR-BELL-CASH-LEG-1.md:39` · touche : aucune · nature : C
@@ -470,7 +482,10 @@
     `565c7065`) ; « construire le vrai lien, ce qui demande du travail en plus. … pas pour un ornement. un vrai usage. » : décision du
     fondateur du 2026-10-08, relayée par MONARK `2ed67d1` (MSG11 l.8-12) ; le fondateur y corrige « Ukemi » en « Hikae » (l.12) ; pour le
     noyau de PXC-02, MONARK retient l'option (a) : le lien est marqué « à venir », sans autre promesse, lecture que le fondateur peut
-    corriger (MSG11 l.20-22)
+    corriger (MSG11 l.20-22) ; cette réponse à Q-V1 est acquise depuis, avec les quatre autres : la première livraison de code de PXC-02
+    n'attend plus rien du fondateur (MSG12 l.19) ; Q-V4 (d), décision du fondateur du 2026-10-08 (MSG12 l.11, l.15) : les dix endroits du dépôt et du
+    site qui disent que le moteur fait tourner les applications, Bell en tête (MSG13 l.49-51), sont corrigés dans cette première
+    livraison, avant la mise en ligne ; la liste des dix n'est pas versée, et ce registre n'y range pas `README.md:146-147` et `:214`
 - **N-03** · « Aucune cadence ni cible de latence publiée ; publication par acte opérateur ; rien publié depuis le 24/09. »
   source : RB l.6-7 ; T1B l.121-129 · touche : FLEET l.346 · nature : C
   item : phrase : PXC-02 partie 3 (BELL-CADENCE-TEXT-1, à former ; T1B l.129) ; minuterie : PXC-14
@@ -831,3 +846,11 @@ PAROXYSME (`coordination/messages/`), lus à leur commit (`git show <commit>:<f>
 | `docs/ETAT.md` à `20fffe9f` | 2 478 | `8d42a39af43b4674bd55f0a4672ec1d3c5ef8dae07785e643b6fdd814046b614` |
 | MSG10, message de MONARK du 2026-10-08, commit `b2f0890` | 34 | `004c64761f1aaed9da16c8c5833a37ccc4f6e42224f43ef699e4009db67a886f` |
 | MSG11, message de MONARK du 2026-10-08, commit `2ed67d1` | 26 | `7549d5870febfc105936ee4ec5e6e4e96271c0f78e1dce0883cda314197577e6` |
+
+Sources de la réparation n° 2 de ce pli (2026-10-08) : MSG12 et MSG13, messages de la boîte PAROXYSME (`coordination/messages/`), lus chacun à
+son commit (`git show <commit>:<f> | wc -l`, puis `| sha256sum`) :
+
+| Source | Lignes | sha256 |
+|---|---|---|
+| MSG12, message de MONARK `8e5bea2`, `…-qv-reponses.md` | 32 | `6709473d025a332e92403378feeeacab42c3a5d8dd294bfe9a388b03e4b40e6a` |
+| MSG13, message de PAROXYSME `eb01d45`, `…-questions-fondateur-pxc02.md` | 79 | `d1a1868f965551d69d0b68031bafcf29bc67bad5b1a4ab959054893976e4e523` |

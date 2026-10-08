@@ -23,7 +23,11 @@
   et MSG5 (Bases, §8) ; parties touchées : en-tête, §1, PX-Harness-04, -19, -22, -26, MK-L05, MK-L11, MK-L14, MK-L15, MK-L28, MK-L39, §7 (doutes 2, 3, 9), §8.
   Réparation n° 1 de ce pli, après deux vérificateurs adverses neufs, le 2026-10-08 à partir de 09:25 UTC (`date -u`), par un worker de
   PAROXYSME (`claude-opus-5-5`, effort max) : sources : ETAT à `565c7065` et à `20fffe9f`, MSG4 (Bases, §8) ; parties touchées : en-tête,
-  §1, PX-Harness-22, MK-L39, §8.
+  §1, PX-Harness-22, MK-L39, §8 ; pliés : HOST-HARNESS-PREV-1 FAIT pour deux copies, avec les huit archives et les quatre fichiers hors dépôt à part (§1,
+  PX-Harness-22, §8) ; les décisions de MONARK sur les vecteurs de VERIFIER-TOOL-CI-1, au tronc à `20fffe9f` (MK-L39, §8). Réparation n° 2 de ce pli, après un
+  vérificateur adverse neuf de la réparation n° 1, le 2026-10-08 à partir de 10:32 UTC (`date -u`), par un worker de PAROXYSME (`claude-opus-5-5`, effort max) :
+  sources : le tronc à `c5030fd9`, fusion de la PR #249 (Bases, §8) ; pliés : la phrase de la réparation n° 1, complétée ; la PR #249 fusionnée,
+  `vectors_check.py` en CI sur les vecteurs publics, la bascule à R1 attendant sa publication (MK-L39, §8) ; parties touchées : en-tête, MK-L39, §8.
 - **Bases** : l'inventaire du Harnais est mesuré à `d8fe354c` et lit ETAT à `57a131fc` (INV-H l.9) ; celui du Moteur prend tout à
   `57a131fc` (INV-M l.12). Toutes les ancres du versement sont à la tête `87b821b0` de `lot/etude-suite` (relue par `git ls-remote`
   le 2026-10-07 à 17:1x UTC). Elles sont reportées par l'outil `reanchor.mjs` (pièce de la boîte PAROXYSME), puis relues à la tête par
@@ -34,7 +38,8 @@
   cite ETAT à `565c7065` (« ETAT l.N à `565c7065` », relu par `git show 565c7065:docs/ETAT.md | sed -n`), MSG4 (« MSG4 l.N », message de
   MONARK `d40ab57`) et MSG5 (« MSG5 l.N », message de MONARK `d5553e7`) (§8) ; les ancres d'avant ce pli gardent leur tête. Sa
   réparation n° 1 cite aussi ETAT à `20fffe9f`, tronc avancé (« ETAT l.N à `20fffe9f` », relu par
-  `git show 20fffe9f:docs/ETAT.md | sed -n` ; §8).
+  `git show 20fffe9f:docs/ETAT.md | sed -n` ; §8). Sa réparation n° 2 cite aussi le tronc à `c5030fd9`, fusion de la PR #249 (« à `c5030fd9` », relu par
+  `git show c5030fd9:<fichier> | sed -n` ; ETAT y est celui de `20fffe9f`, `git diff --quiet 20fffe9f c5030fd9 -- docs/ETAT.md` ; §8).
 - **Préséance** : `docs/ETAT.md` l.7-11 ; ETAT prime. Un item nommé hors d'ETAT et du code n'est pas compté comme formé : il est écrit
   « à former » et porté par son chantier.
 - **Labels** : aucun ne change (`built` du Backbone et du Harness, `README.md:94`, `:96` ; aucune ligne kata servie,
@@ -554,15 +559,16 @@
   item : VERIFIER-TOOL-CI-1 (ETAT l.591-598 ; ligne datée, ETAT l.323-326 à `565c7065`) · porteur : RECHERCHES (ETAT l.595) · déclencheur :
     le premier de deux, avant qu'une seconde révision de `monark-kata-recalc` entre dans la liste, ou avant le gel de c1a de CM-5 (ETAT
     l.323-324 à `565c7065`)
-  état : changé (formé à ETAT le 2026-10-07, l.597-598 ; l'étape CI est fusionnée par #247, `43f46d9f`, G0
-    `docs/G0-lot-verifier-tool-ci-1.md`, poussée le 2026-10-08 à 04:28 UTC, ETAT l.421-424, l.451-456 à `565c7065`) · suite : prix à
-    ETAT : ≈ 55 lignes (l.596) ; la partie 1 de PXC-11 est retirée par le plan (PLAN l.456, l.471) ; reste hors CI `vectors_check.py`,
-    vecteurs R1 privés : VERIFIER-TOOL-CI-VECTORS-1, porteur RECHERCHES, déclencheur la publication de R1 dans le dépôt public de la
-    spécification ou le commit L d'IO-GUARD-POSED-FILES-1, le premier des deux (ETAT l.346-347 à `565c7065`) ; MONARK le partage depuis
-    en deux étapes : d'abord les vecteurs publics du 2026-10-02 en CI, jamais d'octets privés dans un job de ce dépôt, par la PR #249,
-    ouverte en brouillon, que le commit L attend au tronc ; puis la bascule à R1 à sa publication, l'item restant ouvert jusque-là ;
-    VECTORS-WITHIN-BOUND-1 est formé, porteur RECHERCHES, déclencheur la PR de bascule à R1 (ETAT l.609-614, l.626-629, l.662-665 à
-    `20fffe9f`)
+  état : changé (formé à ETAT le 2026-10-07, l.597-598 ; l'étape CI est fusionnée par #247, `43f46d9f`, G0 `docs/G0-lot-verifier-tool-ci-1.md`, poussée le
+    2026-10-08 à 04:28 UTC, ETAT l.421-424, l.451-456 à `565c7065` ; la PR #249 est fusionnée à `c5030fd9` (`git log -1 c5030fd9`) : `vectors_check.py` y tourne
+    en CI sur les vecteurs publics du 2026-10-02, épinglés par commit et sha256, avec le refus attendu du compte (333 des 363 contrôles de R1)
+    (`scripts/verifier-tool-ci.mjs:25-38`, `.github/workflows/ci.yml:293-300` à `c5030fd9`)) · suite : prix à ETAT : ≈ 55 lignes (l.596) ; la partie 1 de PXC-11
+    est retirée par le plan (PLAN l.456, l.471) ; restait hors CI `vectors_check.py`, vecteurs R1 privés : VERIFIER-TOOL-CI-VECTORS-1, porteur RECHERCHES,
+    déclencheur la publication de R1 dans le dépôt public de la spécification ou le commit L d'IO-GUARD-POSED-FILES-1, le premier des deux (ETAT l.346-347 à
+    `565c7065`) ; MONARK le partage depuis en deux étapes : d'abord les vecteurs publics du 2026-10-02 en CI, jamais d'octets privés dans un job de ce dépôt,
+    par la PR #249, fusionnée depuis (état ci-dessus), le commit L attendant cet item au tronc ; puis la bascule à R1 à sa publication, l'item restant ouvert
+    jusque-là : ETAT, inchangé à `c5030fd9`, ne le dit pas clos ; VECTORS-WITHIN-BOUND-1 est formé, porteur RECHERCHES, déclencheur la PR de bascule à R1 (ETAT
+    l.609-614, l.626-629, l.662-665 à `20fffe9f`)
 - **MK-L40** · « « Public and unauthenticated, with no availability commitment. » »
   source : `apps/site/app/docs/integrators/page.tsx:56-57` · touche : même ligne · nature : C
   item : PXC-05 partie 3 (mesure par la sonde continue) ; PXC-16 partie 2 (objectif publié) · porteur : PAROXYSME · déclencheur : partie 3
@@ -753,8 +759,8 @@ sont faites : SENTINEL-DEPLOY-GUARD-1 et SYNC-CHECK-MODE-1 re-portés à PXC-05 
 PXC-11 partie 3 (PX-Harness-19, MK-L11, MK-L14), F-W2-4 (MK-L05), DATA-ACCORDS-TEXTS-1 et DATA-LICENCE-KATA-1 formés (MK-L28),
 F-K-7 (MK-L15). HOST-HARNESS-PREV-1 : FAIT pour deux copies (PX-Harness-22) ; à dater par MONARK : la question des huit archives ; à
 demander à MONARK : le sort des quatre fichiers hors dépôt de l'arbre servi (§1). VERIFIER-TOOL-CI-1 : l'étape CI fusionnée par #247,
-`vectors_check.py` hors CI, ses vecteurs publics en CI par la PR #249 en brouillon, la bascule à R1 à sa publication (MK-L39 ; ETAT
-l.609-614, l.662-665 à `20fffe9f`). Doutes 2 (la clôture, puis l'ancre) et 9 levés (§7).
+`vectors_check.py` en CI sur les vecteurs publics par la PR #249, fusionnée à `c5030fd9`, la bascule à R1 à sa publication, l'item restant
+ouvert (MK-L39 ; ETAT l.609-614, l.662-665 à `20fffe9f`, inchangé à `c5030fd9`). Doutes 2 (la clôture, puis l'ancre) et 9 levés (§7).
 
 Fichiers du tronc cités, à `87b821b0` (lignes, sha256) :
 
@@ -861,3 +867,11 @@ Sources de la réparation n° 1 de ce pli (2026-10-08) : ETAT à `20fffe9f`, tro
 | Source | Lignes | sha256 |
 |---|---|---|
 | `docs/ETAT.md` à `20fffe9f` | 2 478 | `8d42a39af43b4674bd55f0a4672ec1d3c5ef8dae07785e643b6fdd814046b614` |
+
+Sources de la réparation n° 2 de ce pli (2026-10-08) : le tronc à `c5030fd9`, fusion de la PR #249 (`git log -1 c5030fd9` ; fichiers lus par
+`git show c5030fd9:<f> | wc -l`, puis `| sha256sum`) :
+
+| Source | Lignes | sha256 |
+|---|---|---|
+| `scripts/verifier-tool-ci.mjs` à `c5030fd9` | 155 | `e252885ff9198336b477e166962c1e288f3d916a7622b7e6ff2fa2b1a467e958` |
+| `.github/workflows/ci.yml` à `c5030fd9` | 304 | `de391ba360bdecadb9cda3407dab7f0c9ba90bb21e3222c54b8ef1ea21d89ea8` |

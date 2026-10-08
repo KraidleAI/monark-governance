@@ -27,7 +27,11 @@
   à `565c7065`), le 2026-10-08 à partir de 07:41 UTC (`date -u`), par un worker de PAROXYSME (`claude-opus-5-5`, effort max) : sources : ETAT à `565c7065` et
   MSG2 (Bases, §8) ; parties touchées : en-tête, §1, L2, L3, N6, N7, N8, N9, N12, N22, §7 (doutes 2, 5, 13, 16 et 17), §8.
   Réparation n° 1 de ce pli, après deux vérificateurs adverses neufs, le 2026-10-08 à partir de 09:25 UTC (`date -u`), par un worker de
-  PAROXYSME (`claude-opus-5-5`, effort max) : sources : ETAT à `565c7065` et MSG2 ; parties touchées : en-tête, L6a, N16, §7 (doute 2), §8.
+  PAROXYSME (`claude-opus-5-5`, effort max) : sources : ETAT à `565c7065` et MSG2 ; parties touchées : en-tête, L6a, N16, §7 (doute 2), §8 ; pliés : la route
+  unique de F-W2-1 et F-W2-3, nommés à ETAT et à former par la recartographie de PXC-01 partie 2 (L6a, N16, doute 2, §8) ; le doute 2 daté, DATA-ACCORDS-TEXTS-1
+  y étant formé depuis. Réparation n° 2 de ce pli, après un vérificateur adverse neuf de la réparation n° 1, le 2026-10-08 à partir de 10:32 UTC (`date -u`),
+  par un worker de PAROXYSME (`claude-opus-5-5`, effort max) : sources : ETAT à `5437cd0d` et à `565c7065` ; pliés : la phrase de la réparation n° 1,
+  complétée ; F-W2-4 nommé à ETAT depuis `5437cd0d`, défaut antérieur au pli (N6, doute 17) ; parties touchées : en-tête, N6, §7 (doute 17).
 - **Bases** : inventaire mesuré à `d8fe354c` ; il lit ETAT, `apps/harness/src/policy-guard.ts` et `docs/G7-lot-retire-path-ra.md` à
   `57a131fc` (INV l.9-13 ; §7, doute 6).
   Toutes les ancres de ce registre sont à la tête `87b821b0` de `lot/etude-suite`, reportées par l'outil `reanchor.mjs` (pièce de la
@@ -267,9 +271,9 @@
     doute 3)
 - **N6** · « Aucun énoncé de famille entre cellules servies ; la divulgation « échecs attendus ≤ test_delta × T » reste à imprimer. »
   source : 0004 l.81-87, l.123, l.196 ; W1R l.760 · touche : README et notes de version à venir · nature : T
-  item : PXC-09 partie 3 (famille et divulgation) ; PXC-01 partie 2 (F-W2-4 et F-W2-8, hors d'ETAT : à re-former à ETAT) · porteur :
-    PAROXYSME (chantier) ; MONARK (ligne d'ETAT ; la lecture du déclencheur de F-W2-4, décision technique dans sa délégation, et non du
-    fondateur : ETAT l.556-558 à `565c7065` ; MSG2 l.21-23) · déclencheur : partie 3 de PXC-09 (F4) ; partie 2 de PXC-01 (F3)
+  item : PXC-09 partie 3 (famille et divulgation) ; PXC-01 partie 2 (F-W2-4, nommé à ETAT l.260 à `5437cd0d` sans y être formé, et F-W2-8, hors d'ETAT : à
+    re-former à ETAT) · porteur : PAROXYSME (chantier) ; MONARK (ligne d'ETAT ; la lecture du déclencheur de F-W2-4, décision technique dans sa délégation, et
+    non du fondateur : ETAT l.556-558 à `565c7065` ; MSG2 l.21-23) · déclencheur : partie 3 de PXC-09 (F4) ; partie 2 de PXC-01 (F3)
   état : ouvert · suite : même limite que MK-L05 du registre du Harnais ; déclencheur de F-W2-4 : la lecture tranchée par MONARK, écrite
     à sa re-formation par PXC-01 p2, sur la lecture de RECHERCHES (`INVENTAIRE-Moteur.md` l.337) (ETAT l.260-261 à `5437cd0d` ; ETAT
     l.556-558 à `565c7065` ; §7, doute 17)
@@ -577,7 +581,7 @@ les mêmes que HT-01 à HT-07 du registre du Harnais.
 17. **Déclencheur de F-W2-4 (N6).** Deux lectures : « K ≥ 20 cellules listées », atteint par un registre de 280 cellules (INV l.161) ;
     « until a cell reaches calib_attempt 2 », « lu comme un déclencheur atteint à la vague 2 », à confirmer par RECHERCHES
     (`INVENTAIRE-Moteur.md` l.337). Le CC attend une décision de l'investisseur sur ce déclencheur (CC l.334-335). F-W2-4 n'est pas à
-    ETAT (doute 2) : sa re-formation par PXC-01 partie 2 (F3) écrit le déclencheur tranché. Tranché : MONARK l'a retenu le 2026-10-07
+    ETAT à `87b821b0` (doute 2) : sa re-formation par PXC-01 partie 2 (F3) écrit le déclencheur tranché. Tranché : MONARK l'a retenu le 2026-10-07
     (ETAT l.260-261 à `5437cd0d` ; à cette tête, `grep -n F-W2-4` ne rend que l.260). Selon la proposition retenue (MSG l.44-45,
     « retenu » ; MSG l.4 : réponse à la demande `6698269`, dont l.135-136 porte la proposition et l.132 renvoie au §1 de ce registre,
     l.63-64 à `5437cd0d`) : la lecture par RECHERCHES, la décision de l'investisseur (CC l.334-335) portée par MONARK (§0), à la
