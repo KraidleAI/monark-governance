@@ -1,13 +1,14 @@
 // scripts/verifier-tool-ci.mjs -- VERIFIER-TOOL-CI-1 (docs/G0-lot-verifier-tool-ci-1.md): the frozen verifier tool, tools/kata-recalc/
 // (listed as monark-kata-recalc in apps/harness/data/verifiers.json), held by its own Python checks on every pull request, job
-// g3-verifier-tool of .github/workflows/ci.yml; the local oracle replays the same line. Node 24, zero dependencies; reads no series.
+// g3-verifier-tool of .github/workflows/ci.yml, CI only (MONARK replays the Windows checks by hand). Node 24, no dependency; no series.
 //   node scripts/verifier-tool-ci.mjs
 // Each check runs as `python <FORM> <script> ...`, FORM read from io_guard.py as text (never imported), so the launch follows the tool's
 // own form. Green only if: the interpreter is a final CPython 3.14, and the exact version VERIFIER_TOOL_PYTHON names when the job names
 // one; every tree of TREES present on disk is one this job runs (a second tree reds until its checks join the job); every *_check.py of
-// the tool is run or named in NOT_RUN; each check exits 0 with its VERDICT: GREEN lines, no FAIL and no RED line; and the cases that
-// guard_check.py skips are exactly WINDOWS_ONLY off Windows, none on Windows, each named. Off Windows, report_check.py runs through
-// scripts/verifier-tool-ci-report-check.py, its section 3 stood in and named. Tests: test/verifier-tool-ci.test.ts.
+// the tool is run or named in NOT_RUN, and each run of OWED (a check in one of its modes) is in steps() once; each check exits 0 with
+// its VERDICT: GREEN lines, no FAIL and no RED line; the run of report_check.py shows the lines that only its main writes after its
+// checks; and the cases that guard_check.py skips are exactly WINDOWS_ONLY off Windows, none on Windows, each named. Off Windows,
+// report_check.py runs through scripts/verifier-tool-ci-report-check.py, its section 3 stood in and named. Tests: test/verifier-tool-ci.test.ts.
 import { spawnSync } from "node:child_process";
 import { createHash } from "node:crypto";
 import { existsSync, mkdtempSync, readdirSync, readFileSync, rmSync } from "node:fs";
@@ -21,10 +22,18 @@ export const REGISTRY = "apps/harness/data/kata/registry/wave1.json";
 export const WINDOWS_ONLY = ["ntfs-stream"];
 /** The checks of the tool that this job does not run, each with its reason. */
 export const NOT_RUN = { "vectors_check.py": "its input, the spec vectors of the frozen revision (R1), is in no repository this job reads" };
-/** The runs, in order: the check of the tool it holds, the script run, its arguments, the VERDICT: GREEN lines wanted. */
+/** The runs that this job owes, a closed list: each check of the tool in each of its modes (the options it is given), with the VERDICT:
+ *  GREEN lines of that run. steps() must hold each once and no other run, so a check run in two modes cannot lose one unseen. */
+const OWED = [["guard_check.py", 1], ["report_check.py", 1], ["compare_check.py", 1], ["binom_check.py --registry", 1], ["binom_check.py", 2]];
+/** The lines that report_check.main alone writes, after its checks: its count of failures, then the input line of the C library of log
+ *  that its section 3 read through io_guard (the system's on Windows, the stand-in's off Windows). Off Windows that run passes through a
+ *  file outside the tool's tree: a stand-in that prints a verdict and exits before that main is refused for lacking them. */
+const REPORT_END = [/^failures 0$/, /^input libm ucrtbase\.dll sha256 [0-9a-f]{64} bytes \d+$/];
+/** The runs, in order: the check of the tool it holds, the script run, its arguments, the VERDICT: GREEN lines wanted, and the lines
+ *  wanted from the check's own main (report_check.py only). */
 export const steps = (repo, w, win) => [
   ["guard_check.py", `${TOOL}/guard_check.py`, [repo, join(w, "guard"), join(w, "guard.txt")], 1],
-  ["report_check.py", win ? `${TOOL}/report_check.py` : "scripts/verifier-tool-ci-report-check.py", [repo, join(w, "report"), join(w, "report.txt"), ...(win ? [] : [join(w, "libm")])], 1],
+  ["report_check.py", win ? `${TOOL}/report_check.py` : "scripts/verifier-tool-ci-report-check.py", [repo, join(w, "report"), join(w, "report.txt"), ...(win ? [] : [join(w, "libm")])], 1, REPORT_END],
   ["compare_check.py", `${TOOL}/compare_check.py`, [join(repo, REGISTRY), join(w, "compare"), join(w, "compare.txt")], 1],
   ["binom_check.py", `${TOOL}/binom_check.py`, ["--registry", join(repo, REGISTRY), join(w, "registry.txt")], 1],
   ["binom_check.py", `${TOOL}/binom_check.py`, [repo, join(w, "binom.txt"), join(w, "hikae.txt")], 2],
@@ -51,15 +60,22 @@ export const interpreterProblems = (info, pin) => [
   ...(pin === undefined || info.version === pin ? [] : [`CPython ${info.version}, not the pinned ${pin}`]),
 ];
 
-/** The refusals of the trees (each of TREES with its presence on disk) and of the checks (the *_check.py names of the tool's tree). */
-export const accountProblems = (trees, present, checks) => [
-  ...trees.filter((t) => present[t] !== (t === TOOL)).map((t) => (t === TOOL ? `${t}: the tool's tree is absent` : `${t}: a tree of the tool that this job does not run`)),
-  ...checks.filter((n) => !steps("", "", false).some((s) => s[0] === n) && !(n in NOT_RUN)).map((n) => `${TOOL}/${n}: a check that this job neither runs nor names`),
-];
+/** The refusals of the trees (each of TREES with its presence on disk), of the checks (the *_check.py names of the tool's tree) and of
+ *  the runs (those of steps() by default): each run of OWED once, with its count of VERDICT: GREEN lines, and no other run. */
+export const accountProblems = (trees, present, checks, runs = steps("", "", false)) => {
+  const name = (run, want) => `${run} (${want} VERDICT: GREEN)`, owed = OWED.map(([run, want]) => name(run, want));
+  const ran = runs.map(([check, , args, want]) => name([check, ...args.filter((a) => a.startsWith("--"))].join(" "), want)), times = (o) => ran.filter((r) => r === o).length;
+  return [
+    ...trees.filter((t) => present[t] !== (t === TOOL)).map((t) => (t === TOOL ? `${t}: the tool's tree is absent` : `${t}: a tree of the tool that this job does not run`)),
+    ...checks.filter((n) => !runs.some((s) => s[0] === n) && !(n in NOT_RUN)).map((n) => `${TOOL}/${n}: a check that this job neither runs nor names`),
+    ...owed.filter((o) => times(o) !== 1).map((o) => `${o}: a run that this job owes once, run ${times(o)} time(s)`),
+    ...ran.filter((r) => !owed.includes(r)).map((r) => `${r}: a run that this job does not owe`),
+  ];
+};
 
-/** The refusals of one run's output: its exit, its VERDICT: GREEN lines, any FAIL or RED line, and its SKIP lines (guard_check.py
- *  only, and only the cases of WINDOWS_ONLY off Windows). */
-export const outputProblems = (check, out, status, want, win) => {
+/** The refusals of one run's output: its exit, its VERDICT: GREEN lines, any FAIL or RED line, its SKIP lines (guard_check.py
+ *  only, and only the cases of WINDOWS_ONLY off Windows), and each line of ends that none of its lines matches. */
+export const outputProblems = (check, out, status, want, win, ends = []) => {
   const problems = [], lines = out.split(/\r?\n/);
   if (status !== 0) problems.push(`exit ${status}, not 0`);
   const green = lines.filter((l) => l === "VERDICT: GREEN").length;
@@ -68,6 +84,7 @@ export const outputProblems = (check, out, status, want, win) => {
   const skipped = lines.flatMap((l) => /^SKIP ([^:]+):/.exec(l)?.[1] ?? []);
   const expected = check === "guard_check.py" && !win ? WINDOWS_ONLY : [];
   if ([...skipped].sort().join() !== [...expected].sort().join()) problems.push(`skipped [${skipped.join(", ")}], [${expected.join(", ")}] wanted`);
+  problems.push(...ends.filter((re) => !lines.some((l) => re.test(l))).map((re) => `no line ${re}, which the check's own main writes after its checks`));
   return { problems: problems.map((p) => `${check}: ${p}`), skipped };
 };
 
@@ -82,14 +99,14 @@ function main() {
   try {
     const guard = readFileSync(join(repo, TOOL, "io_guard.py"), "utf8"), trees = treesOf(guard);
     form = formOf(guard);
-    problems.push(...accountProblems(trees, Object.fromEntries(trees.map((t) => [t, existsSync(join(repo, t))])), readdirSync(join(repo, TOOL)).filter((n) => n.endsWith("_check.py"))));
+    problems.push(...accountProblems(trees, Object.fromEntries(trees.map((t) => [t, existsSync(join(repo, t))])), readdirSync(join(repo, TOOL)).filter((n) => n.endsWith("_check.py")), steps(repo, "", win)));
   } catch (e) {
     problems.push(e.message);
   }
   const work = mkdtempSync(join(tmpdir(), "verifier-tool-ci-")), named = [];
-  for (const [check, script, args, want] of problems.length ? [] : steps(repo, work, win)) {
+  for (const [check, script, args, want, ends] of problems.length ? [] : steps(repo, work, win)) {
     const t = Date.now(), r = spawnSync("python", [...form, join(repo, script), ...args], { cwd: repo, encoding: "utf8", maxBuffer: 64 << 20, timeout: 300_000 });
-    const out = `${r.stdout ?? ""}${r.stderr ?? ""}`, judged = outputProblems(check, out, r.status ?? r.signal ?? r.error?.code, want, win);
+    const out = `${r.stdout ?? ""}${r.stderr ?? ""}`, judged = outputProblems(check, out, r.status ?? r.signal ?? r.error?.code, want, win, ends);
     console.log(`${out.trimEnd()}\n== ${check}: exit ${r.status}, ${Math.round((Date.now() - t) / 1000)} s (python ${form.join(" ")} ${script})`);
     for (const f of args.filter((a) => a.endsWith(".txt") && existsSync(a))) console.log(`   ${createHash("sha256").update(readFileSync(f)).digest("hex")}  ${f.slice(work.length + 1)}`);
     problems.push(...judged.problems);
