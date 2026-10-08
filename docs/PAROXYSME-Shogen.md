@@ -26,6 +26,8 @@
   (`date -u`) par la session PAROXYSME : §7 (doute 10), §8 (ligne PAROXYSME). Pli des décisions de l'après-#245 (#245 versée au tronc, fusion `1ae166c6` : ETAT
   l.546-551 à `565c7065`), le 2026-10-08 à partir de 07:41 UTC (`date -u`), par un worker de PAROXYSME (`claude-opus-5-5`, effort max) : sources : ETAT à
   `565c7065` et MSG3 (Bases, §8) ; parties touchées : en-tête, §1, N-06, N-07, N-08, §5, §7 (doute 15), §8.
+  Réparation n° 1 de ce pli, après deux vérificateurs adverses neufs, le 2026-10-08 à partir de 09:25 UTC (`date -u`), par un worker de
+  PAROXYSME (`claude-opus-5-5`, effort max) : source : ETAT à `565c7065` ; parties touchées : en-tête, L-01, N-14.
 - **Bases** : inventaire mesuré à `d8fe354c`, qui y lit aussi ETAT (empreinte `2ef6f107…`, INV-S l.19), et non à `57a131fc` comme ceux
   du Harnais et du Moteur. Toutes les ancres du tronc sont à la base `87b821b0` de `lot/etude-suite` (tête relue par `git ls-remote` le
   2026-10-07 à 17:07 UTC, message `d4b3d07` l.16-17). Le tronc a avancé depuis par les fusions #241 et #235, jusqu'à `eb1beb01`
@@ -122,7 +124,8 @@
 - **L-01** · « README « A price an application can defend… » face au témoin servi « demonstrative, not probative » ; la jointure dort. »
   source : `README.md:33` ; `packages/monark/src/adapter-shogen.ts:41` ; ADR-0028 D9 T0 l.222 · touche : `README.md:33`, `:95`, `:104` · nature : Dr/T
   item : PXC-02 PUBLIC-SENTENCES-2, noyau de la partie 1 (README l.33 aligné, PLAN l.664-665) ; PXC-08 SHOGEN-SEAM-1, partie 2 (jalon G2) ;
-    PX-Shogen-1 ; SHOGEN-VITRINE-MONARK-1 (ANB l.62) · porteur : PAROXYSME ; envoi du site et release du miroir : le fondateur
+    PX-Shogen-1 ; SHOGEN-VITRINE-MONARK-1 (ANB l.62) · porteur : PAROXYSME ; envoi du site : go donné par le fondateur le 2026-10-08
+    pour l'envoi qui suit O-1 et la lecture sur place d'I-G2-5 par MONARK (ETAT l.486-489 à `565c7065`) ; release du miroir : le fondateur
     · déclencheur : tâche 2 du TABLEAU (ADR de PXC-02, puis la PR du noyau ; F1) ; partie 2 de PXC-08 (F4)
   état : ouvert (aggravé : la jointure dort, INV-S l.77) · suite : « defend » ne redevient exact qu'au jalon G2 ou G9 (N-16)
 - **L-02** · « Table de la couture : appartenance exacte à une URL commise, alors que le vérificateur ne lie que l'hôte. »
@@ -406,7 +409,9 @@
   source : `apps/site/components/shogen-panel.tsx:50-52` ; `README.md:204-205` ; `docs/G0-lot-cm-2b-surfaces.md:66` (la liste (d) omet le
     panneau) · touche : `apps/site/components/shogen-panel.tsx:50-52` ; `README.md:205` · nature : Dr
   item : PXC-02 PUBLIC-SENTENCES-2, noyau de la partie 1 (PLAN l.664-665 : statut de l'exception ; « the seam is dormant ») · porteur :
-    PAROXYSME ; envoi du site et release du miroir : le fondateur · déclencheur : tâche 2 du TABLEAU (ADR, cp-1, validation, puis la PR ; F1)
+    PAROXYSME ; envoi du site : go donné par le fondateur le 2026-10-08 pour l'envoi qui suit O-1 et la lecture sur place d'I-G2-5 par
+    MONARK (ETAT l.486-489 à `565c7065`) ; release du miroir : le fondateur · déclencheur : tâche 2 du TABLEAU (ADR, cp-1, validation,
+    puis la PR ; F1)
   état : ouvert (nouvelle) · suite : correction vers moins de revendication, permise pendant l'exception (CL l.38-39 ; INV-S l.277)
 - **N-15** · « Blocs « Living proof » et « Traceability » du panneau, `upcoming` : limites de plateforme jamais routées. »
   source : `apps/site/components/shogen-panel.tsx:75-77`, `:95-97` ; FICHE l.225 (Q5) ; REG27 l.199, écart (8) · touche :

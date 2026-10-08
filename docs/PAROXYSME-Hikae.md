@@ -26,6 +26,8 @@
   06:04 UTC (`date -u`), par la session PAROXYSME : en-tête, §1, §8. Pli des décisions de l'après-#245 (#245 versée au tronc, fusion `1ae166c6` : ETAT l.546-551
   à `565c7065`), le 2026-10-08 à partir de 07:41 UTC (`date -u`), par un worker de PAROXYSME (`claude-opus-5-5`, effort max) : sources : ETAT à `565c7065` et
   MSG2 (Bases, §8) ; parties touchées : en-tête, §1, L2, L3, N6, N7, N8, N9, N12, N22, §7 (doutes 2, 5, 13, 16 et 17), §8.
+  Réparation n° 1 de ce pli, après deux vérificateurs adverses neufs, le 2026-10-08 à partir de 09:25 UTC (`date -u`), par un worker de
+  PAROXYSME (`claude-opus-5-5`, effort max) : sources : ETAT à `565c7065` et MSG2 ; parties touchées : en-tête, L6a, N16, §7 (doute 2), §8.
 - **Bases** : inventaire mesuré à `d8fe354c` ; il lit ETAT, `apps/harness/src/policy-guard.ts` et `docs/G7-lot-retire-path-ra.md` à
   `57a131fc` (INV l.9-13 ; §7, doute 6).
   Toutes les ancres de ce registre sont à la tête `87b821b0` de `lot/etude-suite`, reportées par l'outil `reanchor.mjs` (pièce de la
@@ -120,8 +122,9 @@
 - **L6a** · « `n_min` déclaré, non fondé, sur les lignes marginales (USDe 50, liq 100) ; fondé pour les classes kata (n0 dérivé de α et test_delta). »
   source : `apps/harness/src/class-policy.ts:24`, `:27` ; `apps/harness/src/kata-path.ts:61` ; 0004 l.76, l.97 ; C l.235, l.300-301 ·
     touche : HR:45-46 ; `README.md:34` · nature : T/D
-  item : PXC-09 partie 1 (campagne : fondement de `n_min` des lignes marginales ; F-W2-3, hors d'ETAT : à former) · porteur : PAROXYSME ·
-    déclencheur : partie 1 de PXC-09 (F3)
+  item : PXC-09 partie 1 (campagne : fondement de `n_min` des lignes marginales) ; F-W2-3, nommé à ETAT l.565 à `565c7065` sans y être
+    formé, à former à ETAT par la recartographie de PXC-01 partie 2 (ETAT l.564-566 à `565c7065` ; MSG2 l.28) · porteur : PAROXYSME ;
+    MONARK (ligne d'ETAT) · déclencheur : partie 1 de PXC-09 (F3) ; formation à ETAT : partie 2 de PXC-01 (F3)
   état : changé (fondé et imposé pour les classes kata, refus `policy_nmin_mismatch`) · suite : PX-Hikae-3 (volet marginal) ; n de liq : données
 - **L6b** · « α (0,45 ; 0,01) et test_delta 0,05 sont pré-enregistrés, non dérivés ; η ne vit que dans le tracker Narabi ; w = 15 min est caduc. »
   source : HR:45-46 ; `apps/sentinel/src/timeline.ts:20` ; 0004 l.50, l.74 ; C l.300-301 · touche : HR:45-46 · nature : T/D
@@ -357,7 +360,8 @@
 - **N16** · « Aucune option par calibration en BYO ni dans `calibrate` : la méthode y reste `split`. »
   source : `apps/harness/src/tools/calibrate.ts:116`, `:169-171` ; `apps/harness/src/tools/gate.ts:474`, `:496` ; C l.569 ; 0004 l.193 ·
     touche : description de `calibrate` · nature : C/T
-  item : PXC-09 partie 4 (BYO et `calibrate`) ; PXC-01 partie 2 (F-W2-1, hors d'ETAT : à re-former à ETAT) · porteur : PAROXYSME
+  item : PXC-09 partie 4 (BYO et `calibrate`) ; PXC-01 partie 2 (F-W2-1, nommé à ETAT l.565 à `565c7065` sans y être formé, à
+    re-former à ETAT par la recartographie de cette partie : ETAT l.564-566 à `565c7065` ; MSG2 l.28) · porteur : PAROXYSME
     (chantier) ; MONARK (ligne d'ETAT) · déclencheur : partie 4 de PXC-09 (F5) ; partie 2 de PXC-01 (F3)
   état : ouvert · suite : ligne d'attente datée (P-25) : ETAT l.270-273 à `5437cd0d` (PLAN l.617-618) ;
     déclencheur de 0004 : la première cellule par calibration (INV l.171)
@@ -498,11 +502,13 @@ les mêmes que HT-01 à HT-07 du registre du Harnais.
    E14-REASON-1, DATA-LICENCE-KATA-1). MONARK-SHOGEN-FRAICHEUR-1 n'est pas à former : il est formé au dépôt Shōgen (ADR-0028 annexe B
    l.148, porteur MONARK, `INVENTAIRE-Shogen.md` l.44), à transcrire (L16). Leurs entrées les portent par un chantier ; leur
    re-formation à ETAT, que MONARK écrit, passe par PXC-01 partie 2 pour ceux que sa fiche nomme (CC l.91-92, l.98-99 ; F3), sinon par
-   la partie qui les forme ; DATA-ACCORDS-TEXTS-1 et DATA-LICENCE-KATA-1 sont au fondateur (PLAN l.893, l.902), formés à ETAT le
+   la partie qui les forme ; F-W2-1 et F-W2-3, deux des douze items couvrants d'Ukemi, passent par la recartographie de PXC-01 partie 2,
+   une seule route, et ETAT les nomme depuis sans les former (ETAT l.564-566 à `565c7065` ; MSG2 l.28 ; L6a, N16) ;
+   DATA-ACCORDS-TEXTS-1 et DATA-LICENCE-KATA-1 sont au fondateur (PLAN l.893, l.902), formés à ETAT le
    2026-10-08 (ETAT l.559-562 à `565c7065` ; N22) ; la liste de
    PX-STD-ORPHAN-1 (PLAN l.541, l.897) n'en nomme aucun. Les items du plan cités ici (DATA-ACCORDS-TEXTS-1, CARTO-BR-2026-10-1,
    PX-IDENT-C0BIS-1, PX-STD-ORPHAN-1) sont formés par le PLAN (§7.3, l.896-902 : propriétaire MONARK, sauf DATA-ACCORDS-TEXTS-1, au
-   fondateur, l.902) et ne sont pas non plus à ETAT.
+   fondateur, l.902) et ne sont pas non plus à ETAT à `87b821b0` (DATA-ACCORDS-TEXTS-1 y est formé depuis : ETAT l.559-560 à `565c7065`).
 3. **Parties choisies par ce registre.** La fiche du chantier ne fixe pas la partie de L1 (+L24) (PXC-09 p3), L6a, L6b, L7, Q6, N5
    (PXC-09 p1, dont la sortie est une « synthèse à verdict par entrée », CC l.339), L13 et N3 (PXC-17 p1 D4 et p2), L18 (PXC-04 p5), L20
    et L22 (PXC-01 p2), N18 (PXC-16 p1 ou p3) : ce registre les place selon l'objet des parties ; l'ADR de chaque chantier les fixe.
@@ -604,7 +610,8 @@ du déclencheur de F-W2-4 est à MONARK (N6 ; doute 17) ; F-K-7 re-porté par sa
 DATA-LICENCE-KATA-1 formés (N22 ; doute 5). Go d'envoi du site donné par le fondateur (N12).
 PX-Hikae-1 à -11 restent à re-former à ETAT par PXC-01 p2 (N17) ; les autres items hors d'ETAT : §7, doute 2 (mesuré à `87b821b0` ;
 DATA-ACCORDS-TEXTS-1 et F-W2-4 nommés depuis à ETAT, non formés : ETAT l.56 et l.260 à `5437cd0d` ; à `565c7065`,
-DATA-ACCORDS-TEXTS-1 et DATA-LICENCE-KATA-1 formés : ETAT l.559-562).
+DATA-ACCORDS-TEXTS-1 et DATA-LICENCE-KATA-1 formés : ETAT l.559-562 ; F-W2-1 et F-W2-3 nommés, non formés, à former par la
+recartographie de PXC-01 partie 2 : ETAT l.564-566 à `565c7065`, MSG2 l.28 ; L6a, N16).
 
 | Source | Lignes | sha256 |
 |---|---|---|
