@@ -69,9 +69,11 @@ test("test_count_check_names_its_base_or_refuses", () => {
     writeFileSync(join(dir, RUN), counts(head));
     writeFileSync(join(dir, RECORD), recordText(head));
     writeFileSync(join(dir, REMOVALS), "[]\n");
+    git("add", RECORD, REMOVALS); git("commit", "-q", "-m", "the change, above the base as the CI's merge commit");
     // killer: scripts/test-count-check.mjs:46 CONST "if (!named) stop(3," -> "if (false) stop(3,"
     const [code, err] = gate([]);
     assert.deepEqual([code, err.startsWith("::error::no base:")], [3, true], err);
+    // killer: scripts/test-count-check.mjs:51 CONST "`${base}:${path}`" -> "`HEAD:${path}`"
     assert.deepEqual(gate([], { ORACLE_BASE: rec }), [1, `::error::${wants("b.test.ts", 3, 2)}`], "the drop since the record of ORACLE_BASE");
     // killer: scripts/test-count-check.mjs:44 CONST "stop(2, \"usage" -> "stop(0, \"usage"
     assert.equal(gate(["--base"])[0], 2, "--base without a value: the usage");
@@ -82,6 +84,10 @@ test("test_count_check_names_its_base_or_refuses", () => {
     assert.equal(gate([], { GITHUB_BASE_REF: "trunk", ORACLE_BASE: none })[0], 0, "GITHUB_BASE_REF before ORACLE_BASE: the drop has its line");
     // killer: scripts/test-count-check.mjs:45 CONST "argv[1] ?? " -> ""
     assert.equal(gate(["--base", none], { GITHUB_BASE_REF: "trunk" })[0], 1, "--base before GITHUB_BASE_REF: against a base without a record, the line names no drop");
+    // killer: scripts/test-count-check.mjs:56 CONST "...recordProblems(run, record), " -> ""
+    writeFileSync(join(dir, RUN), counts({ ...head, "b.test.ts": 1 }));
+    assert.deepEqual(gate([], { ORACLE_BASE: rec }), [1, `::error::b.test.ts: 1 test(s) run, 2 in ${RECORD}`], "P2 in the gate");
+    writeFileSync(join(dir, RUN), counts(head));
     // killer: scripts/test-count-check.mjs:55 CONST "text === recordText(record)" -> "true"
     writeFileSync(join(dir, RECORD), JSON.stringify(head));
     assert.deepEqual(gate([], { ORACLE_BASE: rec }), [1, `::error::${RECORD}: not in its written form (npm run test:main && node scripts/test-count-floor.mjs write)`], "a record outside its written form");
