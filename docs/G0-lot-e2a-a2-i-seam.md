@@ -21,7 +21,7 @@ RECHERCHES, 2026-10-07. Base : la tête de a1-ii, `375783289735e7d110c882a06c7d1
   sur place ; deux imports en fin de fichier), `apps/harness/test/gate-kata-served.test.ts`, et les appels de
   `apps/harness/test/gate-cell.test.ts`, `kata-path.test.ts`, `policy-row-schema-corpus.test.ts`, plus la liste du graphe servi de
   `policy-table-file.test.ts`.
-- **Ordre de fusion** : après a1-ii. Demande en brouillon, base `recherches/e2a-a1-ii-set-checks`.
+- **Ordre de fusion** : après a1-ii, au tronc (`8a1aabef`). Pas en brouillon ; base `lot/etude-suite` depuis le 2026-10-08 (§6).
 
 ## 1. Construction
 
@@ -53,15 +53,15 @@ RECHERCHES, 2026-10-07. Base : la tête de a1-ii, `375783289735e7d110c882a06c7d1
 
 | Test | Ce qu'il tient | Rouge à la base (a1-ii) | Tueur |
 |---|---|---|---|
-| T-3 `kata_tables_match_the_pins` (l.273) | les tables kata à lignes sont exactement les clés de `COMMITTED_TABLES` (l.279, pli) ; les tables servies passent avec les épingles servies ; une table marginale à lignes passe ; une table épinglée à son sha256 passe et sa ligne est servie (`policy_table_sha256`, `policy_row_sha256`) ; une ligne hors épingles, un autre sha256, une classe épinglée sans ligne, une épingle qui n'est pas une classe servie, une classe retenue à ligne même épinglée : refus nommés ; les cas de couture lisent les épingles servies, et la classe sans ligne est `eth-dir-4h`, retenue par le plancher (l.283-288, pli) : T-3 tient aux épingles vides, à celles de c et à celles de c′ (simulées, §3) ; la l.1042 entière (l.295), et les l.1074-1075 qui importent les noms qu'elle lit (l.296, pli), à l'octet | assertion : la fonction est absente | `apps/harness/src/kata-path.ts:125 CONST "held.some((c) => rows(c) > 0)" -> "false"` |
-| `no_kata_row_is_served_while_no_table_is_pinned` (l.303) | l'invariant « aucune ligne kata servie avant c » : `COMMITTED_TABLES` est `{}`, les 32 tables kata servies sont vides, et une ligne de bande (`btc-range-1h`, `btc-mae-down-1h`) ou de direction non retenue (`btc-dir-1h`) est refusée sans épingle ; ses l.307 et l.310 rougissent au lot c par construction (§5) | assertion : la fonction est absente | `apps/harness/src/kata-path.ts:127 CONST "off.length > 0" -> "false"` |
-| T-4 `committed_tables_reach_the_gate_through_the_seam` (l.325) | deux tables de synthèse (`btc-range-1h`, `btc-mae-down-1h`), projetées, admises par `guardKataTable`, écrites canoniquement et épinglées avec les deux listes retenues réelles, lues par `readCommittedTables` puis servies : `silence` ⇒ `abstain calib_silence` sans région, `region` ⇒ `commit covered` avec sa bande, chaque verdict porte sa ligne et le sha256 de son fichier, `honestyText` rend le texte de ligne et le suffixe | assertion : la fonction est absente | `apps/harness/src/kata-path.ts:118 CONST "committed.get(c.task_class) ?? buildPolicyTable(c, [])" -> "buildPolicyTable(c, [])"` |
+| T-3 `kata_tables_match_the_pins` (l.274) | les tables kata à lignes sont exactement les clés de `COMMITTED_TABLES` (l.280, pli) ; les tables servies passent avec les épingles servies ; une table marginale à lignes passe ; une table épinglée à son sha256 passe et sa ligne est servie (`policy_table_sha256`, `policy_row_sha256`) ; une ligne hors épingles, un autre sha256, une classe épinglée sans ligne, une épingle qui n'est pas une classe servie, une classe retenue à ligne même épinglée : refus nommés ; les cas de couture lisent les épingles servies, et la classe sans ligne est `eth-dir-4h`, retenue par le plancher (l.284-289, pli) : T-3 tient aux épingles vides, à celles de c et à celles de c′ (simulées, §3) ; la l.1042 entière (l.296), et les l.1074-1075 qui importent les noms qu'elle lit (l.297, pli), à l'octet | assertion : la fonction est absente | `apps/harness/src/kata-path.ts:125 CONST "held.some((c) => rows(c) > 0)" -> "false"` |
+| `no_kata_row_is_served_while_no_table_is_pinned` (l.304) | l'invariant « aucune ligne kata servie avant c » : `COMMITTED_TABLES` est `{}`, les 32 tables kata servies sont vides, et une ligne de bande (`btc-range-1h`, `btc-mae-down-1h`) ou de direction non retenue (`btc-dir-1h`) est refusée sans épingle ; ses l.308 et l.311 rougissent au lot c par construction (§5) | assertion : la fonction est absente | `apps/harness/src/kata-path.ts:127 CONST "off.length > 0" -> "false"` |
+| T-4 `committed_tables_reach_the_gate_through_the_seam` (l.326) | deux tables de synthèse (`btc-range-1h`, `btc-mae-down-1h`), projetées, admises par `guardKataTable`, écrites canoniquement et épinglées avec les deux listes retenues réelles, lues par `readCommittedTables` puis servies : `silence` ⇒ `abstain calib_silence` sans région, `region` ⇒ `commit covered` avec sa bande, chaque verdict porte sa ligne et le sha256 de son fichier, `honestyText` rend le texte de ligne et le suffixe | assertion : la fonction est absente | `apps/harness/src/kata-path.ts:118 CONST "committed.get(c.task_class) ?? buildPolicyTable(c, [])" -> "buildPolicyTable(c, [])"` |
 | `served_policy_modules_are_the_four_marginal_ones` (`policy-table-file.test.ts`) | le graphe servi compte les deux modules engagés | assertion : la liste diffère | inchangé : `apps/harness/src/policy-served.ts:12` |
 
-- **`withRow`** (l.238) bâtit une ligne fermée (une ligne de synthèse projetée, recléfée sur `DIR_KEY/up-b1`), sa table par
+- **`withRow`** (l.239) bâtit une ligne fermée (une ligne de synthèse projetée, recléfée sur `DIR_KEY/up-b1`), sa table par
   `buildPolicyTable`, et lit `policy_table_sha256` sur cette table : la table de couture peut ainsi être épinglée (T-3).
   `served_calib_row_abstains_never_defers`, qui l'utilise, reste vert.
-- **Les appels** : sept appels de test passent `new Map()` (`gate-cell.test.ts:80`, `kata-path.test.ts:159, 222, 283, 292, 302`,
+- **Les appels** : sept appels de test passent `new Map()` (`gate-cell.test.ts:80`, `kata-path.test.ts:160, 223, 284, 293, 303`,
   `policy-row-schema-corpus.test.ts:35`), le huitième est la l.1042. Ces cinq tests ne changent pas de comportement.
 
 ## 3. Preuves
@@ -148,3 +148,48 @@ RECHERCHES, 2026-10-07. Base : la tête de a1-ii, `375783289735e7d110c882a06c7d1
   - les l.307 et l.310 du test de l'invariant rougissent à c par construction : ce rouge est voulu, c'est le signal que P3-R-3 (2)
     est levé. **Le lot c réécrit ce test (ou le retire), avec la ligne datée qui lève P3-R-3 (2).** Même ligne au plan E-2a §6
     (`recherches`, ligne de T-3, qui porte désormais le lot c).
+
+## 6. Rafraîchissement sur le tronc (2026-10-08)
+
+- **Provenance** : worker `claude-opus-5-5`, effort: max, horloge lue (`date -u`) à 09:58 UTC ; worktree détaché neuf du scratchpad à
+  `4da02ad0`, `npm ci` (283 paquets) ; Node 24.21.0, Linux. Plie les notes 1, 4 et 5 de la G2 de l'adoption d'a1
+  (`recherches:coordination/pieces/2026-10-07-g2-recherches/G2-a1-adopt-246.json`, ACCEPTE, notes sans constat), qui visent cette demande.
+- **Base** : #233 et #236 sont au tronc (`8a1aabef`, fusion de la tête `ab8ea8d9` de #236 sur `aa10b424`, fusion de #233 sur
+  `20fffe9f`). La base que nommait la demande, `recherches/e2a-a1-ii-set-checks`, était déjà au tronc : la demande est reciblée sur
+  `lot/etude-suite` (relu en ligne : base.sha `8a1aabef`).
+- **Fusion** : `a7766cba` « Merge the trunk », parents `4da02ad0` et `8a1aabef`, arbre `e3c4ae05` (celui de `git merge-tree
+  --write-tree` des deux parents), sans conflit : git fusionne seul `gate-kata-served.test.ts` et `kata-path.test.ts`. Aucun fichier de
+  `apps/harness/src` ne change : les lignes de `gate.ts` et de `kata-path.ts` citées ici tiennent. La branche prend l'aide qui lit l'arbre
+  syntaxique (`apps/harness/test/helpers/import-specifiers.ts`, #246) et la seconde marche du graphe servi, qui appelle
+  `importSpecifiers` (`gate-kata-served.test.ts` l.21 et l.230). L'import de la l.21 descend d'une ligne tout ce qui suit dans ce fichier :
+  le §2 donne les lignes de la tête ; celles des §3 et §5, mesurées à `d2285ee2` et au pli, sont une ligne plus bas depuis cette fusion.
+  Aucun tueur ne change de texte (chacun des 1 700 de la tête a le texte d'un tueur du même fichier au tronc ou à `4da02ad0`) ; face à
+  `4da02ad0`, 14 commentaires de tueur de `gate-kata-served.test.ts` descendent d'une ligne avec leur test.
+- **Note 1** : `import-specifiers.ts:32` disait « 12 of the 22 served modules ». À la tête, le graphe servi compte 24 modules
+  (`policy-committed.ts` et `policy-committed-pins.ts` y entrent par `gate.ts` l.1074-1075), et `kata-path.test.ts` charge 18 modules de
+  `apps/harness/src`, dont 14 servis ; au tronc, 22, 16 et 12. Mesuré par un crochet de chargement préchargé dans le processus du test
+  (`registerHooks`, `--test-isolation=none`) et par la fermeture statique de ses imports de valeur, d'accord aux deux têtes ; la marche
+  par l'aide et une marche par regex donnent les mêmes 24 ; `gate-kata-served.test.ts` charge les 24. Réécrit en place en « 14 of the 24 »
+  (`6aff8205`) : même longueur, aucune ligne de l'aide ne bouge, aucun tueur non plus (ils visent ses l.36-57, 76 et 80).
+- **Notes 4 et 5** : l.24, la demande n'est pas un brouillon (draft false, relu en ligne) et sa base est le tronc ; l.64, les appels de
+  `kata-path.test.ts` sont aux l.160, 223, 284, 293 et 303 (relu à la tête ; la fusion de `4da02ad0` les avait déplacés, celle-ci non).
+- **Preuves**, à `6aff8205`, le code de la tête (ce pli ne change que ce fichier) :
+  - fichiers de test, chacun seul, drapeaux de `test:main` : `gate-cell` 8/8, `gate-kata-served` 14/14, `kata-path` 20/20,
+    `policy-row-schema-corpus` 1/1, `policy-table-file` 8/8, `policy-committed` 7/7, `verifiers-list` 12/12,
+    `every_killer_line_is_readable` 1/1 ;
+  - `verifie-ancres` (`--ref 4da02ad0 --ref 8a1aabef`) : 1 700 tueurs, 1 700 ancrés, 0 dérivé, 0 perdu ; les fichiers changés contre le
+    tronc, 58 sur 58 ;
+  - `scripts/mutants/run.mjs --killers --base 8a1aabef`, les 58 tueurs des cinq fichiers de test changés : 56 tués par assertion au
+    premier lancement. Les deux autres sont ceux que le corps de la demande déclare déjà : `policy-marginal.ts:44`, tueur de
+    `served_values_equal_the_admitted_row` (test du tronc que la demande ne change pas), laisse son test vert, au tronc aussi (rejoué à la
+    main à `8a1aabef`), et 20 autres tests le tuent au rejeu ; `kata-path.ts:118`, tueur de T-4, rougit T-4 par la levée du fil-piège,
+    non par une assertion (« non conclu »). Le tueur de `gate.ts:62` (`kata_path_is_served`) tue désormais par assertion : la marche de
+    #246 asserte l'existence du fichier (`kata-path.test.ts:335`) ;
+  - red-proof `--base 8a1aabef --gel HEAD --draw 4 --seed 1007` à `6aff8205` : « 9 judged, 42 unchanged, 4 killer(s) drawn », les quatre F2P
+    rouges au tronc par `assert-fail`, les quatre tueurs tirés tués (`policy-served.ts:12`, `kata-path.ts:127`, `kata-path.ts:118` par
+    `other-fail`, `kata-path.ts:125`) ; sortie 1, attendue et déclarée comme au §3 : les cinq tests dont seul l'appel change sont refusés,
+    « green at base » ;
+  - `tsc --noEmit` 0 ; `eslint` 0 sur les 8 fichiers touchés ; `gate:vocab` 0 (351 fichiers) ; `lang:gate` 0 ; `lint:ratchet` 69/69 ;
+    `export:check` 0 ; winlint `--base 8a1aabef` : 9 fichiers, aucun risque Windows ; `git diff --check` propre.
+- **Taille** : R-25, forme de la CI, contre le tronc : **170** (8 fichiers, 132 insertions, 38 suppressions) ; 168 avant la l.32 de
+  l'aide, comme au §4 (7 fichiers, 131 et 37) ; la CI de `6aff8205` lit 170.
