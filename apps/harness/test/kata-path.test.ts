@@ -20,7 +20,7 @@ import { buildPolicyTable } from "../src/policy-table-file.ts";
 import { toolErrorCode, type HarnessParams } from "../src/tools/gate.ts";
 import * as gate from "../src/tools/gate.ts";
 import { codeLines } from "./helpers/code-lines.ts";
-import { forbiddenLoads } from "./helpers/import-specifiers.ts";
+import { forbiddenLoads, importSpecifiers } from "./helpers/import-specifiers.ts";
 import { syntheticRegistry } from "./helpers/synthetic-registry.ts";
 
 const SYN = syntheticRegistry();
@@ -316,9 +316,15 @@ test("guard_thresholds_agree_per_side", () => {
 });
 
 const SRC = join(dirname(fileURLToPath(import.meta.url)), "..", "src");
+/** The built-in modules and packages that a served module may import, exact (MONARK's decision of 2026-10-07 on finding m-3 of the review
+ *  of this walk): the walk refuses any other specifier but a relative one, so that no loader of Node (node:module, node:worker_threads,
+ *  node:vm, node:child_process) is served. An entry is added by the change that needs it, with its reason written in that change's G0. */
+const SERVED_IMPORTS = new Set(["node:crypto", "node:fs", "node:http", "node:path", "node:stream", "node:url", "@modelcontextprotocol/server",
+  "@monark/contracts", "@monark/hikae", "@monark/monark", "@monark/ukemi"]);
 /** The served import graph: the modules reached by a relative import from the entry points and the tools, each text given by read (the
  *  file itself, or a copy that a test hands in). The walk stops by assertion on a relative specifier that names no file (a query suffix,
- *  which Node loads as the same module, names none) and on a served module in which forbiddenLoads names a load (SERVED-WALK-LOADS-1). */
+ *  which Node loads as the same module, names none), on a served module in which forbiddenLoads names a load (SERVED-WALK-LOADS-1) and on
+ *  one that imports a module outside SERVED_IMPORTS. */
 function servedModules(read = (file: string): string => readFileSync(file, "utf8")): Set<string> {
   const seen = new Set<string>();
   const walk = (file: string): void => {
@@ -327,6 +333,7 @@ function servedModules(read = (file: string): string => readFileSync(file, "utf8
     assert.ok(existsSync(file), `${file}: a relative specifier that names no file`);
     const text = read(file);
     assert.deepEqual(forbiddenLoads(text), [], `${file}: a load that no specifier shows, as forbiddenLoads reads it`);
+    assert.deepEqual(importSpecifiers(text).filter((s) => !/^\.{1,2}\//.test(s) && !SERVED_IMPORTS.has(s)), [], `${file}: an import outside SERVED_IMPORTS`);
     for (const m of text.matchAll(/(?:from|import)\s*\(?\s*"(\.{1,2}\/[^"]+)"/g)) walk(join(dirname(file), m[1] as string));
   };
   for (const f of ["server.ts", "http.ts", "openapi.ts", "schema-projection.ts", ...readdirSync(join(SRC, "tools")).map((t) => `tools/${t}`)]) walk(join(SRC, f));
@@ -367,6 +374,7 @@ test("served_walk_refuses_a_load_that_no_specifier_shows", () => {
 // no built-in module or package outside SERVED_IMPORTS. Each form below names no load that forbiddenLoads reads; added to kata-path.ts, each
 // passed the walk and every test that imports that module (the review): a resolve hook of node:module that sends an import to the guard
 // (K-hooks), a Worker of the guard that inherits no flag (K-worker2), createRequire of the guard in a text that node:vm runs (K-vm2)
+// killer: apps/harness/src/kata-path.ts:15 CONST "from \"./tools/gate.ts\";" -> "from \"./tools/gate.ts\"; import { registerHooks } from \"node:module\"; registerHooks({ resolve: (s, c, next) => next(s === \"./version.ts\" ? \"./policy-guard.ts\" : s, c) }); void import(\"./version.ts\");"
 test("served_walk_refuses_an_import_outside_its_closed_list", () => {
   const kata = join(SRC, "kata-path.ts"), text = readFileSync(kata, "utf8");
   const copies: [string, string, string][] = [
@@ -374,6 +382,8 @@ test("served_walk_refuses_an_import_outside_its_closed_list", () => {
     ["K-worker2", 'import { Worker } from "node:worker_threads";\nvoid new Worker(new URL("./policy-guard.ts", import.meta.url), { execArgv: [] });', "node:worker_threads"],
     ["K-vm2", 'import { runInThisContext } from "node:vm";\nconst guardPath = new URL("./policy-guard.ts", import.meta.url).pathname;\nrunInThisContext(`process.getBuiltinModule("node:module").createRequire(${JSON.stringify(guardPath)})(${JSON.stringify(guardPath)})`);', "node:vm"],
   ];
+  // killer: apps/harness/src/kata-path.ts:15 CONST "from \"./tools/gate.ts\";" -> "from \"./tools/gate.ts\"; import { Worker } from \"node:worker_threads\"; void new Worker(new URL(\"./policy-guard.ts\", import.meta.url), { execArgv: [] });"
+  // killer: apps/harness/src/kata-path.ts:15 CONST "from \"./tools/gate.ts\";" -> "from \"./tools/gate.ts\"; import { runInThisContext } from \"node:vm\"; const guardPath = import.meta.dirname + \"/policy-guard.ts\"; runInThisContext(`process.getBuiltinModule(\"node:module\").createRequire(${JSON.stringify(guardPath)})(${JSON.stringify(guardPath)})`);"
   for (const [id, lines, outside] of copies) {
     const copy = `${lines}\n${text}`;
     assert.deepEqual(forbiddenLoads(copy), [], `${id}: forbiddenLoads names no load in the copy`);

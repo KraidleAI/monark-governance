@@ -20,10 +20,10 @@
  * --import, and registerHooks() and register() of node:module, each of which runs a module or code it is handed, or redirects later loads.
  * A scanned module reaches them by an import, which the specifier list that its test asserts shows (node:module, node:worker_threads,
  * node:vm and node:child_process are not in it), by a load that forbiddenLoads names, or by a name built at run time (the limit below; a
- * key built at run time on process does not compile without a cast). The served-graph walk asserts no specifier list, only forbiddenLoads:
- * a served module that imports one of them passes it, and no item names that limit yet. This header once said "closed only by the specifier
- * list": false under the token scanner, which missed an import of node:vm between two regular expressions holding a backtick (added to
- * policy-verifiers.ts, it passed the check: the same review). A module that needs one of them needs a rule aimed at it.
+ * key built at run time on process does not compile without a cast). The served-graph walk (kata-path.test.ts) refuses any non-relative
+ * specifier outside SERVED_IMPORTS, its closed list: there these loaders are refused, not merely unchecked. This header once said "closed
+ * only by the specifier list": false under the token scanner, which missed an import of node:vm between two regular expressions holding a
+ * backtick (added to policy-verifiers.ts, it passed the check: the same review). A module that needs one of them needs a rule aimed at it.
  * Limit, item IMPORT-AST-RUNTIME-NAME-1: a name built at run time from anything but literals (a variable, a join, a character code) is not
  * read; reading it would mean running the code. Refusing the form instead was measured on the scanned tree (review of 2026-10-07): a
  * computed key that is not a constant, on process, globalThis, global, Reflect, module, require, this, eval or Function, finds no false
