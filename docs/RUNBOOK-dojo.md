@@ -562,14 +562,14 @@ Expected: `known=SHA256:<fingerprint> scanned=SHA256:<the same>`, then `$N ED255
 `STOP`, nothing copied: an entry under the name already (a replay: `ssh-keygen -F "$N" -l` and `ssh-keygen -F '<address>'
 -l` read; the same ED25519 fingerprint: done; another one: escalation, never an entry removed to make room), no single ED25519 entry known
 for the address, a scanned key that differs (another host answers the name: the name's A record (RUNBOOK-bell step 7, or RUNBOOK-harness §0) read again), no answer,
-or a `known_hosts` that does not end with a newline. Then the first command by the name, which `BatchMode` makes fail rather than ask:
+or a `known_hosts` that does not end with a newline. Then, in the same shell (it reads `N`), the first command by the name, which `BatchMode` makes fail rather than ask:
 
 ```bash
-ssh -o BatchMode=yes -i ~/.ssh/monark_vps root@"$N" 'hostname'; echo exit=$?
+echo "N=$N"; ssh -o BatchMode=yes -i ~/.ssh/monark_vps root@"$N" 'hostname'; echo exit=$?
 ```
 
-Expected: the host's own name (`bell` for Bell), then `exit=0`. **STOP** on `Host key verification failed.` or any other output. Rollback (the entries under the name
-only; the file before is kept as `known_hosts.old`): `ssh-keygen -R "$N" -f ~/.ssh/known_hosts`.
+Expected: `N=` and the name of this run, then the host's own name (`bell` for Bell), then `exit=0`. **STOP** on another name after `N=` (a value left in the shell by the other host's run),
+on `Host key verification failed.` or any other output. Rollback (the entries under the name printed after `N=` only; the file before is kept as `known_hosts.old`): `ssh-keygen -R "$N" -f ~/.ssh/known_hosts`.
 
 (1) Bell and the probe (`c10`), digests only: `bell-before.sha` BEFORE the acts the check covers (for CA-0: before the next act of the
 publication side on the host; for CA-1: right before A-6, section 21), then the same command into `bell-after.sha` at the check:
