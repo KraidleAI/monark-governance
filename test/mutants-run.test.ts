@@ -13,6 +13,8 @@
  * Corrections of the lot (after its G2): the G2's measured killers of its 28 survivors (each test names its mutants, G02 to G39 of the G2 table),
  * fk/ (a fake TypeScript that hangs, exits 1 without a diagnostic line or reports an error: D-2, D-3), the memory read again under the lock (D-4),
  * to/ (a time overrun, never replayed: D-5) and a held host lock waited for in its queue, never refused at launch (D-6).
+ * One table of verdicts, a case per row (MUTANTS-SKIPPED-NOT-KILLED-1, MUTANTS-REPLAY-PROMOTE-1, MUTANTS-BASELINE-UNREPORTED-1): sk/ (a red hook under a skipped,
+ * a green and a red named test), pb/ (a pile, a body, a line below a one-line test), pl/ (preloads), bc/ and bn/ (the test count record), pr/ (cut reports, replays).
  */
 import { after, test } from "node:test";
 import assert from "node:assert/strict";
@@ -148,7 +150,7 @@ function fk(): { dir: string; base: string } { // fk/: a typecheck gate under th
   return FKR;
 }
 
-// killer: scripts/mutants/run.mjs:215 CONST "classify(e) === \"assert-fail\"" -> "classify(e) !== \"pass\""
+// killer: scripts/mutants/run.mjs:241 CONST "classify(e) === \"assert-fail\"" -> "classify(e) !== \"pass\""
 test("mutants_kill_is_an_assertion_failure_of_a_top_level_test", () => {
   const r = campaign(), t1 = row(r, "T1");
   assert.equal(r.status, 1, r.stderr);
@@ -156,14 +158,14 @@ test("mutants_kill_is_an_assertion_failure_of_a_top_level_test", () => {
   assert.deepEqual(["N1", "X1"].map((id) => row(r, id)?.status), ["non conclu", "non conclu"]);
 });
 
-// killer: scripts/mutants/run.mjs:215 CONST "\"assert-fail\"" -> "\"inconclusive\""
+// killer: scripts/mutants/run.mjs:241 CONST "\"assert-fail\"" -> "\"inconclusive\""
 test("mutants_dead_child_is_non_conclu_never_killed", () => {
   const r = campaign(), n1 = row(r, "N1"), tap = join(r.out, "tap", "N1.tap");
   assert.deepEqual([n1?.status, n1?.strict, n1?.fails.length, n1?.oks, existsSync(tap)], ["non conclu", false, 1, 0, true]);
   assert.match(readFileSync(tap, "utf8"), /exitCode: 134/);
 });
 
-// killer: scripts/mutants/run.mjs:268 CONST "writeFileSync(p, orig)" -> "void orig"
+// killer: scripts/mutants/run.mjs:306 CONST "writeFileSync(p, orig)" -> "void orig"
 test("mutants_restore_each_mutated_file_to_the_byte", () => {
   const r = campaign(), s = sha(M), ran = r.rec?.results.filter((x) => x.sha_before !== null) ?? [], p = join(r.out, "clone", "lib", "m.mjs");
   assert.deepEqual(ran.map((x) => [x.id, x.sha_before, x.sha_after]), ["T1", "S1", "N1", "X1", "K1"].map((id) => [id, s, s]));
@@ -171,7 +173,7 @@ test("mutants_restore_each_mutated_file_to_the_byte", () => {
   assert.deepEqual(["lib/old.mjs", "test/b.test.ts"].map((q) => existsSync(join(r.out, "clone", q))), [false, true]); // the tree's deletion and untracked file
 });
 
-// killer: scripts/mutants/run.mjs:114 ROR "l.split(e.before).length !== 2" -> "l.split(e.before).length < 2"
+// killer: scripts/mutants/run.mjs:131 ROR "l.split(e.before).length !== 2" -> "l.split(e.before).length < 2"
 test("mutants_anchor_absent_or_twice_on_its_line_is_lost_counted_never_applied", () => {
   const r = campaign();
   assert.deepEqual(["A1", "A2"].map((id) => [row(r, id)?.status, row(r, id)?.sha_before, existsSync(join(r.out, "tap", `${id}.tap`))]), [["anchor-lost", null, false], ["anchor-lost", null, false]]);
@@ -189,7 +191,7 @@ const heldOwners = ahead(() => { // the six owners side by side, each on its loc
     return { owner, code, o, r: await runAsync(["--base", f.base, "--table", t, "--wait-ms", "1000", "--poll-ms", "100"], { lock }) }; // waited 1 s at BASELINE
   }));
 });
-// killer: scripts/mutants/run.mjs:232 CONST "{ stop: \"verrou\", waited_ms" -> "{ stop: \"memoire\", waited_ms"
+// killer: scripts/mutants/run.mjs:269 CONST "{ stop: \"verrou\", waited_ms" -> "{ stop: \"memoire\", waited_ms"
 test("mutants_wait_for_a_held_oracle_lock_in_its_queue_never_take_a_live_one_and_stop_by_name", async () => {
   for (const { owner, code, o, r } of await heldOwners()) {
     const s = r.rec?.stop, held = code === 4;
@@ -198,14 +200,14 @@ test("mutants_wait_for_a_held_oracle_lock_in_its_queue_never_take_a_live_one_and
   }
 });
 
-// killer: scripts/mutants/run.mjs:206 CONST "< o.minFree" -> "< 0"
+// killer: scripts/mutants/run.mjs:230 CONST "< o.minFree" -> "< 0"
 test("mutants_short_memory_past_the_bound_stops_by_name_running_nothing", () => {
   const r = run(["--base", fixture().base, "--table", table("one.json", [T1]), "--min-free-mb", "999999999", "--wait-ms", "300", "--poll-ms", "50"]), taps = join(r.out, "tap"), s = r.rec?.stop;
   assert.deepEqual([r.status, r.rec?.results, r.rec?.baseline, r.rec?.min_free_mb, s?.reason, s?.at, s?.not_run], [4, [], null, 999999999, "memoire", "BASELINE", ["T1"]], r.stderr);
   assert.deepEqual([existsSync(taps) ? readdirSync(taps) : null, (s?.waited_ms ?? 0) >= 300, /^# stop memoire at BASELINE /m.test(r.stdout)], [[], true, true]); // D-3: polled to its bound
 });
 
-// killer: scripts/mutants/run.mjs:90 CONST "stack.push(...deps(f))" -> "void deps(f)"
+// killer: scripts/mutants/run.mjs:107 CONST "stack.push(...deps(f))" -> "void deps(f)"
 test("mutants_targets_follow_the_transitive_import_closure", () => {
   const f = fixture(), g = ["test/*.test.ts"];
   assert.deepEqual(targetsOf(f.dir, "lib/m.mjs", g), { direct: ["test/a.test.ts"], transitive: ["test/c.test.ts"] });
@@ -213,7 +215,7 @@ test("mutants_targets_follow_the_transitive_import_closure", () => {
   assert.deepEqual(row(campaign(), "T1")?.targets, ["test/a.test.ts", "test/c.test.ts", "test/b.test.ts"]); // --targets: b added, a not twice (Q-G2-3)
 });
 
-// killer: scripts/mutants/run.mjs:86 CONST "m[1] ?? m[2]" -> "m[1]"
+// killer: scripts/mutants/run.mjs:103 CONST "m[1] ?? m[2]" -> "m[1]"
 test("mutants_targets_follow_export_from_literal_import_calls_tsx_cts_mts_cjs", () => {
   const g = join(fixture().root, "graph"), imp = (p: string): string => `import "../lib/${p}";\n`, t = (file: string): unknown => targetsOf(g, file, ["test/*.test.ts"]);
   write(g, { "lib/goal.mjs": "export const a = 1;\n", "lib/star.mts": 'export * from "./goal.mjs";\n', "lib/named.cts": "export {\n  a as b,\n} from './goal.mjs';\n", "lib/v.tsx": 'import { a } from "./goal";\n',
@@ -222,7 +224,7 @@ test("mutants_targets_follow_export_from_literal_import_calls_tsx_cts_mts_cjs", 
   assert.deepEqual([t("lib/goal.mjs"), t("lib/w.cjs")], [{ direct: ["test/dyn.test.ts"], transitive: ["test/named.test.ts", "test/star.test.ts", "test/tsx.test.ts"] }, { direct: ["test/cjs.test.ts"], transitive: [] }]);
 });
 
-// killer: scripts/mutants/run.mjs:143 CONST "existsSync(clone)" -> "false"
+// killer: scripts/mutants/run.mjs:160 CONST "existsSync(clone)" -> "false"
 test("mutants_second_launch_on_one_out_is_refused", () => {
   const args = ["--base", fixture().gel, "--table", table("nofile.json", [BARE])], one = run(args), rec = join(one.out, "RESULTS.json");
   assert.deepEqual([one.status, row(one, "T1")?.file, row(one, "T1")?.status, existsSync(rec)], [0, "lib/m.mjs", "tue", true], one.stderr); // the one code file of gel..tree
@@ -230,14 +232,14 @@ test("mutants_second_launch_on_one_out_is_refused", () => {
   assert.deepEqual([two.status, /one launch per clone/.test(two.stderr), sha(readFileSync(rec))], [2, true, before], two.stderr);
 });
 
-// killer: scripts/mutants/run.mjs:157 CONST "r.file ?? o.file ?? code[0]" -> "r.file ?? code[0]"
+// killer: scripts/mutants/run.mjs:174 CONST "r.file ?? o.file ?? code[0]" -> "r.file ?? code[0]"
 test("mutants_row_without_file_takes_file_else_ambiguous_file_exit_2", () => {
   const f = fixture(), t = table("nofile.json", [BARE]), amb = run(["--base", f.base, "--table", t]), named = run(["--base", f.base, "--table", t, "--file", "lib/m.mjs"]);
   assert.deepEqual([amb.status, /ambiguous file/.test(amb.stderr), existsSync(join(amb.out, "clone"))], [2, true, false], amb.stderr); // base..tree: four code files
   assert.deepEqual([named.status, row(named, "T1")?.file, row(named, "T1")?.status], [0, "lib/m.mjs", "tue"], named.stderr);
 });
 
-// killer: scripts/mutants/run.mjs:267 CONST "first.status === \"survit\" || " -> ""
+// killer: scripts/mutants/run.mjs:304 CONST "first.status === \"survit\" || " -> ""
 test("mutants_survivor_is_replayed_on_every_target_file_whole", () => {
   const r = campaign(), s1 = row(r, "S1");
   assert.deepEqual([s1?.status, s1?.oks, s1?.replay?.files, s1?.replay?.status, s1?.replay?.oks],
@@ -245,19 +247,19 @@ test("mutants_survivor_is_replayed_on_every_target_file_whole", () => {
   assert.ok(existsSync(join(r.out, "tap", "S1.replay.tap")));
 });
 
-// killer: scripts/mutants/run.mjs:288 CONST "r.status === \"tue\"" -> "r.status !== \"anchor-lost\""
+// killer: scripts/mutants/run.mjs:328 CONST "r.status === \"tue\"" -> "r.status !== \"anchor-lost\""
 test("mutants_one_survivor_exits_1_with_its_record_written", () => {
   const r = run(["--base", fixture().base, "--table", table("ts.json", ROWS.slice(0, 2))]);
   assert.deepEqual([r.status, r.rec?.exit, r.rec?.counts, r.rec?.results.map((x) => [x.id, x.status])], [1, 1, { tue: 1, survit: 1 }, [["T1", "tue"], ["S1", "survit"]]], r.stderr);
 });
 
-// killer: scripts/mutants/run.mjs:261 CONST "row.sha_before !== sha0[m.file]" -> "false"
+// killer: scripts/mutants/run.mjs:298 CONST "row.sha_before !== sha0[m.file]" -> "false"
 test("mutants_a_file_changed_since_the_start_stops_the_campaign_exit_3", () => {
   const r = run(["--base", fixture().base, "--table", table("w.json", [{ id: "W1", file: "lib/w.mjs", line: 1, op: "CONST", before: "1", after: "2", why: "its test rewrites it" }])]);
   assert.deepEqual([r.status, r.rec?.exit, row(r, "W1")?.status, row(r, "W1")?.note], [3, 3, "non conclu", "the file is not in its initial state"], r.stderr);
 });
 
-// killer: scripts/mutants/run.mjs:263 CONST "(m.typecheck ? bt : b)?.status !== \"vert\"" -> "false"
+// killer: scripts/mutants/run.mjs:300 CONST "(m.typecheck ? bt : b)?.status !== \"vert\"" -> "false"
 test("mutants_without_target_are_refused_and_a_red_baseline_runs_no_mutant", () => {
   const f = fixture(), t = table("lone.json", [{ id: "L1", file: "lib/lone.mjs", line: 1, op: "CONST", before: "1", after: "2", why: "no importer" }]);
   const none = run(["--base", f.base, "--table", t]), red = run(["--base", f.base, "--table", t, "--targets", "test/r.test.ts"]);
@@ -265,21 +267,104 @@ test("mutants_without_target_are_refused_and_a_red_baseline_runs_no_mutant", () 
   assert.deepEqual([red.status, red.rec?.baseline?.status, row(red, "L1")?.status, row(red, "L1")?.targets], [1, "rouge", "non conclu (base)", ["test/r.test.ts"]], red.stderr);
 });
 
-// killer: scripts/mutants/run.mjs:164 CONST "test: d ? str(d[1]) : undefined" -> "test: undefined"
+// killer: scripts/mutants/run.mjs:186 CONST "test: d ? str(d[1]) : undefined" -> "test: undefined"
 test("mutants_killer_lines_become_intent_mutants_run_alone", () => {
   const k1 = row(campaign(), "K1");
   assert.deepEqual([k1?.origin, k1?.file, k1?.line, k1?.op, k1?.why, k1?.test, k1?.status, k1?.fails, k1?.oks], ["killer", "lib/m.mjs", 1, "ROR", "killer of pos_zero", "pos_zero", "tue", ["pos_zero"], 0]);
 });
 
-// killer: scripts/mutants/run.mjs:296 CONST "sha256: sha(body)" -> "sha256: sha(`${body} `)"
+const SK = { "lib/k.mjs": "export const RELEASED = true;\nexport const OTHER = 1;\n", "test/k.test.ts": 'import { after, describe, test } from "node:test";\nimport assert from "node:assert/strict";\n' +
+  'import { OTHER, RELEASED } from "../lib/k.mjs";\nafter(() => { assert.equal(RELEASED, true); });\n' + // the file's hook, red by assertion under K1 to K3 whichever test runs
+  '// killer: lib/k.mjs:1 CONST "true" -> "false"\ntest("k_skipped", { skip: "forced" }, () => { assert.equal(RELEASED, true); });\n' + // K1: skipped, as a win32 skip
+  '// killer: lib/k.mjs:1 CONST "true" -> "false"\ntest("k_green", () => { assert.equal(typeof RELEASED, "boolean"); });\n' + // K2: green under its mutation
+  '// killer: lib/k.mjs:1 CONST "true" -> "false"\ntest("k_named", () => { assert.equal(RELEASED, true); });\n' + // K3: red by assertion, a kill
+  '// killer: lib/k.mjs:2 CONST "1" -> "2"\ntest("k_twice", { skip: "forced" }, () => { assert.equal(OTHER, 1); });\n' + // K4: skipped, and only green entries
+  'describe("k_box", () => { test("k_twice", () => { assert.equal(typeof OTHER, "number"); }); });\n' + // run by the pattern, a top-level entry of another name
+  '// killer: lib/k.mjs:2 CONST "= 1;" -> "= ;"\ntest("k_loaded", () => { assert.equal(OTHER, 1); });\n' + // K5: a syntax error, the file red before any test
+  '// killer: lib/k.mjs:1 CONST "true" -> "false"\ntest("k_throws", () => { if (!RELEASED) throw new TypeError("not released"); });\n' }; // K6: red without an assertion
+let SKR: Run | undefined;
+const sk = (): Run => (SKR ??= ((m) => run(["--repo", m.dir, "--base", m.base, "--killers"]))(mini("sk", SK)));
+// killer: scripts/mutants/run.mjs:241 CONST "own.length === 0 ? \"survit\"" -> "bad.length === 0 ? \"survit\""
+test("mutants_a_named_test_skipped_is_non_conclu_and_green_survives_never_killed_by_a_red_elsewhere", () => { // MUTANTS-SKIPPED-NOT-KILLED-1
+  const r = sk(), get = (id: string): unknown[] => [row(r, id)?.status, row(r, id)?.note];
+  assert.deepEqual([r.status, r.rec?.baseline?.status, ...["K1", "K2", "K3", "K4", "K5"].map((id) => row(r, id)?.test)], [1, "vert", "k_skipped", "k_green", "k_named", "k_twice", "k_loaded"], r.stderr);
+  assert.deepEqual([get("K1"), get("K2"), get("K3"), get("K4"), get("K5")], [["non conclu", "the named test is skipped"], ["survit", "red outside the named test only"],
+    ["tue", null], ["non conclu", "the named test is skipped"], ["non conclu", "the named test has no entry"]]); // K2: the hook red, its named test green
+  assert.deepEqual([row(r, "K3")?.fails.includes("k_named"), row(r, "K4")?.oks, ...["K1", "K2", "K4"].map((id) => [row(r, id)?.replay?.status, row(r, id)?.replay?.named_kill])],
+    [true, 1, ["tue", false], ["tue", false], ["tue", false]]); // each replay red by the hook, never by the named test: no first run lost, nothing promoted
+});
+
+// killer: scripts/mutants/run.mjs:241 CONST "own.some(" -> "bad.some("
+test("mutants_a_named_test_red_without_an_assertion_is_non_conclu_under_a_hook_red_by_one", () => { // MUTANTS-SKIPPED-NOT-KILLED-1
+  const r = sk(), k6 = row(r, "K6");
+  assert.deepEqual([k6?.test, k6?.status, k6?.note, k6?.fails.includes("k_throws"), k6?.fails.length, k6?.replay?.named_kill], ["k_throws", "non conclu", null, true, 2, false], r.stderr);
+});
+
+// MUTANTS-SKIPPED-NOT-KILLED-1, the named test of a killer line: pb/, a pile of two lines above b_pile (K1, K2), a line in the body of b_body (K3), and a line
+// below the one-line test b_other with a blank line under it (K4). K1's mutation reddens b_other only, never b_pile (the case of a pile's upper line).
+const PB = { "lib/b.mjs": "export const A = 1;\nexport const B = 1;\nexport const C = 1;\n", "test/b.test.ts": `${HEAD}import { A, B, C } from "../lib/b.mjs";\n` +
+  '// killer: lib/b.mjs:2 CONST "B = 1" -> "B = 2"\n// killer: lib/b.mjs:1 CONST "A = 1" -> "A = 2"\ntest("b_pile", () => { assert.equal(A, 1); });\n' +
+  'test("b_body", () => {\n  // killer: lib/b.mjs:3 CONST "C = 1" -> "C = 2"\n  assert.equal(C, 1);\n});\ntest("b_other", () => { assert.deepEqual([B, C], [1, 1]); });\n' +
+  '// killer: lib/b.mjs:2 CONST "B = 1" -> "B = 3"\n\ntest("b_last", () => { assert.ok(true); });\n' };
+let PBR: Run | undefined;
+const pb = (): Run => (PBR ??= ((m) => run(["--repo", m.dir, "--base", m.base, "--killers"]))(mini("pb", PB)));
+const ofK = (r: Run, id: string): unknown[] => [row(r, id)?.test, row(r, id)?.status, row(r, id)?.note];
+
+// killer: scripts/mutants/run.mjs:183 CONST "!== null) j++" -> "!== null) break"
+test("mutants_a_pile_line_runs_the_test_below_its_pile_and_survives_a_red_elsewhere", () => {
+  const r = pb();
+  assert.deepEqual([r.status, r.rec?.baseline?.status, ofK(r, "K1"), ofK(r, "K2"), row(r, "K1")?.replay?.status], [1, "vert", ["b_pile", "survit", null], ["b_pile", "tue", null], "tue"], r.stderr);
+});
+
+// killer: scripts/mutants/run.mjs:185 CONST "d === null && u >= 0" -> "false && u >= 0"
+// killer: scripts/mutants/run.mjs:185 CONST "? null : decl(lines[u])" -> "? decl(lines[u]) : decl(lines[u])"
+test("mutants_a_body_line_names_the_test_that_encloses_it_and_a_line_below_a_one_line_test_names_none", () => { // one rule, the search up, and its stop
+  const r = pb(); // K3 runs b_body alone; K4 stops at b_other, closed on its line, and runs test/b.test.ts whole
+  assert.deepEqual([ofK(r, "K3"), row(r, "K3")?.fails, ofK(r, "K4"), row(r, "K4")?.why, row(r, "K4")?.fails],
+    [["b_body", "tue", null], ["b_body"], [null, "tue", null], "killer of test/b.test.ts:12", ["b_other"]], r.stderr);
+});
+
+// MUTANTS-BASELINE-UNREPORTED-1, the preloads: pl/, whose test script loads test/helpers/pre.cjs (-r) and a data: module (--import, a quoted word); its test needs both.
+const PL = { "package.json": `${JSON.stringify({ name: "pl", private: true, type: "module", scripts: { test: 'node -r ./test/helpers/pre.cjs --test "--import=data:text/javascript,globalThis.FX_IMPORTED=1" "test/*.test.ts"' } })}\n`,
+  "test/helpers/pre.cjs": "globalThis.FX_PRELOADED = 1;\n", "lib/q.mjs": "export const Q = 1;\n", "test/q.test.ts": `${HEAD}import { Q } from "../lib/q.mjs";\n// killer: lib/q.mjs:1 CONST "1" -> "2"\n` +
+  'test("q_preloaded", () => { assert.deepEqual([globalThis.FX_PRELOADED, globalThis.FX_IMPORTED, Q], [1, 1, 1]); });\n' };
+const NOCOUNT = "no test count check: the tree has no scripts/test-counts-reporter.mjs nor test/test-counts.json";
+// killer: scripts/mutants/run.mjs:233 CONST "[...preload, \"--test\"" -> "[\"--test\""
+test("mutants_children_load_the_preloads_of_the_test_script", () => {
+  const { dir, base } = mini("pl", PL), r = run(["--repo", dir, "--base", base, "--killers"]), b = r.rec?.baseline;
+  assert.deepEqual([r.status, b?.status, b?.note, row(r, "K1")?.status, r.rec?.test_preload], [0, "vert", NOCOUNT, "tue", ["-r", "./test/helpers/pre.cjs", "--import=data:text/javascript,globalThis.FX_IMPORTED=1"]], r.stderr);
+});
+
+// MUTANTS-BASELINE-UNREPORTED-1, the counts: bc/ and bn/ carry this repository's reporter, copied, and a record test/test-counts.json; test/d.test.ts exits at
+// load, so its process sends no summary of its own (the launcher reports the file as one test).
+const countsRepo = (name: string, record: Record<string, number>): { dir: string; base: string } => mini(name, { "test/test-counts.json": `${JSON.stringify(record)}\n`,
+  "scripts/test-counts-reporter.mjs": readFileSync(join(import.meta.dirname, "..", "scripts", "test-counts-reporter.mjs"), "utf8"), "lib/c.mjs": "export const C = 1;\n",
+  "test/c.test.ts": `${HEAD}import { C } from "../lib/c.mjs";\ntest("c_one", () => { assert.equal(C, 1); });\ntest("c_two", () => { assert.equal(typeof C, "number"); });\n`,
+  "test/d.test.ts": 'import { C } from "../lib/c.mjs";\nif (C === 1) process.exit(0);\n' });
+const C1: Row = { id: "C1", file: "lib/c.mjs", line: 1, op: "CONST", before: "C = 1", after: "C = 2", why: "w" };
+
+// killer: scripts/mutants/run.mjs:254 CONST "gaps.length > 0 && g.status" -> "false && g.status"
+test("mutants_a_baseline_short_of_the_test_count_record_is_non_conclu_and_runs_no_mutant", () => {
+  const { dir, base } = countsRepo("bc", { "test/c.test.ts": 3, "test/d.test.ts": 1 }), r = run(["--repo", dir, "--base", base, "--table", table("bc.json", [C1])]), b = r.rec?.baseline;
+  assert.deepEqual([r.status, b?.status, b?.oks, b?.note, row(r, "C1")?.status], [1, "non conclu", 3, "test/test-counts.json not met: test/c.test.ts 2 of 3, test/d.test.ts without a summary",
+    "non conclu (base)"], r.stderr);
+});
+
+// killer: scripts/mutants/run.mjs:253 CONST "absent.length > 0 ?" -> "false ?"
+test("mutants_a_target_file_absent_from_the_test_count_record_is_named_and_the_baseline_stays_green", () => {
+  const { dir, base } = countsRepo("bn", { "test/c.test.ts": 2 }), r = run(["--repo", dir, "--base", base, "--table", table("bn.json", [C1])]), b = r.rec?.baseline;
+  assert.deepEqual([r.status, b?.status, b?.note, row(r, "C1")?.status], [0, "vert", "not in test/test-counts.json: test/d.test.ts", "tue"], r.stderr);
+});
+
+// killer: scripts/mutants/run.mjs:336 CONST "sha256: sha(body)" -> "sha256: sha(`${body} `)"
 test("mutants_record_is_complete_and_its_sha_printed_last", () => {
   const r = campaign(), f = fixture(), last = r.stdout.trim().split("\n").at(-1) ?? "", p = join(r.out, "RESULTS.json");
   assert.match(last, /^mutants-result \{/);
   const printed = JSON.parse(last.slice("mutants-result ".length)) as { exit: number; sha256: string };
   assert.deepEqual([printed.exit, printed.sha256], [1, existsSync(p) ? sha(readFileSync(p)) : null]);
   assert.deepEqual(Object.keys(r.rec ?? {}), ["schema", "repo", "base", "gel", "dirty", "tool_sha256", "tool_tree", "tool_dirty", "table", "killers", "only",
-    "test_globs", "clone", "timeout_ms", "min_free_mb", "lock_root", "start", "end", "sha0", "baseline", "results", "counts", "exit", "wait_ms", "poll_ms", "baseline_typecheck", "stop"]);
-  assert.deepEqual([r.rec?.wait_ms, r.rec?.poll_ms, r.rec?.baseline_typecheck, r.rec?.stop], [5_400_000, 5000, null, null]); // D-6: fields only added; the named bounds (D-3, D-5)
+    "test_globs", "clone", "timeout_ms", "min_free_mb", "lock_root", "start", "end", "sha0", "baseline", "results", "counts", "exit", "wait_ms", "poll_ms", "baseline_typecheck", "stop", "test_preload"]);
+  assert.deepEqual([r.rec?.wait_ms, r.rec?.poll_ms, r.rec?.baseline_typecheck, r.rec?.stop, r.rec?.test_preload], [5_400_000, 5000, null, null, []]); // D-6: fields only added; the named bounds (D-3, D-5)
   assert.deepEqual([r.rec?.schema, r.rec?.base, r.rec?.gel, r.rec?.tool_sha256, r.rec?.tool_tree, r.rec?.test_globs, r.rec?.results.length],
     ["monark.mutants.v1", f.base, f.gel, sha(readFileSync(CLI)), git(join(import.meta.dirname, ".."), "rev-parse", "HEAD"), ["test/*.test.ts"], 7]); // tool_tree: HEAD of the tool's repository (Q-V-4)
   assert.match(r.rec?.dirty ?? "", /^[0-9a-f]{64}$/);
@@ -292,14 +377,14 @@ test("mutants_record_is_complete_and_its_sha_printed_last", () => {
   assert.match([lines[0], lines.at(-1)].join("|"), /^# mutants monark\.mutants\.v1, repo .+\|# end .+, exit 1$/); // header, one line each, end
 });
 
-// killer: scripts/mutants/run.mjs:44 CONST "{ acquire }" -> "{ acquire, held }"
+// killer: scripts/mutants/run.mjs:60 CONST "{ acquire }" -> "{ acquire, held }"
 test("mutants_tool_imports_acquire_deny_and_child_env_never_recopies_them", () => { // corrections D-6: held() of oracle/lock.mjs is no longer read
   const src = readFileSync(CLI, "utf8"), from = (names: string, mod: string): boolean => src.includes(`import { ${names} } from "../${mod}";`);
   assert.deepEqual([from("acquire", "oracle/lock.mjs"), from("classify, DENY, parseKiller, parseTap", "red-proof.mjs"), from("childEnv", "oracle/run.mjs"), src.includes('"oracle/lock.mjs"'), src.includes("API_KEY")],
     [true, true, true, false, false]); // the owner.txt tag of oracle/lock.mjs and the DENY list of red-proof.mjs are never recopied (Q-V-1, Q-V-3)
 });
 
-// killer: scripts/mutants/run.mjs:106 CONST "o.minFree >= 4096" -> "o.minFree >= 1024"
+// killer: scripts/mutants/run.mjs:123 CONST "o.minFree >= 4096" -> "o.minFree >= 1024"
 test("mutants_usage_repo_and_bound_refusals_exit_2", () => {
   const f = fixture(), t = table("one.json", [T1]), nf = table("nofile.json", [BARE]), b = ["--base", f.base], link = join(f.root, "repo-link");
   symlinkSync(f.dir, link, "junction"); // C-G2-3: --out inside --repo through a link (a junction on Windows), or by a name that begins with two dots
@@ -312,7 +397,7 @@ test("mutants_usage_repo_and_bound_refusals_exit_2", () => {
   assert.deepEqual(["inside", "..x", "sub"].map((d) => existsSync(join(f.dir, d))), [false, false, false]); // refused before any write: nothing in --repo
 });
 
-// killer: scripts/mutants/run.mjs:300 CONST "import.meta.main !== false" -> "process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)"
+// killer: scripts/mutants/run.mjs:340 CONST "import.meta.main !== false" -> "process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)"
 test("mutants_launched_through_a_junction_records_or_refuses_never_a_silent_exit_0", () => {
   const f = fixture(), j = join(f.root, "scripts-junction"), cli = join(j, "mutants", "run.mjs"), t = table("one.json", [T1]); // C-G2-1
   symlinkSync(join(import.meta.dirname, "..", "scripts"), j, "junction"); // New-Item -ItemType Junction on Windows, a symlink elsewhere
@@ -320,7 +405,7 @@ test("mutants_launched_through_a_junction_records_or_refuses_never_a_silent_exit
   assert.deepEqual([u.status, /usage/.test(u.stderr), r.status, r.rec?.exit, /^mutants-result /m.test(r.stdout)], [2, true, 0, 0, true], r.stderr);
 });
 
-// killer: scripts/mutants/run.mjs:147 CONST "tool_tree: ${slash(TOOL_ROOT)}" -> "${slash(TOOL_ROOT)}"
+// killer: scripts/mutants/run.mjs:164 CONST "tool_tree: ${slash(TOOL_ROOT)}" -> "${slash(TOOL_ROOT)}"
 test("mutants_tool_tree_and_tool_dirty_read_the_tools_checkout_else_refused_naming_it", () => {
   const f = fixture(), copy = join(f.root, "tool-copy"), args = ["--base", f.base, "--table", table("one.json", [T1])];
   cpSync(join(import.meta.dirname, "..", "scripts"), join(copy, "scripts"), { recursive: true }); // the tool and its imports, outside any checkout (C-G2-2)
@@ -331,7 +416,7 @@ test("mutants_tool_tree_and_tool_dirty_read_the_tools_checkout_else_refused_nami
   assert.deepEqual([ingit.status, ingit.rec?.tool_tree, ingit.rec?.tool_dirty], [0, git(copy, "rev-parse", "HEAD"), dirty], ingit.stderr);
 });
 
-// killer: scripts/mutants/run.mjs:200 CONST "symlinkSync(w, join(nm, n)" -> "symlinkSync(join(repo, relative(clone, w)), join(nm, n)"
+// killer: scripts/mutants/run.mjs:224 CONST "symlinkSync(w, join(nm, n)" -> "symlinkSync(join(repo, relative(clone, w)), join(nm, n)"
 test("mutants_clone_resolves_monark_workspaces_in_itself_and_other_modules_in_the_repo", () => {
   const f = fixture(), ws = join(f.root, "ws"), lf = String.fromCharCode(10), third = join(ws, "node_modules", "third");
   const json = (o: object): string => `${JSON.stringify(o)}${lf}`, mod = (name: string): string => json({ name, type: "module", exports: "./index.mjs" });
@@ -362,7 +447,7 @@ test("mutants_clone_resolves_monark_workspaces_in_itself_and_other_modules_in_th
   assert.deepEqual(files, [".package-lock.json"]); // a file is copied, never linked (oracle/run.mjs l.109)
 });
 
-// killer: scripts/mutants/run.mjs:112 CONST "for (const e of m.edits)" -> "for (const e of m.edits.slice(0, 1))"
+// killer: scripts/mutants/run.mjs:129 CONST "for (const e of m.edits)" -> "for (const e of m.edits.slice(0, 1))"
 test("mutants_row_of_edits_applies_them_as_one_block_and_a_one_line_row_keeps_its_verdict", () => {
   const B1: Block = { id: "B1", file: "lib/m.mjs", op: "CONST", edits: [E1, E2], why: "sign(3) is 7; each edit alone, a syntax error" }, B2: Block = { ...B1, id: "B2", edits: [E1, { ...E2, before: "absent" }], why: "a lost anchor" };
   const one = (id: string, e: Edit): Row => ({ ...e, id, file: "lib/m.mjs", op: "CONST", why: "one edit alone" }), r = run(["--base", fixture().base, "--table", table("block.json", [T1, B1, one("E1", E1), one("E2", E2), B2])]);
@@ -371,7 +456,7 @@ test("mutants_row_of_edits_applies_them_as_one_block_and_a_one_line_row_keeps_it
   assert.deepEqual([row(r, "B1")?.line, row(r, "B2")?.note, row(r, "B2")?.sha_before], [2, '"absent" is not exactly once on lib/m.mjs:4', null]); // B2: no edit applied
 });
 
-// killer: scripts/mutants/run.mjs:224 CONST "fails.length > 0 ? \"tue\" : \"survit\"" -> "\"survit\""
+// killer: scripts/mutants/run.mjs:261 CONST "fails.length > 0 ? \"tue\" : \"survit\"" -> "\"survit\""
 test("mutants_typecheck_row_is_killed_by_a_tsc_error_in_a_target_non_conclu_by_errors_elsewhere_only", () => {
   const { dir, base } = tyr(), rows = [Y("Y1", "x: number", "x: string", "TS2345 in the target"), Y("Y2", "(x:", "(y:", "a renamed parameter"), Y("Y3", "number;", "number }", "an error in the .d.mts alone")];
   const r = run(["--repo", dir, "--base", base, "--targets", "test/f.test.ts", "--table", table("ty.json", rows)]), got = rows.map((x) => [x.id, row(r, x.id)?.status, row(r, x.id)?.fails, row(r, x.id)?.note]);
@@ -379,7 +464,7 @@ test("mutants_typecheck_row_is_killed_by_a_tsc_error_in_a_target_non_conclu_by_e
   assert.deepEqual(got, [["Y1", "tue", ["test/f.test.ts:4 TS2345"], null], ["Y2", "survit", [], null], ["Y3", "non conclu", [], "1 error(s) outside the targets"]]); // corrections D-2
 });
 
-// killer: scripts/mutants/run.mjs:230 CONST "await sleep(o.poll)" -> "await sleep(1)"
+// killer: scripts/mutants/run.mjs:267 CONST "await sleep(o.poll)" -> "await sleep(1)"
 test("mutants_short_memory_is_waited_out_then_the_run_goes_on", () => {
   const stub = join(fixture().root, "freemem-stub.mjs"); // os.freemem low for its first three calls, then 1 TiB, synced into the tool's named import: no seam in the tool
   writeFileSync(stub, 'import host from "node:os";\nimport { syncBuiltinESMExports } from "node:module";\nlet n = 0;\nhost.freemem = () => (n++ < 3 ? 0 : 2 ** 40);\nsyncBuiltinESMExports();\n');
@@ -387,7 +472,7 @@ test("mutants_short_memory_is_waited_out_then_the_run_goes_on", () => {
   assert.deepEqual([r.status, b?.status, row(r, "T1")?.status, r.rec?.stop, (b?.memory_wait_ms ?? 0) >= 100], [0, "vert", "tue", null, true], r.stderr); // D-3: waited, then ran
 });
 
-// killer: scripts/mutants/run.mjs:267 CONST "(first.status === \"non conclu\" && !first.timed_out)" -> "false"
+// killer: scripts/mutants/run.mjs:304 CONST "(first.status === \"non conclu\" && !first.timed_out)" -> "false"
 test("mutants_non_conclu_is_replayed_on_every_target_file_whole", () => {
   const R1: Row = { id: "R1", file: "lib/m.mjs", line: 1, op: "CONST", before: "return x > 0;", after: "return x === 3 ? false : x > 0 ? x : x.y.z;", why: "a TypeError in a, an assertion in c" };
   const r = run(["--base", fixture().base, "--table", table("r1.json", [R1])]), r1 = row(r, "R1"), x1 = row(campaign(), "X1");
@@ -403,14 +488,14 @@ const hostLock = ahead(async () => { // the first run, its owners and lock read 
   write(lock, { [q]: "{}" }); // a live waiter queued first (this process): the tool waits behind it, never takes the lock, then stops by name
   return { lock, q, first, w: await runAsync(["--repo", dir, "--base", base, "--table", t, "--wait-ms", "1500", "--poll-ms", "100"], { lock, env }) };
 });
-// killer: scripts/mutants/run.mjs:231 CONST "mutant: id" -> "mutant: \"campaign\""
+// killer: scripts/mutants/run.mjs:268 CONST "mutant: id" -> "mutant: \"campaign\""
 test("mutants_take_the_host_lock_for_each_run_alone_and_never_pass_a_queued_waiter", async () => {
   const { lock, q, first: { r, owners, held }, w } = await hostLock(), s = w.rec?.stop;
   assert.deepEqual([r.status, owners.map((x) => [x.mutant, x.pid, x.lock]), held], [0, ["BASELINE", "L1", "L2"].map((id) => [id, r.pid, "oracle/lock.mjs"]), false], r.stderr);
   assert.deepEqual([w.status, s?.reason, s?.at, s?.not_run, existsSync(join(lock, q)), existsSync(join(lock, "oracle-lock")), existsSync(join(w.out, "tap")) && readdirSync(join(w.out, "tap"))], [4, "verrou", "BASELINE", ["L1", "L2"], true, false, []], w.stderr);
 });
 
-// killer: scripts/mutants/run.mjs:131 ROR "m.edits.length > 0" -> "m.edits.length >= 0"
+// killer: scripts/mutants/run.mjs:148 ROR "m.edits.length > 0" -> "m.edits.length >= 0"
 test("mutants_malformed_rows_and_bad_bounds_are_refused_before_any_clone", () => { // G05 G10 G11 G12 G13 G14 G15
   const f = fixture(), B = { id: "B", file: "lib/m.mjs", op: "CONST", why: "w" }, b = ["--base", f.base];
   const tables = [[{ ...B, edits: [] }], [{ ...B, edits: [E1, { line: 2, before: "x", after: "y" }] }], [{ ...B, edits: [E1], line: 2 }], [{ ...T1, typecheck: "yes" }], [{ ...T1, line: 0 }], [{ ...T1, before: "" }]];
@@ -419,13 +504,13 @@ test("mutants_malformed_rows_and_bad_bounds_are_refused_before_any_clone", () =>
   assert.match(runs[0]?.stderr ?? "", /MUTANTS is not an array of/); // G13: an empty list of edits is a malformed row refused by name, never a crash on its first edit
 });
 
-// killer: scripts/mutants/run.mjs:106 ROR "!(o.wait >= 0)" -> "!(o.wait > 0)"
+// killer: scripts/mutants/run.mjs:123 ROR "!(o.wait >= 0)" -> "!(o.wait > 0)"
 test("mutants_wait_ms_zero_runs_when_nothing_waits", () => { // G04
   const r = run(["--base", fixture().base, "--table", table("one.json", [T1]), "--wait-ms", "0"]);
   assert.deepEqual([r.status, r.rec?.wait_ms, row(r, "T1")?.status], [0, 0, "tue"], r.stderr);
 });
 
-// killer: scripts/mutants/run.mjs:115 CONST "m.op === \"SDL\" ? \"\" : " -> ""
+// killer: scripts/mutants/run.mjs:132 CONST "m.op === \"SDL\" ? \"\" : " -> ""
 test("mutants_an_edit_past_the_end_is_lost_sdl_empties_its_line_and_a_block_is_marked", () => { // G06 G07 G16
   const rows = [{ id: "P1", file: "lib/m.mjs", line: 99, op: "CONST", before: "x", after: "y", why: "w" }, { id: "D1", file: "lib/m.mjs", line: 4, op: "SDL", before: "-1", after: "", why: "w" },
     { id: "B1", file: "lib/m.mjs", op: "CONST", edits: [E1, E2], why: "w" }], r = run(["--base", fixture().base, "--table", table("edge.json", rows)]), txt = join(r.out, "RESULTS.txt");
@@ -437,13 +522,13 @@ const lockStop = ahead(() => {
   const { dir, base } = lk(), lock = ownLock(), env = { FX_LOCK: lock, FX_LOG: join(fixture().root, "lk1.log"), FX_STOP: "1" };
   return runAsync(["--repo", dir, "--base", base, "--table", table("lk1.json", [L("L1", 1, "1", "2"), L("L2", 2, "3", "4")]), "--wait-ms", "1000", "--poll-ms", "100"], { lock, env });
 });
-// killer: scripts/mutants/run.mjs:270 CONST "at: m.id" -> "at: \"BASELINE\""
+// killer: scripts/mutants/run.mjs:308 CONST "at: m.id" -> "at: \"BASELINE\""
 test("mutants_a_lock_stop_between_two_mutants_names_the_mutant_and_keeps_the_rows_run", async () => { // G37 G38: at L1 the fixture test queues an entry of the tool's pid
   const r = await lockStop(), s = r.rec?.stop;
   assert.deepEqual([r.status, s?.reason, s?.at, s?.not_run, r.rec?.results.map((x) => [x.id, x.status])], [4, "verrou", "L2", ["L2"], [["L1", "tue"]]], r.stderr);
 });
 
-// killer: scripts/mutants/run.mjs:233 CONST "SIGNALS.forEach((e, i) =>" -> "[].forEach((e, i) =>"
+// killer: scripts/mutants/run.mjs:270 CONST "SIGNALS.forEach((e, i) =>" -> "[].forEach((e, i) =>"
 test("mutants_more_than_ten_runs_leave_no_listener_warning", () => { // G02 G29: twelve takes of the lock, the listeners of each acquire() removed
   const { dir, base } = lk(), lock = mkdtempSync(join(fixture().root, "lock-")), rows = Array.from({ length: 11 }, (_, i) => L(`L${String(i + 1)}`, 1, "1", String(i + 2)));
   const r = run(["--repo", dir, "--base", base, "--table", table("lk2.json", rows)], { lock, env: { FX_LOCK: lock, FX_LOG: join(fixture().root, "lk2.log") } });
@@ -462,7 +547,7 @@ const liveWaiter = ahead(async () => { // a waiter queued ahead, alive until the
     return await runAsync(["--repo", dir, "--base", base, "--table", table("lk3.json", [L("L1", 1, "1", "2")]), "--poll-ms", "100", "--wait-ms", "60000"], { lock, env: { FX_LOCK: lock, FX_LOG: join(fixture().root, "lk3.log") } }); }
   finally { child.kill(); }
 });
-// killer: scripts/mutants/run.mjs:232 CONST "lock_wait_ms: lk.waitedMs" -> "lock_wait_ms: 0"
+// killer: scripts/mutants/run.mjs:269 CONST "lock_wait_ms: lk.waitedMs" -> "lock_wait_ms: 0"
 test("mutants_a_live_waiter_ahead_passes_first_then_the_run_goes_on", { timeout: 90_000 }, async () => { // G28
   const r = await liveWaiter();
   assert.deepEqual([r.status, (r.rec?.baseline?.lock_wait_ms ?? 0) >= HOLD], [0, true], r.stderr);
@@ -478,13 +563,13 @@ const lockBound = ahead(() => { // this process's live pid queued ahead: the too
   write(lock, { [`oracle-lock.queue/000000000000001-${String(process.pid)}.json`]: "{}" });
   return runAsync(["--repo", dir, "--base", base, "--table", table("lk4.json", [L("L1", 1, "1", "2")]), "--wait-ms", String(WAIT), "--poll-ms", String(POLL)], { lock, env: { FX_LOCK: lock, FX_LOG: join(fixture().root, "lk4.log") } });
 });
-// killer: scripts/mutants/run.mjs:231 CONST "maxMs: o.wait }" -> "maxMs: 3 * o.wait }"
+// killer: scripts/mutants/run.mjs:268 CONST "maxMs: o.wait }" -> "maxMs: 3 * o.wait }"
 test("mutants_the_lock_wait_stops_at_its_named_bound", async () => { // G27
   const r = await lockBound(), w = r.rec?.stop?.waited_ms;
   assert.deepEqual([r.status, r.rec?.stop?.reason, (w ?? 0) >= WAIT, (w ?? 9e9) < KILL], [4, "verrou", true, true], r.stderr);
 });
 
-// killer: scripts/mutants/run.mjs:222 CONST "):/gm)]" -> "):/g)]"
+// killer: scripts/mutants/run.mjs:259 CONST "):/gm)]" -> "):/g)]"
 test("mutants_typecheck_reads_every_diagnostic_never_replays_and_marks_its_line", () => { // G17 G23 G25 G36: an error outside the targets printed first
   const { dir, base } = ty("ty1", TS, { "test/a-helper.ts": 'import { twice } from "../lib/f.mjs";\nexport const h: number = twice(3);\n' });
   const r = run(["--repo", dir, "--base", base, "--targets", "test/f.test.ts", "--table", table("ty1.json", [Y("Y1", "x: number", "x: string"), Y("Y2", "(x:", "(y:")])]), y1 = row(r, "Y1"), txt = join(r.out, "RESULTS.txt");
@@ -492,7 +577,7 @@ test("mutants_typecheck_reads_every_diagnostic_never_replays_and_marks_its_line"
   assert.match(existsSync(txt) ? readFileSync(txt, "utf8") : "", /^Y1 l\.1 CONST tue .* ; typecheck$/m);
 });
 
-// killer: scripts/mutants/run.mjs:220 CONST "join(clone, \"node_modules\", \"typescript\"" -> "join(repo, \"node_modules\", \"typescript\""
+// killer: scripts/mutants/run.mjs:257 CONST "join(clone, \"node_modules\", \"typescript\"" -> "join(repo, \"node_modules\", \"typescript\""
 test("mutants_typecheck_takes_typescript_of_the_main_checkout_for_a_linked_worktree", () => { // G20
   const { dir, base } = ty("ty2"), wt = join(fixture().root, "ty2wt");
   git(dir, "worktree", "add", "-q", "--detach", wt, "HEAD");
@@ -500,7 +585,7 @@ test("mutants_typecheck_takes_typescript_of_the_main_checkout_for_a_linked_workt
   assert.deepEqual([r.status, r.rec?.baseline_typecheck?.status, row(r, "Y1")?.status], [0, "vert", "tue"], r.stderr);
 });
 
-// killer: scripts/mutants/run.mjs:220 CONST "\"--noEmit\", " -> ""
+// killer: scripts/mutants/run.mjs:257 CONST "\"--noEmit\", " -> ""
 test("mutants_typecheck_never_emits_into_the_clone", () => { // G21: a tsconfig without noEmit
   const { dir, base } = ty("ty3", { ...TS, noEmit: undefined }), r = run(["--repo", dir, "--base", base, "--targets", "test/f.test.ts", "--table", table("ty3.json", [Y("Y1", "x: number", "x: string")])]);
   assert.deepEqual([r.status, row(r, "Y1")?.status, existsSync(join(r.out, "clone", "test", "f.test.js"))], [0, "tue", false], r.stderr);
@@ -512,19 +597,19 @@ const OVER = 1500;
 const deadTsc = ahead(() => { const { dir, base } = fk(); // Z1 hangs to its bound (10 * OVER)
   return runAsync(["--repo", dir, "--base", base, "--targets", "test/f.test.ts", "--timeout-ms", String(OVER), "--table", table("fk1.json", [Y("Z1", "number;", "number; // HANG"), Y("Z2", "number;", "number; // CRASH")])], { lock: ownLock() });
 });
-// killer: scripts/mutants/run.mjs:224 CONST "r.error !== undefined || r.signal !== null || r.status === 134 ? \"non conclu\"" -> "false ? \"non conclu\""
+// killer: scripts/mutants/run.mjs:261 CONST "r.error !== undefined || r.signal !== null || r.status === 134 ? \"non conclu\"" -> "false ? \"non conclu\""
 test("mutants_a_dead_or_silent_tsc_is_non_conclu_never_survit", async () => { // G24; corrections D-3: Z1 a tsc killed at its bound, Z2 a tsc out 1 without a diagnostic line
   const r = await deadTsc();
   assert.deepEqual([r.rec?.baseline_typecheck?.status, ...["Z1", "Z2"].map((id) => [row(r, id)?.status, row(r, id)?.note])], ["vert", ["non conclu", null], ["non conclu", "tsc exit 1 without a diagnostic line"]], r.stderr);
 });
 
-// killer: scripts/mutants/run.mjs:246 CONST "g.exit === 0 ? \"vert\" : \"rouge\"" -> "\"vert\""
+// killer: scripts/mutants/run.mjs:283 CONST "g.exit === 0 ? \"vert\" : \"rouge\"" -> "\"vert\""
 test("mutants_a_red_typecheck_baseline_runs_no_typecheck_row", () => { // G33: the fake TypeScript reports an error in the target at the baseline
   const { dir, base } = fk(), r = run(["--repo", dir, "--base", base, "--targets", "test/f.test.ts", "--table", table("fk2.json", [Y("Z1", "(x:", "(y:")])], { env: { FK_RED: "1" } });
   assert.deepEqual([r.status, r.rec?.baseline_typecheck?.status, row(r, "Z1")?.status], [1, "rouge", "non conclu (base)"], r.stderr);
 });
 
-// killer: scripts/mutants/run.mjs:266 CONST "tsc(m.targets, m.id)" -> "tsc(m.first, m.id)"
+// killer: scripts/mutants/run.mjs:303 CONST "tsc(m.targets, m.id)" -> "tsc(m.first, m.id)"
 test("mutants_typecheck_errors_count_on_every_target_not_only_the_direct_importers", () => { // G35: k.mts imported by d directly, by t through mid.mts
   const ts = { ...TS, allowImportingTsExtensions: true, types: [] }, { dir, base } = mini("tk", { "tsconfig.json": `${JSON.stringify({ compilerOptions: ts, include: ["test/**/*.ts"] })}\n`,
     "lib/k.mts": "export const k: number = 1;\n", "lib/mid.mts": 'export { k } from "./k.mts";\n', "test/d.test.ts": 'import { k } from "../lib/k.mts";\nexport const s = String(k);\n',
@@ -537,7 +622,7 @@ test("mutants_typecheck_errors_count_on_every_target_not_only_the_direct_importe
 // Lot MUTANTS-MEM-LOCK-WINDOW-FLAKE-1: CLOCK, a preload that is the tool's clock. Date.now() moves only by the tool's own waits (setTimeout, each fired at once;
 // past 64 waits, exit 99; past 256 reads, exit 98, since a wait through another timer leaves the time still), never by the host's load: G32 and D-4 count their waits by it, never by a window of 300 ms, and their waited_ms is exact.
 const CLOCK = "let now = Date.now(), turns = 0, reads = 0;\nDate.now = () => { if (++reads > 256) process.exit(98); return now; };\nglobalThis.setTimeout = (cb, ms, ...a) => { if (++turns > 64) process.exit(99); now += ms; return setImmediate(cb, ...a); };\n";
-// killer: scripts/mutants/run.mjs:243 CONST " || stop !== null ?" -> " ?"
+// killer: scripts/mutants/run.mjs:280 CONST " || stop !== null ?" -> " ?"
 test("mutants_a_memory_stop_at_the_baseline_is_not_waited_again_by_the_typecheck_baseline", () => { // G32
   const { dir, base } = tyr(), rows = [{ id: "N1", file: "lib/f.mjs", line: 1, op: "CONST", before: "x * 2", after: "x * 3", why: "w" }, Y("Y1", "x: number", "x: string")], clock = join(fixture().root, "clock.mjs");
   writeFileSync(clock, CLOCK);
@@ -545,7 +630,7 @@ test("mutants_a_memory_stop_at_the_baseline_is_not_waited_again_by_the_typecheck
   assert.deepEqual([r.status, s?.reason, s?.at, s?.not_run, s?.waited_ms], [4, "memoire", "BASELINE", ["N1", "Y1"], 300], r.stderr);
 });
 
-// killer: scripts/mutants/run.mjs:274 CONST "memory_wait_ms: g.memory_wait_ms" -> "memory_wait_ms: null"
+// killer: scripts/mutants/run.mjs:314 CONST "memory_wait_ms: g.memory_wait_ms" -> "memory_wait_ms: null"
 test("mutants_a_row_records_its_own_memory_wait", () => { // G39: memory low for the three reads of T1 before its lock (the baseline reads it twice, before and under its lock)
   const stub = join(fixture().root, "mem-row.mjs");
   writeFileSync(stub, 'import host from "node:os";\nimport { syncBuiltinESMExports } from "node:module";\nlet n = 0;\nhost.freemem = () => (n++ >= 2 && n <= 5 ? 0 : 2 ** 40);\nsyncBuiltinESMExports();\n');
@@ -553,7 +638,7 @@ test("mutants_a_row_records_its_own_memory_wait", () => { // G39: memory low for
   assert.deepEqual([r.status, row(r, "T1")?.status, (row(r, "T1")?.memory_wait_ms ?? 0) >= 100], [0, "tue", true], r.stderr);
 });
 
-// killer: scripts/mutants/run.mjs:232 CONST "short = memShort(); if (!short)" -> "short = false; if (!short)"
+// killer: scripts/mutants/run.mjs:269 CONST "short = memShort(); if (!short)" -> "short = false; if (!short)"
 test("mutants_short_memory_under_the_lock_is_waited_out_without_it_to_the_bound", () => { // corrections D-4: each memory read logs whether the lock is held
   const f = fixture(), lock = mkdtempSync(join(f.root, "lock-")), log = join(f.root, "mem-lock.log"), stub = join(f.root, "mem-lock.mjs");
   writeFileSync(stub, 'import host from "node:os";\nimport { appendFileSync, existsSync } from "node:fs";\nimport { syncBuiltinESMExports } from "node:module";\nlet n = 0;\n' + CLOCK + 'host.freemem = () => {\n' +
@@ -570,7 +655,7 @@ const overrun = ahead(() => { // G1 runs to its bound (10 * OVER), its module as
   const h = (id: string, line: number, after: string): Row => ({ id, file: "lib/h.mjs", line, op: "CONST", before: "1", after, why: "w" });
   return runAsync(["--repo", dir, "--base", base, "--table", table("to.json", [h("H1", 1, "2"), h("G1", 2, "2"), h("X1", 1, '1; throw new Error("load")')]), "--timeout-ms", String(OVER)], { lock: ownLock() });
 });
-// killer: scripts/mutants/run.mjs:267 CONST "!first.timed_out" -> "true"
+// killer: scripts/mutants/run.mjs:304 CONST "!first.timed_out" -> "true"
 test("mutants_a_time_overrun_is_non_conclu_and_never_replayed", async () => { // corrections D-5: H1 a test past --timeout-ms, G1 a run past its bound; X1, no overrun, replayed
   const r = await overrun();
   assert.deepEqual([r.status, r.rec?.baseline?.status, ["H1", "G1", "X1"].map((id) => [row(r, id)?.status, row(r, id)?.replay?.status ?? null])], [1, "vert", [["non conclu", null], ["non conclu", null], ["non conclu", "non conclu"]]], r.stderr);
@@ -585,14 +670,14 @@ let SPR: Run | undefined;
 const sp = (): Run => (SPR ??= ((m) => run(["--repo", m.dir, "--base", m.base, "--killers", "--table", table("sp.json", [P("P1", "test/place.ts", ": 2)", ": 3)"),
   P("P2", "test/shared.test.ts", "1", "2"), P("P3", "test/stray.ts", "1", "2")])]))(mini("sp", SP)));
 
-// killer: scripts/mutants/run.mjs:123 CONST "targetsOf(root, m.file, globs).direct.length === 0" -> "true"
+// killer: scripts/mutants/run.mjs:140 CONST "targetsOf(root, m.file, globs).direct.length === 0" -> "true"
 test("mutants_a_killer_or_a_row_mutates_a_support_module_a_test_file_imports", () => {
   const r = sp();
   assert.deepEqual([r.rec?.baseline?.status, ...["K1", "P1"].map((id) => [row(r, id)?.status, row(r, id)?.targets, row(r, id)?.fails])], ["vert", ["tue", ["test/place.test.ts"], ["frame_wide"]],
     ["tue", ["test/place.test.ts"], ["frame_wide"]]], r.stderr);
 });
 
-// killer: scripts/mutants/run.mjs:123 CONST "m.file.endsWith(\".test.ts\") || " -> ""
+// killer: scripts/mutants/run.mjs:140 CONST "m.file.endsWith(\".test.ts\") || " -> ""
 test("mutants_still_refuse_a_test_file_or_an_unimported_module_under_test", () => {
   const r = sp(), why = (f: string): string => `${f} is test code: a mutant mutates production code`;
   assert.deepEqual(["P1", "P2", "P3"].map((id) => [row(r, id)?.status, row(r, id)?.note]), [["tue", null], ["anchor-lost", why("test/shared.test.ts")], ["anchor-lost", why("test/stray.ts")]], r.stderr);
@@ -601,9 +686,11 @@ test("mutants_still_refuse_a_test_file_or_an_unimported_module_under_test", () =
 // Lot MUTANTS-RUN-EXIT-CODE-1: ec/, two tests in one file (e_first reads F, e_second reads E). LOSE, a preload of the tool (--import) that wraps spawnSync for
 // the --test runs alone: FX_LOSE=tail cuts the TAP at its first "not ok" line, the exit code kept (a report lost under --test-force-exit; a pipe is written
 // synchronously on Linux, so the loss is simulated); FX_LOSE=zero gives exit 0 to a TAP with a "not ok" line. The exit code then contradicts the entries.
+// FX_LOSE=first cuts as tail the run of a named test alone (--test-name-pattern) only, never a baseline or a replay (MUTANTS-REPLAY-PROMOTE-1).
 const LOSE = 'import cp from "node:child_process";\nimport { syncBuiltinESMExports } from "node:module";\nconst real = cp.spawnSync;\n' +
   'cp.spawnSync = (c, a, o) => { const r = real(c, a, o), i = Array.isArray(a) && a.includes("--test") && typeof r.stdout === "string" ? r.stdout.search(/^not ok /m) : -1;\n' +
-  '  if (i >= 0 && process.env.FX_LOSE === "tail") r.stdout = r.stdout.slice(0, i); else if (i >= 0 && process.env.FX_LOSE === "zero") r.status = 0;\n  return r; };\nsyncBuiltinESMExports();\n';
+  '  if (i >= 0 && process.env.FX_LOSE === "tail") r.stdout = r.stdout.slice(0, i); else if (i >= 0 && process.env.FX_LOSE === "zero") r.status = 0;\n' +
+  '  else if (i >= 0 && process.env.FX_LOSE === "first" && a.some((x) => x.startsWith("--test-name-pattern"))) r.stdout = r.stdout.slice(0, i);\n  return r; };\nsyncBuiltinESMExports();\n';
 let ECR: { dir: string; base: string } | undefined, ECX: { dir: string; base: string } | undefined;
 const ECS = new Map<string, Run>(); // one campaign per (mode, rows, red), shared by the tests that read it
 function ec(mode: string, rows: Row[], red = false): Run { // red (G2 m-5): ecx/, the same files with e_second red at base (it wants E = 2)
@@ -622,48 +709,81 @@ const ecTail = (): Run => ec("tail", [E("E1", 1, "E = 1"), E("F1", 2, "F = 1")])
 const CUT = " (TAP cut: no closing summary)"; // G2 m-4: the TAP lacks its closing "# duration_ms" line (the first condition of truncation() in scripts/red-proof.mjs)
 const txtLine = (r: Run, head: string): string | undefined => readFileSync(join(r.out, "RESULTS.txt"), "utf8").split("\n").find((l) => l.startsWith(head));
 
-// killer: scripts/mutants/run.mjs:214 CONST "bad.length === 0 && r.status !== 0" -> "false"
+// killer: scripts/mutants/run.mjs:239 CONST "bad.length === 0 && r.status !== 0" -> "false"
 test("mutants_a_non_zero_exit_without_a_failing_entry_is_non_conclu_named_never_survit", () => {
   const r = ec("tail", [E("E1", 1, "E = 1"), E("F1", 2, "F = 1")]), get = (id: string): unknown[] => [row(r, id)?.status, row(r, id)?.oks, row(r, id)?.fails, row(r, id)?.exit, row(r, id)?.note];
   assert.deepEqual([r.status, r.rec?.baseline?.status, get("E1"), get("F1"), row(r, "E1")?.replay?.status], [1, "vert", ["non conclu", 1, [], 1, `exit 1 without a failing entry${CUT}`],
     ["non conclu", 0, [], 1, `exit 1 without a test entry${CUT}`], "non conclu"], r.stderr); // E1: e_second's report lost, e_first ok; F1: no entry left
 });
 
-// killer: scripts/mutants/run.mjs:214 CONST "bad.length > 0 && r.status === 0" -> "false"
+// killer: scripts/mutants/run.mjs:239 CONST "bad.length > 0 && r.status === 0" -> "false"
 test("mutants_exit_zero_with_a_failing_entry_is_non_conclu_named_never_killed", () => {
   const r = ec("zero", [E("E1", 1, "E = 1")]), e1 = row(r, "E1");
   assert.deepEqual([r.status, r.rec?.baseline?.status, e1?.status, e1?.fails, e1?.exit, e1?.note], [1, "vert", "non conclu", ["e_second"], 0, "exit 0 with 1 failing entry"], r.stderr);
 });
 
-// killer: scripts/mutants/run.mjs:217 CONST "cut ? \" (TAP cut" -> "false ? \" (TAP cut"
+// killer: scripts/mutants/run.mjs:244 CONST "cut ? \" (TAP cut" -> "false ? \" (TAP cut"
 test("mutants_the_note_says_whether_the_tap_was_cut", () => { // G2 m-4: a cut TAP (tail) is named; a whole TAP with exit 0 (zero) keeps a bare note
   assert.deepEqual([row(ecTail(), "E1")?.note, row(ecTail(), "F1")?.note, row(ecZero(), "E1")?.note], [`exit 1 without a failing entry${CUT}`, `exit 1 without a test entry${CUT}`,
     "exit 0 with 1 failing entry"], ecTail().stderr);
 });
 
-// killer: scripts/mutants/run.mjs:135 CONST "r.replay.note ? " -> "false ? "
+// killer: scripts/mutants/run.mjs:152 CONST "r.replay.note ? " -> "false ? "
 test("mutants_results_txt_carries_the_note_of_the_replay", () => { // G2 m-2: the replay's note on the mutant's line, inside its segment
   const r = ecTail();
   assert.equal(txtLine(r, "E1 ")?.split(" ; rejeu ")[1], `test/e.test.ts : non conclu (0 rouge(s), 1 vert(s), exit 1 without a failing entry${CUT})`, r.stderr);
 });
 
-// killer: scripts/mutants/run.mjs:247 CONST "g.note ? " -> "false ? "
+// killer: scripts/mutants/run.mjs:284 CONST "g.note ? " -> "false ? "
 test("mutants_a_baseline_whose_exit_contradicts_its_entries_is_non_conclu_named_and_no_mutant_runs", () => { // G2 m-5, m-2: ecx/ at base, e_second's report lost
-  const r = ec("tail", [E("E1", 1, "E = 1")], true), b = r.rec?.baseline, note = `exit 1 without a failing entry${CUT}`;
+  const r = ec("tail", [E("E1", 1, "E = 1")], true), b = r.rec?.baseline, note = `exit 1 without a failing entry${CUT}; ${NOCOUNT}`;
   assert.deepEqual([r.status, b?.status, b?.oks, b?.fails, b?.exit, b?.note, row(r, "E1")?.status, row(r, "E1")?.tap_sha256], [1, "non conclu", 1, [], 1, note, "non conclu (base)", null], r.stderr);
   assert.equal(txtLine(r, "BASELINE ")?.replace(/, \d+ ms\)/, ", N ms)"), `BASELINE l.0 - non conclu (0 rouge(s), 1 vert(s), N ms) restaure OK ; unmutated ; ${note}`);
 });
 
-// killer: scripts/mutants/run.mjs:217 CONST "note: dead ? null :" -> "note: false ? null :"
+// killer: scripts/mutants/run.mjs:244 CONST "note: dead ? null :" -> "note: false ? null :"
 test("mutants_a_dead_child_carries_no_exit_code_note", async () => { // G2 m-1: G1, a run past its bound (ETIMEDOUT), is non conclu without a note
   const r = await overrun(), g1 = row(r, "G1"); // its exit code is the runner's own on SIGTERM (7 on Node 24), not asserted
   assert.deepEqual([g1?.status, g1?.replay, g1?.note], ["non conclu", null, null], r.stderr);
 });
 
-// killer: scripts/mutants/run.mjs:230 CONST "waited_ms: Date.now() - t0 }" -> "waited_ms: o.wait }"
+// killer: scripts/mutants/run.mjs:267 CONST "waited_ms: Date.now() - t0 }" -> "waited_ms: o.wait }"
 test("mutants_a_memory_stop_records_the_time_waited_not_the_bound", () => { // G2 n-1: under CLOCK a poll of 70 ms, which does not divide the bound of 300: five waits, 350
   const f = fixture(), clock = join(f.root, "clock.mjs");
   writeFileSync(clock, CLOCK);
   const r = run(["--base", f.base, "--table", table("one.json", [T1]), "--min-free-mb", "999999999", "--wait-ms", "300", "--poll-ms", "70"], { node: ["--import", pathToFileURL(clock).href] }), s = r.rec?.stop;
   assert.deepEqual([r.status, s?.reason, s?.at, s?.waited_ms], [4, "memoire", "BASELINE", 350], r.stderr);
+});
+
+// MUTANTS-REPLAY-PROMOTE-1: pr/, under LOSE with FX_LOSE=first. test/p.test.ts imports lib/p.mjs (each row's first run), test/q.test.ts through lib/pmid.mjs
+// (a replay target only) and names a test as one of p's. P1: its named test red, that report cut; P2: the hook red, cut, then the hook and another test red
+// in the replay; P3: the hook red, cut, then the hook and q's test of the same name red in the replay.
+const PR = { "lib/p.mjs": "export const E = 1;\nexport const H = 1;\nexport const G = 1;\n", "lib/pmid.mjs": 'export { G } from "./p.mjs";\n',
+  "test/p.test.ts": 'import { after, test } from "node:test";\nimport assert from "node:assert/strict";\nimport { E, G, H } from "../lib/p.mjs";\nafter(() => { assert.equal(H, 1); });\n' +
+    'test("p_first", () => { assert.equal(typeof G, "number"); });\ntest("p_second", () => { assert.equal(E, 1); });\n', "test/q.test.ts": `${HEAD}import { G } from "../lib/pmid.mjs";\ntest("p_first", () => { assert.equal(G, 1); });\n` };
+const pe = (line: number, name: string): Edit => ({ line, before: `${name} = 1`, after: `${name} = 2` });
+const PE = (id: string, test: string, edits: Edit[]): object => ({ id, file: "lib/p.mjs", op: "CONST", edits, why: "w", test });
+let PRR: Run | undefined, PRM: { dir: string; base: string } | undefined;
+function prRun(rows: object[], out?: string): Run { // pr/ under LOSE; out: a --out of its own
+  const m = (PRM ??= mini("pr", PR)), lose = join(fixture().root, "lose.mjs");
+  writeFileSync(lose, LOSE);
+  return run(["--repo", m.dir, "--base", m.base, "--table", table(`pr-${String(rows.length)}.json`, rows)], { ...(out === undefined ? {} : { out }), node: ["--import", pathToFileURL(lose).href], env: { FX_LOSE: "first" } });
+}
+const P1 = PE("P1", "p_second", [pe(1, "E")]), pr = (): Run => (PRR ??= prRun([P1, PE("P2", "p_first", [pe(2, "H"), pe(1, "E")]), PE("P3", "p_first", [pe(2, "H"), pe(3, "G")])]));
+const replayed = (r: Run, id: string): unknown[] => [row(r, id)?.status, row(r, id)?.note, row(r, id)?.replay?.status, row(r, id)?.replay?.named_kill];
+
+// killer: scripts/mutants/run.mjs:312 CONST "promoted ? \"tue\"" -> "false ? \"tue\""
+test("mutants_a_cut_report_is_promoted_by_a_replay_that_reddens_the_named_test_by_assertion", () => {
+  const r = pr(), q = prRun([P1], join(fixture().root, "it's", "out")), p1 = ["tue", "promoted by its replay, where its named test fails by assertion; first run: the named test has no entry", "tue", true];
+  assert.deepEqual([r.rec?.baseline?.status, replayed(r, "P1"), row(r, "P1")?.exit, row(r, "P1")?.fails, replayed(q, "P1")], ["vert", p1, 1, [], p1], r.stderr + q.stderr); // q: a quote
+}); // in the clone's path, so that util.inspect writes the TAP location of the named test between double quotes
+
+// killer: scripts/mutants/run.mjs:243 CONST "e.name === read.test && " -> ""
+test("mutants_never_promote_by_a_replay_red_by_a_hook_or_another_test_only", () => {
+  assert.deepEqual(replayed(pr(), "P2"), ["non conclu", `exit 1 without a failing entry${CUT}`, "tue", false], pr().stderr);
+});
+
+// killer: scripts/mutants/run.mjs:243 CONST "read.files.some((f) => at(e).endsWith(`/clone/${f}`))" -> "true"
+test("mutants_never_promote_by_a_test_of_the_same_name_in_another_file", () => {
+  assert.deepEqual(replayed(pr(), "P3"), ["non conclu", `exit 1 without a failing entry${CUT}`, "tue", false], pr().stderr);
 });

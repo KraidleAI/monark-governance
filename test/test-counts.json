@@ -233,7 +233,7 @@
  "test/mission-gen.test.ts": 29,
  "test/mission-lint.test.ts": 36,
  "test/mission-relance.test.ts": 37,
- "test/mutants-run.test.ts": 52,
+ "test/mutants-run.test.ts": 62,
  "test/narabi-live.test.ts": 30,
  "test/no-cash-provider-name.test.ts": 2,
  "test/no-host-address.test.ts": 13,
