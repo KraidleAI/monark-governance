@@ -422,14 +422,16 @@ function jobBodies(text: string): Map<string, string[]> {
 }
 
 // -- L-4 / C-3 : the derived public workflow keeps every RETAINED job body byte-identical (test 42(f'); D7 ter). The dropped jobs
-// are a CLOSED list (CI-G3-DURATION-1 adds g3-export, which runs the never-exported root test/): each must exist in the source.
+// are a CLOSED list (CI-G3-DURATION-1 adds g3-export, which runs the never-exported root test/; VERIFIER-TOOL-CI-1 adds
+// g3-verifier-tool, which runs the never-exported tools/kata-recalc/): each must exist in the source.
 // killer: scripts/export-public.mjs:450 CONST ", \"g3-export\"]" -> "]"
+// killer: scripts/export-public.mjs:450 CONST "\"g3-verifier-tool\", " -> ""
 test("export_public_derived_jobs_are_byte_identical — every retained job body survives derivation unchanged (test 42(f'), ADR-M004 D7 ter amended)", () => {
   const governance = readFileSync(join(ROOT, ".github", "workflows", "ci.yml"), "utf8");
   const eol = governance.includes("\r\n") ? "\r\n" : "\n";
   const derived = derivePublicWorkflow(governance);
   const R25 = "r25-taille-de-lot";
-  const INTERNAL = new Set([R25, "g3-export"]); // the closed list derivePublicWorkflow drops (CI-G3-DURATION-1)
+  const INTERNAL = new Set([R25, "g3-verifier-tool", "g3-export"]); // the closed list derivePublicWorkflow drops (CI-G3-DURATION-1, VERIFIER-TOOL-CI-1)
   for (const name of INTERNAL) {
     assert.ok(jobBodies(governance).has(name), `internal job '${name}' missing from the source workflow (non-vacuity of the dropped list)`);
     assert.ok(!jobBodies(derived).has(name), `internal job '${name}' must be dropped from the derived public workflow`);
