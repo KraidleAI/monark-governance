@@ -28,9 +28,9 @@
   `monark-governance` and `monark-kata-spec` public, `recherches` private. recherches: `4fe89cb` at reading, `27dc1fc` at writing.
 - **No series byte read**, no data folder walked. The public vectors (`vectors.json` of `ffb5ea33`, public bytes) are read by the tool,
   by the driver and by `sha256sum`, never printed. R1's vectors (`kata/spec/vectors.json` of recherches, private) were read by the plan
-  through `vectors_check.py` alone, and by this lot not at all: this note cites R1 only by what is already public, its sha256
-  `7414b2fc…` (#247's G0 l.43), its count of checks (363) and the name of its new section, `reason_order` (`vectors_check.py` l.5-7 and
-  l.20-22). The wave registry `wave1.json` is read by the tool alone, in the job's runs, never printed.
+  twice, by `vectors_check.py` and by a comparison by section printing only section names and booleans (M3), and by this lot not at
+  all: this note cites R1 only by what is already public (§2.1): its sha256 `7414b2fc…`, its 363 checks, 0 failures, GREEN, and its new
+  section `reason_order`, 30 + 3 checks. The wave registry `wave1.json` is read by the tool alone, in the job's runs, never printed.
 
 ## 1. What the item closes, and the state today (measured)
 
@@ -45,7 +45,7 @@
   check's name, on every pull request. Before R1: 333 conformance checks (kata 94, digest 3, ewma_association 4, bucket-frozen 7,
   bucket-probe 13, factors 1 + 168, factors_4h 1 + 42) and 2 046 checks outside conformance (js_number 2 020, js_json 2,
   digest-example 1, lookahead 14, slot 6, grid 1, sections 1, count 1), one of which fails, by construction: the count. Once R1 is
-  published: R1's 363 checks and the same checks outside conformance, green (§2.3). Duration: 0.34 s.
+  published: R1's 363 checks and 2 049 outside conformance (the 2 046 and 3 of `reason_order-inputs`), green (§2.3). Duration: 0.34 s.
 - **The state today**, measured by the plan under the CI's build of CPython 3.14.8 (`sys.version` `3.14.8 (main, Oct  1 2026,
   02:38:33) [GCC 13.3.0]`, the one in #247's job log; the interpreter that the instance of IO-GUARD-POSED-FILES-1 posed in a tool cache
   of the workspace, reused read only), Node 24.21.0:
@@ -77,7 +77,7 @@
 | Object | Where | Public? | In this lot |
 |---|---|---|---|
 | the vectors of 2026-10-02 (`06ecf069…`, 127 681 bytes) | `vectors.json` at the root of `KraidleAI/monark-kata-spec` at `ffb5ea33`; pinned by `scripts/spec-publish-inputs.json` l.11 (the source, in recherches) and l.64 (carried) | **yes**, published with the spec of 2026-10-02 | the job's input before R1 |
-| R1's vectors (`7414b2fc…`) | `kata/spec/vectors.json` of recherches, private | **no**. Public: their sha256 (#247's G0 l.43), their count and the name of their new section (`vectors_check.py` l.5-7 and l.20-22, on the public trunk). Not public: their bytes, first the `reason_order` section, its cases and their expected values | never read, never copied by this lot |
+| R1's vectors (`7414b2fc…`) | `kata/spec/vectors.json` of recherches, private | **no**. Public: their sha256 (#247's G0 l.43); their 363 checks, 0 failures, GREEN (`docs/G0-lot-verifiers-list-f5a-1.md` l.1626); the name of their new section and its 30 + 3 checks (three cases, ten checks and one input check each: `vectors_check.py` l.220-223 and l.230-231); all on the public trunk. Not public: their bytes, first the `reason_order` section, its cases and their expected values | never read, never copied by this lot |
 | R1's text (`KATA-SPEC-proposed.md`, `ea64d03e…`, frozen) | recherches | no | nothing |
 | the governance repository and the logs of its CI | `KraidleAI/monark-governance` | **yes**: public visibility, read through the API | the lot's target; everything the job prints is public |
 | the tool, the driver, its tests | governance | yes | — |
