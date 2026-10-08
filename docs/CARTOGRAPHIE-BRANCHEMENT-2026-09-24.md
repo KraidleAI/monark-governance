@@ -45,7 +45,7 @@ Modèle résolu : `claude-opus-5-5[1m]` (préfixe `claude-opus-5-5`, contrôle R
 | Arbre mesuré | clone `git clone --no-hardlinks --branch lot/etude-suite F:/Monark F:/tmp/carto-0924/clone`, HEAD `7224c79598687cfc027c875df9d2a835f4d9b52a` ; `git status --porcelain` = 0 ligne au début et après toutes les mesures ; `npm ci --offline --ignore-scripts --cache F:/tmp/npm-cache` : 283 paquets, 0 accès réseau, 10 jonctions `node_modules/@monark/*` toutes DANS le clone (mesuré par `Get-ChildItem … LinkType`) |
 | Code vs passation | `git diff --stat e1a1e7e 7224c79` = `docs/CHANTIERS.md` seul ; `git log 3428dfa..7224c79` = 2 commits de journal ; 0 fichier de code (apps, packages, scripts, test, deploy, fixtures, schemas) depuis l'upload 16 |
 | Réseau | 31 lectures enregistrées (`F:\tmp\carto-0924\live\index.tsv`, heure, statut, IP, taille, sha256 par corps) par `live-get.sh`, qui refuse tout hôte hors liste et tout POST autre que `tools/list` : 17 pages de `monarkgate.tech`, `/narabi/state.json`, `/narabi/timeline.jsonl`, `/bell/anchors/anchors.json`, 9 lectures `bell.monarkgate.tech` (racine, 4 fichiers courants, 4 copies immuables), `api.monarkgate.tech/openapi.json`, 1 POST `tools/list` sur `mcp.monarkgate.tech/mcp` (forme exacte de `scripts/verify-harness.mjs:219-221`, sans `initialize`). S'y ajoutent les GET internes des deux `sync-narabi-* --check` (mêmes hôtes). Aucun `/health`, aucun POST `/gate`, aucune clé lue ni affichée |
-| Hôtes (IP lue par curl) | `monarkgate.tech`, `api.`, `mcp.` = `31.97.155.188` ; `bell.monarkgate.tech` = `178.16.131.29` |
+| Hôtes (IP lue par curl) | `monarkgate.tech`, `api.`, `mcp.` : une même adresse, celle du VPS du site ; `bell.monarkgate.tech` : une autre, celle de l'hôte Bell |
 | A-7 | toute commande node sous `env -u HELIUS_API_KEY … -u DATABENTO_API_KEY`, `TEMP/TMP/TMPDIR=F:/tmp/carto-0924/work/os-tmp` ; rien sur C: |
 | Outils | `graph.mjs` sha256 `a772fd8d…` = `graph.mjs` `3d73ec99…` (cartes du 22 et du 23) + `patch-graph.mjs` (points d'entrée et pièces seulement : publieur Bell, vérificateur, CA, outils de synchro du site ; §4.3) ; `carto.mjs` `8bc5fd4f…` inchangé ; neufs sous `F:\tmp\carto-0924\work\` (sha au §10) |
 | Livrables | ce fichier ; `graph.json` (434 nœuds, 1 321 arêtes AST avec lignes, 29 points d'entrée, paires et registre de `flows-2026-09-24.json`, 12 mesures embarquées avec leur sha256 ; 675 729 octets ; deux générations octet pour octet identiques) ; `flows-2026-09-24.json` (23 paires, 15 lignes de registre, **103 citations vérifiées mécaniquement par `graph.mjs --flows` : 64 `fichier:ligne:texte`, 39 titres de test, 0 échec**) ; corps lus en ligne sous `F:\tmp\carto-0924\live\` |
@@ -314,7 +314,7 @@ sur la jambe `cascade → gate` (abstention constante, dite). La classe calibré
 aujourd'hui ; `lot/u4b-2b` sans commit).
 
 **7.2 Narabi, `state.json` servi rafraîchi par la sonde ? Non, par la sentinelle ; la sonde observe.** La sentinelle (hôte
-`31.97.155.188`, celui de `monarkgate.tech`) écrit `state.json` et la timeline ; la sonde tourne sur l'hôte Bell
+`monarkgate.tech`, le VPS du site) écrit `state.json` et la timeline ; la sonde tourne sur l'hôte Bell
 (`deploy/monark-probe.service:2-3`, `docs/JOURNAL-PROVENANCE.md:351`) et relit la surface servie. `state.json` n'a pas de champ
 `generated_at` (clés servies : `tracker`, `digest`, `projected_bound_leq_target_T`, `replay_q`) ; la fraîcheur se mesure donc par la
 dernière ligne (jour 2026-09-23, dernier jour UTC complet à 08:58Z), `Last-Modified` 00:52:37 GMT (créneau 00:30 + délai aléatoire
@@ -330,7 +330,7 @@ CARTO-BR-2.
 minuteur » et « CA non planifiée » restent **vrais** (unité sans `[Install]`, CA à la main 08:41:49Z). Collecteur Bell : « jambe
 cash COUPÉE » est **périmé** (G7 `77153d5`, `no_close_ref` 0 sur les 3 runs servis) ; « `databento` dans la provenance servie » :
 **vrai pour la copie immuable de seq 1, faux pour la tête** (CARTO-BR-1). Vitrine Bell : synchro et ancres faites. Ukemi : 7.1.
-Narabi : 7.2 ; hôte de la sentinelle = `31.97.155.188`, hôte de la sonde = `178.16.131.29`. Garde budgétaire : §3.5. Shōgen S2 :
+Narabi : 7.2 ; hôte de la sentinelle = `monarkgate.tech`, hôte de la sonde = `bell.monarkgate.tech`. Garde budgétaire : §3.5. Shōgen S2 :
 hors MONARK, non mesuré (§9).
 
 ## 8. Écarts → items (règle Dettes : forme, propriétaire, déclencheur)

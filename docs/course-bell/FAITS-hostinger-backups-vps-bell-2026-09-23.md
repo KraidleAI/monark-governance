@@ -4,7 +4,7 @@ Contexte : item I-G2-2 (lot T-1b-backend, cp-1 C-8/G-b) — « lecture du périm
 
 ## 1. Pages lues [lu]
 
-- `https://hpanel.hostinger.com/vps` — deux VPS : `srv1969719.hstgr.cloud` KVM 2 `31.97.155.188` (vitrine/harness, expire 2026-10-10) ; **`srv1993906.hstgr.cloud` KVM 2 `178.16.131.29`** (Bell, « En cours d'exécution », expire 2026-10-20).
+- `https://hpanel.hostinger.com/vps` — deux VPS : `srv1969719.hstgr.cloud` KVM 2 `monarkgate.tech` (vitrine/harness, expire 2026-10-10) ; **`srv1993906.hstgr.cloud` KVM 2 `bell.monarkgate.tech`** (Bell, « En cours d'exécution », expire 2026-10-20).
 - `https://hpanel.hostinger.com/vps/1993906/overview` — Ubuntu 26.04 LTS, Paris, 2 cœurs / 8 GB / 100 GB, disponibilité « 3 jours 11 heures », « Snapshot et sauvegardes : 0 », « Planification actuelle des sauvegardes : Hebdomadaires », « Renouvellement automatique : Activé », pare-feu « 0 » règle, scanner de logiciels malveillants « Pas installé ».
 - `https://hpanel.hostinger.com/vps/1993906/backups` — « Aucune sauvegarde pour le moment » ; « Les sauvegardes sont exécutées automatiquement, en fonction du programme sélectionné » ; « Programme actuel de sauvegarde : Hebdomadaires » ; offre payante « sauvegardes quotidiennes automatiques 5,99 €/mois » (non souscrite) ; snapshot manuel : « Un snapshot capture l'état actuel de votre VPS, y compris les fichiers, les configurations et les paramètres système » (citation ≤ 25 mots).
 

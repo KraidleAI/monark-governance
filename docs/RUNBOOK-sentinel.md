@@ -6,7 +6,7 @@ redemption flow at finality, steps the M009 tracker, and publishes a replayable 
 and writes ONLY its state dir. This runbook **mirrors `RUNBOOK-harness.md`**; only the deltas are here.
 
 **Who runs this:** the **orchestrator**, over the same SSH channel as the harness/vitrine
-(`ssh -i ~/.ssh/monark_vps root@31.97.155.188`). Deploy order (ADR-M012 D5): (a) harness redeploy from HEAD;
+(`ssh -i ~/.ssh/monark_vps root@monarkgate.tech`; its host key under the name once, as RUNBOOK-dojo §15 (0) does for the Bell host). Deploy order (ADR-M012 D5): (a) harness redeploy from HEAD;
 (b) sentinel; (c) **J0 = the first published window** (non_evaluable, no predecessor); the first tracker step
 is J0+1; T counts live steps.
 
@@ -83,11 +83,11 @@ printf '[Service]\nEnvironment=MONARK_SENTINEL_J0=<J0>\n' > /etc/systemd/system/
 # shell (where $CHAINSTACK_ETH_URL already lives — decision 43): via ssh STDIN so the key never appears in a
 # command-line arg, the transcript, or any git-tracked file. NEVER `cat` the remote file back; NEVER `set -x`.
 #   printf 'CHAINSTACK_ETH_URL=%s\n' "$CHAINSTACK_ETH_URL" \
-#     | ssh -i ~/.ssh/monark_vps root@31.97.155.188 \
+#     | ssh -i ~/.ssh/monark_vps root@monarkgate.tech \
 #         'umask 077; install -d -m 0750 -o root -g sentinel /etc/monark; cat > /etc/monark/sentinel.env; chown root:sentinel /etc/monark/sentinel.env; chmod 0640 /etc/monark/sentinel.env'
 #   Verify by DIGEST on BOTH sides (never print the file contents) — the two hashes MUST be identical:
 #   printf 'CHAINSTACK_ETH_URL=%s\n' "$CHAINSTACK_ETH_URL" | sha256sum                 # local
-#   ssh -i ~/.ssh/monark_vps root@31.97.155.188 'sha256sum /etc/monark/sentinel.env'  # remote
+#   ssh -i ~/.ssh/monark_vps root@monarkgate.tech 'sha256sum /etc/monark/sentinel.env'  # remote
 #   (NARABI-OPS-1d) Once the -1d code is deployed (§6-bis) this file carries FOUR keys: post them TOGETHER with §6-bis step (4) — a URL-only `cat >` ERASES the cycle keys => chainstack_guard: "unconfigured".
 #   (The investor MAY post /etc/monark/sentinel.env themselves instead; this runbook accepts it identically.)
 #   Skipping this step is legal (the '-' on EnvironmentFile): the run falls back to the 7 public endpoints,
@@ -128,7 +128,7 @@ reload caddy`. Disable the job with `systemctl disable --now monark-sentinel.tim
 Sections 0–5 are the FIRST install (`useradd`, the J0 drop-in, `enable --now`). Lot NARABI-OPS-1 ships onto a
 timer that is ALREADY active with a NON-EMPTY state, so the procedure differs: do NOT re-lay the J0 drop-in
 (the run RESUMES, `j0Source: state`), and use `restart`, not `enable --now`. Run it from the orchestrator over
-the usual SSH channel (`ssh -i ~/.ssh/monark_vps root@31.97.155.188`), archiving from the **named G7 merge SHA** of the integration branch (`git archive <sha>` — the SHA is the one
+the usual SSH channel (`ssh -i ~/.ssh/monark_vps root@monarkgate.tech`), archiving from the **named G7 merge SHA** of the integration branch (`git archive <sha>` — the SHA is the one
 recorded in `docs/JOURNAL-PROVENANCE.md` for the lot; amended 2026-09-21, investor decision 72 « par SHA ») —
 never from a moving `HEAD`, never from a lot worktree branch. After the deploy, `sha256sum` of the shipped units is
 compared with the archive's.
@@ -150,14 +150,14 @@ grep '^OnCalendar=' /etc/systemd/system/monark-sentinel.timer | cut -d= -f2- | \
 #     "state". Leave /etc/systemd/system/monark-sentinel.service.d/override.conf as it is.
 # (5) The OPTIONAL Chainstack key (ADR-NARABI-OPS-1 L-3 / C-5 / C-9): post it ONLY if not already present.
 #     Check first by DIGEST (never `cat` the file, never `set -x`):
-#   ssh -i ~/.ssh/monark_vps root@31.97.155.188 'test -f /etc/monark/sentinel.env && sha256sum /etc/monark/sentinel.env || echo absent'
+#   ssh -i ~/.ssh/monark_vps root@monarkgate.tech 'test -f /etc/monark/sentinel.env && sha256sum /etc/monark/sentinel.env || echo absent'
 #     If absent (or to rotate), post via ssh STDIN so the key never reaches an arg, the transcript, or a git file:
 #   printf 'CHAINSTACK_ETH_URL=%s\n' "$CHAINSTACK_ETH_URL" \
-#     | ssh -i ~/.ssh/monark_vps root@31.97.155.188 \
+#     | ssh -i ~/.ssh/monark_vps root@monarkgate.tech \
 #         'umask 077; install -d -m 0750 -o root -g sentinel /etc/monark; cat > /etc/monark/sentinel.env; chown root:sentinel /etc/monark/sentinel.env; chmod 0640 /etc/monark/sentinel.env'
 #     Then verify by DIGEST on BOTH sides — the two hashes MUST be identical (never print the contents):
 #   printf 'CHAINSTACK_ETH_URL=%s\n' "$CHAINSTACK_ETH_URL" | sha256sum                 # local
-#   ssh -i ~/.ssh/monark_vps root@31.97.155.188 'sha256sum /etc/monark/sentinel.env'  # remote
+#   ssh -i ~/.ssh/monark_vps root@monarkgate.tech 'sha256sum /etc/monark/sentinel.env'  # remote
 #   (NARABI-OPS-1d) Once the -1d code is deployed (§6-bis) this file carries FOUR keys: post them TOGETHER with §6-bis step (4) — a URL-only `cat >` ERASES the cycle keys => chainstack_guard: "unconfigured".
 systemctl daemon-reload
 # (6) On an ALREADY-ACTIVE timer, `restart` is the safe default. (Whether `daemon-reload` alone recomputes the
@@ -178,7 +178,7 @@ systemctl show -p TimeoutStartUSec monark-sentinel.service   # expect TimeoutSta
 MEASURED publishing run (start 00:47:55 UTC, exit 00:48:20 UTC, 2026-09-21; `RUN_DURATION_D_SEC=26` rounded up;
 JOURNAL-PROVENANCE.md, the `mesure D = 25,481 s` line, merge `9b178f3`). **The formula was pre-registered on a D
 measured on a run that processed exactly ONE due day** (T=3, ~4 timeline lines) — this matters for Mode A below.
-This is a redeploy on the **VPS SITE** (`31.97.155.188`) — the service of production — so it is done ONLY under
+This is a redeploy on the **VPS SITE** (`monarkgate.tech`) — the service of production — so it is done ONLY under
 E-5 (decision 92), after G7 + checkpoint-2 of -1b-ii-b, by the named merge SHA (§6 above, never `main HEAD`),
 then verified with the `systemctl show` line in step (8).
 
@@ -329,7 +329,7 @@ healthy run is a STOP-and-investigate. Then record the FIRST run of **each** of 
 
 ## 6-bis. Second redéploiement (lot NARABI-OPS-1d, décision 118) — jambe Chainstack gardée, sur le timer VIVANT
 
-Pré-enregistré au G7 de NARABI-OPS-1d (2026-09-22) ; implémente le G1 §13 et la correction C-5 du checkpoint-1 de -1d ; calque de l'E-5 (`docs/JOURNAL-PROVENANCE.md:353-357`) et du §6. **Ne pas exécuter avant P-1..P-4.** Tout se fait depuis le poste de l'orchestrateur, canal SSH habituel (`ssh -i ~/.ssh/monark_vps root@31.97.155.188`).
+Pré-enregistré au G7 de NARABI-OPS-1d (2026-09-22) ; implémente le G1 §13 et la correction C-5 du checkpoint-1 de -1d ; calque de l'E-5 (`docs/JOURNAL-PROVENANCE.md:353-357`) et du §6. **Ne pas exécuter avant P-1..P-4.** Tout se fait depuis le poste de l'orchestrateur, canal SSH habituel (`ssh -i ~/.ssh/monark_vps root@monarkgate.tech`).
 
 ### Préconditions (toutes vraies, sinon STOP)
 - **P-1** — Le pli §11-1 est fusionné (ADR-NARABI-OPS-1, amendement -1d, A.8-1) avec G2-delta PASS, re-checkpoint-2 ACCEPTE et G7 ; son **SHA de fusion NOMMÉ** est consigné dans `docs/JOURNAL-PROVENANCE.md` AVANT l'archive (décision 72). Jamais le SHA de fusion de -1d seul : UN seul second redéploiement (décision 118 ; option (b), C-V-0). Go permanent : décision 137 (`docs/CHANTIERS.md:858`, « 2e redeploiement VPS sentinelle (apres pli §11-1) ») — aucun go supplémentaire à demander.
@@ -370,17 +370,17 @@ ORIGIN=$(node -e 'process.stdout.write(new URL(process.env.CHAINSTACK_ETH_URL).o
 printf '%s\n' "$ORIGIN"      # SEULE valeur affichée (non secrète) ; doit égaler le 8e endpoint relevé en (2)
 printf 'CHAINSTACK_ETH_URL=%s\nCHAINSTACK_CYCLE_ID=%s\nCHAINSTACK_ETH_ORIGIN=%s\nCHAINSTACK_CYCLE_FLOOR=%s\n' \
   "$CHAINSTACK_ETH_URL" "<CYCLE>" "$ORIGIN" "<FLOOR>" \
-  | ssh -i ~/.ssh/monark_vps root@31.97.155.188 \
+  | ssh -i ~/.ssh/monark_vps root@monarkgate.tech \
       'umask 077; install -d -m 0750 -o root -g sentinel /etc/monark; cat > /etc/monark/sentinel.env; chown root:sentinel /etc/monark/sentinel.env; chmod 0640 /etc/monark/sentinel.env'
 # Empreintes des DEUX côtés (même printf localement) — les deux hachés DOIVENT être identiques :
 printf 'CHAINSTACK_ETH_URL=%s\nCHAINSTACK_CYCLE_ID=%s\nCHAINSTACK_ETH_ORIGIN=%s\nCHAINSTACK_CYCLE_FLOOR=%s\n' "$CHAINSTACK_ETH_URL" "<CYCLE>" "$ORIGIN" "<FLOOR>" | sha256sum
-ssh -i ~/.ssh/monark_vps root@31.97.155.188 'sha256sum /etc/monark/sentinel.env'
+ssh -i ~/.ssh/monark_vps root@monarkgate.tech 'sha256sum /etc/monark/sentinel.env'
 ```
 - **(5) Expédition, `npm ci`, contrôle des hachés, unités** (calque §6 (1)-(3), (6), (8)) :
 ```bash
 git archive --format=tar.gz "$SHA" apps packages schemas fixtures package.json package-lock.json deploy scripts/verify-harness.mjs \
-  | ssh -i ~/.ssh/monark_vps root@31.97.155.188 "mkdir -p /opt/monark-harness && tar xzf - -C /opt/monark-harness"
-ssh -i ~/.ssh/monark_vps root@31.97.155.188 'cat > /root/expected-nops1d.sha256' < expected-nops1d.sha256
+  | ssh -i ~/.ssh/monark_vps root@monarkgate.tech "mkdir -p /opt/monark-harness && tar xzf - -C /opt/monark-harness"
+ssh -i ~/.ssh/monark_vps root@monarkgate.tech 'cat > /root/expected-nops1d.sha256' < expected-nops1d.sha256
 # sur le VPS :
 cd /opt/monark-harness && npm ci && chown -R monark:monark .
 sha256sum -c /root/expected-nops1d.sha256            # TOUT « OK », sinon STOP (ré-expédier)
@@ -431,10 +431,10 @@ En `sentinel`, jamais root (un fichier de ledger appartenant à root ferait éch
 ### Lecture du ledger pour le rapprochement A-4 (SSH, LECTURE SEULE ; ADR-GARDE-HELIUS, amendement -1d, -1d-C)
 Aux MÊMES instants que les lectures before/after du tableau de bord :
 ```bash
-ssh -i ~/.ssh/monark_vps root@31.97.155.188 'd=/var/lib/monark-sentinel/ledger/<CYCLE>; if [ -e $d/chainstack.lock ]; then echo "RUN EN COURS: relire plus tard"; else wc -l < $d/chainstack.jsonl; cat $d/chainstack.head; echo; fi'
+ssh -i ~/.ssh/monark_vps root@monarkgate.tech 'd=/var/lib/monark-sentinel/ledger/<CYCLE>; if [ -e $d/chainstack.lock ]; then echo "RUN EN COURS: relire plus tard"; else wc -l < $d/chainstack.jsonl; cat $d/chainstack.head; echo; fi'
 #   épingle = (N lignes, tête). Contrôle de chaîne : la ligne N porte "entry_sha256" == la tête relevée.
 #   Compte entre deux épingles N1 < N2 (lignes attempted + network ethereum-mainnet) :
-ssh -i ~/.ssh/monark_vps root@31.97.155.188 "sed -n '$((N1+1)),${N2}p' /var/lib/monark-sentinel/ledger/<CYCLE>/chainstack.jsonl" \
+ssh -i ~/.ssh/monark_vps root@monarkgate.tech "sed -n '$((N1+1)),${N2}p' /var/lib/monark-sentinel/ledger/<CYCLE>/chainstack.jsonl" \
   | node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>{const L=s.split("\n").filter(Boolean).map(l=>JSON.parse(l));console.log(L.filter(e=>e.outcome==="attempted"&&e.network==="ethereum-mainnet").length)})'
 ```
 Résiduel A-4 (iv) = ce compte × 1 RU, **sous l'hypothèse H-FACT** (non établie : tant qu'elle ne l'est pas, 0 RU, et la contrainte « aucune fenêtre chevauchant un créneau » reste la règle) ; jamais `credits_derived`.
@@ -546,7 +546,7 @@ node apps/sentinel/src/instrument-replay.ts --gap "$G/timeline.jsonl" --timeline
 node -e 'const f=require("fs"),c=require("crypto");const d=JSON.parse(f.readFileSync(process.argv[1],"utf8")),s=JSON.parse(f.readFileSync(process.argv[2],"utf8"));const {digest,generated_at,...b}=d;const ok=c.createHash("sha256").update(JSON.stringify(b)).digest("hex")===digest&&d.state_digest===s.digest&&digest!==s.digest;console.log(ok?"digest OK":"STOP: digest");process.exitCode=ok?0:1' "$L/instrument.json" "$L/state.json"
 sha256sum "$L/instrument.json"   # the LOCAL sha, compared in (6)
 # (5) UPLOAD, atomic: the temp file sits OUTSIDE public/ on the SAME filesystem, so the mv is a rename (no half file served).
-ssh -i ~/.ssh/monark_vps root@31.97.155.188 'umask 022; T=/var/lib/monark-sentinel/.instrument.json.new; cat > $T && chown sentinel:sentinel $T && chmod 0644 $T && mv -f $T /var/lib/monark-sentinel/public/instrument.json && sha256sum /var/lib/monark-sentinel/public/instrument.json' < "$L/instrument.json"
+ssh -i ~/.ssh/monark_vps root@monarkgate.tech 'umask 022; T=/var/lib/monark-sentinel/.instrument.json.new; cat > $T && chown sentinel:sentinel $T && chmod 0644 $T && mv -f $T /var/lib/monark-sentinel/public/instrument.json && sha256sum /var/lib/monark-sentinel/public/instrument.json' < "$L/instrument.json"
 # (6) SERVED CHECK
 curl -sfI https://monarkgate.tech/narabi/instrument.json | head -1     # HTTP/2 200
 curl -sf  https://monarkgate.tech/narabi/instrument.json | sha256sum   # == the LOCAL sha of (4) and the remote sha of (5)
