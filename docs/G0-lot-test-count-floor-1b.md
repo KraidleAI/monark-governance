@@ -12,9 +12,9 @@
   PR-2's pieces). This note is PR-2's as built: what it adds and where, at the trunk `3128869e`; its tests and killers; its proofs; its
   size; and where it departs from the plan (§9).
 - **Decisions**: MONARK `380b4b6` (Q-3: 20 minutes; Q-4 (a): `ORACLE_BASE` at `scripts/oracle/run.mjs:137`, in place; Q-6:
-  `{file, from, to, reason}`, a rename written as a removal plus an entry; Q-9: `run.mjs:163` in place, in PR-2); `729de62`
+  `{file, from, to, reason}`, a rename written as a removal plus an entry; Q-9: `scripts/oracle/run.mjs:163` in place, in PR-2); `729de62`
   (`…-MONARK-vers-RECHERCHES-tcf-q10-q13.md`; Q-10: `test/oracle-run.test.ts` open to PR-2, +12 lines, on condition that l.137 and
-  l.162-163 of `run.mjs` change in place without moving an anchor; Q-13: in the window, no other pull request writes
+  l.162-163 of `scripts/oracle/run.mjs` change in place without moving an anchor; Q-13: in the window, no other pull request writes
   `test/test-counts.json`); `99864a9` (`…-MONARK-vers-RECHERCHES-fenetre.md`: the other pull requests of the window merge without
   touching the record; PR-2 takes their rises by `write`, and a drop takes its removal line in PR-2, its reason naming the pull request
   that made it); `c11a755` (`…-MONARK-vers-RECHERCHES-tronc-rouge.md`: #250 first; the realpath of the reporter, which PR-1's note §9
@@ -42,8 +42,8 @@
 - **The removal list**, `test/test-count-removals.json` (new, `[]`): one line `{file, from, to, reason}` per drop meant.
 - **The job** `g3-test-count`, after `ci.yml` l.304 (24 lines): `npm ci`, `npm run test:main`, then the gate; internal, dropped from the
   public workflow (`INTERNAL_JOBS`).
-- **The oracle**: `ORACLE_BASE: base` passed to the gates (`run.mjs:137`), and the `tests` field read from the suite's gate as the real
-  tree names it, `test:main` (`run.mjs:162-163`).
+- **The oracle**: `ORACLE_BASE: base` passed to the gates (`scripts/oracle/run.mjs:137`), and the `tests` field read from the suite's gate as the real
+  tree names it, `test:main` (`scripts/oracle/run.mjs:162-163`).
 - **The record** is rewritten by `write` on PR-2's own tree, merged with the trunk of the moment; one removal line per drop since
   PR-1's record, its reason naming the pull request that made it; a rise needs no line.
 - **Tests**: three new (T4 to T6, `test/test-count-check.test.ts`), one new in an existing file (`oracle_reads_the_tests_of_test_main`),
@@ -90,9 +90,9 @@ stays at the trunk as the register of the tests removed.
 - **Place**: after `ci.yml` l.304, the last line of `g3-verifier-tool`, the job the plan names (the plan's l.296, before #249 added
   the checkout of the spec vectors, `ci.yml:293-300`); the job is l.305-328 at PR-2's head (l.305 blank, its key l.306). No existing
   line moves. Its text is the plan's §2.7, byte for byte, 24 lines.
-- **Steps**: checkout with `fetch-depth: 0` (l.318: the merge base, its record and list; and the suite, whose
+- **Steps**, at PR-2's head: checkout with `fetch-depth: 0` (`ci.yml:318`: the merge base, its record and list; and the suite, whose
   `bell_served_collector_revision_is_a_collector_commit` reads the history, `ci.yml:175-177`); setup-node 24 with the npm cache; `npm
-  ci`; `npm run test:main` (l.326); `node scripts/test-count-check.mjs` (l.328). Bound 20 minutes (Q-3), as g3-verification for the
+  ci`; `npm run test:main` (`ci.yml:326`); then the gate, its own step (`ci.yml:328`). Bound 20 minutes (Q-3), as g3-verification for the
   same suite (`ci.yml:169-171`). Neither `if:` nor `continue-on-error` (`ci.yml:3-4`), no permissions block, actions at the SHAs
   already pinned. `ci_jobs_have_timeout_and_test_flags_locked` (`test/ci-gates.test.ts:1813`) still sees the suite run only as
   `test:main` and `test:export` (l.1839-1840): the job runs `npm run test:main`, no bare `node --test`.
@@ -105,7 +105,7 @@ stays at the trunk as the register of the tests removed.
 
 ## 4. The oracle (Q-4 (a), Q-9, Q-10)
 
-- **`ORACLE_BASE: base, `** in `genv` (`run.mjs:137`), right before `npm_config_offline: "true", `, whose SDL killer
+- **`ORACLE_BASE: base, `** in `genv` (`scripts/oracle/run.mjs:137`), right before `npm_config_offline: "true", `, whose SDL killer
   (`test/oracle-run.test.ts:133`) keeps its text, once on the line. `base` is the verified `--base` (l.54), present in the clone (r25
   reads it, l.143). The oracle removes every `GITHUB_*` (`DENY`, l.40 and l.47), so without that line the gate would exit 3 there; the
   oracle now sets the name itself, over any value of the host (`childEnv`, l.174, copies the host's first). With PR-2's job, the oracle
@@ -175,7 +175,7 @@ And `.github/workflows/ci.yml:328 CONST "node scripts/test-count-check.mjs" -> "
 -> "]"` (new) and `"\"g3-export\", " -> ""` (rewritten), with `"\"g3-verifier-tool\", " -> ""` kept;
 `scripts/oracle/run.mjs:137 CONST "ORACLE_BASE: base, " -> ""` and `scripts/oracle/run.mjs:163 CONST "/^test(:main)?$/" -> "/^test$/"`.
 Two killers of the trunk name a line that PR-2 rewrites in place, on the same line with their text still once on it:
-`test/export-public.test.ts:428` (`export-public.mjs:450`) and `test/oracle-run.test.ts:133` (`run.mjs:137`); the anchor checker reads
+`test/export-public.test.ts:428` (`export-public.mjs:450`) and `test/oracle-run.test.ts:133` (`scripts/oracle/run.mjs:137`); the anchor checker reads
 them as moved in content, not in place (DERIVE), and both stay killed.
 
 ## 7. Proofs at the freeze
