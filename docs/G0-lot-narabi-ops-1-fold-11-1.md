@@ -233,9 +233,9 @@ only.
 
 ## Size
 
-R-25 in CI form (the pathspec of `.github/workflows/ci.yml:100`, from the base): at C, 7 files, 88 insertions and 104 deletions,
-**192** (the plan's 188, plus the two texts of the Q-1 rule found during the change); with the two trace extracts (70 lines),
-**262**. This note and the trace index (`docs/**/*.md`) do not count. Bound 547.
+R-25 in CI form (the pathspec of `.github/workflows/ci.yml:100`, from the base), at this head: 9 files, 167 insertions, 113 deletions,
+**280**. At C it was **262**: 7 files and **192** (the plan's 188, plus the two texts of the Q-1 rule), with the two trace extracts (70
+lines); the review round rewrote ten lines in place, nine of them from the base (+18). This note and the trace index (`docs/**/*.md`) do not count. Bound 547.
 
 ## Fold of the review
 
