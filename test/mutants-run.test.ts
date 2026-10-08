@@ -535,8 +535,8 @@ test("mutants_typecheck_errors_count_on_every_target_not_only_the_direct_importe
 });
 
 // Lot MUTANTS-MEM-LOCK-WINDOW-FLAKE-1: CLOCK, a preload that is the tool's clock. Date.now() moves only by the tool's own waits (setTimeout, each fired at once;
-// past 64, exit 99), never by the host's load: G32 and D-4 count their waits by it, never by a window of 300 ms, and their waited_ms is exact.
-const CLOCK = "let now = Date.now(), turns = 0;\nDate.now = () => now;\nglobalThis.setTimeout = (cb, ms, ...a) => { if (++turns > 64) process.exit(99); now += ms; return setImmediate(cb, ...a); };\n";
+// past 64 waits, exit 99; past 256 reads, exit 98, since a wait through another timer leaves the time still), never by the host's load: G32 and D-4 count their waits by it, never by a window of 300 ms, and their waited_ms is exact.
+const CLOCK = "let now = Date.now(), turns = 0, reads = 0;\nDate.now = () => { if (++reads > 256) process.exit(98); return now; };\nglobalThis.setTimeout = (cb, ms, ...a) => { if (++turns > 64) process.exit(99); now += ms; return setImmediate(cb, ...a); };\n";
 // killer: scripts/mutants/run.mjs:243 CONST " || stop !== null ?" -> " ?"
 test("mutants_a_memory_stop_at_the_baseline_is_not_waited_again_by_the_typecheck_baseline", () => { // G32
   const { dir, base } = tyr(), rows = [{ id: "N1", file: "lib/f.mjs", line: 1, op: "CONST", before: "x * 2", after: "x * 3", why: "w" }, Y("Y1", "x: number", "x: string")], clock = join(fixture().root, "clock.mjs");
@@ -658,4 +658,12 @@ test("mutants_a_baseline_whose_exit_contradicts_its_entries_is_non_conclu_named_
 test("mutants_a_dead_child_carries_no_exit_code_note", async () => { // G2 m-1: G1, a run past its bound (ETIMEDOUT), is non conclu without a note
   const r = await overrun(), g1 = row(r, "G1"); // its exit code is the runner's own on SIGTERM (7 on Node 24), not asserted
   assert.deepEqual([g1?.status, g1?.replay, g1?.note], ["non conclu", null, null], r.stderr);
+});
+
+// killer: scripts/mutants/run.mjs:230 CONST "waited_ms: Date.now() - t0 }" -> "waited_ms: o.wait }"
+test("mutants_a_memory_stop_records_the_time_waited_not_the_bound", () => { // G2 n-1: under CLOCK a poll of 70 ms, which does not divide the bound of 300: five waits, 350
+  const f = fixture(), clock = join(f.root, "clock.mjs");
+  writeFileSync(clock, CLOCK);
+  const r = run(["--base", f.base, "--table", table("one.json", [T1]), "--min-free-mb", "999999999", "--wait-ms", "300", "--poll-ms", "70"], { node: ["--import", pathToFileURL(clock).href] }), s = r.rec?.stop;
+  assert.deepEqual([r.status, s?.reason, s?.at, s?.waited_ms], [4, "memoire", "BASELINE", 350], r.stderr);
 });
