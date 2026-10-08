@@ -90,15 +90,20 @@ La porte refuse toute adresse hors de la liste. Hors des 35, l'arbre en porte en
   ou tout chemin qui n'est ni un fichier ni un lien, n'est jugé que par son chemin, sans lever. Un fichier qui porte un octet NUL n'est
   pas lu, et doit être un binaire que `.gitattributes` déclare (`git check-attr binary`, sans fichier d'attributs global) : sinon le
   verdict le nomme (`undeclared`, chemin masqué) et le test de l'arbre rougit. Le chemin de chaque fichier suivi est jugé aussi
-  (ligne 0). Chaque chemin imprimé (celui d'une occurrence, celui d'un binaire non déclaré) est masqué une fois, après la lecture de
-  tous les fichiers, contre tous les littéraux que la porte a lus, dans tout fichier et toute ligne, admis ou non, ceux du chemin
-  compris : depuis chaque index, chaque caractère écrit ou échappé (`%XX`, un niveau, l'une ou l'autre casse), toute suite qui se lit
-  comme l'une de ces adresses est masquée (chaque suite hex qu'elle touche devient `x`, échappements compris), qu'elle soit collée à
-  un mot, qu'elle en chevauche une autre ou qu'elle soit écrite sous une autre forme de texte : une `BlockList` compare les valeurs
-  (zéros, `::` et casse d'une IPv6 ; une forme IPv4-mapped et son IPv4, dans les deux sens), et des octets complétés de zéros (quatre
-  chiffres au plus) sont lus aussi. Le texte lu depuis un index s'arrête là où aucune adresse ne continue (45 caractères, un groupe
-  de cinq, un quatrième point, un neuvième deux-points, un second `::`), et une adresse n'y est analysée que là où le texte en a la
-  forme : le coût est linéaire dans le chemin et ne croît pas avec le nombre de littéraux lus (mesures en §10).
+  (ligne 0). Un fichier suivi que la porte ne peut lire pour une autre raison que son absence (un nom trop long pour le système de
+  fichiers, par exemple) n'arrête pas la lecture : à la fin, la porte lève une erreur qui nomme chacun, avec le code de l'erreur.
+  Chaque chemin imprimé (celui d'une occurrence, celui d'un binaire non déclaré, celui d'un fichier non lu) est masqué une fois, après
+  la lecture de tous les fichiers, contre tous les littéraux que la porte a lus, dans tout fichier et toute ligne, admis ou non, ceux
+  du chemin compris : depuis chaque index, chaque caractère écrit ou échappé (`%XX`, un niveau, l'une ou l'autre casse), toute suite
+  qui se lit comme l'une de ces adresses est masquée (chaque suite hex qu'elle touche devient `x`, échappements compris), qu'elle soit
+  collée à un mot, qu'elle en chevauche une autre ou qu'elle soit écrite sous une autre forme de texte : la porte garde dans un `Set`
+  le texte canonique de chaque adresse lue (`SocketAddress`, une IPv4 sous sa forme IPv4-mapped) et y cherche celui de chaque suite,
+  si bien que les valeurs se comparent (zéros, `::` et casse d'une IPv6 ; une forme IPv4-mapped et son IPv4, dans les deux sens) ;
+  des octets complétés de zéros (quatre chiffres au plus) sont lus aussi. Le texte lu depuis un index s'arrête là où aucune adresse ne
+  continue (45 caractères, un groupe de cinq, un quatrième point, un neuvième deux-points, un second `::`), et une adresse n'y est
+  analysée que là où le texte en a la forme, puis cherchée dans le `Set` en temps constant : le coût est linéaire dans le chemin et ne
+  croît pas avec le nombre de littéraux lus, sous tout Node 24 (une `BlockList`, avant Node 24.21, garde une règle par adresse
+  ajoutée et les parcourt toutes à chaque recherche : §11).
 - **Littéral** : chaque ligne, et chaque chemin, est lue telle qu'écrite puis dans une copie où chaque `%XX`, en majuscules ou en
   minuscules, est décodé par un simple remplacement (`decodeURIComponent` lève sur un `%` isolé) ; un littéral que seule la copie
   montre est rapporté à sa colonne dans la ligne écrite. Le même littéral à la même colonne n'est jamais rapporté deux fois. Mais quand
@@ -146,6 +151,8 @@ La porte refuse toute adresse hors de la liste. Hors des 35, l'arbre en porte en
   d'aucune exemption.
 - **Sortie rouge** : `chemin:ligne:colonne IPv4 x.x.x.x` (ou `IPv6 x:x::x`). Chaque groupe de chiffres devient `x` : aucun chiffre de
   l'adresse n'est imprimé. Le journal de CI d'un dépôt public est public ; la forme `a.b.x.x` de la demande y imprimerait un /16.
+  L'en-tête (`N hit(s) in M file(s)`) compte les chemins imprimés distincts, donc masqués : deux fichiers dont les chemins se masquent
+  de même comptent pour un.
 
 ## 4. Rouge d'abord, tueurs, preuve rouge
 
@@ -363,8 +370,8 @@ cette note.
 Pièce : `recherches:coordination/pieces/2026-10-07-g2-recherches/G2-243-delta3.json` (tête lue `a55985af`). Worker
 `claude-opus-5-5`, effort max, worktree neuf détaché du scratchpad ; `git add` par chemins ; poussé sans force. Le tronc d'abord :
 `7c50ee96` « Merge the trunk » (`e13cfff7`, la fusion de #244, sans conflit ; seul fichier commun, `docs/RUNBOOK-dojo.md`, où le
-tronc n'ajoute que des lignes après la l.1000) ; puis le test rouge seul (`333665c1`), la correction (`7c0ee061`), le runbook
-(`ce5e1062`) et cette note.
+tronc ne touche que des lignes après la l.1000 : 22 ajoutées, 13 ôtées) ; puis le test rouge seul (`333665c1`), la correction
+(`7c0ee061`), le runbook (`ce5e1062`) et cette note.
 
 - **m-13, chaque adresse lue masquée dans chaque chemin imprimé** : `judge` met chaque littéral qu'il lit, de tout fichier et de
   toute ligne, admis ou non, dans une `BlockList` (`seen`) ; à la fin de `scan()`, chaque chemin imprimé (celui d'une occurrence, et
@@ -380,8 +387,8 @@ tronc n'ajoute que des lignes après la l.1000) ; puis le test rouge seul (`3336
   d'une ligne IPv4-mapped ; une IPv6 sous chacune de ses formes longues (pleine ; pleine à queue pointée, 45 caractères ; à `::`
   final, huit deux-points) ou en majuscules ; les deux lectures d'une adresse suivie d'un chiffre échappé ; une IPv4-mapped écrite
   en hex ; l'occurrence d'un fichier lu plus tard ; des octets complétés de zéros ; une autre occurrence du même fichier ; une
-  récurrence qui se chevauche elle-même (forme a.b.a.b) ; un binaire non déclaré. Le cas de m-11 (`logs/host<adresse>.txt`) prend
-  une adresse lue seulement dans son fichier, pour épingler l'adresse d'une occurrence du contenu.
+  récurrence qui se chevauche elle-même (forme a.b.a.b ; un même octet depuis §11) ; un binaire non déclaré. Le cas de m-11
+  (`logs/host<adresse>.txt`) prend une adresse lue seulement dans son fichier, pour épingler l'adresse d'une occurrence du contenu.
 - **Rouge d'abord** : au commit `333665c1`, le script de la fusion, `address_literals_mask_a_path_wherever_its_address_recurs_escaped`
   rouge par `ERR_ASSERTION` à l'assertion neuve : chacun des douze cas imprime des chiffres d'une adresse lue (18 occurrences des
   deux côtés) ; les 11 autres tests verts ; `every_killer_line_is_readable` y rougit aussi (11 lignes de tueur visent des lignes de
@@ -389,7 +396,8 @@ tronc n'ajoute que des lignes après la l.1000) ; puis le test rouge seul (`3336
 - **Sonde du relecteur**, rejouée telle quelle (ses dix vecteurs et ses deux témoins de masque trop large, un dépôt jetable par
   vecteur) : à `a55985af`, 7 vecteurs sur 10 impriment des chiffres d'une adresse lue (V2 à V7, V9) ; à `7c0ee061`, aucun ; les
   témoins V11 et V12 inchangés. Le littéral qui se chevauche lui-même : 2 suites de chiffres restaient, aucune.
-- **Coût** (Node 24, Linux, `scan()` entier d'un dépôt jetable, sondes du relecteur) : 1 000 occurrences distinctes dans 1 000
+- **Coût** (Node 24.21.0, Linux, `scan()` entier d'un dépôt jetable, sondes du relecteur ; sous Node 24.0 à 24.20, la `BlockList`
+  de `seen` faisait croître ce coût avec le nombre d'occurrences lues : §11) : 1 000 occurrences distinctes dans 1 000
   fichiers, 62 ms (349 ms à `a55985af`) ; 3 000, 163 ms (752 ms) ; le chemin pathologique (598 caractères, 50 littéraux, 1 050
   occurrences), 21 ms (620 ms). Pire cas construit, 200 chemins de 3 517 caractères faits seulement de chiffres et de points, ou de
   chiffres hex et de deux-points : 0,9 s et 2,7 s, soit 5 et 13 ms par chemin (0,1 s à `a55985af`, qui n'y lisait que les littéraux
@@ -415,9 +423,13 @@ tronc n'ajoute que des lignes après la l.1000) ; puis le test rouge seul (`3336
   minuscules non décodé, les chiffres d'un échappement relus, un deux-points qui ne clôt pas un groupe, chaque deux-points compté
   comme un `::`, les bornes d'un groupe, des points, des deux-points et des `::` resserrées d'un cran, chacune des trois formes
   d'IPv6 non analysée, une IPv4 vérifiée comme une IPv6, le seul premier caractère d'une suite marqué, un littéral admis non
-  gardé. 4 survivent, équivalents par construction (bornes et filtres de coût, ou mémoire) : lire au-delà d'un caractère qu'aucune
-  adresse ne porte, ne pas tester la forme IPv4 avant de lire les octets, ne pas analyser l'IPv6 avant la `BlockList` (qui rend
-  faux sur un texte qu'elle ne lit pas), ôter la mémoire par chemin ; aucun ne change une sortie des vecteurs.
+  gardé. 4 survivent, dont 2 seulement sont équivalents : ne pas analyser l'IPv6 avant la `BlockList` (qui rend faux sur un texte
+  qu'elle ne lit pas, et dont l'analyseur et `isIPv6` s'accordent sur tout texte que la lecture atteint), ôter la mémoire par chemin
+  (`hide()` est pure : le coût seul change). Les 2 autres masquent davantage, jamais moins : lire au-delà d'un caractère qu'aucune
+  adresse ne porte masque aussi les caractères hex d'une zone après une IPv6 lue dont le dernier groupe a au plus deux caractères
+  (ceux d'un `%25` compris) ; ne pas tester la forme IPv4 avant de lire les octets masque un texte que `Number()` lit comme une adresse
+  lue (trois octets et un point final, un groupe vide, un exposant, un préfixe binaire). Aucun ne change une sortie des vecteurs de
+  ce pli ; les deux qui élargissent le masque sont tués en §11, où la `BlockList` cède aussi la place à un `Set`.
 - **red-proof** `--base 7c50ee96 --gel 7c0ee061 --draw 1 --seed 1` : 1 jugé, F2P (assert-fail à la base, pass au gel), 11
   inchangés, aucun refus ; population 1, 1 tueur tiré (`:128`), tué ; `RED-PROOF.json` sha256 `1a8ceda6…`, digest du gel
   `a5604f83…`.
@@ -442,6 +454,83 @@ tronc n'ajoute que des lignes après la l.1000) ; puis le test rouge seul (`3336
   la CI) ; contenu : 0.
 - **Non vérifié ici** : Windows (MONARK rejoue à la fusion) : la `BlockList` et ses formes IPv4-mapped, les noms de fixture à `%`
   et la borne de 250 ms sous Windows, et les points de §7 à §9.
+
+## 11. Pli du G2 delta 4 (verdict CORRECTIONS, deux constats m et des notes)
+
+Pièce : `recherches:coordination/pieces/2026-10-07-g2-recherches/G2-243-delta4.json` (tête lue `6d398e28`). Décision de MONARK
+(`recherches:coordination/messages/2026-10-08-MONARK-vers-RECHERCHES-243-fin.md`) : m-14 en place par un `Set`, m-15 par la phrase
+et, s'ils tiennent en quelques lignes, par leurs tueurs. Worker `claude-opus-5-5`, effort max, worktree neuf détaché du scratchpad ;
+`git add` par chemins ; poussé sans force. Le tronc a bougé (`565c7065`) : pas de fusion, la CI joue la fusion. Commits : `97f5d75c`
+(le `Set`), `04b69ef0` (les témoins), `ddef146a` (le vecteur et l'en-tête du test), `b1de764f` (le test rouge d'un fichier non lu),
+`1310a610` (sa correction) et cette note.
+
+- **m-14, le coût sous Node 24.0 à 24.20** : `seen` était une `BlockList`. Avant Node 24.21, `addAddress` ajoute une règle par
+  appel, sans dédoublonner, et `check()` les parcourt toutes (`src/node_sockaddr.cc` lu à v24.20.0 : `emplace_front`, puis une
+  boucle sur les règles ; à v24.21.0, une table de hachage) ; `engines` (`>=24`) et la CI (`node-version: "24"`) admettent ces
+  versions. `seen` est désormais un `Set` de textes canoniques : `canon()` (l.118) lit chaque adresse par `SocketAddress` en IPv6,
+  une IPv4 sous sa forme IPv4-mapped ; `judge` y ajoute celui de chaque littéral lu (l.143), `hide()` y cherche celui de chaque
+  suite analysée (l.135). Les formes se comparent comme avant (zéros, `::`, casse, forme IPv4-mapped pointée ou hex et son IPv4 ;
+  une forme IPv4-compatible reste distincte, comme dans la `BlockList`). Aucune ligne ajoutée : `canon` prend la ligne vide d'avant
+  le commentaire de `hide()`, que l'on récrit en place. Différentiel sous Node 24.21.0 : 60 000 chemins aléatoires (adresses des
+  plages de banc d'essai et d'espace partagé, construites à l'exécution, sous dix formes IPv4 et huit IPv6, collées ou échappées),
+  masqués par l'ancienne `hide()` avec sa `BlockList` et par la nouvelle avec le `Set` : 0 différence, 38 717 chemins changés de
+  part et d'autre. Coût, sous Node 24.21.0 sur une machine chargée (charge moyenne de 4 à 16 sur 4 cœurs) : 200 chemins construits
+  d'environ 3 500 caractères (chiffres et points ; hex et deux-points), `seen` à 10 puis à 100 000 adresses : 4,8 à 7,4 s et 18,7 à
+  25,2 s par le `Set`, dans la même bande à 10 et à 100 000 adresses ; 2,6 à 5,6 s et 6,6 à 12,5 s par la `BlockList` de 24.21 (une
+  `SocketAddress` et son texte par suite analysée coûtent plus qu'une recherche de 24.21) ; la porte sur l'arbre, 3,7 à 4,5 s, comme
+  avant. Sous Node 24.0 à 24.20 : non mesuré ici, aucun binaire n'étant disponible hors ligne ; un `Set` ne dépend pas de cette
+  version, et la pièce mesure ce correctif sous le binaire officiel v24.20.0 (0,37 à 1,85 s sur les arbres de son sceptique, où la
+  `BlockList` prenait sous cette version de 9,5 à 120,6 s).
+- **m-15, les mutants survivants** : §10 dit désormais lesquels sont équivalents. Le second arbre du test des chemins gagne trois
+  témoins que la tête imprime tels quels (l.186-187) : `logs/dot` suivi de trois octets et d'un point final ; `logs/exp` suivi d'une
+  adresse lue au deuxième octet écrit en exposant ; `zon-` suivi d'une IPv6 lue aux deux-points en `%3A` et d'une zone échappée
+  (`%25eth0`), attendu `zon-x%x%x%x%25eth0.txt`. Deux tueurs neufs au-dessus de l'assertion (l.192-193) : `:133 CONST` (le test de
+  forme IPv4 ôté) et `:132 CONST` (l'arrêt sur un caractère qu'aucune adresse ne porte, ôté) ; chacun la rougit par `ERR_ASSERTION`.
+  Trois lignes ajoutées au test.
+- **Mutants à la main**, rejoués sur le code de ce pli par `--table` (24 lignes : les 20 de §10, dont H17 et H19 réancrés sur le
+  texte neuf des l.135 et l.143, et 4 neufs sur les lignes de ce pli), chacun seul, fichier rendu et sha256 vérifié (`RESULTS.json`
+  `7a0958c6…`) : 22 tués par assertion, dont les deux qui élargissaient le masque. La mémoire par chemin ôtée survit : équivalente,
+  `hide()` étant pure. L'IPv6 non analysée avant la recherche n'est plus équivalente : `canon()` lève sur un texte qui n'est pas une
+  adresse, là où `BlockList.check` rendait faux, et deux tests rougissent alors par `ERR_INVALID_ADDRESS`, non par une assertion :
+  l'outil compte ce mutant « non conclu ». Les 4 neufs (`canon` sans la forme IPv4-mapped, puis avec la forme IPv4-compatible ;
+  l'erreur de lecture prise à l'envers ; un seul fichier non lu admis) sont tués.
+- **Le chemin d'un fichier non lu** (note du G2 delta 2, reprise au delta 4) : `scan()` relevait l'erreur de Node, dont le message
+  porte le chemin en clair. La porte note désormais chaque fichier qu'elle ne peut lire avec le code de l'erreur (l.162), lit la suite,
+  et lève à la fin une erreur qui les nomme par `show()` (l.170), masqués comme tout chemin imprimé ; un fichier absent de l'arbre de
+  travail reste sauté. Test `address_literals_print_the_path_of_a_file_it_cannot_read_masked` : une entrée d'index de 300 octets
+  sous un dossier nommé d'après une adresse (`ENAMETOOLONG`), attendue `address literals: cannot read logs/x.x.x.x/n…n
+  (ENAMETOOLONG)` ; sauté sous Windows, où ce nom donne un autre code. Rouge d'abord : au commit `b1de764f`, le script de
+  `ddef146a`, le test neuf rouge par `ERR_ASSERTION` (le message de Node, chemin en clair), les 12 autres verts ;
+  `every_killer_line_is_readable` rouge, qui nomme exactement les deux lignes de tueur visant la correction (`:170`, neuf ; `:181`,
+  renuméroté). À `1310a610` : 13/13 et la garde verte. Une ligne ajoutée au script, huit au test.
+- **Autres notes** : le vecteur du chevauchement (l.187) lit un même octet de l'espace partagé six fois, si bien que chaque fenêtre
+  est la même adresse partagée ; l'attendu ne bouge pas et les tueurs des l.188-191 tuent encore. L'en-tête du test (l.6-8) dit d'où
+  viennent les échantillons : les plages de banc d'essai et d'espace partagé, une adresse de lien local, et les voisins des plages
+  exemptées (l.71-72), hors de toute plage réservée pour la plupart, comparés par leur seule position. §3 « Sortie rouge » dit que
+  l'en-tête du rapport compte les chemins masqués ; §10, la fusion de RUNBOOK-dojo (22 lignes ajoutées et 13 ôtées par le tronc,
+  toutes après la l.1000), le libellé du coût et les survivants. Le corps de la PR dit la borne de quatre chiffres des octets
+  complétés. La note du relecteur sur les formes que la porte ne lit pas reste telle quelle, à dessein.
+- **Tueurs** : 23, tous ANCRE (`verifie-ancres` : 23 sur le fichier touché, 1 693 dans l'arbre ; 0 DERIVE, 0 PERDU). Neufs :
+  `:133 CONST` et `:132 CONST` (m-15), `:170 CONST` (le chemin d'un fichier non lu laissé en clair). Changés : les deux tueurs de
+  `:143` suivent le texte neuf (`seen.add(canon(…))`) ; `:181` (ex-`:180`). `scripts/mutants/run.mjs --killers`, chacun seul,
+  fichier rendu et sha256 vérifié : 23 tués par `ERR_ASSERTION` sur 23, base verte (`RESULTS.json` `6886ca42…`).
+- **red-proof** `--base ddef146a --gel 1310a610 --draw 1 --seed 1` : 1 jugé, F2P (assert-fail à la base, pass au gel), 12 inchangés,
+  aucun refus ; population 1, 1 tueur tiré (`:170`), tué ; `RED-PROOF.json` sha256 `52cf05b0…`, digest du gel `9498f062…`. Depuis
+  `6d398e28`, le test des chemins est en outre jugé et refusé « green at base », à dessein : ses témoins et son vecteur passent avec
+  le script d'avant ce pli, ils épinglent des mutants (ci-dessus), non un défaut.
+- **Mesures** (à `1310a610`, Node 24.21.0, Linux) : `tsc --noEmit` 0 ; eslint des deux fichiers de code : 0 erreur (1
+  avertissement, le script hors du champ d'eslint) ; `gate:vocab` (349 fichiers), `lang:gate` (0), `lint:ratchet` (69/69) et
+  `export:check` verts ; winlint : 49 fichiers contre le tronc, aucun risque Windows ; `git diff --check` vide. Porte sur l'arbre :
+  0 occurrence, 0 entrée périmée, 0 non déclaré, 2 415 fichiers lus sur 2 460, 64 paires dans 29 fichiers, toutes trouvées.
+  `npm run test:main` : 2 945 tests, 2 923 verts, 22 sautés (préexistants), 0 rouge, 316 s ; test 42 (l'export public et son
+  `npm ci && npm run ci` imbriqué) : vert, 128 s. Fusion simulée avec le tronc `565c7065` (un clone partagé du scratchpad) :
+  automatique, seul fichier commun `docs/JOURNAL-PROVENANCE.md` ; la porte sur l'arbre fusionné, 0 occurrence, 2 417 fichiers lus,
+  0 non déclaré, 0 entrée périmée ; taille, 546 lignes.
+- **Taille, forme de la CI** : 12 fichiers comptés, +498 −48, soit **546 lignes**, sous 547 (borne du lot) et sous 1 205 (borne de
+  la CI) ; contenu : 0.
+- **Non vérifié ici** : Node 24.0 à 24.20 (aucun binaire hors ligne : le défaut tient aux sources lues, le correctif aux mesures de
+  la pièce) ; Windows (MONARK rejoue à la fusion) : `SocketAddress` et ses textes canoniques, les noms de fixture à `%`, la borne de
+  250 ms, la fixture des liens ; le test d'un fichier non lu, sauté sous Windows.
 
 ## Points pour MONARK
 
