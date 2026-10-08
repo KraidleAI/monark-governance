@@ -65,6 +65,7 @@
  "apps/harness/test/kata-path.test.ts": 20,
  "apps/harness/test/openapi.test.ts": 12,
  "apps/harness/test/oracle-fixtures.test.ts": 2,
+ "apps/harness/test/policy-committed.test.ts": 7,
  "apps/harness/test/policy-guard.test.ts": 18,
  "apps/harness/test/policy-marginal.test.ts": 4,
  "apps/harness/test/policy-projection.test.ts": 10,
