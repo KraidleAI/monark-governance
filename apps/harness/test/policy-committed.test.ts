@@ -19,8 +19,8 @@ import { forbiddenLoads, importSpecifiers } from "./helpers/import-specifiers.ts
 import { syntheticRegistry } from "./helpers/synthetic-registry.ts";
 
 const SRC = join(dirname(fileURLToPath(import.meta.url)), "..", "src");
-/** What a source file loads, read by the shared helper: its specifiers as importSpecifiers lists them (ts.preProcessFile; servedModules
- *  follows the same), and the loads that no specifier shows, as forbiddenLoads finds them on the syntax tree (both named in its header). */
+/** What a source file loads, read by the shared helper on its syntax tree: its specifiers as importSpecifiers lists them (both walks of the
+ *  served graph follow the same), and the loads that no specifier shows, as forbiddenLoads finds them (both named in its header). */
 const importsOf = (file: string): string[] => importSpecifiers(readFileSync(join(SRC, file), "utf8"));
 const loadsOf = (file: string): string[] => forbiddenLoads(readFileSync(join(SRC, file), "utf8"));
 const ENTRIES = kataClassEntries((c) => `class text of ${c}`);
@@ -132,7 +132,7 @@ test("committed_pins_start_empty_with_two_closed_held_lists", () => {
   assert.ok((block ?? "").trimEnd().endsWith("// END committed tables"));
 });
 
-// killer: apps/harness/test/helpers/import-specifiers.ts:26 CONST ".importedFiles.map(" -> ".importedFiles.filter((f) => text[f.pos] === '\"').map("
+// killer: apps/harness/test/helpers/import-specifiers.ts:50 CONST "ts.isStringLiteralLike(s)" -> "ts.isStringLiteralLike(s) && text[s.getStart()] === '\"'"
 test("import_specifiers_are_read_in_both_quotes", () => {
   const text = ["import './a.ts';", "export { b } from '../b.ts';", "void import('./c.ts');", "import { readFileSync } from 'node:fs';", "import {", "  d,", '} from "./d.ts";', "const u = import.meta.url; // read from the tables folder"].join("\n");
   assert.deepEqual(importSpecifiers(text), ["./a.ts", "../b.ts", "./c.ts", "node:fs", "./d.ts"]);

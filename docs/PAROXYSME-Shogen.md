@@ -8,14 +8,29 @@
 - **Provenance** : écrit par PAROXYSME (`claude-opus-5-5`, effort max) le 2026-10-07 à partir de 17:28 UTC, tâche 1 du tableau MONARK ↔
   PAROXYSME (ordre de mission n° 1, l.55-73). Sources : l'inventaire validé de Shōgen (dossier d'étude du 2026-10-06), la couverture de
   `CHANTIERS-CANDIDATS.md` §4 et §4.1, les fenêtres du plan v3 §4 (chemins et empreintes au §8). Relecture : une G2 par une instance
-  neuve ; contrôle par diff, fusion et ligne d'ETAT : MONARK.
+  neuve (2026-10-07, de 18:09 à 18:43 UTC, `date -u`), pliée de 18:46 à 19:10 UTC (`date -u`) par un worker de correction de PAROXYSME
+  (`claude-opus-5-5`, effort max), le registre étant retouché ensuite par la session PAROXYSME (en-tête, doute 10, §8) avant le commit
+  `290a6ccf` (19:11:57 UTC par `TZ=UTC git log` ; `G2-Shogen.md` l.6, `PLI-Shogen.md` l.5 et l.41-43, §8) ; contrôle par diff, fusion
+  et ligne d'ETAT : MONARK. Versé au tronc par #242, fusion `1df4e44f` (ETAT l.181-186 à `5437cd0d`) ;
+  décisions de MONARK pliées le 2026-10-07 (PR `paroxysme/registres-decisions-1007`), à partir de 19:56 UTC, par un worker de
+  PAROXYSME (`claude-opus-5-5`, effort max), sur ETAT à `5437cd0d` et le message `d6331f6` (MSG) (§8) ; relecture : PAROXYSME, puis MONARK.
+  Constat 9 de la G2 de ce pli (instance neuve) plié le 2026-10-07 à partir de 21:41 UTC (`date -u`) par un worker de PAROXYSME
+  (`claude-opus-5-5`, effort max, contexte de sa mission), avec le message `8eb9a46` de MONARK (MSG2) (§8) : §1, N-06 à N-08, doute 15, §8 ; puis,
+  après un second vérificateur adverse (le premier visait la demande à MONARK, pas ce registre), réparé le 2026-10-08 à partir de 00:18 UTC (`date -u` ;
+  commit `039e6470`, 00:32:07 UTC par `TZ=UTC git log`) par un worker de PAROXYSME (`claude-opus-5-5`, effort max, contexte de sa mission) : §1, doute 15.
+  Second tour : constats d'une relecture par lentilles reproduits à `beea9834` et pliés le 2026-10-08 à partir de 01:44 UTC (`date -u`) par un
+  worker de PAROXYSME (`claude-opus-5-5`, effort max) : §0 (Porteurs), §4 (N-11), §5, §7 (doutes 3, 10 et 13), §8 (sources) ; puis, après un
+  vérificateur adverse, réparés le même jour à partir de 03:21 UTC (`date -u`) par un worker de PAROXYSME (`claude-opus-5-5`, effort max) : en-tête, §5 ;
+  puis, après un second vérificateur adverse, réparés à partir de 04:49 UTC (`date -u`) par un worker de PAROXYSME (`claude-opus-5-5`, effort max) :
+  en-tête, §3.1 (N-07), §5, §8 (ligne PAROXYSME, sources) ; constats de la vérification finale de ce tour réparés à partir de 05:44 UTC
+  (`date -u`) par la session PAROXYSME : §7 (doute 10), §8 (ligne PAROXYSME).
 - **Bases** : inventaire mesuré à `d8fe354c`, qui y lit aussi ETAT (empreinte `2ef6f107…`, INV-S l.19), et non à `57a131fc` comme ceux
   du Harnais et du Moteur. Toutes les ancres du tronc sont à la base `87b821b0` de `lot/etude-suite` (tête relue par `git ls-remote` le
   2026-10-07 à 17:07 UTC, message `d4b3d07` l.16-17). Le tronc a avancé depuis par les fusions #241 et #235, jusqu'à `eb1beb01`
   (17:50:40 UTC), sans changer aucun fichier cité : `git diff --name-only 87b821b0 eb1beb01` en donne 22, aucun du §8. Les ancres sont
   reportées depuis `d8fe354c` par l'outil `reanchor.mjs` (pièce de la boîte, `d2332e2`, rejoué à `a55a62d`) : sur 61 références (liste au
   §7, doute 9), 55 sont dans des fichiers inchangés, 2 gardent leur numéro, 3 se déplacent à texte égal et 1 ligne d'ETAT change de
-  texte, sans qu'aucune entrée en dépende.
+  texte, sans qu'aucune entrée en dépende. Exception : une ligne d'ETAT des décisions pliées se cite « ETAT l.N à `5437cd0d` ».
 - **Préséance** : `docs/ETAT.md` l.7-11 ; ETAT prime. Un item nommé hors d'ETAT et du code n'est pas compté comme formé : il est écrit
   « à former » et porté par son chantier ; un item du dépôt Shōgen ne vaut item formé que pour une limite dont Shōgen est propriétaire
   (CC l.34-37).
@@ -43,12 +58,16 @@
 - **Natures** (celles de l'inventaire) : T théorie · M mesure · D donnée · P dépendance · Dr droit · C capacité.
 - **Propriétaire** (INV-S l.39) : MONARK porte l'outil `attest`, la couture `attested → gate` et les surfaces (§2.1, §3.1) ; Shōgen porte
   le capteur S2, le vérificateur et le certificat 04, par décision du fondateur du 2026-10-03 (ADR-CM l.188) (§2.2, §3.2).
+  Porteurs : le mainteneur de Shōgen est le fondateur (ETAT l.275 à `5437cd0d` ; MSG l.76) ; les entrées qui nomment le mainteneur
+  Shōgen pour porteur le gardent ; MONARK lui envoie les demandes (MSG l.72) et lui porte la décision de forme G5, un acte du fondateur
+  (ETAT l.274-275 à `5437cd0d`).
 - **Item, porteur, déclencheur.** Deux textes de la boîte : le plan de la tâche 1 (accusé `4bbf3ed` l.131-132, accepté par `da72328`
   l.38) donne aux limites dont Shōgen est propriétaire le mainteneur Shōgen pour porteur et une demande pour item ; les trois règles de
   `d4b3d07` l.45-51, postérieures et acceptées par `07d99e2` l.6, font garder à une limite marquée `SHOGEN` « l'item, le porteur et le
   déclencheur que donne sa source » (l.48) : elles prévalent là où la source nomme un porteur (N-10). D'où :
   - un item formé à ETAT est cité avec sa ligne à la tête et garde le porteur et le déclencheur qu'ETAT lui écrit (`d4b3d07` l.46-47) ;
-    aucune limite de Shōgen n'en a à la tête (§7, doute 3) ;
+    aucune limite de Shōgen n'en a à `87b821b0` ; à `5437cd0d`, ETAT l.256 nomme SHOGEN-G4-NOTAIRE-RECHERCHE-1 (L-41) avec le
+    déclencheur que L-41 reprend (§7, doute 3) ;
   - une limite que `CHANTIERS-CANDIDATS.md` §4 rattache à un chantier prend ce chantier pour item (`PXC-nn`, sa partie, l'item que la
     partie forme) ; porteur : PAROXYSME, qui porte les chantiers (TABLEAU de la boîte, décision de MONARK du 2026-10-07), MONARK gardant
     l'ordre et l'attribution ; déclencheur : la partie et sa fenêtre au plan v3 §4 ; une partie que la fiche ne fixe pas : §7, doute 5 ;
@@ -57,7 +76,8 @@
     §7, doute 14), cité tel quel, avec le porteur que sa source écrit (le mainteneur Shōgen quand elle n'en nomme pas d'autre) et le
     déclencheur que l'inventaire donne ; s'il n'en donne pas : §7, doute 6 ;
   - les douze limites côté Shōgen sans item (CC l.1147-1151) ont pour item une demande au mainteneur Shōgen, à former par PXC-01 partie 2
-    (CC l.89-91, l.1148-1150 ; la partie est une lecture, §7 doute 5) ; porteur PAROXYSME, déclencheur F3 ; envoi : MONARK (§7, doute 7) ;
+    (CC l.89-91, l.1148-1150 ; la partie est une lecture, §7 doute 5) ; porteur PAROXYSME, déclencheur F3 ; envoi : MONARK (MSG l.72 ;
+    §7, doute 7) ;
   - un acte hors délégation (visibilité, argent, clés et comptes, publication) a pour porteur le fondateur, toujours par MONARK ; une
     lecture sur place a pour porteur MONARK ; tous sont écrits quand plusieurs existent.
 - **Fenêtres du plan v3 §4** : F1 = §4.1, semaine du 2026-10-07 ; F2 = §4.2, du 2026-10-14 au service de la vague 1 (vers le
@@ -78,19 +98,17 @@
 
 ## 1. Dettes : limites sans item, sans porteur ou sans déclencheur
 
-- **Une dette de déclencheur, constatée par la G2** : L-41, avec le volet G4 de L-03. Leur item au dépôt Shōgen,
-  SHOGEN-G4-NOTAIRE-RECHERCHE-1, a pour seul déclencheur « maintenant (sans code) » (ANB l.25, par INV-S l.79). Il est atteint au plus
-  tard à `d383a51` (2026-10-03, INV-S l.7), sans acte prouvé (INV-S l.176 : « C3/C4 non lancées », l'item toujours « maintenant ») ;
-  l'état au dépôt Shōgen n'est pas revérifiable ici. Déclencheur neuf proposé à MONARK : le relevé de cet état, auprès du mainteneur
-  Shōgen, dans la demande de PXC-01 partie 2 (F3) ; jusque-là, elle est comptée ici comme dette (§7, doute 11). L-03 garde ses autres
-  déclencheurs.
-- Toutes les autres entrées ouvertes des §2 et §3 portent un item, un porteur et un déclencheur ; le contrôle est mécanique (§7,
-  doute 10).
+- Aucune dette : toutes les entrées ouvertes des §2 et §3 portent un item, un porteur et un déclencheur ; le contrôle est mécanique
+  (§7, doute 10).
+- **À dater** (porteur : MONARK) : le port au fondateur des échéances de N-06, N-07 et N-08 (ETAT l.274-276 à `5437cd0d` ;
+  MSG l.77-78) est écrit sans date (§7, doute 15). Échéance demandée avec la demande de fusion de ce pli (PR `paroxysme/registres-decisions-1007`),
+  sur le modèle de MSG2 l.6-7 : le prochain point d'étape de MONARK avec le fondateur ; au plus tard, un jalon nommé, par exemple l'ADR de PXC-08,
+  avant sa partie 1 (F3 ; §7, doute 5). N-06, N-07 et N-08 gardent leur item, leur porteur et leur déclencheur.
 - Les six limites côté MONARK que l'inventaire compte « sans item » (part MONARK de N-03, N-05, N-12, N-13, N-14, N-15 ; INV-S l.236)
   ont un chantier : PXC-08, PXC-01, PXC-05, PXC-08 et PXC-16, PXC-02, PXC-01. Les douze côté Shōgen (L-37, L-38, L-40, L-42, L-43, L-45,
   L-47, L-48, L-49, L-52, L-53, S-05 ; INV-S l.237) ont pour item une demande au mainteneur, à former par PXC-01 partie 2 (F3) et
-  envoyée par MONARK : aucune dette au sens de la convention CC §4.1 (l.1136, l.1147-1150), mais douze limites sans item de recherche
-  tant que le mainteneur n'en forme pas.
+  envoyée par MONARK (MSG l.72) : aucune dette au sens de la convention CC §4.1 (l.1136, l.1147-1150), mais douze limites sans item de
+  recherche tant que le mainteneur n'en forme pas.
 
 ## 2. Limites du 2026-09-27 : état à la tête (35, INV-S §4 ; 3 changées)
 
@@ -106,21 +124,22 @@
   source : `apps/harness/src/attestation-binding.ts:34-39`, `:62-65` ; `apps/harness/src/tools/gate.ts:949-953` ; 08 l.40 ; 0005 l.121 ·
     touche : `apps/harness/src/tools/gate.ts:258` (« exact committed-URL membership ») · nature : T/C
   item : PXC-08 SHOGEN-SEAM-1, partie 3 (G5 : hôte seul lié, requête klines porteuse) ; SHOGEN-G5-FORM-REQUEST-1 (PLAN l.902) ; PX-Shogen-2 ;
-    ATTEST-KATA-SUBJECT-1 (ADR-CM l.191, INV-S l.78, à re-former à ETAT) · porteur : PAROXYSME ; la demande : MONARK ; la forme : mainteneur
-    Shōgen, ou le fondateur (§7, doute 13) · déclencheur : la demande, avec N-02 (PLAN l.557, F1) ; partie 3 (F5) ; re-formation : PXC-01
-    partie 2 (F3)
+    ATTEST-KATA-SUBJECT-1 (ADR-CM l.191, INV-S l.78, à re-former à ETAT) · porteur : PAROXYSME ; la demande : MONARK (MSG l.72) ; la
+    forme (G5) : le fondateur (ETAT l.274-275 à `5437cd0d` ; §7, doute 13) · déclencheur : la demande, avec N-02 (PLAN l.557, F1) ;
+    partie 3 (F5) ; re-formation : PXC-01 partie 2 (F3)
   état : changé (seule la ligne de `btc-dir-15m`, retirée, a un sujet ; tout `attested` est refusé) · suite : `changé` au sens de
-    l'inventaire (INV-S l.37) ; ligne d'attente datée (P-25) proposée à MONARK pour ETAT dans la demande de fusion (PLAN l.617-618) ;
-    DECISIONS l.1887-1904 (§7, doute 1)
+    l'inventaire (INV-S l.37) ; ligne d'attente datée (P-25) : ETAT l.270-273 à `5437cd0d` (PLAN l.617-618) ; DECISIONS l.1887-1904
+    (§7, doute 1)
 - **L-03** · « Auto-notarisation : verdict S3 démonstratif, assurance « aucune » ; la cible monte à un quorum d'attesteurs du même sujet. »
   source : 08 l.15, l.20 ; 0005 l.121 (AD-K-7) · touche : `README.md:33` ; label (`packages/monark/src/adapter-shogen.ts:41`) · nature : T/P
   item : PXC-07 TRUSTLESS-READ-2, partie 1 (campagne R3, quorums de notaires) ; PXC-08 partie 3 (quorum du sujet kata) ;
     SHOGEN-G4-NOTAIRE-RECHERCHE-1 (ANB l.25) ; PX-Shogen-3 · porteur : PAROXYSME ; mainteneur Shōgen (G4) ; dépense d'un notaire : le fondateur
-    · déclencheur : campagnes de lecteurs en F3 (PLAN l.605) ; G4 « maintenant (sans code) » (ANB l.25), atteint sans acte prouvé (§1) :
-    relevé proposé à MONARK dans la demande de PXC-01 partie 2 (F3) ; partie 3 de PXC-08 (F5) ; re-formation : PXC-01 partie 2 (F3)
-  état : changé (cible relevée, INV-S l.224) ; volet G4 : **dette de déclencheur** (§1) · suite : `changé` au sens de l'inventaire
-    (INV-S l.37) ; ligne d'attente datée (P-25) proposée à MONARK pour ETAT dans la demande de fusion (PLAN l.617-618) ; côté MONARK de
-    G4 ≈ 3 j (estimation de l'inventaire) ; dépense : ADR-0028 §4 pt 6 l.257
+    · déclencheur : campagnes de lecteurs en F3 (PLAN l.605) ; G4, « maintenant (sans code) » (ANB l.25) atteint sans acte prouvé : le
+    relevé de son état auprès du mainteneur dans la demande de PXC-01 partie 2 (F3 ; ETAT l.256 à `5437cd0d` ; §7, doute 11) ; partie 3
+    de PXC-08 (F5) ; re-formation : PXC-01 partie 2 (F3)
+  état : changé (cible relevée, INV-S l.224) · suite : `changé` au sens de l'inventaire (INV-S l.37) ; ligne d'attente datée (P-25) :
+    ETAT l.270-273 à `5437cd0d` (PLAN l.617-618) ; côté MONARK de G4 ≈ 3 j (estimation de l'inventaire) ; dépense :
+    ADR-0028 §4 pt 6 l.257
 - **L-04** · « Le vérificateur n'est jamais exécuté à l'appel ; le capteur complet est « under test, not served ». »
   source : `apps/harness/src/tools/attest.ts:6-7`, `:33-35` ; `apps/site/lib/shogen-copy.ts:8-10` ; ADR-0028 l.226 (G2 : wasm32 d'abord) ·
     touche : `apps/site/components/shogen-panel.tsx:71-72` ; `README.md:179-180` (critère 4) · nature : C
@@ -135,9 +154,8 @@
   item : PXC-08 SHOGEN-SEAM-1, partie 3 (garde `observed_at` sur le gabarit `produced_at` de 300 s : MONARK-SHOGEN-FRAICHEUR-1, ANB l.148,
     à transcrire) ; PX-Shogen-4 ; M017 l.117, liaison temporelle (INV-S l.81 ; ADR, à former) · porteur : PAROXYSME · déclencheur :
     partie 3 de PXC-08, après CM-4 (F5) ; re-formation : PXC-01 partie 2 (F3)
-  état : changé (la couture dort, ADR-CM l.189) · suite : `changé` au sens de l'inventaire (INV-S l.37) ; ligne d'attente datée (P-25)
-    proposée à MONARK pour ETAT dans la demande de fusion (PLAN l.617-618) ; Roughtime -19 en file RFC (PX-IDENT-B l.89) ; même phrase :
-    registre Hikae, L16
+  état : changé (la couture dort, ADR-CM l.189) · suite : `changé` au sens de l'inventaire (INV-S l.37) ; ligne d'attente datée (P-25) :
+    ETAT l.270-273 à `5437cd0d` (PLAN l.617-618) ; Roughtime -19 en file RFC (PX-IDENT-B l.89) ; même phrase : registre Hikae, L16
 - **L-06** · « Décodeur TS : le prédicat de canonicité de `subject` (ADR-0016 de Shōgen) n'est pas porté. »
   source : `packages/monark/src/cbor-canonique.ts:24-28` ; `fixtures/PROVENANCE-s3-binance.md:82-84` · touche : `README.md:274`
     (« mirroring Shōgen's decoder ») · nature : C
@@ -150,8 +168,7 @@
 - **L-07** · « Contrôle de transport délégué au binaire compagnon. »
   source : 08 l.36 ; `fixtures/s3-binance.verdict.txt:16` · touche : aucune · nature : P
   item : ADR-0015 pt 11 ; WISHLIST P3bis n°5 (dépôt Shōgen) · porteur : mainteneur Shōgen · déclencheur : non reporté par l'inventaire
-    (« bloqué par : Shōgen », INV-S l.83 ; §7, doute 6) ; relevé proposé dans la demande de PXC-01 partie 2 (F3), extension à accepter par
-    MONARK
+    (« bloqué par : Shōgen », INV-S l.83 ; §7, doute 6) ; relevé dans la demande de PXC-01 partie 2 (F3 ; MSG l.73)
   état : ouvert (couvert au dépôt Shōgen) · suite : aucune
 - **L-08** · « Amont TLSNotary en alpha ; aucune analyse arbitrée du MPC-TLS. »
   source : 08 l.37 ; PX-IDENT-B l.82 · touche : aucune aujourd'hui (revendication future `tlsn-mpc/1`) · nature : P/T
@@ -223,12 +240,12 @@
 - **L-21** · « Contraste TIFS 2016 / Vendi « dû tel quel ». »
   source : doc 04 de Shōgen ; ADR-0026 l.22 (DP §F1) · touche : aucune · nature : T
   item : PX-Shogen-19 (C8) · porteur : mainteneur Shōgen · déclencheur : non reporté par l'inventaire (« bloqué par : Shōgen », INV-S l.97 ;
-    §7, doute 6) ; relevé proposé dans la demande de PXC-01 partie 2 (F3), extension à accepter par MONARK
+    §7, doute 6) ; relevé dans la demande de PXC-01 partie 2 (F3 ; MSG l.73)
   état : ouvert · suite : ADR-0026 l.22 reste un « dû » nu au dépôt Shōgen (INV-S l.97)
 - **L-22** · « Corpus d'attaques du certificat (classes numérotées) dû. »
   source : doc 04 de Shōgen · touche : aucune · nature : T
   item : PX-Shogen-20 (C8) · porteur : mainteneur Shōgen · déclencheur : non reporté par l'inventaire (« bloqué par : Shōgen », INV-S l.98 ;
-    §7, doute 6) ; relevé proposé dans la demande de PXC-01 partie 2 (F3), extension à accepter par MONARK
+    §7, doute 6) ; relevé dans la demande de PXC-01 partie 2 (F3 ; MSG l.73)
   état : ouvert · suite : Qin détenu (copie Ukemi) ; Schneier 1999 (INV-S l.193)
 - **L-23** · « φ entre singletons = proxy bruité ; NON_EVAL compté 0. »
   source : `lm.py` l.37-39, l.62-63 (dépôt Shōgen, mise en garde publiée) · touche : aucune · nature : T/M
@@ -294,9 +311,9 @@
     conception) ; PX-Shogen-1 · porteur : PAROXYSME ; mainteneur Shōgen · déclencheur : l'ADR de PXC-02 (tâche 2 du TABLEAU, F1)
   état : ouvert, par conception · suite : la phrase du panneau l.66-68 n'est plus exacte (N-03, INV-S l.50)
 
-## 3. Limites nouvelles depuis le 2026-09-27 (40 ouvertes, INV-S §5 et §6 ; L-36 close au §4)
+## 3. Limites nouvelles depuis le 2026-09-27 (39 ouvertes, INV-S §5 et §6 ; L-36 et N-11 closes au §4)
 
-### 3.1 Côté MONARK (N-01 à N-16, INV-S §5)
+### 3.1 Côté MONARK (N-01 à N-16, INV-S §5 ; N-11 close au §4)
 
 - **N-01** · « Jointure `attest → gate` dormante : tout `attested` est refusé ; `attest` redevient terminal. »
   source : `apps/harness/src/attestation-binding.ts:62-65` ; `apps/harness/src/tools/gate.ts:234`, `:1003-1004` ; ADR-CM l.186-191 ;
@@ -304,8 +321,8 @@
   item : PXC-08 SHOGEN-SEAM-1, partie 3 (ATTEST-KATA-SUBJECT-1, ADR-CM l.191, à re-former à ETAT) ; F-12 (0002 l.173) ; AD-K-7 (0005 l.121)
     · porteur : PAROXYSME, avec le mainteneur Shōgen (ADR-CM l.191 nomme RECHERCHES) · déclencheur : partie 3 de PXC-08, après CM-4 (F5) ;
     re-formation : PXC-01 partie 2 (F3)
-  état : ouvert (nouvelle : CM-2b et contrat 1.1.0) · suite : ligne d'attente datée (P-25) proposée à MONARK pour ETAT dans la demande de
-    fusion (PLAN l.617-618) ; côté porte : registre du Harnais, MK-L26 et §6 ; prérequis : G5, G4, session klines
+  état : ouvert (nouvelle : CM-2b et contrat 1.1.0) · suite : ligne d'attente datée (P-25) : ETAT l.270-273 à `5437cd0d` (PLAN
+    l.617-618) ; côté porte : registre du Harnais, MK-L26 et §6 ; prérequis : G5, G4, session klines
 - **N-02** · « `fromShogen` ne recalcule jamais `sha256(utterance.bytes)` : `octets_recalcules` est lu dans le texte du verdict. »
   source : `packages/monark/src/adapter-shogen.ts:154-165`, `:245` ; recalcul en test seulement (`packages/monark/test/adapter-shogen.test.ts:128-129`)
     · touche : `apps/site/lib/docs-pieces.ts:46` ; `apps/site/components/shogen-panel.tsx:60-62` · nature : C
@@ -316,8 +333,8 @@
   source : `fixtures/s3-binance.verdict.txt:16` ; `packages/monark/src/adapter-shogen.ts:236`, `:238` ; `apps/site/data/harness-served.json:121` ;
     08 l.39-40 · touche : `apps/harness/src/tools/attest.ts:33-35` ; `apps/site/components/shogen-panel.tsx:66-68` ; `README.md:251` · nature : T/C
   item : PXC-08 SHOGEN-SEAM-1, partie 1 (ATTEST-NEGATIVE-SCOPE-1, à former) ; PXC-02, clause rendue à PXC-08 (CC l.141-143) ; G5 ;
-    SHOGEN-E1-COPIES-GARDEES-1 (ANB l.141) · porteur : PAROXYSME ; mainteneur Shōgen ; la forme (G5) : mainteneur Shōgen, ou le
-    fondateur (§7, doute 13) · déclencheur : release de textes servis (F3) ; copies : « G0 du lot MONARK G2, ou 2026-10-31 »
+    SHOGEN-E1-COPIES-GARDEES-1 (ANB l.141) · porteur : PAROXYSME ; mainteneur Shōgen ; la forme (G5) : le fondateur (ETAT l.274-275 à
+    `5437cd0d` ; §7, doute 13) · déclencheur : release de textes servis (F3) ; copies : « G0 du lot MONARK G2, ou 2026-10-31 »
   état : ouvert (nouvelle : CARTO-MK-02 ; 08 v4) · suite : si la description de l'outil change, la trace h5 et son manifeste sont ré-épinglés
 - **N-04** · « Sans support : « continuous testimonies across sources » et « measured independence of the sources » ; aucune garde du vocabulaire 09. »
   source : `apps/site/lib/shogen-copy.ts:9-10` (à l'octet, `test/site-docs.test.ts:609-610`) ; `apps/site/components/docs/piece-doc-page.tsx:144-147`
@@ -336,20 +353,22 @@
     touche : aucune · nature : C/P
   item : PXC-08 SHOGEN-SEAM-1, volet sous acte (manifeste de release, CC l.292) ; MONARK-SHOGEN-FIXTURE-MANIFESTE-1 (ANB l.147) · porteur :
     PAROXYSME ; visibilité du dépôt Shōgen : le fondateur · déclencheur : la clôture de S3 et le passage public du dépôt Shōgen (PLAN l.892) ;
-    échéance à demander au fondateur par MONARK (PLAN l.882, l.892 ; §7, doute 15)
+    échéance à porter au fondateur par MONARK (ETAT l.274-276 à `5437cd0d` ; PLAN l.882, l.892 ; §7, doute 15 ; port à dater : §1)
   état : ouvert (nouvelle : lot E1, T-04) · suite : l'acte n'a pas d'échéance écrite ; voisin de L-53
 - **N-07** · « Identifiants de résidus servis non résolus dans un registre publié : le 08 vit dans un dépôt privé. »
   source : `apps/site/data/harness-served.json:121` ; CARTO §4 G8 · touche : `README.md:251` ; `apps/site/components/shogen-panel.tsx:66-68` · nature : C/Dr
   item : PXC-08 SHOGEN-SEAM-1, volet sous acte (registre des résidus, ou glossaire, CC l.292-293) ; MONARK-SHOGEN-REGISTRE-1 (ANB l.149)
     · porteur : PAROXYSME ; visibilité : le fondateur · déclencheur : passage public du dépôt Shōgen (PLAN l.892), ou réponse sur le glossaire ;
-    échéance à demander au fondateur par MONARK (PLAN l.882, l.892 ; §7, doute 15)
-  état : ouvert (nouvelle : CARTO-MK-10) · suite : un glossaire côté MONARK serait-il une revendication neuve ? (INV-S l.278)
+    échéance à porter au fondateur par MONARK (ETAT l.274-276 à `5437cd0d` ; PLAN l.882, l.892 ; §7, doute 15 ; port à dater : §1)
+  état : ouvert (nouvelle : CARTO-MK-10) · suite : un glossaire côté MONARK serait-il une revendication neuve ? (INV-S l.278) : à trancher
+    dans l'ADR de PXC-08 (porteur : PAROXYSME ; §7, doute 5), avant sa partie 1 (F3) ; au fondateur, par MONARK, si la réponse touche
+    l'exception (CL l.38)
 - **N-08** · « Aucune sortie S2 servie : l'arête G9 (`docs/11` de Shōgen vers MONARK) est absente. »
   source : ADR-0028 l.238-248 (« État du tuyau : absent ») ; PASS l.15 (S2 à la partie 2) · touche : `apps/site/lib/shogen-copy.ts:9-10` ;
     `README.md:104` · nature : C/D
   item : PXC-08 SHOGEN-SEAM-1, volet G9 (test `shogen_s2_report_offline_recompute_matches_published`) ; SHOGEN-S2-TUYAU-MONARK-1 (ANB l.59)
     · porteur : PAROXYSME ; S2 : mainteneur Shōgen ; J14/J28 : le fondateur · déclencheur : G0 du lot G9, après S2 parties 2 à 4 et la
-    publication (PLAN l.892) ; échéance à demander au fondateur par MONARK (PLAN l.882, l.892 ; §7, doute 15)
+    publication (PLAN l.892) ; échéance à porter au fondateur par MONARK (ETAT l.274-276 à `5437cd0d` ; PLAN l.882, l.892 ; §7, doute 15 ; port à dater : §1)
   état : ouvert (nouvelle, ADR-0028 §3) · suite : G9 est l'autre jalon de fin de l'exception (N-16)
 - **N-09** · « Lecture intermédiaire de statistiques S2 par MONARK (`measure-m009a`, instantané du 18/09) non mesurée. »
   source : `scripts/measure-m009a.mjs` ; `docs/measure-M009a.md:5-7` ; `docs/adr/ADR-M002-phase1-moteurs-hikae-ukemi.md:161` ; ANNEXE-D
@@ -360,15 +379,10 @@
 - **N-10** · « L'arête S4 → `gather` de Kraidle n'a pas d'item côté MONARK. »
   source : ANB l.26 · touche : aucune · nature : C
   item : SHOGEN-KRAIDLE-GATHER-1 (ANB l.26) · porteur : MONARK et Kraidle (ANB l.26, INV-S l.126) ; transcription ou refus à ETAT :
-    MONARK (N-05) · déclencheur : G0 de S4 (ANB l.26)
+    MONARK (N-05) · déclencheur : G0 de S4 (ANB l.26) ; son placement : la recartographie de PXC-01 partie 2, qui lui donne un
+    déclencheur (F3 ; MSG l.74)
   état : ouvert (nouvelle : CARTO-MK-08) · suite : effort MONARK nul maintenant ; absent d'ETAT, comme les autres items transmis (N-05) ;
-    item de porteur MONARK sans chantier MONARK (CC l.706 : `SHOGEN` seul ; §7, doute 12)
-- **N-11** · « Le registre PAROXYSME de la pièce `built` manque au dépôt MONARK ; la fiche du 2026-09-27 est périmée. »
-  source : `git ls-tree 87b821b0 docs` : `docs/PAROXYSME-Dojo.md` seul ; CL l.48-49 ; ANB l.50 · touche : aucune · nature : C
-  item : versement intérimaire (a′), ce fichier (PLAN l.540 ; tâche 1 du TABLEAU) ; PXC-01 PAROXYSME-STANDARD-1, partie 2 (PLAN l.833) ;
-    SHOGEN-PAROXYSME-REGISTRE-1 (ANB l.50) · porteur : PAROXYSME (écriture) ; MONARK (fusion, ligne d'ETAT) · déclencheur : la fusion
-    de ce versement par MONARK (F1) ; partie 2 de PXC-01 (F3)
-  état : ouvert (ce fichier le ferme à sa fusion) · suite : à la fusion, l'entrée passe au §4 avec la ligne d'ETAT
+    CC l.706 ne la marque que `SHOGEN` ; son chantier côté MONARK sort de cette recartographie (§7, doute 12)
 - **N-12** · « Le contrôle `attest_call` de la CA ne lit que « demonstrative » ; ni la CA ni le miroir n'épinglent les valeurs du témoin servi. »
   source : `scripts/verify-harness.mjs:392-396` ; `docs/G0-lot-cm-2b-surfaces.md:63` ; `apps/site/lib/fleet.ts:140-141` · touche :
     `README.md:179-180` (critère 4) · nature : M/C
@@ -415,7 +429,7 @@
 - **L-39** · « Sources IDN hors périmètre (ADR-0016 C3). »
   source : ADR-0016 C3 (dépôt Shōgen) ; DP §F2 · touche : aucune · nature : T
   item : WISHLIST P3bis 6 (dépôt Shōgen, partiel) · porteur : mainteneur Shōgen · déclencheur : non reporté par l'inventaire (§7, doute 6) ;
-    relevé proposé dans la demande de PXC-01 partie 2 (F3), extension à accepter par MONARK
+    relevé dans la demande de PXC-01 partie 2 (F3 ; MSG l.73)
   état : ouvert · suite : aucune
 - **L-40** · « A6 : `[` et `]` rejetés, donc Pyth non témoignable. »
   source : DP §F2 · touche : aucune · nature : T/D
@@ -424,10 +438,10 @@
   état : ouvert · suite : voisin de L-28
 - **L-41** · « Clé du notaire dérivée d'une graine publique (ADR-0015 pt 16). »
   source : ADR-0015 pt 16 (dépôt Shōgen) ; DP §F2 · touche : aucune · nature : T
-  item : SHOGEN-G4-NOTAIRE-RECHERCHE-1 (ANB l.25) · porteur : mainteneur Shōgen · déclencheur : « maintenant (sans code) » (ANB l.25 ;
-    INV-S l.79), atteint au plus tard à `d383a51` (2026-10-03, INV-S l.7) sans acte prouvé (INV-S l.176) ; déclencheur proposé à MONARK :
-    le relevé de l'état de l'item dans la demande de PXC-01 partie 2 (F3)
-  état : ouvert, **dette de déclencheur** (§1) · suite : fonde la cible relevée de L-03 ; état au dépôt Shōgen non revérifiable ici
+  item : SHOGEN-G4-NOTAIRE-RECHERCHE-1 (ANB l.25) · porteur : mainteneur Shōgen · déclencheur : le relevé de son état auprès du
+    mainteneur dans la demande de PXC-01 partie 2 (F3 ; ETAT l.256 à `5437cd0d`), « maintenant (sans code) » (ANB l.25 ; INV-S l.79)
+    étant atteint au plus tard à `d383a51` (2026-10-03, INV-S l.7) sans acte prouvé (INV-S l.176)
+  état : ouvert · suite : fonde la cible relevée de L-03 ; état au dépôt Shōgen non revérifiable ici ; déclencheur re-formé (§7, doute 11)
 - **L-42** · « Auto-mesure de MONARK « hors périmètre » (ADR-0027 l.14). »
   source : ADR-0027 l.14 (dépôt Shōgen) ; DP §F2 · touche : aucune · nature : Dr
   item : demande au mainteneur Shōgen, à former par PXC-01 partie 2 (aucun item de recherche ; la décision 230 n'est qu'un cadre)
@@ -442,7 +456,7 @@
   source : doc 10 de Shōgen (dette 4 re-statuée le 2026-09-30) ; DP §F2 · touche : aucune · nature : D
   item : SHOGEN-BIBLIO-PAGES-4-3-1 (ANB l.184) ; SHOGEN-FETCH-AVANT-PUB-1 (ANB l.46) · porteur : mainteneur Shōgen · déclencheur :
     SHOGEN-FETCH-AVANT-PUB-1, avant le G0 du lot G9 (INV-S l.155) ; SHOGEN-BIBLIO-PAGES-4-3-1, non reporté par l'inventaire (§7,
-    doute 6) : relevé proposé dans la demande de PXC-01 partie 2 (F3), extension à accepter par MONARK
+    doute 6) : relevé dans la demande de PXC-01 partie 2 (F3 ; MSG l.73)
   état : ouvert (réduit le 2026-09-30) · suite : voisin de L-17 et L-51
 - **L-45** · « Replis permanents : roster Pyth et `coin-prices-api`. »
   source : DP §F2 · touche : aucune · nature : D
@@ -452,7 +466,7 @@
 - **L-46** · « N_min = 300 fondé sur « Fisher » sans source. »
   source : doc 10 de Shōgen (erratum du 2026-09-30) ; JOURNAL de Shōgen (`56cb407`) · touche : aucune · nature : M
   item : SHOGEN-REPORT-FISHER-1 (ANB l.47, l.107) ; P-03 (dépôt Shōgen) · porteur : mainteneur Shōgen · déclencheur : non reporté par
-    l'inventaire (§7, doute 6) ; relevé proposé dans la demande de PXC-01 partie 2 (F3), extension à accepter par MONARK
+    l'inventaire (§7, doute 6) ; relevé dans la demande de PXC-01 partie 2 (F3 ; MSG l.73)
   état : ouvert (réduit : N_min déclaré choix de conception) · suite : Fisher 1921 téléchargé hors dépôt (INV-S l.150)
 - **L-47** · « Silence de la licence MIT sur les brevets (doc 14 M1). »
   source : doc 14 M1 (dépôt Shōgen) ; DP §F2 · touche : aucune · nature : Dr
@@ -491,22 +505,22 @@
 - **S-01** · « A(root-store), au registre 08 v4. »
   source : 08 l.21 · touche : aucune · nature : T
   item : SHOGEN-E1-RACINES-1 (ANB l.138) · porteur : mainteneur Shōgen · déclencheur : non reporté par l'inventaire (§7, doute 6) ;
-    relevé proposé dans la demande de PXC-01 partie 2 (F3), extension à accepter par MONARK
+    relevé dans la demande de PXC-01 partie 2 (F3 ; MSG l.73)
   état : ouvert (nouvelle) · suite : aucune
 - **S-02** · « A(window-dependence). »
   source : 08 l.30 · touche : aucune · nature : T/M
   item : SHOGEN-DEP-FENETRES-2 (ANB l.98) · porteur : mainteneur Shōgen · déclencheur : non reporté par l'inventaire (§7, doute 6) ;
-    relevé proposé dans la demande de PXC-01 partie 2 (F3), extension à accepter par MONARK
+    relevé dans la demande de PXC-01 partie 2 (F3 ; MSG l.73)
   état : ouvert (nouvelle) · suite : aucune
 - **S-03** · « A(loss-non-informative). »
   source : 08 l.31 · touche : aucune · nature : M
   item : SHOGEN-CENSURE-INFO-2 (ANB l.102) · porteur : mainteneur Shōgen · déclencheur : non reporté par l'inventaire (§7, doute 6) ;
-    relevé proposé dans la demande de PXC-01 partie 2 (F3), extension à accepter par MONARK
+    relevé dans la demande de PXC-01 partie 2 (F3 ; MSG l.73)
   état : ouvert (nouvelle) · suite : aucune
 - **S-04** · « A(host-integrity). »
   source : 08 l.41 · touche : aucune · nature : T/C
   item : SHOGEN-E1-CLE-SIGNATURE-1 (ANB l.142) ; SHOGEN-SCEAU-ANCRE-1 (ANB l.58) · porteur : mainteneur Shōgen · déclencheur : non
-    reporté par l'inventaire (§7, doute 6) ; relevé proposé dans la demande de PXC-01 partie 2 (F3), extension à accepter par MONARK
+    reporté par l'inventaire (§7, doute 6) ; relevé dans la demande de PXC-01 partie 2 (F3 ; MSG l.73)
   état : ouvert (nouvelle) · suite : aucune
 - **S-05** · « A(harness-clock). »
   source : 08 l.42 · touche : aucune · nature : M
@@ -516,19 +530,24 @@
 - **S-06** · « A(agent-conformance). »
   source : 08 l.55 · touche : aucune · nature : T/C
   item : SHOGEN-E1-MAST-VERSEMENT-1 (ANB l.145, partiel) ; SHOGEN-E1-SCAN-TRANSCRIPTS-1 (ANB l.144) · porteur : mainteneur Shōgen
-    · déclencheur : non reporté par l'inventaire (§7, doute 6) ; relevé proposé dans la demande de PXC-01 partie 2 (F3), extension à
-    accepter par MONARK
+    · déclencheur : non reporté par l'inventaire (§7, doute 6) ; relevé dans la demande de PXC-01 partie 2 (F3 ; MSG l.73)
   état : ouvert (nouvelle) · suite : aucune
 - **S-07** · « A(prereg-blindness). »
   source : 08 l.56 · touche : aucune · nature : M
   item : SHOGEN-E1-SCAN-TRANSCRIPTS-1 (ANB l.144) ; SHOGEN-ATTEST-ADVISOR-1 (ANB l.60) · porteur : mainteneur Shōgen · déclencheur : non
-    reporté par l'inventaire (§7, doute 6) ; relevé proposé dans la demande de PXC-01 partie 2 (F3), extension à accepter par MONARK
+    reporté par l'inventaire (§7, doute 6) ; relevé dans la demande de PXC-01 partie 2 (F3 ; MSG l.73)
   état : ouvert (nouvelle) · suite : aucune
 
 ## 4. Limites closes (avec preuve)
 
 - **L-36** · « Lecture asymétrique du z poolé « écrite d'avance » introuvable. » · clos (preuve : lot POOLEE accepté au dépôt Shōgen,
   `9b46687`, « POOLEE-STRATIFIEE-1 ferme » ; SHOGEN-POOLEE-STRATIFIEE-1, ANB l.15 ; INV-S l.140 ; source hors du tronc, §7, doute 1)
+- **N-11** · « Le registre PAROXYSME de la pièce `built` manque au dépôt MONARK ; la fiche du 2026-09-27 est périmée. » · clos (preuve :
+  ce registre, versé au tronc par #242, fusion `1df4e44f`, G7 `1eb37b87…` ; ETAT l.181-184 à `5437cd0d`, qui compte « Shōgen N-11 »
+  parmi les limites « registre absent » que le versement clôt) · suite : l'item que lui donne l'inventaire, SHOGEN-PAROXYSME-REGISTRE-1
+  (ANB l.50 ; « fichier : orchestrateur MONARK », INV-S l.127), a pour objet ce fichier, fait par ce versement ; ANB l.50 fixe aussi le
+  déclencheur de C7, « après l'exécution unique, jamais avant » (INV-S l.207), que gardent les déclencheurs de L-14, L-15, L-17, L-23,
+  L-25 et L-27 à L-29 ; transcription de l'item à ETAT, ou refus écrit : N-05 ; registre définitif : PXC-01 partie 2 (PLAN l.833)
 
 ## 5. Limites marquées PAROXYSME apparues à ETAT depuis l'inventaire
 
@@ -539,6 +558,13 @@ de Shōgen lit encore ETAT, ne donne aucune ligne. Aucune des dix ne nomme Shōg
 l.614-620, l.652-662, l.687-692, l.724-778, l.812-823, l.1075-1084, l.1101-1103 et l.1889-1898). Les lignes d'ETAT qui nomment Shōgen
 ou la clé `attested` sont celles de `d8fe354c`, reportées : l.1277, l.1301 et l.1574-1577 à la tête (`grep -n -i 'shōgen\|attested'`,
 hors `tls_unattested` et `source_unattested`). Aucune limite neuve à la tête pour Shōgen : l'étiquette `SHT-` n'est pas employée.
+La même commande, rejouée sur `87b821b0..5437cd0d` (pli des décisions), donne 22 lignes (`grep -c`), dont aucune ne nomme Shōgen ou
+`attested`. Des 186 lignes ajoutées (`grep '^+' | grep -vc '^+++'`), sept les nomment (`grep -c -i 'shōgen\|shogen\|attested'` ; aucune
+`unattested`), ETAT l.50, l.182, l.184, l.256, l.273 et l.275-276 à `5437cd0d` : la décision Q-A.2 du fondateur sur la jambe
+« attested onchain flow » de Narabi (l.50) ; le versement, qui clôt N-11 (l.182, l.184) ; le déclencheur de L-41 re-formé (l.256) ;
+les lignes d'attente datées de L-02, L-03, L-05 et N-01 (l.273) ; la forme G5 et les échéances de N-06 à N-08 (l.275-276), que MONARK porte au
+fondateur (ETAT l.274 à `5437cd0d` ; G5 : la demande, avec N-02, déclencheur de L-02 ; N-06 à N-08 : port à dater par MONARK, échéance
+demandée au §1). Aucune limite neuve.
 
 ## 6. Renvois : limites d'autres pièces sur la couture `attest → gate` et l'outil `attest`
 
@@ -564,15 +590,18 @@ hors `tls_unattested` et `source_unattested`). Aucune limite neuve à la tête p
    l.155-169 et l.199, SYNTHESE-NARABI-1 l.419-420.
 2. **Base d'ETAT de l'inventaire.** INV-S lit ETAT à `d8fe354c` (empreinte `2ef6f107…`, INV-S l.19), quand ceux du Harnais et du Moteur
    le lisent à `57a131fc` : les ancres d'ETAT sont reportées depuis `d8fe354c`, et la commande du §5 est jouée sur les deux plages.
-3. **Items absents d'ETAT à la tête.** Aucune limite de Shōgen n'a d'item formé à ETAT. `git grep` nul sur tout le tronc à `87b821b0` :
+3. **Items absents d'ETAT à la tête.** Aucune limite de Shōgen n'avait d'item formé à ETAT à `87b821b0` ; à `5437cd0d`, seul
+   SHOGEN-G4-NOTAIRE-RECHERCHE-1 (L-41) y est nommé, avec son déclencheur (ETAT l.256 à `5437cd0d` ; `grep -c` : 1, et 0 pour les
+   autres items ci-dessous). `git grep` nul sur tout le tronc à `87b821b0` :
    les huit items transmis par Shōgen (MONARK-SHOGEN-VERIF-EXEC-1, MONARK-SHOGEN-FIXTURE-MANIFESTE-1, MONARK-SHOGEN-FRAICHEUR-1,
    MONARK-SHOGEN-REGISTRE-1, SHOGEN-S2-TUYAU-MONARK-1, MONARK-S2-M009A-EXPOSITION-1, SHOGEN-KRAIDLE-GATHER-1,
    SHOGEN-PAROXYSME-REGISTRE-1), `CARTO-MK`, SHOGEN-VITRINE-MONARK-1 et SHOGEN-G5-FORM-REQUEST-1. ATTEST-KATA-SUBJECT-1 a 11 occurrences
    (code : `apps/harness/src/tools/gate.ts`, `apps/site/lib/fleet.ts` ; G0 et G7 de CM-2b ; ADR-CM l.191 ; `docs/G0-bloc-d.md` ;
    `test/site-docs.test.ts`), aucune à ETAT. L'annexe B donne à MONARK le portage des huit (INV-S l.44) ; ici, chaque entrée les porte
-   par un chantier, sauf N-10 (SHOGEN-KRAIDLE-GATHER-1 : CC l.706 ne lui donne que `SHOGEN`, doute 12), et leur transcription à ETAT,
-   ou leur refus écrit, est à MONARK (N-05 ; INV-S l.274). Items du plan cités, absents d'ETAT : SHOGEN-G5-FORM-REQUEST-1 (PLAN l.902),
-   PX-IDENT-C0BIS-1 (l.870, l.901), CARTO-BR-2026-10-1 (l.900).
+   par un chantier, N-10 (SHOGEN-KRAIDLE-GATHER-1 : CC l.706 ne lui donne que `SHOGEN`) par la recartographie de PXC-01 partie 2
+   (MSG l.74 ; doute 12), sauf SHOGEN-PAROXYSME-REGISTRE-1, dont l'objet, ce fichier, est versé (N-11 et sa suite, §4) ; leur
+   transcription à ETAT, ou leur refus écrit, est à MONARK (N-05 ; INV-S l.274). Items du plan cités,
+   absents d'ETAT : SHOGEN-G5-FORM-REQUEST-1 (PLAN l.902), PX-IDENT-C0BIS-1 (l.870, l.901), CARTO-BR-2026-10-1 (l.900).
 4. **Empreinte de l'inventaire.** CC et PLAN citent INV-S à `0622af1e86d8` ; le fichier versé dans la boîte a `c7cd6f49…` : MONARK y a
    masqué deux occurrences d'une même adresse électronique (INV-S l.109, l.200 ; `dossier/README.md` l.123) avant le premier commit
    (`dossier/REDACTIONS.json` ; `dossier/README.md` l.118-132). Le nombre de lignes (291) ne change pas ; les numéros cités sont ceux du
@@ -588,15 +617,17 @@ hors `tls_unattested` et `source_unattested`). Aucune limite neuve à la tête p
 6. **Déclencheurs que l'inventaire ne reporte pas.** L-07, L-21, L-22 (« bloqué par : Shōgen »), L-39, L-44 (pour
    SHOGEN-BIBLIO-PAGES-4-3-1 : INV-S l.155 ne date que SHOGEN-FETCH-AVANT-PUB-1, à la ligne de L-51), L-46, S-01 à S-04, S-06 et S-07.
    Leur item existe au dépôt Shōgen, sauf pour L-21 et L-22 : PX-Shogen-19 et -20, items de FICHE §2, étude hors dépôt. Leur
-   déclencheur n'est pas dans l'inventaire. **Proposition à MONARK**, non acquise : le relever dans la demande de PXC-01 partie 2 (F3).
-   C'est une extension de cette transmission, que CC ne donne qu'aux douze sans item (l.89-91, l.1148-1150) et que le PLAN ne nomme pas
-   pour la partie 2 (l.832-836) : à accepter par MONARK.
+   déclencheur n'est pas dans l'inventaire. Le relever dans la demande de PXC-01 partie 2 (F3) étend cette transmission, que CC ne donne
+   qu'aux douze sans item (l.89-91, l.1148-1150) et que le PLAN ne nomme pas pour la partie 2 (l.832-836). **Tranché** : MONARK étend la
+   demande de PXC-01 partie 2 au relevé de ces déclencheurs (MSG l.73) ; les douze entrées disent « relevé dans la demande de PXC-01
+   partie 2 (F3 ; MSG l.73) ».
 7. **Porteur de SHOGEN-G5-FORM-REQUEST-1 et envoi des demandes au mainteneur Shōgen.** PLAN l.896 donne les items du plan à
    l'orchestrateur MONARK « sauf mention », et l.902 n'en porte aucune ; le TABLEAU ne donne à PAROXYSME que les chantiers du §4.1 B
    (l.21-23), dont la ligne N-02, qui nomme cette demande (PLAN l.557) ; PLAN l.854 : « aucune demande n'est envoyée par ce plan :
    l'orchestrateur trie et forme ». PAROXYSME ne touche pas au dépôt `shogen` : MONARK l'approuve et propose au fondateur de restreindre
    son accès à `paroxysme`, `monark-governance` et `Monark` (`da72328` l.46-47). Ce registre écrit donc MONARK pour cette demande et pour
-   l'envoi des demandes au mainteneur (les douze, §0 ; L-11) ; à confirmer par MONARK.
+   l'envoi des demandes au mainteneur (les douze, §0 ; L-11). **Tranché** : MONARK porte SHOGEN-G5-FORM-REQUEST-1 et envoie les
+   demandes au mainteneur (MSG l.72).
 8. **Écart entre l'inventaire et le plan.** Offutt (PXP-26) et Just (PXP-27) sont « reçus, NON LUS » pour INV-S (l.106, l.199) et
    « lus » pour PLAN l.869, dont le critère est la citation par la campagne Narabi : SYNTHESE-NARABI-1 l.419-420 les cite pour la
    définition de « killed », non pour A(coupling-effect). L-30 garde l'état de l'inventaire.
@@ -618,22 +649,31 @@ hors `tls_unattested` et `source_unattested`). Aucune limite neuve à la tête p
    61 `<fichier>:<ligne>`. Rejouée par le pli de la G2 (2026-10-07, entre 18:46 et 18:58 UTC, Node 24.21.0) avec la version `a55a62d`
    de l'outil, qui refuse une ligne hors du fichier : 55 `unchanged-file`, 5 `same`, 1 `CHANGED`, aucune hors bornes.
 10. **Contrôle mécanique.** `verify-registres.mjs` (pièce de la boîte PAROXYSME, commit `d97d838` : entrées prises entières, doutes
-   épinglés) contrôle les identifiants, les champs, la longueur des lignes et l'absence d'adresse ; il sort 0 sur la branche avec ce
-   registre ; il est provisoire jusqu'à `scripts/paroxysme/registry.mjs` (PXC-01 partie 1).
+   épinglés) contrôle les identifiants, les champs, la longueur des lignes et l'absence d'adresse ; il sort 0 sur la branche de #242
+   (`87b821b0...dda217c4`) avec ce registre, et 1 sur ce pli, qui modifie les registres (« … is M, not added » ; les deux sorties
+   rejouées au second tour). Sa version `84bc889` (option `--allow-modified`, acceptée par MSG2 l.9-10) contrôle le pli : une copie
+   dont seule la l.61 change, pour lire ce registre sur le disque et non à une tête par `git show`, sort 0 sous Node 24.21.0 avec
+   `--base 5437cd0d --head beea9834 --allow-modified` (second tour, 2026-10-08, 02:0x UTC, puis sur le texte de chaque réparation ; en
+   dernier sur ce texte, à 05:47 UTC, `date -u`) ; section Shōgen sans échec : 76 ids,
+   76 entrées, 74 ouvertes et 2 closes. Il est provisoire jusqu'à `scripts/paroxysme/registry.mjs` (PXC-01 partie 1).
 11. **Dette de déclencheur et déclencheurs proposés à MONARK.** SHOGEN-G4-NOTAIRE-RECHERCHE-1 (L-41 ; volet G4 de L-03) : « maintenant
    (sans code) » (ANB l.25) est atteint au plus tard à `d383a51` (2026-10-03, INV-S l.7), sans acte prouvé (INV-S l.176) ; l'état au
-   dépôt Shōgen n'est pas revérifiable ici (§1). Déclencheur proposé : le relevé de cet état, auprès du mainteneur Shōgen, dans la
-   demande de PXC-01 partie 2 (F3). Lignes d'attente datées (P-25) des entrées dont une partie tombe en F5 (PXC-08 partie 3, PLAN
-   l.617-618) : L-02, L-03, L-05, N-01. Ces propositions partent dans la demande de fusion de ce versement ; MONARK écrit ETAT.
+   dépôt Shōgen n'est pas revérifiable ici. La G2 comptait L-41 et ce volet comme dette de déclencheur. **Tranché** : son état est
+   relevé auprès du mainteneur dans la demande de PXC-01 partie 2 (F3 ; ETAT l.256 à `5437cd0d`) ; la dette sort du §1. Lignes d'attente datées (P-25)
+   des entrées dont une partie tombe en F5 (PXC-08 partie 3, PLAN l.617-618) : L-02, L-03, L-05, N-01, écrites par MONARK à ETAT
+   l.270-273 à `5437cd0d` (Shōgen : l.273).
 12. **Item de porteur MONARK sans chantier MONARK (N-10).** SHOGEN-KRAIDLE-GATHER-1 a pour porteurs MONARK et Kraidle (ANB l.26, INV-S
    l.126) ; CC ne marque N-10 que `SHOGEN` (l.706) et la compte parmi les lignes dont la seule couverture est SHOGEN (l.1147, l.1150).
-   Ce registre garde le porteur de sa source (`d4b3d07` l.48 ; §0). Son déclencheur, le G0 de S4, n'est pas atteint. Le chantier qui
-   portera l'arête côté MONARK est à fixer par MONARK ; la transcription de l'item à ETAT, ou son refus écrit, passe par N-05.
-13. **Identité du « mainteneur Shōgen ».** 47 entrées le nomment porteur (48 avant le pli de la G2, N-10 ayant pris le porteur de sa
-   source), selon l'accusé `4bbf3ed` l.131-132. L'inventaire range la décision de forme G5 parmi les « Actes du fondateur ou de
-   l'investisseur » (INV-S l.257-259) et la met en doute (l.276 : elle « est rangée en acte du fondateur ; à confirmer ») ; dans les
-   règles de l'investisseur, « le mainteneur » est celui qui procure (CL l.17-18). La décision G5 est donc peut-être un acte du
-   fondateur (L-02 et N-03 l'écrivent) ; les 47 porteurs restent tels quels, à confirmer par MONARK.
+   Ce registre garde le porteur de sa source (`d4b3d07` l.48 ; §0). Son déclencheur, le G0 de S4, n'est pas atteint. **Tranché** : la
+   recartographie de PXC-01 partie 2 place N-10, avec un déclencheur (MSG l.74) ; la transcription de l'item à ETAT, ou son refus écrit,
+   passe par N-05.
+13. **Identité du « mainteneur Shōgen ».** 47 entrées le nommaient porteur avant ce pli (48 avant le pli de la G2, N-10 ayant pris le
+   porteur de sa source), selon l'accusé `4bbf3ed` l.131-132. L'inventaire range la décision de forme G5 parmi les « Actes du fondateur
+   ou de l'investisseur » (INV-S l.257-259) et la met en doute (l.276 : elle « est rangée en acte du fondateur ; à confirmer ») ; dans
+   les règles de l'investisseur, « le mainteneur » est celui qui procure (CL l.17-18). **Tranché** : le mainteneur de Shōgen est le
+   fondateur (ETAT l.275 à `5437cd0d` ; MSG l.76) ; la décision de forme G5 est un acte du fondateur, que MONARK lui porte
+   (ETAT l.274-275 à `5437cd0d`). Les porteurs restent tels quels (§0) ; L-02 et N-03 écrivent « la forme (G5) : le fondateur », et
+   L-02 ne nomme plus le mainteneur : 46 entrées ouvertes le nomment porteur après ce pli.
 14. **Items des campagnes de l'étude du 2026-09-27 (écart de CC).** Les campagnes C4 à C8 (REG27 l.165-169) sont celles de l'étude
    PAROXYSME de MONARK (REG27 l.155-157 : sorties au dossier d'étude, lectures sur place par l'orchestrateur), hors du dépôt Shōgen ;
    l'annexe B ne reprend que C7 (ANB l.50). CC l.36-37 range un item de cette étude « à former » par PXC-01 partie 2, et l.656-657
@@ -641,27 +681,42 @@ hors `tls_unattested` et `source_unattested`). Aucune limite neuve à la tête p
    unique S2 ». Selon la lecture de l.1148, gardée ici, ont pour seul item côté Shōgen un PX-Shogen-n de C7 ou C8 : L-12, L-18, L-19,
    L-21, L-22, L-24, L-25, L-26, et L-23 (avec le procurement d'ADR-0028 §4 pt 9). L-11 (PX-Shogen-9, C4) n'entre dans aucune des deux
    lectures : elle passe par la demande de PXC-01 partie 2. L-50 (PX-Shogen-7, C6 ; CC l.726 : `SHOGEN` seul) est dans le même cas et
-   renvoie à L-09, que PXC-11 partie 4 couvre : son routage est à fixer par MONARK, comme la lecture de CC.
+   renvoie à L-09, que PXC-11 partie 4 couvre. **Décision de MONARK** : la lecture de CC pour C7 et C8 et le routage de L-50 sont
+   proposés dans PXC-01 partie 2 ; MONARK tranche à sa G2 (MSG l.75).
 15. **Actes du fondateur sans échéance.** Le passage public du dépôt Shōgen (N-06, N-07) et la publication de J14/J28 (N-08, qui porte
    G9, l'un des deux jalons de fin de l'exception) n'ont pas d'échéance : PLAN l.892 n'en donne qu'à Q-7 et au Dōjō, alors que PLAN l.882
-   en exige une par ligne (CX-24 (c)). Ces échéances sont à demander au fondateur par MONARK.
+   en exige une par ligne (CX-24 (c)). **Décision de MONARK** : il porte ces échéances au fondateur (ETAT l.274-276 à `5437cd0d`), la
+   visibilité d'un dépôt étant hors de sa délégation (MSG l.77-78) ; elles restent sans date tant que le fondateur ne les a pas fixées.
+   Le port lui-même est écrit sans date (ETAT l.274-276 à `5437cd0d` ; MSG l.77-78), alors que HOST-HARNESS-PREV-1, du même bloc
+   (ETAT l.274-275 à `5437cd0d`), a reçu la sienne (MSG2 l.6-7) : il est au §1, à dater par MONARK (échéance demandée avec la demande de fusion de ce
+   pli : son prochain point d'étape avec le fondateur ; au plus tard, un jalon nommé, par exemple l'ADR de PXC-08, avant sa partie 1, F3 ; doute 5).
 
 ## 8. Ligne PAROXYSME et sources
 
-**Ligne PAROXYSME (2026-10-07).** Shōgen : 75 limites ouvertes (35 du 2026-09-27, dont 3 changées au sens de l'inventaire ; 16 nouvelles
-côté MONARK ; 24 nouvelles côté Shōgen) et 1 close (L-36). ⚑B : aucune marquée par l'inventaire ; l'écart de branchement de la pièce est
-l'exception datée en cours (N-16 ; fin au premier de G2 et de G9). Limites neuves à ETAT : 0 (§5). Une dette de déclencheur : L-41, avec
-le volet G4 de L-03 (§1), relevé demandé à MONARK. Douze limites côté Shōgen n'ont pour item qu'une demande au mainteneur, à former par
-PXC-01 partie 2 (F3) : aucune dette au sens de la convention CC §4.1, mais douze limites sans item de recherche tant que le mainteneur
-n'en forme pas. Campagnes : C3 à C8 non lancées, C7 après l'exécution unique S2 (INV-S l.203-207). Procurement attendu : Agresti, 3ᵉ éd.,
-ISBN 978-0-470-46363-5 (L-23). Toutes les autres entrées ouvertes ont leur item, leur porteur et leur déclencheur.
+**Ligne PAROXYSME (2026-10-07, décisions de MONARK pliées, 20:1x UTC ; constat 9 de la G2 plié, 21:4x UTC ; question de N-07 ajoutée, 2026-10-08, 04:5x UTC ;
+item de L-47 précisé, 05:4x UTC).** Shōgen : 74 limites ouvertes (35 du 2026-09-27,
+dont 3 changées au sens de l'inventaire ; 15 nouvelles côté MONARK ; 24 nouvelles côté Shōgen) et 2 closes (L-36 ; N-11, par le versement, ETAT l.184 à
+`5437cd0d`). ⚑B : aucune marquée par l'inventaire ; l'écart de branchement de la pièce est l'exception datée en cours (N-16 ; fin au
+premier de G2 et de G9). Limites neuves à ETAT : 0 (§5). Aucune dette : le déclencheur de L-41 et du volet G4 de L-03 est re-formé (ETAT
+l.256 à `5437cd0d`). Douze limites côté Shōgen ont pour item une demande au mainteneur (L-47 a aussi PXC-18 partie 1, avis juridique,
+CC l.583), à former par PXC-01 partie 2 (F3) et envoyée par MONARK (MSG l.72) : aucune dette au sens de la convention CC §4.1, mais douze
+limites sans item de recherche tant que le mainteneur n'en forme pas (l'avis de L-47 est un item de chantier, pas de recherche).
+Campagnes : C3 à C8 non lancées, C7 après l'exécution unique S2 (INV-S l.203-207). Procurement attendu :
+Agresti, 3ᵉ éd., ISBN 978-0-470-46363-5 (L-23). Toutes les entrées ouvertes ont leur item, leur porteur et leur déclencheur. Restent
+ouverts : à la G2 de PXC-01 partie 2, la lecture de CC pour C7 et C8 et le routage de L-50 (MSG l.75 ; §7, doute 14) ; au fondateur,
+par MONARK, la décision de forme G5 et les échéances de N-06, N-07 et N-08 (ETAT l.274-276 à `5437cd0d` ; §7, doutes 13 et 15) ;
+à MONARK, la date de ce port pour N-06, N-07 et N-08, demandée avec la demande de fusion de ce pli (§1) ; à PAROXYSME, dans l'ADR de
+PXC-08, avant sa partie 1 (F3), la question du glossaire de N-07 (INV-S l.278 ; au fondateur, par MONARK, si la réponse touche l'exception).
 
 Fichiers du tronc lus à `87b821b0` (`git show 87b821b0:<f> | sha256sum`) ; fichiers de la boîte PAROXYSME lus à son commit `150c997`
-(`sha256sum`).
+(`sha256sum`). Pour le pli des décisions : ETAT lu aussi à `5437cd0d` (`git show 5437cd0d:docs/ETAT.md | sha256sum`), MSG à son
+commit `d6331f6` (`git show d6331f6:<f> | sha256sum`). Pour le constat 9 de la G2 : MSG2 à son commit `8eb9a46` (même commande).
+Pour le second tour : `verify-registres.mjs` à son commit `84bc889`, `G2-Shogen.md` et `PLI-Shogen.md` à leur commit `0a5ca61` (même commande).
 
 | Source | Lignes | sha256 |
 |---|---|---|
 | `docs/ETAT.md` | 1 904 | `3190de5c23507292414418cbb8b24e0f7c9f319dca64a0f5ae8c5009475a5b5a` |
+| `docs/ETAT.md` à `5437cd0d` (pli des décisions) | 2 089 | `64afc212a18bc683d892c7c7c6362abba46c1a4ed5db11061f4b25b63d07b0a9` |
 | `README.md` | 353 | `6324c8b220ccb5378d5458ca883190b7241b0d3cdbc1e42d9f1697051e58b5ad` |
 | `apps/harness/src/attestation-binding.ts` | 65 | `3e59882de94f3fd6e457b4637f69c4e10556e10d8eee008ef14926e383321eed` |
 | `apps/harness/src/tools/gate.ts` | 1 070 | `7920ceaca2ce8231ecc2672b3a1ecd0e3a70c95971e80d225c107159558dadbd` |
@@ -702,6 +757,11 @@ Fichiers du tronc lus à `87b821b0` (`git show 87b821b0:<f> | sha256sum`) ; fich
 | message `d4b3d07`, même dossier, `…-tache1-prise.md` | 55 | `7ef81dbbde13efd554c6b270b7e794eeaa0226da18c013f6888fe1de6f332d93` |
 | accusé `4bbf3ed`, même dossier, `…-accuse-de-lecture.md` | 165 | `14bd79df013cd37460f88becd27f78138a3b5a75d97bfabd869fba9729429dbb` |
 | message `da72328`, même dossier, `…-reponses-accuse.md` | 47 | `71401dcd0f0230d8af79c90596b4f10a49ff2be91551b1e87885519bdd2b0448` |
+| MSG, message `d6331f6`, même dossier, `…-tache1-fusionnee-decisions.md` | 90 | `03f305908703f119cc82c7b9f0a29684f720c0eab0997514c019fe068b64306a` |
+| MSG2, message `8eb9a46`, même dossier, `…-host-prev-date.md` | 11 | `620ac327b3acf49cd472a5340e4ea53a4b287d265dac9489ea639e58ad2c30e4` |
 | ordre de mission n° 1, même dossier, `…-ordre-de-mission-1.md` | 95 | `2e8cfd33c12de9d27b673c377e72a9a43da5dcb05c24e0094e744b7f3933c102` |
 | `reanchor.mjs` à `a55a62d`, `coordination/pieces/2026-10-07-registres/` | 69 | `2edae6398e35a39d750cca2951cf4349380971066acb23bd1dbe965d9f88ca4b` |
 | `verify-registres.mjs` à `d97d838`, même dossier | 127 | `6d71141222d2c32b995cd30e11335501e7021f4b2c7a38fb25053a61efe8712b` |
+| `verify-registres.mjs` à `84bc889`, même dossier | 134 | `c379f14aae48b7e44add4ad52cf9baa6b710cd0cc6b97c8772dc1dbbc9aeeb48` |
+| G2 du versement, `G2-Shogen.md` à `0a5ca61`, même dossier | 267 | `d59b96daeea93adf5d4458ae903b2d5263973fd917e48e7d50bf9622d852ae5f` |
+| pli de cette G2, `PLI-Shogen.md` à `0a5ca61`, même dossier | 43 | `1408b6c2fbd2a74e6bf2cfab37066b50d25d5fe7fdac8cf8259deefc38867327` |
