@@ -4,20 +4,20 @@
 // pool. The PAID leg (the single metered operator) is ledgered/capped through @monark/rpc-guard — run.ts
 // dispatches the pool's calls by endpoint (the paid label -> the guarded client; a public URL -> keylessCall
 // here). The public URLs carry NO secret, so this module reads NO endpoint key and never prints a URL past its
-// redacted ORIGIN (C-1 calque of rpc.ts:redactEndpoint). It is the SECOND allowlisted fetch site of the sentinel
+// redacted ORIGIN (C-1 calque of rpc.ts:redactEndpoint). It is the ONLY allowlisted fetch site of the sentinel
 // (the fetch_only_inside_client grep allowlists it, retraction trigger = "the keyless pool moves under the guard",
 // route beta). It is a TOP-LEVEL module so sentinelSha (run.ts:readdirSync of the top-level *.ts) witnesses it (M-11);
 // a sub-folder module would be missed by that non-recursive provenance sha.
 import { redactEndpoint } from "./rpc.ts";
 import type { RpcCall } from "./rpc.ts";
 
-/** Per-attempt timeout for a keyless public endpoint. Pinned to 20 s = the frozen rpc.ts:defaultCall deadline
+/** Per-attempt timeout for a keyless public endpoint. Pinned to 20 s = the deadline of the former rpc.ts:defaultCall
  *  (M-10): the daily-run timeout arithmetic of ADR-NARABI-OPS-1c ("N endpoints x 20 s") is preserved verbatim,
  *  and the guarded paid leg is opened with the SAME timeoutMs (run.ts) so no endpoint changes its deadline. */
 export const KEYLESS_TIMEOUT_MS = 20_000;
 
-/** One JSON-RPC round-trip to a NAMED keyless public endpoint. A byte-for-byte behavioural calque of the frozen
- *  rpc.ts:defaultCall (its dead twin, deleted from rpc.ts at the -1d rebase once the U-4b freeze lifts): same
+/** One JSON-RPC round-trip to a NAMED keyless public endpoint. A byte-for-byte behavioural calque of the former
+ *  rpc.ts:defaultCall (its dead twin, deleted from rpc.ts at the section 11-1 fold of ADR-NARABI-OPS-1): same
  *  request shape, same result/error unwrap, same host-only error string, so makeRpcPool's map fns are unchanged.
  *  The pool INJECTS this as its `call` for public URLs; the paid label is routed away BEFORE it reaches here. */
 export const keylessCall: RpcCall = async (url, method, params) => {

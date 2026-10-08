@@ -153,8 +153,10 @@ RECHERCHES, 2026-10-07. Base : la tête de a1-i, `15fafa202a60d2fc06a80ab426bec2
   (`test/policy-committed.test.ts:118`) passe par `importsOf`, donc par `importSpecifiers` de l'aide ; la regex des noms (l.117) est
   propre à ce test et reste.
 - **Ce que lit le test des lignes réservées** (au lieu de « in one import only ») : un seul spécificateur `./policy-classes.ts` parmi
-  ceux que liste `importSpecifiers` (imports, imports à effet de bord, imports de type, ré-exports, `export * from`, `import()` ou
-  `require()` d'un littéral ou d'un gabarit sans substitution, dans les deux guillemets, commentaires sautés) ; et les noms de
+  ceux que liste `importSpecifiers` (imports, imports à effet de bord, imports de type, ré-exports — sauf `export * as ns from`, que
+  `ts.preProcessFile` ne lisait pas : §9 —, `export * from`, `import()` ou `require()` d'un littéral ou d'un gabarit sans
+  substitution, dans les deux guillemets, commentaires sautés — sauf un import que cachait à `ts.preProcessFile` une expression
+  régulière tenant un guillemet ou un accent grave : §9 —) ; et les noms de
   chaque ligne `import { … } from` de ce module, dans les deux guillemets, inclus dans {`kataKeyReserved`, `KATA_RESERVED_IDS`} et
   non vides. Côté fermé : un import permis avec un commentaire avant le chemin est compté sans nom, donc refusé (mesuré,
   `out-ii-w5.json` `6e0a4a1d…`).
@@ -187,3 +189,54 @@ RECHERCHES, 2026-10-07. Base : la tête de a1-i, `15fafa202a60d2fc06a80ab426bec2
   Windows. `verifie-ancres` (`--ref b854f727 --ref 7038848d`) : 1 650 ancrés, 0 dérive, 0 perdu ; les deux fichiers de test d'a1 :
   25 sur 25. R-25 (forme de la CI) contre `7038848d` : **45** (39 + 6 ; 56 avant, les onze lignes de `policy-classes.ts` sortant du
   diff) ; a1 entier contre le tronc (`5437cd0d`, base de fusion `1df4e44f`) : 249 (245 + 4), sous 547.
+
+## 9. Fusion du tronc après #246, puis de la tête neuve d'a1-i, 2026-10-08
+
+- **Provenance** : la même instance neuve qu'au §9 du G0 d'a1-i (`claude-opus-5-5`, effort `max`) ; horloge lue (`date -u`) à 05:22
+  UTC au début du travail. Worktree détaché neuf du scratchpad (`a1m246-ii`, à `0e31950b`) ; `node_modules` par `npm ci`, retiré à
+  la fin. Node 24.21.0, Linux.
+- **Décision suivie** : le G0 de #246, §8 (« pour la fusion du tronc dans a1, #233 puis #236 »), §10, §12 et §13, comme au §9 du G0
+  d'a1-i ; l'ordre est celui de la chaîne : a1-i d'abord (poussé à `49851b0f`), puis cette branche.
+- **Fusion du tronc, sans réécriture** : commit `10c75774` (« Merge the trunk »), parents `0e31950b` et `391ca7c0` ; base de fusion
+  `1df4e44f`. C'est la recette du §8 de #246 telle qu'elle est écrite (`0e31950b` plus le tronc). **Un seul conflit**,
+  `apps/harness/test/kata-path.test.ts`, que cette branche tient d'a1-i : mêmes octets qu'à a1-i (`a23fab5c…`), résolus par la même
+  copie de `resolve.mjs` (`6dbeadc3…`) en `843734ff…`. Réancrage dans le commit de fusion : le tueur de
+  `import_specifiers_are_read_in_both_quotes` (`test/policy-committed.test.ts:135`) passe de `import-specifiers.ts:26` à la l.50, la
+  même mutation qu'à a1-i (`verifie-ancres --ref 0e31950b --ref 391ca7c0` : 1 697 tueurs, 1 696 ANCRE, 1 PERDU ; puis 1 697 ANCRE).
+  Les tueurs du lecteur (l.12, l.53, l.57, l.61, l.73) et des épingles (l.11) gardent leurs lignes.
+- **Fusion de la tête neuve d'a1-i** : commit `018c854c` (« Merge the base branch »), parents `10c75774` et `49851b0f`, **sans
+  conflit** : elle apporte la seconde marche du graphe servi (`a0507dfd`), la phrase de `test/policy-committed.test.ts:22-23`
+  (`fec472ef`) et le §9 du G0 d'a1-i. La tête d'a1-i est un ancêtre de cette tête : la demande reste empilée sur a1-i, et son diff
+  ne porte que ses propres changements.
+- **« Ré-exports » (§8 ci-dessus)** : la liste de ce que lit `importSpecifiers` y nommait les ré-exports ; sous `ts.preProcessFile`,
+  `export * as ns from` n'était pas lu (sonde du §9 du G0 d'a1-i) : un ré-export d'espace de noms du module des classes, ajouté au
+  lecteur, échappait au compte d'un seul spécificateur de `./policy-classes.ts`. Depuis la fusion du tronc, l'arbre le lit : G6
+  (`export * as C from "./policy-classes.ts";` après l'import des classes dans le lecteur) est tué par assertion par
+  `committed_tables_reader_refuses_reserved_rows` (ci-dessous). De même pour un second import du module des classes que cachait à
+  `ts.preProcessFile` une expression régulière tenant un guillemet ou un accent grave (note 3 de la G2 de l'adoption, par a1, du
+  lecteur de #246 ; rejoué le 2026-10-08) : chacune des deux lignes
+  ``export const tick = /`/; import "./policy-classes.ts"; export const tock = /`/;`` et
+  `export const re = /'/; void import("./policy-classes.ts"); //'`, posée seule après l'import des classes du lecteur
+  (`policy-committed.ts:11`), passe 7/7 à `0e31950b` (l'ancienne aide) et rougit `committed_tables_reader_refuses_reserved_rows`
+  par assertion à `8980121b` (6/7 : « one specifier of policy-classes.ts », 2 !== 1). Le §8 est annoté sur place ; le corps de la
+  PR nomme `export * as ns from` et cet import, et dit les spécificateurs lus sur l'arbre syntaxique.
+- **Mutants** : `scripts/mutants/run.mjs --killers --table forms-ii.json --base 49851b0f` (verrou d'hôte partagé, Node 24.21.0, de
+  06:07:15Z à 06:10:45Z ; `tool_sha256` `13b2b11f…`) : base 476 verts sur 55 fichiers cibles ; **29 tués sur 29**, chacun à son
+  premier lancement et par assertion (`RESULTS.json` `beafeb3a…`). Ce sont les 7 tueurs du seul fichier de test que cette demande
+  change contre sa base (`test/policy-committed.test.ts` : l.61, l.53, l.12, l.57, l.73 du lecteur, l.11 des épingles et le tueur
+  réancré de l'aide) et les 22 formes de la table du §8 de #246, générée à cette tête (`forms-ii.json`, octet pour octet le
+  `a1-forms.json` `e453200c…` de ce §8). G6, N07 et N08 sont tuées par `committed_tables_reader_refuses_reserved_rows` ; les autres
+  par les mêmes tests qu'au §9 du G0 d'a1-i (T-1, le test des épingles, `kata_path_is_served` et, pour K-calc et K-req, les tests
+  de la marche). Les 39 autres tueurs des deux fichiers de test qu'a1-i change (`kata-path.test.ts`, `gate-kata-served.test.ts`)
+  sont tués au §9 du G0 d'a1-i, sur les mêmes octets de ces deux fichiers : cette demande ne change ni `kata-path.ts` ni
+  `tools/gate.ts` ; dans les modules que ces tests chargent, elle ne change que les deux lignes de commentaire de `tools/registry.ts`,
+  réécrites en place (aucune ligne ne bouge), et elle change `policy-committed.ts`, qu'ils ne chargent pas.
+- **Mesures à `018c854c`** (tête du code ; le commit de ce § ne touche que ce G0) : `tsc --noEmit` 0 ; eslint des sept fichiers
+  (les deux modules, `tools/registry.ts`, les trois fichiers de test, l'aide) 0 ; `gate:vocab` OK (351 fichiers) ; `lang:gate` OK ;
+  `lint:ratchet` 69/69 ; `export:check` OK ; winlint `--base 49851b0f` : 4 fichiers, aucun risque Windows (`--base 391ca7c0` : 8
+  fichiers, aucun). `kata-path` 20/20, `policy-committed` 7/7, `gate-kata-served` 12/12, `verifiers-list` 12/12, `killer-lines` 1/1 ;
+  suite du harnais et tests des surfaces servies, avec `killer-lines`, `verifiers-list` et `recompute-report` : **380 sur 380** (377
+  au §8 ; les trois de plus viennent de #246). `verifie-ancres` (`--ref 0e31950b --ref 49851b0f --ref 391ca7c0`) : 1 697 tueurs,
+  tous ANCRE ; les trois fichiers de test qu'a1 change contre le tronc : 46 sur 46. R-25 (forme de la CI) contre la tête d'a1-i
+  `49851b0f` : 3 fichiers, +39 −6, **45** (inchangé) ; a1 entier contre le tronc `391ca7c0` : 6 fichiers, +249 −8, 257, sous 547.
+  Artefacts hors dépôt : `scratchpad/a1m246-out/` et `scratchpad/a1m246-tools/`.

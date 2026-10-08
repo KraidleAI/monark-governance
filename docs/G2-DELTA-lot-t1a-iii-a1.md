@@ -53,7 +53,7 @@ Ancres pristine (re-vérifiées après CHAQUE mutant, restauration `cp` depuis s
 Restauration finale : **sha256 des deux fichiers == pristine** (byte-exact). Bilan : **6/6 mutants ROUGE sur la cible**, aucun faux-RED (témoin vert = fichier chargé).
 
 **Chasse aux mutants voisins survivants** (`neighbor-probe.mjs`) — TOUS fail-closed, **aucun survivant** :
-- `assertHostAllowed` refuse (THROW) : userinfo encodé (`user%40x:pw@`), userinfo nu, point final (issuer **et** chainstack), IPv6 (`[::1]`, `[dead::beef]`), `mainnet-beta` casse mixte, look-alike `chainstack.com.evil.tld`, `evil-chainstack.com`, `http:` issuer, `data:`, chaîne vide. Admet (PASS, correct) : issuer et chainstack en **MAJUSCULES** (`providerOf` minusculise → casse gérée, pas de faux-stop).
+- `assertHostAllowed` refuse (THROW) : userinfo encodé (`user%40x:pw@`), userinfo nu, point final (issuer **et** chainstack), IPv6 (`[::1]`, une autre IPv6 entre crochets), `mainnet-beta` casse mixte, look-alike `chainstack.com.evil.tld`, `evil-chainstack.com`, `http:` issuer, `data:`, chaîne vide. Admet (PASS, correct) : issuer et chainstack en **MAJUSCULES** (`providerOf` minusculise → casse gérée, pas de faux-stop).
 - **3xx à `Location` relatif** (loopback) : `RedirectBlockedError` (bloqué par le **statut**, indépendant de la forme du `Location`).
 - **flag en double** : `argOf` = premier gagnant — `--min-interval 286` puis `0` garde 286 (pacing **non** désactivé) ; `0` puis `286` → throw plancher. **Aucune** combinaison ne désactive le pacing. Ambiguïté bénigne, pas un contournement.
 - `http://` via env (`CHAINSTACK_SOLANA_URL`) : STOP au préflight (test 22, pristine, VERT hors ligne).

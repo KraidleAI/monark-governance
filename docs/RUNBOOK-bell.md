@@ -11,7 +11,7 @@ Caddy, D11 CA and D-n gates, D13 amendments, "Constantes" C-7); `docs/RULINGS-lo
 `docs/SPRINT-BACKLOG-lot-t1b-backend.md` (S-7..S-12); `docs/CHECKPOINT1-lot-t1b-backend.md` (C-1..C-10).
 
 **Who runs this: the orchestrator**, from its own machine (Git Bash), over SSH to the Bell host with the deploy key:
-`ssh -i ~/.ssh/monark_vps root@178.16.131.29`. Host facts (measured): `srv1993906.hstgr.cloud`, hostname `bell`, Hostinger
+`ssh -i ~/.ssh/monark_vps root@bell.monarkgate.tech` (its host key under the name once, RUNBOOK-dojo §15 (0)). Host facts (measured): `srv1993906.hstgr.cloud`, hostname `bell`, Hostinger
 KVM 2 (2 vCPU / 8 GB / 100 GB), Ubuntu 26.04 LTS, hPanel firewall 0 rule (the host firewall is ufw)
 (`docs/course-bell/FAITS-hostinger-backups-vps-bell-2026-09-23.md` section 1; `docs/course-bell/FAITS-vps-bell-precheck-2026-09-23.md`).
 
@@ -48,7 +48,7 @@ never kept a copy; nothing here claims more.
 | **G-a** | G7 of PR-1, PR-2, PR-3 | the three G7 documents + the merge SHA written to `/f/tmp/bell-dn/G7.txt` | open (this lot) | step 2 |
 | **G-b** | PR-B-DBN n° 8: EQUS.SUMMARY licence + FAQ "after 24 hours" read on site | `docs/course-bell/FAITS-databento-licence-24h-2026-09-23.md` (commit `9a5bddb`: historical T+1 without licence, offset 16:00 ET + 24 h confirmed) | **closed** (`9a5bddb`, 2026-09-23 18:1x UTC) | step 9 |
 | **G-c** | I-G2-2 (provider backups) + ESC-2 ruling | `docs/course-bell/FAITS-hostinger-backups-vps-bell-2026-09-23.md` + CHANTIERS 16:45 UTC (ruling R-T1b-3, decision 148) | **lifted** | step 4 |
-| **G-d** | DNS A `bell.monarkgate.tech -> 178.16.131.29` | CHANTIERS 13:50 UTC (TTL 300, created 13:49Z) + the resolver output of step 7, replayed at the D-n | **lifted** (replay due) | step 7 |
+| **G-d** | DNS A `bell.monarkgate.tech` -> the Bell host's address | CHANTIERS 13:50 UTC (TTL 300, created 13:49Z) + the resolver output of step 7, replayed at the D-n | **lifted** (replay due) | step 7 |
 | **G-e** | first bundle (Q6-COURSE-1 and/or -b1-bis-ii) | sha256 of the bundle manifest (step 9) + the course references (course JOURNAL, anchors) | open | step 9 |
 
 Legal: decision 147 (the lawyer's global GO) lifted decision 79 and closed E-2; no legal gate remains (formal act expected in
@@ -70,7 +70,7 @@ event or 90 days (owner orchestrator, trigger dated 2026-12-22).
 ## 1. On-host controls, read-only (ADR D11), and the probe BEFORE capture
 
 ```bash
-ssh -i ~/.ssh/monark_vps root@178.16.131.29 'hostname; systemctl --version | head -1; node -v; command -v node; npm -v; caddy version; systemctl is-active caddy; systemctl show -p ExecStart --value caddy; ufw status; timedatectl show -p NTPSynchronized --value; df -h /var/lib | tail -1; id bell; ls -d /var/lib/monark-bell /etc/monark/bell /opt/monark-bell; command -v sudo; systemctl list-units "monark-*" --all --no-pager; sha256sum /etc/caddy/Caddyfile; wc -l < /etc/caddy/Caddyfile'
+ssh -i ~/.ssh/monark_vps root@bell.monarkgate.tech 'hostname; systemctl --version | head -1; node -v; command -v node; npm -v; caddy version; systemctl is-active caddy; systemctl show -p ExecStart --value caddy; ufw status; timedatectl show -p NTPSynchronized --value; df -h /var/lib | tail -1; id bell; ls -d /var/lib/monark-bell /etc/monark/bell /opt/monark-bell; command -v sudo; systemctl list-units "monark-*" --all --no-pager; sha256sum /etc/caddy/Caddyfile; wc -l < /etc/caddy/Caddyfile'
 ```
 
 Expected, with the source of each value: measured 2026-09-23 17:0x UTC (`FAITS-vps-bell-precheck-2026-09-23.md`): `bell`;
@@ -87,7 +87,7 @@ reset in this lot); the Caddyfile digest (write it to the JOURNAL) and `21`.
 Probe BEFORE capture (CA check 12; digests only, never contents):
 
 ```bash
-mkdir -p /f/tmp/bell-dn && ssh -i ~/.ssh/monark_vps root@178.16.131.29 '{ sha256sum /etc/monark/probe.env; cd /opt/monark-probe && find . -type f -print0 | LC_ALL=C sort -z | xargs -0 sha256sum; }' > /f/tmp/bell-dn/probe-before.sha256; echo exit=$?; wc -l < /f/tmp/bell-dn/probe-before.sha256
+mkdir -p /f/tmp/bell-dn && ssh -i ~/.ssh/monark_vps root@bell.monarkgate.tech '{ sha256sum /etc/monark/probe.env; cd /opt/monark-probe && find . -type f -print0 | LC_ALL=C sort -z | xargs -0 sha256sum; }' > /f/tmp/bell-dn/probe-before.sha256; echo exit=$?; wc -l < /f/tmp/bell-dn/probe-before.sha256
 ```
 
 Expected: `exit=0`; 3 lines or more (`/etc/monark/probe.env`, `./DEPLOYED-SHA`, `./probe-narabi.mjs`). Rollback: none.
@@ -101,7 +101,7 @@ git -C /f/Monark rev-parse --verify '<G7 merge commit>^{commit}' > /f/tmp/bell-d
 ```
 
 ```bash
-G7=$(cat /f/tmp/bell-dn/G7.txt) && git -C /f/Monark archive --format=tar.gz "$G7" apps/bell/scripts/bell-chain.mjs apps/bell/scripts/bell-publish.mjs | ssh -i ~/.ssh/monark_vps root@178.16.131.29 'install -d -m 0755 -o root -g root /opt/monark-bell && tar xzf - -C /opt/monark-bell --no-same-owner --no-same-permissions && chown -R root:root /opt/monark-bell && find /opt/monark-bell -type d -exec chmod 0755 {} + && find /opt/monark-bell -type f -exec chmod 0644 {} + && cd /opt/monark-bell && find . -type f -print0 | LC_ALL=C sort -z | xargs -0 sha256sum'
+G7=$(cat /f/tmp/bell-dn/G7.txt) && git -C /f/Monark archive --format=tar.gz "$G7" apps/bell/scripts/bell-chain.mjs apps/bell/scripts/bell-publish.mjs | ssh -i ~/.ssh/monark_vps root@bell.monarkgate.tech 'install -d -m 0755 -o root -g root /opt/monark-bell && tar xzf - -C /opt/monark-bell --no-same-owner --no-same-permissions && chown -R root:root /opt/monark-bell && find /opt/monark-bell -type d -exec chmod 0755 {} + && find /opt/monark-bell -type f -exec chmod 0644 {} + && cd /opt/monark-bell && find . -type f -print0 | LC_ALL=C sort -z | xargs -0 sha256sum'
 ```
 
 ```bash
@@ -110,31 +110,31 @@ G7=$(cat /f/tmp/bell-dn/G7.txt) && for p in apps/bell/scripts/bell-chain.mjs app
 
 Expected: the remote listing has exactly two lines and each digest equals the local `git cat-file blob` digest (`.gitattributes`
 pins `eol=lf`, so `git archive` and `cat-file` carry the same bytes). No `npm` on this host: built-ins only (ADR D3).
-Rollback: `ssh -i ~/.ssh/monark_vps root@178.16.131.29 'rm -rf /opt/monark-bell'`.
+Rollback: `ssh -i ~/.ssh/monark_vps root@bell.monarkgate.tech 'rm -rf /opt/monark-bell'`.
 
 ## 3. User `bell` and directories
 
 ```bash
-ssh -i ~/.ssh/monark_vps root@178.16.131.29 'useradd --system --no-create-home --shell /usr/sbin/nologin bell && install -d -o bell -g bell -m 0755 /var/lib/monark-bell /var/lib/monark-bell/inbox /var/lib/monark-bell/public && install -d -o root -g root -m 0700 /etc/monark/bell && id bell && stat -c "%a %U:%G %n" /var/lib/monark-bell /var/lib/monark-bell/inbox /var/lib/monark-bell/public /etc/monark/bell && sudo -u caddy test -x /var/lib/monark-bell/public && echo caddy-traverse-ok'
+ssh -i ~/.ssh/monark_vps root@bell.monarkgate.tech 'useradd --system --no-create-home --shell /usr/sbin/nologin bell && install -d -o bell -g bell -m 0755 /var/lib/monark-bell /var/lib/monark-bell/inbox /var/lib/monark-bell/public && install -d -o root -g root -m 0700 /etc/monark/bell && id bell && stat -c "%a %U:%G %n" /var/lib/monark-bell /var/lib/monark-bell/inbox /var/lib/monark-bell/public /etc/monark/bell && sudo -u caddy test -x /var/lib/monark-bell/public && echo caddy-traverse-ok'
 ```
 
 Expected: `uid=... (bell) gid=... (bell)`; `755 bell:bell` on the three state paths; `700 root:root /etc/monark/bell`;
 `caddy-traverse-ok` (Caddy reads `public/` read-only; the unit's `UMask=0022` keeps what it writes 0644/0755; precedent
 `RUNBOOK-sentinel.md:44`). `/var/lib/monark-bell` must exist before any start: it is the unit's only `ReadWritePaths`.
-Rollback (before step 4 only): `ssh -i ~/.ssh/monark_vps root@178.16.131.29 'rm -rf /var/lib/monark-bell /etc/monark/bell && userdel bell'`.
+Rollback (before step 4 only): `ssh -i ~/.ssh/monark_vps root@bell.monarkgate.tech 'rm -rf /var/lib/monark-bell /etc/monark/bell && userdel bell'`.
 
 ## 4. Signing key, generated ON the host (gate G-c; after G7 PR-2)
 
 ```bash
-ssh -i ~/.ssh/monark_vps root@178.16.131.29 'umask 077 && node /opt/monark-bell/apps/bell/scripts/bell-publish.mjs --generate-key /etc/monark/bell/signing-key.pem > /root/bell-pubkey.out; echo gen_exit=$?; stat -c "%a %U:%G %s" /etc/monark/bell/signing-key.pem; grep -c PRIVATE /root/bell-pubkey.out; grep -c -E "[{,] *.d. *:" /root/bell-pubkey.out; wc -c < /root/bell-pubkey.out'
+ssh -i ~/.ssh/monark_vps root@bell.monarkgate.tech 'umask 077 && node /opt/monark-bell/apps/bell/scripts/bell-publish.mjs --generate-key /etc/monark/bell/signing-key.pem > /root/bell-pubkey.out; echo gen_exit=$?; stat -c "%a %U:%G %s" /etc/monark/bell/signing-key.pem; grep -c PRIVATE /root/bell-pubkey.out; grep -c -E "[{,] *.d. *:" /root/bell-pubkey.out; wc -c < /root/bell-pubkey.out'
 ```
 
 Expected: `gen_exit=0`; `600 root:root <size>` (PKCS#8 PEM, ADR D9); then `0` and `0` (the saved output holds no private
 material: counts only, never contents); a small byte count. Interface = PR-2 S-6 (ADR D9: "only the public JWK and the key_id",
 refuses to overwrite, 0600): re-read its G7 before this step. Then display the PUBLIC output only:
-`ssh -i ~/.ssh/monark_vps root@178.16.131.29 'cat /root/bell-pubkey.out'` -> the JWK `{kty:"OKP", crv:"Ed25519", x}` and the
+`ssh -i ~/.ssh/monark_vps root@bell.monarkgate.tech 'cat /root/bell-pubkey.out'` -> the JWK `{kty:"OKP", crv:"Ed25519", x}` and the
 64-hex `key_id`; write both to the JOURNAL. **If either count is not 0**: the output leaked private material -> exposure before any
-publication: `ssh -i ~/.ssh/monark_vps root@178.16.131.29 'shred -u /etc/monark/bell/signing-key.pem /root/bell-pubkey.out'`,
+publication: `ssh -i ~/.ssh/monark_vps root@bell.monarkgate.tech 'shred -u /etc/monark/bell/signing-key.pem /root/bell-pubkey.out'`,
 record it, fix PR-2 before any new key. Rollback before the first publication: the same `shred -u`, then regenerate (no line is
 signed yet, no rotation needed). **After the first publication, the key is never deleted: see "Key incidents".**
 
@@ -155,7 +155,7 @@ Commit it (orchestrator, R-20); **no push before step 12** (the keyring and the 
 ## 6. The unit, from the G7 bytes, and a dry start that proves the credential path
 
 ```bash
-G7=$(cat /f/tmp/bell-dn/G7.txt) && git -C /f/Monark cat-file blob "$G7:deploy/monark-bell-publish.service" | ssh -i ~/.ssh/monark_vps root@178.16.131.29 'umask 022 && cat > /etc/systemd/system/monark-bell-publish.service && systemctl daemon-reload && systemctl show -p NeedDaemonReload --value monark-bell-publish.service && systemctl show -p LoadState -p FragmentPath -p DropInPaths monark-bell-publish.service && sha256sum /etc/systemd/system/monark-bell-publish.service'
+G7=$(cat /f/tmp/bell-dn/G7.txt) && git -C /f/Monark cat-file blob "$G7:deploy/monark-bell-publish.service" | ssh -i ~/.ssh/monark_vps root@bell.monarkgate.tech 'umask 022 && cat > /etc/systemd/system/monark-bell-publish.service && systemctl daemon-reload && systemctl show -p NeedDaemonReload --value monark-bell-publish.service && systemctl show -p LoadState -p FragmentPath -p DropInPaths monark-bell-publish.service && sha256sum /etc/systemd/system/monark-bell-publish.service'
 ```
 
 Expected: `no`; `LoadState=loaded`, `FragmentPath=/etc/systemd/system/monark-bell-publish.service`, `DropInPaths=` (empty); the
@@ -165,22 +165,22 @@ Never `systemctl enable` (no `[Install]`, no timer in lot a) and never `systemct
 Dry start on the EMPTY inbox (the refusal proves: user, sandbox and `LoadCredential` work; nothing is written):
 
 ```bash
-ssh -i ~/.ssh/monark_vps root@178.16.131.29 'systemctl start monark-bell-publish.service; echo start_exit=$?; journalctl -u monark-bell-publish.service -n 10 --no-pager -o cat | grep "bell/publish"; systemctl reset-failed monark-bell-publish.service; find /var/lib/monark-bell -mindepth 1 | sort'
+ssh -i ~/.ssh/monark_vps root@bell.monarkgate.tech 'systemctl start monark-bell-publish.service; echo start_exit=$?; journalctl -u monark-bell-publish.service -n 10 --no-pager -o cat | grep "bell/publish"; systemctl reset-failed monark-bell-publish.service; find /var/lib/monark-bell -mindepth 1 | sort'
 ```
 
 Expected: `start_exit=1`; the journal line `bell/publish: inbox_not_exactly_one_bundle: 0 inbox entries` (NOT
 `signing_key_missing`: that would mean the credential did not load -> STOP); `find` lists only `/var/lib/monark-bell/inbox` and
-`/var/lib/monark-bell/public`. Rollback: `ssh -i ~/.ssh/monark_vps root@178.16.131.29 'rm /etc/systemd/system/monark-bell-publish.service && systemctl daemon-reload'`.
+`/var/lib/monark-bell/public`. Rollback: `ssh -i ~/.ssh/monark_vps root@bell.monarkgate.tech 'rm /etc/systemd/system/monark-bell-publish.service && systemctl daemon-reload'`.
 
 ## 7. Caddy (ruling C-5) — gate G-d first
 
 DNS replay (G-d), then the Caddyfile in place recorded BEFORE the act (digest + content; it carries no secret):
 
 ```bash
-nslookup bell.monarkgate.tech 1.1.1.1; ssh -i ~/.ssh/monark_vps root@178.16.131.29 'getent hosts bell.monarkgate.tech; sha256sum /etc/caddy/Caddyfile; cat /etc/caddy/Caddyfile' > /f/tmp/bell-dn/caddyfile-before.txt; echo exit=$?; head -1 /f/tmp/bell-dn/caddyfile-before.txt
+nslookup bell.monarkgate.tech one.one.one.one; ssh -i ~/.ssh/monark_vps root@bell.monarkgate.tech 'getent hosts bell.monarkgate.tech; sha256sum /etc/caddy/Caddyfile; cat /etc/caddy/Caddyfile' > /f/tmp/bell-dn/caddyfile-before.txt; echo exit=$?; head -1 /f/tmp/bell-dn/caddyfile-before.txt
 ```
 
-Expected: `Address: 178.16.131.29` from 1.1.1.1 and `178.16.131.29 bell.monarkgate.tech` on the host (else **STOP**: no ACME
+Expected: `Address: <address>` from one.one.one.one and `<address> bell.monarkgate.tech` on the host, `<address>` the Bell host's address, from the operator's own records or the provider panel, never from this tree (else **STOP**: no ACME
 without the A record); the recorded file. **Classification on this piece**: the package default only (one `:80` block with
 `root * /usr/share/caddy` and `file_server`, comments otherwise; measured 17:0x UTC: 21 lines, no other site) => **REPLACE mode**
 (below). Any other site in the file => IMPORT mode (at the end of this step), never an edit of those sites.
@@ -188,11 +188,11 @@ without the A record); the recorded file. **Classification on this piece**: the 
 REPLACE mode: back up, validate the candidate BEFORE it becomes live, atomic rename, reload (never restart):
 
 ```bash
-G7=$(cat /f/tmp/bell-dn/G7.txt) && git -C /f/Monark cat-file blob "$G7:deploy/Caddyfile.monark-bell" | ssh -i ~/.ssh/monark_vps root@178.16.131.29 'cp -p /etc/caddy/Caddyfile /etc/caddy/Caddyfile.bak-bell && umask 022 && cat > /etc/caddy/Caddyfile.new && caddy validate --config /etc/caddy/Caddyfile.new --adapter caddyfile && mv /etc/caddy/Caddyfile.new /etc/caddy/Caddyfile && systemctl reload caddy && systemctl is-active caddy && sha256sum /etc/caddy/Caddyfile'
+G7=$(cat /f/tmp/bell-dn/G7.txt) && git -C /f/Monark cat-file blob "$G7:deploy/Caddyfile.monark-bell" | ssh -i ~/.ssh/monark_vps root@bell.monarkgate.tech 'cp -p /etc/caddy/Caddyfile /etc/caddy/Caddyfile.bak-bell && umask 022 && cat > /etc/caddy/Caddyfile.new && caddy validate --config /etc/caddy/Caddyfile.new --adapter caddyfile && mv /etc/caddy/Caddyfile.new /etc/caddy/Caddyfile && systemctl reload caddy && systemctl is-active caddy && sha256sum /etc/caddy/Caddyfile'
 ```
 
 Expected: `Valid configuration`; `active`; the digest equals the local `git cat-file blob "$G7:deploy/Caddyfile.monark-bell" | sha256sum`.
-Rollback: `ssh -i ~/.ssh/monark_vps root@178.16.131.29 'cp -p /etc/caddy/Caddyfile.bak-bell /etc/caddy/Caddyfile && caddy validate --config /etc/caddy/Caddyfile && systemctl reload caddy'`.
+Rollback: `ssh -i ~/.ssh/monark_vps root@bell.monarkgate.tech 'cp -p /etc/caddy/Caddyfile.bak-bell /etc/caddy/Caddyfile && caddy validate --config /etc/caddy/Caddyfile && systemctl reload caddy'`.
 
 IMPORT mode (only if the recorded file serves another site): the dedicated file is installed WHOLE at
 `/etc/caddy/monark-bell.caddyfile` (same pipe, `cat > /etc/caddy/monark-bell.caddyfile`; inert: nothing imports it yet), after the
@@ -220,7 +220,7 @@ is red; a failed `rev-parse` leaves `G7.txt` empty: rerun this command with the 
 in place, measured on the host against the Caddyfile blobs of both G7s, BEFORE any act:
 
 ```bash
-H=$(ssh -i ~/.ssh/monark_vps root@178.16.131.29 'sha256sum /etc/caddy/Caddyfile' | cut -c1-64); S=unexpected; for f in G7 G7-1; do R=$(git -C /f/Monark rev-parse --verify "$(cat /f/tmp/bell-dn/$f.txt)^{commit}") || { S=unexpected; break; }; [ "$(git -C /f/Monark cat-file blob "$R:deploy/Caddyfile.monark-bell" | sha256sum | cut -c1-64)" = "$H" ] && S=$f; done; echo caddy_in_place=$S host=$H
+H=$(ssh -i ~/.ssh/monark_vps root@bell.monarkgate.tech 'sha256sum /etc/caddy/Caddyfile' | cut -c1-64); S=unexpected; for f in G7 G7-1; do R=$(git -C /f/Monark rev-parse --verify "$(cat /f/tmp/bell-dn/$f.txt)^{commit}") || { S=unexpected; break; }; [ "$(git -C /f/Monark cat-file blob "$R:deploy/Caddyfile.monark-bell" | sha256sum | cut -c1-64)" = "$H" ] && S=$f; done; echo caddy_in_place=$S host=$H
 ```
 
 Expected: `caddy_in_place=G7-1` (the previous G7 blob is in place) => the REPLACE below. `caddy_in_place=G7` => this replay
@@ -229,11 +229,11 @@ commit) => **STOP**: read the host (the recording command above); another site i
 second backup (taken only while the previous blob is in place, so a rerun after a failed `caddy validate` loses nothing):
 
 ```bash
-G7=$(cat /f/tmp/bell-dn/G7.txt) && git -C /f/Monark cat-file blob "$G7:deploy/Caddyfile.monark-bell" | ssh -i ~/.ssh/monark_vps root@178.16.131.29 'cp -p /etc/caddy/Caddyfile /etc/caddy/Caddyfile.bak-bell-2 && umask 022 && cat > /etc/caddy/Caddyfile.new && caddy validate --config /etc/caddy/Caddyfile.new --adapter caddyfile && mv /etc/caddy/Caddyfile.new /etc/caddy/Caddyfile && systemctl reload caddy && systemctl is-active caddy && sha256sum /etc/caddy/Caddyfile'
+G7=$(cat /f/tmp/bell-dn/G7.txt) && git -C /f/Monark cat-file blob "$G7:deploy/Caddyfile.monark-bell" | ssh -i ~/.ssh/monark_vps root@bell.monarkgate.tech 'cp -p /etc/caddy/Caddyfile /etc/caddy/Caddyfile.bak-bell-2 && umask 022 && cat > /etc/caddy/Caddyfile.new && caddy validate --config /etc/caddy/Caddyfile.new --adapter caddyfile && mv /etc/caddy/Caddyfile.new /etc/caddy/Caddyfile && systemctl reload caddy && systemctl is-active caddy && sha256sum /etc/caddy/Caddyfile'
 ```
 
 Expected: `Valid configuration`; `active`; the digest equals the local `git cat-file blob` digest at the NEW G7; then step 8,
-then step 11 (fresh capture; CA 12/12 at the new G7). Rollback: `ssh -i ~/.ssh/monark_vps root@178.16.131.29 'cp -p /etc/caddy/Caddyfile.bak-bell-2 /etc/caddy/Caddyfile && caddy validate --config /etc/caddy/Caddyfile && systemctl reload caddy'`, then `cp /f/tmp/bell-dn/G7-1.txt /f/tmp/bell-dn/G7.txt`.
+then step 11 (fresh capture; CA 12/12 at the new G7). Rollback: `ssh -i ~/.ssh/monark_vps root@bell.monarkgate.tech 'cp -p /etc/caddy/Caddyfile.bak-bell-2 /etc/caddy/Caddyfile && caddy validate --config /etc/caddy/Caddyfile && systemctl reload caddy'`, then `cp /f/tmp/bell-dn/G7-1.txt /f/tmp/bell-dn/G7.txt`.
 A later replay (another lot) first removes `G7-1.txt`, once step 11 is 12/12 at the G7 in place, so that the pointer it keeps
 is that G7.
 
@@ -376,16 +376,16 @@ cd /f/tmp/bell-dn/bundle-1 && find . -type f -print0 | LC_ALL=C sort -z | xargs 
 Expected: the bundle digest (G-e piece, with the course references). Transfer into the inbox (exactly one entry), owned by `bell`:
 
 ```bash
-scp -r -i ~/.ssh/monark_vps /f/tmp/bell-dn/bundle-1 root@178.16.131.29:/var/lib/monark-bell/inbox/ && ssh -i ~/.ssh/monark_vps root@178.16.131.29 'chown -R bell:bell /var/lib/monark-bell/inbox/bundle-1 && ls /var/lib/monark-bell/inbox && cd /var/lib/monark-bell/inbox/bundle-1 && find . -type f -print0 | LC_ALL=C sort -z | xargs -0 sha256sum | tr -d "*" | tr -s " " | sha256sum'
+scp -r -i ~/.ssh/monark_vps /f/tmp/bell-dn/bundle-1 root@bell.monarkgate.tech:/var/lib/monark-bell/inbox/ && ssh -i ~/.ssh/monark_vps root@bell.monarkgate.tech 'chown -R bell:bell /var/lib/monark-bell/inbox/bundle-1 && ls /var/lib/monark-bell/inbox && cd /var/lib/monark-bell/inbox/bundle-1 && find . -type f -print0 | LC_ALL=C sort -z | xargs -0 sha256sum | tr -d "*" | tr -s " " | sha256sum'
 ```
 
 Expected: `ls` prints only `bundle-1`; the remote digest equals the local one. Rollback (before step 10):
-`ssh -i ~/.ssh/monark_vps root@178.16.131.29 'rm -rf /var/lib/monark-bell/inbox/bundle-1'`.
+`ssh -i ~/.ssh/monark_vps root@bell.monarkgate.tech 'rm -rf /var/lib/monark-bell/inbox/bundle-1'`.
 
 ## 10. Publish (operator act)
 
 ```bash
-ssh -i ~/.ssh/monark_vps root@178.16.131.29 'systemctl start monark-bell-publish.service; echo start_exit=$?; journalctl -u monark-bell-publish.service -n 10 --no-pager -o cat | grep -E "status|bell/publish"; ls /var/lib/monark-bell/inbox | wc -l; ls /var/lib/monark-bell/public'; curl -sI https://bell.monarkgate.tech/state.json | head -1; curl -sI https://bell.monarkgate.tech/bell/pubkey.json | head -1
+ssh -i ~/.ssh/monark_vps root@bell.monarkgate.tech 'systemctl start monark-bell-publish.service; echo start_exit=$?; journalctl -u monark-bell-publish.service -n 10 --no-pager -o cat | grep -E "status|bell/publish"; ls /var/lib/monark-bell/inbox | wc -l; ls /var/lib/monark-bell/public'; curl -sI https://bell.monarkgate.tech/state.json | head -1; curl -sI https://bell.monarkgate.tech/bell/pubkey.json | head -1
 ```
 
 Expected: `start_exit=0`; one JSON line `{"status":"published","seq":1,"published_at":...,"state_sha256":...,"provenance_sha256":...,"line_hash":...}`
@@ -399,7 +399,7 @@ stopped by the step 7 rollback; a rewrite would be detectable by the mirrors (se
 ## 11. CA (ADR D11, 12 named checks) — host capture, then `scripts/verify-bell.mjs`
 
 ```bash
-ssh -i ~/.ssh/monark_vps root@178.16.131.29 'rm -rf /root/bell-capture && install -d -m 0700 /root/bell-capture && cd /root/bell-capture && cp /etc/caddy/Caddyfile caddyfile-main && { if [ -f /etc/caddy/monark-bell.caddyfile ]; then cp /etc/caddy/monark-bell.caddyfile caddyfile-dedicated; fi; } && systemctl cat monark-bell-publish.service > systemctl-cat.txt && systemctl show -p NeedDaemonReload --value monark-bell-publish.service > need-daemon-reload.txt && (cd /opt/monark-bell && find . -type f -print0 | LC_ALL=C sort -z | xargs -0 sha256sum) > tree.sha256 && sha256sum *' && scp -r -i ~/.ssh/monark_vps root@178.16.131.29:/root/bell-capture /f/tmp/bell-dn/ && ssh -i ~/.ssh/monark_vps root@178.16.131.29 '{ sha256sum /etc/monark/probe.env; cd /opt/monark-probe && find . -type f -print0 | LC_ALL=C sort -z | xargs -0 sha256sum; }' > /f/tmp/bell-dn/probe-after.sha256; echo exit=$?
+ssh -i ~/.ssh/monark_vps root@bell.monarkgate.tech 'rm -rf /root/bell-capture && install -d -m 0700 /root/bell-capture && cd /root/bell-capture && cp /etc/caddy/Caddyfile caddyfile-main && { if [ -f /etc/caddy/monark-bell.caddyfile ]; then cp /etc/caddy/monark-bell.caddyfile caddyfile-dedicated; fi; } && systemctl cat monark-bell-publish.service > systemctl-cat.txt && systemctl show -p NeedDaemonReload --value monark-bell-publish.service > need-daemon-reload.txt && (cd /opt/monark-bell && find . -type f -print0 | LC_ALL=C sort -z | xargs -0 sha256sum) > tree.sha256 && sha256sum *' && scp -r -i ~/.ssh/monark_vps root@bell.monarkgate.tech:/root/bell-capture /f/tmp/bell-dn/ && ssh -i ~/.ssh/monark_vps root@bell.monarkgate.tech '{ sha256sum /etc/monark/probe.env; cd /opt/monark-probe && find . -type f -print0 | LC_ALL=C sort -z | xargs -0 sha256sum; }' > /f/tmp/bell-dn/probe-after.sha256; echo exit=$?
 ```
 
 ```bash
@@ -552,16 +552,16 @@ write, a register row beyond `lines[]` or not bound to its line); the storefront
   order leaves `rotation_key_not_in_keyring` for every verifier holding the committed keyring, and CA checks red, until the
   commit. Never a manual snapshot. Each act only while `monark-bell-publish.service` is not active (item BELL-STATE-LOCK-1 (i)):
   (R1) new key ON the host, counted like step 4 (both counts 0), then `cat /root/bell-pubkey-new.out` (public part only):
-  `ssh -i ~/.ssh/monark_vps root@178.16.131.29 'umask 077 && node /opt/monark-bell/apps/bell/scripts/bell-publish.mjs --generate-key /etc/monark/bell/signing-key-new.pem > /root/bell-pubkey-new.out; echo gen_exit=$?; grep -c PRIVATE /root/bell-pubkey-new.out; grep -c -E "[{,] *.d. *:" /root/bell-pubkey-new.out'`;
+  `ssh -i ~/.ssh/monark_vps root@bell.monarkgate.tech 'umask 077 && node /opt/monark-bell/apps/bell/scripts/bell-publish.mjs --generate-key /etc/monark/bell/signing-key-new.pem > /root/bell-pubkey-new.out; echo gen_exit=$?; grep -c PRIVATE /root/bell-pubkey-new.out; grep -c -E "[{,] *.d. *:" /root/bell-pubkey-new.out'`;
   (R2) on the operator machine, the new PUBLIC key appended to the committed keyring and committed BEFORE the rotation, so a
   third party's `--keyring` check never reddens on the new key (served keys within the supplied keyring):
   `cd /f/Monark && node --input-type=module -e "import { readFileSync } from 'node:fs'; import { keyringOf, publicKeyOfJwk, canonical } from './apps/bell/scripts/bell-chain.mjs'; const [x, id] = process.argv.slice(1); const e = keyringOf(publicKeyOfJwk({ x }), 1).keys[0]; if (e.key_id !== id) { console.error('STOP: key_id mismatch'); process.exit(1); } const kr = JSON.parse(readFileSync('apps/bell/keys/bell-keyring.json', 'utf8')); kr.keys.push({ key_id: e.key_id, jwk: e.jwk }); console.log(canonical(kr));" -- '<x new>' '<key_id new>' > /f/tmp/bell-dn/keyring-r2.json && mv /f/tmp/bell-dn/keyring-r2.json apps/bell/keys/bell-keyring.json`, then
   commit (R-20), full oracle (step 12), push (decision 136); (R3) starts only once that commit is pushed;
   (R3) the rotation, one transient job with the unit's sandbox and BOTH credentials (the old key signs `sig`, the new key `sig_new`):
-  `ssh -i ~/.ssh/monark_vps root@178.16.131.29 'test "$(systemctl is-active monark-bell-publish.service)" != active && systemd-run --wait --pipe --collect --uid=bell --gid=bell -p PrivateNetwork=yes -p NoNewPrivileges=yes -p ProtectSystem=strict -p ProtectHome=yes -p PrivateTmp=yes -p ReadWritePaths=/var/lib/monark-bell -p UMask=0022 -p LoadCredential=bell-signing-key:/etc/monark/bell/signing-key.pem -p LoadCredential=bell-signing-key-new:/etc/monark/bell/signing-key-new.pem /usr/bin/env node /opt/monark-bell/apps/bell/scripts/bell-publish.mjs --rotate --state /var/lib/monark-bell'`
+  `ssh -i ~/.ssh/monark_vps root@bell.monarkgate.tech 'test "$(systemctl is-active monark-bell-publish.service)" != active && systemd-run --wait --pipe --collect --uid=bell --gid=bell -p PrivateNetwork=yes -p NoNewPrivileges=yes -p ProtectSystem=strict -p ProtectHome=yes -p PrivateTmp=yes -p ReadWritePaths=/var/lib/monark-bell -p UMask=0022 -p LoadCredential=bell-signing-key:/etc/monark/bell/signing-key.pem -p LoadCredential=bell-signing-key-new:/etc/monark/bell/signing-key-new.pem /usr/bin/env node /opt/monark-bell/apps/bell/scripts/bell-publish.mjs --rotate --state /var/lib/monark-bell'`
   -> one JSON line with `"status":"rotated"`; this transient form is not yet run on the host: a property that `systemd-run`
   refuses must fail before the job starts (read its error, nothing is written);
-  (R4) the new key becomes the unit's key: `ssh -i ~/.ssh/monark_vps root@178.16.131.29 'shred -u /etc/monark/bell/signing-key.pem && mv /etc/monark/bell/signing-key-new.pem /etc/monark/bell/signing-key.pem && stat -c "%a %U:%G" /etc/monark/bell/signing-key.pem'` -> `600 root:root`;
+  (R4) the new key becomes the unit's key: `ssh -i ~/.ssh/monark_vps root@bell.monarkgate.tech 'shred -u /etc/monark/bell/signing-key.pem && mv /etc/monark/bell/signing-key-new.pem /etc/monark/bell/signing-key.pem && stat -c "%a %U:%G" /etc/monark/bell/signing-key.pem'` -> `600 root:root`;
   (R5) verification: commit the served `/bell/pubkey.json` bytes as `apps/bell/keys/bell-keyring.json` (the derived keyring:
   statuses), then step 11 (CA 12/12), `/bell/method` cites the new key, JOURNAL entry, then step 13 (the timeline copy) and
   step 13 bis (the timestamp of the key line, without `--immutables`: it bounds the instant of the rotation or revocation); between

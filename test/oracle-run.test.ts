@@ -105,7 +105,7 @@ test("oracle_refuses_without_role — --role absent or unknown => exit 2, nothin
 }));
 
 test("oracle_gates_are_the_run_lines_of_ci_yml — derived at launch, CI-only listed, npm test once; one more run: => one more gate; a run: | block runs under bash -e; the run and the lock take name the tree (M2, M3, X8, X9)", () => withFx((fx) => {
-  // killer: scripts/oracle/run.mjs:141 SDL "\"-e\", " -> ""
+  // killer: scripts/oracle/run.mjs:142 SDL "\"-e\", " -> ""
   const a = oracle(fx, ["--role", "G1"]);
   assert.equal(a.status, 0, a.out);
   assert.deepEqual(a.rec?.gates.map((g) => g.name), ["r25", "lint", "test"]);
@@ -127,10 +127,11 @@ test("oracle_gates_are_the_run_lines_of_ci_yml — derived at launch, CI-only li
 
 // G2 delta A-3: the npm overrides win under any case on every OS. On Windows a case-insensitive env merge lets NPM_CONFIG_OFFLINE
 // stand in for npm_config_offline; on POSIX both names reach the gate, so the gate must see npm's two override names only.
-// killer: scripts/oracle/run.mjs:46 COR " || /^npm_config_(offline|logs_dir)$/i.test(k)" -> ""
+// killer: scripts/oracle/run.mjs:47 COR " || /^npm_config_(offline|logs_dir)$/i.test(k)" -> ""
 test("oracle_gates_see_no_foreign_credential — no credential NAME reaches a gate of either lane (static lint, locked test) and npm runs offline (C-G2-1, X1)", () => withFx((fx) => {
-  // killer: scripts/oracle/run.mjs:39 CONST "^MONARK_PUBLIC_MIRROR$/i" -> "^MONARK_PUBLIC_MIRROR$/"
-  // killer: scripts/oracle/run.mjs:136 SDL "npm_config_offline: \"true\", " -> ""
+  // killer: scripts/oracle/run.mjs:40 CONST "^MONARK_PUBLIC_MIRROR$/i" -> "^MONARK_PUBLIC_MIRROR$/"
+  // killer: scripts/oracle/run.mjs:137 SDL "npm_config_offline: \"true\", " -> ""
+  // killer: scripts/oracle/run.mjs:137 CONST "ORACLE_BASE: base, " -> ""
   const fake = ["FX_API_KEY_1", "FX_PRIVATE_KEY", "FX_TOKEN_1", "fx_secret_1", "GH_FX", "GITHUB_FX", "CHAINSTACK_FX", "MONARK_PUBLIC_MIRROR"]; // lowercase name: DENY must be case-insensitive (Windows env names, O1); a synthetic FX_ name, never MONARK_PUBLIC_MIRROR itself (that exact name is real in this session's own environment, C-G2-1 §0: a lowercase fake of it collides and is overridden by Windows' case-insensitive env merge, not by DENY)
   const a = oracle(fx, ["--role", "G1"], { ...Object.fromEntries(fake.map((k) => [k, "fake"])), FX_VISIBLE: "1", NPM_CONFIG_OFFLINE: "false", NPM_CONFIG_LOGS_DIR: join(fx.top, "host-npm-logs") });
   assert.equal(a.status, 0, a.out);
@@ -138,6 +139,7 @@ test("oracle_gates_see_no_foreign_credential — no credential NAME reaches a ga
     const log = readFileSync(a.rec?.gates.find((g) => g.name === gate)?.log ?? "", "utf8");
     const names = JSON.parse(/^env (\[.*\])/m.exec(log)?.[1] ?? "[]") as string[];
     assert.ok(names.includes("FX_VISIBLE"), `${gate}: the probe sees the environment`);
+    assert.ok(names.includes("ORACLE_BASE"), `${gate}: ORACLE_BASE, the base that scripts/test-count-check.mjs reads`);
     assert.deepEqual(names.filter((k) => /API_KEY|_KEY$|TOKEN|SECRET|^GH_|^GITHUB_|^CHAINSTACK_|^MONARK_PUBLIC_MIRROR$/i.test(k)), [], `${gate}: no credential name`);
     assert.match(log, /offline=true/, `${gate}: npm_config_offline`);
     assert.deepEqual(names.filter((k) => /^npm_config_(offline|logs_dir)$/i.test(k)).sort(), ["npm_config_logs_dir", "npm_config_offline"], `${gate}: npm's overrides, one name each`);
@@ -150,7 +152,7 @@ test("oracle_gates_see_no_foreign_credential — no credential NAME reaches a ga
 // PATH change, no shell parsing: the test runs on every OS, Windows first (G2 delta A-1, A-2).
 // It needs git 2.27 or later, Git for Windows included: GIT_TRACE2_ENV_VARS came with 2.27.0 ("Trace2 enhancement to allow logging of
 // the environment variables", its release notes); verified on 2.43. An older git fails the premise below, red, never green (G2 B-1).
-// killer: scripts/oracle/run.mjs:46 COR "DENY.test(k) || " -> ""
+// killer: scripts/oracle/run.mjs:47 COR "DENY.test(k) || " -> ""
 test("oracle_git_children_see_no_foreign_credential — the process.env scrub reaches git, which takes no childEnv", () => withFx((fx) => {
   const trace = join(fx.top, "trace2.json"), fake = ["FX_TOKEN_1", "fx_secret_1", "GH_FX"];
   const a = oracle(fx, ["--role", "G1"], { ...Object.fromEntries(fake.map((k) => [k, "fake"])), FX_VISIBLE: "1", GIT_TRACE2_EVENT: trace, GIT_TRACE2_ENV_VARS: [...fake, "FX_VISIBLE"].join(",") });
@@ -164,8 +166,18 @@ test("oracle_git_children_see_no_foreign_credential — the process.env scrub re
   assert.deepEqual([...new Set(params.filter((k) => fake.some((f) => f.toLowerCase() === k.toLowerCase())))], [], "git: no credential name");
 }));
 
+// killer: scripts/oracle/run.mjs:163 CONST "/^test(:main)?$/" -> "/^test$/"
+test("oracle_reads_the_tests_of_test_main — the tests field comes from the suite's gate as the real tree names it, npm run test:main, which gets the oracle's base as ORACLE_BASE over the host's (TEST-COUNT-FLOOR-1, Q-9 and Q-4 (a))", () => withFx((fx) => {
+  const ci = join(fx.repo, ".github", "workflows", "ci.yml"), main = SCRIPTS.test.replace('node -e "', `node -e "console.log('base=' + process.env.ORACLE_BASE); `);
+  writeFileSync(ci, readFileSync(ci, "utf8").replaceAll("npm test", "npm run test:main").replace('VIBEGATES_PR_LIMIT: "5"', 'VIBEGATES_PR_LIMIT: "50"')); // r25 counts this edit too
+  writeFileSync(join(fx.repo, "package.json"), JSON.stringify({ name: "fx", private: true, scripts: { lint: SCRIPTS.lint, "test:main": main } }));
+  git(fx.repo, "commit", "-qam", "the suite's gate is test:main, as in the real tree");
+  const a = oracle(fx, ["--role", "G1"], { ORACLE_BASE: "host" }), log = readFileSync(a.rec?.gates.find((g) => g.name === "test:main")?.log ?? "", "utf8");
+  assert.deepEqual([a.status, a.rec?.gates.map((g) => g.name), a.rec?.tests, /^base=(.*)$/m.exec(log)?.[1]], [0, ["r25", "lint", "test:main"], { total: 3, pass: 3, fail: 0, skip: 0 }, fx.base], a.out);
+}));
+
 test("oracle_store_serves_g1_never_g2_cp2_g7 — same key: G1 served (cited by file and sha256, never copied, with its own tree sha), an ignored file leaves the tree clean; independent roles replay (M4, M5, X11)", () => withFx((fx) => {
-  // killer: scripts/oracle/run.mjs:55 SDL ", \"--exclude-standard\"" -> ""
+  // killer: scripts/oracle/run.mjs:56 SDL ", \"--exclude-standard\"" -> ""
   const a = oracle(fx, ["--role", "G1", "--key", "k"]);
   assert.equal(a.rec?.served_from, null, a.out);
   writeFileSync(join(fx.repo, "ign.txt"), "ignored\n");
@@ -184,10 +196,10 @@ test("oracle_store_serves_g1_never_g2_cp2_g7 — same key: G1 served (cited by f
 }));
 
 test("oracle_store_serves_only_a_full_clean_replay — a static-only, dirty or served same-key record never serves; a --static-only run is never served (X5, X10, X14, X15)", () => withFx((fx) => {
-  // killer: scripts/oracle/run.mjs:82 COR "r.served_from !== null || " -> ""
-  // killer: scripts/oracle/run.mjs:75 COR "&& dirty === null && !staticOnly &&" -> "&& dirty === null &&"
-  // killer: scripts/oracle/run.mjs:82 COR "r.static_only !== false || " -> ""
-  // killer: scripts/oracle/run.mjs:82 COR " || r.tree?.dirty !== null" -> ""
+  // killer: scripts/oracle/run.mjs:83 COR "r.served_from !== null || " -> ""
+  // killer: scripts/oracle/run.mjs:76 COR "&& dirty === null && !staticOnly &&" -> "&& dirty === null &&"
+  // killer: scripts/oracle/run.mjs:83 COR "r.static_only !== false || " -> ""
+  // killer: scripts/oracle/run.mjs:83 COR " || r.tree?.dirty !== null" -> ""
   const k = ["--role", "G1", "--key", "k"], s = oracle(fx, [...k, "--static-only"]);
   writeFileSync(join(fx.repo, "new.txt"), "1\n");
   const d = oracle(fx, k);
@@ -202,7 +214,7 @@ test("oracle_store_serves_only_a_full_clean_replay — a static-only, dirty or s
 }));
 
 test("oracle_red_same_key_record_is_never_served — decision 267 (c): a suite refused by C-V-4, or a red base, is replayed with a mention, never served (X4)", () => withFx((fx) => {
-  // killer: scripts/oracle/run.mjs:83 SDL "if (r.exit !== 0) { console.error(`oracle: same-key record ${f} is red (exit ${r.exit})" -> ""
+  // killer: scripts/oracle/run.mjs:84 SDL "if (r.exit !== 0) { console.error(`oracle: same-key record ${f} is red (exit ${r.exit})" -> ""
   const a = oracle(fx, ["--role", "G1", "--key", "k"], { ORACLE_MAX_NODE: "0" }), b = oracle(fx, ["--role", "G1", "--key", "k"]);
   assert.deepEqual([a.status, b.status, b.rec?.served_from, ran(fx)], [3, 0, null, 1], b.out);
   assert.match(b.out, /is red \(exit 3\): never served, replayed/);
@@ -215,8 +227,8 @@ test("oracle_red_same_key_record_is_never_served — decision 267 (c): a suite r
 }));
 
 test("oracle_modified_tree_is_replayed_on_its_content — same key, dirty tree: never served, the clone carries the untracked file; the record and owner.txt name the frozen dirty tree (M6, M7, X8, X9)", () => withFx((fx) => {
-  // killer: scripts/oracle/run.mjs:104 CONST "rec.tree.object = gitS(clone, \"rev-parse\", \"HEAD^{tree}\")" -> "rec.tree.object = null"
-  // killer: scripts/oracle/run.mjs:149 CONST "sha: dirty ? `${head}+${dirty}` : head" -> "sha: \"x\""
+  // killer: scripts/oracle/run.mjs:105 CONST "rec.tree.object = gitS(clone, \"rev-parse\", \"HEAD^{tree}\")" -> "rec.tree.object = null"
+  // killer: scripts/oracle/run.mjs:150 CONST "sha: dirty ? `${head}+${dirty}` : head" -> "sha: \"x\""
   const a = oracle(fx, ["--role", "G1", "--key", "k"]);
   assert.equal(a.status, 0, a.out);
   writeFileSync(join(fx.repo, "BAD"), "x\n");
@@ -234,7 +246,7 @@ test("oracle_modified_tree_is_replayed_on_its_content — same key, dirty tree: 
 }));
 
 test("oracle_refuses_an_incomplete_same_key_record — a record without pid, or whose tree object is absent or null => exit 2, neither served nor replayed (M8, C-G2-3)", () => withFx((fx) => {
-  // killer: scripts/oracle/run.mjs:80 SDL ", /^[0-9a-f]{40,64}$/.test(r.tree?.object) ? [] : [\"tree.object\"]" -> ""
+  // killer: scripts/oracle/run.mjs:81 SDL ", /^[0-9a-f]{40,64}$/.test(r.tree?.object) ? [] : [\"tree.object\"]" -> ""
   const a = oracle(fx, ["--role", "G1", "--key", "k"]);
   assert.equal(a.status, 0, a.out);
   const body = readFileSync(a.file, "utf8"), forged = JSON.parse(body) as Record<string, unknown>;
@@ -249,13 +261,13 @@ test("oracle_refuses_an_incomplete_same_key_record — a record without pid, or 
 }));
 
 test("oracle_record_not_written_is_a_refusal — a gate turns the record path into a directory (BRK) => exit 2, no oracle-result line, no record (C-G2-7)", () => withFx((fx) => {
-  // killer: scripts/oracle/run.mjs:69 CONST "refuse(`record not written" -> "throw e; refuse(`record not written"
+  // killer: scripts/oracle/run.mjs:70 CONST "refuse(`record not written" -> "throw e; refuse(`record not written"
   writeFileSync(join(fx.repo, "BRK"), "x\n");
   const a = oracle(fx, ["--role", "G1", "--static-only"]);
   assert.deepEqual([a.status, a.file], [2, ""], a.out);
   assert.match(a.out, /refused: record not written/);
   assert.deepEqual(readdirSync(join(fx.root, "oracle-results")).filter((f) => f.endsWith(".json")), [], "no record");
-  // killer: scripts/oracle/run.mjs:168 SDL "code = 2; " -> ""
+  // killer: scripts/oracle/run.mjs:169 SDL "code = 2; " -> ""
   rmSync(join(fx.repo, "BRK")); writeFileSync(join(fx.repo, "RMT"), "x\n"); const b = oracle(fx, ["--role", "G1", "--static-only"]);
   assert.deepEqual([b.status, b.file], [2, ""], `a green gate removed the run TEMP: still a refusal (C-G2-11) ${b.out}`);
 }));
@@ -308,14 +320,14 @@ test("oracle_r25_over_the_ci_bound_is_red — insertions + deletions against VIB
   assert.deepEqual(a.rec?.r25?.map((c) => [c.name, c.insertions, c.deletions, c.changed, c.limit]), [["STAT", 15, 3, 18, 5]]);
   assert.equal(a.rec?.gates.find((g) => g.name === "r25")?.exit, 1);
   assert.equal(ran(fx), 0, "--static-only runs no locked gate");
-  // killer: scripts/oracle/run.mjs:54 SDL "\"--full-index\", " -> ""
+  // killer: scripts/oracle/run.mjs:55 SDL "\"--full-index\", " -> ""
   assert.equal(a.rec?.tree.dirty, createHash("sha256").update(execFileSync("git", ["-C", fx.repo, "diff", "--binary", "--full-index", "HEAD"])).update(`\0big.txt\0${sha256(readFileSync(join(fx.repo, "big.txt")))}`).digest("hex"), "dirty is reproducible from content (full index)");
   const re = (f: string): string | undefined => /const R25_DIFF_RE = (\/.+\/);/.exec(readFileSync(join(ROOT, f), "utf8"))?.[1];
   assert.equal(re("scripts/oracle/r25.mjs"), re("test/ci-gates.test.ts"), "R25_DIFF_RE drifted from test 38");
 }));
 
-// killer: scripts/oracle/run.mjs:63 CONST "r25_proof: proofFile === null ? null : sha256(readFileSync(proofFile))" -> "r25_proof: null"
-// killer: scripts/oracle/run.mjs:62 CONST ", readFileSync(join(here, \"..\", \"lot-size-integration.mjs\"), \"utf8\")" -> ""
+// killer: scripts/oracle/run.mjs:64 CONST "r25_proof: proofFile === null ? null : sha256(readFileSync(proofFile))" -> "r25_proof: null"
+// killer: scripts/oracle/run.mjs:63 CONST ", readFileSync(join(here, \"..\", \"lot-size-integration.mjs\"), \"utf8\")" -> ""
 test("oracle_r25_integration_reads_the_declared_proof - --r25-proof: the tree's module runs on the declared proof (here a written PR: the count of today), the record names the mode and the proof sha256, the D4 key changes with the proof; no flag: unproven, r25_proof null; a missing file: refusal (ADR-M003 D9 nonies, T-11)", () => withFx((fx) => {
   type R25Rec = { key: string; r25_mode?: string; r25_proof?: { file: string; sha256: string } | null; r25: Rec["r25"] };
   const mod = join(ROOT, "scripts", "lot-size-integration.mjs"), proof = join(fx.top, "proof.json");
@@ -334,7 +346,7 @@ test("oracle_r25_integration_reads_the_declared_proof - --r25-proof: the tree's 
   assert.equal(oracle(fx, ["--role", "G2", "--r25-proof", join(fx.top, "absent.json")]).status, 2);
 }));
 
-// killer: scripts/oracle/run.mjs:99 CONST "\"--template=\", " -> ""
+// killer: scripts/oracle/run.mjs:100 CONST "\"--template=\", " -> ""
 test("oracle_clone_takes_no_machine_template - G2 delta3 m-f: a machine git template (GIT_TEMPLATE_DIR, or init.templateDir) carrying info/attributes `* -diff` never reaches the clone: r25 reads the 3 lines of the lot, green (0 lines before)", () => withFx((fx) => {
   const tpl = join(fx.top, "template");
   mkdirSync(join(tpl, "info"), { recursive: true });
@@ -344,8 +356,8 @@ test("oracle_clone_takes_no_machine_template - G2 delta3 m-f: a machine git temp
 }));
 
 test("oracle_cv4_refuses_the_suite — free memory or node.exe out of bounds => exit 3, no suite, lock released; defaults 4096 MB free and 40 node.exe (M12, X13)", () => withFx((fx) => {
-  // killer: scripts/oracle/run.mjs:156 CONST "ORACLE_MIN_FREE_MB ?? 4096" -> "ORACLE_MIN_FREE_MB ?? 0"
-  // killer: scripts/oracle/run.mjs:156 CONST "ORACLE_MAX_NODE ?? 40" -> "ORACLE_MAX_NODE ?? 48"
+  // killer: scripts/oracle/run.mjs:157 CONST "ORACLE_MIN_FREE_MB ?? 4096" -> "ORACLE_MIN_FREE_MB ?? 0"
+  // killer: scripts/oracle/run.mjs:157 CONST "ORACLE_MAX_NODE ?? 40" -> "ORACLE_MAX_NODE ?? 48"
   for (const env of [{ ORACLE_MIN_FREE_MB: "1000000000" }, { ORACLE_MAX_NODE: "0" }, { ORACLE_MAX_NODE: "abc" }]) {
     const a = oracle(fx, ["--role", "G1"], env);
     assert.equal(a.status, 3, a.out);

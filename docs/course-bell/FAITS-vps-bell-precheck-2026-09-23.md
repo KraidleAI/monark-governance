@@ -1,10 +1,10 @@
 # FAITS — contrôles sur place du VPS Bell avant déploiement T-1b (SSH lecture seule, orchestrateur `claude-fable-5-1`, 2026-09-23 17:0x UTC)
 
-Commandes : `ssh -i ~/.ssh/monark_vps root@178.16.131.29` (lecture seule : `systemctl --version`, `caddy version`, `node -v`, `npm -v`, `id bell`, `ls`, `cat /etc/caddy/Caddyfile`, `ufw status numbered`, `systemctl cat caddy`, `systemctl list-units`). Aucune écriture, aucun redémarrage.
+Commandes : `ssh -i ~/.ssh/monark_vps root@bell.monarkgate.tech` (lecture seule : `systemctl --version`, `caddy version`, `node -v`, `npm -v`, `id bell`, `ls`, `cat /etc/caddy/Caddyfile`, `ufw status numbered`, `systemctl cat caddy`, `systemctl list-units`). Aucune écriture, aucun redémarrage.
 
 | contrôle (RUNBOOK-bell, S-12 « contrôles sur place ») | valeur mesurée |
 |---|---|
-| hostname | `bell` (`srv1993906.hstgr.cloud`, 178.16.131.29) |
+| hostname | `bell` (`srv1993906.hstgr.cloud`, `bell.monarkgate.tech`) |
 | systemd | **259** (259.5-0ubuntu3.4) ≥ 247 ⇒ `LoadCredential=` disponible |
 | Caddy | `/usr/bin/caddy` **v2.11.4**, unité `caddy` active, `ExecStart=/usr/bin/caddy run --environ --config /etc/caddy/Caddyfile` |
 | `/etc/caddy/Caddyfile` | **défaut du paquet** (21 lignes : bloc `:80 { root * /usr/share/caddy ; file_server }` + commentaires) ; aucun autre site ⇒ ruling C-5 : REMPLACEMENT en bloc (pas `import`), sha du défaut consigné avant |

@@ -7,8 +7,13 @@
 #   replayed on the Python functions (no node). The arrays USDE and LIQ_S0 come from
 #   `git show 207f021f:packages/hikae/test/served-scores.ts` in <repository> at run time (read only, memory only, Q-1).
 # Registry mode (ADR l.155): every k*, rank and U of a registry against the second writing, plus n0, UTest and the veto.
-# Usage: python -E -S -s -B binom_check.py <repository> <out-binom.txt> <out-hikae.txt>   (M-6: the governance repository is an argument)
-#        python -E -S -s -B binom_check.py --registry <wave1.json> <out.txt>
+# Usage: python -E -S -s -B -P binom_check.py <repository> <out-binom.txt> <out-hikae.txt>   (M-6: the governance repository is an argument)
+#        python -E -S -s -B -P binom_check.py --registry <wave1.json> <out.txt>
+import os, sys  # sys built in, os frozen: no file is looked up by name before io_guard has checked its folder (IO-GUARD-POSED-FILES-1)
+if "io_guard" not in sys.modules:  # io_guard.py run by its path, never found by name: nothing posed or installed stands in for it
+    sys.path.append(_d := os.path.dirname(os.path.realpath(__file__)))  # the tool's folder, last in sys.path: -P is in FORM
+    _g = sys.modules["io_guard"] = type(sys)("io_guard"); _g.__file__ = os.path.join(_d, "io_guard.py")
+    exec(compile(open(_g.__file__, "rb").read(), _g.__file__, "exec"), vars(_g))
 import io_guard  # the input guard, before any other module (M-7)
 import math
 import os

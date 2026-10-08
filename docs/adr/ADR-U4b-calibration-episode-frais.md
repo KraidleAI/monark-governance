@@ -2522,3 +2522,44 @@ mutant ; la suite complète tourne à l'oracle. `error_origin` : aucun.
 
 - Les autres fichiers de l'ensemble gelé sont inchangés. `GENERATOR_SHA256_LF` (`apps/harness/test/calibration-liq.test.ts`) est ré-épinglé **dans le même commit**. Pas de module de réexport dans `@monark/contracts`.
 - **Sortie identique** : prouvée au G7 du lot (`docs/G7-lot-cm-3c-3a.md`) par un lancement direct de `buildRegistryEntries` avant et après sur la série versée, contre le registre versé ; `u4b_committed_registry_equals_generator_output` la rejoue dès que le harnais se recharge (lot 3c-3b).
+
+## Amendement daté 2026-10-08 (pli §11-1 d'ADR-NARABI-OPS-1, item A.8-1, PR #252, fusion `6cfd8abd`) — D4 : `apps/sentinel/src/rpc.ts` AVANT `0e232519…` / APRÈS `0a5a8c3b…` ; l'item §3 de l'amendement -1d est clos
+
+> **Provenance.** Texte : worker `claude-opus-5-5` (effort max), 2026-10-08 (17:0x à 17:4x UTC, relu et complété par MONARK 17:5x UTC), documents seuls, aucun commit (R-20). Recompute LF depuis les blobs (`git show <c>:<f> | tr -d '\r' | sha256sum`, régime B, convention D4/AM-1) aux commits `9e095a0` (commit du prereg), `b44c3890` (tronc avant la fusion, premier parent de `6cfd8abd`) et `6cfd8abd` (fusion de #252 : base `b44c3890`, tête `a60d4911`, base de fusion `c5030fd9`). **Insertion par l'orchestrateur MONARK SEUL**, au G7 du lot (R-20) ; réviseur = orchestrateur (R-21). Demande : Q-3 de MONARK (recherches `b76eaa4`) ; item §3 de l'amendement -1d (l. 744-747) ; F-q de la liste fermée (`docs/ADR-AMENDEMENTS-narabi-ops-1d-G7-source.md:409`). Revues du lot : G2 de RECHERCHES `0b12c225` (CORRECTIONS : 3 m, aucun M) ; re-checkpoint-2 du validateur-humain ACCEPTE-AVEC-CORRECTIONS (rapport sha256 `57404b5a…`, C-6).
+
+### 1. D4 — sha AVANT / APRÈS de la fusion de #252
+`git diff --name-only b44c3890 6cfd8abd` : 11 fichiers, un seul du gel, `apps/sentinel/src/rpc.ts` (l. 50-79 et 121-134 d'avant supprimées : `chainstackUrl`, `poolEndpoints`, `publishedEndpoints`, `hasChainstack`, `defaultCall` ; `call` requis dans `makeRpcPool`). Les neuf lignes du prereg §2, aux trois commits :
+
+| # | Fichier gelé | prereg §2 (`9e095a0`) | AVANT (`b44c3890`) | APRÈS (`6cfd8abd`) | État |
+|---|---|---|---|---|---|
+| 1 | `scripts/census/u4b/u4b-scores.mjs` | `2f9a31f6…f51445c0` | idem | idem | inchangé |
+| 2 | `scripts/census/u4b/u4b-reduce.mjs` | `a5e66cd3…57a6fac0` | idem | idem | inchangé |
+| 3 | `scripts/record-u4b-calib.mjs` | `5733daeb…1fbc31a3` | `aa81dbca…34a87c41` | idem | re-gelé par l'amendement daté 2026-10-05 (l. 2513-2524) ; inchangé par #252 |
+| 4 | `apps/sentinel/src/ukemi/wadray.ts` | `7bee76fc…e4de2322` | idem | idem | inchangé |
+| 5 | `apps/sentinel/src/ukemi/abi.ts` | `3376eb08…c1ab2d66` | idem | idem | inchangé |
+| 6 | `packages/hikae/src/l1-split.ts` | `9206df91…8164ffa3` | `26698717…85d1c5c3` | idem | hors de la valeur gelée depuis `badd66a2` (2026-09-30), sans ligne D4 (§3, O-1) ; inchangé par #252 |
+| 7 | `apps/sentinel/src/rpc.ts` | `0e232519…c1c65ca0` | idem | **`0a5a8c3b…4481d953`** | **changé par #252** (pli §11-1, A.8-1) |
+| 8 | `packages/contracts/src/calib-digest.ts` | `3603265d…94c42380` | absent | absent | retiré (D9-ter), amendement daté 2026-10-05 |
+| 9 | `scripts/census/u3-realized.mjs` (labeler) | `cb020425…5b41a1af` | idem | idem | inchangé |
+
+Valeurs complètes du sha #7, AVANT (`b44c3890`, idem `c5030fd9` ; = l. 74 et l. 735) puis APRÈS (`6cfd8abd`, idem `57d0ee5d` et `a60d4911`) :
+```
+0e232519a18aaa43cb46bc5244472940cfac0c95f104bf3df70c36ccc1c65ca0  apps/sentinel/src/rpc.ts
+0a5a8c3b8210d2a5b5e1e370b0f2df8c7c700eff38f18f10526ff53d4481d953  apps/sentinel/src/rpc.ts
+```
+La valeur APRÈS est celle du G0 du lot à C (`docs/G0-lot-narabi-ops-1-fold-11-1.md:210-211`) et du re-checkpoint-2 ; le pli d'après la G2 (`d66e8434..a60d4911`) ne touche pas `rpc.ts`.
+
+### 2. Gardes et fermeture d'imports
+- **Garde de l'item §3** (« si le prereg d'une calibration suivante a re-gelé `rpc.ts` entre-temps ⇒ STOP ») : ne se déclenche pas. Aucun prereg de calibration n'est ajouté après `9e095a0` (`git log --diff-filter=A --name-only 9e095a0..6cfd8abd -- 'docs/*prereg*' 'docs/**/*prereg*' 'docs/PLAN-*'` : le sidecar de la course U-4b-1b elle-même et `docs/PLAN-DOJO-PAGE-1.md`, qui ne nomme pas `rpc.ts`) ; avant celui-ci, le dernier amendement daté de cet ADR est celui du 2026-10-05, qui ne re-gèle que `record-u4b-calib.mjs` ; aucun code n'épingle `0e232519` ni `0a5a8c3b` (`git grep -l -E "0e232519|0a5a8c3b" 6cfd8abd -- . ':(exclude)docs'` : vide). Même constat au G0 du lot (l. 40-45 à la base, l. 227-228 à C) et à la G2 (check 4).
+- **Déclencheur de l'item §3** (clôture de la course U-4b-1b au sens du gel, l. 746) : tenu avant le lot ; hors-ligne 6a à 6d exit 0 le 2026-09-23, 9 sha recomputés (`docs/course-ukemi/SIDECAR-prereg-u4b-1b-2026-09-22.md:40`). La lettre de §3 (l. 127-129, l. 742) est tenue : la suppression vient après la clôture.
+- **Imports du jeu gelé, intacts** : `abi.ts:7` importe `TRANSFER_TOPIC` (`rpc.ts:15`) ; `u3-realized.mjs:36` importe `providerOf` (`rpc.ts:29`), `PUBLIC_ENDPOINTS` (`rpc.ts:19-24`) et `TRANSFER_TOPIC`. Les l. 1-49 de `rpc.ts` gardent leur numéro (seule la l. 3, un commentaire, est récrite en place) ; aucun des cinq noms supprimés n'est importé par un fichier du gel (G2 check 1 ; `git grep` des importeurs de `rpc.ts` à `6cfd8abd`).
+- **Effet hors gel** : `sentinel_sha` change au redéploiement (`rpc.ts` et `keyless-transport.ts` sont des `*.ts` de premier niveau, `run.ts:156-161`) ; hors `hashedFields`, `line_hash` inchangé (M-11).
+
+### 3. O-1 (observation du G0 du lot, pour cet amendement) — faits
+- **Ce qu'O-1 demande** (`docs/G0-lot-narabi-ops-1-fold-11-1.md:48-53` ; l. 182-183 : « O-1 is judged there ») : que l'amendement D4 du pli juge l'état du gel, sachant que le dernier 9 sur 9 date du 2026-09-23, qu'à la base du lot 6 des 9 valeurs du prereg tiennent, et que `l1-split.ts` a changé sans ligne D4.
+- **Ce que montre la fusion** (tableau §1) : à `b44c3890`, 6 des 9 valeurs du prereg tiennent, `rpc.ts` compris ; à `6cfd8abd`, 5 (`rpc.ts` sort, seul effet du lot sur le gel). Les trois autres écarts sont antérieurs au lot. `record-u4b-calib.mjs` et `calib-digest.ts` sont couverts par l'amendement daté 2026-10-05. `packages/hikae/src/l1-split.ts` a quitté `9206df91…` à `badd66a2` (2026-09-30, `c5759564…`), puis `4e726c45` (`99ef0d67…`), `24c6a274` (`53afb62e…`) et `a61a483e` (`26698717…`), quatre ancêtres de la fusion, sans ligne D4 datée (`git grep` des quatre empreintes dans `docs/` : seuls `docs/PAROXYSME-Hikae.md:631` et `docs/PAROXYSME-Ukemi.md:657` portent `26698717…`, en tableau). Le G0 nomme les trois derniers commits ; le premier écart est `badd66a2`.
+- **Faits utiles au jugement** : la course U-4b-1b était close au sens du gel (2026-09-23) avant le premier écart de `l1-split.ts` (2026-09-30). `record-u4b-calib.mjs:14` importe `splitQuantile` de `@monark/hikae` (`packages/hikae/src/l1-split.ts:32`) ; `u4b_committed_registry_equals_generator_output` (`apps/harness/test/calibration-liq.test.ts:56`) recompute par ce générateur le registre servi et l'égale au registre committé : vert dans l'oracle cp-2 du validateur (enregistrement sha256 `a4a17596…`, journal `09-test_main.log` l. 593), sur l'arbre `72d6888e`, où `l1-split.ts` vaut `26698717…` et `rpc.ts` `0a5a8c3b…`. La garde d'A.8-1 ne lit que `rpc.ts` (G0 l. 53).
+
+JUGEMENT O-1 (MONARK, 2026-10-08 17:5x UTC) : le gel de la course U-4b-1b tient pour ce qu elle a produit : la course était close au sens du gel le 2026-09-23 (9 sur 9), et le registre versé est égal à la sortie du générateur à la fusion (`u4b_committed_registry_equals_generator_output` vert à l oracle cp-2 du validateur et au G7 de `6cfd8abd`, `test:main` exit 0). Les quatre commits de `packages/hikae/src/l1-split.ts` depuis le 2026-09-23 (`badd66a2`, `4e726c45`, `24c6a274`, `a61a483e`) n ont écrit aucune ligne D4 : défaut de processus, `error_origin` : les lots L2-2, CM-3a et 3c-4b n ont pas relu le gel du prereg §2. Ligne D4 tardive, écrite ici : `l1-split.ts` `9206df91…8164ffa3` → `26698717…85d1c5c3`, effet nul sur la sortie gelée (le test ci-dessus). Item formé U4B-FREEZE-D4-GUARD-1 à ETAT : un test qui rougit quand un fichier du gel du prereg §2 change sans ligne D4 datée dans cet ADR.
+
+*(ADR-U4b n'est pas dans le gel du prereg §2 ; les docs sont exclus du décompte R-25. Ajout pur en fin de fichier : aucune valeur de référence existante n'est éditée. L'item §3 de l'amendement -1d (l. 744-747) est clos par cet amendement.)*

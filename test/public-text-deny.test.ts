@@ -15,7 +15,7 @@ import {
 
 const ROOT = join(import.meta.dirname, "..");
 const rules = (text: string, kind = "message"): string[] => checkPublicText(text, kind).violations.map((v) => v.rule);
-
+// killer: scripts/public-text-deny.mjs:118 CONST ", /\\b\\d{1,3}(?:\\.\\d{1,3}){3}\\b/" -> ""
 test("public_text_gate_refuses_one_vector_per_rule — (a) to (h), Q-3, the title bound, the kind and the empty text", () => {
   const vectors: [string, string, string][] = [
     ["a", "message", `Mise ${String.fromCharCode(0xe0)} jour du site`], // French (language gate)
@@ -27,7 +27,7 @@ test("public_text_gate_refuses_one_vector_per_rule — (a) to (h), Q-3, the titl
     ["c", "message", "Serve the U-4b-2a class"],
     ["k", "message", "Done per decision 237"],
     ...["R-25", "CA-1", "checkpoint-2", "PR-2", "monark-governance", "PR-A1", "Q-3", "M1-a", "D1.3", "A-7", "CP1"].map((w): [string, string, string] => ["c", "message", `Per ${w} as written`]),
-    ["p", "message", "Write to flow@example.org"], ["p", "message", "Served from 10.0.0.1 now"], ["title", "message", "\n\nBody only"], ["title", "message", `${"x".repeat(49)}o${String.fromCharCode(0x304)}`],
+    ["p", "message", "Write to flow@example.org"], ["p", "message", "Served from 192.0.2.1 now"], ["title", "message", "\n\nBody only"], ["title", "message", `${"x".repeat(49)}o${String.fromCharCode(0x304)}`],
     ...["\u200b", "\u202e", "\ufeff"].map((c): [string, string, string] => ["cf", "message", `Fix${c} the gate`]),
     ["d", "message", "Public sync of the site"],
     ["e", "message", `Copy it from ${"F"}:${"\\"}work`],

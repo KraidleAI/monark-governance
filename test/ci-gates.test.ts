@@ -1848,12 +1848,12 @@ test("ci_jobs_have_timeout_and_test_flags_locked — per-job timeout-minutes <= 
 // CI-G3-DURATION-1 (docs/G0-lot-ci-g3-duration-1.md): test 42 (export_public_no_governance_no_french: a nested `npm ci && npm run
 // ci` of the public export; 151 s on the runner of PR 126, about ten times the next test) leaves g3-verification for a job of its
 // own, g3-export. No coverage is lost, and `npm test` still runs everything: (a) test:main is EXACTLY scripts.test plus one skip
-// flag (same globs, same guards); (b) test:export runs the SAME pattern as a name filter over test/export-public.test.ts, with the
+// flag and the two reporters of TEST-COUNT-FLOOR-1 (same globs, same guards); (b) test:export runs the SAME pattern as a name filter over test/export-public.test.ts, with the
 // same guards; (c) in the npm test globs that pattern names exactly one test declaration, test 42 itself, so main + export = the
 // suite; (d) g3-verification runs test:main, g3-export runs `npm ci` then test:export, with no `if:`; (e) the g3-export bound
 // exceeds --test-timeout, so a slow test 42 reds by name before the job is cancelled; (f) the public workflow drops g3-export (the
 // root test/ is never exported: the job would red on the mirror).
-const TEST42_PATTERN = "\\(test 42\\)";
+const TEST42_PATTERN = "\\(test 42\\)", TEST_COUNTS = "--test-reporter=spec --test-reporter-destination=stdout --test-reporter=./scripts/test-counts-reporter.mjs --test-reporter-destination=test-counts.out.json";
 function jobBlock(name: string): string[] {
   const idx = LINES.findIndex((l) => new RegExp(`^  ${name}\\s*:\\s*$`).test(l));
   if (idx === -1) return [];
@@ -1881,8 +1881,8 @@ test("ci_g3_export_runs_test_42_alone_and_g3_main_skips_only_it - the suite is s
   // TEST-FORCE-EXIT-REPORT-LOSS-1: the launcher's blocking stdout (-r) and the per-file report preload are guards too.
   const [, head, guards] = /^(node -r \.\/test\/helpers\/blocking-stdout\.cjs --test) (--test-timeout=\d+ --test-force-exit "--import=[^"]+") /.exec(full) ?? [];
   assert.ok(head !== undefined && guards !== undefined, "scripts.test starts with `node -r ./test/helpers/blocking-stdout.cjs --test --test-timeout=<ms> --test-force-exit \"--import=<report preload>\" ` (the locked guards)");
-  // (a) test:main = scripts.test + the skip flag, nothing else.
-  assert.equal(scripts["test:main"], full.replace(guards, `${guards} --test-skip-pattern="${TEST42_PATTERN}"`), "(a) test:main must be scripts.test plus --test-skip-pattern only (same globs, same guards)");
+  // (a) test:main = scripts.test + the skip flag + the two reporters (spec, and the per-file counts of TEST-COUNT-FLOOR-1), nothing else.
+  assert.equal(scripts["test:main"], full.replace(guards, `${guards} --test-skip-pattern="${TEST42_PATTERN}" ${TEST_COUNTS}`), "(a) test:main must be scripts.test plus --test-skip-pattern and the two reporters only (same globs, same guards)");
   // (b) test:export = the same guards, the same pattern as a name filter, the one file.
   assert.equal(scripts["test:export"], `${head} ${guards} --test-name-pattern="${TEST42_PATTERN}" "test/export-public.test.ts"`, "(b) test:export must run test 42 alone with the same guards");
   // (c) the pattern names exactly one test declaration (a line opening with test/it/describe/suite) of the npm test globs: test 42.

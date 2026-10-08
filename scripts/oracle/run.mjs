@@ -28,6 +28,7 @@ const CI_ONLY = [
   [/^npm sbom\b/, "per-run CI artefact (serialNumber, timestamp); scripts/sbom.mjs mirrors it"],
   [/^npm run build -w @monark\/site\b/, "build site: next build writes .next/ (job g3-site)"],
   [/^node scripts\/assert-fleet-html\.mjs\b/, "build site: O-2 reads the next build output (job g3-site)"],
+  [/^node scripts\/verifier-tool-ci\.mjs\b/, "frozen verifier tool: runs under the CPython the CI pins (job g3-verifier-tool), not the host's"],
 ];
 const STATIC = /^(npm run (gate:vocab|typecheck|lint|lint:ratchet|lang:gate|export:check)|bash enforcement\/lint-model-pinning\.sh \.|r25)$/;
 const REQUIRED = ["schema", "role", "tree", "base", "key", "pid", "start", "end", "static_only", "gates", "tests", "r25", "residues", "ci_only", "cv4", "exit", "served_from"];
@@ -133,7 +134,7 @@ try {
   }
 
   const sh = process.platform === "win32" ? join(execFileSync("git", ["--exec-path"], { encoding: "utf8" }).trim(), "..", "..", "..", "bin", "bash.exe") : "bash";
-  const genv = { ...childEnv(tmp), NEXT_TELEMETRY_DISABLED: "1", npm_config_offline: "true", npm_config_logs_dir: join(runDir, "npm-logs") };
+  const genv = { ...childEnv(tmp), NEXT_TELEMETRY_DISABLED: "1", ORACLE_BASE: base, npm_config_offline: "true", npm_config_logs_dir: join(runDir, "npm-logs") };
   let r25counts = null, r25info = { mode: null, proof: null }, refusal, cv4 = null, waited = null;
   const runGate = (g) => {
     const log = join(logs, `${String(ran.length + 1).padStart(2, "0")}-${g.name.replace(/[^\w.-]+/g, "_").slice(0, 60)}.log`), t = Date.now();
@@ -158,8 +159,8 @@ try {
       else gates.filter((g) => !STATIC.test(g.cmd)).forEach(runGate);
     } finally { lk.release(); }
   }
-  // node --test summary: the spec reporter prints "\u2139 tests N", TAP "# tests N"; a cancelled test counts as failed.
-  const txt = ran.some((g) => g.name === "test") ? readFileSync(ran.find((g) => g.name === "test").log, "utf8") : "";
+  // node --test summary of the suite's gate, test or test:main (the real tree's): spec prints "\u2139 tests N", TAP "# tests N"; a cancelled test counts as failed.
+  const suite = ran.find((g) => /^test(:main)?$/.test(g.name)), txt = suite === undefined ? "" : readFileSync(suite.log, "utf8");
   const n = (k) => Number([...txt.matchAll(new RegExp(`^(?:\\u2139|#) ${k} (\\d+)\\r?$`, "gm"))].pop()?.[1] ?? 0);
   const tests = /^(?:\u2139|#) tests \d+\r?$/m.test(txt) ? { total: n("tests"), pass: n("pass"), fail: n("fail") + n("cancelled"), skip: n("skipped") } : null;
   code = refusal ?? (ran.every((g) => g.exit === 0) ? 0 : 1);

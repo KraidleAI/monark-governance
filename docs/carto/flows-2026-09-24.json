@@ -5,7 +5,7 @@
  "bareme": "cable = consumer on a SERVED path (MCP/HTTP tool of apps/harness/src/server.ts, file published and read by a surface, real downstream served piece) AND a named non-LLM integration test replays the composition; fixture:test = only consumer is a test/fixture/demo; fixture:course = consumer is a course script, CLI or operator procedure; absent = announced pipe without code at HEAD. Procedure pairs (deploy, deploy check, operator sync) are marked present/tested/untested, outside the served-path bareme. Deployed column: SHA running, measured by git objects + journal + live reads.",
  "pairs": [
   {
-   "id": "P-N1", "piece": "Narabi", "producer": "apps/sentinel/src/run.ts (timer, host 31.97.155.188)", "artefact": "timeline.jsonl + state.json copied to /var/lib/monark-sentinel/public",
+   "id": "P-N1", "piece": "Narabi", "producer": "apps/sentinel/src/run.ts (timer, host monarkgate.tech)", "artefact": "timeline.jsonl + state.json copied to /var/lib/monark-sentinel/public",
    "consumer": "Caddy /narabi/* -> monarkgate.tech/narabi/{state.json,timeline.jsonl} -> site browser islands (narabi-live.tsx, narabi-freshness.tsx) + committed capture", "status": "cable",
    "served_measured": "GET 200 at 2026-09-24T08:58:08Z; last line day 2026-09-23, T 6, sentinel_sha e73866a8, 7 endpoints; Last-Modified 00:52:37 GMT; state.digest = last.digest_T",
    "deployed": "bb41b6d (sentinel_sha of the served line = sentinel-sha.mjs(bb41b6d) = sentinel-sha.mjs(7224c79))",
@@ -21,7 +21,7 @@
    "tests": [ { "kind": "test", "file": "test/narabi-live.test.ts", "name": "narabi_live_parses_real_state_shape" } ]
   },
   {
-   "id": "P-N2", "piece": "Narabi", "producer": "monarkgate.tech/narabi/timeline.jsonl + state.json (served)", "artefact": "narabi.json on the Bell host", "consumer": "scripts/probe-narabi.mjs (monark-probe.timer, host 178.16.131.29) -> SMTP alert",
+   "id": "P-N2", "piece": "Narabi", "producer": "monarkgate.tech/narabi/timeline.jsonl + state.json (served)", "artefact": "narabi.json on the Bell host", "consumer": "scripts/probe-narabi.mjs (monark-probe.timer, host bell.monarkgate.tech) -> SMTP alert",
    "status": "cable", "served_measured": "not publicly readable (narabi.json outside any served root): result not confirmed", "deployed": "c0027cb (JOURNAL-PROVENANCE.md:351); closure 1 file, 0 changed to HEAD",
    "evidence": [
     { "file": "deploy/monark-probe.service", "line": 24, "expect": "/opt/monark-probe/probe-narabi.mjs" },

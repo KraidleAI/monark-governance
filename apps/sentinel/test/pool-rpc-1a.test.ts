@@ -1,8 +1,8 @@
 // POOL-RPC-1a (ADR-POOL-RPC-1) — acceptance oracles CA-1..CA-8 for the RPC-pool revision (decision 106: −Blast
 // −Llama +Pocket; decision 102: Tenderly kept + Pocket added to getLogs, L-5 green; C-2: {nodies,pocket} = ONE
 // operator). Each guard has a byte-exact mutant in the G1 rendu (M-1..M-9). No network: every read is an injected
-// `call`/stub. CA-6 (publishedEndpoints verbatim + redacted Chainstack) stays covered by the EXISTING
-// sentinel_never_prints_endpoint_url + no_secret_in_repo (unchanged, green); CA-9 (Bell) lives in apps/bell/test.
+// `call`/stub. CA-6 (the served endpoints verbatim, no key path) is covered on the served path by the subprocess tests of
+// sentinel-chainstack-guard.test.ts and sentinel-retry.test.ts (C-G2D-1) + no_secret_in_repo; CA-9 (Bell) lives in apps/bell/test.
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { makeRpcPool, PUBLIC_ENDPOINTS, providerOf, TRANSFER_TOPIC, QuorumDisagreementError, type RpcCall } from "../src/rpc.ts";
@@ -141,7 +141,7 @@ test("pool_rpc_1a_l1_pocket_through_unchanged_anchor — makeRpcPool windowFlow 
     const p = (params as ReadonlyArray<{ fromBlock: string; toBlock: string }>)[0]!;
     const from = parseInt(p.fromBlock, 16), to = parseInt(p.toBlock, 16), span = to - from + 1;
     if (url.includes("pocket")) {
-      if (span > 5000) return Promise.reject(new Error("query block range exceeds server limit, narrow your filter: 5000")); // rpc.ts:86 'block range' matches ⇒ split
+      if (span > 5000) return Promise.reject(new Error("query block range exceeds server limit, narrow your filter: 5000")); // rpc.ts isResultLimit 'block range' matches ⇒ split
       served.push(span);
     }
     return Promise.resolve(from <= 1_000_000 && 1_000_000 <= to ? [burn] : []);

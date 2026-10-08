@@ -3,7 +3,13 @@
 # identity -> 0; a copy with one altered field -> exit 1 and the field named in a line of its class (DECISION, VALUE with its ulps
 # and "beyond 1e-12" outside the float contract, DIGEST); trialRegistryHead.hash a decision since the frozen-tool lot (path 1); a named
 # --ignore; structural faults (dropped, duplicated, renamed rows; an integer beyond the doubles in a VALUE field, N-6) -> 2.
-# Usage: python -E -S -s -B compare_check.py <registry.json> <work dir> <out.txt>   (M-6)
+# IO-GUARD-POSED-FILES-1: case 34, a value x (1 + 2e-12), twice the contract: listed beyond 1e-12, inside a tolerance widened to 1e-9.
+# Usage: python -E -S -s -B -P compare_check.py <registry.json> <work dir> <out.txt>   (M-6)
+import os, sys  # sys built in, os frozen: no file is looked up by name before io_guard has checked its folder (IO-GUARD-POSED-FILES-1)
+if "io_guard" not in sys.modules:  # io_guard.py run by its path, never found by name: nothing posed or installed stands in for it
+    sys.path.append(_d := os.path.dirname(os.path.realpath(__file__)))  # the tool's folder, last in sys.path: -P is in FORM
+    _g = sys.modules["io_guard"] = type(sys)("io_guard"); _g.__file__ = os.path.join(_d, "io_guard.py")
+    exec(compile(open(_g.__file__, "rb").read(), _g.__file__, "exec"), vars(_g))
 import io_guard  # the input guard, before any other module (M-7): the registry is read under the role registry
 import copy
 import json
@@ -115,6 +121,8 @@ def main(src, work, out_path):
         ("rows reversed, same cells", lambda o: o["rows"].reverse(), None, None, 0, ["differing cells 0"]),
         ("calib.qhat an integer beyond the doubles (N-6)", at(i_scale, lambda r: r["calib"].__setitem__("qhat", 10 ** 400)), None, None, 2,
          [f"STRUCTURE {cs} calib.qhat: an integer beyond the range of a double", "EXIT 2"]),
+        ("float calib.qhat x (1 + 2e-12), beyond the contract", at(i_scale, bump_qhat(2e-12)), None, None, 1,
+         [f"VALUE {cs} calib.qhat: A=", " beyond 1e-12\n", "(beyond 1e-12: 1)"]),
     ]
     lines = [MODEL, "# compare_check.py - self-tests of compare_p2.py (mission D-7, classes of lot 1d) on copies of a registry"]
     bad = 0

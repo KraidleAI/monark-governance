@@ -35,7 +35,7 @@ const toolEntry = (vs: readonly Verifier[]): ListEntry | undefined =>
 
 // reddened by: a byte of verifiers.json changed without its pin, a pin that is not the sha256 of the file, a non-canonical writing or a
 // final newline, a pinned read that is not memoised (two calls, two arrays), or a list or an element that a caller can change (not frozen)
-// killer: apps/harness/src/policy-verifiers.ts:18 CONST "3a6f304f3eb592c51c73fb8d13c6a3f752bf0168563f57fc5b8ab966a6975d0d" -> "0000000000000000000000000000000000000000000000000000000000000000"
+// killer: apps/harness/src/policy-verifiers.ts:18 CONST "6e033c9d098170777dc3fc39f6c1c86cf58ef440ad1410f911b2c8553a594dc1" -> "0000000000000000000000000000000000000000000000000000000000000000"
 test("verifier_list_is_the_pinned_canonical_bytes - the list file has the sha256 VERIFIERS_SHA256, is its own canonical writing with no final newline, and the pinned read is memoised and frozen", () => {
   const bytes = readFileSync(LIST), text = bytes.toString("utf8");
   assert.equal(sha256(bytes), VERIFIERS_SHA256, "the sha256 of apps/harness/data/verifiers.json is the pin");
@@ -201,7 +201,7 @@ test("pinned_list_is_read_lazily_and_an_altered_list_stops_closed - loading the 
 
 // reddened by: the date rule of the list parting from validDate of scripts/spec-publish.mjs on a string or a value, over every day of
 // four years (a leap year among them) and their impossible neighbours; or a specifier other than node:crypto, node:fs and node:url, as
-// importSpecifiers (ts.preProcessFile) lists them, scripts/ or the guard above all; or what forbiddenLoads reads on the AST: an import() of a
+// importSpecifiers (read on the syntax tree) lists them, scripts/ or the guard above all; or what forbiddenLoads reads on the AST: an import() of a
 // non-literal, or require, getBuiltinModule, createRequire, eval, Function, constructor, dlopen or binding, named or as a constant string
 // killer: apps/harness/src/policy-verifiers.ts:39 CONST "/^\\d{4}-\\d{2}-\\d{2}$/" -> "/^\\d{4}-\\d{1,2}-\\d{2}$/"
 test("verifier_list_date_rule_is_the_spec_publish_rule - validDate of policy-verifiers.ts agrees with validDate of scripts/spec-publish.mjs, without importing scripts/", () => {
@@ -213,7 +213,7 @@ test("verifier_list_date_rule_is_the_spec_publish_rule - validDate of policy-ver
   const text = readFileSync(MODULE, "utf8"), specifiers = importSpecifiers(text);
   assert.deepEqual(specifiers.filter((s) => /(^|\/)scripts\/|policy-guard/.test(s)), [], "the module imports nothing from scripts/ nor the guard");
   assert.ok(!/policy-guard/.test(text.replace(/^ \*.*$/gm, "")), "nor names the guard outside its doc comments");
-  assert.deepEqual(specifiers, ["node:crypto", "node:fs", "node:url"], "the module's specifiers, as ts.preProcessFile lists them (importSpecifiers)");
+  assert.deepEqual(specifiers, ["node:crypto", "node:fs", "node:url"], "the module's specifiers, as importSpecifiers lists them on the syntax tree");
   assert.deepEqual(forbiddenLoads(text), [], "nor a load that no specifier shows, as forbiddenLoads reads it");
 });
 
@@ -239,7 +239,7 @@ test("run_log_is_ignored_untracked_and_named_by_no_spec_input - git ignores run-
 // --no-replace-objects, as the blob reads do: no refs/replace can graft it or swap its tree
 // killer: apps/harness/src/policy-verifiers.ts:115 CONST "(a.path < b.path ? -1 : 1)" -> "(a.path < b.path ? 1 : -1)"
 test("verifier_list_commit_carries_the_listed_tree - each list entry names a commit in the history of HEAD whose tree under tools/kata-recalc/ has the listed digest", () => {
-  assert.deepEqual([toolEntry(pinnedVerifiers())?.commit, toolEntry(pinnedVerifiers())?.tree_sha256], ["6536057c9c1f7577ffe5b9bc31960e1e60c9b8a4", "d6c80e9db438fe2fb9ea3ca7fab03dc4cc6902eed23a08ca6863417da2a1b451"], "the tool's entry: the listed commit and its tree");
+  assert.deepEqual([toolEntry(pinnedVerifiers())?.commit, toolEntry(pinnedVerifiers())?.tree_sha256], ["0890d18789cde40e700b06b1110c6b1134ae51dc", "cae4ca4460828ba9caabdd4d14345b0ca99b39b917ff9091146a71e467c41842"], "the tool's entry: the listed commit and its tree");
   for (const e of listEntries(pinnedVerifiers())) {
     assert.notEqual(e.commit, "0".repeat(40), "a placeholder: the entry must name the merge commit of the frozen tool on the trunk, and its tree, before this merges");
     assert.equal(gitStatus(["--no-replace-objects", "merge-base", "--is-ancestor", e.commit, "HEAD"]), 0, `${e.commit} is in the history of HEAD`);
@@ -256,7 +256,7 @@ test("verifier_list_commit_carries_the_listed_tree - each list entry names a com
 // or prose read as one; or a load left out of forbiddenLoads: an import() of a computed specifier (a name, a template with a substitution, E1
 // to E5 of the review), require, getBuiltinModule (E3: by a computed key), createRequire, eval, Function, constructor (R1), dlopen or
 // binding (process.binding, an internal module of Node); or a comment, a string or a literal import() read as a forbidden load
-// killer: apps/harness/test/helpers/import-specifiers.ts:51 CONST "ts.isStringLiteralLike(n.arguments[0])" -> "true"
+// killer: apps/harness/test/helpers/import-specifiers.ts:80 CONST "ts.isStringLiteralLike(n.arguments[0])" -> "true"
 test("import_helper_reads_literal_specifiers_and_refuses_computed_loads - importSpecifiers lists each literal form and no prose; forbiddenLoads names each load that no specifier shows, and no comment, string or literal import()", () => {
   const NOT_LITERAL = "import() of a specifier that is not a literal";
   const forms = ['import { a } from "./a.ts";', "import './b.ts';", 'import {\n  c,\n} from "./c.ts";', 'export { d } from /* reviewed */ "./d.ts";', 'import /* reviewed */ "./e.ts";',
@@ -283,4 +283,36 @@ test("import_helper_reads_literal_specifiers_and_refuses_computed_loads - import
   const prose = ["// import(n) require( getBuiltinModule", "  /** import(n), require(x), createRequire, eval(), Function() */", "/* getBuiltinModule(x) */", 'const s = "import(n) require( eval(";',
     'void import("./x.ts");', "void import(`./y.ts`);"];
   assert.deepEqual(forbiddenLoads(prose.join("\n")), [], "a comment, a string and a literal import() name no forbidden load");
+});
+
+// reddened by: a specifier that a token scanner misses and the syntax tree holds left out of importSpecifiers: export * as ns from, or an
+// import or an import() that a regular expression holding a quote or a backtick hides (G1 to G8 of the review of a1's adoption, finding M-1;
+// G8 hands vm.runInThisContext to the module), export type * as ns from, import x = require() or an import type; or the text of a regular
+// expression read as a specifier
+// killer: apps/harness/test/helpers/import-specifiers.ts:53 CONST "visit(treeOf(text));" -> "found.push(...ts.preProcessFile(text, true, true).importedFiles.map((f) => f.fileName));"
+test("import_helper_reads_specifiers_on_the_syntax_tree - importSpecifiers lists what a token scanner misses (export * as ns from; an import hidden by a regular expression with a quote or a backtick: G1 to G8 of the review), and no regular expression text", () => {
+  const forms: [string, string, string[]][] = [
+    ["G1, in the committed tables reader", 'export * as G from "./policy-guard.ts";', ["./policy-guard.ts"]],
+    ["G2, in the reader", "export const re = /'/; void import(\"./tools/gate.ts\"); //'", ["./tools/gate.ts"]],
+    ["G3, in the reader", 'export const tick = /`/;\nimport "./tools/gate.ts";\nexport const tock = /`/;', ["./tools/gate.ts"]],
+    ["G4, in the committed pins", 'export * as C from "./policy-classes.ts";', ["./policy-classes.ts"]],
+    ["G5, in kata-path.ts, served", 'export * as G from "./policy-guard.ts";', ["./policy-guard.ts"]],
+    ["G6, in the reader, after its import of the classes", 'export * as C from "./policy-classes.ts";', ["./policy-classes.ts"]],
+    ["G7, in kata-path.ts, served", 'export const tick = /`/;\nimport "./policy-guard.ts";\nexport const tock = /`/;', ["./policy-guard.ts"]],
+    ["G8, in the reader", 'export const tick = /`/;\nimport { runInThisContext } from "node:vm";\nexport const tock = /`/;\nexport const run = (code: string): unknown => runInThisContext(code);', ["node:vm"]],
+  ];
+  assert.deepEqual(forms.map(([id, text]) => [id, importSpecifiers(text)]), forms.map(([id, , want]) => [id, want]), "each form of the review, as the syntax tree holds it");
+  // killer: apps/harness/test/helpers/import-specifiers.ts:36 CONST "ts.createSourceFile(\"module.ts\", text," -> "ts.createSourceFile(\"module.ts\", \"\","
+  // killer: apps/harness/test/helpers/import-specifiers.ts:40 CONST "ts.isImportDeclaration(n) || ts.isExportDeclaration(n)" -> "ts.isImportDeclaration(n)"
+  // killer: apps/harness/test/helpers/import-specifiers.ts:42 CONST "n.expression.kind === ts.SyntaxKind.ImportKeyword || " -> ""
+  // killer: apps/harness/test/helpers/import-specifiers.ts:47 CONST "const found: string[] = [];" -> "const found: string[] = [\"./j.ts\"];"
+  // killer: apps/harness/test/helpers/import-specifiers.ts:49 CONST "specifierNode(n)" -> "undefined"
+  // killer: apps/harness/test/helpers/import-specifiers.ts:51 SDL "ts.forEachChild(n, visit);" -> ""
+  // killer: apps/harness/test/helpers/import-specifiers.ts:54 CONST "return found;" -> "return found.slice(1);"
+  // killer: apps/harness/test/helpers/import-specifiers.ts:41 CONST "ts.isImportEqualsDeclaration(n) && " -> "false && "
+  // killer: apps/harness/test/helpers/import-specifiers.ts:42 CONST "n.expression.text === \"require\"" -> "n.expression.text === \"requires\""
+  // killer: apps/harness/test/helpers/import-specifiers.ts:43 CONST "ts.isImportTypeNode(n) && " -> "false && "
+  // killer: apps/harness/test/helpers/import-specifiers.ts:50 CONST "ts.isStringLiteralLike(s)" -> "ts.isStringLiteral(s)"
+  const more = ['import j = require("./j.ts");', 'export type T = typeof import("./t.ts");', 'const r = /import "\\.\\/r\\.ts"/;', 'export type * as U from "./u.ts";', "require(`./q.ts`);"];
+  assert.deepEqual(importSpecifiers(more.join("\n")), ["./j.ts", "./t.ts", "./u.ts", "./q.ts"], "import x = require(), an import type, export type * as ns from and require() of a template; a regular expression is no specifier");
 });
