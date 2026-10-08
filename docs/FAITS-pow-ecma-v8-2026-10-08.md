@@ -5,7 +5,7 @@ MONARK (Opus 5.5), navigateur interne, lu le 2026-10-08 de 09:56 à 10:04 UTC (`
 ## Spécification : ECMA-262, 17e édition (juin 2026), `https://262.ecma-international.org/17.0/`
 - §6.1.6.1.3 `Number::exponentiate` : « It returns an implementation-approximated value representing the result of raising base to the
   exponent power. » Les étapes ne fixent que les cas limites (NaN, zéros, infinis).
-- §21.3.2.27 `Math.pow` : `ToNumber` des deux opérandes, puis `Return Number::exponentiate(base, exponent)`. C est la même opération que
+- §21.3.2, entrée 27, `Math.pow` : `ToNumber` des deux opérandes, puis `Return Number::exponentiate(base, exponent)`. C est la même opération que
   `**`.
 - §21.3.2, note : pour `pow` et les autres fonctions de `Math`, « some latitude is allowed in the choice of approximation algorithms ».
 - §4.2, « implementation-approximated » : la définition est renvoyée à une source externe ; les implémentations conformes choisissent

@@ -43,6 +43,7 @@ Responsible = the maintainer for every row (one maintainer today).
 | `scripts/lib/calib-digest-provenance.mjs` | yes | git mirror | maintainer |
 | `scripts/lib/calib-digest-provenance.d.mts` | yes | git mirror | maintainer |
 | `scripts/assert-fleet-html.mjs` | yes | CI | maintainer |
+| `scripts/test-counts-reporter.mjs` | yes | git mirror, CI (loaded by `test:main` of `package.json`) | maintainer |
 | `test/helpers/blocking-stdout.cjs` | yes | git mirror, CI (loaded by the test scripts of `package.json`) | maintainer |
 | `packages/atelier/index.html` | yes | git mirror | maintainer |
 | `packages/atelier/main.js` | yes | git mirror | maintainer |
