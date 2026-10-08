@@ -317,15 +317,11 @@ test("mutants_a_pile_line_runs_the_test_below_its_pile_and_survives_a_red_elsewh
 });
 
 // killer: scripts/mutants/run.mjs:185 CONST "d === null && u >= 0" -> "false && u >= 0"
-test("mutants_a_line_in_a_test_body_runs_the_test_that_encloses_it", () => {
-  const r = pb();
-  assert.deepEqual([ofK(r, "K3"), row(r, "K3")?.fails], [["b_body", "tue", null], ["b_body"]], r.stderr);
-});
-
 // killer: scripts/mutants/run.mjs:185 CONST "? null : decl(lines[u])" -> "? decl(lines[u]) : decl(lines[u])"
-test("mutants_a_line_below_a_one_line_test_names_no_test_and_runs_its_file_whole", () => {
-  const r = pb();
-  assert.deepEqual([ofK(r, "K4"), row(r, "K4")?.why, row(r, "K4")?.fails], [[null, "tue", null], "killer of test/b.test.ts:12", ["b_other"]], r.stderr);
+test("mutants_a_body_line_names_the_test_that_encloses_it_and_a_line_below_a_one_line_test_names_none", () => { // one rule, the search up, and its stop
+  const r = pb(); // K3 runs b_body alone; K4 stops at b_other, closed on its line, and runs test/b.test.ts whole
+  assert.deepEqual([ofK(r, "K3"), row(r, "K3")?.fails, ofK(r, "K4"), row(r, "K4")?.why, row(r, "K4")?.fails],
+    [["b_body", "tue", null], ["b_body"], [null, "tue", null], "killer of test/b.test.ts:12", ["b_other"]], r.stderr);
 });
 
 // MUTANTS-BASELINE-UNREPORTED-1, the preloads: pl/, whose test script loads test/helpers/pre.cjs (-r) and a data: module (--import, a quoted word); its test needs both.
