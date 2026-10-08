@@ -240,12 +240,14 @@ R-25 in CI form (the pathspec of `.github/workflows/ci.yml:100`, from the base):
 ## Fold of the review
 
 The review by a fresh instance (recherches `0b12c225`, `coordination/pieces/2026-10-07-g2-recherches/G2-252-narabi-fold-11-1.json`)
-returned three minor findings and six notes, no major one. This round touches only comments, two test messages and this note, each
-line rewritten in place: no line moves, no code line changes (`rpc.ts` keeps its sha256 `0a5a8c3b…`), no test is added or removed,
-no killer line or killer target moves. Every line above this section keeps its number. The changes:
+returned three minor findings and six notes, no major one. This round touches only comments, two test messages and this note: each
+changed line is rewritten in place and this section is added at the end, so no line moves. No code line changes
+(`apps/sentinel/src/rpc.ts` keeps its sha256 `0a5a8c3b…`), no test is added or removed, no killer line or killer target moves. The
+changes:
 
-- `apps/sentinel/test/pool-rpc-1a.test.ts:144` named `rpc.ts:86`, a line the deletion moved; it names the function instead,
-  `rpc.ts isResultLimit`, so the address cannot drift (m-1).
+- `apps/sentinel/test/pool-rpc-1a.test.ts:144` gave the address `apps/sentinel/src/rpc.ts:86`, which the deletion moved off the
+  matcher (now `apps/sentinel/src/rpc.ts:57`); the comment names the function instead, `rpc.ts isResultLimit`, so the address
+  cannot drift (m-1).
 - l.35 of this note: the test-only command names the base of the change, `c5030fd9` (m-2).
 - l.172 and l.220-221 of this note: G2D-6a is killed by seven tests, in the same words in both places, as measured at C and by the
   review at `04d10c94` (m-3).
@@ -256,14 +258,17 @@ no killer line or killer target moves. Every line above this section keeps its n
 - The same file, l.211: the closed-list message reads "(an import outside the closed list is forbidden)", as l.110 and l.206 say;
   no test asserts on that message (n-8).
 - The pull request body says that the touched test files and the killer-line guard run 38 of 40 (n-6).
-- Left for the maintainer: `apps/bell/src/quorum.ts:13` says that `rpc.ts:84` appends the url to the HTTP error; after the deletion
-  no line of `rpc.ts` builds an HTTP error, and the served keyless transport appends the redacted host
-  (`apps/sentinel/src/keyless-transport.ts:28`). `apps/bell/` is outside the files opened for this change (n-5).
+- Left for the maintainer: `apps/bell/src/quorum.ts:13` says that line 84 of the sentinel's pool module (`apps/sentinel/src/rpc.ts`,
+  imported at `apps/bell/src/quorum.ts:15`) appends the url to the HTTP error; after the deletion no line of that module builds an
+  HTTP error, and the served keyless transport appends the redacted host (`apps/sentinel/src/keyless-transport.ts:28`).
+  `apps/bell/` is outside the files opened for this change (n-5).
 
 Red-proof reads this round by its own rule: a changed line inside a test body judges that test, comment lines included. The F2P
 form of the section "Verification" (`--base 659d869b --draw 1 --seed 20261008`), with the gel at this round's head, judges four
-tests and prints REFUSED: `sentinel_src_clean_and_allowlist_load_bearing` is F2P and its killer, drawn, is killed; the three tests
-whose bodies hold a line of this round (`apps/sentinel/test/pool-rpc-1a.test.ts:144`, `apps/sentinel/test/sentinel-retry.test.ts:218`,
-`test/rpc-guard-fetch-only-inside-client.test.ts:211`) pass at T1 and at the head and are refused, two as self-confirming and the
-pool test for want of a killer line. Their assertions and the code they run are unchanged; the F2P proof of the code is the one at
-C and at `04d10c94`.
+tests and prints REFUSED: `sentinel_src_clean_and_allowlist_load_bearing` is F2P and its killer, drawn, is killed, and three tests
+are refused. The F2P proof of the code is the one at C and at `04d10c94`.
+
+The three refused tests are those whose bodies hold a line of this round: `apps/sentinel/test/pool-rpc-1a.test.ts:144`,
+`apps/sentinel/test/sentinel-retry.test.ts:218` and `test/rpc-guard-fetch-only-inside-client.test.ts:211`. They pass at T1 and at
+the head; two are refused as self-confirming, the pool test for want of a killer line. Their assertions and the code they run are
+unchanged.
