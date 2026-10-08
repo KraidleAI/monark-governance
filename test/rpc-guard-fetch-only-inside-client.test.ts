@@ -7,9 +7,9 @@
  *
  * DECLARED SCOPE:
  *   - packages/*\/src/** (GREEN today; allowlist = packages/rpc-guard/src/transport.ts, the private transport).
- *   - apps/sentinel/src/ukemi/** UNION apps/sentinel/src/rpc.ts (GARDE-HELIUS-2b-ii R-B; GREEN after the recorder
- *     migration removed record.ts's fetch(/env read). Allowlist = apps/sentinel/src/rpc.ts, RETRACTION TRIGGER =
- *     NARABI-OPS-1d (the daily Narabi job migrates rpc.ts under the guard). run.ts/timeline.ts enter scope at -1d.
+ *   - apps/sentinel/src/** (GARDE-HELIUS-2b-ii R-B for ukemi/**, widened to the whole sentinel src by NARABI-OPS-1d).
+ *     Allowlist = apps/sentinel/src/keyless-transport.ts, the sole keyless fetch site; the rpc.ts entry was retracted
+ *     at the section 11-1 fold of ADR-NARABI-OPS-1, which deleted the dead paid-leg code it covered.
  *   - apps/bell/src/** enters scope at GARDE-HELIUS-1b; the full guarantee (fetch_only_inside_client) is DE-SKIPPED at
  *     1b-iii and now iterates the unified ROOTS list. Allowlist = apps/bell/src/close.ts (the single cash module holding
  *     both the paid GET and the key read, C-6; retraction trigger = "G0 of the Bell cash course", R-1).
@@ -17,7 +17,7 @@
  * KEY form is an ACCESS (dot, optional-chain dot, bracket, optional-chain bracket, template-literal bracket, `in`,
  * destructuring, Reflect.get, Object.hasOwn - C-R-b4). In the PACKAGES/BELL scopes the bare name is NOT refused (it
  * appears in comments: rpc.ts:5-8, universe.ts:43, ...) and would red by construction; on the UKEMI + u4 scopes the bare
- * name IS refused too, killing the alias evasion `const e = env; e.KEY` (rpc.ts allowlisted, so its env read is exempt).
+ * name IS refused too, killing the alias evasion `const e = env; e.KEY` (an allowlisted file is exempt).
  *
  * MEASURED HITS after 1b-iii (apps/bell/src, base 6114ce9, this scanner): 1b-iii migrated 5 of the 14 (ethereum.ts:64
  * fetch INTO the client; collect.ts:582/583 POLYGON/DATABENTO key reads MOVED to close.ts; close.ts fetch+key now
@@ -38,7 +38,7 @@ const NET: ReadonlyArray<RegExp> = [/\bfetch\s*\(/, /node:https?/, /\bundici\b/,
 // `\benv\.KEY\b`-only motif MISSED env["KEY"], "KEY" in env, {KEY}=env AND the six evasions the validator's p7 probe
 // found - env?.KEY, env?.["KEY"], env[`KEY`], Reflect.get(env,"KEY"), Object.hasOwn(env,"KEY") (all regex-caught below),
 // plus the ALIAS form (`const e = env; e.KEY`) that no access regex can track (a bare-key-name scan on the ukemi scope
-// kills it). One mutant per form (injected into record.ts) reds ukemi_src_clean_and_allowlist_load_bearing.
+// kills it). One mutant per form (injected into record.ts) reds sentinel_src_clean_and_allowlist_load_bearing.
 const KEY_NAMES = "CHAINSTACK_SOLANA_URL|BELL_SOLANA_RPC|CHAINSTACK_ETH_URL|HELIUS_API_KEY|POLYGON_API_KEY|DATABENTO_API_KEY";
 const BT = String.fromCharCode(96); // a backtick, kept OUT of these template strings
 const Q = `["'${BT}]`;              // a quote char class: double, single OR template backtick (catches env[`KEY`])
@@ -71,11 +71,10 @@ function scopeFiles(which: "apps" | "packages"): Array<[string, string]> {
 }
 /** NARABI-OPS-1d: the sentinel scope is WIDENED from ukemi/**(+rpc.ts) to the WHOLE apps/sentinel/src/** — the
  *  daily job (run.ts + the top-level modules + the new keyless-transport.ts) enters the fetch_only guarantee now
- *  that its paid leg is metered through @monark/rpc-guard. Two allowlisted files (SENTINEL_ALLOW): rpc.ts (its
- *  dead chainstackUrl/defaultCall/poolEndpoints/publishedEndpoints/hasChainstack are DELETED at the -1d rebase
- *  once the U-4b freeze on rpc.ts lifts — that retraction is the formed item) and keyless-transport.ts (the sole
- *  keyless fetch site; retraction trigger = the keyless pool itself migrates under the guard, route beta). Both
- *  are scanned (in scope) AND allowlisted — the double guard: an allowlist entry must be a file actually in scope. */
+ *  that its paid leg is metered through @monark/rpc-guard. One allowlisted file (SENTINEL_ALLOW): keyless-transport.ts
+ *  (the sole keyless fetch site; retraction trigger = the keyless pool itself migrates under the guard, route beta).
+ *  The rpc.ts entry was retracted at the section 11-1 fold, which deleted its dead paid-leg code. The entry is
+ *  scanned (in scope) AND allowlisted — the double guard: an allowlist entry must be a file actually in scope. */
 function sentinelScope(): Array<[string, string]> {
   const out: Array<[string, string]> = [];
   tsFiles(join(REPO, "apps/sentinel/src"), "apps/sentinel/src", out);
@@ -102,15 +101,13 @@ function scan(files: ReadonlyArray<[string, string]>, allow: ReadonlySet<string>
 const CENSUS = join(REPO, "scripts", "census");
 // close.ts is the SINGLE allowlisted Bell cash module (C-6 / ruling R-1): it holds BOTH the paid GET and the key read.
 const BELL_ALLOW = new Map<string, string>([["apps/bell/src/close.ts", "G0 of the Bell cash course (R-1): Databento/Polygon quotas+caps posed there"]]);
-// NARABI-OPS-1d: the two allowlisted sentinel files. rpc.ts is FROZEN (ADR-U4b D4) so its dead paid-leg text stays
-// byte-identical until the -1d rebase (closure U-4b-1b), where it is deleted and this entry retracted; keyless-
-// transport.ts is the sole keyless fetch site (route alpha), retracted when the keyless pool migrates (route beta).
+// NARABI-OPS-1d: the allowlisted sentinel file. keyless-transport.ts is the sole keyless fetch site (route alpha), retracted
+// when the keyless pool migrates (route beta). The rpc.ts entry left at the section 11-1 fold, with the dead code it covered.
 const SENTINEL_ALLOW = new Map<string, string>([
-  ["apps/sentinel/src/rpc.ts", "NARABI-OPS-1d: dead chainstackUrl/defaultCall/poolEndpoints/publishedEndpoints/hasChainstack DELETED at the -1d rebase when the U-4b freeze on rpc.ts lifts (closure U-4b-1b)"],
   ["apps/sentinel/src/keyless-transport.ts", "NARABI-OPS-1d route alpha: the sole keyless fetch site; retraction = the keyless pool migrates under the guard (route beta)"],
 ]);
 // The u4 course scripts are .mjs: the whole-word key NAME is refused (naming the exact keys spares CHAINSTACK_LABEL), and
-// a DIRECT import of a paid-key/fetch module (apps/sentinel/src/rpc.ts, reachable only transitively) is forbidden (C-R-6).
+// a DIRECT import of apps/sentinel/src/rpc.ts (the shared quorum pool, reachable only transitively) is forbidden (C-R-6).
 const U4_KEY: ReadonlyArray<RegExp> = [
   new RegExp(`\\benv\\s*\\.\\s*(CHAINSTACK_[A-Z0-9_]+|HELIUS_[A-Z0-9_]+)\\b`),
   new RegExp(`\\benv\\s*\\[\\s*${Q}(CHAINSTACK_[A-Z0-9_]+|HELIUS_[A-Z0-9_]+)${Q}\\s*\\]`),
@@ -156,6 +153,7 @@ test("rpc_guard_package_src_clean_and_allowlist_load_bearing", () => {
 
 // GARDE-HELIUS-2b-ii (R-B / C-1 / C-2) + NARABI-OPS-1d (scope WIDENED to apps/sentinel/src/**): the sentinel src
 // is CLEAN and its allowlist (SENTINEL_ALLOW) is load-bearing PER ENTRY.
+// killer: apps/sentinel/src/rpc.ts:17 CONST "const TOTAL_SUPPLY_SELECTOR" -> "void process.env.CHAINSTACK_ETH_URL; const TOTAL_SUPPLY_SELECTOR"
 test("sentinel_src_clean_and_allowlist_load_bearing", () => {
   const files = sentinelScope();
   // Non-vacuity of SCOPE: >= 8 ukemi/*.ts AND the top-level daily job are scanned, so a mis-wired scope never
@@ -168,11 +166,11 @@ test("sentinel_src_clean_and_allowlist_load_bearing", () => {
   // GREEN after migration: apps/sentinel/src/**, minus the allowlist, is 0 hit. A commented/coded fetch(/env.KEY in
   // ANY sentinel source (e.g. a "chainstackUrl read back into run.ts" or "keyless fetch inlined into run.ts" mutant)
   // reds this. bareKeys=true (C-R-b4): the BARE key name is also refused on this scope (kills the alias evasion
-  // `e = env; e.KEY`; the two allowlisted files are exempt for their legitimate fetch/dead-key text).
+  // `e = env; e.KEY`; the one allowlisted file, keyless-transport.ts, is exempt for its legitimate fetch text).
   assert.deepEqual(scan(files, new Set(SENTINEL_ALLOW.keys()), true), [], "a forbidden network/paid-key pattern (or a bare paid-key name) exists in apps/sentinel/src/** outside the allowlist");
   // C-2 non-vacuity PER ENTRY: scanning EACH allowlisted file ALONE with an empty allowlist yields >= 1 hit. An
   // entry at 0 hit = its retraction trigger is reached => RED (mutant "allowlist widened/kept without a trigger";
-  // for rpc.ts this reds at the -1d rebase once the dead fetch/env-read is deleted — the retraction is then due).
+  // the rpc.ts entry reached it at the section 11-1 fold, which deleted the dead fetch/env-read; it was retracted then).
   for (const [path, trigger] of SENTINEL_ALLOW) {
     const only = files.filter(([, rel]) => rel === path);
     assert.ok(only.length === 1, `allowlist entry '${path}' (trigger: ${trigger}) is not in scope (double guard)`);
