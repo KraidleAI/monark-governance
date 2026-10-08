@@ -12,8 +12,9 @@
   neuve ; contrôle par diff, fusion et ligne d'ETAT : MONARK. Décisions de MONARK pliées le 2026-10-07 (PR
   `paroxysme/registres-decisions-1007`) par un worker de PAROXYSME (`claude-opus-5-5`, effort max, contexte de sa mission), à partir de
   19:56 UTC (`date -u`) : ETAT à `5437cd0d` et message `d6331f6` de MONARK (MSG), empreintes au §8 ; relecture : PAROXYSME ; contrôle par
-  diff et fusion : MONARK. Constats 7 et 10 de la G2 de ce pli (instance neuve) pliés le 2026-10-07 à partir de 21:18 UTC (`date -u`)
-  par un worker de PAROXYSME (`claude-opus-5-5`, effort max, contexte de sa mission) : §7, doutes 7 et 9 ; §1 et §8 en suivent.
+  diff et fusion : MONARK. Constats 7 et 10 de la G2 de ce pli (instance neuve) pliés au §7 (doutes 7 et 9), au §1, au §3 (N10) et au §8,
+  le 2026-10-07 de 21:18 à 22:5x UTC, puis le 2026-10-08 à partir de 00:07 UTC (`date -u`), par trois workers de PAROXYSME (`claude-opus-5-5`, effort max,
+  contexte de leur mission), les deux derniers après un vérificateur adverse chacun ; relecture : PAROXYSME ; contrôle par diff et fusion : MONARK.
 - **Bases** : inventaire mesuré à `d8fe354c`, ses fichiers d'Ukemi identiques à `57a131fc` (INV-U l.9-13, l.30) ; ETAT lu à `57a131fc`, et à
   `d8fe354c` pour ses l.1179-1180 et l.1350. Toutes les ancres de ce registre sont à la tête `87b821b0` de `lot/etude-suite`, reportées par
   l'outil `reanchor.mjs` (pièce de la boîte PAROXYSME) dans sa version du commit `a55a62d`, qui refuse une ligne hors du fichier (la version
@@ -64,7 +65,7 @@
   sont tranchées par MONARK le 2026-10-07 et sortent d'ici ; ce qui est tranché, et où : §7, doute 16.
 - Toutes les entrées ouvertes des §2 et §3 portent un item, un porteur et un déclencheur atteignable. De ces trois champs, l'oracle
   (§7, doute 13) ne contrôle que la présence (non vides, jamais « aucun ») ; l'atteignabilité est jugée à la lecture de chaque entrée,
-  relue le 2026-10-07 au pli de la G2.
+  relue le 2026-10-07 à partir de 21:18 UTC, au pli des constats 7 et 10 de la G2 de ce pli (49 déclencheurs relus).
 - Deux questions sont posées à MONARK avec la demande de fusion de ce pli (§7, doutes 7 et 9 ; porteur : MONARK ; échéance : la
   recartographie de PXC-01 partie 2, F3). Ce ne sont pas des dettes : chaque entrée qu'elles touchent garde son item, son porteur et
   son déclencheur.
