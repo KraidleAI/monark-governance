@@ -33,7 +33,10 @@
   la phrase du doute 12, rendue exacte. Réparation n° 2 de ce pli, après un vérificateur adverse neuf de la réparation n° 1, le 2026-10-08 à partir de 10:32 UTC
   (`date -u`), par un worker de PAROXYSME (`claude-opus-5-5`, effort max) : sources : ETAT à `565c7065` et à `20fffe9f`, MSG6 et MSG7 (Bases, §8) ; pliés : la
   phrase de la réparation n° 1, complétée ; la tête du renvoi d'ETAT du doute 7 ; les trois outils du `--check` de la PR 1 (§6) ; l'usage U3, que MONARK tranche
-  après le cp-1 de PXC-02 (N3) ; parties touchées : en-tête, N3, §6, §7 (doute 7), §8.
+  après le cp-1 de PXC-02 (N3) ; parties touchées : en-tête, N3, §6, §7 (doute 7), §8. Pli de l'après-#253 (#253 versée au tronc, fusion `2d37851b` : ETAT
+  l.800-804 à `2c3f51a8`), le 2026-10-08 à partir de 12:27 UTC (`date -u`), par un worker de PAROXYSME (`claude-opus-5-5`, effort max) : source : ETAT à
+  `2c3f51a8` (Bases, §8) ; plié : la partie 1 de PXC-02, qui n'est plus que le noyau (Q-M1 (a) de PXC-02), pour le texte de COPY de L13 ; parties touchées :
+  en-tête, L13, §8.
 - **Bases** : inventaire mesuré à `d8fe354c`, ses fichiers d'Ukemi identiques à `57a131fc` (INV-U l.9-13, l.30) ; ETAT lu à `57a131fc`, et à
   `d8fe354c` pour ses l.1179-1180 et l.1350. Toutes les ancres de ce registre sont à la tête `87b821b0` de `lot/etude-suite`, reportées par
   l'outil `reanchor.mjs` (pièce de la boîte PAROXYSME) dans sa version du commit `a55a62d`, qui refuse une ligne hors du fichier (la version
@@ -46,7 +49,7 @@
   n° 1 cite aussi « ETAT l.N à `20fffe9f` » (tronc avancé, relu par `git show 20fffe9f:docs/ETAT.md | sed -n`), « MSG5 l.N » (message
   de MONARK `b2f0890`) et la pièce des faits d'hôte de Bell et d'Ukemi, lue à `11ecff4` (§8). Sa réparation n° 2 cite aussi MSG6 (« MSG6 l.N », message de
   PAROXYSME `a7a0b4d`, `…-usages-rpc.md`, les usages proposés du fournisseur payant) et MSG7 (« MSG7 l.N », message de MONARK `8e5bea2`, `…-qv-reponses.md`),
-  même boîte (§8).
+  même boîte (§8). Le pli de l'après-#253 cite ETAT à `2c3f51a8` (« ETAT l.N à `2c3f51a8` », relu par `git show 2c3f51a8:docs/ETAT.md | cat -n` ; §8).
 - **Préséance** : `docs/ETAT.md` l.7-11 ; ETAT prime. Un item nommé hors d'ETAT et du code n'est pas compté comme formé : il est écrit
   « à former » (ou « à re-former » s'il vivait dans un registre effacé le 2026-10-01) et porté par son chantier.
 - **Statut public** : aucun label ne change (`built` d'Ukemi, `apps/site/lib/fleet.ts:175` ; AttestedBook `upcoming until served`, `README.md:94`,
@@ -184,7 +187,8 @@
 - **L13** · « « The largest-amount stratum is expected to stay under_calib for a long time » : s3 n'est pas engageable à cette version. »
   source : COPY:160-161 ; `apps/harness/src/policy-marginal.ts:57-58` ; ADR-CM l.155 ; C l.270 · touche : /ukemi (COVERAGE_NOTE) · nature : D/T
   item : PXC-12 UKEMI-LIQ-2, partie 3 (PX-Ukemi-7 étendu, à former : coupe haute servie ou région exacte au-delà de 2^53) ; PXC-16 partie 3
-    (version du contrat) ; PXC-02, texte de COPY, partie 1 hors noyau ou partie 2, à fixer par son ADR · porteur : PAROXYSME ; version : le
+    (version du contrat) ; PXC-02, texte de COPY, hors du noyau, dans la partie que fixe son ADR, sa partie 1 n'étant plus que le noyau, en trois
+    parties (Q-M1 (a) : ETAT l.796 à `2c3f51a8`) · porteur : PAROXYSME ; version : le
     fondateur · déclencheur : bascule 1.2.0 (F4) ; texte : la partie que l'ADR de PXC-02 lui fixe (tâche 2 du TABLEAU, F1), au plus tard
     avec les parties 2-3 de PXC-02 (F3, PLAN l.597)
   état : changé (barrière 1.1.0 : la garde 2^53 refuse s3) · suite : texte hors des listes (a) et (b) de PLAN §5.1 (§7, doute 6)
@@ -607,10 +611,10 @@ huit limites et un bloc (la dixième ligne, ETAT l.1103, continue RETIRE-LATENCY
 
 ## 8. Ligne PAROXYSME et sources
 
-**Ligne PAROXYSME (2026-10-07, décisions de MONARK pliées ; second tour le 2026-10-08 ; pli de l'après-#245, le 2026-10-08 à partir
-de 07:41 UTC).** Ukemi : 49 limites ouvertes (38 relevées le
-2026-09-27, dont 13 changées ; 11 nouvelles, dont 1 changée, N10), aucune ⚑B ; 2 closes (N11, N12) et 1 obsolète ici (L39, hors pièce) ;
-52 entrées, 49 ouvertes, 3 closes, aucune ne change d'état dans ce pli.
+**Ligne PAROXYSME (2026-10-07, décisions de MONARK pliées ; second tour le 2026-10-08 ; pli de l'après-#245, le 2026-10-08 à partir de 07:41 UTC ; pli de
+l'après-#253, le 2026-10-08 à partir de 12:27 UTC).** Ukemi : 49 limites ouvertes (38 relevées le 2026-09-27, dont 13 changées ; 11 nouvelles, dont 1 changée,
+N10), aucune ⚑B ; 2 closes (N11, N12) et 1 obsolète ici (L39, hors pièce) ; 52 entrées, 49 ouvertes, 3 closes, aucune ne change d'état dans ce pli ni dans celui
+de l'après-#253, qui n'y plie que la partie 1 de PXC-02, réduite au noyau (L13 ; Q-M1 (a) : ETAT l.796 à `2c3f51a8`).
 Registre versé par #242 (fusion `1df4e44f`, ETAT l.181-186 à `5437cd0d`), qui accomplit PAROXYSME-UKEMI-FILE-1 (N10). Limites neuves à
 ETAT : aucune pour Ukemi (§5). Aucune dette (§1) : les trois de la G2 sont
 tranchées par MONARK le 2026-10-07 (§7, doute 16) : le volet U-6 de L38 est attribué à PXC-12 (ETAT l.262-263 à `5437cd0d`) ;
@@ -742,3 +746,9 @@ commit (`git show <commit>:<f> | wc -l`, puis `| sha256sum`) :
 |---|---|---|
 | MSG6, message de PAROXYSME `a7a0b4d`, `…-usages-rpc.md` | 54 | `c96ec0c6f6beedd75b7011229ff61d232882b7c9ce288b50c793d9bafb518d68` |
 | MSG7, message de MONARK `8e5bea2`, `…-qv-reponses.md` | 32 | `6709473d025a332e92403378feeeacab42c3a5d8dd294bfe9a388b03e4b40e6a` |
+
+Sources du pli de l'après-#253 (2026-10-08) : ETAT à `2c3f51a8` (tronc ; `git show 2c3f51a8:docs/ETAT.md | wc -l`, puis `| sha256sum`) :
+
+| Source | Lignes | sha256 |
+|---|---|---|
+| `docs/ETAT.md` à `2c3f51a8` | 2 638 | `746217ff3bc1797d65767361d45f5da8baf1ad6609ff2688058efaf8cd86a929` |
