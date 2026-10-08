@@ -460,9 +460,9 @@ tronc ne touche que des lignes après la l.1000 : 22 ajoutées, 13 ôtées) ; pu
 Pièce : `recherches:coordination/pieces/2026-10-07-g2-recherches/G2-243-delta4.json` (tête lue `6d398e28`). Décision de MONARK
 (`recherches:coordination/messages/2026-10-08-MONARK-vers-RECHERCHES-243-fin.md`) : m-14 en place par un `Set`, m-15 par la phrase
 et, s'ils tiennent en quelques lignes, par leurs tueurs. Worker `claude-opus-5-5`, effort max, worktree neuf détaché du scratchpad ;
-`git add` par chemins ; poussé sans force. Le tronc a bougé (`565c7065`) : pas de fusion, la CI joue la fusion. Commits : `97f5d75c`
-(le `Set`), `04b69ef0` (les témoins), `ddef146a` (le vecteur et l'en-tête du test), `b1de764f` (le test rouge d'un fichier non lu),
-`1310a610` (sa correction) et cette note.
+`git add` par chemins ; poussé sans force. Le tronc a bougé (`565c7065`, puis `52d1e0b7`) : pas de fusion, la CI joue la fusion.
+Commits : `97f5d75c` (le `Set`), `04b69ef0` (les témoins), `ddef146a` (le vecteur et l'en-tête du test), `b1de764f` (le test rouge
+d'un fichier non lu), `1310a610` (sa correction) et cette note.
 
 - **m-14, le coût sous Node 24.0 à 24.20** : `seen` était une `BlockList`. Avant Node 24.21, `addAddress` ajoute une règle par
   appel, sans dédoublonner, et `check()` les parcourt toutes (`src/node_sockaddr.cc` lu à v24.20.0 : `emplace_front`, puis une
@@ -474,11 +474,13 @@ et, s'ils tiennent en quelques lignes, par leurs tueurs. Worker `claude-opus-5-5
   le commentaire de `hide()`, que l'on récrit en place. Différentiel sous Node 24.21.0 : 60 000 chemins aléatoires (adresses des
   plages de banc d'essai et d'espace partagé, construites à l'exécution, sous dix formes IPv4 et huit IPv6, collées ou échappées),
   masqués par l'ancienne `hide()` avec sa `BlockList` et par la nouvelle avec le `Set` : 0 différence, 38 717 chemins changés de
-  part et d'autre. Coût, sous Node 24.21.0 sur une machine chargée (charge moyenne de 4 à 16 sur 4 cœurs) : 200 chemins construits
-  d'environ 3 500 caractères (chiffres et points ; hex et deux-points), `seen` à 10 puis à 100 000 adresses : 4,8 à 7,4 s et 18,7 à
-  25,2 s par le `Set`, dans la même bande à 10 et à 100 000 adresses ; 2,6 à 5,6 s et 6,6 à 12,5 s par la `BlockList` de 24.21 (une
-  `SocketAddress` et son texte par suite analysée coûtent plus qu'une recherche de 24.21) ; la porte sur l'arbre, 3,7 à 4,5 s, comme
-  avant. Sous Node 24.0 à 24.20 : non mesuré ici, aucun binaire n'étant disponible hors ligne ; un `Set` ne dépend pas de cette
+  part et d'autre. Coût, sous Node 24.21.0 sur une machine au repos (charge moyenne sous 1,4 ; deux passes) : 200 chemins
+  construits d'environ 3 500 caractères (chiffres et points ; hex et deux-points), `seen` à 10 puis à 100 000 adresses. Par le
+  `Set` : 3,2 à 3,9 s et 9,5 à 13,8 s à 10 adresses, 3,7 à 3,8 s et 14,9 à 15,8 s à 100 000 ; par la `BlockList` de 24.21 : 2,5 s et
+  5,6 à 5,7 s, puis 2,7 à 2,9 s et 7,3 à 8,0 s. Le `Set` coûte plus par suite analysée (une `SocketAddress` et son texte) ; sur les
+  chemins hex, 100 000 adresses le ralentissent d'un tiers au plus, effet de cache que la table de hachage de la `BlockList` de 24.21
+  montre de même, quand une `BlockList` d'avant 24.21 parcourt ses 100 000 règles à chaque recherche. La porte sur l'arbre : 3,1 s,
+  comme avant. Sous Node 24.0 à 24.20 : non mesuré ici, aucun binaire n'étant disponible hors ligne ; un `Set` ne dépend pas de cette
   version, et la pièce mesure ce correctif sous le binaire officiel v24.20.0 (0,37 à 1,85 s sur les arbres de son sceptique, où la
   `BlockList` prenait sous cette version de 9,5 à 120,6 s).
 - **m-15, les mutants survivants** : §10 dit désormais lesquels sont équivalents. Le second arbre du test des chemins gagne trois
@@ -523,9 +525,11 @@ et, s'ils tiennent en quelques lignes, par leurs tueurs. Worker `claude-opus-5-5
   `export:check` verts ; winlint : 49 fichiers contre le tronc, aucun risque Windows ; `git diff --check` vide. Porte sur l'arbre :
   0 occurrence, 0 entrée périmée, 0 non déclaré, 2 415 fichiers lus sur 2 460, 64 paires dans 29 fichiers, toutes trouvées.
   `npm run test:main` : 2 945 tests, 2 923 verts, 22 sautés (préexistants), 0 rouge, 316 s ; test 42 (l'export public et son
-  `npm ci && npm run ci` imbriqué) : vert, 128 s. Fusion simulée avec le tronc `565c7065` (un clone partagé du scratchpad) :
-  automatique, seul fichier commun `docs/JOURNAL-PROVENANCE.md` ; la porte sur l'arbre fusionné, 0 occurrence, 2 417 fichiers lus,
-  0 non déclaré, 0 entrée périmée ; taille, 546 lignes.
+  `npm ci && npm run ci` imbriqué) : vert, 128 s. Fusion simulée avec le tronc `52d1e0b7` (la fusion de #248, un clone partagé du
+  scratchpad) : automatique, seul fichier commun `docs/JOURNAL-PROVENANCE.md` ; la porte sur l'arbre fusionné, 0 occurrence, 2 418
+  fichiers lus, 0 non déclaré, 0 entrée périmée ; le script, le test et cette note égaux à ceux de la tête ; taille, 546 lignes. CI
+  de `e5134a08` (run `37754663568`, sur la fusion avec `52d1e0b7`) : 12 sur 12 verts ; g3-verification, 2 949 tests, 2 927 verts,
+  22 sautés, 0 rouge ; r25-taille-de-lot, 546 lignes, contenu 0.
 - **Taille, forme de la CI** : 12 fichiers comptés, +498 −48, soit **546 lignes**, sous 547 (borne du lot) et sous 1 205 (borne de
   la CI) ; contenu : 0.
 - **Non vérifié ici** : Node 24.0 à 24.20 (aucun binaire hors ligne : le défaut tient aux sources lues, le correctif aux mesures de
