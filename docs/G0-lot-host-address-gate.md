@@ -135,7 +135,8 @@ La porte refuse toute adresse hors de la liste. Hors des 35, l'arbre en porte en
     - documentation : 192.0.2.0/24, 198.51.100.0/24, 203.0.113.0/24 (RFC 5737) et 2001:db8::/32 (RFC 3849).
   - (b) **littéraux listés un par un**, chacun avec son fichier, sa valeur et sa raison :
     - numéros qui ont la forme d'une adresse : des paragraphes de RFC 9162, de WHATWG HTML, d'ECMA-262 et des Baseline Requirements du
-      CA/B Forum, deux clauses d'un texte de couverture, une version de V8 ;
+      CA/B Forum, deux clauses d'un texte de couverture, une version de V8, la version de fichier de la bibliothèque de substitution
+      que bâtit le job de l'outil vérificateur (son plan et son script de contrôle) ;
     - formes de code : deux tranches Python de `tools/kata-recalc/report.py` (outil épinglé, non touché), la commande de workflow
       `add-mask` de GitHub Actions, la queue du bouclage écrit en pourcent-encodage ;
     - entrées-bornes du test de bouclage `test/retire-instants.test.ts` : les voisines immédiates des plages qu'il épingle (au-dessus et
@@ -426,6 +427,17 @@ tronc n'ajoute que des lignes après la l.1000) ; puis le test rouge seul (`3336
   compris), aucun risque Windows. `npm run test:main` : 2 938 tests, 2 916 verts, 22 sautés (préexistants), 0 rouge, 255 s ; test 42 (l'export public et son `npm ci && npm run ci` imbriqué) :
   vert, 80 s. Porte sur l'arbre : 0 occurrence, 0 entrée périmée, 0 non déclaré, 2 410 fichiers lus, 62 paires dans 27 fichiers, toutes
   trouvées.
+- **Le tronc encore, après la poussée de `1db7c3d0`** : la CI de cette tête (run `37727718613`) rougit au seul test de l'arbre,
+  2 occurrences dans 2 fichiers : le tronc avait fusionné #247 (`43f46d9f`), dont le plan (`docs/G0-lot-verifier-tool-ci-1.md`) et
+  le script de contrôle (`scripts/verifier-tool-ci-report-check.py`) citent la version de fichier de la bibliothèque de substitution
+  (48 octets) que bâtit son job, un `VS_FIXEDFILEINFO` : quatre nombres en forme d'adresse, aucune adresse d'hôte (scan : 0 graphie
+  de A ou de B sur l'arbre fusionné). Fusion `82d74df5` « Merge the trunk », sans conflit (aucun fichier commun), rouge au même
+  test (les mêmes 2 occurrences) ; puis `f974feb4` : la version listée pour ces deux fichiers, avec sa raison, en place sur trois
+  lignes du script (la raison sur la ligne de celle de V8, chaque entrée au bout de la ligne qui la précède dans l'ordre), aucune
+  ajoutée : aucun tueur ne bouge. Liste : 64 paires dans 29 fichiers. À `f974feb4` : porte 12/12 (0 occurrence, 0 entrée périmée,
+  0 non déclaré, 2 415 fichiers lus, toutes les paires trouvées) ; `every_killer_line_is_readable` vert ; `verifie-ancres` 20 sur le
+  fichier, 1 690 dans l'arbre, 0 DERIVE, 0 PERDU ; winlint 49 fichiers contre le tronc, aucun risque Windows ; `npm run test:main` :
+  2 944 tests, 2 922 verts, 22 sautés (préexistants), 0 rouge, 353 s ; test 42 : vert, 103 s.
 - **Taille, forme de la CI** : 12 fichiers comptés, +485 −48, soit **533 lignes**, sous 547 (borne du lot) et sous 1 205 (borne de
   la CI) ; contenu : 0.
 - **Non vérifié ici** : Windows (MONARK rejoue à la fusion) : la `BlockList` et ses formes IPv4-mapped, les noms de fixture à `%`
