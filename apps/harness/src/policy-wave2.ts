@@ -18,10 +18,10 @@ export const LIVE_N_MAX: Readonly<Record<string, number>> = { "1h": 2208, "4h": 
 type Is = (ok: boolean, what: string) => void;
 
 /**
- * Addendum 8 section 1 on a calibrated wave 2 band row (n, tail_frac and runs_level already pinned by the caller): tail_m
- * at most n - r; both tails recomputed by the exact null and equal byte for byte to the row's unreduced strings, a null
- * pair when m = 0; a TailCountsError is a named refusal of the row, never under_calib (G2 of #135, m-3). `reject`: either
- * tail at or below runs_level; `empty`: tail_m = 0 (an empty check 1 is no refusal, D2).
+ * Addendum 8 section 1 on a calibrated wave 2 band row (n, tail_frac and runs_level already pinned by the caller): tail_m at most
+ * n - r, and misses at most tail_m (every miss is a tail point, W2-GUARD-MISSES-TAIL-1); both tails recomputed by the exact null and
+ * equal byte for byte to the row's unreduced strings, a null pair when m = 0; a TailCountsError is a named refusal of the row, never
+ * under_calib (G2 of #135, m-3). `reject`: either tail at or below runs_level; `empty`: tail_m = 0 (an empty check 1 is no refusal, D2).
  */
 export function wave2Admission(r: PolicyRow, is: Is): { reject: boolean; empty: boolean } {
   const exact = <T>(f: () => T): T => {
@@ -33,7 +33,7 @@ export function wave2Admission(r: PolicyRow, is: Is): { reject: boolean; empty: 
     }
   };
   const rank = exact(() => tailRank(r.n, r.tail_frac ?? ""));
-  is((r.tail_m ?? 0) <= r.n - rank, `has tail_m above n - r (r ${String(rank)})`);
+  is((r.tail_m ?? 0) <= r.n - rank, `has tail_m above n - r (r ${String(rank)})`); is(r.tail_m === null || (r.misses ?? 0) <= r.tail_m, `has misses above tail_m (misses ${String(r.misses)}, tail_m ${String(r.tail_m)}): qhat is at or above the tail threshold (n - k_star >= r), so every miss is a tail point`);
   const pair = (m: number | null, a: number | null): AdjacencyCountsTail => exact(() => adjacencyTailFromCounts(r.n, m ?? -1, a ?? -1, r.runs_level ?? ""));
   const t = pair(r.tail_m, r.tail_a);
   const c = pair(r.misses, r.miss_adj_a);
