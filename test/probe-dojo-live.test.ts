@@ -586,14 +586,15 @@ test("dojo_probe_tree_is_the_import_closure", () => {
   // killer: docs/RUNBOOK-dojo.md:1521 CONST " SMTP_PASS\"" -> "\""
   // killer: docs/RUNBOOK-dojo.md:1519 CONST " -p CPUQuota=25%" -> " -p InaccessiblePaths= -p CPUQuota=25%"
   // killer: docs/RUNBOOK-dojo.md:1499 CONST "$S \"$U\" $C" -> "$S \"$U\" -p EnvironmentFile=/etc/monark/probe.env $C"
+  // killer: docs/RUNBOOK-dojo.md:1497 CONST "U=\"$U HTTP_PROXY" -> "# U=\"$U HTTP_PROXY"
   const all = unit(DOJO_SVC).filter((d) => d.section === "Service"), OWN = ["Type", "ExecStart", "TimeoutStartSec"];
   const exec = one(all, "Service", "ExecStart").split(" "), a4 = s.indexOf("\n(4) "), a4b = s.indexOf("\n(4b) "), a5 = s.indexOf("\n(5) ");
   assert.ok(a4 > 0 && a4b > a4 && a5 > a4b, "(4), (4b), then (5)");
   for (const [act, x] of [["(4)", s.slice(a4, a4b)], ["(4b)", s.slice(a4b, a5)]] as const) {
-    const jobs = x.split("```").filter((c, i) => i % 2 === 1 && c.includes("systemd-run")), job = (jobs[0] ?? "").split("\n").join(" ");
+    const jobs = x.split("```").filter((c, i) => i % 2 === 1 && c.includes("systemd-run")), job = (jobs[0] ?? "").split("\n").filter((l) => !l.trimStart().startsWith("#")).join(" ");
     const vars = new Map<string, string>(), flags: string[] = [], props: string[] = [], cmd: string[] = [];
-    for (const [, k = "", v = ""] of job.matchAll(/(?<![$\w])([A-Z])="([^"]*)"/g)) vars.set(k, v.startsWith(`$${k} `) ? `${vars.get(k) ?? ""}${v.slice(2)}` : v);
-    const args = (/systemd-run ([^;>]*)/.exec(job)?.[1] ?? "").trim().split(/\s+/).flatMap((w) => (/^[$][A-Z]$/.test(w)
+    for (const [, k = "", v = ""] of job.slice(0, Math.max(0, job.indexOf("&& systemd-run "))).matchAll(/(?<![$\w])([A-Z])="([^"]*)"/g)) vars.set(k, v.startsWith(`$${k} `) ? `${vars.get(k) ?? ""}${v.slice(2)}` : v);
+    const args = (/&& systemd-run ([^;>]*)/.exec(job)?.[1] ?? "").trim().split(/\s+/).flatMap((w) => (/^[$][A-Z]$/.test(w)
       ? (vars.get(w.slice(1)) ?? "").trim().split(/\s+/) : /^"[$][A-Z]"$/.test(w) ? [vars.get(w.slice(2, 3)) ?? ""] : [w]));
     for (let i = 0; i < args.length; i++) {
       const w = args[i] ?? "";
