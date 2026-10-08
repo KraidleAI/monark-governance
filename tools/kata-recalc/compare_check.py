@@ -4,7 +4,12 @@
 # and "beyond 1e-12" outside the float contract, DIGEST); trialRegistryHead.hash a decision since the frozen-tool lot (path 1); a named
 # --ignore; structural faults (dropped, duplicated, renamed rows; an integer beyond the doubles in a VALUE field, N-6) -> 2.
 # IO-GUARD-POSED-FILES-1: case 34, a value x (1 + 2e-12), twice the contract: listed beyond 1e-12, inside a tolerance widened to 1e-9.
-# Usage: python -E -S -s -B compare_check.py <registry.json> <work dir> <out.txt>   (M-6)
+# Usage: python -E -S -s -B -P compare_check.py <registry.json> <work dir> <out.txt>   (M-6)
+import os, sys  # sys built in, os frozen: no file is looked up by name before io_guard has checked its folder (IO-GUARD-POSED-FILES-1)
+if "io_guard" not in sys.modules:  # io_guard.py run by its path, never found by name: nothing posed or installed stands in for it
+    sys.path.append(_d := os.path.dirname(os.path.realpath(__file__)))  # the tool's folder, last in sys.path: -P is in FORM
+    _g = sys.modules["io_guard"] = type(sys)("io_guard"); _g.__file__ = os.path.join(_d, "io_guard.py")
+    exec(compile(open(_g.__file__, "rb").read(), _g.__file__, "exec"), vars(_g))
 import io_guard  # the input guard, before any other module (M-7): the registry is read under the role registry
 import copy
 import json

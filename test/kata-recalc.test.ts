@@ -131,7 +131,7 @@ test("kata_recalc_guard_lists_the_files_of_its_folder - FILES of io_guard.py, so
 
 // reddened by: a third tree of code in the TREES list of io_guard.py (MONARK's closed list, ecace80: tools/kata-recalc, then
 // tools/kata-quarter, read only), the list reordered or absent, or a file of the index under tools/ outside these two trees
-// killer: tools/kata-recalc/io_guard.py:63 CONST "\"tools/kata-quarter\")" -> "\"tools/kata-quarter\", \"tools/kata-third\")"
+// killer: tools/kata-recalc/io_guard.py:103 CONST "\"tools/kata-quarter\")" -> "\"tools/kata-quarter\", \"tools/kata-third\")"
 test("kata_recalc_guard_admits_two_trees_of_code - io_guard reads the trees tools/kata-recalc and tools/kata-quarter only, and the index holds no third tree under tools/", () => {
   const block = /^TREES = \(([^)\n]*)\)/m.exec(readFileSync(join(REPO, TOOL_ROOT, "io_guard.py"), "utf8"));
   assert.ok(block !== null, "io_guard.py names its trees of code in one TREES tuple");
@@ -144,7 +144,7 @@ test("kata_recalc_guard_admits_two_trees_of_code - io_guard reads the trees tool
 // an agent role, a private repository name, a local path, the venue outside a cell key, a banned word), report.py absent, or its TEXTS
 // block no longer one JSON object, or a fixed text that puts the trial head outside the decisions again (the sentence that path 1
 // retires). The report itself is gated in part 2 (T2-3); here, its fixed texts in a report of its shape
-// killer: tools/kata-recalc/report.py:48 CONST "\"decisions\": \"every other" -> "\"decisions\": \"TRIAL-HEAD-WRITTEN-1, every other"
+// killer: tools/kata-recalc/report.py:54 CONST "\"decisions\": \"every other" -> "\"decisions\": \"TRIAL-HEAD-WRITTEN-1, every other"
 test("kata_recalc_report_texts_pass_the_spec_gate - the fixed texts of report.py, in a report of its shape, pass contentProblems in kind json at the dated path", () => {
   const file = join(REPO, TOOL_ROOT, "report.py");
   assert.ok(existsSync(file), "report.py writes the recompute report (lot 1e)");
@@ -178,7 +178,7 @@ test("kata_recalc_report_texts_pass_the_spec_gate - the fixed texts of report.py
 // is not a band (Q-3: the first release publishes the bands only), or whose table the gate holds (a row refused by digestProblems, a
 // cell without a table row, or the short_digest of tableRowProblems); a band class of the registry missing from it; the list unsorted or
 // repeating a class; the registry not versed at apps/harness/data/kata/registry/wave1.json (811fcd57... at the measure of G0 section 17)
-// killer: tools/kata-recalc/report.py:62 CONST "\"btc-mae-up-1h\"" -> "\"btc-dir-1h\""
+// killer: tools/kata-recalc/report.py:68 CONST "\"btc-mae-up-1h\"" -> "\"btc-dir-1h\""
 test("kata_recalc_release_classes_are_the_published_bands - RELEASE_1_CLASSES of report.py is every band class of the versed wave 1 registry, none held by the floor or the gate", () => {
   const block = /^RELEASE_1_CLASSES = \(\n([\s\S]*?)\n\)$/m.exec(readFileSync(join(REPO, TOOL_ROOT, "report.py"), "utf8"));
   assert.ok(block !== null, "report.py holds the classes that its first release publishes in one RELEASE_1_CLASSES block (form (a))");

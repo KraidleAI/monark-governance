@@ -15,8 +15,13 @@
 # Each case names the change of the guard that reddens it; the same script, run against the guard of 09f49fc2, is its red proof
 # (against the guard before its G2 for the cases of the G2, and that of mission 4 for the launches). No input is read: the files of
 # the cases are written by the parent, under its work directory, and so are the partial clone and the copy of the tool's tree.
-# Usage: python -E -S -s -B guard_check.py <repository> <work dir> <out.txt>
-#        python -E -S -s -B guard_check.py --case <name> <repository> <work dir>   (one case, as the first form runs it)
+# Usage: python -E -S -s -B -P guard_check.py <repository> <work dir> <out.txt>
+#        python -E -S -s -B -P guard_check.py --case <name> <repository> <work dir>   (one case, as the first form runs it)
+import os, sys  # sys built in, os frozen: no file is looked up by name before io_guard has checked its folder (IO-GUARD-POSED-FILES-1)
+if "io_guard" not in sys.modules:  # io_guard.py run by its path, never found by name: nothing posed or installed stands in for it
+    sys.path.append(_d := os.path.dirname(os.path.realpath(__file__)))  # the tool's folder, last in sys.path: -P is in FORM
+    _g = sys.modules["io_guard"] = type(sys)("io_guard"); _g.__file__ = os.path.join(_d, "io_guard.py")
+    exec(compile(open(_g.__file__, "rb").read(), _g.__file__, "exec"), vars(_g))
 import io_guard  # the input guard, before any other module (M-7): this script reads no input; a case may declare a role
 import importlib
 import importlib.machinery
@@ -522,6 +527,6 @@ if __name__ == "__main__":
     if sys.argv[1:2] == ["--case"] and len(sys.argv) == 5:
         sys.exit(case(sys.argv[2], *(os.path.abspath(a) for a in sys.argv[3:5])))
     if len(sys.argv) != 4:
-        print("usage: python -E -S -s -B guard_check.py <repository> <work dir> <out.txt>")
+        print("usage: python -E -S -s -B -P guard_check.py <repository> <work dir> <out.txt>")
         sys.exit(2)
     sys.exit(main(*(os.path.abspath(a) for a in sys.argv[1:4])))  # B-2: every path the guard judges is absolute

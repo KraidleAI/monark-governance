@@ -17,8 +17,13 @@
 # integer beyond every double in a VALUE field, which float() cannot read: N-6).
 # The --ignore list is empty unless given (M-3), and printed.
 # Census mode (--census MINE THEIRS): MONARK's sealed census against kata/registry/census.json, on the fields both define.
-# Usage: python -E -S -s -B compare_p2.py A.json B.json [--ignore f1,f2,...] [--out report.txt]
-#        python -E -S -s -B compare_p2.py --census census-monark.json census.json [--out report.txt]
+# Usage: python -E -S -s -B -P compare_p2.py A.json B.json [--ignore f1,f2,...] [--out report.txt]
+#        python -E -S -s -B -P compare_p2.py --census census-monark.json census.json [--out report.txt]
+import os, sys  # sys built in, os frozen: no file is looked up by name before io_guard has checked its folder (IO-GUARD-POSED-FILES-1)
+if "io_guard" not in sys.modules:  # io_guard.py run by its path, never found by name: nothing posed or installed stands in for it
+    sys.path.append(_d := os.path.dirname(os.path.realpath(__file__)))  # the tool's folder, last in sys.path: -P is in FORM
+    _g = sys.modules["io_guard"] = type(sys)("io_guard"); _g.__file__ = os.path.join(_d, "io_guard.py")
+    exec(compile(open(_g.__file__, "rb").read(), _g.__file__, "exec"), vars(_g))
 import io_guard  # the input guard, before any other module (M-7): both files are read under the role registry
 import hashlib
 import json

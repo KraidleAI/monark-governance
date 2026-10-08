@@ -8,7 +8,12 @@
 # plus a line feed, then SEAL.sha256 as the first act), D-6 (fields without a sufficient written definition are null; since lot 1d,
 # FMT l.41-49 writes them; since the frozen-tool lot (path 1), trialRegistryHead.hash too, chained from the rows' trials as KATA-SPEC section 8 writes it), D-9 (time).
 # Sources: ADR, P1, P2, SPEC, FMT in `wt` at 1ea4f64 (see kata_lib.py), engine in binom_exact.py, CSV layout REC l.34-35.
-# Usage: python -E -S -s -B recalc_p2.py <series dir> <oracle dir> <out dir>   (M-6: every path is an argument)
+# Usage: python -E -S -s -B -P recalc_p2.py <series dir> <oracle dir> <out dir>   (M-6: every path is an argument)
+import os, sys  # sys built in, os frozen: no file is looked up by name before io_guard has checked its folder (IO-GUARD-POSED-FILES-1)
+if "io_guard" not in sys.modules:  # io_guard.py run by its path, never found by name: nothing posed or installed stands in for it
+    sys.path.append(_d := os.path.dirname(os.path.realpath(__file__)))  # the tool's folder, last in sys.path: -P is in FORM
+    _g = sys.modules["io_guard"] = type(sys)("io_guard"); _g.__file__ = os.path.join(_d, "io_guard.py")
+    exec(compile(open(_g.__file__, "rb").read(), _g.__file__, "exec"), vars(_g))
 import io_guard  # the input guard, before any other module (M-7): series, recorder files and oracle outputs, never a registry
 import datetime
 import hashlib
@@ -539,7 +544,7 @@ def main(series_dir, oracle_dir, out_dir):
 
 if __name__ == "__main__":
     if len(sys.argv) != 4:
-        print("usage: python -E -S -s -B recalc_p2.py <series dir> <oracle dir> <out dir>")
+        print("usage: python -E -S -s -B -P recalc_p2.py <series dir> <oracle dir> <out dir>")
         sys.exit(2)
     try:
         sys.exit(main(*(os.path.abspath(a) for a in sys.argv[1:])))  # B-2: every path the guard judges is absolute
