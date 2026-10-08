@@ -267,3 +267,30 @@ jobs:
         run: npm run build -w @monark/site
       - name: O-2 — assert the built /fleet HTML body carries each served note (scripts/assert-fleet-html.mjs)
         run: node scripts/assert-fleet-html.mjs
+
+  g3-verifier-tool:
+    # VERIFIER-TOOL-CI-1 (docs/G0-lot-verifier-tool-ci-1.md): the frozen verifier tool, tools/kata-recalc/ (monark-kata-recalc in
+    # apps/harness/data/verifiers.json), held on every PR by its own Python checks, launched under the FORM of its io_guard.py by
+    # scripts/verifier-tool-ci.mjs: guard_check (each case it skips named, Windows only), report_check (section 3 stood in off
+    # Windows), compare_check and binom_check in both modes. Internal job: the tool is never exported, so derivePublicWorkflow drops
+    # it (INTERNAL_JOBS). runs-on names the image, whose build of the one pinned CPython setup-python installs.
+    # Bound = measured job wall-time x3, capped <= 20 (2026-10-07, its first three runs on PR 247: 116 s, 201 s and 191 s => 11).
+    runs-on: ubuntu-24.04
+    timeout-minutes: 11
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0 # binom_check reads 207f021f, report_check the tree at the commit of lot 1d, guard_check clones the repository
+          persist-credentials: false # every git call of the tool is local
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: "24"
+      # actions/setup-python v7.0.0 = commit 5fda3b95a4ea91299a34e894583c3862153e4b97 (git ls-remote of refs/tags/v7.0.0, a commit
+      # object, read 2026-10-07). An exact version, no range: setup-python installs CPython 3.14.8 or the job fails.
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: "3.14.8"
+      - name: The verifier tool's own checks under the pinned CPython (scripts/verifier-tool-ci.mjs; CI only, Windows replayed by hand)
+        env:
+          VERIFIER_TOOL_PYTHON: "3.14.8" # the version above: any other interpreter reds the step
+        run: node scripts/verifier-tool-ci.mjs

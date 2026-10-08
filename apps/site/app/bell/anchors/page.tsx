@@ -36,9 +36,9 @@ export default function BellAnchorsPage() {
           timestamp (OpenTimestamps). The register below is the run&rsquo;s anchors register rendered; each manifest and each
           proof is served next to it. <b>What an anchor shows</b>: that the head of the chain existed before the date of the
           anchor. <b>What it does not show</b>: where the pages came from, nor that the scan was executed. These anchors
-          timestamp the logs of that counter-verification run; a published Bell record is signed and chained on its own host
-          (<Link href="/bell#served">/bell · served</Link>). The published records have their own register below: one row per
-          timestamped line of the timeline.
+          timestamp the logs of that counter-verification run; a published Bell record is signed and chained on the host that
+          publishes it, a MONARK host that also runs the Dōjō and a Narabi probe (<Link href="/bell#served">/bell · served</Link>).
+          The published records have their own register below: one row per timestamped line of the timeline.
         </p>
         <p className="c-mono c-small c-muted" style={{ marginTop: 10 }}>
           {view.rows.length} lines in the register · {view.proofs} proof files · {view.withBitcoin} with a Bitcoin block record ·{" "}
