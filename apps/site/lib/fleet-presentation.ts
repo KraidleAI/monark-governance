@@ -127,7 +127,7 @@ export const INSIDE: Record<string, InsideBlock> = {
   bell: {
     kind: "built",
     points: [
-      "A public timeline served on its own host, one signed, hash-chained line per publication, checked by a reader-side verifier against a committed keyring",
+      "A public timeline served from a MONARK host that also runs the Dōjō and a Narabi probe, one signed, hash-chained line per publication, checked by a reader-side verifier against a committed keyring",
       "Named abstentions instead of estimates, each counted in the published state; no closing price is read into the first record, so it carries no gap",
       "A hash-chained collection journal whose manifests are anchored to a public timestamp",
     ],

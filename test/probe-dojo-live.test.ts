@@ -447,12 +447,12 @@ test("dojo_live_probe_reads_the_smtp_password_from_its_file_after_the_verifier",
   const text = read("docs/RUNBOOK-dojo.md"), s = text.slice(text.indexOf("\n## 25. "), text.indexOf("\n## ", text.indexOf("\n## 25. ") + 1));
   for (const x of [P.DEFAULT_SMTP_PASS_FILE, "install -m 0600 -o probe -g probe", "probe 600", "size-ok",
     "systemd-run --wait --collect --quiet -p EnvironmentFile=/etc/monark/probe.env", `printf "%s\\n" "$$SMTP_PASS" > ${P.DEFAULT_SMTP_PASS_FILE}`,
-    "-p EnvironmentFile=/etc/monark/probe.env -p UnsetEnvironment=SMTP_PASS", '"alert_error": null']) assert.ok(s.includes(x), `section 25: ${x}`);
+    '-p EnvironmentFile=/etc/monark/probe.env "$U"', '"alert_error": null']) assert.ok(s.includes(x), `section 25: ${x}`);
   assert.ok(!s.includes('stat -c "%U %a %s"') && !s.includes(`sed -n "s/^SMTP_PASS=//p"`), "(1b): the file's size never printed, never a copy of the raw line");
   const b1 = s.indexOf("\n(1b) "), four = s.indexOf("\n(4) "), b4 = s.indexOf("\n(4b) "), five = s.indexOf("\n(5) "), timer = s.indexOf("systemctl enable --now monark-dojo-probe.timer");
   assert.ok(b1 > 0 && four > b1 && b4 > four && five > b4 && timer > five, "(1b), then (4), then (4b), then the timer at (5)");
   const mailAct = s.slice(s.indexOf("\n(4b) "), s.indexOf("\n(5) "));
-  for (const x of ["systemd-run --wait --pipe --collect --uid=probe --gid=probe $S -p EnvironmentFile=/etc/monark/probe.env -p UnsetEnvironment=SMTP_PASS $C",
+  for (const x of ['systemd-run --wait --pipe --collect --uid=probe --gid=probe $S -p EnvironmentFile=/etc/monark/probe.env "$U" $C',
     "--now $N", "--out /var/lib/monark-probe/dojo-live-mail.json"]) assert.ok(mailAct.includes(x), `(4b), under the unit's user and forced unhealthy: ${x}`);
   assert.ok(mailAct.includes("root@bell.monarkgate.tech 'rm -f /var/lib/monark-probe/dojo-live-mail.json && S="), "(4b) opens on the removal of a scratch record left by a cut run");
   // A change of SMTP_PASS in the mail file (section 1 of the probe's deployment in RUNBOOK-sentinel) replays (1b), then (4b): both texts say so.
@@ -525,8 +525,9 @@ test("dojo_live_probe_cli_contract", async () => {
 });
 
 // reddened by: the probe unit off its closed directive set or a pinned value (the user, group and writable path of monark-probe, the
-// required env file, the publish unit's UnsetEnvironment guard then SMTP_PASS), a TimeoutStartSec not strictly above the worst case
-// of one start, a verifier delay under DOJO-VERIFY-SCALE-1 under the unit's CPU quota, a memory cap under the two envelopes it composes
+// required env file, the publish unit's UnsetEnvironment guard then SMTP_PASS, Bell's key directory masked), a TimeoutStartSec not
+// strictly above the worst case of one start, a verifier delay under DOJO-VERIFY-SCALE-1 under the unit's CPU quota, a memory cap under
+// the two envelopes it composes
 // killer: deploy/monark-dojo-probe.service:29 CONST " SMTP_PASS" -> ""
 test("dojo_probe_units_are_hardened", () => {
   const ds = unit(DOJO_SVC), ns = unit("deploy/monark-probe.service"), ps = unit("deploy/monark-dojo-publish.service");
@@ -534,7 +535,7 @@ test("dojo_probe_units_are_hardened", () => {
     ExecStart: `/usr/bin/env node ${P.DOJO_PROBE_TREE_ROOT}/scripts/probe-dojo-live.mjs`, TimeoutStartSec: "3300",
     UnsetEnvironment: `${one(ps, "Service", "UnsetEnvironment")} SMTP_PASS`, User: one(ns, "Service", "User"), Group: one(ns, "Service", "Group"),
     NoNewPrivileges: "true", ProtectSystem: "strict", ProtectHome: "true", PrivateTmp: "true", ReadWritePaths: one(ns, "Service", "ReadWritePaths"),
-    CPUQuota: "25%", MemoryMax: "640M", TasksMax: "64" };
+    InaccessiblePaths: "/etc/monark/bell", CPUQuota: "25%", MemoryMax: "640M", TasksMax: "64" };
   const svc = ds.filter((d) => d.section === "Service");
   assert.deepEqual(svc.map((d) => d.key).sort(), Object.keys(want).sort(), "the [Service] directives, each once");
   for (const d of svc) assert.equal(d.value, want[d.key], `${d.key}=${d.value}`);
@@ -552,7 +553,8 @@ test("dojo_probe_units_are_hardened", () => {
 
 // reddened by: a tree that misses a module the probe or the verifier's CLI loads, holds one more file or not the keyring, a default
 // path (verifier, keyring) outside it, a default base off the site's proxy prefix or off the Dojo host, or a RUNBOOK that ships, runs
-// or enables anything but these files and units, writes the simulated record over the production one, or names a host by address
+// or enables anything but these files and units, writes the simulated record over the production one, names a host by address, or
+// simulates a start, (4) or (4b), without one of the unit's own properties or with another (Bell's key directory masked among them)
 // killer: scripts/probe-dojo-live.mjs:54 CONST "\"scripts/probe-narabi.mjs\"" -> "\"scripts/probe-narabi.d.mts\""
 test("dojo_probe_tree_is_the_import_closure", () => {
   const IMPORT = /^[ ]*(?:import|export)[ ]+(?!type[ ])(?:[^'";]*?[ ]from[ ]*)?["']([^"']+)["']/gm, rel = (p: string): string => relative(REPO, p).split(sep).join("/");
@@ -572,8 +574,39 @@ test("dojo_probe_tree_is_the_import_closure", () => {
     `${posix.dirname(P.DEFAULT_OUT)}/dojo-live-sim.json`, "--uid=probe --gid=probe", "apps/dojo/keys/dojo-keyring.json", "root@bell.monarkgate.tech"]) {
     assert.ok(s.includes(x), `section 25: ${x}`);
   }
-  for (const [k, v] of [["ProtectSystem", "strict"], ["ReadWritePaths", posix.dirname(P.DEFAULT_OUT)], ["MemoryMax", "640M"], ["CPUQuota", "25%"]]) {
-    assert.ok(s.includes(`-p ${k ?? ""}=${v ?? ""}`) && one(unit(DOJO_SVC), "Service", k ?? "") === v, `the simulated start carries the unit's ${k ?? ""}`);
+  // Each simulated start, (4) then (4b), runs as the unit does, every property read from the unit file: each [Service] line is one
+  // property of the job, equal to it, and the job has no other, except the service's own lines (Type, ExecStart and TimeoutStartSec,
+  // systemd.service(5): the job runs the unit's command once, with its own arguments, and systemd-run --wait waits for its end) and the
+  // mail file, which (4b) alone applies. --uid and --gid are User= and Group= (systemd-run(1)); a list is ONE quoted argument, "$U", as
+  // $S is split on blanks. A host without Bell's key directory stops at (4), before the timer.
+  // killer: docs/RUNBOOK-dojo.md:1495 CONST " -p InaccessiblePaths=/etc/monark/bell" -> ""
+  // killer: docs/RUNBOOK-dojo.md:1519 CONST " -p InaccessiblePaths=/etc/monark/bell" -> ""
+  // killer: docs/RUNBOOK-dojo.md:1494 CONST " -p ProtectHome=true" -> ""
+  // killer: docs/RUNBOOK-dojo.md:1499 CONST " \"$U\"" -> ""
+  // killer: docs/RUNBOOK-dojo.md:1521 CONST " SMTP_PASS\"" -> "\""
+  // killer: docs/RUNBOOK-dojo.md:1519 CONST " -p CPUQuota=25%" -> " -p InaccessiblePaths= -p CPUQuota=25%"
+  // killer: docs/RUNBOOK-dojo.md:1499 CONST "$S \"$U\" $C" -> "$S \"$U\" -p EnvironmentFile=/etc/monark/probe.env $C"
+  // killer: docs/RUNBOOK-dojo.md:1497 CONST "U=\"$U HTTP_PROXY" -> "# U=\"$U HTTP_PROXY"
+  const all = unit(DOJO_SVC).filter((d) => d.section === "Service"), OWN = ["Type", "ExecStart", "TimeoutStartSec"];
+  const exec = one(all, "Service", "ExecStart").split(" "), a4 = s.indexOf("\n(4) "), a4b = s.indexOf("\n(4b) "), a5 = s.indexOf("\n(5) ");
+  assert.ok(a4 > 0 && a4b > a4 && a5 > a4b, "(4), (4b), then (5)");
+  for (const [act, x] of [["(4)", s.slice(a4, a4b)], ["(4b)", s.slice(a4b, a5)]] as const) {
+    const jobs = x.split("```").filter((c, i) => i % 2 === 1 && c.includes("systemd-run")), job = (jobs[0] ?? "").split("\n").filter((l) => !l.trimStart().startsWith("#")).join(" ");
+    const vars = new Map<string, string>(), flags: string[] = [], props: string[] = [], cmd: string[] = [];
+    for (const [, k = "", v = ""] of job.slice(0, Math.max(0, job.indexOf("&& systemd-run "))).matchAll(/(?<![$\w])([A-Z])="([^"]*)"/g)) vars.set(k, v.startsWith(`$${k} `) ? `${vars.get(k) ?? ""}${v.slice(2)}` : v);
+    const args = (/&& systemd-run ([^;>]*)/.exec(job)?.[1] ?? "").trim().split(/\s+/).flatMap((w) => (/^[$][A-Z]$/.test(w)
+      ? (vars.get(w.slice(1)) ?? "").trim().split(/\s+/) : /^"[$][A-Z]"$/.test(w) ? [vars.get(w.slice(2, 3)) ?? ""] : [w]));
+    for (let i = 0; i < args.length; i++) {
+      const w = args[i] ?? "";
+      if (cmd.length > 0 || !w.startsWith("-")) cmd.push(w);
+      else if (w === "-p") props.push(args[++i] ?? "");
+      else if (w.startsWith("--property=")) props.push(w.slice("--property=".length));
+      else if (/^--[ug]id=/.test(w)) props.push(`${w.startsWith("--uid=") ? "User" : "Group"}=${w.slice("--uid=".length)}`);
+      else flags.push(w);
+    }
+    const want = all.filter((d) => !OWN.includes(d.key) && (act === "(4b)" || d.key !== "EnvironmentFile")).map((d) => `${d.key}=${d.value}`);
+    assert.deepEqual([jobs.length, flags, props.sort()], [1, ["--wait", "--pipe", "--collect"], want.sort()], `${act}: one job, the unit's properties and no other`);
+    assert.deepEqual(cmd.slice(0, exec.length), exec, `${act}: the unit's command, then the job's own arguments`);
   }
   assert.ok(!s.includes(`--out ${P.DEFAULT_OUT}`) && !/[0-9]{1,3}[.][0-9]{1,3}[.][0-9]{1,3}[.][0-9]{1,3}/.test(s), "never the production record, never an address");
   assert.ok(s.indexOf("systemd-run") < s.indexOf("systemctl enable --now monark-dojo-probe.timer"), "the simulated start before the timer");
