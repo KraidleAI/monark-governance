@@ -20,6 +20,15 @@ par RECHERCHES sous la délégation technique du fondateur (« no debt »). m-4 
 instance neuve `claude-opus-5-5`, effort `max`, le 2026-10-08. Commits : `2493d1a0` (test rouge de m-4, correction de m-5 dans le test),
 `e79dbc9c` (`execve`/`setEngine` dans `NAMES`, l'en-tête élargi à nombre de lignes constant), puis ce G0 mis à jour. Le §12 résume le pli du delta.
 
+Pli de la seconde G2 de delta (`coordination/pieces/2026-10-07-g2-recherches/G2-246-delta2.json`, `recherches:dfc0198`, CORRECTIONS, deux
+m : m-7, m-8), décidé par MONARK (`recherches:1c58876` §2 et §3) et par RECHERCHES (`7ca8ae8`). m-7 comme proposé : le §8 nomme le script
+qui a résolu la fusion d'a1 au delta. m-8 par la voie (a) : la limite d'un `execve` appelé au chargement est écrite au §4 (« Restent »), au
+§10, dans l'en-tête de l'aide et d'une phrase du corps, et couverte comme classe par l'item neuf TEST-COUNT-FLOOR-1. Note 2 de cette G2 :
+le corps prend le libellé décidé (« or constructor ») ; ses notes 3 à 8 sont pliées dans ce G0 (§4 à §9, §12). Base `5437cd0d` inchangée
+(le tronc a avancé à `43f46d9f` par #247, qui ne touche aucun fichier de ce lot). Auteur du pli : une instance neuve `claude-opus-5-5`,
+effort `max`, le 2026-10-08 ; horloge lue à 04:31 UTC (`date -u`). Commits : `3527f5a1` (l'en-tête de l'aide), puis ce G0 mis à jour. Le
+§13 résume ce pli.
+
 ## 1. Constat
 
 - `apps/harness/test/helpers/import-specifiers.ts` l.26 (base) : `importSpecifiers` rendait `ts.preProcessFile(text, true, true)`, un
@@ -89,14 +98,29 @@ Refusés par construction : `node:module` (`registerHooks`, `register`, `createR
 `node:child_process`, tout autre module intégré ou paquet, toute URL (`data:`, `file:`, `http:`) et tout chemin absolu ; un import de type
 compte aussi (côté fermé). Deux chargeurs n'atteignent aucun module par un import que la liste refuse, et `forbiddenLoads` les nomme à sa
 place (pli de m-4 du delta, `e79dbc9c`) : `process.execve`, sur le `process` global, qui remplace le processus ; `setEngine`, porté par
-`node:crypto`, qui est sur la liste, et qui charge un objet natif. Ni l'un ni l'autre n'apparaît dans un fichier de code suivi, au tronc,
-à la fusion d'a1 ou à #237 (`git grep -w`) : les ajouter à `NAMES` ne refuse rien aujourd'hui. Tout ajout se fait dans le lot qui en a
+`node:crypto`, qui est sur la liste, et qui charge un objet natif. Hors de l'aide et de son test, ni l'un ni l'autre n'apparaît dans un
+fichier de code suivi, au tronc, à la fusion d'a1 ou à #237 (`git grep -w` ; note 3 de la seconde G2 de delta) : les ajouter à `NAMES` ne
+refuse rien aujourd'hui. Tout ajout se fait dans le lot qui en a
 besoin, avec sa raison écrite à son G0 (MONARK, `1696708`) ; la règle est écrite au-dessus de la constante. Faux positifs : aucun, au tronc
 comme à la fusion d'a1 (§8). Restent : un spécificateur relatif que la regex ne suit pas (K04, K05, jusqu'à la fusion d'a1) et, pour
 IMPORT-AST-RUNTIME-NAME-1, un chargeur ou un constructeur atteint par un nom bâti ou choisi au runtime. Ce G0 élargit le texte de cet item
 (ETAT, à MONARK) à « a loader or constructor reached by a name built or chosen at run time », de sorte qu'il couvre la troisième voie que
 la revue de delta a trouvée (m-4) : `Function` pris en énumérant les descripteurs de propriété du prototype d'une fonction, puis appelé
 sur un texte — aucun nom n'est construit, mais une valeur est choisie à l'exécution, et la lire voudrait exécuter le code.
+
+Reste enfin un `execve` appelé au chargement (m-8 de la seconde G2 de delta, voie (a)). `forbiddenLoads` nomme `execve` où qu'il soit, mais
+la marche tourne dans `kata-path.test.ts`, qui charge lui-même 12 des 22 modules servis : `attestation-binding.ts`, `calibration.ts`,
+`class-policy.ts`, `kata-path.ts`, `policy-classes.ts`, `policy-marginal.ts`, `policy-projection.ts`, `policy-served.ts`,
+`policy-table-file.ts`, `tools/calibrate.ts`, `tools/gate.ts` et `ukemi-strata.ts` (mesuré à `3527f5a1` par un crochet de chargement ; la
+fermeture statique du fichier par `importSpecifiers` donne les mêmes, 16 modules de `apps/harness/src` en tout). Un `execve` appelé au
+chargement de l'un d'eux remplace le processus du test avant que la marche ne tourne, et le lanceur compte le fichier pour une seule entrée
+verte : aucune assertion de ce fichier ne peut le rapporter. D'où le tueur de `execve` dans une fonction, où la marche le lit et s'arrête
+par assertion. Dans les 10 autres modules servis (`http.ts`, `openapi.ts`, `schema-projection.ts`, `server.ts`, `shogen-fixture.ts`,
+`tools/attest.ts`, `tools/cascade.ts`, `tools/registry.ts`, `tools/ukemi-predict.ts`, `version.ts`), que ce fichier ne charge pas, la
+marche le refuse par assertion (§13). La limite est une classe : un `process.exit(0)` au chargement fait de même, et dans tout fichier de
+test qui charge le module. Elle est couverte par l'item neuf TEST-COUNT-FLOOR-1 (MONARK, `1c58876` §3) : une porte qui compare, fichier par
+fichier, le nombre de tests courus à celui de la base, et refuse une baisse non déclarée (avec la liste des retraits voulus) ; porteur
+RECHERCHES ; déclencheur : avant la G7 de la partie qui suit #246. L'en-tête de l'aide la nomme (l.31-32).
 
 ## 5. Tests rouges et verts
 
@@ -116,6 +140,9 @@ sur un texte — aucun nom n'est construit, mais une valeur est choisie à l'ex�
   liste (`{ actual: [...] }`). À `0fc7fcec`, rouge par `ERR_ASSERTION` (« Missing expected exception: K-hooks: the walk stops on the
   copy ») ; chaque forme mise en tête à la main, rouge de même (« … K-worker2 … », « … K-vm2 … »), octets rendus (sha256 `21245568…`) ;
   19 autres tests verts. À `700b4920` : 20 sur 20, `verifiers-list` 12 sur 12, `every_killer_line_is_readable` 1 sur 1.
+- Delta, m-4 : les copies X-execve et X-engine rejoignent `served_walk_refuses_a_load_that_no_specifier_shows` (l.368-369), chacune avec
+  le chargement exact que `forbiddenLoads` y nomme. À `2493d1a0`, rouge par `ERR_ASSERTION` sur X-execve (« X-execve: the copy holds the
+  load », 19 sur 20) ; à `e79dbc9c`, 20 sur 20. Pas de test neuf : les copies tiennent dans ce test (note 4 de la seconde G2 de delta).
 
 ## 6. Tueurs
 
@@ -143,6 +170,9 @@ Au pli (trois tueurs de `kata-path.ts`, un de `server.ts` ; aucun ne peut viser 
 - Lignes neuves de la marche, sans tueur possible : l.335 (`existsSync`), tirée à la main (§7) ; l.338 (la liste) et la constante
   l.324-325, dont la preuve est le test rouge `0fc7fcec` (la marche sans la liste) et la survie des trois formes, en mutants de
   `kata-path.ts`, à `5d430ae9` (§7). L'en-tête de l'aide et les deux textes de m-2 : commentaires et message, sans tueur.
+- Au delta (m-4), deux tueurs de `kata-path.ts:15` dans le corps de `served_walk_refuses_a_load_that_no_specifier_shows` (l.373, l.374) :
+  `setEngine` en tête, dans un `try` (le processus survit, la marche le lit) ; `execve` dans une fonction, car un appel au chargement
+  remplacerait le processus du test avant la marche (§4, item TEST-COUNT-FLOOR-1). Note 4 de la seconde G2 de delta.
 
 ## 7. Preuves
 
@@ -201,11 +231,13 @@ Au pli (trois tueurs de `kata-path.ts`, un de `server.ts` ; aucun ne peut viser 
 ## 8. Pour la fusion du tronc dans a1 (#233, puis #236)
 
 Rejouée au pli dans un worktree jetable (`0e31950b` + `700b4920`, `--no-ff --no-commit`, jamais commitée, worktree retiré) :
-- un seul conflit, `apps/harness/test/kata-path.test.ts`, trois blocs (`resolve-a1.mjs`, hors dépôt, `bcde68db…`) : (1) l'import : celui de cette
+- un seul conflit, `apps/harness/test/kata-path.test.ts`, trois blocs (au premier pli, `resolve-a1.mjs`, hors dépôt, `bcde68db…`) : (1) l'import : celui de cette
   branche, `import { forbiddenLoads, importSpecifiers } from "./helpers/import-specifiers.ts";` ; (2) la liste et les commentaires de la
   marche : ceux de cette branche (`SERVED_IMPORTS` et sa doc, qui au delta nomme `execve` et `setEngine`, m-4 ; la signature à `read`), la
   doc de `servedModules` disant, comme a1, que la marche suit « a relative specifier, as importSpecifiers lists it » et, au delta, portant
-  la phrase corrigée de m-5 sur le suffixe de requête (la doc fusionnée, `MERGED_DOC` de `resolve-a1.mjs`, reprend cette correction) ;
+  la phrase corrigée de m-5 sur le suffixe de requête (au delta, la doc fusionnée est celle de `ast-delta-tools/resolve.mjs`, hors dépôt,
+  `8b43918e…`, dont les marqueurs sont écrits pour `e79dbc9c` ; `resolve-a1.mjs` garde l'ancienne incise et s'arrête sur « block 2: our
+  doc » dès le delta ; la recette n'a donc plus qu'un script, `resolve.mjs` : m-7 de la seconde G2 de delta) ;
   (3) le corps : les quatre lignes de cette branche (`existsSync`, `read`, `forbiddenLoads`, la liste), puis la boucle d'a1 sur
   `importSpecifiers(text)`, à la place de la regex (`text` et non `readFileSync(file, "utf8")`, pour suivre la copie qu'un test passe) ;
 - le tueur d'a1 `import-specifiers.ts:26` (`policy-committed.test.ts:135`) perd sa ligne (`verifie-ancres` : 1 669 tueurs, 1 668 ANCRE,
@@ -227,22 +259,38 @@ Rejouée au pli dans un worktree jetable (`0e31950b` + `700b4920`, `--no-ff --no
   dans cette seconde marche la même boucle qu'a1 met dans `servedModules`
   (`for (const s of importSpecifiers(readFileSync(file, "utf8"))) if (/^\.{1,2}\//.test(s)) walk(join(dirname(file), s));`, l.216, et son
   import ; **+2 −1**), portée par RECHERCHES à ce pli, comme la phrase de `policy-committed.test.ts:22` (§10) ; pas d'item neuf (m-6).
+  #237, empilée sur #236, ajoute six imports juste après la l.24 de ce fichier, là où cet import viendrait naturellement (note 7 de la
+  seconde G2 de delta) : placé là, la fusion à trois voies du fichier avec celui de la tête de #237 (`4da02ad0`) donne un conflit, trivial ;
+  placé après la l.20 (`import { createHarnessHandler } from "../src/server.ts";`), aucun, et la boucle passe à la l.217 (`git merge-file`,
+  mesuré au pli de la seconde G2 de delta).
 - Rejouée au delta avec la tête `e79dbc9c` (`0e31950b` + `e79dbc9c`, `--no-ff --no-commit`, jamais commitée, worktree retiré) : même
-  conflit, trois blocs, résolu de même (la doc fusionnée de `servedModules` porte la phrase corrigée de m-5) ; `verifie-ancres --ref
+  conflit, trois blocs, résolu par `ast-delta-tools/resolve.mjs` (`8b43918e…`), dont la doc fusionnée de `servedModules` porte la phrase
+  corrigée de m-5 ; `verifie-ancres --ref
   0e31950b --ref e79dbc9c` : 1 671 tueurs, 1 670 ANCRE, 1 PERDU (le même, `policy-committed.test.ts:135` → `import-specifiers.ts:26`), puis
   1 671 ANCRE après le ré-ancrage ci-dessus ; `tsc` 0, `eslint` 0, `kata-path` 20/20, `policy-committed` 7/7, `gate-kata-served` 12/12,
   `verifiers-list` 12/12, `killer-lines` 1/1. Les deux tueurs neufs rougissent `kata-path` à la fusion (`execve`, `setEngine` : 4 rouges
   chacun, la marche d'a1 gardant le contrôle `forbiddenLoads`), et le tueur ré-ancré d'a1 rougit `import_specifiers_are_read_in_both_quotes`.
-  La campagne `--table a1-forms.json` des 77 formes n'a pas été relancée au delta (elle tient à `700b4920`, ci-dessus) ; seuls ces trois
-  tueurs ont été tirés à la main.
+  La campagne `--table a1-forms.json` (77 mutants : 22 formes et 55 tueurs ; note 8 de la seconde G2 de delta) n'a pas été relancée au
+  delta (elle tient à `700b4920`, ci-dessus) ; seuls ces trois tueurs ont été tirés à la main.
+- Rejouée au pli de la seconde G2 de delta avec la tête `3527f5a1` (`0e31950b` + `3527f5a1`, `--no-ff --no-commit`, jamais commitée, puis
+  `merge --abort`, dans un worktree jetable rendu propre) : un seul conflit, `kata-path.test.ts`, aux mêmes octets que ceux de la revue
+  (`33cecfdf…`, à l'étiquette des marqueurs près ; l'en-tête de l'aide et ce G0 fusionnent sans conflit). `resolve.mjs` (`8b43918e…`, ses
+  marqueurs rendus à `e79dbc9c`) rend `843734ff…`, octet pour octet la résolution que la revue a écrite d'après la seule prose de ce §8 ;
+  `resolve-a1.mjs` (`bcde68db…`) s'arrête sur « block 2: our doc » sans rien écrire. `verifie-ancres --ref 0e31950b --ref 3527f5a1` :
+  1 671 tueurs, 1 670 ANCRE, 1 PERDU (le même), puis 1 671 ANCRE après le ré-ancrage ci-dessus ; `tsc` 0, `eslint` 0 (quatre fichiers) ;
+  `kata-path` 20/20, `policy-committed` 7/7, `verifiers-list` 12/12, `killer-lines` 1/1, `gate-kata-served` 12/12. À la main sur la
+  fusion : `setEngine` et `execve` en `kata-path.ts:15` font 4 rouges chacun par `ERR_ASSERTION`, et le tueur ré-ancré d'a1 rougit
+  `import_specifiers_are_read_in_both_quotes` par `ERR_ASSERTION`. La recette de m-6 posée (l'import après la l.20, la boucle, **+2 −1**) :
+  `gate-kata-served` 12/12, `tsc` 0, `eslint` 0 ; les deux marches ont alors les mêmes racines et la même boucle (note 6 de cette G2).
 
 ## 9. Taille et portes
 
 - R-25, forme de la CI (les pathspecs lues dans `ci.yml`), `origin/lot/etude-suite...HEAD` : 3 fichiers, +155 −31, soit **186** (borne de
   lot 547 ; borne ADR 1205 ; 155 au premier pli, 116 avant). La base de fusion reste `5437cd0d` (le tronc a avancé à `e13cfff7` par #244,
   qui ne touche aucun fichier de ce lot), donc `5437cd0d...HEAD` donne le même compte. Ce G0 est hors du compte (`docs/**/*.md`). Le delta
-  ajoute +20 −11 : `execve` et `setEngine` dans `NAMES`, l'en-tête de l'aide réécrit à nombre de lignes constant (pour qu'aucun tueur ne
-  bouge), les deux copies et les deux tueurs neufs de la marche, et la correction de m-5.
+  ajoute +20 −11 au compte R-25 (le diff brut du delta sur le code est de +45 −36 : note 5 de la seconde G2 de delta) : `execve` et
+  `setEngine` dans `NAMES`, l'en-tête de l'aide réécrit à nombre de lignes constant (pour qu'aucun tueur ne bouge), les deux copies et les
+  deux tueurs neufs de la marche, et la correction de m-5.
 - À `700b4920` : `tsc --noEmit` 0 ; `eslint` des trois fichiers 0 ; `gate:vocab` OK (349 fichiers) ; `lang:gate` OK ; `lint:ratchet`
   69/69 ; `export:check` OK ; winlint (`676416fe…`, `--base 5437cd0d`) : 4 fichiers, aucun risque Windows.
 - `test:main` (Node 24.21.0, Linux) sur le code de cette tête, `700b4920` (ce G0 ne change que lui ; lancé avec ce G0 en place, sa
@@ -265,6 +313,19 @@ Rejouée au pli dans un worktree jetable (`0e31950b` + `700b4920`, `--no-ff --no
   0 échec, 0 annulé, 22 sautés ; `r25-taille-de-lot` : « R-25 mode: written », « Changed lines: 186 (ADR bound: 1205) » ; CodeQL (les
   trois analyses et le contrôle CodeQL) verts. Le compte de la suite est un de plus qu'au premier pli (2 928) : la réf de fusion de la PR
   prend désormais le tronc `e13cfff7`, qui porte les tests de #244 ; ce lot n'ajoute aucun test (les copies tiennent dans un test existant).
+- Au pli de la seconde G2 de delta, à `3527f5a1` (l'en-tête de l'aide seul ; ce G0 suit, hors du compte R-25) : R-25 inchangé, **186**
+  (3 fichiers, +155 −31, `origin/lot/etude-suite...HEAD` avec le tronc `43f46d9f`, base de fusion `5437cd0d` ; le diff du pli est de +6 −6,
+  l'en-tête gagnant une ligne et la ligne vide après l'import en perdant une). `tsc --noEmit` 0 ; `eslint` de l'aide 0 ; `gate:vocab` OK
+  (349 fichiers) ; `lang:gate` OK ; `lint:ratchet` 69/69 ; `export:check` OK ; winlint (`676416fe…`, `--base 5437cd0d`) : 4 fichiers, aucun
+  risque Windows. `verifie-ancres` : 50 tueurs des fichiers touchés, tous ANCRE contre `5437cd0d` comme contre `536f04c2` (aucune ligne
+  visée n'a bougé), et 1 664 sur l'arbre ; `every_killer_line_is_readable` 1/1 ; `kata-path` 20/20, `verifiers-list` 12/12,
+  `gate-kata-served` 12/12. `run.mjs --killers --base 5437cd0d` (verrou d'hôte partagé, Node 24.21.0, de 04:36:41Z à 04:39:32Z) : base 577
+  verts sur 61 fichiers (les cinq derniers tests de `gate.test.ts` non rapportés par leur enfant, le phénomène du §7) ; **50 tués sur 50**
+  à leur premier lancement, chaque TAP ne portant que `ERR_ASSERTION` (`RESULTS.json` `2ed1c149…`, `tool_sha256` `13b2b11f…`). CI en
+  ligne à `3527f5a1` : 12 contrôles sur 12 verts (le tronc y ajoute `g3-verifier-tool`, #247) ; gates run `37728291005` (`head_sha`
+  vérifié), `g3-verification` 2 935 tests, 2 913 passés, 0 échec, 0 annulé, 22 sautés (les six de plus sont ceux de #247, que la réf de
+  fusion prend avec le tronc `43f46d9f`) ; `r25-taille-de-lot` : « R-25 mode: written », « Changed lines: 186 (ADR bound: 1205) » ;
+  CodeQL (run `37728287600` : les trois analyses et le contrôle CodeQL) vert.
 
 ## 10. Ce qui n'est pas fait
 
@@ -284,6 +345,11 @@ Rejouée au pli dans un worktree jetable (`0e31950b` + `700b4920`, `--no-ff --no
   liraient autrement ; `ShadowRealm` (absent de Node 24.21 sans drapeau). `process.execve` et `setEngine` de `node:crypto`, cités comme
   non essayés au premier pli parce qu'ils ne passent par aucun import que la liste refuse, sont désormais nommés par `forbiddenLoads` (pli
   de m-4, §4) ; `node:inspector` et `run()` de `node:test` passent par leur import, hors de la liste.
+- Un `execve` appelé au chargement d'un module que charge un fichier de test, ou un `process.exit(0)` au chargement : le processus de ce
+  fichier est remplacé ou fini avant ses tests, et le lanceur compte le fichier pour une seule entrée verte. Pour la marche, cela vaut des
+  12 modules servis que `kata-path.test.ts` charge lui-même (§4, mesuré au §13) ; le tueur de `execve` est donc dans une fonction. Rien dans
+  ce lot ne borne ce nombre ; la limite est nommée au §4, dans l'en-tête de l'aide (l.31-32) et dans le corps, et couverte comme classe par
+  l'item neuf TEST-COUNT-FLOOR-1 (MONARK, `1c58876` §3 ; porteur RECHERCHES ; déclencheur : avant la G7 de la partie qui suit #246).
 
 ## 11. Pli de la G2
 
@@ -302,9 +368,37 @@ lui (formulation, pas un défaut) ; le verrou d'hôte de `run.mjs` est pris, ici
 
 | constat | pli |
 |---|---|
-| m-4 : deux chargeurs qu'aucun import ne refuse (`process.execve`, `setEngine` de `node:crypto`) et une troisième voie (`Function` par énumération des descripteurs d'un prototype) passaient la marche sans être nommés | voie (a) : `2493d1a0` (test rouge — les copies X-execve et X-engine, et deux tueurs de `kata-path.ts` : `setEngine` en tête, `execve` dans une fonction), `e79dbc9c` (`execve` et `setEngine` dans `NAMES`, l'en-tête élargi). `Function` par énumération nommé sous IMPORT-AST-RUNTIME-NAME-1, dont le G0 élargit le texte à « a loader or constructor reached by a name built or chosen at run time » (à relayer à MONARK pour l'ETAT). En-tête de l'aide, doc de `SERVED_IMPORTS`, §4 et §10 mis à jour ; §7/§9 : 50 tueurs sur 50, 1 664 ANCRE, R-25 186 |
+| m-4 : deux chargeurs qu'aucun import ne refuse (`process.execve`, `setEngine` de `node:crypto`) et une troisième voie (`Function` par énumération des descripteurs d'un prototype) passaient la marche sans être nommés | voie (a) : `2493d1a0` (test rouge — les copies X-execve et X-engine, et deux tueurs de `kata-path.ts` : `setEngine` en tête, `execve` dans une fonction), `e79dbc9c` (`execve` et `setEngine` dans `NAMES`, l'en-tête élargi). `Function` par énumération nommé sous IMPORT-AST-RUNTIME-NAME-1, dont le G0 élargit le texte à « a loader or constructor reached by a name built or chosen at run time » (à relayer à MONARK pour l'ETAT). En-tête de l'aide, doc de `SERVED_IMPORTS`, §4 et §10 mis à jour ; §9 : 50 tueurs sur 50, 1 664 ANCRE, R-25 186 |
 | m-5 : « un suffixe de requête que Node charge comme le même module » est faux | `2493d1a0` (doc de `servedModules`), ce G0 (§4, la doc fusionnée du §8), et le corps de la PR : avec un suffixe comme `?served`, Node 24 réévalue le même fichier une seconde fois comme une autre instance de module ; la marche affirme seulement que le spécificateur relatif nomme un fichier |
 | m-6 : la seconde marche (`gate-kata-served.test.ts:212-218`), couverte pour la liste mais laissée sans item, divergera de la première à la fusion d'a1 | aucun changement dans cette PR : la fusion d'a1 (#233/#236) lui donne la même boucle `importSpecifiers` (+2 −1), portée par RECHERCHES à ce pli, écrit au §8 (recette) et au §10 ; pas d'item neuf |
 
 Artefacts du pli du delta, hors dépôt : `scratchpad/ad-mut-killers/` (`--killers`, `RESULTS.json` `89df5d77…`), `scratchpad/ad-redproof/`
-(`RED-PROOF.json` `81840ab5…`), la fusion d'a1 rejouée (`0e31950b` + `e79dbc9c`, jamais commitée, worktree retiré).
+(`RED-PROOF.json` `81840ab5…`), la fusion d'a1 rejouée (`0e31950b` + `e79dbc9c`, jamais commitée, worktree retiré), résolue par
+`scratchpad/ast-delta-tools/resolve.mjs` (`8b43918e…`, m-7 de la seconde G2 de delta).
+
+## 13. Pli de la seconde G2 de delta (m-7, m-8, note 2)
+
+| constat | pli |
+|---|---|
+| m-7 : le §8 disait la doc fusionnée corrigée portée par `resolve-a1.mjs`, qui garde l'ancienne incise, et ne nommait pas le script qui a résolu le delta | ce G0 : le §8 (premier pli, doc fusionnée, rejeu du delta) et le §12 nomment `scratchpad/ast-delta-tools/resolve.mjs` (`8b43918e…`), désormais le seul script de la recette ; `resolve-a1.mjs` (`bcde68db…`) est celui du premier pli. Rejoué à `3527f5a1` (§8) : `resolve.mjs` rend `843734ff…`, la résolution que la revue a écrite d'après la prose du §8 ; `resolve-a1.mjs` s'arrête sur « block 2: our doc » |
+| m-8 : la limite d'un `execve` appelé au chargement n'était écrite qu'au-dessus des tueurs | voie (a), décidée par MONARK (`1c58876` §2) : `3527f5a1` (l'en-tête de l'aide, l.31-32 ; le paragraphe de la limite au-dessus rendu au mot près, et la ligne vide après l'import ôtée, pour qu'aucune ligne de code ne bouge), ce G0 (§4, §6, §10), une phrase du corps ; couverte comme classe par l'item neuf TEST-COUNT-FLOOR-1 (§4) |
+| note 2 : le corps disait « the known limit of reading a loader whose name is built or chosen at run time » | le corps prend le libellé décidé : « a loader or constructor reached by a name built or chosen at run time » ; il dit aussi, note 3, « outside the helper and its tests » |
+
+La limite mesurée, à `3527f5a1`, par des mutants à la main dans un worktree jetable (octets rendus, sha256 vérifié, `git status` vide
+après chacun ; Node 24.21.0, les drapeaux du script `test` du dépôt) :
+- un `execve` appelé au chargement de `kata-path.ts`, l'un des 12 modules servis que charge `kata-path.test.ts` : `kata-path.test.ts` rend
+  « tests 1, pass 1 », sortie 0, au lieu de ses 20 tests, la marche n'ayant pas tourné ; de même `gate-kata-served.test.ts` (1 entrée
+  verte au lieu de 12) ;
+- le même appel au chargement de `version.ts`, l'un des 10 autres : `kata-path.test.ts` rougit par `ERR_ASSERTION`
+  (`kata_path_is_served` et `every_listed_code_has_a_served_thrower_or_is_pending`, sur `version.ts` ; 18 verts) ;
+- un `process.exit(0)` au chargement de `kata-path.ts` : « tests 1, pass 1 », sortie 0.
+
+Le compte de 12 sur 22 : un crochet de chargement (`registerHooks`, préchargé par `--import`) sur `kata-path.test.ts` note 16 modules de
+`apps/harness/src`, dont 12 servis, et la fermeture statique du fichier par `importSpecifiers` donne les mêmes (aucun écart). Les notes 3
+à 8 de la G2 sont pliées dans ce G0 : §4 (note 3), §5, §6 et §12 (note 4), §9 (note 5), §8 (notes 6, 7 et 8).
+
+Artefacts du pli, hors dépôt (`SHA256SUMS.txt` dans `scratchpad/fold246-m78-out/`) : `scratchpad/fold246-m78-out/mut-killers/`
+(`RESULTS.json` `2ed1c149…`), `hand/` (les trois mutants de la limite), `merge/` (octets en conflit `05bd1fd2…`, résolution `843734ff…`,
+ancres avant `89074d19…` et après `a0f508b5…`, les tueurs tirés à la main, la recette de m-6 et sa fusion avec #237), `kata-loads.log`
+(`a03f79a6…`) ; les outils dans `scratchpad/fold246-m78-tools/` (`tt.sh`, `hand.mjs`, `loadlog.mjs`, `served-closure.mts`, `hdrwrap.mjs`,
+`apply-header.mjs`).
