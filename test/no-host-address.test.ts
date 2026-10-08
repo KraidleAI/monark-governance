@@ -142,7 +142,7 @@ test("address_literals_read_forty_thousand_dots_in_bounded_time", () => {
 });
 
 // reddened by: a skipped file reported whatever its attributes, so a declared binary is refused and an undeclared one passes
-// killer: scripts/address-literals.mjs:180 ROR "!== \"set\"" -> "=== \"set\""
+// killer: scripts/address-literals.mjs:181 ROR "!== \"set\"" -> "=== \"set\""
 test("address_literals_name_each_skipped_file_that_gitattributes_does_not_declare_binary", () => {
   const nul = (s: string): Buffer => Buffer.concat([Buffer.from([0]), Buffer.from(`${s}\n`)]);
   const v = fixture({ ".gitattributes": "*.bin binary\n*.raw -text\n", "a.bin": nul("a"), "b.raw": nul("b"), [`c-${A}.dat`]: nul("c"), "d.md": "d\n" }, {},
@@ -219,4 +219,13 @@ test("address_literals_judge_a_link_by_its_text_never_followed_and_a_gitlink_by_
     execFileSync("git", ["update-index", "--add", "--cacheinfo", `160000,${"5".repeat(40)},sub`], { cwd: root, env });
     mkdirSync(join(root, "sub"));
   }), "a gitlink whose directory exists: its path is judged, nothing in it is read");
+});
+
+// reddened by: a file the scan cannot read rethrown as Node's error, whose message prints the path as written, an address included
+// killer: scripts/address-literals.mjs:170 CONST "${show(p)}" -> "${p}"
+test("address_literals_print_the_path_of_a_file_it_cannot_read_masked", { skip: process.platform === "win32" }, () => {
+  const n = "n".repeat(300); // a name too long for the file system: lstat throws ENAMETOOLONG (on win32, another code: skipped)
+  assert.throws(() => fixture({ "x.md": "x\n" }, {}, (root, env) => { mkdirSync(join(root, "logs", A), { recursive: true });
+    execFileSync("git", ["update-index", "--add", "--cacheinfo", `100644,${"5".repeat(40)},logs/${A}/${n}`], { cwd: root, env }); }),
+  { message: `address literals: cannot read logs/x.x.x.x/${n} (ENAMETOOLONG)` }, "a file not read is named once every file is read, its path masked");
 });
