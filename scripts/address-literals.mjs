@@ -148,10 +148,10 @@ function judge(v, rel, line, text, seen) {
   }
 }
 
-/** The verdict over the tracked files of `root`: refused literals (masked), listed pairs met, files read, undeclared binaries. */
+/** The verdict over the tracked files of `root` (refused literals masked, listed pairs met, files read, undeclared binaries); throws on one unread. */
 export function scan(root, env = bareEnv()) {
   const tracked = execFileSync("git", ["ls-files", "-z"], { cwd: root, env, maxBuffer: 1 << 26 }).toString("utf8").split("\0");
-  const v = { hits: [], used: new Set(), read: 0, undeclared: [] }, skipped = [], seen = new Set();
+  const v = { hits: [], used: new Set(), read: 0, undeclared: [] }, skipped = [], unread = [], seen = new Set();
   for (const rel of tracked.filter((f) => f !== "")) {
     judge(v, rel, 0, rel, seen);
     let buf;
@@ -159,7 +159,7 @@ export function scan(root, env = bareEnv()) {
       const p = join(root, rel), st = lstatSync(p);
       if (!st.isFile() && !st.isSymbolicLink()) continue;
       buf = st.isSymbolicLink() ? readlinkSync(p, { encoding: "buffer" }) : readFileSync(p);
-    } catch (e) { if (e.code === "ENOENT") continue; throw e; } // deleted in the work tree
+    } catch (e) { if (e.code !== "ENOENT") unread.push([rel, String(e.code)]); continue; } // ENOENT: deleted in the work tree
     if (buf.includes(0)) { skipped.push(rel); continue; } // a binary file, which .gitattributes must declare (undeclared, below)
     v.read++;
     buf.toString("utf8").split("\n").forEach((text, i) => { judge(v, rel, i + 1, text, seen); });
@@ -167,6 +167,7 @@ export function scan(root, env = bareEnv()) {
   const shown = new Map(), show = (p) => shown.get(p) ?? shown.set(p, hide(p, seen)).get(p); // each path once, every file read
   for (const h of v.hits) h.file = show(h.file);
   v.undeclared = undeclared(root, env, skipped).map(show);
+  if (unread.length > 0) throw new Error(`address literals: cannot read ${unread.map(([p, code]) => `${show(p)} (${code})`).join(", ")}`);
   return v;
 }
 
