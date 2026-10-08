@@ -164,13 +164,13 @@ test("address_literals_name_each_skipped_file_that_gitattributes_does_not_declar
 test("address_literals_mask_a_path_wherever_its_address_recurs_escaped", () => {
   const esc = (e: string): string => A.split(".").join(e), E = q(198, 19, 0, 1);
   const v = fixture({ "a.log": `h%5b${B}\n`, "b.log": `${A}%35\n`, [`logs/v${esc("%2e")}/${esc("%2e")}.txt`]: "x\n",
-    [`logs/v${esc("%2E")}/${A}.txt`]: "x\n", [`logs/${C}/${A}.txt`]: "x\n",
+    [`logs/w${esc("%2E")}/${A}.txt`]: "x\n", [`logs/${C}/${A}.txt`]: "x\n",
     [`logs/host${E}.txt`]: `${E}\n`, [`logs/host${E.split(".").join("%2E")}.txt`]: `${E}\n` });
   // killer: scripts/address-literals.mjs:74 CONST "/%[\\dA-Fa-f]{2}/g" -> "/%[\\dA-F]{2}/g"
   assert.deepEqual(at(v, "a.log"), ["1:5 6 x:x::x"], "a lowercase escape is read (RFC 3986: either case)");
   // killer: scripts/address-literals.mjs:106 CONST "!seen.has(`${String(at[a])} ${lit}`)" -> "!out.some(([, s, e]) => s < at[b] && at[a] < e)"
   assert.deepEqual(at(v, "b.log"), ["1:1 4 x.x.x.x", "1:1 4 x.x.x.x"], "a decoded digit glued to an address: two readings that overlap, two hits, both masked");
-  assert.deepEqual([at(v, "logs/vx%x%x%x/x%x%x%x.txt"), at(v, "logs/vx%x%x%x/x.x.x.x.txt"), at(v, "logs/x.x.x.x/x.x.x.x.txt")],
+  assert.deepEqual([at(v, "logs/vx%x%x%x/x%x%x%x.txt"), at(v, "logs/wx%x%x%x/x.x.x.x.txt"), at(v, "logs/x.x.x.x/x.x.x.x.txt")],
     [["0:24 4 x.x.x.x"], ["0:24 4 x.x.x.x"], ["0:6 4 x.x.x.x", "0:17 4 x.x.x.x"]],
     "an escaped recurrence glued to a word is masked too, whichever pass read the literal, and so is each literal of a path: no digit of an address");
   // killer: scripts/address-literals.mjs:143 CONST "seen.add(" -> "line === 0 && seen.add("
