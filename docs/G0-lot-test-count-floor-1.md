@@ -148,6 +148,11 @@ export default async function* testCounts(source) {
 }
 ```
 
+**As built, the four comment lines are rewritten in plain English, with no internal name or path** (the review of PR-1, G2 `033dca28`,
+note n-3): the D7 terdecies addendum says the exported reporter carries no internal name, the form `test/helpers/blocking-stdout.cjs`
+took under D7 undecies. The code lines are those above, byte for byte, and no line moves: the killers of l.15 and l.16 stay anchored.
+MONARK may still prefer his reading of the addendum (no secret and no private name), under which the header above was admissible.
+
 Plus `scripts/test-counts-reporter.d.mts` (3 lines; it admits an iterable, which the test passes), so that the test imports it. It
 lives under `scripts/`, not under `test/helpers/`: three tests want `test/helpers/blocking-stdout.cjs` to be the only exported file of
 the root `test/` (`test/bell-anchors.test.ts:167`, `test/no-cash-provider-name.test.ts:44`, `test/site-build-fleet.test.ts:813`,
@@ -188,7 +193,12 @@ cannot enter the record. Its written form is checked (P3) from PR-1 on (by T2 on
 touching the record, a later one erases 5; the run equals the floor, nothing reddens. The record therefore follows each change of a
 count: each pull request that adds, removes or moves a test rewrites the lines of its files (two lines of the size count per file whose
 count changes, one for a new file), mechanically, by `write`. The line of ETAT that formed the item (l.411-415 at `565c7065`: "number
-of tests per file ≥ that of the base") still says a floor: for MONARK to rewrite with his lines (§11, note 7).
+of tests per file ≥ that of the base") was corrected in place by MONARK at `20fffe9f` (ETAT l.414-415): an exact record (§11, note 7).
+
+**If the trunk moves before the merge, the record is rewritten on the merged tree**: the branch merges the trunk (a plain merge, no
+rebase), runs `npm run test:main && node scripts/test-count-floor.mjs write` on that merge and commits the lines it rewrites, so that
+the record a merge brings to the trunk is the run of the merged tree, never the run of an older trunk (the review of PR-1, G2
+`033dca28`, finding m-1). Nothing in PR-1 would see a stale record: T2 holds its written form only, and P2 comes with PR-2.
 
 ### 2.4 The removal list: `test/test-count-removals.json` (PR-2, new, 1 line: `[]`)
 
@@ -607,6 +617,10 @@ Windows, only the Windows-specific skips already declared explain a gap; any oth
 - To replay too, under Windows only: the reporter's line that only acts there (l.10, the `\` into `/`), the loading of
   `--test-reporter=./scripts/test-counts-reporter.mjs` under `cmd.exe`, and the two new test files (the git fixture repository with
   `core.autocrlf=false`, the nested `node --test` by the reporter's `file:` URL).
+- **Run the replay from a path with no junction or symbolic link** (the clone and `TEMP`): a test file reached through one is reported
+  under two keys, its tests at its real path and its summary at the launcher's (`process.cwd()` keeps a junction under Windows), and
+  `write` refuses that run by P1, closed by default (G2 `033dca28` of PR-1, note n-2, measured under Linux with a symbolic link).
+  Planned for PR-2, from that note: realpath both the cwd and the file in the reporter (a change to a PR-1 file, against §2.10).
 
 ## 10. Trigger, sequence, and a1 (m-7, m-5)
 
@@ -626,14 +640,15 @@ wait for this lot: it passes with the fallback (§10.3).
 2. **MONARK, at the trunk** (`380b4b6` Q-2, `729de62`, `34879a7`): the D7 terdecies addendum of ADR-M004 (the reporter exported, its
    reason, its test: **`test_main_loads_the_counts_reporter_and_the_export_ships_it`**, of PR-1, and its killer), a dated D9 line under
    ADR-M003 for #249, and the lines of ETAT (TEST-COUNT-FLOOR-1 in two pull requests and its trigger; TEST-COUNT-SKIP-EXPORT-1; the line
-   that formed the item, l.411-415, which still says "≥"), in a trunk commit of documents only. PR-1 does not wait for it (`34879a7`):
-   the branch merges the trunk once MONARK gives that commit's sha, and the commit is on the trunk before PR-1's code is merged.
+   that formed the item, l.411-415, corrected in place by MONARK at `20fffe9f`, ETAT l.414-415), in a trunk commit of documents only.
+   PR-1 does not wait for it (`34879a7`): the branch merges the trunk once MONARK gives that commit's sha, and the commit is on the
+   trunk before PR-1's code is merged.
 3. **PR-1** on `recherches/test-count-floor-1-record`, from `52d1e0b7`: this note; then T (`test/test-count-floor.test.ts` and the pin
    (a), red at the base); then C (the rest; the record written by `write` on C's run, at the trunk of the moment); T and C pushed
    together, so that the CI never runs the red tests alone; proofs (§8); the pull request, as a draft; its CI green; its G2; the merge
    request; MONARK's G7 (the oracle: no extra gate; the Windows replay and its comparison, §9); the merge.
 4. **PR-2** on a branch of its own, **from a trunk that carries PR-1**, never before (the size count counts `origin/<base>...HEAD`,
-   `ci.yml:100`: a PR-2 opened on a trunk without PR-1 would also count PR-1's lines: 663, above 547): T (`test/test-count-check.test.ts`,
+   `ci.yml:100`: a PR-2 opened on a trunk without PR-1 would also count PR-1's lines: about 661, above 547): T (`test/test-count-check.test.ts`,
    the closed list of test 42(f'), the assertion of `ORACLE_BASE`, `oracle_reads_the_tests_of_test_main`), then C; the record rewritten by
    `write`; `node scripts/test-count-check.mjs --base origin/lot/etude-suite` names each drop since PR-1's record: one removal line per
    drop, its reason naming the pull request (§2.6); proofs; the pull request; its CI green, **`g3-test-count` included: the pull request
@@ -757,7 +772,7 @@ summary of its own on either side; the 31 files of a single test stay so. Both t
 | `scripts/oracle/run.mjs` | PR-2 | l.137 (`ORACLE_BASE`, Q-4 (a)) and l.162-163 (the `tests` field, Q-9), in place | decided in the second pull request (Q-4, Q-9) |
 | **`test/oracle-run.test.ts`** | PR-2 | an assertion and its killer in `oracle_gates_see_no_foreign_credential` (+2); `oracle_reads_the_tests_of_test_main` and its killer (+10) | **open by Q-10** (`729de62`: l.137 and l.162-163 of `run.mjs` in place, no anchor moved; m-6) |
 | `docs/adr/ADR-M004-infrastructure-plateforme.md` | — | **D7 terdecies addendum**: the reporter exported (`scripts/test-counts-reporter.mjs`), its reason (the mirror launches `test:main`, which loads it), **its test: `test_main_loads_the_counts_reporter_and_the_export_ships_it`** (`test/test-count-floor.test.ts`, PR-1) | MONARK, at the trunk (Q-2, `34879a7`) |
-| `docs/ETAT.md` | — | MONARK's lines: the lot in two pull requests and its trigger (the decisions' line is at `565c7065`, l.539-545); the line that formed the item (l.411-415, "≥ that of the base") to rewrite: the gate holds an exact record (§2.3, note 7 of the G2) | MONARK |
+| `docs/ETAT.md` | — | MONARK's lines: the lot in two pull requests and its trigger (the decisions' line is at `565c7065`, l.539-545); the line that formed the item (l.411-415, "≥ that of the base"), corrected in place by MONARK at `20fffe9f` (ETAT l.414-415): the gate holds an exact record (§2.3, note 7 of the G2) | MONARK |
 
 New files, RECHERCHES's: PR-1: `scripts/test-counts-reporter.mjs` and its `.d.mts`, `scripts/test-count-floor.mjs` and its `.d.mts`,
 `test/test-count-floor.test.ts`, `test/test-counts.json`, `docs/G0-lot-test-count-floor-1.md` (this note, which the code's headers

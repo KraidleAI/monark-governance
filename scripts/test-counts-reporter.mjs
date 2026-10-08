@@ -1,7 +1,7 @@
-// TEST-COUNT-FLOOR-1 (docs/G0-lot-test-count-floor-1.md): a node --test reporter that test:main loads beside spec. For each test file it
-// writes the tests the file's process reported (test:pass and test:fail of kind "test", at any depth, skipped and todo ones included)
-// and whether that process sent a summary of its own. A process that ends before it reports (an exit or an exec, at load or inside a
-// test) sends none: the launcher reports the file by its name as one test. scripts/test-count-floor.mjs reads the file it writes.
+// A node --test reporter that test:main loads beside spec. For each test file it writes how many tests the file's process reported
+// (test:pass and test:fail events of kind "test", at any depth, skipped and todo ones included) and whether that process sent a summary
+// of its own. A process that ends before it reports (an exit or an exec, at load or inside a test) sends none: the launcher then reports
+// the file by its name as one test. Its output is one JSON object, keyed by each file's path from the working directory, sorted.
 import { relative, sep } from "node:path";
 
 export default async function* testCounts(source) {
