@@ -28,6 +28,7 @@ const CI_ONLY = [
   [/^npm sbom\b/, "per-run CI artefact (serialNumber, timestamp); scripts/sbom.mjs mirrors it"],
   [/^npm run build -w @monark\/site\b/, "build site: next build writes .next/ (job g3-site)"],
   [/^node scripts\/assert-fleet-html\.mjs\b/, "build site: O-2 reads the next build output (job g3-site)"],
+  [/^node scripts\/verifier-tool-ci\.mjs\b/, "frozen verifier tool: runs under the CPython the CI pins (job g3-verifier-tool), not the host's"],
 ];
 const STATIC = /^(npm run (gate:vocab|typecheck|lint|lint:ratchet|lang:gate|export:check)|bash enforcement\/lint-model-pinning\.sh \.|r25)$/;
 const REQUIRED = ["schema", "role", "tree", "base", "key", "pid", "start", "end", "static_only", "gates", "tests", "r25", "residues", "ci_only", "cv4", "exit", "served_from"];
