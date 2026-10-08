@@ -239,8 +239,11 @@ record `760fdd4b…` ; relevé par MONARK, 2026-10-07 09:1x UTC).
     Construction : l engagement à clé des empreintes de suite publiées (option (e) du G0, l.379), qui généralise
     DIR-4H-DIGEST-COMMIT-1 ; prix : à chiffrer à son G0 ; état : formé.
   - BELL-ITEMS-ETAT-CARRY-1 (PAROXYSME ; inventaire de Bell l.178, registre de Bell doute 10) : les 43 items de Bell absents d ETAT
-    (liste : `docs/PAROXYSME-Bell.md` l.502-519 à `1df4e44f`) sont reportés ici, chacun avec sa source, son porteur, son déclencheur et son prix.
-    Relevé par PAROXYSME, lignes par MONARK ; les quatre items datés d abord (ci-dessous), les 39 autres en PXC-01 p2 ; prix : 0,5 j.
+    (liste : `docs/PAROXYSME-Bell.md` l.502-519 à `1df4e44f` ; doute 10 : l.580-616 à `b7c2ba40`) sont reportés ici, chacun avec sa source, son porteur, son déclencheur et son prix.
+    Relevé par PAROXYSME, lignes par MONARK ; les quatre items datés d abord (ci-dessous), les 36 autres en PXC-01 p2 ; prix : 0,5 j.
+    [Ligne datée MONARK 2026-10-08 06:3x UTC : « 39 » devient « 36 » (PAROXYSME `ecee6b6` §2.3, recompté par MONARK) : des 43 noms, six
+    ont une tête d item à `5437cd0d` (les quatre items datés, BELL-HOST-COTENANCY-1 et BELL-ITEMS-ETAT-CARRY-1), et PAROXYSME-BELL-FILE-1 est
+    accompli par le versement.]
   - Les quatre items datés de Bell (relevé de PAROXYSME, `9662945` ; prix : à chiffrer à leur G0, non écrit à la source) :
     - CARTO-BR-1 (`docs/CARTOGRAPHIE-BRANCHEMENT-2026-09-24.md` l.342) : la copie immuable de la provenance seq 1 nomme un fournisseur
       de données, contre les Terms servis (`apps/site/data/bell-legal.json` l.56). Forme : un ruling documenté de MONARK parmi (a)
@@ -492,6 +495,97 @@ M2, M3, M4, M6, M9, M10, M11 ; Ukemi E3, E4, E8, E9, E12 ; Narabi T2, T3, T5, T1
 - Narabi H5 (PAROXYSME `ecede5e`) : `9612d4d2` est l arbre attendu du T0 ; le fait confirme T8 : depuis le 2026-10-06 les lignes de Narabi
   sont écrites par une sentinelle dont le code importé a changé (18 fichiers de `c9aebb44` à `9612d4d2`) sans que `sentinel_sha`, qui ne
   hache que `apps/sentinel/src/*.ts` de premier niveau, ait bougé ; entrée SENTINEL-DEPLOY-GUARD-1 (PXC-05 p1 PR 2), dans O-2.
+
+## Fusion de #245 et suite du matin (MONARK, 2026-10-08 06:3x UTC)
+
+Écrit au tronc après `1ae166c6` (#245). Lignes tenues par MONARK depuis `caa36277`, dans l ordre où elles ont été écrites, puis celles de la
+fusion de #245 et des décisions de MONARK sur sa demande. Deux corrections en place, demandées par PAROXYSME (`ecee6b6` §2) : « 39 » devient
+« 36 » sous BELL-ITEMS-ETAT-CARRY-1, et l ancre de `skills/monark/DEMO.md` devient l.87-88.
+
+- DÉCISION FONDATEUR (2026-10-08 vers 05:21 UTC, session de PAROXYSME, relayée mot pour mot par `4f8e42f`) : « on réarme la jambe payante.
+  » T6 du relevé Narabi tranché : SENTINEL-GUARD-ARMING-1 (porteur MONARK, PXC-05 p3, dans O-2 ; 1,5 à 2 j), avec T4 (alerte quand la
+  jambe s éteint) ; préalable P-3 : lecture par le fondateur de la console du fournisseur RPC de la jambe et pose des clés de cycle par
+  lui ; puis RUNBOOK-sentinel §6-bis (3) à (7) par MONARK. N04 et L26 à L28 du registre Narabi : pliés par PAROXYSME après #245 (non
+  ajoutés à #245, dont les vérifications finales tournent).
+- Correction MONARK (a2609c22, 05:2x UTC) : la ligne de REGLES-MISSION du palier de signal nommait « ROSTER-TIERS-HAIKU-5-5-1 », donc le
+  mot Haiku que la règle des mentions lirait ; retiré ; le message recherches cae55be disait à tort « Haiku n y figure pas » pour
+  caa36277.
+- DÉCISIONS DU FONDATEUR (2026-10-08 vers 05:3x UTC, questions fermées de MONARK) : (1) Narabi, jambe « attested » : « Upcoming while
+  building (Recommended) » : Q-A.2 du 2026-10-07 maintenue, la jambe reste `upcoming` jusqu à une attestation signée réelle, puis repasse
+  « attested » ; construction à former dans O-2 (attesteur à clé réelle à la place de `deadbeef`) ; (2) Bell : « Yes, as soon as ready
+  (Recommended) » : D-5 levé pour la collecte, qui démarre sur l hôte séparé dès que code, tests et comptes sont prêts, sans attendre le
+  2026-11-16 ; (3) garde de MONARK : « Yes, add it (Recommended) » : toute lecture sous <dossier des secrets> bloquée par la garde, avec
+  son cas de test ; (4) HOST-HARNESS-PREV-1 : « Yes, delete them (Recommended) » : MONARK garde l arbre courant et la copie la plus
+  récente (`.prev-20261004-2331`) comme repli, supprime les deux plus anciennes (`.prev-20261003-2231`, `.prev-20261004-0742`) après
+  vérification qu aucune unité ne les référence.
+- HOST-HARNESS-PREV-1 FAIT (MONARK, 2026-10-08 05:4x UTC, sur la décision du fondateur « Yes, delete them ») : hôte du site,
+  /opt/monark-harness.prev-20261003-2231 (524 Mo) et /opt/monark-harness.prev-20261004-0742 (527 Mo) supprimés après vérification (aucune
+  référence dans les unités systemd, aucun fichier ouvert, /opt/monark-harness est un dossier réel) ; gardés : l arbre courant et
+  .prev-20261004-2331 (repli). Restent huit archives .bak-*.tgz (2026-09-18 à 2026-10-04) non visées par la question : à poser au
+  fondateur. Disque : 6 % utilisé. Garde de MONARK : règle 7 (dossier secrets) ajoutée, 43 cas sur 43.
+- Faits d hôte de la tâche 2 bis clos (MONARK, 05:1x à 05:4x UTC) : Narabi H1-H8 (paroxysme 92af6bd, pièce
+  FAITS-HOTE-Narabi-2026-10-08.md) conformes, jambe payante noire, harnais à 9612d4d2 (attendu, confirme T8) ; Bell H1-H8 et Ukemi H1-H10
+  (paroxysme 11ecff4, pièce FAITS-HOTE-Bell-Ukemi-2026-10-08.md) conformes, sauf Bell H3 non vérifiable au journal (journal de l hôte
+  depuis le 2026-10-02) ; Ukemi H9 : verify-harness de 53cd3fb6, 15/15 verts à 05:48 UTC ; Ukemi H10 : majorant de la lecture payante de
+  la course, 236 670 crédits dérivés (118 335 entrées), fournisseurs gratuits 0.
+- ÉCART DE MONARK (2026-10-08 05:5x UTC, relevé par PAROXYSME 3bf1937) : caa36277 a rendu le tronc rouge : la ligne neuve de
+  REGLES-MISSION écrivait la porte par son seul nom de fichier ; le générateur la copie dans chaque mission et R-TOOL la refuse
+  (test/mission-gen.test.ts:252) ; MONARK n avait couru que les portes de documents et ci-gates avant la poussée. Corrigé par 5e976a1a
+  (chemin complet) ; mission-gen, mission-lint, ci-gates 109/109 ; oracle complet du tronc relancé (clé DOCS-CAA36277). Règle pour soi :
+  un commit de documents qui touche REGLES-MISSION, DOCTRINE ou un fichier lu par un test passe par l oracle complet avant la poussée.
+- Oracle complet du tronc à 5e976a1a (rôle G1, base 391ca7c0, clé DOCS-CAA36277) : sortie 0, dix portes à 0
+  (F:/tmp/oracle-results/5e976a1ab4437083dbca16fb944b0333c57be6fe-G1-20261008T055535Z-30384.json) ; les documents de caa36277 et a2609c22,
+  corrigés par 5e976a1a, ne cassent plus aucune porte.
+- TEST-COUNT-FLOOR-1 (G0 ac282ef, 622 lignes) : décisions MONARK 06:0x UTC : (A) en deux PR (~410 et ~220) ; a1 passe avec le repli
+  (comparaison des comptes par fichier avant et après a1, à sa G2 et au rejeu Windows de MONARK), déclencheur de TEST-COUNT-FLOOR-1
+  déplacé à « avant la G7 de la partie qui suit a1 » ; fichiers de MONARK ouverts ; addendum D7 terdecies d ADR-M004 et lignes d ETAT
+  écrits par MONARK après la G2 du G0 ; délai du job 20 min ; ORACLE_BASE passé aux portes (run.mjs l.137 en place) ; rejeu Windows de la
+  porte à la fusion ; ligne de retrait {file, from, to, reason}, renommage = retrait ; item formé TEST-COUNT-SKIP-EXPORT-1 (test devenu
+  skip, test 42 sous test:export ; RECHERCHES ; déclencheur la fusion de la seconde PR) ; run.mjs:163 (champ tests nul depuis 6776f1fb)
+  corrigé en place dans la seconde PR.
+- #245 (PAROXYSME, registres de limites, tête `b7c2ba40`, documents seuls : les six `docs/PAROXYSME-*.md`) fusionnée `1ae166c6` sur
+  `5e976a1a` ;
+  CI 12/12 ; aucun test ne lit les registres ; `ci-gates` 44/44 ; second tour de PAROXYSME en pièce
+    (`coordination/pieces/2026-10-08-second-tour-245/`
+  du dépôt paroxysme) ; ligne PAROXYSME à `b7c2ba40` : Harnais 106 entrées (75 ouvertes), Hikae 54 (48), Ukemi 52 (49), Narabi 61 (53),
+  Bell 57 (55), Shōgen 76 (74), chaque entrée ouverte avec item, porteur et déclencheur.
+- Décisions de MONARK sur la demande de fusion de #245 (`ecee6b6`, points 5 à 14 ; message paroxysme `57e0d03`, 06:2x UTC) :
+  - PXC-11 partie 3 : l engagement à clé des empreintes de suite publiées (l item formé au point du 2026-10-07) S AJOUTE au contenu que
+    CC l.394 donne à la partie (recette publique de recomputation ou preuve de rang, KATA-THIRD-PARTY-RECALC-1) ; porteur PAROXYSME ;
+    déclencheur : le G0 de PXC-11 partie 3.
+  - F-W2-4 : la lecture de son déclencheur (« K ≥ 20 cellules listées » ou « une cellule à `calib_attempt` 2 ») est une décision technique,
+    dans la délégation de MONARK ; MONARK la tranche à la re-formation de F-W2-4 par PXC-01 p2, sur la lecture de RECHERCHES
+    (INVENTAIRE-Moteur l.337).
+  - DATA-ACCORDS-TEXTS-1 (PAROXYSME, Hikae N22, Harnais MK-L28) : les textes des accords avec les plateformes ; porteur : le fondateur, par
+    MONARK ; déclencheur : avant le service public des lignes kata (PLAN l.893) ; état : formé.
+  - DATA-LICENCE-KATA-1 (même source) : l accord écrit du fournisseur de séries, ou sa licence ; porteur : le fondateur, par MONARK ;
+    déclencheur : avant le service public des lignes kata ; état : formé.
+  - F-K-7 : re-porté ; la décision attendue au G0 court d E-2a reste due ; déclencheur inchangé : avant le service de la vague 1.
+  - Les douze items couvrants d Ukemi (doute 7 : U-5b, I-1 de l ADR-U4b, UKEMI-UPPER-BOUND-1, UKEMI-CHECK-ATTR-SCOPE-1,
+    SERVED-PROBE-PER-STRATUM-1, UKEMI-CONC-BOUND-1, R-BORNE-2, CARTO-T1C-4, F-W2-1, F-W2-3, Q-CP4B-1, NARABI-ROW-SUPERSEDE-1) : formés à
+    ETAT par la recartographie de PXC-01 p2, comme les PX-Ukemi.
+  - `calibrate`, Ukemi et Hikae : un seul item par construction commune ; (a) le texte public de l impossibilité (PXC-09 p5) porté par Ukemi
+    L21, renvoyé par Hikae L2 ; (b) le diagnostic d échangeabilité du label K-1 porté par Hikae L3 (KATA-EXCH-TEST-1), renvoyé par Ukemi
+      L20 ;
+    échéance : la recartographie de PXC-01 p2.
+  - SENTINEL-DEPLOY-GUARD-1 et SYNC-CHECK-MODE-1 : re-portés à PXC-05 partie 1, dans l ordre O-2 (T8 de Narabi, E10 d Ukemi) ; déclencheur :
+    le G0 de PXC-05 partie 1.
+  - Trois déclencheurs passés de Bell, re-portés dans O-3 (collecte de Bell, D-5 levé), déclencheur le G0 de O-3 : L-39 ADV-SIP-DAY-1
+    (franchi, la règle du jour est servie), SUPPLY-READ-1 (franchi, la supply est servie, repli « 1 »), L-25 ADV-SESSION-CUT-1 (passé sans
+    l acte : la coupe de séance n est pas énoncée) ; lecture sur place des plans CTA/UTP : MONARK, avec son FAITS daté, avant le G0 de O-3.
+  - Shōgen N-06, N-07, N-08 : portés au fondateur au point d étape de MONARK du 2026-10-08, au plus tard à l ADR de PXC-08.
+  - VERIFY-BADPORT-1 : si PXC-06 partie 1 touche `dojo-verify.mjs` avant PXC-01 partie 2, le constat sur la moitié Bell précède son G0.
+- BELL-HOST-SEPARATION-1 (MONARK ; décision du fondateur du 2026-10-08, « au prochain release, on met bell sur son propre serveur », et
+  « Yes, as soon as ready » pour la collecte) : Bell sur un hôte séparé ; construction : achat de l hôte et pose de la clé SSH (le
+  fondateur), installation, bascule DNS (le fondateur), collecte planifiée de O-3 sur cet hôte ; porteur : MONARK ; déclencheur : la
+  prochaine release de Bell, ou plus tôt dès que O-3 est prêt ; prix : à chiffrer par MONARK, celui de l hôte vient du fondateur.
+- SENTINEL-GUARD-ARMING-1, ligne datée MONARK 2026-10-08 : le fondateur a décidé « on réarme la jambe payante » (session de PAROXYSME,
+  vers 05:21 UTC, `4f8e42f`) ; le choix « jambe noire » est fermé ; préalable P-3 : la lecture de la console du fournisseur par le
+  fondateur et la pose des clés de cycle par lui ; puis RUNBOOK-sentinel §6-bis (3) à (7) par MONARK, avec l alerte T4.
+- Atelier de PAROXYSME : PR #8 (errata P-1 à P-14, règles de jugement, garde des données servies, `reviews.mjs` sur tout l historique avec
+  la marque LATE) fusionnée par MONARK à 06:25 UTC après relecture et 157 cas sur 157 rejoués sur le poste de MONARK.
+- Clé API de PAROXYSME (`c7b14cd`) : `PAROXYSME_HAIKU_API_KEY` absente de la session en cours (une variable de réglage n est lue que par une
+  session neuve) ; test de présence seul, sans appel, au prochain redémarrage de sa session ; aucun appel sans usage nommé et accordé.
 
 ## Points connus (à traiter, non bloquants sauf mention)
 
@@ -1974,7 +2068,7 @@ M2, M3, M4, M6, M9, M10, M11 ; Ukemi E3, E4, E8, E9, E12 ; Narabi T2, T3, T5, T1
     `daf8d3ea…`), sans test. Construction : la corriger et l épingler par un test ; environ 3 lignes. Déclencheur : le lot des
     surfaces de CM-2b (temps (i)) ; état : ouvert.
     Ligne datée (MONARK, 2026-10-07 19:4x UTC ; relevé par PAROXYSME, registre du Harnais C-16) : **clos au code**.
-    `skills/monark/DEMO.md` l.86-87 cite l empreinte de la trace enregistrée, et le test `demo_md_cites_the_current_byo_trace_digest`
+    `skills/monark/DEMO.md` l.87-88 [ligne datée MONARK 2026-10-08 06:3x UTC : l.86-87 devenu l.87-88, relu : l.86 vide] cite l empreinte de la trace enregistrée, et le test `demo_md_cites_the_current_byo_trace_digest`
     (`test/byo-demo-probe.test.ts` l.204) l épingle.
   - RED-PROOF-JUNCTION-1 (outil ; C-4 du contrôle de CM-2a, mesuré le 2026-10-03) : `scripts/red-proof.mjs` (`linkModules`,
     l.135-149) ne lie une jonction de `node_modules` que si c est un espace de travail ; sur un clone dont chaque entrée est une
