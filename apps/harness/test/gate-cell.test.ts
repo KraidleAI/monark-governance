@@ -77,7 +77,7 @@ test("served_values_equal_the_admitted_row", () => {
 // killer: apps/harness/src/tools/gate.ts:1038 CONST "registry_file: \"fixtures/usde-calib-scores.json\"" -> "registry_file: \"fixtures/usde.json\""
 test("served_tables_texts_and_sources", () => {
   const names = SERVED_MARGINAL_TABLES.map((t) => t.task_class);
-  assert.deepEqual(servedPolicyTables(SERVED_TABLE_TEXTS).filter((t) => names.includes(t.task_class)), [...SERVED_MARGINAL_TABLES].sort((a, b) => (a.task_class < b.task_class ? -1 : 1)));
+  assert.deepEqual(servedPolicyTables(SERVED_TABLE_TEXTS, new Map()).filter((t) => names.includes(t.task_class)), [...SERVED_MARGINAL_TABLES].sort((a, b) => (a.task_class < b.task_class ? -1 : 1)));
   const texts = SERVED_MARGINAL_TABLES.map((t) => [t.table.class.text, ...t.table.rows.map((r) => r.text)]);
   // Block D (lot D-2): SERVED_MARGINAL_TABLES is a view of the served tables, in their order (by task_class).
   assert.deepEqual(texts, [[CASCADE_UNCALIBRATED_SENTENCE], [LIQ_EMPTY_REGISTRY_SENTENCE, LIQ_COMMITTED_SENTENCE], [STABLE_RUN_UNCALIBRATED_SENTENCE, STABLE_RUN_COMMITTED_SENTENCE]]);
