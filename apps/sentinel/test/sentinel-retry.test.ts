@@ -14,7 +14,9 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { spawnSync } from "node:child_process";
-import { makeRpcPool, providerOf, redactEndpoint, publishedEndpoints, poolEndpoints, PUBLIC_ENDPOINTS } from "../src/rpc.ts";
+import { makeRpcPool, providerOf, redactEndpoint, PUBLIC_ENDPOINTS } from "../src/rpc.ts";
+import { keylessCall } from "../src/keyless-transport.ts";
+import { CHAINSTACK_LABEL } from "../src/run.ts";
 import { lineHashOf } from "../src/timeline.ts";
 import type { TimelineLine } from "../src/timeline.ts";
 
@@ -210,29 +212,25 @@ test("sentinel_retry_replays_incident_and_exit_codes — no_quorum exits 1 (0 li
 });
 
 // ── C-1: the Chainstack endpoint URL (its key in the path) is NEVER printed — error, written line, stdout ──
+// killer: apps/sentinel/src/keyless-transport.ts:28 CONST "${redactEndpoint(url)}" -> "${url}"
 test("sentinel_never_prints_endpoint_url — an endpoint's key-bearing path never reaches an error, a written line, or stdout (C-1; ADR-NARABI-OPS-1)", () => {
-  // (unit) redaction keeps host, drops path/query — and PUBLIC_ENDPOINTS are published UNCHANGED (C-1).
+  // (unit) redaction keeps host, drops path/query (C-1). The served endpoints list is bound verbatim on the served path by the
+  // subprocess tests (sentinel_chainstack_url_alone_degrades_to_keyless below, sentinel-chainstack-guard.test.ts): C-G2D-1.
   assert.equal(redactEndpoint(FAKE_KEY_URL), "https://rpc.example.test", "redactEndpoint keeps the origin only");
   assert.ok(!redactEndpoint(FAKE_KEY_URL).includes(SECRET_MARK), "the redacted form carries no path");
-  const pub = publishedEndpoints({ CHAINSTACK_ETH_URL: FAKE_KEY_URL });
-  assert.deepEqual(pub.slice(0, PUBLIC_ENDPOINTS.length), [...PUBLIC_ENDPOINTS], "the 8 public endpoints are published verbatim");
-  assert.equal(pub[pub.length - 1], "https://rpc.example.test", "the Chainstack endpoint is published redacted (host only)");
-  assert.ok(!pub.some((e) => e.includes(SECRET_MARK)), "no published endpoint carries the key path (mutant: raw URL => this reds)");
-  // poolEndpoints keeps the RAW url (it must dial it); it is redacted only where it is PRINTED/PUBLISHED.
-  assert.equal(poolEndpoints({ CHAINSTACK_ETH_URL: FAKE_KEY_URL }).length, PUBLIC_ENDPOINTS.length + 1, "the pool gains the 9th endpoint");
 
-  // (error) a failing endpoint surfaces as `HTTP <status> <origin>`, never the path. Fresh pool (rr=0), so the
+  // (error) a failing keyless endpoint (keylessCall, the served transport) surfaces as `HTTP <status> <origin>`, never the path. Fresh pool (rr=0), so the
   // LAST endpoint tried in the two-provider quorum is index 1 (FAKE_KEY_URL) — that is the one in `(last: …)`.
   const savedFetch = globalThis.fetch;
   try {
     globalThis.fetch = (() => Promise.resolve({ ok: false, status: 403, json: () => Promise.resolve({}) })) as unknown as typeof fetch;
-    const pool = makeRpcPool({ endpoints: ["https://b.test", FAKE_KEY_URL] });
+    const pool = makeRpcPool({ endpoints: ["https://b.test", FAKE_KEY_URL], call: keylessCall });
     return pool.supplyAt(1).then(
       () => assert.fail("supplyAt must reject when the quorum cannot be reached"),
       (e: unknown) => {
         const msg = (e as Error).message;
         assert.ok(msg.includes("rpc.example.test"), `the error names the host (${msg})`);
-        assert.ok(!msg.includes(SECRET_MARK), `the error carries no key path (mutant: raw url in defaultCall => reds): ${msg}`);
+        assert.ok(!msg.includes(SECRET_MARK), `the error carries no key path (mutant: raw url in keylessCall => reds): ${msg}`);
       },
     ).finally(() => { globalThis.fetch = savedFetch; });
   } catch (e) {
@@ -242,6 +240,7 @@ test("sentinel_never_prints_endpoint_url — an endpoint's key-bearing path neve
 });
 
 // ── C-1 (no leak) + NARABI-OPS-1d (D-degrade): CHAINSTACK_ETH_URL ALONE no longer opens the leg ───────────────
+// killer: apps/sentinel/src/run.ts:349 CONST ": [...PUBLIC_ENDPOINTS];" -> ": [...PUBLIC_ENDPOINTS.slice(0, 1), ...PUBLIC_ENDPOINTS.slice(0, -1)];"
 test("sentinel_chainstack_url_alone_degrades_to_keyless — with CHAINSTACK_ETH_URL set but NO cycle config (CHAINSTACK_CYCLE_ID/ORIGIN absent), the guarded leg is unconfigured: the run publishes the 7 keyless endpoints, chainstack=false, chainstack_guard=unconfigured, and the key path never leaks (C-1; NARABI-OPS-1d D-degrade — supersedes the pre-migration 'URL alone flags chainstack + publishes a redacted 8th endpoint')", () => {
   const l3 = fixtureLines()[2]!;
   const dir = seedState(2);
@@ -253,20 +252,21 @@ test("sentinel_chainstack_url_alone_degrades_to_keyless — with CHAINSTACK_ETH_
   const tl = readFileSync(join(dir, "timeline.jsonl"), "utf8");
   assert.ok(!tl.includes(SECRET_MARK), "the key path never appears in a written line (C-1 ii)");
   const written = JSON.parse(tl.replace(/\r\n/g, "\n").split("\n").filter((x) => x.trim()).pop()!) as TimelineLine;
-  assert.equal(written.endpoints.length, PUBLIC_ENDPOINTS.length, "a degraded run publishes the 7 public endpoints only (C-6: no origin without an opened leg)");
+  assert.deepEqual(written.endpoints, [...PUBLIC_ENDPOINTS], "a degraded run publishes the 7 public endpoints verbatim, in order (C-6: no origin without an opened leg; C-G2D-1)");
   assert.equal(written.line_hash, l3.line_hash, "endpoints are outside hashedFields, so line_hash is unchanged");
 });
 
 // ── L-3: the Chainstack endpoint is a DISTINCT operator accepted into the quorum ─────────────────────────
+// killer: apps/sentinel/src/rpc.ts:36 CONST ".slice(-2)" -> ".slice(-1)"
 test("sentinel_quorum_accepts_chainstack_as_distinct_operator — chainstack.com is its own provider, quorum-eligible with a public endpoint (L-3; ADR-M012 item m)", async () => {
   const chain = "https://ethereum-mainnet.core.chainstack.com"; // no path => no committed secret; a real key lives ONLY in the env
   const pubEp = "https://eth.drpc.org";
   assert.equal(providerOf(chain), "chainstack.com", "the Chainstack host collapses to chainstack.com");
   assert.notEqual(providerOf(chain), providerOf(pubEp), "distinct from a public provider (drpc.org)");
-  assert.ok(!PUBLIC_ENDPOINTS.map(providerOf).includes("chainstack.com"), "chainstack.com is not already among the 8 public providers");
-  // The env-driven pool gains it as a 9th endpoint / a distinct operator in the rotation.
-  const pool9 = poolEndpoints({ CHAINSTACK_ETH_URL: chain });
-  assert.equal(new Set(pool9.map(providerOf)).size, new Set(PUBLIC_ENDPOINTS.map(providerOf)).size + 1, "one new distinct provider enters the pool");
+  assert.ok(!PUBLIC_ENDPOINTS.map(providerOf).includes("chainstack.com"), "chainstack.com is not already among the 7 public endpoints (6 providers)");
+  // The served pool (run.ts: [...PUBLIC_ENDPOINTS, CHAINSTACK_LABEL]) gains the paid leg as an 8th entry, a distinct operator.
+  const served = [...PUBLIC_ENDPOINTS, CHAINSTACK_LABEL];
+  assert.equal(new Set(served.map(providerOf)).size, new Set(PUBLIC_ENDPOINTS.map(providerOf)).size + 1, "one new distinct provider enters the pool");
   // A quorum of two DISTINCT providers (drpc + chainstack) succeeds; two aliases of ONE would not (item m).
   const call = (url: string, method: string): Promise<unknown> => {
     if (method === "eth_call") return Promise.resolve("0x64"); // 100, both agree

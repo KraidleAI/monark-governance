@@ -191,6 +191,7 @@ test("sentinel_src_clean_and_allowlist_load_bearing", () => {
 // GARDE-HELIUS-1b-iii — the u4 course-scripts grep, FOLDED here from guard-scripts-u4.test.ts (unification; removed
 // there, not duplicated). GREEN today (2b-iii migrated the scripts); killable (a re-introduced fetch/key/direct rpc
 // import reds). scripts/census/u4-*.mjs is the only .mjs root; it carries the closed import-source list (C-R-6).
+// killer: scripts/census/u4-redraw.mjs:23 CONST "ukemi/rpc2.ts" -> "rpc.ts"
 test("u4_scripts_clean_and_import_sources_closed", () => {
   const u4 = ROOTS[3]!;
   const files = u4.scope();
@@ -204,7 +205,7 @@ test("u4_scripts_clean_and_import_sources_closed", () => {
     assert.ok(scanWith(only, new Set(), NET, U4_KEY, U4_KEYNAME_RE).length >= 1, `allowlist entry ${f} is VACANT (${trigger})`);
   }
   // CLOSED import-source list for the three course files (C-R-6): a DIRECT import of apps/sentinel/src/rpc.ts (the
-  // residual-118 paid leg, reachable only transitively via rpc2.ts/abi.ts) is forbidden.
+  // shared quorum pool, reachable only transitively via rpc2.ts/abi.ts) is forbidden.
   const ALLOWED_IMPORTS = new Set(["node:crypto", "node:fs", "node:path", "node:url", "@monark/rpc-guard", "../../apps/sentinel/src/ukemi/rpc2.ts", "../../apps/sentinel/src/ukemi/abi.ts", "../../apps/sentinel/src/ukemi/clusters.ts", "../../apps/sentinel/src/ukemi/resume.ts", "./u4-guard.mjs"]);
   for (const f of ["u4-oracle-path.mjs", "u4-redraw.mjs", "u4-guard.mjs"]) {
     const specs = [...readFileSync(join(CENSUS, f), "utf8").matchAll(/\bfrom\s*["'`]([^"'`]+)["'`]/g)].map((m) => m[1]!);
