@@ -116,11 +116,11 @@ export const mask = (literal) => literal.replace(/[\dA-Fa-f]+/g, "x");
 const listedAnywhere = (lit) => Object.values(LISTED).some((e) => Object.hasOwn(e, lit));
 const bareEnv = () => Object.fromEntries(Object.entries(process.env).filter(([k]) => !k.toUpperCase().startsWith("GIT_")));
 
-/** A path with each literal it carries masked, where it is written (each hex run it touches, escapes included) and wherever its text
- * recurs, each of its characters as written or as an escape (an encoded recurrence glued to a word): a hit never prints an address. */
-function hide(rel) {
+/** A path with each literal it carries masked where it is written (each hex run it touches, escapes included), and that literal and
+ * each of `also` (a hit's literal) wherever its text recurs, each character as written or as %XX: a hit never prints an address. */
+function hide(rel, also = []) {
   const hid = Array(rel.length).fill(false);
-  for (const [lit, a, b] of spans(rel)) {
+  for (const [lit, a, b] of [...spans(rel), ...also.map((l) => [l, 0, 0])]) {
     hid.fill(true, a, b);
     const recurs = new RegExp([...lit].map((c) => `(?:${c === "." ? "\\." : c}|%${c.charCodeAt(0).toString(16)})`).join(""), "gi");
     for (const m of rel.matchAll(recurs)) hid.fill(true, m.index, m.index + m[0].length);
@@ -133,7 +133,7 @@ function judge(v, rel, line, text) {
     if (EXEMPT.check(lit, kind === 4 ? "ipv4" : "ipv6")) continue;
     if (Object.hasOwn(LISTED, rel) && Object.hasOwn(LISTED[rel], lit)) { v.used.add(`${rel} ${lit}`); continue; }
     if (rel === SELF && listedAnywhere(lit)) continue;
-    v.hits.push({ file: hide(rel), line, col, kind, mask: mask(lit) });
+    v.hits.push({ file: hide(rel, [lit]), line, col, kind, mask: mask(lit) });
   }
 }
 
