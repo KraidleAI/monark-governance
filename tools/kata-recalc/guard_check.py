@@ -10,11 +10,18 @@
 # the Popen of a spawn and with its argv, the second tree of MONARK's closed list (read, never an output), a third tree refused,
 # the role served-history, and the homonyms of the two trees (in the parent). MONARK's form of the launch (2026-10-07): each child of
 # io_guard.run_tool runs under io_guard.FORM, which io_guard checks at its import (the cases "launch", on a copy of the tool's tree).
+# IO-GUARD-POSED-FILES-1 (2026-10-08): the closed lists of the two trees, before any other import and after the hook, route 3a, io_guard.py
+# run by its path once per process, the form -P; the cases of posed names run on fresh copies (_pose), red against the guard of 6536057c.
 # Each case names the change of the guard that reddens it; the same script, run against the guard of 09f49fc2, is its red proof
 # (against the guard before its G2 for the cases of the G2, and that of mission 4 for the launches). No input is read: the files of
 # the cases are written by the parent, under its work directory, and so are the partial clone and the copy of the tool's tree.
-# Usage: python -E -S -s -B guard_check.py <repository> <work dir> <out.txt>
-#        python -E -S -s -B guard_check.py --case <name> <repository> <work dir>   (one case, as the first form runs it)
+# Usage: python -E -S -s -B -P guard_check.py <repository> <work dir> <out.txt>
+#        python -E -S -s -B -P guard_check.py --case <name> <repository> <work dir>   (one case, as the first form runs it)
+import os, sys  # sys built in, os frozen: no file is looked up by name before io_guard has checked its folder (IO-GUARD-POSED-FILES-1)
+if "io_guard" not in sys.modules:  # io_guard.py run by its path, never found by name: nothing posed or installed stands in for it
+    sys.path.append(_d := os.path.dirname(os.path.realpath(__file__)))  # the tool's folder, last in sys.path: -P is in FORM
+    _g = sys.modules["io_guard"] = type(sys)("io_guard"); _g.__file__ = os.path.join(_d, "io_guard.py")
+    exec(compile(open(_g.__file__, "rb").read(), _g.__file__, "exec"), vars(_g))
 import io_guard  # the input guard, before any other module (M-7): this script reads no input; a case may declare a role
 import importlib
 import importlib.machinery
@@ -30,13 +37,15 @@ TREE = "tools/kata-recalc"
 LISTED = ("_ast", "_datetime", "_json", "_opcode", "_sre", "_struct", "_suggestions", "_tokenize", "_wmi", "math")  # NATIVE, measured
 OUTSIDE = ("_ctypes", "_socket", "_ssl", "_sqlite3", "_queue", "unicodedata", "select", "_bz2", "_lzma")  # never imported by the tool
 BUILT_IN = ("faulthandler", "_tracemalloc", "_lsprof", "_symtable", "xxsubtype")  # never imported by the tool
-CASES = (  # name, exit and text wanted from the child
+FOLDER = "a name of the tool's folder outside its closed list FILES"  # IO-GUARD-POSED-FILES-1: a refusal that its cases want
+QUARTER = {"kata-quarter/FILES": "FILES\nquarter_counts.py\n", "kata-quarter/quarter_counts.py": "x = 1\n"}  # its list, no homonym
+CASES = (  # name, exit and text wanted from the child (a tuple: texts; a list: the launches of posed names, _posed)
     # A-1, reddened by: the import event admitted again (the guard of 09f49fc2), or a built-in module's name not judged
     ("import-builtin-outside-list", 4, "a built-in module outside the closed list NATIVE"),
     # A-1, reddened by: the import event admitted again, or the name of an extension module not judged
     ("import-extension-outside-list", 4, "a native module outside the closed list NATIVE"),
     # A-1, reddened by: the file of an extension module not judged (a listed name loaded from a copy outside the standard library)
-    ("import-extension-outside-stdlib", 4, "a native module outside the standard library and the tool's tree"),
+    ("import-extension-outside-stdlib", 4, "a native module outside the standard library"),
     # A-1, reddened by: a name of NATIVE dropped (its import is refused), or NATIVE no longer the measured list LISTED
     ("import-listed", 0, "IMPORTED; NATIVE IS THE MEASURED LIST"),
     # A-1, reddened by: _suggestions, _ast, _opcode or _tokenize dropped from NATIVE (the trace of an uncaught exception cut short)
@@ -61,9 +70,10 @@ CASES = (  # name, exit and text wanted from the child
     ("second-tree-output", 4, "an output inside one of the tool's trees"),
     ("third-tree-read", 4, "neither the standard library"),
     ("served-history-declared", 0, "DECLARED"),
-    # MONARK's form of the replay command (2026-10-07), reddened by: a child of io_guard.run_tool started without -E, -S or -s, as
-    # before it (a sitecustomize on PYTHONPATH, the user site, or site and the files it runs, ran in the child before io_guard: measured)
-    ("child-flags", 0, "-E 1 -S 1 -s 1, options -E -S -s -B, site absent"),
+    # MONARK's form of the replay command (2026-10-07), reddened by: a child of io_guard.run_tool started without -E, -S, -s or -P, as
+    # before it (a sitecustomize on PYTHONPATH, the user site, or site and the files it runs, ran in the child before io_guard: measured),
+    # or the tool's folder anywhere but last in sys.path (IO-GUARD-POSED-FILES-1: the standard library first)
+    ("child-flags", 0, "-E 1 -S 1 -s 1, options -E -S -s -B -P, site absent, tool folder last"),
     # A-2, reddened by: time.sleep, or os.posix_spawn, admitted outside a spawn of io_guard, or refused under another class
     ("sleep-outside-spawn", 4, "admitted only while io_guard spawns"),
     ("posix-spawn-outside-spawn", 4, "admitted only while io_guard spawns"),
@@ -83,11 +93,50 @@ CASES = (  # name, exit and text wanted from the child
     ("residual-builtin-through-importlib", 0, "LOADED WITHOUT AN EVENT"),
     ("residual-stat", 0, "STAT WITHOUT AN EVENT"),
     ("residual-mkfifo", 0, "MADE WITHOUT AN EVENT" if hasattr(os, "mkfifo") else "ABSENT ON THIS SYSTEM"),
+    # IO-GUARD-POSED-FILES-1 (MONARK, 2026-10-07): launches on fresh copies, each (names posed, launch, texts), wanting exit 4 and no
+    # witness. Reddened by: the check that a case names left out (FILES, io_guard.py a link, the lists after the hook or each to its own
+    # tree, route 3a, the six refusals of the second tree's list), FILES after an import (posed msvcrt), io_guard found by name again
+    ("posed homonym", 4, [({"kata-recalc/threading.py": "witness"}, "report", f"['threading.py']: {FOLDER}")]),
+    ("posed package", 4, [({"kata-recalc/io_guard/__init__.py": "stand-in"}, "report", f"['io_guard']: {FOLDER}")]),
+    ("posed cache", 4, [({"kata-recalc/__pycache__/io_guard.cpython-314.pyc": "forged"}, "report", f"['__pycache__']: {FOLDER}")]),
+    ("posed msvcrt", 4, [({"kata-recalc/msvcrt.py": "witness"}, "report", f"['msvcrt.py']: {FOLDER}")]),
+    ("posed _wmi", 4, [({"kata-recalc/_wmi.py": "witness"}, "report", f"['_wmi.py']: {FOLDER}")]),
+    ("posed file", 4, [({"kata-recalc/sitecustomize.py": "witness"}, "report", f"['sitecustomize.py']: {FOLDER}")]),
+    ("posed folder", 4, [({"kata-recalc/data": "folder"}, "report", f"['data']: {FOLDER}")]),
+    ("posed cache folder in another case", 4, [({"kata-recalc/__PYCACHE__": "folder"}, "report", f"['__PYCACHE__']: {FOLDER}")]),
+    ("listed name not a file", 4, [({"kata-recalc/kata_lib.py": "folder"}, "report", f"['kata_lib.py']: {FOLDER}")]),
+    ("listed name a link", 4, [({"kata-recalc/kata_lib.py": "link"}, "report", f"['kata_lib.py']: {FOLDER}"),
+                               ({"kata-recalc/io_guard.py": "link"}, "report", "['io_guard.py']: a link")]),
+    ("open under the folder", 4, [({}, "open the folder", "refused open ", "kata-recalc': "),
+                                  ({}, "open a fifo in the folder", "refused open ", f"kata-recalc{os.sep}late.py': ")]),
+    ("tool module offered before the folder", 4, [({"decoy/kata_lib.py": "witness"}, "decoy",
+                                                   "['kata_lib.py']: offered by an entry of sys.path before")]),
+    ("second tree without its list", 4, [({"kata-quarter/quarter_counts.py": "x = 1\n"}, "report",
+                                          "FILES': a second tree without its list")]),
+    ("second tree not a folder", 4, [({"kata-quarter": w}, "report", "kata-quarter': a second tree that is not a folder")
+                                     for w in ("a file\n", "link")]),
+    ("second tree list not a file", 4, [({**QUARTER, "kata-quarter/FILES": w}, "report",
+                                         "FILES': a list file of the second tree that is not a") for w in ("folder", "link")]),
+    ("second tree list out of form", 4, [({**QUARTER, "kata-quarter/FILES": w}, "report", "FILES': a list file of the second tree out of")
+                                         for w in ("quarter_counts.py\nFILES\n", "FILES\nFILES\nquarter_counts.py\n", "".join(
+                                             f"{n}\n" for n in sorted(("FILES", "quarter_counts.py", os.path.realpath(sys.executable)))))]),
+    ("second tree outside its list", 4, [({**QUARTER, "kata-quarter/quarter_load.py": "y = 2\n"}, "report",
+                                          "['quarter_load.py']: a name of the second tree outside its list")]),
+    ("second tree listed name not a file", 4, [({**QUARTER, "kata-quarter/quarter_counts.py": "folder"}, "report",
+                                                "['quarter_counts.py']: a name of the second tree's list that is not a")]),
+    ("open under the second tree", 4, [(QUARTER, f"read, then open {w}", "LISTED FILE READ", "refused open ", f"kata-quarter{t}': ")
+                                       for w, t in (("a fifo in the second tree", f"{os.sep}late.py"), ("the second tree", ""))]),
+    ("first tree name under the second tree", 4, [(QUARTER, "open a fifo in the second tree named as a file of the first",
+                                                   "refused open ", f"kata-quarter{os.sep}kata_lib.py': ")]),
+    # IO-GUARD-POSED-FILES-1, reddened by: an extension module admitted from the tool's folder (FILES holds .py files only)
+    ("extension from the folder", 4, ("_json", "a native module outside the standard library")),
+    # IO-GUARD-POSED-FILES-1, reddened by: the prologue of an entry script run again when another script imports it (a second hook)
+    ("one guard per process", 0, "ONE GUARD"),
     # MONARK (2026-10-07): the form of the launch, checked by io_guard at its import (_launch). Reddened by: site, or a sitecustomize
-    # beside the scripts or on PYTHONPATH, run under the form; the check of the field named, of -W, of -X or of a debug build removed
+    # on PYTHONPATH, run under the form; the check of the field named (-P: launch -E -S -s -B), of -W, of -X or of a debug build removed
     ("launch form", 0, "SITE NOT RUN"), ("launch -S -s -B", 2, "ignore_environment 0"), ("launch -E -s -B", 2, "no_site 0"),
     ("launch -E -S -B", 2, "no_user_site 0"), ("launch -E -S -s -B -O", 2, "optimize 1"), ("launch -E -S -s -B -i", 2, "inspect 1"),
-    ("launch -E -S -s -B -P", 2, "safe_path True"), ("launch -E -S -s -B -d", 2, "debug 1"), ("launch -E -S -s -B -v", 2, "verbose 1"),
+    ("launch -E -S -s -B", 2, "safe_path False"), ("launch -E -S -s -B -d", 2, "debug 1"), ("launch -E -S -s -B -v", 2, "verbose 1"),
     ("launch -E -S -s -B -q", 2, "quiet 1"), ("launch -E -S -s -B -W error", 2, "-W error"), ("launch debug build", 2, "a debug build"),
     ("launch -E -S -s -B -X presite=sitecustomize", 2, "-X presite"), ("launch -E -S -s", 2, "_write_bytecode 0"),  # last: writes a cache
 )
@@ -150,14 +199,82 @@ def _other_thread(repo, work, body):
 
 
 def _launch(opts, repo, work):
-    """A launch from main()'s copy of the tool's tree, a sitecustomize.py in it and in a directory on PYTHONPATH: under the form, an
+    """A launch from main()'s copy of the tool's tree, a sitecustomize.py in a directory on PYTHONPATH: under the form, an
     entry script of the copy; else -c imports io_guard from the copy, first on sys.path (not the working directory, whose io_guard an
-    import without -B would cache; under -P no entry script finds it); "debug build": the form, sys.gettotalrefcount set first."""
+    import without -B would cache), no prologue run; "debug build": the form, sys.gettotalrefcount set first."""
     copy, form = os.path.join(work, "copy", "kata-recalc"), getattr(io_guard, "FORM", ("-E", "-s", "-B"))  # mission 4's: red proof only
     code = f"import sys; {'sys.gettotalrefcount = int; ' * (opts == 'debug build')}sys.path.insert(0, {copy!r}); import io_guard"
     tail = [os.path.join(copy, "guard_check.py"), "--case", "site-absent", repo, work] if opts == "form" else ["-c", code]
     return io_guard._spawn([sys.executable, *(form if opts in ("form", "debug build") else opts.split()), *tail],
                            env=dict(os.environ, PYTHONPATH=os.path.join(work, "pythonpath")), timeout=60)
+
+
+# IO-GUARD-POSED-FILES-1: what the cases of posed names pose (_pose), and the cases that a child of a copy runs (OPENS)
+HAND_BACK = ("import os, sys; os.write(2, b'WITNESS %s RAN\\n')\n_d = os.path.normcase(os.path.dirname(os.path.abspath(__file__)))\n"
+             "_s = sys.modules['_frozen_importlib_external'].PathFinder.find_spec(__name__, [p for p in sys.path\n"
+             "    if os.path.normcase(os.path.abspath(p or '.')) != _d])\nif _s is None:\n    raise ModuleNotFoundError(__name__)\n"
+             "sys.modules[__name__] = _m = sys.modules['_frozen_importlib'].module_from_spec(_s)\n_s.loader.exec_module(_m)\n")
+STAND_IN = ("import os; os.write(2, b'WITNESS io_guard RAN\\n')\n__file__ = os.path.join(%r, 'io_guard.py')\n"
+            "exec(compile(open(__file__, 'rb').read(), __file__, 'exec'), globals())\n")
+FORGE = ("import importlib._bootstrap_external as B, importlib.util as U, os, sys\ns, st = sys.argv[1], os.stat(sys.argv[1])\n"
+         "open(U.cache_from_source(s), 'wb').write(B._code_to_timestamp_pyc(compile(sys.argv[2], s, 'exec'), st.st_mtime, st.st_size))\n")
+DECOY = ("import os, sys; sys.path.insert(0, {0!r}); sys.path.append({1!r}); g = sys.modules['io_guard'] = type(sys)('io_guard'); "
+         "g.__file__ = os.path.join({1!r}, 'io_guard.py'); exec(compile(open(g.__file__, 'rb').read(), g.__file__, 'exec'), vars(g)); "
+         "import kata_lib")  # route 3a: a folder that holds kata_lib.py first in sys.path, as an installation's, then the guard
+FIFO, WHY = hasattr(os, "mkfifo"), {"a link": "this host refuses os.symlink", "a FIFO": "no os.mkfifo on this system"}
+OPENS = {  # a child of a copy, after its hook: (a listed file of the second tree read first, the tree, a FIFO posed there, or None)
+    "open the folder": (False, "first", None), "open a fifo in the folder": (False, "first", "late.py"),
+    "read, then open the second tree": (True, "second", None), "read, then open a fifo in the second tree": (True, "second", "late.py"),
+    "open a fifo in the second tree named as a file of the first": (False, "second", "kata_lib.py")}
+
+
+def _pose(at, names):
+    """A fresh copy of the tool's folder at <at>/kata-recalc, made by this run, then the names posed under <at>: a text; "witness", a
+    module that writes WITNESS on fd 2 (no event), then hands back; "stand-in", io_guard stood in for; "forged", the cache of io_guard.py,
+    its header that source's (by a child without io_guard: under it, marshal.dumps is refused); "folder"; "link", to a file of the bytes
+    the name holds (in the copy or QUARTER), else to a folder, under <at>/targets. Returns the copy."""
+    here, tool = os.path.dirname(os.path.realpath(__file__)), os.path.join(at, "kata-recalc")
+    os.makedirs(tool)
+    for n in os.listdir(here):
+        with open(os.path.join(here, n), "rb") as fh, open(os.path.join(tool, n), "wb") as to:
+            to.write(fh.read())
+    for n, what in names.items():
+        p, data = os.path.join(at, *n.split("/")), QUARTER.get(n, "").encode("ascii") or None
+        if what in ("folder", "link") and os.path.lexists(p):  # a file of the copy, replaced
+            with open(p, "rb") as fh:
+                data = fh.read()
+            os.remove(p)
+        os.makedirs(p if what == "folder" else os.path.dirname(p), exist_ok=True)
+        if what == "link":
+            target = os.path.join(at, "targets", os.path.basename(p))
+            os.makedirs(os.path.dirname(target) if data else target, exist_ok=True)
+            if data:
+                with open(target, "wb") as fh:
+                    fh.write(data)
+            os.symlink(target, p, target_is_directory=not data)  # winlint-ok: run only where main's probe made a link (links)
+        elif what == "forged":
+            io_guard._spawn([sys.executable, *io_guard.FORM, "-c", FORGE, os.path.join(tool, "io_guard.py"), STAND_IN % tool], timeout=60)
+        elif what != "folder":
+            with open(p, "w", encoding="utf-8", newline="\n") as fh:
+                fh.write({"witness": HAND_BACK % os.path.basename(p)[:-3], "stand-in": STAND_IN % tool}.get(what, what))
+    return tool
+
+
+def _posed(name, parts, repo, work, links):
+    """The launches of a case of posed names, each on a fresh copy (_pose) with the texts it wants, and the note of its parts that this
+    host cannot run (a link, a FIFO), named in the case's line. A launch: report.py on its usage path, route 3a (decoy), or OPENS."""
+    runs, lacks = [], []
+    for k, (names, launch, *texts) in enumerate(parts):
+        lack = "a link" if "link" in names.values() and not links else "a FIFO" if OPENS.get(launch, (0, 0, None))[2] and not FIFO else None
+        if lack is not None:
+            lacks += [lack] * (lack not in lacks)
+            continue
+        at = os.path.join(work, "posed", name, str(k))
+        tool = _pose(at, names)
+        argv = ([os.path.join(tool, "report.py")] if launch == "report" else ["-c", DECOY.format(os.path.join(at, "decoy"), tool)]
+                if launch == "decoy" else [os.path.join(tool, "guard_check.py"), "--case", launch, repo, work])
+        runs.append((io_guard._spawn([sys.executable, *io_guard.FORM, *argv], timeout=60), texts))
+    return runs, "".join(f" (its part with {w} skipped: {WHY[w]})" for w in lacks)
 
 
 def case(name, repo, work):
@@ -288,8 +405,10 @@ def case(name, repo, work):
         io_guard.declare("served-history")
         print("DECLARED")
     elif name == "child-flags":  # this child, as every case, started by io_guard.run_tool: its flags in effect, its interpreter options
+        at = [i for i, p in enumerate(sys.path) if os.path.realpath(p or os.curdir) == os.path.dirname(os.path.realpath(__file__))]
         print(f"-E {sys.flags.ignore_environment} -S {sys.flags.no_site} -s {sys.flags.no_user_site}, options "
-              f"{' '.join(sys.orig_argv[1:len(sys.orig_argv) - len(sys.argv)])}, site {'loaded' if 'site' in sys.modules else 'absent'}")
+              f"{' '.join(sys.orig_argv[1:len(sys.orig_argv) - len(sys.argv)])}, site {'loaded' if 'site' in sys.modules else 'absent'}, "
+              f"tool folder {'last' if at == [len(sys.path) - 1] else f'at {at} of {len(sys.path)}'}")
     elif name == "site-absent":  # run by _launch from the copy under the form: neither site nor a sitecustomize ran before io_guard
         print("SITE NOT RUN" if not {"site", "sitecustomize"} & set(sys.modules) else f"RAN: {sorted({'site', 'sitecustomize'} & set(sys.modules))}")
     elif name == "residual-builtin-through-importlib":
@@ -304,6 +423,27 @@ def case(name, repo, work):
         else:
             os.mkfifo(os.path.join(work, "fifo"))
             print("MADE WITHOUT AN EVENT, outside the outputs of this child")
+    elif name in OPENS:  # IO-GUARD-POSED-FILES-1, a child of a copy (_posed): after the hook, an open under one of its trees
+        read, tree, fifo = OPENS[name]
+        d = os.path.dirname(os.path.realpath(__file__))
+        d = os.path.join(os.path.dirname(d), "kata-quarter") if tree == "second" else d
+        if read:  # a listed file of the second tree, admitted; its line, on fd 2 (unbuffered), survives the refusal that follows
+            with open(os.path.join(d, "quarter_counts.py"), "rb") as fh:
+                os.write(2, b"LISTED FILE READ: %d bytes\n" % len(fh.read()))
+        if fifo is None:
+            open(d)  # the folder itself; admitted, the open raises (IsADirectoryError; PermissionError under Windows)
+        else:  # a name posed after the check of the lists, with no event (residual-mkfifo); a FIFO opens at once with no writer
+            os.mkfifo(os.path.join(d, fifo))
+            os.close(os.open(os.path.join(d, fifo), os.O_RDONLY | os.O_NONBLOCK))
+        print("OPENED")
+    elif name == "extension from the folder":  # the import event of an extension module from the tool's folder, raised by hand
+        ext = os.path.join(os.path.dirname(os.path.realpath(__file__)), "_json" + importlib.machinery.EXTENSION_SUFFIXES[0])
+        sys.audit("import", "_json", ext, sys.path, sys.meta_path, sys.path_hooks)
+        print("IMPORTED FROM THE TOOL'S FOLDER")
+    elif name == "one guard per process":  # another entry script imported: its prologue finds io_guard loaded, so the guard runs once
+        guard = sys.modules["io_guard"]
+        import report  # noqa: F401
+        print("ONE GUARD" if sys.modules["io_guard"] is guard else "A SECOND GUARD")
     elif name != "noop":
         print("unknown case", name)
         return 2
@@ -329,8 +469,14 @@ def main(repo, work, out_path):
     copy, here = os.path.join(work, "copy", "kata-recalc"), os.path.dirname(os.path.realpath(__file__))
     for d in (copy, os.path.join(work, "pythonpath")):  # for _launch: a copy of the tool's tree, and a directory on PYTHONPATH
         os.makedirs(d)
-        with open(os.path.join(d, "sitecustomize.py"), "w", encoding="ascii") as fh:
-            fh.write("print('SITECUSTOMIZE RAN')\n")
+    with open(os.path.join(work, "pythonpath", "sitecustomize.py"), "w", encoding="ascii") as fh:  # none in the copy: posed file
+        fh.write("print('SITECUSTOMIZE RAN')\n")
+    open(os.path.join(work, "link-probe"), "w").close()
+    try:  # whether this host lets this run make a symbolic link (Windows: a privilege), which the cases of links need
+        links = os.symlink(os.path.join(work, "link-probe"),  # winlint-ok: refused under Windows without the privilege, caught
+                           os.path.join(work, "link-probe-link")) is None
+    except OSError:
+        links = False
     for n in os.listdir(here):
         with open(os.path.join(here, n), "rb") as fh, open(os.path.join(copy, n), "wb") as to:
             to.write(fh.read())
@@ -341,19 +487,23 @@ def main(repo, work, out_path):
         far = True
     absent = {"import-extension-outside-stdlib": ext is None, "import-extension-outside-list": _extension(OUTSIDE)[0] is None,
               "import-builtin-outside-list": _built_in() is None, "residual-builtin-through-importlib": _built_in() is None,
-              "git-tree-relative-repository": far, "ntfs-stream": os.name != "nt"}
+              "git-tree-relative-repository": far, "ntfs-stream": os.name != "nt",
+              "first tree name under the second tree": not FIFO, "listed name a link": not links}
+    why = {"first tree name under the second tree": WHY["a FIFO"], "listed name a link": WHY["a link"]}  # the new cases' own reasons
     bad = 0
     for name, want, text in CASES:
         if absent.get(name):
-            lines.append(f"SKIP {name}: no subject here (none of the modules that the case names, or the working directory on "
-                         "another drive)")
+            lines.append(f"SKIP {name}: no subject here "
+                         f"({why.get(name, 'none of the modules that the case names, or the working directory on another drive')})")
             continue
-        p = (_launch(name[7:], repo, work) if name.startswith("launch ") else
-             io_guard.run_tool("guard_check.py", ["--case", name, repo, work]))
-        out = (p.stdout + p.stderr).decode("utf-8", "replace").replace("\r\n", "\n").strip()
-        ok = p.returncode == want and text in out
+        runs, note = _posed(name, text, repo, work, links) if isinstance(text, list) else ([(
+            _launch(name[7:], repo, work) if name.startswith("launch ") else
+            io_guard.run_tool("guard_check.py", ["--case", name, repo, work]), [text] if isinstance(text, str) else text)], "")
+        outs = [((p.stdout + p.stderr).decode("utf-8", "replace").replace("\r\n", "\n").strip(), p.returncode, t) for p, t in runs]
+        ok = all(c == want and all(x in o for x in t) and "WITNESS" not in o for o, c, t in outs)  # each launch, and no witness ran
         bad += not ok
-        lines.append(f"{'OK  ' if ok else 'FAIL'} {name}: exit {p.returncode} (want {want}): {out.split(chr(10))[-1][:150]}")
+        lines.append(f"{'OK  ' if ok else 'FAIL'} {name}: exit {','.join(str(c) for _, c, _ in outs)} (want {want}){note}: "
+                     f"{' | '.join(o.split(chr(10))[-1][:150] for o, _, _ in outs)}")
     # MONARK's closed list (ecace80): the import refuses a module of the second tree named as one of the first; here the function that it
     # runs, on two directories of this run. Reddened by: the homonyms not computed (the guard before the G2), or a name missed
     a, b = (os.path.join(work, "trees", n) for n in ("first", "second"))
@@ -377,6 +527,6 @@ if __name__ == "__main__":
     if sys.argv[1:2] == ["--case"] and len(sys.argv) == 5:
         sys.exit(case(sys.argv[2], *(os.path.abspath(a) for a in sys.argv[3:5])))
     if len(sys.argv) != 4:
-        print("usage: python -E -S -s -B guard_check.py <repository> <work dir> <out.txt>")
+        print("usage: python -E -S -s -B -P guard_check.py <repository> <work dir> <out.txt>")
         sys.exit(2)
     sys.exit(main(*(os.path.abspath(a) for a in sys.argv[1:4])))  # B-2: every path the guard judges is absolute

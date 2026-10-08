@@ -11,7 +11,12 @@
 # report (section 7); report.run() to its end, children faked but the comparator's (N-4 of #217, section 11). Its G2: the four guards
 # that no case reached (sections 7 and 10), and the count line of the vectors oracle of the frozen revision. MONARK's decisions of
 # 2026-10-07: the replay command's form and input names (section 8), a closed list of C libraries of log (section 3).
-# Usage: python -E -S -s -B report_check.py <repository> <work dir> <out.txt>
+# Usage: python -E -S -s -B -P report_check.py <repository> <work dir> <out.txt>
+import os, sys  # sys built in, os frozen: no file is looked up by name before io_guard has checked its folder (IO-GUARD-POSED-FILES-1)
+if "io_guard" not in sys.modules:  # io_guard.py run by its path, never found by name: nothing posed or installed stands in for it
+    sys.path.append(_d := os.path.dirname(os.path.realpath(__file__)))  # the tool's folder, last in sys.path: -P is in FORM
+    _g = sys.modules["io_guard"] = type(sys)("io_guard"); _g.__file__ = os.path.join(_d, "io_guard.py")
+    exec(compile(open(_g.__file__, "rb").read(), _g.__file__, "exec"), vars(_g))
 import io_guard  # the input guard, before any other module (M-7): only the C library of log is read, under the role libm
 import copy
 import hashlib
@@ -257,13 +262,13 @@ def main(repo, work, out_path):
                "--registry", b_path, "--out", fail_out)
     rec(f"report.py: a run that cannot finish exits 2 and writes run-log.json only (exit {code})",
         code == 2 and os.path.lexists(os.path.join(fail_out, "run-log.json")) and not os.path.lexists(os.path.join(fail_out, "report.json")))
-    # MONARK's decisions on the replay command (2026-10-07). Reddened by: its form other than python -E -S -s -B, NAMES of report.py not
+    # MONARK's decisions on the replay command (2026-10-07). Reddened by: its form other than python -E -S -s -B -P, NAMES of report.py not
     # the two names that it writes, the refusal of report.py main removed or an option left unchecked (the output is then made), a name
     # compared without its case, by its start or by its stem, or the refusal moved after the guard (the last run, whose output is not
     # empty, then exits 4). Before it, the same bytes under another name gave another report_sha256 (inputs lists the name)
     replay = P.TEXTS["replay"]
-    rec("report.py: the replay command runs python -E -S -s -B and names the two inputs as report.py requires them", replay.startswith(
-        "python -E -S -s -B tools/kata-recalc/report.py ") and sorted(getattr(P, "NAMES", ())) == [("registry", "wave1.json"), ("vectors", "vectors.json")]
+    rec("report.py: the replay command runs python -E -S -s -B -P and names the two inputs as report.py requires them", replay.startswith(
+        "python -E -S -s -B -P tools/kata-recalc/report.py ") and sorted(getattr(P, "NAMES", ())) == [("registry", "wave1.json"), ("vectors", "vectors.json")]
         and all(f"--{k} <{n}>" in replay for k, n in P.NAMES))
     for k, (opt, name, dest) in enumerate((("registry", "B.json", None), ("registry", "WAVE1.JSON", None), ("vectors", "spec-vectors.json", None),
                                            ("registry", "wave1.jsonl", None), ("registry", "wave1.JSON", None), ("vectors", "vectors.jsonl", None),
