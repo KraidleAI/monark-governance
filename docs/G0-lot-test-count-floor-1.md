@@ -39,8 +39,9 @@
 
 ## 0. In short
 
-- **PR-1, the record (455 lines in CI form)**: the reporter in `test:main`, its export, `node scripts/test-count-floor.mjs write`
-  (which refuses any file without a summary of its own), the record `test/test-counts.json` written by `write`, three tests. No job.
+- **PR-1, the record (455 lines in CI form at the prototype, 461 as built: +1 line for a1's new test file, +1 for #243's, +4 for the
+  test file, 88 lines against 84)**: the reporter in `test:main`, its export, `node scripts/test-count-floor.mjs write` (which refuses
+  any file without a summary of its own), the record `test/test-counts.json` written by `write`, three tests. No job.
 - **PR-2, the gate (208 lines, plus one per new file of the window: a1 adds one)**: `scripts/test-count-check.mjs`, a new module that
   imports PR-1's without touching it, the removal list, the job `g3-test-count`, the job's export, `run.mjs:137` (`ORACLE_BASE`) and
   `:163` (the `tests` field), three tests and two tests of the oracle. It starts from a trunk that carries PR-1.
@@ -939,3 +940,12 @@ its sha (§10.2).
   `34879a7` (no delta G2 of the plan; PR-1 from `52d1e0b7`; MONARK's documents-only trunk commit merged into the branch) in §10.2 and
   §15; MONARK's filing of `l2_record_loop_schedules` under L2-HARNESS-FIXED-UNTIL-1 (`40ef50b`) in §1.2. PR-1's branch is
   `recherches/test-count-floor-1-record`. The design is the plan's, unchanged.
+- **2026-10-08, the fold of PR-1's review** (RECHERCHES, `claude-opus-5-5` max, a fresh instance, from 11:10 UTC; G2 `033dca28`,
+  CORRECTIONS, no M finding): **m-1**, the trunk moved during the review to `c5030fd9` (#249: one more test in
+  `test/verifier-tool-ci.test.ts`), then to `d9cb6ef3` (#243: a new test file, `test/no-host-address.test.ts`, 13 tests); the branch
+  merges `d9cb6ef3` (`05644724`, a plain merge), and the record is written once, as MONARK asked (`6ea4513`), by `write` on that merge,
+  from a full run of `test:main` (288 files, 2 960 tests, each file with a summary of its own): one line new, one count from 6 to 7, no
+  drop; the rule in §2.3. **m-2**: the ETAT line corrected in place by MONARK at `20fffe9f` (§2.3, §10.2, §11); PR-1's size, 455 at the
+  prototype and 461 as built (§0). **n-1**: about 661 (§10.2). **n-2**: the Windows replay from a path with no junction or symbolic
+  link, and the realpath planned for PR-2 (§9). **n-3**: the reporter's four comment lines in plain English, no line moved (§2.1).
+  Apart from those four comment lines, no line of code changes.
