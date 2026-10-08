@@ -96,7 +96,8 @@ test("verifier_tool_driver_names_each_skip_and_refuses_any_other - off Windows g
   const other = GUARD_OUT.replace("SKIP ntfs", "SKIP import-extension-outside-list: no subject here\nSKIP ntfs");
   assert.deepEqual(outputProblems("guard_check.py", other, 0, 1, false).problems, ["guard_check.py: skipped [import-extension-outside-list, ntfs-stream], [ntfs-stream] wanted"]);
   assert.deepEqual(outputProblems("guard_check.py", GUARD_OUT.replace(/^SKIP .*$/m, ""), 0, 1, false).problems, ["guard_check.py: skipped [], [ntfs-stream] wanted"]);
-  assert.deepEqual(outputProblems("report_check.py", "SKIP x: y\nVERDICT: GREEN", 0, 1, false).problems, ["report_check.py: skipped [x], [] wanted"]);
+  const noEnd = ["/^failures 0$/", "/^input libm ucrtbase\\.dll sha256 [0-9a-f]{64} bytes \\d+$/"].map((re) => `report_check.py: no line ${re}, which the check's own main writes after its checks`);
+  assert.deepEqual(outputProblems("report_check.py", "SKIP x: y\nVERDICT: GREEN", 0, 1, false).problems, ["report_check.py: skipped [x], [] wanted", ...noEnd], "a skip in another check, beside the end of report_check.main that this output lacks");
   assert.deepEqual(outputProblems("binom_check.py", "checks 1, failures 0\nVERDICT: GREEN", 0, 2, false).problems, ["binom_check.py: 1 VERDICT: GREEN line(s), 2 wanted"]);
   assert.deepEqual(outputProblems("compare_check.py", "FAIL case 3: exit 0\nVERDICT: RED", 1, 1, false).problems,
     ["compare_check.py: exit 1, not 0", "compare_check.py: 0 VERDICT: GREEN line(s), 1 wanted", "compare_check.py: FAIL case 3: exit 0", "compare_check.py: VERDICT: RED"]);
