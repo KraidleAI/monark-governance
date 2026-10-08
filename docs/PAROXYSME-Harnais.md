@@ -7,14 +7,18 @@
   porteur et un déclencheur ; ce qui ne se reproduit pas tel quel à la tête va à un doute nommé (§7).
 - **Provenance** : écrit par PAROXYSME (`claude-opus-5-5`, effort max) le 2026-10-07 à partir de 17:1x UTC, tâche 1 du tableau MONARK ↔
   PAROXYSME. Sources : les inventaires validés du Harnais et du Moteur (dossier d'étude du 2026-10-06), la couverture de
-  `CHANTIERS-CANDIDATS.md` §4 et les fenêtres du plan v3 §4 (chemins et empreintes au §8). Relecture : une G2 par une instance neuve ;
-  contrôle par diff, fusion et ligne d'ETAT : MONARK. Versé au tronc par #242, fusion `1df4e44f` (ETAT l.181-186 à `5437cd0d`).
+  `CHANTIERS-CANDIDATS.md` §4 et les fenêtres du plan v3 §4 (chemins et empreintes au §8). Relecture : une G2 par une instance neuve,
+  pliée le 2026-10-07 par PAROXYSME au commit `376225ca` (18:18 UTC), puis trois retouches jusqu'au commit `126d9186` (19:18 UTC),
+  heures par `TZ=UTC git log` (`PLI-Harnais.md` l.5, l.51-53, §8) ; contrôle par diff, fusion et ligne d'ETAT : MONARK. Versé au tronc
+  par #242, fusion `1df4e44f` (ETAT l.181-186 à `5437cd0d`).
   Décisions de MONARK pliées le 2026-10-07 (PR `paroxysme/registres-decisions-1007`), à partir de 20:0x UTC, par un worker de
   PAROXYSME (`claude-opus-5-5`, effort max) ; sources du pli : ETAT à `5437cd0d`, MSG et MSG2 (§8). Constats de la G2 de ce pli
   (instance neuve) pliés le 2026-10-07 à partir de 21:0x UTC par un worker de PAROXYSME (`claude-opus-5-5`, effort max). Second tour :
   constats d'une relecture par lentilles reproduits à `beea9834` et pliés le 2026-10-08 à partir de 01:20 UTC (`date -u`) par un worker
   de PAROXYSME (`claude-opus-5-5`, effort max) : parties touchées : en-tête, §1, PX-Harness-04, -22, -24, -26, MK-C13, §7 (doutes 2 et
-  3), §8 ; pli réparé à 03:05 UTC (`date -u`) par un worker de PAROXYSME (`claude-opus-5-5`, effort max) après vérification adverse : PX-Harness-22, MK-C13.
+  3), §8 ; pli réparé à 03:05 UTC (`date -u`) par un worker de PAROXYSME (`claude-opus-5-5`, effort max) après vérification adverse : PX-Harness-22, MK-C13 ;
+  passe de pli de la G2 du versement nommée le 2026-10-08 à partir de 05:44 UTC (`date -u`) par la session PAROXYSME, sur un constat de la
+  vérification finale de ce tour (registre Hikae) : en-tête, §8.
 - **Bases** : l'inventaire du Harnais est mesuré à `d8fe354c` et lit ETAT à `57a131fc` (INV-H l.9) ; celui du Moteur prend tout à
   `57a131fc` (INV-M l.12). Toutes les ancres du versement sont à la tête `87b821b0` de `lot/etude-suite` (relue par `git ls-remote`
   le 2026-10-07 à 17:1x UTC). Elles sont reportées par l'outil `reanchor.mjs` (pièce de la boîte PAROXYSME), puis relues à la tête par
@@ -775,6 +779,7 @@ Sources hors du tronc (boîte PAROXYSME) :
 | `coordination/pieces/2026-10-07-registres/reanchor.mjs`, commit `a55a62d` | 69 | `2edae6398e35a39d750cca2951cf4349380971066acb23bd1dbe965d9f88ca4b` |
 | `coordination/pieces/2026-10-07-registres/reanchor-cases.mjs`, commit `a55a62d` | 34 | `8290f603765cb9c5399293e40ed15178097909147a333c37a48cff3788c8b9da` |
 | `coordination/pieces/2026-10-07-registres/verify-registres.mjs`, commit `d97d838` | 127 | `6d71141222d2c32b995cd30e11335501e7021f4b2c7a38fb25053a61efe8712b` |
+| `coordination/pieces/2026-10-07-registres/PLI-Harnais.md`, commit `4d95a00` | 53 | `f8669f381f50f25e600398bd3ae1e97496fbdd1e2ff7147cb30866418ba1e2d7` |
 
 Sources du pli des décisions de MONARK (2026-10-07) : ETAT à `5437cd0d` (tronc) ; MSG, message de MONARK `d6331f6`,
 `coordination/messages/2026-10-07-MONARK-vers-PAROXYSME-tache1-fusionnee-decisions.md` ; MSG2, message de MONARK `8eb9a46`,

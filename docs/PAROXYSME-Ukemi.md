@@ -9,7 +9,9 @@
 - **Provenance** : écrit par un worker de PAROXYSME (`claude-opus-5-5`, effort max, contexte de sa mission) le 2026-10-07 à partir de
   17:28 UTC (`date -u`), tâche 1 du tableau MONARK ↔ PAROXYSME. Sources : l'inventaire validé d'Ukemi (dossier d'étude du 2026-10-06), la
   couverture de `CHANTIERS-CANDIDATS.md` §4 et les fenêtres du plan v3 §4 (chemins et empreintes au §8). Relecture : une G2 par une instance
-  neuve ; contrôle par diff, fusion et ligne d'ETAT : MONARK. Décisions de MONARK pliées le 2026-10-07 (PR
+  neuve, pliée le 2026-10-07 de 18:49 à 19:17 UTC (`date -u`) par un worker de PAROXYSME (`claude-opus-5-5`, effort max), commit
+  `dda217c4` (19:20 UTC par `TZ=UTC git log` ; `PLI-Ukemi.md` l.5, §8) ; contrôle par diff, fusion et ligne d'ETAT : MONARK. Décisions
+  de MONARK pliées le 2026-10-07 (PR
   `paroxysme/registres-decisions-1007`) par un worker de PAROXYSME (`claude-opus-5-5`, effort max, contexte de sa mission), à partir de
   19:56 UTC (`date -u`) : ETAT à `5437cd0d` et message `d6331f6` de MONARK (MSG), empreintes au §8 ; relecture : PAROXYSME ; contrôle par
   diff et fusion : MONARK. Constats 7 et 10 de la G2 de ce pli (instance neuve) pliés au §7 (doutes 7 et 9), au §1, au §3 (N10) et au §8,
@@ -18,7 +20,9 @@
   Second tour : constats d'une relecture par lentilles reproduits à `beea9834` et pliés le 2026-10-08 à partir de 01:26 UTC (`date -u`) par un
   worker de PAROXYSME (`claude-opus-5-5`, effort max) : §3 (N8, N10), §7 (doutes 7, 11 et 13), §8 (ligne PAROXYSME, sources) ; constats d'un vérificateur
   adverse de ce second tour réparés à partir de 03:06 UTC (`date -u`) par un worker de PAROXYSME (`claude-opus-5-5`, effort max) : §7 (doutes 7 et 13) ;
-  ceux d'un autre, neuf, réparés à partir de 04:39 UTC (`date -u`) par un worker de PAROXYSME (`claude-opus-5-5`, effort max) : §0, §2 (L11), §7 (doute 7).
+  ceux d'un autre, neuf, réparés à partir de 04:39 UTC (`date -u`) par un worker de PAROXYSME (`claude-opus-5-5`, effort max) : §0, §2 (L11), §7 (doute 7) ;
+  passe de pli de la G2 du versement nommée le 2026-10-08 à partir de 05:44 UTC (`date -u`) par la session PAROXYSME, sur un constat de la
+  vérification finale de ce tour (registre Hikae) : en-tête, §8.
 - **Bases** : inventaire mesuré à `d8fe354c`, ses fichiers d'Ukemi identiques à `57a131fc` (INV-U l.9-13, l.30) ; ETAT lu à `57a131fc`, et à
   `d8fe354c` pour ses l.1179-1180 et l.1350. Toutes les ancres de ce registre sont à la tête `87b821b0` de `lot/etude-suite`, reportées par
   l'outil `reanchor.mjs` (pièce de la boîte PAROXYSME) dans sa version du commit `a55a62d`, qui refuse une ligne hors du fichier (la version
@@ -620,6 +624,7 @@ Sources hors du tronc (branche du versement et boîte PAROXYSME) :
 | `verify-registres.mjs`, même dossier, commit `1fd31ee` | 121 | `284a5ceda26073d5c46f0f5465b9410d221a1f9f475722eda3507e4cba17531e` |
 | `verify-registres.mjs`, même dossier, commit `d97d838` | 127 | `6d71141222d2c32b995cd30e11335501e7021f4b2c7a38fb25053a61efe8712b` |
 | `verify-registres.mjs`, même dossier, commit `84bc889` | 134 | `c379f14aae48b7e44add4ad52cf9baa6b710cd0cc6b97c8772dc1dbbc9aeeb48` |
+| `PLI-Ukemi.md`, même dossier, commit `4d95a00`, pli de la G2 du versement | 48 | `85aa368b44dcc81db43c12aafe25602cb4e66782d3afd408ab5182a5705977a4` |
 | `coordination/TABLEAU.md`, boîte PAROXYSME à `150c997` | 54 | `1fac9ba1b7d36fe02db804d0279a7f83f2d507da4f97553695a3b503cf1ddd6e` |
 | `coordination/JOURNAL.md`, boîte à `150c997` (fondateur : l.13, l.15) | 18 | `3e2a9572843ac3fbffe3f0a2fd26249fc0780d69c03e9ab2bcfa6c43f6d1ae4e` |
 | ordre de mission n° 1, `coordination/messages/`, boîte PAROXYSME | 95 | `2e8cfd33c12de9d27b673c377e72a9a43da5dcb05c24e0094e744b7f3933c102` |

@@ -16,17 +16,32 @@
   à partir de 21:20 UTC (`date -u`) par un worker de PAROXYSME (`claude-opus-5-5`, effort max, contexte frais), avec le message de MONARK `0c8fb24` (MSG3, §8).
   Les constats de deux vérifications adverses de ce pli (instances neuves) sont pliés par des workers de PAROXYSME (`claude-opus-5-5`, effort max, contexte
   frais), le 2026-10-07 à partir de 22:49 UTC (`date -u` ; en-tête, §1, N06, §7, doutes 3 et 15, §8), puis le 2026-10-08 à partir de 00:09 UTC (`date -u` ;
-  en-tête, §1, L15, §7, doutes 3 et 15, §8).
+  en-tête, §1, L15, §7, doutes 3 et 15, §8). Second tour : constats d'une relecture par lentilles reproduits à `beea9834` et pliés le 2026-10-08 à partir de
+  01:28 UTC (`date -u`) par un worker de PAROXYSME (`claude-opus-5-5`, effort max) : Provenance (au pli des décisions, L15 et N06 ont été retouchés à la
+  relecture par la session PAROXYSME, message `7022595` l.18-21, §8), Bases, Labels, §6 (Bell N-01), §7 (doutes 10 et 15) ; constats d'un vérificateur
+  adverse de ce second tour réparés à partir de 03:09 UTC (`date -u`) par un worker de PAROXYSME (`claude-opus-5-5`, effort max) : Provenance (au versement,
+  la G2 et le fait neuf de NRT-02 ont été pliés le 2026-10-07 de 18:35 à 19:08 UTC par un worker de correction, `claude-opus-5-5`, effort max ; la session
+  PAROXYSME a retouché le registre de 19:10 à 19:11 UTC, avant le commit `dc82a19f`, puis l'a relu à 19:18 UTC, commit `126d9186` : N15, §1, ligne
+  PAROXYSME ; `PLI-Narabi.md` l.5-6, l.43-49, §8), §7 (doute 15), §8 ; constats d'un second vérificateur adverse réparés à partir de 04:46 UTC
+  (`date -u`) par un worker de PAROXYSME (`claude-opus-5-5`, effort max) : Provenance (au pli des décisions, la retouche de L15 et N06 par la session est
+  antérieure au commit qui la porte, `f8ea4964`, du 2026-10-07 à 20:22 UTC, `TZ=UTC git log` ; message `7022595` l.13, l.18-21), L15, N08, NRT-02, §6
+  (Bell N-01), §7 (doutes 11 et 15), §8 ; touches de L23, N16 et N03 étendues aux pages servies qui les rendent (`/docs/narabi`,
+  `/docs/pieces/narabi`, `/roadmap`), relues à `e13cfff7`, tête de `lot/etude-suite` lue au fetch de 02:46 UTC (reflog du clone ;
+  fichiers identiques à `87b821b0` et à `5e976a1a`, tête lue au fetch de 06:03 UTC), le 2026-10-08 à 05:17 UTC (`date -u`) par la session
+  PAROXYSME, sur les constats A2 et A3 de `VERIF-Narabi.md` et Q1 de `VERIF2-Narabi.md` (tâche 2 bis, boîte
+  `070f5ce`, §8) : L23, N03, N16 ; constats de la vérification finale de ce tour réparés à partir de 05:44 UTC, puis après une
+  vérification neuve de ce pli à partir de 06:04 UTC (`date -u`), par la session PAROXYSME : en-tête, L23, N16, §8.
 - **Bases** : inventaire mesuré à `d8fe354c` ; ETAT lu à `57a131fc`, comme `apps/harness/src/policy-retire.ts` (né entre les deux,
-  `f2152918`). Toutes les ancres de ce registre sont à la tête du tronc (`87b821b0`, tête de `lot/etude-suite` lue au fetch de 17:02 UTC, reflog du clone),
+  `f2152918`). Les ancres au tronc sans tête nommée sont à `87b821b0` (tête de `lot/etude-suite` lue au fetch de 17:02 UTC, reflog du clone),
   reportées par l'outil `reanchor.mjs` (pièce de la boîte, `d2332e2` ; aucune hors bornes, §7, doute 15) : les 18 ancres d'ETAT de l'inventaire
   gardent leur texte et 16 changent de numéro ; hors d'ETAT, aucune ancre n'est dans un hunk changé, et deux ancres de
-  `docs/RUNBOOK-sentinel.md` se déplacent au même texte (§7, doute 9).
+  `docs/RUNBOOK-sentinel.md` se déplacent au même texte (§7, doute 9). Les renvois des plis suivants à une ligne neuve d'ETAT nomment leur tête,
+  `5437cd0d` (§7, doute 15).
 - **Préséance** : `docs/ETAT.md` l.7-11 ; ETAT prime. Un item nommé hors d'ETAT et du code n'est pas compté comme formé : il est écrit
   « à former » ou « à re-former à ETAT » et porté par son chantier.
 - **Labels** : aucun ne change (`built` de Narabi, `apps/site/lib/fleet.ts:210`) ; `apps/site/lib/fleet.ts` n'est pas touché par ce
-  versement. La décision Q-A.2 (la jambe « attested » passe `upcoming`) s'applique par le noyau de PXC-02 (tâche 2 du TABLEAU), texte
-  seul ; le champ `status` de la pièce n'est pas touché ici (PLAN §11, point ouvert (i), l.1177-1180).
+  versement. La décision Q-A.2 (la jambe « attested » passe `upcoming`) s'applique par le noyau de PXC-02 (tâche 2 du TABLEAU), dans la forme
+  que fixe l'ADR de PXC-02, au cp-1 (L15 ; MSG3 l.7-10, l.13-14) ; le champ `status` de la pièce n'est pas touché ici (PLAN §11, point ouvert (i), l.1177-1180).
 
 ## 0. Comment lire ce registre
 
@@ -83,7 +98,7 @@ celle de L15.
   état : changé, entrée datée : DÉCISION FONDATEUR du 2026-10-07 à 14:4x UTC, Q-A.2 « Passe « upcoming » (Recommandé) » (JOURNAL de la boîte, l.14 à `887c0f6` ;
     ETAT l.49-51 à `5437cd0d`) : la jambe passe `upcoming` · suite : la forme de Q-A.2 (a) (texte, câblage de `fleet.ts`, `status`) est fixée par l'ADR de
     PXC-02, au cp-1 (PLAN l.649, l.1179-1180 ; MSG3 l.13-14) ; MONARK remplace la parenthèse de Q-A.2, ETAT l.50-51 à `5437cd0d`, par la forme corrigée (la
-    jambe passe `upcoming`, « pour cette jambe ; sa forme est fixée par l ADR de PXC-02, au cp-1 ; go d envoi du site : le fondateur ») dans son commit d'ETAT
+    jambe passe `upcoming`, « … pour cette jambe ; sa forme est fixée par l ADR de PXC-02, au cp-1 ; go d envoi du site : le fondateur ») dans son commit d'ETAT
     de la fusion de ce pli (MSG3 l.7-10)
 
 **Les autres limites de la fiche, dans l'ordre de l'inventaire.**
@@ -206,7 +221,8 @@ celle de L15.
     PAROXYSME (MSG l.65), avant sa partie 1 ; le procurement Drees 2003 (PLAN §7.1)
   état : ouvert · suite : §5.2 absente de COPA 2016 (INV l.175) ; de Haan-Ferreira reçu (PXP-22, CC l.1201) ; C-PX16-a non construit (INV l.175)
 - **L23** · « « a dead probe is silent — no dead-man switch yet » ; son déclencheur « G0 T-1b » est passé sans clôture. »
-  source : RB-S l.682 (l.678 à la base) ; `README.md:68` (Bell servi) · touche : aucune (interne) · nature : C
+  source : RB-S l.682 (l.678 à la base) ; `README.md:68` (Bell servi) · touche : `/docs/narabi`, « What the probe checks »
+    (`apps/site/app/docs/narabi/page.tsx:108-113` : une sonde « … on another host … » ; « A failure raises an alert to the operator ») · nature : C
   item : PXC-05 SERVED-CONTROL-1, partie 3 (dead-man croisé ; C-PX12-a, à former) · porteur : PAROXYSME ; acte sur l'hôte : MONARK ·
     déclencheur : partie 3 de PXC-05 (F3 ; PLAN §4.3 l.589-590)
   état : ouvert, déclencheur passé · suite : T-1b de Bell est passé (Bell servi) ; aucune clôture écrite de l'item du RUNBOOK
@@ -286,7 +302,8 @@ celle de L15.
   état : ouvert · suite : re-baseline d'un contrat gelé (ADR-K1, M4 et M6) ; dépend de K-1
 - **N03** · « La note du registre « its attested flow carried into the served gate, both replayed » dit plus que le chemin servi. »
   source : `apps/site/lib/fleet.ts:225` ; `apps/harness/test/gate.test.ts:463-471`, `:518` ; `apps/site/lib/narabi-copy.ts:98`, `:101` ·
-    touche : `apps/site/app/docs/narabi/page.tsx:64` ; `apps/site/app/fleet/page.tsx:139` · nature : C
+    touche : `apps/site/app/docs/narabi/page.tsx:64` ; `apps/site/app/fleet/page.tsx:139` ;
+    `apps/site/components/docs/piece-doc-page.tsx:200` (`/docs/pieces/narabi`) ; `apps/site/app/roadmap/page.tsx:326` · nature : C
   item : PXC-02 PUBLIC-SENTENCES-2, partie 1, noyau (seconde jambe bornée, PLAN §5.1 (a) ; NARABI-REGISTER-NOTE-1, à former) · porteur :
     PAROXYSME ; envoi du site : le fondateur · déclencheur : tâche 2 du TABLEAU (F1) ; publication au go d'envoi du site
   état : ouvert · suite : sous Q-A.2 (a), la seconde jambe (`fleet.ts:216-225`) est bornée dans la même PR que celle de L15 (PLAN §5.1)
@@ -356,7 +373,9 @@ celle de L15.
     verbatim sous l'item à ETAT (MSG2 l.8) ; l'arbre renommé du 2026-10-04 ne se retire qu'après le prochain redémarrage du harnais (ETAT l.1471-1473)
 - **N16** · « La capture du site date du 2026-09-24 ; le test de composition tourne sur elle. »
   source : `apps/site/data/narabi-capture.json` (`captured_at` 2026-09-24) ; `test/narabi-live.test.ts:184` · touche : page `/narabi` ;
-    `README.md:70` · nature : C
+    `/docs/narabi` (`apps/site/app/docs/narabi/page.tsx:89-91`, l'état « … published … » lu dans la capture, l.27, l.30 ; sa dernière ligne, l.121-122) ;
+    `/docs/pieces/narabi` (`apps/site/components/docs/piece-doc-page.tsx:93`, `:102`) ; `/fleet` et `/`, ligne de repli rendue avant la
+    lecture des fichiers servis (`apps/site/app/fleet/narabi-freshness.tsx:84`) ; `README.md:70` · nature : C
   item : PXC-05 SERVED-CONTROL-1, partie 2, reste (NARABI-CAPTURE-REFRESH-1, à former) · porteur : PAROXYSME ; envoi du site : le
     fondateur · déclencheur : reste de la partie 2 de PXC-05 en F3 (PLAN §4.2) ; à la prochaine release du site
   état : ouvert · suite : recontrôle du fichier vivant dans le navigateur (INV l.105)
@@ -392,7 +411,7 @@ celle de L15.
 ### 4.2 Limites nouvelles depuis la fiche (4, INV §4.2)
 
 - **N08** · « Le registre `PAROXYSME-Narabi.md` est absent du dépôt (règle §4 de l'investisseur). » · clos (preuve : #242, fusion `1df4e44f`, ancêtre de
-  `5437cd0d`, verse ce fichier ; ETAT l.181-183 à `5437cd0d` : « Ils closent les limites « registre absent » : Narabi N08 »)
+  `5437cd0d`, verse ce fichier ; ETAT l.181-183 à `5437cd0d` : « Ils closent les limites « registre absent » : Narabi N08, … »)
 - **N17** · « Bord de bande USDe jusqu'à 4 ulp de q̂, « non dit ». » · clos (preuve : B-13, `apps/harness/src/tools/gate.ts:133-134` ;
   ADR-CM l.97, l.150)
 - **N18** · « α et nMin choisis par l'appelant sur la clé USDe. » · clos (preuve : `apps/harness/src/class-policy.ts:27` ;
@@ -419,10 +438,10 @@ Harnais et cité ici en suite de N11.
 - **NRT-02** · « La sonde Narabi garde le mot de passe d'envoi dans l'environnement de l'uid `probe`, que partage l'enfant vérificateur du Dōjō. »
   source : ETAT l.1889-1898 ; `deploy/monark-probe.service:23`, `:33` (sans `UnsetEnvironment`) · touche : aucune · nature : C
   item : DOJO-PROBE-UID-BOUNDARY-1 (ETAT l.1889-1898 ; ETAT l.2079-2083 à `5437cd0d`) · porteur : MONARK (texte ; construction, son choix technique ;
-    déploiement dans la délégation du fondateur, ETAT l.2081-2082 à `5437cd0d`) · déclencheur : le lot de BELL-HOST-COTENANCY-1 si son G0 la chiffre à
-    temps, sinon avant DOJO-PROBE-MIRROR-1 (ETAT l.1897), non passé (ETAT l.2080-2083 à `5437cd0d`)
+    déploiement dans la délégation du fondateur, ETAT l.2081-2082 à `5437cd0d`) · déclencheur : avant DOJO-PROBE-MIRROR-1 (ETAT l.1897), non passé (ETAT
+    l.2080-2083 à `5437cd0d`) ; le G0 du lot de BELL-HOST-COTENANCY-1 la chiffre sans la construire, hors du lot (l.6, l.278, l.306-307 à `e13cfff7`, §6)
   état : ouvert ; sonde du Dōjō déployée le 2026-10-07 sans la construction, Q-20 ne nommant pas l'item (ETAT l.2039-2046, l.2079-2080 à `5437cd0d`) ·
-    suite : prix à chiffrer à son G0 (ETAT l.1897-1898) ; `LoadCredential=` seul ne ferme pas la limite (ETAT l.1895-1896)
+    suite : prix chiffré au §11 du G0 du lot (l.278-307 à `e13cfff7`) ; `LoadCredential=` seul ne ferme pas la limite (ETAT l.1895-1896)
 
 ## 6. Renvois : limites d'autres pièces qui touchent Narabi
 
@@ -440,7 +459,11 @@ Harnais et cité ici en suite de N11.
   que L9 ici. Hikae L8 (`B_t` fragile, P(B_t < 0), INVENTAIRE-Hikae l.134) : registre Hikae ; même source que L33 (M009 l.123-124).
 - Ukemi N13 (la ligne liq s0 n'a pas de chemin de retrait servi) : registre Ukemi ; même construction que N20 (NARABI-ROW-SUPERSEDE-1,
   CC l.175).
-- Bell N-01 (hôte dit « dédié » qui porte la sonde Narabi puis le Dōjō, INVENTAIRE-Bell l.121) : registre Bell ; voisin de NRT-02.
+- Bell N-01 (hôte dit « dédié » qui porte la sonde Narabi puis le Dōjō, INVENTAIRE-Bell l.121) : registre Bell (item BELL-HOST-COTENANCY-1) ; voisin de
+  NRT-02 : MONARK joignait la construction de DOJO-PROBE-UID-BOUNDARY-1 (NRT-02) au lot de BELL-HOST-COTENANCY-1 si son G0 la chiffrait à temps ; sinon,
+  elle gardait son déclencheur (ETAT l.223, l.2081-2083 à `5437cd0d`). Le G0 du lot, versé par #244 (fusion `e13cfff7`), la chiffre sans la construire :
+  non triviale, elle n'entre pas dans le lot, dont l'échéance passe d'abord, et garde son déclencheur, « avant DOJO-PROBE-MIRROR-1 »
+  (`docs/G0-lot-bell-host-cotenancy-1.md` l.6, l.278, l.306-307 à `e13cfff7`).
 
 ## 7. Doutes nommés (ce qui ne se reproduit pas tel quel à la tête)
 
@@ -494,12 +517,14 @@ Harnais et cité ici en suite de N11.
    l.1459-1462 ; l.989 → l.1461 ; l.992-1000 → l.1464-1472 ; l.1200 → l.1672 ; l.1261 → l.1733) ; l.9-11 et l.27-31 ne bougent pas.
    `docs/RUNBOOK-sentinel.md` l.678 → l.682 et l.671-676 → l.675-680 (quatre lignes ajoutées plus haut par #229). Texte changé : aucune
    ancre. Commande : `node reanchor.mjs --repo <clone> --base <57a131fc | d8fe354c> --head 87b821b0 <fichier>:<ligne>…`.
-10. **Q-A.2, au JOURNAL de la boîte, puis à ETAT (doute levé).** La décision est à la l.14 à `887c0f6` (citée par la mission) et à la l.15 à `150c997` (une
-    ligne ajoutée au-dessus) : le JOURNAL s'écrit par le haut ; le registre cite le commit. Absente d'ETAT à `87b821b0` (`grep -c 'Q-A'` = 1 : Q-A4-1, l.1265,
-    un autre sujet), elle y est écrite par MONARK : ETAT l.49-51 à `5437cd0d`. Sa parenthèse (ETAT l.50-51 à `5437cd0d`) dit `status` et `fleet.ts` changés par
-    le noyau, au-delà de Q-A.2 (a) et du PLAN l.649 : MONARK la remplace par la forme citée en L15, dans son commit d'ETAT de la fusion de ce pli (MSG3 l.7-10).
-11. **En-tête de M014.** M014 l.3 porte encore « checkpoint-1 validateur — dû avant le code » alors que M014 est fusionnée avec ses
-    journaux G1 et G2 (INV doute 3) : non tranché ici.
+10. **Q-A.2, au JOURNAL de la boîte, puis à ETAT (présence : doute levé ; portée : correction d'ETAT annoncée par MONARK).** La décision est à la l.14 à
+    `887c0f6` (citée par la mission) et à la l.15 à `150c997` (une ligne ajoutée au-dessus) : le JOURNAL s'écrit par le haut ; le registre cite le commit.
+    Absente d'ETAT à `87b821b0` (`grep -c 'Q-A'` = 1 : Q-A4-1, l.1265, un autre sujet), elle y est écrite par MONARK : ETAT l.49-51 à `5437cd0d`. Sa
+    parenthèse (ETAT l.50-51 à `5437cd0d`) dit `status` et `fleet.ts` changés par le noyau, au-delà de Q-A.2 (a) et du PLAN l.649 : MONARK la remplace par la
+    forme citée en L15, dans son commit d'ETAT de la fusion de ce pli (MSG3 l.7-10).
+11. **En-tête de M014.** M014 l.3 porte encore « … checkpoint-1 validateur — dû avant le code … » alors que M014 est fusionnée avec ses
+    journaux G1 et G2 (INV doute 3) : non tranché ici. La question va à MONARK, à qui l'inventaire la pose (INV l.284) : PAROXYSME la porte dans la demande
+    de fusion de #245 ; échéance proposée de la réponse : le commit d'ETAT de MONARK pour cette fusion (MSG3 l.9-10).
 12. **Procurements.** Rien ne prouve l'envoi des demandes P1-2 à P1-10 de TH-1 ni des douze demandes de SN-1 §3 (C) (INV doute 4) ; la
     décision est NARABI-1-DEMANDES-ENVOI-1 (PLAN §7.3, l.901 ; MONARK).
 13. **Manifeste.** Un manifeste de l'investisseur reprend la formule de N03 (INV doute 5) ; sa publication n'est pas vérifiable sans
@@ -508,14 +533,21 @@ Harnais et cité ici en suite de N11.
     suite), coupées en lignes physiques de 160 caractères au plus avec une indentation de quatre espaces, comme au registre du Harnais ;
     une entrée fait sept lignes physiques au plus, sauf N06 (huit : sa liste de dix-huit noms) et L15 (dix : la décision datée de Q-A.2 et la correction d'ETAT
     annoncée, MSG3 l.7-10).
-15. **Contrôle mécanique.** `verify-registres.mjs` (pièce de la boîte, `d97d838` : entrées prises entières, doutes épinglés) sort 0 sur la
-    branche avec ce registre. La version `d2332e2` de `reanchor.mjs` ne refusait pas une ligne hors du fichier (`a55a62d` la refuse) : les 257
-    renvois « `fichier:ligne` » et « ETAT l. » de la version versée tombent dans leur fichier à `87b821b0` (`bounds.py`, pièce de la boîte, 19:10 UTC).
-    Pli des décisions (20:1x UTC), de sa G2 (21:3x UTC) et de sa vérification (22:5x UTC) : les 37 renvois « ETAT l.… à `5437cd0d` »
+15. **Contrôle mécanique.** `verify-registres.mjs` (pièce de la boîte, `d97d838` : entrées prises entières, doutes épinglés) sort 0 sur
+    `dc82a19f` (versement, #242 ; `PLI-Narabi.md` l.46) ; sur #245, qui modifie les registres, son contrôle (5) échoue : c'est la copie de `84bc889` qui
+    tourne (ci-dessous). La version `d2332e2` de `reanchor.mjs` ne refusait pas une ligne hors du fichier (`a55a62d` la refuse) : `bounds.py` (pièce de la
+    boîte, `0a5ca61`, §8) a lu à 19:10 UTC le fichier de `dc82a19f` (`PLI-Narabi.md` l.43-45). Rejoué le 2026-10-08 à 04:55 UTC (`date -u`) sur la version
+    versée R (`git show 1df4e44f:docs/PAROXYSME-Narabi.md`) par `python3 -I bounds.py <clone> 87b821b0 R`, il contrôle 257 numéros de ligne (chaque borne
+    d'une plage compte pour un) : 0 hors bornes, aucun fichier sauté. Ses motifs (l.21, l.29) y trouvent 174 renvois : 82 « `fichier:ligne` »
+    (`grep -oP '\x60[\w./@-]+\.\w+:\d+(-\d+)?\x60' R | wc -l`), 17 « `:N` » qui suivent l'un d'eux
+    (`grep -Pzo '\x60[\w./@-]+\.\w+:\d+(-\d+)?\x60(\s*,\s*\x60:\d+(-\d+)?\x60)*' R | grep -aoP '\x60:\d' | wc -l`) et 75 « ETAT l. »
+    (`grep -oP 'ETAT l\.\d' R | wc -l`).
+    Après les plis de #245 (Provenance), recompte du second tour (2026-10-08 à 01:42 UTC, `date -u`) : les 38 renvois « ETAT l.… à `5437cd0d` »
     (`tr '\n' ' ' < docs/PAROXYSME-Narabi.md | tr -s ' ' | grep -o 'ETAT l\.[-0-9, l.]* à .5437cd0d.' | wc -l`) tombent dans ETAT à `5437cd0d` (2 089 lignes ;
-    bornes relues par `python3 -I`), les autres sont ceux de la version versée. Une copie de `verify-registres.mjs` (`84bc889`, sha256 `c379f14a…`) dont seule
+    bornes relues par `python3 -I` : 42 plages, la plus haute l.2083), les autres sont ceux de la version versée (aucun renvoi d'ETAT sans tête n'est ajouté
+    depuis ; le plus haut, l.1898, tombe dans ETAT à `87b821b0`, 1 904 lignes). Une copie de `verify-registres.mjs` (`84bc889`, sha256 `c379f14a…`) dont seule
     la l.61 change, pour lire ce registre sur le disque et non à une tête par `git show`, a tourné avec `--allow-modified` : sa section Narabi est sans échec,
-    59 ids ; 61 entrées, 53 ouvertes (dont les 2 de tête, §5) et 8 closes.
+    59 ids ; 61 entrées, 53 ouvertes (dont les 2 de tête, §5) et 8 closes ; rejouée au second tour sous Node 24.21.0 : sortie 0.
 16. **PXC-04 partie 1 : le PLAN se contredit ; MONARK tranche.** Le §4.2 la place avant le 2026-10-18 : « la date ne tient que si la zone `apps/sentinel` est
     libre après la PR 2 et si un déploiement la porte », sinon une ligne d'attente datée P-25 (PLAN l.572-574) ; la table de capacité du §4.0 la reporte « après
     le service », avec une ligne d'attente datée (PLAN l.529 ; CE-08 plié, l.1044-1045). ETAT l.265-269 à `5437cd0d` : la partie 1 ne peut pas être déployée
@@ -550,6 +582,9 @@ dette : chaque entrée ouverte a son item, son porteur et son déclencheur ; cel
 | `apps/site/lib/narabi-copy.ts` à `87b821b0` | 101 | `981c7bc7f0db99f80861de9b19a432a08b6170478b5d329b53715602ee916aa6` |
 | `apps/site/app/docs/narabi/page.tsx` à `87b821b0` | 164 | `10c07c0ffd492a7fd92ea0637316286acacb410d4505119ee327c06b32428795` |
 | `apps/site/app/fleet/page.tsx` à `87b821b0` | 214 | `0104533fdf6d2522c173f6157410bf89e23557118ed39b00c5a7ce50da9ef2ec` |
+| `apps/site/app/fleet/narabi-freshness.tsx` à `87b821b0` | 90 | `3718d39edc87ba6333235fb5ab6d89201272332e819554b0f7c0fd2daa5e9d11` |
+| `apps/site/components/docs/piece-doc-page.tsx` à `87b821b0` | 280 | `65fc7bc5c01a80469c593a20a524a6856fda8c4e41274a9d43d1ece785d63dd1` |
+| `apps/site/app/roadmap/page.tsx` à `87b821b0` | 363 | `944051d647580d5fdb56bcbb8f2198da32a18776c981634e644f8ac2c018c651` |
 | `apps/site/components/narabi/narabi-live.tsx` à `87b821b0` | 559 | `fc3fb41976da20f9a3e6d9d0a227ccb65fb0e22a364b084a058a662fc1660410` |
 | `apps/site/data/narabi-capture.json` à `87b821b0` (clé `captured_at` seule) | 19 | `44a5b6288a24cc68cf78bcc6d87d9c6e13c9e4d8b806282d559696979b7ae149` |
 | `apps/sentinel/README.md` à `87b821b0` | 51 | `4dea6a1b66817dba6ae836b8bc47352105502e92ec5acd8be4e56c4ef5332664` |
@@ -578,6 +613,7 @@ dette : chaque entrée ouverte a son item, son porteur et son déclencheur ; cel
 | `docs/G7-lot-rpc-guard-lock-write-leak-1.md` à `87b821b0` | 92 | `9c1c7b782d4ddabe3ab64212cd56a0617165c4bb5c9e1bbe693161cc1b25bf12` |
 | `docs/G7-lot-sentinel-sigterm-startup-window-1.md` à `87b821b0` | 85 | `3e7b615b9e09f07542a05dc332e3d3af9fadf71929460a4405da314aee14dc6b` |
 | `docs/G7-lot-retire-path-rb.md` à `87b821b0` | 46 | `0f371e39af2888ac85fb644a3acd10c0deb212aaf39a92c5e8801a9d0baacaa8` |
+| `docs/G0-lot-bell-host-cotenancy-1.md` à `e13cfff7` (fusion de #244) | 468 | `1bd1e83f91eb93ffadb6bbb889afb317dc8376858ffa458145c2d06387d2d75b` |
 | `docs/biblio/ukemi-modeL/L-lecture-tibshirani2019-barber2023.md` à `87b821b0` | 23 | `af35ab5871c9cc1d006f68ea35d9ba5617642a1ac6296fb337f7c2c8643d6b6c` |
 | `docs/dojo/FAITS-systemd-path-2026-09-27.md` à `87b821b0` | 11 | `daf6483c84115586533ecee07575ab3c533876e350b23cd34451cc9de04c2893` |
 | `docs/PAROXYSME-Dojo.md` à `87b821b0` | 853 | `56c3762e7ae9acd4fc3f8e0850a3750b343c4cb6f5968408f79d94503779674a` |
@@ -600,6 +636,10 @@ dette : chaque entrée ouverte a son item, son porteur et son déclencheur ; cel
 | MSG2 : message de MONARK « HOST-HARNESS-PREV-1 », même dossier, commit `8eb9a46` | 11 | `620ac327b3acf49cd472a5340e4ea53a4b287d265dac9489ea639e58ad2c30e4` |
 | Message de PAROXYSME « #245 ouverte », même dossier, commit `7022595` | 73 | `1790b7fc68aa3f0e2b0fe918ff1613e5ab5f3398f7031bf24ee776d108514f9d` |
 | MSG3 : MONARK, « #245 reçue, correction d'ETAT annoncée », même dossier, `0c8fb24` | 18 | `639a6761c3c3a42647194dd9c817e21986adf91aef3f6a5af2aaf7952260d7bb` |
-| `reanchor.mjs`, boîte PAROXYSME `coordination/pieces/2026-10-07-registres/` | 65 | `9ce778f21dc34cdf93cb5bceb41aa566de6ecc5390a39b8eb7993f3d731f4f8b` |
+| `reanchor.mjs`, boîte `coordination/pieces/2026-10-07-registres/` (`d2332e2`) | 65 | `9ce778f21dc34cdf93cb5bceb41aa566de6ecc5390a39b8eb7993f3d731f4f8b` |
 | `verify-registres.mjs`, même dossier (`d97d838`) | 127 | `6d71141222d2c32b995cd30e11335501e7021f4b2c7a38fb25053a61efe8712b` |
 | `verify-registres.mjs`, même dossier (`84bc889`) | 134 | `c379f14aae48b7e44add4ad52cf9baa6b710cd0cc6b97c8772dc1dbbc9aeeb48` |
+| `bounds.py`, même dossier (`0a5ca61`) | 34 | `88168033c1fc9bf37ecac0637f3c6f0331d22bae336fee5d6a2649b3a8fa10e1` |
+| `PLI-Narabi.md`, même dossier (`4d95a00`), pli de la G2 du versement | 49 | `0c4c2b01f14c38c8ff2db0096e513440ebc47580cf7269e32dd304a14ce8cabf` |
+| `VERIF-Narabi.md`, `coordination/pieces/2026-10-08-pieces-inachevees` (`070f5ce`) | 78 | `85d75886dcdee9882f3a97bc11143292abb113166990d0a011d10fd6cb9cbed8` |
+| `VERIF2-Narabi.md`, même dossier (`070f5ce`) | 66 | `f1a207560b543d325e9402920de2cf003d7ab3a78a5b04a2e4266089781274f0` |
