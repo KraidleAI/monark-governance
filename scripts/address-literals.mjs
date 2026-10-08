@@ -116,33 +116,44 @@ export const mask = (literal) => literal.replace(/[\dA-Fa-f]+/g, "x");
 const listedAnywhere = (lit) => Object.values(LISTED).some((e) => Object.hasOwn(e, lit));
 const bareEnv = () => Object.fromEntries(Object.entries(process.env).filter(([k]) => !k.toUpperCase().startsWith("GIT_")));
 
-/** A path with each literal it carries masked where it is written (each hex run it touches, escapes included), and that literal and
- * each of `also` (a hit's literal) wherever its text recurs, each character as written or as %XX: a hit never prints an address. */
-function hide(rel, also = []) {
+/** A path with each span masked that reads, from any index, each character as written or as %XX, as an address of `seen` (each
+ * literal the scan read, in any file or line, this path's included): glued, overlapping or in another text form (a BlockList compares
+ * values: zeros, "::" and case, an IPv4-mapped form and its IPv4; octets zero-padded to four digits are read too). Each hex run a span
+ * touches becomes x, escapes included. A text stops where no address goes on (45 characters, a group of five, a fourth dot, a ninth
+ * colon, a second "::") and is parsed only where it has the shape of one: linear in the path, whatever `seen` holds. */
+function hide(rel, seen) {
   const hid = Array(rel.length).fill(false);
-  for (const [lit, a, b] of [...spans(rel), ...also.map((l) => [l, 0, 0])]) {
-    hid.fill(true, a, b);
-    const recurs = new RegExp([...lit].map((c) => `(?:${c === "." ? "\\." : c}|%${c.charCodeAt(0).toString(16)})`).join(""), "gi");
-    for (const m of rel.matchAll(recurs)) hid.fill(true, m.index, m.index + m[0].length);
+  for (let i = 0; i < rel.length; i++) {
+    for (let j = i, t = "", run = 0, dots = 0, colons = 0, pairs = 0; j < rel.length && t.length < 45;) {
+      const e = rel[j] === "%" && /^[\dA-Fa-f]{2}$/.test(rel.slice(j + 1, j + 3)); // an escape, decoded wherever the span starts
+      const c = e ? String.fromCharCode(Number.parseInt(rel.slice(j + 1, j + 3), 16)) : rel[j];
+      pairs += c === ":" && t.endsWith(":") ? 1 : 0; t += c; j += e ? 3 : 1; run = c === "." || c === ":" ? 0 : run + 1;
+      dots += c === "." ? 1 : 0; colons += c === ":" ? 1 : 0;
+      if (!/[\dA-Fa-f:.]/.test(c) || run > 4 || dots > 3 || colons > 8 || pairs > 1) break;
+      const v4 = /^\d+(?:\.\d+){3}$/.test(t) ? t.split(".").map(Number).join(".") : "";
+      const v6 = colons > 1 && (pairs === 1 || colons === 7 || (colons === 6 && dots === 3)) && isIPv6(t);
+      if (isIPv4(v4) ? seen.check(v4, "ipv4") : v6 && seen.check(t, "ipv6")) hid.fill(true, i, j);
+    }
   }
   return rel.replace(/[\dA-Fa-f]+/g, (run, i) => (hid.slice(i, i + run.length).includes(true) ? "x" : run));
 }
-/** Judge the literals of one line of `rel` (line 0: the path itself) into the verdict `v`. */
-function judge(v, rel, line, text) {
+/** Judge the literals of one line of `rel` (line 0: the path itself) into the verdict `v`; each literal read goes into `seen`. */
+function judge(v, rel, line, text, seen) {
   for (const [lit, col, kind] of literals(text)) {
+    seen.addAddress(lit, kind === 4 ? "ipv4" : "ipv6"); // admitted or not: no path that scan() prints shows it
     if (EXEMPT.check(lit, kind === 4 ? "ipv4" : "ipv6")) continue;
     if (Object.hasOwn(LISTED, rel) && Object.hasOwn(LISTED[rel], lit)) { v.used.add(`${rel} ${lit}`); continue; }
     if (rel === SELF && listedAnywhere(lit)) continue;
-    v.hits.push({ file: hide(rel, [lit]), line, col, kind, mask: mask(lit) });
+    v.hits.push({ file: rel, line, col, kind, mask: mask(lit) });
   }
 }
 
 /** The verdict over the tracked files of `root`: refused literals (masked), listed pairs met, files read, undeclared binaries. */
 export function scan(root, env = bareEnv()) {
   const tracked = execFileSync("git", ["ls-files", "-z"], { cwd: root, env, maxBuffer: 1 << 26 }).toString("utf8").split("\0");
-  const v = { hits: [], used: new Set(), read: 0, undeclared: [] }, skipped = [];
+  const v = { hits: [], used: new Set(), read: 0, undeclared: [] }, skipped = [], seen = new BlockList();
   for (const rel of tracked.filter((f) => f !== "")) {
-    judge(v, rel, 0, rel);
+    judge(v, rel, 0, rel, seen);
     let buf;
     try { // a link is judged by its text, never followed; a gitlink (its submodule's directory) by its path only
       const p = join(root, rel), st = lstatSync(p);
@@ -151,20 +162,22 @@ export function scan(root, env = bareEnv()) {
     } catch (e) { if (e.code === "ENOENT") continue; throw e; } // deleted in the work tree
     if (buf.includes(0)) { skipped.push(rel); continue; } // a binary file, which .gitattributes must declare (undeclared, below)
     v.read++;
-    buf.toString("utf8").split("\n").forEach((text, i) => { judge(v, rel, i + 1, text); });
+    buf.toString("utf8").split("\n").forEach((text, i) => { judge(v, rel, i + 1, text, seen); });
   }
-  v.undeclared = undeclared(root, env, skipped);
+  const shown = new Map(), show = (p) => shown.get(p) ?? shown.set(p, hide(p, seen)).get(p); // each path once, every file read
+  for (const h of v.hits) h.file = show(h.file);
+  v.undeclared = undeclared(root, env, skipped).map(show);
   return v;
 }
 
-/** The skipped paths that .gitattributes does not declare binary (git check-attr, a global attributes file left out), each masked as a
- * hit's path: a text file that takes a NUL byte, or is saved as UTF-16, cannot leave the gate unseen. */
+/** The skipped paths that .gitattributes does not declare binary (git check-attr, a global attributes file left out), each masked by
+ * scan() as a hit's path: a text file that takes a NUL byte, or is saved as UTF-16, cannot leave the gate unseen. */
 function undeclared(root, env, paths) {
   if (paths.length === 0) return [];
   const out = execFileSync("git", ["-c", "core.attributesFile=/dev/null", "check-attr", "--stdin", "-z", "binary"],
     { cwd: root, env, input: paths.map((p) => `${p}\0`).join(""), maxBuffer: 1 << 26 }).toString("utf8").split("\0");
   const bad = [];
-  for (let i = 0; i + 2 < out.length; i += 3) if (out[i + 2] !== "set") bad.push(hide(out[i]));
+  for (let i = 0; i + 2 < out.length; i += 3) if (out[i + 2] !== "set") bad.push(out[i]);
   return bad;
 }
 
