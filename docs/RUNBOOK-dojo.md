@@ -998,7 +998,7 @@ orchestrator; any other output (a packet off its format): **STOP**.
 
 (iv) The `history` line (PR-3a-2), after (iii), before the first `snapshot`: ONE transient job with the unit's user, sandbox, credential,
 `UnsetEnvironment=` (as A-8 (2)), read-only inbox (the unit's `SupplementaryGroups=` and `ReadOnlyPaths=`: `--history` reads d in `bundles/`)
-and `InaccessiblePaths=` (the collect side's credentials, EnvironmentFile and ledger, as ONE argument `"$I"`, a list as `"$U"`), each property
+and `InaccessiblePaths=` (the collect side's credentials, EnvironmentFile and ledger, then Bell's key directory, as ONE argument `"$I"`, a list as `"$U"`), each property
 the unit's own (`dojo_runbook_jobs_carry_the_unit_properties`), the unit not running at that instant (`inactive`, or `failed` until
 the `history` line: section 17) and away from its four slots (one writer at a time: a timer start beside the job refuses `lock_held`, or
 the job does; nothing written either way):
@@ -1010,7 +1010,7 @@ S="-p PrivateNetwork=yes -p NoNewPrivileges=true -p ProtectSystem=strict -p Prot
 K="-p LoadCredential=dojo-signing-key:/etc/monark/dojo/signing-key.pem" &&
 U="--property=UnsetEnvironment=NODE_OPTIONS NODE_TLS_REJECT_UNAUTHORIZED NODE_EXTRA_CA_CERTS SSL_CERT_FILE SSL_CERT_DIR" &&
 U="$U HTTP_PROXY HTTPS_PROXY ALL_PROXY NO_PROXY http_proxy https_proxy all_proxy no_proxy" &&
-I="--property=InaccessiblePaths=/etc/monark/dojo-collect /etc/monark/dojo-collect.env /var/lib/monark-dojo-collect/ledger" &&
+I="--property=InaccessiblePaths=/etc/monark/dojo-collect /etc/monark/dojo-collect.env /var/lib/monark-dojo-collect/ledger /etc/monark/bell" &&
 C="/usr/bin/env node /opt/monark-dojo/apps/dojo/scripts/dojo-publish.mjs --history /var/lib/monark-dojo/history-packet
 --inbox /var/lib/monark-dojo-collect/bundles --state /var/lib/monark-dojo" &&
 systemd-run --wait --pipe --collect --uid=dojo --gid=dojo $S "$U" "$I" $K $C'
@@ -1484,35 +1484,44 @@ Expected: no `FAILED`; `LoadState=loaded` twice, both `FragmentPath` under `/etc
 accepted, each next elapse at hh:30 UTC. Never `systemctl edit`; the timer is enabled at (5) only. Rollback:
 `ssh -i ~/.ssh/monark_vps root@bell.monarkgate.tech 'rm /etc/systemd/system/monark-dojo-probe.* && systemctl daemon-reload'`.
 
-(4) One start, simulated by a transient job with the unit's user and sandbox and WITHOUT the mail file (a healthy start mails
-nothing), its record a scratch file beside the production one, printed then removed; `--collect` leaves no failed transient unit
-behind (item PROBE-SIM-UNIT-1 of `docs/RUNBOOK-bell.md`):
+(4) One start, simulated by a transient job with the unit's user, sandbox and environment guard, each property the unit's own
+(`dojo_probe_tree_is_the_import_closure` reads them from the unit; its `UnsetEnvironment=` list is ONE argument, `"$U"`, as in
+section 16 (2): `$S` is split on blanks), Bell's key directory masked as in the unit, and WITHOUT the mail file (a healthy start
+mails nothing), its record a scratch file beside the production one, printed then removed; `--collect` leaves no failed transient
+unit behind (item PROBE-SIM-UNIT-1 of `docs/RUNBOOK-bell.md`):
 
 ```bash
 ssh -i ~/.ssh/monark_vps root@bell.monarkgate.tech 'S="-p ProtectSystem=strict -p ProtectHome=true -p PrivateTmp=true -p NoNewPrivileges=true
--p ReadWritePaths=/var/lib/monark-probe -p CPUQuota=25% -p MemoryMax=640M -p TasksMax=64 -p WorkingDirectory=/opt/monark-dojo-probe" &&
+-p ReadWritePaths=/var/lib/monark-probe -p InaccessiblePaths=/etc/monark/bell -p CPUQuota=25% -p MemoryMax=640M -p TasksMax=64 -p WorkingDirectory=/opt/monark-dojo-probe" &&
+U="--property=UnsetEnvironment=NODE_OPTIONS NODE_TLS_REJECT_UNAUTHORIZED NODE_EXTRA_CA_CERTS SSL_CERT_FILE SSL_CERT_DIR" &&
+U="$U HTTP_PROXY HTTPS_PROXY ALL_PROXY NO_PROXY http_proxy https_proxy all_proxy no_proxy SMTP_PASS" &&
 C="/usr/bin/env node /opt/monark-dojo-probe/scripts/probe-dojo-live.mjs --out /var/lib/monark-probe/dojo-live-sim.json" &&
-systemd-run --wait --pipe --collect --uid=probe --gid=probe $S $C > /dev/null; echo sim_exit=$?;
+systemd-run --wait --pipe --collect --uid=probe --gid=probe $S "$U" $C > /dev/null; echo sim_exit=$?;
 cat /var/lib/monark-probe/dojo-live-sim.json; rm -f /var/lib/monark-probe/dojo-live-sim.json'
 ```
 
 Expected: `sim_exit=0`, then the record: `"status": "healthy"`, `"reason": null`, `"no_store": true`, both `cf_cache_status_*` `null`
 (no edge, DOJO-EDGE-CACHE-1), `"verifier_exit": 0`, `"head_day"` the day of the served head (JOURNAL: the record). **STOP** on any
-other output: its `reason`, `side` and `verifier_reason` name the fault (the header of the probe); escalation, no timer.
+other output: its `reason`, `side` and `verifier_reason` name the fault (the header of the probe); escalation, no timer. On a host
+without `/etc/monark/bell` (Bell's key directory, made by step 3 of `docs/RUNBOOK-bell.md` on Bell's host), the job fails before the
+probe runs: `sim_exit=226` (`EXIT_NAMESPACE`, systemd.exec(5)) and no record; **STOP**: the committed unit does not run on that host.
 
 (4b) The mail path, proven before the timer, and again by (9) after a change of `SMTP_PASS` (the form of section 2 of the probe's
 deployment in `docs/RUNBOOK-sentinel.md`): one start simulated as in (4), forced unhealthy (`--now` two days ahead: `lag`), its record a
 scratch file, removed first (the probe reads its prior alert from `--out`: a record left by a cut run, `"alerted": true` for the same
-day, would print the expected record with no mail sent), WITH the mail file applied by systemd and `SMTP_PASS` unset as the unit does,
-so the password comes from the file of (1b). It needs the tree of (2), hence its place after (4). It sends ONE real mail, to the alert
-address already configured in the mail file (`ALERT_TO`) and to no other; it is part of the single deployment authorization (Q-20):
+day, would print the expected record with no mail sent), WITH the mail file applied by systemd and the list `"$U"` of (4), its last
+name `SMTP_PASS`, unset as the unit does, so the password comes from the file of (1b). It needs the tree of (2), hence its place after
+(4). It sends ONE real mail, to the alert address already configured in the mail file (`ALERT_TO`) and to no other; it is part of the
+single deployment authorization (Q-20):
 
 ```bash
 ssh -i ~/.ssh/monark_vps root@bell.monarkgate.tech 'rm -f /var/lib/monark-probe/dojo-live-mail.json && S="-p ProtectSystem=strict -p ProtectHome=true -p PrivateTmp=true -p NoNewPrivileges=true
--p ReadWritePaths=/var/lib/monark-probe -p CPUQuota=25% -p MemoryMax=640M -p TasksMax=64 -p WorkingDirectory=/opt/monark-dojo-probe" &&
+-p ReadWritePaths=/var/lib/monark-probe -p InaccessiblePaths=/etc/monark/bell -p CPUQuota=25% -p MemoryMax=640M -p TasksMax=64 -p WorkingDirectory=/opt/monark-dojo-probe" &&
+U="--property=UnsetEnvironment=NODE_OPTIONS NODE_TLS_REJECT_UNAUTHORIZED NODE_EXTRA_CA_CERTS SSL_CERT_FILE SSL_CERT_DIR" &&
+U="$U HTTP_PROXY HTTPS_PROXY ALL_PROXY NO_PROXY http_proxy https_proxy all_proxy no_proxy SMTP_PASS" &&
 N=$(date -u -d "+2 days" +%Y-%m-%dT12:00:00Z) &&
 C="/usr/bin/env node /opt/monark-dojo-probe/scripts/probe-dojo-live.mjs --now $N --out /var/lib/monark-probe/dojo-live-mail.json" &&
-systemd-run --wait --pipe --collect --uid=probe --gid=probe $S -p EnvironmentFile=/etc/monark/probe.env -p UnsetEnvironment=SMTP_PASS $C > /dev/null;
+systemd-run --wait --pipe --collect --uid=probe --gid=probe $S -p EnvironmentFile=/etc/monark/probe.env "$U" $C > /dev/null;
 echo mail_exit=$?; cat /var/lib/monark-probe/dojo-live-mail.json; rm -f /var/lib/monark-probe/dojo-live-mail.json'
 ```
 

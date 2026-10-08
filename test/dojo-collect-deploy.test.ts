@@ -41,9 +41,12 @@ const EXEC = `/usr/bin/env node ${D.DOJO_COLLECT_TREE_ROOT}/apps/dojo/src/collec
   + `${D.DOJO_COLLECT_TREE_ROOT}/out/mint.txt --max-calls 24 --max-credits 40 --seed-file ${CRED_VAR}/${D.DOJO_SEED_CREDENTIAL} --anchor-file ${CRED_VAR}/${D.DOJO_ANCHOR_CREDENTIAL}`;
 /** The two credentials, in order (dated line 14:13Z, Q-2 (a)): the seed, then the anchor line in force. */
 const CREDS = [`${D.DOJO_SEED_CREDENTIAL}:${D.DOJO_SEED_SOURCE}`, `${D.DOJO_ANCHOR_CREDENTIAL}:${D.DOJO_ANCHOR_SOURCE}`];
+/** Bell's key directory, masked too: the unit shares Bell's host (test/bell-key-isolation.test.ts reads it from Bell's own unit). */
+const BELL_KEY_DIR = "/etc/monark/bell";
 const SERVICE: Readonly<Record<string, string>> = { Type: "oneshot", WorkingDirectory: D.DOJO_COLLECT_TREE_ROOT, EnvironmentFile: D.DOJO_COLLECT_ENV_FILE,
   ExecStart: EXEC, TimeoutStartSec: "1500", TasksMax: "64", User: "dojo-collect", Group: "dojo-collect", NoNewPrivileges: "true", ProtectSystem: "strict",
-  ProtectHome: "true", PrivateTmp: "true", ReadWritePaths: D.DOJO_COLLECT_STATE, InaccessiblePaths: D.DOJO_SIGNING_KEY_DIR, UMask: "0027", CPUQuota: "25%", MemoryMax: "512M" };
+  ProtectHome: "true", PrivateTmp: "true", ReadWritePaths: D.DOJO_COLLECT_STATE, InaccessiblePaths: `${D.DOJO_SIGNING_KEY_DIR} ${BELL_KEY_DIR}`, UMask: "0027",
+  CPUQuota: "25%", MemoryMax: "512M" };
 const TIMER: Readonly<Record<string, string>> = { OnCalendar: "*-*-* *:00/5:00 UTC", AccuracySec: "1s", RandomizedDelaySec: "0", Persistent: PERSISTENT,
   Unit: basename(D.DOJO_COLLECT_UNIT) };
 /** The worst course of one reading, from the code (dated line 15:00Z, C-G2-2): CALLS calls of TRIES attempts of at most DEFAULT_TIMEOUT_MS
@@ -80,7 +83,8 @@ const loads = (): string[] => service().filter((d) => d.key === "LoadCredential"
 const under = (p: string, dir: string): boolean => p === dir || p.startsWith(`${dir}/`);
 const treeCode = (): string[] => D.DOJO_COLLECT_TREE_PATHS.filter((p) => /\.(ts|mjs)$/.test(p));
 
-// M-H4 (red here): the unit declares the publication's credential, reads its key directory, or no longer masks it (Q-G2-3).
+// M-H4 (red here): the unit declares the publication's credential, reads its key directory, or no longer masks it (Q-G2-3), or Bell's.
+// killer: deploy/monark-dojo-collect.service:50 CONST " /etc/monark/bell" -> ""
 test("dojo_collect_unit_never_loads_the_signing_key", () => {
   for (const rel of [D.DOJO_COLLECT_UNIT, D.DOJO_COLLECT_TIMER]) {
     const { text } = unitOf(rel), tokens = text.split(/[\s=:,"'`]+/).map((t) => t.replace(/^[-+~!@]+/, ""));
@@ -88,7 +92,7 @@ test("dojo_collect_unit_never_loads_the_signing_key", () => {
     assert.deepEqual(tokens.filter((t) => under(t, D.DOJO_SIGNING_KEY_DIR)), rel === D.DOJO_COLLECT_UNIT ? [D.DOJO_SIGNING_KEY_DIR] : [], `${rel}: the key directory, only to mask it`);
     assert.deepEqual(tokens.filter((t) => under(t, D.DOJO_PUBLISH_STATE)), [], `${rel} names nothing under ${D.DOJO_PUBLISH_STATE}`);
   }
-  assert.equal(one(service(), "InaccessiblePaths"), D.DOJO_SIGNING_KEY_DIR, "the key directory is inaccessible to the unit (no '-': it must exist)");
+  assert.equal(one(service(), "InaccessiblePaths"), `${D.DOJO_SIGNING_KEY_DIR} ${BELL_KEY_DIR}`, "the key directory, then Bell's, are inaccessible to the unit (no '-': both must exist)");
   const creds = service().filter((d) => /Credential/.test(d.key)).map((d) => `${d.key}=${d.value}`);
   assert.deepEqual(creds, CREDS.map((c) => `LoadCredential=${c}`), "two credentials: the seed, then the anchor");
   for (const src of [D.DOJO_SEED_SOURCE, D.DOJO_ANCHOR_SOURCE]) assert.ok(!under(src, D.DOJO_SIGNING_KEY_DIR), `${src} lies outside the key directory`);
