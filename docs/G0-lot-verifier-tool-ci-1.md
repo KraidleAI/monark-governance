@@ -231,7 +231,7 @@ Results (Linux, Node 24.21.0, the runner's build of 3.14.8):
 
 | Clone | Change | Exit | The job's `::error::` lines |
 |---|---|---|---|
-| c0 | none, at `2bac3033` (this worktree) | 0 | none: `GREEN`, 242 s; `report.txt` `409e589e…`, `compare.txt` `e8dc7928…`, `registry.txt` `9ae338f5…`, `binom.txt` `63606d4f…`, `hikae.txt` `68e16302…`, the outputs of §11 and of the CI; the report run ends with `failures 0` and `input libm ucrtbase.dll sha256 349a0de7… bytes 48` |
+| c0 | none, at `2bac3033` (this worktree) | 0 | none: `GREEN`, 242 s; `report.txt` `409e589e…`, `compare.txt` `e8dc7928…`, `binom.txt` `63606d4f…` and `hikae.txt` `68e16302…`, equal to the CI's (§11); `registry.txt` `9ae338f5…`, equal to the earlier local runs (§2), not to the CI's `7f34eda7…`: it names the registry by its path, as `guard.txt` names its work folder; the report run ends with `failures 0` and `input libm ucrtbase.dll sha256 349a0de7… bytes 48` |
 | b-m9 | `scripts/verifier-tool-ci-report-check.py:46` gains `print("VERDICT: GREEN"); sys.exit(0);` before `report_check.main` (`376ba838…` -> `998dca6e…`), at `4158c0ff` | **0** | none: `GREEN`, 147 s; the report run prints `VERDICT: GREEN` alone (13 s) and writes no `report.txt` |
 | a-m9 | the same, at `2bac3033` | 1 | `report_check.py: no line /^failures 0$/, which the check's own main writes after its checks`, and the same for the input line |
 | b-m10 | `scripts/verifier-tool-ci.mjs:30`, the D-2 run, emptied (`f57977fe…` -> `46d911c6…`), at `4158c0ff` | **0** | none: `GREEN`, 168 s, four runs |
@@ -305,6 +305,15 @@ stand-in (46) and the tests (131) make the step fail closed and judgeable. This 
   (the same as §9, `scripts/export-public.mjs:450`), 0 PERDU; on the two touched test files with `--ref origin/lot/etude-suite --ref
   origin/recherches/verifier-tool-ci-1`, 13 killers, 13 ANCRE. Nothing under `tools/kata-recalc/`, nor `verifiers.json`, nor
   `policy-verifiers.ts` changes.
+- **The PR's run at the fold** (head `817e0760`, run 37715666825, read online): 12 of 12 checks, the eight jobs, CodeQL and its three
+  analyses. `g3-verifier-tool` (job 113111438695), 194 s: the checkout removes its credentials; setup-node finds 24.21.0;
+  setup-python "Successfully set up CPython (3.14.8)"; the driver prints `python: 3.14.8 (main, Oct  1 2026, 02:38:33) [GCC 13.3.0]
+  at /opt/hostedtoolcache/Python/3.14.8/x64/bin/python; pinned by the job: 3.14.8`; guard 3 s ("cases 43 and the homonyms, skipped
+  1, failures 0", `ntfs-stream` skipped, the two extension cases run), report 90 s (its end: `failures 0`, then `input libm
+  ucrtbase.dll sha256 349a0de7… bytes 48`; `report.txt` `409e589e…`), compare 5 s (33 cases, `e8dc7928…`), registry 25 s (280
+  rows, 1 680 checks), binom 62 s (16 821 checks; 24 tests, 207 756 assertions; `63606d4f…`, `68e16302…`); the three notices;
+  "verifier tool checks under python -E -S -s -B: GREEN". `g3-verification`: 2 931 tests, 2 909 pass, 0 fail, 22 skipped.
+  `r25-taille-de-lot`: "R-25 mode: written", "Changed lines: 353 (ADR bound: 1205)", "Content changed lines: 0".
 
 ## 12. Decided by MONARK (`cc80585`, 2026-10-08)
 
