@@ -5,7 +5,12 @@
 # Frozen-tool lot, its G2 (2026-10-07): the revision that MONARK froze (KATA-SPEC-proposed.md ea64d03e, R1 of RECHERCHES; the published
 # KATA-SPEC.md is still the version of 2026-10-02) adds reason_order (section 6 l.71), whose reasons recalc_p2.calibrate_cell computes:
 # 363 checks (l.75); the sections of the file are a closed list, so a section that this oracle does not check refuses the file.
-# Usage: python -E -S -s -B vectors_check.py <vectors.json> <out.txt>
+# Usage: python -E -S -s -B -P vectors_check.py <vectors.json> <out.txt>
+import os, sys  # sys built in, os frozen: no file is looked up by name before io_guard has checked its folder (IO-GUARD-POSED-FILES-1)
+if "io_guard" not in sys.modules:  # io_guard.py run by its path, never found by name: nothing posed or installed stands in for it
+    sys.path.append(_d := os.path.dirname(os.path.realpath(__file__)))  # the tool's folder, last in sys.path: -P is in FORM
+    _g = sys.modules["io_guard"] = type(sys)("io_guard"); _g.__file__ = os.path.join(_d, "io_guard.py")
+    exec(compile(open(_g.__file__, "rb").read(), _g.__file__, "exec"), vars(_g))
 import io_guard  # the input guard, before any other module (M-7)
 import json
 import math

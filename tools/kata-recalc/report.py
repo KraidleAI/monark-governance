@@ -13,10 +13,16 @@
 # decision. Any other difference is "not explained", and the run fails.
 # The class ln rests on the measure of the P2b review (RAPPORT l.62-63, l.107-114: under Node's own log, 114 of 114 differing digests
 # equal B; the log differs by one ulp on 444 of 327 983 inputs), cited and never re-run; the port is held to Node's outputs (fdlibm_log.py).
-# Exit: 0 report written; 1 refused by the proof rule (a decision, a value beyond 1e-12, a difference not explained); 2 a step failed
-# (usage, platform, tool identity, an oracle, recomputation, base pass, a comparison's structural fault), or a launch under another form
-# than FORM (refused by io_guard at import); 4 the input guard. Usage (G0 section 3.3; options in order; input names of the replay command):
-#   python -E -S -s -B report.py --repo <clone> --series <dir> --vectors <vectors.json> --registry <wave1.json> --out <absent or empty dir>
+# Exit: 0 report written; 1 refused by the proof rule (a decision, a value beyond 1e-12, a difference not explained), or an exception
+# before main (a file of the tool missing); 2 a step failed (usage, platform, tool identity, an oracle, recomputation, base pass, a
+# comparison's structural fault) or a launch under another form than FORM, -I or no -P among them (io_guard at import); 4 the input
+# guard, a name of the tool's folder outside FILES included. Usage (G0 section 3.3; options in order; input names of the replay command):
+#   python -E -S -s -B -P report.py --repo <clone> --series <dir> --vectors <vectors.json> --registry <wave1.json> --out <absent or empty>
+import os, sys  # sys built in, os frozen: no file is looked up by name before io_guard has checked its folder (IO-GUARD-POSED-FILES-1)
+if "io_guard" not in sys.modules:  # io_guard.py run by its path, never found by name: nothing posed or installed stands in for it
+    sys.path.append(_d := os.path.dirname(os.path.realpath(__file__)))  # the tool's folder, last in sys.path: -P is in FORM
+    _g = sys.modules["io_guard"] = type(sys)("io_guard"); _g.__file__ = os.path.join(_d, "io_guard.py")
+    exec(compile(open(_g.__file__, "rb").read(), _g.__file__, "exec"), vars(_g))
 import io_guard  # the input guard, before any other module (M-7): here the series and the C library of log; each child its own
 import contextlib
 import hashlib
@@ -51,7 +57,7 @@ TEXTS = {
     "explained, ln": "the registry's bits are recovered by the same computation with the natural logarithm of the generator's runtime, a port of its algorithm held to the outputs of Node v24.21.0; an earlier replay under the logarithm of Node v24.15.0 itself, whose source is that of v24.21.0, recovered every value and digest that differed",
     "explained, association": "the registry's bits are recovered by the same computation under the natural logarithm of the generator's runtime with the other order of the EWMA term, w_i * (r_i * r_i), and not with the order the specification writes",
     "engine_log": "the natural logarithm of V8 in Node v24.21.0 on x64 (base::ieee754::log, derived from fdlibm, with no fused multiply-add), ported to Python",
-    "replay": "python -E -S -s -B tools/kata-recalc/report.py --repo <clone at the listed commit> --series <directory of the four series> --vectors <vectors.json> --registry <wave1.json> --out <absent or empty directory>"
+    "replay": "python -E -S -s -B -P tools/kata-recalc/report.py --repo <clone at the listed commit> --series <directory of the four series> --vectors <vectors.json> --registry <wave1.json> --out <absent or empty directory>"
 }
 # Form (a) of RECHERCHES (619fcfe; Q-3: the first dated folder publishes the bands only): the scope of the report, the classes whose
 # rows the first release publishes, the 24 band classes of wave 1 (range, mae-down, mae-up). A cell of any other class (dir-1h, dir-4h)
@@ -468,7 +474,7 @@ NAMES = (("vectors", "vectors.json"), ("registry", "wave1.json"))
 
 def main(argv):
     if len(argv) != 10 or tuple(argv[0::2]) != OPTIONS:
-        print("usage: python -E -S -s -B report.py " + " ".join(f"{o} <{o[2:]}>" for o in OPTIONS))
+        print("usage: python -E -S -s -B -P report.py " + " ".join(f"{o} <{o[2:]}>" for o in OPTIONS))
         return 2
     a = {o[2:]: os.path.abspath(v) for o, v in zip(argv[0::2], argv[1::2])}  # B-2: every path the guard judges is absolute
     named = [f"--{k} is named {os.path.basename(a[k])!a}, not {n!a}" for k, n in NAMES if os.path.basename(a[k]) != n]
