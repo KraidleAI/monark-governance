@@ -9,7 +9,7 @@
 // factices on .test/.example hosts, paid keys DELETED from the child env.
 import { test, after } from "node:test";
 import assert from "node:assert/strict";
-import { readFileSync, writeFileSync, mkdtempSync, mkdirSync, existsSync, rmSync } from "node:fs";
+import { readFileSync, writeFileSync, mkdtempSync, mkdirSync, existsSync, rmSync, readdirSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
@@ -27,10 +27,11 @@ const RUN_TS = join(HERE, "..", "src", "run.ts");
 const FIXTURE = join(HERE, "fixtures", "narabi-timeline-2026-09-19.jsonl");
 
 // Factice, no committed-secret shape: the URL host is `.test` (never dialed for real; the stub intercepts fetch),
-// the "key" path carries the DO_NOT_PUBLISH marker; the published ORIGIN is a real-looking chainstack.com host
-// with NO path/key (so providerOf -> chainstack.com, what the Bell probe reads). CYCLE mirrors a monthly cycle id.
+// the "key" path carries the DO_NOT_PUBLISH marker; the published ORIGIN is a NON-canonical chainstack.com host
+// with NO path/key (so providerOf -> chainstack.com, what the Bell probe reads, and a run.ts publishing a hard-coded
+// origin instead of the posed one reds: C-G2D-1). CYCLE mirrors a monthly cycle id.
 const FAKE_URL = "https://rpc.example.test/DO_NOT_PUBLISH_chainkey";
-const ORIGIN = "https://ethereum-mainnet.core.chainstack.com";
+const ORIGIN = "https://origin-test.chainstack.com";
 const CYCLE = "chainstack-test-2026-09";
 const SECRET_MARK = "DO_NOT_PUBLISH_chainkey";
 const LIMITS: RunLimits = { maxCalls: CHAINSTACK_MAX_CALLS, runCaps: { chainstack: CHAINSTACK_RUN_CAP_RU }, methodCaps: CHAINSTACK_METHOD_CAPS, cycleFloor: { chainstack: 0 } };
@@ -237,6 +238,7 @@ function lastLine(dir: string): TimelineLine {
   return JSON.parse(ls[ls.length - 1]!) as TimelineLine;
 }
 
+// killer: apps/sentinel/src/run.ts:349 CONST "leg.origin!" -> "\"https://hardcoded.chainstack.com\""
 test("sentinel_chainstack_guard_ok_ledgers_publishes_origin_and_releases_lock — the REAL run.ts opens the leg, drives the degraded-pool quorum through the guard (attempted lines stamped network:ethereum-mainnet), publishes the chainstack.com ORIGIN as the 8th endpoint (C-6), reproduces the published line_hash (M-11), releases the cycle lock at exit (unlocked line, no .lock), and never leaks the key (CA-11 branchement)", () => {
   const l3 = fixtureLines()[2]!;
   const dir = seedState(2);
@@ -250,7 +252,7 @@ test("sentinel_chainstack_guard_ok_ledgers_publishes_origin_and_releases_lock �
   assert.equal(r.end.chainstack_guard, "ok", "chainstack_guard=ok");
   const written = lastLine(dir);
   assert.equal(written.line_hash, l3.line_hash, "line_hash is UNCHANGED by the migration (M-11: endpoints/provenance outside the hash)");
-  assert.equal(written.endpoints.length, PUBLIC_ENDPOINTS.length + 1, "the published line lists the origin as the 8th endpoint");
+  assert.deepEqual(written.endpoints, [...PUBLIC_ENDPOINTS, ORIGIN], "the published line lists the 7 public endpoints verbatim, then the posed origin as the 8th (C-6; C-G2D-1)");
   assert.equal(providerOf(written.endpoints[written.endpoints.length - 1]!), "chainstack.com", "the published origin's provider is chainstack.com (C-6: what the Bell probe reads)");
   assert.ok(!r.stdout.includes(SECRET_MARK) && !JSON.stringify(written).includes(SECRET_MARK), "the key path never leaks to stdout or the written line (C-1)");
   const led = readLedger(ledgerDir, CYCLE);
@@ -268,6 +270,7 @@ test("sentinel_chainstack_guard_ok_ledgers_publishes_origin_and_releases_lock �
   assert.equal(existsSync(join(ledgerDir, CYCLE, "chainstack.lock")), false, "no .lock remains after a clean exit (D-lock i)");
 });
 
+// killer: apps/sentinel/src/run.ts:349 CONST ": [...PUBLIC_ENDPOINTS];" -> ": [...PUBLIC_ENDPOINTS].reverse();"
 test("sentinel_guard_open_failure_degrades_to_keyless_and_publishes — with the cycle config present but the ledger PARENT absent (C-8), openChainstackLeg fails to open: run.ts degrades to the 7 keyless endpoints, publishes NO origin (C-6), chainstack=false, chainstack_guard=ledger_error, exit 0 — a mutant removing the try/catch would FATAL the whole run (D-degrade)", () => {
   const l3 = fixtureLines()[2]!;
   const dir = seedState(2); // NOTE: no mkdir of dir/ledger => ensureCycleDir throws "does not pre-exist" => ledger_error
@@ -276,10 +279,11 @@ test("sentinel_guard_open_failure_degrades_to_keyless_and_publishes — with the
   assert.equal(r.end.chainstack, false, "the leg did not open => chainstack=false");
   assert.equal(r.end.chainstack_guard, "ledger_error", "the missing ledger parent (C-8) classifies as ledger_error, not a crash");
   const written = lastLine(dir);
-  assert.equal(written.endpoints.length, PUBLIC_ENDPOINTS.length, "a degraded run publishes the 7 public endpoints only (C-6: no origin without an opened leg)");
+  assert.deepEqual(written.endpoints, [...PUBLIC_ENDPOINTS], "a degraded run publishes the 7 public endpoints verbatim, in order (C-6: no origin without an opened leg; C-G2D-1)");
   assert.ok(!written.endpoints.some((e) => providerOf(e) === "chainstack.com"), "no chainstack.com origin is published when the leg failed to open (C-6 mutant reds here)");
 });
 
+// killer: apps/sentinel/src/run.ts:349 CONST ": [...PUBLIC_ENDPOINTS];" -> ": [...PUBLIC_ENDPOINTS.slice(1), ...PUBLIC_ENDPOINTS.slice(0, 1)];"
 test("sentinel_chainstack_floor_malformed_is_config_error — with the cycle + origin present but CHAINSTACK_CYCLE_FLOOR malformed (for each of 'abc' NaN, '-3' negative, '12.5' float), chainstackFloorFromEnv throws INSIDE openChainstackLeg's try BEFORE openGuardedClient, so the real run.ts degrades: chainstack_guard=config_error, chainstack=false, exit 0, the 7 keyless endpoints only, and NO .lock / NO ledger line is written (the throw precedes any metering). A mutant dropping the non-negative-integer floor regex lets a NEGATIVE '-3' and a float '12.5' pass assertLimits (finite, <= cap) so the leg opens 'ok' — reddening every value except 'abc' (NaN is still caught by assertLimits). C-V-3 / C-G2-2", () => {
   const l3 = fixtureLines()[2]!;
   for (const f of ["abc", "-3", "12.5"]) {
@@ -293,13 +297,14 @@ test("sentinel_chainstack_floor_malformed_is_config_error — with the cycle + o
     assert.equal(r.end.chainstack, false, `floor ${JSON.stringify(f)}: the leg did not open => chainstack=false`);
     assert.equal(r.end.chainstack_guard, "config_error", `floor ${JSON.stringify(f)}: a malformed floor => chainstack_guard=config_error (got ${r.end.chainstack_guard}: a dropped regex opens the leg 'ok' on a float/negative)`);
     const written = lastLine(dir);
-    assert.equal(written.endpoints.length, PUBLIC_ENDPOINTS.length, `floor ${JSON.stringify(f)}: a degraded run publishes the 7 public endpoints only (no origin)`);
+    assert.deepEqual(written.endpoints, [...PUBLIC_ENDPOINTS], `floor ${JSON.stringify(f)}: a degraded run publishes the 7 public endpoints verbatim, in order (no origin; C-G2D-1)`);
     assert.ok(!written.endpoints.some((e) => providerOf(e) === "chainstack.com"), `floor ${JSON.stringify(f)}: no chainstack.com origin when the leg did not open`);
     assert.equal(readLedger(ledgerDir, CYCLE).length, 0, `floor ${JSON.stringify(f)}: the floor throw precedes openGuardedClient => NO ledger line (no metering)`);
     assert.equal(existsSync(join(ledgerDir, CYCLE, "chainstack.lock")), false, `floor ${JSON.stringify(f)}: no lock is acquired when the floor is rejected before open`);
   }
 });
 
+// killer: apps/sentinel/src/run.ts:349 CONST ": [...PUBLIC_ENDPOINTS];" -> ": [...PUBLIC_ENDPOINTS.slice(0, 1), ...PUBLIC_ENDPOINTS.slice(0, -1)];"
 test("sentinel_chainstack_origin_absent_is_unconfigured — with CHAINSTACK_CYCLE_ID present but CHAINSTACK_ETH_ORIGIN absent (guardEnv origin:false), openChainstackLeg returns unconfigured BEFORE opening (the origin is the Bell probe's provenance, required to SERVE the leg): the real run.ts degrades to the 7 keyless endpoints, chainstack=false, chainstack_guard=unconfigured, exit 0, and every published endpoint is a non-empty string (NO null/undefined). A mutant dropping the 'origin === undefined' half of the guard opens the leg 'ok' and publishes undefined as the 8th endpoint (a null in the served line) — reddening here (A-10 output binding). C-V-2 / C-G2-2", () => {
   const l3 = fixtureLines()[2]!;
   const dir = seedState(2);
@@ -312,9 +317,34 @@ test("sentinel_chainstack_origin_absent_is_unconfigured — with CHAINSTACK_CYCL
   assert.equal(r.end.chainstack, false, "the leg did not open => chainstack=false");
   assert.equal(r.end.chainstack_guard, "unconfigured", `an absent origin => chainstack_guard=unconfigured (got ${r.end.chainstack_guard}: a dropped origin-half opens the leg 'ok')`);
   const written = lastLine(dir);
-  assert.equal(written.endpoints.length, PUBLIC_ENDPOINTS.length, "a degraded run publishes the 7 public endpoints only");
+  assert.deepEqual(written.endpoints, [...PUBLIC_ENDPOINTS], "a degraded run publishes the 7 public endpoints verbatim, in order (C-G2D-1)");
   assert.ok(written.endpoints.every((e) => typeof e === "string" && e.length > 0), "every published endpoint is a non-empty string — NO null/undefined 8th endpoint (the mutant publishes undefined here)");
   assert.ok(!written.endpoints.some((e) => providerOf(e) === "chainstack.com"), "no chainstack.com origin is published when the leg did not open");
+});
+
+// C-G2D-2: an EMPTY value (a line `KEY=` left in the EnvironmentFile, plausible at the monthly rollover) is unconfigured exactly
+// like an absent key. The ledger parent exists, so only the empty-string halves of the guard (run.ts:285) keep the leg shut.
+function emptyKeyIsUnconfigured(key: "CHAINSTACK_ETH_ORIGIN" | "CHAINSTACK_CYCLE_ID"): void {
+  const l3 = fixtureLines()[2]!;
+  const dir = seedState(2);
+  const ledgerDir = join(dir, "ledger");
+  mkdirSync(ledgerDir, { recursive: true });
+  const r = runGuardedSync(dir, { ...finVars(l3), [key]: "" });
+  assert.equal(r.status, 0, `${key}="": the run degrades and publishes, never FATALs`);
+  assert.equal(r.end.chainstack_guard, "unconfigured", `${key}="": chainstack_guard=unconfigured (got ${r.end.chainstack_guard})`);
+  assert.equal(r.end.chainstack, false, `${key}="": the leg did not open`);
+  assert.deepEqual(lastLine(dir).endpoints, [...PUBLIC_ENDPOINTS], `${key}="": the 7 public endpoints verbatim, nothing else`);
+  assert.deepEqual(readdirSync(ledgerDir), [], `${key}="": no cycle folder, ledger line or lock is written`);
+}
+
+// killer: apps/sentinel/src/run.ts:285 CONST "origin.length === 0" -> "false"
+test("sentinel_chainstack_origin_empty_is_unconfigured — CHAINSTACK_ETH_ORIGIN=\"\" with the cycle id present: unconfigured, the 7 public endpoints verbatim, no ledger. A mutant dropping the empty-origin half opens the leg and publishes \"\" as the 8th endpoint (C-G2D-2, G2D-4)", () => {
+  emptyKeyIsUnconfigured("CHAINSTACK_ETH_ORIGIN");
+});
+
+// killer: apps/sentinel/src/run.ts:285 CONST "cycleId.length === 0" -> "false"
+test("sentinel_chainstack_cycle_empty_is_unconfigured — CHAINSTACK_CYCLE_ID=\"\" with the origin present: unconfigured, the 7 public endpoints verbatim, no ledger. A mutant dropping the empty-cycle half opens the leg on the ledger root, outside any cycle (C-G2D-2, G2D-5)", () => {
+  emptyKeyIsUnconfigured("CHAINSTACK_CYCLE_ID");
 });
 
 test("sentinel_run_re_acquires_lock_after_clean_exit — because run 1 released the cycle lock (finally), run 2 opens the leg again (no LockHeldError): both runs are chainstack_guard=ok. A mutant dropping the finally release makes run 2 read lock_held and reds (D-lock i)", () => {
