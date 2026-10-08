@@ -582,7 +582,8 @@ Harnais et cité ici en suite de N11.
    (motif strict), K-1-PROV-SIG-1, NARABI-GATE-SIG-1, NARABI-QUORUM-TIEBREAK-1, SENTINEL-DEPLOY-GUARD-1, HARNESS-DEMAND-J30-1, PX-STD-ORPHAN-1,
    NARABI-1-DEMANDES-ENVOI-1 et les items « à former » des entrées ouvertes (NARABI-THEORY-1-SUITE, NARABI-REGISTER-NOTE-1, NARABI-GELS-1,
    NARABI-ITEMS-REFORM-1, NARABI-PROOFS-SEAL-1, NARABI-CAPTURE-REFRESH-1, NARABI-ROW-SUPERSEDE-1 ; PAROXYSME-NARABI-FILE-1 n'est plus à former, N08 étant
-   close, §4.2). Leurs entrées les portent par un chantier ; leur formation ou re-formation à ETAT passe par PXC-01 partie 2 (F3, PLAN l.585 ; CC l.36-37 ;
+   close, §4.2). Leurs entrées les portent par un chantier ; leur formation ou re-formation à ETAT passe par PXC-01 partie 2, sauf SENTINEL-DEPLOY-GUARD-1,
+   qui se forme au G0 de PXC-05 partie 1 (Q8 (b), ci-dessous) (F3, PLAN l.585 ; CC l.36-37 ;
    porteur PAROXYSME, §0 ; lignes d'ETAT : MONARK). PX-STD-ORPHAN-1 n'est pas étendu (MSG l.85) et ne nomme de cette liste que NARABI-L-2, re-formé, et
    SENTINEL-DEPLOY-GUARD-1 (PLAN l.541, l.897-898), encore absent d'ETAT à `5437cd0d` (`grep -c` = 0). Le déclencheur de son re-port, le prochain point d'étape
    (PLAN l.541), est passé sans acte : les décisions que le PLAN place à ce point (l.886) sont rendues le 2026-10-07 (ETAT l.49-57 à `5437cd0d`) ; au « Point du

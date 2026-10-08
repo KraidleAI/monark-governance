@@ -45,7 +45,10 @@
   seule collecte planifiée hors de D-5 (Q6 (b) : Frontière, §0, L-23, L-25) ; le constat écrit, seul permis avant D-5, pour la moitié Bell de VERIFY-BADPORT-1
   (Q7 (c) : N-12, doute 13) ; les trois items de O-3, à former à son G0 (Q8 (b) : §1, L-23, L-25, L-39, doute 10) ; la règle de la boîte sur Bell, tranchée
   après le cp-1 (Q9 : Frontière) ; la sonde Narabi sous les masques (N-01) ; la parenthèse sur Bell de README l.299 (Q-M9 (b) : N-07) ; parties touchées :
-  en-tête (Frontière, Bases), §0 (D-5), §1, L-23, L-25, L-39, N-01, N-02, N-07, N-12, §7 (doutes 10 et 13), §8.
+  en-tête (Frontière, Bases), §0 (D-5), §1, L-23, L-25, L-39, N-01, N-02, N-07, N-12, §7 (doutes 10 et 13), §8. Pli de sa vérification par une
+  instance neuve (rendu de 13:37 UTC), le 2026-10-08 à partir de 13:39 UTC, par la session PAROXYSME : la phrase de cadence de N-03 garde « sous D-5 »
+  (Q6 (b)) ; le doute 9 suit Q-M1 (a) ; le compte des noms à reporter sépare les trois de O-3 ; parties touchées : Frontière, §0, N-03, §7 (doutes 9 et
+  10), §8.
 - **Bases** : inventaire mesuré à `d8fe354c`, ETAT lu à `57a131fc`. Toutes les ancres de ce registre sont à `87b821b0`, tête de
   `lot/etude-suite` dont part #242 (« à la tête », dans ce registre, veut dire « à `87b821b0` »), sauf celles du pli des décisions
   (fin de ce point). Elles sont reportées par l'outil `reanchor.mjs` (pièce de la
@@ -84,7 +87,8 @@
   déclencheurs, portés par le fondateur quand ils sont hors délégation. Aucune clé, aucun chemin de clé, aucune adresse d'hôte n'y figure.
   Depuis le 2026-10-08, le fondateur a levé D-5 pour la collecte, dont le code (O-3) peut partir en parallèle de O-2, et MONARK décide du texte de Bell (§0,
   D-5 ; MSG8 l.12-14 ; MSG2 l.18-20) ; la levée ne vaut que pour la collecte planifiée (minuterie, hôte séparé, BELL-HOST-SEPARATION-1), le reste gardant « sous
-  D-5 », et le fondateur a dit que Bell attend la fin du chantier PAROXYSME (Q6 (b) : MSG14 l.16-17 ; ETAT l.789-790 à `2c3f51a8`). Ce pli ne change pas la
+  D-5 », et le fondateur a dit que Bell attend la fin du chantier PAROXYSME (Q6 (b) : MSG14 l.16-17 ; ETAT l.789-790 à `2c3f51a8` ; la parole du
+  fondateur : ETAT l.700 à `2c3f51a8`). Ce pli ne change pas la
   règle de la session, que MONARK tranche après le cp-1 de PXC-02 (MSG12 l.30-31 ; ETAT l.631-634 à `20fffe9f`) : « Je la tranche après ton cp-1, comme écrit »
   (Q9 : MSG14 l.21 ; ETAT l.713-714 à `2c3f51a8`).
 
@@ -119,7 +123,7 @@
   la lecture étroite : seule la collecte planifiée (minuterie, hôte séparé, BELL-HOST-SEPARATION-1) sort de D-5, le reste garde « sous D-5 » (Q6 (b) : MSG14
   l.16-17 ; ETAT l.789-790 à `2c3f51a8`). Dans une entrée, « sous D-5 » ne vise donc ni la collecte planifiée ni une correction de texte ; les entrées qu'une
   source rattache à O-3 ou à O-1 le disent (L-22, L-23, L-25, L-39, N-01, N-03, N-08), et une part que l'ordre range en O-3 sans être la collecte planifiée
-  garde « sous D-5 » (la partie 2 de PXC-14 de L-23 et de L-25).
+  garde « sous D-5 » (la partie 2 de PXC-14 de L-23 et de L-25 ; la phrase de cadence de N-03).
 - **États** : `ouvert` ; `changé` (l'état diffère de celui de la fiche du 27/09 ou de l'inventaire, dit en suite) ; `clos (preuve : …)`.
 - **Abréviations** : ETAT = `docs/ETAT.md` ; METHOD = `apps/site/app/bell/method/page.tsx` ; PAGE = `apps/site/app/bell/page.tsx` ;
   TERMS = `apps/site/app/bell/terms/page.tsx` ; BM = `apps/site/lib/bell-method.ts` ; FLEET = `apps/site/lib/fleet.ts` ;
@@ -510,7 +514,7 @@
     `e449508` : des mentions, dont MSG12 l.15 et MSG13 l.49-54, aucune liste), et ce registre n'y range pas `README.md:146-147` et `:214`
 - **N-03** · « Aucune cadence ni cible de latence publiée ; publication par acte opérateur ; rien publié depuis le 24/09. »
   source : RB l.6-7 ; T1B l.121-129 · touche : FLEET l.346 · nature : C
-  item : phrase : PXC-02 partie 3 (BELL-CADENCE-TEXT-1, à former ; T1B l.129) ; minuterie : PXC-14
+  item : phrase : PXC-02 partie 3 (F3, sous D-5 : Q6 (b), MSG14 l.16-17 ; BELL-CADENCE-TEXT-1, à former ; T1B l.129) ; minuterie : PXC-14
     partie 3 (BELL-COLLECT-TIMER-1, RB l.7, absent d'ETAT jusqu'à `5437cd0d`, nommé à ETAT l.393 à `565c7065` : à re-former), la collecte
     planifiée de O-3, sur l'hôte séparé (ETAT l.580 à `565c7065`) · porteur : PAROXYSME ; le fondateur (clé ou compte RPC de la collecte,
     PLAN §7.3 l.890 ; sans plafond depuis le 2026-10-08 : MONARK nomme l'abonnement, le fondateur l'achète, ETAT l.90-94 à `565c7065` ; le
@@ -686,7 +690,8 @@ nomment Bell sans marque PAROXYSME sont au §7, doute 7.
    dont la fiche ne les nomme pas : L-01, L-03, N-09 en partie 2 de PXC-14 (CC l.472-474 n'y nomme que quorum, scanners,
    `getProgramAccounts` et ADV-*) ; L-14, L-19, L-21 en partie 3 de PXC-17 (CC l.565-566 n'y nomme que des classes métier) ; N-13, N-14
    et la CA planifiée de L-09 et N-05 en partie 3 de PXC-05 (CC l.222-223 met « CA et captures » en partie 2) ; la phrase de PX-Bell-17 en
-   partie 3 de PXC-02, alors que FLEET l.350 relève du site, donc de la partie 1 (CC l.144).
+   partie 3 de PXC-02, alors que FLEET l.350 relève du site, que CC l.144 mettait en partie 1 ; depuis Q-M1 (a), la partie 1 n'est plus
+   que le noyau (ETAT l.796 à `2c3f51a8`), et la partie de cette phrase est celle que fixe l'ADR de PXC-02.
 10. **Items hors d'ETAT.** À `87b821b0`, ETAT ne porte que quatre items de Bell (l.223-224, l.225-226, l.445-446, l.1235-1237). Les 43 autres
     noms cherchés ont un `grep -c` nul (`git show 87b821b0:docs/ETAT.md | grep -c -- "$id"`, rejoué au pli) : R-SP-1, ESC-2, Q6-ANCHOR-1,
     BELL-VERIFY-SCHEDULE-1, CARTO-BR-2, CARTO-BR-1, BELL-OTS-NODE-VERIFY-1, C-F-4, authority_scan_mono_operator, set_authority_unscanned,
@@ -699,7 +704,8 @@ nomment Bell sans marque PAROXYSME sont au §7, doute 7.
     datés d'abord (ETAT l.238-253 à `5437cd0d`), les autres en PXC-01 partie 2 ; et non PX-STD-ORPHAN-1, dont la liste ne porte aucun
     item de Bell (PLAN l.541, l.897). Six des 43 ont une tête d'item à ETAT (motif `^\s*- NOM (`) : BELL-HOST-COTENANCY-1,
     BELL-ITEMS-ETAT-CARRY-1 et les quatre items datés (ETAT l.223, l.235, l.239-253 à `5437cd0d`) ; PAROXYSME-BELL-FILE-1 est accompli
-    par le versement (N-11 close, §4 ; INV-B l.176). Restent 36 à reporter en PXC-01 partie 2, et non les 39 d'ETAT l.237 à `5437cd0d`,
+    par le versement (N-11 close, §4 ; INV-B l.176). Restent 36 à reporter, dont trois (ADV-SIP-DAY-1, ADV-SESSION-CUT-1, SUPPLY-READ-1)
+    se forment au G0 de O-3 (Q8 (b) : MSG14 l.19-20), soit 33 en PXC-01 partie 2 ; 36, et non les 39 d'ETAT l.237 à `5437cd0d`,
     qui ne retire des 43 que les quatre items datés ; ETAT écrit 36 depuis, par une correction en place (ETAT l.243-246 à `565c7065` ;
     MSG9 l.14-15), et y épingle ce doute (l.242). Ce compte est un compte de noms, non d'items : `PX-Bell` y est le préfixe que
     cherchait l'inventaire (INV-B l.35) et tient lieu de PX-Bell-1 à PX-Bell-16 du 27/09, que les entrées disent à re-former. Commande,
@@ -760,9 +766,10 @@ question formée (§1) est tranchée : les déclencheurs d'ADV-SIP-DAY-1 (L-23),
 déclencheur le G0 de O-3 (MSG9 l.34-38 ; ETAT l.573-575 à `565c7065`) ; ils restent à former et se forment à ce G0 (Q8 (b) : MSG14 l.19-20), et l'étiquette
 d'ADV-SIP-DAY-1 est corrigée en place à ETAT (Q2 (a) : ETAT l.574-575 à `2c3f51a8`). D-5 : le texte relève de MONARK ; la collecte planifiée n'y est plus, le
 reste y reste (Q6 (b) : MSG14 l.16-17 ; §0). BELL-HOST-SEPARATION-1 est formé (N-01 (c) ; ETAT l.578-581 à `565c7065`). BELL-ITEMS-ETAT-CARRY-1 est formé (ETAT
-l.235-237 à `5437cd0d`) : les quatre items datés d'abord (ETAT l.238-253 à `5437cd0d`) ; 36 noms du doute 10 restent à reporter en PXC-01 partie 2, et non 39,
+l.235-237 à `5437cd0d`) : les quatre items datés d'abord (ETAT l.238-253 à `5437cd0d`) ; 36 noms du doute 10 restent à reporter, et non 39,
 comme ETAT l'écrit depuis (l.243 à `565c7065`) ; l'un d'eux, `PX-Bell`, tient lieu de seize items du 27/09 (§7, doute 10) ; trois, ADV-SIP-DAY-1,
-ADV-SESSION-CUT-1 et SUPPLY-READ-1, se forment au G0 de O-3 (Q8 (b)). Hors de l'inventaire (§7, doute 5) : une limite de Bell, dont l'item est au registre Dōjō
+ADV-SESSION-CUT-1 et SUPPLY-READ-1, se forment au G0 de O-3 (Q8 (b)), les 33 autres en PXC-01 partie 2. Hors de l'inventaire (§7, doute 5) : une
+limite de Bell, dont l'item est au registre Dōjō
 (DJ-L73), et cinq items formés aux ADR de Bell ; ils passent par la recartographie de PXC-01 partie 2 (MSG l.80) ; hors des entrées, les étapes M2, M3, M4, M6,
 M9, M10 et M11 de la tâche 2 bis, limites sans item à former dans O-1 à O-4 (ETAT l.294-295 à `565c7065` ; §1). Trois constats sont attendus dans PXC-01 partie
 2, que MONARK tranche sur pièce (MSG l.83-84) : le placement de la partie 1 de PXC-14 (doute 4), la lecture du PLAN l.129-132 (doute 10) et la moitié Bell de
