@@ -363,6 +363,24 @@ test("served_walk_refuses_a_load_that_no_specifier_shows", () => {
   }
 });
 
+// The closed list of the served graph (MONARK's decision of 2026-10-07 on finding m-3 of the review of this walk): a served module imports
+// no built-in module or package outside SERVED_IMPORTS. Each form below names no load that forbiddenLoads reads; added to kata-path.ts, each
+// passed the walk and every test that imports that module (the review): a resolve hook of node:module that sends an import to the guard
+// (K-hooks), a Worker of the guard that inherits no flag (K-worker2), createRequire of the guard in a text that node:vm runs (K-vm2)
+test("served_walk_refuses_an_import_outside_its_closed_list", () => {
+  const kata = join(SRC, "kata-path.ts"), text = readFileSync(kata, "utf8");
+  const copies: [string, string, string][] = [
+    ["K-hooks", 'import { registerHooks } from "node:module";\nregisterHooks({ resolve: (s, c, next) => next(s === "./version.ts" ? "./policy-guard.ts" : s, c) });\nvoid import("./version.ts");', "node:module"],
+    ["K-worker2", 'import { Worker } from "node:worker_threads";\nvoid new Worker(new URL("./policy-guard.ts", import.meta.url), { execArgv: [] });', "node:worker_threads"],
+    ["K-vm2", 'import { runInThisContext } from "node:vm";\nconst guardPath = new URL("./policy-guard.ts", import.meta.url).pathname;\nrunInThisContext(`process.getBuiltinModule("node:module").createRequire(${JSON.stringify(guardPath)})(${JSON.stringify(guardPath)})`);', "node:vm"],
+  ];
+  for (const [id, lines, outside] of copies) {
+    const copy = `${lines}\n${text}`;
+    assert.deepEqual(forbiddenLoads(copy), [], `${id}: forbiddenLoads names no load in the copy`);
+    assert.throws(() => servedModules((f) => (f === kata ? copy : readFileSync(f, "utf8"))), { actual: [outside] }, `${id}: the walk stops on the copy`);
+  }
+});
+
 /** C-3 (delegated decision CM-4b): the codes with no served thrower yet, exact; none since block D (lot D-2), whose served
  *  kata path throws the 6 kata codes together. */
 const PENDING: readonly string[] = [];
