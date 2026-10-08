@@ -15,6 +15,11 @@
 - **Pli de la G2 de delta** (pièce recherches `coordination/pieces/2026-10-07-g2-recherches/G2-244-delta.json`, tête lue `35ba7ac1`,
   verdict CORRECTIONS : deux m, m-5 et m-6, aucun M) : pris au §15 ; mesures au §16. Même auteur, `claude-opus-5-5`, effort max ;
   heure lue (`date -u`) 2026-10-07T23:29:44Z. Ordre du second pli : le test rouge, le correctif du RUNBOOK, puis ce G0.
+- **Pli de la seconde G2 de delta** (pièce recherches `coordination/pieces/2026-10-07-g2-recherches/G2-244-delta2.json`, tête lue
+  `7ceb9cb3`, verdict CORRECTIONS : un m, m-7, aucun M, et deux notes de formulation) : pris au §17 ; mesures au §18. Auteur :
+  RECHERCHES, `claude-opus-5-5`, effort max ; heure lue (`date -u`) 2026-10-08T01:07:33Z, puis, après un redémarrage du conteneur,
+  2026-10-08T01:23:28Z (preuves relues, mutants rejoués, §18). Ordre du troisième pli : les mutants à la main sur le test d'avant, la
+  retouche du test, les mêmes mutants sur le test retouché, le commit du test (`3c527827`), puis ce G0.
 
 ## 1. Constat
 
@@ -43,6 +48,7 @@ mode est élargi, ou si un fichier plus ouvert arrive dans le dossier (la clé n
 | **Pli 2** : `test/probe-dojo-live.test.ts`, `dojo_probe_tree_is_the_import_closure` | la liste vient du fichier de l'unité : chaque départ simulé porte chaque ligne `[Service]`, égale, et aucune autre propriété, sauf les lignes du service (`Type=`, `ExecStart=`, `TimeoutStartSec=`) et le fichier du courriel, que (4b) seul applique : rouge d'abord (m-5, §5, §15) ; cinq tueurs neufs (§6) |
 | **Pli 2** : `docs/RUNBOOK-dojo.md` §25, actes (4) et (4b), l.1487-1491, l.1496-1497, l.1499, l.1512-1515, l.1520-1521, l.1524 | la liste `UnsetEnvironment=` de l'unité, en UN argument `"$U"` (forme de la §16 (2) du RUNBOOK) ; (4b) ne passe plus `-p UnsetEnvironment=SMTP_PASS` seul (m-5) |
 | **Pli 2** : `test/probe-dojo-live.test.ts`, `dojo_live_probe_reads_the_smtp_password_from_its_file_after_the_verifier`, l.450 et l.455 | ses deux épingles du texte de (4b) lisent la forme neuve (m-5) |
+| **Pli 3** : `test/probe-dojo-live.test.ts`, `dojo_probe_tree_is_the_import_closure`, l.589 et l.594-597 | le bloc de commande de chaque départ simulé est lu comme le shell l'exécute : sans ses lignes de commentaire, ses affectations avant l'appel seulement, l'appel là où il ouvre une commande après `&&` ; un tueur neuf, l.1497 du RUNBOOK (m-7, §5, §6, §17). Le RUNBOOK, l'unité et les pages ne changent pas |
 
 Sans `-` en tête : le dossier existe sur l'hôte (`docs/RUNBOOK-bell.md`, étape 3) ; ce que cela coûte sur tout autre hôte : §10.
 La première version de ce G0 ne changeait dans `deploy/` que les lignes `InaccessiblePaths=`, et en donnait pour raison une consigne
@@ -124,14 +130,26 @@ directive des quatre unités ne nomme un chemin sous `/etc/monark/bell`. Le test
 - **Au second pli, rouge d'abord** (m-5) : la liste vient du fichier de l'unité. Chaque ligne `[Service]` est une propriété de la
   tâche, égale et une fois, et la tâche n'en a pas d'autre. Restent dehors les lignes du service (`Type=`, `ExecStart=`,
   `TimeoutStartSec=`, systemd.service(5)) : la tâche lance une fois la commande de l'unité, avec ses propres arguments, et
-  `systemd-run --wait` attend sa fin ; la borne d'un départ reste celle de l'unité, au-dessus du pire cas
-  (`dojo_probe_units_are_hardened`). Le fichier du courriel, `EnvironmentFile=`, n'entre qu'en (4b) ; (4) tourne sans lui, à dessein.
-  `--uid` et `--gid` valent `User=` et `Group=` (systemd-run(1)) ; les options sont `--wait --pipe --collect`, et la commande
-  commence par celle de l'unité. Le test lit le seul bloc de commande de chaque acte : ses affectations, `$S` coupé aux blancs, une
-  liste en UN argument `"$U"`. Toutes les autres lignes de l'unité passent à `systemd-run` (par `-p`, ou `--uid` et `--gid`) :
-  aucune n'en est hors de portée.
+  `systemd-run --wait` attend sa fin. La borne de l'unité, au-dessus du pire cas (`dojo_probe_units_are_hardened`), est celle des
+  départs du minuteur ; la tâche simulée n'a pas de borne de systemd (un service transitoire est de type `simple`, et
+  `TimeoutStartSec=` n'y bornerait que le démarrage) : elle finit dans le pire cas que le code borne (3 283 s), sous celle de
+  l'unité (phrase reprise au troisième pli, §17). Le fichier du courriel, `EnvironmentFile=`, n'entre qu'en (4b) ; (4) tourne sans
+  lui, à dessein. `--uid` et `--gid` valent `User=` et `Group=` (systemd-run(1)) ; les options sont `--wait --pipe --collect`, et la
+  commande commence par celle de l'unité. Le test lit le seul bloc de commande de chaque acte : ses affectations (avant l'appel et
+  hors commentaires depuis le troisième pli, ci-dessous), `$S` coupé aux blancs, une liste en UN argument `"$U"`. Toutes les autres
+  lignes `[Service]` de l'unité passent à `systemd-run` (par `-p`, ou `--uid` et `--gid`) : aucune n'en est hors de portée.
   Rouge sur la tête `35ba7ac1` par assertion, sur (4) : ni (4) ni (4b) ne portait la liste `UnsetEnvironment=` de l'unité ((4b)
   n'en passait que `SMTP_PASS`) ; vert avec le RUNBOOK corrigé.
+- **Au troisième pli** (m-7) : le bloc de chaque départ est lu comme le shell l'exécute, en trois retouches au même nombre de lignes
+  (`test/probe-dojo-live.test.ts` l.594, l.596 et l.597). Ses lignes de commentaire (premier caractère non blanc `#`) sont ôtées
+  avant que ses lignes soient jointes ; seules comptent les affectations faites avant l'appel ; l'appel n'est lu que là où il ouvre
+  une commande, juste après `&&` (dans le RUNBOOK, premier mot de sa ligne, après le `&&` qui clôt la ligne d'avant). Quatre textes
+  que le shell exécute autrement restaient verts (mutants à la main G1, G2, G7 et G12 de la seconde G2 de delta) : `S=` affecté
+  après l'appel en (4), la seconde ligne `U=` de (4) commentée, `echo` devant l'appel de (4), la seconde ligne `U=` de (4b) déplacée
+  après l'appel. Chacun est vert sur le test d'avant et rouge par assertion sur le test retouché ; le RUNBOOK tel qu'il est reste
+  vert (§18). Le test reste une lecture de texte : une autre construction du shell (une réaffectation vide sans guillemets avant
+  l'appel, par exemple) resterait hors de sa vue ; la garde couvre les gestes d'une édition maladroite : l'ordre, le commentaire,
+  le mot de commande.
 
 ## 6. Tueurs
 
@@ -151,6 +169,12 @@ correctif, avec les deux tueurs déplacés) : `-p ProtectHome=true` ôté de (4)
 (l.1499), `SMTP_PASS` ôté de la liste de (4b) (l.1521), une affectation vide du masque après lui en (4b) (l.1519 ; la limite HM3,
 fermée), le fichier du courriel ajouté à (4) (l.1499).
 
+Au troisième pli, un tueur neuf dans le même corps, sous les sept autres (l.589 du test), celui que propose m-7 :
+`// killer: docs/RUNBOOK-dojo.md:1497 CONST "U=\"$U HTTP_PROXY" -> "# U=\"$U HTTP_PROXY"`, la seconde ligne `U=` de (4) commentée
+(le mutant G2). Son `<before>` paraît une seule fois sur la l.1497 ; il est valide sur le RUNBOOK tel qu'il est, qui ne change pas
+(d'où sa place au commit du test, `3c527827`) ; son édition, faite à la main, est verte sur le test d'avant et rouge sur le test
+retouché (§18) : il ne meurt qu'avec la lecture neuve. Les sept autres tueurs du corps ne bougent pas.
+
 ## 7. Preuve prévue
 
 `node scripts/red-proof.mjs --base 885554e5 --gel <tête> --draw 4 --seed 20261007` : quatre tests jugés, chacun F2P, quatre tueurs
@@ -164,6 +188,10 @@ de test changés (47) ; puis les mêmes contrôles et portes, la construction du
 
 Au second pli : la même commande, `--gel <correctif du RUNBOOK>` ; `scripts/mutants/run.mjs --killers` sur les quatre fichiers (52
 tueurs) ; des mutants à la main du RUNBOOK et de l'unité ; les mêmes contrôles et portes. R-25 : environ 185.
+
+Au troisième pli : les quatre mutants à la main de m-7 (G1, G2, G7, G12) et l'édition du tueur neuf, sur le test d'avant puis sur le
+test retouché ; la même commande `red-proof`, `--gel 3c527827` ; `scripts/mutants/run.mjs --killers` sur les quatre fichiers (53
+tueurs) ; les mêmes contrôles et portes. R-25 : 186, la ligne du tueur neuf en plus.
 
 ## 8. Volet (a) : l'hôte « dédié » borné
 
@@ -396,3 +424,45 @@ forme de l'item, sans apostrophes ; réécrite au second pli avec le texte de la
 - **Non vérifié ici** : l'hôte (les deux départs simulés sous leur forme neuve ; la forme `"$U"` est celle que
   FAITS-SYSTEMD-RUN-UNSETENV-1 a lue sur cet hôte et qu'A-8 (2) emploie) ; le serveur du site (aucun relevé : que le dossier n'y soit
   pas reste ce que montre le dépôt) ; Windows (MONARK rejoue les tests à la fusion).
+
+## 17. Pli de la seconde G2 de delta (CORRECTIONS, tête lue `7ceb9cb3`)
+
+| Constat ou note | Pli |
+|---|---|
+| **m-7** : la lecture du bloc prenait ses affectations comme un ensemble sans ordre, lignes de commentaire comprises, et l'appel partout où paraissait `systemd-run`. Quatre textes que le shell exécute autrement restaient verts : G1, `S=` affecté après l'appel en (4), muet à l'exécution (la tâche tournerait sans bac à sable ni masque, et l'acte (4) ne s'arrêterait plus sur un hôte sans le dossier) ; G2, la seconde ligne `U=` de (4) commentée (neuf noms de moins) ; G7, `echo` devant l'appel ; G12, la seconde ligne `U=` de (4b) après l'appel | les trois retouches de la pièce, au même nombre de lignes (§5) : les lignes de commentaire ôtées avant la jointure, les affectations lues avant l'appel seulement, l'appel lu juste après `&&` ; le tueur proposé, l.1497 du RUNBOOK (§6). G1, G2, G7 et G12 : verts sur le test d'avant, rouges par assertion sur le test retouché ; G6 (forme longue, même sens) reste vert ; le RUNBOOK, l'unité et les pages ne changent pas (§18). Corps de la PR : la puce « Tests » dit la lecture neuve, et la liste des mutations qui rougissent un test nomme ces quatre gestes ; ses nombres suivent (53 tueurs, 1 658 ancres, 186 lignes) |
+| **Note, borne d'un départ** : la phrase du §5 « la borne d'un départ reste celle de l'unité, au-dessus du pire cas » est vraie des départs du minuteur ; lue pour la tâche simulée, elle serait fausse | §5 réécrit selon la proposition : la borne de l'unité est celle des départs du minuteur ; la tâche simulée n'a pas de borne de systemd (type `simple` par défaut : `src/run/run.c` l.1449-1450 et `man/systemd-run.xml` l.243-244 de systemd v259.5 ; `TimeoutStartSec=` n'y bornerait que le démarrage, tenu pour fini dès le `fork()` : `man/systemd.service.xml` l.164-167 et l.643-652) et finit dans le pire cas que le code borne (3 283 s : unité l.22-24, test l.544-546), sous celle de l'unité. Lu dans les sources, non observé. Le corps de la PR n'en dit rien |
+| **Note, « Every other line of the unit »** : la phrase du corps vaut pour la section `[Service]`, dont parle la phrase d'avant ; lue à la lettre, elle compterait aussi les quatre lignes `[Unit]` | corps : « Every other line of that section » ; le §5 dit de même « toutes les autres lignes `[Service]` de l'unité » |
+
+## 18. Mesures du troisième pli (test `3c527827`, base `885554e5`)
+
+- **Mutants à la main** (`hand-mutants.mjs`, le script de la seconde G2 de delta sans sa branche de correctif, plus KN, l'édition du
+  tueur neuf faite à la main ; chacun seul, le RUNBOOK ou l'unité restaurés et leur sha256 contrôlé, le fichier de test jamais écrit ;
+  Node v24.21.0). Sur le test d'avant (sha256 `592d7386efffbfa9…`, celui de `7ceb9cb3`), 2026-10-08 de 00:45Z à 00:48Z : G1, G2,
+  G7, G12 et KN verts, 24 sur 24 ; les autres comme à la pièce (G3, G4, G5, G8, G9 et G10 rouges ; G11, G13 et G14, deux rouges
+  chacun ; G6 vert ; les sept tueurs du corps rouges). Sur le test retouché (sha256 `bb37a54721adbf37…`, celui de `3c527827`), de
+  00:49Z à 00:53Z : G1, G2, G7, G12 et KN rouges, chacun par `ERR_ASSERTION` dans `dojo_probe_tree_is_the_import_closure` seul
+  (24 tests, 23 passés ; « (4): one job, the unit's properties and no other », « (4b): … » pour G12) ; G0 (rien) et G6 verts ; tous
+  les autres inchangés ; le tueur neuf (K589) rouge (`hand-before.json`, sha256 `d0cfacb5d565803b…` ; `hand-after.json`,
+  `09c42669f31b06d1…`). Rejoués après le commit, de 01:24Z à 01:26Z, sur chacun des deux tests (G0, G1, G2, G6, G7, G12, KN, et K589
+  sur le test retouché) : les mêmes verdicts. Le RUNBOOK et l'unité restaurés égaux à leurs blobs (`e86cbff93804bfb3…`,
+  `682e3508e6243183…`), inchangés depuis `7ceb9cb3`.
+- **red-proof** `--base 885554e5 --gel 3c527827 --draw 4 --seed 20261007` : OK, 6 tests jugés (40 inchangés), chacun F2P ; 4 tueurs
+  tirés (`scripts/probe-dojo-live.mjs:54`, `scripts/probe-dojo-live.mjs:248`, `deploy/monark-dojo-publish.service:48`,
+  `deploy/monark-dojo-probe.service:29`), 4 tués (`RED-PROOF.json`, sha256 `74f288189b2ac925…`).
+- **Tous les tueurs des quatre fichiers de test changés** (`scripts/mutants/run.mjs --killers`, file d'attente partagée) : 53 tués sur
+  53, aucun survivant, aucun non conclu, aucune ancre perdue ; le neuf (RUNBOOK l.1497) rougit ce seul test, comme les sept autres du
+  corps (`RESULTS.json`, sha256 `57aa13a49711e0e1…`).
+- **Ancres** : `verifie-ancres --touched 885554e5 3c527827 --ref 885554e5 --ref 7ceb9cb3` : 53 ANCRE, aucune dérive (le même avec
+  `--ref 885554e5` seul) ; arbre entier : 1 658 ANCRE ; `every_killer_line_is_readable` vert ; les cinq fichiers visés : 49 sur 49.
+- **Suite** : `test:main`, Node v24.21.0 : 2 926 tests, 2 904 passés, 0 échec, 22 sautés (les sauts conditionnels déjà là), 277 s ;
+  le même compte (la lecture retouchée reste un seul test). Rejouée sur l'arbre de ce G0, de 01:33Z à 01:38Z : le même compte, 307 s.
+- **Portes** : `tsc --noEmit` 0 ; eslint des dix fichiers de code et de test de la PR : 0 ; `lint:ratchet` 69/69 ; `gate:vocab`
+  (349 fichiers), `lang:gate`, `export:check`, `lint-model-pinning` (vert par absence) : propres ; winlint `--base 885554e5` :
+  16 fichiers, aucun danger.
+- **Site** : `npm run build -w @monark/site` (42 pages HTML), puis `node scripts/assert-fleet-html.mjs` : OK, ses quatre lignes. Les
+  pages ne changent pas à ce pli : aucune ne dit « own host », « dedicated host », « host of its own » ni « separate host » ;
+  « its own web address » sur une seule.
+- **R-25** (forme de la CI, lecture épinglée) : 154 + 32 = 186 lignes, 13 fichiers, pour une borne de 1 205 ; contenu : 1 + 1 = 2.
+  `test/site-build-fleet.test.ts` n'est touché par aucun commit de la PR.
+- **Non vérifié ici** : l'hôte (les deux départs simulés, inchangés à ce pli) ; que la tâche simulée soit de type `simple` et sans
+  borne de systemd (lu dans les sources, non observé) ; Windows (MONARK rejoue les tests à la fusion).
