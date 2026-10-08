@@ -210,7 +210,7 @@
  "test/harness-served.test.ts": 24,
  "test/inner-failures.test.ts": 1,
  "test/journal-index.test.ts": 28,
- "test/kata-recalc.test.ts": 6,
+ "test/kata-recalc.test.ts": 7,
  "test/keep-cause.test.ts": 11,
  "test/killer-lines.test.ts": 1,
  "test/l2-book.test.ts": 6,
@@ -287,5 +287,6 @@
  "test/verify-dojo.test.ts": 5,
  "test/verify-harness-liq.test.ts": 20,
  "test/visage-register.test.ts": 1,
- "test/vocab-harness-a9.test.ts": 3
+ "test/vocab-harness-a9.test.ts": 3,
+ "test/workspace-bin-mode.test.ts": 1
 }
