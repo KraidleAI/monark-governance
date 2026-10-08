@@ -19,8 +19,8 @@ import { forbiddenLoads, importSpecifiers } from "./helpers/import-specifiers.ts
 import { syntheticRegistry } from "./helpers/synthetic-registry.ts";
 
 const SRC = join(dirname(fileURLToPath(import.meta.url)), "..", "src");
-/** What a source file loads, read by the shared helper: its specifiers as importSpecifiers lists them (ts.preProcessFile; servedModules
- *  follows the same), and the loads that no specifier shows, as forbiddenLoads finds them on the syntax tree (both named in its header). */
+/** What a source file loads, read by the shared helper on its syntax tree: its specifiers as importSpecifiers lists them (both walks of the
+ *  served graph follow the same), and the loads that no specifier shows, as forbiddenLoads finds them (both named in its header). */
 const importsOf = (file: string): string[] => importSpecifiers(readFileSync(join(SRC, file), "utf8"));
 const loadsOf = (file: string): string[] => forbiddenLoads(readFileSync(join(SRC, file), "utf8"));
 const ENTRIES = kataClassEntries((c) => `class text of ${c}`);
