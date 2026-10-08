@@ -45,7 +45,7 @@ test("verifier_tool_job_runs_the_driver_under_one_pinned_cpython - g3-verifier-t
   assert.ok(!/^ {2}g3-verifier-tool\s*:/m.test(derived) && !derived.includes("verifier-tool-ci"), "the public workflow drops the job: the tool is never exported");
 });
 
-// killer: scripts/verifier-tool-ci.mjs:56 CONST "present[t] !== (t === TOOL)" -> "t === TOOL && !present[t]"
+// killer: scripts/verifier-tool-ci.mjs:69 CONST "present[t] !== (t === TOOL)" -> "t === TOOL && !present[t]"
 test("verifier_tool_driver_follows_io_guard_and_refuses_what_it_does_not_hold - FORM and TREES read from io_guard.py; a second tree on disk, an unnamed *_check.py, another interpreter: each refused", () => {
   const guard = read(`${TOOL}/io_guard.py`);
   assert.deepEqual(formOf(guard).slice(0, 4), ["-E", "-S", "-s", "-B"], "the launch form of the tool, read from its FORM line");
@@ -66,9 +66,29 @@ test("verifier_tool_driver_follows_io_guard_and_refuses_what_it_does_not_hold - 
   }
 });
 
+// killer: scripts/verifier-tool-ci.mjs:39 SDL "join(w, \"hikae.txt\")" -> ""
+test("verifier_tool_driver_owes_each_run_of_each_check - each check of the tool runs once in each of its modes, with its count of VERDICT: GREEN lines; a run dropped, doubled or judged on another count is refused, so neither run of binom_check.py can go unseen", () => {
+  type Run = ReturnType<typeof steps>[number];
+  const trees = [TOOL, "tools/kata-quarter"], today = { [TOOL]: true, "tools/kata-quarter": false }, runs = steps("r", "w", false);
+  const owe = (rs: Run[]): string[] => accountProblems(trees, today, ["binom_check.py", "compare_check.py", "guard_check.py", "report_check.py", "vectors_check.py"], rs);
+  const owed = (run: string, times: number): string => `${run}: a run that this job owes once, run ${times} time(s)`;
+  assert.deepEqual(owe(runs.slice(0, 4)), [owed("binom_check.py (2 VERDICT: GREEN)", 0)], "D-2 (ii) and (iii) dropped: binom_check.py is still run, by --registry");
+  assert.deepEqual(owe(runs.filter((s) => s[2][0] !== "--registry")), [owed("binom_check.py --registry (1 VERDICT: GREEN)", 0)], "the registry run dropped");
+  // killer: scripts/verifier-tool-ci.mjs:71 CONST "times(o) !== 1" -> "times(o) === 0"
+  assert.deepEqual(owe([...runs, ...runs.slice(0, 1)]), [owed("guard_check.py (1 VERDICT: GREEN)", 2)], "a run doubled");
+  // killer: scripts/verifier-tool-ci.mjs:72 SDL "a run that this job does not owe" -> ""
+  assert.deepEqual(owe(runs.map((s): Run => [s[0], s[1], s[2], s[3] === 2 ? 1 : s[3]])),
+    [owed("binom_check.py (2 VERDICT: GREEN)", 0), "binom_check.py (1 VERDICT: GREEN): a run that this job does not owe"], "D-2 judged on one VERDICT: GREEN line, not two");
+  assert.deepEqual([false, true].map((win) => owe(steps("r", "w", win))), [[], []], "today, on both systems: each owed run once, and no other");
+  assert.deepEqual([false, true].map((win) => steps("r", "w", win).map(([check, script, args, want]) => [check, script, args.filter((a) => a.startsWith("--")), want])),
+    [false, true].map((win) => [["guard_check.py", `${TOOL}/guard_check.py`, [], 1], ["report_check.py", win ? `${TOOL}/report_check.py` : "scripts/verifier-tool-ci-report-check.py", [], 1],
+      ["compare_check.py", `${TOOL}/compare_check.py`, [], 1], ["binom_check.py", `${TOOL}/binom_check.py`, ["--registry"], 1], ["binom_check.py", `${TOOL}/binom_check.py`, [], 2]]),
+    "the five runs of steps(), in order, on both systems");
+});
+
 const GUARD_OUT = ["OK   import-listed: exit 0 (want 0): IMPORTED; NATIVE IS THE MEASURED LIST", "SKIP ntfs-stream: no subject here (none of the modules that the case names, or the working directory on another drive)",
   "cases 43 and the homonyms, skipped 1, failures 0", "VERDICT: GREEN"].join("\n");
-// killer: scripts/verifier-tool-ci.mjs:70 CONST "[...skipped].sort().join() !== [...expected].sort().join()" -> "skipped.some((c) => !WINDOWS_ONLY.includes(c))"
+// killer: scripts/verifier-tool-ci.mjs:86 CONST "[...skipped].sort().join() !== [...expected].sort().join()" -> "skipped.some((c) => !WINDOWS_ONLY.includes(c))"
 test("verifier_tool_driver_names_each_skip_and_refuses_any_other - off Windows guard_check skips exactly WINDOWS_ONLY, each named; on Windows none; an exit, a missing VERDICT: GREEN, a FAIL or RED line: refused", () => {
   assert.deepEqual(WINDOWS_ONLY, ["ntfs-stream"]);
   assert.deepEqual(outputProblems("guard_check.py", GUARD_OUT, 0, 1, false), { problems: [], skipped: ["ntfs-stream"] }, "off Windows: the Windows case skipped and named");
@@ -91,4 +111,21 @@ test("verifier_tool_stand_in_replaces_section_3_only - the Linux stand-in sets r
   const exec = py.findIndex((l) => l.startsWith("exec(compile(open(_g.__file__")), imports = py.findIndex((l) => /^import (?!os, sys)/.test(l));
   assert.ok(exec !== -1 && exec < imports, "io_guard.py runs by its path before any other import");
   assert.deepEqual(py.filter((l) => l.includes("report_check.main")), ["sys.exit(report_check.main(*(os.path.abspath(a) for a in sys.argv[1:4])))"], "report_check.main runs once, as written, on the three arguments of report_check.py");
+});
+
+const REPORT_OUT = ["OK   platform: Windows-standin-0.0.0-SP0, standin", "failures 0", "input libm ucrtbase.dll sha256 349a0de7e0e1bf8eecfd1c73916bf171d38927e2e543c106e15df1882612f67a bytes 48",
+  "VERDICT: GREEN"].join("\n");
+// killer: scripts/verifier-tool-ci.mjs:36 CONST ", 1, REPORT_END]" -> ", 1]"
+test("verifier_tool_driver_wants_the_end_of_report_check_main - the run of report_check.py must show the lines that only report_check.main writes after its checks, its count of failures and the C library of log that its section 3 read; a stand-in that prints VERDICT: GREEN and exits before that main is refused", () => {
+  const [off, on] = [false, true].map((win) => steps("r", "w", win)[1]?.[4]);
+  const end = (re: string): string => `report_check.py: no line ${re}, which the check's own main writes after its checks`;
+  const FAILURES = end("/^failures 0$/"), LIBM = end("/^input libm ucrtbase\\.dll sha256 [0-9a-f]{64} bytes \\d+$/");
+  // killer: scripts/verifier-tool-ci.mjs:87 CONST "!lines.some(" -> "lines.some("
+  assert.deepEqual(outputProblems("report_check.py", "VERDICT: GREEN", 0, 1, false, off).problems, [FAILURES, LIBM], "a verdict printed before report_check.main ran: refused");
+  assert.deepEqual(outputProblems("report_check.py", REPORT_OUT, 0, 1, false, off).problems, [], "the end of report_check.main, as the job's log shows it");
+  // killer: scripts/verifier-tool-ci.mjs:31 CONST "/^failures 0$/, " -> ""
+  assert.deepEqual(outputProblems("report_check.py", REPORT_OUT.replace("failures 0", "failures 1"), 0, 1, false, off).problems, [FAILURES], "a count of failures other than 0");
+  assert.deepEqual(outputProblems("report_check.py", REPORT_OUT.replace(/ sha256 \w+ /, " sha256 349a0de7 "), 0, 1, false, off).problems, [LIBM], "an input line without a full digest");
+  assert.deepEqual(on, off, "on Windows report_check.py runs as written and ends with the same two lines");
+  assert.deepEqual(steps("r", "w", false).map((s) => s[4] === undefined), [true, false, true, true, true], "nothing more from the four runs of the tool's own files, whose tree its tree tests pin");
 });
