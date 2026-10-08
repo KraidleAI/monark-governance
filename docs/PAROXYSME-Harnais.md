@@ -28,6 +28,11 @@
   vérificateur adverse neuf de la réparation n° 1, le 2026-10-08 à partir de 10:32 UTC (`date -u`), par un worker de PAROXYSME (`claude-opus-5-5`, effort max) :
   sources : le tronc à `c5030fd9`, fusion de la PR #249 (Bases, §8) ; pliés : la phrase de la réparation n° 1, complétée ; la PR #249 fusionnée,
   `vectors_check.py` en CI sur les vecteurs publics, la bascule à R1 attendant sa publication (MK-L39, §8) ; parties touchées : en-tête, MK-L39, §8.
+  Pli de l'après-#253 (#253 versée au tronc, fusion `2d37851b` : ETAT l.800-804 à `2c3f51a8`), le 2026-10-08 à partir de 12:27 UTC (`date -u`), par un worker de
+  PAROXYSME (`claude-opus-5-5`, effort max) : sources : ETAT à `2c3f51a8`, MSG6 et MSG7 (Bases, §8) ; pliés : la décision de dépense de MK-L29, rendue par la
+  levée du plafond (Q5 (a)) ; SENTINEL-DEPLOY-GUARD-1 et SYNC-CHECK-MODE-1, à former au G0 de PXC-05 partie 1 (Q8 (b)) ; l'échéance des huit archives, que les
+  quatre fichiers hors dépôt rejoignent (Q3 (a), Q10 (b)) ; l'item de MK-L39, ouvert jusqu'à la bascule vers R1 selon ETAT ; parties touchées : en-tête, §1,
+  PX-Harness-04, -22, -26, MK-L29, MK-L39, §7 (doute 3), §8.
 - **Bases** : l'inventaire du Harnais est mesuré à `d8fe354c` et lit ETAT à `57a131fc` (INV-H l.9) ; celui du Moteur prend tout à
   `57a131fc` (INV-M l.12). Toutes les ancres du versement sont à la tête `87b821b0` de `lot/etude-suite` (relue par `git ls-remote`
   le 2026-10-07 à 17:1x UTC). Elles sont reportées par l'outil `reanchor.mjs` (pièce de la boîte PAROXYSME), puis relues à la tête par
@@ -40,6 +45,8 @@
   réparation n° 1 cite aussi ETAT à `20fffe9f`, tronc avancé (« ETAT l.N à `20fffe9f` », relu par
   `git show 20fffe9f:docs/ETAT.md | sed -n` ; §8). Sa réparation n° 2 cite aussi le tronc à `c5030fd9`, fusion de la PR #249 (« à `c5030fd9` », relu par
   `git show c5030fd9:<fichier> | sed -n` ; ETAT y est celui de `20fffe9f`, `git diff --quiet 20fffe9f c5030fd9 -- docs/ETAT.md` ; §8).
+  Le pli de l'après-#253 cite ETAT à `2c3f51a8` (« ETAT l.N à `2c3f51a8` », relu par `git show 2c3f51a8:docs/ETAT.md | cat -n`), MSG6 (« MSG6 l.N », message de
+  MONARK `ad598ad`, les douze réponses aux questions du pli de l'après-#245) et MSG7 (« MSG7 l.N », message de MONARK `fcaae5a`, la fusion de #253) (§8).
 - **Préséance** : `docs/ETAT.md` l.7-11 ; ETAT prime. Un item nommé hors d'ETAT et du code n'est pas compté comme formé : il est écrit
   « à former » et porté par son chantier.
 - **Labels** : aucun ne change (`built` du Backbone et du Harness, `README.md:94`, `:96` ; aucune ligne kata servie,
@@ -83,12 +90,14 @@
   (PX-Harness-26) avait pour déclencheur le prochain point d'étape (PX-STD-ORPHAN-1, PLAN l.541, l.897-898) ; il est passé sans acte,
   et les deux restaient absents d'ETAT à `5437cd0d` (§7, doute 3). Demandé avec la demande de fusion de #245, le re-port est fait :
   PXC-05 partie 1, dans l'ordre O-2 (T8 de Narabi, E10 d'Ukemi), déclencheur le G0 de PXC-05 partie 1 (ETAT l.571-572 à `565c7065` ;
-  MSG5 l.32-33).
-- **À dater** (porteur : MONARK) : la question des huit archives de l'hôte du site, que celle de HOST-HARNESS-PREV-1 ne visait pas, « … à
-  poser au fondateur », sans échéance écrite (ETAT l.524-525 à `565c7065` ; MSG4 l.20 ; PX-Harness-22) ; échéance à demander à MONARK
-  avec la demande de fusion du pli de l'après-#245. À demander à MONARK avec la même demande : le sort des quatre fichiers hors dépôt de
-  l'arbre servi, que la construction de HOST-HARNESS-PREV-1 retire (ETAT l.1466-1469) et que ni la décision du fondateur ni la ligne
-  FAIT ne nomment (ETAT l.518-525 à `565c7065`). Ce n'est pas une dette : PX-Harness-22 garde ses déclencheurs (garde de nettoyage :
+  MSG5 l.32-33). Les deux restent « à former » : « il leur manque une construction, un porteur et un prix », et ils se forment au G0 que nomme leur
+  déclencheur, celui de PXC-05 partie 1 (Q8 (b) : MSG6 l.19-20 ; ETAT l.572-573 à `2c3f51a8`).
+- **Daté par MONARK** (porteur : MONARK) : la question des huit archives de l'hôte du site, que celle de HOST-HARNESS-PREV-1 ne visait pas, « … à
+  poser au fondateur » (ETAT l.524-525 à `565c7065` ; MSG4 l.20 ; PX-Harness-22), est posée au prochain point d'étape avec le fondateur, au plus tard
+  avant le déploiement de la release L (Q3 (a) : MSG6 l.8 ; ETAT l.812-813 à `2c3f51a8`). Les quatre fichiers hors dépôt de l'arbre servi, que la
+  construction de HOST-HARNESS-PREV-1 retire (ETAT l.1466-1469), sont toujours présents, lus par MONARK vers 11:5x UTC, en lecture seule (MSG7
+  l.15-16 ; ETAT l.809-811 à `2c3f51a8`) : leur suppression est un acte du fondateur, et ils rejoignent la question des huit archives, même échéance
+  (Q10 (b) : MSG6 l.22-24 ; ETAT l.811-813 à `2c3f51a8`). Ce n'est pas une dette : PX-Harness-22 garde ses déclencheurs (garde de nettoyage :
   PXC-05 p3, F3).
 - Toutes les entrées ouvertes des §2, §3 et §5 portent un item, un porteur et un déclencheur atteignable, jugé à la lecture de chaque
   entrée. De ces trois champs, l'oracle (§7, doute 5) ne contrôle que la présence : non vides et non « aucun » (`verify-registres.mjs`
@@ -120,9 +129,9 @@
   source : `deploy/monark-sentinel.service:18`, `:39` ; `apps/sentinel/src/timeline.ts:16` ; `apps/sentinel/src/run.ts:155-161` ;
     `docs/JOURNAL-PROVENANCE.md:445` · touche : `README.md:66`, `:119-120` · nature : C/P · ⚑B
   item : SENTINEL-DEPLOY-GUARD-1 (absent d'ETAT à `5437cd0d` ; re-porté par MONARK à PXC-05 partie 1, dans O-2 : ETAT l.571-572 à
-    `565c7065` ; §1 ; §7, doute 3) ; construit par PXC-05 partie 1, PR 2 · porteur : PAROXYSME (chantier) ; MONARK (ligne
-    d'ETAT, RUNBOOK-HARNESS-SENTINEL-DIFF-1) · déclencheur : le G0 de PXC-05 partie 1 (ETAT l.571-572 à `565c7065` ; MSG5 l.32-33) ; PR 2
-    fusionnée avant le SHA nommé d'E-2a (F1-F2)
+    `565c7065` ; §1 ; §7, doute 3 ; à former : il se forme au G0 que nomme son déclencheur, Q8 (b) : MSG6 l.19-20) ; construit par PXC-05
+    partie 1, PR 2 · porteur : PAROXYSME (chantier) ; MONARK (ligne d'ETAT, RUNBOOK-HARNESS-SENTINEL-DIFF-1) · déclencheur : le G0 de PXC-05
+    partie 1 (ETAT l.571-572 à `565c7065` ; MSG5 l.32-33) ; PR 2 fusionnée avant le SHA nommé d'E-2a (F1-F2)
   état : ouvert (réalisé à T0 ; le fait d'hôte H5 le confirme : depuis le 2026-10-06, le code importé de la sentinelle a changé sans que
     `sentinel_sha` bouge, ETAT l.495-497 à `565c7065`) · suite : sinon commande de diff de la fermeture avant le déploiement de la vague 1
     (PLAN §4 (iv)) ; le re-port range l'item sous l'étape T8 du relevé de Narabi (ETAT l.571 à `565c7065`)
@@ -258,24 +267,26 @@
     prochain déploiement du harnais (release L, sous Q-20), garde mécanique en PXC-05 partie 2 ; HOST-HARNESS-PREV-1 (l.1464-1473 ; ligne
     datée, ETAT l.1625-1627 à `5437cd0d`) : la suppression, acte du fondateur porté par MONARK (ETAT l.274-275 à `5437cd0d`) ; FAIT à
     ETAT l.521 à `565c7065` pour les deux copies les plus anciennes de l'arbre, supprimées le 2026-10-08, la plus récente gardée en
-    repli ; hors de sa question, les huit archives, « … à poser au fondateur » (ETAT l.518-525 à `565c7065` ; MSG4 l.16-20) ; ni la
-    question ni la ligne FAIT ne nomment les quatre fichiers hors dépôt de l'arbre servi, que sa construction retire (ETAT l.1466-1469) ;
-    la suite (garde de nettoyage) en PXC-05 partie 3 ; SITE-SEND-PRUNE-1 (l.902-905) : PXC-05 partie 3 (ETAT l.255 à `5437cd0d`)
+    repli ; hors de sa question, les huit archives, « … à poser au fondateur » (ETAT l.518-525 à `565c7065` ; MSG4 l.16-20) ; les quatre fichiers
+    hors dépôt de l'arbre servi, que sa construction retire (ETAT l.1466-1469), toujours présents, les rejoignent (Q10 (b) : ETAT l.809-813 à
+    `2c3f51a8`) ; la suite (garde de nettoyage) en PXC-05 partie 3 ; SITE-SEND-PRUNE-1 (l.902-905) : PXC-05 partie 3 (ETAT l.255 à `5437cd0d`)
     · porteur : MONARK (items d'ETAT, runbook, actes d'hôte, question au fondateur) ; le fondateur (toute suppression) ; PAROXYSME
     (parties de PXC-05) · déclencheur : REDEPLOY : le prochain déploiement du harnais, la release L (ETAT l.1403 à `5437cd0d`), sous
     l'autorisation Q-20 (ETAT l.64-66 à `5437cd0d`) ; garde mécanique : p2 (F2-F3) ; PREV : la question des copies, posée et tranchée
-    (« Yes, delete them (Recommended) », ETAT l.518-520 à `565c7065`) ; les huit archives : la question que MONARK porte au fondateur,
-    sans échéance écrite (ETAT l.524-525 à `565c7065` ; §1) ; les quatre fichiers : la réponse de MONARK à la question de la demande de
-    fusion de ce pli (§1) ; garde de nettoyage : PXC-05 p3 (F3) ; PRUNE : PXC-05 p3 (F3)
+    (« Yes, delete them (Recommended) », ETAT l.518-520 à `565c7065`) ; les huit archives et les quatre fichiers : la question que MONARK porte
+    au fondateur, au prochain point d'étape avec lui, au plus tard avant le déploiement de la release L (Q3 (a), Q10 (b) : MSG6 l.8, l.22-24 ; ETAT
+    l.812-813 à `2c3f51a8` ; §1) ; garde de nettoyage : PXC-05 p3 (F3) ; PRUNE : PXC-05 p3 (F3)
   état : changé (REDEPLOY et PREV : déclencheurs d'ETAT, l.1261 et l.1469, passés à T0 sans acte, `docs/JOURNAL-PROVENANCE.md:445` ;
     REDEPLOY : dette de MONARK, re-formée par sa ligne datée, ETAT l.1401-1404 à `5437cd0d` ; PREV : la ligne datée (ETAT l.1625-1627 à
     `5437cd0d`) dit la construction « acte du fondateur, porté par MONARK avec la liste relevée » et place la suite en PXC-05 p3, sans déclencheur neuf (ETAT
     l.1620 à `5437cd0d` garde « le prochain déploiement du harnais ») ; le déclencheur de PREV est fixé par MONARK en MSG2 l.6-8, non écrit
     à ETAT à `5437cd0d`, écrit à ETAT l.297-298 à `565c7065` et atteint : HOST-HARNESS-PREV-1 FAIT pour les deux copies, ETAT l.521-525 à
-    `565c7065` ; restent les huit archives et les quatre fichiers) · suite : avant
+    `565c7065` ; restent les huit archives et les quatre fichiers, ceux-ci lus le 2026-10-08 vers 11:5x UTC, en lecture seule, MSG7 l.15-16 ; ETAT
+    l.809-811 à `2c3f51a8`) · suite : avant
     tout acte, le SHA servi est relu et comparé à la base attendue (ETAT l.1403-1404 à `5437cd0d`) ; PLAN l.478-479 plaçait la garde de
     procédure en PXC-05 p1 ; ETAT prime ; la réponse du fondateur sur PREV, que MSG2 l.8 annonçait sous l'item, est écrite à ETAT
-    l.518-520 à `565c7065`, dans les décisions du 2026-10-08
+    l.518-520 à `565c7065`, dans les décisions du 2026-10-08 ; celle de MONARK sur les quatre fichiers, annoncée sous l'item (MSG6 l.24), est écrite
+    dans la suite du jour (ETAT l.809-813 à `2c3f51a8`), non dans le bloc de l'item (l.2164-2176 à `2c3f51a8`)
 - **PX-Harness-23** · « Aucun audit planifié des dépendances de l'arbre servi ; l'audit ne tourne qu'en CI de PR. »
   source : `.github/workflows/ci.yml:18-19`, `:243-244` ; `apps/harness/package.json:12` (SDK 2.0.0 épinglé) · touche : `SECURITY.md:27-30` ·
     nature : P
@@ -297,9 +308,9 @@
 - **PX-Harness-26** · « La capture servie du site n'a pas de mode `--check` : un redéploiement sans synchro n'est vu par aucun contrôle non-LLM. »
   source : `scripts/sync-harness-served.mjs` (aucun `--check`) ; `test/harness-served.test.ts:210` · touche : `README.md:70` · nature : M/C · ⚑B
   item : SYNC-CHECK-MODE-1 (absent d'ETAT à `5437cd0d` ; re-porté par MONARK à PXC-05 partie 1, dans O-2 : ETAT l.571-572
-    à `565c7065` ; §1 ; §7, doute 3) ; construit par PXC-05 partie 1, PR 1 · porteur : PAROXYSME (chantier) ; MONARK (ligne d'ETAT) ·
-    déclencheur : le G0 de PXC-05 partie 1 (ETAT l.571-572 à `565c7065` ; MSG5 l.32-33) ; PR 1 de PXC-05 partie 1 (F1, tâche 4 du
-    TABLEAU ; après la décision P-28)
+    à `565c7065` ; §1 ; §7, doute 3 ; à former : il se forme au G0 que nomme son déclencheur, Q8 (b) : MSG6 l.19-20) ; construit par PXC-05
+    partie 1, PR 1 · porteur : PAROXYSME (chantier) ; MONARK (ligne d'ETAT) · déclencheur : le G0 de PXC-05 partie 1 (ETAT l.571-572 à `565c7065` ;
+    MSG5 l.32-33) ; PR 1 de PXC-05 partie 1 (F1, tâche 4 du TABLEAU ; après la décision P-28)
   état : ouvert · suite : si le débit ne tient pas, la PR 1 glisse après le service de la vague 1 (PLAN §4.0) ; le re-port range l'item
     sous l'étape E10 du relevé d'Ukemi (ETAT l.571 à `565c7065`)
 - **PX-Harness-27** · « Le skill ne renvoie pas aux fichiers Bell que le README promet aux agents ; note kata 15m absente d'ETAT. »
@@ -505,9 +516,12 @@
     doute 3) ; à `565c7065`, les deux sont formés (ETAT l.559-562)
 - **MK-L29** · « Contre-vérification USDT/USD retirée (API payante) ; Kraken ne vérifie que dans un sens. »
   source : add6 l.8, l.14-18 · touche : rapport de la vague 2 · nature : D/P
-  item : PXC-18 partie 2 (décision de dépense, format P-26) · porteur : le fondateur (dépense) ; PAROXYSME (question fermée) · déclencheur :
-    partie 2 de PXC-18 (F4)
-  état : ouvert · suite : aucune dépense engagée par ce registre
+  item : PXC-18 partie 2 (la source de prix, l'abonnement et le prix, que MONARK nommera ; l'achat, par le fondateur : la levée du plafond vaut
+    décision de dépense, Q5 (a) : MSG6 l.10-15 ; ETAT l.788-789 à `2c3f51a8`) · porteur : MONARK (source de prix, abonnement et prix) ; le fondateur
+    (l'achat) ; PAROXYSME (chantier) · déclencheur : partie 2 de PXC-18 (F4)
+  état : changé (décision de dépense rendue depuis l'inventaire : « … pas de plafond de budget, on doit avancer » (ETAT l.90-94 à `2c3f51a8`) vaut
+    pour cette contre-vérification, Q5 (a), contre la recommandation de PAROXYSME, MSG6 l.10-15) · suite : l'exemple de comptes d'ETAT l.92-93 à `2c3f51a8`
+    n'est pas une liste fermée (MSG6 l.13) ; aucune dépense engagée par ce registre
 - **MK-L30** · « Stock passé non vu épuisé après la vague 3 : plus aucun mois non vu. »
   source : 0006 l.197-201, l.309 · touche : aucune · nature : D
   item : PXC-17 partie 3 (KATA-FORWARD-PLAN-1, à former : calibrations pré-enregistrées sur données futures) · porteur : PAROXYSME ; acte du
@@ -567,7 +581,8 @@
     déclencheur la publication de R1 dans le dépôt public de la spécification ou le commit L d'IO-GUARD-POSED-FILES-1, le premier des deux (ETAT l.346-347 à
     `565c7065`) ; MONARK le partage depuis en deux étapes : d'abord les vecteurs publics du 2026-10-02 en CI, jamais d'octets privés dans un job de ce dépôt,
     par la PR #249, fusionnée depuis (état ci-dessus), le commit L attendant cet item au tronc ; puis la bascule à R1 à sa publication, l'item restant ouvert
-    jusque-là : ETAT, inchangé à `c5030fd9`, ne le dit pas clos ; VECTORS-WITHIN-BOUND-1 est formé, porteur RECHERCHES, déclencheur la PR de bascule à R1 (ETAT
+    jusque-là : ETAT, inchangé à `c5030fd9`, ne le dit pas clos, et l'écrit depuis ouvert jusqu'à la bascule vers R1, le commit L d'IO-GUARD partant de
+    `c5030fd9` (ETAT l.755-759 à `2c3f51a8`) ; VECTORS-WITHIN-BOUND-1 est formé, porteur RECHERCHES, déclencheur la PR de bascule à R1 (ETAT
     l.609-614, l.626-629, l.662-665 à `20fffe9f`)
 - **MK-L40** · « « Public and unauthenticated, with no availability commitment. » »
   source : `apps/site/app/docs/integrators/page.tsx:56-57` · touche : même ligne · nature : C
@@ -695,7 +710,7 @@ du Dōjō : registre Narabi. Les sept autres sont ici.
      `5437cd0d`) et, par une ligne datée du même soir, HOST-REDEPLOY-GUARD-1 (ETAT l.1401-1404 à `5437cd0d`), pas ces deux items
      (`grep -c` = 0 à `5437cd0d`) ; PX-STD-ORPHAN-1 n'est pas étendu (MSG l.85, réponse sur PX-Hikae-1 à -11). Re-port demandé avec
      la demande de fusion de #245, et fait : PXC-05 partie 1, dans O-2, déclencheur le G0 de PXC-05 partie 1 (ETAT l.571-572 à
-     `565c7065` ; MSG5 l.32-33) ;
+     `565c7065` ; MSG5 l.32-33) ; les deux restent à former et se forment à ce G0, que nomme leur déclencheur (Q8 (b) : MSG6 l.19-20) ;
    - PXC-01 partie 2 (CC l.96-99, F3) : F-W2-4, F-K-2, F-K-4, F-K-5, F-K-6, F-K-8, F-K-9, CALIB-SEQ-IMPORT-1, ATTEST-KATA-SUBJECT-1,
      R-11, SKILL-KATA-15M-NOTE-1, HARNESS-TRANSPORT-CATCH-1, HARNESS-DEMAND-J30-1 ;
    - le fondateur : DATA-ACCORDS-TEXTS-1 et DATA-LICENCE-KATA-1 (PLAN l.893), formés à ETAT le 2026-10-08, porteur le fondateur par
@@ -746,21 +761,22 @@ du Dōjō : registre Narabi. Les sept autres sont ici.
 
 ## 8. Ligne PAROXYSME et sources
 
-**Ligne PAROXYSME (2026-10-07, décisions de MONARK pliées, puis la G2 du pli ; 2026-10-08, second tour ; 2026-10-08, pli de
-l'après-#245, à partir de 07:41 UTC).** Harnais : 28 limites ouvertes (dont 2 ⚑B : PX-Harness-04, -26) et 18 closes. Moteur : 40
-limites ouvertes et 13 closes. Limites neuves à ETAT : 7 ici (§5, mesurées à `87b821b0`) ; 106 entrées, 75 ouvertes, 31 closes, aucune
-ne change d'état dans ce pli. Aucune dette (§1) : les trois dettes de déclencheur du versement sont re-formées par MONARK
-(PX-Harness-28 : ETAT l.623-624 à `5437cd0d` ; PX-Harness-22 : ETAT l.1401-1404 à `5437cd0d`, ETAT l.1625-1627 à `5437cd0d` et MSG2
-l.6-8), et le déclencheur de F-K-7 (MK-L15), dont la décision attendue au G0 court d'E-2a n'est pas consignée à ETAT, est re-porté
-(ETAT l.260 à `5437cd0d`), puis par sa ligne datée (ETAT l.563 à `565c7065`) ; toutes les entrées ouvertes ont un item, un porteur et
-un déclencheur atteignable, jugé à la lecture (l'oracle n'en contrôle que la présence, §1). Les deux demandes de la fusion de #245
-sont faites : SENTINEL-DEPLOY-GUARD-1 et SYNC-CHECK-MODE-1 re-portés à PXC-05 partie 1, dans O-2 (ETAT l.571-572 à `565c7065` ; §1 ;
-§7, doute 3), et l'ancre de `DEMO.md` corrigée (ETAT l.2071 à `565c7065` ; §7, doute 2). Décisions de MONARK pliées (MSG5 §3) :
-PXC-11 partie 3 (PX-Harness-19, MK-L11, MK-L14), F-W2-4 (MK-L05), DATA-ACCORDS-TEXTS-1 et DATA-LICENCE-KATA-1 formés (MK-L28),
-F-K-7 (MK-L15). HOST-HARNESS-PREV-1 : FAIT pour deux copies (PX-Harness-22) ; à dater par MONARK : la question des huit archives ; à
-demander à MONARK : le sort des quatre fichiers hors dépôt de l'arbre servi (§1). VERIFIER-TOOL-CI-1 : l'étape CI fusionnée par #247,
-`vectors_check.py` en CI sur les vecteurs publics par la PR #249, fusionnée à `c5030fd9`, la bascule à R1 à sa publication, l'item restant
-ouvert (MK-L39 ; ETAT l.609-614, l.662-665 à `20fffe9f`, inchangé à `c5030fd9`). Doutes 2 (la clôture, puis l'ancre) et 9 levés (§7).
+**Ligne PAROXYSME (2026-10-07, décisions de MONARK pliées, puis la G2 du pli ; 2026-10-08, second tour ; 2026-10-08, pli de l'après-#245, à partir de 07:41
+UTC ; 2026-10-08, pli de l'après-#253, à partir de 12:27 UTC).** Harnais : 28 limites ouvertes (dont 2 ⚑B : PX-Harness-04, -26) et 18 closes. Moteur : 40
+limites ouvertes et 13 closes. Limites neuves à ETAT : 7 ici (§5, mesurées à `87b821b0`) ; 106 entrées, 75 ouvertes, 31 closes ; le pli de l'après-#245 ne
+change aucun état, celui de l'après-#253 fait passer MK-L29 d'ouvert à changé (Q5 (a)) et ne clôt rien. Aucune dette (§1) : les trois dettes de déclencheur du
+versement sont re-formées par MONARK (PX-Harness-28 : ETAT l.623-624 à `5437cd0d` ; PX-Harness-22 : ETAT l.1401-1404 à `5437cd0d`, ETAT l.1625-1627 à `5437cd0d`
+et MSG2 l.6-8), et le déclencheur de F-K-7 (MK-L15), dont la décision attendue au G0 court d'E-2a n'est pas consignée à ETAT, est re-porté (ETAT l.260 à
+`5437cd0d`), puis par sa ligne datée (ETAT l.563 à `565c7065`) ; toutes les entrées ouvertes ont un item, un porteur et un déclencheur atteignable, jugé à la
+lecture (l'oracle n'en contrôle que la présence, §1). Les deux demandes de la fusion de #245 sont faites : SENTINEL-DEPLOY-GUARD-1 et SYNC-CHECK-MODE-1
+re-portés à PXC-05 partie 1, dans O-2 (ETAT l.571-572 à `565c7065` ; §1 ; §7, doute 3), à former au G0 de cette partie (Q8 (b) : MSG6 l.19-20), et l'ancre de
+`DEMO.md` corrigée (ETAT l.2071 à `565c7065` ; §7, doute 2). Décisions de MONARK pliées (MSG5 §3) : PXC-11 partie 3 (PX-Harness-19, MK-L11, MK-L14), F-W2-4
+(MK-L05), DATA-ACCORDS-TEXTS-1 et DATA-LICENCE-KATA-1 formés (MK-L28), F-K-7 (MK-L15) ; puis MK-L29 : MONARK nommera la source de prix, l'abonnement et le prix
+à la partie 2 de PXC-18, le fondateur fera l'achat (MSG6 l.10-15). HOST-HARNESS-PREV-1 : FAIT pour deux copies (PX-Harness-22) ; la question des huit archives,
+que les quatre fichiers hors dépôt rejoignent, est datée par MONARK : son prochain point d'étape avec le fondateur, au plus tard avant le déploiement de la
+release L (§1 ; MSG6 l.8, l.22-24). VERIFIER-TOOL-CI-1 : l'étape CI fusionnée par #247, `vectors_check.py` en CI sur les vecteurs publics par la PR #249,
+fusionnée à `c5030fd9`, la bascule à R1 à sa publication, l'item restant ouvert (MK-L39 ; ETAT l.609-614, l.662-665 à `20fffe9f`, inchangé à `c5030fd9` ; ETAT
+l.755-759 à `2c3f51a8`). Doutes 2 (la clôture, puis l'ancre) et 9 levés (§7).
 
 Fichiers du tronc cités, à `87b821b0` (lignes, sha256) :
 
@@ -875,3 +891,12 @@ Sources de la réparation n° 2 de ce pli (2026-10-08) : le tronc à `c5030fd9`,
 |---|---|---|
 | `scripts/verifier-tool-ci.mjs` à `c5030fd9` | 155 | `e252885ff9198336b477e166962c1e288f3d916a7622b7e6ff2fa2b1a467e958` |
 | `.github/workflows/ci.yml` à `c5030fd9` | 304 | `de391ba360bdecadb9cda3407dab7f0c9ba90bb21e3222c54b8ef1ea21d89ea8` |
+
+Sources du pli de l'après-#253 (2026-10-08) : ETAT à `2c3f51a8` (tronc) ; MSG6 et MSG7, messages de MONARK de la boîte PAROXYSME (`coordination/messages/`),
+lus chacun à son commit (`git show <commit>:<f> | wc -l`, puis `| sha256sum`) :
+
+| Source | Lignes | sha256 |
+|---|---|---|
+| `docs/ETAT.md` à `2c3f51a8` | 2 638 | `746217ff3bc1797d65767361d45f5da8baf1ad6609ff2688058efaf8cd86a929` |
+| MSG6, message `ad598ad` de la boîte PAROXYSME, `…-douze-questions.md` | 35 | `99244cb59ecde83c24792c9d65d87ecb2888485ed89a2736f593dc351b24abd7` |
+| MSG7, message `fcaae5a` de la boîte PAROXYSME, `…-253-fusion.md` | 16 | `4bd3b7731c329dfb056741e56dc6db22c8a0340ec855d477fea091e3330ea574` |
