@@ -10,6 +10,6 @@ export const CODES: readonly string[];
 /** The allowed tiers (decision 267). */
 export const TIERS: readonly string[];
 /** Lint a mission text against a worktree on disk or, with rev, the git tree of that commit. */
-export function lintMission(o: { text: string; missionPath: string; repo: string; rev?: string | null }): LintResult;
+export function lintMission(o: { text: string; missionPath: string; repo: string; rev?: string | null; host?: boolean }): LintResult;
 /** One line per hit (`code mission:line extract`), the count per code, the verdict. */
 export function formatReport(r: LintResult, missionPath: string): string;
