@@ -7,7 +7,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
-import { readdirSync, readFileSync } from "node:fs";
+import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { canonicalJson, TOOL_ERROR_CODES, type ClassEntry, type PolicyRow, type PolicyTable, type Prediction } from "@monark/contracts";
@@ -20,6 +20,7 @@ import { buildPolicyTable } from "../src/policy-table-file.ts";
 import { toolErrorCode, type HarnessParams } from "../src/tools/gate.ts";
 import * as gate from "../src/tools/gate.ts";
 import { codeLines } from "./helpers/code-lines.ts";
+import { forbiddenLoads, importSpecifiers } from "./helpers/import-specifiers.ts";
 import { syntheticRegistry } from "./helpers/synthetic-registry.ts";
 
 const SYN = syntheticRegistry();
@@ -315,13 +316,27 @@ test("guard_thresholds_agree_per_side", () => {
 });
 
 const SRC = join(dirname(fileURLToPath(import.meta.url)), "..", "src");
-/** The served import graph: the modules reached by a relative import from the entry points and the tools. */
-function servedModules(): Set<string> {
+/** The built-in modules and packages that a served module may import, exact (MONARK's decision of 2026-10-07 on finding m-3 of the review
+ *  of this walk): the walk refuses any other specifier but a relative one, so that no loader of Node (node:module, node:worker_threads,
+ *  node:vm, node:child_process) is served. Two loaders reach no module through a refused import and forbiddenLoads names them instead
+ *  (execve, on the global process; setEngine, carried by the allowed node:crypto): finding m-4 of the delta review. An entry is added by
+ *  the change that needs it, with its reason written in that change's G0. */
+const SERVED_IMPORTS = new Set(["node:crypto", "node:fs", "node:http", "node:path", "node:stream", "node:url", "@modelcontextprotocol/server",
+  "@monark/contracts", "@monark/hikae", "@monark/monark", "@monark/ukemi"]);
+/** The served import graph: the modules reached by a relative import from the entry points and the tools, each text given by read (the
+ *  file itself, or a copy that a test hands in). The walk stops by assertion on a relative specifier that names no file (a query suffix
+ *  such as ?served names none, and Node 24 evaluates that file again as a second module instance), on a served module in which
+ *  forbiddenLoads names a load (SERVED-WALK-LOADS-1) and on one that imports a module outside SERVED_IMPORTS. */
+function servedModules(read = (file: string): string => readFileSync(file, "utf8")): Set<string> {
   const seen = new Set<string>();
   const walk = (file: string): void => {
     if (seen.has(file)) return;
     seen.add(file);
-    for (const m of readFileSync(file, "utf8").matchAll(/(?:from|import)\s*\(?\s*"(\.{1,2}\/[^"]+)"/g)) walk(join(dirname(file), m[1] as string));
+    assert.ok(existsSync(file), `${file}: a relative specifier that names no file`);
+    const text = read(file);
+    assert.deepEqual(forbiddenLoads(text), [], `${file}: a load that no specifier shows, as forbiddenLoads reads it`);
+    assert.deepEqual(importSpecifiers(text).filter((s) => !/^\.{1,2}\//.test(s) && !SERVED_IMPORTS.has(s)), [], `${file}: an import outside SERVED_IMPORTS`);
+    for (const m of text.matchAll(/(?:from|import)\s*\(?\s*"(\.{1,2}\/[^"]+)"/g)) walk(join(dirname(file), m[1] as string));
   };
   for (const f of ["server.ts", "http.ts", "openapi.ts", "schema-projection.ts", ...readdirSync(join(SRC, "tools")).map((t) => `tools/${t}`)]) walk(join(SRC, f));
   return seen;
@@ -331,10 +346,58 @@ function servedModules(): Set<string> {
 // guard (policy-guard.ts) stays outside the served graph.
 // killer: apps/harness/src/tools/gate.ts:62 CONST "\"../kata-path.ts\";" -> "\"../kata-path.ts?served\";"
 test("kata_path_is_served", () => {
+  // killer: apps/harness/src/server.ts:32 CONST "\"./version.ts\";" -> "\"./version.ts?served\";"
   const seen = servedModules();
   assert.ok(seen.size > 6 && seen.has(join(SRC, "tools/gate.ts")));
   for (const f of ["kata-path.ts", "policy-classes.ts", "policy-served.ts"]) assert.ok(seen.has(join(SRC, f)), `${f} is served`);
   assert.ok(!seen.has(join(SRC, "policy-guard.ts")), "policy-guard.ts is not served");
+});
+
+// SERVED-WALK-LOADS-1 (MONARK's decision of 2026-10-07; extended for execve and setEngine by finding m-4 of the delta review): the walk
+// refuses a served module in which forbiddenLoads names a load that no specifier shows, so that the walk cannot miss it: a computed
+// import() (K-calc of the review of a1's adoption) or a createRequire reached through getBuiltinModule (K-req); and two loaders that reach
+// no module through a refused import, process.execve (X-execve) and node:crypto's setEngine (X-engine). Each is added to a copy of
+// kata-path.ts. The two killers below inject these into the real file: setEngine at the top (the process survives, the walk reads it),
+// execve inside a function body (a top-level call at load would replace the test process, which no assertion could then report).
+// killer: apps/harness/test/helpers/import-specifiers.ts:80 CONST "ts.isStringLiteralLike(n.arguments[0])" -> "true"
+test("served_walk_refuses_a_load_that_no_specifier_shows", () => {
+  const kata = join(SRC, "kata-path.ts"), text = readFileSync(kata, "utf8");
+  const copies: [string, string, string[]][] = [
+    ["K-calc", 'const GUARD = "./policy-guard.ts";\nvoid import(GUARD);', ["l.2: import() of a specifier that is not a literal"]],
+    ["K-req", 'process.getBuiltinModule("node:module").createRequire(import.meta.url)("./policy-guard.ts");', ["l.1: getBuiltinModule", "l.1: createRequire"]],
+    ["X-execve", 'function reExec(): void { process.execve(process.execPath, [process.execPath]); }', ["l.1: execve"]],
+    ["X-engine", 'import { setEngine } from "node:crypto";\nsetEngine("nope");', ["l.1: setEngine", "l.2: setEngine"]],
+  ];
+  // killer: apps/harness/test/helpers/import-specifiers.ts:76 CONST "treeOf(text), found" -> "treeOf(\"\"), found"
+  // killer: apps/harness/test/helpers/import-specifiers.ts:57 CONST "\"getBuiltinModule\", \"createRequire\", " -> ""
+  // killer: apps/harness/src/kata-path.ts:15 CONST "from \"./tools/gate.ts\";" -> "from \"./tools/gate.ts\"; import { setEngine } from \"node:crypto\"; try { setEngine(\"nope\"); } catch {}"
+  // killer: apps/harness/src/kata-path.ts:15 CONST "from \"./tools/gate.ts\";" -> "from \"./tools/gate.ts\"; function reExec(): void { process.execve(process.execPath, [process.execPath]); }"
+  for (const [id, line, loads] of copies) {
+    const copy = `${line}\n${text}`;
+    assert.deepEqual(forbiddenLoads(copy), loads, `${id}: the copy holds the load`);
+    assert.throws(() => servedModules((f) => (f === kata ? copy : readFileSync(f, "utf8"))), { actual: loads }, `${id}: the walk stops on the copy`);
+  }
+});
+
+// The closed list of the served graph (MONARK's decision of 2026-10-07 on finding m-3 of the review of this walk): a served module imports
+// no built-in module or package outside SERVED_IMPORTS. Each form below names no load that forbiddenLoads reads; added to kata-path.ts, each
+// passed the walk and every test that imports that module (the review): a resolve hook of node:module that sends an import to the guard
+// (K-hooks), a Worker of the guard that inherits no flag (K-worker2), createRequire of the guard in a text that node:vm runs (K-vm2)
+// killer: apps/harness/src/kata-path.ts:15 CONST "from \"./tools/gate.ts\";" -> "from \"./tools/gate.ts\"; import { registerHooks } from \"node:module\"; registerHooks({ resolve: (s, c, next) => next(s === \"./version.ts\" ? \"./policy-guard.ts\" : s, c) }); void import(\"./version.ts\");"
+test("served_walk_refuses_an_import_outside_its_closed_list", () => {
+  const kata = join(SRC, "kata-path.ts"), text = readFileSync(kata, "utf8");
+  const copies: [string, string, string][] = [
+    ["K-hooks", 'import { registerHooks } from "node:module";\nregisterHooks({ resolve: (s, c, next) => next(s === "./version.ts" ? "./policy-guard.ts" : s, c) });\nvoid import("./version.ts");', "node:module"],
+    ["K-worker2", 'import { Worker } from "node:worker_threads";\nvoid new Worker(new URL("./policy-guard.ts", import.meta.url), { execArgv: [] });', "node:worker_threads"],
+    ["K-vm2", 'import { runInThisContext } from "node:vm";\nconst guardPath = new URL("./policy-guard.ts", import.meta.url).pathname;\nrunInThisContext(`process.getBuiltinModule("node:module").createRequire(${JSON.stringify(guardPath)})(${JSON.stringify(guardPath)})`);', "node:vm"],
+  ];
+  // killer: apps/harness/src/kata-path.ts:15 CONST "from \"./tools/gate.ts\";" -> "from \"./tools/gate.ts\"; import { Worker } from \"node:worker_threads\"; void new Worker(new URL(\"./policy-guard.ts\", import.meta.url), { execArgv: [] });"
+  // killer: apps/harness/src/kata-path.ts:15 CONST "from \"./tools/gate.ts\";" -> "from \"./tools/gate.ts\"; import { runInThisContext } from \"node:vm\"; const guardPath = import.meta.dirname + \"/policy-guard.ts\"; runInThisContext(`process.getBuiltinModule(\"node:module\").createRequire(${JSON.stringify(guardPath)})(${JSON.stringify(guardPath)})`);"
+  for (const [id, lines, outside] of copies) {
+    const copy = `${lines}\n${text}`;
+    assert.deepEqual(forbiddenLoads(copy), [], `${id}: forbiddenLoads names no load in the copy`);
+    assert.throws(() => servedModules((f) => (f === kata ? copy : readFileSync(f, "utf8"))), { actual: [outside] }, `${id}: the walk stops on the copy`);
+  }
 });
 
 /** C-3 (delegated decision CM-4b): the codes with no served thrower yet, exact; none since block D (lot D-2), whose served
