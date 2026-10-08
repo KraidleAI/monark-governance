@@ -411,8 +411,9 @@ M2, M3, M4, M6, M9, M10, M11 ; Ukemi E3, E4, E8, E9, E12 ; Narabi T2, T3, T5, T1
 - ITEM À FORMER (relevé à 03:5x UTC en préparant la vérité de l essai ; manqué à la première lecture de c0d63f6) : note 2 de G2-246-delta,
   « pour MONARK » : un module qui termine le processus par 0 au chargement (process.exit(0), execve) efface les tests de chaque fichier
   qui le charge, comptés verts ; au rejeu de X-execve, 71 entrées contre 463 tests ; seule une comparaison du nombre de tests à la base le
-  verrait, et rien ne le borne. Proposé : TEST-COUNT-FLOOR-1 (porte : nombre de tests par fichier ≥ celui de la base, sauf retrait
-  déclaré) ; porteur RECHERCHES ; à envoyer.
+  verrait, et rien ne le borne. Proposé : TEST-COUNT-FLOOR-1 (porte : nombre de tests par fichier égal au relevé exact,
+  toute baisse déclarée par une ligne de retrait ; « ≥ celui de la base » corrigé en place le 2026-10-08 vers 09:0x UTC,
+  note 7 de la G2 `ea78c4d`) ; porteur RECHERCHES ; à envoyer.
 - Essai Haiku 5.5 (rapport F:/tmp/dojo/essai-haiku/RAPPORT-essai-haiku-5-5-2026-10-08.md) : Haiku 19/21 points, Sonnet 14/14, MONARK à la
   main 4/7. L essai révèle deux autres points manqués par MONARK : (1) G2-243-delta3 not_verified[5] : l étape (0) du runbook contre le
   vrai hôte (known_hosts de l opérateur, réponse de `hostname` du VPS) est « côté MONARK » : à jouer en lecture seule à la fusion de #243
@@ -586,6 +587,82 @@ fusion de #245 et des décisions de MONARK sur sa demande. Deux corrections en p
   la marque LATE) fusionnée par MONARK à 06:25 UTC après relecture et 157 cas sur 157 rejoués sur le poste de MONARK.
 - Clé API de PAROXYSME (`c7b14cd`) : `PAROXYSME_HAIKU_API_KEY` absente de la session en cours (une variable de réglage n est lue que par une
   session neuve) ; test de présence seul, sans appel, au prochain redémarrage de sa session ; aucun appel sans usage nommé et accordé.
+
+## Suite du matin : #248, outils des pairs, TEST-COUNT-FLOOR-1 v2 (MONARK, 2026-10-08 09:0x UTC)
+
+Écrit au tronc après `52d1e0b7` (#248). Lignes tenues par MONARK depuis `565c7065`, dans l ordre où elles ont été écrites, puis celles du
+G0 v2 de TEST-COUNT-FLOOR-1 et de la PR #249. Ce commit porte aussi l addendum D7 terdecies d ADR-M004 et la ligne datée D9 octodecies
+d ADR-M003.
+
+- ROSTER-TIERS-HAIKU-5-5-1 ANNULÉ et CLOS (MONARK, 2026-10-08 06:4x UTC ; le fondateur : « c est une perte de tokens pour rien, non ? ») :
+  le linter rend déjà rouge tout identifiant hors de TIERS (scripts/mission/lint.mjs l.15, l.36, R-MODEL) ; Haiku hors de TIERS et aucune
+  mission Haiku par launch.mjs suffisent ; la mesure de RECHERCHES (G0 25293ac : avec Haiku dans TIERS, gen.mjs écrivait une G2 verte et
+  J-MODEL acceptait un G7) est gardée comme la raison de ne jamais l y mettre. ERREUR DE MONARK : lot commandé (recherches 1c58876 §4)
+  sans vérifier que le code faisait déjà ce qu on voulait. Règle : une consigne d emploi s écrit dans les règles ; un lot seulement si du
+  code doit changer, après vérification du code actuel.
+- PAROXYSME, outils contre ses erreurs (demande du fondateur, 06:4x UTC) : PR #35 (b37c1d7, sept outils : tampon d oracle P-5, missions
+  P-8, cites.mjs P-10/P-11, registre des déclencheurs et releve.mjs P-13/P-17, now.mjs et garde d horodatage P-15, poussée sur branche
+  déjà contenue P-16) fusionnée par MONARK à 07:28 UTC ; 199/199 sous Linux, 198/199 sous Windows (cas P-8 du chemin de mission, l.278 :
+  chemin à lettre de lecteur non reconnu ; sans effet réel, la garde tourne sous Linux ; correction demandée à la prochaine PR).
+  RECHERCHES : demande envoyée (recherches #442, 07:2x UTC, après une coupure réseau de 06:47 à 07:24 UTC qui avait laissé une branche
+  sans PR, supprimée et renvoyée).
+- VERIFIER-TOOL-CI-VECTORS-1 (G0 f3c5985, 142 lignes) : décisions MONARK 07:3x UTC : (a) vecteurs publics du 2026-10-02 (commit ffb5ea33,
+  sha256 vérifié) avant R1, jamais d octets privés dans un job de monark-governance (journaux publics) ; bascule à R1 à sa publication
+  (seconde étape, item ouvert jusque-là) ; MONARK rejoue vectors_check.py sur les vecteurs de R1 sous Windows à la fusion d E2 ; ci.yml
+  ouvert, ligne datée sous ADR-M003 D9 par MONARK avant la fusion (premier second dépôt en CI, épinglé, persist-credentials false) ; item
+  formé VECTORS-WITHIN-BOUND-1 (un vecteur à écart entre 1e-12 et 1e-9 pour tuer le mutant de within ; RECHERCHES ; déclencheur la PR de
+  bascule à R1) ; une G2 ; correction de la l.416 du G0 de #247 dans le lot.
+- PAROXYSME PR #37 (cas P-8 portable : chemin à lettre de lecteur lu par la garde ; outil de P-18 : releve.mjs sort 1 si le clone du
+  crochet est en retard sur la base) fusionnée par MONARK à 07:4x UTC ; 206/206 sous Linux, 205/205 sous Windows (un cas sauté sous
+  Windows, déclaré : nom de fichier interdit sous Windows).
+- Bell (lecture seule, 07:4x UTC) : monark-dojo-probe, première course sous les masques de #244, success à 07:30:29 UTC (statut 0) ; reste
+  monark-probe (10:30 UTC).
+- RECHERCHES, outils contre ses erreurs (demande du fondateur) : commit d atelier 27dc1fc (cites.mjs, progress.mjs, push.mjs, garde : Node
+  24, rm et worktree vivants, brief commun obligatoire, horodatage dans les messages ; inbox.mjs avec LATE) ; errata 1 à 34 rangés outil
+  ou règle (461663f) ; 112/112 sous Linux ; rejeu Windows par MONARK : 8 cas rouges (2 anciens, 6 neufs, liés au conteneur) à rendre
+  portables ou déclarer Linux seulement (recherches c4db8d4). ACTE DU FONDATEUR demandé : recoller install.sh (matcher
+  Bash|Write|Edit|Agent) dans le script de configuration de l environnement cloud de RECHERCHES ; la copie du 2026-10-07 n accroche pas
+  Agent.
+- IO-GUARD-POSED-FILES-1 (RECHERCHES 01c1f93, 08:37 UTC) : T' b9ec78b5 et C' 0890d187 reconstruits avec m-1 (noms nus, io_guard.py l.86,
+  refus Windows calculé par ntpath, NON exécuté sous Windows : à rejouer par MONARK à la fusion de L) et m-2 ; documents 59f7bcfc ; local,
+  rien poussé avant L ; R-25 402 ; npm test à C' : 2 échecs attendus (empreinte d arbre cae4ca44 remplaçant c479f8b5, posée dans L) ; L
+  attend VERIFIER-TOOL-CI-VECTORS-1 au tronc. Incident de messagerie : bundle cassé par eol=lf (ffc0837), restocké 70ec5398, *.bundle
+  binary (480bd33, erratum 36).
+- PAROXYSME PXC-02 (48f4bd8, 08:50 UTC) : trois vérifications rendues (A 11, B 6, C 17 problèmes) ; bloquant B-1 réglé (le pli de A53
+  touchait un commentaire dans le corps de fleet_register_built_set_is_frozen, 34 tests jugés au lieu de 33 ; chaîne refaite 08:47 UTC, 33
+  tueurs, 46 mutants tués) ; item CIG-WIRING-COMMENT-1 formé ; question de méthode Q-M7 à venir (validation du fondateur sur l annexe C,
+  qui contient du code) ; cp-1 décalé vers 11:00 UTC.
+- #248 MUTANTS-MEM-LOCK-WINDOW-FLAKE-1 fusionnée (52d1e0b7, base 565c7065, tête 702a0eda ; inclut l assertion qui tue le mutant de
+  waited_ms) : rejeu Windows mutants-run et ci-gates 96/96 ; G7 dix gates à 0, enregistrement
+  F:/tmp/oracle-results/52d1e0b7…-G7-20261008T084453Z-106988.json sha256 6ddb86af5f806ffac99e8cb329f4386ef9e64a4f145ee6bf4d1754004e910324
+  ; tronc poussé 565c7065..52d1e0b7 à 08:5x UTC, PR MERGED ; message RECHERCHES #447.
+- PAROXYSME PR #39 (errata P-20 : le registre des déclencheurs tient la minute du serveur plus une ; P-21 : deux cas d horodatage prennent
+  deux minutes d avance) fusionnée par MONARK à 09:0x UTC (8e5633b) ; fusion d essai, 217/217 sous Windows (218 sous Linux, un cas Linux
+  seulement).
+- PAROXYSME, pli des registres (01501b71 sur paroxysme/registres-decisions-1008, né de 565c7065) : poussé, deux vérificateurs adverses
+  neufs en cours ; Bell N-01 passe d ouvert à changé ; PR et neuf questions fermées à venir.
+- ERREUR DE MONARK (09:0x UTC) : L2-RECORD-LOOP-SCHEDULES-FLAKE-1 formé (db328de) sans relire le registre ; doublon de
+  L2-HARNESS-FIXED-UNTIL-1 (ETAT l.1691) ; retiré (56e96cf), l2_record_loop_schedules rattaché comme cas mesuré (un échec dans test:main
+  entier sous charge 8,2 → 8,7, 91/91 seul).
+- TEST-COUNT-FLOOR-1, G0 v2 (RECHERCHES `2ad8514`, 927 lignes, sha256 `3bb94808…`) : pli de la G2 `ea78c4d` et des neuf décisions de
+  `380b4b6`. Deux PR : PR-1, le relevé (455 lignes R-25 : le reporter `scripts/test-counts-reporter.mjs`, exporté ; `write` ; le relevé
+  `test/test-counts.json`, 286 fichiers ; 3 tests, 11 tueurs) ; PR-2, la porte (208 lignes : `scripts/test-count-check.mjs`, le job
+  `g3-test-count`, `run.mjs` l.137 `ORACLE_BASE` et l.162-163 le champ `tests` ; 3 tests, 17 tueurs). Déclencheur précisé : les deux PR
+  fusionnées avant la G7 de #237, la partie qui suit a1. Repli d a1 joué par RECHERCHES : tronc 285 fichiers et 2 935 tests, a1 fusionnée
+  286 fichiers et 2 942 tests, aucune baisse.
+- TEST-COUNT-FLOOR-1, décisions MONARK 09:0x UTC (`db328de`, `32c10b8`) : Q-10, `test/oracle-run.test.ts` ouvert à PR-2 (+12 lignes ; les
+  lignes de `run.mjs` en place, sans ancre déplacée) ; Q-11, la règle des sauts de plate-forme posés sur les feuilles, sans code (un saut
+  sur un parent ou un `describe` rougit la porte sous Windows à la G7 de MONARK : il ne passe pas en silence) ; Q-12, un commit direct de
+  MONARK qui change un compte récrit le relevé et déclare ses baisses (règle d atelier à la fusion de PR-1, tenue par l oracle après PR-2)
+  ; Q-13, aucune autre PR n écrit le relevé entre PR-1 et PR-2, et PR-2 est fusionnée dès qu elle est prête. Pas de G2 de delta du G0 : la
+  G2 de PR-1 relit le pli de M-1 (une G2 de delta lancée à 09:05 UTC sur un message croisé a été arrêtée à 09:10 UTC, sans pièce :
+  `ac29b39`). L addendum D7 terdecies d ADR-M004 est écrit par MONARK dans ce commit. PR-1 est en construction sur
+  `recherches/test-count-floor-1-record` depuis `52d1e0b7`. La ligne qui a formé l item (« Point du 2026-10-08 au matin ») est corrigée en
+  place : la porte tient un relevé exact (note 7 de la G2).
+- VERIFIER-TOOL-CI-VECTORS-1 : PR #249 ouverte en brouillon (+605/-26, `recherches/verifier-tool-ci-vectors-1`). Le job `g3-verifier-tool`
+  extrait `KraidleAI/monark-kata-spec` (public, lu par `gh` à 09:0x UTC) à `ffb5ea33`, avec `persist-credentials: false` ; le pilote
+  épingle `vectors.json` par sha256 (`06ecf069…`, 127 681 octets). Ligne datée ADR-M003 D9 octodecies écrite par MONARK dans ce commit,
+  avant la fusion.
 
 ## Points connus (à traiter, non bloquants sauf mention)
 
