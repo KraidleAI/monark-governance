@@ -156,13 +156,15 @@ test("address_literals_name_each_skipped_file_that_gitattributes_does_not_declar
 });
 
 // reddened by: a path masked where its literal is written and where its text recurs as written only, so a recurrence escaped and
-// glued to a word, which no pass reads, prints the digits of the address; also pinned: a lowercase escape is read, and a decoded
-// digit glued to an address reads a second, longer one at its column (two hits for one address written, both masked)
+// glued to a word, which no pass reads, prints the digits of the address; also pinned: a lowercase escape is read, a decoded
+// digit glued to an address reads a second, longer one at its column (two hits for one address written, both masked), and a hit
+// read in a file masks its address in that file's path too, where it recurs glued to a word
 // killer: scripts/address-literals.mjs:125 CONST "|%${c.charCodeAt(0).toString(16)}" -> ""
 test("address_literals_mask_a_path_wherever_its_address_recurs_escaped", () => {
   const esc = (e: string): string => A.split(".").join(e);
   const v = fixture({ "a.log": `h%5b${B}\n`, "b.log": `${A}%35\n`, [`logs/v${esc("%2e")}/${esc("%2e")}.txt`]: "x\n",
-    [`logs/v${esc("%2E")}/${A}.txt`]: "x\n", [`logs/${C}/${A}.txt`]: "x\n" });
+    [`logs/v${esc("%2E")}/${A}.txt`]: "x\n", [`logs/${C}/${A}.txt`]: "x\n",
+    [`logs/host${A}.txt`]: `${A}\n`, [`logs/host${esc("%2E")}.txt`]: `${A}\n` });
   // killer: scripts/address-literals.mjs:74 CONST "/%[\\dA-Fa-f]{2}/g" -> "/%[\\dA-F]{2}/g"
   assert.deepEqual(at(v, "a.log"), ["1:5 6 x:x::x"], "a lowercase escape is read (RFC 3986: either case)");
   // killer: scripts/address-literals.mjs:106 CONST "!seen.has(`${String(at[a])} ${lit}`)" -> "!out.some(([, s, e]) => s < at[b] && at[a] < e)"
@@ -170,6 +172,9 @@ test("address_literals_mask_a_path_wherever_its_address_recurs_escaped", () => {
   assert.deepEqual([at(v, "logs/vx%x%x%x/x%x%x%x.txt"), at(v, "logs/vx%x%x%x/x.x.x.x.txt"), at(v, "logs/x.x.x.x/x.x.x.x.txt")],
     [["0:24 4 x.x.x.x"], ["0:24 4 x.x.x.x"], ["0:6 4 x.x.x.x", "0:17 4 x.x.x.x"]],
     "an escaped recurrence glued to a word is masked too, whichever pass read the literal, and so is each literal of a path: no digit of an address");
+  // killer: scripts/address-literals.mjs:136 CONST "hide(rel, [lit])" -> "hide(rel)"
+  assert.deepEqual([at(v, "logs/hostx.x.x.x.txt"), at(v, "logs/hostx%x%x%x.txt")], [["1:1 4 x.x.x.x"], ["1:1 4 x.x.x.x"]],
+    "a hit read in a file masks its address in that file's path too, written or escaped and glued to a word, where no pass reads it");
 });
 
 // reddened by: a tracked link followed, so a dangling one passes unread and one to a file outside the tree reads that file, and a
