@@ -183,17 +183,20 @@ test("address_literals_mask_a_path_wherever_its_address_recurs_escaped", () => {
     [`logs/mix${d(3, 3)}.txt`]: `${d(3, 3)}%35\n`, [`logs/mop${d(7, 4)}.txt`]: `${six("", "", "ffff", "c613", "704")}\n`, [`logs/own${d(4, 4)}.txt`]: `${d(4, 1)}\n`,
     [`logs/pin${d(8, 80).split(".").map((o) => o.padStart(3, "0")).join(".")}.txt`]: `${d(8, 80)}\n`, [`logs/two${d(1, 2)}.txt`]: `${d(1, 1)}\n${d(1, 2)}\n`,
     [`logs/short${["2001", "2", "0", "0", "0", "0", "a", "", ""].join("%3a")}.txt`]: `[${six(...z, "000A", "0000")}]\n`, "z.txt": `${d(4, 4)}\n${d(10, 10)}\n`,
-    [`logs/tail${[...z, q(100, 127, 255, 255)].join("%3A")}.txt`]: `[${six("2001", "2", "", "647f", "ffff")}]\n`,
-    [`logs/v${q(198, 18, 198, 18, 198, 18)}.txt`]: `${q(198, 18, 198, 18)}\n` });
+    [`logs/tail${[...z, q(100, 127, 255, 255)].join("%3A")}.txt`]: `[${six("2001", "2", "", "647f", "ffff")}]\n`, [`zon-${["2001", "2", "", "9"].join("%3A")}%25eth0.txt`]: "x\n",
+    [`logs/v${q(198, 18, 198, 18, 198, 18)}.txt`]: `${q(198, 18, 198, 18)}\n`, "logs/exp198.19e0.6.6.txt": `${d(6, 6)}\n`, "logs/dot198.19.9.txt": `${d(9, 0)}\n` });
   // killer: scripts/address-literals.mjs:143 CONST "seen.add(canon(lit, kind))" -> "kind === 4 && seen.add(canon(lit, kind))"
   // killer: scripts/address-literals.mjs:133 CONST "t.split(\".\").map(Number).join(\".\")" -> "t"
   // killer: scripts/address-literals.mjs:168 SDL "for (const h of v.hits) h.file = show(h.file);" -> ""
   // killer: scripts/address-literals.mjs:169 CONST ".map(show)" -> ""
-  assert.deepEqual([w.hits.length, [...new Set(w.hits.map((h) => h.file)), ...w.undeclared]], [18, ["logs/x.x.x.x/x.x.x.x/hostx.x.x.x.txt", "logs/hostx.x.x.x.txt",
-    "logs/longx%x%x%x%x%x%x%x.txt", "logs/mixx.x.x.x.txt", "logs/mopx.x.x.x.txt", "logs/ownx.x.x.x.txt", "logs/pinx.x.x.x.txt", "logs/shortx%x%x%x%x%x%x%x%x.txt",
-    "logs/tailx%x%x%x%x%x%x.x.x.x.txt", "logs/twox.x.x.x.txt", "logs/vx.x.x.x.x.x.txt", "z.txt", "bin/hostx.x.x.x.dat"]], "path literals (one admitted) beside a " +
-    "content address, a mapped line's IPv4, an IPv6 in each long form or case, both readings, a mapped one in hex, a later file, zero-padded octets, another hit " +
-    "of the file, a recurrence over itself, an undeclared binary");
+  // killer: scripts/address-literals.mjs:133 CONST "/^\\d+(?:\\.\\d+){3}$/.test(t)" -> "true"
+  // killer: scripts/address-literals.mjs:132 CONST "!/[\\dA-Fa-f:.]/.test(c) || " -> ""
+  assert.deepEqual([w.hits.length, [...new Set(w.hits.map((h) => h.file)), ...w.undeclared]], [21, ["logs/x.x.x.x/x.x.x.x/hostx.x.x.x.txt", "logs/dot198.19.9.txt",
+    "logs/exp198.19e0.6.6.txt", "logs/hostx.x.x.x.txt", "logs/longx%x%x%x%x%x%x%x.txt", "logs/mixx.x.x.x.txt", "logs/mopx.x.x.x.txt", "logs/ownx.x.x.x.txt",
+    "logs/pinx.x.x.x.txt", "logs/shortx%x%x%x%x%x%x%x%x.txt", "logs/tailx%x%x%x%x%x%x.x.x.x.txt", "logs/twox.x.x.x.txt", "logs/vx.x.x.x.x.x.txt",
+    "z.txt", "zon-x%x%x%x%25eth0.txt", "bin/hostx.x.x.x.dat"]], "path literals (one admitted) beside a content address, a mapped line's IPv4, an IPv6 in " +
+    "each long form or case, both readings, a mapped one in hex, a later file, zero-padded octets, another hit of the file, a recurrence over itself, an undeclared " +
+    "binary; and, printed as written, texts that no address has: three octets and a full stop, an exponent, and the zone after an IPv6");
 });
 
 // reddened by: a tracked link followed, so a dangling one passes unread and one to a file outside the tree reads that file, and a
