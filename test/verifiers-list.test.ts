@@ -35,7 +35,7 @@ const toolEntry = (vs: readonly Verifier[]): ListEntry | undefined =>
 
 // reddened by: a byte of verifiers.json changed without its pin, a pin that is not the sha256 of the file, a non-canonical writing or a
 // final newline, a pinned read that is not memoised (two calls, two arrays), or a list or an element that a caller can change (not frozen)
-// killer: apps/harness/src/policy-verifiers.ts:18 CONST "3a6f304f3eb592c51c73fb8d13c6a3f752bf0168563f57fc5b8ab966a6975d0d" -> "0000000000000000000000000000000000000000000000000000000000000000"
+// killer: apps/harness/src/policy-verifiers.ts:18 CONST "6e033c9d098170777dc3fc39f6c1c86cf58ef440ad1410f911b2c8553a594dc1" -> "0000000000000000000000000000000000000000000000000000000000000000"
 test("verifier_list_is_the_pinned_canonical_bytes - the list file has the sha256 VERIFIERS_SHA256, is its own canonical writing with no final newline, and the pinned read is memoised and frozen", () => {
   const bytes = readFileSync(LIST), text = bytes.toString("utf8");
   assert.equal(sha256(bytes), VERIFIERS_SHA256, "the sha256 of apps/harness/data/verifiers.json is the pin");
@@ -239,7 +239,7 @@ test("run_log_is_ignored_untracked_and_named_by_no_spec_input - git ignores run-
 // --no-replace-objects, as the blob reads do: no refs/replace can graft it or swap its tree
 // killer: apps/harness/src/policy-verifiers.ts:115 CONST "(a.path < b.path ? -1 : 1)" -> "(a.path < b.path ? 1 : -1)"
 test("verifier_list_commit_carries_the_listed_tree - each list entry names a commit in the history of HEAD whose tree under tools/kata-recalc/ has the listed digest", () => {
-  assert.deepEqual([toolEntry(pinnedVerifiers())?.commit, toolEntry(pinnedVerifiers())?.tree_sha256], ["6536057c9c1f7577ffe5b9bc31960e1e60c9b8a4", "d6c80e9db438fe2fb9ea3ca7fab03dc4cc6902eed23a08ca6863417da2a1b451"], "the tool's entry: the listed commit and its tree");
+  assert.deepEqual([toolEntry(pinnedVerifiers())?.commit, toolEntry(pinnedVerifiers())?.tree_sha256], ["0890d18789cde40e700b06b1110c6b1134ae51dc", "cae4ca4460828ba9caabdd4d14345b0ca99b39b917ff9091146a71e467c41842"], "the tool's entry: the listed commit and its tree");
   for (const e of listEntries(pinnedVerifiers())) {
     assert.notEqual(e.commit, "0".repeat(40), "a placeholder: the entry must name the merge commit of the frozen tool on the trunk, and its tree, before this merges");
     assert.equal(gitStatus(["--no-replace-objects", "merge-base", "--is-ancestor", e.commit, "HEAD"]), 0, `${e.commit} is in the history of HEAD`);
