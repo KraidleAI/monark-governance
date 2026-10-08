@@ -302,3 +302,27 @@ jobs:
         env:
           VERIFIER_TOOL_PYTHON: "3.14.8" # the version above: any other interpreter reds the step
         run: node scripts/verifier-tool-ci.mjs
+
+  g3-test-count:
+    # TEST-COUNT-FLOOR-1 (docs/G0-lot-test-count-floor-1.md): the tests that each test file reports in a run of test:main, held against
+    # the committed record test/test-counts.json, and each drop from the base's record against a line that the pull request adds to
+    # test/test-count-removals.json; a file whose process sent no report of its own is refused. test:main writes the counts by its
+    # reporter (scripts/test-counts-reporter.mjs); the local oracle runs that line once for both jobs. Internal job (the root test/
+    # is never exported): derivePublicWorkflow drops it (INTERNAL_JOBS). Bound: the suite of g3-verification, whose bound is 20 by the
+    # same rule (measured job wall-time x3, capped <= 20).
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0 # the base's record and removal lines are read at the merge base of HEAD and origin/$GITHUB_BASE_REF
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: "24"
+          cache: npm
+      - name: Install (lockfile must be present and consistent)
+        run: npm ci
+      - name: The main suite, whose reporter writes the tests of each file (test:main, as in g3-verification)
+        run: npm run test:main
+      - name: Tests of each file against the record, each drop from the base against its removal line (TEST-COUNT-FLOOR-1)
+        run: node scripts/test-count-check.mjs

@@ -131,6 +131,7 @@ test("oracle_gates_are_the_run_lines_of_ci_yml — derived at launch, CI-only li
 test("oracle_gates_see_no_foreign_credential — no credential NAME reaches a gate of either lane (static lint, locked test) and npm runs offline (C-G2-1, X1)", () => withFx((fx) => {
   // killer: scripts/oracle/run.mjs:40 CONST "^MONARK_PUBLIC_MIRROR$/i" -> "^MONARK_PUBLIC_MIRROR$/"
   // killer: scripts/oracle/run.mjs:137 SDL "npm_config_offline: \"true\", " -> ""
+  // killer: scripts/oracle/run.mjs:137 CONST "ORACLE_BASE: base, " -> ""
   const fake = ["FX_API_KEY_1", "FX_PRIVATE_KEY", "FX_TOKEN_1", "fx_secret_1", "GH_FX", "GITHUB_FX", "CHAINSTACK_FX", "MONARK_PUBLIC_MIRROR"]; // lowercase name: DENY must be case-insensitive (Windows env names, O1); a synthetic FX_ name, never MONARK_PUBLIC_MIRROR itself (that exact name is real in this session's own environment, C-G2-1 §0: a lowercase fake of it collides and is overridden by Windows' case-insensitive env merge, not by DENY)
   const a = oracle(fx, ["--role", "G1"], { ...Object.fromEntries(fake.map((k) => [k, "fake"])), FX_VISIBLE: "1", NPM_CONFIG_OFFLINE: "false", NPM_CONFIG_LOGS_DIR: join(fx.top, "host-npm-logs") });
   assert.equal(a.status, 0, a.out);
@@ -138,6 +139,7 @@ test("oracle_gates_see_no_foreign_credential — no credential NAME reaches a ga
     const log = readFileSync(a.rec?.gates.find((g) => g.name === gate)?.log ?? "", "utf8");
     const names = JSON.parse(/^env (\[.*\])/m.exec(log)?.[1] ?? "[]") as string[];
     assert.ok(names.includes("FX_VISIBLE"), `${gate}: the probe sees the environment`);
+    assert.ok(names.includes("ORACLE_BASE"), `${gate}: ORACLE_BASE, the base that scripts/test-count-check.mjs reads`);
     assert.deepEqual(names.filter((k) => /API_KEY|_KEY$|TOKEN|SECRET|^GH_|^GITHUB_|^CHAINSTACK_|^MONARK_PUBLIC_MIRROR$/i.test(k)), [], `${gate}: no credential name`);
     assert.match(log, /offline=true/, `${gate}: npm_config_offline`);
     assert.deepEqual(names.filter((k) => /^npm_config_(offline|logs_dir)$/i.test(k)).sort(), ["npm_config_logs_dir", "npm_config_offline"], `${gate}: npm's overrides, one name each`);
@@ -162,6 +164,16 @@ test("oracle_git_children_see_no_foreign_credential — the process.env scrub re
   const params = events.filter((e) => e.event === "def_param").map((e) => String(e.param));
   assert.ok(events.some((e) => e.event === "start") && params.includes("FX_VISIBLE"), "premise: git ran under trace2 and logs the variables it receives");
   assert.deepEqual([...new Set(params.filter((k) => fake.some((f) => f.toLowerCase() === k.toLowerCase())))], [], "git: no credential name");
+}));
+
+// killer: scripts/oracle/run.mjs:163 CONST "/^test(:main)?$/" -> "/^test$/"
+test("oracle_reads_the_tests_of_test_main — the tests field comes from the suite's gate as the real tree names it, npm run test:main, which gets the oracle's base as ORACLE_BASE over the host's (TEST-COUNT-FLOOR-1, Q-9 and Q-4 (a))", () => withFx((fx) => {
+  const ci = join(fx.repo, ".github", "workflows", "ci.yml"), main = SCRIPTS.test.replace('node -e "', `node -e "console.log('base=' + process.env.ORACLE_BASE); `);
+  writeFileSync(ci, readFileSync(ci, "utf8").replaceAll("npm test", "npm run test:main").replace('VIBEGATES_PR_LIMIT: "5"', 'VIBEGATES_PR_LIMIT: "50"')); // r25 counts this edit too
+  writeFileSync(join(fx.repo, "package.json"), JSON.stringify({ name: "fx", private: true, scripts: { lint: SCRIPTS.lint, "test:main": main } }));
+  git(fx.repo, "commit", "-qam", "the suite's gate is test:main, as in the real tree");
+  const a = oracle(fx, ["--role", "G1"], { ORACLE_BASE: "host" }), log = readFileSync(a.rec?.gates.find((g) => g.name === "test:main")?.log ?? "", "utf8");
+  assert.deepEqual([a.status, a.rec?.gates.map((g) => g.name), a.rec?.tests, /^base=(.*)$/m.exec(log)?.[1]], [0, ["r25", "lint", "test:main"], { total: 3, pass: 3, fail: 0, skip: 0 }, fx.base], a.out);
 }));
 
 test("oracle_store_serves_g1_never_g2_cp2_g7 — same key: G1 served (cited by file and sha256, never copied, with its own tree sha), an ignored file leaves the tree clean; independent roles replay (M4, M5, X11)", () => withFx((fx) => {
