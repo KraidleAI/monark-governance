@@ -82,7 +82,7 @@
  "apps/harness/test/usde-calibration.test.ts": 5,
  "apps/sentinel/test/pool-rpc-1a.test.ts": 11,
  "apps/sentinel/test/sentinel-catchup-budget.test.ts": 12,
- "apps/sentinel/test/sentinel-chainstack-guard.test.ts": 15,
+ "apps/sentinel/test/sentinel-chainstack-guard.test.ts": 17,
  "apps/sentinel/test/sentinel-exclude-hosts.test.ts": 1,
  "apps/sentinel/test/sentinel-instrument-replay.test.ts": 7,
  "apps/sentinel/test/sentinel-retry.test.ts": 4,
@@ -210,7 +210,7 @@
  "test/harness-served.test.ts": 24,
  "test/inner-failures.test.ts": 1,
  "test/journal-index.test.ts": 28,
- "test/kata-recalc.test.ts": 6,
+ "test/kata-recalc.test.ts": 7,
  "test/keep-cause.test.ts": 11,
  "test/killer-lines.test.ts": 1,
  "test/l2-book.test.ts": 6,
@@ -238,7 +238,7 @@
  "test/no-cash-provider-name.test.ts": 2,
  "test/no-host-address.test.ts": 13,
  "test/no-secret-in-repo.test.ts": 1,
- "test/oracle-run.test.ts": 17,
+ "test/oracle-run.test.ts": 18,
  "test/probe-coinbase-bounds.test.ts": 9,
  "test/probe-dojo-live.test.ts": 24,
  "test/probe-narabi-state.test.ts": 10,
@@ -275,6 +275,7 @@
  "test/spec-retire-path.test.ts": 13,
  "test/spec-venue-fields.test.ts": 8,
  "test/surfaces-1-1-0.test.ts": 15,
+ "test/test-count-check.test.ts": 3,
  "test/test-count-floor.test.ts": 3,
  "test/test-force-exit-report.test.ts": 6,
  "test/token-ca-pinned.test.ts": 1,
@@ -286,5 +287,6 @@
  "test/verify-dojo.test.ts": 5,
  "test/verify-harness-liq.test.ts": 20,
  "test/visage-register.test.ts": 1,
- "test/vocab-harness-a9.test.ts": 3
+ "test/vocab-harness-a9.test.ts": 3,
+ "test/workspace-bin-mode.test.ts": 1
 }
