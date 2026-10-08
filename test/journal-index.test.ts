@@ -612,3 +612,16 @@ test("served_record_archived: add --from-oracle at G1 archives the record and th
   for (const f of [srv.record, c0.record, c1.record]) rmSync(String(f));
   assert.deepEqual([y.map((e) => typeof e), build({}, r).hits], [["object", "object"], ["J-ORACLE M-Z:2 cite1.json: served record srv0.json: archive absent"]]);
 });
+
+// killer: scripts/journal/index.mjs:209 CONST "repo, rev, host: false" -> "repo, rev"
+test("JOURNAL-LINT-FREEZE-HOST-1: a branch and a bare tool present at the launch, gone before add: J-LINT of the v2 line reads no host at add, green; a receipt green with a count above 0 exits 2", () => {
+  writeFileSync(join(T, "probe-fh.mjs"), "// a bare tool held by the mission directory at the launch\n");
+  const { r, mission, at } = v2("Branch `lot/x`. Tool `probe-fh.mjs`.\n", NL, (d) => gd(d, ["branch", "lot/x", C1]));
+  gd(r, ["branch", "-D", "lot/x"]); rmSync(join(T, "probe-fh.mjs")); // the host changes between the launch and add (ADR-METHODE-2 l.60)
+  const e = at("G1"), rc = JSON.parse(readFileSync(mission.replace(/\.md$/, ".recu.json"), "utf8")) as Entry;
+  assert.equal(typeof e, "object", JSON.stringify(e));
+  assert.deepEqual(build({ "M-Z": [e as Entry] }, r).hits, []);
+  // killer: scripts/journal/index.mjs:182 CONST " || Object.values(r.lint ?? {}).some((n) => n !== 0)" -> ""
+  writeFileSync(mission.replace(/\.md$/, ".recu.json"), JSON.stringify({ ...rc, lint: { ...(rc.lint as Entry), "R-PATH": 1 } }));
+  assert.match(String(at("G1")), /^exit 2 .*not a green launch receipt/);
+});

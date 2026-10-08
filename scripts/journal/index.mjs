@@ -44,10 +44,10 @@
 //   J-RECU   the mission file absent or its sha256 != mission.sha, or mission.sha != mission.recu_sha (v2: the mission and the
 //            receipt archived; the receipt's verdict, sha, date or head != the mission fields: red)
 //   J-LINT   a receipt (recu_sha) on a text that lintMission reddens at commit, else at recu_head (not a commit: red); repo paths
-//            are read at that revision, never on disk; absolute paths, branches and tool directories on the host now (C-G2-8);
+//            are read at that revision, never on disk; absolute paths, branches and tool directories on the host now (C-G2-8; v1 only);
 //            an R-PATH hit on a path that the generated header lists "(non suivi)" is removed, whatever the revision replayed
 //            (LINT-UNTRACKED, M-5b; lint.mjs untouched): any other hit stays, R-TOOL on an untracked script included
-//            (v2: FROZEN, computed once by add and archived, never recalculated: its mission_sha != mission.sha, its rev != commit
+//            (v2: FROZEN, computed once by add and archived, never recalculated, its host part the launch's, attested by a receipt green with every count 0, never read at add, JOURNAL-LINT-FREEZE-HOST-1: its mission_sha != mission.sha, its rev != commit
 //            ?? recu_head, or its verdict not vert: red; a branch deleted after add changes nothing)
 //   J-MODEL  an entry with a mission, a tier or a model: tier outside TIERS, or the model is not the tier (token boundary)
 //   J-ADJ    a G7 without a non-empty adjudication (its presence, never its nature)
@@ -95,7 +95,7 @@ const STAMP = /^G\u00e9n\u00e9r\u00e9 : `(?:[A-Za-z]:)?\/[^`]*\/scripts\/mission
 const ORIGINS = ["G0", "G1", "G2", "ORCH", "OUT", "ANT", "VAL", "PROV", "NA"], KINDS = ["commit", "release", "note", "motif"];
 // Non-null by gate. commit may be null at G0 and cp-1, and at G1 and corr (Q-M5-1): their entry precedes the gel it lands in.
 const NEED = { tour: ["G2", "corr"], commit: ["G2", "cp-2", "G7", "fusion"], mission: ["G1", "G2", "corr", "cp-2"], oracle: ORACLED, error_origin: ["G7"] };
-const REQUIRED = ["schema", "role", "tree", "base", "key", "pid", "start", "end", "static_only", "gates", "tests", "r25", "residues", "ci_only", "cv4", "exit", "served_from"]; // = scripts/oracle/run.mjs:33 (tested)
+const REQUIRED = ["schema", "role", "tree", "base", "key", "pid", "start", "end", "static_only", "gates", "tests", "r25", "residues", "ci_only", "cv4", "exit", "served_from"]; // = scripts/oracle/run.mjs:34 (tested)
 const SHA = /^[0-9a-f]{40}(?:[0-9a-f]{24})?$/, H64 = /^[0-9a-f]{64}$/, LOT = /^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$/, R25_CAP = 547;
 const BAD = /[\x00-\x1f\x7f-\x9f]|(?<![A-Za-z0-9])F: {2}/;
 const txt = (v, max = 5000) => typeof v === "string" && v.length <= max && !BAD.test(v);
@@ -179,7 +179,7 @@ function add(o) {
   let text = null, recu = null; // the mission text (J-LINT frozen below) and the sha256 of the receipt bytes
   if (o["from-recu"] !== undefined) {
     const rb = bytesOf(o["from-recu"], "receipt"), r = jsonOf(rb);
-    if (r?.verdict !== "vert" || typeof r.mission !== "string") throw new Usage(`--from-recu ${o["from-recu"]}: not a green launch receipt`);
+    if (r?.verdict !== "vert" || typeof r.mission !== "string" || Object.values(r.lint ?? {}).some((n) => n !== 0)) throw new Usage(`--from-recu ${o["from-recu"]}: not a green launch receipt`);
     const mb = bytesOf(r.mission, "mission"), tier = PALIER.exec(mb.toString("utf8"))?.[1].trim().toLowerCase(); // TIER-FROM-HEADER (M-5b)
     if (tier === undefined ? o.tier === undefined : o.tier !== undefined && o.tier !== tier) throw new Usage(`--from-recu: Palier ${tier ?? "absent"} of the mission, --tier ${o.tier ?? "absent"}: ${tier === undefined ? "no tier" : "they differ"} (TIER-FROM-HEADER)`);
     e.tier = tier ?? o.tier;
@@ -206,7 +206,7 @@ function add(o) {
   const p = problems(e);
   if (p.length > 0) throw new Usage(`J-SCHEMA: ${p.join("; ")}`);
   if (text !== null) { // J-LINT FROZEN: linted ONCE, at commit ?? recu_head (validated above), archived; add records a red, build reddens
-    const rev = e.commit ?? e.mission.recu_head, l = rev !== null && commitIn(repo, rev) ? unlisted(lintMission({ text, missionPath: e.mission.path, repo, rev }), text)
+    const rev = e.commit ?? e.mission.recu_head, l = rev !== null && commitIn(repo, rev) ? unlisted(lintMission({ text, missionPath: e.mission.path, repo, rev, host: false }), text)
       : { verdict: "rouge", hits: [{ code: "J-LINT", line: 0, extract: `${String(rev)} is not a commit of --repo` }] };
     const lb = Buffer.from(JSON.stringify({ schema: "monark.lint.v1", mission_sha: e.mission.sha, rev, verdict: l.verdict, hits: l.hits, tool: hash(readFileSync(new URL("../mission/lint.mjs", import.meta.url))) }).concat(String.fromCharCode(10))); // one line; no template literal as the argument (the import scan of rpc-guard durable.test.ts)
     facts.push(lb); e.facts.lint = hash(lb);
