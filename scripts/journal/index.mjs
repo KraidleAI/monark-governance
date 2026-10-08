@@ -25,7 +25,7 @@
 //   J-ORIGIN an error_origin code outside the vocabulary of audit A plus G2 (D11 and its dated line of 2026-09-28)
 //   J-TOURS  more than 5 distinct corr tours (values of tour) in a lot and no G7 with an adjudication (D12 (d))
 //   J-ORACLE G2, cp-2, G7 (required), G1 and corr (if cited; G0, cp-1, fusion: refused by J-SCHEMA): record absent or not JSON, sha256 !=
-//            oracle.sha256, incomplete (REQUIRED of scripts/oracle/run.mjs:33, schema, pid, tree.object), role != gate, static_only
+//            oracle.sha256, incomplete (REQUIRED of scripts/oracle/run.mjs:34, schema, pid, tree.object), role != gate, static_only
 //            or exit != 0, a field copied != the record; G2, cp-2, G7 also: tree.head != commit, start before the commit date,
 //            served_from or tree.dirty not null (a full, clean replay). G1, corr: a run before the gel, dirty or served (D4) admitted,
 //            bound to its launch (M-5b): tree.head != mission.recu_head, start before mission.recu_date, or a served record
