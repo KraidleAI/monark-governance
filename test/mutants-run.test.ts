@@ -271,6 +271,23 @@ test("mutants_killer_lines_become_intent_mutants_run_alone", () => {
   assert.deepEqual([k1?.origin, k1?.file, k1?.line, k1?.op, k1?.why, k1?.test, k1?.status, k1?.fails, k1?.oks], ["killer", "lib/m.mjs", 1, "ROR", "killer of pos_zero", "pos_zero", "tue", ["pos_zero"], 0]);
 });
 
+const SK = { "lib/k.mjs": "export const RELEASED = true;\nexport const OTHER = 1;\n", "test/k.test.ts": 'import { after, describe, test } from "node:test";\nimport assert from "node:assert/strict";\n' +
+  'import { OTHER, RELEASED } from "../lib/k.mjs";\nafter(() => { assert.equal(RELEASED, true); });\n' + // the file's hook, red by assertion under K1 to K3 whichever test runs
+  '// killer: lib/k.mjs:1 CONST "true" -> "false"\ntest("k_skipped", { skip: "forced" }, () => { assert.equal(RELEASED, true); });\n' + // K1: skipped, as a win32 skip
+  '// killer: lib/k.mjs:1 CONST "true" -> "false"\ntest("k_green", () => { assert.equal(typeof RELEASED, "boolean"); });\n' + // K2: green under its mutation
+  '// killer: lib/k.mjs:1 CONST "true" -> "false"\ntest("k_named", () => { assert.equal(RELEASED, true); });\n' + // K3: red by assertion, a kill
+  '// killer: lib/k.mjs:2 CONST "1" -> "2"\ntest("k_twice", { skip: "forced" }, () => { assert.equal(OTHER, 1); });\n' + // K4: skipped, and only green entries
+  'describe("k_box", () => { test("k_twice", () => { assert.equal(typeof OTHER, "number"); }); });\n' + // run by the pattern, a top-level entry of another name
+  '// killer: lib/k.mjs:2 CONST "= 1;" -> "= ;"\ntest("k_loaded", () => { assert.equal(OTHER, 1); });\n' }; // K5: a syntax error, the file red before any test
+// killer: scripts/mutants/run.mjs:215 CONST "own.some(" -> "bad.some("
+test("mutants_a_named_test_skipped_or_green_is_non_conclu_never_killed_by_a_red_elsewhere", () => { // MUTANTS-SKIPPED-NOT-KILLED-1
+  const { dir, base } = mini("sk", SK), r = run(["--repo", dir, "--base", base, "--killers"]), get = (id: string): unknown[] => [row(r, id)?.status, row(r, id)?.note];
+  assert.deepEqual([r.status, r.rec?.baseline?.status, ...["K1", "K2", "K3", "K4", "K5"].map((id) => row(r, id)?.test)], [1, "vert", "k_skipped", "k_green", "k_named", "k_twice", "k_loaded"], r.stderr);
+  assert.deepEqual([get("K1"), get("K2"), get("K3"), get("K4"), get("K5")], [["non conclu", "the named test is skipped"], ["non conclu", "red outside the named test only"],
+    ["tue", null], ["non conclu", "the named test is skipped"], ["non conclu", "the named test has no entry"]]);
+  assert.deepEqual([row(r, "K3")?.fails.includes("k_named"), row(r, "K4")?.oks, ...["K1", "K2", "K4"].map((id) => row(r, id)?.replay?.status)], [true, 1, "tue", "tue", "tue"]);
+});
+
 // killer: scripts/mutants/run.mjs:296 CONST "sha256: sha(body)" -> "sha256: sha(`${body} `)"
 test("mutants_record_is_complete_and_its_sha_printed_last", () => {
   const r = campaign(), f = fixture(), last = r.stdout.trim().split("\n").at(-1) ?? "", p = join(r.out, "RESULTS.json");

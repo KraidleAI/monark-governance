@@ -23,7 +23,7 @@
 // at once (D-3, D-5); memory is read again once the lock is taken: short, the lock is released at once and the bounded wait goes on, never with the
 // lock held (corrections D-4); a bound passed stops the campaign by name (exit 4, record stop with the ids not run); node --test in TAP ("(test 42)" skipped: it
 // runs once, in the oracle's suite, ADR D3), the file restored in a finally and its sha256 checked (a mismatch, or a file changed since the start,
-// stops the campaign: exit 3). VERDICT: tue iff a top-level entry fails by assertion (classify of red-proof.mjs: ERR_ASSERTION) and the child exits
+// stops the campaign: exit 3). VERDICT: tue iff a top-level entry fails by assertion (classify of red-proof.mjs: ERR_ASSERTION), for a row that names its test (a killer line, a row's test) that test's own entry, never a skipped one nor a red elsewhere (a hook, another test: MUTANTS-SKIPPED-NOT-KILLED-1), and the child exits
 // non-zero, survit iff every entry is ok and it exits 0, non conclu otherwise (dead or timed-out child, signal, exit 134, failures without assertion;
 // noted, on the line of RESULTS.txt too (a mutant, its replay, a baseline): no entry, an exit code that contradicts the entries, MUTANTS-RUN-EXIT-CODE-1; "TAP cut" without its
 // closing # duration_ms, G2 m-4); never "equivalent". A row marked typecheck (D-2) runs tsc --noEmit -p tsconfig.json of the clone's node_modules/typescript instead: tue iff an error falls in a target file;
@@ -209,12 +209,12 @@ export async function main(argv) {
     const args = ["--test", "--test-reporter=tap", `--test-timeout=${o.timeout}`, "--test-force-exit", "--test-skip-pattern=\\(test 42\\)"];
     if (pattern !== undefined) args.push(`--test-name-pattern=^${pattern.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}$`);
     const t0 = Date.now(), r = spawnSync(process.execPath, [...args, ...files], { cwd: clone, env: envOf(tmp), encoding: "utf8", timeout: o.timeout * 10, maxBuffer: 1 << 28, stdio: ["ignore", "pipe", "pipe"] });
-    const tap = r.stdout ?? "", es = parseTap(tap).filter((e) => !e.skip), bad = es.filter((e) => !e.ok), codes = [...tap.matchAll(/^\s*code: '?([A-Z_]+)'?\s*$/gm)].map((x) => x[1]);
+    const tap = r.stdout ?? "", all = parseTap(tap), es = all.filter((e) => !e.skip), bad = es.filter((e) => !e.ok), codes = [...tap.matchAll(/^\s*code: '?([A-Z_]+)'?\s*$/gm)].map((x) => x[1]), named = pattern === undefined ? null : all.filter((e) => e.name === pattern);
     writeFileSync(join(taps, `${name}.tap`), tap); const cut = !/^# duration_ms \S+$/.test(tap.trimEnd().split(/\r?\n/).at(-1) ?? ""); // truncation() of red-proof.mjs, its first test (G2 m-4)
-    const dead = r.error !== undefined || r.signal !== null || r.status === 134, late = r.error?.code === "ETIMEDOUT" || /^\s*failureType: 'testTimeoutFailure'\s*$/m.test(tap), lost = bad.length === 0 && r.status !== 0, odd = bad.length > 0 && r.status === 0;
-    return { files, status: dead || es.length === 0 || lost || odd ? "non conclu" : bad.length === 0 ? "survit" : bad.some((e) => classify(e) === "assert-fail") ? "tue" : "non conclu",
+    const dead = r.error !== undefined || r.signal !== null || r.status === 134, late = r.error?.code === "ETIMEDOUT" || /^\s*failureType: 'testTimeoutFailure'\s*$/m.test(tap), lost = bad.length === 0 && r.status !== 0, odd = bad.length > 0 && r.status === 0, own = named === null ? bad : bad.filter((e) => e.name === pattern), miss = named !== null && named.every((e) => e.skip);
+    return { files, status: dead || es.length === 0 || lost || odd || miss ? "non conclu" : bad.length === 0 ? "survit" : own.some((e) => classify(e) === "assert-fail") ? "tue" : "non conclu",
       strict: codes.length === 1 && codes[0] === "ERR_ASSERTION", fails: bad.map((e) => e.name), oks: es.length - bad.length, exit: r.status, signal: r.signal, ms: Date.now() - t0, tap_sha256: sha(tap),
-      timed_out: late, note: dead ? null : es.length === 0 || lost || odd ? `exit ${String(r.status)} ${es.length === 0 ? "without a test entry" : lost ? "without a failing entry" : `with ${bad.length} failing entr${bad.length === 1 ? "y" : "ies"}`}${cut ? " (TAP cut: no closing summary)" : ""}` : null };
+      timed_out: late, note: dead ? null : miss ? `the named test ${named.length > 0 ? "is skipped" : "has no entry"}` : es.length === 0 || lost || odd ? `exit ${String(r.status)} ${es.length === 0 ? "without a test entry" : lost ? "without a failing entry" : `with ${bad.length} failing entr${bad.length === 1 ? "y" : "ies"}`}${cut ? " (TAP cut: no closing summary)" : ""}` : bad.length > 0 && own.length === 0 ? "red outside the named test only" : null };
   }; // late (corrections D-5): a run past its bound (spawnSync ETIMEDOUT) or a test past --timeout-ms (TAP testTimeoutFailure); lost, odd: the exit code contradicts the entries (MUTANTS-RUN-EXIT-CODE-1)
   const tsc = (files, name) => { // TYPECHECK (D-2): the typecheck gate of the clone under its own TypeScript; tue iff an error falls in a target file
     const t0 = Date.now(), r = spawnSync(process.execPath, [join(clone, "node_modules", "typescript", "lib", "tsc.js"), "--noEmit", "-p", "tsconfig.json"],
