@@ -33,7 +33,7 @@ import {
 export const metadata: Metadata = {
   title: "Bell · MONARK",
   description:
-    "MONARK Bell: a public, signed record of how tokenized U.S. equities trade on a public ledger while U.S. markets are closed, served on its own host. A gap per session when its closing price can be read, a named abstention when it cannot, a signed and hash-chained timeline. Never a score, never a probability of being right.",
+    "MONARK Bell: a public, signed record of how tokenized U.S. equities trade on a public ledger while U.S. markets are closed, served from a MONARK host that also runs the Dōjō and a Narabi probe. A gap per session when its closing price can be read, a named abstention when it cannot, a signed and hash-chained timeline. Never a score, never a probability of being right.",
   icons: { icon: [{ url: "/icons/bell.svg", type: "image/svg+xml" }] },
 };
 
@@ -613,7 +613,7 @@ export default function BellPage() {
                 </tr>
                 <tr>
                   <td>public key (Ed25519)</td>
-                  <td>the public half of the signing key, generated on the dedicated host</td>
+                  <td>the public half of the signing key, generated on the host that publishes the records, a MONARK host that also runs the Dōjō and a Narabi probe</td>
                   <td><span className="c-pill c-pill--built">served</span></td>
                   <td><a href={BELL_HOST + BELL_PUBKEY_PATH}>{BELL_PUBKEY_PATH}</a></td>
                 </tr>

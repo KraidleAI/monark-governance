@@ -420,7 +420,7 @@ exceeds(θ) = | VWAP_share − P_close | / P_close > θ`}</pre>
                 byte-identical to the key set served as read at {served.read_at} (UTC)
               </dd>
               <dt>generated</dt>
-              <dd>on the dedicated host from which the records are published, operated by MONARK</dd>
+              <dd>on the host from which the records are published, a MONARK host that also runs the Dōjō and a Narabi probe</dd>
               <dt>backups</dt>
               <dd>
                 a backup of the private key exists offline; restoring it is an exposure event, followed by an immediate
