@@ -536,6 +536,31 @@ d'un fichier non lu), `1310a610` (sa correction) et cette note.
   la pièce) ; Windows (MONARK rejoue à la fusion) : `SocketAddress` et ses textes canoniques, les noms de fixture à `%`, la borne de
   250 ms, la fixture des liens ; le test d'un fichier non lu, sauté sous Windows.
 
+## 12. Pli Windows : deux dossiers de fixture qui ne différaient que par la casse
+
+Demande de MONARK, sans G2 (`recherches:coordination/messages/2026-10-08-MONARK-vers-RECHERCHES-243-windows.md`) : au rejeu Windows de
+la fusion de `7d0c473b`, `address_literals_mask_a_path_wherever_its_address_recurs_escaped` rougissait à l'assertion des chemins
+(l.173-175), son deuxième attendu vide. Git pour Windows pose `core.ignorecase=true` à `git init`, et les clés l.166 et l.167 rangeaient
+leurs fichiers dans deux dossiers dont les noms ne différaient que par la casse des échappements (`%2e`, `%2E`) : un seul dossier pour
+NTFS, listé sous sa première graphie. Le chemin écrit avec l'autre ne correspond à rien, et `git add` ne s'arrête pas, le fichier
+existant à la casse près (git 2.43.0, lu : `pathspec.h` l.141-148, `builtin/add.c` l.528-529) : ce fichier n'est jamais suivi.
+Correctif : le second dossier est collé à `w` au lieu de `v` (clé l.167, attendu l.173) ; ses majuscules, la passe qui lit son littéral
+et sa colonne 24 restent, et aucun nom de fixture ne diffère plus d'un autre par la seule casse. Sous Linux, `core.ignorecase=true` posé
+après `git init` ne reproduit pas le rouge : sur ext4 les deux dossiers existent, git range le second nom ajouté sous la casse du premier
+dossier (`read-cache.c` l.716-723) et la porte lit 6 fichiers sur 7, mais ce chemin, jugé depuis l'index, se masque de même ; 13/13
+avant et après, une collision de casse sur les 13 `git add` du fichier avant, aucune après. Taille : 546 lignes, inchangée, le fichier de
+test étant neuf dans la PR (la forme de MONARK, un octet complété d'un zéro, mesure aussi 546).
+
+red-proof: test-only
+
+Ce pli ne touche qu'un test : sa preuve est `--test-only` depuis `7d0c473b`, par le tueur déclaré au-dessus du test des chemins,
+`scripts/address-literals.mjs:128 CONST "rel[j] === \"%\" && " -> "false && "` ; depuis le tronc, la preuve reste la forme F2P (§4 à §11).
+
+- **Non fait ici** : FIXTURE-CASE-FOLD-1 (porteur RECHERCHES ; déclencheur : le prochain lot qui touche `test/no-host-address.test.ts`,
+  ou un autre test qui crée des chemins échappés) : `fixture()` et ses semblables refuseront deux chemins égaux une fois la casse repliée.
+- **Non vérifié ici** : Windows (MONARK rejoue à la fusion) ; aucun système de fichiers insensible à la casse sous ce Linux (noyau sans
+  `CONFIG_UNICODE`, aucun FUSE utilisable).
+
 ## Points pour MONARK
 
 - **Q-1** : les entrées-bornes de `test/retire-instants.test.ts` sont des adresses hors des plages, non des numéros. Elles sont listées
