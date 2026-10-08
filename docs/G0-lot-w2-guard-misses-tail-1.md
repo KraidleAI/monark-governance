@@ -259,3 +259,34 @@ Kept under the author's scratchpad (`w2-guard-author/`), Node 24.21.0, each run 
 | `logs/base-suites.tap` (the five suites, 67 of 67, on `c94c57df`) | `4d58e3ee…` |
 | `logs/base-suites-92d01d67.tap`, `logs/probe-admission-92d01d67.out` (the same two runs on `92d01d67`) | `e95f6833…`, `d534d5eb…` |
 | `logs/killers-on-guard-files.txt`, `logs/anchors-base.out`, `logs/killer-lines-base.tap` | `741ae279…`, `d36cedcf…`, `72f8b88d…` |
+
+## 12. As built
+
+- **Heads** of `recherches/w2-guard-misses-tail-1`, on `92d01d67`: T `f8abf303` (the tests), C `9aba7b95` (the two clauses), the
+  record `fab4573b` (two lines), then this section. Nothing is merged.
+- **The trunk moved** to `52ddf000` during the build, documents only (ETAT, JOURNAL-PROVENANCE, ADR-METHODE-2); there the item reads
+  at `docs/ETAT.md` l.1934, its text unchanged.
+- **As planned** (C, `9aba7b95`): the clauses on `apps/harness/src/policy-guard.ts` l.76 and `apps/harness/src/policy-wave2.ts`
+  l.36 with the messages of section 2, the comment of l.21-24 rewritten on its four lines, the builder line, T1 to T3 and their
+  killers (section 4). Both files keep their line counts, 136 and 64.
+- **Where the build departs** (C, `9aba7b95`): T1 and T3 stand at `apps/harness/test/policy-wave2.test.ts` l.259 and l.273, T2 at
+  `apps/harness/test/policy-guard.test.ts` l.269; each file gains `verdict` and `whole` just above them. `whole` builds each refusal
+  regex from the plain message, escaped and anchored, where the note wrote it out by hand. At T alone, `every_killer_line_is_readable`
+  is red on the three new killer lines, whose target text comes with C; it is green at C, and no CI runs without a pull request. The
+  size is 77, against about 70 in section 7.
+- **Measured**, Node 24.21.0, every run offline with 0 refused attempts:
+  - At T, the two files: 38 tests, 35 green; T1, T2 and T3 red by `ERR_ASSERTION`, each at its first assertion; every other test
+    keeps its base verdict.
+  - At C: the five suites 69 of 69; `tsc --noEmit` and eslint on the four files clean; the anchor checker reads the 75 killer lines
+    of the four test files as anchored, and with `--ref 92d01d67` one drift, the line of section 5.
+  - Red-proof, `--base 92d01d67 --gel 9aba7b95 --draw 3 --seed 20261008`: OK, 3 judged, all F2P, 35 unchanged, 3 killers drawn and
+    killed.
+  - `scripts/mutants/run.mjs --killers --table` on the three killer lines and the table of section 4, plus the retired killer as a
+    sixth row: 8 of 9 killed, each by an assertion of its test; the retired killer survives the 81 target tests and their replay, as
+    section 4 says.
+  - `npm run test:main` at C: 2 970 tests, 2 948 pass, 0 fail, 22 skipped. The record writer then changes two lines of the record,
+    18 to 19 for each guard test file (290 files, 2 970 tests; 2 968 at the base), and `node scripts/test-count-check.mjs --base
+    origin/lot/etude-suite` is green, 0 drop.
+  - At the record's head: `lint:ratchet` 69/69; `gate:vocab`, `lang:gate` and `export:check` OK; winlint, 6 files, no hazard;
+    `git diff --check` clean; the host-address test 13 of 13; the R1 scan 0 at each push. The sweep of section 3, rerun there: no
+    admitted row breaks either clause, and the two new messages refuse rows of T1, T2 and T3 only (3, 2 and 3 calls).
