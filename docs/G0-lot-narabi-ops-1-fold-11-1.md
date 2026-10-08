@@ -12,11 +12,15 @@
   gets comment lines only. Q-3: the document acts after the merge are the maintainer's (section "After the merge").
 - **`eccdeb4` not read**: PAROXYSME's points (b), (c), (d) and the starting conditions come from MONARK's summary of it in
   `5ba0698`. That commit is in neither clone (`git cat-file -t eccdeb4` fails in both); each point is re-checked here at the base.
-- **Base**: trunk `lot/etude-suite` = `8a1aabef` (explicit refspec, `ls-remote` at 10:48 UTC), branch `recherches/narabi-fold-11-1`.
-  The plan read `20fffe9f`; the two merges in between (#233, #236) change `apps/harness/` and two notes only. The thirteen files
-  this change and its guard rest on (the seven of the zone, `run.ts`, `timeline.ts`, `flow.ts`, `docs/adr/ADR-NARABI-OPS-1.md`,
-  `docs/adr/ADR-U4b-calibration-episode-frais.md`, `docs/ADR-AMENDEMENTS-narabi-ops-1d-G7-source.md`) are the same bytes at both,
-  so the plan's addresses hold. Lines below are at the base, except those marked "at C".
+- **Base**: trunk `lot/etude-suite` = `c5030fd9` (the merge of #249), branch `recherches/narabi-fold-11-1`: the parent of this
+  note's first commit. The plan read `20fffe9f`; the first version of this note named `8a1aabef` (`ls-remote` at 10:48 UTC), and
+  the shared worktree was moved to `c5030fd9` at 10:57 UTC, before the first commit. The merges in between (#233, #236, #249)
+  change `apps/harness/`, the verifier tool job of `.github/workflows/ci.yml`, `scripts/verifier-tool-ci.*`, its test and four
+  notes. The thirteen files this change and its guard rest on (the seven of the zone, `run.ts`, `timeline.ts`, `flow.ts`,
+  `docs/adr/ADR-NARABI-OPS-1.md`, `docs/adr/ADR-U4b-calibration-episode-frais.md`, `docs/ADR-AMENDEMENTS-narabi-ops-1d-G7-source.md`)
+  are the same bytes at all three, `rpc.ts` at sha256 `0e232519…` among them, and the R-25 block of `ci.yml` (l.54-140) is the
+  same; so the plan's addresses hold. Lines below are at the base, except those marked "at C". #243 merged into the trunk after
+  the base (`d9cb6ef3`): it changes no file of this change, and the change merges with it without conflict.
 - **Zone** (Q-2): `apps/sentinel/src/rpc.ts`, `apps/sentinel/src/keyless-transport.ts`, `apps/sentinel/test/sentinel-retry.test.ts`,
   `apps/sentinel/test/sentinel-chainstack-guard.test.ts`, `apps/sentinel/test/pool-rpc-1a.test.ts`,
   `test/rpc-guard-fetch-only-inside-client.test.ts`, `deploy/monark-sentinel.service` (comment lines only), this note and the
@@ -92,7 +96,9 @@ T1, T2 and C are pushed together, so CI never runs T2 red alone.
 2. **The closed list of C-V-4 texts co-edited** (F-e, F-m, F-n, F-o; T2, T1 and C).
    - The guard test: l.10-12, l.20, l.41 (the old test name `ukemi_src_clean_and_allowlist_load_bearing` becomes
      `sentinel_src_clean_and_allowlist_load_bearing`), l.72-78, l.105-107, l.175. Q-1: also l.113 ("a paid-key/fetch module") and
-     l.206-207 ("residual-118 paid leg"), outside the list, true no more once `rpc.ts` carries no key and no `fetch(`.
+     l.206-207 ("residual-118 paid leg"), outside the list, true no more once `rpc.ts` carries no key and no `fetch(`. Under the
+     same rule, two more texts the retraction makes false: l.171 ("the two allowlisted files are exempt"), in the body of the
+     test T2 judges, and `apps/sentinel/src/keyless-transport.ts:7` ("the SECOND allowlisted fetch site"), on its own line.
    - `apps/sentinel/test/pool-rpc-1a.test.ts:4-5`: CA-6 re-pointed to the tests of the served path.
    - `apps/sentinel/src/keyless-transport.ts:14` and l.19-20, in the past tense, line for line so that l.28, a killer's target,
      does not move. With `rpc.ts`, this file changes `sentinel_sha` (M-11: outside `hashedFields`, `line_hash` unchanged).
@@ -189,23 +195,44 @@ the Linux trace; the other subprocess runs and `every_killer_line_is_readable` r
 
 ## Verification
 
-Planned, and measured on the plan's never-committed prototype (`20fffe9f`, the same bytes):
+Measured on this change, Node 24.21.0, Linux, every run under `env -u` of the key-like names (the plan's prototype at `20fffe9f`,
+the same bytes, gave the same results). Commits: T1 `659d869b`, T2 `f8bdb433`, C `57d0ee5d`; the commit after C changes `docs/`
+only.
 
-- At T (T1 and T2 on the base code): two tests red by assertion, `sentinel_src_clean_and_allowlist_load_bearing` and
-  `fetch_only_inside_client`, on the dead code of `rpc.ts` that the allowlist no longer covers: l.50 [key-bare], l.54 [key] and
-  [key-bare], l.125 [net]. Every other test of the touched files green.
-- `node scripts/red-proof.mjs --base 8a1aabef --gel <T1> --test-only`: 10 judged, 10 pinned, 10 killers killed.
-- `node scripts/red-proof.mjs --base <T1> --gel <head> --draw 1 --seed 20261008`: `sentinel_src_clean_and_allowlist_load_bearing`
-  F2P, its killer killed.
-- `node scripts/mutants/run.mjs --killers` on the changed test files; the G2-delta table above.
-- The Linux SIGTERM trace: `apps/sentinel/test/sentinel-chainstack-guard.test.ts` under TAP, all green, the four SIGTERM tests
-  among them; then V6, the line `process.on("SIGTERM", onSigterm);` emptied (the existing killer `run.ts:342 SDL`), the four
-  SIGTERM tests red, `run.ts` restored and its sha256 checked. Native on this Linux host (no docker daemon), with the header of
-  `docs/CONSIGNE-STANDARD-G1.md:52`.
-- The anchors of the killer lines, `every_killer_line_is_readable`, the full `npm run test:main`, `tsc --noEmit`, eslint on the
-  touched code, `gate:vocab`, `lang:gate`, `lint:ratchet`, `export:check`, winlint and `git diff --check`.
+- **At T1**: the four changed test files and `test/killer-lines.test.ts`, 40 of 40 green; `tsc --noEmit` 0.
+- **At T (T1 and T2 on the base code)**: 38 of 40. Two tests red by assertion (`ERR_ASSERTION`),
+  `sentinel_src_clean_and_allowlist_load_bearing` and `fetch_only_inside_client`, on the dead code of `rpc.ts` that the allowlist
+  no longer covers: l.50 [key-bare], l.54 [key] and [key-bare], l.125 [net]. Every other test green, `every_killer_line_is_readable`
+  among them.
+- **At C**: all of `apps/sentinel/test/`, the guard test, `killer-lines`, `probe-narabi-state`, `bell-key-isolation`, `narabi-live`
+  and `probe-narabi`: 405 tests, 402 green, 0 red, 3 win32 skips. `run.ts`, `timeline.ts` and `flow.ts` keep their base sha256
+  (`b3b10703…`, `ac357e7d…`, `976bcb69…`).
+- **The sha256 of `rpc.ts` at C** (the AFTER value of the D4 amendment):
+  `0a5a8c3b8210d2a5b5e1e370b0f2df8c7c700eff38f18f10526ff53d4481d953` (239 lines to 195; 0 hit of NET, KEY or KEY_BARE).
+- **Red-proof, test-only**: `node scripts/red-proof.mjs --base c5030fd9 --gel 659d869b --test-only`: OK, 10 judged, 10 pinned,
+  each listed killer killed by assertion, 29 unchanged.
+- **Red-proof, F2P**: `node scripts/red-proof.mjs --base 659d869b --gel 57d0ee5d --draw 1 --seed 20261008`: OK,
+  `sentinel_src_clean_and_allowlist_load_bearing` F2P, its killer (`apps/sentinel/src/rpc.ts:17`) drawn and killed; 6 unchanged.
+- **Killers**: `node scripts/mutants/run.mjs --killers` on the changed test files at C: 15 of 15 killed by assertion (the eleven of
+  this change and the four already there), none survived, none inconclusive, no anchor lost. The anchor check of the killer lines
+  of the changed files: 15 anchored, 0 drifted, 0 lost.
+- **The G2-delta table** (section "Mutants of the G2-delta"), `node scripts/mutants/run.mjs --table <the five rows> --file
+  apps/sentinel/src/run.ts` at C: 5 of 5 killed by assertion. G2D-4 by the empty-origin test, G2D-5 by the empty-cycle test, G2D-6a
+  by seven tests (the degraded runs), G2D-6b and G2D-7 by the `ok` run. At the trunk they survive (the plan's measure at `20fffe9f`,
+  where `run.ts` and the two subprocess test files are the same bytes).
+- **The Linux SIGTERM trace and V6** (decision 136), at C, native (the docker client is installed, no daemon answers):
+  `docs/traces/narabi-ops-1-fold-11-1/`. Run 1, the guard test file: 17 of 17 green, the four SIGTERM tests `ok 14` to `ok 17`.
+  Run 2, V6, `apps/sentinel/src/run.ts:342` emptied: 13 of 17, the four SIGTERM tests red by assertion; `run.ts` restored to
+  `b3b10703…`. Each extract carries the header of `docs/CONSIGNE-STANDARD-G1.md:52`.
+- **The guard of A.8-1, replayed at C** against the trunk `c5030fd9`: the same prereg list, the last D4 amendment of ADR-U4b is
+  still the one of 2026-10-05, no code pins the sha of `rpc.ts`. It does not fire.
+- **The full suite**: `npm run test:main` at C, under the host lock: 2 946 tests, 2 924 pass, 0 fail, 22 skipped, exit 0, 286 s.
+  The base has 2 944 by the per-file counts of the changed files: two tests added (the empty-string pair), none removed.
+- **Gates at C**: `tsc --noEmit` 0; eslint on the six changed code and test files 0; `gate:vocab`, `lang:gate`, `lint:ratchet`
+  (69/69), `export:check` and winlint (8 files) pass; `git diff --check` is clean.
 
 ## Size
 
-R-25 in CI form (the pathspec of `.github/workflows/ci.yml:100`): the prototype measured 7 files, 86 insertions and 102 deletions,
-**188**, the two texts of Q-1 included; the trace adds its extract lines. This note (`docs/**/*.md`) does not count. Bound 547.
+R-25 in CI form (the pathspec of `.github/workflows/ci.yml:100`, from the base): at C, 7 files, 88 insertions and 104 deletions,
+**192** (the plan's 188, plus the two texts of the Q-1 rule found during the change); with the two trace extracts (70 lines),
+**262**. This note and the trace index (`docs/**/*.md`) do not count. Bound 547.
