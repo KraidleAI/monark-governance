@@ -36,6 +36,8 @@ const roots: string[] = [];
 after(() => { for (const r of roots.splice(0)) rmSync(r, { recursive: true, force: true }); });
 /** DOJO-VERIFY-SCALE-1 (G1 journal of PR-3b-2a; the dated line proposed to the orchestrator): heap (MiB), MemoryMax, start timeout (s). */
 const SCALE = { heap: 448, memoryMax: "512M", timeout: "2900" } as const;
+/** Bell's key directory, masked by both units: they share Bell's host (test/bell-key-isolation.test.ts reads it from Bell's own unit). */
+const BELL_KEY_DIR = "/etc/monark/bell";
 /** The retained guard of FAITS-SYSTEMD-PUBLISH-1 F-2, verbatim: the names the manager's block must not hand to the key's process. */
 const UNSET = ["NODE_OPTIONS", "NODE_TLS_REJECT_UNAUTHORIZED", "NODE_EXTRA_CA_CERTS", "SSL_CERT_FILE", "SSL_CERT_DIR", "HTTP_PROXY",
   "HTTPS_PROXY", "ALL_PROXY", "NO_PROXY", "http_proxy", "https_proxy", "all_proxy", "no_proxy"];
@@ -94,7 +96,7 @@ function SERVICE(): Readonly<Record<string, string>> {
     LoadCredential: `${D.DOJO_SIGNING_CREDENTIAL}:${D.DOJO_SIGNING_KEY_SOURCE}`, ExecStart: exec, TimeoutStartSec: SCALE.timeout,
     UnsetEnvironment: UNSET.join(" "), NoNewPrivileges: "true", ProtectSystem: "strict", ProtectHome: "true", PrivateTmp: "true",
     ReadWritePaths: D.DOJO_PUBLISH_STATE, ReadOnlyPaths: `${D.DOJO_COLLECT_STATE}/bundles`,
-    InaccessiblePaths: [posix.dirname(D.DOJO_SEED_SOURCE), D.DOJO_COLLECT_ENV_FILE, `${D.DOJO_COLLECT_STATE}/ledger`].join(" "),
+    InaccessiblePaths: [posix.dirname(D.DOJO_SEED_SOURCE), D.DOJO_COLLECT_ENV_FILE, `${D.DOJO_COLLECT_STATE}/ledger`, BELL_KEY_DIR].join(" "),
     PrivateNetwork: "yes", UMask: "0022", CPUQuota: "25%", MemoryMax: SCALE.memoryMax, TasksMax: "32" };
 }
 
@@ -177,15 +179,16 @@ test("dojo_two_units_share_no_writable_path", () => {
   assert.deepEqual([wp, wc], [[D.DOJO_PUBLISH_STATE], [D.DOJO_COLLECT_STATE]], "one writable path each: its own state");
   for (const a of wp) for (const b of wc) assert.ok(!under(a, b) && !under(b, a), `no writable path shared: ${a} and ${b}`);
   // M-H13: the publisher reads the collect side through bundles/ alone (its --inbox), through the group the unit declares (A-2p makes
-  // the membership); the collect credential sources, its EnvironmentFile (the Helius key) and its ledger are inaccessible to it.
+  // the membership); the collect credential sources, its EnvironmentFile (the Helius key) and its ledger are inaccessible to it, and
+  // so is Bell's key directory (the host is Bell's).
   assert.deepEqual([words(pub, "ReadOnlyPaths"), one(pub, "ExecStart").split(" ")[5]], [[bundles], bundles], "read-only: bundles/, the inbox");
   const hidden = words(pub, "InaccessiblePaths");
-  assert.deepEqual(hidden, [posix.dirname(D.DOJO_SEED_SOURCE), D.DOJO_COLLECT_ENV_FILE, `${D.DOJO_COLLECT_STATE}/ledger`]);
+  assert.deepEqual(hidden, [posix.dirname(D.DOJO_SEED_SOURCE), D.DOJO_COLLECT_ENV_FILE, `${D.DOJO_COLLECT_STATE}/ledger`, BELL_KEY_DIR]);
   for (const s of [D.DOJO_SEED_SOURCE, D.DOJO_ANCHOR_SOURCE, D.DOJO_COLLECT_ENV_FILE]) assert.ok(hidden.some((p) => under(s, p)), `${s} hidden`);
   assert.equal(one(pub, "SupplementaryGroups"), D.DOJO_HANDOFF_GROUP, "the handoff group, declared by the unit");
   assert.ok(read(RUNBOOK).includes(`--groups ${D.DOJO_HANDOFF_GROUP} dojo`), "...and made at A-2p (FAITS-SYSTEMD-PUBLISH-1 F-1: both)");
-  // The collect unit, symmetric: the publication's key directory inaccessible, no path into the publication at all.
-  assert.deepEqual(words(col, "InaccessiblePaths"), [D.DOJO_SIGNING_KEY_DIR], "the collect unit masks the key directory");
+  // The collect unit, symmetric: the publication's key directory inaccessible (then Bell's), no path into the publication at all.
+  assert.deepEqual(words(col, "InaccessiblePaths"), [D.DOJO_SIGNING_KEY_DIR, BELL_KEY_DIR], "the collect unit masks the key directory, then Bell's");
   assert.deepEqual(col.filter((d) => /^(ReadOnlyPaths|BindPaths|BindReadOnlyPaths)$/.test(d.key)), [], "no read path into the publication");
   // A day's evidence/ is the collector's own (0700): the layout reader reads what publish/SHA256SUMS enumerates, never evidence/.
   // A key name such as evidence_sha256sums_sha256 (the history manifest's closed keys, PR-3a-2) is not a path: the word alone counts.

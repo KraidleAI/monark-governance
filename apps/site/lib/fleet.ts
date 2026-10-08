@@ -349,7 +349,7 @@ export const PRODUCTS: FleetProduct[] = [
       // must agree on two distinct operators; a deterministic sample of fills is cross-read on both, the rest on one.
       sensor: "the collector's session reads of on-chain fills: the list of fills agreed on two operators, a deterministic sample of them cross-read on both, the rest read on one",
       gate: "the publisher's closed checks: read quorum, earliest publication time, no closing price carried",
-      act: "a signed, hash-chained publication on its own host, checked by the reader-side verifier",
+      act: "a signed, hash-chained publication on a MONARK host that also runs the Dōjō and a Narabi probe, checked by the reader-side verifier",
     },
     connects: registerNames(["Hikae", "Shōgen"]),
     status: "built",
@@ -358,7 +358,7 @@ export const PRODUCTS: FleetProduct[] = [
     served: {
       served_by: "https://bell.monarkgate.tech (timeline.jsonl, state.json, provenance.json, bell/pubkey.json, states/<sha256>.json, provenance/<sha256>.json); deploy check docs/deploy-CA-bell.json by scripts/verify-bell.mjs; site data apps/site/data/bell-served.json",
       integration_test: ["verify_bell_ca_check5_runs_real_bell_verify", "bell_served_data_matches_deploy_ca", "bell_publication_anchor_composes_served_head_to_rendered_claim"],
-      note: "a signed, hash-chained timeline served on its own host, checked end to end by a non-LLM reader-side verifier against the committed keyring",
+      note: "a signed, hash-chained timeline served from a MONARK host that also runs the Dōjō and a Narabi probe, checked end to end by a non-LLM reader-side verifier against the committed keyring",
     },
   },
 ];
