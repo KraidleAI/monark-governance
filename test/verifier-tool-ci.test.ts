@@ -116,12 +116,12 @@ test("verifier_tool_stand_in_replaces_section_3_only - the Linux stand-in sets r
 
 const REPORT_OUT = ["OK   platform: Windows-standin-0.0.0-SP0, standin", "failures 0", "input libm ucrtbase.dll sha256 349a0de7e0e1bf8eecfd1c73916bf171d38927e2e543c106e15df1882612f67a bytes 48",
   "VERDICT: GREEN"].join("\n");
-// killer: scripts/verifier-tool-ci.mjs:36 CONST ", 1, REPORT_END]" -> ", 1]"
+// killer: scripts/verifier-tool-ci.mjs:87 CONST "check === \"report_check.py\" ? REPORT_END : []" -> "[]"
 test("verifier_tool_driver_wants_the_end_of_report_check_main - the run of report_check.py must show the lines that only report_check.main writes after its checks, its count of failures and the C library of log that its section 3 read, wanted by the check's name alone; a stand-in that prints VERDICT: GREEN and exits before that main is refused", () => {
   const end = (re: string): string => `report_check.py: no line ${re}, which the check's own main writes after its checks`;
   const FAILURES = end("/^failures 0$/"), LIBM = end("/^input libm ucrtbase\\.dll sha256 [0-9a-f]{64} bytes \\d+$/");
   const report = (out: string, win = false): string[] => outputProblems("report_check.py", out, 0, 1, win).problems; // the arguments main() passes, no more
-  // killer: scripts/verifier-tool-ci.mjs:87 CONST "!lines.some(" -> "lines.some("
+  // killer: scripts/verifier-tool-ci.mjs:88 CONST "!lines.some(" -> "lines.some("
   assert.deepEqual(report("VERDICT: GREEN"), [FAILURES, LIBM], "a verdict printed before report_check.main ran: refused, by the check's name");
   assert.deepEqual(report(REPORT_OUT), [], "the end of report_check.main, as the job's log shows it");
   // killer: scripts/verifier-tool-ci.mjs:31 CONST "/^failures 0$/, " -> ""

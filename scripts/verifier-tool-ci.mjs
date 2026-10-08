@@ -29,11 +29,11 @@ const OWED = [["guard_check.py", 1], ["report_check.py", 1], ["compare_check.py"
  *  that its section 3 read through io_guard (the system's on Windows, the stand-in's off Windows). Off Windows that run passes through a
  *  file outside the tool's tree: a stand-in that prints a verdict and exits before that main is refused for lacking them. */
 const REPORT_END = [/^failures 0$/, /^input libm ucrtbase\.dll sha256 [0-9a-f]{64} bytes \d+$/];
-/** The runs, in order: the check of the tool it holds, the script run, its arguments, the VERDICT: GREEN lines wanted, and the lines
- *  wanted from the check's own main (report_check.py only). */
+/** The runs, in order: the check of the tool it holds, the name by which outputProblems judges its output (its skips, the end of its
+ *  main), then the script run, its arguments and the VERDICT: GREEN lines wanted. */
 export const steps = (repo, w, win) => [
   ["guard_check.py", `${TOOL}/guard_check.py`, [repo, join(w, "guard"), join(w, "guard.txt")], 1],
-  ["report_check.py", win ? `${TOOL}/report_check.py` : "scripts/verifier-tool-ci-report-check.py", [repo, join(w, "report"), join(w, "report.txt"), ...(win ? [] : [join(w, "libm")])], 1, REPORT_END],
+  ["report_check.py", win ? `${TOOL}/report_check.py` : "scripts/verifier-tool-ci-report-check.py", [repo, join(w, "report"), join(w, "report.txt"), ...(win ? [] : [join(w, "libm")])], 1],
   ["compare_check.py", `${TOOL}/compare_check.py`, [join(repo, REGISTRY), join(w, "compare"), join(w, "compare.txt")], 1],
   ["binom_check.py", `${TOOL}/binom_check.py`, ["--registry", join(repo, REGISTRY), join(w, "registry.txt")], 1],
   ["binom_check.py", `${TOOL}/binom_check.py`, [repo, join(w, "binom.txt"), join(w, "hikae.txt")], 2],
@@ -73,9 +73,9 @@ export const accountProblems = (trees, present, checks, runs = steps("", "", fal
   ];
 };
 
-/** The refusals of one run's output: its exit, its VERDICT: GREEN lines, any FAIL or RED line, its SKIP lines (guard_check.py
- *  only, and only the cases of WINDOWS_ONLY off Windows), and each line of ends that none of its lines matches. */
-export const outputProblems = (check, out, status, want, win, ends = []) => {
+/** The refusals of one run's output: its exit, its VERDICT: GREEN lines, any FAIL or RED line, its SKIP lines (guard_check.py only,
+ *  WINDOWS_ONLY off Windows) and each line of REPORT_END that none matches (report_check.py only), both by the check's name alone. */
+export const outputProblems = (check, out, status, want, win) => {
   const problems = [], lines = out.split(/\r?\n/);
   if (status !== 0) problems.push(`exit ${status}, not 0`);
   const green = lines.filter((l) => l === "VERDICT: GREEN").length;
@@ -84,6 +84,7 @@ export const outputProblems = (check, out, status, want, win, ends = []) => {
   const skipped = lines.flatMap((l) => /^SKIP ([^:]+):/.exec(l)?.[1] ?? []);
   const expected = check === "guard_check.py" && !win ? WINDOWS_ONLY : [];
   if ([...skipped].sort().join() !== [...expected].sort().join()) problems.push(`skipped [${skipped.join(", ")}], [${expected.join(", ")}] wanted`);
+  const ends = check === "report_check.py" ? REPORT_END : [];
   problems.push(...ends.filter((re) => !lines.some((l) => re.test(l))).map((re) => `no line ${re}, which the check's own main writes after its checks`));
   return { problems: problems.map((p) => `${check}: ${p}`), skipped };
 };
@@ -104,9 +105,9 @@ function main() {
     problems.push(e.message);
   }
   const work = mkdtempSync(join(tmpdir(), "verifier-tool-ci-")), named = [];
-  for (const [check, script, args, want, ends] of problems.length ? [] : steps(repo, work, win)) {
+  for (const [check, script, args, want] of problems.length ? [] : steps(repo, work, win)) {
     const t = Date.now(), r = spawnSync("python", [...form, join(repo, script), ...args], { cwd: repo, encoding: "utf8", maxBuffer: 64 << 20, timeout: 300_000 });
-    const out = `${r.stdout ?? ""}${r.stderr ?? ""}`, judged = outputProblems(check, out, r.status ?? r.signal ?? r.error?.code, want, win, ends);
+    const out = `${r.stdout ?? ""}${r.stderr ?? ""}`, judged = outputProblems(check, out, r.status ?? r.signal ?? r.error?.code, want, win);
     console.log(`${out.trimEnd()}\n== ${check}: exit ${r.status}, ${Math.round((Date.now() - t) / 1000)} s (python ${form.join(" ")} ${script})`);
     for (const f of args.filter((a) => a.endsWith(".txt") && existsSync(a))) console.log(`   ${createHash("sha256").update(readFileSync(f)).digest("hex")}  ${f.slice(work.length + 1)}`);
     problems.push(...judged.problems);
