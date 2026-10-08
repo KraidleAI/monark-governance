@@ -32,7 +32,7 @@
 red-proof: test-only
 
 The line above declares the range from the base to T1 (the binding tests) test-only, for
-`node scripts/red-proof.mjs --base 8a1aabef --gel <T1> --test-only`. T2 and C change production code: they are proved in F2P mode
+`node scripts/red-proof.mjs --base c5030fd9 --gel <T1> --test-only`. T2 and C change production code: they are proved in F2P mode
 from T1 (section "Verification").
 
 ## Starting conditions and the guard of A.8-1, at the base
@@ -169,7 +169,7 @@ The five of `docs/G2-lot-narabi-ops-1d-delta.md:193-197`, on `apps/sentinel/src/
 |---|---|---|---|---|
 | G2D-4 | 285 | `origin.length === 0` -> `false` | survives | killed by the empty-origin test |
 | G2D-5 | 285 | `cycleId.length === 0` -> `false` | survives | killed by the empty-cycle test |
-| G2D-6a | 349 | the degraded list shifted by one | survives | killed by the six degraded runs |
+| G2D-6a | 349 | the degraded list shifted by one | survives | killed by seven tests: the five degraded runs of the guard file, the URL-alone run and the excluded-hosts test |
 | G2D-6b | 349 | the opened list shifted by one | survives | killed by the `ok` run |
 | G2D-7 | 349 | the posed origin replaced by the canonical host | survives | killed by the `ok` run |
 
@@ -218,7 +218,7 @@ only.
   of the changed files: 15 anchored, 0 drifted, 0 lost.
 - **The G2-delta table** (section "Mutants of the G2-delta"), `node scripts/mutants/run.mjs --table <the five rows> --file
   apps/sentinel/src/run.ts` at C: 5 of 5 killed by assertion. G2D-4 by the empty-origin test, G2D-5 by the empty-cycle test, G2D-6a
-  by seven tests (the degraded runs), G2D-6b and G2D-7 by the `ok` run. At the trunk they survive (the plan's measure at `20fffe9f`,
+  by seven tests: the five degraded runs of the guard file, the URL-alone run and the excluded-hosts test; G2D-6b and G2D-7 by the `ok` run. At the trunk they survive (the plan's measure at `20fffe9f`,
   where `run.ts` and the two subprocess test files are the same bytes).
 - **The Linux SIGTERM trace and V6** (decision 136), at C, native (the docker client is installed, no daemon answers):
   `docs/traces/narabi-ops-1-fold-11-1/`. Run 1, the guard test file: 17 of 17 green, the four SIGTERM tests `ok 14` to `ok 17`.
@@ -236,3 +236,26 @@ only.
 R-25 in CI form (the pathspec of `.github/workflows/ci.yml:100`, from the base): at C, 7 files, 88 insertions and 104 deletions,
 **192** (the plan's 188, plus the two texts of the Q-1 rule found during the change); with the two trace extracts (70 lines),
 **262**. This note and the trace index (`docs/**/*.md`) do not count. Bound 547.
+
+## Fold of the review
+
+The review by a fresh instance (recherches `0b12c225`, `coordination/pieces/2026-10-07-g2-recherches/G2-252-narabi-fold-11-1.json`)
+returned three minor findings and six notes, no major one. This round touches only comments, two test messages and this note, each
+line rewritten in place: no line moves, no code line changes (`rpc.ts` keeps its sha256 `0a5a8c3b…`), no test is added or removed,
+no killer line or killer target moves. Every line above this section keeps its number. The changes:
+
+- `apps/sentinel/test/pool-rpc-1a.test.ts:144` named `rpc.ts:86`, a line the deletion moved; it names the function instead,
+  `rpc.ts isResultLimit`, so the address cannot drift (m-1).
+- l.35 of this note: the test-only command names the base of the change, `c5030fd9` (m-2).
+- l.172 and l.220-221 of this note: G2D-6a is killed by seven tests, in the same words in both places, as measured at C and by the
+  review at `04d10c94` (m-3).
+- `apps/sentinel/test/sentinel-retry.test.ts:218`: the comment of `sentinel_never_prints_endpoint_url` points to l.251 and l.253,
+  where its stdout and written-line checks now live; the test keeps its name (n-4).
+- `test/rpc-guard-fetch-only-inside-client.test.ts` l.19, l.40, l.53, l.92, l.181, l.186 (a test message) and l.242: the bare-key
+  scan covers all of `apps/sentinel/src` since -1d widened the sentinel root, so these texts name the sentinel scope (n-7).
+- The same file, l.211: the closed-list message reads "(an import outside the closed list is forbidden)", as l.110 and l.206 say;
+  no test asserts on that message (n-8).
+- The pull request body says that the touched test files and the killer-line guard run 38 of 40 (n-6).
+- Left for the maintainer: `apps/bell/src/quorum.ts:13` says that `rpc.ts:84` appends the url to the HTTP error; after the deletion
+  no line of `rpc.ts` builds an HTTP error, and the served keyless transport appends the redacted host
+  (`apps/sentinel/src/keyless-transport.ts:28`). `apps/bell/` is outside the files opened for this change (n-5).
