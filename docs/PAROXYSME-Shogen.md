@@ -89,9 +89,9 @@
 - Aucune dette : toutes les entrées ouvertes des §2 et §3 portent un item, un porteur et un déclencheur ; le contrôle est mécanique
   (§7, doute 10).
 - **À dater** (porteur : MONARK) : le port au fondateur des échéances de N-06, N-07 et N-08 (ETAT l.274-276 à `5437cd0d` ;
-  MSG l.77-78) est écrit sans date (§7, doute 15). Échéance demandée avec la demande de fusion de ce pli (PR
-  `paroxysme/registres-decisions-1007`), sur le modèle de MSG2 l.6-7 : le prochain point d'étape de MONARK avec le fondateur. N-06,
-  N-07 et N-08 gardent leur item, leur porteur et leur déclencheur.
+  MSG l.77-78) est écrit sans date (§7, doute 15). Échéance demandée avec la demande de fusion de ce pli (PR `paroxysme/registres-decisions-1007`),
+  sur le modèle de MSG2 l.6-7 : le prochain point d'étape de MONARK avec le fondateur ; au plus tard, un jalon nommé, par exemple l'ADR de PXC-08,
+  avant sa partie 1 (F3 ; §7, doute 5). N-06, N-07 et N-08 gardent leur item, leur porteur et leur déclencheur.
 - Les six limites côté MONARK que l'inventaire compte « sans item » (part MONARK de N-03, N-05, N-12, N-13, N-14, N-15 ; INV-S l.236)
   ont un chantier : PXC-08, PXC-01, PXC-05, PXC-08 et PXC-16, PXC-02, PXC-01. Les douze côté Shōgen (L-37, L-38, L-40, L-42, L-43, L-45,
   L-47, L-48, L-49, L-52, L-53, S-05 ; INV-S l.237) ont pour item une demande au mainteneur, à former par PXC-01 partie 2 (F3) et
@@ -658,8 +658,8 @@ hors `tls_unattested` et `source_unattested`). Aucune limite neuve à la tête p
    en exige une par ligne (CX-24 (c)). **Décision de MONARK** : il porte ces échéances au fondateur (ETAT l.274-276 à `5437cd0d`), la
    visibilité d'un dépôt étant hors de sa délégation (MSG l.77-78) ; elles restent sans date tant que le fondateur ne les a pas fixées.
    Le port lui-même est écrit sans date (ETAT l.274-276 à `5437cd0d` ; MSG l.77-78), alors que HOST-HARNESS-PREV-1, du même bloc
-   (ETAT l.274-275 à `5437cd0d`), a reçu la sienne (MSG2 l.6-7) : il est au §1, à dater par MONARK (échéance demandée avec la demande
-   de fusion de ce pli : son prochain point d'étape avec le fondateur).
+   (ETAT l.274-275 à `5437cd0d`), a reçu la sienne (MSG2 l.6-7) : il est au §1, à dater par MONARK (échéance demandée avec la demande de fusion de ce
+   pli : son prochain point d'étape avec le fondateur ; au plus tard, un jalon nommé, par exemple l'ADR de PXC-08, avant sa partie 1, F3 ; doute 5).
 
 ## 8. Ligne PAROXYSME et sources
 
