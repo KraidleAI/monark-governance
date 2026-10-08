@@ -28,7 +28,7 @@ const RFC9162 = "a section number of RFC 9162 (verifying an inclusion proof)";
 const WHATWG = "a section number of the WHATWG HTML standard (tokenizer states, tree construction)";
 const ECMA = "a section number of ECMA-262 (the template value of a line terminator)";
 const CABF = "a section number of the CA/Browser Forum Baseline Requirements (domain validation)";
-const V8 = "the V8 version of a Node build";
+const V8 = "the V8 version of a Node build", STANDIN = "the file version of the stand-in library that the verifier tool job builds (VS_FIXEDFILEINFO)";
 const CLAUSE = "a clause number of a cover wording";
 const PCT = "the tail of a loopback address whose first octet is percent-encoded";
 const ADD_MASK = "the GitHub Actions workflow command add-mask, quoted with its colons";
@@ -40,7 +40,7 @@ export const LISTED = Object.freeze({
   "docs/CHECKPOINT2-lot-dojo-pr1a.md": all(RFC9162, "2.1.3.2"),
   "docs/CHECKPOINT2-lot-public-cadence-1-A1.md": all(WHATWG, "13.2.6.4", "13.2.5.43"),
   "docs/G0-lot-dojo-pr4c2.md": all(RFC9162, "2.1.3.2"),
-  "docs/G0-lot-r25-minified-line-1.md": all(ADD_MASK, "::add"),
+  "docs/G0-lot-r25-minified-line-1.md": all(ADD_MASK, "::add"), "docs/G0-lot-verifier-tool-ci-1.md": all(STANDIN, "0.0.0.1"),
   "docs/G0-lot-verifiers-list-f5a-1.md": all(V8, "13.6.233.17"),
   "docs/G1-lot-codeql-alerts-1.md": all(WHATWG, "13.2.5.2", "13.2.5.3", "13.2.5.5", "13.2.5.11", "13.2.5.14", "13.2.5.18", "13.2.5.31",
     "13.2.5.32", "13.2.5.42", "13.2.5.43", "13.2.5.44", "13.2.5.46", "13.2.5.51", "13.2.5.52"),
@@ -62,7 +62,7 @@ export const LISTED = Object.freeze({
   "docs/dojo/FAITS-reserved-names-certs-2026-09-27.md": all(CABF, "3.2.2.4"),
   "packages/rpc-guard/test/durable.test.ts": all(ECMA, "12.9.6.2"),
   "scripts/assert-fleet-html.mjs": all(WHATWG, "13.2.5.2", "13.2.5.3", "13.2.5.5", "13.2.5.14", "13.2.5.17", "13.2.5.18", "13.2.5.31",
-    "13.2.5.43", "13.2.5.44", "13.2.5.46", "13.2.5.49", "13.2.5.51", "13.2.5.52"),
+    "13.2.5.43", "13.2.5.44", "13.2.5.46", "13.2.5.49", "13.2.5.51", "13.2.5.52"), "scripts/verifier-tool-ci-report-check.py": all(STANDIN, "0.0.0.1"),
   "test/retire-instants.test.ts": all(EDGE, "0.255.255.255", "126.255.255.255", "128.0.0.1", "1.0.0.0", "::2", "::ffff:128.0.0.1"),
   "test/site-build-fleet.test.ts": all(WHATWG, "13.2.5.43", "13.2.5.52"),
   "tools/kata-recalc/report.py": all(SLICE, "0::2", "1::2"),
