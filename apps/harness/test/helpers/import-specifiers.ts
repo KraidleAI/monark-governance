@@ -24,14 +24,14 @@
  * specifier list", false under the token scanner (the same review: a node:vm import between two backtick regular expressions passed in
  * policy-verifiers.ts). A module that needs one of them needs a rule aimed at it.
  * Limit, item IMPORT-AST-RUNTIME-NAME-1, which the G0 widens to a loader or constructor reached by a name built or chosen at run time: a name
- * built from anything but literals (a variable, a join, a character code), or Function taken by enumerating a prototype's property
- * descriptors, is not read; reading it would mean running the code. Refusing the form was measured on the scanned tree (review of 2026-10-07):
- * a non-constant computed key on process, globalThis, global, Reflect, module, require, this, eval or Function finds no false positive but an
- * alias defeats it (const p = process); any non-literal computed member access finds 52. The item stays open (noted by MONARK for
- * docs/ETAT.md).
+ * built from anything but literals (a variable, a join, a character code), or Function taken by enumerating a prototype's property descriptors,
+ * is not read; reading it would mean running the code. Refusing the form was measured on the scanned tree (review of 2026-10-07): a non-constant
+ * computed key on process, globalThis, global, Reflect, module, require, this, eval or Function finds no false positive but an alias defeats it
+ * (const p = process); any non-literal computed member access finds 52. The item stays open (noted by MONARK for docs/ETAT.md).
+ * Limit, item TEST-COUNT-FLOOR-1 (a per-file floor on the tests run): a test file that loads a module calling execve or process.exit(0) at load
+ * ends before its tests and can count as one pass; the walk's file loads 12 of the 22 served modules, hence its execve killer in a function.
  */
 import ts from "typescript";
-
 /** The one parse of a module text that both readers walk: TypeScript, the latest target, parent links set. */
 const treeOf = (text: string): ts.SourceFile => ts.createSourceFile("module.ts", text, ts.ScriptTarget.Latest, true, ts.ScriptKind.TS);
 /** The node that carries the specifier of an import or export declaration, of import x = require(), of an import() or a require() call,
