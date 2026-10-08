@@ -571,8 +571,8 @@ fusion de #245 et des décisions de MONARK sur sa demande. Deux corrections en p
     échéance : la recartographie de PXC-01 p2.
   - SENTINEL-DEPLOY-GUARD-1 et SYNC-CHECK-MODE-1 : re-portés à PXC-05 partie 1, dans l ordre O-2 (T8 de Narabi, E10 d Ukemi) ; déclencheur :
     le G0 de PXC-05 partie 1.
-  - Trois déclencheurs passés de Bell, re-portés dans O-3 (collecte de Bell, D-5 levé), déclencheur le G0 de O-3 : L-39 ADV-SIP-DAY-1
-    (franchi, la règle du jour est servie), SUPPLY-READ-1 (franchi, la supply est servie, repli « 1 »), L-25 ADV-SESSION-CUT-1 (passé sans
+  - Trois déclencheurs passés de Bell, re-portés dans O-3 (collecte de Bell, D-5 levé), déclencheur le G0 de O-3 : L-23 ADV-SIP-DAY-1 [étiquette corrigée en place le 2026-10-08, Q2 du pli des registres]
+    (franchi, la règle du jour est servie), L-39 SUPPLY-READ-1 (franchi, la supply est servie, repli « 1 »), L-25 ADV-SESSION-CUT-1 (passé sans
     l acte : la coupe de séance n est pas énoncée) ; lecture sur place des plans CTA/UTP : MONARK, avec son FAITS daté, avant le G0 de O-3.
   - Shōgen N-06, N-07, N-08 : portés au fondateur au point d étape de MONARK du 2026-10-08, au plus tard à l ADR de PXC-08.
   - VERIFY-BADPORT-1 : si PXC-06 partie 1 touche `dojo-verify.mjs` avant PXC-01 partie 2, le constat sur la moitié Bell précède son G0.
@@ -663,6 +663,165 @@ d ADR-M003.
   extrait `KraidleAI/monark-kata-spec` (public, lu par `gh` à 09:0x UTC) à `ffb5ea33`, avec `persist-credentials: false` ; le pilote
   épingle `vectors.json` par sha256 (`06ecf069…`, 127 681 octets). Ligne datée ADR-M003 D9 octodecies écrite par MONARK dans ce commit,
   avant la fusion.
+
+## Suite de la journée : fusions jusqu à #253, Narabi, Chainstack, Bell, PXC-02 (MONARK, 2026-10-08 12:1x UTC)
+
+Écrit au tronc après `2d37851b` (#253). Lignes tenues par MONARK depuis `20fffe9f`, dans l ordre où elles ont été écrites, puis celles
+de ce commit (réponses Q1, Q10 et Q11 du pli des registres, corrections en place, point du registre PAROXYSME). Les détails du compte du
+fournisseur RPC (plan, période, consommation, quota) restent hors du dépôt public.
+
+- PAROXYSME PR #41 (erratum P-22 : retards de 10 à 141 s mesurés sur 237 déclencheurs ; list_triggers refait le registre par un crochet
+  PostToolUse ; marge de trois minutes sans liste) fusionnée par MONARK à 09:2x UTC (204bb20) ; fusion d essai, 226/226 sous Windows (227
+  sous Linux).
+- DÉCISION DU FONDATEUR (2026-10-08 vers 09:3x UTC, dans le fil de MONARK) : « ne t inquiéte pas, chainstack est payé et sera payé encore
+  pour 12 mois, utilise ce service partout ou c est possible, sans limite », puis « surtout pour avancer plus rapidement en cas de besoin
+  ». Console lue par MONARK à 09:30 UTC dans la session du fondateur (faits datés gardés hors du dépôt public : plan, période,
+  consommation et quota du compte) ; P-3 de RUNBOOK-sentinel §6-bis : CYCLE chainstack-2026-09-19, plancher lu, à relire le jour du
+  redéploiement. Relayé à PAROXYSME pour ses registres.
+- PAROXYSME PR #43 (erratum P-23 : une mission de worker nomme un répertoire de travail ou de brouillon, même quand elle interdit d
+  écrire) fusionnée par MONARK à 09:3x UTC (e2aa866) ; 228/228 sous Windows (229 sous Linux). PAROXYSME prié de grouper ses errata d
+  atelier (une PR par heure au plus, sauf erreur bloquante).
+- a1 (#233, #236) fusionné localement : M1 aa10b424 (#233, tête 49851b0f), M2 8a1aabef (#236, tête ab8ea8d9) ; relecture légère (lecteur
+  fermé, non servi, branchement avec #237) ; rejeu Windows des tests touchés et de ci-gates 83/83 ; repli des comptes sous Windows
+  (reporter du G0 v2, F:/tmp/dojo/tcf/) : tronc 20fffe9f 285 fichiers 2 936 tests, M2 286 fichiers 2 943 tests, aucune baisse, résumé
+  propre partout, seul changement policy-committed.test.ts absent → 7 ; G7 en cours.
+- SENTINEL-GUARD-ARMING-1 (MONARK, 09:3x UTC) : P-3 lu ce jour, mais P-1 non tenu : le pli §11-1 (ADR-NARABI-OPS-1 A.8-1, l.257) n a
+  jamais été fait, et le redéploiement avant le pli est exclu (l.253) ; demande à PAROXYSME d avancer PXC-05 partie 3 ou le seul pli
+  (porteur proposé RECHERCHES) ; le plancher sera relu le jour du redéploiement. ÉCART DE MONARK : réarmement annoncé au fondateur comme
+  proche sans avoir relu P-1 ; corrigé dans le même échange.
+- SENTINEL-GUARD-ARMING-1 : P-2 acquise (PAROXYSME eccdeb4, relu au tronc 20fffe9f) : temps 1 clos (carto du 2026-09-23) ; course U-4b-1b
+  close au sens du gel (SIDECAR-prereg-u4b-1b l.40, 9/9) ; sha de rpc.ts = gel D4 (0e232519…). Décision MONARK 09:4x UTC : le pli §11-1
+  (A.8-1) part maintenant comme lot seul, NARABI-OPS-1-FOLD-11-1, porteur RECHERCHES, G0 court sur le brief d A.8-1, avant la fin d O-1
+  (avance d une part d O-2) ; ensuite G2, re-checkpoint-2, G7, puis §6-bis par MONARK avec le plancher relu le jour même. Registre Narabi
+  L26 : RECHERCHES porteur du pli.
+- DÉCISION DU FONDATEUR (2026-10-08 vers 09:4x UTC, dans le fil de MONARK, Q-V1 de PXC-02) : « construire le vrai lien, ce qui demande du
+  travail en plus. mais aussi, il faut que shogen et Ukemi apporte quelque chose pour le produit bell, pas pour un ornement. un vrai
+  usage. il faut que bell soit un produit institutionnel, méme si il n y a pas de demande, il faut en faire un produit institutionnel,
+  mais il faut d'abord que le chantier paroxisme se termine afin de se consactrer a bell, c est paroxisme qui s'en chargera. donc si vous
+  jugez qu'il faut build ce lien pour le futur BELL on le fait. dans le chantiier » ; correction : « shogen et hikae ». Lecture de MONARK
+  relayée à PAROXYSME : lien Bell ↔ Shōgen et Hikae construit seulement s il porte un vrai usage, dans un chantier Bell institutionnel
+  porté par PAROXYSME après la fin de sa feuille de route ; intérim du noyau de PXC-02 : le lien marqué « à venir » (option a). Q-V2,
+  Q-V3, Q-V4, DN-13 sans réponse (défauts de PAROXYSME).
+- DÉCISION DU FONDATEUR (2026-10-08 vers 09:4x UTC, dans le fil de MONARK ; écrit « 09:5x » par erreur dans le message 98f8d17 à
+  PAROXYSME) : « oui, je suis vos reco sur toutes les questions, gardez juste comme but que vous devez faire de monark une pépite, un
+  produit que les gros acteurs du marché vont s'arracher et payeront le prix fort pour ça. » Questions de PXC-02 tranchées : Q-V2 (b),
+  Q-V3 (c) puis (a) si la lecture confirme (lecture à MONARK), Q-V4 (d), DN-13 (b) ; Q-V1 ligne précédente. Relayé à PAROXYSME. Usages du
+  fournisseur RPC payant proposés par PAROXYSME (a7a0b4d) : U3, U1, U2, B4, B1, N1, D1 ; U3 et Q9 tranchés par MONARK après le cp-1.
+- PXC-19 BELL-INSTITUTIONAL-1 (PAROXYSME b75f575, amendement n° 1 du plan de route, pièce
+  coordination/pieces/2026-10-08-plan-amendement-1/) : chantier candidat, après le dernier chantier du plan, porteur PAROXYSME,
+  déclencheur la clôture du chantier PAROXYSME en cours, ADR propre validée par le fondateur ; deux questions à former dans son ADR : l
+  usage réel du lien Bell ↔ Shōgen et Hikae (sinon la mention « à venir » se retire) et la définition de « produit institutionnel ». Q9 du
+  pli des registres (règle de la boîte sur Bell) encore ouverte, à MONARK.
+- PXC-02 cp-1 : décision MONARK 09:5x UTC, option (b) de PAROXYSME (626d0ff) : un seul paquet complet vers 12:30 UTC (ADR, plan v4 refait
+  après Q-V3 (c) et Q-V4 (d), vérification neuve), lu une fois par le validateur. Lectures à MONARK : (a) ECMA-262 Math.pow et ** et V8 de
+  Node 24.21.0 (Q-V3) ; (b) les deux messages X dans la session du fondateur (DN-13, item DOJO-X-TEXT-READ-1).
+- #243 HOST-ADDRESS-GATE (tête 7d0c473b, demande de fusion 3bc1dfd) : relecture légère du pli conforme ; fusion locale 61e1d39a sur
+  8a1aabef ; rejeu Windows 117 verts, 1 sauté (déclaré), 1 ROUGE : address_literals_mask_a_path_wherever_its_address_recurs_escaped
+  (test/no-host-address.test.ts:164) ; cause mesurée (F:/tmp/dojo/debug-243.mjs) : core.ignorecase=true, deux dossiers de fixture ne
+  différant que par la casse de l échappement (%2e, %2E) se confondent sur NTFS, git add ne suit que 2 fichiers sur 3 ; fusion annulée
+  (jamais poussée), tronc à 8a1aabef ; correction essayée (octet complété par un zéro) : 3 fichiers suivis, colonne 24 → 25, deux lignes,
+  R-25 550 > 547 ; demandée à RECHERCHES dans la borne ; item formé FIXTURE-CASE-FOLD-1 (fixture() refuse deux chemins égaux à casse
+  repliée ; RECHERCHES ; déclencheur le prochain lot sur ce test).
+- #243, étape (0) de §15 jouée par MONARK à 10:0x UTC : clé d hôte du site copiée sous le nom monarkgate.tech après égalité des empreintes
+  (connue pour l adresse = scannée par le nom, ED25519 SHA256:ViKToAVwpt1u0p+nze53+KiPWMAx4lfqkFTPefUHGUw ; adresse lue de
+  RUNBOOK-sentinel dans une variable, jamais imprimée) ; bell.monarkgate.tech déjà connu sous son nom (ED25519
+  SHA256:qpiUjiHIb8S5qR9NNiaNJ7ETDKS9rtD+Ze6GSd1a90w) ; première commande par nom, BatchMode, sur les deux hôtes : exit 0 (hostname rendu
+  : le nom du fournisseur pour le site, bell pour Bell) ; sshd -T sur les deux : passwordauthentication no, kbdinteractiveauthentication
+  no, permitrootlogin prohibit-password, pubkeyauthentication yes : SSH n accepte que les clés. Empreintes à verser au JOURNAL.
+- Lecture (a) pour Q-V3 (MONARK, 09:56-10:04 UTC, FAITS-pow-ecma-v8-2026-10-08.md, à verser) : ECMA-262 17e éd. §6.1.6.1.3 «
+  implementation-approximated » ; V8 13.6 (révision 233.17) (Node 24.21.0) math::pow appelle std::pow (flag use_std_math_pow, défaut true,
+  flag-definitions.h l.1029), sauf y == 2 et y == 0.5 : résultat dépendant de la bibliothèque C ; Q-V3 reste (c) ; item proposé
+  NARABI-POW-PORTABLE-1 (enregistrer plate-forme et libc, ou calcul sans ** ni Math.pow dans la ligne publiée).
+- NARABI-POW-PORTABLE-1 (Narabi L19 ; PAROXYSME 5ed4a29) : ECMA-262 §6.1.6.1.3 laisse ** à l implémentation et V8 de Node 24.21.0 appelle
+  std::pow (lecture de MONARK, 2026-10-08) ; construction : S4′, calcul en entiers (voie ii, acceptée par MONARK), ou plate-forme et
+  bibliothèque C enregistrées ; porteur PAROXYSME ; déclencheur : partie 2 de PXC-04 ; prix estimé C 2,5 + R 1 ; Q-V3 bascule en (a) à sa
+  clôture. Cinq valeurs de pow sous Windows données à PAROXYSME pour un rejeu sous Linux.
+- NARABI-POW-PORTABLE-1, MESURÉ (MONARK, 10:1x UTC) : pow-digest.mjs de PAROXYSME (ce2683d, lu avant exécution) : les trois empreintes d
+  un million de cas diffèrent entre Windows 10 (win32 x64) et Linux (glibc 2.39), même Node 24.21.0 et même V8 13.6 (révision 233.17) :
+  tracker-eps-0.1 ee8827c9… contre 318cd07a…, tracker-eps-0.01 24ff4ea9… contre f61f6020…, paires 154f956d… contre c7853ec4… ; l écart est
+  prouvé sur le pas réel du tracker de Narabi ; empreintes par tranche envoyées (pièce 2026-10-08-pow-ecart) ; PAROXYSME localise le
+  premier cas et écrit le test rouge de l item ; Q-V3 (c) confirmé par la mesure.
+- NARABI-POW-PORTABLE-1 : premier cas qui diffère t = 2466 (Linux a9726b23c42c393f, Windows aa726b23c42c393f, un ULP) ; 5 cas sur 10 000
+  dans la tranche 0 ; décision MONARK : le test rouge vient avec la construction (ii) à PXC-04 partie 2 (option c), la preuve vit au
+  registre Narabi L19 « mesurée ».
+- Bell (lecture seule, 10:3x UTC, SSH par le nom bell.monarkgate.tech) : monark-probe, première course sous les masques de #244,
+  Result=success, statut 0, de 10:30:00 à 10:30:04 UTC (state_checked true, last_alert_day null). Les quatre unités sous masques sont donc
+  toutes vertes : collect, publish 03:30, dojo-probe 07:30, probe 10:30.
+- NARABI-OPS-1-FOLD-11-1 : G0 court 4a33afd (rien ne bloque ; 7 fichiers, R-25 188 ; run.ts, timeline.ts, flow.ts à l octet ; les 5
+  mutants du G2-delta meurent sous le prototype). Décisions MONARK 10:4x UTC : Q-1 corriger les deux textes hors liste fermée (+5, ~193) ;
+  Q-2 sept fichiers ouverts pour le lot ; Q-3 actes de MONARK au G7 (amendement D4 d ADR-U4b, rétractation datée d A.3 et A.6 d
+  ADR-NARABI-OPS-1, re-pointage de RUNBOOK-sentinel l.187-313 après #243, JOURNAL avec le SHA de fusion nommé) ; ligne périmée
+  SENTINEL-SIGTERM-LOAD-1 (ETAT l.1835-1838, réglée selon l.1024-1029) à fermer au prochain commit de documents.
+- #249 VERIFIER-TOOL-CI-VECTORS-1 fusionnée (c5030fd9, base 8a1aabef, tête 1bdb1f52) : G2 226b5999 CORRECTIONS 1 m plié ; rejeu Windows
+  verifier-tool-ci, ci-gates, export-public 55/55 ; G7 dix gates à 0, enregistrement
+  F:/tmp/oracle-results/c5030fd9…-G7-20261008T104214Z-57452.json sha256 1b21264e563399e7e2212b78e20d2dbc4354e347e488ede5322515ca118fe2de ;
+  tronc poussé 8a1aabef..c5030fd9 vers 10:5x UTC, PR MERGED ; IO-GUARD L part de c5030fd9 ; l item reste ouvert jusqu à la bascule vers
+  R1.
+- PAROXYSME PR #55 (errata P-24 : une question part avec son périmètre compté ; P-25 : la règle 12 refuse une empreinte abrégée de moins
+  de huit chiffres d un côté) fusionnée par MONARK vers 10:5x UTC (5c51822) ; 236/236 sous Windows (237 sous Linux) ; une seule PR d
+  atelier dans l heure.
+- #243 HOST-ADDRESS-GATE fusionnée (d9cb6ef3, base c5030fd9, tête 6da8259b ; fixture Windows corrigée, second dossier « w… ») : rejeu
+  Windows 118 verts, 1 sauté déclaré, 0 rouge (textes canoniques, % , 250 ms, liens, arbre entier) ; étape (0) faite à 10:0x UTC ; G7 dix
+  gates à 0, enregistrement F:/tmp/oracle-results/d9cb6ef3…-G7-20261008T110156Z-78112.json sha256
+  0b74c27e76103004e6657aa9d1fdf7b1461231f048f546943dd6c2edaa2fbb5d ; tronc poussé c5030fd9..d9cb6ef3 vers 11:1x UTC, PR MERGED.
+- ERRATUM RECHERCHES relevé par MONARK : deux instances d auteur sur le même lot NARABI-OPS-1-FOLD-11-1 dans un même espace de travail
+  (679f302) ; une s est arrêtée ; outil demandé : un verrou par lot dans l atelier de RECHERCHES.
+- TEST-COUNT-FLOOR-1, fenêtre entre PR-1 et PR-2 (décision MONARK 11:2x UTC) : IO-GUARD L et NARABI-OPS-1-FOLD-11-1 peuvent fusionner
+  avant PR-2 sans écrire test/test-counts.json ; PR-1 n a pas de porte, le write de PR-2 reprend les hausses et PR-2 porte une ligne de
+  retrait par baisse. RECHERCHES : verrou par lot lotlock.mjs (5b2659a) et règle 10 contre un SendMessage à l agent d un workflow vivant
+  (6fd1bc8), erratum 38. ACTE DU FONDATEUR À DEMANDER : recoller install.sh de RECHERCHES (filtre Bash|Write|Edit|Agent|SendMessage) dans
+  le script d installation de son environnement cloud.
+- PXC-02 : cp-1 décalé vers 13:15 UTC (PAROXYSME 315ce29 : vérificateur des textes de la réparation n° 2, 1 bloquant, 3 à corriger, 12
+  mineurs). Q-M8 décidée par MONARK 11:2x UTC (écrit « 11:3x » par erreur dans le message 5d66ea9 ; horloge 11:29), option (a) : six
+  lignes du même sens que Q-V4 (README l.77 ; applications/page.tsx l.26, l.64, l.67-68 ; docs/page.tsx l.62 ; commentaire de
+  site-header.tsx l.25) corrigées dans T25 avec les dix endroits, en exécution de la décision du fondateur sur Q-V4 (rien ne se contredit
+  à la mise en ligne).
+- Outil MONARK (11:3x UTC) : guard.mjs règle 4 étendue après deux horodatages en avance (« 09:5x » à 09:49, « 11:3x » à 11:29, messages à
+  PAROXYSME) : un tampon MONARK ne précède plus l horloge (la tolérance de 2 min est retirée), et l heure d une décision de MONARK ou du
+  fondateur écrite dans les 40 caractères qui suivent le nom ne peut pas être en avance (une heure d une autre date n est pas jugée) ; 6
+  cas neufs, 49/49.
+- PXC-02 : décisions MONARK 11:3x UTC : Q-M9 (b), la parenthèse sur Bell ôtée de README l.299 (gel du texte de Bell) ; Q-M10 (a),
+  amendement daté d ADR-M012 étendu à D4 et l.157 dans la PR du noyau, et item pour les deux commentaires de apps/sentinel/src/timeline.ts
+  (l.4-5, l.67) rattaché à NARABI-POW-PORTABLE-1 (timeline.ts reste à l octet). Défaut trouvé par le second vérificateur de la réparation
+  n° 2 : le champ test des 89 lignes de la table des mutants portait l identifiant court, run.mjs n aurait choisi aucun test (89
+  survivants) ; corrigé au pli final ; outil demandé à PAROXYSME.
+- Pli des registres (#253, PAROXYSME 6b0960b), douze questions tranchées par MONARK à 11:5x UTC : Q1 (a), Q2 (a), Q3 (a), Q4 (a) ; Q5 (a),
+  la levée du plafond vaut décision de dépense, MONARK nomme l abonnement et le prix de MK-L29 à PXC-18 partie 2, le fondateur achète ; Q6
+  (b), seule la collecte planifiée sort de D-5 ; Q7 (c) ; Q8 (b), items à former ; Q9 après le cp-1 ; Q10 (b), les quatre fichiers hors
+  dépôt sont encore dans l arbre servi de l hôte du site (lu à 11:5x UTC ; écrit « 12:0x » par erreur dans afcef93), ils rejoignent la
+  question des huit archives au fondateur ; Q11 (b), P-3 lu et posé par MONARK ; Q12 (a).
+- Outil MONARK (11:5x UTC) : guard.mjs règle 4 étendue une seconde fois après un troisième horodatage en avance (« 12:0x » à 11:57, sans
+  nom de décideur) : toute décennie « HH:Mx UTC » fraîche du jour ne précède pas l horloge (un plan s écrit « vers HH:MM ») ; les lignes d
+  ETAT ajoutées par printf sont lues aussi ; 54/54.
+- PXC-02 Q-M1 (préalable du cp-1) tranchée par MONARK à 12:0x UTC : (a), la partie 1 est le noyau seul, trois parties au chantier ; le
+  noyau mesuré 645 lignes de code dépasse la borne de plan de CHECKLIST-G7 item 4 (≤ 547 ou lot scindé ; mesure r25() ≤ 1 150, porte CI 1
+  205) : deux lots de 547 au plus dans la partie 1, fusionnés l un après l autre, une seule G2, un cp-2, un G7 (décision 300). La garde a
+  refusé un premier jet daté « 12:1x » à 12:09 (quatrième horodatage en avance du jour, le premier arrêté par l outil).
+- #253 registres PAROXYSME fusionnée (2d37851b, base d9cb6ef3, tête 8d9d5693 ; six registres, documents seuls ; CI 12/12) : rejeu Windows
+  ci-gates et porte des adresses 56 verts, 1 sauté déclaré ; G7 dix gates à 0, enregistrement
+  F:/tmp/oracle-results/2d37851b…-G7-20261008T120016Z-116252.json sha256 b4125233dea975bcd3207b925410f95cf7d117183fc15256699b92504ddf95c0
+  ; tronc poussé d9cb6ef3..2d37851b vers 12:1x UTC, PR MERGED. PAROXYSME PR #59 (erratum P-27 : mutcheck.mjs ; P-26) fusionnée par MONARK
+  (7ee769e), 242/242 sous Windows.
+- BELL-CONNECTS-WITNESS-1 (Bell N-02 ; Q1 du pli des registres de #253, réponse (a) de MONARK) : déclencheur « le prochain lot touchant
+  `fleet.ts` », passé avec #244 sans toucher la l.354 (`connects`), re-porté à la PR du noyau de PXC-02 (PAROXYSME `d6331f6` l.81).
+  Celle-ci marque le lien « à venir » (Q-V1, option (a), lecture de MONARK). Le vrai lien Bell ↔ Shōgen et Hikae n est construit que s il
+  porte un usage réel, dans le chantier candidat PXC-19 BELL-INSTITUTIONAL-1 (décision du fondateur du 2026-10-08).
+- HOST-HARNESS-PREV-1 (Q10 du pli des registres, réponse (b)) : lu sur l hôte du site vers 11:5x UTC, en lecture seule : les quatre
+  fichiers hors dépôt de l arbre servi (`apps/sentinel/src/rpc.ts.prev`, `apps/site/app/products/page.tsx`,
+  `apps/site/lib/narabi-snapshot.ts`, `packages/monark/test/cross-agent-gate.test.ts`) sont toujours présents. Leur suppression est un
+  acte du fondateur : ils rejoignent la question des huit archives `.bak-*.tgz`, posée au prochain point d étape avec lui, au plus tard
+  avant le déploiement de la release L (Q3).
+- SENTINEL-GUARD-ARMING-1 (Q11, réponse (b)) : P-3 est lu et posé par MONARK. Le fondateur a demandé la lecture de la console (« fais le
+  toi méme, j ai ouvert chainstack sur chrome »), et les clés de cycle se posent depuis le poste de MONARK à l étape (4) de §6-bis. Le
+  plancher est relu le jour du redéploiement. Le prochain pli des registres change le porteur de P-3 dans Narabi N04 et L26 à L28.
+- Corrections en place de ce commit : l étiquette de ADV-SIP-DAY-1 (« L-39 » devient « L-23 », et « L-39 » passe devant SUPPLY-READ-1 ;
+  Q2) ; la ligne SENTINEL-SIGTERM-LOAD-1 est fermée (correctif `9d6181e0`, ancêtre du tronc, déjà dit réglé plus haut ; relevé du G0 de
+  NARABI-OPS-1-FOLD-11-1) ; l en-tête de ADR-M014 (Q4) dit ses deux checkpoints rendus le 2026-09-18 (JOURNAL-PROVENANCE, entrée de la
+  passe M014).
+- Registre PAROXYSME, point d étape : six registres pliés au tronc par #253 (comptes inchangés : Harnais 106, Hikae 54, Ukemi 52, Narabi
+  61, Bell 57, Shōgen 76) ; limite Narabi L19 mesurée (NARABI-POW-PORTABLE-1, construction (ii), porteur PAROXYSME, déclencheur PXC-04
+  partie 2) ; items formés ce jour : CIG-WIRING-COMMENT-1, VECTORS-WITHIN-BOUND-1, TEST-COUNT-SKIP-EXPORT-1, FIXTURE-CASE-FOLD-1,
+  NARABI-POW-PORTABLE-1 ; chantier candidat PXC-19 ; aucune limite relevée sans item ce jour.
 
 ## Points connus (à traiter, non bloquants sauf mention)
 
@@ -1835,7 +1994,8 @@ d ADR-M003.
   - SENTINEL-SIGTERM-LOAD-1 (zone RECHERCHES, `apps/sentinel/test/sentinel-chainstack-guard.test.ts:321`) : le test
     `sentinel_run_releases_chainstack_lock_on_sigterm` rougit sous la charge de la CI exportée (test 42, run 37169648100 de #110 ; déjà
     vu par RECHERCHES à la base) et passe seul. Construction : borne de temps du test tenue par un événement, jamais par une durée.
-    Déclencheur : signalé à RECHERCHES le 2026-10-04 ; état : ouvert.
+    Déclencheur : signalé à RECHERCHES le 2026-10-04 ; état : clos (correctif `9d6181e0`, ancêtre du tronc, dit réglé plus haut ;
+    ligne fermée par MONARK le 2026-10-08, relevée par le G0 de NARABI-OPS-1-FOLD-11-1).
   - L2-DATA-STREAM-BASE-1 (mesure ; Q-P1-3 du plan de P1) : la base `wss://data-stream.binance.vision` (moindre privilège) n a ni port
     ni règle des 24 h écrits ; P1 part sur la base générale. Construction : mesurer port, durée de connexion et règles à M-1, puis basculer
     si elles égalent celles de la base générale. Déclencheur : M-1 ; état : ouvert.

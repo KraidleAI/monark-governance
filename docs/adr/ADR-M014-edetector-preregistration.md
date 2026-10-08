@@ -1,6 +1,6 @@
 # ADR-M014 — e-détecteur de dérive (Shin–Ramdas–Rinaldo) : pré-enregistrement ancré, instrument étiqueté, jamais déclencheur
 
-- **Statut** : décision (pré-enregistrement) 2026-09-18 · checkpoint-1 validateur — dû avant le code · checkpoint-2 — dû avant clôture
+- **Statut** : décision (pré-enregistrement) 2026-09-18 · checkpoint-1 validateur ACCEPTE-AVEC-CORRECTIONS (C-1..C-12) et checkpoint-2 ACCEPTE-AVEC-CORRECTIONS (C-i..C-v), rendus le 2026-09-18 (JOURNAL-PROVENANCE, passe M014) [en-tête corrigé en place par MONARK le 2026-10-08 ; il disait « dû avant le code » et « dû avant clôture »]
 - **Dates** : décision 2026-09-18 · dernière modification 2026-09-27 (G7 de NARABI-L-1 : amendement D4)
 - **Rattachement** : ADR-M012 D6 (section instrument hors état), items (h) (clos 2026-09-18, `docs/biblio/M012-h/`) et (l) (publication
   post-J0, T ≥ 7) ; ADR-M010 (release) ; ADR-M013 ne s'applique pas (hors `apps/site`).
