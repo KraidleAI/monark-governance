@@ -198,7 +198,7 @@ function add(o) {
   }
   if (o["from-redproof"] !== undefined) {
     const b = bytesOf(o["from-redproof"], "red-proof record"), r = jsonOf(b), d = deriveRedproof(r);
-    if (r?.schema !== "red-proof-v1") throw new Usage(`--from-redproof ${o["from-redproof"]}: not a red-proof-v1 record`);
+    if (!(r?.schema === "red-proof-v1" || r?.schema === "red-proof-v2" && r.mode === "f2p")) throw new Usage(`--from-redproof ${o["from-redproof"]}: not a red-proof-v1 record nor a red-proof-v2 of mode f2p`);
     e.redproof = { record: abs(o["from-redproof"]), sha256: hash(b), ...Object.fromEntries(COPIED.map((k) => [k, d[k]])) };
     facts.push(b);
   }
@@ -290,7 +290,7 @@ function build(o) {
     const p = e.redproof, x = p === null ? null : fact(p.sha256), r = x?.bytes ? jsonOf(x.bytes) : null, d = deriveRedproof(r), rev = REVIEWED.includes(e.gate), byAdd = e.facts?.origin === "add";
     if (p === null) return rev && byAdd ? `no red-proof at ${e.gate} of origin add (F2P proof absent)` : null;
     if (x.why !== null) return `RED-PROOF ${x.why}`;
-    if (r === null || typeof r !== "object" || r.schema !== "red-proof-v1") return `RED-PROOF not JSON or schema ${String(r?.schema)} != red-proof-v1`;
+    if (r === null || typeof r !== "object" || !(r.schema === "red-proof-v1" || r.schema === "red-proof-v2" && r.mode === "f2p")) return `RED-PROOF not JSON or schema ${String(r?.schema)} != red-proof-v1`;
     const off = COPIED.filter((k) => p[k] !== d[k]), want = rev ? e.commit : PRE_GEL.includes(e.gate) ? e.mission?.recu_head ?? null : p.head;
     const bt = mb === null ? null : /^Base tronc `[0-9a-f]{8}` \(([0-9a-f]{40}(?:[0-9a-f]{24})?)\)$/mu.exec(mb.toString("utf8"))?.[1] ?? null;
     if (off.length > 0) return `a field copied != its derivation (${off.join(", ")})`;
