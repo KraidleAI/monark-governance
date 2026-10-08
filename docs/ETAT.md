@@ -48,7 +48,9 @@ Toutes les décisions antérieures sont effacées, sur ordre de l'investisseur (
     (DOJO-PROBE-FOLLOWUP-1, VERIFIERS-LIST-F5A-1).
 - **Décisions du fondateur, 2026-10-07 14:4x UTC** (outil de questions fermées, options du plan de route PAROXYSME v3 §0.1) : Q-A
   « Maintenant (Recommandé) » ; Q-A.2 « Passe « upcoming » (Recommandé) » (la jambe « attested onchain flow » de Narabi passe
-  `upcoming` ; `status` et `apps/site/lib/fleet.ts` changent par le noyau de PXC-02 ; go d envoi du site : le fondateur) ; Q-C « Adopter,
+  `upcoming`, pour cette jambe ; sa forme est fixée par l ADR de PXC-02, au cp-1 ; go d envoi du site : le fondateur) [ligne datée
+  MONARK 2026-10-08 05:1x UTC : texte corrigé, erratum P-7 de PAROXYSME accepté le 2026-10-07 20:3x UTC ; l ancien disait « `status` et
+  `apps/site/lib/fleet.ts` changent par le noyau de PXC-02 »] ; Q-C « Adopter,
   ADR en 3 parties (Recommandé) » ; préséance des six registres intérimaires : « Oui, en premier ». Le dépôt privé `KraidleAI/paroxysme`
   est créé par MONARK à 14:2x UTC sur sa demande (« crées le repo privé du chantier PAROXISME, prépare le … c est lui qui fait le gros du
   travail, toi tu orchestres »).
@@ -85,7 +87,11 @@ Toutes les décisions antérieures sont effacées, sur ordre de l'investisseur (
 
 ## Garde-fous gardés par l'orchestrateur, sauf avis contraire de l'investisseur
 
-- Aucune dépense.
+- Aucune dépense. [Ligne datée MONARK 2026-10-08 05:2x UTC : avis contraire du fondateur, 2026-10-08 vers 05:18 UTC, relayé mot pour mot
+  par PAROXYSME `47ef84d` : « oui, tu peux dépenser autant que tu veux, tu me dis quel abonement et je le recharge au max. pas de plafond
+  de budget, on doit avancer. » Les dépenses qui servent le travail (comptes de données et RPC de Bell, lectures d Ukemi, hôte séparé de
+  Bell, crédits d API) n ont plus de plafond ; MONARK nomme l abonnement et son prix, le fondateur l achète et le recharge : aucun achat
+  ni moyen de paiement par un Claude.]
 - Rien de publié sur X.
 - Aucun secret ni adresse IP d'hôte publiés (voir « Adresse du serveur Bell » plus bas : déjà publique avant cette règle).
 - Aucune suppression définitive sans accord.
@@ -233,7 +239,7 @@ record `760fdd4b…` ; relevé par MONARK, 2026-10-07 09:1x UTC).
     Construction : l engagement à clé des empreintes de suite publiées (option (e) du G0, l.379), qui généralise
     DIR-4H-DIGEST-COMMIT-1 ; prix : à chiffrer à son G0 ; état : formé.
   - BELL-ITEMS-ETAT-CARRY-1 (PAROXYSME ; inventaire de Bell l.178, registre de Bell doute 10) : les 43 items de Bell absents d ETAT
-    (liste : `docs/PAROXYSME-Bell.md` l.502-519) sont reportés ici, chacun avec sa source, son porteur, son déclencheur et son prix.
+    (liste : `docs/PAROXYSME-Bell.md` l.502-519 à `1df4e44f`) sont reportés ici, chacun avec sa source, son porteur, son déclencheur et son prix.
     Relevé par PAROXYSME, lignes par MONARK ; les quatre items datés d abord (ci-dessous), les 39 autres en PXC-01 p2 ; prix : 0,5 j.
   - Les quatre items datés de Bell (relevé de PAROXYSME, `9662945` ; prix : à chiffrer à leur G0, non écrit à la source) :
     - CARTO-BR-1 (`docs/CARTOGRAPHIE-BRANCHEMENT-2026-09-24.md` l.342) : la copie immuable de la provenance seq 1 nomme un fournisseur
@@ -274,6 +280,218 @@ record `760fdd4b…` ; relevé par MONARK, 2026-10-07 09:1x UTC).
 - **À porter au fondateur** (relevé de MONARK, 19:4x UTC) : la suppression des fichiers et arbres anciens sur l hôte du harnais
   (HOST-HARNESS-PREV-1) ; la décision de forme G5 de Shōgen (le mainteneur de Shōgen est le fondateur) ; les échéances du passage public
   du dépôt Shōgen (N-06, N-07) et de J14/J28 (N-08) ; plus tard, la dépense d un hôte séparé pour Bell (BELL-HOST-COTENANCY-1 (c)).
+
+## Point du 2026-10-08 au matin (MONARK, 2026-10-08 05:1x UTC)
+
+Écrit au tronc après `391ca7c0` (#246). Chaque ligne ci-dessous est la ligne datée tenue par MONARK depuis `5437cd0d`, dans l ordre où
+elle a été écrite ; les faits sont à leur source (message, pièce, enregistrement d oracle). Deux corrections sont faites en place : la
+ligne Q-A.2 des décisions du fondateur du 2026-10-07 (erratum P-7) et l ancre de BELL-ITEMS-ETAT-CARRY-1 (à `1df4e44f`).
+
+**Registre PAROXYSME (rappel, CLAUDE.md §4)** : campagne en cours, le second tour des six registres de PAROXYSME (#245, demande de fusion
+attendue au plus tard à 06:30 UTC) ; aucun procurement attendu ; limites sans item : les seize étapes relevées par la tâche 2 bis (Bell
+M2, M3, M4, M6, M9, M10, M11 ; Ukemi E3, E4, E8, E9, E12 ; Narabi T2, T3, T5, T12), à former dans O-1 à O-4 par PAROXYSME.
+
+- HOST-HARNESS-PREV-1 (MONARK, 2026-10-07 19:5x UTC, paroxysme) : la question de suppression part au fondateur au prochain point d étape,
+  au plus tard avant le déploiement de la release L ; sa réponse verbatim sous l item.
+- PX-Ukemi-19 (D7 (e) d Ukemi, N2) : former à ETAT avec la ligne datée du §7 de recherches `ffdaecf` (REPONSE-D7e-N2.md, sha256 55a17234…,
+  horodatage 20:11 UTC) ; décisions MONARK 20:3x UTC : lecture (i) retenue, sujet restreint à s0, deux porteurs dans la même release (par
+  appel : fin du text de la ligne s0 par une table liq datée neuve, Z-3, re-pins, §12 l.502 clarifié ; description : place fixée avec la
+  construction de GATE-DESC-CLIENT-CUT-1) ; déclencheur : release des textes servis de PXC-12 p2, ou L2-4 si avant.
+- Ordre de fusion sur apps/site/lib/fleet.ts (MONARK 20:3x UTC) : lot BELL-HOST-COTENANCY-1 (RECHERCHES), puis noyau de PXC-02, puis
+  PXC-01 ; le volet (a) prend aussi bell/page.tsx l.36, bell/anchors/page.tsx l.39, docs/bell/page.tsx l.60, fleet-presentation.ts l.130.
+- JOURNAL (RECHERCHES fd19055, 21:08 UTC) : la première G2 du G0 de IO-GUARD-POSED-FILES-1 n a pas rendu (réponse arrêtée par un filtre de
+  sécurité pendant la rédaction, rien poussé) ; relancée avec l accord du fondateur par une instance neuve claude-opus-5-5 max en
+  périmètre étroit (logique du plan, dix réponses, suite T/C/L contre 1f §6, taille, preuves ; lacunes décrites en une phrase, sans
+  recette de contournement). PAROXYSME inscrite à coordination/ZONES.md et au JOURNAL de recherches (d8b4823), sur confirmation du
+  fondateur.
+- IMPORT-SPECIFIERS-AST-1 (RECHERCHES ; G2 d a1 M-1, cd29160, pièce G2-a1-adopt-1f.json 40cb8868…) : `ts.preProcessFile` (aide
+  `apps/harness/test/helpers/import-specifiers.ts` l.26, au tronc depuis #231) ne lit pas `export * as ns from` ni un import après un
+  littéral de regex contenant une apostrophe ou un accent grave ; huit mutants passent (l un charge node:vm) ; régression d a1 et trou de
+  1f au tronc. Décision MONARK 21:2x UTC : lot court du tronc avant a1, spécifiants tirés de l arbre syntaxique de forbiddenLoads, huit
+  tueurs, en-tête de l aide réécrit. Erreur de MONARK (choix de ts.preProcessFile, dd734ea, sans mutant des formes non lues) : JOURNAL.
+- SERVED-WALK-LOADS-1 (RECHERCHES ; G2 d a1 m-1) : forbiddenLoads appliqué à chaque module servi (0 faux positif sur 22) ; déclencheur :
+  dans IMPORT-SPECIFIERS-AST-1 s il tient dans sa taille, sinon le prochain lot qui ajoute un module au servi.
+- Ordre (MONARK 21:2x UTC) : IMPORT-SPECIFIERS-AST-1, a1 (#233, #236), #237, #238 ; #244 dès qu il est prêt ; IO-GUARD-POSED-FILES-1 sur
+  son fil.
+- IO-GUARD-POSED-FILES-1 (G2 du G0, RECHERCHES 5313c3c, pièce fad4af28…, CORRECTIONS 2 M 9 m) : décisions MONARK 21:5x UTC : la liste du
+  quart kata est écrite par c1d, ce lot refuse en sortie 4 un second arbre sans liste ; T reste local et part avec C et L (condition (e)
+  de 1f) ; règle « une révocation retire le droit d attester » portée par la partie 3 et le chargeur d E-2a comme exigence nommée avec son
+  test.
+- VERIFIER-TOOL-CI-1 (ligne datée MONARK 22:3x UTC, sous l item ETAT l.730-736) : déclencheur = le premier de deux : avant qu une seconde
+  révision de monark-kata-recalc entre dans la liste (G0 de VERIFIERS-LIST-F5A-1 §8 l.590-591), ou avant le gel de c1a de CM-5 ; E2 (lot
+  IO-GUARD-POSED-FILES-1) est cette seconde révision : l étape CI est fusionnée avant le commit L ; elle court aussi les cas neufs de
+  guard_check (cas Windows sautés et nommés).
+- VERIFIER-REVOKED-NEVER-ATTESTS-1 (RECHERCHES ; G2 du G0 IO-GUARD m-1) : une entrée révoquée ne cautionne jamais une ligne ; dans la
+  partie 3 et le chargeur d E-2a (b1-a, b2), test rouge d abord dans chaque lot consommateur ; déclencheur : le premier lot qui branche un
+  consommateur, au plus tard avant la première release datée réelle.
+- IO-GUARD-INSTALL-MASK-1 (précision) : la phrase de confiance de l installation lue va dans la note de passage de MONARK de la course de
+  la partie 2, hors du rapport (aucun texte neuf de report.py).
+- IO-GUARD-INSTALL-MASK-1 (ligne datée MONARK 23:0x UTC) : ETAT l.221-222 « le rapport de la course de la partie 2 écrit la confiance »
+  devient « la note de passage de MONARK écrit la confiance, hors du rapport » ; événement (2) précisé : l étape CI de VERIFIER-TOOL-CI-1
+  est une porte ; l événement vise le jour où un résultat de l étape CI serait cité comme preuve qu une course de recalcul est intègre,
+  dans un texte public ou un rapport.
+- IMPORT-SPECIFIERS-AST-1 (#246, tête 5a649d84, G2 1edb8d31… CORRECTIONS 3 m) : SERVED-WALK-LOADS-1 inclus ; décision MONARK 23:4x UTC sur
+  m-3 : liste fermée des modules intégrés et paquets permis pour les modules servis, dans #246 (ferme registerHooks, Worker avec execArgv,
+  createRequire par node:vm).
+- IO-GUARD-POSED-FILES-1 (MONARK 2026-10-08 00:0x UTC) : le fichier de liste de tools/kata-quarter est écrit par le lot CM-5 qui crée l
+  arbre (c1a selon le G0 de CM-5), puis chaque lot CM-5 qui ajoute un fichier y écrit sa ligne ; correction de « c1d » écrit par MONARK.
+- Programmes pour startups (fondateur 2026-10-08 00:5x UTC, « on laisse ce dossier de côté. on les fera après avoir créé la société ») :
+  en attente de l immatriculation ; sélection et faits : F:/tmp/dojo/FAITS-programmes-startups-2026-10-08.md ; NVIDIA Inception exclu tant
+  que le fondateur est seul (règle des deux contacts, refus et délai de 6 mois). Structure juridique : guide Colosseum/Stablecorp lu
+  (Wyoming LLC vs Delaware C-Corp) ; question ouverte pour un fondateur résident fiscal français, à voir avec un expert-comptable
+  transfrontalier.
+- VERIFIER-TOOL-CI-VECTORS-1 (RECHERCHES ; G2 de #247 m-5) : vectors_check.py ne tourne pas en CI (vecteurs R1 privés) ; déclencheur :
+  publication de R1 dans le dépôt public de la spec, ou le commit L d IO-GUARD-POSED-FILES-1, le premier des deux. Décisions MONARK 01:0x
+  UTC : cas compare_check (tolérance 1e-12 vs 1e-9) plié dans IO-GUARD ; CPython 3.14.8 en CI ; g3-verifier-tool en « CI seulement » à l
+  oracle ; check requis sur lot/etude-suite après accord du fondateur (réglage persistant du dépôt).
+- DÉCISION FONDATEUR (2026-10-08 01:0x UTC, verbatim : « ok ») : le check g3-verifier-tool de #247 entre dans les checks requis de la
+  protection de lot/etude-suite ; acte de MONARK au moment de la fusion de #247 (le job doit exister au tronc d abord).
+- CM5-G0-ENTRY-CONTRACT-1 (RECHERCHES ; G2 du G0 v4 d IO-GUARD m-3) : le G0 de CM-5 (a413e29) contredit le contrat d entrée neuf (L-T22
+  fichiers quarter_* seuls, L-T24 sortie 2, (D) et L-T20 sys.path[1] et import par nom) ; réécriture du G0 de CM-5 avant le G0 court de
+  c1a ; confirmé par MONARK 01:4x UTC.
+- JOURNAL (écart de l orchestrateur, 2026-10-08 01:5x UTC, relevé par le fondateur « tu n as pas vérifié la messagerie ») : la veille de
+  MONARK ne lisait que les messages poussés sur main des deux boîtes ; la PR #8 de l atelier PAROXYSME (ouverte, brouillon, à relire par
+  MONARK, mise à jour 00:43 UTC) n a été vue qu à 01:5x UTC. error_origin : périmètre de la veille. Mesure : la veille lit aussi les PR
+  ouvertes de la boîte PAROXYSME et les PR du tronc qui sortent du brouillon. #8 relue (bonne, fusion quand prête) ; P-9 relayé à
+  RECHERCHES ; #234 à fermer avec renvoi à 885554e5.
+- I-G2-5 (Bell L-22, ligne datée MONARK 2026-10-08 02:1x UTC, question fermée de PAROXYSME 88430bd) : #244 modifie le texte de
+  /bell/method (l.423) et atteint le déclencheur « prochaine modification du texte de /bell/method » ; décision (b) : re-port, nouveau
+  déclencheur « avant le prochain envoi du site, au plus tard la publication seq 3 » ; lecture sur place de la documentation du
+  fournisseur par MONARK (FAITS datés) avant le texte ; texte de la l.563 (« consolidated daily share volumes ») corrigé dans un lot qui
+  passe avant cet envoi.
+- PAROXYSME (88430bd) : erratum P-12 (5 h 40 sans réponse, redémarrage du conteneur à 00:44 UTC non signalé) et règle de jugement 13 ;
+  décisions du fondateur inscrites à son JOURNAL : « continue » + ultracode (2026-10-07 20:44:56 UTC), « c est quoi les différentes
+  workflows? » (22:47:14 UTC), « as tu laissé des messages à MONARK? … » (2026-10-08 ~02:09 UTC). Question de valeur portée au fondateur :
+  workflows de PAROXYSME sous ultracode et règle de budget.
+- #244 (BELL-HOST-COTENANCY-1 (a) et (b), RECHERCHES, tête ea48a829) fusionnée e13cfff7 sur 5437cd0d ; rejeu Windows bell-key-isolation,
+  dojo-collect-deploy, dojo-publish-deploy, probe-dojo-live, ci-gates 92 tests, 90 verts, 2 sautés, 0 échec ; porte de langue verte ; G7
+  vert record 3a543abe… (lancé avec 9 processus node, seuil 8) ; poussé. REDÉPLOIEMENT (2026-10-08 02:34:41-43 UTC) : écriture des unités
+  refusée à MONARK par le classifieur de permissions (non contourné) ; fait par le FONDATEUR avec le script
+  F:/tmp/dojo/redeploy-cotenancy.sh (sauvegarde /root/units-pre-cotenancy-20261008 sur Bell) ; relevé : les quatre unités
+  LoadState=loaded, DropInPaths vide, NeedDaemonReload=no, InaccessiblePaths avec /etc/monark/bell, empreintes égales aux blobs du tronc
+  (collect e9942a70…, publish 7af9db8e…, dojo-probe 682e3508…, probe bc76b200…) ; preuve de démarrage : monark-dojo-collect 02:35:00 UTC
+  Result=success, exit 0 ; publish (03:30), dojo-probe (07:30), probe Narabi (10:30) à relever à leur passage.
+- DÉCISION FONDATEUR (2026-10-08 02:3x UTC, verbatim : « au prochain release, on met bell sur son propre serveur ») :
+  BELL-HOST-COTENANCY-1 (c) tranché, séparation d hôte décidée (dépense acceptée par le fondateur). Plan MONARK : nouvel item
+  BELL-HOST-SEPARATION-1 ; actes du fondateur : achat du serveur, accès SSH par clé, enregistrement DNS de bell.monarkgate.tech au
+  basculement ; actes MONARK : installation selon RUNBOOK-bell, clé neuve générée sur le nouvel hôte par la procédure de rotation (clé
+  publique committée d abord), publication depuis le nouvel hôte, contrôle ; lot RECHERCHES avant tout retrait du dossier de clé sur l
+  ancien hôte (masques sans « - » : sinon code 226) ; texte du site ramené à « its own host » ; Caddy et sens inverse sans objet pour la
+  clé de Bell.
+- DÉCISION FONDATEUR (2026-10-08 02:4x UTC, verbatim : « on termine d abord le chantier paroxisme en éliminant les trous. ensuite on
+  développera bell pour que ce soit un vrai produit avec plus de données, plus d actions, un produit qui nous servira dans nos stratégie
+  de trading mais aussi un produit qu on peut vendre a des tiers. ») : ordre : PAROXYSME d abord (fermer les trous), puis Bell en produit
+  (plus de données, plus d actions, usage interne en trading et vente à des tiers) ; la séparation d hôte de Bell se fait à la prochaine
+  release (seq 3, créneau ouvert par le fondateur ; D-5 : pas avant le 2026-11-16 sans sa décision). Point à instruire avant toute vente :
+  licences de redistribution des fournisseurs de données de Bell.
+- DÉCISION FONDATEUR (2026-10-08 02:4x UTC, verbatim : « d ailleurs, on avait relevé que BELL ne récoltait pas de données, et qu il
+  manquait des étapes, on l avait finalisé a l arache. c était le cas aussi d ukemi et méme de narabi ») : MONARK demande à PAROXYSME
+  (tâche 2 bis) un relevé dit/tourne pour Bell, Ukemi, Narabi et un ordre neuf qui met ces trous en tête (registres : Bell N-03 et
+  BELL-COLLECT-TIMER-1 rangé en F5 ; Ukemi L38 ; Narabi L15, N02).
+- Bell, licences de redistribution des fournisseurs (MONARK 02:4x UTC, question fermée de PAROXYSME 655c47e) : (a), rattachées à L-28
+  (PXC-18 p1, dossier juriste, LIC-DBN-1) avec un second déclencheur « au plus tard avant toute offre de Bell à un tiers ».
+- JOURNAL (2026-10-08 03:2x UTC) : second trou de veille, relevé par le fondateur (« je pense que tu ne lis pas la messagerie ou que le
+  script que tu as mis en place ne marche pas »). Le moniteur et unread.mjs ne voyaient que les fichiers AJOUTÉS sous
+  coordination/messages ; quatre G2 de delta de RECHERCHES déposées sous coordination/pieces (c0d63f6 02:14Z, 6725ec4 03:03Z, ad0b628
+  03:05Z, 5551714 03:10Z) sont restées sans signal environ une heure, dont deux points « À MONARK » (#246 m-4, m-6) et n-8 de #247.
+  Corrigé : unread.mjs liste chaque commit du pair hors message (« PIECE ») ; watch.sh (monark-atelier/bin) émet chaque commit du pair sur
+  sa base, chaque changement de PR des deux dépôts, et un battement toutes les 20 min ; moniteur b50wp1cbj armé à 03:25Z. Décisions
+  envoyées : recherches #433 (7da5d1a).
+- ETAT (à venir) : entrée CI_ONLY de scripts/oracle/run.mjs pour `node scripts/verifier-tool-ci.mjs`, commit MONARK sur lot/etude-suite
+  AVANT la G7 de #247 (n-8 de 6725ec4, m-4 de 5551714), avec recompte et ré-ancrage des tueurs de run.mjs.
+- ETAT (à venir, proposé par RECHERCHES 8903074) : libellé d IMPORT-AST-RUNTIME-NAME-1 élargi à « a loader or constructor reached by a
+  name built or chosen at run time » ; #246 plié à 536f04c2 (CI 11/11, R-25 186), G2 de delta courte en cours.
+- Décisions du fondateur (2026-10-08 vers 03:5x UTC), sur Haiku 5.5 : « non, pour la mémoire y a un LLM local qui le fait. pas touche aux
+  autres, kraidle vernier et Permaegis. vas y commence ». Donc : aucun rôle Haiku pour la mémoire ; Kraidle, Vernier et PermAegis hors
+  champ ; essai mesuré lancé par MONARK (workflow wf_e0ab9fdb-e74, 5 courses, vérité scellée sha256 7781ed35…, F:/tmp/dojo/essai-haiku/).
+  Faits : F:/tmp/dojo/FAITS-haiku-5-5-2026-10-08.md (à verser sous docs/roster/).
+- ITEM À FORMER (relevé à 03:5x UTC en préparant la vérité de l essai ; manqué à la première lecture de c0d63f6) : note 2 de G2-246-delta,
+  « pour MONARK » : un module qui termine le processus par 0 au chargement (process.exit(0), execve) efface les tests de chaque fichier
+  qui le charge, comptés verts ; au rejeu de X-execve, 71 entrées contre 463 tests ; seule une comparaison du nombre de tests à la base le
+  verrait, et rien ne le borne. Proposé : TEST-COUNT-FLOOR-1 (porte : nombre de tests par fichier ≥ celui de la base, sauf retrait
+  déclaré) ; porteur RECHERCHES ; à envoyer.
+- Essai Haiku 5.5 (rapport F:/tmp/dojo/essai-haiku/RAPPORT-essai-haiku-5-5-2026-10-08.md) : Haiku 19/21 points, Sonnet 14/14, MONARK à la
+  main 4/7. L essai révèle deux autres points manqués par MONARK : (1) G2-243-delta3 not_verified[5] : l étape (0) du runbook contre le
+  vrai hôte (known_hosts de l opérateur, réponse de `hostname` du VPS) est « côté MONARK » : à jouer en lecture seule à la fusion de #243
+  ; (2) G2 du G0 v5 d IO-GUARD note 3 : copier les vecteurs de R1 dans le dépôt les publierait, « une décision de MONARK », et L l attend
+  : décision à instruire (lire G0 #247 l.316 à 817e0760 et §10 du G0 IO-GUARD) avant L.
+- Tronc (2026-10-08 04:0x UTC) : 0bb44533 (MONARK) entrée CI_ONLY `node scripts/verifier-tool-ci.mjs` dans scripts/oracle/run.mjs, 22
+  ancres de tueurs de test/oracle-run.test.ts décalées et relues (22/22 sur leur ligne), REQUIRED cité par journal/index.mjs suivi ; tests
+  oracle-run, journal-index, ci-gates : 88 pass, 0 fail, 1 sauté. #247 sortie du brouillon et fusionnée : 43f46d9f (base 0bb44533, tête
+  c76c6a7e) ; revue légère du pli m-7 conforme ; rejeu Windows 54/54.
+- G7 de #247 (oracle 04:07Z, F:/tmp/oracle-results/43f46d9f…-G7-20261008T040723Z-64000) : test:main ROUGE, 1 échec sur 2 932 (2 890 pass,
+  41 sautés) : mutants_short_memory_under_the_lock_is_waited_out_without_it_to_the_bound (test/mutants-run.test.ts:553) attend le journal
+  /^-L-+$/ et lit « -L » (fenêtre de 300 ms, sondage 50 ms) ; test hors du lot, sensible à la charge (8 à 16 processus node pendant l
+  oracle). Poussée suspendue jusqu à un G7 vert ; à rejouer seul, puis G7 à machine calme ; item de flake à former si confirmé.
+- Q-4 (#247) : ERREUR DE MONARK, prémisse non vérifiée : lot/etude-suite n a aucune protection de branche (API « Branch not protected »,
+  aucun ruleset) ; le « ok » du fondateur portait sur un check « requis » qui supposait une protection. Fondateur 04:1x UTC : « ne fais
+  rien pour le check sauf si y a des erreurs ou des problémes ». Rien fait.
+- Haiku 5.5 adopté (fondateur 04:0x UTC, « oui, on adopte, pour tous les claudes, recherches et paroxysme compris ») : CLAUDE.md §5 amendé
+  à sa place (sauvegarde F:/MONARK SUITE/backup-2026-10-08/pre-haiku-5-5-2026-10-08/) ; agent global F:/claude-config/agents/extracteur.md
+  ; messages recherches #434 (3ca3762), paroxysme #20 (7282f83) et #21 (e8cd972 : pli de PAROXYSME délégué, CLAUDE.md de la boîte l.156,
+  METHODE.md l.699, type extracteur) ; message au Claude Shōgen remis au fondateur. RECHERCHES : G0 de TEST-COUNT-FLOOR-1 et de
+  ROSTER-TIERS-HAIKU-5-5-1 en cours (7ca8ae8).
+- Firecrawl : cette session ne porte que le connecteur 1e993196-5288-40f1-bf6f-0cb66830757d (ToolSearch « 8aa0cccf » : rien) ; CLAUDE.md
+  et les agents portent 8aa0cccf-…. Fondateur : « normalement c est le bon » (CLAUDE.md assaini sous un autre compte). Rien ré-épinglé ;
+  extracteur.md épinglé sur 1e993196, question posée au fondateur.
+- ITEM FORMÉ MUTANTS-MEM-LOCK-WINDOW-FLAKE-1 (2026-10-08 04:2x UTC) :
+  mutants_short_memory_under_the_lock_is_waited_out_without_it_to_the_bound (test/mutants-run.test.ts:553-560) lit le nombre de sondages
+  mémoire faits dans une fenêtre d horloge murale (--wait-ms 300, --poll-ms 50) et attend /^-L-+$/ ; sous charge (oracle G7 de #247,
+  04:07Z) un seul sondage avant la fin : « -L », rouge. Premier rouge sur 528 enregistrements d oracle ; rejoué seul 3/3 vert à 04:2x UTC.
+  Construction visée : un test qui ne dépend pas de l horloge (sondages comptés par une horloge injectée ou par un nombre de tours borné,
+  et non par une fenêtre de 300 ms), avec son tueur. Porteur : RECHERCHES (outil mutants). Déclencheur : avant la G7 de la partie en
+  cours. G7 de #247 relancé à machine calme (04:2x UTC).
+- API de l organisation liée (fondateur 2026-10-08 04:2x UTC « l organisation est lié », « vérifies ») : clé posée par le fondateur dans
+  <fichier hors dépôt> (réservé au compte du fondateur), jamais lue par MONARK ; un appel test (F:/tmp/dojo/api-test-haiku.mjs, node
+  --env-file) à 04:2x UTC : HTTP 200, claude-haiku-5-5, réponse « ok », 18 jetons d entrée et 4 de sortie. mbox.mjs refuse désormais un
+  argument en trop après --pieces (93db39c n avait versé qu un fichier sur quatre ; complété par paroxysme ec15ccd).
+- #247 POUSSÉE 2026-10-08 04:28 UTC : lot/etude-suite à 43f46d9f ; G7 vert
+  F:/tmp/oracle-results/43f46d9f70b654ffe32cc9c5de22fe83b6def7f8-G7-20261008T041807Z-66032.json sha256
+  cc8b00c1b06898a55b2795750276b9ea5ff295f931b49e5c3123cea90dbb329d (base 0bb44533 ; ci_only avec node scripts/verifier-tool-ci.mjs) ;
+  premier G7 rouge F:/tmp/oracle-results/43f46d9f…-G7-20261008T040723Z-64000.json sha256
+  49cad299d0c0490ccb6e8a855774a9a768cc3311fdd568142032e8b72cd2dc32 (flake, item MUTANTS-MEM-LOCK-WINDOW-FLAKE-1) ; PR #247 MERGED
+  04:28:37Z.
+- RECHERCHES 22b1474 (04:39 UTC) : propose une clé par Claude dans la Console (recherches-haiku, monark-haiku, paroxysme-haiku), une
+  variable propre par Claude (RECHERCHES_HAIKU_API_KEY), un plafond mensuel par clé ; même mise en garde que MONARK sur ANTHROPIC_API_KEY
+  ; prépare un appelant Haiku (rôles fermés, citations vérifiées, clé jamais imprimée). Côté MONARK : la clé vit dans <fichier hors
+  dépôt>, lue par un seul processus (node --env-file), jamais dans l environnement d une session.
+- Bell (lecture seule, 2026-10-08 04:4x UTC) : sous les masques de #244, monark-dojo-collect success (dernière fin 04:45:02 UTC, statut
+  0), monark-dojo-publish success (03:30:04 UTC, statut 0) ; monark-dojo-probe (07:30 UTC) et monark-probe (10:30 UTC) pas encore courus
+  depuis le redéploiement.
+- PAROXYSME da61ae3 (04:52 UTC) : variable PAROXYSME_HAIKU_API_KEY, posée par le fondateur dans les secrets de l environnement cloud de sa
+  session ; clé console paroxysme-haiku avec plafond, convenue ; usage retenu : le sous-agent extracteur sur l abonnement, sans clé ;
+  aucun appel API direct avant un usage nommé soumis à MONARK.
+- #246 fusionnée localement 2026-10-08 05:0x UTC : 391ca7c0 (base 43f46d9f, tête f23932f8) ; revue légère du dernier pli (commentaires de
+  import-specifiers.ts et G0 seulement) conforme ; CI 12/12 ; rejeu Windows kata-path, verifiers-list, ci-gates : 76/76 ; tueurs sous
+  Windows (mutants --killers) puis G7 en cours.
+- Tâche 2 bis de PAROXYSME reçue (63eef32, pièce coordination/pieces/2026-10-08-pieces-inachevees/, 05:03 UTC) : Bell ne récolte pas
+  (dernière donnée seq 2 du 2026-09-24), Ukemi n a récolté qu à la main (livre lu le 2026-09-23), Narabi tourne mais « attested » sans
+  attestation (clé deadbeef), jambe payante noire depuis le 2026-09-23, sonde sans dead-man ; seize étapes sans entrée. Décisions MONARK
+  (b3d3bce, 05:0x UTC) : ordre O-1 (dire vrai) → O-2 (Narabi armé) → O-3 (Bell, code en parallèle après décisions du fondateur) → O-4
+  (Ukemi) ; D-5 pour le TEXTE de Bell décidé par MONARK (correction qui retire ou rend vraie, aucune phrase neuve) ; T5 par trace écrite
+  par l hôte, pas par ligne manuelle ; lectures de pages de texte servies dans D6, apps/site/data hors lecture. Au fondateur : règle «
+  built », D-5 collecte de Bell, crédits et compte RPC de Bell, budget de lecture d Ukemi, go d envoi du site après O-1, DNS et certificat
+  du témoin d Ukemi. Faits d hôte H (26) à lever par MONARK, Narabi H1-H3 d abord.
+- #246 POUSSÉE 2026-10-08 05:14 UTC : lot/etude-suite à 391ca7c0 ; G7 vert
+  F:/tmp/oracle-results/391ca7c0780e0bc79897c339dba887b7b594fd56-G7-20261008T050427Z-57776.json sha256
+  73a7a6edc9ceaea4f2d927be66dcfe246e13e8fab25cdf64cfbe07249d21eede ; tueurs Windows 50/50 (F:/tmp/dojo/killers-246/out/RESULTS.json sha256
+  703bb061…). ROSTER-TIERS-HAIKU-5-5-1 : Q-1 à Q-11 aux défauts de RECHERCHES (Haiku hors de TIERS, lot d outil autonome, Q-7 en date) ;
+  MONARK doit écrire avant le code DOCTRINE D-4, ADR-METHODE-2 D12 (h), docs/roster/FAITS-haiku-5-5-2026-10-08.md, REGLES-MISSION.md en
+  mots, ETAT.
+- DÉCISIONS DU FONDATEUR (2026-10-08 vers 05:18 UTC, dans la session de PAROXYSME, relayées mot pour mot par `47ef84d`), en réponse aux
+  huit questions fermées de PAROXYSME : « oui, tu peux dépenser autant que tu veux, tu me dis quel abonement et je le recharge au max. pas
+  de plafond de budget, on doit avancer. / oui, je donne mon go pour l envoie du site / on laisse built, mais on la BUILD, on en change pas
+  le texte, on change l était du chantier de la piéce, on la battit. / explique moi cette jambe narabi / oui pour la vérification, il faut
+  travailler en efficience. » Lecture de MONARK : (1) budget sans plafond (garde-fou « Aucune dépense » amendé ci-dessus) ; (2) go d envoi
+  du site, après O-1 et la lecture sur place d I-G2-5 par MONARK ; (3) « built » et le texte de Bell, Ukemi et Narabi sont gardés : on
+  bâtit chaque pièce jusqu à ce que son texte soit vrai ; O-1 ne retire plus les phrases de collecte (Bell M5, M6 ; Ukemi E9), qui
+  deviennent des engagements de O-2 à O-4 ; (4) retenue des vérifications confirmée. Questions reposées au fondateur par MONARK : Q-A.2
+  (la jambe « attested » de Narabi passe `upcoming`, décision du 2026-10-07) maintenue ou remplacée par « on la bâtit » ; la jambe
+  payante de Narabi réarmée (lecture de PAROXYSME, à confirmer) ; le créneau de collecte de Bell avant le 2026-11-16 (D-5) ; DNS et
+  certificat du témoin d Ukemi.
+- Narabi H5 (PAROXYSME `ecede5e`) : `9612d4d2` est l arbre attendu du T0 ; le fait confirme T8 : depuis le 2026-10-06 les lignes de Narabi
+  sont écrites par une sentinelle dont le code importé a changé (18 fichiers de `c9aebb44` à `9612d4d2`) sans que `sentinel_sha`, qui ne
+  hache que `apps/sentinel/src/*.ts` de premier niveau, ait bougé ; entrée SENTINEL-DEPLOY-GUARD-1 (PXC-05 p1 PR 2), dans O-2.
 
 ## Points connus (à traiter, non bloquants sauf mention)
 
