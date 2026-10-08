@@ -173,7 +173,7 @@ test("address_literals_mask_a_path_wherever_its_address_recurs_escaped", () => {
   assert.deepEqual([at(v, "logs/vx%x%x%x/x%x%x%x.txt"), at(v, "logs/vx%x%x%x/x.x.x.x.txt"), at(v, "logs/x.x.x.x/x.x.x.x.txt")],
     [["0:24 4 x.x.x.x"], ["0:24 4 x.x.x.x"], ["0:6 4 x.x.x.x", "0:17 4 x.x.x.x"]],
     "an escaped recurrence glued to a word is masked too, whichever pass read the literal, and so is each literal of a path: no digit of an address");
-  // killer: scripts/address-literals.mjs:143 CONST "seen.addAddress(" -> "line === 0 && seen.addAddress("
+  // killer: scripts/address-literals.mjs:143 CONST "seen.add(" -> "line === 0 && seen.add("
   assert.deepEqual([at(v, "logs/hostx.x.x.x.txt"), at(v, "logs/hostx%x%x%x.txt")], [["1:1 4 x.x.x.x"], ["1:1 4 x.x.x.x"]],
     "a hit read in a file masks its address in that file's path too, written or escaped and glued to a word, where no pass reads it");
   // a second tree, one address per case, each read once where the case says and carried by a path in a form no pass reads
@@ -185,7 +185,7 @@ test("address_literals_mask_a_path_wherever_its_address_recurs_escaped", () => {
     [`logs/short${["2001", "2", "0", "0", "0", "0", "a", "", ""].join("%3a")}.txt`]: `[${six(...z, "000A", "0000")}]\n`, "z.txt": `${d(4, 4)}\n${d(10, 10)}\n`,
     [`logs/tail${[...z, q(100, 127, 255, 255)].join("%3A")}.txt`]: `[${six("2001", "2", "", "647f", "ffff")}]\n`,
     [`logs/v${q(198, 18, 198, 18, 198, 18)}.txt`]: `${q(198, 18, 198, 18)}\n` });
-  // killer: scripts/address-literals.mjs:143 CONST "seen.addAddress(lit, kind === 4 ? \"ipv4\" : \"ipv6\")" -> "kind === 4 && seen.addAddress(lit, \"ipv4\")"
+  // killer: scripts/address-literals.mjs:143 CONST "seen.add(canon(lit, kind))" -> "kind === 4 && seen.add(canon(lit, kind))"
   // killer: scripts/address-literals.mjs:133 CONST "t.split(\".\").map(Number).join(\".\")" -> "t"
   // killer: scripts/address-literals.mjs:168 SDL "for (const h of v.hits) h.file = show(h.file);" -> ""
   // killer: scripts/address-literals.mjs:169 CONST ".map(show)" -> ""

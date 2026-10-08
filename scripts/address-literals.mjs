@@ -10,7 +10,7 @@
 // of an address test). This file may carry the literals of LISTED, nothing else. Any other is a hit, printed with no digit of it.
 import { execFileSync } from "node:child_process";
 import { lstatSync, readFileSync, readlinkSync } from "node:fs";
-import { BlockList, isIPv4, isIPv6 } from "node:net";
+import { BlockList, SocketAddress, isIPv4, isIPv6 } from "node:net";
 import { join } from "node:path";
 
 export const SELF = "scripts/address-literals.mjs";
@@ -115,12 +115,12 @@ export function literals(text) {
 export const mask = (literal) => literal.replace(/[\dA-Fa-f]+/g, "x");
 const listedAnywhere = (lit) => Object.values(LISTED).some((e) => Object.hasOwn(e, lit));
 const bareEnv = () => Object.fromEntries(Object.entries(process.env).filter(([k]) => !k.toUpperCase().startsWith("GIT_")));
-
-/** A path with each span masked that reads, from any index, each character as written or as %XX, as an address of `seen` (each
- * literal the scan read, in any file or line, this path's included): glued, overlapping or in another text form (a BlockList compares
- * values: zeros, "::" and case, an IPv4-mapped form and its IPv4; octets zero-padded to four digits are read too). Each hex run a span
- * touches becomes x, escapes included. A text stops where no address goes on (45 characters, a group of five, a fourth dot, a ninth
- * colon, a second "::") and is parsed only where it has the shape of one: linear in the path, whatever `seen` holds. */
+const canon = (t, k) => new SocketAddress({ address: k === 4 ? ["", "", "ffff", t].join(":") : t, family: "ipv6" }).address; // IPv4: its mapped form
+/** A path with each span masked that reads, from any index, each character as written or as %XX, as an address of `seen` (the canonical
+ * text of each literal the scan read, in any file or line, this path's included): glued, overlapping or in another text form (zeros, "::",
+ * case, an IPv4-mapped form and its IPv4; octets zero-padded to four digits too). Each hex run a span touches becomes x, escapes included.
+ * A text stops where no address goes on (45 characters, a group of five, a fourth dot, a ninth colon, a second "::"); one shaped as an
+ * address is parsed and looked up in a Set: linear in the path, whatever `seen` holds (before Node 24.21, a BlockList walks each address). */
 function hide(rel, seen) {
   const hid = Array(rel.length).fill(false);
   for (let i = 0; i < rel.length; i++) {
@@ -132,7 +132,7 @@ function hide(rel, seen) {
       if (!/[\dA-Fa-f:.]/.test(c) || run > 4 || dots > 3 || colons > 8 || pairs > 1) break;
       const v4 = /^\d+(?:\.\d+){3}$/.test(t) ? t.split(".").map(Number).join(".") : "";
       const v6 = colons > 1 && (pairs === 1 || colons === 7 || (colons === 6 && dots === 3)) && isIPv6(t);
-      if (isIPv4(v4) ? seen.check(v4, "ipv4") : v6 && seen.check(t, "ipv6")) hid.fill(true, i, j);
+      if (isIPv4(v4) ? seen.has(canon(v4, 4)) : v6 && seen.has(canon(t, 6))) hid.fill(true, i, j);
     }
   }
   return rel.replace(/[\dA-Fa-f]+/g, (run, i) => (hid.slice(i, i + run.length).includes(true) ? "x" : run));
@@ -140,7 +140,7 @@ function hide(rel, seen) {
 /** Judge the literals of one line of `rel` (line 0: the path itself) into the verdict `v`; each literal read goes into `seen`. */
 function judge(v, rel, line, text, seen) {
   for (const [lit, col, kind] of literals(text)) {
-    seen.addAddress(lit, kind === 4 ? "ipv4" : "ipv6"); // admitted or not: no path that scan() prints shows it
+    seen.add(canon(lit, kind)); // admitted or not: no path that scan() prints shows it
     if (EXEMPT.check(lit, kind === 4 ? "ipv4" : "ipv6")) continue;
     if (Object.hasOwn(LISTED, rel) && Object.hasOwn(LISTED[rel], lit)) { v.used.add(`${rel} ${lit}`); continue; }
     if (rel === SELF && listedAnywhere(lit)) continue;
@@ -151,7 +151,7 @@ function judge(v, rel, line, text, seen) {
 /** The verdict over the tracked files of `root`: refused literals (masked), listed pairs met, files read, undeclared binaries. */
 export function scan(root, env = bareEnv()) {
   const tracked = execFileSync("git", ["ls-files", "-z"], { cwd: root, env, maxBuffer: 1 << 26 }).toString("utf8").split("\0");
-  const v = { hits: [], used: new Set(), read: 0, undeclared: [] }, skipped = [], seen = new BlockList();
+  const v = { hits: [], used: new Set(), read: 0, undeclared: [] }, skipped = [], seen = new Set();
   for (const rel of tracked.filter((f) => f !== "")) {
     judge(v, rel, 0, rel, seen);
     let buf;
