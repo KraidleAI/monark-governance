@@ -216,6 +216,30 @@ job 'g3-export' must be dropped from the derived public workflow".
   `report_check.main`; m10, the D-2 run deleted from `steps()`. Both pass the driver of `4158c0ff` (the G2 measured its rules on
   them), and both must red the driver of the fold.
 
+Results (Linux, Node 24.21.0, the runner's build of 3.14.8):
+
+- **Red first, by hand**: at `cfc1654a` (the tests alone; the tree of that commit), `node --test test/verifier-tool-ci.test.ts`:
+  6 tests, 4 pass, the two new ones fail by `ERR_ASSERTION`, the driver returning `[]` for both ("D-2 (ii) and (iii) dropped:
+  binom_check.py is still run, by --registry"; "a verdict printed before report_check.main ran: refused"). TAP `f62273d7…`.
+- **red-proof**: `node scripts/red-proof.mjs --base 4158c0ff --gel 2bac3033 --draw 2 --seed 20261008`: OK, 2 judged (both F2P, red
+  at the base by assertion, green at the gel), 4 unchanged, 2 killers drawn (`:36 CONST`, `:39 SDL`), 2 killed. `RED-PROOF.json`
+  sha256 `f2d706ac…` (it carries paths and the hour).
+- **The other killers, fired by hand** at `2bac3033`, each alone, the file restored and its sha256 checked: `:71` and `:72` red the
+  first new test, `:87` and `:31` the second, `:69` and `:86` (moved) their own tests; each by assertion, no other test red.
+- **The step**, by §7.1's command, in scratch clones (`git clone --shared`) at `4158c0ff` (before) and `2bac3033` (after), one
+  change per clone, applied by a script that requires the old text once on its line and prints both digests:
+
+| Clone | Change | Exit | The job's `::error::` lines |
+|---|---|---|---|
+| c0 | none, at `2bac3033` (this worktree) | 0 | none: `GREEN`, 242 s; `report.txt` `409e589e…`, `compare.txt` `e8dc7928…`, `registry.txt` `9ae338f5…`, `binom.txt` `63606d4f…`, `hikae.txt` `68e16302…`, the outputs of §11 and of the CI; the report run ends with `failures 0` and `input libm ucrtbase.dll sha256 349a0de7… bytes 48` |
+| b-m9 | `scripts/verifier-tool-ci-report-check.py:46` gains `print("VERDICT: GREEN"); sys.exit(0);` before `report_check.main` (`376ba838…` -> `998dca6e…`), at `4158c0ff` | **0** | none: `GREEN`, 147 s; the report run prints `VERDICT: GREEN` alone (13 s) and writes no `report.txt` |
+| a-m9 | the same, at `2bac3033` | 1 | `report_check.py: no line /^failures 0$/, which the check's own main writes after its checks`, and the same for the input line |
+| b-m10 | `scripts/verifier-tool-ci.mjs:30`, the D-2 run, emptied (`f57977fe…` -> `46d911c6…`), at `4158c0ff` | **0** | none: `GREEN`, 168 s, four runs |
+| a-m10 | `scripts/verifier-tool-ci.mjs:39`, the same run, emptied (`86cc2892…` -> `c44dbec7…`), at `2bac3033` | 1 | `binom_check.py (2 VERDICT: GREEN): a run that this job owes once, run 0 time(s)` (0 s, no check runs) |
+
+Logs (sha256, first 16): c0 `e38a1693…`, b-m9 `b3dd9487…`, a-m9 `2934554e…`, b-m10 `52ce38f2…`, a-m10 `952ceb2b…` (they carry
+local paths). The runs of b-m9, b-m10 and c0 overlapped in part, on four cores.
+
 ## 8. IO-GUARD-INSTALL-MASK-1
 
 Decided by MONARK (`6c268ee`): the job is a gate. It runs the tool and its cases under a pinned Python, on a clean install of the
@@ -243,10 +267,10 @@ in a public text or a report, as proof that a recompute run is intact. Nothing h
 ## 10. Size
 
 In the CI form (`node scripts/lot-size-integration.mjs pin --ci .github/workflows/ci.yml --base origin/lot/etude-suite`, evaluated,
-then `git diff --shortstat 5437cd0d...HEAD` on the pathspec of `ci.yml` l.100): **299** changed lines, 7 files, 293 insertions and
-6 deletions; the content count 0. Under 547 (the bound of a lot) and 1 205 (the bound of the CI). Above the ~55 of the item: the
-job is 27 lines, and the driver (107), its types (11), the stand-in (46) and the tests (100) make the step fail closed and
-judgeable. This plan, under `docs/`, is not counted.
+then `git diff --shortstat 5437cd0d...HEAD` on the pathspec of `ci.yml` l.100): **353** changed lines at the fold, 7 files, 347
+insertions and 6 deletions (299 before it: the fold adds 100 changed lines, 54 net); the content count 0. Under 547 (the bound of a
+lot) and 1 205 (the bound of the CI). Above the ~55 of the item: the job is 27 lines, and the driver (124), its types (11), the
+stand-in (46) and the tests (131) make the step fail closed and judgeable. This plan, under `docs/`, is not counted.
 
 ## 11. At the freeze
 
@@ -271,6 +295,16 @@ judgeable. This plan, under `docs/`, is not counted.
   GREEN". `g3-verification`: 2 929 tests, 2 907 pass, 0 fail, 22 skipped. `r25-taille-de-lot`: "Changed lines: 299 (ADR bound:
   1205)", content 0, mode written. `g3-export` green: the public export, its own CI included, with the job dropped. Then the bound
   of §5, set from the runs of `2c7091ba` (201 s) and `032ffb68` (191 s, run 37705257088, eight jobs green) too, the step 183 s there.
+
+- **At the fold** (2026-10-08): branch `recherches/verifier-tool-ci-1` at `4158c0ff`, then `cf77b58f` (this plan, the review and
+  the decisions folded), `cfc1654a` (the two tests, red), `2bac3033` (the driver, its types, the step's name), then the commit that
+  writes these results; trunk `5437cd0d`; recherches `1a732d2`. Gates at `2bac3033` (Linux, Node 24.21.0): `npx tsc --noEmit` 0;
+  `eslint` on the two test files 0 errors (the `scripts/` files are ignored by its configuration); `gate:vocab` OK (349 files);
+  `lang:gate` OK; `lint:ratchet` 69/69; `export:check` OK; winlint `--base 5437cd0d`, 8 files, no hazard; `npm run test:main`:
+  2 931 tests (the two new ones included), 2 909 pass, 0 fail, 22 skipped, 304 s; `every_killer_line_is_readable` green; `verifie-ancres.mjs . --ref origin/lot/etude-suite`: 1 654 killers, 1 653 ANCRE, 1 DERIVE
+  (the same as §9, `scripts/export-public.mjs:450`), 0 PERDU; on the two touched test files with `--ref origin/lot/etude-suite --ref
+  origin/recherches/verifier-tool-ci-1`, 13 killers, 13 ANCRE. Nothing under `tools/kata-recalc/`, nor `verifiers.json`, nor
+  `policy-verifiers.ts` changes.
 
 ## 12. Decided by MONARK (`cc80585`, 2026-10-08)
 
