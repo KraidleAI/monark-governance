@@ -18,6 +18,7 @@ import * as gate from "../src/tools/gate.ts";
 import { CASCADE_UNCALIBRATED_SENTENCE, GATE_TOOL_DESCRIPTION, honestyText, runGate, toolErrorCode, type HarnessParams } from "../src/tools/gate.ts";
 import { handleJsonMirror } from "../src/http.ts";
 import { createHarnessHandler } from "../src/server.ts";
+import { importSpecifiers } from "./helpers/import-specifiers.ts";
 import { kataClassEntries } from "../src/policy-classes.ts";
 import * as classes from "../src/policy-classes.ts";
 import * as kataPathModule from "../src/kata-path.ts";
@@ -213,7 +214,7 @@ test("entry_points_never_pass_policy_tables", () => {
   const walk = (file: string): void => {
     if (seen.has(file)) return;
     seen.add(file);
-    for (const m of readFileSync(file, "utf8").matchAll(/(?:from|import)\s*\(?\s*"(\.{1,2}\/[^"]+)"/g)) walk(join(dirname(file), m[1] as string));
+    for (const s of importSpecifiers(readFileSync(file, "utf8"))) if (/^\.{1,2}\//.test(s)) walk(join(dirname(file), s));
   };
   for (const f of ["server.ts", "http.ts", "openapi.ts", "schema-projection.ts", ...readdirSync(join(SRC, "tools")).map((t) => `tools/${t}`)]) walk(join(SRC, f));
   const naming = [...seen].filter((f) => readFileSync(f, "utf8").includes("policyTables")).map((f) => f.slice(SRC.length + 1).replace(/\\/g, "/"));

@@ -272,8 +272,8 @@ jobs:
     # VERIFIER-TOOL-CI-1 (docs/G0-lot-verifier-tool-ci-1.md): the frozen verifier tool, tools/kata-recalc/ (monark-kata-recalc in
     # apps/harness/data/verifiers.json), held on every PR by its own Python checks, launched under the FORM of its io_guard.py by
     # scripts/verifier-tool-ci.mjs: guard_check (each case it skips named, Windows only), report_check (section 3 stood in off
-    # Windows), compare_check and binom_check in both modes. Internal job: the tool is never exported, so derivePublicWorkflow drops
-    # it (INTERNAL_JOBS). runs-on names the image, whose build of the one pinned CPython setup-python installs.
+    # Windows), compare_check, binom_check in both modes, vectors_check on the pinned spec vectors. Internal job: never exported,
+    # so derivePublicWorkflow drops it (INTERNAL_JOBS). runs-on names the image, whose build of the one pinned CPython setup-python installs.
     # Bound = measured job wall-time x3, capped <= 20 (2026-10-07, its first three runs on PR 247: 116 s, 201 s and 191 s => 11).
     runs-on: ubuntu-24.04
     timeout-minutes: 11
@@ -290,6 +290,14 @@ jobs:
       - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
         with:
           python-version: "3.14.8"
+      # The spec vectors of vectors_check.py: the public spec repository at the commit that the driver pins (VECTORS), which checks
+      # their sha256 before any check runs (VERIFIER-TOOL-CI-VECTORS-1). The same pinned action as above; no token kept.
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          repository: KraidleAI/monark-kata-spec
+          ref: ffb5ea33fcdcde2bd497cb25fba184ae2c4bbfa8
+          path: kata-spec-vectors
+          persist-credentials: false
       - name: The verifier tool's own checks under the pinned CPython (scripts/verifier-tool-ci.mjs; CI only, Windows replayed by hand)
         env:
           VERIFIER_TOOL_PYTHON: "3.14.8" # the version above: any other interpreter reds the step

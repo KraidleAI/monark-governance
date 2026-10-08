@@ -534,11 +534,15 @@ test("mutants_typecheck_errors_count_on_every_target_not_only_the_direct_importe
   assert.deepEqual([r.status, row(r, "K1")?.status, row(r, "K1")?.fails], [0, "tue", ["test/t.test.ts:2 TS2322"]], r.stderr);
 });
 
+// Lot MUTANTS-MEM-LOCK-WINDOW-FLAKE-1: CLOCK, a preload that is the tool's clock. Date.now() moves only by the tool's own waits (setTimeout, each fired at once;
+// past 64 waits, exit 99; past 256 reads, exit 98, since a wait through another timer leaves the time still), never by the host's load: G32 and D-4 count their waits by it, never by a window of 300 ms, and their waited_ms is exact.
+const CLOCK = "let now = Date.now(), turns = 0, reads = 0;\nDate.now = () => { if (++reads > 256) process.exit(98); return now; };\nglobalThis.setTimeout = (cb, ms, ...a) => { if (++turns > 64) process.exit(99); now += ms; return setImmediate(cb, ...a); };\n";
 // killer: scripts/mutants/run.mjs:243 CONST " || stop !== null ?" -> " ?"
 test("mutants_a_memory_stop_at_the_baseline_is_not_waited_again_by_the_typecheck_baseline", () => { // G32
-  const { dir, base } = tyr(), rows = [{ id: "N1", file: "lib/f.mjs", line: 1, op: "CONST", before: "x * 2", after: "x * 3", why: "w" }, Y("Y1", "x: number", "x: string")];
-  const r = run(["--repo", dir, "--base", base, "--targets", "test/f.test.ts", "--table", table("ty4.json", rows), "--min-free-mb", "999999999", "--wait-ms", "300", "--poll-ms", "50"]), s = r.rec?.stop;
-  assert.deepEqual([r.status, s?.reason, s?.at, s?.not_run, (s?.waited_ms ?? 9e9) < 600], [4, "memoire", "BASELINE", ["N1", "Y1"], true], r.stderr);
+  const { dir, base } = tyr(), rows = [{ id: "N1", file: "lib/f.mjs", line: 1, op: "CONST", before: "x * 2", after: "x * 3", why: "w" }, Y("Y1", "x: number", "x: string")], clock = join(fixture().root, "clock.mjs");
+  writeFileSync(clock, CLOCK);
+  const r = run(["--repo", dir, "--base", base, "--targets", "test/f.test.ts", "--table", table("ty4.json", rows), "--min-free-mb", "999999999", "--wait-ms", "300", "--poll-ms", "50"], { node: ["--import", pathToFileURL(clock).href] }), s = r.rec?.stop;
+  assert.deepEqual([r.status, s?.reason, s?.at, s?.not_run, s?.waited_ms], [4, "memoire", "BASELINE", ["N1", "Y1"], 300], r.stderr);
 });
 
 // killer: scripts/mutants/run.mjs:274 CONST "memory_wait_ms: g.memory_wait_ms" -> "memory_wait_ms: null"
@@ -552,11 +556,12 @@ test("mutants_a_row_records_its_own_memory_wait", () => { // G39: memory low for
 // killer: scripts/mutants/run.mjs:232 CONST "short = memShort(); if (!short)" -> "short = false; if (!short)"
 test("mutants_short_memory_under_the_lock_is_waited_out_without_it_to_the_bound", () => { // corrections D-4: each memory read logs whether the lock is held
   const f = fixture(), lock = mkdtempSync(join(f.root, "lock-")), log = join(f.root, "mem-lock.log"), stub = join(f.root, "mem-lock.mjs");
-  writeFileSync(stub, 'import host from "node:os";\nimport { appendFileSync, existsSync } from "node:fs";\nimport { syncBuiltinESMExports } from "node:module";\nlet n = 0;\nhost.freemem = () => {\n' +
+  writeFileSync(stub, 'import host from "node:os";\nimport { appendFileSync, existsSync } from "node:fs";\nimport { syncBuiltinESMExports } from "node:module";\nlet n = 0;\n' + CLOCK + 'host.freemem = () => {\n' +
+    '  if (n === 1) Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, 400);\n' + // the lock held 400 ms of real time, more than the whole wait: the load that left "-L" once in 528 oracle runs
     '  appendFileSync(String(process.env.FX_LOG), existsSync(String(process.env.FX_LOCK) + "/oracle-lock") ? "L" : "-"); return n++ >= 1 ? 0 : 2 ** 40; };\nsyncBuiltinESMExports();\n');
   const r = run(["--base", f.base, "--table", table("one.json", [T1]), "--wait-ms", "300", "--poll-ms", "50"], { lock, node: ["--import", pathToFileURL(stub).href], env: { FX_LOCK: lock, FX_LOG: log } }), s = r.rec?.stop;
-  assert.deepEqual([r.status, s?.reason, s?.at, r.rec?.baseline, r.rec?.results, existsSync(join(lock, "oracle-lock"))], [4, "memoire", "BASELINE", null, [], false], r.stderr);
-  assert.match(existsSync(log) ? readFileSync(log, "utf8") : "", /^-L-+$/); // one read before the lock, one under it (short: released), then each wait without it
+  assert.deepEqual([r.status, s?.reason, s?.at, s?.waited_ms, r.rec?.baseline, r.rec?.results, existsSync(join(lock, "oracle-lock"))], [4, "memoire", "BASELINE", 300, null, [], false], r.stderr);
+  assert.equal(existsSync(log) ? readFileSync(log, "utf8") : "", "-L------"); // one read before the lock, one under it (short: released), then six waits of 50 ms without it
 });
 
 const overrun = ahead(() => { // G1 runs to its bound (10 * OVER), its module asleep 5 s past it
@@ -653,4 +658,12 @@ test("mutants_a_baseline_whose_exit_contradicts_its_entries_is_non_conclu_named_
 test("mutants_a_dead_child_carries_no_exit_code_note", async () => { // G2 m-1: G1, a run past its bound (ETIMEDOUT), is non conclu without a note
   const r = await overrun(), g1 = row(r, "G1"); // its exit code is the runner's own on SIGTERM (7 on Node 24), not asserted
   assert.deepEqual([g1?.status, g1?.replay, g1?.note], ["non conclu", null, null], r.stderr);
+});
+
+// killer: scripts/mutants/run.mjs:230 CONST "waited_ms: Date.now() - t0 }" -> "waited_ms: o.wait }"
+test("mutants_a_memory_stop_records_the_time_waited_not_the_bound", () => { // G2 n-1: under CLOCK a poll of 70 ms, which does not divide the bound of 300: five waits, 350
+  const f = fixture(), clock = join(f.root, "clock.mjs");
+  writeFileSync(clock, CLOCK);
+  const r = run(["--base", f.base, "--table", table("one.json", [T1]), "--min-free-mb", "999999999", "--wait-ms", "300", "--poll-ms", "70"], { node: ["--import", pathToFileURL(clock).href] }), s = r.rec?.stop;
+  assert.deepEqual([r.status, s?.reason, s?.at, s?.waited_ms], [4, "memoire", "BASELINE", 350], r.stderr);
 });
