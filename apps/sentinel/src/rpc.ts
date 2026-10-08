@@ -1,6 +1,6 @@
 // SENTINEL — off-tool daily job (ADR-M012, K-8): the harness never imports this; this never imports apps/harness/src/tools.
 //
-// Public RPC pool (read-only; optional keyed 8th operator via out-of-repo EnvironmentFile, ADR-NARABI-OPS-1) with per-endpoint cooldown and a QUORUM OF 2 on the value-bearing
+// Public RPC pool (read-only; run.ts adds the paid leg as a label routed through @monark/rpc-guard, ADR-NARABI-OPS-1) with per-endpoint cooldown and a QUORUM OF 2 on the value-bearing
 // reads (burns/mints via eth_getLogs, supply via totalSupply): two distinct endpoints must return the
 // SAME bytes or the window fails closed (ADR-M012 D1, test `sentinel_quorum_disagreement_fails_closed`).
 // The quorum read FALLS BACK round-robin over the pool, benching any endpoint that throws (same cooldown as
@@ -47,37 +47,7 @@ export function redactEndpoint(url: string): string {
   }
 }
 
-/** The Chainstack endpoint URL iff `CHAINSTACK_ETH_URL` is set and non-empty. Read ONLY here (invoked from
- *  main), NEVER at module scope nor inside `makeRpcPool` — the injected `endpoints` path (tests) never
- *  consults the env (C-4). The raw URL is returned; callers redact it before it is printed or published. */
-function chainstackUrl(env: NodeJS.ProcessEnv): string | undefined {
-  const u = env.CHAINSTACK_ETH_URL?.trim();
-  return u !== undefined && u.length > 0 ? u : undefined;
-}
-
-/** The RPC pool endpoints: the 7 public ones, plus the Chainstack URL when the env provides it — an eighth
- *  endpoint and a DISTINCT operator (`providerOf` -> `chainstack.com`) in the round-robin rotation (L-3).
- *  main passes this EXPLICITLY into `makeRpcPool({ endpoints })`, so the pool never reads the env itself. */
-export function poolEndpoints(env: NodeJS.ProcessEnv = process.env): readonly string[] {
-  const extra = chainstackUrl(env);
-  return extra !== undefined ? [...PUBLIC_ENDPOINTS, extra] : [...PUBLIC_ENDPOINTS];
-}
-
-/** The endpoints as PUBLISHED in each line's provenance: the 7 public URLs UNCHANGED, plus the Chainstack
- *  endpoint REDACTED to its origin (host only) — the operator is disclosed, the key never is (C-1).
- *  `hashedFields` excludes `endpoints`, so this is provenance only and does not touch `line_hash`. */
-export function publishedEndpoints(env: NodeJS.ProcessEnv = process.env): readonly string[] {
-  const extra = chainstackUrl(env);
-  return extra !== undefined ? [...PUBLIC_ENDPOINTS, redactEndpoint(extra)] : [...PUBLIC_ENDPOINTS];
-}
-
-/** Whether the Chainstack operator is in the pool (its env var is set) — surfaced in the run's end JSON as
- *  `chainstack` for operational visibility (C-4), so a silently key-less run is diagnosable; never the URL. */
-export function hasChainstack(env: NodeJS.ProcessEnv = process.env): boolean {
-  return chainstackUrl(env) !== undefined;
-}
-
-/** One JSON-RPC round-trip to a NAMED endpoint. Injected in tests; the default hits the public pool. */
+/** One JSON-RPC round-trip to a NAMED endpoint. Always injected: run.ts passes its dispatcher (makeDispatchCall), a test a stub. */
 export type RpcCall = (url: string, method: string, params: readonly unknown[]) => Promise<unknown>;
 
 /** A quorum read disagreed across two endpoints — fail-closed, the window is not written. */
@@ -118,20 +88,6 @@ function sumFlow(logs: readonly RawLog[]): { burns: bigint; mints: bigint } {
 const flowKey = (f: { burns: bigint; mints: bigint }): string =>
   createHash("sha256").update(`${f.burns.toString()}|${f.mints.toString()}`).digest("hex");
 
-async function defaultCall(url: string, method: string, params: readonly unknown[]): Promise<unknown> {
-  const ctl = new AbortController();
-  const to = setTimeout(() => { ctl.abort(); }, 20_000);
-  try {
-    const res = await fetch(url, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ jsonrpc: "2.0", id: 1, method, params }), signal: ctl.signal });
-    if (!res.ok) throw new Error(`HTTP ${String(res.status)} ${redactEndpoint(url)}`); // C-1: host only, never the key-bearing path
-    const json = (await res.json()) as { result?: unknown; error?: { message?: string } };
-    if (json.error) throw new Error(json.error.message ?? "rpc error");
-    return json.result;
-  } finally {
-    clearTimeout(to);
-  }
-}
-
 export interface RpcPool {
   finalized(): Promise<{ block: number; ts: number }>;
   blockTs(block: number): Promise<number>;
@@ -139,10 +95,10 @@ export interface RpcPool {
   supplyAt(block: number): Promise<bigint>;
 }
 
-/** Build a pool over `endpoints` using `call`. `cooldownMs` benches an endpoint after it throws. */
-export function makeRpcPool(opts: { endpoints?: readonly string[]; call?: RpcCall; cooldownMs?: number } = {}): RpcPool {
+/** Build a pool over `endpoints` using `call`, REQUIRED (there is no default transport). `cooldownMs` benches an endpoint after it throws. */
+export function makeRpcPool(opts: { endpoints?: readonly string[]; call: RpcCall; cooldownMs?: number }): RpcPool {
   const endpoints = opts.endpoints ?? PUBLIC_ENDPOINTS;
-  const call = opts.call ?? defaultCall;
+  const call = opts.call;
   const cooldownMs = opts.cooldownMs ?? 25_000;
   const cooldownUntil = new Map<string, number>();
   let rr = 0;
