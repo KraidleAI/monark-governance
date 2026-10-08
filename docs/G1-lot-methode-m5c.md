@@ -378,3 +378,142 @@ C-G2-1 **G0** ; C-G2-2 **ORCH** ; C-G2-3 à C-G2-6 **G1** ; C-G2-7 **VAL** (repr
   au tronc courant par `replay-head.sh` : identique.
 - **Oracle** : `tree.dirty` haché au lancement (12:56:5xZ), AVANT l écriture de ce § 16 (texte `.md` seul ; aucun octet de code ni de
   test changé après 12:37Z : `index.mjs` `262225fe…`, test `71e55c6d…`).
+
+## 17. Reprise sur le tronc du 2026-10-08 (branche `paroxysme/m5c-resume`, une PR) — journal du 2026-10-08, 19:23Z-20:10Z
+
+claude-opus-5-5
+
+- **Modèle résolu (R-1)** : `claude-opus-5-5` (identifiant exact donné par le harnais), effort max ; worker de la session PAROXYSME,
+  étapes (5) et (6) du plan de la reprise ; il ne committe ni ne pousse (R-20) : la session relit, committe et pousse.
+- **Décisions** : plan de la reprise v3 (sha256 `c1f1de46…0a0cc005`), accepté par MONARK : Q-RM5C-1 (a), la branche naît du tronc et
+  fusionne `lot/methode-m5c` en `--no-ff` sous un titre anglais ; Q-RM5C-2 (a), une seule PR (la borne 547 de l ADR-METHODE-2 l.60 se
+  lit comme la borne ascendante du G0, close par la correction de la case 4 de la CHECKLIST-G7 : `r25()` ≤ 1 150, porte CI 1 205).
+- **Base** `c94c57dfc4873a7a0dd04b89148eec01de5a061b` (tronc du jour). Commits de la branche : `2fa5172f` (partie linter de l item),
+  `3fe2b6f1` (fusion `--no-ff` de `93e9abce`, 2026-10-08 19:20:03Z), `70fef918` (partie journal de l item), `a03dba6a` (retouche
+  red-proof v2) ; puis l étape (5) (lignes longues, en-têtes, relevé) et l étape (6) (ce § et la ligne datée de la case 5).
+- **Horloge** (`date -u`) : début 19:23Z ; lignes longues et en-têtes 19:27-19:34Z ; fichiers touchés 19:34Z ; `test:main` 19:35-19:40Z ;
+  relevé 19:40Z ; base `c94c57df` (copie `git archive`) 19:41Z ; red-proof 19:42-19:43Z ; portes statiques 19:42-19:48Z ; deux
+  `no-base-to-string` corrigés 19:47Z ; mutants 19:44-20:01Z ; red-proof sur l arbre final 19:51-19:52Z ; ce § 20:01Z ;
+  `test:main` sur l arbre final (ce § compris) 20:03-20:08Z, mêmes comptes, relevé réécrit identique à l octet (`cmp`) ; portes
+  statiques sur l arbre final 20:08-20:10Z, toutes à 0.
+
+### 17.1 La fusion sur le tronc du jour : trois conflits et leurs résolutions
+- De `b44c3890` (tronc de l essai du plan) à `c94c57df`, aucun des neuf fichiers de la liste ne change (`git diff --name-only`, vide) :
+  la fusion `3fe2b6f1` reprend les résolutions de l essai.
+- **Conflit 1, `docs/methode/CHECKLIST-G7.md`** (un bloc) : le tronc ajoute la ligne datée de la case 4 (`ed8edfe9`, 2026-09-30), la
+  branche celle de la case 5 (archive des faits, (3a) puis (3b)) : les deux sont gardées (l.8, l.9) ; les cases 7 (branche) et 11
+  (tronc, `75dff4d6`) sans conflit.
+- **Conflit 2, `docs/methode/REGLES-MISSION.md`** (un bloc après la l.7) : la ligne du tronc du 2026-10-08 reste en l.8, rattachée à
+  la l.7 ; les deux lignes de la branche (2026-09-29 10:1x et 12:3x UTC) suivent en l.9-10. 32 lignes ; aucune perdue (`grep -vxFf`
+  contre `93e9abce` et contre `c94c57df` : 0 et 0). Ce fichier ne change pas dans les étapes (5) et (6).
+- **Conflit 3, `test/journal-index.test.ts`** (deux blocs) : les imports `once` (tronc, `0792314e`) et `pathToFileURL` (branche) sont
+  gardés ; le test du tronc `LINT-UNTRACKED-TMP-1` est gardé, son tueur réadressé de `index.mjs:120` à `:152` (même `<avant>`, dans
+  `unlisted` ; l.372 du test) ; le tueur de TIER-FROM-HEADER passe de `:149` à `:185` (l.389).
+
+### 17.2 Les deux conflits que `merge-tree` ne voit pas
+- **`seq`** : le tronc l a retiré (`copy()`, `0792314e`), la branche l employait (`93e9abce`) ; l essai du plan y a mesuré 14 tests
+  rouges sur 45 (mesure de l essai, non refaite ici). Résolution : le nom de la mission vient du dossier unique de `repo()` (l.126,
+  `basename`), le clone va dans un `mkdtempSync` (l.416).
+- **`red-proof-v2`** : le `scripts/red-proof.mjs` du tronc écrit `red-proof-v2` depuis `b6f33efe` (l.286) ; le gel 2 n acceptait que
+  `red-proof-v1` : la case 5 du G7 aurait rougi. Retouche `a03dba6a` : `add --from-redproof` (`index.mjs:201`) et J-REDPROOF (`:293`)
+  acceptent v1, ou v2 de mode `f2p` ; test `red-proof v2: …` (l.631) ; tueurs `:201` (l.630, de tête) et `:293` (l.634, de corps).
+
+### 17.3 L item JOURNAL-LINT-FREEZE-HOST-1
+- **Avant** : à `93e9abce`, l `add` lintait la mission une fois, sa partie dépôt figée à la révision, sa partie hôte lue vivante
+  (branches, chemins absolus, dossiers d outils) : une branche ou un outil présents au lancement, absents à l `add`, rougissaient
+  J-LINT (R-BRANCH, R-TOOL).
+- **Construction** : `lintMission` prend `host` (défaut `true` : `launch.mjs`, `gen.mjs` et la lecture v1 de `build` inchangés) ;
+  `host: false` ne lit rien de l hôte : branches (`lint.mjs:105`, jugées l.156), chemins absolus (l.142 existence, l.150 longueur),
+  dossiers d outils (l.140, l.146, l.168). L `add` passe `host: false` (`index.mjs:209`) ; la partie hôte est celle du lancement,
+  attestée par le reçu, que `launch.mjs` n écrit que vert, un compte par code (l.30-35) ; l `add` refuse un reçu dont un compte n est
+  pas 0 (`index.mjs:182`, sortie 2, rien d écrit). `build` relit l enregistrement `monark.lint.v1` figé, jamais l hôte (en-tête l.50-51).
+- **Tests** : `add reads no host: …` (`test/journal-index.test.ts:618` : vrai `launch.mjs`, `add`, `build`) ; `host false: …`
+  (`test/mission-lint.test.ts:304`, `:312`, `:324` ; le dernier épie `existsSync` et `statSync` de `node:fs`). Tueurs : `index.mjs:209`
+  (tête, l.617), `:182` (corps, l.625) ; `lint.mjs:142` (tête, l.303), `:105` et `:168` (corps, l.307-308), `:150` (tête, l.311),
+  `:140` (tête, l.323), `:146` (corps, l.331).
+
+### 17.4 Étape (5) : lignes longues, en-têtes, titres
+- **Lignes longues** (convention ≤ 160 points de code dans `scripts/` et `test/`, Q-RR1-1) : la liste se recalcule à `a03dba6a` contre
+  `c94c57df` (ligne ajoutée ou modifiée de plus de 160 points de code, absente telle quelle de la base) : 96 lignes. 80 sont présentes
+  telles quelles au gel 2 `93e9abce` (le lot M-5c accepté au cp-2 du 2026-09-29 : 23 dans `index.mjs`, 57 dans le test) : hors de la
+  liste du plan (P5), non réécrites, proposées en item (17.6). 16 viennent des commits de cette branche ; 12 sont réécrites sur place,
+  sans ligne ajoutée en production (numéros de `a03dba6a`, avant → après en points de code) : `index.mjs` l.50 (254 → 137, la l.51
+  reprend la fin : 140), l.182 (193 → 152, `typeof r.mission` passe en l.181), l.201 (208 → 155, `v1` en l.200), l.293 (205 → 158, la
+  garde « not JSON » en l.292) ; `lint.mjs` l.140 (164 → 132, `rel` en l.139) ; `test/journal-index.test.ts` l.126 (169 → 151),
+  l.485 (179 → 130 et 66), l.617 (titre, 204 → 158), l.630 (titre, 166 → 147), l.631 (174 → 158), l.634 (178 → 75 et 133) ;
+  `test/mission-lint.test.ts` l.305 (232 → 89 et 150). Production : 437 → 437 lignes (`index.mjs`), 210 → 210 (`lint.mjs`).
+- **Restent**, longues avant cette branche (les replier décalerait des tueurs) : `index.mjs` l.98 (215, déjà 215 à `c94c57df`), l.209
+  (181, 168 à `93e9abce`) ; `lint.mjs` l.156 (182, 161 à `c94c57df`), l.168 (233, 225 à `c94c57df`).
+- **En-têtes** (« red-proof-v1 » seul) réécrits sur place : `index.mjs` l.13, l.68, l.415 ; le refus de `build` dit
+  `RED-PROOF <schéma>: not v1, nor v2 of mode f2p` (l.293) et l attendu du test suit (l.491) ; celui d `add` dit
+  `--from-redproof: not a red-proof-v1 record, nor a v2 one of mode f2p` (l.201, attendu l.485).
+- **Titres** : aucun code interne de méthode dans un nom de test : `add reads no host: …` (l.618), `red-proof v2: …` (l.631),
+  `host false: …` (`test/mission-lint.test.ts` l.304, l.312, l.324).
+- **eslint** : deux `no-base-to-string` déjà présents à `a03dba6a` (ses l.626 et l.634), corrigés sur place : `assert.match(at("G1")
+  as string, …)` (l.627 ; `assert.match` sur un objet lève une `AssertionError`, le tueur `:182` reste une mise à mort par assertion)
+  et `String(cp2(…) as string)` (l.636).
+- **Ancrage** (`parseKiller` du tronc, avant et après) : chaque ligne `// killer:` du dépôt garde son `<avant>` exactement une fois sur
+  la ligne qu elle nomme : 1 789 tueurs, 1 789 ancrés, 0 perdu ; `killerProblem` du tronc : 69 valides (`journal-index`), 41
+  (`mission-lint`), 0 invalide.
+
+### 17.5 Comptes et preuves de cette passe (Node 24.21.0, git 2.43.0)
+- **Fichiers** (sha256) : `scripts/journal/index.mjs` `440455d5…3591e8cb`, `scripts/mission/lint.mjs` `afa40231…ec50e11c`,
+  `test/journal-index.test.ts` `2e3d01e6…0d3eaaf4`, `test/mission-lint.test.ts` `33f07e88…55b90f45`, `test/test-counts.json`
+  `9cdfbd4b…01fcddf7` ; `scripts/mission/lint.d.mts` et `docs/methode/REGLES-MISSION.md` inchangés depuis `a03dba6a`.
+- **`npm run test:main`** : 2 986 tests, 2 961 verts, 3 rouges, 22 sautés, sortie 1. Les 3 rouges sont dans `apps/sentinel/test/`
+  (`sentinel-chainstack-guard.test.ts` l.440 et l.445, `ukemi-guard-record.test.ts` l.929), hors des fichiers de la branche, et rouges
+  de même à la base `c94c57df` (copie `git archive`, mêmes modules : 48 tests, 45 verts, ces 3 rouges) : un fait de l environnement de
+  cette passe, pas de la branche ; la CI de la PR et le rejeu Windows en jugent. Les deux fichiers touchés seuls, sur l arbre final :
+  86 tests, 83 verts, 3 sautés (corpus de l hôte absent), sortie 0.
+- **Relevé** (`node scripts/test-count-floor.mjs write`, jamais à la main) : 289 fichiers, 2 986 tests ; `test/journal-index.test.ts`
+  28 → 47 et `test/mission-lint.test.ts` 36 → 39 (attendus du plan) ; trois écarts du tronc, que son relevé (dernière écriture
+  `e0c808cd`, 2026-10-08 11:39Z) ne portait pas : `apps/sentinel/test/sentinel-chainstack-guard.test.ts` 15 → 17 (`659d869b`),
+  `test/kata-recalc.test.ts` 6 → 7 (`b9ec78b5`), `test/workspace-bin-mode.test.ts` 1, neuf (`11af7539`) ; aucun de ces commits n est
+  un ancêtre de `e0c808cd` ; à `c94c57df` ces fichiers déclarent 17, 7 et 1 tests.
+- **Portes statiques** : `tsc --noEmit -p tsconfig.json` 0 ; `eslint` sur les deux fichiers de test 0 (les `scripts/**/*.mjs` sont
+  ignorés par la configuration) ; `lint:ratchet` 69/69, 0 ; `lang-gate` 0 (0 hit) ; `grep-forbidden` et `gate:vocab` 0 (351
+  fichiers) ; `git diff --check c94c57df` 0.
+- **Red-proof** (outil du tronc ; `--base c94c57df --gel <arbre> --repo <arbre> --draw 3 --seed 3640954495`, la graine : les huit
+  premiers chiffres hexadécimaux du sha256 de la mission de cette passe, `d9048e7f`, en décimal) : `red-proof-v2`, mode `f2p` ; 25
+  jugés, 24 F2P, 1 refusé : `J-HEADER: the real form…` (l.402), « green at base: a self-confirming test », l épingle déclarée au § 5
+  (l.41) : (1) son `<avant>` est à la base (`index.mjs:184` de `c94c57df`), (2) son tueur `index.mjs:241` est tué (K38 ci-dessous),
+  (3) `base: pass`, `gel: pass`. Tirage : 3 tueurs sur 24, 3 tués (`index.mjs:319`, `:423`, `lint.mjs:142`) ; sortie 1 pour cette
+  épingle seule : la catégorie « épingle » n est pas au tronc en mode `f2p` (RED-PROOF-PIN-1 ouvert). `RED-PROOF.json` de l arbre
+  final : sha256 `729644d7…182dc1b0`. Le plan comptait 23 jugés : les deux tests `host false` ajoutés après sa mesure font 25.
+- **Mutants** (outil du tronc `scripts/mutants/run.mjs`, sha256 `13b2b11f…ed249b9d`, `--killers --base c94c57df`, `--out` et `--lock-root`
+  neufs, hors du dépôt) : `index.mjs`, `--only K1..K69 --targets test/journal-index.test.ts` : **69/69 tués**, 0 survivant, 0 non
+  conclu, sortie 0 (`RESULTS.json` `4ada6587…b2a23488`) ; `lint.mjs`, `--only` ses 39 tueurs (K70..K83, K86..K110) `--targets
+  test/mission-lint.test.ts,test/journal-index.test.ts,test/mission-gen.test.ts` : 38/39 tués, K107 (`lint.mjs:168`, tueur de corps
+  l.308) non conclu (premier passage : 31 tests rapportés sur 39 et un échec du fichier sans assertion ; son rejeu sur les trois
+  cibles : tué, 2 rouges par assertion), sortie 1 (`1306c89b…f278de27`) ; K107 relancé seul : tué (1 rouge par assertion, sur son
+  test), sortie 0 (`9e8524ca…a8c5ee28`). Les quatre tueurs des deux tests retouchés après le lancement de la première passe (K66..K69)
+  rejoués sur l arbre final : 4/4 tués, sortie 0 (`37d29f6b…6d4849ac`). K84 et K85 visent `launch.mjs`, hors des deux passes.
+- **R-25** : `r25()` de `scripts/oracle/r25.mjs`, avec le `ci.yml` de la branche, sur un clone où l arbre final est commis, contre
+  `c94c57df` : 518 insertions, 80 suppressions, **598**, GREEN (≤ 1 150 par `r25()`, case 4 ; porte CI 1 205). À `a03dba6a` : 580
+  (507 + 73, la mesure de l essai à `7f55cda9`) ; l étape (5) ajoute 18 : le relevé 11 (6 + 5 ; le plan en attendait 4), deux lignes de
+  la base modifiées sur place (`lint.mjs` l.139, l.17 du test) 4, trois lignes de test coupées en deux 3.
+
+### 17.6 Limites en items
+- **LINT-HOST-SNAPSHOT-1** : la partie hôte de J-LINT repose sur la parole du reçu ; R-BASE lit le dépôt vivant (`git rev-parse` de la
+  base, `lint.mjs:173`), stable si la base est un ancêtre de la révision rejouée, sinon elle peut basculer entre le lancement et
+  l `add`. Construction : `launch.mjs` fige les faits d hôte lus (chemins absolus et longueurs, branches, dossiers d outils, base
+  résolue) dans un enregistrement que l `add` archive ; J-LINT rejoue `lintMission` sur cet hôte figé. ≈ 0,5 j-h, R-25 ≈ 80 (estimés) ;
+  déclencheur : la fusion de M-5c ; formé à ETAT par MONARK.
+- **JOURNAL-REDPROOF-TEST-ONLY-1** : un RED-PROOF `red-proof-v2` de mode `test-only` reste refusé par `add` et par J-REDPROOF (test
+  l.631). ≈ 0,25 j-h (estimé) ; déclencheur : la première ligne G2 d un lot de tests seuls.
+- **Proposés par cette passe** (à former par MONARK) : JOURNAL-LINE-LENGTH-1, les 80 lignes longues de M-5c (23 de `index.mjs` et 57 du test ;
+  7 dans des blocs où `c94c57df` avait déjà des lignes longues) réécrites sous 160, tueurs réadressés par l outil du tronc, les titres
+  avec l item proposé JOURNAL-TEST-TITLES-1 (§ 16.11, Q-C1-7) : ≈ 0,5 j-h, R-25 ≈ 60 à 100 (estimés), déclencheur la prochaine ouverture de `scripts/journal/index.mjs` (M-5d) ;
+  MUTANTS-TAP-LOST-TESTS-1, un passage de mutant dont le TAP rapporte moins de tests que le fichier n en déclare, avec un échec du fichier
+  sans assertion (K107, une fois) : le classer « non conclu » avec ce motif, et lancer les enfants comme `test:main` (préchargement
+  `test/helpers/blocking-stdout.cjs`, sortie bloquante ; cause non établie) : ≈ 0,25 j-h (estimé), déclencheur la prochaine ouverture
+  de `scripts/mutants/run.mjs` (M-6b).
+
+### 17.7 Écarts et traces
+- **Écritures** : les neuf fichiers de la liste seulement (sept changés depuis `a03dba6a` : `index.mjs`, `lint.mjs`, les deux tests,
+  `test/test-counts.json`, CHECKLIST-G7, ce journal) ; `test-counts.out.json`, sortie de `test:main`, ignoré par git. Aucune commande git
+  qui écrit dans le dépôt ; aucun `GIT_DIR`, aucun `--write-tree` ; copies et clones de mesure hors du dépôt ; aucun réseau.
+- **Windows** : les tests `host false: …` l.312 et l.324 de `test/mission-lint.test.ts` lisent un chemin de lecteur présent : sous
+  Windows le dossier temporaire du test, hors de Windows un dossier relatif `Z:` sous ce dossier avec `process.chdir` (rendu dans un
+  `finally`) ; le l.324 remplace `existsSync` et `statSync` de `node:fs` (`syncBuiltinESMExports`, rendus dans un `finally`). Le l.304
+  cite `Z:/fh-absent/x.md:3`, absent partout. Rejeu Windows : acte de MONARK à la fusion.
