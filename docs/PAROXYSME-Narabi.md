@@ -46,7 +46,13 @@
   MSG21 (Bases, §8) ; pliés : P-3 lu et posé par MONARK (Q11 (b)), le pli §11-1 en lot seul, porteur RECHERCHES, et la rétractation datée d'A.3 et d'A.6 d'OPS-1
   à son G7 (L26 à L28, N04) ; NARABI-POW-PORTABLE-1 formé à ETAT, avec l'item des deux commentaires de `timeline.ts` (L19, L20) ; l'échéance des huit archives,
   que les quatre fichiers hors dépôt rejoignent (Q3 (a), Q10 (b) : §1, N15) ; l'en-tête de M014 corrigé (Q4 (a)) ; SENTINEL-DEPLOY-GUARD-1, à former (Q8 (b)) ;
-  parties touchées : en-tête, §1, L19, L20, L26 à L28, N04, N15, §7 (doutes 3, 11 et 14), §8.
+  parties touchées : en-tête, §1, L19, L20, L26 à L28, N04, N15, §7 (doutes 3, 11 et 14), §8. Pli de l'après-#252 (#252 versée au tronc, fusion `6cfd8abd` ;
+  son G7, commit de documents `74d2cdbc` : ETAT l.826-880 à `74d2cdbc`), le 2026-10-08 à partir de 18:06 UTC (`date -u`), par un worker de PAROXYSME
+  (`claude-opus-5-5`, effort max) : sources : ETAT, OPS-1 et deux tests de la sentinelle à `74d2cdbc`, MSG22 et MSG23 (Bases, §8) ; pliés : R1 (b), L19
+  `changé`, son item formé à ETAT depuis l'inventaire (MSG22 l.13) ; L26 `changé` par #252, le liage déplacé sur la ligne servie et la rétractation d'A.6
+  datée (MSG23 l.16-18) ; L27 et L28 restés sur SENTINEL-GUARD-ARMING-1 (MSG23 l.19), dont le déclencheur, le G7 du pli, est atteint (L26 à L28, N04) ;
+  `rpc.ts`, changé par #252 (L16) ; et trois lignes que le G7 rendait fausses : P-1 tenu en substance (L26), les étapes (1) à (7) de §6-bis
+  (L26, L28, N04), la l.248 d'OPS-1, non rétractée (L27) ; parties touchées : en-tête, L16, L19, L26 à L28, N04, §7 (doute 14), §8.
 - **Bases** : inventaire mesuré à `d8fe354c` ; ETAT lu à `57a131fc`, comme `apps/harness/src/policy-retire.ts` (né entre les deux,
   `f2152918`). Les ancres au tronc sans tête nommée sont à `87b821b0` (tête de `lot/etude-suite` lue au fetch de 17:02 UTC, reflog du clone),
   reportées par l'outil `reanchor.mjs` (pièce de la boîte, `d2332e2` ; aucune hors bornes, §7, doute 15) : les 18 ancres d'ETAT de l'inventaire
@@ -60,7 +66,10 @@
   `coordination/pieces/2026-10-08-pow-portable/` et `coordination/pieces/2026-10-08-pow-ecart/` (§8). Le pli de l'après-#253 cite ETAT à `2c3f51a8`
   (« ETAT l.N à `2c3f51a8` », relu par `git show 2c3f51a8:docs/ETAT.md | cat -n`), M014 et `docs/FAITS-pow-ecma-v8-2026-10-08.md` à la même tête, et
   MSG20 et MSG21 (« MSGn l.N ») : messages de MONARK `ad598ad` (MSG20, les douze réponses aux questions du pli de l'après-#245) et `fcaae5a` (MSG21, la
-  fusion de #253) (§8).
+  fusion de #253) (§8). Le pli de l'après-#252 cite ETAT, OPS-1, `apps/sentinel/test/sentinel-chainstack-guard.test.ts` et
+  `apps/sentinel/test/sentinel-retry.test.ts` à `74d2cdbc` (« … l.N à `74d2cdbc` », les tests en `fichier:ligne`, relus par `git show 74d2cdbc:<f> |
+  cat -n`), `apps/sentinel/src/rpc.ts` à `74d2cdbc` (son empreinte, L16), et MSG22 et MSG23
+  (« MSGn l.N ») : messages de MONARK `7567a50` (MSG22, la fusion de #254, R1 et R2) et `9729226` (MSG23, le G7 de #252) (§8).
 - **Préséance** : `docs/ETAT.md` l.7-11 ; ETAT prime. Un item nommé hors d'ETAT et du code n'est pas compté comme formé : il est écrit
   « à former » ou « à re-former à ETAT » et porté par son chantier.
 - **Labels** : aucun ne change (`built` de Narabi, `apps/site/lib/fleet.ts:210`) ; `apps/site/lib/fleet.ts` n'est pas touché par ce
@@ -217,8 +226,9 @@ celle de L15.
     source vérifiée d'EthenaMinting V2 : MONARK · déclencheur : partie 3 de PXC-03 (F4) ; la lecture sur place avant (PLAN §7.2)
   état : ouvert · suite : `maxRedeemPerBlock` non lu ; construction ≈ 300 lignes (ADR-K1 D2 (i), estimation de l'inventaire)
 - **L16** · « Confiance aux fournisseurs RPC : quorum à deux sans départage ; Pocket rend vide sans erreur. »
-  source : `apps/sentinel/src/rpc.ts` (inchangé) ; M012 l.242, l.245-248 ; `apps/sentinel/src/flow.ts:9-11` · touche : `README.md:133-135` ·
-    nature : P
+  source : `apps/sentinel/src/rpc.ts` (inchangé jusqu'à #252, dont le commit `57d0ee5d` en retire le code mort et le transport par défaut et rend `call`
+    obligatoire, le quorum à deux restant : sha256 `0e232519…c1c65ca0` → `0a5a8c3b…4481d953`, `git diff b44c3890 74d2cdbc -- apps/sentinel/src/rpc.ts`) ;
+    M012 l.242, l.245-248 ; `apps/sentinel/src/flow.ts:9-11` · touche : `README.md:133-135` · nature : P
   item : PXC-07 TRUSTLESS-READ-2, partie 1 (campagne R3) et partie 3 (NARABI-QUORUM-TIEBREAK-1, à re-former à ETAT) · porteur : PAROXYSME · déclencheur :
     campagne en F3 ; partie 3 en F5 (PLAN §4.4, l.617) ; ligne d'attente datée (P-25) : ETAT l.270-273 à `5437cd0d`
   état : ouvert · suite : jambe payante noire (N04 ; son réarmement est décidé le 2026-10-08, dans O-2 : MSG5 l.13 ; ETAT l.506 à
@@ -248,7 +258,8 @@ celle de L15.
     MONARK le 2026-10-08, de 09:56 à 10:04 UTC, niveau [lu] (`docs/FAITS-pow-ecma-v8-2026-10-08.md` l.3 à `2c3f51a8` ; MSG11 l.6-17) · déclencheur :
     tâche 2 du TABLEAU (F1) pour le texte ; partie 2 de PXC-04 (F3), avec la garde de la sentinelle, pour NARABI-POW-PORTABLE-1 (MSG13 l.27 ; ETAT l.737
     à `2c3f51a8`)
-  état : ouvert ; la limite est mesurée (MSG16 l.32-33 ; ETAT l.739-746 à `2c3f51a8`), dans un état du §0, « mesurée » dans le texte, sans état neuf
+  état : changé (item formé à ETAT depuis l'inventaire, NARABI-POW-PORTABLE-1, ETAT l.735-738 à `2c3f51a8`, comme L6, L7 et N01 : R1 (b), MSG22 l.13) ; la
+    limite est mesurée (MSG16 l.32-33 ; ETAT l.739-746 à `2c3f51a8`), dans un état du §0, « mesurée » dans le texte, sans état neuf
     (Q12 (a) : MSG20 l.28) : sous Node 24.21.0, les trois empreintes sha256 d'un million de cas de `pow-digest.mjs` diffèrent entre
     Linux (glibc 2.39 ; MSG15 l.12-13) et Windows 10 (MSG16 l.6-21) : `tracker-eps-0.1` (le pas du tracker), `318cd07a…66aedd80` contre `ee8827c9…bc5e86da` ;
     `tracker-eps-0.01`, `f61f6020…23bbf223` contre `24ff4ea9…9f7dee34` ; `pairs-seed-20261008`, `c7853ec4…3397494e` contre `154f956d…11a9ec48` ; tranches de
@@ -303,32 +314,39 @@ celle de L15.
   état : ouvert · suite : publication atomique de plusieurs fichiers à chercher (REG-0927 l.201-203)
 - **L26** · « Liage verbatim de la liste `endpoints` servie perdu : « résiduel ACTIF jusqu'au pli §11-1 ». »
   source : OPS-1 l.243 ; ETAT l.880-888 · touche : aucune · nature : C
-  item : SENTINEL-GUARD-ARMING-1 (ETAT l.880-888) ; le pli §11-1 (A.8-1) en lot seul, NARABI-OPS-1-FOLD-11-1 (ETAT l.692-696 à `2c3f51a8`) ; PXC-05
-    SERVED-CONTROL-1, partie 3 (armement), dans O-2 (ETAT l.506 à `565c7065`) · porteur : MONARK (ETAT l.887 ; P-3 : il lit la console et pose les clés
-    de cycle, Q11 (b) : MSG20 l.25-27 ; ETAT l.814-816 à `2c3f51a8`) ; RECHERCHES (le pli, ETAT l.694-696 à `2c3f51a8`) ; PAROXYSME (chantier)
-    · déclencheur : le G7 du pli §11-1 (ETAT l.880) : lot seul, G0 court rendu (`4a33afd`), avant la fin de O-1, puis G2, re-checkpoint-2 et G7 (ETAT
-    l.693-695, l.750 à `2c3f51a8`) ; puis RUNBOOK-sentinel §6-bis (3) à (7) par MONARK (ETAT l.506-508 à `565c7065`), le plancher relu le jour même
-    (ETAT l.695 à `2c3f51a8`), les clés de cycle posées à l'étape (4) (MSG20 l.26-27)
-  état : changé (pli §11-1 et 2ᵉ redéploiement jamais faits, ETAT l.880-885 ; réarmement décidé par le fondateur, MSG5 l.13 ; MONARK le fait
-    lui-même, MSG9 l.26-27 ; P-1 non tenu faute du pli, P-2 acquise, P-3 lu le 2026-10-08, ETAT l.688-693 à `2c3f51a8`) · suite : PXC-05 partie 3,
-    dans O-2 (PLAN §7.3 : avec la console) ; A.8-1, le pli §11-1 (OPS-1 l.257 ; INV l.179) ; au G7 du lot, MONARK date la rétractation d'A.3 et d'A.6
-    d'OPS-1 (ETAT l.751-753 à `2c3f51a8`), A.6 portant ce résiduel (OPS-1 l.243)
+  item : SENTINEL-GUARD-ARMING-1 (ETAT l.880-888 ; l.868-877 à `74d2cdbc`) ; le pli §11-1 (A.8-1 : OPS-1 l.257 ; INV l.179) en lot seul,
+    NARABI-OPS-1-FOLD-11-1 : fait, #252 fusionnée (`6cfd8abd`), l'oracle G7 sur la fusion (ETAT l.833 à `74d2cdbc`), rendu au commit de
+    documents `74d2cdbc` (MSG23 l.6) ; PXC-05 SERVED-CONTROL-1,
+    partie 3 (armement), dans O-2 (ETAT l.506 à `565c7065`) · porteur : MONARK (ETAT l.887 ; P-3 : il lit la console et pose les clés de cycle,
+    Q11 (b) : MSG20 l.25-27 ; ETAT l.814-816 à `2c3f51a8`) ; RECHERCHES (le pli, ETAT l.694-696 à `2c3f51a8` ; fait) ; PAROXYSME (chantier)
+    · déclencheur : le G7 du pli §11-1 (ETAT l.880), atteint le 2026-10-08 (OPS-1 l.266 à `74d2cdbc` ; ETAT l.875-876 à `74d2cdbc`) ; restent P-4 et
+    RUNBOOK-sentinel §6-bis (1) à (7), le redéploiement que MONARK conduit (ETAT l.870-871 à `74d2cdbc`), le plancher relu le jour même (ETAT l.695 à
+    `2c3f51a8`), les clés de cycle posées à l'étape (4) (MSG20 l.26-27)
+  état : changé (par #252 : le liage verbatim de la liste `endpoints` est déplacé sur la ligne servie, celle qu'écrit le vrai `run.ts`, et la rétractation
+    d'A.6 est datée par `74d2cdbc`, « résiduel FERMÉ avant le 2ᵉ redéploiement » : OPS-1 l.243 à `74d2cdbc` ; MSG23 l.16-18 ; ETAT l.878-880 à `74d2cdbc`)
+    · suite : liage relu à `74d2cdbc` : `apps/sentinel/test/sentinel-chainstack-guard.test.ts:255`, `:282`, `:300`, `:320` et
+    `apps/sentinel/test/sentinel-retry.test.ts:255` ; la rétractation d'A.3 est datée aussi (OPS-1 l.217 à `74d2cdbc`) ; le 2ᵉ redéploiement reste à faire
+    (ETAT l.870-871 à `74d2cdbc`) : réarmement décidé par le fondateur (MSG5 l.13), que MONARK fait lui-même (MSG9 l.26-27) ; P-1 tenu « en substance, pas
+    mot pour mot », P-2 acquise, P-3 lu et posé (ETAT l.868-875 à `74d2cdbc`) ; PXC-05 partie 3, dans O-2 (PLAN §7.3 : avec la console)
 - **L27** · « H-FACT n'est pas établie ; le plancher du VPS est périmé (résiduel déclaré). »
   source : OPS-1 l.226, l.248 ; ETAT l.886 · touche : aucune · nature : P
   item : SENTINEL-GUARD-ARMING-1 (ETAT l.880-888) ; PXC-05 SERVED-CONTROL-1, partie 3 · porteur : MONARK (ETAT l.887 ; P-3 : il lit la console et
-    pose les clés de cycle, Q11 (b) : MSG20 l.25-27 ; ETAT l.814-816 à `2c3f51a8`) · déclencheur : le jour du redéploiement, après le G7 du pli §11-1 :
+    pose les clés de cycle, Q11 (b) : MSG20 l.25-27 ; ETAT l.814-816 à `2c3f51a8`) · déclencheur : le jour du redéploiement, après le G7 du pli §11-1,
+    atteint le 2026-10-08 (ETAT l.875-876 à `74d2cdbc` ; restent P-4 et §6-bis (1) à (7), l.870-871 à `74d2cdbc`) :
     le plancher relu et les clés de cycle posées par MONARK à l'étape (4) du §6-bis (MSG20 l.26-27 ; ETAT l.695, l.814-816 à `2c3f51a8`) ; P-3 est lu
     le 2026-10-08 à 09:30 UTC par MONARK, à la demande du fondateur (MSG20 l.25-26 ; ETAT l.676-680 à `2c3f51a8`) ; la jambe noire est écartée (MSG5
     l.13, l.17-19 ; ETAT l.505-508 à `565c7065`)
   état : changé (renvoyé à P-3, ETAT l.886) · suite : P-3, que le PLAN (§7.3) rangeait en acte de compte du fondateur, est à MONARK (Q11 (b)) ; le compte
     du fournisseur RPC est payé pour douze mois, sans plafond de budget : décision du fondateur du 2026-10-08, relayée par MONARK `b2f0890`
-    (MSG9 l.16-17, l.24-25) ; « les valeurs P-3 sont lues aujourd hui » (MSG9 l.26-27) ; au G7 du pli §11-1, MONARK date la rétractation d'A.6
-    d'OPS-1, qui porte ce résiduel (OPS-1 l.248 ; ETAT l.751-753 à `2c3f51a8`)
+    (MSG9 l.16-17, l.24-25) ; « les valeurs P-3 sont lues aujourd hui » (MSG9 l.26-27) ; au G7 du pli §11-1, MONARK a daté la rétractation d'A.6
+    d'OPS-1 (Q-3 : ETAT l.751-753 à `2c3f51a8`) sur sa l.243 (L26 ; OPS-1 l.243 à `74d2cdbc`) ; la l.248, qui porte ce résiduel, est à `74d2cdbc` celle
+    de `87b821b0`, sans rétractation : L27 reste sur SENTINEL-GUARD-ARMING-1 (MSG23 l.19 ; ETAT l.879-880 à `74d2cdbc`)
 - **L28** · « Dégradation silencieuse sans clé « accepted over refuse to start » : c'est le mode servi depuis la ligne du 2026-09-23. »
   source : OPS-1 l.161-163 ; ETAT l.880-885 ; JP l.417, l.429 · touche : `README.md:66` (timeline servie) · nature : C
   item : SENTINEL-GUARD-ARMING-1 (ETAT l.880-888) ; PXC-05 SERVED-CONTROL-1, partie 3 · porteur : MONARK (ETAT l.887), qui réarme
     lui-même la jambe (MSG9 l.26-27), lit P-3 et pose les clés de cycle (Q11 (b) : MSG20 l.25-27 ; ETAT l.814-816 à `2c3f51a8`) · déclencheur : le G7
-    du pli §11-1 (ETAT l.880), lot seul de RECHERCHES, NARABI-OPS-1-FOLD-11-1 (ETAT l.692-696 à `2c3f51a8`) ; puis §6-bis (3) à (7) par MONARK, le
+    du pli §11-1 (ETAT l.880), lot seul de RECHERCHES, NARABI-OPS-1-FOLD-11-1 (ETAT l.692-696 à `2c3f51a8`), atteint le 2026-10-08 (#252 ; ETAT l.875-876
+    à `74d2cdbc`) ; restent P-4 et §6-bis (1) à (7) par MONARK (ETAT l.870-871 à `74d2cdbc`), le
     plancher relu le jour même (ETAT l.695 à `2c3f51a8`), avec l'alerte T4 quand la jambe s'éteint (ETAT l.506-508 à `565c7065`)
   état : changé (garde sans clés de cycle, `chainstack_guard: "unconfigured"`, 7 points, ETAT l.881-884) · suite : deux redéploiements sans armement (JP l.417,
     l.429) ; A.8-8, `chainstack_present:false` non alerté par la sonde (OPS-1 l.264 ; INV l.181)
@@ -392,7 +410,8 @@ celle de L15.
   item : SENTINEL-GUARD-ARMING-1 (ETAT l.880-888 ; l.505-508, l.582-584 à `565c7065`) ; PXC-05 SERVED-CONTROL-1, partie 3 (armement), dans O-2 ·
     porteur : MONARK (ETAT l.887 ; l.506 à `565c7065`), qui réarme lui-même la jambe (MSG9 l.26-27), lit la console du fournisseur RPC et pose les clés de
     cycle, P-3 (Q11 (b) : MSG20 l.25-27 ; ETAT l.814-816 à `2c3f51a8`) · déclencheur : le G7 du pli §11-1 (ETAT l.880), lot seul de RECHERCHES,
-    NARABI-OPS-1-FOLD-11-1 (ETAT l.692-696 à `2c3f51a8`) ; puis RUNBOOK-sentinel §6-bis (3) à (7) par MONARK, le plancher relu le jour même, avec
+    NARABI-OPS-1-FOLD-11-1 (ETAT l.692-696 à `2c3f51a8`), atteint le 2026-10-08 (#252 ; ETAT l.875-876 à `74d2cdbc`) ; restent P-4 et RUNBOOK-sentinel
+    §6-bis (1) à (7) par MONARK (ETAT l.870-871 à `74d2cdbc`), le plancher relu le jour même, avec
     l'alerte T4 (ETAT l.506-508 à `565c7065` ; l.695 à `2c3f51a8`) ; « les valeurs P-3 sont lues aujourd hui » (MSG9 l.26-27), à 09:30 UTC (ETAT
     l.676-680 à `2c3f51a8`)
   état : ouvert, noire au relevé du 2026-10-08 (ETAT l.526-527 à `565c7065`) ; « on réarme la jambe payante. » (MSG5 l.13 ; ETAT l.505,
@@ -647,7 +666,9 @@ Harnais et cité ici en suite de N11.
     budget), L16 et L27 à huit (la même décision) ; sa réparation n° 2 porte L19 à vingt-trois (la limite mesurée,
     NARABI-POW-PORTABLE-1, le lien de Q-V3). Le pli de l'après-#253 (même compte) porte L19 à trente (l'item formé à ETAT, celui des commentaires de
     `timeline.ts`, le FAITS de MONARK), N15 à quinze (l'échéance et les quatre fichiers), N04 à treize, L26 à douze, L27 à onze et L28 à huit (P-3 à
-    MONARK, le pli §11-1 en lot seul, la rétractation datée d'A.3 et d'A.6 d'OPS-1) ; toutes les autres entrées font sept lignes au plus.
+    MONARK, le pli §11-1 en lot seul, la rétractation datée d'A.3 et d'A.6 d'OPS-1). Le pli de l'après-#252 (même compte) porte L19 à trente et un (R1 (b)),
+    L26 à quinze (le liage relu à `74d2cdbc`, les rétractations datées), L27 à treize (la l.248 d'OPS-1), N04 à quatorze et L28 à neuf (le G7 du pli
+    atteint, P-4 et §6-bis qui restent), L16 à neuf (`rpc.ts` changé par #252) ; toutes les autres entrées font sept lignes au plus.
 15. **Contrôle mécanique.** `verify-registres.mjs` (pièce de la boîte, `d97d838` : entrées prises entières, doutes épinglés) sort 0 sur
     `dc82a19f` (versement, #242 ; `PLI-Narabi.md` l.46) ; sur #245, qui modifie les registres, son contrôle (5) échoue : c'est la copie de `84bc889` qui
     tourne (ci-dessous). La version `d2332e2` de `reanchor.mjs` ne refusait pas une ligne hors du fichier (`a55a62d` la refuse) : `bounds.py` (pièce de la
@@ -672,22 +693,26 @@ Harnais et cité ici en suite de N11.
 ## 8. Ligne PAROXYSME et sources
 
 **Ligne PAROXYSME (2026-10-07, décisions de MONARK pliées ; 2026-10-08, pli de l'après-#245, à partir de 07:41 UTC ; réparation n° 2, à partir de 10:32 UTC ;
-pli de l'après-#253, à partir de 12:27 UTC).** Narabi : 51 limites ouvertes ou changées (dont 1 ⚑B : L15) et 8 closes (N08 par le versement, ETAT l.183 à
-`5437cd0d`) ; 61 entrées, 53 ouvertes (dont NRT-01 et NRT-02, §5), 8 closes, aucune ne change d'état dans ce pli ni dans celui de l'après-#253. Limites neuves à
-ETAT : 2 ici (§5 ; NRT-01 est la même limite que N01). Décision du fondateur entrée datée : Q-A.2 (L15), à ETAT l.49-51 à `5437cd0d`, dont MONARK a corrigé la
-parenthèse (ETAT l.50-53 à `565c7065` ; MSG8 l.12) ; maintenue le 2026-10-08, la jambe restant `upcoming` jusqu'à une attestation signée réelle, l'attesteur à
-clé réelle à former dans O-2 (MSG6 l.9-11). DÉCISION FONDATEUR « on réarme la jambe payante. » (MSG5 l.13) : N04, L26 à L28, avec l'alerte T4, dans O-2 ; le
-dead-man de L23 aussi (MSG4 l.11) ; MONARK réarme lui-même la jambe, dont le fournisseur RPC est ouvert sans plafond de budget, payé pour douze mois (décision
-du fondateur du 2026-10-08, relayée par MONARK `b2f0890` : MSG9 l.16-17, l.24-27) ; il lit P-3 et pose les clés de cycle (Q11 (b) : MSG20 l.25-27 ; ETAT
-l.814-816 à `2c3f51a8`) ; le pli §11-1 part avant, en lot seul de RECHERCHES (ETAT l.692-696 à `2c3f51a8`). SENTINEL-DEPLOY-GUARD-1 re-porté à PXC-05 partie 1,
-à former au G0 de cette partie (§6 ; §7, doute 3 ; Q8 (b)). Limite de L19 mesurée le 2026-10-08, Linux contre Windows sous Node 24.21.0 : NARABI-POW-PORTABLE-1,
-voie (ii), S4′, formé à ETAT l.735-738 à `2c3f51a8` ; porteur PAROXYSME ; déclencheur la partie 2 de PXC-04 ; prix estimé C 2,5 + R 1 ; Q-V3 de PXC-02 reste (c)
-jusqu'à sa clôture (L19, L20 ; MSG11, MSG13, MSG14, MSG16, MSG18). Échéance : NARABI-L-2, ligne d'attente datée (P-25) à ETAT l.265-269 à `5437cd0d` : le G0 de
-la partie 1 de PXC-04, au plus tard le 2026-11-16, porteur PAROXYSME (ADR et partie 1 de PXC-04). Aucune dette : chaque entrée ouverte a son item, son porteur
-et son déclencheur ; pour N15, la question de la suppression, datée par MONARK (MSG2), est posée et tranchée, et HOST-HARNESS-PREV-1 est FAIT pour les deux
-copies (ETAT l.518-525 à `565c7065`) ; la question des huit archives, que les quatre fichiers hors dépôt rejoignent, est datée par MONARK : son prochain point
-d'étape avec le fondateur, au plus tard avant le déploiement de la release L (§1 ; MSG20 l.8, l.22-24). Hors des entrées : les étapes T2, T3, T5 et T12, limites
-sans item à former dans O-1 à O-4 (ETAT l.294-295 à `565c7065` ; §1). L'en-tête de M014 est corrigé par MONARK (§7, doute 11).
+pli de l'après-#253, à partir de 12:27 UTC ; pli de l'après-#252, à partir de 18:06 UTC).** Narabi : 51 limites ouvertes ou changées (dont 1 ⚑B : L15) et 8
+closes (N08 par le versement, ETAT l.183 à `5437cd0d`) ; 61 entrées, 53 ouvertes (dont NRT-01 et NRT-02, §5), 8 closes, aucune ne change d'état dans ce pli ni
+dans celui de l'après-#253 ; celui de l'après-#252 fait passer L19 d'ouvert à changé (R1 (b) : MSG22 l.13), L26 reste changé, par #252 (MSG23 l.16-18), et rien
+ne se clôt : des 53, 34 ouvertes et 19 changées, contre 35 et 18 avant ce pli (motif `état : <mot>`, entrées prises comme `verify-registres.mjs`). Limites
+neuves à ETAT : 2 ici (§5 ; NRT-01 est la même limite que N01). Décision du fondateur entrée datée : Q-A.2 (L15), à ETAT l.49-51 à `5437cd0d`, dont MONARK a
+corrigé la parenthèse (ETAT l.50-53 à `565c7065` ; MSG8 l.12) ; maintenue le 2026-10-08, la jambe restant `upcoming` jusqu'à une attestation signée réelle,
+l'attesteur à clé réelle à former dans O-2 (MSG6 l.9-11). DÉCISION FONDATEUR « on réarme la jambe payante. » (MSG5 l.13) : N04, L26 à L28, avec l'alerte T4,
+dans O-2 ; le dead-man de L23 aussi (MSG4 l.11) ; MONARK réarme lui-même la jambe, dont le fournisseur RPC est ouvert sans plafond de budget, payé pour douze
+mois (décision du fondateur du 2026-10-08, relayée par MONARK `b2f0890` : MSG9 l.16-17, l.24-27) ; il lit P-3 et pose les clés de cycle (Q11 (b) : MSG20 l.25-27
+; ETAT l.814-816 à `2c3f51a8`) ; le pli §11-1, lot seul de RECHERCHES (ETAT l.692-696 à `2c3f51a8`), est fusionné (#252, `6cfd8abd`), l'oracle G7 sur la fusion,
+rendu au commit de documents `74d2cdbc` (MSG23 l.6) ; SENTINEL-GUARD-ARMING-1 reste ouvert jusqu'à P-4 et §6-bis (1) à (7), le redéploiement que MONARK conduit
+(ETAT l.831-835, l.868-877 à `74d2cdbc`). SENTINEL-DEPLOY-GUARD-1 re-porté à PXC-05 partie 1, à former au G0 de cette partie (§6 ; §7, doute 3 ; Q8 (b)). Limite
+de L19 mesurée le 2026-10-08, Linux contre Windows sous Node 24.21.0 : NARABI-POW-PORTABLE-1, voie (ii), S4′, formé à ETAT l.735-738 à `2c3f51a8` ; porteur
+PAROXYSME ; déclencheur la partie 2 de PXC-04 ; prix estimé C 2,5 + R 1 ; Q-V3 de PXC-02 reste (c) jusqu'à sa clôture (L19, L20 ; MSG11, MSG13, MSG14, MSG16,
+MSG18). Échéance : NARABI-L-2, ligne d'attente datée (P-25) à ETAT l.265-269 à `5437cd0d` : le G0 de la partie 1 de PXC-04, au plus tard le 2026-11-16, porteur
+PAROXYSME (ADR et partie 1 de PXC-04). Aucune dette : chaque entrée ouverte a son item, son porteur et son déclencheur ; pour N15, la question de la
+suppression, datée par MONARK (MSG2), est posée et tranchée, et HOST-HARNESS-PREV-1 est FAIT pour les deux copies (ETAT l.518-525 à `565c7065`) ; la question
+des huit archives, que les quatre fichiers hors dépôt rejoignent, est datée par MONARK : son prochain point d'étape avec le fondateur, au plus tard avant le
+déploiement de la release L (§1 ; MSG20 l.8, l.22-24). Hors des entrées : les étapes T2, T3, T5 et T12, limites sans item à former dans O-1 à O-4 (ETAT
+l.294-295 à `565c7065` ; §1). L'en-tête de M014 est corrigé par MONARK (§7, doute 11).
 
 | Source | Lignes | sha256 |
 |---|---|---|
@@ -822,3 +847,16 @@ boîte PAROXYSME (`coordination/messages/`), lus chacun à son commit (`git show
 | M014 à `2c3f51a8` | 138 | `f1e3c466203667785063b15bc5a33a5974c9133c87819c796cb1f1a0f41f33a4` |
 | MSG20 : MONARK, `…-douze-questions.md`, commit `ad598ad` | 35 | `99244cb59ecde83c24792c9d65d87ecb2888485ed89a2736f593dc351b24abd7` |
 | MSG21 : MONARK, `…-253-fusion.md`, commit `fcaae5a` | 16 | `4bd3b7731c329dfb056741e56dc6db22c8a0340ec855d477fea091e3330ea574` |
+
+Sources du pli de l'après-#252 (2026-10-08) : ETAT, OPS-1 et deux tests de la sentinelle à `74d2cdbc` (tronc) ; MSG22 et MSG23, messages de MONARK de la
+boîte PAROXYSME (`coordination/messages/`), lus chacun à son commit (`git show <commit>:<f> | wc -l`, puis `| sha256sum`) :
+
+| Source | Lignes | sha256 |
+|---|---|---|
+| `docs/ETAT.md` à `74d2cdbc` | 2 694 | `33fec4750e49c448306b13abb87bc4fee2f4a413865b4a7c2ff1532c0e7f6e04` |
+| OPS-1 à `74d2cdbc` | 266 | `55cb1d3d86b55aac38ec647763a96f5a7d6055c322a59ee38380f1d8e2fcbeb2` |
+| `apps/sentinel/test/sentinel-chainstack-guard.test.ts` à `74d2cdbc` | 469 | `3422a6681aff0c84722916898efbcb471dfeba897d7d325ae952d4278561f109` |
+| `apps/sentinel/test/sentinel-retry.test.ts` à `74d2cdbc` | 277 | `abe804d63d7df7eae4929c852896aff5ab7882d41b1347280c5411c3787bc527` |
+| `apps/sentinel/src/rpc.ts` à `74d2cdbc` | 195 | `0a5a8c3b8210d2a5b5e1e370b0f2df8c7c700eff38f18f10526ff53d4481d953` |
+| MSG22 : MONARK, `…-254-fusion.md`, commit `7567a50` | 17 | `abab4b5ec2d106380d8ffd39fdfbdde9ead7954e5038d40ddf2a45eccb7ae2ac` |
+| MSG23 : MONARK, `…-g7-252-registre.md`, commit `9729226` | 20 | `6b55e71c6086a9c311851e8ffe75132e3906f013a8aee92bb57ae899f9711b9d` |
