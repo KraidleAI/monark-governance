@@ -11,8 +11,8 @@
   contrôle par diff, fusion et ligne d'ETAT : MONARK. Versé par #242, fusion `1df4e44f` (ETAT l.181-186 à `5437cd0d`) ;
   décisions de MONARK pliées le 2026-10-07 (PR `paroxysme/registres-decisions-1007`), par un worker de PAROXYSME (`claude-opus-5-5`,
   effort max) à partir de 19:56 UTC (`date -u`), sur ETAT à `5437cd0d` et le message de MONARK `d6331f6` (MSG ; §8).
-  Constats 4, 5 et 14 de la G2 de ce pli (instance neuve) pliés le 2026-10-07 de 21:01 UTC (naissance du répertoire de travail du pli,
-  `stat`) à 21:16 UTC (`date -u`) par un worker de PAROXYSME (`claude-opus-5-5`, effort max, contexte de sa mission) : N7, N9, N22,
+  Constats 4, 5 et 14 de la G2 de ce pli (instance neuve) pliés le 2026-10-07, achevés à 21:16 UTC (`date -u` ; heure de départ non
+  relevée) par un worker de PAROXYSME (`claude-opus-5-5`, effort max, contexte de sa mission) : N7, N9, N22,
   §7 (doutes 5, 13, 17), §8. Trois constats d'un vérificateur adverse de ce pli corrigés à partir de 22:36 UTC (`date -u`) par un
   worker de PAROXYSME (`claude-opus-5-5`, effort max, contexte de sa mission) : en-tête, N6, N22, §7 (doute 5).
 - **Bases** : inventaire mesuré à `d8fe354c` ; il lit ETAT, `apps/harness/src/policy-guard.ts` et `docs/G7-lot-retire-path-ra.md` à
