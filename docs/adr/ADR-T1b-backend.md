@@ -26,7 +26,7 @@
     - `test/no-cash-provider-name.test.ts` : second `test()`, qui applique les formes de la décision 69 aux fichiers servis ; littéraux à source unique ;
     - ADR-B0 (amendements §D13) et ADR-T1aii (tuyaux T-1b), insérés au G7 ;
     - lignes CHANTIERS : C-1, K-1. Acte de l'orchestrateur (R-20).
-  - **Hôte** : VPS Bell `178.16.131.29`, `srv1993906.hstgr.cloud` (`CHANTIERS.md:123`), DNS posé (§Contexte 7).
+  - **Hôte** : VPS Bell `bell.monarkgate.tech`, `srv1993906.hstgr.cloud` (`CHANTIERS.md:123`), DNS posé (§Contexte 7).
   - **NON touchés** (critère « 0 ligne », §D12) : `apps/site/**`, `README.md`, `skills/**`, `schemas/**`, `packages/contracts/**`, `apps/bell/src/**`, `apps/sentinel/**`, `deploy/monark-{harness,sentinel,probe}.*`, `/opt/monark-probe`, `/opt/monark-harness`.
 
 ---
@@ -92,7 +92,7 @@ Empreintes à `adc3260` : `collect.ts` `130168aa…`, `digest.ts` `e7ee1a25…`,
    - écritures durables (`rebase-crosscheck.ts` `writeDurable`, ADR-T1aii D1-nonies §5-6).
 6. **Items à déclencheur T-1b** : K-1 (`CHANTIERS.md:45,84`), décision 80 (`:229`), C-4 `paused` (ADR-T1aii l.30), PR-B-DBN n° 8 (`:72`), item (6) décision 69 (`:329-330`), NARABI-OPS-1 (d) (`:75`), MWCB (ADR-T1aii l.320), ADR-B0 (d)/(f)/(l) (l.106). Tous sont traités ci-dessous.
 7. **Faits nouveaux (v2)** [lu, dépôt @ `c0f905c`] :
-   - **DNS posé** : A `bell.monarkgate.tech → 178.16.131.29`, TTL 300, créé à 13:49Z (`CHANTIERS.md:1157-1158`). Constaté par le validateur : `nslookup … 1.1.1.1` (CP1 §1). La porte DNS est **levée** ; le `dig +short` reste à rejouer au D-n.
+   - **DNS posé** : A `bell.monarkgate.tech` → adresse de l'hôte Bell, TTL 300, créé à 13:49Z (`CHANTIERS.md:1157-1158`). Constaté par le validateur : `nslookup … one.one.one.one` (CP1 §1). La porte DNS est **levée** ; le `dig +short` reste à rejouer au D-n.
    - **Décision 147** (`:1160-1162`) : GO global du juriste. La **décision 79 est levée** ; **E-2 est close** ; R-T1b-6 est sans objet. Précision : l'acte formel est attendu en novembre, item **JURISTE-ACTE-NOV-1** (propriétaire investisseur, entrée 14:05Z).
    - **G7 BELL-ADV-1 ACCEPTÉ** : fusion `adc3260`, oracle 7 × 0, porte test 1 083 = 1 074 + 9 au rejeu (entrée 14:05Z). La porte « G7 BELL-ADV-1 » du G1 PR-1 est **levée**.
 
@@ -102,7 +102,7 @@ Empreintes à `adc3260` : `collect.ts` `130168aa…`, `digest.ts` `e7ee1a25…`,
 
 ### D1 — Hôte et arbre : VPS Bell dédié, arbre `/opt/monark-bell`, rien de partagé (inchangé)
 
-- **Hôte.** Nous publions depuis le **VPS Bell `178.16.131.29`** (décision 57 ; ADR-B0 D8), avec le Caddy propre de l'hôte, sous `bell.monarkgate.tech`.
+- **Hôte.** Nous publions depuis le **VPS Bell `bell.monarkgate.tech`** (décision 57 ; ADR-B0 D8), avec le Caddy propre de l'hôte, sous `bell.monarkgate.tech`.
 - **Arbre.** Le code tourne depuis un **arbre dédié `/opt/monark-bell`**, qui ne contient que ce qu'exécute l'unité.
 - **Leçon CARTO-T1F-2**, en trois engagements :
   1. aucun octet écrit sous `/opt/monark-probe`, `/etc/monark/probe.env` ni `/var/lib/monark-probe` (CA, contrôle 12) ;
@@ -349,7 +349,7 @@ Empreintes à `adc3260` : `collect.ts` `130168aa…`, `digest.ts` `e7ee1a25…`,
 | G-a | G7 des PR 1, 2, 3 | documents G7 + SHA de fusion | orchestrateur |
 | G-b | **PR-B-DBN n° 8** : licence EQUS.SUMMARY + FAQ « after 24 hours » | **fichier de FAITS daté** (lecture sur place : URL, heure, citation ≤ 25 mots) sous `docs/course-bell/` ; offset confirmé, ou lot de changement G7 avant G-e | orchestrateur |
 | G-c | **I-G2-2** : périmètre des sauvegardes | **lecture hPanel consignée** (FAITS daté) + **décision investisseur sur les sauvegardes** (ligne CHANTIERS) + ruling ESC-2 (R-T1b-3) | orchestrateur + investisseur |
-| G-d | **DNS** | `CHANTIERS.md:1157-1158` + `dig +short bell.monarkgate.tech` = `178.16.131.29` **rejoué au D-n** | orchestrateur |
+| G-d | **DNS** | `CHANTIERS.md:1157-1158` + `dig +short bell.monarkgate.tech` = adresse de l'hôte Bell **rejoué au D-n** | orchestrateur |
 | G-e | **premier bundle** (Q6-COURSE-1 et/ou -b1-bis-ii) | **sha256 du bundle** et références de sa course (JOURNAL de course, ancres) | orchestrateur |
 | 1-8 | contrôles sur place ; arbre `git archive` au SHA G7 ; utilisateur et répertoires ; **clé (après G-c)** ; commit du trousseau ; unité ; Caddy (ruling C-5) ; DNS constaté | sorties consignées | orchestrateur |
 | 9-13 | `scp` du bundle ; `systemctl start` ; CA `VERIFY OK` ; JOURNAL ; miroir | CA JSON + sha | orchestrateur |

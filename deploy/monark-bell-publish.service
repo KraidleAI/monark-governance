@@ -1,5 +1,5 @@
 # systemd unit for the MONARK Bell publisher (ADR-T1b-backend v2 D8-D10; backlog S-7). Orchestrator-deployed on the
-# dedicated Bell host (178.16.131.29, decision 57) by docs/RUNBOOK-bell.md. A Type=oneshot job started BY HAND by the
+# dedicated Bell host (bell.monarkgate.tech, decision 57) by docs/RUNBOOK-bell.md. A Type=oneshot job started BY HAND by the
 # operator after a bundle lands in the inbox (lot a = option C, R-T1b-5): NO timer and NO [Install] section, so nothing
 # starts it at boot and nothing enables it (the collection timer is lot b, item BELL-COLLECT-TIMER-1, declared deviation
 # from decision 54, C-1). Each start validates the ONE pending bundle, signs and appends one timeline line, writes the
