@@ -3,7 +3,7 @@
 # reads the `finalized` head, processes every complete UTC day in order, appends the timeline, and exits. FIRST
 # outbound-network process on the VPS (public RPC, read-only); its ONE optional secret — the Chainstack
 # endpoint URL (ADR-NARABI-OPS-1 L-3) — is read from an out-of-repo EnvironmentFile below, NEVER committed and
-# NEVER echoed (run.ts logs the host only, C-1). DEDICATED `sentinel` user, its ONLY writable path is
+# NEVER echoed (only the guard transport reads it; run.ts publishes the NON-secret origin, C-1). DEDICATED `sentinel` user, its ONLY writable path is
 # /var/lib/monark-sentinel (ProtectSystem=strict) — no harness write. 0 new dependency (R-8).
 [Unit]
 Description=MONARK Narabi sentinel - daily attested-flow tracker step (ADR-M012)
@@ -20,19 +20,18 @@ Environment=MONARK_SENTINEL_DIR=/var/lib/monark-sentinel
 # Optional Chainstack endpoint (ADR-NARABI-OPS-1 L-3 / C-5): a DISTINCT paid operator that hardens the quorum
 # against the free-pool outages behind the 2026-09-20 incident. Its URL (key in the path) lives ONLY in this
 # root:sentinel 0640 file, NEVER committed (no_secret_in_repo scans for it). The leading `-` makes the file
-# OPTIONAL: absent, the run falls back to the 8 public endpoints and stays fail-closed (ADR-M012 D5, amended by
-# ADR-NARABI-OPS-1 — the base "no key" pool still publishes; the key only ADDS a ninth operator). Set/verify
+# OPTIONAL: absent, the run falls back to the 7 public endpoints and stays fail-closed (ADR-M012 D5, amended by
+# ADR-NARABI-OPS-1 — the base "no key" pool still publishes; the key only ADDS an 8th operator). Set/verify
 # with `systemctl show -p EnvironmentFiles monark-sentinel.service` (RUNBOOK); the URL is never printed (C-1).
 # NARABI-OPS-1d: the Chainstack leg is now METERED + LEDGERED through @monark/rpc-guard (decision 118 migration).
 # Same root:sentinel 0640 EnvironmentFile carries, ALONGSIDE the (secret) endpoint URL, the NON-secret per-cycle
 # keys the guarded leg needs (decision 121 option 1, floor/caps non-secret): CHAINSTACK_CYCLE_ID (same cycle as
 # the Ukemi course), CHAINSTACK_ETH_ORIGIN (scheme+host only, published as provenance — the URL's origin, never
-# its key path), and optional CHAINSTACK_CYCLE_FLOOR (dashboard RU floor, default 0). ALL three absent => the run
-# degrades to the 7 public endpoints (chainstack_guard:"unconfigured"), never a FATAL (D-degrade). The per-cycle
+# its key path), and optional CHAINSTACK_CYCLE_FLOOR (dashboard RU floor, default 0). The cycle id OR the origin absent
+# or empty => the run degrades to the 7 public endpoints (chainstack_guard:"unconfigured"), never a FATAL. The per-cycle
 # ledger lives under the ReadWritePaths below at /var/lib/monark-sentinel/ledger (NOT under public/); its PARENT
 # is pre-created by the RUNBOOK (`install -d -o sentinel -g sentinel -m 0750`, C-8 — never auto-created). The pool
-# is 7 public + the guarded Chainstack leg = 8th (the "8 public / ninth operator" wording above is the ADR-D3
-# count drift, corrected in the ADR-NARABI-OPS-1 -1d amendment). No new ReadWritePaths (the ledger is under it).
+# is 7 public + the guarded Chainstack leg = 8th. No new ReadWritePaths (the ledger is under it).
 EnvironmentFile=-/etc/monark/sentinel.env
 # MONARK_SENTINEL_J0 (drop-in) MUST be set to J0 BEFORE `systemctl enable` — the first run FAILS CLOSED
 # without it (ADR-M012 D5); the unit never silently publishes nothing. Node 24 strips TypeScript at load.
