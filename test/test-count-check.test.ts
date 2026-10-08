@@ -43,8 +43,9 @@ test("test_count_check_holds_the_run_to_the_record_and_each_drop_to_its_line", (
   // killer: scripts/test-count-check.mjs:23 CONST " && r.reason.trim() !== \"\"" -> ""
   // killer: scripts/test-count-check.mjs:23 CONST " && r.to < r.from" -> ""
   // killer: scripts/test-count-check.mjs:23 CONST " && r.to >= 0" -> ""
-  const bad = [line("a", 3, 2, " "), line("a", 2, 3), line("a", 3, -1), { file: "a", from: 3, to: 2 }];
-  assert.deepEqual(dropProblems(base, base, [], bad), bad.map((r) => `${REMOVALS}: ${JSON.stringify(r)} is not a line {file, from, to, reason} with from > to >= 0 and a reason`), "an empty reason, to above from, to below 0, no reason");
+  // killer: scripts/test-count-check.mjs:22 CONST "Object.keys(r).sort().join() === \"file,from,reason,to\" && " -> ""
+  const bad = [line("a", 3, 2, " "), line("a", 2, 3), line("a", 3, -1), { file: "a", from: 3, to: 2 }, { ...line("a", 3, 2), pr: 1 }];
+  assert.deepEqual(dropProblems(base, base, [], bad), bad.map((r) => `${REMOVALS}: ${JSON.stringify(r)} is not a line {file, from, to, reason} with from > to >= 0 and a reason`), "an empty reason, to above from, to below 0, no reason, a fifth key");
 });
 
 // killer: scripts/test-count-check.mjs:45 CONST ": process.env.ORACLE_BASE)" -> ": undefined)"
@@ -84,6 +85,9 @@ test("test_count_check_names_its_base_or_refuses", () => {
     assert.equal(gate([], { GITHUB_BASE_REF: "trunk", ORACLE_BASE: none })[0], 0, "GITHUB_BASE_REF before ORACLE_BASE: the drop has its line");
     // killer: scripts/test-count-check.mjs:45 CONST "argv[1] ?? " -> ""
     assert.equal(gate(["--base", none], { GITHUB_BASE_REF: "trunk" })[0], 1, "--base before GITHUB_BASE_REF: against a base without a record, the line names no drop");
+    // killer: scripts/test-count-check.mjs:52 CONST "baseList = atBase(REMOVALS, [], Array.isArray, \"a list [ ... ]\")" -> "baseList = []"
+    git("add", REMOVALS); git("commit", "-q", "-m", "the line committed: a base that carries the record and the list");
+    assert.deepEqual(gate(["--base", "HEAD"]), [0, ""], "a base with the record and the list (iii): its line stays, once, and names no new drop");
     // killer: scripts/test-count-check.mjs:56 CONST "...recordProblems(run, record), " -> ""
     writeFileSync(join(dir, RUN), counts({ ...head, "b.test.ts": 1 }));
     assert.deepEqual(gate([], { ORACLE_BASE: rec }), [1, `::error::b.test.ts: 1 test(s) run, 2 in ${RECORD}`], "P2 in the gate");
