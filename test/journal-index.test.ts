@@ -482,7 +482,8 @@ test("redproof_roundtrip: add --from-redproof copies base, head, digest and deri
   const bad = at("cp-2", "--from-redproof", join(r, "test", "fixtures", "journal", "oracle-G7.json")), rp = (e as Entry).redproof as Entry, v0 = readFileSync(String(rp.record), "utf8").replace("red-proof-v1", "red-proof-v0");
   graft(r, sha(v0), v0);
   const rows = lines(r), forged = [{ ...rows[0], redproof: { ...rp, f2p: 10 } }, { ...rows[0], redproof: { ...rp, sha256: sha(v0) } }];
-  const refused = typeof bad === "string" && bad.endsWith("--from-redproof: not a red-proof-v1 record, nor a v2 one of mode f2p");
+  // killer: scripts/journal/index.mjs:201 CONST "--from-redproof ${src}: " -> "--from-redproof: "
+  const refused = bad === `exit 2 journal: --from-redproof ${join(r, "test", "fixtures", "journal", "oracle-G7.json")}: not red-proof-v1, nor v2 of mode f2p`;
   const same = rp.sha256 === sha(readFileSync(String(rp.record)));
   assert.deepEqual([{ ...rp, record: 0, sha256: 0 }, same, refused], [{ record: 0, sha256: 0, base: C1, head: C2, digest: "d".repeat(64), judged: 11, f2p: 9,
     pins: 2, population: 9, drawn: 3, killed: 3, ok: false }, true, true]);
@@ -623,8 +624,10 @@ test("add reads no host: a branch and a bare tool present at the launch, gone be
   assert.equal(typeof e, "object", JSON.stringify(e));
   assert.deepEqual(build({ "M-Z": [e as Entry] }, r).hits, []);
   // killer: scripts/journal/index.mjs:182 CONST " || Object.values(r.lint ?? {}).some((n) => n !== 0)" -> ""
-  writeFileSync(mission.replace(/\.md$/, ".recu.json"), JSON.stringify({ ...rc, lint: { ...(rc.lint as Entry), "R-PATH": 1 } }));
-  assert.match(at("G1") as string, /^exit 2 .*not a green launch receipt/);
+  const recu = mission.replace(/\.md$/, ".recu.json");
+  writeFileSync(recu, JSON.stringify({ ...rc, lint: { ...(rc.lint as Entry), "R-PATH": 1 } }));
+  // killer: scripts/journal/index.mjs:182 CONST "--from-recu ${src}: " -> "--from-recu: "
+  assert.equal(at("G1"), `exit 2 journal: --from-recu ${recu}: not a green launch receipt`);
 });
 
 // killer: scripts/journal/index.mjs:201 CONST " || r?.schema === \"red-proof-v2\" && r.mode === \"f2p\"" -> ""

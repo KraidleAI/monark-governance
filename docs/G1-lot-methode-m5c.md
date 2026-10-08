@@ -517,3 +517,16 @@ claude-opus-5-5
   Windows le dossier temporaire du test, hors de Windows un dossier relatif `Z:` sous ce dossier avec `process.chdir` (rendu dans un
   `finally`) ; le l.324 remplace `existsSync` et `statSync` de `node:fs` (`syncBuiltinESMExports`, rendus dans un `finally`). Le l.304
   cite `Z:/fh-absent/x.md:3`, absent partout. Rejeu Windows : acte de MONARK à la fusion.
+
+### 17.8 Relecture de la session, 2026-10-08 20:24 UTC (après les commits `f7406327` et `e611e582`)
+- **Constat** : l étape (5) avait retiré le chemin du fichier des deux refus d `add` (`index.mjs` l.182 et l.201), que le gel 2
+  `93e9abce` et le tronc `c94c57df` (l.146) nomment ; un refus perdait ainsi le nom du fichier refusé.
+- **Correction** : `const src` reprend l option en l.181 et l.200 ; les refus disent `--from-recu <chemin>: not a green launch
+  receipt` et `--from-redproof <chemin>: not red-proof-v1, nor v2 of mode f2p` ; aucune ligne de production ajoutée (437 lignes),
+  la plus longue des quatre à 159 points de code. Les deux tests comparent la sortie entière, chemin compris (test l.486, l.630), et
+  portent chacun un tueur de corps neuf (l.485 vers `index.mjs:201`, l.629 vers `:182`). Les numéros de ligne du test cités aux § 17.2 à
+  17.4 à partir de la l.485 se lisent désormais +1 (de la l.485 à la l.626) ou +2 (au-delà).
+- **Preuves** (Node 24.21.0) : `test/journal-index.test.ts` seul, 47 tests, 47 verts, sortie 0 ; ancrage, 1 791 tueurs, 1 791
+  ancrés ; `killerProblem` 71 valides (`journal-index`), 41 (`mission-lint`), 0 invalide ; `eslint` sur les deux tests et
+  `tsc --noEmit` 0 ; mutants (`--killers --base c94c57df --only K5,K47,K68,K69,K70`, les cinq tueurs des l.181-182 et l.200-201) :
+  5/5 tués, sortie 0 (`RESULTS.json` `531bc66a…1962c9fb`).

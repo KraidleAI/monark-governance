@@ -178,8 +178,8 @@ function add(o) {
   for (const [k, [field, parse = (s) => s]] of Object.entries(OPTS)) if (o[k] !== undefined) e[field] = parse(o[k]);
   let text = null, recu = null; // the mission text (J-LINT frozen below) and the sha256 of the receipt bytes
   if (o["from-recu"] !== undefined) {
-    const rb = bytesOf(o["from-recu"], "receipt"), r = jsonOf(rb), named = typeof r?.mission === "string";
-    if (r?.verdict !== "vert" || !named || Object.values(r.lint ?? {}).some((n) => n !== 0)) throw new Usage("--from-recu: not a green launch receipt");
+    const src = o["from-recu"], rb = bytesOf(src, "receipt"), r = jsonOf(rb), named = typeof r?.mission === "string";
+    if (r?.verdict !== "vert" || !named || Object.values(r.lint ?? {}).some((n) => n !== 0)) throw new Usage(`--from-recu ${src}: not a green launch receipt`);
     const mb = bytesOf(r.mission, "mission"), tier = PALIER.exec(mb.toString("utf8"))?.[1].trim().toLowerCase(); // TIER-FROM-HEADER (M-5b)
     if (tier === undefined ? o.tier === undefined : o.tier !== undefined && o.tier !== tier) throw new Usage(`--from-recu: Palier ${tier ?? "absent"} of the mission, --tier ${o.tier ?? "absent"}: ${tier === undefined ? "no tier" : "they differ"} (TIER-FROM-HEADER)`);
     e.tier = tier ?? o.tier;
@@ -197,8 +197,8 @@ function add(o) {
     facts.push(b, ...(sp !== null && existsSync(sp) ? [readFileSync(sp)] : [])); // a served record absent here is absent from the archive
   }
   if (o["from-redproof"] !== undefined) {
-    const b = bytesOf(o["from-redproof"], "red-proof record"), r = jsonOf(b), d = deriveRedproof(r), v1 = r?.schema === "red-proof-v1";
-    if (!(v1 || r?.schema === "red-proof-v2" && r.mode === "f2p")) throw new Usage("--from-redproof: not a red-proof-v1 record, nor a v2 one of mode f2p");
+    const src = o["from-redproof"], b = bytesOf(src, "red-proof record"), r = jsonOf(b), d = deriveRedproof(r), v1 = r?.schema === "red-proof-v1";
+    if (!(v1 || r?.schema === "red-proof-v2" && r.mode === "f2p")) throw new Usage(`--from-redproof ${src}: not red-proof-v1, nor v2 of mode f2p`);
     e.redproof = { record: abs(o["from-redproof"]), sha256: hash(b), ...Object.fromEntries(COPIED.map((k) => [k, d[k]])) };
     facts.push(b);
   }
