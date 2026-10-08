@@ -259,3 +259,11 @@ no killer line or killer target moves. Every line above this section keeps its n
 - Left for the maintainer: `apps/bell/src/quorum.ts:13` says that `rpc.ts:84` appends the url to the HTTP error; after the deletion
   no line of `rpc.ts` builds an HTTP error, and the served keyless transport appends the redacted host
   (`apps/sentinel/src/keyless-transport.ts:28`). `apps/bell/` is outside the files opened for this change (n-5).
+
+Red-proof reads this round by its own rule: a changed line inside a test body judges that test, comment lines included. The F2P
+form of the section "Verification" (`--base 659d869b --draw 1 --seed 20261008`), with the gel at this round's head, judges four
+tests and prints REFUSED: `sentinel_src_clean_and_allowlist_load_bearing` is F2P and its killer, drawn, is killed; the three tests
+whose bodies hold a line of this round (`apps/sentinel/test/pool-rpc-1a.test.ts:144`, `apps/sentinel/test/sentinel-retry.test.ts:218`,
+`test/rpc-guard-fetch-only-inside-client.test.ts:211`) pass at T1 and at the head and are refused, two as self-confirming and the
+pool test for want of a killer line. Their assertions and the code they run are unchanged; the F2P proof of the code is the one at
+C and at `04d10c94`.
