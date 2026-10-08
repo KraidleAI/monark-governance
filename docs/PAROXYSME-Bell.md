@@ -32,13 +32,14 @@
   Réparation n° 1 de ce pli, après deux vérificateurs adverses neufs, le 2026-10-08 à partir de 09:25 UTC (`date -u`), par un worker de
   PAROXYSME (`claude-opus-5-5`, effort max) : sources : ETAT à `565c7065` et à `20fffe9f`, MSG2, MSG8, MSG10 et MSG11 (Bases, §8) ;
   parties touchées : en-tête (Bases), §0 (D-5), L-02, L-03, L-28, L-29, N-01, N-02, N-03, §7 (doute 8), §8 ; pliés : les crédits sans plafond de budget et le
-  fournisseur RPC ouvert sans plafond (L-02, L-03, L-29, N-03) ; LIC-DBN-1 et BELL-COLLECT-TIMER-1 nommés à ETAT depuis `565c7065` (L-28, N-03) ; la phrase M5,
-  non écrite sous le gel (N-03) ; L-22 dans la liste du §0 (D-5) ; la première course de la sonde du Dōjō sous les masques, au tronc à `20fffe9f` (N-01, §8) ;
-  la ligne d'ETAT de N-02, encore absente à `20fffe9f` (N-02, §8) ; la décision du fondateur sur le vrai lien de Bell (N-02, doute 8, §8). Réparation n° 2 de ce
-  pli, après un vérificateur adverse neuf de la réparation n° 1, le 2026-10-08 à partir de 10:32 UTC (`date -u`), par un worker de PAROXYSME (`claude-opus-5-5`,
-  effort max) : sources : ETAT à `565c7065` et à `20fffe9f`, MSG10, MSG12 et MSG13 (Bases, §8) ; pliés : la phrase de la réparation n° 1, complétée ;
-  SUPPLY-READ-1 nommé à ETAT depuis `565c7065` (L-39) ; les crédits sans plafond de budget (L-40) ; Q-V1 acquise et Q-V4 tranchée (N-02) ; la règle de la boîte
-  sur Bell, que MONARK tranche après le cp-1 de PXC-02 (Frontière) ; parties touchées : en-tête (Frontière, Bases), L-39, L-40, N-02, §8.
+  fournisseur RPC ouvert sans plafond (L-02, L-03, L-29, N-03) ; LIC-DBN-1 et BELL-COLLECT-TIMER-1 nommés à ETAT depuis `caa36277` (l.395 et l.393 à
+  `565c7065` ; L-28, N-03) ; la phrase M5, non écrite sous le gel (N-03) ; L-22 dans la liste du §0 (D-5) ; la première course de la sonde du Dōjō sous les
+  masques, au tronc à `20fffe9f` (N-01, §8) ; la ligne d'ETAT de N-02, encore absente à `20fffe9f` (N-02, §8) ; la décision du fondateur sur le vrai lien de
+  Bell (N-02, doute 8, §8). Réparation n° 2 de ce pli, après un vérificateur adverse neuf de la réparation n° 1, le 2026-10-08 à partir de 10:32 UTC
+  (`date -u`), par un worker de PAROXYSME (`claude-opus-5-5`, effort max) : sources : ETAT à `565c7065` et à `20fffe9f`, MSG10, MSG12 et MSG13 (Bases, §8) ;
+  pliés : la phrase de la réparation n° 1, complétée ; SUPPLY-READ-1 nommé à ETAT depuis `565c7065` (L-39) ; les crédits sans plafond de budget (L-40) ; Q-V1
+  acquise et Q-V4 tranchée (N-02) ; la règle de la boîte sur Bell, que MONARK tranche après le cp-1 de PXC-02 (Frontière) ; parties touchées : en-tête
+  (Frontière, Bases), L-39, L-40, N-02, §8.
 - **Bases** : inventaire mesuré à `d8fe354c`, ETAT lu à `57a131fc`. Toutes les ancres de ce registre sont à `87b821b0`, tête de
   `lot/etude-suite` dont part #242 (« à la tête », dans ce registre, veut dire « à `87b821b0` »), sauf celles du pli des décisions
   (fin de ce point). Elles sont reportées par l'outil `reanchor.mjs` (pièce de la
@@ -483,9 +484,10 @@
     fondateur du 2026-10-08, relayée par MONARK `2ed67d1` (MSG11 l.8-12) ; le fondateur y corrige « Ukemi » en « Hikae » (l.12) ; pour le
     noyau de PXC-02, MONARK retient l'option (a) : le lien est marqué « à venir », sans autre promesse, lecture que le fondateur peut
     corriger (MSG11 l.20-22) ; cette réponse à Q-V1 est acquise depuis, avec les quatre autres : la première livraison de code de PXC-02
-    n'attend plus rien du fondateur (MSG12 l.19) ; Q-V4 (d), décision du fondateur du 2026-10-08 (MSG12 l.11, l.15) : les dix endroits du dépôt et du
-    site qui disent que le moteur fait tourner les applications, Bell en tête (MSG13 l.49-51), sont corrigés dans cette première
-    livraison, avant la mise en ligne ; la liste des dix n'est pas versée, et ce registre n'y range pas `README.md:146-147` et `:214`
+    n'attend plus rien du fondateur (MSG12 l.19) ; Q-V4 (d), décision du fondateur du 2026-10-08 (MSG12 l.11, l.15) : les dix endroits de la page
+    d'accueil du dépôt et du site qui disent que le moteur fait tourner les applications, Bell en tête (MSG13 l.49-51), sont corrigés dans
+    cette première livraison, avant la mise en ligne ; aucune liste des dix n'est versée (`git grep` de « dix endroits » dans la boîte à
+    `e449508` : des mentions, dont MSG12 l.15 et MSG13 l.49-54, aucune liste), et ce registre n'y range pas `README.md:146-147` et `:214`
 - **N-03** · « Aucune cadence ni cible de latence publiée ; publication par acte opérateur ; rien publié depuis le 24/09. »
   source : RB l.6-7 ; T1B l.121-129 · touche : FLEET l.346 · nature : C
   item : phrase : PXC-02 partie 3 (BELL-CADENCE-TEXT-1, à former ; T1B l.129) ; minuterie : PXC-14
