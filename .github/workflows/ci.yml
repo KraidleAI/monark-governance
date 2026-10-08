@@ -274,9 +274,9 @@ jobs:
     # scripts/verifier-tool-ci.mjs: guard_check (each case it skips named, Windows only), report_check (section 3 stood in off
     # Windows), compare_check and binom_check in both modes. Internal job: the tool is never exported, so derivePublicWorkflow drops
     # it (INTERNAL_JOBS). runs-on names the image, whose build of the one pinned CPython setup-python installs.
-    # Bound = measured job wall-time x3, capped <= 20 (2026-10-07, its first run, on PR 247: 116 s for the job, 108 s for the step => 6).
+    # Bound = measured job wall-time x3, capped <= 20 (2026-10-07, its first three runs on PR 247: 116 s, 201 s and 191 s => 11).
     runs-on: ubuntu-24.04
-    timeout-minutes: 6
+    timeout-minutes: 11
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:

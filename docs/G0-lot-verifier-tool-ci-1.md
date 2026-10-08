@@ -101,8 +101,8 @@ Node 24, no dependency). The driver launches each check of the tool as `python <
 - Steps: `checkout` (`fetch-depth: 0`: `git show 207f021f`, the tree at the commit of lot 1d, the partial clone of `guard_check`;
   `persist-credentials: false`: every git call of the tool is local), `setup-node` (`"24"`, the pinned SHA of the other jobs),
   `setup-python` (§2), the run step. No job-level token block (the root `contents: read`), no `if:`, no `continue-on-error`;
-  `timeout-minutes: 6`: the job's first run, on PR 247, took 116 s (the step 108 s), x3 is 348 s (15 at first, from the local 213 s,
-  then measured on the runner, §11).
+  `timeout-minutes: 11`: the job's first three runs, on PR 247, took 116 s, 201 s and 191 s (three runners), and the slowest x3 is
+  603 s (15 at first, from the local 213 s, then measured on the runner, §11).
 - **R-25**: `ci.yml`, `scripts/` and `test/` count; this G0 (`docs/**/*.md`) does not. Size in §10.
 - **Required check**: a new job reds without blocking until MONARK adds `g3-verifier-tool` to the required status checks, as for
   `g3-site`. Q-4.
@@ -221,7 +221,7 @@ judgeable. This plan, under `docs/`, is not counted.
   outputs `63606d4f…` and `68e16302…`; the three notices (skipped, stood in, not run); "verifier tool checks under python -E -S -s -B:
   GREEN". `g3-verification`: 2 929 tests, 2 907 pass, 0 fail, 22 skipped. `r25-taille-de-lot`: "Changed lines: 299 (ADR bound:
   1205)", content 0, mode written. `g3-export` green: the public export, its own CI included, with the job dropped. Then the bound
-  of §5 set from that run (the next commit), and its run read again in the PR.
+  of §5, set from the runs of `2c7091ba` (201 s) and `032ffb68` (191 s, run 37705257088, eight jobs green) too, the step 183 s there.
 
 ## 12. Questions for MONARK (default in brackets)
 
