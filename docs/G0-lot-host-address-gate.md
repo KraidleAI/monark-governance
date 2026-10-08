@@ -91,14 +91,16 @@ La porte refuse toute adresse hors de la liste. Hors des 35, l'arbre en porte en
   pas lu, et doit être un binaire que `.gitattributes` déclare (`git check-attr binary`, sans fichier d'attributs global) : sinon le
   verdict le nomme (`undeclared`, chemin masqué) et le test de l'arbre rougit. Le chemin de chaque fichier suivi est jugé aussi
   (ligne 0), et un littéral d'un chemin est masqué dans la sortie : chaque suite hex qu'il touche là où il est écrit, échappements
-  compris, et partout où son texte revient, chaque caractère écrit ou échappé (`%XX`, un niveau, l'une ou l'autre casse).
+  compris, et partout où son texte revient, chaque caractère écrit ou échappé (`%XX`, un niveau, l'une ou l'autre casse) ; de même
+  le littéral d'une occurrence lue dans le fichier, partout où son texte revient dans le chemin imprimé.
 - **Littéral** : chaque ligne, et chaque chemin, est lue telle qu'écrite puis dans une copie où chaque `%XX`, en majuscules ou en
   minuscules, est décodé par un simple remplacement (`decodeURIComponent` lève sur un `%` isolé) ; un littéral que seule la copie
   montre est rapporté à sa colonne dans la ligne écrite. Le même littéral à la même colonne n'est jamais rapporté deux fois. Mais quand
   les chiffres hex d'un échappement, ou le caractère qu'il décode, se collent à un littéral, chaque passe lit le sien et les deux se
-  chevauchent : une adresse écrite donne alors deux occurrences (suivie de `%35` : l'adresse, et l'adresse au dernier octet allongé
-  d'un chiffre, en même colonne), chacune masquée, rouge de toute façon. Les deux sont gardées : n'en garder qu'une ferait passer une
-  ligne dont une lecture est exemptée et l'autre non.
+  chevauchent : une adresse écrite peut alors donner deux occurrences, chacune masquée (suivie de `%35` : l'adresse, et l'adresse au
+  dernier octet allongé d'un chiffre, en même colonne). Il y en a deux quand la lecture la plus longue reste une adresse (pour une
+  IPv4, l'octet allongé au plus 255) et qu'aucune des deux n'est exemptée ; sinon une seule, ou aucune si ce qui reste est exempté.
+  Les deux sont gardées : n'en garder qu'une ferait passer une ligne dont une lecture est exemptée et l'autre non.
   - IPv4 : quatre octets décimaux (`net.isIPv4`), bornés (avant : ni lettre, ni chiffre, ni `_`, ni `.` ; après : ni lettre, ni
     chiffre, ni `_`, ni `.chiffre`) ;
   - IPv6 : suite maximale de chiffres hexadécimaux, de `:` et de `.` qui porte au moins deux `:` ; un mot collé à un `::` n'en est pas
@@ -289,6 +291,63 @@ le runbook (`f69e6aa3`) et cette note.
   la CI) ; contenu : 0.
 - **Non vérifié ici** : Windows (MONARK rejoue à la fusion) : la branche win32 de la fixture des liens, `lstat` et `readlink` d'un
   lien sous Windows, et les points de §7.
+
+## 9. Pli du G2 delta 2 (verdict CORRECTIONS, deux constats m)
+
+Pièce : `recherches:coordination/pieces/2026-10-07-g2-recherches/G2-243-delta2.json` (tête lue `c0d93d9b`). Worker
+`claude-opus-5-5`, effort max, worktree détaché du scratchpad ; `git add` par chemins ; poussé sans force. Une première course de ce
+pli, coupée par un redémarrage du conteneur, n'avait rien poussé : son test rouge (`257b376f`) est gardé après vérification
+(message, rouge rejoué, tueur), sa correction non commise refaite à l'identique (sha256 égal). Le tronc n'a pas bougé (`5437cd0d`,
+base de fusion de la tête) : pas de fusion. Le test rouge seul (`257b376f`), la correction (`cc6e7432`), le runbook (`4f74a0aa`) et
+cette note.
+
+- **m-11, chemin d'une occurrence du contenu** : `hide(rel, also)` marque aussi chaque récurrence du texte de chaque littéral de
+  `also`, chaque caractère écrit ou en `%XX` (un niveau, l'une ou l'autre casse), comme pour les littéraux du chemin ; `judge` lui
+  passe le littéral de l'occurrence (`hide(rel, [lit])`). Le chemin d'un fichier dont le contenu porte une adresse, et qui la porte
+  aussi sous une forme que la passe du chemin ne lit pas (collée à une lettre ou à un `_`, ou ses points en `%2E` collés à un mot),
+  n'imprime plus ses chiffres. Trois lignes et le commentaire de `hide()`, en place ; les chemins de `undeclared`, sans occurrence
+  de contenu, restent masqués comme avant. Le test des chemins porte `logs/host<adresse>.txt` et le même nom aux points `%2E`,
+  chacun avec l'adresse pour contenu, attendus masqués. Sonde, un dépôt jetable par vecteur, adresses du banc d'essai construites à
+  l'exécution : un `known_hosts` nommé d'après son hôte, l'adresse collée à un mot, ses points en `%2E` et en `%2e`, tous ses
+  caractères échappés, une IPv6 collée, en minuscules et en majuscules, une occurrence lue dans la copie décodée du contenu, et le
+  témoin `logs/<adresse>.txt` : à `c0d93d9b`, 8 chemins sur 9 impriment des chiffres de l'adresse (le témoin non) ; à `cc6e7432`,
+  aucun, une occurrence chacun.
+- **m-12, RUNBOOK-dojo §15 (0)**, en place, six lignes, aucune ajoutée ni ôtée : `"$N"` dans la reprise (l.562), le contrôle
+  `BatchMode` (l.568) et le retour arrière (l.572), `$N` dans l'attendu de la copie (l.560) ; l'enregistrement A du nom,
+  RUNBOOK-bell étape 7 ou RUNBOOK-harness §0 (l.564) ; l'attendu du contrôle, le nom propre de l'hôte (`bell` pour Bell) (l.571).
+  L'étape vaut ainsi pour `monarkgate.tech`, comme le dit la clause des l.546-547. N vide ferme l'étape, mesuré avec le client
+  OpenSSH 9.6p1 du paquet Ubuntu (HOME isolé, clés jetables, noms en `.test`) : la reprise ne lit rien (sortie 1), `ssh` sort en
+  255 (`STOP`), le retour arrière n'ôte rien et n'écrit pas de `known_hosts.old`. Aucun test ne lit ces lignes ; les 14 tueurs
+  ancrés dans RUNBOOK-dojo restent ANCRE.
+- **m-7, mot** : §3 « Littéral » dit quand une adresse écrite donne deux occurrences : si la lecture la plus longue reste une
+  adresse et qu'aucune des deux n'est exemptée ; sinon une seule, ou aucune.
+- **Rouge d'abord** : au commit `257b376f`, le script de `c0d93d9b`,
+  `address_literals_mask_a_path_wherever_its_address_recurs_escaped` rouge par `ERR_ASSERTION` à l'assertion neuve (les deux
+  chemins imprimés en clair) ; les 11 autres verts. `every_killer_line_is_readable` y rougit aussi : le tueur neuf vise la ligne de
+  la correction. À `cc6e7432` : 12/12.
+- **Tueurs** : 16, tous ANCRE (`verifie-ancres` : 16 sur le fichier touché, 101 depuis la base `eb1beb01`, 1 660 dans l'arbre ;
+  0 DERIVE, 0 PERDU). Neuf, dans le corps du test des chemins, au-dessus de son cas : `:136 CONST` (`hide(rel)` sans le littéral
+  de l'occurrence). Aucun renuméroté : le script garde ses lignes. Chacun tiré seul, fichier rendu et sha256 vérifié : 16 tués par
+  `ERR_ASSERTION`, chacun au cas qu'il précède.
+- **Mutants à la main** : 5 sur les lignes neuves (121, 123, 136), chacun seul, fichier rendu et sha256 vérifié, tous tués : 4 par
+  assertion (l'empan de `also` étendu au début du chemin, d'un caractère ou de la longueur du littéral ; les littéraux du chemin
+  ôtés de la boucle ; le littéral masqué passé à `hide`), 1 par le `TypeError` de `hide()` sans défaut pour `also`, qu'appelle
+  `undeclared`. Aucun survivant.
+- **red-proof** `--base c0d93d9b --gel cc6e7432 --draw 1 --seed 1` : 1 jugé, F2P (assert-fail à la base, pass au gel), 11
+  inchangés, aucun refus ; population 1, 1 tueur tiré (`:125`), tué ; `RED-PROOF.json` sha256 `20d217bf…`, digest du gel
+  `107b1224…`.
+- **Mesures** (à `4f74a0aa`, Node v24.21.0, Linux) : `tsc --noEmit` 0 ; eslint des deux fichiers de code touchés : 0 erreur
+  (1 avertissement, le script hors du champ d'eslint) ; `gate:vocab` (349 fichiers), `lang:gate` (0), `lint:ratchet` (69/69) et
+  `export:check` verts ; winlint : 49 fichiers contre le tronc, 4 contre `c0d93d9b` (cette note comprise), aucun risque Windows.
+  Tests lecteurs : les 28 fichiers de test qui nomment un runbook, avec `killer-lines`, `byte-guard`, `record-binance-klines`,
+  `public-surfaces-honesty` et le test de la porte : 479/480, 1 sauté (propre à win32), le test 42 écarté (motif de `test:main`).
+  `npm run test:main` : 2 937 tests, 2 915 verts, 22 sautés (préexistants), 0 rouge, 384 s ; test 42 (l'export public et son
+  `npm ci && npm run ci` imbriqué) : vert, 121 s. Porte sur l'arbre : 0 occurrence, 0 entrée périmée, 0 non déclaré, 2 408
+  fichiers lus sur 2 453 suivis, 62 paires dans 27 fichiers, toutes trouvées.
+- **Taille, forme de la CI** : 12 fichiers comptés, +453 −48, soit **501 lignes**, sous 547 (borne du lot) et sous 1 205 (borne de
+  la CI) ; contenu : 0.
+- **Non vérifié ici** : Windows (MONARK rejoue à la fusion) ; les hôtes eux-mêmes : le `known_hosts` de l'opérateur, et le nom que
+  répond à `hostname` le VPS de `monarkgate.tech`, que l'étape ne présume plus.
 
 ## Points pour MONARK
 
