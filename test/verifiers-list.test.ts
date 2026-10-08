@@ -201,7 +201,7 @@ test("pinned_list_is_read_lazily_and_an_altered_list_stops_closed - loading the 
 
 // reddened by: the date rule of the list parting from validDate of scripts/spec-publish.mjs on a string or a value, over every day of
 // four years (a leap year among them) and their impossible neighbours; or a specifier other than node:crypto, node:fs and node:url, as
-// importSpecifiers (ts.preProcessFile) lists them, scripts/ or the guard above all; or what forbiddenLoads reads on the AST: an import() of a
+// importSpecifiers (read on the syntax tree) lists them, scripts/ or the guard above all; or what forbiddenLoads reads on the AST: an import() of a
 // non-literal, or require, getBuiltinModule, createRequire, eval, Function, constructor, dlopen or binding, named or as a constant string
 // killer: apps/harness/src/policy-verifiers.ts:39 CONST "/^\\d{4}-\\d{2}-\\d{2}$/" -> "/^\\d{4}-\\d{1,2}-\\d{2}$/"
 test("verifier_list_date_rule_is_the_spec_publish_rule - validDate of policy-verifiers.ts agrees with validDate of scripts/spec-publish.mjs, without importing scripts/", () => {
@@ -213,7 +213,7 @@ test("verifier_list_date_rule_is_the_spec_publish_rule - validDate of policy-ver
   const text = readFileSync(MODULE, "utf8"), specifiers = importSpecifiers(text);
   assert.deepEqual(specifiers.filter((s) => /(^|\/)scripts\/|policy-guard/.test(s)), [], "the module imports nothing from scripts/ nor the guard");
   assert.ok(!/policy-guard/.test(text.replace(/^ \*.*$/gm, "")), "nor names the guard outside its doc comments");
-  assert.deepEqual(specifiers, ["node:crypto", "node:fs", "node:url"], "the module's specifiers, as ts.preProcessFile lists them (importSpecifiers)");
+  assert.deepEqual(specifiers, ["node:crypto", "node:fs", "node:url"], "the module's specifiers, as importSpecifiers lists them on the syntax tree");
   assert.deepEqual(forbiddenLoads(text), [], "nor a load that no specifier shows, as forbiddenLoads reads it");
 });
 

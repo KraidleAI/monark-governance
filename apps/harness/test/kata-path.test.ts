@@ -7,7 +7,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
-import { readdirSync, readFileSync } from "node:fs";
+import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { canonicalJson, TOOL_ERROR_CODES, type ClassEntry, type PolicyRow, type PolicyTable, type Prediction } from "@monark/contracts";
@@ -317,12 +317,14 @@ test("guard_thresholds_agree_per_side", () => {
 
 const SRC = join(dirname(fileURLToPath(import.meta.url)), "..", "src");
 /** The served import graph: the modules reached by a relative import from the entry points and the tools, each text given by read (the
- *  file itself, or a copy that a test hands in); a served module in which forbiddenLoads names a load stops the walk (SERVED-WALK-LOADS-1). */
+ *  file itself, or a copy that a test hands in). The walk stops by assertion on a relative specifier that names no file (a query suffix,
+ *  which Node loads as the same module, names none) and on a served module in which forbiddenLoads names a load (SERVED-WALK-LOADS-1). */
 function servedModules(read = (file: string): string => readFileSync(file, "utf8")): Set<string> {
   const seen = new Set<string>();
   const walk = (file: string): void => {
     if (seen.has(file)) return;
     seen.add(file);
+    assert.ok(existsSync(file), `${file}: a relative specifier that names no file`);
     const text = read(file);
     assert.deepEqual(forbiddenLoads(text), [], `${file}: a load that no specifier shows, as forbiddenLoads reads it`);
     for (const m of text.matchAll(/(?:from|import)\s*\(?\s*"(\.{1,2}\/[^"]+)"/g)) walk(join(dirname(file), m[1] as string));
@@ -335,6 +337,7 @@ function servedModules(read = (file: string): string => readFileSync(file, "utf8
 // guard (policy-guard.ts) stays outside the served graph.
 // killer: apps/harness/src/tools/gate.ts:62 CONST "\"../kata-path.ts\";" -> "\"../kata-path.ts?served\";"
 test("kata_path_is_served", () => {
+  // killer: apps/harness/src/server.ts:32 CONST "\"./version.ts\";" -> "\"./version.ts?served\";"
   const seen = servedModules();
   assert.ok(seen.size > 6 && seen.has(join(SRC, "tools/gate.ts")));
   for (const f of ["kata-path.ts", "policy-classes.ts", "policy-served.ts"]) assert.ok(seen.has(join(SRC, f)), `${f} is served`);

@@ -16,14 +16,14 @@
  *   Function of any function, through its prototype), dlopen (a native module) and binding (process.binding, an internal module of Node
  *   with no import, as getBuiltinModule), as an identifier anywhere, a property name included, or as a constant string (literals and
  *   templates without a variable, joined by +, in parentheses), such as a computed key.
- * Not named: new Worker(url) of node:worker_threads, vm.runInThisContext(code) of node:vm and a child of node:child_process started with
- * --import, each of which runs a module or code that it is handed. A scanned module reaches them by an import, which the specifier list
- * that its test asserts shows (node:worker_threads, node:vm and node:child_process are not in it), by a load that forbiddenLoads names, or
- * by a name built at run time (the limit below; a key built at run time on process does not compile without a cast, the strict type check).
- * Until the list was read on the tree, they were not "closed only by the specifier list", as this header said: the token scanner missed an
- * import of node:vm placed between two regular expressions holding a backtick, and policy-verifiers.ts passed its check with it (the same
- * review). The served-graph walk asserts no specifier list, only forbiddenLoads. A module that imports one of them for a reason needs a
- * rule aimed at it.
+ * Not named: new Worker(url) of node:worker_threads, vm.runInThisContext(code) of node:vm, a child of node:child_process started with
+ * --import, and registerHooks() and register() of node:module, each of which runs a module or code it is handed, or redirects later loads.
+ * A scanned module reaches them by an import, which the specifier list that its test asserts shows (node:module, node:worker_threads,
+ * node:vm and node:child_process are not in it), by a load that forbiddenLoads names, or by a name built at run time (the limit below; a
+ * key built at run time on process does not compile without a cast). The served-graph walk asserts no specifier list, only forbiddenLoads:
+ * a served module that imports one of them passes it, and no item names that limit yet. This header once said "closed only by the specifier
+ * list": false under the token scanner, which missed an import of node:vm between two regular expressions holding a backtick (added to
+ * policy-verifiers.ts, it passed the check: the same review). A module that needs one of them needs a rule aimed at it.
  * Limit, item IMPORT-AST-RUNTIME-NAME-1: a name built at run time from anything but literals (a variable, a join, a character code) is not
  * read; reading it would mean running the code. Refusing the form instead was measured on the scanned tree (review of 2026-10-07): a
  * computed key that is not a constant, on process, globalThis, global, Reflect, module, require, this, eval or Function, finds no false
