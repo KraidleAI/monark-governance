@@ -557,19 +557,19 @@ S=$(ssh-keyscan -t ed25519 "$N" 2> /dev/null | ssh-keygen -lf - | cut -d' ' -f2)
 awk -v n="$N" '$2 == "ssh-ed25519" { print n, $2, $3 }' >> "$K" && ssh-keygen -F "$N" -f "$K" -l | grep -v '^#' && echo KEY-COPIED || echo STOP
 ```
 
-Expected: `known=SHA256:<fingerprint> scanned=SHA256:<the same>`, then `bell.monarkgate.tech ED25519 SHA256:<the same>` and `KEY-COPIED`
+Expected: `known=SHA256:<fingerprint> scanned=SHA256:<the same>`, then `$N ED25519 SHA256:<the same>` and `KEY-COPIED`
 (forms of `ssh-keygen` read with OpenSSH 10.5p1 on the operator machine, offline, 2026-10-02); the fingerprint to the JOURNAL. **STOP** on
-`STOP`, nothing copied: an entry under the name already (a replay: `ssh-keygen -F bell.monarkgate.tech -l` and `ssh-keygen -F '<address>'
+`STOP`, nothing copied: an entry under the name already (a replay: `ssh-keygen -F "$N" -l` and `ssh-keygen -F '<address>'
 -l` read; the same ED25519 fingerprint: done; another one: escalation, never an entry removed to make room), no single ED25519 entry known
-for the address, a scanned key that differs (another host answers the name: the A record of RUNBOOK-bell step 7 read again), no answer,
+for the address, a scanned key that differs (another host answers the name: the name's A record (RUNBOOK-bell step 7, or RUNBOOK-harness §0) read again), no answer,
 or a `known_hosts` that does not end with a newline. Then the first command by the name, which `BatchMode` makes fail rather than ask:
 
 ```bash
-ssh -o BatchMode=yes -i ~/.ssh/monark_vps root@bell.monarkgate.tech 'hostname'; echo exit=$?
+ssh -o BatchMode=yes -i ~/.ssh/monark_vps root@"$N" 'hostname'; echo exit=$?
 ```
 
-Expected: `bell`, then `exit=0`. **STOP** on `Host key verification failed.` or any other output. Rollback (the entries under the name
-only; the file before is kept as `known_hosts.old`): `ssh-keygen -R bell.monarkgate.tech -f ~/.ssh/known_hosts`.
+Expected: the host's own name (`bell` for Bell), then `exit=0`. **STOP** on `Host key verification failed.` or any other output. Rollback (the entries under the name
+only; the file before is kept as `known_hosts.old`): `ssh-keygen -R "$N" -f ~/.ssh/known_hosts`.
 
 (1) Bell and the probe (`c10`), digests only: `bell-before.sha` BEFORE the acts the check covers (for CA-0: before the next act of the
 publication side on the host; for CA-1: right before A-6, section 21), then the same command into `bell-after.sha` at the check:
