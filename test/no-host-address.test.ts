@@ -85,7 +85,7 @@ test("address_literals_read_no_address_in_code_or_numbers_that_only_look_like_on
 });
 
 // reddened by: a listed literal admitted in any file, not in its own one only
-// killer: scripts/address-literals.mjs:134 CONST "Object.hasOwn(LISTED, rel) && Object.hasOwn(LISTED[rel], lit)" -> "listedAnywhere(lit)"
+// killer: scripts/address-literals.mjs:145 CONST "Object.hasOwn(LISTED, rel) && Object.hasOwn(LISTED[rel], lit)" -> "listedAnywhere(lit)"
 test("address_literals_admit_a_listed_literal_in_its_own_file_only", () => {
   const file = "docs/G0-lot-verifiers-list-f5a-1.md", lit = Object.keys(LISTED[file] ?? {})[0] ?? "", self = `"${lit}" then ${A}`;
   const v = fixture({ [file]: `V8 ${lit}-node.53\nhost ${A}\n`, "docs/other.md": `V8 ${lit}-node.53\n`, [SELF]: `${self}\n` });
@@ -105,7 +105,7 @@ test("address_literals_report_names_each_hit_without_a_digit_of_it", () => {
 
 // reddened by: a binary file read as text; also pinned: any extension is read, the index is read (not the disk), a non-ASCII name
 // is read (git ls-files -z) and a tracked file deleted in the work tree is skipped
-// killer: scripts/address-literals.mjs:152 CONST "buf.includes(0)" -> "false"
+// killer: scripts/address-literals.mjs:163 CONST "buf.includes(0)" -> "false"
 test("address_literals_read_every_tracked_text_file_and_skip_binaries", () => {
   const name = `${String.fromCharCode(0xe9)}t${String.fromCharCode(0xe9)}.md`;
   const v = fixture({ "deploy/u.service": `# host (${A})\n`, Caddyfile: `${A} {\n`, [name]: `${A}\n`, "bin.dat": Buffer.concat([Buffer.from([0]), Buffer.from(`${A}\n`)]),
@@ -142,7 +142,7 @@ test("address_literals_read_forty_thousand_dots_in_bounded_time", () => {
 });
 
 // reddened by: a skipped file reported whatever its attributes, so a declared binary is refused and an undeclared one passes
-// killer: scripts/address-literals.mjs:167 ROR "!== \"set\"" -> "=== \"set\""
+// killer: scripts/address-literals.mjs:180 ROR "!== \"set\"" -> "=== \"set\""
 test("address_literals_name_each_skipped_file_that_gitattributes_does_not_declare_binary", () => {
   const nul = (s: string): Buffer => Buffer.concat([Buffer.from([0]), Buffer.from(`${s}\n`)]);
   const v = fixture({ ".gitattributes": "*.bin binary\n*.raw -text\n", "a.bin": nul("a"), "b.raw": nul("b"), [`c-${A}.dat`]: nul("c"), "d.md": "d\n" }, {},
@@ -157,14 +157,15 @@ test("address_literals_name_each_skipped_file_that_gitattributes_does_not_declar
 
 // reddened by: a path masked where its literal is written and where its text recurs as written only, so a recurrence escaped and
 // glued to a word, which no pass reads, prints the digits of the address; also pinned: a lowercase escape is read, a decoded
-// digit glued to an address reads a second, longer one at its column (two hits for one address written, both masked), and a hit
-// read in a file masks its address in that file's path too, where it recurs glued to a word
-// killer: scripts/address-literals.mjs:125 CONST "|%${c.charCodeAt(0).toString(16)}" -> ""
+// digit glued to an address reads a second, longer one at its column (two hits for one address written, both masked), a hit
+// read in a file masks its address in that file's path too, where it recurs glued to a word, and every address the check reads,
+// in any file or line, is masked in each path it prints, wherever and in whatever text form it recurs
+// killer: scripts/address-literals.mjs:128 CONST "rel[j] === \"%\" && " -> "false && "
 test("address_literals_mask_a_path_wherever_its_address_recurs_escaped", () => {
-  const esc = (e: string): string => A.split(".").join(e);
+  const esc = (e: string): string => A.split(".").join(e), E = q(198, 19, 0, 1);
   const v = fixture({ "a.log": `h%5b${B}\n`, "b.log": `${A}%35\n`, [`logs/v${esc("%2e")}/${esc("%2e")}.txt`]: "x\n",
     [`logs/v${esc("%2E")}/${A}.txt`]: "x\n", [`logs/${C}/${A}.txt`]: "x\n",
-    [`logs/host${A}.txt`]: `${A}\n`, [`logs/host${esc("%2E")}.txt`]: `${A}\n` });
+    [`logs/host${E}.txt`]: `${E}\n`, [`logs/host${E.split(".").join("%2E")}.txt`]: `${E}\n` });
   // killer: scripts/address-literals.mjs:74 CONST "/%[\\dA-Fa-f]{2}/g" -> "/%[\\dA-F]{2}/g"
   assert.deepEqual(at(v, "a.log"), ["1:5 6 x:x::x"], "a lowercase escape is read (RFC 3986: either case)");
   // killer: scripts/address-literals.mjs:106 CONST "!seen.has(`${String(at[a])} ${lit}`)" -> "!out.some(([, s, e]) => s < at[b] && at[a] < e)"
@@ -172,14 +173,32 @@ test("address_literals_mask_a_path_wherever_its_address_recurs_escaped", () => {
   assert.deepEqual([at(v, "logs/vx%x%x%x/x%x%x%x.txt"), at(v, "logs/vx%x%x%x/x.x.x.x.txt"), at(v, "logs/x.x.x.x/x.x.x.x.txt")],
     [["0:24 4 x.x.x.x"], ["0:24 4 x.x.x.x"], ["0:6 4 x.x.x.x", "0:17 4 x.x.x.x"]],
     "an escaped recurrence glued to a word is masked too, whichever pass read the literal, and so is each literal of a path: no digit of an address");
-  // killer: scripts/address-literals.mjs:136 CONST "hide(rel, [lit])" -> "hide(rel)"
+  // killer: scripts/address-literals.mjs:143 CONST "seen.addAddress(" -> "line === 0 && seen.addAddress("
   assert.deepEqual([at(v, "logs/hostx.x.x.x.txt"), at(v, "logs/hostx%x%x%x.txt")], [["1:1 4 x.x.x.x"], ["1:1 4 x.x.x.x"]],
     "a hit read in a file masks its address in that file's path too, written or escaped and glued to a word, where no pass reads it");
+  // a second tree, one address per case, each read once where the case says and carried by a path in a form no pass reads
+  const d = (k: number, o: number): string => q(198, 19, k, o), z = ["2001", "0002", "0000", "0000", "0000", "0000"];
+  const w = fixture({ [`bin/host${d(10, 10)}.dat`]: Buffer.from([0]), [`logs/${d(5, 1)}/${q(192, 0, 2, 1)}/host${d(5, 5)}.txt`]: `${d(5, 5)}\n`,
+    [`logs/host${d(2, 2)}.txt`]: `${six("", "", "ffff", d(2, 2))}\n`, [`logs/long${[...z, "0000", "0007"].join("%3A")}.txt`]: `[${B}]\n`,
+    [`logs/mix${d(3, 3)}.txt`]: `${d(3, 3)}%35\n`, [`logs/mop${d(7, 4)}.txt`]: `${six("", "", "ffff", "c613", "704")}\n`, [`logs/own${d(4, 4)}.txt`]: `${d(4, 1)}\n`,
+    [`logs/pin${d(8, 80).split(".").map((o) => o.padStart(3, "0")).join(".")}.txt`]: `${d(8, 80)}\n`, [`logs/two${d(1, 2)}.txt`]: `${d(1, 1)}\n${d(1, 2)}\n`,
+    [`logs/short${["2001", "2", "0", "0", "0", "0", "a", "", ""].join("%3a")}.txt`]: `[${six(...z, "000A", "0000")}]\n`, "z.txt": `${d(4, 4)}\n${d(10, 10)}\n`,
+    [`logs/tail${[...z, q(100, 127, 255, 255)].join("%3A")}.txt`]: `[${six("2001", "2", "", "647f", "ffff")}]\n`,
+    [`logs/v${q(198, 18, 198, 18, 198, 18)}.txt`]: `${q(198, 18, 198, 18)}\n` });
+  // killer: scripts/address-literals.mjs:143 CONST "seen.addAddress(lit, kind === 4 ? \"ipv4\" : \"ipv6\")" -> "kind === 4 && seen.addAddress(lit, \"ipv4\")"
+  // killer: scripts/address-literals.mjs:133 CONST "t.split(\".\").map(Number).join(\".\")" -> "t"
+  // killer: scripts/address-literals.mjs:168 SDL "for (const h of v.hits) h.file = show(h.file);" -> ""
+  // killer: scripts/address-literals.mjs:169 CONST ".map(show)" -> ""
+  assert.deepEqual([w.hits.length, [...new Set(w.hits.map((h) => h.file)), ...w.undeclared]], [18, ["logs/x.x.x.x/x.x.x.x/hostx.x.x.x.txt", "logs/hostx.x.x.x.txt",
+    "logs/longx%x%x%x%x%x%x%x.txt", "logs/mixx.x.x.x.txt", "logs/mopx.x.x.x.txt", "logs/ownx.x.x.x.txt", "logs/pinx.x.x.x.txt", "logs/shortx%x%x%x%x%x%x%x%x.txt",
+    "logs/tailx%x%x%x%x%x%x.x.x.x.txt", "logs/twox.x.x.x.txt", "logs/vx.x.x.x.x.x.txt", "z.txt", "bin/hostx.x.x.x.dat"]], "path literals (one admitted) beside a " +
+    "content address, a mapped line's IPv4, an IPv6 in each long form or case, both readings, a mapped one in hex, a later file, zero-padded octets, another hit " +
+    "of the file, a recurrence over itself, an undeclared binary");
 });
 
 // reddened by: a tracked link followed, so a dangling one passes unread and one to a file outside the tree reads that file, and a
 // gitlink whose directory exists (a checked-out submodule) read as a file (EISDIR): a link is judged by its text, a gitlink by its path
-// killer: scripts/address-literals.mjs:150 CONST "st.isSymbolicLink() ? readlinkSync(p, { encoding: \"buffer\" }) : readFileSync(p)" -> "readFileSync(p)"
+// killer: scripts/address-literals.mjs:161 CONST "st.isSymbolicLink() ? readlinkSync(p, { encoding: \"buffer\" }) : readFileSync(p)" -> "readFileSync(p)"
 test("address_literals_judge_a_link_by_its_text_never_followed_and_a_gitlink_by_its_path", () => {
   const link = (root: string, to: string, rel: string): void => { // as git checks a link out: a link, on win32 a text file of its target (core.symlinks=false)
     if (process.platform === "win32") writeFileSync(join(root, rel), to); else symlinkSync(to, join(root, rel));
@@ -192,7 +211,7 @@ test("address_literals_judge_a_link_by_its_text_never_followed_and_a_gitlink_by_
   assert.deepEqual(v.hits.map((h) => `${h.file}:${String(h.line)}:${String(h.col)}`), ["gone:1:11"],
     "a dangling link is judged by its text; the file outside the tree that a link names is never read");
   assert.equal(v.read, 4, "x.md, and each of the three links by its text");
-  // killer: scripts/address-literals.mjs:149 SDL "if (!st.isFile() && !st.isSymbolicLink()) continue;" -> ""
+  // killer: scripts/address-literals.mjs:160 SDL "if (!st.isFile() && !st.isSymbolicLink()) continue;" -> ""
   assert.doesNotThrow(() => fixture({ "x.md": "x\n" }, {}, (root, env) => {
     execFileSync("git", ["update-index", "--add", "--cacheinfo", `160000,${"5".repeat(40)},sub`], { cwd: root, env });
     mkdirSync(join(root, "sub"));
