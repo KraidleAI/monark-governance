@@ -82,7 +82,7 @@
  "apps/harness/test/usde-calibration.test.ts": 5,
  "apps/sentinel/test/pool-rpc-1a.test.ts": 11,
  "apps/sentinel/test/sentinel-catchup-budget.test.ts": 12,
- "apps/sentinel/test/sentinel-chainstack-guard.test.ts": 15,
+ "apps/sentinel/test/sentinel-chainstack-guard.test.ts": 17,
  "apps/sentinel/test/sentinel-exclude-hosts.test.ts": 1,
  "apps/sentinel/test/sentinel-instrument-replay.test.ts": 7,
  "apps/sentinel/test/sentinel-retry.test.ts": 4,
