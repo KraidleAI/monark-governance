@@ -256,3 +256,22 @@ test("guard_names_a_constant_auxiliary_sequence_before_a_rejection", () => {
   const down = find((r) => r.side === "down" && r.status === "region" && r.qhat === 0 && (r.k_obs ?? 0) > 0);
   refuse(silent(down, "auxiliary sequence constant (fails closed)"), /has a digest that the publication refuses: sign-set outcomes that no count of flats/);
 });
+
+/** The status and reason of a row the guard admits, else the guard's refusal; any other error is thrown again, so a crash fails the test and is never read as a verdict. */
+const verdict = (r: PolicyRow): [string, string] | string => { try { check(r); return [r.status, r.status_reason]; } catch (e) { if (e instanceof Error && e.message.startsWith("MONARK import guard: ")) return e.message; throw e; } };
+/** The whole refusal of a row by the guard, `what` read as plain text between the row's key and the closing period. */
+const whole = (what: string): RegExp => new RegExp(["^Error: MONARK import guard: \\S+ \\S+ ", what.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "\\.$"].join(""));
+
+// reddened by: a band row whose misses exceed k* admitted with the direction reason (the guard before W2-GUARD-MISSES-TAIL-1; G2 of R1, m,
+// recherches 1586565): a band's qhat is its (n - k*)-th score (packages/hikae/src/l1-split.ts l.73-78), so at most k* scores exceed it,
+// and the wave 1 generator gives that reason to direction cells only (kata/bench/calibrate.ts l.138)
+// killer: apps/harness/src/policy-guard.ts:76 CONST "dir || m <= ks" -> "dir || !w2 || m <= ks"
+test("guard_refuses_band_misses_above_k_star", () => {
+  const band = find((r) => r.side === null && r.status === "region" && (r.k_obs ?? 0) > 0);
+  const ks = band.k_star ?? assert.fail("no k_star"), m = ks + 1;
+  const above = whole(`has misses above k_star on a band row (misses ${String(m)}, k_star ${String(ks)}): a band's qhat is its (n - k_star)-th score, so at most k_star scores exceed it`);
+  refuse({ ...band, misses: m, k_obs: m, status: "silence", status_reason: `misses ${String(m)} above k* ${String(ks)}`, bound_on: null, miss_bound: null }, above);
+  refuse({ ...band, misses: m, k_obs: m }, above);
+  assert.deepEqual(verdict({ ...band, misses: ks, k_obs: ks }), ["region", ""], "misses = k* on a band: admitted");
+  assert.deepEqual(verdict(dirMisses), ["silence", `misses ${String(dirMisses.misses)} above k* ${String(dirMisses.k_star)}`], "the direction reason stays a direction's");
+});

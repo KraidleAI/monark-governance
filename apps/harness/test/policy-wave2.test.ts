@@ -40,9 +40,9 @@ const strings = (m: number, a: number): [string | null, string | null] => {
   }
 };
 type Counts = { tail_m: number; tail_a: number; misses: number; miss_adj_a: number; bridge: [number, number]; fwd: [number, number] };
-/** A wave 2 row on P1 (n 740 at 1h: r 703, n - r 37; n0 368 and k* 2 at test_delta 0.025), status and reason as given. */
+/** A wave 2 row on P1 (n 740 at 1h: r 703, n - r 37; n0 368 and k* 2 at test_delta 0.025), status and reason as given; misses are P1's, at most tail_m (every miss is a tail point, W2-GUARD-MISSES-TAIL-1), unless the case names them. */
 const w2 = (c: Partial<Counts> = {}, st: [PolicyRow["status"], string] = ["region", ""]): PolicyRow => {
-  const k: Counts = { tail_m: 37, tail_a: 1, misses: P1.misses ?? 0, miss_adj_a: 0, bridge: [5, 740], fwd: [4, 700], ...c };
+  const k: Counts = { tail_m: 37, tail_a: 1, misses: Math.min(P1.misses ?? 0, c.tail_m ?? 37), miss_adj_a: 0, bridge: [5, 740], fwd: [4, 700], ...c };
   const [tn, td] = strings(k.tail_m, k.tail_a);
   const [mn, md] = strings(k.misses, k.miss_adj_a);
   const p = P1.n - KS;
@@ -247,12 +247,34 @@ test("w2_guard_veto_order_test_before_fwd", () => {
   refuse({ ...both, status_reason: "vetoed: fwd" }, /not 'vetoed' and 'vetoed: test'/);
 });
 
-// reddened by: a rejection of check 1 named before a constant tail sequence on a wave 2 row (the order of guardKataRow before
-// REASON-ORDER-GUARD-VERIFIER-1), where the generator names the constant tail first (kata/w2c/calibrate2.ts l.121-122; RECHERCHES
-// decision f51322c)
-// killer: apps/harness/src/policy-guard.ts:83 COR "adm.empty ? [" -> "adm.empty && (!w2 || !adm.reject) ? ["
-test("w2_guard_names_a_constant_tail_before_a_rejection", () => {
-  const c: Partial<Counts> = { tail_m: 0, tail_a: 0, misses: 2, miss_adj_a: 1 }; // the tail empty, check 1 rejecting (w2_guard_refuses_region_with_empty_or_low_tail)
-  refuse(w2(c, ["silence", "dependence check rejects"]), /has status 'silence' and reason 'dependence check rejects', not 'silence' and 'tail sequence constant \(fails closed\)'/);
-  check(w2(c, ["silence", "tail sequence constant (fails closed)"]));
+/** The status and reason of a row the guard admits, else the guard's refusal; any other error is thrown again, so a crash fails the test and is never read as a verdict. */
+const verdict = (r: PolicyRow): [string, string] | string => { try { check(r); return [r.status, r.status_reason]; } catch (e) { if (e instanceof Error && e.message.startsWith("MONARK import guard: ")) return e.message; throw e; } };
+/** The whole refusal of a row by the guard, `what` read as plain text between the row's key and the closing period. */
+const whole = (what: string): RegExp => new RegExp(["^Error: MONARK import guard: \\S+ \\S+ ", what.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "\\.$"].join(""));
+
+// reddened by: a wave 2 row whose misses exceed tail_m admitted (the guard before W2-GUARD-MISSES-TAIL-1). Every miss is a tail point,
+// since n - k* >= r puts qhat at or above tau (minimum margin 18 at 1h, 36 at 4h; MONARK 52e0091), so an empty tail carries no miss: the
+// row of REASON-ORDER-GUARD-VERIFIER-1, a constant tail with check 1 rejecting (RECHERCHES decision f51322c), is forged, and refused
+// killer: apps/harness/src/policy-wave2.ts:36 CONST "(r.misses ?? 0) <= r.tail_m" -> "true"
+test("w2_guard_refuses_misses_above_tail_m", () => {
+  const c: Partial<Counts> = { tail_m: 0, tail_a: 0, misses: 2, miss_adj_a: 1 }; // the tail empty, check 1 rejecting
+  const above = (m: number, t: number): RegExp => whole(`has misses above tail_m (misses ${String(m)}, tail_m ${String(t)}): qhat is at or above the tail threshold (n - k_star >= r), so every miss is a tail point`);
+  refuse(w2(c, ["silence", "dependence check rejects"]), above(2, 0));
+  refuse(w2(c, ["silence", "tail sequence constant (fails closed)"]), above(2, 0));
+  refuse(w2({ tail_m: 1, tail_a: 0, misses: 2, miss_adj_a: 0 }), above(2, 1)); // a region row (G2 of R1, recherches 1586565)
+  assert.deepEqual(verdict(w2({ tail_m: 2, tail_a: 0, misses: 2, miss_adj_a: 0 })), ["region", ""], "misses = tail_m: admitted");
+  assert.deepEqual(verdict(w2({ tail_m: 0, tail_a: 0, misses: 0, miss_adj_a: 0 }, ["silence", "tail sequence constant (fails closed)"])), ["silence", "tail sequence constant (fails closed)"], "the generator's empty tail: no miss");
+  refuse({ ...w2(), tail_m: null }, /exact null of D2 refuses \(count-not-integer\)/); // a null tail_m stays the exact null's refusal
+});
+
+// reddened by: a wave 2 band row whose misses exceed k* admitted with the direction reason (the guard before W2-GUARD-MISSES-TAIL-1; G2
+// of R1, m, recherches 1586565): a band's misses are at most k*, and the wave 2 generator has no such reason (kata/w2c/calibrate2.ts)
+// killer: apps/harness/src/policy-guard.ts:76 CONST "dir || m <= ks" -> "dir || w2 || m <= ks"
+test("w2_guard_refuses_band_misses_above_k_star", () => {
+  const m = KS + 1, why = `misses ${String(m)} above k* ${String(KS)}`;
+  const above = whole(`has misses above k_star on a band row (misses ${String(m)}, k_star ${String(KS)}): a band's qhat is its (n - k_star)-th score, so at most k_star scores exceed it`);
+  refuse(w2({ misses: m, miss_adj_a: 0 }, ["silence", why]), above);
+  refuse(w2({ misses: m, miss_adj_a: 0 }), above);
+  refuse(w2({ tail_m: 1, tail_a: 0, misses: m, miss_adj_a: 0 }, ["silence", why]), above); // both clauses broken: this one, checked first, names the row
+  assert.deepEqual(verdict(w2({ misses: KS, miss_adj_a: 0 })), ["region", ""], "misses = k*: admitted");
 });
