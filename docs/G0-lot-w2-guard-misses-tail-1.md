@@ -290,3 +290,22 @@ Kept under the author's scratchpad (`w2-guard-author/`), Node 24.21.0, each run 
   - At the record's head: `lint:ratchet` 69/69; `gate:vocab`, `lang:gate` and `export:check` OK; winlint, 6 files, no hazard;
     `git diff --check` clean; the host-address test 13 of 13; the R1 scan 0 at each push. The sweep of section 3, rerun there: no
     admitted row breaks either clause, and the two new messages refuse rows of T1, T2 and T3 only (3, 2 and 3 calls).
+- **The review's fold** (fresh review at `59882c09`: one m, recherches `ad818b5`; MONARK `e6ebb72`):
+  - **The finding**: `verdict` returned the message of any error, so a crash of the guard under a mutation read as a refusal judged
+    by an assertion.
+  - **The fix**: both helpers, `apps/harness/test/policy-wave2.test.ts` l.251 and `apps/harness/test/policy-guard.test.ts` l.261, now
+    return only a message that starts with `MONARK import guard: ` and throw any other error again. Their comments, l.250 and l.260,
+    say so. Each edit stays on its line: no line moves and no killer anchor is touched. The older helper `refuse` has the same flaw
+    for refusals; it is narrowed in the next lot (section 6), before that lot adds its thirteen calls to `verdict`.
+  - **Measured**, every run offline with 0 refused attempts:
+    - the crash mutation of `apps/harness/src/policy-guard.ts` l.100 (`rc.scores_sha256` read as `rc.x.scores_sha256`) turns T1, T2
+      and T3 red by `ERR_TEST_FAILURE`, where the broad helper gave `ERR_ASSERTION`. The 38 entries of the two files give the same
+      codes as the review's run of its narrowed helper;
+    - unmutated, the two files: 38 of 38;
+    - `scripts/mutants/run.mjs --killers` against `92d01d67`: 38 killer lines in the two files, 30 killed, each by an assertion,
+      among them the three of section 4. The 8 others are not concluded: they are the eight lines of the next lot;
+    - `npm run test:main`: 2 970 tests, 2 948 pass, 0 fail, 22 skipped. `node scripts/test-count-check.mjs --base
+      origin/lot/etude-suite` is green, 0 drop, and the record does not change;
+    - the anchor checker with `--ref 92d01d67`: 1 788 killer lines, 1 787 anchored, the one drift of section 5, 0 lost;
+    - `tsc --noEmit`, eslint on the two files, `lint:ratchet`, `gate:vocab`, `lang:gate`, `export:check`, winlint and `git diff
+      --check` clean; the R1 scan 0.

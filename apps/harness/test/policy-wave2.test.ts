@@ -247,8 +247,8 @@ test("w2_guard_veto_order_test_before_fwd", () => {
   refuse({ ...both, status_reason: "vetoed: fwd" }, /not 'vetoed' and 'vetoed: test'/);
 });
 
-/** The status and reason of a row the guard admits, else the guard's message: an admission judged by assert.deepEqual, never by an uncaught refusal. */
-const verdict = (r: PolicyRow): [string, string] | string => { try { check(r); return [r.status, r.status_reason]; } catch (e) { return e instanceof Error ? e.message : String(e); } };
+/** The status and reason of a row the guard admits, else the guard's refusal; any other error is thrown again, so a crash fails the test and is never read as a verdict. */
+const verdict = (r: PolicyRow): [string, string] | string => { try { check(r); return [r.status, r.status_reason]; } catch (e) { if (e instanceof Error && e.message.startsWith("MONARK import guard: ")) return e.message; throw e; } };
 /** The whole refusal of a row by the guard, `what` read as plain text between the row's key and the closing period. */
 const whole = (what: string): RegExp => new RegExp(["^Error: MONARK import guard: \\S+ \\S+ ", what.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "\\.$"].join(""));
 
