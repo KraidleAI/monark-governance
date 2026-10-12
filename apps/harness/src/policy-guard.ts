@@ -73,7 +73,7 @@ export function guardKataRow(r: PolicyRow, cls: ClassEntry, pins: GuardPins): vo
   }
   const m = r.misses ?? -1;
   is(m >= 0 && m <= r.n, "has misses outside 0..n");
-  const p = r.n - ks;
+  const p = r.n - ks; is(dir || m <= ks, `has misses above k_star on a band row (misses ${String(m)}, k_star ${String(ks)}): a band's qhat is its (n - k_star)-th score, so at most k_star scores exceed it`);
   is(r.p_served === p && p >= splitRankExact(r.n, r.alpha), "has a p_served off n - k_star or below the split rank");
   is(r.marginal_alpha === ceilDecimal4({ num: BigInt(r.n + 1 - p), den: BigInt(r.n + 1) }), "has a marginal_alpha the exact rule does not give");
   const q = dir ? (m > ks ? 1 : 0) : r.qhat;
