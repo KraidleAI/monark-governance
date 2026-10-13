@@ -128,6 +128,9 @@
   l.16-17 ; ETAT l.789-790 à `2c3f51a8`). Dans une entrée, « sous D-5 » ne vise donc ni la collecte planifiée ni une correction de texte ; les entrées qu'une
   source rattache à O-3 ou à O-1 le disent (L-22, L-23, L-25, L-39, N-01, N-03, N-08), et une part que l'ordre range en O-3 sans être la collecte planifiée
   garde « sous D-5 » (la partie 2 de PXC-14 de L-23 et de L-25 ; la phrase de cadence de N-03).
+  Depuis le 2026-10-13, une troisième part n'y est plus : (iii) le site de Bell (décision du fondateur, « En ligne à la bascule
+  (Recommandé) ») ; lecture de MONARK : son code et ses tests commencent tout de suite, et il est servi au public dès que le nouvel hôte
+  de Bell publie, sans attendre le 2026-11-16. La phrase « rien avant le 2026-11-16 » ci-dessus ne vaut donc plus pour le site.
 - **États** : `ouvert` ; `changé` (l'état diffère de celui de la fiche du 27/09 ou de l'inventaire, dit en suite) ; `clos (preuve : …)`.
 - **Abréviations** : ETAT = `docs/ETAT.md` ; METHOD = `apps/site/app/bell/method/page.tsx` ; PAGE = `apps/site/app/bell/page.tsx` ;
   TERMS = `apps/site/app/bell/terms/page.tsx` ; BM = `apps/site/lib/bell-method.ts` ; FLEET = `apps/site/lib/fleet.ts` ;
