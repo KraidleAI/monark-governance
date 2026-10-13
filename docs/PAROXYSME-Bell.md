@@ -95,6 +95,10 @@
   fondateur : ETAT l.700 à `2c3f51a8`). Ce pli ne change pas la
   règle de la session, que MONARK tranche après le cp-1 de PXC-02 (MSG12 l.30-31 ; ETAT l.631-634 à `20fffe9f`) : « Je la tranche après ton cp-1, comme écrit »
   (Q9 : MSG14 l.21 ; ETAT l.713-714 à `2c3f51a8`).
+  Depuis le 2026-10-13, deux parts de Bell ne sont plus « en attendant le fondateur » : la minuterie de collecte et de publication
+  (BELL-COLLECT-TIMER-1), que le fondateur a confiée à MONARK et dont il a validé le plan d'ensemble (« Oui, je valide (Recommandé) »),
+  et le site de Bell (D-5 ci-dessous, part (iii)). La règle de la session et la phrase « Bell attend la fin du chantier PAROXYSME »
+  restent vraies pour tout le reste de Bell.
 
 ## 0. Comment lire ce registre
 
