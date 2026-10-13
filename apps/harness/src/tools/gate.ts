@@ -59,7 +59,7 @@ import { checkAttestedConsistency, NO_SERVED_ATTESTATION_SUBJECT_SENTENCE } from
 import type { ServedTable, ServedTableTexts } from "../policy-served.ts";
 // (block D, lot D-2): the served kata path. kata-path.ts reads the exports of this file at call time only, so the import
 // cycle is safe; servedPolicyTables reads none of them while this file loads.
-import { kataPath, kataTablesHoldNoRow, kataVerdict, servedPolicyTables } from "../kata-path.ts";
+import { kataPath, kataTablesMatchPins, kataVerdict, servedPolicyTables } from "../kata-path.ts";
 import { KATA_DIR_TAU_CAP, kataClassEntries } from "../policy-classes.ts";
 
 /** Server-fixed contract version (K-4c), the one constant of @monark/contracts — NOT carried by the caller. */
@@ -218,7 +218,7 @@ export function kataClassText(taskClass: string): string {
 }
 
 /** The kata clause of the gate description (block D; state: no kata row committed, KATA-CLAUSE-COMMITTED-STATE-1, tripwire
- *  kataTablesHoldNoRow). Every value is read: names, alpha and nMin per family from the entries, the tau cap, B-4 (300 s). */
+ *  kataTablesMatchPins). Every value is read: names, alpha and nMin per family from the entries, the tau cap, B-4 (300 s). */
 export function kataClause(entries: readonly ClassEntry[] = kataClassEntries(kataClassText), tauCap = KATA_DIR_TAU_CAP): string {
   const parts = (i: 1 | 2 | 3): string[] => [...new Set(entries.map((e) => /^([a-z0-9]+)-(.+)-([a-z0-9]+)$/.exec(e.task_class)?.[i] ?? ""))];
   const one = (dir: boolean): { alpha: string; nMin: string } => {
@@ -1038,8 +1038,8 @@ export const SERVED_TABLE_TEXTS: ServedTableTexts = {
     : { registry_file: "fixtures/usde-calib-scores.json", registry_sha256: "e44a68b6b697a32f3f198770e740ab206393dc3425e8cc59e4b0e1e4e65cfd28", generator: "scripts/record-usde-calib.mjs", text: STABLE_RUN_COMMITTED_SENTENCE },
 };
 
-/** The served tables (block D: the 32 kata tables and the three marginal ones), built once at load, fail-closed (Q-C3). */
-export const SERVED_POLICY_TABLES = kataTablesHoldNoRow(servedPolicyTables(SERVED_TABLE_TEXTS));
+/** The served tables (block D: the 32 kata tables, each from its committed table file when pinned, and the three marginal ones), built once at load, fail-closed (Q-C3; E-2a). */
+export const SERVED_POLICY_TABLES = kataTablesMatchPins(servedPolicyTables(SERVED_TABLE_TEXTS, readCommittedTables(COMMITTED_FILES, kataClassEntries(kataClassText), { tables: COMMITTED_TABLES, held: [...FLOOR_HELD_CLASSES, ...ORDER_HELD_CLASSES] })), COMMITTED_TABLES, [...FLOOR_HELD_CLASSES, ...ORDER_HELD_CLASSES]);
 /** The three marginal tables (USDe, liq, cascade): a view of SERVED_POLICY_TABLES, not a second build. */
 export const SERVED_MARGINAL_TABLES = SERVED_POLICY_TABLES.filter((t) => t.table.class.cell_key_rule !== "kata-bucket");
 
@@ -1068,3 +1068,8 @@ function admittedSplit(cell: VerdictCell): { readonly qhat: number; readonly alp
   const row = SERVED_MARGINAL_TABLES.flatMap((t) => t.table.rows).find((r) => r.current && r.cell_key === cell.cellKey);
   return row === undefined || row.qhat === null ? { reason: "under_calib" } : { qhat: row.qhat, alpha: Number(row.alpha) };
 }
+
+// (E-2a) The committed kata tables and their pins, read at line 1042 only. Imports only below this point: ESM evaluates them
+// before this file's body whatever their place, and neither module imports this file or kata-path.ts (no new cycle).
+import { COMMITTED_FILES, readCommittedTables } from "../policy-committed.ts";
+import { COMMITTED_TABLES, FLOOR_HELD_CLASSES, ORDER_HELD_CLASSES } from "../policy-committed-pins.ts";
