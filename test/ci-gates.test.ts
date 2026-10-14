@@ -274,7 +274,7 @@ test("ci_gates_blocking_no_continue_on_error — blocking and pinned workflow (t
     if (!memo.has(token)) try { const kept = new Set(gitOut(ROOT, ["ls-files", "-z", "--", token]).split("\0")); memo.set(token, underTest.filter((f) => !kept.has(f))); } catch { memo.set(token, [`git refuses ${token}`]); }
     return memo.get(token) ?? [];
   };
-  const judged = (tokens: readonly string[]): string => JSON.stringify(tokens.map((t) => [t, drops(t)]).filter(([, d]) => d.length > 0));
+  const judged = (tokens: readonly string[]): string => JSON.stringify(tokens.map((t): [string, string[]] => [t, drops(t)]).filter(([, d]) => d.length > 0));
   const meant = JSON.stringify([[twoRecords[0], ["test/test-counts.json"]], [twoRecords[1], ["test/test-names.json"]]]);
   assert.ok(underTest.includes("test/test-count-removals.json"), "(4quinquies) test/test-count-removals.json is tracked, so an exclusion of it shows");
   assert.equal(
@@ -284,7 +284,7 @@ test("ci_gates_blocking_no_continue_on_error — blocking and pinned workflow (t
   );
   const stat = diffs[0]?.pathspecs ?? [], pinSees = (tokens: readonly string[]): boolean => judged(tokens) !== meant;
   for (const third of ["!test/test-count-removals.json", "(exclude)./test/test-count-removals.json", "^./test/test-count-removals.json", "(exclude,icase)TEST/test-count-removals.json", "(exclude)apps/../test/test-count-removals.json",
-    "!apps/../test/test-count-removals.json", "(exclude)test", "!test", "(exclude)tes[t]/test-count-removals.json", "(exclude)t*/test-count-removals.json", "(exclude)*test-count-removals.json", "/!test/test-count-removals.json", "(exclude)/test/test-count-removals.json"].map((s) => `:${s}`)) {
+    "!apps/../test/test-count-removals.json", "(exclude)test", "!test", "(exclude)t[e]st/test-count-removals.json", "(exclude)t*/test-count-removals.json", "(exclude)*test-count-removals.json", "/!test/test-count-removals.json", "(exclude)/test/test-count-removals.json"].map((s) => `:${s}`)) {
     assert.ok(pinSees([...stat, third]), `(4quinquies) a third exclusion under test/ spelled ${third} is seen by the pin`);
   }
   assert.ok(pinSees(stat.map((t) => (t === twoRecords[0] ? ":(exclude,glob)test/test-count[s].json" : t))), "(4quinquies) a record under a glob is seen by the pin");

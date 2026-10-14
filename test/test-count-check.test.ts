@@ -139,7 +139,7 @@ test("test_count_check_names_its_base_or_refuses", () => {
     writeFileSync(join(dir, REMOVALS), `${JSON.stringify(listed, null, 1)}\n`);
     // killer: scripts/test-count-floor.mjs:16 CONST "Object.assign(Object.create(null), run)" -> "run"
     const inherited = ["__proto__", "constructor", "toString"];
-    writeFileSync(join(dir, RECORD), recordText(Object.fromEntries([...Object.entries(tally(renamed)), ...inherited.map((k) => [k, 3])])));
+    writeFileSync(join(dir, RECORD), recordText(Object.fromEntries([...Object.entries(tally(renamed)), ...inherited.map((k): [string, number] => [k, 3])])));
     assert.deepEqual(gate(["--base", both]), [1, inherited.map((k) => `::error::${k}: in ${RECORD} (3), not in the run`).join("\n")], "a record holding keys the run lacks, named as inherited keys: the run is read by its own keys too (P2)");
     writeFileSync(join(dir, RECORD), recordText(tally(renamed)));
     const baseWith = (names: string, record: Record<string, number>): string => { // a base above the fixture, its list the change's; the change's files written again
