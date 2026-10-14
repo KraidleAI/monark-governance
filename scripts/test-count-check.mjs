@@ -4,7 +4,7 @@
 // into the committed records, RECORD and NAMES. This gate holds: P1, each file of the run sent a report of its own; P2, the run equals both
 // records, file by file, its count and its names; P3, both records are in their written form; P4, against the base: once the base carries
 // NAMES, each name gone from a file has exactly one line added since the base to REMOVALS ({file, removed, reason}, {file, renamed, to,
-// reason} to a name the file gained, or for a file gone {file, from, to: 0, reason}); before that, each drop of a count has its line {file,
+// reason} to a name the file gained, or for a file gone {file, from, to: 0, reason} for its names another file gained); before that, each drop of a count has its line {file,
 // from, to, reason}. Each added line names what it declares, its reason reads "#<pull request>: " then three words or more (in CI, this
 // pull request's number), and the base's lines stay. Base: --base <rev>, else origin/$GITHUB_BASE_REF, else $ORACLE_BASE. Exits: 0 1 2 3 4.
 import { execFileSync } from "node:child_process";
@@ -87,20 +87,28 @@ function namesDiffer(run, names) {
 }
 
 /** P4 by names: in each file, each name of the base's names record that the head's lacks (as multisets) takes exactly one added line: removed,
- *  or renamed to a name the file gained (each gained name the `to` of one line at most); a file gone takes one line {file, from, to: 0} at its
- *  base count, or one line per name. Each line names a name gone. The hint offers the exact line, with this pull request's number in CI. */
+ *  or renamed to a name the file gained (each gained name the `to` of one line at most). A file gone may take, besides, one line {file, from,
+ *  to: 0} at its base count: it covers each of its names that reappears, one that some file of the head gained since the base and no rename
+ *  line took (each such name covers one name gone); a name that reappears nowhere takes its own line. Each line names a name or a file gone.
+ *  The hint offers the exact lines, with this pull request's number in CI. */
 function nameProblems(baseNames, headNames, lines, pr) {
-  const out = [], reason = `#${pr ?? "<pull request>"}: ...`, base = own(baseNames), head = own(headNames); // own keys only: a line for "constructor" names no file
+  const out = [], reason = `#${pr ?? "<pull request>"}: ...`, base = own(baseNames), head = own(headNames), at = []; // own keys only: a line for "constructor" names no file
   for (const f of [...new Set([...Object.keys(base), ...Object.keys(head), ...lines.map((r) => r.file)])].sort()) {
-    const gone = minus(base[f] ?? [], head[f] ?? []), gained = minus(head[f] ?? [], base[f] ?? []), whole = gone.length;
+    const gone = minus(base[f] ?? [], head[f] ?? []), gained = minus(head[f] ?? [], base[f] ?? []), said = []; let moved = false;
     for (const r of lines.filter((l) => l.file === f)) {
       const i = gone.indexOf(r.removed ?? r.renamed), j = r.renamed === undefined ? -1 : gained.indexOf(r.to);
-      if (r.from !== undefined) { if (head[f] === undefined && base[f]?.length === r.from && gone.length === r.from) gone.length = 0; else out.push(`${REMOVALS}: ${JSON.stringify(r)} names no file gone since the base, at its count`); }
-      else if (i < 0) out.push(`${REMOVALS}: ${JSON.stringify(r)} names no test gone from ${f} since the base`);
-      else if (r.renamed !== undefined && j < 0) out.push(`${REMOVALS}: ${JSON.stringify(r)}: ${JSON.stringify(r.to)} is no test that ${f} gained since the base`);
+      if (r.from !== undefined) { if (head[f] === undefined && base[f]?.length === r.from && !moved) moved = true; else said.push(`${REMOVALS}: ${JSON.stringify(r)} names no file gone since the base, at its count`); }
+      else if (i < 0) said.push(`${REMOVALS}: ${JSON.stringify(r)} names no test gone from ${f} since the base`);
+      else if (r.renamed !== undefined && j < 0) said.push(`${REMOVALS}: ${JSON.stringify(r)}: ${JSON.stringify(r.to)} is no test that ${f} gained since the base`);
       else { gone.splice(i, 1); if (j >= 0) gained.splice(j, 1); }
     }
-    if (head[f] === undefined && gone.length > 0 && gone.length === whole) { out.push(`${f}: ${whole} test(s) at the base, 0 here: wants one line ${JSON.stringify({ file: f, from: whole, to: 0, reason })} in ${REMOVALS}`); continue; }
+    at.push({ f, gone, gained, said, moved });
+  }
+  const pool = at.flatMap((x) => x.gained); // the names the head's files gained since the base, less those a rename line took
+  for (const { f, gone: all, gained, said, moved } of at) {
+    out.push(...said);
+    const back = head[f] === undefined ? all.filter((n) => { const k = pool.indexOf(n); if (k >= 0) pool.splice(k, 1); return k >= 0; }) : [], gone = minus(all, back);
+    if (back.length > 0 && !moved) out.push(`${f}: ${base[f].length} test(s) at the base, 0 here: wants one line ${JSON.stringify({ file: f, from: base[f].length, to: 0, reason })} in ${REMOVALS}`);
     const one = gone.length === 1 && gained.length === 1;
     for (const n of gone) out.push(`${f}: the test ${JSON.stringify(n)} is gone since the base: wants one line ${JSON.stringify(one ? { file: f, renamed: n, to: gained[0], reason } : { file: f, removed: n, reason })} in ${REMOVALS}${gained.length > 0 ? `; tests ${f} gained: ${JSON.stringify(gained)}` : ""}`);
   }
