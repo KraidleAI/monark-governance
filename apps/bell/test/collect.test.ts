@@ -839,3 +839,24 @@ test("bell_gate_residuals_counted_in_state", () => {
   // C-10 sonde: the produced state carries non-empty rebase_residuals and STILL passes the close-guard.
   assert.doesNotThrow(() => { assertNoClose(r.state); }, "rebase_residuals is hors CLOSE_KEY (ESC-1 c intact)");
 });
+
+// ---- Lot 2b-ii of the collection timer (DC-5): the per-operator cycle form is exclusive of the single --cycle form and of the ETH leg ----
+// killer: apps/bell/src/collect.ts:499 CONST "cyclesRaw !== undefined && argv.includes(\"--cycle\")" -> "false"
+test("bell_collect_refuses_cycle_and_cycles_together", () => {
+  const K = ["TSLAx", "AAPLx", "TSLAon"], B = ["--pools", "TSLAx", "--max-calls", "500"];
+  for (const argv of [[...B, "--cycle", "helius-2026-09-19", "--cycles", "helius=helius-2026-10-19"], [...B, "--cycles", "helius=helius-2026-10-19", "--cycle", "helius-2026-09-19"]]) {
+    assert.throws(() => parseArgs(argv, K, 1_000), /bell\/collect: --cycle and --cycles together are refused/, `refused by name, never one form winning in silence: ${argv.join(" ")}`);
+  }
+  assert.deepEqual([parseArgs([...B, "--cycle", "c-1"], K, 1_000).cycle, parseArgs([...B, "--cycle", "c-1"], K, 1_000).opCycles], ["c-1", undefined], "the single form alone");
+  assert.deepEqual(parseArgs([...B, "--cycles", "helius=helius-2026-09-19,chainstack=chainstack-2026-09-21"], K, 1_000).opCycles,
+    { helius: "helius-2026-09-19", chainstack: "chainstack-2026-09-21" }, "the per-operator form alone: string values, one per operator");
+  for (const bad of ["helius", "=h-1", "helius=", "helius=h-1,helius=h-2", "helius=h 1"]) assert.throws(() => parseArgs([...B, "--cycles", bad], K, 1_000), /bell\/collect: malformed --cycles pair/, bad);
+});
+
+// killer: apps/bell/src/collect.ts:500 CONST "cyclesRaw !== undefined && eth" -> "false"
+test("bell_collect_refuses_eth_with_cycles", () => {
+  const K = ["TSLAx", "AAPLx", "TSLAon"], E = ["--pools", "TSLAon", "--eth", "--eth-from-block", "9", "--eth-to-block", "20", "--max-calls", "500"];
+  assert.throws(() => parseArgs([...E, "--cycles", "helius=helius-2026-09-19"], K, 1_000), /bell\/collect: --eth with --cycles is refused/, "the ETH leg would spread one operator's cycle over its keyless labels");
+  assert.throws(() => parseArgs(["--pools", "TSLAx", "--eth", "--max-calls", "500", "--cycles", "helius=h-1"], K, 1_000), /bell\/collect: --eth with --cycles is refused/, "whatever the pools");
+  assert.equal(parseArgs([...E, "--cycle", "c-1"], K, 1_000).cycle, "c-1", "--eth keeps the single --cycle form");
+});

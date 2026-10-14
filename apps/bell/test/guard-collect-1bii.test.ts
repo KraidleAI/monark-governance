@@ -190,3 +190,80 @@ test("bell_1bii_src_files_clean_of_fetch_and_paid_keys", () => {
   // the ADMITTED host api.mainnet.solana.com). Mutant "restore mainnet-beta literal in rpc.ts" reds this.
   assert.equal(SRC("rpc.ts").includes("mainnet-beta.solana.com"), false, "CONF-SRC-5: the excluded host api.mainnet-beta.solana.com is removed from rpc.ts (the guard resolves solana-foundation -> the admitted api.mainnet.solana.com)");
 });
+
+// ---- Lot 2b-ii of the collection timer (DC-5, DC-6): the per-operator cycle form, the single form kept, each share passed to the guard.
+// The REAL runMain over the REAL openGuardedClient, only globalThis.fetch stubbed: two paid operators on .invalid hosts, an empty enumeration.
+const CS_HOST = "cs-sol.example.invalid";
+const TWO_DEPS = { ...GUARD_DEPS, env: { BELL_SOLANA_RPC: `https://${HELIUS_HOST}`, CHAINSTACK_SOLANA_URL: `https://${CS_HOST}/${"k".repeat(32)}` } as NodeJS.ProcessEnv };
+const twoOps = (dir: string, out: string, extra: string[]): string[] => ["--ledger-dir", dir, "--operators", "helius,chainstack", "--floor", "helius=0,chainstack=0",
+  "--method-caps", CAPS, "--max-credits", "1000000", "--max-ru", "1000000", "--max-calls", "500000", "--min-interval", "0", "--body-sample", "0", "--max-pages", "1",
+  "--pools", "TSLAx", "--out", out, ...extra];
+/** An empty enumeration and no mint: a course that spends a few paid calls and ends; the host of each call is noted. */
+const quietRpc = (hosts: string[]): typeof globalThis.fetch => ((input: string | URL, init?: RequestInit): Promise<Response> => {
+  hosts.push(new URL(String(input)).hostname);
+  const m = parseReq(init).method;
+  return Promise.resolve(jrpc(m === "getSignaturesForAddress" ? [] : m === "getAccountInfo" ? { context: { slot: 1 }, value: null } : null));
+}) as typeof globalThis.fetch;
+async function settled(stub: typeof globalThis.fetch, run: () => Promise<void>): Promise<unknown> {
+  let err: unknown;
+  await withFetch(stub, async () => { try { await run(); } catch (e) { err = e; } });
+  return err;
+}
+const linesOf = (p: string): Array<Record<string, unknown>> => (existsSync(p) ? readFileSync(p, "utf8").split(/\r?\n/).filter((l) => l !== "").map((l) => JSON.parse(l) as Record<string, unknown>) : []);
+
+// killer: apps/bell/src/collect.ts:742 CONST "opCycles[l]!" -> "opCycles[operators[operators.length - 1 - operators.indexOf(l)]!]!"
+test("bell_collect_cycles_per_operator_form", async () => {
+  const { dir, cleanup } = tmpLedger();
+  const { out, cleanup: co } = tmpOut();
+  try {
+    const err = await settled(quietRpc([]), () => runMain(twoOps(dir, out, ["--cycles", "helius=helius-2026-09-19,chainstack=chainstack-2026-09-21"]), TWO_DEPS));
+    assert.equal(err, undefined, `the --cycles course runs to its end: ${String(err)}`);
+    const at = (p: string): string => join(dir, ...p.split("/"));
+    assert.deepEqual(["helius-2026-09-19/helius.jsonl", "chainstack-2026-09-21/chainstack.jsonl", "helius-2026-09-19/chainstack.jsonl", "chainstack-2026-09-21/helius.jsonl"].map((p) => existsSync(at(p))),
+      [true, true, false, false], "each operator writes the ledger of its own cycle, never the other's");
+    for (const [cyc, op] of [["helius-2026-09-19", "helius"], ["chainstack-2026-09-21", "chainstack"]] as const) {
+      assert.ok(attemptedLines(at(`${cyc}/${op}.jsonl`)) >= 1, `${op} spent through its own cycle`);
+      assert.deepEqual([linesOf(at(`${cyc}/${op}.jsonl`)).filter((l) => l.outcome === "unlocked").length, existsSync(at(`${cyc}/${op}.lock`))], [1, false], `${op} unlocked once, on its own cycle`);
+    }
+    for (const bad of ["helius=h-1", "helius=h-1,chainstack=c-1,solana-foundation=s-1"]) {
+      const e = await settled(quietRpc([]), () => runMain(twoOps(dir, out, ["--cycles", bad]), TWO_DEPS));
+      assert.match(String(e), /bell\/collect: --cycles names each --operators label once, and no other/, bad);
+    }
+  } finally { co(); cleanup(); }
+});
+
+// killer: apps/bell/src/collect.ts:716 CONST "cycle === undefined && " -> ""
+test("bell_collect_single_cycle_form_unchanged", async () => {
+  const { dir, cleanup } = tmpLedger();
+  const { out, cleanup: co } = tmpOut();
+  const handed: Array<(reason: string) => void> = [], heldThen: boolean[] = [];
+  try {
+    const err = await settled(quietRpc([]), () => runMain(guardArgs(dir, out, ["--pools", "TSLAx", "--body-sample", "0", "--max-pages", "1"]),
+      { ...GUARD_DEPS, onLocks: (release) => { handed.push(release); heldThen.push(existsSync(join(dir, "cyc", "helius.lock"))); } }));
+    assert.equal(err, undefined, `the single --cycle form runs as before: ${String(err)}`);
+    assert.deepEqual([handed.length, heldThen], [1, [true]], "the release is handed once, while the locks are held (the tick's SIGTERM handler calls it)");
+    const before = ["helius", "solana-foundation"].map((op) => readFileSync(join(dir, "cyc", `${op}.jsonl`), "utf8"));
+    for (const [i, op] of ["helius", "solana-foundation"].entries()) {
+      assert.deepEqual([existsSync(join(dir, "cyc", `${op}.lock`)), linesOf(join(dir, "cyc", `${op}.jsonl`)).filter((l) => l.outcome === "unlocked").map((l) => l.reason)],
+        [false, ["bell/collect: course end (finally, N unlock)"]], `${op}: one cycle for every operator, released once by the finally`);
+      assert.ok((before[i] ?? "").length > 0);
+    }
+    handed[0]?.("bell/tick: sigterm");
+    assert.deepEqual(["helius", "solana-foundation"].map((op) => readFileSync(join(dir, "cyc", `${op}.jsonl`), "utf8")), before, "the release runs once: a late call adds no line");
+  } finally { co(); cleanup(); }
+});
+
+// killer: apps/bell/src/collect.ts:740 CONST "{ cycleShare: shares }" -> "{ cycleShare: { helius: shares.chainstack!, chainstack: shares.helius! } }"
+test("bell_collect_shares_form_passes_each_share_to_the_guard", async () => {
+  const { dir, cleanup } = tmpLedger();
+  const { out, cleanup: co } = tmpOut();
+  const hosts: string[] = [];
+  try {
+    const err = await settled(quietRpc(hosts), () => runMain(twoOps(dir, out, ["--cycle", "cyc", "--shares", "helius=8000000,chainstack=1"]), TWO_DEPS));
+    assert.ok(err instanceof BudgetExceededError && err.message === "rpc-guard: cycle_share (fail-closed)", `the chainstack share refuses by name: ${String(err)}`);
+    const cs = linesOf(join(dir, "cyc", "chainstack.jsonl")), he = linesOf(join(dir, "cyc", "helius.jsonl"));
+    assert.deepEqual(cs.filter((l) => l.outcome !== "unlocked").map((l) => [l.outcome, l.reason]), [["refused", "cycle_share"]], "one refusal, before any chainstack attempt (1 RU < 2 RU)");
+    assert.deepEqual([hosts.filter((h) => h === CS_HOST).length, he.filter((l) => l.outcome === "refused").length], [0, 0], "no chainstack call; helius under its own share");
+    assert.deepEqual(["helius", "chainstack"].map((op) => existsSync(join(dir, "cyc", `${op}.lock`))), [false, false], "the refusal path releases the locks");
+  } finally { co(); cleanup(); }
+});
