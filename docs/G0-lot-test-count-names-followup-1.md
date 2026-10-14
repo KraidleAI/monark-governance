@@ -4,7 +4,8 @@
   reviewers of #270. 2026-10-14.
 - **Base**: trunk `lot/etude-suite` = `08ae8022` (the merge of #270; read with `ls-remote`, fetched with an explicit refspec). **The
   `file:line` addresses of §1 hold at `08ae8022`; those of §2 to §4 hold at `f6d9a698`, the head the review read; those
-  of §7 hold at `cb19b4ce`, the head the second review read; those of §8 hold at this branch's head.**
+  of §7 hold at `cb19b4ce`, the head the second review read; those of §8 hold at `294d5bb3`; those of §9 hold at this branch's
+  head.**
 - **Demand**: two items left after #270. O-2 of the review of its fold 4 (recherches,
   `coordination/pieces/2026-10-14-g2d2-test-count-names/G2-test-count-names-fold4.json`): three single-character widenings of the
   split of test 38 (U+1680, U+202F, U+0085) survive its line cases. And a reading of a bypass hunter: a test file renamed that loses a
@@ -237,9 +238,81 @@ campaign on `test/test-count-check.test.ts` (the *non conclu* above is inferred 
 #259 read fewer tests in its baseline; whether a test moved between two files that both stay should take a move line of its
 own (§2).
 
-## 9. Changelog
+## 9. A test file that imports another test file
+
+The third review read `ad50878f` (recherches, `coordination/pieces/2026-10-14-g2-names-followup-1-r3/G2-names-followup-1.json`,
+after its reconcile) and returned one minor point, m-3, with a prototype fix; it is folded here, tests first. **The `file:line`
+addresses of this section hold at this branch's head.** The zone row was widened to the reporter and the floor before the fold.
+
+First the trunk's head `fd20e9fa` (#272, #273) was merged: a merge commit, `18551b17`, no conflict, its tree equal to
+`git merge-tree` of its two parents. The main suite on that merge, then `write`, left both records as the trunk wrote them
+(301 files, 3063 tests). A first run of the suite on the merge read test edits made in its worktree while it ran; that run is
+void, and its log is kept apart.
+
+- **The gap (m-3).** The reporter keyed each test by the file that declares it, and a summary only marked its own file. A
+  test file `c` that imports a test file `b` (for a helper, or for nothing) runs b's tests in c's process too: b's names were
+  recorded twice, c got a key with a summary of its own, and P1 passed. When a test file `a` was deleted with a file-gone line
+  only, a name of `a` that `b` also declares counted as gained in `b` through its second copy, so the pool of gained names
+  covered it and the check exited 0 while a test left the suite.
+- **The fix.** The reporter keeps the files of the tests reported since the last summary of a file (`ran`,
+  `scripts/test-counts-reporter.mjs:8`, filled at `:15`). A process's tests come in one block, closed by its own summary; at
+  that summary, each test of another file, or of a file already summed up (a second run of one file, which a link to it
+  makes), counts as `foreign` on its own file (`:16`). The run writes `foreign` only above 0 and only for a file with a summary
+  of its own (`:19`): a file without one is refused for that already, and every honest run is byte for byte what it was. P1
+  refuses a file with `foreign` above 0 after the summary check (`scripts/test-count-floor.mjs:23-24`), so `write` and the
+  check both refuse such a run: `test/b.test.ts: 2 of its test(s) also ran in another process: a test file imports it (move
+  what they share to a module that declares no test), or it runs twice`. `readRun` keeps accepting the extra field; the
+  `Run` type names it (`scripts/test-count-floor.d.mts:4`).
+- **The second run.** The reconcile expected its prototype to close RN-1 (a test file run twice through a link) too. It does
+  not: the reporter keys both runs by the same real path, so the prototype's comparison of keys sees no foreign test (a lab at
+  the first version of this fold: `a.test.mjs` and a link to it, one key at 4 tests, no `foreign`, `logs/link-lab-first-variant.out`).
+  The clause `|| c.summary` in `:16` counts the tests of a file's second summed-up process as foreign; the same lab at the head
+  gives `foreign: 2`, so RN-1 no longer leans on R-25 alone.
+- **Tests.** T9 (`test/test-count-floor.test.ts:128`): on events, a test reported in another file's process counts as foreign
+  on its own file, and a file summed up twice counts its second run (`:135-138`); in a real nested run, `c.test.mjs` imports a
+  helper of `b.test.mjs`, the run holds b at 4 tests with `foreign: 2`, P1 names b, and `write` refuses with exit 1 and writes
+  nothing. In the gate (`test/test-count-check.test.ts:132-135`), a run whose b carries `foreign` exits 1 with that line, its
+  records unchanged. Killer lines: `test/test-count-floor.test.ts:124-127` and `:135`, and `:66` for the clause that writes
+  `foreign` only with a summary (T2's nested run holds four files without a summary). The existing killer of P1's summary
+  clause moved to `scripts/test-count-floor.mjs:23` with its new text, and the floor's later killer lines moved by two.
+
+Red before, green after. The new cases on the merge's scripts (`152fd4d7`): T9 and the gate test red, each by `ERR_ASSERTION`,
+seven tests green (`logs/red-before-fix.tap`); at the head, 9 of 9 green (`logs/green-after-fix.tap`). The reconcile's repro
+(`tools/import-repro.mjs`, sha256 `1059c5de`, unchanged) at the head exits 1, as wanted after a fix: BYPASS, HELPER and INFLATE
+are refused by `write` and by the check, first line the one above; CONTROL exits 1 as before. The second review's command-line
+tool (`tools/cli-shapes.mjs`, sha256 `df8b5357`, unchanged): 34 cases at three script versions, 0 not as wanted. The real
+records pass: the suite at the fix wrote no `foreign` for any of its 301 files, and `write` added only the new test.
+
+Measures, each run offline (0 refused attempts in every log); evidence in the scratchpad folder `names-followup-1-r4b/`, kept:
+
+| Measure | Result | Log, sha256 prefix |
+|---|---|---|
+| `npm run test:main` on the merge `18551b17` (under the host lock) | 3063 tests, 3041 pass, 0 fail, 22 skipped | `logs/test-main-merge.log`, `4bb06ebd` |
+| `write` on the merge, then `git status` | 301 files, 3063 tests; both records unchanged | `logs/write-merge.log`, `a02be06c` |
+| the new cases on the merge's scripts, then at the head | 2 red by `ERR_ASSERTION`, 7 green; then 9 of 9 green | `logs/red-before-fix.tap`, `e891fd38`; `logs/green-after-fix.tap`, `6bd0dee2` |
+| `npm run test:main` at `adea788b`, the fix (under the host lock) | 3064 tests, 3042 pass, 0 fail, 22 skipped | `logs/test-main-fix.log`, `6cdcbe7d` |
+| `write` at the fix, then `git status` | 301 files, 3064 tests; the two records gain the new test only (`0cf3b49f`) | `logs/write-fix.log`, `951b8771` |
+| the count check against `origin/lot/etude-suite` | exit 0, `test counts: 301 files, 3064 tests, equal to test/test-counts.json and test/test-names.json; 0 drop(s) from the base fd20e9fa4bbc, each name gone with its line in test/test-count-removals.json` | `logs/count-check.log`, `aa062fae` |
+| the reconcile's repro at the head | exit 1: 3 of 4 cases refused, CONTROL as before | `logs/import-repro-after-fix.out`, `3f4252f2` |
+| the second review's command-line shapes | 34 cases × 3 versions, 0 not as wanted, exit 0 | `logs/cli-shapes.log`, `ae64fb6e` |
+| a test file run twice through a link, at the head | one key, 4 tests, `foreign: 2` | `logs/link-lab.out`, `a0d464be` |
+| killer campaign (`scripts/mutants/run.mjs --killers`, the trunk's bytes, base `fd20e9fa`) | 97 of 97 killed, each by its named test's assertion; baseline `BASELINE l.0 - vert (0 rouge(s), 365 vert(s), 47934 ms) restaure OK ; unmutated` | `killers/RESULTS.json`, `f0149fc2`; `logs/killers.log`, `2255b243` |
+| anchors, `verifie-ancres.mjs` on the whole tree, `--ref fd20e9fa` | 1929 killers, 1924 anchored, 5 drifted, 0 lost: the five are the reporter's lines 15, 16 and 19 that this fold rewrote, each re-anchored on its own line | `logs/anchors.log`, `ac14daf8` |
+| tsc, eslint (the eight changed code and test files), lint:ratchet, gate:vocab, lang:gate, export:check, winlint, `git diff --check` | each exit 0 | `logs/gates.log`, `28481ff4` |
+| size in CI form (the job's pin, then its `STAT=` line in bash, base `fd20e9fa`) | 8 files, 147 insertions, 53 deletions: W = 200, under 1,205 | `logs/size-ci.log`, `a6f3065e` |
+| the three changed test files with the case-folding git wrapper first in PATH; T9's names | 53 pass, 0 fail; 0 case-only collision | `logs/casefold-run.tap`, `6182a0ee`; `logs/casefold.log`, `b525aac9`; `logs/casefold-t9.log`, `eecb0d4e` |
+
+Not verified here: Windows (T9 writes three files and a folder, with distinct names once case is folded; the casing of
+`data.file` on NTFS was not seen); the CI run (no pull request is opened); that each process's tests stay in one block closed
+by its own summary under other `--test-concurrency` values or Node versions than 24.21.0 (it held on the full suite at the
+repository's settings: no `foreign` in 301 files); a dynamic `import()` of a test file, and a test that runs `node:test`'s
+`run()` itself; a file run twice that reports no test.
+
+## 10. Changelog
 
 - 2026-10-14: built (this note).
 - 2026-10-14: the review's three minor points folded, after a merge of the trunk (§7).
 - 2026-10-14: the trunk `370a6397` merged; the second review's two minor points folded, a trunk killer put first so that the
   new mutation tool counts it, and the tool's baseline reread (§8).
+- 2026-10-14: the trunk `fd20e9fa` merged; the third review's minor point folded: a test file whose tests another process ran
+  too is refused (§9).
