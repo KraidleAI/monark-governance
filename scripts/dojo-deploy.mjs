@@ -25,9 +25,9 @@ export const DOJO_COLLECT_TIMER = "deploy/monark-dojo-collect.timer";
 /** The only writable path of the collect unit: bundles/ (D-7 layout) and ledger/ (the guard). */
 export const DOJO_COLLECT_STATE = "/var/lib/monark-dojo-collect";
 /** The EnvironmentFile (mandatory: no leading "-") and its closed key set: the guard's transport reads the first two
- *  (packages/rpc-guard/src/transport.ts), the collector the cycle keys (apps/dojo/src/dojo-methods.ts ENV_CYCLE_ID, ENV_CYCLE_FLOOR). */
+ *  (packages/rpc-guard/src/transport.ts), the collector the cycle keys (apps/dojo/src/dojo-methods.ts ENV_CYCLE_ANCHOR, ENV_CYCLE_FLOOR, ENV_CYCLE_SHARE). */
 export const DOJO_COLLECT_ENV_FILE = "/etc/monark/dojo-collect.env";
-export const DOJO_COLLECT_ENV_KEYS = Object.freeze(["BELL_SOLANA_RPC", "HELIUS_API_KEY", "HELIUS_CYCLE_ID", "HELIUS_CYCLE_FLOOR"]);
+export const DOJO_COLLECT_ENV_KEYS = Object.freeze(["BELL_SOLANA_RPC", "HELIUS_API_KEY", "HELIUS_CYCLE_ANCHOR_UTC", "HELIUS_CYCLE_FLOOR", "HELIUS_CYCLE_SHARE"]);
 /** The two credentials of the collect unit and their root:root 0600 sources (LoadCredential, read under $CREDENTIALS_DIRECTORY): the
  *  seed, and the anchor line in force (--anchor-file, DOJO-TICK-ARGV-1), which the unit reads and cannot replace (dated line 14:13Z, Q-2 (a)). */
 export const DOJO_SEED_CREDENTIAL = "dojo-seed";

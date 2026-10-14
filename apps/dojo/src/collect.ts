@@ -12,13 +12,13 @@ import { appendFileSync, existsSync, readdirSync, readFileSync, realpathSync, wr
 import { gzipSync } from "node:zlib";
 import { dirname, isAbsolute, join, relative, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
-import { BudgetExceededError, HELIUS_CYCLE_CAP_CREDITS, TransportError, assertMethodCapsCover, openGuardedClient, runCli, type BudgetedClient,
+import { BudgetExceededError, HELIUS_CYCLE_CAP_CREDITS, TransportError, assertMethodCapsCover, cycleOf, openGuardedClient, runCli, type BudgetedClient,
   DRAND_RELAY_LABELS, type OperatorLabel, type RunLimits } from "@monark/rpc-guard";
 import { canonical } from "../../bell/scripts/bell-chain.mjs";
 import { beaconRound, daySeed, readInstants, seedAnchor } from "../scripts/dojo-core.mjs";
 import { DojoBundleError, readingRecord, readRecord, recordBytes, writeDayBundle, type Beacon, type ReadingAnchor, type ReadingRecord } from "./bundle.ts";
 import type { Pair } from "./reading.ts";
-import { BACKOFF_MS, CHAIN_OPERATORS, DECIMALS, DOJO_METHOD_CAPS, DOJO_SOLANA_METHODS, ENV_CYCLE_FLOOR, ENV_CYCLE_ID, PUBLIC_HOST_GAP_MS,
+import { BACKOFF_MS, CHAIN_OPERATORS, DECIMALS, DOJO_METHOD_CAPS, DOJO_SOLANA_METHODS, ENV_CYCLE_ANCHOR, ENV_CYCLE_FLOOR, ENV_CYCLE_SHARE, PUBLIC_HOST_GAP_MS,
   DRAND_CYCLE_ATTEMPTS, READ_RULE, TOKEN_2022, TRIES } from "./dojo-methods.ts";
 import { closeLayout, ensureDir, nextEve, readDayLayout, readEve, writeAtomic } from "./layout.ts";
 import { writeSync } from "node:fs"; // the SIGTERM line of main, written synchronously before process.exit (process.d.ts, exit())
@@ -81,9 +81,8 @@ function anchorOf(text: string): Anchor {
 const outside = (p: string, root: string): boolean => { const rel = relative(resolve(root).toLowerCase(), resolve(p).toLowerCase()); return rel !== "" && (rel.startsWith("..") || isAbsolute(rel)); };
 const text = (p: string, code: Code, what: string): string => { try { return readFileSync(p, "utf8"); } catch { return refuse(code, what); } };
 
-interface Ctx { a: Args; deps: RunDeps; anchor: Anchor; secret: string; anchorDay: number; cycle: string; floor: number; bundles: string; ledger: string;
-  sleep: (ms: number) => Promise<void>; lastPublic: number }
-
+interface Ctx { a: Args; deps: RunDeps; anchor: Anchor; secret: string; anchorDay: number; cycleAnchor: string; floor: number; share: number; bundles: string;
+  ledger: string; sleep: (ms: number) => Promise<void>; lastPublic: number }
 /** Every check before any lock and any call (ADR D-1 dated line C-V-2; D-6 l.173 guard x10: floor + 10 x --max-credits <= cycle cap). */
 function setup(argv: readonly string[], deps: RunDeps): Ctx {
   const a = parseArgv(argv), root = fileURLToPath(new URL("../../../", import.meta.url)), cred = deps.env.CREDENTIALS_DIRECTORY;
@@ -94,13 +93,14 @@ function setup(argv: readonly string[], deps: RunDeps): Ctx {
   if (text(a.mintFile, "mint_mismatch", "--mint-file").trim() !== anchor.mint) refuse("mint_mismatch", "--mint-file");
   const secret = text(a.seedFile, "seed_mismatch", "--seed-file").trim();
   if (!/^[0-9a-f]{64}$/.test(secret) || seedAnchor(secret, anchor.horizon) !== anchor.seed_anchor) refuse("seed_mismatch", "--seed-file");
-  const cycle = deps.env[ENV_CYCLE_ID], floor = deps.env[ENV_CYCLE_FLOOR];
-  if (cycle === undefined || !/^[A-Za-z0-9._-]{1,64}$/.test(cycle) || floor === undefined || !/^(0|[1-9][0-9]{0,8})$/.test(floor)) return refuse("cycle_missing", "cycle id or floor");
+  const cycleAnchor = deps.env[ENV_CYCLE_ANCHOR] ?? "", floor = deps.env[ENV_CYCLE_FLOOR] ?? "", share = deps.env[ENV_CYCLE_SHARE] ?? ""; // each cycle key refused by name
+  try { cycleOf(deps.nowMs(), cycleAnchor, CHAIN_OPERATORS[0]); } catch { refuse("cycle_missing", "anchor"); } if (!/^(0|[1-9][0-9]{0,8})$/.test(floor)) refuse("cycle_missing", "floor");
+  if (!/^[1-9][0-9]{0,8}$/.test(share) || Number(share) > HELIUS_CYCLE_CAP_CREDITS) refuse("cycle_missing", "share"); // the declared share, in (0, cycle cap]
   if (Number(floor) + 10 * a.maxCredits > HELIUS_CYCLE_CAP_CREDITS) refuse("budget_guard", "floor + 10 x --max-credits");
   assertMethodCapsCover(DOJO_METHOD_CAPS, DOJO_SOLANA_METHODS, "dojo/collect");
   if (!existsSync(join(a.state, "ledger"))) refuse("state_missing", "ledger");
-  return { a, deps, anchor, secret, anchorDay: Math.floor(Date.parse(anchor.published_at) / 1000 / DAY) * DAY, cycle, floor: Number(floor),
-    bundles: join(a.state, "bundles"), ledger: join(a.state, "ledger"), sleep: deps.sleep ?? ((ms) => new Promise((r) => setTimeout(r, ms))), lastPublic: -Infinity };
+  return { a, deps, anchor, secret, anchorDay: Math.floor(Date.parse(anchor.published_at) / 1000 / DAY) * DAY, cycleAnchor, floor: Number(floor),
+    share: Number(share), bundles: join(a.state, "bundles"), ledger: join(a.state, "ledger"), sleep: deps.sleep ?? ((ms) => new Promise((r) => setTimeout(r, ms))), lastPublic: -Infinity };
 }
 
 interface Plan { readonly day: string; readonly beacon: Beacon | null; readonly instants: readonly number[]; readonly reason: "beacon_unavailable" | null }
@@ -188,7 +188,7 @@ async function plan(c: Ctx, T: number): Promise<void> {
     const ask = async (call: Call, op: string): Promise<string | null> => {
       try { return betaOf(await call(op, "GET", [path]), round); } catch (e) { if (e instanceof BudgetExceededError) return null; throw e; }
     };
-    const cycles = Object.fromEntries(DRAND_RELAY_LABELS.map((l) => [l, `drand-${dayName(T)}`])); // one cycle a day, never HELIUS_CYCLE_ID
+    const cycles = Object.fromEntries(DRAND_RELAY_LABELS.map((l) => [l, `drand-${dayName(T)}`])); // one cycle a day, never the helius cycle
     const limits = { maxCalls: DRAND_RELAY_LABELS.length * TRIES, runCaps: {}, methodCaps: {}, cycleFloor: {}, cycleAttempts: DRAND_CYCLE_ATTEMPTS };
     const got = await course(c, cycles, limits, dayDir(c, T), "plan", async (call) => {
       const out: (string | null)[] = [];
@@ -214,10 +214,10 @@ async function reading(c: Ctx, i: number, only?: number): Promise<void> {
   if (T <= c.anchorDay) refuse("anchor_day_not_read", "reading");
   if (existsSync(out)) return;
   if (!existsSync(join(dir, "eve.json"))) refuse("eve_missing", "eve.json");
-  const eve = readEve(readFileSync(join(dir, "eve.json"), "utf8")), A = c.anchor;
+  const eve = readEve(readFileSync(join(dir, "eve.json"), "utf8")), A = c.anchor, cycle = cycleOf(c.deps.nowMs(), c.cycleAnchor, CHAIN_OPERATORS[0]); // at the course
   const mintDone = Array.from({ length: A.k_reads }, (_, j) => join(dir, "readings", `${String(j + 1)}.json`)).some((f) => existsSync(f) && readRecord(readFileSync(f, "utf8")).mint !== null);
-  const limits = { maxCalls: c.a.maxCalls, runCaps: { helius: c.a.maxCredits }, methodCaps: { ...DOJO_METHOD_CAPS }, cycleFloor: { helius: c.floor } };
-  const pieces = await course(c, Object.fromEntries(CHAIN_OPERATORS.map((o) => [o, c.cycle])), limits, dir, `reading ${String(i)}`, async (call) => {
+  const limits = { maxCalls: c.a.maxCalls, runCaps: { helius: c.a.maxCredits }, methodCaps: { ...DOJO_METHOD_CAPS }, cycleFloor: { helius: c.floor }, cycleShare: { helius: c.share } };
+  const pieces = await course(c, Object.fromEntries(CHAIN_OPERATORS.map((o) => [o, cycle])), limits, dir, `reading ${String(i)}`, async (call) => {
     const pair = async (params: readonly unknown[], method = "getAccountInfo"): Promise<Pair> => ({ a: await call(CHAIN_OPERATORS[0], method, params), b: await call(CHAIN_OPERATORS[1], method, params) });
     const info = (addr: string, encoding: string): Promise<Pair> => pair([addr, { commitment: "finalized", encoding }]);
     return { enumeration: await pair([TOKEN_2022, { commitment: "finalized", encoding: "jsonParsed", withContext: true, filters: [{ memcmp: { offset: 0, bytes: A.mint } }] }], "getProgramAccounts"),

@@ -22,7 +22,7 @@ import { closeSync, existsSync, fsyncSync, mkdirSync, openSync, readdirSync, rea
 import { gunzipSync, gzipSync } from "node:zlib";
 import { dirname, isAbsolute, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
-import { BudgetExceededError, CHAINSTACK_CYCLE_CAP_RU, HELIUS_CYCLE_CAP_CREDITS, RpcError, TransportError, assertMethodCapsCover, openGuardedClient,
+import { BudgetExceededError, CHAINSTACK_CYCLE_CAP_RU, HELIUS_CYCLE_CAP_CREDITS, RpcError, TransportError, assertMethodCapsCover, cycleOf, openGuardedClient,
   runCli, type BudgetedClient, type OperatorLabel } from "@monark/rpc-guard";
 import { withRetry } from "../../bell/src/quorum.ts";
 import { canonical } from "../../bell/scripts/bell-chain.mjs";
@@ -39,8 +39,9 @@ export const DOJO_HISTORY_OPS = ["helius", "chainstack"] as const;
 export const DOJO_HISTORY_METHODS: readonly string[] = ["getSignaturesForAddress", "getTransaction", "getTransactionsForAddress"];
 /** D-8 (vii), dated line Q-2 of the G2 of PR-2b-1: X / |R| <= 3 / 2 000 (5 % convention, declared), and 0 for the three others. */
 export const DOJO_HISTORY_BOUNDS: HistoryBounds = { contested: [3, 2000], noQuorum: 0, unordered: 0, failedMoving: 0 };
-/** Cycle id and dashboard floor of each operator (calque of PR-2-2's HELIUS_CYCLE_* and of deploy/monark-sentinel.service:28-31). */
-export const DOJO_HISTORY_ENV = { helius: ["HELIUS_CYCLE_ID", "HELIUS_CYCLE_FLOOR"], chainstack: ["CHAINSTACK_CYCLE_ID", "CHAINSTACK_CYCLE_FLOOR"] } as const;
+/** Cycle anchor and dashboard floor of each operator (calque of PR-2-2's HELIUS_CYCLE_*; the anchor replaces the posed id, cycleOf derives it). */
+export const DOJO_HISTORY_ENV = { helius: ["HELIUS_CYCLE_ANCHOR_UTC", "HELIUS_CYCLE_FLOOR"], chainstack: ["CHAINSTACK_CYCLE_ANCHOR_UTC", "CHAINSTACK_CYCLE_FLOOR"] } as const;
+export const DOJO_HISTORY_SHARE_ENV = { helius: "HELIUS_CYCLE_SHARE", chainstack: "CHAINSTACK_CYCLE_SHARE" } as const; // declared shares, held by the guard
 export const DOJO_HISTORY_COLLECT_REFUSALS = Object.freeze(["usage", "state_path_malformed", "state_inside_repo", "mint_mismatch", "cycle_missing",
   "budget_guard", "state_missing", "disk_space", "phase_order", "inputs_mismatch", "lock_held", "provisional_day_future"] as const);
 /** Reasons of a partial status: those of PR-2b-2 (frozen) plus the stop on duration (C-27, Q-6), a transport fault that ends a page or an
@@ -61,7 +62,6 @@ const PEAK = 6467, DAY = 86400, DAY1 = 20706; // D-10 S(J) = 6 467 x J (derived.
 const BODY_MAX = 36341, GZIP = 5.17; // D-10 disk: largest body of R-h, gzip ratio of R-g
 const pages = (x: number, L: number): number => Math.floor(x / L) + 1; // D-10 p(x, L)
 const [A, B] = DOJO_HISTORY_OPS;
-
 type Code = (typeof DOJO_HISTORY_COLLECT_REFUSALS)[number];
 export class DojoHistoryCollectError extends Error {
   readonly code: Code;
@@ -114,7 +114,7 @@ export function parseArgv(argv: readonly string[]): Args {
 export interface RunDeps { readonly env: Readonly<Record<string, string | undefined>>; readonly nowMs: () => number; readonly sleep?: (ms: number) => Promise<void> }
 interface Line { readonly seq: number; readonly prev_sha256: string | null; readonly phase: string; readonly op: string; readonly unit: string; readonly method: string;
   readonly params_sha256: string; readonly raw: string | null; readonly raw_sha256: string | null; readonly size: number; readonly outcome: "ok" | "null" | "fault" }
-interface Ctx { a: Args; deps: RunDeps; mint: string; ev: string; ledger: string; cycles: Record<string, string>; floors: Record<string, number>;
+interface Ctx { a: Args; deps: RunDeps; mint: string; ev: string; ledger: string; cycles: Record<string, string>; floors: Record<string, number>; shares: Record<string, number>;
   methodCaps: Record<string, number>; secrets: readonly string[]; closed: Map<string, Line>; seq: number; prev: string | null; accounts: Set<string>;
   first: { readonly sha256: string | null; readonly d_last: string; readonly cut: number; readonly records: readonly string[] } }
 
@@ -168,11 +168,11 @@ function setup(argv: readonly string[], deps: RunDeps): Ctx {
   for (const done of [["publish", "SHA256SUMS"], ["provisional", "eve.json"]]) { // D-12: never overwritten, by any phase (C-G2-2); FAST-START too
     if (existsSync(join(a.state, ...done))) refuse("phase_order", "complete");
   }
-  const cycles: Record<string, string> = {}, floors: Record<string, number> = {};
-  for (const op of DOJO_HISTORY_OPS) {
-    const [id, fl] = DOJO_HISTORY_ENV[op].map((k) => deps.env[k]);
-    if (id === undefined || !/^[A-Za-z0-9._-]{1,64}$/.test(id) || fl === undefined || !/^[1-9][0-9]{0,8}$/.test(fl)) refuse("cycle_missing", op);
-    cycles[op] = id as string; floors[op] = Number(fl);
+  const cycles: Record<string, string> = {}, floors: Record<string, number> = {}, shares: Record<string, number> = {}; // a share per requested operator, only
+  for (const op of DOJO_HISTORY_OPS) { const [anchor = "", fl = ""] = DOJO_HISTORY_ENV[op].map((k) => deps.env[k]), share = deps.env[DOJO_HISTORY_SHARE_ENV[op]] ?? "";
+    try { cycles[op] = cycleOf(deps.nowMs(), anchor, op); } catch { refuse("cycle_missing", `${op} anchor`); } if (!/^[1-9][0-9]{0,8}$/.test(fl)) refuse("cycle_missing", `${op} floor`);
+    if (!/^[1-9][0-9]{0,8}$/.test(share) || Number(share) > (op === A ? HELIUS_CYCLE_CAP_CREDITS : CHAINSTACK_CYCLE_CAP_RU)) refuse("cycle_missing", `${op} share`);
+    floors[op] = Number(fl); shares[op] = Number(share);
   }
   const J = Math.floor(deps.nowMs() / 1000 / DAY) - DAY1 + 1, S = PEAK * J;
   if (!(J >= 1)) refuse("usage", "clock before day 1");
@@ -183,7 +183,7 @@ function setup(argv: readonly string[], deps: RunDeps): Ctx {
   if (!existsSync(ledger)) refuse("state_missing", "ledger");
   const fs = statfsSync(a.state);
   if (fs.bavail * fs.bsize < 2 * Math.ceil((2 * S * BODY_MAX) / GZIP)) refuse("disk_space", "--state");
-  return { a, deps, mint: text.trim(), ev: join(a.state, "evidence"), ledger, cycles, floors, methodCaps, secrets: secretForms(deps.env), closed: new Map(),
+  return { a, deps, mint: text.trim(), ev: join(a.state, "evidence"), ledger, cycles, floors, shares, methodCaps, secrets: secretForms(deps.env), closed: new Map(),
     seq: 0, prev: null, accounts: new Set(), first: first as Ctx["first"] };
 }
 
@@ -420,7 +420,7 @@ export async function runHistoryCollect(argv: readonly string[], deps: RunDeps):
     const served = fetcher(c, null), idx = c.a.phase === "A" ? null : [await indexOf(served, A, c.mint), await indexOf(served, B, c.mint)];
     const open = (): Fetch => { // the lock is taken once the evidence of the earlier phases is served (phase_order before any lock)
     try {
-      client = openGuardedClient(deps.env, { maxCalls: c.a.maxCalls, runCaps: { [A]: c.a.maxCredits, [B]: c.a.maxRu }, methodCaps: c.methodCaps, cycleFloor: c.floors },
+      client = openGuardedClient(deps.env, { maxCalls: c.a.maxCalls, runCaps: { [A]: c.a.maxCredits, [B]: c.a.maxRu }, methodCaps: c.methodCaps, cycleFloor: c.floors, cycleShare: c.shares },
         c.ledger, c.cycles, { network: "solana-mainnet" });
     } catch (e) { if (e instanceof Error && e.constructor.name === "LockHeldError") refuse("lock_held", "operator lock"); throw e; }
     return fetcher(c, client, deps.sleep); };
