@@ -11,6 +11,7 @@ import assert from "node:assert/strict";
 import { execFileSync, spawnSync } from "node:child_process";
 import { createHash } from "node:crypto";
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { createRequire, syncBuiltinESMExports } from "node:module";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { runInNewContext } from "node:vm";
@@ -83,10 +84,24 @@ test("R-PATH: an absent path is red; declared to-create, lock, outside the roots
   // directory's subtree coverage, never by being separately declared itself.
   // killer: scripts/mission/lint.mjs:112 COR "d.endsWith(\"/\") ? q === d.slice(0, -1) || q.startsWith(d) : q === d" -> "q === d"
   assert.deepEqual(red(H(["## \u00c0 cr\u00e9er", "- `docs/newdir/`", "## Suite", "See `docs/newdir/a.md`."].join("\n"))), []);
+  // A brace group that holds a blank or a backtick is no brace group for SEG: the read stops at `docs/`, no alternative is checked
+  // killer: scripts/mission/lint.mjs:56 CONST "[^{}\\\\s\\`]" -> "[^{}\\`]"
+  // killer: scripts/mission/lint.mjs:56 CONST "[^{}\\\\s\\`]" -> "[^{}\\\\s]"
+  assert.deepEqual(["`docs/{ten, later}.md`", "`docs/{ten`,`later}.md`"].map((c) => red(H(`Read ${c}.`))), [[], []]);
 });
 
+// killer: scripts/mission/lint.mjs:64 CONST "~+" -> "~"
+// killer: scripts/mission/lint.mjs:64 CONST "~+" -> "+"
+// killer: scripts/mission/lint.mjs:155 CONST "r.index < b.index" -> "r.index <= b.index"
+// killer: scripts/mission/lint.mjs:155 CONST "continue;" -> "void 0;"
 test("R-BRANCH: a lot/ branch absent from git branch --list is red, a lot/ word in prose is not [mutants: R-BRANCH check removed; prose lot/ word taken as a branch]", () => {
   assert.deepEqual(red(H("Rebase onto `lot/absent`; this lot/pair word; branch lot/gone.")), ["R-BRANCH", "R-BRANCH"]);
+  assert.deepEqual(red(H("Read `docs/ten.md+lot/zz`.")), ["R-PATH"]); // a lot/ after + inside a cited path is part of the path, not a branch
+  // A lot/ that starts a PATH_RE read, or that no read holds, is a branch (in braces, in a JSON value, after a blank or a backtick); one
+  // strictly inside a read is the path's (docs/ten.md{lot/zz}); one glued by + or ~ to a line suffix is not a branch either
+  const inputs = ["`{lot/gone}`", "`{a,lot/gone}`", "`{\"branch\":\"lot/gone\"}`", "`{a, lot/gone}`", "{a`lot/gone`", "`docs/ten.md{lot/zz}`",
+    "`docs/ten.md:3+lot/zz` and `docs/ten.md:3~lot/zz`"];
+  assert.deepEqual(inputs.map((c) => red(H(`Read ${c}.`))), [["R-BRANCH"], ["R-BRANCH"], ["R-BRANCH"], ["R-BRANCH"], ["R-BRANCH"], ["R-PATH"], []]);
 });
 
 test("R-BASE: a base absent or unknown to the repository is red [mutants: absent base accepted; unknown base accepted]", () => {
@@ -299,3 +314,105 @@ test("definition forms var and enum (G11A, Q-M2B-11): a name defined by var or e
 test("definition form export default (G11B, Q-M2B-11): a name exported as default is defined; an undefined one stays red", () => assert.deepEqual(red(H("Call `mkThing()`, not `ghost()`.")), ["R-SYMBOL"]));
 // killer: scripts/mission/lint.mjs:162 CONST "`|^\\s*```/.test(raw)" -> "`/.test(raw)"
 test("steps, fenced code block (G16): a fence under a step is its code; a step with none stays red", () => assert.deepEqual([red(H("## Steps\n1. Run:\n```\nnpm test\n```")), red(H("## Steps\n1. Think hard."))], [[], ["R-STEP"]]));
+// killer: scripts/mission/lint.mjs:142 CONST "!host || existsSync(p)" -> "existsSync(p)"
+test("host false: a drive path, its line, a lot branch and a bare tool are never read on the host; the default reads them", () => {
+  const text = H("Read `Z:/fh-absent/x.md:3`. Branch `lot/fh-none`. Run `fh-none.mjs`.");
+  const codes = (host: boolean): string[] => lintMission({ text, missionPath: join(T, "m.md"), repo: REPO, rev: null, host }).hits.map((h) => h.code);
+  // killer: scripts/mission/lint.mjs:105 CONST "!host ? null : " -> ""
+  // killer: scripts/mission/lint.mjs:168 CONST "if (host && " -> "if ("
+  assert.deepEqual([codes(false), codes(true)], [[], ["R-BRANCH", "R-PATH", "R-TOOL"]]);
+  const past = H("Read `docs/ten.md:11` and `docs/ten.md` (l.12)."); // a repo path is read in the repository (on disk, or at rev), never on the host
+  const repoLine = (rev: string | null): string[] => lintMission({ text: past, missionPath: join(T, "m.md"), repo: REPO, rev, host: false })
+    .hits.map((h) => h.code);
+  // killer: scripts/mission/lint.mjs:150 CONST "(host || !abs)" -> "host"
+  assert.deepEqual([null, BASE].map(repoLine), [["R-LINE", "R-LINE"], ["R-LINE", "R-LINE"]]);
+});
+// killer: scripts/mission/lint.mjs:150 CONST "want > 0 && (host || !abs)" -> "want > 0"
+test("host false: a drive path present on the host, cited past its end, is not read; the default reads it", () => {
+  const dir = WIN ? join(T, "fh") : join(T, "Z:", "fh"), cwd = process.cwd(); // off Windows, a relative "Z:" directory makes a drive path present
+  mkdirSync(dir, { recursive: true });
+  writeFileSync(join(dir, "x.md"), "one line\n");
+  const text = H(`Read \`${WIN ? dir.replace(/\\/g, "/") : "Z:/fh"}/x.md:3\`.`);
+  const codes = (host: boolean): string[] => lintMission({ text, missionPath: join(T, "m.md"), repo: REPO, rev: null, host }).hits.map((h) => h.code);
+  try {
+    if (!WIN) process.chdir(T);
+    assert.deepEqual([codes(false), codes(true)], [[], ["R-LINE"]]);
+  } finally { process.chdir(cwd); }
+});
+// killer: scripts/mission/lint.mjs:140 CONST "if (host && existsSync(q))" -> "if (existsSync(q))"
+test("host false: no existsSync or statSync of a tool path or a drive path present on the host", () => {
+  const fsc = createRequire(import.meta.url)("node:fs") as typeof import("node:fs"), { existsSync: ex, statSync: st } = fsc, seen: string[] = [];
+  const dir = WIN ? join(T, "fs2") : join(T, "Z:", "fs2"), cwd = process.cwd(); // off Windows, a relative "Z:" directory makes a drive path present
+  for (const d of [dir, join(T, "fsx")]) mkdirSync(d, { recursive: true });
+  writeFileSync(join(dir, "x.md"), "a\n");
+  writeFileSync(join(T, "fsx", "lex.mjs"), "\n");
+  const text = H(`Replay \`fsx/lex.mjs\`, read \`${WIN ? dir.replace(/\\/g, "/") : "Z:/fs2"}/x.md\`.`);
+  // killer: scripts/mission/lint.mjs:146 CONST "if (abs && host)" -> "if (abs)"
+  try {
+    if (!WIN) process.chdir(T);
+    Object.assign(fsc, { existsSync: (p: string) => (seen.push(String(p)), ex(p)), statSync: (p: string, o?: object) => (seen.push(String(p)), st(p, o)) });
+    syncBuiltinESMExports();
+    lintMission({ text, missionPath: join(T, "m.md"), repo: REPO, rev: null, host: false });
+  } finally { Object.assign(fsc, { existsSync: ex, statSync: st }); syncBuiltinESMExports(); process.chdir(cwd); }
+  assert.deepEqual(seen.filter((p) => /lex\.mjs|x\.md/.test(p)), []);
+});
+const TWELVE = Array.from({ length: 12 }, (_, i) => `l${String(i + 1)}\n`).join(""); // a 12-line file: cites with two-digit lines
+// killer: scripts/mission/lint.mjs:129 CONST "found.push([p.replace(/\\.+$/, \"\"), n," -> "found.push([inner, undefined,"
+test("drive path with a blank: its line suffix is split from the path, so a line past the end is R-LINE, never R-PATH; an absent path stays R-PATH", () => {
+  const dir = WIN ? join(T, "with blank") : join(T, "Z:", "with blank"), cwd = process.cwd(); // off Windows: a relative "Z:"
+  mkdirSync(dir, { recursive: true });
+  writeFileSync(join(dir, "x.md"), TWELVE);
+  const at = WIN ? dir.replace(/\\/g, "/") : "Z:/with blank";
+  try {
+    if (!WIN) process.chdir(T);
+    const cite = (c: string): string[] => red(H(`Read \`${at}/${c}\`.`));
+    // killer: scripts/mission/lint.mjs:52 CONST "(?::(\\d+(?:" -> "(?::(\\d(?:"
+    // killer: scripts/mission/lint.mjs:52 CONST "(?::(\\d+(?:-\\d+)?" -> "(?::(\\d+(?:-\\d)?"
+    // killer: scripts/mission/lint.mjs:52 CONST "(?:,\\d+(?:" -> "(?:,\\d(?:"
+    // killer: scripts/mission/lint.mjs:52 CONST "(?:,\\d+(?:-\\d+)?)*" -> "(?:,\\d+)*"
+    assert.deepEqual(["x.md:12", "x.md:1-12", "x.md:1,12", "x.md:1,3-4", "x.md:1-2,2", "x.md:13", "x.md:1,13", "x.md:1-13", "x.md:1,3-13",
+      "gone.md:1"].map(cite), [[], [], [], [], [], ["R-LINE"], ["R-LINE"], ["R-LINE"], ["R-LINE"], ["R-PATH"]]);
+  } finally { process.chdir(cwd); }
+});
+// killer: scripts/mission/lint.mjs:129 CONST "at + 1 + c" -> "raw.length"
+// killer: scripts/mission/lint.mjs:129 CONST "at + 1 + c" -> "at"
+// killer: scripts/mission/lint.mjs:129 CONST "/${inner.slice(c)}" -> "/"
+// killer: scripts/mission/lint.mjs:129 CONST "repeat(c - 1)}/" -> "repeat(c - 1)} "
+// killer: scripts/mission/lint.mjs:128 CONST "/\\s/gu" -> "/\\s/u"
+// killer: scripts/mission/lint.mjs:137 CONST "found.sort((a, b) => a[2] - b[2])" -> "found"
+// killer: scripts/mission/lint.mjs:52 CONST "[^:])*)" -> ".)*?)"
+// killer: scripts/mission/lint.mjs:52 CONST "[A-Za-z]:[\\\\/](?:" -> "[A-Za-z]:\\/(?:"
+// killer: scripts/mission/lint.mjs:52 CONST "\\{[^{}]*\\}|" -> ""
+// killer: scripts/mission/lint.mjs:128 CONST "/\\s/gu, \"_\"" -> "/ /gu, \"_\""
+test("drive path with a blank: the hits of the same path without a blank (a line in, past or after the span, end text, backslashes, text order)", () => {
+  const top = WIN ? join(T, "cmp") : join(T, "Z:", "cmp"), cwd = process.cwd(); // off Windows: a relative "Z:"
+  for (const d of ["with two blanks", "noblank"]) { mkdirSync(join(top, d, "sub"), { recursive: true }); writeFileSync(join(top, d, "x.md"), TWELVE); }
+  mkdirSync(join(top, "no\u00a0break")); writeFileSync(join(top, "no\u00a0break", "x.md"), TWELVE); // a no-break space (U+00A0) in its name
+  const at = WIN ? top.replace(/\\/g, "/") : "Z:/cmp", back = WIN ? top : "Z:\\cmp"; // the same directory, with / and with \
+  // [before the span, after the directory, after the span, separator]: ends SEG does not admit, then \, emphasis, a second cite, text order;
+  // then a lot/ inside the path after a character SEG admits (+, ~, {, }, a brace group), a : inside a brace group, text right after a line
+  const cases = [["", "x.md", ""], ["", "x.md:12", ""], ["", "x.md:13", ""], ["", "x.md", " (l.13)"], ["", "x.md:12", " (l.13)"], ["", "x.md:12.", ""],
+    ["", "x.md:13.", ""], ["", "x.md.", ""], ["", "x.md.:12", ""], ["", "x.md:12,", ""], ["", "x.md:13,", ""], ["", "x.md:12:14", ""],
+    ["", "x.md,", ""], ["", "x.md)", ""], ["", "x.md;", ""], ["", "x.md'", ""], ["", "x.md!", ""], ["", "x.md,:13", ""], ["", "x.md:12.", " (l.13)"],
+    ["", "x.md..:13", ""], ["", "x.md..", ""], ["", "x.md:13", "", "\\"], ["", "x.md", "", "\\"], ["", "sub\\", "", "\\"], ["", "x.md", " (l.13)", "\\"],
+    ["**", "x.md", "** (l.13)"], ["*", "x.md", "* (l.13)"], ["", "x.md(l.13)", ""], ["", "x.md,docs/gone.md", ""], ["`docs/gone.md` ", "gone.md", ""],
+    ["", "x.md+lot/zz", ""], ["", "x.md~lot/zz", ""], ["", "x.md{lot/zz}", ""], ["", "x.md{a}lot/zz", ""], ["", "{x,lot/zz}.md", ""], ["", "{x:y}.md", ""],
+    ["", "x.md:13lot/zz", ""], ["", "x.md:13docs/gone.md", ""]];
+  const hits = (d: string, [pre, s, a, sep = "/"]: string[]): string[] => {
+    const text = H(`Read ${pre}\`${sep === "/" ? at : back}${sep}${d}${sep}${s}\`${a}.`);
+    try { return lint(text).hits.map((h) => `${h.code} ${h.extract.replace(`${d}/`, "D/")}`); } catch (e) { return [`throws ${String(e)}`]; } // a crash differs
+  };
+  try {
+    if (!WIN) process.chdir(T);
+    const past = [`R-LINE ${at}/D/x.md:13 past the end (12 lines)`], gone = "R-PATH docs/gone.md absent";
+    const want = [[], [], past, past, past, [], past, [], [], [], past, [], [], [], [], [], [], [], [], past, [], past, [], [], past, past, past, past,
+      [gone], [gone, `R-PATH ${at}/D/gone.md absent`],
+      ...["x.md+lot/zz", "x.md~lot/zz", "x.mdlot/zz", "x.mdalot/zz", "lot/zz.md", "x:y.md"].map((f) => [`R-PATH ${at}/D/${f} absent`]), past, past];
+    // killer: scripts/mission/lint.mjs:129 CONST "found.push([p.replace(/\\.+$/, \"\"), n," -> "found.push([p, n,"
+    // killer: scripts/mission/lint.mjs:148 CONST "LTAIL.exec(line.slice(after))" -> "LTAIL.exec(\"\")"
+    // killer: scripts/mission/lint.mjs:129 CONST "found.push([p.replace(/\\.+$/, \"\"), n," -> "found.push([p.replace(/\\.$/, \"\"), n,"
+    assert.deepEqual(cases.map((c) => [hits("with two blanks", c), hits("noblank", c)]), want.map((w) => [w, w]));
+    // a directory with a no-break space (U+00A0), a blank that \s reads and SEG does not admit: a line past the end, as without a blank
+    assert.deepEqual([hits("no\u00a0break", ["", "x.md:13", ""]), hits("noblank", ["", "x.md:13", ""])], [past, past]);
+  } finally { process.chdir(cwd); }
+});
