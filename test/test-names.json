@@ -1899,6 +1899,11 @@
   "bell_method_states_the_key_backup_principle_only — an offline backup exists and a restore is an exposure event; no count of copies, no location (decision of the owner, 2026-09-24)",
   "bell_method_volume_formula_restates_the_served_string — clause by clause, in shares per unit"
  ],
+ "test/bell-ots-proofs.test.ts": [
+  "bell_ots_proofs_attest_heights_or_listed_calendars — every proof the walk of docs/ finds; the pending one held by its digest",
+  "bell_ots_proofs_bind_their_manifest — each .ots under docs/ outside the top level of docs/course-bell timestamps its manifest's SHA-256; no link",
+  "bell_ots_reader_refuses_an_unknown_major_version — the magic header then a major version other than 1 throws, named"
+ ],
  "test/bell-publication-state.test.ts": [
   "bell_anchor_state_assertions_drive_on_synthetic_html — M-6, M-10, M-11, M-12 (pilot of T-3b)",
   "bell_publication_anchor_state_is_derived_strictly — M-1..M-4, M-7, M-7 bis, M-8, M-9 and the sentences S-0..S-3 (T-1)"
@@ -3576,8 +3581,11 @@
  ],
  "test/test-count-floor.test.ts": [
   "test_count_floor_refuses_a_file_whose_process_ended_before_it_reported",
+  "test_count_floor_refuses_a_file_whose_tests_another_test_file_ran",
+  "test_count_floor_refuses_a_nested_test_run_and_a_file_that_runs_twice_in_its_own_process",
   "test_counts_reporter_counts_each_test_of_each_file",
   "test_counts_reporter_keys_a_linked_file_by_its_real_path",
+  "test_counts_reporter_keys_each_event_by_the_process_that_sent_it",
   "test_main_loads_the_counts_reporter_and_the_export_ships_it"
  ],
  "test/test-force-exit-report.test.ts": [
