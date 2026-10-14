@@ -1,0 +1,92 @@
+# G0 — KATA-K19: T-4 judges the tables that `servedPolicyTables` serves by an assertion, before the tripwire
+
+- **Author**: RECHERCHES (`claude-opus-5-5`, effort high), 2026-10-14, under the lot lock (first progress line 05:52 UTC). A short
+  design note, documents only, before the test change.
+- **Demand**: MONARK `e6ebb72` (recherches, `coordination/messages/2026-10-09-MONARK-vers-RECHERCHES-levee-pause.md` l.29-35, C-1 of the
+  review of #237) and `f3153f3` (`coordination/messages/2026-10-13-MONARK-vers-RECHERCHES-fusions-261-237.md`, item 2); the plan of
+  section 8 of `docs/G0-lot-kata-killers-assert-1.md` (branch `recherches/kata-killers-assert-1`, l.310-317 at `c2a22042`). K19 is the
+  declared killer of T-4 `committed_tables_reach_the_gate_through_the_seam`; its mutation turns T-4 red through the tripwire's own
+  exception, not an assertion. The verdict rule (`e6ebb72`): « tue » only by an assertion (TAP `code: 'ERR_ASSERTION'`) with the trunk
+  tool `scripts/mutants/run.mjs --killers --only`; an uncaught exception (`ERR_TEST_FAILURE`) is « non conclu ».
+- **Base**: trunk `lot/etude-suite` = `971eda88`, the merge of #238 (`ls-remote` at the start and again at 05:57 UTC, unchanged;
+  fetched with an explicit refspec). Branch `recherches/kata-k19`.
+- **Zone** (recherches `coordination/ZONES.md`, row « KATA-K19 (après #238) », `2c7fdda`): `apps/harness/test/gate-kata-served.test.ts`,
+  this note, and `test/test-counts.json` by `write` only if the test count changes. No production file, no test support file, no killer
+  line, no test added, removed or renamed.
+
+red-proof: test-only
+
+The line above declares the change test-only, for `node scripts/red-proof.mjs --base 971eda88 --gel <the tests commit> --test-only`.
+The killer it judges, K19, unchanged, at `apps/harness/test/gate-kata-served.test.ts` l.331:
+
+```
+apps/harness/src/kata-path.ts:118 CONST "committed.get(c.task_class) ?? buildPolicyTable(c, [])" -> "buildPolicyTable(c, [])"
+```
+
+## 1. K19 at the base
+
+- **The line.** `apps/harness/src/kata-path.ts` l.118, in `servedPolicyTables`: each of the 32 kata classes takes its committed table
+  when one is read, else an empty table. The before-text `committed.get(c.task_class) ?? buildPolicyTable(c, [])` occurs exactly once on
+  that line (checked at `971eda88`). The mutation drops the committed table: every kata table is served empty.
+- **T-4** (l.332-356 at the base) builds two synthetic band tables, reads them by `readCommittedTables` and passes the result of
+  `servedPolicyTables` straight into the tripwire `kataTablesMatchPins` (l.344), then judges two verdicts and the honesty text through
+  the seam. Under the mutation the served kata tables hold no row, so the tripwire throws its own `Error` (`apps/harness/src/kata-path.ts`
+  l.127, "KATA-CLAUSE-COMMITTED-STATE-1: the kata tables with rows are not the pinned tables: …") at l.344, before any assertion of
+  T-4 on what is served: the test fails by `ERR_TEST_FAILURE`.
+- **Measured** at `971eda88` with the trunk tool (`scripts/mutants/run.mjs --killers --only K130,…,K144`, `--base 357ef25f`, the root
+  commit, so that the tool numbers the killer lines of the whole tree as the sweep did; the fifteen killer lines of the file are K130 to
+  K144, K19 is K140; `tool_sha256` `13b2b11f…`, `tool_dirty` null): the baseline is green (69 target files, 560 entries ok); 14 of the 15
+  read « tue »; K140 reads « non conclu »: T-4 alone is red by `ERR_TEST_FAILURE` with the tripwire's message "…are not the pinned
+  tables: btc-range-1h, btc-mae-down-1h", and the replay of the 53 target files of l.118 (481 entries ok) has that one red entry, by
+  the same code.
+  Evidence under the author's scratchpad (`kata-k19/`): `runs/before/RESULTS.json` (sha256 `138a485f…`), `RESULTS.txt` (`62a3115c…`),
+  `tap/K140.tap` (`6ceedc95…`), `tap/K140.replay.tap` (`e83ca602…`), `logs/before.stdout.log` (`c7bdb5bf…`); 0 refused attempts.
+
+## 2. The choice
+
+Two forms were planned (MONARK `e6ebb72`): (a) T-4 judges by an assertion the rows that `servedPolicyTables` serves, before the
+tripwire; (b) K19 is replaced by a killer that T-4 kills by an assertion.
+
+**(a) is taken.** It keeps K19's line and text, so the declared killer stays where the risk is: the committed table is what
+`servedPolicyTables` must pass on, and (b) would leave that choice of l.118 judged by no assertion of T-4. It keeps every present
+guarantee of T-4: the tripwire still runs on the same served tables, with the same pins and held lists, and the verdicts and the
+honesty text are judged as before. It adds a real assertion, independent of the tripwire: the kata tables that hold rows, as served, are
+exactly the two committed ones, each with the sha256 of its file and, byte for byte, the canonical text of that file. (b) would weaken
+nothing either, but it adds no assertion where the gap is and moves the declared killer of T-4 off the line it was written for.
+
+**The change** (one line of T-4's body becomes three; no other test changes): l.344
+
+```
+const tables = (match as (…) => readonly ServedTable[])(serve(gate.SERVED_TABLE_TEXTS, readCommittedTables(files, entries, pins)), pins.tables, pins.held);
+```
+
+becomes, in order: `const served = serve(gate.SERVED_TABLE_TEXTS, readCommittedTables(files, entries, pins));`, then an
+`assert.deepEqual` of `[task_class, policy_table_sha256, canonicalJson(table)]` for each served kata table (`cell_key_rule`
+`kata-bucket`) that holds a row, against `[c, pins.tables[c], the file's text]` for `btc-mae-down-1h` and `btc-range-1h` (the served
+order, sorted), then the tripwire on `served`. Under K19's mutation the served list holds no such table, so the assertion fails before
+the tripwire. Measured on a throwaway form of this change in the worktree, never committed (`kata-k19/logs/proto.diff` under the
+author's scratchpad, sha256 `79e2ea92…`): unmutated, T-4 green; with K19 fired by hand, T-4 red by `ERR_ASSERTION` at the new
+assertion.
+
+**Drift, declared**: the two added lines move the four killer lines below T-4 in the file (l.361, 375, 389, 425 to l.363, 377, 391,
+427); none changes text or target, and K19 stays on l.331.
+
+## 3. The planned proofs
+
+Each under `offline.mjs --no-egress` (0 refused attempts expected); the campaigns and the full suite take the shared host lock.
+
+1. **Before**, at `971eda88`: the trunk tool on the fifteen killer lines of `apps/harness/test/gate-kata-served.test.ts`, K19 expected
+   « non conclu », the fourteen others as they read (done: section 1).
+2. **After**, at the tests commit: the same fifteen; K19 « tue » by `ERR_ASSERTION`; every other killer of the file reads as before.
+3. `node scripts/red-proof.mjs --base 971eda88 --gel <tests commit> --test-only`: T-4 judged and pinned, nothing refused.
+4. `npm run test:main`; `node scripts/test-count-floor.mjs write` and its diff (the record is committed only if the count changes: no
+   test is added, removed or renamed, so it should not); `node scripts/test-count-check.mjs --base origin/lot/etude-suite`.
+5. The anchor checker on the whole tree, `--ref 971eda88`: 0 lost; `tsc --noEmit`, eslint on the test file, `lint:ratchet`,
+   `gate:vocab`, `lang:gate`, `export:check`, winlint, `git diff --check`; the size in the CI form (the `STAT=` line of
+   `.github/workflows/ci.yml` l.100); r1scan on every commit pushed.
+
+## 4. Not verified here
+
+- The Windows replay of the file and of `every_killer_line_is_readable` (MONARK's, at the merge). The test writes no path, so case
+  folding plays no part.
+- PAROXYSME's corrected tool (#259, not merged): not run.
