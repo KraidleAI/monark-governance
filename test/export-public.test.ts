@@ -204,7 +204,7 @@ test("export_public_no_governance_no_french — clean public export (test 42)", 
     // the deployed tree, the third-party verifier and its committed public trust root. Mutant: drop the Bell block from
     // WHITELIST_FILES => these vanish => red. The collector does NOT ship (decision-69 names, reader-local paths): no
     // apps/bell/src or apps/bell/test path in the output. Mutant: whitelist "apps/bell" package-style => red here.
-    for (const rel of ["apps/bell/scripts/bell-chain.mjs", "apps/bell/scripts/bell-publish.mjs", "apps/bell/scripts/bell-verify.mjs", "apps/bell/keys/bell-keyring.json", "apps/bell/package.json", "scripts/verify-bell.mjs"]) {
+    for (const rel of ["apps/bell/scripts/bell-chain.mjs", "apps/bell/scripts/bell-publish.mjs", "apps/bell/scripts/bell-validate.mjs", "apps/bell/scripts/bell-validate.d.mts", "apps/bell/scripts/bell-verify.mjs", "apps/bell/keys/bell-keyring.json", "apps/bell/package.json", "scripts/verify-bell.mjs"]) {
       assert.ok(files.includes(rel), `the Bell publication chain export must include ${rel}`);
     }
     const bellCollector = files.filter((f) => f.startsWith("apps/bell/src/") || f.startsWith("apps/bell/test/") || f === "apps/bell/scripts/bell-report.mjs");
