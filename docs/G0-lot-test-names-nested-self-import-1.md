@@ -148,11 +148,22 @@ Each run offline, with 0 refused attempts in every log. Evidence is kept in the 
   runner that sets none, every site is `null` and the rule cannot fire; the follow-up's rules apply there as before.
 - A file whose second instance is loaded by another file inside a test body is foreign, as the review measured (NEST-OTHER-TEST);
   a second instance loaded from a module that declares no test, inside a test, was not tried.
-- A test declared through a helper, so that two tests of one name share one site at one depth, is not refused and was not tried;
-  two of its full names would repeat only if they share the holders.
+- A test declared through a helper, so that two tests of one name share one site at one depth, is not refused (the review's
+  HELPER-TABLE-TOP-AND-T, HELPER-TABLE-TWO-SUITES, LOOP-ONE-SITE); two of its full names would repeat only if they share the holders.
+- Two honest files are refused by the rule, with its message, though neither imports itself (the review's HELPER-TABLE-TWO-DEPTHS
+  and RECURSIVE-SUBTEST): a data-table helper called once at the top level and once inside a suite declares one site, one name, at
+  the depths 0 and 1; a test that declares a subtest of itself at one site, recursively, reports that site at the depths 1, 2, 3.
+  No real file of the suite does either (305 at the base, 306 with the trunk merged). The message names the helper form beside the self-import; the fix for such a
+  file is to declare each test once (a loop at one site and one depth, or two suites each with their own site, are not refused).
+- Two deliberate self-imports from a test body pass the rule (the review's RENAMED-SECOND and BRANCHED-SECOND): a second instance
+  whose leaf names are computed from its own URL, and one that declares other tests from a branch on its URL (other sites). The
+  item's origin foresaw the computed names (`docs/G0-lot-test-count-names-followup-1.md`, section 10, not-verified list); a site
+  rule reads the events, not the source, so it cannot see such a branch. The module hook of the next bullet is the answer to both.
 - The sturdier option the review named, a module hook preloaded in each test process that refuses a test file loaded under a
   query or a fragment or from another test file, lies outside this zone (it changes test:main in `package.json`).
 
 ## 6. Changelog
 
 - 2026-10-14: built (this note).
+- 2026-10-14: after the first review: the message of the depth rule names the helper form beside the self-import and says
+  `more than one nesting depth`; section 5 names the two honest files the rule refuses and the two self-import forms it passes.

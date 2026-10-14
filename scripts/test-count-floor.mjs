@@ -66,5 +66,5 @@ function depths([f, c]) {
   const seen = new Map();
   for (const [site, depth, name] of c.sites) if (site !== null) { const k = `${site}\u0000${name}`; seen.set(k, (seen.get(k) ?? new Set()).add(depth)); }
   const n = [...seen.values()].filter((d) => d.size > 1).length;
-  return n > 0 ? [`${f}: ${n} of its declaration site(s) reported at two nesting depths under one name: the file runs twice in its own process, the second time inside a test or a suite (it imports itself, e.g. with a query string, from a test body)`] : [];
+  return n > 0 ? [`${f}: ${n} of its declaration site(s) reported at more than one nesting depth under one name: the file runs twice in its own process, the second time inside a test or a suite (it imports itself, e.g. with a query string, from a test body), or one helper of it declares the same tests at the top level and inside a suite (declare each once)`] : [];
 }
