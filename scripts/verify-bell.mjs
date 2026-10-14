@@ -35,9 +35,9 @@ const REPO = fileURLToPath(new URL("..", import.meta.url));
 export const CHECK_NAMES = Object.freeze(["c01_state_json", "c02_timeline_jsonl", "c03_pubkey_equals_committed_keyring", "c04_provenance_json",
   "c05_bell_verify_keyring_root", "c06_acao_star", "c07_no_directory_listing", "c08_cache_immutable_states_no_cache_current", "c09_tls_authorized",
   "c10_no_private_material_served", "c11_loaded_config_equals_g7", "c12_probe_untouched"]);
-/** The dedicated tree holds ONLY what the unit runs (ADR D1): its ExecStart script and that script's local import. The RUNBOOK's
+/** The dedicated tree holds ONLY what the unit runs (ADR D1): its ExecStart script and that script's local imports. The RUNBOOK's
  *  git archive lists exactly these paths (pinned by test/verify-bell.test.ts). */
-export const BELL_TREE_PATHS = Object.freeze(["apps/bell/scripts/bell-chain.mjs", "apps/bell/scripts/bell-publish.mjs"]);
+export const BELL_TREE_PATHS = Object.freeze(["apps/bell/scripts/bell-chain.mjs", "apps/bell/scripts/bell-publish.mjs", "apps/bell/scripts/bell-validate.mjs"]);
 export const UNIT_NAME = "monark-bell-publish.service";
 export const UNIT_INSTALLED = `/etc/systemd/system/${UNIT_NAME}`;
 export const CADDY_DEDICATED = "/etc/caddy/monark-bell.caddyfile";
