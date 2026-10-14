@@ -4,7 +4,7 @@
   reviewers of #270. 2026-10-14.
 - **Base**: trunk `lot/etude-suite` = `08ae8022` (the merge of #270; read with `ls-remote`, fetched with an explicit refspec). **The
   `file:line` addresses of §1 hold at `08ae8022`; those of §2 to §4 hold at `f6d9a698`, the head the review read; those
-  of §7 hold at this branch's head.**
+  of §7 hold at `cb19b4ce`, the head the second review read; those of §8 hold at this branch's head.**
 - **Demand**: two items left after #270. O-2 of the review of its fold 4 (recherches,
   `coordination/pieces/2026-10-14-g2d2-test-count-names/G2-test-count-names-fold4.json`): three single-character widenings of the
   split of test 38 (U+1680, U+202F, U+0085) survive its line cases. And a reading of a bypass hunter: a test file renamed that loses a
@@ -115,7 +115,7 @@ none of its files is in this change's zone but the two records, which this chang
 
 The review of `f6d9a698` returned three minor points (recherches,
 `coordination/pieces/2026-10-14-g2-names-followup-1-r1/G2-names-followup-1.json`, m-1 to m-3); each is folded here, with a case
-red before and green after. **The `file:line` addresses of this section hold at this branch's head.** First the trunk's head
+red before and green after. **The `file:line` addresses of this section hold at `cb19b4ce`.** First the trunk's head
 `8400a223` (#271) was merged (a merge commit, no conflict); the main suite on that merge, then `write`, left both records as
 the trunk wrote them (300 files, 3032 tests; `logs/test-main-merge.log`, `logs/write-merge.log`).
 
@@ -166,7 +166,80 @@ caught it (two repository tests refuse a line separator in a tracked text file: 
 Not verified here: Windows (the change adds no path a test writes); the CI run (no pull request is opened); whether a test
 moved between two files that both stay should take a move line of its own (§2).
 
-## 8. Changelog
+## 8. The second review's corrections, and the trunk's mutation tool
+
+The second review read `cb19b4ce` (recherches, `coordination/pieces/2026-10-14-g2-names-followup-1-r2/G2-names-followup-1.json`,
+after its reconcile) and returned two minor points, m-1 and m-2, each with a checked fix; both are folded here, tests first.
+**The `file:line` addresses of this section hold at `294d5bb3` and at this branch's head.** First the trunk's head `370a6397`
+(#259: the mutation tool judges each declared mutation by its own named test) was merged: a merge commit, `cc04cdbc`, no
+conflict. The main suite on that merge, then `write`, left both records as the trunk wrote them (300 files, 3046 tests).
+
+- **A key without names on one side of the records (m-2).** P2 on names compared a key that only the run or only the names
+  record holds as two empty lists, and passed: `{"ghost": []}` in the names record, or a file of 0 tests that the run and the
+  counts record hold but the names record lacks. Once such a change is merged, the next change's check reads two records that
+  disagree at its base and stops (exit 4), the change that repairs them included. Now the key is named:
+  `ghost: in test/test-names.json, not in the run`, or `z: in the run, not in test/test-names.json`
+  (`scripts/test-count-check.mjs:84-85`, two lines changed in place so that no line below moves; the comment at `:81`). One
+  assertion in T7 (`test/test-count-check.test.ts:193-194`) with its killer line (`:192`). The gap predates this branch (the
+  trunk has it too); it is folded here because the fix sits in the clause §7 changed.
+- **An honest merge into a file still there, pinned (m-1).** The rule of §2, that a file-gone line covers each of its names that
+  a file of the head gained, held for a file that was already there at the base, but no test said so: the pool of gained names
+  narrowed to the files new at the head survived the unit file. One T7 case (`test/test-count-check.test.ts:271`: a file merged
+  whole into a file still there, with its file-gone line, no problem) and its killer line (`:252`, the pool of
+  `scripts/test-count-check.mjs:107` taken from the files new at the head only). No code changes for it.
+- **A killer the trunk's tool could not count.** The campaign below, first run on the fold before this move, judged one killer of the trunk's
+  own lines *non conclu*: `scripts/test-count-check.mjs:34` with `"mine.length === 1 && "` removed. Its named test turned red,
+  but by a `TypeError` thrown at an earlier assertion (a drop without a line reads `mine[0]`), before the assertion written for
+  it. That assertion (two lines for one drop) and its killer line now come first among the drops
+  (`test/test-count-check.test.ts:26-28`), so the mutant fails by that assertion. The test file's lines 1 to 187 and the
+  script's line 34 are the trunk's bytes, so a campaign at the trunk should judge it the same way; that was not run.
+
+Red before, green after (`tools/red-green.mjs`, `logs/red-green.log`): eight runs of the unit file, each verdict written before
+its run, each as wanted. m-2's assertion is red on the code before its fix, by `ERR_ASSERTION`, and green after; m-1's case is
+green on the code before (the rule already held); the old test file is green on the fixed code; each new killer's mutant is
+green on the old test file and red by `ERR_ASSERTION` on the new one.
+
+**The mutation tool's baseline, reread.** Earlier campaigns on this branch, with the tool before #259, read a baseline of 346
+tests, and the review of #270 read 345 of 372 for `test/ci-gates.test.ts`. With the trunk's tool (`scripts/mutants/run.mjs`,
+sha256 `bab1dac3`, the bytes of `370a6397`), the killer campaign of the changed test files (`--killers`, base `370a6397`)
+prints one baseline line for all of its target files:
+`BASELINE l.0 - vert (0 rouge(s), 364 vert(s), 48058 ms) restaure OK ; unmutated`.
+Its 364 are the top-level entries; the TAP's own tally is 372 tests, 372 pass (eight of them subtests, in two files). The
+tool's counting reporter, read per target file against `test/test-counts.json`: 37 target files, each with its own summary,
+372 tests reported of 372 recorded, no file off its count and none outside the record; among them `test/ci-gates.test.ts`
+44 of 44 and `test/test-count-check.test.ts` 4 of 4 (`logs/baseline-per-file.log`). Every test is now reported, so the
+baseline's note is empty. Why the older tool read fewer was not measured again here.
+
+Measures, each run offline (0 refused attempts in every log); evidence in the scratchpad folder `names-followup-1-r3/`, kept:
+
+| Measure | Result | Log, sha256 prefix |
+|---|---|---|
+| `npm run test:main` on the merge `cc04cdbc` (under the host lock) | 3046 tests, 3024 pass, 0 fail, 22 skipped | `logs/test-main-merge.log`, `76c9b558` |
+| `node scripts/test-count-floor.mjs write` on the merge, then `git status` | 300 files, 3046 tests; both records unchanged | `logs/write-merge.log`, `8d90c259` |
+| red before, green after (unit file, eight runs) | 8 of 8 as wanted | `logs/red-green.log`, `31ff52e9` |
+| killer campaign at `d6a89beb` | 72 of 73 killed, the one above *non conclu* | `killers-d6a89beb/RESULTS.json`, `4de8e9c6` |
+| killer campaign at `294d5bb3` (`scripts/mutants/run.mjs --killers`, base `370a6397`) | 73 of 73 killed, each by its named test's assertion; the two new killers among them | `killers/RESULTS.json`, `f80c09b5`; `logs/killers2.log`, `b066bf49` |
+| the baseline per target file | 37 files, 372 of 372 tests reported, each file at its count | `logs/baseline-per-file.log`, `9c15ac0e` |
+| `npm run test:main` at `294d5bb3` (under the host lock) | 3046 tests, 3024 pass, 0 fail, 22 skipped | `logs/test-main-final.log`, `c5a11a9c` |
+| `write`, then `git status` | 300 files, 3046 tests; both records unchanged | `logs/write.log`, `a153cea0` |
+| the count check against `origin/lot/etude-suite` | exit 0, `test counts: 300 files, 3046 tests, equal to test/test-counts.json and test/test-names.json; 0 drop(s) from the base 370a639704bd, each name gone with its line in test/test-count-removals.json` | `logs/count-check.log`, `f06fda8b` |
+| anchors, `verifie-ancres.mjs` on the whole tree, `--ref 370a6397` | 1906 killers, 1906 anchored, 0 drifted, 0 lost | `logs/anchors.log`, `90665257` |
+| tsc, eslint (the three changed code and test files), lint:ratchet, gate:vocab, lang:gate, export:check, winlint, `git diff --check` | each exit 0 | `logs/gates.log`, `ce4d9667` |
+| size in CI form (the job's pin, then the head's `STAT=` line in bash, base `370a6397`) | 3 files, 77 insertions, 26 deletions: W = 103, under 1,205 | `logs/size-ci.log`, `a218628e` |
+| the two changed test files with the case-folding git wrapper first in PATH | 48 pass, 0 fail; 0 case-only collision | `logs/casefold-run.tap`, `ea599cb8`; `logs/casefold.log`, `f7f4402c` |
+
+The review's nits stay nits: the pool of gained names (N-1) is the rule §2 writes, now pinned by m-1's case; a test file
+replaced by a symbolic link (RN-1) is refused by R-25 before any count; a success line that does not name the covered names
+(RN-2) hides nothing the check lets through; a hint whose two names differ only in Unicode normalization (RN-3) fails closed.
+
+Not verified here: Windows (the change adds no path a test writes); the CI run (no pull request is opened); the trunk's own
+campaign on `test/test-count-check.test.ts` (the *non conclu* above is inferred there from the same bytes); why the tool before
+#259 read fewer tests in its baseline; whether a test moved between two files that both stay should take a move line of its
+own (§2).
+
+## 9. Changelog
 
 - 2026-10-14: built (this note).
 - 2026-10-14: the review's three minor points folded, after a merge of the trunk (§7).
+- 2026-10-14: the trunk `370a6397` merged; the second review's two minor points folded, a trunk killer put first so that the
+  new mutation tool counts it, and the tool's baseline reread (§8).
