@@ -1,7 +1,7 @@
 {
  "apps/bell/test/bell-adv-1.test.ts": 9,
  "apps/bell/test/bell-keys.test.ts": 8,
- "apps/bell/test/bell-ops.test.ts": 6,
+ "apps/bell/test/bell-ops.test.ts": 7,
  "apps/bell/test/bell-publish-chain.test.ts": 6,
  "apps/bell/test/bell-publish-durable.test.ts": 8,
  "apps/bell/test/bell-publish-validate.test.ts": 12,

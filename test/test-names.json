@@ -26,7 +26,8 @@
   "bell_ops_launch_unsets_only_read_unneeded_vars",
   "bell_ops_launcher_never_traces_nor_copies_a_secret",
   "bell_ops_scripts_carry_no_secret_shape",
-  "bell_runbook_dry_cross_cost_command_guards_the_key"
+  "bell_runbook_dry_cross_cost_command_guards_the_key",
+  "ops_launcher_passes_shares_and_derived_cycles"
  ],
  "apps/bell/test/bell-publish-chain.test.ts": [
   "bell_chain_canonical_equals_digest_canonical",
