@@ -23,6 +23,9 @@ const notLine = (r: unknown, byNames = false, pr?: string): string => `${REMOVAL
 test("test_count_check_holds_the_run_to_the_record_and_each_drop_to_its_line", () => {
   const run = (o: Record<string, number>): Run => Object.fromEntries(Object.entries(o).map(([f, n]) => [f, { tests: n, summary: true, names: Array.from({ length: n }, (_, i) => `t${i}`) }]));
   const base = { a: 3, b: 2, gone: 4 }, line = (file: string, from: number, to: number, reason = "#12: removed on purpose"): Record<string, unknown> => ({ file, from, to, reason });
+  // First of the drops: without "mine.length === 1", a drop with no line reads mine[0] and throws; here it fails by its assertion.
+  // killer: scripts/test-count-check.mjs:34 CONST "mine.length === 1 && " -> ""
+  assert.deepEqual(dropProblems(base, { a: 2, b: 2, gone: 4 }, [], [line("a", 3, 2), line("a", 3, 2, "#12: the same drop twice")]), [wants("a", 3, 2)], "two lines for one drop");
   // killer: scripts/test-count-check.mjs:70 CONST ".trim().split(/\\s+/).length >= 3" -> ".trim().split(/\\s+/).length >= 1"
   const reasons = ["removed on purpose", "#<pull request>: ...", "#12: removed", "#12:removed on purpose", "#0: removed on purpose", " "];
   assert.deepEqual(dropProblems(base, { a: 2, b: 2, gone: 4 }, [], reasons.map((r) => line("a", 3, 2, r))), [...reasons.map((r) => notLine(line("a", 3, 2, r))), wants("a", 3, 2)],
@@ -42,8 +45,6 @@ test("test_count_check_holds_the_run_to_the_record_and_each_drop_to_its_line", (
   // killer: scripts/test-count-check.mjs:34 CONST " && mine[0].to === to" -> ""
   // killer: scripts/test-count-check.mjs:34 CONST "mine[0].from === from && " -> ""
   assert.deepEqual(dropProblems(base, { a: 2, b: 1, gone: 4 }, [], [line("a", 3, 1), line("b", 9, 1)]), [wants("a", 3, 2), wants("b", 2, 1)], "a line at other numbers");
-  // killer: scripts/test-count-check.mjs:34 CONST "mine.length === 1 && " -> ""
-  assert.deepEqual(dropProblems(base, { a: 2, b: 2, gone: 4 }, [], [line("a", 3, 2), line("a", 3, 2, "#12: the same drop twice")]), [wants("a", 3, 2)], "two lines for one drop");
   // killer: scripts/test-count-check.mjs:29 CONST "if (i >= 0) left.splice(i, 1); else " -> ""
   assert.deepEqual(dropProblems({ a: 3 }, { a: 2 }, [line("a", 5, 3)], [line("a", 5, 3)]), [wants("a", 3, 2)], "a line of the base declares no new drop");
   // killer: scripts/test-count-check.mjs:36 CONST "!((baseRecord[r.file] ?? 0) > (record[r.file] ?? 0))" -> "false"
