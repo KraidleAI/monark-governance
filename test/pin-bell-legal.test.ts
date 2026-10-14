@@ -33,7 +33,7 @@ const fixture = (legal: string, valueA = `"${DECOY_A}"`): string =>
   `{ "files":{"apps/site/data/zz-decoy.json" :   ${valueA},${legal} "apps/site/data/aa-decoy.json":"${DECOY_B}"},\n "algorithm":"sha256" }\n`;
 const okLine = (verb: "set to" | "unchanged", sha: string): string => `pin-bell-legal OK: ${BELL_LEGAL_REL} ${verb} ${sha}\n`;
 const refusedLine = (code: string): string => `pin-bell-legal REFUSED: ${code}\n`;
-const OK_SET = new RegExp(`^pin-bell-legal OK: ${BELL_LEGAL_REL.replace(/[./]/g, "\\$&")} set to ([0-9a-f]{64})\\n$`);
+const OK_SET = new RegExp(`^pin-bell-legal OK: ${BELL_LEGAL_REL.replace(/[\\^$.*+?()[\]{}|/]/g, "\\$&")} set to ([0-9a-f]{64})\\n$`);
 const withComment = (raw: string): string => {
   assert.equal(raw.split('"$comment": "').length, 2, "the legal file carries one $comment (positive control of the edit)");
   return raw.replace('"$comment": "', () => '"$comment": "Edited by the test. ');
