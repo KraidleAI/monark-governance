@@ -53,7 +53,7 @@ constructor before the required options is an unknown option`; `logs/red-trunk.t
 ## Mutation campaign (scripts/mutants/run.mjs --killers, --lock-root, offline)
 
 `--killers` takes every killer of the changed test file: 14 (K1-K13 the trunk's, K14 the new one on l.125), each first run alone as its
-named test, on a clone of the branch at `f1998fe4` under the shared host lock. Baseline green (32 tests of the two target files, 0 red;
+named test, on a clone of the branch at `f1998fe4` under the shared host lock. Baseline green (32 tests of the three target files, test/retire-probe.test.ts 14, test/retire-instants.test.ts 13, test/served-history.test.ts 5, 0 red;
 the count records written first, so the baseline matches them), then `tues 14 / 14, survivants -, non conclus -, anchor-lost -, exit 0`
 (`mutants/RESULTS.txt`, sha256 `1b1a4ca6`; `RESULTS.json` `4391be3e`; `logs/mutants.stdout` `888aeae4`). K14 (l.125, the own-property
 test replaced by the trunk's plain access) is red by `retire_probe_refuses_an_inherited_name_of_object_prototype_as_an_option` alone,
@@ -81,6 +81,6 @@ by an assertion of its own; the 13 killers of the trunk stay killed by their own
 - Windows: the suite is not replayed on win32 here (MONARK replays at merge). The new test writes no file: it spawns the probe once
   with a table path that does not exist, and the usage error exits before the table is read.
 - The usage line is checked by its start and its end on stderr of the child, not by its full text; the full text stays the one of
-  l.138 at `91931d5f`, unchanged by this lot.
+  l.138 at `91931d5f`, unchanged by this change.
 - Other argument parsers of `scripts/` that read an option table by a plain property access are not surveyed here: the zone is this
   file alone.
