@@ -3,6 +3,11 @@
 - **Author**: RECHERCHES (`claude-opus-5-5`, effort max), 2026-10-08, from 19:36 UTC (the lot lock; `date -u` read at 19:54, 20:21
   and before the commit). A short G0, before any test or code: nothing below is built. The fixes were measured on throwaway copies,
   never committed (section 2).
+- **Build**: RECHERCHES (`claude-opus-5-5`, effort high), resumed 2026-10-14 on the branch head `00e5f5aa` (the merge of this note with
+  W2-GUARD-MISSES-TAIL-1's head `45f8195e`), after a first build run that stopped on 2026-10-09 after that merge. This note is amended in
+  place for MONARK's decisions `e6ebb72` and `f3153f3` (recherches, `coordination/messages/2026-10-09-MONARK-vers-RECHERCHES-levee-pause.md`
+  and `coordination/messages/2026-10-13-MONARK-vers-RECHERCHES-fusions-261-237.md`): the campaign on the trunk's tool and its verdict
+  rule (section 1), the narrowed `refuse` (section 3), K19 in a later change (section 8). Section 9 records what was built.
 - **Name**: KATA-KILLERS-ASSERT-1, proposed here: MONARK's message names no lot.
 - **Demand**: MONARK `169cbc3` (recherches, `coordination/messages/2026-10-08-MONARK-vers-RECHERCHES-colonne-kata.md`, read in full).
   It copies byte for byte the eleven zone KATA entries of PAROXYSME's killer sweep (paroxysme `596d35f`,
@@ -10,12 +15,15 @@
   copy is the source). For each line: a killer that its named test kills by an assertion, or a test that really judges the targeted
   mutation; a line in a pile resolves to its own test; red-proof judges; the campaign runs on PAROXYSME's corrected mutation tool if its
   pull request is merged by then.
-- **Base**: trunk `lot/etude-suite` = `52ddf000` (`ls-remote` at 20:21 UTC, explicit refspec), documents only on top of `92d01d67`, the
+- **Build base**: `f7108f66`, the merge of the trunk head that MONARK announced, `5ebd9267` (#261, W2-GUARD-MISSES-TAIL-1, merged at
+  `1992b1ed`, then #237 at `5ebd9267`; MONARK `f3153f3`), into the branch head `00e5f5aa`; its tree is `5ebd9267`'s plus this note. The
+  later trunk commits change documents only. Every build measure (section 9) runs there.
+- **G0 base**: trunk `lot/etude-suite` = `52ddf000` (`ls-remote` at 20:21 UTC, explicit refspec), documents only on top of `92d01d67`, the
   merge of #256, where every measure below ran (`git diff --quiet 92d01d67 52ddf000 -- . ':(exclude,glob)docs/**'` holds). The sweep
   ran at `b44c3890`; `git diff --quiet b44c3890 92d01d67 -- apps packages test/recompute-report.test.ts scripts/mutants
   scripts/red-proof.mjs` holds, so no file the eleven lines, their tests or the two tools read has changed since. Branch
-  `recherches/kata-killers-assert-1`, this note alone.
-- **Zone**: KATA. Planned: `apps/harness/test/gate-cell.test.ts`, `apps/harness/test/policy-guard.test.ts`,
+  `recherches/kata-killers-assert-1`, this note alone at the G0.
+- **Zone**: KATA, the files declared for this change in recherches `coordination/ZONES.md` (MONARK's zone rule, `6005b0f`). Planned: `apps/harness/test/gate-cell.test.ts`, `apps/harness/test/policy-guard.test.ts`,
   `apps/harness/test/policy-projection.test.ts`, `apps/harness/test/policy-wave2.test.ts`, `test/recompute-report.test.ts` and this
   note. No production file, no test support file, no killer line, no test added, removed or renamed.
 - **Rules held**: Node 24.21.0; every run under `offline.mjs --no-egress`, 0 refused attempts each; the mutation runs and the type and
@@ -71,12 +79,18 @@ K116 and K235; both baselines are green (93 tests in 8 files; 611 in 53).
   frames are the sweep's, line for line. The replays of K267, K276 and K1348 kill nothing by an assertion either: no target file of
   those three mutations judges them today, so this lot closes them.
 - None of the eleven lies in a pile: each sits right above its test's declaration, and the lot adds no killer line.
+- **The build's tool and verdict rule** (MONARK `e6ebb72`): #259 is not merged, so the build's campaign runs on the trunk's tool,
+  `scripts/mutants/run.mjs`. The rule: a named test that ran and stays green gives « survit »; a named test that was skipped gives « non
+  conclu »; a kill counts only by an assertion (TAP `code: 'ERR_ASSERTION'`), never by an uncaught exception (`ERR_TEST_FAILURE`). At the
+  build base the trunk carries killer lines added since the sweep before these files, so the tool's ids differ: K116 stays K116, K212 is
+  K214, K214 is K216, K223 is K225, K235 is K238, K264 is K267, K265 is K268, K267 is K270, K268 is K271, K276 is K279, and K1360 (K1348
+  in the sweep) is K1364 (`--base 357ef25f`, section 9).
 - **How PAROXYSME's corrected tool would read them** (#259, head `9c03bb64`, read and not run; its review runs elsewhere). Its rule
   (`scripts/mutants/run.mjs` l.32-42 at `9c03bb64`) reads the named test's own entry: tue only when that entry fails by an assertion,
   survit when it is ok whatever else is red, non conclu otherwise. Each first run here holds that entry and no other, so the ten read
   non conclu and K116 survit, as on the trunk; its promotion of a lost first run does not apply (none is lost). After the fix, each named test
-  fails by an assertion under its mutation (red-proof's pins, section 2), which both tools read as tue. The campaign of the build uses #259's tool if it is merged by then, else the trunk's, and the record
-  says which (`tool_tree`, `tool_sha256`).
+  fails by an assertion under its mutation (red-proof's pins, section 2), which both tools read as tue. #259 is not merged at the build: its campaign uses the trunk's tool, and the record
+  says so (`tool_tree`, `tool_sha256`).
 
 ## 2. The fix for each line
 
@@ -153,7 +167,28 @@ The eight guard refusals all leave the tests through `check` (`apps/harness/test
 3. W2-GUARD brings `verdict` for admissions in both files (`9aba7b95`: `apps/harness/test/policy-guard.test.ts` l.261,
    `apps/harness/test/policy-wave2.test.ts` l.251); a second admission helper would duplicate it.
 
-So `check` and `refuse` keep their bytes, and only the admissions of the eight named tests change.
+So `check` keeps its bytes, and the admissions of the eight named tests change.
+
+**`refuse` narrowed** (MONARK `e6ebb72`, the answer to Q-A: before the thirteen new `verdict` sites, with the proof of the guard fold).
+`refuse` (`apps/harness/test/policy-guard.test.ts` l.33, `apps/harness/test/policy-wave2.test.ts` l.32) was `assert.throws(() =>
+check(r), re)`: a crash inside the guard under a mutation (a `TypeError`) fails the regex match, so `assert.throws` raised an
+AssertionError and the tool read the crash as a kill. It becomes a `try` around `check`: a refusal is matched against `re` with
+`assert.match(String(e), re)`, the string `assert.throws` matched; an admitted row fails by `assert.fail`; any other error is thrown again
+unchanged, so it ends the test as `ERR_TEST_FAILURE`, « non conclu », never « tue ». The form with a validation function in
+`assert.throws` is not taken: a function that returns false makes `assert.throws` raise an AssertionError, the flaw itself. The helper stays
+on its one line, so no line of either file moves.
+
+The refusals it accepts are the two that `guardKataRow` emits by design: the guard's own (`MONARK import guard: `,
+`apps/harness/src/policy-guard.ts` l.20) and the closed row check that the guard runs as its first clause (`MONARK policy check: `,
+`apps/harness/src/policy-guard.ts` l.39, `packages/contracts/src/policy-table.ts` l.26). The guard's prefix alone is too narrow, measured
+(section 9): two call sites expect the closed row check's refusal, `apps/harness/test/policy-guard.test.ts` l.105 (the declared redundancy of
+block A) and `apps/harness/test/policy-wave2.test.ts` l.164 (`calib_attempt` 5), and both turn red unmutated by `ERR_TEST_FAILURE` under
+that form. Neither is a crash, and both keep their outcome with the two prefixes. `verdict` (l.261 and l.251) is already narrowed to the
+guard's prefix on the trunk (#261).
+
+The narrowing is measured, not assumed: the build runs the trunk tool on every killer of the two files before and after it and lists each
+verdict that moves (section 9). A killer that read « tue » only because its mutation crashed the guard inside `refuse` becomes « non conclu »:
+a false kill this change uncovers, whose test is fixed here to kill by an assertion.
 
 **What `check` serves.** The 36 killer lines of the two files, by the way their named test reaches `check` (the tool's ids, the same as
 the sweep's; ids and lines in `logs/C.kids.txt`; a star marks the eight lines of this lot):
@@ -227,7 +262,8 @@ Hence:
 - **W2-GUARD's merged form** may differ from its head of 20:21 UTC (its review is still ahead): a line that moves, a `verdict` of another
   shape. The build reads it, adapts the thirteen sites and replays section 1. The review checks the thirteen sites against the merged
   `verdict`.
-- **W2-GUARD's `verdict` returns the message of any error** (`9aba7b95`, `apps/harness/test/policy-wave2.test.ts` l.251), not only the
+- **Resolved at the merge of #261**: its `verdict` is narrowed to the guard's prefix (`apps/harness/test/policy-wave2.test.ts` l.251,
+  `apps/harness/test/policy-guard.test.ts` l.261 at `5ebd9267`). Before that: **W2-GUARD's `verdict` returned the message of any error** (`9aba7b95`, `apps/harness/test/policy-wave2.test.ts` l.251), not only the
   guard's refusal: a crash under a mutation would then read as a kill by an assertion. The eleven kills measured here are the checkers'
   own refusals (section 2). The review of W2-GUARD may narrow it to the prefix "MONARK import guard: " (the stand-in does, and the two
   helpers of this lot do for their checkers); if it does not, the review of this lot weighs whether this lot narrows it, one line per
@@ -260,3 +296,12 @@ Kept under the author's scratchpad (`kata-killers-author/`), Node 24.21.0, each 
 | copy of `9aba7b95`: `logs/proto-w2.diff`, `tools/proto-edits-w2.mjs`, `runs/rp-w2/RED-PROOF.json` | `303c9908…`, `d3986185…`, `521645a6…` |
 | checks of W2-GUARD's branch on the remote: `logs/w2guard-checks.log` | `5dd877c5…` |
 | `gate:vocab` and `lang:gate` on the tree with this note: `logs/gate-vocab.log`, `logs/lang-gate.log` | `da4cbdc3…`, `25294dfc…` |
+
+## 8. K19, in a small change after #238
+
+MONARK's `e6ebb72` (C-1 of the review of #237) and `f3153f3`: K19 (`apps/harness/src/kata-path.ts:118`), the declared killer of T-4
+`committed_tables_reach_the_gate_through_the_seam`, turns T-4 red by the exception of the trip wire, not by an assertion: a declared
+limit needs an item. T-4 is on the trunk with #237, but it lives in `apps/harness/test/gate-kata-served.test.ts`, a file of the open #238,
+and the zone rule forbids a second open change on a file of an open pull request. So K19 is not built here: it goes in a small follow-up
+change after #238 merges, with its red-proof. The planned construction: T-4 judges by an assertion the rows that `servedPolicyTables`
+serves, before the trip wire; or K19 is replaced by a killer that T-4 kills by an assertion.
