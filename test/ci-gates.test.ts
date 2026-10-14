@@ -264,17 +264,25 @@ test("ci_gates_blocking_no_continue_on_error — blocking and pinned workflow (t
   );
   // (4quinquies) ADR-M003 D9, MONARK's decision of 2026-10-09 (TEST-COUNT-NAMES-1): the CODE count excludes the two test records that
   //   `node scripts/test-count-floor.mjs write` writes and the gate scripts/test-count-check.mjs holds to the run, and nothing else under
-  //   test/: two exact paths, no glob. test/test-count-removals.json, whose reasons are written by hand, stays counted. A third exclusion
-  //   under test/, one of the two missing, or either one under a glob, reds, whatever its spelling: long magic `:(exclude)`, short magic
-  //   `:!` or `:^`, a leading `./`.
-  const underTest = (tokens: readonly string[]): string[] => tokens.filter((t) => /^test\//.test(t.replace(/^:(?:\([^)]*\)|[/!^]*:?)/, "").replace(/^(?:\.?\/)+/, "")));
-  const twoRecords = [":(exclude)test/test-counts.json", ":(exclude)test/test-names.json"];
-  assert.deepEqual(
-    underTest(diffs[0]?.pathspecs ?? []),
-    twoRecords,
-    "(4quinquies) the CODE count must exclude exactly test/test-counts.json and test/test-names.json, two exact paths with no glob (ADR-M003 D9, decision of 2026-10-09)",
+  //   test/: two exact paths, no glob. test/test-count-removals.json, whose reasons are written by hand, stays counted. The pin judges what
+  //   git drops, not how a token is spelled. git keeps a file that a positive pathspec of the line matches and no exclusion matches, so each
+  //   token read alone by `git ls-files` says what it drops: of the files git tracks under test/, the tokens that drop any are exactly the
+  //   two exact paths, each dropping its record. A third exclusion under test/ in any spelling git reads (magic, `..`, a wildcard, a whole
+  //   folder, icase), a record missing or under a glob, a line narrowed past test/, or a pathspec git refuses, reds.
+  const underTest = tracked(ROOT, "test").index, twoRecords = [":(exclude)test/test-counts.json", ":(exclude)test/test-names.json"];
+  const memo = new Map<string, string[]>(), drops = (token: string): string[] => { // the tracked files under test/ that one pathspec drops; git refusing it is one entry
+    if (!memo.has(token)) try { const kept = new Set(gitOut(ROOT, ["ls-files", "-z", "--", token]).split("\0")); memo.set(token, underTest.filter((f) => !kept.has(f))); } catch { memo.set(token, [`git refuses ${token}`]); }
+    return memo.get(token) ?? [];
+  };
+  const judged = (tokens: readonly string[]): string => JSON.stringify(tokens.map((t) => [t, drops(t)]).filter(([, d]) => d.length > 0));
+  const meant = JSON.stringify([[twoRecords[0], ["test/test-counts.json"]], [twoRecords[1], ["test/test-names.json"]]]);
+  assert.ok(underTest.includes("test/test-count-removals.json"), "(4quinquies) test/test-count-removals.json is tracked, so an exclusion of it shows");
+  assert.equal(
+    judged(diffs[0]?.pathspecs ?? []),
+    meant,
+    "(4quinquies) of the files under test/, the CODE count must drop exactly test/test-counts.json and test/test-names.json, each by its exact path with no glob (ADR-M003 D9, decision of 2026-10-09)",
   );
-  const stat = diffs[0]?.pathspecs ?? [], pinSees = (tokens: readonly string[]): boolean => JSON.stringify(underTest(tokens)) !== JSON.stringify(twoRecords);
+  const stat = diffs[0]?.pathspecs ?? [], pinSees = (tokens: readonly string[]): boolean => judged(tokens) !== meant;
   for (const third of ["!test/test-count-removals.json", "(exclude)./test/test-count-removals.json", "^./test/test-count-removals.json", "(exclude,icase)TEST/test-count-removals.json", "(exclude)apps/../test/test-count-removals.json",
     "!apps/../test/test-count-removals.json", "(exclude)test", "!test", "(exclude)tes[t]/test-count-removals.json", "(exclude)t*/test-count-removals.json", "(exclude)*test-count-removals.json", "/!test/test-count-removals.json", "(exclude)/test/test-count-removals.json"].map((s) => `:${s}`)) {
     assert.ok(pinSees([...stat, third]), `(4quinquies) a third exclusion under test/ spelled ${third} is seen by the pin`);

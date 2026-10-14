@@ -9,11 +9,11 @@ import { readFileSync, writeFileSync } from "node:fs";
 
 export const RUN = "test-counts.out.json", RECORD = "test/test-counts.json", NAMES = "test/test-names.json";
 
-/** The run as the reporter writes it; any other shape throws. */
+/** The run as the reporter writes it, read by its own keys (a copy without a prototype: P2 finds no file named "constructor" in it); any other shape throws. */
 export function readRun(text) {
   const run = JSON.parse(text), ok = (c) => Number.isInteger(c?.tests) && c.tests >= 0 && typeof c.summary === "boolean";
   if (run === null || typeof run !== "object" || Array.isArray(run) || !Object.values(run).every((c) => ok(c) && Array.isArray(c.names) && c.names.length === c.tests && c.names.every((n) => typeof n === "string"))) throw new Error(`not a run of the reporter, { "<file>": { tests, summary, names } }`);
-  return run;
+  return Object.assign(Object.create(null), run);
 }
 
 /** P1: each file of the run sent a report of its own; a test reported without a file is a problem too. */

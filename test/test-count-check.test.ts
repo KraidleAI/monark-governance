@@ -137,6 +137,7 @@ test("test_count_check_names_its_base_or_refuses", () => {
     writeFileSync(join(dir, REMOVALS), `${JSON.stringify([...listed, proto], null, 1)}\n`);
     assert.deepEqual(gate(["--base", both]), [1, `::error::${REMOVALS}: ${JSON.stringify(proto)} names no test gone from constructor since the base`], "a line for the file constructor: the records are read by their own keys");
     writeFileSync(join(dir, REMOVALS), `${JSON.stringify(listed, null, 1)}\n`);
+    // killer: scripts/test-count-floor.mjs:16 CONST "Object.assign(Object.create(null), run)" -> "run"
     const inherited = ["__proto__", "constructor", "toString"];
     writeFileSync(join(dir, RECORD), recordText(Object.fromEntries([...Object.entries(tally(renamed)), ...inherited.map((k) => [k, 3])])));
     assert.deepEqual(gate(["--base", both]), [1, inherited.map((k) => `::error::${k}: in ${RECORD} (3), not in the run`).join("\n")], "a record holding keys the run lacks, named as inherited keys: the run is read by its own keys too (P2)");
