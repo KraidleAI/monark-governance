@@ -1,9 +1,9 @@
 // TEST-COUNT-FLOOR-1 (docs/G0-lot-test-count-floor-1.md) and TEST-COUNT-NAMES-1 (docs/G0-lot-test-count-names-1.md): the records of the
 // tests that each test file of test:main reports, their number and their names.   npm run test:main && node scripts/test-count-floor.mjs write
-// test:main writes the run, RUN, by its reporter (scripts/test-counts-reporter.mjs): { "<file>": { tests, summary, names } }. write turns
-// it into the record, RECORD, { "<file>": tests }, and the names record, NAMES, { "<file>": [names] }, in their written forms (recordText,
-// namesText), and refuses a run in which a file sent no report of its own (P1): its process ended before it reported, it declares no test,
-// or it is a module that declared tests for a test file. Exits: 0 written; 1 refused, nothing written; 2 the usage; 4 the run unreadable.
+// test:main writes the run, RUN, by its reporter (scripts/test-counts-reporter.mjs): { "<file>": { tests, summary, names, foreign? } }. write
+// turns it into the record, RECORD, { "<file>": tests }, and the names record, NAMES, { "<file>": [names] }, in their written forms, and
+// refuses a run in which a file sent no report of its own (P1: its process ended before it reported, it declares no test, or its tests ran
+// in a test file's process), another process ran its tests too, or two of its tests share a full name. Exits: 0 written; 1 refused; 2 usage; 4 unreadable.
 // The gate (scripts/test-count-check.mjs) imports this module and holds each run to both records.
 import { readFileSync, writeFileSync } from "node:fs";
 
@@ -16,10 +16,12 @@ export function readRun(text) {
   return Object.assign(Object.create(null), run);
 }
 
-/** P1: each file of the run sent a report of its own; a test reported without a file is a problem too. */
+/** P1: each file of the run sent a report of its own, no other process ran its tests (foreign: a test file that imports it, or a second run
+ *  of it, runs them twice), and no two of its tests share a full name (it ran twice in its own process); a test without a file is a problem too. */
 export const runProblems = (run) => Object.entries(run).flatMap(([f, c]) => {
   if (f === "") return [`${c.tests} test(s) reported without a file`];
-  return c.summary ? [] : [`${f}: no report of its own (${c.tests} test(s) under its name): its process ended before it reported, it declares no test, or it is a module that declared tests for a test file (declare each test in its *.test.ts)`];
+  if (!c.summary) return [`${f}: no report of its own (${c.tests} test(s) under its name): its process ended before it reported, it declares no test, or it is a module whose tests ran in a test file's process: that file imports it, or runs it in a worker or in a child that writes to its output (declare each test in its *.test.ts, and give a nested test run an output of its own)`];
+  return c.foreign > 0 ? [`${f}: ${c.foreign} of its test(s) also ran in another process: a test file imports it (move what they share to a module that declares no test), or it runs twice`] : twice(c.names) > 0 ? [`${f}: ${twice(c.names)} of its test(s) repeat a full name of the file: two of its tests share a name (name each apart), or the file runs twice in its own process (it imports itself, e.g. with a query string)`] : [];
 });
 
 /** P3, the written form of a record { "<file>": tests }: one file per line, sorted, and a final line feed. */
@@ -44,4 +46,10 @@ if (import.meta.main !== false) { // as scripts/red-proof.mjs: a launch runs the
 export function namesText(names) {
   const sorted = Object.fromEntries(Object.keys(names).sort().map((f) => [f, [...names[f]].sort()]));
   return `${JSON.stringify(sorted, null, 1)}\n`.replace(/[\u2028\u2029]/g, (c) => `\\u${c.charCodeAt(0).toString(16)}`);
+}
+
+/** P1: how many of a file's full names repeat one before them. A second run of a test file in its own process (an import of itself with a
+ *  query string) repeats each name of the file, and a copy would cover a name another file lost. Hoisted, as namesText. */
+function twice(names) {
+  return names.length - new Set(names).size;
 }

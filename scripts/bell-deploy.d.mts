@@ -9,6 +9,12 @@ export const BELL_RUN_CAPS: Readonly<{ maxCredits: number; maxRu: number; maxCal
 export const BELL_METHOD_CAPS: Readonly<{ getSignaturesForAddress: number; getTransaction: number; getAccountInfo: number; getTransactionsForAddress: number }>;
 export const BELL_FLOORS: Readonly<{ helius: number; chainstack: number }>;
 export const TICK_TIMEOUT_START_SEC: number;
+export const TRAJ_MAX_AGE_H: number;
+export const REF_TRAJ_SHA256: string;
+export const CASH_COST_CAP_USD: number;
+export const BELL_AUTHORITY: string;
+export const BELL_PRODUCE_CAPS: Readonly<{ maxCalls: number; maxCredits: number; maxRu: number; maxPages: number }>;
+export const BELL_PRODUCE_METHOD_CAPS: Readonly<{ getSignaturesForAddress: number; getTransaction: number; getAccountInfo: number; getTransactionsForAddress: number }>;
 export const BELL_COLLECT_USER: string;
 export const BELL_PUBLISH_USER: string;
 export const BELL_HANDOFF_GROUP: string;

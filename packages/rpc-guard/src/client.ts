@@ -123,7 +123,7 @@ export function makeClient(config: ClientConfig, ledgers: ReadonlyMap<string, Cy
   };
   const refuse = (op: string, method: string, reason: string): never => {
     ledgers.get(op)!.append({ op, method, outcome: "refused", credits: 0, reason });
-    throw new BudgetExceededError(`rpc-guard: ${reason} (fail-closed)`);
+    throw Object.assign(new BudgetExceededError(`rpc-guard: ${reason} (fail-closed)`), { reason }); // the refusal code a caller reads, never the message
   };
   const costOf = (op: string, cls: OperatorClass, method: string, params?: readonly unknown[]): number => {
     if (cls.unit === "keyless") return 0;

@@ -11,7 +11,7 @@ import { createRequire, syncBuiltinESMExports } from "node:module";
 import { dirname, join, relative, sep } from "node:path";
 import { fileURLToPath } from "node:url";
 import { gunzipSync } from "node:zlib";
-import { ENV, MINT, POOL, PYTH, QUOTE_VAULT, ROWS, roots, sim, stampOf, stateOf, type Req, type Row } from "./helpers/collect-chain.ts";
+import { CYCLE, ENV, MINT, POOL, PYTH, QUOTE_VAULT, ROWS, roots, sim, stampOf, stateOf, type Req, type Row } from "./helpers/collect-chain.ts";
 import { assertMethodCapsCover, BudgetExceededError, DRAND_RELAY_LABELS, runCli } from "@monark/rpc-guard";
 import { DRAND_QUICKNET_HASH } from "../../../packages/rpc-guard/src/transport.ts"; // not exported by the guard (ADR-RPC-GUARD-DRAND-1 D-1)
 import { canonical } from "../../bell/scripts/bell-chain.mjs";
@@ -74,6 +74,8 @@ const relayLedger = (f: F, d: number, op: string): string[] => { const p = join(
     return e.outcome === "refused" ? `refused:${String(e.reason)}` : e.outcome; }) : []; };
 const relayHeld = (f: F, d: number, op: string): boolean => existsSync(join(drandDir(f, d), `${op}.lock`));
 
+// killer: apps/dojo/src/collect.ts:58 CONST "modes.length !== 1" -> "modes.length < 1"
+// killer: apps/dojo/src/collect.ts:92 CONST "refuse(\"usage\", \"--reading beyond" -> "(openGuardedClient(deps.env, { maxCalls: a.maxCalls, runCaps: { helius: a.maxCredits }, methodCaps: { ...DOJO_METHOD_CAPS }, cycleFloor: { helius: 0 } }, join(a.state, \"ledger\"), { helius: \"helius-pending\" }), refuse)(\"usage\", \"--reading beyond"
 test("dojo_tick_refuses_unknown_argv", async () => {
   const f = fresh(), ok = args(f, ["--tick"]);
   const cases: string[][] = [[], ["--tick", "--plan", ...ok.slice(0, -1)], [...ok, "--verbose"], [...ok, "--state", f.state], ok.slice(2), [...ok.slice(0, -1), "--reading", "0"],
@@ -82,14 +84,16 @@ test("dojo_tick_refuses_unknown_argv", async () => {
     [...ok.slice(0, -1), "--reading", "5"]]; // i > k_reads of the anchor (4): usage before any lock (Q-G2-3)
   for (const c of cases) assert.equal(await codeOf(runCollect(c, deps)), "usage", `refused as usage: ${c.filter((x) => x.startsWith("--") || x.length < 12).join(" ")}`);
   assert.deepEqual(sim.reqs, [], "no call");
-  assert.equal(existsSync(join(f.state, "ledger", "cyc")), false, "no lock and no ledger line (refused before openGuardedClient)");
+  assert.deepEqual(readdirSync(join(f.state, "ledger")), [], "no cycle directory, no lock and no ledger line (refused before openGuardedClient)");
 });
 
+// killer: apps/dojo/src/collect.ts:99 CONST "10 * a.maxCredits" -> "a.maxCredits"
 test("dojo_collect_budget_stops_fail_closed", async () => {
   const f = fresh();
+  clock(T(D1)); // the cycle derives from the anchor at this clock (the refusals below come after the cycle keys)
   assert.equal(await codeOf(runCollect(args(f, ["--tick"], ["--max-calls", "24", "--max-credits", "800001"]), deps)), "budget_guard", "floor 0 + 10 x 800 001 > 8 000 000 (D-6 l.173)");
   assert.equal(await codeOf(runCollect(args(f, ["--tick"]), { ...deps, env: { ...ENV, HELIUS_CYCLE_FLOOR: "7999601" } })), "budget_guard", "7 999 601 + 400 > 8 000 000");
-  for (const env of [{ ...ENV, HELIUS_CYCLE_ID: undefined }, { ...ENV, HELIUS_CYCLE_FLOOR: "-1" }]) assert.equal(await codeOf(runCollect(args(f, ["--tick"]), { ...deps, env })), "cycle_missing");
+  for (const env of [{ ...ENV, HELIUS_CYCLE_ANCHOR_UTC: undefined }, { ...ENV, HELIUS_CYCLE_FLOOR: "-1" }]) assert.equal(await codeOf(runCollect(args(f, ["--tick"]), { ...deps, env })), "cycle_missing");
   assert.doesNotThrow(() => { assertMethodCapsCover(DOJO_METHOD_CAPS, DOJO_SOLANA_METHODS); });
   assert.deepEqual([...DOJO_SOLANA_METHODS].sort(), ["getAccountInfo", "getProgramAccounts"], "mere D-5 l.205");
   assert.ok((DOJO_METHOD_CAPS.getProgramAccounts ?? 99) * 10 + (DOJO_METHOD_CAPS.getAccountInfo ?? 99) <= 40, "method caps within --max-credits 40 (D-6 l.173)");
@@ -102,12 +106,12 @@ test("dojo_collect_budget_stops_fail_closed", async () => {
     await assert.rejects(runCollect(args(f, ["--reading", "1"], [...budget]), deps), BudgetExceededError, `stopped by ${budget.join(" ")}`);
     assert.equal(sim.reqs.length, spent, "no call past the cap");
     assert.equal(existsSync(dirOf(f, D1, "readings", "1.json")), false, "nothing written on a budget stop");
-    for (const op of ["helius", "solana-foundation"]) assert.equal(existsSync(join(f.state, "ledger", "cyc", `${op}.lock`)), false, `${op} unlocked in finally`);
+    for (const op of ["helius", "solana-foundation"]) assert.equal(existsSync(join(f.state, "ledger", CYCLE, `${op}.lock`)), false, `${op} unlocked in finally`);
   }
-  assert.match(readFileSync(join(f.state, "ledger", "cyc", "helius.jsonl"), "utf8"), /"outcome":"refused"/, "the stop is ledgered");
+  assert.match(readFileSync(join(f.state, "ledger", CYCLE, "helius.jsonl"), "utf8"), /"outcome":"refused"/, "the stop is ledgered");
   await spy({ appendFileSync: (o, p, ...a) => { if (String(p).endsWith("runs.jsonl")) throw new Error("dojo-collect test: disk full"); return o(p, ...a); } },
     async () => { assert.equal(await codeOf(run(f, "--reading", "1")), "Error"); });
-  assert.deepEqual(["helius.lock", "solana-foundation.lock"].map((l) => existsSync(join(f.state, "ledger", "cyc", l))).concat(existsSync(dirOf(f, D1, "readings", "1.json"))),
+  assert.deepEqual(["helius.lock", "solana-foundation.lock"].map((l) => existsSync(join(f.state, "ledger", CYCLE, l))).concat(existsSync(dirOf(f, D1, "readings", "1.json"))),
     [false, false, false], "a failed evidence append: no lock left (unlocked first), no reading");
   // Paths of the state and the secret, the seed and the anchor: refused before any lock (C-G2-6; G-15, G-16, G-17, G-18, G-22, G-25, G-26; Q-G2-2).
   const g = fresh(), dir = dirname(g.seed), repo = fileURLToPath(new URL("../../../", import.meta.url)), cred = { ...ENV, CREDENTIALS_DIRECTORY: dir };
@@ -307,7 +311,7 @@ test("dojo_collect_refuses_the_anchor_day", async () => {
   assert.deepEqual([await codeOf(run(f, "--reading", "1")), await codeOf(run(f, "--tick")), sim.reqs.length], ["anchor_day_not_read", "none", 0]);
 });
 
-// killer: apps/dojo/src/collect.ts:191 CONST "`drand-${dayName(T)}`" -> "c.cycle"
+// killer: apps/dojo/src/collect.ts:191 CONST "`drand-${dayName(T)}`" -> "cycleOf(c.deps.nowMs(), c.cycleAnchor, CHAIN_OPERATORS[0])"
 test("dojo_collect_reads_only_inside_the_window", async () => {
   const f = fresh();
   await planned(f, D1);
@@ -319,19 +323,19 @@ test("dojo_collect_reads_only_inside_the_window", async () => {
   assert.equal(await codeOf(run(f, "--reading", "1")), "outside_window", "read_at past the window: nothing written (M-Q19)");
   assert.equal(existsSync(dirOf(f, D1, "readings", "1.json")), false);
   sim.override = null;
-  mkdirSync(join(f.state, "ledger", "cyc"), { recursive: true });
-  writeFileSync(join(f.state, "ledger", "cyc", "helius.lock"), "{}"); // another course holds helius (TY-4)
+  mkdirSync(join(f.state, "ledger", CYCLE), { recursive: true });
+  writeFileSync(join(f.state, "ledger", CYCLE, "helius.lock"), "{}"); // another course holds helius (TY-4)
   sim.reqs = [];
   clock(t + 30);
   assert.equal(await codeOf(run(f, "--reading", "1")), "lock_held");
-  assert.deepEqual([sim.reqs.length, existsSync(join(f.state, "ledger", "cyc", "solana-foundation.lock")), existsSync(dirOf(f, D1, "readings", "1.json"))], [0, false, false], "no reading, no lock left");
+  assert.deepEqual([sim.reqs.length, existsSync(join(f.state, "ledger", CYCLE, "solana-foundation.lock")), existsSync(dirOf(f, D1, "readings", "1.json"))], [0, false, false], "no reading, no lock left");
   sim.beta = betaOf(D2);
   clock(T(D2) + 60);
   assert.equal(await codeOf(run(f, "--plan")), "none");
   assert.deepEqual([existsSync(dirOf(f, D2, "evidence", "plan.json")), DRAND_RELAY_LABELS.map((op) => [relayLedger(f, D2, op), relayHeld(f, D2, op)]),
-    existsSync(join(f.state, "ledger", "cyc", "helius.lock"))], [true, DRAND_RELAY_LABELS.map(() => [["attempted", "unlocked"], false]), true],
+    existsSync(join(f.state, "ledger", CYCLE, "helius.lock"))], [true, DRAND_RELAY_LABELS.map(() => [["attempted", "unlocked"], false]), true],
   "the plan of d+1 takes then releases the drand locks of its own cycle while a reading of d holds helius (C-V-4)");
-  rmSync(join(f.state, "ledger", "cyc", "helius.lock"));
+  rmSync(join(f.state, "ledger", CYCLE, "helius.lock"));
   clock(Math.max(...inst) + 599);
   assert.equal(await codeOf(run(f, "--close-day", dateOf(D1))), "day_not_ended", "before max_i t_i + 600 (M-Q21)");
   const g = fresh(); // across midnight: the reading of yesterday's last instant (SYNTHETIC plan)

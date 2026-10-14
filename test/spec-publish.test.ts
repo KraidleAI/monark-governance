@@ -399,3 +399,109 @@ test("a_caller_s_git_location_never_stands_in_for_the_previous_tree", async () =
   const r = planInChild(request, { ...owner, GIT_CONFIG_COUNT: "1", GIT_CONFIG_KEY_0: "safe.directory", GIT_CONFIG_VALUE_0: "*" });
   assert.equal(r.stdout, "[]", `the caller's -c safe.directory (GIT_CONFIG_*) reaches git: ${r.stderr}`);
 });
+
+// SPEC-GATE-HARDENING-1, SPEC-BOM-CANONICAL-1 (MONARK e7234bd, docs/G0-lot-vocab-venue-fields-1.md): the decoder keeps a leading BOM in the
+// text, so it is refused as the format character it is ([cf], vocabulary) and, for the JSON kinds, as a text that is not JSON (json_invalid).
+// Before, the decoder dropped it: a table preceded by EF BB BF was published under a sha256 that is not its canonical writing's.
+// A text-kind file whose body is the BOM and blanks only is refused too: String.prototype.trim drops U+FEFF, so the vocabulary gate read
+// such a text as empty and the mark was published (the other Claude's review of this change, case "BOM + LF").
+// killer: scripts/spec-publish.mjs:135 CONST "{ fatal: true, ignoreBOM: true }" -> "{ fatal: true }"
+// killer: scripts/spec-publish.mjs:137 CONST "text.includes(\"\\uFEFF\")" -> "false"
+test("a_leading_bom_is_refused_on_every_kind", async () => {
+  const m = await api(), BOM = Buffer.from([0xef, 0xbb, 0xbf]);
+  const c = (out: string, kind: Kind, body: string): Problem[] => m.contentProblems(out, kind, Buffer.concat([BOM, Buffer.from(body)]));
+  const cases: [string, Kind, string, string[]][] = [["a.md", "text", NOTE, ["vocabulary"]], ["b.md", "text", "\n", ["vocabulary"]], ["a.json", "json", '{"a":1}', ["json_invalid", "vocabulary"]],
+    ["s.json", "schema", SCHEMA, ["json_invalid", "vocabulary"]], ["policy/btc-dir-1h.json", "policy-table", TABLE, ["json_invalid", "vocabulary"]]];
+  for (const [out, kind, body, want] of cases) {
+    const got = c(out, kind, body);
+    assert.deepEqual(codes(got), want, out);
+    assert.ok(got.some((p) => p.code === "vocabulary" && p.detail.includes("[cf]")), `${out}: the BOM is the format character refused`);
+  }
+  assert.deepEqual(codes(m.contentProblems("policy/btc-dir-1h.json", "policy-table", Buffer.from(TABLE))), [], "premise: the same bytes without the BOM pass");
+});
+
+// SPEC-GATE-HARDENING-1, VOCAB-JSON-DUPKEY-1 (MONARK e7234bd): JSON.parse keeps the last of two equal keys without a word. A text of kind
+// json or schema that writes one key twice in one object, at any depth, is refused (duplicate_key); the keys are compared once unescaped,
+// so an escaped writing of a key followed by its plain twin is a duplicate too. One key in two objects, or at two depths, is not; nor is a
+// string value that looks like an object. A policy table stays refused by not_canonical (canonicalJson writes each key once).
+// killer: scripts/spec-publish.mjs:382 CONST "seen.has(k)" -> "false"
+// killer: scripts/spec-publish.mjs:373 CONST "JSON.parse(text.slice(s, i))" -> "text.slice(s, i)"
+test("a_duplicate_key_in_a_json_or_schema_text_is_refused_once_unescaped", async () => {
+  const m = await api(), c = (out: string, kind: Kind, body: string): Problem[] => m.contentProblems(out, kind, Buffer.from(body));
+  const meta = '"$schema":"https://json-schema.org/draft/2020-12/schema"';
+  const dup: [string, Kind, string, string][] = [["a.json", "json", '{"a":1,"a":2}', "a"], ["a.json", "json", '{"\\u0061":1,"a":2}', "a"],
+    ["a.json", "json", '{"x":{"y":[{"b":1,"c":2,"b":3}]}}', "b"], ["s.json", "schema", `{${meta},"type":"object","type":"array"}`, "type"],
+    ["s.json", "schema", `{${meta},"properties":{"n":{"type":"integer","minimum":0,"minimum":1}}}`, "minimum"]];
+  for (const [out, kind, body, key] of dup) {
+    const got = c(out, kind, body);
+    assert.deepEqual(codes(got), ["duplicate_key"], body);
+    assert.ok(got.some((p) => p.code === "duplicate_key" && p.detail.includes(`key ${JSON.stringify(key)} `)), `${body}: the key is named`);
+  }
+  const clean = ['{"a":{"b":1},"b":[{"b":1,"c":2}]}', '[{"x":1},{"x":2}]', '{"a\\"b":1,"a\\\\b":2}', '{"a":"a","b":"{\\"a\\":1,\\"a\\":2}"}', '{"ab":1,"a\\u0062c":2}',
+    '  {\n "k" : [ 1 , -2.5e3 , true , null , "s" ] ,\n "k2" : { } , "k3" : [ ] \n}\n'];
+  for (const body of clean) assert.deepEqual(c("a.json", "json", body), [], body);
+  assert.deepEqual(codes(c("policy/btc-dir-1h.json", "policy-table", TABLE.replace('{"class"', '{"class":1,"class"'))), ["not_canonical"], "a policy table with a duplicate key stays refused as not canonical");
+});
+
+// The side finding of the SPEC-GATE-HARDENING-1 scout: retireProblems (l.312) and published() of scripts/spec-policy-tables.mjs decode with
+// toString, which keeps a BOM. A table preceded by EF BB BF that publishes a retired row was neither refused as not canonical (the gate
+// dropped the BOM) nor seen by the retire rule (its own JSON.parse threw): published, with no retire list. Now contentProblems refuses the
+// file first, so the retire rule never has to read it.
+// killer: scripts/spec-publish.mjs:135 CONST "ignoreBOM: true" -> "ignoreBOM: false"
+test("a_bom_prefixed_table_with_a_retired_row_is_refused_before_the_retire_rule", async () => {
+  const m = await api(), r = fresh(), BOM = Buffer.from([0xef, 0xbb, 0xbf]);
+  const row = { cell_key: "kata:vote4-v1@binance/BTCUSDT/1h/up", status: "retired", n: 92, p_served: null, recompute: null, aux_sha256: null, series_sha256: null };
+  const table = Buffer.from(m.canonicalJson({ class: { task_class: "btc-dir-1h" }, row_format: "class-policy-v2", rows: [row] })), bom = Buffer.concat([BOM, table]);
+  mkdirSync(r); writeFileSync(join(r, "plain.json"), table); writeFileSync(join(r, "bom.json"), bom);
+  const codesOf = (path: string, bytes: Buffer): string[] => codes(m.plan({ inputs: { format: "spec-inputs-v1", releases: { v: { previous_commit: null,
+    entries: [{ out: "policy/btc-dir-1h.json", root: "governance", path, kind: "policy-table", sha256: sha(bytes) }] } } }, release: "v", date: "2026-10-02", roots: { governance: r } }).problems);
+  assert.deepEqual(codesOf("plain.json", table), ["retire_list_missing"], "premise: the retire rule sees the retired row of the plain table (M-1 of R-b)");
+  assert.deepEqual(codesOf("bom.json", bom), ["json_invalid", "vocabulary"], "the BOM-prefixed table is refused by contentProblems before the retire rule, never published");
+});
+
+// SPEC-GATE-DEPTH-BOUND-1 (the other Claude's review of the hardening of this gate, point "Depth" and O4): every walk of the parsed value in
+// contentProblems recurses (structuredClone of venueMasked, tablesIn, strings, duplicateKey), so a JSON text nested some 1,300 to 2,600 levels
+// deep (objects 1649 and arrays 2616 on the build host, 1276 and 1758 on the review host) made contentProblems throw RangeError, and main()
+// reported "Maximum call stack size exceeded" with no code. Now the depth of the parsed value is measured first, by an explicit stack, and a
+// text nested deeper than 256 levels is refused as too_deep, whatever its kind (the byte pass of l.137 parses any text that is JSON): at the
+// bound a text passes, one level deeper it is refused with the depth and the bound named, and a text far past the old overflow is refused
+// without a throw. A throw here is caught and reported as a problem of its own, so the trunk code reddens by assertion, never by RangeError.
+// killer: scripts/spec-publish.mjs:136 CONST "return [deep];" -> "return [];"
+// killer: scripts/spec-publish.mjs:410 CONST "DEPTH_BOUND = 256;" -> "DEPTH_BOUND = 257;"
+// killer: scripts/spec-publish.mjs:418 ROR "d > depth" -> "d < depth"
+// killer: scripts/spec-publish.mjs:421 ROR "depth > DEPTH_BOUND ?" -> "depth >= DEPTH_BOUND ?"
+test("a_json_text_nested_past_the_depth_bound_is_refused_as_too_deep_never_thrown", async () => {
+  const m = await api();
+  const nest = (d: number, shape: "object" | "array"): string => (shape === "object" ? '{"a":'.repeat(d) + "1" + "}".repeat(d) : "[".repeat(d) + "1" + "]".repeat(d));
+  const c = (out: string, kind: Kind, body: string): Problem[] => { try { return m.contentProblems(out, kind, Buffer.from(body)); } catch (e) { return [{ code: "thrown", detail: String(e) }]; } };
+  const kinds: [string, Kind][] = [["a.json", "json"], ["s.json", "schema"], ["policy/btc-dir-1h.json", "policy-table"], ["a.md", "text"]];
+  for (const shape of ["object", "array"] as const) {
+    assert.deepEqual(c("a.json", "json", nest(256, shape)), [], `${shape}: a text at the bound passes`);
+    for (const [out, kind] of kinds) {
+      const got = c(out, kind, nest(257, shape));
+      assert.deepEqual(codes(got), ["too_deep"], `${out} ${shape}: one level past the bound is refused`);
+      assert.ok(got[0]?.detail.includes("257 levels") && got[0].detail.includes("bound of 256"), `${out}: the detail names the depth and the bound: ${got[0]?.detail ?? ""}`);
+    }
+    const far = c("a.json", "json", nest(100000, shape));
+    assert.deepEqual(codes(far), ["too_deep"], `${shape}: a text past the old overflow is refused, not thrown`);
+    assert.ok(far[0]?.detail.includes("100000 levels"), far[0]?.detail ?? "");
+  }
+  assert.deepEqual(c("a.json", "json", '{"a":[{"b":[[{"c":1}]]}]}'), [], "a shallow mixed nest passes");
+  assert.deepEqual(c("s.json", "schema", `{"$schema":"https://json-schema.org/draft/2020-12/schema","x":${nest(255, "array")}}`), [], "a schema at the bound passes");
+  assert.deepEqual(codes(c("a.json", "json", `{"k":${nest(256, "array")}}`)), ["too_deep"], "an object around an array nest at the bound is one level too deep");
+});
+
+// The CLI keeps its behaviour for a refused file: a policy table whose rows hold an array nested 256 deep (258 levels in all) is refused as
+// too_deep, named by its code under the REFUSED line, exit 1, nothing written at --out. On the trunk code this table is read by every walk
+// (258 levels is far under the overflow), so the run ends with another verdict and the assertion on the code reddens.
+// killer: scripts/spec-publish.mjs:421 CONST "code: \"too_deep\"" -> "code: \"json_invalid\""
+test("the_cli_refuses_a_too_deep_table_by_its_code_and_writes_nothing", async () => {
+  await api();
+  const w = world(), table = `{"class":{"task_class":"btc-dir-1h"},"row_format":"class-policy-v2","rows":[${"[".repeat(256)}${"]".repeat(256)}]}`;
+  put(w.roots.governance, "policy/deep.json", table);
+  const entries = (w.inputs.releases.v?.entries ?? []).map((e) => (e.out === "policy/btc-dir-1h.json" ? { ...e, path: "policy/deep.json", sha256: sha(table) } : e));
+  const file = join(fresh(), "inputs.json"), out = fresh();
+  put(dirname(file), "inputs.json", JSON.stringify(at(w.head, entries)));
+  const r = spawnSync(process.execPath, [SCRIPT, "--release", "v", "--date", "2026-10-02", "--out", out, "--inputs", file, ...Object.entries(w.roots).flatMap(([k, v]) => ["--root", `${k}=${v}`])], { encoding: "utf8" });
+  assert.deepEqual([r.status, /^spec-publish REFUSED: /m.test(r.stderr), /^ {2}too_deep {2}policy\/btc-dir-1h\.json: nested 258 levels deep/m.test(r.stderr), existsSync(out)], [1, true, true, false], r.stderr);
+});

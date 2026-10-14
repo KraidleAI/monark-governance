@@ -25,7 +25,8 @@ import { readEve } from "../src/layout.ts";
 
 const LF = String.fromCharCode(10), BS = String.fromCharCode(92), DAY = 86_400, D1 = 20_706; // day 1 = 2026-09-10, in days since 1970-01-01
 const ENV = { BELL_SOLANA_RPC: `https://${HOSTS.a}`, CHAINSTACK_SOLANA_URL: `https://${HOSTS.b}`,
-  ...Object.fromEntries(Object.values(DOJO_HISTORY_ENV).flatMap(([id, floor]) => [[id, "cyc"], [floor, "1"]])) };
+  ...Object.fromEntries(Object.values(DOJO_HISTORY_ENV).flatMap(([anchor, floor]) => [[anchor, "2026-09-10T00:00:00Z"], [floor, "1"]])), // SYNTHETIC anchors
+  HELIUS_CYCLE_SHARE: "8000000", CHAINSTACK_CYCLE_SHARE: "16000000" }; // shares at the code caps: no effect but the guard's check
 const T22 = "TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb", QUOTE_VAULT = "6KLxyVpYwMGyQJHsvWqFpRk1crEQ79sG3Wi3C1SkZbTW"; // ADR-DOJO-PR-2 D-4
 const PYTH = "7UVimffxr9ow1uXYxsr4LHAcV58mLzhmwaeKvJ1pjLiE"; // the SOL/USD account (ADR-DOJO-PR-2 D-3)
 const roots: string[] = [];

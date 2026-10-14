@@ -23,6 +23,9 @@ const notLine = (r: unknown, byNames = false, pr?: string): string => `${REMOVAL
 test("test_count_check_holds_the_run_to_the_record_and_each_drop_to_its_line", () => {
   const run = (o: Record<string, number>): Run => Object.fromEntries(Object.entries(o).map(([f, n]) => [f, { tests: n, summary: true, names: Array.from({ length: n }, (_, i) => `t${i}`) }]));
   const base = { a: 3, b: 2, gone: 4 }, line = (file: string, from: number, to: number, reason = "#12: removed on purpose"): Record<string, unknown> => ({ file, from, to, reason });
+  // First of the drops: without "mine.length === 1", a drop with no line reads mine[0] and throws; here it fails by its assertion.
+  // killer: scripts/test-count-check.mjs:34 CONST "mine.length === 1 && " -> ""
+  assert.deepEqual(dropProblems(base, { a: 2, b: 2, gone: 4 }, [], [line("a", 3, 2), line("a", 3, 2, "#12: the same drop twice")]), [wants("a", 3, 2)], "two lines for one drop");
   // killer: scripts/test-count-check.mjs:70 CONST ".trim().split(/\\s+/).length >= 3" -> ".trim().split(/\\s+/).length >= 1"
   const reasons = ["removed on purpose", "#<pull request>: ...", "#12: removed", "#12:removed on purpose", "#0: removed on purpose", " "];
   assert.deepEqual(dropProblems(base, { a: 2, b: 2, gone: 4 }, [], reasons.map((r) => line("a", 3, 2, r))), [...reasons.map((r) => notLine(line("a", 3, 2, r))), wants("a", 3, 2)],
@@ -42,8 +45,6 @@ test("test_count_check_holds_the_run_to_the_record_and_each_drop_to_its_line", (
   // killer: scripts/test-count-check.mjs:34 CONST " && mine[0].to === to" -> ""
   // killer: scripts/test-count-check.mjs:34 CONST "mine[0].from === from && " -> ""
   assert.deepEqual(dropProblems(base, { a: 2, b: 1, gone: 4 }, [], [line("a", 3, 1), line("b", 9, 1)]), [wants("a", 3, 2), wants("b", 2, 1)], "a line at other numbers");
-  // killer: scripts/test-count-check.mjs:34 CONST "mine.length === 1 && " -> ""
-  assert.deepEqual(dropProblems(base, { a: 2, b: 2, gone: 4 }, [], [line("a", 3, 2), line("a", 3, 2, "#12: the same drop twice")]), [wants("a", 3, 2)], "two lines for one drop");
   // killer: scripts/test-count-check.mjs:29 CONST "if (i >= 0) left.splice(i, 1); else " -> ""
   assert.deepEqual(dropProblems({ a: 3 }, { a: 2 }, [line("a", 5, 3)], [line("a", 5, 3)]), [wants("a", 3, 2)], "a line of the base declares no new drop");
   // killer: scripts/test-count-check.mjs:36 CONST "!((baseRecord[r.file] ?? 0) > (record[r.file] ?? 0))" -> "false"
@@ -128,6 +129,14 @@ test("test_count_check_names_its_base_or_refuses", () => {
     writeFileSync(join(dir, RECORD), recordText(tally(renamed)));
     writeFileSync(join(dir, RUN), counts(renamed, { "": { tests: 1, summary: false, names: ["loose"] } }));
     assert.deepEqual(gate(["--base", both]), [1, "::error::1 test(s) reported without a file"], "P1 in the gate");
+    const imported = renamed["b.test.ts"] ?? [];
+    writeFileSync(join(dir, RUN), counts(renamed, { "b.test.ts": { tests: imported.length, summary: true, names: imported, foreign: imported.length } }));
+    assert.deepEqual(gate(["--base", both]), [1, `::error::b.test.ts: ${imported.length} of its test(s) also ran in another process: a test file imports it (move what they share to a module that declares no test), or it runs twice`],
+      "P1 in the gate: a file whose tests another test file's process ran too, its record unchanged");
+    const first = imported.map(() => imported[0] ?? ""); // b imports itself with a query string: its first test twice, in its own process
+    writeFileSync(join(dir, RUN), counts(renamed, { "b.test.ts": { tests: first.length, summary: true, names: first } }));
+    assert.deepEqual(gate(["--base", both]), [1, `::error::b.test.ts: ${first.length - 1} of its test(s) repeat a full name of the file: two of its tests share a name (name each apart), or the file runs twice in its own process (it imports itself, e.g. with a query string)\n::error::b.test.ts: run and ${NAMES} differ: run only ${JSON.stringify(first.slice(1))}, recorded only ${JSON.stringify(imported.slice(1))}`],
+      "P1 in the gate: a file that names a test twice, nothing foreign, its count unchanged; P2 names the names that differ");
     writeFileSync(join(dir, RUN), counts(renamed));
     // killer: scripts/test-count-check.mjs:54 CONST "shaped(JSON.parse(ntext), lists," -> "shaped(JSON.parse(ntext), () => true,"
     writeFileSync(join(dir, NAMES), `{\n "a.test.ts": null,\n "b.test.ts": ${JSON.stringify(head["b.test.ts"])}\n}\n`);
@@ -185,6 +194,12 @@ test("test_count_check_holds_each_name_gone_to_its_line", () => {
   const run = (o: Record<string, string[]>): Run => Object.fromEntries(Object.entries(o).map(([f, n]) => [f, { tests: n.length, summary: true, names: n }]));
   assert.deepEqual(recordProblems(run({ a: ["one", "two", "two"], b: ["x"] }), { a: 3, b: 1 }, { a: ["one", "one", "two"], b: ["x"], c: ["y"] }),
     [`a: run and ${NAMES} differ: run only ["two"], recorded only ["one"]`, `c: run and ${NAMES} differ: run only [], recorded only ["y"]`], "P2 on names, as multisets: the exact names on each side, a file the run lacks");
+  // killer: scripts/test-count-check.mjs:83 CONST "...Object.keys(names)])].sort()" -> "...Object.keys(names)])].filter(Boolean).sort()"
+  assert.deepEqual(recordProblems(run({ a: ["one"] }), { a: 1 }, { "": ["two"], a: ["one"] }), [`: run and ${NAMES} differ: run only [], recorded only ["two"]`],
+    "a names-record key \"\" is held to the run too: no file of the run carries it (the run's tests without a file are P1's), so its names never count as gained");
+  // killer: scripts/test-count-check.mjs:85 CONST "alone === null ? [] : [`${f}: ${alone}`]" -> "[]"
+  assert.deepEqual([recordProblems(run({ a: ["one"] }), { a: 1 }, { a: ["one"], ghost: [] }), recordProblems(run({ a: ["one"], z: [] }), { a: 1, z: 0 }, { a: ["one"] })], [[`ghost: in ${NAMES}, not in the run`], [`z: in the run, not in ${NAMES}`]],
+    "a key without names is held too, on either side: else the records merged disagree and the next change's gate stops (exit 4)");
   const tally = (o: Record<string, string[]>): Record<string, number> => Object.fromEntries(Object.entries(o).map(([f, n]) => [f, n.length]));
   const by = (base: Record<string, string[]>, head: Record<string, string[]>, list: unknown[], pr?: string): string[] => dropProblems(tally(base), tally(head), [], list, { base, head, ...(pr === undefined ? {} : { pr }) });
   const r = (o: Record<string, unknown>): Record<string, unknown> => ({ ...o, reason: "#12: declared in this change" });
@@ -199,21 +214,22 @@ test("test_count_check_holds_each_name_gone_to_its_line", () => {
   assert.deepEqual(by(at, { ...at, a: ["keeps the order, kept", "new", "p > c", "refuses a negative amount"] }, []), [gone("a", "keeps the order", { file: "a", removed: "keeps the order" }, ["keeps the order, kept", "new"])],
     "a test deleted and two added (one empty, under a near name): a removal is wanted, and the names gained are listed");
   assert.deepEqual(by(at, minusP, [r({ file: "a", removed: "p > c" })]), [], "a removal line");
-  // killer: scripts/test-count-check.mjs:101 CONST "gone.splice(i, 1); " -> ""
+  // killer: scripts/test-count-check.mjs:103 CONST "gone.splice(i, 1); " -> ""
   assert.deepEqual(by(at, minusP, [r({ file: "a", removed: "p > c" }), r({ file: "a", removed: "p > c" })]), [`${REMOVALS}: ${JSON.stringify(r({ file: "a", removed: "p > c" }))} names no test gone from a since the base`], "two lines for one name");
   const counted = r({ file: "a", from: 3, to: 2 });
   assert.deepEqual(by(at, minusP, [counted]), [notLine(counted, true), gone("a", "p > c", { file: "a", removed: "p > c" })], "a count line, once the base has names, is refused but for a file gone");
-  // killer: scripts/test-count-check.mjs:100 CONST "r.renamed !== undefined && j < 0" -> "false"
+  // killer: scripts/test-count-check.mjs:102 CONST "r.renamed !== undefined && j < 0" -> "false"
   const nowhere = r({ ...rename, to: "refuses nothing" });
   assert.deepEqual(by(at, renamed, [nowhere]), [`${REMOVALS}: ${JSON.stringify(nowhere)}: "refuses nothing" is no test that a gained since the base`, gone("a", "refuses a negative amount", rename, ["refuses an amount below zero"])],
     "a rename to a name the file did not gain");
   const whole = `a: 3 test(s) at the base, 0 here: wants one line ${JSON.stringify({ file: "a", from: 3, to: 0, reason: "#<pull request>: ..." })} in ${REMOVALS}`;
-  assert.deepEqual([by(at, { b: ["one"] }, []), by(at, { b: ["one"] }, [r({ file: "a", from: 3, to: 0 })]), by(at, { b: ["one"] }, at.a.map((n) => r({ file: "a", removed: n })))], [[whole], [], []],
-    "a file gone: its one line {file, from, to: 0} is wanted; it, or one removal line per name, is accepted");
-  // killer: scripts/test-count-check.mjs:98 CONST "head[f] === undefined && " -> ""
+  const each = at.a.map((n) => gone("a", n, { file: "a", removed: n }));
+  assert.deepEqual([by(at, { b: ["one"] }, []), by(at, { b: ["one"] }, [r({ file: "a", from: 3, to: 0 })]), by(at, { b: ["one"] }, at.a.map((n) => r({ file: "a", removed: n })))], [each, each, []],
+    "a file gone, none of its names anywhere in the head: one removal line per name is wanted and accepted; its file-gone line covers none of them");
+  // killer: scripts/test-count-check.mjs:100 CONST "head[f] === undefined && " -> ""
   const notGone = r({ file: "b", from: 1, to: 0 });
   assert.deepEqual([by(at, { b: ["one"] }, [r({ file: "a", from: 2, to: 0 })]), by(at, { ...at, b: ["uno"] }, [notGone])],
-    [[`${REMOVALS}: ${JSON.stringify(r({ file: "a", from: 2, to: 0 }))} names no file gone since the base, at its count`, whole],
+    [[`${REMOVALS}: ${JSON.stringify(r({ file: "a", from: 2, to: 0 }))} names no file gone since the base, at its count`, ...each],
       [`${REMOVALS}: ${JSON.stringify(notGone)} names no file gone since the base, at its count`, gone("b", "one", { file: "b", renamed: "one", to: "uno" }, ["uno"])]],
     "a file-gone line at another count; one for a file still there, its one test renamed");
   // killer: scripts/test-count-check.mjs:65 CONST "left.splice(i, 1); return false;" -> "return false;"
@@ -222,19 +238,47 @@ test("test_count_check_holds_each_name_gone_to_its_line", () => {
   assert.deepEqual(by(at, at, [r({ file: "b", removed: "one" })]), [`${REMOVALS}: ${JSON.stringify(r({ file: "b", removed: "one" }))} names no test gone from b since the base`], "a line for a file with nothing gone");
   const shapes = [{ file: "a", removed: "", reason: "#12: declared in this change" }, r({ file: "a", renamed: "x", to: "x" }), r({ file: "a", removed: "x", to: "y" }), { file: "a", removed: "p > c", reason: "#12: removed" }];
   assert.deepEqual(by(at, minusP, shapes, "12").slice(0, 4), shapes.map((s) => notLine(s, true, "12")), "an empty name, a rename to itself, a fifth key, a short reason: not lines");
-  // killer: scripts/test-count-check.mjs:94 CONST ", ...lines.map((r) => r.file)" -> ""
+  // killer: scripts/test-count-check.mjs:96 CONST ", ...lines.map((r) => r.file)" -> ""
   const elsewhere = r({ file: "c", removed: "one" });
   assert.deepEqual(by(at, at, [elsewhere]), [`${REMOVALS}: ${JSON.stringify(elsewhere)} names no test gone from c since the base`], "a line for a file in neither names record");
   const part = r({ file: "a", removed: "p > c" }), left = [gone("a", "keeps the order", { file: "a", removed: "keeps the order" }), gone("a", "refuses a negative amount", { file: "a", removed: "refuses a negative amount" })];
-  // killer: scripts/test-count-check.mjs:98 CONST " && base[f]?.length === r.from" -> ""
+  // killer: scripts/test-count-check.mjs:100 CONST " && base[f]?.length === r.from" -> ""
   const rest = r({ file: "a", from: 2, to: 0 });
   assert.deepEqual(by(at, { b: ["one"] }, [part, rest]), [`${REMOVALS}: ${JSON.stringify(rest)} names no file gone since the base, at its count`, ...left],
     "a file gone: a file-gone line at the count left once another line took a name is refused; it counts at the base's count only");
-  // killer: scripts/test-count-check.mjs:103 CONST " && gone.length === whole" -> ""
+  // killer: scripts/test-count-check.mjs:111 CONST "if (back.length > 0" -> "if (all.length > 0"
   assert.deepEqual(by(at, { b: ["one"] }, [part]), left, "a file gone, one of its names declared: the hint wants each name left by its name, not the whole file");
-  // killer: scripts/test-count-check.mjs:93 CONST "base = own(baseNames), head = own(headNames)" -> "base = baseNames, head = headNames"
+  // killer: scripts/test-count-check.mjs:95 CONST "base = own(baseNames), head = own(headNames)" -> "base = baseNames, head = headNames"
   const thrown = (f: () => string[]): string[] => { try { return f(); } catch (e) { return [`threw ${String(e)}`]; } };
   const ctor = r({ file: "constructor", removed: "one" }), proto = r({ file: "__proto__", removed: "one" });
   assert.deepEqual(thrown(() => by(at, at, [ctor, proto])), ([[proto, "__proto__"], [ctor, "constructor"]] as const).map(([l, f]) => `${REMOVALS}: ${JSON.stringify(l)} names no test gone from ${f} since the base`),
     "a line for the file constructor or __proto__: the names records are read by their own keys, the gate's own refusal and no throw");
+  // A file gone whose tests moved (a file renamed): its file-gone line covers a name only where it reappears, a name some file of the head gained
+  //   since the base and no rename line took, each such name once; a name that reappears nowhere takes its own line.
+  // killer: scripts/test-count-check.mjs:110 CONST ", gone = minus(all, back)" -> ", gone = moved ? [] : minus(all, back)"
+  // killer: scripts/test-count-check.mjs:107 CONST "at.flatMap((x) => x.gained)" -> "at.flatMap((x) => head[x.f] ?? [])"
+  // killer: scripts/test-count-check.mjs:107 CONST "at.flatMap((x) => x.gained)" -> "at.filter((x) => base[x.f] === undefined).flatMap((x) => x.gained)"
+  // killer: scripts/test-count-check.mjs:110 CONST "if (k >= 0) pool.splice(k, 1); " -> ""
+  // killer: scripts/test-count-check.mjs:110 CONST "head[f] === undefined ? all.filter" -> "true ? all.filter"
+  // killer: scripts/test-count-check.mjs:100 CONST " && !moved" -> ""
+  // killer: scripts/test-count-check.mjs:111 CONST " && !moved" -> ""
+  // killer: scripts/test-count-check.mjs:111 CONST "from: base[f].length, to: 0" -> "from: all.length, to: 0"
+  const moved = { b: ["one"], c: ["keeps the order", "p > c"] }, wholeA = r({ file: "a", from: 3, to: 0 }), lost = r({ file: "a", removed: "refuses a negative amount" });
+  const lostHint = gone("a", "refuses a negative amount", { file: "a", removed: "refuses a negative amount" }), m = (n: string): string => gone("a", n, { file: "a", removed: n });
+  const cases: [string, string[], string[]][] = [
+    ["a file renamed whole, with its file-gone line", by(at, { b: ["one"], c: at.a }, [wholeA]), []],
+    ["a file renamed, one test dropped, the file-gone line only: the dropped name wants its line", by(at, moved, [wholeA]), [lostHint]],
+    ["a file renamed, one test dropped and declared, no file-gone line: the file-gone line at the base count", by(at, moved, [lost]), [whole]],
+    ["the same with the dropped name's line after the file-gone line", by(at, moved, [wholeA, lost]), []],
+    ["the same with the dropped name's line first", by(at, moved, [lost, wholeA]), []],
+    ["the same without a line: the file-gone line, and the dropped name's", by(at, moved, []), [whole, lostHint]],
+    ["a name that reappears only in a file that held it at the base covers no moved test", by({ a: ["m"], b: ["m"] }, { b: ["m"] }, [r({ file: "a", from: 1, to: 0 })]), [m("m")]],
+    ["a name a rename line took covers no moved test", by({ a: ["m"], b: ["x"] }, { b: ["m"] }, [r({ file: "b", renamed: "x", to: "m" }), r({ file: "a", from: 1, to: 0 })]), [m("m")]],
+    ["one name gained covers one moved test: two equal names gone, one back", by({ a: ["m", "m"] }, { c: ["m"] }, [r({ file: "a", from: 2, to: 0 })]), [m("m")]],
+    ["a test moved between two files still there: its line, as before", by({ a: ["x", "y"] }, { a: ["y"], c: ["x"] }, []), [gone("a", "x", { file: "a", removed: "x" })]],
+    ["a file merged whole into a file still there, with its file-gone line", by(at, { b: ["one", ...at.a] }, [wholeA]), []],
+    ["a second file-gone line",by(at, { b: ["one"], c: at.a }, [wholeA, { ...wholeA, reason: "#12: declared in this change again" }]), [`${REMOVALS}: ${JSON.stringify({ ...wholeA, reason: "#12: declared in this change again" })} names no file gone since the base, at its count`]],
+  ];
+  assert.deepEqual(cases.filter(([, got, want]) => JSON.stringify(got) !== JSON.stringify(want)).map(([n, got]) => `${n}: ${JSON.stringify(got)}`), [],
+    "a file gone: each of its names reappears in a file that gained it, or takes its own line; listed: the cases judged otherwise");
 });

@@ -1063,3 +1063,24 @@ Arithmétique sur `derived.json` R4 (pic 6 467, N = 23 628, 5 714 échecs, 17 jo
   `history-collect.ts` avale toute exception, mais tourne toujours après `admit` sur les mêmes corps) versé à DOJO-HISTORY-INFO-DEPTH-1 ;
   oracle G2 sortie 0 (1 860 tests, 0 échec ; enregistrement `9e510108…`). Fusion dans `lot/page-v1` : `6c464bbc`. La course finale
   épingle le sha de `history-read.ts` à son journal.
+- **Dated amendment, 2026-10-14 (Bell collection timer, part 2, lot 2f, Dojo half; item DOJO-CYCLE-ROLLOVER-1): the environment
+  contract of the two Dojo writers of the shared accounts.** The collector reads `HELIUS_CYCLE_ANCHOR_UTC`, `HELIUS_CYCLE_FLOOR` and
+  `HELIUS_CYCLE_SHARE` (`ENV_CYCLE_ANCHOR`, `ENV_CYCLE_FLOOR`, `ENV_CYCLE_SHARE` of `apps/dojo/src/dojo-methods.ts`); the history
+  collector reads, per operator, the anchor and the floor (`DOJO_HISTORY_ENV`) and the share (`DOJO_HISTORY_SHARE_ENV`):
+  `HELIUS_CYCLE_ANCHOR_UTC`, `HELIUS_CYCLE_FLOOR`, `HELIUS_CYCLE_SHARE`, `CHAINSTACK_CYCLE_ANCHOR_UTC`, `CHAINSTACK_CYCLE_FLOOR`,
+  `CHAINSTACK_CYCLE_SHARE`. `HELIUS_CYCLE_ID` and `CHAINSTACK_CYCLE_ID` (l.963) are no longer read by these two Dojo writers (the
+  sentinel still reads `CHAINSTACK_CYCLE_ID` for its own run, `apps/sentinel/src/run.ts:280`, outside this lot): each course derives its cycle id
+  from the account's anchor instant (an ISO instant with its UTC offset) by `cycleOf` of `@monark/rpc-guard`, `<op>-<YYYY-MM-DD>`, so a
+  course after a billing boundary opens the next cycle with no act. The share, an integer in (0, code cap], goes to the guard as
+  `RunLimits.cycleShare` for the operators the course requests only (helius for a reading, helius and chainstack for the history): the
+  guard holds the writer's own spend on its cycle to its share (refusal `cycle_share`, before any call). A missing or malformed anchor
+  (or one after the clock), floor or share refuses with the existing code `cycle_missing`, its detail naming the key (`anchor`,
+  `floor`, `share`; the history names the operator first), before any lock and any call; no code is added to a closed list. In the
+  history collector a `cycle_share` stop is fatal (thrown after the unlocks), as any guard reason outside its partial reasons.
+  `DOJO_COLLECT_ENV_KEYS` (`scripts/dojo-deploy.mjs`) and RUNBOOK-dojo l.123-124, l.128, l.132, l.135, l.321 and l.844 follow.
+  Order of acts: the env file of the collect unit on the old host (`/etc/monark/dojo-collect.env`) gains the anchor and share keys,
+  without display, before the Dojo redeploy, which is a founder act (go asked before it); redeployed without them, the collection
+  stops on `cycle_missing` until they are posed. Tests: `dojo_collectors_pass_their_declared_share`, `dojo_collect_refuses_a_missing_share_env`,
+  `dojo_collectors_derive_their_cycle_from_the_anchor`, `dojo_collect_shares_only_the_operators_it_requests`
+  (`apps/dojo/test/dojo-share.test.ts`), `dojo_history_passes_its_declared_shares`, `dojo_history_derives_its_cycles_from_the_anchors`,
+  `dojo_history_shares_only_the_operators_it_requests` (`apps/dojo/test/dojo-history-collect.test.ts`).

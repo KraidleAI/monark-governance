@@ -31,7 +31,7 @@ const denied = (user: string, script: string, ...args: string[]): void => {
 const READ = 'cat "$1" > /dev/null', WRITE = 'touch "$1"', LIST = 'ls "$1" > /dev/null';
 const STAGE = 'umask 0027 && mkdir "$1/$2" && echo x > "$1/$2/run.json" && mv "$1/$2" "$1/$3"'; // the collection's UMask=0027
 
-// killer: scripts/bell-deploy.mjs:41 CONST "0o2750" -> "0o750"
+// killer: scripts/bell-deploy.mjs:55 CONST "0o2750" -> "0o750"
 test("bell_handoff_permissions_on_linux", { skip: SKIP }, () => {
   const L = d.BELL_LAYOUT as Record<"collect" | "handoff" | "status" | "state", Dir>;
   const [collector, publisher, group, prefix] = [d.BELL_COLLECT_USER, d.BELL_PUBLISH_USER, d.BELL_HANDOFF_GROUP, d.BELL_STAGING_PREFIX] as [string, string, string, string];

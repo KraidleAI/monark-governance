@@ -15,9 +15,9 @@
 #   CHAINSTACK_SOLANA_URL, DATABENTO_API_KEY (D1). Removed from its environment: CHAINSTACK_ETH_URL (--eth leg only), BELL_HALTS_CSV (off as in seq 1), the paid
 #   endpoints it never reads (CHAINSTACK_BASE_URL, _BSC_URL, _ROBINHOOD_URL), NODE_DEBUG, NODE_DEBUG_NATIVE (request URLs carry two credentials), NODE_OPTIONS (code
 #   preload); these three and the TLS switches NODE_TLS_REJECT_UNAUTHORIZED, NODE_EXTRA_CA_CERTS are unset for every node call (line 23). No key is printed nor copied (A-7).
-# After the exit: node "$Q6_EXEC_TREE/apps/bell/ops/q6-controls.mjs" --variant fast --mint <MINT> --mode <mode> --out <dir> \
-#   --exec-tree "$Q6_EXEC_TREE" --ledger-cycle-dir F:/monark-ledger/helius-2026-09-19 --seq1-state <seq 1 state.json>
-#   (exit 0 = no FAIL; C14 close_ref_present blocks the publication, C-6).
+# After the exit: node "$Q6_EXEC_TREE/apps/bell/ops/q6-controls.mjs" --variant fast --mint <MINT> --mode <mode> --out <dir> --exec-tree "$Q6_EXEC_TREE" \
+#   --ledger-cycle-dir F:/monark-ledger/<helius id of cycles= on the HDR line> --seq1-state <seq 1 state.json> (exit 0 = no FAIL; C14 close_ref_present blocks the publication, C-6).
+# Cycles (OPS-Q6-CYCLE-ROLLOVER-1): <OP>_CYCLE_ANCHOR_UTC and <OP>_CYCLE_SHARE (helius, chainstack) come from the environment; one node call to cycleOf derives the ids (JS_CYCLES).
 set -u
 { set +x; } 2>/dev/null
 unset NODE_DEBUG NODE_DEBUG_NATIVE NODE_OPTIONS NODE_TLS_REJECT_UNAUTHORIZED NODE_EXTRA_CA_CERTS
@@ -39,7 +39,7 @@ REF_TRAJ=F:/PRODUITS/etude-2026-09-20/bell-b1bis-raws/scan/rebase-trajectory.jso
 REF_TRAJ_SHA256=dd165fbfd50f9658619355b77f44a018d955df1c16105de2ccf0882602af0195
 TRAJ_MAX_AGE_H=12
 LEDGER_DIR=F:/monark-ledger                                # option B: helius on its canonical cycle ledger
-CYCLE=helius-2026-09-19
+# CYCLE (helius), CS_CYCLE (chainstack): derived in the GUARDS from the anchors at each launch (JS_CYCLES), never posed by hand
 CANON_CS_CYCLE_DIR=F:/monark-ledger/chainstack-2026-09-19/chainstack-2026-09-19   # canonical chainstack ledger (Ukemi/prober)
 FLOOR_HELIUS=60938
 HELIUS_ENDPOINT='https://mainnet.helius-rpc.com/'
@@ -89,6 +89,23 @@ const cost = Number(v);
 if (!Number.isFinite(cost)) { console.error("cost pre-flight: not a number"); process.exit(3); }
 console.log("cost_usd=" + cost);
 if (cost > Number(cap)) process.exit(4);'
+# OPS-Q6-CYCLE-ROLLOVER-1 (DC-5, DC-6): each cycle id is DERIVED at each launch by cycleOf of @monark/rpc-guard, the one definition the collector,
+# the tick and the Dojo use (GNU date could do the month arithmetic, but a bash copy of the offset and day-clamp rules would be a second definition
+# that can drift), from <OP>_CYCLE_ANCHOR_UTC, an ISO instant with its UTC offset; <OP>_CYCLE_SHARE is the declared share, an integer in (0, code
+# cap], held by the guard; the same shape rules as the Dojo collectors. None is a secret. The instant is an argument (the snippet reads no clock).
+# Prints "<helius id> <chainstack id> helius=<id>,chainstack=<id> helius=<n>,chainstack=<n>"; exit 3 names the absent or malformed variable.
+JS_CYCLES='import { pathToFileURL } from "node:url"; import { join } from "node:path";
+const [tree, now] = process.argv.slice(1);
+if (!/^[0-9]{1,16}$/.test(now ?? "")) { console.error("cycles: the instant is not epoch milliseconds"); process.exit(3); }
+const g = await import(pathToFileURL(join(tree, "packages/rpc-guard/src/index.ts")).href), cap = { helius: g.HELIUS_CYCLE_CAP_CREDITS, chainstack: g.CHAINSTACK_CYCLE_CAP_RU };
+const ids = [], shares = [];
+for (const op of ["helius", "chainstack"]) {
+  const k = op.toUpperCase() + "_CYCLE_", anchor = process.env[k + "ANCHOR_UTC"] ?? "", share = process.env[k + "SHARE"] ?? "";
+  try { ids.push(g.cycleOf(Number(now), anchor, op)); } catch { console.error("cycles: " + k + "ANCHOR_UTC absent or malformed (an ISO instant with its UTC offset, at or before the launch)"); process.exit(3); }
+  if (!/^[1-9][0-9]{0,8}$/.test(share) || Number(share) > cap[op]) { console.error("cycles: " + k + "SHARE absent or malformed (an integer in (0, " + cap[op] + "])"); process.exit(3); }
+  shares.push(op + "=" + share);
+}
+console.log(ids[0] + " " + ids[1] + " helius=" + ids[0] + ",chainstack=" + ids[1] + " " + shares.join(","));'
 
 # ---- GUARDS (read-only; NOTHING is written before they all pass) ----
 SHA_G7="${Q6_SHA_G7:-}"; EXEC_TREE="${Q6_EXEC_TREE:-}"; TRAJ_FILE="${Q6_TRAJ_FILE:-}"; TRAJ_SHA256="${Q6_TRAJ_SHA256:-}"; FLOOR_CHAINSTACK_RU="${Q6_FLOOR_CHAINSTACK_RU:-}"
@@ -114,8 +131,11 @@ NODEV=$(node -p "process.versions.node" 2>/dev/null) || stop "node not found"
 [ -n "${POLYGON_API_KEY+x}" ] && [ "${#POLYGON_API_KEY}" -eq 32 ] || stop "POLYGON_API_KEY absent or of length ${POLYGON_API_KEY+${#POLYGON_API_KEY}} (expected 32)"
 [ -n "${CHAINSTACK_SOLANA_URL+x}" ] && [ "${#CHAINSTACK_SOLANA_URL}" -eq 75 ] || stop "CHAINSTACK_SOLANA_URL absent or of length ${CHAINSTACK_SOLANA_URL+${#CHAINSTACK_SOLANA_URL}} (expected 75, measured 2026-09-23)"
 [ -n "${DATABENTO_API_KEY+x}" ] && [ "${#DATABENTO_API_KEY}" -eq 32 ] || stop "DATABENTO_API_KEY absent or of length ${DATABENTO_API_KEY+${#DATABENTO_API_KEY}} (expected 32: the cash leg is ON, D1)"
-[ -d "$LEDGER_DIR/$CYCLE" ] || stop "cycle directory $LEDGER_DIR/$CYCLE absent"
+DERIVED=$(node --input-type=module -e "$JS_CYCLES" -- "$EXEC_TREE" "$(date +%s)000") || stop "cycle anchors or shares refused (<OP>_CYCLE_ANCHOR_UTC, <OP>_CYCLE_SHARE)"
+read -r CYCLE CS_CYCLE CYCLES SHARES <<< "$DERIVED"
+[ -d "$LEDGER_DIR" ] || stop "ledger root $LEDGER_DIR absent (the guard creates the directory of a new cycle, never the root)"
 if ls "$LEDGER_DIR/$CYCLE/"*.lock >/dev/null 2>&1; then stop "a lock is held in $LEDGER_DIR/$CYCLE (another Helius course is alive)"; fi
+if ls "$LEDGER_DIR/$CS_CYCLE/"*.lock >/dev/null 2>&1; then stop "a lock is held in $LEDGER_DIR/$CS_CYCLE (another Chainstack course of this ledger is alive)"; fi
 if ls "$CANON_CS_CYCLE_DIR/"*.lock >/dev/null 2>&1; then stop "a lock is held in $CANON_CS_CYCLE_DIR: never two Chainstack courses at once (121 d)"; fi
 [ -f "$TRAJ_FILE" ] || stop "Q6_TRAJ_FILE absent"
 [ "$(sha256sum "$TRAJ_FILE" | cut -c1-64)" = "$TRAJ_SHA256" ] || stop "sha256(Q6_TRAJ_FILE) != Q6_TRAJ_SHA256"
@@ -126,14 +146,14 @@ TRAJ_CHECK=$(node -e "$JS_TRAJ" "$TRAJ_FILE" "$REF_TRAJ" "$MINT") || stop "traje
 COST=$(node --input-type=module -e "$JS_COST" -- "$EXEC_TREE" "$UNDERLYING" "$FROM" "$TO" "$COST_CAP_USD") || stop "cost pre-flight refused (${COST:-no cost}; cap $COST_CAP_USD USD)"
 echo "$COST"
 if [ "${Q6_DRYRUN:-0}" = "1" ]; then
-  echo "DRYRUN OK [q6 $MINT $MODE] guards passed: head=$HEAD node=v$NODEV $TRAJ_CHECK $COST spyx_stop_anchor=$LASTSTOP from=$FROM to=$TO out=$OUT log=$LOG max_credits=$MAX_CREDITS max_ru=$MAX_RU max_calls=$MAX_CALLS min_interval=$MIN_INTERVAL floor_chainstack=$FLOOR_CHAINSTACK_RU traj=$TRAJ_FILE"
+  echo "DRYRUN OK [q6 $MINT $MODE] guards passed: head=$HEAD node=v$NODEV $TRAJ_CHECK $COST spyx_stop_anchor=$LASTSTOP from=$FROM to=$TO out=$OUT log=$LOG max_credits=$MAX_CREDITS max_ru=$MAX_RU max_calls=$MAX_CALLS min_interval=$MIN_INTERVAL floor_chainstack=$FLOOR_CHAINSTACK_RU cycles=$CYCLES shares=$SHARES traj=$TRAJ_FILE"
   exit 0
 fi
 
 # ---- LAUNCH (the only section that writes) ----
 mkdir -p "$LOGDIR" "$(dirname "$OUT")" || stop "mkdir"
 START=$(date -u +%FT%TZ)
-HDR="q6-launch mint=$MINT mode=$MODE variant=fast operators=helius,chainstack from=$FROM to=$TO start=$START head=$HEAD traj_sha256=$TRAJ_SHA256 floor_chainstack=$FLOOR_CHAINSTACK_RU node=v$NODEV $COST out=$OUT wrapper_pid=$$"
+HDR="q6-launch mint=$MINT mode=$MODE variant=fast operators=helius,chainstack from=$FROM to=$TO start=$START head=$HEAD traj_sha256=$TRAJ_SHA256 floor_chainstack=$FLOOR_CHAINSTACK_RU cycles=$CYCLES shares=$SHARES node=v$NODEV $COST out=$OUT wrapper_pid=$$"
 echo "$HDR" >> "$LOG"
 echo "$HDR log=$LOG $TRAJ_CHECK" >> "$LOGDIR/q6-launch.log"
 cd "$EXEC_TREE" || stop "cd Q6_EXEC_TREE"
@@ -143,7 +163,7 @@ env -u CHAINSTACK_ETH_URL -u BELL_HALTS_CSV -u CHAINSTACK_BASE_URL -u CHAINSTACK
   --from-utc "$FROM" --to-utc "$TO" \
   --rebase-trajectory "$TRAJ_FILE" \
   --operators helius,chainstack \
-  --ledger-dir "$LEDGER_DIR" --cycle "$CYCLE" --floor "helius=$FLOOR_HELIUS,chainstack=$FLOOR_CHAINSTACK_RU" \
+  --ledger-dir "$LEDGER_DIR" --cycles "$CYCLES" --shares "$SHARES" --floor "helius=$FLOOR_HELIUS,chainstack=$FLOOR_CHAINSTACK_RU" \
   --method-caps "getSignaturesForAddress=$CAP_GSFA,getTransaction=$CAP_GTX,getAccountInfo=$CAP_GAI,getTransactionsForAddress=$CAP_GTFA" \
   --max-credits "$MAX_CREDITS" --max-ru "$MAX_RU" --max-calls "$MAX_CALLS" --max-pages "$MAX_PAGES" \
   --body-sample "$BODY_SAMPLE" --min-interval "$MIN_INTERVAL" \

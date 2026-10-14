@@ -26,7 +26,8 @@
   "bell_ops_launch_unsets_only_read_unneeded_vars",
   "bell_ops_launcher_never_traces_nor_copies_a_secret",
   "bell_ops_scripts_carry_no_secret_shape",
-  "bell_runbook_dry_cross_cost_command_guards_the_key"
+  "bell_runbook_dry_cross_cost_command_guards_the_key",
+  "ops_launcher_passes_shares_and_derived_cycles"
  ],
  "apps/bell/test/bell-publish-chain.test.ts": [
   "bell_chain_canonical_equals_digest_canonical",
@@ -348,11 +349,26 @@
   "bell_sessions_sip_trade_date_before_the_switch",
   "bell_sessions_utp_day_start_is_pinned_at_2055"
  ],
+ "apps/bell/test/tick-compose.test.ts": [
+  "bell_tick_composes_plan_runmain_checks_validate_into_a_publishable_bundle",
+  "bell_tick_quarantines_a_run_its_checks_refuse"
+ ],
+ "apps/bell/test/tick-legs.test.ts": [
+  "bell_tick_cash_cost_preflight_caps_the_leg",
+  "bell_tick_leg_off_unsets_its_key_and_refuses_when_needed",
+  "bell_tick_names_every_guard_error_of_the_closed_list",
+  "bell_tick_produces_trajectory_when_stale_and_reuses_when_fresh",
+  "bell_tick_records_stage_credits_from_the_ledger_delta",
+  "bell_tick_refuses_an_absent_halts_file_by_name",
+  "bell_tick_refuses_trajectory_mismatch_with_reference_prefix",
+  "bell_tick_sigterm_line_says_released_only_when_the_release_held"
+ ],
  "apps/bell/test/tick.test.ts": [
   "bell_tick_abandon_writes_tombstone_and_advances_once",
   "bell_tick_attempt_budget_is_keyed_on_unit_start",
   "bell_tick_builds_cycle_share_from_requested_operators_only",
   "bell_tick_closure_excludes_the_publisher",
+  "bell_tick_closure_reads_a_code_line_that_starts_with_a_star",
   "bell_tick_derives_cycle_per_operator_and_refuses_straddle",
   "bell_tick_exits_nonzero_on_every_named_refusal",
   "bell_tick_hands_rununit_only_the_collect_env_keys",
@@ -509,13 +525,16 @@
   "dojo_history_budget_stops_fail_closed",
   "dojo_history_calls_have_the_closed_forms",
   "dojo_history_deadline_bounds_every_retry",
+  "dojo_history_derives_its_cycles_from_the_anchors",
   "dojo_history_disk_rpc_error_and_faulted_body_paths",
   "dojo_history_early_bounds_and_a_403_stop_the_course_at_once",
   "dojo_history_gtfa_matches_the_helius_index",
   "dojo_history_pages_order_inputs_and_raw_files_as_declared",
+  "dojo_history_passes_its_declared_shares",
   "dojo_history_per_account_pages_until_fixpoint",
   "dojo_history_resume_from_last_complete_unit",
   "dojo_history_secret_forms_cover_every_alignment_and_the_url_floor",
+  "dojo_history_shares_only_the_operators_it_requests",
   "dojo_history_unlock_is_confirmed_or_the_course_stops",
   "dojo_history_x10_guard_refuses_before_any_lock",
   "dojo_history_x_counts_each_signature_once_and_every_index_disagreement"
@@ -571,6 +590,12 @@
   "dojo_publish_snapshot_carries_beacon_and_reads",
   "dojo_publish_state_is_outside_public",
   "dojo_publish_writes_immutables_before_the_line"
+ ],
+ "apps/dojo/test/dojo-share.test.ts": [
+  "dojo_collect_refuses_a_missing_share_env",
+  "dojo_collect_shares_only_the_operators_it_requests",
+  "dojo_collectors_derive_their_cycle_from_the_anchor",
+  "dojo_collectors_pass_their_declared_share"
  ],
  "apps/dojo/test/dojo-verify.test.ts": [
   "dojo_price_version_recomputes_the_unit",
@@ -1646,6 +1671,7 @@
   "reconcile_course_window_isolates_one_course"
  ],
  "packages/rpc-guard/test/cycle.test.ts": [
+  "rpc_guard_cycle_anchor_offset_minutes_above_59_refused",
   "rpc_guard_cycle_of_derives_id_from_anchor_instant"
  ],
  "packages/rpc-guard/test/drand-labels.test.ts": [
@@ -1768,6 +1794,7 @@
   "repair_tail_without_lock_takes_and_releases_it"
  ],
  "packages/rpc-guard/test/share.test.ts": [
+  "rpc_guard_refusal_carries_its_reason_code",
   "rpc_guard_refuses_a_share_above_the_code_cap",
   "rpc_guard_share_caps_cumulative_spend_across_runs",
   "rpc_guard_share_exhaustion_is_a_named_refusal_before_any_call",
@@ -1862,6 +1889,7 @@
   "bell_runbook_ships_the_ca_tree_and_the_unit_key_path"
  ],
  "test/bell-deploy-constants.test.ts": [
+  "bell_deploy_authority_is_the_committed_series_authority",
   "bell_deploy_pins_the_floor_and_the_tick_timeout_bound",
   "bell_deploy_pins_the_handoff_layout",
   "bell_deploy_pins_the_proposed_values",
@@ -1886,6 +1914,11 @@
   "bell_method_public_repo_link_is_the_footer_link — one repository URL on the storefront",
   "bell_method_states_the_key_backup_principle_only — an offline backup exists and a restore is an exposure event; no count of copies, no location (decision of the owner, 2026-09-24)",
   "bell_method_volume_formula_restates_the_served_string — clause by clause, in shares per unit"
+ ],
+ "test/bell-ots-proofs.test.ts": [
+  "bell_ots_proofs_attest_heights_or_listed_calendars — every proof the walk of docs/ finds; the pending one held by its digest",
+  "bell_ots_proofs_bind_their_manifest — each .ots under docs/ outside the top level of docs/course-bell timestamps its manifest's SHA-256; no link",
+  "bell_ots_reader_refuses_an_unknown_major_version — the magic header then a major version other than 1 throws, named"
  ],
  "test/bell-publication-state.test.ts": [
   "bell_anchor_state_assertions_drive_on_synthetic_html — M-6, M-10, M-11, M-12 (pilot of T-3b)",
@@ -3493,8 +3526,12 @@
   "writer_check_reports_any_drift_in_a_copy_and_exits_by_it"
  ],
  "test/spec-publish.test.ts": [
+  "a_bom_prefixed_table_with_a_retired_row_is_refused_before_the_retire_rule",
   "a_caller_s_git_location_never_stands_in_for_the_previous_tree",
+  "a_duplicate_key_in_a_json_or_schema_text_is_refused_once_unescaped",
   "a_failed_write_leaves_out_absent_and_no_temporary_tree",
+  "a_json_text_nested_past_the_depth_bound_is_refused_as_too_deep_never_thrown",
+  "a_leading_bom_is_refused_on_every_kind",
   "a_missing_tampered_escaping_or_blacklisted_input_or_root_refuses_and_writes_nothing",
   "a_published_contract_file_is_compared_with_its_committed_object",
   "a_refused_previous_entry_carries_the_reason_git_gives",
@@ -3510,6 +3547,7 @@
   "parse_inputs_refuses_any_departure_from_the_closed_format",
   "previous_entries_are_read_from_the_pinned_commit_not_the_working_tree",
   "produce_copies_each_input_byte_for_byte_with_version_and_manifest",
+  "the_cli_refuses_a_too_deep_table_by_its_code_and_writes_nothing",
   "the_previous_tree_must_be_the_clean_top_of_its_commit_and_nothing_published_is_withdrawn",
   "the_producer_never_publishes_its_git_commands_are_reads_only_and_it_writes_once",
   "the_version_date_is_a_calendar_day_and_no_clock_is_read",
@@ -3565,8 +3603,11 @@
  ],
  "test/test-count-floor.test.ts": [
   "test_count_floor_refuses_a_file_whose_process_ended_before_it_reported",
+  "test_count_floor_refuses_a_file_whose_tests_another_test_file_ran",
+  "test_count_floor_refuses_a_nested_test_run_and_a_file_that_runs_twice_in_its_own_process",
   "test_counts_reporter_counts_each_test_of_each_file",
   "test_counts_reporter_keys_a_linked_file_by_its_real_path",
+  "test_counts_reporter_keys_each_event_by_the_process_that_sent_it",
   "test_main_loads_the_counts_reporter_and_the_export_ships_it"
  ],
  "test/test-force-exit-report.test.ts": [
