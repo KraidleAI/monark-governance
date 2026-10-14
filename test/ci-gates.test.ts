@@ -340,9 +340,12 @@ test("ci_gates_blocking_no_continue_on_error — blocking and pinned workflow (t
   // The review of fold 3 (m-D): each line is also judged through the parser, as ci.yml would carry it. bash splits words on space and tab only, so another
   //   blank between two tokens (U+00A0, U+2003, U+3000, U+FEFF, U+000B, U+000C) leaves one word for bash and must leave one token here, which (a) refuses.
   //   The review of fold 4 (O-2): the blanks are every character JavaScript's \s matches, plus U+0085 (NEL), but space and tab, so that a split
-  //   widened by any one of them (U+1680, U+202F, U+0085 included) reds.
+  //   widened by any one of them (U+1680, U+202F, U+0085 included) reds, but for the four line terminators (U+000A, U+000D, U+2028, U+2029): R25_DIFF_RE's (.+)
+  //   refuses a line holding one before the split runs, so a split widened by one of them changes nothing; the assertion after the blanks holds that refusal.
   const blanks = Array.from({ length: 0x10000 }, (_, i) => String.fromCharCode(i)).filter((c) => (/\s/.test(c) || c === "\u0085") && c !== " " && c !== "\t");
   assert.deepEqual(["\u0085", "\u00a0", "\u1680", "\u2003", "\u202f", "\u3000", "\ufeff", "\u000b", "\u000c", "\u2028", "\u2029"].filter((c) => !blanks.includes(c)), [], "the line cases' blanks hold the ones the reviews named");
+  assert.deepEqual(["\n", "\r", "\u2028", "\u2029"].filter((c) => parseR25Diff((r25Code.find((l) => l.startsWith("CONTENT_STAT=$(git diff")) ?? "").replace(/docs-\*\.json'[ \t]+'/, `docs-*.json'${c}'`)) !== null), [],
+    "a line terminator between two count-line tokens: the parser refuses the line before its split, so those four blanks need no split case");
   const lineSeen = (line: string, name: string): boolean => { const d = parseR25Diff(line), w = (d?.raw ?? [""]).map(bashWord); return d?.name !== name || w.includes(null) || JSON.stringify(name === "STAT" ? w : sorted(w as string[])) !== JSON.stringify(name === "STAT" ? STAT_PINNED : sorted(CONTENT_PATHSPECS)); };
   const statLine = r25Code.find((l) => l.startsWith("STAT=$(git diff")) ?? "", contentLine = r25Code.find((l) => l.startsWith("CONTENT_STAT=$(git diff")) ?? "";
   const lineCases: [string, string, string, boolean][] = [["the STAT line as written", statLine, "STAT", false], ["the CONTENT_STAT line as written", contentLine, "CONTENT_STAT", false],

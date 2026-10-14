@@ -185,6 +185,9 @@ test("test_count_check_holds_each_name_gone_to_its_line", () => {
   const run = (o: Record<string, string[]>): Run => Object.fromEntries(Object.entries(o).map(([f, n]) => [f, { tests: n.length, summary: true, names: n }]));
   assert.deepEqual(recordProblems(run({ a: ["one", "two", "two"], b: ["x"] }), { a: 3, b: 1 }, { a: ["one", "one", "two"], b: ["x"], c: ["y"] }),
     [`a: run and ${NAMES} differ: run only ["two"], recorded only ["one"]`, `c: run and ${NAMES} differ: run only [], recorded only ["y"]`], "P2 on names, as multisets: the exact names on each side, a file the run lacks");
+  // killer: scripts/test-count-check.mjs:83 CONST "...Object.keys(names)])].sort()" -> "...Object.keys(names)])].filter(Boolean).sort()"
+  assert.deepEqual(recordProblems(run({ a: ["one"] }), { a: 1 }, { "": ["two"], a: ["one"] }), [`: run and ${NAMES} differ: run only [], recorded only ["two"]`],
+    "a names-record key \"\" is held to the run too: no file of the run carries it (the run's tests without a file are P1's), so its names never count as gained");
   const tally = (o: Record<string, string[]>): Record<string, number> => Object.fromEntries(Object.entries(o).map(([f, n]) => [f, n.length]));
   const by = (base: Record<string, string[]>, head: Record<string, string[]>, list: unknown[], pr?: string): string[] => dropProblems(tally(base), tally(head), [], list, { base, head, ...(pr === undefined ? {} : { pr }) });
   const r = (o: Record<string, unknown>): Record<string, unknown> => ({ ...o, reason: "#12: declared in this change" });
@@ -246,11 +249,13 @@ test("test_count_check_holds_each_name_gone_to_its_line", () => {
   // killer: scripts/test-count-check.mjs:110 CONST "head[f] === undefined ? all.filter" -> "true ? all.filter"
   // killer: scripts/test-count-check.mjs:100 CONST " && !moved" -> ""
   // killer: scripts/test-count-check.mjs:111 CONST " && !moved" -> ""
+  // killer: scripts/test-count-check.mjs:111 CONST "from: base[f].length, to: 0" -> "from: all.length, to: 0"
   const moved = { b: ["one"], c: ["keeps the order", "p > c"] }, wholeA = r({ file: "a", from: 3, to: 0 }), lost = r({ file: "a", removed: "refuses a negative amount" });
   const lostHint = gone("a", "refuses a negative amount", { file: "a", removed: "refuses a negative amount" }), m = (n: string): string => gone("a", n, { file: "a", removed: n });
   const cases: [string, string[], string[]][] = [
     ["a file renamed whole, with its file-gone line", by(at, { b: ["one"], c: at.a }, [wholeA]), []],
     ["a file renamed, one test dropped, the file-gone line only: the dropped name wants its line", by(at, moved, [wholeA]), [lostHint]],
+    ["a file renamed, one test dropped and declared, no file-gone line: the file-gone line at the base count", by(at, moved, [lost]), [whole]],
     ["the same with the dropped name's line after the file-gone line", by(at, moved, [wholeA, lost]), []],
     ["the same with the dropped name's line first", by(at, moved, [lost, wholeA]), []],
     ["the same without a line: the file-gone line, and the dropped name's", by(at, moved, []), [whole, lostHint]],
