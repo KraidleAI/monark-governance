@@ -116,6 +116,12 @@
   "bell_vwap_matches_recorded_swap",
   "bell_zero_volume_abstains_never_zero_gap"
  ],
+ "apps/bell/test/checks.test.ts": [
+  "bell_checks_agree_with_q6_controls_on_runmain_and_synthetic_runs",
+  "bell_checks_c14_strict_refuses_pending_session",
+  "bell_checks_close_ref_missing_refuses_handoff",
+  "bell_checks_refuse_adv_period_across_the_sip_switch_without_ruling"
+ ],
  "apps/bell/test/close.test.ts": [
   "bell_cash_cross_scaled_integer_equality",
   "bell_cash_keyless_emits_no_request",
