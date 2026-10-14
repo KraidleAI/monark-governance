@@ -188,6 +188,9 @@ test("test_count_check_holds_each_name_gone_to_its_line", () => {
   // killer: scripts/test-count-check.mjs:83 CONST "...Object.keys(names)])].sort()" -> "...Object.keys(names)])].filter(Boolean).sort()"
   assert.deepEqual(recordProblems(run({ a: ["one"] }), { a: 1 }, { "": ["two"], a: ["one"] }), [`: run and ${NAMES} differ: run only [], recorded only ["two"]`],
     "a names-record key \"\" is held to the run too: no file of the run carries it (the run's tests without a file are P1's), so its names never count as gained");
+  // killer: scripts/test-count-check.mjs:85 CONST "alone === null ? [] : [`${f}: ${alone}`]" -> "[]"
+  assert.deepEqual([recordProblems(run({ a: ["one"] }), { a: 1 }, { a: ["one"], ghost: [] }), recordProblems(run({ a: ["one"], z: [] }), { a: 1, z: 0 }, { a: ["one"] })], [[`ghost: in ${NAMES}, not in the run`], [`z: in the run, not in ${NAMES}`]],
+    "a key without names is held too, on either side: else the records merged disagree and the next change's gate stops (exit 4)");
   const tally = (o: Record<string, string[]>): Record<string, number> => Object.fromEntries(Object.entries(o).map(([f, n]) => [f, n.length]));
   const by = (base: Record<string, string[]>, head: Record<string, string[]>, list: unknown[], pr?: string): string[] => dropProblems(tally(base), tally(head), [], list, { base, head, ...(pr === undefined ? {} : { pr }) });
   const r = (o: Record<string, unknown>): Record<string, unknown> => ({ ...o, reason: "#12: declared in this change" });
@@ -245,6 +248,7 @@ test("test_count_check_holds_each_name_gone_to_its_line", () => {
   //   since the base and no rename line took, each such name once; a name that reappears nowhere takes its own line.
   // killer: scripts/test-count-check.mjs:110 CONST ", gone = minus(all, back)" -> ", gone = moved ? [] : minus(all, back)"
   // killer: scripts/test-count-check.mjs:107 CONST "at.flatMap((x) => x.gained)" -> "at.flatMap((x) => head[x.f] ?? [])"
+  // killer: scripts/test-count-check.mjs:107 CONST "at.flatMap((x) => x.gained)" -> "at.filter((x) => base[x.f] === undefined).flatMap((x) => x.gained)"
   // killer: scripts/test-count-check.mjs:110 CONST "if (k >= 0) pool.splice(k, 1); " -> ""
   // killer: scripts/test-count-check.mjs:110 CONST "head[f] === undefined ? all.filter" -> "true ? all.filter"
   // killer: scripts/test-count-check.mjs:100 CONST " && !moved" -> ""
@@ -263,6 +267,7 @@ test("test_count_check_holds_each_name_gone_to_its_line", () => {
     ["a name a rename line took covers no moved test", by({ a: ["m"], b: ["x"] }, { b: ["m"] }, [r({ file: "b", renamed: "x", to: "m" }), r({ file: "a", from: 1, to: 0 })]), [m("m")]],
     ["one name gained covers one moved test: two equal names gone, one back", by({ a: ["m", "m"] }, { c: ["m"] }, [r({ file: "a", from: 2, to: 0 })]), [m("m")]],
     ["a test moved between two files still there: its line, as before", by({ a: ["x", "y"] }, { a: ["y"], c: ["x"] }, []), [gone("a", "x", { file: "a", removed: "x" })]],
+    ["a file merged whole into a file still there, with its file-gone line", by(at, { b: ["one", ...at.a] }, [wholeA]), []],
     ["a second file-gone line",by(at, { b: ["one"], c: at.a }, [wholeA, { ...wholeA, reason: "#12: declared in this change again" }]), [`${REMOVALS}: ${JSON.stringify({ ...wholeA, reason: "#12: declared in this change again" })} names no file gone since the base, at its count`]],
   ];
   assert.deepEqual(cases.filter(([, got, want]) => JSON.stringify(got) !== JSON.stringify(want)).map(([n, got]) => `${n}: ${JSON.stringify(got)}`), [],
