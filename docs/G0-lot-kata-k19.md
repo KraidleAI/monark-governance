@@ -90,3 +90,58 @@ Each under `offline.mjs --no-egress` (0 refused attempts expected); the campaign
 - The Windows replay of the file and of `every_killer_line_is_readable` (MONARK's, at the merge). The test writes no path, so case
   folding plays no part.
 - PAROXYSME's corrected tool (#259, not merged): not run.
+
+## 5. As built
+
+Built 2026-10-14 by RECHERCHES (`claude-opus-5-5`, effort high), Node 24.21.0; every run below under `offline.mjs --no-egress`, 0 refused
+attempts each; the campaigns, red-proof, `tsc`, eslint and `npm run test:main` took the shared host lock.
+
+**Commits** on `recherches/kata-k19`, on the trunk head `971eda88` (unchanged at the start and at 05:57 UTC): `d76baa10`, this note
+(documents only); `b345a2f2`, the test change (`apps/harness/test/gate-kata-served.test.ts`, 3 lines added, 1 removed, byte for byte the
+measured throwaway form); then this section. No pull request is opened: a fresh review comes first.
+
+**The campaigns** (the trunk's `scripts/mutants/run.mjs --killers --only K130,…,K144`, `--base 357ef25f`, the fifteen killer lines of the
+file; the ids are the same at both heads; `tool_sha256` `13b2b11f…`, `tool_dirty` null):
+
+| Run | Head | Baseline | tue | survit | non conclu |
+|---|---|---|---|---|---|
+| before | `971eda88` | green, 69 files, 560 entries | 14 | none | K140 (K19) |
+| after | `b345a2f2` | green, 69 files, 560 entries | 15 | none | none |
+
+The one verdict that moves is K19's: « non conclu » (T-4 red by `ERR_TEST_FAILURE`, the tripwire's exception) to « tue » (T-4 red by
+`ERR_ASSERTION`, the new assertion, message "servedPolicyTables serves the two committed tables byte for byte, and no other kata table
+holds a row"). The fourteen others, K130 to K139 and K141 to K144 (K144 is the other killer on l.118, of `kata_path_and_server_load_cold`),
+read « tue » in both runs.
+
+**Red-proof**: `node scripts/red-proof.mjs --base 971eda88 --gel b345a2f2 --test-only`: OK, 1 judged
+(`committed_tables_reach_the_gate_through_the_seam`), 1 pinned (green at the base and at the gel, its declared killer fired at the gel red
+by `ERR_ASSERTION`), 14 unchanged, 0 killers drawn, no refusal; the declaration read is this note's.
+
+**The suite and the count**: `npm run test:main` at `b345a2f2`: 2973 tests, 2951 pass, 0 fail, 22 skipped. `node
+scripts/test-count-floor.mjs write`: 290 files, 2973 tests, no diff to `test/test-counts.json`, so the record is not committed. `node
+scripts/test-count-check.mjs --base origin/lot/etude-suite`: equal to the record, 0 drops from the base.
+
+**Checks**: `npx tsc --noEmit` 0; eslint on the test file 0; `lint:ratchet` 69/69; `gate:vocab`, `lang:gate`, `export:check` OK; winlint
+(2 files) no hazard; `git diff --check` clean; r1scan 0 on each commit before its push. The anchor checker (`verifie-ancres.mjs <tree>
+--ref 971eda88`): 1791 killer lines, 1791 anchored, 0 drifted, 0 lost.
+
+**Size** (R-25 in the CI form, the pathspec of `.github/workflows/ci.yml` l.100, against `origin/lot/etude-suite`): 1 file, 3 lines added,
+1 removed, 4 in all; the bound read at `.github/workflows/ci.yml` l.56 is 1205.
+
+**Departures from the plan**: none in the change. The first push of the branch used a refspec with a leading `+` on a branch that did not
+exist yet (nothing was overwritten); the later pushes use none.
+
+**Not verified here**: the Windows replay of the file and of `every_killer_line_is_readable` (MONARK's, at the merge); #259's tool (not
+merged, not run); the killers of other test files that reach `apps/harness/src/kata-path.ts` (only the fifteen of this file were run).
+
+**Evidence**, under the author's scratchpad (`kata-k19/`):
+
+| File | sha256 |
+|---|---|
+| campaign before: `runs/before/RESULTS.json`, `RESULTS.txt`, `tap/K140.tap`, `tap/K140.replay.tap`, `logs/before.stdout.log` | `138a485f…`, `62a3115c…`, `6ceedc95…`, `e83ca602…`, `c7bdb5bf…` |
+| campaign after: `runs/after/RESULTS.json`, `RESULTS.txt`, `tap/K140.tap`, `logs/after.stdout.log` | `83a8539b…`, `840e0607…`, `742fe5e5…`, `5820d479…` |
+| both verdict lists: `logs/verdicts-before-after.txt` | `790f88cb…` |
+| red-proof: `runs/redproof/RED-PROOF.json`, `pin-1.tap`, `logs/redproof.log` | `fdd5e47c…`, `74849633…`, `23bc694e…` |
+| the throwaway form: `logs/proto.diff`, `logs/proto-mutated.tap` | `79e2ea92…`, `95707a91…` |
+| suite and count: `logs/testmain.log`, `logs/countwrite.log`, `logs/countcheck.log` | `d48f29a6…`, `027eece1…`, `0e228620…` |
+| checks: `logs/anchors.log`, `logs/size.log`, `logs/tsc.log`, `logs/eslint.log`, `logs/winlint.log` | `e4b74253…`, `d2257460…`, `a904264b…`, `37a449bd…`, `f8265674…` |
