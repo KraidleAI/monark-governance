@@ -61,7 +61,7 @@ const TO_CREATE = /^#{1,6}\s.*(?:[\u00e0a]\s+cr[\u00e9e]er|to\s+create)/iu;
 const HEAD = /^#{1,6}\s/;
 const LOCK = /(?:^|[/._-])lock\/?$/i;
 const SCRIPT = /\.(?:ps1|sh|mjs|cjs|js|py)$/i;
-const BRANCH_RE = new RegExp(`(?<![${W}./\\\\~+{}-])(?<!\\{[^{}\\s\`]+)lot/[${W}][${W}./-]*`, "gu"); // never a lot/ that a path holds (after SEG's chars)
+const BRANCH_RE = new RegExp(`(?<![${W}./\\\\~+-])lot/[${W}][${W}./-]*`, "gu"); // not after W ./\ ~ + -, nor strictly inside a PATH_RE read of its line (l.155)
 const BASE_RE = new RegExp(`(?<![${W}-])base(?:\\s+tronc)?\\s*[:=]?\\s*\`?([0-9a-f]{7,40})(?![${W}])`, "iu");
 const ALT_BASE_RE = new RegExp(`(?<![${W}])(?:--base\\s+|gel\\s*[:=]?\\s*)\`?([0-9a-f]{7,40})(?![${W}])`, "iu");
 const MODEL_RE = /(?<![\w-])claude-(?:opus|sonnet|haiku|fable)(?:-[a-z0-9]+)*/giu;
@@ -152,7 +152,7 @@ export function lintMission({ text, missionPath, repo, rev = null, host = true }
       }
     }
     for (const b of line.matchAll(BRANCH_RE)) {
-      const name = b[0].replace(/[./-]+$/, "");
+      const name = b[0].replace(/[./-]+$/, ""); if ([...line.matchAll(PATH_RE)].some((r) => r.index < b.index && b.index < r.index + r[0].length)) continue;
       if ((quoted(b.index) || /branche?\s+$/i.test(line.slice(0, b.index))) && branches !== null && !branches.has(name)) hit("R-BRANCH", ln, `${name} absent from git branch --list`);
     }
     for (const m of prose.matchAll(PLACEHOLDER)) hit("R-PLACEHOLDER", ln, m[0]);

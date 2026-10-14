@@ -659,10 +659,12 @@ claude-opus-5-5
   scripts/test-count-floor.mjs write` sans changement des relevés ; contrôle des comptes contre `fd20e9fa` ; R-25 **679** ; campagne
   des tueurs (`scripts/mutants/run.mjs --repo <W> --base fd20e9fa --killers --targets <les deux tests>`, gel `ff9f6a26`,
   18:15:28-18:17:50Z) : 130/130 tués, sortie 0 (`scratchpad/m5c/fd20/mut/RESULTS.json`, sha256 `69a8dc282549d7e6…`). Recomptés par
-  le troisième pli : `write` sur une copie `git archive ff9f6a26` avec le `test-counts.out.json` de W (sha256 `94543bd4…`) : « 301
-  files, 3087 tests », les deux relevés identiques à la tête (`cmp`) ; `node scripts/test-count-check.mjs --base
-  origin/lot/etude-suite` : « 0 drop(s) from the base fd20e9fa4bbc », sortie 0 ; `r25()` sur un `git clone --shared` de W à
-  `ff9f6a26`, son `ci.yml`, contre `fd20e9fa` : 595 + 84 = 679, GREEN ; le sha256 du `RESULTS.json` ci-dessus.
+  la seconde vérification courte (`scratchpad/m5c/verif2/rendu.json`, `verifie.4_releves` et `5_texte_taille`, 18:18Z-18:41Z, avant
+  le troisième pli ; erratum du quatrième pli, C3-2) : `write` sur une copie à `ff9f6a26` avec le `test-counts.out.json` de W (sha256
+  `94543bd4…`) : « 301 files, 3087 tests », les deux relevés inchangés (`sha256 -c`) ; dans W, `node scripts/test-count-check.mjs
+  --base origin/lot/etude-suite` : « 0 drop(s) from the base fd20e9fa4bbc », sortie 0 ; `r25()` sur un `git clone --shared` de W à
+  `ff9f6a26`, son `ci.yml`, contre `fd20e9fa` : 595 + 84 = 679, GREEN. Le sha256 du `RESULTS.json` ci-dessus : recompté par la
+  troisième vérification courte (`verif3/rendu.json`, `verifie.1_C1_C5`) et par le quatrième pli (`sha256sum`).
 - **Troisième pli (C-1 à C-5 de la vérification courte neuve, `scratchpad/m5c/verif2/rendu.json`), 2026-10-14 18:43Z-19:10Z
   (`date -u`)** : worker `claude-opus-5-5`, effort `high`, sans commit ni push (R-20). **C-1** : `lint.mjs` l.128 calcule `c`, la
   longueur de la citation que `PATH_RE` lit au début du span, ses blancs remplacés par `_` (que `SEG` admet) : le chemin s arrête au
@@ -743,14 +745,75 @@ claude-opus-5-5
   vérificateur, les 37 du troisième pli, les 25 de ce pli et les 4 000 tirés ; le premier tirage, avant (3), en montrait 4, toutes
   de la forme `:13lot/…` ou `:1-13lot/…`. Prose (`pli3b/bin/prose.mjs`, 29 sondes, copie de `97c8e297` contre copie pliée) :
   « branch lot/x », « this lot/pair word », la phrase du test R-BRANCH, `lot/a,lot/b`, `lot/a;lot/b` inchangés ; seuls changent les
-  `lot/` après `+`, `~`, `{`, `}` ou dans un groupe d accolades, même hors d un chemin (`{lot/gone}`, `x+lot/gone` : plus de
-  R-BRANCH). R-25 : `r25()` sur un clone de mesure (l arbre plié commis en `a216f01f` sur `97c8e297`, HOME vide sous le
+  `lot/` après `+`, `~`, `{`, `}` ou dans un groupe d accolades. Le quatrième pli (ci-dessous) remplace `{`, `}` et le regard des
+  accolades par la règle exacte : un `lot/` strictement à l intérieur d une lecture de `PATH_RE` de sa ligne n est pas une branche
+  (`x+lot/gone`, `{a}lot/gone`) ; un `lot/` qui commence une lecture, ou qu aucune ne tient (`{lot/gone}`, `{a,lot/gone}`), l est.
+  R-25 : `r25()` sur un clone de mesure (l arbre plié commis en `a216f01f` sur `97c8e297`, HOME vide sous le
   brouillon ; le G1 n entre pas dans la mesure), contre `fd20e9fa` : 623 + 86 = **709**, GREEN (porte CI 1 205), avant la
   réécriture des relevés par PAROXYSME. `eslint` sur les deux tests 0 ; `tsc --noEmit -p tsconfig.json` 0 ; `lang-gate` 0 hit, 0 ;
   `gate:vocab` 356 fichiers, 0 ; `git diff --check` 0 ; plus longue ligne neuve de code ou de test : 159 points de code.
+- **Têtes depuis le pli 3 bis ; mesures de PAROXYSME et de la troisième vérification courte (C3-5 ; ligne datée du 2026-10-14, 21:07Z,
+  `date -u`)** : `6cec29c7` (19:39:37Z, `TZ=UTC git log`, parent `97c8e297`), commit du pli 3 bis par PAROXYSME ; `5771414b` (19:39:37Z,
+  « Merge the trunk », parents `6cec29c7`, `1d40ed81`) fusionne la tête du tronc `1d40ed81` (#275) ; `747c2405` (19:46:57Z, parent
+  `5771414b`, « Record the renamed comparison test ») relève dans `test/test-names.json` le nom renommé du test de comparaison ;
+  `99ecb30a` (20:09:08Z, « Merge the trunk », parents `747c2405`, `db31f879`) fusionne le tronc `db31f879` (#274) ; `37fe36e9`
+  (20:39:15Z, « Merge the trunk », parents `99ecb30a`, `76dc31fd`) fusionne le tronc `76dc31fd` (#276), base de la PR. Parmi les dix
+  fichiers de la PR (`git diff --name-only 76dc31fd 37fe36e9`), seuls `test/test-counts.json` et `test/test-names.json` changent au
+  tronc de `1d40ed81` à `db31f879` et de `db31f879` à `76dc31fd`, et dans la branche de `747c2405` à `99ecb30a` et de `99ecb30a` à
+  `37fe36e9` (`git diff --name-only`, relu par le quatrième pli). **Mesures de la troisième vérification courte**
+  (`scratchpad/m5c/verif3/rendu.json`, 19:49Z-20:38Z, sur `747c2405`) : `test:main` dans un clone, 3 090 tests, 3 068 verts, 22 sautés,
+  0 rouge ; `test-count-check --base 1d40ed81` 0 baisse ; `write` sans changement des relevés ; campagne des tueurs contre `1d40ed81` :
+  143/143 (sha256 `c65a331025ee07ba…`) ; R-25 623 + 86 = **709** ; verdict CORRECTIONS, C3-1 (M), C3-2 à C3-5 (m), pliés ci-dessous.
+  **Mesures de PAROXYSME sur `99ecb30a`** (rapportées par la mission du quatrième pli) : `npm run test:main` 3 093 tests, 3 071 verts,
+  22 sautés, 0 rouge (journal `scratchpad/m5c/testmain-99ec.log`, écrit à 20:16:31Z, ces comptes relus par le quatrième pli) ;
+  `test-count-check --base db31f879` 0 baisse ; CI 13/13, runs 38630728989 et 38630721965 (non relus ici, sans réseau). **Sur
+  `37fe36e9`** (rapporté par l appel du quatrième pli) : `test:main` 3 096 tests, 0 rouge (journal `testmain-37fe.log`, écrit à
+  20:44:37Z : 3 074 verts, 22 sautés, relus) ; `test-count-check --base 76dc31fd` 0 baisse.
+- **Quatrième pli (C3-1 à C3-5 de la troisième vérification courte, `scratchpad/m5c/verif3/rendu.json`), 2026-10-14 20:45Z-21:14Z (`date
+  -u`)** : worker `claude-opus-5-5`, effort `high`, sans commit ni push (R-20) ; mission de PAROXYSME
+  (`scratchpad/m5c/MISSION-PLI4-260.md`, décision : tout construire, rien en item) ; arbre de départ `37fe36e9` ; les numéros de ligne
+  de cette ligne sont ceux de l arbre plié. **C3-1** : `lint.mjs` l.64, le premier regard arrière de `BRANCH_RE` perd `{` et `}` et
+  garde `~` et `+` ; le regard des accolades, `(?<!\{[^{}\s`]+)`, est retiré ; l.155 : un `lot/` dont l index tombe strictement à l
+  intérieur d une lecture de `PATH_RE` de sa ligne (lectures `[...line.matchAll(PATH_RE)]`, `r.index < b.index < r.index + r[0].length`)
+  est sauté. Le commentaire de la l.64 dit ces deux règles. Sondes (`pli4/branch.out`, `verif3/bin/branch.mjs` sur les 47 sondes de
+  `verif3/branch.out`, `37fe36e9` contre l arbre plié) : les 14 sondes qui perdaient R-BRANCH le rendent, les 33 autres sont inchangées,
+  dont « branch `lot/gone` », « branche lot/gone » et la phrase du test (« this lot/pair word ») ; les sorties de l arbre plié sont
+  celles du prototype du vérificateur (`verif3/br-fix.out`, `diff` vide). Test R-BRANCH (`test/mission-lint.test.ts` l.93-101) :
+  `{lot/gone}`, `{a,lot/gone}`, `{"branch":"lot/gone"}` (rouges à `37fe36e9`), `{a, lot/gone}` et ``{a`lot/gone` `` (verts à `37fe36e9`)
+  : R-BRANCH ; `docs/ten.md{lot/zz}` : R-PATH seul ; `docs/ten.md:3+lot/zz` et `docs/ten.md:3~lot/zz` : rien (un `lot/` collé au suffixe
+  de ligne par `+` ou `~`, qu aucune lecture ne tient : le regard de la l.64). `docs/ten.md+lot/zz` (l.95) et, au test de comparaison,
+  `x.md+lot/zz`, `x.md{lot/zz}`, `x.md{a}lot/zz` : R-PATH seul dans les deux formes. Tueurs l.89-92 : `:64 "~+" -> "~"` (gardé : son
+  ancre est unique sur la l.64 neuve et `:3+lot/zz` le tue), `:64 "~+" -> "+"`, `:155 "r.index < b.index" -> "r.index <= b.index"`,
+  `:155 "continue;" -> "void 0;"` ; retirés, leur ancre ayant disparu : les quatre tueurs `:64` des accolades (l.374-377 de `747c2405`).
+  **C3-2** : les trois recomptes (`write`, `test-count-check`, R-25 679) sont attribués à la seconde vérification courte (l.661-667).
+  **C3-3** : sans objet, le regard des accolades n existe plus. O3 et O5 du vérificateur, rejoués sur une copie pliée
+  (`pli4/mutO/RESULTS.json`) : « anchor occurs 0 times » ; les deux formes qu ils visaient (`{a, lot/gone}`, ``{a`lot/gone` ``) sont au
+  test R-BRANCH ; le pli 3 bis remis sur l arbre plié (`{}` au premier regard ; le regard des accolades) : tués par assertion sur le
+  test R-BRANCH. **C3-4** : un répertoire au nom portant une espace insécable (U+00A0, l.386) au test de comparaison, `x.md:13` dans les
+  deux formes : R-LINE (l.411-412) ; tueur `:128 CONST "/\\s/gu, \"_\"" -> "/ /gu, \"_\""` (l.382). **C3-5** : la ligne précédente et
+  celle-ci. **Mesures** (Node 24.21.0, `TMPDIR` sous `scratchpad/m5c/pli4/`) : rouge d avant, le seul fichier de test remplacé sur une
+  copie `git archive 37fe36e9` : 41 tests, 37 verts, 1 rouge par assertion (R-BRANCH : `[]` pour les trois premiers cas), 3 sautés ; cas
+  par cas (`pli4/bin/newcases.mjs`), ces trois rouges à `37fe36e9`, 0 à l arbre plié ; le cas U+00A0, vert à `37fe36e9` et à l arbre
+  plié, rend sous O7 R-PATH `Z:/cmp/no absent`. Les deux fichiers de test sur W : 88 tests, 85 verts, 3 sautés, sortie 0. Campagne
+  (`scripts/mutants/run.mjs --repo <W> --base 76dc31fd --killers --targets <les deux tests>`, 21:02:51-21:05:36Z) : 143/143 tués, tous
+  stricts, sortie 0 (`pli4/mut/RESULTS.json`, sha256 `f9b5c70610fcf62d…`), K85-K88 (l.89-92) et K140 (l.382) tués par assertion sur leur
+  test nommé. Mutants du vérificateur rejoués sur une copie pliée, les deux fichiers entiers (`verif3/bin/mut.mjs`) : O7 tué par
+  assertion (88 tests, 84 verts) ; O3, O5 : ancre perdue ; A14 survit (88 tests, 85 verts) et reste équivalent : aucune citation de
+  lecteur ne finit sur `{`, ni sur un `}` suivi de `lot/` (`SEG` continue sur `l`), et la suite du span est lue de même dans les deux
+  voies, lectures de `PATH_RE` comprises ; sorties de l arbre plié et de la copie A14 identiques sur 2 × 3 000 lignes
+  (`verif3/bin/diff2.mjs`, graines 4242 et 31337) et sur les 15 fichiers de cas ci-dessous. Comparaison des deux formes
+  (`verif2/bin/e2e.mjs`) à l arbre plié : 0 divergence sur 4 322 cas (76 + 3 + 3 de `verif3`, 2 × 2 000 + 37 + 15 + 4 + 6 + 2 + 63 de
+  `pli3b`, 7 + 6 + 37 + 63 de `pli3`) ; `verif3/bin/forms.mjs` : 0 divergence sur 2 × 3 000 lignes (graines 4242 et 31337). R-25 :
+  `r25()` sur un clone de mesure (l arbre plié commis en `ca71e52f` sur `37fe36e9`, HOME vide), contre `76dc31fd` : 632 + 87 = **719**,
+  GREEN (porte CI 1 205), avant la réécriture des relevés par PAROXYSME. `eslint` sur les deux tests 0 ; `tsc --noEmit -p tsconfig.json`
+  0 ; `lang-gate` 0 hit, 0 ; `gate:vocab` 356 fichiers, 0 ; `git diff --check` contre `76dc31fd` et contre `37fe36e9` 0 ; plus longue
+  ligne neuve de code ou de test : 160 points de code (`lint.mjs` l.64).
 - **Écarts et traces** : écritures dans les fichiers de la liste seulement ; `test/test-count-removals.json` inchangé (aucun nom de la
   base ne disparaît). Aucun `GIT_DIR`, aucun `--write-tree`, aucun réseau ; les commits de mesure sont dans des clones sous le brouillon,
   jamais dans le dépôt. Troisième pli : W n est écrit que dans `lint.mjs`, `test/mission-lint.test.ts` et ce G1 ; son commit de mesure
   (`0b9d4a78`) est dans un clone sous le brouillon, avec un HOME vide ; copies de mutants effacées.
   Pli 3 bis : W n est écrit que dans `lint.mjs`, `test/mission-lint.test.ts` et ce G1 ; son commit de mesure est dans un clone
   sous le brouillon (`pli3b/r25clone`), avec un HOME vide ; copies effacées après usage.
+  Quatrième pli : W n est écrit que dans `lint.mjs`, `test/mission-lint.test.ts` et ce G1 ; son commit de mesure (`ca71e52f`) est
+  dans un clone sous le brouillon (`pli4/r25clone`, `git clone --shared --no-checkout` extrait sans `apps/site/data` ni le fichier de
+  scores), avec un HOME vide ; le clone de la campagne, fait par `run.mjs`, et les copies sont effacés après usage.

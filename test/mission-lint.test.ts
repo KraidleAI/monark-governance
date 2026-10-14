@@ -87,9 +87,17 @@ test("R-PATH: an absent path is red; declared to-create, lock, outside the roots
 });
 
 // killer: scripts/mission/lint.mjs:64 CONST "~+" -> "~"
+// killer: scripts/mission/lint.mjs:64 CONST "~+" -> "+"
+// killer: scripts/mission/lint.mjs:155 CONST "r.index < b.index" -> "r.index <= b.index"
+// killer: scripts/mission/lint.mjs:155 CONST "continue;" -> "void 0;"
 test("R-BRANCH: a lot/ branch absent from git branch --list is red, a lot/ word in prose is not [mutants: R-BRANCH check removed; prose lot/ word taken as a branch]", () => {
   assert.deepEqual(red(H("Rebase onto `lot/absent`; this lot/pair word; branch lot/gone.")), ["R-BRANCH", "R-BRANCH"]);
   assert.deepEqual(red(H("Read `docs/ten.md+lot/zz`.")), ["R-PATH"]); // a lot/ after + inside a cited path is part of the path, not a branch
+  // A lot/ that starts a PATH_RE read, or that no read holds, is a branch (in braces, in a JSON value, after a blank or a backtick); one
+  // strictly inside a read is the path's (docs/ten.md{lot/zz}); one glued by + or ~ to a line suffix is not a branch either
+  const inputs = ["`{lot/gone}`", "`{a,lot/gone}`", "`{\"branch\":\"lot/gone\"}`", "`{a, lot/gone}`", "{a`lot/gone`", "`docs/ten.md{lot/zz}`",
+    "`docs/ten.md:3+lot/zz` and `docs/ten.md:3~lot/zz`"];
+  assert.deepEqual(inputs.map((c) => red(H(`Read ${c}.`))), [["R-BRANCH"], ["R-BRANCH"], ["R-BRANCH"], ["R-BRANCH"], ["R-BRANCH"], ["R-PATH"], []]);
 });
 
 test("R-BASE: a base absent or unknown to the repository is red [mutants: absent base accepted; unknown base accepted]", () => {
@@ -371,13 +379,11 @@ test("drive path with a blank: its line suffix is split from the path, so a line
 // killer: scripts/mission/lint.mjs:52 CONST "[^:])*)" -> ".)*?)"
 // killer: scripts/mission/lint.mjs:52 CONST "[A-Za-z]:[\\\\/](?:" -> "[A-Za-z]:\\/(?:"
 // killer: scripts/mission/lint.mjs:52 CONST "\\{[^{}]*\\}|" -> ""
-// killer: scripts/mission/lint.mjs:64 CONST "~+{}" -> "+{}"
-// killer: scripts/mission/lint.mjs:64 CONST "+{}-" -> "+}-"
-// killer: scripts/mission/lint.mjs:64 CONST "{}-]" -> "{-]"
-// killer: scripts/mission/lint.mjs:64 CONST "(?<!\\\\{[^{}\\\\s\\`]+)" -> ""
+// killer: scripts/mission/lint.mjs:128 CONST "/\\s/gu, \"_\"" -> "/ /gu, \"_\""
 test("drive path with a blank: the hits of the same path without a blank (a line in, past or after the span, end text, backslashes, text order)", () => {
   const top = WIN ? join(T, "cmp") : join(T, "Z:", "cmp"), cwd = process.cwd(); // off Windows: a relative "Z:"
   for (const d of ["with two blanks", "noblank"]) { mkdirSync(join(top, d, "sub"), { recursive: true }); writeFileSync(join(top, d, "x.md"), TWELVE); }
+  mkdirSync(join(top, "no\u00a0break")); writeFileSync(join(top, "no\u00a0break", "x.md"), TWELVE); // a no-break space (U+00A0) in its name
   const at = WIN ? top.replace(/\\/g, "/") : "Z:/cmp", back = WIN ? top : "Z:\\cmp"; // the same directory, with / and with \
   // [before the span, after the directory, after the span, separator]: ends SEG does not admit, then \, emphasis, a second cite, text order;
   // then a lot/ inside the path after a character SEG admits (+, ~, {, }, a brace group), a : inside a brace group, text right after a line
@@ -402,5 +408,7 @@ test("drive path with a blank: the hits of the same path without a blank (a line
     // killer: scripts/mission/lint.mjs:148 CONST "LTAIL.exec(line.slice(after))" -> "LTAIL.exec(\"\")"
     // killer: scripts/mission/lint.mjs:129 CONST "found.push([p.replace(/\\.+$/, \"\"), n," -> "found.push([p.replace(/\\.$/, \"\"), n,"
     assert.deepEqual(cases.map((c) => [hits("with two blanks", c), hits("noblank", c)]), want.map((w) => [w, w]));
+    // a directory with a no-break space (U+00A0), a blank that \s reads and SEG does not admit: a line past the end, as without a blank
+    assert.deepEqual([hits("no\u00a0break", ["", "x.md:13", ""]), hits("noblank", ["", "x.md:13", ""])], [past, past]);
   } finally { process.chdir(cwd); }
 });
