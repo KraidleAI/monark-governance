@@ -1381,7 +1381,7 @@ formés et les actes du G7 de #256. Deux lignes corrigées en place (ETAT l.507 
   Tout travail de MONARK pour les katas vient après la page (P0, recalcul P2, revue P3, site P4,
   F-K-7, D10, F-K-1), sauf décision de l'investisseur. Item LIVE-1-RECORD-1 : enregistrer le bloc LIVE-1 (2026-10-01 → 2027-01-01) avec
   le même enregistreur ; déclencheur 2027-01-01 après minuit UTC ; conditions de Binance relues ce jour-là ; sha256 postés à RECHERCHES.
-- **Dépôt `monark-governance` privé** depuis le 01/10 au moins : aucun push sans vérification préalable de la visibilité et accord de l'investisseur (une CI lancée par erreur à 01:04 UTC, annulée).
+- **Dépôt `monark-governance` public** (relevé le 2026-10-13 ; il était privé le 01/10 ; le fondateur, le 2026-10-14 : « Oui, public voulu ») : rien des chantiers ni des recherches n'y est écrit ; seules les lignes publiques devenues fausses y sont corrigées.
 - **Items de méthode de la partie du site, formés le 2026-10-03 à 08:37 UTC** (correcteur DOJO-SITE-PART-CORR-1, `claude-opus-5-5`, décision D-4 de
   l'orchestrateur ; G2 de la partie, `F:/tmp/dojo/g2-partie/G2-RAPPORT.md`, sha256 `df4f335e…` ; propriétaire : orchestrateur) :
   - METHODE-SITE-BUILD-CLONE-1 (outillage) : `npm run build -w @monark/site` échoue sur un clone à jonctions, car `node_modules/next` y est
