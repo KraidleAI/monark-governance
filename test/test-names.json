@@ -654,6 +654,7 @@
   "describe_gate_kata_clause",
   "entry_points_never_pass_policy_tables",
   "kata_class_text_is_table_text_plus_suffix",
+  "kata_clause_follows_the_committed_pins",
   "kata_clause_reads_its_names_and_tau_cap",
   "kata_clause_refuses_duplicate_classes",
   "kata_path_and_server_load_cold",
