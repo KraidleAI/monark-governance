@@ -58,3 +58,18 @@ test("bell_deploy_authority_is_the_committed_series_authority", () => {
   const prefixes = [...line.matchAll(new RegExp(`${tick}([1-9A-HJ-NP-Za-km-z]{6,})${ellipsis}${tick}`, "g"))].map((m) => m[1]), prefix = prefixes.length === 1 ? prefixes[0] : undefined;
   assert.ok(prefix !== undefined && prefix.length >= 6 && String(authority).startsWith(prefix), `the ADR's prefix ${String(prefix)}`);
 });
+
+// killer: scripts/bell-deploy.mjs:55 CONST "0o2750" -> "0o750"
+test("bell_deploy_pins_the_handoff_layout", () => {
+  const d = deploy as Record<string, unknown>, layout = d.BELL_LAYOUT as Record<string, { path: string; owner: string; group: string; mode: number }>;
+  assert.deepEqual([d.BELL_COLLECT_USER, d.BELL_PUBLISH_USER, d.BELL_HANDOFF_GROUP, d.BELL_STAGING_PREFIX], ["bell-collect", "bell", "bell-handoff", ".tmp-"], "the two users, the handoff group and the staging prefix");
+  assert.deepEqual(layout, {
+    collect: { path: "/var/lib/monark-bell-collect", owner: "bell-collect", group: "bell-collect", mode: 0o700 },
+    handoff: { path: "/var/lib/monark-bell-handoff", owner: "bell-collect", group: "bell-handoff", mode: 0o2750 },
+    status: { path: "/var/lib/monark-bell-status", owner: "bell", group: "bell-handoff", mode: 0o2750 },
+    state: { path: "/var/lib/monark-bell", owner: "bell", group: "bell", mode: 0o755 },
+  }, "the four directories of the handoff layout: owner, group and mode each (setgid on the two handoff sides)");
+  assert.ok(Object.isFrozen(layout) && Object.values(layout).every((x) => Object.isFrozen(x)), "frozen: no caller widens it");
+  const paths = Object.values(layout).map((x) => x.path);
+  assert.deepEqual(paths.filter((p) => paths.some((q) => p.startsWith(`${q}/`))), [], "no directory nested in another: each is top-level");
+});
