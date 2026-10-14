@@ -780,6 +780,131 @@ No killer is added or moved: no script changes.
 - red-proof cannot judge test 38's fold (above).
 - `STAT_PINNED` must be edited by any later change of the `STAT=` line, on the trunk too: by design, not measured.
 
+## 17. Fold 4 (2026-10-14)
+
+By the fourth fold's author instance (RECHERCHES, `claude-opus-5-5`, effort high), a fresh instance distinct from this note's author, the
+build's, the three earlier folds' and the reviews'. The review: recherches
+`coordination/pieces/2026-10-14-g2d1-test-count-names/G2-test-count-names-fold3.json`, verdict CORRECTIONS, one minor (m-D), at
+`fcd73a7d`, reconciled with a bypass hunter's report (no new M or m; one nit, n-1). Every run below was offline (`offline.mjs
+--no-egress`, 0 refused attempts in every log), each full suite under the shared host lock and each mutation campaign with `--lock-root`.
+The `file:line` addresses of this section hold at `b2832e68`, whose code files equal this fold's head. `ci.yml` and the ADR are unchanged.
+
+### 17.1 Commits
+
+| Commit | What |
+|---|---|
+| `d81ccfec` | Merge of the trunk `a96c70ea` (#268, which adds `apps/bell/test/checks.test.ts`, 4 tests), no conflict, `git show --remerge-diff` empty |
+| `1d4109e5` | The names record: `npm run test:main` then `write` on that merge (+6 lines, #268's file; the counts record came with the merge) |
+| `949120e1` | Tests first: the line cases of m-D (17.3) and three rows of the `bashWord` table; red at the merge |
+| `2436fb88` | The fold: the split on space and tab only, the comments, the cases built from the line whatever its ASCII blanks, the control a run of a space and a tab |
+| `5c068cd9` | Merge of the trunk `5b1bd0fe` (#269, which adds `packages/rpc-guard/test/share.test.ts`, 4 tests), read just before the push; no conflict, `--remerge-diff` empty |
+| `b2832e68` | The names record again: `npm run test:main` then `write` on that merge (+6 lines) |
+| this commit | This section |
+
+### 17.2 The finding and its fold
+
+**m-D** (`test/ci-gates.test.ts:107` at `fcd73a7d`): `parseR25Diff` split the tokens of a count line on JavaScript's `\s+`, which also
+matches U+00A0, U+2003, U+3000 and U+FEFF (and U+000B, U+000C). bash splits words on space and tab only. One such blank in place of the
+space between two tokens passed test 38, while bash joined the two tokens into one word: after `.` on the `STAT=` line the CODE count fell
+to 0 (only seven tests of `test/r25-integration.test.ts` caught it, in `test:main`); between two `CONTENT_STAT=` tokens the CONTENT count
+fell to 0 and nothing caught it. Folded at `b2832e68`:
+
+- `test/ci-gates.test.ts:108`: `m[2].split(/[ \t]+/)`. Any other blank now stays inside a token. In the bare form `bashWord` refuses it; a
+  quoted token holding it is one word for bash as written, and that word is not in `STAT_PINNED` nor in the five CONTENT paths, so (b)
+  reds. Either way test 38 reds, as the paired runs show (17.3).
+- The comments say so, at `test/ci-gates.test.ts:100-103` (above the parser) and `test/ci-gates.test.ts:271-283` (the (4quinquies)
+  comment above the pin), whose property (a) now reads « The tokens are split where bash splits words, on space and tab only ».
+- The `bashWord` table (`:291-295`) gains three rows: a bare token holding U+00A0 and one holding U+FEFF (no word), and a quoted token
+  holding U+00A0 (its word, the token as written).
+- The line cases (`:340-347`, 17.3).
+
+This corrects two claims of §16 of `docs/G0-lot-test-count-names-1.md` (at `b2832e68`): property (a) of 16.2 (« bash reads each token as written ») held for each token but not for where a
+token ends; and 16.6 (« On a line test 38 accepts, its tokens are bash's words ») was false for such a line. Both now hold for any line
+test 38 accepts: its tokens end where bash's words end.
+
+**n-1** (nit; U+000B, U+000C between two tokens): test 38 passed and bash joined the tokens, but PyYAML refuses the workflow, so the
+failure was loud. The same fold reds both; the line cases carry them.
+
+**m-C**, the properties asked again of this fold, hold at `b2832e68` unchanged from fold 3: (a) `bashWord` (`:111-114`) accepts only a
+plain single-quoted word with no quote, `$`, backslash, backtick or brace inside, or a bare word of `[A-Za-z0-9._/-]`, and the assertion
+at `:297-301` reds on any other token of either count line; (b) `STAT_PINNED` (`:284-290`) is the trunk's own pathspecs as they stand plus
+`':(exclude)test/test-counts.json'` and `':(exclude)test/test-names.json'`, and the words of the `STAT=` line must equal it in order;
+(c) no git judges the tokens: with (a) and (b) the words git gets are fixed, the trunk's list and two literal paths with no wildcard and
+no magic but `exclude`, so what the count drops does not depend on the index, the range or the attribute source; a judge could only
+disagree with the job (A1, D1 of §16). It was removed in fold 3 and is not restored.
+
+The bypass hunter's other points, as the reconciliation left them: its severity M is not upheld (the `STAT=` case reds
+`r25-integration` in `test:main`); U+2028 and U+2029 already red test 38 (the `.` of `R25_DIFF_RE` stops at a line terminator), and the line
+cases carry them; U+FEFF joins m-D's class and is in the table and the cases.
+
+### 17.3 The cases
+
+In test 38 (`:340-347`), each count line is also judged through the parser, as `ci.yml` would carry it: the `STAT=` and `CONTENT_STAT=`
+lines as written (not seen), then for each of U+00A0, U+2003, U+3000, U+FEFF, U+000B, U+000C, U+2028 and U+2029 that blank after `.` on
+the `STAT=` line and between the `docs-*.json` and `roadmap` tokens of the `CONTENT_STAT=` line (seen), and a run of a space and a tab
+at the same two places (not seen: bash splits there too). One assertion lists the cases judged otherwise. The cases are built from the
+line whatever its ASCII blanks, so a tab in `ci.yml` stays accepted.
+
+Paired edits (`tools/paired.mjs`, fold 3's, with two new operations that replace the space at those two places and a `CONTENT_STAT=` run
+in bash): 33 earlier cases (the review of the second fold's Q1, Q2, Q3, V1, V2, A1, D1; the 16 earlier; fold 3's eight new and two bare),
+16 separator cases, and controls (a tab, a space and a tab, at each place).
+
+### 17.4 The pin's own mutants
+
+No killer may point at a `*.test.ts`, so the pin's mutants run by hand (`tools/pin-mutants.mjs`, fold 3's 24 and 14 new; one exact string
+of `test/ci-gates.test.ts` replaced, test 38 alone, the file restored, sha256 checked):
+
+- Red by `ERR_ASSERTION`, 31: fold 3's 21; the split put back to `\s+`, to spaces only, to a single blank (no run), or widened by U+00A0,
+  by U+FEFF, or by U+000B and U+000C; the line judge always or never seeing; each case anchor that no longer matches.
+- Green alone, 7. Three are fold 3's assertion removals (a), (b) and the set coherence; one removes the line cases' assertion. Each was
+  run again under the paired edits: all 49 cases stay red, by the other assertions (for example, without (a), the lines as written in the
+  line cases red the bare tokens). The pin holds them twice. Two weaken the line judge (its own (a) check, its CONTENT comparison) and are
+  covered by the rest of that judge. One drops the space-and-tab control, which no assertion sees: the control is there to kill the
+  narrower splits above, and does.
+
+### 17.5 Measures and proofs
+
+| Proof | Result | Evidence (scratchpad `test-count-names-fold4/`) | sha256 (prefix) |
+|---|---|---|---|
+| `npm run test:main` on the merge of `a96c70ea` | 3 009 tests, 2 987 pass, 0 fail, 22 skipped | `logs/main-merge.log` | `43396cd7` |
+| `write` on that merge | 297 files, 3 009 tests; the names record gains #268's file | `logs/write-merge.log` | `e1851f7e` |
+| Test 38 at `949120e1` (the cases on the merge's split) | red by `ERR_ASSERTION`; the line cases list the twelve U+00A0, U+2003, U+3000, U+FEFF, U+000B and U+000C cases, on both lines; U+2028, U+2029 and the controls already as expected | `logs/t38-tests-first.tap` | `ef990ded` |
+| Paired edits at `1d4109e5` (the merge's pin, before the cases) | test 38 green on the twelve separator cases, while bash after the job's `pin` counts no file on the `STAT=` line (all files dropped) or drops the roadmap file from the `CONTENT_STAT=` count; U+2028 and U+2029 red, and `pin` refuses them; the 33 earlier cases red; the controls green | `logs/paired-before.log` | `fd1a4597` |
+| Test 38 at `2436fb88`; the five files `ci-gates`, `test-count-check`, `test-count-floor`, `oracle-run`, `r25-integration` | green; 144 tests, 144 pass | `logs/t38-code.tap`, `logs/t5-code.tap` | `c1cc5d86`, `0ec97952` |
+| Paired edits at `2436fb88` | baseline and the four controls green; each of the 49 cases (33 earlier, 16 separators) red by `ERR_ASSERTION`; files restored | `logs/paired-after.log` (`tools/paired.mjs`) | `7c89794c` (`4b9c92a2`) |
+| The pin's mutants (17.4) | 31 of 38 red alone; under paired edits the four assertion removals leave all 49 cases red | `logs/pin-mutants.log` (`tools/pin-mutants.mjs`); `logs/paired-mut-no-a.log`, `-no-b`, `-no-coherence`, `-no-lines` | `8123fe67` (`b0a12b8b`); `080343c2`, `d45549cd`, `648ffb53`, `ba6a045e` |
+| `red-proof --base d81ccfec --gel 2436fb88` | test 38 refused, green at the base (self-confirming), exit 1; no other test changed. The same structural cause as §14.4 to §16.5: the fold is test 38's own code and the base run takes the gel's test file. Substitute: the TAP at `949120e1` and the paired runs before and after | `logs/red-proof.log`, `red-proof/RED-PROOF.json` | `e656df6b`, `609b8c2c` |
+| Killer campaign, the trunk's `scripts/mutants/run.mjs --killers` (identical at the trunk and here), at `2436fb88` base `a96c70ea`, and at `b2832e68` base `5b1bd0fe` | baseline green (364), 81 killers, 81 « tue », both times | `logs/killers.log`, `killers/RESULTS.json`; `logs/killers2.log`, `killers2/RESULTS.json` | `e1e15f6a`, `040cf327`; `12b6be16`, `c79a7839` |
+| `npm run test:main` at `2436fb88` | 3 009 tests, 2 987 pass, 0 fail, 22 skipped | `logs/main-final.log` | `51790486` |
+| `npm run test:main` on the merge of `5b1bd0fe`, then `write` | 3 013 tests, 2 991 pass, 0 fail, 22 skipped; 298 files, 3 013 tests, the names record gains #269's file | `logs/main-merge2.log`, `logs/write-merge2.log` | `58154bcf`, `c6c409c5` |
+| `write`, then the gate against `origin/lot/etude-suite` (`5b1bd0fe`), and by names against `fcd73a7d` | `write` leaves the tree clean. It prints `test counts: 298 files, 3013 tests, equal to test/test-counts.json and test/test-names.json; 0 drop(s) from the base 5b1bd0fe1fe8, judged by counts (no names at the base), each with its line in test/test-count-removals.json`, exit 0. Against `fcd73a7d`: 0 drop, each name gone with its line, exit 0 | `logs/gate.log` | `30fb86d6` |
+| Anchors, `verifie-ancres.mjs --ref 5b1bd0fe` (the trunk head), whole tree | 1 857 killers: 1 855 ANCRE, 2 DERIVE (the two of 13.2), 0 PERDU | `logs/anchors.log` | `4e2abd3d` |
+| Size, CI form against the trunk `5b1bd0fe` (`tools/size-ci.sh`), `pin` first | `pin` refuses no path. The `STAT=` line of this branch: 10 files, 421 + 105 = **526**, under 547 and the CI bound 1 205. W rises by 8 over the 518 of §16, all from `test/ci-gates.test.ts` (16 lines in, 6 out against `fcd73a7d`) | `logs/size.log` | `3f0229c0` |
+| Gates: `tsc --noEmit`, eslint on the five code files of the zone, `lint:ratchet`, `gate:vocab`, `lang:gate`, `export:check`, winlint `--base 5b1bd0fe`, `git diff --check 5b1bd0fe` | each exit 0 | `logs/gates.log` | `dc365eb1` |
+| The three test files of the zone under the case-fold git wrapper (`CASEFOLD_FAIL=1`) | 52 of 52; 8 `git add` calls, 0 case-only collision | `logs/casefold-run.log`, `logs/casefold.log` | `fa887b20`, `7ccc5ed5` |
+| R1 scan, `fcd73a7d` to `b2832e68`, and `5b1bd0fe` to `b2832e68` (run again on the pushed head, in the fold's report) | 0 match, exit 0 | `logs/r1scan.log` | `5d314697` |
+
+### 17.6 Carried to MONARK
+
+- **R25-SPECSOF-PARSER-1**, extended: `scripts/lot-size-integration.mjs:64` (`specsOf`, outside this zone) splits the two count lines on
+  `\s+` too (`m[2].split(/\s+/)`), the split this fold removed from test 38. It feeds `pin`'s refusals and the oracle. On a line test 38
+  accepts, the tokens now end where bash's words end, so `specsOf` and the job agree there; on a line test 38 refuses, `specsOf` can read
+  other paths than the job counts, and only test 38 reds. Proposed: split on `[ \t]+` there and apply `bashWord`'s rule.
+
+### 17.7 Not verified
+
+- Windows: MONARK's replay at the merge. The pin runs no git.
+- The CI of this branch: no pull request is open.
+- GitHub's runner: its bash and its YAML parser were not run. That it splits words on space and tab only is POSIX; that its YAML parser
+  keeps U+00A0 and U+FEFF inside a run block and refuses U+000B and U+000C is inferred from PyYAML and the YAML printable set (the
+  review's measures), not measured here.
+- A job-level variable (`GIT_ICASE_PATHSPECS`, `GIT_LITERAL_PATHSPECS`) or a shell function named `git` defined earlier in the r25 block:
+  test 38 pins the words of the line, not the job's environment.
+- The gate's CI form (`GITHUB_BASE_REF`): its `--base` form ran under `offline.mjs`, which removes `GITHUB_*`.
+- red-proof cannot judge test 38's fold (above).
+- Separators other than the ten measured (space, tab and the eight above), for example U+0085 or U+1680: not run one by one. The fold
+  covers them by construction (any character that is not a space or a tab stays inside a token).
+
 ## 12. Changelog
 
 - **2026-10-08, this note** (RECHERCHES, `claude-opus-5-5` max, from 21:40 UTC): the G0 of TEST-COUNT-NAMES-1 at the trunk `52ddf000`.
@@ -797,3 +922,6 @@ No killer is added or moved: no script changes.
 - **2026-10-14, fold 3** (RECHERCHES, the third fold's author instance, `claude-opus-5-5` effort high): §16, the minor m-C of the review of
   the second fold (recherches `0419dbc`) and its fold, the cases, the pin's mutants, the measures, an item carried to MONARK, and what is
   not verified.
+- **2026-10-14, fold 4** (RECHERCHES, the fourth fold's author instance, `claude-opus-5-5` effort high): §17, the minor m-D of the review
+  of fold 3 and the nit n-1, folded by one split; the line cases; the pin's mutants; two merges of the trunk (#268, #269); the measures;
+  `specsOf` added to the item carried to MONARK; and what is not verified.
