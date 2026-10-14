@@ -49,7 +49,7 @@ import { existsSync, readFileSync, statSync } from "node:fs";
 import { execFileSync } from "node:child_process";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
-const SUFFIX = /^([A-Za-z]:[\\/][^:]*)(?::(\d+(?:-\d+)?(?:,\d+(?:-\d+)?)*))?/u; // a drive path with a blank, read as PATH_RE reads one without
+const SUFFIX = /^([A-Za-z]:[\\/](?:\{[^{}]*\}|[^:])*)(?::(\d+(?:-\d+)?(?:,\d+(?:-\d+)?)*))?/u; // a drive path with a blank, read as PATH_RE reads one without
 export const CODES = ["R-LINE", "R-PATH", "R-BRANCH", "R-BASE", "R-TOOL", "R-MODEL", "R-PLACEHOLDER", "R-FOCUS", "R-VAGUE", "R-SIMILAR", "R-SYMBOL", "R-STEP"];
 export const TIERS = ["claude-opus-5-5", "claude-sonnet-5-5", "claude-sonnet-5", "claude-fable-5-1"]; // claude-sonnet-5: retired (decision 280), --rev replays only (Q-G2-9)
 const W = "\\p{L}\\p{N}_";
@@ -61,7 +61,7 @@ const TO_CREATE = /^#{1,6}\s.*(?:[\u00e0a]\s+cr[\u00e9e]er|to\s+create)/iu;
 const HEAD = /^#{1,6}\s/;
 const LOCK = /(?:^|[/._-])lock\/?$/i;
 const SCRIPT = /\.(?:ps1|sh|mjs|cjs|js|py)$/i;
-const BRANCH_RE = new RegExp(`(?<![${W}./\\\\-])lot/[${W}][${W}./-]*`, "gu");
+const BRANCH_RE = new RegExp(`(?<![${W}./\\\\~+{}-])(?<!\\{[^{}\\s\`]+)lot/[${W}][${W}./-]*`, "gu"); // never a lot/ that a path holds (after SEG's chars)
 const BASE_RE = new RegExp(`(?<![${W}-])base(?:\\s+tronc)?\\s*[:=]?\\s*\`?([0-9a-f]{7,40})(?![${W}])`, "iu");
 const ALT_BASE_RE = new RegExp(`(?<![${W}])(?:--base\\s+|gel\\s*[:=]?\\s*)\`?([0-9a-f]{7,40})(?![${W}])`, "iu");
 const MODEL_RE = /(?<![\w-])claude-(?:opus|sonnet|haiku|fable)(?:-[a-z0-9]+)*/giu;
@@ -126,7 +126,7 @@ export function lintMission({ text, missionPath, repo, rev = null, host = true }
       if (tool && SCRIPT.test(tool[1])) { bare.push([tool[1], ln]); if (create) declared.add(tool[1]); }
       if (/[\u2026<>*?]/.test(inner)) return blank(m);
       if (!/^[A-Za-z]:[\\/]/.test(inner) || !/\s/.test(inner)) return m; const c = inner.replace(/\s/gu, "_").match(PATH_RE)[0].length; // PATH_RE's cite
-      const [, p, n] = SUFFIX.exec(inner.slice(0, c)); found.push([p.replace(/\.+$/, ""), n, at + 1 + c]); return " ".repeat(c) + "`" + inner.slice(c) + "`";
+      const [, p, n] = SUFFIX.exec(inner.slice(0, c)); found.push([p.replace(/\.+$/, ""), n, at + 1 + c]); return `\`${" ".repeat(c - 1)}/${inner.slice(c)}\``;
     });
     const prose = line.replace(/`[^`]*`/g, blank);
     const quoted = (i) => prose[i] !== line[i];

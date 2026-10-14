@@ -700,7 +700,57 @@ claude-opus-5-5
   par la voie à blanc : sous le pli, ses constats sont ceux du pli sur les 100 cas des sondes, sauf ces deux-là (le R-BRANCH
   sans blanc disparaît) ; aucun test ne le tue sans épingler ce faux R-BRANCH. Construction proposée, à décider par PAROXYSME :
   `~+{},` dans le regard arrière de `BRANCH_RE` (l.64), un cas au test de comparaison, un tueur.
+- **Pli 3 bis : le faux R-BRANCH dans un chemin de lecteur ; un `:` en accolades ; le texte collé au suffixe de ligne ; A14,
+  2026-10-14 19:12Z-19:36Z (`date -u`)** : worker `claude-opus-5-5`, effort `high`, sans commit ni push (R-20) ; mission de
+  PAROXYSME (`scratchpad/m5c/MISSION-PLI3B-260.md`, décision : tout construire, rien en item) sur le constat du troisième pli et de
+  la vérification courte neuve (ligne précédente) ; arbre de départ `97c8e297`. Les numéros de ligne des lignes précédentes sont ceux
+  de leur arbre ; ceux de cette ligne, de l arbre de ce pli. **(1) `BRANCH_RE`** (`lint.mjs` l.64) : le regard arrière exclut aussi
+  `~`, `+`, `{` et `}` (avant : `[\p{L}\p{N}_./\\-]` seulement) ; un second regard arrière, `(?<!\{[^{}\s`]+)`, exclut un `lot/`
+  à l intérieur d un groupe d accolades (`{x,lot/zz}`), où `SEG` (l.56) admet tout caractère sauf accolades, blancs et accents
+  graves. `,`, `;` et `:` ne vont pas dans le premier regard : `x.md;lot/zz` et `x.md,lot/zz`, dont le `lot/` est hors du chemin,
+  restent R-BRANCH dans les deux formes. **(2) `SUFFIX`** (l.52) : `[^:]*` devient `(?:\{[^{}]*\}|[^:])*` : un `:` dans un groupe
+  d accolades reste dans le chemin, comme `PATH_RE` le lit (avant, `{x:y}.md` : R-PATH `…/{x` à blanc, `…/x:y.md` sans blanc).
+  **(3) Le masque du span à blanc** (l.129) : `` `\`${" ".repeat(c - 1)}/${inner.slice(c)}\`` `` au lieu de
+  `" ".repeat(c) + "`" + inner.slice(c) + "`"` : la suite du span est précédée de `/`, que les regards arrière de `PATH_RE` et de
+  `BRANCH_RE` excluent et par lequel aucune de leurs lectures ne commence ; avant, l accent grave laissait lire un chemin ou une
+  branche collés au suffixe de ligne (`x.md:13lot/zz` : R-BRANCH à blanc ; `x.md:13docs/gone.md` : R-PATH `docs/gone.md` à blanc),
+  que la forme sans blanc ne lit pas (le chiffre qui précède les exclut). (2) et (3) sortent de la liste de la mission : trouvés par
+  ce pli (sondes ci-dessous), construits sous la même décision, à relire par PAROXYSME.
+  **Tests** : R-BRANCH (l.90) gagne `docs/ten.md+lot/zz`, R-PATH seul (tueur `:64 "~+" -> "~"`, l.89) ; le test de comparaison
+  (l.378) gagne huit cas, mêmes constats dans les deux formes : `x.md+lot/zz`, `x.md~lot/zz`, `x.md{lot/zz}`, `x.md{a}lot/zz`,
+  `{x,lot/zz}.md`, `{x:y}.md` (R-PATH seul), `x.md:13lot/zz`, `x.md:13docs/gone.md` (R-LINE seul). Tueurs neufs de la pile
+  l.365-377 : `:64`, retrait de `~` (l.374), de `{` (l.375), de `}` (l.376), du regard des accolades (l.377) ; `:52`, retrait du
+  groupe d accolades (l.373) ; `:129`, le `/` du masque devenu blanc (l.368). Réadressés, leur ancre ayant changé : `:52
+  "[^:])*)" -> ".)*?)"` (l.371, de `"[^:]*)"`), `:52 "[A-Za-z]:[\\\\/](?:" -> "[A-Za-z]:\\/(?:"` (l.372, forme A1), `:129
+  "/${inner.slice(c)}" -> "/"` (l.367, reste du span perdu). `killerProblem` (`scripts/red-proof.mjs`) : `ok` pour les 19 tueurs
+  des l.52, 64 et 129 (chaque ancre une fois sur sa ligne).
+  **Mesures** (Node 24.21.0, `TMPDIR` sous le brouillon `scratchpad/m5c/pli3b/`) : rouge d avant, le seul fichier de test remplacé
+  sur une copie `git archive 97c8e297` : 41 tests, 2 rouges par assertion (R-BRANCH, comparaison) ; cas par cas
+  (`pli3b/bin/percase.mjs`), les huit cas neufs rouges, les 30 d avant verts ; à l arbre plié, 0 rouge. Les deux fichiers de test
+  sur W : 88 tests, 85 verts, 3 sautés, sortie 0. Campagne (`scripts/mutants/run.mjs --repo <W> --base fd20e9fa --killers
+  --targets <les deux tests>`, 19:26:16-19:29:25Z) : 143/143 tués, sortie 0 (`pli3b/mut/RESULTS.json`, sha256
+  `14fa2455e609ebf1…`) ; les tueurs neufs ou réadressés (K85, K130, K131, K134 à K140) tués par assertion sur leur test nommé.
+  **A14** (l.128, la condition du blanc retirée), rejoué sur une copie pliée, les deux fichiers entiers : survit (88 tests, 85
+  verts) et il est équivalent. Preuve : sur un span sans blanc qui commence par un lecteur, la voie à blanc lit la citation de
+  `PATH_RE` (même longueur `c` ; `SUFFIX` la coupe en chemin et suffixe comme `PATH_RE`, car un `:` du chemin n est que dans un
+  groupe d accolades ; même fin `at + 1 + c`) ; la ligne masquée ne diffère qu en `at` à `at + c`, où aucun motif ne lit rien ;
+  le `/` avant la suite y exclut toute lecture qui commencerait à son premier caractère, comme le dernier caractère de la citation
+  sans blanc : ce dernier caractère est de `SEG`, un séparateur ou un chiffre du suffixe, tous dans le regard de `BRANCH_RE` ; quand
+  il est `~`, `+` ou `}`, hors du regard de `PATH_RE`, la citation a fini hors suffixe, sur `SEG`, et le premier caractère de la
+  suite n est pas de `SEG` : aucune lecture de `PATH_RE` n y commence. Sorties
+  de la copie A14 et de la copie pliée identiques sur 4 125 cas (63 + 37 + 15 + 6 + 4 + 2 × 2 000 tirés, `pli3b/bin/gen.mjs`,
+  graines 20261014 et 7). Comparaison des deux formes (`verif2/bin/e2e.mjs`) à l arbre plié : 0 divergence sur les 63 cas du
+  vérificateur, les 37 du troisième pli, les 25 de ce pli et les 4 000 tirés ; le premier tirage, avant (3), en montrait 4, toutes
+  de la forme `:13lot/…` ou `:1-13lot/…`. Prose (`pli3b/bin/prose.mjs`, 29 sondes, copie de `97c8e297` contre copie pliée) :
+  « branch lot/x », « this lot/pair word », la phrase du test R-BRANCH, `lot/a,lot/b`, `lot/a;lot/b` inchangés ; seuls changent les
+  `lot/` après `+`, `~`, `{`, `}` ou dans un groupe d accolades, même hors d un chemin (`{lot/gone}`, `x+lot/gone` : plus de
+  R-BRANCH). R-25 : `r25()` sur un clone de mesure (l arbre plié commis en `a216f01f` sur `97c8e297`, HOME vide sous le
+  brouillon ; le G1 n entre pas dans la mesure), contre `fd20e9fa` : 623 + 86 = **709**, GREEN (porte CI 1 205), avant la
+  réécriture des relevés par PAROXYSME. `eslint` sur les deux tests 0 ; `tsc --noEmit -p tsconfig.json` 0 ; `lang-gate` 0 hit, 0 ;
+  `gate:vocab` 356 fichiers, 0 ; `git diff --check` 0 ; plus longue ligne neuve de code ou de test : 159 points de code.
 - **Écarts et traces** : écritures dans les fichiers de la liste seulement ; `test/test-count-removals.json` inchangé (aucun nom de la
   base ne disparaît). Aucun `GIT_DIR`, aucun `--write-tree`, aucun réseau ; les commits de mesure sont dans des clones sous le brouillon,
   jamais dans le dépôt. Troisième pli : W n est écrit que dans `lint.mjs`, `test/mission-lint.test.ts` et ce G1 ; son commit de mesure
   (`0b9d4a78`) est dans un clone sous le brouillon, avec un HOME vide ; copies de mutants effacées.
+  Pli 3 bis : W n est écrit que dans `lint.mjs`, `test/mission-lint.test.ts` et ce G1 ; son commit de mesure est dans un clone
+  sous le brouillon (`pli3b/r25clone`), avec un HOME vide ; copies effacées après usage.

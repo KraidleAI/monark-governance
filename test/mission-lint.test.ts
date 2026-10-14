@@ -86,8 +86,10 @@ test("R-PATH: an absent path is red; declared to-create, lock, outside the roots
   assert.deepEqual(red(H(["## \u00c0 cr\u00e9er", "- `docs/newdir/`", "## Suite", "See `docs/newdir/a.md`."].join("\n"))), []);
 });
 
+// killer: scripts/mission/lint.mjs:64 CONST "~+" -> "~"
 test("R-BRANCH: a lot/ branch absent from git branch --list is red, a lot/ word in prose is not [mutants: R-BRANCH check removed; prose lot/ word taken as a branch]", () => {
   assert.deepEqual(red(H("Rebase onto `lot/absent`; this lot/pair word; branch lot/gone.")), ["R-BRANCH", "R-BRANCH"]);
+  assert.deepEqual(red(H("Read `docs/ten.md+lot/zz`.")), ["R-PATH"]); // a lot/ after + inside a cited path is part of the path, not a branch
 });
 
 test("R-BASE: a base absent or unknown to the repository is red [mutants: absent base accepted; unknown base accepted]", () => {
@@ -362,21 +364,30 @@ test("drive path with a blank: its line suffix is split from the path, so a line
 });
 // killer: scripts/mission/lint.mjs:129 CONST "at + 1 + c" -> "raw.length"
 // killer: scripts/mission/lint.mjs:129 CONST "at + 1 + c" -> "at"
-// killer: scripts/mission/lint.mjs:129 CONST "\"`\" + inner.slice(c)" -> "\"`\""
+// killer: scripts/mission/lint.mjs:129 CONST "/${inner.slice(c)}" -> "/"
+// killer: scripts/mission/lint.mjs:129 CONST "repeat(c - 1)}/" -> "repeat(c - 1)} "
 // killer: scripts/mission/lint.mjs:128 CONST "/\\s/gu" -> "/\\s/u"
 // killer: scripts/mission/lint.mjs:137 CONST "found.sort((a, b) => a[2] - b[2])" -> "found"
-// killer: scripts/mission/lint.mjs:52 CONST "[^:]*)" -> ".*?)"
-// killer: scripts/mission/lint.mjs:52 CONST "[A-Za-z]:[\\\\/][^:]*" -> "[A-Za-z]:\\/[^:]*"
+// killer: scripts/mission/lint.mjs:52 CONST "[^:])*)" -> ".)*?)"
+// killer: scripts/mission/lint.mjs:52 CONST "[A-Za-z]:[\\\\/](?:" -> "[A-Za-z]:\\/(?:"
+// killer: scripts/mission/lint.mjs:52 CONST "\\{[^{}]*\\}|" -> ""
+// killer: scripts/mission/lint.mjs:64 CONST "~+{}" -> "+{}"
+// killer: scripts/mission/lint.mjs:64 CONST "+{}-" -> "+}-"
+// killer: scripts/mission/lint.mjs:64 CONST "{}-]" -> "{-]"
+// killer: scripts/mission/lint.mjs:64 CONST "(?<!\\\\{[^{}\\\\s\\`]+)" -> ""
 test("drive path with a blank: the hits of the same path without a blank (a line in, past or after the span, end text, backslashes, text order)", () => {
   const top = WIN ? join(T, "cmp") : join(T, "Z:", "cmp"), cwd = process.cwd(); // off Windows: a relative "Z:"
   for (const d of ["with two blanks", "noblank"]) { mkdirSync(join(top, d, "sub"), { recursive: true }); writeFileSync(join(top, d, "x.md"), TWELVE); }
   const at = WIN ? top.replace(/\\/g, "/") : "Z:/cmp", back = WIN ? top : "Z:\\cmp"; // the same directory, with / and with \
-  // [before the span, after the directory, after the span, separator]: ends SEG does not admit, then \, emphasis, a second cite, text order
+  // [before the span, after the directory, after the span, separator]: ends SEG does not admit, then \, emphasis, a second cite, text order;
+  // then a lot/ inside the path after a character SEG admits (+, ~, {, }, a brace group), a : inside a brace group, text right after a line
   const cases = [["", "x.md", ""], ["", "x.md:12", ""], ["", "x.md:13", ""], ["", "x.md", " (l.13)"], ["", "x.md:12", " (l.13)"], ["", "x.md:12.", ""],
     ["", "x.md:13.", ""], ["", "x.md.", ""], ["", "x.md.:12", ""], ["", "x.md:12,", ""], ["", "x.md:13,", ""], ["", "x.md:12:14", ""],
     ["", "x.md,", ""], ["", "x.md)", ""], ["", "x.md;", ""], ["", "x.md'", ""], ["", "x.md!", ""], ["", "x.md,:13", ""], ["", "x.md:12.", " (l.13)"],
     ["", "x.md..:13", ""], ["", "x.md..", ""], ["", "x.md:13", "", "\\"], ["", "x.md", "", "\\"], ["", "sub\\", "", "\\"], ["", "x.md", " (l.13)", "\\"],
-    ["**", "x.md", "** (l.13)"], ["*", "x.md", "* (l.13)"], ["", "x.md(l.13)", ""], ["", "x.md,docs/gone.md", ""], ["`docs/gone.md` ", "gone.md", ""]];
+    ["**", "x.md", "** (l.13)"], ["*", "x.md", "* (l.13)"], ["", "x.md(l.13)", ""], ["", "x.md,docs/gone.md", ""], ["`docs/gone.md` ", "gone.md", ""],
+    ["", "x.md+lot/zz", ""], ["", "x.md~lot/zz", ""], ["", "x.md{lot/zz}", ""], ["", "x.md{a}lot/zz", ""], ["", "{x,lot/zz}.md", ""], ["", "{x:y}.md", ""],
+    ["", "x.md:13lot/zz", ""], ["", "x.md:13docs/gone.md", ""]];
   const hits = (d: string, [pre, s, a, sep = "/"]: string[]): string[] => {
     const text = H(`Read ${pre}\`${sep === "/" ? at : back}${sep}${d}${sep}${s}\`${a}.`);
     try { return lint(text).hits.map((h) => `${h.code} ${h.extract.replace(`${d}/`, "D/")}`); } catch (e) { return [`throws ${String(e)}`]; } // a crash differs
@@ -385,7 +396,8 @@ test("drive path with a blank: the hits of the same path without a blank (a line
     if (!WIN) process.chdir(T);
     const past = [`R-LINE ${at}/D/x.md:13 past the end (12 lines)`], gone = "R-PATH docs/gone.md absent";
     const want = [[], [], past, past, past, [], past, [], [], [], past, [], [], [], [], [], [], [], [], past, [], past, [], [], past, past, past, past,
-      [gone], [gone, `R-PATH ${at}/D/gone.md absent`]];
+      [gone], [gone, `R-PATH ${at}/D/gone.md absent`],
+      ...["x.md+lot/zz", "x.md~lot/zz", "x.mdlot/zz", "x.mdalot/zz", "lot/zz.md", "x:y.md"].map((f) => [`R-PATH ${at}/D/${f} absent`]), past, past];
     // killer: scripts/mission/lint.mjs:129 CONST "found.push([p.replace(/\\.+$/, \"\"), n," -> "found.push([p, n,"
     // killer: scripts/mission/lint.mjs:148 CONST "LTAIL.exec(line.slice(after))" -> "LTAIL.exec(\"\")"
     // killer: scripts/mission/lint.mjs:129 CONST "found.push([p.replace(/\\.+$/, \"\"), n," -> "found.push([p.replace(/\\.$/, \"\"), n,"
