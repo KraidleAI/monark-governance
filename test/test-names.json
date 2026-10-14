@@ -1891,8 +1891,13 @@
  "test/bell-deploy-constants.test.ts": [
   "bell_deploy_authority_is_the_committed_series_authority",
   "bell_deploy_pins_the_floor_and_the_tick_timeout_bound",
+  "bell_deploy_pins_the_handoff_layout",
   "bell_deploy_pins_the_proposed_values",
   "bell_deploy_universe_is_the_dated_list"
+ ],
+ "test/bell-handoff-perms.test.ts": [
+  "bell_handoff_job_is_green_only_on_a_pass_by_name_with_no_skip",
+  "bell_handoff_permissions_on_linux"
  ],
  "test/bell-key-isolation.test.ts": [
   "bell_key_directory_is_inaccessible_to_every_unit_sharing_its_host"
@@ -3122,6 +3127,7 @@
   "r25i_missing_proof_counts_all - E-5 (4): no file, unreadable, incomplete, another repository, another head, another schema: unproven, the count of today (A-10, A-11)",
   "r25i_only_closed_list_measured_merged_prs_prove - merged outside L, PR #89, r25 failure, r25 absent, not merged: each proves nothing (A-6, A-17)",
   "r25i_proving_pr_contribution_is_remeasured - G2 B-2: a PR green against an old target (retargeted, target pushed back, old run re-run) brings 2 000 unmeasured lines: its contribution M^1..M exceeds the bound, it proves nothing, 2 005 count",
+  "r25i_specs_read_each_token_as_bash_does - SPECSOF-STRICT-GRAMMAR-1: specsOf splits a count line on space and tab only and reads each token by the word rules of test 38: a tab separates two words, a U+00A0 inside a quoted token stays in its word, a quoted space or a bare U+00A0 throws (the module then returns W)",
   "r25i_squash_proves_its_commit_rebase_proves_the_last - a squash counts 0; of 3 rebased commits the first 2 count (A-4, A-5)",
   "r25i_unproven_change_to_gate_files_counts_all - one unproven line in the module itself or in a workflow (a non-ASCII name, quoted by git without -z, included): gate-files, every line counts (A-12)",
   "r25i_user_git_attributes_do_not_lower_counts - G2 m-a, delta2 m-d: a user attributes file marking every path -diff (XDG default or core.attributesFile), or a machine core.bigFileThreshold of 1, leaves the 300 slipped lines of B-1 and a 7-line commit at 307",

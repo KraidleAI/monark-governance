@@ -435,8 +435,8 @@ function sha256(abs) {
 // the internal one by a DETERMINISTIC, dependency-free text rewrite:
 //   (1) add a `push` trigger under `on:` (public pushes run the gates);
 //   (2) remove each job of INTERNAL_JOBS, a closed list (its 2-space key line up to the next 2-space job key):
-//       `r25-taille-de-lot`, `g3-verifier-tool` (VERIFIER-TOOL-CI-1: it runs tools/kata-recalc/, never exported), `g3-export` and
-//       `g3-test-count` (CI-G3-DURATION-1, TEST-COUNT-FLOOR-1: they read the root test/, never exported): each would red on the mirror;
+//       `r25-taille-de-lot`, `g3-verifier-tool` (VERIFIER-TOOL-CI-1: it runs tools/kata-recalc/, never exported), `g3-export`,
+//       `g3-test-count` and `g3-bell-handoff-perms` (CI-G3-DURATION-1, TEST-COUNT-FLOOR-1, Bell handoff layout: they read the root test/, never exported): each would red on the mirror;
 //   (3) prepend a one-line provenance header;
 //   (4) drop the 2-line governance "Delivery flow" comment (it is FALSE in the public workflow and is
 //       the sole other "r25" mention — see the inline note; error_origin = internal).
@@ -446,8 +446,8 @@ function sha256(abs) {
 // which test 42(f) / mutant M5 (short-circuited derivation) catches.
 export const CI_WORKFLOW_PATH = ".github/workflows/ci.yml";
 export const DERIVED_HEADER =
-  "# Derived by scripts/export-public.mjs from the internal workflow (ADR-M004 D7 bis): lot-size gate, verifier tool job, source-only export test job and test count job removed, push trigger added.";
-const INTERNAL_JOBS = ["r25-taille-de-lot", "g3-verifier-tool", "g3-export", "g3-test-count"];
+  "# Derived by scripts/export-public.mjs from the internal workflow (ADR-M004 D7 bis): lot-size gate, verifier tool job, source-only export test job, test count job and handoff permissions job removed, push trigger added.";
+const INTERNAL_JOBS = ["r25-taille-de-lot", "g3-verifier-tool", "g3-export", "g3-test-count", "g3-bell-handoff-perms"];
 
 export function derivePublicWorkflow(raw) {
   const eol = raw.includes("\r\n") ? "\r\n" : "\n";

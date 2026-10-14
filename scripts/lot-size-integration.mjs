@@ -59,9 +59,9 @@ export function provenSet(git, merged, specs, bounds) {
   return s;
 }
 
-/** The STAT (CODE) and CONTENT_STAT pathspecs of the workflow, by the R25_DIFF_RE of test 38 and of the oracle. */
+/** The STAT (CODE) and CONTENT_STAT pathspecs of the workflow, by the R25_DIFF_RE of test 38 and of the oracle, each token read as bash reads it: a mirror of parseR25Diff and bashWord of test/ci-gates.test.ts (local there), split on space and tab only, a token bash could read otherwise than as written throws. */
 export function specsOf(ciText) {
-  const specs = ciText.split(/\r?\n/).map((l) => R25_DIFF_RE.exec(l)).filter((m) => m !== null).map((m) => m[2].split(/\s+/).map((t) => t.replace(/^'(.*)'$/, "$1")));
+  const word = (t) => /^'([^'"$\\`{}]+)'$/.exec(t)?.[1] ?? (/^[A-Za-z0-9._/-]+$/.test(t) ? t : null), read = (t) => { const w = word(t); if (w === null) throw new Error(`pathspec token ${JSON.stringify(t)} of the r25 job is not one plain bash word`); return w; }, specs = ciText.split(/\r?\n/).map((l) => R25_DIFF_RE.exec(l)).filter((m) => m !== null).map((m) => m[2].split(/[ \t]+/).map(read));
   if (specs.length !== 2) throw new Error(`expected the STAT and CONTENT_STAT lines of the r25 job, read ${specs.length}`);
   return specs;
 }
