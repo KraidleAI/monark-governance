@@ -2704,7 +2704,7 @@
   "definition form export default (G11B, Q-M2B-11): a name exported as default is defined; an undefined one stays red",
   "definition forms var and enum (G11A, Q-M2B-11): a name defined by var or enum is defined; an undefined one stays red",
   "drive path with a blank: its line suffix is split from the path, so a line past the end is R-LINE, never R-PATH; an absent path stays R-PATH",
-  "drive path with a blank: the hits of the same path without a blank (no suffix, a line inside or past the end, a line after the span, end text)",
+  "drive path with a blank: the hits of the same path without a blank (a line in, past or after the span, end text, backslashes, text order)",
   "host false: a drive path present on the host, cited past its end, is not read; the default reads it",
   "host false: a drive path, its line, a lot branch and a bare tool are never read on the host; the default reads them",
   "host false: no existsSync or statSync of a tool path or a drive path present on the host",
