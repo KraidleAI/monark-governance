@@ -29,7 +29,7 @@ const PARENT: PolicyRow = { ...P1, current: false };
 const D2 = "0.025";
 const KS = riskControlMaxExceedances(P1.n, P1.alpha, D2);
 const check = (r: PolicyRow): void => guardKataRow(r, CLS, PINS);
-const refuse = (r: PolicyRow, re: RegExp): void => assert.throws(() => check(r), re);
+const refuse = (r: PolicyRow, re: RegExp): void => { try { check(r); } catch (e) { if (!(e instanceof Error && /^MONARK (import guard|policy check): /.test(e.message))) throw e; assert.match(String(e), re); return; } assert.fail(`admitted, not refused: ${String(re)}`); }; // a refusal by the guard or by the closed row check it runs first, matching re as assert.throws matched it; an admitted row fails by an assertion; any other error is thrown again, so a crash fails the test and is never read as a refusal
 const block = (k: number, n: number): { k_test: number; n_test: number; u_test: string } => ({ k_test: k, n_test: n, u_test: k === n ? "1" : missUpperBound(n, k, "0.05") });
 const strings = (m: number, a: number): [string | null, string | null] => {
   try {
@@ -118,14 +118,14 @@ test("w2_guard_refuses_region_with_empty_or_low_tail", () => {
   const cases: [Partial<Counts>, string][] = [[{ tail_m: 0, tail_a: 0 }, "tail sequence constant (fails closed)"], [{ tail_a: 10 }, "dependence check rejects"], [{ misses: 2, miss_adj_a: 1 }, "dependence check rejects"]];
   for (const [c, why] of cases) {
     refuse(w2(c), /status 'region' and reason '', not 'silence'/);
-    check(w2(c, ["silence", why]));
+    assert.deepEqual(verdict(w2(c, ["silence", why])), ["silence", why]);
   }
-  check(w2({ misses: 0, miss_adj_a: 0 })); // an empty check 1 is not a refusal (D2)
+  assert.deepEqual(verdict(w2({ misses: 0, miss_adj_a: 0 })), ["region", ""]); // an empty check 1 is not a refusal (D2)
 });
 
 // killer: apps/harness/src/policy-wave2.ts:36 ROR "<= r.n - rank" -> "< r.n - rank"
 test("w2_guard_tail_m_and_support", () => {
-  check(w2({ tail_m: 37 }));
+  assert.deepEqual(verdict(w2({ tail_m: 37 })), ["region", ""]);
   refuse(w2({ tail_m: 38, tail_a: 1 }), /tail_m above n - r \(r 703\)/);
   refuse(w2({ tail_a: 37 }), /exact null of D2 refuses \(a-outside-support\)/);
   refuse(w2({ miss_adj_a: 1 }), /exact null of D2 refuses \(a-outside-support\)/);
@@ -141,13 +141,13 @@ test("w2_guard_bounds_n_before_the_tails", () => {
 // killer: apps/harness/src/policy-guard.ts:85 CONST "[\"bridge\", \"test\", \"fwd\"]" -> "[\"test\", \"bridge\", \"fwd\"]"
 test("w2_guard_bridge_and_fwd_vetoes", () => {
   const vetoed = (c: Partial<Counts>, why: string, v: { test: boolean; bridge: boolean; fwd: boolean }, over: Partial<PolicyRow> = {}): PolicyRow => ({ ...w2(c, ["vetoed", why]), vetoes: v, ...over });
-  check(vetoed({ bridge: [20, 740] }, "vetoed: bridge", { test: false, bridge: true, fwd: false }));
-  check(vetoed({ fwd: [20, 700] }, "vetoed: fwd", { test: false, bridge: false, fwd: true }));
-  check(vetoed({ bridge: [20, 740] }, "vetoed: bridge", { test: true, bridge: true, fwd: false }, { test: block(30, 740) }));
+  assert.deepEqual(verdict(vetoed({ bridge: [20, 740] }, "vetoed: bridge", { test: false, bridge: true, fwd: false })), ["vetoed", "vetoed: bridge"]);
+  assert.deepEqual(verdict(vetoed({ fwd: [20, 700] }, "vetoed: fwd", { test: false, bridge: false, fwd: true })), ["vetoed", "vetoed: fwd"]);
+  assert.deepEqual(verdict(vetoed({ bridge: [20, 740] }, "vetoed: bridge", { test: true, bridge: true, fwd: false }, { test: block(30, 740) })), ["vetoed", "vetoed: bridge"]);
   refuse(w2({ bridge: [20, 740] }), /vetoes\.bridge/);
   refuse(vetoed({ fwd: [20, 700] }, "vetoed: fwd", { test: false, bridge: false, fwd: false }), /vetoes\.fwd/);
   const silent = w2({ tail_a: 10, bridge: [20, 740] }, ["silence", "dependence check rejects"]);
-  check(silent);
+  assert.deepEqual(verdict(silent), ["silence", "dependence check rejects"]);
   refuse({ ...silent, vetoes: { test: false, bridge: true, fwd: false } }, /off the conditional/);
   refuse({ ...w2(), bridge: { k_test: 5, n_test: 740, u_test: "0.9999999" } }, /u_test/);
   refuse({ ...w2(), fwd: { k_test: 701, n_test: 700, u_test: "1" } }, /k_test above its n_test/);
@@ -155,7 +155,7 @@ test("w2_guard_bridge_and_fwd_vetoes", () => {
 
 // killer: apps/harness/src/policy-guard.ts:56 CONST "spendDelta(KATA_BASE_DELTA, at)" -> "spendDelta(KATA_BASE_DELTA, 1)"
 test("w2_guard_spend_and_causes", () => {
-  check(w2());
+  assert.deepEqual(verdict(w2()), ["region", ""]);
   refuse({ ...w2(), test_delta: "0.05" }, /A-1 spend/);
   for (const cause of ["initial", "epoch:EE-1/x", "refresh:s@decisions/x.md"]) refuse({ ...w2(), calib_cause: cause }, /A-1 spend/);
   refuse({ ...w2(), calib_parent: "none" }, /A-1 spend/);
@@ -243,7 +243,7 @@ test("w2_guard_under_calib_bridge_and_fwd_vetoes_false", () => {
 // killer: apps/harness/src/policy-guard.ts:85 CONST "[\"bridge\", \"test\", \"fwd\"]" -> "[\"bridge\", \"fwd\", \"test\"]"
 test("w2_guard_veto_order_test_before_fwd", () => {
   const both: PolicyRow = { ...w2({ fwd: [20, 700] }, ["vetoed", "vetoed: test"]), test: block(30, 740), vetoes: { test: true, bridge: false, fwd: true } };
-  check(both);
+  assert.deepEqual(verdict(both), ["vetoed", "vetoed: test"]);
   refuse({ ...both, status_reason: "vetoed: fwd" }, /not 'vetoed' and 'vetoed: test'/);
 });
 
