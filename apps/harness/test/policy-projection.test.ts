@@ -80,7 +80,7 @@ test("projection_misses_never_from_k_obs", () => {
 test("projection_under_calib_row", () => {
   for (const dir of [true, false]) {
     const c = find((x) => (x.side !== null) === dir && x.status === "under_calib" && (x.thresholds !== null) === dir);
-    const r = projectCell(c, { ...INP, attestation: () => undefined }) ?? assert.fail("no row");
+    const r = admitted(c, { ...INP, attestation: () => undefined }) ?? assert.fail("no row");
     assert.match(r.status_reason, /^n \d+ below n0 (6|299)$/);
     assert.deepEqual([r.runs_miss, r.runs_aux, r.recompute, r.k_star, r.p_served, r.marginal_alpha, r.qhat], [null, null, null, null, null, null, null]);
     assert.deepEqual([r.miss_bound, r.bound_on, r.runs_level, r.status], [null, null, "0.05", "under_calib"]);
@@ -144,3 +144,6 @@ test("projected_rows_pass_the_closed_check", () => {
   }
   assert.equal(canonicalJson(rows), canonicalJson(readRegistry(SYN.bytes).map((c) => projectCell(c, INP)).filter((r) => r !== null)));
 });
+
+/** projectCell judged by an assertion: a refusal of the closed row check fails the test by assert.fail with its message; any other error is thrown again, so a crash is never read as a verdict. */
+const admitted = (c: RegistryCell, inp: ProjectionInputs): PolicyRow | null => { try { return projectCell(c, inp); } catch (e) { if (e instanceof Error && e.message.startsWith("MONARK policy check: ")) assert.fail(e.message); throw e; } };

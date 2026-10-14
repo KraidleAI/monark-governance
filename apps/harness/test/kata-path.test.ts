@@ -157,7 +157,7 @@ test("kata_zero_lean_answers_after_every_400", () => {
 
 // killer: apps/harness/src/kata-path.ts:60 SDL "if (params.alpha !== Number(cls.alpha)) refuse(" -> ""
 test("kata_imposed_params_without_row", () => {
-  const served = servedPolicyTables({ classText: (c) => `class text of ${c}`, marginal: () => ({ registry_file: "r", registry_sha256: "ab".repeat(32), generator: "g", text: "t" }) });
+  const served = servedPolicyTables({ classText: (c) => `class text of ${c}`, marginal: () => ({ registry_file: "r", registry_sha256: "ab".repeat(32), generator: "g", text: "t" }) }, new Map());
   const empty = served.find((s) => s.task_class === "btc-dir-1h")?.table ?? assert.fail("no table");
   const band = served.find((s) => s.task_class === "btc-range-4h")?.table ?? assert.fail("no table");
   assert.equal(empty.rows.length, 0);
@@ -220,7 +220,7 @@ test("kata_lookup_reads_current_rows_only", () => {
 // killer: apps/harness/src/kata-path.ts:78 CONST "sha256Canonical([])" -> "sha256Canonical([0])"
 test("kata_no_row_verdict_fields", () => {
   // Spec section 11 point 4, recomputed field by field on the served (empty) tables: direction and scale.
-  const served = servedPolicyTables({ classText: (c) => `class text of ${c}`, marginal: () => ({ registry_file: "r", registry_sha256: "ab".repeat(32), generator: "g", text: "t" }) });
+  const served = servedPolicyTables({ classText: (c) => `class text of ${c}`, marginal: () => ({ registry_file: "r", registry_sha256: "ab".repeat(32), generator: "g", text: "t" }) }, new Map());
   for (const [name, y, params, from] of [["btc-dir-1h", 0.3, P, DIR], ["btc-dir-1h", -0.3, P, DIR], ["btc-range-4h", 0.02, PB, BAND]] as const) {
     const t = served.find((s) => s.task_class === name)?.table ?? assert.fail(name);
     const dir = name.includes("-dir-");
@@ -281,7 +281,7 @@ test("kata_row_statuses_map_to_regions", () => {
 // killer: apps/harness/src/policy-served.ts:23 CONST "[liq, LIQ_POLICY, \"ascending\"]" -> "[liq, LIQ_POLICY, \"time\"]"
 test("kata_served_tables_digests", () => {
   const texts: ServedTableTexts = { classText: (c) => `class text of ${c}`, marginal: () => ({ registry_file: "calibration.ts", registry_sha256: "ab".repeat(32), generator: "recorder", text: "row text" }) };
-  const served = servedPolicyTables(texts);
+  const served = servedPolicyTables(texts, new Map());
   const names = served.map((s) => s.task_class);
   assert.equal(served.length, 35);
   assert.deepEqual(names, [...names].sort());
@@ -290,7 +290,7 @@ test("kata_served_tables_digests", () => {
     assert.equal(s.policy_table_sha256, sha(canonicalJson(s.table)));
     assert.equal(s.table.rows.length > 0, s.task_class === "stable-run-velocity-24h" || s.task_class === "liquidation-eligible-coverage", s.task_class);
   }
-  assert.deepEqual(servedPolicyTables(texts), served, "deterministic");
+  assert.deepEqual(servedPolicyTables(texts, new Map()), served, "deterministic");
   // Block D (ADR-CM dated line (11), founder's go Q-D1): the pin follows the REAL served tables, published = served. The
   // 35 [class, policy_table_sha256] pairs of SERVED_POLICY_TABLES, digested; the per-class values are in
   // docs/G0-bloc-d-2-empreintes.md (Z-3 line of block D).
@@ -300,7 +300,7 @@ test("kata_served_tables_digests", () => {
   assert.equal(sha(canonicalJson(real.map((s) => [s.task_class, s.policy_table_sha256]))), "8da5dd421260d96e4b3dafa48733185b377df64261480aa92cdbeec9b462d2eb");
   assert.equal(real.find((s) => s.task_class === "btc-dir-1h")?.policy_table_sha256, "c04ae2921430968857350fd2fa663d0931f92c1a9bfeb595a7d341d3a02cc6e1", "btc-dir-1h, empty, its class text");
   // Spec section 10: the table of one class does not depend on another class.
-  const moved = servedPolicyTables({ ...texts, classText: (c) => (c === "eth-range-1h" ? "other text" : texts.classText(c)) });
+  const moved = servedPolicyTables({ ...texts, classText: (c) => (c === "eth-range-1h" ? "other text" : texts.classText(c)) }, new Map());
   assert.deepEqual(served.filter((s, i) => s.policy_table_sha256 !== moved[i]?.policy_table_sha256).map((s) => s.task_class), ["eth-range-1h"]);
 });
 

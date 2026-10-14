@@ -23,6 +23,8 @@ export { DRAND_RELAY_LABELS } from "./transport.ts";
 // GARDE-HELIUS-1b-0 (D-8 / C-3c): the closed Bell-Solana method table + a construction-time --method-caps coverage
 // check the Bell client calls before a course opens (apps -> packages direction is licit; migrated at 1b-ii).
 export { BELL_SOLANA_METHODS, assertMethodCapsCover } from "./bell-methods.ts";
+// The billing cycle derived from the account's anchor instant (an identifier and an instant; never an endpoint URL).
+export { cycleOf, nextCycleBoundary } from "./cycle.ts";
 // Types only (erased at runtime; absent from the closed VALUE export set).
 export type { OperatorLabel, Transport, OperatorClass, AttemptRecord, Outcome, RunLimits, ClientConfig, BudgetedClient } from "./client.ts";
 export type { TransportOpts, NetworkLabel } from "./transport.ts";

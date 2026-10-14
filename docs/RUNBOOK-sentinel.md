@@ -411,6 +411,31 @@ tail -1 /var/lib/monark-sentinel/ledger/<CYCLE>/chainstack.jsonl   # "outcome":"
 - **Consigner** dans `docs/JOURNAL-PROVENANCE.md` l'entrée (a), puis l'entrée (b) : cette dernière fait passer la jambe gardée `upcoming → built` (ADR-NARABI-OPS-1, amendement -1d, A.4), retire le chemin « env → `rpc.ts` pool », et la cartographie cesse de déclarer le résiduel 118.
 - **STOP + rollback** : `sentinel FATAL` ; `chainstack_guard` ≠ `ok` non corrigeable ; `.lock` résiduel après `Deactivated` sans SIGKILL ; 8ᵉ endpoint ≠ `ORIGIN`. **STOP et enquête, sans rollback automatique** : run PUBLIANT à 0 ligne `attempted`.
 
+- **Amendement 2026-10-13 (exécution de §6-bis, SENTINEL-GUARD-ARMING-1, MONARK) : écarts déclarés au texte pré-enregistré.**
+  Exécuté le 2026-10-13 de 17:2x UTC, hors créneau (P-4 : service `inactive` à 17:24 UTC, prochain run 00:4x). P-1 : SHA du pli nommé
+  `6cfd8abd` (JOURNAL, G7 de #252). P-3 : lu à la console par MONARK (F:/tmp/sentinel-arming/FAITS-P3-chainstack-2026-10-13.md) :
+  `<CYCLE>` = `chainstack-2026-09-19`, `<FLOOR>` = 472015. Décisions du fondateur sur question fermée, verbatim : « Sentinelle seule
+  (Recommandé) » ; « Oui, sur le serveur (Recommandé) ».
+  - (a) Archive restreinte aux étapes (1) et (5) : `apps/sentinel`, `deploy/monark-sentinel.service`, `deploy/monark-sentinel.timer`
+    au SHA `6cfd8abd`. Raison : le harnais déployé est `9612d4d2` (JOURNAL, 2026-10-06) et l archive écrite aurait avancé sur disque
+    26 fichiers du harnais et le lockfile, sans redémarrage ni CA. `packages/rpc-guard` est identique entre `9612d4d2` et `6cfd8abd`
+    (empreintes en place égales aux attendues) ; le lockfile ne diffère que par `sharp` (images du site) : pas de `npm ci`, donc pas de
+    copie `node_modules.pre-nops1d`. Contrôle inchangé : `sha256sum -c` des 25 fichiers de l étape (1), 25 OK.
+  - (b) Étape (4) faite sur l hôte : la ligne `CHAINSTACK_ETH_URL` en place est gardée (un seul nom de clé compté, aucune valeur lue à
+    l écran), l origine est calculée sur l hôte depuis elle, puis les quatre clés sont écrites en une écriture atomique (fichier
+    temporaire, `chown root:sentinel`, `chmod 0640`, `mv`). Seule l origine est affichée :
+    `https://ethereum-mainnet.core.chainstack.com`. Le secret ne passe par aucun poste. Pas de paire d empreintes local et hôte (aucune
+    copie locale) : empreinte du fichier écrit, préfixe `fa64251c`.
+  - (c) Sur un poste Windows, les archives se font par `git -c core.autocrlf=false archive` (ici `core.autocrlf=true`) ; l archive a été
+    contrôlée sans octet CR (115 fichiers) et `rpc.ts` égal à son blob.
+  - (d) Avant l acte, la timeline publiait 7 points d accès, sans 8ᵉ : la comparaison de l origine au 8ᵉ point d accès passe au critère
+    d acceptation (b).
+  - Résultats : sauvegarde `/root/rollback-nops1d-20261013` (arbre `f914ceed…`, timeline `b3f2bda7…`, état `698669c2…`) ; ledger
+    `750 sentinel:sentinel` ; unités copiées, quatre `OnCalendar` valides, `TimeoutStartUSec=5min`, `EnvironmentFiles` lu ; garde
+    importable en `sentinel` (`function function`) ; dry-run gardé : `chainstack true`, `chainstack_guard "ok"`, `exit_code 0`, ledger
+    `chainstack.jsonl` et `chainstack.head`, dernière ligne `unlocked`, `sentinel-daily-end`, aucun `.lock` ; minuteur relancé, actif,
+    prochain run le 2026-10-14 à 00:56 UTC. Critères (a) et (b) : à lire après ce run.
+
 ### Rollback (calque E-5)
 Ré-expédier le SHA déployé AVANT (dernière entrée de déploiement de `docs/JOURNAL-PROVENANCE.md` ; à la rédaction : `c4981d0`, E-5, l. 353-355) ou restaurer `"$B/monark-harness-tree.tgz"` ; `npm ci` ; recopier les unités sauvegardées ; `systemctl daemon-reload && systemctl restart monark-sentinel.timer` ; contrôler les hachés consignés pour ce SHA (E-5 : `run.ts` `54619a40…`, `.service` `d70f88cc…`, `.timer` `d84a08b5…`). L'EnvironmentFile à 4 clés reste compatible avec l'ancien code (il ne lit que `CHAINSTACK_ETH_URL` ; les clés de cycle sont ignorées) ; `/var/lib/monark-sentinel/ledger/` reste en place (ni lu ni servi par l'ancien code). Un rollback RÉ-OUVRE le résiduel 118 (chemin payant hors garde) : le consigner.
 

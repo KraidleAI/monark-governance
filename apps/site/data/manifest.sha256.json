@@ -4,7 +4,7 @@
   "normalization": "crlf-to-lf-utf8",
   "files": {
     "fixtures/figures-sourced.json": "15aad757d9f182ef203dd213bc20eaa8d18d03e9f602b61ef2359f162acb693e",
-    "apps/site/data/bell-legal.json": "0e4a6719c6e73ac1735c5c2412609c9adcd350f3ee5f3d1096186b73544f718b",
+    "apps/site/data/bell-legal.json": "b509f3f31deb10f3a32f4d9c2c5c1f5404a6393d75c0f0ec9e8f9999724b4d91",
     "apps/site/data/ukemi-course.json": "308482025556361b849e6d8495d30e25217c333d6abdc8261ad0d156e28703ae",
     "apps/site/data/bell-served.json": "507b5c688086524676cbaa81a03ce653c979a5be6b872972b08907fef62d9425",
     "apps/site/data/narabi-served.json": "14df98bd3a77439708fea53c65849c571032445daf99d19dd3278156626c4085",

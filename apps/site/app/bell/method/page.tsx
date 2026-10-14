@@ -130,8 +130,9 @@ export default function BellMethodPage() {
           </h1>
           <p className="c-lede" style={{ marginTop: 12 }}>
             Everything a third party needs to recompute a Bell record from the public ledger and from closing prices and
-            consolidated volumes read under their own licence. Definitions are those of the collector&rsquo;s source; a
-            change to any of them is a new dated version of this page.
+            consolidated volumes read under their own licence. The closing price is the consolidated close: the last
+            last-sale-eligible trade of the regular session across all US venues (Tapes A, B and C), as reported in the
+            day&rsquo;s final end-of-day summary; a change to this definition is a new dated version of this page.
           </p>
           <nav className="c-toc" aria-label="On this page" style={{ marginTop: 16 }}>
             <a href="#sessions">sessions</a>
@@ -567,8 +568,8 @@ exceeds(θ) = | VWAP_share − P_close | / P_close > θ`}</pre>
               <dd>the run&rsquo;s multiplier history <span className="c-tag c-tag--next">to be published</span>, or your own scan of the mint&rsquo;s update events</dd>
             </dl>
             <p className="c-muted c-small" style={{ marginTop: 12 }}>
-              With the same inputs, every gap and ratio is designed to recompute bit for bit. With different inputs, the
-              difference names the input.
+              With the same inputs, read under your own licence from the same data sources as ours, every gap and ratio is
+              designed to recompute bit for bit. With different inputs, the difference names the input.
             </p>
           </div>
         </div>

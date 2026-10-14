@@ -58,6 +58,8 @@ Responsible = the maintainer for every row (one maintainer today).
 | `apps/bell/scripts/bell-chain.d.mts` | yes | git mirror | maintainer |
 | `apps/bell/scripts/bell-publish.mjs` | yes | git mirror, Bell host (deployed tree) | maintainer |
 | `apps/bell/scripts/bell-publish.d.mts` | yes | git mirror | maintainer |
+| `apps/bell/scripts/bell-validate.mjs` | yes | git mirror, Bell host (deployed tree, from its next deployment) | maintainer |
+| `apps/bell/scripts/bell-validate.d.mts` | yes | git mirror | maintainer |
 | `apps/bell/scripts/bell-verify.mjs` | yes | git mirror (third-party verifier of the Bell host) | maintainer |
 | `apps/bell/scripts/bell-verify.d.mts` | yes | git mirror | maintainer |
 | `scripts/verify-bell.mjs` | yes | git mirror (deployment conformity check of the Bell host) | maintainer |

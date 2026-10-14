@@ -14,7 +14,6 @@
 //  · close = the official consolidated Nasdaq NLS+ end-of-day summary (20:15 ET), non-adjusted;
 //  · one range request covers the whole [start,end); <= 2000 symbols; unknown symbol => 200 + `warnings`.
 import { createHash } from "node:crypto";
-import { etWallClockToUtcMs } from "./sessions.ts";
 import { canonical } from "./digest.ts";
 import type { CashCross } from "./digest.ts";
 import type { TransportFault } from "./quorum.ts";
@@ -75,12 +74,9 @@ export function scaledFromDecimal(decimalStr: string): bigint {
   return neg ? -scaled : scaled;
 }
 
-/** C-6: the earliest UTC instant a session's g_t may be published = 16:00 ET (regular close) of the reference-close
- *  day + 24 h. 16:00 ET is conservative on a half-day (>= its 13:00 ET close + 24 h). Pure; DST via sessions.ts. */
-export function earliestPublishUtc(refCloseDateET: string): number {
-  const [y, mo, d] = refCloseDateET.split("-").map(Number);
-  return etWallClockToUtcMs(y ?? 0, mo ?? 1, d ?? 1, 16, 0, 0) + 24 * 3600 * 1000;
-}
+/** C-6: the publication gate (16:00 ET of the reference-close day + 24 h) lives in sessions.ts, where the planner reads it;
+ *  re-exported here as the same function, never a copy, so its consumers are unchanged. */
+export { earliestPublishUtc } from "./sessions.ts";
 
 /** The UTC calendar date (YYYY-MM-DD) of an ohlcv-1d bar. ts_event = midnight UTC of the bar date (PR-B-DBN);
  *  for a US trading day the bar's UTC date IS the ET trading date (the session runs inside one UTC calendar day),

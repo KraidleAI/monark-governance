@@ -8,9 +8,10 @@
  *
  * Why a NON-exported test and not vocab-banned.json (C-9): vocab-banned.json is EXPORTED
  * (scripts/export-public.mjs WHITELIST_FILES), so writing the provider name there would PUBLISH the very name it
- * bans — an auto-destructive mechanism. The forbidden LITERALS therefore live ONLY here, a repo-root test/ file
- * that is NEVER exported (asserted below). `docs/` is not exported either, so the name may sit in the G0 prose;
- * only the match literals stay confined to this file.
+ * bans — an auto-destructive mechanism. The forbidden LITERALS therefore live ONLY in this file and in the shared module
+ * test/helpers/provider-forms.ts (CASH_CROSS_CHECK_FORMS), both repo-root test/ files that are NEVER exported (asserted
+ * below). `docs/` is not exported either, so the name may sit in the G0 prose; only the match literals stay confined to
+ * these two files.
  *
  * Soundness note (docs/PLI-lot-ci-site.md): `\bmassive\b` is a CONSERVATIVE over-match (the adjective "massive"
  * would also red) — accepted because the measured base is 0 hit and MONARK's public copy is disciplined. A bare
@@ -23,15 +24,12 @@ import { readFileSync, readdirSync, statSync } from "node:fs";
 import { join } from "node:path";
 import { collectFiles } from "../scripts/export-public.mjs";
 import { publishedRun } from "../apps/bell/test/helpers/bell-served.ts";
+import { CASH_CROSS_CHECK_FORMS } from "./helpers/provider-forms.ts";
 
 const ROOT = join(import.meta.dirname, "..");
 
-// FORMS of the cash cross-check provider (decision 69). These LITERALS live ONLY in this non-exported file.
-const PROVIDER_FORMS: { re: RegExp; why: string }[] = [
-  { re: /\bmassive\b/i, why: "cash cross-check provider brand (whole word; conservative over-match)" },
-  { re: /polygon\.io/i, why: "cash cross-check provider API domain" },
-  { re: /POLYGON_API_KEY/, why: "cash cross-check provider env-key name" },
-];
+// FORMS of the cash cross-check provider (decision 69), read from the shared non-exported module (lot 1d-ii, C-6).
+const PROVIDER_FORMS = CASH_CROSS_CHECK_FORMS;
 
 // Binary whitelist entries carry no prose (out/logo.png, out/banner.jpg); read only text.
 const BINARY = /\.(png|jpg|jpeg|gif|ico|webp|woff2?|ttf|otf)$/i;

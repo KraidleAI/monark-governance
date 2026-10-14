@@ -30,7 +30,7 @@ const CLASSES = ENTRIES.map((e) => e.task_class);
 const ROWS = CLASSES.flatMap((name) => tableFrom(name, SYN.bytes, PINS).rows);
 const find = (f: (r: PolicyRow) => boolean): PolicyRow => ROWS.find(f) ?? assert.fail("no such row");
 const check = (r: PolicyRow, pins = PINS): void => guardKataRow(r, entry(r.task_class), pins);
-const refuse = (r: PolicyRow, re: RegExp, pins = PINS): void => assert.throws(() => check(r, pins), re);
+const refuse = (r: PolicyRow, re: RegExp, pins = PINS): void => { try { check(r, pins); } catch (e) { if (!(e instanceof Error && /^MONARK (import guard|policy check): /.test(e.message))) throw e; assert.match(String(e), re); return; } assert.fail(`admitted, not refused: ${String(re)}`); }; // a refusal by the guard or by the closed row check it runs first, matching re as assert.throws matched it; an admitted row fails by an assertion; any other error is thrown again, so a crash fails the test and is never read as a refusal
 const dirRegion = find((r) => r.side !== null && r.status === "region" && (r.misses ?? 0) > 0);
 const bandRegion = find((r) => r.side === null && r.status === "region");
 const dirMisses = find((r) => r.side !== null && r.status === "silence" && r.qhat === 1);
@@ -92,7 +92,7 @@ test("guard_refuses_arithmetic_off_the_counts", () => {
 
 // killer: apps/harness/src/policy-guard.ts:74 CONST "r.misses ?? -1" -> "r.k_obs ?? -1"
 test("guard_direction_qhat_and_misses", () => {
-  check(dirMisses);
+  assert.deepEqual(verdict(dirMisses), [dirMisses.status, dirMisses.status_reason]);
   assert.equal(dirMisses.k_obs, 0);
   refuse({ ...regionLike(dirMisses), qhat: 0 }, /qhat or k_obs/);
   refuse({ ...dirRegion, qhat: 1, k_obs: 0 }, /qhat or k_obs/);
@@ -110,11 +110,11 @@ test("guard_status_and_reason_recomputed", () => {
 
 // killer: apps/harness/src/policy-guard.ts:84 CONST "calib === \"region\"" -> "calib === \"silence\""
 test("guard_test_veto_conditional", () => {
-  check(vetoed);
+  assert.deepEqual(verdict(vetoed), [vetoed.status, vetoed.status_reason]);
   refuse({ ...vetoed, status: "region", status_reason: "" }, /status 'region'/);
   refuse({ ...vetoed, vetoes: { test: false, bridge: null, fwd: null } }, /vetoes\.test/);
   const n = dirMisses.test?.n_test ?? 0;
-  check({ ...dirMisses, test: { k_test: n, n_test: n, u_test: "1" } });
+  assert.deepEqual(verdict({ ...dirMisses, test: { k_test: n, n_test: n, u_test: "1" } }), [dirMisses.status, dirMisses.status_reason]);
   refuse({ ...dirRegion, test: { k_test: n, n_test: n, u_test: "1" } }, /vetoes\.test/);
   refuse({ ...dirRegion, test: { ...(dirRegion.test ?? assert.fail("no test")), u_test: "0.9999999" } }, /u_test/);
 });
@@ -188,7 +188,7 @@ test("guard_pins_order_time_and_current", () => {
 // killer: apps/harness/src/policy-guard.ts:67 SDL "is([t, r.bridge ?? t, r.fwd ?? t, r.retire ?? t].every(" -> ""
 test("guard_names_k_test_above_n_test", () => {
   const n = dirRegion.test?.n_test ?? 0;
-  refuse({ ...dirRegion, test: { k_test: n + 1, n_test: n, u_test: "1" } }, /k_test above its n_test/);
+  for (const b of [{ k_test: 1, n_test: 0, u_test: null }, { k_test: n + 1, n_test: n, u_test: "1" }]) refuse({ ...dirRegion, test: b }, /k_test above its n_test/); // n_test 0: no bound to compute, so without this clause the row is admitted
   refuse(retired("live:1", 101, 100, "1"), /k_test above its n_test/);
 });
 
@@ -205,7 +205,7 @@ test("guard_requires_verifier_pins_as_identities", () => {
 
 // killer: apps/harness/src/policy-retire.ts:53 CONST "adr:decisions\\/[0-9A-Za-z]" -> "adr:[\\w./-]"
 test("guard_adr_cause_under_decisions_only", () => {
-  check(retired("adr:decisions/0007-retire.md", null, null, null));
+  assert.deepEqual(verdict(retired("adr:decisions/0007-retire.md", null, null, null)), ["retired", "retired: adr:decisions/0007-retire.md"]);
   for (const c of ["adr:/x.md", "adr:../../etc.md", "adr:..md", "adr:decisions/../x.md", "adr:other/x.md"]) refuse(retired(c, null, null, null), /retire cause/);
 });
 
@@ -255,4 +255,23 @@ test("guard_names_a_constant_auxiliary_sequence_before_a_rejection", () => {
   check(silent(band, "auxiliary sequence constant (fails closed)"));
   const down = find((r) => r.side === "down" && r.status === "region" && r.qhat === 0 && (r.k_obs ?? 0) > 0);
   refuse(silent(down, "auxiliary sequence constant (fails closed)"), /has a digest that the publication refuses: sign-set outcomes that no count of flats/);
+});
+
+/** The status and reason of a row the guard admits, else the guard's refusal; any other error is thrown again, so a crash fails the test and is never read as a verdict. */
+const verdict = (r: PolicyRow): [string, string] | string => { try { check(r); return [r.status, r.status_reason]; } catch (e) { if (e instanceof Error && e.message.startsWith("MONARK import guard: ")) return e.message; throw e; } };
+/** The whole refusal of a row by the guard, `what` read as plain text between the row's key and the closing period. */
+const whole = (what: string): RegExp => new RegExp(["^Error: MONARK import guard: \\S+ \\S+ ", what.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "\\.$"].join(""));
+
+// reddened by: a band row whose misses exceed k* admitted with the direction reason (the guard before W2-GUARD-MISSES-TAIL-1; G2 of R1, m,
+// recherches 1586565): a band's qhat is its (n - k*)-th score (packages/hikae/src/l1-split.ts l.73-78), so at most k* scores exceed it,
+// and the wave 1 generator gives that reason to direction cells only (kata/bench/calibrate.ts l.138)
+// killer: apps/harness/src/policy-guard.ts:76 CONST "dir || m <= ks" -> "dir || !w2 || m <= ks"
+test("guard_refuses_band_misses_above_k_star", () => {
+  const band = find((r) => r.side === null && r.status === "region" && (r.k_obs ?? 0) > 0);
+  const ks = band.k_star ?? assert.fail("no k_star"), m = ks + 1;
+  const above = whole(`has misses above k_star on a band row (misses ${String(m)}, k_star ${String(ks)}): a band's qhat is its (n - k_star)-th score, so at most k_star scores exceed it`);
+  refuse({ ...band, misses: m, k_obs: m, status: "silence", status_reason: `misses ${String(m)} above k* ${String(ks)}`, bound_on: null, miss_bound: null }, above);
+  refuse({ ...band, misses: m, k_obs: m }, above);
+  assert.deepEqual(verdict({ ...band, misses: ks, k_obs: ks }), ["region", ""], "misses = k* on a band: admitted");
+  assert.deepEqual(verdict(dirMisses), ["silence", `misses ${String(dirMisses.misses)} above k* ${String(dirMisses.k_star)}`], "the direction reason stays a direction's");
 });
