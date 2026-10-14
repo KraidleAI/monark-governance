@@ -152,7 +152,7 @@ export interface CycleLedger {
   readonly cycleDir: string;
   readonly op: string;
   entries(): readonly CycleLedgerEntry[];
-  priorAtOpen(): number;
+  priorAtOpen(): number; ownAtOpen(): number; // ownAtOpen (CAP-PER-ACCOUNT-1): the own attempted + settled sum at open, the floor never applied
   /** DRAND-RELAY-GET-1a (D-1 (b)): the count of `attempted` lines at open (refused, reconciled and unlocked lines excluded). */
   priorAttemptsAtOpen(): number;
   append(rec: AttemptRecord): void;
@@ -199,7 +199,7 @@ export function openOperatorLedger(cycleDir: string, op: string, floor: number, 
   // on disk stays authoritative (at most one entry behind, healed above). Removed only once the pair is verified.
   if (existsSync(`${headPath}.tmp`)) DURABLE_FS.unlinkSync(`${headPath}.tmp`);
   let head = ledgerHeadSha(entries), headOnDisk = hasHead; // FIRST-APPEND-HEAD-1 (a): false for a new ledger until its first append
-  const frozenPrior = Math.max(floor, entries.reduce((a, e) => a + (e.outcome === "attempted" || e.outcome === "settled" ? e.credits_derived : 0), 0));
+  const frozenOwn = entries.reduce((a, e) => a + (e.outcome === "attempted" || e.outcome === "settled" ? e.credits_derived : 0), 0), frozenPrior = Math.max(floor, frozenOwn);
   const frozenAttempts = entries.filter((e) => e.outcome === "attempted").length; // D-1 (b): attempts at open, never credits
   const tariffVersion = tariffVersionOf(op); // per-operator (GARDE-HELIUS-2): a chainstack line never carries the helius version
   const appendChained = (outcome: Outcome, byOpMethod: Record<string, number>, credits: number, reason?: string, course?: CycleLedgerEntry["course"]): CycleLedgerEntry => {
@@ -218,6 +218,7 @@ export function openOperatorLedger(cycleDir: string, op: string, floor: number, 
     path, headPath, cycleDir, op,
     entries: () => entries,
     priorAtOpen: () => frozenPrior,
+    ownAtOpen: () => frozenOwn, // CAP-PER-ACCOUNT-1: the share is compared to this sum, never to priorAtOpen (max(floor, own))
     priorAttemptsAtOpen: () => frozenAttempts,
     append: (rec: AttemptRecord) => { appendChained(rec.outcome, { [`${rec.op}|${rec.method}`]: 1 }, rec.credits, rec.reason); },
     appendChained,
