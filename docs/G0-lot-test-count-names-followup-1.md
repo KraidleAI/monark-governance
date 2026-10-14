@@ -3,7 +3,8 @@
 - **Author**: RECHERCHES (`claude-opus-5-5`, effort high), the author instance of this follow-up, distinct from the authors and
   reviewers of #270. 2026-10-14.
 - **Base**: trunk `lot/etude-suite` = `08ae8022` (the merge of #270; read with `ls-remote`, fetched with an explicit refspec). **The
-  `file:line` addresses of §1 hold at `08ae8022`; those of §2 to §4 hold at this branch's head.**
+  `file:line` addresses of §1 hold at `08ae8022`; those of §2 to §4 hold at `f6d9a698`, the head the review read; those
+  of §7 hold at this branch's head.**
 - **Demand**: two items left after #270. O-2 of the review of its fold 4 (recherches,
   `coordination/pieces/2026-10-14-g2d2-test-count-names/G2-test-count-names-fold4.json`): three single-character widenings of the
   split of test 38 (U+1680, U+202F, U+0085) survive its line cases. And a reading of a bypass hunter: a test file renamed that loses a
@@ -110,6 +111,62 @@ none of its files is in this change's zone but the two records, which this chang
 - A test moved between two files that both stay is still declared by a `removed` line (§2); whether it should take a move line of its
   own is not decided here.
 
-## 7. Changelog
+## 7. The review's corrections
+
+The review of `f6d9a698` returned three minor points (recherches,
+`coordination/pieces/2026-10-14-g2-names-followup-1-r1/G2-names-followup-1.json`, m-1 to m-3); each is folded here, with a case
+red before and green after. **The `file:line` addresses of this section hold at this branch's head.** First the trunk's head
+`8400a223` (#271) was merged (a merge commit, no conflict); the main suite on that merge, then `write`, left both records as
+the trunk wrote them (300 files, 3032 tests; `logs/test-main-merge.log`, `logs/write-merge.log`).
+
+- **A names-record key `""` (m-3).** P2 on names dropped the key `""` on both sides, so an entry `"": [...]` of
+  `test/test-names.json` was never held to the run, and its names joined the names gained: a hand edit of the record could
+  cover a test dropped from a gone file. Now only the run's key `""` is left out (those tests are P1's): a names-record key
+  `""` is compared with the run like any file (`scripts/test-count-check.mjs:83`). One assertion in T7
+  (`test/test-count-check.test.ts:189`) with its killer line (`:188`). The review's fixture by the command line: exit 0 before,
+  exit 1 after with `: run and test/test-names.json differ: run only [], recorded only ["drops it"]`; the same without the key
+  and the honest declaration are judged as before (`logs/cli-probe.log`).
+- **The file-gone hint's count (m-1).** The hint was right but no test pinned its count on the branch where another line took
+  a name. One T7 case (`test/test-count-check.test.ts:258`: a file renamed, one test dropped and declared, no file-gone line;
+  the hint wants the file-gone line at the base count) and its killer line (`:252`, `from: base[f].length` to
+  `from: all.length`). That mutant survived the test file of the reviewed head and is red now.
+- **Test 38's comment (m-2).** The comment claimed more than the test does: a split widened by one of the four line
+  terminators (U+000A, U+000D, U+2028, U+2029) stays green, because `R25_DIFF_RE`'s `(.+)` refuses a line holding one before
+  the split runs. The comment now says so (`test/ci-gates.test.ts:342-344`), and one assertion holds that refusal
+  (`test/ci-gates.test.ts:347`): with `(.+)` widened to cross a line terminator, test 38 was green at the reviewed head and is red
+  now. The widenings by the other 20 blanks stay red.
+
+The two nits are not folded: the pool of gained names (N-1) is the rule §2 writes, and the review judged its proposed fix
+would refuse an honest merge of a file into an existing one; the widenings by characters outside `\s` (N-2) are the class
+the review of fold 4 already judged.
+
+Red before, green after (`tools/red-green.mjs`, `logs/red-green.log`): 11 rows, each as wanted. Hand mutants of the new
+clause: 0 of 8 survive, the hint count among them (`logs/hand-mutants.log`). Test 38's split widened by each blank: the four
+line terminators green, the 22 others red (`logs/split-mutants.log`). The pin's own mutants: the same verdicts as before
+(`logs/pin-mutants-new.log`).
+
+Measures at the head of the code commits, each run offline (0 refused attempts in every log); evidence in the scratchpad
+folder `names-followup-1-r2/`, kept:
+
+| Measure | Result | Log, sha256 prefix |
+|---|---|---|
+| `npm run test:main` (under the host lock) | 3032 tests, 3010 pass, 0 fail, 22 skipped | `logs/test-main.log`, `c42096d4` |
+| `node scripts/test-count-floor.mjs write`, then `git status` | 300 files, 3032 tests; both records unchanged | `logs/write.log`, `467cde86` |
+| the count check against `origin/lot/etude-suite` | exit 0, `test counts: 300 files, 3032 tests, equal to test/test-counts.json and test/test-names.json; 0 drop(s) from the base 8400a2231334, each name gone with its line in test/test-count-removals.json` | `logs/count-check.log`, `bfddc84e` |
+| killer campaign (`scripts/mutants/run.mjs --killers`, base `8400a223`) | 71 of 71 killed, the two new ones among them | `killers/RESULTS.json`, `422f59ae`; `logs/killers.log`, `4e567a2f` |
+| anchors, `verifie-ancres.mjs` on the whole tree, `--ref 8400a223` | 1884 killers, 1884 anchored, 0 drifted, 0 lost | `logs/anchors.log`, `7687cfbb` |
+| tsc, eslint (the three changed code and test files), lint:ratchet, gate:vocab, lang:gate, export:check, winlint, `git diff --check` | each exit 0 | `logs/gates.log`, `37c8c676` |
+| size in CI form (the job's pin, then the head's `STAT=` line in bash, base `8400a223`) | 3 files, 67 insertions, 22 deletions: W = 89, under 1,205 | `logs/size-ci.log`, `11246b86` |
+| the two changed test files with the case-folding git wrapper first in PATH | 48 pass, 0 fail; 0 case-only collision | `logs/casefold-run.tap`, `64546251`; `logs/casefold.log`, `30e7cc2f` |
+
+A first build of the test commit wrote U+2028 and U+2029 as raw characters in the new assertion of test 38; the main suite
+caught it (two repository tests refuse a line separator in a tracked text file: `logs/test-main-e8af7c08-literal-separator.log`,
+`431ec0b3`). The commit was rebuilt, before any push, with the escapes `\u2028` and `\u2029`.
+
+Not verified here: Windows (the change adds no path a test writes); the CI run (no pull request is opened); whether a test
+moved between two files that both stay should take a move line of its own (§2).
+
+## 8. Changelog
 
 - 2026-10-14: built (this note).
+- 2026-10-14: the review's three minor points folded, after a merge of the trunk (§7).
