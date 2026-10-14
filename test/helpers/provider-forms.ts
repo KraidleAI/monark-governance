@@ -1,6 +1,7 @@
 // test/helpers/provider-forms.ts -- the single source of the provider FORMS that root tests refuse on public surfaces (lot 1d-ii of
-// BELL-COLLECT-TIMER-1, correction C-6). Two closed lists, read by two tests: test/no-cash-provider-name.test.ts (every exported file,
-// decision 69) and test/bell-recompute-phrases.test.ts (the three Bell pages). These LITERALS name providers and products, so they live
+// BELL-COLLECT-TIMER-1, correction C-6). Two closed lists, read by three tests: test/no-cash-provider-name.test.ts (every exported file,
+// decision 69), test/bell-recompute-phrases.test.ts (the three Bell pages) and apps/bell/test/bell-validate.test.ts (the public
+// export of the Bell validation module). These LITERALS name providers and products, so they live
 // only under the repo-root test/ directory, which is NEVER exported (self-check of test/no-cash-provider-name.test.ts).
 
 /** FORMS of the Bell cash cross-check provider (decision 69), moved unchanged from test/no-cash-provider-name.test.ts. */

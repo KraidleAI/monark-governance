@@ -12,6 +12,7 @@ import { createHash, createPrivateKey } from "node:crypto";
 import * as P from "../scripts/bell-publish.mjs";
 import * as V from "../scripts/bell-validate.mjs";
 import { collectFiles } from "../../../scripts/export-public.mjs";
+import { CASH_CROSS_CHECK_FORMS } from "../../../test/helpers/provider-forms.ts";
 import { REPO, T_PUBLISH, dropRun, runMainInto, tmp } from "./helpers/bell-served.ts";
 
 const SCRIPTS = join(REPO, "apps", "bell", "scripts");
@@ -66,11 +67,10 @@ process.stdout.write(JSON.stringify(seen.filter((u) => u.startsWith("file:")).ma
 });
 
 // The two new files ship in the public export (named, file by file) and carry no form of the cash cross-check provider. The forms
-// are READ from the one file that holds them (test/no-cash-provider-name.test.ts, never exported), never copied here.
+// are IMPORTED from the one module that holds them (test/helpers/provider-forms.ts, never exported), never copied here.
 // killer: scripts/export-public.mjs:109 CONST ", \"apps/bell/scripts/bell-validate.mjs\"" -> ""
 test("export_ships_bell_validate_and_no_provider_name", () => {
-  const src = readFileSync(join(REPO, "test", "no-cash-provider-name.test.ts"), "utf8");
-  const forms = [...src.matchAll(/\{ re: \/(.+?)\/([gimsuy]*), why:/g)].map((m) => new RegExp(m[1] ?? "", m[2]));
+  const forms = CASH_CROSS_CHECK_FORMS.map((f) => f.re);
   assert.equal(forms.length, 3, "the three provider forms are read from their single source");
   const kept = collectFiles(REPO).kept;
   for (const rel of ["apps/bell/scripts/bell-validate.mjs", "apps/bell/scripts/bell-validate.d.mts"]) {
