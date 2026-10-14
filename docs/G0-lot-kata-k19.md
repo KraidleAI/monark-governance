@@ -147,3 +147,43 @@ merged, not run); the killers of other test files that reach `apps/harness/src/k
 | the throwaway form: `logs/proto.diff`, `logs/proto-mutated.tap` | `79e2ea92…`, `95707a91…` |
 | suite and count: `logs/testmain.log`, `logs/countwrite.log`, `logs/countcheck.log` | `d48f29a6…`, `027eece1…`, `0e228620…` |
 | checks: `logs/anchors.log`, `logs/size.log`, `logs/tsc.log`, `logs/eslint.log`, `logs/winlint.log` | `e4b74253…`, `d2257460…`, `a904264b…`, `37a449bd…`, `f8265674…` |
+
+**G2 fold** (2026-10-14, the same author lock). The fresh G2 (recherches `coordination/pieces/2026-10-14-g2-kata-k19/G2-kata-k19.json`,
+commit `f0815c83`, `claude-opus-5-5`, effort high) read `958d68df` on `971eda88` and returned ACCEPTE with two minor findings, both
+folded:
+
+- **m-1** (this note, l.53-54 at `958d68df`): section 2 now says that the two tables are T-4's own synthetic fixture, so that no release
+  of the real tables changes the assertion (`ea0818de`).
+- **m-2** (T-4's header comment, `apps/harness/test/gate-kata-served.test.ts` l.327-330 at `958d68df`): reworded within its four lines
+  to name the served-rows assertion, the one that kills K19 (`f944e572`). No killer line moves: the file's 15 killer lines read
+  15 anchored, 0 drifted, 0 lost with `--ref 6779955e --ref 958d68df`.
+
+Before them, `98f036f9` merges the trunk head `6779955e` (the merge of #262, which shares no file with this change): a merge commit,
+no rebase, no conflict. The branch head is the commit that adds this paragraph.
+
+**Proofs on the merge `98f036f9`**, each under `offline.mjs --no-egress` with 0 refused attempts; the suite, the campaign, red-proof,
+`tsc` and eslint took the shared host lock:
+
+- `npm run test:main`: 2981 tests, 2959 pass, 0 fail, 22 skipped (the 2973 of `971eda88` and the 8 that #262 adds).
+  `node scripts/test-count-floor.mjs write`: 291 files, 2981 tests, no diff to `test/test-counts.json`, so the record is not committed.
+  `node scripts/test-count-check.mjs --base origin/lot/etude-suite`: equal to the record, 0 drops from `6779955e`.
+- The campaign: `scripts/mutants/run.mjs --killers --only K1,…,K15 --base 6779955e` (against the new trunk only this file's killer
+  lines count, so K1 to K15 are its fifteen and K19 is K11; `tool_sha256` `13b2b11f…`, `tool_dirty` null): baseline green, 560
+  entries; 15 « tue », each by `ERR_ASSERTION`; K11 (K19) fails at the assertion of l.345.
+- `node scripts/red-proof.mjs --test-only --base 6779955e --gel 98f036f9`: OK, 1 judged and pinned (T-4, its declared killer fired at
+  the gel red by `ERR_ASSERTION`), 14 unchanged, 0 killers drawn, no refusal.
+- `npx tsc --noEmit` 0; eslint on the test file 0. The anchor checker on the whole tree, `--ref 6779955e`: 1799 killer lines, 1799
+  anchored, 0 drifted, 0 lost; the same at `ea0818de`.
+
+At `ea0818de` (the merge plus both folds): `lint:ratchet` 69/69; `gate:vocab`, `lang:gate`, `export:check` OK; winlint (2 files) no
+hazard; `git diff --check` clean. Size in the CI form against `6779955e`: 1 file, 6 lines added, 4 removed, 10 in all (bound 1205).
+r1scan 0 on what the push carries.
+
+**Evidence of the fold**, under the author's scratchpad (`kata-k19-fold/`):
+
+| File | sha256 |
+|---|---|
+| campaign: `runs/campaign/RESULTS.json`, `RESULTS.txt`, `tap/K11.tap`, `logs/campaign.stdout.log` | `e9215c7f…`, `b5959c00…`, `403c81ff…`, `9f3486e9…` |
+| red-proof: `runs/redproof/RED-PROOF.json`, `pin-1.tap`, `logs/redproof.log` | `74011ba2…`, `8c1d68d0…`, `90c8f7c0…` |
+| suite and count: `logs/testmain.log`, `logs/countwrite.log`, `logs/countcheck.log` | `c89555c3…`, `fe060350…`, `08de1d72…` |
+| checks: `logs/anchors-merge.log`, `logs/anchors-final.log`, `logs/tsc-eslint-merge.log`, `logs/static-light.log`, `logs/winlint.log`, `logs/size.log` | `2e93d005…`, `5e3357d3…`, `640d6f55…`, `0262ebd5…`, `a8ac38b7…`, `eb781ff1…` |
