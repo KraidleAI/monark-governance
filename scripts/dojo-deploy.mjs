@@ -14,7 +14,7 @@ export const DOJO_COLLECT_TREE_PATHS = Object.freeze(["apps/bell/scripts/bell-ch
   "apps/dojo/scripts/dojo-eve.mjs", "apps/dojo/scripts/dojo-seed.mjs", "apps/dojo/src/bundle.ts", "apps/dojo/src/collect.ts", "apps/dojo/src/dojo-methods.ts",
   "apps/dojo/src/layout.ts", "apps/dojo/src/reading.ts", "out/mint.txt", "packages/rpc-guard/bin/rpc-guard.mjs", "packages/rpc-guard/package.json",
   "packages/rpc-guard/src/bell-methods.ts", "packages/rpc-guard/src/classify.ts", "packages/rpc-guard/src/cli.ts", "packages/rpc-guard/src/client.ts",
-  "packages/rpc-guard/src/errors.ts", "packages/rpc-guard/src/guarded.ts", "packages/rpc-guard/src/index.ts", "packages/rpc-guard/src/ledger.ts",
+  "packages/rpc-guard/src/cycle.ts", "packages/rpc-guard/src/errors.ts", "packages/rpc-guard/src/guarded.ts", "packages/rpc-guard/src/index.ts", "packages/rpc-guard/src/ledger.ts",
   "packages/rpc-guard/src/lock.ts", "packages/rpc-guard/src/reconcile.ts", "packages/rpc-guard/src/repair.ts", "packages/rpc-guard/src/tariff.ts",
   "packages/rpc-guard/src/transport.ts"]);
 /** How the tree resolves @monark/rpc-guard without npm (D-3 variant A): [link inside the tree, its relative target]. */
