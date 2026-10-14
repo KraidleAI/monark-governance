@@ -251,7 +251,7 @@ test("bell_tick_names_every_guard_error_of_the_closed_list", async () => {
     [new Error("bell/collect: not the guard"), "failed: Error"], [new (class TransportLike extends Error {})("rpc-guard: a typed fault"), "failed: Error"]];
   for (const [i, [e, line]] of cases.entries()) {
     assert.equal(await run(h, { now: DUE + i * HOUR, runUnit: stopOf(e) }), 1);
-    assert.match(lastErr(h), new RegExp(`^bell/tick: (?:refused )?${line.replace(/[()]/g, "\\$&")}$`), "the share by its refusal code, never its text; a plain Error of the guard by budget_guard");
+    assert.match(lastErr(h), new RegExp(`^bell/tick: (?:refused )?${line.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}$`), "the share by its refusal code, never its text; a plain Error of the guard by budget_guard");
   }
   // The real guard: a ledger without its head sidecar is refused at the opening by a plain Error, named budget_guard.
   const r = await seeded();

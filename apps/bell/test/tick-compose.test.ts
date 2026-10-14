@@ -35,7 +35,7 @@ const ENV: Record<string, string> = { BELL_SOLANA_RPC: `https://${HELIUS_HOST}`,
 // Two fills per mint in the unit's window: Friday 10:00 ET (regular session, reference close Thursday 10-01) and Saturday (reference close
 // Friday 10-02); the trajectory: an initialize at 1, then 1.0039 effective 2026-09-01, the triplet the mint's state account holds.
 const FILLS = [Date.UTC(2026, 9, 2, 14, 0, 0), Date.UTC(2026, 9, 3, 15, 0, 0)], EFF = Math.floor(Date.UTC(2026, 8, 1) / 1000);
-const UNDERLYING: Record<string, string> = { TSLAx: "TSLA", AAPLx: "AAPL" }, CLOSE = { scaled: "364000000000", decimal: 364 };
+const CLOSE = { scaled: "364000000000", decimal: 364 };
 const pool = (m: string): { vaultBase: string; vaultQuote: string } => { const p = POOLS.find((x) => x.baseSymbol === m && x.chain === "solana"); assert.ok(p?.vaultBase !== undefined && p.vaultQuote !== undefined); return { vaultBase: p.vaultBase, vaultQuote: p.vaultQuote }; };
 const mintOf = (m: string): string => XSTOCKS.find((t) => t.symbol === m)?.address ?? "";
 const TRAJ = JSON.stringify(Object.fromEntries(BELL_UNIVERSE.map((m) => [m, { scanComplete: true, scanMethod: "authority", events: [
@@ -81,7 +81,7 @@ async function withNetwork<T>(body: (seen: string[]) => Promise<T>, answer: type
     const url = new URL(String(input));
     seen.push(url.hostname);
     if (url.hostname === HELIUS_HOST || url.hostname === CS_HOST) {
-      const req = JSON.parse(String(init?.body)) as { id: unknown; method: string; params: unknown[] };
+      const req = JSON.parse(typeof init?.body === "string" ? init.body : "{}") as { id: unknown; method: string; params: unknown[] };
       return new Response(JSON.stringify({ jsonrpc: "2.0", id: req.id, result: answer(req.method, req.params) }), { status: 200, headers: { "content-type": "application/json" } });
     }
     if (url.hostname === "hist.databento.com" || url.hostname === "api.polygon.io") return new Response(JSON.stringify(cash(url)), { status: 200 });
