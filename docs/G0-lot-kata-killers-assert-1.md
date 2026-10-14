@@ -449,3 +449,5 @@ lock (author's scratchpad `kata-killers-fold/`, hashed in `logs/SHA256SUMS-merge
 
 The two campaign baselines read 735 and 705 entries over the same target files, the variation that m-1 explains; `npm run test:main`
 gives the same per-file counts as the record on both merges.
+
+Third trunk merge: `bc8e0de8` « Merge the trunk » of `201a0d7d` (#264: `apps/harness/test/gate-kata-served.test.ts` and a note, no file of this change), no conflict; on it, offline with 0 refused, `npm run test:main` 2981 tests, 2959 pass, 0 fail, 22 skipped, the record unchanged (291 files, 2981), the count check equal with 0 drops from `201a0d7d`, the five files with `test/killer-lines.test.ts` 64 of 64, red-proof `--test-only --base 201a0d7d --gel bc8e0de8` OK (12 judged, 12 pinned by `ERR_ASSERTION`, 51 unchanged, 0 drawn), anchors 1799 anchored, 0 drifted, 0 lost, `tsc` 0, size 47 (`logs/m3-*`, hashed in `logs/SHA256SUMS-merge3.txt`, `4d796107…`; `logs/m3-testmain.log` `6539e9a9…`).
