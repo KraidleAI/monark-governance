@@ -4,7 +4,9 @@ RECHERCHES, 2026-10-14. Base `fd20e9fa` (lot/etude-suite, read by `ls-remote` be
 (2026-10-07) in `docs/G0-lot-vocab-venue-fields-1.md` l.66-75 at the trunk. Branch `recherches/spec-gate-hardening-1`. Zone:
 `coordination/ZONES.md` row SPEC-GATE-HARDENING-1 (recherches `214cf41`).
 
-Author: RECHERCHES, worker `claude-opus-5-5`, effort `high` (as launched; the host's own runtime banner names `claude-fable-5-1`), clock
+Author: RECHERCHES. The build instance was launched as `claude-opus-5-5` at effort `high`; the host served it as `claude-fable-5-1` (its runtime
+banner), so the model that wrote this change is `claude-fable-5-1` at effort `high`. The fold of the review (the blank-text mark, below) was
+written by the orchestrator, `claude-fable-5-1`. Clock
 read at 19:12 UTC at the lock. Scout (same day, piece `spec-gate-scout/`): `measure.out` sha256 `41daacac`, `probe/probe.out` `1da5093e`.
 
 ## The two items (docs/G0-lot-vocab-venue-fields-1.md l.71-75 at fd20e9fa)
@@ -69,7 +71,22 @@ the campaign replayed. Replay: baseline vert (124 tests, 0 red), `tues 26 / 26, 
 (`mutants2/RESULTS.txt`, `7b8b0a0f`; `RESULTS.json` `714f150a`). K23 (l.135, option removed) red by `a_leading_bom_is_refused_on_every_kind`
 alone; K24 (l.382) and K25 (l.373) red by `a_duplicate_key_in_a_json_or_schema_text_is_refused_once_unescaped` alone; K26 (l.135,
 `ignoreBOM: false`) red by `a_bom_prefixed_table_with_a_retired_row_is_refused_before_the_retire_rule` alone: each killed by an assertion
-of its own test.
+of its own test. The baseline here counts 124 tests; the other Claude's replay of the same campaign counted 123, one fewer. The difference
+is not explained here: both baselines were green, and what the campaign proves (each killer red under its own named test, run alone) does
+not depend on that count.
+
+### The fold of the review: a blank text's mark (2026-10-14, 20:2x UTC)
+
+The other Claude's review of this change found one hole: a text-kind file whose body is the mark and blanks only passed, and the mark was
+published. Cause: `vocabularyHits` (`scripts/spec-publish.mjs:107`) returns no hit for a text whose `trim()` is empty, and
+`String.prototype.trim` strips U+FEFF; loosening that line is not enough, since the public-text check also reads such a text as empty. Fix,
+on the one line `scripts/spec-publish.mjs:137` in place (no line inserted: killers pin l.135, l.373 and l.382): when the text holds U+FEFF
+and no `[cf]` hit was found, one `vocabulary` problem is pushed, `[cf] a byte order mark in a text the vocabulary gate reads as blank`.
+Case added inside the first test (`b.md`, kind text, body `\n` after the mark; no new test name, the count records unchanged) with its
+killer (l.137, `text.includes("﻿")` to `false`). Replay of the whole campaign on the merged head (trunk `db31f879`): baseline green
+(124 tests), `tues 27 / 27, survivants -, non conclus -, anchor-lost -, exit 0` (`mutants/RESULTS.txt` sha256 `0e4515e4`, `RESULTS.json`
+`cf252320`); the new killer K24 (l.137) red by `a_leading_bom_is_refused_on_every_kind` alone. Gates after the fold: `tsc --noEmit` 0,
+eslint on the test file 0, gate:vocab 0, lang:gate 0, lint:ratchet 69/69, `git diff --check` 0, no non-ASCII character in an added line.
 
 ## Proofs (all offline, 0 refused; the suite under the shared host lock)
 

@@ -134,7 +134,7 @@ export function contentProblems(out, kind, bytes, release, carried = false) {
   let text;
   try { text = new TextDecoder("utf-8", { fatal: true, ignoreBOM: true }).decode(bytes); } catch { return [{ code: "not_text", detail: `${out}: not UTF-8` }]; } // a leading BOM stays in the text and is refused (SPEC-BOM-CANONICAL-1)
   if (text.includes("\0")) return [{ code: "not_text", detail: `${out}: a NUL byte` }];
-  const p = vocabularyHits(venueMaskedText(text, out, kind)).map((h) => ({ code: "vocabulary", detail: `${out}:${h.line} [${h.rule}] ${h.word}` }));
+  const p = vocabularyHits(venueMaskedText(text, out, kind)).map((h) => ({ code: "vocabulary", detail: `${out}:${h.line} [${h.rule}] ${h.word}` })); if (text.includes("\uFEFF") && !p.some((x) => x.detail.includes("[cf]"))) p.push({ code: "vocabulary", detail: `${out}:1 [cf] a byte order mark in a text the vocabulary gate reads as blank (SPEC-BOM-CANONICAL-1)` }); // trim() drops U+FEFF, so a blank text's mark needs its own refusal
   if (text.includes("\r")) p.push({ code: "crlf", detail: `${out}: a CR byte (LF line ends only)` });
   const top = out.split("/")[0], parsed = (() => { try { return JSON.parse(text); } catch { return undefined; } })();
   if (/^contract-/i.test(top) && out.includes("/") && !versionDir(top)) p.push({ code: "version_dir_invalid", detail: `${out}: ${top} is not contract-<x.y.z>[-tables-<YYYY-MM-DD>]` });

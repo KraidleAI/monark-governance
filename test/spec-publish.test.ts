@@ -403,11 +403,14 @@ test("a_caller_s_git_location_never_stands_in_for_the_previous_tree", async () =
 // SPEC-GATE-HARDENING-1, SPEC-BOM-CANONICAL-1 (MONARK e7234bd, docs/G0-lot-vocab-venue-fields-1.md): the decoder keeps a leading BOM in the
 // text, so it is refused as the format character it is ([cf], vocabulary) and, for the JSON kinds, as a text that is not JSON (json_invalid).
 // Before, the decoder dropped it: a table preceded by EF BB BF was published under a sha256 that is not its canonical writing's.
+// A text-kind file whose body is the BOM and blanks only is refused too: String.prototype.trim drops U+FEFF, so the vocabulary gate read
+// such a text as empty and the mark was published (the other Claude's review of this change, case "BOM + LF").
 // killer: scripts/spec-publish.mjs:135 CONST "{ fatal: true, ignoreBOM: true }" -> "{ fatal: true }"
+// killer: scripts/spec-publish.mjs:137 CONST "text.includes(\"\\uFEFF\")" -> "false"
 test("a_leading_bom_is_refused_on_every_kind", async () => {
   const m = await api(), BOM = Buffer.from([0xef, 0xbb, 0xbf]);
   const c = (out: string, kind: Kind, body: string): Problem[] => m.contentProblems(out, kind, Buffer.concat([BOM, Buffer.from(body)]));
-  const cases: [string, Kind, string, string[]][] = [["a.md", "text", NOTE, ["vocabulary"]], ["a.json", "json", '{"a":1}', ["json_invalid", "vocabulary"]],
+  const cases: [string, Kind, string, string[]][] = [["a.md", "text", NOTE, ["vocabulary"]], ["b.md", "text", "\n", ["vocabulary"]], ["a.json", "json", '{"a":1}', ["json_invalid", "vocabulary"]],
     ["s.json", "schema", SCHEMA, ["json_invalid", "vocabulary"]], ["policy/btc-dir-1h.json", "policy-table", TABLE, ["json_invalid", "vocabulary"]]];
   for (const [out, kind, body, want] of cases) {
     const got = c(out, kind, body);
