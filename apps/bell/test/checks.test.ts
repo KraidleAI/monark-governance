@@ -16,6 +16,7 @@ import { bellSha, canonical } from "../src/digest.ts";
 import { earliestPublishUtc, etWallClockToUtcMs, SIP_ETH_STATUS } from "../src/sessions.ts";
 import { ADV_SIP_ETH_RULING, checkRun, type ChecksInput, type ControlId, type RunFiles } from "../src/checks.ts";
 import { REPO, T_PUBLISH, readJson, runMainInto, tmp, type Obj } from "./helpers/bell-served.ts";
+import { BELL_OPERATORS } from "../../../scripts/bell-deploy.mjs";
 
 const CONTROLS = join(dirname(fileURLToPath(import.meta.url)), "..", "ops", "q6-controls.mjs");
 const GATE_0814 = earliestPublishUtc("2026-08-14"); // the gate of the no_close_ref session: 16:00 ET + 24 h
@@ -160,4 +161,16 @@ test("bell_checks_refuse_adv_period_across_the_sip_switch_without_ruling", () =>
   const unitJan = { from_utc_ms: etWallClockToUtcMs(2027, 1, 5, 4, 0, 0), to_utc_ms: etWallClockToUtcMs(2027, 1, 6, 4, 0, 0) - 1 };
   assert.deepEqual(adv(run, grid[0], { window: unitJan }), ["adv_regime_unruled"], "the unit's own anchor, even with no fill of it");
   assert.deepEqual(codes(inputOf(jan), "ADV"), ["adv_regime_unruled"], "under the committed constants (the exported ruling and status) the deposit is refused");
+});
+
+// killer: apps/bell/src/checks.ts:100 CONST "if (pages >= input.ledger.maxPages)" -> "if (op === \"helius\" && pages >= input.ledger.maxPages)"
+test("bell_checks_c13_page_cap_refuses_every_bell_operator", () => {
+  const run = filesOf(clean), pages = (op: string, n: number): Obj[] => [...Array.from({ length: n }, () => att(`${op}|getSignaturesForAddress`)), { outcome: "unlocked" }];
+  assert.ok(BELL_OPERATORS.length >= 2, "the tick runs a second operator after helius");
+  for (const op of BELL_OPERATORS) {
+    const lines = Object.fromEntries(BELL_OPERATORS.map((o) => [o, pages(o, o === op ? 3 : 1)]));
+    const c13 = (maxPages: number): string[][] => checkRun(inputOf(run, { ledger: { lines, maxPages } })).refusals.filter((r) => r.control === "C13").map((r) => [r.code, r.why.split(":")[0] ?? ""]);
+    assert.deepEqual(c13(3), [["enumeration_at_page_cap", op]], `${op} at the page cap is refused by name`);
+    assert.deepEqual(c13(4), [], `${op} under the cap passes`);
+  }
 });
