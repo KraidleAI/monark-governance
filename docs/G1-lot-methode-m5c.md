@@ -499,11 +499,16 @@ claude-opus-5-5
   l `add`. Construction : `launch.mjs` fige les faits d hôte lus (chemins absolus et longueurs, branches, dossiers d outils, base
   résolue) dans un enregistrement que l `add` archive ; J-LINT rejoue `lintMission` sur cet hôte figé. ≈ 0,5 j-h, R-25 ≈ 80 (estimés) ;
   déclencheur : la fusion de M-5c ; formé à ETAT par MONARK.
-- **JOURNAL-REDPROOF-TEST-ONLY-1** : un RED-PROOF `red-proof-v2` de mode `test-only` reste refusé par `add` et par J-REDPROOF (test
-  l.631). ≈ 0,25 j-h (estimé) ; déclencheur : la première ligne G2 d un lot de tests seuls.
-- **Proposés par cette passe** (à former par MONARK) : JOURNAL-LINE-LENGTH-1, les 80 lignes longues de M-5c (23 de `index.mjs` et 57 du test ;
-  7 dans des blocs où `c94c57df` avait déjà des lignes longues) réécrites sous 160, tueurs réadressés par l outil du tronc, les titres
-  avec l item proposé JOURNAL-TEST-TITLES-1 (§ 16.11, Q-C1-7) : ≈ 0,5 j-h, R-25 ≈ 60 à 100 (estimés), déclencheur la prochaine ouverture de `scripts/journal/index.mjs` (M-5d) ;
+- **JOURNAL-REDPROOF-TEST-ONLY-1** : un RED-PROOF `red-proof-v2` de mode `test-only` reste refusé par `add` (sortie 2) et par J-REDPROOF
+  de `build` ; le test `red-proof v2: …` ne tenait que le refus d `add` (G2 de la PR, constat m-1) ; depuis le pli du 2026-10-14 (§ 17.9),
+  il greffe aussi dans l archive l enregistrement passé en mode `test-only` et exige le hit J-REDPROOF (l.654 ; tueurs `index.mjs:201`
+  l.653, `:293` l.660 et l.661). ≈ 0,25 j-h (estimé) ; déclencheur : la première ligne G2 d un lot de tests seuls.
+- **Proposés par cette passe** (à former par MONARK) : JOURNAL-LINE-LENGTH-1, les 84 lignes longues de M-5c : les 80 venues de la branche
+  fusionnée (23 de `index.mjs` et 57 du test ; 7 dans des blocs où `c94c57df` avait déjà des lignes longues) et les quatre que la reprise
+  modifie sans les replier (§ 17.4 ; G2 de la PR, constat m-5) : `index.mjs` l.98 (215) et l.209 (181), `lint.mjs` l.156 (182) et l.168
+  (233) ; réécrites sous 160, tueurs réadressés par l outil du tronc, les titres avec l item proposé JOURNAL-TEST-TITLES-1 (§ 16.11,
+  Q-C1-7) : ≈ 0,6 j-h, R-25 ≈ 70 à 110 (estimés, pli du 2026-10-14 : quatre lignes de plus, dont deux de `lint.mjs` à tueurs),
+  déclencheur la prochaine ouverture de `scripts/journal/index.mjs` ou de `scripts/mission/lint.mjs`, la première des deux (M-5d) ;
   MUTANTS-TAP-LOST-TESTS-1, un passage de mutant dont le TAP rapporte moins de tests que le fichier n en déclare, avec un échec du fichier
   sans assertion (K107, une fois) : le classer « non conclu » avec ce motif, et lancer les enfants comme `test:main` (préchargement
   `test/helpers/blocking-stdout.cjs`, sortie bloquante ; cause non établie) : ≈ 0,25 j-h (estimé), déclencheur la prochaine ouverture
@@ -525,8 +530,79 @@ claude-opus-5-5
   receipt` et `--from-redproof <chemin>: not red-proof-v1, nor v2 of mode f2p` ; aucune ligne de production ajoutée (437 lignes),
   la plus longue des quatre à 159 points de code. Les deux tests comparent la sortie entière, chemin compris (test l.486, l.630), et
   portent chacun un tueur de corps neuf (l.485 vers `index.mjs:201`, l.629 vers `:182`). Les numéros de ligne du test cités aux § 17.2 à
-  17.4 à partir de la l.485 se lisent désormais +1 (de la l.485 à la l.626) ou +2 (au-delà).
+  17.4 sont ceux de `a03dba6a` ; la règle de décalage écrite ici le 2026-10-08 était fausse au-delà de la l.629 (G2 de la PR, constat
+  m-7) et est retirée. À la tête du pli du 2026-10-14 (§ 17.9), relues par `grep -n` sur l arbre final, ces lignes sont :
+  `test/journal-index.test.ts` : `basename` l.126 ; clone `mkdtempSync` l.431 ; tueur réadressé `:152` l.383 ; tueur `:185` de
+  TIER-FROM-HEADER l.400 ; refus d `add` attendu (`--from-redproof <chemin>`) l.501, son tueur de corps `:201` l.500 ; refus de
+  `build` attendu (`RED-PROOF red-proof-v0: …`) l.507 ; test `add reads no host: …` l.639, tueurs `:209` l.638 (tête), `:182` l.646 et
+  l.649 (corps), refus attendu l.650 ; test `red-proof v2: …` l.654, tueurs `:201` l.653 (tête), `:293` l.660 et l.661 (corps) ;
+  `test/mission-lint.test.ts` : tests `host false: …` l.304, l.317 et l.329 ; tueurs `lint.mjs:142` l.303, `:105` et `:168`
+  l.307-308, `:150` l.313 (corps, neuf) et l.316 (tête), `:140` l.328, `:146` l.336 ; la ligne coupée de la l.305 : l.305-306.
 - **Preuves** (Node 24.21.0) : `test/journal-index.test.ts` seul, 47 tests, 47 verts, sortie 0 ; ancrage, 1 791 tueurs, 1 791
   ancrés ; `killerProblem` 71 valides (`journal-index`), 41 (`mission-lint`), 0 invalide ; `eslint` sur les deux tests et
   `tsc --noEmit` 0 ; mutants (`--killers --base c94c57df --only K5,K47,K68,K69,K70`, les cinq tueurs des l.181-182 et l.200-201) :
   5/5 tués, sortie 0 (`RESULTS.json` `531bc66a…1962c9fb`).
+
+### 17.9 Pli de la G2 de la PR et d O-3 ; fusions du tronc ; mesures finales — journal du 2026-10-14, 14:43Z-15:4xZ
+- **Modèle résolu (R-1)** : `claude-opus-5-5`, effort `high` (effort des workers fixé par le fondateur le 2026-10-13, relayé par MONARK,
+  message `5ce6f27`) ; worker de la session PAROXYSME ; il ne committe ni ne pousse (R-20). Sources : la G2 de la PR (`G2-260.json` de la
+  pièce `2026-10-08-pause/m5c/` de la boîte de PAROXYSME, sha256 `80c3754ac71ebef8…`, constats m-1 à m-9 et O-3) ; la décision de MONARK
+  sur O-3 et la règle du relevé par noms (message `5ce6f27`, l.148-150 et l.18-22).
+- **Fusions du tronc dans la branche** (constat m-8) : `d426d1e2` fusionne `52ddf000` (parents `411840ac`, `52ddf000`) ; `0394497a`
+  réécrit le relevé par `write` ; `9c7add5d`, « Merge the trunk » (parents `0394497a`, `8400a223`), fusionne la tête du tronc
+  `lot/etude-suite` `8400a223`, base de la PR. Parmi les dix fichiers de la liste, seuls `test/test-counts.json` et
+  `test/test-names.json` changent au tronc de `52ddf000` à `8400a223` (`git diff --name-only 52ddf000 8400a223 -- <les dix>`) ;
+  `test/test-names.json` (relevé par noms du tronc, #270) entre ici pour la première fois.
+- **m-1** : le test `red-proof v2: …` (l.654) greffe dans l archive le même enregistrement passé en mode `test-only` (aide `graft()`,
+  l.105) et exige le hit J-REDPROOF de `build` ; tueur de corps `index.mjs:293 CONST " && r.mode === \"f2p\"" -> ""` (l.661) ; § 17.6
+  corrigé. **m-2** : sous `host: false`, un chemin du dépôt cité au-delà de sa fin reste R-LINE, sur disque et à la révision
+  (`test/mission-lint.test.ts` l.310-314) ; tueur `lint.mjs:150 CONST "(host || !abs)" -> "host"` (l.313).
+- **m-3, option (b)** : `zeros` (`index.mjs` l.81) ; `add` (l.182) refuse un reçu dont `lint` manque ou n est pas un objet non vide de
+  comptes tous à 0 ; J-RECU v2 (l.280) relit les comptes du reçu archivé (« receipt lint: absent or a count not 0 ») ; en-tête l.45 et
+  l.50-51. Les reçus synthétiques des tests portent un `lint` à comptes nuls (l.180, l.402-403). Refus testés, un tueur chacun : huit
+  formes à `add` (l.186-194 : absent, `null`, nombre, tableau, objet vide, chaîne, fraction, compte non nul ; tueurs `index.mjs:81`
+  l.188-191 ; le compte non nul garde aussi son test l.646-650, tueur `:182` l.646) ; un reçu à `lint: null` dans TIER-FROM-HEADER
+  (l.410-412, tueur `:182` l.411) ; un reçu archivé à compte non nul, rouge à `build` (l.622-626, tueur `:280` l.624). Rouges avant le
+  correctif : ces trois tests, sur une copie `git archive 9c7add5d` où seuls les deux fichiers de test sont remplacés (87 tests, 4
+  rouges par assertion, le quatrième étant celui d O-3) ; à `add`, cinq des huit formes y sortaient 0.
+- **m-4** : titre renommé (« schema red-proof-v2, mode f2p, with the keys deriveRedproof reads … ») : l enregistrement du test reste
+  synthétisé par `proof()`. Contrôle sur un vrai enregistrement, dans un clone de mesure (`git clone --shared` du worktree, l arbre du
+  pli commis en `9de078ea`, hors du dépôt) : `node scripts/red-proof.mjs --base 8400a223 --gel 9de078ea --repo <clone> --out <rp>
+  --draw 3 --seed 2026` écrit `red-proof-v2`, mode `f2p`, 28 jugés, 27 F2P, 1 épingle, 3 tirés, 3 tués, sortie 1 (l épingle seule ;
+  sha256 `47f642f4…`) ; une mission écrite à la main (`Palier`, `Base tronc` en 8 et 40 chiffres) lancée par `node
+  scripts/mission/launch.mjs <mission> --repo <clone2>` (clone du précédent, tête `9de078ea`) donne un reçu vert, douze comptes à 0 ;
+  `node scripts/journal/index.mjs add --repo <clone2> --lot M-T --gate G1 --from-recu <reçu> --from-redproof <rp>/RED-PROOF.json
+  --model claude-opus-5-5` sort 0 (`redproof` : judged 28, f2p 27, pins 1, population 27, drawn 3, killed 3, ok faux) ; `build --repo
+  <clone2> --only M-T` : vert, 0 hit. Témoin : le même enregistrement passé en mode `test-only` (`sed`) : `add` sort 2, rien d écrit.
+  La preuve « built » reste la ligne cp-2 de la case 5 du G7.
+- **m-5** : JOURNAL-LINE-LENGTH-1 couvre les 84 lignes et `lint.mjs` (§ 17.6). Recompte sur l arbre final : `node long.mjs <W>
+  8400a223 93e9abce <les cinq fichiers de code et de test>` (lignes de plus de 160 points de code absentes telles quelles de la base ;
+  « de la branche » si présentes telles quelles à `93e9abce`) : 84 = 80 + 4 (`index.mjs` l.98 (215), l.209 (181) ; `lint.mjs` l.156
+  (182), l.168 (233)). Aucune ligne neuve de ce pli ne dépasse 160. **m-6** : la ligne d ETAT de JOURNAL-REDPROOF-TEST-ONLY-1 est
+  proposée à MONARK dans le message de la PR. **m-7** : § 17.8. **m-8** : cette ligne.
+- **m-9** : les commentaires `lint.mjs:93` et `test/journal-index.test.ts` l.642 ne portent plus de code interne ; les sept titres
+  hérités de `93e9abce` qui en portent restent, rattachés à JOURNAL-TEST-TITLES-1 (§ 16.11, Q-C1-7).
+- **O-3** (décision de MONARK : plier ici) : `lint.mjs` l.52 (`SUFFIX`) et l.128 : un chemin de lecteur à blanc entre accents graves
+  perd son suffixe de ligne (`:<chiffres>`, même grammaire que `PATH_RE`), et R-LINE s applique comme ailleurs. Test `drive path with
+  a blank: …` (`test/mission-lint.test.ts` l.346, tueur l.345) : avant le correctif, R-PATH pour les cinq citations au lieu de
+  `[]`, `[]`, R-LINE, R-LINE, R-PATH.
+- **Mesures finales** (Node 24.21.0, `TMPDIR` sous le brouillon) : les deux fichiers de test, 87 tests, 84 verts, 3 sautés, sortie 0 ;
+  `npm run test:main` (15:33:04-15:38:55Z) : 3 055 tests, 3 030 verts, 22 sautés, 3 rouges, sortie 1 : les trois rouges connus de ce
+  conteneur (`apps/sentinel/test/sentinel-chainstack-guard.test.ts` l.440 et l.445, `apps/sentinel/test/ukemi-guard-record.test.ts`
+  l.929), rouges de même sur une copie `git archive 8400a223` (ces deux fichiers : 48 tests, 45 verts, ces 3 rouges) ; `node scripts/test-count-floor.mjs write` : 300 fichiers, 3 055 tests (`test/mission-lint.test.ts` 39 → 40 ; contre la
+  base : 28 → 47 et 36 → 40) ; `node scripts/test-count-check.mjs --base 8400a223` : « 0 drop(s) from the base 8400a2231334 »,
+  sortie 0. Red-proof (`--base 8400a223 --gel <W> --repo <W> --draw 3 --seed 3638226565`, la graine : `d8daee85`, huit premiers
+  chiffres du sha256 de la mission du pli) : `red-proof-v2`, mode `f2p`, 28 jugés, 27 F2P, 1 refusé, l épingle J-HEADER (l.417, son
+  `<avant>` à la base `index.mjs:184`, son tueur `:241` tué, K43) ; tirage 3/3 tués (`index.mjs:215`, `lint.mjs:150`,
+  `index.mjs:423`) ; sortie 1 pour l épingle seule (RED-PROOF-PIN-1) ; sha256 `67e1ab8b…`. Mutants (`scripts/mutants/run.mjs --repo <W>
+  --base 8400a223 --killers --targets test/journal-index.test.ts,test/mission-lint.test.ts`) : 118/121 tués ; K115 (`lint.mjs:105`),
+  K116 (`:168`), K117 (`:150`, neuf) non conclus au premier passage (TAP coupé à 33, 20 et 29 tests sur 40, échec du fichier sans
+  assertion), tués au rejeu sur les deux cibles ; relancés seuls (`--only`) : K116 tué, K115 et K117 de nouveau coupés puis tués au
+  rejeu ; posés à la main sur une copie, ils rougissent leur test par assertion, 40 tests rapportés : MUTANTS-TAP-LOST-TESTS-1 (§ 17.6),
+  comme la base de la campagne, comptée verte avec 76 tests verts rapportés pour 87 déclarés, dont 3 sautés (`RESULTS.json` `52bd8f2b…`, puis `73866ba0…`). R-25 : `r25()`
+  avec le `ci.yml` de la branche, sur le clone de mesure où l arbre final est commis, contre `8400a223` : 562 + 80 = **642**, GREEN
+  (≤ 1 150 ; porte CI 1 205). `tsc --noEmit -p tsconfig.json` 0 ; `eslint` sur les deux tests 0 ; `lint:ratchet` 69/69, 0 ;
+  `lang-gate` 0 hit, 0 ; `gate:vocab` 356 fichiers, 0 ; `git diff --check` et `git diff --check 8400a223` 0.
+- **Écarts et traces** : écritures dans les fichiers de la liste seulement ; `test/test-count-removals.json` inchangé (aucun nom de la
+  base ne disparaît). Aucun `GIT_DIR`, aucun `--write-tree`, aucun réseau ; les commits de mesure sont dans des clones sous le brouillon,
+  jamais dans le dépôt.

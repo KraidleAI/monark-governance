@@ -177,10 +177,21 @@ test("add: a field required by the gate missing (G2 without --tour) exits 2 and 
 
 // killer: scripts/journal/index.mjs:182 COR "r?.verdict !== \"vert\" || " -> ""
 test("add: a receipt that is not green, or whose mission file is absent, exits 2 and writes nothing; a green one is recorded", () => {
-  const r = repo(), recu = (name: string, patch: Entry): string => file(name, JSON.stringify({ sha: M.sha, verdict: "vert", date: "2026-01-01T00:45:00Z", mission: join(FX, "mission.md"), head: C1, ...patch }))[0];
+  const r = repo(), green = { sha: M.sha, verdict: "vert", date: "2026-01-01T00:45:00Z", mission: join(FX, "mission.md"), head: C1, lint: { "R-PATH": 0 } };
+  const recu = (name: string, patch: Entry): string => file(name, JSON.stringify({ ...green, ...patch }))[0];
   const add = (p: string) => cli("add", "--repo", r, "--lot", "M-Z", "--gate", "G1", "--from-recu", p, "--model", "claude-opus-5-5[1m]", "--tier", "claude-opus-5-5");
   const [red, gone] = [add(recu("red.recu.json", { verdict: "rouge" })), add(recu("gone.recu.json", { mission: join(T, "none.md") }))];
   assert.deepEqual([red.status, gone.status, existsSync(join(r, "docs", "journal", "M-Z.jsonl")), /not a green launch receipt/.test(red.stderr), /mission .* unreadable/.test(gone.stderr)], [2, 2, false, true, true]);
+  // the lint counts of the receipt (launch.mjs writes one per code): absent, null, not an object, an array, empty, a string, a fraction, a count above 0
+  const counts = [undefined, null, 5, [0], {}, { "R-PATH": "0" }, { "R-PATH": 0.5 }, { "R-PATH": 0, "R-LINE": 2 }]
+    .map((lint, i) => add(recu(`lint${String(i)}.recu.json`, { lint })));
+  // killer: scripts/journal/index.mjs:81 CONST "Object(l) === l && " -> ""
+  // killer: scripts/journal/index.mjs:81 CONST "!Array.isArray(l) && " -> ""
+  // killer: scripts/journal/index.mjs:81 CONST "Object.keys(l).length > 0 && " -> ""
+  // killer: scripts/journal/index.mjs:81 CONST "(n) => n === 0" -> "(n) => n == 0"
+  const refused = counts.map((p) => `${String(p.status)} ${String(/not a green launch receipt$/.test(p.stderr.trim()))}`);
+  assert.deepEqual([refused, existsSync(join(r, "docs", "journal", "M-Z.jsonl"))],
+    [Array<string>(8).fill("2 true"), false]);
   assert.equal(add(recu("green.recu.json", {})).status, 0);
 });
 
@@ -390,12 +401,16 @@ test("LINT-UNTRACKED-TMP-1: no git maintenance outlives a commit here, and 100 c
 test("TIER-FROM-HEADER: add --from-recu takes the tier from the Palier field of a generated or hand-written mission; --tier different, or no field and no --tier, exits 2 and writes nothing", () => {
   generated();
   const r = repo(), out = join(r, "docs", "journal", "M-Z.jsonl"), [hand] = file("palier.md", `# Mission fixture\nPalier : \`claude-opus-5-5\`\nBase \`${C1}\`.\n`);
-  const recu = (name: string, mission: string, s: string): string => file(name, JSON.stringify({ sha: s, verdict: "vert", date: "2026-01-01T00:45:00Z", mission, head: C1 }))[0];
+  const recu = (name: string, mission: string, s: string, lint: unknown = { "R-PATH": 0 }): string => // the lint counts of a green launch, all 0
+    file(name, JSON.stringify({ sha: s, verdict: "vert", date: "2026-01-01T00:45:00Z", mission, head: C1, lint }))[0];
   const [gr, hr, nr] = [join(T, "gen.recu.json"), recu("palier.recu.json", hand, sha(readFileSync(hand))), recu("none.recu.json", join(FX, "mission.md"), String(M.sha))];
   const add = (from: string, ...tier: string[]): string => { const p = cli("add", "--repo", r, "--lot", "M-Z", "--gate", "G1", "--from-recu", from, "--model", "claude-opus-5-5", ...tier); return p.status === 0 ? `tier ${String((JSON.parse(p.stdout) as Entry).tier)}` : `exit ${String(p.status)} ${p.stderr.trim()}`; };
   const differ = (to: string): string => `exit 2 journal: --from-recu: Palier claude-opus-5-5 of the mission, --tier ${to}: they differ (TIER-FROM-HEADER)`;
   assert.deepEqual([add(gr, "--tier", "claude-sonnet-5-5"), add(hr, "--tier", "claude-fable-5-1"), add(nr), existsSync(out)], [differ("claude-sonnet-5-5"), differ("claude-fable-5-1"), "exit 2 journal: --from-recu: Palier absent of the mission, --tier absent: no tier (TIER-FROM-HEADER)", false]);
   assert.deepEqual([add(gr), add(hr), add(gr, "--tier", "claude-opus-5-5"), add(nr, "--tier", "claude-opus-5-5"), readFileSync(out, "utf8").split("\n").length], ["tier claude-opus-5-5", "tier claude-opus-5-5", "tier claude-opus-5-5", "tier claude-opus-5-5", 5]);
+  const nl = recu("nolint.recu.json", hand, sha(readFileSync(hand)), null);
+  // killer: scripts/journal/index.mjs:182 CONST " || !zeros(r.lint)" -> ""
+  assert.equal(add(nl, "--tier", "claude-opus-5-5"), `exit 2 journal: --from-recu ${nl}: not a green launch receipt`); // the counts are read before the tier
 });
 
 // killer: scripts/journal/index.mjs:241 CONST "`${g[1]}^{commit}:scripts/mission/gen.mjs`" -> "`${m.recu_head}^{commit}:scripts/mission/gen.mjs`"
@@ -604,6 +619,11 @@ test("lint_frozen_and_recu_archived: a v2 line reads what add archived: the lint
   assert.deepEqual(build({ "M-Z": more }, r2).hits, [`J-RECU M-Z:1 ${n2}: ${rf}`, `J-LINT M-Z:1 ${n2}: lint record of ${ms} at ${C2} != mission ${ls} at ${C2}`,
     `J-RECU M-Z:2 ${n2}: ${rf}`, `J-LINT M-Z:2 ${n2}: lint record of ${ms} at ${C2} != mission ${ms} at ${C1}`, `J-RECU M-Z:3 ${n2}: ${rf}`,
     `J-LINT M-Z:4 ${n2}: frozen at ${"0".repeat(40)}: J-LINT`]);
+  const cnt = `${JSON.stringify({ ...rc, lint: { ...(rc.lint as Entry), "R-PATH": 1 } }, null, 2)}\n`; // a receipt with a count above 0, archived
+  graft(r2, sha(cnt), cnt);
+  // killer: scripts/journal/index.mjs:280 CONST "if (!zeros(r?.lint)) return" -> "if (false) return"
+  assert.deepEqual(build({ "M-Z": [ok, { ...ok, facts: { ...(ok.facts as Entry), recu: sha(cnt) } }] }, r2).hits,
+    [`J-RECU M-Z:2 ${n2}: receipt lint: absent or a count not 0`]);
 });
 
 // killer: scripts/journal/index.mjs:261 CONST "e.schema === V2 ? fact(sf.sha256)" -> "e.schema !== V2 ? fact(sf.sha256)"
@@ -619,11 +639,11 @@ test("served_record_archived: add --from-oracle at G1 archives the record and th
 test("add reads no host: a branch and a bare tool present at the launch, gone before add, leave J-LINT green; a receipt with a count above 0 exits 2", () => {
   writeFileSync(join(T, "probe-fh.mjs"), "// a bare tool held by the mission directory at the launch\n");
   const { r, mission, at } = v2("Branch `lot/x`. Tool `probe-fh.mjs`.\n", NL, (d) => gd(d, ["branch", "lot/x", C1]));
-  gd(r, ["branch", "-D", "lot/x"]); rmSync(join(T, "probe-fh.mjs")); // the host changes between the launch and add (ADR-METHODE-2 l.60)
+  gd(r, ["branch", "-D", "lot/x"]); rmSync(join(T, "probe-fh.mjs")); // the host changes between the launch and add
   const e = at("G1"), rc = JSON.parse(readFileSync(mission.replace(/\.md$/, ".recu.json"), "utf8")) as Entry;
   assert.equal(typeof e, "object", JSON.stringify(e));
   assert.deepEqual(build({ "M-Z": [e as Entry] }, r).hits, []);
-  // killer: scripts/journal/index.mjs:182 CONST " || Object.values(r.lint ?? {}).some((n) => n !== 0)" -> ""
+  // killer: scripts/journal/index.mjs:182 CONST " || !zeros(r.lint)" -> ""
   const recu = mission.replace(/\.md$/, ".recu.json");
   writeFileSync(recu, JSON.stringify({ ...rc, lint: { ...(rc.lint as Entry), "R-PATH": 1 } }));
   // killer: scripts/journal/index.mjs:182 CONST "--from-recu ${src}: " -> "--from-recu: "
@@ -631,10 +651,15 @@ test("add reads no host: a branch and a bare tool present at the launch, gone be
 });
 
 // killer: scripts/journal/index.mjs:201 CONST " || r?.schema === \"red-proof-v2\" && r.mode === \"f2p\"" -> ""
-test("red-proof v2: a record of mode f2p, as the trunk's red-proof writes it, is read as a v1 one at cp-2; a test-only one exits 2 at add", () => {
+test("red-proof v2: schema red-proof-v2, mode f2p, with the keys deriveRedproof reads: read as v1 at cp-2; mode test-only: refused by add and by build", () => {
   const { r, at } = v2(), cp2 = (n: string, patch: Entry) => at("cp-2", "--from-redproof", proof(`${n}.json`, C2, [["F2P"], ["F2P"], ["F2P"]], KILL3, patch));
-  assert.equal(typeof cp2("v2f", { schema: "red-proof-v2", mode: "f2p" }), "object");
+  const e = cp2("v2f", { schema: "red-proof-v2", mode: "f2p" });
+  assert.equal(typeof e, "object", JSON.stringify(e));
+  const rp = (e as Entry).redproof as Entry, t = readFileSync(String(rp.record), "utf8").replace('"mode": "f2p"', '"mode": "test-only"');
+  graft(r, sha(t), t);
   // killer: scripts/journal/index.mjs:293 CONST " || r.schema === \"red-proof-v2\" && r.mode === \"f2p\"" -> ""
-  const hits = build({}, r).hits.filter((h) => h.startsWith("J-REDPROOF"));
-  assert.deepEqual([hits, String(cp2("v2t", { schema: "red-proof-v2", mode: "test-only" }) as string).slice(0, 7)], [[], "exit 2 "]);
+  // killer: scripts/journal/index.mjs:293 CONST " && r.mode === \"f2p\"" -> ""
+  const hits = build({ "M-Z": [e as Entry, { ...(e as Entry), redproof: { ...rp, sha256: sha(t) } }] }, r).hits.filter((h) => h.startsWith("J-REDPROOF"));
+  assert.deepEqual([t.includes('"mode": "test-only"'), hits, String(cp2("v2t", { schema: "red-proof-v2", mode: "test-only" }) as string).slice(0, 7)],
+    [true, ["J-REDPROOF M-Z:2 RED-PROOF red-proof-v2: not v1, nor v2 of mode f2p"], "exit 2 "]);
 });

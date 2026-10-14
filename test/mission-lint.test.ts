@@ -307,6 +307,11 @@ test("host false: a drive path, its line, a lot branch and a bare tool are never
   // killer: scripts/mission/lint.mjs:105 CONST "!host ? null : " -> ""
   // killer: scripts/mission/lint.mjs:168 CONST "if (host && " -> "if ("
   assert.deepEqual([codes(false), codes(true)], [[], ["R-BRANCH", "R-PATH", "R-TOOL"]]);
+  const past = H("Read `docs/ten.md:11` and `docs/ten.md` (l.12)."); // a repo path is read in the repository (on disk, or at rev), never on the host
+  const repoLine = (rev: string | null): string[] => lintMission({ text: past, missionPath: join(T, "m.md"), repo: REPO, rev, host: false })
+    .hits.map((h) => h.code);
+  // killer: scripts/mission/lint.mjs:150 CONST "(host || !abs)" -> "host"
+  assert.deepEqual([null, BASE].map(repoLine), [["R-LINE", "R-LINE"], ["R-LINE", "R-LINE"]]);
 });
 // killer: scripts/mission/lint.mjs:150 CONST "want > 0 && (host || !abs)" -> "want > 0"
 test("host false: a drive path present on the host, cited past its end, is not read; the default reads it", () => {
@@ -336,4 +341,16 @@ test("host false: no existsSync or statSync of a tool path or a drive path prese
     lintMission({ text, missionPath: join(T, "m.md"), repo: REPO, rev: null, host: false });
   } finally { Object.assign(fsc, { existsSync: ex, statSync: st }); syncBuiltinESMExports(); process.chdir(cwd); }
   assert.deepEqual(seen.filter((p) => /lex\.mjs|x\.md/.test(p)), []);
+});
+// killer: scripts/mission/lint.mjs:128 CONST "found.push([p, n, \"\"])" -> "found.push([inner, undefined, \"\"])"
+test("drive path with a blank: its line suffix is split from the path, so a line past the end is R-LINE, never R-PATH; an absent path stays R-PATH", () => {
+  const dir = WIN ? join(T, "with blank") : join(T, "Z:", "with blank"), cwd = process.cwd(); // off Windows: a relative "Z:"
+  mkdirSync(dir, { recursive: true });
+  writeFileSync(join(dir, "x.md"), "one\ntwo\n");
+  const at = WIN ? dir.replace(/\\/g, "/") : "Z:/with blank";
+  try {
+    if (!WIN) process.chdir(T);
+    const cite = (c: string): string[] => red(H(`Read \`${at}/${c}\`.`));
+    assert.deepEqual(["x.md:2", "x.md:1-2,2", "x.md:3", "x.md:1,3", "gone.md:1"].map(cite), [[], [], ["R-LINE"], ["R-LINE"], ["R-PATH"]]);
+  } finally { process.chdir(cwd); }
 });

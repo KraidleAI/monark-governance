@@ -42,13 +42,13 @@
 //            (served_from.file, next to the citing one) absent, unreadable, of another sha256 or tree.head: red, never skipped
 //            (v2: the record and its served record are read by sha256 from the archive, never by path)
 //   J-RECU   the mission file absent or its sha256 != mission.sha, or mission.sha != mission.recu_sha (v2: the mission and the
-//            receipt archived; the receipt's verdict, sha, date or head != the mission fields: red)
+//            receipt archived; the receipt's verdict, sha, date or head != the mission fields, or its lint counts absent or not all 0: red)
 //   J-LINT   a receipt (recu_sha) on a text that lintMission reddens at commit, else at recu_head (not a commit: red); repo paths
 //            are read at that revision, never on disk; absolute paths, branches and tool directories on the host now (C-G2-8; v1 only);
 //            an R-PATH hit on a path that the generated header lists "(non suivi)" is removed, whatever the revision replayed
 //            (LINT-UNTRACKED, M-5b; lint.mjs untouched): any other hit stays, R-TOOL on an untracked script included
-//            (v2: FROZEN, computed once by add, archived, never recalculated; its host part is the launch's, never read at add, attested
-//            by a receipt with every count 0: its mission_sha != mission.sha, its rev != commit ?? recu_head, or its verdict not vert: red)
+//            (v2: FROZEN, linted once by add, archived, never recalculated: its mission_sha != mission.sha, rev != commit ?? recu_head or verdict not
+//            vert: red; its host part is the launch's, never read at add, attested by the receipt: add requires its lint, a non-empty object of zero counts)
 //   J-MODEL  an entry with a mission, a tier or a model: tier outside TIERS, or the model is not the tier (token boundary)
 //   J-ADJ    a G7 without a non-empty adjudication (its presence, never its nature)
 // J-ORDER and J-VERDICT read only a lot file holding a G2 or cp-2 line (a file of retro G7 lines alone is not read):
@@ -78,7 +78,7 @@ import { appendFileSync, existsSync, mkdirSync, readdirSync, readFileSync, renam
 import { dirname, isAbsolute, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { lintMission, TIERS } from "../mission/lint.mjs";
-
+const zeros = (l) => Object(l) === l && !Array.isArray(l) && Object.keys(l).length > 0 && Object.values(l).every((n) => n === 0); // receipt lint counts
 const CODES = ["J-SCHEMA", "J-TIME", "J-TRACE", "J-ORIGIN", "J-TOURS", "J-ORACLE", "J-RECU", "J-LINT", "J-MODEL", "J-ADJ", "J-ORDER", "J-VERDICT", "J-HEADER", "J-FACTS", "J-REDPROOF"];
 const FIELDS_V1 = ["schema", "lot", "gate", "date", "tour", "commit", "tree_head", "mission", "model_resolved", "tier", "effort", "r25",
   "oracle", "corrections", "verdict", "adjudication", "error_origin", "public_trace", "note"];
@@ -179,7 +179,7 @@ function add(o) {
   let text = null, recu = null; // the mission text (J-LINT frozen below) and the sha256 of the receipt bytes
   if (o["from-recu"] !== undefined) {
     const src = o["from-recu"], rb = bytesOf(src, "receipt"), r = jsonOf(rb), named = typeof r?.mission === "string";
-    if (r?.verdict !== "vert" || !named || Object.values(r.lint ?? {}).some((n) => n !== 0)) throw new Usage(`--from-recu ${src}: not a green launch receipt`);
+    if (r?.verdict !== "vert" || !named || !zeros(r.lint)) throw new Usage(`--from-recu ${src}: not a green launch receipt`);
     const mb = bytesOf(r.mission, "mission"), tier = PALIER.exec(mb.toString("utf8"))?.[1].trim().toLowerCase(); // TIER-FROM-HEADER (M-5b)
     if (tier === undefined ? o.tier === undefined : o.tier !== undefined && o.tier !== tier) throw new Usage(`--from-recu: Palier ${tier ?? "absent"} of the mission, --tier ${o.tier ?? "absent"}: ${tier === undefined ? "no tier" : "they differ"} (TIER-FROM-HEADER)`);
     e.tier = tier ?? o.tier;
@@ -277,7 +277,7 @@ function build(o) {
     const m = e.mission, y = e.facts.recu === null ? null : fact(e.facts.recu), r = y?.bytes ? jsonOf(y.bytes) : null;
     if (mx.why !== null) return `mission ${mx.why}`;
     if (m.sha !== m.recu_sha) return `sha ${m.sha.slice(0, 12)}, receipt ${String(m.recu_sha).slice(0, 12)}`;
-    if (y?.why !== null) return `receipt ${y?.why ?? "not archived (facts.recu null)"}`;
+    if (y?.why !== null) return `receipt ${y?.why ?? "not archived (facts.recu null)"}`; if (!zeros(r?.lint)) return "receipt lint: absent or a count not 0";
     return r?.verdict === "vert" && r.sha === m.recu_sha && (r.date ?? null) === m.recu_date && (r.head ?? null) === m.recu_head ? null : "the archived receipt != the mission fields (verdict, sha, date, head)";
   };
   const lintWhy = (e) => { // J-LINT v2 (FROZEN): the lint record archived by add, read, never recalculated

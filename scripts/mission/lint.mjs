@@ -49,7 +49,7 @@ import { existsSync, readFileSync, statSync } from "node:fs";
 import { execFileSync } from "node:child_process";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
-
+const SUFFIX = /^(.*?)(?::(\d+(?:-\d+)?(?:,\d+(?:-\d+)?)*))?$/u; // a drive path with a blank and its line suffix, as PATH_RE splits them
 export const CODES = ["R-LINE", "R-PATH", "R-BRANCH", "R-BASE", "R-TOOL", "R-MODEL", "R-PLACEHOLDER", "R-FOCUS", "R-VAGUE", "R-SIMILAR", "R-SYMBOL", "R-STEP"];
 export const TIERS = ["claude-opus-5-5", "claude-sonnet-5-5", "claude-sonnet-5", "claude-fable-5-1"]; // claude-sonnet-5: retired (decision 280), --rev replays only (Q-G2-9)
 const W = "\\p{L}\\p{N}_";
@@ -90,7 +90,7 @@ const isDir = (p) => { try { return statSync(p).isDirectory(); } catch { return 
 const nums = (s) => [...s.matchAll(/\d+/g)].map((x) => Number(x[0]));
 
 /** Lint a mission text against --repo (its worktree on disk, or the git tree of `rev`). Pure apart from reads and git. */
-export function lintMission({ text, missionPath, repo, rev = null, host = true }) { // host false: no host read (JOURNAL-LINT-FREEZE-HOST-1)
+export function lintMission({ text, missionPath, repo, rev = null, host = true }) { // host false: no host read (branch, drive path, tool directory)
   const git = (...a) => { try { return execFileSync("git", ["-C", repo, ...a], { encoding: "utf8", stdio: ["ignore", "pipe", "ignore"], maxBuffer: 1 << 28 }); } catch { return null; } };
   const src = text.replace(/^\ufeff/, "");
   const lines = src.split(/\r?\n/);
@@ -125,7 +125,7 @@ export function lintMission({ text, missionPath, repo, rev = null, host = true }
       const tool = /^([\p{L}\p{N}_][\p{L}\p{N}_.-]*)(?:\s|$)/u.exec(inner);
       if (tool && SCRIPT.test(tool[1])) { bare.push([tool[1], ln]); if (create) declared.add(tool[1]); }
       if (/[\u2026<>*?]/.test(inner)) return blank(m);
-      if (/^[A-Za-z]:[\\/]/.test(inner) && /\s/.test(inner)) { found.push([inner, undefined, ""]); return blank(m); }
+      if (/^[A-Za-z]:[\\/]/.test(inner) && /\s/.test(inner)) { const [, p, n] = SUFFIX.exec(inner); found.push([p, n, ""]); return blank(m); }
       return m;
     });
     const prose = line.replace(/`[^`]*`/g, blank);
