@@ -325,9 +325,9 @@ test("no_kata_row_is_served_while_no_table_is_pinned", () => {
 });
 
 // Test T-4 (E-2a): committed tables reach the gate through the seam. Two synthetic band tables (btc-range-1h, btc-mae-down-1h),
-// projected, admitted by the import guard, written canonically and pinned beside the real held lists, are read by
-// readCommittedTables and served by servedPolicyTables: a silence cell abstains calib_silence with no region, a region cell
-// commits with its band, each verdict carries its row and the sha256 of its file, and the honesty text is the row text.
+// admitted by the import guard, written canonically and pinned, are read by readCommittedTables; before the tripwire, the kata
+// tables with rows that servedPolicyTables serves are asserted to be exactly these two, byte for byte at their pins. Then a silence
+// cell abstains calib_silence, a region cell commits with its band, each verdict carries its row and file sha256, and the honesty text is the row text.
 // killer: apps/harness/src/kata-path.ts:118 CONST "committed.get(c.task_class) ?? buildPolicyTable(c, [])" -> "buildPolicyTable(c, [])"
 test("committed_tables_reach_the_gate_through_the_seam", () => {
   const entries = kataClassEntries(gate.kataClassText);
