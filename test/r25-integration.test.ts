@@ -1213,3 +1213,16 @@ test("r25s_png_header_declares_a_drawable_image - G2 fold M-1: a palette image w
   assert.deepEqual(passes("png", { palette: pngOf(2, 1, 3, 0, Buffer.from([0, 0, 1]), [plte]), noPlte: pngOf(2, 1, 3, 0, Buffer.from([0, 0, 1])), w0: pngOf(0, 5, 0, 0, Buffer.alloc(5)), h0: pngOf(5, 0, 0, 0, Buffer.alloc(0)) }),
     { palette: true, noPlte: false, w0: false, h0: false });
 });
+
+// killer: scripts/lot-size-integration.mjs:64 CONST "split(/[ \\t]+/)" -> "split(/\\s+/)"
+// killer: scripts/lot-size-integration.mjs:64 CONST ".map(read)" -> ".map((t) => t.replace(/^'(.*)'$/, \"$1\"))"
+test("r25i_specs_read_each_token_as_bash_does - SPECSOF-STRICT-GRAMMAR-1: specsOf splits a count line on space and tab only and reads each token by the word rules of test 38: a tab separates two words, a U+00A0 inside a quoted token stays in its word, a quoted space or a bare U+00A0 throws (the module then returns W)", () => {
+  // each read as its pathspecs or as the message it throws, so a wrong read or a wrong refusal reds by assertion
+  const read = (tokens: string): string[][] | string => {
+    try { return specsOf(ciOf(1205).replace(" -- . ':(exclude)site/**') || {", ` -- ${tokens}) || {`)); } catch (e) { return (e as Error).message; }
+  };
+  const refused = (t: string): string => `pathspec token ${JSON.stringify(t)} of the r25 job is not one plain bash word`;
+  assert.deepEqual([".\t':(exclude)site/**'", ". 'docs/a\u00a0b.md'", ". 'docs/a b.md'", ". docs/a\u00a0b.md", ". \"docs/a.md\"", ". ':(exclude)$X'"].map(read),
+    [[[".", ":(exclude)site/**"], ["site/**"]], [[".", "docs/a\u00a0b.md"], ["site/**"]], refused("'docs/a"), refused("docs/a\u00a0b.md"), refused("\"docs/a.md\""), refused("':(exclude)$X'")],
+    "a tab separates two words; a U+00A0 inside a quoted token stays in its word; a quoted space, a bare U+00A0, double quotes or a $ in single quotes: refused");
+});
