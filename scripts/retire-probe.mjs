@@ -122,7 +122,7 @@ const OPTIONS = { "--api": "api", "--api-host": "apiHost", "--table": "table", "
 export function parseArgs(argv) {
   const a = {};
   for (let i = 0; i < argv.length; i += 2) {
-    const k = OPTIONS[argv[i]], v = argv[i + 1];
+    const k = Object.hasOwn(OPTIONS, argv[i]) ? OPTIONS[argv[i]] : undefined, v = argv[i + 1];
     if (k === undefined || Object.hasOwn(a, k) || v === undefined || v === "") throw new Error(`unknown, repeated or empty option ${String(argv[i])}`);
     a[k] = v;
   }
