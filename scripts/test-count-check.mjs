@@ -78,9 +78,9 @@ function lineOk(r, byNames, pr) {
   return shaped && because(r.reason, pr);
 }
 
-/** P2 on names: in each file, the run's names equal the names record's, as multisets; the exact names on each side. */
+/** P2 on names: in each file, the run's names equal the names record's, as multisets; the exact names on each side. The run's tests without a file are P1's; a names-record key "" is held to the run like any file. */
 function namesDiffer(run, names) {
-  return [...new Set([...Object.keys(run), ...Object.keys(names)])].filter((f) => f !== "").sort().flatMap((f) => {
+  return [...new Set([...Object.keys(run).filter((f) => f !== ""), ...Object.keys(names)])].sort().flatMap((f) => {
     const ran = minus(run[f]?.names ?? [], names[f] ?? []), kept = minus(names[f] ?? [], run[f]?.names ?? []);
     return ran.length + kept.length === 0 ? [] : [`${f}: run and ${NAMES} differ: run only ${JSON.stringify(ran)}, recorded only ${JSON.stringify(kept)}`];
   });
