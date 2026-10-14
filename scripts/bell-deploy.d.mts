@@ -9,3 +9,9 @@ export const BELL_RUN_CAPS: Readonly<{ maxCredits: number; maxRu: number; maxCal
 export const BELL_METHOD_CAPS: Readonly<{ getSignaturesForAddress: number; getTransaction: number; getAccountInfo: number; getTransactionsForAddress: number }>;
 export const BELL_FLOORS: Readonly<{ helius: number; chainstack: number }>;
 export const TICK_TIMEOUT_START_SEC: number;
+export const BELL_COLLECT_USER: string;
+export const BELL_PUBLISH_USER: string;
+export const BELL_HANDOFF_GROUP: string;
+export const BELL_STAGING_PREFIX: string;
+export type BellDir = Readonly<{ path: string; owner: string; group: string; mode: number }>;
+export const BELL_LAYOUT: Readonly<{ collect: BellDir; handoff: BellDir; status: BellDir; state: BellDir }>;

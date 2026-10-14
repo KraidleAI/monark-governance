@@ -326,3 +326,34 @@ jobs:
         run: npm run test:main
       - name: Tests of each file against the record, each drop from the base against its removal line (TEST-COUNT-FLOOR-1)
         run: node scripts/test-count-check.mjs
+
+  g3-bell-handoff-perms:
+    # The handoff layout of MONARK Bell (BELL_LAYOUT of scripts/bell-deploy.mjs) with real users and groups: the two users and the handoff
+    # group of the layout and a control user outside that group, then test/bell-handoff-perms.test.ts alone as root (test:handoff-perms). The
+    # test skips outside Linux or outside root, so the job reds on a skip, a failure or no pass: a green job is the Linux proof. No install:
+    # the test loads node: modules and one script of this tree. Internal job (the root test/ is never exported): derivePublicWorkflow drops it
+    # (INTERNAL_JOBS). Bound: a declared 10, above the 5-minute --test-timeout so a hung test reds by name first, until its first runs measure
+    # it (measured job wall-time x3, capped <= 20). Each run: starts with sudo: it runs as root on the runner, never on a host.
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: "24"
+      - name: The two users and the handoff group of the layout, and a control user outside that group
+        run: |
+          sudo groupadd --system bell-handoff
+          sudo useradd --system --user-group --no-create-home --shell /usr/sbin/nologin --groups bell-handoff bell-collect
+          sudo useradd --system --user-group --no-create-home --shell /usr/sbin/nologin --groups bell-handoff bell
+          sudo useradd --system --user-group --no-create-home --shell /usr/sbin/nologin bell-outsider
+      - name: The handoff permissions test as root, its pass and skip counts printed; red on a skip, a failure or no pass
+        run: |
+          sudo env "PATH=$PATH" npm run test:handoff-perms > handoff-perms.tap 2>&1 || STATUS=$?
+          cat handoff-perms.tap
+          PASS=$(awk '$1 == "#" && $2 == "pass" { print $3 }' handoff-perms.tap)
+          SKIP=$(awk '$1 == "#" && $2 == "skipped" { print $3 }' handoff-perms.tap)
+          echo "bell_handoff_permissions_on_linux: exit ${STATUS:-0}, pass ${PASS:-none}, skip ${SKIP:-none}"
+          [[ "${STATUS:-0}" == "0" && "$PASS" =~ ^[1-9][0-9]*$ && "$SKIP" == "0" ]] && grep -qx "ok 1 - bell_handoff_permissions_on_linux" handoff-perms.tap || { echo "::error::the handoff permissions test must exit 0, pass by name and skip none"; exit 1; }

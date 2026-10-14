@@ -41,3 +41,18 @@ test("bell_deploy_pins_the_floor_and_the_tick_timeout_bound", () => {
   assert.ok(Object.isFrozen(d.BELL_FLOORS), "frozen: no caller widens it");
   assert.deepEqual(Object.keys(d.BELL_FLOORS as object), [...BELL_OPERATORS], "one floor per operator of a run, in the same order");
 });
+
+// killer: scripts/bell-deploy.mjs:41 CONST "0o2750" -> "0o750"
+test("bell_deploy_pins_the_handoff_layout", () => {
+  const d = deploy as Record<string, unknown>, layout = d.BELL_LAYOUT as Record<string, { path: string; owner: string; group: string; mode: number }>;
+  assert.deepEqual([d.BELL_COLLECT_USER, d.BELL_PUBLISH_USER, d.BELL_HANDOFF_GROUP, d.BELL_STAGING_PREFIX], ["bell-collect", "bell", "bell-handoff", ".tmp-"], "the two users, the handoff group and the staging prefix");
+  assert.deepEqual(layout, {
+    collect: { path: "/var/lib/monark-bell-collect", owner: "bell-collect", group: "bell-collect", mode: 0o700 },
+    handoff: { path: "/var/lib/monark-bell-handoff", owner: "bell-collect", group: "bell-handoff", mode: 0o2750 },
+    status: { path: "/var/lib/monark-bell-status", owner: "bell", group: "bell-handoff", mode: 0o2750 },
+    state: { path: "/var/lib/monark-bell", owner: "bell", group: "bell", mode: 0o755 },
+  }, "the four directories of the handoff layout: owner, group and mode each (setgid on the two handoff sides)");
+  assert.ok(Object.isFrozen(layout) && Object.values(layout).every((x) => Object.isFrozen(x)), "frozen: no caller widens it");
+  const paths = Object.values(layout).map((x) => x.path);
+  assert.deepEqual(paths.filter((p) => paths.some((q) => p.startsWith(`${q}/`))), [], "no directory nested in another: each is top-level");
+});
