@@ -98,13 +98,14 @@ const CONTENT_CODE_EXCLUDES = CONTENT_PATHS.map((p) => `:(exclude,glob)${p}`);
 const CONTENT_PATHSPECS = CONTENT_PATHS.map((p) => `:(glob)${p}`);
 
 // One r25 count line `NAME=$(git diff --shortstat "origin/${{ github.base_ref }}...HEAD" -- <pathspecs>) || {` ->
-// { name, pathspecs, raw } (pathspecs: single quotes removed; raw: the blank-separated tokens as written); null for any other
-// shape. Test 38 (4quater) also counts every `git diff` code line, so an unparsed shape reds instead of escaping.
+// { name, pathspecs, raw } (pathspecs: single quotes removed; raw: the tokens as written, split on space and tab only as bash splits words, so
+// another blank such as U+00A0 stays inside a token, which bashWord refuses); null for any other shape. Test 38 (4quater) also counts every
+// `git diff` code line, so an unparsed shape reds instead of escaping.
 const R25_DIFF_RE = /^\s*([A-Z_]+)=\$\(git diff --shortstat "origin\/\$\{\{ github\.base_ref \}\}\.\.\.HEAD" -- (.+)\) \|\| \{\s*$/;
 function parseR25Diff(line: string): { name: string; pathspecs: string[]; raw: string[] } | null {
   const m = R25_DIFF_RE.exec(line);
   if (m === null || m[1] === undefined || m[2] === undefined) return null;
-  const raw = m[2].split(/\s+/);
+  const raw = m[2].split(/[ \t]+/);
   return { name: m[1], pathspecs: raw.map((t) => t.replace(/^'(.*)'$/, "$1")), raw };
 }
 // The word bash passes to git for one raw token of a count line, or null when bash could read it otherwise than as written: only a
@@ -270,8 +271,9 @@ test("ci_gates_blocking_no_continue_on_error — blocking and pinned workflow (t
   // (4quinquies) ADR-M003 D9, MONARK's decision of 2026-10-09 (TEST-COUNT-NAMES-1): the CODE count excludes the two test records that
   //   `node scripts/test-count-floor.mjs write` writes and the gate scripts/test-count-check.mjs holds to the run, and nothing else:
   //   test/test-count-removals.json, whose reasons are written by hand, stays counted. The pin holds the words bash passes to git, not what
-  //   a git of this test makes of them. (a) Each token of both count lines is one plain word for bash (bashWord): a single-quoted word with
-  //   no quote, `$`, backslash, backtick or brace inside, or a bare word of safe characters, so the word git gets is the token as written,
+  //   a git of this test makes of them. (a) The tokens are split where bash splits words, on space and tab only
+  //   (parseR25Diff), and each token of both count lines is one plain word for bash (bashWord): a single-quoted word with no quote, `$`,
+  //   backslash, backtick or brace inside, or a bare word of safe characters, so the word git gets is the token as written,
   //   with no concatenation, expansion or glob. (b) The words of the STAT line are exactly STAT_PINNED, in order: the trunk's own pathspecs
   //   as they stand, plus the two records by their exact paths under plain `(exclude)` magic. A third exclusion, a record missing, under a
   //   glob or under other magic, or a token added, dropped, duplicated, moved or respelled reds. STAT_PINNED is kept apart from list (a): a
@@ -340,9 +342,9 @@ test("ci_gates_blocking_no_continue_on_error — blocking and pinned workflow (t
   const lineSeen = (line: string, name: string): boolean => { const d = parseR25Diff(line), w = (d?.raw ?? [""]).map(bashWord); return d?.name !== name || w.includes(null) || JSON.stringify(name === "STAT" ? w : sorted(w as string[])) !== JSON.stringify(name === "STAT" ? STAT_PINNED : sorted(CONTENT_PATHSPECS)); };
   const statLine = r25Code.find((l) => l.startsWith("STAT=$(git diff")) ?? "", contentLine = r25Code.find((l) => l.startsWith("CONTENT_STAT=$(git diff")) ?? "";
   const lineCases: [string, string, string, boolean][] = [["the STAT line as written", statLine, "STAT", false], ["the CONTENT_STAT line as written", contentLine, "CONTENT_STAT", false],
-    ...["\t", "\u00a0", "\u2003", "\u3000", "\ufeff", "\u000b", "\u000c", "\u2028", "\u2029"].flatMap((c): [string, string, string, boolean][] => { const u = `U+${c.charCodeAt(0).toString(16).toUpperCase().padStart(4, "0")}`; return [
-      [`${u} after \`.\` on the STAT line`, statLine.replace("-- . '", `-- .${c}'`), "STAT", c !== "\t"], [`${u} between two CONTENT_STAT tokens`, contentLine.replace("docs-*.json' '", `docs-*.json'${c}'`), "CONTENT_STAT", c !== "\t"]]; })];
-  assert.deepEqual(lineCases.filter(([, line, name, want]) => lineSeen(line, name) !== want).map(([n]) => n), [], "(4quinquies) each line case is judged as bash splits it (seen, or for a tab and the lines as written, not seen); listed: the cases judged otherwise");
+    ...[" \t", "\u00a0", "\u2003", "\u3000", "\ufeff", "\u000b", "\u000c", "\u2028", "\u2029"].flatMap((c): [string, string, string, boolean][] => { const u = c === " \t" ? "a space and a tab" : `U+${c.charCodeAt(0).toString(16).toUpperCase().padStart(4, "0")}`; return [
+      [`${u} after \`.\` on the STAT line`, statLine.replace(/-- \.[ \t]+'/, `-- .${c}'`), "STAT", c !== " \t"], [`${u} between two CONTENT_STAT tokens`, contentLine.replace(/docs-\*\.json'[ \t]+'/, `docs-*.json'${c}'`), "CONTENT_STAT", c !== " \t"]]; })];
+  assert.deepEqual(lineCases.filter(([, line, name, want]) => lineSeen(line, name) !== want).map(([n]) => n), [], "(4quinquies) each line case is judged as bash splits it (seen, or for a space and a tab and the lines as written, not seen); listed: the cases judged otherwise");
   assert.deepEqual(
     sorted(diffs[1]?.pathspecs ?? []),
     sorted(CONTENT_PATHSPECS),
