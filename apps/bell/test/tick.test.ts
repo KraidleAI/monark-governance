@@ -3,13 +3,22 @@
 // and the manifest of bell-validate.mjs. The runs the injected runUnit writes are REAL runMain outputs (helpers/bell-served.ts) cleaned of
 // their two abstentions as in checks.test.ts, then re-windowed on the unit, re-symboled per mint, re-sealed and re-chained: each passes
 // checkRun and validateBundle as a production run would. Only the clock, the clock probe and runUnit are injected. No network.
+// The wiring of the tick to the real runMain (lot 2b-ii): runUnit absent, the REAL runMain over the REAL guard, only globalThis.fetch stubbed
+// on .invalid hosts; the cycle derived per operator, the straddle refusal, the share, the floor, the narrowed environment, the guard errors
+// rendered by name, the manifest removed when the rename throws, and the SIGTERM release in a child process (POSIX only).
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { spawnSync } from "node:child_process";
+import { spawn, spawnSync } from "node:child_process";
 import { existsSync, mkdirSync, readFileSync, readdirSync, writeFileSync } from "node:fs";
 import { dirname, join, relative, sep } from "node:path";
-import { fileURLToPath } from "node:url";
+import { fileURLToPath, pathToFileURL } from "node:url";
+import { BudgetExceededError } from "@monark/rpc-guard";
 import { ATTEMPT_BUDGET, BELL_COLLECT_ENV_KEYS, BELL_RUN_CAPS, BELL_UNIVERSE, UNIT_DUE_MARGIN_MIN } from "../../../scripts/bell-deploy.mjs";
+import * as deploy from "../../../scripts/bell-deploy.mjs";
+import { parseArgs, runMain } from "../src/collect.ts";
+import type { DatabentoGet, PolygonGet } from "../src/close.ts";
+import * as tickMod from "../src/tick.ts";
+import type { RunUnitRequest } from "../src/tick.ts";
 import { KEY_SHAPES, UNIT_NAME, manifestOf, readManifest } from "../scripts/bell-validate.mjs";
 import { lineHash, sha256Hex } from "../scripts/bell-chain.mjs";
 import { bellSha } from "../src/digest.ts";
@@ -82,7 +91,7 @@ const progressOf = (h: Host): Obj => readJson(join(h.state, "state", "progress.j
 const attemptsPath = (h: Host): string => join(h.state, "state", "attempts.json");
 const lastErr = (h: Host): string => h.err.at(-1) ?? "";
 
-// killer: apps/bell/src/tick.ts:79 CONST "!form.includes(k) || " -> ""
+// killer: apps/bell/src/tick.ts:89 CONST "!form.includes(k) || " -> ""
 test("bell_tick_refuses_unknown_argv", async () => {
   const h = host(), t = tickArgv(h);
   const bad = [[], ["--tick"], ["--tock", ...t.slice(1)], [...t, "--extra"], [...t, "--state", h.state], t.slice(0, -1), t.map((x) => (x === "--status" ? "--Status" : x)),
@@ -95,7 +104,7 @@ test("bell_tick_refuses_unknown_argv", async () => {
   assert.deepEqual([cli.status, cli.stdout, cli.stderr.startsWith("bell/tick: refused usage: ")], [64, "", true], `the command line exits 64: ${cli.stderr}`);
 });
 
-// killer: apps/bell/src/tick.ts:177 CONST "existsSync(p)" -> "false"
+// killer: apps/bell/src/tick.ts:248 CONST "existsSync(p)" -> "false"
 test("bell_tick_seed_refuses_when_progress_exists", async () => {
   const h = host(), p = join(h.state, "state", "progress.json");
   assert.equal(await run(h, ["--seed", D, "--state", h.state]), 0);
@@ -106,7 +115,7 @@ test("bell_tick_seed_refuses_when_progress_exists", async () => {
   assert.deepEqual([readFileSync(p, "utf8"), h.nows], [before, 0], "never overwritten; the seed reads no clock");
 });
 
-// killer: apps/bell/src/tick.ts:152 CONST "existsSync(bundle) && existsSync(manifestPath)" -> "false"
+// killer: apps/bell/src/tick.ts:208 CONST "existsSync(bundle) && existsSync(manifestPath)" -> "false"
 test("bell_tick_is_idempotent", async () => {
   const h = await seeded(), name = `unit-${D}`;
   assert.equal(await run(h, tickArgv(h)), 0);
@@ -121,7 +130,7 @@ test("bell_tick_is_idempotent", async () => {
   assert.deepEqual([h.calls.length, progressOf(h), readdirSync(h.handoff).sort()], [BELL_UNIVERSE.length, p, [name, `${name}.manifest`]], "no call, the same progress");
 });
 
-// killer: apps/bell/src/tick.ts:169 CONST "renameSync(tmp, bundle);" -> "advance(o.state, progress, u.d, name, manifest); renameSync(tmp, bundle);"
+// killer: apps/bell/src/tick.ts:240 CONST "renameSync(tmp, bundle);" -> "advance(o.state, progress, u.d, name, manifest); renameSync(tmp, bundle);"
 test("bell_tick_progress_moves_only_after_the_bundle_rename", async () => {
   // A directory unit-<D> already in the handoff, NOT empty and without its manifest: the tick runs, then the rename of .tmp-unit-<D> onto it
   // fails (win32: EPERM on any existing directory; POSIX rename(2): ENOTEMPTY or EEXIST on a non-empty one, an empty one would be replaced).
@@ -134,7 +143,7 @@ test("bell_tick_progress_moves_only_after_the_bundle_rename", async () => {
   assert.deepEqual(readdirSync(join(h.handoff, `.tmp-${name}`)).sort(), [...BELL_UNIVERSE].sort(), "the runs stay in the temporary directory");
 });
 
-// killer: apps/bell/src/tick.ts:151 CONST "e.startsWith(\".tmp-unit-\")" -> "false"
+// killer: apps/bell/src/tick.ts:207 CONST "e.startsWith(\".tmp-unit-\")" -> "false"
 test("bell_tick_removes_an_orphan_tmp", async () => {
   const h = await seeded(), orphan = join(h.handoff, `.tmp-unit-${D}`), older = join(h.handoff, ".tmp-unit-2026-10-01");
   mkdirSync(join(orphan, "TSLAx"), { recursive: true }); writeFileSync(join(orphan, "TSLAx", "state.json"), "{}"); writeFileSync(join(orphan, "stray.json"), "{}");
@@ -144,7 +153,7 @@ test("bell_tick_removes_an_orphan_tmp", async () => {
   assert.deepEqual(readdirSync(join(h.handoff, `unit-${D}`)).sort(), [...BELL_UNIVERSE].sort(), "nothing of the orphan entered the bundle");
 });
 
-// killer: apps/bell/src/tick.ts:161 CONST "first !== undefined" -> "false"
+// killer: apps/bell/src/tick.ts:231 CONST "first !== undefined" -> "false"
 test("bell_tick_quarantines_refused_bundle_and_next_tick_proceeds", async () => {
   const h = await seeded(), q = join(h.state, "quarantine", D);
   assert.equal(await run(h, tickArgv(h), { runUnit: writes((r, mint) => { if (mint === "AAPLx") residual(r, "no_adv", 1); }) }), 1);
@@ -158,7 +167,7 @@ test("bell_tick_quarantines_refused_bundle_and_next_tick_proceeds", async () => 
   assert.deepEqual([progressOf(h).last_unit, readJson(attemptsPath(h))], [D, { [D]: 3 }]);
 });
 
-// killer: apps/bell/src/tick.ts:207 CONST "? 64 : 1" -> "? 64 : 0"
+// killer: apps/bell/src/tick.ts:278 CONST "? 64 : 1" -> "? 64 : 0"
 test("bell_tick_exits_nonzero_on_every_named_refusal", async () => {
   const seen = new Map<string, number>();
   const note = async (h: Host, p: Promise<number>): Promise<void> => {
@@ -174,6 +183,9 @@ test("bell_tick_exits_nonzero_on_every_named_refusal", async () => {
   h = await seeded("2026-12-31"); await note(h, run(h, tickArgv(h), { now: Date.UTC(2027, 0, 10) }));
   h = await seeded(); await note(h, run(h, tickArgv(h), { probe: "default" }));
   h = await seeded(); await note(h, run(h, abandonArgv(h)));
+  h = await seeded(); await note(h, run(h, tickArgv(h), { env: { ...ENV, HELIUS_CYCLE_ANCHOR_UTC: "2030-01-01T00:00:00Z" } }));
+  h = await seeded(); await note(h, run(h, tickArgv(h), { env: { ...ENV, HELIUS_CYCLE_ANCHOR_UTC: "2026-09-05T09:30:00Z" } }));
+  for (const m of ["rpc-guard: cycle_share (fail-closed)", "rpc-guard: run_calls (fail-closed)"]) { h = await seeded(); await note(h, run(h, tickArgv(h), { runUnit: () => Promise.reject(new BudgetExceededError(m)) })); }
   const content: Array<(r: Run) => void> = [(r) => { residual(r, "no_quorum", 1); }, (r) => { const g = gapOf(r); delete g.gT; delete g.earliest_publish_utc; g.abstain = "no_close_ref"; },
     (r) => { residual(r, "cash_cross_mismatch", 1); },
     (r) => { const g = gapOf(r); delete g.gT; delete g.earliest_publish_utc; g.abstain = "no_adv"; (((r.state.digest as Obj).volume as Obj[])[0] ?? {}).session_date_et = "2027-01-05"; }];
@@ -184,12 +196,12 @@ test("bell_tick_exits_nonzero_on_every_named_refusal", async () => {
   await note(h, run(h, tickArgv(h), { now: DUE + 8 * HOUR }));
   const viaSeam = TICK_REFUSALS.filter((c) => !seen.has(c));
   for (const c of viaSeam) { h = await seeded(); await note(h, run(h, tickArgv(h), { runUnit: refusing(c) })); }
-  assert.ok(viaSeam.length <= 14, `refusals of later lots only reach the tick through the seam: ${viaSeam.join(" ")}`);
+  assert.ok(viaSeam.length <= 10,`refusals of later lots only reach the tick through the seam: ${viaSeam.join(" ")}`);
   assert.deepEqual([...seen.keys()].sort(), [...TICK_REFUSALS].sort(), "every name of the closed list is seen");
   assert.deepEqual([...seen].filter(([c, x]) => x !== (c === "usage" ? 64 : 1)), [], "usage exits 64, every other refusal 1, never 0");
 });
 
-// killer: apps/bell/src/tick.ts:149 CONST "plan.kind === \"nothing_due\"" -> "false"
+// killer: apps/bell/src/tick.ts:205 CONST "plan.kind === \"nothing_due\"" -> "false"
 test("bell_tick_unit_is_due_only_after_end_and_gates", async () => {
   const h = await seeded(), saturday16 = etWallClockToUtcMs(2026, 10, 3, 16, 0, 0);
   for (const now of [saturday16, DUE - 1]) assert.equal(await run(h, tickArgv(h), { now }), 0);
@@ -200,7 +212,7 @@ test("bell_tick_unit_is_due_only_after_end_and_gates", async () => {
   assert.deepEqual(h.calls, BELL_UNIVERSE.map((mint) => ({ mint, window, maxPages: BELL_RUN_CAPS.maxPages })), "one run per mint on the unit's window");
 });
 
-// killer: apps/bell/src/tick.ts:153 CONST "key = u.d" -> "key = String(now)"
+// killer: apps/bell/src/tick.ts:210 CONST "key = u.d" -> "key = String(now)"
 test("bell_tick_attempt_budget_is_keyed_on_unit_start", async () => {
   const h = await seeded();
   for (const now of [DUE, DUE + 12 * HOUR + 15 * 60_000, DUE + 25 * HOUR]) assert.equal(await run(h, tickArgv(h), { now, runUnit: refusing("close_ref_pending") }), 1);
@@ -216,7 +228,7 @@ test("bell_tick_stalls_by_name_after_budget", async () => {
   assert.deepEqual([h.calls.length, lastErr(h)], [8, `bell/tick: refused stalled_unit: unit-${D} after ${String(ATTEMPT_BUDGET)} attempts; abandon it by act`], "the 9th is not");
 });
 
-// killer: apps/bell/src/tick.ts:93 CONST "[!-~]{8,}" -> "[!-~]*"
+// killer: apps/bell/src/tick.ts:103 CONST "[!-~]{8,}" -> "[!-~]*"
 test("bell_tick_refuses_missing_or_malformed_billing_env", async () => {
   const h = await seeded(), cases: Array<[string, string | undefined, string]> = [];
   for (const k of BELL_COLLECT_ENV_KEYS) cases.push([k, undefined, "env_missing"], [k, "", "env_malformed"]);
@@ -232,7 +244,7 @@ test("bell_tick_refuses_missing_or_malformed_billing_env", async () => {
   assert.equal(await run(h, tickArgv(h)), 0, "the complete environment passes");
 });
 
-// killer: apps/bell/src/tick.ts:144 CONST "!(deps.clockSynced ?? UNSYNCED)()" -> "false"
+// killer: apps/bell/src/tick.ts:200 CONST "!(deps.clockSynced ?? UNSYNCED)()" -> "false"
 test("bell_tick_refuses_clock_unsynced", async () => {
   const h = await seeded();
   assert.equal(await run(h, tickArgv(h), { probe: "default" }), 1, "the default probe answers unsynced");
@@ -243,7 +255,7 @@ test("bell_tick_refuses_clock_unsynced", async () => {
   assert.deepEqual([h.probes, h.nows], [2, 1], "one probe and one clock read per tick");
 });
 
-// killer: apps/bell/src/tick.ts:201 CONST "KEY_SHAPES.some((re) => re.test(s)) || " -> ""
+// killer: apps/bell/src/tick.ts:272 CONST "KEY_SHAPES.some((re) => re.test(s)) || " -> ""
 test("bell_tick_never_prints_urls_or_keys", async () => {
   const h = await seeded(), secrets = [ENV.BELL_SOLANA_RPC, HKEY, ENV.CHAINSTACK_SOLANA_URL, ENV.DATABENTO_API_KEY, ENV.POLYGON_API_KEY].map(String);
   const leaks: RunUnit[] = [refusing("budget_stop", `HTTP 429 from ${secrets[0] ?? ""}`), refusing("lock_held", `held for ${HKEY}`),
@@ -258,7 +270,7 @@ test("bell_tick_never_prints_urls_or_keys", async () => {
   for (const l of lines) assert.ok(!KEY_SHAPES.some((re) => re.test(l)) && secrets.every((s) => !l.includes(s)), `no url, no key: ${l}`);
 });
 
-// killer: apps/bell/src/tick.ts:186 CONST " || (readAttempts(o.state)[o.d] ?? 0) < ATTEMPT_BUDGET" -> ""
+// killer: apps/bell/src/tick.ts:257 CONST " || (readAttempts(o.state)[o.d] ?? 0) < ATTEMPT_BUDGET" -> ""
 test("bell_tick_abandon_writes_tombstone_and_advances_once", async () => {
   const h = await seeded(), t = `unit-${D}.abandoned`, jl = join(h.state, "state", "abandoned.jsonl");
   for (let i = 0; i < 7; i++) await run(h, tickArgv(h), { now: DUE + i * HOUR, runUnit: refusing("close_ref_missing") });
@@ -276,7 +288,7 @@ test("bell_tick_abandon_writes_tombstone_and_advances_once", async () => {
   assert.match(h.out.at(-1) ?? "", /^bell\/tick: nothing_due unit-2026-10-05 /, "the tick goes on with the next unit");
 });
 
-// killer: apps/bell/src/tick.ts:19 CONST "bell-validate.mjs" -> "bell-publish.mjs"
+// killer: apps/bell/src/tick.ts:24 CONST "bell-validate.mjs" -> "bell-publish.mjs"
 test("bell_tick_closure_excludes_the_publisher", () => {
   // The closure follows relative imports AND @monark/* package imports, resolved through <root>/packages/*/package.json (its exports).
   const closure = (root: string, entry: string): { rel: string[]; problems: string[] } => {
@@ -302,15 +314,18 @@ test("bell_tick_closure_excludes_the_publisher", () => {
       const specs = [...text.matchAll(/(?:\bfrom\s+|\bimport\s*\(?\s*|\brequire\s*\(\s*)["'`]([^"'`]+)["'`]/g)].map((m) => m[1] ?? "");
       for (const s of specs) if (s.endsWith("bell-publish.mjs") || /^(?:node:)?child_process$/.test(s)) problems.push(`${r} imports ${s}`);
       if (text.includes("CREDENTIALS_" + "DIRECTORY")) problems.push(`${r} reads the signing credential`);
-      const env = text.split("\n").filter((l) => /\bprocess\s*(?:\.\s*env\b|\[\s*["'`]env["'`])/.test(l));
-      const entryLine = (l: string): boolean => r === "apps/bell/src/tick.ts" && l.includes("tickMain(process.argv.slice(2), { env: process.env,");
+      // A comment line reads nothing; the one read a file may hold is its command-line entry, run only when that file is launched: tick.ts,
+      // and collect.ts, whose runMain the tick calls (lot 2b-ii).
+      const env = text.split("\n").filter((l) => /\bprocess\s*(?:\.\s*env\b|\[\s*["'`]env["'`])/.test(l) && !/^\s*(?:\/\/|\/?\*)/.test(l));
+      const entryLine = (l: string): boolean => (r === "apps/bell/src/tick.ts" && l.includes("tickMain(process.argv.slice(2), { env: process.env,"))
+        || (r === "apps/bell/src/collect.ts" && l.includes("await runMain(process.argv.slice(2), { databentoGet, polygonGet, env: process.env,"));
       if (env.length > (env.length === 1 && env.every(entryLine) ? 1 : 0)) problems.push(`${r} reads process.env`);
     }
     return { rel: [...seen].map((f) => relative(root, f).split(sep).join("/")).sort(), problems };
   };
   const { rel, problems } = closure(REPO, TICK);
   for (const f of ["apps/bell/scripts/bell-validate.mjs", "apps/bell/src/checks.ts", "apps/bell/src/plan.ts", "scripts/bell-deploy.mjs", "packages/rpc-guard/src/index.ts",
-    "packages/rpc-guard/src/transport.ts"]) assert.ok(rel.includes(f), `the closure holds ${f}`);
+    "packages/rpc-guard/src/transport.ts", "apps/bell/src/collect.ts", "packages/rpc-guard/src/cycle.ts"]) assert.ok(rel.includes(f), `the closure holds ${f}`);
   assert.deepEqual(rel.filter((f) => f.endsWith("bell-publish.mjs")), [], "the tick never loads the publisher");
   assert.deepEqual(problems, [], "no file of the closure, packages included, imports the publisher or child_process, reads the signing credential or the environment");
   assert.equal(readFileSync(TICK, "utf8").split("process.env").length, 2, "process.env once, at the command-line entry of tick.ts");
@@ -340,4 +355,186 @@ test("bell_unit_name_grammar_and_manifest_roundtrip", () => {
   const malformed = [m.slice(0, -1), [lines[1], lines[0], ...lines.slice(2)].join("\n"), m.replace("b/x.json", "b/../x.json"), m.replace("b/x.json", "b/./x.json"),
     m.replace(/^[0-9a-f]/, "A"), m.replace("  B.json", " B.json"), `${m}${lines.at(-2) ?? ""}\n`, ""];
   assert.deepEqual(malformed.map((x) => readManifest(x)), malformed.map(() => null), "any other form is refused");
+});
+
+// ---- Lot 2b-ii: the tick wired to the real runMain under the guard ----
+const HELIUS_HOST = "helius.example.invalid", CS_HOST = "cs-sol.example.invalid";
+const RPC_ENV: Record<string, string> = { ...ENV, BELL_SOLANA_RPC: `https://${HELIUS_HOST}`, CHAINSTACK_SOLANA_URL: `https://${CS_HOST}/${"c".repeat(32)}` };
+const CYCLES = { helius: "helius-2026-09-19", chainstack: "chainstack-2026-09-19" };
+/** globalThis.fetch answers every JSON-RPC call with an empty enumeration and no mint: a run spends a few paid calls; each host is noted. */
+async function withRpc<T>(body: (hosts: string[]) => Promise<T>): Promise<T> {
+  const real = globalThis.fetch, hosts: string[] = [];
+  globalThis.fetch = ((input: string | URL, init?: RequestInit): Promise<Response> => {
+    hosts.push(new URL(String(input)).hostname);
+    const m = (JSON.parse(typeof init?.body === "string" ? init.body : "{}") as { method?: string }).method;
+    const result = m === "getSignaturesForAddress" ? [] : m === "getAccountInfo" ? { context: { slot: 1 }, value: null } : null;
+    return Promise.resolve(new Response(JSON.stringify({ jsonrpc: "2.0", id: 1, result }), { status: 200, headers: { "content-type": "application/json" } }));
+  }) as typeof globalThis.fetch;
+  try { return await body(hosts); } finally { globalThis.fetch = real; }
+}
+/** The tick as the command line runs it: no runUnit (the real runMain), a synced probe, the clock and the output captured. */
+const runReal = (h: Host, o: { now?: number; env?: Record<string, string> } = {}): Promise<number> =>
+  tickMain(tickArgv(h), { env: o.env ?? RPC_ENV, now: () => o.now ?? DUE, clockSynced: () => true, out: (s) => { h.out.push(s); }, err: (s) => { h.err.push(s); } });
+const capture = (seen: RunUnitRequest[]): RunUnit => (req) => { seen.push(req); return Promise.reject(new TickRefusal("leg_off", "captured")); };
+const reqOf = (over: Partial<RunUnitRequest> = {}): RunUnitRequest => ({ mint: "TSLAx", window: { from_utc_ms: U.startMs, to_utc_ms: U.endMs - 1000 }, maxPages: BELL_RUN_CAPS.maxPages,
+  outDir: "out", ledgerDir: "ledger", env: ENV, cycles: CYCLES, nowMs: DUE, onLocks: () => undefined, ...over });
+const flagOf = (argv: readonly string[], k: string): string | undefined => argv[argv.indexOf(k) + 1];
+const ledgerLines = (p: string): Obj[] => (existsSync(p) ? readFileSync(p, "utf8").split("\n").filter((l) => l !== "").map((l) => JSON.parse(l) as Obj) : []);
+
+// killer: apps/bell/src/tick.ts:123 CONST "nowMs + TICK_TIMEOUT_START_SEC * 1000 >= " -> "nowMs >= "
+test("bell_tick_derives_cycle_per_operator_and_refuses_straddle", async () => {
+  assert.equal(typeof deploy.TICK_TIMEOUT_START_SEC, "number", "the declared bound of a tick's run time (TimeoutStartSec)");
+  const T = deploy.TICK_TIMEOUT_START_SEC * 1000, HB = Date.UTC(2026, 9, 19), CB = Date.UTC(2026, 9, 19, 2); // the next starts: 00:00Z and 04:00+02:00
+  const later = { ...ENV, HELIUS_CYCLE_ANCHOR_UTC: "2026-09-25T00:00:00Z" }, east = { ...ENV, CHAINSTACK_CYCLE_ANCHOR_UTC: "2026-09-19T01:00:00+02:00" };
+  const cases: Array<[number, Record<string, string>, Record<string, string> | string]> = [
+    [HB - T - 1, ENV, CYCLES], [HB - T, ENV, "helius"],
+    [CB - T - 1, later, { helius: "helius-2026-09-25", chainstack: "chainstack-2026-09-19" }], [CB - T, later, "chainstack"],
+    [CB, later, { helius: "helius-2026-09-25", chainstack: "chainstack-2026-10-19" }],
+    [DUE, east, { helius: "helius-2026-09-19", chainstack: "chainstack-2026-09-19" }]];
+  for (const [now, env, want] of cases) {
+    const h = await seeded(), seen: RunUnitRequest[] = [];
+    assert.equal(await run(h, tickArgv(h), { now, env, runUnit: capture(seen) }), 1);
+    if (typeof want === "string") {
+      assert.match(lastErr(h), new RegExp(`^bell/tick: refused cycle_boundary_straddle: ${want}: `), `${new Date(now).toISOString()}: the tick may outlive the ${want} cycle`);
+      assert.deepEqual([seen.length, existsSync(attemptsPath(h))], [0, false], "refused before any attempt or run");
+    } else assert.deepEqual(seen.map((r) => r.cycles), BELL_UNIVERSE.slice(0, 1).map(() => want), `${new Date(now).toISOString()}: one cycle per operator, in its own offset`);
+  }
+  const hu = await seeded();
+  assert.equal(await run(hu, tickArgv(hu), { env: { ...ENV, CHAINSTACK_CYCLE_ANCHOR_UTC: "2030-01-01T00:00:00+02:00" } }), 1);
+  assert.deepEqual([lastErr(hu), existsSync(attemptsPath(hu))], ["bell/tick: refused cycle_unknown: chainstack: cycle: the instant precedes the anchor", false], "no cycle before the anchor");
+});
+
+// killer: apps/bell/src/tick.ts:137 CONST "\"--shares\", kv(sharesOf(req.env, operators)), \"--floor\", kv(pick(BELL_FLOORS, operators))" -> "\"--floor\", kv(sharesOf(req.env, operators))"
+test("bell_tick_stops_cleanly_at_its_declared_share", async () => {
+  const h = await seeded(), led = (op: "helius" | "chainstack"): string => join(h.root, "ledger", CYCLES[op], `${op}.jsonl`);
+  const [code, heliusCalls] = await withRpc(async (hosts) => [await runReal(h, { env: { ...RPC_ENV, HELIUS_CYCLE_SHARE: "1" } }), hosts.filter((x) => x === HELIUS_HOST).length]);
+  assert.deepEqual([code, lastErr(h)], [1, "bell/tick: refused share_exhausted: rpc-guard: cycle_share (fail-closed)"], h.err.join("\n"));
+  const lines = ledgerLines(led("helius")), att = lines.filter((l) => l.outcome === "attempted");
+  assert.deepEqual([att.length, heliusCalls, att.reduce((n, l) => n + Number(l.credits_derived), 0)], [1, 1, 1], "one helius call of 1 credit, its whole share; no call beyond it");
+  assert.deepEqual(lines.filter((l) => l.outcome !== "attempted").map((l) => [l.outcome, l.reason ?? null]), [["refused", "cycle_share"], ["unlocked", "bell/collect: course end (finally, N unlock)"]]);
+  assert.deepEqual(["helius", "chainstack"].map((op) => existsSync(join(h.root, "ledger", CYCLES[op as "helius"], `${op}.lock`))), [false, false], "locks released on the stop");
+  assert.ok(existsSync(led("chainstack")), "chainstack writes its own derived cycle");
+  assert.deepEqual([progressOf(h).last_unit, readJson(attemptsPath(h)), readdirSync(h.handoff).filter((e) => !e.startsWith(".tmp-"))], [null, { [D]: 1 }, []], "an attempt, nothing deposited");
+});
+
+// killer: scripts/bell-deploy.mjs:24 CONST "Object.freeze({ helius: 0, chainstack: 0 })" -> "Object.freeze({ helius: 100000, chainstack: 50000 })"
+test("bell_tick_passes_floor_zero_and_its_share", () => {
+  assert.equal(typeof tickMod.unitArgv, "function", "the tick builds runMain's argv");
+  assert.deepEqual([deploy.BELL_FLOORS, Object.isFrozen(deploy.BELL_FLOORS)], [{ helius: 0, chainstack: 0 }, true], "A-6: the floor of Bell's host is zero, its share is its only bound");
+  const argv = tickMod.unitArgv(reqOf()), at = (k: string): string | undefined => flagOf(argv, k);
+  assert.deepEqual(["--floor", "--shares", "--cycles", "--operators", "--pools", "--from-utc", "--to-utc", "--max-pages", "--out", "--ledger-dir"].map(at),
+    ["helius=0,chainstack=0", "helius=100000,chainstack=50000", "helius=helius-2026-09-19,chainstack=chainstack-2026-09-19", "helius,chainstack", "TSLAx",
+      String(U.startMs), String(U.endMs - 1000), String(BELL_RUN_CAPS.maxPages), "out", "ledger"]);
+  assert.deepEqual(["--max-calls", "--max-credits", "--max-ru", "--method-caps"].map(at), [String(BELL_RUN_CAPS.maxCalls), String(BELL_RUN_CAPS.maxCredits), String(BELL_RUN_CAPS.maxRu),
+    "getSignaturesForAddress=20000,getTransaction=150000,getAccountInfo=20,getTransactionsForAddress=1"]);
+  assert.deepEqual(argv.filter((a) => a.startsWith("--")).length, new Set(argv.filter((a) => a.startsWith("--"))).size, "each flag once");
+  assert.deepEqual(["--cycle", "--eth"].map((k) => argv.includes(k)), [false, false], "the per-operator form only, no ETH leg");
+  const p = parseArgs(argv, ["TSLAx", "AAPLx"], DUE);
+  assert.deepEqual([p.floors, p.shares, p.opCycles, p.operators], [{ helius: 0, chainstack: 0 }, { helius: 100000, chainstack: 50000 }, CYCLES, ["helius", "chainstack"]], "runMain's parser reads them back");
+});
+
+// killer: apps/bell/src/tick.ts:130 CONST "operators.map((op) => [op, Number(env[keyOf(op, \"SHARE\")])])" -> "BELL_OPERATORS.map((op) => [op, Number(env[keyOf(op, \"SHARE\")])])"
+test("bell_tick_builds_cycle_share_from_requested_operators_only", async () => {
+  assert.equal(typeof tickMod.unitArgv, "function");
+  const h = host(), out = join(h.root, "out-helius"), ledgerDir = join(h.root, "ledger");
+  const argv = tickMod.unitArgv(reqOf({ outDir: out, ledgerDir, env: RPC_ENV }), ["helius"]);
+  assert.deepEqual(["--operators", "--shares", "--cycles", "--floor"].map((k) => flagOf(argv, k)), ["helius", "helius=100000", "helius=helius-2026-09-19", "helius=0"], "both shares in the environment, one forwarded");
+  const deps = { databentoGet: (() => Promise.resolve([])) as DatabentoGet, polygonGet: (() => Promise.resolve({ results: [] })) as PolygonGet, env: RPC_ENV, nowMs: DUE };
+  const settle = (a: string[]): Promise<unknown> => withRpc(async () => { try { await runMain(a, deps); return undefined; } catch (e) { return e; } });
+  assert.equal(await settle(argv), undefined, "a helius-only run with its own share passes the guard");
+  const forwarded = argv.map((a, i) => (argv[i - 1] === "--shares" ? `${a},chainstack=50000` : a));
+  const e = await settle(forwarded);
+  assert.ok(e instanceof BudgetExceededError && /cycle share for 'chainstack' names no paid operator of this course/.test(e.message), `a forwarded chainstack share is refused by name: ${String(e)}`);
+  assert.equal(existsSync(join(ledgerDir, "helius-2026-09-19", "helius.lock")), false, "refused before any lock");
+});
+
+// killer: apps/bell/src/tick.ts:154 CONST "? \"share_exhausted\" : \"budget_stop\"" -> "? \"budget_stop\" : \"share_exhausted\""
+test("bell_tick_renders_guard_errors_by_name", async () => {
+  const cases: Array<[Error, string]> = [[new BudgetExceededError("rpc-guard: cycle_share (fail-closed)"), "bell/tick: refused share_exhausted: rpc-guard: cycle_share (fail-closed)"],
+    [new BudgetExceededError("rpc-guard: run_calls (fail-closed)"), "bell/tick: refused budget_stop: rpc-guard: run_calls (fail-closed)"],
+    [new BudgetExceededError("rpc-guard: cycle share for 'chainstack' names no paid operator of this course, fail-closed"),
+      "bell/tick: refused budget_stop: rpc-guard: cycle share for 'chainstack' names no paid operator of this course, fail-closed"],
+    [new RangeError("not a guard error"), "bell/tick: failed: RangeError"]];
+  for (const [e, line] of cases) {
+    const h = await seeded();
+    assert.equal(await run(h, tickArgv(h), { runUnit: () => Promise.reject(e) }), 1);
+    assert.equal(lastErr(h), line);
+  }
+  const h = await seeded(), held = join(h.root, "ledger", CYCLES.helius);
+  mkdirSync(held); writeFileSync(join(held, "helius.lock"), "{}");
+  assert.equal(await withRpc(() => runReal(h)), 1);
+  assert.match(lastErr(h), /^bell\/tick: refused lock_held: rpc-guard: operator 'helius' is already locked for this cycle/, "a real LockHeldError of the guard");
+  assert.deepEqual([existsSync(join(held, "helius.lock")), existsSync(join(h.root, "ledger", CYCLES.chainstack, "chainstack.lock"))], [true, false], "the held lock is another's; ours is rolled back");
+});
+
+// killer: apps/bell/src/tick.ts:228 CONST "env: narrowed" -> "env: deps.env"
+test("bell_tick_hands_rununit_only_the_collect_env_keys", async () => {
+  const h = await seeded(), seen: RunUnitRequest[] = [];
+  const env = { ...ENV, BELL_HALTS_CSV: "/srv/halts.csv", HOME: "/home/bell", GITHUB_TOKEN: "t".repeat(24) };
+  assert.equal(await run(h, tickArgv(h), { env, runUnit: capture(seen) }), 1);
+  assert.deepEqual(seen.map((r) => Object.keys(r.env).sort()), [[...BELL_COLLECT_ENV_KEYS].sort()], "the closed key list only (RUNUNIT-ENV-NARROW-1)");
+  assert.deepEqual(seen[0]?.env, Object.fromEntries(BELL_COLLECT_ENV_KEYS.map((k) => [k, ENV[k]])), "with their values");
+});
+
+// killer: apps/bell/src/tick.ts:240 CONST "rmSync(manifestPath, { force: true }); " -> ""
+test("bell_tick_second_tick_after_a_failed_rename_never_answers_already_deposited", async () => {
+  const h = await seeded(), name = `unit-${D}`, bundle = join(h.handoff, name);
+  mkdirSync(bundle); writeFileSync(join(bundle, "stray.json"), "{}");
+  assert.equal(await run(h, tickArgv(h)), 1);
+  assert.deepEqual([lastErr(h), existsSync(`${bundle}.manifest`)], ["bell/tick: failed: Error", false], "the rename threw: the manifest goes with it");
+  assert.equal(await run(h, tickArgv(h), { now: DUE + HOUR }), 1, "the next tick refuses or deposits again");
+  assert.deepEqual([h.out.filter((l) => l.includes("already_deposited")), lastErr(h), progressOf(h).last_unit], [[], "bell/tick: failed: Error", null],
+    "never already_deposited on a directory that no manifest describes (TICK-MANIFEST-BEFORE-RENAME-1)");
+});
+
+const CHILD = [`import { tickMain } from ${JSON.stringify(pathToFileURL(TICK).href)};`, "const c = JSON.parse(process.env.BELL_TICK_CHILD ?? '{}');",
+  "let told = false;", "globalThis.fetch = () => { if (!told) { told = true; process.stderr.write('rpc-held' + String.fromCharCode(10)); } return new Promise(() => {}); };",
+  "setInterval(() => {}, 60000);", "process.exitCode = await tickMain(c.argv, { env: c.env, now: () => c.now, clockSynced: () => true });", "process.exit();"].join("\n");
+// killer: apps/bell/src/tick.ts:223 SDL "process.on(\"SIGTERM\", onTerm);" -> ""
+test("bell_tick_releases_locks_on_sigterm", { skip: process.platform === "win32" ? "win32 delivers no SIGTERM to a handler: not concluded here, run under Linux in g3-verification" : false }, async () => {
+  const h = await seeded(), ledger = join(h.root, "ledger");
+  const child = spawn(process.execPath, ["--input-type=module", "-e", CHILD], { env: { BELL_TICK_CHILD: JSON.stringify({ argv: tickArgv(h), env: RPC_ENV, now: DUE }) }, stdio: ["ignore", "ignore", "pipe"] });
+  let stderr = "";
+  const exited = new Promise<[number | null, string | null]>((res) => { child.on("exit", (code, sig) => { res([code, sig]); }); });
+  await new Promise<void>((res, rej) => {
+    const t = setTimeout(() => { child.kill("SIGKILL"); rej(new Error(`no RPC call within 60 s: ${stderr}`)); }, 60_000);
+    child.stderr.on("data", (b: Buffer) => { stderr += String(b); if (stderr.includes("rpc-held")) { clearTimeout(t); res(); } });
+  });
+  const lockOf = (op: "helius" | "chainstack"): string => join(ledger, CYCLES[op], `${op}.lock`);
+  assert.deepEqual([existsSync(lockOf("helius")), existsSync(lockOf("chainstack"))], [true, true], "both locks held while the call hangs");
+  child.kill("SIGTERM");
+  const [code, sig] = await exited;
+  assert.deepEqual([code, sig], [1, null], `the handler exits 1, the signal never kills: ${stderr}`);
+  assert.match(stderr, /^bell\/tick: refused sigterm: /m);
+  for (const op of ["helius", "chainstack"] as const) {
+    assert.equal(existsSync(lockOf(op)), false, `${op}.lock released`);
+    assert.deepEqual(ledgerLines(join(ledger, CYCLES[op], `${op}.jsonl`)).filter((l) => l.outcome === "unlocked").map((l) => l.reason), ["bell/tick: sigterm"], `${op}: one unlocked line, the handler's`);
+  }
+});
+
+// killer: apps/bell/src/tick.ts:233 CONST "process.off(\"SIGTERM\", onTerm);" -> ""
+test("bell_tick_sigterm_handler_is_set_for_the_runs_only", async () => {
+  const base = process.listenerCount("SIGTERM"), during: number[] = [], handed: string[] = [];
+  for (const inner of [writes(), refusing("budget_stop")]) {
+    const h = await seeded();
+    await run(h, tickArgv(h), { runUnit: (req) => { during.push(process.listenerCount("SIGTERM")); handed.push(typeof req.onLocks); return inner(req); } });
+    assert.equal(process.listenerCount("SIGTERM"), base, "removed when the tick ends, deposited or refused: no handler outlives its tick");
+  }
+  assert.deepEqual([during, handed], [[base + 1, base + 1, base + 1], ["function", "function", "function"]], "set before each run (before any lock), each run handed its re-arm callback");
+});
+
+// killer: apps/bell/src/tick.ts:142 CONST "onLocks: req.onLocks" -> "onLocks: undefined"
+test("bell_tick_run_main_unit_hands_its_release_and_reads_each_cycle_ledger", async () => {
+  assert.equal(typeof tickMod.runMainUnit, "function", "the production run of the tick");
+  const h = host(), ledgerDir = join(h.root, "ledger"), handed: boolean[][] = [];
+  const lock = (op: "helius" | "chainstack"): string => join(ledgerDir, CYCLES[op], `${op}.lock`);
+  const res = await withRpc(() => tickMod.runMainUnit(reqOf({ outDir: join(h.root, "out", "TSLAx"), ledgerDir, env: RPC_ENV,
+    onLocks: () => { handed.push([existsSync(lock("helius")), existsSync(lock("chainstack"))]); } })));
+  assert.deepEqual(handed, [[true, true]], "the release is handed once, both locks held");
+  for (const op of ["helius", "chainstack"] as const) {
+    const lines = (res.ledger[op] ?? []) as Obj[];
+    assert.deepEqual([lines.length > 0, lines.every((l) => l.cycle_id === CYCLES[op]), lines.at(-1)?.outcome, existsSync(lock(op))], [true, true, "unlocked", false],
+      `${op}: the lines of its own derived cycle, read after the release`);
+  }
+  assert.ok(existsSync(join(h.root, "out", "TSLAx", "state.json")), "runMain wrote the run under --out");
 });
