@@ -283,13 +283,36 @@ test("ci_gates_blocking_no_continue_on_error — blocking and pinned workflow (t
     "(4quinquies) of the files under test/, the CODE count must drop exactly test/test-counts.json and test/test-names.json, each by its exact path with no glob (ADR-M003 D9, decision of 2026-10-09)",
   );
   const stat = diffs[0]?.pathspecs ?? [], pinSees = (tokens: readonly string[]): boolean => judged(tokens) !== meant;
-  for (const third of ["!test/test-count-removals.json", "(exclude)./test/test-count-removals.json", "^./test/test-count-removals.json", "(exclude,icase)TEST/test-count-removals.json", "(exclude)apps/../test/test-count-removals.json",
-    "!apps/../test/test-count-removals.json", "(exclude)test", "!test", "(exclude)t[e]st/test-count-removals.json", "(exclude)t*/test-count-removals.json", "(exclude)*test-count-removals.json", "/!test/test-count-removals.json", "(exclude)/test/test-count-removals.json"].map((s) => `:${s}`)) {
-    assert.ok(pinSees([...stat, third]), `(4quinquies) a third exclusion under test/ spelled ${third} is seen by the pin`);
-  }
-  assert.ok(pinSees(stat.map((t) => (t === twoRecords[0] ? ":(exclude,glob)test/test-count[s].json" : t))), "(4quinquies) a record under a glob is seen by the pin");
-  assert.ok(pinSees(stat.filter((t) => t !== twoRecords[1])), "(4quinquies) a record missing is seen by the pin");
-  assert.ok(pinSees([...stat.filter((t) => t !== "."), "scripts"]), "(4quinquies) a line narrowed past test/ is seen by the pin");
+  // The cases: each is the STAT line as ci.yml would spell it (its blank-separated tokens, quotes kept), judged as test 38 reads the line.
+  const statRaw = stat.map((t) => (t === "." ? t : `'${t}'`)), seen = (raw: readonly string[]): boolean => pinSees(raw.map((t) => t.replace(/^'(.*)'$/, "$1")));
+  const rec0 = `'${twoRecords[0] ?? ""}'`, rec1 = `'${twoRecords[1] ?? ""}'`;
+  const swap = (raw: readonly string[], from: string, to: string): string[] => raw.map((t) => (t === from ? to : t));
+  const cases: [string, string[]][] = [
+    ...["!test/test-count-removals.json", "(exclude)./test/test-count-removals.json", "^./test/test-count-removals.json", "(exclude,icase)TEST/test-count-removals.json", "(exclude)apps/../test/test-count-removals.json",
+      "!apps/../test/test-count-removals.json", "(exclude)test", "!test", "(exclude)t[e]st/test-count-removals.json", "(exclude)t*/test-count-removals.json", "(exclude)*test-count-removals.json", "/!test/test-count-removals.json",
+      "(exclude)/test/test-count-removals.json"].map((s): [string, string[]] => [`a third exclusion ':${s}'`, [...statRaw, `':${s}'`]]),
+    ["a record under a glob", swap(statRaw, rec0, "':(exclude,glob)test/test-count[s].json'")],
+    ["a record missing", statRaw.filter((t) => t !== rec1)],
+    ["the line narrowed past test/", [...statRaw.filter((t) => t !== "."), "scripts"]],
+    // The review of the second fold (m-C): spellings bash reads otherwise than the parser does, attr magic, and a file the change deletes.
+    ["Q1 quote concatenation", [...statRaw, "':(exclude)test/'test-count-removals.json''"]],
+    ["Q2 trailing empty quotes", [...statRaw, "':(exclude)test/test-count-removals.json'''"]],
+    ["Q3 ANSI-C quoting", [...statRaw, "':!test/'$'test-count-removals.json'"]],
+    ["V1 an unset variable", [...statRaw, ":!test$UNSET"]],
+    ["V2 brace expansion", [...statRaw, ":!test/{x,test-count-removals.json}"]],
+    ["A1 attr magic", [...statRaw, "':(exclude,attr:diff)test'"]],
+    ["D1 an exclusion of a file the change deletes", [...statRaw, "':(exclude)test/oracle-run.test.ts'"]],
+    // The words bash passes must be exactly the pinned list: no other spelling, magic, order or token.
+    ["a record respelled by quote concatenation", swap(statRaw, rec0, "':(exclude)test/'test-counts.json''")],
+    ["a record in double quotes", swap(statRaw, rec0, `"${twoRecords[0] ?? ""}"`)],
+    ["`.` followed by an unset variable", swap(statRaw, ".", ".$UNSET")],
+    ["a record under other magic", swap(statRaw, rec0, "':(exclude,literal)test/test-counts.json'")],
+    ["a record in the short form", swap(statRaw, rec1, "':!test/test-names.json'")],
+    ["an exclusion outside test/", [...statRaw, "':(exclude)scripts/test-count-check.mjs'"]],
+    ["a duplicated token", [...statRaw, "':(exclude)package-lock.json'"]],
+    ["two tokens swapped", statRaw.map((t) => (t === "':(exclude)docs/G1-lot-*.md'" ? "':(exclude)docs/G2-lot-*.md'" : t === "':(exclude)docs/G2-lot-*.md'" ? "':(exclude)docs/G1-lot-*.md'" : t))],
+  ];
+  assert.deepEqual(cases.filter(([, raw]) => !seen(raw)).map(([name]) => name), [], "(4quinquies) each case is seen by the pin; listed: the cases it misses");
   assert.deepEqual(
     sorted(diffs[1]?.pathspecs ?? []),
     sorted(CONTENT_PATHSPECS),
