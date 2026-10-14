@@ -51,8 +51,10 @@ tripwire; (b) K19 is replaced by a killer that T-4 kills by an assertion.
 `servedPolicyTables` must pass on, and (b) would leave that choice of l.118 judged by no assertion of T-4. It keeps every present
 guarantee of T-4: the tripwire still runs on the same served tables, with the same pins and held lists, and the verdicts and the
 honesty text are judged as before. It adds a real assertion, independent of the tripwire: the kata tables that hold rows, as served, are
-exactly the two committed ones, each with the sha256 of its file and, byte for byte, the canonical text of that file. (b) would weaken
-nothing either, but it adds no assertion where the gap is and moves the declared killer of T-4 off the line it was written for.
+exactly the two committed ones, each with the sha256 of its file and, byte for byte, the canonical text of that file. These two tables
+are T-4's own synthetic fixture (l.334-340: their class names and pins come from the files T-4 builds, not from `COMMITTED_TABLES` of
+`apps/harness/src/policy-committed-pins.ts`), so no release of the real tables changes this assertion. (b) would weaken nothing
+either, but it adds no assertion where the gap is and moves the declared killer of T-4 off the line it was written for.
 
 **The change** (one line of T-4's body becomes three; no other test changes): l.344
 
