@@ -119,3 +119,19 @@ test("rpc_guard_share_exhaustion_is_a_named_refusal_before_any_call", async () =
     assert.deepEqual(client.spent(), { attempts: 1, byOperator: { helius: 10 } });
   } finally { globalThis.fetch = realFetch; cleanup(); }
 });
+
+// killer: packages/rpc-guard/src/client.ts:126 CONST "{ reason }" -> "{}"
+test("rpc_guard_refusal_carries_its_reason_code", async () => {
+  // TICK-GUARD-ERROR-NAMES-ALL-1: a caller reads the refusal by its code, the reason of the ledger's refused line, never by the message.
+  const { dir, cleanup } = tmp();
+  const realFetch = globalThis.fetch;
+  globalThis.fetch = () => okFetch();
+  try {
+    const client = openGuardedClient(FAKE_HELIUS_ENV, limitsOf({ cycleShare: { helius: 10 }, maxCalls: 2 }), dir, { helius: "c-code" });
+    await client.call(HELIUS, GTFA, GTFA_P100);
+    const reasons: unknown[] = [];
+    for (let i = 0; i < 2; i++) await client.call(HELIUS, GTFA, GTFA_P100).catch((e: unknown) => { assert.ok(e instanceof BudgetExceededError); reasons.push((e as { reason?: unknown }).reason); });
+    const refused = parseEntries(readFileSync(join(dir, "c-code", "helius.jsonl"), "utf8")).filter((e) => e.outcome === "refused").map((e) => e.reason);
+    assert.deepEqual([reasons, refused], [["cycle_share", "cycle_share"], ["cycle_share", "cycle_share"]], "the thrown code is the ledger's reason");
+  } finally { globalThis.fetch = realFetch; cleanup(); }
+});
