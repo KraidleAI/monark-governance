@@ -315,3 +315,92 @@ limit needs an item. T-4 is on the trunk with #237, but it lives in `apps/harnes
 and the zone rule forbids a second open change on a file of an open pull request. So K19 is not built here: it goes in a small follow-up
 change after #238 merges, with its red-proof. The planned construction: T-4 judges by an assertion the rows that `servedPolicyTables`
 serves, before the trip wire; or K19 is replaced by a killer that T-4 kills by an assertion.
+
+## 9. As built
+
+Built 2026-10-14 by RECHERCHES (`claude-opus-5-5`, effort high), Node 24.21.0; every run below under `offline.mjs --no-egress`, 0 refused
+attempts each; the campaigns, red-proof, `tsc`, eslint and `npm run test:main` took the shared host lock.
+
+**Commits** on `recherches/kata-killers-assert-1`: `f7108f66` « Merge the trunk » (parents `00e5f5aa` and `5ebd9267`); `2f79606f` and
+`98198516`, this note (documents only); `67d56512`, the five test files (27 lines added, 20 removed); then this section. No pull request
+is opened: a fresh review comes first.
+
+**The campaigns** (the trunk's `scripts/mutants/run.mjs --killers --only`, `--base 357ef25f`, the 63 killer lines of the five files, among
+them the 19 of `apps/harness/test/policy-guard.test.ts` and the 19 of `apps/harness/test/policy-wave2.test.ts`; `tool_sha256` `13b2b11f…`,
+`tool_dirty` null):
+
+| Run | Head | Baseline | tue | survit | non conclu |
+|---|---|---|---|---|---|
+| before | `f7108f66`, the build base | green | 52 | K116 | K214, K216, K225, K238, K267, K268, K270, K271, K279, K1364 |
+| narrowed `refuse`, without the fix of K222 (a local commit, never pushed) | `567faab8` | green | 62 | none | K222 |
+| after | `67d56512` | green | 63 | none | none |
+
+Every verdict that moves: the eleven lines of this change, from survit (K116) or non conclu (the ten) to tue; and K222, from tue to non
+conclu under the narrowed `refuse` alone, back to tue by an assertion with its fix (section 3). No other killer of the two guard files
+moves: their other 29 read tue in all three runs. Each baseline is green in the same 81 target files; its entry count varies between runs
+(731, 734, 709) in `test/ci-gates.test.ts` and `test/spec-1-1-0-release.test.ts`, two files this change does not touch, not explained here.
+
+| Line (sweep id) | Id at the build base | Killer line at `67d56512` | Before | After |
+|---|---|---|---|---|
+| K116 | K116 | `apps/harness/test/gate-cell.test.ts` l.68 | survit | tue |
+| K212 | K214 | `apps/harness/test/policy-guard.test.ts` l.93 | non conclu | tue |
+| K214 | K216 | `apps/harness/test/policy-guard.test.ts` l.111 | non conclu | tue |
+| K223 | K225 | `apps/harness/test/policy-guard.test.ts` l.206 | non conclu | tue |
+| K235 | K238 | `apps/harness/test/policy-projection.test.ts` l.79 | non conclu | tue |
+| K264 | K267 | `apps/harness/test/policy-wave2.test.ts` l.116 | non conclu | tue |
+| K265 | K268 | `apps/harness/test/policy-wave2.test.ts` l.126 | non conclu | tue |
+| K267 | K270 | `apps/harness/test/policy-wave2.test.ts` l.141 | non conclu | tue |
+| K268 | K271 | `apps/harness/test/policy-wave2.test.ts` l.156 | non conclu | tue |
+| K276 | K279 | `apps/harness/test/policy-wave2.test.ts` l.243 | non conclu | tue |
+| K1360 | K1364 | `test/recompute-report.test.ts` l.172 | non conclu | tue |
+| (none) | K222 | `apps/harness/test/policy-guard.test.ts` l.188 | tue | tue (non conclu in between) |
+
+**Red-proof**: `node scripts/red-proof.mjs --base f7108f66 --gel 67d56512 --test-only`: OK, 12 judged, 12 pinned (green at the base and
+at the gel, the declared killer fired at the gel red by an assertion, `assert-fail`), 51 unchanged, 0 killers drawn, no refusal.
+
+**The crash proof** (the forced crash of the guard fold, `apps/harness/src/policy-guard.ts` l.100 with `rc.scores_sha256` read as
+`rc.x.scores_sha256`, on a throwaway copy, never committed; the two guard files run whole): unmutated, 38 of 38 green before and after.
+Under the crash, before the narrowing, 23 red: 21 by `ERR_TEST_FAILURE` and 2 by `ERR_ASSERTION` (`guard_recompute_and_verifiers` and
+`guard_requires_verifier_pins_as_identities`, whose first failing call is a `refuse`); at `67d56512`, the same 23 red, all by
+`ERR_TEST_FAILURE`. The guard's prefix alone in `refuse`, unmutated: 36 of 38 green, red by `ERR_TEST_FAILURE` exactly at the two sites of
+section 3.
+
+**The suite and the count**: `npm run test:main` at `67d56512`: 2972 tests, 2950 pass, 0 fail, 22 skipped (Windows-only cases and absent
+artifacts). `node scripts/test-count-check.mjs --base origin/lot/etude-suite`: 290 files and 2972 tests, equal to `test/test-counts.json`, 0
+drops from the base `5ebd9267`; nothing written, no test added, removed or renamed.
+
+**Checks**: `npx tsc --noEmit` 0; eslint on the five files 0; `lint:ratchet` 69/69, `gate:vocab`, `lang:gate`, `export:check` and winlint
+(6 files) OK; `git diff --check` clean; r1scan 0 on each commit before its push. The anchor checker (`verifie-ancres.mjs <tree> --ref
+5ebd9267`): 1790 killer lines, 1790 anchored, 0 drifted, 0 lost. The five files with `test/killer-lines.test.ts`: 64 of 64 green.
+
+**Size** (R-25 in the CI form, the pathspec of `.github/workflows/ci.yml` l.100, against `origin/lot/etude-suite`): 5 files, 27 lines
+added, 20 removed, 47 in all (`apps/harness/test/gate-cell.test.ts` 7, `apps/harness/test/policy-guard.test.ts` 12,
+`apps/harness/test/policy-projection.test.ts` 5, `apps/harness/test/policy-wave2.test.ts` 20, `test/recompute-report.test.ts` 3); the bound
+read at `.github/workflows/ci.yml` l.56 is 1205.
+
+**Drift, declared**: no killer line changes text or target, and none is added or removed. Two files move lines: the import of
+`splitQuantileExact` and the two new lines of K116's test move the eight killer lines of `apps/harness/test/gate-cell.test.ts` (l.33, 48,
+60, 67 to l.34, 49, 61, 68; l.77, 91, 114, 131 to l.80, 94, 117, 134), and the `reads` function in K1364's test moves the last three of
+`test/recompute-report.test.ts` (l.183, 200, 210 to l.184, 201, 211). `refuse` stays on its line in both guard files, the projection helper
+`admitted` follows the last test of its file, and the fix of K222 rewrites l.191 in place. The plan of section 2 is otherwise built as
+written: the thirteen sites, the closed row check helper of K235, the reader's function of K1364, and K116 against `splitQuantileExact`.
+
+**Departures from the plan**: `refuse` accepts the closed row check's refusal beside the guard's (section 3, measured); K222's test is
+fixed in this change and its killer declared, so red-proof judges twelve tests, not eleven. The tests commit was made twice locally before
+its push (`567faab8`, then `5688478b` with the fix of K222), each replaced by a soft reset before any push; only `67d56512` was pushed.
+
+**Not verified here**: the Windows replay of the five files and of `every_killer_line_is_readable` (MONARK's, at the merge); #259's tool
+(not merged, not run); the cause of the baseline entry counts that vary in two files outside this change.
+
+**Evidence**, under the author's scratchpad (`kata-killers-build2/`):
+
+| File | sha256 |
+|---|---|
+| campaign before: `runs/before/RESULTS.json`, `RESULTS.txt`, `logs/before.no-egress.log` | `d877fc55…`, `6579b9bd…`, `7ba20c25…` |
+| campaign at `567faab8`: `runs/after/RESULTS.json`, `RESULTS.txt`, `tap/K222.tap`, `logs/after.no-egress.log` | `777259a9…`, `7868e89f…`, `a1543cdb…`, `ec1a02e3…` |
+| campaign after: `runs/after2/RESULTS.json`, `RESULTS.txt`, `tap/K222.tap`, `logs/after2.no-egress.log` | `0dd6f9da…`, `69b020b6…`, `49a93776…`, `e4bba8f5…` |
+| red-proof: `runs/redproof3/RED-PROOF.json`, `logs/redproof3.log` | `55eb5ed0…`, `6d1ae607…` |
+| crash proof: `logs/x1.diff`, `logs/x1-before.codes`, `logs/x1-final.codes`, `logs/final-unmutated.codes`, `logs/strict-unmutated.codes` | `b9c0ee57…`, `ebde02c4…`, `0fa0b3b9…`, `7a8a349c…`, `66695d8b…` |
+| suite and count: `logs/testmain.log`, `logs/countcheck.log` | `a13271bd…`, `6f3b43a3…` |
+| checks: `logs/anchors-final.log`, `logs/size-final.log`, `logs/tsc2.log`, `logs/eslint2.log`, `logs/five2.tap` | `f7e805b3…`, `12958729…`, `a9ba2989…`, `8cc1ff9d…`, `e885afcd…` |
+| the edits: `logs/tests-final.diff`, `tools/build-edits.mjs`, `tools/k222-fix.mjs`, `tools/x1.mjs` | `92190e92…`, `1add57ce…`, `6420ad22…`, `85d5faa9…` |
