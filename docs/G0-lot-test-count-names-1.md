@@ -501,6 +501,98 @@ under the shared host lock.
 - The gate's CI form under `offline.mjs`, which removes every `GITHUB_*` name: replayed in the oracle form under it, and in the CI form
   outside it (the gate runs git only).
 
+## 14. G2 fold (2026-10-14)
+
+By the fold's author instance (RECHERCHES, `claude-opus-5-5`, effort high), a fresh instance distinct from this note's author, the
+build's and the review's. The review: recherches `44c8fd6`, `coordination/pieces/2026-10-14-g2-test-count-names/G2-test-count-names.json`,
+verdict CORRECTIONS, one major and five minors, at `619ddb24`. Every run below was offline (`offline.mjs --no-egress`, 0 refused attempts
+in every log), each full suite and each mutation run under the shared host lock. The `file:line` addresses of this section hold at the
+fold's head.
+
+### 14.1 Commits
+
+| Commit | What |
+|---|---|
+| `7cc917c9` | Merge of the trunk `971eda88` (#238, which adds the test `kata_clause_follows_the_committed_pins`), no conflict |
+| `d2dc8dc8` | Tests first: T5, T7 and test 38 gain the review's cases, with a killer for each of the review's five lines; red at the merge |
+| `7a14eab8` | The gate (m-1, m-4), test 38's normalisation (m-2), the ADR (l.211 restored, l.215 in MONARK's words) |
+| `ec514259` | The records: `npm run test:main` then `write` on the fold (the names record gains #238's test) |
+| `eff8d510` | Two more killers, on the fold's own lines (the base agreement, the own-key copy); comments only |
+| `a895c1b7` | Two new cases typed for `tsc` and `lint:ratchet` (no assertion changes) |
+| `0fc715cc` | Merge of the trunk `6779955e` (#262, a new test file), which moved during the fold; no conflict |
+| `d2b5f6f5` | The records again: `npm run test:main` then `write` on that merge |
+| this commit | This section |
+
+### 14.2 Each finding and its fold
+
+| Finding | Fold | Where |
+|---|---|---|
+| **M-1** the error_origin clause of D9 septdecies rewritten | l.211 restored to its bytes before the build (below the table). The ADR's diff against the trunk is now 2 insertions and 0 deletions: a blank line and the dated line | `docs/adr/ADR-M003-phase2-integration.md:211`, `:215` |
+| **m-1** a base whose two records disagree | Once the base carries the names record, the gate reads it against the base's counts record: the same files, and in each as many names as its count. Otherwise exit 4, `::error::test/test-names.json at the base <sha> not readable: it disagrees with test/test-counts.json there: <file>: …`, naming the first file that differs. T5 holds the review's two cases: BASEINCONS (the names record lacks `b.test.ts`, removed with no line) and BASEINCONS2 (one name fewer than the count, the test deleted with no line); both exit 0 at the merge, exit 4 here | `scripts/test-count-check.mjs:53` (the call), `:118-122` (`agrees`); `test/test-count-check.test.ts` T5 |
+| **m-2** the pin missed short magic and `./` | Before the filter, each token loses its magic, long (`:(…)`) or short (`:!`, `:^`, `:/`, an optional `:`), then any leading `./` or `/`. Test 38 asserts that a third exclusion spelled `:!test/…`, `:(exclude)./test/…` or `:^./test/…` is seen; the first two are the review's. The review's paired edits (ci.yml and the exact list (a) edited together) replayed: see 14.4 | `test/ci-gates.test.ts:270`, `:277-279` |
+| **m-3** five guarantees held by no test | A case and a killer each, killed by an assertion (14.3). X4's false green was first run on a fixture at the merge: with X4, a base whose names record holds a null entry and a test deleted with no line gives exit 0; the gate as built gives exit 4 | T5 and T7; `logs/x4-proof.log` |
+| **m-4** a line for the file `constructor` threw | The records are read by their own keys only: the gate's reads copy each record into an object without a prototype (`own`), and `nameProblems` does the same with what it is given. A line for `constructor` or `__proto__` now takes `… names no test gone from constructor since the base`, as an `::error::` line in the gate | `scripts/test-count-check.mjs:49`, `:54`, `:93`, `:112-114`; T5, T7 |
+| **m-5** the dated line not in MONARK's words | l.215 now quotes MONARK's Q-1 of `e6ebb72` word for word: his decision (« Les deux relevés sortent du compte R-25 ; le registre des retraits y reste »), his reason after « Pourquoi : », and his five conditions after « Les conditions : ». The words that differ, and why: the bold of his labels is dropped and his list items run on in one paragraph, since an ADR line is one paragraph, so his numbers `1.` to `5.` become `(1)` to `(5)`; the decision's first word takes a lower case after the line's opening colon; in (4), « comme ta note le prévoit pour (b) » becomes « comme la note `docs/G0-lot-test-count-names-1.md` le prévoit pour (b) », since an ADR names the note, not its author. Condition (3) has no added parenthesis. The line's opening (its date, its source), its last sentence (the two pathspecs added) and its `error_origin` are the former line's | `docs/adr/ADR-M003-phase2-integration.md:215` |
+
+M-1, the restore: l.211 of the ADR has the same sha256 (`3fcc2e3e…`) at `5ebd9267`, the build's base, and at the trunk `6779955e`, as here.
+
+### 14.3 New killers
+
+| Killer (in `test/test-count-check.test.ts`) | Holds | Verdict |
+|---|---|---|
+| `scripts/test-count-check.mjs:94` CONST `", ...lines.map((r) => r.file)"` -> `""` (X1, l.220) | a line for a file in neither names record is refused | K59 tue (T7, and T5's `constructor` case) |
+| `scripts/test-count-check.mjs:98` CONST `" && base[f]?.length === r.from"` -> `""` (X2, l.224) | a file-gone line counts at the base's count only | K60 tue (T7) |
+| `scripts/test-count-check.mjs:103` CONST `" && gone.length === whole"` -> `""` (X3, l.228) | the hint for a file gone and partly declared wants each name left; the mutant changes the hint only, and T7 pins it whole | K61 tue (T7) |
+| `scripts/test-count-check.mjs:53` CONST `"atBase(NAMES, null, lists,"` -> `"atBase(NAMES, null, () => true,"` (X4, l.146) | a malformed names record at the base: exit 4 and its line | K49 tue (T5) |
+| `scripts/test-count-check.mjs:54` CONST `"shaped(JSON.parse(ntext), lists,"` -> `"shaped(JSON.parse(ntext), () => true,"` (X5, l.132) | a malformed names record at the head: exit 4 and its line | K48 tue (T5) |
+| `scripts/test-count-check.mjs:53` CONST `"if (baseNames !== null) read("` -> `"if (false) read("` (m-1, l.149) | the base's two records held to each other | K50 tue (T5) |
+| `scripts/test-count-check.mjs:93` CONST `"base = own(baseNames), head = own(headNames)"` -> `"base = baseNames, head = headNames"` (m-4, l.230) | the names records read by their own keys | K62 tue (T7) |
+
+The line numbers at `619ddb24` that the review named (l.53, l.54, l.94, l.98, l.103) are the same here: every edit of the gate is in
+place or after its last function. The own-key copy at the gate's reads (l.49, l.54) has no killer: on the paths the tests reach, the
+copy in `nameProblems` (l.93) already holds it, and the count mode refuses a line for `constructor` with or without it, so its mutant
+cannot be killed; it is kept so that no inherited name reaches the gate's other lookups.
+
+### 14.4 Measures and proofs
+
+| Proof | Result | Evidence (scratchpad `test-count-names-fold/`) | sha256 (prefix) |
+|---|---|---|---|
+| X4's false green, before any code change | on a fixture at the merge `7cc917c9`: the gate exit 4; with X4, exit 0 (a test deleted, no line, the base's names record holding a null entry) | `logs/x4-proof.log` (`tools/x4-proof.mjs`) | `162215cd` (`197f6d8e`) |
+| The changed tests at `d2dc8dc8` (the merge's code) | test 38, T5 and T7 red, each by `ERR_ASSERTION`; every other test of the three files green | `logs/t-at-merge.tap` | `0478782e` |
+| Each new case on its own at the merge (a probe that makes each assertion soft) | red: the `constructor` line (T5, a TypeError's stack in place of the line), BASEINCONS and BASEINCONS2 (both exit 0, the drop unseen), the `constructor` and `__proto__` lines (T7, a throw); green, as they pin what the merge already does: X1 to X5; the old filter of test 38 misses each of the three spellings | `logs/soft-at-merge.log`, `logs/t38-old-filter.log` | `e59efeba`, `5322a719` |
+| The four test files at the fold's code (`a895c1b7`) | 53 tests, 53 pass | `logs/t-at-head.tap` | `f8fa4cb7` |
+| `red-proof --base 7cc917c9 --gel a895c1b7` | T5 and T7 F2P (red at the base by `ERR_ASSERTION`, green at the gel); test 38 refused, green at the base (the tool calls it self-confirming), so the tool exits 1. That is by construction: m-2's fold is test 38's own filter, no production line changes, so the base run, which takes the gel's test file, is green. Test 38's red-first is the TAP at `d2dc8dc8` above | `logs/red-proof-final.log`, `red-proof-final/RED-PROOF.json` | `5839d23a`, `9ed7fe2f` |
+| The review's paired edits of test 38 (ci.yml l.100 and the exact list (a) edited together; its tool, copied) | THIRD, MISS, SHORT and DOTSLASH red by test 38, GLOB by test 38 and `series_pinned_are_declared_and_hashed`, TOPGLOB by the latter; each by `ERR_ASSERTION`, both files restored | `logs/t38-pair-files.log` | `f869e719` |
+| Killer campaign, the trunk's `scripts/mutants/run.mjs --killers`, base `971eda88` | at `eff8d510`: baseline green, 80 killers of the three test files, 80 « tue » | `logs/killers.log`, `killers/RESULTS.json` | `94f08e03`, `3d56222d` |
+| The same at `a895c1b7` (the fold's code, typed) | baseline green (335 tests of the target files), 80 killers, 80 « tue », each by an assertion; the seven new ones are K48 to K50 and K59 to K62 above | `logs/killers-final.log`, `killers-final/RESULTS.json` | `82d61763`, `20253e66` |
+| `npm run test:main`, on the merge of `971eda88` | 2 975 tests, 2 953 pass, 0 fail, 22 skipped | `logs/main-1.log` | `67221ef3` |
+| `write` | 290 files, 2 975 tests; the names record gains `kata_clause_follows_the_committed_pins` (+1 line), the counts record unchanged by the write | `logs/write-1.log` | `83233e1d` |
+| `npm run test:main`, on the merge of `6779955e` | 2 983 tests, 2 961 pass, 0 fail, 22 skipped | `logs/main-2.log` | `f8a5acce` |
+| `write` | 291 files, 2 983 tests; the names record gains the eight tests of `test/pin-bell-legal.test.ts` (+10 lines), the counts record unchanged by the write | `logs/write-2.log` | `60c3b3b4` |
+| The gate against `origin/lot/etude-suite` (`6779955e`), in the `--base`, oracle and CI forms; and judged by names against `619ddb24` | green: 291 files, 2 983 tests, 0 drop, judged by counts (no names at the trunk); by names against `619ddb24`, green (its two records agree, so the new base check passes on a real base) | `logs/gate-trunk-2.log` | `75737664` |
+| The names record | 3 567 lines, no raw U+2028 or U+2029, no CR, longest line 707 bytes; 2 address literals, both in `EXEMPT` | `logs/gate-trunk-2.log` (`tools/names-scan.mjs`, the build's) | `75737664` |
+| Anchors, `verifie-ancres.mjs --ref 6779955e` (the trunk head), whole tree | 1 824 killers: 1 822 ANCRE, 2 DERIVE (the two of 13.2, `scripts/test-count-check.mjs:56` and `scripts/test-counts-reporter.mjs:15`), 0 PERDU | `logs/anchors-final.log` | `25675986` |
+| `tsc --noEmit`, eslint on the touched files, `lint:ratchet`, `gate:vocab`, `lang:gate`, `export:check`, winlint, `git diff --check` | each exit 0 (`lint:ratchet` 69/69; eslint ignores `scripts/` by its config) | `logs/gates-final.log` | `a117b554` |
+| Case-fold run of `test/test-count-check.test.ts` (`casefold-git`, `CASEFOLD_FAIL=1`) | pass; every `git add` of the fixtures: 0 case-only collision | `logs/casefold.log`, `logs/casefold-run.log` | `7d19f50e`, `086e861c` |
+| Size, CI form against the trunk (`tools/size.sh`, the build's), `pin` first | `pin` refuses no path. The `STAT=` line of this branch: 10 files, 342 + 99 = **441**, under 547 and the CI bound 1 205 (`VIBEGATES_PR_LIMIT` unchanged). The trunk's line: 12 files, 3 911 + 101 = 4 012. The fold adds 64 lines to the build's 377, all in the tests and the gate | `logs/size-final.log` | `32893ff7` |
+| R1 scan of what the push carries (`r1scan.mjs`), before the push | 0 match | `logs/r1scan.log` | |
+
+### 14.5 Left to MONARK
+
+- The comment of the job `g3-test-count`, `.github/workflows/ci.yml:307-312`, still describes the counts record only (the review's
+  note on the note at the head). The zone allows the `STAT=` line only, so its wording is MONARK's, if he wishes.
+
+### 14.6 Not verified
+
+- Windows: T8's junction, T2's nested run and the names under `cmd.exe`, a case-only rename on NTFS, and the gate on the merge (P2 by
+  names is the parity check); MONARK's replay at the merge.
+- The CI of this branch: no pull request is open; a targeted review of the fold comes first.
+- The gate's CI form under `offline.mjs`, which removes every `GITHUB_*` name: run outside it (the gate runs git only), in the oracle
+  and `--base` forms under it.
+- The killer campaign ran at `a895c1b7`, before the second merge of the trunk; that merge adds `scripts/pin-bell-legal.mjs` and its test
+  only (and the trunk's own line for it in `test/test-counts.json`); the gate, its tests and their killed lines are the same bytes.
+- red-proof cannot judge test 38's fold (above); its red-first is the TAP at `d2dc8dc8`.
+
 ## 12. Changelog
 
 - **2026-10-08, this note** (RECHERCHES, `claude-opus-5-5` max, from 21:40 UTC): the G0 of TEST-COUNT-NAMES-1 at the trunk `52ddf000`.
@@ -511,3 +603,5 @@ under the shared host lock.
   merge of the trunk head `5ebd9267`.
 - **2026-10-14, as built** (the same instance): §13, the commits, the departures from the plan, the measures and what is not verified;
   the planned killer of `readRun` moved from `:14` to `:15` in §4.
+- **2026-10-14, G2 fold** (RECHERCHES, the fold's author instance, `claude-opus-5-5` effort high): §14, each finding of the review
+  (recherches `44c8fd6`) and its fold, the new killers, the measures, and what is left to MONARK.
