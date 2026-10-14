@@ -172,10 +172,11 @@ test("recompute_report_doubles_are_the_writings_of_float_hex - the a and b of a 
 // killer: apps/harness/src/policy-verifiers.ts:156 CONST "typeof v === \"boolean\"" -> "v === true"
 test("recompute_report_reader_binds_nothing_the_gate_binds - a report of another registry, tree or verifier, a cell not equal, a digest outside the scope or a scope class without a cell reads", () => {
   const { readRecomputeReport } = lot(), held = cellsOf(BASE).findIndex((c) => HELD.test(String(c.task_class)));
+  const reads = (r: J): unknown => { try { return readRecomputeReport(canonicalJson(r)); } catch (e) { if (e instanceof Error && e.message.startsWith("MONARK recompute report: ")) return e.message; throw e; } };
   const cases: [string, unknown][] = [["registry.sha256", hex("e")], ["inputs.compare.0.name", "wave2.json"], ["registry.cells", 0], ["verifier", `someone-else@${"2".repeat(40)}`],
     ["tool.tree", "tools/other"], ["tool.tree_sha256", hex("f")], ["cells.0.decisions_equal", false], [`cells.${held}.scores_sha256`, hex("9")],
     ["scope", [...(BASE.scope as string[]), "zzz-range-1h"]], ["scope", []], ["differences", []], ["inputs.compare", []]];
-  for (const [path, value] of cases) assert.deepEqual(readRecomputeReport(canonicalJson(variant(path, value))), variant(path, value), `${path} = ${JSON.stringify(value)} reads`);
+  for (const [path, value] of cases) assert.deepEqual(reads(variant(path, value)), variant(path, value), `${path} = ${JSON.stringify(value)} reads`);
 });
 
 // reddened by: a 64-hex digest at a path of the synthetic report outside the closed list and the cells' digests (one under differences
