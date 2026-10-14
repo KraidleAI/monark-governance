@@ -288,7 +288,7 @@ test("ci_gates_blocking_no_continue_on_error — blocking and pinned workflow (t
     ":(exclude,glob)apps/site/lib/docs-*.ts", ":(exclude,glob)apps/site/data/docs-*.json", ":(exclude,glob)apps/site/app/roadmap/**"];
   for (const [t, w] of [["'a'b'", null], ["'a\"b'", null], ["'a$b'", null], ["'a\\b'", null], ["'a`b'", null], ["'a{b'", null], ["'a}b'", null], ["''", null], ["'a", null], ["a'", null],
     ["a*", null], ["a?", null], ["a[b]", null], ["~a", null], ["a$b", null], ["a\\b", null], ["a{b,c}", null], ["\"a\"", null], ["$'a'", null], [":!a", null],
-    ["'a'", "a"], [".", "."], ["test/a-b_c.json", "test/a-b_c.json"], ["':(exclude,glob)a/**/*.md'", ":(exclude,glob)a/**/*.md"]] as const) {
+    ["a\u00a0b", null], ["a\ufeffb", null], ["'a\u00a0b'", "a\u00a0b"], ["'a'", "a"], [".", "."], ["test/a-b_c.json", "test/a-b_c.json"], ["':(exclude,glob)a/**/*.md'", ":(exclude,glob)a/**/*.md"]] as const) {
     assert.equal(bashWord(t), w, `(4quinquies) (a) bash reads ${t} ${w === null ? "otherwise than as written" : `as ${w}`}`);
   }
   const words = (raw: readonly string[]): (string | null)[] => raw.map(bashWord);
@@ -335,6 +335,14 @@ test("ci_gates_blocking_no_continue_on_error — blocking and pinned workflow (t
     ["two tokens swapped", statRaw.map((t) => (t === "':(exclude)docs/G1-lot-*.md'" ? "':(exclude)docs/G2-lot-*.md'" : t === "':(exclude)docs/G2-lot-*.md'" ? "':(exclude)docs/G1-lot-*.md'" : t))],
   ];
   assert.deepEqual(cases.filter(([, raw]) => !seen(raw)).map(([name]) => name), [], "(4quinquies) each case is seen by the pin; listed: the cases it misses");
+  // The review of fold 3 (m-D): each line is also judged through the parser, as ci.yml would carry it. bash splits words on space and tab only, so another
+  //   blank between two tokens (U+00A0, U+2003, U+3000, U+FEFF, U+000B, U+000C) leaves one word for bash and must leave one token here, which (a) refuses.
+  const lineSeen = (line: string, name: string): boolean => { const d = parseR25Diff(line), w = (d?.raw ?? [""]).map(bashWord); return d?.name !== name || w.includes(null) || JSON.stringify(name === "STAT" ? w : sorted(w as string[])) !== JSON.stringify(name === "STAT" ? STAT_PINNED : sorted(CONTENT_PATHSPECS)); };
+  const statLine = r25Code.find((l) => l.startsWith("STAT=$(git diff")) ?? "", contentLine = r25Code.find((l) => l.startsWith("CONTENT_STAT=$(git diff")) ?? "";
+  const lineCases: [string, string, string, boolean][] = [["the STAT line as written", statLine, "STAT", false], ["the CONTENT_STAT line as written", contentLine, "CONTENT_STAT", false],
+    ...["\t", "\u00a0", "\u2003", "\u3000", "\ufeff", "\u000b", "\u000c", "\u2028", "\u2029"].flatMap((c): [string, string, string, boolean][] => { const u = `U+${c.charCodeAt(0).toString(16).toUpperCase().padStart(4, "0")}`; return [
+      [`${u} after \`.\` on the STAT line`, statLine.replace("-- . '", `-- .${c}'`), "STAT", c !== "\t"], [`${u} between two CONTENT_STAT tokens`, contentLine.replace("docs-*.json' '", `docs-*.json'${c}'`), "CONTENT_STAT", c !== "\t"]]; })];
+  assert.deepEqual(lineCases.filter(([, line, name, want]) => lineSeen(line, name) !== want).map(([n]) => n), [], "(4quinquies) each line case is judged as bash splits it (seen, or for a tab and the lines as written, not seen); listed: the cases judged otherwise");
   assert.deepEqual(
     sorted(diffs[1]?.pathspecs ?? []),
     sorted(CONTENT_PATHSPECS),
