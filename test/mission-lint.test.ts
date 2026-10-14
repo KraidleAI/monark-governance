@@ -84,6 +84,10 @@ test("R-PATH: an absent path is red; declared to-create, lock, outside the roots
   // directory's subtree coverage, never by being separately declared itself.
   // killer: scripts/mission/lint.mjs:112 COR "d.endsWith(\"/\") ? q === d.slice(0, -1) || q.startsWith(d) : q === d" -> "q === d"
   assert.deepEqual(red(H(["## \u00c0 cr\u00e9er", "- `docs/newdir/`", "## Suite", "See `docs/newdir/a.md`."].join("\n"))), []);
+  // A brace group that holds a blank or a backtick is no brace group for SEG: the read stops at `docs/`, no alternative is checked
+  // killer: scripts/mission/lint.mjs:56 CONST "[^{}\\\\s\\`]" -> "[^{}\\`]"
+  // killer: scripts/mission/lint.mjs:56 CONST "[^{}\\\\s\\`]" -> "[^{}\\\\s]"
+  assert.deepEqual(["`docs/{ten, later}.md`", "`docs/{ten`,`later}.md`"].map((c) => red(H(`Read ${c}.`))), [[], []]);
 });
 
 // killer: scripts/mission/lint.mjs:64 CONST "~+" -> "~"
