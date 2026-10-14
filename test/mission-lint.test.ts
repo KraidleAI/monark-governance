@@ -360,21 +360,35 @@ test("drive path with a blank: its line suffix is split from the path, so a line
       "gone.md:1"].map(cite), [[], [], [], [], [], ["R-LINE"], ["R-LINE"], ["R-LINE"], ["R-LINE"], ["R-PATH"]]);
   } finally { process.chdir(cwd); }
 });
-// killer: scripts/mission/lint.mjs:129 CONST "at + m.length" -> "raw.length"
+// killer: scripts/mission/lint.mjs:129 CONST "at + 1 + c" -> "raw.length"
+// killer: scripts/mission/lint.mjs:129 CONST "at + 1 + c" -> "at"
+// killer: scripts/mission/lint.mjs:129 CONST "\"`\" + inner.slice(c)" -> "\"`\""
+// killer: scripts/mission/lint.mjs:128 CONST "/\\s/gu" -> "/\\s/u"
+// killer: scripts/mission/lint.mjs:137 CONST "found.sort((a, b) => a[2] - b[2])" -> "found"
 // killer: scripts/mission/lint.mjs:52 CONST "[^:]*)" -> ".*?)"
-test("drive path with a blank: the hits of the same path without a blank (no suffix, a line inside or past the end, a line after the span, end text)", () => {
+// killer: scripts/mission/lint.mjs:52 CONST "[A-Za-z]:[\\\\/][^:]*" -> "[A-Za-z]:\\/[^:]*"
+test("drive path with a blank: the hits of the same path without a blank (a line in, past or after the span, end text, backslashes, text order)", () => {
   const top = WIN ? join(T, "cmp") : join(T, "Z:", "cmp"), cwd = process.cwd(); // off Windows: a relative "Z:"
-  for (const d of ["with blank", "noblank"]) { mkdirSync(join(top, d), { recursive: true }); writeFileSync(join(top, d, "x.md"), TWELVE); }
-  const at = WIN ? top.replace(/\\/g, "/") : "Z:/cmp";
-  const cases = [["", ""], [":12", ""], [":13", ""], ["", " (l.13)"], [":12", " (l.13)"], [":12.", ""], [":13.", ""], [".", ""], [".:12", ""],
-    [":12,", ""], [":13,", ""], [":12:14", ""]];
-  const hits = (d: string, [s, a]: string[]): string[] => lint(H(`Read \`${at}/${d}/x.md${s}\`${a}.`)).hits
-    .map((h) => `${h.code} ${h.extract.replace(`${d}/`, "D/")}`);
+  for (const d of ["with two blanks", "noblank"]) { mkdirSync(join(top, d, "sub"), { recursive: true }); writeFileSync(join(top, d, "x.md"), TWELVE); }
+  const at = WIN ? top.replace(/\\/g, "/") : "Z:/cmp", back = WIN ? top : "Z:\\cmp"; // the same directory, with / and with \
+  // [before the span, after the directory, after the span, separator]: ends SEG does not admit, then \, emphasis, a second cite, text order
+  const cases = [["", "x.md", ""], ["", "x.md:12", ""], ["", "x.md:13", ""], ["", "x.md", " (l.13)"], ["", "x.md:12", " (l.13)"], ["", "x.md:12.", ""],
+    ["", "x.md:13.", ""], ["", "x.md.", ""], ["", "x.md.:12", ""], ["", "x.md:12,", ""], ["", "x.md:13,", ""], ["", "x.md:12:14", ""],
+    ["", "x.md,", ""], ["", "x.md)", ""], ["", "x.md;", ""], ["", "x.md'", ""], ["", "x.md!", ""], ["", "x.md,:13", ""], ["", "x.md:12.", " (l.13)"],
+    ["", "x.md..:13", ""], ["", "x.md..", ""], ["", "x.md:13", "", "\\"], ["", "x.md", "", "\\"], ["", "sub\\", "", "\\"], ["", "x.md", " (l.13)", "\\"],
+    ["**", "x.md", "** (l.13)"], ["*", "x.md", "* (l.13)"], ["", "x.md(l.13)", ""], ["", "x.md,docs/gone.md", ""], ["`docs/gone.md` ", "gone.md", ""]];
+  const hits = (d: string, [pre, s, a, sep = "/"]: string[]): string[] => {
+    const text = H(`Read ${pre}\`${sep === "/" ? at : back}${sep}${d}${sep}${s}\`${a}.`);
+    try { return lint(text).hits.map((h) => `${h.code} ${h.extract.replace(`${d}/`, "D/")}`); } catch (e) { return [`throws ${String(e)}`]; } // a crash differs
+  };
   try {
     if (!WIN) process.chdir(T);
-    const past = [`R-LINE ${at}/D/x.md:13 past the end (12 lines)`], want = [[], [], past, past, past, [], past, [], [], [], past, []];
+    const past = [`R-LINE ${at}/D/x.md:13 past the end (12 lines)`], gone = "R-PATH docs/gone.md absent";
+    const want = [[], [], past, past, past, [], past, [], [], [], past, [], [], [], [], [], [], [], [], past, [], past, [], [], past, past, past, past,
+      [gone], [gone, `R-PATH ${at}/D/gone.md absent`]];
     // killer: scripts/mission/lint.mjs:129 CONST "found.push([p.replace(/\\.+$/, \"\"), n," -> "found.push([p, n,"
     // killer: scripts/mission/lint.mjs:148 CONST "LTAIL.exec(line.slice(after))" -> "LTAIL.exec(\"\")"
-    assert.deepEqual(cases.map((c) => [hits("with blank", c), hits("noblank", c)]), want.map((w) => [w, w]));
+    // killer: scripts/mission/lint.mjs:129 CONST "found.push([p.replace(/\\.+$/, \"\"), n," -> "found.push([p.replace(/\\.$/, \"\"), n,"
+    assert.deepEqual(cases.map((c) => [hits("with two blanks", c), hits("noblank", c)]), want.map((w) => [w, w]));
   } finally { process.chdir(cwd); }
 });

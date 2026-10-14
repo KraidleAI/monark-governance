@@ -613,8 +613,8 @@ claude-opus-5-5
   de l arbre de ce pli sur `97f1084e`. Les numéros de ligne des § 17.6, 17.8 et 17.9 sont ceux de cet arbre, relus par `sed -n`.
   **V-1** : `lint_frozen_and_recu_archived` greffe un reçu archivé sans `lint` et un à `lint: {}` ; chacun rougit `build` par J-RECU
   (« receipt lint: absent or a count not 0 ») ; tueur de corps `index.mjs:280` (l.629). **V-2** : le test d O-3 lit un fichier de 12
-  lignes ; `x.md:12`, `:1-12`, `:1,12`, `:1,3-4` sans constat, `:13`, `:1,13`, `:1-13` et `:1,3-13` en R-LINE ; quatre tueurs
-  `lint.mjs:52` (l.355-358).
+  lignes ; `x.md:12`, `:1-12`, `:1,12`, `:1,3-4` sans constat, `:13` et `:1,13` en R-LINE ; quatre tueurs `lint.mjs:52` (l.355-358) ;
+  `:1-13` et `:1,3-13` (R-LINE) sont deux des cinq cas de PAROXYSME (`80187fc0`, ligne datée ci-dessous).
   Sous le test plié, les six mutants survivants de la vérification (X2, X3 sur l.280 ; X5, X10, X11, X12 sur l.52) sont tués par
   assertion. **V-3** : un chemin de lecteur à blanc se lit comme le même chemin sans blanc : `SUFFIX` (l.52) le lit comme `PATH_RE` lit
   un chemin, jusqu'au premier `:` qui suit le lecteur, puis son suffixe de ligne, la suite du span ignorée ; `lint.mjs` l.129 ôte les
@@ -622,8 +622,8 @@ claude-opus-5-5
   ligne masquée pour les deux formes. Test `drive path with a blank: the hits of the same path without a blank …` (l.365, tueurs
   l.363-364 ; tueurs de corps l.376-377) : douze cas comparés deux à deux, dont `:12,`, `:13,` et `:12:14` ; rouge par assertion sur une
   copie `git archive 97f1084e` où seul ce fichier de test est remplacé (41 tests, 1 rouge : `(l.13)` après le span, `:12.`, `:13.`, `.`
-  et `.:12`), vert après. Les trois cas d'un texte de fin autre que des points sont ajoutés par PAROXYSME après le pli du worker, avec
-  la lecture de la l.52 : rouges par assertion sur l'arbre du pli, verts après (ligne datée ci-dessous).
+  et `.:12`), vert après. Les cas `:12,`, `:13,` et `:12:14` de ce test, `:1-13` et `:1,3-13` de celui de la l.347 (cinq cas), le
+  tueur de la l.364 de cet arbre et la lecture de la l.52 sont de PAROXYSME, après le pli du worker (ligne datée ci-dessous).
   **V-4** : l.404-405, l.411-413 et l.412 au m-3. **V-6** : lignes du G1 repliées (§ 17.9 m-5 et mesures du
   premier pli) ; aucune ligne neuve de ce pli au-delà de 160 points de code. **Mesures de cet arbre** (Node 24.21.0) : les deux
   fichiers de test, 88 tests, 85 verts, 3 sautés, sortie 0 ; `npm run test:main` (16:36:30-16:42:08Z) : 3 070 tests, 3 045 verts, 22
@@ -640,6 +640,67 @@ claude-opus-5-5
   (≤ 1 150 ; porte CI 1 205). `tsc --noEmit -p tsconfig.json` 0 ; `eslint` sur les deux tests 0 ; `lint:ratchet` 69/69, 0 ;
   `lang-gate` 0 hit, 0 ; `gate:vocab` 356 fichiers, 0 ; `git diff --check` et `git diff --check 370a6397` 0 ; aucune ligne neuve
   au-delà de 160 points de code (`long.mjs <W> 97f1084e 97f1084e <les six fichiers>` : 0).
+- **Changement de PAROXYSME, fusions du tronc, mesures de la tête `ff9f6a26` (la ligne datée annoncée au V-3)** : `80187fc0`
+  (2026-10-14 17:06:22Z, `TZ=UTC git log`), commit de PAROXYSME sur `97f1084e`, part de l arbre du pli du worker (`fa7cf881`, clone de
+  mesure `pli-v/mclone`) ; ce que PAROXYSME y change (`diff` des deux arbres, relu par le troisième pli) : `lint.mjs` l.52, `SUFFIX`
+  lit le chemin jusqu'au premier `:` qui suit le lecteur (`[^:]*`) au lieu d exiger le suffixe en fin de span (`^(.*?)…$`), et son
+  commentaire ; l.129, `SUFFIX.exec(inner)` au lieu de `SUFFIX.exec(inner.replace(/\.+$/, ""))` ; au test de la l.347, `:1-13` et
+  `:1,3-13` ; au test de comparaison, `:12,`, `:13,` et `:12:14`, le titre (« end dots » devient « end text »), le tueur de la l.364
+  (`:52 "[^:]*)" -> ".*?)"`) et le retrait du tueur de corps `:129 "SUFFIX.exec(inner.replace(…))"`, dont l ancre disparaît. Rouge sur
+  une copie `git archive ff9f6a26` au `lint.mjs` de `fa7cf881` et au test de `80187fc0` : 41 tests, 1 rouge par assertion, le test de
+  comparaison (`:12,` et `:13,` en R-PATH, `:12:14` en R-PATH `x.md:12`) ; `:1-13` et `:1,3-13` y sont verts. Le titre de `80187fc0`
+  et le commentaire de la l.52 disaient plus que le code : six formes divergeaient encore (C-1 de la vérification courte neuve, plié
+  ci-dessous). Fusions :
+  `f7fc27fa` (17:06:23Z, « Merge the trunk », parents `80187fc0`, `528818fe`) et `ff9f6a26` (17:18:45Z, parents `f7fc27fa`,
+  `fd20e9fa`) fusionnent les têtes du tronc `528818fe` puis `fd20e9fa`, base de la PR ; parmi les dix fichiers de la liste, seuls
+  `test/test-counts.json` et `test/test-names.json` changent de `370a6397` à `528818fe` et de `528818fe` à `fd20e9fa` (`git diff
+  --name-only`). Mesures de la tête, rapportées par PAROXYSME (mission du troisième pli ; Node 24.21.0) : `npm run test:main`
+  lancé à 18:07Z (journal `scratchpad/m5c/testmain-fd20-c.log`, écrit à 18:12:26Z) : 3 087 tests, 3 065 verts, 22 sautés, 0 rouge ; `node
+  scripts/test-count-floor.mjs write` sans changement des relevés ; contrôle des comptes contre `fd20e9fa` ; R-25 **679** ; campagne
+  des tueurs (`scripts/mutants/run.mjs --repo <W> --base fd20e9fa --killers --targets <les deux tests>`, gel `ff9f6a26`,
+  18:15:28-18:17:50Z) : 130/130 tués, sortie 0 (`scratchpad/m5c/fd20/mut/RESULTS.json`, sha256 `69a8dc282549d7e6…`). Recomptés par
+  le troisième pli : `write` sur une copie `git archive ff9f6a26` avec le `test-counts.out.json` de W (sha256 `94543bd4…`) : « 301
+  files, 3087 tests », les deux relevés identiques à la tête (`cmp`) ; `node scripts/test-count-check.mjs --base
+  origin/lot/etude-suite` : « 0 drop(s) from the base fd20e9fa4bbc », sortie 0 ; `r25()` sur un `git clone --shared` de W à
+  `ff9f6a26`, son `ci.yml`, contre `fd20e9fa` : 595 + 84 = 679, GREEN ; le sha256 du `RESULTS.json` ci-dessus.
+- **Troisième pli (C-1 à C-5 de la vérification courte neuve, `scratchpad/m5c/verif2/rendu.json`), 2026-10-14 18:43Z-19:10Z
+  (`date -u`)** : worker `claude-opus-5-5`, effort `high`, sans commit ni push (R-20). **C-1** : `lint.mjs` l.128 calcule `c`, la
+  longueur de la citation que `PATH_RE` lit au début du span, ses blancs remplacés par `_` (que `SEG` admet) : le chemin s arrête au
+  premier caractère que `SEG` n admet pas, et le suffixe de ligne ne compte que s il le suit ; l.129 : `SUFFIX` coupe ces `c`
+  caractères en chemin et suffixe, puis les points de fin du chemin sont ôtés ; la citation finit en `at + 1 + c`, comme
+  `m.index + m[0].length` en l.135 ; le span masqué garde, entre accents graves et à la même longueur, le reste qui suit la citation,
+  que `PATH_RE`, `BRANCH_RE` et `LTAIL` (l.148) relisent comme sans blanc ; l.137 lit les citations d une ligne dans l ordre du texte
+  (`found.sort`), celle d un span à blanc étant poussée avant la passe de `PATH_RE`. Le commentaire de la l.52 est vrai mot pour mot.
+  Test de comparaison (`test/mission-lint.test.ts` l.370) : 30 cas, lus dans un répertoire à deux blancs et dans « noblank », mêmes
+  constats attendus : les douze d avant ; `x.md,`, `x.md)`, `x.md;`, `x.md'`, `x.md!`, `x.md,:13` (C-1) ; `:12.` suivi de `(l.13)` ;
+  `x.md..:13` et `x.md..` (**C-4**) ; en barres obliques inverses, `x.md:13`, `x.md`, le répertoire `sub\` et `x.md` suivi de `(l.13)`
+  (**C-2** ; le répertoire est `Z:\cmp` hors Windows, `top` tel quel sous Windows) ; un préfixe, `**…** (l.13)` et `*…* (l.13)`
+  (**C-3**) ; `x.md(l.13)`, `x.md,docs/gone.md` (une seconde citation dans le span) et deux citations sur une ligne (l ordre). Une
+  exception de `lintMission` y devient une liste qui diffère (`throws …`) : la forme A1 rougit par assertion. Tueurs l.363-369 :
+  `:129 "at + 1 + c" -> "raw.length"` (réécrit de `"at + m.length"`) et `-> "at"` (C-3, forme A6) ; `:129`, reste du span perdu ;
+  `:128 "/\s/gu" -> "/\s/u"` ; `:137`, tri retiré ; `:52 "[^:]*)" -> ".*?)"` ; `:52`, forme A1 (C-2) ; tueurs de corps l.389-391, dont
+  la forme A8 (C-4). **C-5** : cette ligne et la précédente ; attribution corrigée aux l.616-617 et l.625-626.
+  **Mesures** (Node 24.21.0, `TMPDIR` sous le brouillon `scratchpad/m5c/pli3/`) : rouge d avant, le seul fichier de test remplacé sur
+  une copie `git archive ff9f6a26` : 41 tests, 1 rouge par assertion (le test de comparaison) ; cas par cas, 10 des 18 cas neufs y
+  sont rouges (les six de C-1, `:12.` suivi de `(l.13)`, `x.md(l.13)`, la seconde citation, l ordre), les huit autres (C-2, C-3,
+  C-4) y sont verts et rougissent sous les mutants qu ils visent (A1 : les quatre cas en `\` ; A6, A7 : les deux préfixes ; A8 : les
+  deux `..`). Les deux fichiers de test sur W : 88 tests, 85 verts, 3 sautés, sortie 0. Campagne (`scripts/mutants/run.mjs --repo
+  <W> --base fd20e9fa --killers --targets <les deux tests>`, 19:04:26-19:07:04Z) : 136/136 tués, sortie 0 (`pli3/mut/RESULTS.json`,
+  sha256 `94a5d197488ae03c…`), K127-K133 (l.363-369) et K134-K136 (l.389-391) compris. Mutants de la vérification rejoués sur une
+  copie pliée, les deux fichiers entiers : A1, A8 tués par assertion ; A6 et A7, dont l ancre `at + m.length` n existe plus, sous
+  leur forme pliée (`at + 1 + c` -> `at`, -> `at + c`) : tués par assertion ; A14 survit (ci-dessous). Comparaison du vérificateur
+  (`verif2/bin/e2e.mjs`) : 63 cas, 0 divergence (6 à la tête) ; 37 cas de ce pli, 2 divergences. R-25 : `r25()` sur un clone de mesure
+  (l arbre plié commis en `0b9d4a78` sur `ff9f6a26`), contre `fd20e9fa` : 610 + 85 = **695**, GREEN (porte CI 1 205), avant la
+  réécriture des relevés par PAROXYSME. `eslint` sur les deux tests 0 ; `tsc --noEmit -p tsconfig.json` 0 ; `lang-gate` 0 hit, 0 ;
+  `gate:vocab` 356 fichiers, 0 ; aucune ligne neuve au-delà de 160 points de code.
+- **Divergence restante et A14** : un `lot/` collé dans un chemin de lecteur après `+` ou `~` (`x.md+lot/zz`) : sans blanc, `BRANCH_RE`
+  (l.64) le lit dans le span et rend R-BRANCH en plus du R-PATH ; à blanc, la citation est masquée, R-PATH seul. Raison : le regard
+  arrière de `BRANCH_RE` n exclut que `[\p{L}\p{N}_./\\-]`, alors que `SEG` admet aussi `~`, `+` et les accolades ; c est un faux
+  R-BRANCH de la forme sans blanc, hors des cinq constats. A14 (l.128, la condition du blanc retirée) envoie tout chemin de lecteur
+  par la voie à blanc : sous le pli, ses constats sont ceux du pli sur les 100 cas des sondes, sauf ces deux-là (le R-BRANCH
+  sans blanc disparaît) ; aucun test ne le tue sans épingler ce faux R-BRANCH. Construction proposée, à décider par PAROXYSME :
+  `~+{},` dans le regard arrière de `BRANCH_RE` (l.64), un cas au test de comparaison, un tueur.
 - **Écarts et traces** : écritures dans les fichiers de la liste seulement ; `test/test-count-removals.json` inchangé (aucun nom de la
   base ne disparaît). Aucun `GIT_DIR`, aucun `--write-tree`, aucun réseau ; les commits de mesure sont dans des clones sous le brouillon,
-  jamais dans le dépôt.
+  jamais dans le dépôt. Troisième pli : W n est écrit que dans `lint.mjs`, `test/mission-lint.test.ts` et ce G1 ; son commit de mesure
+  (`0b9d4a78`) est dans un clone sous le brouillon, avec un HOME vide ; copies de mutants effacées.

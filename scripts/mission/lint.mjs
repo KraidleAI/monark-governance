@@ -125,8 +125,8 @@ export function lintMission({ text, missionPath, repo, rev = null, host = true }
       const tool = /^([\p{L}\p{N}_][\p{L}\p{N}_.-]*)(?:\s|$)/u.exec(inner);
       if (tool && SCRIPT.test(tool[1])) { bare.push([tool[1], ln]); if (create) declared.add(tool[1]); }
       if (/[\u2026<>*?]/.test(inner)) return blank(m);
-      if (!/^[A-Za-z]:[\\/]/.test(inner) || !/\s/.test(inner)) return m;
-      const [, p, n] = SUFFIX.exec(inner); found.push([p.replace(/\.+$/, ""), n, at + m.length]); return blank(m);
+      if (!/^[A-Za-z]:[\\/]/.test(inner) || !/\s/.test(inner)) return m; const c = inner.replace(/\s/gu, "_").match(PATH_RE)[0].length; // PATH_RE's cite
+      const [, p, n] = SUFFIX.exec(inner.slice(0, c)); found.push([p.replace(/\.+$/, ""), n, at + 1 + c]); return " ".repeat(c) + "`" + inner.slice(c) + "`";
     });
     const prose = line.replace(/`[^`]*`/g, blank);
     const quoted = (i) => prose[i] !== line[i];
@@ -134,7 +134,7 @@ export function lintMission({ text, missionPath, repo, rev = null, host = true }
       const p = m[1].replace(/\.+$/, "");
       if (quoted(m.index) || /^[A-Za-z]:|\.\w+$/.test(p)) found.push([p, m[2], m.index + m[0].length]);
     }
-    for (const [rawPath, suffix, after] of found) {
+    for (const [rawPath, suffix, after] of found.sort((a, b) => a[2] - b[2])) { // text order, a drive path with a blank among the others
       for (const p of expand(rawPath.replace(/\\/g, "/"))) {
         const abs = /^[A-Za-z]:\//.test(p), rel = !abs && !roots.has(p.split("/")[0]);
         if (rel) { const q = resolve(missionDir, p); if (host && existsSync(q)) toolDirs.add(isDir(q) ? q : dirname(q)); continue; }
