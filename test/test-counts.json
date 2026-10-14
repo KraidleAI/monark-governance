@@ -11,6 +11,7 @@
  "apps/bell/test/bell-validate.test.ts": 5,
  "apps/bell/test/bell-verify.test.ts": 8,
  "apps/bell/test/bell.test.ts": 21,
+ "apps/bell/test/checks.test.ts": 4,
  "apps/bell/test/close.test.ts": 7,
  "apps/bell/test/collect.test.ts": 33,
  "apps/bell/test/discover.test.ts": 8,
