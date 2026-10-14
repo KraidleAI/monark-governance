@@ -170,20 +170,26 @@ const CLAUSE =
   "class horizon), a `features_digest`, alpha = 0.45, nMin = 6 on dir classes and alpha = 0.01, nMin = 299 on the others, tau at most 1 on dir " +
   "classes, and a `produced_at` on the class horizon grid, received at most 300 s after it; the full request rules are in section 9 of the " +
   "contract 1.1.0 specification.";
+/** kataClause: the class entries, the tau cap, the pinned classes and the held classes, each defaulting to its served value. */
+type Render = (entries?: readonly ClassEntry[], tauCap?: number, committed?: readonly string[], held?: readonly string[]) => string;
 
-// Test T-12 (F2P): the kata clause, rendered from the class entries and the B-4 constant, is MONARK's text byte for byte
-// (Z-3 line of block D), placed after the liq clause and before the BYO sentence; no kata class takes the `For '...'` form.
+// Test T-12 (F2P): the kata clause, rendered from the class entries, the B-4 constant and the pins, is MONARK's text byte for byte
+// (Z-3 lines): with no class pinned, the clause of block D; with the pins of the release of the bands (the 8 dir classes held, the 24
+// others pinned), the committed state. The clause at the served pins is placed after the liq clause and before the BYO sentence; no
+// kata class takes the `For '...'` form.
 // killer: apps/harness/src/tools/gate.ts:237 CONST "PRODUCED_AT_FUTURE_TOLERANCE_MS / 1000" -> "PRODUCED_AT_FUTURE_TOLERANCE_MS / 100"
 test("describe_gate_kata_clause", () => {
   const render = (gate as Obj)["kataClause"];
   assert.ok(typeof render === "function", "gate.ts renders the kata clause");
-  const clause = (render as () => string)();
-  assert.equal(clause, CLAUSE, "the rendered clause");
+  const clause = (render as Render)(undefined, undefined, []);
+  assert.equal(clause, CLAUSE, "the rendered clause, no class pinned");
   assert.deepEqual([Buffer.byteLength(clause, "utf8"), sha(clause)], [723, "022756c39c3f3aa381a39f313ebb92236d237d75e770febe3822de047898e803"]);
-  const at = GATE_TOOL_DESCRIPTION.indexOf(`. ${CLAUSE} When the caller instead supplies a \`calibration\``);
+  const entries = kataClassEntries(() => ""), dir = entries.filter((e) => e.region_rule === "sign-set").map((e) => e.task_class);
+  const bands = (render as Render)(undefined, undefined, entries.map((e) => e.task_class).filter((c) => !dir.includes(c)), dir);
+  assert.deepEqual([Buffer.byteLength(bands, "utf8"), sha(bands)], [1465, "db7735357a898ccaba50a433a9451de713b127f7a92eb2adb1cdfe134181454d"], "the committed state, release of the bands");
+  const at = GATE_TOOL_DESCRIPTION.indexOf(`. ${(render as Render)()} When the caller instead supplies a \`calibration\``);
   assert.ok(at > GATE_TOOL_DESCRIPTION.indexOf("For 'liquidation-eligible-coverage'"), "after the liq clause, before the BYO sentence");
   assert.deepEqual([...GATE_TOOL_DESCRIPTION.matchAll(/For '([a-z0-9-]+)'/g)].map((m) => m[1]), ["cascade-liquidable-24h", "stable-run-velocity-24h", "liquidation-eligible-coverage"]);
-  const entries = kataClassEntries(() => "");
   for (const [rule, alpha, nMin] of [["sign-set", "0.45", 6], ["scaled-band", "0.01", 299]] as const) {
     assert.deepEqual([...new Set(entries.filter((e) => e.region_rule === rule).map((e) => `${e.alpha ?? ""} ${String(e.n_min)}`))], [`${alpha} ${String(nMin)}`], rule);
   }
@@ -351,16 +357,16 @@ test("committed_tables_reach_the_gate_through_the_seam", () => {
 
 // Test (block D, lot D-3; G2 N-5 of D-2): the kata clause reads every value it states: the class names from the entries (a
 // product, checked), alpha and nMin per family, the tau cap of dir classes (KATA_DIR_TAU_CAP, also read by the policy_tau_cap
-// refusal) and the 300 s of B-4. Rendered on other entries and another cap, it names them; by default it is the served clause.
+// refusal) and the 300 s of B-4. Rendered on other entries and another cap, it names them; with no class pinned, by default, it is CLAUSE.
 // killer: apps/harness/src/tools/gate.ts:232 CONST "${names.join(\"-\")}" -> "{btc,eth,bnb,sol}-{dir,range,mae-down,mae-up}-{1h,4h}"
 test("kata_clause_reads_its_names_and_tau_cap", () => {
-  const render = (gate as Obj)["kataClause"] as (entries?: readonly ClassEntry[], tauCap?: number) => string;
+  const render = (gate as Obj)["kataClause"] as Render;
   const some = kataClassEntries(() => "").filter((e) => /^(btc|eth)-.*-1h$/.test(e.task_class));
-  const clause = render(some, 0.5);
+  const clause = render(some, 0.5, []);
   assert.ok(clause.startsWith("The 8 kata classes `{btc,eth}-{dir,range,mae-down,mae-up}-{1h}` are served"), clause.slice(0, 100));
   assert.ok(clause.includes(", tau at most 0.5 on dir classes, "), "the cap is read");
   assert.throws(() => render(some.slice(1)), /not the product/, "a set of classes that is not a product is refused");
-  assert.equal(render(), CLAUSE, "by default, the served clause");
+  assert.equal(render(undefined, undefined, []), CLAUSE, "with no class pinned, by default, the clause of block D");
   assert.equal((classes as Obj)["KATA_DIR_TAU_CAP"], 1, "the cap of dir classes");
 });
 
@@ -372,6 +378,44 @@ test("kata_clause_refuses_duplicate_classes", () => {
   const all = kataClassEntries(() => "");
   const twin = all.find((e) => e.task_class === "eth-dir-1h") ?? assert.fail("eth-dir-1h");
   assert.throws(() => render(all.map((e) => (e.task_class === "btc-dir-1h" ? twin : e))), /not the product/);
+});
+
+// Test T-2a (E-2a, in process): the kata clause follows the pins. Given pinned and held classes that partition the 32 kata classes,
+// at least 2 of each, it renders the committed state: it counts both sides, names exactly the held classes, in entry order whatever
+// the order of the held list, and takes no `For '...'` form. Out of that domain it throws, after the product check, one message per
+// case, checked in this order: a name that is no kata class, a class both pinned and held, a class neither, fewer than 2 held classes,
+// fewer than 2 pinned. Two conditions broken at once throw the first, with the whole message to its suffix: one case per adjacent pair
+// of that order, so every order is held. The defaults of line 222 and the call of line 254 are pinned byte for byte.
+// killer: apps/harness/src/tools/gate.ts:239 CONST "committed.length === 0" -> "true"
+test("kata_clause_follows_the_committed_pins", () => {
+  const render = (gate as Obj)["kataClause"] as Render;
+  const all = kataClassEntries(() => "").map((e) => e.task_class), rest = (held: readonly string[]): string[] => all.filter((c) => !held.includes(c));
+  for (const held of [["sol-mae-up-4h", "btc-dir-1h"], [...PINS.FLOOR_HELD_CLASSES, ...PINS.ORDER_HELD_CLASSES], rest(["btc-range-1h", "eth-mae-up-1h"])]) {
+    const clause = render(undefined, undefined, rest(held), held), named = all.filter((c) => held.includes(c)).map((c) => `\`${c}\``).join(", ");
+    assert.ok(clause.includes(`; no kata class has an attestation subject. Of the 32, ${String(held.length)} hold no committed calibration row (${named}): every well-formed kata call on them abstains with no region`), clause.slice(0, 400));
+    assert.ok(clause.includes(`. The other ${String(32 - held.length)} hold committed calibration rows: each of their tables is published byte for byte`), "the pinned classes are counted");
+    assert.deepEqual([clause.match(/`[a-z]+-[a-z-]+-[14]h`/g)?.length, /For '/.test(clause)], [held.length, false], "no other class is named; no `For '...'` form");
+    assert.equal(render(undefined, undefined, [...rest(held), ...rest(held).slice(0, 1)], [...held].reverse().concat(held.slice(0, 1))), clause, "both lists are read as sets: order and repeats do not matter");
+  }
+  const some = kataClassEntries(() => "").filter((e) => /^(btc|eth)-.*-1h$/.test(e.task_class));
+  assert.ok(render(some, undefined, ["btc-range-1h", "btc-mae-down-1h", "btc-mae-up-1h", "eth-range-1h", "eth-mae-down-1h", "eth-mae-up-1h"], ["eth-dir-1h", "btc-dir-1h"]).startsWith("The 8 kata classes `{btc,eth}-{dir,range,mae-down,mae-up}-{1h}` are served from their policy tables; no kata class has an attestation subject. Of the 8, 2 hold no committed calibration row (`btc-dir-1h`, `eth-dir-1h`): "), "on other entries, the committed state counts and names them");
+  const dir = all.filter((c) => c.includes("-dir-")), bands = rest(dir);
+  const refused = (committed: readonly string[], held: readonly string[], why: RegExp, what: string): void => assert.throws(() => render(undefined, undefined, committed, held), why, what);
+  refused(bands.slice(1), dir, /kata clause: neither pinned nor held: btc-range-1h; /, "a class neither pinned nor held");
+  refused([...bands, "btc-dir-1h"], dir, /kata clause: both pinned and held: btc-dir-1h; /, "a class both pinned and held");
+  refused([...bands, "btc-dir-15m"], dir, /kata clause: not a kata class: btc-dir-15m; /, "a pinned name that is no kata class");
+  refused(bands, [...dir, "btc-dir-15m"], /kata clause: not a kata class: btc-dir-15m; /, "a held name that is no kata class");
+  refused(rest(["btc-dir-4h"]), ["btc-dir-4h"], /kata clause: fewer than 2 held classes: 1; /, "n < 2");
+  refused(all, [], /kata clause: fewer than 2 held classes: 0; /, "n = 0, as when the digest floor is emptied after the release of the directions");
+  refused(["btc-range-1h"], rest(["btc-range-1h"]), /kata clause: fewer than 2 pinned classes: 1; /, "m < 2");
+  refused([...bands, "btc-dir-15m", "btc-dir-1h"], dir, /^Error: kata clause: not a kata class: btc-dir-15m; the committed state is written for pinned and held classes that partition the kata classes, at least 2 of each$/, "two conditions: the first in order throws, the whole message to its suffix");
+  refused([...bands.slice(1), "btc-dir-1h"], dir, /^Error: kata clause: both pinned and held: btc-dir-1h; the committed state is written for pinned and held classes that partition the kata classes, at least 2 of each$/, "two conditions, both and neither: the first in order throws");
+  refused(bands, ["btc-dir-1h"], /^Error: kata clause: neither pinned nor held: btc-dir-4h, eth-dir-1h, eth-dir-4h, bnb-dir-1h, bnb-dir-4h, sol-dir-1h, sol-dir-4h; the committed state is written for pinned and held classes that partition the kata classes, at least 2 of each$/, "two conditions, neither and n < 2: the first in order throws");
+  assert.throws(() => render(some.filter((e) => /^btc-(dir|range)-/.test(e.task_class)), undefined, ["btc-range-1h"], ["btc-dir-1h"]), /^Error: kata clause: fewer than 2 held classes: 1; the committed state is written for pinned and held classes that partition the kata classes, at least 2 of each$/, "two conditions, n < 2 and m < 2, on the product 1x2x1: the first in order throws");
+  assert.throws(() => render(some.slice(1), undefined, bands, dir), /not the product/, "the product check comes first");
+  const lines = readFileSync(join(SRC, "tools/gate.ts"), "utf8").split("\n"), line222 = lines[221] ?? "";
+  assert.ok(line222.endsWith(", committed: readonly string[] = Object.keys(COMMITTED_TABLES), held: readonly string[] = [...FLOOR_HELD_CLASSES, ...ORDER_HELD_CLASSES]): string {"), "line 222: by default, the served pins and both held lists, as line 1042 reads them");
+  assert.equal(lines[253], "    `${kataClause()} ` +", "line 254: the served description calls the clause with its defaults, so it follows the served pins");
 });
 
 // Test (block D, lot D-3; G2 N-3 of D-2): the cycle gate.ts <-> kata-path.ts loads cold from either side. Each module is

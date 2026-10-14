@@ -217,9 +217,9 @@ export function kataClassText(taskClass: string): string {
   return `no ${taskClass} calibration is committed for this cell_key; the gate abstains and serves no region`;
 }
 
-/** The kata clause of the gate description (block D; state: no kata row committed, KATA-CLAUSE-COMMITTED-STATE-1, tripwire
- *  kataTablesMatchPins). Every value is read: names, alpha and nMin per family from the entries, the tau cap, B-4 (300 s). */
-export function kataClause(entries: readonly ClassEntry[] = kataClassEntries(kataClassText), tauCap = KATA_DIR_TAU_CAP): string {
+/** The kata clause of the gate description (block D; KATA-CLAUSE-COMMITTED-STATE-1, Z-3 lines of MONARK; tripwire kataTablesMatchPins): no class pinned, no
+ *  row; else the committed state, for pinned and held classes that partition the entries, at least 2 of each, or a throw at load. Every value is read. */
+export function kataClause(entries: readonly ClassEntry[] = kataClassEntries(kataClassText), tauCap = KATA_DIR_TAU_CAP, committed: readonly string[] = Object.keys(COMMITTED_TABLES), held: readonly string[] = [...FLOOR_HELD_CLASSES, ...ORDER_HELD_CLASSES]): string {
   const parts = (i: 1 | 2 | 3): string[] => [...new Set(entries.map((e) => /^([a-z0-9]+)-(.+)-([a-z0-9]+)$/.exec(e.task_class)?.[i] ?? ""))];
   const one = (dir: boolean): { alpha: string; nMin: string } => {
     const es = entries.filter((e) => (e.region_rule === "sign-set") === dir), vals = new Set(es.map((e) => `${e.alpha ?? ""} ${String(e.n_min)}`));
@@ -228,15 +228,15 @@ export function kataClause(entries: readonly ClassEntry[] = kataClassEntries(kat
   };
   const [d, b, names] = [one(true), one(false), ([1, 2, 3] as const).map((i) => `{${parts(i).join(",")}}`)];
   if (new Set(entries.map((e) => e.task_class)).size !== entries.length || entries.length !== parts(1).length * parts(2).length * parts(3).length) throw new Error("kata clause: the kata classes are not the product of their parts");
-  return (
-    `The ${String(entries.length)} kata classes \`${names.join("-")}\` are served from their policy tables, ` +
-    "which hold no committed calibration row: every well-formed kata call abstains with no region (under_calib, or non_evaluable on a dir " +
-    "lean of exactly 0), and no kata class has an attestation subject. A kata call carries a `predictor_id` of the form " +
-    "`kata:<kataId>@<venue>/<SYMBOL>/<h>` (no bucket, <h> the class horizon), a `features_digest`, " +
+  const all = entries.map((e) => e.task_class), h = all.filter((c) => held.includes(c)), m = all.filter((c) => committed.includes(c)), [out, both, neither] = [[...committed, ...held].filter((c) => !all.includes(c)), m.filter((c) => h.includes(c)), all.filter((c) => !m.includes(c) && !h.includes(c))];
+  const head = `The ${String(entries.length)} kata classes \`${names.join("-")}\` are served from their policy tables`, abstains = "abstains with no region (under_calib, or non_evaluable on a dir lean of exactly 0)";
+  for (const [bad, why] of committed.length > 0 ? ([[out.length > 0, `not a kata class: ${out.join(", ")}`], [both.length > 0, `both pinned and held: ${both.join(", ")}`], [neither.length > 0, `neither pinned nor held: ${neither.join(", ")}`], [h.length < 2, `fewer than 2 held classes: ${String(h.length)}`], [m.length < 2, `fewer than 2 pinned classes: ${String(m.length)}`]] as const) : []) if (bad) throw new Error(`kata clause: ${why}; the committed state is written for pinned and held classes that partition the kata classes, at least 2 of each`);
+  const pinned = `The other ${String(m.length)} hold committed calibration rows: each of their tables is published byte for byte in a dated directory \`contract-1.1.0-tables-<date>\` of the contract 1.1.0 specification, and every decision on those classes names that table by its sha256 in \`policy_table_sha256\`; a call is answered from the current row of its cell, and abstains with no region when no current row holds that cell. The gate does not recompute \`yhat\` and does not check the bars behind \`features_digest\`; a call received after \`produced_at\` is inside what a row states only if it was made without information on prices after \`produced_at\`. `;
+  const tail = "A kata call carries a `predictor_id` of the form `kata:<kataId>@<venue>/<SYMBOL>/<h>` (no bucket, <h> the class horizon), a `features_digest`, " +
     `alpha = ${d.alpha}, nMin = ${d.nMin} on dir classes and alpha = ${b.alpha}, nMin = ${b.nMin} on the others, tau at most ${String(tauCap)} on dir classes, ` +
     `and a \`produced_at\` on the class horizon grid, received at most ${String(PRODUCED_AT_FUTURE_TOLERANCE_MS / 1000)} s after it; ` +
-    "the full request rules are in section 9 of the contract 1.1.0 specification."
-  );
+    "the full request rules are in section 9 of the contract 1.1.0 specification.";
+  return committed.length === 0 ? `${head}, which hold no committed calibration row: every well-formed kata call ${abstains}, and no kata class has an attestation subject. ${tail}` : `${head}; no kata class has an attestation subject. Of the ${String(entries.length)}, ${String(h.length)} hold no committed calibration row (${h.map((c) => `\`${c}\``).join(", ")}): every well-formed kata call on them ${abstains}. ${pinned}${tail}`;
 }
 
 export function describeGate(registryHasLiq: boolean): string {
@@ -1069,7 +1069,7 @@ function admittedSplit(cell: VerdictCell): { readonly qhat: number; readonly alp
   return row === undefined || row.qhat === null ? { reason: "under_calib" } : { qhat: row.qhat, alpha: Number(row.alpha) };
 }
 
-// (E-2a) The committed kata tables and their pins, read at line 1042 only. Imports only below this point: ESM evaluates them
-// before this file's body whatever their place, and neither module imports this file or kata-path.ts (no new cycle).
+// (E-2a) The committed kata tables and their pins, read at line 1042; the pins also by the defaults of kataClause (line 222). Imports
+// only below this point: ESM evaluates them before this file's body whatever their place, and neither module imports this file or kata-path.ts (no new cycle).
 import { COMMITTED_FILES, readCommittedTables } from "../policy-committed.ts";
 import { COMMITTED_TABLES, FLOOR_HELD_CLASSES, ORDER_HELD_CLASSES } from "../policy-committed-pins.ts";
