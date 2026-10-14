@@ -128,6 +128,32 @@ test("test_count_check_names_its_base_or_refuses", () => {
     writeFileSync(join(dir, RECORD), recordText(tally(renamed)));
     writeFileSync(join(dir, RUN), counts(renamed, { "": { tests: 1, summary: false, names: ["loose"] } }));
     assert.deepEqual(gate(["--base", both]), [1, "::error::1 test(s) reported without a file"], "P1 in the gate");
+    writeFileSync(join(dir, RUN), counts(renamed));
+    // killer: scripts/test-count-check.mjs:54 CONST "shaped(JSON.parse(ntext), lists," -> "shaped(JSON.parse(ntext), () => true,"
+    writeFileSync(join(dir, NAMES), `{\n "a.test.ts": null,\n "b.test.ts": ${JSON.stringify(head["b.test.ts"])}\n}\n`);
+    assert.deepEqual(gate(["--base", both]), [4, `::error::${NAMES} not readable: not a names record { "<file>": [names] }`], "the head's names record with a null entry: exit 4");
+    writeFileSync(join(dir, NAMES), named(renamed));
+    const listed: unknown[] = JSON.parse(readFileSync(join(dir, REMOVALS), "utf8")), proto = { file: "constructor", removed: "two", reason: "#7: no such test file" };
+    writeFileSync(join(dir, REMOVALS), `${JSON.stringify([...listed, proto], null, 1)}\n`);
+    assert.deepEqual(gate(["--base", both]), [1, `::error::${REMOVALS}: ${JSON.stringify(proto)} names no test gone from constructor since the base`], "a line for the file constructor: the records are read by their own keys");
+    writeFileSync(join(dir, REMOVALS), `${JSON.stringify(listed, null, 1)}\n`);
+    const baseWith = (names: string, record: Record<string, number>): string => { // a base above the fixture, its list the change's; the change's files written again
+      writeFileSync(join(dir, NAMES), names); writeFileSync(join(dir, RECORD), recordText(record));
+      git("add", NAMES, RECORD, REMOVALS); git("commit", "-q", "-m", "a base whose names record is malformed or disagrees with its record");
+      writeFileSync(join(dir, NAMES), named(renamed)); writeFileSync(join(dir, RECORD), recordText(tally(renamed)));
+      return git("rev-parse", "HEAD");
+    };
+    // killer: scripts/test-count-check.mjs:53 CONST "atBase(NAMES, null, lists," -> "atBase(NAMES, null, () => true,"
+    const nulled = baseWith(`{\n "a.test.ts": null,\n "b.test.ts": ${JSON.stringify(head["b.test.ts"])}\n}\n`, tally(renamed));
+    assert.deepEqual(gate(["--base", nulled]), [4, `::error::${NAMES} at the base ${nulled} not readable: not a names record { "<file>": [names] }`], "the base's names record with a null entry: exit 4");
+    const lacksB = baseWith(named({ "a.test.ts": renamed["a.test.ts"] }), tally(renamed)), onlyA = { "a.test.ts": renamed["a.test.ts"] };
+    writeFileSync(join(dir, RUN), counts(onlyA)); writeFileSync(join(dir, RECORD), recordText(tally(onlyA))); writeFileSync(join(dir, NAMES), named(onlyA));
+    assert.deepEqual(gate(["--base", lacksB]), [4, `::error::${NAMES} at the base ${lacksB} not readable: it disagrees with ${RECORD} there: b.test.ts: in ${RECORD} (2), not in ${NAMES}`],
+      "a base whose names record lacks a file of its record (b.test.ts removed, no line): exit 4, not judged by the names alone");
+    const lacksName = baseWith(named({ ...renamed, "a.test.ts": ["one"] }), tally(renamed)), lessA = { ...renamed, "a.test.ts": ["one"] };
+    writeFileSync(join(dir, RUN), counts(lessA)); writeFileSync(join(dir, RECORD), recordText(tally(lessA))); writeFileSync(join(dir, NAMES), named(lessA));
+    assert.deepEqual(gate(["--base", lacksName]), [4, `::error::${NAMES} at the base ${lacksName} not readable: it disagrees with ${RECORD} there: a.test.ts: 1 name(s) in ${NAMES}, 2 test(s) in ${RECORD}`],
+      "a base whose names record holds fewer names than its count (a test deleted, no line): exit 4");
     // killer: scripts/test-count-check.mjs:48 CONST "return stop(4," -> "return stop(0,"
     rmSync(join(dir, RUN));
     assert.equal(gate(["--base", both])[0], 4, "without a run file: exit 4");
@@ -190,4 +216,18 @@ test("test_count_check_holds_each_name_gone_to_its_line", () => {
   assert.deepEqual(by(at, at, [r({ file: "b", removed: "one" })]), [`${REMOVALS}: ${JSON.stringify(r({ file: "b", removed: "one" }))} names no test gone from b since the base`], "a line for a file with nothing gone");
   const shapes = [{ file: "a", removed: "", reason: "#12: declared in this change" }, r({ file: "a", renamed: "x", to: "x" }), r({ file: "a", removed: "x", to: "y" }), { file: "a", removed: "p > c", reason: "#12: removed" }];
   assert.deepEqual(by(at, minusP, shapes, "12").slice(0, 4), shapes.map((s) => notLine(s, true, "12")), "an empty name, a rename to itself, a fifth key, a short reason: not lines");
+  // killer: scripts/test-count-check.mjs:94 CONST ", ...lines.map((r) => r.file)" -> ""
+  const elsewhere = r({ file: "c", removed: "one" });
+  assert.deepEqual(by(at, at, [elsewhere]), [`${REMOVALS}: ${JSON.stringify(elsewhere)} names no test gone from c since the base`], "a line for a file in neither names record");
+  const part = r({ file: "a", removed: "p > c" }), left = [gone("a", "keeps the order", { file: "a", removed: "keeps the order" }), gone("a", "refuses a negative amount", { file: "a", removed: "refuses a negative amount" })];
+  // killer: scripts/test-count-check.mjs:98 CONST " && base[f]?.length === r.from" -> ""
+  const rest = r({ file: "a", from: 2, to: 0 });
+  assert.deepEqual(by(at, { b: ["one"] }, [part, rest]), [`${REMOVALS}: ${JSON.stringify(rest)} names no file gone since the base, at its count`, ...left],
+    "a file gone: a file-gone line at the count left once another line took a name is refused; it counts at the base's count only");
+  // killer: scripts/test-count-check.mjs:103 CONST " && gone.length === whole" -> ""
+  assert.deepEqual(by(at, { b: ["one"] }, [part]), left, "a file gone, one of its names declared: the hint wants each name left by its name, not the whole file");
+  const thrown = (f: () => string[]): string[] => { try { return f(); } catch (e) { return [`threw ${String(e)}`]; } };
+  const inherited = [r({ file: "constructor", removed: "one" }), r({ file: "__proto__", removed: "one" })];
+  assert.deepEqual(thrown(() => by(at, at, inherited)), [inherited[1], inherited[0]].map((l) => `${REMOVALS}: ${JSON.stringify(l)} names no test gone from ${String(l.file)} since the base`),
+    "a line for the file constructor or __proto__: the names records are read by their own keys, the gate's own refusal and no throw");
 });

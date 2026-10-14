@@ -265,12 +265,18 @@ test("ci_gates_blocking_no_continue_on_error — blocking and pinned workflow (t
   // (4quinquies) ADR-M003 D9, MONARK's decision of 2026-10-09 (TEST-COUNT-NAMES-1): the CODE count excludes the two test records that
   //   `node scripts/test-count-floor.mjs write` writes and the gate scripts/test-count-check.mjs holds to the run, and nothing else under
   //   test/: two exact paths, no glob. test/test-count-removals.json, whose reasons are written by hand, stays counted. A third exclusion
-  //   under test/, one of the two missing, or either one under a glob, reds.
+  //   under test/, one of the two missing, or either one under a glob, reds, whatever its spelling: long magic `:(exclude)`, short magic
+  //   `:!` or `:^`, a leading `./`.
+  const underTest = (tokens: readonly string[]): string[] => tokens.filter((t) => /^test\//.test(t.replace(/^:\([^)]*\)/, "")));
+  const twoRecords = [":(exclude)test/test-counts.json", ":(exclude)test/test-names.json"];
   assert.deepEqual(
-    (diffs[0]?.pathspecs ?? []).filter((t) => /^test\//.test(t.replace(/^:\([^)]*\)/, ""))),
-    [":(exclude)test/test-counts.json", ":(exclude)test/test-names.json"],
+    underTest(diffs[0]?.pathspecs ?? []),
+    twoRecords,
     "(4quinquies) the CODE count must exclude exactly test/test-counts.json and test/test-names.json, two exact paths with no glob (ADR-M003 D9, decision of 2026-10-09)",
   );
+  for (const third of [":!test/test-count-removals.json", ":(exclude)./test/test-count-removals.json", ":^./test/test-count-removals.json"]) {
+    assert.deepEqual(underTest([...twoRecords, third]), [...twoRecords, third], `(4quinquies) a third exclusion under test/ spelled ${third} is seen by the pin`);
+  }
   assert.deepEqual(
     sorted(diffs[1]?.pathspecs ?? []),
     sorted(CONTENT_PATHSPECS),
