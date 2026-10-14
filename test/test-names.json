@@ -1835,6 +1835,9 @@
   "bell_contact_mailto_pinned — address, subject, body and encoding of the one Bell contact link",
   "site_builds_one_mailto — the only mailto: under apps/site is the one lib/bell-contact.ts builds"
  ],
+ "test/bell-course-manifests.test.ts": [
+  "bell_course_manifests_hash_to_their_timestamped_digest — every manifest under docs/course-bell that an ANCHORS.md row timestamps hashes to that row's digest, every proof in the folder has its row, and every proof timestamps its row's digest"
+ ],
  "test/bell-deploy-config.test.ts": [
   "bell_caddy_browse_listing_escapes_entry_names",
   "bell_caddyfile_root_redirects_to_site_bell_page",

@@ -177,6 +177,7 @@
  "test/bell-anchor-timeline.test.ts": 2,
  "test/bell-anchors.test.ts": 17,
  "test/bell-contact.test.ts": 2,
+ "test/bell-course-manifests.test.ts": 1,
  "test/bell-deploy-config.test.ts": 6,
  "test/bell-deploy-constants.test.ts": 2,
  "test/bell-key-isolation.test.ts": 1,

@@ -9,7 +9,7 @@
 //   - each line's manifest `<name>`: the committed bytes whose SHA-256 equals the line's manifest digest —
 //     docs/course-bell/<name> when it matches, else `git show <commit>:docs/course-bell/<name>` at the commit the
 //     line names (a later boundary may have overwritten the file under the same name: measured on the first
-//     TSLAx mint_resume, whose proof attests fd7564f5… while the file at HEAD holds 70f577a9…);
+//     TSLAx mint_resume, whose proof attests fd7564f5… while the file held 70f577a9… from commit 34ba979 until its restore);
 //   - anchors.json: the parsed lines, one per row (English keys; no operator note).
 // Fail-closed: a manifest whose bytes cannot be matched to its digest, or a missing proof, exits 1 and writes
 // nothing. Never a course file (ledger, budget, crosscheck): only manifests, proofs and the rendered table.
