@@ -3,7 +3,7 @@
 // and the publication scripts import Node built-ins only. No network; every key is built in memory, none is committed.
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { join, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 import { createHash, createPrivateKey, createPublicKey, generateKeyPairSync, sign as edSign, verify as edVerify } from "node:crypto";
@@ -93,13 +93,20 @@ test("bell_chain_ed25519_rfc8032_kat", async (t) => {
 });
 
 // ---- S-1 (d) + B-5: the publication scripts import Node built-ins only (allowlist), no network or dynamic loading ----
+// Per-file allowlists (PLAN-P2 lot 2a-i, ruling of 2026-10-14): bell-chain.mjs imports node: built-ins only; bell-publish.mjs adds
+// ./bell-chain.mjs and ./bell-validate.mjs; bell-validate.mjs imports exactly node:fs, node:path and ./bell-chain.mjs, never the publisher.
+// killer: apps/bell/scripts/bell-validate.mjs:6 CONST "\"node:path\";" -> "\"node:path\"; import { pathToFileURL } from \"node:url\";"
 test("bell_scripts_import_allowlist_no_network", () => {
-  const ALLOW = new Set(["node:crypto", "node:fs", "node:path", "node:url", "./bell-chain.mjs"]);
-  for (const f of ["bell-chain.mjs", "bell-publish.mjs"]) {
-    const text = src(`../scripts/${f}`);
+  const NODE = ["node:crypto", "node:fs", "node:path", "node:url"];
+  const ALLOW: Record<string, Set<string>> = { "bell-chain.mjs": new Set(NODE), "bell-publish.mjs": new Set([...NODE, "./bell-chain.mjs", "./bell-validate.mjs"]),
+    "bell-validate.mjs": new Set(["node:fs", "node:path", "./bell-chain.mjs"]) };
+  for (const f of ["bell-chain.mjs", "bell-publish.mjs", "bell-validate.mjs"]) {
+    assert.ok(existsSync(join(HERE, `../scripts/${f}`)), `${f}: the publication script exists`);
+    const text = src(`../scripts/${f}`), allow = ALLOW[f] ?? new Set<string>();
     const specs = [...text.matchAll(/\b(?:from|import)\s*["'`]([^"'`]+)["'`]/g)].map((m) => m[1] ?? "");
     assert.ok(specs.length >= 1, `${f}: its imports are parsed (non-vacuity)`);
-    for (const s of specs) assert.ok(ALLOW.has(s), `${f}: import '${s}' is outside the allowlist`);
+    for (const s of specs) assert.ok(allow.has(s), `${f}: import '${s}' is outside the allowlist`);
+    if (f === "bell-validate.mjs") assert.deepEqual([...new Set(specs)].sort(), [...allow].sort(), `${f}: imports exactly ${[...allow].join(", ")}`);
     for (const re of [/node:https?\b/, /node:net\b/, /node:tls\b/, /node:dns\b/, /node:http2\b/, /node:dgram\b/, /child_process/, /\bfetch\s*\(/,
       /\bimport\s*\(/, /\brequire\s*\(/, /createRequire/, /\bundici\b/, /\bWebSocket\b/]) {
       assert.equal(re.test(text), false, `${f}: forbidden network or dynamic-load token ${String(re)}`);
