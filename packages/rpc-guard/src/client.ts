@@ -49,6 +49,10 @@ export interface RunLimits {
   /** DRAND-RELAY-GET-1a (ADR-RPC-GUARD-DRAND-1 D-1 (b)): OPTIONAL per-cycle ATTEMPT cap of a KEYLESS operator (label -> an integer
    *  > 0). The prior is the count of `attempted` lines of its ledger at open; prior + this run + 1 > cap => refuse(cycle_attempts). */
   readonly cycleAttempts?: Readonly<Record<string, number>>;
+  /** CAP-PER-ACCOUNT-1: OPTIONAL per-cycle SHARE of a PAID operator (label -> an integer in (0, its cycleCap]), the writer's declared
+   *  part of a shared account. The writer's OWN sum at open (ledger ownAtOpen, never priorAtOpen: a floor never masks the share) + this
+   *  run + this attempt's cost > share => refuse(cycle_share), before any commit. Absent: nothing changes. */
+  readonly cycleShare?: Readonly<Record<string, number>>;
 }
 export interface ClientConfig {
   readonly operators: Readonly<Record<string, OperatorClass>>;
@@ -80,11 +84,15 @@ export function assertLimits(operators: Readonly<Record<string, OperatorClass>>,
     const floor = limits.cycleFloor[label];
     if (typeof floor !== "number" || !Number.isFinite(floor)) throw new BudgetExceededError(`rpc-guard: cycle floor for '${label}' required, fail-closed`);
     if (floor > cls.cycleCap) throw new BudgetExceededError(`rpc-guard: cycle floor ${String(floor)} exceeds cap ${String(cls.cycleCap)} for '${label}', fail-closed`);
+    const share = limits.cycleShare?.[label]; // CAP-PER-ACCOUNT-1: optional; an integer > 0, at most the code cap
+    if (share !== undefined && !(Number.isInteger(share) && share > 0 && share <= cls.cycleCap)) throw new BudgetExceededError(`rpc-guard: cycle share for '${label}' must be an integer in (0, ${String(cls.cycleCap)}], fail-closed`);
     if (Object.keys(limits.methodCaps).length === 0) throw new BudgetExceededError(`rpc-guard: --method-caps empty for paid operator '${label}' (C-V-5, no default), fail-closed`);
   }
   // DRAND-RELAY-GET-1a (D-1 (b)): an attempt cap is an integer > 0 on a KEYLESS operator (a paid cycle is capped in its unit);
   // a cap naming an operator this course did not request is validated (an integer > 0), then ignored (stricter than runCaps / cycleFloor, ignored unvalidated).
   for (const [label, cap] of Object.entries(limits.cycleAttempts ?? {})) if (!(Number.isInteger(cap) && cap > 0) || (operators[label]?.unit ?? "keyless") !== "keyless") throw new BudgetExceededError(`rpc-guard: cycle attempt cap for '${label}' must be an integer > 0 on a keyless operator, fail-closed`);
+  // CAP-PER-ACCOUNT-1: a share names a PAID operator of this course; on a keyless or an unrequested operator it is refused, never ignored.
+  for (const label of Object.keys(limits.cycleShare ?? {})) if ((operators[label]?.unit ?? "keyless") === "keyless") throw new BudgetExceededError(`rpc-guard: cycle share for '${label}' names no paid operator of this course, fail-closed`);
 }
 
 export function makeClient(config: ClientConfig, ledgers: ReadonlyMap<string, CycleLedger>, opts: { transport: Transport }): BudgetedClient {
@@ -96,6 +104,9 @@ export function makeClient(config: ClientConfig, ledgers: ReadonlyMap<string, Cy
   // (2) FREEZE the cycle prior per operator = max(floor, Sigma_at_open attempted + settled) (C-V-1, D-2), each in its own unit.
   const priorFrozen = new Map<string, number>();
   for (const [label, led] of ledgers) priorFrozen.set(label, led.priorAtOpen());
+  // CAP-PER-ACCOUNT-1: the writer's OWN sum at open (attempted + settled, the floor never applied), read under the lock; the share reads it.
+  const ownFrozen = new Map<string, number>();
+  for (const [label, led] of ledgers) ownFrozen.set(label, led.ownAtOpen());
   // DRAND-RELAY-GET-1a (D-1 (b)): the ATTEMPTS per operator in this cycle = its `attempted` lines at open (read under the lock) + this run's.
   const cycleAttempted = new Map<string, number>();
   for (const [label, led] of ledgers) cycleAttempted.set(label, led.priorAttemptsAtOpen());
@@ -132,6 +143,9 @@ export function makeClient(config: ClientConfig, ledgers: ReadonlyMap<string, Cy
       else if (exceeds(methodAttempts[`${op}|${method}`] ?? 0, 1, mcap)) refuse(op, method, "method_cap");
       // Cycle cap (C-V-1): prior FROZEN at open + this run's spend FOR THIS OPERATOR + this attempt's cost > cap.
       if (cls.cycleCap !== undefined && (priorFrozen.get(op) ?? 0) + (runByOp.get(op) ?? 0) + cost > cls.cycleCap) refuse(op, method, "cycle_cap");
+      // Cycle share (CAP-PER-ACCOUNT-1): OWN sum at open + this run's spend FOR THIS OPERATOR + this attempt's cost > share, before the commit.
+      const share = limits.cycleShare?.[op];
+      if (share !== undefined && (ownFrozen.get(op) ?? 0) + (runByOp.get(op) ?? 0) + cost > share) refuse(op, method, "cycle_share");
     }
     return cost;
   };

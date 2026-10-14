@@ -116,6 +116,21 @@ sont **amendées** par ce fold (supersède le texte antérieur là où il diverg
   `frozenPrior = max(floor, Σ_at_open attempted)`) ; la garde est `prior_cycle + runCredits_op + coût > cap` (formule G0 §3.4-3), PLUS
   `>` direct (jamais `max(floor, Σ_incl_run)` qui absorbait le run sous le floor). Test **T8** avec floor 15 / cap 25 ⇒ 1 seul transport
   (2ᵉ gTfA refusée `cycle_cap`) ; mutant `cycle_cap_removed`. `error_origin` : worker.
+  - Dated amendment, 2026-10-14 (Bell collection timer, part 2, lot 2e, item CAP-PER-ACCOUNT-1): a writer of a shared account may
+    pass its declared share, `RunLimits.cycleShare` (optional, per operator). The floor does not bound a writer's cumulative spend
+    (`frozenPrior = max(floor, own sum)`: while the own sum stays under the floor, every course restarts from the floor), so the share
+    is compared to the writer's OWN sum at open, `CycleLedger.ownAtOpen()` (attempted + settled credits of its ledger, read under the
+    lock, the floor never applied), never to `priorAtOpen()`. `meter` refuses when `ownAtOpen + this run's spend for the operator +
+    cost > share`, with the named reason `cycle_share`: a `refused` ledger line, no `attempted` line, no transport call. The check runs
+    after the cycle cap check, so a call that exceeds both is refused `cycle_cap`. `assertLimits` (before any lock) refuses a share
+    that is not an integer, not above 0, or above the operator's code cap (`cycleCap`), and a share naming a keyless operator or an
+    operator the course does not request (refused, never ignored, unlike `cycleAttempts`). Without `cycleShare` every behaviour and
+    every ledger line is unchanged. `RunLimits` is a type export: the closed VALUE export set (`public_export_set_is_closed`) is
+    unchanged; the exported `CycleLedger` type gains the method `ownAtOpen()` (the repository-wide typecheck shows no other
+    implementer). The share bounds each reservation checked before a call, not the bill: a settle above its reservation can carry the
+    own sum past the share by that delta, as it already can for the cycle cap, so the claim is "no writer outside its declared share,
+    as the ledger models the tariff", never an exact cap. Tests: `packages/rpc-guard/test/share.test.ts`. The deployed trees of the
+    Dojo and the sentinel change at their next redeployment, with no change of behaviour (neither passes a share).
 - **C-V-2 — surface publique** (`index.ts`, `guarded.ts`). `resolveOperators`/`resolveConfig`/`InMemorySink`/`makeClient`/`openOperatorLedger`/
   `acquireLock`/`runUnlock` **ne sont plus exportés** (tests par import relatif). Unique chemin public payant : `openGuardedClient(env, limits,
   ledgerDir, cycleId)` = mètre + commit + `CycleLedger` durable + verrou. **T2** = sonde fonctionnelle (P6 : depuis l'API publique, tout `fetch`
