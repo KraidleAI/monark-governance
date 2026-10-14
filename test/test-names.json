@@ -118,6 +118,7 @@
  ],
  "apps/bell/test/checks.test.ts": [
   "bell_checks_agree_with_q6_controls_on_runmain_and_synthetic_runs",
+  "bell_checks_c13_page_cap_refuses_every_bell_operator",
   "bell_checks_c14_strict_refuses_pending_session",
   "bell_checks_close_ref_missing_refuses_handoff",
   "bell_checks_refuse_adv_period_across_the_sip_switch_without_ruling"
@@ -341,6 +342,24 @@
   "bell_sessions_sip_trade_date_after_the_switch",
   "bell_sessions_sip_trade_date_before_the_switch",
   "bell_sessions_utp_day_start_is_pinned_at_2055"
+ ],
+ "apps/bell/test/tick.test.ts": [
+  "bell_tick_abandon_writes_tombstone_and_advances_once",
+  "bell_tick_attempt_budget_is_keyed_on_unit_start",
+  "bell_tick_closure_excludes_the_publisher",
+  "bell_tick_exits_nonzero_on_every_named_refusal",
+  "bell_tick_is_idempotent",
+  "bell_tick_never_prints_urls_or_keys",
+  "bell_tick_progress_moves_only_after_the_bundle_rename",
+  "bell_tick_quarantines_refused_bundle_and_next_tick_proceeds",
+  "bell_tick_refuses_clock_unsynced",
+  "bell_tick_refuses_missing_or_malformed_billing_env",
+  "bell_tick_refuses_unknown_argv",
+  "bell_tick_removes_an_orphan_tmp",
+  "bell_tick_seed_refuses_when_progress_exists",
+  "bell_tick_stalls_by_name_after_budget",
+  "bell_tick_unit_is_due_only_after_end_and_gates",
+  "bell_unit_name_grammar_and_manifest_roundtrip"
  ],
  "apps/bell/test/universe.test.ts": [
   "bell_universe_artifact_built_by_field_allowlist_no_price",
@@ -1823,6 +1842,10 @@
   "bell_deploy_config_publish_unit_least_privilege_offline",
   "bell_runbook_never_prints_private_key",
   "bell_runbook_ships_the_ca_tree_and_the_unit_key_path"
+ ],
+ "test/bell-deploy-constants.test.ts": [
+  "bell_deploy_pins_the_proposed_values",
+  "bell_deploy_universe_is_the_dated_list"
  ],
  "test/bell-key-isolation.test.ts": [
   "bell_key_directory_is_inaccessible_to_every_unit_sharing_its_host"

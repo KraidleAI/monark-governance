@@ -35,3 +35,14 @@ export interface ValidatedRun {
 export function validateRun(ent: Dirent, dir: string, at: string, B: Readonly<Bounds>, t: number): ValidatedRun;
 /** C-in-1 and C-in-10 for one bundle directory (B the full bounds); the runs sorted by bell_sha, or a BellPublishError. */
 export function validateBundle(bundleDir: string, B: Readonly<Bounds>, t: number): ValidatedRun[];
+/** The closed grammar of a bundle name: unit-<D> or unit-<D>-r<n>, n from 1 to 99. */
+export const UNIT_NAME: RegExp;
+/** One manifest line: the sha256 of a file and its path relative to the bundle directory. */
+export interface ManifestEntry {
+  sha256: string;
+  path: string;
+}
+/** The manifest text of a bundle directory: `<sha256>  <path>` + LF per file, paths in byte order. */
+export function manifestOf(dir: string): string;
+/** The entries of a manifest text, or null when it is not exactly the form manifestOf writes. */
+export function readManifest(text: string): ManifestEntry[] | null;

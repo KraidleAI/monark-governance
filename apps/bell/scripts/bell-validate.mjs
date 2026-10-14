@@ -144,3 +144,35 @@ export function validateBundle(bdir, B, t) {
   runs.sort((a, b) => (a.bellSha < b.bellSha ? -1 : 1));
   return runs;
 }
+
+/** The closed grammar of a bundle name in the handoff directory: unit-<D>, D the trading day the unit starts, or unit-<D>-r<n> for a
+ *  recollection, n from 1 to 99. Any other name (a .tmp- name, a manifest, a tombstone) is not a bundle. */
+export const UNIT_NAME = /^unit-\d{4}-\d{2}-\d{2}(-r[1-9]\d?)?$/;
+const byteOrder = (x, y) => Buffer.compare(Buffer.from(x), Buffer.from(y));
+/** The manifest of a bundle directory, the sibling file <name>.manifest: one line `<sha256>  <path>` + LF per file under `dir`, the path
+ *  relative to it, "/" separated, in byte order. An entry that is neither a file nor a directory is refused. */
+export function manifestOf(dir) {
+  const paths = [];
+  const walk = (d, rel) => {
+    for (const e of readdirSync(d, { withFileTypes: true })) {
+      const p = rel === "" ? e.name : `${rel}/${e.name}`;
+      if (e.isDirectory()) walk(join(d, e.name), p); else if (e.isFile()) paths.push(p); else refuse("schema_mismatch", `${p}: neither a file nor a directory`);
+    }
+  };
+  walk(dir, "");
+  return paths.sort(byteOrder).map((p) => `${sha256Hex(readFileSync(join(dir, ...p.split("/"))))}  ${p}\n`).join("");
+}
+const MANIFEST_LINE = /^([0-9a-f]{64}) {2}((?:[\w.@-]+\/)*[\w.@-]+)$/;
+/** The entries of a manifest, or null when the text is not exactly the form manifestOf writes (a final LF, lowercase digests, two
+ *  spaces, paths in strict byte order, no "." or ".." segment). Pure. */
+export function readManifest(text) {
+  if (typeof text !== "string" || !text.endsWith("\n")) return null;
+  const entries = [];
+  for (const line of text.slice(0, -1).split("\n")) {
+    const m = MANIFEST_LINE.exec(line);
+    if (m === null || m[2].split("/").some((s) => s === "." || s === "..")) return null;
+    if (entries.length > 0 && byteOrder(entries[entries.length - 1].path, m[2]) >= 0) return null;
+    entries.push({ sha256: m[1], path: m[2] });
+  }
+  return entries;
+}
