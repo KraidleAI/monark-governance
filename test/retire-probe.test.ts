@@ -6,6 +6,7 @@
 // reddens by assertion. The line above each test names the mutation that reddens it (scripts/red-proof.mjs convention).
 import { after, before, test } from "node:test";
 import assert from "node:assert/strict";
+import { spawnSync } from "node:child_process";
 import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { createServer, type IncomingMessage, type ServerResponse } from "node:http";
 import { Socket } from "node:net";
@@ -236,4 +237,20 @@ test("retire_probe_records_whether_the_tls_handshake_was_authorized", async () =
   [listen.served, listen.at] = [served, G + 1000];
   const r = await p.probe({ tableBytes: served, cell: `${KEY}/b0`, api: listen.url, apiHost: "api.gate.test", clock: () => G + 1000 });
   assert.deepEqual([r.problem, r.record.tls_authorized], [null, null], "over http, the default transport records no TLS");
+});
+
+// reddened by: an argument that is an inherited name of Object.prototype (constructor, __proto__, toString, hasOwnProperty, valueOf)
+// read as an option: OPTIONS[name] yields a function or an object, not undefined, so the argument is not refused as unknown and its
+// value is stored under a stringified key; the CLI then goes on to read the table (exit 1, table_invalid) instead of exiting 2 on usage
+// killer: scripts/retire-probe.mjs:125 CONST "Object.hasOwn(OPTIONS, argv[i]) ? OPTIONS[argv[i]] : undefined" -> "OPTIONS[argv[i]]"
+test("retire_probe_refuses_an_inherited_name_of_object_prototype_as_an_option", async () => {
+  const p = await load(), req = ["--api", "http://127.0.0.1:1", "--table", "x.json", "--cell", `${KEY}/b0`];
+  for (const name of ["constructor", "__proto__", "toString", "hasOwnProperty", "valueOf"]) {
+    const cases: [string, string[]][] = [["before", [name, "x", ...req]], ["after", [...req, name, "x"]]];
+    for (const [where, argv] of cases) assert.throws(() => p.parseArgs(argv), { message: `unknown, repeated or empty option ${name}` }, `${name} ${where} the required options is an unknown option`);
+  }
+  assert.deepEqual(Object.keys(p.parseArgs(req)), ["api", "table", "cell"], "the required options alone are taken: no key inherited from Object.prototype");
+  assert.equal(p.parseArgs([...req, "--out", "constructor"]).out, "constructor", "a value equal to an inherited name is a value");
+  const cli = spawnSync(process.execPath, [join(ROOT, "scripts", "retire-probe.mjs"), "constructor", "x", ...req], { encoding: "utf8", cwd: ROOT });
+  assert.deepEqual([cli.status, cli.stderr.startsWith("usage: retire-probe.mjs --api <url>"), cli.stderr.includes("(unknown, repeated or empty option constructor)"), cli.stdout], [2, true, true, ""], `the CLI exits 2 with the usage line, before reading the table: ${cli.stderr}`);
 });

@@ -3336,6 +3336,7 @@
   "retire_probe_refuses_a_cell_with_no_current_row",
   "retire_probe_refuses_a_served_verdict_off_its_status_cell_or_reason",
   "retire_probe_refuses_a_verdict_of_the_old_table_and_records_T_g",
+  "retire_probe_refuses_an_inherited_name_of_object_prototype_as_an_option",
   "retire_probe_removes_a_stale_refusal_and_writes_nothing_before_a_verdict",
   "retire_probe_takes_received_at_from_the_reading_of_the_call",
   "retire_probe_timeout_is_a_positive_integer_of_milliseconds_at_most_2_31_minus_1",
