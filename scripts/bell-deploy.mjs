@@ -19,3 +19,9 @@ export const ATTEMPT_BUDGET = 8;
 export const BELL_RUN_CAPS = Object.freeze({ maxCredits: 150000, maxRu: 110000, maxCalls: 400000, maxPages: 20000 });
 /** The caps per RPC method of one run (launch-q6.sh, mode W3). */
 export const BELL_METHOD_CAPS = Object.freeze({ getSignaturesForAddress: 20000, getTransaction: 150000, getAccountInfo: 20, getTransactionsForAddress: 1 });
+/** The cycle floor the tick passes per operator (A-6): zero. Bell's declared share (<OP>_CYCLE_SHARE, DC-6) is its only bound in a cycle;
+ *  the account total is held by the scripted check of the sum of the shares. */
+export const BELL_FLOORS = Object.freeze({ helius: 0, chainstack: 0 });
+/** The bound of one tick's run, in seconds (the unit's TimeoutStartSec): a tick that may still run when an operator's next cycle starts is
+ *  refused cycle_boundary_straddle. A declared upper bound until the rehearsal measures the worst tick (G0 N-3); then 1.25 times it. */
+export const TICK_TIMEOUT_START_SEC = 7200;

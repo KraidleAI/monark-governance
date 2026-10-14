@@ -1,7 +1,10 @@
-// MONARK Bell, the collection tick. Called at any instant, it plans the trading-day unit due (planUnit), has the injected runUnit produce
-// one run per mint of the universe on the unit's window, checks each run (checkRun, with the same window and the same page cap the run
-// used), pre-validates the bundle (validateBundle, the publisher's own rule), then deposits it atomically into the handoff directory
-// (sibling manifest first, then the rename, then state/progress.json), or moves it to quarantine/<D>/ with its reason. At most one unit
+// MONARK Bell, the collection tick. Called at any instant, it plans the trading-day unit due (planUnit), derives each operator's billing
+// cycle from its anchor (cycleOf; a tick that may outlive a cycle is refused), has runUnit produce one run per mint of the universe on the
+// unit's window (by default the real runMain under the guard: --cycles, the declared shares, a zero floor; an injected seam in the tests),
+// checks each run (checkRun, with the same window and the same page cap the run used), pre-validates the bundle (validateBundle, the
+// publisher's own rule), then deposits it atomically into the handoff directory (sibling manifest first, removed if the rename throws,
+// then the rename, then state/progress.json), or moves it to quarantine/<D>/ with its reason. The guard's errors are rendered under their
+// names of the closed list; a SIGTERM handler, set before any lock, releases the current run's locks and exits 1. At most one unit
 // per tick; attempts are counted per unit start day D, whatever the slot or the cause; past the budget the unit exits stalled_unit until
 // an act abandons it. The argv forms are closed:
 //   --tick --state <dir> --handoff <dir> --status <dir> --ledger-dir <dir>
@@ -15,11 +18,15 @@
 import { closeSync, existsSync, fsyncSync, mkdirSync, openSync, readdirSync, readFileSync, renameSync, rmSync, writeSync } from "node:fs";
 import { join } from "node:path";
 import { pathToFileURL } from "node:url";
-import { ATTEMPT_BUDGET, BELL_COLLECT_ENV_KEYS, BELL_RUN_CAPS, BELL_UNIVERSE, UNIT_DUE_MARGIN_MIN } from "../../../scripts/bell-deploy.mjs";
+import { BudgetExceededError, cycleOf, nextCycleBoundary } from "@monark/rpc-guard";
+import { ATTEMPT_BUDGET, BELL_COLLECT_ENV_KEYS, BELL_FLOORS, BELL_METHOD_CAPS, BELL_OPERATORS, BELL_RUN_CAPS, BELL_UNIVERSE, TICK_TIMEOUT_START_SEC,
+  UNIT_DUE_MARGIN_MIN } from "../../../scripts/bell-deploy.mjs";
 import { BOUNDS, BellPublishError, KEY_SHAPES } from "../scripts/bell-validate.mjs";
 import { manifestOf, validateBundle } from "../scripts/bell-validate.mjs";
 import { sha256Hex } from "../scripts/bell-chain.mjs";
 import { ADV_SIP_ETH_RULING, checkRun, type CheckRefusal, type RunFiles } from "./checks.ts";
+import { databentoGet, polygonGet } from "./close.ts";
+import { runMain } from "./collect.ts";
 import { dueInstant, planUnit } from "./plan.ts";
 import { CALENDAR_RANGE, isTradingDay, nextTradingDay, SIP_ETH_STATUS } from "./sessions.ts";
 
@@ -41,7 +48,10 @@ export class TickRefusal extends Error {
 export interface UnitWindow { readonly from_utc_ms: number; readonly to_utc_ms: number }
 export interface RunUnitRequest {
   readonly mint: string; readonly window: UnitWindow; readonly maxPages: number; readonly outDir: string; readonly ledgerDir: string;
-  readonly env: Readonly<Record<string, string | undefined>>;
+  readonly env: Readonly<Record<string, string | undefined>>; // the keys of BELL_COLLECT_ENV_KEYS only
+  readonly cycles: Readonly<Record<string, string>>; // the cycle of each operator at the tick's instant
+  readonly nowMs: number; // the tick's one clock read
+  readonly onLocks: (release: (reason: string) => void) => void; // A-4: re-armed at each run, read by the SIGTERM handler
 }
 /** What one run hands back: the lines of each operator's cycle ledger, read once the run has released it (C13 reads this run's segment). */
 export interface RunUnitResult { readonly ledger: Readonly<Record<string, readonly unknown[]>> }
@@ -49,7 +59,7 @@ export type RunUnit = (req: RunUnitRequest) => Promise<RunUnitResult>;
 export interface TickDeps {
   readonly env: Readonly<Record<string, string | undefined>>;
   readonly now: () => number;
-  readonly runUnit: RunUnit;
+  readonly runUnit?: RunUnit; // absent: runMainUnit, the real runMain under the guard
   readonly clockSynced?: () => boolean;
   readonly out?: (line: string) => void;
   readonly err?: (line: string) => void;
@@ -98,6 +108,52 @@ function checkEnv(env: TickDeps["env"]): void {
     const shape = SHAPES.find(([name]) => name.test(k))?.[1];
     if (shape === undefined || !shape.test(v) || (k.endsWith("_ANCHOR_UTC") && !Number.isFinite(Date.parse(v)))) refuse("env_malformed", k);
   }
+}
+
+const keyOf = (op: string, k: "ANCHOR_UTC" | "SHARE"): string => `${op.toUpperCase()}_CYCLE_${k}`;
+const kv = (o: Readonly<Record<string, string | number>>): string => Object.entries(o).map(([k, v]) => `${k}=${String(v)}`).join(",");
+/** The cycle of each operator at nowMs, derived from its anchor (DC-5). No cycle at that instant (an anchor after it): cycle_unknown. A tick
+ *  that may still run when an operator's next cycle starts (nowMs plus the bound of a run, TimeoutStartSec): cycle_boundary_straddle. */
+export function cyclesOf(env: TickDeps["env"], nowMs: number, operators: readonly string[] = BELL_OPERATORS): Record<string, string> {
+  const out: Record<string, string> = {};
+  for (const op of operators) {
+    const anchor = env[keyOf(op, "ANCHOR_UTC")] ?? "";
+    try { out[op] = cycleOf(nowMs, anchor, op); } catch (e) { return refuse("cycle_unknown", `${op}: ${e instanceof RangeError ? e.message : "no cycle"}`); }
+    const next = nextCycleBoundary(nowMs, anchor);
+    if (nowMs + TICK_TIMEOUT_START_SEC * 1000 >= next) refuse("cycle_boundary_straddle", `${op}: the tick may outlive its cycle, the next starts ${new Date(next).toISOString()}`);
+  }
+  return out;
+}
+const pick = <T,>(o: Readonly<Record<string, T>>, operators: readonly string[]): Record<string, T> => Object.fromEntries(operators.map((op) => [op, o[op] as T]));
+/** The share of each requested operator, from its <OP>_CYCLE_SHARE (the 2e ruling: from the operators the run requests only). */
+const sharesOf = (env: TickDeps["env"], operators: readonly string[]): Record<string, number> =>
+  Object.fromEntries(operators.map((op) => [op, Number(env[keyOf(op, "SHARE")])]));
+/** runMain's argv for one run of the unit: its mint and window, the run and method caps, the operators, each one's cycle (--cycles), its
+ *  declared share (--shares) and the zero floor of Bell's host (A-6), the ledger root, and --out under .tmp-unit-<D>/<mint>/. */
+export function unitArgv(req: RunUnitRequest, operators: readonly string[] = BELL_OPERATORS): string[] {
+  return ["--pools", req.mint, "--from-utc", String(req.window.from_utc_ms), "--to-utc", String(req.window.to_utc_ms), "--max-pages", String(req.maxPages),
+    "--max-calls", String(BELL_RUN_CAPS.maxCalls), "--max-credits", String(BELL_RUN_CAPS.maxCredits), "--max-ru", String(BELL_RUN_CAPS.maxRu),
+    "--method-caps", kv(BELL_METHOD_CAPS), "--operators", operators.join(","), "--ledger-dir", req.ledgerDir, "--cycles", kv(pick(req.cycles, operators)),
+    "--shares", kv(sharesOf(req.env, operators)), "--floor", kv(pick(BELL_FLOORS, operators)),
+    "--out", req.outDir];
+}
+/** The production run: the real runMain under the guard, then each operator's cycle ledger, read once the run has released it. */
+export const runMainUnit: RunUnit = async (req) => {
+  await runMain(unitArgv(req), { databentoGet, polygonGet, env: req.env, nowMs: req.nowMs, onLocks: req.onLocks });
+  const ledger: Record<string, unknown[]> = {};
+  for (const op of BELL_OPERATORS) {
+    const p = join(req.ledgerDir, req.cycles[op] ?? "", `${op}.jsonl`);
+    ledger[op] = existsSync(p) ? readFileSync(p, "utf8").split("\n").filter((l) => l.trim() !== "").map((l) => parse(l)) : [];
+  }
+  return { ledger };
+};
+/** A guard error under its name of the closed list (ruling on deviation 7 of lot 2b-i): the share refusal (reason cycle_share) is
+ *  share_exhausted, any other budget stop budget_stop, a held lock lock_held. LockHeldError is not exported by @monark/rpc-guard and sets
+ *  no name: it is read by its class name. Any other error is left as is (failed: <name>). */
+function guardNamed(e: unknown): unknown {
+  if (e instanceof BudgetExceededError) return new TickRefusal(/^rpc-guard: cycle_share \(fail-closed\)$/.test(e.message) ? "share_exhausted" : "budget_stop", e.message);
+  if (e instanceof Error && e.constructor.name === "LockHeldError") return new TickRefusal("lock_held", e.message);
+  return e;
 }
 
 interface Progress { readonly seed: string; readonly last_unit: string | null }
@@ -150,23 +206,38 @@ async function tick(o: Extract<Opts, { mode: "tick" }>, deps: TickDeps): Promise
   const name = `unit-${u.d}`, bundle = join(o.handoff, name), manifestPath = `${bundle}.manifest`;
   for (const e of readdirSync(o.handoff)) if (e.startsWith(".tmp-unit-")) rmSync(join(o.handoff, e), { recursive: true, force: true });
   if (existsSync(bundle) && existsSync(manifestPath)) { advance(o.state, progress, u.d, name, readFileSync(manifestPath, "utf8")); return `already_deposited ${name}`; }
+  const cycles = cyclesOf(deps.env, now);
   const attempts = readAttempts(o.state), key = u.d, n = (attempts[key] ?? 0) + 1;
   if (n > ATTEMPT_BUDGET) refuse("stalled_unit", `${name} after ${String(ATTEMPT_BUDGET)} attempts; abandon it by act`);
   writeAtomic(join(o.state, "state", "attempts.json"), `${JSON.stringify({ ...attempts, [key]: n })}\n`);
   const tmp = join(o.handoff, `.tmp-${name}`), window = { from_utc_ms: u.startMs, to_utc_ms: u.endMs - 1000 }, maxPages = BELL_RUN_CAPS.maxPages;
   mkdirSync(tmp);
-  for (const mint of BELL_UNIVERSE) {
-    const dir = join(tmp, mint), { ledger } = await deps.runUnit({ mint, window, maxPages, outDir: dir, ledgerDir: o.ledgerDir, env: deps.env });
-    const first = checkRun({ run: readRun(dir), window, ledger: { lines: ledger, maxPages }, nowMs: now, sipStatus: SIP_ETH_STATUS, advRuling: ADV_SIP_ETH_RULING }).refusals[0];
-    if (first !== undefined) quarantine(o.state, u.d, n, tmp, refusalOf(mint, first));
-  }
+  const runUnit = deps.runUnit ?? runMainUnit, narrowed = Object.fromEntries(BELL_COLLECT_ENV_KEYS.map((k) => [k, deps.env[k]]));
+  // A-4: the handler is set before any lock (runMain takes them) and releases the locks of the run in course, re-armed at each run.
+  let current: ((reason: string) => void) | undefined;
+  const onTerm = (): void => {
+    const release = current;
+    current = undefined;
+    try { release?.("bell/tick: sigterm"); } finally { (deps.err ?? ((s: string): void => { process.stderr.write(`${s}\n`); }))("bell/tick: refused sigterm: stopped, the run's locks released"); process.exit(1); }
+  };
+  process.on("SIGTERM", onTerm);
+  try {
+    for (const mint of BELL_UNIVERSE) {
+      const dir = join(tmp, mint);
+      let ledger: RunUnitResult["ledger"];
+      try { ({ ledger } = await runUnit({ mint, window, maxPages, outDir: dir, ledgerDir: o.ledgerDir, env: narrowed, cycles, nowMs: now, onLocks: (r) => { current = r; } })); }
+      catch (e) { throw guardNamed(e); } finally { current = undefined; }
+      const first = checkRun({ run: readRun(dir), window, ledger: { lines: ledger, maxPages }, nowMs: now, sipStatus: SIP_ETH_STATUS, advRuling: ADV_SIP_ETH_RULING }).refusals[0];
+      if (first !== undefined) quarantine(o.state, u.d, n, tmp, refusalOf(mint, first));
+    }
+  } finally { process.off("SIGTERM", onTerm); }
   try { validateBundle(tmp, BOUNDS, now); } catch (e) {
     if (e instanceof BellPublishError) quarantine(o.state, u.d, n, tmp, new TickRefusal("prevalidation_refused", e.detail, e.code));
     throw e;
   }
   const manifest = manifestOf(tmp);
   writeAtomic(manifestPath, manifest);
-  renameSync(tmp, bundle);
+  try { renameSync(tmp, bundle); } catch (e) { rmSync(manifestPath, { force: true }); throw e; } // a manifest never outlives a failed rename
   advance(o.state, progress, u.d, name, manifest);
   return `deposited ${name} manifest_sha256=${sha256Hex(manifest)}`;
 }
@@ -210,8 +281,7 @@ export async function tickMain(argv: readonly string[], deps: TickDeps): Promise
   }
 }
 
-/** Not wired in this module: the production run (runMain once per mint, under the guard) is injected by the lot that wires it. */
-const notWired: RunUnit = () => Promise.reject(new Error("the collection run is not wired"));
+/** The command line: the real runMain under the guard (runMainUnit). The clock probe stays the default, unsynced (item CLOCK-PROBE-HOST-1). */
 if (process.argv[1] !== undefined && import.meta.url === pathToFileURL(process.argv[1]).href) {
-  process.exitCode = await tickMain(process.argv.slice(2), { env: process.env, now: () => Date.now(), runUnit: notWired });
+  process.exitCode = await tickMain(process.argv.slice(2), { env: process.env, now: () => Date.now() });
 }
