@@ -98,14 +98,19 @@ const CONTENT_CODE_EXCLUDES = CONTENT_PATHS.map((p) => `:(exclude,glob)${p}`);
 const CONTENT_PATHSPECS = CONTENT_PATHS.map((p) => `:(glob)${p}`);
 
 // One r25 count line `NAME=$(git diff --shortstat "origin/${{ github.base_ref }}...HEAD" -- <pathspecs>) || {` ->
-// { name, pathspecs } (single quotes removed); null for any other shape. Test 38 (4quater) also counts every
-// `git diff` code line, so an unparsed shape reds instead of escaping.
+// { name, pathspecs, raw } (pathspecs: single quotes removed; raw: the blank-separated tokens as written); null for any other
+// shape. Test 38 (4quater) also counts every `git diff` code line, so an unparsed shape reds instead of escaping.
 const R25_DIFF_RE = /^\s*([A-Z_]+)=\$\(git diff --shortstat "origin\/\$\{\{ github\.base_ref \}\}\.\.\.HEAD" -- (.+)\) \|\| \{\s*$/;
-function parseR25Diff(line: string): { name: string; pathspecs: string[] } | null {
+function parseR25Diff(line: string): { name: string; pathspecs: string[]; raw: string[] } | null {
   const m = R25_DIFF_RE.exec(line);
   if (m === null || m[1] === undefined || m[2] === undefined) return null;
-  return { name: m[1], pathspecs: m[2].split(/\s+/).map((t) => t.replace(/^'(.*)'$/, "$1")) };
+  const raw = m[2].split(/\s+/);
+  return { name: m[1], pathspecs: raw.map((t) => t.replace(/^'(.*)'$/, "$1")), raw };
 }
+// The word bash passes to git for one raw token of a count line, or null when bash could read it otherwise than as written: only a
+// plain single-quoted word with no quote, `$`, backslash, backtick or brace inside (no expansion, no concatenation), or a bare word of
+// [A-Za-z0-9._/-] (no glob, no expansion, no quote) is read as itself. Test 38 (4quinquies) reds on any other token.
+const bashWord = (token: string): string | null => /^'([^'"$\\`{}]+)'$/.exec(token)?.[1] ?? (/^[A-Za-z0-9._/-]+$/.test(token) ? token : null);
 // One r25 metric line `NAME=$(printf '%s\n' "$SRC" | awk '<program>')` -> { name, src, program }; null otherwise.
 // `\x5c` is a literal backslash: the workflow carries the two characters backslash + n inside '%s\n'.
 const R25_METRIC_RE = /^\s*([A-Z_]+)=\$\(printf '%s\x5cn' "\$([A-Z_]+)" \| awk '(.+)'\)\s*$/;
@@ -236,7 +241,7 @@ test("ci_gates_blocking_no_continue_on_error — blocking and pinned workflow (t
     2,
     "the r25 job must run exactly two `git diff` counts: CODE and CONTENT (ADR-M013 decision 207)",
   );
-  const diffs = r25Code.map(parseR25Diff).filter((d): d is { name: string; pathspecs: string[] } => d !== null);
+  const diffs = r25Code.map(parseR25Diff).filter((d): d is { name: string; pathspecs: string[]; raw: string[] } => d !== null);
   assert.deepEqual(
     diffs.map((d) => d.name),
     ["STAT", "CONTENT_STAT"],
@@ -263,28 +268,45 @@ test("ci_gates_blocking_no_continue_on_error — blocking and pinned workflow (t
     "(a) the CODE pathspec must be the D9 pathspec PLUS the five ADR-M013 CONTENT excludes (dropped, extra or duplicated token)",
   );
   // (4quinquies) ADR-M003 D9, MONARK's decision of 2026-10-09 (TEST-COUNT-NAMES-1): the CODE count excludes the two test records that
-  //   `node scripts/test-count-floor.mjs write` writes and the gate scripts/test-count-check.mjs holds to the run, and nothing else under
-  //   test/: two exact paths, no glob. test/test-count-removals.json, whose reasons are written by hand, stays counted. The pin judges what
-  //   git drops, not how a token is spelled. git keeps a file that a positive pathspec of the line matches and no exclusion matches, so each
-  //   token read alone by `git ls-files` says what it drops: of the files git tracks under test/, the tokens that drop any are exactly the
-  //   two exact paths, each dropping its record. A third exclusion under test/ in any spelling git reads (magic, `..`, a wildcard, a whole
-  //   folder, icase), a record missing or under a glob, a line narrowed past test/, or a pathspec git refuses, reds.
-  const underTest = tracked(ROOT, "test").index, twoRecords = [":(exclude)test/test-counts.json", ":(exclude)test/test-names.json"];
-  const memo = new Map<string, string[]>(), drops = (token: string): string[] => { // the tracked files under test/ that one pathspec drops; git refusing it is one entry
-    if (!memo.has(token)) try { const kept = new Set(gitOut(ROOT, ["ls-files", "-z", "--", token]).split("\0")); memo.set(token, underTest.filter((f) => !kept.has(f))); } catch { memo.set(token, [`git refuses ${token}`]); }
-    return memo.get(token) ?? [];
-  };
-  const judged = (tokens: readonly string[]): string => JSON.stringify(tokens.map((t): [string, string[]] => [t, drops(t)]).filter(([, d]) => d.length > 0));
-  const meant = JSON.stringify([[twoRecords[0], ["test/test-counts.json"]], [twoRecords[1], ["test/test-names.json"]]]);
-  assert.ok(underTest.includes("test/test-count-removals.json"), "(4quinquies) test/test-count-removals.json is tracked, so an exclusion of it shows");
-  assert.equal(
-    judged(diffs[0]?.pathspecs ?? []),
-    meant,
-    "(4quinquies) of the files under test/, the CODE count must drop exactly test/test-counts.json and test/test-names.json, each by its exact path with no glob (ADR-M003 D9, decision of 2026-10-09)",
+  //   `node scripts/test-count-floor.mjs write` writes and the gate scripts/test-count-check.mjs holds to the run, and nothing else:
+  //   test/test-count-removals.json, whose reasons are written by hand, stays counted. The pin holds the words bash passes to git, not what
+  //   a git of this test makes of them. (a) Each token of both count lines is one plain word for bash (bashWord): a single-quoted word with
+  //   no quote, `$`, backslash, backtick or brace inside, or a bare word of safe characters, so the word git gets is the token as written,
+  //   with no concatenation, expansion or glob. (b) The words of the STAT line are exactly STAT_PINNED, in order: the trunk's own pathspecs
+  //   as they stand, plus the two records by their exact paths under plain `(exclude)` magic. A third exclusion, a record missing, under a
+  //   glob or under other magic, or a token added, dropped, duplicated, moved or respelled reds. STAT_PINNED is kept apart from list (a): a
+  //   change of the line must edit both. (c) No git judges the tokens here: with the words fixed, what the count drops is fixed by the
+  //   trunk's own list and two literal paths with no wildcard and no magic but exclude, whatever the index, range or attribute source. The
+  //   judge this replaces read the parser's token in this test's git over the index at HEAD, not bash's word in the job's pinned git over
+  //   base...HEAD, and passed quote and variable spellings, `attr:` magic and the exclusion of a file the change deletes.
+  const twoRecords = [":(exclude)test/test-counts.json", ":(exclude)test/test-names.json"];
+  const STAT_PINNED = [".", ":(exclude)packages/*/docs/S2-*", ":(exclude)docs/G1-lot-*.md", ":(exclude)docs/G2-lot-*.md", ":(exclude,glob)docs/**/*.md",
+    ":(exclude)package-lock.json", ...twoRecords, ":(exclude,glob)fixtures/**/*.json", ":(exclude,glob)fixtures/**/*.jsonl", ":(exclude,glob)fixtures/**/*.csv",
+    ":(exclude,glob)apps/sentinel/test/fixtures/**/*.json", ":(exclude,glob)apps/sentinel/test/fixtures/**/*.jsonl", ":(exclude,glob)apps/sentinel/test/fixtures/**/*.csv",
+    ":(exclude,glob)apps/bell/test/fixtures/series/**/*.json", ":(exclude,glob)apps/bell/test/fixtures/series/**/*.jsonl", ":(exclude,glob)apps/bell/test/fixtures/series/**/*.csv",
+    ":(exclude,glob)apps/harness/data/kata/registry/**/*.json", ":(exclude,glob)apps/site/app/docs/**", ":(exclude,glob)apps/site/components/docs/**",
+    ":(exclude,glob)apps/site/lib/docs-*.ts", ":(exclude,glob)apps/site/data/docs-*.json", ":(exclude,glob)apps/site/app/roadmap/**"];
+  for (const [t, w] of [["'a'b'", null], ["'a\"b'", null], ["'a$b'", null], ["'a\\b'", null], ["'a`b'", null], ["'a{b'", null], ["'a}b'", null], ["''", null], ["'a", null], ["a'", null],
+    ["a*", null], ["a?", null], ["a[b]", null], ["~a", null], ["a$b", null], ["a\\b", null], ["a{b,c}", null], ["\"a\"", null], ["$'a'", null], [":!a", null],
+    ["'a'", "a"], [".", "."], ["test/a-b_c.json", "test/a-b_c.json"], ["':(exclude,glob)a/**/*.md'", ":(exclude,glob)a/**/*.md"]] as const) {
+    assert.equal(bashWord(t), w, `(4quinquies) (a) bash reads ${t} ${w === null ? "otherwise than as written" : `as ${w}`}`);
+  }
+  const words = (raw: readonly string[]): (string | null)[] => raw.map(bashWord);
+  assert.deepEqual(
+    diffs.flatMap((d) => d.raw.filter((t) => bashWord(t) === null)),
+    [],
+    "(4quinquies) (a) each token of both count lines must be a plain single-quoted word (no quote, $, backslash, backtick or brace inside) or a bare word of [A-Za-z0-9._/-]: bash would pass these otherwise than as written",
   );
-  const stat = diffs[0]?.pathspecs ?? [], pinSees = (tokens: readonly string[]): boolean => judged(tokens) !== meant;
-  // The cases: each is the STAT line as ci.yml would spell it (its blank-separated tokens, quotes kept), judged as test 38 reads the line.
-  const statRaw = stat.map((t) => (t === "." ? t : `'${t}'`)), seen = (raw: readonly string[]): boolean => pinSees(raw.map((t) => t.replace(/^'(.*)'$/, "$1")));
+  const statRaw = diffs[0]?.raw ?? [];
+  assert.deepEqual(
+    words(statRaw),
+    STAT_PINNED,
+    "(4quinquies) (b) the words of the STAT line must be, in order, the trunk's pathspecs plus test/test-counts.json and test/test-names.json each by its exact path under plain (exclude) magic (ADR-M003 D9, decision of 2026-10-09)",
+  );
+  assert.deepEqual(sorted(STAT_PINNED), sorted(codeExpected), "(4quinquies) STAT_PINNED and list (a) hold the same pathspecs");
+  // The cases: each is the STAT line as ci.yml would spell it (its blank-separated tokens, quotes kept), judged by (a) and (b): a token
+  //   bash reads otherwise than as written has no word (null), so its line never equals STAT_PINNED.
+  const seen = (raw: readonly string[]): boolean => JSON.stringify(words(raw)) !== JSON.stringify(STAT_PINNED);
   const rec0 = `'${twoRecords[0] ?? ""}'`, rec1 = `'${twoRecords[1] ?? ""}'`;
   const swap = (raw: readonly string[], from: string, to: string): string[] => raw.map((t) => (t === from ? to : t));
   const cases: [string, string[]][] = [
