@@ -16,8 +16,10 @@
   mutation; a line in a pile resolves to its own test; red-proof judges; the campaign runs on PAROXYSME's corrected mutation tool if its
   pull request is merged by then.
 - **Build base**: `f7108f66`, the merge of the trunk head that MONARK announced, `5ebd9267` (#261, W2-GUARD-MISSES-TAIL-1, merged at
-  `1992b1ed`, then #237 at `5ebd9267`; MONARK `f3153f3`), into the branch head `00e5f5aa`; its tree is `5ebd9267`'s plus this note. The
-  later trunk commits change documents only. Every build measure (section 9) runs there.
+  `1992b1ed`, then #237 at `5ebd9267`; MONARK `f3153f3`), into the branch head `00e5f5aa`; its tree is `5ebd9267`'s plus this note.
+  Every build measure (section 9) runs there. The trunk then merged #238 at `971eda88` (`apps/harness/src/tools/gate.ts`, a test added
+  to `apps/harness/test/gate-kata-served.test.ts`, `test/spec-1-1-0-release.test.ts`, `test/test-counts.json`), so the trunk was
+  merged into the branch at the review's fold and the proofs replayed on that merge (section 9, « G2 fold »).
 - **G0 base**: trunk `lot/etude-suite` = `52ddf000` (`ls-remote` at 20:21 UTC, explicit refspec), documents only on top of `92d01d67`, the
   merge of #256, where every measure below ran (`git diff --quiet 92d01d67 52ddf000 -- . ':(exclude,glob)docs/**'` holds). The sweep
   ran at `b44c3890`; `git diff --quiet b44c3890 92d01d67 -- apps packages test/recompute-report.test.ts scripts/mutants
@@ -311,9 +313,10 @@ Kept under the author's scratchpad (`kata-killers-author/`), Node 24.21.0, each 
 
 MONARK's `e6ebb72` (C-1 of the review of #237) and `f3153f3`: K19 (`apps/harness/src/kata-path.ts:118`), the declared killer of T-4
 `committed_tables_reach_the_gate_through_the_seam`, turns T-4 red by the exception of the trip wire, not by an assertion: a declared
-limit needs an item. T-4 is on the trunk with #237, but it lives in `apps/harness/test/gate-kata-served.test.ts`, a file of the open #238,
-and the zone rule forbids a second open change on a file of an open pull request. So K19 is not built here: it goes in a small follow-up
-change after #238 merges, with its red-proof. The planned construction: T-4 judges by an assertion the rows that `servedPolicyTables`
+limit needs an item. T-4 is on the trunk with #237, but it lives in `apps/harness/test/gate-kata-served.test.ts`, a file #238 changed
+while it was open, and the zone rule forbids a second open change on a file of an open pull request. So K19 is not built here. #238
+merged at `971eda88` (the trunk is merged into this branch, section 9, « G2 fold »), and K19 is now built in its own change, on
+`recherches/kata-k19` (zone row KATA-K19 of recherches `coordination/ZONES.md`), with its red-proof. The planned construction: T-4 judges by an assertion the rows that `servedPolicyTables`
 serves, before the trip wire; or K19 is replaced by a killer that T-4 kills by an assertion.
 
 ## 9. As built
@@ -338,7 +341,10 @@ them the 19 of `apps/harness/test/policy-guard.test.ts` and the 19 of `apps/harn
 Every verdict that moves: the eleven lines of this change, from survit (K116) or non conclu (the ten) to tue; and K222, from tue to non
 conclu under the narrowed `refuse` alone, back to tue by an assertion with its fix (section 3). No other killer of the two guard files
 moves: their other 29 read tue in all three runs. Each baseline is green in the same 81 target files; its entry count varies between runs
-(731, 734, 709) in `test/ci-gates.test.ts` and `test/spec-1-1-0-release.test.ts`, two files this change does not touch, not explained here.
+(731, 734, 709) in `test/ci-gates.test.ts` and `test/spec-1-1-0-release.test.ts`, two files this change does not touch. The review
+measured the cause: the trunk tool runs `node --test` with `--test-force-exit` (`scripts/mutants/run.mjs` l.209) but without the
+stdout-blocking preload that `npm run test:main` loads (`test/helpers/blocking-stdout.cjs`, `package.json` l.17), so a child can exit with
+the end of a file's TAP output still queued: those entries are lost and the run still exits 0. #259 adds the preload to the tool.
 
 | Line (sweep id) | Id at the build base | Killer line at `67d56512` | Before | After |
 |---|---|---|---|---|
@@ -390,7 +396,8 @@ fixed in this change and its killer declared, so red-proof judges twelve tests, 
 its push (`567faab8`, then `5688478b` with the fix of K222), each replaced by a soft reset before any push; only `67d56512` was pushed.
 
 **Not verified here**: the Windows replay of the five files and of `every_killer_line_is_readable` (MONARK's, at the merge); #259's tool
-(not merged, not run); the cause of the baseline entry counts that vary in two files outside this change.
+(not merged, not run), whose preload should end the loss of entries named above; until it merges, a baseline count of the trunk tool
+is not read as a test count.
 
 **Evidence**, under the author's scratchpad (`kata-killers-build2/`):
 
@@ -404,3 +411,41 @@ its push (`567faab8`, then `5688478b` with the fix of K222), each replaced by a 
 | suite and count: `logs/testmain.log`, `logs/countcheck.log` | `a13271bd…`, `6f3b43a3…` |
 | checks: `logs/anchors-final.log`, `logs/size-final.log`, `logs/tsc2.log`, `logs/eslint2.log`, `logs/five2.tap` | `f7e805b3…`, `12958729…`, `a9ba2989…`, `8cc1ff9d…`, `e885afcd…` |
 | the edits: `logs/tests-final.diff`, `tools/build-edits.mjs`, `tools/k222-fix.mjs`, `tools/x1.mjs` | `92190e92…`, `1add57ce…`, `6420ad22…`, `85d5faa9…` |
+
+**G2 fold.** A fresh G2 (recherches `2518e8d`, `coordination/pieces/2026-10-14-g2-kata-killers/G2-kata-killers.json`, sha256
+`979c2b62…`; `claude-opus-5-5`, effort high) re-measured every claim above at `c2a22042` and returned ACCEPTE with two minor findings,
+neither on the tests, both folded in this note, in place: m-1, the baseline entry counts that section 9 left unexplained, now carry the
+cause it measured (the trunk tool's `--test-force-exit` without the stdout-blocking preload, #259); m-2, the build base line of the
+header and section 8 no longer say that the later trunk commits change documents only, since #238 merged at `971eda88`. The trunk
+`971eda88` is merged into the branch at `15e826ed` « Merge the trunk » (parents `c2a22042` and `971eda88`, no conflict, its tree the one
+of the G2's throwaway merge `1998de55`). Before the push the trunk moved to `6779955e` (#262: `scripts/pin-bell-legal.mjs`, its test
+`test/pin-bell-legal.test.ts` and its record line), so it is merged again at `40fcf748` « Merge the trunk » (parents `15e826ed` and
+`6779955e`, no conflict), with the replay of the second table; this note's fold follows, documents only. The proofs on `15e826ed`,
+Node 24.21.0, each under `offline.mjs --no-egress` with 0 refused attempts, the suite, the campaign, red-proof and the type and lint checks under the shared host
+lock (author's scratchpad `kata-killers-fold/`, hashed in `logs/SHA256SUMS-merge.txt`):
+
+| Proof on `15e826ed` | Result | Evidence (sha256) |
+|---|---|---|
+| `npm run test:main` | 2973 tests, 2951 pass, 0 fail, 22 skipped | `logs/testmain.log` (`b5b634c5…`) |
+| `node scripts/test-count-floor.mjs write` | `test/test-counts.json` unchanged: 290 files, 2973 tests (#238's test included) | `logs/floor.log` (`e2e3bea6…`) |
+| `node scripts/test-count-check.mjs --base origin/lot/etude-suite` | equal to the record, 0 drops from `971eda88` | `logs/countcheck.log` (`5d83ec78…`) |
+| the trunk tool, `--killers --only` the 63 killer lines of the five files, `--base 357ef25f` | baseline green, tue 63 of 63, each by `ERR_ASSERTION`; the twelve judged (K116, K215, K217, K223, K226, K239, K268, K269, K271, K272, K280, K1365 on this tree) each red in its named test alone | `runs/camp-merge/RESULTS.json` (`8db26173…`), `logs/twelve-codes.txt` (`a5fbcf1b…`) |
+| `node scripts/red-proof.mjs --test-only --base 971eda88 --gel 15e826ed` | OK, 12 judged, 12 pinned (each `ERR_ASSERTION`), 51 unchanged, 0 drawn, no refusal | `runs/redproof/RED-PROOF.json` (`5b20986a…`), `logs/redproof.log` (`e8fcb573…`) |
+| anchors, `verifie-ancres.mjs <tree> --ref 971eda88` | 1791 killer lines, 1791 anchored, 0 drifted, 0 lost | `logs/anchors.log` (`d031874d…`) |
+| the five files with `test/killer-lines.test.ts` | 64 of 64 green | `logs/five.tap` (`0da56814…`) |
+| `npx tsc --noEmit`; eslint on the five files; `lint:ratchet`; `gate:vocab`; `lang:gate`; `export:check`; winlint `--base 971eda88` | 0; 0; 69/69; OK; OK; OK; 6 files, no hazard | `logs/g-*.log` |
+| size, the CI form against `origin/lot/etude-suite` | 5 files, 27 added, 20 removed, 47; bound 1205 | `logs/size.log` (`0fb93b3a…`) |
+
+| Replay on `40fcf748` (trunk `6779955e`) | Result | Evidence (sha256) |
+|---|---|---|
+| `npm run test:main` | 2981 tests, 2959 pass, 0 fail, 22 skipped | `logs/m2-testmain.log` (`9421c98c…`) |
+| `node scripts/test-count-floor.mjs write` | `test/test-counts.json` unchanged: 291 files, 2981 tests (#262's tests included) | `logs/m2-floor.log` (`8e7ff4fa…`) |
+| `node scripts/test-count-check.mjs --base origin/lot/etude-suite` | equal to the record, 0 drops from `6779955e` | `logs/m2-countcheck.log` (`5142e0a6…`) |
+| the five files with `test/killer-lines.test.ts` | 64 of 64 green | `logs/m2-five.tap` (`cbee3725…`) |
+| `node scripts/red-proof.mjs --test-only --base 6779955e --gel 40fcf748` | OK, 12 judged, 12 pinned (each `ERR_ASSERTION`), 51 unchanged, 0 drawn | `runs/redproof2/RED-PROOF.json` (`f50f7c1c…`) |
+| anchors, `--ref 6779955e` | 1799 killer lines, 1799 anchored, 0 drifted, 0 lost | `logs/m2-anchors.log` (`cae4238a…`) |
+| `npx tsc --noEmit` | 0 | `logs/m2-tsc.log` (`55522eec…`) |
+| the trunk tool on the 63 killer lines of the five files (the recompute ids now K1370 to K1376) | baseline green, tue 63 of 63, each by `ERR_ASSERTION`; the twelve judged each red in its named test alone | `runs/camp-merge2/RESULTS.json` (`8d3e9ad4…`), `logs/m2-twelve-codes.txt` (`43ccd981…`) |
+
+The two campaign baselines read 735 and 705 entries over the same target files, the variation that m-1 explains; `npm run test:main`
+gives the same per-file counts as the record on both merges.
