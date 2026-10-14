@@ -274,9 +274,14 @@ test("ci_gates_blocking_no_continue_on_error — blocking and pinned workflow (t
     twoRecords,
     "(4quinquies) the CODE count must exclude exactly test/test-counts.json and test/test-names.json, two exact paths with no glob (ADR-M003 D9, decision of 2026-10-09)",
   );
-  for (const third of [":!test/test-count-removals.json", ":(exclude)./test/test-count-removals.json", ":^./test/test-count-removals.json"]) {
-    assert.deepEqual(underTest([...twoRecords, third]), [...twoRecords, third], `(4quinquies) a third exclusion under test/ spelled ${third} is seen by the pin`);
+  const stat = diffs[0]?.pathspecs ?? [], pinSees = (tokens: readonly string[]): boolean => JSON.stringify(underTest(tokens)) !== JSON.stringify(twoRecords);
+  for (const third of ["!test/test-count-removals.json", "(exclude)./test/test-count-removals.json", "^./test/test-count-removals.json", "(exclude,icase)TEST/test-count-removals.json", "(exclude)apps/../test/test-count-removals.json",
+    "!apps/../test/test-count-removals.json", "(exclude)test", "!test", "(exclude)tes[t]/test-count-removals.json", "(exclude)t*/test-count-removals.json", "(exclude)*test-count-removals.json", "/!test/test-count-removals.json", "(exclude)/test/test-count-removals.json"].map((s) => `:${s}`)) {
+    assert.ok(pinSees([...stat, third]), `(4quinquies) a third exclusion under test/ spelled ${third} is seen by the pin`);
   }
+  assert.ok(pinSees(stat.map((t) => (t === twoRecords[0] ? ":(exclude,glob)test/test-count[s].json" : t))), "(4quinquies) a record under a glob is seen by the pin");
+  assert.ok(pinSees(stat.filter((t) => t !== twoRecords[1])), "(4quinquies) a record missing is seen by the pin");
+  assert.ok(pinSees([...stat.filter((t) => t !== "."), "scripts"]), "(4quinquies) a line narrowed past test/ is seen by the pin");
   assert.deepEqual(
     sorted(diffs[1]?.pathspecs ?? []),
     sorted(CONTENT_PATHSPECS),
