@@ -133,6 +133,10 @@ test("test_count_check_names_its_base_or_refuses", () => {
     writeFileSync(join(dir, RUN), counts(renamed, { "b.test.ts": { tests: imported.length, summary: true, names: imported, foreign: imported.length } }));
     assert.deepEqual(gate(["--base", both]), [1, `::error::b.test.ts: ${imported.length} of its test(s) also ran in another process: a test file imports it (move what they share to a module that declares no test), or it runs twice`],
       "P1 in the gate: a file whose tests another test file's process ran too, its record unchanged");
+    const first = imported.map(() => imported[0] ?? ""); // b imports itself with a query string: its first test twice, in its own process
+    writeFileSync(join(dir, RUN), counts(renamed, { "b.test.ts": { tests: first.length, summary: true, names: first } }));
+    assert.deepEqual(gate(["--base", both]), [1, `::error::b.test.ts: ${first.length - 1} of its test(s) repeat a full name of the file: two of its tests share a name (name each apart), or the file runs twice in its own process (it imports itself, e.g. with a query string)\n::error::b.test.ts: run and ${NAMES} differ: run only ${JSON.stringify(first.slice(1))}, recorded only ${JSON.stringify(imported.slice(1))}`],
+      "P1 in the gate: a file that names a test twice, nothing foreign, its count unchanged; P2 names the names that differ");
     writeFileSync(join(dir, RUN), counts(renamed));
     // killer: scripts/test-count-check.mjs:54 CONST "shaped(JSON.parse(ntext), lists," -> "shaped(JSON.parse(ntext), () => true,"
     writeFileSync(join(dir, NAMES), `{\n "a.test.ts": null,\n "b.test.ts": ${JSON.stringify(head["b.test.ts"])}\n}\n`);

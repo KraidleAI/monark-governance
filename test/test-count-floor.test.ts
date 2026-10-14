@@ -7,7 +7,9 @@
  * (docs/G0-lot-test-count-names-1.md): the run also names each test, after the tests and suites that hold it, and `write` writes those
  * names to test/test-names.json, one name per line. T1 holds the reporter on events, T2 a real nested run and the command, T3 the script
  * line and the export of the reporter (ADR-M004 D7 terdecies), T8 a test file reached through a directory link (REPORTER-REALPATH-1),
- * T9 a test file that another test file imports: its tests run in both processes, and P1 refuses it.
+ * T9 a test file that another test file imports: its tests run in both processes, and P1 refuses it. T10 the process of each event
+ * (data.entryFile): a nested node:test run (a worker, or a child that writes to the file's output) neither ends the outer file's report nor
+ * makes one for its module, and T11 P1 refuses that module and a file that runs twice in its own process (two tests of one full name).
  */
 import { test } from "node:test";
 import assert from "node:assert/strict";
@@ -53,7 +55,7 @@ test("test_counts_reporter_counts_each_test_of_each_file", async () => {
 test("test_count_floor_refuses_a_file_whose_process_ended_before_it_reported", () => {
   const dir = mkdtempSync(join(tmpdir(), "tcf-")), floor = join(ROOT, "scripts", "test-count-floor.mjs");
   const node = (args: string[]) => spawnSync(process.execPath, args, { cwd: dir, encoding: "utf8", env: { ...process.env, NODE_TEST_CONTEXT: undefined } });
-  const own = (f: string, n: number): string => `${f}: no report of its own (${n} test(s) under its name): its process ended before it reported, it declares no test, or it is a module that declared tests for a test file (declare each test in its *.test.ts)`;
+  const own = (f: string, n: number): string => `${f}: no report of its own (${n} test(s) under its name): its process ended before it reported, it declares no test, or it is a module whose tests ran in a test file's process: that file imports it, or runs it in a worker or in a child that writes to its output (declare each test in its *.test.ts, and give a nested test run an output of its own)`;
   try {
     const t = 'import { test } from "node:test";\n', files: Record<string, string> = { "a.test.mjs": `${t}test("one", () => {});\ntest("two", async (s) => { await s.test("in two", () => {}); });\n`,
       "exit.mjs": "process.exit(0);\n", "b.test.mjs": `${t}import "./exit.mjs";\ntest("one", () => {});\ntest("two", () => {});\ntest("three", () => {});\n`,
@@ -154,4 +156,46 @@ test("test_count_floor_refuses_a_file_whose_tests_another_test_file_ran", async 
   } finally {
     rmSync(dir, { recursive: true, force: true });
   }
+});
+
+test("test_counts_reporter_keys_each_event_by_the_process_that_sent_it", async () => {
+  const at = (f: string): string => join(process.cwd(), f), t = { type: "test" }, b = at("b.test.ts"), c = at("c.test.ts"), w = at("test/fixtures/w.mjs");
+  const pass = (file: string, name: string, entryFile: string) => ({ type: "test:pass", data: { file, name, nesting: 0, details: t, entryFile } });
+  const summary = (file: string, entryFile: string) => ({ type: "test:summary", data: { file, counts: {}, entryFile } }); // entryFile: the test file whose process sent the event
+  const run = async (events: { type: string; data: unknown }[]): Promise<unknown> => { let out = ""; for await (const chunk of testCounts(events)) out += chunk; return JSON.parse(out); };
+  assert.deepEqual(await run([pass(c, "first", c), pass(w, "fixture", c), summary(w, c), pass(c, "runs the fixture", c), summary(c, c)]),
+    { "c.test.ts": { tests: 2, summary: true, names: ["first", "runs the fixture"] }, "test/fixtures/w.mjs": { tests: 1, summary: false, names: ["fixture"] } },
+    "c runs a module's node:test root in a worker, or in a child that writes to c's output: that root's summary, sent through c's process, neither ends c's report nor is the module's own");
+  for (const events of [[pass(b, "one", c), pass(c, "own", c), summary(c, c), pass(b, "one", b), summary(b, b)], [pass(b, "one", b), summary(b, b), pass(b, "one", c), pass(c, "own", c), summary(c, c)]])
+    assert.deepEqual(await run(events), { "b.test.ts": { tests: 2, summary: true, names: ["one", "one"], foreign: 1 }, "c.test.ts": { tests: 1, summary: true, names: ["own"] } },
+      "c imports b: b's test sent through c's process counts as foreign on b, whichever process reports first");
+  assert.deepEqual(await run([pass(b, "one", b), summary(b, b), pass(b, "one", b), summary(b, b)]), { "b.test.ts": { tests: 2, summary: true, names: ["one", "one"], foreign: 1 } },
+    "b run twice, each time by its own process: the tests after its first summary count as foreign");
+});
+
+test("test_count_floor_refuses_a_nested_test_run_and_a_file_that_runs_twice_in_its_own_process", () => {
+  const dir = mkdtempSync(join(tmpdir(), "tcn-")), floor = join(ROOT, "scripts", "test-count-floor.mjs"), reporter = pathToFileURL(join(ROOT, "scripts", "test-counts-reporter.mjs")).href;
+  const node = (args: string[]) => spawnSync(process.execPath, args, { cwd: dir, encoding: "utf8", env: { ...process.env, NODE_TEST_CONTEXT: undefined } });
+  const own = (f: string): string => `${f}: no report of its own (1 test(s) under its name): its process ended before it reported, it declares no test, or it is a module whose tests ran in a test file's process: that file imports it, or runs it in a worker or in a child that writes to its output (declare each test in its *.test.ts, and give a nested test run an output of its own)`;
+  const twice = (f: string, n: number): string => `${f}: ${n} of its test(s) repeat a full name of the file: two of its tests share a name (name each apart), or the file runs twice in its own process (it imports itself, e.g. with a query string)`;
+  try {
+    const h = 'import { test } from "node:test";\n', files: Record<string, string> = { "a.test.mjs": `${h}test("one", () => {});\n`,
+      "b.test.mjs": `${h}if (!import.meta.url.includes("?")) await import("./b.test.mjs?again");\ntest("rejects", () => {});\ntest("formats", () => {});\n`,
+      "c.test.mjs": `${h}import { Worker } from "node:worker_threads";\ntest("first", () => {});\ntest("runs the fixture in a worker", async () => { await new Promise((res, rej) => { const w = new Worker(new URL("./w.mjs", import.meta.url)); w.on("error", rej); w.on("exit", res); }); });\n`,
+      "w.mjs": `${h}test("fixture", () => {});\n` };
+    for (const [f, text] of Object.entries(files)) writeFileSync(join(dir, f), text);
+    mkdirSync(join(dir, "test"));
+    const nested = node(["--test", `--test-reporter=${reporter}`, `--test-reporter-destination=${RUN}`, "a.test.mjs", "b.test.mjs", "c.test.mjs"]), ran = existsSync(join(dir, RUN)) ? JSON.parse(readFileSync(join(dir, RUN), "utf8")) as unknown : null;
+    assert.deepEqual([nested.status, ran], [0, { "a.test.mjs": { tests: 1, summary: true, names: ["one"] }, "b.test.mjs": { tests: 4, summary: true, names: ["formats", "formats", "rejects", "rejects"] },
+      "c.test.mjs": { tests: 2, summary: true, names: ["first", "runs the fixture in a worker"] }, "w.mjs": { tests: 1, summary: false, names: ["fixture"] } }],
+    `b imports itself with a query: its tests run twice in its own process, nothing foreign; c runs w's node:test root in a worker: c keeps its two tests, w has no report of its own (${nested.stderr})`);
+    assert.deepEqual(runProblems(readRun(readFileSync(join(dir, RUN), "utf8"))), [twice("b.test.mjs", 2), own("w.mjs")], "P1 names the file that ran twice and the nested module, not c");
+    const refused = node([floor, "write"]);
+    assert.deepEqual([refused.status, refused.stderr.trim(), existsSync(join(dir, RECORD))], [1, `::error::${twice("b.test.mjs", 2)}\n::error::${own("w.mjs")}`, false], "write refuses that run: exit 1, nothing written");
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+  assert.deepEqual([runProblems({ "x.test.ts": { tests: 3, summary: true, names: ["a", "b", "a"] } }), runProblems({ "x.test.ts": { tests: 2, summary: true, names: ["a", "a"], foreign: 1 } })],
+    [[twice("x.test.ts", 1)], ["x.test.ts: 1 of its test(s) also ran in another process: a test file imports it (move what they share to a module that declares no test), or it runs twice"]],
+    "two tests of one full name: P1 names the file; a file whose tests another process ran too is named for that first");
 });
