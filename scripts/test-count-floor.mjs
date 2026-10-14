@@ -1,18 +1,18 @@
-// TEST-COUNT-FLOOR-1 (docs/G0-lot-test-count-floor-1.md): the record of the tests that each test file of test:main reports.
-//   npm run test:main && node scripts/test-count-floor.mjs write
-// test:main writes the run, RUN, by its reporter (scripts/test-counts-reporter.mjs): { "<file>": { tests, summary } }. write turns it
-// into the record, RECORD, { "<file>": tests }, in its written form (recordText), and refuses a run in which a file sent no report of
-// its own (P1): its process ended before it reported, it declares no test, or it is a module that declared tests for a test file.
-// Exits: 0 written; 1 refused, nothing written; 2 the usage; 4 the run unreadable. The gate of the second pull request
-// (scripts/test-count-check.mjs) imports this module and holds each run to the record.
+// TEST-COUNT-FLOOR-1 (docs/G0-lot-test-count-floor-1.md) and TEST-COUNT-NAMES-1 (docs/G0-lot-test-count-names-1.md): the records of the
+// tests that each test file of test:main reports, their number and their names.   npm run test:main && node scripts/test-count-floor.mjs write
+// test:main writes the run, RUN, by its reporter (scripts/test-counts-reporter.mjs): { "<file>": { tests, summary, names } }. write turns
+// it into the record, RECORD, { "<file>": tests }, and the names record, NAMES, { "<file>": [names] }, in their written forms (recordText,
+// namesText), and refuses a run in which a file sent no report of its own (P1): its process ended before it reported, it declares no test,
+// or it is a module that declared tests for a test file. Exits: 0 written; 1 refused, nothing written; 2 the usage; 4 the run unreadable.
+// The gate (scripts/test-count-check.mjs) imports this module and holds each run to both records.
 import { readFileSync, writeFileSync } from "node:fs";
 
-export const RUN = "test-counts.out.json", RECORD = "test/test-counts.json";
+export const RUN = "test-counts.out.json", RECORD = "test/test-counts.json", NAMES = "test/test-names.json";
 
 /** The run as the reporter writes it; any other shape throws. */
 export function readRun(text) {
   const run = JSON.parse(text), ok = (c) => Number.isInteger(c?.tests) && c.tests >= 0 && typeof c.summary === "boolean";
-  if (run === null || typeof run !== "object" || Array.isArray(run) || !Object.values(run).every(ok)) throw new Error(`not a run of the reporter, { "<file>": { tests, summary } }`);
+  if (run === null || typeof run !== "object" || Array.isArray(run) || !Object.values(run).every((c) => ok(c) && Array.isArray(c.names) && c.names.length === c.tests && c.names.every((n) => typeof n === "string"))) throw new Error(`not a run of the reporter, { "<file>": { tests, summary, names } }`);
   return run;
 }
 
@@ -34,5 +34,14 @@ if (import.meta.main !== false) { // as scripts/red-proof.mjs: a launch runs the
   const problems = runProblems(run);
   if (problems.length > 0) stop(1, problems.map((p) => `::error::${p}`).join("\n"));
   writeFileSync(RECORD, recordText(Object.fromEntries(Object.entries(run).map(([f, c]) => [f, c.tests]))));
-  console.log(`${RECORD}: ${Object.keys(run).length} files, ${Object.values(run).reduce((s, c) => s + c.tests, 0)} tests`);
+  writeFileSync(NAMES, namesText(Object.fromEntries(Object.entries(run).map(([f, c]) => [f, c.names]))));
+  console.log(`${RECORD} and ${NAMES}: ${Object.keys(run).length} files, ${Object.values(run).reduce((s, c) => s + c.tests, 0)} tests`);
+}
+
+/** P3, the written form of a names record { "<file>": [names] }: one name per line, the files sorted and each file's names sorted, a final
+ *  line feed, and U+2028 and U+2029 escaped (JSON leaves them raw; JavaScript, and R-25, end a line there). Declared after the command,
+ *  which calls it: a function declaration is hoisted. */
+export function namesText(names) {
+  const sorted = Object.fromEntries(Object.keys(names).sort().map((f) => [f, [...names[f]].sort()]));
+  return `${JSON.stringify(sorted, null, 1)}\n`.replace(/[\u2028\u2029]/g, (c) => `\\u${c.charCodeAt(0).toString(16)}`);
 }
