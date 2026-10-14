@@ -248,7 +248,7 @@ test("test_counts_reporter_keeps_each_test_site_and_depth_and_the_floor_refuses_
 });
 
 // killer: scripts/test-counts-reporter.mjs:16 CONST "${data.line}:${data.column}" -> "${data.line}"
-// killer: scripts/test-counts-reporter.mjs:14 CONST ", sites: []" -> ""
+// killer: scripts/test-counts-reporter.mjs:14 CONST ", sites: []" -> ", sites: [[null, 0, \"\"]]"
 // killer: scripts/test-count-floor.mjs:69 CONST "n > 0 ?" -> "false ?"
 test("test_count_floor_refuses_a_file_that_imports_itself_from_a_test_body", () => {
   const dir = mkdtempSync(join(tmpdir(), "tcs-")), floor = join(ROOT, "scripts", "test-count-floor.mjs"), reporter = pathToFileURL(join(ROOT, "scripts", "test-counts-reporter.mjs")).href;
