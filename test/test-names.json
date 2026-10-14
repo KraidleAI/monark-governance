@@ -494,13 +494,16 @@
   "dojo_history_budget_stops_fail_closed",
   "dojo_history_calls_have_the_closed_forms",
   "dojo_history_deadline_bounds_every_retry",
+  "dojo_history_derives_its_cycles_from_the_anchors",
   "dojo_history_disk_rpc_error_and_faulted_body_paths",
   "dojo_history_early_bounds_and_a_403_stop_the_course_at_once",
   "dojo_history_gtfa_matches_the_helius_index",
   "dojo_history_pages_order_inputs_and_raw_files_as_declared",
+  "dojo_history_passes_its_declared_shares",
   "dojo_history_per_account_pages_until_fixpoint",
   "dojo_history_resume_from_last_complete_unit",
   "dojo_history_secret_forms_cover_every_alignment_and_the_url_floor",
+  "dojo_history_shares_only_the_operators_it_requests",
   "dojo_history_unlock_is_confirmed_or_the_course_stops",
   "dojo_history_x10_guard_refuses_before_any_lock",
   "dojo_history_x_counts_each_signature_once_and_every_index_disagreement"
@@ -556,6 +559,12 @@
   "dojo_publish_snapshot_carries_beacon_and_reads",
   "dojo_publish_state_is_outside_public",
   "dojo_publish_writes_immutables_before_the_line"
+ ],
+ "apps/dojo/test/dojo-share.test.ts": [
+  "dojo_collect_refuses_a_missing_share_env",
+  "dojo_collect_shares_only_the_operators_it_requests",
+  "dojo_collectors_derive_their_cycle_from_the_anchor",
+  "dojo_collectors_pass_their_declared_share"
  ],
  "apps/dojo/test/dojo-verify.test.ts": [
   "dojo_price_version_recomputes_the_unit",
@@ -1631,6 +1640,7 @@
   "reconcile_course_window_isolates_one_course"
  ],
  "packages/rpc-guard/test/cycle.test.ts": [
+  "rpc_guard_cycle_anchor_offset_minutes_above_59_refused",
   "rpc_guard_cycle_of_derives_id_from_anchor_instant"
  ],
  "packages/rpc-guard/test/drand-labels.test.ts": [

@@ -120,19 +120,19 @@ Expected: `COPY-EQUAL`. The copy stays in the mirror, next to the provider's bac
 
 **EnvironmentFile**, one write from the orchestrator's local shell (calque RUNBOOK-sentinel section 6-bis (4)); its closed key set is
 `DOJO_COLLECT_ENV_KEYS`: the Helius endpoint base (the FIRST entry of the operator's `BELL_SOLANA_RPC`: the guard's transport reads
-it as `helius`), the cycle id and floor of DOJO-GUARD-LEDGER-SPLIT-1 (floor = the dashboard total read at this act plus the reserve
-declared for the operator machine), and the key, last. `HELIUS_BASE` is set first in the local shell to that endpoint base (no key
+it as `helius`), the cycle anchor `HELIUS_CYCLE_ANCHOR_UTC` (each course derives its cycle id from it, `cycleOf`), the floor of DOJO-GUARD-LEDGER-SPLIT-1 (floor = the dashboard total read at this act plus the reserve
+declared for the operator machine), the declared share `HELIUS_CYCLE_SHARE` of the shared account (held by the guard), and the key, last. `HELIUS_BASE` is set first in the local shell to that endpoint base (no key
 in it: the transport appends `?api-key=` from `HELIUS_API_KEY`, `packages/rpc-guard/src/transport.ts:171-172`):
 
 ```bash
-printf 'BELL_SOLANA_RPC=%s\nHELIUS_CYCLE_ID=%s\nHELIUS_CYCLE_FLOOR=%s\nHELIUS_API_KEY=%s\n' "$HELIUS_BASE" '<CYCLE>' '<FLOOR>' "$HELIUS_API_KEY" | ssh -i ~/.ssh/monark_vps root@bell.monarkgate.tech 'umask 077 && cat > /etc/monark/dojo-collect.env && chown root:dojo-collect /etc/monark/dojo-collect.env && chmod 0640 /etc/monark/dojo-collect.env && stat -c "%a %U:%G %n" /etc/monark/dojo-collect.env && cut -d= -f1 /etc/monark/dojo-collect.env'
+printf 'BELL_SOLANA_RPC=%s\nHELIUS_CYCLE_ANCHOR_UTC=%s\nHELIUS_CYCLE_FLOOR=%s\nHELIUS_CYCLE_SHARE=%s\nHELIUS_API_KEY=%s\n' "$HELIUS_BASE" '<ANCHOR>' '<FLOOR>' '<SHARE>' "$HELIUS_API_KEY" | ssh -i ~/.ssh/monark_vps root@bell.monarkgate.tech 'umask 077 && cat > /etc/monark/dojo-collect.env && chown root:dojo-collect /etc/monark/dojo-collect.env && chmod 0640 /etc/monark/dojo-collect.env && stat -c "%a %U:%G %n" /etc/monark/dojo-collect.env && cut -d= -f1 /etc/monark/dojo-collect.env'
 ```
 
 ```bash
-[ "$(printf 'BELL_SOLANA_RPC=%s\nHELIUS_CYCLE_ID=%s\nHELIUS_CYCLE_FLOOR=%s\nHELIUS_API_KEY=%s\n' "$HELIUS_BASE" '<CYCLE>' '<FLOOR>' "$HELIUS_API_KEY" | sha256sum)" = "$(ssh -i ~/.ssh/monark_vps root@bell.monarkgate.tech 'sha256sum < /etc/monark/dojo-collect.env')" ] && echo COPY-EQUAL || echo COPY-DIFFERENT
+[ "$(printf 'BELL_SOLANA_RPC=%s\nHELIUS_CYCLE_ANCHOR_UTC=%s\nHELIUS_CYCLE_FLOOR=%s\nHELIUS_CYCLE_SHARE=%s\nHELIUS_API_KEY=%s\n' "$HELIUS_BASE" '<ANCHOR>' '<FLOOR>' '<SHARE>' "$HELIUS_API_KEY" | sha256sum)" = "$(ssh -i ~/.ssh/monark_vps root@bell.monarkgate.tech 'sha256sum < /etc/monark/dojo-collect.env')" ] && echo COPY-EQUAL || echo COPY-DIFFERENT
 ```
 
-Expected: `640 root:dojo-collect /etc/monark/dojo-collect.env`, then the four NAMES only, then `COPY-EQUAL`. The file is mandatory (no
+Expected: `640 root:dojo-collect /etc/monark/dojo-collect.env`, then the five NAMES only, then `COPY-EQUAL`. The file is mandatory (no
 leading `-` in the unit): absent, the start fails. Rollback (before A-5): `ssh -i ~/.ssh/monark_vps root@bell.monarkgate.tech 'shred -u /etc/monark/dojo-collect.env /etc/monark/dojo-collect/seed /etc/monark/dojo-collect/seed.next'` (no seed is anchored yet).
 
 ## 5. A-5 (collect side) — the units from the G7 bytes, the rehearsal anchor, one start that proves the credentials
@@ -318,7 +318,7 @@ Expected: `0`; if the day is closed, the reader command of section 6 now answers
 
 **When**: the collect journal shows `dojo/collect: lock_held`: every step refuses before any call, so the whole collection is stopped
 until this section is done. **Why**: a step killed in the middle of a course leaves the locks of that course under `ledger/`:
-`<cycle>/helius.lock` and `<cycle>/solana-foundation.lock` for a reading (the cycle `HELIUS_CYCLE_ID`), `drand-<AAAA-MM-JJ>/drand-pl.lock`
+`<cycle>/helius.lock` and `<cycle>/solana-foundation.lock` for a reading (the helius cycle, derived from `HELIUS_CYCLE_ANCHOR_UTC`), `drand-<AAAA-MM-JJ>/drand-pl.lock`
 and `drand-<AAAA-MM-JJ>/drand-cf.lock` for the course of the beacon relays (the plan of day d, before 00:15 UTC); only the first one if the
 kill falls between the two acquisitions. A stale lock STAYS held and only the served, ledgered `unlock` releases it
 (`packages/rpc-guard/src/lock.ts:4-6`). Since DRAND-RELAY-GET-1b, a SIGTERM (`TimeoutStartSec` acts by `KillSignal=`, default to confirm at
@@ -841,7 +841,7 @@ and no line, and `--history` cannot read it; the FINAL packet (`--first-read` = 
 (ii), never `readings/` alone. Copies by `scp`, digests on both sides to the JOURNAL; none erases, but the act of (iii), on its copy only.
 
 (i) The `Eve` of o. A-9 (1) to (4) done, on J: the provisional course, in the operator's shell holding the guard's variables and the
-four cycle variables of `DOJO_HISTORY_ENV` (never displayed), on a new state outside any repository with its `ledger/`, `--cut` a slot
+anchor, floor and share of each operator (`DOJO_HISTORY_ENV` and `DOJO_HISTORY_SHARE_ENV`, six variables; the anchor replaces the cycle id, which each course derives) (never displayed), on a new state outside any repository with its `ledger/`, `--cut` a slot
 of J at the `finalized` commitment read through the guard by a scratch phase A first (below; Q-1 of the G1 journal of FAST-START), the
 caps of act 1 (ADR-DOJO-PR-2B D-10), from `/f/Monark` at the SHA of `G7.txt` (`git -C /f/Monark rev-parse HEAD` to the JOURNAL). The
 cut: a phase A on its own scratch state (phase A reads the whole index of the mint at both operators and only pins `--cut`, so any value

@@ -12,7 +12,7 @@ import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { canonical } from "../../bell/scripts/bell-chain.mjs";
-import { ENV, POOL, PYTH, QUOTE_VAULT, roots, sim, stateOf } from "./helpers/collect-chain.ts";
+import { CYCLE, ENV, POOL, PYTH, QUOTE_VAULT, roots, sim, stateOf } from "./helpers/collect-chain.ts";
 import { ANCHOR_DAY, anchorBody, betaOf, dateOf, seedChain } from "./helpers/dojo-fixture.ts";
 import { runCollect } from "../src/collect.ts";
 
@@ -49,7 +49,7 @@ test("dojo_collect_releases_locks_on_sigterm", async (t) => {
   writeFileSync(join(plan, "plan.json"), `${canonical({ beacon: { round: 1, signature: betaOf(D1) }, day: dateOf(D1), instants, reason: null })}${LF}`);
   writeFileSync(join(b.state, "bundles", dateOf(D1), "eve.json"), `${canonical({ addresses: [], accounts: [] })}${LF}`);
   for (const [name, f, at, cycle, ops, made] of [["A, the relays", a, T1 + 60, `drand-${dateOf(D1)}`, ["drand-pl", "drand-cf"], "evidence/plan.json"],
-    ["B, a reading", b, ti + 1, ENV.HELIUS_CYCLE_ID, ["helius", "solana-foundation"], "readings/1.json"]] as const) {
+    ["B, a reading", b, ti + 1, CYCLE, ["helius", "solana-foundation"], "readings/1.json"]] as const) {
     const r = spawnSync(process.execPath, ["--import", HANG, COLLECT, ...argv(f)], { encoding: "utf8", env: envOf(at), timeout: 60_000 });
     assert.deepEqual([r.status, r.stderr.includes("dojo/collect: sigterm"), left(f, cycle, ops)], [1, true, [[["attempted", U], false], [[U], false]]],
       `child ${name}: exit 1, the stderr line, each operator unlocked on its cycle, no lock left; stderr: ${r.stderr}`);

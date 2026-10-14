@@ -20,7 +20,10 @@ const E = fixture("enumeration.json") as { a: { context: Json; value: Json[] }; 
 const A = fixture("accounts.json") as Record<"mint" | "pool" | "wsol" | "pyth", { a: { context: Json; value: Json }; b: { context: Json; value: Json } }>;
 const infoOf = (e: Json): Json => ((e.account as Json).data as Json & { parsed: { info: Json } }).parsed.info;
 export const HELIUS_HOST = "helius.dojo.invalid";
-export const ENV = { BELL_SOLANA_RPC: `https://${HELIUS_HOST}`, HELIUS_CYCLE_ID: "cyc", HELIUS_CYCLE_FLOOR: "0" };
+/** The cycle keys: a SYNTHETIC anchor before every clock of these tests, a share at the code cap (no effect but the guard's check). The
+ *  cycle id, recoded here, is the one cycle of every such clock (2026-09-10 up to 2026-10-10, exclusive). */
+export const ENV = { BELL_SOLANA_RPC: `https://${HELIUS_HOST}`, HELIUS_CYCLE_ANCHOR_UTC: "2026-09-10T00:00:00Z", HELIUS_CYCLE_FLOOR: "0", HELIUS_CYCLE_SHARE: "8000000" };
+export const CYCLE = "helius-2026-09-10";
 const OPS: Readonly<Record<string, string>> = { [HELIUS_HOST]: "helius", "api.mainnet.solana.com": "solana-foundation",
   "api.drand.sh": "drand-pl", "drand.cloudflare.com": "drand-cf" }; // the two relay hosts of the guard's transport (DRAND-RELAY-GET-1a)
 export const MINT = infoOf(E.a.value[0] as Json).mint as string;
