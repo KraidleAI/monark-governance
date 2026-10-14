@@ -504,7 +504,7 @@ fusion de #245 et des décisions de MONARK sur sa demande. Deux corrections en p
 « 36 » sous BELL-ITEMS-ETAT-CARRY-1, et l ancre de `skills/monark/DEMO.md` devient l.87-88.
 
 - DÉCISION FONDATEUR (2026-10-08 vers 05:21 UTC, session de PAROXYSME, relayée mot pour mot par `4f8e42f`) : « on réarme la jambe payante.
-  » T6 du relevé Narabi tranché : SENTINEL-GUARD-ARMING-1 (porteur MONARK, PXC-05 p3, dans O-2 ; 1,5 à 2 j), avec T4 (alerte quand la
+  » T6 du relevé Narabi tranché : SENTINEL-GUARD-ARMING-1 (porteur MONARK, PXC-05 p3, dans O-2 ; 1,5 à 2 j ; placé avant PXC-05 p1 le 2026-10-08, Q-AM3-5 (b) de MONARK), avec T4 (alerte quand la
   jambe s éteint) ; préalable P-3 : lecture par le fondateur de la console du fournisseur RPC de la jambe et pose des clés de cycle par
   lui ; puis RUNBOOK-sentinel §6-bis (3) à (7) par MONARK. N04 et L26 à L28 du registre Narabi : pliés par PAROXYSME après #245 (non
   ajoutés à #245, dont les vérifications finales tournent).
@@ -878,6 +878,347 @@ re-checkpoint-2 du validateur-humain (rapport sha256 `57404b5a…`, ACCEPTE-AVEC
 - Registre PAROXYSME, point d étape : limite Narabi L26 (A.6, liage verbatim perdu, « résiduel ACTIF jusqu au pli §11-1 ») : le liage
   est déplacé sur la ligne servie par #252 et la rétractation d A.6 est datée par ce commit ; L27 et L28 restent sur
   SENTINEL-GUARD-ARMING-1 ; le pli du registre est à PAROXYSME ; reste du point : MONARK demande à PAROXYSME le pli de PAROXYSME-Narabi (L26 changé par #252, L27 et L28 inchangés) dans son message de G7.
+
+## Fin de journée : fusions #255 à #258, décisions du fondateur, items formés (MONARK, 2026-10-08 20:0x UTC)
+
+Écrit au tronc après `92d01d67` (#256). Lignes tenues par MONARK depuis `74d2cdbc`, dans l ordre où elles ont été écrites, puis les items
+formés et les actes du G7 de #256. Deux lignes corrigées en place (ETAT l.507 ; ADR-METHODE-2 l.60) ; cinq entrées au JOURNAL.
+
+- ERREUR DE MONARK (12:2x UTC) : commit de documents 2c3f51a8 poussé avec un oracle G1 rouge (test:main :
+  address_literals_tracked_tree_is_clean sur docs/FAITS-pow-ecma-v8-2026-10-08.md l.8, le numéro de clause §21.3.2 (entrée 27) lu comme
+  une adresse ; le test local était vert car le fichier n était pas encore suivi) : la commande poussait sans lire la sortie de l oracle.
+  Tronc rouge de 12:2x UTC jusqu au correctif 3e194d2e (« §21.3.2, entrée 27, »), poussé seulement si son oracle G1 est vert. RECHERCHES
+  prévenu (6aba379). Outil : guard.mjs règle 3 étendue, la poussée du tronc dont la tête n est pas une fusion exige un enregistrement d
+  oracle vert, complet et sur arbre propre de cette tête (greenHeads) ; 4 cas neufs, 58/58.
+- Tronc rendu vert à 3e194d2e (oracle G1, base 2c3f51a8 : dix portes à 0, enregistrement
+  F:/tmp/oracle-results/3e194d2e…-G1-20261008T122643Z-101508.json sha256
+  c2361376b59e5926a5f222e057eecc51556b84bf709429da435e9b0de40bf222), poussé 2c3f51a8..3e194d2e vers 12:3x UTC.
+- PAROXYSME PR #63 (erratum P-28 : mutcheck.mjs admet tout receveur avant .replace dans la réplique du motif) fusionnée par MONARK vers
+  12:5x UTC ; 244/244 sous Windows (245 sous Linux). PXC-02 : coupe faite, L1 379 et L2 268 lignes de code (borne 547) ; cp-1 vers 13:45
+  UTC. PAROXYSME plie les registres après 2c3f51a8 sur paroxysme/registres-apres-253.
+- #251 IO-GUARD L, G2 c99877a : CORRECTIONS, M-1 (la note de lot, commit de documents 59f7bcfc, publie deux détails des vecteurs privés de
+  R1 : nombre d octets et empreinte complète de la sortie de vectors_check.py ; aucune valeur de vecteur ; publics sur la branche depuis
+  11:19:31 UTC), m-1, n-1, n-2. Décision MONARK 13:0x UTC : réécriture de la branche à partir de 59f7bcfc (C' 0890d187 inchangé, cité par
+  E2), force-with-lease sur cette branche seule, vérification par git log -p ; exposition consignée ; outil demandé à RECHERCHES (refus d
+  une poussée de documents qui porte une valeur connue de R1).
+- #250 TEST-COUNT-FLOOR-1 PR-1 fusionnée (3128869e, base 3e194d2e, tête e0c808cd ; relevé 288 fichiers, 2 960 tests) : rejeu Windows
+  test-count-floor, ci-gates, export-public, cra-b 57/57 ; G7 dix gates à 0, enregistrement
+  F:/tmp/oracle-results/3128869e…-G7-20261008T124707Z-110560.json sha256 d2a4f0bea5f2f8f46bb747f82de2e56fc42446901f838f7eb7dade9c61397c4f
+  ; tronc poussé 3e194d2e..3128869e vers 13:0x UTC, PR MERGED ; fenêtre PR-1/PR-2 ouverte ; comparaison du relevé avec test:main sous
+  Windows en cours. Item REPORTER-REALPATH-1 (RECHERCHES) accepté.
+- #251 M-1 : la réécriture par poussée forcée a été refusée par le contrôle de permissions de la session de RECHERCHES (« Git Destructive
+  ») ; voie retenue : la même histoire propre sur une branche neuve recherches/io-guard-posed-files-2, PR neuve, #251 fermée ensuite avec
+  renvoi ; T' et C' inchangés. Exposition : les deux détails de R1 restent sur la branche recherches/io-guard-posed-files-1 tant qu elle
+  existe. QUESTION AU FONDATEUR À POSER : supprimer cette branche (suppression = acte du fondateur), avec les huit archives et les quatre
+  fichiers de l hôte du site.
+- TEST-COUNT-FLOOR-1, parité Windows du relevé (note 5) : test:main sous Windows à 3128869e : 2 960 tests, 2 919 verts, 0 échec, 41 sautés
+  (sauts posés sur des feuilles, comptés) ; test-counts.out.json contre test/test-counts.json : 288/288 fichiers, 2 960/2 960 tests, 0
+  différence, résumé propre partout. PR-2 peut partir de 3128869e.
+- PAROXYSME amendement n° 2 du plan de route (f16a7d2, pièce 2026-10-08-plan-amendement-2, sha256 6f25791c…) : le but du fondateur (une
+  pépite que les grands acteurs s arrachent) comme critère ; item INSTITUTIONAL-BUYER-REQS-1 (liste fermée des exigences d un acheteur
+  institutionnel, sources lues ; PAROXYSME, chercheur Sonnet 5.5 high ; déclencheur le rapport du cp-1 de PXC-02) ; section « Exigences de
+  l acheteur » dans chaque ADR. Q-AM2-1 : option (c) retenue par MONARK (une colonne lue à côté du score, sans poids inventé, jusqu à la
+  liste fermée et mesurée). PXC-02 : décisions MONARK 13:2x UTC, Q-M2 (b), Q-M3 (a), Q-M4 (b) consultation retirée (forme (2) de D-1 jugée
+  conforme à la règle Branchement), Q-M5 (a), Q-M6 (a) et (a), Q-M7 (a) ; cp-1 du validateur lancé sur l ADR 7fdb7cdb… et le plan
+  82b0cb9e….
+- PXC-02 partie 1, cp-1 du validateur-humain (instance neuve claude-fable-5-1 high, R-1 déclaré ; ADR 7fdb7cdb…, plan 82b0cb9e…, décisions
+  de MONARK 4bb60a7) rendu vers 13:3x UTC : ACCEPTE-AVEC-CORRECTIONS, C-1 à C-8, aucune bloquante pour le début du code (C-1 à C-5 plis de
+  texte avant la validation du fondateur ; C-6 sort de test/test-counts.json ; C-7 preuve acquise seulement au cp-2 par RED-PROOF.json
+  rejoué ; C-8 porteur d Ukemi E12) ; CA-11 durci (forme (2) de D-1) conforme ; coupe L1/L2 conforme. Rapport versé à PAROXYSME (pièce
+  2026-10-08-cp1-pxc02-p1). Suite : plis, puis l ADR au fondateur pour validation (ADR seule, Q-M7 (a)). Q-AM2-1 (c).
+- #254 registres PAROXYSME après #253 (tête 6b94ac35 ; cinq registres, documents seuls ; CI 12/12 ; MK-L29 ouvert → changé par Q5 (a))
+  fusionnée localement 94733bda sur 3128869e ; rejeu Windows porte des adresses et ci-gates 56 verts, 1 sauté ; G7 en cours. Questions de
+  forme de PAROXYSME : R1 (b) retenue (Narabi L19 changé, item formé à ETAT), R2 confirmée (items de Bell formés au G0 de O-3). Tâche 3 de
+  PAROXYSME : une proposition par ref pour seize refs non fusionnées, dont onze locales à l hôte de MONARK. Outil : la règle du nom de
+  décideur suivi d une minute est retirée de guard.mjs (elle refusait les heures prévues ; la règle des décennies couvre les actes passés)
+  ; 59 cas.
+- PAROXYSME PR #66 (atelier n° 10, errata P-29 à P-32 : pmsg.mjs refuse une branche paroxysme/<sujet> absente du TABLEAU et de l origine,
+  et une section « en cours » de plus de 90 minutes ; règles de jugement 20 à 22) fusionnée par MONARK vers 13:5x UTC ; 256/256 sous
+  Windows (257 sous Linux).
+- #254 fusionnée et poussée : G7 dix gates à 0, enregistrement F:/tmp/oracle-results/94733bda…-G7-20261008T134651Z-15008.json sha256
+  290b0db6edbe56e7166c2336e797b6ee9077bd9d5bceb88d3a1adcdcc168b5d0 ; tronc poussé 3128869e..94733bda vers 13:5x UTC, PR MERGED.
+- Tâche 3 de PAROXYSME, les seize refs non fusionnées (29c5118, pièce 2026-10-08-p28-refs) : propositions par ref ; fusionner par leur
+  chantier lot/k1-attesteur (PXC-03), lot/narabi-2-n2-1a et lot/narabi-2-mutants (PXC-04) ; retirer base/t0-fusion-2026-10-06 (aucun
+  travail non fusionné, prouvé) et, sous mesure sur l hôte de MONARK (git cherry, état des fichiers, lignes perdues), lot/dojo-pr2-2,
+  lot/garde-helius-2b-ii, preview-all, public-scrub-site-batch ; lot/methode-m5c au fondateur ; tags v0.5.0 et v0.6.0 au fondateur s ils
+  ne vivent que sur l hôte ; recherches/r25-integration-rule-1 à RECHERCHES. Mesures de MONARK à faire au prochain moment calme ; tout
+  retrait qui efface du travail non fusionné va au fondateur.
+- Refs non fusionnées, mesures de MONARK sur son hôte (p28-measure.sh, lecture seule) : lot/dojo-pr2-2 et lot/garde-helius-2b-ii aucune
+  ligne perdue, public-scrub-site-batch tout au tronc, base/t0-fusion-2026-10-06 sans perte (prouvé par PAROXYSME) ; preview-all : 5
+  commits non fusionnés, 142 lignes absentes du tronc. QUESTIONS AU FONDATEUR À POSER : (1) suppression des quatre refs sans perte ; (2)
+  preview-all (recommandation : garder) ; (3) lot/methode-m5c (Q-P28-1) ; (4) tags v0.5.0 et v0.6.0 s ils ne vivent que sur l hôte
+  (Q-P28-4) ; avec la branche recherches/io-guard-posed-files-1, les huit archives et les quatre fichiers de l hôte du site.
+- PXC-02 ADR v9 (4f45d750…, plan 8aed752b…) pliée par PAROXYSME (ccdcd04 ; C-1 à C-8, Q-M2 à Q-M7, MAST lu, vérification courte VERIF-V8
+  pliée) : relue par MONARK (relevé §10-§11) ; X3 sous Q-M3 (a) confirmé ; à présenter au fondateur pour validation (ADR seule) à son
+  retour ; aucun code de la partie 1 avant. QUESTIONS AU FONDATEUR (lot à son retour) : validation de l ADR de PXC-02 ; Firecrawl «
+  account is low on credits » (vu par PAROXYSME 13:44-13:59 UTC) ; suppressions (branche io-guard-posed-files-1, quatre refs sans perte,
+  preview-all, huit archives, quatre fichiers de l hôte du site) ; lot/methode-m5c ; tags.
+- #252 NARABI-OPS-1-FOLD-11-1 : demande de fusion (e41a261, tête 72d6888e, CI 12/12, R-25 280 ; G2 0b12c225 pliée sans ligne de code
+  changée ; 15/15 tueurs, 5/5 mutants du G2-delta tués ; rpc.ts APRÈS 0a5a8c3b… ; comptes : garde 15 → 17, retry 4, pool 11, test de garde
+  7). Le « 17 tests perdus » d une course de base des mutants : scripts/mutants/run.mjs lance node --test sans le préchargement de
+  test:main, une base peut se lire verte avec des tests absents ; items formés par RECHERCHES MUTANTS-BASELINE-UNREPORTED-1 et
+  MUTANTS-REPLAY-PROMOTE-1 (déclencheur : le prochain lot qui touche scripts/mutants/). Re-checkpoint-2 du validateur lancé par MONARK
+  vers 14:4x UTC.
+- PAROXYSME PR #70 (atelier n° 11, errata P-33 et P-34 : la garde refuse la mission d un lecteur ou d un extracteur qui lui demande date
+  -u ; règle de jugement 23) fusionnée par MONARK vers 15:0x UTC ; 262/262 sous Windows (263 sous Linux).
+- #255 IO-GUARD-POSED-FILES-1 (remplace #251 ; tête 14f78d63 ; CI 12/12 ; diff contre l ancienne branche réduit à la note, 28+/5-, et L
+  identique octet pour octet ; aucune valeur de R1 sur la branche neuve) fusionnée localement d3a71049 sur 94733bda. Rejeu Windows §9 :
+  Node 71/71 (kata-recalc, verifiers-list, recompute-report, killer-lines, ci-gates) ; Python 3.14.5 sous -E -S -s -B -P : guard_check 65
+  OK, 0 échec, 1 SKIP déclaré (first tree name under the second tree), ntfs-stream, msvcrt, _wmi, dossier de cache et lien nommé courus ;
+  report_check, compare_check, binom_check (registre et moteur) GREEN ; vectors_check sur les vecteurs publics à ffb5ea33 (sha256
+  06ecf069…, 127 681 octets) : fin épinglée (sortie c05f8cc1… égale) ; compare.txt, binom.txt, hikae.txt égaux à l octet aux références de
+  la note l.1571 ; report.txt diffère par la section 3 (vraie libm de Windows), verdict vert ; red-proof --base 3128869e --gel 14f78d63
+  OK, 3 jugés F2P. G7 en cours. Divulgation : les deux détails de R1 restent publics sur la branche recherches/io-guard-posed-files-1 et
+  refs/pull/251/head (purge seulement par le support de GitHub) : question au fondateur.
+- PAROXYSME fb61da5 (L1 de PXC-02 partie 1 préparé localement sur 94733bda, six commits ab5ce606..b2211929, rien poussé ; R-25 code 379 ;
+  19 tests jugés, 49/49 mutants de la réplique tués) : réponses de MONARK vers 15:2x UTC (paroxysme PR #71, 98df6c5) : Q-L1-1 (a) l ADR v9
+  entre dans docs/adr/ par une PR de documents à part, avant L1, après la validation du fondateur ; Q-L1-2 (b) rpc-guard.mjs en 100755 par
+  une PR à part avec un test du mode des bin (index du tronc : 0 entrée en 100755, shebang présent, seul bin) ; Q-BR-1 (b) le tableur
+  réservé aux membres n est pas utilisé, les entrées qui ne tiennent qu à lui sont retirées, procurement formé (accès de membre ou
+  permission écrite, acte du fondateur).
+- #255 fusionnée et poussée : G7 dix gates à 0, enregistrement
+  F:/tmp/oracle-results/d3a7104995bd196e8aa2ed8550783cbe602546fb-G7-20261008T150444Z-70344.json sha256
+  1ce36e8ace8703067d3a6cdd34d950e9e270d53274e3435e633e5b4bb35c5aac ; poussé 94733bda..d3a71049, PR MERGED ; rejeu Windows du §9 (Node
+  71/71 ; guard_check 65 OK, 1 SKIP déclaré ; report, compare, binom --registry et binom VERDICT: GREEN ; vectors_check à la fin de
+  VECTORS.end, chaque ligne une fois, aucune autre ligne FAIL ni RED ; sorties compare, binom et hikae égales aux références ; red-proof
+  OK, 3 F2P) ; message à RECHERCHES vers 15:2x UTC (recherches PR #462, c528b40), avec Q-P28-5 (a) : recherches/r25-integration-rule-1
+  reste.
+- PAROXYSME d1cd6f0 : #257 WORKSPACE-BIN-MODE-1 ouverte (rpc-guard.mjs en 100755 et test/workspace-bin-mode.test.ts ; red-proof F2P, 1/1
+  mutant) ; preuves de L1 : 93 mutants tués sur 94, le survivant est un tueur mort au tronc (test/narabi-live.test.ts l.539 vise
+  harness-served-load.ts l.192, dont le fichier lu n est plus suivi depuis 53cd3fb6 : mutant équivalent, revérifié par MONARK) ; réponse
+  de MONARK vers 15:3x UTC (paroxysme PR #72) : balayage de tous les tueurs du tronc d abord (1 346 lignes killer dans 87 fichiers à
+  d3a71049, environ 36 minutes estimées, sous le verrou de l hôte, après la fusion de #257), puis Q-L1-3 (a), une PR à part qui corrige
+  tous les tueurs morts ; pli de --base de la campagne accepté.
+- #257 WORKSPACE-BIN-MODE-1 (tête 794cbd41, CI 12/12) : relue par MONARK, fusionnée localement b44c3890 sur d3a71049 ; rpc-guard.mjs
+  100755 dans l index ; rejeu Windows de test/workspace-bin-mode.test.ts et de test/ci-gates.test.ts : 45 verts, 0 rouge, 0 sauté ; G7
+  lancé (base d3a71049).
+- PAROXYSME 642341f : plan de PXC-02 partie 1 plié en v10 (7b0659e3…1b7d43b4, 2599 lignes, remplacé par e784c81a…9bc2a449, 2600 lignes,
+  erratum P-35 486cd55 : la phrase de MONARK citée mot pour mot ; base des mutants = tête du tronc avant le lot, contrôle des lignes K de
+  RESULTS.json, « un vert qui ne rejoue aucun tueur ne prouve rien ») ; l ADR 4f45d750… ne change pas ; balayage des tueurs du tronc prêt,
+  lancé quand lot/etude-suite porte la fusion de #257.
+- #257 fusionnée et poussée : G7 dix gates à 0, enregistrement
+  F:/tmp/oracle-results/b44c3890a9fddcab54edd1f3df044a348687b979-G7-20261008T153621Z-66436.json sha256
+  a4907f4a00f984bc6c2af3c6b7a80460770db515f83c52c2980e7764adef5105 ; poussé d3a71049..b44c3890, PR MERGED ; message à PAROXYSME vers 15:4x
+  UTC (paroxysme PR #73, 72cb93a) : le balayage des tueurs peut partir, aucun G7 de MONARK pendant le balayage.
+- Garde de l atelier : une décennie en avance sur l horloge refusée à 15:48 UTC (« 15:5x » écrit dans une ligne d ETAT avant l envoi) ;
+  corrigée en 15:4x avant tout envoi.
+- #252 NARABI-OPS-1-FOLD-11-1 : re-checkpoint-2 du validateur-humain (instance neuve claude-fable-5-1 high, R-1 déclaré ; agent
+  adf76dd52c4e8724c ; rapport F:/tmp/recp2-fold-11-1/RAPPORT-recp2-fold-11-1.md sha256
+  57404b5a5688a5cc7afdc5259ef39f06134228ea1f8c1b9a4cb0039a34946608) : ACCEPTE-AVEC-CORRECTIONS, aucune escalade, aucune correction sur le
+  code ; oracle cp-2 du validateur exit 0 (72d6888e…-cp-2-20261008T150636Z-105716.json, sha256 a4a17596…) ; C-1 (section Size de la note,
+  262 → 280) à RECHERCHES sur la branche, le push relance la CI sur la fusion avec b44c3890 (C-6) ; C-2 à C-7 au G7 de MONARK. Messages
+  vers 15:5x UTC : RECHERCHES PR #463 (a92385a), PAROXYSME PR #74 (42d9be4, C-3 pour le balayage).
+- Items formés par le re-cp-2 de #252 : BELL-QUORUM-COMMENT-1 (apps/bell/src/quorum.ts l.13, commentaire devenu faux ; déclencheur : le
+  prochain lot qui touche ce fichier) ; MUTANTS-SKIPPED-NOT-KILLED-1 (scripts/mutants/run.mjs compte « tue » un tueur dont le test nommé
+  est sauté sous win32 quand un crochet after() rougit, mesuré sur K7-K10 ; construction : « non conclu » ; proposé à PAROXYSME) ; C-5
+  (ADR-NARABI-OPS-1 l.251 et l.257 citent docs/CHANTIERS.md supprimé à a21a65bf ; corrigé au commit de documents du G7) ; C-7 (les 12
+  mutants du harnais -1d hors dépôt, rejoués au G7 ou argument d équivalence).
+- PAROXYSME 99bfb20 : MUTANTS-SKIPPED-NOT-KILLED-1 reproduit sous Linux (test nommé sauté, crochet after() rouge : classify de
+  red-proof.mjs l.107-114 donne assert-fail, runSet de run.mjs l.212/215 donne « tue ») ; branche paroxysme/mutants-skipped-not-killed
+  (run.mjs, test/mutants-run.test.ts, test/test-counts.json) ; vérification de la passe 3 des exigences d acheteurs : 9 problèmes, 2 à
+  corriger, aucun bloquant ; ligne P-16 purgée du contenu du tableur réservé (e15afb0). Réponse de MONARK vers 16:1x UTC (paroxysme PR
+  #77) : forme acceptée, vérifier si red-proof.mjs a le même défaut ; erratum P-37 retiré : #257 sans write du registre relève de la
+  décision de fenêtre de 11:2x UTC, appliquée à #257 (8d0ebbf l.38) ; le write du PR-2 (#256) reprend test/workspace-bin-mode.test.ts.
+- Question au fondateur (16:0x UTC) : liste de huit points présentée ; question 1 (validation de l ADR de PXC-02 v9, 4f45d750…, plan v10
+  e784c81a…) expliquée en langage simple, réponse attendue.
+- DÉCISION DU FONDATEUR (en session de MONARK, vers 16:1x UTC), sur l ADR de PXC-02 v9 (4f45d750…) et le plan v10 (e784c81a…) présentés en
+  langage simple : « ok, mais pour shogen mettez BUILDINBG, en cours, ne mettez pas a venir. mais j insiste sur le fait qu'avant la fin du
+  chantier paroxisme, ces manquement doivent étre faits, c est a dire builder ces manquament. pas remettre des phrases honnétes et laisser
+  des trous dans le code, on ne build pas l honneteté, on build un produit ». Validation avec deux amendements : A-1, le bloc How it works
+  de Shōgen prend une troisième valeur de statut, building, liée à un item de construction (renverse le rejet de D-8) ; A-2, chaque phrase
+  bornée par PXC-02 et chaque limite de son §6 reçoit une construction qui rend la promesse d origine vraie, avant la fin du chantier
+  PAROXYSME (amendement n° 3 du plan de route). Relayé à PAROXYSME (paroxysme PR #78, 235d84a).
+- Suppressions du fondateur (Q-P28-2, son « ok » à la question 4, faites par lui après le refus du contrôle des permissions de MONARK, «
+  Irreversible Deletion ») : branches locales base/t0-fusion-2026-10-06 (copie GitHub gardée), lot/garde-helius-2b-ii,
+  public-scrub-site-batch et lot/dojo-pr2-2 supprimées, avec le worktree F:/Monark-wt-dojo-a2 désinscrit ; mesures de MONARK avant la
+  question : aucune ligne perdue (p28-measure.sh, revérifié vers 16:2x UTC) ; SHA gardés dans F:/tmp/dojo/refs-supprimees-2026-10-08.txt.
+  Tronc inchangé (b44c3890, arbre propre).
+- Question 5 au fondateur : preview-all (142 lignes absentes du tronc) gardée sur sa réponse « ok » à la recommandation de garder ; item
+  PREVIEW-ALL-TRIAGE-1 formé : le prochain lot du site qui touche apps/site/app/integrators ou gate-sim dit si ces lignes servent encore,
+  puis fusion par leur chantier ou retrait sur décision du fondateur.
+- Question 6 au fondateur : la branche publique recherches/io-guard-posed-files-1 (note 59f7bcfc avec deux détails des vecteurs privés de
+  R1, taille et empreinte, aucune valeur) supprimée par le fondateur ; ls-remote vers 16:3x UTC : branche absente ; refs/pull/251/head
+  reste (e55cec0a), purge par le support GitHub laissée au fondateur, plus tard (item R1-PR251-REF-PURGE-1, acte de compte du fondateur).
+- Question 7 au fondateur : les huit archives .bak-*.tgz du VPS (sauvegardes de l étape 2 de RUNBOOK-vitrine, 2026-09-18 à 2026-10-04,
+  disque à 6 %) gardées sur son « ok » ; item HARNESS-BAK-ARCHIVES-1 : au prochain déploiement du harnais, MONARK en fait l inventaire
+  (noms de fichiers seuls, aucune valeur affichée), puis la question revient au fondateur.
+- Question 9 au fondateur (Q-P28-1), vers 16:3x UTC : « A », reprise du lot M-5c (lot/methode-m5c, gel 2 93e9abce ; 5 fichiers, +820/-62
+  contre b44c3890 ; trois conflits au merge-tree). Branche publiée sur origin après contrôle du diff ajouté (aucun quadruplet pointé,
+  aucune forme de clé) ; refs/journal locale non poussée. Item JOURNAL-LINT-FREEZE-HOST-1 formé (orphelin depuis le 2026-09-29, défaut de
+  MONARK) : J-LINT lit un état figé au lancement de la mission, non l hôte vivant à l add ; porteur : la reprise de M-5c, confiée à
+  PAROXYSME (plan court, G2 neuve, cp-2) ; échéance avant l alerte PAR-4 du 2026-10-13.
+- Question 8 (quatre fichiers hors dépôt dans l arbre servi du site) : sans objet pour le fondateur ; /products répond 308 (renommée
+  /applications, 0785992c) ; le prochain déploiement par RUNBOOK-vitrine reconstruit l arbre depuis l export, MONARK vérifie leur absence
+  ce jour-là (item SITE-STRAY-FILES-CHECK-1).
+- Question 10 au fondateur (Q-P28-4) : tags v0.5.0 (2a24063b) et v0.6.0 (55554466), annotés, sur des commits d intégration absents de
+  origin/main : gardés sur l hôte, non publiés, sur son « OK » à la recommandation.
+- PAROLE DU FONDATEUR (vers 16:5x UTC), mot pour mot en tête : « IL ONT DEJA ETE publié, et ma consigne est claire. si on a trouvé des
+  trous, c est pas les textes qu'il faut changer, ce sont les trous qu'il faut combler, avec du vrai travail, piéce par piéce, changer le
+  texte, puis combler les trous puis rechanger le texte est un triple travail; […] peu importe maintenant, continuez comme prévu, mais on
+  code ce qui n est pas codé ». DN-13 clos (messages X
+  publiés, gardés tels quels) ; règle d ordre ajoutée à l amendement n° 3 (colonne « ordre » : construire d abord, texte inchangé, quand
+  la construction vient avant la partie qui changerait le texte) ; la table couvre toutes les limites côté MONARK de PAROXYSME-Shogen.md ;
+  échéances de N-06, N-07, N-08 portées dans l amendement n° 3. Relayé à PAROXYSME (paroxysme PR #80, 3b2d093).
+- Question du fondateur vers 16:5x UTC : canal vers le Claude de Shōgen et VPS avec sa version actuelle. ListAgents : session SHOGEN
+  [383017] (Claude Desktop, inactive). Message envoyé par SendMessage (msg 51fafeb4…) : version servable ou non, besoins (machine, réseau,
+  comptes, usage de Chainstack), interface et compatibilité avec les attestations du contrat 1.1.0, lieu (VPS de MONARK ou à part),
+  limites bloquantes ; aucune donnée secrète demandée ; achat et comptes = actes du fondateur.
+- Réponse de la session SHOGEN locale (inactive depuis le 2026-10-02 ; lecture de la branche de la session Shōgen active,
+  claude/compassionate-noether-szmdyj à b46672b, vers 17:0x UTC) : pas encore, et pas sous forme de serveur. Aucun serveur MCP ni HTTP
+  dans Shōgen ; la collecte S2-bis (ADR-0029) n est pas déployable (DEPLOI-BIS non fait, aucune version figée) ; S2 a rendu « R1
+  discrimine = FAUX » ; S2-bis = quatre VPS chez quatre fournisseurs, ASN et pays distincts, environ 165 à 605 € pour 5 à 7 mois, sans clé
+  d API ; Chainstack seulement pour la carte des oracles hors vote, sous conditions et amendement d ADR-0029 ; rien de vivant servi
+  pendant la campagne (aveuglement) ; ordre produit : rejeu historique des décrochages, Root Count v0, puis attestation portable,
+  vérificateur hors ligne et MCP en lecture seule ; compatibilité avec le contrat 1.1.0 non vérifiée ; serveurs à part du VPS de MONARK ;
+  L-41 bloque tout témoignage notarié servi (clé du notaire dérivée d une graine publique). Revérifié par MONARK sur GitHub : main de
+  KraidleAI/shogen à afc7756, branche à b46672b (16:11:59Z), PR #1 ouverte.
+- #252 NARABI-OPS-1-FOLD-11-1 : demande de fusion de RECHERCHES (23ebcb9 ; C-1 fait, a60d4911, la note dit 280 ; CI 12/12 sur la fusion
+  avec b44c3890, condition C-6) ; fusionnée localement 6cfd8abd sur b44c3890 (11 fichiers, +458/-113) ; rejeu Windows des quatre fichiers
+  de test touchés et de ci-gates : 83 tests, 79 verts, 0 rouge, 4 sautés (les tests SIGTERM, saut win32 déclaré) ; G7 après la fin du
+  balayage des tueurs de PAROXYSME (engagement de MONARK), puis les 12 mutants du harnais -1d (C-7) sur une copie à la fusion, puis push
+  et commit de documents des actes C-2 à C-6.
+- PAROXYSME 5f3d556 : passe 4 des exigences d acheteurs institutionnels (454 exigences, 451 [lu], 3 [abs], 162 neuves ; vérification par
+  un lecteur neuf en cours) ; procurement neuf P-19 (guide de valorisation réservé aux membres d une association de gestionnaires ; acte
+  de compte du fondateur, avec P-16) ; erratum P-38 (mission qui bornait le réseau outil par outil sans interdire curl et WebFetch ; deux
+  essais refusés, rien lu) ; PR d atelier n° 13 (#81, règles de jugement 24 et 25) ouverte en brouillon, après #75 qui attend le
+  fondateur.
+- #256 TEST-COUNT-FLOOR-1 PR-2 : G2 ef02eaf2 (CORRECTIONS, 2 m, 5 notes, aucun M) intégrée par RECHERCHES (tête 27dff3d4, CI 13/13 ;
+  relevé réécrit sur b44c3890, 290 fichiers, 2 966 tests, 0 baisse ; R-25 251 ; red-proof OK 3 F2P ; mutants 62/62) ; demande de fusion
+  3051e44 ; ordre (a) décidé par MONARK vers 17:2x UTC (recherches PR #464) : #252 d abord, puis fusion du tronc dans #256 et write (15 →
+  17), puis cp-2 du validateur sur le delta depuis 95de758f, puis fusion, G7 et fermeture de la fenêtre de 99864a9.
+- Balayage des tueurs du tronc (PAROXYSME 7874eb1, relevé intermédiaire) : 1 741 lignes killer dans 159 fichiers des six globs à b44c3890
+  ; à 1 287 lignes : 1 250 tue, 3 survit (K1093 narabi-live l.539 connu ; K116 gate-cell l.67, mutation en zone KATA, à RECHERCHES ; K1233
+  r25-integration l.320), 34 non conclu (dont 15 tests réservés à win32 dans test/lot-retire*.test.ts, à juger par MONARK sous Windows) ;
+  deux écarts outil/TAP (K1213, K1232). Fin estimée vers 18:20 UTC. Le balayage tourne dans le conteneur Linux de PAROXYSME, non sur l
+  hôte de MONARK : l engagement de MONARK de ne pas lancer de G7 pendant le balayage (8d0ebbf, 4156118) partait d une prémisse fausse ; G7
+  de #252 lancé vers 17:3x UTC. Relais à PAROXYSME de ITEMS.md de RECHERCHES (d7cdc8c, MUTANTS-BASELINE-UNREPORTED-1,
+  MUTANTS-REPLAY-PROMOTE-1) : un seul changement sur scripts/mutants/ avec C-3 (paroxysme PR #82, 4c6ac41).
+- #252 fusionnée et poussée : G7 dix gates à 0, enregistrement
+  F:/tmp/oracle-results/6cfd8abd85ead97a8d6679d9d78f3fa94dfdf74c-G7-20261008T173130Z-68136.json sha256
+  79645879d4b60bcc7d161343e8690c1d36d5b30f3cf10fb483d7b1709b09ec2c ; poussé b44c3890..6cfd8abd, PR MERGED vers 17:4x UTC ; message à
+  RECHERCHES (ordre (a) de #256 lancé). Restent : C-7 (12 mutants du harnais -1d sur une copie à la fusion) et le commit de documents des
+  actes C-2 à C-6 (brouillon par un worker).
+- C-7 du re-cp-2 de #252, rejoué par MONARK vers 17:4x UTC sur un worktree jetable à 6cfd8abd (node_modules en jonction, clés payantes
+  retirées de l environnement des enfants) : harnais -1d F:/tmp/nops1d/mutants.mjs, 11 mutants sur 12 tués par leur test nommé, tous
+  restaurés à l octet (F:/tmp/c7-252/run.log) ; le douzième, no_lock_release_in_finally, ne trouve plus son texte (bloc finally de run.ts
+  récrit par SENTINEL-SIGTERM-STARTUP-WINDOW-1, 0dc87996, avant #252) : même intention reciblée sur le texte courant
+  (F:/tmp/c7-252/retarget-k4.mjs), tué par sentinel_run_re_acquires_lock_after_clean_exit, restauré. Donc 12 sur 12. Worktree jetable
+  retiré.
+- Commit de documents du G7 de #252 : 74d2cdbc (brouillon d un worker claude-opus-5-5 max, patch sha256 941471ae…, relu et complété par
+  MONARK : jugement d O-1, C-7, décision sur SENTINEL-GUARD-ARMING-1, quatre lignes périmées d ADR-NARABI-OPS-1 et RUNBOOK l.335 corrigées
+  en place ; items U4B-FREEZE-D4-GUARD-1 et SENTINEL-UNIT-ANCHORS-1 formés) ; lang:gate 0, no-host-address et ci-gates 56/57 (1 saut
+  déclaré) ; oracle G1 complet lancé, push seulement s il sort 0.
+- PAROXYSME 2106c2a : passe 5 des exigences (536, 533 [lu], 3 [abs], 82 neuves) ; divergence de champ des régulateurs sur les flux de
+  données de marché (IBR-459, 463 à 466, 518) ; crédits Firecrawl bas de nouveau ; erratum P-39 (fin du balayage entre 21:30 et 22:30
+  UTC). Réponses de MONARK vers 17:5x UTC (paroxysme PR #84) : Q-BR-2 (a) jusqu à la recharge annoncée par le fondateur, puis (c) avec la
+  borne de vingt lectures et pas de PDF de plus de vingt pages pour un paragraphe ; Q-BR-3 (b), clôture sur deux passes sans ajout depuis
+  les familles déjà listées, toute source neuve ensuite en ligne « à lire » datée.
+- 74d2cdbc poussé (6cfd8abd..74d2cdbc) après l oracle G1 complet : dix gates à 0, enregistrement
+  F:/tmp/oracle-results/74d2cdbceb9ab8d74267207c6ebcc87040b07ee1-G1-20261008T175208Z-99436.json sha256
+  732ec77b049930cba1c9b244d7edaf9b766f69538301a08ea002b56e43124b09. Pli de PAROXYSME-Narabi (L26 changé ; L27, L28 inchangés) demandé à
+  PAROXYSME.
+- #256 tête finale 87d8df27 (RECHERCHES 23272e5 : fusion du tronc 570c08b9 sur 6cfd8abd, write d une ligne 15 → 17, CI 13/13, 290
+  fichiers, 2 968 tests, 0 baisse, taille 253) ; cp-2 du validateur-humain lancé par MONARK vers 18:0x UTC (instance neuve, delta
+  95de758f..87d8df27, parité Windows de la porte, base = tronc avant le lot, rapport F:/tmp/cp2-256/RAPPORT-cp2-256.md).
+- PAROXYSME 90b8901 : passe 6 lancée sans Firecrawl (Q-BR-2 (a), Q-BR-3 (b) appliquées, tools6/cloture.mjs) ; vérification de la passe 5 :
+  la divergence de champ tient avec une nuance (le FSB exclut les services d information de marché sous condition de surveillance, l
+  autorité bancaire européenne par principe) ; pli des registres après #252 sur paroxysme/registers-fold-252 (L26, L19 à changé, R2) ;
+  erratum P-40 (fin du balayage vers 18:40 UTC) ; erratum P-41 (quatre branches fusionnées au nom français sur le dépôt public). Q-P41-1
+  (supprimer ces quatre branches) : (a) pour l instant, question au fondateur, suppression = son acte (refusée à MONARK par le contrôle
+  des permissions, non contournée par PAROXYSME).
+- Q-P41-1 au fondateur vers 18:4x UTC : « oui » à la suppression des quatre branches fusionnées au nom français
+  (paroxysme/registres-interimaires dda217c4, registres-decisions-1007 b7c2ba40, registres-decisions-1008 8d9d5693, registres-apres-253
+  6b94ac35 ; toutes ancêtres du tronc, revérifié par MONARK) ; commande donnée au fondateur, qui la lance lui-même.
+- Balayage des tueurs du tronc fini (PAROXYSME 031df97, pièce 596d35f) : 1 741 lignes à b44c3890, lus dans les TAP 1 687 tuées, 3
+  survivantes (K116 zone KATA à RECHERCHES ; K1093 narabi-live l.539 ; K1233 r25-integration l.320), 51 non conclues (15 tests sautés sous
+  Linux, 15 absents du TAP, 10 exceptions de garde, 8 autres, 2 rouges venus d ailleurs, 1 diff d assertion). Lot unique de
+  scripts/mutants/ poussé (25c60d48, R-25 326). #258 (pli des registres après #252) en brouillon, CI 12/12, quatre questions de forme avec
+  défauts.
+- Les quatre branches paroxysme/registres-* supprimées par le fondateur ; ls-remote vers 18:4x UTC : aucune ne reste.
+- #258 PAROXYSME registres, pli de l après-#252 (tête 18c83be1, CI 12/12, deux fichiers docs/PAROXYSME-Bell.md et -Narabi.md, vérification
+  neuve pliée ; Narabi 61 entrées, L19 seule change d état ; Bell inchangé) : relue, fusionnée localement c94c57df sur 74d2cdbc ; rejeu
+  Windows de ci-gates et de la porte des adresses : 57 tests, 56 verts, 0 rouge, 1 sauté déclaré ; G7 lancé. Q1 à Q4 de forme : défauts
+  acceptés par MONARK.
+- PAROXYSME 15d92b3 : amendement n° 3 du plan de route v5 (pièce f602914 ; 88 lignes : 19 construire d abord, 68 texte d abord, 1 sans
+  ordre ; aucune tâche de L1 ni L2 vidée ; treize marques upcoming lues pour building, 2 oui sous condition ; fin du chantier pas avant
+  PXC-08 p3 et PXC-07 p3, après le 2026-12-31). Réponses de MONARK (paroxysme PR) : Q-AM3-1 (a), Q-AM3-2 (a), Q-AM3-3 (a), Q-AM3-4 (a).
+  Sept questions au fondateur (Q-F1 lien de Bell avec Shōgen et Hikae ; Q-F2 lecteurs de Firebreak et Softlanding ; Q-F3 dépense de B_t ;
+  Q-F4 keyless RPC quorum ou jambe payante d Ukemi ; Q-F5 échéances du dépôt Shōgen public et de S2 ; Q-F6 capteur complet de Shōgen ;
+  Q-F7 journal d accès du harnais) à poser une par une.
+- #258 fusionnée et poussée : G7 dix gates à 0, enregistrement
+  F:/tmp/oracle-results/c94c57dfc4873a7a0dd04b89148eec01de5a061b-G7-20261008T185351Z-45016.json sha256
+  d7312d927d942e132a1e48ba76ef80e091ba21ccc131b6e76fad4dd542dff6de ; poussé 74d2cdbc..c94c57df, PR MERGED.
+- Fondateur, vers 19:0x UTC : « firecrawl rechargé ». Q-BR-2 passe à (c) dès la passe 8 (vingt lectures markdown par passe, règle des
+  vingt pages, priorité à la revérification des copies retapées).
+- RECHERCHES 7d898d1 (colonne vide, règle 2 du tableau) : W2-GUARD-MISSES-TAIL-1 pris, G0 d abord (branche
+  recherches/w2-guard-misses-tail-1 sur 74d2cdbc). Réponse de MONARK vers 19:0x UTC (recherches PR #466) : d accord ; puis un lot sur les
+  onze tueurs de zone KATA du balayage (K116 survivant ; K212, K214, K223, K235, K264, K265, K267, K268, K276, K1348 non conclus par
+  exception), sections recopiées à l octet de SURVIVANTS.md (paroxysme 596d35f, sha256 5dfea14f…) ; entre les deux G0, la G2 croisée de la
+  PR de PAROXYSME sur scripts/mutants/.
+- PAROXYSME 2280d91 : plan de reprise de M-5c v3 (pièce 2d64c94, PLAN-REPRISE-M5C.md sha256 c1f1de46… ; JOURNAL-LINT-FREEZE-HOST-1 d
+  abord, R-25 78 ; M-5c sur le tronc, trois conflits résolus, R-25 580 ; ≈ 1,65 j-h ; PR le 2026-10-09, G7 au plus tard le 12). Réponses
+  de MONARK vers 19:1x UTC : Q-RM5C-1 (a), fusion --no-ff de lot/methode-m5c (359 titres accentués au tronc depuis le 2026-09-01) ;
+  Q-RM5C-2 (a), une seule PR (CHECKLIST-G7 case 4 : 547 borne ascendante du G0, r25() ≤ 1 150) ; à écrire par MONARK : ligne datée d
+  ADR-METHODE-2 l.60, items JOURNAL-LINT-FREEZE-HOST-1 et LINT-HOST-SNAPSHOT-1 à ETAT.
+- DÉCISION DU FONDATEUR (vers 19:2x UTC), à la question 4 (campagne S2-bis), mot pour mot : « NON, shogen travail dans un autre abonnement
+  claude, et il est trés bien avancé. tu ne t'occupes plus de ça » puis « sauf le shogen de MONARK pour le moment. » Le projet Shōgen
+  (dépôt, S2-bis, serveurs, capteur) sort du périmètre de MONARK ; MONARK garde le Shōgen de MONARK (outil attest, couture attest → porte,
+  surfaces ; L-01 à L-06, N-01 à N-16 du registre). Plus aucun message à la session SHOGEN locale sur ces sujets.
+- #256 TEST-COUNT-FLOOR-1 PR-2 : cp-2 du validateur-humain (claude-fable-5-1 high, R-1 ; rapport F:/tmp/cp2-256/RAPPORT-cp2-256.md sha256
+  c1b4f0a0adda3f7443554262fad3d0c145a6290e6db74926ae27d3bd0ab66d93) : ACCEPTE-AVEC-CORRECTIONS (C-1 : item de la limite « nombres, pas
+  noms » ; C-2 : item ou règle pour une PR empilée dont la base n a pas de relevé, déclencheur la demande de fusion de #238) ; oracle cp-2
+  exit 0 (87d8df27…-cp-2-20261008T180924Z-86176.json, sha256 7c01a555…) ; parité Windows de la porte établie. Fusionnée localement
+  92d01d67 sur c94c57df ; rejeu Windows de test-count-check, export-public, oracle-run et ci-gates : 69 tests, 68 verts, 0 rouge, 1 sauté
+  ; G7 lancé.
+- PAROXYSME 34e720d : paroxysme/m5c-resume poussée (a03dba6a sur c94c57df, quatre commits) ; #259 (lot unique de scripts/mutants/) ouverte
+  en brouillon, red-proof 12 F2P, campagne 63/63. Réponses de MONARK vers 19:3x UTC (paroxysme PR #93) : Q-SH-1 (a), mention datée hors
+  périmètre sur L-07 à L-53 et S-01 à S-07 du registre Shōgen ; Q-AM3-5 (b), armement de la sentinelle (SENTINEL-GUARD-ARMING-1, P-4,
+  §6-bis) avant PXC-05 p1, ETAT l.507 à corriger ; item MUTANTS-NM-SOURCE-SILENT-1 formé (porteur PAROXYSME, déclencheur le prochain lot
+  sur scripts/mutants/) ; G2 croisée de #259 routée vers RECHERCHES.
+- ERREUR DE MONARK (consignée vers 19:4x UTC, error_origin : MONARK, orchestrateur) : des titres de commit entrés au tronc public portent
+  des codes internes, contre la règle du 2026-10-07 06:0xZ (SKILL.md de l atelier, étape 1 de la fusion) : fusions de #243
+  (HOST-ADDRESS-GATE), #250 (TEST-COUNT-FLOOR-1 PR-1), #255 (IO-GUARD-POSED-FILES-1), #257 (WORKSPACE-BIN-MODE-1), #252
+  (NARABI-OPS-1-FOLD-11-1), #256 (TEST-COUNT-FLOOR-1 PR-2) et le commit de documents 74d2cdbc (« G7 of 252 »). Déjà publics : non réécrits
+  (aucune réécriture forcée du tronc). Correction mécanique : la garde de l atelier refuse désormais le push du tronc si un commit de
+  premier parent porte un code interne dans son titre (clés d item, ADR, G0 à G7, R-25, cp-1, cp-2), et la fusion d une PR dont la tête n
+  a pas de g3-test-count vert quand le tronc porte la porte des comptes (TEST-COUNT-STACKED-BASE-1, C-2 du cp-2 de #256) ; cinq cas neufs,
+  64 sur 64.
+- Correction de MONARK sur Q-P28-4 (question 10 au fondateur) : MONARK avait dit les tags v0.5.0 et v0.6.0 « seulement sur ce PC ». Les
+  tags de l hôte (2a24063b, 55554466, commits d intégration de monark-governance) n existent que sur l hôte, mais les releases v0.5.0 et
+  v0.6.0 sont publiées sur le miroir public KraidleAI/Monark (ls-remote vers 19:4x UTC : v0.5.0 ea29fbd5, v0.6.0 51a98f02). La décision du
+  fondateur (garder les tags de l hôte, ne pas les publier sur monark-governance) tient, et elle est mieux fondée : les versions sont déjà
+  publiques sur le miroir.
+- ITEM FORMÉ JOURNAL-LINT-FREEZE-HOST-1 (orphelin depuis le 2026-09-29, défaut de MONARK ; ADR-METHODE-2 l.60) : J-LINT relit l hôte
+  vivant à l add, d où la case 5 du G7 de M-5c rouge. Construction : l add lit un état figé au lancement de la mission (host: false à
+  lintMission, la partie hôte vient du reçu). Porteur : PAROXYSME, sur paroxysme/m5c-resume (plan de reprise v3, pièce paroxysme 2d64c94)
+  ; déclencheur : la décision du fondateur du 2026-10-08 (Q-P28-1 (a)) ; état : en cours.
+- ITEM FORMÉ LINT-HOST-SNAPSHOT-1 : après JOURNAL-LINT-FREEZE-HOST-1, la partie hôte du lint repose sur la parole du reçu. Construction :
+  un instantané de l hôte pris au lancement et lu à l add. Prix ≈ 0,5 j-h, R-25 ≈ 80 (estimés par PAROXYSME) ; porteur : PAROXYSME ;
+  déclencheur : la fusion de M-5c ; état : ouvert.
+- ITEM FORMÉ MUTANTS-NM-SOURCE-SILENT-1 : scripts/mutants/run.mjs fait tourner les enfants sans modules liés quand le clone source n a pas
+  de node_modules, sans le dire (l.216-217 à 25c60d48). Construction : refuser, ou écrire « sans modules » dans la note de la base.
+  Porteur : PAROXYSME ; déclencheur : le prochain lot sur scripts/mutants/ ; état : ouvert.
+- G7 de #256 (TEST-COUNT-FLOOR-1 PR-2), actes de ce commit : ITEM FORMÉ TEST-COUNT-NAMES-1 (C-1 du cp-2) : la porte compte des nombres,
+  pas des noms ; un test renommé ou vidé dans le même fichier passe, et la raison d une ligne de retrait n est contrôlée que non vide
+  (note du lot §12, n-1 de la G2). Construction : le relevé porte les noms, ou une empreinte des noms, par fichier. Porteur : RECHERCHES
+  (pris le 2026-10-08, eec97be) ; prix et déclencheur : à son G0 ; état : ouvert.
+- G7 de #256, actes de ce commit : ITEM FORMÉ TEST-COUNT-STACKED-BASE-1 (C-2 du cp-2 ; n-3 de la G2) : une PR empilée dont la base n a pas
+  de relevé ne voit pas le job g3-test-count. Construction faite le 2026-10-08 : la garde de l atelier de MONARK refuse le push du tronc
+  pour une fusion dont la tête n a pas de g3-test-count vert quand le tronc porte la porte (cinq cas neufs, 64 sur 64). Règle d usage :
+  #237 fusionne le tronc et écrit le relevé ; #238 se rebase sur #237 rafraîchie et écrit le relevé. État : clos par la garde.
+- ITEM FORMÉ PREVIEW-ALL-TRIAGE-1 (question 5 au fondateur, gardée) : la ref de l hôte preview-all porte 142 lignes absentes du tronc
+  (apps/site/app/integrators/page.tsx 62, gate-sim/board.tsx 37, fleet-presentation.ts 20, profiles.ts 15, test/ci-gates.test.ts 5,
+  fleet.ts 3). Construction : un lot du site dit si ces lignes servent encore, puis fusion par leur chantier ou retrait sur décision du
+  fondateur. Porteur : MONARK ; déclencheur : le prochain lot du site qui touche integrators ou gate-sim ; état : ouvert.
+- ITEM FORMÉ HARNESS-BAK-ARCHIVES-1 (question 7 au fondateur, gardées) : huit archives .bak-*.tgz du VPS (sauvegardes de l étape 2 de
+  RUNBOOK-vitrine, du 2026-09-18 au 2026-10-04). Construction : leur inventaire (noms de fichiers seuls, aucune valeur affichée) et une
+  règle de rétention. Porteur : MONARK ; déclencheur : le prochain déploiement du site ; état : ouvert.
+- ITEM FORMÉ SITE-STRAY-FILES-CHECK-1 : quatre fichiers hors dépôt dans l arbre servi du site (dont l ancienne page /products, qui répond
+  308 vers /applications). Construction : au prochain déploiement par RUNBOOK-vitrine, l arbre est reconstruit depuis l export ; MONARK
+  vérifie leur absence. Porteur : MONARK ; déclencheur : ce déploiement ; état : ouvert.
+- ITEM FORMÉ R1-PR251-REF-PURGE-1 : la branche publique qui portait deux détails des vecteurs privés de R1 est supprimée par le fondateur
+  ; refs/pull/251/head reste (e55cec0a). Construction : purge par le support GitHub. Porteur : le fondateur (acte de compte) ; déclencheur
+  : sa décision, plus tard ; état : ouvert.
 
 ## Points connus (à traiter, non bloquants sauf mention)
 
