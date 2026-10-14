@@ -6,7 +6,8 @@
  * turns that run into the committed record test/test-counts.json and refuses a run where a file sent none (P1). TEST-COUNT-NAMES-1
  * (docs/G0-lot-test-count-names-1.md): the run also names each test, after the tests and suites that hold it, and `write` writes those
  * names to test/test-names.json, one name per line. T1 holds the reporter on events, T2 a real nested run and the command, T3 the script
- * line and the export of the reporter (ADR-M004 D7 terdecies), T8 a test file reached through a directory link (REPORTER-REALPATH-1).
+ * line and the export of the reporter (ADR-M004 D7 terdecies), T8 a test file reached through a directory link (REPORTER-REALPATH-1),
+ * T9 a test file that another test file imports: its tests run in both processes, and P1 refuses it.
  */
 import { test } from "node:test";
 import assert from "node:assert/strict";
@@ -62,6 +63,7 @@ test("test_count_floor_refuses_a_file_whose_process_ended_before_it_reported", (
     mkdirSync(join(dir, "test"));
     const reporter = pathToFileURL(join(ROOT, "scripts", "test-counts-reporter.mjs")).href, tests = Object.keys(files).filter((f) => f.endsWith(".test.mjs"));
     const nested = node(["--test", `--test-reporter=${reporter}`, `--test-reporter-destination=${RUN}`, ...tests]), ran = existsSync(join(dir, RUN)) ? JSON.parse(readFileSync(join(dir, RUN), "utf8")) as Run : null;
+    // killer: scripts/test-counts-reporter.mjs:19 CONST "c.summary && c.foreign > 0 ?" -> "c.foreign > 0 ?"
     assert.deepEqual([nested.status, ran], [0, { "a.test.mjs": { tests: 3, summary: true, names: ["one", "two", "two > in two"] }, "b.test.mjs": { tests: 1, summary: false, names: ["b.test.mjs"] },
       "c.test.mjs": { tests: 1, summary: false, names: ["c.test.mjs"] }, "d.test.mjs": { tests: 1, summary: false, names: ["d.test.mjs"] },
       "declare.mjs": { tests: 1, summary: false, names: ["declared by a module"] }, "e.test.mjs": { tests: 1, summary: true, names: ["one"] } }],
@@ -114,6 +116,41 @@ test("test_counts_reporter_keys_a_linked_file_by_its_real_path", () => {
     const ran = existsSync(join(dir, RUN)) ? JSON.parse(readFileSync(join(dir, RUN), "utf8")) as unknown : null;
     assert.deepEqual([r.status, ran], [0, { "real/a.test.mjs": { tests: 2, summary: true, names: ["one", "two"] } }],
       `a test file launched through a directory link is one key, its real path, with its tests, its summary and its names (${r.stderr})`);
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+// killer: scripts/test-counts-reporter.mjs:16 CONST "if (c !== of(data.file)) c.foreign++" -> "if (false) c.foreign++"
+// killer: scripts/test-counts-reporter.mjs:15 CONST " ran.push(c);" -> ""
+// killer: scripts/test-counts-reporter.mjs:19 CONST "{ foreign: c.foreign }" -> "{}"
+// killer: scripts/test-count-floor.mjs:24 CONST "c.foreign > 0 ?" -> "false ?"
+test("test_count_floor_refuses_a_file_whose_tests_another_test_file_ran", async () => {
+  const at = (f: string): string => join(process.cwd(), f), t = { type: "test" }, b = at("b.test.ts"), c = at("c.test.ts");
+  const pass = (file: string, name: string) => ({ type: "test:pass", data: { file, name, nesting: 0, details: t } }), summary = (file: string) => ({ type: "test:summary", data: { file, counts: {} } });
+  let out = ""; // c's process runs b's test (c imports b), then b's own process runs it again
+  for await (const chunk of testCounts([pass(b, "one"), pass(c, "own"), summary(c), pass(b, "one"), summary(b)])) out += chunk;
+  assert.deepEqual(JSON.parse(out), { "b.test.ts": { tests: 2, summary: true, names: ["one", "one"], foreign: 1 }, "c.test.ts": { tests: 1, summary: true, names: ["own"] } },
+    "a test is credited to the file that declares it; one reported in another file's process counts as foreign on its own file, written when above 0");
+  // killer: scripts/test-counts-reporter.mjs:16 CONST " || c.summary) c.foreign++" -> ") c.foreign++"
+  out = ""; // one file run twice (a link to it is the same real path): its second process repeats its tests
+  for await (const chunk of testCounts([pass(b, "one"), summary(b), pass(b, "one"), summary(b)])) out += chunk;
+  assert.deepEqual(JSON.parse(out), { "b.test.ts": { tests: 2, summary: true, names: ["one", "one"], foreign: 1 } }, "a file summed up twice: the tests of its second process count as foreign");
+  const dir = mkdtempSync(join(tmpdir(), "tci-")), floor = join(ROOT, "scripts", "test-count-floor.mjs"), reporter = pathToFileURL(join(ROOT, "scripts", "test-counts-reporter.mjs")).href;
+  const node = (args: string[]) => spawnSync(process.execPath, args, { cwd: dir, encoding: "utf8", env: { ...process.env, NODE_TEST_CONTEXT: undefined } });
+  try {
+    const h = 'import { test } from "node:test";\n', files: Record<string, string> = { "a.test.mjs": `${h}test("one", () => {});\n`,
+      "b.test.mjs": `${h}export const helper = 1;\ntest("rejects", () => {});\ntest("formats", () => {});\n`,
+      "c.test.mjs": `${h}import { helper } from "./b.test.mjs";\ntest("uses the helper", () => { if (helper !== 1) throw new Error("no helper"); });\n` };
+    for (const [f, text] of Object.entries(files)) writeFileSync(join(dir, f), text);
+    mkdirSync(join(dir, "test"));
+    const nested = node(["--test", `--test-reporter=${reporter}`, `--test-reporter-destination=${RUN}`, ...Object.keys(files)]), ran = existsSync(join(dir, RUN)) ? JSON.parse(readFileSync(join(dir, RUN), "utf8")) as unknown : null;
+    assert.deepEqual([nested.status, ran], [0, { "a.test.mjs": { tests: 1, summary: true, names: ["one"] }, "b.test.mjs": { tests: 4, summary: true, names: ["formats", "formats", "rejects", "rejects"], foreign: 2 },
+      "c.test.mjs": { tests: 1, summary: true, names: ["uses the helper"] } }], `c imports a helper of b: b's two tests run in c's process as well, and count as foreign on b (${nested.stderr})`);
+    const twice = "b.test.mjs: 2 of its test(s) also ran in another process: a test file imports it (move what they share to a module that declares no test), or it runs twice";
+    assert.deepEqual(runProblems(readRun(readFileSync(join(dir, RUN), "utf8"))), [twice], "P1 names the imported file");
+    const refused = node([floor, "write"]);
+    assert.deepEqual([refused.status, refused.stderr.split("\n")[0], existsSync(join(dir, RECORD))], [1, `::error::${twice}`, false], "write refuses that run: exit 1, nothing written");
   } finally {
     rmSync(dir, { recursive: true, force: true });
   }

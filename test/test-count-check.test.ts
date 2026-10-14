@@ -129,6 +129,10 @@ test("test_count_check_names_its_base_or_refuses", () => {
     writeFileSync(join(dir, RECORD), recordText(tally(renamed)));
     writeFileSync(join(dir, RUN), counts(renamed, { "": { tests: 1, summary: false, names: ["loose"] } }));
     assert.deepEqual(gate(["--base", both]), [1, "::error::1 test(s) reported without a file"], "P1 in the gate");
+    const imported = renamed["b.test.ts"] ?? [];
+    writeFileSync(join(dir, RUN), counts(renamed, { "b.test.ts": { tests: imported.length, summary: true, names: imported, foreign: imported.length } }));
+    assert.deepEqual(gate(["--base", both]), [1, `::error::b.test.ts: ${imported.length} of its test(s) also ran in another process: a test file imports it (move what they share to a module that declares no test), or it runs twice`],
+      "P1 in the gate: a file whose tests another test file's process ran too, its record unchanged");
     writeFileSync(join(dir, RUN), counts(renamed));
     // killer: scripts/test-count-check.mjs:54 CONST "shaped(JSON.parse(ntext), lists," -> "shaped(JSON.parse(ntext), () => true,"
     writeFileSync(join(dir, NAMES), `{\n "a.test.ts": null,\n "b.test.ts": ${JSON.stringify(head["b.test.ts"])}\n}\n`);
