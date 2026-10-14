@@ -49,7 +49,7 @@ test("test_counts_reporter_counts_each_test_of_each_file", async () => {
   assert.throws(() => readRun("{"), SyntaxError, "a cut run file is unreadable");
 });
 
-// killer: scripts/test-count-floor.mjs:22 CONST "c.summary ? [] :" -> "true ? [] :"
+// killer: scripts/test-count-floor.mjs:23 CONST "if (!c.summary) return" -> "if (false) return"
 test("test_count_floor_refuses_a_file_whose_process_ended_before_it_reported", () => {
   const dir = mkdtempSync(join(tmpdir(), "tcf-")), floor = join(ROOT, "scripts", "test-count-floor.mjs");
   const node = (args: string[]) => spawnSync(process.execPath, args, { cwd: dir, encoding: "utf8", env: { ...process.env, NODE_TEST_CONTEXT: undefined } });
@@ -70,20 +70,20 @@ test("test_count_floor_refuses_a_file_whose_process_ended_before_it_reported", (
     `the nested run exits with 0, as each of its processes (${nested.stderr}); b and c exit at load (3 tests declared, and 1), d declares none, e has one declared by a module: each but a and e is one test under its name, with no summary; a subtest is named after its parent`);
     const run = readRun(readFileSync(join(dir, RUN), "utf8"));
     assert.deepEqual(runProblems(run), ["b.test.mjs", "c.test.mjs", "d.test.mjs", "declare.mjs"].map((f) => own(f, 1)), "P1 names each file without a report of its own, the module included");
-    // killer: scripts/test-count-floor.mjs:21 CONST "if (f === \"\") return" -> "if (false) return"
+    // killer: scripts/test-count-floor.mjs:22 CONST "if (f === \"\") return" -> "if (false) return"
     assert.deepEqual(runProblems({ "": { tests: 2, summary: false, names: ["one", "two"] } }), ["2 test(s) reported without a file"], "P1 names the tests reported without a file");
-    // killer: scripts/test-count-floor.mjs:35 CONST "if (problems.length > 0) stop(1," -> "if (false) stop(1,"
+    // killer: scripts/test-count-floor.mjs:37 CONST "if (problems.length > 0) stop(1," -> "if (false) stop(1,"
     const refused = node([floor, "write"]);
     assert.deepEqual([refused.status, refused.stderr.split("\n")[0], existsSync(join(dir, RECORD))], [1, `::error::${own("b.test.mjs", 1)}`, false], "write refuses that run: exit 1, nothing written");
-    // killer: scripts/test-count-floor.mjs:27 CONST "null, 1)" -> "null, 2)"
-    // killer: scripts/test-count-floor.mjs:37 CONST "writeFileSync(NAMES, " -> "void ("
-    // killer: scripts/test-count-floor.mjs:46 CONST ".replace(/[\\u2028\\u2029]/g," -> ".replace(/(?!)/g,"
+    // killer: scripts/test-count-floor.mjs:29 CONST "null, 1)" -> "null, 2)"
+    // killer: scripts/test-count-floor.mjs:39 CONST "writeFileSync(NAMES, " -> "void ("
+    // killer: scripts/test-count-floor.mjs:48 CONST ".replace(/[\\u2028\\u2029]/g," -> ".replace(/(?!)/g,"
     writeFileSync(join(dir, RUN), '{"b.test.ts": {"tests": 3, "summary": true, "names": ["two", "one", "three"]}, "a.test.ts": {"tests": 2, "summary": true, "names": ["z", "a\u2028b"]}}');
     const written = node([floor, "write"]), names = join(dir, "test", "test-names.json"), wrote = existsSync(names);
     assert.deepEqual([written.status, readFileSync(join(dir, RECORD), "utf8"), wrote, wrote ? readFileSync(names, "utf8") : null],
       [0, '{\n "a.test.ts": 2,\n "b.test.ts": 3\n}\n', true, '{\n "a.test.ts": [\n  "a\\u2028b",\n  "z"\n ],\n "b.test.ts": [\n  "one",\n  "three",\n  "two"\n ]\n}\n'],
       "on a sound run, write writes the record and the names record in their written forms: one name per line, sorted, U+2028 escaped");
-    // killer: scripts/test-count-floor.mjs:33 CONST "stop(4," -> "stop(0,"
+    // killer: scripts/test-count-floor.mjs:35 CONST "stop(4," -> "stop(0,"
     rmSync(join(dir, RUN));
     assert.deepEqual([node([floor, "write"]).status, node([floor]).status], [4, 2], "without a run file, exit 4; without the command, exit 2");
   } finally {
@@ -121,7 +121,7 @@ test("test_counts_reporter_keys_a_linked_file_by_its_real_path", () => {
   }
 });
 
-// killer: scripts/test-counts-reporter.mjs:16 CONST "if (c !== of(data.file)) c.foreign++" -> "if (false) c.foreign++"
+// killer: scripts/test-counts-reporter.mjs:16 CONST "if (c !== of(data.file) || c.summary) c.foreign++" -> "if (false) c.foreign++"
 // killer: scripts/test-counts-reporter.mjs:15 CONST " ran.push(c);" -> ""
 // killer: scripts/test-counts-reporter.mjs:19 CONST "{ foreign: c.foreign }" -> "{}"
 // killer: scripts/test-count-floor.mjs:24 CONST "c.foreign > 0 ?" -> "false ?"

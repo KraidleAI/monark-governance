@@ -1,9 +1,9 @@
 // TEST-COUNT-FLOOR-1 (docs/G0-lot-test-count-floor-1.md) and TEST-COUNT-NAMES-1 (docs/G0-lot-test-count-names-1.md): the records of the
 // tests that each test file of test:main reports, their number and their names.   npm run test:main && node scripts/test-count-floor.mjs write
-// test:main writes the run, RUN, by its reporter (scripts/test-counts-reporter.mjs): { "<file>": { tests, summary, names } }. write turns
-// it into the record, RECORD, { "<file>": tests }, and the names record, NAMES, { "<file>": [names] }, in their written forms (recordText,
-// namesText), and refuses a run in which a file sent no report of its own (P1): its process ended before it reported, it declares no test,
-// or it is a module that declared tests for a test file. Exits: 0 written; 1 refused, nothing written; 2 the usage; 4 the run unreadable.
+// test:main writes the run, RUN, by its reporter (scripts/test-counts-reporter.mjs): { "<file>": { tests, summary, names, foreign? } }. write
+// turns it into the record, RECORD, { "<file>": tests }, and the names record, NAMES, { "<file>": [names] }, in their written forms, and
+// refuses a run in which a file sent no report of its own (P1: its process ended before it reported, it declares no test, or it is a module
+// that declared tests for a test file) or another process ran its tests too. Exits: 0 written; 1 refused; 2 usage; 4 unreadable.
 // The gate (scripts/test-count-check.mjs) imports this module and holds each run to both records.
 import { readFileSync, writeFileSync } from "node:fs";
 
@@ -16,10 +16,12 @@ export function readRun(text) {
   return Object.assign(Object.create(null), run);
 }
 
-/** P1: each file of the run sent a report of its own; a test reported without a file is a problem too. */
+/** P1: each file of the run sent a report of its own, and no other process ran its tests (foreign: a test file that imports it, or a
+ *  second run of it, runs them twice, and the record would hold them twice); a test reported without a file is a problem too. */
 export const runProblems = (run) => Object.entries(run).flatMap(([f, c]) => {
   if (f === "") return [`${c.tests} test(s) reported without a file`];
-  return c.summary ? [] : [`${f}: no report of its own (${c.tests} test(s) under its name): its process ended before it reported, it declares no test, or it is a module that declared tests for a test file (declare each test in its *.test.ts)`];
+  if (!c.summary) return [`${f}: no report of its own (${c.tests} test(s) under its name): its process ended before it reported, it declares no test, or it is a module that declared tests for a test file (declare each test in its *.test.ts)`];
+  return c.foreign > 0 ? [`${f}: ${c.foreign} of its test(s) also ran in another process: a test file imports it (move what they share to a module that declares no test), or it runs twice`] : [];
 });
 
 /** P3, the written form of a record { "<file>": tests }: one file per line, sorted, and a final line feed. */
