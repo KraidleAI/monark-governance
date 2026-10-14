@@ -1882,6 +1882,11 @@
   "bell_method_states_the_key_backup_principle_only — an offline backup exists and a restore is an exposure event; no count of copies, no location (decision of the owner, 2026-09-24)",
   "bell_method_volume_formula_restates_the_served_string — clause by clause, in shares per unit"
  ],
+ "test/bell-ots-proofs.test.ts": [
+  "bell_ots_pending_proof_is_held_by_its_digest_not_a_height — docs/dojo-publications seq1, pending at fd20e9fa",
+  "bell_ots_proofs_bind_their_manifest — every .ots under docs/ outside docs/course-bell is a SHA-256 timestamp of its manifest",
+  "bell_ots_reader_refuses_an_unknown_major_version — the magic header then a major version other than 1 throws, named"
+ ],
  "test/bell-publication-state.test.ts": [
   "bell_anchor_state_assertions_drive_on_synthetic_html — M-6, M-10, M-11, M-12 (pilot of T-3b)",
   "bell_publication_anchor_state_is_derived_strictly — M-1..M-4, M-7, M-7 bis, M-8, M-9 and the sentences S-0..S-3 (T-1)"
