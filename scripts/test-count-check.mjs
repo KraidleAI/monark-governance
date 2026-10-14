@@ -46,12 +46,12 @@ if (import.meta.main !== false) { // as scripts/test-count-floor.mjs: a launch r
   if (!named) stop(3, "::error::no base: pass --base <rev>, or run where GITHUB_BASE_REF (the CI) or ORACLE_BASE (the local oracle) names it");
   const git = (...a) => execFileSync("git", a, { encoding: "utf8", stdio: ["ignore", "pipe", "pipe"], maxBuffer: 1 << 26 });
   const read = (what, f) => { try { return f(); } catch (e) { return stop(4, `::error::${what} not readable: ${String(e?.message ?? e).split("\n")[0]}`); } };
-  const shaped = (v, ok, what) => { if (!ok(v)) throw new Error(`not ${what}`); return v; };
+  const shaped = (v, ok, what) => { if (!ok(v)) throw new Error(`not ${what}`); return own(v); };
   const base = read(`the merge base of HEAD and ${named}`, () => git("merge-base", "HEAD", named).trim()), pr = /^refs\/pull\/([1-9]\d*)\/merge$/.exec(process.env.GITHUB_REF ?? "")?.[1];
   const atBase = (path, none, ok, what) => read(`${path} at the base ${base}`, () => (git("ls-tree", "--name-only", base, "--", path).trim() === "" ? none : shaped(JSON.parse(git("show", `${base}:${path}`)), ok, what)));
   const baseRecord = atBase(RECORD, {}, counts, "a record { \"<file>\": tests }"), baseList = atBase(REMOVALS, [], Array.isArray, "a list [ ... ]");
-  const baseNames = atBase(NAMES, null, lists, "a names record { \"<file>\": [names] }"), run = read(`${RUN} (run npm run test:main first)`, () => readRun(readFileSync(RUN, "utf8"))), text = read(RECORD, () => readFileSync(RECORD, "utf8"));
-  const record = read(RECORD, () => JSON.parse(text)), list = read(REMOVALS, () => shaped(JSON.parse(readFileSync(REMOVALS, "utf8")), Array.isArray, "a list [ ... ]")), ntext = read(NAMES, () => readFileSync(NAMES, "utf8")), names = read(NAMES, () => shaped(JSON.parse(ntext), lists, "a names record { \"<file>\": [names] }"));
+  const baseNames = atBase(NAMES, null, lists, "a names record { \"<file>\": [names] }"), run = read(`${RUN} (run npm run test:main first)`, () => readRun(readFileSync(RUN, "utf8"))), text = read(RECORD, () => readFileSync(RECORD, "utf8")); if (baseNames !== null) read(`${NAMES} at the base ${base}`, () => agrees(baseNames, baseRecord));
+  const record = read(RECORD, () => own(JSON.parse(text))), list = read(REMOVALS, () => shaped(JSON.parse(readFileSync(REMOVALS, "utf8")), Array.isArray, "a list [ ... ]")), ntext = read(NAMES, () => readFileSync(NAMES, "utf8")), names = read(NAMES, () => shaped(JSON.parse(ntext), lists, "a names record { \"<file>\": [names] }"));
   const form = counts(record) && text === recordText(record) ? [] : [`${RECORD}: not in its written form (npm run test:main && node scripts/test-count-floor.mjs write)`];
   const problems = [...runProblems(run), ...form, ...(ntext === namesText(names) ? [] : [`${NAMES}: not in its written form (npm run test:main && node scripts/test-count-floor.mjs write)`]), ...(counts(record) ? [...recordProblems(run, record, names), ...dropProblems(baseRecord, record, baseList, list, { base: baseNames, head: names, pr })] : [])];
   if (problems.length > 0) stop(1, problems.map((p) => `::error::${p}`).join("\n"));
@@ -89,8 +89,8 @@ function namesDiffer(run, names) {
 /** P4 by names: in each file, each name of the base's names record that the head's lacks (as multisets) takes exactly one added line: removed,
  *  or renamed to a name the file gained (each gained name the `to` of one line at most); a file gone takes one line {file, from, to: 0} at its
  *  base count, or one line per name. Each line names a name gone. The hint offers the exact line, with this pull request's number in CI. */
-function nameProblems(base, head, lines, pr) {
-  const out = [], reason = `#${pr ?? "<pull request>"}: ...`;
+function nameProblems(baseNames, headNames, lines, pr) {
+  const out = [], reason = `#${pr ?? "<pull request>"}: ...`, base = own(baseNames), head = own(headNames); // own keys only: a line for "constructor" names no file
   for (const f of [...new Set([...Object.keys(base), ...Object.keys(head), ...lines.map((r) => r.file)])].sort()) {
     const gone = minus(base[f] ?? [], head[f] ?? []), gained = minus(head[f] ?? [], base[f] ?? []), whole = gone.length;
     for (const r of lines.filter((l) => l.file === f)) {
@@ -105,4 +105,18 @@ function nameProblems(base, head, lines, pr) {
     for (const n of gone) out.push(`${f}: the test ${JSON.stringify(n)} is gone since the base: wants one line ${JSON.stringify(one ? { file: f, renamed: n, to: gained[0], reason } : { file: f, removed: n, reason })} in ${REMOVALS}${gained.length > 0 ? `; tests ${f} gained: ${JSON.stringify(gained)}` : ""}`);
   }
   return out;
+}
+
+/** A record read by its own keys only: an object becomes a copy without a prototype, so that an inherited name ("constructor",
+ *  "__proto__") is no file of it; anything else is returned as it is. */
+function own(v) {
+  return v !== null && typeof v === "object" && !Array.isArray(v) ? Object.assign(Object.create(null), v) : v;
+}
+
+/** The base's two records agree: the same files, and in each as many names as its count. Else it throws, naming the first file that
+ *  differs, and the gate stops with exit 4: a base whose names record disagrees with its counts record would hide a drop. */
+function agrees(names, record) {
+  const has = (o, f) => Object.hasOwn(o, f), f = [...new Set([...Object.keys(names), ...Object.keys(record)])].sort().find((k) => !has(names, k) || !has(record, k) || names[k].length !== record[k]);
+  if (f === undefined) return;
+  throw new Error(`it disagrees with ${RECORD} there: ${f}: ${!has(names, f) ? `in ${RECORD} (${record[f]}), not in ${NAMES}` : !has(record, f) ? `in ${NAMES} (${names[f].length} name(s)), not in ${RECORD}` : `${names[f].length} name(s) in ${NAMES}, ${record[f]} test(s) in ${RECORD}`}`);
 }

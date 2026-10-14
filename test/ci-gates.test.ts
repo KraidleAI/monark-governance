@@ -267,7 +267,7 @@ test("ci_gates_blocking_no_continue_on_error — blocking and pinned workflow (t
   //   test/: two exact paths, no glob. test/test-count-removals.json, whose reasons are written by hand, stays counted. A third exclusion
   //   under test/, one of the two missing, or either one under a glob, reds, whatever its spelling: long magic `:(exclude)`, short magic
   //   `:!` or `:^`, a leading `./`.
-  const underTest = (tokens: readonly string[]): string[] => tokens.filter((t) => /^test\//.test(t.replace(/^:\([^)]*\)/, "")));
+  const underTest = (tokens: readonly string[]): string[] => tokens.filter((t) => /^test\//.test(t.replace(/^:(?:\([^)]*\)|[/!^]*:?)/, "").replace(/^(?:\.?\/)+/, "")));
   const twoRecords = [":(exclude)test/test-counts.json", ":(exclude)test/test-names.json"];
   assert.deepEqual(
     underTest(diffs[0]?.pathspecs ?? []),
