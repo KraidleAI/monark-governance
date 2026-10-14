@@ -133,7 +133,7 @@ test("test_count_check_names_its_base_or_refuses", () => {
     writeFileSync(join(dir, NAMES), `{\n "a.test.ts": null,\n "b.test.ts": ${JSON.stringify(head["b.test.ts"])}\n}\n`);
     assert.deepEqual(gate(["--base", both]), [4, `::error::${NAMES} not readable: not a names record { "<file>": [names] }`], "the head's names record with a null entry: exit 4");
     writeFileSync(join(dir, NAMES), named(renamed));
-    const listed: unknown[] = JSON.parse(readFileSync(join(dir, REMOVALS), "utf8")), proto = { file: "constructor", removed: "two", reason: "#7: no such test file" };
+    const listed = JSON.parse(readFileSync(join(dir, REMOVALS), "utf8")) as unknown[], proto = { file: "constructor", removed: "two", reason: "#7: no such test file" };
     writeFileSync(join(dir, REMOVALS), `${JSON.stringify([...listed, proto], null, 1)}\n`);
     assert.deepEqual(gate(["--base", both]), [1, `::error::${REMOVALS}: ${JSON.stringify(proto)} names no test gone from constructor since the base`], "a line for the file constructor: the records are read by their own keys");
     writeFileSync(join(dir, REMOVALS), `${JSON.stringify(listed, null, 1)}\n`);
@@ -229,7 +229,7 @@ test("test_count_check_holds_each_name_gone_to_its_line", () => {
   assert.deepEqual(by(at, { b: ["one"] }, [part]), left, "a file gone, one of its names declared: the hint wants each name left by its name, not the whole file");
   // killer: scripts/test-count-check.mjs:93 CONST "base = own(baseNames), head = own(headNames)" -> "base = baseNames, head = headNames"
   const thrown = (f: () => string[]): string[] => { try { return f(); } catch (e) { return [`threw ${String(e)}`]; } };
-  const inherited = [r({ file: "constructor", removed: "one" }), r({ file: "__proto__", removed: "one" })];
-  assert.deepEqual(thrown(() => by(at, at, inherited)), [inherited[1], inherited[0]].map((l) => `${REMOVALS}: ${JSON.stringify(l)} names no test gone from ${String(l.file)} since the base`),
+  const ctor = r({ file: "constructor", removed: "one" }), proto = r({ file: "__proto__", removed: "one" });
+  assert.deepEqual(thrown(() => by(at, at, [ctor, proto])), ([[proto, "__proto__"], [ctor, "constructor"]] as const).map(([l, f]) => `${REMOVALS}: ${JSON.stringify(l)} names no test gone from ${f} since the base`),
     "a line for the file constructor or __proto__: the names records are read by their own keys, the gate's own refusal and no throw");
 });
