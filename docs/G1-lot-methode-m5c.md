@@ -501,8 +501,8 @@ claude-opus-5-5
   déclencheur : la fusion de M-5c ; formé à ETAT par MONARK.
 - **JOURNAL-REDPROOF-TEST-ONLY-1** : un RED-PROOF `red-proof-v2` de mode `test-only` reste refusé par `add` (sortie 2) et par J-REDPROOF
   de `build` ; le test `red-proof v2: …` ne tenait que le refus d `add` (G2 de la PR, constat m-1) ; depuis le pli du 2026-10-14 (§ 17.9),
-  il greffe aussi dans l archive l enregistrement passé en mode `test-only` et exige le hit J-REDPROOF (l.654 ; tueurs `index.mjs:201`
-  l.653, `:293` l.660 et l.661). ≈ 0,25 j-h (estimé) ; déclencheur : la première ligne G2 d un lot de tests seuls.
+  il greffe aussi dans l archive l enregistrement passé en mode `test-only` et exige le hit J-REDPROOF (l.659 ; tueurs `index.mjs:201`
+  l.658, `:293` l.665 et l.666). ≈ 0,25 j-h (estimé) ; déclencheur : la première ligne G2 d un lot de tests seuls.
 - **Proposés par cette passe** (à former par MONARK) : JOURNAL-LINE-LENGTH-1, les 84 lignes longues de M-5c : les 80 venues de la branche
   fusionnée (23 de `index.mjs` et 57 du test ; 7 dans des blocs où `c94c57df` avait déjà des lignes longues) et les quatre que la reprise
   modifie sans les replier (§ 17.4 ; G2 de la PR, constat m-5) : `index.mjs` l.98 (215) et l.209 (181), `lint.mjs` l.156 (182) et l.168
@@ -531,11 +531,11 @@ claude-opus-5-5
   la plus longue des quatre à 159 points de code. Les deux tests comparent la sortie entière, chemin compris (test l.486, l.630), et
   portent chacun un tueur de corps neuf (l.485 vers `index.mjs:201`, l.629 vers `:182`). Les numéros de ligne du test cités aux § 17.2 à
   17.4 sont ceux de `a03dba6a` ; la règle de décalage écrite ici le 2026-10-08 était fausse au-delà de la l.629 (G2 de la PR, constat
-  m-7) et est retirée. À la tête du pli du 2026-10-14 (§ 17.9), relues par `grep -n` sur l arbre final, ces lignes sont :
+  m-7) et est retirée. À la tête du pli de la vérification courte (§ 17.9), relues par `sed -n` sur l arbre final, ces lignes sont :
   `test/journal-index.test.ts` : `basename` l.126 ; clone `mkdtempSync` l.431 ; tueur réadressé `:152` l.383 ; tueur `:185` de
   TIER-FROM-HEADER l.400 ; refus d `add` attendu (`--from-redproof <chemin>`) l.501, son tueur de corps `:201` l.500 ; refus de
-  `build` attendu (`RED-PROOF red-proof-v0: …`) l.507 ; test `add reads no host: …` l.639, tueurs `:209` l.638 (tête), `:182` l.646 et
-  l.649 (corps), refus attendu l.650 ; test `red-proof v2: …` l.654, tueurs `:201` l.653 (tête), `:293` l.660 et l.661 (corps) ;
+  `build` attendu (`RED-PROOF red-proof-v0: …`) l.507 ; test `add reads no host: …` l.644, tueurs `:209` l.643 (tête), `:182` l.651 et
+  l.654 (corps), refus attendu l.655 ; test `red-proof v2: …` l.659, tueurs `:201` l.658 (tête), `:293` l.665 et l.666 (corps) ;
   `test/mission-lint.test.ts` : tests `host false: …` l.304, l.317 et l.329 ; tueurs `lint.mjs:142` l.303, `:105` et `:168`
   l.307-308, `:150` l.313 (corps, neuf) et l.316 (tête), `:140` l.328, `:146` l.336 ; la ligne coupée de la l.305 : l.305-306.
 - **Preuves** (Node 24.21.0) : `test/journal-index.test.ts` seul, 47 tests, 47 verts, sortie 0 ; ancrage, 1 791 tueurs, 1 791
@@ -553,16 +553,16 @@ claude-opus-5-5
   `lot/etude-suite` `8400a223`, base de la PR. Parmi les dix fichiers de la liste, seuls `test/test-counts.json` et
   `test/test-names.json` changent au tronc de `52ddf000` à `8400a223` (`git diff --name-only 52ddf000 8400a223 -- <les dix>`) ;
   `test/test-names.json` (relevé par noms du tronc, #270) entre ici pour la première fois.
-- **m-1** : le test `red-proof v2: …` (l.654) greffe dans l archive le même enregistrement passé en mode `test-only` (aide `graft()`,
-  l.105) et exige le hit J-REDPROOF de `build` ; tueur de corps `index.mjs:293 CONST " && r.mode === \"f2p\"" -> ""` (l.661) ; § 17.6
+- **m-1** : le test `red-proof v2: …` (l.659) greffe dans l archive le même enregistrement passé en mode `test-only` (aide `graft()`,
+  l.105) et exige le hit J-REDPROOF de `build` ; tueur de corps `index.mjs:293 CONST " && r.mode === \"f2p\"" -> ""` (l.666) ; § 17.6
   corrigé. **m-2** : sous `host: false`, un chemin du dépôt cité au-delà de sa fin reste R-LINE, sur disque et à la révision
   (`test/mission-lint.test.ts` l.310-314) ; tueur `lint.mjs:150 CONST "(host || !abs)" -> "host"` (l.313).
 - **m-3, option (b)** : `zeros` (`index.mjs` l.81) ; `add` (l.182) refuse un reçu dont `lint` manque ou n est pas un objet non vide de
   comptes tous à 0 ; J-RECU v2 (l.280) relit les comptes du reçu archivé (« receipt lint: absent or a count not 0 ») ; en-tête l.45 et
-  l.50-51. Les reçus synthétiques des tests portent un `lint` à comptes nuls (l.180, l.402-403). Refus testés, un tueur chacun : huit
+  l.50-51. Les reçus synthétiques des tests portent un `lint` à comptes nuls (l.180, l.404-405). Refus testés, un tueur chacun : huit
   formes à `add` (l.186-194 : absent, `null`, nombre, tableau, objet vide, chaîne, fraction, compte non nul ; tueurs `index.mjs:81`
-  l.188-191 ; le compte non nul garde aussi son test l.646-650, tueur `:182` l.646) ; un reçu à `lint: null` dans TIER-FROM-HEADER
-  (l.410-412, tueur `:182` l.411) ; un reçu archivé à compte non nul, rouge à `build` (l.622-626, tueur `:280` l.624). Rouges avant le
+  l.188-191 ; le compte non nul garde aussi son test l.651-655, tueur `:182` l.651) ; un reçu à `lint: null` dans TIER-FROM-HEADER
+  (l.411-413, tueur `:182` l.412) ; un reçu archivé à compte non nul, rouge à `build` (l.622-626, tueur `:280` l.624). Rouges avant le
   correctif : ces trois tests, sur une copie `git archive 9c7add5d` où seuls les deux fichiers de test sont remplacés (87 tests, 4
   rouges par assertion, le quatrième étant celui d O-3) ; à `add`, cinq des huit formes y sortaient 0.
 - **m-4** : titre renommé (« schema red-proof-v2, mode f2p, with the keys deriveRedproof reads … ») : l enregistrement du test reste
@@ -578,31 +578,68 @@ claude-opus-5-5
 - **m-5** : JOURNAL-LINE-LENGTH-1 couvre les 84 lignes et `lint.mjs` (§ 17.6). Recompte sur l arbre final : `node long.mjs <W>
   8400a223 93e9abce <les cinq fichiers de code et de test>` (lignes de plus de 160 points de code absentes telles quelles de la base ;
   « de la branche » si présentes telles quelles à `93e9abce`) : 84 = 80 + 4 (`index.mjs` l.98 (215), l.209 (181) ; `lint.mjs` l.156
-  (182), l.168 (233)). Aucune ligne neuve de ce pli ne dépasse 160. **m-6** : la ligne d ETAT de JOURNAL-REDPROOF-TEST-ONLY-1 est
-  proposée à MONARK dans le message de la PR. **m-7** : § 17.8. **m-8** : cette ligne.
-- **m-9** : les commentaires `lint.mjs:93` et `test/journal-index.test.ts` l.642 ne portent plus de code interne ; les sept titres
+  (182), l.168 (233)). Aucune ligne neuve de code ou de test de ce pli ne dépasse 160 ; au G1, ses lignes de plus de 160 sont repliées
+  (vérification courte, V-6) ; la case 5 de `CHECKLIST-G7.md` reste une ligne, comme les autres cases du fichier. **m-6** : la ligne d
+  ETAT de JOURNAL-REDPROOF-TEST-ONLY-1 est proposée à MONARK dans le message de la PR. **m-7** : § 17.8. **m-8** : cette ligne.
+- **m-9** : les commentaires `lint.mjs:93` et `test/journal-index.test.ts` l.647 ne portent plus de code interne ; les sept titres
   hérités de `93e9abce` qui en portent restent, rattachés à JOURNAL-TEST-TITLES-1 (§ 16.11, Q-C1-7).
-- **O-3** (décision de MONARK : plier ici) : `lint.mjs` l.52 (`SUFFIX`) et l.128 : un chemin de lecteur à blanc entre accents graves
+- **O-3** (décision de MONARK : plier ici) : `lint.mjs` l.52 (`SUFFIX`) et l.128-129 : un chemin de lecteur à blanc entre accents graves
   perd son suffixe de ligne (`:<chiffres>`, même grammaire que `PATH_RE`), et R-LINE s applique comme ailleurs. Test `drive path with
-  a blank: …` (`test/mission-lint.test.ts` l.346, tueur l.345) : avant le correctif, R-PATH pour les cinq citations au lieu de
+  a blank: …` (`test/mission-lint.test.ts` l.347, tueur l.346) : avant le correctif, R-PATH pour les cinq citations au lieu de
   `[]`, `[]`, R-LINE, R-LINE, R-PATH.
-- **Mesures finales** (Node 24.21.0, `TMPDIR` sous le brouillon) : les deux fichiers de test, 87 tests, 84 verts, 3 sautés, sortie 0 ;
-  `npm run test:main` (15:33:04-15:38:55Z) : 3 055 tests, 3 030 verts, 22 sautés, 3 rouges, sortie 1 : les trois rouges connus de ce
-  conteneur (`apps/sentinel/test/sentinel-chainstack-guard.test.ts` l.440 et l.445, `apps/sentinel/test/ukemi-guard-record.test.ts`
-  l.929), rouges de même sur une copie `git archive 8400a223` (ces deux fichiers : 48 tests, 45 verts, ces 3 rouges) ; `node scripts/test-count-floor.mjs write` : 300 fichiers, 3 055 tests (`test/mission-lint.test.ts` 39 → 40 ; contre la
-  base : 28 → 47 et 36 → 40) ; `node scripts/test-count-check.mjs --base 8400a223` : « 0 drop(s) from the base 8400a2231334 »,
-  sortie 0. Red-proof (`--base 8400a223 --gel <W> --repo <W> --draw 3 --seed 3638226565`, la graine : `d8daee85`, huit premiers
-  chiffres du sha256 de la mission du pli) : `red-proof-v2`, mode `f2p`, 28 jugés, 27 F2P, 1 refusé, l épingle J-HEADER (l.417, son
-  `<avant>` à la base `index.mjs:184`, son tueur `:241` tué, K43) ; tirage 3/3 tués (`index.mjs:215`, `lint.mjs:150`,
-  `index.mjs:423`) ; sortie 1 pour l épingle seule (RED-PROOF-PIN-1) ; sha256 `67e1ab8b…`. Mutants (`scripts/mutants/run.mjs --repo <W>
-  --base 8400a223 --killers --targets test/journal-index.test.ts,test/mission-lint.test.ts`) : 118/121 tués ; K115 (`lint.mjs:105`),
-  K116 (`:168`), K117 (`:150`, neuf) non conclus au premier passage (TAP coupé à 33, 20 et 29 tests sur 40, échec du fichier sans
-  assertion), tués au rejeu sur les deux cibles ; relancés seuls (`--only`) : K116 tué, K115 et K117 de nouveau coupés puis tués au
-  rejeu ; posés à la main sur une copie, ils rougissent leur test par assertion, 40 tests rapportés : MUTANTS-TAP-LOST-TESTS-1 (§ 17.6),
-  comme la base de la campagne, comptée verte avec 76 tests verts rapportés pour 87 déclarés, dont 3 sautés (`RESULTS.json` `52bd8f2b…`, puis `73866ba0…`). R-25 : `r25()`
-  avec le `ci.yml` de la branche, sur le clone de mesure où l arbre final est commis, contre `8400a223` : 562 + 80 = **642**, GREEN
+- **Mesures du premier pli** (arbre `efa52e59`, base `8400a223` ; Node 24.21.0, `TMPDIR` sous le brouillon) : les deux fichiers de
+  test, 87 tests, 84 verts, 3 sautés, sortie 0 ; `npm run test:main` (15:33:04-15:38:55Z) : 3 055 tests, 3 030 verts, 22 sautés, 3
+  rouges, sortie 1 : les trois rouges connus de ce conteneur (`apps/sentinel/test/sentinel-chainstack-guard.test.ts` l.440 et l.445,
+  `apps/sentinel/test/ukemi-guard-record.test.ts` l.929), rouges de même sur une copie `git archive 8400a223` (ces deux fichiers : 48
+  tests, 45 verts, ces 3 rouges) ; `node scripts/test-count-floor.mjs write` : 300 fichiers, 3 055 tests (`test/mission-lint.test.ts`
+  39 → 40 ; contre la base : 28 → 47 et 36 → 40) ; `node scripts/test-count-check.mjs --base 8400a223` : « 0 drop(s) from the base
+  8400a2231334 », sortie 0. Red-proof (`--base 8400a223 --gel <W> --repo <W> --draw 3 --seed 3638226565`, la graine : `d8daee85`, huit
+  premiers chiffres du sha256 de la mission du pli) : `red-proof-v2`, mode `f2p`, 28 jugés, 27 F2P, 1 refusé, l épingle J-HEADER
+  (l.417, son `<avant>` à la base `index.mjs:184`, son tueur `:241` tué, K43) ; tirage 3/3 tués (`index.mjs:215`, `lint.mjs:150`,
+  `index.mjs:423`) ; sortie 1 pour l épingle seule (RED-PROOF-PIN-1) ; sha256 `67e1ab8b…`. Mutants (`scripts/mutants/run.mjs --repo
+  <W> --base 8400a223 --killers --targets test/journal-index.test.ts,test/mission-lint.test.ts`) : 118/121 tués ; K115
+  (`lint.mjs:105`), K116 (`:168`), K117 (`:150`, neuf) non conclus au premier passage (TAP coupé à 33, 20 et 29 tests sur 40, échec du
+  fichier sans assertion), tués au rejeu sur les deux cibles ; relancés seuls (`--only`) : K116 tué, K115 et K117 de nouveau coupés
+  puis tués au rejeu ; posés à la main sur une copie, ils rougissent leur test par assertion, 40 tests rapportés :
+  MUTANTS-TAP-LOST-TESTS-1 (§ 17.6), comme la base de la campagne, comptée verte avec 76 tests verts rapportés pour 87 déclarés, dont
+  3 sautés (`RESULTS.json` `52bd8f2b…`, puis `73866ba0…`). R-25 : `r25()` avec le `ci.yml` de la branche, sur le clone de mesure où l
+  arbre final est commis, contre `8400a223` : 562 + 80 = **642**, GREEN (≤ 1 150 ; porte CI 1 205). `tsc --noEmit -p tsconfig.json` 0 ;
+  `eslint` sur les deux tests 0 ; `lint:ratchet` 69/69, 0 ; `lang-gate` 0 hit, 0 ; `gate:vocab` 356 fichiers, 0 ; `git diff --check`
+  et `git diff --check 8400a223` 0.
+- **Fusion `97f1084e` et pli de la vérification courte (V-1 à V-6), 2026-10-14 16:24Z-16:51Z (`date -u`)** : `97f1084e`, « Merge the
+  trunk » (parents `efa52e59`, `370a6397`), fusionne la tête du tronc `lot/etude-suite` `370a6397`, nouvelle base de la PR ; parmi les
+  dix fichiers de la liste, seuls `test/test-counts.json` et `test/test-names.json` changent de `8400a223` à `370a6397` (`git diff
+  --name-only 8400a223 370a6397 -- <les dix>`). Les mesures du premier pli ci-dessus sont celles de `efa52e59` ; celles qui suivent,
+  de l arbre de ce pli sur `97f1084e`. Les numéros de ligne des § 17.6, 17.8 et 17.9 sont ceux de cet arbre, relus par `sed -n`.
+  **V-1** : `lint_frozen_and_recu_archived` greffe un reçu archivé sans `lint` et un à `lint: {}` ; chacun rougit `build` par J-RECU
+  (« receipt lint: absent or a count not 0 ») ; tueur de corps `index.mjs:280` (l.629). **V-2** : le test d O-3 lit un fichier de 12
+  lignes ; `x.md:12`, `:1-12`, `:1,12`, `:1,3-4` sans constat, `:13`, `:1,13`, `:1-13` et `:1,3-13` en R-LINE ; quatre tueurs
+  `lint.mjs:52` (l.355-358).
+  Sous le test plié, les six mutants survivants de la vérification (X2, X3 sur l.280 ; X5, X10, X11, X12 sur l.52) sont tués par
+  assertion. **V-3** : un chemin de lecteur à blanc se lit comme le même chemin sans blanc : `SUFFIX` (l.52) le lit comme `PATH_RE` lit
+  un chemin, jusqu'au premier `:` qui suit le lecteur, puis son suffixe de ligne, la suite du span ignorée ; `lint.mjs` l.129 ôte les
+  points de fin du chemin et garde la fin du span (`at + m.length`, paramètre `at` en l.124) ; l.135 et l.148 lisent la suite de la
+  ligne masquée pour les deux formes. Test `drive path with a blank: the hits of the same path without a blank …` (l.365, tueurs
+  l.363-364 ; tueurs de corps l.376-377) : douze cas comparés deux à deux, dont `:12,`, `:13,` et `:12:14` ; rouge par assertion sur une
+  copie `git archive 97f1084e` où seul ce fichier de test est remplacé (41 tests, 1 rouge : `(l.13)` après le span, `:12.`, `:13.`, `.`
+  et `.:12`), vert après. Les trois cas d'un texte de fin autre que des points sont ajoutés par PAROXYSME après le pli du worker, avec
+  la lecture de la l.52 : rouges par assertion sur l'arbre du pli, verts après (ligne datée ci-dessous).
+  **V-4** : l.404-405, l.411-413 et l.412 au m-3. **V-6** : lignes du G1 repliées (§ 17.9 m-5 et mesures du
+  premier pli) ; aucune ligne neuve de ce pli au-delà de 160 points de code. **Mesures de cet arbre** (Node 24.21.0) : les deux
+  fichiers de test, 88 tests, 85 verts, 3 sautés, sortie 0 ; `npm run test:main` (16:36:30-16:42:08Z) : 3 070 tests, 3 045 verts, 22
+  sautés, 3 rouges (les trois connus, mêmes lignes), sortie 1 ; `node scripts/test-count-floor.mjs write` : « 300 files, 3070 tests »
+  (`test/mission-lint.test.ts` 40 → 41 ; contre `370a6397` : 28 → 47 et 36 → 41) ; `node scripts/test-count-check.mjs --base
+  origin/lot/etude-suite` : « 0 drop(s) from the base 370a639704bd », sortie 0. Red-proof (`--base 370a6397 --gel <W> --repo <W>
+  --draw 3 --seed 662641153`, graine lue de `/dev/urandom`) : `red-proof-v2`, mode `f2p`, 29 jugés, 28 F2P, 1 refusé, l épingle
+  J-HEADER déclarée (l.417) ; tirage 3/3 tués (`index.mjs:182`, `lint.mjs:142`, `index.mjs:159`) ; sortie 1 pour l épingle seule ;
+  sha256 `7779b6c9…`. Mutants (`scripts/mutants/run.mjs --repo <W> --base 370a6397 --killers --targets <les deux tests>`,
+  16:44:11-16:47:21Z) : 130/130 tués, aucun non conclu, sortie 0 (`RESULTS.json` `1c01e44f…`) ; les neuf tueurs neufs ou réadressés :
+  K72 (`:280`), K122 (`:129`), K123 à K126 (`:52`), K127 à K129 (`:129`), K130 (`:148`). R-25 : `r25()` avec le `ci.yml` de la
+  branche, sur un clone de mesure (`git clone --shared` de W sous le brouillon, l arbre de ce pli commis en `2b648b22` sur `97f1084e`,
+  puis en `fa7cf881` avec le G1 final : même compte, le G1 n entre pas dans la mesure), contre `370a6397` : 594 + 84 = **678**, GREEN
   (≤ 1 150 ; porte CI 1 205). `tsc --noEmit -p tsconfig.json` 0 ; `eslint` sur les deux tests 0 ; `lint:ratchet` 69/69, 0 ;
-  `lang-gate` 0 hit, 0 ; `gate:vocab` 356 fichiers, 0 ; `git diff --check` et `git diff --check 8400a223` 0.
+  `lang-gate` 0 hit, 0 ; `gate:vocab` 356 fichiers, 0 ; `git diff --check` et `git diff --check 370a6397` 0 ; aucune ligne neuve
+  au-delà de 160 points de code (`long.mjs <W> 97f1084e 97f1084e <les six fichiers>` : 0).
 - **Écarts et traces** : écritures dans les fichiers de la liste seulement ; `test/test-count-removals.json` inchangé (aucun nom de la
   base ne disparaît). Aucun `GIT_DIR`, aucun `--write-tree`, aucun réseau ; les commits de mesure sont dans des clones sous le brouillon,
   jamais dans le dépôt.

@@ -342,15 +342,39 @@ test("host false: no existsSync or statSync of a tool path or a drive path prese
   } finally { Object.assign(fsc, { existsSync: ex, statSync: st }); syncBuiltinESMExports(); process.chdir(cwd); }
   assert.deepEqual(seen.filter((p) => /lex\.mjs|x\.md/.test(p)), []);
 });
-// killer: scripts/mission/lint.mjs:128 CONST "found.push([p, n, \"\"])" -> "found.push([inner, undefined, \"\"])"
+const TWELVE = Array.from({ length: 12 }, (_, i) => `l${String(i + 1)}\n`).join(""); // a 12-line file: cites with two-digit lines
+// killer: scripts/mission/lint.mjs:129 CONST "found.push([p.replace(/\\.+$/, \"\"), n," -> "found.push([inner, undefined,"
 test("drive path with a blank: its line suffix is split from the path, so a line past the end is R-LINE, never R-PATH; an absent path stays R-PATH", () => {
   const dir = WIN ? join(T, "with blank") : join(T, "Z:", "with blank"), cwd = process.cwd(); // off Windows: a relative "Z:"
   mkdirSync(dir, { recursive: true });
-  writeFileSync(join(dir, "x.md"), "one\ntwo\n");
+  writeFileSync(join(dir, "x.md"), TWELVE);
   const at = WIN ? dir.replace(/\\/g, "/") : "Z:/with blank";
   try {
     if (!WIN) process.chdir(T);
     const cite = (c: string): string[] => red(H(`Read \`${at}/${c}\`.`));
-    assert.deepEqual(["x.md:2", "x.md:1-2,2", "x.md:3", "x.md:1,3", "gone.md:1"].map(cite), [[], [], ["R-LINE"], ["R-LINE"], ["R-PATH"]]);
+    // killer: scripts/mission/lint.mjs:52 CONST "(?::(\\d+(?:" -> "(?::(\\d(?:"
+    // killer: scripts/mission/lint.mjs:52 CONST "(?::(\\d+(?:-\\d+)?" -> "(?::(\\d+(?:-\\d)?"
+    // killer: scripts/mission/lint.mjs:52 CONST "(?:,\\d+(?:" -> "(?:,\\d(?:"
+    // killer: scripts/mission/lint.mjs:52 CONST "(?:,\\d+(?:-\\d+)?)*" -> "(?:,\\d+)*"
+    assert.deepEqual(["x.md:12", "x.md:1-12", "x.md:1,12", "x.md:1,3-4", "x.md:1-2,2", "x.md:13", "x.md:1,13", "x.md:1-13", "x.md:1,3-13",
+      "gone.md:1"].map(cite), [[], [], [], [], [], ["R-LINE"], ["R-LINE"], ["R-LINE"], ["R-LINE"], ["R-PATH"]]);
+  } finally { process.chdir(cwd); }
+});
+// killer: scripts/mission/lint.mjs:129 CONST "at + m.length" -> "raw.length"
+// killer: scripts/mission/lint.mjs:52 CONST "[^:]*)" -> ".*?)"
+test("drive path with a blank: the hits of the same path without a blank (no suffix, a line inside or past the end, a line after the span, end text)", () => {
+  const top = WIN ? join(T, "cmp") : join(T, "Z:", "cmp"), cwd = process.cwd(); // off Windows: a relative "Z:"
+  for (const d of ["with blank", "noblank"]) { mkdirSync(join(top, d), { recursive: true }); writeFileSync(join(top, d, "x.md"), TWELVE); }
+  const at = WIN ? top.replace(/\\/g, "/") : "Z:/cmp";
+  const cases = [["", ""], [":12", ""], [":13", ""], ["", " (l.13)"], [":12", " (l.13)"], [":12.", ""], [":13.", ""], [".", ""], [".:12", ""],
+    [":12,", ""], [":13,", ""], [":12:14", ""]];
+  const hits = (d: string, [s, a]: string[]): string[] => lint(H(`Read \`${at}/${d}/x.md${s}\`${a}.`)).hits
+    .map((h) => `${h.code} ${h.extract.replace(`${d}/`, "D/")}`);
+  try {
+    if (!WIN) process.chdir(T);
+    const past = [`R-LINE ${at}/D/x.md:13 past the end (12 lines)`], want = [[], [], past, past, past, [], past, [], [], [], past, []];
+    // killer: scripts/mission/lint.mjs:129 CONST "found.push([p.replace(/\\.+$/, \"\"), n," -> "found.push([p, n,"
+    // killer: scripts/mission/lint.mjs:148 CONST "LTAIL.exec(line.slice(after))" -> "LTAIL.exec(\"\")"
+    assert.deepEqual(cases.map((c) => [hits("with blank", c), hits("noblank", c)]), want.map((w) => [w, w]));
   } finally { process.chdir(cwd); }
 });

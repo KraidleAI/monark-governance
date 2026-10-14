@@ -49,7 +49,7 @@ import { existsSync, readFileSync, statSync } from "node:fs";
 import { execFileSync } from "node:child_process";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
-const SUFFIX = /^(.*?)(?::(\d+(?:-\d+)?(?:,\d+(?:-\d+)?)*))?$/u; // a drive path with a blank and its line suffix, as PATH_RE splits them
+const SUFFIX = /^([A-Za-z]:[\\/][^:]*)(?::(\d+(?:-\d+)?(?:,\d+(?:-\d+)?)*))?/u; // a drive path with a blank, read as PATH_RE reads one without
 export const CODES = ["R-LINE", "R-PATH", "R-BRANCH", "R-BASE", "R-TOOL", "R-MODEL", "R-PLACEHOLDER", "R-FOCUS", "R-VAGUE", "R-SIMILAR", "R-SYMBOL", "R-STEP"];
 export const TIERS = ["claude-opus-5-5", "claude-sonnet-5-5", "claude-sonnet-5", "claude-fable-5-1"]; // claude-sonnet-5: retired (decision 280), --rev replays only (Q-G2-9)
 const W = "\\p{L}\\p{N}_";
@@ -121,18 +121,18 @@ export function lintMission({ text, missionPath, repo, rev = null, host = true }
     if (HEAD.test(raw)) { stepSection = STEPS.test(raw); closeStep(); } else if (stepSection && /^\d+\.\s/.test(raw)) { closeStep(); step = [ln, false]; }
     const create = createSection || (!generated && CREATE.test(raw));
     const found = [];
-    const line = raw.replace(/`([^`]*)`/g, (m, inner) => {
+    const line = raw.replace(/`([^`]*)`/g, (m, inner, at) => {
       const tool = /^([\p{L}\p{N}_][\p{L}\p{N}_.-]*)(?:\s|$)/u.exec(inner);
       if (tool && SCRIPT.test(tool[1])) { bare.push([tool[1], ln]); if (create) declared.add(tool[1]); }
       if (/[\u2026<>*?]/.test(inner)) return blank(m);
-      if (/^[A-Za-z]:[\\/]/.test(inner) && /\s/.test(inner)) { const [, p, n] = SUFFIX.exec(inner); found.push([p, n, ""]); return blank(m); }
-      return m;
+      if (!/^[A-Za-z]:[\\/]/.test(inner) || !/\s/.test(inner)) return m;
+      const [, p, n] = SUFFIX.exec(inner); found.push([p.replace(/\.+$/, ""), n, at + m.length]); return blank(m);
     });
     const prose = line.replace(/`[^`]*`/g, blank);
     const quoted = (i) => prose[i] !== line[i];
     for (const m of line.matchAll(PATH_RE)) {
       const p = m[1].replace(/\.+$/, "");
-      if (quoted(m.index) || /^[A-Za-z]:|\.\w+$/.test(p)) found.push([p, m[2], line.slice(m.index + m[0].length)]);
+      if (quoted(m.index) || /^[A-Za-z]:|\.\w+$/.test(p)) found.push([p, m[2], m.index + m[0].length]);
     }
     for (const [rawPath, suffix, after] of found) {
       for (const p of expand(rawPath.replace(/\\/g, "/"))) {
@@ -145,7 +145,7 @@ export function lintMission({ text, missionPath, repo, rev = null, host = true }
         }
         if (abs && host) toolDirs.add(isDir(p) ? p : dirname(p));
         else repoDirs.add(p.replace(/\/$/, "")).add(p.replace(/\/[^/]*\/?$/, ""));
-        const tail = LTAIL.exec(after)?.[1] ?? "";
+        const tail = LTAIL.exec(line.slice(after))?.[1] ?? ""; // after: where the cite ends on the blanked line
         const want = Math.max(0, ...nums(suffix ?? ""), ...[...tail.matchAll(/(?<![\p{L}\p{N}_])l\.\d+(?:-\d+)?/gu)].flatMap((x) => nums(x[0])));
         const n = want > 0 && (host || !abs) ? count(abs ? read(p) : readRepo(p)) : null;
         if (n !== null && want > n) hit("R-LINE", ln, `${p}:${want} past the end (${n} lines)`);

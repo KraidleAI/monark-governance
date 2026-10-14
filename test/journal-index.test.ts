@@ -624,6 +624,11 @@ test("lint_frozen_and_recu_archived: a v2 line reads what add archived: the lint
   // killer: scripts/journal/index.mjs:280 CONST "if (!zeros(r?.lint)) return" -> "if (false) return"
   assert.deepEqual(build({ "M-Z": [ok, { ...ok, facts: { ...(ok.facts as Entry), recu: sha(cnt) } }] }, r2).hits,
     [`J-RECU M-Z:2 ${n2}: receipt lint: absent or a count not 0`]);
+  const nl = `${JSON.stringify({ ...rc, lint: undefined }, null, 2)}\n`, el = `${JSON.stringify({ ...rc, lint: {} }, null, 2)}\n`; // no lint; lint {}
+  for (const b of [nl, el]) graft(r2, sha(b), b);
+  // killer: scripts/journal/index.mjs:280 CONST "if (!zeros(r?.lint)) return" -> "if (Object.values(r?.lint ?? {}).some((n) => n !== 0)) return"
+  assert.deepEqual(build({ "M-Z": [nl, el].map((b) => ({ ...ok, facts: { ...(ok.facts as Entry), recu: sha(b) } })) }, r2).hits,
+    [1, 2].map((i) => `J-RECU M-Z:${String(i)} ${n2}: receipt lint: absent or a count not 0`));
 });
 
 // killer: scripts/journal/index.mjs:261 CONST "e.schema === V2 ? fact(sf.sha256)" -> "e.schema !== V2 ? fact(sf.sha256)"
