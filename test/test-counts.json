@@ -55,7 +55,7 @@
  "apps/harness/test/gate-cell.test.ts": 8,
  "apps/harness/test/gate-cm2b.test.ts": 6,
  "apps/harness/test/gate-empty-set.test.ts": 3,
- "apps/harness/test/gate-kata-served.test.ts": 14,
+ "apps/harness/test/gate-kata-served.test.ts": 15,
  "apps/harness/test/gate-liq-artifact.test.ts": 1,
  "apps/harness/test/gate-liq.test.ts": 14,
  "apps/harness/test/gate-produced-at.test.ts": 2,
