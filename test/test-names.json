@@ -1883,8 +1883,8 @@
   "bell_method_volume_formula_restates_the_served_string — clause by clause, in shares per unit"
  ],
  "test/bell-ots-proofs.test.ts": [
-  "bell_ots_pending_proof_is_held_by_its_digest_not_a_height — docs/dojo-publications seq1, pending at fd20e9fa",
-  "bell_ots_proofs_bind_their_manifest — every .ots under docs/ outside docs/course-bell is a SHA-256 timestamp of its manifest",
+  "bell_ots_proofs_attest_heights_or_listed_calendars — every proof the walk of docs/ finds; the pending one held by its digest",
+  "bell_ots_proofs_bind_their_manifest — each .ots under docs/ outside the top level of docs/course-bell timestamps its manifest's SHA-256; no link",
   "bell_ots_reader_refuses_an_unknown_major_version — the magic header then a major version other than 1 throws, named"
  ],
  "test/bell-publication-state.test.ts": [
