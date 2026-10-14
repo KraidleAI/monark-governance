@@ -18,10 +18,27 @@
   prices it (§6), and gives a rename a line of its own.
 - **Base**: trunk `lot/etude-suite` = `52ddf000` ("Docs: the evening of 8 October, merges up to 256, …"; explicit refspec, `ls-remote`
   at 20:52 and 21:38 UTC), whose gate is #256's merge `92d01d67`. **The `file:line` addresses below hold at `52ddf000`.**
-- **Zone of the change** (planned): in place, `scripts/test-counts-reporter.mjs`, `scripts/test-count-floor.mjs`,
-  `scripts/test-count-check.mjs` and their two `.d.mts` files, `test/test-count-floor.test.ts`, `test/test-count-check.test.ts`, and
-  `test/test-counts.json` (by `write`); new, `test/test-names.json` (by `write`) and this note. Unchanged: `package.json`,
-  `.github/workflows/ci.yml`, `scripts/export-public.mjs`, the oracle, and `test/test-count-removals.json` (`[]`).
+- **Zone of the change** (planned; amended for MONARK's answers): in place, `scripts/test-counts-reporter.mjs`,
+  `scripts/test-count-floor.mjs`, `scripts/test-count-check.mjs` and their three `.d.mts` files, `test/test-count-floor.test.ts`,
+  `test/test-count-check.test.ts`, and `test/test-counts.json` (by `write`); new, `test/test-names.json` (by `write`) and this note. With
+  Q-1 (b), MONARK's three files, each written in this change and reread by MONARK word for word at the merge: the `STAT=` line of
+  `.github/workflows/ci.yml`, test 38 of `test/ci-gates.test.ts`, and one dated line under D9 of `docs/adr/ADR-M003-phase2-integration.md`.
+  Unchanged: `package.json`, `scripts/export-public.mjs`, the oracle, `VIBEGATES_PR_LIMIT`, and `test/test-count-removals.json` (`[]`).
+- **MONARK's answers** (recherches `e6ebb72`, `coordination/messages/2026-10-09-MONARK-vers-RECHERCHES-levee-pause.md`), which bind the
+  build and amend this note in place:
+  - **Q-1 = (b)**: both records leave the R-25 count, on five conditions: (1) two exact paths, no glob, `test/test-counts.json` and
+    `test/test-names.json`; (2) `test/test-count-removals.json` stays counted, its reasons being written by hand; (3) the pin of test 38 of
+    `test/ci-gates.test.ts` holds exactly these two exclusions and reddens if a third appears or one is missing; (4) the names record has
+    one name per line; (5) `VIBEGATES_PR_LIMIT` does not change. MONARK's reason: like the series of D9 sexies, these are data files that
+    nothing writes by hand, and the gate holds them more strongly than a digest, since each must equal the run and be in its written form.
+  - **Q-2 = yes**: REPORTER-REALPATH-1 is folded in, with T8. **Q-3 = yes**: the reason `#<n>: ` then three words or more, and in CI the
+    pull request's own number.
+  - **Q-4**: after KATA-KILLERS-ASSERT-1, at the latest on 2026-10-10. That date was missed: the session reached its weekly usage limit on
+    2026-10-09 and stayed idle until 2026-10-14. The build runs on 2026-10-14, beside KATA-KILLERS-ASSERT-1 on disjoint files (the zone rule
+    of MONARK `6005b0f`; this change's files are declared in recherches `coordination/ZONES.md`), on the trunk head that MONARK announced
+    in `f3153f3`, `5ebd9267`, merged into this branch first.
+  - Test 38 is the test's label (`ci_gates_blocking_no_continue_on_error — blocking and pinned workflow (test 38)`,
+    `test/ci-gates.test.ts:116` at `5ebd9267`), the first test of the file; MONARK's message took the number from this note.
 - **Series bytes**: none opened. The suites read the repository's fixtures as the CI does; only test names and counts are reported.
 - **Measurement host**: Linux, 4 cores, Node v24.21.0, npm 11.19.0. Each full suite ran under the shared host lock, and every run under
   `offline.mjs --no-egress`: 0 refused attempts in every log.
@@ -36,15 +53,17 @@
 - **The names, measured** (§2): 2 968 tests in 290 files. A test's full name is the names of the tests and suites that hold it, then
   its own, joined by `" > "`. No full name repeats in its file, and the names are the same, byte for byte, in two runs.
 - **The construction** (§3): the reporter writes each file's names; `write` writes them to a **second record, `test/test-names.json`,
-  one line per file**, beside `test/test-counts.json`, which keeps its form. The gate holds the run to it (P2, P3). **Once the base
+  one name per line** (Q-1 (b); planned at one line per file before MONARK's answer), beside `test/test-counts.json`, which keeps its form. The gate holds the run to it (P2, P3). **Once the base
   carries it, the gate holds each name gone from a file since the base to exactly one line**: `{file, removed, reason}`,
   `{file, renamed, to, reason}` (where `to` is a name the file gained), or, for a whole file gone, today's `{file, from, to: 0, reason}`.
   A base without the names record (this change's own base) is judged by counts, as today.
 - **The reason** (§3.5): `#<pull request>: ` followed by at least three words; in CI, the number must be the pull request's own
   (`GITHUB_REF`). The hint's placeholder cannot pass.
-- **Tests** (§4): T1, T2, T4 and T5 change in place and T7 is new (T8 too if Q-2). Each is red at the trunk by an assertion, and no
+- **Tests** (§4): T1, T2, T4 and T5 change in place, T7 and T8 are new (Q-2: yes), and test 38 of `test/ci-gates.test.ts` pins the
+  two exclusions (Q-1 (b)). Each is red at the trunk by an assertion, and no
   test imports an export the trunk lacks.
-- **Size** (§5): **about 500 lines in CI form**, 292 of them the new record. The prototype measures 414 for the code and the record,
+- **Size** (§5): with Q-1 (b), chosen by MONARK, **about 210 lines in CI form**, the two records out of the count. As planned before
+  the answer: **about 500 lines in CI form**, 292 of them the new record. The prototype measures 414 for the code and the record,
   and the tests are estimated at about 85. That is under 547, with a thin margin. **It is about 210 if the two records leave the R-25
   count** (Q-1). Against the estimate of about 150 given when the item was taken, the code and the tests come to about 205, and the
   record is the rest.
@@ -116,13 +135,13 @@ killers name, so those killers stay anchored. The mirror's CI writes a larger ru
 - `NAMES = "test/test-names.json"` joins `RUN` and `RECORD` (l.10). `readRun` (l.13-17) also wants, per file, `names`: strings, as many
   as `tests`. A run without names (from an older reporter) is unreadable: exit 4.
 - `write` writes `test/test-counts.json` as today and, from the same run, `test/test-names.json` in its written form, `namesText`: one
-  file per line, sorted, with the file's names sorted on that line, and U+2028 and U+2029 escaped as `\u2028` and `\u2029`. JSON leaves
+  name per line (Q-1 (b); planned at one file per line before MONARK's answer), the files sorted and each file's names sorted, and U+2028 and U+2029 escaped as `\u2028` and `\u2029`. JSON leaves
   those two characters raw, JavaScript ends a line at them, and R-25 refuses a file that holds one
   (`scripts/lot-size-integration.mjs:228`). `test/test-counts.json` keeps its form and its lines, so P2, P4, their killers, MONARK's
   comparisons and the fallback tool read it as they do now.
 - **Why a second file**: putting the names, or a digest, on the lines of `test/test-counts.json` rewrites each of its 290 lines once,
   about 580 lines in CI form, above 547 on its own. A second file adds 292 lines and changes none.
-- **Why one line per file**: one name per line makes 3 550 lines (266 267 bytes), above the CI bound of 1 205 on its own. One line per
+- **Why one line per file** (the plan under (a); MONARK chose (b), where the record leaves the count and holds one name per line): one name per line makes 3 550 lines (266 267 bytes), above the CI bound of 1 205 on its own. One line per
   file makes 292 lines (256 783 bytes; the longest line is 21 367 bytes, and 27 lines pass 2 000 bytes). R-25 admits long lines in a
   `.json` file that parses (`scripts/lot-size-integration.mjs:229`, l.235-238).
 - **Why names, not a digest** (the item was taken with a digest in mind, `eec97be`): a digest per file is also 292 lines (17 287
@@ -234,7 +253,7 @@ behaviour, so that it is red at the trunk by an assertion. On the prototype, the
 | T4 `test_count_check_holds_the_run_to_the_record_and_each_drop_to_its_line` (`test/test-count-check.test.ts:20`, in place) | The reason: `removed on purpose`, `#<pull request>: ...` and `#12: removed` are refused; under `pr` 12, `#13: …` is refused and `#12: …` accepted. Its other cases use reasons of that form | the trunk accepts any reason that is not empty |
 | T5 `test_count_check_names_its_base_or_refuses` (`test/test-count-check.test.ts:52`, in place) | The command line on its fixture, now with runs that carry names and a base that commits both records: a rename above the base gives exit 1 and the exact rename line; with that line, 0; with `GITHUB_REF=refs/pull/7/merge`, the hint names `#7`; the names record out of its form, 1; the head without it, 4; a base without it is judged by counts | the trunk's gate exits 0 on the rename |
 | T7 `test_count_check_holds_each_name_gone_to_its_line` (`test/test-count-check.test.ts`, new) | P2 and P4 by names, on objects: the exact names on each side; a rename (the hint), then its line; a subtest renamed; a test replaced by an empty one; a removal line; a count line refused once the base has names; a file gone (each name wanted, then its single `{from, to: 0}` line); a `to` the file did not gain; two lines for one name; one of two equal names gone, with one line; a line for a file with nothing gone | the trunk's `recordProblems` and `dropProblems` ignore the new argument and refuse the new shapes as malformed |
-| T8 `test_counts_reporter_keys_a_linked_file_by_its_real_path` (`test/test-count-floor.test.ts`, new, only if Q-2) | A real nested run of a test file reached through a directory link (`symlinkSync(…, "junction")`: a junction under Windows, a symbolic link elsewhere) gives one key, with its two tests, its summary and its names | the trunk's reporter writes two keys (measured, §7) |
+| T8 `test_counts_reporter_keys_a_linked_file_by_its_real_path` (`test/test-count-floor.test.ts`, new; Q-2: yes) | A real nested run of a test file reached through a directory link (`symlinkSync(…, "junction")`: a junction under Windows, a symbolic link elsewhere) gives one key, with its two tests, its summary and its names | the trunk's reporter writes two keys (measured, §7) |
 
 T3 and T6 do not change. **Killers** (planned; their lines are fixed at the T commit): one above each test, the others in the bodies.
 
@@ -288,7 +307,7 @@ above `52ddf000` (never pushed): **6 files, 379 insertions, 35 deletions, 414 li
 - The estimate given when the item was taken (`eec97be`: about 150, of which about 90 of code and 60 of tests) is below the code and
   the tests measured and estimated here (≈ 205: 122 and ≈ 85). The record's 292 lines were not in it: a digest beside each count was
   planned there, which on the counts record's own lines would cost about 580 (§3.2).
-- **With Q-1 (b)**, where the two records leave the R-25 count, the change is about 210 lines, and the names record can hold one name
+- **MONARK chose (b)** (`e6ebb72`). **With Q-1 (b)**, where the two records leave the R-25 count, the change is about 210 lines, and the names record can hold one name
   per line (3 550 lines, not counted), which a reviewer reads line by line.
 - **The test count**: +1 test (+2 with Q-2), `test/test-count-check.test.ts` going from 3 to 4. The record of every file is written
   once, in `test/test-names.json`; `test/test-counts.json` changes on that one line only; `test/test-count-removals.json` stays `[]`,
@@ -373,11 +392,14 @@ above `52ddf000` (never pushed): **6 files, 379 insertions, 35 deletions, 414 li
   - (c) two changes, the names record (about 370 lines) then the gate (about 130), with a window in which a rename passes unseen, as
     between #250 and #256.
   - **Proposed**: (b) if MONARK takes the exclusion, else (a). Split as (c) only if the size at the freeze passes 547.
-- **Q-2, REPORTER-REALPATH-1** folded into this change (≈ +18 lines, T8). **Proposed: yes.**
+  - **MONARK: (b)** (`e6ebb72`), on the five conditions given at the head of this note; the three files are written in this change.
+- **Q-2, REPORTER-REALPATH-1** folded into this change (≈ +18 lines, T8). **Proposed: yes.** MONARK: yes, with T8 (`e6ebb72`).
 - **Q-3, the reason**: the form `#<n>: ` with three words, and in CI the pull request's own number. **Proposed: both.** The alternative
-  is the form alone, which leaves n-1's case of a line naming another pull request to the review.
+  is the form alone, which leaves n-1's case of a line naming another pull request to the review. MONARK: yes, both (`e6ebb72`).
 - **Q-4, the trigger**. **Proposed**: the one given when the item was taken (`eec97be`), kept: after the KATA killers change, and at
   the latest on 2026-10-10. The T commit also needs MONARK's answers to Q-1 to Q-3. TEST-COUNT-SKIP-EXPORT-1 follows this change.
+  MONARK: yes, at the latest on 2026-10-10 (`e6ebb72`); that date was missed (the head of this note says why), and the build runs on
+  2026-10-14.
 
 ## 11. Evidence (scratchpad folder `test-count-names-author/`, kept)
 
@@ -408,3 +430,6 @@ gave the price in CI form and played the design.
 - **2026-10-08, this note** (RECHERCHES, `claude-opus-5-5` max, from 21:40 UTC): the G0 of TEST-COUNT-NAMES-1 at the trunk `52ddf000`.
   It contains the hole proved at the trunk, the names measured, the design, the tests and killers planned, the size measured on a
   prototype, and four questions for MONARK.
+- **2026-10-14, amended for MONARK's answers** (RECHERCHES, the build's author instance, `claude-opus-5-5` effort high): the answers of
+  `e6ebb72` to Q-1 to Q-4 written in place (the zone, the construction, the tests, the size and §10); docs only. The build follows on the
+  merge of the trunk head `5ebd9267`.
