@@ -2,9 +2,9 @@
 // (apps/bell/src/tick.ts) and its tests read. No I/O, no code. Pinned by test/bell-deploy-constants.test.ts; the run and method caps
 // copy the mode W3 line (one trading-day window) of the operator's launcher apps/bell/ops/launch-q6.sh, re-measured in rehearsal.
 /** The EnvironmentFile's closed key set: the RPC endpoints and keys, the cash-leg keys, the cycle anchors (an ISO instant with its
- *  offset) and the fixed share of each operator's cycle. The tick checks presence and shape only, never prints a value. No floor key. */
+ *  offset), the fixed share of each operator's cycle and the halts file, never absent (an empty file is an act). Shape only, no value printed, no floor key. */
 export const BELL_COLLECT_ENV_KEYS = Object.freeze(["BELL_SOLANA_RPC", "HELIUS_API_KEY", "CHAINSTACK_SOLANA_URL", "DATABENTO_API_KEY", "POLYGON_API_KEY",
-  "HELIUS_CYCLE_ANCHOR_UTC", "CHAINSTACK_CYCLE_ANCHOR_UTC", "HELIUS_CYCLE_SHARE", "CHAINSTACK_CYCLE_SHARE"]);
+  "HELIUS_CYCLE_ANCHOR_UTC", "CHAINSTACK_CYCLE_ANCHOR_UTC", "HELIUS_CYCLE_SHARE", "CHAINSTACK_CYCLE_SHARE", "BELL_HALTS_CSV"]);
 /** The mints of a unit, one run each (never one mint alone); an extension is a dated line and the test that pins the list. */
 export const BELL_UNIVERSE = Object.freeze(["TSLAx", "AAPLx"]);
 /** The RPC operators of a run. */
@@ -25,3 +25,17 @@ export const BELL_FLOORS = Object.freeze({ helius: 0, chainstack: 0 });
 /** The bound of one tick's run, in seconds (the unit's TimeoutStartSec): a tick that may still run when an operator's next cycle starts is
  *  refused cycle_boundary_straddle. A declared upper bound until the rehearsal measures the worst tick (G0 N-3); then 1.25 times it. */
 export const TICK_TIMEOUT_START_SEC = 7200;
+/** The age past which the tick produces the rebase trajectory again, in hours (launch-q6.sh TRAJ_MAX_AGE_H), re-measured in rehearsal (DC-4). */
+export const TRAJ_MAX_AGE_H = 12;
+/** The sha256 of the reference trajectory (launch-q6.sh REF_TRAJ_SHA256). The file is never in the repo: an act poses it in the tick's
+ *  state/trajectory/, and each trajectory the tick uses must start with its events, mint by mint. */
+export const REF_TRAJ_SHA256 = "dd165fbfd50f9658619355b77f44a018d955df1c16105de2ccf0882602af0195";
+/** The ceiling of the cash close leg per tick, in USD, read by the free Databento cost query before any paid call (launch-q6.sh COST_CAP_USD). */
+export const CASH_COST_CAP_USD = 1;
+/** The shared multiplier authority of the universe's mints, base58, read on chain for TSLAx and AAPLx: the account --rebase-produce enumerates. */
+export const BELL_AUTHORITY = "S7vYFFWH6BjJyEsdrPQpqpYTqLTrPRK6KW3VwsJuRaS";
+/** The trajectory production's own caps. maxCalls is the cap of the course's two productions (they made 200 and 201 calls); the others
+ *  never bind before it (2000 gTfA reservations of 100 credits, 2000 calls of 2 RU, one page per call), declared until the rehearsal measures them (N-3). */
+export const BELL_PRODUCE_CAPS = Object.freeze({ maxCalls: 2000, maxCredits: 200000, maxRu: 4000, maxPages: 2000 });
+/** The caps per RPC method of the trajectory production: each method may take every call of BELL_PRODUCE_CAPS. */
+export const BELL_PRODUCE_METHOD_CAPS = Object.freeze({ getSignaturesForAddress: 2000, getTransaction: 2000, getAccountInfo: 2000, getTransactionsForAddress: 2000 });
