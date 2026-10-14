@@ -32,7 +32,8 @@
 red-proof: test-only
 
 The line above declares the lot test-only, for `node scripts/red-proof.mjs --base <the base of the build> --gel <its head> --test-only`.
-The killers it judges, one per named test, as they read at the base and at W2-GUARD-MISSES-TAIL-1's head (section 4: none moves):
+The killers it judges, one per named test, as they read at the base and at W2-GUARD-MISSES-TAIL-1's head (section 4: none moves); the
+twelfth, last, is the killer of the false kill that the narrowed `refuse` uncovers and this change fixes (section 3):
 
 ```
 apps/harness/src/policy-marginal.ts:44 CONST "qhat: split.qhat," -> "qhat: split.qhat * 2,"
@@ -46,6 +47,7 @@ apps/harness/src/policy-guard.ts:85 CONST "[\"bridge\", \"test\", \"fwd\"]" -> "
 apps/harness/src/policy-guard.ts:56 CONST "spendDelta(KATA_BASE_DELTA, at)" -> "spendDelta(KATA_BASE_DELTA, 1)"
 apps/harness/src/policy-guard.ts:85 CONST "[\"bridge\", \"test\", \"fwd\"]" -> "[\"bridge\", \"fwd\", \"test\"]"
 apps/harness/src/policy-verifiers.ts:156 CONST "typeof v === \"boolean\"" -> "v === true"
+apps/harness/src/policy-guard.ts:67 SDL "is([t, r.bridge ?? t, r.fwd ?? t, r.retire ?? t].every(" -> ""
 ```
 
 ## 1. The eleven lines at the base
@@ -189,6 +191,14 @@ guard's prefix on the trunk (#261).
 The narrowing is measured, not assumed: the build runs the trunk tool on every killer of the two files before and after it and lists each
 verdict that moves (section 9). A killer that read « tue » only because its mutation crashed the guard inside `refuse` becomes « non conclu »:
 a false kill this change uncovers, whose test is fixed here to kill by an assertion.
+
+Measured at the build (section 9), one killer moves that way: K222 (`apps/harness/test/policy-guard.test.ts` l.188,
+`apps/harness/src/policy-guard.ts` l.67 SDL, test `guard_names_k_test_above_n_test`). With the clause gone, the guard computes the bound of a
+test block whose k_test is above its n_test (`apps/harness/src/policy-guard.ts` l.68), and `missUpperBound` throws "kStar must be below n",
+an error of the bound's precondition, not a refusal, which the old `refuse` read as a mismatch of its pattern. The fix, in place on l.191
+(no line moves): the first refusal also tries a test block with n_test 0, which has no bound to compute (`uTest`, l.33, returns null), so
+under the mutation that row is admitted and `refuse` fails by an assertion; the case with n_test above 0 stays. Its test is judged by
+red-proof with the eleven, and its killer is declared above.
 
 **What `check` serves.** The 36 killer lines of the two files, by the way their named test reaches `check` (the tool's ids, the same as
 the sweep's; ids and lines in `logs/C.kids.txt`; a star marks the eight lines of this lot):
