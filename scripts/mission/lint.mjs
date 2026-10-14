@@ -49,7 +49,7 @@ import { existsSync, readFileSync, statSync } from "node:fs";
 import { execFileSync } from "node:child_process";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
-
+const SUFFIX = /^([A-Za-z]:[\\/](?:\{[^{}]*\}|[^:])*)(?::(\d+(?:-\d+)?(?:,\d+(?:-\d+)?)*))?/u; // a drive path with a blank, read as PATH_RE reads one without
 export const CODES = ["R-LINE", "R-PATH", "R-BRANCH", "R-BASE", "R-TOOL", "R-MODEL", "R-PLACEHOLDER", "R-FOCUS", "R-VAGUE", "R-SIMILAR", "R-SYMBOL", "R-STEP"];
 export const TIERS = ["claude-opus-5-5", "claude-sonnet-5-5", "claude-sonnet-5", "claude-fable-5-1"]; // claude-sonnet-5: retired (decision 280), --rev replays only (Q-G2-9)
 const W = "\\p{L}\\p{N}_";
@@ -61,7 +61,7 @@ const TO_CREATE = /^#{1,6}\s.*(?:[\u00e0a]\s+cr[\u00e9e]er|to\s+create)/iu;
 const HEAD = /^#{1,6}\s/;
 const LOCK = /(?:^|[/._-])lock\/?$/i;
 const SCRIPT = /\.(?:ps1|sh|mjs|cjs|js|py)$/i;
-const BRANCH_RE = new RegExp(`(?<![${W}./\\\\-])lot/[${W}][${W}./-]*`, "gu");
+const BRANCH_RE = new RegExp(`(?<![${W}./\\\\~+-])lot/[${W}][${W}./-]*`, "gu"); // not after W ./\ ~ + -, nor strictly inside a PATH_RE read of its line (l.155)
 const BASE_RE = new RegExp(`(?<![${W}-])base(?:\\s+tronc)?\\s*[:=]?\\s*\`?([0-9a-f]{7,40})(?![${W}])`, "iu");
 const ALT_BASE_RE = new RegExp(`(?<![${W}])(?:--base\\s+|gel\\s*[:=]?\\s*)\`?([0-9a-f]{7,40})(?![${W}])`, "iu");
 const MODEL_RE = /(?<![\w-])claude-(?:opus|sonnet|haiku|fable)(?:-[a-z0-9]+)*/giu;
@@ -90,7 +90,7 @@ const isDir = (p) => { try { return statSync(p).isDirectory(); } catch { return 
 const nums = (s) => [...s.matchAll(/\d+/g)].map((x) => Number(x[0]));
 
 /** Lint a mission text against --repo (its worktree on disk, or the git tree of `rev`). Pure apart from reads and git. */
-export function lintMission({ text, missionPath, repo, rev = null }) {
+export function lintMission({ text, missionPath, repo, rev = null, host = true }) { // host false: no host read (branch, drive path, tool directory)
   const git = (...a) => { try { return execFileSync("git", ["-C", repo, ...a], { encoding: "utf8", stdio: ["ignore", "pipe", "ignore"], maxBuffer: 1 << 28 }); } catch { return null; } };
   const src = text.replace(/^\ufeff/, "");
   const lines = src.split(/\r?\n/);
@@ -102,7 +102,7 @@ export function lintMission({ text, missionPath, repo, rev = null }) {
   const roots = new Set(["docs", "scripts", "test", "apps", "packages", ...(git("ls-tree", "-d", "--name-only", rev ?? "HEAD") ?? "").split("\n").filter(Boolean)]);
   const inRepo = (p) => (tree ? tree.has(p.replace(/\/$/, "")) || dirs.has(p.replace(/\/$/, "")) : existsSync(join(repo, p)));
   const readRepo = (p) => (tree ? git("show", `${rev}:${p}`) : read(join(repo, p)));
-  const branches = new Set((git("branch", "--list", "--format=%(refname:short)") ?? "").split("\n").map((s) => s.trim()).filter(Boolean));
+  const branches = !host ? null : new Set((git("branch", "--list", "--format=%(refname:short)") ?? "").split("\n").map((s) => s.trim()).filter(Boolean));
   const missionDir = dirname(resolve(missionPath));
   const toolDirs = new Set([missionDir]);
   const repoDirs = new Set(["scripts"]);
@@ -121,39 +121,39 @@ export function lintMission({ text, missionPath, repo, rev = null }) {
     if (HEAD.test(raw)) { stepSection = STEPS.test(raw); closeStep(); } else if (stepSection && /^\d+\.\s/.test(raw)) { closeStep(); step = [ln, false]; }
     const create = createSection || (!generated && CREATE.test(raw));
     const found = [];
-    const line = raw.replace(/`([^`]*)`/g, (m, inner) => {
+    const line = raw.replace(/`([^`]*)`/g, (m, inner, at) => {
       const tool = /^([\p{L}\p{N}_][\p{L}\p{N}_.-]*)(?:\s|$)/u.exec(inner);
       if (tool && SCRIPT.test(tool[1])) { bare.push([tool[1], ln]); if (create) declared.add(tool[1]); }
       if (/[\u2026<>*?]/.test(inner)) return blank(m);
-      if (/^[A-Za-z]:[\\/]/.test(inner) && /\s/.test(inner)) { found.push([inner, undefined, ""]); return blank(m); }
-      return m;
+      if (!/^[A-Za-z]:[\\/]/.test(inner) || !/\s/.test(inner)) return m; const c = inner.replace(/\s/gu, "_").match(PATH_RE)[0].length; // PATH_RE's cite
+      const [, p, n] = SUFFIX.exec(inner.slice(0, c)); found.push([p.replace(/\.+$/, ""), n, at + 1 + c]); return `\`${" ".repeat(c - 1)}/${inner.slice(c)}\``;
     });
     const prose = line.replace(/`[^`]*`/g, blank);
     const quoted = (i) => prose[i] !== line[i];
     for (const m of line.matchAll(PATH_RE)) {
       const p = m[1].replace(/\.+$/, "");
-      if (quoted(m.index) || /^[A-Za-z]:|\.\w+$/.test(p)) found.push([p, m[2], line.slice(m.index + m[0].length)]);
+      if (quoted(m.index) || /^[A-Za-z]:|\.\w+$/.test(p)) found.push([p, m[2], m.index + m[0].length]);
     }
-    for (const [rawPath, suffix, after] of found) {
+    for (const [rawPath, suffix, after] of found.sort((a, b) => a[2] - b[2])) { // text order, a drive path with a blank among the others
       for (const p of expand(rawPath.replace(/\\/g, "/"))) {
-        const abs = /^[A-Za-z]:\//.test(p);
-        if (!abs && !roots.has(p.split("/")[0])) { const q = resolve(missionDir, p); if (existsSync(q)) toolDirs.add(isDir(q) ? q : dirname(q)); continue; }
+        const abs = /^[A-Za-z]:\//.test(p), rel = !abs && !roots.has(p.split("/")[0]);
+        if (rel) { const q = resolve(missionDir, p); if (host && existsSync(q)) toolDirs.add(isDir(q) ? q : dirname(q)); continue; }
         if (create) declared.add(p);
-        if (!(abs ? existsSync(p) : inRepo(p))) {
+        if (!(abs ? !host || existsSync(p) : inRepo(p))) {
           if (!(abs && LOCK.test(p))) absent.push([SCRIPT.test(p) && (abs || /(^|\/)scripts\//.test(p)) ? "R-TOOL" : "R-PATH", ln, p]);
           continue;
         }
-        if (abs) toolDirs.add(isDir(p) ? p : dirname(p));
+        if (abs && host) toolDirs.add(isDir(p) ? p : dirname(p));
         else repoDirs.add(p.replace(/\/$/, "")).add(p.replace(/\/[^/]*\/?$/, ""));
-        const tail = LTAIL.exec(after)?.[1] ?? "";
+        const tail = LTAIL.exec(line.slice(after))?.[1] ?? ""; // after: where the cite ends on the blanked line
         const want = Math.max(0, ...nums(suffix ?? ""), ...[...tail.matchAll(/(?<![\p{L}\p{N}_])l\.\d+(?:-\d+)?/gu)].flatMap((x) => nums(x[0])));
-        const n = want > 0 ? count(abs ? read(p) : readRepo(p)) : null;
+        const n = want > 0 && (host || !abs) ? count(abs ? read(p) : readRepo(p)) : null;
         if (n !== null && want > n) hit("R-LINE", ln, `${p}:${want} past the end (${n} lines)`);
       }
     }
     for (const b of line.matchAll(BRANCH_RE)) {
-      const name = b[0].replace(/[./-]+$/, "");
-      if ((quoted(b.index) || /branche?\s+$/i.test(line.slice(0, b.index))) && !branches.has(name)) hit("R-BRANCH", ln, `${name} absent from git branch --list`);
+      const name = b[0].replace(/[./-]+$/, ""); if ([...line.matchAll(PATH_RE)].some((r) => r.index < b.index && b.index < r.index + r[0].length)) continue;
+      if ((quoted(b.index) || /branche?\s+$/i.test(line.slice(0, b.index))) && branches !== null && !branches.has(name)) hit("R-BRANCH", ln, `${name} absent from git branch --list`);
     }
     for (const m of prose.matchAll(PLACEHOLDER)) hit("R-PLACEHOLDER", ln, m[0]);
     for (const m of prose.matchAll(VAGUE)) hit("R-VAGUE", ln, m[0]);
@@ -165,7 +165,7 @@ export function lintMission({ text, missionPath, repo, rev = null }) {
   closeStep();
   for (const [code, ln, p] of absent) if (!covers(p)) hit(code, ln, `${p} absent`);
   for (const [name, ln] of bare)
-    if (!declared.has(name) && ![...toolDirs].some((d) => existsSync(join(d, name))) && !inRepo(name) && ![...repoDirs].some((d) => inRepo(`${d}/${name}`))) hit("R-TOOL", ln, `${name} held by no directory the mission names`);
+    if (host && !declared.has(name) && ![...toolDirs].some((d) => existsSync(join(d, name))) && !inRepo(name) && ![...repoDirs].some((d) => inRepo(`${d}/${name}`))) hit("R-TOOL", ln, `${name} held by no directory the mission names`);
   const want = [...new Set(syms.map(([s]) => s))].filter((s) => !declared.has(s) && !GLOBALS.includes(s));
   const defs = want.length === 0 ? "" : git("grep", "-I", "-h", "-w", "-F", ...(rev === null ? ["--untracked"] : []), ...want.flatMap((s) => ["-e", s]), ...(rev === null ? [] : [rev]), "--", "*.ts", "*.mts", "*.mjs", "*.js", "*.cjs") ?? "";
   for (const [s, ln] of syms) if (!declared.has(s) && !GLOBALS.includes(s) && !DEF(s).test(defs)) hit("R-SYMBOL", ln, `${s} is defined nowhere in the tree`);
