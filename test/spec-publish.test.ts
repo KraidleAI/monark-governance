@@ -399,3 +399,59 @@ test("a_caller_s_git_location_never_stands_in_for_the_previous_tree", async () =
   const r = planInChild(request, { ...owner, GIT_CONFIG_COUNT: "1", GIT_CONFIG_KEY_0: "safe.directory", GIT_CONFIG_VALUE_0: "*" });
   assert.equal(r.stdout, "[]", `the caller's -c safe.directory (GIT_CONFIG_*) reaches git: ${r.stderr}`);
 });
+
+// SPEC-GATE-HARDENING-1, SPEC-BOM-CANONICAL-1 (MONARK e7234bd, docs/G0-lot-vocab-venue-fields-1.md): the decoder keeps a leading BOM in the
+// text, so it is refused as the format character it is ([cf], vocabulary) and, for the JSON kinds, as a text that is not JSON (json_invalid).
+// Before, the decoder dropped it: a table preceded by EF BB BF was published under a sha256 that is not its canonical writing's.
+// killer: scripts/spec-publish.mjs:135 CONST "{ fatal: true, ignoreBOM: true }" -> "{ fatal: true }"
+test("a_leading_bom_is_refused_on_every_kind", async () => {
+  const m = await api(), BOM = Buffer.from([0xef, 0xbb, 0xbf]);
+  const c = (out: string, kind: Kind, body: string): Problem[] => m.contentProblems(out, kind, Buffer.concat([BOM, Buffer.from(body)]));
+  const cases: [string, Kind, string, string[]][] = [["a.md", "text", NOTE, ["vocabulary"]], ["a.json", "json", '{"a":1}', ["json_invalid", "vocabulary"]],
+    ["s.json", "schema", SCHEMA, ["json_invalid", "vocabulary"]], ["policy/btc-dir-1h.json", "policy-table", TABLE, ["json_invalid", "vocabulary"]]];
+  for (const [out, kind, body, want] of cases) {
+    const got = c(out, kind, body);
+    assert.deepEqual(codes(got), want, out);
+    assert.ok(got.some((p) => p.code === "vocabulary" && p.detail.includes("[cf]")), `${out}: the BOM is the format character refused`);
+  }
+  assert.deepEqual(codes(m.contentProblems("policy/btc-dir-1h.json", "policy-table", Buffer.from(TABLE))), [], "premise: the same bytes without the BOM pass");
+});
+
+// SPEC-GATE-HARDENING-1, VOCAB-JSON-DUPKEY-1 (MONARK e7234bd): JSON.parse keeps the last of two equal keys without a word. A text of kind
+// json or schema that writes one key twice in one object, at any depth, is refused (duplicate_key); the keys are compared once unescaped,
+// so an escaped writing of a key followed by its plain twin is a duplicate too. One key in two objects, or at two depths, is not; nor is a
+// string value that looks like an object. A policy table stays refused by not_canonical (canonicalJson writes each key once).
+// killer: scripts/spec-publish.mjs:382 CONST "seen.has(k)" -> "false"
+// killer: scripts/spec-publish.mjs:373 CONST "JSON.parse(text.slice(s, i))" -> "text.slice(s, i)"
+test("a_duplicate_key_in_a_json_or_schema_text_is_refused_once_unescaped", async () => {
+  const m = await api(), c = (out: string, kind: Kind, body: string): Problem[] => m.contentProblems(out, kind, Buffer.from(body));
+  const meta = '"$schema":"https://json-schema.org/draft/2020-12/schema"';
+  const dup: [string, Kind, string, string][] = [["a.json", "json", '{"a":1,"a":2}', "a"], ["a.json", "json", '{"\\u0061":1,"a":2}', "a"],
+    ["a.json", "json", '{"x":{"y":[{"b":1,"c":2,"b":3}]}}', "b"], ["s.json", "schema", `{${meta},"type":"object","type":"array"}`, "type"],
+    ["s.json", "schema", `{${meta},"properties":{"n":{"type":"integer","minimum":0,"minimum":1}}}`, "minimum"]];
+  for (const [out, kind, body, key] of dup) {
+    const got = c(out, kind, body);
+    assert.deepEqual(codes(got), ["duplicate_key"], body);
+    assert.ok(got.some((p) => p.code === "duplicate_key" && p.detail.includes(`key ${JSON.stringify(key)} `)), `${body}: the key is named`);
+  }
+  const clean = ['{"a":{"b":1},"b":[{"b":1,"c":2}]}', '[{"x":1},{"x":2}]', '{"a\\"b":1,"a\\\\b":2}', '{"a":"a","b":"{\\"a\\":1,\\"a\\":2}"}', '{"ab":1,"a\\u0062c":2}',
+    '  {\n "k" : [ 1 , -2.5e3 , true , null , "s" ] ,\n "k2" : { } , "k3" : [ ] \n}\n'];
+  for (const body of clean) assert.deepEqual(c("a.json", "json", body), [], body);
+  assert.deepEqual(codes(c("policy/btc-dir-1h.json", "policy-table", TABLE.replace('{"class"', '{"class":1,"class"'))), ["not_canonical"], "a policy table with a duplicate key stays refused as not canonical");
+});
+
+// The side finding of the SPEC-GATE-HARDENING-1 scout: retireProblems (l.312) and published() of scripts/spec-policy-tables.mjs decode with
+// toString, which keeps a BOM. A table preceded by EF BB BF that publishes a retired row was neither refused as not canonical (the gate
+// dropped the BOM) nor seen by the retire rule (its own JSON.parse threw): published, with no retire list. Now contentProblems refuses the
+// file first, so the retire rule never has to read it.
+// killer: scripts/spec-publish.mjs:135 CONST "ignoreBOM: true" -> "ignoreBOM: false"
+test("a_bom_prefixed_table_with_a_retired_row_is_refused_before_the_retire_rule", async () => {
+  const m = await api(), r = fresh(), BOM = Buffer.from([0xef, 0xbb, 0xbf]);
+  const row = { cell_key: "kata:vote4-v1@binance/BTCUSDT/1h/up", status: "retired", n: 92, p_served: null, recompute: null, aux_sha256: null, series_sha256: null };
+  const table = Buffer.from(m.canonicalJson({ class: { task_class: "btc-dir-1h" }, row_format: "class-policy-v2", rows: [row] })), bom = Buffer.concat([BOM, table]);
+  mkdirSync(r); writeFileSync(join(r, "plain.json"), table); writeFileSync(join(r, "bom.json"), bom);
+  const codesOf = (path: string, bytes: Buffer): string[] => codes(m.plan({ inputs: { format: "spec-inputs-v1", releases: { v: { previous_commit: null,
+    entries: [{ out: "policy/btc-dir-1h.json", root: "governance", path, kind: "policy-table", sha256: sha(bytes) }] } } }, release: "v", date: "2026-10-02", roots: { governance: r } }).problems);
+  assert.deepEqual(codesOf("plain.json", table), ["retire_list_missing"], "premise: the retire rule sees the retired row of the plain table (M-1 of R-b)");
+  assert.deepEqual(codesOf("bom.json", bom), ["json_invalid", "vocabulary"], "the BOM-prefixed table is refused by contentProblems before the retire rule, never published");
+});
