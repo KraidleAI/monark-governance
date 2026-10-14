@@ -670,6 +670,116 @@ run and the R1 scan ran on the tree with this section; their logs are in the sam
 - red-proof cannot judge test 38's fold (above); its red-first is the TAP and the soft runs at `9b05d28e`.
 - NOTRACKED survives by construction (15.3).
 
+## 16. Fold 3 (2026-10-14)
+
+By the third fold's author instance (RECHERCHES, `claude-opus-5-5`, effort high), a fresh instance distinct from this note's author, the
+build's, both earlier folds' and the three reviews'. The review: recherches `0419dbc`,
+`coordination/pieces/2026-10-14-g2c-test-count-names/G2-test-count-names-fold2.json`, verdict CORRECTIONS, one minor (m-C), at
+`e0f50429`. Every run below was offline (`offline.mjs --no-egress`, 0 refused attempts in every log), each full suite and each mutation
+run under the shared host lock. The `file:line` addresses of this section hold at this fold's head. `ci.yml` and the ADR are unchanged.
+
+### 16.1 Commits
+
+| Commit | What |
+|---|---|
+| `1cfd9d80` | Merge of the trunk `65e23df3` (#267, which adds `apps/bell/test/plan.test.ts`, `apps/bell/test/sessions-sip.test.ts` and `packages/rpc-guard/test/cycle.test.ts`, 14 tests), no conflict, `git show --remerge-diff` empty |
+| `a47dfac4` | The records: `npm run test:main` then `write` on the merge (the names record gains #267's three files, +20 lines; the counts record unchanged by the write, the merge brought the trunk's lines) |
+| `beb51bd2` | Tests first: test 38's cases rewritten as raw `STAT=` lines (tokens as `ci.yml` spells them), the review's seven and eight more added, one assertion listing every case the pin misses; red at the merge |
+| `b2ef2844` | The pin: `bashWord` (property a), `STAT_PINNED` (property b), the per-token git judge removed (c), the comment rewritten |
+| this commit | This section |
+
+### 16.2 The finding and its fold
+
+**m-C**: test 38 judged each token of the `STAT=` line as its parser reads it (split on blanks, outer single quotes stripped), with the
+test's own git (no `GIT_*`, no `GIT_ATTR_SOURCE`) over the index at HEAD, while the job counts bash's word under its pinned read over
+`base...HEAD`. Seven spellings (Q1, Q2, Q3, V1, V2, A1, D1) passed test 38 with the exact list (a) edited the same way, while the job
+stopped counting `test/test-count-removals.json`, the whole `test/` folder, or a deletion. Folded by three properties, at
+`test/ci-gates.test.ts`:
+
+| Property | Fold | Where |
+|---|---|---|
+| (a) bash reads each token as written | `parseR25Diff` also returns the raw tokens. `bashWord` returns the word bash passes for a token, or `null`: only a plain single-quoted word with no quote, `$`, backslash, backtick or brace inside, or a bare word of `[A-Za-z0-9._/-]` (no glob character), is read as itself. Every token of both count lines (`STAT=` and `CONTENT_STAT=`) must have a word; a table of 24 tokens pins the rule (each excluded character inside quotes, an empty quoted word, a half-quoted token, globs, `~`, `$`, backslash and braces in a bare word, double quotes, `$'…'`, `:!` bare; and four accepted forms) | `:104-110` (parser), `:111-113` (`bashWord`), `:289-293` (the table), `:295-299` (the assertion) |
+| (b) the words are exactly the expected list | `STAT_PINNED` is the trunk's own 21 pathspecs as they stand at `65e23df3`, in the line's order, plus `:(exclude)test/test-counts.json` and `:(exclude)test/test-names.json` after `:(exclude)package-lock.json`. The words of the `STAT=` line must equal it, in order: a third exclusion, a record missing, under a glob or under other magic, a token added, dropped, duplicated, moved or respelled reds. `STAT_PINNED` is written apart from list (a), so a change of the line must edit both; a third assertion holds the two lists to the same set | `:282-288` (the list), `:300-306` (the assertions) |
+| (c) the git judge | Removed. With (a) and (b) the arguments git gets are fixed: the trunk's list and two literal paths with no wildcard and no magic but exclude, which drop their one file whatever the index, the range or the attribute source. The judge could only disagree with the job, as A1 (`attr:` magic, which the job's `GIT_ATTR_SOURCE` reads) and D1 (a path the change deletes, absent from the index) showed. Running it under `pinShell(ROOT)` would also have written the attribute tree into the test's object store | `:270-281` (the comment, rewritten) |
+
+The comment above the pin says what it holds (the words bash passes, not what a git of the test makes of them) and why no git judges
+the tokens. A later change of the `STAT=` line, on the trunk or elsewhere, must update `STAT_PINNED`: that is the property asked for.
+
+### 16.3 The cases
+
+Each case is a whole `STAT=` line as `ci.yml` would spell it, judged by (a) and (b); one assertion lists the cases the pin does not see
+(`:307-337`). The 16 earlier cases (13 third exclusions, a record under a glob, a record missing, the line narrowed to `scripts`) are kept.
+New: the review's Q1 `':(exclude)test/'test-count-removals.json''`, Q2 `':(exclude)test/test-count-removals.json'''`, Q3
+`':!test/'$'test-count-removals.json'`, V1 `:!test$UNSET`, V2 `:!test/{x,test-count-removals.json}`, A1 `':(exclude,attr:diff)test'`, D1
+`':(exclude)test/oracle-run.test.ts'`; and eight more: a record respelled by quote concatenation (the same word for bash), a record in
+double quotes, `.` followed by an unset variable, a record under `(exclude,literal)`, a record in the short form `:!`, an exclusion
+outside `test/`, a duplicated token, two tokens swapped. In the test, D1 is a line with one more token; that the job drops the deletion
+is shown by the paired run below, which deletes the file.
+
+Paired edits (`tools/paired.mjs`, from the review's `bypass.mjs`): for each case, the `STAT=` line of `ci.yml` and list (a) are edited the
+same way (a token added, replaced, removed, or two swapped), test 38 runs alone, and the line runs in bash after the job's `pin` over
+`HEAD...<scratch>`, a commit object that changes three files under `test/` (for D1, deletes `test/oracle-run.test.ts`, out of the index
+during the case). Two cases exist only there: a record written bare (bash stops at the parenthesis) and a `CONTENT_STAT=` token written
+bare.
+
+### 16.4 The pin's own mutants
+
+Test 38's pin has no killer: a killer never mutates a `*.test.ts`. Its 24 mutants were run by hand (`tools/pin-mutants.mjs`), each one
+exact string of `test/ci-gates.test.ts` replaced, test 38 run alone, the file restored (sha256 checked):
+
+- Red by `ERR_ASSERTION`, 21: each character class of `bashWord` opened inside quotes (a single quote, a double quote, `$`, backslash,
+  backtick, braces), an empty quoted word allowed, the quoted form unanchored at its end, `$`, glob characters or braces allowed in a bare
+  word, every bare token taken as itself; the cases compared in any order, as a set, on the words naming `test/` only, or never; the two
+  records dropped from `STAT_PINNED`, one put under `glob`, a third exclusion added, the two swapped; the raw tokens replaced by the
+  parser's.
+- Green alone, 3: each removes one assertion on the real line, which holds, so only a change to `ci.yml` can show it. Each was run again
+  with the paired edits of 16.3: without the (a) assertion, 32 of the 33 cases stay red and the bare `CONTENT_STAT=` token passes, so that
+  case kills it; without the (b) assertion, all 33 stay red, by the assertion holding `STAT_PINNED` and list (a) to the same set, and the
+  swap (which list (a), compared sorted, does not see) only because its swapped case undoes the edit, an incidental kill; without that
+  set assertion, all 33 stay red by (a) and (b).
+
+No killer is added or moved: no script changes.
+
+### 16.5 Measures and proofs
+
+| Proof | Result | Evidence (scratchpad `test-count-names-fold3/`) | sha256 (prefix) |
+|---|---|---|---|
+| Test 38 at `beb51bd2` (the cases on the merge's pin) | red by `ERR_ASSERTION`; the pin misses nine cases: Q1, Q2, Q3, V1, V2, A1, an exclusion outside `test/`, a duplicated token, two tokens swapped. It sees D1 (the file is in the index) and the five respellings of a record or of `.` (the record no longer drops its file, or `.$UNSET` drops all) | `logs/t38-tests-first.tap` | `350ac562` |
+| Paired edits at `a47dfac4` (the merge's pin and cases) | test 38 green on each of the review's seven, while the line run in bash after the job's `pin` counts under `test/` two files of three for Q1, Q2, Q3 and V2, none for V1 and A1, and drops the deletion for D1; the 16 earlier cases and five of the eight new red by `ERR_ASSERTION`; the exclusion outside `test/`, the duplicated and the swapped token green | `logs/paired-before.log` (the tool then, without the mutant option and the two bare cases: `12d230ee`) | `33fab4bc` |
+| Test 38 at `b2ef2844`; the five files `ci-gates`, `test-count-check`, `test-count-floor`, `oracle-run`, `r25-integration` | green; 144 tests, 144 pass | `logs/t38-code.tap`, `logs/t5-code.tap` | `0287b386`, `d380a2d1` |
+| Paired edits at `b2ef2844` | baseline green; each of the 33 cases (the review's seven, the 16 earlier, the eight new, the two bare) red by `ERR_ASSERTION`: by (a) for Q1, Q2, Q3, V1, V2, the respelled records, `.$UNSET` and both bare tokens, by (b) for the rest; files restored | `logs/paired-after.log` (`tools/paired.mjs`) | `15354401` (`204bd520`) |
+| The pin's mutants (16.4) | 21 of 24 red alone; the three others red under paired edits | `logs/pin-mutants.log` (`tools/pin-mutants.mjs`); `logs/paired-mut-no-a.log`, `logs/paired-mut-no-b.log`, `logs/paired-mut-no-coherence.log` | `2b65cfa4` (`cb9616bb`); `ff4754f5`, `5b6fec5e`, `d1b8eb85` |
+| `red-proof --base 1cfd9d80 --gel b2ef2844` | test 38 refused, green at the base (the tool calls it self-confirming), exit 1; no other test changed. The cause is the one of §14.4 and §15.4: the fold is test 38's own code, `ci.yml` does not change, and the base run takes the gel's test file. Test 38's red-first is the TAP at `beb51bd2` and the paired runs before and after | `logs/red-proof.log`, `red-proof/RED-PROOF.json` | `daa8ebb8`, `20f04664` |
+| Killer campaign, the trunk's `scripts/mutants/run.mjs --killers` (identical at the trunk and here), at `b2ef2844`, base `65e23df3` | baseline green (351 tests of the target files), 81 killers, 81 « tue », each by an assertion | `logs/killers.log`, `killers/RESULTS.json` | `903b7e9d`, `accef66e` |
+| `npm run test:main`, on the merge of `65e23df3` | 3 005 tests, 2 983 pass, 0 fail, 22 skipped | `logs/main-merge.log` | `aa6cadfc` |
+| `write`, on that merge | 296 files, 3 005 tests; the names record gains #267's three files (+20 lines); the counts record unchanged by the write | `logs/write-merge.log` | `d9acabc8` |
+| `npm run test:main`, at `b2ef2844` | 3 005 tests, 2 983 pass, 0 fail, 22 skipped | `logs/main-final.log` | `8b7ece3b` |
+| `write`, then the gate against `origin/lot/etude-suite` (`65e23df3`), and by names against `e0f50429` | `write` leaves the tree clean. it prints `test counts: 296 files, 3005 tests, equal to test/test-counts.json and test/test-names.json; 0 drop(s) from the base 65e23df3be07, judged by counts (no names at the base), each with its line in test/test-count-removals.json`, exit 0. Against `e0f50429`: 0 drop, each name gone with its line, exit 0 | `logs/gate.log` | `79774884` |
+| Anchors, `verifie-ancres.mjs --ref 65e23df3` (the trunk head), whole tree | 1 849 killers: 1 847 ANCRE, 2 DERIVE (the two of 13.2), 0 PERDU | `logs/anchors.log` | `66f75e9e` |
+| Size, CI form against the trunk `65e23df3` (`tools/size-ci.sh`, the review's), `pin` first | `pin` refuses no path. The `STAT=` line of this branch: 10 files, 412 + 106 = **518**, under 547 and the CI bound 1 205. W rises by 55 over the 463 of §15, all from `test/ci-gates.test.ts` (76 lines in, 31 out against `e0f50429`); this note is outside the count (`docs/**/*.md`) | `logs/size.log` | `486bbc16` |
+| Gates: `tsc --noEmit`, eslint on the five code files of the zone, `lint:ratchet`, `gate:vocab`, `lang:gate`, `export:check`, winlint `--base 65e23df3`, `git diff --check 65e23df3` | each exit 0 | `logs/gates.log` | `9aa39167` |
+| The three test files of the zone under the case-fold git wrapper (`CASEFOLD_FAIL=1`) | 52 of 52; 0 case-only collision | `logs/casefold-run.log`, `logs/casefold.log` | `fc37d7f8`, `6da8d2ea` |
+| R1 scan, `e0f50429` to `b2ef2844` | 0 match | `logs/r1scan.log` | `bea62e56` |
+
+### 16.6 Carried to MONARK
+
+- **R25-SPECSOF-PARSER-1**: `scripts/lot-size-integration.mjs:64` (`specsOf`, outside this zone) reads the two count lines with the
+  parser test 38 had (split on blanks, outer single quotes stripped). It feeds `pin`'s refusals and the oracle. On a line test 38
+  accepts, its tokens are bash's words, so the two agree; on a line test 38 refuses (Q1 to V2), `specsOf` would read other paths than
+  the job counts, and only test 38 reds. Proposed: the same rule as `bashWord` there, refusing a token that is not a plain word.
+
+### 16.7 Not verified
+
+- Windows: test 38 runs no git any more for this pin; MONARK's replay at the merge covers the rest.
+- The CI of this branch: no pull request is open; a targeted review of this fold comes first.
+- The runner's bash: `bashWord` follows POSIX quoting (a plain single-quoted word and a bare word of `[A-Za-z0-9._/-]` are read as
+  written by any POSIX shell); not run on GitHub's runner.
+- A job-level variable that changes how git reads a pathspec (`GIT_ICASE_PATHSPECS`, `GIT_LITERAL_PATHSPECS`): `ci.yml` sets none today,
+  and test 38 does not pin the job's environment.
+- The gate's CI form (`GITHUB_BASE_REF`) was not run in this fold; its `--base` form ran under `offline.mjs`, which removes `GITHUB_*`.
+- red-proof cannot judge test 38's fold (above).
+- `STAT_PINNED` must be edited by any later change of the `STAT=` line, on the trunk too: by design, not measured.
+
 ## 12. Changelog
 
 - **2026-10-08, this note** (RECHERCHES, `claude-opus-5-5` max, from 21:40 UTC): the G0 of TEST-COUNT-NAMES-1 at the trunk `52ddf000`.
@@ -684,3 +794,6 @@ run and the R1 scan ran on the tree with this section; their logs are in the sam
   (recherches `44c8fd6`) and its fold, the new killers, the measures, and what is left to MONARK.
 - **2026-10-14, second fold** (RECHERCHES, the second fold's author instance, `claude-opus-5-5` effort high): §15, the two findings of
   the review of the first fold (recherches `3655b6d`) and their folds, the new killer, the measures, and what is not verified.
+- **2026-10-14, fold 3** (RECHERCHES, the third fold's author instance, `claude-opus-5-5` effort high): §16, the minor m-C of the review of
+  the second fold (recherches `0419dbc`) and its fold, the cases, the pin's mutants, the measures, an item carried to MONARK, and what is
+  not verified.
