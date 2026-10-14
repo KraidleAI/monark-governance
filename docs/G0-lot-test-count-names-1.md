@@ -593,6 +593,83 @@ cannot be killed; it is kept so that no inherited name reaches the gate's other 
   only (and the trunk's own line for it in `test/test-counts.json`); the gate, its tests and their killed lines are the same bytes.
 - red-proof cannot judge test 38's fold (above); its red-first is the TAP at `d2dc8dc8`.
 
+## 15. Second fold (2026-10-14)
+
+By the second fold's author instance (RECHERCHES, `claude-opus-5-5`, effort high), a fresh instance distinct from this note's author,
+the build's, the first fold's and both reviews'. The review: recherches `3655b6d`,
+`coordination/pieces/2026-10-14-g2b-test-count-names/G2-test-count-names-fold.json`, verdict CORRECTIONS, two minors (m-A, m-B), at
+`ec480025`. Every run below was offline (`offline.mjs --no-egress`, 0 refused attempts in every log), each full suite and each mutation
+run under the shared host lock. The `file:line` addresses of this section hold at this fold's head.
+
+### 15.1 Commits
+
+| Commit | What |
+|---|---|
+| `0b98e0a7` | Merge of the trunk `71eba239` (#264 at `201a0d7d`, then #263, which adds `apps/bell/test/bell-validate.test.ts`, 5 tests), no conflict |
+| `9b05d28e` | Tests first: test 38 gains the review's eight spellings (`tes[t]` among them), a case for `:/` and one for a leading `/`, a record under a glob, a record missing and a line narrowed past `test/`; T5 gains a counts record with keys named `__proto__`, `constructor` and `toString` that the run lacks; red at the merge |
+| `8cdd7815` | Test 38's pin judged by git (m-A); `readRun` returns a copy without a prototype (m-B), with its killer |
+| `33d4f1de` | The records: `npm run test:main` then `write` on the merge (the names record gains #263's five tests) |
+| `bb1b84ff` | The two new pieces of test code typed for `tsc` and `lint:ratchet`; the review's spelling `tes[t]` written `t[e]st`, the same path for git, since `lang:gate` reads a word in it (no assertion changes) |
+| `a88889f5` | Merge of the trunk `8e1b3cdc` (#265, which adds `test/bell-recompute-phrases.test.ts`, 3 tests), which moved during the fold; no conflict |
+| `43c2826a` | The records again: `npm run test:main` then `write` on that merge (the names record gains #265's three tests) |
+| this commit | This section |
+
+### 15.2 Each finding and its fold
+
+| Finding | Fold | Where |
+|---|---|---|
+| **m-A** test 38 judged the `STAT=` line by its spelling | The pin now asks git what the line drops. git keeps a file that a positive pathspec of the line matches and no exclusion matches, so each token read alone by `git ls-files -z -- <token>` says what it drops. Of the files git tracks under `test/`, the tokens that drop any must be exactly `:(exclude)test/test-counts.json` and `:(exclude)test/test-names.json`, in that order, each dropping its one record. A pathspec that git refuses counts as dropping (one entry, `git refuses <token>`). The pin also asserts that `test/test-count-removals.json` is tracked, so that an exclusion of it shows. The spelling filter and its branches (among them the review's NOSLASH and NOTOP) are gone. The cases: the three spellings of §14, the review's eight, `:/!test/…` (short top magic), `:(exclude)/test/…` (a leading `/`, which git refuses), a record under a glob, a record missing, and a line whose `.` is replaced by `scripts`. The comment says what the pin judges | `test/ci-gates.test.ts:265-271` (the comment), `:272-285` (the pin), `:286-292` (the cases) |
+| **m-B** P2 read the run through inherited keys | `readRun` returns `Object.assign(Object.create(null), run)`, so `run[f]` at P2 is `undefined` for a file the run lacks, whatever its name. The l.19 killer of the gate (`".filter((f) => run[f] === undefined)"`) stays anchored: the gate is not changed. T5: the head's counts record gains `__proto__`, `constructor` and `toString` at 3, which neither the run nor the names record holds; the gate exits 1 with one `::error::<key>: in test/test-counts.json (3), not in the run` line for each, in that order | `scripts/test-count-floor.mjs:16`; `test/test-count-check.test.ts:140-144` |
+
+### 15.3 Killers, new or moved
+
+| Killer | Holds | Verdict |
+|---|---|---|
+| `scripts/test-count-floor.mjs:16 CONST "Object.assign(Object.create(null), run)" -> "run"` (`test/test-count-check.test.ts:140`) | the run read by its own keys (m-B) | K49 tue (T5) |
+
+No killer moved. With `--ref ec480025`, the anchor checker reads the 81 killers of the three test files as 81 ANCRE, the gate's l.19 killer among them.
+Test 38's pin has no killer: a killer never mutates a `*.test.ts` (the closed convention of `scripts/red-proof.mjs`). Its mutants were
+run by hand (15.4): REFUSEOK (a pathspec git refuses drops nothing), DOT (each token read beside `.`), ALLFILES (the whole tree in place
+of `test/`), TWOPLUS (a token counts from two files) and STALE (one memo entry for every token) are each red by `ERR_ASSERTION`.
+NOTRACKED (the assertion that the removals file is tracked, removed) survives: it guards a tree in which that file is no longer tracked,
+which no case of the real tree can build. It is kept as a precondition, not as a check that a mutant can fail.
+
+### 15.4 Measures and proofs
+
+| Proof | Result | Evidence (scratchpad `test-count-names-fold2/`) | sha256 (prefix) |
+|---|---|---|---|
+| The changed tests at `9b05d28e` (the merge's code) | test 38 and T5 red, each by `ERR_ASSERTION`; T5 by exit 0 where 1 and the three lines are wanted; every other test of the three files green (50 of 52) | `logs/t-at-merge.tap` | `9cfc4179` |
+| Each test 38 case on its own at `9b05d28e` (each `assert.ok(pinSees(` made soft in a throwaway copy) | red, not seen by the merge's filter: the review's eight spellings and the narrowed line; seen: the three spellings of §14, `:/!…`, `:(exclude)/…`, the glob and the missing record | `logs/soft-at-merge.log` (`tools/soft-t38.mjs`) | `dc13c843` (`24021b51`) |
+| The review's NOSLASH and NOTOP on the merge's filter, each case on its own | NOSLASH misses `:(exclude)/test/…`, NOTOP misses `:/!test/…`: each mutant is killed by its new case; the file restored (sha256) | `logs/t38-old-mutants.log` (`tools/t38-old-mutants.mjs`) | `cde2a632` (`a5953a6e`) |
+| The spelling `t[e]st` of `bb1b84ff` on the merge's filter (`9b05d28e`'s test file with that one change) | red, not seen | `logs/soft-te-st-at-merge.log` | `e98db946` |
+| The three test files at the fold's code (`8cdd7815`), then at `bb1b84ff` | 52 tests, 52 pass each time; each of the 16 pin cases seen | `logs/t-at-code.tap`, `logs/soft-at-code.log`; `logs/t-at-head.tap`, `logs/soft-at-head.log` | `dfb7aa98`, `6df8237d`; `f969d82a`, `fc9ec6d1` |
+| Mutants of the new pin (15.3), at `bb1b84ff` | 5 red by `ERR_ASSERTION`, NOTRACKED green; the file restored (sha256) | `logs/t38-judge-mutants.log` (`tools/t38-judge-mutants.mjs`) | `cd0929b8` (`218abca5`) |
+| `red-proof --base 0b98e0a7 --gel bb1b84ff` | T5 F2P (red at the base by `ERR_ASSERTION`, green at the gel). Test 38 refused, green at the base (the tool calls it self-confirming), so the tool exits 1. The cause is the one of §14.4: m-A's fold is test 38's own code, `ci.yml` does not change, and the base run takes the gel's test file. Test 38's red-first is the TAP and the soft run at `9b05d28e` above | `logs/red-proof-final.log`, `red-proof-final/RED-PROOF.json` (the same at `--gel 8cdd7815`: `logs/red-proof.log`) | `c8bd2e3f`, `83328b4a` (`514a7ba1`) |
+| Killer campaign, the trunk's `scripts/mutants/run.mjs --killers`, at the head `43c2826a`, base `8e1b3cdc` | baseline green (the tool counts 332 tests of the target files; the TAP's summary reads 340 pass, 0 fail), 81 killers, 81 « tue », each by an assertion; the new one is K49 | `logs/killers-head.log`, `killers-head/RESULTS.json` | `f875f298`, `94f60091` |
+| The same, base `71eba239` | at `bb1b84ff`: baseline green (the tool counts 361 tests of the target files; the TAP's summary reads 369 pass, 0 fail), 81 killers, 81 « tue », each by an assertion; the new one is K49. The same at `33d4f1de`, before the typing: 81 of 81 « tue » | `logs/killers-final.log`, `killers-final/RESULTS.json`; `logs/killers.log` | `49203f5b`, `a02e62ed`; `a9426721` |
+| `npm run test:main`, on the merge of `71eba239` | 2 988 tests, 2 966 pass, 0 fail, 22 skipped | `logs/main-1.log` | `6490f89b` |
+| `npm run test:main`, on the merge of `8e1b3cdc` | 2 991 tests, 2 969 pass, 0 fail, 22 skipped | `logs/main-2.log` | `3c7c3265` |
+| `write`, on the merge of `71eba239` | 292 files, 2 988 tests; the names record gains the five tests of `apps/bell/test/bell-validate.test.ts` (+7 lines, 3 574 in all); the counts record is unchanged by the write (the merge brought the trunk's line for that file) | `logs/write-1.log` | `211fed08` |
+| `write`, on the merge of `8e1b3cdc` | 293 files, 2 991 tests; the names record gains the three tests of `test/bell-recompute-phrases.test.ts` (+5 lines, 3 579 in all); the counts record unchanged by the write | `logs/write-2.log` | `1e95ce7e` |
+| The gate against `origin/lot/etude-suite` (`8e1b3cdc`), in the `--base`, oracle and CI forms; and judged by names against `ec480025` | green: 293 files, 2 991 tests, 0 drop, judged by counts (no names at the trunk); by names against `ec480025`, green; `git status` clean after `write` and its commit. The same on the merge of `71eba239` (292 files, 2 988 tests): `logs/gate.log` | `logs/gate-2.log` | `796bfff3` (`b3fc59dd`) |
+| Anchors, `verifie-ancres.mjs --ref 8e1b3cdc` (the trunk head), whole tree | 1 834 killers: 1 832 ANCRE, 2 DERIVE (the two of 13.2, `scripts/test-count-check.mjs:56` and `scripts/test-counts-reporter.mjs:15`), 0 PERDU | `logs/anchors-2.log` | `4576e8cb` |
+| Anchors of the three test files, `--ref ec480025` | 81 killers, 81 ANCRE | `logs/anchors-zone-2.log` | `15a8d202` |
+| Size, CI form against the trunk `8e1b3cdc` (`tools/size.sh`, the build's), `pin` first | `pin` refuses no path. The `STAT=` line of this branch: 10 files, 362 + 101 = **463**, under 547 and the CI bound 1 205 (`VIBEGATES_PR_LIMIT` unchanged). The trunk's line: 12 files, 3 943 + 103 = 4 046. The fold adds 22 lines to the 441 of §14 | `logs/size-final.log` | `43fcfed5` |
+
+The gates (`tsc --noEmit`, eslint, `lint:ratchet`, `gate:vocab`, `lang:gate`, `export:check`, winlint, `git diff --check`), the case-fold
+run and the R1 scan ran on the tree with this section; their logs are in the same folder (`logs/gates.log`, `logs/casefold*.log`,
+`logs/r1scan.log`) and the hand-back report gives their digests.
+
+### 15.5 Not verified
+
+- Windows: the pin's `git ls-files` calls under Windows git (the pathspecs hold no backslash and no drive), T8's junction, T2's nested
+  run, the names under `cmd.exe`, and the gate on the merge; MONARK's replay at the merge.
+- The CI of this branch: no pull request is open; a targeted review of this fold comes first.
+- The gate's CI form under `offline.mjs`, which removes every `GITHUB_*` name: run outside it (the gate runs git only), in the oracle
+  and `--base` forms under it.
+- red-proof cannot judge test 38's fold (above); its red-first is the TAP and the soft runs at `9b05d28e`.
+- NOTRACKED survives by construction (15.3).
+
 ## 12. Changelog
 
 - **2026-10-08, this note** (RECHERCHES, `claude-opus-5-5` max, from 21:40 UTC): the G0 of TEST-COUNT-NAMES-1 at the trunk `52ddf000`.
@@ -605,3 +682,5 @@ cannot be killed; it is kept so that no inherited name reaches the gate's other 
   the planned killer of `readRun` moved from `:14` to `:15` in §4.
 - **2026-10-14, G2 fold** (RECHERCHES, the fold's author instance, `claude-opus-5-5` effort high): §14, each finding of the review
   (recherches `44c8fd6`) and its fold, the new killers, the measures, and what is left to MONARK.
+- **2026-10-14, second fold** (RECHERCHES, the second fold's author instance, `claude-opus-5-5` effort high): §15, the two findings of
+  the review of the first fold (recherches `3655b6d`) and their folds, the new killer, the measures, and what is not verified.
