@@ -23,7 +23,7 @@ import { RECORD, RUN, readRun, recordText, runProblems, type Run } from "../scri
 import { collectFiles } from "../scripts/export-public.mjs";
 
 const ROOT = join(import.meta.dirname, ".."), OPTIONS = `--test-reporter=spec --test-reporter-destination=stdout --test-reporter=./scripts/test-counts-reporter.mjs --test-reporter-destination=${RUN}`;
-// killer: scripts/test-counts-reporter.mjs:15 CONST "data.details?.type === \"test\"" -> "true"
+// killer: scripts/test-counts-reporter.mjs:21 CONST "data.details?.type === \"test\"" -> "true"
 test("test_counts_reporter_counts_each_test_of_each_file", async () => {
   const at = (f: string): string => join(process.cwd(), f), t = { type: "test" }, x = at("x.test.ts"), y = at("apps/y/test/y.test.ts");
   const start = (file: string, name: string, nesting: number) => ({ type: "test:start", data: { file, name, nesting } }); // in the order the tests are defined
@@ -35,11 +35,12 @@ test("test_counts_reporter_counts_each_test_of_each_file", async () => {
     { type: "test:pass", data: { name: "loose", nesting: 0, details: t } }, { type: "test:diagnostic", data: { file: y } }, { type: "test:summary", data: { counts: { tests: 6 } } }]; // x's own summary; y sends none
   let out = "";
   for await (const chunk of testCounts(events)) out += chunk;
-  // killer: scripts/test-counts-reporter.mjs:16 CONST "of(data.file).summary = true" -> "of(data.file).summary = false"
-  // killer: scripts/test-counts-reporter.mjs:16 CONST "data.file !== undefined" -> "true"
-  // killer: scripts/test-counts-reporter.mjs:15 CONST ".slice(0, data.nesting), data.name].join(\" > \")" -> ".slice(0, 0), data.name].join(\" > \")"
-  // killer: scripts/test-counts-reporter.mjs:17 CONST "else if (type === \"test:start\")" -> "else if (false)"
-  // killer: scripts/test-counts-reporter.mjs:19 CONST "names: c.names.sort()" -> "names: c.names"
+  // killer: scripts/test-counts-reporter.mjs:22 CONST "c.summary = true" -> "c.summary = false"
+  // killer: scripts/test-counts-reporter.mjs:22 CONST "data.file !== undefined" -> "true"
+  // killer: scripts/test-counts-reporter.mjs:22 CONST "by === undefined || " -> ""
+  // killer: scripts/test-counts-reporter.mjs:21 CONST ".slice(0, data.nesting), data.name].join(\" > \")" -> ".slice(0, 0), data.name].join(\" > \")"
+  // killer: scripts/test-counts-reporter.mjs:23 CONST "else if (type === \"test:start\")" -> "else if (false)"
+  // killer: scripts/test-counts-reporter.mjs:25 CONST "names: c.names.sort()" -> "names: c.names"
   assert.deepEqual(Object.entries(JSON.parse(out) as Run), [["", { tests: 1, summary: false, names: ["loose"] }], ["apps/y/test/y.test.ts", { tests: 1, summary: false, names: ["todo"] }],
     ["x.test.ts", { tests: 4, summary: true, names: ["a describe > in it", "z parent", "z parent", "z parent > child"] }]],
   "each test at any depth, a failure, a skip and a todo included and a describe not, under its file relative to the cwd, sorted; a test without a file under \"\"; the own summary noted, the run's summary ignored; each test named after the tests and suites that hold it, a name twice kept twice, the names sorted");
@@ -65,7 +66,7 @@ test("test_count_floor_refuses_a_file_whose_process_ended_before_it_reported", (
     mkdirSync(join(dir, "test"));
     const reporter = pathToFileURL(join(ROOT, "scripts", "test-counts-reporter.mjs")).href, tests = Object.keys(files).filter((f) => f.endsWith(".test.mjs"));
     const nested = node(["--test", `--test-reporter=${reporter}`, `--test-reporter-destination=${RUN}`, ...tests]), ran = existsSync(join(dir, RUN)) ? JSON.parse(readFileSync(join(dir, RUN), "utf8")) as Run : null;
-    // killer: scripts/test-counts-reporter.mjs:19 CONST "c.summary && c.foreign > 0 ?" -> "c.foreign > 0 ?"
+    // killer: scripts/test-counts-reporter.mjs:25 CONST "c.summary && c.foreign > 0 ?" -> "c.foreign > 0 ?"
     assert.deepEqual([nested.status, ran], [0, { "a.test.mjs": { tests: 3, summary: true, names: ["one", "two", "two > in two"] }, "b.test.mjs": { tests: 1, summary: false, names: ["b.test.mjs"] },
       "c.test.mjs": { tests: 1, summary: false, names: ["c.test.mjs"] }, "d.test.mjs": { tests: 1, summary: false, names: ["d.test.mjs"] },
       "declare.mjs": { tests: 1, summary: false, names: ["declared by a module"] }, "e.test.mjs": { tests: 1, summary: true, names: ["one"] } }],
@@ -107,7 +108,7 @@ test("test_main_loads_the_counts_reporter_and_the_export_ships_it", () => {
   assert.ok(readFileSync(join(ROOT, ".gitignore"), "utf8").split(/\r?\n/).includes(`/${RUN}`), `.gitignore names the run file, /${RUN}`);
 });
 
-// killer: scripts/test-counts-reporter.mjs:10 CONST "relative(real(process.cwd()), real(file))" -> "relative(process.cwd(), file)"
+// killer: scripts/test-counts-reporter.mjs:13 CONST "relative(real(process.cwd()), real(file))" -> "relative(process.cwd(), file)"
 test("test_counts_reporter_keys_a_linked_file_by_its_real_path", () => {
   const dir = mkdtempSync(join(tmpdir(), "tcr-")), reporter = pathToFileURL(join(ROOT, "scripts", "test-counts-reporter.mjs")).href;
   try {
@@ -123,9 +124,9 @@ test("test_counts_reporter_keys_a_linked_file_by_its_real_path", () => {
   }
 });
 
-// killer: scripts/test-counts-reporter.mjs:16 CONST "if (c !== of(data.file) || c.summary) c.foreign++" -> "if (false) c.foreign++"
-// killer: scripts/test-counts-reporter.mjs:15 CONST " ran.push(c);" -> ""
-// killer: scripts/test-counts-reporter.mjs:19 CONST "{ foreign: c.foreign }" -> "{}"
+// killer: scripts/test-counts-reporter.mjs:22 CONST "if (r !== c || r.summary) r.foreign++" -> "if (false) r.foreign++"
+// killer: scripts/test-counts-reporter.mjs:21 CONST "ran.push(c); else" -> "void 0; else"
+// killer: scripts/test-counts-reporter.mjs:25 CONST "{ foreign: c.foreign }" -> "{}"
 // killer: scripts/test-count-floor.mjs:24 CONST "c.foreign > 0 ?" -> "false ?"
 test("test_count_floor_refuses_a_file_whose_tests_another_test_file_ran", async () => {
   const at = (f: string): string => join(process.cwd(), f), t = { type: "test" }, b = at("b.test.ts"), c = at("c.test.ts");
@@ -134,7 +135,7 @@ test("test_count_floor_refuses_a_file_whose_tests_another_test_file_ran", async 
   for await (const chunk of testCounts([pass(b, "one"), pass(c, "own"), summary(c), pass(b, "one"), summary(b)])) out += chunk;
   assert.deepEqual(JSON.parse(out), { "b.test.ts": { tests: 2, summary: true, names: ["one", "one"], foreign: 1 }, "c.test.ts": { tests: 1, summary: true, names: ["own"] } },
     "a test is credited to the file that declares it; one reported in another file's process counts as foreign on its own file, written when above 0");
-  // killer: scripts/test-counts-reporter.mjs:16 CONST " || c.summary) c.foreign++" -> ") c.foreign++"
+  // killer: scripts/test-counts-reporter.mjs:22 CONST " || r.summary) r.foreign++" -> ") r.foreign++"
   out = ""; // one file run twice (a link to it is the same real path): its second process repeats its tests
   for await (const chunk of testCounts([pass(b, "one"), summary(b), pass(b, "one"), summary(b)])) out += chunk;
   assert.deepEqual(JSON.parse(out), { "b.test.ts": { tests: 2, summary: true, names: ["one", "one"], foreign: 1 } }, "a file summed up twice: the tests of its second process count as foreign");
@@ -158,6 +159,11 @@ test("test_count_floor_refuses_a_file_whose_tests_another_test_file_ran", async 
   }
 });
 
+// killer: scripts/test-counts-reporter.mjs:20 CONST "data?.entryFile === undefined ? undefined : key(data.entryFile)" -> "undefined"
+// killer: scripts/test-counts-reporter.mjs:21 CONST "else if (by !== key(data.file) || c.summary) c.foreign++" -> "else if (false) c.foreign++"
+// killer: scripts/test-counts-reporter.mjs:21 CONST "by !== key(data.file) || " -> ""
+// killer: scripts/test-counts-reporter.mjs:21 CONST " || c.summary) c.foreign++" -> ") c.foreign++"
+// killer: scripts/test-counts-reporter.mjs:22 CONST "by === undefined || by === key(data.file)" -> "true"
 test("test_counts_reporter_keys_each_event_by_the_process_that_sent_it", async () => {
   const at = (f: string): string => join(process.cwd(), f), t = { type: "test" }, b = at("b.test.ts"), c = at("c.test.ts"), w = at("test/fixtures/w.mjs");
   const pass = (file: string, name: string, entryFile: string) => ({ type: "test:pass", data: { file, name, nesting: 0, details: t, entryFile } });
@@ -173,6 +179,8 @@ test("test_counts_reporter_keys_each_event_by_the_process_that_sent_it", async (
     "b run twice, each time by its own process: the tests after its first summary count as foreign");
 });
 
+// killer: scripts/test-count-floor.mjs:24 CONST "twice(c.names) > 0 ?" -> "false ?"
+// killer: scripts/test-count-floor.mjs:54 CONST "names.length - new Set(names).size" -> "0"
 test("test_count_floor_refuses_a_nested_test_run_and_a_file_that_runs_twice_in_its_own_process", () => {
   const dir = mkdtempSync(join(tmpdir(), "tcn-")), floor = join(ROOT, "scripts", "test-count-floor.mjs"), reporter = pathToFileURL(join(ROOT, "scripts", "test-counts-reporter.mjs")).href;
   const node = (args: string[]) => spawnSync(process.execPath, args, { cwd: dir, encoding: "utf8", env: { ...process.env, NODE_TEST_CONTEXT: undefined } });
