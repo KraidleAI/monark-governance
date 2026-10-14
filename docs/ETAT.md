@@ -1220,6 +1220,51 @@ formés et les actes du G7 de #256. Deux lignes corrigées en place (ETAT l.507 
   ; refs/pull/251/head reste (e55cec0a). Construction : purge par le support GitHub. Porteur : le fondateur (acte de compte) ; déclencheur
   : sa décision, plus tard ; état : ouvert.
 
+## Reprise du 2026-10-12 : la file des fusions, #261 et #237 (MONARK, 2026-10-13 17:2x UTC)
+
+- Reprise décidée par le fondateur le 2026-10-12 ; file unique des fusions, une PR à la fois : #261, #237, #238 (RECHERCHES), puis #259,
+  #260 (PAROXYSME). Messages : recherches #471, paroxysme #102 (règle des zones de `coordination/ZONES.md`).
+- #261 fusionnée (`1992b1ed`, base `52ddf000`, tête `45f8195e`, CI 13/13) : la garde d import refuse une ligne de vague 2 dont `misses`
+  dépasse `tail_m`, et une ligne de bande dont `misses` dépasse `k*`. Rejeu Windows de policy-guard, policy-wave2 et ci-gates : 82/82.
+  G7 onze gates à 0, enregistrement F:/tmp/oracle-results/f0899267…-G7-20261012T043536Z-55484.json sha256
+  f7e2926521ebae10310a5ba170ee8e5832548156338402a30f39807a7068d476 (fusion `f0899267` récrite en `1992b1ed` pour son titre, même arbre
+  `250efe18`, mêmes parents). Item W2-GUARD-MISSES-TAIL-1 fermé en place (registre des items). Poussée par le fondateur sur la commande
+  de MONARK (le système de permissions refusait la poussée), 2026-10-12.
+- #237 fusionnée (`5ebd9267`, base `1992b1ed`, tête `df9a66d6`, CI 13/13 dont g3-test-count) : les tables kata committées servies par la
+  porte, derrière le fil-piège des épingles. Fusion propre, `test/test-counts.json` fusionné sans conflit. Rejeu Windows de gate-cell,
+  gate-kata-served, kata-path, policy-row-schema-corpus, policy-table-file et ci-gates : 95/95. G7 onze gates à 0 (test-count-check
+  compris), enregistrement F:/tmp/oracle-results/5ebd9267…-G7-20261013T170804Z-83928.json sha256
+  db4f6fb491fc4cadfac11aa37d330e3dddbf7c202bf87bb598bfbeb1599da1f7 ; tronc poussé 1992b1ed..5ebd9267. cp-2 du validateur-humain
+  ACCEPTE-AVEC-CORRECTIONS (F:/tmp/cp2-237/RAPPORT-cp2-237.md sha256 dd3d17f9…) : C-1 à RECHERCHES (K19 dans KATA-KILLERS-ASSERT-1 ou
+  dans une petite PR après #237) ; C-2 tenu au JOURNAL de ce commit ; C-3 tenu (base de l oracle = tête du tronc au moment de fusionner).
+  Messages : recherches #472, paroxysme #103.
+- Reste de la file : #238 attend son rebase sur `5ebd9267` et son relevé (RECHERCHES, reprise le 2026-10-14) ; #259 et #260 attendent
+  leurs plis, non poussés (PAROXYSME, même reprise).
+- ERREUR DE MONARK (2026-10-12) : le titre de la fusion de #261 portait la clé de l item ; la garde a refusé la poussée (règle du
+  2026-10-08) ; titre récrit. Le titre de #237 est sans clé dès la fusion.
+- ERREUR DE MONARK (2026-10-12, corrigée le 2026-10-13) : MONARK a dit au fondateur et écrit dans le résumé interne que la sentinelle
+  Narabi était « à l arrêt depuis le 23/09 ». Faux : la sentinelle publie chaque jour (timeline et état de monarkgate.tech/narabi,
+  Last-Modified 2026-10-13 00:41:09 GMT, lus aux en-têtes HTTP seuls) ; ce qui est noir depuis le 2026-09-23, c est la jambe payante
+  Chainstack (garde « unconfigured », relevé du 2026-10-04). Résumé corrigé en place.
+- SENTINEL-GUARD-ARMING-1, P-3 lu sur place (MONARK, console Chainstack du fondateur dans Chrome, 2026-10-13 17:1x UTC) : période de
+  facturation du 2026-09-19 au 2026-10-19, d où `<CYCLE>` = `chainstack-2026-09-19` ; RU du compte 472 015 sur 20 000 000 inclus, d où
+  `<FLOOR>` = 472015 (fait daté : F:/tmp/sentinel-arming/FAITS-P3-chainstack-2026-10-13.md). Écart relevé avant §6-bis : l étape (5)
+  archive `apps`, `packages`, le lockfile et `scripts/verify-harness.mjs` au SHA du pli `6cfd8abd`, alors que le harnais déployé est
+  `9612d4d2` (JOURNAL, 2026-10-06) : 26 fichiers du harnais et le lockfile avanceraient sur disque sans redémarrage ni CA. Le code de la
+  sentinelle, de rpc-guard et des unités de la sentinelle est identique entre `6cfd8abd` et `5ebd9267`. Décision du fondateur demandée
+  avant toute écriture sur l hôte.
+- ITEM FORMÉ SENTINEL-CYCLE-ROLLOVER-1 : `CHAINSTACK_CYCLE_ID` et `CHAINSTACK_CYCLE_FLOOR` vivent dans un fichier d environnement
+  statique ; la période change le 2026-10-19, et rien dans le code ne passe au cycle suivant (verifie.mjs : « cycle rollover », aucune
+  trace ; run.ts l.254-285 lit les deux clés telles quelles). Construction : une règle écrite (relecture de la console et repose des
+  deux clés à chaque cycle, par qui) ou une dérivation du cycle dans le code, test et tueur d abord. Porteur : MONARK ; déclencheur : le
+  réarmement de la jambe, au plus tard le 2026-10-19 ; état : ouvert.
+- ITEM FORMÉ GATE-ADAPTIVE-SERVED-1 (limite déclarée sans item, relevée le 2026-10-11) : le traqueur adaptatif (ADR-M009) est consommé
+  par la sentinelle seule (`apps/sentinel/src/timeline.ts` l.13) ; aucun module de `apps/harness` ne le lit, et la porte servie reste sur
+  la calibration statique engagée (README : « the tracker adapts, the gate does not yet »). Construction : d abord le traqueur à côté de
+  la porte pour TYCHO (avis unanime des experts du 2026-10-11 : pièce codée de Hikae, jamais un LLM), puis le branchement de la porte par
+  une ADR, après la décision sur `B_t`. Porteur : MONARK ; déclencheur : la décision du fondateur sur `B_t`, ou le critère de dérive
+  pré-enregistré ; état : ouvert.
+
 ## Points connus (à traiter, non bloquants sauf mention)
 
 - **Charge mesurée de la publication** : 80 s pour 1 144 adresses sur 30 jours, 559 s sur 365 jours, 562 s pour 10 000 adresses sur 30 jours. Limites de l'unité : `TimeoutStartSec=2900`, `MemoryMax=512M`. Au-delà d'environ 10 000 adresses sur un an, il faudra revoir la vérification avant écriture.
@@ -1336,7 +1381,7 @@ formés et les actes du G7 de #256. Deux lignes corrigées en place (ETAT l.507 
   Tout travail de MONARK pour les katas vient après la page (P0, recalcul P2, revue P3, site P4,
   F-K-7, D10, F-K-1), sauf décision de l'investisseur. Item LIVE-1-RECORD-1 : enregistrer le bloc LIVE-1 (2026-10-01 → 2027-01-01) avec
   le même enregistreur ; déclencheur 2027-01-01 après minuit UTC ; conditions de Binance relues ce jour-là ; sha256 postés à RECHERCHES.
-- **Dépôt `monark-governance` privé** depuis le 01/10 au moins : aucun push sans vérification préalable de la visibilité et accord de l'investisseur (une CI lancée par erreur à 01:04 UTC, annulée).
+- **Dépôt `monark-governance` public** (relevé le 2026-10-13 ; il était privé le 01/10 ; le fondateur, le 2026-10-14 : « Oui, public voulu ») : rien des chantiers ni des recherches n'y est écrit ; seules les lignes publiques devenues fausses y sont corrigées.
 - **Items de méthode de la partie du site, formés le 2026-10-03 à 08:37 UTC** (correcteur DOJO-SITE-PART-CORR-1, `claude-opus-5-5`, décision D-4 de
   l'orchestrateur ; G2 de la partie, `F:/tmp/dojo/g2-partie/G2-RAPPORT.md`, sha256 `df4f335e…` ; propriétaire : orchestrateur) :
   - METHODE-SITE-BUILD-CLONE-1 (outillage) : `npm run build -w @monark/site` échoue sur un clone à jonctions, car `node_modules/next` y est
@@ -1941,7 +1986,8 @@ formés et les actes du G7 de #256. Deux lignes corrigées en place (ETAT l.507 
     2026-10-07 à 06:5x UTC (`47939bb`) ; il était « avant le gel de FORMAT-W2 ». La phrase de la l.171 du brouillon de FORMAT-W2, que
     lit `47939bb` (`5318125`), est devenue une exigence, à la l.149 de `FORMAT-wave2.md` figé : la garde d import suit l ordre à
     partir de la révision qui le porte, et cette révision est une précondition de tout import de `wave2.json`.
-    Prix à chiffrer à son G0 ; état : ouvert. Inscrit à ETAT (MONARK, 2026-10-07 08:0x UTC).
+    Prix à chiffrer à son G0 ; état : fermé par la fusion de #261 (`1992b1ed`, même arbre que `f0899267`, titre récrit ; MONARK, 2026-10-13 17:2x UTC). Inscrit à ETAT (MONARK,
+    2026-10-07 08:0x UTC).
   - W2B-GUARD-ADMISSION-1 (nom de RECHERCHES, `204b17c` ; formé par MONARK, `9378978`) : l admission des lignes de la vague 2b à la
     garde. Une colonne explicite, fixée au format 2b, les distingue ; elles sont à l essai 1, avec un `test_delta` de base par horizon
     (0,025 à 1h, addendum 2 règle 3). Aujourd hui la garde les refuse (`policy-guard.ts` l.43 et l.56-57 ; `policy-wave2.ts` l.60 ;
