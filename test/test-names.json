@@ -190,6 +190,15 @@
   "bell_eth_course_refuses_keyless_labels_in_operators",
   "bell_universe_429_streak_stops_fail_closed"
  ],
+ "apps/bell/test/plan.test.ts": [
+  "bell_plan_emits_at_most_one_unit_per_tick",
+  "bell_plan_refuses_calendar_exhausted_on_next_trading_day",
+  "bell_plan_unit_boundaries_are_trading_day_preopens",
+  "bell_plan_unit_due_instant_across_dst_and_half_days",
+  "bell_plan_unit_due_instant_is_unchanged_across_the_sip_switch",
+  "bell_plan_unit_due_needs_end_plus_margin_and_every_gate",
+  "bell_plan_unit_never_splits_a_session_key"
+ ],
  "apps/bell/test/pool-rpc-1a-bell.test.ts": [
   "bell_pool_rpc_1a_ca9_default_resolves_get_logs_providers — the Ethereum leg defaults to GET_LOGS_PROVIDERS (≥ 2 distinct operators) (CA-9; C-1)",
   "bell_pool_rpc_1a_ca9_injected_pool_serves_fills — opts.getLogsProviders (2 distinct operators) serves the swap fill (CA-9; C-1)",
@@ -318,6 +327,14 @@
   "bell_report_aggregates_by_regime_constat",
   "bell_report_finds_per_pool_state_files",
   "bell_report_input_close_guard"
+ ],
+ "apps/bell/test/sessions-sip.test.ts": [
+  "bell_close_reexports_the_moved_gate",
+  "bell_sessions_anchor_and_ref_close_unchanged_across_the_sip_switch",
+  "bell_sessions_sip_switch_is_one_dated_constant",
+  "bell_sessions_sip_trade_date_after_the_switch",
+  "bell_sessions_sip_trade_date_before_the_switch",
+  "bell_sessions_utp_day_start_is_pinned_at_2055"
  ],
  "apps/bell/test/universe.test.ts": [
   "bell_universe_artifact_built_by_field_allowlist_no_price",
@@ -1587,6 +1604,9 @@
   "reconcile_course_line_is_not_a_legacy_boundary",
   "reconcile_course_repair_bound_is_the_course",
   "reconcile_course_window_isolates_one_course"
+ ],
+ "packages/rpc-guard/test/cycle.test.ts": [
+  "rpc_guard_cycle_of_derives_id_from_anchor_instant"
  ],
  "packages/rpc-guard/test/drand-labels.test.ts": [
   "rpc_guard_drand_labels_are_host_bound",
