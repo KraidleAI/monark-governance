@@ -28,7 +28,9 @@ export const HALF_DAYS: ReadonlySet<string> = new Set<string>([
 export const CALENDAR_RANGE = { fromISO: "2025-01-01", toISO: "2026-12-31" } as const;
 
 // ET session bounds, minutes since ET midnight. Half-days close regular at 13:00, post-market at 17:00.
-const PRE_OPEN = 4 * 60, REG_OPEN = 9 * 60 + 30;
+// PRE_OPEN is exported for the planner (plan.ts), whose units start at the pre-open of a trading day.
+export const PRE_OPEN = 4 * 60;
+const REG_OPEN = 9 * 60 + 30;
 const REG_CLOSE_NORMAL = 16 * 60, REG_CLOSE_HALF = 13 * 60;
 const AFTER_CLOSE_NORMAL = 20 * 60, AFTER_CLOSE_HALF = 17 * 60;
 
@@ -102,6 +104,14 @@ function prevTradingDay(dateISO: string): string {
   return p;
 }
 
+/** The next trading day STRICTLY AFTER `dateISO`, the mirror of prevTradingDay: walks forward over weekends and full closures.
+ *  Past CALENDAR_RANGE.toISO the committed calendar knows no closure, so a date there is unverified: callers check the range. Bounded. */
+export function nextTradingDay(dateISO: string): string {
+  let n = addDays(dateISO, 1);
+  for (let k = 0; k < 10 && !isTradingDay(n); k++) n = addDays(n, 1);
+  return n;
+}
+
 /** Classify a UTC instant into {session, regime, anchor ET date} (ADR-B0 D2 i). Off-hours instants are
  *  attributed to the gap that BEGINS on the most recent trading day (anchor = that day). */
 export function classifySession(utcMs: number): SessionClass {
@@ -144,4 +154,63 @@ export function classifySession(utcMs: number): SessionClass {
  *  Off-hours regimes (the founding measurement) are unaffected: their reference-close day IS the anchor. */
 export function refCloseDateOf(session: SessionLabel, anchorDateET: string): string {
   return session === "pre" || session === "regular" ? prevTradingDay(anchorDateET) : anchorDateET;
+}
+
+/** C-6: the earliest UTC instant a session's g_t may be published = 16:00 ET (regular close) of the reference-close
+ *  day + 24 h. 16:00 ET is conservative on a half-day (>= its 13:00 ET close + 24 h). Pure; DST via etWallClockToUtcMs.
+ *  close.ts re-exports this very function (its consumers are unchanged); the planner (plan.ts) reads it here. */
+export function earliestPublishUtc(refCloseDateET: string): number {
+  const [y, mo, d] = refCloseDateET.split("-").map(Number);
+  return etWallClockToUtcMs(y ?? 0, mo ?? 1, d ?? 1, 16, 0, 0) + 24 * 3600 * 1000;
+}
+
+// ---- The dated SIP trading day: two regimes, one switch date ----
+// What the consolidated tapes call a trading day, read on the plans' own documents: today the UTP day of a trading day D runs
+// from 03:58 ET to 20:00 ET; from the switch on, the UTP day of D' opens at 20:55 ET the evening before (after a maintenance
+// window from 20:00 to 21:00 ET; trading opens at 21:00 ET) and closes at 20:00 ET of D', and the CTA trade date of D' runs from
+// 20:00 ET the day before to 20:00 ET of D'. No session opens the evening before a full closure; the next one opens the evening of
+// the closure when the day after is a trading day. Bell's own anchor (classifySession), refCloseDateOf and earliestPublishUtc do
+// not change: this divergence is declared and dated here, never applied to them. The two plans are never averaged.
+export type SipPlan = "cta" | "utp";
+export type SipSwitchStatus = "announced" | "confirmed";
+/** The single switch date (a Sunday; the first trade date of the new regime is the Monday after), announced as dependent on
+ *  listing-exchange readiness and regulatory approvals. The status turns "confirmed" by a dated line once the plans' revised
+ *  tables are read; until then it stays "announced". */
+export const SIP_ETH_FROM_ET = "2026-12-06";
+export const SIP_ETH_STATUS: SipSwitchStatus = "announced";
+/** The UTP day start of the new regime, as read: 20:55 ET, five minutes before trading opens at 21:00 ET. An instant of
+ *  [20:55, 21:00) ET belongs to the next UTP day although no trade is expected there; the revised UTP table confirms or corrects it. */
+export const UTP_ETH_DAY_START_ET = "20:55";
+/** What sipTradeDateOf answers when the table it needs is not read (the CTA plan before the switch, any date outside the calendar). */
+export const SIP_UNREAD = "unread";
+/** One plan's day in one regime: [dayStartET, dayEndET) on the same date, or, when previousEvening, from dayStartET of the day
+ *  before to dayEndET of the trade date, the minutes in between belonging to no day. */
+export interface SipDayRule { readonly dayStartET: string; readonly dayEndET: string; readonly previousEvening: boolean }
+/** A regime: in force from `fromET` (null: since the start of the calendar) until the next regime; `cta` null = table not read. */
+export interface SipDayRegime { readonly id: string; readonly fromET: string | null; readonly status: SipSwitchStatus | null; readonly utp: SipDayRule; readonly cta: SipDayRule | null }
+/** The closed table of the two regimes. */
+export const SIP_DAY_REGIMES: readonly SipDayRegime[] = Object.freeze([
+  Object.freeze({ id: "utp-day-0358-2000", fromET: null, status: null, utp: Object.freeze({ dayStartET: "03:58", dayEndET: "20:00", previousEvening: false }), cta: null }),
+  Object.freeze({ id: "extended-23x5", fromET: SIP_ETH_FROM_ET, status: SIP_ETH_STATUS,
+    utp: Object.freeze({ dayStartET: UTP_ETH_DAY_START_ET, dayEndET: "20:00", previousEvening: true }),
+    cta: Object.freeze({ dayStartET: "20:00", dayEndET: "20:00", previousEvening: true }) }),
+]);
+const minutesOf = (hhmm: string): number => Number(hhmm.slice(0, 2)) * 60 + Number(hhmm.slice(3, 5));
+
+/** The SIP trading day (YYYY-MM-DD) of a UTC instant under `plan`, from the regime in force on the instant's ET date: a date,
+ *  null outside every session of that plan (night before the switch, maintenance, weekend, full closure), or SIP_UNREAD when the
+ *  table is not read (the CTA plan before the switch) or the dates leave CALENDAR_RANGE. Pure. */
+export function sipTradeDateOf(utcMs: number, plan: SipPlan): string | null {
+  const e = etParts(utcMs);
+  const dateISO = iso(e.y, e.mo, e.d), minute = e.h * 60 + e.mi;
+  if (dateISO < CALENDAR_RANGE.fromISO || dateISO > CALENDAR_RANGE.toISO) return SIP_UNREAD;
+  const regime = SIP_DAY_REGIMES.reduce((cur, r) => (r.fromET !== null && dateISO >= r.fromET ? r : cur));
+  const rule = regime[plan];
+  if (rule === null) return SIP_UNREAD;
+  const start = minutesOf(rule.dayStartET), end = minutesOf(rule.dayEndET);
+  if (!rule.previousEvening && (minute < start || minute >= end)) return null;
+  if (rule.previousEvening && minute >= end && minute < start) return null; // the UTP maintenance window
+  const trade = rule.previousEvening && minute >= end ? addDays(dateISO, 1) : dateISO;
+  if (trade > CALENDAR_RANGE.toISO) return SIP_UNREAD;
+  return isTradingDay(trade) ? trade : null;
 }
