@@ -2,8 +2,10 @@
  * TEST-COUNT-FLOOR-1, the gate (docs/G0-lot-test-count-floor-1b.md). test:main writes, per test file, the tests its process reported and
  * whether it sent a summary of its own; `node scripts/test-count-floor.mjs write` turns that run into the committed record
  * test/test-counts.json. scripts/test-count-check.mjs holds each run to the record (P2) and each drop from the base's record to exactly one
- * line added to test/test-count-removals.json (P4). T4 holds P2 and P4 on objects, T5 the command line and its base on a git fixture,
- * T6 the job g3-test-count of .github/workflows/ci.yml.
+ * line added to test/test-count-removals.json (P4). TEST-COUNT-NAMES-1 (docs/G0-lot-test-count-names-1.md): the run and the record
+ * test/test-names.json also hold each test's name, and once the base carries that record, each name gone from a file takes its line,
+ * whose reason reads "#<pull request>: " then three words or more. T4 holds P2 and P4 on objects and the reason, T5 the command line and
+ * its base on a git fixture, T6 the job g3-test-count of .github/workflows/ci.yml, T7 P2 and P4 by names on objects.
  */
 import { test } from "node:test";
 import assert from "node:assert/strict";
@@ -14,17 +16,25 @@ import { join } from "node:path";
 import { REMOVALS, dropProblems, recordProblems } from "../scripts/test-count-check.mjs";
 import { RECORD, RUN, recordText, type Run } from "../scripts/test-count-floor.mjs";
 
-const ROOT = join(import.meta.dirname, "..");
+const ROOT = join(import.meta.dirname, ".."), NAMES = "test/test-names.json";
 const wants = (f: string, from: number, to: number): string => `${f}: ${from} test(s) at the base, ${to} here: wants one line ${JSON.stringify({ file: f, from, to, reason: "..." })} in ${REMOVALS}`;
+const notLine = (r: unknown, byNames = false, pr?: string): string => `${REMOVALS}: ${JSON.stringify(r)} is not a line {file, from, to, reason} with from > to >= 0${byNames ? " (to 0: a file gone), {file, removed, reason} or {file, renamed, to, reason}" : ""}, and a reason "#<pull request>: <why, in three words or more>"${pr === undefined ? "" : ` naming #${pr}`}`;
 // killer: scripts/test-count-check.mjs:18 CONST "record[f] !== c.tests" -> "record[f] > c.tests"
 test("test_count_check_holds_the_run_to_the_record_and_each_drop_to_its_line", () => {
-  const run = (o: Record<string, number>): Run => Object.fromEntries(Object.entries(o).map(([f, n]) => [f, { tests: n, summary: true }]));
+  const run = (o: Record<string, number>): Run => Object.fromEntries(Object.entries(o).map(([f, n]) => [f, { tests: n, summary: true, names: Array.from({ length: n }, (_, i) => `t${i}`) }]));
+  const base = { a: 3, b: 2, gone: 4 }, line = (file: string, from: number, to: number, reason = "#12: removed on purpose"): Record<string, unknown> => ({ file, from, to, reason });
+  // killer: scripts/test-count-check.mjs:70 CONST ".trim().split(/\\s+/).length >= 3" -> ".trim().split(/\\s+/).length >= 1"
+  const reasons = ["removed on purpose", "#<pull request>: ...", "#12: removed", "#12:removed on purpose", "#0: removed on purpose", " "];
+  assert.deepEqual(dropProblems(base, { a: 2, b: 2, gone: 4 }, [], reasons.map((r) => line("a", 3, 2, r))), [...reasons.map((r) => notLine(line("a", 3, 2, r))), wants("a", 3, 2)],
+    "a reason reads #<pull request>: then why, in three words or more: refused without a number, the hint's placeholder, one word, no blank after the colon, #0, a blank");
+  // killer: scripts/test-count-check.mjs:70 CONST "pr ?? \"[1-9]\\\\d*\"" -> "\"[1-9]\\\\d*\""
+  assert.deepEqual([dropProblems(base, { a: 2, b: 2, gone: 4 }, [], [line("a", 3, 2, "#13: removed on purpose")], { pr: "12" }), dropProblems(base, { a: 2, b: 2, gone: 4 }, [], [line("a", 3, 2)], { pr: "12" })],
+    [[notLine(line("a", 3, 2, "#13: removed on purpose"), false, "12"), wants("a", 3, 2)], []], "in CI (pull request 12) the reason names this pull request: #13 refused, #12 kept");
   assert.deepEqual(recordProblems(run({ a: 2, b: 3 }), { a: 2, b: 3 }), [], "the run equals the record");
   // killer: scripts/test-count-check.mjs:19 CONST ".filter((f) => run[f] === undefined)" -> ".filter(() => false)"
   // killer: scripts/test-count-check.mjs:18 CONST "f !== \"\" && " -> ""
-  assert.deepEqual(recordProblems({ ...run({ a: 3, c: 1 }), "": { tests: 1, summary: false } }, { a: 2, b: 3 }), [`a: 3 test(s) run, 2 in ${RECORD}`, `c: 1 test(s) run, not in ${RECORD}`,
+  assert.deepEqual(recordProblems({ ...run({ a: 3, c: 1 }), "": { tests: 1, summary: false, names: ["loose"] } }, { a: 2, b: 3 }), [`a: 3 test(s) run, 2 in ${RECORD}`, `c: 1 test(s) run, not in ${RECORD}`,
     `b: in ${RECORD} (3), not in the run`], "a rise, a file outside the record, a file outside the run; the tests run without a file are P1's");
-  const base = { a: 3, b: 2, gone: 4 }, line = (file: string, from: number, to: number, reason = "removed on purpose"): Record<string, unknown> => ({ file, from, to, reason });
   // killer: scripts/test-count-check.mjs:34 ROR "to < from" -> "to <= from"
   assert.deepEqual(dropProblems(base, { a: 3, b: 5, gone: 4, new: 1 }, [], []), [], "no drop: equal or higher counts, a new file");
   assert.deepEqual(dropProblems(base, { a: 2, b: 2 }, [], []), [wants("a", 3, 2), wants("gone", 4, 0)], "a drop, and a file gone (0): each wants its line");
@@ -33,34 +43,35 @@ test("test_count_check_holds_the_run_to_the_record_and_each_drop_to_its_line", (
   // killer: scripts/test-count-check.mjs:34 CONST "mine[0].from === from && " -> ""
   assert.deepEqual(dropProblems(base, { a: 2, b: 1, gone: 4 }, [], [line("a", 3, 1), line("b", 9, 1)]), [wants("a", 3, 2), wants("b", 2, 1)], "a line at other numbers");
   // killer: scripts/test-count-check.mjs:34 CONST "mine.length === 1 && " -> ""
-  assert.deepEqual(dropProblems(base, { a: 2, b: 2, gone: 4 }, [], [line("a", 3, 2), line("a", 3, 2, "twice")]), [wants("a", 3, 2)], "two lines for one drop");
+  assert.deepEqual(dropProblems(base, { a: 2, b: 2, gone: 4 }, [], [line("a", 3, 2), line("a", 3, 2, "#12: the same drop twice")]), [wants("a", 3, 2)], "two lines for one drop");
   // killer: scripts/test-count-check.mjs:29 CONST "if (i >= 0) left.splice(i, 1); else " -> ""
   assert.deepEqual(dropProblems({ a: 3 }, { a: 2 }, [line("a", 5, 3)], [line("a", 5, 3)]), [wants("a", 3, 2)], "a line of the base declares no new drop");
   // killer: scripts/test-count-check.mjs:36 CONST "!((baseRecord[r.file] ?? 0) > (record[r.file] ?? 0))" -> "false"
   assert.deepEqual(dropProblems(base, { a: 3, b: 4, gone: 4 }, [], [line("b", 2, 1)]), [`${REMOVALS}: ${JSON.stringify(line("b", 2, 1))} names no drop since the base`], "a line for a file that grew");
   // killer: scripts/test-count-check.mjs:30 CONST "if (left.length > 0)" -> "if (false)"
   assert.deepEqual(dropProblems(base, base, [line("x", 2, 1)], []), [`${REMOVALS}: 1 line(s) of the base changed or removed; the list only grows`], "a line of the base removed");
-  // killer: scripts/test-count-check.mjs:23 CONST " && r.reason.trim() !== \"\"" -> ""
   // killer: scripts/test-count-check.mjs:23 CONST " && r.to < r.from" -> ""
   // killer: scripts/test-count-check.mjs:23 CONST " && r.to >= 0" -> ""
   // killer: scripts/test-count-check.mjs:22 CONST "Object.keys(r).sort().join() === \"file,from,reason,to\" && " -> ""
   const bad = [line("a", 3, 2, " "), line("a", 2, 3), line("a", 3, -1), { file: "a", from: 3, to: 2 }, { ...line("a", 3, 2), pr: 1 }];
-  assert.deepEqual(dropProblems(base, base, [], bad), bad.map((r) => `${REMOVALS}: ${JSON.stringify(r)} is not a line {file, from, to, reason} with from > to >= 0 and a reason`), "an empty reason, to above from, to below 0, no reason, a fifth key");
+  assert.deepEqual(dropProblems(base, base, [], bad), bad.map((r) => notLine(r)), "an empty reason, to above from, to below 0, no reason, a fifth key");
 });
 
 // killer: scripts/test-count-check.mjs:45 CONST ": process.env.ORACLE_BASE)" -> ": undefined)"
 test("test_count_check_names_its_base_or_refuses", () => {
   const dir = mkdtempSync(join(tmpdir(), "tcc-")), check = join(ROOT, "scripts", "test-count-check.mjs");
   const git = (...a: string[]): string => execFileSync("git", ["-c", "core.autocrlf=false", "-c", "user.name=fx", "-c", "user.email=fx@localhost", ...a], { cwd: dir, encoding: "utf8" }).trim();
-  const gate = (args: string[], vars: Record<string, string> = {}): [number | null, string] => { // each child: no base of the parent's, then the one variable of its case
-    const r = spawnSync(process.execPath, [check, ...args], { cwd: dir, encoding: "utf8", env: { ...process.env, GITHUB_BASE_REF: undefined, ORACLE_BASE: undefined, ...vars } });
+  const gate = (args: string[], vars: Record<string, string> = {}): [number | null, string] => { // each child: no base and no pull request of the parent's, then the variables of its case
+    const r = spawnSync(process.execPath, [check, ...args], { cwd: dir, encoding: "utf8", env: { ...process.env, GITHUB_BASE_REF: undefined, ORACLE_BASE: undefined, GITHUB_REF: undefined, ...vars } });
     return [r.status, r.stderr.trim()];
   };
-  const counts = (o: Record<string, number>, extra = {}): string => JSON.stringify({ ...Object.fromEntries(Object.entries(o).map(([f, n]) => [f, { tests: n, summary: true }])), ...extra });
+  const counts = (o: Record<string, string[]>, extra = {}): string => JSON.stringify({ ...Object.fromEntries(Object.entries(o).map(([f, n]) => [f, { tests: n.length, summary: true, names: n }])), ...extra });
+  const tally = (o: Record<string, string[]>): Record<string, number> => Object.fromEntries(Object.entries(o).map(([f, n]) => [f, n.length]));
+  const named = (o: Record<string, string[]>): string => `${JSON.stringify(Object.fromEntries(Object.keys(o).sort().map((f) => [f, [...(o[f] ?? [])].sort()])), null, 1)}\n`; // the written form of NAMES
   try {
     git("init", "-q", "-b", "main");
     git("commit", "-q", "--allow-empty", "-m", "a base without a record");
-    const none = git("rev-parse", "HEAD"), head = { "a.test.ts": 2, "b.test.ts": 2 };
+    const none = git("rev-parse", "HEAD"), head = { "a.test.ts": ["one", "two"], "b.test.ts": ["one", "two"] };
     mkdirSync(join(dir, "test"));
     writeFileSync(join(dir, RECORD), recordText({ "a.test.ts": 2, "b.test.ts": 3 }));
     git("add", RECORD);
@@ -68,40 +79,58 @@ test("test_count_check_names_its_base_or_refuses", () => {
     git("update-ref", "refs/remotes/origin/trunk", "HEAD");
     const rec = git("rev-parse", "HEAD");
     writeFileSync(join(dir, RUN), counts(head));
-    writeFileSync(join(dir, RECORD), recordText(head));
+    writeFileSync(join(dir, RECORD), recordText(tally(head)));
     writeFileSync(join(dir, REMOVALS), "[]\n");
     git("add", RECORD, REMOVALS); git("commit", "-q", "-m", "the change, above the base as the CI's merge commit");
+    const [lacks, why] = gate([], { ORACLE_BASE: rec });
+    assert.deepEqual([lacks, why.split(": ")[0]], [4, `::error::${NAMES} not readable`], `the head without ${NAMES}: exit 4 (${why})`);
+    writeFileSync(join(dir, NAMES), named(head));
     // killer: scripts/test-count-check.mjs:46 CONST "if (!named) stop(3," -> "if (false) stop(3,"
     const [code, err] = gate([]);
     assert.deepEqual([code, err.startsWith("::error::no base:")], [3, true], err);
     // killer: scripts/test-count-check.mjs:51 CONST "`${base}:${path}`" -> "`HEAD:${path}`"
-    assert.deepEqual(gate([], { ORACLE_BASE: rec }), [1, `::error::${wants("b.test.ts", 3, 2)}`], "the drop since the record of ORACLE_BASE");
+    assert.deepEqual(gate([], { ORACLE_BASE: rec }), [1, `::error::${wants("b.test.ts", 3, 2)}`], "the drop since the record of ORACLE_BASE, a base without names: judged by counts");
     // killer: scripts/test-count-check.mjs:44 CONST "stop(2, \"usage" -> "stop(0, \"usage"
     assert.equal(gate(["--base"])[0], 2, "--base without a value: the usage");
     // killer: scripts/test-count-check.mjs:51 CONST "=== \"\" ? none :" -> "=== \"x\" ? none :"
     assert.deepEqual(gate(["--base", none]), [0, ""], "a base without a record counts as {}: no drop");
-    writeFileSync(join(dir, REMOVALS), `[\n ${JSON.stringify({ file: "b.test.ts", from: 3, to: 2, reason: "fx" })}\n]\n`);
+    const dropped = { file: "b.test.ts", from: 3, to: 2, reason: "#7: the third test went away" };
+    writeFileSync(join(dir, REMOVALS), `[\n ${JSON.stringify(dropped)}\n]\n`);
     // killer: scripts/test-count-check.mjs:45 CONST "process.env.GITHUB_BASE_REF ? " -> "false ? "
     assert.equal(gate([], { GITHUB_BASE_REF: "trunk", ORACLE_BASE: none })[0], 0, "GITHUB_BASE_REF before ORACLE_BASE: the drop has its line");
     // killer: scripts/test-count-check.mjs:45 CONST "argv[1] ?? " -> ""
     assert.equal(gate(["--base", none], { GITHUB_BASE_REF: "trunk" })[0], 1, "--base before GITHUB_BASE_REF: against a base without a record, the line names no drop");
     // killer: scripts/test-count-check.mjs:52 CONST "baseList = atBase(REMOVALS, [], Array.isArray, \"a list [ ... ]\")" -> "baseList = []"
-    git("add", REMOVALS); git("commit", "-q", "-m", "the line committed: a base that carries the record and the list");
-    assert.deepEqual(gate(["--base", "HEAD"]), [0, ""], "a base with the record and the list (iii): its line stays, once, and names no new drop");
-    // killer: scripts/test-count-check.mjs:56 CONST "...recordProblems(run, record), " -> ""
-    writeFileSync(join(dir, RUN), counts({ ...head, "b.test.ts": 1 }));
-    assert.deepEqual(gate([], { ORACLE_BASE: rec }), [1, `::error::b.test.ts: 1 test(s) run, 2 in ${RECORD}`], "P2 in the gate");
-    writeFileSync(join(dir, RUN), counts(head));
+    git("add", REMOVALS, NAMES); git("commit", "-q", "-m", "the line and the names committed: a base that carries both records and the list");
+    assert.deepEqual(gate(["--base", "HEAD"]), [0, ""], "a base with both records and the list (iii): its line stays, once, and names no new drop");
+    const both = git("rev-parse", "HEAD"), renamed = { ...head, "a.test.ts": ["one", "two, renamed"] };
+    writeFileSync(join(dir, RUN), counts(renamed));
+    writeFileSync(join(dir, NAMES), named(renamed));
+    const hint = (pr: string): string => `::error::a.test.ts: the test "two" is gone since the base: wants one line ${JSON.stringify({ file: "a.test.ts", renamed: "two", to: "two, renamed", reason: `#${pr}: ...` })} in ${REMOVALS}; tests a.test.ts gained: ["two, renamed"]`;
+    // killer: scripts/test-count-check.mjs:53 CONST "baseNames = atBase(" -> "baseNames = null && atBase("
+    assert.deepEqual(gate(["--base", both]), [1, hint("<pull request>")], "a test renamed above a base with names: exit 1 and the exact line to add");
+    // killer: scripts/test-count-check.mjs:50 CONST "process.env.GITHUB_REF ?? \"\"" -> "\"\""
+    assert.deepEqual(gate(["--base", both], { GITHUB_REF: "refs/pull/7/merge" }), [1, hint("7")], "in CI the hint names the pull request");
+    writeFileSync(join(dir, REMOVALS), `[\n ${JSON.stringify(dropped)},\n ${JSON.stringify({ file: "a.test.ts", renamed: "two", to: "two, renamed", reason: "#7: the title says more" })}\n]\n`);
+    assert.deepEqual([gate(["--base", both], { GITHUB_REF: "refs/pull/7/merge" }), gate(["--base", both], { GITHUB_REF: "refs/pull/8/merge" })[0]], [[0, ""], 1], "with its line, 0; in another pull request, the line is refused");
+    // killer: scripts/test-count-check.mjs:56 CONST "ntext === namesText(names)" -> "true"
+    writeFileSync(join(dir, NAMES), JSON.stringify(renamed));
+    assert.deepEqual(gate(["--base", both]), [1, `::error::${NAMES}: not in its written form (npm run test:main && node scripts/test-count-floor.mjs write)`], "the names record outside its written form");
+    writeFileSync(join(dir, NAMES), named(renamed));
+    // killer: scripts/test-count-check.mjs:56 CONST "...recordProblems(run, record, names), " -> ""
+    writeFileSync(join(dir, RUN), counts({ ...renamed, "b.test.ts": ["one"] }));
+    assert.deepEqual(gate(["--base", both]), [1, `::error::b.test.ts: 1 test(s) run, 2 in ${RECORD}\n::error::b.test.ts: run and ${NAMES} differ: run only [], recorded only ["two"]`], "P2 in the gate, by count and by names");
+    writeFileSync(join(dir, RUN), counts(renamed));
     // killer: scripts/test-count-check.mjs:55 CONST "text === recordText(record)" -> "true"
-    writeFileSync(join(dir, RECORD), JSON.stringify(head));
-    assert.deepEqual(gate([], { ORACLE_BASE: rec }), [1, `::error::${RECORD}: not in its written form (npm run test:main && node scripts/test-count-floor.mjs write)`], "a record outside its written form");
+    writeFileSync(join(dir, RECORD), JSON.stringify(tally(renamed)));
+    assert.deepEqual(gate(["--base", both]), [1, `::error::${RECORD}: not in its written form (npm run test:main && node scripts/test-count-floor.mjs write)`], "a record outside its written form");
     // killer: scripts/test-count-check.mjs:56 CONST "...runProblems(run), " -> ""
-    writeFileSync(join(dir, RECORD), recordText(head));
-    writeFileSync(join(dir, RUN), counts(head, { "": { tests: 1, summary: false } }));
-    assert.deepEqual(gate([], { ORACLE_BASE: rec }), [1, "::error::1 test(s) reported without a file"], "P1 in the gate");
+    writeFileSync(join(dir, RECORD), recordText(tally(renamed)));
+    writeFileSync(join(dir, RUN), counts(renamed, { "": { tests: 1, summary: false, names: ["loose"] } }));
+    assert.deepEqual(gate(["--base", both]), [1, "::error::1 test(s) reported without a file"], "P1 in the gate");
     // killer: scripts/test-count-check.mjs:48 CONST "return stop(4," -> "return stop(0,"
     rmSync(join(dir, RUN));
-    assert.equal(gate([], { ORACLE_BASE: rec })[0], 4, "without a run file: exit 4");
+    assert.equal(gate(["--base", both])[0], 4, "without a run file: exit 4");
   } finally {
     rmSync(dir, { recursive: true, force: true });
   }
@@ -117,4 +146,48 @@ test("test_count_job_runs_test_main_then_the_check", () => {
   const minutes = Number(/^ {4}timeout-minutes: (\d+)$/.exec(job.find((l) => l.startsWith("    timeout-minutes:")) ?? "")?.[1] ?? 0);
   assert.ok(minutes > 0 && minutes <= 20, `a bound above 0 and at most 20 minutes (${minutes})`);
   assert.deepEqual(job.filter((l) => /^\s*(?:-\s+)?(?:if|continue-on-error)\s*:/.test(l)), [], "no condition: the job blocks");
+});
+
+// killer: scripts/test-count-check.mjs:20 CONST "names === undefined ? [] :" -> "true ? [] :"
+test("test_count_check_holds_each_name_gone_to_its_line", () => {
+  const run = (o: Record<string, string[]>): Run => Object.fromEntries(Object.entries(o).map(([f, n]) => [f, { tests: n.length, summary: true, names: n }]));
+  assert.deepEqual(recordProblems(run({ a: ["one", "two", "two"], b: ["x"] }), { a: 3, b: 1 }, { a: ["one", "one", "two"], b: ["x"], c: ["y"] }),
+    [`a: run and ${NAMES} differ: run only ["two"], recorded only ["one"]`, `c: run and ${NAMES} differ: run only [], recorded only ["y"]`], "P2 on names, as multisets: the exact names on each side, a file the run lacks");
+  const tally = (o: Record<string, string[]>): Record<string, number> => Object.fromEntries(Object.entries(o).map(([f, n]) => [f, n.length]));
+  const by = (base: Record<string, string[]>, head: Record<string, string[]>, list: unknown[], pr?: string): string[] => dropProblems(tally(base), tally(head), [], list, { base, head, ...(pr === undefined ? {} : { pr }) });
+  const r = (o: Record<string, unknown>): Record<string, unknown> => ({ ...o, reason: "#12: declared in this change" });
+  const gone = (f: string, n: string, line: Record<string, unknown>, gained: string[] = [], pr = "<pull request>"): string =>
+    `${f}: the test ${JSON.stringify(n)} is gone since the base: wants one line ${JSON.stringify({ ...line, reason: `#${pr}: ...` })} in ${REMOVALS}${gained.length > 0 ? `; tests ${f} gained: ${JSON.stringify(gained)}` : ""}`;
+  const at = { a: ["keeps the order", "p > c", "refuses a negative amount"], b: ["one"] }, minusP = { ...at, a: ["keeps the order", "refuses a negative amount"] };
+  const renamed = { ...at, a: ["keeps the order", "p > c", "refuses an amount below zero"] }, rename = { file: "a", renamed: "refuses a negative amount", to: "refuses an amount below zero" };
+  assert.deepEqual([by(at, at, []), by(at, { ...at, c: ["new"] }, [])], [[], []], "no name gone: nothing wanted, a new file included");
+  assert.deepEqual(by(at, renamed, []), [gone("a", "refuses a negative amount", rename, ["refuses an amount below zero"])], "a test renamed: its exact line, as a rename");
+  assert.deepEqual([by(at, renamed, [r(rename)]), by(at, renamed, [], "7")], [[], [gone("a", "refuses a negative amount", rename, ["refuses an amount below zero"], "7")]], "with its line; in CI, the hint names the pull request");
+  assert.deepEqual(by(at, { ...at, a: ["keeps the order", "p > d", "refuses a negative amount"] }, []), [gone("a", "p > c", { file: "a", renamed: "p > c", to: "p > d" }, ["p > d"])], "a subtest renamed");
+  assert.deepEqual(by(at, { ...at, a: ["keeps the order, kept", "new", "p > c", "refuses a negative amount"] }, []), [gone("a", "keeps the order", { file: "a", removed: "keeps the order" }, ["keeps the order, kept", "new"])],
+    "a test deleted and two added (one empty, under a near name): a removal is wanted, and the names gained are listed");
+  assert.deepEqual(by(at, minusP, [r({ file: "a", removed: "p > c" })]), [], "a removal line");
+  // killer: scripts/test-count-check.mjs:101 CONST "gone.splice(i, 1); " -> ""
+  assert.deepEqual(by(at, minusP, [r({ file: "a", removed: "p > c" }), r({ file: "a", removed: "p > c" })]), [`${REMOVALS}: ${JSON.stringify(r({ file: "a", removed: "p > c" }))} names no test gone from a since the base`], "two lines for one name");
+  const counted = r({ file: "a", from: 3, to: 2 });
+  assert.deepEqual(by(at, minusP, [counted]), [notLine(counted, true), gone("a", "p > c", { file: "a", removed: "p > c" })], "a count line, once the base has names, is refused but for a file gone");
+  // killer: scripts/test-count-check.mjs:100 CONST "r.renamed !== undefined && j < 0" -> "false"
+  const nowhere = r({ ...rename, to: "refuses nothing" });
+  assert.deepEqual(by(at, renamed, [nowhere]), [`${REMOVALS}: ${JSON.stringify(nowhere)}: "refuses nothing" is no test that a gained since the base`, gone("a", "refuses a negative amount", rename, ["refuses an amount below zero"])],
+    "a rename to a name the file did not gain");
+  const whole = `a: 3 test(s) at the base, 0 here: wants one line ${JSON.stringify({ file: "a", from: 3, to: 0, reason: "#<pull request>: ..." })} in ${REMOVALS}`;
+  assert.deepEqual([by(at, { b: ["one"] }, []), by(at, { b: ["one"] }, [r({ file: "a", from: 3, to: 0 })]), by(at, { b: ["one"] }, at.a.map((n) => r({ file: "a", removed: n })))], [[whole], [], []],
+    "a file gone: its one line {file, from, to: 0} is wanted; it, or one removal line per name, is accepted");
+  // killer: scripts/test-count-check.mjs:98 CONST "head[f] === undefined && " -> ""
+  const notGone = r({ file: "b", from: 1, to: 0 });
+  assert.deepEqual([by(at, { b: ["one"] }, [r({ file: "a", from: 2, to: 0 })]), by(at, { ...at, b: ["uno"] }, [notGone])],
+    [[`${REMOVALS}: ${JSON.stringify(r({ file: "a", from: 2, to: 0 }))} names no file gone since the base, at its count`, whole],
+      [`${REMOVALS}: ${JSON.stringify(notGone)} names no file gone since the base, at its count`, gone("b", "one", { file: "b", renamed: "one", to: "uno" }, ["uno"])]],
+    "a file-gone line at another count; one for a file still there, its one test renamed");
+  // killer: scripts/test-count-check.mjs:65 CONST "left.splice(i, 1); return false;" -> "return false;"
+  const twice = { a: ["same", "same"] };
+  assert.deepEqual([by(twice, { a: ["same"] }, []), by(twice, { a: ["same"] }, [r({ file: "a", removed: "same" })])], [[gone("a", "same", { file: "a", removed: "same" })], []], "one of two equal names gone: one line");
+  assert.deepEqual(by(at, at, [r({ file: "b", removed: "one" })]), [`${REMOVALS}: ${JSON.stringify(r({ file: "b", removed: "one" }))} names no test gone from b since the base`], "a line for a file with nothing gone");
+  const shapes = [{ file: "a", removed: "", reason: "#12: declared in this change" }, r({ file: "a", renamed: "x", to: "x" }), r({ file: "a", removed: "x", to: "y" }), { file: "a", removed: "p > c", reason: "#12: removed" }];
+  assert.deepEqual(by(at, minusP, shapes, "12").slice(0, 4), shapes.map((s) => notLine(s, true, "12")), "an empty name, a rename to itself, a fifth key, a short reason: not lines");
 });

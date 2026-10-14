@@ -18,6 +18,8 @@
  *      CONTENT excludes (bound VIBEGATES_PR_LIMIT), CONTENT = those five paths only (bound VIBEGATES_CONTENT_LIMIT),
  *      each with a numeric guard before any diff, the same ins+del metric, printed before either bound is evaluated,
  *      and `::error::` + exit 1 on overflow (ADR-M013 amendment 2026-09-24, investor decision 207);
+ *   (4quinquies) the CODE count does not exclude exactly the two test records, `test/test-counts.json` and `test/test-names.json`, by
+ *      two exact paths with no glob (ADR-M003 D9, MONARK's decision of 2026-10-09, TEST-COUNT-NAMES-1);
  *   (5) the `on:` trigger does not carry `pull_request` (delivery by PR — ADR-M003 D9 addendum 2026-09-05);
  *   (6) job g4 does not run the ratchet `npm run lint:ratchet` (ADR-M003 D9 ter §3, 2026-09-06).
  *   (4bis) the G1/G2 governance reports are not excluded from the R-25 count (D9 quater);
@@ -113,6 +115,7 @@ function parseR25Metric(line: string): { name: string; src: string; program: str
   return { name: m[1], src: m[2], program: m[3] };
 }
 
+// killer: .github/workflows/ci.yml:100 CONST " ':(exclude)test/test-names.json'" -> ""
 test("ci_gates_blocking_no_continue_on_error — blocking and pinned workflow (test 38)", () => {
   // (1) template invariant: no continue-on-error DIRECTIVE (a YAML key on a non-comment line). A prose mention
   //     in a comment is allowed (the template itself writes "No continue-on-error"); it is the
@@ -249,6 +252,8 @@ test("ci_gates_blocking_no_continue_on_error — blocking and pinned workflow (t
     ":(exclude)docs/G2-lot-*.md",
     ":(exclude,glob)docs/**/*.md",
     ":(exclude)package-lock.json",
+    ":(exclude)test/test-counts.json",
+    ":(exclude)test/test-names.json",
     ...SERIES_EXCLUDE_PATHSPECS,
     ...CONTENT_CODE_EXCLUDES,
   ];
@@ -256,6 +261,15 @@ test("ci_gates_blocking_no_continue_on_error — blocking and pinned workflow (t
     sorted(diffs[0]?.pathspecs ?? []),
     sorted(codeExpected),
     "(a) the CODE pathspec must be the D9 pathspec PLUS the five ADR-M013 CONTENT excludes (dropped, extra or duplicated token)",
+  );
+  // (4quinquies) ADR-M003 D9, MONARK's decision of 2026-10-09 (TEST-COUNT-NAMES-1): the CODE count excludes the two test records that
+  //   `node scripts/test-count-floor.mjs write` writes and the gate scripts/test-count-check.mjs holds to the run, and nothing else under
+  //   test/: two exact paths, no glob. test/test-count-removals.json, whose reasons are written by hand, stays counted. A third exclusion
+  //   under test/, one of the two missing, or either one under a glob, reds.
+  assert.deepEqual(
+    (diffs[0]?.pathspecs ?? []).filter((t) => /^test\//.test(t.replace(/^:\([^)]*\)/, ""))),
+    [":(exclude)test/test-counts.json", ":(exclude)test/test-names.json"],
+    "(4quinquies) the CODE count must exclude exactly test/test-counts.json and test/test-names.json, two exact paths with no glob (ADR-M003 D9, decision of 2026-10-09)",
   );
   assert.deepEqual(
     sorted(diffs[1]?.pathspecs ?? []),
