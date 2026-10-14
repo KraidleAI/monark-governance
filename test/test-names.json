@@ -140,6 +140,8 @@
   "bell_close_databento_replays_synthetic_fixture",
   "bell_close_per_reference_day_no_lookahead",
   "bell_close_source_named_in_provenance",
+  "bell_collect_refuses_cycle_and_cycles_together",
+  "bell_collect_refuses_eth_with_cycles",
   "bell_collector_replays_fixture_bit_identical",
   "bell_earliest_publish_utc_is_joinable_per_session_on_collect_output",
   "bell_eth_v3_swap_decode_and_vwap",
@@ -185,6 +187,9 @@
  ],
  "apps/bell/test/guard-collect-1bii.test.ts": [
   "bell_1bii_src_files_clean_of_fetch_and_paid_keys",
+  "bell_collect_cycles_per_operator_form",
+  "bell_collect_shares_form_passes_each_share_to_the_guard",
+  "bell_collect_single_cycle_form_unchanged",
   "bell_method_caps_missing_a_called_method_fails_closed_at_construction",
   "collect_spends_only_through_guard",
   "quorum_classifies_canonical_transport_errors",
@@ -346,18 +351,28 @@
  "apps/bell/test/tick.test.ts": [
   "bell_tick_abandon_writes_tombstone_and_advances_once",
   "bell_tick_attempt_budget_is_keyed_on_unit_start",
+  "bell_tick_builds_cycle_share_from_requested_operators_only",
   "bell_tick_closure_excludes_the_publisher",
+  "bell_tick_derives_cycle_per_operator_and_refuses_straddle",
   "bell_tick_exits_nonzero_on_every_named_refusal",
+  "bell_tick_hands_rununit_only_the_collect_env_keys",
   "bell_tick_is_idempotent",
   "bell_tick_never_prints_urls_or_keys",
+  "bell_tick_passes_floor_zero_and_its_share",
   "bell_tick_progress_moves_only_after_the_bundle_rename",
   "bell_tick_quarantines_refused_bundle_and_next_tick_proceeds",
   "bell_tick_refuses_clock_unsynced",
   "bell_tick_refuses_missing_or_malformed_billing_env",
   "bell_tick_refuses_unknown_argv",
+  "bell_tick_releases_locks_on_sigterm",
   "bell_tick_removes_an_orphan_tmp",
+  "bell_tick_renders_guard_errors_by_name",
+  "bell_tick_run_main_unit_hands_its_release_and_reads_each_cycle_ledger",
+  "bell_tick_second_tick_after_a_failed_rename_never_answers_already_deposited",
   "bell_tick_seed_refuses_when_progress_exists",
+  "bell_tick_sigterm_handler_is_set_for_the_runs_only",
   "bell_tick_stalls_by_name_after_budget",
+  "bell_tick_stops_cleanly_at_its_declared_share",
   "bell_tick_unit_is_due_only_after_end_and_gates",
   "bell_unit_name_grammar_and_manifest_roundtrip"
  ],
@@ -1835,6 +1850,9 @@
   "bell_contact_mailto_pinned — address, subject, body and encoding of the one Bell contact link",
   "site_builds_one_mailto — the only mailto: under apps/site is the one lib/bell-contact.ts builds"
  ],
+ "test/bell-course-manifests.test.ts": [
+  "bell_course_manifests_hash_to_their_timestamped_digest — every manifest under docs/course-bell that an ANCHORS.md row timestamps hashes to that row's digest, every proof in the folder has its row, and every proof timestamps its row's digest"
+ ],
  "test/bell-deploy-config.test.ts": [
   "bell_caddy_browse_listing_escapes_entry_names",
   "bell_caddyfile_root_redirects_to_site_bell_page",
@@ -1844,6 +1862,7 @@
   "bell_runbook_ships_the_ca_tree_and_the_unit_key_path"
  ],
  "test/bell-deploy-constants.test.ts": [
+  "bell_deploy_pins_the_floor_and_the_tick_timeout_bound",
   "bell_deploy_pins_the_proposed_values",
   "bell_deploy_universe_is_the_dated_list"
  ],

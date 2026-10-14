@@ -7,3 +7,5 @@ export const UNITS_PER_TICK: number;
 export const ATTEMPT_BUDGET: number;
 export const BELL_RUN_CAPS: Readonly<{ maxCredits: number; maxRu: number; maxCalls: number; maxPages: number }>;
 export const BELL_METHOD_CAPS: Readonly<{ getSignaturesForAddress: number; getTransaction: number; getAccountInfo: number; getTransactionsForAddress: number }>;
+export const BELL_FLOORS: Readonly<{ helius: number; chainstack: number }>;
+export const TICK_TIMEOUT_START_SEC: number;

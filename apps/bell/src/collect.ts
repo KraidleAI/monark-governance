@@ -461,6 +461,19 @@ function parseKvNums(raw: string | undefined, flag: string): Record<string, numb
   return out;
 }
 
+/** The per-operator cycle form `op=id,op=id` (DC-5): string values, absent => undefined. An empty key or value, a blank in a value or a
+ *  repeated key THROWS (fail-closed: a typo never drops an operator's cycle). parseKvNums reads numbers only. */
+function parseKvStrs(raw: string | undefined, flag: string): Record<string, string> | undefined {
+  if (raw === undefined) return undefined;
+  const out: Record<string, string> = {};
+  for (const pair of raw.split(",").map((s) => s.trim())) {
+    const eq = pair.indexOf("="), k = eq >= 0 ? pair.slice(0, eq).trim() : "", v = eq >= 0 ? pair.slice(eq + 1).trim() : "";
+    if (k === "" || v === "" || /\s/.test(v) || Object.hasOwn(out, k)) throw new Error(`bell/collect: malformed ${flag} pair '${pair}' (need operator=cycle-id, each operator once)`);
+    out[k] = v;
+  }
+  return out;
+}
+
 /** V-1 (O-2): parse + VALIDATE the operator CLI, fail-closed. An unknown --pools symbol, a NaN/negative
  *  numeric, or --eth+TSLAon without a valid block range throws `bell/collect: …`; main() surfaces that
  *  message verbatim (V-3). Pure for a fixed nowMs (the only clock input), so the parse is replay-testable. */
@@ -481,6 +494,10 @@ export function parseArgs(argv: readonly string[], knownSymbols: readonly string
   const eth = argv.includes("--eth"), ethFrom = num("--eth-from-block", 0), ethTo = num("--eth-to-block", 0);
   if (eth && wanted.includes("TSLAon") && !(ethFrom > 0 && ethTo >= ethFrom))
     throw new Error("bell/collect: --eth with TSLAon needs --eth-from-block > 0 and --eth-to-block >= --eth-from-block");
+  // DC-5: --cycles op=id,... (one cycle per operator) or the single --cycle, never both; the ETH leg spreads one cycle, so not with --cycles.
+  const cyclesRaw = argOf(argv, "--cycles");
+  if (cyclesRaw !== undefined && argv.includes("--cycle")) throw new Error("bell/collect: --cycle and --cycles together are refused (one form: --cycle <id> for every operator, or --cycles op=id,...)");
+  if (cyclesRaw !== undefined && eth) throw new Error("bell/collect: --eth with --cycles is refused (the ETH leg spreads one cycle over its keyless labels, DC-5)");
   // C-11 (budget fail-closed): --max-calls is REQUIRED and must be > 0 — the "> 1 M credits / 50 % quota"
   // stop ceases to be a human rule. Checked LAST so a bad pool/numeric/eth arg surfaces its own error first.
   // O-12: num() already rejects Infinity/NaN/negative; the > 0 check rejects an explicit 0.
@@ -521,7 +538,8 @@ export function parseArgs(argv: readonly string[], knownSymbols: readonly string
     // GARDE-HELIUS-1b-ii: the guard-course inputs (the transport is the SOLE endpoint-key reader; collect reads no
     // Solana key). Parsed here (optional), ENFORCED by runMain (calque record.ts). --operators is the explicit include
     // list of operator LABELS (never solanaEndpoints/BELL_SOLANA_RPC); --floor/--method-caps are k=v.
-    ledgerDir: argOf(argv, "--ledger-dir"), cycle: argOf(argv, "--cycle"),
+    ledgerDir: argOf(argv, "--ledger-dir"), cycle: argOf(argv, "--cycle"), opCycles: parseKvStrs(cyclesRaw, "--cycles"),
+    shares: parseKvNums(argOf(argv, "--shares"), "--shares"),
     operators: (argOf(argv, "--operators") ?? "").split(",").map((s) => s.trim()).filter(Boolean),
     floors: parseKvNums(argOf(argv, "--floor"), "--floor"), methodCaps: parseKvNums(argOf(argv, "--method-caps"), "--method-caps"),
     maxRu: argOf(argv, "--max-ru") === undefined ? undefined : num("--max-ru", 0) };
@@ -639,10 +657,13 @@ export interface RunDeps {
   readonly polygonGet: PolygonGet;     // Massive reader — ADV + close cross (stub offline; cash leg, 1b-iii)
   readonly env: NodeJS.ProcessEnv;     // passed AS-IS to openGuardedClient + cash keys (POLYGON/DATABENTO) + BELL_HALTS_CSV
   readonly nowMs: number;              // the ONLY clock input (parseArgs default + generatedAt + staleness)
+  /** A-4: called once the guard's locks are held, with the release (idempotent: the finally's own call is then a no-op); the tick's
+   *  SIGTERM handler calls it. Guarded path only (the offline unit path holds no lock). */
+  readonly onLocks?: (release: (reason: string) => void) => void;
 }
 
 export async function runMain(argv: readonly string[], deps: RunDeps): Promise<void> {
-  const { out, toUtcMs, fromUtcMs, wanted, maxPages, bodySample, minInterval, eth, ethFrom, ethTo, maxCalls, maxCredits, rebaseScan, rebaseTrajectory, rebaseProduce, authority, rebaseCrosscheck, rebaseDensity, seriesDir, allowShortPages, discover, ledgerDir, cycle, operators, floors, methodCaps, maxRu } = parseArgs(argv, POOLS.map((p) => p.baseSymbol), deps.nowMs);
+  const { out, toUtcMs, fromUtcMs, wanted, maxPages, bodySample, minInterval, eth, ethFrom, ethTo, maxCalls, maxCredits, rebaseScan, rebaseTrajectory, rebaseProduce, authority, rebaseCrosscheck, rebaseDensity, seriesDir, allowShortPages, discover, ledgerDir, cycle, opCycles, shares, operators, floors, methodCaps, maxRu } = parseArgs(argv, POOLS.map((p) => p.baseSymbol), deps.nowMs);
   const repoRoot = resolve(fileURLToPath(new URL("../../../", import.meta.url)));
   assertOutsideRepo(out, repoRoot);
   // GARDE-HELIUS-1b (C-6): the paid cash keys are read in the ALLOWLISTED cash module (close.ts), never here —
@@ -665,7 +686,7 @@ export async function runMain(argv: readonly string[], deps: RunDeps): Promise<v
   let budgetedDatabento: DatabentoGet;
   let budgetedPolygon: PolygonGet;
   let solProviders: readonly string[];
-  let release: () => void = () => {};
+  let release: (reason?: string) => void = () => {};
   // GARDE-HELIUS-1b pli (C-G2-A): the ETH leg's budgeted call. OFFLINE (D-1) => the injected budgeted `call`;
   // PRODUCTION/INTEGRATION => makeGuardedEthCall over a SECOND keyless client (built below). The throwing default is
   // unreachable (both branches assign it; the ETH branch runs only under --eth) but keeps definite assignment.
@@ -692,8 +713,10 @@ export async function runMain(argv: readonly string[], deps: RunDeps): Promise<v
     // key reader. --max-credits -> the helius run cap (the worst-case ×10 recompute is REPLACED by the ledger's
     // tariff-derived credits); --max-ru -> the chainstack run cap. opts.network:"solana-mainnet" is EXPLICIT.
     if (ledgerDir === undefined) throw new Error("bell/collect: --ledger-dir is required (the durable per-operator cycle ledger root, must pre-exist; HELIUS-1)");
-    if (cycle === undefined) throw new Error("bell/collect: --cycle is required (ONE cycle id for every requested operator, keyless included)");
+    if (cycle === undefined && opCycles === undefined) throw new Error("bell/collect: --cycle is required (ONE cycle id for every requested operator, keyless included), or --cycles op=id,... (one per operator, DC-5)");
     if (operators.length === 0) throw new Error("bell/collect: --operators <label,...> is required (explicit include list, e.g. helius,chainstack,solana-foundation)");
+    if (opCycles !== undefined && (operators.some((l) => !Object.hasOwn(opCycles, l)) || Object.keys(opCycles).some((l) => !operators.includes(l))))
+      throw new Error("bell/collect: --cycles names each --operators label once, and no other (DC-5)");
     if (Object.keys(methodCaps).length === 0) throw new Error("bell/collect: --method-caps is required and non-empty (k=v; e.g. getSignaturesForAddress=200000,getTransaction=5000000,getAccountInfo=100000,getTransactionsForAddress=650000)");
     // Fail-closed AT CONSTRUCTION: every Solana method Bell SENDS must carry a positive cap (never only at the 1st call).
     assertMethodCapsCover(methodCaps, BELL_SOLANA_METHODS, "bell/collect");
@@ -704,6 +727,7 @@ export async function runMain(argv: readonly string[], deps: RunDeps): Promise<v
     // open would collide (LockHeld) and leak. The keyless labels are a FIXED constant, never operator-chosen -- the served
     // form of a --eth course does NOT list them in --operators (contract changed at the pli; the old form refuses by name).
     if (eth && wanted.includes("TSLAon")) {
+      if (cycle === undefined) throw new Error("bell/collect: --eth needs the single --cycle form (parseArgs refuses --eth with --cycles, DC-5)");
       for (const m of ["eth_getLogs", "eth_getBlockByNumber"]) if (!(m in methodCaps)) throw new Error(`bell/collect: --eth with TSLAon requires --method-caps to cover '${m}' (the keyless ETH leg's per-method attempt cap; assertMethodCapsCover covers only the Solana methods)`);
       for (const lbl of GET_LOGS_KEYLESS_LABELS) if (operators.includes(lbl)) throw new Error(`bell/collect: --eth keyless label '${lbl}' must NOT be in --operators (the ETH leg opens its OWN keyless client on ${GET_LOGS_KEYLESS_LABELS.join("/")}; listing it in --operators double-locks the cycle, C-G2-A)`);
     }
@@ -712,8 +736,10 @@ export async function runMain(argv: readonly string[], deps: RunDeps): Promise<v
     const runCaps: Record<string, number> = {};
     if (operators.includes("helius")) runCaps.helius = maxCredits;
     if (operators.includes("chainstack")) runCaps.chainstack = maxRu!;
-    const limits: RunLimits = { maxCalls, runCaps, methodCaps, cycleFloor: floors };
-    const cycles = Object.fromEntries(operators.map((l) => [l, cycle]));
+    // DC-6: each declared share (--shares op=n) reaches the guard as given; the guard refuses a share on an operator this course does not request.
+    const limits: RunLimits = { maxCalls, runCaps, methodCaps, cycleFloor: floors, ...(Object.keys(shares).length > 0 ? { cycleShare: shares } : {}) };
+    // DC-5: the cycle of each operator, from --cycles, else the single --cycle for every operator (the launcher's form and the tests').
+    const cycles: Record<string, string> = Object.fromEntries(operators.map((l) => [l, opCycles === undefined ? cycle! : opCycles[l]!]));
     const errByOp: Record<string, number> = {};
     // openGuardedClient's own rollback releases any partial lock on throw, so a build-time throw leaves nothing held.
     const c = openGuardedClient(deps.env, limits, ledgerDir, cycles, { network: "solana-mainnet", onTransportError: (op) => { errByOp[op] = (errByOp[op] ?? 0) + 1; } });
@@ -747,32 +773,37 @@ export async function runMain(argv: readonly string[], deps: RunDeps): Promise<v
     // transport.ts:105; cost 0 RU keyless). The caps + no-labels-in-operators checks ran BEFORE `c` (fail-closed, no lock);
     // the only residual build failure is a REAL orphan FS lock (LockHeld) => release `c`'s N locks (this course took them)
     // then rethrow, so a build-time collision never leaks (distinct reason keeps the V5 release anchor exactly once).
-    let ethClient: BudgetedClient | undefined;
+    let ethClient: BudgetedClient | undefined, ethCycles: Record<string, string> = {};
     if (eth && wanted.includes("TSLAon")) {
-      const ethCycles = Object.fromEntries(GET_LOGS_KEYLESS_LABELS.map((l) => [l, cycle]));
+      ethCycles = Object.fromEntries(GET_LOGS_KEYLESS_LABELS.map((l) => [l, cycle!]));
       const ethLimits: RunLimits = { maxCalls, runCaps: {}, methodCaps: { eth_getLogs: methodCaps.eth_getLogs!, eth_getBlockByNumber: methodCaps.eth_getBlockByNumber! }, cycleFloor: {} };
       try {
         ethClient = openGuardedClient(deps.env, ethLimits, ledgerDir, ethCycles, {});
       } catch (e) {
-        for (const op of c.operators()) runCli(["unlock", "--cycle", cycle, "--op", String(op), "--reason", "bell/collect: eth client build failed, releasing solana locks"], { ledgerDir, floor: floors[op] ?? 0, readSnapshot: () => { throw new Error("bell/collect: readSnapshot is not used by unlock"); } });
+        for (const op of c.operators()) runCli(["unlock", "--cycle", cycles[op]!, "--op", String(op), "--reason", "bell/collect: eth client build failed, releasing solana locks"], { ledgerDir, floor: floors[op] ?? 0, readSnapshot: () => { throw new Error("bell/collect: readSnapshot is not used by unlock"); } });
         throw e;
       }
       ethCall = makeGuardedEthCall(ethClient);
     }
     // Release the N per-operator locks (keyless included) via the SERVED `unlock` (chained `unlocked` line + lock-file
     // removal), calque record.ts:429. A HARD crash leaves them (fail-closed, detectable; runbook: N unlock before
-    // reconcile). cycle/ledgerDir are narrowed to string here (after the throws), so the closure captures them. The ETH
-    // keyless client's N locks are released too (C-G2-A), each under the same cycle scalar.
-    release = (): void => {
+    // reconcile). ledgerDir is narrowed to string here (after the throws), so the closure captures it. Each operator is unlocked on its
+    // own cycle (DC-5); the ETH keyless client's N locks too (C-G2-A), each under the single cycle. Once only (A-4): the release handed
+    // to deps.onLocks (the tick's SIGTERM handler, with its reason) and the finally's call never unlock twice.
+    let released = false;
+    release = (reason?: string): void => {
+      if (released) return;
+      released = true;
       for (const op of c.operators()) {
-        runCli(["unlock", "--cycle", cycle, "--op", String(op), "--reason", "bell/collect: course end (finally, N unlock)"], { ledgerDir, floor: floors[op] ?? 0, readSnapshot: () => { throw new Error("bell/collect: readSnapshot is not used by unlock"); } });
+        runCli(["unlock", "--cycle", cycles[op]!, "--op", String(op), "--reason", reason ?? "bell/collect: course end (finally, N unlock)"], { ledgerDir, floor: floors[op] ?? 0, readSnapshot: () => { throw new Error("bell/collect: readSnapshot is not used by unlock"); } });
       }
       if (ethClient !== undefined) {
         for (const op of ethClient.operators()) {
-          runCli(["unlock", "--cycle", cycle, "--op", String(op), "--reason", "bell/collect: eth leg course end (finally, N unlock)"], { ledgerDir, floor: floors[op] ?? 0, readSnapshot: () => { throw new Error("bell/collect: readSnapshot is not used by unlock"); } });
+          runCli(["unlock", "--cycle", ethCycles[op]!, "--op", String(op), "--reason", reason ?? "bell/collect: eth leg course end (finally, N unlock)"], { ledgerDir, floor: floors[op] ?? 0, readSnapshot: () => { throw new Error("bell/collect: readSnapshot is not used by unlock"); } });
         }
       }
     };
+    deps.onLocks?.(release);
   }
   const providerDomains = [...new Set(solProviders.map(providerOf))];
   try {
