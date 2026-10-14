@@ -11,6 +11,8 @@ import { fileURLToPath, pathToFileURL } from "node:url";
 import { spawnSync } from "node:child_process";
 import { KEY_SHAPES } from "../scripts/bell-publish.mjs";
 import { DATABENTO_HIST, databentoCostPath } from "../src/close.ts";
+import { parseArgs } from "../src/collect.ts";
+import { CHAINSTACK_CYCLE_CAP_RU, HELIUS_CYCLE_CAP_CREDITS, cycleOf, nextCycleBoundary } from "@monark/rpc-guard";
 import { REPO, readJson, runMainInto, tmp, type Obj } from "./helpers/bell-served.ts";
 
 const HERE = dirname(fileURLToPath(import.meta.url)), OPS = join(HERE, "..", "ops");
@@ -220,4 +222,56 @@ test("bell_ops_controls_c14_c09_c11_c15_on_runmain_outputs", async () => {
   const host = variant("host", (j) => { j.faults = [{ provider: "x.example", status: "HTTP 400" }]; }, "journal.json");
   assert.match(line(ctl(host, NOW).lines, "Q6-C09"), /^FAIL Q6-C09 non-bare fault labels=\[\{"provider":"x\.example","status":"HTTP 400"\}\]/);
   assert.ok(existsSync(join(good, "journal.json")), "the controls read the run as written (four artifacts)");
+});
+
+// ---- OPS-Q6-CYCLE-ROLLOVER-1 (DC-5, DC-6): the launcher derives the cycle of each operator at each launch from its anchor by cycleOf (the
+// JS_CYCLES snippet, the code under test, run here with the instant as its argument: it reads no clock), and passes --cycles and --shares, so a
+// course after a billing boundary opens the next cycle with no act; an anchor or a share absent or malformed stops it before any lock check. ----
+// killer: apps/bell/ops/launch-q6.sh:166 CONST "--cycles \"$CYCLES\" --shares" -> "--cycle helius-2026-09-19 --shares"
+test("ops_launcher_passes_shares_and_derived_cycles", () => {
+  const sh = readFileSync(LAUNCH, "utf8"), js = /^JS_CYCLES='([^']*)'$/m.exec(sh)?.[1] ?? "";
+  assert.ok(js.includes("cycleOf("), "the JS_CYCLES snippet is found and derives by cycleOf");
+  assert.ok(!sh.includes("helius-2026-09-19") && !/--cycle\s/.test(sh), "no cycle posed by hand, never the single --cycle");
+  const call = `  --ledger-dir "$LEDGER_DIR" --cycles "$CYCLES" --shares "$SHARES" --floor "helius=$FLOOR_HELIUS,chainstack=$FLOOR_CHAINSTACK_RU" \\\n`;
+  const at = (s: string): number => { const i = sh.indexOf(s); assert.ok(i >= 0 && sh.indexOf(s, i + 1) < 0, `the launcher carries once: ${s.trim()}`); return i; };
+  const order = ['[ -n "$EXEC_TREE" ] && [ -d "$EXEC_TREE" ] || stop', "require.resolve(\"@monark/rpc-guard\")",
+    'DERIVED=$(node --input-type=module -e "$JS_CYCLES" -- "$EXEC_TREE" "$(date +%s)000") || stop ', 'read -r CYCLE CS_CYCLE CYCLES SHARES <<< "$DERIVED"\n',
+    '[ -d "$LEDGER_DIR" ] || stop ', 'if ls "$LEDGER_DIR/$CYCLE/"*.lock >/dev/null 2>&1; then stop ', 'if ls "$LEDGER_DIR/$CS_CYCLE/"*.lock >/dev/null 2>&1; then stop ',
+    'if [ "${Q6_DRYRUN:-0}" = "1" ]', "--operators helius,chainstack \\\n", call].map(at);
+  assert.deepEqual(order, [...order].sort((a, b) => a - b), "derived after the tree checks, before the lock checks, which follow both derived cycles; then the call");
+  assert.ok(!sh.includes('[ -d "$LEDGER_DIR/$CYCLE" ]'), "the guard creates a new cycle's directory: only the ledger root must pre-exist");
+  for (const l of [/^ {2}echo "DRYRUN OK .*$/m, /^HDR=.*$/m]) assert.match(l.exec(sh)?.[0] ?? "", / cycles=\$CYCLES shares=\$SHARES /, `${String(l)} prints the cycles and the shares`);
+  // two instants on either side of a boundary; the helius anchor's offset puts its local date one day before its UTC date, and its day 31 clamps
+  const HA = "2026-01-31T22:00:00-04:00", CA = "2026-03-08T00:00:00Z", edge = nextCycleBoundary(Date.UTC(2027, 3, 10), HA);
+  const base: NodeJS.ProcessEnv = { ...process.env };
+  for (const k of ["HELIUS", "CHAINSTACK"]) for (const s of ["_CYCLE_ANCHOR_UTC", "_CYCLE_SHARE"]) Reflect.deleteProperty(base, k + s);
+  const good = { HELIUS_CYCLE_ANCHOR_UTC: HA, CHAINSTACK_CYCLE_ANCHOR_UTC: CA, HELIUS_CYCLE_SHARE: "7000", CHAINSTACK_CYCLE_SHARE: String(CHAINSTACK_CYCLE_CAP_RU) };
+  const run = (env: Record<string, string | undefined>, now: string): { code: number | null; out: string; err: string } => {
+    const e: NodeJS.ProcessEnv = { ...base, ...good, ...env };
+    for (const [k, v] of Object.entries(env)) if (v === undefined) Reflect.deleteProperty(e, k);
+    const r = spawnSync(process.execPath, ["--input-type=module", "-e", js, "--", REPO, now], { env: e, encoding: "utf8" });
+    return { code: r.status, out: r.stdout, err: r.stderr };
+  };
+  const ids: string[] = [];
+  for (const t of [edge - 1, edge]) {
+    const h = cycleOf(t, HA, "helius"), c = cycleOf(t, CA, "chainstack"), r = run({}, String(t));
+    assert.deepEqual(r, { code: 0, out: `${h} ${c} helius=${h},chainstack=${c} helius=7000,chainstack=${String(CHAINSTACK_CYCLE_CAP_RU)}\n`, err: "" }, `the ids of cycleOf at ${String(t)}`);
+    const [, , cycles = "", shares = ""] = r.out.trim().split(" "), a = parseArgs(["--operators", "helius,chainstack", "--cycles", cycles, "--shares", shares, "--max-calls", "1"], ["TSLAx"], t);
+    assert.deepEqual([a.opCycles, a.shares, a.cycle], [{ helius: h, chainstack: c }, { helius: 7000, chainstack: CHAINSTACK_CYCLE_CAP_RU }, undefined], "the collector reads the argv as passed");
+    ids.push(h);
+  }
+  assert.deepEqual(ids, ["helius-2027-03-31", "helius-2027-04-30"], "the boundary opens the next cycle (local dates of a clamped day-31 anchor)");
+  const no = (env: Record<string, string | undefined>, why: string, now = String(edge)): void => {
+    const r = run(env, now);
+    assert.deepEqual([r.code, r.out, r.err.split("\n")[0]], [3, "", why], `refused: ${JSON.stringify(env)} at ${now}`);
+  };
+  const A = (k: string): string => `cycles: ${k}_CYCLE_ANCHOR_UTC absent or malformed (an ISO instant with its UTC offset, at or before the launch)`;
+  const S = (k: string, cap: number): string => `cycles: ${k}_CYCLE_SHARE absent or malformed (an integer in (0, ${String(cap)}])`;
+  no({}, "cycles: the instant is not epoch milliseconds", "now");
+  for (const k of ["HELIUS", "CHAINSTACK"]) {
+    for (const v of [undefined, "", "2026-01-31T22:00:00", "2026-01-31T22:00:00+05:99", "2026-13-01T00:00:00Z", "2099-01-01T00:00:00Z"]) no({ [`${k}_CYCLE_ANCHOR_UTC`]: v }, A(k));
+    const cap = k === "HELIUS" ? HELIUS_CYCLE_CAP_CREDITS : CHAINSTACK_CYCLE_CAP_RU;
+    for (const v of [undefined, "", "0", "-5", "1.5", "07", "1e3", " 7", String(cap + 1)]) no({ [`${k}_CYCLE_SHARE`]: v }, S(k, cap));
+  }
+  assert.equal(run({ HELIUS_CYCLE_SHARE: String(HELIUS_CYCLE_CAP_CREDITS) }, String(edge)).code, 0, "a share at the code cap passes");
 });

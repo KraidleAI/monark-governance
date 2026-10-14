@@ -16,7 +16,7 @@ import { tmpdir } from "node:os";
 import { join, sep } from "node:path";
 import { fileURLToPath } from "node:url";
 import { gunzipSync } from "node:zlib";
-import { runCli, type Snapshot } from "@monark/rpc-guard";
+import { BudgetExceededError, openGuardedClient, runCli, type Snapshot } from "@monark/rpc-guard";
 import { canonical } from "../../bell/scripts/bell-chain.mjs";
 import { readingRecord, recordBytes, writeDayBundle } from "../src/bundle.ts";
 import { admit, type Body } from "../src/history-read.ts";
@@ -27,7 +27,8 @@ import { DOJO_HISTORY_BOUNDS, DOJO_HISTORY_COLLECT_REASONS, DOJO_HISTORY_ENV, DO
 
 const [OA, OB] = DOJO_HISTORY_OPS, T22 = "TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb", NOW = Date.UTC(2026, 8, 12, 12), END = Date.UTC(2026, 8, 12, 13); // J = 3 (D-10)
 const ENV = { BELL_SOLANA_RPC: `https://${HOSTS.a}`, CHAINSTACK_SOLANA_URL: `https://${HOSTS.b}`,
-  ...Object.fromEntries(Object.values(DOJO_HISTORY_ENV).flatMap(([id, floor]) => [[id, "cyc"], [floor, "1"]])) };
+  ...Object.fromEntries(Object.values(DOJO_HISTORY_ENV).flatMap(([anchor, floor]) => [[anchor, "2026-09-10T00:00:00Z"], [floor, "1"]])), // SYNTHETIC anchors
+  HELIUS_CYCLE_SHARE: "8000000", CHAINSTACK_CYCLE_SHARE: "16000000" }; // shares at the code caps: no effect but the guard's check
 const TX = { encoding: "jsonParsed", maxSupportedTransactionVersion: 1, commitment: "finalized" }; // D-2, recoded
 const roots: string[] = [];
 after(() => { for (const r of roots.splice(0)) rmSync(r, { recursive: true, force: true }); });
@@ -76,17 +77,22 @@ const lastRun = (f: F, file: string): Record<string, unknown> => { const d = joi
 const gets = (op: "a" | "b", reqs: Req[] = sim.reqs): string[] => reqs.filter((r) => r.op === op && r.method === "getTransaction").map((r) => String(r.params[0]));
 const ok = (t: Tx): boolean => !t.failed;
 const byPos = (p: Tx, q: Tx): number => p.slot - q.slot || p.rank - q.rank;
-const locks = (f: F): string[] => readdirSync(join(f.state, "ledger", "cyc")).filter((n) => n.endsWith(".lock"));
+/** The cycle id of an operator at every clock of these tests (anchor 2026-09-10T00:00:00Z, clocks from 2026-09-10 to 2026-09-12), recoded. */
+const cycOf = (op: string): string => `${op}-2026-09-10`;
+/** Every file of the ledger as "<cycle>/<name>": each operator writes under its own derived cycle. */
+const tree = (f: F): string[] => readdirSync(join(f.state, "ledger")).flatMap((d) => readdirSync(join(f.state, "ledger", d)).map((n) => `${d}/${n}`));
+const locks = (f: F): string[] => tree(f).filter((n) => n.endsWith(".lock")).map((n) => n.slice(n.indexOf("/") + 1));
 const sha256 = (s: string): string => createHash("sha256").update(s, "utf8").digest("hex");
 
 interface Seam { writeSync: (fd: number, d: string | Uint8Array) => void; renameSync: (from: string, to: string) => void }
 const DFS = ((await import(new URL("./ledger.ts", import.meta.resolve("@monark/rpc-guard")).href)) as { DURABLE_FS: Seam }).DURABLE_FS, { writeSync: W, renameSync: RN } = DFS;
 const seam = async <T>(over: Partial<Seam>, body: () => Promise<T>): Promise<T> => { Object.assign(DFS, over); try { return await body(); } finally { Object.assign(DFS, { writeSync: W, renameSync: RN }); } };
 
+// killer: apps/dojo/src/history-collect.ts:173 CONST "cycleOf(deps.nowMs(), anchor, op)" -> "cycleOf(deps.nowMs(), anchor, \"helius\")"
 test("dojo_history_calls_have_the_closed_forms", async () => {
   const f = fresh(1060, 10), newest = sim.txs.at(-1) as Tx; // 1 061 index entries: two pages of getSignaturesForAddress per operator; eleven pages of 100 bodies
   sim.pageDrop.add(newest.sig); // a body of R absent from the last page: one complement at the first operator (M-Y20)
-  assert.deepEqual([await run(f, "A"), await run(f, "B")], [null, null], "phases A and B end without stop on the default chain");
+  assert.deepEqual([await stopOf(f, "A"), await stopOf(f, "B")], [null, null], "phases A and B end without stop on the default chain");
   const desc = [...sim.txs].sort((p, q) => byPos(q, p)), oldest = [...sim.txs].sort(byPos), seen = { a: 0, b: 0, page: 0 };
   for (const r of sim.reqs) {
     assert.ok(DOJO_HISTORY_METHODS.includes(r.method), `method in the closed list: ${r.method}`);
@@ -102,7 +108,7 @@ test("dojo_history_calls_have_the_closed_forms", async () => {
   assert.deepEqual([seen.a, seen.b, seen.page], [2, 2, 11], "pages of A per operator and of B");
   assert.deepEqual(gets("a"), [newest.sig], "the one body of R absent from the pages is completed at a, in the closed form");
   assert.deepEqual(gets("b").sort(), sim.txs.filter(ok).map((t) => t.sig).sort(), "the second operator reads exactly R (F never)");
-  assert.deepEqual(readdirSync(join(f.state, "ledger", "cyc")).filter((n) => n.endsWith(".jsonl")).sort(), [`${OB}.jsonl`, `${OA}.jsonl`].sort(), "no third operator opened");
+  assert.deepEqual(tree(f).filter((n) => n.endsWith(".jsonl")).sort(), [OB, OA].map((op) => `${cycOf(op)}/${op}.jsonl`).sort(), "no third operator opened, each on its cycle");
   assert.deepEqual(Object.keys((lastRun(f, "run.json").spent as { byOperator: object }).byOperator).sort(), [OA, OB].sort());
   assert.deepEqual(lastRun(f, "checks.json").composed, ["supply", "instructions", "creation", "day_pairing", "bounds"], "the composed checks, recorded once passed (C-G2-11)");
 });
@@ -127,11 +133,11 @@ test("dojo_history_x10_guard_refuses_before_any_lock", async () => {
   assert.deepEqual([await main([...ok, "--x", "1"], deps()), await main(swap("--max-credits", "800000"), deps())], [64, 1], "a malformed argv exits 64, the code of usage; a budget_guard refusal exits 1 (ADR l.967; C-V-3 of the cp-2; QV-4)");
   assert.deepEqual([sim.reqs.length, readdirSync(join(f.state, "ledger")), existsSync(join(repo, "..g2x"))], [0, [], false], "refused before any lock: no cycle directory, no .lock, no ledger line");
   assert.equal(await codeOf(runHistoryCollect(argv(f, "B"), deps())), "phase_order", "B before A: refused before the lock");
-  mkdirSync(join(f.state, "ledger", "cyc"));
-  writeFileSync(join(f.state, "ledger", "cyc", `${OB}.lock`), "{}");
+  mkdirSync(join(f.state, "ledger", cycOf(OB)));
+  writeFileSync(join(f.state, "ledger", cycOf(OB), `${OB}.lock`), "{}");
   assert.equal(await codeOf(runHistoryCollect(ok, deps())), "lock_held", "a held lock: no call (TY-12)");
-  assert.deepEqual([sim.reqs.length, readdirSync(join(f.state, "ledger", "cyc"))], [0, [`${OB}.lock`]], "rollback: no other lock, no line");
-  rmSync(join(f.state, "ledger", "cyc", `${OB}.lock`));
+  assert.deepEqual([sim.reqs.length, tree(f)], [0, [`${cycOf(OB)}/${OB}.lock`]], "rollback: no other lock, no line");
+  rmSync(join(f.state, "ledger", cycOf(OB), `${OB}.lock`));
   assert.equal(await run(f, "A", { "--max-credits": "799999", "--max-ru": "15999999" }), null, "at the bound: 1 + 7 999 990 <= 8 000 000, 1 + 15 999 999 <= 16 000 000");
   const J = Math.floor((NOW - Date.UTC(2026, 8, 10)) / 86_400_000) + 1, S = 6467 * J, p = (x: number, L: number): number => Math.floor(x / L) + 1; // D-10 l.392-394, recoded
   assert.deepEqual([J, p(S, 1000), p(S, 100), S], [3, 20, 195, 19401], "J counts the UTC days from 2026-09-10 to the injected clock, both included");
@@ -150,26 +156,26 @@ test("dojo_history_x10_guard_refuses_before_any_lock", async () => {
 // killer: apps/dojo/src/history-read.ts:206 CONST "string[])" -> "string[]).slice(0, 15)"
 test("dojo_history_budget_stops_fail_closed", async () => {
   const f = fresh(1060, 10), R = sim.txs.filter(ok).length, evid = join(f.state, "evidence");
-  assert.equal(await run(f, "A"), null);
+  assert.equal(await stopOf(f, "A"), null);
   sim.reqs = [];
   const k = sim.txs.slice(0, 100).filter(ok).length + 1; // the stop falls inside the batch of the second page (every tenth transaction succeeds)
   assert.equal(await run(f, "B", { "--max-ru": String(2 * k) }), "run_credits", "2 RU per getTransaction: the next one is refused (D-11)");
   assert.deepEqual([gets("b").length, sim.reqs.at(-1)?.method, sim.reqs.at(-1)?.op], [k, "getTransaction", "b"], "no call after the BudgetExceededError");
   assert.deepEqual(json(join(evid, "status.json")), { status: "partial", stop_reason: "run_credits" });
   assert.equal(existsSync(join(f.state, "publish")), false, "no publish/ on a stop");
-  const cyc = join(f.state, "ledger", "cyc"), unlocked = lastRun(f, "run.json").unlocked as Record<string, string>;
+  const cyc = (op: string): string => join(f.state, "ledger", cycOf(op)), unlocked = lastRun(f, "run.json").unlocked as Record<string, string>;
   for (const op of DOJO_HISTORY_OPS) {
-    const lines = readFileSync(join(cyc, `${op}.jsonl`), "utf8").trim().split("\n").map((l) => JSON.parse(l) as { outcome: string; entry_sha256: string });
-    assert.equal(existsSync(join(cyc, `${op}.lock`)), false, `${op} unlocked in finally`);
+    const lines = readFileSync(join(cyc(op), `${op}.jsonl`), "utf8").trim().split("\n").map((l) => JSON.parse(l) as { outcome: string; entry_sha256: string });
+    assert.equal(existsSync(join(cyc(op), `${op}.lock`)), false, `${op} unlocked in finally`);
     assert.equal(unlocked[op], lines.filter((l) => l.outcome === "unlocked").at(-1)?.entry_sha256, `sha256 of the ${op} unlocked line consigned (D-11)`);
   }
   // Served reconcile of the courses (TU-rg). On this fresh ledger the current window (since the last `reconciled` line) is exactly the
   // two courses; the --course-end form is item RECONCILE-WINDOW-1 (not delivered: journal Q-1). Dashboard snapshots simulated from the chain.
   const page = sim.reqs.filter((r) => r.method === "getTransactionsForAddress").length, pre = 2 * 2; // phase A: two pages per operator
-  const snaps: Record<string, Snapshot> = { h0: { cycle: "cyc", byMethod: {} }, h1: { cycle: "cyc", byMethod: { getSignaturesForAddress: 2, getTransactionsForAddress: 10 * page } },
-    h2: { cycle: "cyc", byMethod: { getSignaturesForAddress: 2, getTransactionsForAddress: 10 * page + 1 } }, c0: { cycle: "cyc", total_ru: 0 }, c1: { cycle: "cyc", total_ru: pre + 2 * k },
-    c2: { cycle: "cyc", total_ru: pre + 2 * k + 1 } };
-  const rec = (dir: string, op: string, after: string): string => { const r = runCli(["reconcile", "--before", `${after[0] ?? ""}0`, "--after", after, "--cycle", "cyc", "--op", op,
+  const snaps: Record<string, Snapshot> = { h0: { cycle: cycOf(OA), byMethod: {} }, h1: { cycle: cycOf(OA), byMethod: { getSignaturesForAddress: 2, getTransactionsForAddress: 10 * page } },
+    h2: { cycle: cycOf(OA), byMethod: { getSignaturesForAddress: 2, getTransactionsForAddress: 10 * page + 1 } }, c0: { cycle: cycOf(OB), total_ru: 0 }, c1: { cycle: cycOf(OB), total_ru: pre + 2 * k },
+    c2: { cycle: cycOf(OB), total_ru: pre + 2 * k + 1 } };
+  const rec = (dir: string, op: string, after: string): string => { const r = runCli(["reconcile", "--before", `${after[0] ?? ""}0`, "--after", after, "--cycle", cycOf(op), "--op", op,
     ...(op === OB ? ["--mode", "aggregate"] : [])], { ledgerDir: dir, floor: 1, readSnapshot: (p) => snaps[p] as Snapshot }); return `${r.verdict ?? ""} ${r.reason ?? ""}`.trim(); };
   cpSync(join(f.state, "ledger"), join(f.root, "copy"), { recursive: true });
   assert.deepEqual([rec(join(f.root, "copy"), OA, "h2"), rec(join(f.root, "copy"), OB, "c2")], ["NO-GO hard:getTransactionsForAddress", "NO-GO hard:total"], "a snapshot one unit above");
@@ -180,7 +186,7 @@ test("dojo_history_budget_stops_fail_closed", async () => {
   assert.equal(await run(f, "B"), null, "the resumed phase B completes");
   assert.deepEqual([gets("b").length, gets("b").filter((s) => closed.includes(s))], [R - k, []], "no closed body read again");
   const [stamp] = readdirSync(join(evid, "raw", "B", OB)), rawFile = join(evid, "raw", "B", OB, stamp ?? "");
-  const ledgerOf = (): string => readFileSync(join(cyc, `${OA}.jsonl`), "utf8"), before = ledgerOf();
+  const ledgerOf = (): string => readFileSync(join(cyc(OA), `${OA}.jsonl`), "utf8"), before = ledgerOf();
   writeFileSync(rawFile, readFileSync(rawFile).subarray(1));
   assert.deepEqual([await run(f, "B"), ledgerOf() === before, lastRun(f, "run.json").stop_detail], ["evidence_corrupt", true, `raw/B/${OB}/${stamp ?? ""}`], "an altered raw response stops before any lock (D-11 step 1)");
   // Duration (C-27): one minute per request, the course ends at NOW + 5 min: two requests in A, three in B, then course_timeout.
@@ -290,9 +296,11 @@ test("dojo_history_deadline_bounds_every_retry", async () => { // C-G2-3 (P-9 of
   assert.deepEqual([await run(k, "B", {}, { sleep: (ms) => { sim.nowMs += ms; return Promise.resolve(); } }), at], ["course_timeout", [-500, -100]], "the sleep reads the clock after the backoff");
 });
 
+// killer: apps/dojo/src/history-collect.ts:403 CONST "? String(last.entry_sha256) : \"unconfirmed\"" -> "? String(last.entry_sha256) : String(last?.entry_sha256)"
 test("dojo_history_unlock_is_confirmed_or_the_course_stops", async () => { // C-G2-2 and Q-12 (P-2 (a), (b), (c) of the G2)
   const unlockOf = (d: unknown, op: string): boolean => typeof d === "string" && d.includes('"outcome":"unlocked"') && d.includes(`"${op}|unlock"`);
-  const shaOf = (f: F, op: string): unknown => (JSON.parse(readFileSync(join(f.state, "ledger", "cyc", `${op}.jsonl`), "utf8").trim().split("\n").filter((l) => unlockOf(l, op)).at(-1) ?? "{}") as { entry_sha256?: unknown }).entry_sha256;
+  const shaOf = (f: F, op: string): unknown => (JSON.parse(readFileSync(join(f.state, "ledger", cycOf(op), `${op}.jsonl`), "utf8").trim().split("\n").filter((l) => unlockOf(l, op)).at(-1) ?? "{}") as { entry_sha256?: unknown }).entry_sha256;
+  assert.equal(await stopOf(fresh(), "A"), null, "the fixture's cycle keys open a course");
   const fa = fresh(); // (a) a line appended after the unlocked line of the first operator
   const sa = await seam({ writeSync: (fd, d) => { W(fd, d); if (unlockOf(d, OA)) W(fd, `${JSON.stringify({ outcome: "attempted" })}\n`); } }, () => runHistoryCollect(argv(fa, "A"), deps()));
   assert.deepEqual([sa.stop_reason, sa.unlocked, json(join(fa.state, "evidence", "status.json")), lastRun(fa, "run.json").stop_reason, lastRun(fa, "run.json").unlock_stop, locks(fa)],
@@ -510,4 +518,57 @@ test("dojo_history_x_counts_each_signature_once_and_every_index_disagreement", a
   assert.deepEqual([await stopOf(z, "A"), await stopOf(z, "B")], [null, null]);
   sim.override = flip(zh.sig, e); // a failure that only the accounts' indexes show: excluded and counted (F <- F u F_a, D-3 l.264; G2-4)
   assert.deepEqual([await stopOf(z, "C"), (lastRun(z, "checks.json") as { failed_excluded: number }).failed_excluded], ["enumeration_mismatch", fails + 1]);
+});
+
+/** The outcomes of an operator's ledger on its cycle (a refusal with its reason). */
+const outcomesOf = (f: F, op: string): string[] => readFileSync(join(f.state, "ledger", cycOf(op), `${op}.jsonl`), "utf8").trim().split("\n")
+  .map((l) => { const e = JSON.parse(l) as { outcome: string; reason?: string }; return e.outcome === "refused" ? `refused:${String(e.reason)}` : e.outcome; });
+
+// killer: apps/dojo/src/history-collect.ts:423 CONST ", cycleShare: c.shares" -> ""
+test("dojo_history_passes_its_declared_shares", async () => {
+  // Phase A leaves on each operator's cycle its own sum (one index page: 1 credit at helius, 2 RU at chainstack, tariff.ts). Phase B
+  // then asks helius first (a getTransactionsForAddress page, 10 credits at least) and chainstack after it (getTransaction, 2 RU). A
+  // share that the own sum plus that first call passes refuses the call (cycle_share, ledgered before the transport): the course stops
+  // there, after its unlocks, and that operator receives no request. Each operator's share binds that operator only.
+  for (const [op, side, share] of [[OA, "a", { HELIUS_CYCLE_SHARE: "5" }], [OB, "b", { CHAINSTACK_CYCLE_SHARE: "3" }]] as const) {
+    const f = fresh();
+    assert.equal(await stopOf(f, "A"), null, "phase A under the shares of the fixture");
+    sim.reqs = [];
+    await assert.rejects(runHistoryCollect(argv(f, "B"), deps({ env: { ...ENV, ...share } })),
+      (e: unknown) => e instanceof BudgetExceededError && e.message === "rpc-guard: cycle_share (fail-closed)", `${op} stopped at its share`);
+    assert.deepEqual([sim.reqs.filter((r) => r.op === side).length, sim.reqs.length > 0 === (side === "b"), outcomesOf(f, op).filter((o) => o.startsWith("refused"))],
+      [0, true, ["refused:cycle_share"]], `${op}: no request at that operator, the refusal ledgered`);
+    assert.deepEqual(locks(f), [], "no lock left");
+  }
+});
+
+// killer: apps/dojo/src/history-collect.ts:173 CONST "cycleOf(deps.nowMs(), anchor, op)" -> "anchor"
+test("dojo_history_derives_its_cycles_from_the_anchors", async () => {
+  // Each operator's own anchor, each in its own offset: helius 2026-08-12T12:00Z, chainstack 2026-08-12T14:30+02:00 (12:30Z). A phase A
+  // at 11:59Z and one at 12:45Z on 2026-09-12 (the clock of these worlds) run on two cycles per operator, named from each anchor.
+  const env = { ...ENV, HELIUS_CYCLE_ANCHOR_UTC: "2026-08-12T12:00:00Z", CHAINSTACK_CYCLE_ANCHOR_UTC: "2026-08-12T14:30:00+02:00" }, got: string[][] = [];
+  for (const at of [Date.UTC(2026, 8, 12, 11, 59), Date.UTC(2026, 8, 12, 12, 45)]) {
+    const f = fresh();
+    sim.nowMs = at;
+    assert.equal(await stopOf(f, "A", {}, { env }), null, `phase A at ${new Date(at).toISOString()}`);
+    got.push(tree(f).filter((n) => n.endsWith(".jsonl")).sort());
+  }
+  assert.deepEqual(got, [["chainstack-2026-08-12/chainstack.jsonl", "helius-2026-08-12/helius.jsonl"],
+    ["chainstack-2026-09-12/chainstack.jsonl", "helius-2026-09-12/helius.jsonl"]], "one cycle per operator and per side of its boundary");
+});
+
+// killer: apps/dojo/src/history-collect.ts:423 CONST "cycleShare: c.shares" -> "cycleShare: { ...c.shares, \"solana-foundation\": 1 }"
+test("dojo_history_shares_only_the_operators_it_requests", async () => {
+  // The course requests helius and chainstack: with both shares in the environment it passes, each share on its own operator's ledger.
+  const f = fresh();
+  assert.equal(await stopOf(f, "A"), null, "phase A with the two shares");
+  assert.deepEqual([OA, OB].map((op) => outcomesOf(f, op).includes("attempted")), [true, true], "both operators read, each on its cycle");
+  // A share on an operator the course does not request is refused by name by the guard, before any lock and any call.
+  sim.reqs = [];
+  const limits = { maxCalls: 10, runCaps: { [OA]: 400, [OB]: 4000 }, methodCaps: { getSignaturesForAddress: 1 }, cycleFloor: { [OA]: 1, [OB]: 1 },
+    cycleShare: { [OA]: 8_000_000, [OB]: 16_000_000, "solana-foundation": 1 } };
+  assert.throws(() => openGuardedClient(ENV, limits, join(f.state, "ledger"), { [OA]: cycOf(OA), [OB]: cycOf(OB) }, { network: "solana-mainnet" }),
+    (e: unknown) => e instanceof BudgetExceededError && e.message === "rpc-guard: cycle share for 'solana-foundation' names no paid operator of this course, fail-closed",
+    "refused by name");
+  assert.deepEqual([sim.reqs.length, locks(f)], [0, []], "no call, no lock");
 });

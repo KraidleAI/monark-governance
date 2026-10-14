@@ -51,3 +51,18 @@ test("rpc_guard_cycle_of_derives_id_from_anchor_instant", () => {
   assert.equal(pub.cycleOf, cycleOf);
   assert.equal(pub.nextCycleBoundary, nextCycleBoundary);
 });
+
+// killer: packages/rpc-guard/src/cycle.ts:20 CONST "offM > 59 || " -> ""
+test("rpc_guard_cycle_anchor_offset_minutes_above_59_refused", () => {
+  // CYCLE-ANCHOR-MINUTES-1: the minutes of a UTC offset run from 00 to 59. "+05:99" would read as +06:39, inside the 14 h bound, and
+  // "+00:60" as +01:00: each is refused by name, by cycleOf and by nextCycleBoundary alike.
+  for (const bad of ["2026-09-19T00:00:00+05:99", "2026-09-19T00:00:00-03:60", "2026-09-19T00:00:00+00:60"]) {
+    assert.throws(() => cycleOf(at("2026-10-01T00:00:00Z"), bad, "helius"), /^RangeError: cycle: anchor out of range$/, `anchor ${bad} refused by name`);
+    assert.throws(() => nextCycleBoundary(at("2026-10-01T00:00:00Z"), bad), /^RangeError: cycle: anchor out of range$/, `boundary of ${bad} refused`);
+  }
+  // The bounds stay where they were: 59 minutes are an offset, and 14 h is the largest one (a refusal read as a value, never thrown).
+  const read = (f: () => unknown): unknown => { try { return f(); } catch (e) { return String(e); } };
+  assert.equal(read(() => cycleOf(at("2026-10-01T00:00:00Z"), "2026-09-19T00:00:00+05:59", "helius")), "helius-2026-09-19");
+  assert.equal(read(() => cycleOf(at("2026-10-01T00:00:00Z"), "2026-09-19T00:00:00-14:00", "helius")), "helius-2026-09-19");
+  assert.equal(read(() => nextCycleBoundary(at("2026-10-01T00:00:00Z"), "2026-09-19T00:00:00-00:59")), at("2026-10-19T00:59:00Z"));
+});
