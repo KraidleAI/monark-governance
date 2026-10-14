@@ -76,6 +76,13 @@
  "apps/bell/test/bell-src-clean.test.ts": [
   "universe_src_clean_of_fetch_and_keys"
  ],
+ "apps/bell/test/bell-validate.test.ts": [
+  "bell_publish_inbox_mode_is_unchanged",
+  "bell_publish_reexports_the_validate_bindings",
+  "bell_validate_bundle_is_the_publisher_bundle_check",
+  "bell_validate_module_reads_no_environment",
+  "export_ships_bell_validate_and_no_provider_name"
+ ],
  "apps/bell/test/bell-verify.test.ts": [
   "bell_verify_detects_middle_line_tamper",
   "bell_verify_imports_builtins_and_fetch_only",
