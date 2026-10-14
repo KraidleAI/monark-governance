@@ -13,7 +13,7 @@
 // Roots: "governance" (this repository by default), "recherches" (a clone of that repository) and "previous" (the top of a clean
 // checkout of the spec repository at the release's previous_commit). FAIL-CLOSED (exit 1, nothing written), each problem named by its
 // code: release_unknown, date_invalid, root_missing, input_blacklisted, input_missing, input_escapes (a link out of its root),
-// input_not_file, input_digest, not_text, crlf, vocabulary, json_invalid, schema_invalid, policy_table_invalid, not_canonical (a policy
+// input_not_file, input_digest, not_text, crlf, vocabulary, json_invalid, duplicate_key (a key written twice in one object of a json or schema text), schema_invalid, policy_table_invalid, not_canonical (a policy
 // table file must be its own canonical writing, so its sha256 is its policy_table_sha256), recompute_held, short_digest (tableRowProblems),
 // policy_table_kind, version_dir_invalid, previous_commit, previous_dirty, previous_blob_missing (a previous entry is read from the git
 // object of previous_commit, never the working tree: a CRLF checkout cannot change it), withdrawn (a file of the previous tree the release drops),
@@ -132,9 +132,9 @@ const VECTORS = /^contract-(\d+\.\d+\.\d+)\/vectors-\1\.json$/;
  *  entry; a table carried byte for byte from the previous commit (carried) may lie under an older version directory, rows checked all the same. */
 export function contentProblems(out, kind, bytes, release, carried = false) {
   let text;
-  try { text = new TextDecoder("utf-8", { fatal: true }).decode(bytes); } catch { return [{ code: "not_text", detail: `${out}: not UTF-8` }]; }
+  try { text = new TextDecoder("utf-8", { fatal: true, ignoreBOM: true }).decode(bytes); } catch { return [{ code: "not_text", detail: `${out}: not UTF-8` }]; } // a leading BOM stays in the text and is refused (SPEC-BOM-CANONICAL-1)
   if (text.includes("\0")) return [{ code: "not_text", detail: `${out}: a NUL byte` }];
-  const p = vocabularyHits(venueMaskedText(text, out, kind)).map((h) => ({ code: "vocabulary", detail: `${out}:${h.line} [${h.rule}] ${h.word}` }));
+  const p = vocabularyHits(venueMaskedText(text, out, kind)).map((h) => ({ code: "vocabulary", detail: `${out}:${h.line} [${h.rule}] ${h.word}` })); if (text.includes("\uFEFF") && !p.some((x) => x.detail.includes("[cf]"))) p.push({ code: "vocabulary", detail: `${out}:1 [cf] a byte order mark in a text the vocabulary gate reads as blank (SPEC-BOM-CANONICAL-1)` }); // trim() drops U+FEFF, so a blank text's mark needs its own refusal
   if (text.includes("\r")) p.push({ code: "crlf", detail: `${out}: a CR byte (LF line ends only)` });
   const top = out.split("/")[0], parsed = (() => { try { return JSON.parse(text); } catch { return undefined; } })();
   if (/^contract-/i.test(top) && out.includes("/") && !versionDir(top)) p.push({ code: "version_dir_invalid", detail: `${out}: ${top} is not contract-<x.y.z>[-tables-<YYYY-MM-DD>]` });
@@ -145,7 +145,7 @@ export function contentProblems(out, kind, bytes, release, carried = false) {
   let v;
   try { v = JSON.parse(text); } catch (e) { return [...p, { code: "json_invalid", detail: `${out}: ${e.message}` }]; }
   p.push(...vocabularyHits(strings(venueMasked(v, out, kind).value).join("\n")).map((h) => ({ code: "vocabulary", detail: `${out}: a decoded string [${h.rule}] ${h.word}` })));
-  if (kind === "schema" && !(isObj(v) && typeof v.$schema === "string")) p.push({ code: "schema_invalid", detail: `${out}: no $schema` });
+  if (kind === "schema" && !(isObj(v) && typeof v.$schema === "string")) p.push({ code: "schema_invalid", detail: `${out}: no $schema` }); const dup = kind === "policy-table" ? null : duplicateKey(text); if (dup !== null) p.push({ code: "duplicate_key", detail: `${out}: the key ${JSON.stringify(dup.key)} is written twice in the object at ${dup.path || "/"} (VOCAB-JSON-DUPKEY-1)` });
   if (kind !== "policy-table") return p;
   const at = /^(?:([^/]+)\/)?policy\/([^/]+)\.json$/.exec(out); // a new table lies under the release's own directory
   if (!isObj(v) || v.row_format !== "class-policy-v2" || !isObj(v.class) || !Array.isArray(v.rows) || at === null || at[2] !== String(v.class.task_class) || (at[1] !== undefined && (!versionDir(at[1]) || (at[1] !== release && !carried)))) {
@@ -359,4 +359,40 @@ export function venueMaskedText(text, out, kind) {
   if (m.venues === 0 && m.trials === 0) return text;
   for (const w of forms) for (const end of ["", "\n"]) { try { if (w(v) + end === text) return w(m.value) + end; } catch { /* not this writing */ } }
   return text;
+}
+
+// SPEC-GATE-HARDENING-1, VOCAB-JSON-DUPKEY-1 (MONARK e7234bd, docs/G0-lot-spec-gate-hardening-1.md): JSON.parse keeps the last of two
+// equal keys of an object without a word, so a text of kind json or schema could carry a member its reader never sees. The text is scanned
+// once JSON.parse has accepted it (every string is well formed, every value is delimited): the keys of each object, at every depth, compared
+// once unescaped (JSON.parse of the key's own writing); a string value is skipped whole. A policy table is already refused by not_canonical
+// (canonicalJson writes each key once). A function declaration, hoisted, kept last so that no line above moves (the retireProblems precedent).
+/** duplicateKey(text) -> {key, path} of the first key written twice in one object of a valid JSON text (path: the members from the root, "" at the root), or null. */
+function duplicateKey(text) {
+  let i = 0;
+  const ws = () => { while (i < text.length && " \t\n\r".includes(text[i])) i++; };
+  const str = () => { const s = i++; while (text[i] !== '"') i += text[i] === "\\" ? 2 : 1; i++; return JSON.parse(text.slice(s, i)); };
+  const value = (path) => {
+    ws();
+    if (text[i] === "{") {
+      const seen = new Set();
+      i++; ws();
+      if (text[i] === "}") { i++; return null; }
+      for (;;) {
+        ws(); const k = str(); ws(); i++; // the key, then its colon
+        if (seen.has(k)) return { key: k, path };
+        seen.add(k);
+        const d = value(`${path}/${k}`); if (d !== null) return d;
+        ws(); if (text[i++] === "}") return null;
+      }
+    }
+    if (text[i] === "[") {
+      i++; ws();
+      if (text[i] === "]") { i++; return null; }
+      for (let n = 0; ; n++) { const d = value(`${path}/${String(n)}`); if (d !== null) return d; ws(); if (text[i++] === "]") return null; }
+    }
+    if (text[i] === '"') { str(); return null; }
+    while (i < text.length && !" \t\n\r,]}".includes(text[i])) i++; // a number, true, false or null runs to its delimiter
+    return null;
+  };
+  return value("");
 }

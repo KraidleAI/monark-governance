@@ -285,7 +285,7 @@
  "test/site-ukemi.test.ts": 32,
  "test/skills.test.ts": 6,
  "test/spec-1-1-0-release.test.ts": 25,
- "test/spec-publish.test.ts": 21,
+ "test/spec-publish.test.ts": 24,
  "test/spec-retire-path.test.ts": 13,
  "test/spec-venue-fields.test.ts": 8,
  "test/surfaces-1-1-0.test.ts": 15,
