@@ -348,11 +348,26 @@
   "bell_sessions_sip_trade_date_before_the_switch",
   "bell_sessions_utp_day_start_is_pinned_at_2055"
  ],
+ "apps/bell/test/tick-compose.test.ts": [
+  "bell_tick_composes_plan_runmain_checks_validate_into_a_publishable_bundle",
+  "bell_tick_quarantines_a_run_its_checks_refuse"
+ ],
+ "apps/bell/test/tick-legs.test.ts": [
+  "bell_tick_cash_cost_preflight_caps_the_leg",
+  "bell_tick_leg_off_unsets_its_key_and_refuses_when_needed",
+  "bell_tick_names_every_guard_error_of_the_closed_list",
+  "bell_tick_produces_trajectory_when_stale_and_reuses_when_fresh",
+  "bell_tick_records_stage_credits_from_the_ledger_delta",
+  "bell_tick_refuses_an_absent_halts_file_by_name",
+  "bell_tick_refuses_trajectory_mismatch_with_reference_prefix",
+  "bell_tick_sigterm_line_says_released_only_when_the_release_held"
+ ],
  "apps/bell/test/tick.test.ts": [
   "bell_tick_abandon_writes_tombstone_and_advances_once",
   "bell_tick_attempt_budget_is_keyed_on_unit_start",
   "bell_tick_builds_cycle_share_from_requested_operators_only",
   "bell_tick_closure_excludes_the_publisher",
+  "bell_tick_closure_reads_a_code_line_that_starts_with_a_star",
   "bell_tick_derives_cycle_per_operator_and_refuses_straddle",
   "bell_tick_exits_nonzero_on_every_named_refusal",
   "bell_tick_hands_rununit_only_the_collect_env_keys",
@@ -1768,6 +1783,7 @@
   "repair_tail_without_lock_takes_and_releases_it"
  ],
  "packages/rpc-guard/test/share.test.ts": [
+  "rpc_guard_refusal_carries_its_reason_code",
   "rpc_guard_refuses_a_share_above_the_code_cap",
   "rpc_guard_share_caps_cumulative_spend_across_runs",
   "rpc_guard_share_exhaustion_is_a_named_refusal_before_any_call",
@@ -1862,6 +1878,7 @@
   "bell_runbook_ships_the_ca_tree_and_the_unit_key_path"
  ],
  "test/bell-deploy-constants.test.ts": [
+  "bell_deploy_authority_is_the_committed_series_authority",
   "bell_deploy_pins_the_floor_and_the_tick_timeout_bound",
   "bell_deploy_pins_the_proposed_values",
   "bell_deploy_universe_is_the_dated_list"
