@@ -261,7 +261,7 @@ T3 and T6 do not change. **Killers** (planned; their lines are fixed at the T co
 T1  // killer: scripts/test-counts-reporter.mjs:<l> CONST ".slice(0, data.nesting), data.name].join(\" > \")" -> ".slice(0, 0), data.name].join(\" > \")"
     // killer: scripts/test-counts-reporter.mjs:<l> CONST "else if (type === \"test:start\")" -> "else if (false)"
     // killer: scripts/test-counts-reporter.mjs:<l> CONST "names: c.names.sort()" -> "names: c.names"
-    // killer: scripts/test-count-floor.mjs:14 CONST " && c.names.length === c.tests" -> ""
+    // killer: scripts/test-count-floor.mjs:15 CONST " && c.names.length === c.tests" -> ""
 T2  // killer: scripts/test-count-floor.mjs:<l> CONST "writeFileSync(NAMES, " -> "void ("
     // killer: scripts/test-count-floor.mjs:<l> CONST ".replace(/[\\u2028\\u2029]/g," -> ".replace(/(?!)/g,"
 T4  // killer: scripts/test-count-check.mjs:<l> CONST ".trim().split(/\\s+/).length >= 3" -> ".trim().split(/\\s+/).length >= 1"
@@ -425,6 +425,82 @@ Every egress log is empty: 0 refused attempts.
 The prototype is the detached worktree `proto/` at a local commit above `52ddf000`, never pushed. It is not this change's code: it
 gave the price in CI form and played the design.
 
+## 13. As built (2026-10-14)
+
+By the build's author instance (RECHERCHES, `claude-opus-5-5`, effort high), a fresh instance distinct from this note's author, from
+04:2x UTC. Every run below was offline (`offline.mjs --no-egress`, 0 refused attempts in every log), each full suite and each mutant
+under the shared host lock.
+
+### 13.1 Commits
+
+| Commit | What |
+|---|---|
+| `edbd2e83` | Merge of the trunk head announced by MONARK (`5ebd9267`) into this branch (`3a585411`), no conflict |
+| `a6feb87d` | This note amended in place for MONARK's answers (`e6ebb72`), docs only |
+| `3f940361` | T: T1, T2, T4, T5 in place, T7 and T8 new, the pin (4quinquies) of test 38; red at the merge |
+| `895af680` | C: the reporter, `write`, the gate, the three `.d.mts` files, the `STAT=` line, the dated line under ADR-M003 D9 |
+| `9682e6d3` | The records: `npm run test:main` then `write`, 290 files, 2 974 tests |
+
+### 13.2 Departures from the plan
+
+- **The names record holds one name per line** (Q-1 (b)): `namesText` is `JSON.stringify(<files sorted, names sorted>, null, 1)`, then
+  U+2028 and U+2029 escaped. 3 556 lines.
+- **Killed lines edited in place.** The new code sits after each module's functions (function declarations, hoisted: `minus`, `because`,
+  `lineOk`, `namesDiffer`, `nameProblems` in the gate, `namesText` in `write`), and no line above a killed line was added or removed.
+  Over the 55 killers of the two test files, the anchor checker at `--ref 5ebd9267` reads 53 ANCRE, **2 DERIVE** and 0 PERDU. The two
+  drifts are lines edited in place by design, each killer's text still once on its line: `scripts/test-counts-reporter.mjs:15` (the
+  event that counts a test now also records its name; killer of T1's head) and `scripts/test-count-check.mjs:56` (P2 and P4 take the
+  names; killer `"...runProblems(run), "` of T5).
+- **Killers rewritten by design**: `"...recordProblems(run, record), "` becomes `"...recordProblems(run, record, names), "` (l.56). The
+  killer `" && r.reason.trim() !== \"\""` of l.23 is removed: `because()` (l.70) subsumes it, so its mutant became equivalent. Two
+  killers on l.70 replace it (three words; this pull request's number).
+- **`isLine` (l.22-23) is unchanged**, the shape of a count line; the new `lineOk` holds the three shapes and the reason. The reason test
+  of `isLine` stays, redundant with `because()`.
+- **The count-mode hint keeps `"reason":"..."`** (l.34 unchanged, its four killers anchored). The names-mode hint carries
+  `#<pull request>: ...`, or `#<n>: ...` in CI. Count mode now judges only a base without the names record, which after this change
+  is this change alone.
+- **A file gone**: the hint offers its one line `{file, from, to: 0}` (§3.3), with the base count; one removal line per name is also
+  accepted. A `{from, to: 0}` line counts only while none of the file's names was taken by another line.
+- **`readRun`**: the names check sits on the throw line, l.15, so l.14 and its killer stay; the killer planned at `:14` is at `:15`.
+- **The reporter**: `test:start` is the new branch at l.17, the sort at l.19. Its key, l.10, is the real path from the real cwd when
+  the file resolves; an event whose file does not exist (T1's events) keeps the path as given.
+- **The tests**: T4 opens with the reason (its first check, red at the merge); T5 opens with the head without `test/test-names.json`
+  (exit 4), and its gate helper also removes `GITHUB_REF`. T1, T2 and T8 compare the reporter's raw output first. Test 38 is red at the
+  merge at its exact list (a), the first check of the part it pins; its earlier checks hold other parts of the workflow.
+- **Test 38**: two tokens in its exact CODE list, the pin (4quinquies) (the exclusions under `test/` are exactly the two paths, in that
+  order, with no glob magic), a line of its header, and a killer above it on `.github/workflows/ci.yml:100`.
+- **The ADR line** is a dated paragraph, `**Décision MONARK du 2026-10-09 sous D9 (...)**`, not an `**Addendum D9 <suffix>` title: the
+  suffixes stop at octodecies until the list grows (item ADR-M003-SUFFIX-LIST-1), and `adr_m003_d9_suffixes_are_unique` refuses any other.
+- **Size**: 377 lines in CI form, against about 210 planned under (b). The three test files come to 168 inserted and 49 deleted lines
+  (about 85 planned; 129 of them in the gate's test file, where T5 and T7 grew), the code and the `STAT=` line to 111 and 49 (122 on the
+  prototype).
+
+### 13.3 Measures and proofs
+
+| Proof | Result | Evidence (scratchpad `test-count-names-build/`) | sha256 (prefix) |
+|---|---|---|---|
+| The changed tests at the T commit (the merge's code) | 7 red, each by `ERR_ASSERTION` | `logs/t-at-merge.tap` | `0d8a83f6` |
+| `red-proof --base edbd2e83 --gel 9682e6d3` | 7 judged, 7 F2P, ok | `red-proof/RED-PROOF.json` | `6a0240d1` |
+| Killer campaign, trunk `scripts/mutants/run.mjs --killers` | baseline green; 73 killers, 73 killed by an assertion | `killers/RESULTS.json`, `logs/killers.log` | `25c7422a`, `c2fe9846` |
+| `npm run test:main` | 2 974 tests, 2 952 pass, 0 fail, 22 skipped | `logs/main-1.log` | `571db00b` |
+| `write`, then the gate `--base origin/lot/etude-suite` (`1347c3e7`) | 290 files, 2 974 tests; green, judged by counts (no names at `5ebd9267`), 0 drop; the same in the oracle form | `logs/gate-trunk.log` | `63d77e65` |
+| The base cases at the merge's gate (the G0's tool) | R, E, B, D1, D2 exit 0; D0, D3 exit 1 (§1, unchanged) | `logs/base-proof-at-merge.log` | `3db8d766` |
+| The base cases at the built gate, CI form (pull request 7) | 15 of 15 as planned: R, E, D0, D1, D1n, D2, D2n, D3, F red with the lines of §3.6; R+, D+, F+, N green; B green (names do not see bodies, §3.4); FIRST green, judged by counts | `logs/names-proof.log` (`tools/names-proof.mjs`) | `8250e038` (`e773acd4`) |
+| Anchors, `verifie-ancres.mjs --ref 5ebd9267`, whole tree | at `9682e6d3`, 1 808 killers: 1 805 ANCRE, the 2 DERIVE above, 1 PERDU, the plan line of §4 at `:14`; with this section (`:15`), 1 806 ANCRE, 2 DERIVE, 0 PERDU | `logs/anchors.log`, `logs/anchors-2.log` | `cfbad7d4`, `a73c576d` |
+| `tsc --noEmit`, eslint on the touched tests, `lint:ratchet`, `gate:vocab`, `lang:gate`, `export:check`, winlint, `git diff --check` | each exit 0 (eslint ignores `scripts/` by its config) | `logs/gates.log` | `2b2e73c7` |
+| Case-fold run of both test files (`casefold-git`, `CASEFOLD_FAIL=1`), and T8's fixture names | 8 pass; 3 `git add` judged, 18 names, 0 collision | `logs/casefold.log`, `logs/casefold-run.log` | `45952fc0`, `374185f7` |
+| The names record | 3 556 lines, no raw U+2028 or U+2029, no CR, longest line 707 bytes; 2 address literals, both in `EXEMPT` | `logs/names-scan.log` | `d2b22e1f` |
+| Size, CI form against the trunk (`tools/size.sh`), `pin` first | `pin` refuses no path. New `STAT=` line: 10 files, 279 + 98 = **377**. The trunk's line: 12 files, 3 837 + 100 = 3 937 (the names record 3 556, the counts 4) | `logs/size.log` | `801ae604` |
+| R1 scan of each commit before its push | 0 match | | |
+
+### 13.4 Not verified
+
+- Windows: T8's junction, T2's nested run and the names under `cmd.exe`, the gate on the merge (P2 by names is the parity check);
+  MONARK's replay at the merge.
+- The CI of this branch: no pull request is open; a fresh review comes first.
+- The gate's CI form under `offline.mjs`, which removes every `GITHUB_*` name: replayed in the oracle form under it, and in the CI form
+  outside it (the gate runs git only).
+
 ## 12. Changelog
 
 - **2026-10-08, this note** (RECHERCHES, `claude-opus-5-5` max, from 21:40 UTC): the G0 of TEST-COUNT-NAMES-1 at the trunk `52ddf000`.
@@ -433,3 +509,5 @@ gave the price in CI form and played the design.
 - **2026-10-14, amended for MONARK's answers** (RECHERCHES, the build's author instance, `claude-opus-5-5` effort high): the answers of
   `e6ebb72` to Q-1 to Q-4 written in place (the zone, the construction, the tests, the size and §10); docs only. The build follows on the
   merge of the trunk head `5ebd9267`.
+- **2026-10-14, as built** (the same instance): §13, the commits, the departures from the plan, the measures and what is not verified;
+  the planned killer of `readRun` moved from `:14` to `:15` in §4.
