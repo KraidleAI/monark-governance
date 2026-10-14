@@ -78,11 +78,11 @@ function lineOk(r, byNames, pr) {
   return shaped && because(r.reason, pr);
 }
 
-/** P2 on names: in each file, the run's names equal the names record's, as multisets; the exact names on each side. The run's tests without a file are P1's; a names-record key "" is held to the run like any file. */
+/** P2 on names: in each file, the run's names equal the names record's, as multisets; the exact names on each side. The run's tests without a file are P1's; a names-record key "" is held to the run like any file. A key on one side only differs even without names: else the merged records disagree and the next change's base is refused (exit 4). */
 function namesDiffer(run, names) {
   return [...new Set([...Object.keys(run).filter((f) => f !== ""), ...Object.keys(names)])].sort().flatMap((f) => {
-    const ran = minus(run[f]?.names ?? [], names[f] ?? []), kept = minus(names[f] ?? [], run[f]?.names ?? []);
-    return ran.length + kept.length === 0 ? [] : [`${f}: run and ${NAMES} differ: run only ${JSON.stringify(ran)}, recorded only ${JSON.stringify(kept)}`];
+    const ran = minus(run[f]?.names ?? [], names[f] ?? []), kept = minus(names[f] ?? [], run[f]?.names ?? []), alone = Object.hasOwn(run, f) === Object.hasOwn(names, f) ? null : Object.hasOwn(names, f) ? `in ${NAMES}, not in the run` : `in the run, not in ${NAMES}`;
+    return ran.length + kept.length > 0 ? [`${f}: run and ${NAMES} differ: run only ${JSON.stringify(ran)}, recorded only ${JSON.stringify(kept)}`] : alone === null ? [] : [`${f}: ${alone}`];
   });
 }
 
