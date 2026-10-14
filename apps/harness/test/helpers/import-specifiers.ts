@@ -29,7 +29,7 @@
  * computed key on process, globalThis, global, Reflect, module, require, this, eval or Function finds no false positive but an alias defeats it
  * (const p = process); any non-literal computed member access finds 52. The item stays open (noted by MONARK for docs/ETAT.md).
  * Limit, item TEST-COUNT-FLOOR-1 (a per-file floor on the tests run): a test file that loads a module calling execve or process.exit(0) at load
- * ends before its tests and can count as one pass; the walk's file loads 12 of the 22 served modules, hence its execve killer in a function.
+ * ends before its tests and can count as one pass; the walk's file loads 14 of the 24 served modules, hence its execve killer in a function.
  */
 import ts from "typescript";
 /** The one parse of a module text that both readers walk: TypeScript, the latest target, parent links set. */

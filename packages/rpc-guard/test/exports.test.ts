@@ -46,6 +46,7 @@ test("public_api_freezes_the_prior_p3_floor", async () => {
   } finally { globalThis.fetch = realFetch; cleanup(); }
 });
 
+// killer: packages/rpc-guard/src/index.ts:27 SDL "export { cycleOf, nextCycleBoundary } from \"./cycle.ts\";" -> ""
 test("public_export_set_is_closed", async () => {
   const pub = await import("@monark/rpc-guard");
   assert.deepEqual(Object.keys(pub).sort(), [
@@ -62,6 +63,8 @@ test("public_export_set_is_closed", async () => {
     "BELL_SOLANA_METHODS", "assertMethodCapsCover",
     // DRAND-RELAY-GET-1a (ADR-RPC-GUARD-DRAND-1 D-1): the two drand relay LABELS (never a URL, a host, a path or the chain hash).
     "DRAND_RELAY_LABELS",
+    // The billing cycle derived from the anchor instant (pure: an identifier and an instant, never an endpoint URL).
+    "cycleOf", "nextCycleBoundary",
   ].sort(), "the public VALUE-export set drifted (no new paid path may be exported)");
   for (const forbidden of ["makeClient", "resolveOperators", "resolveConfig", "InMemorySink", "openOperatorLedger", "acquireLock", "runUnlock", "DRAND_QUICKNET_HASH"]) {
     assert.ok(!(forbidden in pub), `${forbidden} must NOT be public (C-V-2)`);

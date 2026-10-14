@@ -23,13 +23,14 @@ export const metadata: Metadata = {
 // why" is read from the committed, hashed data file through lib/bell-legal-load.ts, because it names the words the site
 // gates refuse; (5) no country: the publisher identity fields and the governing law stay visible placeholders; (6)
 // factual exactness: the table's second introductory sentence is replaced by the version measured true on the Service's
-// pages, read from the same data file (to be validated by counsel); (7) the internal cross-reference that closed the
-// 'why' cell of the data-provider row is removed, like the notes of (1) (to be validated by counsel). The contact address
-// is the box of the publisher (lib/bell-contact.ts), shown as text. Section numbers and references come from
-// lib/bell-legal.ts, never typed. Two validated phrases carry a word a site gate refuses in any other context, quoted in
-// a negation; each is masked by a closed, load-bearing exemption naming the exact phrase (vocab-banned.json
-// site.exemptPhrases), and must stay on one physical line below. The "Last updated" date is read from the same hashed
-// data file (the instant the Terms text was first served), never typed.
+// pages, read from the same data file; (7) the internal cross-reference that closed the 'why' cell of the data-provider
+// row is removed, like the notes of (1); (8) factual exactness: in sections one and two, the sentences on what can be
+// recomputed name the public ledger and the reference data read under the reader's own licence, which the last item of
+// section two already requires. The contact address is the box of the publisher (lib/bell-contact.ts), shown as text.
+// Section numbers and references come from lib/bell-legal.ts, never typed. Two validated phrases carry a word a site
+// gate refuses in any other context, quoted in a negation; each is masked by a closed, load-bearing exemption naming the
+// exact phrase (vocab-banned.json site.exemptPhrases), and must stay on one physical line below. The "Last updated" date
+// is read from the same hashed data file (the instant the Terms text was first served), never typed.
 export default function BellTermsPage() {
   const legal = loadBellLegal(siteRepoRoot());
   const T = TERMS_SECTIONS;
@@ -55,7 +56,8 @@ export default function BellTermsPage() {
             <Placeholder name="legal_entity" state="to be decided" />, a <Placeholder name="legal_form" state="to be decided" />{" "}
             ("<b>we</b>", "<b>us</b>"). Bell will publish public, signed, recomputable facts about the relationship between
             tokenized securities and their underlying reference prices, together with the method used to compute them. It
-            is a witness: it will record and re-publish what can be independently recomputed from public inputs. It does not
+            is a witness: it will record and re-publish what can be independently recomputed from the public ledger and
+            from licensed reference data. It does not
             manage money, does not place orders, and does not rate, rank, or recommend any instrument, issuer, trading
             venue, or course of action.
           </p>
@@ -75,8 +77,8 @@ export default function BellTermsPage() {
             <li>
               Every published record will be part of an append-only, hash-chained, and digitally signed timeline. The
               signature attests that the record was published by us at that time; it does not attest that the underlying
-              fact is correct. Anyone will be able to recompute a record from the same public inputs and compare it to
-              what we published.
+              fact is correct. Anyone will be able to recompute a record from the public ledger and from the same
+              reference data, read under their own licence, and compare it to what we published.
             </li>
             <li>
               We will publish abstentions and residuals as such, wherever the method cannot produce a reliable number,

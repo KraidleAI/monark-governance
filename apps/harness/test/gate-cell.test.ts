@@ -11,12 +11,13 @@ import assert from "node:assert/strict";
 import { execFile } from "node:child_process";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { sha256Canonical, type GateDecision, type Prediction } from "@monark/contracts";
+import { splitQuantileExact } from "@monark/hikae";
 import { servedPolicyTables } from "../src/kata-path.ts";
 import {
   runGate, CASCADE_UNCALIBRATED_SENTENCE, LIQ_COMMITTED_SENTENCE, LIQ_EMPTY_REGISTRY_SENTENCE, SCHEMA_VERSION, SERVED_MARGINAL_TABLES,
   SERVED_TABLE_TEXTS, STABLE_RUN_COMMITTED_SENTENCE, STABLE_RUN_UNCALIBRATED_SENTENCE, type HarnessParams,
 } from "../src/tools/gate.ts";
-import { UKEMI_LIQ_PREDICTOR_BASE, USDE_STABLE_RUN_PREDICTOR_ID } from "../src/calibration.ts";
+import { lookupCommittedCalibration, UKEMI_LIQ_PREDICTOR_BASE, USDE_STABLE_RUN_PREDICTOR_ID } from "../src/calibration.ts";
 import { HARNESS_TOOLS } from "../src/tools/registry.ts";
 
 const P: HarnessParams = { remainingBudget: 0.1, bFloor: 0, tau: 1, tauInterval: 1, alpha: 0.1, nMin: 50, intent: 0, tool: "perps_order_preview", clockOpen: true };
@@ -66,9 +67,11 @@ test("cascade_cell_key_is_the_received_predictor_id", () => {
 // G2 m-7: qhat, n_calib, alpha and scores_sha256 served on USDe and liq s0 equal those of the admitted row.
 // killer: apps/harness/src/policy-marginal.ts:44 CONST "qhat: split.qhat," -> "qhat: split.qhat * 2,"
 test("served_values_equal_the_admitted_row", () => {
-  for (const [d, c] of [[runGate(USDE, P), "stable-run-velocity-24h"], [runGate(LIQ_S0, LIQ_P), "liquidation-eligible-coverage"]] as const) {
+  for (const [d, c, q] of [[runGate(USDE, P), "stable-run-velocity-24h", P], [runGate(LIQ_S0, LIQ_P), "liquidation-eligible-coverage", LIQ_P]] as const) {
     const r = rowOf(c, d.verdict.cell_key ?? "");
     assert.deepEqual([d.verdict.reason, d.verdict.qhat, d.verdict.n_calib, String(d.verdict.alpha), d.verdict.scores_sha256], ["covered", r.qhat, r.n, r.alpha, r.scores_sha256], c);
+    const split = splitQuantileExact((lookupCommittedCalibration(c, d.verdict.cell_key ?? "") ?? assert.fail(c)).scores, String(q.alpha), q.nMin);
+    assert.deepEqual([d.verdict.qhat], ["qhat" in split ? split.qhat : split.reason], `${c}: the served qhat is the split quantile of the committed scores, recomputed without marginalRow`);
   }
 });
 
@@ -77,7 +80,7 @@ test("served_values_equal_the_admitted_row", () => {
 // killer: apps/harness/src/tools/gate.ts:1038 CONST "registry_file: \"fixtures/usde-calib-scores.json\"" -> "registry_file: \"fixtures/usde.json\""
 test("served_tables_texts_and_sources", () => {
   const names = SERVED_MARGINAL_TABLES.map((t) => t.task_class);
-  assert.deepEqual(servedPolicyTables(SERVED_TABLE_TEXTS).filter((t) => names.includes(t.task_class)), [...SERVED_MARGINAL_TABLES].sort((a, b) => (a.task_class < b.task_class ? -1 : 1)));
+  assert.deepEqual(servedPolicyTables(SERVED_TABLE_TEXTS, new Map()).filter((t) => names.includes(t.task_class)), [...SERVED_MARGINAL_TABLES].sort((a, b) => (a.task_class < b.task_class ? -1 : 1)));
   const texts = SERVED_MARGINAL_TABLES.map((t) => [t.table.class.text, ...t.table.rows.map((r) => r.text)]);
   // Block D (lot D-2): SERVED_MARGINAL_TABLES is a view of the served tables, in their order (by task_class).
   assert.deepEqual(texts, [[CASCADE_UNCALIBRATED_SENTENCE], [LIQ_EMPTY_REGISTRY_SENTENCE, LIQ_COMMITTED_SENTENCE], [STABLE_RUN_UNCALIBRATED_SENTENCE, STABLE_RUN_COMMITTED_SENTENCE]]);

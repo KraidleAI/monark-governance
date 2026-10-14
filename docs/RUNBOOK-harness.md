@@ -267,12 +267,12 @@ step that has no command in the repository says so and names its item. The insta
 `scripts/retire-latency.mjs` (l.15-23): each is a UTC instant to the second, `YYYY-MM-DDTHH:MM:SSZ` (l.25, l.47), read
 where its step says, with `date -u` unless the step names another source.
 
-**State at `07b7fc20`, unchanged at `c318aa54` (read it before acting).** No step can retire a served row yet; until the
+**State at `10f97f8c`, the tripwire on the pins since `f0933604` (read it before acting).** No step can retire a served row yet; until the
 loader of E-2a is merged, this section is the procedure of the rehearsal (RETIRE-LATENCY-REHEARSAL-1, in a sandbox) and of
 the first cycle of E-2a.
 - The 32 kata tables are served with no row (`apps/harness/src/kata-path.ts` l.115-120), behind a tripwire that fails the
-  load on the first kata row (l.122-129, called at `apps/harness/src/tools/gate.ts` l.1042); the HTTP and MCP entry points
-  never pass other tables (`tools/gate.ts` l.873-875).
+  load on any kata row outside the pins, hence on the first one while no table is pinned (l.122-129, called at
+  `apps/harness/src/tools/gate.ts` l.1042); the HTTP and MCP entry points never pass other tables (`tools/gate.ts` l.873-875).
 - No served path reads a retire list: `guardKataTable` (`apps/harness/src/policy-guard.ts`) reads the chain of lists in
   tests only (item RETIRE-LISTS-E2A-PIPE-1).
 - `recompute_held` refuses every row that carries a recompute until the list of verifiers is published
