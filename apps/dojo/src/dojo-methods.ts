@@ -19,10 +19,12 @@ export const DRAND_CYCLE_ATTEMPTS: Readonly<Record<string, number>> = { "drand-p
 export const PUBLIC_HOST_GAP_MS = 1000;
 /** The chain operators of a reading, in the order a and b (ADR D-1 dated line C-V-2: constants, outside argv). */
 export const CHAIN_OPERATORS = ["helius", "solana-foundation"] as const;
-/** Environment keys of the cycle (ADR D-1 dated line C-V-2: EnvironmentFile; calque CHAINSTACK_CYCLE_ID / CHAINSTACK_CYCLE_FLOOR of
- *  deploy/monark-sentinel.service:28-31). PROVISIONAL G1 names: ADR dated line 08:28Z point (5) fixes them at the G1 of PR-3b-1. */
-export const ENV_CYCLE_ID = "HELIUS_CYCLE_ID";
+/** Environment keys of the cycle (ADR D-1 dated line C-V-2: EnvironmentFile; amended by the ADR-DOJO-PR-2B dated line of 2026-10-14):
+ *  the account's anchor instant, from which each course derives its cycle id (cycleOf of @monark/rpc-guard; no id is posed by hand),
+ *  the dashboard floor, and the declared share of the shared account, held by the guard (RunLimits.cycleShare). */
+export const ENV_CYCLE_ANCHOR = "HELIUS_CYCLE_ANCHOR_UTC";
 export const ENV_CYCLE_FLOOR = "HELIUS_CYCLE_FLOOR";
+export const ENV_CYCLE_SHARE = "HELIUS_CYCLE_SHARE";
 /** Token-2022 program (ADR D-2 l.125) and the mint's decimals (ADR section 1.3 l.54, measured: 6). */
 export const TOKEN_2022 = "TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb";
 export const DECIMALS = 6;

@@ -26,7 +26,8 @@ import { DOJO_HISTORY_ENV, main, runHistoryCollect } from "../apps/dojo/src/hist
 
 const DAY = 86_400, D1 = 20_706, T22 = "TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb"; // day 1 = 2026-09-10 (mere D-18), days since 1970-01-01
 const ENV = { BELL_SOLANA_RPC: `https://${HOSTS.a}`, CHAINSTACK_SOLANA_URL: `https://${HOSTS.b}`,
-  ...Object.fromEntries(Object.values(DOJO_HISTORY_ENV).flatMap(([id, floor]) => [[id, "cyc"], [floor, "1"]])) };
+  ...Object.fromEntries(Object.values(DOJO_HISTORY_ENV).flatMap(([anchor, floor]) => [[anchor, "2026-09-10T00:00:00Z"], [floor, "1"]])), // SYNTHETIC anchors
+  HELIUS_CYCLE_SHARE: "8000000", CHAINSTACK_CYCLE_SHARE: "16000000" }; // shares at the code caps: no effect but the guard's check
 const sha = (s: string | Buffer): string => createHash("sha256").update(s).digest("hex");
 const dayOf = (t: Tx): number => Math.floor(Number(t.entry.blockTime) / DAY);
 const roots: string[] = [];

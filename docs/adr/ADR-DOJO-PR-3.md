@@ -695,3 +695,7 @@ Mutants appliqués sur copie, restaurés au sha256, hors de l'index ; aucun test
   `G7.txt` passe au commit de fusion de la partie 3 au tronc avant CA-1, `/f/Monark` en extraction propre de ce commit. Prix : le commentaire
   redit « the sync does not: item SYNC-SERVED-DEPTH-SCAN-1 », faux depuis SITE-PREP (la synchro mesure la profondeur) : item
   DOJO-CHAIN-COMMENT-STALE-1 (ETAT), déclencheur : le premier lot de l éditeur qui redéploie l arbre de publication, qui le corrige.
+- **Dated line, 2026-10-14 (Bell collection timer, part 2, lot 2f):** the names that Q-6 of the dated line 14:13Z confirms
+  (`HELIUS_CYCLE_ID`, `HELIUS_CYCLE_FLOOR`) are replaced: the collect unit's env file carries `HELIUS_CYCLE_ANCHOR_UTC`,
+  `HELIUS_CYCLE_FLOOR` and `HELIUS_CYCLE_SHARE` (`DOJO_COLLECT_ENV_KEYS`), and each course derives its cycle id from the anchor
+  (dated amendment of ADR-DOJO-PR-2B, 2026-10-14).

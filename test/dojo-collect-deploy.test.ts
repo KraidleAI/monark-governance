@@ -17,13 +17,14 @@ import { basename, dirname, join, posix } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { DRAND_RELAY_LABELS, heliusCredits } from "@monark/rpc-guard";
 import { DEFAULT_TIMEOUT_MS, parseRetryAfterMs } from "../packages/rpc-guard/src/transport.ts";
-import { ENV as SIM_ENV, MINT, POOL, PYTH, QUOTE_VAULT, ROWS, sim, stampOf } from "../apps/dojo/test/helpers/collect-chain.ts";
+import { CYCLE as SIM_CYCLE, ENV as SIM_ENV, MINT, POOL, PYTH, QUOTE_VAULT, ROWS, sim, stampOf } from "../apps/dojo/test/helpers/collect-chain.ts";
 import { ANCHOR_DAY, anchorBody, betaOf, dateOf, roundOf } from "../apps/dojo/test/helpers/dojo-fixture.ts";
 import { canonical } from "../apps/bell/scripts/bell-chain.mjs";
 import { daySeed, readInstants, seedAnchor } from "../apps/dojo/scripts/dojo-core.mjs";
 import { DOJO_SEED_REFUSALS } from "../apps/dojo/scripts/dojo-seed.mjs";
 import { parseArgv } from "../apps/dojo/src/collect.ts";
-import { BACKOFF_MS, DOJO_METHOD_CAPS, ENV_CYCLE_FLOOR, ENV_CYCLE_ID, PUBLIC_HOST_GAP_MS, READ_RULE, TRIES } from "../apps/dojo/src/dojo-methods.ts";
+import { BACKOFF_MS, DOJO_METHOD_CAPS, ENV_CYCLE_FLOOR, PUBLIC_HOST_GAP_MS, READ_RULE, TRIES } from "../apps/dojo/src/dojo-methods.ts";
+import * as methods from "../apps/dojo/src/dojo-methods.ts"; // ENV_CYCLE_ANCHOR and ENV_CYCLE_SHARE by namespace: new exports of a file present at the base
 import { readDayLayout, readEve } from "../apps/dojo/src/layout.ts";
 import * as D from "../scripts/dojo-deploy.mjs";
 
@@ -104,6 +105,7 @@ test("dojo_collect_unit_never_loads_the_signing_key", () => {
 });
 
 // M-H6, M-H9 (red here): a writable path covering the publication's state, public/ or a credential source; an optional EnvironmentFile.
+// killer: scripts/dojo-deploy.mjs:30 CONST ", \"HELIUS_CYCLE_SHARE\"]" -> "]"
 test("dojo_collect_unit_least_privilege_guarded_network", () => {
   const { sections, list } = unitOf(D.DOJO_COLLECT_UNIT);
   assert.deepEqual(sections, ["Unit", "Service"], "no [Install]: the timer starts the unit");
@@ -119,7 +121,7 @@ test("dojo_collect_unit_least_privilege_guarded_network", () => {
   assert.ok(!env.startsWith("-") && env === D.DOJO_COLLECT_ENV_FILE, "the EnvironmentFile is mandatory (no leading -)");
   // C-G2-12: each NAMED key the tree's code reads (env.NAME, env[CONST]) is a key of the EnvironmentFile, the credentials directory, or a
   // declared key of an operator the collector never requests (Chainstack; CHAIN_OPERATORS are helius and solana-foundation).
-  const CONSTS: Readonly<Record<string, string>> = { ENV_CYCLE_ID, ENV_CYCLE_FLOOR }, UNREQUESTED = ["CHAINSTACK_ETH_URL", "CHAINSTACK_SOLANA_URL"];
+  const CONSTS: Readonly<Record<string, string>> = { ENV_CYCLE_ANCHOR: methods.ENV_CYCLE_ANCHOR, ENV_CYCLE_FLOOR, ENV_CYCLE_SHARE: methods.ENV_CYCLE_SHARE }, UNREQUESTED = ["CHAINSTACK_ETH_URL", "CHAINSTACK_SOLANA_URL"];
   const names = treeCode().flatMap((p) => [...read(p).matchAll(/\benv(?:\.(\w+)|\[(\w+)\])/g)].map((m) => m[1] ?? CONSTS[m[2] ?? ""] ?? `unresolved ${m[2] ?? ""}`));
   assert.deepEqual([...new Set(names)].sort(), [...D.DOJO_COLLECT_ENV_KEYS, "CREDENTIALS_DIRECTORY", ...UNREQUESTED].sort(), "env keys read == file + credentials + declared");
   assert.ok(Object.keys(SIM_ENV).every((k) => D.DOJO_COLLECT_ENV_KEYS.includes(k)), "the PR-2-2 oracle's environment uses these names");
@@ -301,9 +303,9 @@ test("dojo_collect_unit_runs_the_real_tick", async () => {
   const WAIT_MS = Math.max(parseRetryAfterMs("86400", 0) ?? NaN, BACKOFF_MS);
   const WORST_PLAN_S = (DRAND_RELAY_LABELS.length * (TRIES * DEFAULT_TIMEOUT_MS + (TRIES - 1) * WAIT_MS)) / 1000;
   assert.deepEqual([WORST_PLAN_S, WORST_PLAN_S + WORST_S <= Number(one(svc, "TimeoutStartSec"))], [240, true], "240 + 1210 s <= TimeoutStartSec 1500 s");
-  assert.equal(await codeOf(tick(T(D1) + 60, { ...env, [ENV_CYCLE_ID]: undefined })), "cycle_missing", "the cycle id key is required");
+  assert.equal(await codeOf(tick(T(D1) + 60, { ...env, HELIUS_CYCLE_ANCHOR_UTC: undefined })), "cycle_missing", "the cycle anchor key is required");
   assert.equal(await codeOf(tick(T(D1) + 60, { ...env, CREDENTIALS_DIRECTORY: join(R, "elsewhere") })), "credentials_path", "the seed only from the credential");
-  await tick(T(ANCHOR_DAY) + 1000); // RUNBOOK section 5: the one start of A-5, made on the anchor day, has no day to open
+  assert.equal(await codeOf(tick(T(ANCHOR_DAY) + 1000)), "none", "RUNBOOK section 5: the one start of A-5, made on the anchor day, has no day to open");
   assert.deepEqual([existsSync(join(state, "bundles")), sim.reqs.length], [false, 0], "refusals before any call; the A-5 start writes and calls nothing");
   // Act A-11-rep (RUNBOOK section 6), before the timer: the empty Eve of the first day it opens, by the tree's own dojo-eve.mjs.
   const eve = spawnSync(process.execPath, [join(tree, EVE_TOOL), "--empty", "--day", dateOf(D1)], { encoding: "utf8" });
@@ -318,12 +320,12 @@ test("dojo_collect_unit_runs_the_real_tick", async () => {
   assert.equal(existsSync(join(day, "readings", "1.json")), false, "...and writes nothing");
   // DOJO-UNLOCK-CHAIN-TEST-1 on the tree: a helius.lock left by a killed step (SIGKILL: no handler runs) refuses the step (lock_held);
   // the tree's served unlock, run as RUNBOOK section 9 runs it, releases it (exit 0, last line unlocked); the next step of that instant reads.
-  const cyc = join(state, "ledger", SIM_ENV.HELIUS_CYCLE_ID), lock = join(cyc, "helius.lock");
+  const cyc = join(state, "ledger", SIM_CYCLE), lock = join(cyc, "helius.lock");
   mkdirSync(cyc, { recursive: true });
   writeFileSync(lock, "{}");
   assert.equal(await codeOf(tick(step(inst[0] ?? 0))), "lock_held", "a lock left held stops the step before any call");
   const served = spawnSync(process.execPath, [join(tree, UNLOCK_TOOL), "--ledger-dir", join(state, "ledger"), "--floor", "0", "unlock", "--cycle",
-    SIM_ENV.HELIUS_CYCLE_ID, "--op", "helius", "--reason", "runbook-lock-held-unlock"], { encoding: "utf8" });
+    SIM_CYCLE, "--op", "helius", "--reason", "runbook-lock-held-unlock"], { encoding: "utf8" });
   const last = JSON.parse(readFileSync(join(cyc, "helius.jsonl"), "utf8").trim().split("\n").at(-1) ?? "{}") as { outcome?: string; reason?: string };
   assert.deepEqual([served.status, existsSync(lock), last.outcome, last.reason], [0, false, "unlocked", "runbook-lock-held-unlock"], served.stderr);
   for (const t of inst) assert.equal(await codeOf(tick(step(t))), "none", "each step reads its instant");
