@@ -3516,8 +3516,11 @@
   "writer_check_reports_any_drift_in_a_copy_and_exits_by_it"
  ],
  "test/spec-publish.test.ts": [
+  "a_bom_prefixed_table_with_a_retired_row_is_refused_before_the_retire_rule",
   "a_caller_s_git_location_never_stands_in_for_the_previous_tree",
+  "a_duplicate_key_in_a_json_or_schema_text_is_refused_once_unescaped",
   "a_failed_write_leaves_out_absent_and_no_temporary_tree",
+  "a_leading_bom_is_refused_on_every_kind",
   "a_missing_tampered_escaping_or_blacklisted_input_or_root_refuses_and_writes_nothing",
   "a_published_contract_file_is_compared_with_its_committed_object",
   "a_refused_previous_entry_carries_the_reason_git_gives",
