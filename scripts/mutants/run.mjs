@@ -21,9 +21,9 @@
 // copied (sha256 checked), deleted ones removed; its node_modules built as in oracle/run.mjs: the main checkout's entries junctioned, @monark/*
 // re-pointed into the clone (item MUTANTS-NM-WORKSPACES-1); a baseline run of every target file (not green: no mutant runs, "non conclu (base)"),
 // MUTANTS-BASELINE-UNREPORTED-1: when the tree has scripts/test-counts-reporter.mjs and test/test-counts.json, the baseline also runs that reporter
-// (a second reporter, its output in <out>/tmp) and holds each target file of the record to it: a count that differs, or no summary of its own, makes a
-// green baseline non conclu; a target file absent from the record is named in the baseline's note; without the two, its note says so; one mutant
-// at a time: each <before> exactly once on its line, else anchor-lost (counted, no edit applied); before each run (a baseline, a mutant), free memory
+// (a second reporter, its output in <out>/tmp): a target file without a summary of its own, a file of the record whose count differs (above or below)
+// or a record that is not a JSON object makes a green baseline non conclu; a target file absent from the record is named in the baseline's note, its
+// count unchecked; without the two, its note says so; one mutant at a time: each <before> exactly once on its line, else anchor-lost (counted, no edit applied); before each run (a baseline, a mutant), free memory
 // under --min-free-mb (default and floor 4096: C-V-4, C-V-9) is polled every --poll-ms (5000) up to --wait-ms (5400000, the bound of acquire()), then the
 // host lock is taken by acquire() of oracle/lock.mjs for that run alone (FIFO, never forced: a waiting oracle passes between two mutants) and released
 // at once (D-3, D-5); memory is read again once the lock is taken: short, the lock is released at once and the bounded wait goes on, never with the
@@ -34,11 +34,11 @@
 //   non conclu  a dead child (error, signal, exit 134) or a run past its bound; no test entry; an exit code that contradicts the entries, non-zero
 //               without a failing entry ("lost") or 0 with one (MUTANTS-RUN-EXIT-CODE-1; "TAP cut" noted without its closing # duration_ms, G2 m-4)
 //   non conclu  the row names its test (a killer line, a row's test), run alone by --test-name-pattern: no entry of its own, or skipped ones only
-//   survit      its named test's own entry is ok, whatever else is red, a hook or another test (noted "red outside the named test only":
+//   survit      its named test's own entry is ok, whatever else is red, a hook reported apart (an after hook of the file) or another test (noted "red outside the named test only":
 //               MUTANTS-SKIPPED-NOT-KILLED-1); without a named test, every entry is ok
-//   tue         its named test's own entry fails by assertion (ERR_ASSERTION); without a named test, a top-level entry does
-//   non conclu  otherwise: failures without an assertion (a test past --timeout-ms, a load error)
-// then PROMOTED to tue, noted (MUTANTS-REPLAY-PROMOTE-1): a "lost" first run whose replay shows its named test's own entry (that name, located in a
+//   tue         its named test's own entry fails by assertion (ERR_ASSERTION), by its own code, never by a hook; without a named test, a top-level entry does
+//   non conclu  otherwise: failures without an assertion (a test past --timeout-ms, a load error), a hook's failure that node reports on the named test's own entry (failureType hookFailed: a before, beforeEach or afterEach hook; noted "the named test is red by a hook")
+// then PROMOTED to tue, noted (MUTANTS-REPLAY-PROMOTE-1): a "lost" first run, never a survivor nor another non conclu, whose replay shows its named test's own entry (that name, located in a
 // file of the first run) failing by assertion; never by another test, a hook or a load, never a skipped test. A replay keeps its verdict (no named test).
 // A row marked typecheck (D-2) runs tsc --noEmit -p tsconfig.json of the clone's node_modules/typescript instead: tue iff an error falls in a target file;
 // non conclu if tsc dies, if every error falls outside the targets (corrections D-2, note "N error(s) outside the targets") or if tsc exits non-zero
@@ -237,17 +237,17 @@ export async function main(argv) {
     const tap = r.stdout ?? "", all = parseTap(tap), es = all.filter((e) => !e.skip), bad = es.filter((e) => !e.ok), codes = [...tap.matchAll(/^\s*code: '?([A-Z_]+)'?\s*$/gm)].map((x) => x[1]), named = pattern === undefined ? null : es.filter((e) => e.name === pattern);
     writeFileSync(join(taps, `${name}.tap`), tap); const cut = !/^# duration_ms \S+$/.test(tap.trimEnd().split(/\r?\n/).at(-1) ?? ""); // truncation() of red-proof.mjs, its first test (G2 m-4)
     const dead = r.error !== undefined || r.signal !== null || r.status === 134, late = r.error?.code === "ETIMEDOUT" || /^\s*failureType: 'testTimeoutFailure'\s*$/m.test(tap), lost = bad.length === 0 && r.status !== 0, odd = bad.length > 0 && r.status === 0, own = named === null ? bad : named.filter((e) => !e.ok), miss = named?.length === 0;
-    const at = (e) => slash(/^ {2}location: (['"`])(.*):\d+:\d+\1$/m.exec(e.lines.join("\n"))?.[2].replace(/\\(.)/g, "$1") ?? ""); // a failing entry's file, quoted and escaped as util.inspect writes it
-    return { files, status: dead || es.length === 0 || lost || odd || miss ? "non conclu" : own.length === 0 ? "survit" : own.some((e) => classify(e) === "assert-fail") ? "tue" : "non conclu",
+    const at = (e) => slash(/^ {2}location: (['"`])(.*):\d+:\d+\1$/m.exec(e.lines.join("\n"))?.[2].replace(/\\(.)/g, "$1") ?? ""), hooked = (e) => e.lines.some((l) => /^\s*failureType: 'hookFailed'\s*$/.test(l)); // a failing entry's file, quoted and escaped as util.inspect writes it; hooked: a hook's failure on a test's own entry
+    return { files, status: dead || es.length === 0 || lost || odd || miss ? "non conclu" : own.length === 0 ? "survit" : own.some((e) => classify(e) === "assert-fail" && (named === null || !hooked(e))) ? "tue" : "non conclu",
       strict: codes.length === 1 && codes[0] === "ERR_ASSERTION", fails: bad.map((e) => e.name), oks: es.length - bad.length, exit: r.status, signal: r.signal, ms: Date.now() - t0, tap_sha256: sha(tap),
-      timed_out: late, lost: lost && !dead, named_kill: read && bad.some((e) => e.name === read.test && read.files.some((f) => at(e).endsWith(`/clone/${f}`)) && classify(e) === "assert-fail"),
-      note: dead ? null : miss ? `the named test ${all.some((e) => e.name === pattern) ? "is skipped" : "has no entry"}` : es.length === 0 || lost || odd ? `exit ${String(r.status)} ${es.length === 0 ? "without a test entry" : lost ? "without a failing entry" : `with ${bad.length} failing entr${bad.length === 1 ? "y" : "ies"}`}${cut ? " (TAP cut: no closing summary)" : ""}` : own.length === 0 && bad.length > 0 ? "red outside the named test only" : null };
+      timed_out: late, lost: lost && !dead, named_kill: read && bad.some((e) => e.name === read.test && read.files.some((f) => at(e).endsWith(`/clone/${f}`)) && classify(e) === "assert-fail" && !hooked(e)),
+      note: dead ? null : miss ? `the named test ${all.some((e) => e.name === pattern) ? "is skipped" : "has no entry"}` : es.length === 0 || lost || odd ? `exit ${String(r.status)} ${es.length === 0 ? "without a test entry" : lost ? "without a failing entry" : `with ${bad.length} failing entr${bad.length === 1 ? "y" : "ies"}`}${cut ? " (TAP cut: no closing summary)" : ""}` : own.length === 0 && bad.length > 0 ? "red outside the named test only" : named?.some((e) => !e.ok && hooked(e)) ? "the named test is red by a hook" : null };
   }; // late (corrections D-5): a run past its bound (spawnSync ETIMEDOUT) or a test past --timeout-ms (TAP testTimeoutFailure); lost, odd: the exit code contradicts the entries (MUTANTS-RUN-EXIT-CODE-1)
   const counted = COUNTS.every((p) => isFile(join(clone, p))) ? join(tmp, "BASELINE.counts.json") : undefined; // MUTANTS-BASELINE-UNREPORTED-1
-  const tally = (g, files) => { // a green baseline is non conclu if a target file of the record reports another count or no summary of its own
+  const tally = (g, files) => { // a green baseline is non conclu if a target file has no summary of its own, a file of the record another count, or the record is not a JSON object
     const json = (p) => { try { const v = JSON.parse(readFileSync(p, "utf8")); return v !== null && typeof v === "object" && !Array.isArray(v) ? v : null; } catch { return null; } };
     const rec = counted === undefined ? null : json(join(clone, COUNTS[1])), got = (counted === undefined ? null : json(counted)) ?? {}, listed = files.filter((f) => rec !== null && Object.hasOwn(rec, f));
-    const gaps = counted === undefined ? [] : rec === null ? files : listed.filter((f) => got[f]?.summary !== true || got[f].tests !== rec[f]), absent = files.filter((f) => !listed.includes(f));
+    const gaps = counted === undefined ? [] : rec === null ? files : files.filter((f) => got[f]?.summary !== true || (listed.includes(f) && got[f].tests !== rec[f])), absent = files.filter((f) => !listed.includes(f));
     const said = counted === undefined ? `no test count check: the tree has no ${COUNTS.filter((p) => !isFile(join(clone, p))).join(" nor ")}` : rec === null ? `${COUNTS[1]} unreadable` : [
       gaps.length > 0 ? `${COUNTS[1]} not met: ${gaps.map((f) => `${f} ${got[f]?.summary === true ? `${String(got[f].tests)} of ${String(rec[f])}` : "without a summary"}`).join(", ")}` : "",
       absent.length > 0 ? `not in ${COUNTS[1]}: ${absent.join(", ")}` : ""].filter((x) => x !== "").join("; ");

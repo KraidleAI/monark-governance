@@ -14,7 +14,8 @@
  * fk/ (a fake TypeScript that hangs, exits 1 without a diagnostic line or reports an error: D-2, D-3), the memory read again under the lock (D-4),
  * to/ (a time overrun, never replayed: D-5) and a held host lock waited for in its queue, never refused at launch (D-6).
  * One table of verdicts, a case per row (MUTANTS-SKIPPED-NOT-KILLED-1, MUTANTS-REPLAY-PROMOTE-1, MUTANTS-BASELINE-UNREPORTED-1): sk/ (a red hook under a skipped,
- * a green and a red named test), pb/ (a pile, a body, a line below a one-line test), pl/ (preloads), bc/ and bn/ (the test count record), pr/ (cut reports, replays).
+ * a green and a red named test), hk/ (hooks that node reports on the named test's own entry), pb/ (a pile, a body, a line below a one-line test), pl/ (preloads),
+ * bc/, bn/, ba/ and bu/ (the test count record), pr/ (cut reports, replays), or/ (a survivor whose replay, where the order of the tests matters, reddens it).
  */
 import { after, test } from "node:test";
 import assert from "node:assert/strict";
@@ -294,11 +295,34 @@ test("mutants_a_named_test_skipped_is_non_conclu_and_green_survives_never_killed
     [true, 1, ["tue", false], ["tue", false], ["tue", false]]); // each replay red by the hook, never by the named test: no first run lost, nothing promoted
 });
 
-// killer: scripts/mutants/run.mjs:241 CONST "own.some(" -> "bad.some("
+// killer: scripts/mutants/run.mjs:241 CONST "\"tue\" : \"non conclu\"" -> "\"tue\" : \"survit\""
 test("mutants_a_named_test_red_without_an_assertion_is_non_conclu_under_a_hook_red_by_one", () => { // MUTANTS-SKIPPED-NOT-KILLED-1
   const r = sk(), k6 = row(r, "K6");
   assert.deepEqual([k6?.test, k6?.status, k6?.note, k6?.fails.includes("k_throws"), k6?.fails.length, k6?.replay?.named_kill], ["k_throws", "non conclu", null, true, 2, false], r.stderr);
 });
+
+// MUTANTS-SKIPPED-NOT-KILLED-1, a hook that node reports on the named test's own entry (failureType hookFailed, here by assertion): hk/, test/h.test.ts under
+// an afterEach hook (its named test runs green, then the hook reddens its entry: K1) and test/i.test.ts under a beforeEach hook (its named test never runs: K2);
+// test/j.test.ts, no hook: its named test throws without an assertion while a test of the same name in a describe box fails by assertion (K3).
+const HK = { "lib/h.mjs": "export const H = 1;\nexport const J = 1;\nexport const K = 1;\n",
+  "test/h.test.ts": 'import { afterEach, test } from "node:test";\nimport assert from "node:assert/strict";\nimport { H } from "../lib/h.mjs";\nafterEach(() => { assert.equal(H, 1); });\n' +
+    '// killer: lib/h.mjs:1 CONST "H = 1" -> "H = 2"\ntest("h_after_each", () => { assert.equal(typeof H, "number"); });\n',
+  "test/i.test.ts": 'import { beforeEach, test } from "node:test";\nimport assert from "node:assert/strict";\nimport { J } from "../lib/h.mjs";\nbeforeEach(() => { assert.equal(J, 1); });\n' +
+    '// killer: lib/h.mjs:2 CONST "J = 1" -> "J = 2"\ntest("i_before_each", () => { assert.equal(typeof J, "number"); });\n',
+  "test/j.test.ts": 'import { describe, test } from "node:test";\nimport assert from "node:assert/strict";\nimport { K } from "../lib/h.mjs";\n' +
+    '// killer: lib/h.mjs:3 CONST "K = 1" -> "K = 2"\ntest("j_throws", () => { if (K !== 1) throw new TypeError("not one"); });\n' +
+    'describe("j_box", () => { test("j_throws", () => { assert.equal(K, 1); }); });\n' };
+const HOOKED = "the named test is red by a hook";
+// killer: scripts/mutants/run.mjs:243 CONST " && !hooked(e))" -> ")"
+// killer: scripts/mutants/run.mjs:244 CONST "named?.some((e) => !e.ok && hooked(e)) ?" -> "false ?"
+// killer: scripts/mutants/run.mjs:241 CONST "own.some(" -> "bad.some("
+// killer: scripts/mutants/run.mjs:241 CONST "(named === null || !hooked(e))" -> "true"
+test("mutants_a_named_test_red_by_a_hook_on_its_own_entry_is_non_conclu_never_killed", () => {
+  const { dir, base } = mini("hk", HK), r = run(["--repo", dir, "--base", base, "--killers"]);
+  const get = (id: string): unknown[] => [row(r, id)?.test, row(r, id)?.status, row(r, id)?.note, row(r, id)?.replay?.status, row(r, id)?.replay?.named_kill];
+  assert.deepEqual([r.status, r.rec?.baseline?.status, get("K1"), get("K2"), get("K3")], [1, "vert", ["h_after_each", "non conclu", HOOKED, "tue", false],
+    ["i_before_each", "non conclu", HOOKED, "tue", false], ["j_throws", "non conclu", null, "tue", false]], r.stderr); // K1, K2: each replay red by that hook on the named
+}); // test's entry, no kill, nothing promoted; K3: the box's entry red by assertion is not the named test's own
 
 // MUTANTS-SKIPPED-NOT-KILLED-1, the named test of a killer line: pb/, a pile of two lines above b_pile (K1, K2), a line in the body of b_body (K3), and a line
 // below the one-line test b_other with a blank line under it (K4). K1's mutation reddens b_other only, never b_pile (the case of a pile's upper line).
@@ -335,12 +359,13 @@ test("mutants_children_load_the_preloads_of_the_test_script", () => {
   assert.deepEqual([r.status, b?.status, b?.note, row(r, "K1")?.status, r.rec?.test_preload], [0, "vert", NOCOUNT, "tue", ["-r", "./test/helpers/pre.cjs", "--import=data:text/javascript,globalThis.FX_IMPORTED=1"]], r.stderr);
 });
 
-// MUTANTS-BASELINE-UNREPORTED-1, the counts: bc/ and bn/ carry this repository's reporter, copied, and a record test/test-counts.json; test/d.test.ts exits at
-// load, so its process sends no summary of its own (the launcher reports the file as one test).
-const countsRepo = (name: string, record: Record<string, number>): { dir: string; base: string } => mini(name, { "test/test-counts.json": `${JSON.stringify(record)}\n`,
+// MUTANTS-BASELINE-UNREPORTED-1, the counts: bc/, bn/, ba/ and bu/ carry this repository's reporter, copied, and a record test/test-counts.json (bu/: one that
+// does not parse); test/d.test.ts (bc/, bn/) exits at load, so its process sends no summary of its own (the launcher reports the file as one test).
+const D = { "test/d.test.ts": 'import { C } from "../lib/c.mjs";\nif (C === 1) process.exit(0);\n' };
+const countsRepo = (name: string, record: Record<string, number> | string, files: Record<string, string> = D): { dir: string; base: string } => mini(name, {
+  "test/test-counts.json": typeof record === "string" ? record : `${JSON.stringify(record)}\n`,
   "scripts/test-counts-reporter.mjs": readFileSync(join(import.meta.dirname, "..", "scripts", "test-counts-reporter.mjs"), "utf8"), "lib/c.mjs": "export const C = 1;\n",
-  "test/c.test.ts": `${HEAD}import { C } from "../lib/c.mjs";\ntest("c_one", () => { assert.equal(C, 1); });\ntest("c_two", () => { assert.equal(typeof C, "number"); });\n`,
-  "test/d.test.ts": 'import { C } from "../lib/c.mjs";\nif (C === 1) process.exit(0);\n' });
+  "test/c.test.ts": `${HEAD}import { C } from "../lib/c.mjs";\ntest("c_one", () => { assert.equal(C, 1); });\ntest("c_two", () => { assert.equal(typeof C, "number"); });\n`, ...files });
 const C1: Row = { id: "C1", file: "lib/c.mjs", line: 1, op: "CONST", before: "C = 1", after: "C = 2", why: "w" };
 
 // killer: scripts/mutants/run.mjs:254 CONST "gaps.length > 0 && g.status" -> "false && g.status"
@@ -351,9 +376,25 @@ test("mutants_a_baseline_short_of_the_test_count_record_is_non_conclu_and_runs_n
 });
 
 // killer: scripts/mutants/run.mjs:253 CONST "absent.length > 0 ?" -> "false ?"
-test("mutants_a_target_file_absent_from_the_test_count_record_is_named_and_the_baseline_stays_green", () => {
-  const { dir, base } = countsRepo("bn", { "test/c.test.ts": 2 }), r = run(["--repo", dir, "--base", base, "--table", table("bn.json", [C1])]), b = r.rec?.baseline;
-  assert.deepEqual([r.status, b?.status, b?.note, row(r, "C1")?.status], [0, "vert", "not in test/test-counts.json: test/d.test.ts", "tue"], r.stderr);
+// killer: scripts/mutants/run.mjs:250 CONST "listed.includes(f) && " -> ""
+// killer: scripts/mutants/run.mjs:250 CONST "files.filter((f) => got[f]?.summary !== true" -> "listed.filter((f) => got[f]?.summary !== true"
+test("mutants_a_target_file_absent_from_the_test_count_record_is_named_and_without_a_summary_of_its_own_makes_the_baseline_non_conclu", () => {
+  const e = { "test/e.test.ts": `${HEAD}import { C } from "../lib/c.mjs";\ntest("e_one", () => { assert.equal(C, 1); });\n` }; // absent too, with a summary of its own
+  const { dir, base } = countsRepo("bn", { "test/c.test.ts": 2 }, { ...D, ...e }), r = run(["--repo", dir, "--base", base, "--table", table("bn.json", [C1])]), b = r.rec?.baseline;
+  assert.deepEqual([r.status, b?.status, b?.note, row(r, "C1")?.status], [1, "non conclu", "test/test-counts.json not met: test/d.test.ts without a summary; " +
+    "not in test/test-counts.json: test/d.test.ts, test/e.test.ts", "non conclu (base)"], r.stderr); // d: absent and without a summary; e: absent, its count unchecked
+});
+
+// killer: scripts/mutants/run.mjs:250 CONST "got[f].tests !== rec[f]" -> "got[f].tests < rec[f]"
+test("mutants_a_baseline_above_the_test_count_record_is_non_conclu_and_runs_no_mutant", () => {
+  const { dir, base } = countsRepo("ba", { "test/c.test.ts": 1 }, {}), r = run(["--repo", dir, "--base", base, "--table", table("ba.json", [C1])]), b = r.rec?.baseline;
+  assert.deepEqual([r.status, b?.status, b?.note, row(r, "C1")?.status], [1, "non conclu", "test/test-counts.json not met: test/c.test.ts 2 of 1", "non conclu (base)"], r.stderr);
+});
+
+// killer: scripts/mutants/run.mjs:250 CONST "rec === null ? files :" -> "rec === null ? [] :"
+test("mutants_an_unreadable_test_count_record_makes_the_baseline_non_conclu_and_runs_no_mutant", () => {
+  const { dir, base } = countsRepo("bu", '{ "test/c.test.ts": 2,\n', {}), r = run(["--repo", dir, "--base", base, "--table", table("bu.json", [C1])]), b = r.rec?.baseline;
+  assert.deepEqual([r.status, b?.status, b?.note, row(r, "C1")?.status], [1, "non conclu", "test/test-counts.json unreadable", "non conclu (base)"], r.stderr);
 });
 
 // killer: scripts/mutants/run.mjs:336 CONST "sha256: sha(body)" -> "sha256: sha(`${body} `)"
@@ -786,4 +827,14 @@ test("mutants_never_promote_by_a_replay_red_by_a_hook_or_another_test_only", () 
 // killer: scripts/mutants/run.mjs:243 CONST "read.files.some((f) => at(e).endsWith(`/clone/${f}`))" -> "true"
 test("mutants_never_promote_by_a_test_of_the_same_name_in_another_file", () => {
   assert.deepEqual(replayed(pr(), "P3"), ["non conclu", `exit 1 without a failing entry${CUT}`, "tue", false], pr().stderr);
+});
+
+// MUTANTS-REPLAY-PROMOTE-1, a lost first run only: or/, where the order of the tests matters. o_first stores O and o_named holds the value stored, so that under
+// K1 (O = 2) o_named runs green alone (o_first does not run) and red by assertion in its file run whole, the replay of a survivor.
+const OR = { "lib/o.mjs": "export const O = 1;\n", "test/o.test.ts": `${HEAD}import { O } from "../lib/o.mjs";\nlet seen = 0;\ntest("o_first", () => { seen = O; });\n` +
+  '// killer: lib/o.mjs:1 CONST "O = 1" -> "O = 2"\ntest("o_named", () => { assert.ok(seen < 2); });\n' };
+// killer: scripts/mutants/run.mjs:310 CONST "f.lost === true && " -> ""
+test("mutants_a_survivor_is_never_promoted_even_when_its_replay_reddens_its_named_test", () => {
+  const { dir, base } = mini("or", OR), r = run(["--repo", dir, "--base", base, "--killers"]), k1 = row(r, "K1");
+  assert.deepEqual([r.status, r.rec?.baseline?.status, k1?.test, k1?.status, k1?.note, k1?.replay?.status, k1?.replay?.named_kill], [1, "vert", "o_named", "survit", null, "tue", true], r.stderr);
 });
