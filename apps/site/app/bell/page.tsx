@@ -529,7 +529,8 @@ export default function BellPage() {
             <p>
               Each published fact will identify its on-chain transactions, so that a third party can recompute price, size,
               time and direction from the public ledger, and every gap and ratio bit for bit with the replay code once it is
-              exported, given the same closing price and consolidated volume read under the reader&rsquo;s own licence.
+              exported, given the same closing price (the consolidated close: the last last-sale-eligible trade of the regular
+              session across all US venues) and consolidated volume read under the reader&rsquo;s own licence.
             </p>
           </div>
           <div className="c-card">
@@ -689,7 +690,8 @@ export default function BellPage() {
                 <b>A signature attests origin, not truth.</b> Each record is signed and chained to the one before it, so that
                 any change after publication is detectable. The signature shows who published the record and that it is intact;
                 the publication time it carries is the publishing host&rsquo;s clock. It does not show that the underlying fact is
-                correct — recomputing it from the public inputs is how you check that.
+                correct — recomputing it from the public ledger and from a reference close read under your own licence is
+                how you check that.
               </span>
             </li>
             <li>
