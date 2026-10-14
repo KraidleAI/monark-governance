@@ -2774,6 +2774,16 @@
   "oracle_store_serves_g1_never_g2_cp2_g7 — same key: G1 served (cited by file and sha256, never copied, with its own tree sha), an ignored file leaves the tree clean; independent roles replay (M4, M5, X11)",
   "oracle_store_serves_only_a_full_clean_replay — a static-only, dirty or served same-key record never serves; a --static-only run is never served (X5, X10, X14, X15)"
  ],
+ "test/pin-bell-legal.test.ts": [
+  "pin_bell_legal_changes_only_its_entry",
+  "pin_bell_legal_is_not_exported",
+  "pin_bell_legal_matches_the_loader_rule_on_crlf",
+  "pin_bell_legal_output_is_what_the_loader_accepts",
+  "pin_bell_legal_prints_no_other_manifest_value",
+  "pin_bell_legal_refuses_an_absent_or_doubled_entry",
+  "pin_bell_legal_refuses_any_argument",
+  "pin_bell_legal_restores_on_a_failed_postcondition"
+ ],
  "test/probe-coinbase-bounds.test.ts": [
   "coinbase_probe_asks_three_windows_of_one_week_and_writes_no_price",
   "coinbase_probe_command_line_prints_one_line_and_exits",
