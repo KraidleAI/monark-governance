@@ -8,6 +8,7 @@
  "apps/bell/test/bell-retry-nonjson.test.ts": 4,
  "apps/bell/test/bell-served-e2e.test.ts": 5,
  "apps/bell/test/bell-src-clean.test.ts": 1,
+ "apps/bell/test/bell-validate.test.ts": 5,
  "apps/bell/test/bell-verify.test.ts": 8,
  "apps/bell/test/bell.test.ts": 21,
  "apps/bell/test/close.test.ts": 7,

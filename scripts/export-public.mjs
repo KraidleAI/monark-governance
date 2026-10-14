@@ -95,18 +95,18 @@ export const WHITELIST_FILES = [
   // outside the text vocab gate by nature.
   "out/mint.txt", "out/logo.png", "out/banner.jpg",
   // MONARK Bell, v0.6.0 (ADR-M004 D7 octies, 2026-09-24; investor decision 156; item EXPORT-BELL-1): the SIGNED
-  // PUBLICATION CHAIN of the served host bell.monarkgate.tech, listed FILE BY FILE (never a whole-dir or package-style
-  // walk: a new apps/bell file is NOT exported until an ADR line names it). What ships: the deployed tree
-  // (bell-chain.mjs + bell-publish.mjs, = verify-bell.mjs BELL_TREE_PATHS), the third-party verifier (bell-verify.mjs),
-  // the committed PUBLIC keyring (the verifier's trust root, --keyring), their type surfaces, the package manifest (the
-  // exported package-lock.json already declares the apps/bell workspace) and the deployment conformity check
-  // (scripts/verify-bell.mjs). All English, node built-ins only, no secret (bell_no_secret_in_repo). NOT exported, by
-  // name, in ADR-M004 D7 octies: the collector (apps/bell/src/**, apps/bell/test/**, bell-report.mjs), docs/**, the
-  // root test/** Bell tests, and deploy/** (the public export omits deploy/: ADR-NARABI-OPS-1c C3, pinned by the
+  // PUBLICATION CHAIN of bell.monarkgate.tech, FILE BY FILE (never a whole-dir or package-style walk: a new apps/bell file
+  // is NOT exported until an ADR line names it). What ships: the deployed tree (bell-chain.mjs, bell-publish.mjs and, by the
+  // D7 octies amendment of 2026-10-14, bell-validate.mjs, the run and bundle validation the publisher imports and re-exports;
+  // = verify-bell.mjs BELL_TREE_PATHS), the third-party verifier (bell-verify.mjs), the committed PUBLIC keyring (its trust
+  // root, --keyring), their type surfaces, the package manifest (the exported package-lock.json already declares the apps/bell
+  // workspace) and the deployment conformity check (scripts/verify-bell.mjs). All English, node built-ins only, no secret
+  // (bell_no_secret_in_repo). NOT exported, by name, in D7 octies: the collector (apps/bell/src/**, apps/bell/test/**,
+  // bell-report.mjs), docs/**, the root test/** Bell tests, and deploy/** (omitted: ADR-NARABI-OPS-1c C3, pinned by the
   // exported sentinel_budget_below_unit_timeout, which skips IFF deploy/ is absent and reds on a present deploy/).
   "apps/bell/package.json", "apps/bell/keys/bell-keyring.json",
   "apps/bell/scripts/bell-chain.mjs", "apps/bell/scripts/bell-chain.d.mts",
-  "apps/bell/scripts/bell-publish.mjs", "apps/bell/scripts/bell-publish.d.mts",
+  "apps/bell/scripts/bell-publish.mjs", "apps/bell/scripts/bell-publish.d.mts", "apps/bell/scripts/bell-validate.mjs", "apps/bell/scripts/bell-validate.d.mts",
   "apps/bell/scripts/bell-verify.mjs", "apps/bell/scripts/bell-verify.d.mts",
   "scripts/verify-bell.mjs", "scripts/verify-bell.d.mts",
   // MONARK Dojo, the reader's verifier (ADR-M004 D7 nonies, 2026-10-03; investor go of 2026-10-03; item DOJO-EXPORT-VERIFIER-1): the
