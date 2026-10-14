@@ -146,6 +146,7 @@ test("test_count_check_names_its_base_or_refuses", () => {
     // killer: scripts/test-count-check.mjs:53 CONST "atBase(NAMES, null, lists," -> "atBase(NAMES, null, () => true,"
     const nulled = baseWith(`{\n "a.test.ts": null,\n "b.test.ts": ${JSON.stringify(head["b.test.ts"])}\n}\n`, tally(renamed));
     assert.deepEqual(gate(["--base", nulled]), [4, `::error::${NAMES} at the base ${nulled} not readable: not a names record { "<file>": [names] }`], "the base's names record with a null entry: exit 4");
+    // killer: scripts/test-count-check.mjs:53 CONST "if (baseNames !== null) read(" -> "if (false) read("
     const lacksB = baseWith(named({ "a.test.ts": renamed["a.test.ts"] }), tally(renamed)), onlyA = { "a.test.ts": renamed["a.test.ts"] };
     writeFileSync(join(dir, RUN), counts(onlyA)); writeFileSync(join(dir, RECORD), recordText(tally(onlyA))); writeFileSync(join(dir, NAMES), named(onlyA));
     assert.deepEqual(gate(["--base", lacksB]), [4, `::error::${NAMES} at the base ${lacksB} not readable: it disagrees with ${RECORD} there: b.test.ts: in ${RECORD} (2), not in ${NAMES}`],
@@ -226,6 +227,7 @@ test("test_count_check_holds_each_name_gone_to_its_line", () => {
     "a file gone: a file-gone line at the count left once another line took a name is refused; it counts at the base's count only");
   // killer: scripts/test-count-check.mjs:103 CONST " && gone.length === whole" -> ""
   assert.deepEqual(by(at, { b: ["one"] }, [part]), left, "a file gone, one of its names declared: the hint wants each name left by its name, not the whole file");
+  // killer: scripts/test-count-check.mjs:93 CONST "base = own(baseNames), head = own(headNames)" -> "base = baseNames, head = headNames"
   const thrown = (f: () => string[]): string[] => { try { return f(); } catch (e) { return [`threw ${String(e)}`]; } };
   const inherited = [r({ file: "constructor", removed: "one" }), r({ file: "__proto__", removed: "one" })];
   assert.deepEqual(thrown(() => by(at, at, inherited)), [inherited[1], inherited[0]].map((l) => `${REMOVALS}: ${JSON.stringify(l)} names no test gone from ${String(l.file)} since the base`),
