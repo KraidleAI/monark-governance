@@ -325,9 +325,9 @@ test("no_kata_row_is_served_while_no_table_is_pinned", () => {
 });
 
 // Test T-4 (E-2a): committed tables reach the gate through the seam. Two synthetic band tables (btc-range-1h, btc-mae-down-1h),
-// projected, admitted by the import guard, written canonically and pinned beside the real held lists, are read by
-// readCommittedTables and served by servedPolicyTables: a silence cell abstains calib_silence with no region, a region cell
-// commits with its band, each verdict carries its row and the sha256 of its file, and the honesty text is the row text.
+// admitted by the import guard, written canonically and pinned, are read by readCommittedTables; before the tripwire, the kata
+// tables with rows that servedPolicyTables serves are asserted to be exactly these two, byte for byte at their pins. Then a silence
+// cell abstains calib_silence, a region cell commits with its band, each verdict carries its row and file sha256, and the honesty text is the row text.
 // killer: apps/harness/src/kata-path.ts:118 CONST "committed.get(c.task_class) ?? buildPolicyTable(c, [])" -> "buildPolicyTable(c, [])"
 test("committed_tables_reach_the_gate_through_the_seam", () => {
   const entries = kataClassEntries(gate.kataClassText);
@@ -341,7 +341,9 @@ test("committed_tables_reach_the_gate_through_the_seam", () => {
   const serve: (texts: typeof gate.SERVED_TABLE_TEXTS, committed: ReadonlyMap<string, PolicyTable>) => readonly ServedTable[] = kataPathModule.servedPolicyTables;
   const match = (kataPathModule as Obj)["kataTablesMatchPins"];
   assert.ok(typeof match === "function", "kata-path.ts exports the tripwire on the pins");
-  const tables = (match as (t: readonly ServedTable[], c: Readonly<Record<string, string>>, h: readonly string[]) => readonly ServedTable[])(serve(gate.SERVED_TABLE_TEXTS, readCommittedTables(files, entries, pins)), pins.tables, pins.held);
+  const served = serve(gate.SERVED_TABLE_TEXTS, readCommittedTables(files, entries, pins));
+  assert.deepEqual(served.filter((t) => t.table.class.cell_key_rule === "kata-bucket" && t.table.rows.length > 0).map((t) => [t.task_class, t.policy_table_sha256, canonicalJson(t.table)]), ["btc-mae-down-1h", "btc-range-1h"].map((c) => [c, pins.tables[c], new TextDecoder().decode(files.get(c))]), "servedPolicyTables serves the two committed tables byte for byte, and no other kata table holds a row");
+  const tables = (match as (t: readonly ServedTable[], c: Readonly<Record<string, string>>, h: readonly string[]) => readonly ServedTable[])(served, pins.tables, pins.held);
   const decide = (c: string, key: string): unknown[] => {
     const row = rowsOf(c).find((r) => r.cell_key === `${key}/b0`) ?? assert.fail(key);
     const d = runGate(band({ task_class: c, predictor_id: key, produced_at: "2026-10-04T04:00:00Z", yhat: 0.01 }), P_BAND, undefined, { nowMs: T + 1000, policyTables: tables });
