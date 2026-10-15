@@ -16,7 +16,7 @@
  *   - scripts/census/u4-*.mjs (the course scripts) is a root too (grep FOLDED here from guard-scripts-u4.test.ts).
  * KEY form is an ACCESS (dot, optional-chain dot, bracket, optional-chain bracket, template-literal bracket, `in`,
  * destructuring, Reflect.get, Object.hasOwn - C-R-b4). In the PACKAGES/BELL scopes the bare name is NOT refused (it
- * appears in comments: rpc.ts:5-8, universe.ts:43, ...) and would red by construction; on the SENTINEL + u4 scopes the bare
+ * appears in comments: rpc.ts:8, universe.ts:322) and would red by construction; on the SENTINEL + u4 scopes the bare
  * name IS refused too, killing the alias evasion `const e = env; e.KEY` (an allowlisted file is exempt).
  *
  * MEASURED HITS after 1b-iii (apps/bell/src, base 6114ce9, this scanner): 1b-iii migrated 5 of the 14 (ethereum.ts:64
