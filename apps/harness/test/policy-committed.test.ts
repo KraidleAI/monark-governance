@@ -73,7 +73,7 @@ test("committed_tables_reader_pairs_each_pin_with_its_file", () => {
   assert.equal(read(new Map(), pinsOf(new Map())).size, 0);
 });
 
-// killer: apps/harness/src/policy-committed.ts:12 CONST "import { assertPolicyTableFile" -> "import \"./tools/gate.ts\"; import { assertPolicyTableFile"
+// killer: apps/harness/src/policy-committed.ts:12 CONST "import { assertPolicyTableFile" -> "import \"./tools/attest.ts\"; import { assertPolicyTableFile"
 test("committed_tables_folder_is_absent_and_read_once", () => {
   assert.ok(TABLES_DIR.endsWith(`${sep}apps${sep}harness${sep}data${sep}kata${sep}tables${sep}`) && !existsSync(TABLES_DIR));
   assert.equal(COMMITTED_FILES.size, 0);

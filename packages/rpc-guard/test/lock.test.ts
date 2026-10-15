@@ -133,18 +133,19 @@ test("lock_failure_never_removes_a_foreign_lock", () => {
 // killer: packages/rpc-guard/src/lock.ts:59 CONST " && now.birthtimeNs === own.birthtimeNs" -> ""
 test("lock_failure_never_removes_a_foreign_lock_recreated_at_the_same_path", () => {
   // (d) Our file removed (a served unlock, lock.ts:42) then another writer's "wx" create at the SAME path: ext4 and XFS hand
-  // the freed inode straight back (same dev, same ino), so only the birth time tells the foreign lock from ours. The test is
-  // deterministic everywhere; its power to kill depends on the FS reusing the inode (ext4/XFS yes, tmpfs no).
+  // the freed inode straight back (same dev, same ino), so only the birth time tells the foreign lock from ours. The identity
+  // reads of the DURABLE_FS seam report that reuse on every FS (NTFS and tmpfs give a new inode): ours born at 1n, the foreign one at 2n.
   const { dir, cleanup } = tmp();
   const err = fault("EIO");
   const re = ensureCycleDir(dir, "c-recreate"), lock = join(re, "helius.lock");
-  const realClose = DURABLE_FS.closeSync, realUnlink = DURABLE_FS.unlinkSync;
+  const realClose = DURABLE_FS.closeSync, realUnlink = DURABLE_FS.unlinkSync, realFstat = DURABLE_FS.fstatSync, realLstat = DURABLE_FS.lstatSync;
   const j = journal({ writeSync: () => { throw err; }, closeSync: (fd) => { realClose(fd); realUnlink(lock); writeFileSync(lock, FOREIGN, { flag: "wx" }); } });
+  Object.assign(DURABLE_FS, { fstatSync: (fd: number): BigIntStats => ({ ...realFstat(fd), dev: 1n, ino: 7n, birthtimeNs: 1n }), lstatSync: (p: string): BigIntStats => ({ ...realLstat(p), dev: 1n, ino: 7n, birthtimeNs: 2n }) });
   try {
     assert.equal(thrown(() => acquireLock(re, "helius")), err, "the original error surfaces");
   } finally { j.restore(); }
   try {
-    assert.equal(readFileSync(lock, "utf8"), FOREIGN, "a foreign lock recreated at the path (inode reused on ext4) is kept");
+    assert.equal(existsSync(lock) ? readFileSync(lock, "utf8") : "removed", FOREIGN, "a foreign lock recreated at the path (same dev and ino, another birth time) is kept");
   } finally { cleanup(); }
 });
 
