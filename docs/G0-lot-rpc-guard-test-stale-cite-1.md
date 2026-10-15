@@ -27,8 +27,9 @@ says they say.
   the base's: the trunk moved by #284, which changed `test/bell-handoff-perms.test.ts` only) gives 12 lines in 7 files:
   `apps/bell/src/close.ts` l.45, l.46 and l.53; `apps/bell/src/collect.ts` l.540 and l.696; `apps/bell/src/residuals.ts` l.42;
   `apps/bell/src/rpc.ts` l.8; `apps/bell/src/tick.ts` l.192; `apps/bell/src/universe-cli.ts` l.176, l.177 and l.303;
-  `apps/bell/src/universe.ts` l.322 (`logs2/bare-names.out`). All but two are comments: l.192 of `tick.ts` holds four names as string
-  literals of code, which no KEY regex of the scanner matches, and l.53 of `close.ts` holds two key reads the allowlist admits.
+  `apps/bell/src/universe.ts` l.322 (`logs2/bare-names.out`). All but three are comments: l.192 of `tick.ts` holds four names as string
+  literals of code, l.303 of `universe-cli.ts` holds one name in a string literal, neither of which a KEY regex of the scanner matches,
+  and l.53 of `close.ts` holds two key reads the allowlist admits.
 - The one allowlisted packages file, `packages/rpc-guard/src/transport.ts`, holds 13 lines with a bare name (comments and the key
   reads of the sole transport); the scanner skips it by its allowlist, so the sentence is about the Bell lines only.
 
@@ -143,3 +144,5 @@ longer holds a bare name); K1 and K2 stay killed by their own tests, which prove
 - `530f4623` Rpc-guard scanner test: a cited path must sit in the packages or Bell scope (after the first review: the scope rule in the
   test body, `and elsewhere` on l.19).
 - The commit that updates this note after the first review (the bare-name count of the Bell scope, the scope rule, the proofs below).
+- After the second review: the comment-or-code split of the twelve Bell lines counts three code lines (the string literal of
+  `universe-cli.ts` l.303 was counted as a comment).
