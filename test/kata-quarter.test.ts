@@ -9,13 +9,15 @@
 // the python of PATH (MONARK replays it so under Windows). The tool's output is read by lines, CR LF or LF (linesOf).
 import { test } from "node:test";
 import assert from "node:assert/strict";
+import { spawnSync } from "node:child_process";
 import { createHash } from "node:crypto";
-import { copyFileSync, cpSync, existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { copyFileSync, cpSync, existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { basename, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { gitOut } from "./helpers/git-tracked.ts";
 import { canonicalJson, vocabularyHits } from "../scripts/spec-publish.mjs";
+import { render, type HistoryLine } from "../scripts/served-history.mjs";
 import { ENTRY, TREES, git, linesOf, toolRepo, type Run, type ToolRepo } from "./helpers/kata-quarter-repo.ts";
 
 const REPO = fileURLToPath(new URL("../", import.meta.url));
@@ -70,12 +72,12 @@ test("kata_quarter_entry_script_imports_the_input_guard_first - the one entry sc
     assert.match(r.stdout, new RegExp(`^${sub}: not in this lot`), `${sub} answers that it is not in this lot`);
   }
   const [sealed, live] = [join(FIXTURE, "sealed"), join(FIXTURE, "live")], livePin = sha256(join(live, SYM, SERIES));
-  // killer: tools/kata-quarter/quarter_counts.py:119 CONST "a.isascii() and " -> ""
+  // killer: tools/kata-quarter/quarter_counts.py:140 CONST "a.isascii() and " -> ""
   const sup = t.run(["check", sealed, live, SYM, "\u00b2", "pinned", livePin, "404"]);
   assert.equal(sup.status, 2, `a quarter written with a superscript digit: the usage, exit 2\n${sup.stdout}${sup.stderr}`);
   assert.match(sup.stdout, /^usage: python -E -S -s -B -P quarter_counts\.py check /, "a digit that is not ASCII is refused by the usage");
   assert.ok(!/Traceback/.test(`${sup.stdout}${sup.stderr}`), "no trace");
-  // killer: tools/kata-quarter/quarter_counts.py:64 CONST "pin1 == \"pinned\" and k != 1" -> "False"
+  // killer: tools/kata-quarter/quarter_counts.py:65 CONST "pin1 == \"pinned\" and k != 1" -> "False"
   const later = t.run(["check", sealed, live, SYM, "2", "pinned", livePin, "404"]);
   assert.equal(later.status, 2, `pinned for quarter 2: exit 2\n${later.stdout}${later.stderr}`);
   assert.match(later.stdout, /^REFUSED: 'pinned' names the sealed series of wave 1, read 1 of quarter 1 only: quarter 2 reads quarter 1 under the pin posted at its sealing$/m);
@@ -85,7 +87,7 @@ test("kata_quarter_entry_script_imports_the_input_guard_first - the one entry sc
 // at S_k absent from the LIVE series and from its declaration), a declared gap refused or not listed, a slot both declared missing and
 // present admitted, an instant in both reads admitted (the sealed series read past S_k), a missing.json out of its form admitted (a count
 // or an open_time_ms that is not a whole number, an open_time_utc that does not write it), or the merged range off the lookback and E_k
-// killer: tools/kata-quarter/quarter_load.py:108 CONST "if undeclared:" -> "if False:"
+// killer: tools/kata-quarter/quarter_load.py:110 CONST "if undeclared:" -> "if False:"
 test("two_reads_merged_under_check - check reads the sealed and the LIVE series of the fixture, each under its pin, and merges them: the seam at S_1, 10448 slots, the three declared gaps of the LIVE series listed; the same LIVE series with the gap at S_1 undeclared, a declared slot present, an instant in both reads, or a missing.json out of its form, is refused by name", () => {
   assert.ok(existsSync(join(REPO, QUARTER, "quarter_load.py")), `${QUARTER}/quarter_load.py absent`);
   for (const f of ["sealed", "live"].flatMap((d) => [join(d, SYM, SERIES), join(d, SYM, MISSING)])) assert.ok(existsSync(join(FIXTURE, f)), `fixtures/kata-quarter/${f} absent`);
@@ -108,15 +110,15 @@ test("two_reads_merged_under_check - check reads the sealed and the LIVE series 
   assert.equal(present.status, 2, `the candle at S_1 present and declared missing: exit 2\n${present.stdout}${present.stderr}`);
   assert.match(present.stdout, /^REFUSED: syn: 1 slots listed in missing\.json are present in the series, first 2026-10-01T00:00:00Z$/m);
   // an instant in both reads: the candle at S_1 added to the sealed series, which load_series reads under [REC_START, S_1) and refuses
-  // killer: tools/kata-quarter/quarter_load.py:67 CONST "= start, end" -> "= start, end + K.STEP_MS"
+  // killer: tools/kata-quarter/quarter_load.py:69 CONST "= start, end" -> "= start, end + K.STEP_MS"
   const sealed = fixtureOf("sealed"), both = t.run(checkArgs(variant(work, "both", `${sealed.csv}${CANDLE_S1}\n`, sealed.missing), join(FIXTURE, "live")));
   assert.equal(both.status, 2, `the candle at S_1 in the sealed read too: exit 2\n${both.stdout}${both.stderr}`);
   assert.match(both.stdout, /^REFUSED: syn: line 1618: off grid, out of range or not ascending$/m, "refused by name, by the range of read 1");
   const form = /^REFUSED: syn: missing\.json out of its form: a count or an open_time_ms that is not a whole number, or an open_time_utc that does not write its open_time_ms /m;
   const at = (v: unknown, utc: unknown = "2026-10-01T00:00:00Z"): Missing => ({ count: 3, missing: [{ open_time_ms: v, open_time_utc: utc }, ...rest] });
-  // killer: tools/kata-quarter/quarter_load.py:75 CONST "not whole(x[\"open_time_ms\"]) or " -> ""
-  // killer: tools/kata-quarter/quarter_load.py:78 CONST "bad or not whole(count)" -> "bad"
-  // killer: tools/kata-quarter/quarter_load.py:75 CONST " or x[\"open_time_utc\"] != iso(x[\"open_time_ms\"])" -> ""
+  // killer: tools/kata-quarter/quarter_load.py:77 CONST "not whole(x[\"open_time_ms\"]) or " -> ""
+  // killer: tools/kata-quarter/quarter_load.py:80 CONST "bad or not whole(count)" -> "bad"
+  // killer: tools/kata-quarter/quarter_load.py:77 CONST " or x[\"open_time_utc\"] != iso(x[\"open_time_ms\"])" -> ""
   for (const [name, decl] of [["float", at(S1 + 0.5)], ["string", at(String(S1))], ["bool count", { ...missing, count: true }], ["utc", at(S1, "2026-10-01T00:15:00Z")]] as const) {
     const r = t.run(checkArgs(join(FIXTURE, "sealed"), variant(work, name.replace(" ", "-"), csv, decl)));
     assert.equal(r.status, 2, `a missing.json with a ${name} out of its form: exit 2\n${r.stdout}${r.stderr}`);
@@ -206,14 +208,26 @@ const put = (dir: string, folder: string, s: Series): string => {
   writeFileSync(join(dir, folder, MISSING), `${JSON.stringify(s.missing)}\n`);
   return dir;
 };
-type Row = { task_class: string; horizon: string; n_test: number; k_test: number; drops_label: number; out_input: number };
+type Row = { task_class: string; horizon: string; n_test: number; k_test: number; drops_label: number; out_input: number; served_from: string; served_to: string; served_tables: string[] };
 type Counts = { grid: Record<string, { instants: number; first: string; last: string }>; halts: unknown[]; rows: Row[] };
-/** count on a registry, the sealed and live folders and the symbol folders named, each pinned by its bytes, its evidence written under
- *  o.out (a new folder by default); its exit and its JSON line. */
-const count = (sealed: string, live: string, k: number, folders: string[], o: { reg?: string; extra?: string[]; repo?: ToolRepo; out?: string } = {}): { r: Run; c: Counts } => {
+const hex = (t: string): string => createHash("sha256").update(t).digest("hex");
+/** The line of the class c in the served history for the deployment of the day d (t_e at 10:00Z, t_f at 11:00Z), made-up digests. */
+const served = (d: string, c: string): HistoryLine => ({ format: "kata-served-history-v1", release_dir: `contract-1.1.0-tables-${d}`, task_class: c,
+  policy_table_sha256: hex(`table ${d} ${c}`), probe_record_sha256: hex(`probe ${d} ${c}`), merge_commit: hex(d).slice(0, 40), t_e: `${d}T10:00:00Z`, t_f: `${d}T11:00:00Z`, ca_record_sha256: hex(`ca ${d}`) });
+const CLASSES = ["syn-range-1h", "syn-range-4h", "syn-mae-down-1h", "alt-range-1h", "alt-mae-up-1h", "bis-mae-up-1h"];
+/** A served history under a new folder, its path and pin: the deployments [day, classes] written by render of scripts/served-history.mjs
+ *  (the writer, a JSON array, one canonical line per element), or the text given. By default one deployment of 2026-09-01, every class. */
+const history = (deps: [string, string[]][] = [["2026-09-01", CLASSES]], text?: string): [string, string] => {
+  const p = join(mkdtempSync(join(tmpdir(), "kata-quarter-served-")), "served-history.json");
+  writeFileSync(p, text ?? render(null, deps.flatMap(([d, cs]) => cs.map((c) => served(d, c)))));
+  return [p, sha256(p)];
+};
+/** count on a registry, a served history, the sealed and live folders and the symbol folders named, each pinned by its bytes, its
+ *  evidence written under o.out (a new folder by default); its exit and its JSON line. */
+const count = (sealed: string, live: string, k: number, folders: string[], o: { reg?: string; extra?: string[]; repo?: ToolRepo; out?: string; served?: [string, string] } = {}): { r: Run; c: Counts } => {
   const reg = o.reg ?? REG, pins = folders.map((f) => `${f}:${sha256(join(sealed, f, `${f}-15m.csv`))}:${sha256(join(live, f, `${f}-15m.csv`))}`);
   const out = o.out ?? join(mkdtempSync(join(tmpdir(), "kata-quarter-evidence-")), "e");
-  const args = ["count", reg, sha256(reg), sealed, live, String(k), out, ...pins, ...(o.extra ?? [])], r = (o.repo ?? tool()).run(args);
+  const args = ["count", reg, sha256(reg), ...(o.served ?? history()), sealed, live, String(k), out, ...pins, ...(o.extra ?? [])], r = (o.repo ?? tool()).run(args);
   return { r, c: JSON.parse(linesOf(r.stdout).find((l) => l.startsWith("{")) ?? "null") as Counts };
 };
 const byClass = (c: Counts): Record<string, number[]> => Object.fromEntries(c.rows.map((r) => [r.task_class, [r.n_test, r.drops_label, r.out_input]]));
@@ -246,7 +260,7 @@ test("quarter_grid - on a series with no gap, Q_1 counts 2208 instants at 1h and
 });
 
 // reddened by: an option of count admitted (a file of calls or of traffic, a served history), or one refused without its name
-// killer: tools/kata-quarter/quarter_counts.py:32 CONST "FLAGS = [" -> "FLAGS = [\"--calls\", "
+// killer: tools/kata-quarter/quarter_counts.py:33 CONST "FLAGS = [" -> "FLAGS = [\"--calls\", "
 test("counts_ignore_traffic - count takes no option: its list FLAGS is closed and --calls is refused by name, exit 2", () => {
   assert.ok(existsSync(join(REPO, QUARTER, "quarter_core.py")), `${QUARTER}/quarter_core.py absent`);
   const ok = count(join(FIXTURE, "sealed"), join(FIXTURE, "live"), 1, [SYM]);
@@ -352,18 +366,27 @@ test("k_test_exact_on_a_made_series - on hourly closes 100 and 101 in turn, with
 test("count_refuses_by_name - count refuses by name, exit 2: a registry under another pin before parsing, a region row at attempt 2, a symbol folder named twice, a run that does not name every symbol folder of the registry or names one outside it", () => {
   assert.ok(existsSync(join(REPO, QUARTER, "quarter_core.py")), `${QUARTER}/quarter_core.py absent`);
   const work = mkdtempSync(join(tmpdir(), "kata-quarter-refused-")), [sealed, live] = [join(FIXTURE, "sealed"), join(FIXTURE, "live")], other = "0".repeat(64);
-  const spec = `${SYM}:${sha256(join(sealed, SYM, SERIES))}:${sha256(join(live, SYM, SERIES))}`, run = (reg: string, pin: string, specs: string[]): Run => tool().run(["count", reg, pin, sealed, live, "1", join(work, "e"), ...specs]);
+  const spec = `${SYM}:${sha256(join(sealed, SYM, SERIES))}:${sha256(join(live, SYM, SERIES))}`, copy = join(work, "live");
+  const run = (reg: string, pin: string, specs: string[], out = join(work, "e"), lv = live): Run => tool().run(["count", reg, pin, ...history(), sealed, lv, "1", out, ...specs]);
+  cpSync(live, copy, { recursive: true });
+  symlinkSync(mkdtempSync(join(tmpdir(), "kata-quarter-target-")), join(work, "link"), "junction"); // a link to an empty folder (a junction on win32)
   const two = regWith(work, "attempt2.json", (rows) => rows.map((x) => (x.taskClass === "syn-range-1h" ? { ...x, calibAttempt: 2 } : x)));
   const venue = regWith(work, "venue.json", (rows) => [...rows, { ...rows[3], taskClass: "alt-mae-up-1h" }]);
   // killer: tools/kata-quarter/quarter_core.py:41 CONST "r[\"calibAttempt\"] != 1" -> "False"
-  // killer: tools/kata-quarter/quarter_counts.py:90 CONST "len(folders) != len(specs) or " -> ""
-  // killer: tools/kata-quarter/quarter_counts.py:92 CONST "sorted(folders) != venue" -> "False"
-  // killer: tools/kata-quarter/quarter_counts.py:92 CONST "sorted(folders) != venue" -> "not set(venue) <= set(folders)"
+  // killer: tools/kata-quarter/quarter_counts.py:96 CONST "len(folders) != len(specs) or " -> ""
+  // killer: tools/kata-quarter/quarter_counts.py:98 CONST "sorted(folders) != venue" -> "False"
+  // killer: tools/kata-quarter/quarter_counts.py:98 CONST "sorted(folders) != venue" -> "not set(venue) <= set(folders)"
   for (const [name, r, re] of [["another pin", run(REG, other, [spec]), `registry refused before parsing: sha256 ${sha256(REG)} differs from the pinned ${other}`],
     ["attempt 2", run(two, sha256(two), [spec]), "row syn-range-1h kata:ewma-vol-hw-v1@binance/SYNUSDT/1h/b0: not a band or path cell of wave 1 at attempt 1 "],
     ["a folder twice", run(REG, sha256(REG), [spec, spec]), "a symbol folder named twice, or 'pinned' for a quarter after quarter 1 "],
     ["a venue symbol not named", run(venue, sha256(venue), [spec]), "the symbol folders named ['syn'] are not the venue's ['alt', 'syn'], those of the registry's rows"],
-    ["a folder outside the registry", run(REG, sha256(REG), [spec, `alt${spec.slice(SYM.length)}`]), "the symbol folders named ['alt', 'syn'] are not the venue's ['syn'], those of the registry's rows"]] as const) {
+    ["a folder outside the registry", run(REG, sha256(REG), [spec, `alt${spec.slice(SYM.length)}`]), "the symbol folders named ['alt', 'syn'] are not the venue's ['syn'], those of the registry's rows"],
+    // killer: tools/kata-quarter/quarter_evidence.py:82 CONST "not os.path.isdir(os.path.dirname(out)) or " -> ""
+    ["an output whose parent is absent", run(REG, sha256(REG), [spec], join(work, "absent", "e")), "its parent is not a folder, it is a link, or it lies in an input folder"],
+    // killer: tools/kata-quarter/quarter_evidence.py:82 CONST " or any(real == d or real.startswith(d + os.sep) for d in map(os.path.realpath, inputs))" -> ""
+    ["an output in the LIVE folder", run(REG, sha256(REG), [spec], join(copy, "e"), copy), "its parent is not a folder, it is a link, or it lies in an input folder"],
+    // killer: tools/kata-quarter/quarter_evidence.py:82 CONST " or os.path.islink(out)" -> ""
+    ["an output that is a link", run(REG, sha256(REG), [spec], join(work, "link")), "its parent is not a folder, it is a link, or it lies in an input folder"]] as const) {
     assert.equal(r.status, 2, `${name}: exit 2\n${r.stdout}${r.stderr}`);
     assert.ok(r.stdout.startsWith("REFUSED: ") && r.stdout.includes(re), `${name}: refused by name\n${r.stdout}`);
   }
@@ -462,8 +485,8 @@ test("kata_quarter_tree_refused_unless_at_its_commit - count from the helper's r
 
 // reddened by: check or count without the role tool-tree (git_tree refuses the read, exit 4), or a line identity, or the blobs noted under
 // tool-tree, that do not name the commit and the files of the repository the tool runs from
-// killer: tools/kata-quarter/quarter_counts.py:62 CONST "\"tool-tree\"" -> "\"oracle-output\""
-// killer: tools/kata-quarter/quarter_counts.py:85 CONST "\"tool-tree\"" -> "\"oracle-output\""
+// killer: tools/kata-quarter/quarter_counts.py:63 CONST "\"tool-tree\"" -> "\"oracle-output\""
+// killer: tools/kata-quarter/quarter_counts.py:86 CONST "\"tool-tree\"" -> "\"oracle-output\""
 test("kata_quarter_subcommands_declare_tool_tree - check and count declare the role tool-tree: each exits 0 from the helper's repository, its line identity names the commit that git_tree returns, and the list and the blobs of tools/kata-quarter/ at that commit are noted under tool-tree", () => {
   assert.ok(existsSync(join(REPO, QUARTER, "quarter_identity.py")), `${QUARTER}/quarter_identity.py absent`);
   const t = tool(), head = gitOut(t.dir, ["rev-parse", "HEAD"]).trim(), noted = [...names(), "kata-quarter"].sort();
@@ -650,18 +673,19 @@ test("pseudo_quarter_2026_07_09 - the count on [2026-07-01, 2026-10-01) equals t
 
 // The evidence of the quarter (docs/G0-lot-cm5-c2.md): count writes it into <out dir>/quarter-<k>.json, one line of report.canonical of
 // the frozen tool, format kata-quarter-counts-v1, and names it by its sha256 on the line "evidence".
-const EVIDENCE = ["format", "grid", "halts", "identity", "log", "pose", "quarter", "registry_sha256", "rows", "series"];
-const ROW = ["alpha", "calib_attempt", "drops_label", "fires", "horizon", "k_test", "key", "n_test", "out_input", "task_class", "u_test"];
-type Evidence = { format: string; rows: (Row & { key: string; u_test: string | null; fires: boolean })[]; identity: Record<string, string>; series: Record<string, object> };
+const EVIDENCE = ["format", "grid", "halts", "identity", "log", "pose", "quarter", "registry_sha256", "rows", "series", "served_history_sha256"];
+const ROW = ["alpha", "calib_attempt", "drops_label", "fires", "horizon", "k_test", "key", "n_test", "out_input", "prudent", "served_from", "served_tables", "served_to", "task_class", "u_test"];
+type Prudent = { n_test: number; k_test: number; fires: boolean | string };
+type Evidence = { format: string; rows: (Row & { key: string; alpha: string; u_test: string | null; fires: boolean; prudent: Prudent })[]; identity: Record<string, string>; series: Record<string, object> } & Record<string, unknown>;
 /** count on Q_1, its evidence under a new folder: the run, the bytes of the evidence (empty when none is written) and the folder. */
-const evidenceOf = (sealed: string, live: string, o: { reg?: string; repo?: ToolRepo } = {}): { r: Run; raw: Buffer; out: string } => {
+const evidenceOf = (sealed: string, live: string, o: { reg?: string; repo?: ToolRepo; served?: [string, string] } = {}): { r: Run; raw: Buffer; out: string } => {
   const out = join(mkdtempSync(join(tmpdir(), "kata-quarter-evidence-")), "e"), { r } = count(sealed, live, 1, [SYM], { ...o, out }), file = join(out, "quarter-1.json");
   return { r, raw: existsSync(file) ? readFileSync(file) : Buffer.alloc(0), out };
 };
 
 // reddened by: a quarter whose LIVE read accounts for no slot up to E_k (a record cut before E_1) counted, or refused otherwise than by
 // its name (the merge's undeclared gap), an evidence written for it, or a last slot declared missing taken for an open quarter
-// killer: tools/kata-quarter/quarter_evidence.py:32 CONST "series_end >= e_k" -> "True"
+// killer: tools/kata-quarter/quarter_evidence.py:37 CONST "series_end >= e_k" -> "True"
 test("refuses_open_quarter - count refuses by name, exit 2 and no evidence written, a quarter whose LIVE series accounts for no slot from 2026-12-01 to E_1; the same quarter with its last slot declared missing is closed and counted", () => {
   assert.ok(existsSync(join(REPO, QUARTER, "quarter_evidence.py")), `${QUARTER}/quarter_evidence.py absent`);
   const work = mkdtempSync(join(tmpdir(), "kata-quarter-open-")), q1 = fullQ1(work);
@@ -678,18 +702,22 @@ test("refuses_open_quarter - count refuses by name, exit 2 and no evidence writt
 // of the misses in it, an identity block that is not the line identity or that is mixed with the counts (the evidence of another commit
 // not the same but for it), a value that is not an integer, a string, a boolean or null, a file that is not one ASCII line, not named by
 // its sha256 on the line evidence, or holding a word the public gate refuses
-// killer: tools/kata-quarter/quarter_evidence.py:23 CONST "EVIDENCE_KEYS = (" -> "EVIDENCE_KEYS = (\"miss_times\", "
-// killer: tools/kata-quarter/quarter_evidence.py:25 CONST "\"out_input\")" -> "\"out_input\", \"months\")"
+// killer: tools/kata-quarter/quarter_evidence.py:26 CONST "EVIDENCE_KEYS = (" -> "EVIDENCE_KEYS = (\"miss_times\", "
+// killer: tools/kata-quarter/quarter_evidence.py:29 CONST "\"prudent\")" -> "\"prudent\", \"months\")"
+// killer: tools/kata-quarter/quarter_counts.py:106 CONST "\"served_history_sha256\": hpin" -> "\"served_history_sha256\": pin"
 test("quarter_evidence_closed_canonical - count writes the evidence of Q_1 into <out dir>/quarter-1.json, named by its sha256 on the line evidence: one ASCII line of the closed format kata-quarter-counts-v1, its keys and each row's, integers, strings, booleans and null only, no month, price or instant of a miss; its identity block is the line identity, apart: the evidence of another commit is the same but for it; the public vocabulary gate finds nothing", () => {
   assert.ok(existsSync(join(REPO, QUARTER, "quarter_evidence.py")), `${QUARTER}/quarter_evidence.py absent`);
-  const { r, raw, out } = evidenceOf(join(FIXTURE, "sealed"), join(FIXTURE, "live")), text = raw.toString("ascii");
+  const h = history(), { r, raw, out } = evidenceOf(join(FIXTURE, "sealed"), join(FIXTURE, "live"), { served: h }), text = raw.toString("ascii");
   assert.equal(r.status, 0, `count on the fixture: exit 0\n${r.stdout}${r.stderr}`);
   assert.ok(raw.length > 0 && raw.every((b) => b >= 0x20 && b < 0x7f), "one line of printable ASCII, no line feed");
   assert.ok(linesOf(r.stdout).includes(`evidence quarter-1.json sha256 ${sha256(join(out, "quarter-1.json"))}`), `named by its sha256\n${r.stdout}`);
   const ev = JSON.parse(text) as Evidence;
   assert.deepEqual([Object.keys(ev), ev.format], [EVIDENCE, "kata-quarter-counts-v1"], "the closed keys, sorted, and the format");
   assert.deepEqual(ev.rows.map((x) => [x.task_class, Object.keys(x)]), ["syn-range-1h", "syn-range-4h", "syn-mae-down-1h"].map((c) => [c, ROW]), "each region row, its closed keys");
-  assert.deepEqual(Object.entries(ev.series).map(([f, s]) => [f, Object.keys(s)]), [[SYM, ["gaps", "quarter_sha256", "sealed_sha256"]]], "the two reads of each symbol by their pins, and its gaps");
+  const line = JSON.parse(linesOf(r.stdout).find((l) => l.startsWith("{")) ?? "null") as Record<string, unknown> & { log: Record<string, unknown> }, log = Object.fromEntries(Object.entries(line.log).filter(([k]) => k !== "max_ulps"));
+  assert.deepEqual([ev.registry_sha256, ev.served_history_sha256, ev.series], [sha256(REG), sha256(h[0]), { [SYM]: { complete: true, expected: 8832, gaps: 3, present: 8829,
+    quarter_sha256: sha256(join(FIXTURE, "live", SYM, SERIES)), sealed_sha256: sha256(join(FIXTURE, "sealed", SYM, SERIES)) } }], "the pins of the registry and of the two reads, the three gaps of the LIVE series, its completeness");
+  assert.deepEqual([ev.halts, ev.grid, ev.pose, ev.log, Object.keys(ev.log as object)], [line.halts, line.grid, line.pose, log, ["decides", "decisions_differing", "inputs", "inputs_differing"]], "the halts, the grid, the pose and the census of the log, max_ulps apart");
   const id = IDENTITY.exec(r.stdout) ?? [];
   assert.deepEqual(ev.identity, { commit: id[1], kata_recalc_tree_sha256: id[2], kata_quarter_manifest_sha256: id[3] }, "the identity block, the line identity");
   const leaves = (v: unknown): unknown[] => (v !== null && typeof v === "object" ? Object.values(v).flatMap(leaves) : [v]);
@@ -699,12 +727,12 @@ test("quarter_evidence_closed_canonical - count writes the evidence of Q_1 into 
   assert.deepEqual(vocabularyHits(text), [], "the public vocabulary gate");
   const other = evidenceOf(join(FIXTURE, "sealed"), join(FIXTURE, "live"), { repo: standIn("# another tree") });
   const { identity: a, ...mine } = ev, { identity: b, ...theirs } = JSON.parse(other.raw.toString("ascii")) as Evidence;
-  assert.deepEqual([theirs, b.commit === a.commit, b.kata_quarter_manifest_sha256 === a.kata_quarter_manifest_sha256], [mine, false, false], "another commit: the same evidence, another identity");
+  assert.deepEqual([theirs, b.commit === a.commit, b.kata_quarter_manifest_sha256 === a.kata_quarter_manifest_sha256, b.kata_recalc_tree_sha256 === a.kata_recalc_tree_sha256], [mine, false, false, true], "another commit: the same evidence, another identity, the frozen tool's tree the same");
 });
 
 // reddened by: the evidence written by another writer than report.canonical (kata_lib.js_json_compact keeps the order of insertion), or
 // a writing of report.canonical that is not that of canonicalJson on the values of an evidence
-// killer: tools/kata-quarter/quarter_evidence.py:55 CONST "R.canonical(ev)" -> "Q.K.js_json_compact(ev)"
+// killer: tools/kata-quarter/quarter_evidence.py:89 CONST "R.canonical(value)" -> "Q.K.js_json_compact(value)"
 test("canonical_writer_equals_canonical_json - the bytes of the evidence that report.canonical writes are those of canonicalJson (scripts/spec-publish.mjs) on its values", () => {
   assert.ok(existsSync(join(REPO, QUARTER, "quarter_evidence.py")), `${QUARTER}/quarter_evidence.py absent`);
   const { r, raw } = evidenceOf(join(FIXTURE, "sealed"), join(FIXTURE, "live")), text = raw.toString("ascii");
@@ -714,8 +742,8 @@ test("canonical_writer_equals_canonical_json - the bytes of the evidence that re
 
 // reddened by: a u_test that is not the exact bound of binom_exact under the veto level 0.05 (another level, another k, the "1" of
 // k = n or the null of n = 0 lost), or a fire not by the exact tail at the row's alpha
-// killer: tools/kata-quarter/quarter_evidence.py:40 CONST "alpha, recalc_p2.DELTA" -> "\"0.45\", recalc_p2.DELTA"
-// killer: tools/kata-quarter/quarter_evidence.py:46 CONST "O.u_test(r[\"n_test\"], r[\"k_test\"])" -> "O.u_test(r[\"n_test\"], 0)"
+// killer: tools/kata-quarter/quarter_evidence.py:45 CONST "alpha, recalc_p2.DELTA" -> "\"0.45\", recalc_p2.DELTA"
+// killer: tools/kata-quarter/quarter_evidence.py:51 CONST "O.u_test(r[\"n_test\"], r[\"k_test\"])" -> "O.u_test(r[\"n_test\"], 0)"
 test("u_test_and_fires_of_each_row - on hourly closes 100 and 101 in turn, the evidence gives each row the exact bound worked out apart from the tool (binom_exact.miss_upper_bound under 0.05: 0.3502186 for 736 misses of 2208, 0.0013559 for none), \"1\" when every point misses, null with no point, and fires by the exact tail at its alpha 0.01", () => {
   assert.ok(existsSync(join(REPO, QUARTER, "quarter_evidence.py")), `${QUARTER}/quarter_evidence.py absent`);
   const work = mkdtempSync(join(tmpdir(), "kata-quarter-u-test-")), header = linesOf(fixtureOf("live").csv)[0], rows: string[] = [];
@@ -730,4 +758,139 @@ test("u_test_and_fires_of_each_row - on hourly closes 100 and 101 in turn, the e
   };
   assert.deepEqual(run([0.9, 0.9, 1e9]), [["syn-range-1h", 2208, 736, "0.3502186", true], ["syn-range-4h", 0, 0, null, false], ["syn-mae-down-1h", 2208, 0, "0.0013559", false]], "a bound that fires, a row with no point, a bound with no miss");
   assert.deepEqual(run([0, 0.9, 0]), [["syn-range-1h", 2208, 2208, "1", true], ["syn-range-4h", 0, 0, null, false], ["syn-mae-down-1h", 2208, 2208, "1", true]], "every point a miss: \"1\"");
+});
+
+// The served history (lot c2b): count reads kata-served-history-v1 whole under the role served-history, pinned, class by class; a row is
+// counted when its class is served at an instant of Q_k, with the span of its service in Q_k (served_from, served_to: [from, to)).
+const days = (...d: [string, string[]][]): [string, string[]][] => d;
+const refusedBy = (served: [string, string]): Run => count(join(FIXTURE, "sealed"), join(FIXTURE, "live"), 1, [SYM], { served }).r;
+
+// reddened by: a gap admitted (a class held by a deployment before and after one that has no line for it), a pair written twice or a
+// deployment whose lines differ admitted, a line that carries a list of classes or an unknown key admitted, a history parsed under
+// another pin, the absence before the first deployment of a class taken for a gap, a row counted though its class is not served in Q_k,
+// a span of service off the deployments' t_f, or the history not noted under the role served-history; a key twice in one object, bytes
+// off the writer's canonical text or a field off its form admitted, deployments out of order, t_e after t_f, a quarter with no served row
+// counted, or a row's tables not those of its lines that meet Q_k
+// killer: tools/kata-quarter/quarter_load.py:202 CONST "len({k for k, _ in pairs}) != len(pairs)" -> "False"
+// killer: tools/kata-quarter/quarter_load.py:165 CONST "if data != (" -> "if False and data != ("
+// killer: tools/kata-quarter/quarter_load.py:157 CONST " or not all(re.fullmatch(p, x[f]) for f, p in FORMS.items())" -> ""
+// killer: tools/kata-quarter/quarter_load.py:158 CONST "not day(x[\"release_dir\"]) or " -> ""
+// killer: tools/kata-quarter/quarter_load.py:157 CONST "x[\"format\"] != \"kata-served-history-v1\" or " -> ""
+// killer: tools/kata-quarter/quarter_load.py:157 CONST " or any(type(x[f]) is not str for f in HISTORY)" -> ""
+// killer: tools/kata-quarter/quarter_load.py:158 CONST " or second(x[\"t_e\"]) > second(x[\"t_f\"])" -> ""
+// killer: tools/kata-quarter/quarter_load.py:133 CONST "return ms if iso(ms) == s else None" -> "return ms"
+// killer: tools/kata-quarter/quarter_load.py:168 CONST "any(a >= b for a, b in" -> "any(a > b for a, b in"
+// killer: tools/kata-quarter/quarter_counts.py:94 CONST "if not rows:" -> "if False:"
+// killer: tools/kata-quarter/quarter_load.py:185 CONST "[m[2] for m in met]" -> "[s[2] for s in spans]"
+// killer: tools/kata-quarter/quarter_load.py:177 CONST "if gap:" -> "if False:"
+// killer: tools/kata-quarter/quarter_load.py:153 CONST "sorted(x) != sorted(HISTORY)" -> "False"
+// killer: tools/kata-quarter/quarter_load.py:155 CONST "type(x[\"task_class\"]) is not str" -> "False"
+// killer: tools/kata-quarter/quarter_load.py:161 CONST "x[\"task_class\"] in d[\"classes\"] or " -> ""
+// killer: tools/kata-quarter/quarter_load.py:145 CONST "got != pin" -> "False"
+// killer: tools/kata-quarter/quarter_counts.py:93 CONST "rows = [x for x in rows if service[x[0][\"taskClass\"]]]" -> "rows = rows"
+// killer: tools/kata-quarter/quarter_load.py:184 CONST "min(e_k, b)" -> "e_k"
+test("served_history_reader_refuses_gap - count reads the served history whole under the role served-history, class by class: each row counted with its span of service in Q_k, a class served after Q_k left out, a class absent before its first deployment admitted; a gap, a pair twice, a deployment whose lines differ, a list of classes, an unknown key or another pin refused by name, exit 2", () => {
+  assert.ok(existsSync(join(REPO, QUARTER, "quarter_load.py")), `${QUARTER}/quarter_load.py absent`);
+  // syn-range-4h withdrawn by the deployment of 2026-11-10, syn-mae-down-1h served from it: no gap, only the spans of Q_1 that they meet
+  const spans = history(days(["2026-09-01", ["syn-range-1h", "syn-range-4h"]], ["2026-11-10", ["syn-range-1h", "syn-mae-down-1h"]], ["2027-01-05", ["syn-range-1h", "syn-mae-down-1h"]]));
+  const { r, raw } = evidenceOf(join(FIXTURE, "sealed"), join(FIXTURE, "live"), { served: spans }), t = (d: string, c: string): string[] => [hex(`table ${d} ${c}`)];
+  assert.equal(r.status, 0, `count under a history of three deployments: exit 0\n${r.stdout}${r.stderr}`);
+  assert.deepEqual((JSON.parse(raw.toString("ascii")) as Evidence).rows.map((x) => [x.task_class, x.served_from, x.served_to, x.served_tables]), [["syn-range-1h", iso(S1), iso(E1),
+    [...t("2026-09-01", "syn-range-1h"), ...t("2026-11-10", "syn-range-1h")]], ["syn-range-4h", iso(S1), "2026-11-10T11:00:00Z", t("2026-09-01", "syn-range-4h")],
+    ["syn-mae-down-1h", "2026-11-10T11:00:00Z", iso(E1), t("2026-11-10", "syn-mae-down-1h")]], "each row's service in Q_1, from the t_f of its deployments, and the table of each of its lines that meets Q_1");
+  assert.ok(linesOf(r.stdout).includes(`input served-history served-history.json sha256 ${spans[1]} bytes ${readFileSync(spans[0]).length}`), `noted under its role\n${r.stdout}`);
+  const later = count(join(FIXTURE, "sealed"), join(FIXTURE, "live"), 1, [SYM], { served: history(days(["2026-09-01", ["syn-range-1h"]], ["2027-01-05", ["syn-range-1h", "syn-range-4h"]])) });
+  assert.equal(later.r.status, 0, `count with two classes served after Q_1: exit 0\n${later.r.stdout}${later.r.stderr}`);
+  assert.deepEqual(later.c.rows.map((x) => x.task_class), ["syn-range-1h"], "only the row whose class is served in Q_1 is counted");
+  const text = (lines: object[]): string => `[\n${lines.map(canonicalJson).join(",\n")}\n]\n`, one = served("2026-09-01", "syn-range-1h");
+  const [CANON, FORM, ORDER] = ["served history: not the writer's canonical text of its lines", "not a kata-served-history-v1 line (format, fields of their form, t_e <= t_f)", "deployments not in the order of their t_e and t_f"];
+  const cases: [string, [string, string], string][] = [
+    ["a gap", history(days(["2026-09-01", ["syn-range-1h"]], ["2026-10-20", ["syn-mae-down-1h"]], ["2026-11-10", ["syn-range-1h", "syn-mae-down-1h"]])),
+      "served history: gap, syn-range-1h is served before and after contract-1.1.0-tables-2026-10-20, which has no line for it"],
+    ["a pair twice", history([], text([one, one])), "served history: contract-1.1.0-tables-2026-09-01 syn-range-1h: a pair written twice, or a deployment whose lines differ "],
+    ["a deployment whose lines differ", history([], text([one, { ...served("2026-09-01", "syn-range-4h"), t_f: "2026-09-01T12:00:00Z" }])), "syn-range-4h: a pair written twice, or a deployment whose lines differ on merge_commit"],
+    ["a list of classes", history([], text([{ ...one, task_class: ["syn-range-1h", "syn-range-4h"] }])), "served history: a line that carries a list of classes, or no class: ['syn-range-1h', 'syn-range-4h']"],
+    ["an unknown key", history([], text([{ ...one, note: "x" }])), "served history: a line whose fields are not the closed ['format', 'release_dir', 'task_class', "],
+    ["another pin", [spans[0], "0".repeat(64)], `served history refused before parsing: sha256 ${spans[1]} differs from the pinned ${"0".repeat(64)}`],
+    ["a key twice in one object", history([], text([one]).replace("}\n", ',"t_f":"2026-12-01T11:00:00Z"}\n')), "served history: a key written twice in one object: ['ca_record_sha256', "],
+    ["a deployment split around another", history([], text([one, served("2026-10-20", "syn-range-1h"), served("2026-09-01", "syn-range-4h")])), CANON],
+    ["lines not sorted by task_class", history([], text([served("2026-09-01", "syn-range-4h"), one])), CANON], ["a pretty-printed array", history([], JSON.stringify([one], null, 2)), CANON],
+    ["a release_dir off the writer's form", history([], text([{ ...one, release_dir: "x" }])), `served history: 'x' syn-range-1h: ${FORM}`],
+    ["a release_dir of no real day", history([], text([{ ...one, release_dir: "contract-1.1.0-tables-2026-02-30" }])), FORM],
+    ["a merge_commit off its form", history([], text([{ ...one, merge_commit: one.merge_commit.toUpperCase() }])), FORM],
+    ["two deployments of one t_e", history([], render(null, [one, { ...served("2026-09-02", "syn-range-4h"), t_e: one.t_e }])), ORDER],
+    ["a t_f before the one of the deployment before", history([], render(null, [{ ...one, t_f: "2026-09-10T00:00:00Z" }, served("2026-09-05", "syn-range-1h")])), ORDER],
+    ["t_e after t_f", history([], text([{ ...one, t_e: "2026-09-01T12:00:00Z" }])), FORM], ["another format", history([], text([{ ...one, format: "kata-served-history-v2" }])), FORM],
+    ["a number in a field", history([], text([{ ...one, probe_record_sha256: 5 }])), FORM], ["a second written otherwise", history([], text([{ ...one, t_e: "2026-9-1T10:00:00Z" }])), FORM],
+    ["a class foreign to the registry", history(days(["2026-09-01", ["alt-range-1h"]])), "no region row of the registry is served at an instant of quarter 1 by the served history: nothing to count"]];
+  for (const [name, h, re] of cases) {
+    const x = refusedBy(h);
+    assert.equal(x.status, 2, `${name}: exit 2\n${x.stdout}${x.stderr}`);
+    assert.ok(x.stdout.startsWith("REFUSED: ") && x.stdout.includes(re), `${name}: refused by name\n${x.stdout}`);
+  }
+});
+
+// reddened by: a symbol's completeness not in counts of the LIVE read (present, expected) or its threshold off 1000 present >= 999
+// expected (8 candles absent of 8832 complete, 9 not), or a prudent variant that is not (n_test + d, k_test + d) with d the drops and the
+// instants out, its fire not the guard's vetoFires (as fixtures/kata-quarter/veto-vectors.json holds it), or not "out_of_domain" above LIVE_N_MAX
+// killer: tools/kata-quarter/quarter_evidence.py:53 CONST "1000 * s[\"present\"] >= 999 * s[\"expected\"]" -> "1000 * s[\"present\"] >= 998 * s[\"expected\"]"
+// killer: tools/kata-quarter/quarter_evidence.py:62 CONST "d = r[\"drops_label\"] + r[\"out_input\"]" -> "d = r[\"drops_label\"]"
+// killer: tools/kata-quarter/quarter_evidence.py:64 CONST "if n <= LIVE_N_MAX[r[\"horizon\"]] else" -> "if True else"
+test("completeness_and_prudent_variant - each symbol's completeness in counts, complete when 1000 present >= 999 expected (8 candles absent of 8832 complete, 9 not); each row's prudent pair (n_test + d, k_test + d), d its drops and its instants out, fired by the guard's vetoFires, out_of_domain above LIVE_N_MAX", () => {
+  assert.ok(existsSync(join(REPO, QUARTER, "quarter_evidence.py")), `${QUARTER}/quarter_evidence.py absent`);
+  const work = mkdtempSync(join(tmpdir(), "kata-quarter-complete-")), at = (i: number): number => Date.UTC(2026, 10, 2 + i, 6, 15);
+  // The fire read as data from the veto vectors, which test/kata-quarter-vectors.test.ts (test:main) holds equal to the guard's vetoFires and uTest.
+  const veto = JSON.parse(readFileSync(join(FIXTURE, "veto-vectors.json"), "ascii")) as { alpha: string; vectors: Record<string, [number, number, string, boolean][]> };
+  /** k*(n) of each horizon: the k whose pair fires while k - 1 does not; (n, k) fires iff k >= k*(n), "out_of_domain" past the vectors' n. */
+  const star = new Map(Object.entries(veto.vectors).map(([h, rows]) => {
+    const fire = new Map(rows.map((v) => [`${v[0]} ${v[1]}`, v[3]]));
+    return [h, new Map(rows.filter((v) => v[3] && fire.get(`${v[0]} ${v[1] - 1}`) === false).map((v) => [v[0], v[1]]))];
+  }));
+  const fires = (h: string, n: number, k: number): boolean | "out_of_domain" => { const s = star.get(h)?.get(n); return s === undefined ? "out_of_domain" : k >= s; };
+  for (const [absent, complete] of [[8, true], [9, false]] as const) {
+    const { r, raw } = evidenceOf(join(FIXTURE, "sealed"), fullQ1(join(work, String(absent)), { drop: Array.from({ length: absent }, (_, i) => at(i)) }));
+    assert.equal(r.status, 0, `${absent} candles absent: exit 0\n${r.stdout}${r.stderr}`);
+    const ev = JSON.parse(raw.toString("ascii")) as Evidence, s = ev.series[SYM] as Record<string, unknown>;
+    assert.deepEqual([s.present, s.expected, s.complete], [8832 - absent, 8832, complete], `${absent} candles absent: complete ${complete}`);
+    for (const x of ev.rows) {
+      const d = x.drops_label + x.out_input;
+      assert.deepEqual([x.alpha, x.prudent], [veto.alpha, { n_test: x.n_test + d, k_test: x.k_test + d, fires: fires(x.horizon, x.n_test + d, x.k_test + d) }], `${x.task_class}: the prudent pair and its fire, at the vectors' alpha`);
+    }
+    assert.ok(ev.rows.some((x) => x.drops_label > 0 && x.out_input > 0 && !x.fires && x.prudent.fires === true), "a row that does not fire, whose prudent pair fires");
+  }
+  const capped = toolRepo(REPO, (dir) => writeFileSync(join(dir, QUARTER, "quarter_evidence.py"), `${read("quarter_evidence.py")}\nLIVE_N_MAX = {"1h": 2207, "4h": 552}\n`));
+  const ev = JSON.parse(evidenceOf(join(FIXTURE, "sealed"), join(FIXTURE, "live"), { repo: capped }).raw.toString("ascii")) as Evidence;
+  assert.deepEqual(ev.rows.map((x) => [x.task_class, x.prudent.fires === "out_of_domain"]), [["syn-range-1h", true], ["syn-range-4h", false], ["syn-mae-down-1h", true]], "above LIVE_N_MAX: out_of_domain");
+});
+
+// reddened by: vectors that are not those of the file (another grid of k, another fire or bound, another writer), a fire held off its
+// threshold (n 2208: k = 30 does not fire, k = 31 fires), or a file named otherwise than by its sha256, the pin of its provenance
+// killer: tools/kata-quarter/quarter_evidence.py:75 CONST "(star - 1, star, star + 1)" -> "(star, star + 1)"
+// killer: tools/kata-quarter/quarter_evidence.py:45 CONST "alpha, recalc_p2.DELTA" -> "alpha, \"0.5\""
+test("veto_vectors_written_again - vectors writes fixtures/kata-quarter/veto-vectors.json again byte for byte, 8278 pairs named by the sha256 of its provenance; at n 2208, k 30 does not fire and k 31 fires", () => {
+  assert.ok(existsSync(join(FIXTURE, "veto-vectors.json")), "fixtures/kata-quarter/veto-vectors.json absent");
+  const t = tool(), out = join(mkdtempSync(join(tmpdir(), "kata-quarter-vectors-")), "v"), r = t.launch(join(t.dir, QUARTER, ENTRY), ["vectors", out], { timeout: 600_000 });
+  assert.equal(r.status, 0, `vectors: exit 0\n${r.stdout}${r.stderr}`);
+  const pin = /^- `veto-vectors\.json` `([0-9a-f]{64})`$/m.exec(readFileSync(join(FIXTURE, "PROVENANCE-veto-vectors.md"), "utf8"))?.[1];
+  assert.ok(linesOf(r.stdout).includes(`vectors veto-vectors.json sha256 ${String(pin)} pairs 8278`), `named by the pin of its provenance\n${r.stdout}`);
+  assert.ok(readFileSync(join(out, "veto-vectors.json")).equals(readFileSync(join(FIXTURE, "veto-vectors.json"))), "the same bytes as the fixture");
+  const v = JSON.parse(readFileSync(join(out, "veto-vectors.json"), "ascii")) as { vectors: Record<string, unknown[][]> };
+  assert.deepEqual(v.vectors["1h"]?.filter((x) => x[0] === 2208), [[2208, 30, "0.0183840", false], [2208, 31, "0.0189017", true], [2208, 32, "0.0194182", true]], "the threshold at n 2208");
+});
+
+// reddened by: the evidence written straight under its name, so that a write cut short (here a file size limit, Linux) leaves a file
+// named as the evidence that is not one, or a part left beside a whole evidence
+// killer: tools/kata-quarter/quarter_evidence.py:89 CONST "os.path.join(out, f\"{name}.part\")" -> "os.path.join(out, name)"
+test("evidence_written_whole_or_not_at_all - the evidence is written as quarter-1.json.part then renamed: a run leaves quarter-1.json alone; a write cut short by a file size limit exits 2 and leaves no quarter-1.json", () => {
+  assert.ok(existsSync(join(REPO, QUARTER, "quarter_evidence.py")), `${QUARTER}/quarter_evidence.py absent`);
+  const ok = evidenceOf(join(FIXTURE, "sealed"), join(FIXTURE, "live"));
+  assert.deepEqual([ok.r.status, readdirSync(ok.out)], [0, ["quarter-1.json"]], `one file, the evidence\n${ok.r.stdout}${ok.r.stderr}`);
+  if (process.platform !== "linux") return; // ulimit -f: a Linux shell's (MONARK replays the rest under Windows)
+  const t = tool(), out = join(mkdtempSync(join(tmpdir(), "kata-quarter-cut-")), "e"), reg = sha256(REG), [h, hp] = history();
+  const args = ["count", REG, reg, h, hp, join(FIXTURE, "sealed"), join(FIXTURE, "live"), "1", out, `${SYM}:${sha256(join(FIXTURE, "sealed", SYM, SERIES))}:${sha256(join(FIXTURE, "live", SYM, SERIES))}`];
+  const env = Object.fromEntries(Object.entries(process.env).filter(([k]) => !k.toUpperCase().startsWith("GIT_")));
+  const r = spawnSync("sh", ["-c", "ulimit -f 1; exec \"$@\"", "sh", t.python, ...t.form, join(t.dir, QUARTER, ENTRY), ...args], { cwd: t.dir, env, encoding: "utf8" });
+  assert.equal(r.status, 2, `under ulimit -f 1: exit 2\n${r.stdout}${r.stderr}`);
+  assert.match(linesOf(r.stdout).join("\n"), /^REFUSED: OSError: \[Errno 27\] File too large/m, "the write refused by its error");
+  assert.ok(!existsSync(join(out, "quarter-1.json")), "no file under the evidence's name");
 });

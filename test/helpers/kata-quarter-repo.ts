@@ -24,8 +24,8 @@ const BARE: NodeJS.ProcessEnv = Object.fromEntries(Object.entries(process.env).f
 export type Run = { status: number | null; stdout: string; stderr: string };
 export type ToolRepo = {
   dir: string; python: string; form: string[];
-  /** python <FORM> <script> <args>, from the repository, the caller's GIT_* variables stripped; o.form, o.env: another launch. */
-  launch: (script: string, args: string[], o?: { form?: string[]; env?: NodeJS.ProcessEnv }) => Run;
+  /** python <FORM> <script> <args>, from the repository, the caller's GIT_* variables stripped; o.form, o.env: another launch; o.timeout in ms (120 s). */
+  launch: (script: string, args: string[], o?: { form?: string[]; env?: NodeJS.ProcessEnv; timeout?: number }) => Run;
   /** The entry script of the copy, tools/kata-quarter/quarter_counts.py, with args. */
   run: (args: string[]) => Run;
 };
@@ -51,8 +51,8 @@ export function toolRepo(root: string, change: (dir: string) => void = () => und
   git(dir, ["commit", "-q", "-m", "the two trees of the tool under test"]);
   const form = formOf(readFileSync(join(dir, TREES[0], "io_guard.py"), "utf8"));
   const python = process.env.KATA_QUARTER_PYTHON || (["python", "python3"].find((p) => spawnSync(p, ["-c", "0"], { env: BARE }).status === 0) ?? "python");
-  const launch = (script: string, args: string[], o: { form?: string[]; env?: NodeJS.ProcessEnv } = {}): Run => {
-    const r = spawnSync(python, [...(o.form ?? form), script, ...args], { cwd: dir, env: { ...BARE, ...o.env }, encoding: "utf8", maxBuffer: 1 << 26, timeout: 120_000 });
+  const launch = (script: string, args: string[], o: { form?: string[]; env?: NodeJS.ProcessEnv; timeout?: number } = {}): Run => {
+    const r = spawnSync(python, [...(o.form ?? form), script, ...args], { cwd: dir, env: { ...BARE, ...o.env }, encoding: "utf8", maxBuffer: 1 << 26, timeout: o.timeout ?? 120_000 });
     return { status: r.status, stdout: linesOf(r.stdout ?? "").join("\n"), stderr: linesOf(r.stderr ?? String(r.error ?? "")).join("\n") };
   };
   return { dir, python, form, launch, run: (args) => launch(join(dir, TREES[1], ENTRY), args) };
