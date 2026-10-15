@@ -1601,3 +1601,7 @@ Probe (section 25): `cat`/`head`/`tail`/`less`/`xxd`/`od`/`base64` on `/etc/mona
 displayed (act (1b) prints `size-ok` only); `--out /var/lib/monark-probe/dojo-live.json` in a simulated start (the production record); `source
 /etc/monark/probe.env` in any shell; the probe's tree under `/opt/monark-probe` (Bell's check 12 and `c10` hash it); a timer enabled before the simulated start of (4) and
 the mail proof of (4b); a keyring copied from anywhere but a commit of the trunk.
+
+Dated line (MONARK, 2026-10-15), history collector of PR-2b (the section of its two courses): a course's `--deadline` never passes
+either operator's next cycle boundary (from its anchor); past it, the course refuses `cycle_missing` (`<op> straddle`) before any
+lock or call: set `--deadline` at or before the boundary, and run on the next cycle.
