@@ -128,7 +128,7 @@ export const QUARTER_TEST = "test/kata-quarter.test.ts";
 export const QUARTER_TESTS = ["kata_quarter_entry_script_imports_the_input_guard_first", "two_reads_merged_under_check", "series_pinned_before_parse",
   "kata_quarter_files_are_regular_100644", "kata_quarter_names_disjoint_from_kata_recalc", "quarter_grid", "counts_ignore_traffic",
   "drop_on_missing_candle", "miss_is_strict", "venue_instance_one_interval", "k_test_exact_on_a_made_series", "count_refuses_by_name",
-  "kata_lib_blob_unchanged_and_globals_restored", "labels_fn_pinned", "kata_quarter_tree_refused_unless_at_its_commit", "kata_quarter_subcommands_declare_tool_tree", "sitecustomize_beside_kata_recalc_does_not_run", "fdlibm_log_pass_decides", "original_values_byte_equal", "equals_registry_on_test_block", "pseudo_quarter_2026_07_09"];
+  "kata_lib_blob_unchanged_and_globals_restored", "labels_fn_pinned", "kata_quarter_tree_refused_unless_at_its_commit", "kata_quarter_subcommands_declare_tool_tree", "sitecustomize_beside_kata_recalc_does_not_run", "fdlibm_log_pass_decides", "original_values_byte_equal", "equals_registry_on_test_block", "pseudo_quarter_2026_07_09", "refuses_open_quarter", "quarter_evidence_closed_canonical", "canonical_writer_equals_canonical_json", "u_test_and_fires_of_each_row"];
 /** The presence map that main() gives accountProblems: the second tree counts as a tree this job does not run unless its test file is
  *  on disk (quarterTest), which main() then runs. */
 export const presenceOf = (present, quarterTest) => ({ ...present, [QUARTER]: present[QUARTER] === true && !quarterTest });
