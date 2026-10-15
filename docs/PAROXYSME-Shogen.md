@@ -37,7 +37,9 @@
   L-35, N-04, §7 (doute 5), §8. Pli de l'après-#282 (base `0eafbce0`), le 2026-10-15 à partir de 02:57 UTC (`date -u`), par un worker de
   PAROXYSME (`claude-opus-5-5`, effort high) : sources : les messages de MONARK `39c0425` et `ae8a0fa` de la boîte, cités « `<commit>` l.N »
   (§8) ; plié : Q-SH-1 (a), la mention de périmètre datée sur les 54 entrées de L-07 à L-53 et de S-01 à S-07, sans changement d'état ni
-  retrait ; parties touchées : en-tête, §0 (Une entrée par limite, Champs), §2.2, §3.2, §4 (L-36), §8 ; G2 par une instance neuve à venir.
+  retrait ; parties touchées : en-tête, §0 (Une entrée par limite, Champs), §2.2, §3.2, §4 (L-36), §8 ; G2 par une instance neuve
+  (`claude-opus-5-5`, effort high), le 2026-10-15 de 03:10 à 03:16 UTC : 11 constats (G2-R15-1 à 11, pièce `G2-rendu.json` du dossier
+  `2026-10-15-registres` de la boîte), pliés par la session PAROXYSME à partir de 03:2x UTC : §0 (Champs), L-35, §7 (doutes 7 et 16), §8.
 - **Bases** : inventaire mesuré à `d8fe354c`, qui y lit aussi ETAT (empreinte `2ef6f107…`, INV-S l.19), et non à `57a131fc` comme ceux
   du Harnais et du Moteur. Toutes les ancres du tronc sont à la base `87b821b0` de `lot/etude-suite` (tête relue par `git ls-remote` le
   2026-10-07 à 17:07 UTC, message `d4b3d07` l.16-17). Le tronc a avancé depuis par les fusions #241 et #235, jusqu'à `eb1beb01`
@@ -75,7 +77,9 @@
   touche (texte public que la limite qualifie) ; nature ; item ; porteur ; déclencheur ; état ; suite. Depuis le pli du 2026-10-15, les
   entrées de L-07 à L-53 et de S-01 à S-07, et elles seules, portent après « état » et « suite » un champ « périmètre » : la limite est hors du
   périmètre de MONARK et de PAROXYSME, portée par le projet Shōgen, par décision du fondateur du 2026-10-08 (`39c0425` l.6-15 ; Q-SH-1 (a),
-  `ae8a0fa` l.6-8) ; la mention est datée, ne retire rien et ne change ni l'état ni les autres champs de l'entrée.
+  `ae8a0fa` l.6-8) ; la mention est datée, ne retire rien et ne change ni l'état ni les autres champs de l'entrée ; sous elle, un porteur
+  PAROXYSME ou MONARK et une « demande au mainteneur » se lisent comme la trace d'avant le 2026-10-08, à garder ou à corriger selon la
+  réponse de MONARK (§7, doute 16).
 - **Natures** (celles de l'inventaire) : T théorie · M mesure · D donnée · P dépendance · Dr droit · C capacité.
 - **Propriétaire** (INV-S l.39) : MONARK porte l'outil `attest`, la couture `attested → gate` et les surfaces (§2.1, §3.1) ; Shōgen porte
   le capteur S2, le vérificateur et le certificat 04, par décision du fondateur du 2026-10-03 (ADR-CM l.188) (§2.2, §3.2).
@@ -391,7 +395,7 @@
     PAROXYSME ; mainteneur Shōgen · déclencheur : l'ADR de PXC-02 (tâche 2 du TABLEAU, F1)
   état : ouvert, par conception · suite : la phrase du panneau l.66-68 n'est plus exacte (N-03, INV-S l.50)
   périmètre : hors de MONARK et de PAROXYSME, porté par le projet Shōgen (décision du fondateur du 2026-10-08, `39c0425` l.6-15 ;
-    Q-SH-1 (a), `ae8a0fa` l.6-8) · mention du 2026-10-15
+    Q-SH-1 (a), `ae8a0fa` l.6-8) · mention du 2026-10-15 ; touche deux surfaces du site de MONARK : §7, doute 16 (Q-SH-3)
 
 ## 3. Limites nouvelles depuis le 2026-09-27 (39 ouvertes, INV-S §5 et §6 ; L-36 et N-11 closes au §4)
 
@@ -771,7 +775,8 @@ l.513, l.515, l.551 et l.576 à `565c7065` ; aucune ne forme une limite de Shōg
    l'orchestrateur trie et forme ». PAROXYSME ne touche pas au dépôt `shogen` : MONARK l'approuve et propose au fondateur de restreindre
    son accès à `paroxysme`, `monark-governance` et `Monark` (`da72328` l.46-47). Ce registre écrit donc MONARK pour cette demande et pour
    l'envoi des demandes au mainteneur (les douze, §0 ; L-11). **Tranché** : MONARK porte SHOGEN-G5-FORM-REQUEST-1 et envoie les
-   demandes au mainteneur (MSG l.72).
+   demandes au mainteneur (MSG l.72). Depuis le 2026-10-08 : « Nous ne lui envoyons plus de demande sur ces sujets » (`39c0425` l.16) ;
+   doute 16.
 8. **Écart entre l'inventaire et le plan.** Offutt (PXP-26) et Just (PXP-27) sont « reçus, NON LUS » pour INV-S (l.106, l.199) et
    « lus » pour PLAN l.869, dont le critère est la citation par la campagne Narabi : SYNTHESE-NARABI-1 l.419-420 les cite pour la
    définition de « killed », non pour A(coupling-effect). L-30 garde l'état de l'inventaire.
@@ -836,16 +841,28 @@ l.513, l.515, l.551 et l.576 à `565c7065` ; aucune ne forme une limite de Shōg
    pli : son prochain point d'étape avec le fondateur ; au plus tard, un jalon nommé, par exemple l'ADR de PXC-08, avant sa partie 1, F3 ; doute 5).
    **Daté par MONARK le 2026-10-08** : il porte N-06, N-07 et N-08 au fondateur à son point d'étape du 2026-10-08, au plus tard à l'ADR
    de PXC-08 (ETAT l.576 à `565c7065` ; MSG3 l.39) ; les échéances elles-mêmes restent sans date tant que le fondateur ne les a pas fixées.
+16. **Champs des entrées sous la mention de périmètre (pli du 2026-10-15).** 27 des 54 entrées visées (L-07 à L-53, S-01 à S-07) nomment
+   PAROXYSME dans leur champ porteur, et 14 ont pour item une « demande au mainteneur » dite envoyée par MONARK (§0 ; §1 ; doute 7), alors
+   que `39c0425` l.16 écrit « Nous ne lui envoyons plus de demande sur ces sujets » ; l'« Aucune dette » du §1 repose sur ces demandes
+   (comptes par script sur les champs porteur et item des entrées visées, G2 du pli, constat G2-R15-4). L-35 touche
+   `apps/site/lib/docs-pieces.ts:53` et `apps/site/components/shogen-panel.tsx:66-68`, surfaces que `39c0425` l.17-18 garde dans le
+   périmètre de MONARK, alors que `ae8a0fa` l.6 vise « chaque ligne de L-07 à L-53 » : seule entrée visée qui touche le site (constat
+   G2-R15-5). Les champs des entrées ne sont pas changés (carte du pli). Questions fermées à MONARK, posées au message qui livre ce pli :
+   Q-SH-2, (a) ces champs restent comme trace d'avant le 2026-10-08, (b) ils sont corrigés au pli suivant ; Q-SH-3, (a) la mention vaut
+   aussi pour L-35, (b) L-35 relève du Shōgen de MONARK et sa mention est réécrite au pli suivant.
 
 ## 8. Ligne PAROXYSME et sources
 
 **Ligne PAROXYSME (2026-10-07, décisions de MONARK pliées, 20:1x UTC ; constat 9 de la G2 plié, 21:4x UTC ; question de N-07 ajoutée, 2026-10-08, 04:5x UTC ;
 item de L-47 précisé, 05:4x UTC ; pli de l'après-#245, 2026-10-08 à partir de 07:41 UTC ; pli de l'après-#253, 2026-10-08 à partir de 12:27 UTC ;
-pli de l'après-#282, 2026-10-15 à partir de 02:57 UTC).** Au pli de l'après-#282 : 54 entrées, de L-07 à L-53 (dont L-36, close) et de S-01
-à S-07, portent la mention de périmètre (§0, Champs ; `39c0425` l.6-15 ; Q-SH-1 (a), `ae8a0fa` l.6-8), sans changement d'état : 76 entrées,
-74 ouvertes (71 « ouvert », 3 « changé »), 2 closes, avant et après ce pli. Avant ce pli : Shōgen : 74
+pli de l'après-#282, 2026-10-15 à partir de 02:57 UTC ; sa G2 pliée à partir de 03:2x UTC).** Au pli de l'après-#282 : 54 entrées, de L-07 à
+L-53 (dont L-36, close) et de S-01 à S-07, portent la mention de périmètre (§0, Champs ; `39c0425` l.6-15 ; Q-SH-1 (a), `ae8a0fa` l.6-8),
+sans changement d'état : 76 entrées, 74 ouvertes (71 « ouvert », 3 « changé »), 2 closes, avant et après ce pli ; sous la mention, 27 entrées
+gardent PAROXYSME parmi leurs porteurs et 14 une demande au mainteneur : trace d'avant le 2026-10-08, Q-SH-2 et Q-SH-3 à MONARK (§7, doute
+16). Avant le pli de l'après-#282 : Shōgen : 74
 limites ouvertes (35 du 2026-09-27, dont 3 changées au sens de l'inventaire ; 15 nouvelles côté MONARK ; 24 nouvelles côté Shōgen) et 2 closes (L-36 ; N-11, par
-le versement, ETAT l.184 à `5437cd0d`) ; 76 entrées, 74 ouvertes, 2 closes, aucune ne change d'état dans ce pli ni dans celui de l'après-#253, qui n'y plie que
+le versement, ETAT l.184 à `5437cd0d`) ; 76 entrées, 74 ouvertes, 2 closes, aucune ne change d'état dans le pli de l'après-#245 ni dans
+celui de l'après-#253, qui n'y plie que
 la partie 1 de PXC-02, réduite au noyau (L-35, N-04 ; Q-M1 (a) : ETAT l.796 à `2c3f51a8`). ⚑B : aucune marquée par l'inventaire ; l'écart
 de branchement de la pièce est l'exception datée en cours (N-16 ; fin au
 premier de G2 et de G9). Limites neuves à ETAT : 0 (§5). Aucune dette : le déclencheur de L-41 et du volet G4 de L-03 est re-formé (ETAT
