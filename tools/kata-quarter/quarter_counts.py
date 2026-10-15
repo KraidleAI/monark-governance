@@ -5,8 +5,9 @@
 # check and count declare the role tool-tree and, before any input, hold both trees on disk to their blobs at the commit that git_tree
 # names (quarter_identity, exit 2 otherwise; no option skips it), then print that commit and the two digests on the line "identity".
 # check: two reads of one symbol through quarter_load and their merge, VERDICT: GREEN; count: the counts of the region rows of a wave 1
-# registry on Q_k (quarter_core), one JSON line (no u_test: lot c2) under fdlibm_log, then each decision math.log changes; check <act>:
-# an oracle act of quarter_oracle; month: exit 2. Every argument is parsed under the top-level catch: one line, no trace, exit 2.
+# registry on Q_k (quarter_core), one JSON line under fdlibm_log, then each decision math.log changes, and the evidence of the quarter
+# (quarter_evidence) written into <out dir>/quarter-<k>.json, named on the line "evidence"; check <act>: an oracle act of quarter_oracle;
+# month: exit 2. Every argument is parsed under the top-level catch: one line, no trace, exit 2.
 import os, sys  # sys built in, os frozen: no file is looked up by name before io_guard has checked both folders (IO-GUARD-POSED-FILES-1)
 if "io_guard" not in sys.modules:  # io_guard.py of the frozen tool, run by its path, never found by name: nothing posed or installed stands in for it
     sys.path.append(_d := os.path.join(os.path.dirname(os.path.dirname(os.path.realpath(__file__))), "kata-recalc"))  # the frozen tool's folder, last in sys.path: -P is in FORM
@@ -17,6 +18,7 @@ HERE = os.path.dirname(os.path.realpath(__file__))
 sys.path.append(HERE)  # this folder, after the frozen tool's: the quarter_* modules by name, read under the second tree's list
 import json
 import quarter_core as C
+import quarter_evidence as V
 import quarter_identity as I
 import quarter_load as Q
 import quarter_oracle as O
@@ -25,7 +27,7 @@ MODEL = "claude-opus-5-5"
 USAGE = ("usage: python -E -S -s -B -P quarter_counts.py check <sealed series dir> <live series dir> <symbol folder> <quarter k> "
          "<sealed sha256 | pinned, quarter 1 only> <live sha256> <lookback hours>\n"
          "       python -E -S -s -B -P quarter_counts.py count <registry> <registry sha256> <sealed series dir> <live series dir> "
-         "<quarter k> <symbol folder>:<sealed sha256 | pinned, quarter 1 only>:<live sha256> ...\n" + O.USAGE)
+         "<quarter k> <out dir> <symbol folder>:<sealed sha256 | pinned, quarter 1 only>:<live sha256> ...\n" + O.USAGE)
 NOT_YET = "not in this lot: the month counts arrive with lot e"
 FLAGS = []  # closed: count takes no option, so no call, traffic or served history enters a count (addendum 9 point 2; L-T2)
 FROZEN = os.path.dirname(os.path.realpath(io_guard.__file__))
@@ -79,9 +81,10 @@ def check(sealed_dir, live_dir, sym, k, pin1, pin2, lookback_hours):
     return 0
 
 
-def count(registry, pin, sealed_dir, live_dir, k, specs):
+def count(registry, pin, sealed_dir, live_dir, k, out, specs):
     io_guard.declare("series", "recorder", "registry", "tool-tree")
     ident = I.tool_identity()
+    io_guard.output(out)
     folders = {f: (p1, p2) for f, p1, p2 in (s.split(":") for s in specs)}
     rows, venue = C.registry_rows(registry, pin)
     if len(folders) != len(specs) or any(p1 == "pinned" for p1, _ in folders.values()) and k != 1:
@@ -89,15 +92,18 @@ def count(registry, pin, sealed_dir, live_dir, k, specs):
     if sorted(folders) != venue:
         raise Q.Refused(f"the symbol folders named {sorted(folders)} are not the venue's {venue}, those of the registry's rows: the venue "
                         "instance is formed over all of them")
-    look = C.lookback(rows)
-    reads = {f: Q.load_quarter(sealed_dir, live_dir, f, k, Q.sealed_pin(f) if p1 == "pinned" else p1, p2, look) for f, (p1, p2) in folders.items()}
-    s_k, e_k = Q.quarter(k)
+    look, (s_k, e_k), reads = C.lookback(rows), Q.quarter(k), {}
+    for f, (p1, p2) in folders.items():  # quarter_load.load_quarter, the LIVE read held closed before the merge
+        first = Q.read_series(sealed_dir, f, Q.sealed_pin(f) if p1 == "pinned" else p1, *Q.sealed_range(k))
+        second = V.closed(Q.read_series(live_dir, f, p2, s_k, e_k), e_k)
+        reads[f] = (first, second, Q.merge(first, second, look))
     res = {"quarter": {"k": k, "start": Q.iso(s_k), "end": Q.iso(e_k)}, "registry_sha256": pin, **C.count(reads, rows, (s_k, e_k), venue),
            "series": {f: {"sealed": r[0]["pin"], "live": r[1]["pin"], "gaps": sum(map(len, r[2]["gaps"].values()))} for f, r in reads.items()}}
-    differ = res.pop("differ")
+    differ, (name, digest) = res.pop("differ"), V.write(out, k, V.evidence(res, ident))
     lines = [MODEL, f"# quarter_counts.py count - the counts of the region rows of the registry on quarter {k}",
              json.dumps(res, sort_keys=True, separators=(",", ":")), *(f"decision differs {d}" for d in differ),
-             f"math.log decisions that differ from the fdlibm_log pass, which decides: {len(differ)}", identity_line(ident),
+             f"math.log decisions that differ from the fdlibm_log pass, which decides: {len(differ)}",
+             f"evidence {name} sha256 {digest}", identity_line(ident),
              *io_guard.input_lines(), "VERDICT: GREEN"]
     print("\n".join(lines), flush=True)
     return 0
@@ -118,8 +124,9 @@ if __name__ == "__main__":
         args = [a for a in args if not a.startswith("--")] if sub == "count" else args
         if sub == "check" and args[:1] and args[0] in O.ACTS:
             sys.exit(O.act(args[0], args[1:], identity_line))
-        if sub == "count" and len(args) >= 6 and hex64(args[1]) and number(args[4]) and all(map(spec, args[5:])):
-            sys.exit(count(os.path.abspath(args[0]), args[1], os.path.abspath(args[2]), os.path.abspath(args[3]), int(args[4]), args[5:]))
+        if sub == "count" and len(args) >= 7 and hex64(args[1]) and number(args[4]) and all(map(spec, args[6:])):
+            a = [os.path.abspath(x) for x in args[:6]]  # args 1 and 4, the pin and k, taken as they are
+            sys.exit(count(a[0], args[1], a[2], a[3], int(args[4]), a[5], args[6:]))
         if sub != "check" or len(args) != 7 or not (number(args[3]) and number(args[6])) \
                 or not all(a == "pinned" and i == 0 or hex64(a) for i, a in enumerate(args[4:6])):
             print(USAGE, flush=True)
