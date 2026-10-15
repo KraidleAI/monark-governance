@@ -133,7 +133,7 @@ ssh -i ~/.ssh/monark_vps root@bell.monarkgate.tech 'useradd --system --no-create
 
 Expected: `uid=... (bell) gid=... (bell)`; `755 bell:bell` on the three state paths; `700 root:root /etc/monark/bell`;
 `caddy-traverse-ok` (Caddy reads `public/` read-only; the unit's `UMask=0022` keeps what it writes 0644/0755; precedent
-`RUNBOOK-sentinel.md:44`). `/var/lib/monark-bell` must exist before any start: it is the unit's only `ReadWritePaths`.
+`RUNBOOK-sentinel.md:44`). `/var/lib/monark-bell` must exist before any start: it is a `ReadWritePaths` of the unit. **Dated line, 2026-10-15 19:2x UTC (review of lot 3c, n-4):** this sentence said "the unit's only `ReadWritePaths`", true of the `--inbox` unit of lot a, which the host already deployed keeps at its deployed SHA; the unit of the trunk (lot 3b-ii) has two, `/var/lib/monark-bell /var/lib/monark-bell-status` (`deploy/monark-bell-publish.service:44`), the second made by lot 5b, step 1 (step 6).
 Rollback (before step 4 only): `ssh -i ~/.ssh/monark_vps root@bell.monarkgate.tech 'rm -rf /var/lib/monark-bell /etc/monark/bell && userdel bell'`.
 
 ## 4. Signing key, generated ON the host (gate G-c; after G7 PR-2)
@@ -196,7 +196,7 @@ Rollback: `ssh -i ~/.ssh/monark_vps root@bell.monarkgate.tech 'rm /etc/systemd/s
 **Dated line, 2026-10-15 18:1x UTC (lot 3c; m-3 of the review of lot 3b-ii):** this step describes the `--handoff` unit of the trunk,
 its dry start read in the code; it replaced the `--inbox` unit of lot a and its dry start on the empty inbox, whose expected line was
 `inbox_not_exactly_one_bundle`. The host already deployed keeps its `--inbox` unit at its deployed SHA: its acts are this RUNBOOK read
-at that SHA, and its CA compares with the G7 it is given.
+at that SHA, and its CA compares with the G7 it is given. **Dated line, 2026-10-15 19:2x UTC (review of lot 3c, m-4):** the dry start above is played again in part 5, once CLOCK-PROBE-FORM-1 is in service on the host, the unit's credential source in place and before the start mark (section 16; lot 5b, step 5), the timer stopped and both units `inactive` or `failed`: it is the act that proves the unit reads its key before any publication. Expected: `start_exit=1` and `bell/publish: handoff_start_missing: status/start: no start mark (the act --handoff-start poses it)` (the key read, `publish.lock` taken and released, nothing written); `signing_key_missing` (the key does not load) or `clock_unsynced` (the probe not in service): **STOP**. The plan of part 5 places this act in the order of lot 5b.
 
 ## 7. Caddy (ruling C-5) — gate G-d first
 
@@ -703,18 +703,18 @@ run (`<cycle>/<op>.lock` under the ledger, `{pid, iso}`); its SIGTERM handler re
 run's locks released`, or `…the release of the run's locks threw: unlock them by act`), but a SIGKILL, the OOM killer or a power cut
 leaves them, and a lock left STAYS held: only the served, ledgered `unlock` releases it (`packages/rpc-guard/src/lock.ts:4-6`). The
 publisher takes `publish.lock` in `/var/lib/monark-bell` at each `--handoff` call and releases it in its `finally`
-(`apps/bell/scripts/bell-publish.mjs:353-359`); a SIGKILL, the OOM killer or a power cut leaves it. It is an empty file (no owner
-record), and the publisher has no served release of it: proposed item BELL-PUBLISH-LOCK-RELEASE-1 (a recorded owner and a served
-`--unlock`, the calque of `docs/RUNBOOK-dojo.md` section 19); until then its removal by the unit's user, both units stopped, is the
+(taken at `apps/bell/scripts/bell-publish.mjs:359`, released by `release`, `:355`, in the `finally` of `:383`); a SIGKILL, the OOM killer or a power cut leaves it. It is an empty file (no owner
+record), and the publisher has no served release of it: item **BELL-PUBLISH-LOCK-RELEASE-1** (formed 2026-10-15 19:2x UTC, review of lot 3c, m-3). Limit: the act below judges the lock by the stop predicate of the two units alone, so a live writer outside them would not be seen. Construction: the calque of the Dōjō's single-writer lot (`docs/G0-lot-single-writer.md`: D-SW2, the owner record `{pid, mode, taken_at}` written and fsynced; D-SW3, a served `--unlock <state>` that frees the lock only if its pid no longer runs and refuses a live or unreadable owner; tests T-SW1, T-SW2; the operator's use, `docs/RUNBOOK-dojo.md` section 19) carried to `apps/bell/scripts/bell-publish.mjs`, then (3) below rewritten for that form and `bell_runbook_unlocks_as_the_unit_user_never_root` amended.
+Price, a declared estimate: about 210 lines of one lot under the CI's R-25 measure, the Dōjō's landing measured (`git diff --shortstat d8495082^1 d8495082` with the CI's pathspecs: 163 insertions, 37 deletions, its own lot `3b91aa37` 138 and 14) plus about 10 for the test of this section; the RUNBOOK's lines are out of that measure. Owner: MONARK. Trigger: before the publication is activated (lot 5b, step 11), at the latest in the plan of part 5. Until then its removal by the unit's user, both units stopped, is the
 act. (1) The state, the timer stopped first (read-only; a lock file holds `{pid, iso}`, no secret):
 
 ```bash
-ssh -i ~/.ssh/monark_vps root@bell.monarkgate.tech 'systemctl is-active monark-bell-collect.timer; systemctl stop monark-bell-collect.timer; systemctl is-active monark-bell-collect.service monark-bell-publish.service; ls -l /var/lib/monark-bell/publish.lock; for f in /var/lib/monark-bell-collect/ledger/*/*.lock; do echo "$f $(cat "$f")"; done'
+ssh -i ~/.ssh/monark_vps root@bell.monarkgate.tech 'systemctl is-active monark-bell-collect.timer; systemctl stop monark-bell-collect.timer; systemctl is-active monark-bell-collect.service monark-bell-publish.service; ls -l /var/lib/monark-bell/publish.lock; for f in /var/lib/monark-bell-collect/ledger/*/*.lock; do [ -e "$f" ] || continue; P=$(grep -oE "\"pid\":[0-9]+" "$f" | cut -d: -f2); echo "$f $(cat "$f")"; if [ -z "$P" ]; then echo "$f: no pid"; elif ps -p "$P" -o pid=,comm=; then echo "pid $P: LIVE"; else echo "pid $P: no process"; fi; done'
 ```
 
 Expected: the timer's state (JOURNAL); two lines, each `inactive` or `failed` (`activating`: a run in course, wait and rerun; never a
 release beside a live run); `publish.lock` or `No such file or directory`; at most one lock per operator of `BELL_OPERATORS`
-(`helius`, `chainstack`), each with a pid that no longer exists (`ps -p <pid>` prints no process line), else **STOP**. (2) The guard's
+(`helius`, `chainstack`), its line `<file> {"pid":<pid>,"iso":…}` (`JSON.stringify` of `{ pid, iso }`, `packages/rpc-guard/src/lock.ts:26`), then `pid <pid>: no process` (`ps -p` found no process with that pid; its exit status is to be read on its page before part 5, research of the review of lot 3c, n-6), else **STOP** (`pid <pid>: LIVE` after the process `ps` printed, or `<file>: no pid`). (2) The guard's
 locks: the served `unlock` of each operator, as `bell-collect` and NEVER as root (a root-owned ledger file would make the unit's next
 appends fail), the zero floor of `BELL_FLOORS`:
 
@@ -811,15 +811,15 @@ ssh -i ~/.ssh/monark_vps root@bell.monarkgate.tech 'systemctl is-active monark-b
 ```
 
 Expected: `T=<T>` and the archive's digest (JOURNAL). It holds no secret: the private timeline, the state keyring (public keys), the
-served tree and the status files; the key is under `/etc/monark/bell`, never in it. (3) A restoration, only if no line was published
-since the pair was taken (the timeline is append-only and signed: a restoration that drops a served line is a rewrite, which every
-mirror detects):
+served tree and the status files; the key is under `/etc/monark/bell`, never in it. (3) A restoration, only if nothing was written in
+the pair since it was taken: no line published (the timeline is append-only and signed: a restoration that drops a served line is a rewrite, which every mirror detects), no refusal recorded (a lost line of `refused.jsonl` makes a refused revision validated again) and no mark posed (a lost `start` is a mark removed, "Never");
+the guard compares the timeline and the three status files of the archive with the host's (dated 2026-10-15 19:2x UTC, review of lot 3c, m-2: it compared the timeline alone):
 
 ```bash
-ssh -i ~/.ssh/monark_vps root@bell.monarkgate.tech 'systemctl is-active monark-bell-collect.service | grep -qx -e inactive -e failed && systemctl is-active monark-bell-publish.service | grep -qx -e inactive -e failed && tar -xzOf /root/bell-pair-<T>.tar.gz monark-bell/timeline.jsonl | sha256sum && sha256sum < /var/lib/monark-bell/timeline.jsonl'
+ssh -i ~/.ssh/monark_vps root@bell.monarkgate.tech 'systemctl is-active monark-bell-collect.service | grep -qx -e inactive -e failed && systemctl is-active monark-bell-publish.service | grep -qx -e inactive -e failed && install -d -m 0700 /root/bell-pair-check-<T> && tar -C /root/bell-pair-check-<T> -xzf /root/bell-pair-<T>.tar.gz && for f in monark-bell/timeline.jsonl monark-bell-status/published.jsonl monark-bell-status/refused.jsonl monark-bell-status/start; do if [ ! -e "/root/bell-pair-check-<T>/$f" ] && [ ! -e "/var/lib/$f" ]; then echo "$f absent"; elif cmp -s "/root/bell-pair-check-<T>/$f" "/var/lib/$f"; then echo "$f same"; else echo "$f DIFFERS"; fi; done; rm -rf /root/bell-pair-check-<T>'
 ```
 
-Expected: two equal digests, else **STOP**: no restoration, escalation to the orchestrator. Then both together:
+Expected: four lines, each `<file> same`, or `<file> absent` for a status file that neither side holds yet (`published.jsonl` before the first publication, `refused.jsonl` before a refusal, `start` before the mark); a line `<file> DIFFERS` (a write since the pair, or a file on one side only, which `cmp -s` does not report equal: its exit statuses are to be read on its page before part 5, research of the review of lot 3c, n-6), or fewer than four lines, is a **STOP**: no restoration, escalation to the orchestrator. Then both together:
 
 ```bash
 ssh -i ~/.ssh/monark_vps root@bell.monarkgate.tech 'systemctl is-active monark-bell-collect.service | grep -qx -e inactive -e failed && systemctl is-active monark-bell-publish.service | grep -qx -e inactive -e failed && mv /var/lib/monark-bell /var/lib/monark-bell.aside-<T> && mv /var/lib/monark-bell-status /var/lib/monark-bell-status.aside-<T> && tar -C /var/lib -xzpf /root/bell-pair-<T>.tar.gz && stat -c "%a %U:%G %n" /var/lib/monark-bell /var/lib/monark-bell-status'
@@ -901,7 +901,7 @@ write, a register row beyond `lines[]` or not bound to its line); the storefront
   statuses), then step 11 (CA 12/12), `/bell/method` cites the new key, JOURNAL entry, then step 13 (the timeline copy) and
   step 13 bis (the timestamp of the key line, without `--immutables`: it bounds the instant of the rotation or revocation); between
   (R2) and (R5) check 3 (served == committed) is red and check 5 is not (declared window). (R2) and (R5) commit
-  `apps/bell/keys/bell-keyring.json`, the keyring the probe of part 4 reads (G0 DC-9, M-17): they are its update; the act that
+  `apps/bell/keys/bell-keyring.json`, the keyring the probe of part 4 will read (G0 DC-9, M-17): they will be its update; the act that
   carries it to the probe's host will be written with the probe (lot 4a);
   (R6) the timer starts again only if (R0) read it `active`:
   `ssh -i ~/.ssh/monark_vps root@bell.monarkgate.tech 'systemctl start monark-bell-collect.timer && systemctl is-active monark-bell-collect.timer'` -> `active`.
@@ -912,7 +912,7 @@ write, a register row beyond `lines[]` or not bound to its line); the storefront
   announced out of band (committed keyring, `/bell/method`, JOURNAL). Residual: the window before detection.
 - **Loss**: `key_rotation` with `continuity:"broken"`, accepted by verifiers ONLY because the new key is in the committed keyring
   (C-9); the break is reported, never hidden.
-- **Planned**: BELL-KEY-ROTATION-CAL-1 (90 days or an exposure event, trigger 2026-12-22).
+- **Planned**: BELL-KEY-ROTATION-CAL-1 (90 days or an exposure event, trigger 2026-12-22). **Dated line, 2026-10-15 19:2x UTC (review of lot 3c, m-1):** (R0) to (R6) as written here are the acts of the units of the trunk: they need lot 5b, step 1 (the group `bell-handoff` and the directories that the publisher unit's `ReadWritePaths=` and `InaccessiblePaths=` name, none with a `-`): on a host without them (R3) cannot run, a missing one failing the start before the job runs (step 6). The host already deployed (the `--inbox` unit of lot a, no collection) plays an exposure event, a loss, a compromise or the planned rotation from this section read at its deployed SHA, as steps 6 and 10 say; so does BELL-KEY-ROTATION-CAL-1 if its trigger comes before part 5.
 
 ## Never
 

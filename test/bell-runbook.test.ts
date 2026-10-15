@@ -15,7 +15,7 @@ import { tmpdir } from "node:os";
 import { join, posix } from "node:path";
 import { fileURLToPath } from "node:url";
 import { ATTEMPT_BUDGET, BELL_COLLECT_ENV_FILE, BELL_COLLECT_ENV_KEYS, BELL_COLLECT_SECRETS_DIR, BELL_COLLECT_TIMER, BELL_COLLECT_TREE_PATHS, BELL_COLLECT_UNIT,
-  BELL_LAYOUT, BELL_OPERATORS, BELL_PUBLISH_UNIT } from "../scripts/bell-deploy.mjs";
+  BELL_FLOORS, BELL_LAYOUT, BELL_OPERATORS, BELL_PUBLISH_UNIT } from "../scripts/bell-deploy.mjs";
 import { BELL_TREE_PATHS } from "../scripts/verify-bell.mjs";
 import { tickMain, type TickDeps } from "../apps/bell/src/tick.ts";
 import { nextTradingDay } from "../apps/bell/src/sessions.ts";
@@ -127,7 +127,7 @@ test("bell_runbook_stops_both_units_before_rotation", () => {
   assert.ok(restart > r5 && ki.slice(r5, restart).includes("(R6)"), "the timer starts again at (R6) only, after the verification (R5)");
   assert.ok(ki.includes("only if (R0) read it `active`"), "(R6): only a timer that ran before the rotation starts again");
   // The probe reads the committed keyring (G0 DC-9, M-17): (R2) and (R5) are its update.
-  assert.ok(ki.includes("the keyring the probe of part 4 reads (G0 DC-9, M-17)"), "the probe's keyring named at the rotation");
+  assert.ok(ki.includes("the keyring the probe of part 4 will read (G0 DC-9, M-17)"), "the probe's keyring named at the rotation (the probe is part 4's)");
   // The guard of the former R3 admitted a running oneshot (`activating` is not `active`): no such guard is left anywhere.
   assert.equal(/is-active[^']*"\s*!=\s*active/.test(read(RUNBOOK)), false, "no `!= active` guard");
   for (const bad of [IDLE(COLLECT), IDLE(PUBLISH)]) {
@@ -174,13 +174,13 @@ test("bell_runbook_unlocks_as_the_unit_user_never_root", () => {
   const s = section("## 17. "), jobs = jobsOf(s), rem = remotes(s);
   assert.ok(s !== "", "section 17: a lock left held");
   const col = serviceOf(BELL_COLLECT_UNIT), pub = serviceOf(BELL_PUBLISH_UNIT), root = one(col, "WorkingDirectory");
-  const ledger = one(col, "ExecStart").split(" ").at(-1) ?? "?";
-  assert.equal(ledger, `${L.collect.path}/ledger`, "the ledger root: the last value of the tick's argv (--ledger-dir)");
+  const ledger = one(col, "ExecStart").split(" ").at(-1) ?? "?", floors = [...new Set(BELL_OPERATORS.map((op) => Object.entries(BELL_FLOORS).find(([k]) => k === op)?.[1]))];
+  assert.deepEqual([ledger, floors.length, typeof floors[0]], [`${L.collect.path}/ledger`, 1, "number"], "the ledger root: the last value of the tick's argv (--ledger-dir); one floor of BELL_FLOORS for every operator of the loop");
   assert.deepEqual(jobs.map(kindOf), ["rpc-guard.mjs unlock", `rm ${L.state.path}/publish.lock`], "two releases, each a job");
   const [unlock, lock] = jobs;
   assert.deepEqual([unlock?.uid, unlock?.gid, lock?.uid, lock?.gid], [one(col, "User"), one(col, "Group"), one(pub, "User"), one(pub, "Group")], "each as its unit's user, never root");
-  assert.deepEqual(unlock?.argv, ["/usr/bin/env", "node", `${root}/${UNLOCK_TOOL}`, "--ledger-dir", ledger, "--floor", "0", "unlock", "--cycle", "$C", "--op", "$op",
-    "--reason", "runbook-lock-held-unlock"], "the served unlock of the tree, per operator, on the unit's ledger, the zero floor (BELL_FLOORS)");
+  assert.deepEqual(unlock?.argv, ["/usr/bin/env", "node", `${root}/${UNLOCK_TOOL}`, "--ledger-dir", ledger, "--floor", String(floors[0]), "unlock", "--cycle", "$C", "--op", "$op",
+    "--reason", "runbook-lock-held-unlock"], "the served unlock of the tree, per operator, on the unit's ledger, the floor of BELL_FLOORS");
   assert.ok(BELL_COLLECT_TREE_PATHS.includes(UNLOCK_TOOL), "the served CLI is in the collection's tree (no act runs a file absent from it)");
   // Each release runs inside a remote command that opens on the stop predicate: the guard's, the collection; publish.lock, both units.
   const holder = (j: Job | undefined): string => rem.find((r) => j !== undefined && r.includes(j.text)) ?? "";
@@ -189,11 +189,11 @@ test("bell_runbook_unlocks_as_the_unit_user_never_root", () => {
   // Never root: no unlock and no removal of a lock outside a job of the unit's user, in the whole RUNBOOK (prohibitions apart).
   const outside = (t: string): string[] => {
     const own = jobsOf(t).filter((j) => j.uid !== "" && j.uid !== "root" && j.uid !== "0"), rest = own.reduce((x, j) => x.split(j.text).join(""), t);
-    return [...rest.matchAll(/rpc-guard\.mjs [^'`]*\bunlock\b|\brm( +-[a-zA-Z]+)* +[^ ;&|'`]*\.lock\b/g)].map((m) => m[0]);
+    return [...rest.matchAll(/rpc-guard\.mjs [^'`]*\bunlock\b|\brm( +-[a-zA-Z]+)* +([^ ;&|'`]*\.lock\b|"?\$\{?\w+\}?"?)/g)].map((m) => m[0]);
   };
   assert.deepEqual(outside(acts()), [], "every unlock and every removal of a lock is a job of the unit's user");
   for (const bad of [`x '${IDLE(COLLECT)} && sudo -u bell-collect /usr/bin/env node ${root}/${UNLOCK_TOOL} --ledger-dir ${ledger} --floor 0 unlock --cycle c --op helius'`,
-    `x '${BOTH} && rm ${L.state.path}/publish.lock'`, `x '${BOTH} && systemd-run --wait --pipe --collect --uid=root --gid=root /usr/bin/env rm ${L.state.path}/publish.lock'`]) {
+    `x '${BOTH} && rm ${L.state.path}/publish.lock'`, `x '${BOTH} && systemd-run --wait --pipe --collect --uid=root --gid=root /usr/bin/env rm ${L.state.path}/publish.lock'`, `x '${BOTH} && P=${L.state.path}/publish.lock && rm -f "$P"'`]) {
     assert.ok(outside(bad).length > 0, `the check reddens on: ${bad.slice(0, 90)}`);
   }
 });
@@ -285,4 +285,24 @@ test("bell_runbook_abandon_act_records_reason_and_advances_once", async () => {
   assert.deepEqual([reason(b).length, existsSync(join(b.state, "state", "stalled.json")), readFileSync(join(b.state, "state", "progress.json"), "utf8")], [1, false, p2],
     "the reason recorded once, the record consumed, the progress never moved back");
   assert.deepEqual([await tickMain(argvOf(act, b.host), deps(true, t0 + 60_000)), err.at(-1)], [1, refusedLine], "abandoned once");
+});
+
+// killer: docs/RUNBOOK-bell.md:686 CONST "--status /var/lib/monark-bell-status'" -> "--status /var/lib/monark-bell'"
+test("bell_runbook_mark_rotation_and_rescue_are_the_closed_forms", () => {
+  // Review of lot 3c, m-5: the mark (section 16, irreversible) and the rotation (R3) run the closed forms of bell-publish.mjs (handoffForm:
+  // --handoff-start <D> --handoff <dir> --status <dir>; --rotate --state <dir>) on the directories of BELL_LAYOUT; the rescue of step 10
+  // reads the timer, stops it, and starts the publisher only behind the collection's stop predicate.
+  const jobs = jobsOf(acts()), pub = `${one(serviceOf(BELL_PUBLISH_UNIT), "WorkingDirectory")}/apps/bell/scripts/bell-publish.mjs`;
+  const text = (k: string): string => jobs.filter((j) => kindOf(j) === k).map((j) => j.text).join(" | ");
+  const argvOf = (t: string): string => jobsOf(`x '${t}'`).map((j) => j.argv.join(" ")).join(" | ");
+  const mark = text("bell-publish.mjs --handoff-start"), rotate = text("bell-publish.mjs --rotate");
+  const WANT = [`/usr/bin/env node ${pub} --handoff-start <mark> --handoff ${L.handoff.path} --status ${L.status.path}`, `/usr/bin/env node ${pub} --rotate --state ${L.state.path}`];
+  assert.deepEqual([argvOf(mark), argvOf(rotate)], WANT, "the mark and the rotation: one job each, the closed form on the directories of BELL_LAYOUT");
+  const ten = section("## 10. "), rescue = remotes(ten), RESCUE = `systemctl is-active ${TIMER}; systemctl stop ${TIMER}; if ${IDLE(COLLECT)}; then systemctl start ${PUBLISH}; `;
+  assert.deepEqual([ten !== "", rescue.length, (rescue[0] ?? "").startsWith(RESCUE)], [true, 1, true], "step 10: one remote command, the publisher started only behind the stop predicate");
+  for (const [t, from, to, want] of [[mark, `--status ${L.status.path}`, `--status ${L.state.path}`, WANT[0]], [rotate, `--state ${L.state.path}`, `--state ${L.status.path}`, WANT[1]],
+    [mark, " --handoff-start", ` --handoff ${L.handoff.path} --state ${L.state.path} --status ${L.status.path} --handoff-start`, WANT[0]]] as const) {
+    assert.equal(t.split(from).length === 2 && argvOf(t.replace(from, to)) !== want, true, `the check reddens on: ${from} -> ${to}`);
+  }
+  assert.equal((rescue[0] ?? "").replace(`if ${IDLE(COLLECT)};`, "if true;").startsWith(RESCUE), false, "the check reddens on a rescue without the predicate");
 });

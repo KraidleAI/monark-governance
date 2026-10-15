@@ -2,7 +2,7 @@
  * Root tests of the Bell collection deployment (G0 BELL-COLLECT-TIMER-1 DC-3, DC-4 and section 4 "P3", lot 3b; PLAN-P3 C3-1 to C3-3,
  * lot 3b-ii). Governance-only: deploy/ is not exported. The COMMITTED collection unit, its timer and the publisher unit it starts are
  * parsed and pinned (closed directive sets), bound to what they run (the closed argv of apps/bell/src/tick.ts, the import closure of the
- * tick, the constants of scripts/bell-deploy.mjs, the due instants of apps/bell/src/plan.ts), and the unit's own argv runs the REAL tick
+ * tick and of the guard's served CLI packages/rpc-guard/bin/rpc-guard.mjs (lot 3c), the constants of scripts/bell-deploy.mjs, the due instants of apps/bell/src/plan.ts), and the unit's own argv runs the REAL tick
  * of a tree materialized from BELL_COLLECT_TREE_PATHS up to its first network act (fetch trapped: no network), with an injected clock.
  * The full collection, its deposit and its publication are the composition test (apps/bell/test/bell-units-compose.test.ts). Calques:
  * test/dojo-collect-deploy.test.ts and test/dojo-publish-deploy.test.ts. Each test opens on exists(): before the lot, a named red (the
