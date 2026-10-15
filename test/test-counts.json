@@ -299,7 +299,7 @@
  "test/tracked-paths-case-fold.test.ts": 7,
  "test/u3-realized-param.test.ts": 12,
  "test/u3-realized.test.ts": 4,
- "test/verifier-tool-ci.test.ts": 8,
+ "test/verifier-tool-ci.test.ts": 10,
  "test/verifiers-list.test.ts": 12,
  "test/verify-bell.test.ts": 5,
  "test/verify-dojo.test.ts": 5,
