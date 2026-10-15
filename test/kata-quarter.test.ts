@@ -12,7 +12,7 @@ import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
 import { copyFileSync, cpSync, existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { basename, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { gitOut } from "./helpers/git-tracked.ts";
 import { ENTRY, TREES, git, linesOf, toolRepo, type Run, type ToolRepo } from "./helpers/kata-quarter-repo.ts";
@@ -499,18 +499,19 @@ test("sitecustomize_beside_kata_recalc_does_not_run - under the form, a sitecust
 // The passes of the count and the oracle acts (docs/G0-lot-cm5-c1c.md): each count is computed under fdlibm_log, which decides, and under
 // math.log, whose decisions that differ are printed with their number; `check <act>` writes a report named by its sha256 on synthetic series.
 const LOG = /^math\.log decisions that differ from the fdlibm_log pass, which decides: (\d+)$/m;
-type Log = { inputs: number; inputs_differing: number; decisions_differing: number };
-type Report = { equal: boolean; differences: string[]; result: { log?: Log } };
-/** check <act> args; the report it writes under out, which the line "report" must name by its sha256. */
-const act = (name: string, out: string, args: string[]): { r: Run; rep: Report | null; sha: string } => {
-  const r = tool().run(["check", name, ...args]), file = join(out, `${name}.json`), text = existsSync(file) ? readFileSync(file, "ascii") : "";
+type Log = { inputs: number; inputs_differing: number; decisions_differing: number; max_ulps: number };
+type Report = { equal: boolean; differences: string[]; inputs: unknown[]; result: { log?: Log; rows?: string[][]; math_log_decisions?: string[] } };
+/** check <act> args (from repo, by default the file's); the report it writes under out, which the line "report" must name by its sha256. */
+const act = (name: string, out: string, args: string[], repo = tool()): { r: Run; rep: Report | null; sha: string } => {
+  const r = repo.run(["check", name, ...args]), file = join(out, `${name}.json`), text = existsSync(file) ? readFileSync(file, "ascii") : "";
   const sha = createHash("sha256").update(text).digest("hex");
   assert.ok(text === "" || linesOf(r.stdout).includes(`report ${name}.json sha256 ${sha}`), `the line report names the bytes written\n${r.stdout}`);
   return { r, rep: text === "" ? null : (JSON.parse(text) as Report), sha };
 };
 
 // reddened by: the counts taken from the math.log pass, a decision that differs not printed, printed under the other pass or without
-// their number, or a census of the log that does not count the inputs on which the two logs differ
+// their number, a census of the log that does not count the inputs on which the two logs differ, or a report of fdlibm_measure that
+// does not list the changed decisions or the largest distance
 // killer: tools/kata-quarter/quarter_core.py:155 CONST "passes[\"ln\"], passes[\"base\"]" -> "passes[\"base\"], passes[\"ln\"]"
 // killer: tools/kata-quarter/quarter_core.py:160 CONST "not report.same_bits(host[x], memo[x])" -> "False"
 test("fdlibm_log_pass_decides - count runs under fdlibm_log and under math.log: on the fixture they decide alike; with the port moved by 1, every input of the log differs, each changed decision is printed with their number, and the counts are those of fdlibm_log", () => {
@@ -518,7 +519,7 @@ test("fdlibm_log_pass_decides - count runs under fdlibm_log and under math.log: 
   const [sealed, live] = [join(FIXTURE, "sealed"), join(FIXTURE, "live")], base = count(sealed, live, 1, [SYM]);
   assert.equal(base.r.status, 0, `count: exit 0\n${base.r.stdout}${base.r.stderr}`);
   assert.equal(LOG.exec(base.r.stdout)?.[1], "0", "on the fixture the two passes decide alike");
-  const moved = count(sealed, live, 1, [SYM], { repo: standIn("import fdlibm_log\n_ln = fdlibm_log.log\nfdlibm_log.log = lambda x: _ln(x) + 1.0") });
+  const port = (f: string): ToolRepo => standIn(`import fdlibm_log\n_ln = fdlibm_log.log\nfdlibm_log.log = lambda x: ${f}`), moved = count(sealed, live, 1, [SYM], { repo: port("_ln(x) + 1.0") });
   assert.equal(moved.r.status, 0, `count, the port moved: exit 0, nothing stops\n${moved.r.stdout}${moved.r.stderr}`);
   const listed = linesOf(moved.r.stdout).flatMap((l) => { const m = /^decision differs (\S+) \S+ \S+: fdlibm_log (\w+), math\.log (\w+)$/.exec(l); return m ? [m.slice(1)] : []; });
   assert.ok(listed.length > 0 && LOG.exec(moved.r.stdout)?.[1] === String(listed.length), "each changed decision printed, then their number");
@@ -528,10 +529,15 @@ test("fdlibm_log_pass_decides - count runs under fdlibm_log and under math.log: 
   assert.deepEqual(Object.fromEntries(moved.c.rows.map((x) => [x.task_class, [x.n_test, x.k_test, x.drops_label, x.out_input]])), want, "the counts of math.log moved by each listed decision");
   const log = (moved.c as unknown as { log: Log }).log;
   assert.ok(log.inputs > 0 && log.inputs_differing === log.inputs && log.decisions_differing === listed.length, `the census: every input differs\n${JSON.stringify(log)}`);
+  // killer: tools/kata-quarter/quarter_oracle.py:140 CONST "\"math_log_decisions\": res[\"differ\"]" -> "\"math_log_decisions\": []"
+  // killer: tools/kata-quarter/quarter_core.py:162 CONST "max((compare_p2.ulps(host[x], memo[x]) for x in apart), default=0)" -> "0"
+  const out = join(mkdtempSync(join(tmpdir(), "kata-quarter-measure-")), "m"), ma = act("fdlibm_measure", out, testBlock("m.json").args(out), port("_ln(x) * 1.25 if x > 1 else _ln(x)")), m = ma.rep?.result;
+  assert.ok(m?.log && m.log.decisions_differing > 0 && m.math_log_decisions?.length === m.log.decisions_differing && m.log.max_ulps > 0, `fdlibm_measure lists each changed decision and the largest distance\n${ma.r.stdout}${ma.r.stderr}`);
 });
 
-// reddened by: a pose at the original values that changes an output of kata_lib on the TEST block, or the first report read under
-// another pin, or not compared
+// reddened by: a pose at the original values that changes an output of kata_lib on the TEST block, the first report read under another
+// pin or not compared, a first report that is not the first invocation's, comes from other trees or holds a folder the second does not
+// read admitted, or a global of kata_lib changed in place under the pose admitted
 // killer: tools/kata-quarter/quarter_core.py:125 CONST "= rec_start, rec_end, blocks" -> "= rec_start + 3_600_000, rec_end, blocks"
 test("original_values_byte_equal - the first invocation reassigns nothing; the second poses kata_lib's three globals at their original values and reads the first's report under oracle-output, pinned: the outputs of build_bars, decision_times, window_at and labels_at on the TEST block are equal; the first report under another pin is refused by name", () => {
   assert.ok(existsSync(join(REPO, QUARTER, "quarter_oracle.py")), `${QUARTER}/quarter_oracle.py absent`);
@@ -545,14 +551,31 @@ test("original_values_byte_equal - the first invocation reassigns nothing; the s
   const other = act(name, join(work, "3"), [sealed, join(work, "3"), file, "0".repeat(64), spec]);
   assert.equal(other.r.status, 2, `the first report under another pin: exit 2\n${other.r.stdout}${other.r.stderr}`);
   assert.match(other.r.stdout, new RegExp(`^REFUSED: the first invocation's report refused before parsing: sha256 ${first.sha} differs from the pinned 0{64}$`, "m"));
+  // killer: tools/kata-quarter/quarter_oracle.py:83 CONST " or theirs[\"result\"].get(\"invocation\") != \"reassigns nothing\"" -> ""
+  const own = act(name, join(work, "4"), [sealed, join(work, "4"), join(work, "2", `${name}.json`), second.sha, spec]);
+  assert.match(`${own.r.status} ${own.r.stdout}`, /^2 REFUSED: the first report is not the report of the first invocation of original_values_byte_equal$/m, "the second's own report given as the first");
+  // killer: tools/kata-quarter/quarter_oracle.py:89 CONST " + [f\"{f}: not read here\" for f in sorted(set(t) - set(mine))]" -> ""
+  const two = join(work, "two"), alt = `alt:${sha256(join(sealed, SYM, SERIES))}`;
+  for (const f of [SYM, "alt"]) { mkdirSync(join(two, f), { recursive: true }); copyFileSync(join(sealed, SYM, SERIES), join(two, f, `${f}-15m.csv`)); copyFileSync(join(sealed, SYM, MISSING), join(two, f, MISSING)); }
+  const both = act(name, join(work, "5"), [two, join(work, "5"), "-", "-", spec, alt]), one = act(name, join(work, "6"), [two, join(work, "6"), join(work, "5", `${name}.json`), both.sha, spec]);
+  assert.deepEqual([both.r.status, one.r.status, one.rep?.differences], [0, 1, ["alt: not read here"]], "a folder of the first report that the second does not read");
+  // killer: tools/kata-quarter/quarter_oracle.py:81 CONST "if C.kata_lib_state() != before:" -> "if False:"
+  const inPlace = standIn("_bars = K.build_bars\n\n\ndef _build(candles, h_ms):\n    K.SCALE_KATAS.append(\"posed\")\n    return _bars(candles, h_ms)\n\n\nK.build_bars = _build");
+  const moved = act(name, join(work, "7"), [sealed, join(work, "7"), file, first.sha, spec], inPlace);
+  assert.match(`${moved.r.status} ${moved.r.stdout}`, /^2 REFUSED: kata_lib's globals are not those before the pose: the pose not restored, or a global changed in place$/m, "a global changed in place under the pose");
+  // killer: tools/kata-quarter/quarter_oracle.py:85 CONST "if theirs.get(\"identity\") != dict(zip(IDENT, ident)):" -> "if False:"
+  const elsewhere = act(name, join(work, "8"), [sealed, join(work, "8"), file, first.sha, spec], standIn("# another tree"));
+  assert.match(`${elsewhere.r.status} ${elsewhere.r.stdout}`, /^2 REFUSED: the first report names another commit or other trees than this invocation's line identity$/m, "a first report of other trees");
 });
 
 /** The TEST block of wave 1 on a made series (hourly closes 100 and 101 in turn, as in k_test_exact_on_a_made_series) and a registry of
- *  its three region rows at qhat 0.9 whose test fields are worked out from it; change(rows) edits that registry. */
+ *  its three region rows at qhat 0.9 and a silence row at qhat 0 (every point a miss), whose test fields are worked out from it; UT, the
+ *  UTest of 1464 misses of 4392, is binom_exact.miss_upper_bound(4392, 1464, "0.05") run apart from the tool. change(rows) edits it. */
 const TEST_S = Date.UTC(2026, 3, 1), TEST_E = Date.UTC(2026, 9, 1), GRID = Array.from({ length: 4392 }, (_, i) => TEST_S + i * H);
-const odd = (t: number): boolean => Math.floor(t / H) % 2 === 1, fac = (t: number): number => ((t / H + 72) % 168) % 3, MAE = GRID.filter((t) => !odd(t) && fac(t) < 2).length;
+const odd = (t: number): boolean => Math.floor(t / H) % 2 === 1, fac = (t: number): number => ((t / H + 72) % 168) % 3;
 type RegRow = { taskClass: string; test: { UTest: string | null; kTest: number; months: Record<string, { n: number; k: number }> } };
-const testBlock = (name: string, change: (rows: RegRow[]) => void = () => undefined): { args: (out: string) => string[] } => {
+const UT = "0.3452271";
+const testBlock = (name: string, change: (rows: RegRow[]) => void = () => undefined): { args: (out: string) => string[]; reg: string; sealed: string } => {
   const work = mkdtempSync(join(tmpdir(), "kata-quarter-test-block-")), header = linesOf(fixtureOf("live").csv)[0], rows: string[] = [];
   for (let t = TEST_S - 404 * H; t < TEST_E; t += 900_000) rows.push(`${iso(t)},${t},${odd(t) === (t % H === 0) ? 100 : 101},101.1,99.8,${odd(t) ? 101 : 100},1,${t + 899_999},100,1,0.5,50`);
   put(join(work, "sealed"), SYM, { text: `${header}\n${rows.join("\n")}\n`, missing: { count: 0, missing: [] } });
@@ -561,34 +584,42 @@ const testBlock = (name: string, change: (rows: RegRow[]) => void = () => undefi
     for (const t of GRID) { const o = (m[iso(t).slice(0, 7)] ??= { n: 0, k: 0 }); o.n += 1; o.k += Number(miss(t)); }
     return m;
   };
-  const test = (miss: ((t: number) => boolean) | null) => ({ nTest: miss ? 4392 : 0, kTest: miss ? GRID.filter(miss).length : 0, UTest: null, vetoed: miss !== null, months: miss ? months(miss) : {} });
+  const test = (miss: ((t: number) => boolean) | null, region: boolean) => ({ nTest: miss ? 4392 : 0, kTest: miss ? GRID.filter(miss).length : 0,
+    UTest: miss ? (GRID.every(miss) ? "1" : UT) : null, vetoed: miss !== null && region, months: miss ? months(miss) : {} });
   const reg = regWith(work, name, (rs) => {
-    const out = rs.slice(0, 3).map((x, i) => ({ ...x, calib: { qhat: 0.9, status: "region" }, drops: { test: 0 }, test: test([(t: number) => fac(t) === 0, null, (t: number) => !odd(t) && fac(t) < 2][i] ?? null) }));
+    const out = rs.slice(0, 4).map((x, i) => ({ ...x, calib: { qhat: i < 3 ? 0.9 : 0, status: i < 3 ? "region" : "silence" }, drops: { test: 0 },
+      test: test([(t: number) => fac(t) === 0, null, (t: number) => !odd(t) && fac(t) < 2, () => true][i] ?? null, i < 3) }));
     change(out as unknown as RegRow[]);
     return out;
   });
-  return { args: (out) => [reg, sha256(reg), join(work, "sealed"), out, `${SYM}:${sha256(join(work, "sealed", SYM, SERIES))}`] };
+  return { reg, sealed: join(work, "sealed"), args: (out) => [reg, sha256(reg), join(work, "sealed"), out, `${SYM}:${sha256(join(work, "sealed", SYM, SERIES))}`] };
 };
 
-// reddened by: a field of the count on the TEST block off the registry (nTest, kTest, test.months, drops.test, UTest, vetoed) admitted, or
-// one equal reported as a difference: drops.test held to anything but the label drops; or fdlibm_measure judging what it only measures
-// killer: tools/kata-quarter/quarter_oracle.py:108 CONST "\"drops.test\": got[\"drops_label\"]" -> "\"drops.test\": got[\"out_input\"]"
-// killer: tools/kata-quarter/quarter_oracle.py:133 CONST "[] if name == ACTS[3]" -> "[] if False"
-test("equals_registry_on_test_block - on the TEST block of a made series the count gives the registry's nTest, kTest, test.months, drops.test and vetoed; UTest, absent there, is the only difference until written; a kTest changed is named, exit 1; fdlibm_measure reports the same census of the log, exit 0", () => {
+// reddened by: a field of the count on the TEST block off the registry (nTest, kTest, test.months, drops.test, UTest worked out apart from
+// the tool, its "1" when every point misses, vetoed by the calibration status) admitted, or one equal reported as a difference; a row
+// with a qhat left out of the comparison or of result.rows; the inputs not noted in the report; or fdlibm_measure judging what it measures
+// killer: tools/kata-quarter/quarter_oracle.py:113 CONST "\"drops.test\": got[\"drops_label\"]" -> "\"drops.test\": got[\"out_input\"]"
+// killer: tools/kata-quarter/quarter_oracle.py:113 CONST "\"months\": got[\"months\"], " -> ""
+// killer: tools/kata-quarter/quarter_oracle.py:104 CONST "E.miss_upper_bound(n, k, recalc_p2.DELTA)" -> "E.miss_upper_bound(n, k, \"0.10\")"
+// killer: tools/kata-quarter/quarter_oracle.py:104 CONST "\"1\" if k == n else " -> ""
+// killer: tools/kata-quarter/quarter_oracle.py:114 CONST "r[\"calib\"][\"status\"] == \"region\" and " -> ""
+// killer: tools/kata-quarter/quarter_core.py:38 CONST "or r[\"calib\"][\"qhat\"] is None:" -> "or r[\"calib\"][\"qhat\"] is None or r[\"horizon\"] == \"4h\":"
+// killer: tools/kata-quarter/quarter_oracle.py:144 CONST "[[d[\"role\"], d[\"name\"], d[\"sha256\"], d[\"bytes\"]] for d in io_guard.inputs()]" -> "[]"
+// killer: tools/kata-quarter/quarter_oracle.py:138 CONST "[] if name == ACTS[3]" -> "[] if False"
+test("equals_registry_on_test_block - on the TEST block of a made series the count gives the registry's nTest, kTest, test.months, drops.test, UTest and vetoed for its four rows with a qhat, a silence row whose every point misses among them, each named in the report with the inputs read; a month, a kTest and a UTest changed are named, exit 1; fdlibm_measure reports the same census of the log, exit 0", () => {
   assert.ok(existsSync(join(REPO, QUARTER, "quarter_oracle.py")), `${QUARTER}/quarter_oracle.py absent`);
-  const name = "equals_registry_on_test_block", work = mkdtempSync(join(tmpdir(), "kata-quarter-l-o1-")), b = testBlock("null.json");
-  const first = act(name, join(work, "1"), b.args(join(work, "1")));
-  assert.equal(first.r.status, 1, `UTest null in the registry: exit 1\n${first.r.stdout}${first.r.stderr}`);
-  const u = (first.rep?.differences ?? []).map((d) => /^(syn-\S+) \S+ UTest: tool "(0\.\d{7})", registry null$/.exec(d)?.slice(1) ?? []);
-  assert.deepEqual(u.map((x) => x[0]), ["syn-range-1h", "syn-mae-down-1h"], `the only differences: UTest of the two rows with points\n${first.r.stdout}`);
-  const ut: Record<string, string> = Object.fromEntries(u.map(([c, v]): [string, string] => [String(c), String(v)])), set = (rows: RegRow[]): void => { for (const x of rows) x.test.UTest = ut[x.taskClass] ?? null; };
-  const ok = act(name, join(work, "2"), testBlock("ut.json", set).args(join(work, "2")));
+  const name = "equals_registry_on_test_block", work = mkdtempSync(join(tmpdir(), "kata-quarter-l-o1-")), b = testBlock("ok.json"), ok = act(name, join(work, "1"), b.args(join(work, "1")));
   assert.equal(ok.r.status, 0, `every field equal: exit 0\n${ok.r.stdout}${ok.r.stderr}`);
-  assert.deepEqual([ok.rep?.equal, linesOf(ok.r.stdout).at(-2)], [true, "VERDICT: GREEN"]);
-  const k = testBlock("k.json", (rows) => { set(rows); const m = rows[2]; if (m) m.test.kTest += 1; }), bad = act(name, join(work, "3"), k.args(join(work, "3")));
-  assert.equal(bad.r.status, 1, `kTest changed: exit 1\n${bad.r.stdout}`);
-  assert.deepEqual(bad.rep?.differences.map((d) => d.replace(/ kata:\S+/, "")), [`syn-mae-down-1h kTest: tool ${MAE}, registry ${MAE + 1}`]);
-  const measure = act("fdlibm_measure", join(work, "4"), b.args(join(work, "4")));
+  assert.deepEqual([ok.rep?.equal, linesOf(ok.r.stdout).at(-2), ok.rep?.result.rows?.map(([c]) => c)], [true, "VERDICT: GREEN", ["syn-range-1h", "syn-range-4h", "syn-mae-down-1h", "syn-mae-up-1h"]]);
+  const noted = (role: string, p: string): unknown[] => [role, basename(p), sha256(p), readFileSync(p).length];
+  assert.deepEqual(ok.rep?.inputs.filter((i) => Array.isArray(i) && i[0] !== "tool-tree"), [noted("recorder", join(b.sealed, SYM, MISSING)), noted("registry", b.reg), noted("series", join(b.sealed, SYM, SERIES))], "the inputs read, noted");
+  const bad = act(name, join(work, "2"), testBlock("k.json", (rows) => {
+    const [a, , m, u] = rows, may = a?.test.months["2026-05"];
+    if (may && m && u) { may.k += 1; m.test.kTest += 1; u.test.UTest = UT; }
+  }).args(join(work, "2")));
+  assert.equal(bad.r.status, 1, `a month, a kTest and a UTest changed: exit 1\n${bad.r.stdout}`);
+  assert.deepEqual(bad.rep?.differences.map((d) => /^(\S+) \S+ (\S+):/.exec(d)?.slice(1).join(" ")), ["syn-range-1h months", "syn-mae-down-1h kTest", "syn-mae-up-1h UTest"]);
+  const measure = act("fdlibm_measure", join(work, "3"), b.args(join(work, "3")));
   assert.equal(measure.r.status, 0, `fdlibm_measure: exit 0\n${measure.r.stdout}${measure.r.stderr}`);
   assert.ok((measure.rep?.result.log?.inputs ?? 0) > 0, "the inputs of the log counted");
   assert.deepEqual(measure.rep?.result.log, ok.rep?.result.log, "the census of the TEST block, as the act on the registry counts it");

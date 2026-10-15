@@ -6,13 +6,13 @@
 # difference is not explained: listed, the report written, exit 1; exit 0 only when every field is equal. The acts:
 #   original_values_byte_equal: two invocations. The first reassigns nothing and reads each series as the frozen tool reads it; the
 #     second poses kata_lib's three globals at their original values (quarter_core.posed, the pose of count), and reads the first's
-#     report under the role oracle-output, refused unless its sha256 is the pin given. Each names by its sha256 the outputs of build_bars,
-#     decision_times, window_at (each W of kata_lib) and labels_at on the TEST block, by symbol and horizon: equal, or a difference.
+#     report under oracle-output, refused unless its sha256 is the pin given and its identity this one's. Each names the outputs of build_bars,
+#     decision_times, window_at (each W) and labels_at on the TEST block by their sha256, by symbol and horizon: equal, or a difference.
 #   equals_registry_on_test_block: the count on the TEST block (pose at its bounds) against the registry: nTest, kTest, test.months,
 #     drops.test (the label drops only, plan l.421), UTest and vetoed (written as recalc_p2.calibrate_cell writes them), for every band and
-#     path row that has a qhat.
+#     path row that has a qhat, whatever its status, each named in result.rows.
 #   pseudo_quarter_2026_07_09: the count on [2026-07-01, 2026-10-01) against the sum of the months 2026-07 to 2026-09 of test.months.
-#   fdlibm_measure: the count on the TEST block; its report holds the census of the two logs and the decisions that differ.
+#   fdlibm_measure: the count on the TEST block; its report holds the census of the two logs on POPULATION and the decisions that differ.
 # The runs on the host's real series are MONARK's; the tests run every act on synthetic series.
 import hashlib
 import json
@@ -37,6 +37,9 @@ FORMAT = "kata-quarter-oracle-v1"
 RULE = ("report.py l.9-13: each field compared is a decision, held by strict equality; the count of the fdlibm_log pass decides, the "
         "decisions of the math.log pass that differ are listed and stop nothing")
 PSEUDO, MONTHS = (K.utc_ms(2026, 7, 1), K.utc_ms(2026, 10, 1)), ("2026-07", "2026-08", "2026-09")
+IDENT = ("commit", "kata_recalc_tree_sha256", "kata_quarter_manifest_sha256")
+POPULATION = ("the inputs of the port on this tool's own path, the scale kata and the labels of the rows compared on the block counted; "
+              "not the census of report.run_passes over the 280 cells (report.py l.14-15), which this one does not replace")
 
 
 def hex64(a):
@@ -65,7 +68,7 @@ def outputs(candles):
     return out
 
 
-def original(sealed, pins, first):
+def original(sealed, pins, first, ident):
     """original_values_byte_equal: the first invocation (first None) or the second, which poses and compares."""
     if first is None:
         return {"invocation": "reassigns nothing", "outputs": {f: outputs(recalc_p2.load_series(sealed, f, p)[0]) for f, p in pins.items()}}, []
@@ -79,6 +82,8 @@ def original(sealed, pins, first):
         raise Q.Refused("kata_lib's globals are not those before the pose: the pose not restored, or a global changed in place")
     if theirs.get("format") != FORMAT or theirs.get("act") != ACTS[0] or theirs["result"].get("invocation") != "reassigns nothing":
         raise Q.Refused("the first report is not the report of the first invocation of original_values_byte_equal")
+    if theirs.get("identity") != dict(zip(IDENT, ident)):
+        raise Q.Refused("the first report names another commit or other trees than this invocation's line identity")
     t = theirs["result"]["outputs"]
     diffs = [f"{f} {h} {k}: posed {v}, reassigned nothing {t.get(f, {}).get(h, {}).get(k)}" for f in mine for h in mine[f]
              for k, v in mine[f][h].items() if v != t.get(f, {}).get(h, {}).get(k)] + [f"{f}: not read here" for f in sorted(set(t) - set(mine))]
@@ -125,16 +130,17 @@ def act(name, args, identity_line):
     if name == ACTS[0]:
         sealed, out, first, pins = os.path.abspath(args[0]), os.path.abspath(args[1]), None if args[2] == "-" else (os.path.abspath(args[2]), args[3]), specs(args[4:])
         io_guard.output(out)
-        result, diffs = original(sealed, pins, first)
+        result, diffs = original(sealed, pins, first, ident)
     else:
         registry, pin, sealed, out, pins = os.path.abspath(args[0]), args[1], os.path.abspath(args[2]), os.path.abspath(args[3]), specs(args[4:])
         io_guard.output(out)
         rows, res = counted(registry, pin, sealed, pins, PSEUDO if name == ACTS[2] else K.BLOCKS["TEST"])
         diffs = [] if name == ACTS[3] else against(rows, res, name)
-        result = {"registry_sha256": pin, "log": res["log"], "pose": res["pose"], "grid": res["grid"], "math_log_decisions": res["differ"]}
+        result = {"registry_sha256": pin, "rows": [[r["taskClass"], r["key"]] for r, _, _ in rows], "log": res["log"], "population": POPULATION,
+                  "pose": res["pose"], "grid": res["grid"], "math_log_decisions": res["differ"]}
     if not os.path.isdir(out):
         os.mkdir(out)
-    rep = {"format": FORMAT, "act": name, "identity": dict(zip(("commit", "kata_recalc_tree_sha256", "kata_quarter_manifest_sha256"), ident)),
+    rep = {"format": FORMAT, "act": name, "identity": dict(zip(IDENT, ident)),
            "inputs": [[d["role"], d["name"], d["sha256"], d["bytes"]] for d in io_guard.inputs()], "rule": RULE, "result": result,
            "differences": diffs, "equal": not diffs}
     text = report.canonical(rep)
