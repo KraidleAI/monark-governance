@@ -3636,10 +3636,12 @@
   "test_count_job_runs_test_main_then_the_check"
  ],
  "test/test-count-floor.test.ts": [
+  "test_count_floor_refuses_a_file_that_imports_itself_from_a_test_body",
   "test_count_floor_refuses_a_file_whose_process_ended_before_it_reported",
   "test_count_floor_refuses_a_file_whose_tests_another_test_file_ran",
   "test_count_floor_refuses_a_nested_test_run_and_a_file_that_runs_twice_in_its_own_process",
   "test_counts_reporter_counts_each_test_of_each_file",
+  "test_counts_reporter_keeps_each_test_site_and_depth_and_the_floor_refuses_one_site_at_two_depths",
   "test_counts_reporter_keys_a_linked_file_by_its_real_path",
   "test_counts_reporter_keys_each_event_by_the_process_that_sent_it",
   "test_main_loads_the_counts_reporter_and_the_export_ships_it"

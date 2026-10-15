@@ -10,6 +10,9 @@
  * T9 a test file that another test file imports: its tests run in both processes, and P1 refuses it. T10 the process of each event
  * (data.entryFile): a nested node:test run (a worker, or a child that writes to the file's output) neither ends the outer file's report nor
  * makes one for its module, and T11 P1 refuses that module and a file that runs twice in its own process (two tests of one full name).
+ * T12 the sites (per test, its declaration site, the depth it was reported at and its own name) on events, and P1's rule on them: one site
+ * reported at two depths under one name; T13 a real run of a file that imports itself from a test body or a suite body: its second instance
+ * declares the same sites one depth down, under full names that repeat none, and P1 refuses it.
  */
 import { test } from "node:test";
 import assert from "node:assert/strict";
@@ -41,9 +44,9 @@ test("test_counts_reporter_counts_each_test_of_each_file", async () => {
   // killer: scripts/test-counts-reporter.mjs:21 CONST ".slice(0, data.nesting), data.name].join(\" > \")" -> ".slice(0, 0), data.name].join(\" > \")"
   // killer: scripts/test-counts-reporter.mjs:23 CONST "else if (type === \"test:start\")" -> "else if (false)"
   // killer: scripts/test-counts-reporter.mjs:25 CONST "names: c.names.sort()" -> "names: c.names"
-  assert.deepEqual(Object.entries(JSON.parse(out) as Run), [["", { tests: 1, summary: false, names: ["loose"] }], ["apps/y/test/y.test.ts", { tests: 1, summary: false, names: ["todo"] }],
-    ["x.test.ts", { tests: 4, summary: true, names: ["a describe > in it", "z parent", "z parent", "z parent > child"] }]],
-  "each test at any depth, a failure, a skip and a todo included and a describe not, under its file relative to the cwd, sorted; a test without a file under \"\"; the own summary noted, the run's summary ignored; each test named after the tests and suites that hold it, a name twice kept twice, the names sorted");
+  assert.deepEqual(Object.entries(JSON.parse(out) as Run), [["", { tests: 1, summary: false, names: ["loose"], sites: [[null, 0, "loose"]] }], ["apps/y/test/y.test.ts", { tests: 1, summary: false, names: ["todo"], sites: [[null, 0, "todo"]] }],
+    ["x.test.ts", { tests: 4, summary: true, names: ["a describe > in it", "z parent", "z parent", "z parent > child"], sites: [[null, 1, "child"], [null, 0, "z parent"], [null, 1, "in it"], [null, 0, "z parent"]] }]],
+  "each test at any depth, a failure, a skip and a todo included and a describe not, under its file relative to the cwd, sorted; a test without a file under \"\"; the own summary noted, the run's summary ignored; each test named after the tests and suites that hold it, a name twice kept twice, the names sorted; its site (null: these events name none), its depth and its own name, in the order reported");
   assert.deepEqual(Object.entries(readRun(out)).map(([f, c]) => [f, c.tests]), [["", 1], ["apps/y/test/y.test.ts", 1], ["x.test.ts", 4]], "readRun reads the reporter's output");
   // killer: scripts/test-count-floor.mjs:14 CONST "Number.isInteger(c?.tests) && " -> ""
   // killer: scripts/test-count-floor.mjs:15 CONST " && c.names.length === c.tests" -> ""
@@ -67,10 +70,10 @@ test("test_count_floor_refuses_a_file_whose_process_ended_before_it_reported", (
     const reporter = pathToFileURL(join(ROOT, "scripts", "test-counts-reporter.mjs")).href, tests = Object.keys(files).filter((f) => f.endsWith(".test.mjs"));
     const nested = node(["--test", `--test-reporter=${reporter}`, `--test-reporter-destination=${RUN}`, ...tests]), ran = existsSync(join(dir, RUN)) ? JSON.parse(readFileSync(join(dir, RUN), "utf8")) as Run : null;
     // killer: scripts/test-counts-reporter.mjs:25 CONST "c.summary && c.foreign > 0 ?" -> "c.foreign > 0 ?"
-    assert.deepEqual([nested.status, ran], [0, { "a.test.mjs": { tests: 3, summary: true, names: ["one", "two", "two > in two"] }, "b.test.mjs": { tests: 1, summary: false, names: ["b.test.mjs"] },
-      "c.test.mjs": { tests: 1, summary: false, names: ["c.test.mjs"] }, "d.test.mjs": { tests: 1, summary: false, names: ["d.test.mjs"] },
-      "declare.mjs": { tests: 1, summary: false, names: ["declared by a module"] }, "e.test.mjs": { tests: 1, summary: true, names: ["one"] } }],
-    `the nested run exits with 0, as each of its processes (${nested.stderr}); b and c exit at load (3 tests declared, and 1), d declares none, e has one declared by a module: each but a and e is one test under its name, with no summary; a subtest is named after its parent`);
+    assert.deepEqual([nested.status, ran], [0, { "a.test.mjs": { tests: 3, summary: true, names: ["one", "two", "two > in two"], sites: [["2:1", 0, "one"], ["3:36", 1, "in two"], ["3:1", 0, "two"]] }, "b.test.mjs": { tests: 1, summary: false, names: ["b.test.mjs"], sites: [["1:1", 0, "b.test.mjs"]] },
+      "c.test.mjs": { tests: 1, summary: false, names: ["c.test.mjs"], sites: [["1:1", 0, "c.test.mjs"]] }, "d.test.mjs": { tests: 1, summary: false, names: ["d.test.mjs"], sites: [["1:1", 0, "d.test.mjs"]] },
+      "declare.mjs": { tests: 1, summary: false, names: ["declared by a module"], sites: [["2:1", 0, "declared by a module"]] }, "e.test.mjs": { tests: 1, summary: true, names: ["one"], sites: [["3:1", 0, "one"]] } }],
+    `the nested run exits with 0, as each of its processes (${nested.stderr}); b and c exit at load (3 tests declared, and 1), d declares none, e has one declared by a module: each but a and e is one test under its name, with no summary, at the site 1:1; a subtest is named after its parent, its site the column of its call`);
     const run = readRun(readFileSync(join(dir, RUN), "utf8"));
     assert.deepEqual(runProblems(run), ["b.test.mjs", "c.test.mjs", "d.test.mjs", "declare.mjs"].map((f) => own(f, 1)), "P1 names each file without a report of its own, the module included");
     // killer: scripts/test-count-floor.mjs:22 CONST "if (f === \"\") return" -> "if (false) return"
@@ -117,8 +120,8 @@ test("test_counts_reporter_keys_a_linked_file_by_its_real_path", () => {
     symlinkSync(join(dir, "real"), join(dir, "lnk"), "junction"); // a junction under Windows (no privilege), a symbolic link elsewhere
     const r = spawnSync(process.execPath, ["--test", `--test-reporter=${reporter}`, `--test-reporter-destination=${RUN}`, join("lnk", "a.test.mjs")], { cwd: dir, encoding: "utf8", env: { ...process.env, NODE_TEST_CONTEXT: undefined } });
     const ran = existsSync(join(dir, RUN)) ? JSON.parse(readFileSync(join(dir, RUN), "utf8")) as unknown : null;
-    assert.deepEqual([r.status, ran], [0, { "real/a.test.mjs": { tests: 2, summary: true, names: ["one", "two"] } }],
-      `a test file launched through a directory link is one key, its real path, with its tests, its summary and its names (${r.stderr})`);
+    assert.deepEqual([r.status, ran], [0, { "real/a.test.mjs": { tests: 2, summary: true, names: ["one", "two"], sites: [["2:1", 0, "one"], ["3:1", 0, "two"]] } }],
+      `a test file launched through a directory link is one key, its real path, with its tests, its summary, its names and its sites (${r.stderr})`);
   } finally {
     rmSync(dir, { recursive: true, force: true });
   }
@@ -133,12 +136,12 @@ test("test_count_floor_refuses_a_file_whose_tests_another_test_file_ran", async 
   const pass = (file: string, name: string) => ({ type: "test:pass", data: { file, name, nesting: 0, details: t } }), summary = (file: string) => ({ type: "test:summary", data: { file, counts: {} } });
   let out = ""; // c's process runs b's test (c imports b), then b's own process runs it again
   for await (const chunk of testCounts([pass(b, "one"), pass(c, "own"), summary(c), pass(b, "one"), summary(b)])) out += chunk;
-  assert.deepEqual(JSON.parse(out), { "b.test.ts": { tests: 2, summary: true, names: ["one", "one"], foreign: 1 }, "c.test.ts": { tests: 1, summary: true, names: ["own"] } },
+  assert.deepEqual(JSON.parse(out), { "b.test.ts": { tests: 2, summary: true, names: ["one", "one"], foreign: 1, sites: [[null, 0, "one"], [null, 0, "one"]] }, "c.test.ts": { tests: 1, summary: true, names: ["own"], sites: [[null, 0, "own"]] } },
     "a test is credited to the file that declares it; one reported in another file's process counts as foreign on its own file, written when above 0");
   // killer: scripts/test-counts-reporter.mjs:22 CONST " || r.summary) r.foreign++" -> ") r.foreign++"
   out = ""; // one file run twice (a link to it is the same real path): its second process repeats its tests
   for await (const chunk of testCounts([pass(b, "one"), summary(b), pass(b, "one"), summary(b)])) out += chunk;
-  assert.deepEqual(JSON.parse(out), { "b.test.ts": { tests: 2, summary: true, names: ["one", "one"], foreign: 1 } }, "a file summed up twice: the tests of its second process count as foreign");
+  assert.deepEqual(JSON.parse(out), { "b.test.ts": { tests: 2, summary: true, names: ["one", "one"], foreign: 1, sites: [[null, 0, "one"], [null, 0, "one"]] } }, "a file summed up twice: the tests of its second process count as foreign");
   const dir = mkdtempSync(join(tmpdir(), "tci-")), floor = join(ROOT, "scripts", "test-count-floor.mjs"), reporter = pathToFileURL(join(ROOT, "scripts", "test-counts-reporter.mjs")).href;
   const node = (args: string[]) => spawnSync(process.execPath, args, { cwd: dir, encoding: "utf8", env: { ...process.env, NODE_TEST_CONTEXT: undefined } });
   try {
@@ -148,8 +151,8 @@ test("test_count_floor_refuses_a_file_whose_tests_another_test_file_ran", async 
     for (const [f, text] of Object.entries(files)) writeFileSync(join(dir, f), text);
     mkdirSync(join(dir, "test"));
     const nested = node(["--test", `--test-reporter=${reporter}`, `--test-reporter-destination=${RUN}`, ...Object.keys(files)]), ran = existsSync(join(dir, RUN)) ? JSON.parse(readFileSync(join(dir, RUN), "utf8")) as unknown : null;
-    assert.deepEqual([nested.status, ran], [0, { "a.test.mjs": { tests: 1, summary: true, names: ["one"] }, "b.test.mjs": { tests: 4, summary: true, names: ["formats", "formats", "rejects", "rejects"], foreign: 2 },
-      "c.test.mjs": { tests: 1, summary: true, names: ["uses the helper"] } }], `c imports a helper of b: b's two tests run in c's process as well, and count as foreign on b (${nested.stderr})`);
+    assert.deepEqual([nested.status, ran], [0, { "a.test.mjs": { tests: 1, summary: true, names: ["one"], sites: [["2:1", 0, "one"]] }, "b.test.mjs": { tests: 4, summary: true, names: ["formats", "formats", "rejects", "rejects"], foreign: 2, sites: [["3:1", 0, "rejects"], ["4:1", 0, "formats"], ["3:1", 0, "rejects"], ["4:1", 0, "formats"]] },
+      "c.test.mjs": { tests: 1, summary: true, names: ["uses the helper"], sites: [["3:1", 0, "uses the helper"]] } }], `c imports a helper of b: b's two tests run in c's process as well, and count as foreign on b, at the same sites and depth (${nested.stderr})`);
     const twice = "b.test.mjs: 2 of its test(s) also ran in another process: a test file imports it (move what they share to a module that declares no test), or it runs twice";
     assert.deepEqual(runProblems(readRun(readFileSync(join(dir, RUN), "utf8"))), [twice], "P1 names the imported file");
     const refused = node([floor, "write"]);
@@ -170,12 +173,12 @@ test("test_counts_reporter_keys_each_event_by_the_process_that_sent_it", async (
   const summary = (file: string, entryFile: string) => ({ type: "test:summary", data: { file, counts: {}, entryFile } }); // entryFile: the test file whose process sent the event
   const run = async (events: { type: string; data: unknown }[]): Promise<unknown> => { let out = ""; for await (const chunk of testCounts(events)) out += chunk; return JSON.parse(out); };
   assert.deepEqual(await run([pass(c, "first", c), pass(w, "fixture", c), summary(w, c), pass(c, "runs the fixture", c), summary(c, c)]),
-    { "c.test.ts": { tests: 2, summary: true, names: ["first", "runs the fixture"] }, "test/fixtures/w.mjs": { tests: 1, summary: false, names: ["fixture"] } },
+    { "c.test.ts": { tests: 2, summary: true, names: ["first", "runs the fixture"], sites: [[null, 0, "first"], [null, 0, "runs the fixture"]] }, "test/fixtures/w.mjs": { tests: 1, summary: false, names: ["fixture"], sites: [[null, 0, "fixture"]] } },
     "c runs a module's node:test root in a worker, or in a child that writes to c's output: that root's summary, sent through c's process, neither ends c's report nor is the module's own");
   for (const events of [[pass(b, "one", c), pass(c, "own", c), summary(c, c), pass(b, "one", b), summary(b, b)], [pass(b, "one", b), summary(b, b), pass(b, "one", c), pass(c, "own", c), summary(c, c)]])
-    assert.deepEqual(await run(events), { "b.test.ts": { tests: 2, summary: true, names: ["one", "one"], foreign: 1 }, "c.test.ts": { tests: 1, summary: true, names: ["own"] } },
+    assert.deepEqual(await run(events), { "b.test.ts": { tests: 2, summary: true, names: ["one", "one"], foreign: 1, sites: [[null, 0, "one"], [null, 0, "one"]] }, "c.test.ts": { tests: 1, summary: true, names: ["own"], sites: [[null, 0, "own"]] } },
       "c imports b: b's test sent through c's process counts as foreign on b, whichever process reports first");
-  assert.deepEqual(await run([pass(b, "one", b), summary(b, b), pass(b, "one", b), summary(b, b)]), { "b.test.ts": { tests: 2, summary: true, names: ["one", "one"], foreign: 1 } },
+  assert.deepEqual(await run([pass(b, "one", b), summary(b, b), pass(b, "one", b), summary(b, b)]), { "b.test.ts": { tests: 2, summary: true, names: ["one", "one"], foreign: 1, sites: [[null, 0, "one"], [null, 0, "one"]] } },
     "b run twice, each time by its own process: the tests after its first summary count as foreign");
 });
 
@@ -194,9 +197,9 @@ test("test_count_floor_refuses_a_nested_test_run_and_a_file_that_runs_twice_in_i
     for (const [f, text] of Object.entries(files)) writeFileSync(join(dir, f), text);
     mkdirSync(join(dir, "test"));
     const nested = node(["--test", `--test-reporter=${reporter}`, `--test-reporter-destination=${RUN}`, "a.test.mjs", "b.test.mjs", "c.test.mjs"]), ran = existsSync(join(dir, RUN)) ? JSON.parse(readFileSync(join(dir, RUN), "utf8")) as unknown : null;
-    assert.deepEqual([nested.status, ran], [0, { "a.test.mjs": { tests: 1, summary: true, names: ["one"] }, "b.test.mjs": { tests: 4, summary: true, names: ["formats", "formats", "rejects", "rejects"] },
-      "c.test.mjs": { tests: 2, summary: true, names: ["first", "runs the fixture in a worker"] }, "w.mjs": { tests: 1, summary: false, names: ["fixture"] } }],
-    `b imports itself with a query: its tests run twice in its own process, nothing foreign; c runs w's node:test root in a worker: c keeps its two tests, w has no report of its own (${nested.stderr})`);
+    assert.deepEqual([nested.status, ran], [0, { "a.test.mjs": { tests: 1, summary: true, names: ["one"], sites: [["2:1", 0, "one"]] }, "b.test.mjs": { tests: 4, summary: true, names: ["formats", "formats", "rejects", "rejects"], sites: [["3:1", 0, "rejects"], ["4:1", 0, "formats"], ["3:1", 0, "rejects"], ["4:1", 0, "formats"]] },
+      "c.test.mjs": { tests: 2, summary: true, names: ["first", "runs the fixture in a worker"], sites: [["3:1", 0, "first"], ["4:1", 0, "runs the fixture in a worker"]] }, "w.mjs": { tests: 1, summary: false, names: ["fixture"], sites: [["2:1", 0, "fixture"]] } }],
+    `b imports itself with a query at top level: its tests run twice in its own process, at the same sites and depth, nothing foreign; c runs w's node:test root in a worker: c keeps its two tests, w has no report of its own (${nested.stderr})`);
     assert.deepEqual(runProblems(readRun(readFileSync(join(dir, RUN), "utf8"))), [twice("b.test.mjs", 2), own("w.mjs")], "P1 names the file that ran twice and the nested module, not c");
     const refused = node([floor, "write"]);
     assert.deepEqual([refused.status, refused.stderr.trim(), existsSync(join(dir, RECORD))], [1, `::error::${twice("b.test.mjs", 2)}\n::error::${own("w.mjs")}`, false], "write refuses that run: exit 1, nothing written");
@@ -206,4 +209,66 @@ test("test_count_floor_refuses_a_nested_test_run_and_a_file_that_runs_twice_in_i
   assert.deepEqual([runProblems({ "x.test.ts": { tests: 3, summary: true, names: ["a", "b", "a"] } }), runProblems({ "x.test.ts": { tests: 2, summary: true, names: ["a", "a"], foreign: 1 } })],
     [[twice("x.test.ts", 1)], ["x.test.ts: 1 of its test(s) also ran in another process: a test file imports it (move what they share to a module that declares no test), or it runs twice"]],
     "two tests of one full name: P1 names the file; a file whose tests another process ran too is named for that first");
+});
+
+const DEPTHS = (f: string, n: number): string => `${f}: ${n} of its declaration site(s) reported at more than one nesting depth under one name: the file runs twice in its own process, the second time inside a test or a suite (it imports itself, e.g. with a query string, from a test body), or one helper of it declares the same tests at the top level and inside a suite, or a test declares a subtest of itself, recursively (declare each once)`;
+// killer: scripts/test-counts-reporter.mjs:24 CONST "of(data.file).sites.push(site(data))" -> "void 0"
+// killer: scripts/test-counts-reporter.mjs:16 CONST "data.nesting, data.name" -> "0, data.name"
+// killer: scripts/test-counts-reporter.mjs:26 CONST "c.sites = files.get(f).sites" -> "void 0"
+// killer: scripts/test-count-floor.mjs:20 CONST "p.length > 0 ? p : depths(e)" -> "p"
+// killer: scripts/test-count-floor.mjs:64 CONST "c.sites === undefined" -> "true"
+// killer: scripts/test-count-floor.mjs:65 CONST "c.sites.every(entry)" -> "true"
+// killer: scripts/test-count-floor.mjs:65 CONST "c.sites.length === c.tests && " -> ""
+// killer: scripts/test-count-floor.mjs:67 CONST "if (site !== null) " -> ""
+// killer: scripts/test-count-floor.mjs:67 CONST "seen.get(k) ?? new Set()" -> "new Set()"
+// killer: scripts/test-count-floor.mjs:68 CONST "d.size > 1" -> "d.size > 0"
+test("test_counts_reporter_keeps_each_test_site_and_depth_and_the_floor_refuses_one_site_at_two_depths", async () => {
+  const at = (f: string): string => join(process.cwd(), f), t = { type: "test" }, x = at("x.test.ts"), y = at("y.test.ts");
+  const start = (file: string, name: string, nesting: number) => ({ type: "test:start", data: { file, name, nesting } });
+  const pass = (file: string, name: string, nesting: number, line?: number, column?: number) => ({ type: "test:pass", data: { file, name, nesting, line, column, details: t } });
+  const summary = (file: string) => ({ type: "test:summary", data: { file, counts: {} } });
+  // x: a second instance of the file, loaded inside holder, declares n at the same site one depth down; y: a subtest named as its parent, at another column, and a test m at two depths that the runner gives no site
+  const events = [start(x, "n", 0), pass(x, "n", 0, 3, 1), start(x, "holder", 0), start(x, "n", 1), pass(x, "n", 1, 3, 1), pass(x, "holder", 0, 5, 1), summary(x),
+    start(y, "x", 0), start(y, "x", 1), pass(y, "x", 1, 4, 34), pass(y, "x", 0, 4, 1), start(y, "m", 0), pass(y, "m", 0), start(y, "k", 0), start(y, "m", 1), pass(y, "m", 1), pass(y, "k", 0, 7, 1), summary(y)];
+  let out = "";
+  for await (const chunk of testCounts(events)) out += chunk;
+  assert.deepEqual(JSON.parse(out), { "x.test.ts": { tests: 3, summary: true, names: ["holder", "holder > n", "n"], sites: [["3:1", 0, "n"], ["3:1", 1, "n"], ["5:1", 0, "holder"]] },
+    "y.test.ts": { tests: 5, summary: true, names: ["k", "k > m", "m", "x", "x > x"], sites: [["4:34", 1, "x"], ["4:1", 0, "x"], [null, 0, "m"], [null, 1, "m"], ["7:1", 0, "k"]] } },
+  "sites: per test, its declaration site as line:column (null when the runner gives none), the depth it was reported at and its own name, in the order reported");
+  assert.deepEqual(runProblems(readRun(out)), [DEPTHS("x.test.ts", 1)], "P1 names the file whose site 3:1 is reported under n at the depths 0 and 1; not y: its x > x sits at another site than x, and m has no site");
+  const z = (sites: unknown): Run => ({ "z.test.ts": { tests: 2, summary: true, names: ["a", "b"], sites: sites as [string | null, number, string][] } });
+  const shape = `z.test.ts: its sites are not one [ "<line>:<column>", depth, name ] per test: not a run of the reporter (npm run test:main writes it)`;
+  assert.deepEqual([[["1:1", 0, "a"]], [["1:1", 0], ["1:1", 0, "b"]], [["1:1", 0, "a"], [1, 0, "b"]], [["1:1", -1, "a"], ["1:1", 0, "b"]], [["1:1", 0, "a"], ["1:1", 0, 2]], "x"].map((s) => runProblems(z(s))),
+    Array.from({ length: 6 }, () => [shape]), "sites of another shape than one [site, depth, name] per test: P1 names the file");
+  assert.deepEqual([runProblems(z(undefined)), runProblems(z([["1:1", 0, "a"], [null, 1, "a"]]))], [[], []], "a run without sites (an older reporter's) has none to read; a test without a site is at no depth");
+  const both = { tests: 2, summary: true, names: ["a", "a"], sites: [["1:1", 0, "a"], ["1:1", 1, "a"]] } as Run[string];
+  assert.deepEqual([runProblems({ "z.test.ts": { ...both, foreign: 1 } }), runProblems({ "z.test.ts": both })],
+    [["z.test.ts: 1 of its test(s) also ran in another process: a test file imports it (move what they share to a module that declares no test), or it runs twice"], ["z.test.ts: 1 of its test(s) repeat a full name of the file: two of its tests share a name (name each apart), or the file runs twice in its own process (it imports itself, e.g. with a query string)"]],
+    "one problem per file, the first that applies: foreign, then a repeated full name, then a site at two depths");
+});
+
+// killer: scripts/test-counts-reporter.mjs:16 CONST "${data.line}:${data.column}" -> "${data.line}"
+// killer: scripts/test-counts-reporter.mjs:14 CONST ", sites: []" -> ", sites: [[null, 0, \"\"]]"
+// killer: scripts/test-count-floor.mjs:69 CONST "n > 0 ?" -> "false ?"
+test("test_count_floor_refuses_a_file_that_imports_itself_from_a_test_body", () => {
+  const dir = mkdtempSync(join(tmpdir(), "tcs-")), floor = join(ROOT, "scripts", "test-count-floor.mjs"), reporter = pathToFileURL(join(ROOT, "scripts", "test-counts-reporter.mjs")).href;
+  const node = (args: string[]) => spawnSync(process.execPath, args, { cwd: dir, encoding: "utf8", env: { ...process.env, NODE_TEST_CONTEXT: undefined } });
+  try {
+    const h = 'import { test } from "node:test";\n', files: Record<string, string> = {
+      "b.test.mjs": `${h}test("rejects", () => {});\ntest("formats", () => {});\ntest("x", async () => { if (!import.meta.url.includes("?")) await import("./b.test.mjs?again"); });\n`,
+      "d.test.mjs": `import { test, describe } from "node:test";\ntest("one", () => {});\ndescribe("y", async () => { if (!import.meta.url.includes("?")) await import("./d.test.mjs?again"); });\n`,
+      "e.test.mjs": `${h}test("two", async (s) => { await s.test("in two", () => {}); });\ntest("x", async (t) => { await t.test("x", () => {}); });\n` };
+    for (const [f, text] of Object.entries(files)) writeFileSync(join(dir, f), text);
+    mkdirSync(join(dir, "test"));
+    const run = node(["--test", `--test-reporter=${reporter}`, `--test-reporter-destination=${RUN}`, ...Object.keys(files)]), ran = existsSync(join(dir, RUN)) ? JSON.parse(readFileSync(join(dir, RUN), "utf8")) as unknown : null;
+    assert.deepEqual([run.status, ran], [0, { "b.test.mjs": { tests: 6, summary: true, names: ["formats", "rejects", "x", "x > formats", "x > rejects", "x > x"], sites: [["2:1", 0, "rejects"], ["3:1", 0, "formats"], ["2:1", 1, "rejects"], ["3:1", 1, "formats"], ["4:1", 1, "x"], ["4:1", 0, "x"]] },
+      "d.test.mjs": { tests: 2, summary: true, names: ["one", "y > one"], sites: [["2:1", 0, "one"], ["2:1", 1, "one"]] },
+      "e.test.mjs": { tests: 4, summary: true, names: ["two", "two > in two", "x", "x > x"], sites: [["2:36", 1, "in two"], ["2:1", 0, "two"], ["3:34", 1, "x"], ["3:1", 0, "x"]] } }],
+    `b imports itself with a query from the body of its test x, d from the body of its suite y: the second instance's tests nest there, at the same sites one depth down, under full names that repeat none, nothing foreign; e's subtest x sits at another column than its parent x (${run.stderr})`);
+    assert.deepEqual(runProblems(readRun(readFileSync(join(dir, RUN), "utf8"))), [DEPTHS("b.test.mjs", 3), DEPTHS("d.test.mjs", 1)], "P1 names b (rejects, formats and x, each at the depths 0 and 1) and d (one), not e");
+    const refused = node([floor, "write"]);
+    assert.deepEqual([refused.status, refused.stderr.trim(), existsSync(join(dir, RECORD))], [1, `::error::${DEPTHS("b.test.mjs", 3)}\n::error::${DEPTHS("d.test.mjs", 1)}`, false], "write refuses that run: exit 1, nothing written");
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
 });
