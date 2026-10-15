@@ -112,7 +112,7 @@ const progressOf = (h: Host): Obj => readJson(join(h.state, "state", "progress.j
 const attemptsPath = (h: Host): string => join(h.state, "state", "attempts.json");
 const lastErr = (h: Host): string => h.err.at(-1) ?? "";
 
-// killer: apps/bell/src/tick.ts:107 CONST "!form.includes(k) || " -> ""
+// killer: apps/bell/src/tick.ts:109 CONST "!form.includes(k) || " -> ""
 test("bell_tick_refuses_unknown_argv", async () => {
   const h = host(), t = tickArgv(h);
   const bad = [[], ["--tick"], ["--tock", ...t.slice(1)], [...t, "--extra"], [...t, "--state", h.state], t.slice(0, -1), t.map((x) => (x === "--status" ? "--Status" : x)),
@@ -125,7 +125,7 @@ test("bell_tick_refuses_unknown_argv", async () => {
   assert.deepEqual([cli.status, cli.stdout, cli.stderr.startsWith("bell/tick: refused usage: ")], [64, "", true], `the command line exits 64: ${cli.stderr}`);
 });
 
-// killer: apps/bell/src/tick.ts:364 CONST "existsSync(p)" -> "false"
+// killer: apps/bell/src/tick.ts:395 CONST "existsSync(p)" -> "false"
 test("bell_tick_seed_refuses_when_progress_exists", async () => {
   const h = host(), p = join(h.state, "state", "progress.json");
   assert.equal(await run(h, ["--seed", D, "--state", h.state]), 0);
@@ -136,7 +136,7 @@ test("bell_tick_seed_refuses_when_progress_exists", async () => {
   assert.deepEqual([readFileSync(p, "utf8"), h.nows], [before, 0], "never overwritten; the seed reads no clock");
 });
 
-// killer: apps/bell/src/tick.ts:314 CONST "existsSync(bundle) && existsSync(manifestPath)" -> "false"
+// killer: apps/bell/src/tick.ts:344 CONST "existsSync(bundle) && existsSync(manifestPath)" -> "false"
 test("bell_tick_is_idempotent", async () => {
   const h = await seeded(), name = `unit-${D}`;
   assert.equal(await run(h, tickArgv(h)), 0);
@@ -151,7 +151,7 @@ test("bell_tick_is_idempotent", async () => {
   assert.deepEqual([h.calls.length, progressOf(h), readdirSync(h.handoff).sort()], [BELL_UNIVERSE.length, p, [name, `${name}.manifest`]], "no call, the same progress");
 });
 
-// killer: apps/bell/src/tick.ts:356 CONST "renameSync(tmp, bundle);" -> "advance(o.state, progress, u.d, name, manifest); renameSync(tmp, bundle);"
+// killer: apps/bell/src/tick.ts:387 CONST "renameSync(tmp, bundle);" -> "advance(o.state, progress, u.d, name, manifest); renameSync(tmp, bundle);"
 test("bell_tick_progress_moves_only_after_the_bundle_rename", async () => {
   // A directory unit-<D> already in the handoff, NOT empty and without its manifest: the tick runs, then the rename of .tmp-unit-<D> onto it
   // fails (win32: EPERM on any existing directory; POSIX rename(2): ENOTEMPTY or EEXIST on a non-empty one, an empty one would be replaced).
@@ -164,7 +164,7 @@ test("bell_tick_progress_moves_only_after_the_bundle_rename", async () => {
   assert.deepEqual(readdirSync(join(h.handoff, `.tmp-${name}`)).sort(), [...BELL_UNIVERSE].sort(), "the runs stay in the temporary directory");
 });
 
-// killer: apps/bell/src/tick.ts:313 CONST "e.startsWith(\".tmp-unit-\")" -> "false"
+// killer: apps/bell/src/tick.ts:343 CONST "e.startsWith(\".tmp-unit-\")" -> "false"
 test("bell_tick_removes_an_orphan_tmp", async () => {
   const h = await seeded(), orphan = join(h.handoff, `.tmp-unit-${D}`), older = join(h.handoff, ".tmp-unit-2026-10-01");
   mkdirSync(join(orphan, "TSLAx"), { recursive: true }); writeFileSync(join(orphan, "TSLAx", "state.json"), "{}"); writeFileSync(join(orphan, "stray.json"), "{}");
@@ -174,7 +174,7 @@ test("bell_tick_removes_an_orphan_tmp", async () => {
   assert.deepEqual(readdirSync(join(h.handoff, `unit-${D}`)).sort(), [...BELL_UNIVERSE].sort(), "nothing of the orphan entered the bundle");
 });
 
-// killer: apps/bell/src/tick.ts:346 CONST "first !== undefined" -> "false"
+// killer: apps/bell/src/tick.ts:377 CONST "first !== undefined" -> "false"
 test("bell_tick_quarantines_refused_bundle_and_next_tick_proceeds", async () => {
   const h = await seeded(), q = join(h.state, "quarantine", D);
   assert.equal(await run(h, tickArgv(h), { runUnit: writes((r, mint) => { if (mint === "AAPLx") residual(r, "no_adv", 1); }) }), 1);
@@ -188,7 +188,7 @@ test("bell_tick_quarantines_refused_bundle_and_next_tick_proceeds", async () => 
   assert.deepEqual([progressOf(h).last_unit, readJson(attemptsPath(h))], [D, { [D]: 3 }]);
 });
 
-// killer: apps/bell/src/tick.ts:394 CONST "? 64 : 1" -> "? 64 : 0"
+// killer: apps/bell/src/tick.ts:427 CONST "? 64 : 1" -> "? 64 : 0"
 test("bell_tick_exits_nonzero_on_every_named_refusal", async () => {
   const seen = new Map<string, number>();
   const note = async (h: Host, p: Promise<number>): Promise<void> => {
@@ -229,7 +229,7 @@ test("bell_tick_exits_nonzero_on_every_named_refusal", async () => {
   assert.deepEqual([...seen].filter(([c, x]) => x !== (c === "usage" ? 64 : 1)), [], "usage exits 64, every other refusal 1, never 0");
 });
 
-// killer: apps/bell/src/tick.ts:311 CONST "plan.kind === \"nothing_due\"" -> "false"
+// killer: apps/bell/src/tick.ts:341 CONST "plan.kind === \"nothing_due\"" -> "false"
 test("bell_tick_unit_is_due_only_after_end_and_gates", async () => {
   const h = await seeded(), saturday16 = etWallClockToUtcMs(2026, 10, 3, 16, 0, 0);
   for (const now of [saturday16, DUE - 1]) assert.equal(await run(h, tickArgv(h), { now }), 0);
@@ -240,7 +240,7 @@ test("bell_tick_unit_is_due_only_after_end_and_gates", async () => {
   assert.deepEqual(h.calls, BELL_UNIVERSE.map((mint) => ({ mint, window, maxPages: BELL_RUN_CAPS.maxPages })), "one run per mint on the unit's window");
 });
 
-// killer: apps/bell/src/tick.ts:316 CONST "key = u.d" -> "key = String(now)"
+// killer: apps/bell/src/tick.ts:346 CONST "key = u.d" -> "key = String(now)"
 test("bell_tick_attempt_budget_is_keyed_on_unit_start", async () => {
   const h = await seeded();
   for (const now of [DUE, DUE + 12 * HOUR + 15 * 60_000, DUE + 25 * HOUR]) assert.equal(await run(h, tickArgv(h), { now, runUnit: refusing("close_ref_pending") }), 1);
@@ -256,7 +256,7 @@ test("bell_tick_stalls_by_name_after_budget", async () => {
   assert.deepEqual([h.calls.length, lastErr(h)], [8, `bell/tick: refused stalled_unit: unit-${D} after ${String(ATTEMPT_BUDGET)} attempts; abandon it by act`], "the 9th is not");
 });
 
-// killer: apps/bell/src/tick.ts:121 CONST "[!-~]{8,}" -> "[!-~]*"
+// killer: apps/bell/src/tick.ts:123 CONST "[!-~]{8,}" -> "[!-~]*"
 test("bell_tick_refuses_missing_or_malformed_billing_env", async () => {
   const h = await seeded(), cases: Array<[string, string | undefined, string]> = [];
   for (const k of BELL_COLLECT_ENV_KEYS) cases.push([k, undefined, "env_missing"], [k, "", "env_malformed"]);
@@ -272,7 +272,7 @@ test("bell_tick_refuses_missing_or_malformed_billing_env", async () => {
   assert.equal(await run(h, tickArgv(h)), 0, "the complete environment passes");
 });
 
-// killer: apps/bell/src/tick.ts:306 CONST "!(deps.clockSynced ?? UNSYNCED)()" -> "false"
+// killer: apps/bell/src/tick.ts:328 CONST "!(deps.clockSynced ?? UNSYNCED)()" -> "false"
 test("bell_tick_refuses_clock_unsynced", async () => {
   const h = await seeded();
   assert.equal(await run(h, tickArgv(h), { probe: "default" }), 1, "the default probe answers unsynced");
@@ -283,7 +283,7 @@ test("bell_tick_refuses_clock_unsynced", async () => {
   assert.deepEqual([h.probes, h.nows], [2, 1], "one probe and one clock read per tick");
 });
 
-// killer: apps/bell/src/tick.ts:388 CONST "KEY_SHAPES.some((re) => re.test(s)) || " -> ""
+// killer: apps/bell/src/tick.ts:421 CONST "KEY_SHAPES.some((re) => re.test(s)) || " -> ""
 test("bell_tick_never_prints_urls_or_keys", async () => {
   const h = await seeded(), secrets = [ENV.BELL_SOLANA_RPC, HKEY, ENV.CHAINSTACK_SOLANA_URL, ENV.DATABENTO_API_KEY, ENV.POLYGON_API_KEY].map(String);
   const leaks: RunUnit[] = [refusing("budget_stop", `HTTP 429 from ${secrets[0] ?? ""}`), refusing("lock_held", `held for ${HKEY}`),
@@ -298,7 +298,7 @@ test("bell_tick_never_prints_urls_or_keys", async () => {
   for (const l of lines) assert.ok(!KEY_SHAPES.some((re) => re.test(l)) && secrets.every((s) => !l.includes(s)), `no url, no key: ${l}`);
 });
 
-// killer: apps/bell/src/tick.ts:373 CONST " || (readAttempts(o.state)[o.d] ?? 0) < ATTEMPT_BUDGET" -> ""
+// killer: apps/bell/src/tick.ts:404 CONST " || (readAttempts(o.state)[o.d] ?? 0) < ATTEMPT_BUDGET" -> ""
 test("bell_tick_abandon_writes_tombstone_and_advances_once", async () => {
   const h = await seeded(), t = `unit-${D}.abandoned`, jl = join(h.state, "state", "abandoned.jsonl");
   for (let i = 0; i < 7; i++) await run(h, tickArgv(h), { now: DUE + i * HOUR, runUnit: refusing("close_ref_missing") });
@@ -311,7 +311,7 @@ test("bell_tick_abandon_writes_tombstone_and_advances_once", async () => {
   assert.deepEqual([JSON.parse(body), readManifest(man)], [{ unit: D, reason: "close_ref_missing" }, [{ sha256: sha256Hex(body), path: t }]], "the tombstone and its manifest");
   assert.deepEqual(progressOf(h), { seed: D, last_unit: D, bundle: t, manifest_sha256: sha256Hex(man) });
   assert.equal(await run(h, abandonArgv(h)), 1, "advanced once");
-  assert.equal(readFileSync(jl, "utf8"), `${JSON.stringify({ unit: D, reason: "close_ref_missing" })}\n`, "one reason line");
+  assert.equal(readFileSync(jl, "utf8"), `${JSON.stringify({ unit: D, reason: "close_ref_missing", abandoned_at: new Date(DUE).toISOString() })}\n`, "one reason line, the act's instant (C3-8)");
   assert.equal(await run(h, tickArgv(h), { now: DUE + 9 * HOUR }), 0);
   assert.match(h.out.at(-1) ?? "", /^bell\/tick: nothing_due unit-2026-10-05 /, "the tick goes on with the next unit");
 });
@@ -369,7 +369,7 @@ function importClosure(root: string, entry: string): { rel: string[]; problems: 
   return { rel: [...seen].map((f) => relative(root, f).split(sep).join("/")).sort(), problems };
 }
 
-// killer: apps/bell/src/tick.ts:31 CONST "bell-validate.mjs" -> "bell-publish.mjs"
+// killer: apps/bell/src/tick.ts:32 CONST "bell-validate.mjs" -> "bell-publish.mjs"
 test("bell_tick_closure_excludes_the_publisher", () => {
   // The closure follows relative imports AND @monark/* package imports, resolved through <root>/packages/*/package.json (its exports).
   const { rel, problems } = importClosure(REPO, TICK);
@@ -381,7 +381,7 @@ test("bell_tick_closure_excludes_the_publisher", () => {
   // Every environment read of tick.ts, by its reader: checkEnv (presence and shape), cyclesOf and sharesOf (the anchor and share keys
   // built by keyOf, never a credential), the narrowed environment (the only one a stage receives) and creds (the values withheld from
   // every printed line). A read anywhere else, or by a dotted name, is a new reader of a key: named here, never silent.
-  // killer: apps/bell/src/tick.ts:187 CONST "readCashKeys(env)" -> "readCashKeys({ DATABENTO_API_KEY: env[\"DATABENTO_API_KEY\"] })"
+  // killer: apps/bell/src/tick.ts:189 CONST "readCashKeys(env)" -> "readCashKeys({ DATABENTO_API_KEY: env[\"DATABENTO_API_KEY\"] })"
   let owner = "";
   const sites = codeLines(readFileSync(TICK, "utf8")).flatMap((l) => {
     owner = /^(?:export )?(?:async )?(?:function|const) (\w+)/.exec(l)?.[1] ?? owner;
@@ -404,7 +404,7 @@ test("bell_tick_closure_excludes_the_publisher", () => {
       "packages/p/src/a.ts reads process.env"] }, "the package is followed and every forbidden form is named");
 });
 
-// killer: apps/bell/src/tick.ts:86 CONST "export const UNSYNCED = (): boolean => false;" -> "export const UNSYNCED = (): boolean => false && 1\n  * Number(process.env.HOME) > 0;"
+// killer: apps/bell/src/tick.ts:88 CONST "export const UNSYNCED = (): boolean => false;" -> "export const UNSYNCED = (): boolean => false && 1\n  * Number(process.env.HOME) > 0;"
 test("bell_tick_closure_reads_a_code_line_that_starts_with_a_star", () => {
   const t = tmp("bell-closure-star-"), w = (p: string, s: string): void => { mkdirSync(dirname(join(t, p)), { recursive: true }); writeFileSync(join(t, p), s); };
   w("packages/.keep", "");
@@ -458,7 +458,7 @@ const reqOf = (over: Partial<RunUnitRequest> = {}): RunUnitRequest => ({ mint: "
 const flagOf = (argv: readonly string[], k: string): string | undefined => argv[argv.indexOf(k) + 1];
 const ledgerLines = (p: string): Obj[] => (existsSync(p) ? readFileSync(p, "utf8").split("\n").filter((l) => l !== "").map((l) => JSON.parse(l) as Obj) : []);
 
-// killer: apps/bell/src/tick.ts:141 CONST "nowMs + TICK_TIMEOUT_START_SEC * 1000 >= " -> "nowMs >= "
+// killer: apps/bell/src/tick.ts:143 CONST "nowMs + TICK_TIMEOUT_START_SEC * 1000 >= " -> "nowMs >= "
 test("bell_tick_derives_cycle_per_operator_and_refuses_straddle", async () => {
   assert.equal(typeof deploy.TICK_TIMEOUT_START_SEC, "number", "the declared bound of a tick's run time (TimeoutStartSec)");
   const T = deploy.TICK_TIMEOUT_START_SEC * 1000, HB = Date.UTC(2026, 9, 19), CB = Date.UTC(2026, 9, 19, 2); // the next starts: 00:00Z and 04:00+02:00
@@ -481,7 +481,7 @@ test("bell_tick_derives_cycle_per_operator_and_refuses_straddle", async () => {
   assert.deepEqual([lastErr(hu), existsSync(attemptsPath(hu))], ["bell/tick: refused cycle_unknown: chainstack: cycle: the instant precedes the anchor", false], "no cycle before the anchor");
 });
 
-// killer: apps/bell/src/tick.ts:155 CONST "\"--shares\", kv(sharesOf(req.env, operators)), \"--floor\", kv(pick(BELL_FLOORS, operators))" -> "\"--floor\", kv(sharesOf(req.env, operators))"
+// killer: apps/bell/src/tick.ts:157 CONST "\"--shares\", kv(sharesOf(req.env, operators)), \"--floor\", kv(pick(BELL_FLOORS, operators))" -> "\"--floor\", kv(sharesOf(req.env, operators))"
 test("bell_tick_stops_cleanly_at_its_declared_share", async () => {
   const h = await seeded(), led = (op: "helius" | "chainstack"): string => join(h.root, "ledger", CYCLES[op], `${op}.jsonl`);
   const [code, heliusCalls] = await withRpc(async (hosts) => [await runReal(h, { env: { ...RPC_ENV, HELIUS_CYCLE_SHARE: "1" } }), hosts.filter((x) => x === HELIUS_HOST).length]);
@@ -510,7 +510,7 @@ test("bell_tick_passes_floor_zero_and_its_share", () => {
   assert.deepEqual([p.floors, p.shares, p.opCycles, p.operators], [{ helius: 0, chainstack: 0 }, { helius: 100000, chainstack: 50000 }, CYCLES, ["helius", "chainstack"]], "runMain's parser reads them back");
 });
 
-// killer: apps/bell/src/tick.ts:148 CONST "operators.map((op) => [op, Number(env[keyOf(op, \"SHARE\")])])" -> "BELL_OPERATORS.map((op) => [op, Number(env[keyOf(op, \"SHARE\")])])"
+// killer: apps/bell/src/tick.ts:150 CONST "operators.map((op) => [op, Number(env[keyOf(op, \"SHARE\")])])" -> "BELL_OPERATORS.map((op) => [op, Number(env[keyOf(op, \"SHARE\")])])"
 test("bell_tick_builds_cycle_share_from_requested_operators_only", async () => {
   assert.equal(typeof tickMod.unitArgv, "function");
   const h = host(), out = join(h.root, "out-helius"), ledgerDir = join(h.root, "ledger");
@@ -525,7 +525,7 @@ test("bell_tick_builds_cycle_share_from_requested_operators_only", async () => {
   assert.equal(existsSync(join(ledgerDir, "helius-2026-09-19", "helius.lock")), false, "refused before any lock");
 });
 
-// killer: apps/bell/src/tick.ts:213 CONST "? \"share_exhausted\" : \"budget_stop\"" -> "? \"budget_stop\" : \"share_exhausted\""
+// killer: apps/bell/src/tick.ts:215 CONST "? \"share_exhausted\" : \"budget_stop\"" -> "? \"budget_stop\" : \"share_exhausted\""
 test("bell_tick_renders_guard_errors_by_name", async () => {
   const cases: Array<[Error, string]> = [[guardStop("cycle_share"), "bell/tick: refused share_exhausted: rpc-guard: cycle_share (fail-closed)"],
     [guardStop("run_calls"), "bell/tick: refused budget_stop: rpc-guard: run_calls (fail-closed)"],
@@ -545,7 +545,7 @@ test("bell_tick_renders_guard_errors_by_name", async () => {
   assert.deepEqual([existsSync(join(held, "helius.lock")), existsSync(join(h.root, "ledger", CYCLES.chainstack, "chainstack.lock"))], [true, false], "the held lock is another's; ours is rolled back");
 });
 
-// killer: apps/bell/src/tick.ts:332 CONST "env: narrowed" -> "env: deps.env"
+// killer: apps/bell/src/tick.ts:363 CONST "env: narrowed" -> "env: deps.env"
 test("bell_tick_hands_rununit_only_the_collect_env_keys", async () => {
   const h = await seeded(), seen: RunUnitRequest[] = [];
   const env = { ...ENV, CHAINSTACK_ETH_URL: "https://eth.test.invalid/x", HOME: "/home/bell", GITHUB_TOKEN: "t".repeat(24) };
@@ -555,7 +555,7 @@ test("bell_tick_hands_rununit_only_the_collect_env_keys", async () => {
   assert.equal(seen[0]?.env.BELL_HALTS_CSV, HALTS, "the halts file is one of them (BELL-TICK-HALTS-ENV-1)");
 });
 
-// killer: apps/bell/src/tick.ts:356 CONST "rmSync(manifestPath, { force: true }); " -> ""
+// killer: apps/bell/src/tick.ts:387 CONST "rmSync(manifestPath, { force: true }); " -> ""
 test("bell_tick_second_tick_after_a_failed_rename_never_answers_already_deposited", async () => {
   const h = await seeded(), name = `unit-${D}`, bundle = join(h.handoff, name);
   mkdirSync(bundle); writeFileSync(join(bundle, "stray.json"), "{}");
@@ -570,7 +570,7 @@ const CHILD = [`import { tickMain } from ${JSON.stringify(pathToFileURL(TICK).hr
   "let told = false;", "globalThis.fetch = () => { if (!told) { told = true; process.stderr.write('rpc-held' + String.fromCharCode(10)); } return new Promise(() => {}); };",
   "setInterval(() => {}, 60000);", "process.exitCode = await tickMain(c.argv, { env: c.env, now: () => c.now, clockSynced: () => true, costGet: () => Promise.resolve(0), refTrajSha256: c.ref });",
   "process.exit();"].join("\n");
-// killer: apps/bell/src/tick.ts:336 SDL "process.on(\"SIGTERM\", onTerm);" -> ""
+// killer: apps/bell/src/tick.ts:367 SDL "process.on(\"SIGTERM\", onTerm);" -> ""
 test("bell_tick_releases_locks_on_sigterm", { skip: process.platform === "win32" ? "win32 delivers no SIGTERM to a handler: not concluded here, run under Linux in g3-verification" : false }, async () => {
   const h = await seeded(), ledger = join(h.root, "ledger");
   const child = spawn(process.execPath, ["--input-type=module", "-e", CHILD], { env: { BELL_TICK_CHILD: JSON.stringify({ argv: tickArgv(h), env: RPC_ENV, now: DUE, ref: REF_SHA }) }, stdio: ["ignore", "ignore", "pipe"] });
@@ -592,7 +592,7 @@ test("bell_tick_releases_locks_on_sigterm", { skip: process.platform === "win32"
   }
 });
 
-// killer: apps/bell/src/tick.ts:349 CONST "process.off(\"SIGTERM\", onTerm);" -> ""
+// killer: apps/bell/src/tick.ts:380 CONST "process.off(\"SIGTERM\", onTerm);" -> ""
 test("bell_tick_sigterm_handler_is_set_for_the_runs_only", async () => {
   const base = process.listenerCount("SIGTERM"), during: number[] = [], handed: string[] = [];
   for (const inner of [writes(), refusing("budget_stop")]) {
@@ -603,7 +603,7 @@ test("bell_tick_sigterm_handler_is_set_for_the_runs_only", async () => {
   assert.deepEqual([during, handed], [[base + 1, base + 1, base + 1], ["function", "function", "function"]], "set before each run (before any lock), each run handed its re-arm callback");
 });
 
-// killer: apps/bell/src/tick.ts:168 CONST "onLocks: req.onLocks" -> "onLocks: undefined"
+// killer: apps/bell/src/tick.ts:170 CONST "onLocks: req.onLocks" -> "onLocks: undefined"
 test("bell_tick_run_main_unit_hands_its_release_and_reads_each_cycle_ledger", async () => {
   assert.equal(typeof tickMod.runMainUnit, "function", "the production run of the tick");
   const h = host(), ledgerDir = join(h.root, "ledger"), handed: boolean[][] = [];

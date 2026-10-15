@@ -157,7 +157,7 @@ test("bell_tick_refuses_trajectory_mismatch_with_reference_prefix", async () => 
     { ok: true, lines: ["traj_TSLAx_events=3 ref=1 new=2", "traj_AAPLx_events=3 ref=1 new=2"] }]);
 });
 
-// killer: apps/bell/src/tick.ts:323 SDL "await cashPreflight(window, narrowed, deps.costGet ?? databentoCost);" -> ""
+// killer: apps/bell/src/tick.ts:354 SDL "await cashPreflight(window, narrowed, deps.costGet ?? databentoCost);" -> ""
 test("bell_tick_cash_cost_preflight_caps_the_leg", async () => {
   const cap = deploy.CASH_COST_CAP_USD;
   assert.equal(cap, Number(launcher(/^COST_CAP_USD=(\d+)\b/m)), "the launcher's cost cap per course, in USD");
@@ -187,7 +187,7 @@ test("bell_tick_cash_cost_preflight_caps_the_leg", async () => {
   assert.deepEqual([costs, seen], [[0.42, Number.NaN], ["hist.databento.com Basic", "hist.databento.com Basic"]]);
 });
 
-// killer: apps/bell/src/tick.ts:321 CONST ".filter((k) => !cut.has(k))" -> ""
+// killer: apps/bell/src/tick.ts:352 CONST ".filter((k) => !cut.has(k))" -> ""
 test("bell_tick_leg_off_unsets_its_key_and_refuses_when_needed", async () => {
   const legs = (h: Host, j: unknown): void => { writeFileSync(join(h.state, "state", "legs.json"), JSON.stringify(j)); };
   const massive = await seeded(DUE - 13 * HOUR);
@@ -212,7 +212,7 @@ test("bell_tick_leg_off_unsets_its_key_and_refuses_when_needed", async () => {
   assert.deepEqual([on.calls, Object.keys(on.runs[0]?.env ?? {}).sort()], [["cost", "run TSLAx"], [...deploy.BELL_COLLECT_ENV_KEYS].sort()], "every leg on: every key reaches the run");
 });
 
-// killer: apps/bell/src/tick.ts:228 CONST "const before = sums();" -> "const before = BELL_OPERATORS.map((op) => BELL_FLOORS[op as keyof typeof BELL_FLOORS]);"
+// killer: apps/bell/src/tick.ts:230 CONST "const before = sums();" -> "const before = BELL_OPERATORS.map((op) => BELL_FLOORS[op as keyof typeof BELL_FLOORS]);"
 test("bell_tick_records_stage_credits_from_the_ledger_delta", async () => {
   const h = await seeded(DUE - 13 * HOUR), led = (op: "helius" | "chainstack"): string => join(h.ledger, CYCLES[op], `${op}.jsonl`);
   const spend = (op: "helius" | "chainstack", lines: Array<[string, number]>): void => {
@@ -242,7 +242,7 @@ test("bell_tick_refuses_an_absent_halts_file_by_name", async () => {
   assert.equal(h.runs[0]?.env.BELL_HALTS_CSV, ENV.BELL_HALTS_CSV, "the run reads the file the act names");
 });
 
-// killer: apps/bell/src/tick.ts:215 SDL "  if (e instanceof Error && e.constructor === Error && e.message.startsWith(\"rpc-guard: \")) return new TickRefusal(\"budget_guard\", e.message);" -> ""
+// killer: apps/bell/src/tick.ts:217 SDL "  if (e instanceof Error && e.constructor === Error && e.message.startsWith(\"rpc-guard: \")) return new TickRefusal(\"budget_guard\", e.message);" -> ""
 test("bell_tick_names_every_guard_error_of_the_closed_list", async () => {
   const h = await seeded(), stopOf = (e: Error): RunUnit => () => Promise.reject(e);
   const cases: Array<[Error, string]> = [[Object.assign(new BudgetExceededError("rpc-guard: another text"), { reason: "cycle_share" }), "share_exhausted: rpc-guard: another text"],
@@ -262,7 +262,7 @@ test("bell_tick_names_every_guard_error_of_the_closed_list", async () => {
   assert.equal(existsSync(join(r.ledger, CYCLES.chainstack, "chainstack.lock")), false, "nothing left held");
 });
 
-// killer: apps/bell/src/tick.ts:237 SDL "  try { release(\"bell/tick: sigterm\"); } catch { return \"bell/tick: refused sigterm: stopped, the release of the run's locks threw: unlock them by act\"; }" -> ""
+// killer: apps/bell/src/tick.ts:239 SDL "  try { release(\"bell/tick: sigterm\"); } catch { return \"bell/tick: refused sigterm: stopped, the release of the run's locks threw: unlock them by act\"; }" -> ""
 test("bell_tick_sigterm_line_says_released_only_when_the_release_held", async () => {
   const freed: string[] = [];
   assert.equal(typeof tickMod.sigtermLine, "function", "the handler's line, a function of the release");
