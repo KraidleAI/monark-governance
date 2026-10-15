@@ -5,7 +5,10 @@ TIMED-TESTS-LOAD-1 (#303, `docs/G0-lot-timed-tests-load-1.md` l.117-140); its tr
 has come. Base `250991f9` (lot/etude-suite after the merge of #306), branch `lot/probe-smtp-deadline-load-1`. Zone: `test/probe-narabi.test.ts`,
 `test/helpers/probe-start-line.mjs` (new), this note, the two count records by `write`. No production code: `scripts/probe-narabi.mjs` is
 unchanged to the byte (sha256 `15da93f2...`, the same at the base and here). Author: a builder instance launched as `claude-opus-5-5` at
-effort `high`, resolved as `claude-opus-5-5`. Clock read at 21:37 UTC (first draft) and 22:33 UTC (last edit).
+effort `high`, resolved as `claude-opus-5-5`. Clock read at 21:37 UTC (first draft) and 22:33 UTC (last edit). Fold of the four nits of
+the fresh review (`REVUE-PROBE-SMTP-TLS-DEADLINE-LOAD-1.md` section 7) by a corrector instance, neither the builder nor the reviewer,
+launched as `claude-opus-5-5` at effort `high`, resolved as `claude-opus-5-5`, clock read at 23:07 UTC (first edit) and 23:20 UTC (last edit): the reaper disarmed at the start
+line, `REAP_MS` at 90 s, the count of the `ran` assertions, the window of the item below.
 
 red-proof: test-only
 
@@ -48,8 +51,11 @@ G0 of #303 asked for (l.160-162): a stall does hit a running process, at least 6
    `KILL_MS` = 2 * `MAX_SMTP_DEADLINE_MS` = 60 s, above any SMTP deadline the probe can arm (`smtpDeadlineMs` clamps to 30 s,
    `scripts/probe-narabi.mjs` l.634): a reaper of a hung child, never a bound of a test. The GET bounds of URL mode (l.54-86) do not
    reach it here: the callers of `runProbeAt` in URL mode set no `PROBE_TIMEOUT_MS`, and their GETs are answered at once by a loopback
-   server, refused before any dial (`bad_port`) or failed at once by the test's fetch spy. `REAP_MS` = 120 s, armed at the spawn, reaps a
-   child that never writes its line; it stays under the runner's `--test-timeout` of 300 s, about 5.9 times the sampler's max. `ran` is
+   server, refused before any dial (`bad_port`) or failed at once by the test's fetch spy. `REAP_MS` = 90 s, armed at the spawn and disarmed at
+   the line, reaps a child that never writes its line: so the start is in no bound of a started child. It stays under the `--test-timeout`
+   of each judge of this file: 300 s for the suite (`package.json` l.16-17), 120 s for `scripts/red-proof.mjs` (l.165) and, by default, for
+   `scripts/mutants/run.mjs` (l.124); it is about 4.4 times the longest start measured (the sampler's max, 20.3 s). A child that writes
+   its line and then hangs is killed by `KILL_MS` at its start plus 60 s: under those 120 s while its start stays under 60 s. `ran` is
    the time from the line to the exit. After the exit `runProbeAt` asserts by name: the child was not killed, it wrote its line, it wrote
    `narabi.json` (as `runProbe` does, l.75). A kill is never a `TypeError` (V-n1 of the check of the fold of 3c). The parameter `killMs`
    and the five `r.killed` assertions go: every caller gets the named assertion.
@@ -97,7 +103,7 @@ G0 of #303 asked for (l.160-162): a stall does hit a running process, at least 6
   child living to its 30 s deadline (30.5 s each); l.699 by `ran` at the 20 s deadline (20.4 s); l.671 by `'smtp_timeout'` at the 30 s
   deadline (30.5 s); l.688 at once (0.5 s). One more mutant, not a killer line: `smtpDeadlineMs` returning the default (l.634 CONST
   `"Math.min(n, MAX_SMTP_DEADLINE_MS)" -> "DEFAULT_SMTP_DEADLINE_MS"`), the env deadline ignored, which the kill of 8000 ms caught
-  before: red by `ran` in the three tests that keep a short deadline (20.5 s, 20.6 s, 20.9 s). So moving the kill to 60 s loses none.
+  before: red by `ran` in the three tests that keep a short deadline (20.5 s, 20.6 s, 20.9 s). So moving the kill to 60 s loses none of these mutants.
 - **red-proof** `node scripts/red-proof.mjs --base 250991f9 --gel F:/Monark-probe-1 --test-only`: OK, 9 tests judged, each `pinned` (green at the base and here, its killer fired here reddens it by an
   assertion), 41 unchanged, 9 killers killed, by the same assertions as by hand (`ok: true`, digest `6a3cbf05...`).
 - **Under the load of the suite**: three `test:main` runs of this tree, final bytes, one after the other, nothing else of this lot
@@ -136,26 +142,31 @@ three children gave `status` null with no output: cut by its 30 s timeout (a ded
 
 ## What remains, and its items
 
-- **A stall of a running process past the bounds.** The lot takes the start of the process out of every bound. A stall of a process
-  already running still reddens a test once it outlasts the bound minus the run: about 14.5 s for the six bounds on `ran`, 30 s for (a),
+- **A stall of a running process past the bounds.** The lot takes the start of the process out of every bound of a started child. A stall of a process
+  already running still reddens a test once it outlasts the bound minus the run: about 14.5 s for the seven bounds on `ran` (in six tests), 30 s for (a),
   60 s for (c) and for `KILL_MS`. Measured here: 6.8 s at most (one run, 41 calls). These bounds read the wall clock, which a stall
   lengthens; `RUN_BOUND_MS` cannot pass 20 s without letting the default-deadline mutant through. Item **PROBE-TEST-CLOCKLESS-BOUNDS-1**
   (construction, tests only, carrier MONARK): tell the mutants apart by what the child does, not by how long it takes. The preload,
   already in the child, would report on fd 3 the delay of each timer the probe arms (the deadline it read: 500 ms, not 20 s) and, right
   after the probe renames its `narabi.json` into place, the handles still active (`process.getActiveResourcesInfo()`: a timer left armed
-  is the residual-timer mutant); the six `ran` assertions then become assertions on those reports, and only the reapers keep a time.
-  Price: the preload module, the six assertions, their killers fired again. Trigger: a red of one of these tests by `ran` in an oracle or
+  is the residual-timer mutant); the seven `ran` assertions (`test/probe-narabi.test.ts` l.869, 877, 942, 954, 966, 1114, 1226, in six
+  tests) then become assertions on those reports, and only the reapers keep a time. The same reports close a window this lot opens: the
+  old bounds counted 8 s (or `DEADLINE + 4000`) from the spawn, the new ones count from the line: `RUN_BOUND_MS` (15 s), plus the short
+  deadline where one is kept, and `KILL_MS` (60 s) alone in the two tests without a bound on `ran`; so a child that ends on its own
+  between the two is no longer red by its time. No named mutant is lost in it: the nine killers and the l.634 mutant end at once, at 20 s
+  or 30 s, or hang, and each stays red by an assertion (Proofs above). Price: the preload module, the seven assertions, their
+  killers fired again. Trigger: a red of one of these tests by `ran` in an oracle or
   a `test:main`, or the next pass on `test/probe-narabi.test.ts`.
 - **The two reds outside this zone** (run 1 above). Item **COINBASE-LINK-CHILD-LOAD-1** (measure, then tests only, carrier MONARK): time
   the children of the two tests under `test:main` (spawn to a line each writes once running, then to its exit, as `measure` did here),
   tell a stall at the start of a process from one tied to a script freshly copied under a junction, then give each child the
-  construction of this lot (its bound from its line, a far reaper under the runner's 300 s). Price: two test files and a preload.
+  construction of this lot (its bound from its line, a far reaper disarmed at the line, under the `--test-timeout` of each judge, 120 s the shortest). Price: two test files and a preload.
   Trigger: a red of one of them in an oracle, or the next pass on either file.
 - **The source of the stalls** stays item **HOST-START-STALL-SOURCE-1** (the G0 of #303, l.163-166), with two data from this lot: a stall
   hits a process already running (6.8 s), and a `node -e 0` stalled up to 20 329 ms in this run (13 279 ms in #303).
 
 ## Size
 
-Two test files, 64 lines added and 38 removed: 102 (`git diff --shortstat 250991f9` of `test/probe-narabi.test.ts`, 55 and 38, plus the 9
+Two test files, 66 lines added and 38 removed: 104 (`git diff --shortstat 250991f9` of `test/probe-narabi.test.ts`, 57 and 38, plus the 9
 lines of the new `test/helpers/probe-start-line.mjs`; this note and the two count records are out of the count). R-25 bound: 1205
 (`VIBEGATES_PR_LIMIT`, `.github/workflows/ci.yml` l.56).

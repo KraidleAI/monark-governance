@@ -657,14 +657,16 @@ const smtpEnv = (port: number, extra: Record<string, string> = {}): Record<strin
   SMTP_USER: "narabialerts@monarkgate.tech", SMTP_PASS: SMTP_PASS_VALUE,
   ALERT_FROM: "narabialerts@monarkgate.tech", ALERT_TO: "narabialerts@monarkgate.tech", ...extra,
 });
-// Lot PROBE-SMTP-TLS-DEADLINE-LOAD-1: the child's bounds count from a line it writes once running (test/helpers/probe-start-line.mjs,
-// preloaded, on fd 3), never from the spawn: the load of the full suite stalls the start of a process for seconds (its G0). KILL_MS,
-// armed at that line, is twice the probe's SMTP ceiling: it reaps a hung child (the M-ii-16 mutant under a drip server), it bounds no
-// test. REAP_MS, armed at the spawn, reaps a child that never writes its line, under the runner's --test-timeout of 300 s. RUN_BOUND_MS
-// bounds `ran` of a child that ends on its own (a short deadline, or no wait at all): over twice the longest stall of a running child
-// measured under the full suite (6.8 s), under the default deadline (20 s), the shortest wait of the mutants these bounds catch.
+// Lot PROBE-SMTP-TLS-DEADLINE-LOAD-1: the bounds of a started child count from a line it writes once running
+// (test/helpers/probe-start-line.mjs, preloaded, on fd 3), never from the spawn: the load of the full suite stalls the start of a process
+// for seconds (its G0). KILL_MS, armed at that line, is twice the probe's SMTP ceiling: it reaps a hung child (the M-ii-16 mutant under a
+// drip server), it bounds no test. REAP_MS, armed at the spawn and disarmed at that line, reaps only a child that never writes it: under
+// the --test-timeout of each judge (300 s, package.json; 120 s, scripts/red-proof.mjs and scripts/mutants/run.mjs), 4.4 times the longest
+// start measured (20.3 s, its G0). RUN_BOUND_MS bounds `ran` of a child that ends on its own (a short deadline, or no wait at all): over
+// twice the longest stall of a running child measured under the full suite (6.8 s), under the default deadline (20 s), the shortest wait
+// of the mutants these bounds catch.
 const START_LINE = `--import=${pathToFileURL(join(HERE, "helpers", "probe-start-line.mjs")).href}`;
-const KILL_MS = 2 * MAX_SMTP_DEADLINE_MS, REAP_MS = 120_000, RUN_BOUND_MS = 15_000;
+const KILL_MS = 2 * MAX_SMTP_DEADLINE_MS, REAP_MS = 90_000, RUN_BOUND_MS = 15_000;
 /** Spawn the real probe at a FIXED out (state persists across shots) and capture stdout/stderr; `ran` is the time from the child's
  *  start line to its exit. A child killed, without its start line or without narabi.json fails here by name, never by a TypeError. */
 async function runProbeAt(out: string, args: readonly string[], env: Record<string, string> = {}): Promise<ProbeRun & { ran: number }> {
@@ -674,7 +676,7 @@ async function runProbeAt(out: string, args: readonly string[], env: Record<stri
   child.stderr?.on("data", (d: Buffer) => { stderr += d.toString(); });
   const kill = (why: string): void => { killed ||= why; try { child.kill("SIGKILL"); } catch { /* gone */ } };
   const reaper = setTimeout(() => { kill(`by the reaper ${String(REAP_MS)} ms after its spawn`); }, REAP_MS);
-  child.stdio[3]?.once("data", () => { started = Date.now(); killer = setTimeout(() => { kill(`${String(KILL_MS)} ms after its start line`); }, KILL_MS); });
+  child.stdio[3]?.once("data", () => { clearTimeout(reaper); started = Date.now(); killer = setTimeout(() => { kill(`${String(KILL_MS)} ms after its start line`); }, KILL_MS); });
   const [code, signal] = await new Promise<[number | null, NodeJS.Signals | null]>((ok) => { child.on("close", (n: number | null, s: NodeJS.Signals | null) => { ok([n, s]); }); });
   const ran = Date.now() - started, issue = `exit ${String(code)}, signal ${String(signal)}, stderr ${JSON.stringify(stderr.slice(-300))}`;
   clearTimeout(reaper); clearTimeout(killer);
