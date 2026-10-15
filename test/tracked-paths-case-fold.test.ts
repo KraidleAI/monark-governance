@@ -2,46 +2,31 @@
  * Root test of the case-fold rule for tracked paths (docs/G0-lot-fixture-case-fold-1.md): no two paths that git tracks in this
  * repository, their parent folders included, are equal once case is folded. On a case-insensitive file system (NTFS, the Windows
  * oracle) two such names are one entry: a checkout keeps one of the two files, and a test that lists the folder sees both spellings
- * as one. Linux keeps both, so a suite green here is red there (PR #243, held on Windows for that reason). The fold is the one of the
- * atelier's casefold tool: each path segment is normalised to NFC, then lower-cased; a name is each prefix of a path (its folders and
- * the path itself). The function lives in this file: it is exercised on synthetic lists, then on `git ls-files -z` of the repository
- * root. This file carries no killer line: a killer never mutates a *.test.ts (killerProblem of scripts/red-proof.mjs), and the zone of
- * the change holds no support module; the red proof is the fold stubbed in the first commit of the branch (the note names its tap).
+ * as one. Linux keeps both, so a suite green here is red there (PR #243, held on Windows for that reason: two folders of a fixture
+ * repository that test/no-host-address.test.ts writes at run time, which its fixture() helper now refuses). The fold is the rule of
+ * test/helpers/case-fold.ts: each path segment lower-cased after NFC normalisation, a name being each prefix of a path (its folders
+ * and the path itself); stricter than NTFS on the NFC axis (NTFS keeps a composed and a decomposed spelling apart, the macOS file
+ * systems merge them). The function is exercised here on synthetic lists, then on `git ls-files -z` of the repository root. The line
+ * above each test is the mutation of the helper that reddens it (scripts/red-proof.mjs).
  */
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { join } from "node:path";
+import { caseOnlyCollisions } from "./helpers/case-fold.ts";
 import { gitOut } from "./helpers/git-tracked.ts";
 
 const ROOT = join(import.meta.dirname, "..");
 
-/** A path segment as a case-insensitive file system compares it: NFC, then lower case (the fold of the atelier's casefold tool). */
-const fold = (segment: string): string => segment.normalize("NFC").toLowerCase();
-
-/**
- * The groups of names, among `paths` and their parent folders, that are equal once each segment is folded: each group holds two or
- * more distinct spellings, sorted; the groups are sorted by their first spelling. No group means the list is safe on NTFS.
- */
-function caseOnlyCollisions(paths: readonly string[]): string[][] {
-  const spellings = new Map<string, Set<string>>(); // folded name -> its distinct spellings
-  for (const p of paths) {
-    const parts = p.split("/").filter((s) => s !== "");
-    for (let i = 1; i <= parts.length; i++) {
-      const name = parts.slice(0, i).join("/"), key = parts.slice(0, i).map(fold).join("/");
-      let seen = spellings.get(key);
-      if (seen === undefined) { seen = new Set(); spellings.set(key, seen); }
-      seen.add(name);
-    }
-  }
-  return [...spellings.values()].filter((s) => s.size > 1).map((s) => [...s].sort()).sort((a, b) => ((a[0] ?? "") < (b[0] ?? "") ? -1 : 1));
-}
-
+// reddened by: a segment compared as written, its case kept
+// killer: test/helpers/case-fold.ts:10 CONST "segment.normalize(\"NFC\").toLowerCase()" -> "segment.normalize(\"NFC\")"
 test("case_fold_two_names_that_differ_only_by_case_are_one_group", () => {
   assert.deepEqual(caseOnlyCollisions(["test/fixtures/a/README.md", "test/fixtures/a/readme.md", "test/fixtures/a/notes.md"]),
     [["test/fixtures/a/README.md", "test/fixtures/a/readme.md"]],
     "two spellings of one file name in one folder are one group; the third file, whose name differs by more than case, is in no group");
 });
 
+// reddened by: only the whole path taken as a name, its folders never compared
+// killer: test/helpers/case-fold.ts:20 CONST "let i = 1; i <= parts.length" -> "let i = parts.length; i <= parts.length"
 test("case_fold_a_directory_segment_counts_like_a_file_name", () => {
   assert.deepEqual(caseOnlyCollisions(["test/fixtures/A/x.json", "test/fixtures/a/y.json"]), [["test/fixtures/A", "test/fixtures/a"]],
     "two folders that differ only by case are one group even when the files under them differ");
@@ -50,6 +35,8 @@ test("case_fold_a_directory_segment_counts_like_a_file_name", () => {
     "the pair of #243's kind: the two folders are one group and the two files another");
 });
 
+// reddened by: the NFC step dropped, so a composed and a decomposed spelling stay two names
+// killer: test/helpers/case-fold.ts:10 CONST "segment.normalize(\"NFC\").toLowerCase()" -> "segment.toLowerCase()"
 test("case_fold_a_combining_mark_that_nfc_merges_is_the_same_name", () => {
   // "n" then U+0303 (combining tilde) and U+00F1 (n with tilde) are one character once normalised to NFC.
   const composed = "docs/ma\u00f1ana.md", decomposed = "docs/man\u0303ana.md", upper = "docs/MA\u00d1ANA.md";
@@ -58,6 +45,8 @@ test("case_fold_a_combining_mark_that_nfc_merges_is_the_same_name", () => {
     "the three spellings are one group: the mark is merged by NFC before the case is folded");
 });
 
+// reddened by: a single spelling counted as a group
+// killer: test/helpers/case-fold.ts:27 CONST "s.size > 1" -> "s.size > 0"
 test("case_fold_distinct_names_and_a_repeated_path_give_no_group", () => {
   assert.deepEqual(caseOnlyCollisions(["test/fixtures/alpha.json", "test/fixtures/beta.json", "docs/alpha.json", "docs/alpha.json", "scripts/alpha-1.mjs"]), [],
     "names that differ by more than case, a path listed twice and a folder spelled the same way under each path: no group");
@@ -65,6 +54,13 @@ test("case_fold_distinct_names_and_a_repeated_path_give_no_group", () => {
 
 test("case_fold_an_empty_list_gives_no_group", () => {
   assert.deepEqual(caseOnlyCollisions([]), []);
+});
+
+// reddened by: the prefix loop started at the second segment, so a top-level name is never compared
+// killer: test/helpers/case-fold.ts:20 CONST "let i = 1" -> "let i = 2"
+test("case_fold_two_top_level_names_that_differ_only_by_case_are_one_group", () => {
+  assert.deepEqual(caseOnlyCollisions(["LICENSE", "license", "docs/x.md"]), [["LICENSE", "license"]],
+    "a path of one segment is a name too: the two spellings at the root are one group");
 });
 
 test("tracked_paths_have_no_case_only_collision", () => {

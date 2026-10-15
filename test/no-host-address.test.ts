@@ -229,3 +229,15 @@ test("address_literals_print_the_path_of_a_file_it_cannot_read_masked", { skip: 
     execFileSync("git", ["update-index", "--add", "--cacheinfo", `100644,${"5".repeat(40)},logs/${A}/${n}`], { cwd: root, env }); }),
   { message: `address literals: cannot read logs/x.x.x.x/${n} (ENAMETOOLONG)` }, "a file not read is named once every file is read, its path masked");
 });
+
+// reddened by: two fixture paths equal once case is folded written as two files, where a case-insensitive file system keeps one entry
+// and git add then tracks one file of the two (PR #243, held on Windows); the error names the group with its digits masked
+test("address_literals_fixture_refuses_two_paths_equal_once_case_is_folded", () => {
+  const esc = (e: string): string => A.split(".").join(e), made = TMP.length;
+  assert.throws(() => fixture({ "a.log": "x\n", [`logs/v${esc("%2e")}/${esc("%2e")}.txt`]: "x\n", [`logs/v${esc("%2E")}/${A}.txt`]: "x\n" }),
+    { name: "CaseOnlyCollisionError", message: "fixture: paths equal once case is folded, one entry on a case-insensitive file system: logs/vx%xex%xex%xex ~ logs/vx%xEx%xEx%xEx" },
+    "the two folders of #243's shape, equal but for the case of their escapes, are refused by name before any file is written");
+  assert.throws(() => fixture({ "A.md": "x\n" }, { "a.md": "x\n" }), { name: "CaseOnlyCollisionError", message: /: A\.md ~ a\.md$/ },
+    "a tracked path and a loose one are judged together");
+  assert.equal(TMP.length, made, "no temporary directory was made for a refused fixture");
+});
