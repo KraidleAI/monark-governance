@@ -261,7 +261,7 @@ test("bell_publish_handoff_takes_the_highest_unrefused_revision", () => {
 // killer: apps/bell/scripts/bell-publish.mjs:270 CONST "new Set(stones.filter(has).map(dayOf))" -> "new Set()"
 test("bell_publish_handoff_skips_an_abandoned_unit_by_tombstone", async () => {
   api();
-  const b = box(0), collectState = join(b.state, "..", "collect"), quiet = { env: {}, now: () => T_PUBLISH, out: (): void => undefined, err: (): void => undefined };
+  const b = box(0), collectState = join(b.state, "..", "collect"), quiet = { env: {}, now: () => T_PUBLISH, clockSynced: () => true, out: (): void => undefined, err: (): void => undefined };
   deposit(b.handoff, unit(0), 0);
   assert.equal(await tickMain(["--seed", DAYS[1] ?? "", "--state", collectState], quiet), 0);
   writeFileSync(join(collectState, "state", "attempts.json"), `${JSON.stringify({ [DAYS[1] ?? ""]: ATTEMPT_BUDGET })}\n`);

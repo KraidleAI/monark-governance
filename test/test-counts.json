@@ -30,6 +30,7 @@
  "apps/bell/test/report.test.ts": 4,
  "apps/bell/test/sessions-sip.test.ts": 6,
  "apps/bell/test/tick-compose.test.ts": 2,
+ "apps/bell/test/tick-handoff.test.ts": 9,
  "apps/bell/test/tick-legs.test.ts": 8,
  "apps/bell/test/tick.test.ts": 27,
  "apps/bell/test/universe.test.ts": 34,
