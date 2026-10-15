@@ -6,8 +6,9 @@
 # the block Q, since recalc_p2.decisions_for codes its three blocks and point is a closure of calibrate_cell (recalc_p2.py l.158-176,
 # l.272-288): out when sigma_hat is not computable (an input window incomplete), drop when the label is not formed or its window
 # [t, t + h) meets a halt [E, R) (rule 8 (a)), else in, a miss strictly above qhat. The halts come from the reads (the loader of rule 8
-# gives them; that of c1a gives none) and are joined first into venue instances: a halt seen on every symbol read, with the same
-# missing candles and the same resumption, is one interval, E the earliest and R the latest, applied to each symbol.
+# gives them; that of c1a gives none) and are joined first into venue instances: a halt seen on every symbol of the venue (the symbol
+# folders of every row of the registry), with the same missing candles and the same resumption, is one interval, E the earliest and R
+# the latest, applied to each symbol. After the count, kata_lib's globals must be those before it (L-T0a), or the run is refused.
 import hashlib
 import json
 
@@ -21,16 +22,17 @@ DAY_MS = 86_400_000
 
 def registry_rows(path, pin):
     """The region rows of a wave 1 registry read under the role registry, refused before parsing unless its sha256 is the pin: each
-    with its cell of recalc_p2.cells_of (kind, kata, side) and its symbol folder, the stem of its task class."""
+    with its cell of recalc_p2.cells_of (kind, kata, side) and its symbol folder, the stem of its task class; and the venue's symbol
+    folders, those of every row (the instance is formed once the venue's symbols are loaded, plan section 3.4)."""
     data = io_guard.read("registry", path)
     got = hashlib.sha256(data).hexdigest()
     if got != pin:
         raise Q.Refused(f"registry refused before parsing: sha256 {got} differs from the pinned {pin}")
-    out = []
-    for r in json.loads(data.decode("utf-8"))["rows"]:
+    out, rows = [], json.loads(data.decode("utf-8"))["rows"]
+    for r in rows:
+        folder = r["taskClass"].split("-")[0]
         if r["status"] != "region":
             continue
-        folder = r["taskClass"].split("-")[0]
         cell = next((c for c in recalc_p2.cells_of(r["symbol"], folder, r["horizon"]) if (c["taskClass"], c["key"]) == (r["taskClass"], r["key"])), None)
         if cell is None or cell["kind"] == "dir" or cell["kata"] != r["kataId"] or r["W"] != K.W[r["kataId"]] or r["calibAttempt"] != 1 \
                 or K.seq_sha256(r["hourOfWeekFactors"]) != r["factorTableSha256"] or type(r["calib"]["qhat"]) not in (int, float):
@@ -39,7 +41,19 @@ def registry_rows(path, pin):
         out.append((r, cell, folder))
     if not out:
         raise Q.Refused("no region row in the registry: nothing to count")
-    return out
+    return out, sorted({r["taskClass"].split("-")[0] for r in rows})
+
+
+def kata_lib_state():
+    """kata_lib's globals as L-T0a reads them: a container copied (dict, list, tuple, nested), a number, a string or None as it is, any
+    other object (a module, a function) by its id and type; dunder names left out."""
+    def cp(v):
+        if isinstance(v, dict):
+            return {k: cp(x) for k, x in v.items()}
+        if isinstance(v, (list, tuple)):
+            return type(v).__name__, [cp(x) for x in v]
+        return v if isinstance(v, (int, float, str, type(None))) else (id(v), type(v).__name__)
+    return {k: cp(v) for k, v in vars(K).items() if not k.startswith("__")}
 
 
 def lookback(rows):
@@ -47,11 +61,11 @@ def lookback(rows):
     return max(K.W[cell["kata"]] * K.H_MS[r["horizon"]] for r, cell, _ in rows)
 
 
-def venue_halts(reads):
-    """reads: {folder: (read 1, read 2, merged)}. The halts of the reads, joined into venue instances (S22 l.95-97): a halt seen on
-    every symbol read with the same missing candles (the declared slots in [E, R)) and the same resumption (the first grid slot at or
-    after R) is one interval, E the earliest and R the latest; any other halt stays its symbol's. Returns {folder: [(E, R)]} and the
-    intervals printed, each with the folders it applies to."""
+def venue_halts(reads, venue):
+    """reads: {folder: (read 1, read 2, merged)}; venue: the venue's symbol folders. The halts of the reads, joined into venue
+    instances (S22 l.95-97): a halt seen on every symbol of the venue with the same missing candles (the declared slots in [E, R)) and
+    the same resumption (the first grid slot at or after R) is one interval, E the earliest and R the latest; any other halt stays its
+    symbol's. Returns {folder: [(E, R)]} and the intervals printed, each with the folders it applies to."""
     groups = {}
     for sym, rs in reads.items():
         for r in rs[:2]:
@@ -61,7 +75,7 @@ def venue_halts(reads):
     on, shown = {sym: [] for sym in reads}, []
     for g in groups.values():
         syms, es, rs = [s for s, _, _ in g], [e for _, e, _ in g], [x for _, _, x in g]
-        for e, x, ss in [(min(es), max(rs), sorted(syms))] if sorted(syms) == sorted(reads) else [(e, x, [s]) for s, e, x in g]:
+        for e, x, ss in [(min(es), max(rs), sorted(syms))] if sorted(syms) == sorted(venue) else [(e, x, [s]) for s, e, x in g]:
             shown.append({"start_ms": e, "end_ms": x, "symbols": ss})
             for s in ss:
                 on[s].append((e, x))
@@ -88,10 +102,10 @@ def count_row(row, cell, candles, bars, grid, halts):
     return c
 
 
-def count(reads, rows, k):
+def count(reads, rows, k, venue):
     """The counts of every row on Q_k, from the merged reads of each folder, under the pose of kata_lib's globals for the quarter."""
     s_k, e_k = Q.quarter(k)
-    look, (halts, shown) = lookback(rows), venue_halts(reads)
+    look, (halts, shown), before = lookback(rows), venue_halts(reads, venue), kata_lib_state()
     saved, out, bars = (K.REC_START, K.REC_END, K.BLOCKS), [], {}
     try:  # REC_START: S_k minus the longest window, at the 00:00Z before it; the bars built and read under this one pose
         K.REC_START, K.REC_END, K.BLOCKS = (s_k - look) // DAY_MS * DAY_MS, e_k, {"Q": (s_k, e_k)}
@@ -105,5 +119,7 @@ def count(reads, rows, k):
                         "horizon": r["horizon"], **c})
     finally:
         K.REC_START, K.REC_END, K.BLOCKS = saved
+    if kata_lib_state() != before:
+        raise Q.Refused("kata_lib's globals are not those before the count: the pose not restored, or a global changed in place")
     grid = {h: {"instants": len(g), "first": Q.iso(g[0]), "last": Q.iso(g[-1])} for h, g in grids.items()}
     return {"pose": pose, "grid": grid, "halts": shown, "rows": out}

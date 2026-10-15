@@ -74,15 +74,16 @@ def check(sealed_dir, live_dir, sym, k, pin1, pin2, lookback_hours):
 def count(registry, pin, sealed_dir, live_dir, k, specs):
     io_guard.declare("series", "recorder", "registry")
     folders = {f: (p1, p2) for f, p1, p2 in (s.split(":") for s in specs)}
-    rows = C.registry_rows(registry, pin)
+    rows, venue = C.registry_rows(registry, pin)
     if len(folders) != len(specs) or any(p1 == "pinned" for p1, _ in folders.values()) and k != 1:
         raise Q.Refused("a symbol folder named twice, or 'pinned' for a quarter after quarter 1 (it names the sealed series of wave 1)")
-    if absent := sorted({f for _, _, f in rows} - set(folders)):
-        raise Q.Refused(f"region rows of the symbol folders {absent}, which the arguments do not name")
+    if sorted(folders) != venue:
+        raise Q.Refused(f"the symbol folders named {sorted(folders)} are not the venue's {venue}, those of the registry's rows: the venue "
+                        "instance is formed over all of them")
     look = C.lookback(rows)
     reads = {f: Q.load_quarter(sealed_dir, live_dir, f, k, Q.sealed_pin(f) if p1 == "pinned" else p1, p2, look) for f, (p1, p2) in folders.items()}
     s_k, e_k = Q.quarter(k)
-    res = {"quarter": {"k": k, "start": Q.iso(s_k), "end": Q.iso(e_k)}, "registry_sha256": pin, **C.count(reads, rows, k),
+    res = {"quarter": {"k": k, "start": Q.iso(s_k), "end": Q.iso(e_k)}, "registry_sha256": pin, **C.count(reads, rows, k, venue),
            "series": {f: {"sealed": r[0]["pin"], "live": r[1]["pin"], "gaps": sum(map(len, r[2]["gaps"].values()))} for f, r in reads.items()}}
     lines = [MODEL, f"# quarter_counts.py count - the counts of the region rows of the registry on quarter {k}",
              json.dumps(res, sort_keys=True, separators=(",", ":")), *io_guard.input_lines(), "VERDICT: GREEN"]

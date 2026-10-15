@@ -188,7 +188,7 @@ test("verifier_tool_driver_runs_vectors_check_on_the_pinned_spec_vectors - vecto
 // and the driver runs under the pinned CPython it probed (KATA_QUARTER_PYTHON). The judge of that run, quarterTestProblems, read here.
 // reddened by: the judge made constant, a run that exits other than 0, loses a test, fails, cancels, skips or marks one todo, or reports no
 // summary admitted; the file no longer excluded from test:main by name, or no longer run by the driver's main with the probed interpreter
-// killer: scripts/verifier-tool-ci.mjs:142 CONST "return [...(status" -> "return [] || [...(status"
+// killer: scripts/verifier-tool-ci.mjs:143 CONST "return [...(status" -> "return [] || [...(status"
 test("verifier_tool_driver_runs_the_second_tree_test_file - the kata-quarter test file, excluded from test:main by name, runs in this job under the probed CPython and must report exactly the tests it declares, each passed", () => {
   const q = ci as unknown as { QUARTER?: string; QUARTER_TEST?: string; QUARTER_TESTS?: string[]; declaredTests?: (text: string) => number;
     quarterTestProblems?: (out: string, status: number | string | null | undefined, names?: string[]) => string[] };
@@ -207,7 +207,7 @@ test("verifier_tool_driver_runs_the_second_tree_test_file - the kata-quarter tes
   const pkg = JSON.parse(read("package.json")) as { scripts: Record<string, string> }, stem = file.replace(/^test\//, "").replace(/\.test\.ts$/, "");
   assert.ok(pkg.scripts["test:main"]?.includes(`"test/!(${stem}).test.ts"`) && pkg.scripts.test?.includes('"test/*.test.ts"'), "test:main excludes the file by name; npm test still runs it");
   const main = read("scripts/verifier-tool-ci.mjs").split("\nfunction main() {")[1] ?? "";
-  // killer: scripts/verifier-tool-ci.mjs:174 CONST "KATA_QUARTER_PYTHON: exe" -> "KATA_QUARTER_PYTHON: \"\""
+  // killer: scripts/verifier-tool-ci.mjs:175 CONST "KATA_QUARTER_PYTHON: exe" -> "KATA_QUARTER_PYTHON: \"\""
   assert.ok(main.includes("KATA_QUARTER_PYTHON: exe") && main.includes("quarterTestProblems(") && main.includes('["--test", "--test-reporter=tap", QUARTER_TEST]'), "main runs the file under node --test, the probed interpreter given to the helper, and judges it");
   assert.ok(read("test/helpers/kata-quarter-repo.ts").includes("process.env.KATA_QUARTER_PYTHON ||"), "the helper launches the tool with the interpreter the driver names");
 });
@@ -216,20 +216,24 @@ test("verifier_tool_driver_runs_the_second_tree_test_file - the kata-quarter tes
 // test file, both judged here in test:main, where no Python runs.
 // reddened by: a test of the file gone from the run with its counts still met, QUARTER_TESTS apart from the tests the file declares, or a
 // second tree on disk without its test file admitted (or refused with it)
-// killer: scripts/verifier-tool-ci.mjs:144 CONST "names.filter((n) => times(n) !== 1)" -> "[].filter((n) => times(n) !== 1)"
-// killer: scripts/verifier-tool-ci.mjs:133 CONST "present[QUARTER] === true && !quarterTest" -> "false"
+// killer: scripts/verifier-tool-ci.mjs:145 CONST "names.filter((n) => times(n) !== 1)" -> "[].filter((n) => times(n) !== 1)"
+// killer: scripts/verifier-tool-ci.mjs:134 CONST "present[QUARTER] === true && !quarterTest" -> "false"
 test("verifier_tool_driver_pins_the_second_tree_test_names - the driver names each test of the kata-quarter file, which must pass once by name; and refuses the second tree on disk without its test file", () => {
   const q = ci as unknown as { QUARTER_TEST?: string; QUARTER_TESTS?: string[]; presenceOf?: (p: Record<string, boolean>, t: boolean) => Record<string, boolean>;
     quarterTestProblems?: (out: string, status: number, names?: string[]) => string[] };
   assert.ok(Array.isArray(q.QUARTER_TESTS) && typeof q.presenceOf === "function" && typeof q.quarterTestProblems === "function", "the driver pins the names and exports its presence map");
   const names = q.QUARTER_TESTS, file = q.QUARTER_TEST ?? "", declared = read(file).split(/\r?\n/).filter((l) => l.startsWith("test(")).map((l) => /^test\("([a-z0-9_]+) - /.exec(l)?.[1]);
   assert.deepEqual(declared, names, "QUARTER_TESTS names the tests of the file, in its order");
+  assert.equal(names.length, 14, "the number of the file's tests, written here: a test removed with its name changes it, as a removal line does in test:main");
   const lost = names.slice(1).map((n, i) => `ok ${i + 1} - ${n} - what it holds`).concat([`ok ${names.length} - ${names[1]} - again`]);
   const tap = [...lost, ...Object.entries({ tests: names.length, pass: names.length, fail: 0, cancelled: 0, skipped: 0, todo: 0 }).map(([k, n]) => `# ${k} ${n}`)].join("\n");
   assert.deepEqual(q.quarterTestProblems(tap, 0), [`${file}: the test ${names[0]} passed 0 time(s), once wanted`, `${file}: the test ${names[1]} passed 2 time(s), once wanted`], "a test removed from the file, its count met by another");
   const trees = ["tools/kata-recalc", "tools/kata-quarter"], present = { "tools/kata-recalc": true, "tools/kata-quarter": true }, checks = readdirSync(join(ROOT, TOOL)).filter((n) => n.endsWith("_check.py"));
   assert.deepEqual(accountProblems(trees, q.presenceOf(present, false), checks), ["tools/kata-quarter: a tree of the tool that this job does not run"], "the second tree without its test file: refused");
   assert.deepEqual(accountProblems(trees, q.presenceOf(present, true), checks), [], "the second tree with its test file, which main runs: admitted");
+  // killer: scripts/verifier-tool-ci.mjs:160 CONST "presenceOf(present, quarter)" -> "presenceOf(present, true)"
+  const main = read("scripts/verifier-tool-ci.mjs").split("\nfunction main() {")[1] ?? "";
+  assert.ok(main.includes("quarter = present[QUARTER] === true && existsSync(join(repo, QUARTER_TEST));") && main.includes("accountProblems(trees, presenceOf(present, quarter),"), "main gives accountProblems the presence map of the file it runs");
 });
 
 // reddened by: the lines of the tool's output, or of the driver's probe of the interpreter, read on LF alone (a CR left on each line under
