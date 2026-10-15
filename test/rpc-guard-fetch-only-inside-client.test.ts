@@ -16,7 +16,7 @@
  *   - scripts/census/u4-*.mjs (the course scripts) is a root too (grep FOLDED here from guard-scripts-u4.test.ts).
  * KEY form is an ACCESS (dot, optional-chain dot, bracket, optional-chain bracket, template-literal bracket, `in`,
  * destructuring, Reflect.get, Object.hasOwn - C-R-b4). In the PACKAGES/BELL scopes the bare name is NOT refused (it
- * appears in comments: rpc.ts:8, universe.ts:322) and would red by construction; on the SENTINEL + u4 scopes the bare
+ * appears in comments: rpc.ts:8, universe.ts:322) and elsewhere, and would red by construction; on the SENTINEL + u4 scopes the bare
  * name IS refused too, killing the alias evasion `const e = env; e.KEY` (an allowlisted file is exempt).
  *
  * MEASURED HITS after 1b-iii (apps/bell/src, base 6114ce9, this scanner): 1b-iii migrated 5 of the 14 (ethereum.ts:64
@@ -270,6 +270,9 @@ test("rpc_guard_scanner_comment_cites_lines_that_hold_a_bare_key_name", () => {
     const m = /^([\w./-]+):(\d+)$/.exec(item);
     if (m === null) { problems.push(`${item}: not a <path>:<line> citation`); continue; }
     const rel = m[1]!.includes("/") ? m[1]! : `apps/bell/src/${m[1]!}`, n = Number(m[2]), abs = join(REPO, rel);
+    // Scope rule (after the first review): the sentence is about the PACKAGES/BELL scopes, so a cited path must sit under
+    // apps/bell/src/ or packages/<name>/src/, with no `..` segment (a path that leaves the scopes, this file, a docs/ line: refused).
+    if (rel.split("/").includes("..") || !/^(?:apps\/bell\/src|packages\/[\w.@-]+\/src)\/./.test(rel)) { problems.push(`${item}: ${rel} is outside the packages and Bell scopes the sentence is about`); continue; }
     if (!existsSync(abs)) { problems.push(`${item}: ${rel} is not a file`); continue; }
     const line = readFileSync(abs, "utf8").split(/\r?\n/)[n - 1];
     if (line === undefined) problems.push(`${item}: ${rel} has no line ${String(n)}`);
