@@ -116,7 +116,17 @@ on its test, each restored; and the review's 18 mutants M1 to M18 (M7 and M12 on
 
 ## 4. Measures
 
-MEASURES
+- Trunk: `dc1894ab` merged into the branch (a merge commit), after its review round 1.
+- R-25: 526 changed lines (478 insertions, 48 deletions; bound 547; the plan's estimate ~350, ~455 at +30 %), by `r25()` of
+  `scripts/oracle/r25.mjs` against `dc1894ab`; the registry fixture (`.json`) and this note are outside the count.
+- `test/kata-quarter.test.ts`: 14 tests, 14 pass, under a CPython 3.14.8 build (as the job runs it, the driver's judge
+  `quarterTestProblems` empty on its TAP) and under the host's CPython 3.11; run offline, no egress, 0 refused connections; the helper's
+  `git add` judged by the case-fold wrapper, 0 collisions.
+- `test:main` at the merged head: 3170 tests in 308 files, 3147 passed, 23 skipped (the trunk's skips), 0 failures, run offline (0
+  refused connections) under the host lock. `test/test-counts.json` and `test/test-names.json` by `node scripts/test-count-floor.mjs
+  write` (equal to the merged records); `node scripts/test-count-check.mjs --base dc1894ab` green, 0 drops.
+- Gates: `tsc --noEmit`, eslint on the touched `.ts` files, `gate:vocab`, `lang:gate`, `export:check`, `lint:ratchet`: green. Killer
+  anchors at `dc1894ab`: all anchored.
 
 ## 5. Not in this lot, and what is carried
 
