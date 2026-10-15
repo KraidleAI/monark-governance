@@ -15,7 +15,15 @@ type Dir = { path: string; owner: string; group: string; mode: number };
 const d = deploy as Record<string, unknown>;
 const OUTSIDER = "bell-outsider"; // the control user outside the handoff group, made by the CI job beside the users of the layout
 const SETGID = 0o2000, UNIT = "unit-2026-10-14";
-const SKIP = process.platform !== "linux" ? "Linux only: real users and groups" : process.getuid?.() !== 0 ? "root only: chown and runuser" : false;
+/** A root Linux host without the users the CI job makes (a developer's box, the host oracle) skips too: only the job g3-bell-handoff-perms,
+ *  which makes them, turns a skip into a red (RECHERCHES, 2026-10-14 23:40 UTC: the trunk's full suite was red on such a host). */
+const missing = (): string[] => {
+  const users = [String(d.BELL_COLLECT_USER), String(d.BELL_PUBLISH_USER), OUTSIDER].filter((u) => spawnSync("getent", ["passwd", u], { encoding: "utf8" }).status !== 0);
+  const groups = [String(d.BELL_HANDOFF_GROUP)].filter((g) => spawnSync("getent", ["group", g], { encoding: "utf8" }).status !== 0);
+  return [...users.map((u) => `user ${u}`), ...groups.map((g) => `group ${g}`)];
+};
+const SKIP = process.platform !== "linux" ? "Linux only: real users and groups" : process.getuid?.() !== 0 ? "root only: chown and runuser"
+  : missing().length > 0 ? `the CI job makes the users and the group; absent here: ${missing().join(", ")}` : false;
 const uid = (u: string): number => Number(execFileSync("id", ["-u", u], { encoding: "utf8" }).trim());
 const gid = (g: string): number => Number(execFileSync("getent", ["group", g], { encoding: "utf8" }).split(":")[2]);
 /** One child under `user` (runuser sets its groups from the group database): sh -c `script`, `args` as $1, $2... */
