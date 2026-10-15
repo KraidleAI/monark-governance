@@ -30,7 +30,8 @@ export type ToolRepo = {
   run: (args: string[]) => Run;
 };
 
-function git(dir: string, args: string[]): void {
+/** git in dir, the caller's GIT_* variables stripped, a test identity; a failure throws. */
+export function git(dir: string, args: string[]): void {
   const r = spawnSync("git", ["-C", dir, "-c", "user.name=kata-quarter test", "-c", "user.email=test@localhost", ...args], { env: BARE, encoding: "utf8" });
   if (r.status !== 0) throw new Error(`git ${args.join(" ")} failed (fail-closed): ${String(r.error ?? r.stderr)}`);
 }
