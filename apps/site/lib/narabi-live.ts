@@ -908,11 +908,11 @@ export function yesNo(v: boolean | null, whenNull: string): string {
 
 // The single public Narabi sentence, BYTE-IDENTICAL to test/ci-gates.test.ts `D8_SENTENCE`
 // and to the README block. Rendered as a const read `{D8_SENTENCE}`, so its "2024"/"24h" are never a
-// rendered literal. test/narabi-live.test.ts reconstructs the ci-gates copy and asserts byte-equality.
+// rendered literal. test/narabi-live.test.ts reconstructs the ci-gates copy, reads the README block, and asserts byte-equality.
 export const D8_SENTENCE =
-  "Narabi runs an adaptive quantile tracker (Angelopoulos–Barber–Bates 2024, decaying step) on the attested " +
-  "daily USDe redemption flow: its state moves each 24h window from the realized outcome, and the full " +
-  "timeline is published so anyone can replay it. What it carries is a deterministic long-run bound that " +
+  "Narabi runs an adaptive quantile tracker (Angelopoulos–Barber–Bates 2024, decaying step) on the daily " +
+  "USDe redemption flow: its state moves each 24h window from the realized outcome, and the full timeline is " +
+  "published with the Node version of each line. What it carries is a deterministic long-run bound that " +
   "tightens as windows accumulate, printed daily with T, not a per-window coverage, not a probability; the " +
   "gate's committed calibration does not depend on the tracker state. Until the pre-registered drift " +
   "criterion fires and an ADR says otherwise, the gate's region is still the committed static calibration: " +

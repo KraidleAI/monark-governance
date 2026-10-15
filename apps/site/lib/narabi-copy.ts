@@ -89,7 +89,7 @@ export const GLOSSARY: { term: string; def: string }[] = [
   { term: "tracker miss", def: "A stepped pair whose score exceeded the tracker's own threshold before the step." },
   { term: "calm-miss", def: "Share of calm pairs whose residual exceeded q₁, over the rolling window. Metadata for the criterion, never a tracker filter." },
   { term: "supply identity", def: "What each window must satisfy: opening supply equals closing supply plus burns minus mints, checked on every line." },
-  { term: "code version", def: "A run of lines written by an unchanged sentinel build and Node version. A new build does not change the tracker parameters." },
+  { term: "code version", def: "A run of lines with an unchanged sentinel_sha and Node version. The sentinel_sha hashes the sentinel's own top-level source files, not the packages it imports. A new build does not change the tracker parameters." },
   { term: "parameter segment", def: "A run of unchanged tracker parameters. A change of c or ε would open a new one and move the printed bound to the arbitrary-step theorem." },
   { term: "under_calib", def: "Too few calibration points for a population: the gate abstains for it, serving no region while its state is published. A named state, never a number." },
 ];

@@ -65,8 +65,8 @@ this endpoint** with a **committed calibration for one population** — USDe, ke
 redemption-flow windows. The calibration is measured non-stationary across half-years, so **no per-window
 coverage is claimed**; the committed region is static and **every other population abstains** (`under_calib`).
 On that key the server imposes `alpha = 0.1` and `nMin = 50` (any other value is a named 400).
-Alongside it, an off-tool **daily** sentinel steps an adaptive quantile tracker on the attested 24h flow and
-publishes a replayable timeline (`state.json`, `timeline.jsonl`) at `monarkgate.tech/narabi/`; the committed
+Alongside it, an off-tool **daily** sentinel steps an adaptive quantile tracker on the 24h redemption flow and
+publishes a hash-chained timeline (`state.json`, `timeline.jsonl`) at `monarkgate.tech/narabi/`; the committed
 gate region does not change until a pre-registered drift criterion fires and an ADR says so.
 
 The 32 kata classes `{btc,eth,bnb,sol}-{dir,range,mae-down,mae-up}-{1h,4h}` are also served, without calibration: the gate abstains on every well-formed call (`under_calib`, or `non_evaluable` for a lean of exactly 0 on a `dir` class), and a malformed one is a named 400. Do not bring your own calibration under a class name of the form `^[a-z0-9]{2,10}-(dir|range|mae-down|mae-up)-(15m|1h|4h|24h)$` (compared without ASCII case): it is refused (`byo_reserved_kata`).

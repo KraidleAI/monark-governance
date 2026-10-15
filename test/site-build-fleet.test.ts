@@ -1136,6 +1136,7 @@ const kitchenHits = (rel: string, text: string): string[] => {
   return [...new Set(hits)];
 };
 
+// killer: apps/site/app/roadmap/page.tsx:221 CONST "MONARK is one engine and the on-chain applications it is meant to power." -> "MONARK is one engine and the on-chain applications it powers."
 test("site_names_no_kitchen — no internal work vocabulary in ANY exported apps/site file, rendered surface, comment or committed data (KITCHEN-PUBLIC-1)", () => {
   const kept = collectFiles(ROOT).kept.filter((f) => f.rel.startsWith("apps/site/") && !BINARY_EXPORT.test(f.rel));
   assert.ok(kept.length >= 50, `implausibly few exported apps/site text files (${String(kept.length)}) — false green?`);
@@ -1168,7 +1169,7 @@ test("site_names_no_kitchen — no internal work vocabulary in ANY exported apps
   }
   // Named mutant: "not three sub-agents" back in the /roadmap lede => red (in memory; replayed on the file in the G1).
   const ROADMAP = "apps/site/app/roadmap/page.tsx";
-  const mutant = read(ROADMAP).replace("MONARK is one engine and the on-chain applications it powers.", "MONARK is not one product and not three sub-agents.");
+  const mutant = read(ROADMAP).replace("MONARK is one engine and the on-chain applications it is meant to power.", "MONARK is not one product and not three sub-agents.");
   assert.notEqual(mutant, read(ROADMAP), "premise: the mutant applies");
   assert.notDeepEqual(kitchenHits(ROADMAP, mutant), [], "mutant sub-agents on /roadmap must red");
 });

@@ -22,7 +22,7 @@ const SITE_BAR: readonly { href: string; label: string }[] = [
 ];
 
 // Primary nav — the company pages (MONARK.dc.html navDef). The /applications route is labelled
-// "Applications" (the on-chain applications the engine powers); the /roadmap route is labelled "Building" (the page is
+// "Applications" (the on-chain applications the engine is meant to power); the /roadmap route is labelled "Building" (the page is
 // MONARK Building, what is being built now, next and later), and /docs is the documentation section. Right after it, the hold
 // snapshot page, its route and name read from lib/dojo-copy.ts (never typed here); always linked, the page being built from the
 // committed record, which this client component does not read (the link on /token does).

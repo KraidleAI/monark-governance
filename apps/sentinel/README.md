@@ -1,7 +1,7 @@
 # @monark/sentinel
 
-An **off-tool daily job** (ADR-M012) that senses redemption-run velocity on the attested onchain USDe
-flow and publishes a replayable daily timeline. It runs beside the MONARK harness, never inside it: the
+An **off-tool daily job** (ADR-M012) that senses redemption-run velocity on the onchain USDe
+flow and publishes a hash-chained daily timeline. It runs beside the MONARK harness, never inside it: the
 harness never imports this package, and this package never imports the harness tools. Node built-ins
 only, no persistence beyond the files it publishes.
 
