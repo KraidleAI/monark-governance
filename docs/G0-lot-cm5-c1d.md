@@ -1,7 +1,7 @@
 # G0 — CM5-c1d: the identity and the launch form of the quarter counts tool, `tools/kata-quarter/`
 
 - **Author**: RECHERCHES (`claude-opus-5-5`, effort high), 2026-10-15. Base: trunk `lot/etude-suite` at `32d8ef18` (the core of the
-  count, CM5-c1b, merged by #294).
+  count, CM5-c1b, merged by #294), then the trunk at `eddf44d7` merged in (no file of this lot in common).
 - **Plan**: the quarter counts plan of CM-5 (recherches, `coordination/pieces/2026-10-07-G0-cm-5/G0-CM-5-PLAN-1.md`, v6): row c1d
   (section 5, l.593), the identity block and the rule of the run (section 3.5, l.436-463), the entry and its subcommands (section 5.2
   (D), l.785-828), tests L-T24 to L-T26 (section 5.3, l.934-936). There is no separate short G0: this note fixes the choices the plan
@@ -90,7 +90,14 @@ The other tests' killers moved with the lines of `quarter_counts.py` and `FILES`
   the 14 tests of the base take 10.9 s at the base and 12.8 s with the identity (the stand-ins' own repositories included); the file of
   17 tests, 16.2 s (11.1 s at the base).
 - The driver's pinned list of test names (`QUARTER_TESTS`, `scripts/verifier-tool-ci.mjs` l.128-131) names the three new tests, and its
-  count in `test/verifier-tool-ci.test.ts` is 17.
+  count in `test/verifier-tool-ci.test.ts` is 17; its judge (`quarterTestProblems`) of the run of the file returns no problem.
+- **Mutations**: each of the 31 killers of `test/kata-quarter.test.ts`, applied alone in a separate worktree, turns its own test red
+  (the three new ones and the two carried cases included); each file restored, its sha256 equal. Offline, 0 refused connections.
+- R-25: 238 changed lines (192 insertions, 46 deletions; bound 547) against the trunk `eddf44d7`, merged in; the plan estimated ~160
+  (l.593), the moved killer lines, the committed stand-ins and the two carried cases are the difference.
+- Tests: `test:main` 3185 tests in 309 files (3162 passed, 23 skipped, 0 failures), offline, 0 refused
+  connections; `node scripts/test-count-floor.mjs write` leaves `test/test-counts.json` and `test/test-names.json` unchanged (no test of
+  `test:main` added), and `node scripts/test-count-check.mjs --base eddf44d7` is green, 0 drops.
 
 ## 6. Not in this lot
 
