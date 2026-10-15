@@ -23,7 +23,7 @@ const PRODUCT_STATUS_SENTENCE = productStatusSentence();
 // /applications; its former address redirects to it permanently (next.config.mjs).
 export const metadata: Metadata = {
   title: "Applications — MONARK",
-  description: `The on-chain applications the MONARK engine powers, by the profile that needs them, and the artefacts sold to a named buyer. ${PRODUCT_STATUS_SENTENCE}`,
+  description: `The on-chain applications the MONARK engine is meant to power, by the profile that needs them, and the artefacts sold to a named buyer. ${PRODUCT_STATUS_SENTENCE}`,
 };
 
 // A built application's own page on the site, keyed by its register key.
@@ -61,10 +61,10 @@ export default function ProductsPage() {
       <section className="flex flex-col gap-4">
         <div className="font-mono text-xs uppercase tracking-[0.06em] text-muted-foreground">Applications</div>
         <h1 className="max-w-3xl font-heading text-4xl font-semibold tracking-tight text-foreground">
-          The on-chain applications the engine powers, by the profile that needs them.
+          The on-chain applications the engine is meant to power, by the profile that needs them.
         </h1>
         <p className="max-w-2xl text-lg text-muted-foreground">
-          A client installs one visible piece &mdash; the act that matches their need &mdash; while the
+          A client is meant to install one visible piece &mdash; the act that matches their need &mdash; while the
           sensors and the gate stay behind it. {PRODUCT_STATUS_SENTENCE}
         </p>
       </section>

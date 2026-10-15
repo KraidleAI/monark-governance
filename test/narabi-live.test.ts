@@ -1191,3 +1191,36 @@ test("narabi_sync_sets_its_manifest_entry", async () => {
     rmSync(tmp, { recursive: true, force: true });
   }
 });
+
+// killer: apps/site/lib/narabi-copy.ts:92 CONST "with an unchanged sentinel_sha and Node version. The sentinel_sha hashes the sentinel's own top-level source files, not the packages it imports." -> "written by an unchanged sentinel build and Node version."
+test("narabi_code_version_glossary_says_what_the_witness_hashes — the witness hashes the sentinel's top-level sources, not the packages it imports (SENTINEL-DEPLOY-GUARD-1 makes the old word true again)", () => {
+  const run = readFileSync(join(ROOT, "apps", "sentinel", "src", "run.ts"), "utf8");
+  assert.ok(run.includes('readdirSync(srcDir).filter((f) => f.endsWith(".ts"))'), "premise: sentinelSha hashes the top-level .ts files of src/; when the witness covers the execution closure this reds and the glossary is revisited");
+  const deps = Object.keys((JSON.parse(readFileSync(join(ROOT, "apps", "sentinel", "package.json"), "utf8")) as { dependencies?: Record<string, string> }).dependencies ?? {});
+  assert.ok(deps.some((d) => d.startsWith("@monark/")), "premise: the sentinel imports workspace packages the witness does not hash");
+  const def = GLOSSARY.find((g) => g.term === "code version")?.def ?? "";
+  assert.doesNotMatch(def, /unchanged sentinel build/, "the glossary does not promise an unchanged build");
+  assert.match(def, /not the packages it imports/, "the glossary says what the witness leaves out");
+});
+
+// killer: apps/site/components/narabi/narabi-live.tsx:529 CONST "with an unchanged sentinel_sha and Node version; the sentinel_sha hashes the sentinel's own top-level source files, not the packages it imports;" -> "written by an unchanged sentinel build and Node version;"
+test("narabi_code_version_note_says_what_the_witness_hashes — the register note of the code versions says what the glossary says (SENTINEL-DEPLOY-GUARD-1 makes the old word true again)", () => {
+  assert.ok(readFileSync(join(ROOT, "apps", "sentinel", "src", "run.ts"), "utf8").includes('readdirSync(srcDir).filter((f) => f.endsWith(".ts"))'), "premise: sentinelSha hashes the top-level .ts files of src/; when the witness covers the execution closure this reds and the note is revisited");
+  const comp = readComponent();
+  assert.doesNotMatch(comp, /unchanged sentinel build/, "the note does not promise an unchanged build");
+  assert.ok(comp.includes("the sentinel_sha hashes the sentinel's own top-level source files, not the packages it imports"), "the note says what the witness leaves out");
+});
+
+// killer: README.md:125 CONST "published with the Node version of each line. What it carries" -> "published so anyone can replay it. What it carries"
+test("narabi_d8_sentence_is_one_text_in_three_copies — the README quotes the site sentence byte for byte; it calls the flow neither attested nor replayable by anyone while the attestor key is a placeholder and the step rests on the engine's pow (Narabi L15, L19; NARABI-K1 and NARABI-POW-PORTABLE-1 make the old words true again)", () => {
+  const readme = readFileSync(join(ROOT, "README.md"), "utf8").split(/\r?\n/);
+  const at = readme.indexOf("The single public sentence for Narabi, verbatim:");
+  assert.ok(at >= 0, "the README announces the verbatim sentence");
+  const quoted = readme.slice(at + 1).find((l) => l.startsWith("> ")) ?? "";
+  assert.equal(quoted.slice(2), D8_SENTENCE, "README = site, byte for byte (site = CI copy: narabi_live_d8_byte_identical)");
+  assert.ok(readFileSync(join(ROOT, "packages", "hikae", "src", "tracker.ts"), "utf8").includes("base ** (-1 / 2 - params.eps)") && readFileSync(join(ROOT, "apps", "sentinel", "src", "run.ts"), "utf8").includes("interface Provenance { readonly endpoints: readonly string[]; readonly node_version: string; readonly sentinel_sha: string; }"), "premise: the step uses the engine's pow and a line records no platform; when NARABI-POW-PORTABLE-1 lands this reds and the sentence is revisited");
+  assert.ok(readFileSync(join(ROOT, "apps", "sentinel", "src", "flow.ts"), "utf8").includes('key: "deadbeef"'), "premise: the attestor key is a placeholder; when NARABI-K1 replaces it this reds and the sentence is revisited");
+  assert.doesNotMatch(D8_SENTENCE, /anyone can replay/, "no replay by anyone, on any engine");
+  assert.doesNotMatch(D8_SENTENCE, /\battested\b/, "the flow is not called attested while its attestor key is a placeholder");
+  assert.match(D8_SENTENCE, /the full timeline is published with the Node version of each line\./, "the timeline is said published with each line's Node version, no replay claim");
+});
