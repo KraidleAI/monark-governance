@@ -93,6 +93,7 @@ test("verifier_tool_driver_owes_each_run_of_each_check - each check of the tool 
       ["compare_check.py", `${TOOL}/compare_check.py`, [], 1], ["binom_check.py", `${TOOL}/binom_check.py`, ["--registry"], 1], ["binom_check.py", `${TOOL}/binom_check.py`, [], 2],
       ["vectors_check.py", `${TOOL}/vectors_check.py`, [], 0]]),
     "the six runs of steps(), in order, on both systems");
+  assert.deepEqual(runs[4]?.[2], ["r", join("w", "binom.txt"), join("w", "hikae.txt")], "D-2 (ii) and (iii): binom_check.py on the repository, its output and the replay of the hikae, each named");
   // killer: scripts/verifier-tool-ci.mjs:54 SDL "join(w, \"vectors.txt\")" -> ""
   assert.deepEqual(runs[5]?.[2], [join("r", ci.VECTORS?.path ?? "?"), join("w", "vectors.txt")], "vectors_check.py reads the pinned spec vectors, its output in the work folder");
 });
