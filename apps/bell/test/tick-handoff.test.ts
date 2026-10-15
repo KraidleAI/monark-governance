@@ -85,11 +85,11 @@ const attemptsOf = (h: Host): Obj => readJson(join(h.state, "state", "attempts.j
 /** The handoff's state as the publisher writes it (the forms of MISSION-3b-i, C3-8). */
 const mark = (h: Host, from: string, at: number): void => { writeFileSync(join(h.status, "start"), `${JSON.stringify({ from_unit: from, posted_at: iso(at) })}\n`); };
 const shaOf = (h: Host, name: string): string => sha256Hex(readFileSync(join(h.handoff, `${name}.manifest`), "utf8"));
-const published = (h: Host, name: string, at: number, seq = 1): void => {
-  appendFileSync(join(h.status, "published.jsonl"), `${JSON.stringify({ bundle: name, manifest_sha256: shaOf(h, name), seq, published_at: iso(at) })}\n`);
+const published = (h: Host, name: string, at: number, seq = 1, sha = shaOf(h, name)): void => {
+  appendFileSync(join(h.status, "published.jsonl"), `${JSON.stringify({ bundle: name, manifest_sha256: sha, seq, published_at: iso(at) })}\n`);
 };
-const refused = (h: Host, name: string, code: string, at: number): void => {
-  appendFileSync(join(h.status, "refused.jsonl"), `${JSON.stringify({ bundle: name, manifest_sha256: shaOf(h, name), code, refused_at: iso(at) })}\n`);
+const refused = (h: Host, name: string, code: string, at: number, sha = shaOf(h, name)): void => {
+  appendFileSync(join(h.status, "refused.jsonl"), `${JSON.stringify({ bundle: name, manifest_sha256: sha, code, refused_at: iso(at) })}\n`);
 };
 /** A declared fixture bundle: one file under <mint>/, then its sibling manifest, as the tick deposits it. */
 function bundle(h: Host, name: string): void {
@@ -105,6 +105,10 @@ const abandoned = (h: Host, d: string, at: number): void => {
   appendFileSync(join(h.state, "state", "abandoned.jsonl"), `${JSON.stringify({ unit: d, reason: "close_ref_missing", abandoned_at: iso(at) })}\n`);
 };
 const listing = (dir: string): string[] => (existsSync(dir) ? readdirSync(dir).sort() : []);
+/** The abandon act through tickMain; `probe`: the injected clock probe, "default" for none (unsynced, fail-closed). */
+const act = (h: Host, d: string, now: number, probe: boolean | "default" = true): Promise<number> =>
+  tickMain(["--abandon", d, "--reason", "close_ref_missing", "--state", h.state, "--handoff", h.handoff],
+    { env: ENV, now: () => now, ...(probe === "default" ? {} : { clockSynced: () => probe }), out: (s) => { h.out.push(s); }, err: (s) => { h.err.push(s); } });
 
 // killer: apps/bell/src/tick.ts:388 CONST "if (re === null) " -> ""
 test("bell_tick_recollects_a_unit_the_publisher_refused", async () => {
@@ -131,6 +135,12 @@ test("bell_tick_recollects_a_unit_the_publisher_refused", async () => {
   assert.equal(await run(h, due(D3) + 6 * HOUR), 0, lastErr(h));
   assert.match(lastOut(h), new RegExp(`^bell/tick: nothing_due unit-${D4} `));
   assert.deepEqual([attemptsOf(h), progressOf(h).last_unit], [{ [D]: 3, [D2]: 1, [D3]: 1 }, D3]);
+  // m-3: the refusal binds the name AND the manifest's sha256 (handoff-status.ts:93), as the publisher reads it.
+  // killer: apps/bell/src/handoff-status.ts:93 CONST " && x.manifest_sha256 === last.manifest_sha256" -> ""
+  refused(h, `unit-${D3}`, "bell_sha_mismatch", due(D3) + 7 * HOUR, "f".repeat(64));
+  assert.equal(await run(h, due(D3) + 8 * HOUR), 0, lastErr(h));
+  assert.match(lastOut(h), new RegExp(`^bell/tick: nothing_due unit-${D4} `), "a refusal of the same name with another manifest sha256: no recollection");
+  assert.deepEqual([attemptsOf(h), existsSync(join(h.handoff, `unit-${D3}-r1`))], [{ [D]: 3, [D2]: 1, [D3]: 1 }, false]);
 });
 
 // killer: apps/bell/src/tick.ts:347 CONST " && re !== null" -> " && false"
@@ -148,19 +158,25 @@ test("bell_tick_refuses_publisher_refused_when_the_unit_budget_is_spent", async 
 
 // killer: apps/bell/src/handoff-status.ts:116 CONST "d < s.from_unit" -> "d >= s.from_unit"
 test("bell_tick_prunes_only_what_the_rules_allow", async () => {
-  // P before the mark; M3 the mark, abandoned; M published; M2 refused, its r1 published 1 ms short of seven days; M4 after the mark, never
-  // published (the killer case: an old bundle the rules never allow to remove).
-  const [P, M3, M, M2, M4] = days("2026-09-14", 5) as [string, string, string, string, string], h = await seeded(P), T = due(M4) + HOUR;
-  for (const n of [`unit-${P}`, `unit-${P}-r1`, `unit-${M3}`, `unit-${M}`, `unit-${M2}`, `unit-${M2}-r1`, `unit-${M4}`]) bundle(h, n);
-  writeFileSync(join(h.handoff, `unit-${M3}.abandoned`), `${JSON.stringify({ unit: M3, reason: "close_ref_missing" })}\n`);
-  writeFileSync(join(h.handoff, `unit-${M3}.abandoned.manifest`), "0".repeat(64) + `  unit-${M3}.abandoned\n`);
+  // P before the mark; M3 the mark, abandoned; M published, its r1 neither refused nor published (m-2: kept); M2 refused, its r1 published
+  // 1 ms short of seven days; M4 after the mark, never published (the killer case: an old bundle the rules never allow to remove); X published
+  // and refused under another manifest sha256 (m-3: kept); M5 abandoned after the last unit published (m-2: its tombstone kept).
+  const [P, M3, M, M2, M4, X, M5] = days("2026-09-14", 7) as [string, string, string, string, string, string, string], h = await seeded(P), T = due(M4) + HOUR;
+  for (const n of [`unit-${P}`, `unit-${P}-r1`, `unit-${M3}`, `unit-${M}`, `unit-${M}-r1`, `unit-${M2}`, `unit-${M2}-r1`, `unit-${M4}`, `unit-${X}`]) bundle(h, n);
+  for (const d of [M3, M5]) {
+    writeFileSync(join(h.handoff, `unit-${d}.abandoned`), `${JSON.stringify({ unit: d, reason: "close_ref_missing" })}\n`);
+    writeFileSync(join(h.handoff, `unit-${d}.abandoned.manifest`), "0".repeat(64) + `  unit-${d}.abandoned\n`);
+  }
   for (const d of [P, M3, M, M2, M4]) { mkdirSync(join(h.state, "quarantine", d, "a1"), { recursive: true }); writeFileSync(join(h.state, "quarantine", d, "reason"), "a1 check_failed:C04\n"); }
-  progressAt(h, P, M4);
+  progressAt(h, P, M5);
   refused(h, `unit-${M3}`, "bell_sha_mismatch", T - WEEK - 2 * DAY);
   abandoned(h, M3, T - WEEK - DAY);
   published(h, `unit-${M}`, T - WEEK);
   refused(h, `unit-${M2}`, "bell_sha_mismatch", T - WEEK);
   published(h, `unit-${M2}-r1`, T - WEEK + 1, 2);
+  published(h, `unit-${X}`, T - WEEK, 3, "f".repeat(64));
+  refused(h, `unit-${X}`, "bell_sha_mismatch", T - WEEK, "e".repeat(64));
+  const withManifests = (names: string[]): string[] => names.flatMap((n) => [n, `${n}.manifest`]).sort();
   const handoff0 = listing(h.handoff), quarantine0 = listing(join(h.state, "quarantine"));
   const kept = (dir: string): string => listing(dir).map((f) => `${f}=${statSync(join(dir, f)).isFile() ? sha256Hex(readFileSync(join(dir, f))) : "dir"}`).join(",");
   const status0 = kept(h.status);
@@ -169,13 +185,18 @@ test("bell_tick_prunes_only_what_the_rules_allow", async () => {
   mark(h, M3, T - WEEK - 3 * DAY);
   const state0 = kept(join(h.state, "state")), status1 = kept(h.status);
   assert.equal(await run(h, T), 0, lastErr(h));
-  assert.match(lastOut(h), new RegExp(`^bell/tick: nothing_due unit-${nextTradingDay(M4)} `), "the purge prints nothing of its own");
-  assert.deepEqual(listing(h.handoff), [`unit-${M2}`, `unit-${M2}-r1`, `unit-${M2}-r1.manifest`, `unit-${M2}.manifest`, `unit-${M4}`, `unit-${M4}.manifest`],
-    "removed: before the mark (P, P-r1), published (M, at exactly seven days), refused of an abandoned D (M3), the tombstone before a published unit; kept: M2 and its r1 (1 ms short), M4 (never)");
+  assert.match(lastOut(h), new RegExp(`^bell/tick: nothing_due unit-${nextTradingDay(M5)} `), "the purge prints nothing of its own");
+  // killer: apps/bell/src/handoff-status.ts:122 CONST "v.refused.some(same) ? Math.min(pubAt(d), abandonedAt(d)) : Infinity" -> "Math.min(pubAt(d), abandonedAt(d))"
+  // killer: apps/bell/src/handoff-status.ts:126 CONST "dayOf(p.bundle) > d" -> "true"
+  // killer: apps/bell/src/handoff-status.ts:120 CONST " && y.manifest_sha256 === x.manifest_sha256" -> ""
+  const stay = [`unit-${M}-r1`, `unit-${M4}`, `unit-${X}`, `unit-${M5}.abandoned`];
+  assert.deepEqual(listing(h.handoff), withManifests([`unit-${M2}`, `unit-${M2}-r1`, ...stay]),
+    "removed: before the mark (P, P-r1), published (M, at exactly seven days), refused of an abandoned D (M3), the tombstone before a published unit; kept: M2 and its r1 (1 ms short), M4 (never), " +
+    "M-r1 (a revision of a published D, never refused: rule 3 takes a refused bundle only), X (published and refused under another manifest sha256), the tombstone of M5 (no unit published after it)");
   assert.deepEqual(listing(join(h.state, "quarantine")), [M2, M4], "quarantine/<D>/ under the condition of its D");
   assert.deepEqual([kept(join(h.state, "state")), kept(h.status), status1 === status0], [state0, status1, false], "never state/, never the handoff's state");
   assert.equal(await run(h, T + 1), 0, lastErr(h));
-  assert.deepEqual(listing(h.handoff), [`unit-${M4}`, `unit-${M4}.manifest`], "one ms later M2 and its revision go, the manifests with them; M4 stays");
+  assert.deepEqual(listing(h.handoff), withManifests(stay), "one ms later M2 and its revision go, the manifests with them; M4, M-r1, X and the tombstone of M5 stay");
   assert.deepEqual(listing(join(h.state, "quarantine")), [M4]);
 });
 
@@ -235,16 +256,74 @@ test("bell_tick_refuses_an_unreadable_handoff_state", async () => {
   assert.equal(h.calls.length, 0, "refused before any call");
 });
 
-// killer: apps/bell/src/tick.ts:408 CONST "(parse(l) as { unit?: unknown } | null)?.unit === o.d" -> "l === o.d"
+// killer: apps/bell/src/tick.ts:413 CONST "(parse(l) as { unit?: unknown } | null)?.unit === o.d" -> "l === o.d"
 test("bell_tick_abandon_records_its_instant_once", async () => {
   const [D] = days("2026-10-02", 1) as [string], h = await seeded(D), jl = join(h.state, "state", "abandoned.jsonl"), p = join(h.state, "state", "progress.json");
   for (let i = 0; i < ATTEMPT_BUDGET; i++) assert.equal(await run(h, due(D) + i * HOUR, refusing), 1);
-  const before = readFileSync(p, "utf8"), at = due(D) + 9 * HOUR, argv = ["--abandon", D, "--reason", "close_ref_missing", "--state", h.state, "--handoff", h.handoff];
-  const act = (now: number): Promise<number> => tickMain(argv, { env: ENV, now: () => now, out: (s) => { h.out.push(s); }, err: (s) => { h.err.push(s); } });
-  assert.equal(await act(at), 0, lastErr(h));
+  const before = readFileSync(p, "utf8"), at = due(D) + 9 * HOUR, handoff0 = listing(h.handoff);
+  // m-4: the act dates the purges (abandoned_at), so it reads the tick's clock probe, unsynced by default, before any write.
+  // killer: apps/bell/src/tick.ts:410 CONST "!(deps.clockSynced ?? UNSYNCED)()" -> "false"
+  assert.deepEqual([await act(h, D, at, "default"), await act(h, D, at, false)], [1, 1], "the act's clock probe answers unsynced, by default and when told so");
+  assert.deepEqual(h.err.slice(-2), Array(2).fill("bell/tick: refused clock_unsynced: the host clock is not synchronized"));
+  assert.deepEqual([existsSync(jl), readFileSync(p, "utf8"), listing(h.handoff)], [false, before, handoff0], "refused before any write");
+  assert.equal(await act(h, D, at), 0, lastErr(h));
   const line = `${JSON.stringify({ unit: D, reason: "close_ref_missing", abandoned_at: iso(at) })}\n`;
   assert.equal(readFileSync(jl, "utf8"), line, "the reason line carries the act's instant, by the injected clock");
   writeFileSync(p, before); // a stop between the reason line and the progress: the act runs again
-  assert.equal(await act(at + HOUR), 0, lastErr(h));
+  assert.equal(await act(h, D, at + HOUR), 0, lastErr(h));
   assert.equal(readFileSync(jl, "utf8"), line, "one line per unit: the second act keeps the first instant");
+});
+
+// killer: apps/bell/src/tick.ts:408 CONST "(o.d !== next && !byRefusal)" -> "o.d !== next"
+test("bell_tick_abandon_frees_a_unit_the_publisher_refused", async () => {
+  // M-1: past its budget the unit the publisher refused is behind the progress, never the next unit; the act still abandons it, by the
+  // record of the tick's publisher_refused (state/stalled.json), without moving the progress back.
+  const [D, D2] = days("2026-10-02", 2) as [string, string], h = await seeded(D), t = `unit-${D}.abandoned`, sp = join(h.state, "state", "stalled.json");
+  mark(h, D, due(D) - HOUR);
+  assert.equal(await run(h, due(D)), 0, lastErr(h));
+  refused(h, `unit-${D}`, "bell_sha_mismatch", due(D) + HOUR);
+  for (let i = 2; i <= ATTEMPT_BUDGET; i++) assert.equal(await run(h, due(D2) + i * HOUR, refusing), 1);
+  assert.equal(await run(h, due(D2) + 10 * HOUR), 1);
+  assert.match(lastErr(h), /^bell\/tick: refused publisher_refused:bell_sha_mismatch: /);
+  const record = `${JSON.stringify({ unit: D, code: "bell_sha_mismatch" })}\n`;
+  assert.equal(existsSync(sp) ? readFileSync(sp, "utf8") : null, record, "the refusal records its unit for the act");
+  const p0 = readFileSync(join(h.state, "state", "progress.json"), "utf8"), a0 = attemptsOf(h), at = due(D2) + 11 * HOUR;
+  assert.equal(await act(h, D2, at), 1, "D2, neither the next unit stalled nor the unit refused");
+  assert.equal(await act(h, D, at), 0, lastErr(h));
+  assert.equal(lastOut(h), `bell/tick: abandoned unit-${D} reason=close_ref_missing`);
+  const body = `${JSON.stringify({ unit: D, reason: "close_ref_missing" })}\n`;
+  assert.deepEqual([readFileSync(join(h.handoff, t), "utf8"), readFileSync(join(h.handoff, `${t}.manifest`), "utf8")], [body, `${sha256Hex(body)}  ${t}\n`],
+    "the tombstone and its manifest, the form the publisher reads (bell-publish.mjs manifestsOf)");
+  assert.equal(readFileSync(join(h.state, "state", "abandoned.jsonl"), "utf8"), `${JSON.stringify({ unit: D, reason: "close_ref_missing", abandoned_at: iso(at) })}\n`);
+  assert.deepEqual([readFileSync(join(h.state, "state", "progress.json"), "utf8"), attemptsOf(h), existsSync(sp)], [p0, a0, false],
+    "the progress never moves back, the attempts are kept, the record is consumed");
+  const written = (): string[] => [join(h.handoff, t), join(h.handoff, `${t}.manifest`), join(h.state, "state", "abandoned.jsonl"), join(h.state, "state", "progress.json")]
+    .map((f) => readFileSync(f, "utf8")), done = written();
+  writeFileSync(sp, record); // a stop before the record's removal: the act runs again, to the same bytes
+  assert.equal(await act(h, D, at + HOUR), 0, lastErr(h));
+  assert.deepEqual([written(), existsSync(sp)], [done, false], "the act run again: the same tombstone, one reason line, the progress kept, the record consumed");
+  assert.equal(await act(h, D, at + HOUR), 1, "abandoned once");
+  assert.equal(lastErr(h), `bell/tick: refused abandon_refused: unit-${D} is not the stalled unit`);
+  h.calls.length = 0;
+  assert.equal(await run(h, due(D2) + 12 * HOUR), 0, lastErr(h));
+  assert.match(lastOut(h), new RegExp(`^bell/tick: deposited unit-${D2} `), "the next tick no longer refuses: it collects the next unit");
+  assert.deepEqual([h.calls, progressOf(h).last_unit], [BELL_UNIVERSE.map(() => windowOf(D2)), D2]);
+});
+
+// killer: apps/bell/src/tick.ts:335 CONST "re === null ? backlogOf(view) : null" -> "backlogOf(view)"
+test("bell_tick_recollects_a_refused_unit_above_the_backlog", async () => {
+  // m-1: the refused unit is itself counted in the backlog; were the backlog to stop its recollection, the publisher would await it forever.
+  const after = days("2026-10-02", 10), from = after[0] ?? "", last = after.at(-1) ?? "", h = await seeded(from);
+  for (const d of after) bundle(h, `unit-${d}`);
+  mark(h, from, due(from) - DAY);
+  published(h, `unit-${from}`, due(from));
+  progressAt(h, from, last);
+  assert.equal(await run(h, due(last) + HOUR), 1);
+  assert.equal(lastErr(h), `bell/tick: refused handoff_backlog: 9 units from unit-${from} on await publication, above 8`);
+  refused(h, `unit-${last}`, "bell_sha_mismatch", due(last) + HOUR);
+  assert.equal(await run(h, due(last) + 2 * HOUR), 0, lastErr(h));
+  assert.match(lastOut(h), new RegExp(`^bell/tick: deposited unit-${last}-r1 `), "nine units await, above 8, and the last is refused: it is collected again");
+  assert.deepEqual([h.calls, attemptsOf(h)], [BELL_UNIVERSE.map(() => windowOf(last)), { [last]: 1 }]);
+  assert.equal(await run(h, due(last) + 3 * HOUR), 1);
+  assert.equal(lastErr(h), `bell/tick: refused handoff_backlog: 9 units from unit-${from} on await publication, above 8`, "its revision not refused: the backlog stops the next unit again");
 });

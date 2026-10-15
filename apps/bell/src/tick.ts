@@ -11,18 +11,18 @@
 // then the rename, then state/progress.json), or moves it to quarantine/<D>/ with its reason. The guard's errors are rendered under their
 // names of the closed list; a SIGTERM handler, set before any lock, releases the current run's locks, says whether the release held, and
 // exits 1. At most one unit
-// per tick; attempts are counted per unit start day D, whatever the slot or the cause; past the budget the unit exits stalled_unit until
-// an act abandons it. The argv forms are closed:
+// per tick; attempts are counted per unit start day D, whatever the slot or the cause; past the budget the unit exits stalled_unit (or
+// publisher_refused, a unit the publisher refused) until an act abandons it. The argv forms are closed:
 //   --tick --state <dir> --handoff <dir> --status <dir> --ledger-dir <dir>
 //   --seed <D> --state <dir>
 //   --abandon <D> --reason <code> --state <dir> --handoff <dir>
 // <state> is the private directory of the collection: state/progress.json, state/attempts.json, state/abandoned.jsonl, state/cost.jsonl,
-// state/legs.json, state/trajectory/, quarantine/<D>/. <status> is the handoff's state the publisher writes (start, published.jsonl,
-// refused.jsonl), read before the planner (handoff-status.ts): the purge, the backlog (handoff_backlog), the recollection of a refused unit.
+// state/legs.json, state/stalled.json (read by the abandon act), state/trajectory/, quarantine/<D>/. <status> is the handoff's state the
+// publisher writes (start, published.jsonl, refused.jsonl), read before the planner (handoff-status.ts): purge, backlog, recollection.
 // Exit 0: deposited, nothing due, already deposited, seeded, abandoned; 1: a named refusal of TICK_REFUSALS; 64: usage, before any
 // read, probe, clock or write. The environment is checked for presence and shape only; no printed line names a URL or a key (every
 // detail passes KEY_SHAPES and the credential values of the environment). The clock probe (deps.clockSynced, unsynced by default:
-// fail-closed) is read before the clock, which is read once per tick, and before any attempt, write or run.
+// fail-closed) is read before the clock, which is read once per tick, and before any attempt, write or run; the abandon act reads it too.
 import { appendFileSync, closeSync, existsSync, fsyncSync, mkdirSync, openSync, readdirSync, readFileSync, renameSync, rmSync, writeSync } from "node:fs";
 import { join } from "node:path";
 import { pathToFileURL } from "node:url";
@@ -344,7 +344,7 @@ async function tick(o: Extract<Opts, { mode: "tick" }>, deps: TickDeps): Promise
   if (existsSync(bundle) && existsSync(manifestPath)) { if (re === null) advance(o.state, progress, u.d, name, readFileSync(manifestPath, "utf8")); return `already_deposited ${name}`; }
   const cycles = cyclesOf(deps.env, now);
   const attempts = readAttempts(o.state), key = u.d, n = (attempts[key] ?? 0) + 1;
-  if (n > ATTEMPT_BUDGET && re !== null) refuse("publisher_refused", `${name} would collect unit-${u.d} again, its budget of ${String(ATTEMPT_BUDGET)} attempts spent`, re.code);
+  if (n > ATTEMPT_BUDGET && re !== null) { writeAtomic(join(o.state, "state", "stalled.json"), `${JSON.stringify({ unit: re.d, code: re.code })}\n`); refuse("publisher_refused", `${name} would collect unit-${u.d} again, its budget of ${String(ATTEMPT_BUDGET)} attempts spent`, re.code); }
   if (n > ATTEMPT_BUDGET) refuse("stalled_unit", `${name} after ${String(ATTEMPT_BUDGET)} attempts; abandon it by act`);
   writeAtomic(join(o.state, "state", "attempts.json"), `${JSON.stringify({ ...attempts, [key]: n })}\n`);
   const tmp = join(o.handoff, `.tmp-${name}`), window = { from_utc_ms: u.startMs, to_utc_ms: u.endMs - 1000 }, maxPages = BELL_RUN_CAPS.maxPages;
@@ -397,20 +397,26 @@ function seed(o: Extract<Opts, { mode: "seed" }>): string {
   return `seeded ${o.d}`;
 }
 
-/** The abandon act: only the stalled unit (the next one, its budget spent). The reason line (with abandoned_at, the act's instant by the
- *  injected clock, C3-8; one line per unit), the tombstone's manifest, the tombstone unit-<D>.abandoned, then the progress, once. */
-function abandon(o: Extract<Opts, { mode: "abandon" }>, now: () => number): string {
+/** The abandon act: the stalled unit (the next one, its budget spent), or the unit the publisher refused past its budget (state/stalled.json,
+ *  written by the tick's publisher_refused, C3-7). The tick's clock probe (deps.clockSynced, unsynced by default) before any write (G0 M-11).
+ *  The reason line (with abandoned_at, the act's instant by the injected clock, C3-8; one line per unit), the tombstone's manifest, the
+ *  tombstone unit-<D>.abandoned, then the progress, once, for the next unit only; a refused unit is behind the progress, which never moves
+ *  back: its act removes state/stalled.json last instead (a stop before it: the act runs again, a second act after it is refused). */
+function abandon(o: Extract<Opts, { mode: "abandon" }>, deps: TickDeps): string {
   const progress = readProgress(o.state), next = progress.last_unit === null ? progress.seed : nextTradingDay(progress.last_unit);
-  if (o.d !== next || (readAttempts(o.state)[o.d] ?? 0) < ATTEMPT_BUDGET) refuse("abandon_refused", `unit-${o.d} is not the stalled unit`);
+  const sp = join(o.state, "state", "stalled.json"), byRefusal = o.d !== next && existsSync(sp) && (parse(readFileSync(sp, "utf8")) as { unit?: unknown } | null)?.unit === o.d;
+  if ((o.d !== next && !byRefusal) || (readAttempts(o.state)[o.d] ?? 0) < ATTEMPT_BUDGET) refuse("abandon_refused", `unit-${o.d} is not the stalled unit`);
   if (!existsSync(o.handoff)) refuse("state_missing", "the handoff directory is missing");
+  if (!(deps.clockSynced ?? UNSYNCED)()) refuse("clock_unsynced", "the host clock is not synchronized");
   const name = `unit-${o.d}.abandoned`, body = `${JSON.stringify({ unit: o.d, reason: o.reason })}\n`, jl = join(o.state, "state", "abandoned.jsonl");
   const prior = existsSync(jl) ? readFileSync(jl, "utf8") : "", manifest = `${sha256Hex(body)}  ${name}\n`;
   if (!prior.split("\n").some((l) => (parse(l) as { unit?: unknown } | null)?.unit === o.d)) {
-    writeAtomic(jl, `${prior}${JSON.stringify({ unit: o.d, reason: o.reason, abandoned_at: new Date(now()).toISOString() })}\n`);
+    writeAtomic(jl, `${prior}${JSON.stringify({ unit: o.d, reason: o.reason, abandoned_at: new Date(deps.now()).toISOString() })}\n`);
   }
   writeAtomic(join(o.handoff, `${name}.manifest`), manifest);
   writeAtomic(join(o.handoff, name), body);
-  advance(o.state, progress, o.d, name, manifest);
+  if (byRefusal) rmSync(sp, { force: true });
+  else advance(o.state, progress, o.d, name, manifest);
   return `abandoned unit-${o.d} reason=${o.reason}`;
 }
 
@@ -421,7 +427,7 @@ export async function tickMain(argv: readonly string[], deps: TickDeps): Promise
   const safe = (s: string): string => (KEY_SHAPES.some((re) => re.test(s)) || creds.some((c) => s.includes(c)) ? "(detail withheld)" : s);
   try {
     const o = parseArgv(argv);
-    out(`bell/tick: ${safe(o.mode === "tick" ? await tick(o, deps) : o.mode === "seed" ? seed(o) : abandon(o, () => deps.now()))}`);
+    out(`bell/tick: ${safe(o.mode === "tick" ? await tick(o, deps) : o.mode === "seed" ? seed(o) : abandon(o, deps))}`);
     return 0;
   } catch (e) {
     if (e instanceof TickRefusal) { err(`bell/tick: refused ${safe(e.label)}: ${safe(e.detail)}`); return e.code === "usage" ? 64 : 1; }

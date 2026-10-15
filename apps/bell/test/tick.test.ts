@@ -188,7 +188,7 @@ test("bell_tick_quarantines_refused_bundle_and_next_tick_proceeds", async () => 
   assert.deepEqual([progressOf(h).last_unit, readJson(attemptsPath(h))], [D, { [D]: 3 }]);
 });
 
-// killer: apps/bell/src/tick.ts:427 CONST "? 64 : 1" -> "? 64 : 0"
+// killer: apps/bell/src/tick.ts:433 CONST "? 64 : 1" -> "? 64 : 0"
 test("bell_tick_exits_nonzero_on_every_named_refusal", async () => {
   const seen = new Map<string, number>();
   const note = async (h: Host, p: Promise<number>): Promise<void> => {
@@ -283,7 +283,7 @@ test("bell_tick_refuses_clock_unsynced", async () => {
   assert.deepEqual([h.probes, h.nows], [2, 1], "one probe and one clock read per tick");
 });
 
-// killer: apps/bell/src/tick.ts:421 CONST "KEY_SHAPES.some((re) => re.test(s)) || " -> ""
+// killer: apps/bell/src/tick.ts:427 CONST "KEY_SHAPES.some((re) => re.test(s)) || " -> ""
 test("bell_tick_never_prints_urls_or_keys", async () => {
   const h = await seeded(), secrets = [ENV.BELL_SOLANA_RPC, HKEY, ENV.CHAINSTACK_SOLANA_URL, ENV.DATABENTO_API_KEY, ENV.POLYGON_API_KEY].map(String);
   const leaks: RunUnit[] = [refusing("budget_stop", `HTTP 429 from ${secrets[0] ?? ""}`), refusing("lock_held", `held for ${HKEY}`),
@@ -298,7 +298,7 @@ test("bell_tick_never_prints_urls_or_keys", async () => {
   for (const l of lines) assert.ok(!KEY_SHAPES.some((re) => re.test(l)) && secrets.every((s) => !l.includes(s)), `no url, no key: ${l}`);
 });
 
-// killer: apps/bell/src/tick.ts:404 CONST " || (readAttempts(o.state)[o.d] ?? 0) < ATTEMPT_BUDGET" -> ""
+// killer: apps/bell/src/tick.ts:408 CONST " || (readAttempts(o.state)[o.d] ?? 0) < ATTEMPT_BUDGET" -> ""
 test("bell_tick_abandon_writes_tombstone_and_advances_once", async () => {
   const h = await seeded(), t = `unit-${D}.abandoned`, jl = join(h.state, "state", "abandoned.jsonl");
   for (let i = 0; i < 7; i++) await run(h, tickArgv(h), { now: DUE + i * HOUR, runUnit: refusing("close_ref_missing") });
