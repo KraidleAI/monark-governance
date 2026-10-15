@@ -28,7 +28,7 @@ import { createRequire } from "node:module";
 import { tmpdir } from "node:os";
 import { dirname, join, relative } from "node:path";
 import { pathToFileURL } from "node:url";
-import { assertFleetBody, renderedBody, decodeEntities, stripHiddenSurfaces, SITE_BUILD_RUN, FLEET_HEADER } from "../scripts/assert-fleet-html.mjs";
+import { assertFleetBody, renderedBody, decodeEntities, SITE_BUILD_RUN, FLEET_HEADER } from "../scripts/assert-fleet-html.mjs";
 import { derivePublicWorkflow, collectFiles, CI_WORKFLOW_PATH } from "../scripts/export-public.mjs";
 import ts from "typescript";
 import { renderedTexts } from "../apps/site/test/honesty-lint.ts";
@@ -401,9 +401,12 @@ const renderOpen = async (pages: string[]): Promise<Record<string, string>> => {
  *  ONE pass over the tags and texts of the stripped page (ADR-CODEQL-ALERTS-1 D3: no regex filter run to a fixpoint): a <wbr> is left out;
  *  an inline closer (span, b, i, em, strong) that meets its own opener as the last kept token takes it out with itself, so nested empty
  *  tags vanish in document order; every other token is copied verbatim. */
-const buildingAt = (raw: string): { html: string; at: number[] } => {
+const buildingAt = async (raw: string): Promise<{ html: string; at: number[] }> => {
+  // The stripper is loaded here, not at the top: on a tree without the export the tests of this helper red by this assertion, not by the module load.
+  const checker = (await import("../scripts/assert-fleet-html.mjs")) as { stripHiddenSurfaces?: (html: string) => string };
+  assert.equal(typeof checker.stripHiddenSurfaces, "function", "scripts/assert-fleet-html.mjs exports stripHiddenSurfaces, the one-pass remover of hidden surfaces");
   const kept: string[] = [];
-  for (const [token] of stripHiddenSurfaces(raw).matchAll(/<[^>]*>|[^<]+/g)) {
+  for (const [token] of checker.stripHiddenSurfaces!(raw).matchAll(/<[^>]*>|[^<]+/g)) {
     if (/^<wbr\b[^>]*>$/i.test(token)) continue;
     const closer = /^<\/(span|b|i|em|strong)\s*>$/i.exec(token);
     if (closer && new RegExp(`^<${closer[1]}\\b[^>]*>$`, "i").test(kept.at(-1) ?? "")) { kept.pop(); continue; }
@@ -1664,6 +1667,7 @@ test("building_panel_block_is_named_only_by_its_definition_and_the_shogen_panel 
   const files = ["apps/site/app", "apps/site/components", "apps/site/lib"].flatMap(tsUnder);
   const named = Object.fromEntries(files.map((f) => [f, read(f).match(/\bBuildingPanelBlock\b/g)?.length ?? 0] as const).filter(([, n]) => n > 0));
   assert.deepEqual(named, { "apps/site/components/panel-shell.tsx": 1, "apps/site/components/shogen-panel.tsx": 3 }, "the text BuildingPanelBlock appears in its definition and in the Shōgen panel's import and two tags only");
+  assert.match(read("apps/site/lib/status.ts"), /^export type BuildingStatus = "building";$/m, "the building status type admits building alone");
   for (const f of ["apps/site/app/page.tsx", "apps/site/components/what-inside.tsx", "apps/site/lib/status.ts"]) assert.ok(files.includes(f), `the scan reads ${f} (false-green guard)`);
   assert.match(read("apps/site/components/panel-shell.tsx"), /^export function BuildingPanelBlock\(/m, "the one name in panel-shell.tsx is its definition");
   assert.match(read("apps/site/components/panel-shell.tsx"), /export function PanelBlock\(\{ title, status, children \}: \{ title: string; status: AgentStatus; children: ReactNode \}\)/, "PanelBlock keeps the two public statuses");
@@ -1671,7 +1675,7 @@ test("building_panel_block_is_named_only_by_its_definition_and_the_shogen_panel 
 
 // killer: apps/site/components/panel-shell.tsx:31 CONST "<StatusBadge status={status} className=\"ml-auto\" />" -> "<span className=\"c-pill c-pill--upcoming ml-auto\">building</span>"
 test("shogen_building_pill_is_served_once_in_its_block — the /fleet page, rendered on the server with every panel open, shows the word building once, as the pill of the How it works block of the Shōgen panel; a second one reds when a file the page imports draws it, under any name, through the render prop or the function child of a dialog part, in a value or placeholder attribute, or with the word split by an empty span, b, i, em or strong tag, a comment as stripHiddenSurfaces reads one, or an invisible character; text drawn by CSS or by another attribute, a state a script reaches after the first render, a render function that reads its part's state, a prop Base UI computes from that state (aria-expanded, data-popup-open of a Trigger) or a prop Base UI computes for Portal, Backdrop or Popup, and a word split by an element with content, by another empty element or by an empty tag CSS gives a box are outside this test (Shōgen N-14; the seam is PXC-08)", async () => {
-  const { html, at } = buildingAt((await renderOpen(["fleet/page.tsx"]))["fleet/page.tsx"] ?? "");
+  const { html, at } = await buildingAt((await renderOpen(["fleet/page.tsx"]))["fleet/page.tsx"] ?? "");
   assert.ok(html.includes(">Honest limits<") && html.includes(">Open panel<"), "the panels render open, beside their cards (false-green guard)");
   assert.equal(at.length, 1, "the page shows building as a text or a value of its own exactly once, empty inline tags, comments and invisible characters taken out");
   const before = html.slice(0, at[0]);
@@ -1692,7 +1696,8 @@ test("building_pill_shows_on_no_other_page — every other page under apps/site/
   assert.ok(pages.length >= 40 && pages.includes("fleet/page.tsx"), "the scan finds every page (false-green guard)");
   const other = pages.filter((p) => p !== "fleet/page.tsx");
   const html = await renderOpen(other);
-  assert.deepEqual(other.filter((p) => buildingAt(html[p] ?? "").at.length > 0), [], "no other page shows building");
+  const showing = await Promise.all(other.map(async (p) => [p, (await buildingAt(html[p] ?? "")).at.length] as const));
+  assert.deepEqual(showing.filter(([, n]) => n > 0).map(([p]) => p), [], "no other page shows building");
 });
 
 // killer: apps/site/components/shogen-panel.tsx:67 CONST "a downstream Hikae-side adapter is meant to read it, a join being built" -> "the number is read by a downstream Hikae-side adapter"
