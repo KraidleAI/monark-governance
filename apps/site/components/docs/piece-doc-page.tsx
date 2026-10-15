@@ -95,7 +95,8 @@ function ServedDetail({ slug, root }: { slug: string; root: string }) {
     return (
       <p>
         The served gate class <code>{served.gate.task_class}</code>, keyed to the population <code>{served.gate.predictor_id}</code>. The
-        sentinel publishes at the UTC slots {served.sentinel_timer.on_calendar_utc.join(", ")}.
+        sentinel runs at the UTC slots {served.sentinel_timer.on_calendar_utc.join(", ")}, each plus up to{" "}
+        {String(Math.round(served.sentinel_timer.randomized_delay_s / 60))} minutes: the first publishes the closed day, the later ones retry it the same day.
         {last !== undefined ? (
           <>
             {" "}

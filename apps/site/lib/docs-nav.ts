@@ -21,7 +21,7 @@ export const DOCS_SECTIONS: readonly DocSection[] = [
   { href: "/docs/pieces", label: "The pieces", blurb: "Every piece of the engine, what it reads, what it produces, and its label in the register." },
   { href: "/docs/bell", label: "MONARK Bell", blurb: "A signed, hash-chained record of tokenized equities off hours, with a real record read from the host." },
   { href: "/docs/ukemi", label: "Ukemi", blurb: "Eligible is not liquidated: the book at a block, the oracle path, a conformal upper bound per stratum." },
-  { href: "/docs/narabi", label: "Narabi", blurb: "One window a day: the attested redemption flow, the quantile tracker, the replayable timeline." },
+  { href: "/docs/narabi", label: "Narabi", blurb: "One window a day: the onchain redemption flow, the quantile tracker, the hash-chained timeline." },
   { href: "/docs/integrators", label: "Integrators", blurb: "MCP and HTTP, the served tools, and calls recorded over the transport, request and answer." },
   { href: "/docs/use-cases", label: "Use cases", blurb: "What the engine is built toward when every piece is served, each case next to its state today." },
   { href: "/docs/research", label: "DeFi research", blurb: "Runs, liquidations, the oracle path, calibration and off-hours gaps: questions, methods, results." },

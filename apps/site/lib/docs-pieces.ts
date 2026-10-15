@@ -36,7 +36,7 @@ export const PIECE_DOCS: Readonly<Record<string, PieceDoc>> = {
   shogen: {
     tagline: "attested perception: bytes, a hash and named residual hypotheses, never a truth claim",
     summary:
-      "Attested perception. The piece turns a source's answer into an attested testimony: the exact bytes, their hash, and the transport assumptions the testimony still rests on, named one by one. It carries no price number and no score. Its join into the gate's verdict is dormant: no served class has a committed attestation subject.",
+      "Attested perception. The piece turns a source's answer into an attested testimony: the exact bytes, their hash, and the transport assumptions the testimony still rests on, named one by one. It carries no price number and no score. Its join into the gate's verdict is being built: no served class has a committed attestation subject.",
     entry: {
       title: "A source's answer, as bytes",
       lines: ["What the attestor read, not what it means", "the canonical name of the source", "the exact response, when the class keeps it", "the transport's clock, carried as data"],
@@ -58,16 +58,16 @@ export const PIECE_DOCS: Readonly<Record<string, PieceDoc>> = {
     ],
   },
   hikae: {
-    tagline: "the gate: split-conformal calibration, an online monitor and a closed policy that answers commit, defer or abstain",
+    tagline: "the gate: split-conformal calibration and a closed policy that answers commit, defer or abstain, with no state kept between calls",
     summary:
-      "The gate. It conforms a reading into a region at a target coverage, by split-conformal calibration per task class, keeps an online monitor of the remaining risk, and applies a closed policy that returns commit, defer or abstain against the region and the budget the caller carries. It never reports how likely it is to be right.",
+      "The gate. It conforms a reading into a region at a target coverage by split-conformal calibration, and applies a closed policy that returns commit, defer or abstain against the region and the budget the caller carries; it keeps no state between calls. It never reports how likely it is to be right.",
     entry: {
       title: "A prediction, and the caller's terms",
-      lines: ["a task class and a predictor id", "the reading y-hat: a label or a point", "optional: an attested testimony", "the budget, its floor, the thresholds, the clock"],
+      lines: ["a task class and a predictor id", "the reading y-hat: a label or a point", "optional: an attested testimony, refused today on every class", "the budget, its floor, the thresholds, the clock"],
     },
     mechanism: {
-      title: "Calibrate, monitor, decide",
-      lines: ["a split-conformal margin q-hat per class", "too few calibration points: under_calib", "the region: every answer scored at most q-hat", "a closed policy reads region and budget"],
+      title: "Calibrate, then decide",
+      lines: ["a split-conformal margin q-hat from a committed calibration or the caller's own scores", "too few calibration points: under_calib", "the region: every answer scored at most q-hat", "a closed policy reads region and budget"],
     },
     output: {
       title: "A verdict, then a decision",
@@ -108,20 +108,20 @@ export const PIECE_DOCS: Readonly<Record<string, PieceDoc>> = {
     ],
   },
   narabi: {
-    tagline: "redemption-run sensing: a quantile tracker stepped once a day and a timeline anyone can replay",
+    tagline: "redemption-run sensing: a quantile tracker stepped once a day and a timeline published with the Node version of each line",
     summary:
-      "Redemption-run sensing. Each day a sentinel reads the burns, mints and supply of one stablecoin population over a finalized window, steps an adaptive quantile tracker on the realized outcome, and publishes a hash-chained line anyone can replay. The gate's region for the class stays the committed static calibration until a pre-registered drift criterion fires.",
+      "Redemption-run sensing. Each day a sentinel reads the burns, mints and supply of one stablecoin population over a finalized window, steps an adaptive quantile tracker on the realized outcome, and publishes a hash-chained line that records its Node version. The gate's region for the class stays the committed static calibration until a pre-registered drift criterion fires.",
     entry: {
       title: "One finalized day of onchain facts",
       lines: ["burns and mints over a declared block window", "supply at the open and at the close block", "each read agreed by two distinct providers", "a window not yet final is lag, never skipped"],
     },
     mechanism: {
       title: "Score, step, chain",
-      lines: ["the attested flow becomes a velocity score", "the tracker steps its quantile on the outcome", "the long-run bound is printed with T", "each line carries the hash of the one before"],
+      lines: ["the onchain flow becomes a velocity score", "the tracker steps its quantile on the outcome", "the long-run bound is printed with T", "each line carries the hash of the one before"],
     },
     output: {
       title: "The flow and a daily timeline",
-      lines: ["state.json and timeline.jsonl, each day", "the flow carried into the served gate class", "every other population abstains", "no per-window coverage, no probability"],
+      lines: ["state.json and timeline.jsonl, each day", "the measured flow calibrated a gate class; the gate does not read the timeline", "every other population abstains", "no per-window coverage, no probability"],
     },
     contracts: ["attested-flow.schema.json"],
     notClaim: "a per-window coverage, a probability of being right, or a price call. The gate's region does not follow the tracker before the drift criterion fires.",
@@ -225,7 +225,7 @@ export const PIECE_DOCS: Readonly<Record<string, PieceDoc>> = {
 
 /** What each role does, in one verb phrase (the register's role values are the keys). */
 export const ROLE_WORDS: Readonly<Record<string, string>> = {
-  sensor: "attests",
+  sensor: "senses",
   gate: "decides",
   act: "executes on commit",
   distribution: "opens the door",

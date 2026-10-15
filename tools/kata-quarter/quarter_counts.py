@@ -5,8 +5,8 @@
 # check and count declare the role tool-tree and, before any input, hold both trees on disk to their blobs at the commit that git_tree
 # names (quarter_identity, exit 2 otherwise; no option skips it), then print that commit and the two digests on the line "identity".
 # check: two reads of one symbol through quarter_load and their merge, VERDICT: GREEN; count: the counts of the region rows of a wave 1
-# registry on Q_k through quarter_core, one canonical JSON line (no u_test, no firing, no evidence file: lot c2); month: not in this lot,
-# exit 2. Every argument is parsed under the top-level catch: a refusal or an exception is one line, no trace, exit 2. Usage: USAGE.
+# registry on Q_k (quarter_core), one JSON line (no u_test: lot c2) under fdlibm_log, then each decision math.log changes; check <act>:
+# an oracle act of quarter_oracle; month: exit 2. Every argument is parsed under the top-level catch: one line, no trace, exit 2.
 import os, sys  # sys built in, os frozen: no file is looked up by name before io_guard has checked both folders (IO-GUARD-POSED-FILES-1)
 if "io_guard" not in sys.modules:  # io_guard.py of the frozen tool, run by its path, never found by name: nothing posed or installed stands in for it
     sys.path.append(_d := os.path.join(os.path.dirname(os.path.dirname(os.path.realpath(__file__))), "kata-recalc"))  # the frozen tool's folder, last in sys.path: -P is in FORM
@@ -19,13 +19,13 @@ import json
 import quarter_core as C
 import quarter_identity as I
 import quarter_load as Q
+import quarter_oracle as O
 import recalc_p2
-
 MODEL = "claude-opus-5-5"
 USAGE = ("usage: python -E -S -s -B -P quarter_counts.py check <sealed series dir> <live series dir> <symbol folder> <quarter k> "
          "<sealed sha256 | pinned, quarter 1 only> <live sha256> <lookback hours>\n"
          "       python -E -S -s -B -P quarter_counts.py count <registry> <registry sha256> <sealed series dir> <live series dir> "
-         "<quarter k> <symbol folder>:<sealed sha256 | pinned, quarter 1 only>:<live sha256> ...")
+         "<quarter k> <symbol folder>:<sealed sha256 | pinned, quarter 1 only>:<live sha256> ...\n" + O.USAGE)
 NOT_YET = "not in this lot: the month counts arrive with lot e"
 FLAGS = []  # closed: count takes no option, so no call, traffic or served history enters a count (addendum 9 point 2; L-T2)
 FROZEN = os.path.dirname(os.path.realpath(io_guard.__file__))
@@ -57,7 +57,7 @@ def identity_line(ident):
 
 
 def check(sealed_dir, live_dir, sym, k, pin1, pin2, lookback_hours):
-    io_guard.declare("series", "recorder", "tool-tree")
+    io_guard.declare("series", "recorder", "registry", "oracle-output", "tool-tree")
     ident = I.tool_identity()
     if pin1 == "pinned" and k != 1:
         raise Q.Refused(f"'pinned' names the sealed series of wave 1, read 1 of quarter 1 only: quarter {k} reads quarter {k - 1} "
@@ -92,10 +92,13 @@ def count(registry, pin, sealed_dir, live_dir, k, specs):
     look = C.lookback(rows)
     reads = {f: Q.load_quarter(sealed_dir, live_dir, f, k, Q.sealed_pin(f) if p1 == "pinned" else p1, p2, look) for f, (p1, p2) in folders.items()}
     s_k, e_k = Q.quarter(k)
-    res = {"quarter": {"k": k, "start": Q.iso(s_k), "end": Q.iso(e_k)}, "registry_sha256": pin, **C.count(reads, rows, k, venue),
+    res = {"quarter": {"k": k, "start": Q.iso(s_k), "end": Q.iso(e_k)}, "registry_sha256": pin, **C.count(reads, rows, (s_k, e_k), venue),
            "series": {f: {"sealed": r[0]["pin"], "live": r[1]["pin"], "gaps": sum(map(len, r[2]["gaps"].values()))} for f, r in reads.items()}}
+    differ = res.pop("differ")
     lines = [MODEL, f"# quarter_counts.py count - the counts of the region rows of the registry on quarter {k}",
-             json.dumps(res, sort_keys=True, separators=(",", ":")), identity_line(ident), *io_guard.input_lines(), "VERDICT: GREEN"]
+             json.dumps(res, sort_keys=True, separators=(",", ":")), *(f"decision differs {d}" for d in differ),
+             f"math.log decisions that differ from the fdlibm_log pass, which decides: {len(differ)}", identity_line(ident),
+             *io_guard.input_lines(), "VERDICT: GREEN"]
     print("\n".join(lines), flush=True)
     return 0
 
@@ -113,6 +116,8 @@ if __name__ == "__main__":
         if sub == "count" and (bad := [a for a in args if a.startswith("--") and a not in FLAGS]):
             raise Q.Refused(f"{bad[0]}: not an option of count, whose list FLAGS is closed: no call or traffic enters a count")
         args = [a for a in args if not a.startswith("--")] if sub == "count" else args
+        if sub == "check" and args[:1] and args[0] in O.ACTS:
+            sys.exit(O.act(args[0], args[1:], identity_line))
         if sub == "count" and len(args) >= 6 and hex64(args[1]) and number(args[4]) and all(map(spec, args[5:])):
             sys.exit(count(os.path.abspath(args[0]), args[1], os.path.abspath(args[2]), os.path.abspath(args[3]), int(args[4]), args[5:]))
         if sub != "check" or len(args) != 7 or not (number(args[3]) and number(args[6])) \

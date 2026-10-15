@@ -754,7 +754,7 @@ export function recomputeRecipe(state: NarabiState, lines: readonly TimelineLine
     `  burns = sum(Transfer to the zero address)   -> ${burns}`,
     `  mints = sum(Transfer from the zero address) -> ${mints}`,
     `totalSupply at the close block                 -> ${supply}`,
-    `# attestation`,
+    `# flow record (AttestedFlow)`,
     `sha256(AttestedFlow bytes)                     -> ${flowSha}`,
     `# tracker replay (recomputed in this page from q1, params and the s column)`,
     `trackerReplay(q1, params, timeline.s) -> q = ${replay.recomputed}`,
@@ -919,11 +919,11 @@ export const D8_SENTENCE =
   "the tracker adapts, the gate does not yet.";
 
 // The "why T ≥ 7" rationale — DIGIT-FREE (numbers are spelled), proven by test 3. It explains that seven
-// published steps is one week of verifiable replay before we speak of a series.
+// published steps is one week of a hash-chained timeline before we speak of a series; no tracker replay is promised.
 export const WHY_SEVEN =
   "T is read from the published state, never typed here. We will not speak of this as a series until it has run for seven daily " +
-  "steps — one week of a published timeline that anyone can recompute and replay from the two static files, " +
-  "before we point to it. Seven steps is a week, nothing stronger: no trend is claimed, and no coverage is " +
+  "steps — one week of a hash-chained timeline whose windows anyone can recompute onchain, each line recording its Node version, " +
+  "before we point to it. Seven steps is a week, nothing stronger: no trend is claimed, no tracker replay is promised, and no coverage is " +
   "measured.";
 
 // The closing framing (digit-free). The tracker moves each window; the committed gate region does not, until
@@ -938,7 +938,7 @@ export const BOUND_FORMULA = "(B + η₁)/(T·η_T)";
 
 // Section titles + ledes (digit-free structural copy).
 export const HERO_DEK =
-  "One daily UTC window per line: attested, published, replayable, pre-registered, bounded. Two static files, nothing else.";
+  "One daily UTC window per line: recomputable, published with its Node version, pre-registered, bounded. Two static files, nothing else.";
 export const WINDOWS_LEDE =
   "One row per daily UTC window, most recent first. Zeros are facts. A field not yet evaluable is a — with its status word. Amounts are rounded half-up to the unit shown; the exact integers are in the file.";
 export const DRIFT_LEDE = "What a drift triggers is the opening of an ADR, never an automatic change of the committed gate region.";

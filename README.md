@@ -30,7 +30,7 @@ on the site's diagram; *wired* = declared in the registry today, *can serve* = a
 
 | AI side — for an agent on our MCP | Component | DeFi side — DeFAI, for the applications |
 |---|---|---|
-| `attest`: an attested price testimony (bytes, hash, named residual hypotheses) the agent can cite instead of a scraped number — origin and bytes, never truth. | **Shōgen** — sensor, attested perception · *built* | A price testimony format an application could cite for its origin and bytes; today the attest tool projects one committed witness, and its join into the gate is dormant (can serve: Warden, Softlanding, Firebreak, Ballast). |
+| `attest`: an attested price testimony (bytes, hash, named residual hypotheses) the agent can cite instead of a scraped number — origin and bytes, never truth. | **Shōgen** — sensor, attested perception · *built* | A price testimony format an application could cite for its origin and bytes; today the attest tool projects one committed witness, and its join into the gate is being built (can serve: Warden, Softlanding, Firebreak, Ballast). |
 | `gate` + `calibrate`: the agent submits a claim and gets `commit \| defer \| abstain`, an auditable region and the budget left — never a probability of being right. | **Hikae** — the gate, coverage-controlled inference · *built* | The decision primitive of every application (wired: Firebreak, Warden, Softlanding, Verdict, Ballast). Bell's gate is its own closed publication check; a gate class for its off-hours gap is planned. |
 | `cascade`: the agent asks how much a caller-carried shock would make liquidable in a caller-carried interbank system, each node read as a leveraged position (a transitional tool; it abstains, `under_calib`). Through `gate`, the class `liquidation-eligible-coverage` returns a conformal upper bound on a caller-carried liquidable amount in its committed stratum, calibrated on one recorded episode; the other strata abstain (`under_calib`) — stated on the wire. | **Ukemi** — act, liquidation-cascade survival · *built* | Will read the deleveraging queue or the position before it clears (wired: Firebreak, Softlanding). |
 | A daily, hash-chained redemption-flow timeline (`state.json`, `timeline.jsonl`) any agent can read, and the served gate class `stable-run-velocity-24h` through `gate`. | **Narabi** — sensor, redemption-run sensing · *built, served daily* | Redemption-run sensing for a treasury that holds the stable: a daily, hash-chained reading of the redemption flow, stated after the fact, never ahead of it (can serve: Warden, Ballast). |
@@ -202,7 +202,7 @@ Where a study finds nothing, the piece says so: an `abstain`, a named residual, 
 
 ```
 AI side — the MONARK engine
-  sensors (attest · join upcoming)  →  the gate: Hikae + MONARK B_t  →  acts (execute · upcoming)
+  sensors (attest · join building)  →  the gate: Hikae + MONARK B_t  →  acts (execute · upcoming)
                                             commit | defer | abstain
   harness (MCP / HTTP)  ·  adaptation agents: recalibrate · onboard · track · watch
                                         │  meant to power
