@@ -4,6 +4,7 @@
  "apps/bell/test/bell-ops.test.ts": 7,
  "apps/bell/test/bell-publish-chain.test.ts": 6,
  "apps/bell/test/bell-publish-durable.test.ts": 8,
+ "apps/bell/test/bell-publish-handoff.test.ts": 17,
  "apps/bell/test/bell-publish-validate.test.ts": 12,
  "apps/bell/test/bell-retry-nonjson.test.ts": 4,
  "apps/bell/test/bell-served-e2e.test.ts": 5,

@@ -36,5 +36,47 @@ export function rotateKey(opts: { stateDir: string; oldKey?: KeyObject | null; n
 export function revokeKey(opts: { stateDir: string; key: KeyObject; revokedKeyId: string; revokedFromSeq: number; clock: () => number; fs?: DurableFs }): KeyLineResult;
 /** Public part only: {key_id, jwk}; the PKCS#8 PEM goes to `path` (0600, never overwritten). */
 export function generateKey(path: string, fs?: DurableFs): { key_id: string; jwk: { kty: "OKP"; crv: "Ed25519"; x: string } };
-/** The CLI body: returns the exit code (0 or 1). */
-export function runCli(argv: readonly string[]): number;
+/** N, the bundles one --handoff call publishes at most (8). */
+export const HANDOFF_N: number;
+/** One entry of <status>/published.jsonl. */
+export interface PublishedEntry { bundle: string; manifest_sha256: string; seq: number; published_at: string }
+/** One entry of <status>/refused.jsonl. */
+export interface RefusedEntry { bundle: string; manifest_sha256: string; code: string; refused_at: string }
+/** The pure choice of one --handoff call: the bundles in order, and the D (YYYY-MM-DD) that stopped the list, or null. */
+export function chooseHandoff(opts: {
+  names: readonly string[];
+  manifests: Readonly<Record<string, string>>;
+  published: readonly Pick<PublishedEntry, "bundle">[];
+  refused: readonly Pick<RefusedEntry, "bundle" | "manifest_sha256">[];
+  start: string;
+  n: number;
+}): { bundles: { bundle: string; manifest_sha256: string }[]; awaiting: string | null };
+/** --handoff-start <D>: the start mark, posted once. */
+export function postStartMark(opts: {
+  from: string;
+  handoffDir: string;
+  statusDir: string;
+  clock: () => number;
+  clockSynced?: () => boolean;
+  fs?: DurableFs;
+}): { status: "start_mark_posted"; from_unit: string; posted_at: string };
+export interface HandoffResult {
+  status: "published" | "nothing_to_publish" | "awaiting_unit";
+  published: { bundle: string; seq: number; healed?: true }[];
+  awaiting_unit?: string;
+}
+/** --handoff: publishes up to `n` (HANDOFF_N) due bundles of the handoff directory; `privateKey` may be a loader, called after the probe. */
+export function publishHandoff(opts: {
+  handoffDir: string;
+  stateDir: string;
+  statusDir: string;
+  privateKey: KeyObject | (() => KeyObject);
+  clock: () => number;
+  clockSynced?: () => boolean;
+  bounds?: Partial<Bounds>;
+  fs?: DurableFs;
+  n?: number;
+  exit?: (code: number) => void;
+}): HandoffResult;
+/** The CLI body: returns the exit code (0 or 1; 64 on a usage error of the --handoff forms). */
+export function runCli(argv: readonly string[], deps?: { clockSynced?: () => boolean }): number;

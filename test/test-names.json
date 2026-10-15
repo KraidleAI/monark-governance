@@ -47,6 +47,25 @@
   "bell_publish_same_bundle_twice_is_idempotent",
   "bell_publish_torn_private_tail_truncated_only_if_unserved"
  ],
+ "apps/bell/test/bell-publish-handoff.test.ts": [
+  "bell_publish_handoff_ignores_tmp_and_unmanifested_dirs",
+  "bell_publish_handoff_never_publishes_a_bundle_before_the_start_mark",
+  "bell_publish_handoff_never_retries_a_recorded_refusal",
+  "bell_publish_handoff_never_writes_the_handoff_dir",
+  "bell_publish_handoff_publishes_due_bundles_in_order_once",
+  "bell_publish_handoff_records_refusal_in_status_and_stops",
+  "bell_publish_handoff_refuses_window_overlapping_a_published_window",
+  "bell_publish_handoff_refuses_without_start_mark",
+  "bell_publish_handoff_rejects_names_outside_the_grammar",
+  "bell_publish_handoff_skips_an_abandoned_unit_by_tombstone",
+  "bell_publish_handoff_start_refuses_a_second_mark_and_a_mark_before_bundles",
+  "bell_publish_handoff_status_heals_after_a_crash_between_commit_and_status",
+  "bell_publish_handoff_takes_at_most_n_bundles_per_call",
+  "bell_publish_handoff_takes_the_highest_unrefused_revision",
+  "bell_publish_handoff_waits_on_a_unit_without_candidate",
+  "bell_publish_lock_refuses_a_second_writer",
+  "bell_publish_refuses_clock_unsynced"
+ ],
  "apps/bell/test/bell-publish-validate.test.ts": [
   "bell_publish_bounds_refuse_at_twice_the_bound",
   "bell_publish_provenance_projection_is_declared",
