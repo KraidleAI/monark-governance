@@ -13,7 +13,7 @@
 import { flushesSkipped } from "../../../packages/rpc-guard/test/no-fsync.ts";
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { mkdtempSync, rmSync, readFileSync, writeFileSync, readdirSync, existsSync } from "node:fs";
+import { mkdtempSync, rmSync, readFileSync, writeFileSync, readdirSync, existsSync, realpathSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -33,6 +33,17 @@ const KEYLESS = "drpc.org,mevblocker.io,nodies.app,pocket.network,tenderly.co";
 const PIN_BOOK_DIGEST = "034fbff9eb2ef08079ed478960fcfa86e0e4db6d1c3946156e9170358976b921";
 interface Fixture { block: number; block_hash: string; block_ts: number; finalized_block: number; enumeration_logs: unknown[]; calls: Record<string, string>; }
 const FX = JSON.parse(readFileSync(join(HERE, "fixtures", "ukemi", "weth-book.fixture.json"), "utf8")) as Fixture;
+
+// HOST-LOAD-SENTINEL-SIGTERM-1: a precondition on the tree, not a timing. no-fsync.ts (imported above) counts the flushes of THIS
+// tree's packages/rpc-guard/src/ledger.ts, while the recorder loads @monark/rpc-guard through node_modules (real path). A
+// node_modules borrowed from another tree (a symlink en bloc) makes those two different module instances: the appends do the real
+// fsync and the last test of this file reads a counter at 0 (one of the three local reds of 2026-10-06, taken for a load effect).
+// Named here, first, in milliseconds. No killer: the property held is the mount of the tree, not a line of a source.
+test("ukemi_guard_record_guard_resolves_inside_this_tree - node_modules/@monark/rpc-guard resolves (real path) to this tree's packages/rpc-guard/src/index.ts; otherwise the guard's ledger module would be another tree's: the SIGTERM window hooks and the fsync counter wrap the wrong instance (HOST-LOAD-SENTINEL-SIGTERM-1)", () => {
+  const loaded = realpathSync(fileURLToPath(import.meta.resolve("@monark/rpc-guard")));
+  const own = realpathSync(join(HERE, "..", "..", "..", "packages", "rpc-guard", "src", "index.ts"));
+  assert.equal(loaded, own, `@monark/rpc-guard resolves to ${loaded}, not to this tree's ${own}: the guard's ledger module would be another tree's: the SIGTERM window hooks and the fsync counter wrap the wrong instance`);
+});
 
 function tmpLedger(): { dir: string; cleanup: () => void } {
   const dir = mkdtempSync(join(tmpdir(), "u2bii-rec-")); // OUTSIDE the repo; ensureCycleDir needs the parent to pre-exist
