@@ -1724,7 +1724,9 @@ formés et les actes du G7 de #256. Deux lignes corrigées en place (ETAT l.507 
     partie 1. Porteur : RECHERCHES depuis le partage 80/20 (`3b54dd8`, point 3) ; MONARK au G0 de VERIFIERS. Déclencheur : après la
     fusion de l outil figé, et avant le gel de c1a de CM-5 ; sans l étape au tronc, c1a ne gèle pas (`69011fe`). Prix : ~55 lignes,
     estimation de RECHERCHES (G0 de CM-5 v3, §8, pièce recherches `c3bbc2e` l.777), mesuré à son G0 ; état : fait par #247 (fusion
-    `43f46d9f`, job `g3-verifier-tool`), ligne datée MONARK 2026-10-15. Inscrit à ETAT (MONARK, 2026-10-07 08:0x UTC).
+    `43f46d9f`, job `g3-verifier-tool`) pour `tools/kata-recalc/` ; les contrôles de `tools/kata-quarter/`, arbre absent à `006effba`,
+    entrent dans la même étape avec le lot de CM-5 qui le crée (CM5-c1a, #290) ; ligne datée MONARK 2026-10-15. Inscrit à ETAT
+    (MONARK, 2026-10-07 08:0x UTC).
   - SHORT-DIGEST-INVERSION-1 (constat F-1 de la vérification de la spécification 1.1.0, §10 « Short 0/1 sequences ») : gardé depuis le
     2026-10-06 par la porte de `scripts/spec-publish.mjs` (`tableRowProblems`, code `short_digest`), que l écrivain appelle aussi : elle
     refuse toute ligne de n ≤ 30 ou de `p_served` ≤ 30, et toute ligne dont `aux_sha256` ou `series_sha256` est non nul (le nombre de
