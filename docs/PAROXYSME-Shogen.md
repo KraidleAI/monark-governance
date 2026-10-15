@@ -51,8 +51,10 @@
   `FUSION-298.json` et le rapport de la G2 n° 3 de #298 (boîte, §8) ; plié : N-14, le bloc « How it works » dit `building` au site, les deux items
   de la pastille formés par l'ADR (D-8, ADR2 l.733-747) sont écrits avec leur état, leur prix, leur porteur et leur déclencheur (SITE-BUILDING-PILL-ROUTES-1
   construit ; SITE-BUILDING-PILL-STATES-1 : (a) construit, (b) recherche) et l'item neuf SITE-BUILDING-PILL-CSS-BUNDLE-1 est formé (G3-2) ; aucune
-  entrée ne change d'état ; parties touchées : en-tête, N-14, §8 ; G2 par une instance neuve (`claude-opus-5-5`, effort high), de 14:58 à 15:04 UTC :
-  REFUS, G2R2-1 (M : déclencheur de STATES-1 (b)), G2R2-2 à G2R2-6 (m), pliés à partir de 15:06 UTC (N-14 sur quatre champs, items complets).
+  entrée ne change d'état ; parties touchées : en-tête, N-14, §8 ; G2 par une instance neuve (`claude-opus-5-5`, effort high), de 14:58 à 15:03 UTC :
+  REFUS, G2R2-1 (M : déclencheur de STATES-1 (b)), G2R2-2 à G2R2-6 (m), pliés à partir de 15:06 UTC (N-14 sur quatre lignes, items complets) ; seconde G2
+  (même modèle), de 15:10 à 15:14 UTC : ACCEPT, trois restes
+  mineurs (G2R2b-1 à 3), pliés à partir de 15:16 UTC.
 - **Bases** : inventaire mesuré à `d8fe354c`, qui y lit aussi ETAT (empreinte `2ef6f107…`, INV-S l.19), et non à `57a131fc` comme ceux
   du Harnais et du Moteur. Toutes les ancres du tronc sont à la base `87b821b0` de `lot/etude-suite` (tête relue par `git ls-remote` le
   2026-10-07 à 17:07 UTC, message `d4b3d07` l.16-17). Le tronc a avancé depuis par les fusions #241 et #235, jusqu'à `eb1beb01`
@@ -520,7 +522,8 @@
     `title` ; ADR2 l.742-746) : ouvert, item de recherche ; prix : non mesuré, 40 à 60 lignes de test et une à trois minutes de job estimées (ADR2
     l.746) ; porteur : PAROXYSME ; déclencheur : la décision de MONARK sur un navigateur de test, absent des dépendances (ADR2 l.746-747)
     · SITE-BUILDING-PILL-CSS-BUNDLE-1, formé ici (G3-2 de la G2 n° 3 de #298, `G2-L2-3-rapport.md` l.33, §8) : le CSS des paquets et le bundle de
-    `next build` (`.next/static/**/*.css`), lus par l'étape O-2 de `g3-site`, hors du test (a) : ouvert ; prix : non mesuré, une dizaine de lignes
+    `next build` (`.next/static/**/*.css`), à lire par l'étape O-2 de `g3-site` (lecture à construire), hors du test (a) : ouvert ; prix : non mesuré, une
+    dizaine de lignes
     estimées (plan de la partie 1, v17 l.604-605, non versé ; repris au rapport G2 n° 3, l.33-40) ; porteur : PAROXYSME ; déclencheur : la partie 2
     de PXC-02 (F3, ADR2 l.889)
   état : ouvert (nouvelle) · suite : correction vers moins de revendication, permise pendant l'exception (CL l.38-39 ; INV-S l.277) ; faite au tronc
@@ -891,7 +894,8 @@ l.513, l.515, l.551 et l.576 à `565c7065` ; aucune ne forme une limite de Shōg
 item de L-47 précisé, 05:4x UTC ; pli de l'après-#245, 2026-10-08 à partir de 07:41 UTC ; pli de l'après-#253, 2026-10-08 à partir de 12:27 UTC ;
 pli de l'après-#282, 2026-10-15 à partir de 02:57 UTC ; sa G2 pliée à partir de 03:2x UTC ; pli d'A-1, 2026-10-15 à partir de 11:40 UTC, sa G2 pliée
 à partir de 11:5x UTC ; pli de l'après-#298, 2026-10-15 à partir de 14:54 UTC ;
-sa G2 (REFUS, G2R2-1 M, G2R2-2 à 6 m) pliée à partir de 15:06 UTC).** Au pli de l'après-#298 : 76 entrées, 74 ouvertes, 2 closes,
+sa G2 (REFUS, G2R2-1 M, G2R2-2 à 6 m) pliée à partir de 15:06 UTC ;
+seconde G2 ACCEPT, trois restes pliés à partir de 15:16 UTC).** Au pli de l'après-#298 : 76 entrées, 74 ouvertes, 2 closes,
 avant et après ; N-14 seule touchée. Au pli d'A-1 : 76 entrées, 74 ouvertes, 2 closes, avant et après. Au pli de l'après-#282 : 54 entrées, de L-07 à
 L-53 (dont L-36, close) et de S-01 à S-07, portent la mention de périmètre (§0, Champs ; `39c0425` l.6-15 ; Q-SH-1 (a), `ae8a0fa` l.6-8),
 sans changement d'état : 76 entrées, 74 ouvertes (71 « ouvert », 3 « changé »), 2 closes, avant et après ce pli ; sous la mention, 27 entrées
