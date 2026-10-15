@@ -9,7 +9,7 @@
 // factices on .test/.example hosts, paid keys DELETED from the child env.
 import { test, after } from "node:test";
 import assert from "node:assert/strict";
-import { readFileSync, writeFileSync, mkdtempSync, mkdirSync, existsSync, rmSync, readdirSync } from "node:fs";
+import { readFileSync, writeFileSync, mkdtempSync, mkdirSync, existsSync, rmSync, readdirSync, realpathSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
@@ -60,6 +60,18 @@ function mkResp(status: number, payload: unknown, retryAfter?: string): Resp {
   return { ok: status >= 200 && status < 300, status, headers: { get: (h) => (h.toLowerCase() === "retry-after" ? retryAfter ?? null : null) }, json: () => Promise.resolve(payload), text: () => Promise.resolve(body) };
 }
 const okEnvelope = (result: unknown): Resp => mkResp(200, { jsonrpc: "2.0", id: 1, result }); // A-8: the real success FORM
+
+// HOST-LOAD-SENTINEL-SIGTERM-1: a precondition on the tree, not a timing. The SIGTERM window preload below (WINDOW_SRC) wraps
+// DURABLE_FS of packages/rpc-guard/src/ledger.ts by THIS tree's file path, while run.ts loads @monark/rpc-guard through
+// node_modules (real path). A node_modules borrowed from another tree (a symlink en bloc) makes those two different module
+// instances: the hooks never fire, the child ends silently at its keyless deadline, and the two window tests red after 20 s
+// each with an empty stdout (the three local reds of 2026-10-06, taken for a load effect). Named here, in milliseconds. No killer:
+// the property held is the mount of the tree, not a line of a source.
+test("sentinel_guard_resolves_inside_this_tree - node_modules/@monark/rpc-guard resolves (real path) to this tree's packages/rpc-guard/src/index.ts; otherwise the guard's ledger module would be another tree's: the SIGTERM window hooks and the fsync counter wrap the wrong instance (HOST-LOAD-SENTINEL-SIGTERM-1)", () => {
+  const loaded = realpathSync(fileURLToPath(import.meta.resolve("@monark/rpc-guard")));
+  const own = realpathSync(join(REPO, "packages", "rpc-guard", "src", "index.ts"));
+  assert.equal(loaded, own, `@monark/rpc-guard resolves to ${loaded}, not to this tree's ${own}: the guard's ledger module would be another tree's: the SIGTERM window hooks and the fsync counter wrap the wrong instance`);
+});
 
 // ── IN-PROCESS: the guard contract on the migrated path ──────────────────────────────────────────────────────
 test("sentinel_chainstack_leg_writes_ledger_line_before_fetch — client.call write-aheads a chained ledger line (network:ethereum-mainnet) to disk BEFORE the transport fetch fires; makeDispatchCall routes the paid LABEL to the guard, so a mutant that fetches raw (no ledger) reds (CA-11; decision 121; C-4)", async () => {
