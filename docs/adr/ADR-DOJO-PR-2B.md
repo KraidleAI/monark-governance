@@ -1084,3 +1084,7 @@ Arithmétique sur `derived.json` R4 (pic 6 467, N = 23 628, 5 714 échecs, 17 jo
   `dojo_collectors_derive_their_cycle_from_the_anchor`, `dojo_collect_shares_only_the_operators_it_requests`
   (`apps/dojo/test/dojo-share.test.ts`), `dojo_history_passes_its_declared_shares`, `dojo_history_derives_its_cycles_from_the_anchors`,
   `dojo_history_shares_only_the_operators_it_requests` (`apps/dojo/test/dojo-history-collect.test.ts`).
+  Dated line (MONARK, 2026-10-15, fold of the part review): the history collector derives each operator's cycle once, at setup, so a
+  `--deadline` past that operator's next cycle boundary (from its anchor) refuses `cycle_missing` with the detail `<op> straddle`, before
+  any lock and any call; a course that ends exactly at the boundary runs, since no unit leaves at or past `--deadline`. No code is added to
+  a closed list. Test: `dojo_history_refuses_a_course_that_straddles_a_cycle_boundary`.
