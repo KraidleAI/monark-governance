@@ -40,6 +40,8 @@
 //   non conclu  otherwise: failures without an assertion (a test past --timeout-ms, a load error), a hook's failure that node reports on the named test's own entry (failureType hookFailed: a before, beforeEach or afterEach hook; noted "the named test is red by a hook")
 // then PROMOTED to tue, noted (MUTANTS-REPLAY-PROMOTE-1): a "lost" first run, never a survivor nor another non conclu, whose replay shows its named test's own entry (that name, located in a
 // file of the first run) failing by assertion; never by another test, a hook or a load, never a skipped test. A replay keeps its verdict (no named test).
+// And PROMOTED to tue, noted (MUTANTS-SURVIVOR-REPLAY-KILL-1): a table row without a named test whose first run survit and whose replay over its targets
+// is tue, a test of a target red by assertion, never by a hook; never a killer line, a row that names its test, nor a first run or a replay non conclu.
 // A row marked typecheck (D-2) runs tsc --noEmit -p tsconfig.json of the clone's node_modules/typescript instead: tue iff an error falls in a target file;
 // non conclu if tsc dies, if every error falls outside the targets (corrections D-2, note "N error(s) outside the targets") or if tsc exits non-zero
 // without a diagnostic line "file(l,c): error TSn:" (corrections D-3, note "tsc exit N without a diagnostic line"); survit otherwise. Such rows run
@@ -229,7 +231,7 @@ export async function main(argv) {
 
   const txt = join(out, "RESULTS.txt"), start = stamp(), memShort = () => Math.floor(freemem() / 2 ** 20) < o.minFree, sleep = (ms) => new Promise((r) => setTimeout(r, ms));
   const say = (s) => { writeFileSync(txt, `${s}\n`, { flag: "a" }); console.log(s); };
-  const runSet = (files, pattern, name, { counts, read } = {}) => { // counts: where the baseline's per-file counts go; read: a replay's named test, { test, files }
+  const runSet = (files, pattern, name, { counts, read } = {}) => { // counts: where the baseline's per-file counts go; read: a replay's { test?, files }
     const args = [...preload, "--test", "--test-reporter=tap", `--test-timeout=${o.timeout}`, "--test-force-exit", "--test-skip-pattern=\\(test 42\\)"];
     if (pattern !== undefined) args.push(`--test-name-pattern=^${pattern.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}$`);
     if (counts !== undefined) args.push("--test-reporter-destination=stdout", `--test-reporter=${pathToFileURL(join(clone, COUNTS[0])).href}`, `--test-reporter-destination=${counts}`);
@@ -238,9 +240,11 @@ export async function main(argv) {
     writeFileSync(join(taps, `${name}.tap`), tap); const cut = !/^# duration_ms \S+$/.test(tap.trimEnd().split(/\r?\n/).at(-1) ?? ""); // truncation() of red-proof.mjs, its first test (G2 m-4)
     const dead = r.error !== undefined || r.signal !== null || r.status === 134, late = r.error?.code === "ETIMEDOUT" || /^\s*failureType: 'testTimeoutFailure'\s*$/m.test(tap), lost = bad.length === 0 && r.status !== 0, odd = bad.length > 0 && r.status === 0, own = named === null ? bad : named.filter((e) => !e.ok), miss = named?.length === 0;
     const at = (e) => slash(/^ {2}location: (['"`])(.*):\d+:\d+\1$/m.exec(e.lines.join("\n"))?.[2].replace(/\\(.)/g, "$1") ?? ""), hooked = (e) => e.lines.some((l) => /^\s*failureType: 'hookFailed'\s*$/.test(l)); // a failing entry's file, quoted and escaped as util.inspect writes it; hooked: a hook's failure on a test's own entry
+    const by = read === undefined ? [] : bad.filter((e) => (read.test === undefined || e.name === read.test) // a replay's tests red by assertion in read.files
+      && read.files.some((f) => at(e).endsWith(`/clone/${f}`)) && classify(e) === "assert-fail" && !hooked(e)).map((e) => e.name); // its named test, else any
     return { files, status: dead || es.length === 0 || lost || odd || miss ? "non conclu" : own.length === 0 ? "survit" : own.some((e) => classify(e) === "assert-fail" && (named === null || !hooked(e))) ? "tue" : "non conclu",
       strict: codes.length === 1 && codes[0] === "ERR_ASSERTION", fails: bad.map((e) => e.name), oks: es.length - bad.length, exit: r.status, signal: r.signal, ms: Date.now() - t0, tap_sha256: sha(tap),
-      timed_out: late, lost: lost && !dead, named_kill: read && bad.some((e) => e.name === read.test && read.files.some((f) => at(e).endsWith(`/clone/${f}`)) && classify(e) === "assert-fail" && !hooked(e)),
+      timed_out: late, lost: lost && !dead, named_kill: read?.test === undefined ? undefined : by.length > 0, by: read === undefined ? undefined : by,
       note: dead ? null : miss ? `the named test ${all.some((e) => e.name === pattern) ? "is skipped" : "has no entry"}` : es.length === 0 || lost || odd ? `exit ${String(r.status)} ${es.length === 0 ? "without a test entry" : lost ? "without a failing entry" : `with ${bad.length} failing entr${bad.length === 1 ? "y" : "ies"}`}${cut ? " (TAP cut: no closing summary)" : ""}` : own.length === 0 && bad.length > 0 ? "red outside the named test only" : named?.some((e) => !e.ok && hooked(e)) ? "the named test is red by a hook" : null };
   }; // late (corrections D-5): a run past its bound (spawnSync ETIMEDOUT) or a test past --timeout-ms (TAP testTimeoutFailure); lost, odd: the exit code contradicts the entries (MUTANTS-RUN-EXIT-CODE-1)
   const counted = COUNTS.every((p) => isFile(join(clone, p))) ? join(tmp, "BASELINE.counts.json") : undefined; // MUTANTS-BASELINE-UNREPORTED-1
@@ -302,15 +306,23 @@ export async function main(argv) {
         const g = await gate(m.id, () => { // the file mutated under the lock only; a non conclu replayed as a survivor (D-4) unless timed out (corrections
           try { writeFileSync(p, text); const first = m.typecheck ? tsc(m.targets, m.id) : runSet(m.first, m.test, m.id); // D-5); a typecheck row has no replay
             return { first, replay: !m.typecheck && (first.status === "survit" || (first.status === "non conclu" && !first.timed_out)) ? runSet(m.targets, undefined, `${m.id}.replay`,
-              { read: m.test === undefined ? undefined : { test: m.test, files: m.first } }) : null }; }
+              { read: m.test === undefined ? { files: m.targets } : { test: m.test, files: m.first } }) : null }; }
           finally { writeFileSync(p, orig); }
         });
         if (g.stop) { stop = { reason: g.stop, at: m.id, waited_ms: g.waited_ms }; break; }
         const f = g.first, unjudged = m.typecheck && f.status === "survit" && f.exit !== 0; // corrections D-2, D-3: tsc out non-zero (any error), none in a target
         const promoted = f.lost === true && g.replay?.named_kill === true; // MUTANTS-REPLAY-PROMOTE-1: a lost first run whose replay reddens the named test itself
+        // MUTANTS-SURVIVOR-REPLAY-KILL-1: a table row without a named test, a survivor whose replay over its targets reddens a test of a target by assertion
+        const by = g.replay?.by ?? [], unnamed = m.origin === "table" && m.test === undefined; // a table row only: a killer line is judged by its own test
+        const rescued = unnamed && f.status === "survit" && g.replay?.status === "tue" && by.length > 0;
+        const killing = by.join(" | "); // the tests that kill on replay, apart as the rouges of lineOf: a test name may hold a comma
+        const firstFiles = f.files.join(","); // the files of the first run
         row.sha_after = sha(readFileSync(p));
-        Object.assign(row, { status: unjudged ? "non conclu" : promoted ? "tue" : f.status, strict: f.strict, fails: f.fails, oks: f.oks, exit: f.exit, ms: f.ms, tap_sha256: f.tap_sha256, replay: g.replay,
-          note: f.outside > 0 ? `${f.outside} error(s) outside the targets` : unjudged ? `tsc exit ${String(f.exit)} without a diagnostic line` : promoted ? `promoted by its replay, where its named test fails by assertion; first run: ${String(f.note)}` : f.note ?? null,
+        Object.assign(row, { status: unjudged ? "non conclu" : promoted ? "tue" : rescued ? "tue" : f.status, strict: f.strict, fails: f.fails, oks: f.oks,
+          exit: f.exit, ms: f.ms, tap_sha256: f.tap_sha256, replay: g.replay && { ...g.replay, by: undefined }, // by: the record keeps the replay's own fields
+          note: f.outside > 0 ? `${f.outside} error(s) outside the targets` : unjudged ? `tsc exit ${String(f.exit)} without a diagnostic line`
+            : promoted ? `promoted by its replay, where its named test fails by assertion; first run: ${String(f.note)}`
+            : rescued ? `killed on replay over its targets by ${killing}, first run on ${firstFiles}: survit` : f.note ?? null,
           memory_wait_ms: g.memory_wait_ms, lock_wait_ms: g.lock_wait_ms });
         if (row.sha_after !== row.sha_before) [row.note, code] = ["the file was not restored", 3];
       }
