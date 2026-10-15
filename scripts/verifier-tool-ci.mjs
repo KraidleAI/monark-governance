@@ -117,26 +117,38 @@ export const outputProblems = (check, out, status, want, win) => {
   return { problems: problems.map((p) => `${check}: ${p}`), skipped };
 };
 
-/** The second tree of TREES (CM-5, docs/G0-lot-cm5-c1a.md), held by QUARTER_TEST, which test:main excludes by name and main() runs under
- *  node --test with KATA_QUARTER_PYTHON, the interpreter probed (the helper launches the tool with it); a tree on disk without that file
- *  is refused by accountProblems. The run must exit 0 and report exactly the tests the file declares, each passed (quarterTestProblems). */
+/** The lines of a text, CR LF or LF (Python's text output ends its lines with CR LF on Windows). */
+export const linesOf = (text) => text.split(/\r?\n/);
+/** The second tree of TREES (CM-5, docs/G0-lot-cm5-c1a.md, docs/G0-lot-cm5-c1b.md), held by QUARTER_TEST, which test:main excludes by name
+ *  and main() runs under node --test with KATA_QUARTER_PYTHON, the interpreter probed (the helper launches the tool with it); a tree on
+ *  disk without that file is refused by accountProblems (presenceOf). The run must exit 0 and pass exactly the tests of QUARTER_TESTS,
+ *  each once by name (quarterTestProblems): a test removed from the file, or added to it alone, reds the job. */
 export const QUARTER = "tools/kata-quarter";
 export const QUARTER_TEST = "test/kata-quarter.test.ts";
+export const QUARTER_TESTS = ["kata_quarter_entry_script_imports_the_input_guard_first", "two_reads_merged_under_check", "series_pinned_before_parse",
+  "kata_quarter_files_are_regular_100644", "kata_quarter_names_disjoint_from_kata_recalc", "quarter_grid", "counts_ignore_traffic",
+  "drop_on_missing_candle", "miss_is_strict", "venue_instance_one_interval"];
+/** The presence map that main() gives accountProblems: the second tree counts as a tree this job does not run unless its test file is
+ *  on disk (quarterTest), which main() then runs. */
+export const presenceOf = (present, quarterTest) => ({ ...present, [QUARTER]: present[QUARTER] === true && !quarterTest });
 /** The tests that a test file declares: its lines that open with test( at column 0, the layout of the repository's test files. */
 export const declaredTests = (text) => text.split(/\r?\n/).filter((l) => l.startsWith("test(")).length;
-/** The refusals of the run of QUARTER_TEST: its exit, and each count of its TAP summary against the tests the file declares. */
-export const quarterTestProblems = (out, status, declared) => {
-  const counts = (k) => [...out.matchAll(/^# (\w+) (\d+)$/gm)].filter((m) => m[1] === k).map((m) => m[2]);
+/** The refusals of the run of QUARTER_TEST: its exit, each count of its TAP summary against the tests named, and each name passed once
+ *  (an "ok N - <name> - ..." line). */
+export const quarterTestProblems = (out, status, names = QUARTER_TESTS) => {
+  const counts = (k) => [...out.matchAll(/^# (\w+) (\d+)$/gm)].filter((m) => m[1] === k).map((m) => m[2]), declared = names.length;
+  const passed = [...out.matchAll(/^ok \d+ - (\S+)/gm)].map((m) => m[1]), times = (n) => passed.filter((p) => p === n).length;
   const want = { tests: declared, pass: declared, fail: 0, cancelled: 0, skipped: 0, todo: 0 };
   return [...(status === 0 ? [] : [`exit ${status}, not 0`]), ...(declared > 0 ? [] : ["no test declared"]),
-    ...Object.entries(want).filter(([k, n]) => counts(k).join() !== String(n)).map(([k, n]) => `# ${k} ${counts(k).join(", ") || "absent"}, ${n} wanted once`)].map((p) => `${QUARTER_TEST}: ${p}`);
+    ...Object.entries(want).filter(([k, n]) => counts(k).join() !== String(n)).map(([k, n]) => `# ${k} ${counts(k).join(", ") || "absent"}, ${n} wanted once`),
+    ...names.filter((n) => times(n) !== 1).map((n) => `the test ${n} passed ${times(n)} time(s), once wanted`)].map((p) => `${QUARTER_TEST}: ${p}`);
 };
 
 function main() {
   const repo = resolve(import.meta.dirname, ".."), win = process.platform === "win32", pin = process.env.VERIFIER_TOOL_PYTHON, problems = [];
   if (!win && process.platform !== "linux") problems.push(`a platform this job does not name: ${process.platform}`);
   const py = spawnSync("python", ["-I", "-c", "import sys; print(sys.implementation.name, sys.version.split()[0], sys.version_info.releaselevel); print(sys.version, 'at', sys.executable); print(sys.executable)"], { encoding: "utf8" });
-  const [head = "", full = py.error?.message, exe = ""] = (py.stdout ?? "").split("\n"), [implementation = "", version = "", releaselevel = ""] = head.split(" ");
+  const [head = "", full = py.error?.message, exe = ""] = linesOf(py.stdout ?? ""), [implementation = "", version = "", releaselevel = ""] = head.split(" ");
   console.log(`python: ${full}; pinned by the job: ${pin ?? "none named here"}`);
   problems.push(...interpreterProblems({ implementation, version, releaselevel }, pin));
   let form = [], quarter = false;
@@ -144,7 +156,7 @@ function main() {
     const guard = readFileSync(join(repo, TOOL, "io_guard.py"), "utf8"), trees = treesOf(guard), present = Object.fromEntries(trees.map((t) => [t, existsSync(join(repo, t))]));
     form = formOf(guard);
     quarter = present[QUARTER] === true && existsSync(join(repo, QUARTER_TEST)); // the second tree is run by its test file, or refused below
-    problems.push(...accountProblems(trees, { ...present, [QUARTER]: present[QUARTER] === true && !quarter }, readdirSync(join(repo, TOOL)).filter((n) => n.endsWith("_check.py")), steps(repo, "", win)));
+    problems.push(...accountProblems(trees, presenceOf(present, quarter), readdirSync(join(repo, TOOL)).filter((n) => n.endsWith("_check.py")), steps(repo, "", win)));
     problems.push(...vectorsProblems(existsSync(join(repo, VECTORS.path)) ? readFileSync(join(repo, VECTORS.path)) : null));
   } catch (e) {
     problems.push(e.message);
@@ -163,7 +175,7 @@ function main() {
     delete env.NODE_TEST_CONTEXT; // a nested node --test reports its own TAP
     const t = Date.now(), r = spawnSync(process.execPath, ["--test", "--test-reporter=tap", QUARTER_TEST], { cwd: repo, env, encoding: "utf8", maxBuffer: 64 << 20, timeout: 300_000 });
     console.log(`${`${r.stdout ?? ""}${r.stderr ?? ""}`.trimEnd()}\n== ${QUARTER_TEST}: exit ${r.status}, ${Math.round((Date.now() - t) / 1000)} s (node --test, the tool under ${exe})`);
-    problems.push(...quarterTestProblems(r.stdout ?? "", r.status ?? r.signal ?? r.error?.code, declaredTests(readFileSync(join(repo, QUARTER_TEST), "utf8"))));
+    problems.push(...quarterTestProblems(r.stdout ?? "", r.status ?? r.signal ?? r.error?.code));
   }
   if (!win) named.push("stood in: section 3 of report_check.py, the platform and its C library of log (Windows only)");
   named.push(`spec vectors: ${VECTORS.repository} at ${VECTORS.commit}, ${VECTORS.notice}`);

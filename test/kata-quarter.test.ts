@@ -1,10 +1,11 @@
-// test/kata-quarter.test.ts -- CM-5, the quarter counts tool tools/kata-quarter/ (docs/G0-lot-cm5-c1a.md), the loader: the second tree of
-// io_guard's closed list. Its entry runs io_guard.py of the frozen tool by its path first, under FORM; its folder holds the list file
+// test/kata-quarter.test.ts -- CM-5, the quarter counts tool tools/kata-quarter/ (docs/G0-lot-cm5-c1a.md, the loader: the second tree of
+// io_guard's closed list; docs/G0-lot-cm5-c1b.md, the core of the count, below). Its entry runs io_guard.py of the frozen tool by its path first, under FORM; its folder holds the list file
 // FILES and modules quarter_*.py with no stem of the frozen tool. The loader reads one symbol twice through recalc_p2.load_series (sealed
 // and LIVE, each under its pin) and merges them under control. Every launch runs from the temporary git repository of
 // test/helpers/kata-quarter-repo.ts, one per test file, on the synthetic fixture of fixtures/kata-quarter/ (no real series). Reads only.
 // Excluded by name from test:main: g3-verifier-tool runs it through scripts/verifier-tool-ci.mjs, which gives the helper the pinned
-// CPython (KATA_QUARTER_PYTHON); by hand, `node --test test/kata-quarter.test.ts` takes the python of PATH.
+// CPython (KATA_QUARTER_PYTHON) and holds the names of its tests (QUARTER_TESTS); by hand, `node --test test/kata-quarter.test.ts` takes
+// the python of PATH (MONARK replays it so under Windows). The tool's output is read by lines, CR LF or LF (linesOf).
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
@@ -13,7 +14,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { gitOut } from "./helpers/git-tracked.ts";
-import { ENTRY, TREES, toolRepo, type ToolRepo } from "./helpers/kata-quarter-repo.ts";
+import { ENTRY, TREES, linesOf, toolRepo, type Run, type ToolRepo } from "./helpers/kata-quarter-repo.ts";
 
 const REPO = fileURLToPath(new URL("../", import.meta.url));
 const [FROZEN, QUARTER] = TREES;
@@ -43,9 +44,9 @@ const S1 = Date.UTC(2026, 9, 1), CANDLE_S1 = `2026-10-01T00:00:00Z,${S1},100.00,
 // reddened by: a .py of tools/kata-quarter/ other than quarter_counts.py with a block __main__, an entry whose code (after its comments)
 // does not open with the prologue of the frozen tool in its two-tree form (io_guard.py run by its path, the frozen tool's folder last in
 // sys.path, then import io_guard before any other module), or a launch of the entry answering otherwise than written: no subcommand or
-// an unknown one, the usage and exit 2; count and month, "not in this lot" and exit 2
-// killer: tools/kata-quarter/quarter_counts.py:14 CONST "import io_guard" -> "import kata_lib"
-test("kata_quarter_entry_script_imports_the_input_guard_first - the one entry script of the tool runs io_guard.py of the frozen tool by its path and imports io_guard before any other module; count and month answer not in this lot", () => {
+// an unknown one, the usage and exit 2; month, "not in this lot" and exit 2
+// killer: tools/kata-quarter/quarter_counts.py:13 CONST "import io_guard" -> "import kata_lib"
+test("kata_quarter_entry_script_imports_the_input_guard_first - the one entry script of the tool runs io_guard.py of the frozen tool by its path and imports io_guard before any other module; month answers not in this lot", () => {
   assert.ok(existsSync(join(REPO, QUARTER, ENTRY)), `${QUARTER}/${ENTRY} absent`);
   const entries = readdirSync(join(REPO, QUARTER)).filter((f) => f.endsWith(".py") && /^if __name__ == "__main__":$/m.test(read(f))).sort();
   assert.deepEqual(entries, [ENTRY], "the entry script of the tool, and no other .py file with a block __main__");
@@ -61,18 +62,18 @@ test("kata_quarter_entry_script_imports_the_input_guard_first - the one entry sc
   const t = tool(), none = t.run([]);
   assert.equal(none.status, 2, `no subcommand: the usage, exit 2\n${none.stdout}${none.stderr}`);
   assert.match(none.stdout, /^usage: python -E -S -s -B -P quarter_counts\.py check /, "the usage names the form of the launch and the subcommand of this lot");
-  for (const sub of ["count", "month"]) {
+  for (const sub of ["month"]) {
     const r = t.run([sub]);
     assert.equal(r.status, 2, `${sub}: exit 2\n${r.stdout}${r.stderr}`);
     assert.match(r.stdout, new RegExp(`^${sub}: not in this lot`), `${sub} answers that it is not in this lot`);
   }
   const [sealed, live] = [join(FIXTURE, "sealed"), join(FIXTURE, "live")], livePin = sha256(join(live, SYM, SERIES));
-  // killer: tools/kata-quarter/quarter_counts.py:77 CONST "a.isascii() and " -> ""
+  // killer: tools/kata-quarter/quarter_counts.py:100 CONST "a.isascii() and " -> ""
   const sup = t.run(["check", sealed, live, SYM, "\u00b2", "pinned", livePin, "404"]);
   assert.equal(sup.status, 2, `a quarter written with a superscript digit: the usage, exit 2\n${sup.stdout}${sup.stderr}`);
   assert.match(sup.stdout, /^usage: python -E -S -s -B -P quarter_counts\.py check /, "a digit that is not ASCII is refused by the usage");
   assert.ok(!/Traceback/.test(`${sup.stdout}${sup.stderr}`), "no trace");
-  // killer: tools/kata-quarter/quarter_counts.py:50 CONST "pin1 == \"pinned\" and k != 1" -> "False"
+  // killer: tools/kata-quarter/quarter_counts.py:54 CONST "pin1 == \"pinned\" and k != 1" -> "False"
   const later = t.run(["check", sealed, live, SYM, "2", "pinned", livePin, "404"]);
   assert.equal(later.status, 2, `pinned for quarter 2: exit 2\n${later.stdout}${later.stderr}`);
   assert.match(later.stdout, /^REFUSED: 'pinned' names the sealed series of wave 1, read 1 of quarter 1 only: quarter 2 reads quarter 1 under the pin posted at its sealing$/m);
@@ -88,7 +89,7 @@ test("two_reads_merged_under_check - check reads the sealed and the LIVE series 
   for (const f of ["sealed", "live"].flatMap((d) => [join(d, SYM, SERIES), join(d, SYM, MISSING)])) assert.ok(existsSync(join(FIXTURE, f)), `fixtures/kata-quarter/${f} absent`);
   const t = tool(), ok = t.run(checkArgs(join(FIXTURE, "sealed"), join(FIXTURE, "live")));
   assert.equal(ok.status, 0, `check on the fixture: exit 0\n${ok.stdout}${ok.stderr}`);
-  const lines = ok.stdout.split("\n");
+  const lines = linesOf(ok.stdout);
   assert.ok(lines.includes("quarter 1 2026-10-01T00:00:00Z 2027-01-01T00:00:00Z"), "Q_1 = [2026-10-01, 2027-01-01)");
   assert.ok(lines.includes(`read sealed ${SYM} 2024-10-01T00:00:00Z 2026-10-01T00:00:00Z sha256 ${sha256(join(FIXTURE, "sealed", SYM, SERIES))} rows 1616`), `read 1 under the recording range of the sealed series, its pin printed:\n${ok.stdout}`);
   assert.ok(lines.includes(`read live ${SYM} 2026-10-01T00:00:00Z 2027-01-01T00:00:00Z sha256 ${sha256(join(FIXTURE, "live", SYM, SERIES))} rows 8829`), `read 2 under [S_1, E_1), its pin printed:\n${ok.stdout}`);
@@ -100,7 +101,7 @@ test("two_reads_merged_under_check - check reads the sealed and the LIVE series 
   const undeclared = t.run(checkArgs(join(FIXTURE, "sealed"), variant(work, "undeclared", csv, { count: rest.length, missing: rest })));
   assert.equal(undeclared.status, 2, `the gap at S_1 no longer declared: exit 2\n${undeclared.stdout}${undeclared.stderr}`);
   assert.match(undeclared.stdout, /^REFUSED: undeclared gap: 1 grid slots absent from the series and from the missing\.json of their read, first 2026-10-01T00:00:00Z$/m);
-  const [header, ...rows] = csv.split("\n");
+  const [header, ...rows] = linesOf(csv);
   const present = t.run(checkArgs(join(FIXTURE, "sealed"), variant(work, "present", [header, CANDLE_S1, ...rows].join("\n"), missing)));
   assert.equal(present.status, 2, `the candle at S_1 present and declared missing: exit 2\n${present.stdout}${present.stderr}`);
   assert.match(present.stdout, /^REFUSED: syn: 1 slots listed in missing\.json are present in the series, first 2026-10-01T00:00:00Z$/m);
@@ -140,7 +141,7 @@ test("series_pinned_before_parse - check refuses a sealed series or a LIVE serie
 // index or in the working tree) outside the list file FILES, a name of FILES without its file, FILES out of the form io_guard reads
 // (ASCII, one name per line ended by LF, sorted, each once, FILES itself named), or a launch from the helper's repository, whose
 // folders carry these names, that io_guard refuses
-// killer: tools/kata-quarter/FILES:2 CONST "quarter_counts.py" -> "quarter_count.py"
+// killer: tools/kata-quarter/FILES:3 CONST "quarter_counts.py" -> "quarter_count.py"
 test("kata_quarter_files_are_regular_100644 - the index holds the tool as merged regular files 100644, named one by one in its list file FILES (the form io_guard reads), and the working tree carries the same names; a launch from a copy of the two trees is admitted", () => {
   assert.ok(existsSync(join(REPO, QUARTER, "FILES")), `${QUARTER}/FILES absent`);
   const entries = gitOut(REPO, ["ls-files", "-s", "-z", "--", QUARTER]).split("\0").filter((l) => l !== "").map((l) => {
@@ -165,7 +166,7 @@ test("kata_quarter_files_are_regular_100644 - the index holds the tool as merged
 // reads it, is a stem of tools/kata-recalc/ (first in sys.path, it would mask the second), a file that is neither the list file FILES
 // nor quarter_*.py (a name of the standard library there would mask its import while io_guard loads), or a copy of the tool with a posed
 // homonym that io_guard no longer refuses by name
-// killer: tools/kata-quarter/FILES:3 CONST "quarter_load.py" -> "report.py"
+// killer: tools/kata-quarter/FILES:4 CONST "quarter_load.py" -> "report.py"
 test("kata_quarter_names_disjoint_from_kata_recalc - no stem of tools/kata-quarter/ is a stem of tools/kata-recalc/, every file of the folder is quarter_*.py but the list file, and a posed homonym (report.py, listed) is refused by io_guard by name, exit 4", () => {
   assert.ok(existsSync(join(REPO, QUARTER, ENTRY)), `${QUARTER}/${ENTRY} absent`);
   const stems = (ns: string[]): Set<string> => new Set(ns.map((n) => n.split(".")[0] ?? n));
@@ -179,4 +180,131 @@ test("kata_quarter_names_disjoint_from_kata_recalc - no stem of tools/kata-quart
   const r = t.launch(join(copy, QUARTER, ENTRY), []);
   assert.equal(r.status, 4, `a homonym of report.py of the frozen tool, listed: refused at the import of io_guard, exit 4\n${r.stdout}${r.stderr}`);
   assert.match(r.stderr, /^io_guard: refused import \['report'\]: a module of tools\/kata-quarter named as one of tools\/kata-recalc/m, "the refusal names the stem");
+});
+
+// The core of the count (docs/G0-lot-cm5-c1b.md): `count` on the registry of fixtures/kata-quarter/registry (made-up region rows of
+// `syn`) and on series made from the fixture's: its three LIVE gaps filled with made-up candles (no drop), shifted by a quarter for Q_2,
+// or with candles removed and declared in missing.json. The counts are read from the one JSON line that count prints.
+const REG = join(FIXTURE, "registry", "wave1-syn.json"), H = 3_600_000, E1 = Date.UTC(2027, 0, 1), E2 = Date.UTC(2027, 3, 1);
+const iso = (ms: number): string => new Date(ms).toISOString().replace(/\.\d{3}Z$/, "Z");
+const candleAt = (t: number): string => `${iso(t)},${t},100.00,100.10,99.90,100.05,1.000,${t + 899_999},100.02,1,0.500,50.01`;
+type Series = { text: string; missing: Missing };
+/** A CSV of the fixture's shape with made-up candles at `fill`, candles removed (and declared) at `drop`, every time moved by dt, cut at end. */
+const edit = (csv: string, { fill = [] as number[], drop = [] as number[], dt = 0, end = Infinity } = {}): Series => {
+  const [header = "", ...rows] = linesOf(csv).filter((l) => l !== ""), byT = new Map(rows.map((r): [number, string] => [Number(r.split(",")[1]), r]));
+  for (const t of fill) byT.set(t, candleAt(t));
+  for (const t of drop) byT.delete(t);
+  const out = [...byT].sort(([a], [b]) => a - b).filter(([t]) => t + dt < end).map(([t, r]) => { const f = r.split(","); return [iso(t + dt), t + dt, ...f.slice(2, 7), t + dt + 899_999, ...f.slice(8)].join(","); });
+  return { text: `${[header, ...out].join("\n")}\n`, missing: { count: drop.length, missing: drop.map((t) => ({ open_time_ms: t + dt, open_time_utc: iso(t + dt) })) } };
+};
+/** Writes a series under <dir>/<folder>/ and returns dir. */
+const put = (dir: string, folder: string, s: Series): string => {
+  mkdirSync(join(dir, folder), { recursive: true });
+  writeFileSync(join(dir, folder, `${folder}-15m.csv`), s.text);
+  writeFileSync(join(dir, folder, MISSING), `${JSON.stringify(s.missing)}\n`);
+  return dir;
+};
+type Row = { task_class: string; horizon: string; n_test: number; k_test: number; drops_label: number; out_input: number };
+type Counts = { grid: Record<string, { instants: number; first: string; last: string }>; halts: unknown[]; rows: Row[] };
+/** count on a registry, the sealed and live folders and the symbol folders named, each pinned by its bytes; its exit and its JSON line. */
+const count = (sealed: string, live: string, k: number, folders: string[], o: { reg?: string; extra?: string[]; entry?: string } = {}): { r: Run; c: Counts } => {
+  const reg = o.reg ?? REG, pins = folders.map((f) => `${f}:${sha256(join(sealed, f, `${f}-15m.csv`))}:${sha256(join(live, f, `${f}-15m.csv`))}`);
+  const args = ["count", reg, sha256(reg), sealed, live, String(k), ...pins, ...(o.extra ?? [])], r = o.entry === undefined ? tool().run(args) : tool().launch(o.entry, args);
+  return { r, c: JSON.parse(linesOf(r.stdout).find((l) => l.startsWith("{")) ?? "null") as Counts };
+};
+const byClass = (c: Counts): Record<string, number[]> => Object.fromEntries(c.rows.map((r) => [r.task_class, [r.n_test, r.drops_label, r.out_input]]));
+/** The registry with its rows changed by f, written under work. */
+const regWith = (work: string, name: string, f: (rows: Record<string, unknown>[]) => Record<string, unknown>[]): string => {
+  const reg = JSON.parse(readFileSync(REG, "utf8")) as { rows: Record<string, unknown>[] };
+  writeFileSync(join(work, name), `${JSON.stringify({ ...reg, rows: f(reg.rows) })}\n`);
+  return join(work, name);
+};
+/** Q_1 with no gap: the LIVE fixture with its three declared gaps filled by made-up candles. */
+const fullQ1 = (work: string, o: { drop?: number[]; fill?: number[] } = {}, folder = SYM): string => {
+  const live = fixtureOf("live");
+  return put(join(work, "q1"), folder, edit(live.csv, { fill: [...live.missing.missing.map((m) => m.open_time_ms as number), ...(o.fill ?? [])], drop: o.drop ?? [] }));
+};
+
+// reddened by: a grid that does not end at E_k - h (one instant at E_k or after it), that starts off S_k, or a quarter off its calendar
+// months; or an instant of a series with no gap counted out or dropped
+// killer: tools/kata-quarter/quarter_core.py:97 CONST "{\"Q\": (s_k, e_k)}" -> "{\"Q\": (s_k, e_k + K.H_MS[\"4h\"])}"
+test("quarter_grid - on a series with no gap, Q_1 counts 2208 instants at 1h and 552 at 4h, Q_2 2160 and 540, each in n_test with no drop and no instant out; the grid ends at E_k - h", () => {
+  assert.ok(existsSync(join(REPO, QUARTER, "quarter_core.py")), `${QUARTER}/quarter_core.py absent`);
+  assert.ok(existsSync(REG), "fixtures/kata-quarter/registry/wave1-syn.json absent");
+  const work = mkdtempSync(join(tmpdir(), "kata-quarter-grid-")), q1 = fullQ1(work);
+  const q2 = put(join(work, "q2"), SYM, edit(readFileSync(join(q1, SYM, SERIES), "utf8"), { dt: E1 - S1, end: E2 }));
+  for (const [k, sealed, lv, n1, n4, start, end] of [[1, join(FIXTURE, "sealed"), q1, 2208, 552, S1, E1], [2, q1, q2, 2160, 540, E1, E2]] as const) {
+    const { r, c } = count(sealed, lv, k, [SYM]);
+    assert.equal(r.status, 0, `count on Q_${k}: exit 0\n${r.stdout}${r.stderr}`);
+    assert.deepEqual(c.grid, { "1h": { instants: n1, first: iso(start), last: iso(end - H) }, "4h": { instants: n4, first: iso(start), last: iso(end - 4 * H) } }, `the grid of Q_${k}`);
+    assert.deepEqual(c.rows.map((x) => [x.task_class, x.n_test, x.drops_label, x.out_input]), c.rows.map((x) => [x.task_class, x.horizon === "1h" ? n1 : n4, 0, 0]), `every instant of Q_${k} in n_test`);
+  }
+});
+
+// reddened by: an option of count admitted (a file of calls or of traffic, a served history), or one refused without its name
+// killer: tools/kata-quarter/quarter_counts.py:27 CONST "FLAGS = [" -> "FLAGS = [\"--calls\", "
+test("counts_ignore_traffic - count takes no option: its list FLAGS is closed and --calls is refused by name, exit 2", () => {
+  assert.ok(existsSync(join(REPO, QUARTER, "quarter_core.py")), `${QUARTER}/quarter_core.py absent`);
+  const ok = count(join(FIXTURE, "sealed"), join(FIXTURE, "live"), 1, [SYM]);
+  assert.equal(ok.r.status, 0, `count on the fixture: exit 0\n${ok.r.stdout}${ok.r.stderr}`);
+  const calls = count(join(FIXTURE, "sealed"), join(FIXTURE, "live"), 1, [SYM], { extra: ["--calls"] });
+  assert.equal(calls.r.status, 2, `count with --calls: exit 2\n${calls.r.stdout}${calls.r.stderr}`);
+  assert.match(calls.r.stdout, /^REFUSED: --calls: not an option of count, whose list FLAGS is closed: no call or traffic enters a count$/m);
+});
+
+// reddened by: a missing candle that does not drop the label it closes or the bar it is in, a drop counted in n_test or out_input, an
+// input window holding an absent bar left in, or a label of range read from the bar (only its two closes count)
+// killer: tools/kata-quarter/quarter_core.py:83 CONST "lab is None" -> "False"
+test("drop_on_missing_candle - a candle removed: at E_k - 15 min, one drop for each row and nothing out; inside a bar, a drop for the path row only; closing a bar, a drop for range and path; the W instants whose window holds the bar out", () => {
+  assert.ok(existsSync(join(REPO, QUARTER, "quarter_core.py")), `${QUARTER}/quarter_core.py absent`);
+  const base = count(join(FIXTURE, "sealed"), fullQ1(mkdtempSync(join(tmpdir(), "kata-quarter-drop-"))), 1, [SYM]);
+  assert.equal(base.r.status, 0, `count on Q_1 with no gap: exit 0\n${base.r.stdout}${base.r.stderr}`);
+  const at = (d: number, h: number, m: number): number => Date.UTC(2026, 10, d, h, m);
+  const cases: [string, number, Record<string, number[]>][] = [["E_1 - 15 min", E1 - 900_000, { "syn-range-1h": [-1, 1, 0], "syn-range-4h": [-1, 1, 0], "syn-mae-down-1h": [-1, 1, 0] }],
+    ["inside a bar", at(1, 12, 15), { "syn-range-1h": [-101, 0, 101], "syn-range-4h": [-101, 0, 101], "syn-mae-down-1h": [-102, 1, 101] }],
+    ["closing a 1h bar", at(20, 12, 45), { "syn-range-1h": [-102, 1, 101], "syn-range-4h": [-101, 0, 101], "syn-mae-down-1h": [-102, 1, 101] }]];
+  for (const [name, t, want] of cases) {
+    const { r, c } = count(join(FIXTURE, "sealed"), fullQ1(mkdtempSync(join(tmpdir(), "kata-quarter-drop-")), { drop: [t] }), 1, [SYM]);
+    assert.equal(r.status, 0, `the candle ${name} removed and declared: exit 0\n${r.stdout}${r.stderr}`);
+    const b = byClass(base.c);
+    assert.deepEqual(byClass(c), Object.fromEntries(Object.entries(want).map(([k, d]) => [k, d.map((x, i) => (b[k]?.[i] ?? NaN) + x)])), `the candle ${name}: [n_test, drops.label, out_input]`);
+  }
+});
+
+// reddened by: a score equal to qhat counted as a miss, or a score above it counted covered
+// killer: tools/kata-quarter/quarter_core.py:87 CONST "> qhat" -> ">= qhat"
+test("miss_is_strict - a score equal to qhat is covered, a score above it is a miss: with qhat 0 the instants whose two closes are equal are covered, and the misses are those of the least double above 0", () => {
+  assert.ok(existsSync(join(REPO, QUARTER, "quarter_core.py")), `${QUARTER}/quarter_core.py absent`);
+  const work = mkdtempSync(join(tmpdir(), "kata-quarter-miss-")), t0 = Date.UTC(2026, 10, 3, 6);
+  const live = fullQ1(work, { fill: [t0 - 900_000, t0 + 2_700_000] }); // two equal closes: the range score at t0 is 0
+  const k = (qhat: number): Row | undefined => {
+    const { r, c } = count(join(FIXTURE, "sealed"), live, 1, [SYM], { reg: regWith(work, `q${qhat}.json`, (rows) => rows.map((x) => (x.taskClass === "syn-range-1h" ? { ...x, calib: { qhat } } : x))) });
+    assert.equal(r.status, 0, `count with qhat ${qhat}: exit 0\n${r.stdout}${r.stderr}`);
+    return c.rows.find((x) => x.task_class === "syn-range-1h");
+  };
+  const [zero, least] = [k(0), k(5e-324)];
+  assert.ok(zero !== undefined && least !== undefined && zero.n_test === 2208, "the row counted on every instant");
+  assert.equal(zero.k_test, least.k_test, "qhat 0 and the least double above it give the same misses: no score lies between them");
+  assert.ok(zero.k_test < zero.n_test, `the score 0 at ${iso(t0)} equal to qhat 0 is covered: ${zero.k_test} misses of ${zero.n_test}`);
+});
+
+// reddened by: a halt seen on every symbol with the same missing candles and resumption kept as two intervals, the instance's E not the
+// earliest or R not the latest, or its drops posed on one symbol only
+// killer: tools/kata-quarter/quarter_core.py:64 CONST "min(es)" -> "es[0]"
+test("venue_instance_one_interval - two symbols with the same halt (same missing candles, same resumption, E a minute apart) make one venue instance, E the earliest and R the latest, and each symbol drops the instants whose label window meets it", () => {
+  assert.ok(existsSync(join(REPO, QUARTER, "quarter_core.py")), `${QUARTER}/quarter_core.py absent`);
+  const work = mkdtempSync(join(tmpdir(), "kata-quarter-venue-")), at = (h: number, m: number, s = 0, ms = 0): number => Date.UTC(2026, 10, 10, h, m, s, ms);
+  const gone = [at(12, 45), at(13, 0), at(13, 15), at(13, 30), at(13, 45)], sealed = fixtureOf("sealed");
+  for (const f of [SYM, "alt"]) { fullQ1(work, { drop: gone }, f); put(join(work, "sealed"), f, { text: sealed.csv, missing: sealed.missing }); }
+  const reg = regWith(work, "two.json", (rows) => [...rows, { ...rows[0], taskClass: "alt-range-1h", symbol: "ALTUSDT", key: "kata:ewma-vol-hw-v1@binance/ALTUSDT/1h/b0" }]);
+  // the loader of rule 8 (CM5-c1a-2) computes the halts from the truncated candle; until it is merged, a copy of the two trees stands it in
+  const copy = mkdtempSync(join(tmpdir(), "kata-quarter-halts-")), [eSyn, eAlt, end] = [at(12, 0), at(11, 58, 59, 1), at(14, 0)];
+  cpSync(join(tool().dir, "tools"), join(copy, "tools"), { recursive: true });
+  writeFileSync(join(copy, QUARTER, "quarter_load.py"), `${read("quarter_load.py")}\n_read = read_series\n\n\ndef read_series(series_dir, sym, pin, start, end):\n` +
+    `    return {**_read(series_dir, sym, pin, start, end), "halts": {"syn": [(${eSyn}, ${end})], "alt": [(${eAlt}, ${end})]}[sym] if start == ${S1} else []}\n`);
+  const { r, c } = count(join(work, "sealed"), join(work, "q1"), 1, [SYM, "alt"], { reg, entry: join(copy, QUARTER, ENTRY) });
+  assert.equal(r.status, 0, `count on two symbols with one halt: exit 0\n${r.stdout}${r.stderr}`);
+  assert.deepEqual(c.halts, [{ start_ms: eAlt, end_ms: end, symbols: ["alt", SYM] }], "one venue instance, E the earliest, R the latest");
+  // t = 11:00 meets [E, R) by the earlier E only; t = 12:00 its close at 12:45 absent; 102 instants with an absent bar in their window
+  for (const f of ["syn-range-1h", "alt-range-1h"]) assert.deepEqual(byClass(c)[f], [2208 - 104, 2, 102], `${f}: the drops of the instance posed on each symbol`);
 });

@@ -4,12 +4,17 @@
 // as scripts/verifier-tool-ci.mjs reads it), and none of the caller's GIT_* variables in git nor in the tool (TEST-GIT-ENV-ISOLATION-1).
 // The interpreter: the path in KATA_QUARTER_PYTHON, which the driver of the job g3-verifier-tool sets to the pinned CPython it probed;
 // unset (a run by hand), the `python` of PATH, else `python3`. A later lot compares the tool's folder to the blobs of that commit in the run itself;
-// here the repository is the place the tool runs from, never the repository under test. Removed at exit.
+// here the repository is the place the tool runs from, never the repository under test. Removed at exit. The tool's stdout and stderr are
+// read by lines and joined with LF (linesOf: Python writes CR LF on Windows), so a test matches one text on every platform.
 import { spawnSync } from "node:child_process";
 import { copyFileSync, lstatSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { formOf } from "../../scripts/verifier-tool-ci.mjs";
+import * as driver from "../../scripts/verifier-tool-ci.mjs";
+
+/** The lines of a text, CR LF or LF: linesOf of the driver (its declarations, scripts/verifier-tool-ci.d.mts, do not name it yet). */
+export const { linesOf } = driver as unknown as { linesOf: (text: string) => string[] };
+const { formOf } = driver;
 
 /** The two trees of io_guard's closed list, the frozen tool first. */
 export const TREES = ["tools/kata-recalc", "tools/kata-quarter"] as const;
@@ -45,7 +50,7 @@ export function toolRepo(root: string): ToolRepo {
   const python = process.env.KATA_QUARTER_PYTHON || (["python", "python3"].find((p) => spawnSync(p, ["-c", "0"], { env: BARE }).status === 0) ?? "python");
   const launch = (script: string, args: string[]): Run => {
     const r = spawnSync(python, [...form, script, ...args], { cwd: dir, env: BARE, encoding: "utf8", maxBuffer: 1 << 26, timeout: 120_000 });
-    return { status: r.status, stdout: r.stdout ?? "", stderr: r.stderr ?? String(r.error ?? "") };
+    return { status: r.status, stdout: linesOf(r.stdout ?? "").join("\n"), stderr: linesOf(r.stderr ?? String(r.error ?? "")).join("\n") };
   };
   return { dir, python, form, launch, run: (args) => launch(join(dir, TREES[1], ENTRY), args) };
 }

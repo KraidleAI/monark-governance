@@ -2,10 +2,9 @@
 # only, no network; the one file of this folder with a block __main__. The prologue runs io_guard.py of the frozen tool tools/kata-recalc/
 # by its path first (its folder appended last to sys.path), which checks the form FORM and the lists of both trees and installs its hook
 # before any input; this folder is then appended for the quarter_* modules; identity() holds the frozen tool's modules to its files.
-# check: two reads of one symbol through quarter_load and their merge, VERDICT: GREEN; count and month: not in this lot, exit 2. Every
-# argument is parsed under the top-level catch: a refusal or an exception is one line, no trace, exit 2.
-# Usage: python -E -S -s -B -P quarter_counts.py check <sealed series dir> <live series dir> <symbol folder> <quarter k>
-#                                                      <sealed sha256 | pinned, quarter 1 only> <live sha256> <lookback hours>
+# check: two reads of one symbol through quarter_load and their merge, VERDICT: GREEN; count: the counts of the region rows of a wave 1
+# registry on Q_k through quarter_core, one canonical JSON line (no u_test, no firing, no evidence file: lot c2); month: not in this lot,
+# exit 2. Every argument is parsed under the top-level catch: a refusal or an exception is one line, no trace, exit 2. Usage: USAGE.
 import os, sys  # sys built in, os frozen: no file is looked up by name before io_guard has checked both folders (IO-GUARD-POSED-FILES-1)
 if "io_guard" not in sys.modules:  # io_guard.py of the frozen tool, run by its path, never found by name: nothing posed or installed stands in for it
     sys.path.append(_d := os.path.join(os.path.dirname(os.path.dirname(os.path.realpath(__file__))), "kata-recalc"))  # the frozen tool's folder, last in sys.path: -P is in FORM
@@ -14,13 +13,18 @@ if "io_guard" not in sys.modules:  # io_guard.py of the frozen tool, run by its 
 import io_guard  # the input guard of the frozen tool, before any other module: its hook is installed, both lists are checked
 HERE = os.path.dirname(os.path.realpath(__file__))
 sys.path.append(HERE)  # this folder, after the frozen tool's: the quarter_* modules by name, read under the second tree's list
+import json
+import quarter_core as C
 import quarter_load as Q
 import recalc_p2
 
 MODEL = "claude-opus-5-5"
 USAGE = ("usage: python -E -S -s -B -P quarter_counts.py check <sealed series dir> <live series dir> <symbol folder> <quarter k> "
-         "<sealed sha256 | pinned, quarter 1 only> <live sha256> <lookback hours>")
-NOT_YET = "not in this lot: the loader only (check); the quarter and month counts arrive with the next lots"
+         "<sealed sha256 | pinned, quarter 1 only> <live sha256> <lookback hours>\n"
+         "       python -E -S -s -B -P quarter_counts.py count <registry> <registry sha256> <sealed series dir> <live series dir> "
+         "<quarter k> <symbol folder>:<sealed sha256 | pinned, quarter 1 only>:<live sha256> ...")
+NOT_YET = "not in this lot: the month counts arrive with lot e"
+FLAGS = []  # closed: count takes no option, so no call, traffic or served history enters a count (addendum 9 point 2; L-T2)
 FROZEN = os.path.dirname(os.path.realpath(io_guard.__file__))
 
 
@@ -67,15 +71,40 @@ def check(sealed_dir, live_dir, sym, k, pin1, pin2, lookback_hours):
     return 0
 
 
+def count(registry, pin, sealed_dir, live_dir, k, specs):
+    io_guard.declare("series", "recorder", "registry")
+    folders = {f: (p1, p2) for f, p1, p2 in (s.split(":") for s in specs)}
+    rows = C.registry_rows(registry, pin)
+    if len(folders) != len(specs) or any(p1 == "pinned" for p1, _ in folders.values()) and k != 1:
+        raise Q.Refused("a symbol folder named twice, or 'pinned' for a quarter after quarter 1 (it names the sealed series of wave 1)")
+    if absent := sorted({f for _, _, f in rows} - set(folders)):
+        raise Q.Refused(f"region rows of the symbol folders {absent}, which the arguments do not name")
+    look = C.lookback(rows)
+    reads = {f: Q.load_quarter(sealed_dir, live_dir, f, k, Q.sealed_pin(f) if p1 == "pinned" else p1, p2, look) for f, (p1, p2) in folders.items()}
+    s_k, e_k = Q.quarter(k)
+    res = {"quarter": {"k": k, "start": Q.iso(s_k), "end": Q.iso(e_k)}, "registry_sha256": pin, **C.count(reads, rows, k),
+           "series": {f: {"sealed": r[0]["pin"], "live": r[1]["pin"], "gaps": sum(map(len, r[2]["gaps"].values()))} for f, r in reads.items()}}
+    lines = [MODEL, f"# quarter_counts.py count - the counts of the region rows of the registry on quarter {k}",
+             json.dumps(res, sort_keys=True, separators=(",", ":")), *io_guard.input_lines(), "VERDICT: GREEN"]
+    print("\n".join(lines), flush=True)
+    return 0
+
+
 if __name__ == "__main__":
     identity()
     sub, args = (sys.argv[1] if len(sys.argv) > 1 else ""), sys.argv[2:]
-    if sub in ("count", "month"):
+    if sub == "month":
         print(f"{sub}: {NOT_YET}", flush=True)
         sys.exit(2)
     try:  # every argument parsed here: a bad one is the usage, exit 2, never a trace
         number = lambda a: a.isascii() and a.isdigit() and int(a) > 0  # noqa: E731 (ASCII digits only: int() refuses others)
         hex64 = lambda a: len(a) == 64 and all(c in "0123456789abcdef" for c in a)  # noqa: E731 (a one-line form of a sha256)
+        spec = lambda a: len(p := a.split(":")) == 3 and p[0].isascii() and p[0].isalnum() and (p[1] == "pinned" or hex64(p[1])) and hex64(p[2])  # noqa: E731
+        if sub == "count" and (bad := [a for a in args if a.startswith("--") and a not in FLAGS]):
+            raise Q.Refused(f"{bad[0]}: not an option of count, whose list FLAGS is closed: no call or traffic enters a count")
+        args = [a for a in args if not a.startswith("--")] if sub == "count" else args
+        if sub == "count" and len(args) >= 6 and hex64(args[1]) and number(args[4]) and all(map(spec, args[5:])):
+            sys.exit(count(os.path.abspath(args[0]), args[1], os.path.abspath(args[2]), os.path.abspath(args[3]), int(args[4]), args[5:]))
         if sub != "check" or len(args) != 7 or not (number(args[3]) and number(args[6])) \
                 or not all(a == "pinned" and i == 0 or hex64(a) for i, a in enumerate(args[4:6])):
             print(USAGE, flush=True)
