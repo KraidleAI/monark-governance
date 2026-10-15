@@ -2361,6 +2361,13 @@
   "served_record_archived: add --from-oracle at G1 archives the record and the record it was served from; both host files deleted, the v2 line stays green; a served record whose sha256 is not archived is red archive absent",
   "v1_real_lines_read_as_v1: the v1 lines of the real journal (docs/journal: 21 at M-5c) copied into a throwaway repo without an archive are read as v1: no J-SCHEMA, J-FACTS or J-REDPROOF hit (a v1 line never needs the archive, FM-1.3)"
  ],
+ "test/kata-quarter.test.ts": [
+  "kata_quarter_entry_script_imports_the_input_guard_first - the one entry script of the tool runs io_guard.py of the frozen tool by its path and imports io_guard before any other module; count and month answer not in this lot",
+  "kata_quarter_files_are_regular_100644 - the index holds the tool as merged regular files 100644, named one by one in its list file FILES (the form io_guard reads), and the working tree carries the same names; a launch from a copy of the two trees is admitted",
+  "kata_quarter_names_disjoint_from_kata_recalc - no stem of tools/kata-quarter/ is a stem of tools/kata-recalc/, every file of the folder is quarter_*.py but the list file, and a posed homonym (report.py, listed) is refused by io_guard by name, exit 4",
+  "series_pinned_before_parse - check refuses a sealed series or a LIVE series whose sha256 is not the pin it is given, before parsing, by name",
+  "two_reads_merged_under_check - check reads the sealed and the LIVE series of the fixture, each under its pin, and merges them: the seam at S_1, 10448 slots, the three declared gaps of the LIVE series listed; the same LIVE series with the gap at S_1 undeclared, a declared slot present, an instant in both reads, or a missing.json out of its form, is refused by name"
+ ],
  "test/kata-recalc.test.ts": [
   "kata_recalc_entry_scripts_import_the_input_guard_first - every .py file of the tool that runs as a program imports io_guard before any other module",
   "kata_recalc_guard_admits_two_trees_of_code - io_guard reads the trees tools/kata-recalc and tools/kata-quarter only, and the index holds no third tree under tools/",
@@ -2877,10 +2884,13 @@
  ],
  "test/narabi-live.test.ts": [
   "narabi_capture_reprojects_committed_sentinel_fixture — the first stored lines are, byte for byte, the committed sentinel fixture (a byte prefix of the served timeline) with each endpoint list replaced by its count; the previous capture's record is that fixture's first lines",
+  "narabi_code_version_glossary_says_what_the_witness_hashes — the witness hashes the sentinel's top-level sources, not the packages it imports (SENTINEL-DEPLOY-GUARD-1 makes the old word true again)",
+  "narabi_code_version_note_says_what_the_witness_hashes — the register note of the code versions says what the glossary says (SENTINEL-DEPLOY-GUARD-1 makes the old word true again)",
   "narabi_code_versions_are_not_parameter_segments — sentinel builds are code versions; the parameter segment is derived from the published bounds",
   "narabi_committed_records_fail_closed — the served-facts record and the capture are manifest-checked, closed-shape, self-consistent; a tamper, an unlisted file, an extra key or a URL in the stored timeline throws",
   "narabi_compact18_rounds_half_up — burns/mints/supply are rounded half-up in exact integers, never truncated",
   "narabi_copy_claims_aligned — Published / fleet place / panel / verify hint say what is actually served",
+  "narabi_d8_sentence_is_one_text_in_three_copies — the README quotes the site sentence byte for byte; it calls the flow neither attested nor replayable by anyone while the attestor key is a placeholder and the step rests on the engine's pow (Narabi L15, L19; NARABI-K1 and NARABI-POW-PORTABLE-1 make the old words true again)",
   "narabi_first_reading_label_reads_committed_t — the hero pill reads N from the committed state (ruling C-3/C-5/Q-8b)",
   "narabi_first_reading_label_single_source_of_seven — the week length is SERIES_MIN_STEPS alone (ruling C-5, M-17)",
   "narabi_gate_facts_read_from_committed_sources — n_calib and scores_sha256 are derived from the sha-pinned fixture; class and key equal the served gate description",
@@ -3166,6 +3176,20 @@
   "r25s_png_pixel_data_is_one_zlib_stream_of_the_image_size - a 4x3 RGBA image passes compressed; stored (deflate level 0), one row more or one byte less, or a zip archive after the zlib stream inside IDAT, is refused; a 3x3 Adam7 image passes with its 15 bytes of passes and is refused with the 12 of a plain image (nothing passes before the lot)",
   "r25s_structure_lists_are_the_measured_ones - the closed lists measured on the trunk (PNG chunks, JPEG segments SOF0-2 DHT DQT DRI SOS, the 23 TrueType tags of the five fonts, the five pending calendars, operands of at most 89 bytes) and one structure check for each extension of BINARY_ASSETS (absent before the lot)",
   "r25s_ttf_tables_cover_the_file - the trunk font passes, and with 3 NUL bytes of padding at its end; 4 NUL bytes, `PK`, a non-NUL padding byte between two tables, a table moved 4 bytes back over its neighbour, a last table running past the file, a tag outside the measured list, a duplicate tag are refused (nothing passes before the lot)"
+ ],
+ "test/readme-public-sentences.test.ts": [
+  "readme_and_site_say_the_engine_is_meant_to_power_the_applications — the README and the site say the engine is meant to power the on-chain applications and MONARK Bell keeps its own gate, never that the engine powers them, Bell first, or that every application plugs into the same gate, while MONARK Bell imports neither the gate nor the contracts (Bell N-02; BELL-CONNECTS-WITNESS-1)",
+  "readme_bell_is_checked_not_rebuilt_while_its_collector_is_outside_the_export — no digest rebuilt from the pools, no timeline called replayable for every piece, the reader's verifier named, while the export leaves the collector out (Bell N-07; BELL-README-REPLAY-1; Bell L-31 makes the old words true again)",
+  "readme_cascade_and_deleveraging_say_what_runs — the cascade rows say the interbank shock tool that is served, and the deleveraging reader is said in the future while no code reads a queue or a position (Ukemi E8, E12; UKEMI-CASCADE-TEXT-1, UKEMI-READER-TEXT-1)",
+  "readme_counts_the_frozen_contracts — the maturity criterion counts the schemas/*.schema.json files, in words (PX-Harness-02, MK-L36; README-CONTRACT-COUNT-1)",
+  "readme_kept_adapted_names_the_drift_flag_and_its_effect — the paragraph names the flag the Narabi sentinel publishes, with no other effect, instead of a general drift criterion (Hikae L10; PXC-10, CM-5-PLAN-1)",
+  "readme_narabi_promises_no_tracker_replay — no README line calls Narabi's timeline replayable or asks to rederive q; both recipes say the hash chain and the Node version each line records (Narabi L19; NARABI-POW-PORTABLE-1 makes a bounded replay true)",
+  "readme_narabi_words_claim_no_attested_flow — the README calls Narabi's flow neither attested nor its record an attestation while the sentinel declares a placeholder attestor key (Narabi L15; NARABI-K1 makes the old words true again)",
+  "readme_says_the_recorder_quorum_counts_its_keyed_operator — every README line on the recorder's quorum says it counts keyless operators and the optional keyed one the recorder appends (Ukemi N3; PX-Ukemi-20)",
+  "readme_served_table_lead_claims_nothing_for_every_row — the lead of the served table no longer says every surface is replayable by a third party; each row's consumer column speaks for it (Narabi L19; NARABI-POW-PORTABLE-1)",
+  "readme_shogen_row_and_diagram_say_the_join_is_dormant — no price an application can defend, one committed witness projected today, and the attest join drawn upcoming while the served gate refuses every attested (Shōgen L-01, N-14; the seam is PXC-08)",
+  "readme_tool_error_row_says_the_500_bodies — a 500 answer carries no message: the mirror's carries its operation, a transport-level one its error alone (PX-Harness-03 (a); TRANSPORT-ERROR-DEF-1 describes the transport 500 in the contract)",
+  "skill_and_sentinel_readme_claim_no_attested_flow_and_no_replay — the published skill and the exported sentinel README call the flow neither attested nor attested onchain, and the timeline hash-chained, never replayable, while the attestor key is a placeholder and the tracker step rests on the engine's pow (Narabi L15, L19, T2; NARABI-K1, NARABI-POW-PORTABLE-1)"
  ],
  "test/recompute-report.test.ts": [
   "recompute_report_doubles_are_the_writings_of_float_hex - the a and b of a difference read only as float.hex() writes a finite double: 13 hex digits, the exponent of a normal in [-1022, 1023], zero and the subnormals",

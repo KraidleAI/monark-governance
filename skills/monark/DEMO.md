@@ -94,7 +94,7 @@ checks are documented in `fixtures/PROVENANCE-byo-demo.md`.
 The BYO loop above uses YOUR scores. Separately, this endpoint serves one committed class,
 `stable-run-velocity-24h` (redemption-run velocity for USDe), measured on calm onchain redemption-flow
 windows; on the committed USDe key the server imposes `alpha = 0.1` and `nMin = 50` (any other value is a named 400). Every other population abstains (`under_calib`). An off-tool **daily** sentinel steps an adaptive
-quantile tracker on the attested 24h flow and publishes a replayable timeline (`state.json`,
+quantile tracker on the 24h redemption flow and publishes a hash-chained timeline (`state.json`,
 `timeline.jsonl`) at `monarkgate.tech/narabi/`; the committed gate region is static until a pre-registered
 drift criterion fires and an ADR says so.
 

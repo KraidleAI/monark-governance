@@ -48,7 +48,7 @@ export default function DocsOverviewPage() {
       <DocHeader eyebrow="docs · overview" title="One engine, two sides.">
         <p>
           MONARK is a coverage-controlled decision gate, the pieces that read and act around it, and the on-chain applications it
-          powers. The gate answers commit, defer or abstain against a budget the caller carries, and never a probability of being
+          is meant to power. The gate answers commit, defer or abstain against a budget the caller carries, and never a probability of being
           right. These pages explain each part with a schema, show what is served today, read from the served files, and say how to
           check it yourself.
         </p>
@@ -59,7 +59,7 @@ export default function DocsOverviewPage() {
         <p>
           Think of a pocket knife. The handle is the engine, the AI side: the gate and its budget, the sensors that attest to what
           happened on chain, the {countWord(contracts.count)} frozen contracts they speak, and the harness through which other agents
-          reach it. The blades are the DeFi side: the on-chain applications the engine powers, each grown from a study of on-chain
+          reach it. The blades are the DeFi side: the on-chain applications the engine is meant to power, each grown from a study of on-chain
           data before it is served. {productStatusSentence()}
         </p>
         <Figure
