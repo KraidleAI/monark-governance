@@ -9,21 +9,25 @@
 # gives them; that of c1a gives none) and are joined first into venue instances: a halt seen on every symbol of the venue (the symbol
 # folders of every row of the registry), with the same missing candles and the same resumption, is one interval, E the earliest and R
 # the latest, applied to each symbol. After the count, kata_lib's globals must be those before it (L-T0a), or the run is refused.
+import contextlib
 import hashlib
 import json
+import math
 
+import compare_p2
 import io_guard
 import kata_lib as K
 import quarter_load as Q
 import recalc_p2
+import report
 
 DAY_MS = 86_400_000
 
 
-def registry_rows(path, pin):
+def registry_rows(path, pin, every=False):
     """The region rows of a wave 1 registry read under the role registry, refused before parsing unless its sha256 is the pin: each
     with its cell of recalc_p2.cells_of (kind, kata, side) and its symbol folder, the stem of its task class; and the venue's symbol
-    folders, those of every row (the instance is formed once the venue's symbols are loaded, plan section 3.4)."""
+    folders, those of every row (the instance is formed once the venue's symbols are loaded, plan section 3.4); every: any status."""
     data = io_guard.read("registry", path)
     got = hashlib.sha256(data).hexdigest()
     if got != pin:
@@ -31,7 +35,7 @@ def registry_rows(path, pin):
     out, rows = [], json.loads(data.decode("utf-8"))["rows"]
     for r in rows:
         folder = r["taskClass"].split("-")[0]
-        if r["status"] != "region":
+        if r["status"] != "region" if not every else r["kataId"] not in K.SCALE_KATAS or r["calib"]["qhat"] is None:
             continue
         cell = next((c for c in recalc_p2.cells_of(r["symbol"], folder, r["horizon"]) if (c["taskClass"], c["key"]) == (r["taskClass"], r["key"])), None)
         if cell is None or cell["kind"] == "dir" or cell["kata"] != r["kataId"] or r["W"] != K.W[r["kataId"]] or r["calibAttempt"] != 1 \
@@ -83,43 +87,78 @@ def venue_halts(reads, venue):
 
 
 def count_row(row, cell, candles, bars, grid, halts):
-    """The counts of one row on its grid: out (sigma_hat not computable), drop (label not formed, or its window meets a halt), in."""
+    """The decision of one row at each instant of its grid: out (sigma_hat not computable), drop (label not formed, or its window meets
+    a halt), else covered, or miss when the score is strictly above qhat."""
     h, kid, table, qhat = K.H_MS[row["horizon"]], cell["kata"], row["hourOfWeekFactors"], row["calib"]["qhat"]
-    c = {"n_test": 0, "k_test": 0, "drops_label": 0, "out_input": 0}
+    out = []
     for t in grid:
         win = K.window_at(bars, t, K.W[kid], h)
         sh = recalc_p2.sigma_hat({"t": t, "v": {kid: K.NE if win is None else K.KATA_FUNCS[kid](win)}}, kid, table, h)
         if sh == K.NE:
-            c["out_input"] += 1
+            out.append("out")
             continue
         _y, r, d, u = K.labels_at(candles, bars, t, h)
         lab = r if cell["kind"] == "range" else (d if cell["side"] == "down" else u)
         if lab is None or any(t < x and e < t + h for e, x in halts):
-            c["drops_label"] += 1
+            out.append("drop")
             continue
-        c["n_test"] += 1
-        c["k_test"] += (abs(lab) if cell["kind"] == "range" else lab) / sh > qhat  # one binary64 division, as calibrate_cell scores
-    return c
+        out.append("miss" if (abs(lab) if cell["kind"] == "range" else lab) / sh > qhat else "covered")  # one binary64 division, as calibrate_cell
+    return out
 
 
-def count(reads, rows, k, venue):
-    """The counts of every row on Q_k, from the merged reads of each folder, under the pose of kata_lib's globals for the quarter."""
-    s_k, e_k = Q.quarter(k)
+def tally(grid, decisions):
+    """n_test, k_test, drops.label and out_input of one row from its decisions, and n and k by calendar month (test.months)."""
+    c, months = {"n_test": 0, "k_test": 0, "drops_label": 0, "out_input": 0}, {}
+    for t, d in zip(grid, decisions):
+        c[{"out": "out_input", "drop": "drops_label"}.get(d, "n_test")] += 1
+        if d in ("covered", "miss"):
+            m = months.setdefault(recalc_p2.month_of(t), {"n": 0, "k": 0})
+            m["n"], m["k"], c["k_test"] = m["n"] + 1, m["k"] + (d == "miss"), c["k_test"] + (d == "miss")
+    return {**c, "months": months}
+
+
+@contextlib.contextmanager
+def posed(rec_start, rec_end, blocks):
+    """kata_lib's three globals posed for one block, restored after it whatever happens."""
+    saved = (K.REC_START, K.REC_END, K.BLOCKS)
+    try:
+        K.REC_START, K.REC_END, K.BLOCKS = rec_start, rec_end, blocks
+        yield
+    finally:
+        K.REC_START, K.REC_END, K.BLOCKS = saved
+
+
+def count(reads, rows, span, venue):
+    """The counts of every row on the block span = (S_k, E_k), from the merged reads of each folder, under the pose of kata_lib's globals
+    for it, by two passes of report.setting of the frozen tool (docs/G0-lot-cm5-c1c.md): "ln", the port fdlibm_log, the log of V8 under
+    which the registry was made and the band is served, decides; "base", math.log, gives the decisions that differ ("differ"), which stop
+    nothing. After each pass kata_lib's globals are those before it, math included. "log": the census of the log as report.run_passes
+    counts it, the inputs of the port, those on which math.log differs, the largest distance in ulps."""
+    s_k, e_k = span
     look, (halts, shown), before = lookback(rows), venue_halts(reads, venue), kata_lib_state()
-    saved, out, bars = (K.REC_START, K.REC_END, K.BLOCKS), [], {}
-    try:  # REC_START: S_k minus the longest window, at the 00:00Z before it; the bars built and read under this one pose
-        K.REC_START, K.REC_END, K.BLOCKS = (s_k - look) // DAY_MS * DAY_MS, e_k, {"Q": (s_k, e_k)}
+    memo, bars, passes = {}, {}, {}
+    with posed((s_k - look) // DAY_MS * DAY_MS, e_k, {"Q": (s_k, e_k)}):  # REC_START: S_k minus the longest window, at the 00:00Z before it
         pose = {"rec_start": Q.iso(K.REC_START), "rec_end": Q.iso(K.REC_END), "lookback_hours": look // 3_600_000}
         grids = {h: K.decision_times("Q", K.H_MS[h]) for h in sorted({r["horizon"] for r, _, _ in rows})}
         for r, cell, f in rows:
             if (f, r["horizon"]) not in bars:
                 bars[(f, r["horizon"])] = K.build_bars(reads[f][2]["candles"], K.H_MS[r["horizon"]])
-            c = count_row(r, cell, reads[f][2]["candles"], bars[(f, r["horizon"])], grids[r["horizon"]], halts[f])
-            out.append({"task_class": r["taskClass"], "key": r["key"], "calib_attempt": r["calibAttempt"], "alpha": r["alpha"],
-                        "horizon": r["horizon"], **c})
-    finally:
-        K.REC_START, K.REC_END, K.BLOCKS = saved
+        held = kata_lib_state()
+        for name in ("ln", "base"):
+            with report.setting(name, memo):
+                passes[name] = [count_row(r, cell, reads[f][2]["candles"], bars[(f, r["horizon"])], grids[r["horizon"]], halts[f]) for r, cell, f in rows]
+            if kata_lib_state() != held:
+                raise Q.Refused(f"kata_lib's globals are not those before the pass {name}: math not restored, or a global changed in place")
     if kata_lib_state() != before:
         raise Q.Refused("kata_lib's globals are not those before the count: the pose not restored, or a global changed in place")
+    out, differ = [], []
+    for (r, _, _), mine, other in zip(rows, passes["ln"], passes["base"]):
+        g = grids[r["horizon"]]
+        out.append({"task_class": r["taskClass"], "key": r["key"], "calib_attempt": r["calibAttempt"], "alpha": r["alpha"], "horizon": r["horizon"], **tally(g, mine)})
+        differ += [f"{r['taskClass']} {r['key']} {Q.iso(t)}: fdlibm_log {a}, math.log {b}" for t, a, b in zip(g, mine, other) if a != b]
+    host = {x: math.log(x) for x in memo if x > 0 and math.isfinite(x)}  # the ratios of positive prices, as report.run_passes counts them
+    apart = [x for x in host if not report.same_bits(host[x], memo[x])]
+    log = {"decides": "fdlibm_log", "inputs": len(memo), "inputs_differing": len(apart), "decisions_differing": len(differ),
+           "max_ulps": max((compare_p2.ulps(host[x], memo[x]) for x in apart), default=0)}
     grid = {h: {"instants": len(g), "first": Q.iso(g[0]), "last": Q.iso(g[-1])} for h, g in grids.items()}
-    return {"pose": pose, "grid": grid, "halts": shown, "rows": out}
+    return {"pose": pose, "grid": grid, "halts": shown, "rows": out, "log": log, "differ": differ}

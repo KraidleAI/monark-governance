@@ -93,6 +93,7 @@ test("verifier_tool_driver_owes_each_run_of_each_check - each check of the tool 
       ["compare_check.py", `${TOOL}/compare_check.py`, [], 1], ["binom_check.py", `${TOOL}/binom_check.py`, ["--registry"], 1], ["binom_check.py", `${TOOL}/binom_check.py`, [], 2],
       ["vectors_check.py", `${TOOL}/vectors_check.py`, [], 0]]),
     "the six runs of steps(), in order, on both systems");
+  assert.deepEqual(runs[4]?.[2], ["r", join("w", "binom.txt"), join("w", "hikae.txt")], "D-2 (ii) and (iii): binom_check.py on the repository, its output and the replay of the hikae, each named");
   // killer: scripts/verifier-tool-ci.mjs:54 SDL "join(w, \"vectors.txt\")" -> ""
   assert.deepEqual(runs[5]?.[2], [join("r", ci.VECTORS?.path ?? "?"), join("w", "vectors.txt")], "vectors_check.py reads the pinned spec vectors, its output in the work folder");
 });
@@ -224,7 +225,7 @@ test("verifier_tool_driver_pins_the_second_tree_test_names - the driver names ea
   assert.ok(Array.isArray(q.QUARTER_TESTS) && typeof q.presenceOf === "function" && typeof q.quarterTestProblems === "function", "the driver pins the names and exports its presence map");
   const names = q.QUARTER_TESTS, file = q.QUARTER_TEST ?? "", declared = read(file).split(/\r?\n/).filter((l) => l.startsWith("test(")).map((l) => /^test\("([a-z0-9_]+) - /.exec(l)?.[1]);
   assert.deepEqual(declared, names, "QUARTER_TESTS names the tests of the file, in its order");
-  assert.equal(names.length, 17, "the number of the file's tests, written here: a test removed with its name changes it, as a removal line does in test:main");
+  assert.equal(names.length, 21, "the number of the file's tests, written here: a test removed with its name changes it, as a removal line does in test:main");
   const lost = names.slice(1).map((n, i) => `ok ${i + 1} - ${n} - what it holds`).concat([`ok ${names.length} - ${names[1]} - again`]);
   const tap = [...lost, ...Object.entries({ tests: names.length, pass: names.length, fail: 0, cancelled: 0, skipped: 0, todo: 0 }).map(([k, n]) => `# ${k} ${n}`)].join("\n");
   assert.deepEqual(q.quarterTestProblems(tap, 0), [`${file}: the test ${names[0]} passed 0 time(s), once wanted`, `${file}: the test ${names[1]} passed 2 time(s), once wanted`], "a test removed from the file, its count met by another");
