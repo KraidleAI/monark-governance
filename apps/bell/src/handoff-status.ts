@@ -8,10 +8,10 @@
 // prunable (what the five rules of DC-4 allow to remove, each PRUNE_AFTER_MS after the fact that allows it, nothing before the mark).
 import { UNIT_NAME } from "../scripts/bell-validate.mjs";
 
-/** The backlog threshold (DC-4, PLAN-P3 C3-2): above BACKLOG_MAX units awaiting publication, the tick refuses handoff_backlog. */
-export const BACKLOG_MAX = 8;
-/** The purge delay (DC-4, PLAN-P3 C3-2): seven days after the fact that allows the removal. */
-export const PRUNE_AFTER_MS = 7 * 86_400_000;
+/** The backlog threshold BACKLOG_MAX (8) and the purge delay PRUNE_AFTER_MS (seven days) of DC-4 and PLAN-P3 C3-2 are deployment constants of
+ *  scripts/bell-deploy.mjs (DC-4 keeps caps and margins there; item BELL-STATUS-CONSTANTS-DEPLOY-1), imported, and re-exported for the tick. */
+import { BACKLOG_MAX, PRUNE_AFTER_MS } from "../../../scripts/bell-deploy.mjs";
+export { BACKLOG_MAX, PRUNE_AFTER_MS };
 
 export interface StartMark { readonly from_unit: string; readonly posted_at: string }
 export interface PublishedLine { readonly bundle: string; readonly manifest_sha256: string; readonly seq: number; readonly published_at: string }
