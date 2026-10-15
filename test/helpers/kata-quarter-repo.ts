@@ -1,8 +1,9 @@
 // test/helpers/kata-quarter-repo.ts -- CM-5, the quarter counts tool (docs/G0-lot-cm5-c1a.md): one temporary git repository per test
 // file, under os.tmpdir(), holding a copy of tools/kata-recalc/ and tools/kata-quarter/ taken from the working tree (regular files only:
 // no link, no __pycache__), committed once. Every launch of the tool in a test runs from it, under the FORM of io_guard.py (read as text,
-// as scripts/verifier-tool-ci.mjs reads it), the interpreter `python` of PATH (else `python3`), and none of the caller's GIT_* variables
-// in git nor in the tool (TEST-GIT-ENV-ISOLATION-1). A later lot compares the tool's folder to the blobs of that commit in the run itself;
+// as scripts/verifier-tool-ci.mjs reads it), and none of the caller's GIT_* variables in git nor in the tool (TEST-GIT-ENV-ISOLATION-1).
+// The interpreter: the path in KATA_QUARTER_PYTHON, which the driver of the job g3-verifier-tool sets to the pinned CPython it probed;
+// unset (a run by hand), the `python` of PATH, else `python3`. A later lot compares the tool's folder to the blobs of that commit in the run itself;
 // here the repository is the place the tool runs from, never the repository under test. Removed at exit.
 import { spawnSync } from "node:child_process";
 import { copyFileSync, lstatSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync } from "node:fs";
@@ -41,7 +42,7 @@ export function toolRepo(root: string): ToolRepo {
   git(dir, ["add", "--", "tools"]);
   git(dir, ["commit", "-q", "-m", "the two trees of the tool under test"]);
   const form = formOf(readFileSync(join(dir, TREES[0], "io_guard.py"), "utf8"));
-  const python = ["python", "python3"].find((p) => spawnSync(p, ["-c", "0"], { env: BARE }).status === 0) ?? "python";
+  const python = process.env.KATA_QUARTER_PYTHON || (["python", "python3"].find((p) => spawnSync(p, ["-c", "0"], { env: BARE }).status === 0) ?? "python");
   const launch = (script: string, args: string[]): Run => {
     const r = spawnSync(python, [...form, script, ...args], { cwd: dir, env: BARE, encoding: "utf8", maxBuffer: 1 << 26, timeout: 120_000 });
     return { status: r.status, stdout: r.stdout ?? "", stderr: r.stderr ?? String(r.error ?? "") };

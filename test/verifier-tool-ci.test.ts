@@ -183,3 +183,31 @@ test("verifier_tool_driver_runs_vectors_check_on_the_pinned_spec_vectors - vecto
   assert.deepEqual(["guard_check.py", "compare_check.py", "binom_check.py"].map((c) => outputProblems(c, OUT, 1, 1, true).problems.length), [4, 4, 4],
     "the end of vectors_check.py is admitted in no other check: its exit, the missing VERDICT: GREEN, its FAIL line and its verdict refused");
 });
+
+// CM-5 (docs/G0-lot-cm5-c1a.md): the second tree of TREES, tools/kata-quarter, is held by its test file, which test:main excludes by name
+// and the driver runs under the pinned CPython it probed (KATA_QUARTER_PYTHON). The judge of that run, quarterTestProblems, read here.
+// reddened by: the judge made constant, a run that exits other than 0, loses a test, fails, cancels, skips or marks one todo, or reports no
+// summary admitted; the file no longer excluded from test:main by name, or no longer run by the driver's main with the probed interpreter
+// killer: scripts/verifier-tool-ci.mjs:133 CONST "return [...(status" -> "return [] || [...(status"
+test("verifier_tool_driver_runs_the_second_tree_test_file - the kata-quarter test file, excluded from test:main by name, runs in this job under the probed CPython and must report exactly the tests it declares, each passed", () => {
+  const q = ci as unknown as { QUARTER?: string; QUARTER_TEST?: string; declaredTests?: (text: string) => number;
+    quarterTestProblems?: (out: string, status: number | string | null | undefined, declared: number) => string[] };
+  assert.ok(typeof q.quarterTestProblems === "function" && typeof q.declaredTests === "function" && q.QUARTER_TEST !== undefined, "the driver judges the run of the second tree's test file");
+  const file = q.QUARTER_TEST, judge = q.quarterTestProblems, declared = q.declaredTests(read(file));
+  assert.equal(q.QUARTER, "tools/kata-quarter");
+  assert.ok(declared >= 1, `${file} declares its tests at column 0`);
+  const tap = (c: Record<string, number>): string => ["TAP version 13", ...Object.entries({ tests: declared, suites: 0, pass: declared, fail: 0, cancelled: 0, skipped: 0, todo: 0, ...c }).map(([k, n]) => `# ${k} ${n}`), "# duration_ms 9"].join("\n");
+  assert.deepEqual(judge(tap({}), 0, declared), [], "every declared test passed, exit 0");
+  assert.deepEqual(judge(tap({ tests: declared - 1, pass: declared - 1 }), 0, declared), [`${file}: # tests ${declared - 1}, ${declared} wanted once`, `${file}: # pass ${declared - 1}, ${declared} wanted once`], "a test lost");
+  assert.deepEqual(judge(tap({ pass: declared - 1, fail: 1 }), 1, declared), [`${file}: exit 1, not 0`, `${file}: # pass ${declared - 1}, ${declared} wanted once`, `${file}: # fail 1, 0 wanted once`], "a test failed");
+  assert.deepEqual(judge(tap({ pass: declared - 1, skipped: 1 }), 0, declared), [`${file}: # pass ${declared - 1}, ${declared} wanted once`, `${file}: # skipped 1, 0 wanted once`], "a test skipped (the tool's interpreter absent, say)");
+  assert.deepEqual(judge("", "SIGTERM", declared).length, 7, "a killed run with no summary: its exit and each of the six counts");
+  assert.deepEqual(judge(tap({}), 0, 0), [`${file}: no test declared`, `${file}: # tests ${declared}, 0 wanted once`, `${file}: # pass ${declared}, 0 wanted once`], "a file that declares no test");
+  // killer: package.json:17 CONST "!(kata-quarter)" -> "*"
+  const pkg = JSON.parse(read("package.json")) as { scripts: Record<string, string> }, stem = file.replace(/^test\//, "").replace(/\.test\.ts$/, "");
+  assert.ok(pkg.scripts["test:main"]?.includes(`"test/!(${stem}).test.ts"`) && pkg.scripts.test?.includes('"test/*.test.ts"'), "test:main excludes the file by name; npm test still runs it");
+  const main = read("scripts/verifier-tool-ci.mjs").split("\nfunction main() {")[1] ?? "";
+  // killer: scripts/verifier-tool-ci.mjs:164 CONST "KATA_QUARTER_PYTHON: exe" -> "KATA_QUARTER_PYTHON: \"\""
+  assert.ok(main.includes("KATA_QUARTER_PYTHON: exe") && main.includes("quarterTestProblems(") && main.includes('["--test", "--test-reporter=tap", QUARTER_TEST]'), "main runs the file under node --test, the probed interpreter given to the helper, and judges it");
+  assert.ok(read("test/helpers/kata-quarter-repo.ts").includes("process.env.KATA_QUARTER_PYTHON ||"), "the helper launches the tool with the interpreter the driver names");
+});

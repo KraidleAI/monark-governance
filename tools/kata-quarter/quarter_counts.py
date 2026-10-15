@@ -10,7 +10,7 @@
 # merged range and the declared gaps, one VERDICT: GREEN; count and month, the quarter and month counts: not in this lot, exit 2.
 # An exception that nothing names is caught here: its type and message, no trace, exit 2. Every path argument is made absolute.
 # Usage: python -E -S -s -B -P quarter_counts.py check <sealed series dir> <live series dir> <symbol folder> <quarter k>
-#                                                      <sealed sha256 | pinned> <live sha256> <lookback hours>
+#                                                      <sealed sha256 | pinned, quarter 1 only> <live sha256> <lookback hours>
 #        python -E -S -s -B -P quarter_counts.py count | month ...   (not in this lot)
 import os, sys  # sys built in, os frozen: no file is looked up by name before io_guard has checked both folders (IO-GUARD-POSED-FILES-1)
 if "io_guard" not in sys.modules:  # io_guard.py of the frozen tool, run by its path, never found by name: nothing posed or installed stands in for it
@@ -25,7 +25,7 @@ import recalc_p2
 
 MODEL = "claude-opus-5-5"
 USAGE = ("usage: python -E -S -s -B -P quarter_counts.py check <sealed series dir> <live series dir> <symbol folder> <quarter k> "
-         "<sealed sha256 | pinned> <live sha256> <lookback hours>")
+         "<sealed sha256 | pinned, quarter 1 only> <live sha256> <lookback hours>")
 NOT_YET = "not in this lot: the loader only (check); the quarter and month counts arrive with the next lots"
 FROZEN = os.path.dirname(os.path.realpath(io_guard.__file__))
 
@@ -53,6 +53,9 @@ def identity():
 
 def check(sealed_dir, live_dir, sym, k, pin1, pin2, lookback_hours):
     io_guard.declare("series", "recorder")
+    if pin1 == "pinned" and k != 1:
+        raise Q.Refused(f"'pinned' names the sealed series of wave 1, read 1 of quarter 1 only: quarter {k} reads quarter {k - 1} "
+                        "under the pin posted at its sealing")
     pin1 = Q.sealed_pin(sym) if pin1 == "pinned" else pin1
     first, second, merged = Q.load_quarter(sealed_dir, live_dir, sym, k, pin1, pin2, lookback_hours * 3_600_000)
     s_k, e_k = Q.quarter(k)
@@ -76,12 +79,13 @@ if __name__ == "__main__":
     if sub in ("count", "month"):
         print(f"{sub}: {NOT_YET}", flush=True)
         sys.exit(2)
-    hex64 = lambda a: len(a) == 64 and all(c in "0123456789abcdef" for c in a)  # noqa: E731 (a one-line form of a sha256)
-    if sub != "check" or len(args) != 7 or not all(a.isdigit() and int(a) > 0 for a in (args[3], args[6])) \
-            or not all(a == "pinned" and i == 0 or hex64(a) for i, a in enumerate(args[4:6])):
-        print(USAGE, flush=True)
-        sys.exit(2)
-    try:
+    try:  # every argument parsed here: a bad one is the usage, exit 2, never a trace
+        number = lambda a: a.isascii() and a.isdigit() and int(a) > 0  # noqa: E731 (ASCII digits only: int() refuses others)
+        hex64 = lambda a: len(a) == 64 and all(c in "0123456789abcdef" for c in a)  # noqa: E731 (a one-line form of a sha256)
+        if sub != "check" or len(args) != 7 or not (number(args[3]) and number(args[6])) \
+                or not all(a == "pinned" and i == 0 or hex64(a) for i, a in enumerate(args[4:6])):
+            print(USAGE, flush=True)
+            sys.exit(2)
         sys.exit(check(os.path.abspath(args[0]), os.path.abspath(args[1]), args[2], int(args[3]), args[4], args[5], int(args[6])))
     except (Q.Refused, recalc_p2.Stop) as e:
         print(f"REFUSED: {e}", flush=True)

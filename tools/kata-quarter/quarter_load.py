@@ -6,13 +6,16 @@
 # Two reads of one symbol, then a controlled merge. Read 1, the sealed series: for quarter 1 the series of wave 1 under its recording
 # range (kata_lib.REC_START to REC_END, which ends at S_1) and the pin of recalc_p2.SYMBOLS (sealed_pin); for a later quarter the record
 # of the previous quarter under that quarter's range and the pin posted at its sealing. Read 2, the LIVE series of the quarter under
-# [S_k, E_k) and the pin posted at its sealing; both pins come to check as arguments and are printed. The merge holds three things: read 1
-# ends exactly where read 2 starts (S_k); no instant is in both reads; every grid slot from S_k minus the lookback (the longest input
-# window of the rows counted, given by the caller) to E_k is present in the merged candles or listed in the missing.json of the read that
-# owns it ("every absent grid slot, never filled"). An undeclared gap is a named refusal (Refused, exit 2 at the entry); a declared gap
-# stays a gap: the count decides later whether it is a drop or an instant outside the cell. A slot listed as missing and present in the
-# series, or listed off the grid or outside the read's range, is refused too. Truncated candles (the close-time rule of the sealed blocks)
-# are not read here yet: recalc_p2.load_series still stops on any irregular close time.
+# [S_k, E_k) and the pin posted at its sealing; both pins come to check as arguments and are printed. The two ranges meet at S_k by
+# construction (quarter and sealed_range), and load_series refuses any candle outside the range it reads under ("off grid, out of range
+# or not ascending", recalc_p2.py l.111-112): so read 1 ends exactly where read 2 starts and no instant is in both, with no check of its
+# own here. The merge holds that every grid slot from S_k minus the lookback (the longest input window of the rows counted, given by the
+# caller) to E_k is present in the merged candles or listed in the missing.json of the read that owns it ("every absent grid slot, never
+# filled"). An undeclared gap is a named refusal (Refused, exit 2 at the entry); a declared gap stays a gap: the count decides later
+# whether it is a drop or an instant outside the cell. missing.json is held to its form: a whole count, and entries whose open_time_ms is
+# a whole number (never a bool, a float or a string) and whose open_time_utc writes that instant; a slot listed as missing and present in
+# the series, or listed off the grid or outside the read's range, is refused too. Truncated candles (the close-time rule of the sealed
+# blocks) are not read here yet: recalc_p2.load_series still stops on any irregular close time.
 import datetime
 import json
 
@@ -25,6 +28,11 @@ FIRST = (2026, 10)  # S_1 = 2026-10-01T00:00Z; S_k is 3(k - 1) calendar months a
 
 class Refused(Exception):
     """A named refusal of the loader: the entry prints it and exits 2."""
+
+
+def whole(v):
+    """A whole number as JSON writes one: an int, never a bool (True is an int in Python), a float or a string."""
+    return type(v) is int
 
 
 def iso(ms):
@@ -70,10 +78,14 @@ def read_series(series_dir, sym, pin, start, end):
     raw = io_guard.read("recorder", f"{series_dir}/{sym}/missing.json")
     try:
         mj = json.loads(raw.decode("utf-8"))
-        listed = sorted(int(x["open_time_ms"]) for x in mj["missing"])
-        count = mj["count"]
+        entries, count = mj["missing"], mj["count"]
+        bad = [x for x in entries if not whole(x["open_time_ms"]) or x["open_time_utc"] != iso(x["open_time_ms"])]
     except (ValueError, KeyError, TypeError, AttributeError) as e:
         raise Refused(f"{sym}: missing.json out of its form ({type(e).__name__})") from None
+    if bad or not whole(count):
+        raise Refused(f"{sym}: missing.json out of its form: a count or an open_time_ms that is not a whole number, or an open_time_utc "
+                      f"that does not write its open_time_ms ({len(bad)} entries, count {count!r})")
+    listed = sorted(x["open_time_ms"] for x in entries)
     if count != len(listed) or len(set(listed)) != len(listed):
         raise Refused(f"{sym}: missing.json counts {count!r}, holds {len(listed)} entries, or an entry repeats")
     off = [t for t in listed if t % K.STEP_MS != 0 or not (start <= t < end)]
@@ -86,15 +98,10 @@ def read_series(series_dir, sym, pin, start, end):
 
 
 def merge(first, second, lookback_ms):
-    """The controlled merge of read 1 (sealed) and read 2 (LIVE): the seam, no instant in both, and every grid slot of
-    [S_k - lookback, E_k) present or declared by the read that owns it. Returns the merged candles, the controlled range, the seam and
-    the declared gaps of each read, sorted."""
-    (s1, e1), (s2, e2) = first["range"], second["range"]
-    if e1 != s2:
-        raise Refused(f"seam: read 1 ends at {iso(e1)} and read 2 starts at {iso(s2)}, not the same instant")
-    both = sorted(set(first["candles"]) & set(second["candles"]))
-    if both:
-        raise Refused(f"{len(both)} instants in both reads, first {iso(both[0])}")
+    """The controlled merge of read 1 (sealed) and read 2 (LIVE), which meet at S_k and share no instant (their ranges, held by
+    load_series): every grid slot of [S_k - lookback, E_k) present or declared by the read that owns it. Returns the merged candles, the
+    controlled range, the seam and the declared gaps of each read, sorted."""
+    (s1, _e1), (s2, e2) = first["range"], second["range"]
     if lookback_ms <= 0 or lookback_ms % K.STEP_MS != 0 or s2 - lookback_ms < s1:
         raise Refused(f"lookback {lookback_ms} ms: not a positive number of grid steps within the range of read 1")
     start = s2 - lookback_ms
