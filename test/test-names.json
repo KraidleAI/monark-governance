@@ -2910,6 +2910,7 @@
  "test/no-host-address.test.ts": [
   "address_literals_admit_a_listed_literal_in_its_own_file_only",
   "address_literals_admit_the_closed_ranges_in_any_writing_and_refuse_their_neighbours",
+  "address_literals_fixture_refuses_two_paths_equal_once_case_is_folded",
   "address_literals_judge_a_link_by_its_text_never_followed_and_a_gitlink_by_its_path",
   "address_literals_mask_a_path_wherever_its_address_recurs_escaped",
   "address_literals_name_each_skipped_file_that_gitattributes_does_not_declare_binary",
@@ -3358,6 +3359,7 @@
   "ethereum_ts_clean_of_fetch_and_keys",
   "fetch_only_inside_client",
   "rpc_guard_package_src_clean_and_allowlist_load_bearing",
+  "rpc_guard_scanner_comment_cites_lines_that_hold_a_bare_key_name",
   "sentinel_src_clean_and_allowlist_load_bearing",
   "u4_scripts_clean_and_import_sources_closed"
  ],
@@ -3656,6 +3658,15 @@
  ],
  "test/token-ca-pinned.test.ts": [
   "token_ca_pinned — the community CA is present on both public surfaces (never stripped)"
+ ],
+ "test/tracked-paths-case-fold.test.ts": [
+  "case_fold_a_combining_mark_that_nfc_merges_is_the_same_name",
+  "case_fold_a_directory_segment_counts_like_a_file_name",
+  "case_fold_an_empty_list_gives_no_group",
+  "case_fold_distinct_names_and_a_repeated_path_give_no_group",
+  "case_fold_two_names_that_differ_only_by_case_are_one_group",
+  "case_fold_two_top_level_names_that_differ_only_by_case_are_one_group",
+  "tracked_paths_have_no_case_only_collision"
  ],
  "test/u3-realized-param.test.ts": [
   "u3_default_pool_excludes_1rpc_and_refuses_naming_it",
