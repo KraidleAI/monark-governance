@@ -890,7 +890,7 @@ test("mutants_a_table_whose_one_row_is_killed_on_replay_ends_with_every_mutant_k
 
 // killer: scripts/mutants/run.mjs:317 CONST "&& by.length > 0;" -> ";"
 test("mutants_a_replay_red_by_a_hook_only_never_kills_a_survivor", () => {
-  const r = svB(), hook = row(r, "SB")?.replay?.fails.map((f) => f.endsWith("/clone/test/x.test.ts")); // the after hook's entry, named by its file
+  const r = svB(), hook = row(r, "SB")?.replay?.fails.map((f) => f.replace(/\\/g, "/").endsWith("/clone/test/x.test.ts")); // the hook's entry, named by file
   assert.deepEqual([replayed(r, "SA"), replayed(r, "SB"), hook], [KILLED, ["survit", null, "tue", undefined], [true]], r.stderr);
 });
 
