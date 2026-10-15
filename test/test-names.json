@@ -3648,6 +3648,14 @@
  "test/token-ca-pinned.test.ts": [
   "token_ca_pinned — the community CA is present on both public surfaces (never stripped)"
  ],
+ "test/tracked-paths-case-fold.test.ts": [
+  "case_fold_a_combining_mark_that_nfc_merges_is_the_same_name",
+  "case_fold_a_directory_segment_counts_like_a_file_name",
+  "case_fold_an_empty_list_gives_no_group",
+  "case_fold_distinct_names_and_a_repeated_path_give_no_group",
+  "case_fold_two_names_that_differ_only_by_case_are_one_group",
+  "tracked_paths_have_no_case_only_collision"
+ ],
  "test/u3-realized-param.test.ts": [
   "u3_default_pool_excludes_1rpc_and_refuses_naming_it",
   "u3_labeler_reads_no_env_at_module_scope",
