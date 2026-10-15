@@ -14,7 +14,7 @@ import { mkdirSync, mkdtempSync, rmSync, symlinkSync, writeFileSync } from "node
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { LISTED, SELF, literals, mask, report, scan, stale, type Verdict } from "../scripts/address-literals.mjs";
-
+import { refuseCaseOnlyCollisions } from "./helpers/case-fold.ts";
 const REPO = join(import.meta.dirname, "..");
 /** A literal from its parts: the source of this file never spells one outside the exempt ranges. */
 const q = (...o: number[]): string => o.join(".");
@@ -25,7 +25,7 @@ after(() => { for (const d of TMP) rmSync(d, { recursive: true, force: true, max
 
 /** A throwaway repository: `tracked` files are written then added (ls-files reads the index), `loose` ones are only written. */
 function fixture(tracked: Record<string, string | Buffer>, loose: Record<string, string> = {}, afterAdd: (root: string, env: NodeJS.ProcessEnv) => void = () => undefined): Verdict {
-  const base = mkdtempSync(join(tmpdir(), "address-literals-"));
+  refuseCaseOnlyCollisions(Object.keys({ ...tracked, ...loose }), "fixture"); const base = mkdtempSync(join(tmpdir(), "address-literals-"));
   TMP.push(base);
   const root = join(base, "repo");
   writeFileSync(join(base, "gitconfig"), "");
@@ -232,10 +232,12 @@ test("address_literals_print_the_path_of_a_file_it_cannot_read_masked", { skip: 
 
 // reddened by: two fixture paths equal once case is folded written as two files, where a case-insensitive file system keeps one entry
 // and git add then tracks one file of the two (PR #243, held on Windows); the error names the group with its digits masked
+// killer: test/helpers/case-fold.ts:43 CONST "groups.length > 0" -> "false"
+// killer: test/helpers/case-fold.ts:30 CONST "name.replace(/\\d+/g, \"x\")" -> "name"
 test("address_literals_fixture_refuses_two_paths_equal_once_case_is_folded", () => {
   const esc = (e: string): string => A.split(".").join(e), made = TMP.length;
   assert.throws(() => fixture({ "a.log": "x\n", [`logs/v${esc("%2e")}/${esc("%2e")}.txt`]: "x\n", [`logs/v${esc("%2E")}/${A}.txt`]: "x\n" }),
-    { name: "CaseOnlyCollisionError", message: "fixture: paths equal once case is folded, one entry on a case-insensitive file system: logs/vx%xex%xex%xex ~ logs/vx%xEx%xEx%xEx" },
+    { name: "CaseOnlyCollisionError", message: "fixture: paths equal once case is folded, one entry on a case-insensitive file system: logs/vx%xEx%xEx%xEx ~ logs/vx%xex%xex%xex" },
     "the two folders of #243's shape, equal but for the case of their escapes, are refused by name before any file is written");
   assert.throws(() => fixture({ "A.md": "x\n" }, { "a.md": "x\n" }), { name: "CaseOnlyCollisionError", message: /: A\.md ~ a\.md$/ },
     "a tracked path and a loose one are judged together");
